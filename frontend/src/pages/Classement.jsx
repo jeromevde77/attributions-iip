@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { nomPropre } from '../lib/nom.js';
 import {
   IconListNumbers, IconMailOpened, IconWand, IconTrash, IconPlus,
   IconAlertTriangle, IconX, IconScale,
@@ -112,9 +113,9 @@ export default function Classement({ annee: anneeProp }) {
               <tr key={l.id} className="border-b border-slate-100 last:border-0 hover:bg-slate-50/60">
                 <td className="px-4 py-2 w-8 text-[11px] text-slate-400 font-bold">{i + 1}</td>
                 <td className="px-2 py-2">
-                  <span className="font-medium text-slate-800">{l.nom} {l.prenom}</span>
+                  <span className="font-medium text-slate-800">{nomPropre(l.nom, l.prenom)}</span>
                   {l.exclu_tp && (
-                    <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-900 font-bold">
+                    <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded-champ bg-amber-100 text-amber-900 font-bold">
                       définitif TP — demande écrite (15/04) manquante
                     </span>
                   )}
@@ -123,7 +124,7 @@ export default function Classement({ annee: anneeProp }) {
                   <input type="number" min="0" defaultValue={l.jours}
                     onBlur={e => Number(e.target.value) !== l.jours
                       && majLigne(l, { jours: Number(e.target.value) })}
-                    className="w-24 border border-slate-300 rounded-lg px-2 py-1 text-[12.5px] text-right" />
+                    className="w-24 border border-slate-300 rounded-lg px-2 py-1 text-[13px] text-right" />
                   <span className="text-[10px] text-slate-400 ml-1">j</span>
                 </td>
                 <td className="px-2 py-2 w-32">
@@ -137,7 +138,7 @@ export default function Classement({ annee: anneeProp }) {
                   <select value={l.statut_mdp || ''}
                     onChange={e => majLigne(l, { statut_mdp: e.target.value || null,
                       demande_tp_le: e.target.value === 'definitif_tp' ? l.demande_tp_le : null })}
-                    className="border border-slate-300 rounded-lg px-2 py-1 text-[11.5px] w-full">
+                    className="border border-slate-300 rounded-lg px-2 py-1 text-[12px] w-full">
                     <option value="">Temporaire</option>
                     <option value="definitif_tp">Définitif temps partiel</option>
                     <option value="definitif">Définitif temps plein</option>
@@ -154,7 +155,7 @@ export default function Classement({ annee: anneeProp }) {
           </tbody>
         </table>
       ) : (
-        <div className="px-4 py-4 text-[12.5px] text-slate-400">Personne dans ce groupe.</div>
+        <div className="px-4 py-4 text-[13px] text-slate-400">Personne dans ce groupe.</div>
       )}
     </div>
   );
@@ -163,9 +164,8 @@ export default function Classement({ annee: anneeProp }) {
     <div className="space-y-4">
       <div className="flex items-start justify-between gap-3 flex-wrap">
         <div>
-          <h2 className="text-xl font-semibold text-iip-blue flex items-center gap-2">
-            <IconScale size={22} className="text-iip-turquoise" />
-            Classement & prioritaires
+          <h2 className="titre-ecran mb-0">
+                        Classement & prioritaires
           </h2>
           <p className="text-sm text-slate-500 mt-1">
             Art. 34 (classement au 15 avril) et 34ter (candidatures prioritaires
@@ -231,7 +231,7 @@ export default function Classement({ annee: anneeProp }) {
       {onglet === 'prioritaires' && prior && (
         <>
           <div className="flex items-center justify-between gap-3 flex-wrap">
-            <p className="text-[12.5px] text-slate-600 flex items-center gap-2">
+            <p className="text-[13px] text-slate-600 flex items-center gap-2">
               <IconMailOpened size={16} className="text-iip-turquoise" />
               Candidatures pour la rentrée {annee} — limite : <b>{fr(prior.date_limite)}</b>
               {prior.hors_delai > 0 && (
@@ -278,7 +278,7 @@ export default function Classement({ annee: anneeProp }) {
                   className="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-sm" /></label>
               <div className="flex gap-2">
                 <button onClick={creerPrioritaire} disabled={!form.fonctions || !form.nom}
-                  className="text-sm px-3 py-1.5 rounded-lg bg-iip-blue text-white font-semibold disabled:opacity-40">
+                  className="bouton bouton-fort">
                   Enregistrer
                 </button>
                 <button onClick={() => setForm(null)}
@@ -290,7 +290,7 @@ export default function Classement({ annee: anneeProp }) {
           <div className="border border-slate-200 rounded-xl overflow-hidden bg-white">
             <table className="w-full text-sm">
               <thead>
-                <tr className="bg-slate-50 border-b border-slate-200 text-[11px] uppercase tracking-wide text-slate-500">
+                <tr className="tab-entete">
                   <th className="px-3 py-2 text-left w-28">Reçue le</th>
                   <th className="px-3 py-2 text-left">Candidat</th>
                   <th className="px-3 py-2 text-left">Fonction(s)</th>
@@ -311,7 +311,7 @@ export default function Classement({ annee: anneeProp }) {
                       {c.voie === 'electronique' ? 'Électronique' : 'Recommandée'}
                     </td>
                     <td className="px-3 py-2">
-                      <span className={`px-2 py-0.5 rounded-full text-[10.5px] font-bold ${c.recevable
+                      <span className={`px-2 py-0.5 rounded-champ text-[11px] font-bold ${c.recevable
                         ? 'bg-emerald-100 text-emerald-800' : 'bg-red-100 text-red-800'}`}>
                         {c.recevable ? 'Recevable' : 'Hors délai'}
                       </span>
@@ -323,7 +323,7 @@ export default function Classement({ annee: anneeProp }) {
                   </tr>
                 ))}
                 {!prior.candidatures.length && (
-                  <tr><td colSpan={6} className="px-3 py-6 text-center text-slate-400 text-[12.5px]">
+                  <tr><td colSpan={6} className="px-3 py-6 text-center text-slate-400 text-[13px]">
                     Aucune candidature enregistrée pour {annee}.
                   </td></tr>
                 )}

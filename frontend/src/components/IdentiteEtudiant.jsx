@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { nomPropre } from '../lib/nom.js';
 import { IconDeviceFloppy, IconUpload, IconAlertTriangle, IconCheck } from '@tabler/icons-react';
 import { authHeaders } from '../lib/api.js';
 import { Tableau, TableauEntete, Th, Td, Tr, Badge } from './ui.jsx';
@@ -83,7 +84,7 @@ export default function IdentiteEtudiant({ etudId, onModifie }) {
       </div>
 
       {message && (
-        <div className={`px-3 py-2 rounded-lg text-[12.5px] flex items-start justify-between gap-2 ${
+        <div className={`px-3 py-2 rounded-lg text-[13px] flex items-start justify-between gap-2 ${
           message.type === 'ok' ? 'bg-emerald-50 border border-emerald-200 text-emerald-800'
                                 : 'bg-red-50 border border-red-200 text-red-800'}`}>
           <span>{message.texte}</span>
@@ -117,7 +118,7 @@ export default function IdentiteEtudiant({ etudId, onModifie }) {
       {/* Le séjour limité aux études conditionne l'annexe 2 remise à l'Office
           des Étrangers, et le droit d'inscription. C'est une donnée
           administrative, non une remarque libre. */}
-      <label className="flex items-center gap-2 text-[12.5px] text-slate-600">
+      <label className="flex items-center gap-2 text-[13px] text-slate-600">
         <input type="checkbox"
           checked={val('sejour_limite_etudes') === 1 || val('sejour_limite_etudes') === true}
           onChange={ev => setModifs(m => ({
@@ -128,7 +129,7 @@ export default function IdentiteEtudiant({ etudId, onModifie }) {
         </span>
       </label>
 
-      <label className="flex items-center gap-2 text-[12.5px] text-slate-600">
+      <label className="flex items-center gap-2 text-[13px] text-slate-600">
         <input type="checkbox" checked={val('actif') !== 0 && val('actif') !== false}
           onChange={ev => setModifs(m => ({ ...m, actif: ev.target.checked ? 1 : 0 }))} />
         Dossier actif
@@ -337,7 +338,7 @@ export function ComplementDossiers({ onTermine }) {
         </p>
       </div>
 
-      <label className="inline-flex items-center gap-2 px-3 py-2 text-[12.5px] border
+      <label className="inline-flex items-center gap-2 px-3 py-2 text-[13px] border
                         border-slate-300 rounded-lg cursor-pointer hover:bg-slate-50">
         <IconUpload size={15} /> Choisir un classeur
         <input type="file" accept=".xls,.xlsx,.xlsm,.csv" className="hidden"
@@ -345,13 +346,13 @@ export function ComplementDossiers({ onTermine }) {
       </label>
 
       {avertissement && (
-        <div className="px-3 py-2 rounded-lg bg-amber-50 border border-amber-200 text-[12.5px] text-amber-900">
+        <div className="px-3 py-2 rounded-lg bg-amber-50 border border-amber-200 text-[13px] text-amber-900">
           {avertissement}
         </div>
       )}
 
       {erreur && (
-        <div className="px-3 py-2 rounded-lg bg-red-50 border border-red-200 text-[12.5px] text-red-800">
+        <div className="px-3 py-2 rounded-lg bg-red-50 border border-red-200 text-[13px] text-red-800">
           {erreur}
         </div>
       )}
@@ -362,7 +363,7 @@ export function ComplementDossiers({ onTermine }) {
         <div className="border border-slate-200 rounded-xl p-4 space-y-3">
           <div>
             <span className="text-[13px] font-semibold text-iip-blue">Correspondance des colonnes</span>
-            <p className="text-[11.5px] text-slate-500">
+            <p className="text-[12px] text-slate-500">
               {brut.length} ligne(s), {entetes.length} colonne(s). Vérifiez les correspondances
               proposées et corrigez celles qui ne conviennent pas.
             </p>
@@ -387,7 +388,7 @@ export function ComplementDossiers({ onTermine }) {
 
           {/* Un aperçu vaut mieux qu'une promesse : on montre ce qui sera lu. */}
           {identifiable && (
-            <div className="text-[11.5px] text-slate-600 bg-slate-50 rounded-lg p-2.5">
+            <div className="text-[12px] text-slate-600 bg-slate-50 rounded-lg p-2.5">
               <b>Première ligne telle qu'elle sera lue :</b>
               <div className="mt-1 space-y-0.5">
                 {CHAMPS_IMPORT.filter(ch => corresp[ch.k]).map(ch => {
@@ -404,7 +405,7 @@ export function ComplementDossiers({ onTermine }) {
             </div>
           )}
 
-          <label className="flex items-center gap-2 text-[12.5px] text-slate-600">
+          <label className="flex items-center gap-2 text-[13px] text-slate-600">
             <input type="checkbox" checked={ecraser} onChange={ev => setEcraser(ev.target.checked)} />
             Écraser les valeurs déjà présentes
             <span className="text-[11px] text-slate-400">
@@ -429,7 +430,7 @@ export function ComplementDossiers({ onTermine }) {
               ['Inconnus', rapport.nb_inconnus]].map(([l, v]) => (
               <div key={l} className="border border-slate-200 rounded-xl px-3 py-2">
                 <div className="text-[10px] uppercase tracking-wide text-slate-500 font-semibold">{l}</div>
-                <div className="text-[18px] font-bold text-iip-blue">{v}</div>
+                <div className="text-[17px] font-bold text-iip-blue">{v}</div>
               </div>
             ))}
           </div>
@@ -457,9 +458,9 @@ export function ComplementDossiers({ onTermine }) {
               Plusieurs dossiers portent ces nom et prénom, et la liste ne donne ni numéro
               national, ni matricule, ni date de naissance pour départager. Rien n'a été
               écrit pour eux.
-              <div className="mt-1 text-[11.5px]">
+              <div className="mt-1 text-[12px]">
                 {(rapport.ambigus || []).slice(0, 8).map((a, i) => (
-                  <span key={i}>{i > 0 && ' · '}{a.nom} {a.prenom}</span>
+                  <span key={i}>{i > 0 && ' · '}{nomPropre(a.nom, a.prenom)}</span>
                 ))}
               </div>
             </div>
@@ -473,10 +474,10 @@ export function ComplementDossiers({ onTermine }) {
               eCampus réattribue les matricules chaque rentrée : ceux-ci appartiennent
               encore à un autre dossier. Le reste de la ligne est complété ; seul le
               matricule est laissé de côté, car le trancher relève de vous.
-              <div className="mt-1.5 space-y-0.5 text-[11.5px]">
+              <div className="mt-1.5 space-y-0.5 text-[12px]">
                 {(rapport.conflits_matricule || []).slice(0, 8).map((c, i) => (
                   <div key={i}>
-                    <b>{c.nom} {c.prenom}</b> — matricule {c.id_ecampus} détenu par {c.detenu_par}
+                    <b>{nomPropre(c.nom, c.prenom)}</b> — matricule {c.id_ecampus} détenu par {c.detenu_par}
                   </div>
                 ))}
                 {rapport.nb_conflits > 8 && `… et ${rapport.nb_conflits - 8} autre(s)`}
@@ -509,7 +510,7 @@ export function ComplementDossiers({ onTermine }) {
             </button>
           ) : (
             <div className="px-3 py-2 rounded-lg bg-emerald-50 border border-emerald-200
-                            text-[12.5px] text-emerald-800">
+                            text-[13px] text-emerald-800">
               {rapport.modifications.length} dossier(s) complété(s).
             </div>
           )}
@@ -523,7 +524,7 @@ export function ComplementDossiers({ onTermine }) {
               <tbody>
                 {rapport.modifications.slice(0, 40).map(m => (
                   <Tr key={m.id}>
-                    <Td>{m.nom} {m.prenom}</Td>
+                    <Td>{nomPropre(m.nom, m.prenom)}</Td>
                     <Td ton="secondaire">
                       {m.champs.map(ch => <Badge key={ch} ton="info" className="mr-1">{ch}</Badge>)}
                     </Td>

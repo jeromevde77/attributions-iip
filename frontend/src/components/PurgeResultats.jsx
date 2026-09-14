@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
-import { IconX, IconAlertTriangle, IconSearch } from '@tabler/icons-react';
+import { nomPropre } from '../lib/nom.js';
+import { IconTrash, IconAlertTriangle, IconSearch } from '@tabler/icons-react';
 import { authHeaders } from '../lib/api.js';
+import { Fenetre } from './ui.jsx';
 
 /**
  * Purge sélective des résultats.
@@ -112,22 +114,12 @@ export default function PurgeResultats({ anneeCourante, onClose, onPurge }) {
     co => cible !== 'cours' || !ueNum || co.ue_num === Number(ueNum));
 
   return (
-    <div className="fixed inset-0 bg-black/40 flex items-start justify-center z-50 p-4 overflow-auto"
-      onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl mt-8">
-        <div className="bg-iip-blue rounded-t-2xl px-5 py-4 flex items-start justify-between">
-          <div>
-            <div className="text-white font-bold text-[15px]">Vider des résultats</div>
-            <div className="text-blue-200 text-[12px] mt-0.5">
-              Purge ciblée — le périmètre est annoncé avant toute suppression
-            </div>
-          </div>
-          <button onClick={onClose} className="text-blue-200 hover:text-white"><IconX size={19} /></button>
-        </div>
-
-        <div className="p-5 space-y-4">
+    <Fenetre icone={IconTrash} titre="Vider des résultats ou des inscriptions"
+      sous="Le périmètre est annoncé avant toute suppression."
+      large="grande" ton="alerte" onFermer={onClose}>
+      <div className="space-y-4">
           {erreur && (
-            <div className="px-3 py-2 rounded-lg bg-red-50 border border-red-200 text-[12.5px] text-red-800">
+            <div className="px-3 py-2 rounded-lg bg-red-50 border border-red-200 text-[13px] text-red-800">
               {erreur}
             </div>
           )}
@@ -144,7 +136,7 @@ export default function PurgeResultats({ anneeCourante, onClose, onPurge }) {
               </div>
               <div className="flex justify-end">
                 <button onClick={onClose}
-                  className="text-sm px-4 py-1.5 rounded-lg bg-iip-blue text-white font-semibold">Fermer</button>
+                  className="bouton bouton-fort">Fermer</button>
               </div>
             </>
           ) : (
@@ -176,7 +168,7 @@ export default function PurgeResultats({ anneeCourante, onClose, onPurge }) {
                 </div>
                 <div className="flex gap-3 flex-wrap mb-2">
                   {[['section', "Toute la section"], ['ue', 'Une UE'], ['cours', 'Un cours']].map(([v, l]) => (
-                    <label key={v} className="flex items-center gap-1.5 text-[12.5px]">
+                    <label key={v} className="flex items-center gap-1.5 text-[13px]">
                       <input type="radio" checked={cible === v} onChange={() => setCible(v)} /> {l}
                     </label>
                   ))}
@@ -210,7 +202,7 @@ export default function PurgeResultats({ anneeCourante, onClose, onPurge }) {
                 </div>
                 <div className="flex gap-3 mb-2">
                   {[['tous', 'Tous'], ['selection', 'Une sélection']].map(([v, l]) => (
-                    <label key={v} className="flex items-center gap-1.5 text-[12.5px]">
+                    <label key={v} className="flex items-center gap-1.5 text-[13px]">
                       <input type="radio" checked={quiEtudiants === v} onChange={() => setQuiEtudiants(v)} /> {l}
                     </label>
                   ))}
@@ -241,8 +233,8 @@ export default function PurgeResultats({ anneeCourante, onClose, onPurge }) {
                               ev.target.checked ? n.add(e.id) : n.delete(e.id);
                               return n;
                             })} />
-                          <span className="text-[12px] text-slate-700 flex-1">{e.nom} {e.prenom}</span>
-                          <span className="text-[10.5px] text-slate-400">{e.nb_ue} UE · {e.nb_resultats} résultat(s)</span>
+                          <span className="text-[12px] text-slate-700 flex-1">{nomPropre(e.nom, e.prenom)}</span>
+                          <span className="text-[11px] text-slate-400">{e.nb_ue} UE · {e.nb_resultats} résultat(s)</span>
                         </label>
                       ))}
                     </div>
@@ -256,7 +248,7 @@ export default function PurgeResultats({ anneeCourante, onClose, onPurge }) {
                   Ce qui est supprimé
                 </div>
                 <div className="space-y-1.5">
-                  <label className="flex items-start gap-2 text-[12.5px]">
+                  <label className="flex items-start gap-2 text-[13px]">
                     <input type="radio" checked={portee === 'resultats'} onChange={() => setPortee('resultats')} className="mt-0.5" />
                     <span>
                       <b>Les résultats seulement</b>
@@ -265,7 +257,7 @@ export default function PurgeResultats({ anneeCourante, onClose, onPurge }) {
                       </span>
                     </span>
                   </label>
-                  <label className="flex items-start gap-2 text-[12.5px]">
+                  <label className="flex items-start gap-2 text-[13px]">
                     <input type="radio" checked={portee === 'inscriptions'} onChange={() => setPortee('inscriptions')}
                       className="mt-0.5" disabled={cible === 'cours'} />
                     <span className={cible === 'cours' ? 'opacity-40' : ''}>
@@ -283,7 +275,7 @@ export default function PurgeResultats({ anneeCourante, onClose, onPurge }) {
               {/* Simulation */}
               {simulation && (
                 <div className="px-4 py-3 rounded-xl bg-amber-50 border border-amber-200">
-                  <div className="flex items-center gap-1.5 text-[12.5px] font-semibold text-amber-900 mb-1.5">
+                  <div className="flex items-center gap-1.5 text-[13px] font-semibold text-amber-900 mb-1.5">
                     <IconAlertTriangle size={15} /> Ce qui sera supprimé
                   </div>
                   <ul className="text-[12px] text-amber-900 space-y-0.5">
@@ -317,9 +309,8 @@ export default function PurgeResultats({ anneeCourante, onClose, onPurge }) {
               </div>
             </>
           )}
-        </div>
       </div>
-    </div>
+    </Fenetre>
   );
 }
 

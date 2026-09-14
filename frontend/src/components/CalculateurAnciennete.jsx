@@ -73,7 +73,7 @@ export default function CalculateurAnciennete({ profId, estAdmin, peutEcrire, an
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <div className="font-semibold text-iip-blue">Ancienneté de service</div>
-          <div className="text-[11.5px] text-slate-500">Art. 29ter — CT : 800 p/an · PP : 1000 p/an · seuil 40 p · ≥ 50 % → 360 j · &lt; 50 % → 180 j</div>
+          <div className="text-[12px] text-slate-500">Art. 29ter — CT : 800 p/an · PP : 1000 p/an · seuil 40 p · ≥ 50 % → 360 j · &lt; 50 % → 180 j</div>
         </div>
         <div className="flex gap-2 flex-wrap">
           {peutEcrire && (
@@ -133,7 +133,7 @@ export default function CalculateurAnciennete({ profId, estAdmin, peutEcrire, an
           </div>
           <div className="flex gap-2">
             <button onClick={sauvegarderLigne} disabled={!form.annee_scolaire || !form.cours_code || !form.periodes}
-              className="text-sm px-3 py-1.5 rounded-lg bg-iip-blue text-white font-semibold disabled:opacity-40">
+              className="bouton bouton-fort">
               Enregistrer
             </button>
             <button onClick={() => setForm(null)}
@@ -156,7 +156,7 @@ export default function CalculateurAnciennete({ profId, estAdmin, peutEcrire, an
           </div>
           <table className="w-full text-sm">
             <thead>
-              <tr className="bg-slate-50/60 border-b border-slate-200 text-[10.5px] uppercase tracking-wide text-slate-500">
+              <tr className="bg-slate-50/60 border-b border-slate-200 text-[11px] uppercase tracking-wide text-slate-500">
                 <th className="px-3 py-2 text-left">Cours</th>
                 <th className="px-3 py-2 text-left w-16">Type</th>
                 <th className="px-3 py-2 text-right w-24">Périodes</th>
@@ -170,7 +170,7 @@ export default function CalculateurAnciennete({ profId, estAdmin, peutEcrire, an
                 <tr key={i} className="border-b border-slate-100 last:border-0 hover:bg-slate-50/60">
                   <td className="px-3 py-2">
                     <span className="font-medium text-slate-700">{l.cours_code}</span>
-                    {l.cours_nom && <span className="text-slate-400 text-[11.5px] ml-1.5">{l.cours_nom}</span>}
+                    {l.cours_nom && <span className="text-slate-400 text-[12px] ml-1.5">{l.cours_nom}</span>}
                   </td>
                   <td className="px-3 py-2">
                     <span className="text-[11px] font-bold px-1.5 py-0.5 rounded bg-slate-100 text-slate-600">{l.type_cours}</span>

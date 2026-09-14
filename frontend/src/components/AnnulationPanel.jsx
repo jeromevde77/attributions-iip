@@ -59,9 +59,9 @@ export default function AnnulationPanel({ annee, onClose, onRestaure }) {
   const historiqueInactif = actif && actif.actif === false;
 
   return (
-    <div className="fixed inset-0 bg-black/40 flex items-start justify-center z-50 p-4 overflow-auto"
+    <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] flex items-start justify-center z-50 p-4 overflow-auto"
       onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl mt-10">
+      <div className="bg-white rounded-fenetre shadow-dessus w-full max-w-3xl mt-10">
         <div className="bg-iip-blue rounded-t-2xl px-5 py-4 flex items-start justify-between">
           <div>
             <div className="text-white font-bold text-[15px] flex items-center gap-2">
@@ -81,7 +81,7 @@ export default function AnnulationPanel({ annee, onClose, onRestaure }) {
 
         <div className="p-5 space-y-3">
           {historiqueInactif && (
-            <div className="flex items-start gap-2 px-3 py-2.5 rounded-lg bg-amber-50 border border-amber-200 text-[12.5px] text-amber-800">
+            <div className="flex items-start gap-2 px-3 py-2.5 rounded-lg bg-amber-50 border border-amber-200 text-[13px] text-amber-800">
               <IconAlertTriangle size={15} className="mt-0.5 flex-none" />
               <span>
                 L'historique est <b>désactivé</b> : les modifications ne sont plus enregistrées et
@@ -91,7 +91,7 @@ export default function AnnulationPanel({ annee, onClose, onRestaure }) {
           )}
 
           {message && (
-            <div className={`px-3 py-2 rounded-lg text-[12.5px] flex items-center justify-between ${
+            <div className={`px-3 py-2 rounded-lg text-[13px] flex items-center justify-between ${
               message.type === 'ok'
                 ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
                 : 'bg-red-50 text-red-800 border border-red-200'}`}>
@@ -112,11 +112,11 @@ export default function AnnulationPanel({ annee, onClose, onRestaure }) {
                 const a = ACTIONS[it.action] || ACTIONS.update;
                 return (
                   <div key={it.id} className="flex items-center gap-3 px-3 py-2.5 hover:bg-slate-50/60">
-                    <span className={`text-[10.5px] px-2 py-0.5 rounded-lg border font-medium flex-none ${a.cls}`}>
+                    <span className={`text-[11px] px-2 py-0.5 rounded-lg border font-medium flex-none ${a.cls}`}>
                       {a.libelle}
                     </span>
                     <div className="min-w-0 flex-1">
-                      <div className="text-[12.5px] text-slate-800 truncate">
+                      <div className="text-[13px] text-slate-800 truncate">
                         <b className="text-iip-blue">UE {it.ue_num ?? '—'}</b>
                         {it.nom_cours ? ` · ${it.nom_cours}` : ''}
                         {it.section ? <span className="text-slate-400"> · {it.section}</span> : null}
@@ -128,7 +128,7 @@ export default function AnnulationPanel({ annee, onClose, onRestaure }) {
                     </div>
                     {it.action !== 'rollback' && (
                       <button onClick={() => restaurer(it)} disabled={enCours === it.id}
-                        className="flex-none flex items-center gap-1 text-[11.5px] px-2.5 py-1.5 rounded-lg border border-slate-300 text-slate-600 hover:bg-white hover:border-iip-turquoise disabled:opacity-40">
+                        className="flex-none flex items-center gap-1 text-[12px] px-2.5 py-1.5 rounded-lg border border-slate-300 text-slate-600 hover:bg-white hover:border-iip-turquoise disabled:opacity-40">
                         <IconArrowBackUp size={13} />
                         {enCours === it.id ? '…' : 'Rétablir l\u2019état antérieur'}
                       </button>

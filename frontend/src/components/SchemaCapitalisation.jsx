@@ -13,10 +13,29 @@ import { useMemo, useRef, useState } from 'react';
  */
 
 export const COULEURS_CAP = {
-  acquise:      { fill: '#D1FAE5', stroke: '#10B981', text: '#065F46', label: 'Acquise' },
-  accessible:   { fill: '#DBEAFE', stroke: '#2563EB', text: '#1E3A8A', label: 'Accessible' },
-  sous_reserve: { fill: '#E0F2FE', stroke: '#0EA5E9', text: '#075985', label: 'Sous réserve' },
-  bloquee:      { fill: '#F1F5F9', stroke: '#CBD5E1', text: '#94A3B8', label: 'Pas encore accessible' },
+/*
+ * LES COULEURS DU SCHÉMA SONT CELLES DE LUCIE, ET PAS D'AUTRES.
+ *
+ * Le schéma avait sa propre palette : un bleu vif (#2563EB), un cyan, un vert
+ * émeraude — trois teintes qu'on ne trouvait nulle part ailleurs dans
+ * l'application. Un bleu de plus ne dit rien de plus : il dit seulement que ce
+ * bloc-ci a été dessiné un autre jour.
+ *
+ * Le schéma emploie donc les trois teintes de la maison, et chacune garde le
+ * sens qu'elle a partout :
+ *   · MARINE — l'unité, sa structure, ce qui est accessible ;
+ *   · TURQUOISE — ce qui est acquis, la seule bonne nouvelle du schéma ;
+ *   · GRIS — ce qui n'est pas encore ouvert, et qui doit s'effacer ;
+ *   · DORÉ — l'épreuve intégrée, et elle seule (règle du dépôt).
+ *
+ * « Sous réserve » se distingue d'« accessible » par son TRAIT, pas par une
+ * couleur de plus : même marine, contour plus clair. Une nuance de statut ne
+ * mérite pas une teinte, elle mérite un détail.
+ */
+  acquise:      { fill: '#E0F5F8', stroke: '#0093B0', text: '#00596B', label: 'Acquise' },
+  accessible:   { fill: '#EEF1F6', stroke: '#1B2B4B', text: '#1B2B4B', label: 'Accessible' },
+  sous_reserve: { fill: '#F5F7FA', stroke: '#8894AC', text: '#475A80', label: 'Sous réserve' },
+  bloquee:      { fill: '#F8FAFC', stroke: '#D8DEE7', text: '#9AA3B2', label: 'Pas encore accessible' },
   structure:    { fill: '#F8FAFC', stroke: '#1B2B4B', text: '#1B2B4B', label: 'Unité d\u2019enseignement' },
 };
 
@@ -223,7 +242,7 @@ export default function SchemaCapitalisation({
       {ouvert && layout && (
         <div className="flex items-center justify-end gap-1 px-3 py-1.5
                         border-b border-slate-100 bg-white">
-          <span className="text-[10.5px] text-slate-400 mr-1">Taille</span>
+          <span className="text-[11px] text-slate-400 mr-1">Taille</span>
           <button type="button" onClick={() => setZoom(z => Math.max(0.8, Math.round((z - 0.25) * 100) / 100))}
             disabled={zoom <= 0.8}
             className="w-6 h-6 rounded border border-slate-200 text-slate-600
@@ -231,7 +250,7 @@ export default function SchemaCapitalisation({
             title="Réduire">−</button>
           <button type="button" onClick={() => setZoom(1)}
             className="px-2 h-6 rounded border border-slate-200 text-slate-600
-                       text-[10.5px] tabular-nums"
+                       text-[11px] tabular-nums"
             title="Revenir à la taille normale">{Math.round(zoom * 100)} %</button>
           <button type="button" onClick={() => setZoom(z => Math.min(3, Math.round((z + 0.25) * 100) / 100))}
             disabled={zoom >= 3}
@@ -443,13 +462,13 @@ export default function SchemaCapitalisation({
               </button>
 
               {modeLien && (
-                <div className="flex rounded-lg border border-slate-300 overflow-hidden">
+                <div className="segments">
                   {[['legal', 'Dossier pédagogique'], ['interne', 'Règle interne']].map(([v, l]) => (
                     <button key={v} onClick={() => setNatureLien(v)}
                       title={v === 'interne'
                         ? "Fondé sur des motifs pédagogiques : avertit l'étudiant sans lui interdire l'UE"
                         : "Imposé par le dossier pédagogique : bloque tant qu'il n'est pas acquis"}
-                      className={`px-2.5 py-1 text-[11.5px] ${natureLien === v
+                      className={`px-2.5 py-1 text-[12px] ${natureLien === v
                         ? 'bg-iip-blue text-white font-semibold' : 'text-slate-600 hover:bg-slate-50'}`}>
                       {l}
                     </button>
@@ -474,16 +493,16 @@ export default function SchemaCapitalisation({
                   {niveauxPossibles.map(v => (
                     <button key={v}
                       onClick={() => { onNiveau(selection, v); setSelection(null); }}
-                      className="text-[11.5px] px-2.5 py-1 rounded-lg border border-slate-300 hover:bg-iip-blue hover:text-white hover:border-iip-blue transition">
+                      className="text-[12px] px-2.5 py-1 rounded-lg border border-slate-300 hover:bg-iip-blue hover:text-white hover:border-iip-blue transition">
                       {v}
                     </button>
                   ))}
                   <button onClick={() => { onNiveau(selection, ''); setSelection(null); }}
-                    className="text-[11.5px] px-2.5 py-1 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50">
+                    className="text-[12px] px-2.5 py-1 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50">
                     Valeur du référentiel
                   </button>
                   <button onClick={() => setSelection(null)}
-                    className="text-[11.5px] px-2 py-1 text-slate-400">Annuler</button>
+                    className="text-[12px] px-2 py-1 text-slate-400">Annuler</button>
                 </div>
               ) : (
                 <div className="text-[11px] text-slate-400">
@@ -497,7 +516,7 @@ export default function SchemaCapitalisation({
           )}
 
           {mode === 'etudiant' && (
-            <div className="flex flex-wrap items-center gap-3 px-3 py-2 bg-slate-50 border-t border-slate-200 text-[10.5px] text-slate-500">
+            <div className="flex flex-wrap items-center gap-3 px-3 py-2 bg-slate-50 border-t border-slate-200 text-[11px] text-slate-500">
               {['acquise', 'accessible', 'sous_reserve', 'bloquee'].map(k => (
                 <span key={k} className="flex items-center gap-1.5">
                   <span className="inline-block w-3 h-3 rounded-sm border"

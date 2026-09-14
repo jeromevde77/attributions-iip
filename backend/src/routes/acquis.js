@@ -278,6 +278,75 @@ export function migrerAA(dbx) {
     );
     `);
 
+    /*
+     * LE REPORT CHANGE DE GRAIN, ET GARDE LA TRACE DES REFUS.
+     *
+     * La table ne connaissait que le cours, et son UNIQUE l'y enfermait : deux
+     * acquis d'un même cours ne pouvaient pas y tenir. Il faut la reconstruire
+     * — SQLite ne sait pas défaire une contrainte d'unicité.
+     *
+     * Et elle ne savait dire que ce qui avait été ACCORDÉ. Or Lucie propose et
+     * le Conseil peut dire non : un refus qui ne s'écrit nulle part est
+     * indistinguable d'un oubli, et dans un an personne ne saura lequel des
+     * deux s'est produit. Le statut et son motif entrent donc dans la table.
+     */
+    const colsRN = dbx.prepare('PRAGMA table_info(etudiant_report_note)').all().map(c => c.name);
+    if (colsRN.length && !colsRN.includes('cible')) {
+      dbx.exec(`
+        CREATE TABLE etudiant_report_note_v2 (
+          id             INTEGER PRIMARY KEY AUTOINCREMENT,
+          etudiant_id    INTEGER NOT NULL,
+          annee_scolaire TEXT NOT NULL,        -- année où le report s'applique
+          ue_num         INTEGER NOT NULL,
+          cible          TEXT NOT NULL DEFAULT 'cours',   -- 'cours' | 'aa'
+          cours_code     TEXT NOT NULL,
+          aa_code        TEXT,                 -- NULL quand la cible est le cours
+          note           REAL NOT NULL,        -- note reportée, sur 20
+          annee_origine  TEXT,                 -- année où la matière a été acquise
+          statut         TEXT NOT NULL DEFAULT 'accorde', -- propose|accorde|refuse
+          motif          TEXT,                 -- pourquoi le Conseil a refusé
+          decision_ce    TEXT,
+          decide_le      TEXT,
+          decide_par     TEXT,
+          cree_le        TEXT DEFAULT (datetime('now')),
+          UNIQUE(etudiant_id, annee_scolaire, ue_num, cible, cours_code, aa_code)
+        );
+        INSERT INTO etudiant_report_note_v2
+          (id, etudiant_id, annee_scolaire, ue_num, cible, cours_code, aa_code,
+           note, annee_origine, statut, decision_ce, cree_le)
+          SELECT id, etudiant_id, annee_scolaire, ue_num, 'cours', cours_code, NULL,
+                 note, annee_origine, 'accorde', decision_ce, cree_le
+            FROM etudiant_report_note;
+        DROP TABLE etudiant_report_note;
+        ALTER TABLE etudiant_report_note_v2 RENAME TO etudiant_report_note;
+      `);
+      console.log('[migration] etudiant_report_note : grain AA, statut et motif');
+    }
+
+    /*
+     * LA JUSTIFICATION PAR DÉFAUT D'UN ACQUIS.
+     *
+     * L'énoncé calculé dit ce que la base sait — l'épreuve n'a pas été
+     * présentée, la note est sous le seuil. C'est défendable, mais c'est
+     * général : deux dossiers portent la même phrase, et deux dossiers qui
+     * portent la même phrase s'affaiblissent l'un l'autre.
+     *
+     * L'école peut donc écrire, POUR CHAQUE ACQUIS, la formule qui le
+     * concerne : ce que cet acquis-là exige, dans les termes du dossier
+     * pédagogique. Elle vit avec l'acquis, dans le référentiel — un acquis ne
+     * change pas de contenu d'un étudiant à l'autre.
+     *
+     * L'ORDRE NE CHANGE PAS : ce que le Conseil écrit l'emporte sur le défaut
+     * de l'acquis, qui l'emporte sur l'énoncé calculé. Et rien de tout cela ne
+     * s'écrit en base tant que personne ne l'a repris : une proposition, même
+     * bien écrite, n'est pas une motivation du Conseil.
+     */
+    const colsAA = dbx.prepare('PRAGMA table_info(aa)').all().map(c => c.name);
+    if (colsAA.length && !colsAA.includes('motif_defaut')) {
+      dbx.exec('ALTER TABLE aa ADD COLUMN motif_defaut TEXT');
+      console.log('[migration] aa.motif_defaut ajoutée');
+    }
+
     // La note d'un AA se rattache au cours dans lequel il est évalué.
     const cols = dbx.prepare('PRAGMA table_info(etudiant_note_detail)').all().map(c => c.name);
     if (!cols.includes('cours_code')) {
@@ -483,29 +552,65 @@ export function calculerNoteCours(cours, notes) {
  * Sert à repérer les cours validés dans une UE non réussie : ce sont eux qui
  * ouvrent droit à un report de note.
  */
-export function coursValidesAnterieurs(etudId, ueNum, anneeCible) {
+/**
+ * LES REPORTS AUXQUELS UN ÉTUDIANT A DROIT — et ce qui les commande.
+ *
+ * Une unité échouée après la seconde session n'est pas forcément perdue en
+ * entier : ce qui y a été maîtrisé peut ne pas devoir être représenté l'année
+ * suivante. C'est la dispense partielle.
+ *
+ * TROIS RÈGLES, ET AUCUNE N'EST ÉCRITE ICI.
+ *
+ * Le GRAIN (acquis, cours, ou les deux), le SEUIL de maîtrise et l'ARRONDI
+ * sont ceux de la délibération de seconde session — « base_s2 », « seuil_aa »,
+ * « arrondi » —, réglés par la direction dans Configuration. Les redéfinir ici
+ * ferait deux endroits pour un même fait, et le second finirait par mentir :
+ * c'est exactement ce qui s'est produit avec l'épreuve intégrée.
+ *
+ * UN COURS NE SE REPORTE QUE SI TOUS SES ACQUIS PASSENT.
+ *
+ * Une moyenne de cours au-dessus du seuil ne dit pas que la matière est
+ * acquise : elle dit qu'un acquis manqué a été compensé par un autre. Or il
+ * n'y a pas de compensation entre acquis — c'est la règle qui gouverne toute
+ * la délibération, et elle ne peut pas s'arrêter à la porte du report. Un seul
+ * acquis en défaut, et le cours se représente entier.
+ *
+ * ET C'EST LA NOTE RÉELLE QUI SE REPORTE, jamais un « 10 » forfaitaire.
+ * Reporter le cours, c'est reporter les notes des acquis qui le composent :
+ * même ensemble d'acquis dispensés, mais la moyenne d'unité de l'année
+ * suivante reste vraie. Une cote forfaitaire la ferait mentir, et ne se
+ * défendrait pas devant un recours.
+ *
+ * Rien n'est écrit par cette fonction : elle PROPOSE. Le Conseil accorde ou
+ * refuse, et les deux laissent une trace.
+ */
+export function reportsEligibles(etudId, ueNum, anneeCible, regles = null) {
+  const R = regles || reglesDeliberation();
+  const SEUIL = R.seuil_aa;
+  const base = R.base_s2;
+  const veut = quoi => base === 'cours_aa' || base === quoi;
+
   const lignes = db.prepare(`
     SELECT annee_scolaire, code, cours_code, points, non_evalue
     FROM etudiant_note_detail
     WHERE etudiant_id = ? AND ue_num = ? AND type = 'aa' AND annee_scolaire < ?
   `).all(etudId, ueNum, anneeCible);
-  if (!lignes.length) return [];
+  if (!lignes.length) return { cours: [], aa: [] };
 
-  // Résultat de l'UE par année : un report ne se justifie que si l'UE a échoué
+  // UN REPORT NE SE JUSTIFIE QUE SI L'UNITÉ A ÉCHOUÉ. Sur une unité réussie,
+  // il n'y a rien à représenter, donc rien à dispenser.
   const resultats = {};
   for (const i of db.prepare(`
     SELECT annee_scolaire, resultat FROM etudiant_inscription
     WHERE etudiant_id = ? AND ue_num = ?
-  `).all(etudId, ueNum)) {
-    resultats[i.annee_scolaire] = i.resultat;
-  }
+  `).all(etudId, ueNum)) resultats[i.annee_scolaire] = i.resultat;
 
   const parAnnee = {};
   for (const l of lignes) (parAnnee[l.annee_scolaire] = parAnnee[l.annee_scolaire] || []).push(l);
 
-  const candidats = [];
+  const candCours = [], candAA = [];
   for (const [an, lg] of Object.entries(parAnnee)) {
-    if (resultats[an] === 'reussi') continue;          // UE réussie : rien à reporter
+    if (resultats[an] === 'reussi') continue;
     const structure = structureUE(ueNum, an);
     const notes = {};
     for (const l of lg) {
@@ -514,22 +619,71 @@ export function coursValidesAnterieurs(etudId, ueNum, anneeCible) {
         || structure.find(c => c.aas.some(a => a.aa_code === brut))?.cours_code;
       if (cc) notes[cc + '|' + brut] = { points: l.points, non_evalue: l.non_evalue };
     }
+
     for (const co of structure) {
-      const n = calculerNoteCours(co, notes);
-      if (n.sur20_exact != null && n.sur20_exact >= 10) {
-        candidats.push({
-          annee_origine: an, cours_code: co.cours_code, cours_nom: co.cours_nom,
-          note: n.sur20_exact, note_affichee: n.sur20,
-        });
+      // L'état acquis par acquis — il sert aux deux grains.
+      const etats = (co.aas || []).map(a => {
+        const n = notes[co.cours_code + '|' + a.aa_code];
+        const evalue = !!(n && !n.non_evalue && n.points != null && n.points !== '');
+        const pts = evalue ? Number(n.points) : null;
+        return {
+          aa_code: a.aa_code, description: a.description, poids: a.poids,
+          evalue, points: pts,
+          // L'arrondi de la maison décide : 9,6 passe ou ne passe pas, et ce
+          // n'est pas au report d'en juger tout seul.
+          passe: evalue && arrondiMaison(pts, R) >= SEUIL,
+        };
+      });
+
+      if (veut('aa')) {
+        for (const e of etats) {
+          if (e.passe) candAA.push({
+            cible: 'aa', annee_origine: an, cours_code: co.cours_code,
+            cours_nom: co.cours_nom, aa_code: e.aa_code, description: e.description,
+            note: e.points,
+          });
+        }
+      }
+
+      if (veut('cours')) {
+        const pesants = etats.filter(e => e.poids);
+        // Un cours sans acquis pesant ne se reporte pas : il n'y a rien à
+        // constater. Mieux vaut ne rien proposer qu'une dispense vide.
+        const tousPassent = pesants.length > 0 && pesants.every(e => e.passe);
+        if (tousPassent) {
+          const n = calculerNoteCours(co, notes);
+          candCours.push({
+            cible: 'cours', annee_origine: an, cours_code: co.cours_code,
+            cours_nom: co.cours_nom, note: n.sur20_exact, note_affichee: n.sur20,
+            // Ce qu'on reporte réellement : les acquis et LEURS notes.
+            aas: pesants.map(e => ({ aa_code: e.aa_code, note: e.points })),
+          });
+        }
       }
     }
   }
-  // La session la plus récente prime pour un même cours
-  const parCours = {};
-  for (const c0 of candidats.sort((a, b) => a.annee_origine.localeCompare(b.annee_origine))) {
-    parCours[c0.cours_code] = c0;
-  }
-  return Object.values(parCours);
+
+  // La session la plus récente prime pour une même cible.
+  const derniere = (liste, cle) => {
+    const par = {};
+    for (const c of liste.sort((a, b) => a.annee_origine.localeCompare(b.annee_origine))) {
+      par[cle(c)] = c;
+    }
+    return Object.values(par);
+  };
+  return {
+    cours: derniere(candCours, c => c.cours_code),
+    aa: derniere(candAA, c => c.cours_code + '|' + c.aa_code),
+  };
+}
+
+/**
+ * Compatibilité : les deux écrans qui existaient ne demandent que les cours.
+ * Ils passent par la même règle qu'avant — à ceci près qu'elle est désormais
+ * la bonne : tous les acquis du cours, et le seuil de la maison.
+ */
+export function coursValidesAnterieurs(etudId, ueNum, anneeCible) {
+  return reportsEligibles(etudId, ueNum, anneeCible).cours;
 }
 
 // ── Motivation d'une décision d'ajournement ou de refus ────────────────────
@@ -1078,6 +1232,30 @@ export function documentMotivation(etudId, ueNum, annee, session = 1) {
   const s2 = Object.fromEntries(db.prepare(
     'SELECT * FROM deliberation_session2 WHERE ue_num = ? AND annee_scolaire = ?'
   ).all(ueNum, annee).map(l => [l.cours_code, l]));
+
+  /**
+   * LA VISITE DES COPIES A CHANGÉ DE NIVEAU, LA NOTIFICATION NON.
+   *
+   * Elle se posait sur l'unité ; elle se pose désormais sur le cours, parce
+   * qu'on vient consulter la copie d'une épreuve. Cette pièce ne montre
+   * encore qu'un bloc : tant qu'elle n'en montre pas un par cours, elle prend
+   * la visite de l'unité si elle existe, et à défaut la première visite posée
+   * au cours — plutôt que des pointillés là où une date existe en base.
+   */
+  const visiteCours = (() => {
+    if (seance.visite_date) return null;
+    const l = db.prepare(`
+      SELECT s1_visite_date AS d, s1_visite_heure AS h, s1_visite_local AS loc
+      FROM epreuve_session1
+      WHERE ue_num = ? AND annee_scolaire = ? AND s1_visite_date IS NOT NULL
+      ORDER BY s1_visite_date LIMIT 1`).get(ueNum, annee);
+    return l || null;
+  })();
+  const visite = {
+    date: seance.visite_date || visiteCours?.d || null,
+    heure: seance.visite_heure || visiteCours?.h || null,
+    local: seance.visite_local || visiteCours?.loc || null,
+  };
   // Ce qui n'est pas fixé pour un cours retombe sur la date de l'unité.
   const quand = (code) => {
     const l = s2[code] || {};
@@ -1282,9 +1460,9 @@ export function documentMotivation(etudId, ueNum, annee, session = 1) {
 
   <div class="info">
     <div class="titre">Consultation de la copie</div>
-    <div class="ligne">Le ${seance.visite_date ? `<b>${jour(seance.visite_date)}</b>` : '………………'}
-      à ${seance.visite_heure ? `<b>${esc2(seance.visite_heure)}</b>` : '……h……'},
-      local ${seance.visite_local ? `<b>${esc2(seance.visite_local)}</b>` : '…………'}</div>
+    <div class="ligne">Le ${visite.date ? `<b>${jour(visite.date)}</b>` : '………………'}
+      à ${visite.heure ? `<b>${esc2(visite.heure)}</b>` : '……h……'},
+      local ${visite.local ? `<b>${esc2(visite.local)}</b>` : '…………'}</div>
   </div>
 
   <div class="cloture${president.signature ? '' : ' sans-paraphe'}">
@@ -1325,6 +1503,27 @@ r.get('/motivation/:etudId/:ueNum/document', authRequired, (req, res) => {
   res.json({ html: d.html, nom: d.nom });
 });
 
+
+// ── La justification par défaut d'un acquis ────────────────────────────────
+// Elle vit dans le référentiel : un acquis ne change pas de contenu d'un
+// étudiant à l'autre, ni d'une année à l'autre. On la lit par unité et on
+// l'écrit acquis par acquis.
+r.get('/motifs-defaut/:ueNum', authRequired, (req, res) => {
+  const rows = db.prepare(`
+    SELECT aa_code, aa_num, cours_code, description, motif_defaut
+    FROM aa WHERE ue_num = ? ORDER BY aa_num
+  `).all(Number(req.params.ueNum));
+  res.json(rows);
+});
+
+r.put('/motifs-defaut/:ueNum/:aaCode', authRequired, roleRequired('admin', 'editeur'),
+  (req, res) => {
+    const texte = String(req.body?.texte ?? '').trim();
+    const n = db.prepare('UPDATE aa SET motif_defaut = ? WHERE ue_num = ? AND aa_code = ?')
+      .run(texte || null, Number(req.params.ueNum), req.params.aaCode).changes;
+    if (!n) return res.status(404).json({ error: 'acquis inconnu dans cette unité' });
+    res.json({ ok: true, texte: texte || null });
+  });
 
 // ── Tous les cours suivis par un étudiant, toutes UE confondues ────────────
 // La dispense partielle exigeait de connaître le numéro d'UE et de le taper
@@ -2099,6 +2298,20 @@ const REGLES_DEFAUT = {
   // L'unité est TOUJOURS exigée au seuil : c'est elle que l'attestation
   // sanctionne (RGE art. 77 §1). Le paramètre dit ce qui s'y ajoute.
   base: 'cours_aa',
+  // ── ET EN SECONDE SESSION ? ─────────────────────────────────────────────
+  //
+  // La question ne se pose pas dans les mêmes termes qu'en juin. L'étudiant ne
+  // représente pas des cours, il représente les acquis qui lui manquaient — et
+  // ceux-ci sont transversaux : le même acquis s'évalue souvent dans deux
+  // cours. Opposer encore une note de cours en septembre le fait retomber sur
+  // une moyenne qui ne décrit plus rien, puisqu'elle mêle ce qu'il vient de
+  // représenter et ce qu'il avait déjà acquis.
+  //
+  // C'est la lecture de la maison, et c'est le défaut. Mais une autre maison
+  // délibère autrement, et surtout : c'est un CHOIX, qui doit s'énoncer et se
+  // changer. Il était écrit en dur dans le calcul, où personne ne pouvait ni
+  // le voir ni le discuter.
+  base_s2: 'aa',
   portee: 'cours',
   session2: 'par_cours',
   seuil_aa: 10,
@@ -2121,6 +2334,7 @@ export function reglesDeliberation() {
     const seuil = Number(v.seuil_aa);
     return {
       base: ['cours_aa', 'cours', 'aa', 'ue'].includes(v.base) ? v.base : 'cours_aa',
+      base_s2: ['cours_aa', 'cours', 'aa', 'ue'].includes(v.base_s2) ? v.base_s2 : 'aa',
       portee: ['cours', 'aa', 'ue'].includes(v.portee) ? v.portee : 'cours',
       session2: v.session2 === 'unique' ? 'unique' : 'par_cours',
       // JAMAIS SOUS 10/20 : en dessous, un acquis non maîtrisé passerait pour
@@ -2628,25 +2842,40 @@ export function decisionDeSession(etudId, ueNum, annee, session = 1) {
 
 export function delibererUE(etudId, ueNum, annee, session = 1) {
   const structure = structureUE(ueNum, annee);
+  // Les justifications propres aux acquis de cette unité : une lecture, pas
+  // une par acquis.
+  const motifDefaut = {};
+  try {
+    for (const l of db.prepare(
+      'SELECT aa_code, motif_defaut FROM aa WHERE ue_num = ? AND motif_defaut IS NOT NULL'
+    ).all(Number(ueNum))) {
+      if (String(l.motif_defaut).trim()) motifDefaut[l.aa_code] = String(l.motif_defaut).trim();
+    }
+  } catch { /* colonne absente : l'énoncé calculé suffira */ }
   const integree = estEpreuveIntegree(ueNum, annee);
   const regles = reglesDeliberation();
   // Ce que la base de délibération fait entrer dans la décision. L'unité y
   // est toujours ; le reste dépend du choix de la maison.
   //
-  // EN SECONDE SESSION, SEULS LES ACQUIS COMPTENT. L'étudiant ne représente
-  // pas des cours, il représente les acquis qui lui manquaient — et ceux-ci
-  // sont transversaux : le même acquis s'évalue souvent dans deux cours.
-  // Opposer encore une note de cours en septembre ferait retomber l'étudiant
-  // sur une moyenne qui ne décrit plus rien : elle mêle ce qu'il vient de
-  // représenter et ce qu'il avait déjà acquis en juin. La note de cours reste
-  // calculée et affichée, mais à titre indicatif.
-  const regarde = session >= 2
-    ? { aa: true, cours: false, ue: true, indicatif_cours: true }
-    : {
-      aa: regles.base === 'cours_aa' || regles.base === 'aa',
-      cours: regles.base === 'cours_aa' || regles.base === 'cours',
-      ue: true,
-    };
+  // CHAQUE SESSION A SA BASE, ET LES DEUX SE RÈGLENT.
+  //
+  // La seconde était écrite en dur — « seuls les acquis comptent » — ce qui est
+  // bien la lecture de la maison, mais un choix tout de même, et un choix que
+  // personne ne pouvait ni voir ni changer. Il s'énonce désormais comme celui
+  // de juin, et à côté de lui.
+  //
+  // Un niveau qui sortait de la délibération d'une session à l'autre reste
+  // CALCULÉ ET AFFICHÉ, en tons plus clairs : le Conseil veut voir la note de
+  // cours de septembre sans qu'elle pèse sur la décision.
+  const baseSession = session >= 2 ? regles.base_s2 : regles.base;
+  const prend = (b, quoi) => b === 'cours_aa' || b === quoi;
+  const regarde = {
+    aa: prend(baseSession, 'aa'),
+    cours: prend(baseSession, 'cours'),
+    ue: true,
+    indicatif_cours: !prend(baseSession, 'cours') && prend(regles.base, 'cours'),
+    indicatif_aa: !prend(baseSession, 'aa') && prend(regles.base, 'aa'),
+  };
   // Le seuil de MAÎTRISE d'un acquis, tel que l'établissement l'a fixé — au
   // moins 10/20, jamais moins. Le seuil de RÉUSSITE de l'unité, lui, est celui
   // du décret et ne se paramètre pas.
@@ -2823,10 +3052,18 @@ export function delibererUE(etudId, ueNum, annee, session = 1) {
       // donc un énoncé défendable tel quel, SANS L'ÉCRIRE : la base reste vide
       // tant que personne ne l'a repris, l'écran l'affiche en gris, et la
       // clôture compte ce qui est resté tel quel et le nomme.
-      motif_propose: motifs[code] ? '' : motifPropose({
+      // TROIS SOURCES, UN SEUL ORDRE : ce que le Conseil a écrit, puis le
+      // motif propre à cet acquis (référentiel), puis l'énoncé calculé. Le
+      // défaut de l'acquis dit ce que CET acquis exige ; le calculé ne sait
+      // dire que ce que la base sait. On préfère le premier quand il existe.
+      motif_propose: motifs[code] ? '' : (motifDefaut[code] || motifPropose({
         note: affichee, na, faveur: forcee, non_evalue: !na && affichee == null,
         mention: (evals.find(x => x.mention) || {}).mention || null,
-      }, SEUIL_AA),
+      }, SEUIL_AA)),
+      // D'où vient la proposition — l'écran le dit, et la clôture aussi : une
+      // formule écrite par l'école ne se confond pas avec une phrase calculée.
+      motif_source: motifs[code] ? 'conseil'
+        : motifDefaut[code] ? 'defaut_aa' : 'calcule',
       // La faveur POSÉE SUR CET ACQUIS, distincte de celle qu'il hérite de
       // l'unité : c'est elle que le bouton retire, et elle seule.
       faveur_directe: aaFaveur(code),
@@ -4351,7 +4588,10 @@ export function nomPropre(nom, prenom) {
     .filter(Boolean).join(' ');
   const P = String(prenom || '').trim().split(/\s+/).filter(Boolean)
     .map(capitaliser).join(' ');
-  return [N, P].filter(Boolean).join(' ');
+  // PRÉNOM D'ABORD, NOM EN CAPITALES. C'est l'usage administratif, et il a une
+  // vertu pratique : dans une liste, l'oeil trouve le nom de famille sans le
+  // chercher, parce qu'il est le seul en capitales.
+  return [P, N].filter(Boolean).join(' ');
 }
 
 /**
@@ -4659,6 +4899,8 @@ r.put('/deliberation/regles', authRequired,
     poser.run('deliberation_ajournement', JSON.stringify({
       ...a,
       base: ['cours_aa', 'cours', 'aa', 'ue'].includes(v.base) ? v.base : a.base,
+      base_s2: ['cours_aa', 'cours', 'aa', 'ue'].includes(v.base_s2)
+        ? v.base_s2 : a.base_s2,
       portee: ['cours', 'aa', 'ue'].includes(v.portee) ? v.portee : 'cours',
       session2: v.session2 === 'unique' ? 'unique' : 'par_cours',
       seuil_aa: Number.isFinite(seuil) ? Math.min(20, Math.max(SEUIL_UE, seuil)) : SEUIL_UE,
@@ -5847,7 +6089,13 @@ function assemblerDocumentsUE(ueNum, annee, veut, opts = {}) {
       return { ...e, resultat: d.resultat, points_session: d.points,
                source_decision: d.source };
     })
-    .filter(e => e.resultat);
+    .filter(e => e.resultat)
+    // COCHER DES PERSONNES DOIT AVOIR UN EFFET. Le lot ne savait travailler
+    // que par unité : on imprimait pour tous ses inscrits ou pour personne.
+    // Quand une sélection est donnée, elle restreint — les pièces collectives,
+    // elles, ne s'en trouvent pas changées : un procès-verbal reste celui de
+    // la séance entière, et non celui des trois étudiants qu'on a cochés.
+    .filter(e => !opts.etudiants || opts.etudiants.includes(e.id));
 
   // Chaque page porte SON TYPE : le lot peut alors les reclasser par pile —
   // toutes les attestations ensemble — au lieu de suivre l'ordre des unités.
@@ -6145,6 +6393,8 @@ r.post('/deliberation/documents-lot', authRequired, (req, res) => {
     let a;
     try {
       a = assemblerDocumentsUE(ueNum, annee, veut, {
+        etudiants: Array.isArray(req.body?.etudiants) && req.body.etudiants.length
+          ? req.body.etudiants.map(Number) : null,
         // LA SESSION EST CELLE QU'ON DOCUMENTE, PAS CELLE OÙ L'UNITÉ EN EST.
         // Le lot prenait la session déduite de l'unité : dès que juin était
         // clos, il documentait septembre — et sortait les ajournés d'une

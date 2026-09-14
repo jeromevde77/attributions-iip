@@ -1,7 +1,8 @@
 import { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
+import { nomPropre } from '../lib/nom.js';
 import { RailLateral } from '../components/ui.jsx';
 import {
-  IconAlertTriangle, IconCheck, IconChecklist, IconChevronLeft, IconChevronRight, IconClock, IconFileText, IconFolder, IconPlus, IconPrinter, IconSearch, IconTable, IconTrash, IconUpload, IconUser, IconWritingSign, IconWritingSignOff, IconX,
+  IconAlertTriangle, IconAward, IconStairsUp, IconCheck, IconChecklist, IconChevronLeft, IconChevronRight, IconClock, IconFileText, IconFolder, IconPlus, IconPrinter, IconSearch, IconTable, IconTrash, IconUpload, IconUser, IconWritingSign, IconWritingSignOff, IconX,
 } from '@tabler/icons-react';
 import { authHeaders, getAnnee } from '../lib/api.js';
 import PreviewModal from '../components/PreviewModal.jsx';
@@ -9,9 +10,14 @@ import SchemaCapitalisationVue from '../components/SchemaCapitalisation.jsx';
 import Amenagements from '../components/Amenagements.jsx';
 import Stages from '../components/Stages.jsx';
 import IdentiteEtudiant, { ComplementDossiers } from '../components/IdentiteEtudiant.jsx';
-import CentreImpression from '../components/CentreImpression.jsx';
+// LE CENTRE CENTRAL. Les boutons restent où on les cherche — là où l'on
+// travaille — mais mènent désormais au même endroit.
+import CentreImpressionCentral from '../components/CentreImpressionCentral.jsx';
+import { useEchangesDuRail, Fenetre } from '../components/ui.jsx';
 import CentrePAE from '../components/CentrePAE.jsx';
 import PassageAnnee from '../components/PassageAnnee.jsx';
+import CentreEchanges from '../components/CentreEchanges.jsx';
+import CentreDiplomation from '../components/CentreDiplomation.jsx';
 import ImportSurMesure from '../components/ImportSurMesure.jsx';
 import ImportSuivi from '../components/ImportSuivi.jsx';
 import Annexe2 from '../components/Annexe2.jsx';
@@ -66,7 +72,7 @@ function ThTri({ champ, tri, onTri, className = '', children }) {
       title="Trier sur cette colonne">
       <span className="inline-flex items-center gap-1">
         {children}
-        <span className={`text-[9px] leading-none ${actif ? 'text-iip-turquoise' : 'text-slate-300'}`}>
+        <span className={`text-[10px] leading-none ${actif ? 'text-iip-turquoise' : 'text-slate-300'}`}>
           {actif ? (tri.sens === 1 ? '▲' : '▼') : '▲'}
         </span>
       </span>
@@ -120,7 +126,11 @@ const KINDS_CELLULE = [
   { val: 'absent',  label: 'Absent',   short: '–',  cls: 'bg-slate-50 text-slate-600 border-slate-200' },
 ];
 
-function GrilleParcours({ etudId, peutEcrire }) {
+/* L'ANNÉE EST UNE DONNÉE, PAS UNE SUPPOSITION. La grille affichait
+   « hors programme {annee} » en lisant une variable que personne ne lui
+   passait : la ligne entière tombait en erreur dès qu'une unité de la section
+   manquait au programme de l'année. */
+function GrilleParcours({ etudId, peutEcrire, annee }) {
   const [data, setData] = useState(null);
   const [popover, setPopover] = useState(null); // { annee, ue_num, verrou }
   const [pts, setPts] = useState('');
@@ -296,7 +306,7 @@ function GrilleParcours({ etudId, peutEcrire }) {
       <div className="overflow-x-auto border border-slate-200 rounded-xl">
         <table className="w-full text-sm border-collapse">
           <thead>
-            <tr className="bg-slate-50 text-[10.5px] uppercase tracking-wide text-slate-500">
+            <tr className="bg-slate-50 text-[11px] uppercase tracking-wide text-slate-500">
               <th className="px-3 py-2 text-left sticky left-0 bg-slate-50 z-10 min-w-[260px]">UE</th>
               <th className="px-2 py-2 text-left w-14">Niv.</th>
               {anneesAffichees.map((a, i) => {
@@ -324,15 +334,15 @@ function GrilleParcours({ etudId, peutEcrire }) {
                     <span className="text-slate-600 ml-1.5 text-[12px]">{u.ue_nom}</span>
                     {verrou && <span className="ml-1.5 text-[11px]"
                       title={'Exige : UE ' + ((u.prereq_chaine?.length ? u.prereq_chaine : u.prerequis) || []).join(', ')}>🔒</span>}
-                    {u.suggeree && <span className="ml-1.5 text-[9.5px] px-1 py-0.5 rounded bg-violet-50 text-violet-600 border border-violet-200" title="Probablement acquise (inférence prérequis) — à confirmer">à confirmer</span>}
+                    {u.suggeree && <span className="ml-1.5 text-[10px] px-1 py-0.5 rounded bg-violet-50 text-violet-600 border border-violet-200" title="Probablement acquise (inférence prérequis) — à confirmer">à confirmer</span>}
                     {u.hors_referentiel && (
-                      <span className="ml-1.5 text-[9.5px] px-1 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-200"
+                      <span className="ml-1.5 text-[10px] px-1 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-200"
                         title="Cette unité appartient à une autre section, ou sa section est inconnue">
                         autre section
                       </span>
                     )}
                     {u.hors_millesime && (
-                      <span className="ml-1.5 text-[9.5px] px-1 py-0.5 rounded bg-slate-100 text-slate-500"
+                      <span className="ml-1.5 text-[10px] px-1 py-0.5 rounded bg-slate-100 text-slate-500"
                         title="Unité de la section, absente du programme de l'année en cours">
                         hors programme {annee}
                       </span>
@@ -369,7 +379,7 @@ function GrilleParcours({ etudId, peutEcrire }) {
                               setPopover({ annee: a, ue_num: u.ue_num, verrou: true });
                             }
                           }}
-                          className={`w-full min-h-[30px] text-[11.5px] font-medium rounded-lg border px-1 py-1 transition
+                          className={`w-full min-h-[30px] text-[12px] font-medium rounded-lg border px-1 py-1 transition
                             ${kind ? kind.cls : 'border-transparent text-slate-300 hover:border-slate-200 hover:bg-slate-50'}
                             ${cl?.derogation ? 'ring-1 ring-amber-400' : ''}`}
                           title={cl?.derogation ? 'Encodée avec dérogation' : ''}>
@@ -385,7 +395,7 @@ function GrilleParcours({ etudId, peutEcrire }) {
                             const nivMap = Object.fromEntries(data.ues.map(x => [x.ue_num, (x.ue_niv || '').toUpperCase()]));
                             const manquants = u.prerequis.filter(p => !acquisSet.has(p));
                             if (manquants.length && manquants.every(p => cell(a, p) && nivMap[p] === (u.ue_niv || '').toUpperCase()))
-                              return <span className="ml-0.5 text-[9px]" title={'Sous réserve — réussite UE ' + manquants.join(', ') + ' requise en cours d\'année'}>⏳</span>;
+                              return <span className="ml-0.5 text-[10px]" title={'Sous réserve — réussite UE ' + manquants.join(', ') + ' requise en cours d\'année'}>⏳</span>;
                             return null;
                           })()}
                         </button>
@@ -400,9 +410,9 @@ function GrilleParcours({ etudId, peutEcrire }) {
       </div>
 
       {popover && (
-        <div className="fixed inset-0 z-[60] bg-black/30 flex items-center justify-center p-4"
+        <div className="fixed inset-0 z-[60] bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] flex items-center justify-center p-4"
           onClick={() => { setPopover(null); setPts(''); setDetail(null); setDetailOuvert(false); }}>
-          <div className="bg-white rounded-2xl shadow-2xl p-5 w-80" onClick={e => e.stopPropagation()}>
+          <div className="bg-white rounded-fenetre shadow-dessus p-5 w-80" onClick={e => e.stopPropagation()}>
             <div className="font-semibold text-iip-blue mb-1">
               UE {popover.ue_num} — {popover.annee}
             </div>
@@ -459,7 +469,7 @@ function GrilleParcours({ etudId, peutEcrire }) {
                         ? 'bg-emerald-50 border-emerald-200'
                         : 'bg-red-50 border-red-200'}`}>
                     {detail.calcul.sur20 == null ? (
-                      <div className="text-[11.5px] text-slate-500">
+                      <div className="text-[12px] text-slate-500">
                         Aucun acquis coté, ou pondérations non encodées pour cette UE.
                       </div>
                     ) : (
@@ -475,7 +485,7 @@ function GrilleParcours({ etudId, peutEcrire }) {
                               {detail.calcul.pourcentage} %
                             </span>
                           </div>
-                          <div className="text-[10.5px] text-slate-500">
+                          <div className="text-[11px] text-slate-500">
                             {detail.calcul.evalues}/{detail.calcul.attendus} acquis cotés
                             {!detail.calcul.complet ? " — calcul partiel" : ''}
                           </div>
@@ -487,7 +497,7 @@ function GrilleParcours({ etudId, peutEcrire }) {
                             // seconde session et à un éventuel recours. Elle n'est
                             // simplement pas communiquée à l'étudiant.
                             { points: detail.calcul.sur20 })}
-                          className="flex-none text-[11.5px] px-2.5 py-1.5 rounded-lg bg-iip-blue text-white font-semibold">
+                          className="flex-none text-[12px] px-2.5 py-1.5 rounded-lg bg-iip-blue text-white font-semibold">
                           Reporter sur l\u2019UE
                         </button>
                       </div>
@@ -498,7 +508,7 @@ function GrilleParcours({ etudId, peutEcrire }) {
                 {/* Reports de note proposés : cours validés dans une UE échouée */}
                 {(detail.candidats_report || []).length > 0 && (
                   <div className="mb-3 border border-sky-200 bg-sky-50 rounded-xl px-3 py-2.5">
-                    <div className="text-[11.5px] font-semibold text-sky-900 mb-1.5">
+                    <div className="text-[12px] font-semibold text-sky-900 mb-1.5">
                       Report de note possible
                     </div>
                     <div className="space-y-1">
@@ -525,7 +535,7 @@ function GrilleParcours({ etudId, peutEcrire }) {
                   {detail.decision && (detail.decision.s1 || detail.decision.s2
                     || detail.decision.motivation) && (
                     <div className="mb-2 px-3 py-2 rounded-lg bg-slate-50 border
-                                    border-slate-200 text-[11.5px]">
+                                    border-slate-200 text-[12px]">
                       <span className="font-semibold text-iip-blue">Décision</span>
                       {detail.decision.s1 && (
                         <span className="ml-2">1<sup>re</sup> session :
@@ -551,7 +561,7 @@ function GrilleParcours({ etudId, peutEcrire }) {
                   {(detail.structure || []).map(co => (
                     <div key={co.cours_code} className="border border-slate-200 rounded-lg overflow-hidden">
                       <div className="flex items-center gap-2 px-2 py-1.5 bg-slate-50">
-                        <div className="flex-1 text-[11.5px] text-slate-700 truncate" title={co.cours_nom}>
+                        <div className="flex-1 text-[12px] text-slate-700 truncate" title={co.cours_nom}>
                           <b className="text-iip-blue">{co.cours_code}</b> {co.cours_nom}
                         </div>
                         <span className="text-[10px] text-slate-400 flex-none"
@@ -559,7 +569,7 @@ function GrilleParcours({ etudId, peutEcrire }) {
                           {co.poids_cours_affiche != null ? co.poids_cours_affiche + ' %' : '— %'}
                         </span>
                         {!co.complet && (
-                          <span className="text-[9.5px] px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-200 flex-none"
+                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-200 flex-none"
                             title={`Somme des pondérations : ${co.somme_poids} au lieu de 100`}>
                             pondérations {co.somme_poids}
                           </span>
@@ -574,12 +584,12 @@ function GrilleParcours({ etudId, peutEcrire }) {
                               <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-sky-600 text-white flex-none">
                                 RN
                               </span>
-                              <div className="flex-1 text-[11.5px] text-sky-900">
+                              <div className="flex-1 text-[12px] text-sky-900">
                                 Note reportée : <b>{Math.round(rn.note)}/20</b>
                                 {rn.annee_origine ? <span className="text-sky-700"> (validé en {rn.annee_origine})</span> : null}
                               </div>
                               <button onClick={() => retirerReport(co.cours_code)}
-                                className="flex-none text-[10.5px] px-2 py-0.5 rounded-lg border border-sky-300 text-sky-700 hover:bg-white">
+                                className="flex-none text-[11px] px-2 py-0.5 rounded-lg border border-sky-300 text-sky-700 hover:bg-white">
                                 Retirer
                               </button>
                             </div>
@@ -644,7 +654,7 @@ function GrilleParcours({ etudId, peutEcrire }) {
                   ))}
 
                   {!(detail.structure || []).length && (
-                    <div className="text-[11.5px] text-slate-400 text-center py-2">
+                    <div className="text-[12px] text-slate-400 text-center py-2">
                       Aucun cours au référentiel pour cette UE.
                     </div>
                   )}
@@ -834,12 +844,12 @@ function Valorisations({ etudId, annee }) {
                   fallait auparavant connaître le numéro d'UE et le taper avant
                   de voir quoi que ce soit. */}
               {!coursEtud ? (
-                <div className="py-4 text-center text-[12.5px] text-slate-400
+                <div className="py-4 text-center text-[13px] text-slate-400
                                 border-2 border-dashed rounded-xl">
                   Chargement des cours de l'étudiant…
                 </div>
               ) : !coursEtud.unites.length ? (
-                <div className="py-4 text-center text-[12.5px] text-slate-400
+                <div className="py-4 text-center text-[13px] text-slate-400
                                 border-2 border-dashed rounded-xl">
                   Cet étudiant n'est inscrit à aucune unité en {annee}.
                 </div>
@@ -854,8 +864,8 @@ function Valorisations({ etudId, annee }) {
                     {coursEtud.unites.map(u => (
                       <div key={u.ue_num}>
                         <div className="px-3 py-1 bg-slate-100/70 border-y border-slate-200
-                                        text-[11.5px] font-semibold text-iip-blue sticky top-0">
-                          <span className="font-mono text-[10.5px] text-slate-500 mr-1.5">
+                                        text-[12px] font-semibold text-iip-blue sticky top-0">
+                          <span className="font-mono text-[11px] text-slate-500 mr-1.5">
                             {u.ue_num}
                           </span>
                           {u.ue_nom}
@@ -907,7 +917,7 @@ function Valorisations({ etudId, annee }) {
                                   })}
                                   title={co.deja_reporte ? 'Déjà reportée'
                                     : `Obtenue en ${co.annee_anterieure} — cliquer pour la reprendre`}
-                                  className={`text-[10.5px] flex-none w-24 text-right
+                                  className={`text-[11px] flex-none w-24 text-right
                                     ${co.deja_reporte ? 'text-slate-300'
                                       : co.note_anterieure >= seuilReport
                                         ? 'text-emerald-700 font-semibold hover:underline'
@@ -917,7 +927,7 @@ function Valorisations({ etudId, annee }) {
                                   </span>{co.deja_reporte ? ' ✓' : ''}
                                 </button>
                               ) : (
-                                <span className="text-[10.5px] text-slate-300 flex-none
+                                <span className="text-[11px] text-slate-300 flex-none
                                                  w-24 text-right">—</span>
                               )}
 
@@ -977,7 +987,7 @@ function Valorisations({ etudId, annee }) {
 
           <div className="flex gap-2">
             <button onClick={sauver} disabled={!form.ue_num || (form.type === 'partielle' && !form.cible_detail)}
-              className="text-sm px-3 py-1.5 rounded-lg bg-iip-blue text-white font-semibold disabled:opacity-40">
+              className="bouton bouton-fort">
               Enregistrer
             </button>
             <button onClick={() => { setForm(null); setComposantes(null); }}
@@ -996,7 +1006,7 @@ function Valorisations({ etudId, annee }) {
             <div key={v.id} className="flex items-center justify-between gap-3 border border-slate-200 rounded-xl px-4 py-2.5">
               <div>
                 <span className="font-medium text-iip-blue">{v.ue_num}</span>
-                <span className="text-slate-600 ml-1.5 text-[12.5px]">{v.ue_nom}</span>
+                <span className="text-slate-600 ml-1.5 text-[13px]">{v.ue_nom}</span>
                 <div className="text-[11px] text-slate-400 mt-0.5">
                   {TYPES_VA.find(t => t.val === v.type)?.label}
                   {v.cible ? ` · ${v.cible === 'cours' ? 'cours' : 'AA'} : ${v.cible_detail}` : ''}
@@ -1013,7 +1023,7 @@ function Valorisations({ etudId, annee }) {
           ))}
         </div>
       )}
-      <p className="text-[10.5px] text-slate-400 mt-3">
+      <p className="text-[11px] text-slate-400 mt-3">
         Dispense complète : l'UE est acquise, l'apprenant n'est pas comptabilisé comme régulier pour cette UE (art. 4).
         Dispense partielle : dispense d'activités d'enseignement, l'apprenant reste comptabilisé (art. 3).
         Interdite pour les épreuves intégrées.
@@ -1137,7 +1147,7 @@ function BarreParcours({ position, onPrec, onSuiv, portee, onPortee, sections, u
 }
 
 function FicheEtudiant({ id, annee, onClose, position, onPrec, onSuiv,
-                         portee, onPortee, sections, ues, annees }) {
+                         portee, onPortee, sections, ues, annees, onModifie }) {
   const [annexe2, setAnnexe2] = useState(false);
   const [motivation, setMotivation] = useState(false);
   const [data, setData] = useState(null);
@@ -1360,26 +1370,17 @@ function FicheEtudiant({ id, annee, onClose, position, onPrec, onSuiv,
 
   if (!data) return <div className="p-6 text-slate-400 text-sm">Chargement…</div>;
 
+  // LA FICHE PREND LE CADRE COMMUN. Elle avait son propre bandeau marine, deux
+  // fois plus haut que celui des autres fenêtres, et sa propre croix : on
+  // changeait de maison en ouvrant un étudiant. Le nom devient le titre, le
+  // courriel et le matricule la ligne de contexte — c'est exactement ce que le
+  // bandeau commun sait faire.
   return (
-    <div className="fixed inset-0 bg-black/40 flex items-start justify-center z-50 p-4 overflow-auto">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-[1400px] mt-8">
-        {/* En-tête */}
-        <div className="bg-iip-blue rounded-t-2xl px-6 py-5 flex items-start justify-between">
-          <div>
-            <div className="text-white font-bold text-xl">{data.nom} {data.prenom}</div>
-            <div className="text-blue-200 text-sm mt-0.5 flex items-center gap-2">
-              <span>{data.email_ecole} · {data.id_ecampus}</span>
-              {data.niveau?.libelle && (
-                <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-white/15 text-white">
-                  {data.niveau.libelle}
-                </span>
-              )}
-            </div>
-          </div>
-          <button onClick={onClose} className="text-blue-200 hover:text-white">
-            <IconX size={22} />
-          </button>
-        </div>
+    <Fenetre icone={IconUser} titre={nomPropre(data.nom, data.prenom)}
+      sous={`${data.email_ecole} · ${data.id_ecampus}`
+            + (data.niveau?.libelle ? ' · ' + data.niveau.libelle : '')}
+      large="pleine" onFermer={onClose}>
+      <div className="-mx-5 -my-4">
 
         {(onPrec || onSuiv) && (
           <BarreParcours position={position} onPrec={onPrec} onSuiv={onSuiv}
@@ -1402,9 +1403,7 @@ function FicheEtudiant({ id, annee, onClose, position, onPrec, onSuiv,
             ['dossier', 'Dossier']].map(([k, l]) => (
             <button key={k}
             onClick={() => { setOnglet(k); if (k === 'parcours' && !pae) chargerPAE(); }}
-              className={`px-4 py-3 text-sm font-medium border-b-2 -mb-px ${onglet===k
-                ? 'border-iip-turquoise text-iip-blue font-semibold'
-                : 'border-transparent text-slate-500'}`}>
+              className={`onglet-page ${onglet === k ? 'onglet-page-actif' : ''}`}>
               {l}
             </button>
           ))}
@@ -1416,9 +1415,7 @@ function FicheEtudiant({ id, annee, onClose, position, onPrec, onSuiv,
               {onglet === 'parcours' && pae && !pae.erreur && (
                 <div className="sticky top-0 z-30 bg-white/95 backdrop-blur border-b border-slate-200 px-6 py-2.5 flex gap-2 items-center flex-wrap">
                   <button onClick={enregistrerPAE} disabled={enregistrement}
-                    className="flex items-center gap-1.5 px-3 py-1.5 text-sm
-                               bg-iip-turquoise text-white font-semibold rounded-lg
-                               disabled:opacity-50">
+                    className="bouton bouton-fort">
                     <IconCheck size={14} />
                     {enregistrement ? 'Enregistrement…' : 'Enregistrer le PAE'}
                   </button>
@@ -1426,10 +1423,7 @@ function FicheEtudiant({ id, annee, onClose, position, onPrec, onSuiv,
                     title={paeConfirme
                       ? 'Retirer la confirmation — les inscriptions sont conservées'
                       : "Confirmer le programme : l'étudiant passe en inscrit"}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 text-sm
-                      font-semibold rounded-lg disabled:opacity-50 ${paeConfirme
-                        ? 'border border-slate-300 text-slate-600'
-                        : 'bg-iip-blue text-white'}`}>
+                    className="bouton">
                     <IconWritingSign size={14} />
                     {paeConfirme ? 'Programme confirmé' : 'Confirmer le programme'}
                   </button>
@@ -1456,7 +1450,7 @@ function FicheEtudiant({ id, annee, onClose, position, onPrec, onSuiv,
                         onClick: () => setAnnexe2(true) },
                     ]} />
 
-                  <span className="text-[11.5px] text-slate-500 ml-1">
+                  <span className="text-[12px] text-slate-500 ml-1">
                     {paeConfirme
                       ? "L'étudiant est inscrit aux unités retenues."
                       : "Rien n'est inscrit tant que vous n'avez pas confirmé."}
@@ -1506,7 +1500,7 @@ function FicheEtudiant({ id, annee, onClose, position, onPrec, onSuiv,
                              border-slate-300 text-slate-600 font-semibold rounded-lg">
                   <IconFileText size={14} /> Fiche d'inscription / reçu
                 </button>
-                <p className="text-[11.5px] text-slate-500 mt-1">
+                <p className="text-[12px] text-slate-500 mt-1">
                   Récapitulatif du programme, des droits et de l'engagement signé.
                 </p>
               </div>
@@ -1557,13 +1551,13 @@ function FicheEtudiant({ id, annee, onClose, position, onPrec, onSuiv,
                 <SchemaCapitalisation etudId={id} annee={annee} />
               </div>
 
-              <GrilleParcours etudId={id} peutEcrire={true} />
+              <GrilleParcours etudId={id} peutEcrire={true} annee={annee} />
 
               <div className="border-t border-slate-200 mt-4 pt-4">
               {/* Ce qui suit est une PROPOSITION tant qu'elle n'est pas
                   confirmée : le dire évite de la lire comme un état de fait,
                   maintenant que schéma et programme sont sur la même page. */}
-              <div className={`mb-3 px-3 py-2 rounded-lg text-[12.5px] border ${
+              <div className={`mb-3 px-3 py-2 rounded-lg text-[13px] border ${
                 paeConfirme
                   ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
                   : 'bg-amber-50 border-amber-200 text-amber-900'}`}>
@@ -1628,7 +1622,7 @@ function FicheEtudiant({ id, annee, onClose, position, onPrec, onSuiv,
                         )}
                         {(pae.sections_scores || []).length > 1 && (
                           <select value={sectionForcee} onChange={e => setSectionForcee(e.target.value)}
-                            className="border border-slate-300 rounded-lg px-1.5 py-0.5 text-[11.5px]">
+                            className="border border-slate-300 rounded-lg px-1.5 py-0.5 text-[12px]">
                             <option value="">Section détectée</option>
                             {pae.sections_scores.map(s => (
                               <option key={s.section} value={s.section}>{s.section} ({s.n} UE)</option>
@@ -1684,7 +1678,7 @@ function FicheEtudiant({ id, annee, onClose, position, onPrec, onSuiv,
                   ) : (
                     <table className="w-full text-sm">
                       <thead>
-                        <tr className="text-[10.5px] uppercase tracking-wide text-slate-400 border-b">
+                        <tr className="text-[11px] uppercase tracking-wide text-slate-400 border-b">
                           <th className="py-2 w-8"></th>
                           <th className="py-2 text-left">UE proposée</th>
                           <th className="py-2 text-left w-20">Niv.</th>
@@ -1701,8 +1695,8 @@ function FicheEtudiant({ id, annee, onClose, position, onPrec, onSuiv,
                             </td>
                             <td className="py-2">
                               <span className="font-medium text-iip-blue">{u.ue_num}</span>
-                              <span className="text-slate-600 ml-1.5 text-[12.5px]">{u.ue_nom}</span>
-                              {u.inscrite && <span className="ml-1.5 text-[9.5px] px-1 py-0.5 rounded bg-slate-100 text-slate-500">déjà inscrite</span>}
+                              <span className="text-slate-600 ml-1.5 text-[13px]">{u.ue_nom}</span>
+                              {u.inscrite && <span className="ml-1.5 text-[10px] px-1 py-0.5 rounded bg-slate-100 text-slate-500">déjà inscrite</span>}
                             </td>
                             <td className="py-2">
                               <BadgeUeNiveau niveau={u.ue_niv} />
@@ -1716,7 +1710,7 @@ function FicheEtudiant({ id, annee, onClose, position, onPrec, onSuiv,
 
                   {acquises.length > 0 && (
                     <details className="mt-4 border border-emerald-200 bg-emerald-50/40 rounded-xl">
-                      <summary className="px-3 py-2 text-[12.5px] font-semibold text-emerald-900 cursor-pointer">
+                      <summary className="px-3 py-2 text-[13px] font-semibold text-emerald-900 cursor-pointer">
                         {acquises.length} UE déjà acquise(s)
                         <span className="font-normal text-emerald-700"> — hors programme</span>
                       </summary>
@@ -1764,7 +1758,7 @@ function FicheEtudiant({ id, annee, onClose, position, onPrec, onSuiv,
                                 </td>
                                 <td className="py-1.5">
                                   <span className="font-medium text-iip-blue">{u.ue_num}</span>
-                                  <span className="text-slate-600 ml-1.5 text-[12.5px]">{u.ue_nom}</span>
+                                  <span className="text-slate-600 ml-1.5 text-[13px]">{u.ue_nom}</span>
                                 </td>
                                 <td className="py-1.5 w-16">
                                   <BadgeUeNiveau niveau={u.ue_niv} />
@@ -1800,11 +1794,21 @@ function FicheEtudiant({ id, annee, onClose, position, onPrec, onSuiv,
         typeDoc="fiche_etudiant"
         sujetMail={`${ficheInscription.titre || "Fiche d'inscription"} — Institut Ilya Prigogine`}
         onClose={() => setFicheInscription(null)} />}
-    </div>
+    </Fenetre>
   );
 }
 
 // ── Page principale Étudiants ─────────────────────────────────────────────────
+/* LE VOCABULAIRE DES DÉCISIONS, EN CLAIR — et à portée de qui le lit.
+ * Cette table était écrite APRÈS le « return » du composant : du code jamais
+ * atteint, donc une constante jamais initialisée. La fiche d'un étudiant
+ * portant une décision tombait sur une erreur au lieu d'afficher « réussi ».
+ * Elle vit au niveau du module, comme toute table de libellés. */
+const LIBELLE_RES = {
+  reussi: 'réussi', echec: 'échec', absent: 'absent',
+  ajourne: 'ajourné', refuse: 'refusé', va: 'valorisé',
+};
+
 export default function Etudiants() {
   /**
    * Export Excel de la section : signalétique et résultats, réimportables.
@@ -1874,6 +1878,10 @@ export default function Etudiants() {
   const [centrePAE, setCentrePAE] = useState(false);
   // Le passage d'année : toute une section, sur ses résultats.
   const [passage, setPassage] = useState(false);
+  // Une seule porte pour les huit imports et les exports.
+  const [echanges, setEchanges] = useState(false);
+  // Les titres de fin de cycle, pour une section entière.
+  const [diplomation, setDiplomation] = useState(false);
   const [comparaison, setComparaison] = useState(false);
   const [importSurMesure, setImportSurMesure] = useState(false);
   const [importSuivi, setImportSuivi] = useState(false);
@@ -2185,74 +2193,83 @@ export default function Etudiants() {
     return n;
   });
 
+  // LES ÉDITIONS DE CET ÉCRAN, DÉCLARÉES POUR LE CENTRE.
+  // « Rapport de la liste » et « Rapport PAE » sont deux pièces d'un
+  // catalogue, pas deux entrées de menu : elles se présentent en tête du
+  // centre d'impression, avec tout le reste de ce qui sort d'ici.
+  const EDITIONS = [
+    { cle: 'rapport', label: 'Rapport de la liste', icon: IconFileText,
+      description: 'Une section, une année antérieure', onClick: ouvrirRapport },
+    { cle: 'rapport-pae', label: 'Rapport PAE', icon: IconTable,
+      description: "Unités inscrites, par étudiant", onClick: () => setRapportPAE(true) },
+  ];
+
+  useEchangesDuRail(useCallback(() => setEchanges(true), []));
+
+  // QUI PEUT SUPPRIMER. La route exige déjà « admin » ou « editeur » côté
+  // serveur — un bouton caché n'est pas une protection —, mais proposer à
+  // l'écran ce qui sera refusé par le serveur n'aide personne.
+  const peutSupprimer = (() => {
+    try {
+      const j = JSON.parse(atob((localStorage.getItem('token') || '').split('.')[1] || ''));
+      return ['admin', 'editeur', 'directeur', 'directeur_adjoint'].includes(j?.role);
+    } catch { return false; }
+  })();
+
   const RAIL = [
-    { label: 'Documents', items: [
-      { key: 'impression',
-        label: selEtudiants.size
-          ? `Imprimer ${selEtudiants.size} sélectionné(s)`
-          : "Centre d'impression",
-        icon: IconPrinter,
-        couleur: selEtudiants.size ? '#00AACC' : undefined,
-        onClick: () => setCentreImpression(true) },
-      { key: 'rapport', label: 'Rapport de la liste', icon: IconPrinter,
-        onClick: ouvrirRapport },
-      { key: 'rapport-pae', label: 'Rapport PAE', icon: IconTable,
-        onClick: () => setRapportPAE(true) },
-    ] },
+    // LE CENTRE D'IMPRESSION EST DÉJÀ LA BULLE DU HAUT, et il porte désormais
+    // les deux rapports : trois icônes pour une seule porte, c'en était deux
+    // de trop.
     // LE PASSAGE D'ANNÉE PORTE SUR UNE SECTION ENTIÈRE, non sur une sélection :
     // sa place n'est pas dans la barre qui n'apparaît qu'une fois des étudiants
     // cochés. C'est le geste de fin de septembre, et il se trouve sans qu'on
     // ait rien à préparer.
-    { label: 'Année suivante', items: [
+    // LA FIN DE CYCLE. Composer l'année suivante et délivrer les titres sont
+    // les deux gestes de la même semaine : ils vont ensemble.
+    // SUPPRIMER A SA PROPRE PORTE, ET ELLE SE NOMME.
+    //
+    // La fenêtre existait — vider une UE, une session, une sélection — mais
+    // elle était rangée sous « Importer / exporter » : personne n'ouvre un
+    // menu d'imports pour supprimer, et personne ne l'avait trouvée. Une
+    // opération irréversible ne se cache pas dans un tiroir : elle se nomme.
+    //
+    // Elle ne supprime toujours rien sans avoir montré ce qu'elle va toucher
+    // — le compte des résultats, des notes, des reports, des inscriptions —
+    // puis sans une confirmation. C'est la seule entrée du rail dont l'icône
+    // porte une couleur, et c'est une brique : ici, la couleur est un
+    // avertissement, pas une décoration.
+    ...(peutSupprimer ? [{ label: 'Supprimer', items: [
+      { key: 'purge', label: 'Vider des résultats ou des inscriptions',
+        icon: IconTrash, couleur: '#9d4a38', onClick: () => setPurge(true) },
+    ] }] : []),
+    { label: 'Fin de cycle', items: [
       { key: 'passage', label: "Composer les PAE de l'année suivante",
-        icon: IconChecklist, onClick: () => setPassage(true) },
+        /* PAS DEUX FOIS LE MÊME DESSIN DANS UN RAIL. « Passage de classe »
+           portait l'icône de l'axe Étudiants : replié, on visait l'un pour
+           l'autre. Un escalier dit ce que fait l'action — on monte d'un an. */
+        icon: IconStairsUp, onClick: () => setPassage(true) },
+      { key: 'diplomation', label: 'Diplômes et titres', icon: IconAward,
+        onClick: () => setDiplomation(true) },
     ] },
-    { label: 'Exporter', items: [
-      { key: 'export-section', label: 'Export de la section',
-        icon: IconTable,
-        onClick: () => {
-          if (!section) {
-            alert("Choisissez d'abord une section : l'export porte sur elle.");
-            return;
-          }
-          // Appel AUTHENTIFIÉ : un window.location ne transmettrait pas le
-          // jeton, et le serveur répondrait 401.
-          exporterSection();
-        } },
-    ] },
-    { label: 'Importer', items: [
-      { key: 'liste', label: 'Liste eCampus', icon: IconUpload,
-        onClick: () => setImportListe(true) },
-      { key: 'pae', label: 'Classeur PAE', icon: IconUpload,
-        onClick: () => setImportPAE(true) },
-      { key: 'complement', label: 'Compléter les dossiers', icon: IconUpload,
-        onClick: () => setComplement(true) },
-      { key: 'histo', label: "Reconstruire l'historique", icon: IconUpload,
-        onClick: () => setImportHisto(true) },
-      { key: 'comparer', label: 'Comparer un classeur', icon: IconUpload,
-        onClick: () => setComparaison(true) },
-      { key: 'suivi', label: 'Classeur de suivi (2 sessions)', icon: IconUpload,
-        onClick: () => setImportSuivi(true) },
-      { key: 'sur-mesure', label: 'Importateur sur mesure', icon: IconUpload,
-        onClick: () => setImportSurMesure(true) },
-    ] },
-    { label: 'Entretien', items: [
-      { key: 'purge', label: 'Vider des résultats', icon: IconTrash,
-        couleur: '#C0392B', onClick: () => setPurge(true) },
-    ] },
+    // TOUT CE QUI ENTRE ET TOUT CE QUI SORT, DERRIÈRE UNE PORTE.
+    // Le rail alignait huit imports dont quatre parlaient de « classeur » sans
+    // dire lequel : on ouvrait au jugé. Le centre les nomme et annonce le
+    // fichier attendu — la seule chose qui permette de choisir sans essayer.
+    // « Importer / exporter » ne se déclare plus ici : l'axe le pose sous le
+    // filet, à la même place que sur Personnel et Organisation. L'écran dit
+    // seulement COMMENT l'ouvrir.
   ];
 
   return (
     <div className="relative bg-slate-50" style={{ minHeight: 'calc(100vh - 64px)' }}>
       <RailLateral icon={IconChecklist} titre="Étudiants"
-        sousTitre={`${filtres.length} étudiant(s)`} sections={RAIL} />
-    <div className="ml-16 p-5 space-y-4 max-w-none">
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <div>
-          <h2 className="text-xl font-semibold text-iip-blue">Étudiants</h2>
-          <p className="text-sm text-slate-500">{filtres.length} étudiant(s)</p>
-        </div>
-      </div>
+        sousTitre={`${filtres.length} étudiant(s)`} sections={RAIL}
+        impression="etudiants" pieces={EDITIONS} />
+    <div className="gouttiere-rail p-5 space-y-4 max-w-none">
+      {/* Le titre et le compte vivaient ICI, alors que le rail les porte déjà
+          et que l'onglet le dit une troisième fois. Trois fois « Étudiants »
+          sur un même écran, et autant de hauteur perdue avant la première
+          ligne du tableau. */}
 
       {msgImport && (
         <div className={`px-4 py-2.5 rounded-lg text-sm flex items-center justify-between ${msgImport.type==='ok'
@@ -2262,6 +2279,14 @@ export default function Etudiants() {
           <button onClick={() => setMsgImport(null)} className="ml-3 opacity-60">✕</button>
         </div>
       )}
+      {/* UN TITRE, ET LE MÊME QUE PARTOUT. Il avait été retiré parce que le
+          rail le portait déjà ; mais Personnel gardait le sien, et huit autres
+          écrans chacun le leur. Uniforme veut dire partout ou nulle part — et
+          nulle part laisse l'écran sans point d'entrée pour le regard. */}
+      <h1 className="titre-ecran">
+        Étudiants <span className="compte">· {filtres.length}</span>
+      </h1>
+
       <div className="flex gap-3 flex-wrap">
         <div className="relative flex-1 min-w-[200px]">
           <IconSearch size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
@@ -2274,7 +2299,7 @@ export default function Etudiants() {
           <option value="">Toutes les sections</option>
           {sections.map(s => <option key={s.code} value={s.code}>{s.libelle}</option>)}
         </select>
-        <div className="flex rounded-lg border border-slate-300 overflow-hidden">
+        <div className="segments">
           {[
             { k: 'en_cours', l: 'En cours',
               t: 'Les étudiants dont le parcours n’est pas achevé' },
@@ -2283,7 +2308,7 @@ export default function Etudiants() {
             { k: 'tous', l: 'Tous', t: 'Les uns et les autres' },
           ].map(x => (
             <button key={x.k} onClick={() => setStatut(x.k)} title={x.t}
-              className={`px-3 py-2 text-[12.5px] ${statut === x.k
+              className={`px-3 py-2 text-[13px] ${statut === x.k
                 ? 'bg-iip-blue text-white font-semibold' : 'text-slate-600'}`}>
               {x.l}
             </button>
@@ -2292,7 +2317,7 @@ export default function Etudiants() {
       </div>
 
       {erreurListe && (
-        <div className="px-4 py-3 rounded-xl bg-red-50 border border-red-200 text-[12.5px]
+        <div className="px-4 py-3 rounded-xl bg-red-50 border border-red-200 text-[13px]
                         text-red-800 mb-3">
           <b>La liste n'a pas pu être chargée.</b> {erreurListe}
         </div>
@@ -2331,10 +2356,12 @@ export default function Etudiants() {
           {chargement ? 'Chargement…' : 'Aucun étudiant — importez les données depuis eCampus.'}
         </div>
       ) : (
-        <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
+        /* LE BLANC EST RÉSERVÉ AUX CHAMPS : la liste prend le ton de la page,
+           et le filet sépare. */
+        <div className="carte overflow-hidden">
           <table className="w-full text-sm">
             <thead>
-              <tr className="bg-slate-50 border-b border-slate-200 text-[10.5px] uppercase tracking-wide text-slate-500">
+              <tr className="tab-entete">
                 <th className="px-3 py-2.5 w-10">
                   <input type="checkbox" checked={tousAffichesCoches}
                     onChange={() => cocherAffiches(!tousAffichesCoches)}
@@ -2351,15 +2378,23 @@ export default function Etudiants() {
             </thead>
             <tbody>
               {parSection.map(([sec, liste]) => {
-                const ouverte = sectionsDeployees[sec] !== false;
+                // FERMÉS PAR DÉFAUT. Toutes les sections dépliées, c'était
+                // huit cents lignes avant d'atteindre celle qu'on cherchait.
+                // Replié, l'écran tient sur une vue : on ouvre la section
+                // voulue, et on y est.
+                const ouverte = sectionsDeployees[sec] === true;
                 return (
                   <Fragment key={sec}>
+                    {/* LE REGROUPEMENT EST UN EN-TÊTE, et il en prend le ton :
+                        l'un nomme les colonnes, l'autre nomme un paquet de
+                        lignes. Un bleuté propre à lui ajoutait une couleur pour
+                        ne rien dire de plus. */}
                     {parSection.length > 1 && (
-                      <tr className="bg-iip-blue/5 border-y border-iip-blue/20">
+                      <tr className="tab-repere">
                         <td colSpan={7} className="px-4 py-2">
                           <button onClick={() => setSectionsDeployees(d => ({ ...d, [sec]: !ouverte }))}
-                            className="flex items-center gap-1.5 text-[12.5px] font-semibold text-iip-blue">
-                            <span className="text-slate-400 w-3 inline-block">{ouverte ? '−' : '+'}</span>
+                            className="flex items-center gap-1.5 text-[13px] font-semibold">
+                            <span className="w-3 inline-block opacity-50">{ouverte ? '−' : '+'}</span>
                             {sec}
                             <span className="font-normal text-[11px] text-slate-500">
                               {liste.length} étudiant(s)
@@ -2391,13 +2426,13 @@ export default function Etudiants() {
                         {(e.nom||'?')[0]}{(e.prenom||'?')[0]}
                       </div>
                       <div>
-                        <div className="font-medium text-slate-800">{e.nom} {e.prenom}</div>
+                        <div className="font-medium text-slate-800">{nomPropre(e.nom, e.prenom)}</div>
                         <div className="text-[11px] text-slate-400">{e.id_ecampus}</div>
                       </div>
                     </div>
                   </td>
-                  <td className="px-4 py-2.5 text-slate-500 text-[12.5px]">{e.email_ecole}</td>
-                  <td className="px-4 py-2.5 text-[11.5px] text-slate-500">{e.sections}</td>
+                  <td className="px-4 py-2.5 text-slate-500 text-[13px]">{e.email_ecole}</td>
+                  <td className="px-4 py-2.5 text-[12px] text-slate-500">{e.sections}</td>
                   <td className="px-4 py-2.5">
                     <BadgeNiveau niveau={e.niveau} libelle={e.niveau_libelle} />
                     {/* Le diplôme se dit là où on lit le niveau : c'est la même
@@ -2445,7 +2480,8 @@ export default function Etudiants() {
             setAnneeCohorte(p.annee);
             setUeCohorte(p.ue_num);
           }}
-          sections={sections} ues={uesCohorte} annees={anneesCohorte} />
+          sections={sections} ues={uesCohorte} annees={anneesCohorte}
+          onModifie={charger} />
       )}
 
       {comparaison && <ComparaisonClasseur onClose={() => setComparaison(false)} />}
@@ -2464,20 +2500,71 @@ export default function Etudiants() {
           onClose={() => setCentrePAE(false)} onTermine={charger} />
       )}
 
+      {echanges && (
+        <CentreEchanges onClose={() => setEchanges(false)}
+          sorties={[
+            { cle: 'export-section', titre: 'Export de la section',
+              quoi: 'Le tableau des étudiants et de leurs inscriptions, pour Excel.',
+              attend: null,
+              onClick: () => {
+                if (!section) {
+                  alert("Choisissez d'abord une section : l'export porte sur elle.");
+                  return;
+                }
+                exporterSection();
+              } },
+          ]}
+          entrees={[
+            { cle: 'liste', titre: 'Liste eCampus',
+              quoi: 'Créer ou compléter les dossiers depuis la liste officielle.',
+              attend: "l'export eCampus (.xlsx)",
+              onClick: () => setImportListe(true) },
+            { cle: 'pae', titre: 'Classeur PAE',
+              quoi: 'Reprendre les programmes annuels déjà composés ailleurs.',
+              attend: 'un classeur PAE (.xlsx)',
+              onClick: () => setImportPAE(true) },
+            { cle: 'suivi', titre: 'Classeur de suivi',
+              quoi: 'Pondérations, notes et décisions des deux sessions d’une année.',
+              attend: 'Suivi_etudiants_XXX.xlsm',
+              onClick: () => setImportSuivi(true) },
+            { cle: 'histo', titre: "Reconstruire l'historique",
+              quoi: 'Une année déjà délibérée, reprise depuis un tableau de décisions.',
+              attend: 'un tableau plat, une ligne par décision',
+              onClick: () => setImportHisto(true) },
+            { cle: 'complement', titre: 'Compléter les dossiers',
+              quoi: 'Ajouter adresses, dates de naissance et pièces aux dossiers existants.',
+              attend: 'un classeur portant les matricules',
+              onClick: () => setComplement(true) },
+            { cle: 'comparer', titre: 'Comparer un classeur',
+              quoi: 'Voir ce qui diffère entre un fichier et la base, sans rien écrire.',
+              attend: "n'importe quel classeur d'étudiants",
+              onClick: () => setComparaison(true) },
+            { cle: 'sur-mesure', titre: 'Importateur sur mesure',
+              quoi: 'Un fichier dont la forme n’entre dans aucune des cases ci-dessus.',
+              attend: 'un classeur dont vous désignez les colonnes',
+              onClick: () => setImportSurMesure(true) },
+          ]}
+          risques={[
+            { cle: 'purge', titre: 'Vider des résultats',
+              quoi: 'Effacer les notes et décisions d’une année ou d’une unité.',
+              attend: null, onClick: () => setPurge(true) },
+          ]} />
+      )}
+
+      {diplomation && (
+        <CentreDiplomation annee={annee} onClose={() => setDiplomation(false)} />
+      )}
+
       {passage && (
         <PassageAnnee annee={annee}
           onClose={() => setPassage(false)} onTermine={charger} />
       )}
 
-      {centreImpression && (
-        <CentreImpression annee={annee} preselection={[...selEtudiants]}
-          onClose={() => setCentreImpression(false)} />
-      )}
 
       {complement && (
-        <div className="fixed inset-0 bg-black/40 flex items-start justify-center z-50 p-4"
+        <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] flex items-start justify-center z-50 p-4"
           onClick={e => e.target === e.currentTarget && setComplement(false)}>
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl mt-12 p-5
+          <div className="bg-white rounded-fenetre shadow-dessus w-full max-w-3xl mt-12 p-5
                           max-h-[85vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-3">
               <span className="text-[15px] font-semibold text-iip-blue">
@@ -2517,10 +2604,4 @@ export default function Etudiants() {
     </div>
   );
 
-// Le vocabulaire des décisions, en clair. « echec » vient des sessions,
-// « ajourne » et « refuse » des décisions d'unité.
-const LIBELLE_RES = {
-  reussi: 'réussi', echec: 'échec', absent: 'absent',
-  ajourne: 'ajourné', refuse: 'refusé', va: 'valorisé',
-};
 }

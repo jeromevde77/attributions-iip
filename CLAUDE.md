@@ -17,6 +17,7 @@ l'application de gestion académique de l'Institut Ilya Prigogine (IIP).
 |---|---|
 | Technicien / développeur | **Jérôme** (Directeur IT & Facilities EPFC, ingénieur civil, 25 ans en sécurité IT) |
 | Analyste fonctionnel, décideur métier | **Charles Sohet**, directeur de l'IIP |
+| Conseillère qualité | **Amélie Verkest** — également chargée du développement des compétences du personnel. Elle observe, rapporte, et donne l'image de ce qui est fait et de ce qui doit l'être : c'est elle que sert la démarche qualité |
 | Utilisateurs | secrétariat (2 secrétaires + 1 adjoint), enseignants, direction |
 
 **Langue de travail : le français.** Style direct, exécutif. Les documents
@@ -209,6 +210,35 @@ nominatif ; date d'affichage et mode de publication en champs propres ; écrire
 
 ---
 
+## 5 bis. La démarche qualité — AEQES
+
+L'IIP relève de l'**AEQES** (enseignement supérieur). Psychomotricité a été
+évaluée ; une **évaluation institutionnelle** vient en **2028-2029**.
+
+- Cinq critères, dont l'**amélioration continue**, traités en *description →
+  évaluation → action*.
+- Un **dossier d'auto-évaluation** (19-20 000 mots hors annexes) dont la pièce
+  maîtresse est un **plan d'action priorisé assorti d'indicateurs**, couvrant
+  deux ans au minimum (action, responsable, priorité, échéance, indicateur).
+- Le dossier demande les **inscrits par section sur cinq ans**, les ETP par
+  catégorie, et une **vingtaine d'annexes**.
+- L'**évaluation continue** ne réévalue pas le programme : elle vérifie
+  **l'état de réalisation du plan d'action**.
+- Après visite : rapport, droit de réponse de trois semaines, **plan publié sur
+  le site de l'école** dans les six mois, point d'étape à mi-parcours.
+
+**Conséquence : la pièce centrale est l'ACTION**, pas la réunion. Réunions,
+retours d'étudiants et constats chiffrés en sont les *sources* ; le dossier et
+le plan publié, les *sorties*. **Une action est une échéance** : l'échéancier
+porte déjà responsable, rappels, base légale et une catégorie `qualite` — un
+seul registre, deux lentilles (l'Accueil montre *les miennes*, la Qualité
+*celles de la démarche*).
+
+**Ce qui n'est pas rattrapable :** ce qui n'est pas consigné en 2026-2027 ne
+sera pas récupérable en 2028. Détail dans `docs/contexte/qualite-aeqes.html`.
+
+---
+
 ## 6. Design — la façon de faire
 
 ### Documents
@@ -257,6 +287,98 @@ et 3 composants de tuile**. La stratégie tient en cinq chantiers, dans cet ordr
 - **Seul le menu principal est horizontal** : il dit dans quel métier on est.
   Tout le reste vit dans le **rail latéral** — les rubriques de l'axe d'abord,
   puis les outils de l'écran ouvert, qui s'y inscrivent d'eux-mêmes.
+- **Le rail est un panneau posé sur la page**, non une colonne collée au bord :
+  détaché de 12 px, coins arrondis, **haut de ce qu'il contient**, translucide,
+  porté par une ombre douce, et **en `position: fixed`** — en `absolute` il se
+  centrait sur la hauteur du CONTENU et son pied passait sous la fenêtre.
+- **Il reste étroit** : pas d'élargissement au survol, le libellé dans une
+  bulle. Une icône se mérite — ce qui ne tient pas dans une colonne d'icônes va
+  dans une fenêtre, pas dans le menu.
+- **Deux modes pour les menus**, un seul jeu de jetons (`--menu-*` dans
+  `index.css`, mode écrit sur `data-mode` par `lib/theme.js`) : **clair**, gris
+  pâle tenu par un filet, et **sombre**, marine. Un composant ne connaît jamais
+  le mode — il lit ses jetons. La bascule est en pied de rail.
+- **La couleur est une dépense** : dans les menus elle ne sert qu'à ce qui doit
+  être vu — la rubrique ouverte, une alerte. Une icône sans rien à signaler
+  reste grise, et l'accent va sur l'icône, non sur toute la pastille.
+- **La barre du haut reste entière**, d'un bord à l'autre : deux panneaux
+  détachés sur un écran, c'est un de trop — il faut un point fixe. Elle suit en
+  revanche le mode.
+- **Une seule échelle, et rien en dehors** (`tailwind.config.js`) : rayons
+  `champ` 8 / `carte` 14 / `fenetre` 22 / `panneau` 26 ; ombres `pose`,
+  `flottant`, `dessus` ; courbe `ease-ios`. Un seul voile de fenêtre : marine
+  translucide, flou léger.
+  **Les rayons de Tailwind sont ramenés sur l'échelle** : `rounded`, `-sm`,
+  `-md`, `-lg` valent 8 ; `-xl` et `-2xl` valent 14. L'échelle existait et
+  servait soixante et une fois pendant que deux mille trois cents classes
+  employaient huit valeurs au hasard — des boutons pointus à côté de boutons
+  ronds. On ne réécrit pas deux mille trois cents classes : **on redéfinit le
+  défaut**, et tout y tombe, aujourd'hui comme demain.
+- **Ce qui vaut à gauche vaut à droite.** La gouttière du rail vaut
+  **exactement** la largeur du rail (`LARGEUR_RAIL`), et rien de plus : c'est
+  le retrait que l'écran se donne — le même des deux côtés — qui fait l'écart.
+  Elle ajoutait 1,5 rem « pour respirer » : 40 px à gauche, 16 à droite, un
+  cadre qui n'est pas d'équerre sans qu'on puisse dire pourquoi.
+- **Le filet de la barre s'aligne sur la colonne de contenu** :
+  `left: calc(var(--rail) + 1rem)`. Posé à une marge choisie, il ne répondait à
+  rien — ni au rail, ni au titre, ni au tableau. Il suit maintenant quand le
+  rail s'élargit, sans que personne ait à y penser.
+- **Le blanc est réservé à ce qui se remplit.** Un champ de saisie ou de
+  sélection est blanc ; **tout le reste est ton sur ton** avec la page —
+  cartes, tableaux, listes, panneaux —, et ce sont les filets qui séparent
+  (`.carte`, `.carte-plate`). Le blanc cesse d'être un décor pour devenir une
+  invitation : là où c'est blanc, on écrit ou on choisit. Un aplat blanc sur un
+  fond presque blanc ne sépare rien ; il ajoute une ombre de différence que
+  l'œil enregistre sans pouvoir l'expliquer. Conséquence : une carte n'a plus
+  besoin d'ombre — un filet et un rayon suffisent.
+- **Un tableau n'a que deux tons** (`.tab-entete`, `.tab-repere`). L'en-tête
+  et la ligne de regroupement sont le **même objet** — l'un nomme les colonnes,
+  l'autre nomme un paquet de lignes : même fond, celui du cadre de titre. La
+  donnée reste blanche, et c'est le seul contraste dont un tableau a besoin.
+  Une même liste montrait cinq valeurs de gris et de bleuté pour dire deux
+  choses.
+- **Une seule échelle typographique** (`tailwind.config.js`) : **10** la
+  mention · **11** l'étiquette · **12** le second plan · **13** LE CORPS ·
+  **15** le titre d'une carte · **17** le titre d'un écran, et il n'y en a
+  qu'un. Les noms de Tailwind y tombent aussi — `text-sm` vaut 13, pas 14.
+  Dix-neuf tailles cohabitaient, employées 2 500 fois : une même information
+  n'avait pas la même taille selon l'écran.
+- **Trois emplois de bouton, trois couleurs** (`.bouton`, `.bouton-fort`,
+  `.bouton-sortir`, `.bouton-detruire`). Neutre : ça n'engage rien. Fort :
+  l'action principale de l'écran, et il n'y en a **qu'une**. Sortir
+  (turquoise) : ce qui produit une pièce. Détruire (brique) : ce qui efface.
+  Dix fonds cohabitaient, dont `iip-gold` qui vaut du marine. **Un état ne se
+  dit pas avec un bouton** : « réussi » en vert est une information, pas une
+  action.
+- **Une seule hauteur de contrôle** (`.controle`, 36 px, dans `index.css`).
+  Une liste déroulante porte les métriques natives du navigateur, un bouton
+  celles qu'on lui a écrites : côte à côte, ils ne font pas la même hauteur et
+  leurs lignes de base ne se répondent pas. Le rayon se règle en redéfinissant
+  le défaut de Tailwind ; la hauteur ne le peut pas — un bouton dans une
+  cellule de tableau n'a rien à faire à 36 px. C'est donc une **classe**, à
+  poser sur les contrôles d'une barre d'outils. `.controle-fort` pour le
+  principal, et il n'y en a qu'un.
+- **Deux formes d'onglet, et une règle qui dit laquelle.** La **pastille**
+  (fond clair, coins arrondis) dit *où l'on est* — barre du haut, rail : on
+  change de territoire. Le **soulignement** (`.onglet-page` /
+  `.onglet-page-actif`) dit *quelle face du même objet* on regarde — les
+  onglets d'une fiche, d'une fenêtre, d'un écran : on tourne une page. Le
+  désordre ne venait pas d'avoir deux formes, mais de n'avoir aucune règle :
+  douze barres d'onglets, cinq couleurs de soulignement, quatre hauteurs.
+- **Une fenêtre ne bouge pas une fois ouverte.** Elle s'ancre en haut à une
+  distance fixe (6 vh) et les grandes ont une **hauteur fixe** (88 vh) : c'est
+  le contenu qui défile. Centrée verticalement, elle se recentrait à chaque
+  changement d'onglet — un onglet court la faisait monter, un long descendre,
+  et le bouton qu'on visait n'était plus là où on l'avait laissé.
+- **Une seule fenêtre** (`Fenetre`, `GroupeFenetre`, `PieceFenetre`,
+  `BoutonFenetre` dans `ui.jsx`). Soixante et onze fichiers posaient leur
+  propre `fixed inset-0`. Le voile est une **couche à part** : porté par le
+  conteneur, son flou fait de lui le cadre de référence de tout `fixed` rendu
+  dedans — une fenêtre ouverte depuis une fenêtre s'y retrouve enfermée.
+- **On ne compte pas les pixels, on les mesure.** La hauteur de la barre du
+  haut était écrite « 64 px » à la main ; elle ne les fait pas toujours, et le
+  rail passait dessous. La barre publie sa hauteur (`--barre-h`), le rail la
+  lit. Même principe pour `--rail-largeur`, que le filet du haut consomme.
 - **Une entrée de rail sans icône est invisible** une fois le rail replié.
 - **Un titre ne s'écrit qu'une fois** par écran.
 - Un libellé ne promet que ce que la modale fait réellement.

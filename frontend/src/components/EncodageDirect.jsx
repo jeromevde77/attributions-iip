@@ -104,13 +104,13 @@ export default function EncodageDirect({ onClose, anneeDefaut, sectionDefaut }) 
   };
 
   return (
-    <div className="fixed inset-0 bg-black/40 flex items-start justify-center z-50 p-4"
+    <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] flex items-start justify-center z-50 p-4"
       onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-5xl mt-8 p-5 space-y-4
+      <div className="bg-white rounded-fenetre shadow-dessus w-full max-w-5xl mt-8 p-5 space-y-4
                       max-h-[90vh] overflow-hidden flex flex-col">
         <div className="flex items-start justify-between">
           <div>
-            <h3 className="text-[16px] font-semibold text-iip-blue">Encodage direct</h3>
+            <h3 className="text-[15px] font-semibold text-iip-blue">Encodage direct</h3>
             <p className="text-[12px] text-slate-500">
               Saisissez la note sur 20 ; le résultat en découle au seuil de 10.
             </p>
@@ -121,7 +121,7 @@ export default function EncodageDirect({ onClose, anneeDefaut, sectionDefaut }) 
         </div>
 
         {message && (
-          <div className={`px-3 py-2 rounded-lg text-[12.5px] ${
+          <div className={`px-3 py-2 rounded-lg text-[13px] ${
             message.type === 'err' ? 'bg-red-50 border border-red-200 text-red-800'
             : message.type === 'alerte' ? 'bg-amber-50 border border-amber-200 text-amber-900'
             : 'bg-emerald-50 border border-emerald-200 text-emerald-800'}`}>
@@ -182,11 +182,11 @@ export default function EncodageDirect({ onClose, anneeDefaut, sectionDefaut }) 
         </div>
 
         {!donnees ? (
-          <div className="py-10 text-center text-[12.5px] text-slate-400">
+          <div className="py-10 text-center text-[13px] text-slate-400">
             {enCours ? 'Chargement…' : 'Choisissez une année et une section.'}
           </div>
         ) : !etudiantsVus.length ? (
-          <div className="py-10 text-center text-[12.5px] text-slate-400 border-2 border-dashed rounded-xl">
+          <div className="py-10 text-center text-[13px] text-slate-400 border-2 border-dashed rounded-xl">
             Aucun étudiant inscrit dans cette section pour {annee}.
           </div>
         ) : (
@@ -202,7 +202,7 @@ export default function EncodageDirect({ onClose, anneeDefaut, sectionDefaut }) 
                       <th key={u.ue_num} title={u.ue_nom}
                         className="px-1 py-1.5 border-b border-slate-200 min-w-[52px]">
                         <div className="text-[11px] font-bold text-iip-blue">{u.ue_num}</div>
-                        <div className="text-[9px] text-slate-400 truncate max-w-[70px]">
+                        <div className="text-[10px] text-slate-400 truncate max-w-[70px]">
                           {u.ue_nom}
                         </div>
                       </th>
@@ -262,7 +262,7 @@ export default function EncodageDirect({ onClose, anneeDefaut, sectionDefaut }) 
               <span className="text-[11px] text-iip-turquoise flex items-center gap-1.5">
                 VA = valorisation · ⚠ VA = valorisation ET résultat encodé, à trancher
               </span>
-              <span className="text-[11.5px] text-slate-500 flex items-center gap-1.5">
+              <span className="text-[12px] text-slate-500 flex items-center gap-1.5">
                 <IconAlertTriangle size={13} />
                 {etudiantsVus.length} étudiant(s) · {uesVues.length} unité(s).
                 Une note sous 10 vaut ajournement.

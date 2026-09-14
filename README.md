@@ -23,7 +23,8 @@ l'attestation de réussite.
 | [`docs/contexte/`](docs/contexte/) | Les notes de fond : audit des documents, état de passation, conformité réglementaire. |
 | [`docs/CI-CD-SETUP.md`](docs/CI-CD-SETUP.md) | La chaîne de construction et de déploiement. |
 | [`docs/ROLLBACK.md`](docs/ROLLBACK.md) | Revenir en arrière quand une version pose problème. |
-| [`GUIDE-INSTALLATION-SYNOLOGY.md`](GUIDE-INSTALLATION-SYNOLOGY.md) | Première installation sur le NAS. |
+| [`GUIDE-INSTALLATION-SYNOLOGY.md`](GUIDE-INSTALLATION-SYNOLOGY.md) | Installation sur le NAS Synology. |
+| [`GUIDE-INSTALLATION-VPS.md`](GUIDE-INSTALLATION-VPS.md) | Installation sur un VPS OVH (Debian + Caddy). |
 
 ---
 

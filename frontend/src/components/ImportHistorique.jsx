@@ -163,9 +163,9 @@ export default function ImportHistorique({ onClose, onImporte }) {
   }
 
   return (
-    <div className="fixed inset-0 bg-black/40 flex items-start justify-center z-50 p-4 overflow-auto"
+    <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] flex items-start justify-center z-50 p-4 overflow-auto"
       onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl mt-8">
+      <div className="bg-white rounded-fenetre shadow-dessus w-full max-w-3xl mt-8">
         <div className="bg-iip-blue rounded-t-2xl px-5 py-4 flex items-start justify-between">
           <div>
             <div className="text-white font-bold text-[15px]">Reconstruire l'historique</div>
@@ -178,7 +178,7 @@ export default function ImportHistorique({ onClose, onImporte }) {
 
         <div className="p-5 space-y-4">
           {erreur && (
-            <div className="px-3 py-2 rounded-lg bg-red-50 border border-red-200 text-[12.5px] text-red-800">
+            <div className="px-3 py-2 rounded-lg bg-red-50 border border-red-200 text-[13px] text-red-800">
               {erreur}
             </div>
           )}
@@ -209,7 +209,7 @@ export default function ImportHistorique({ onClose, onImporte }) {
                   <div key={f.nom} className="px-3 py-2.5">
                     <div className="flex items-center gap-2 flex-wrap">
                       <IconFileSpreadsheet size={15} className="text-slate-400 flex-none" />
-                      <span className="text-[12.5px] text-slate-800 flex-1 truncate">{f.nom}</span>
+                      <span className="text-[13px] text-slate-800 flex-1 truncate">{f.nom}</span>
                       <input value={f.annee}
                         onChange={e => setFichiers(fs => fs.map((x, j) => j === i ? { ...x, annee: e.target.value } : x))}
                         className="w-24 border border-slate-300 rounded-lg px-2 py-1 text-[12px] text-center" />
@@ -228,7 +228,7 @@ export default function ImportHistorique({ onClose, onImporte }) {
 
               {rapport && (
                 <div className="px-4 py-3 rounded-xl bg-amber-50 border border-amber-200">
-                  <div className="flex items-center gap-1.5 text-[12.5px] font-semibold text-amber-900 mb-1.5">
+                  <div className="flex items-center gap-1.5 text-[13px] font-semibold text-amber-900 mb-1.5">
                     <IconAlertTriangle size={15} /> Ce qui sera fait
                   </div>
                   <ul className="text-[12px] text-amber-900 space-y-0.5">
@@ -262,7 +262,7 @@ export default function ImportHistorique({ onClose, onImporte }) {
                   {enCours ? '…' : 'Simuler'}
                 </button>
                 <button onClick={() => lancer(false)} disabled={!rapport || enCours}
-                  className="text-sm px-4 py-1.5 rounded-lg bg-iip-blue text-white font-semibold disabled:opacity-40">
+                  className="bouton bouton-fort">
                   Importer
                 </button>
               </div>
@@ -282,7 +282,7 @@ export default function ImportHistorique({ onClose, onImporte }) {
               </div>
               <div className="border border-slate-200 rounded-xl divide-y divide-slate-100 max-h-56 overflow-y-auto">
                 {rapport.fichiers.map(f => (
-                  <div key={f.nom} className="px-3 py-2 text-[11.5px]">
+                  <div key={f.nom} className="px-3 py-2 text-[12px]">
                     <div className="text-slate-800">{f.nom} <span className="text-slate-400">· {f.annee}</span></div>
                     <div className="text-slate-500">
                       {f.rapproches} rapproché(s), {f.crees} créé(s), {f.resultats} résultat(s),
@@ -294,7 +294,7 @@ export default function ImportHistorique({ onClose, onImporte }) {
               </div>
               <div className="flex justify-end">
                 <button onClick={onClose}
-                  className="text-sm px-4 py-1.5 rounded-lg bg-iip-blue text-white font-semibold">Fermer</button>
+                  className="bouton bouton-fort">Fermer</button>
               </div>
             </>
           )}

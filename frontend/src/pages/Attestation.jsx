@@ -740,11 +740,11 @@ export default function Attestation() {
       {/* Onglets */}
       <div className="flex gap-1 border-b border-gray-200">
         <button onClick={() => setOnglet('attestations')}
-          className={`px-4 py-2 text-sm font-medium -mb-px border-b-2 ${onglet==='attestations' ? 'border-iip-gold text-iip-gold' : 'border-transparent text-gray-500 hover:text-iip-blue'}`}>
+          className={`onglet-page ${onglet === 'attestations' ? 'onglet-page-actif' : ''}`}>
           Attestations de réussite
         </button>
         <button onClick={() => setOnglet('diplome')}
-          className={`px-4 py-2 text-sm font-medium -mb-px border-b-2 ${onglet==='diplome' ? 'border-iip-gold text-iip-gold' : 'border-transparent text-gray-500 hover:text-iip-blue'}`}>
+          className={`onglet-page ${onglet === 'diplome' ? 'onglet-page-actif' : ''}`}>
           Modèle de diplôme
         </button>
       </div>
@@ -755,7 +755,7 @@ export default function Attestation() {
       {/* En-tête */}
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h1 className="text-2xl font-title text-iip-gold">Attestations de réussite</h1>
+          <h1 className="titre-ecran">Attestations de réussite</h1>
           <p className="text-sm text-gray-500 mt-0.5">
             Année :{' '}
             <input value={annee}
@@ -845,12 +845,12 @@ export default function Attestation() {
                 ))}
                 {cfgActive.det.map(u => (
                   <th key={u.ue} onClick={() => trier('ue:' + u.ue)} className="px-1 py-2 font-semibold text-gray-500 w-14 text-center cursor-pointer select-none hover:text-iip-blue" title={u.nom}>
-                    UE{u.ue}{fleche('ue:' + u.ue)}<br/><span className="text-[9px] text-gray-400 font-normal">/20 · {u.periodes}p</span>
+                    UE{u.ue}{fleche('ue:' + u.ue)}<br/><span className="text-[10px] text-gray-400 font-normal">/20 · {u.periodes}p</span>
                   </th>
                 ))}
                 {cfgActive.intUe && (
                 <th onClick={() => trier('ue:' + cfgActive.intUe)} className="px-1 py-2 font-semibold text-amber-600 w-14 text-center cursor-pointer select-none hover:text-amber-700" title={cfgActive.intNom}>
-                  UE{cfgActive.intUe}{fleche('ue:' + cfgActive.intUe)}<br/><span className="text-[9px] text-amber-500 font-normal">/20 · 1/3</span>
+                  UE{cfgActive.intUe}{fleche('ue:' + cfgActive.intUe)}<br/><span className="text-[10px] text-amber-500 font-normal">/20 · 1/3</span>
                 </th>
                 )}
                 <th onClick={() => trier('mention')} className="px-2 py-2 font-semibold text-gray-500 w-32 text-center cursor-pointer select-none hover:text-iip-blue">Mention (auto){fleche('mention')}</th>

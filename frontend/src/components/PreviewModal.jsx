@@ -60,45 +60,51 @@ export default function PreviewModal({ html, titre = 'Document', sousTitre, nomF
     setTimeout(lancer, 400);
   }
 
-  // Extraire initiales depuis le titre (ex: "BAGAYOKO Daouda" → "DB")
-  const initiales = titre.split(/\s+/).map(w => w[0] || '').slice(0, 2).join('').toUpperCase();
-
   return (
-    <div className="fixed inset-0 bg-black/60 z-50 flex flex-col items-center p-2 sm:p-4"
+    /* LA FENÊTRE D'APERÇU REJOINT LES AUTRES.
+       Elle gardait la forme d'avant : une barre marine pleine, un médaillon
+       d'initiales, un bouton turquoise et une astuce en jaune. Toutes les
+       autres fenêtres de Lucie sont désormais claires, tenues par un filet,
+       leur titre en marine — c'est la règle du blanc réservé à ce qui se
+       remplit, et elle vaut ici comme ailleurs. Un aperçu qui ne ressemble à
+       aucune autre fenêtre donne l'impression d'avoir changé d'application au
+       moment d'imprimer. */
+    <div className="fixed inset-0 z-50 flex flex-col items-center p-2 sm:p-4"
          onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="bg-white rounded-xl shadow-2xl w-full max-w-5xl flex flex-col overflow-hidden"
-           style={{ height: '95vh' }}>
+      <div aria-hidden="true"
+        className="absolute inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px]" />
+      <div className="relative bg-white rounded-fenetre shadow-dessus w-full max-w-5xl
+                      flex flex-col overflow-hidden" style={{ height: '95vh' }}>
 
-        {/* ── Barre marine ── */}
-        <div className="flex items-center justify-between px-4 py-2.5 bg-[#1B2B4B] flex-shrink-0">
-          <div className="flex items-center gap-3 min-w-0">
-            <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center text-white font-bold text-xs flex-shrink-0">
-              {initiales}
-            </div>
-            <div className="min-w-0">
-              <div className="text-white font-bold text-sm truncate">{titre}</div>
-              {sousTitre && <div className="text-white/60 text-xs">{sousTitre}</div>}
+        {/* L'EN-TÊTE EST TON SUR TON, et un filet le sépare du document. */}
+        <div className="flex items-center justify-between gap-3 px-4 py-2.5 flex-shrink-0
+                        border-b border-slate-200" style={{ background: 'var(--barre-fond, #F8FAFC)' }}>
+          <div className="min-w-0">
+            <div className="titre-ecran mb-0 truncate">{titre}</div>
+            <div className="text-[11px] text-slate-400 truncate">
+              {[sousTitre, nomFichier].filter(Boolean).join(' · ')}
             </div>
           </div>
           <div className="flex items-center gap-2 flex-shrink-0">
-            {astuceImpression && <span className="text-[10px] text-amber-300 hidden sm:inline opacity-75">
+            {astuceImpression && <span className="text-[11px] text-slate-400 hidden lg:inline">
               {astuceImpression}
             </span>}
             <button onClick={imprimer} disabled={!pret}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-iip-turquoise text-white rounded-lg text-xs font-medium hover:opacity-90 disabled:opacity-40">
-              <IconPrinter size={13} /> Imprimer / PDF
+              className="bouton-sortir controle px-3 flex items-center gap-1.5 disabled:opacity-40">
+              <IconPrinter size={15} /> Imprimer / PDF
             </button>
             {destinataire && envoiMail?.actif && (
               <button onClick={() => setEnvoi(true)} disabled={!pret}
                 title="Envoyer ce document par courriel, en PDF joint"
-                className="flex items-center gap-1.5 px-3 py-1.5 bg-white/10 text-white border border-white/30 rounded-lg text-xs font-medium hover:bg-white/20 disabled:opacity-40">
-                <IconMail size={13} /> Envoyer
+                className="bouton controle px-3 flex items-center gap-1.5 disabled:opacity-40">
+                <IconMail size={15} /> Envoyer
               </button>
             )}
             {actionExtra}
-            <button onClick={onClose}
-              className="text-white/60 hover:text-white p-1.5 rounded-lg hover:bg-white/10">
-              <IconX size={16} />
+            <button onClick={onClose} aria-label="Fermer"
+              className="controle w-9 grid place-items-center rounded-champ
+                         text-slate-400 hover:text-slate-700 hover:bg-slate-100">
+              <IconX size={17} />
             </button>
           </div>
         </div>

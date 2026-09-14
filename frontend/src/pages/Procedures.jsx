@@ -41,8 +41,8 @@ function fmtCourt(d) {
 // ─── Composants UI ────────────────────────────────────────────────────────────
 function Badge({ ok, label }) {
   return ok
-    ? <span className="inline-flex items-center gap-1 bg-green-100 text-green-800 border border-green-300 rounded-full px-3 py-0.5 text-sm font-semibold"><IconCheck size={15} stroke={2.2} /> {label}</span>
-    : <span className="inline-flex items-center gap-1 bg-red-100 text-red-800 border border-red-300 rounded-full px-3 py-0.5 text-sm font-semibold"><IconX size={15} stroke={2.2} /> {label}</span>;
+    ? <span className="inline-flex items-center gap-1 bg-green-100 text-green-800 border border-green-300 rounded-champ px-3 py-0.5 text-sm font-semibold"><IconCheck size={15} stroke={2.2} /> {label}</span>
+    : <span className="inline-flex items-center gap-1 bg-red-100 text-red-800 border border-red-300 rounded-champ px-3 py-0.5 text-sm font-semibold"><IconX size={15} stroke={2.2} /> {label}</span>;
 }
 function Ref({ text }) {
   return <span className="inline-flex items-center gap-1 text-xs text-iip-blue bg-iip-turquoise/5 border border-iip-turquoise/30 rounded px-1.5 py-0.5 ml-1"><IconScale size={13} stroke={1.8} /> {text}</span>;
@@ -61,7 +61,7 @@ function Q({ num, text, value, onChange, ref_ }) {
         <div className="flex gap-2">
           {[['oui', 'Oui', IconCheck], ['non', 'Non', IconX], ['', '—', null]].map(([v, l, Ic]) => (
             <button key={v} onClick={() => onChange(v)}
-              className={`inline-flex items-center gap-1 px-4 py-1.5 rounded-full text-sm border transition ${value===v?(v==='oui'?'bg-green-600 text-white border-green-600':v==='non'?'bg-red-600 text-white border-red-600':'bg-gray-400 text-white border-gray-400'):'bg-white text-gray-600 border-gray-300 hover:bg-gray-50'}`}>
+              className={`inline-flex items-center gap-1 px-4 py-1.5 rounded-champ text-sm border transition ${value===v?(v==='oui'?'bg-green-600 text-white border-green-600':v==='non'?'bg-red-600 text-white border-red-600':'bg-gray-400 text-white border-gray-400'):'bg-white text-gray-600 border-gray-300 hover:bg-gray-50'}`}>
               {Ic && <Ic size={15} stroke={2.2} />}{l}
             </button>
           ))}
@@ -548,7 +548,7 @@ function OutilRecours({ initialPayload, onPayloadConsumed }) {
 
       {/* Indicateur autosave */}
       {autosaved && (
-        <div className="fixed bottom-4 right-4 z-50 bg-gray-800/80 text-white text-xs px-3 py-1.5 rounded-full flex items-center gap-1.5 pointer-events-none">
+        <div className="fixed bottom-4 right-4 z-50 bg-gray-800/80 text-white text-xs px-3 py-1.5 rounded-champ flex items-center gap-1.5 pointer-events-none">
           <span>✓</span> Brouillon sauvegardé
         </div>
       )}
@@ -1398,7 +1398,7 @@ function OutilFraude({ initialPayload, onPayloadConsumed }) {
               <label key={val} className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition ${decision===val?'bg-green-50 border-green-500':'bg-white border-gray-300 hover:bg-gray-50'}`}>
                 <input type="radio" name="decision" value={val} checked={decision===val} onChange={() => setDecision(val)} className="accent-red-700" />
                 <span className="text-sm flex-1">{label}</span>
-                {recommande && <span className="text-xs bg-green-100 text-green-800 border border-green-300 rounded-full px-2 py-0.5">Recommandé</span>}
+                {recommande && <span className="text-xs bg-green-100 text-green-800 border border-green-300 rounded-champ px-2 py-0.5">Recommandé</span>}
               </label>
             ))}
           </div>
@@ -1423,7 +1423,7 @@ function OutilFraude({ initialPayload, onPayloadConsumed }) {
             {profsPresents.size > 0 && (
               <div className="mt-2 flex flex-wrap gap-1">
                 {profs.filter(p => profsPresents.has(p.id)).map(p => (
-                  <span key={p.id} className="text-xs bg-green-100 text-green-800 border border-green-300 rounded-full px-2 py-0.5 inline-flex items-center gap-1"><IconCheck size={12} /> {p.nomComplet}</span>
+                  <span key={p.id} className="text-xs bg-green-100 text-green-800 border border-green-300 rounded-champ px-2 py-0.5 inline-flex items-center gap-1"><IconCheck size={12} /> {p.nomComplet}</span>
                 ))}
               </div>
             )}
@@ -1676,7 +1676,7 @@ function ArchivesProcedures({ onReprendreRecours, onReprendre }) {
               {archives.map(proc => (
                 <tr key={proc.id} className="hover:bg-gray-50">
                   <td className="px-4 py-3">
-                    <span className={`inline-flex text-xs font-semibold px-2 py-0.5 rounded-full ${TYPE_COLOR[proc.type] || 'bg-gray-100 text-gray-600'}`}>
+                    <span className={`inline-flex text-xs font-semibold px-2 py-0.5 rounded-champ ${TYPE_COLOR[proc.type] || 'bg-gray-100 text-gray-600'}`}>
                       {proc.type === 'recours' ? '⚖ Recours' : '🚨 Fraude'}
                     </span>
                   </td>
@@ -1685,13 +1685,13 @@ function ArchivesProcedures({ onReprendreRecours, onReprendre }) {
                   <td className="px-4 py-3 text-gray-600">{proc.section || '—'}</td>
                   <td className="px-4 py-3">
                     {proc.verdict ? (
-                      <span className={`inline-flex text-xs font-semibold px-2 py-0.5 rounded-full ${VERDICT_COLOR[proc.verdict] || 'bg-gray-100 text-gray-600'}`}>
+                      <span className={`inline-flex text-xs font-semibold px-2 py-0.5 rounded-champ ${VERDICT_COLOR[proc.verdict] || 'bg-gray-100 text-gray-600'}`}>
                         {VERDICT_LABEL[proc.verdict] || proc.verdict}
                       </span>
                     ) : '—'}
                   </td>
                   <td className="px-4 py-3">
-                    <span className={`inline-flex text-xs font-semibold px-2 py-0.5 rounded-full ${STATUT_COLOR[proc.statut] || 'bg-gray-100'}`}>
+                    <span className={`inline-flex text-xs font-semibold px-2 py-0.5 rounded-champ ${STATUT_COLOR[proc.statut] || 'bg-gray-100'}`}>
                       {STATUT_LABEL[proc.statut] || proc.statut}
                     </span>
                   </td>
@@ -1712,7 +1712,7 @@ function ArchivesProcedures({ onReprendreRecours, onReprendre }) {
 
       {/* Panneau de détail */}
       {detail && (
-        <div className="fixed inset-0 bg-black/40 z-50 flex items-start justify-end">
+        <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] z-50 flex items-start justify-end">
           <div className="bg-white w-full max-w-xl h-full overflow-auto shadow-2xl flex flex-col">
             {/* Header */}
             <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 bg-gray-50">
@@ -1728,11 +1728,11 @@ function ArchivesProcedures({ onReprendreRecours, onReprendre }) {
             <div className="flex-1 px-6 py-5 space-y-5 overflow-auto">
               {/* Badges */}
               <div className="flex flex-wrap gap-2">
-                <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${STATUT_COLOR[detail.statut]}`}>
+                <span className={`text-xs font-semibold px-2.5 py-1 rounded-champ ${STATUT_COLOR[detail.statut]}`}>
                   {STATUT_LABEL[detail.statut]}
                 </span>
                 {detail.verdict && (
-                  <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${VERDICT_COLOR[detail.verdict]}`}>
+                  <span className={`text-xs font-semibold px-2.5 py-1 rounded-champ ${VERDICT_COLOR[detail.verdict]}`}>
                     {VERDICT_LABEL[detail.verdict] || detail.verdict}
                   </span>
                 )}
@@ -1852,7 +1852,7 @@ export default function Procedures() {
       />
 
       {/* ── Contenu (décalé du gutter du rail) ── */}
-      <div className="ml-16 p-6">
+      <div className="gouttiere-rail p-6">
         {outil === 'recours' && (
           <>
             <PageHeader icon={IconScale} titre="Outil de traitement des recours"

@@ -58,7 +58,7 @@ export default function Demandes() {
   return (
     <div className="p-5 space-y-4">
       <div>
-        <h2 className="text-xl font-semibold text-iip-blue">Demandes de modification</h2>
+        <h2 className="titre-ecran mb-0">Demandes de modification</h2>
         <p className="text-sm text-slate-500">
           Les saisies des coordinateurs n'entrent en vigueur qu'après décision.
         </p>
@@ -74,10 +74,10 @@ export default function Demandes() {
       )}
 
       <div className="flex gap-2 flex-wrap items-center">
-        <div className="flex rounded-lg border border-slate-300 overflow-hidden">
+        <div className="segments">
           {[['en_attente', 'En attente'], ['validee', 'Validées'], ['refusee', 'Refusées']].map(([v, l]) => (
             <button key={v} onClick={() => setStatut(v)}
-              className={`px-3 py-1.5 text-[12.5px] ${statut === v
+              className={`px-3 py-1.5 text-[13px] ${statut === v
                 ? 'bg-iip-blue text-white font-semibold' : 'text-slate-600 hover:bg-slate-50'}`}>
               {l}
             </button>
@@ -125,7 +125,7 @@ export default function Demandes() {
                       </button>
                     </div>
                   ) : (
-                    <div className={`text-[11.5px] ${d.statut === 'validee' ? 'text-emerald-700' : 'text-red-700'}`}>
+                    <div className={`text-[12px] ${d.statut === 'validee' ? 'text-emerald-700' : 'text-red-700'}`}>
                       {d.statut === 'validee' ? 'Validée' : 'Refusée'} par {d.decideur_nom || '—'}
                       {d.motif_refus && <span className="block text-slate-500">« {d.motif_refus} »</span>}
                     </div>

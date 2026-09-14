@@ -79,13 +79,13 @@ export default function LiensCoursAcquis({ ueNum, annee, onClose, onEnregistre }
     !(data?.cours || []).some(c => Number(poids[`${c.cours_code}|${a.aa_code}`]) > 0));
 
   return (
-    <div className="fixed inset-0 bg-black/40 flex items-start justify-center z-50 p-4"
+    <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] flex items-start justify-center z-50 p-4"
       onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-5xl mt-8
+      <div className="bg-white rounded-fenetre shadow-dessus w-full max-w-5xl mt-8
                       max-h-[90vh] overflow-hidden flex flex-col">
         <div className="flex-none p-5 pb-3 border-b border-slate-100 flex items-start justify-between">
           <div>
-            <h3 className="text-[16px] font-semibold text-iip-blue">
+            <h3 className="text-[15px] font-semibold text-iip-blue">
               UE {ueNum}{data?.ue_nom ? ` · ${data.ue_nom}` : ''} — cours et acquis
             </h3>
             <p className="text-[12px] text-slate-500">
@@ -101,11 +101,11 @@ export default function LiensCoursAcquis({ ueNum, annee, onClose, onEnregistre }
         <div className="flex-1 overflow-y-auto p-5 space-y-3">
           {erreur && (
             <div className="px-3 py-2 rounded-lg bg-red-50 border border-red-200
-                            text-[12.5px] text-red-800">{erreur}</div>
+                            text-[13px] text-red-800">{erreur}</div>
           )}
           {message && (
             <div className="px-3 py-2 rounded-lg bg-emerald-50 border border-emerald-200
-                            text-[12.5px] text-emerald-800">{message}</div>
+                            text-[13px] text-emerald-800">{message}</div>
           )}
 
           {!data ? (
@@ -125,7 +125,7 @@ export default function LiensCoursAcquis({ ueNum, annee, onClose, onEnregistre }
             <>
               {!!orphelins.length && (
                 <div className="px-3 py-2 rounded-lg bg-amber-50 border border-amber-200
-                                text-[12.5px] text-amber-900 flex items-start gap-1.5">
+                                text-[13px] text-amber-900 flex items-start gap-1.5">
                   <IconAlertTriangle size={15} className="mt-0.5 flex-none" />
                   <span>
                     <b>{orphelins.length} acquis</b> ne sont évalués par aucun cours :
@@ -179,7 +179,7 @@ export default function LiensCoursAcquis({ ueNum, annee, onClose, onEnregistre }
                                   onChange={e => setPoids(m => ({ ...m, [cle]: e.target.value }))}
                                   placeholder="—"
                                   title="Poids de cet acquis dans ce cours, au demi-point — vide ou 0 : il n'y est pas évalué"
-                                  className={`w-16 border rounded-lg px-1.5 py-1 text-[12.5px]
+                                  className={`w-16 border rounded-lg px-1.5 py-1 text-[13px]
                                     text-center tabular-nums ${Number(v) > 0
                                       ? 'border-iip-blue/40 bg-iip-blue/5 font-semibold'
                                       : 'border-slate-200 text-slate-400'}`} />
@@ -219,7 +219,7 @@ export default function LiensCoursAcquis({ ueNum, annee, onClose, onEnregistre }
                 </table>
               </div>
 
-              <p className="text-[11.5px] text-slate-500">
+              <p className="text-[12px] text-slate-500">
                 Une case vide ou à zéro signifie que ce cours n'évalue pas cet acquis.
                 Un même acquis peut être évalué par plusieurs cours : sa note globale
                 est alors la moyenne de ses évaluations, pondérée par ces poids.

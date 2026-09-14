@@ -11,9 +11,8 @@ import ImportSuivi from '../components/ImportSuivi.jsx';
 import DiagnosticAnnees from '../components/DiagnosticAnnees.jsx';
 import SchemaLiensAA from '../components/SchemaLiensAA.jsx';
 import EncodageRapide from './EncodageRapide.jsx';
-import CentreDocumentsUE from '../components/CentreDocumentsUE.jsx';
+import CentreImpressionCentral from '../components/CentreImpressionCentral.jsx';
 import RepriseLot from '../components/RepriseLot.jsx';
-import CentreImpression from '../components/CentreImpression.jsx';
 import ImportTableauPlat from '../components/ImportTableauPlat.jsx';
 import ReglesDeliberation from '../components/ReglesDeliberation.jsx';
 import FeuilleCorrection from '../components/FeuilleCorrection.jsx';
@@ -118,7 +117,7 @@ export default function Deliberation() {
       <div>
         <div className="px-5 pt-4">
           <button onClick={() => { setRapide(false); charger(); }}
-            className="flex items-center gap-1.5 text-[12.5px] text-iip-blue hover:underline">
+            className="flex items-center gap-1.5 text-[13px] text-iip-blue hover:underline">
             <IconArrowLeft size={15} /> Retour à la délibération
           </button>
         </div>
@@ -133,7 +132,7 @@ export default function Deliberation() {
     <div className="p-5 space-y-4">
       <div className="flex items-start justify-between gap-3 flex-wrap">
         <div>
-          <h2 className="text-xl font-semibold text-iip-blue">Délibération</h2>
+          <h2 className="titre-ecran mb-0">Délibération</h2>
           <p className="text-sm text-slate-500">
             Année {annee} · choisissez une section, puis l'unité à délibérer.
           </p>
@@ -199,7 +198,7 @@ export default function Deliberation() {
       </div>
 
       {erreur && (
-        <div className="px-3 py-2 rounded-lg bg-red-50 border border-red-200 text-[12.5px] text-red-800">
+        <div className="px-3 py-2 rounded-lg bg-red-50 border border-red-200 text-[13px] text-red-800">
           {erreur}
         </div>
       )}
@@ -218,13 +217,13 @@ export default function Deliberation() {
               className="text-left border border-slate-200 rounded-xl px-4 py-3
                          hover:border-iip-blue hover:bg-iip-blue/5 transition">
               <div className="flex items-center justify-between gap-2">
-                <span className="text-[14px] font-semibold text-iip-blue">{s.section}</span>
+                <span className="text-[15px] font-semibold text-iip-blue">{s.section}</span>
                 <IconChevronRight size={16} className="text-slate-300" />
               </div>
               <div className="text-[12px] text-slate-500 mt-0.5">
                 {s.nb_ues} unité(s) · {s.inscrits} inscription(s)
               </div>
-              <div className="mt-1.5 flex flex-wrap gap-x-3 gap-y-0.5 text-[11.5px]">
+              <div className="mt-1.5 flex flex-wrap gap-x-3 gap-y-0.5 text-[12px]">
                 {s.a_delibierer > 0
                   ? <span className="text-amber-800 font-semibold">{s.a_delibierer} à délibérer</span>
                   : <span className="text-emerald-700 font-semibold">Tout est délibéré</span>}
@@ -241,7 +240,7 @@ export default function Deliberation() {
         /* ── Les UNITÉS de la section ─────────────────────────────────── */
         <>
           <button onClick={() => setSection(null)}
-            className="flex items-center gap-1.5 text-[12.5px] text-iip-blue hover:underline">
+            className="flex items-center gap-1.5 text-[13px] text-iip-blue hover:underline">
             <IconArrowLeft size={15} /> Toutes les sections
           </button>
 
@@ -264,23 +263,23 @@ export default function Deliberation() {
                     <button onClick={() => setUeNum(u.ue_num)}
                       className="font-bold text-iip-blue w-12 flex-none tabular-nums text-left
                                  hover:underline">{u.ue_num}</button>
-                    <span className="flex-1 text-[12.5px] text-slate-700 truncate">
+                    <span className="flex-1 text-[13px] text-slate-700 truncate">
                       {u.ue_nom || `UE ${u.ue_num}`}
-                      {u.ue_niv && <span className="ml-2 text-[10.5px] text-slate-400">{u.ue_niv}</span>}
+                      {u.ue_niv && <span className="ml-2 text-[11px] text-slate-400">{u.ue_niv}</span>}
                     </span>
 
                     {/* L'avancement, en clair : c'est ce qu'on vient chercher. */}
-                    <span className="text-[11.5px] tabular-nums text-slate-500 w-28 text-right flex-none">
+                    <span className="text-[12px] tabular-nums text-slate-500 w-28 text-right flex-none">
                       {u.decides}/{u.inscrits} décidé(s)
                     </span>
                     <span className="w-24 flex-none text-right">
                       {reste > 0
-                        ? <span className="text-[11.5px] font-semibold text-amber-800">{reste} restant(s)</span>
-                        : <span className="text-[11.5px] font-semibold text-emerald-700">complet</span>}
+                        ? <span className="text-[12px] font-semibold text-amber-800">{reste} restant(s)</span>
+                        : <span className="text-[12px] font-semibold text-emerald-700">complet</span>}
                     </span>
                     <span className="w-32 flex-none text-right">
                       {u.echecs_non_motives > 0 ? (
-                        <span className="text-[11.5px] text-red-700 flex items-center gap-1 justify-end">
+                        <span className="text-[12px] text-red-700 flex items-center gap-1 justify-end">
                           <IconAlertTriangle size={12} /> {u.echecs_non_motives} sans motivation
                         </span>
                       ) : u.seconde_attend ? (
@@ -289,7 +288,7 @@ export default function Deliberation() {
                            première session : sans un mot, on en conclut que
                            Lucie refuse la seconde. Elle attend la clôture. */
                         <span title="La seconde session s'ouvre à la clôture de la première"
-                          className="text-[11.5px] text-sky-800 flex items-center gap-1 justify-end">
+                          className="text-[12px] text-sky-800 flex items-center gap-1 justify-end">
                           <IconAlertTriangle size={12} /> à clôturer
                         </span>
                       ) : u.s1_cloturee && u.session === 1 ? (
@@ -300,7 +299,7 @@ export default function Deliberation() {
                         <span title={`${u.s1_ajournes} ajourné(s) en première session `
                           + `sur ${u.decides} décision(s) : sans ajourné, il n'y a pas `
                           + `de seconde session.`}
-                          className="text-[11.5px] text-emerald-700 justify-end">
+                          className="text-[12px] text-emerald-700 justify-end">
                           S1 close · {u.s1_ajournes ? `${u.s1_ajournes} ajourné(s)` : 'aucun ajourné'}
                         </span>
                       ) : null}
@@ -319,21 +318,21 @@ export default function Deliberation() {
                             + `${u.s1_ajournes} étudiant(s) sont ajournés : clôturez la `
                             + `séance pour ouvrir la seconde session`
                           : 'Première session'}
-                      className={`px-2 py-1 text-[11.5px] rounded-lg border font-semibold flex-none
+                      className={`px-2 py-1 text-[12px] rounded-lg border font-semibold flex-none
                         ${u.session === 2
     ? 'border-amber-500 text-amber-800 bg-amber-50'
     : 'border-iip-blue text-iip-blue'}`}>
                       Délibérer {u.session === 2 ? 'S2' : 'S1'}
                     </button>
                     <button onClick={() => ouvrirCours(u.ue_num)}
-                      className="px-2 py-1 text-[11.5px] rounded-lg border border-slate-300
+                      className="px-2 py-1 text-[12px] rounded-lg border border-slate-300
                                  text-slate-600 flex-none">
                       Encoder par cours
                     </button>
                     {peutToutEncoder && (
                       <button onClick={() => setImporter(u.ue_num)}
                         title="Reprendre les notes depuis un classeur de suivi"
-                        className="px-2 py-1 text-[11.5px] rounded-lg border border-slate-300
+                        className="px-2 py-1 text-[12px] rounded-lg border border-slate-300
                                    text-slate-600 flex-none">
                         Importer
                       </button>
@@ -341,7 +340,7 @@ export default function Deliberation() {
                     {peutToutEncoder && u.decides > 0 && (
                       <button onClick={() => setCorriger(u.ue_num)}
                         title="Toute l'unité sur une feuille : reprendre une note et sa décision"
-                        className="px-2 py-1 text-[11.5px] rounded-lg border border-slate-300
+                        className="px-2 py-1 text-[12px] rounded-lg border border-slate-300
                                    text-slate-600 flex-none">
                         Corriger
                       </button>
@@ -349,7 +348,7 @@ export default function Deliberation() {
                     {peutToutEncoder && (
                       <button onClick={() => setEncoderUE(u.ue_num)}
                         title="Tous les cours de l'unité dans une seule grille"
-                        className="px-2 py-1 text-[11.5px] rounded-lg border border-slate-300
+                        className="px-2 py-1 text-[12px] rounded-lg border border-slate-300
                                    text-slate-600 flex-none">
                         Encoder toute l'UE
                       </button>
@@ -357,7 +356,7 @@ export default function Deliberation() {
                     {u.decides > 0 && (
                       <button onClick={() => setAnnuler(u)}
                         title="Annuler la délibération de cette unité — les notes encodées sont conservées"
-                        className="px-2 py-1 text-[11.5px] rounded-lg border border-slate-300
+                        className="px-2 py-1 text-[12px] rounded-lg border border-slate-300
                                    text-slate-500 flex-none flex items-center gap-1
                                    hover:border-red-400 hover:text-red-700">
                         <IconRotate size={13} />
@@ -367,7 +366,7 @@ export default function Deliberation() {
                         trois piles d'ici, non dossier par dossier. */}
                     <button onClick={() => setDocs(u)}
                       title="Attestations de réussite, notifications d'ajournement et de refus"
-                      className="px-2 py-1 text-[11.5px] rounded-lg border border-iip-blue
+                      className="px-2 py-1 text-[12px] rounded-lg border border-iip-blue
                                  text-iip-blue font-semibold flex-none flex items-center gap-1">
                       <IconPrinter size={13} />
                     </button>
@@ -377,9 +376,9 @@ export default function Deliberation() {
                   {deplie === u.ue_num && (
                     <div className="px-3 pb-2 pl-16 space-y-1">
                       {!coursDeUe[u.ue_num] ? (
-                        <div className="text-[11.5px] text-slate-400">Chargement des cours…</div>
+                        <div className="text-[12px] text-slate-400">Chargement des cours…</div>
                       ) : !coursDeUe[u.ue_num].length ? (
-                        <div className="text-[11.5px] text-amber-800 space-y-1">
+                        <div className="text-[12px] text-amber-800 space-y-1">
                           <div>
                             Aucun cours n'a d'acquis rattaché dans cette unité : la saisie
                             par cours n'a rien à montrer.
@@ -405,7 +404,7 @@ export default function Deliberation() {
                       ))}
                       {!!(coursDeUe[u.ue_num] || []).length && (
                         <button onClick={() => setParametrer(u.ue_num)}
-                          className="text-[11.5px] text-iip-blue underline">
+                          className="text-[12px] text-iip-blue underline">
                           Paramétrer les cours et acquis de cette unité
                         </button>
                       )}
@@ -417,7 +416,7 @@ export default function Deliberation() {
             </div>
           </div>
 
-          <p className="text-[11.5px] text-slate-500">
+          <p className="text-[12px] text-slate-500">
             Un échec sans motivation rend la décision attaquable : la motivation
             se pose dans la feuille, en cliquant sur le nom de l'étudiant.
           </p>
@@ -440,7 +439,8 @@ export default function Deliberation() {
         <ImportTableauPlat annee={annee} onClose={() => setTableauPlat(false)} onFini={charger} />
       )}
       {impression && (
-        <CentreImpression annee={annee} section={sec?.section || null}
+        <CentreImpressionCentral ongletInitial="etudiants"
+          perimetre={sec?.section ? { sections: [sec.section] } : null}
           onClose={() => setImpression(false)} />
       )}
       {repriseLot && (
@@ -476,9 +476,9 @@ export default function Deliberation() {
       )}
 
       {annuler && (
-        <div className="fixed inset-0 bg-black/40 flex items-start justify-center z-50 p-4"
+        <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] flex items-start justify-center z-50 p-4"
           onClick={e => e.target === e.currentTarget && setAnnuler(null)}>
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg mt-24 p-5 space-y-3">
+          <div className="bg-white rounded-fenetre shadow-dessus w-full max-w-lg mt-24 p-5 space-y-3">
             <div>
               <h3 className="text-[15px] font-semibold text-iip-blue">
                 Annuler la délibération de l'UE {annuler.ue_num}
@@ -489,7 +489,7 @@ export default function Deliberation() {
             </div>
 
             <div className="rounded-xl border border-red-200 bg-red-50 px-3 py-2
-                            text-[12.5px] text-red-900">
+                            text-[13px] text-red-900">
               <div className="font-semibold">Seront effacés</div>
               <ul className="list-disc pl-4 mt-0.5 space-y-0.5">
                 <li>les décisions du Conseil : résultat, cote, mention ;</li>
@@ -499,7 +499,7 @@ export default function Deliberation() {
             </div>
 
             <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2
-                            text-[12.5px] text-emerald-900">
+                            text-[13px] text-emerald-900">
               <div className="font-semibold">Seront conservés</div>
               <ul className="list-disc pl-4 mt-0.5 space-y-0.5">
                 <li>les notes encodées par les professeurs ;</li>
@@ -508,19 +508,19 @@ export default function Deliberation() {
               </ul>
             </div>
 
-            <p className="text-[11.5px] text-slate-500">
+            <p className="text-[12px] text-slate-500">
               La délibération repartira de ce qui a été encodé. Cette action
               n'est pas réversible.
             </p>
 
             <div className="flex justify-end gap-2">
               <button onClick={() => setAnnuler(null)}
-                className="px-3 py-1.5 text-[12.5px] rounded-lg border border-slate-300
+                className="px-3 py-1.5 text-[13px] rounded-lg border border-slate-300
                            text-slate-600">
                 Renoncer
               </button>
               <button onClick={annulerDeliberation} disabled={enCours}
-                className="px-4 py-2 text-[12.5px] rounded-lg bg-red-600 text-white
+                className="px-4 py-2 text-[13px] rounded-lg bg-red-600 text-white
                            font-semibold disabled:opacity-40">
                 Annuler la délibération
               </button>
@@ -530,7 +530,8 @@ export default function Deliberation() {
       )}
 
       {docs && (
-        <CentreDocumentsUE ueNum={docs.ue_num} ueNom={docs.ue_nom} annee={annee}
+        <CentreImpressionCentral ongletInitial="etudiants"
+          perimetre={{ ue_nums: [docs.ue_num], session: docs.session }}
           onClose={() => setDocs(null)} />
       )}
 

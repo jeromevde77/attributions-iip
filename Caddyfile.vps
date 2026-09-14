@@ -1,0 +1,27 @@
+# Caddyfile — VPS OVH. À placer dans /etc/caddy/Caddyfile.
+# Caddy obtient et renouvelle seul le certificat Let's Encrypt : les ports 80
+# et 443 doivent être joignables depuis Internet, et l'enregistrement DNS A/AAAA
+# pointer sur le VPS AVANT le premier démarrage.
+
+lucie.example.be {
+	encode zstd gzip
+
+	reverse_proxy 127.0.0.1:8080 {
+		# Un lot d'impression peut demander plusieurs minutes de rendu.
+		transport http {
+			read_timeout 900s
+			write_timeout 900s
+		}
+	}
+
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "SAMEORIGIN"
+		Referrer-Policy "same-origin"
+	}
+
+	log {
+		output file /var/log/caddy/lucie.log
+	}
+}

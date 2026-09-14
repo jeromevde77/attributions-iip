@@ -63,6 +63,32 @@ Le stockage supporte les deux formes : `s1|cours|aa` pour l'encodage par cours,
 
 ---
 
+### Le calendrier, hors de la délibération
+
+Les dates d'épreuve, de visite des copies et de séance se posent depuis
+**Étudiants → Calendrier des sessions** : toute la section sur une page, les
+unités puis leurs cours, et une valeur applicable d'un coup à ce qui est coché.
+Deux dispositions, au choix, retenu d'une visite à l'autre : **côte à côte**
+(par défaut) met juin et septembre sur la même ligne — replié, chaque unité ne
+montre que ses deux délibérations, ce qui tient sur un écran ; **empilée** met
+la première session en bleu au-dessus de la seconde en gris, et laisse plus de
+largeur pour saisir.
+
+- **L'unité** porte la délibération — le Conseil siège par unité, et il n'y a
+  qu'une décision.
+- **Le cours** porte l'épreuve **et la visite des copies**, dans les deux
+  sessions : on vient consulter la copie d'une épreuve, et deux professeurs
+  qui n'interrogent pas le même jour ne montrent pas les copies le même jour.
+  La visite était rangée sur l'unité ; elle est descendue au cours
+  (`s1_visite_*`, `s2_visite_*`). Les notifications ne montrent encore qu'un
+  bloc de visite : elles prennent celle de l'unité, à défaut la première posée
+  au cours. **Un bloc par cours reste à faire.**
+- **Le local se choisit** dans la liste des 55 locaux de l'Institut (table
+  `local`), groupée par type et annotée du nombre de places — il ne se tape
+  plus.
+- Une **séance close** se corrige, mais seulement avec un **motif écrit**,
+  conservé dans `calendrier_correction`. Corriger une date n'est pas rouvrir
+  une délibération : la séance reste close.
 ### La composition du Conseil, et qui préside
 
 Les membres se recomposent depuis les attributions à chaque ouverture. C'est
@@ -177,6 +203,7 @@ celui de la session la plus avancée. Les pièces le lisaient. Conséquences :
 `decisionDeSession(etudId, ueNum, annee, session)` lit désormais
 `deliberation_resultat` filtrée sur la session. **Un étudiant que cette séance
 n'a pas jugé ne figure plus sur ses pièces** : lui attribuer une décision prise
+ailleurs, c'est la prêter au Conseil qui siégeait ce jour-là. **Le repli se juge étudiant par
 ailleurs, c'est la prêter au Conseil qui siégeait ce jour-là. **Le repli n'appartient qu'à la
 première session** : sans cette borne, une décision sans session enregistrée
 ressortait dans les deux, et un lot de seconde session sortait les attestations
@@ -272,6 +299,98 @@ certification de **section** délivrée au titre de l'arrêté royal du 14 mai 2
 signée du seul directeur (« Je soussigné(e) … certifie que »), au texte fixe :
 288 périodes dont 86 de stage, et deux listes de formation imposées. Elle ne peut
 pas sortir du modèle générique.
+
+---
+
+#### Le rail — étroit, fixe, et une bulle au survol
+
+Il s'élargissait au survol, par-dessus le contenu. Sur le calendrier des
+sessions ou une grille de délibération — les écrans les plus larges — il
+recouvrait précisément ce qu'on lisait, et affichait cinq libellés pour répondre
+à une seule question.
+
+**Étroit et fixe**, donc, avec une **bulle** qui nomme une seule chose : celle
+qu'on vise. L'épingle reste, pour qui veut la liste sous les yeux en permanence —
+c'est un réglage, non un accident du curseur.
+
+Deux détails qui ont demandé du soin :
+
+- la bulle est **unique et rendue au niveau du rail**, hors du conteneur qui
+  défile : rendue dans chaque entrée, elle aurait été rognée ;
+- chaque entrée porte un **`aria-label`**, parce qu'un survol ne sert ni au
+  clavier ni à la synthèse vocale — et l'infobulle native du navigateur met une
+  seconde et demie à paraître, trop lent quand l'icône est tout ce qu'on a.
+
+**Les actions vivent sous un filet** : au-dessus ce qui change d'un écran à
+l'autre, en dessous ce qui ne change jamais. **L'impression d'abord** — on
+imprime tous les jours, on importe quelques fois par an — et le blanc lui est
+réservé, pour qu'elle reste le seul point d'appel du rail.
+
+---
+
+#### Les rapports — Personnel, Pilotage, Référentiels, Organisation
+
+**Pilotage était aveugle** : `pilotage.js`, `repartitionPeriodes.js`,
+`classement.js`, `statsDeliberation.js` calculaient sans jamais rien produire.
+Or ces chiffres servent DEHORS — dotation, Conseil de perfectionnement,
+inspection, comptabilité — et se recopiaient à la main.
+
+Treize rapports, en **tableur** : un rapport de pilotage se retrie, se recoupe,
+se transmet à qui le retravaillera ; un document figé obligerait à ressaisir.
+Les pièces réglementaires restent du ressort des annexes — `rapports.js` n'en
+produit aucune.
+
+| Domaine | Rapports |
+|---|---|
+| Pilotage | ETP par section · par unité · par établissement référent ; résultats de délibération **par session** ; emploi de la dotation |
+| Personnel | membres et leur charge ; temporaires et ancienneté ; attributions ligne à ligne |
+| Référentiels | unités ; grille de cours ; acquis d'apprentissage |
+| Organisation | calendrier des délibérations ; locaux |
+
+Chaque rapport déclare ses colonnes et sa requête : en ajouter un, c'est ajouter
+une entrée, non un écran. L'aperçu montre cinquante lignes avant téléchargement.
+
+**Pièges rencontrés, vérifiés sur une base d'essai** — quatorze requêtes
+exécutées pour de vrai, deux fautes trouvées :
+
+- la table `aa` **n'a pas d'année** : les acquis tiennent à l'unité, non à un
+  millésime ;
+- **deux définitions de `local` cohabitent** dans le dépôt — `equipement` au
+  singulier dans `schema.sql`, `equipements` dans les fondations locaux. Le
+  rapport lit `PRAGMA table_info` plutôt que de supposer ;
+- le taux de réussite se calcule sur les **délibérés**, non sur les inscrits :
+  rapporté aux inscrits, il ferait passer pour des échecs ceux que la séance n'a
+  pas jugés.
+
+---
+
+#### Le centre d'impression central — Étudiants
+
+Dix-huit écrans produisaient des documents, chacun avec sa mécanique : la même
+pièce s'obtenait différemment selon le chemin pris. Les boutons **restent où on
+les cherche**, mais mènent à un écran unique à cinq onglets — Étudiants,
+Personnel, Pilotage, Organisation, Référentiels. Seul le premier est construit ;
+les autres attendent qu'on convienne de ce qu'on y met.
+
+L'onglet Étudiants croise **deux axes** :
+
+- le **périmètre** — une section, des unités, des cours pris dans des unités
+  différentes — construit la liste (`POST /api/perimetre/etudiants`) ;
+- la **sélection** la restreint à ceux qu'on coche.
+
+**Les quatre boutons y mènent**, avec leur contexte : depuis la délibération
+d'une unité, le centre s'ouvre sur cette unité et cette session ; depuis
+l'écran d'une section, sur cette section. On arrive là où l'on était, au lieu de
+refaire un choix qu'on venait de faire.
+
+**Un cours ne désigne que des personnes.** Les pièces de délibération sont des
+pièces d'unité : choisir un cours sert à trouver ceux qui le suivent, les
+documents sortent pour leur unité. L'écran le dit sous l'arbre du périmètre.
+
+Le lot accepte désormais une liste d'étudiants (`etudiants`) : cocher des
+personnes restreint les pièces **nominatives**, sans toucher aux pièces
+collectives — un procès-verbal reste celui de la séance entière, non celui des
+trois dossiers cochés.
 
 ---
 

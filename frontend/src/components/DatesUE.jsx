@@ -199,9 +199,8 @@ export default function DatesUE({ annee }) {
     <div className="p-6 space-y-4">
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
-          <h2 className="text-xl font-semibold text-iip-blue flex items-center gap-2">
-            <IconCalendarEvent size={22} className="text-iip-turquoise" />
-            Dates des unités d'enseignement
+          <h2 className="titre-ecran mb-0">
+                        Dates des unités d'enseignement
           </h2>
           <p className="text-sm text-slate-500 mt-1">
             Paramétrage annuel — ces dates déclenchent le comptage au 1/10, le conseil
@@ -253,11 +252,11 @@ export default function DatesUE({ annee }) {
 
       {incoherentes > 0 && (
         <div className="px-4 py-3 rounded-xl bg-red-50 border border-red-200">
-          <div className="text-[12.5px] font-semibold text-red-900 mb-1">
+          <div className="text-[13px] font-semibold text-red-900 mb-1">
             {incoherentes === 1 ? 'Une organisation a ses dates inversées'
                                 : `${incoherentes} organisations ont leurs dates inversées`}
           </div>
-          <div className="text-[11.5px] text-red-800 space-y-0.5">
+          <div className="text-[12px] text-red-800 space-y-0.5">
             {lignesIncoherentes.slice(0, 8).map((l, i) => (
               <div key={i}>
                 <b>UE {l.ue_num}</b> {l.ue_nom ? '— ' + l.ue_nom : ''} :
@@ -286,7 +285,7 @@ export default function DatesUE({ annee }) {
         </div>
         <div>
           <label className="block text-[11px] font-semibold text-slate-500 uppercase tracking-wide mb-1">Vue</label>
-          <div className="flex rounded-lg border border-slate-300 overflow-hidden">
+          <div className="segments">
             {[['tableau', 'Tableau'], ['timeline', 'Ligne du temps']].map(([v, t]) => (
               <button key={v} onClick={() => setVue(v)}
                 className={`px-3 py-1.5 text-sm ${vue === v
@@ -343,7 +342,7 @@ export default function DatesUE({ annee }) {
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="bg-slate-50 border-b border-slate-200 text-[11px] uppercase tracking-wide text-slate-500">
+              <tr className="tab-entete">
                 <th className="px-3 py-2 w-9">
                   <input type="checkbox"
                     checked={selection.size > 0 && selection.size === lignes.length}
@@ -447,7 +446,7 @@ export default function DatesUE({ annee }) {
 
       {/* Aperçu des jalons */}
       {jalonsPour && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4"
+        <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] flex items-center justify-center z-50 p-4"
              onClick={() => setJalonsPour(null)}>
           <div className="bg-white rounded-xl max-w-2xl w-full max-h-[80vh] overflow-auto"
                onClick={e => e.stopPropagation()}>
@@ -477,7 +476,7 @@ export default function DatesUE({ annee }) {
                       <div className="text-[11px] text-slate-400 mt-0.5">{j.base_legale}</div>
                     )}
                   </div>
-                  <span className="text-[11px] px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 flex-none">
+                  <span className="text-[11px] px-2 py-0.5 rounded-champ bg-slate-100 text-slate-600 flex-none">
                     {j.responsable || '—'}
                   </span>
                 </div>

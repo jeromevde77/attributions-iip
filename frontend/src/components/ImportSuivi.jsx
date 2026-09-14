@@ -98,9 +98,9 @@ export default function ImportSuivi({ annee, onClose, onFini }) {
     : [];
 
   return (
-    <div className="fixed inset-0 bg-black/40 flex items-start justify-center z-50 p-4"
+    <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] flex items-start justify-center z-50 p-4"
       onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl mt-6
+      <div className="bg-white rounded-fenetre shadow-dessus w-full max-w-3xl mt-6
                       max-h-[92vh] overflow-hidden flex flex-col">
 
         <div className="flex-none px-5 py-3 border-b border-slate-100 flex items-start
@@ -122,7 +122,7 @@ export default function ImportSuivi({ annee, onClose, onFini }) {
         <div className="flex-1 overflow-y-auto p-5 space-y-4">
           {erreur && (
             <div className="px-3 py-2 rounded-lg bg-red-50 border border-red-200
-                            text-[12.5px] text-red-900 flex items-start gap-1.5">
+                            text-[13px] text-red-900 flex items-start gap-1.5">
               <IconAlertTriangle size={14} className="mt-0.5 flex-none" /> {erreur}
             </div>
           )}
@@ -136,7 +136,7 @@ export default function ImportSuivi({ annee, onClose, onFini }) {
             <span className="block text-[13px] font-semibold text-slate-700">
               {fichier ? fichier.name : 'Choisir le classeur de suivi'}
             </span>
-            <span className="block text-[11.5px] text-slate-500 mt-0.5">
+            <span className="block text-[12px] text-slate-500 mt-0.5">
               Suivi_etudiants_&lt;section&gt;_&lt;année&gt;.xlsm — une feuille par unité
             </span>
           </label>
@@ -167,10 +167,10 @@ export default function ImportSuivi({ annee, onClose, onFini }) {
                           return t;
                         })}
                         className="w-4 h-4 accent-iip-blue flex-none" />
-                      <span className="text-[12.5px] font-semibold text-slate-800 w-14">
+                      <span className="text-[13px] font-semibold text-slate-800 w-14">
                         UE {u.ue_num}
                       </span>
-                      <span className="flex-1 text-[11.5px] text-slate-500 tabular-nums">
+                      <span className="flex-1 text-[12px] text-slate-500 tabular-nums">
                         {u.resume.cours} cours · {u.resume.acquis_declares} acquis ·{' '}
                         {u.resume.etudiants} étudiants ·{' '}
                         {u.resume.decides_s1} décidés en S1, {u.resume.decides_s2} en S2
@@ -191,7 +191,7 @@ export default function ImportSuivi({ annee, onClose, onFini }) {
                   ['decisions', 'Décisions du jury'],
                   ['creer', 'Créer les étudiants inconnus'],
                   ['inscrire', 'Inscrire à l’unité ceux qui ne le sont pas']].map(([k, l]) => (
-                  <label key={k} className="flex items-center gap-1.5 text-[12.5px] text-slate-700">
+                  <label key={k} className="flex items-center gap-1.5 text-[13px] text-slate-700">
                     <input type="checkbox" checked={quoi[k]}
                       onChange={e => setQuoi(q => ({ ...q, [k]: e.target.checked }))}
                       className="w-4 h-4 accent-iip-blue" />
@@ -202,12 +202,12 @@ export default function ImportSuivi({ annee, onClose, onFini }) {
               {/* ── LA MIGRATION D'UNE ANNÉE DÉJÀ DÉLIBÉRÉE ──────────────── */}
               <div className={`mx-1 px-3 py-2.5 rounded-xl border ${migration
                 ? 'border-violet-300 bg-violet-50' : 'border-slate-200'}`}>
-                <label className="flex items-start gap-2 text-[12.5px] text-slate-800">
+                <label className="flex items-start gap-2 text-[13px] text-slate-800">
                   <input type="checkbox" checked={migration} className="mt-0.5 w-4 h-4 accent-iip-blue"
                     onChange={e => setMigration(e.target.checked)} />
                   <span>
                     <b>Migration — l'année a déjà été délibérée</b>
-                    <span className="block text-[11.5px] text-slate-600">
+                    <span className="block text-[12px] text-slate-600">
                       La décision ET la cote de l'unité sont reprises du classeur telles
                       quelles. Le moteur d'acquis n'est pas consulté : c'est ce qui permet
                       de reprendre une année entière sans la redélibérer.
@@ -216,7 +216,7 @@ export default function ImportSuivi({ annee, onClose, onFini }) {
                 </label>
                 {migration && (
                   <div className="mt-2 pl-6 space-y-2">
-                    <p className="text-[11.5px] text-violet-900">
+                    <p className="text-[12px] text-violet-900">
                       Le jury a délibéré au niveau de l'unité, pas des acquis. Lucie écrit
                       donc la cote du classeur sans la recalculer — un recalcul sur des
                       notes d'activité incomplètes produirait des cotes fausses. Les
@@ -224,14 +224,14 @@ export default function ImportSuivi({ annee, onClose, onFini }) {
                       « reprise d'historique » : elles ne se confondent pas avec une
                       motivation prise en séance ici.
                     </p>
-                    <label className="block text-[11.5px] text-slate-700">
+                    <label className="block text-[12px] text-slate-700">
                       Justification imposée là où le classeur n'en porte aucune
                       <textarea value={justifDefaut} onChange={e => setJustifDefaut(e.target.value)}
                         rows={2} placeholder="ex. Décision du jury de juin 2026 ; motivation non consignée au classeur, reprise d'historique du 09/09/2026."
                         className="mt-1 w-full px-2 py-1.5 border border-slate-300 rounded-lg
                                    text-[12px]" />
                     </label>
-                    <p className="text-[11.5px] text-slate-500">
+                    <p className="text-[12px] text-slate-500">
                       Laissez vide pour n'imposer aucune mention : le rapport dira alors
                       combien de décisions défavorables restent sans motif. Une décision
                       défavorable non motivée est attaquable — mais une motivation
@@ -252,18 +252,18 @@ export default function ImportSuivi({ annee, onClose, onFini }) {
                 <div className="mx-1 rounded-xl border border-slate-200 overflow-hidden">
                   <div className="px-3 py-2 bg-slate-50 border-b border-slate-200
                                   flex items-center gap-2 flex-wrap">
-                    <span className="text-[12.5px] font-semibold text-iip-blue">
+                    <span className="text-[13px] font-semibold text-iip-blue">
                       Les séances — dates de délibération et de visite des copies
                     </span>
                     <span className="flex-1" />
-                    <label className="flex items-center gap-1.5 text-[11.5px] text-slate-700">
+                    <label className="flex items-center gap-1.5 text-[12px] text-slate-700">
                       <input type="checkbox" checked={clore} className="w-4 h-4 accent-iip-blue"
                         onChange={e => setClore(e.target.checked)} />
                       Clôturer les séances
                     </label>
                   </div>
                   <div className="px-3 py-2 border-b border-slate-100 flex items-end gap-2 flex-wrap">
-                    <span className="text-[11.5px] text-slate-500 self-center">
+                    <span className="text-[12px] text-slate-500 self-center">
                       Reporter sur toutes les unités cochées :
                     </span>
                     {[['date_seance', 'Délibération', 'date'],
@@ -304,18 +304,18 @@ export default function ImportSuivi({ annee, onClose, onFini }) {
                             ['heure_seance', 'heure', 'time'],
                             ['visite_date', 'visite', 'date'],
                             ['session2_date', '2e session', 'date']].map(([k, ph, type]) => (
-                            <label key={k} className="text-[10.5px] text-slate-500">
+                            <label key={k} className="text-[11px] text-slate-500">
                               {ph}
                               <input type={type} value={v[k] || ''}
                                 onChange={e => set(k, e.target.value)}
                                 className="block px-1.5 py-0.5 border border-slate-300
-                                           rounded text-[11.5px]" />
+                                           rounded text-[12px]" />
                             </label>
                           ))}
                           <input value={v.visite_local || ''} placeholder="local de la visite"
                             onChange={e => set('visite_local', e.target.value)}
                             className="flex-1 min-w-[120px] px-2 py-1 border border-slate-300
-                                       rounded text-[11.5px]" />
+                                       rounded text-[12px]" />
                         </div>
                       );
                     })}
@@ -330,7 +330,7 @@ export default function ImportSuivi({ annee, onClose, onFini }) {
 
               {(quoi.creer || quoi.inscrire) && (
                 <div className="mx-1 px-3 py-2 rounded-lg bg-amber-50 border border-amber-200
-                                text-[11.5px] text-amber-900">
+                                text-[12px] text-amber-900">
                   Le classeur devient une source d'inscription : chaque ligne inconnue
                   crée un dossier — matricule, nom, prénom — et l'inscrit à l'unité.
                   C'est ce qu'il faut sur une base vide ; ailleurs, une faute de frappe
@@ -339,7 +339,7 @@ export default function ImportSuivi({ annee, onClose, onFini }) {
                   jamais créés — c'est un dossier existant qu'il faut choisir.
                 </div>
               )}
-              <p className="text-[11.5px] text-slate-500 px-1">
+              <p className="text-[12px] text-slate-500 px-1">
                 Les notes du classeur sont exprimées dans l'échelle du poids de chaque acquis ;
                 elles sont ramenées sur 20. La décision du Conseil est reprise telle quelle —
                 rien n'est redélibéré. <b>La seconde session n'est lue que chez les ajournés, et
@@ -355,7 +355,7 @@ export default function ImportSuivi({ annee, onClose, onFini }) {
           {rapport && (
             <div className={`rounded-xl border p-3 space-y-2
               ${applique ? 'bg-emerald-50 border-emerald-200' : 'bg-sky-50 border-sky-200'}`}>
-              <div className="text-[12.5px] font-semibold flex items-center gap-1.5
+              <div className="text-[13px] font-semibold flex items-center gap-1.5
                               text-slate-800">
                 {applique ? <IconCheck size={15} className="text-emerald-700" /> : null}
                 {applique ? 'Import effectué' : 'Simulation — rien n\'a été écrit'}
@@ -380,7 +380,7 @@ export default function ImportSuivi({ annee, onClose, onFini }) {
                     + rapport.total.collisions]].map(([l, n]) => (
                   <div key={l} className="bg-white/70 rounded-lg px-2 py-1.5">
                     <div className="text-[17px] font-bold tabular-nums text-iip-blue">{n}</div>
-                    <div className="text-[10.5px] text-slate-600">{l}</div>
+                    <div className="text-[11px] text-slate-600">{l}</div>
                   </div>
                 ))}
               </div>
@@ -393,7 +393,7 @@ export default function ImportSuivi({ annee, onClose, onFini }) {
                   </div>
                   <div className="max-h-40 overflow-y-auto divide-y divide-slate-50">
                     {soucis.slice(0, 60).map((s, i) => (
-                      <div key={i} className="px-2.5 py-1 text-[11.5px] flex gap-2">
+                      <div key={i} className="px-2.5 py-1 text-[12px] flex gap-2">
                         <span className="text-slate-400 w-12 flex-none">UE {s.ue}</span>
                         <span className={s.gravite === 'haute'
                           ? 'text-red-800 font-semibold' : 'text-slate-700'}>{s.t}</span>
@@ -406,7 +406,7 @@ export default function ImportSuivi({ annee, onClose, onFini }) {
               {rapport.unites.some(u => u.acquis_retires?.length
                 || u.acquis_a_verifier?.length) && (
                 <div className="bg-white rounded-lg border border-slate-200 px-2.5 py-2
-                                text-[11.5px] space-y-1">
+                                text-[12px] space-y-1">
                   {rapport.unites.filter(u => u.acquis_retires?.length).map(u => (
                     <div key={`r${u.ue_num}`} className="text-slate-600">
                       <b>UE {u.ue_num}</b> — {u.acquis_retires.length} acquis du gabarit
@@ -424,7 +424,7 @@ export default function ImportSuivi({ annee, onClose, onFini }) {
               )}
 
               {rapport.unites.some(u => u.ignoree) && (
-                <p className="text-[11.5px] text-amber-900">
+                <p className="text-[12px] text-amber-900">
                   Unités écartées :{' '}
                   {rapport.unites.filter(u => u.ignoree)
                     .map(u => `${u.ue_num} (${u.ignoree})`).join(' · ')}
@@ -436,24 +436,24 @@ export default function ImportSuivi({ annee, onClose, onFini }) {
 
         <div className="flex-none px-5 py-3 border-t border-slate-100 flex items-center
                         justify-between gap-2">
-          <span className="text-[11.5px] text-slate-500">
+          <span className="text-[12px] text-slate-500">
             {unites ? `${choisies.size} unité(s) · ${total} lignes` : ''}
           </span>
           <div className="flex gap-2">
             <button onClick={onClose}
-              className="px-3 py-1.5 text-[12.5px] rounded-lg border border-slate-300 text-slate-600">
+              className="px-3 py-1.5 text-[13px] rounded-lg border border-slate-300 text-slate-600">
               {applique ? 'Fermer' : 'Annuler'}
             </button>
             <button onClick={() => envoyer(true)}
               disabled={!unites || !choisies.size || enCours}
-              className="px-3 py-1.5 text-[12.5px] rounded-lg border border-iip-blue
+              className="px-3 py-1.5 text-[13px] rounded-lg border border-iip-blue
                          text-iip-blue font-semibold disabled:opacity-40">
               Simuler
             </button>
             <button onClick={() => envoyer(false)}
               disabled={!rapport || applique || enCours}
               title={!rapport ? 'Simuler d\'abord' : ''}
-              className="px-4 py-2 text-[12.5px] rounded-lg bg-iip-blue text-white
+              className="px-4 py-2 text-[13px] rounded-lg bg-iip-blue text-white
                          font-semibold disabled:opacity-40">
               Importer
             </button>

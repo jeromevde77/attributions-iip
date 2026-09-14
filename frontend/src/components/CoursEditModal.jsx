@@ -234,7 +234,7 @@ export default function CoursEditModal({ section, codeCours, onClose, onChanged 
   }
 
   return (
-    <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-2 md:p-4 z-30"
+    <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] flex items-center justify-center p-2 md:p-4 z-30"
          onClick={e => e.target === e.currentTarget && onClose()}>
       <div className="bg-white rounded-xl shadow-2xl w-full max-w-6xl max-h-[95vh] flex flex-col">
         {/* En-tête */}
@@ -602,7 +602,7 @@ function ModalNouvelleActivite({ section, onCreer, onClose }) {
   }
 
   return (
-    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center">
+    <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] z-50 flex items-center justify-center">
       <div className="bg-white rounded-xl shadow-2xl w-full max-w-sm p-6 space-y-4">
         <h3 className="font-semibold text-gray-800">+ Nouvelle activité</h3>
 

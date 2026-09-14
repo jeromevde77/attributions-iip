@@ -4,6 +4,7 @@ import {
   IconTargetArrow, IconBriefcase, IconAlertTriangle, IconCheck, IconX,
   IconSend, IconEye, IconMailForward, IconRefresh, IconChevronRight, IconSchool, IconCertificate,
 } from '@tabler/icons-react';
+import { PageHeader } from '../components/ui.jsx';
 import { authHeaders } from '../lib/api.js';
 import PreviewModal from '../components/PreviewModal.jsx';
 
@@ -150,22 +151,19 @@ export default function Besoins({ annee: anneeProp }) {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-start justify-between gap-3 flex-wrap">
-        <div>
-          <h2 className="text-xl font-semibold text-iip-blue flex items-center gap-2">
-            <IconTargetArrow size={22} className="text-iip-turquoise" />
-            Besoins en personnel
-          </h2>
-          <p className="text-sm text-slate-500 mt-1">
-            Un besoin naît d'un cours non pourvu. Il donne lieu à une offre, et
-            seule la publication ouvre le recrutement.
-          </p>
-        </div>
-        <button onClick={charger}
-          className="text-sm px-3 py-1.5 rounded-lg border border-slate-300 flex items-center gap-1.5">
-          <IconRefresh size={15} /> Actualiser
-        </button>
-      </div>
+      {/* LE TITRE D'ÉCRAN EST LE MÊME PARTOUT.
+          Celui-ci avait le sien : une icône devant — que plus aucun écran ne
+          porte —, une taille à lui, et un décalage de cinquante pixels par
+          rapport aux cartes et au tableau juste en dessous. Un titre qui ne
+          part pas de la même ligne que le contenu qu'il annonce se remarque
+          avant ce qu'il annonce. */}
+      <PageHeader titre="Besoins en personnel"
+        sous="Un besoin naît d'un cours non pourvu ; seule la publication ouvre le recrutement."
+        actions={
+          <button onClick={charger} className="controle bouton flex items-center gap-1.5">
+            <IconRefresh size={15} /> Actualiser
+          </button>
+        } />
 
       {message && (
         <div className={`px-4 py-2.5 rounded-lg text-sm flex items-center justify-between gap-3
@@ -210,7 +208,7 @@ export default function Besoins({ annee: anneeProp }) {
           <div className="border border-slate-200 rounded-xl overflow-hidden bg-white">
             <table className="w-full text-sm">
               <thead>
-                <tr className="bg-slate-50 border-b border-slate-200 text-[11px] uppercase tracking-wide text-slate-500">
+                <tr className="tab-entete">
                   <th className="px-3 py-2 text-left">Cours</th>
                   <th className="px-3 py-2 text-left w-24">Section</th>
                   <th className="px-3 py-2 text-left w-20">Quadri</th>
@@ -279,7 +277,7 @@ export default function Besoins({ annee: anneeProp }) {
                       </div>
                     </button>
                   </div>
-                  <span className={`px-2 py-0.5 rounded-full text-[11px] font-bold ${s.classe}`}>{s.label}</span>
+                  <span className={`px-2 py-0.5 rounded-champ text-[11px] font-bold ${s.classe}`}>{s.label}</span>
                   <button onClick={() => ouvrirApercu(o)}
                     className="text-[12px] px-2.5 py-1.5 rounded-lg border border-slate-300 flex items-center gap-1">
                     <IconEye size={14} /> Aperçu
@@ -417,7 +415,7 @@ export default function Besoins({ annee: anneeProp }) {
         <Modale titre={detail.intitule} onFermer={() => setDetail(null)}>
           <div className="space-y-3 text-sm">
             <div className="flex items-center gap-2 flex-wrap">
-              <span className={`px-2 py-0.5 rounded-full text-[11px] font-bold
+              <span className={`px-2 py-0.5 rounded-champ text-[11px] font-bold
                 ${(STATUT_OFFRE[detail.statut] || STATUT_OFFRE.brouillon).classe}`}>
                 {(STATUT_OFFRE[detail.statut] || STATUT_OFFRE.brouillon).label}
               </span>
@@ -446,7 +444,7 @@ export default function Besoins({ annee: anneeProp }) {
                 </div>
                 <ul className="space-y-1">
                   {detail.acquis.map(a => (
-                    <li key={a.aa_code} className="text-[12.5px] text-slate-700 flex gap-2">
+                    <li key={a.aa_code} className="text-[13px] text-slate-700 flex gap-2">
                       <span className="text-[10px] font-bold text-iip-blue bg-iip-blue/8 px-1.5 py-0.5 rounded h-fit">
                         {a.aa_code}
                       </span>
@@ -475,9 +473,9 @@ export default function Besoins({ annee: anneeProp }) {
       )}
 
       {envoi && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4"
+        <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] flex items-center justify-center z-50 p-4"
              onClick={() => setEnvoi(null)}>
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg p-5 space-y-3"
+          <div className="bg-white rounded-fenetre shadow-dessus w-full max-w-lg p-5 space-y-3"
                onClick={e => e.stopPropagation()}>
             <div className="font-semibold text-iip-blue">
               Envoyer l'offre — {envoi.offre.intitule || envoi.offre.code_cours}
@@ -493,12 +491,12 @@ export default function Besoins({ annee: anneeProp }) {
                 </div>
                 <div className="flex justify-end">
                   <button onClick={() => setEnvoi(null)}
-                    className="text-sm px-3 py-1.5 rounded-lg bg-iip-blue text-white font-semibold">Fermer</button>
+                    className="bouton bouton-fort">Fermer</button>
                 </div>
               </>
             ) : (
               <>
-                <p className="text-[12.5px] text-slate-500">
+                <p className="text-[13px] text-slate-500">
                   Le document mis en page part tel que l'aperçu le montre. Adresses
                   séparées par des virgules ou des retours à la ligne.
                 </p>
@@ -506,7 +504,7 @@ export default function Besoins({ annee: anneeProp }) {
                   onChange={e => setEnvoi(v => ({ ...v, destinataires: e.target.value }))}
                   placeholder="forem@exemple.be, federation@exemple.be…"
                   className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm" />
-                {envoi.erreur && <div className="text-[12.5px] text-red-700">{envoi.erreur}</div>}
+                {envoi.erreur && <div className="text-[13px] text-red-700">{envoi.erreur}</div>}
                 <div className="flex justify-end gap-2">
                   <button onClick={() => setEnvoi(null)}
                     className="text-sm px-3 py-1.5 rounded-lg border border-slate-300">Annuler</button>
@@ -545,7 +543,7 @@ function Champ({ label, children }) {
 
 function Modale({ titre, onFermer, children }) {
   return (
-    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" onClick={onFermer}>
+    <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] flex items-center justify-center z-50 p-4" onClick={onFermer}>
       <div className="bg-white rounded-xl max-w-2xl w-full max-h-[85vh] overflow-auto"
            onClick={e => e.stopPropagation()}>
         <div className="px-5 py-3.5 border-b border-slate-200 flex items-center justify-between sticky top-0 bg-white">

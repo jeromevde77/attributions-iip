@@ -102,7 +102,7 @@ export default function Amenagements({ etudId, annee }) {
       </div>
 
       {message && (
-        <div className={`px-3 py-2 rounded-lg text-[12.5px] flex items-start justify-between gap-2 ${
+        <div className={`px-3 py-2 rounded-lg text-[13px] flex items-start justify-between gap-2 ${
           message.type === 'rappel' ? 'bg-amber-50 border border-amber-200 text-amber-900'
           : message.type === 'err' ? 'bg-red-50 border border-red-200 text-red-800'
           : 'bg-emerald-50 border border-emerald-200 text-emerald-800'}`}>
@@ -193,12 +193,12 @@ export default function Amenagements({ etudId, annee }) {
                   ['pedago', 'Aménagements pédagogiques']].map(([k, lib]) => (
                   <div key={k} className="border border-slate-200 rounded-lg p-3">
                     <div className="flex items-center gap-3 mb-2">
-                      <span className="text-[12.5px] font-semibold text-iip-blue">{lib}</span>
+                      <span className="text-[13px] font-semibold text-iip-blue">{lib}</span>
                       <div className="flex gap-1">
                         {[[1, 'Demandés'], [0, 'Non demandés']].map(([v, l]) => (
                           <button key={v}
                             onClick={() => majDossier({ [`${k}_demande`]: v })}
-                            className={`px-2.5 py-1 text-[11.5px] rounded-md border ${
+                            className={`px-2.5 py-1 text-[12px] rounded-md border ${
                               d[`${k}_demande`] === v
                                 ? 'bg-iip-blue text-white border-iip-blue'
                                 : 'border-slate-300 text-slate-600'}`}>
@@ -284,7 +284,7 @@ export default function Amenagements({ etudId, annee }) {
                 className="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-sm" />
             </label>
             {['accepte', 'partiel', 'refuse'].includes(d.statut) && !d.cde_motivation && (
-              <div className="text-[11.5px] text-amber-800 flex items-center gap-1.5">
+              <div className="text-[12px] text-amber-800 flex items-center gap-1.5">
                 <IconAlertTriangle size={14} />
                 Une décision doit être formellement motivée, quel qu'en soit le sens.
               </div>
@@ -307,7 +307,7 @@ export default function Amenagements({ etudId, annee }) {
               </label>
             </div>
             {d.cde_date && !d.notifie_le && (
-              <div className="text-[11.5px] text-amber-800 flex items-center gap-1.5">
+              <div className="text-[12px] text-amber-800 flex items-center gap-1.5">
                 <IconAlertTriangle size={14} />
                 La direction adresse la décision au demandeur et en communique copie à la
                 personne de référence.
@@ -354,7 +354,7 @@ export default function Amenagements({ etudId, annee }) {
                   <button onClick={() => setAjout(null)}
                     className="text-sm px-3 py-1.5 rounded-lg border border-slate-300">Annuler</button>
                   <button onClick={() => ajouterMesure(ajout)} disabled={!ajout.libelle}
-                    className="text-sm px-3 py-1.5 rounded-lg bg-iip-blue text-white font-semibold disabled:opacity-40">
+                    className="bouton bouton-fort">
                     Ajouter
                   </button>
                 </div>
@@ -362,7 +362,7 @@ export default function Amenagements({ etudId, annee }) {
             )}
 
             {!d.mesures?.length ? (
-              <div className="py-6 text-center text-[12.5px] text-slate-400 border-2 border-dashed rounded-xl">
+              <div className="py-6 text-center text-[13px] text-slate-400 border-2 border-dashed rounded-xl">
                 Aucune mesure. Un aménagement porte sur la manière d'accéder aux acquis
                 d'apprentissage et de les évaluer, jamais sur les acquis eux-mêmes.
               </div>
@@ -461,7 +461,7 @@ function UesConcernees({ dossierId, annee, choisies, onChange }) {
   return (
     <div className="border border-slate-200 rounded-lg p-3">
       <div className="flex items-center justify-between mb-2">
-        <span className="text-[12.5px] font-semibold text-iip-blue">
+        <span className="text-[13px] font-semibold text-iip-blue">
           Unités concernées {sel.size > 0 && `(${sel.size})`}
         </span>
         <span className="text-[11px] text-slate-400">

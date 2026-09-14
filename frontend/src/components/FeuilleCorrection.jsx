@@ -150,13 +150,13 @@ export default function FeuilleCorrection({ ueNum, annee, onClose, onModifie }) 
   let colonne = 0;
 
   return (
-    <div className="fixed inset-0 bg-black/40 flex items-start justify-center z-50 p-3">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-[1700px] mt-4
+    <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] flex items-start justify-center z-50 p-3">
+      <div className="bg-white rounded-fenetre shadow-dessus w-full max-w-[1700px] mt-4
                       h-[94vh] overflow-hidden flex flex-col">
 
         <div className="flex-none px-5 pt-4 pb-2 flex items-start justify-between gap-3">
           <div>
-            <h3 className="text-[16px] font-semibold text-iip-blue">
+            <h3 className="text-[15px] font-semibold text-iip-blue">
               Feuille de correction — UE {ueNum}
               {data?.ue?.ue_nom ? ` · ${data.ue.ue_nom}` : ''}
             </h3>
@@ -169,7 +169,7 @@ export default function FeuilleCorrection({ ueNum, annee, onClose, onModifie }) 
             </p>
           </div>
           <div className="flex items-center gap-2 flex-none">
-            <div className="flex rounded-lg border border-slate-300 overflow-hidden">
+            <div className="segments">
               {[1, 2].map(s => (
                 <button key={s} onClick={() => { setChoisie(true); setSession(s); }}
                   className={`px-2.5 py-1 text-[12px] ${session === s
@@ -321,7 +321,7 @@ export default function FeuilleCorrection({ ueNum, annee, onClose, onModifie }) 
                           <span className="text-slate-500">{e.prenom}</span>
                           {ecart && (
                             <span title={`Le calcul propose « ${LIB[k.decision]} »`}
-                              className="ml-1.5 text-[9px] uppercase tracking-wide
+                              className="ml-1.5 text-[10px] uppercase tracking-wide
                                          text-amber-800 bg-amber-100 border border-amber-300
                                          rounded px-1 py-px">écart</span>
                           )}
@@ -456,7 +456,7 @@ export default function FeuilleCorrection({ ueNum, annee, onClose, onModifie }) 
             et d'unité sont calculées : elles ne se saisissent pas.
           </p>
           <button onClick={onClose}
-            className="px-3 py-1.5 text-[12.5px] rounded-lg border border-slate-300 text-slate-600">
+            className="px-3 py-1.5 text-[13px] rounded-lg border border-slate-300 text-slate-600">
             Fermer
           </button>
         </div>

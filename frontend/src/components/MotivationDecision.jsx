@@ -107,9 +107,9 @@ export default function MotivationDecision({ etudId, annee, onClose }) {
   // Le choix de l'unité, tant qu'elle n'est pas faite.
   if (!ueNum) {
     return (
-      <div className="fixed inset-0 bg-black/40 flex items-start justify-center z-50 p-4"
+      <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] flex items-start justify-center z-50 p-4"
         onClick={e => e.target === e.currentTarget && onClose()}>
-        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg mt-16 p-5 space-y-3">
+        <div className="bg-white rounded-fenetre shadow-dessus w-full max-w-lg mt-16 p-5 space-y-3">
           <div className="flex items-start justify-between">
             <h3 className="text-[15px] font-semibold text-iip-blue">
               Motiver une décision · {annee}
@@ -117,9 +117,9 @@ export default function MotivationDecision({ etudId, annee, onClose }) {
             <button onClick={onClose} className="text-slate-400"><IconX size={18} /></button>
           </div>
           {!ues ? (
-            <p className="text-[12.5px] text-slate-400 py-4 text-center">Chargement…</p>
+            <p className="text-[13px] text-slate-400 py-4 text-center">Chargement…</p>
           ) : !ues.length ? (
-            <p className="text-[12.5px] text-slate-500 py-4 text-center border-2
+            <p className="text-[13px] text-slate-500 py-4 text-center border-2
                           border-dashed rounded-xl">
               Aucune unité en refus ou ajournement pour cet étudiant en {annee}.
             </p>
@@ -128,7 +128,7 @@ export default function MotivationDecision({ etudId, annee, onClose }) {
               {ues.map(u => (
                 <button key={u.ue_num} onClick={() => setUeNum(u.ue_num)}
                   className="w-full flex items-center gap-2 px-3 py-2 text-left
-                             text-[12.5px] hover:bg-slate-50">
+                             text-[13px] hover:bg-slate-50">
                   <span className="font-mono text-[11px] text-slate-500 w-10">{u.ue_num}</span>
                   <span className="flex-1 truncate">{u.ue_nom}</span>
                   <span className={`text-[11px] font-semibold ${
@@ -146,8 +146,8 @@ export default function MotivationDecision({ etudId, annee, onClose }) {
 
   if (!donnees) {
     return (
-      <div className="fixed inset-0 bg-black/40 flex items-start justify-center z-50 p-4">
-        <div className="bg-white rounded-2xl shadow-2xl p-6 mt-20 text-[13px] text-slate-500">
+      <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] flex items-start justify-center z-50 p-4">
+        <div className="bg-white rounded-fenetre shadow-dessus p-6 mt-20 text-[13px] text-slate-500">
           Chargement…
         </div>
       </div>
@@ -160,13 +160,13 @@ export default function MotivationDecision({ etudId, annee, onClose }) {
   const estRefus = donnees.resultat === 'refuse';
 
   return (
-    <div className="fixed inset-0 bg-black/40 flex items-start justify-center z-50 p-4"
+    <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] flex items-start justify-center z-50 p-4"
       onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl mt-8 max-h-[88vh] overflow-hidden flex flex-col">
+      <div className="bg-white rounded-fenetre shadow-dessus w-full max-w-3xl mt-8 max-h-[88vh] overflow-hidden flex flex-col">
 
         <div className="flex-none p-5 pb-3 border-b border-slate-100 flex items-start justify-between">
           <div>
-            <h3 className="text-[16px] font-semibold text-iip-blue">
+            <h3 className="text-[15px] font-semibold text-iip-blue">
               Motivation d'une décision {estRefus ? 'de refus' : "d'ajournement"}
             </h3>
             <p className="text-[12px] text-slate-500">
@@ -182,7 +182,7 @@ export default function MotivationDecision({ etudId, annee, onClose }) {
         <div className="flex-1 overflow-y-auto p-5 space-y-4">
 
         {message && (
-          <div className={`px-3 py-2 rounded-lg text-[12.5px] ${
+          <div className={`px-3 py-2 rounded-lg text-[13px] ${
             message.type === 'err' ? 'bg-red-50 border border-red-200 text-red-800'
               : 'bg-emerald-50 border border-emerald-200 text-emerald-800'}`}>
             {message.texte}
@@ -216,7 +216,7 @@ export default function MotivationDecision({ etudId, annee, onClose }) {
         </div>
 
         {!nonMaitrises.length ? (
-          <div className="py-6 text-center text-[12.5px] text-slate-500 border-2
+          <div className="py-6 text-center text-[13px] text-slate-500 border-2
                           border-dashed rounded-xl">
             Aucun acquis en échec pour cette unité. Une motivation de refus n'a
             pas lieu d'être — vérifiez la décision encodée.
@@ -232,8 +232,8 @@ export default function MotivationDecision({ etudId, annee, onClose }) {
                 <div key={a.aa_code} className="px-3 py-2">
                   <div className="flex items-baseline gap-2 mb-1">
                     <span className="font-mono text-[11px] text-slate-500">{a.aa_code}</span>
-                    <span className="text-[12.5px] flex-1">{a.description || a.cours_nom}</span>
-                    <span className="text-[11.5px] font-semibold text-red-700">
+                    <span className="text-[13px] flex-1">{a.description || a.cours_nom}</span>
+                    <span className="text-[12px] font-semibold text-red-700">
                       {a.note}/20
                     </span>
                   </div>
@@ -244,7 +244,7 @@ export default function MotivationDecision({ etudId, annee, onClose }) {
                       l'autre. */}
                   <button type="button"
                     onClick={() => setCatalogueOuvert(o => ({ ...o, [a.aa_code]: !o[a.aa_code] }))}
-                    className="text-[11.5px] text-iip-blue underline mb-1">
+                    className="text-[12px] text-iip-blue underline mb-1">
                     {catalogueOuvert[a.aa_code] ? 'Masquer les motivations types' : 'Choisir des motivations types'}
                     {!!(coches[a.aa_code] || []).length &&
                       ` · ${(coches[a.aa_code] || []).length} cochée(s)`}
@@ -254,7 +254,7 @@ export default function MotivationDecision({ etudId, annee, onClose }) {
                     <div className="mb-2 border border-slate-200 rounded-lg divide-y divide-slate-100">
                       {MOTIFS_ECHEC.map(g => (
                         <div key={g.cle} className="px-2.5 py-2">
-                          <div className="text-[10.5px] uppercase tracking-wide font-semibold mb-1"
+                          <div className="text-[11px] uppercase tracking-wide font-semibold mb-1"
                             style={{ color: g.couleur }}>{g.libelle}</div>
                           <div className="space-y-1">
                             {g.motifs.map(m => {
@@ -278,7 +278,7 @@ export default function MotivationDecision({ etudId, annee, onClose }) {
                   )}
 
                   {!!(coches[a.aa_code] || []).length && !catalogueOuvert[a.aa_code] && (
-                    <div className="mb-1 text-[11.5px] text-slate-600 bg-slate-50
+                    <div className="mb-1 text-[12px] text-slate-600 bg-slate-50
                                     border border-slate-200 rounded-lg px-2 py-1.5">
                       {(coches[a.aa_code] || []).map(texteDuMotif).filter(Boolean).join(' ')}
                     </div>
@@ -297,7 +297,7 @@ export default function MotivationDecision({ etudId, annee, onClose }) {
                       title="Reprendre cet énoncé pour le compléter ou le corriger"
                       className="w-full text-left mb-1 px-2 py-1.5 rounded-lg border
                                  border-dashed border-slate-300 bg-slate-50
-                                 text-[11.5px] text-slate-400 italic hover:text-slate-600
+                                 text-[12px] text-slate-400 italic hover:text-slate-600
                                  hover:border-slate-400">
                       {a.motif_propose}
                       <span className="block mt-0.5 not-italic text-[10px] text-slate-400">
@@ -321,7 +321,7 @@ export default function MotivationDecision({ etudId, annee, onClose }) {
         )}
 
         {donnees.nb_non_evalues > 0 && (
-          <p className="text-[11.5px] text-slate-500">
+          <p className="text-[12px] text-slate-500">
             {donnees.nb_non_evalues} acquis non évalué(s) : ils ne figurent pas ci-dessus.
             Une absence d'évaluation n'est pas un échec et ne peut motiver un refus.
           </p>

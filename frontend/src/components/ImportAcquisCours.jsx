@@ -104,9 +104,9 @@ export default function ImportAcquisCours({ coursCode, coursNom, annee, onClose,
                 refusee: 'text-red-700' };
 
   return (
-    <div className="fixed inset-0 bg-black/40 flex items-start justify-center z-[60] p-4"
+    <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] flex items-start justify-center z-[60] p-4"
       onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl mt-10
+      <div className="bg-white rounded-fenetre shadow-dessus w-full max-w-3xl mt-10
                       max-h-[90vh] overflow-hidden flex flex-col">
         <div className="flex-none px-5 py-3 border-b border-slate-100 flex items-start
                         justify-between gap-3">
@@ -127,7 +127,7 @@ export default function ImportAcquisCours({ coursCode, coursNom, annee, onClose,
         <div className="flex-1 overflow-y-auto p-5 space-y-3">
           {erreur && (
             <div className="px-3 py-2 rounded-lg bg-red-50 border border-red-200
-                            text-[12.5px] text-red-800 flex items-start gap-1.5">
+                            text-[13px] text-red-800 flex items-start gap-1.5">
               <IconAlertTriangle size={14} className="mt-0.5 flex-none" /> {erreur}
             </div>
           )}
@@ -135,7 +135,7 @@ export default function ImportAcquisCours({ coursCode, coursNom, annee, onClose,
           <label className="flex items-center gap-3 px-3 py-3 rounded-xl border-2
                             border-dashed border-slate-300 cursor-pointer hover:border-iip-blue">
             <IconFileSpreadsheet size={20} className="text-slate-400 flex-none" />
-            <span className="flex-1 text-[12.5px] text-slate-600">
+            <span className="flex-1 text-[13px] text-slate-600">
               {brut.length
                 ? <>{brut.length} ligne(s) lue(s) · {entetes.length} colonne(s) —
                     cliquez pour changer de fichier</>
@@ -169,11 +169,11 @@ export default function ImportAcquisCours({ coursCode, coursNom, annee, onClose,
                   {CHAMPS.map(c => (
                     <div key={c.cle} className="px-3 py-2 flex items-center gap-3">
                       <span className="w-44 flex-none">
-                        <span className="text-[12.5px] font-semibold text-slate-800">
+                        <span className="text-[13px] font-semibold text-slate-800">
                           {c.libelle}
                           {c.requis && <span className="text-red-600"> *</span>}
                         </span>
-                        <span className="block text-[10.5px] text-slate-500">{c.aide}</span>
+                        <span className="block text-[11px] text-slate-500">{c.aide}</span>
                       </span>
                       <select value={corresp[c.cle] || ''}
                         onChange={e => setCorresp(m => ({ ...m, [c.cle]: e.target.value || undefined }))}
@@ -182,7 +182,7 @@ export default function ImportAcquisCours({ coursCode, coursNom, annee, onClose,
                         <option value="">— aucune colonne —</option>
                         {entetes.map(h => <option key={h} value={h}>{h}</option>)}
                       </select>
-                      <span className="w-44 flex-none text-[11.5px] text-slate-600 truncate"
+                      <span className="w-44 flex-none text-[12px] text-slate-600 truncate"
                         title={String(ex[corresp[c.cle]] ?? '')}>
                         {corresp[c.cle]
                           ? (ex[corresp[c.cle]] == null || ex[corresp[c.cle]] === ''
@@ -201,10 +201,10 @@ export default function ImportAcquisCours({ coursCode, coursNom, annee, onClose,
                   onChange={e => setRemplacer(e.target.checked)}
                   className="mt-0.5 w-4 h-4 accent-iip-blue" />
                 <span>
-                  <span className="text-[12.5px] font-semibold text-slate-800">
+                  <span className="text-[13px] font-semibold text-slate-800">
                     Le fichier fait foi
                   </span>
-                  <span className="block text-[11.5px] text-slate-500">
+                  <span className="block text-[12px] text-slate-500">
                     Les acquis que ce cours évalue et qui ne figurent pas dans le fichier
                     en sont détachés. L'acquis lui-même n'est jamais supprimé — un autre
                     cours peut l'évaluer.
@@ -214,7 +214,7 @@ export default function ImportAcquisCours({ coursCode, coursNom, annee, onClose,
 
               {rapport && (
                 <div className="border border-slate-200 rounded-xl overflow-hidden">
-                  <div className={`px-3 py-2 border-b text-[12.5px] ${rapport.simulation
+                  <div className={`px-3 py-2 border-b text-[13px] ${rapport.simulation
                     ? 'bg-sky-50 border-sky-200 text-sky-900'
                     : 'bg-emerald-50 border-emerald-200 text-emerald-900'}`}>
                     <b>{rapport.simulation ? 'Simulation' : 'Import effectué'}</b> —
@@ -227,7 +227,7 @@ export default function ImportAcquisCours({ coursCode, coursNom, annee, onClose,
                   </div>
                   <div className="max-h-56 overflow-y-auto divide-y divide-slate-100">
                     {rapport.rapport.map(r => (
-                      <div key={r.ligne} className="px-3 py-1 flex items-baseline gap-2 text-[11.5px]">
+                      <div key={r.ligne} className="px-3 py-1 flex items-baseline gap-2 text-[12px]">
                         <span className="w-8 flex-none text-slate-400 tabular-nums">{r.ligne}</span>
                         <span className="w-24 flex-none font-mono font-semibold text-slate-700">
                           {r.aa_code || '—'}
@@ -236,7 +236,7 @@ export default function ImportAcquisCours({ coursCode, coursNom, annee, onClose,
                       </div>
                     ))}
                     {!!rapport.delies?.length && (
-                      <div className="px-3 py-1.5 text-[11.5px] text-amber-800 bg-amber-50">
+                      <div className="px-3 py-1.5 text-[12px] text-amber-800 bg-amber-50">
                         Détachés de ce cours : {rapport.delies.join(', ')}
                       </div>
                     )}
@@ -254,18 +254,18 @@ export default function ImportAcquisCours({ coursCode, coursNom, annee, onClose,
           </span>
           <div className="flex gap-2">
             <button onClick={onClose}
-              className="px-3 py-1.5 text-[12.5px] rounded-lg border border-slate-300 text-slate-600">
+              className="px-3 py-1.5 text-[13px] rounded-lg border border-slate-300 text-slate-600">
               Fermer
             </button>
             <button onClick={() => lancer(true)} disabled={enCours || !brut.length}
-              className="px-3 py-1.5 text-[12.5px] rounded-lg border border-iip-blue
+              className="px-3 py-1.5 text-[13px] rounded-lg border border-iip-blue
                          text-iip-blue font-semibold disabled:opacity-40">
               Simuler
             </button>
             <button onClick={() => lancer(false)}
               disabled={enCours || !rapport || rapport.simulation === false}
               title={rapport ? '' : 'Simulez d’abord'}
-              className="px-4 py-1.5 text-[12.5px] rounded-lg bg-iip-blue text-white
+              className="px-4 py-1.5 text-[13px] rounded-lg bg-iip-blue text-white
                          font-semibold disabled:opacity-40 flex items-center gap-1.5">
               <IconCheck size={14} /> Importer
             </button>

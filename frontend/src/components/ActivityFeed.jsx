@@ -6,7 +6,7 @@ import { api } from '../lib/api.js';
 const ACTIONS = {
   create: { label: 'Ajout',        cls: 'bg-green-100 text-green-700' },
   update: { label: 'Modification', cls: 'bg-iip-turquoise/10 text-iip-blue' },
-  delete: { label: 'Suppression',  cls: 'bg-red-100 text-red-700' },
+  delete: { label: 'Suppression',  cls: 'bg-[#9d4a38]/10 text-[#9d4a38]' },
 };
 
 function timeAgo(iso) {

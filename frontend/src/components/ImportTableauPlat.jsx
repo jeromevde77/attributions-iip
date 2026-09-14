@@ -115,9 +115,9 @@ export default function ImportTableauPlat({ annee, onClose, onFini }) {
     .reduce((n, u) => n + u.resume.s1 + u.resume.s2, 0);
 
   return (
-    <div className="fixed inset-0 bg-black/40 flex items-start justify-center z-50 p-3 overflow-y-auto"
+    <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] flex items-start justify-center z-50 p-3 overflow-y-auto"
       onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-[1040px] my-4
+      <div className="bg-white rounded-fenetre shadow-dessus w-full max-w-[1040px] my-4
                       max-h-[calc(100vh-2rem)] overflow-hidden flex flex-col">
         <div className="flex items-start justify-between gap-3 px-5 py-4 border-b border-slate-200
                         flex-shrink-0">
@@ -141,7 +141,7 @@ export default function ImportTableauPlat({ annee, onClose, onFini }) {
         <div className="flex-1 min-h-0 overflow-y-auto px-5 py-4 space-y-4">
           {erreur && (
             <div className="px-3 py-2 rounded-lg bg-red-50 border border-red-200
-                            text-[12.5px] text-red-800 flex items-start gap-2">
+                            text-[13px] text-red-800 flex items-start gap-2">
               <IconAlertTriangle size={15} className="mt-px shrink-0" /> {erreur}
             </div>
           )}
@@ -153,7 +153,7 @@ export default function ImportTableauPlat({ annee, onClose, onFini }) {
               <div className="mt-2 text-[13px] font-semibold text-iip-blue">
                 Choisir le fichier de reprise
               </div>
-              <div className="text-[11.5px] text-slate-500">
+              <div className="text-[12px] text-slate-500">
                 .xlsx ou .csv — le tableau des décisions, ou le planning des séances
               </div>
               <input type="file" accept=".xlsx,.xlsm,.csv" className="hidden"
@@ -167,7 +167,7 @@ export default function ImportTableauPlat({ annee, onClose, onFini }) {
                 </span>
                 <span className="flex-1" />
                 <span className="text-[12px] text-slate-500">Ce fichier est :</span>
-                <div className="flex rounded-lg border border-slate-300 overflow-hidden">
+                <div className="segments">
                   {[['decisions', 'un tableau de décisions'],
                     ['planning', 'un planning de séances']].map(([v, lib]) => (
                     <button key={v}
@@ -183,7 +183,7 @@ export default function ImportTableauPlat({ annee, onClose, onFini }) {
               {/* ── CE QUE LUCIE A COMPRIS DES COLONNES ──────────────────── */}
               <div className="rounded-xl border border-slate-200 overflow-hidden">
                 <div className="px-3 py-2 bg-slate-50 border-b border-slate-200
-                                text-[12.5px] font-semibold text-iip-blue">
+                                text-[13px] font-semibold text-iip-blue">
                   Les colonnes du fichier
                 </div>
                 <div className="p-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
@@ -215,7 +215,7 @@ export default function ImportTableauPlat({ annee, onClose, onFini }) {
                 </div>
                 {!!manquants.length && (
                   <div className="px-3 py-2 bg-red-50 border-t border-red-200
-                                  text-[11.5px] text-red-800">
+                                  text-[12px] text-red-800">
                     Colonnes indispensables non reconnues : <b>{manquants.join(', ')}</b>.
                     Désignez-les ci-dessus.{type === 'decisions'
                       ? ' Sans elles, une ligne ne peut pas être rattachée à un étudiant '
@@ -232,20 +232,20 @@ export default function ImportTableauPlat({ annee, onClose, onFini }) {
                   <div className="rounded-xl border border-slate-200 overflow-hidden">
                     <div className="px-3 py-2 bg-slate-50 border-b border-slate-200
                                     flex items-center gap-2">
-                      <span className="text-[12.5px] font-semibold text-iip-blue">
+                      <span className="text-[13px] font-semibold text-iip-blue">
                         {unites.length} unité(s) lue(s)
                       </span>
                       <span className="flex-1" />
                       <button onClick={() => setChoisies(choisies.size === unites.length
                         ? new Set() : new Set(unites.map(u => u.ue_num)))}
-                        className="text-[11.5px] text-iip-blue underline">
+                        className="text-[12px] text-iip-blue underline">
                         {choisies.size === unites.length ? 'tout décocher' : 'tout cocher'}
                       </button>
                     </div>
                     <div className="max-h-[30vh] overflow-y-auto divide-y divide-slate-100">
                       {unites.map(u => (
                         <label key={u.ue_num}
-                          className="px-3 py-1.5 flex items-center gap-2 text-[12.5px]
+                          className="px-3 py-1.5 flex items-center gap-2 text-[13px]
                                      cursor-pointer hover:bg-slate-50">
                           <input type="checkbox" checked={choisies.has(u.ue_num)}
                             onChange={() => setChoisies(s => {
@@ -261,15 +261,15 @@ export default function ImportTableauPlat({ annee, onClose, onFini }) {
                               : `${u.resume.etudiants} étudiant(s) · ${u.resume.s1} en 1re · `
                                 + `${u.resume.s2} en 2e`}
                           </span>
-                          <span className="text-[11.5px] text-slate-500 w-24 text-right">
+                          <span className="text-[12px] text-slate-500 w-24 text-right">
                             {u.resume.cotes} cote(s)
                           </span>
-                          <span className="text-[11.5px] text-slate-500 w-24 text-right">
+                          <span className="text-[12px] text-slate-500 w-24 text-right">
                             {u.resume.motifs} motif(s)
                           </span>
                           {/* La date de séance est la pièce qui rend les documents
                               utilisables : son absence se voit d'ici. */}
-                          <span className={`text-[11.5px] w-28 text-right ${u.resume.date_s1
+                          <span className={`text-[12px] w-28 text-right ${u.resume.date_s1
                             ? 'text-emerald-700' : 'text-amber-700 font-semibold'}`}>
                             {u.resume.date_s1 || 'sans date'}
                           </span>
@@ -280,7 +280,7 @@ export default function ImportTableauPlat({ annee, onClose, onFini }) {
 
                   {!!rejets.length && (
                     <div className="px-3 py-2 rounded-xl bg-amber-50 border border-amber-200
-                                    text-[11.5px] text-amber-900">
+                                    text-[12px] text-amber-900">
                       <b>{rejets.length} ligne(s) écartée(s)</b> — une décision qu'on ne sait
                       pas lire n'est pas rangée dans la catégorie la plus fréquente :
                       <div className="mt-1 max-h-24 overflow-y-auto">
@@ -297,19 +297,19 @@ export default function ImportTableauPlat({ annee, onClose, onFini }) {
                   {/* ── CE QUI S'ÉCRIT ───────────────────────────────────── */}
                   <div className="space-y-2 px-1">
                     {!planning && (
-                      <label className="flex items-center gap-2 text-[12.5px] text-slate-700">
+                      <label className="flex items-center gap-2 text-[13px] text-slate-700">
                         <input type="checkbox" checked={creer} className="w-4 h-4 accent-iip-blue"
                           onChange={e => setCreer(e.target.checked)} />
                         Créer les étudiants inconnus et les inscrire aux unités
                       </label>
                     )}
-                    <label className="flex items-center gap-2 text-[12.5px] text-slate-700">
+                    <label className="flex items-center gap-2 text-[13px] text-slate-700">
                       <input type="checkbox" checked={clore} className="w-4 h-4 accent-iip-blue"
                         onChange={e => setClore(e.target.checked)} />
                       Clôturer les séances — elles ont réellement été tenues
                     </label>
                     {!planning && (
-                    <label className="block text-[11.5px] text-slate-700">
+                    <label className="block text-[12px] text-slate-700">
                       Justification imposée là où le fichier n'en porte aucune
                       <textarea value={justifDefaut} onChange={e => setJustifDefaut(e.target.value)}
                         rows={2}
@@ -328,7 +328,7 @@ export default function ImportTableauPlat({ annee, onClose, onFini }) {
                   {rapport && (
                     <div className={`rounded-xl border p-3 ${applique
                       ? 'border-emerald-200 bg-emerald-50' : 'border-sky-200 bg-sky-50'}`}>
-                      <div className="text-[12.5px] font-semibold mb-2 text-slate-800">
+                      <div className="text-[13px] font-semibold mb-2 text-slate-800">
                         {applique ? 'Import appliqué' : 'Simulation — rien n’a été écrit'}
                       </div>
                       {/* POURQUOI UNE UNITÉ N'A RIEN REÇU. Le serveur le dit,
@@ -340,7 +340,7 @@ export default function ImportTableauPlat({ annee, onClose, onFini }) {
                           import qu'on refait au hasard. */}
                       {!!(rapport.unites || []).filter(u => u.ignoree).length && (
                         <div className="mb-2 px-3 py-2 rounded-lg bg-red-50 border
-                                        border-red-200 text-[11.5px] text-red-800">
+                                        border-red-200 text-[12px] text-red-800">
                           <b>{rapport.unites.filter(u => u.ignoree).length} unité(s) écartée(s)
                           — rien ne leur a été écrit :</b>
                           <div className="mt-1 max-h-28 overflow-y-auto">
@@ -371,7 +371,7 @@ export default function ImportTableauPlat({ annee, onClose, onFini }) {
                         ].map(([l, n]) => (
                           <div key={l} className="bg-white/70 rounded-lg px-2 py-1.5">
                             <div className="text-[17px] font-bold tabular-nums text-iip-blue">{n}</div>
-                            <div className="text-[10.5px] text-slate-600">{l}</div>
+                            <div className="text-[11px] text-slate-600">{l}</div>
                           </div>
                         ))}
                       </div>
@@ -392,11 +392,11 @@ export default function ImportTableauPlat({ annee, onClose, onFini }) {
           </span>
           <div className="flex gap-2">
             <button onClick={onClose}
-              className="px-3 py-1.5 text-[12.5px] rounded-lg border border-slate-300
+              className="px-3 py-1.5 text-[13px] rounded-lg border border-slate-300
                          text-slate-600">Fermer</button>
             <button disabled={enCours || !choisies.size || !!manquants.length}
               onClick={() => envoyer(true)}
-              className="px-3 py-1.5 text-[12.5px] rounded-lg border border-sky-400
+              className="px-3 py-1.5 text-[13px] rounded-lg border border-sky-400
                          text-sky-800 font-semibold disabled:opacity-40">
               Simuler
             </button>

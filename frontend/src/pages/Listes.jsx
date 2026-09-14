@@ -1255,11 +1255,11 @@ export default function Listes() {
         sections={[
           { label: 'Documents', items: [
             { key: 'attestation', label: 'Attestation réussite', icon: IconFileText, actif: false,
-              couleur: '#16a34a', onClick: () => navigate('/attestation') },
+              onClick: () => navigate('/attestation') },
             // La liste réclamée par la Fédération en fin de cycle : elle se
             // tapait à la main dans un Word recopié d'année en année.
             { key: 'diplomes', label: 'Étudiants diplômés', icon: IconCertificate, actif: false,
-              couleur: '#C9A227', onClick: () => setDiplomes(true) },
+              onClick: () => setDiplomes(true) },
           ]},
           ...ordreGroupes.map(grp => ({
           label: GROUPES_LABEL[grp],
@@ -1277,7 +1277,7 @@ export default function Listes() {
       )}
 
       {/* ── Colonne droite : filtres + contenu ── */}
-      <div className="ml-16 flex flex-col min-w-0">
+      <div className="gouttiere-rail flex flex-col min-w-0">
 
       {/* ── Barre de filtres + actions ── */}
       <div className="flex-shrink-0 bg-white border-b border-slate-200 px-5 py-2.5 flex items-center gap-3 flex-wrap">
@@ -1506,7 +1506,7 @@ export default function Listes() {
                 <div className="flex flex-wrap gap-1.5">
                   {def.cols.map(c => (
                     <button key={c.key} onClick={() => toggleCol(c.key)}
-                      className={`text-xs px-2.5 py-1 rounded-full border font-medium transition ${
+                      className={`text-xs px-2.5 py-1 rounded-champ border font-medium transition ${
                         colsActives.has(c.key)
                           ? 'bg-iip-blue text-white border-iip-blue'
                           : 'border-gray-300 text-gray-400 hover:border-iip-blue hover:text-iip-blue'
@@ -1523,7 +1523,7 @@ export default function Listes() {
       </div>
 
       {showOptionsRapport && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50" onClick={e=>e.target===e.currentTarget&&setShowOptionsRapport(false)}>
+        <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] flex items-center justify-center p-4 z-50" onClick={e=>e.target===e.currentTarget&&setShowOptionsRapport(false)}>
           <div className="bg-white rounded-xl shadow-2xl max-w-lg w-full p-6 border-t-4 border-iip-gold max-h-[90vh] overflow-y-auto">
             <h2 className="text-lg font-title text-slate-800 mb-1">Paramétrer le rapport</h2>
             <p className="text-sm text-gray-500 mb-4">Choisissez les critères. Laissez « Tous » pour ne pas filtrer.</p>

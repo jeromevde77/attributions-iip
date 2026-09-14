@@ -1,0 +1,360 @@
+<title>Les icônes du rail</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,300;0,6..72,500;1,6..72,300&family=Inter:wght@400;500;600&display=swap">
+<style>
+:root{
+  --marine:#1B2B4B; --turquoise:#00AACC; --accent-pale:#0093B0;
+  --fond:#F2F4F7; --papier:#FFF; --encre:#16233B; --encre-douce:#5A6885;
+  --filet:rgba(27,43,75,.12); --ombre:0 18px 45px -20px rgba(11,21,45,.28);
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --fond:#0E1626; --papier:#151F33; --encre:#E7ECF5; --encre-douce:#9BA9C4;
+  --filet:rgba(255,255,255,.12); --ombre:0 18px 45px -20px rgba(0,0,0,.6);
+}}
+:root[data-theme="dark"]{
+  --fond:#0E1626; --papier:#151F33; --encre:#E7ECF5; --encre-douce:#9BA9C4;
+  --filet:rgba(255,255,255,.12); --ombre:0 18px 45px -20px rgba(0,0,0,.6);
+}
+*{box-sizing:border-box}
+body{background:var(--fond);color:var(--encre);font-family:Inter,system-ui,sans-serif;
+  font-size:15px;line-height:1.6;padding-block:52px;padding-left:24px;padding-right:24px}
+.page{max-width:940px;margin:0 auto;display:flex;flex-direction:column;gap:46px}
+h1,h2,h3,h4{font-family:Newsreader,Georgia,serif;font-weight:500;margin:0;text-wrap:balance}
+h1{font-size:clamp(29px,4vw,42px);line-height:1.1}
+h2{font-size:25px} h4{font-size:15.5px}
+h4 em{font-style:normal;font-size:11px;text-transform:uppercase;letter-spacing:.11em;
+  color:var(--accent-pale);font-family:Inter,sans-serif;font-weight:600;margin-left:6px}
+p{margin:0;max-width:68ch}
+.chapo{font-family:Newsreader,Georgia,serif;font-size:19px;font-style:italic;font-weight:300;
+  color:var(--encre-douce);max-width:58ch}
+.oeil{font-size:11px;text-transform:uppercase;letter-spacing:.13em;color:var(--encre-douce);font-weight:600}
+header{display:flex;flex-direction:column;gap:14px;border-bottom:1px solid var(--filet);padding-bottom:26px}
+section{display:flex;flex-direction:column;gap:16px}
+.tete{display:flex;flex-direction:column;gap:4px}
+.quoi{font-size:14px;color:var(--encre-douce)}
+.cands{display:flex;flex-direction:column;gap:2px}
+.cand{display:flex;gap:20px;align-items:flex-start;padding:14px 16px;border-radius:14px;
+  border:1px solid transparent}
+.cand.retenu{background:var(--papier);border-color:var(--filet);box-shadow:0 1px 2px rgba(11,21,45,.05)}
+.essais{display:flex;gap:8px;flex:none;padding-top:2px}
+.pastille{width:38px;height:38px;border-radius:12px;display:grid;place-items:center;flex:none}
+.pastille.pale{background:#EDEFF4;color:rgba(27,43,75,.60);border:1px solid rgba(27,43,75,.08)}
+.pastille.marine{background:#233457;color:rgba(255,255,255,.70)}
+.pastille.pale.actif{background:#fff;color:var(--accent-pale);box-shadow:inset 0 0 0 1px rgba(27,43,75,.12)}
+.txt{min-width:0;display:flex;flex-direction:column;gap:3px}
+.txt p{font-size:13.5px;color:var(--encre-douce)}
+code{font-family:ui-monospace,Menlo,monospace;font-size:11.5px;color:var(--encre-douce);
+  background:rgba(27,43,75,.06);padding:1px 6px;border-radius:6px;align-self:flex-start}
+:root[data-theme="dark"] code,:root:not([data-theme="light"]) code{background:rgba(255,255,255,.08)}
+.railmaq{display:inline-flex;flex-direction:column;gap:6px;padding:10px 9px;border-radius:24px;box-shadow:var(--ombre)}
+.railmaq.pale{background:rgba(241,243,247,.95);border:1px solid rgba(27,43,75,.10)}
+.railmaq.marine{background:rgba(27,43,75,.94);border:1px solid rgba(255,255,255,.10)}
+.railmaq .pastille.marine.actif{background:rgba(255,255,255,.15);color:var(--turquoise)}
+.rails{display:flex;gap:34px;flex-wrap:wrap;align-items:flex-start}
+.rails figure{margin:0;display:flex;gap:14px;align-items:flex-start}
+.rails figcaption{font-size:13px;color:var(--encre-douce);max-width:22ch}
+.rails figcaption b{color:var(--encre);display:block;font-size:14px;margin-bottom:2px}
+footer{border-top:1px solid var(--filet);padding-top:22px;color:var(--encre-douce);font-size:13.5px;
+  display:flex;flex-direction:column;gap:8px}
+@media (max-width:560px){.cand{flex-direction:column;gap:10px}}
+</style>
+<div class="page">
+  <header>
+    <div class="oeil">Lucie · rail étroit · choix des icônes</div>
+    <h1>Une icône se mérite</h1>
+    <p class="chapo">Le rail ne s'ouvre plus : il ne reste que le dessin, et une bulle
+      pour le nommer. Chaque entrée a donc trois candidates et une retenue — avec la raison,
+      qui compte plus que le goût.</p>
+    <p class="quoi">Ce sont les vraies icônes de Tabler, celles de l'application, montrées
+      dans leurs trois états : menu clair, menu marine, et rubrique active.</p>
+  </header>
+  
+    <section>
+      <div class="tete">
+        <div class="oeil">Étudiants</div>
+        <h2>Étudiant</h2>
+        <p class="quoi">Ouvre la fiche de l'étudiant sélectionné : identité, dossier, parcours, stages, aménagements, frais.</p>
+      </div>
+      <div class="cands">
+        <div class="cand retenu">
+          <div class="essais">
+            <span class="pastille pale"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path stroke="none" d="M0 0h24v24H0z" fill="none" /> <path d="M8 7a4 4 0 1 0 8 0a4 4 0 0 0 -8 0" /> <path d="M6 21v-2a4 4 0 0 1 4 -4h4a4 4 0 0 1 4 4v2" /></svg></span>
+            <span class="pastille marine"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path stroke="none" d="M0 0h24v24H0z" fill="none" /> <path d="M8 7a4 4 0 1 0 8 0a4 4 0 0 0 -8 0" /> <path d="M6 21v-2a4 4 0 0 1 4 -4h4a4 4 0 0 1 4 4v2" /></svg></span>
+            <span class="pastille pale actif"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path stroke="none" d="M0 0h24v24H0z" fill="none" /> <path d="M8 7a4 4 0 1 0 8 0a4 4 0 0 0 -8 0" /> <path d="M6 21v-2a4 4 0 0 1 4 -4h4a4 4 0 0 1 4 4v2" /></svg></span>
+          </div>
+          <div class="txt">
+            <h4>La personne, nue <em>— retenue</em></h4>
+            <code>user</code>
+            <p>Aucune ambiguïté, et c'est le mot même : un étudiant. Le dessin le plus court est ici le plus juste.</p>
+          </div>
+        </div>
+        <div class="cand">
+          <div class="essais">
+            <span class="pastille pale"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path stroke="none" d="M0 0h24v24H0z" fill="none" /> <path d="M7 12h3v4h-3l0 -4" /> <path d="M10 6h-6a1 1 0 0 0 -1 1v12a1 1 0 0 0 1 1h16a1 1 0 0 0 1 -1v-12a1 1 0 0 0 -1 -1h-6" /> <path d="M10 4a1 1 0 0 1 1 -1h2a1 1 0 0 1 1 1v3a1 1 0 0 1 -1 1h-2a1 1 0 0 1 -1 -1l0 -3" /> <path d="M14 16h2" /> <path d="M14 12h4" /></svg></span>
+            <span class="pastille marine"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path stroke="none" d="M0 0h24v24H0z" fill="none" /> <path d="M7 12h3v4h-3l0 -4" /> <path d="M10 6h-6a1 1 0 0 0 -1 1v12a1 1 0 0 0 1 1h16a1 1 0 0 0 1 -1v-12a1 1 0 0 0 -1 -1h-6" /> <path d="M10 4a1 1 0 0 1 1 -1h2a1 1 0 0 1 1 1v3a1 1 0 0 1 -1 1h-2a1 1 0 0 1 -1 -1l0 -3" /> <path d="M14 16h2" /> <path d="M14 12h4" /></svg></span>
+            <span class="pastille pale actif"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path stroke="none" d="M0 0h24v24H0z" fill="none" /> <path d="M7 12h3v4h-3l0 -4" /> <path d="M10 6h-6a1 1 0 0 0 -1 1v12a1 1 0 0 0 1 1h16a1 1 0 0 0 1 -1v-12a1 1 0 0 0 -1 -1h-6" /> <path d="M10 4a1 1 0 0 1 1 -1h2a1 1 0 0 1 1 1v3a1 1 0 0 1 -1 1h-2a1 1 0 0 1 -1 -1l0 -3" /> <path d="M14 16h2" /> <path d="M14 12h4" /></svg></span>
+          </div>
+          <div class="txt">
+            <h4>La carte d'étudiant</h4>
+            <code>id-badge-2</code>
+            <p>Dit « dossier » plus que « personne » — juste, mais on la confond avec une pièce d'identité à imprimer.</p>
+          </div>
+        </div>
+        <div class="cand">
+          <div class="essais">
+            <span class="pastille pale"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path stroke="none" d="M0 0h24v24H0z" fill="none" /> <path d="M8 7a4 4 0 1 0 8 0a4 4 0 0 0 -8 0" /> <path d="M6 21v-2a4 4 0 0 1 4 -4h1.5" /> <path d="M15 18a3 3 0 1 0 6 0a3 3 0 1 0 -6 0" /> <path d="M20.2 20.2l1.8 1.8" /></svg></span>
+            <span class="pastille marine"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path stroke="none" d="M0 0h24v24H0z" fill="none" /> <path d="M8 7a4 4 0 1 0 8 0a4 4 0 0 0 -8 0" /> <path d="M6 21v-2a4 4 0 0 1 4 -4h1.5" /> <path d="M15 18a3 3 0 1 0 6 0a3 3 0 1 0 -6 0" /> <path d="M20.2 20.2l1.8 1.8" /></svg></span>
+            <span class="pastille pale actif"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path stroke="none" d="M0 0h24v24H0z" fill="none" /> <path d="M8 7a4 4 0 1 0 8 0a4 4 0 0 0 -8 0" /> <path d="M6 21v-2a4 4 0 0 1 4 -4h1.5" /> <path d="M15 18a3 3 0 1 0 6 0a3 3 0 1 0 -6 0" /> <path d="M20.2 20.2l1.8 1.8" /></svg></span>
+          </div>
+          <div class="txt">
+            <h4>Consulter une personne</h4>
+            <code>user-search</code>
+            <p>Ajoute la loupe, donc la recherche : or on ne cherche pas ici, on ouvre celui qui est déjà choisi.</p>
+          </div>
+        </div></div>
+    </section>
+    <section>
+      <div class="tete">
+        <div class="oeil">Partout</div>
+        <h2>Éditions</h2>
+        <p class="quoi">Tout ce qui SORT de Lucie : listes, attestations, annexes, rapports — papier, PDF, Excel ou courriel.</p>
+      </div>
+      <div class="cands">
+        <div class="cand retenu">
+          <div class="essais">
+            <span class="pastille pale"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path stroke="none" d="M0 0h24v24H0z" fill="none" /> <path d="M15 3v4a1 1 0 0 0 1 1h4" /> <path d="M18 17h-7a2 2 0 0 1 -2 -2v-10a2 2 0 0 1 2 -2h4l5 5v7a2 2 0 0 1 -2 2" /> <path d="M16 17v2a2 2 0 0 1 -2 2h-7a2 2 0 0 1 -2 -2v-10a2 2 0 0 1 2 -2h2" /></svg></span>
+            <span class="pastille marine"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path stroke="none" d="M0 0h24v24H0z" fill="none" /> <path d="M15 3v4a1 1 0 0 0 1 1h4" /> <path d="M18 17h-7a2 2 0 0 1 -2 -2v-10a2 2 0 0 1 2 -2h4l5 5v7a2 2 0 0 1 -2 2" /> <path d="M16 17v2a2 2 0 0 1 -2 2h-7a2 2 0 0 1 -2 -2v-10a2 2 0 0 1 2 -2h2" /></svg></span>
+            <span class="pastille pale actif"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path stroke="none" d="M0 0h24v24H0z" fill="none" /> <path d="M15 3v4a1 1 0 0 0 1 1h4" /> <path d="M18 17h-7a2 2 0 0 1 -2 -2v-10a2 2 0 0 1 2 -2h4l5 5v7a2 2 0 0 1 -2 2" /> <path d="M16 17v2a2 2 0 0 1 -2 2h-7a2 2 0 0 1 -2 -2v-10a2 2 0 0 1 2 -2h2" /></svg></span>
+          </div>
+          <div class="txt">
+            <h4>Les pièces empilées <em>— retenue</em></h4>
+            <code>files</code>
+            <p>Une édition, c'est un document — au pluriel, parce que le centre en propose vingt. Ne promet aucune technique.</p>
+          </div>
+        </div>
+        <div class="cand">
+          <div class="essais">
+            <span class="pastille pale"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path stroke="none" d="M0 0h24v24H0z" fill="none" /> <path d="M17 17h2a2 2 0 0 0 2 -2v-4a2 2 0 0 0 -2 -2h-14a2 2 0 0 0 -2 2v4a2 2 0 0 0 2 2h2" /> <path d="M17 9v-4a2 2 0 0 0 -2 -2h-6a2 2 0 0 0 -2 2v4" /> <path d="M7 15a2 2 0 0 1 2 -2h6a2 2 0 0 1 2 2v4a2 2 0 0 1 -2 2h-6a2 2 0 0 1 -2 -2l0 -4" /></svg></span>
+            <span class="pastille marine"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path stroke="none" d="M0 0h24v24H0z" fill="none" /> <path d="M17 17h2a2 2 0 0 0 2 -2v-4a2 2 0 0 0 -2 -2h-14a2 2 0 0 0 -2 2v4a2 2 0 0 0 2 2h2" /> <path d="M17 9v-4a2 2 0 0 0 -2 -2h-6a2 2 0 0 0 -2 2v4" /> <path d="M7 15a2 2 0 0 1 2 -2h6a2 2 0 0 1 2 2v4a2 2 0 0 1 -2 2h-6a2 2 0 0 1 -2 -2l0 -4" /></svg></span>
+            <span class="pastille pale actif"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path stroke="none" d="M0 0h24v24H0z" fill="none" /> <path d="M17 17h2a2 2 0 0 0 2 -2v-4a2 2 0 0 0 -2 -2h-14a2 2 0 0 0 -2 2v4a2 2 0 0 0 2 2h2" /> <path d="M17 9v-4a2 2 0 0 0 -2 -2h-6a2 2 0 0 0 -2 2v4" /> <path d="M7 15a2 2 0 0 1 2 -2h6a2 2 0 0 1 2 2v4a2 2 0 0 1 -2 2h-6a2 2 0 0 1 -2 -2l0 -4" /></svg></span>
+          </div>
+          <div class="txt">
+            <h4>L'imprimante</h4>
+            <code>printer</code>
+            <p>Ce qu'il y a aujourd'hui. Elle ment désormais : l'Excel et le courriel ne s'impriment pas.</p>
+          </div>
+        </div>
+        <div class="cand">
+          <div class="essais">
+            <span class="pastille pale"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path stroke="none" d="M0 0h24v24H0z" fill="none" /> <path d="M14 3v4a1 1 0 0 0 1 1h4" /> <path d="M11.5 21h-4.5a2 2 0 0 1 -2 -2v-14a2 2 0 0 1 2 -2h7l5 5v5m-5 6h7m-3 -3l3 3l-3 3" /></svg></span>
+            <span class="pastille marine"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path stroke="none" d="M0 0h24v24H0z" fill="none" /> <path d="M14 3v4a1 1 0 0 0 1 1h4" /> <path d="M11.5 21h-4.5a2 2 0 0 1 -2 -2v-14a2 2 0 0 1 2 -2h7l5 5v5m-5 6h7m-3 -3l3 3l-3 3" /></svg></span>
+            <span class="pastille pale actif"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path stroke="none" d="M0 0h24v24H0z" fill="none" /> <path d="M14 3v4a1 1 0 0 0 1 1h4" /> <path d="M11.5 21h-4.5a2 2 0 0 1 -2 -2v-14a2 2 0 0 1 2 -2h7l5 5v5m-5 6h7m-3 -3l3 3l-3 3" /></svg></span>
+          </div>
+          <div class="txt">
+            <h4>Le document qui sort</h4>
+            <code>file-export</code>
+            <p>La flèche dit la direction — mais « export » est un mot d'informaticien, et le dessin est plus chargé.</p>
+          </div>
+        </div></div>
+    </section>
+    <section>
+      <div class="tete">
+        <div class="oeil">Partout</div>
+        <h2>Importer</h2>
+        <p class="quoi">Tout ce qui ENTRE : classeurs de notes, listes d'inscrits, reprises d'historique. Reste séparé des éditions : cela ÉCRIT dans la base.</p>
+      </div>
+      <div class="cands">
+        <div class="cand retenu">
+          <div class="essais">
+            <span class="pastille pale"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path stroke="none" d="M0 0h24v24H0z" fill="none" /> <path d="M4 6c0 1.657 3.582 3 8 3s8 -1.343 8 -3s-3.582 -3 -8 -3s-8 1.343 -8 3" /> <path d="M4 6v6c0 1.657 3.582 3 8 3c.856 0 1.68 -.05 2.454 -.144m5.546 -2.856v-6" /> <path d="M4 12v6c0 1.657 3.582 3 8 3c.171 0 .341 -.002 .51 -.006" /> <path d="M19 22v-6" /> <path d="M22 19l-3 -3l-3 3" /></svg></span>
+            <span class="pastille marine"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path stroke="none" d="M0 0h24v24H0z" fill="none" /> <path d="M4 6c0 1.657 3.582 3 8 3s8 -1.343 8 -3s-3.582 -3 -8 -3s-8 1.343 -8 3" /> <path d="M4 6v6c0 1.657 3.582 3 8 3c.856 0 1.68 -.05 2.454 -.144m5.546 -2.856v-6" /> <path d="M4 12v6c0 1.657 3.582 3 8 3c.171 0 .341 -.002 .51 -.006" /> <path d="M19 22v-6" /> <path d="M22 19l-3 -3l-3 3" /></svg></span>
+            <span class="pastille pale actif"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path stroke="none" d="M0 0h24v24H0z" fill="none" /> <path d="M4 6c0 1.657 3.582 3 8 3s8 -1.343 8 -3s-3.582 -3 -8 -3s-8 1.343 -8 3" /> <path d="M4 6v6c0 1.657 3.582 3 8 3c.856 0 1.68 -.05 2.454 -.144m5.546 -2.856v-6" /> <path d="M4 12v6c0 1.657 3.582 3 8 3c.171 0 .341 -.002 .51 -.006" /> <path d="M19 22v-6" /> <path d="M22 19l-3 -3l-3 3" /></svg></span>
+          </div>
+          <div class="txt">
+            <h4>La base qu'on alimente <em>— retenue</em></h4>
+            <code>database-import</code>
+            <p>Dit exactement ce qui se passe, et dit le risque : on écrit dans les données.</p>
+          </div>
+        </div>
+        <div class="cand">
+          <div class="essais">
+            <span class="pastille pale"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path stroke="none" d="M0 0h24v24H0z" fill="none" /> <path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2 -2v-2" /> <path d="M7 9l5 -5l5 5" /> <path d="M12 4l0 12" /></svg></span>
+            <span class="pastille marine"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path stroke="none" d="M0 0h24v24H0z" fill="none" /> <path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2 -2v-2" /> <path d="M7 9l5 -5l5 5" /> <path d="M12 4l0 12" /></svg></span>
+            <span class="pastille pale actif"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path stroke="none" d="M0 0h24v24H0z" fill="none" /> <path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2 -2v-2" /> <path d="M7 9l5 -5l5 5" /> <path d="M12 4l0 12" /></svg></span>
+          </div>
+          <div class="txt">
+            <h4>La flèche montante</h4>
+            <code>upload</code>
+            <p>Universelle, mais elle dit « téléverser un fichier », pas « reprendre des données ».</p>
+          </div>
+        </div>
+        <div class="cand">
+          <div class="essais">
+            <span class="pastille pale"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path stroke="none" d="M0 0h24v24H0z" fill="none" /> <path d="M12 21h-7a2 2 0 0 1 -2 -2v-14a2 2 0 0 1 2 -2h14a2 2 0 0 1 2 2v8" /> <path d="M3 10h18" /> <path d="M10 3v18" /> <path d="M19 22v-6" /> <path d="M22 19l-3 -3l-3 3" /></svg></span>
+            <span class="pastille marine"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path stroke="none" d="M0 0h24v24H0z" fill="none" /> <path d="M12 21h-7a2 2 0 0 1 -2 -2v-14a2 2 0 0 1 2 -2h14a2 2 0 0 1 2 2v8" /> <path d="M3 10h18" /> <path d="M10 3v18" /> <path d="M19 22v-6" /> <path d="M22 19l-3 -3l-3 3" /></svg></span>
+            <span class="pastille pale actif"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path stroke="none" d="M0 0h24v24H0z" fill="none" /> <path d="M12 21h-7a2 2 0 0 1 -2 -2v-14a2 2 0 0 1 2 -2h14a2 2 0 0 1 2 2v8" /> <path d="M3 10h18" /> <path d="M10 3v18" /> <path d="M19 22v-6" /> <path d="M22 19l-3 -3l-3 3" /></svg></span>
+          </div>
+          <div class="txt">
+            <h4>Le tableau repris</h4>
+            <code>table-import</code>
+            <p>Vraie dans neuf cas sur dix — ce sont des classeurs — mais fausse pour la reprise d'historique.</p>
+          </div>
+        </div></div>
+    </section>
+    <section>
+      <div class="tete">
+        <div class="oeil">Étudiants</div>
+        <h2>Fin de cycle</h2>
+        <p class="quoi">Les deux gestes de la même semaine de septembre : composer les PAE de l'année suivante, délivrer les titres.</p>
+      </div>
+      <div class="cands">
+        <div class="cand retenu">
+          <div class="essais">
+            <span class="pastille pale"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path stroke="none" d="M0 0h24v24H0z" fill="none" /> <path d="M6 9a6 6 0 1 0 12 0a6 6 0 1 0 -12 0" /> <path d="M12 15l3.4 5.89l1.598 -3.233l3.598 .232l-3.4 -5.889" /> <path d="M6.802 12l-3.4 5.89l3.598 -.233l1.598 3.232l3.4 -5.889" /></svg></span>
+            <span class="pastille marine"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path stroke="none" d="M0 0h24v24H0z" fill="none" /> <path d="M6 9a6 6 0 1 0 12 0a6 6 0 1 0 -12 0" /> <path d="M12 15l3.4 5.89l1.598 -3.233l3.598 .232l-3.4 -5.889" /> <path d="M6.802 12l-3.4 5.89l3.598 -.233l1.598 3.232l3.4 -5.889" /></svg></span>
+            <span class="pastille pale actif"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path stroke="none" d="M0 0h24v24H0z" fill="none" /> <path d="M6 9a6 6 0 1 0 12 0a6 6 0 1 0 -12 0" /> <path d="M12 15l3.4 5.89l1.598 -3.233l3.598 .232l-3.4 -5.889" /> <path d="M6.802 12l-3.4 5.89l3.598 -.233l1.598 3.232l3.4 -5.889" /></svg></span>
+          </div>
+          <div class="txt">
+            <h4>La médaille <em>— retenue</em></h4>
+            <code>award</code>
+            <p>Le titre est l'aboutissement ; c'est l'image que l'école emploie elle-même sur ses diplômes.</p>
+          </div>
+        </div>
+        <div class="cand">
+          <div class="essais">
+            <span class="pastille pale"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path stroke="none" d="M0 0h24v24H0z" fill="none" /> <path d="M15 14l4 -4l-4 -4" /> <path d="M19 10h-11a4 4 0 1 0 0 8h1" /></svg></span>
+            <span class="pastille marine"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path stroke="none" d="M0 0h24v24H0z" fill="none" /> <path d="M15 14l4 -4l-4 -4" /> <path d="M19 10h-11a4 4 0 1 0 0 8h1" /></svg></span>
+            <span class="pastille pale actif"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path stroke="none" d="M0 0h24v24H0z" fill="none" /> <path d="M15 14l4 -4l-4 -4" /> <path d="M19 10h-11a4 4 0 1 0 0 8h1" /></svg></span>
+          </div>
+          <div class="txt">
+            <h4>Le passage à l'année suivante</h4>
+            <code>arrow-forward-up</code>
+            <p>Dit le passage, mais pas la diplomation — or l'entrée porte les deux.</p>
+          </div>
+        </div>
+        <div class="cand">
+          <div class="essais">
+            <span class="pastille pale"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path stroke="none" d="M0 0h24v24H0z" fill="none" /> <path d="M22 9l-10 -4l-10 4l10 4l10 -4v6" /> <path d="M6 10.6v5.4a6 3 0 0 0 12 0v-5.4" /></svg></span>
+            <span class="pastille marine"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path stroke="none" d="M0 0h24v24H0z" fill="none" /> <path d="M22 9l-10 -4l-10 4l10 4l10 -4v6" /> <path d="M6 10.6v5.4a6 3 0 0 0 12 0v-5.4" /></svg></span>
+            <span class="pastille pale actif"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path stroke="none" d="M0 0h24v24H0z" fill="none" /> <path d="M22 9l-10 -4l-10 4l10 4l10 -4v6" /> <path d="M6 10.6v5.4a6 3 0 0 0 12 0v-5.4" /></svg></span>
+          </div>
+          <div class="txt">
+            <h4>L'école</h4>
+            <code>school</code>
+            <p>Trop générale : elle pourrait nommer n'importe quel écran de Lucie.</p>
+          </div>
+        </div></div>
+    </section>
+    <section>
+      <div class="tete">
+        <div class="oeil">Personnel</div>
+        <h2>Personne</h2>
+        <p class="quoi">La fiche du membre du personnel : attributions, dossier administratif, absences, journal, accès, documents.</p>
+      </div>
+      <div class="cands">
+        <div class="cand retenu">
+          <div class="essais">
+            <span class="pastille pale"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path stroke="none" d="M0 0h24v24H0z" fill="none" /> <path d="M7 12h3v4h-3l0 -4" /> <path d="M10 6h-6a1 1 0 0 0 -1 1v12a1 1 0 0 0 1 1h16a1 1 0 0 0 1 -1v-12a1 1 0 0 0 -1 -1h-6" /> <path d="M10 4a1 1 0 0 1 1 -1h2a1 1 0 0 1 1 1v3a1 1 0 0 1 -1 1h-2a1 1 0 0 1 -1 -1l0 -3" /> <path d="M14 16h2" /> <path d="M14 12h4" /></svg></span>
+            <span class="pastille marine"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path stroke="none" d="M0 0h24v24H0z" fill="none" /> <path d="M7 12h3v4h-3l0 -4" /> <path d="M10 6h-6a1 1 0 0 0 -1 1v12a1 1 0 0 0 1 1h16a1 1 0 0 0 1 -1v-12a1 1 0 0 0 -1 -1h-6" /> <path d="M10 4a1 1 0 0 1 1 -1h2a1 1 0 0 1 1 1v3a1 1 0 0 1 -1 1h-2a1 1 0 0 1 -1 -1l0 -3" /> <path d="M14 16h2" /> <path d="M14 12h4" /></svg></span>
+            <span class="pastille pale actif"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path stroke="none" d="M0 0h24v24H0z" fill="none" /> <path d="M7 12h3v4h-3l0 -4" /> <path d="M10 6h-6a1 1 0 0 0 -1 1v12a1 1 0 0 0 1 1h16a1 1 0 0 0 1 -1v-12a1 1 0 0 0 -1 -1h-6" /> <path d="M10 4a1 1 0 0 1 1 -1h2a1 1 0 0 1 1 1v3a1 1 0 0 1 -1 1h-2a1 1 0 0 1 -1 -1l0 -3" /> <path d="M14 16h2" /> <path d="M14 12h4" /></svg></span>
+          </div>
+          <div class="txt">
+            <h4>Le badge <em>— retenue</em></h4>
+            <code>id-badge-2</code>
+            <p>Ici la carte est juste : un membre du personnel EST un dossier administratif — c'est ce qu'on vient consulter.</p>
+          </div>
+        </div>
+        <div class="cand">
+          <div class="essais">
+            <span class="pastille pale"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path stroke="none" d="M0 0h24v24H0z" fill="none" /> <path d="M8 7a4 4 0 1 0 8 0a4 4 0 0 0 -8 0" /> <path d="M6 21v-2a4 4 0 0 1 4 -4h4a4 4 0 0 1 4 4v2" /></svg></span>
+            <span class="pastille marine"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path stroke="none" d="M0 0h24v24H0z" fill="none" /> <path d="M8 7a4 4 0 1 0 8 0a4 4 0 0 0 -8 0" /> <path d="M6 21v-2a4 4 0 0 1 4 -4h4a4 4 0 0 1 4 4v2" /></svg></span>
+            <span class="pastille pale actif"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path stroke="none" d="M0 0h24v24H0z" fill="none" /> <path d="M8 7a4 4 0 1 0 8 0a4 4 0 0 0 -8 0" /> <path d="M6 21v-2a4 4 0 0 1 4 -4h4a4 4 0 0 1 4 4v2" /></svg></span>
+          </div>
+          <div class="txt">
+            <h4>La personne</h4>
+            <code>user</code>
+            <p>Réservée à l'étudiant, sans quoi la même icône ouvre deux fiches différentes selon l'écran.</p>
+          </div>
+        </div>
+        <div class="cand">
+          <div class="essais">
+            <span class="pastille pale"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path stroke="none" d="M0 0h24v24H0z" fill="none" /> <path d="M3 9a2 2 0 0 1 2 -2h14a2 2 0 0 1 2 2v9a2 2 0 0 1 -2 2h-14a2 2 0 0 1 -2 -2v-9" /> <path d="M8 7v-2a2 2 0 0 1 2 -2h4a2 2 0 0 1 2 2v2" /></svg></span>
+            <span class="pastille marine"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path stroke="none" d="M0 0h24v24H0z" fill="none" /> <path d="M3 9a2 2 0 0 1 2 -2h14a2 2 0 0 1 2 2v9a2 2 0 0 1 -2 2h-14a2 2 0 0 1 -2 -2v-9" /> <path d="M8 7v-2a2 2 0 0 1 2 -2h4a2 2 0 0 1 2 2v2" /></svg></span>
+            <span class="pastille pale actif"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path stroke="none" d="M0 0h24v24H0z" fill="none" /> <path d="M3 9a2 2 0 0 1 2 -2h14a2 2 0 0 1 2 2v9a2 2 0 0 1 -2 2h-14a2 2 0 0 1 -2 -2v-9" /> <path d="M8 7v-2a2 2 0 0 1 2 -2h4a2 2 0 0 1 2 2v2" /></svg></span>
+          </div>
+          <div class="txt">
+            <h4>La mallette</h4>
+            <code>briefcase-2</code>
+            <p>Dit le métier, pas la personne — et Lucie gère des enseignants, pas des cadres.</p>
+          </div>
+        </div></div>
+    </section>
+    <section>
+      <div class="tete">
+        <div class="oeil">Personnel</div>
+        <h2>Recrutement</h2>
+        <p class="quoi">Un métier à part : des postes à pourvoir, des candidats, des entretiens — des gens qui ne sont pas encore du personnel.</p>
+      </div>
+      <div class="cands">
+        <div class="cand retenu">
+          <div class="essais">
+            <span class="pastille pale"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path stroke="none" d="M0 0h24v24H0z" fill="none" /> <path d="M8 7a4 4 0 1 0 8 0a4 4 0 0 0 -8 0" /> <path d="M16 19h6" /> <path d="M19 16v6" /> <path d="M6 21v-2a4 4 0 0 1 4 -4h4" /></svg></span>
+            <span class="pastille marine"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path stroke="none" d="M0 0h24v24H0z" fill="none" /> <path d="M8 7a4 4 0 1 0 8 0a4 4 0 0 0 -8 0" /> <path d="M16 19h6" /> <path d="M19 16v6" /> <path d="M6 21v-2a4 4 0 0 1 4 -4h4" /></svg></span>
+            <span class="pastille pale actif"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path stroke="none" d="M0 0h24v24H0z" fill="none" /> <path d="M8 7a4 4 0 1 0 8 0a4 4 0 0 0 -8 0" /> <path d="M16 19h6" /> <path d="M19 16v6" /> <path d="M6 21v-2a4 4 0 0 1 4 -4h4" /></svg></span>
+          </div>
+          <div class="txt">
+            <h4>La personne qu'on ajoute <em>— retenue</em></h4>
+            <code>user-plus</code>
+            <p>C'est littéralement cela : faire entrer quelqu'un. Et le « + » la distingue nettement de la fiche.</p>
+          </div>
+        </div>
+        <div class="cand">
+          <div class="essais">
+            <span class="pastille pale"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path stroke="none" d="M0 0h24v24H0z" fill="none" /> <path d="M8 7a4 4 0 1 0 8 0a4 4 0 0 0 -8 0" /> <path d="M6 21v-2a4 4 0 0 1 4 -4h1.5" /> <path d="M15 18a3 3 0 1 0 6 0a3 3 0 1 0 -6 0" /> <path d="M20.2 20.2l1.8 1.8" /></svg></span>
+            <span class="pastille marine"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path stroke="none" d="M0 0h24v24H0z" fill="none" /> <path d="M8 7a4 4 0 1 0 8 0a4 4 0 0 0 -8 0" /> <path d="M6 21v-2a4 4 0 0 1 4 -4h1.5" /> <path d="M15 18a3 3 0 1 0 6 0a3 3 0 1 0 -6 0" /> <path d="M20.2 20.2l1.8 1.8" /></svg></span>
+            <span class="pastille pale actif"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path stroke="none" d="M0 0h24v24H0z" fill="none" /> <path d="M8 7a4 4 0 1 0 8 0a4 4 0 0 0 -8 0" /> <path d="M6 21v-2a4 4 0 0 1 4 -4h1.5" /> <path d="M15 18a3 3 0 1 0 6 0a3 3 0 1 0 -6 0" /> <path d="M20.2 20.2l1.8 1.8" /></svg></span>
+          </div>
+          <div class="txt">
+            <h4>La personne qu'on cherche</h4>
+            <code>user-search</code>
+            <p>Juste aussi — recruter, c'est chercher — mais la loupe évoque partout ailleurs la recherche dans une liste.</p>
+          </div>
+        </div>
+        <div class="cand">
+          <div class="essais">
+            <span class="pastille pale"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path stroke="none" d="M0 0h24v24H0z" fill="none" /> <path d="M5 7a4 4 0 1 0 8 0a4 4 0 1 0 -8 0" /> <path d="M3 21v-2a4 4 0 0 1 4 -4h4a4 4 0 0 1 4 4v2" /> <path d="M16 3.13a4 4 0 0 1 0 7.75" /> <path d="M21 21v-2a4 4 0 0 0 -3 -3.85" /></svg></span>
+            <span class="pastille marine"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path stroke="none" d="M0 0h24v24H0z" fill="none" /> <path d="M5 7a4 4 0 1 0 8 0a4 4 0 1 0 -8 0" /> <path d="M3 21v-2a4 4 0 0 1 4 -4h4a4 4 0 0 1 4 4v2" /> <path d="M16 3.13a4 4 0 0 1 0 7.75" /> <path d="M21 21v-2a4 4 0 0 0 -3 -3.85" /></svg></span>
+            <span class="pastille pale actif"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path stroke="none" d="M0 0h24v24H0z" fill="none" /> <path d="M5 7a4 4 0 1 0 8 0a4 4 0 1 0 -8 0" /> <path d="M3 21v-2a4 4 0 0 1 4 -4h4a4 4 0 0 1 4 4v2" /> <path d="M16 3.13a4 4 0 0 1 0 7.75" /> <path d="M21 21v-2a4 4 0 0 0 -3 -3.85" /></svg></span>
+          </div>
+          <div class="txt">
+            <h4>Le groupe</h4>
+            <code>users</code>
+            <p>Dit « personnel », pas « recrutement » : à écarter, elle brouille les deux.</p>
+          </div>
+        </div></div>
+    </section>
+  <section>
+    <div class="tete">
+      <div class="oeil">Au total</div>
+      <h2>Ce que devient chaque rail</h2>
+    </div>
+    <div class="rails">
+      <figure><div class="railmaq pale"><span class="pastille pale actif"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path stroke="none" d="M0 0h24v24H0z" fill="none" /> <path d="M9 5h-2a2 2 0 0 0 -2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2v-12a2 2 0 0 0 -2 -2h-2" /> <path d="M9 5a2 2 0 0 1 2 -2h2a2 2 0 0 1 2 2a2 2 0 0 1 -2 2h-2a2 2 0 0 1 -2 -2" /> <path d="M9 12l.01 0" /> <path d="M13 12l2 0" /> <path d="M9 16l.01 0" /> <path d="M13 16l2 0" /></svg></span><span class="pastille pale"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path stroke="none" d="M0 0h24v24H0z" fill="none" /> <path d="M8 7a4 4 0 1 0 8 0a4 4 0 0 0 -8 0" /> <path d="M6 21v-2a4 4 0 0 1 4 -4h4a4 4 0 0 1 4 4v2" /></svg></span><span class="pastille pale"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path stroke="none" d="M0 0h24v24H0z" fill="none" /> <path d="M15 3v4a1 1 0 0 0 1 1h4" /> <path d="M18 17h-7a2 2 0 0 1 -2 -2v-10a2 2 0 0 1 2 -2h4l5 5v7a2 2 0 0 1 -2 2" /> <path d="M16 17v2a2 2 0 0 1 -2 2h-7a2 2 0 0 1 -2 -2v-10a2 2 0 0 1 2 -2h2" /></svg></span><span class="pastille pale"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path stroke="none" d="M0 0h24v24H0z" fill="none" /> <path d="M4 6c0 1.657 3.582 3 8 3s8 -1.343 8 -3s-3.582 -3 -8 -3s-8 1.343 -8 3" /> <path d="M4 6v6c0 1.657 3.582 3 8 3c.856 0 1.68 -.05 2.454 -.144m5.546 -2.856v-6" /> <path d="M4 12v6c0 1.657 3.582 3 8 3c.171 0 .341 -.002 .51 -.006" /> <path d="M19 22v-6" /> <path d="M22 19l-3 -3l-3 3" /></svg></span><span class="pastille pale"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path stroke="none" d="M0 0h24v24H0z" fill="none" /> <path d="M6 9a6 6 0 1 0 12 0a6 6 0 1 0 -12 0" /> <path d="M12 15l3.4 5.89l1.598 -3.233l3.598 .232l-3.4 -5.889" /> <path d="M6.802 12l-3.4 5.89l3.598 -.233l1.598 3.232l3.4 -5.889" /></svg></span></div>
+        <figcaption><b>Étudiants — 4 outils</b>Étudiant, Éditions, Importer,
+          Fin de cycle. Six auparavant.</figcaption></figure>
+      <figure><div class="railmaq marine"><span class="pastille marine actif"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path stroke="none" d="M0 0h24v24H0z" fill="none" /> <path d="M5 7a4 4 0 1 0 8 0a4 4 0 1 0 -8 0" /> <path d="M3 21v-2a4 4 0 0 1 4 -4h4a4 4 0 0 1 4 4v2" /> <path d="M16 3.13a4 4 0 0 1 0 7.75" /> <path d="M21 21v-2a4 4 0 0 0 -3 -3.85" /></svg></span><span class="pastille marine"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path stroke="none" d="M0 0h24v24H0z" fill="none" /> <path d="M7 12h3v4h-3l0 -4" /> <path d="M10 6h-6a1 1 0 0 0 -1 1v12a1 1 0 0 0 1 1h16a1 1 0 0 0 1 -1v-12a1 1 0 0 0 -1 -1h-6" /> <path d="M10 4a1 1 0 0 1 1 -1h2a1 1 0 0 1 1 1v3a1 1 0 0 1 -1 1h-2a1 1 0 0 1 -1 -1l0 -3" /> <path d="M14 16h2" /> <path d="M14 12h4" /></svg></span><span class="pastille marine"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path stroke="none" d="M0 0h24v24H0z" fill="none" /> <path d="M8 7a4 4 0 1 0 8 0a4 4 0 0 0 -8 0" /> <path d="M16 19h6" /> <path d="M19 16v6" /> <path d="M6 21v-2a4 4 0 0 1 4 -4h4" /></svg></span><span class="pastille marine"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path stroke="none" d="M0 0h24v24H0z" fill="none" /> <path d="M15 3v4a1 1 0 0 0 1 1h4" /> <path d="M18 17h-7a2 2 0 0 1 -2 -2v-10a2 2 0 0 1 2 -2h4l5 5v7a2 2 0 0 1 -2 2" /> <path d="M16 17v2a2 2 0 0 1 -2 2h-7a2 2 0 0 1 -2 -2v-10a2 2 0 0 1 2 -2h2" /></svg></span><span class="pastille marine"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path stroke="none" d="M0 0h24v24H0z" fill="none" /> <path d="M4 6c0 1.657 3.582 3 8 3s8 -1.343 8 -3s-3.582 -3 -8 -3s-8 1.343 -8 3" /> <path d="M4 6v6c0 1.657 3.582 3 8 3c.856 0 1.68 -.05 2.454 -.144m5.546 -2.856v-6" /> <path d="M4 12v6c0 1.657 3.582 3 8 3c.171 0 .341 -.002 .51 -.006" /> <path d="M19 22v-6" /> <path d="M22 19l-3 -3l-3 3" /></svg></span></div>
+        <figcaption><b>Personnel — 4 outils</b>Personne, Recrutement, Éditions,
+          Importer. Six auparavant.</figcaption></figure>
+    </div>
+    <p class="quoi">La première icône de chaque rail est celle de l'axe : elle ne se clique
+      pas, elle dit où l'on est.</p>
+  </section>
+  <footer>
+    <p><b>Ce qui disparaît du menu sans rien perdre :</b> « Rapport de la liste », « Rapport PAE »
+      et « Exporter » deviennent trois pièces du catalogue des Éditions ; les six vues d'un
+      membre du personnel deviennent les onglets de sa fiche.</p>
+    <p>À annoncer au secrétariat avant livraison : un menu qui change du jour au lendemain
+      est un risque humain, pas technique.</p>
+  </footer>
+</div>

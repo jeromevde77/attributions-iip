@@ -110,7 +110,7 @@ export default function NouveauModal({ onClose, onCreated }) {
 
   // ── Rendu ──────────────────────────────────────────────────────────────────
   if (result) return (
-    <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={onClose}>
+    <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] z-50 flex items-center justify-center p-4" onClick={onClose}>
       <div className="bg-white rounded-xl shadow-xl w-full max-w-sm p-6 text-center" onClick={e => e.stopPropagation()}>
         <div className="text-4xl mb-3">✅</div>
         <div className="text-lg font-bold text-iip-blue mb-1">
@@ -125,7 +125,7 @@ export default function NouveauModal({ onClose, onCreated }) {
   );
 
   return (
-    <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={onClose}>
+    <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] z-50 flex items-center justify-center p-4" onClick={onClose}>
       <div className="bg-white rounded-xl shadow-xl w-full max-w-lg" onClick={e => e.stopPropagation()}>
 
         {/* En-tête */}
@@ -225,7 +225,7 @@ export default function NouveauModal({ onClose, onCreated }) {
                         </div>
                         <div className="flex gap-1.5 flex-shrink-0 text-[10px]">
                           {u.cours_total > 0 && (
-                            <span className={`px-1.5 py-0.5 rounded-full font-semibold ${u.cours_manquants > 0 ? 'bg-orange-100 text-orange-700' : 'bg-green-100 text-green-700'}`}>
+                            <span className={`px-1.5 py-0.5 rounded-champ font-semibold ${u.cours_manquants > 0 ? 'bg-orange-100 text-orange-700' : 'bg-green-100 text-green-700'}`}>
                               {u.cours_couverts}/{u.cours_total}
                             </span>
                           )}

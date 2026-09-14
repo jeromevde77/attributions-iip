@@ -117,13 +117,13 @@ export default function EncodageCours({ coursCode, annee, onClose, onEnregistre,
   const fermer = () => onClose();
 
   return (
-    <div className="fixed inset-0 bg-black/40 flex items-start justify-center z-50 p-4"
+    <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] flex items-start justify-center z-50 p-4"
       onClick={e => e.target === e.currentTarget && fermer()}>
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-5xl mt-8
+      <div className="bg-white rounded-fenetre shadow-dessus w-full max-w-5xl mt-8
                       max-h-[90vh] overflow-hidden flex flex-col">
         <div className="flex-none p-5 pb-3 border-b border-slate-100 flex items-start justify-between gap-3">
           <div>
-            <h3 className="text-[16px] font-semibold text-iip-blue">
+            <h3 className="text-[15px] font-semibold text-iip-blue">
               {data ? `${data.cours.cours_code} · ${data.cours.cours_nom || ''}` : coursCode}
             </h3>
             <p className="text-[12px] text-slate-500">
@@ -133,7 +133,7 @@ export default function EncodageCours({ coursCode, annee, onClose, onEnregistre,
             </p>
           </div>
           <div className="flex items-center gap-2">
-            {enAttente > 0 && <span className="text-[11.5px] text-slate-400">enregistrement…</span>}
+            {enAttente > 0 && <span className="text-[12px] text-slate-400">enregistrement…</span>}
             {/* Les acquis viennent d'un tableur : autant les y lire. */}
             <button onClick={() => setImporter(true)}
               title="Importer les acquis de ce cours depuis un classeur Excel"
@@ -141,7 +141,7 @@ export default function EncodageCours({ coursCode, annee, onClose, onEnregistre,
                          text-slate-600 flex items-center gap-1.5">
               <IconFileSpreadsheet size={14} /> Importer les acquis
             </button>
-            <div className="flex rounded-lg border border-slate-300 overflow-hidden">
+            <div className="segments">
               {[1, 2].map(s => (
                 <button key={s} onClick={() => setSession(s)}
                   className={`px-3 py-1 text-[12px] font-semibold ${session === s
@@ -167,7 +167,7 @@ export default function EncodageCours({ coursCode, annee, onClose, onEnregistre,
         <div className="flex-1 overflow-y-auto p-5 space-y-3">
           {erreur && (
             <div className="px-3 py-2 rounded-lg bg-red-50 border border-red-200
-                            text-[12.5px] text-red-800">{erreur}</div>
+                            text-[13px] text-red-800">{erreur}</div>
           )}
 
           {!data ? (
@@ -200,13 +200,13 @@ export default function EncodageCours({ coursCode, annee, onClose, onEnregistre,
               </p>
               <div className="flex flex-wrap gap-2 mt-1">
                 <button onClick={() => setImporter(true)}
-                  className="px-3 py-1.5 text-[12.5px] rounded-lg bg-iip-blue
+                  className="px-3 py-1.5 text-[13px] rounded-lg bg-iip-blue
                              text-white font-semibold flex items-center gap-1.5">
                   <IconFileSpreadsheet size={14} /> Importer les acquis depuis Excel
                 </button>
                 {onParametrer && (
                   <button onClick={() => onParametrer(data.cours.ue_num)}
-                    className="px-3 py-1.5 text-[12.5px] rounded-lg border border-iip-blue
+                    className="px-3 py-1.5 text-[13px] rounded-lg border border-iip-blue
                                text-iip-blue font-semibold">
                     Les relier à la main
                   </button>
@@ -228,7 +228,7 @@ export default function EncodageCours({ coursCode, annee, onClose, onEnregistre,
                   <IconSearch size={14} className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400" />
                   <input value={recherche} onChange={e => setRecherche(e.target.value)}
                     placeholder="Filtrer un étudiant…"
-                    className="w-full border border-slate-300 rounded-lg pl-7 pr-2 py-1 text-[12.5px]" />
+                    className="w-full border border-slate-300 rounded-lg pl-7 pr-2 py-1 text-[13px]" />
                 </div>
               </div>
 
@@ -251,7 +251,7 @@ export default function EncodageCours({ coursCode, annee, onClose, onEnregistre,
                                      text-[11px] text-slate-600 whitespace-nowrap">
                           {a.aa_code}
                           {a.poids != null && (
-                            <span className="block font-sans text-[9.5px] text-slate-400">
+                            <span className="block font-sans text-[10px] text-slate-400">
                               poids {Math.round(a.poids)}
                             </span>
                           )}
@@ -269,12 +269,12 @@ export default function EncodageCours({ coursCode, annee, onClose, onEnregistre,
                         <td className="sticky left-0 bg-white px-3 py-1
                                        border-b border-r border-slate-100">
                           <div className="font-semibold text-iip-blue truncate">{e.nom}</div>
-                          <div className="text-[10.5px] text-slate-500 truncate">{e.prenom}</div>
+                          <div className="text-[11px] text-slate-500 truncate">{e.prenom}</div>
                         </td>
                         {/* NP / PP : la raison d'un zéro, posée sur l'épreuve
                             entière et non sur un acquis. */}
                         <td className="px-1 py-1 border-b border-r border-slate-100 text-center">
-                          <div className="inline-flex rounded-lg border border-slate-300 overflow-hidden">
+                          <div className="inline-segments">
                             {['NP', 'PP'].map(m => {
                               const actif = data.mentions?.[e.id] === m;
                               return (
@@ -283,7 +283,7 @@ export default function EncodageCours({ coursCode, annee, onClose, onEnregistre,
                                   title={m === 'NP'
                                     ? 'Note de présence — présent, rien qui vaille un point. Zéro, seconde session ouverte.'
                                     : "Pas présenté — absent à l'épreuve. Zéro ; le Conseil appréciera la justification."}
-                                  className={`px-1.5 py-0.5 text-[10.5px] font-bold
+                                  className={`px-1.5 py-0.5 text-[11px] font-bold
                                     ${actif
                                       ? (m === 'NP' ? 'bg-amber-500 text-white' : 'bg-red-600 text-white')
                                       : 'bg-white text-slate-400 hover:text-slate-600'}`}>
@@ -300,7 +300,7 @@ export default function EncodageCours({ coursCode, annee, onClose, onEnregistre,
                           return (
                             <td key={a.aa_code} className="px-1 py-1 border-b border-slate-100 text-center">
                               {men ? (
-                                <span className={`inline-block w-16 py-1 rounded-lg text-[11.5px]
+                                <span className={`inline-block w-16 py-1 rounded-lg text-[12px]
                                   font-bold ${men === 'NP'
                                     ? 'bg-amber-100 text-amber-800 border border-amber-300'
                                     : 'bg-red-100 text-red-800 border border-red-300'}`}>
@@ -315,7 +315,7 @@ export default function EncodageCours({ coursCode, annee, onClose, onEnregistre,
                                     const avant = v == null ? '' : String(v);
                                     if (brut !== avant) poser(e.id, a.aa_code, brut);
                                   }}
-                                  className={`w-16 border rounded-lg px-1.5 py-1 text-[12.5px]
+                                  className={`w-16 border rounded-lg px-1.5 py-1 text-[13px]
                                               text-center tabular-nums ${tonNote(v)}`} />
                               )}
                             </td>
@@ -327,7 +327,7 @@ export default function EncodageCours({ coursCode, annee, onClose, onEnregistre,
                 </table>
               </div>
 
-              <p className="text-[11.5px] text-slate-500">
+              <p className="text-[12px] text-slate-500">
                 <b>NP</b> — note de présence : l'étudiant s'est présenté sans rien
                 produire qui vaille un point. <b>PP</b> — pas présenté à l'épreuve.
                 Les deux valent zéro sur tous les acquis du cours, à la différence

@@ -251,13 +251,13 @@ export default function SchemaLiensAA({ ueNum, annee, onClose, onEnregistre }) {
     !(data?.cours || []).some(c => Number(poids[`${c.cours_code}|${a.aa_code}`]) > 0));
 
   return (
-    <div className="fixed inset-0 bg-black/40 flex items-start justify-center z-50 p-4"
+    <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] flex items-start justify-center z-50 p-4"
       onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-6xl mt-6
+      <div className="bg-white rounded-fenetre shadow-dessus w-full max-w-6xl mt-6
                       max-h-[92vh] overflow-hidden flex flex-col">
         <div className="flex-none p-5 pb-3 border-b border-slate-100 flex items-start justify-between">
           <div>
-            <h3 className="text-[16px] font-semibold text-iip-blue">
+            <h3 className="text-[15px] font-semibold text-iip-blue">
               UE {ueNum}{data?.ue_nom ? ` · ${data.ue_nom}` : ''} — cours et acquis
             </h3>
             <p className="text-[12px] text-slate-500">
@@ -281,11 +281,11 @@ export default function SchemaLiensAA({ ueNum, annee, onClose, onEnregistre }) {
             <input type="checkbox" checked={integree} disabled={enCours}
               onChange={e => basculerIntegree(e.target.checked)}
               className="mt-0.5 w-4 h-4 accent-violet-600" />
-            <span className="text-[12.5px]">
+            <span className="text-[13px]">
               <b className={integree ? 'text-violet-900' : 'text-slate-700'}>
                 Épreuve intégrée d'unité
               </b>
-              <span className="block text-[11.5px] text-slate-600">
+              <span className="block text-[12px] text-slate-600">
                 Les professeurs de l'unité organisent une épreuve commune. On
                 n'encode alors plus une note par cours, mais <b>une note par acquis
                 pour l'unité</b> ; chaque cours reçoit la note de l'unité.
@@ -462,13 +462,13 @@ export default function SchemaLiensAA({ ueNum, annee, onClose, onEnregistre }) {
                         <span className="block text-[12px] font-bold font-mono leading-tight">
                           {c.cours_code}
                         </span>
-                        <span className="block text-[9.5px] opacity-80 leading-tight">{et.quoi}</span>
+                        <span className="block text-[10px] opacity-80 leading-tight">{et.quoi}</span>
                       </span>
                       <button onClick={() => enregistrer(c.cours_code, false)}
                         disabled={enCours || !et.ok || !et.modifie}
                         title={!et.ok ? et.quoi
                           : et.modifie ? 'Enregistrer ce cours' : 'Déjà enregistré'}
-                        className="px-2.5 text-[11.5px] font-semibold border-r border-current/20
+                        className="px-2.5 text-[12px] font-semibold border-r border-current/20
                                    disabled:opacity-45 flex items-center gap-1">
                         {et.ok && !et.modifie
                           ? <><IconCheck size={13} /> enregistré</>
@@ -477,7 +477,7 @@ export default function SchemaLiensAA({ ueNum, annee, onClose, onEnregistre }) {
                       <button onClick={() => enregistrer(c.cours_code, true)}
                         disabled={enCours || !relie}
                         title="Parité : tous les acquis de ce cours pèsent pareil — enregistré aussitôt"
-                        className="px-2 text-[11.5px] font-semibold disabled:opacity-40
+                        className="px-2 text-[12px] font-semibold disabled:opacity-40
                                    flex items-center gap-1">
                         <IconEqual size={13} /> parité
                       </button>
@@ -497,7 +497,7 @@ export default function SchemaLiensAA({ ueNum, annee, onClose, onEnregistre }) {
                 )}
               </div>
 
-              <p className="text-[11.5px] text-slate-500">
+              <p className="text-[12px] text-slate-500">
                 Tirez depuis le point bleu d'un acquis jusqu'au cours qu'il
                 alimente. Le lien naît à 1 point ; ajustez-le avec − et +, et
                 ramenez-le à 0 pour le défaire. Chaque cours porte son état :
@@ -523,7 +523,7 @@ function Bandeau({ ton, children }) {
     : ton === 'ok' ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
     : 'bg-amber-50 border-amber-200 text-amber-900';
   return (
-    <div className={`px-3 py-2 rounded-lg border text-[12.5px] flex items-start gap-1.5 ${c}`}>
+    <div className={`px-3 py-2 rounded-lg border text-[13px] flex items-start gap-1.5 ${c}`}>
       {ton === 'alerte' && <IconAlertTriangle size={15} className="mt-0.5 flex-none" />}
       <span>{children}</span>
     </div>

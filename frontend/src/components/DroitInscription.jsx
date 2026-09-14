@@ -60,7 +60,7 @@ export default function DroitInscription({ etudId, annee, peutEcrire = true }) {
             <span className="text-[13px] font-semibold text-iip-blue">
               Montant à payer
             </span>
-            <span className="text-[10.5px] text-slate-500">
+            <span className="text-[11px] text-slate-500">
               {f.periodes ?? '—'} périodes · {annee}
             </span>
           </div>
@@ -76,7 +76,7 @@ export default function DroitInscription({ etudId, annee, peutEcrire = true }) {
                                   font-semibold">{lib}</div>
                   <div className="text-[17px] font-bold text-slate-700">{eur(v)}</div>
                   {note && (
-                    <div className="text-[10.5px] text-emerald-700">{note}</div>
+                    <div className="text-[11px] text-emerald-700">{note}</div>
                   )}
                 </div>
               ))}
@@ -121,7 +121,7 @@ export default function DroitInscription({ etudId, annee, peutEcrire = true }) {
       <div className="border border-slate-200 rounded-xl overflow-hidden">
         <div className="px-4 py-2.5 bg-slate-50 border-b border-slate-200 flex items-center justify-between gap-3">
           <span className="text-[13px] font-semibold text-iip-blue">Droit d'inscription</span>
-          <span className="text-[10.5px] text-slate-400">
+          <span className="text-[11px] text-slate-400">
             Circulaire 9731 · {annee}
             {di.bareme.defaut ? ' · barème par défaut' : ''}
           </span>
@@ -129,7 +129,7 @@ export default function DroitInscription({ etudId, annee, peutEcrire = true }) {
 
         <div className="p-4 space-y-3">
           {!di.detail.length ? (
-            <div className="text-[12.5px] text-slate-400">
+            <div className="text-[13px] text-slate-400">
               Aucune UE inscrite pour cette année — le droit d'inscription se calcule sur le programme.
             </div>
           ) : (
@@ -149,7 +149,7 @@ export default function DroitInscription({ etudId, annee, peutEcrire = true }) {
                   )}
                 </div>
 
-                <div className="text-[11.5px] text-slate-600 text-right">
+                <div className="text-[12px] text-slate-600 text-right">
                   <div>Forfait : <b>{eur(di.forfait)}</b></div>
                   <div>
                     Secondaire : {di.retenues.secondaire} pér. × {String(di.bareme.tarif_secondaire).replace('.', ',')} €
@@ -163,14 +163,14 @@ export default function DroitInscription({ etudId, annee, peutEcrire = true }) {
               </div>
 
               {di.plafond_atteint && (
-                <div className="px-3 py-2 rounded-lg bg-sky-50 border border-sky-200 text-[11.5px] text-sky-900">
+                <div className="px-3 py-2 rounded-lg bg-sky-50 border border-sky-200 text-[12px] text-sky-900">
                   Plafond de {di.bareme.plafond_periodes} périodes atteint : {di.periodes.total} périodes
                   au programme, dont {di.retenues.secondaire + di.retenues.superieur} facturées. Les
                   périodes du secondaire sont comptées en premier, conformément à la circulaire.
                 </div>
               )}
 
-              <label className="flex items-start gap-2 text-[12.5px]">
+              <label className="flex items-start gap-2 text-[13px]">
                 <input type="checkbox" checked={di.exonere} disabled={!peutEcrire || enregistrement}
                   onChange={e => enregistrer({
                     di_exonere: e.target.checked,
@@ -183,18 +183,18 @@ export default function DroitInscription({ etudId, annee, peutEcrire = true }) {
               {di.exonere && (
                 <select value={di.motif || ''} disabled={!peutEcrire}
                   onChange={e => enregistrer({ di_exonere: true, di_motif: e.target.value })}
-                  className="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-[12.5px]">
+                  className="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-[13px]">
                   {motifs_di.map(m => <option key={m.code} value={m.code}>{m.libelle}</option>)}
                 </select>
               )}
 
               <button onClick={() => setDetailOuvert(o => !o)}
-                className="text-[11.5px] text-slate-500 underline">
+                className="text-[12px] text-slate-500 underline">
                 {detailOuvert ? 'Masquer le détail par UE' : `Détail des ${di.detail.length} UE`}
               </button>
 
               {detailOuvert && (
-                <table className="w-full text-[11.5px]">
+                <table className="w-full text-[12px]">
                   <thead>
                     <tr className="text-[10px] uppercase tracking-wide text-slate-400 border-b">
                       <th className="py-1 text-left">UE</th>
@@ -219,7 +219,7 @@ export default function DroitInscription({ etudId, annee, peutEcrire = true }) {
                             ? <span className="text-slate-400 line-through">{d.periodes_brutes}</span>
                             : d.periodes}
                           {!d.dispensee && d.periodes_facturees != null && d.periodes_facturees < d.periodes && (
-                            <span className="block text-[9.5px] text-sky-700">{d.periodes_facturees} facturée(s)</span>
+                            <span className="block text-[10px] text-sky-700">{d.periodes_facturees} facturée(s)</span>
                           )}
                         </td>
                         <td className="py-1 text-right">{d.dispensee ? '—' : eur(d.montant)}</td>
@@ -237,16 +237,16 @@ export default function DroitInscription({ etudId, annee, peutEcrire = true }) {
       <div className="border border-slate-200 rounded-xl overflow-hidden">
         <div className="px-4 py-2.5 bg-slate-50 border-b border-slate-200 flex items-center justify-between gap-3">
           <span className="text-[13px] font-semibold text-iip-blue">Droit d'inscription spécifique</span>
-          <span className="text-[10.5px] text-slate-400">A.E. 25-09-1991, art. 2, 4°</span>
+          <span className="text-[11px] text-slate-400">A.E. 25-09-1991, art. 2, 4°</span>
         </div>
 
         <div className="p-4 space-y-3">
-          <p className="text-[11.5px] text-slate-500">
+          <p className="text-[12px] text-slate-500">
             Dû par les étudiants de nationalité étrangère qui ne relèvent d'aucune des exemptions
             de l'article 1er — notamment les ressortissants de l'Union européenne, qui en sont exemptés.
           </p>
 
-          <label className="flex items-start gap-2 text-[12.5px]">
+          <label className="flex items-start gap-2 text-[13px]">
             <input type="checkbox" checked={dis.soumis || dis.exempte} disabled={!peutEcrire || enregistrement}
               onChange={e => enregistrer({ dis_soumis: e.target.checked, dis_motif_exemption: null })}
               className="mt-0.5" />
@@ -257,7 +257,7 @@ export default function DroitInscription({ etudId, annee, peutEcrire = true }) {
             <>
               <select value={dis.motif_exemption || ''} disabled={!peutEcrire}
                 onChange={e => enregistrer({ dis_soumis: true, dis_motif_exemption: e.target.value || null })}
-                className="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-[12.5px]">
+                className="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-[13px]">
                 <option value="">Aucune exemption — droit dû</option>
                 {motifs_dis.map(m => <option key={m.code} value={m.code}>{m.libelle}</option>)}
               </select>
@@ -288,7 +288,7 @@ export default function DroitInscription({ etudId, annee, peutEcrire = true }) {
               )}
 
               {dis.exempte && (
-                <div className="flex items-center gap-1.5 text-[12.5px] text-emerald-700 font-semibold">
+                <div className="flex items-center gap-1.5 text-[13px] text-emerald-700 font-semibold">
                   <IconCheck size={14} /> Exempté — aucun droit spécifique dû
                 </div>
               )}

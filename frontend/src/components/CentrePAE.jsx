@@ -97,13 +97,13 @@ export default function CentrePAE({ annee, etudiants, onClose, onTermine }) {
   const niveaux = [...new Set(ues.map(u => u.ue_niv).filter(Boolean))];
 
   return (
-    <div className="fixed inset-0 bg-black/40 flex items-start justify-center z-50 p-4"
+    <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] flex items-start justify-center z-50 p-4"
       onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl mt-8 max-h-[88vh] overflow-hidden flex flex-col">
+      <div className="bg-white rounded-fenetre shadow-dessus w-full max-w-3xl mt-8 max-h-[88vh] overflow-hidden flex flex-col">
 
         <div className="flex-none p-5 pb-3 border-b border-slate-100 flex items-start justify-between">
           <div>
-            <h3 className="text-[16px] font-semibold text-iip-blue">
+            <h3 className="text-[15px] font-semibold text-iip-blue">
               Composition des PAE
             </h3>
             <p className="text-[12px] text-slate-500">
@@ -119,7 +119,7 @@ export default function CentrePAE({ annee, etudiants, onClose, onTermine }) {
 
         {erreur && (
           <div className="px-3 py-2 rounded-lg bg-red-50 border border-red-200
-                          text-[12.5px] text-red-800">{erreur}</div>
+                          text-[13px] text-red-800">{erreur}</div>
         )}
 
         <div className="flex gap-2 flex-wrap items-end">
@@ -181,11 +181,11 @@ export default function CentrePAE({ annee, etudiants, onClose, onTermine }) {
               for (const u of affichees) toutes ? c.delete(u.ue_num) : c.add(u.ue_num);
               return c;
             })}
-              className="flex items-center gap-1.5 text-[12.5px] text-iip-blue font-semibold">
+              className="flex items-center gap-1.5 text-[13px] text-iip-blue font-semibold">
               {toutes ? <IconSquareCheck size={16} /> : <IconSquare size={16} />}
               {toutes ? 'Tout décocher' : 'Tout cocher'}
             </button>
-            <span className="text-[12.5px] font-semibold text-iip-blue">
+            <span className="text-[13px] font-semibold text-iip-blue">
               {choisies.size} unité(s)
             </span>
             <div className="relative">
@@ -199,7 +199,7 @@ export default function CentrePAE({ annee, etudiants, onClose, onTermine }) {
 
           <div className="max-h-64 overflow-y-auto divide-y divide-slate-100">
             {!affichees.length ? (
-              <div className="py-6 text-center text-[12.5px] text-slate-400">
+              <div className="py-6 text-center text-[13px] text-slate-400">
                 Aucune unité pour cette section.
               </div>
             ) : affichees.map((u, i) => {
@@ -207,7 +207,7 @@ export default function CentrePAE({ annee, etudiants, onClose, onTermine }) {
               const nouveauNiveau = i > 0 && affichees[i - 1].ue_niv !== u.ue_niv;
               return (
                 <label key={u.ue_num}
-                  className={`flex items-center gap-3 px-3 py-1.5 cursor-pointer text-[12.5px]
+                  className={`flex items-center gap-3 px-3 py-1.5 cursor-pointer text-[13px]
                     ${coche ? 'bg-iip-blue/5' : 'hover:bg-slate-50'}
                     ${nouveauNiveau ? 'border-t-2 border-t-iip-blue/20' : ''}`}>
                   <input type="checkbox" checked={coche} onChange={() => basculer(u.ue_num)} />
@@ -241,7 +241,7 @@ export default function CentrePAE({ annee, etudiants, onClose, onTermine }) {
                 <div key={l} className="border border-slate-200 rounded-xl px-3 py-2">
                   <div className="text-[10px] uppercase tracking-wide text-slate-500
                                   font-semibold">{l}</div>
-                  <div className="text-[18px] font-bold text-iip-blue">{v}</div>
+                  <div className="text-[17px] font-bold text-iip-blue">{v}</div>
                 </div>
               ))}
             </div>
@@ -276,7 +276,7 @@ export default function CentrePAE({ annee, etudiants, onClose, onTermine }) {
               </button>
             ) : (
               <div className="px-3 py-2 rounded-lg bg-emerald-50 border border-emerald-200
-                              text-[12.5px] text-emerald-800">
+                              text-[13px] text-emerald-800">
                 {action === 'inscrire'
                   ? `${rapport.inscrits} inscription(s) créée(s).`
                   : `${rapport.retires} inscription(s) retirée(s).`}

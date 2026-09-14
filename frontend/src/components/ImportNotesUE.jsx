@@ -207,16 +207,16 @@ export default function ImportNotesUE({ ueNum, annee, onClose, onImporte }) {
 
   const Sel = ({ valeur, onChange }) => (
     <select value={valeur ?? -1} onChange={e => onChange(Number(e.target.value))}
-      className="w-full text-[11.5px] border border-slate-300 rounded px-1.5 py-1 bg-white">
+      className="w-full text-[12px] border border-slate-300 rounded px-1.5 py-1 bg-white">
       <option value={-1}>— aucune —</option>
       {optionsColonnes.map(o => <option key={o.i} value={o.i}>{o.libelle}</option>)}
     </select>
   );
 
   return (
-    <div className="fixed inset-0 bg-black/40 flex items-start justify-center z-50 p-4"
+    <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] flex items-start justify-center z-50 p-4"
       onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl mt-8
+      <div className="bg-white rounded-fenetre shadow-dessus w-full max-w-3xl mt-8
                       max-h-[90vh] overflow-hidden flex flex-col">
         <div className="flex-none px-5 py-3 border-b border-slate-100 flex items-start
                         justify-between gap-3">
@@ -321,7 +321,7 @@ export default function ImportNotesUE({ ueNum, annee, onClose, onImporte }) {
               {/* ── LES COTES ATTENDUES, COURS PAR COURS ── */}
               <div className="border border-slate-200 rounded-lg overflow-hidden">
                 <div className="bg-slate-50 px-3 py-2 flex items-center justify-between gap-2">
-                  <span className="text-[11.5px] text-slate-600">
+                  <span className="text-[12px] text-slate-600">
                     <b>{associees}</b> / {couples.length} cote(s) associée(s)
                   </span>
                   <button onClick={() => { proposer(matrice, ligneEntete); setRapport(null); }}
@@ -340,7 +340,7 @@ export default function ImportNotesUE({ ueNum, annee, onClose, onImporte }) {
                         const cle = `${c.cours_code}|${a.aa_code}`;
                         return (
                           <div key={cle} className="px-3 py-1.5 flex items-center gap-2">
-                            <span className="text-[11.5px] w-28 flex-none text-slate-700"
+                            <span className="text-[12px] w-28 flex-none text-slate-700"
                               title={a.description || ''}>
                               {a.aa_code}
                               {a.poids != null && <span className="text-slate-400"> · {a.poids}</span>}
@@ -372,7 +372,7 @@ export default function ImportNotesUE({ ueNum, annee, onClose, onImporte }) {
 
               {!!doublons.length && (
                 <div className="px-3 py-2 rounded-lg bg-amber-50 border border-amber-200
-                                text-[11.5px] text-amber-900">
+                                text-[12px] text-amber-900">
                   Une même colonne sert à plusieurs cotes. C'est légitime si un acquis reçoit
                   la même note dans deux cours — sinon, corrigez.
                 </div>
@@ -384,7 +384,7 @@ export default function ImportNotesUE({ ueNum, annee, onClose, onImporte }) {
                 Arrondir à l'unité
               </label>
 
-              <div className="text-[11.5px] text-slate-500">
+              <div className="text-[12px] text-slate-500">
                 {lignes.length} ligne(s) d'étudiants lues,
                 {' '}{lignes.reduce((n, l) => n + l.notes.length, 0)} cote(s) au total.
               </div>
@@ -427,18 +427,18 @@ export default function ImportNotesUE({ ueNum, annee, onClose, onImporte }) {
         <div className="flex-none px-5 py-3 border-t border-slate-100 flex items-center
                         justify-end gap-2">
           <button onClick={onClose}
-            className="px-3 py-1.5 text-[12.5px] rounded-lg border border-slate-300 text-slate-600">
+            className="px-3 py-1.5 text-[13px] rounded-lg border border-slate-300 text-slate-600">
             Fermer
           </button>
           <button onClick={() => envoyer(true)} disabled={enCours || !lignes.length || !associees}
-            className="px-3 py-1.5 text-[12.5px] rounded-lg border border-slate-300
+            className="px-3 py-1.5 text-[13px] rounded-lg border border-slate-300
                        text-slate-600 disabled:opacity-40">
             Simuler
           </button>
           <button onClick={() => envoyer(false)}
             disabled={enCours || !rapport || !rapport.simulation}
             title={!rapport?.simulation ? 'Simulez d’abord' : ''}
-            className="px-4 py-2 text-[12.5px] rounded-lg bg-iip-blue text-white font-semibold
+            className="px-4 py-2 text-[13px] rounded-lg bg-iip-blue text-white font-semibold
                        disabled:opacity-40">
             Importer
           </button>

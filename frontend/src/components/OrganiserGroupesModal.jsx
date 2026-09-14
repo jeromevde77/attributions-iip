@@ -85,7 +85,7 @@ export default function OrganiserGroupesModal({ portee, section, ues, onClose, o
   }
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-3 z-50"
+    <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] flex items-center justify-center p-3 z-50"
       onClick={e => e.target === e.currentTarget && onClose()}>
       <div className="bg-white rounded-xl shadow-2xl w-full flex flex-col"
         style={{ maxWidth: 860, maxHeight: '92vh' }}>
@@ -106,7 +106,7 @@ export default function OrganiserGroupesModal({ portee, section, ues, onClose, o
           {Object.entries(MODE_CFG).map(([k, cfg]) => {
             const Icon = cfg.icon;
             return (
-              <span key={k} className="flex items-center gap-1 px-2 py-0.5 rounded-full border"
+              <span key={k} className="flex items-center gap-1 px-2 py-0.5 rounded-champ border"
                 style={{ background: cfg.bg, color: cfg.color, borderColor: cfg.border }}>
                 <Icon size={10} /> {cfg.label} — {cfg.desc}
               </span>
@@ -131,7 +131,7 @@ export default function OrganiserGroupesModal({ portee, section, ues, onClose, o
                     onClick={e => e.stopPropagation()} onChange={() => toggleO2(k)}
                     className="w-3.5 h-3.5 accent-iip-turquoise flex-shrink-0" title="Créer org. 2" />
                   <span className="text-gray-400 text-[11px] w-3">{open ? '▾' : '▸'}</span>
-                  {ue.bloc && <span className="text-[9px] font-bold px-1.5 py-0.5 rounded text-white flex-shrink-0"
+                  {ue.bloc && <span className="text-[10px] font-bold px-1.5 py-0.5 rounded text-white flex-shrink-0"
                     style={{ background: blocCouleur(ue.bloc) }}>{ue.bloc}</span>}
                   <span className="font-semibold text-sm text-iip-blue flex-1 truncate">
                     UE {ue.ue_num} — {ue.ue_nom}
@@ -161,7 +161,7 @@ export default function OrganiserGroupesModal({ portee, section, ues, onClose, o
                               <span className="text-[10px] text-gray-400">{c.code_cours}</span>
                             </div>
                             {/* Badge état actuel */}
-                            <span className="text-[10px] px-1.5 py-0.5 rounded-full border flex-shrink-0 flex items-center gap-0.5"
+                            <span className="text-[10px] px-1.5 py-0.5 rounded-champ border flex-shrink-0 flex items-center gap-0.5"
                               style={{ background: MODE_CFG[modeOrig].bg, color: MODE_CFG[modeOrig].color, borderColor: MODE_CFG[modeOrig].border }}>
                               {modeOrig !== 'ts' && `×${nbGroupesActuels(c)} `}{MODE_CFG[modeOrig].label}
                             </span>

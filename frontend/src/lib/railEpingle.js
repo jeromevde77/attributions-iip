@@ -1,0 +1,76 @@
+import { useEffect, useState } from 'react';
+
+/**
+ * LE RAIL ÉPINGLÉ — ouvert pour de bon, et le contenu se décale avec lui.
+ *
+ * Deux gestes, et ils ne font pas la même chose :
+ *
+ *  · LE SURVOL est un coup d'œil. Le rail s'ouvre PAR-DESSUS le contenu, rien
+ *    ne bouge. On lit un libellé, on ressort, la page n'a pas tressailli.
+ *    Décaler la page au survol la ferait sauter de cent soixante-seize pixels
+ *    chaque fois qu'on frôle le bord gauche sans l'avoir demandé — sur une
+ *    grille de délibération, les colonnes se replient et la ligne qu'on lisait
+ *    part ailleurs.
+ *
+ *  · L'ÉPINGLE est une décision. Le rail reste ouvert et le contenu se décale,
+ *    parce qu'on l'a voulu. L'état se retient d'un écran à l'autre et d'un jour
+ *    à l'autre : c'est une préférence de travail, pas un réglage à reprendre à
+ *    chaque page.
+ *
+ * L'état vit hors de React — un seul rail est monté à la fois, mais il change
+ * à chaque changement d'écran, et une préférence ne doit pas se perdre au
+ * démontage.
+ */
+const CLE = 'lucie.rail.epingle';
+const abonnes = new Set();
+
+function lire() {
+  try { return localStorage.getItem(CLE) === '1'; } catch { return false; }
+}
+
+let epingle = lire();
+
+export function basculerEpingle() {
+  epingle = !epingle;
+  try { localStorage.setItem(CLE, epingle ? '1' : '0'); } catch { /* navigation privée */ }
+  for (const f of abonnes) f(epingle);
+}
+
+export function useRailEpingle() {
+  const [v, setV] = useState(epingle);
+  useEffect(() => {
+    abonnes.add(setV);
+    setV(epingle);          // un écran monté après coup part du bon état
+    return () => abonnes.delete(setV);
+  }, []);
+  return v;
+}
+
+/**
+ * La largeur que le rail occupe réellement, en rem.
+ *
+ * LE VOLET A MAIGRI D'UN TIERS — 21,5 rem devenues 14,5. Il tenait des listes
+ * déroulantes et un champ de recherche : utile, mais rien là-dedans ne réclame
+ * trois cent quarante pixels. Ce qu'on lui reprend, le tableau le récupère, et
+ * c'est le tableau qu'on est venu lire.
+ */
+/**
+ * LA PLACE QUE LE RAIL PREND — marge, panneau, et le même souffle de l'autre
+ * côté : le rail flotte, le contenu ne doit pas venir se coller au verre.
+ *   replié : 0,75 + 3,5 + 0,75 = 5rem · ouvert : 0,75 + 14,5 + 0,75 = 16rem
+ */
+/*
+ * LA GOUTTIÈRE VAUT EXACTEMENT LA LARGEUR DU RAIL — et rien de plus.
+ *
+ * Elle valait la largeur du rail PLUS une rem et demie « pour respirer ». Mais
+ * l'écran, lui, se donne déjà son propre retrait de seize pixels, des deux
+ * côtés. Résultat : quarante pixels entre le rail et le contenu, seize entre
+ * le contenu et le bord droit. Un cadre qui n'est pas d'équerre, et personne
+ * ne pouvait dire pourquoi.
+ *
+ * La règle tient en une phrase : si l'écart est de dix pixels à gauche, il est
+ * de dix pixels à droite. Pour cela, la gouttière ne doit RIEN ajouter — elle
+ * pousse le contenu juste au-delà du rail, et le retrait de l'écran fait le
+ * reste, symétriquement.
+ */
+export const LARGEUR_RAIL = { replie: '3.5rem', ouvert: '14.5rem', volet: '14.5rem' };

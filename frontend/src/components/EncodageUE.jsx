@@ -178,15 +178,15 @@ export default function EncodageUE({ ueNum, annee, onClose, onEnregistre, onPara
   const mention = (e, coursCode) => data?.mentions?.[e.id]?.[coursCode];
 
   return (
-    <div className="fixed inset-0 bg-black/40 flex items-start justify-center z-50 p-4"
+    <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] flex items-start justify-center z-50 p-4"
       onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-7xl mt-6
+      <div className="bg-white rounded-fenetre shadow-dessus w-full max-w-7xl mt-6
                       max-h-[92vh] overflow-hidden flex flex-col">
 
         <div className="flex-none p-5 pb-3 border-b border-slate-100 flex items-start
                         justify-between gap-3">
           <div className="min-w-0">
-            <h3 className="text-[16px] font-semibold text-iip-blue truncate">
+            <h3 className="text-[15px] font-semibold text-iip-blue truncate">
               UE {ueNum}{data?.ue?.ue_nom ? ` · ${data.ue.ue_nom}` : ''}
             </h3>
             <p className="text-[12px] text-slate-500">
@@ -202,7 +202,7 @@ export default function EncodageUE({ ueNum, annee, onClose, onEnregistre, onPara
             </p>
           </div>
           <div className="flex items-center gap-2 flex-none">
-            <div className="flex rounded-lg border border-slate-300 overflow-hidden">
+            <div className="segments">
               {[1, 2].map(s => (
                 <button key={s} onClick={() => { setChoisie(true); setSession(s); }}
                   className={`px-2.5 py-1 text-[12px] ${session === s
@@ -263,7 +263,7 @@ export default function EncodageUE({ ueNum, annee, onClose, onEnregistre, onPara
             </div>
           )}
           {data?.a_representer && !data.etudiants.length && (
-            <div className="py-10 text-center text-[12.5px] text-slate-500 border-2
+            <div className="py-10 text-center text-[13px] text-slate-500 border-2
                             border-dashed rounded-xl">
               Aucun étudiant ajourné en première session : il n'y a pas de seconde session
               à encoder pour cette unité.
@@ -288,12 +288,12 @@ export default function EncodageUE({ ueNum, annee, onClose, onEnregistre, onPara
               </div>
               {onParametrer ? (
                 <button onClick={() => onParametrer(ueNum)}
-                  className="px-4 py-2 text-[12.5px] rounded-lg bg-iip-blue text-white
+                  className="px-4 py-2 text-[13px] rounded-lg bg-iip-blue text-white
                              font-semibold inline-flex items-center gap-1.5">
                   <IconLink size={14} /> Relier les acquis aux cours
                 </button>
               ) : (
-                <span className="text-slate-400 text-[12.5px] block">
+                <span className="text-slate-400 text-[13px] block">
                   Le paramétrage de l'unité est réservé à la direction.
                 </span>
               )}
@@ -346,7 +346,7 @@ export default function EncodageUE({ ueNum, annee, onClose, onEnregistre, onPara
                                     ${TEINTES[i % TEINTES.length]}`}>
                         <div>{a.aa_code}</div>
                         {a.poids != null && (
-                          <div className="text-[9px] font-normal text-slate-400">{a.poids}</div>
+                          <div className="text-[10px] font-normal text-slate-400">{a.poids}</div>
                         )}
                       </th>
                     )),
@@ -378,7 +378,7 @@ export default function EncodageUE({ ueNum, annee, onClose, onEnregistre, onPara
                       {e.source_s2 === 'dossier' && (
                         <span title="Ajourné d'après le dossier : aucune décision de première
                                      session n'a été enregistrée pour cette unité"
-                          className="ml-1.5 text-[9px] uppercase tracking-wide text-amber-700
+                          className="ml-1.5 text-[10px] uppercase tracking-wide text-amber-700
                                      bg-amber-50 border border-amber-200 rounded px-1 py-px">
                           dossier
                         </span>
@@ -513,7 +513,7 @@ export default function EncodageUE({ ueNum, annee, onClose, onEnregistre, onPara
                 && !(data.a_representer[id] || []).includes(cc)}
               onImporte={charger} />
             <button onClick={onClose}
-              className="px-3 py-1.5 text-[12.5px] rounded-lg border border-slate-300 text-slate-600">
+              className="px-3 py-1.5 text-[13px] rounded-lg border border-slate-300 text-slate-600">
               Fermer
             </button>
           </div>

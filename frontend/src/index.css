@@ -292,3 +292,436 @@ table.grid-excel-soft td.num { text-align: right; font-variant-numeric: tabular-
 .version-badge-new {
   animation: version-pulse 1s ease-in-out infinite;
 }
+
+/* ═══ LA GOUTTIÈRE DU RAIL ════════════════════════════════════════════════
+ *
+ * Elle était écrite en dur — `ml-16` — dans une dizaine d'écrans. D'où deux
+ * pannes en une semaine : un écran qui l'oubliait passait SOUS le rail, un
+ * autre la posait en double et se décalait de cent vingt-huit pixels. Une
+ * règle recopiée dix fois n'est pas une règle, c'est dix occasions de se
+ * tromper.
+ *
+ * Le rail pose maintenant `--rail` ; les écrans consomment cette classe. Une
+ * seule source, et le contenu suit tout seul quand le rail s'épingle.
+ *
+ * Le repli `4rem` sert au cas où la classe serait employée sans rail monté :
+ * mieux vaut une gouttière inutile qu'un contenu recouvert.
+ */
+/* ─────────────────────────────────────────────────────────────────────────
+   LES JETONS DES MENUS — deux modes, un seul jeu de noms.
+   Le rail et la barre du haut ne connaissent pas le mode : ils lisent ces
+   variables. Changer de parti se fait ici, et nulle part ailleurs.
+
+   LA COULEUR EST UNE DÉPENSE : « accent » ne sert qu'à ce qui doit attirer
+   l'œil — la rubrique ouverte, une alerte. Tout le reste est gris.
+   ───────────────────────────────────────────────────────────────────────── */
+:root, :root[data-mode="clair"] {
+  --menu-fond:        #F8FAFC;   /* le fond de la page : le rail s'y fond */
+  --menu-bord:        rgba(27, 43, 75, 0.10);
+  --menu-texte:       #1B2B4B;
+  --menu-texte-doux:  rgba(27, 43, 75, 0.55);
+  --menu-survol:      rgba(27, 43, 75, 0.06);
+  --menu-actif:       rgba(255, 255, 255, 0.95);
+  --menu-actif-bord:  rgba(27, 43, 75, 0.12);
+  --menu-filet:       rgba(27, 43, 75, 0.10);
+  --menu-ombre:       0 18px 45px -20px rgba(11, 21, 45, 0.28);
+  --menu-icone:       rgba(27, 43, 75, 0.60);
+  --menu-accent:      #0093B0;   /* turquoise assombri : lisible sur gris pâle */
+  --barre-fond:       #F8FAFC;   /* le fond de la page : la barre s'y fond aussi */
+  --champ-fond:       #FFFFFF;
+  --tab-repere:       #F8FAFC;   /* le fond de la page : le filet suffit à démarquer */
+}
+:root[data-mode="sombre"] {
+  --menu-fond:        #0F1A2E;   /* le fond de la page en mode sombre */
+  --menu-bord:        rgba(255, 255, 255, 0.10);
+  --menu-texte:       #FFFFFF;
+  --menu-texte-doux:  rgba(255, 255, 255, 0.45);
+  --menu-survol:      rgba(255, 255, 255, 0.10);
+  --menu-actif:       rgba(255, 255, 255, 0.15);
+  --menu-actif-bord:  rgba(255, 255, 255, 0.18);
+  --menu-filet:       rgba(255, 255, 255, 0.12);
+  --menu-ombre:       0 20px 50px -15px rgba(11, 21, 45, 0.55);
+  --menu-icone:       rgba(255, 255, 255, 0.70);
+  --menu-accent:      #00AACC;
+  --barre-fond:       #0F1A2E;
+  --champ-fond:       rgba(255,255,255,.08);
+  --tab-repere:       rgba(255,255,255,.04);
+}
+
+/* ─── LA BARRE DU HAUT — entière, mais du même monde que le rail ─────────
+   Elle ne flotte pas : deux panneaux détachés sur un écran, c'est un de trop,
+   et il faut un point fixe. Elle suit en revanche le mode. */
+.barre-haut { background: var(--barre-fond); color: var(--menu-texte);
+              border-color: transparent; position: relative; }
+/* UN SEUL TRAIT, ET IL TOURNE.
+ *
+ * Le filet de la barre courait par-dessus le rail, et celui du rail montait à
+ * sa rencontre : deux traits qui se croisent à angle droit, avec un décroché.
+ * Ça se voyait, et ça ne se rattrape pas en déplaçant l'un des deux.
+ *
+ * Le filet du haut COMMENCE donc où le rail finit, et c'est l'angle arrondi du
+ * rail qui fait la jonction : le trait descend en arc de cercle et devient le
+ * bord droit du rail. Un seul geste, du bord droit de l'écran jusqu'en bas à
+ * gauche.
+ *
+ * À droite il s'arrête avant le bord, comme la marge du contenu : un
+ * soulignement, pas une bande qui coupe l'écran en deux. */
+.barre-haut::after {
+  content: ""; position: absolute; bottom: 0; height: 1px;
+  /* LE FILET COMMENCE OÙ COMMENCE LE TRAVAIL.
+     Posé à une marge choisie — 1,25 rem —, il ne répondait à rien : ni au
+     rail, ni au titre, ni au tableau. Il s'aligne désormais sur la COLONNE DE
+     CONTENU : la gouttière du rail, plus le retrait que l'écran se donne. Il
+     suit donc quand le rail s'élargit, sans que personne ait à y penser. */
+  /* LE RETRAIT EST LE MÊME DES DEUX CÔTÉS, ET C'EST CELUI DE LA PAGE.
+     Le filet prenait 1 rem quand la colonne de contenu en prend 2 au-delà de
+     768 px (« p-4 md:p-8 ») : il partait donc seize pixels à gauche du titre
+     qu'il souligne, et l'écart se voyait sans qu'on puisse le nommer. Le
+     retrait de page est désormais un jeton unique, lu ici comme ailleurs. */
+  left: calc(var(--rail, 3.5rem) + var(--retrait-page, 1rem));
+  right: var(--retrait-page, 1rem);
+  background: var(--menu-bord);
+  transition: left 300ms cubic-bezier(.32,.72,0,1);
+}
+.onglet-actif { background: var(--menu-actif); color: var(--menu-texte);
+                box-shadow: inset 0 0 0 1px var(--menu-actif-bord); }
+.onglet-dormant { color: var(--menu-texte-doux); }
+.onglet-dormant:hover { background: var(--menu-survol); color: var(--menu-texte); }
+.champ-barre { background: var(--champ-fond); color: var(--menu-texte);
+               border: 1px solid var(--menu-bord); }
+.pastille-version { background: var(--menu-actif); color: var(--menu-texte);
+                    box-shadow: inset 0 0 0 1px var(--menu-actif-bord); }
+
+/* EN MODE SOMBRE, UN LOGO MARINE DISPARAÎT. Ses traits marine s'éclaircissent,
+   le turquoise reste turquoise : c'est lui qui porte la marque. */
+:root[data-mode="sombre"] .logo-lucie text { fill: #FFFFFF; }
+:root[data-mode="sombre"] .logo-lucie [stroke="#1B2B4B"] { stroke: #FFFFFF; }
+:root[data-mode="sombre"] .logo-lucie [fill="#1B2B4B"] { fill: #FFFFFF; }
+
+/* LE RAIL FLOTTANT N'A PAS DE BARRE DE DÉFILEMENT VISIBLE : une barre grise en
+   travers d'un panneau translucide le ramènerait à une boîte de dialogue. */
+.rail-defile { scrollbar-width: none; -ms-overflow-style: none; }
+.rail-defile::-webkit-scrollbar { width: 0; height: 0; }
+
+/* ═══ LES SEGMENTS — UN CHOIX EXCLUSIF, EN UN SEUL OBJET ══════════════════
+ *
+ * « En cours / Diplômés / Tous », « Portrait / Paysage », « 1re / 2e session » :
+ * le même objet, réécrit quinze fois à la main, et toujours de la même façon —
+ * une boîte arrondie, un filet, « overflow-hidden », et des boutons carrés
+ * dedans.
+ *
+ * ET C'EST LÀ QUE L'ARC SE CASSE. Le segment actif est un aplat rectangulaire
+ * posé dans une boîte arrondie : sa couleur va jusqu'au coin, l'arc du filet
+ * passe par-dessus, et l'œil voit un angle droit peint sous une courbe. La
+ * règle tient en une ligne : UN ENFANT PLEIN PREND LE RAYON DE SON PARENT,
+ * MOINS L'ÉPAISSEUR DU FILET — sinon il déborde de la courbe qui le contient.
+ *
+ * Tout est ici : la hauteur de contrôle, le rayon du champ, le filet, et les
+ * deux coins. Un écran n'a plus qu'à nommer l'objet. */
+.segments {
+  display: inline-flex; align-items: stretch;
+  height: 36px; border: 1px solid #cbd5e1; border-radius: 8px;
+  background: #fff; overflow: hidden;
+}
+.segments > * {
+  display: inline-flex; align-items: center; justify-content: center;
+  padding: 0 .75rem; font-size: 13px; line-height: 1;
+  transition: background-color 150ms, color 150ms;
+}
+.segments > :first-child { border-radius: 7px 0 0 7px; }
+.segments > :last-child  { border-radius: 0 7px 7px 0; }
+.segments > :only-child  { border-radius: 7px; }
+
+/* LA PASTILLE DU COMPTE — deux lettres, la taille d'un contrôle.
+   Le nom complet prenait un quart de la barre du haut et poussait le rôle et
+   la déconnexion sur deux lignes de plus : la barre grandissait, et avec elle
+   le rail et la zone de travail, qui s'y raccrochent. */
+.pastille-compte {
+  display: inline-flex; align-items: center; justify-content: center;
+  height: 2rem; min-width: 2rem; padding: 0 .5rem;
+  border-radius: 8px; font-size: 12px; font-weight: 700; letter-spacing: .02em;
+  color: var(--menu-texte, #1B2B4B); background: var(--menu-actif, #EEF2F7);
+  box-shadow: inset 0 0 0 1px var(--menu-actif-bord, #E2E8F0);
+}
+
+:root { --retrait-page: 1rem; }
+
+/* ═══ LE RETRAIT DE PAGE EST UN DÉFAUT, PAS UNE CONSIGNE ═══════════════════
+ *
+ * Chaque écran posait lui-même ses marges. Ceux qui portent un rail les ont
+ * (« gouttiere-rail p-4 md:p-8 ») ; les autres — Classement, Rôles, Rentrée,
+ * Sauvegardes, tous ceux qu'on ouvre par une route directe — n'avaient RIEN :
+ * leur titre touchait le bord gauche de la fenêtre pendant que la barre du
+ * haut, elle, gardait son retrait. Une règle qui n'est juste que si l'on y
+ * pense est une règle fausse : le défaut doit être correct.
+ *
+ * La zone de travail se donne donc le retrait de la page, SAUF quand l'écran
+ * gère déjà sa propre gouttière — auquel cas il la garde, sans doublon. */
+main:not(:has(> .gouttiere-rail)) {
+  padding: var(--retrait-page);
+}
+@media (min-width: 768px) { :root { --retrait-page: 2rem; } }
+
+.gouttiere-rail {
+  margin-left: var(--rail, 3.5rem);
+  transition: margin-left 200ms ease-out;
+}
+@media (prefers-reduced-motion: reduce) {
+  /* ═══ LES SEGMENTS — UN CHOIX EXCLUSIF, EN UN SEUL OBJET ══════════════════
+ *
+ * « En cours / Diplômés / Tous », « Portrait / Paysage », « 1re / 2e session » :
+ * le même objet, réécrit quinze fois à la main, et toujours de la même façon —
+ * une boîte arrondie, un filet, « overflow-hidden », et des boutons carrés
+ * dedans.
+ *
+ * ET C'EST LÀ QUE L'ARC SE CASSE. Le segment actif est un aplat rectangulaire
+ * posé dans une boîte arrondie : sa couleur va jusqu'au coin, l'arc du filet
+ * passe par-dessus, et l'œil voit un angle droit peint sous une courbe. La
+ * règle tient en une ligne : UN ENFANT PLEIN PREND LE RAYON DE SON PARENT,
+ * MOINS L'ÉPAISSEUR DU FILET — sinon il déborde de la courbe qui le contient.
+ *
+ * Tout est ici : la hauteur de contrôle, le rayon du champ, le filet, et les
+ * deux coins. Un écran n'a plus qu'à nommer l'objet. */
+.segments {
+  display: inline-flex; align-items: stretch;
+  height: 36px; border: 1px solid #cbd5e1; border-radius: 8px;
+  background: #fff; overflow: hidden;
+}
+.segments > * {
+  display: inline-flex; align-items: center; justify-content: center;
+  padding: 0 .75rem; font-size: 13px; line-height: 1;
+  transition: background-color 150ms, color 150ms;
+}
+.segments > :first-child { border-radius: 7px 0 0 7px; }
+.segments > :last-child  { border-radius: 0 7px 7px 0; }
+.segments > :only-child  { border-radius: 7px; }
+
+/* LA PASTILLE DU COMPTE — deux lettres, la taille d'un contrôle.
+   Le nom complet prenait un quart de la barre du haut et poussait le rôle et
+   la déconnexion sur deux lignes de plus : la barre grandissait, et avec elle
+   le rail et la zone de travail, qui s'y raccrochent. */
+.pastille-compte {
+  display: inline-flex; align-items: center; justify-content: center;
+  height: 2rem; min-width: 2rem; padding: 0 .5rem;
+  border-radius: 8px; font-size: 12px; font-weight: 700; letter-spacing: .02em;
+  color: var(--menu-texte, #1B2B4B); background: var(--menu-actif, #EEF2F7);
+  box-shadow: inset 0 0 0 1px var(--menu-actif-bord, #E2E8F0);
+}
+
+:root { --retrait-page: 1rem; }
+
+/* ═══ LE RETRAIT DE PAGE EST UN DÉFAUT, PAS UNE CONSIGNE ═══════════════════
+ *
+ * Chaque écran posait lui-même ses marges. Ceux qui portent un rail les ont
+ * (« gouttiere-rail p-4 md:p-8 ») ; les autres — Classement, Rôles, Rentrée,
+ * Sauvegardes, tous ceux qu'on ouvre par une route directe — n'avaient RIEN :
+ * leur titre touchait le bord gauche de la fenêtre pendant que la barre du
+ * haut, elle, gardait son retrait. Une règle qui n'est juste que si l'on y
+ * pense est une règle fausse : le défaut doit être correct.
+ *
+ * La zone de travail se donne donc le retrait de la page, SAUF quand l'écran
+ * gère déjà sa propre gouttière — auquel cas il la garde, sans doublon. */
+main:not(:has(> .gouttiere-rail)) {
+  padding: var(--retrait-page);
+}
+@media (min-width: 768px) { :root { --retrait-page: 2rem; } }
+
+.gouttiere-rail { transition: none; }
+}
+
+/* ═══ LA PASTILLE DE SURVOL DU RAIL ═══════════════════════════════════════
+ *
+ * Le survol n'était qu'un grisé à peine plus foncé que le rail : sur un fond
+ * déjà gris pâle, on ne voyait pas ce qu'on visait. C'est la même pastille que
+ * la rubrique ouverte, en plus discrète — un fond clair à coins largement
+ * arrondis, tenu par un filet. Elle ne peut pas s'écrire dans un style en
+ * ligne : un pseudo-état n'en fait pas partie.
+ */
+[data-case-rail]:hover {
+  background: var(--menu-actif);
+  box-shadow: inset 0 0 0 1px var(--menu-actif-bord);
+  color: var(--menu-texte);
+}
+
+/* ═══ LES ONGLETS D'UN MÊME OBJET ═════════════════════════════════════════
+ *
+ * DEUX FORMES, ET UNE RÈGLE QUI DIT LAQUELLE.
+ *
+ * Le désordre ne venait pas d'avoir deux formes : il venait de n'avoir aucune
+ * règle. Douze barres d'onglets, cinq couleurs de soulignement — doré,
+ * turquoise, mauve, rose, marine —, quatre hauteurs. Chacune juste chez elle,
+ * toutes fausses ensemble.
+ *
+ *  · LA PASTILLE (fond clair, coins arrondis) dit OÙ L'ON EST : la barre du
+ *    haut, le rail. On passe d'un territoire à un autre.
+ *  · LE SOULIGNEMENT dit QUELLE FACE du même objet on regarde : les onglets
+ *    d'une fiche, d'une fenêtre, d'un écran. On ne change pas de lieu, on
+ *    tourne une page.
+ *
+ * Un seul trait, une seule couleur — l'accent —, une seule hauteur. Ces deux
+ * classes remplacent les douze variantes.
+ */
+.onglet-page {
+  padding: .625rem 1rem; font-size: 13.5px; font-weight: 500;
+  border-bottom: 2px solid transparent; margin-bottom: -1px;
+  color: var(--menu-texte-doux);
+  transition: color 150ms cubic-bezier(.32,.72,0,1),
+              border-color 150ms cubic-bezier(.32,.72,0,1);
+  white-space: nowrap;
+}
+.onglet-page:hover { color: var(--menu-texte); }
+.onglet-page-actif {
+  border-bottom-color: var(--menu-accent);
+  color: var(--menu-texte); font-weight: 600;
+}
+
+/* ═══ UNE SEULE HAUTEUR DE CONTRÔLE ═══════════════════════════════════════
+ *
+ * Une liste déroulante et deux boutons côte à côte, et les trois ne font pas
+ * la même hauteur : la liste porte les métriques natives du navigateur, les
+ * boutons celles qu'on leur a écrites, et personne ne les a comparées. Deux
+ * pixels d'écart et une ligne de base qui ne se répond pas — c'est exactement
+ * le genre de détail qui sépare une application assemblée d'une application
+ * aboutie.
+ *
+ * Le rayon, on l'a réglé en redéfinissant le défaut de Tailwind. La hauteur ne
+ * peut pas se régler ainsi : un bouton dans une cellule de tableau n'a rien à
+ * faire à trente-six pixels. C'est donc une CLASSE, à poser sur les contrôles
+ * d'une barre d'outils — et une seule suffit pour que tout s'aligne.
+ */
+.controle {
+  height: 2.25rem; display: inline-flex; align-items: center; gap: .4rem;
+  padding-inline: .7rem; font-size: 13px; line-height: 1;
+  border-radius: 8px; border: 1px solid var(--menu-bord);
+  background: var(--champ-fond); color: var(--menu-texte);
+  white-space: nowrap;
+  transition: border-color 150ms cubic-bezier(.32,.72,0,1),
+              background-color 150ms cubic-bezier(.32,.72,0,1);
+}
+button.controle:hover:not(:disabled) { background: var(--menu-survol); }
+.controle:disabled { opacity: .4; }
+select.controle { padding-right: 1.5rem; }
+/* Le contrôle PRINCIPAL d'une barre — un seul, et il porte l'accent. */
+.controle-fort {
+  background: var(--menu-texte); color: var(--barre-fond);
+  border-color: transparent; font-weight: 600;
+}
+
+
+/* ═══ LES BOUTONS — trois emplois, trois couleurs ═════════════════════════
+ *
+ * Dix fonds de bouton cohabitaient : marine, « iip-gold » (qui vaut du marine
+ * — le nom ment), turquoise, vert 600, vert 700, rouge, émeraude, ambre,
+ * ardoise. Chacun choisi le jour où il a été écrit. Un bouton vert à côté d'un
+ * bouton marine ne dit rien de plus : il dit seulement que deux personnes ont
+ * décidé séparément.
+ *
+ * Trois emplois suffisent, et la couleur DIT lequel :
+ *   · neutre   — on peut cliquer, ça n'engage rien
+ *   · fort     — l'action principale de l'écran, et il n'y en a QU'UNE
+ *   · sortir   — ce qui produit une pièce (turquoise, comme dans le rail)
+ *   · détruire — ce qui efface (brique, comme dans le rail)
+ *
+ * Un état ne se dit pas avec un bouton : « réussi » en vert reste vert, ce
+ * n'est pas un bouton, c'est une information.
+ */
+.bouton {
+  height: 2.25rem; display: inline-flex; align-items: center; gap: .4rem;
+  padding-inline: .9rem; font-size: 13px; font-weight: 600; line-height: 1;
+  border-radius: 8px; border: 1px solid var(--menu-bord);
+  background: var(--champ-fond); color: var(--menu-texte);
+  white-space: nowrap; transition: background-color 150ms cubic-bezier(.32,.72,0,1),
+                                   opacity 150ms cubic-bezier(.32,.72,0,1);
+}
+.bouton:hover:not(:disabled) { background: var(--menu-survol); }
+.bouton:disabled { opacity: .4; cursor: default; }
+.bouton-fort     { background: #1B2B4B; color: #fff; border-color: transparent; }
+.bouton-fort:hover:not(:disabled)     { background: #163A6B; }
+.bouton-sortir   { background: #0093B0; color: #fff; border-color: transparent; }
+.bouton-sortir:hover:not(:disabled)   { background: #007e97; }
+.bouton-detruire { background: #9d4a38; color: #fff; border-color: transparent; }
+.bouton-detruire:hover:not(:disabled) { background: #883f2f; }
+
+/* ═══ LES TABLEAUX — deux tons, pas cinq ══════════════════════════════════
+ *
+ * Une même liste montrait un en-tête gris pâle, des lignes de regroupement
+ * bleutées, un filet bleu, un « + » gris clair et un compteur d'un troisième
+ * gris. Cinq valeurs pour dire deux choses : ceci est un repère, ceci est une
+ * donnée.
+ *
+ * L'en-tête et le regroupement sont le MÊME objet — l'un nomme les colonnes,
+ * l'autre nomme un paquet de lignes. Ils prennent donc le même ton, et ce ton
+ * est CELUI DE LA PAGE : ton sur ton. Le filet démarque déjà ; y ajouter un
+ * gris, c'était dire deux fois la même chose, et la seconde fois plus fort que
+ * la première. Seule la DONNÉE est blanche — et c'est ainsi qu'on la voit.
+ */
+.tab-repere {
+  background: var(--tab-repere);
+  border-top: 1px solid var(--menu-bord);
+  border-bottom: 1px solid var(--menu-bord);
+  color: var(--menu-texte);
+}
+.tab-entete {
+  background: var(--tab-repere);
+  border-bottom: 1px solid var(--menu-bord);
+  color: var(--menu-texte-doux);
+  font-size: 11px; text-transform: uppercase; letter-spacing: .06em;
+}
+
+/* ═══ LE TITRE D'UN ÉCRAN ═════════════════════════════════════════════════
+ *
+ * « Étudiants », « Membres du personnel », « Pilotage des dotations » : même
+ * mot d'ordre, trois hauteurs, parce que chaque écran se donnait son propre
+ * retrait — p-4 ici, p-5 là, px-3 md:px-6 py-4 ailleurs. Le titre suivait, et
+ * l'oeil voyait l'écran sauter à chaque changement d'onglet.
+ *
+ * Une classe, et elle fixe TOUT : la police, la taille, la couleur, et surtout
+ * la distance au haut de la zone de travail. Un titre ne se compose plus, il
+ * se pose.
+ */
+.titre-ecran {
+  display: flex; align-items: baseline; gap: .55rem;
+  margin: 0 0 .9rem; padding: 0;
+  font-family: inherit;
+  font-size: 17px; font-weight: 600; line-height: 1.25;
+  color: var(--menu-texte);
+}
+.titre-ecran .compte {
+  font-family: inherit; font-size: 12px; font-weight: 400;
+  color: var(--menu-texte-doux);
+}
+
+/* ═══ LE PODIUM DE LA DOTATION ════════════════════════════════════════════
+ * Employer sa dotation est un RÉSULTAT, pas un risque : 96,7 % se félicite.
+ * Or, argent, bronze — et le brique pour le seul vrai problème, le
+ * dépassement. Lucie n'a pas de rouge.
+ */
+.medaille-or         { color: #C9A84C; font-weight: 700; }
+.medaille-argent     { color: #7C8899; font-weight: 600; }
+.medaille-bronze     { color: #A8763E; font-weight: 600; }
+.medaille-depassement{ color: #9d4a38; font-weight: 700; }
+.fond-or          { background: #FBF6E8; border-color: #E6D6A5; }
+.fond-argent      { background: #F4F6F8; border-color: #D8DEE6; }
+.fond-bronze      { background: #F8F2EB; border-color: #DFC9AE; }
+.fond-depassement { background: #F9EFEC; border-color: #E3C4BB; }
+
+/* ═══ LE BLANC EST RÉSERVÉ À CE QUI SE REMPLIT ════════════════════════════
+ *
+ * LA RÈGLE, ET ELLE EST SIMPLE : un champ de saisie ou de sélection est
+ * BLANC ; tout le reste est ton sur ton avec la page.
+ *
+ * Le blanc cesse d'être un décor pour devenir une INVITATION : là où c'est
+ * blanc, on écrit ou on choisit. Partout ailleurs — cartes, tableaux, listes,
+ * panneaux — c'est le fond de la page, et ce sont les filets qui séparent.
+ * Un aplat blanc sur un fond presque blanc ne sépare rien : il ajoute une
+ * ombre de différence que l'oeil enregistre sans pouvoir l'expliquer.
+ *
+ * Conséquence pratique : une carte n'a plus besoin d'ombre. Elle a un filet,
+ * un rayon, et cela suffit.
+ */
+.carte {
+  background: var(--tab-repere);
+  border: 1px solid var(--menu-bord);
+  border-radius: 14px;
+}
+.carte-plate { background: var(--tab-repere); }

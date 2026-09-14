@@ -452,7 +452,7 @@ export default function PlanificateurVisuel({ onClose }) {
   }, [blocs, semaines, calSessions, evalSupprimees, coursDedoubles]);
 
   return (
-    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" onClick={e => e.target === e.currentTarget && onClose()}>
+    <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] flex items-center justify-center z-50 p-4" onClick={e => e.target === e.currentTarget && onClose()}>
       <div className="bg-white rounded-xl shadow-2xl w-full max-w-[95vw] h-[90vh] flex flex-col">
         {/* En-tête */}
         <div className="border-b border-gray-200 p-4 flex items-center justify-between gap-4">
@@ -522,7 +522,7 @@ export default function PlanificateurVisuel({ onClose }) {
                   const st = SEM_STYLE[s.type] || SEM_STYLE.cours;
                   return (
                     <div key={s.id} style={{ width: PX_SEM, background: st.bg }}
-                      className="border-r border-gray-100 text-center py-1 text-[9px] text-gray-500 flex-shrink-0"
+                      className="border-r border-gray-100 text-center py-1 text-[10px] text-gray-500 flex-shrink-0"
                       title={`Semaine ${s.semaine_num} — ${s.date_debut} (${s.type})${s.label ? ' · '+s.label : ''}`}>
                       <div className="font-semibold">{s.semaine_num}</div>
                       {st.label && <div className="text-[8px] text-gray-400">{st.label}</div>}
@@ -687,7 +687,7 @@ export default function PlanificateurVisuel({ onClose }) {
 
       {/* Confirmation */}
       {confirmOpen && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[60]" onClick={e => e.target === e.currentTarget && setConfirmOpen(false)}>
+        <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] flex items-center justify-center z-[60]" onClick={e => e.target === e.currentTarget && setConfirmOpen(false)}>
           <div className="bg-white rounded-xl shadow-2xl max-w-lg w-full p-6">
             <h3 className="font-title text-lg text-iip-gold mb-2">Récapitulatif des opérations</h3>
             <p className="text-sm text-gray-600 mb-3">
@@ -737,7 +737,7 @@ export default function PlanificateurVisuel({ onClose }) {
       )}
       {/* Confirmation suppression d'une évaluation */}
       {evalASupprimer && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[58]" onClick={e => e.target === e.currentTarget && setEvalASupprimer(null)}>
+        <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] flex items-center justify-center z-[58]" onClick={e => e.target === e.currentTarget && setEvalASupprimer(null)}>
           <div className="bg-white rounded-xl shadow-2xl w-full max-w-sm p-5">
             <h3 className="font-title text-lg text-iip-gold mb-1">Supprimer {evalASupprimer.label} ?</h3>
             <p className="text-sm text-gray-600 mb-4">
@@ -761,7 +761,7 @@ export default function PlanificateurVisuel({ onClose }) {
 
       {/* Dialogue de scission d'un bloc */}
       {coupeBloc && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[58]" onClick={e => e.target === e.currentTarget && setCoupeBloc(null)}>
+        <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] flex items-center justify-center z-[58]" onClick={e => e.target === e.currentTarget && setCoupeBloc(null)}>
           <div className="bg-white rounded-xl shadow-2xl w-full max-w-sm p-5">
             <h3 className="font-title text-lg text-iip-gold mb-1"><IconScissors size={14} className="inline align-[-2px] mr-1" />Scinder le bloc</h3>
             <p className="text-sm text-gray-600 mb-4">{coupeBloc.activite} · {coupeBloc.heures}h sur {coupeBloc.dureeSem} sem.</p>

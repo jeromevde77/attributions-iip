@@ -1,4 +1,4 @@
-import { useState, useEffect, Component } from 'react';
+import { useState, useEffect, useRef, Component } from 'react';
 import { estDirection, droitEffectif } from './lib/modules.js';
 
 // Error boundary : affiche l'erreur au lieu d'une page blanche
@@ -19,10 +19,11 @@ class ErrorBoundary extends Component {
 }
 import { Routes, Route, Navigate, NavLink, useNavigate } from 'react-router-dom';
 import { isAuthenticated, getUser, api, getAnnee, setAnnee } from './lib/api.js';
+import { useMode, basculerMode } from './lib/theme.js';
 import {
   IconClipboardList, IconUsers, IconFileExport, IconChecklist,
   IconChartBar, IconCalendarStats, IconEdit, IconSettings, IconLogout, IconMenu2, IconX,
-  IconHome, IconBell, IconHelpCircle, IconGavel,
+  IconHome, IconBell, IconHelpCircle, IconGavel, IconSun, IconMoon,
 } from '@tabler/icons-react';
 
 import Login from './pages/Login.jsx';
@@ -52,7 +53,7 @@ import Besoins from './pages/Besoins.jsx';
 import Organisation from './pages/Organisation.jsx';
 import DUE from './pages/DUE.jsx';
 import Classement from './pages/Classement.jsx';
-import { AxeAccueil, AxeEtudiants, AxeCommunication } from './pages/Axes.jsx';
+import { AxeAccueil, AxeEtudiants } from './pages/Axes.jsx';
 import { BoutonAide } from './pages/Aide.jsx';
 
 /* eslint-disable no-undef */
@@ -108,13 +109,34 @@ function PreviewBanner() {
   );
 }
 
+/** « Charles Sohet » → « CS ». Un seul mot, ses deux premières lettres. */
+/** Le rôle, en abrégé : la barre n'a pas la place d'un mot de dix-huit lettres. */
+const ROLE_COURT = {
+  admin: 'Adm.', directeur: 'Dir.', directeur_adjoint: 'Dir. adj.',
+  coordination: 'Coord.', secretariat: 'Secr.', professeur: 'Prof.',
+  consultation: 'Lect.', editeur: 'Édit.',
+};
+
+function initialesDe(u) {
+  const source = String(u?.nom || u?.email || '').trim();
+  const mots = source.split(/[\s@._-]+/).filter(Boolean);
+  if (!mots.length) return '?';
+  const lettres = mots.length > 1 ? mots[0][0] + mots[1][0] : mots[0].slice(0, 2);
+  return lettres.toLocaleUpperCase('fr');
+}
+
 function VoirCommePicker() {
   const [open, setOpen] = useState(false);
   const [profils, setProfils] = useState([]);
   const [err, setErr] = useState('');
   const u = getUser();
+  /* LE NOM TIENT EN DEUX LETTRES.
+     Écrit en entier, il occupait à lui seul un quart de la barre et forçait le
+     rôle et la déconnexion à s'empiler dessous, sur trois lignes. Les initiales
+     suffisent à dire qui est connecté — le nom complet reste dans l'info-bulle
+     et dans la liste « voir comme ». */
   if (!estDirection(u) || u?.preview) {
-    return <span className="text-gray-700 font-medium text-sm">{u?.nom || u?.email}</span>;
+    return <span className="pastille-compte" title={u?.nom || u?.email}>{initialesDe(u)}</span>;
   }
   const ouvrir = () => {
     setOpen(o => !o);
@@ -124,8 +146,8 @@ function VoirCommePicker() {
   return (
     <div className="relative">
       <button onClick={ouvrir} title="Voir Lucie comme un autre profil"
-        className="text-gray-700 font-medium text-sm hover:text-iip-blue flex items-center gap-1">
-        {u?.nom || u?.email} <span className="text-[10px] text-gray-400">▾</span>
+        className="pastille-compte hover:text-iip-blue flex items-center gap-1">
+        {initialesDe(u)} <span className="text-[10px] text-slate-400">▾</span>
       </button>
       {open && (
         <div className="absolute right-0 mt-1 w-64 bg-white border border-gray-200 rounded-lg shadow-xl z-50 max-h-80 overflow-auto">
@@ -151,6 +173,47 @@ function VoirCommePicker() {
 function ProtectedLayout({ children }) {
   const navigate = useNavigate();
   const [menuOpen, setMenuOpen] = useState(false);
+
+  /*
+   * LA BARRE MESURE SA PROPRE HAUTEUR, ET LE RAIL LA LIT.
+   *
+   * Elle valait « 64 px » dans une demi-douzaine d'endroits, écrits à la main.
+   * Or elle ne les fait pas toujours : une ligne de plus, un écran étroit, et
+   * le rail passait DESSOUS — son premier libellé se retrouvait coupé par une
+   * barre de la même couleur que lui, donc invisible à l'oeil et introuvable au
+   * raisonnement. Trois fois que nous recomptons des pixels : on arrête de
+   * compter, on mesure.
+   */
+  const refBarre = useRef(null);
+  useEffect(() => {
+    const el = refBarre.current;
+    if (!el) return undefined;
+    /*
+     * CE QUI COMPTE, C'EST LE BAS DE LA BARRE — pas sa hauteur.
+     *
+     * En développement, un bandeau rayé la précède ; demain ce sera autre
+     * chose. Mesurer la HAUTEUR donnait donc un chiffre juste et une position
+     * fausse : le rail commençait plus haut que le bas de la barre et passait
+     * dessous, ou s'en détachait de quelques dizaines de pixels. C'est le
+     * même défaut que les « 64 px » écrits à la main, en plus subtil.
+     *
+     * On prend le BORD BAS dans la fenêtre. La barre étant collée en haut, il
+     * décroît au défilement jusqu'à valoir sa hauteur — le rail suit, et il
+     * n'y a jamais d'espace entre eux.
+     */
+    const poser = () => document.documentElement.style.setProperty(
+      '--barre-h', Math.round(el.getBoundingClientRect().bottom) + 'px');
+    poser();
+    const obs = new ResizeObserver(poser);
+    obs.observe(el);
+    window.addEventListener('scroll', poser, { passive: true });
+    window.addEventListener('resize', poser);
+    return () => {
+      obs.disconnect();
+      window.removeEventListener('scroll', poser);
+      window.removeEventListener('resize', poser);
+    };
+  }, []);
   const [annees, setAnnees] = useState([]);
   const [anneeActive, setAnneeActive] = useState(getAnnee());
   const [env, setEnv] = useState(null);
@@ -221,6 +284,12 @@ function ProtectedLayout({ children }) {
     fetch('/api/info').then(r => r.json()).then(d => setEnv(d.environnement)).catch(() => {});
   }, []);
 
+  // LE MODE D'AFFICHAGE EST UN RÉGLAGE DE L'APPLICATION : il vit dans la barre
+  // du haut, seul point fixe de l'écran. Déclaré ici, AVANT tout retour
+  // conditionnel — un crochet placé après « if (!isAuthenticated()) return »
+  // change l'ordre des crochets d'un rendu à l'autre, ce que React refuse.
+  const mode = useMode();
+
   function changeAnnee(code) {
     setAnnee(code);
     setAnneeActive(code);
@@ -237,13 +306,29 @@ function ProtectedLayout({ children }) {
   // « role === coordination » pour ne montrer que deux entrées, alors que le
   // système de permissions accorde à la coordination un droit de validation sur
   // les étudiants : l'onglet était masqué à des gens qui y avaient droit.
+  /*
+   * CINQ AXES, ET CHACUN RÉPOND À UNE QUESTION.
+   *
+   * · COMMUNICATION DISPARAÎT. L'axe ne portait qu'un constructeur de listes
+   *   et deux raccourcis de documents — c'est exactement ce que fait le centre
+   *   d'impression. Une porte de moins pour le même geste.
+   *
+   * · ACCUEIL ET PILOTAGE FUSIONNENT en « Tableau de bord ». « Ce qui
+   *   m'attend » et « où en sommes-nous » sont la même question posée à deux
+   *   échelles ; ce qui les séparait n'était pas leur nature mais leur
+   *   confidentialité — et la confidentialité se règle par le rôle, pas par un
+   *   onglet. La direction y voit tout, une coordination sa section.
+   *
+   * · GESTION NAÎT, et c'est le vrai gain : ce qu'on ENGAGE — dotation,
+   *   budget, répartition — quitte ce qu'on CONSULTE. Un écran qu'on lit et un
+   *   écran où l'on décide ne peuvent pas porter le même cadenas.
+   */
   const AXES = [
-    ['/accueil',       'Accueil',       IconHome,           null],
-    ['/etudiants',     'Étudiants',     IconChecklist,      'etudiants'],
-    ['/professeurs',   'Personnel',     IconUsers,          'personnel'],
-    ['/organisation',  'Organisation',  IconClipboardList,  'attributions'],
-    ['/communication', 'Communication', IconFileExport,     'communication'],
-    ['/pilotage',      'Pilotage',      IconChartBar,       'pilotage'],
+    ['/accueil',       'Tableau de bord', IconHome,           null],
+    ['/etudiants',     'Étudiants',       IconChecklist,      'etudiants'],
+    ['/professeurs',   'Personnel',       IconUsers,          'personnel'],
+    ['/organisation',  'Organisation',    IconClipboardList,  'attributions'],
+    ['/gestion',       'Gestion',         IconChartBar,       'dotation'],
   ];
 
   const nav = AXES
@@ -266,7 +351,11 @@ function ProtectedLayout({ children }) {
           ⚠ ENVIRONNEMENT DE DÉVELOPPEMENT — DONNÉES FICTIVES ⚠
         </div>
       )}
-      <header className="bg-white border-b border-iip-gold/30 px-3 md:px-6 py-3 sticky top-0 z-20 shadow-sm">
+      {/* LA BARRE DU HAUT RESTE ENTIÈRE, d'un bord à l'autre : deux panneaux
+          détachés sur le même écran, c'est un panneau de trop — il faut un
+          point fixe, et c'est elle. Elle suit en revanche le mode des menus,
+          sans quoi l'on retomberait sur deux espaces qui ne se parlent pas. */}
+      <header ref={refBarre} className="barre-haut px-3 md:px-6 py-3 sticky top-0 z-20">
         <div className="flex items-center justify-between gap-3">
           {/* Burger mobile */}
           <button
@@ -277,7 +366,8 @@ function ProtectedLayout({ children }) {
           </button>
 
           <div className="flex-none">
-            <svg width="90" height="28" viewBox="0 0 140 44" xmlns="http://www.w3.org/2000/svg">
+            <svg className="logo-lucie" width="90" height="28" viewBox="0 0 140 44"
+              xmlns="http://www.w3.org/2000/svg">
               {/* Symbole L compact */}
               <g stroke="#1B2B4B" strokeOpacity=".06" fill="none" strokeWidth="1.2" strokeLinecap="round">
                 <line x1="5" y1="14" x2="12" y2="6"/><line x1="5" y1="14" x2="16" y2="23"/>
@@ -314,7 +404,8 @@ function ProtectedLayout({ children }) {
 
           {/* Sélecteur d'année */}
           <select value={anneeActive} onChange={e => changeAnnee(e.target.value)}
-            className="border border-iip-blue/30 rounded-lg px-2.5 py-1.5 h-9 text-sm font-semibold text-iip-blue bg-white focus:outline-none focus:ring-2 focus:ring-iip-turquoise/40 cursor-pointer">
+            className="champ-barre rounded-champ px-2.5 py-1.5 h-9 text-sm font-semibold
+              focus:outline-none focus:ring-2 focus:ring-iip-turquoise/40 cursor-pointer">
             {annees.map(a => <option key={a.code} value={a.code}>{a.code}</option>)}
             {annees.length === 0 && <option value={anneeActive}>{anneeActive}</option>}
           </select>
@@ -322,16 +413,15 @@ function ProtectedLayout({ children }) {
           <nav className="hidden md:flex gap-0.5 flex-1 ml-3">
             {nav.map(([to, lbl, Icon]) => (
               <NavLink key={to} to={to} end={to === '/'} className={({ isActive }) =>
-                `flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors duration-150 ${
-                  isActive
-                    ? 'bg-iip-turquoise/10 text-iip-blue font-semibold'
-                    : 'text-gray-600 hover:text-iip-blue hover:bg-gray-100'
+                `flex items-center gap-2 px-3 py-2 rounded-champ text-sm
+                 transition-colors duration-150 ease-ios ${
+                  isActive ? 'onglet-actif font-semibold' : 'onglet-dormant'
                 }`
               }>
                 <span className="relative flex-shrink-0">
                   {Icon && <Icon size={17} stroke={1.8} />}
                   {to === '/accueil' && nbNotifs > 0 && (
-                    <span className="absolute -top-1.5 -right-1.5 w-3.5 h-3.5 bg-red-500 rounded-full text-[8px] text-white flex items-center justify-center font-bold">
+                    <span className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-iip-turquoise rounded-full text-[10px] text-white flex items-center justify-center font-bold">
                       {nbNotifs > 9 ? '9+' : nbNotifs}
                     </span>
                   )}
@@ -343,13 +433,29 @@ function ProtectedLayout({ children }) {
 
           {/* User info + version */}
           <div className="flex items-center gap-3 text-sm flex-shrink-0">
+            {/* LE MODE EST UN RÉGLAGE DE L'APPLICATION, PAS DE L'ÉCRAN.
+                Il vivait en pied de rail : un réglage qui vaut pour toute
+                Lucie, rangé dans un objet qui change à chaque écran, et
+                d'autant plus bas que l'écran avait de rubriques. Il rejoint la
+                barre du haut, qui est le seul point fixe — à côté de la
+                version et du compte, avec les autres choses qui ne dépendent
+                pas de là où l'on se trouve. */}
+            <button onClick={basculerMode} aria-label="Changer le mode d'affichage"
+              title={mode === 'sombre' ? 'Menus en gris pâle' : 'Menus en marine'}
+              className="w-8 h-8 grid place-items-center rounded-champ text-slate-400
+                         hover:text-iip-blue hover:bg-slate-100 transition-colors duration-150">
+              {mode === 'sombre' ? <IconSun size={16} /> : <IconMoon size={16} />}
+            </button>
             {import.meta.env.VITE_DEMO_MODE === 'true' && (
               <span className="bg-orange-500 text-white font-bold px-2.5 py-0.5 rounded-md text-[11px] tracking-widest uppercase animate-pulse">
                 DÉMO
               </span>
             )}
             <span
-              className={`relative bg-iip-blue text-white font-semibold px-2 py-0.5 rounded-md text-[11px] tracking-wide hidden md:inline ${versionIsNew ? 'version-badge-new' : ''}`}
+              /* SUR UNE BARRE MARINE, UNE PASTILLE MARINE DISPARAÎT : le badge
+                 prend la surface des menus, comme l'onglet actif. */
+              className={`relative pastille-version font-semibold px-2 py-0.5 rounded-champ
+                text-[11px] tracking-wide hidden md:inline ${versionIsNew ? 'version-badge-new' : ''}`}
               title={versionIsNew ? 'Nouvelle version déployée\u00a0!' : `Version ${versionNum}`}>
               v{versionNum}
               {versionIsNew && (
@@ -359,14 +465,25 @@ function ProtectedLayout({ children }) {
                 </span>
               )}
             </span>
-            <div className="flex flex-col items-end leading-tight">
+            {/* LE COMPTE TIENT SUR UNE LIGNE.
+                Nom complet, rôle et « Déconnexion » s'empilaient sur trois
+                lignes et imposaient leur hauteur à toute la barre — donc au
+                rail, qui s'y raccroche, et à la zone de travail tout entière.
+                Les initiales, le rôle abrégé et la porte : trois objets de la
+                même hauteur, sur le même axe que le mode et la version. */}
+            <span className="flex items-center gap-2">
               <VoirCommePicker />
-              <span className="text-xs text-iip-turquoise font-semibold">{u?.role}</span>
+              <span className="text-[11px] text-iip-turquoise font-semibold uppercase tracking-wide
+                               hidden sm:inline" title={u?.role}>
+                {ROLE_COURT[u?.role] || u?.role}
+              </span>
               <button onClick={() => { api.logout(); navigate('/login'); }}
-                className="flex items-center gap-1 text-xs text-gray-400 hover:text-iip-danger transition mt-0.5">
-                <IconLogout size={13} /> Déconnexion
+                title="Se déconnecter" aria-label="Se déconnecter"
+                className="w-8 h-8 grid place-items-center rounded-champ text-slate-400
+                           hover:text-iip-blue hover:bg-slate-100 transition-colors duration-150">
+                <IconLogout size={16} />
               </button>
-            </div>
+            </span>
           </div>
         </div>
 
@@ -377,7 +494,7 @@ function ProtectedLayout({ children }) {
             {nav.map(([to, lbl, Icon]) => (
               <NavLink key={to} to={to} end={to === '/'} onClick={() => setMenuOpen(false)} className={({ isActive }) =>
                 `flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium ${
-                  isActive ? 'bg-iip-turquoise/10 text-iip-blue' : 'text-gray-700 hover:bg-gray-100'
+                  isActive ? 'onglet-actif' : 'onglet-dormant'
                 }`
               }>
                 {Icon && <Icon size={18} stroke={1.8} />}
@@ -404,7 +521,8 @@ export default function App() {
       <Route path="/accueil"      element={<ProtectedLayout><AxeAccueil /></ProtectedLayout>} />
       <Route path="/organisation" element={<ProtectedLayout><Organisation /></ProtectedLayout>} />
       <Route path="/etudiants"    element={<ProtectedLayout><AxeEtudiants /></ProtectedLayout>} />
-      <Route path="/communication" element={<ProtectedLayout><AxeCommunication /></ProtectedLayout>} />
+      {/* COMMUNICATION A DISPARU : ses listes sont dans le centre d'impression. */}
+      <Route path="/communication" element={<Navigate to="/accueil" replace />} />
       <Route path="/recrutement"   element={<ProtectedLayout><AdminOrRH><Recrutement /></AdminOrRH></ProtectedLayout>} />
       <Route path="/dcpp/:profId" element={<ProtectedLayout><DCPP /></ProtectedLayout>} />
       <Route path="/listes" element={
@@ -433,7 +551,10 @@ export default function App() {
       <Route path="/echeancier"     element={<ProtectedLayout><Echeancier /></ProtectedLayout>} /> {/* conservé : liens des rappels */}
       <Route path="/besoins"        element={<ProtectedLayout><Besoins /></ProtectedLayout>} />
       <Route path="/classement"     element={<ProtectedLayout><Classement /></ProtectedLayout>} />
-      <Route path="/pilotage"       element={<ProtectedLayout><Pilotage /></ProtectedLayout>} />
+      {/* GESTION — ce qu'on engage. « /pilotage » reste servi pour les liens
+          déjà notés ou mis en favori, et mène au tableau de bord. */}
+      <Route path="/gestion"        element={<ProtectedLayout><Pilotage vue="gestion" /></ProtectedLayout>} />
+      <Route path="/pilotage"       element={<Navigate to="/accueil" replace />} />
       <Route path="/planification"  element={<ProtectedLayout><Organisation ongletInitial="planification" /></ProtectedLayout>} />
       <Route path="/aide"           element={<ProtectedLayout><Aide /></ProtectedLayout>} />
       <Route path="/attestation"   element={<ProtectedLayout><Attestation /></ProtectedLayout>} />

@@ -45,7 +45,7 @@ export function migrerProfilsAcces(dbx) {
       ['Coordination', 'coordination',
        "Encode pour ses sections ; ses modifications sont validées par la direction",
        perm(['etudiants', 'attributions', 'organisation', 'planification', 'budget',
-             'communication', 'listes', 'pilotage'], true)],
+             'listes', 'pilotage'], true)],
       ['Professeur', 'professeur', "Ses propres attributions et ses données",
        perm(['attributions', 'personnel', 'planification'], false)],
       ['Consultation', 'consultation', 'Lecture seule', perm('tous', false)],

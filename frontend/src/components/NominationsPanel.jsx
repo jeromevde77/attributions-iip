@@ -178,10 +178,10 @@ export default function NominationsPanel({ profId }) {
                 <span className="font-medium text-gray-800">UE {a.ue_num} · {a.code_cours}</span>
                 <span className="text-gray-500"> — {a.cours_nom || ''}</span>
                 <span className="text-gray-400"> · {a.total} pér. ({a.type_cours})</span>
-                {a.remplace_attribution_id && <span className="text-[9px] text-iip-blue font-bold ml-1">remplacement</span>}
+                {a.remplace_attribution_id && <span className="text-[10px] text-iip-blue font-bold ml-1">remplacement</span>}
               </div>
-              {a.en_conge && <span className="text-[9px] px-1 rounded font-bold text-red-600 border border-red-500 shrink-0">C</span>}
-              {a.est_rt && <span className="text-[9px] px-1 rounded font-bold text-orange-600 border border-red-500 shrink-0">RT</span>}
+              {a.en_conge && <span className="text-[10px] px-1 rounded font-bold text-red-600 border border-red-500 shrink-0">C</span>}
+              {a.est_rt && <span className="text-[10px] px-1 rounded font-bold text-orange-600 border border-red-500 shrink-0">RT</span>}
               <label className="flex items-center gap-1 shrink-0 cursor-pointer">
                 <input type="checkbox" checked={!!a.est_rt} onChange={() => toggleRT(a)} disabled={!!a.remplace_attribution_id} />
                 <span className="text-gray-500">RT</span>
@@ -320,7 +320,7 @@ function RTDialog({ nomination, profId, ues, annee, onClose, onSaved }) {
   }
 
   return (
-    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[70]" onClick={e => e.target === e.currentTarget && onClose()}>
+    <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] flex items-center justify-center z-[70]" onClick={e => e.target === e.currentTarget && onClose()}>
       <div className="bg-white rounded-xl shadow-2xl w-full max-w-md p-5">
         <h3 className="font-title text-lg text-iip-gold mb-1">Remise au travail</h3>
         <p className="text-sm text-gray-600 mb-3">

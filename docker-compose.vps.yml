@@ -1,0 +1,48 @@
+# =================================================================
+# docker-compose VPS (OVH, Debian 12) — TLS assuré par Caddy sur l'hôte.
+#
+# Le frontend nginx sert en HTTP simple et n'est publié QUE sur la boucle
+# locale : Docker écrit ses règles iptables directement et court-circuite UFW,
+# donc un port publié sur 0.0.0.0 serait exposé à Internet malgré le pare-feu.
+#
+# À placer dans /opt/lucie/docker-compose.yml.
+# =================================================================
+
+services:
+  backend:
+    image: ghcr.io/jeromevde77/attributions-backend:latest
+    pull_policy: always
+    container_name: lucie-backend
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      TZ: Europe/Brussels
+      PORT: 3001
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET manquant — openssl rand -hex 32}
+      DB_PATH: /app/data/attributions.db
+      CORS_ORIGIN: ${CORS_ORIGIN:?CORS_ORIGIN manquant — https://votre-domaine}
+    volumes:
+      - /opt/lucie/data:/app/data
+      # Sauvegardes hors du dossier de la base : une copie rangée à côté de ce
+      # qu'elle protège disparaît avec lui.
+      - /opt/lucie/backups:/app/data/backups
+    expose:
+      - "3001"
+    networks:
+      - lucie-net
+
+  frontend:
+    image: ghcr.io/jeromevde77/attributions-frontend:latest
+    pull_policy: always
+    container_name: lucie-frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "127.0.0.1:8080:80"   # jamais 0.0.0.0 — voir l'en-tête
+    networks:
+      - lucie-net
+
+networks:
+  lucie-net:
+    driver: bridge

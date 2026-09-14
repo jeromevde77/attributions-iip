@@ -29,14 +29,14 @@ function resteJours(iso) {
 
 function Pastille({ echeance }) {
   const { statut, date_due } = echeance;
-  if (statut === 'fait')       return <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-emerald-100 text-emerald-800">Fait</span>;
-  if (statut === 'sans_objet') return <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-slate-100 text-slate-500">Sans objet</span>;
-  if (statut === 'annule')     return <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-slate-100 text-slate-500">Annulé</span>;
+  if (statut === 'fait')       return <span className="px-2 py-0.5 rounded-champ text-[11px] font-bold bg-emerald-100 text-emerald-800">Fait</span>;
+  if (statut === 'sans_objet') return <span className="px-2 py-0.5 rounded-champ text-[11px] font-bold bg-slate-100 text-slate-500">Sans objet</span>;
+  if (statut === 'annule')     return <span className="px-2 py-0.5 rounded-champ text-[11px] font-bold bg-slate-100 text-slate-500">Annulé</span>;
   const n = resteJours(date_due);
-  if (n < 0)   return <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-red-100 text-red-800">En retard ({-n} j)</span>;
-  if (n === 0) return <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-amber-100 text-amber-900">Aujourd'hui</span>;
-  if (n <= 7)  return <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-amber-100 text-amber-900">J-{n}</span>;
-  return <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-slate-100 text-slate-600">J-{n}</span>;
+  if (n < 0)   return <span className="px-2 py-0.5 rounded-champ text-[11px] font-bold bg-red-100 text-red-800">En retard ({-n} j)</span>;
+  if (n === 0) return <span className="px-2 py-0.5 rounded-champ text-[11px] font-bold bg-amber-100 text-amber-900">Aujourd'hui</span>;
+  if (n <= 7)  return <span className="px-2 py-0.5 rounded-champ text-[11px] font-bold bg-amber-100 text-amber-900">J-{n}</span>;
+  return <span className="px-2 py-0.5 rounded-champ text-[11px] font-bold bg-slate-100 text-slate-600">J-{n}</span>;
 }
 
 export default function Echeancier() {
@@ -154,7 +154,7 @@ export default function Echeancier() {
       <RailLateral icon={IconCalendarStats} titre="Échéancier"
         sousTitre={data?.annee} sections={sections} />
 
-      <div className="ml-16 px-3 md:px-6 py-4 space-y-4">
+      <div className="gouttiere-rail px-3 md:px-6 py-4 space-y-4">
         <div className="flex items-start justify-between gap-3 flex-wrap">
           <PageHeader icon={IconCalendarStats} titre="Échéancier"
             sous="Obligations réglementaires et jalons de l'année — circulaire 9760, décret du 16/04/1991, RGE, statut du 01/02/1993" />
@@ -303,7 +303,7 @@ export default function Echeancier() {
 
       {/* Détail */}
       {detail && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4"
+        <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] flex items-center justify-center z-50 p-4"
              onClick={() => setDetail(null)}>
           <div className="bg-white rounded-xl max-w-xl w-full" onClick={e => e.stopPropagation()}>
             <div className="px-5 py-3.5 border-b border-slate-200 flex items-start justify-between gap-3">
@@ -373,7 +373,7 @@ function ListeEcheances({ lignes, onBasculer, onDetail, mien }) {
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
-            <tr className="bg-slate-50 border-b border-slate-200 text-[11px] uppercase tracking-wide text-slate-500">
+            <tr className="tab-entete">
               <th className="px-3 py-2 text-left w-24">Date</th>
               <th className="px-3 py-2 text-left">Échéance</th>
               <th className="px-3 py-2 text-left w-40">Zone</th>

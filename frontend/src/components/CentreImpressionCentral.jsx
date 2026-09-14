@@ -1,0 +1,569 @@
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { nomPropre } from '../lib/nom.js';
+import {
+  IconPrinter, IconUsers, IconSchool, IconChartBar, IconCalendarStats,
+  IconBooks, IconAlertTriangle, IconChevronRight, IconChevronDown, IconSearch,
+  IconDownload,
+} from '@tabler/icons-react';
+import PreviewModal from './PreviewModal.jsx';
+import { authHeaders, getAnnee } from '../lib/api.js';
+import { Fenetre, GroupeFenetre, PieceFenetre } from './ui.jsx';
+
+/**
+ * LE CENTRE D'IMPRESSION — un seul endroit d'où tout sort.
+ *
+ * Dix-huit écrans produisaient des documents, chacun avec sa mécanique et ses
+ * options : on ne savait plus où sortir quoi, et la même pièce s'obtenait
+ * différemment selon le chemin pris. Les boutons restent où ils sont — on les
+ * cherche là où on travaille — mais ils mènent ici.
+ *
+ * L'onglet Étudiants croise DEUX AXES. Le PÉRIMÈTRE — une section, des unités,
+ * des cours pris dans des unités différentes — construit la liste ; la
+ * SÉLECTION la restreint à ceux qu'on coche. On peut donc aussi bien sortir
+ * toute une section que trois dossiers.
+ *
+ * UN COURS NE DÉSIGNE QUE DES PERSONNES : les pièces de délibération sont des
+ * pièces d'unité, et le restent.
+ */
+
+const ONGLETS = [
+  { cle: 'etudiants', label: 'Étudiants', icon: IconSchool },
+  { cle: 'personnel', label: 'Personnel', icon: IconUsers },
+  { cle: 'pilotage', label: 'Pilotage', icon: IconChartBar },
+  { cle: 'organisation', label: 'Organisation', icon: IconCalendarStats },
+  { cle: 'referentiels', label: 'Référentiels', icon: IconBooks },
+];
+
+const PIECES = [
+  { cle: 'reussite', label: 'Attestations de réussite', nominatif: true },
+  { cle: 'ajournement', label: 'Motivations d’ajournement', nominatif: true },
+  { cle: 'refus', label: 'Motivations de refus', nominatif: true },
+  { cle: 'pv', label: 'Procès-verbal de délibération', nominatif: false },
+  { cle: 'conseil', label: 'Composition du Conseil', nominatif: false },
+  { cle: 'grille', label: 'Grille de délibération', nominatif: false },
+];
+
+/**
+ * LES RAPPORTS D'UN DOMAINE.
+ *
+ * Le catalogue vient du serveur : ajouter un rapport n'y ajoute pas d'écran.
+ * On voit d'abord ce qu'on emporte — cinquante lignes d'aperçu — avant de
+ * télécharger : un tableur qu'on découvre après coup se refait deux fois.
+ */
+function OngletRapports({ domaine }) {
+  const annee = getAnnee();
+  const [catalogue, setCatalogue] = useState(null);
+  const [choisi, setChoisi] = useState(null);
+  const [session, setSession] = useState(1);
+  const [apercu, setApercu] = useState(null);
+  const [erreur, setErreur] = useState(null);
+  const [enCours, setEnCours] = useState(false);
+  const [document0, setDocument0] = useState(null);
+
+  // IMPRIMER, ET PAS SEULEMENT TÉLÉCHARGER. Un tableur se rouvre et s'édite ;
+  // il ne se dépose pas dans un dossier, ne s'annexe pas à un courrier et ne
+  // se présente pas au Conseil. Pour tout ce qui doit être MONTRÉ plutôt que
+  // retravaillé, la pièce manquait — et donc, en pratique, la fonction.
+  async function imprimer() {
+    if (!choisi) return;
+    setEnCours(true); setErreur(null);
+    try {
+      const rep = await fetch(`/api/rapports/${choisi.id}/document`, {
+        method: 'POST', headers: authHeaders(), body: corps(choisi),
+      });
+      const j = await rep.json();
+      if (!rep.ok) { setErreur(j.error); return; }
+      setDocument0(j);
+    } catch (e) { setErreur(e.message); } finally { setEnCours(false); }
+  }
+
+  useEffect(() => {
+    fetch('/api/rapports/catalogue', { headers: authHeaders() })
+      .then(r => r.json()).then(j => setCatalogue(j.rapports || []))
+      .catch(e => setErreur(e.message));
+  }, []);
+
+  const liste = useMemo(
+    () => (catalogue || []).filter(r => r.domaine === domaine), [catalogue, domaine]);
+  useEffect(() => { setChoisi(null); setApercu(null); }, [domaine]);
+
+  const corps = (r) => JSON.stringify({
+    annee, ...(r.params.includes('session') ? { session } : {}),
+  });
+
+  async function voir(r) {
+    setChoisi(r); setApercu(null); setErreur(null); setEnCours(true);
+    try {
+      const rep = await fetch(`/api/rapports/${r.id}/apercu`, {
+        method: 'POST', headers: authHeaders(), body: corps(r),
+      });
+      const j = await rep.json();
+      if (!rep.ok) { setErreur(j.error); return; }
+      setApercu(j);
+    } catch (e) { setErreur(e.message); } finally { setEnCours(false); }
+  }
+
+  async function telecharger() {
+    if (!choisi) return;
+    setEnCours(true); setErreur(null);
+    try {
+      const rep = await fetch(`/api/rapports/${choisi.id}/xlsx`, {
+        method: 'POST', headers: authHeaders(), body: corps(choisi),
+      });
+      if (!rep.ok) {
+        const j = await rep.json().catch(() => ({}));
+        setErreur(j.error || 'Le tableur n’a pas pu être produit.');
+        return;
+      }
+      const url = URL.createObjectURL(await rep.blob());
+      const a = document.createElement('a');
+      a.href = url; a.download = `${choisi.id}.xlsx`;
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 30000);
+    } catch (e) { setErreur(e.message); } finally { setEnCours(false); }
+  }
+
+  return (
+    <div className="flex min-h-0 flex-1">
+      <div className="w-[340px] border-r border-slate-200 overflow-auto p-2 space-y-1">
+        {liste.map(r => (
+          <button key={r.id} onClick={() => voir(r)}
+            className={`w-full text-left px-2.5 py-2 rounded-lg border text-[13px]
+              ${choisi?.id === r.id ? 'border-iip-blue bg-iip-blue/5'
+                : 'border-transparent hover:bg-slate-50'}`}>
+            <span className="block text-slate-800">{r.libelle}</span>
+            <span className="block text-[11px] text-slate-500">{r.aide}</span>
+          </button>
+        ))}
+        {catalogue && !liste.length && (
+          <p className="p-4 text-[13px] text-slate-400">
+            Aucun rapport dans ce domaine pour l’instant.
+          </p>
+        )}
+        {!catalogue && <p className="p-4 text-[12px] text-slate-400">Chargement…</p>}
+      </div>
+
+      <div className="flex-1 flex flex-col min-h-0">
+        <div className="px-3 py-2 border-b border-slate-200 flex flex-wrap items-center gap-2">
+          <span className="text-[13px] text-slate-600">{annee}</span>
+          {choisi?.params?.includes('session') && (
+            <select value={session}
+              onChange={e => { setSession(Number(e.target.value)); setApercu(null); }}
+              className="px-2 py-1 text-[12px] border border-slate-300 rounded">
+              <option value={1}>1re session</option>
+              <option value={2}>2e session</option>
+            </select>
+          )}
+          <span className="flex-1" />
+          {apercu && (
+            <span className="text-[12px] text-slate-500">
+              {apercu.nb} ligne(s){apercu.tronque ? ' · 50 premières affichées' : ''}
+            </span>
+          )}
+          {/* IMPRIMER D'ABORD, comme dans le rail : c'est le geste le plus
+              fréquent, et il porte la couleur qui le fait trouver. */}
+          <button onClick={imprimer} disabled={!choisi || enCours}
+            className="controle controle-fort">
+            <IconPrinter size={14} /> Imprimer
+          </button>
+          <button onClick={telecharger} disabled={!choisi || enCours}
+            className="controle">
+            <IconDownload size={14} /> Tableur
+          </button>
+        </div>
+
+        {erreur && (
+          <div className="m-3 px-3 py-2 rounded-lg bg-amber-50 text-amber-900 text-[13px]
+                          flex items-start gap-2">
+            <IconAlertTriangle size={15} className="flex-none mt-0.5" /> {erreur}
+          </div>
+        )}
+
+        <div className="flex-1 overflow-auto min-h-0">
+          {!choisi && (
+            <p className="p-6 text-[13px] text-slate-400">
+              Choisissez un rapport à gauche.
+            </p>
+          )}
+          {choisi && !apercu && !erreur && (
+            <p className="p-6 text-[13px] text-slate-400">
+              {enCours ? 'Calcul…' : '—'}
+            </p>
+          )}
+          {apercu && (
+            <table className="w-full text-[12px]">
+              <thead className="sticky top-0 bg-slate-50">
+                <tr>{apercu.colonnes.map(c => (
+                  <th key={c.cle} className="text-left font-medium text-slate-600
+                                             px-2 py-1.5 border-b border-slate-200">
+                    {c.entete}
+                  </th>))}</tr>
+              </thead>
+              <tbody>
+                {apercu.lignes.map((l, i) => (
+                  <tr key={i} className="border-b border-slate-50">
+                    {apercu.colonnes.map(c => (
+                      <td key={c.cle} className="px-2 py-1 text-slate-700">
+                        {l[c.cle] ?? ''}
+                      </td>))}
+                  </tr>
+                ))}
+                {!apercu.lignes.length && (
+                  <tr><td colSpan={apercu.colonnes.length}
+                    className="px-2 py-4 text-slate-400 text-center">
+                    Aucune donnée pour ces paramètres.
+                  </td></tr>
+                )}
+              </tbody>
+            </table>
+          )}
+        </div>
+      </div>
+
+      {document0 && (
+        <PreviewModal html={document0.html} titre={document0.titre}
+          sousTitre={`${document0.nb} ligne(s)`} nomFichier={document0.nom}
+          typeDoc="rapport"
+          astuceImpression="Le format est déjà posé : imprimez tel quel."
+          onClose={() => setDocument0(null)} />
+      )}
+    </div>
+  );
+}
+
+function OngletEtudiants({ perimetre = null }) {
+  const annee = getAnnee();
+  const [arbre, setArbre] = useState(null);
+  // LE CONTEXTE SUIT LE BOUTON. Ouvrir le centre depuis la délibération d'une
+  // unité sans que cette unité soit déjà choisie ferait recommencer un travail
+  // qu'on venait de faire : on arrive là où l'on était.
+  const [session, setSession] = useState(perimetre?.session === 2 ? 2 : 1);
+  const [sections, setSections] = useState(() => new Set(perimetre?.sections || []));
+  const [ues, setUes] = useState(() => new Set(perimetre?.ue_nums || []));
+  const [cours, setCours] = useState(() => new Set(perimetre?.cours_codes || []));
+  const [deplie, setDeplie] = useState(() => new Set());
+  const [recherche, setRecherche] = useState('');
+  const [liste, setListe] = useState(null);
+  const [coches, setCoches] = useState(() => new Set());
+  const [choix, setChoix] = useState({ reussite: true, ajournement: true, refus: true });
+  const [separer, setSeparer] = useState(
+    () => localStorage.getItem('impression.separer') === '1');
+  const [erreur, setErreur] = useState(null);
+  const [enCours, setEnCours] = useState(false);
+
+  useEffect(() => {
+    fetch(`/api/perimetre/arborescence?annee=${encodeURIComponent(annee)}`,
+      { headers: authHeaders() })
+      .then(r => r.json()).then(setArbre).catch(e => setErreur(e.message));
+  }, [annee]);
+
+  const bascule = (set, valeur) => {
+    const n = new Set(set);
+    n.has(valeur) ? n.delete(valeur) : n.add(valeur);
+    return n;
+  };
+
+  const charger = useCallback(async () => {
+    setErreur(null);
+    if (!sections.size && !ues.size && !cours.size) { setListe(null); return; }
+    try {
+      const rep = await fetch('/api/perimetre/etudiants', {
+        method: 'POST', headers: authHeaders(),
+        body: JSON.stringify({
+          annee, session,
+          sections: [...sections], ue_nums: [...ues], cours_codes: [...cours],
+        }),
+      });
+      const j = await rep.json();
+      if (!rep.ok) throw new Error(j.error);
+      setListe(j);
+      // Tous cochés par défaut DANS LE PÉRIMÈTRE choisi : la sélection sert à
+      // restreindre, non à tout reconstruire. Rien n'est coché tant qu'aucun
+      // périmètre n'est posé.
+      setCoches(new Set(j.etudiants.filter(e => e.decide).map(e => e.id)));
+    } catch (e) { setErreur(e.message); }
+  }, [annee, session, sections, ues, cours]);
+  useEffect(() => { charger(); }, [charger]);
+
+  const etudiants = useMemo(() => {
+    const q = recherche.trim().toLowerCase();
+    const l = liste?.etudiants || [];
+    return q ? l.filter(e => `${e.nom} ${e.prenom}`.toLowerCase().includes(q)) : l;
+  }, [liste, recherche]);
+
+  async function produire() {
+    setEnCours(true); setErreur(null);
+    try {
+      const rep = await fetch('/api/acquis/deliberation/documents-lot', {
+        method: 'POST', headers: authHeaders(),
+        body: JSON.stringify({
+          annee, session, separer,
+          ue_nums: (liste?.unites || []).map(u => u.ue_num),
+          etudiants: [...coches],
+          ...choix,
+        }),
+      });
+      const j = await rep.json();
+      if (!rep.ok) { setErreur(j.error); return; }
+      if (j.manques?.length) {
+        setErreur(`${j.pieces} pièce(s), mais : ${j.manques.slice(0, 4).join(' · ')}`
+          + (j.manques.length > 4 ? ' …' : ''));
+      }
+      const tout = j.separes
+        ? [...(j.collectif ? [j.collectif] : []), ...j.documents]
+        : [{ nom: (j.nom || 'documents').replace(/\.html$/, ''), html: j.html }];
+      for (const d of tout) {
+        const rp = await fetch('/api/impression/pdf', {
+          method: 'POST', headers: authHeaders(),
+          body: JSON.stringify({ html: d.html, nom: d.nom, pagination: 'si-plusieurs' }),
+        });
+        if (!rp.ok) { setErreur(`${d.etudiant || d.nom} : PDF non produit.`); return; }
+        const url = URL.createObjectURL(await rp.blob());
+        const a = document.createElement('a');
+        a.href = url; a.download = `${d.nom}.pdf`;
+        document.body.appendChild(a); a.click(); a.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 30000);
+        await new Promise(r => setTimeout(r, 350));
+      }
+    } catch (e) { setErreur(e.message); }
+    finally { setEnCours(false); }
+  }
+
+  const rien = !sections.size && !ues.size && !cours.size;
+
+  return (
+    <div className="flex min-h-0 flex-1">
+      {/* LE PÉRIMÈTRE */}
+      <div className="w-[340px] border-r border-slate-200 flex flex-col min-h-0">
+        <div className="px-3 py-2 border-b border-slate-200">
+          <div className="text-[13px] font-semibold text-iip-blue mb-1.5">Périmètre</div>
+          <div className="segments w-full">
+            {[[1, '1re session'], [2, '2e session']].map(([v, lib]) => (
+              <button key={v} onClick={() => setSession(v)}
+                className={`flex-1 px-2 py-1 text-[12px] ${session === v
+                  ? 'bg-iip-blue text-white font-semibold' : 'text-slate-600'}`}>
+                {lib}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="flex-1 overflow-auto p-2 space-y-2">
+          {(arbre?.sections || []).map(sec => (
+            <div key={sec}>
+              <label className="flex items-center gap-2 px-1.5 py-1 rounded hover:bg-slate-50
+                                cursor-pointer">
+                <input type="checkbox" checked={sections.has(sec)}
+                  onChange={() => setSections(s => bascule(s, sec))}
+                  className="w-4 h-4 accent-iip-blue" />
+                <span className="text-[13px] font-medium text-slate-800">{sec}</span>
+              </label>
+              <div className="pl-4">
+                {(arbre?.unites || []).filter(u => u.section === sec).map(u => (
+                  <div key={u.ue_num}>
+                    <div className="flex items-center gap-1.5 px-1.5 py-0.5">
+                      <input type="checkbox" checked={ues.has(u.ue_num)}
+                        disabled={sections.has(sec)}
+                        onChange={() => setUes(s => bascule(s, u.ue_num))}
+                        className="w-3.5 h-3.5 accent-iip-blue disabled:opacity-40" />
+                      <button onClick={() => setDeplie(d => bascule(d, u.ue_num))}
+                        className="text-slate-400 hover:text-slate-700">
+                        {deplie.has(u.ue_num)
+                          ? <IconChevronDown size={13} /> : <IconChevronRight size={13} />}
+                      </button>
+                      <span className="text-[12px] text-slate-700 truncate">
+                        <b>{u.ue_num}</b> {u.ue_nom}
+                      </span>
+                    </div>
+                    {deplie.has(u.ue_num) && (
+                      <div className="pl-8">
+                        {u.cours.map(c => (
+                          <label key={c.cours_code}
+                            className="flex items-center gap-1.5 px-1.5 py-0.5 cursor-pointer">
+                            <input type="checkbox" checked={cours.has(c.cours_code)}
+                              disabled={sections.has(sec) || ues.has(u.ue_num)}
+                              onChange={() => setCours(s => bascule(s, c.cours_code))}
+                              className="w-3.5 h-3.5 accent-iip-blue disabled:opacity-40" />
+                            <span className="text-[12px] text-slate-500 truncate">
+                              {c.cours_code} {c.cours_nom}
+                            </span>
+                          </label>
+                        ))}
+                        {!u.cours.length && (
+                          <div className="text-[11px] text-slate-400 px-1.5">aucun cours</div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+          {!arbre && <div className="text-[12px] text-slate-400 p-2">Chargement…</div>}
+        </div>
+
+        <div className="px-3 py-2 border-t border-slate-200 text-[11px] text-slate-500">
+          Un cours sert à désigner des personnes : les pièces restent celles de
+          leur unité.
+        </div>
+      </div>
+
+      {/* LES PERSONNES ET LES PIÈCES */}
+      <div className="flex-1 flex flex-col min-h-0">
+        <div className="px-3 py-2 border-b border-slate-200 flex flex-wrap items-center gap-2">
+          <div className="relative">
+            <IconSearch size={13} className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400" />
+            <input value={recherche} onChange={e => setRecherche(e.target.value)}
+              placeholder="Un nom…"
+              className="pl-7 pr-2 py-1 text-[12px] border border-slate-300 rounded-lg w-48" />
+          </div>
+          <button onClick={() => setCoches(new Set(etudiants.filter(e => e.decide).map(e => e.id)))}
+            className="text-[12px] text-iip-blue underline">tout cocher</button>
+          <button onClick={() => setCoches(new Set())}
+            className="text-[12px] text-slate-500 underline">tout décocher</button>
+          <span className="flex-1" />
+          <span className="text-[12px] text-slate-500">
+            {coches.size} / {etudiants.length} étudiant(s)
+            {liste?.unites?.length ? ` · ${liste.unites.length} unité(s)` : ''}
+          </span>
+        </div>
+
+        {/* CE QU'ON PRODUIT SE DÉCIDE AVANT DE CHOISIR QUI.
+            Le choix des pièces et le bouton vivaient SOUS la liste : avec
+            seize étudiants on les voyait, avec deux cents il fallait
+            parcourir tout l'écran pour les atteindre, et le bouton
+            disparaissait à mesure que le travail grossissait. Ils passent
+            au-dessus : la liste peut alors s'allonger autant qu'elle veut. */}
+        <div className="border-b border-slate-200 p-3 space-y-2">
+          <div className="flex flex-wrap gap-2">
+            {PIECES.map(p => (
+              <label key={p.cle}
+                className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border
+                  cursor-pointer text-[12px] ${choix[p.cle]
+                    ? 'border-iip-blue bg-iip-blue/5' : 'border-slate-200 text-slate-600'}`}>
+                <input type="checkbox" checked={!!choix[p.cle]}
+                  onChange={() => setChoix(c => ({ ...c, [p.cle]: !c[p.cle] }))}
+                  className="w-3.5 h-3.5 accent-iip-blue" />
+                {p.label}
+                {!p.nominatif && <span className="text-[10px] text-slate-400">collectif</span>}
+              </label>
+            ))}
+          </div>
+
+          {erreur && (
+            <div className="px-3 py-2 rounded-lg bg-amber-50 text-amber-900 text-[13px]
+                            flex items-start gap-2">
+              <IconAlertTriangle size={15} className="flex-none mt-0.5" /> {erreur}
+            </div>
+          )}
+
+          <div className="flex items-center gap-2">
+            <label className="flex items-center gap-1.5 text-[12px] text-slate-600 cursor-pointer">
+              <input type="checkbox" checked={separer}
+                onChange={e => {
+                  setSeparer(e.target.checked);
+                  localStorage.setItem('impression.separer', e.target.checked ? '1' : '0');
+                }}
+                className="w-4 h-4 accent-iip-blue" />
+              Un document par étudiant
+            </label>
+            <span className="flex-1" />
+            <button onClick={produire} disabled={enCours || !coches.size}
+              className="px-4 py-2 text-[13px] rounded-lg bg-iip-blue text-white
+                         font-semibold disabled:opacity-40 inline-flex items-center gap-1.5">
+              <IconPrinter size={14} />
+              {enCours ? 'Production…' : `Produire pour ${coches.size} étudiant(s)`}
+            </button>
+          </div>
+        </div>
+        <div className="flex-1 overflow-auto min-h-0">
+          {rien && (
+            <p className="p-6 text-[13px] text-slate-400">
+              Choisissez un périmètre à gauche : une section, des unités, ou des
+              cours.
+            </p>
+          )}
+          {!rien && !etudiants.length && (
+            <p className="p-6 text-[13px] text-slate-400">
+              Aucun étudiant dans ce périmètre.
+            </p>
+          )}
+          {etudiants.map(e => (
+            <label key={e.id}
+              className={`flex items-center gap-2 px-3 py-1.5 border-b border-slate-100
+                          cursor-pointer ${e.decide ? '' : 'opacity-50'}`}>
+              <input type="checkbox" checked={coches.has(e.id)} disabled={!e.decide}
+                onChange={() => setCoches(s => bascule(s, e.id))}
+                className="w-4 h-4 accent-iip-blue" />
+              <span className="flex-1 min-w-0">
+                <span className="text-[13px] font-medium">{nomPropre(e.nom, e.prenom)}</span>
+                <span className="block text-[11px] text-slate-500">
+                  {e.decide
+                    ? `${e.reussites} réussite(s) · ${e.echecs} échec(s) sur ${e.unites.length} unité(s)`
+                    : 'aucune décision pour cette session'}
+                </span>
+              </span>
+            </label>
+          ))}
+        </div>
+
+      </div>
+    </div>
+  );
+}
+
+/**
+ * LES PIÈCES PROPRES À L'ÉCRAN D'OÙ L'ON VIENT.
+ *
+ * Certaines éditions ne sont pas des rapports du catalogue : elles ont leur
+ * propre fenêtre, bâtie pour elles. Elles occupaient chacune une icône du
+ * rail — « Rapport de la liste », « Rapport PAE » —, ce qui revenait à
+ * afficher un sommaire au mur plutôt que dans le livre. Elles se déclarent
+ * ici, en tête du centre : une pièce de plus ne coûte plus une icône.
+ */
+function PiecesDeLEcran({ pieces, onChoisir }) {
+  if (!pieces || !pieces.length) return null;
+  return (
+    <GroupeFenetre titre="Pièces de cet écran">
+      {pieces.map(p => (
+        <PieceFenetre key={p.cle} icone={p.icon} titre={p.label} sous={p.description}
+          onClick={() => onChoisir(p)} />
+      ))}
+    </GroupeFenetre>
+  );
+}
+
+export default function CentreImpressionCentral({ ongletInitial = 'etudiants',
+                                                  perimetre = null, pieces = null,
+                                                  onClose }) {
+  const [onglet, setOnglet] = useState(ongletInitial);
+
+  return (
+    <Fenetre icone={IconPrinter} titre="Éditions"
+      sous="Tout ce que Lucie imprime, au même endroit."
+      large="pleine" onFermer={onClose}>
+
+      <PiecesDeLEcran pieces={pieces}
+        onChoisir={p => { onClose?.(); p.onClick?.(); }} />
+
+      {/* Les domaines : ce qu'on sort ici porte sur les étudiants, le
+          personnel, l'établissement… Le domaine ouvert est le seul en marine. */}
+      <div className="flex gap-1 flex-wrap mb-4 pb-3 border-b border-slate-200">
+        {ONGLETS.map(o => (
+          <button key={o.cle} onClick={() => setOnglet(o.cle)}
+            className={`px-3 py-1.5 rounded-champ text-[13px] inline-flex items-center gap-1.5
+              transition-colors duration-150 ease-ios
+              ${onglet === o.cle
+                ? 'bg-iip-blue text-white font-semibold'
+                : 'text-slate-500 hover:bg-slate-100'}`}>
+            <o.icon size={14} /> {o.label}
+          </button>
+        ))}
+      </div>
+
+      {onglet === 'etudiants'
+        ? <OngletEtudiants perimetre={perimetre} />
+        : <OngletRapports domaine={onglet} />}
+    </Fenetre>
+  );
+}

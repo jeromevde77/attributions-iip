@@ -68,14 +68,14 @@ export default function RolesPlafonds() {
   return (
     <div className="p-5 space-y-4">
       <div>
-        <h2 className="text-xl font-semibold text-iip-blue">Rôles</h2>
+        <h2 className="titre-ecran mb-0">Rôles</h2>
         <p className="text-sm text-slate-500">
           Ce que chaque rôle autorise au mieux. Les cases d'une fiche affinent à l'intérieur.
         </p>
       </div>
 
       {message && (
-        <div className={`px-4 py-2.5 rounded-lg text-[12.5px] flex items-start justify-between gap-3 ${
+        <div className={`px-4 py-2.5 rounded-lg text-[13px] flex items-start justify-between gap-3 ${
           message.type === 'err' ? 'bg-red-50 border border-red-200 text-red-800'
                                  : 'bg-amber-50 border border-amber-200 text-amber-900'}`}>
           <span>{message.texte}</span>
@@ -94,7 +94,7 @@ export default function RolesPlafonds() {
                   <div className="flex justify-center text-slate-400">
                     <m.Icone size={14} stroke={1.6} />
                   </div>
-                  <div className="text-[9px] text-slate-500 leading-tight mt-0.5">{m.label}</div>
+                  <div className="text-[10px] text-slate-500 leading-tight mt-0.5">{m.label}</div>
                 </th>
               ))}
             </tr>
@@ -105,7 +105,7 @@ export default function RolesPlafonds() {
               return (
                 <tr key={role} className="border-b border-slate-100 hover:bg-slate-50/60">
                   <td className="px-3 py-2 sticky left-0 bg-white border-r border-slate-100">
-                    <div className="text-[12.5px] text-slate-800 flex items-center gap-1.5">
+                    <div className="text-[13px] text-slate-800 flex items-center gap-1.5">
                       {LIBELLE_ROLE[role] || role}
                       {fige && <IconLock size={12} className="text-slate-300" />}
                     </div>
@@ -136,7 +136,7 @@ export default function RolesPlafonds() {
         </table>
       </div>
 
-      <div className="flex flex-wrap gap-3 text-[10.5px] text-slate-600">
+      <div className="flex flex-wrap gap-3 text-[11px] text-slate-600">
         {NIVEAUX.map(n => (
           <span key={n.val}>
             <span className={`px-1.5 py-0.5 rounded border ${n.cls}`}>{n.label}</span> {n.aide}
@@ -144,7 +144,7 @@ export default function RolesPlafonds() {
         ))}
       </div>
 
-      <div className="px-4 py-3 rounded-xl bg-slate-50 border border-slate-200 text-[11.5px]
+      <div className="px-4 py-3 rounded-xl bg-slate-50 border border-slate-200 text-[12px]
                       text-slate-600 space-y-1.5">
         <p className="flex items-start gap-1.5">
           <IconAlertTriangle size={14} className="mt-0.5 flex-none text-slate-400" />

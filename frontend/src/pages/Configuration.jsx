@@ -768,10 +768,10 @@ function GestionPrerequis() {
           <option value="">— Choisir une section —</option>
           {sections.map(s => <option key={s.code} value={s.code}>{s.code}</option>)}
         </select>
-        <div className="flex rounded-lg border border-gray-300 overflow-hidden h-9">
+        <div className="segments h-9">
           {[['schema', 'Schéma'], ['liste', 'Liste']].map(([v, l]) => (
             <button key={v} onClick={() => setVue(v)}
-              className={`px-3 text-[12.5px] ${vue === v
+              className={`px-3 text-[13px] ${vue === v
                 ? 'bg-iip-blue text-white font-semibold' : 'text-slate-600 hover:bg-slate-50'}`}>
               {l}
             </button>
@@ -780,14 +780,14 @@ function GestionPrerequis() {
         {section && <span className="text-xs text-gray-400">{prereqs.length} prérequis définis</span>}
       </div>
 
-      <div className="px-3 py-2 rounded-lg bg-amber-50 border border-amber-200 text-[11.5px] text-amber-900">
+      <div className="px-3 py-2 rounded-lg bg-amber-50 border border-amber-200 text-[12px] text-amber-900">
         Les prérequis constituent la bibliothèque : ils viennent du dossier pédagogique et
         valent pour <b>toutes les années</b>. Les modifier fait bouger les grilles de parcours
         et les PAE déjà établis. Réservé aux administrateurs.
       </div>
 
       {msgLien && (
-        <div className={`px-3 py-2 rounded-lg text-[12.5px] flex items-center justify-between ${
+        <div className={`px-3 py-2 rounded-lg text-[13px] flex items-center justify-between ${
           msgLien.type === 'ok' ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
                                 : 'bg-red-50 text-red-800 border border-red-200'}`}>
           <span>{msgLien.texte}</span>
@@ -1044,7 +1044,7 @@ function ConfigAttestation() {
       <div className="flex gap-1 border-b border-gray-200 mb-4">
         {ONGLETS_LOC.map(o => (
           <button key={o.key} onClick={() => setOnglet(o.key)}
-            className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px ${onglet===o.key ? 'border-iip-turquoise text-iip-blue' : 'border-transparent text-gray-400 hover:text-gray-600'}`}>
+            className={`onglet-page ${onglet === o.key ? 'onglet-page-actif' : ''}`}>
             {o.label}
           </button>
         ))}
@@ -1264,36 +1264,62 @@ export default function Configuration() {
   //  · Paramétrage annuel — ce qui se rejoue chaque rentrée
   //  · Établissement / Système / Modèles — le reste
   const CONF_GROUPES = [
-    { label: 'Référentiel légal', items: [
-      { key: 'referentiels', label: 'Référentiels', icon: IconBooks },
-      { key: 'prerequis', label: 'Prérequis UE', icon: IconLink },
-      { key: 'ponderations', label: 'Pondération des AA', icon: IconScale },
-      { key: 'demandes', label: 'Demandes à valider', icon: IconCheck },
-      { key: 'sauvegardes', label: 'Sauvegardes', icon: IconDownload },
-      { key: 'procedures', label: 'Procédures', icon: IconGavel },
-    ]},
-    { label: 'Paramétrage annuel', items: [
-      { key: 'annees', label: 'Années', icon: IconCalendar },
-      { key: 'doublons', label: 'Dossiers dédoublés', icon: IconUsers },
-      { key: 'dates-ue', label: 'Dates des UE', icon: IconCalendarEvent },
-    ]},
+    /*
+     * L'ORDRE, ET IL N'ÉTAIT NULLE PART.
+     *
+     * Vingt-quatre entrées en cinq groupes, rangées au fil de ce qu'on
+     * ajoutait : « Sauvegardes » sous « Référentiel légal », deux icônes de
+     * personnes qui ne disent pas la même chose, deux calendriers, et
+     * « Historique & Sauvegarde » à côté de « Sauvegardes » — deux écrans
+     * différents portant presque le même nom.
+     *
+     * Le classement suit maintenant ce qu'on vient y faire, du plus permanent
+     * au plus technique : qui nous sommes, ce qu'on enseigne, comment on
+     * délibère, ce qu'on produit, qui entre, et enfin la machine.
+     */
     { label: 'Établissement', items: [
-      { key: 'etablissement', label: 'Établissement', icon: IconBuilding },
-      { key: 'personnel', label: 'Personnel', icon: IconUsers },
-      { key: 'users', label: 'Utilisateurs', icon: IconUserShield },
-      { key: 'roles', label: 'Rôles', icon: IconUserShield },
+      { key: 'etablissement', label: 'Identité et sections', icon: IconBuilding },
+      { key: 'annees', label: 'Années scolaires', icon: IconCalendar },
     ]},
-    { label: 'Modèles de documents', items: [
-      { key: 'editeur', label: 'Éditeur', icon: IconEdit },
+    // LE RÉFÉRENTIEL ET SES PRÉREQUIS NE SE SÉPARENT PAS : un prérequis est
+    // une arête du référentiel, pas un réglage à côté.
+    { label: 'Référentiel', items: [
+      { key: 'referentiels', label: 'Référentiels', icon: IconBooks },
+      { key: 'prerequis', label: "Prérequis d'UE", icon: IconLink },
+    ]},
+    // LA PONDÉRATION EST UNE RÈGLE DE DÉLIBÉRATION, et non un réglage
+    // général : c'est elle qui fabrique la note d'unité. Elle rejoint les
+    // délais et les procédures, qui décident du reste de la décision.
+    { label: 'Délibération', items: [
+      { key: 'ponderations', label: 'Pondération des acquis', icon: IconScale },
+      { key: 'procedures', label: 'Procédures et délais', icon: IconGavel },
+    ]},
+    { label: 'Documents', items: [
+      { key: 'editeur', label: 'Éditeur de modèles', icon: IconEdit },
       { key: 'apercu', label: 'Aperçu des pièces', icon: IconFileText },
       { key: 'contrat', label: 'Contrat', icon: IconFileText },
       { key: 'attestation', label: 'Attestation', icon: IconAward },
       { key: 'recrutement', label: 'Recrutement', icon: IconSettings },
     ]},
+    { label: 'Accès', items: [
+      { key: 'users', label: 'Utilisateurs', icon: IconUserShield },
+      { key: 'roles', label: 'Rôles et plafonds', icon: IconUserShield },
+      { key: 'personnel', label: 'Personnel', icon: IconUsers },
+    ]},
+    { label: 'Données', items: [
+      { key: 'dates-ue', label: "Dates des UE", icon: IconCalendarEvent },
+      { key: 'doublons', label: 'Dossiers dédoublés', icon: IconUsers },
+      { key: 'demandes', label: 'Demandes à valider', icon: IconCheck },
+    ]},
+    // DEUX NOMS POUR DEUX CHOSES. « Historique & Sauvegarde » conservait les
+    // états d'attributions avant modification ; « Sauvegardes » conserve la
+    // base entière. Presque le même mot pour deux gestes qui ne se
+    // remplacent pas — on les nomme donc pour ce qu'ils sont.
     { label: 'Système', items: [
       { key: 'parametres', label: 'Paramètres', icon: IconAdjustments },
       { key: 'courriels', label: 'Courriels', icon: IconMail },
-      { key: 'systeme', label: 'Historique & Sauvegarde', icon: IconHistory },
+      { key: 'systeme', label: 'Historique des modifications', icon: IconHistory },
+      { key: 'sauvegardes', label: 'Sauvegardes de la base', icon: IconDownload },
       { key: 'statistiques', label: 'Statistiques', icon: IconChartBar },
       { key: 'changelog', label: 'Nouveautés', icon: IconSparkles },
     ]},
@@ -1310,7 +1336,7 @@ export default function Configuration() {
             actif: tab === t.key, onClick: () => setTab(t.key) })),
         }))}
       />
-      <div className="ml-16 px-3 md:px-6 py-4 space-y-6">
+      <div className="gouttiere-rail px-3 md:px-6 py-4 space-y-6">
         <PageHeader icon={IconSettings} titre="Configuration"
           sous="Référentiels, années, établissement, personnel et paramètres système" />
 

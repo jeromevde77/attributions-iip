@@ -31,7 +31,7 @@ const TYPES_ENTRETIEN = [
 
 function Pastille({ statut }) {
   const s = STATUTS_PIECE[statut] || STATUTS_PIECE.manquante;
-  return <span className={`px-2 py-0.5 rounded-full text-[11px] font-bold ${s.classe}`}>{s.label}</span>;
+  return <span className={`px-2 py-0.5 rounded-champ text-[11px] font-bold ${s.classe}`}>{s.label}</span>;
 }
 
 // ═══ DOSSIER ADMINISTRATIF ═════════════════════════════════════════════════
@@ -88,7 +88,7 @@ export function DossierAdmin({ profId, peutEcrire }) {
       <div className="border border-slate-200 rounded-xl overflow-hidden">
         <table className="w-full text-sm">
           <thead>
-            <tr className="bg-slate-50 border-b border-slate-200 text-[11px] uppercase tracking-wide text-slate-500">
+            <tr className="tab-entete">
               <th className="px-3 py-2 text-left">Pièce</th>
               <th className="px-3 py-2 text-left w-32">Référence</th>
               <th className="px-3 py-2 text-left w-32">Reçue le</th>
@@ -243,7 +243,7 @@ export function Absences({ profId, peutEcrire }) {
           </div>
           <div className="flex gap-2">
             <button onClick={creer} disabled={!form.date_debut}
-              className="text-sm px-3 py-1.5 rounded-lg bg-iip-blue text-white font-semibold disabled:opacity-40">
+              className="bouton bouton-fort">
               Enregistrer
             </button>
             <button onClick={() => setForm(null)}
@@ -277,18 +277,18 @@ export function Absences({ profId, peutEcrire }) {
             </div>
             <button onClick={() => peutEcrire && basculer(a, 'cammat_declare')}
               disabled={!peutEcrire}
-              className={`text-[11px] px-2 py-1 rounded-full font-bold ${a.cammat_declare
+              className={`text-[11px] px-2 py-1 rounded-champ font-bold ${a.cammat_declare
                 ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-900'}`}>
               CAMMAT {a.cammat_declare ? '✓' : '✗'}
             </button>
             <button onClick={() => peutEcrire && basculer(a, 'certificat_recu')}
               disabled={!peutEcrire}
-              className={`text-[11px] px-2 py-1 rounded-full font-bold ${a.certificat_recu
+              className={`text-[11px] px-2 py-1 rounded-champ font-bold ${a.certificat_recu
                 ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-600'}`}>
               Certificat {a.certificat_recu ? '✓' : '✗'}
             </button>
             {a.remplacement_requis === 1 && (
-              <span className="text-[11px] px-2 py-1 rounded-full bg-red-100 text-red-800 font-bold">
+              <span className="text-[11px] px-2 py-1 rounded-champ bg-red-100 text-red-800 font-bold">
                 Remplacement requis
               </span>
             )}
@@ -335,7 +335,7 @@ function EntretienForm({ entretien: e, onSave, onClose }) {
       </label>
       <div className="flex gap-2">
         <button onClick={() => onSave({ date_tenue: dat || null, lieu: lieu || null, compte_rendu_html: notes || null })}
-          className="text-sm px-3 py-1.5 rounded-lg bg-iip-blue text-white font-semibold">
+          className="bouton bouton-fort">
           Enregistrer
         </button>
         <button onClick={onClose}
@@ -421,7 +421,7 @@ export function Entretiens({ profId, peutEcrire, estAdmin }) {
           </div>
           <div className="flex gap-2">
             <button onClick={creer} disabled={!form.date_prevue && !form.date_tenue}
-              className="text-sm px-3 py-1.5 rounded-lg bg-iip-blue text-white font-semibold disabled:opacity-40">
+              className="bouton bouton-fort">
               Enregistrer
             </button>
             <button onClick={() => setForm(null)}
@@ -451,7 +451,7 @@ export function Entretiens({ profId, peutEcrire, estAdmin }) {
                 </div>
                 {e.mene_par && <div className="text-[11px] text-slate-500">{e.mene_par}</div>}
               </div>
-              <span className={`text-[11px] px-2 py-0.5 rounded-full font-bold ${e.date_tenue
+              <span className={`text-[11px] px-2 py-0.5 rounded-champ font-bold ${e.date_tenue
                 ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-900'}`}>
                 {e.date_tenue ? 'Tenu' : 'Prévu'}
               </span>
@@ -577,7 +577,7 @@ export function Journal({ profId, peutEcrire, estAdmin }) {
         </div>
         {peutEcrire && (
           <button onClick={() => setRdv(r => r ? null : { type: 'suivi', date_prevue: '' })}
-            className="flex items-center gap-1.5 text-[12.5px] px-3 py-1.5 rounded-lg border border-iip-turquoise text-iip-turquoise hover:bg-iip-turquoise/5">
+            className="flex items-center gap-1.5 text-[13px] px-3 py-1.5 rounded-lg border border-iip-turquoise text-iip-turquoise hover:bg-iip-turquoise/5">
             <IconCalendarPlus size={14} /> {rdv ? 'Annuler le rendez-vous' : 'Planifier un rendez-vous'}
           </button>
         )}
@@ -637,7 +637,7 @@ export function Journal({ profId, peutEcrire, estAdmin }) {
               Confidentielle (lisible par la direction et vous seul)
             </label>
             <button onClick={ajouter} disabled={envoi || !texte.trim()}
-              className="text-sm px-3 py-1.5 rounded-lg bg-iip-blue text-white font-semibold disabled:opacity-40">
+              className="bouton bouton-fort">
               Ajouter au journal
             </button>
           </div>

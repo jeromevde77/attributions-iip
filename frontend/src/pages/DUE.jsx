@@ -82,7 +82,7 @@ function DuDossier({ texte, valeur, onChange, lecture,
         </button>
       </div>
       {ouvert && (
-        <pre className="mt-2 p-2 bg-slate-50 border border-slate-200 rounded-lg text-[11.5px]
+        <pre className="mt-2 p-2 bg-slate-50 border border-slate-200 rounded-lg text-[12px]
                         text-slate-600 whitespace-pre-wrap font-sans max-h-56 overflow-y-auto">
           {texte}
         </pre>
@@ -107,13 +107,13 @@ function Repris({ actif }) {
 function Zone({ valeur, onChange, lignes = 4, lecture, placeholder }) {
   if (lecture) {
     return valeur
-      ? <div className="text-[12.5px] text-slate-700 whitespace-pre-wrap">{valeur}</div>
-      : <div className="text-[12.5px] text-slate-400 italic">non complété</div>;
+      ? <div className="text-[13px] text-slate-700 whitespace-pre-wrap">{valeur}</div>
+      : <div className="text-[13px] text-slate-400 italic">non complété</div>;
   }
   return (
     <textarea rows={lignes} value={valeur || ''} placeholder={placeholder}
       onChange={e => onChange(e.target.value)}
-      className="w-full text-[12.5px] border border-slate-300 rounded-lg px-2.5 py-2
+      className="w-full text-[13px] border border-slate-300 rounded-lg px-2.5 py-2
                  focus:outline-none focus:ring-2 focus:ring-iip-blue/30" />
   );
 }
@@ -123,10 +123,10 @@ function Champ({ label, valeur, onChange, lecture, placeholder }) {
     <label className="block">
       <span className="block text-[11px] font-semibold text-slate-500 mb-0.5">{label}</span>
       {lecture
-        ? <span className="text-[12.5px] text-slate-700">{valeur || '—'}</span>
+        ? <span className="text-[13px] text-slate-700">{valeur || '—'}</span>
         : <input value={valeur || ''} placeholder={placeholder}
           onChange={e => onChange(e.target.value)}
-          className="w-full text-[12.5px] border border-slate-300 rounded-lg px-2.5 py-1.5
+          className="w-full text-[13px] border border-slate-300 rounded-lg px-2.5 py-1.5
                      focus:outline-none focus:ring-2 focus:ring-iip-blue/30" />}
     </label>
   );
@@ -156,7 +156,7 @@ function Responsable({ c, d, lecture, onChange }) {
         <span className="block text-[11px] font-semibold text-slate-500 mb-0.5">
           Responsable de l'unité
         </span>
-        <span className="text-[12.5px] text-slate-700">{nom(choisi)}</span>
+        <span className="text-[13px] text-slate-700">{nom(choisi)}</span>
       </div>
     );
   }
@@ -180,7 +180,7 @@ function Responsable({ c, d, lecture, onChange }) {
         Responsable de l'unité
       </span>
       <select value={String(choisi)} onChange={e => onChange(e.target.value)}
-        className="w-full text-[12.5px] border border-slate-300 rounded-lg px-2 py-1.5
+        className="w-full text-[13px] border border-slate-300 rounded-lg px-2 py-1.5
                    focus:outline-none focus:ring-2 focus:ring-iip-blue/30">
         {liste.map(e => (
           <option key={e.id} value={String(e.id)}>
@@ -188,7 +188,7 @@ function Responsable({ c, d, lecture, onChange }) {
           </option>
         ))}
       </select>
-      <span className="block text-[10.5px] text-slate-400 mt-0.5">
+      <span className="block text-[11px] text-slate-400 mt-0.5">
         {parDefaut
           ? 'Proposé : le titulaire qui porte le plus de périodes dans l’unité.'
           : 'Choisi manuellement parmi les titulaires de l’unité.'}
@@ -203,7 +203,7 @@ function Su({ label, valeur }) {
   return (
     <div className="px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg">
       <div className="text-[10px] uppercase tracking-wide text-slate-400">{label}</div>
-      <div className="text-[12.5px] text-slate-700 font-medium">{valeur ?? '—'}</div>
+      <div className="text-[13px] text-slate-700 font-medium">{valeur ?? '—'}</div>
     </div>
   );
 }
@@ -242,21 +242,21 @@ function Liste({ onOuvrir }) {
                        hover:border-iip-blue/40 hover:shadow-sm transition">
             <div className="flex items-start justify-between gap-2">
               <div className="min-w-0">
-                <div className="text-[12.5px] font-semibold text-iip-blue truncate">
+                <div className="text-[13px] font-semibold text-iip-blue truncate">
                   UE {u.ue_num} — {u.ue_nom}
                 </div>
                 <div className="text-[11px] text-slate-500">
                   {u.section}{u.ects ? ` · ${u.ects} ECTS` : ''}{u.ue_quad ? ` · ${u.ue_quad}` : ''}
                 </div>
               </div>
-              <span className={`flex-none text-[10px] px-2 py-0.5 rounded-full font-semibold ${
+              <span className={`flex-none text-[10px] px-2 py-0.5 rounded-champ font-semibold ${
                 u.statut === 'validee'
                   ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
                   : 'bg-amber-50 text-amber-800 border border-amber-200'}`}>
                 {u.statut === 'validee' ? 'validée' : 'en préparation'}
               </span>
             </div>
-            <div className="text-[10.5px] text-slate-400 mt-1">
+            <div className="text-[11px] text-slate-400 mt-1">
               {u.valide_le ? `Validée le ${u.valide_le}`
                 : u.maj_le ? `Modifiée le ${String(u.maj_le).slice(0, 10)}`
                   : 'Jamais complétée'}
@@ -360,20 +360,20 @@ function Fiche({ ueNum, onRetour }) {
       <div className="flex items-start justify-between gap-3 mb-3">
         <div className="min-w-0">
           <button onClick={onRetour}
-            className="text-[11.5px] text-slate-500 hover:text-iip-blue flex items-center gap-1 mb-1">
+            className="text-[12px] text-slate-500 hover:text-iip-blue flex items-center gap-1 mb-1">
             <IconArrowLeft size={13} /> Tous les descriptifs
           </button>
-          <h2 className="text-[16px] font-semibold text-iip-blue truncate">
+          <h2 className="text-[15px] font-semibold text-iip-blue truncate">
             UE {u.ue_num} — {u.ue_nom}
           </h2>
           <div className="flex items-center gap-2 mt-1">
-            <span className={`text-[10.5px] px-2 py-0.5 rounded-full font-semibold ${
+            <span className={`text-[11px] px-2 py-0.5 rounded-champ font-semibold ${
               d.statut === 'validee'
                 ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
                 : 'bg-amber-50 text-amber-800 border border-amber-200'}`}>
               {d.statut === 'validee' ? `validée le ${d.valide_le || ''}` : 'en préparation'}
             </span>
-            <span className="text-[10.5px] text-slate-400 flex items-center gap-1">
+            <span className="text-[11px] text-slate-400 flex items-center gap-1">
               {lecture ? <><IconEye size={12} /> lecture seule</>
                 : <><IconPencil size={12} /> vous pouvez modifier</>}
             </span>
@@ -419,7 +419,7 @@ function Fiche({ ueNum, onRetour }) {
       )}
       {!lecture && !!manques.length && (
         <div className="mb-3 px-3 py-2 rounded-lg bg-amber-50 border border-amber-200
-                        text-[11.5px] text-amber-900">
+                        text-[12px] text-amber-900">
           <b>Reste à compléter :</b> {manques.join(' · ')}.
         </div>
       )}
@@ -460,7 +460,7 @@ function Fiche({ ueNum, onRetour }) {
 
       <Bloc titre="Titulaires" aide="Tirés des attributions de l'année.">
         {d.enseignants.length ? (
-          <ul className="text-[12.5px] text-slate-700 space-y-0.5">
+          <ul className="text-[13px] text-slate-700 space-y-0.5">
             {d.enseignants.map((e, i) => (
               <li key={i}>{e.prenom} {e.nom}
                 {e.cours && <span className="text-slate-400"> — {e.cours}</span>}</li>
@@ -476,7 +476,7 @@ function Fiche({ ueNum, onRetour }) {
       <Bloc titre="Acquis d'apprentissage"
         aide="Encodés dans le référentiel des acquis ; rattachés aux cours par la pondération.">
         {d.acquis.length ? (
-          <ul className="text-[12.5px] text-slate-700 space-y-1">
+          <ul className="text-[13px] text-slate-700 space-y-1">
             {d.acquis.map(a => (
               <li key={a.aa_code}>
                 <b className="text-iip-blue">{a.aa_code}</b> — {a.description
@@ -492,7 +492,7 @@ function Fiche({ ueNum, onRetour }) {
                 Le dossier pédagogique en énonce pourtant ; ils s'encodent dans le référentiel
                 des acquis, où ils serviront aussi à l'encodage et à la délibération :
                 <pre className="mt-1 p-2 bg-slate-50 border border-slate-200 rounded-lg
-                                text-[11.5px] whitespace-pre-wrap font-sans max-h-56
+                                text-[12px] whitespace-pre-wrap font-sans max-h-56
                                 overflow-y-auto">{d.dp.acquis}</pre>
               </div>
             )}
@@ -503,7 +503,7 @@ function Fiche({ ueNum, onRetour }) {
       <Bloc titre="Activités d'apprentissage">
         <table className="w-full text-[12px]">
           <thead>
-            <tr className="text-left text-[10.5px] uppercase text-slate-400">
+            <tr className="text-left text-[11px] uppercase text-slate-400">
               <th className="pb-1">Code</th><th>Intitulé</th>
               <th className="text-right">Périodes</th><th className="text-right">Heures</th>
               <th className="pl-3">Acquis évalués</th>
@@ -545,7 +545,7 @@ function Fiche({ ueNum, onRetour }) {
             return (
               <button key={k} disabled={lecture}
                 onClick={() => majSous('methodes', k, !on)}
-                className={`px-2.5 py-1 rounded-full text-[11.5px] border ${on
+                className={`px-2.5 py-1 rounded-champ text-[12px] border ${on
                   ? 'bg-iip-blue text-white border-iip-blue'
                   : 'bg-white text-slate-600 border-slate-300 hover:border-iip-blue/50'}`}>
                 {on && <IconCheck size={11} className="inline mr-1" />}{l}
@@ -563,7 +563,7 @@ function Fiche({ ueNum, onRetour }) {
         aide="Un support obligatoire doit être déposé sur e-campus, sauf ouvrage protégé.">
         <table className="w-full text-[12px]">
           <thead>
-            <tr className="text-left text-[10.5px] uppercase text-slate-400">
+            <tr className="text-left text-[11px] uppercase text-slate-400">
               <th className="pb-1">Activité</th><th>Type de support</th>
               <th className="text-right">Obligatoire</th>
             </tr>
@@ -660,7 +660,7 @@ function Fiche({ ueNum, onRetour }) {
       {!lecture && sale && (
         <div className="sticky bottom-3 flex justify-end">
           <button onClick={enregistrer} disabled={enCours}
-            className="px-4 py-2 text-[12.5px] rounded-lg bg-iip-blue text-white font-semibold
+            className="px-4 py-2 text-[13px] rounded-lg bg-iip-blue text-white font-semibold
                        shadow-lg flex items-center gap-1.5">
             <IconDeviceFloppy size={15} /> Enregistrer les modifications
           </button>

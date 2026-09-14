@@ -82,15 +82,15 @@ export default function Annexe2({ etudId, annee, onClose }) {
   const c = donnees?.credits;
 
   return (
-    <div className="fixed inset-0 bg-black/40 flex items-start justify-center z-50 p-4"
+    <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] flex items-start justify-center z-50 p-4"
       onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl mt-12 max-h-[85vh] overflow-hidden flex flex-col">
+      <div className="bg-white rounded-fenetre shadow-dessus w-full max-w-2xl mt-12 max-h-[85vh] overflow-hidden flex flex-col">
         <div className="flex-none p-5 pb-3 border-b border-slate-100 flex items-start justify-between">
           <div>
             <h3 className="text-[15px] font-semibold text-iip-blue">
               Attestation du progrès des études
             </h3>
-            <p className="text-[11.5px] text-slate-500">
+            <p className="text-[12px] text-slate-500">
               Annexe 2 — Office des Étrangers · année {annee}
             </p>
           </div>
@@ -101,7 +101,7 @@ export default function Annexe2({ etudId, annee, onClose }) {
 
         {erreur && (
           <div className="px-3 py-2 rounded-lg bg-red-50 border border-red-200
-                          text-[12.5px] text-red-800">{erreur}</div>
+                          text-[13px] text-red-800">{erreur}</div>
         )}
 
         {donnees?.manques?.length > 0 && (
@@ -122,14 +122,14 @@ export default function Annexe2({ etudId, annee, onClose }) {
               ['Acquis au total', c.acquisTotal], ['Dispense', c.valorises]].map(([l, v]) => (
               <div key={l} className="border border-slate-200 rounded-xl px-3 py-2">
                 <div className="text-[10px] uppercase tracking-wide text-slate-500 font-semibold">{l}</div>
-                <div className="text-[18px] font-bold text-iip-blue">{v}</div>
+                <div className="text-[17px] font-bold text-iip-blue">{v}</div>
               </div>
             ))}
           </div>
         )}
 
         {c?.sansEcts > 0 && (
-          <p className="text-[11.5px] text-amber-800">
+          <p className="text-[12px] text-amber-800">
             {c.sansEcts} unité(s) sans ECTS au référentiel : le décompte ci-dessus
             les compte pour zéro et sera donc sous-évalué.
           </p>

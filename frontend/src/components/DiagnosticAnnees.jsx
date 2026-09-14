@@ -52,9 +52,9 @@ export default function DiagnosticAnnees({ annee, ueNum = null, onClose, onFini 
   const lignes = etat?.etat || [];
 
   return (
-    <div className="fixed inset-0 bg-black/40 flex items-start justify-center z-50 p-3"
+    <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] flex items-start justify-center z-50 p-3"
       onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-[900px] mt-8
+      <div className="bg-white rounded-fenetre shadow-dessus w-full max-w-[900px] mt-8
                       max-h-[88vh] overflow-hidden flex flex-col">
         <div className="flex items-start justify-between gap-3 px-5 py-4 border-b border-slate-200">
           <div>
@@ -71,14 +71,14 @@ export default function DiagnosticAnnees({ annee, ueNum = null, onClose, onFini 
 
         <div className="flex-1 overflow-y-auto p-5 space-y-3">
           {erreur && (
-            <div className="px-3 py-2 rounded-lg bg-red-50 border border-red-200 text-[12.5px] text-red-800">
+            <div className="px-3 py-2 rounded-lg bg-red-50 border border-red-200 text-[13px] text-red-800">
               {erreur}
             </div>
           )}
 
           {etat?.suspects > 0 && (
             <div className="px-3 py-2 rounded-lg bg-amber-50 border border-amber-300
-                            text-[12.5px] text-amber-900 flex items-start gap-1.5">
+                            text-[13px] text-amber-900 flex items-start gap-1.5">
               <IconAlertTriangle size={15} className="flex-none mt-0.5" />
               <span>
                 {etat.suspects} unité(s) portent des notes dans une année où
@@ -89,9 +89,9 @@ export default function DiagnosticAnnees({ annee, ueNum = null, onClose, onFini 
           )}
 
           {!etat ? (
-            <div className="py-8 text-center text-[12.5px] text-slate-400">Lecture…</div>
+            <div className="py-8 text-center text-[13px] text-slate-400">Lecture…</div>
           ) : (
-            <table className="w-full text-[12.5px] border border-slate-200 rounded-lg">
+            <table className="w-full text-[13px] border border-slate-200 rounded-lg">
               <thead>
                 <tr className="bg-slate-50 text-[11px] uppercase tracking-wide text-slate-500">
                   <th className="text-left px-3 py-2">Année</th>
@@ -123,7 +123,7 @@ export default function DiagnosticAnnees({ annee, ueNum = null, onClose, onFini 
                     <td className="px-3 py-1.5 text-right">
                       {l.annee !== annee && l.notes > 0 && (
                         <button onClick={() => deplacer(l, true)} disabled={enCours}
-                          className="px-2 py-1 text-[11.5px] rounded-lg border border-iip-blue
+                          className="px-2 py-1 text-[12px] rounded-lg border border-iip-blue
                                      text-iip-blue font-semibold disabled:opacity-40
                                      inline-flex items-center gap-1">
                           Ramener en {annee} <IconArrowRight size={12} />
@@ -143,7 +143,7 @@ export default function DiagnosticAnnees({ annee, ueNum = null, onClose, onFini 
               <div className="text-[13px] font-semibold text-iip-blue">
                 UE {choix.ue_num} — {choix.annee} → {annee}
               </div>
-              <div className="text-[12.5px] text-slate-700">
+              <div className="text-[13px] text-slate-700">
                 {apercu.notes} note(s), {apercu.decisions} décision(s),
                 {' '}{apercu.ajustements} ajustement(s), {apercu.motivations} motivation(s)
                 seront déplacés.
@@ -159,18 +159,18 @@ export default function DiagnosticAnnees({ annee, ueNum = null, onClose, onFini 
                 <div className="text-[12px] text-amber-800">
                   {apercu.nb_non_inscrits} étudiant(s) non inscrit(s) à cette unité en
                   {' '}{annee} : leurs lignes restent où elles sont.
-                  <div className="text-[11.5px] mt-0.5">
+                  <div className="text-[12px] mt-0.5">
                     {apercu.non_inscrits.slice(0, 6).join(' · ')}
                   </div>
                 </div>
               )}
               <div className="flex gap-2 pt-1">
                 <button onClick={() => { setApercu(null); setChoix(null); }}
-                  className="px-3 py-1.5 text-[12.5px] rounded-lg border border-slate-300 text-slate-600">
+                  className="px-3 py-1.5 text-[13px] rounded-lg border border-slate-300 text-slate-600">
                   Annuler
                 </button>
                 <button onClick={() => deplacer(choix, false)} disabled={enCours}
-                  className="px-4 py-1.5 text-[12.5px] rounded-lg bg-iip-blue text-white
+                  className="px-4 py-1.5 text-[13px] rounded-lg bg-iip-blue text-white
                              font-semibold disabled:opacity-40">
                   {enCours ? 'Déplacement…' : 'Déplacer'}
                 </button>

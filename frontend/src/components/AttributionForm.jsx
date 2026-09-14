@@ -141,7 +141,7 @@ export default function AttributionForm({ onClose, onCreated, editRow = null }) 
   const cout = form.contrat_mdp === 'IIP' ? (total * 1.5) : 0; // approx SUP
 
   return (
-    <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-30" onClick={onClose}>
+    <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] flex items-center justify-center p-4 z-30" onClick={onClose}>
       <div className="bg-white rounded-xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-auto border-t-4 border-iip-gold" onClick={e => e.stopPropagation()}>
         <div className="sticky top-0 bg-white border-b border-gray-200 p-5 flex items-center justify-between">
           <h2 className="text-xl font-title text-iip-gold">{isEdit ? 'Modifier l\'attribution' : 'Nouvelle attribution'}</h2>
