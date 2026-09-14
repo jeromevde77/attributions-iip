@@ -393,7 +393,7 @@ function ProtectedLayout({ children }) {
                 <span className="relative flex-shrink-0">
                   {Icon && <Icon size={17} stroke={1.8} />}
                   {to === '/accueil' && nbNotifs > 0 && (
-                    <span className="absolute -top-1.5 -right-1.5 w-3.5 h-3.5 bg-red-500 rounded-full text-[8px] text-white flex items-center justify-center font-bold">
+                    <span className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-iip-turquoise rounded-full text-[10px] text-white flex items-center justify-center font-bold">
                       {nbNotifs > 9 ? '9+' : nbNotifs}
                     </span>
                   )}

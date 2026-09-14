@@ -2519,8 +2519,6 @@ export default function Professeurs() {
         sujetMail={ficheHtml.sousTitre ? `${ficheHtml.sousTitre} — Institut Ilya Prigogine` : null}
         onClose={() => setFicheHtml(null)} />}
       </div>
- />
-      )}
     </div>
   );
 }

@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useRef, Fragment } from 'react';
 import { api, getAnnee, getUser} from '../lib/api.js';
-import { IconChartBar, IconHome, IconUsers, IconSettings, IconChevronRight, IconChevronDown, IconPrinter, IconRotateClockwise, IconCheck, IconX, IconTrash, IconCash, IconCalendar} from '@tabler/icons-react';
+import { IconChartBar, IconHome, IconUsers, IconSettings, IconChevronRight, IconChevronDown, IconPrinter, IconRotateClockwise, IconCheck, IconX, IconTrash, IconCash, IconCalendar, IconArrowsLeftRight, IconScale } from '@tabler/icons-react';
 import { PageHeader, Tabs, RailLateral } from '../components/ui.jsx';
 import CentreImpressionCentral from '../components/CentreImpressionCentral.jsx';
 import Budget from './Budget.jsx';
@@ -16,19 +16,49 @@ const fmt  = (v, d = 0) => (v == null ? '—' : Number(v).toLocaleString('fr-BE'
 const pct  = (v) => (v == null ? '—' : `${fmt(v, 1)} %`);
 const sign = (v) => (v > 0 ? '+' : '');
 
+/*
+ * OR, ARGENT, BRONZE — et pas de rouge.
+ *
+ * L'écran peignait en ROUGE un taux d'emploi de 96,7 %. Or 96,7 %, c'est une
+ * dotation presque entièrement employée : c'est le MEILLEUR résultat possible,
+ * pas une alerte. Le rouge disait « danger » là où il fallait lire « bravo » —
+ * et Lucie n'a d'ailleurs pas de rouge : elle a du BRIQUE, et il est réservé à
+ * ce qui supprime.
+ *
+ * L'échelle devient donc une échelle de PODIUM, qui se lit sans légende :
+ *   · OR (95 à 100 %)      — la dotation est employée, et c'est le but ;
+ *   · ARGENT (85 à 95 %)   — correct, il reste de la marge ;
+ *   · BRONZE (sous 85 %)   — on laisse des périodes sur la table ;
+ *   · BRIQUE (au-delà de 100) — le dépassement, seul vrai problème, et seule
+ *     occasion d'employer la couleur de l'alerte.
+ *
+ * Un taux qui dépasse n'est pas « pire » qu'un taux trop bas : c'est un autre
+ * fait. C'est pourquoi il sort du podium plutôt que d'en occuper le dernier
+ * rang.
+ */
+const OR_MEDAILLE     = '#C9A84C';
+const ARGENT_MEDAILLE = '#8C97A8';
+const BRONZE_MEDAILLE = '#A8763E';
+const BRIQUE          = '#9d4a38';
+
+export function tonDotation(p) {
+  if (p == null) return { teinte: '#94A3B8', fond: '#F8FAFC', bord: '#E2E8F0', rang: null };
+  if (p > 100)   return { teinte: BRIQUE, fond: '#F9EFEC', bord: '#E3C4BB', rang: 'dépassement' };
+  if (p >= 95)   return { teinte: OR_MEDAILLE, fond: '#FBF6E8', bord: '#E6D6A5', rang: 'or' };
+  if (p >= 85)   return { teinte: ARGENT_MEDAILLE, fond: '#F4F6F8', bord: '#D8DEE6', rang: 'argent' };
+  return { teinte: BRONZE_MEDAILLE, fond: '#F8F2EB', bord: '#DFC9AE', rang: 'bronze' };
+}
 function trafficColor(p) {
-  if (p == null) return 'text-gray-400';
-  if (p > 100) return 'text-red-700 font-bold';
-  if (p > 95)  return 'text-red-500';
-  if (p > 85)  return 'text-amber-600';
-  return 'text-green-700';
+  const r = tonDotation(p).rang;
+  return r === 'or' ? 'medaille-or' : r === 'argent' ? 'medaille-argent'
+    : r === 'bronze' ? 'medaille-bronze'
+    : r === 'dépassement' ? 'medaille-depassement' : 'text-slate-400';
 }
 function trafficBg(p) {
-  if (p == null) return 'bg-gray-50 border-gray-200';
-  if (p > 100) return 'bg-red-50   border-red-300';
-  if (p > 95)  return 'bg-red-50   border-red-200';
-  if (p > 85)  return 'bg-amber-50 border-amber-200';
-  return 'bg-green-50 border-green-200';
+  const r = tonDotation(p).rang;
+  return r === 'or' ? 'fond-or' : r === 'argent' ? 'fond-argent'
+    : r === 'bronze' ? 'fond-bronze'
+    : r === 'dépassement' ? 'fond-depassement' : '';
 }
 
 // ── KPI card ─────────────────────────────────────────────────────────────────
@@ -45,10 +75,11 @@ function Kpi({ label, value, sub, color = 'text-iip-gold' }) {
 // ── Barre de progression ──────────────────────────────────────────────────────
 function ProgressBar({ pct: p }) {
   const w = Math.min(Math.max(p || 0, 0), 110);
-  const bg = p > 100 ? 'bg-red-600' : p > 95 ? 'bg-red-400' : p > 85 ? 'bg-amber-400' : 'bg-green-500';
+  const { teinte } = tonDotation(p);
   return (
-    <div className="w-full bg-gray-100 rounded-full h-2.5 overflow-hidden">
-      <div className={`h-2.5 rounded-full transition-all ${bg}`} style={{ width: `${w}%` }} />
+    <div className="w-full bg-slate-100 rounded-full h-2.5 overflow-hidden">
+      <div className="h-2.5 rounded-full transition-all"
+        style={{ width: `${w}%`, background: teinte }} />
     </div>
   );
 }
@@ -1498,7 +1529,7 @@ export default function Pilotage({ vue = 'tout' }) {
         sections={[{ items: [
           ...(vue === 'gestion' ? [] : [
             { key: 'etp',      label: 'ETP',         icon: IconUsers,    actif: tab === 'etp',      onClick: () => setTab('etp') },
-            { key: 'dotation', label: 'Comparaison', icon: IconChartBar, actif: tab === 'dotation', onClick: () => setTab('dotation') },
+            { key: 'dotation', label: 'Comparaison', icon: IconArrowsLeftRight, actif: tab === 'dotation', onClick: () => setTab('dotation') },
           ]),
           ...(vue === 'reporting' ? [] : [
             { key: 'synthese', label: 'Dotation',    icon: IconHome,     actif: tab === 'synthese', onClick: () => setTab('synthese') },
@@ -1513,7 +1544,7 @@ export default function Pilotage({ vue = 'tout' }) {
           // reconstituaient à la main pour le rapport d'activité alors qu'ils
           // sont déjà en base.
           ...(vue === 'gestion' ? [] : [
-            { key: 'deliberation', label: 'Résultats', icon: IconChartBar,
+            { key: 'deliberation', label: 'Résultats', icon: IconScale,
               actif: tab === 'deliberation', onClick: () => setTab('deliberation') },
           ]),
           ...(vue === 'reporting' ? [] : [
@@ -1546,8 +1577,6 @@ export default function Pilotage({ vue = 'tout' }) {
           </>
         )}
       </div>
- />
-      )}
     </div>
   );
 }

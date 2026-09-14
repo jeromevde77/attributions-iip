@@ -1858,9 +1858,13 @@ export default function Attributions() {
     const st = groupStats(sg.rows);
     return (
       <div key={key}>
-        <button onClick={()=>toggle(key)} className={`w-full flex items-center gap-3 px-4 py-2.5 hover:bg-iip-gold/10 transition text-left bg-iip-gold/5 first:border-t-0 ${open ? 'border-t-2 border-iip-gold/60' : 'border-t border-gray-200'}`}>
-          <IconChevronRight size={14} className={`text-iip-gold font-bold transition-transform ${open?'rotate-90':''}`} />
-          <span className="font-bold text-iip-gold text-sm">{sg.section}</span>
+        {/* LA LIGNE DE SECTION EST UN EN-TÊTE, et elle en prend le ton : celui
+            de la PAGE, pas un gris à elle. Le filet démarque déjà ; un aplat
+            par-dessus disait deux fois la même chose — et « bg-iip-gold/5 »
+            n'était même pas doré, puisque ce nom-là vaut du marine. */}
+        <button onClick={()=>toggle(key)} className={`w-full flex items-center gap-3 px-4 py-2.5 tab-repere hover:brightness-[.98] transition text-left border-0 ${open ? 'border-b border-slate-200' : ''}`}>
+          <IconChevronRight size={14} className={`transition-transform opacity-50 ${open?'rotate-90':''}`} />
+          <span className="font-semibold text-[15px]">{sg.section}</span>
           <div className="flex items-center gap-3 text-sm text-gray-500 flex-shrink-0 ml-auto">
             <span>{sg.ues.length} UE</span>
             <span>{sg.rows.length} attr.</span>

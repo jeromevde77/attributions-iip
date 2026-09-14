@@ -424,8 +424,12 @@ export function RailDessine({ icon: HeaderIcon, titre, sousTitre, extra,
           change jamais — même place, même ordre, quel que soit l'écran, si bien
           qu'on finit par y aller sans regarder. L'impression d'abord : on
           imprime tous les jours, on importe quelques fois par an. */}
+      {/* UN FILET NE TOUCHE JAMAIS LES BORDS — c'est la règle de Lucie, et elle
+          vaut ici comme dans la barre du haut. Posé d'un bord à l'autre, il
+          coupe le rail en deux morceaux ; retiré des côtés, il sépare sans
+          trancher. */}
       {true && (
-        <div className="flex-shrink-0 px-2 pt-2 mt-1 border-t space-y-1"
+        <div className="flex-shrink-0 px-2 pt-2 mt-1 mx-3 border-t space-y-1"
           style={{ borderColor: 'var(--menu-filet)' }}>
           {/* IMPRIMER D'ABORD, ET TOUJOURS.
               On imprime tous les jours, on importe quelques fois par an : le

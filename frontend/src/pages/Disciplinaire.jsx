@@ -78,7 +78,7 @@ function Q({ text, art, value, onChange }) {
       <div className="flex gap-1 flex-shrink-0">
         {['oui', 'non'].map(v => (
           <button key={v} type="button" onClick={() => onChange(value === v ? '' : v)}
-            className={`text-xs px-3 py-1 rounded border ${value === v ? (v === 'oui' ? 'bg-green-600 text-white border-green-600' : 'bg-red-500 text-white border-red-500') : 'bg-white text-gray-500 border-gray-300 hover:bg-gray-50'}`}>
+            className={`text-xs px-3 py-1 rounded border ${value === v ? (v === 'oui' ? 'bg-green-600 text-white border-green-600' : 'bg-iip-turquoise text-white border-red-500') : 'bg-white text-gray-500 border-gray-300 hover:bg-gray-50'}`}>
             {v === 'oui' ? 'Oui' : 'Non'}
           </button>
         ))}
