@@ -354,7 +354,7 @@ export default function Amenagements({ etudId, annee }) {
                   <button onClick={() => setAjout(null)}
                     className="text-sm px-3 py-1.5 rounded-lg border border-slate-300">Annuler</button>
                   <button onClick={() => ajouterMesure(ajout)} disabled={!ajout.libelle}
-                    className="text-sm px-3 py-1.5 rounded-lg bg-iip-blue text-white font-semibold disabled:opacity-40">
+                    className="bouton bouton-fort">
                     Ajouter
                   </button>
                 </div>

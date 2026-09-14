@@ -133,7 +133,7 @@ export default function CalculateurAnciennete({ profId, estAdmin, peutEcrire, an
           </div>
           <div className="flex gap-2">
             <button onClick={sauvegarderLigne} disabled={!form.annee_scolaire || !form.cours_code || !form.periodes}
-              className="text-sm px-3 py-1.5 rounded-lg bg-iip-blue text-white font-semibold disabled:opacity-40">
+              className="bouton bouton-fort">
               Enregistrer
             </button>
             <button onClick={() => setForm(null)}

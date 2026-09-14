@@ -701,7 +701,13 @@ export function Fenetre({ icone: Ic, titre, sous, large = 'moyenne',
 
   return (
     <div role="dialog" aria-modal="true" aria-label={titre}
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      /* UNE FENÊTRE NE BOUGE PAS UNE FOIS OUVERTE.
+         Centrée verticalement, elle se recentrait à chaque changement
+         d'onglet : un onglet court la faisait monter, un onglet long
+         descendre, et le bouton qu'on visait n'était plus là où on l'avait
+         laissé. Elle s'ancre donc en haut, à une distance fixe, et c'est son
+         CONTENU qui défile — la dynamique est la même dans toute l'appli. */
+      className="fixed inset-0 z-50 flex items-start justify-center p-4 pt-[6vh]"
       onClick={e => e.target === e.currentTarget && onFermer?.()}>
       {/* LE VOILE EST UNE COUCHE À PART, ET C'EST VOLONTAIRE.
           Porté par le conteneur, son flou faisait de lui le cadre de référence
@@ -710,8 +716,15 @@ export function Fenetre({ icone: Ic, titre, sous, large = 'moyenne',
           panneau, jamais sur son ancêtre. */}
       <div aria-hidden="true"
         className="absolute inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px]" />
+      {/* LES GRANDES FENÊTRES ONT UNE HAUTEUR FIXE : elles portent des onglets,
+          et une hauteur qui suit le contenu ferait sauter l'écran d'un onglet à
+          l'autre. Les petites gardent la hauteur de ce qu'elles disent — une
+          question courte dans une fenêtre haute serait perdue au milieu. */}
       <div className={`relative bg-white rounded-fenetre shadow-dessus overflow-hidden
-                       flex flex-col max-w-full max-h-[90vh] ${largeurs[large] || largeurs.moyenne}`}>
+                       flex flex-col max-w-full
+                       ${large === 'petite' || large === 'moyenne'
+                         ? 'max-h-[88vh]' : 'h-[88vh]'}
+                       ${largeurs[large] || largeurs.moyenne}`}>
         <div className="flex items-center gap-3 px-5 py-3 text-white flex-shrink-0"
           style={{ background: ton === 'alerte' ? '#9d4a38' : '#1B2B4B' }}>
           {Ic && <Ic size={18} className="flex-shrink-0"

@@ -246,7 +246,7 @@ export default function ImportListe({ annee, onClose, onImporte }) {
               </p>
               <div className="flex justify-end">
                 <button onClick={onClose}
-                  className="text-sm px-4 py-1.5 rounded-lg bg-iip-blue text-white font-semibold">Fermer</button>
+                  className="bouton bouton-fort">Fermer</button>
               </div>
             </>
           )}

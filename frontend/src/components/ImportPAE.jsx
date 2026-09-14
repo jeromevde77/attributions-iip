@@ -290,7 +290,7 @@ export default function ImportPAE({ annee, onClose, onImporte }) {
 
               <div className="flex justify-end">
                 <button onClick={onClose}
-                  className="text-sm px-4 py-1.5 rounded-lg bg-iip-blue text-white font-semibold">
+                  className="bouton bouton-fort">
                   Fermer
                 </button>
               </div>

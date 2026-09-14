@@ -493,7 +493,7 @@ export default function Besoins({ annee: anneeProp }) {
                 </div>
                 <div className="flex justify-end">
                   <button onClick={() => setEnvoi(null)}
-                    className="text-sm px-3 py-1.5 rounded-lg bg-iip-blue text-white font-semibold">Fermer</button>
+                    className="bouton bouton-fort">Fermer</button>
                 </div>
               </>
             ) : (

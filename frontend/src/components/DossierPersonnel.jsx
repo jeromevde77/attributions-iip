@@ -243,7 +243,7 @@ export function Absences({ profId, peutEcrire }) {
           </div>
           <div className="flex gap-2">
             <button onClick={creer} disabled={!form.date_debut}
-              className="text-sm px-3 py-1.5 rounded-lg bg-iip-blue text-white font-semibold disabled:opacity-40">
+              className="bouton bouton-fort">
               Enregistrer
             </button>
             <button onClick={() => setForm(null)}
@@ -335,7 +335,7 @@ function EntretienForm({ entretien: e, onSave, onClose }) {
       </label>
       <div className="flex gap-2">
         <button onClick={() => onSave({ date_tenue: dat || null, lieu: lieu || null, compte_rendu_html: notes || null })}
-          className="text-sm px-3 py-1.5 rounded-lg bg-iip-blue text-white font-semibold">
+          className="bouton bouton-fort">
           Enregistrer
         </button>
         <button onClick={onClose}
@@ -421,7 +421,7 @@ export function Entretiens({ profId, peutEcrire, estAdmin }) {
           </div>
           <div className="flex gap-2">
             <button onClick={creer} disabled={!form.date_prevue && !form.date_tenue}
-              className="text-sm px-3 py-1.5 rounded-lg bg-iip-blue text-white font-semibold disabled:opacity-40">
+              className="bouton bouton-fort">
               Enregistrer
             </button>
             <button onClick={() => setForm(null)}
@@ -637,7 +637,7 @@ export function Journal({ profId, peutEcrire, estAdmin }) {
               Confidentielle (lisible par la direction et vous seul)
             </label>
             <button onClick={ajouter} disabled={envoi || !texte.trim()}
-              className="text-sm px-3 py-1.5 rounded-lg bg-iip-blue text-white font-semibold disabled:opacity-40">
+              className="bouton bouton-fort">
               Ajouter au journal
             </button>
           </div>

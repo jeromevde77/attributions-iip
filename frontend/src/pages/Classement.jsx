@@ -279,7 +279,7 @@ export default function Classement({ annee: anneeProp }) {
                   className="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-sm" /></label>
               <div className="flex gap-2">
                 <button onClick={creerPrioritaire} disabled={!form.fonctions || !form.nom}
-                  className="text-sm px-3 py-1.5 rounded-lg bg-iip-blue text-white font-semibold disabled:opacity-40">
+                  className="bouton bouton-fort">
                   Enregistrer
                 </button>
                 <button onClick={() => setForm(null)}

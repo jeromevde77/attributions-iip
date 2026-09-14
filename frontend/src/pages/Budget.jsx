@@ -472,7 +472,7 @@ function LigneForm({ form, setForm, comptes, onEnregistrer, onAnnuler }) {
         <div className="flex gap-2">
           <button onClick={onAnnuler} className="text-sm px-3 py-1.5 rounded-lg border border-slate-300">Annuler</button>
           <button onClick={onEnregistrer} disabled={!form.details}
-            className="text-sm px-4 py-1.5 rounded-lg bg-iip-blue text-white font-semibold disabled:opacity-40">
+            className="bouton bouton-fort">
             Enregistrer
           </button>
         </div>
@@ -527,7 +527,7 @@ function DepenseForm({ ligne, onEnregistrer, onAnnuler }) {
         <div className="flex justify-end gap-2">
           <button onClick={onAnnuler} className="text-sm px-3 py-1.5 rounded-lg border border-slate-300">Annuler</button>
           <button onClick={() => onEnregistrer(d)} disabled={!d.libelle || !d.montant_htva}
-            className="text-sm px-4 py-1.5 rounded-lg bg-iip-blue text-white font-semibold disabled:opacity-40">
+            className="bouton bouton-fort">
             Enregistrer
           </button>
         </div>

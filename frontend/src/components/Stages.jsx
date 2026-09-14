@@ -287,7 +287,7 @@ export default function Stages({ etudId, annee, peutEcrire = true }) {
               <button onClick={() => setNouveauLieu(null)}
                 className="text-sm px-3 py-1.5 rounded-lg border border-slate-300">Annuler</button>
               <button onClick={creerLieu} disabled={!nouveauLieu.nom}
-                className="text-sm px-4 py-1.5 rounded-lg bg-iip-blue text-white font-semibold disabled:opacity-40">
+                className="bouton bouton-fort">
                 Créer
               </button>
             </div>

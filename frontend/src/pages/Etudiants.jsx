@@ -983,7 +983,7 @@ function Valorisations({ etudId, annee }) {
 
           <div className="flex gap-2">
             <button onClick={sauver} disabled={!form.ue_num || (form.type === 'partielle' && !form.cible_detail)}
-              className="text-sm px-3 py-1.5 rounded-lg bg-iip-blue text-white font-semibold disabled:opacity-40">
+              className="bouton bouton-fort">
               Enregistrer
             </button>
             <button onClick={() => { setForm(null); setComposantes(null); }}
@@ -1372,7 +1372,7 @@ function FicheEtudiant({ id, annee, onClose, position, onPrec, onSuiv,
   // courriel et le matricule la ligne de contexte — c'est exactement ce que le
   // bandeau commun sait faire.
   return (
-    <Fenetre icone={IconUser} titre={`${data.nom} ${data.prenom}`}
+    <Fenetre icone={IconUser} titre={nomPropre(data.nom, data.prenom)}
       sous={`${data.email_ecole} · ${data.id_ecampus}`
             + (data.niveau?.libelle ? ' · ' + data.niveau.libelle : '')}
       large="pleine" onFermer={onClose}>
@@ -1411,9 +1411,7 @@ function FicheEtudiant({ id, annee, onClose, position, onPrec, onSuiv,
               {onglet === 'parcours' && pae && !pae.erreur && (
                 <div className="sticky top-0 z-30 bg-white/95 backdrop-blur border-b border-slate-200 px-6 py-2.5 flex gap-2 items-center flex-wrap">
                   <button onClick={enregistrerPAE} disabled={enregistrement}
-                    className="flex items-center gap-1.5 px-4 py-2 text-[13px]
-                               bg-iip-blue text-white font-semibold rounded-champ
-                               disabled:opacity-40">
+                    className="bouton bouton-fort">
                     <IconCheck size={14} />
                     {enregistrement ? 'Enregistrement…' : 'Enregistrer le PAE'}
                   </button>
@@ -1421,10 +1419,7 @@ function FicheEtudiant({ id, annee, onClose, position, onPrec, onSuiv,
                     title={paeConfirme
                       ? 'Retirer la confirmation — les inscriptions sont conservées'
                       : "Confirmer le programme : l'étudiant passe en inscrit"}
-                    className={`flex items-center gap-1.5 px-4 py-2 text-[13px]
-                      font-semibold rounded-champ disabled:opacity-40
-                      border border-slate-300 text-slate-600 hover:bg-slate-50
-                      ${paeConfirme ? 'bg-slate-100' : ''}`}>
+                    className="bouton">
                     <IconWritingSign size={14} />
                     {paeConfirme ? 'Programme confirmé' : 'Confirmer le programme'}
                   </button>

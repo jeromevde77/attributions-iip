@@ -357,6 +357,11 @@ et 3 composants de tuile**. La stratégie tient en cinq chantiers, dans cet ordr
   onglets d'une fiche, d'une fenêtre, d'un écran : on tourne une page. Le
   désordre ne venait pas d'avoir deux formes, mais de n'avoir aucune règle :
   douze barres d'onglets, cinq couleurs de soulignement, quatre hauteurs.
+- **Une fenêtre ne bouge pas une fois ouverte.** Elle s'ancre en haut à une
+  distance fixe (6 vh) et les grandes ont une **hauteur fixe** (88 vh) : c'est
+  le contenu qui défile. Centrée verticalement, elle se recentrait à chaque
+  changement d'onglet — un onglet court la faisait monter, un long descendre,
+  et le bouton qu'on visait n'était plus là où on l'avait laissé.
 - **Une seule fenêtre** (`Fenetre`, `GroupeFenetre`, `PieceFenetre`,
   `BoutonFenetre` dans `ui.jsx`). Soixante et onze fichiers posaient leur
   propre `fixed inset-0`. Le voile est une **couche à part** : porté par le

@@ -262,7 +262,7 @@ export default function ImportHistorique({ onClose, onImporte }) {
                   {enCours ? '…' : 'Simuler'}
                 </button>
                 <button onClick={() => lancer(false)} disabled={!rapport || enCours}
-                  className="text-sm px-4 py-1.5 rounded-lg bg-iip-blue text-white font-semibold disabled:opacity-40">
+                  className="bouton bouton-fort">
                   Importer
                 </button>
               </div>
@@ -294,7 +294,7 @@ export default function ImportHistorique({ onClose, onImporte }) {
               </div>
               <div className="flex justify-end">
                 <button onClick={onClose}
-                  className="text-sm px-4 py-1.5 rounded-lg bg-iip-blue text-white font-semibold">Fermer</button>
+                  className="bouton bouton-fort">Fermer</button>
               </div>
             </>
           )}
