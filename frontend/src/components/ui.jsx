@@ -515,21 +515,6 @@ export function RailDessine({ icon: HeaderIcon, titre, sousTitre, extra,
         ))}
       </div>
 
-      {/* LE MODE SE CHANGE LÀ OÙ IL SE VOIT — c'est un réglage de confort, on
-          l'essaie, on juge, on garde ; il se retient d'un jour à l'autre. */}
-      <div className="flex-shrink-0 flex justify-center pt-2 mt-1 mx-2 border-t"
-        style={{ borderColor: 'var(--menu-filet)' }}>
-        <button onClick={basculerMode} aria-label="Changer le mode d'affichage"
-          onMouseEnter={e => !epingle && surviser(e,
-            mode === 'sombre' ? 'Menus en gris pâle' : 'Menus en marine')}
-          onMouseLeave={() => setSurvol(null)}
-          className="w-9 h-9 grid place-items-center rounded-fenetre
-            hover:bg-[color:var(--menu-survol)] transition-colors duration-150 ease-ios"
-          style={{ color: 'var(--menu-texte-doux)' }}>
-          {mode === 'sombre' ? <IconSun size={16} /> : <IconMoon size={16} />}
-        </button>
-      </div>
-
       </div>
 
       {/* LE VOLET — ce que cet écran-ci ne peut pas dire en icônes. */}

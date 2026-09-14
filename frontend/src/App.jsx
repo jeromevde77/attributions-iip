@@ -19,10 +19,11 @@ class ErrorBoundary extends Component {
 }
 import { Routes, Route, Navigate, NavLink, useNavigate } from 'react-router-dom';
 import { isAuthenticated, getUser, api, getAnnee, setAnnee } from './lib/api.js';
+import { useMode, basculerMode } from './lib/theme.js';
 import {
   IconClipboardList, IconUsers, IconFileExport, IconChecklist,
   IconChartBar, IconCalendarStats, IconEdit, IconSettings, IconLogout, IconMenu2, IconX,
-  IconHome, IconBell, IconHelpCircle, IconGavel,
+  IconHome, IconBell, IconHelpCircle, IconGavel, IconSun, IconMoon,
 } from '@tabler/icons-react';
 
 import Login from './pages/Login.jsx';
@@ -262,6 +263,12 @@ function ProtectedLayout({ children }) {
     fetch('/api/info').then(r => r.json()).then(d => setEnv(d.environnement)).catch(() => {});
   }, []);
 
+  // LE MODE D'AFFICHAGE EST UN RÉGLAGE DE L'APPLICATION : il vit dans la barre
+  // du haut, seul point fixe de l'écran. Déclaré ici, AVANT tout retour
+  // conditionnel — un crochet placé après « if (!isAuthenticated()) return »
+  // change l'ordre des crochets d'un rendu à l'autre, ce que React refuse.
+  const mode = useMode();
+
   function changeAnnee(code) {
     setAnnee(code);
     setAnneeActive(code);
@@ -405,6 +412,19 @@ function ProtectedLayout({ children }) {
 
           {/* User info + version */}
           <div className="flex items-center gap-3 text-sm flex-shrink-0">
+            {/* LE MODE EST UN RÉGLAGE DE L'APPLICATION, PAS DE L'ÉCRAN.
+                Il vivait en pied de rail : un réglage qui vaut pour toute
+                Lucie, rangé dans un objet qui change à chaque écran, et
+                d'autant plus bas que l'écran avait de rubriques. Il rejoint la
+                barre du haut, qui est le seul point fixe — à côté de la
+                version et du compte, avec les autres choses qui ne dépendent
+                pas de là où l'on se trouve. */}
+            <button onClick={basculerMode} aria-label="Changer le mode d'affichage"
+              title={mode === 'sombre' ? 'Menus en gris pâle' : 'Menus en marine'}
+              className="w-8 h-8 grid place-items-center rounded-champ text-slate-400
+                         hover:text-iip-blue hover:bg-slate-100 transition-colors duration-150">
+              {mode === 'sombre' ? <IconSun size={16} /> : <IconMoon size={16} />}
+            </button>
             {import.meta.env.VITE_DEMO_MODE === 'true' && (
               <span className="bg-orange-500 text-white font-bold px-2.5 py-0.5 rounded-md text-[11px] tracking-widest uppercase animate-pulse">
                 DÉMO
