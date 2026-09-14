@@ -117,9 +117,9 @@ function FonctionsPanel({ missions }) {
           <div key={i} className="flex items-center gap-2 flex-wrap">
             <span className="text-sm font-medium text-gray-800">{m.fonction}</span>
             {(m.etablissement || m.portee === 'etablissement')
-              ? <span className="text-xs px-2 py-0.5 rounded-full bg-iip-blue/10 text-iip-blue">Établissement</span>
+              ? <span className="text-xs px-2 py-0.5 rounded-champ bg-iip-blue/10 text-iip-blue">Établissement</span>
               : (m.sections || []).map(s => (
-                  <span key={s} className="text-xs px-2 py-0.5 rounded-full bg-iip-turquoise/15 text-iip-blue">{s}</span>
+                  <span key={s} className="text-xs px-2 py-0.5 rounded-champ bg-iip-turquoise/15 text-iip-blue">{s}</span>
                 ))}
             {(!m.etablissement && m.portee !== 'etablissement' && (!m.sections || m.sections.length === 0)) &&
               <span className="text-xs text-gray-400">— aucune section</span>}
@@ -525,7 +525,7 @@ function AccesLuciePanel({ profId, detail }) {
               <button key={s.code} type="button"
                 onClick={() => setSections(v => v.includes(s.code)
                   ? v.filter(x => x !== s.code) : [...v, s.code])}
-                className={`text-[11px] px-2 py-0.5 rounded-full border transition ${
+                className={`text-[11px] px-2 py-0.5 rounded-champ border transition ${
                   sections.includes(s.code)
                     ? 'bg-iip-blue text-white border-iip-blue'
                     : 'border-gray-200 text-gray-400 hover:border-iip-blue'}`}>
@@ -624,7 +624,7 @@ function AccesLuciePanel({ profId, detail }) {
         <IconLock size={16} className="text-iip-turquoise" />
         <span className="text-sm font-semibold text-iip-blue">Accès Lucie</span>
         {account && (
-          <span className={`ml-auto text-xs px-2 py-0.5 rounded-full font-semibold ${account.actif ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
+          <span className={`ml-auto text-xs px-2 py-0.5 rounded-champ font-semibold ${account.actif ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
             {account.actif ? 'Actif' : 'Désactivé'}
           </span>
         )}
@@ -1338,7 +1338,7 @@ function DossiersRH({ profId, profNom }) {
                     <div>
                       <div className="text-sm font-bold text-gray-800">
                         {isFinContrat ? 'Fin de contrat' : 'Dossier disciplinaire'}
-                        {isClos && <span className="ml-2 text-xs bg-gray-200 text-gray-600 px-2 py-0.5 rounded-full">Clos</span>}
+                        {isClos && <span className="ml-2 text-xs bg-gray-200 text-gray-600 px-2 py-0.5 rounded-champ">Clos</span>}
                       </div>
                       <div className="text-xs text-gray-500 flex items-center gap-2">
                         <span>Ouvert le {new Date(d.date_ouverture).toLocaleDateString('fr-BE')}</span>

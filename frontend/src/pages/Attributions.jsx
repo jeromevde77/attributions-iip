@@ -1761,7 +1761,7 @@ export default function Attributions() {
           {/* Bouton Organiser les groupes (Ts / A,B,C… par cours) — cette UE seule */}
           <button onClick={(e)=>{ e.stopPropagation(); setGroupesUE({ portee:'ue', section: sec, ues:[{ ...ue, section: sec }] }); }}
                   title="Organiser les groupes des cours de cette UE"
-                  className="flex-shrink-0 ml-2 px-2 h-7 flex items-center gap-1 justify-center rounded-full text-xs font-medium transition bg-gray-100 text-gray-500 hover:bg-iip-mauve/15 hover:text-iip-mauve">
+                  className="flex-shrink-0 ml-2 px-2 h-7 flex items-center gap-1 justify-center rounded-champ text-xs font-medium transition bg-gray-100 text-gray-500 hover:bg-iip-mauve/15 hover:text-iip-mauve">
                   <IconUsersGroup size={14}/>Groupes
           </button>
           {/* Bouton Réouvrir : crée une nouvelle organisation */}

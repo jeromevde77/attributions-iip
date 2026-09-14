@@ -137,7 +137,7 @@ function DispoGrid({ creneaux, dispoQ1, setDispoQ1, dispoQ2, setDispoQ2, profId 
       <div className="flex items-center gap-3">
         {['Q1', 'Q2'].map(q => (
           <button key={q} onClick={() => setQ(q)}
-            className={`px-4 py-1.5 text-sm rounded-full font-medium transition
+            className={`px-4 py-1.5 text-sm rounded-champ font-medium transition
               ${quadrimestre === q ? 'bg-iip-mauve text-white' : 'border border-gray-300 text-gray-600 hover:border-iip-mauve'}`}>
             {q}
           </button>

@@ -115,7 +115,7 @@ export default function Classement({ annee: anneeProp }) {
                 <td className="px-2 py-2">
                   <span className="font-medium text-slate-800">{nomPropre(l.nom, l.prenom)}</span>
                   {l.exclu_tp && (
-                    <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-900 font-bold">
+                    <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded-champ bg-amber-100 text-amber-900 font-bold">
                       définitif TP — demande écrite (15/04) manquante
                     </span>
                   )}
@@ -311,7 +311,7 @@ export default function Classement({ annee: anneeProp }) {
                       {c.voie === 'electronique' ? 'Électronique' : 'Recommandée'}
                     </td>
                     <td className="px-3 py-2">
-                      <span className={`px-2 py-0.5 rounded-full text-[11px] font-bold ${c.recevable
+                      <span className={`px-2 py-0.5 rounded-champ text-[11px] font-bold ${c.recevable
                         ? 'bg-emerald-100 text-emerald-800' : 'bg-red-100 text-red-800'}`}>
                         {c.recevable ? 'Recevable' : 'Hors délai'}
                       </span>

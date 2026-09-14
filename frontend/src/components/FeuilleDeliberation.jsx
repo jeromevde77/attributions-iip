@@ -510,7 +510,7 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose }) {
             <h3 className="text-[15px] font-semibold text-iip-blue truncate">
               UE {data.ue_num} · {data.ue_nom}
               {data.epreuve_integree && (
-                <span className="ml-2 align-middle text-[10px] font-bold px-2 py-0.5 rounded-full
+                <span className="ml-2 align-middle text-[10px] font-bold px-2 py-0.5 rounded-champ
                                  bg-violet-100 text-violet-800 border border-violet-200">
                   épreuve intégrée
                 </span>
@@ -1020,12 +1020,12 @@ function Presences({ seance, onValider, enCours, ueNum, annee }) {
             </span>
             {m.voix === 'consultative' && (
               <span title="Siège avec voix consultative : ne compte pas au quorum"
-                className="text-[10px] font-semibold px-2 py-0.5 rounded-full flex-none
+                className="text-[10px] font-semibold px-2 py-0.5 rounded-champ flex-none
                            bg-sky-50 text-sky-800 border border-sky-200">
                 consultative
               </span>
             )}
-            <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full flex-none
+            <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-champ flex-none
               ${m.present ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-500'}`}>
               {m.present ? 'présent' : 'excusé'}
             </span>
@@ -2182,7 +2182,7 @@ function LigneMotif({ a, onMotif, onReporter, seul, enCours }) {
         <div className="text-[11px] text-slate-500 truncate" title={a.description || ''}>
           {a.description || ''}
         </div>
-        <span className={`inline-block mt-0.5 text-[10px] font-bold px-1.5 py-0.5 rounded-full
+        <span className={`inline-block mt-0.5 text-[10px] font-bold px-1.5 py-0.5 rounded-champ
           ${a.na ? 'bg-slate-200 text-slate-700' : 'bg-red-100 text-red-800'}`}>
           {a.na ? 'ajourné · à représenter' : `${fmt(a.note)}/20`}
         </span>
@@ -2785,7 +2785,7 @@ function VueLot({ liste, onAjourner, onOuvrir, enCours }) {
                         onClick={() => basculeCours(e.id, c.cours_code)}
                         title={[c.cours_nom || c.cours_code, c.professeurs]
                           .filter(Boolean).join(' · ')}
-                        className={`px-2 py-0.5 rounded-full border text-[11px] font-semibold
+                        className={`px-2 py-0.5 rounded-champ border text-[11px] font-semibold
                           ${off ? 'border-slate-300 text-slate-400 line-through'
                                 : 'border-amber-500 bg-amber-100 text-amber-900'}`}>
                         {c.cours_code} · {c.na ? 'NA' : fmt(c.note)}
@@ -2929,7 +2929,7 @@ function CorrectionAdministrative({ ueNum, annee, session, seance, onFerme, onFa
                 <span className="block text-[11px] text-slate-500 truncate">{m.qualite}</span>
               </span>
               {m.voix === 'consultative' && (
-                <span className="text-[10px] px-2 py-0.5 rounded-full bg-sky-50
+                <span className="text-[10px] px-2 py-0.5 rounded-champ bg-sky-50
                                  text-sky-800 border border-sky-200 flex-none">
                   consultative
                 </span>

@@ -115,7 +115,7 @@ export default function ListeDiplomes({ annee, onClose }) {
           </span>
         )}
       </span>
-      <span className={`flex-none text-[10px] px-2 py-0.5 rounded-full font-semibold ${
+      <span className={`flex-none text-[10px] px-2 py-0.5 rounded-champ font-semibold ${
         c.toutes_unites
           ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
           : 'bg-amber-50 text-amber-800 border border-amber-200'}`}>

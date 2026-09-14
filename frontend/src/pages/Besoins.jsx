@@ -277,7 +277,7 @@ export default function Besoins({ annee: anneeProp }) {
                       </div>
                     </button>
                   </div>
-                  <span className={`px-2 py-0.5 rounded-full text-[11px] font-bold ${s.classe}`}>{s.label}</span>
+                  <span className={`px-2 py-0.5 rounded-champ text-[11px] font-bold ${s.classe}`}>{s.label}</span>
                   <button onClick={() => ouvrirApercu(o)}
                     className="text-[12px] px-2.5 py-1.5 rounded-lg border border-slate-300 flex items-center gap-1">
                     <IconEye size={14} /> Aperçu
@@ -415,7 +415,7 @@ export default function Besoins({ annee: anneeProp }) {
         <Modale titre={detail.intitule} onFermer={() => setDetail(null)}>
           <div className="space-y-3 text-sm">
             <div className="flex items-center gap-2 flex-wrap">
-              <span className={`px-2 py-0.5 rounded-full text-[11px] font-bold
+              <span className={`px-2 py-0.5 rounded-champ text-[11px] font-bold
                 ${(STATUT_OFFRE[detail.statut] || STATUT_OFFRE.brouillon).classe}`}>
                 {(STATUT_OFFRE[detail.statut] || STATUT_OFFRE.brouillon).label}
               </span>

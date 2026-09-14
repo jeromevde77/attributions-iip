@@ -225,7 +225,7 @@ export default function NouveauModal({ onClose, onCreated }) {
                         </div>
                         <div className="flex gap-1.5 flex-shrink-0 text-[10px]">
                           {u.cours_total > 0 && (
-                            <span className={`px-1.5 py-0.5 rounded-full font-semibold ${u.cours_manquants > 0 ? 'bg-orange-100 text-orange-700' : 'bg-green-100 text-green-700'}`}>
+                            <span className={`px-1.5 py-0.5 rounded-champ font-semibold ${u.cours_manquants > 0 ? 'bg-orange-100 text-orange-700' : 'bg-green-100 text-green-700'}`}>
                               {u.cours_couverts}/{u.cours_total}
                             </span>
                           )}

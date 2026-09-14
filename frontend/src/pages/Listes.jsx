@@ -1506,7 +1506,7 @@ export default function Listes() {
                 <div className="flex flex-wrap gap-1.5">
                   {def.cols.map(c => (
                     <button key={c.key} onClick={() => toggleCol(c.key)}
-                      className={`text-xs px-2.5 py-1 rounded-full border font-medium transition ${
+                      className={`text-xs px-2.5 py-1 rounded-champ border font-medium transition ${
                         colsActives.has(c.key)
                           ? 'bg-iip-blue text-white border-iip-blue'
                           : 'border-gray-300 text-gray-400 hover:border-iip-blue hover:text-iip-blue'

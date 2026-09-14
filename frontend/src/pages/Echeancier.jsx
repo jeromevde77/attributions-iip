@@ -29,14 +29,14 @@ function resteJours(iso) {
 
 function Pastille({ echeance }) {
   const { statut, date_due } = echeance;
-  if (statut === 'fait')       return <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-emerald-100 text-emerald-800">Fait</span>;
-  if (statut === 'sans_objet') return <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-slate-100 text-slate-500">Sans objet</span>;
-  if (statut === 'annule')     return <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-slate-100 text-slate-500">Annulé</span>;
+  if (statut === 'fait')       return <span className="px-2 py-0.5 rounded-champ text-[11px] font-bold bg-emerald-100 text-emerald-800">Fait</span>;
+  if (statut === 'sans_objet') return <span className="px-2 py-0.5 rounded-champ text-[11px] font-bold bg-slate-100 text-slate-500">Sans objet</span>;
+  if (statut === 'annule')     return <span className="px-2 py-0.5 rounded-champ text-[11px] font-bold bg-slate-100 text-slate-500">Annulé</span>;
   const n = resteJours(date_due);
-  if (n < 0)   return <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-red-100 text-red-800">En retard ({-n} j)</span>;
-  if (n === 0) return <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-amber-100 text-amber-900">Aujourd'hui</span>;
-  if (n <= 7)  return <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-amber-100 text-amber-900">J-{n}</span>;
-  return <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-slate-100 text-slate-600">J-{n}</span>;
+  if (n < 0)   return <span className="px-2 py-0.5 rounded-champ text-[11px] font-bold bg-red-100 text-red-800">En retard ({-n} j)</span>;
+  if (n === 0) return <span className="px-2 py-0.5 rounded-champ text-[11px] font-bold bg-amber-100 text-amber-900">Aujourd'hui</span>;
+  if (n <= 7)  return <span className="px-2 py-0.5 rounded-champ text-[11px] font-bold bg-amber-100 text-amber-900">J-{n}</span>;
+  return <span className="px-2 py-0.5 rounded-champ text-[11px] font-bold bg-slate-100 text-slate-600">J-{n}</span>;
 }
 
 export default function Echeancier() {

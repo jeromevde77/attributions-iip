@@ -158,7 +158,7 @@ export default function Accueil() {
                filtre === 'recrutement' ? 'Recrutement' : 'Système'}
             </h2>
             {nbNonLus > 0 && (
-              <span className="text-xs bg-iip-turquoise text-white rounded-full px-2 py-0.5 font-bold">{nbNonLus} non lu{nbNonLus > 1 ? 's' : ''}</span>
+              <span className="text-xs bg-iip-turquoise text-white rounded-champ px-2 py-0.5 font-bold">{nbNonLus} non lu{nbNonLus > 1 ? 's' : ''}</span>
             )}
           </div>
           <div className="flex items-center gap-2">

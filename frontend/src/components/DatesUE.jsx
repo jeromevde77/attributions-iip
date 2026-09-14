@@ -476,7 +476,7 @@ export default function DatesUE({ annee }) {
                       <div className="text-[11px] text-slate-400 mt-0.5">{j.base_legale}</div>
                     )}
                   </div>
-                  <span className="text-[11px] px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 flex-none">
+                  <span className="text-[11px] px-2 py-0.5 rounded-champ bg-slate-100 text-slate-600 flex-none">
                     {j.responsable || '—'}
                   </span>
                 </div>

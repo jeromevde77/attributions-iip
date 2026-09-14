@@ -249,7 +249,7 @@ function Liste({ onOuvrir }) {
                   {u.section}{u.ects ? ` · ${u.ects} ECTS` : ''}{u.ue_quad ? ` · ${u.ue_quad}` : ''}
                 </div>
               </div>
-              <span className={`flex-none text-[10px] px-2 py-0.5 rounded-full font-semibold ${
+              <span className={`flex-none text-[10px] px-2 py-0.5 rounded-champ font-semibold ${
                 u.statut === 'validee'
                   ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
                   : 'bg-amber-50 text-amber-800 border border-amber-200'}`}>
@@ -367,7 +367,7 @@ function Fiche({ ueNum, onRetour }) {
             UE {u.ue_num} — {u.ue_nom}
           </h2>
           <div className="flex items-center gap-2 mt-1">
-            <span className={`text-[11px] px-2 py-0.5 rounded-full font-semibold ${
+            <span className={`text-[11px] px-2 py-0.5 rounded-champ font-semibold ${
               d.statut === 'validee'
                 ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
                 : 'bg-amber-50 text-amber-800 border border-amber-200'}`}>
@@ -545,7 +545,7 @@ function Fiche({ ueNum, onRetour }) {
             return (
               <button key={k} disabled={lecture}
                 onClick={() => majSous('methodes', k, !on)}
-                className={`px-2.5 py-1 rounded-full text-[12px] border ${on
+                className={`px-2.5 py-1 rounded-champ text-[12px] border ${on
                   ? 'bg-iip-blue text-white border-iip-blue'
                   : 'bg-white text-slate-600 border-slate-300 hover:border-iip-blue/50'}`}>
                 {on && <IconCheck size={11} className="inline mr-1" />}{l}

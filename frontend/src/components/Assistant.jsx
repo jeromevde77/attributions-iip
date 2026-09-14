@@ -82,7 +82,7 @@ export default function Assistant({ cle, params = {}, onFerme = null }) {
                     </span>
                   )}
                   {prochaine && (
-                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-iip-turquoise/15 text-iip-blue">
+                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-champ bg-iip-turquoise/15 text-iip-blue">
                       À FAIRE MAINTENANT
                     </span>
                   )}

@@ -375,7 +375,7 @@ function MatriceAcces({ users, sectionsDispo, profils, onModifie, onProfil,
                         ? (u.sections || []).filter(x => x !== s.code)
                         : [...(u.sections || []), s.code],
                     })}
-                    className={`text-[11px] px-1.5 py-0.5 rounded-full border ${
+                    className={`text-[11px] px-1.5 py-0.5 rounded-champ border ${
                       dedans ? 'bg-iip-blue text-white border-iip-blue'
                              : 'border-slate-200 text-slate-400 hover:border-iip-blue'}`}>
                     {s.code}

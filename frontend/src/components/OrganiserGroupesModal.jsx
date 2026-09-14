@@ -106,7 +106,7 @@ export default function OrganiserGroupesModal({ portee, section, ues, onClose, o
           {Object.entries(MODE_CFG).map(([k, cfg]) => {
             const Icon = cfg.icon;
             return (
-              <span key={k} className="flex items-center gap-1 px-2 py-0.5 rounded-full border"
+              <span key={k} className="flex items-center gap-1 px-2 py-0.5 rounded-champ border"
                 style={{ background: cfg.bg, color: cfg.color, borderColor: cfg.border }}>
                 <Icon size={10} /> {cfg.label} — {cfg.desc}
               </span>
@@ -161,7 +161,7 @@ export default function OrganiserGroupesModal({ portee, section, ues, onClose, o
                               <span className="text-[10px] text-gray-400">{c.code_cours}</span>
                             </div>
                             {/* Badge état actuel */}
-                            <span className="text-[10px] px-1.5 py-0.5 rounded-full border flex-shrink-0 flex items-center gap-0.5"
+                            <span className="text-[10px] px-1.5 py-0.5 rounded-champ border flex-shrink-0 flex items-center gap-0.5"
                               style={{ background: MODE_CFG[modeOrig].bg, color: MODE_CFG[modeOrig].color, borderColor: MODE_CFG[modeOrig].border }}>
                               {modeOrig !== 'ts' && `×${nbGroupesActuels(c)} `}{MODE_CFG[modeOrig].label}
                             </span>

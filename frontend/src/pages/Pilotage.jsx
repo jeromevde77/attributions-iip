@@ -1196,9 +1196,9 @@ export default function Pilotage({ vue = 'tout' }) {
                             : '—'}
                         </td>
                         <td className="px-3 py-2 text-center">
-                          {row.zone === 'NEUTRE' && <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full">Neutre ±8 %</span>}
-                          {row.zone === 'HAUSSE' && <span className="text-xs bg-iip-turquoise/10 text-iip-blue px-2 py-0.5 rounded-full">↑ Hausse &gt;+8 %</span>}
-                          {row.zone === 'BAISSE' && <span className="text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded-full">↓ Baisse &lt;−8 %</span>}
+                          {row.zone === 'NEUTRE' && <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-champ">Neutre ±8 %</span>}
+                          {row.zone === 'HAUSSE' && <span className="text-xs bg-iip-turquoise/10 text-iip-blue px-2 py-0.5 rounded-champ">↑ Hausse &gt;+8 %</span>}
+                          {row.zone === 'BAISSE' && <span className="text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded-champ">↓ Baisse &lt;−8 %</span>}
                           {row.zone == null && <span className="text-gray-300 text-xs">—</span>}
                         </td>
                         <td className="px-3 py-2 text-right">

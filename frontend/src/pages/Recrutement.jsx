@@ -682,7 +682,7 @@ function CarteCandidatPoste({ candidature: c, onChange, onEntretien }) {
         <div className="min-w-0 flex-1">
           <div className="font-semibold text-iip-blue flex items-center gap-2">
             {c.nom}
-            <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full"
+            <span className="text-[10px] font-semibold px-2 py-0.5 rounded-champ"
               style={{ color: st.color, background: st.bg }}>{st.label}</span>
           </div>
           <div className="text-xs text-gray-400">{[c.email, c.telephone].filter(Boolean).join(' · ') || '—'}</div>
@@ -1115,7 +1115,7 @@ function EntretienModal({ candidature, poste, annee, qIA, grille, onClose, onSav
                       {LIKERT.map(({ val, label, color }) => (
                         <button key={val} onClick={() => majReponse(i, 'note', reponses[i]?.note === val ? 0 : val)}
                           title={label}
-                          className={`flex items-center gap-1 text-xs px-2.5 py-1 rounded-full border transition font-medium ${
+                          className={`flex items-center gap-1 text-xs px-2.5 py-1 rounded-champ border transition font-medium ${
                             reponses[i]?.note === val
                               ? 'text-white border-transparent shadow-sm'
                               : 'bg-white border-gray-200 text-gray-400 hover:border-gray-300'
@@ -1831,7 +1831,7 @@ ${tous.map(candidatHtml).join('')}
                   {c.candidatures?.map((ca, i) => {
                     const st = STATUT[ca.statut] || STATUT.a_voir;
                     return (
-                      <span key={i} className="text-[10px] px-2 py-0.5 rounded-full font-semibold flex-shrink-0"
+                      <span key={i} className="text-[10px] px-2 py-0.5 rounded-champ font-semibold flex-shrink-0"
                         style={{ background: st.bg, color: st.color }}>
                         {st.label}
                       </span>
@@ -1850,7 +1850,7 @@ ${tous.map(candidatHtml).join('')}
                   </span>
                 )}
                 {entretienNote != null && (
-                  <span className="text-xs font-bold px-2 py-0.5 rounded-full text-white"
+                  <span className="text-xs font-bold px-2 py-0.5 rounded-champ text-white"
                     style={{ background: noteColor }}>
                     {entretienNote}/5
                   </span>
@@ -2067,7 +2067,7 @@ function FicheCandidat({ candidat, fonctions, grille, onClose, onSaved }) {
               <div className="text-white/60 text-xs flex items-center gap-2 mt-0.5">
                 {(f.email||candidat.email) && <span>{f.email||candidat.email}</span>}
                 {candidat.entretien_note && (
-                  <span className="bg-white/20 text-white rounded-full px-2 py-0.5 font-bold text-[10px]">
+                  <span className="bg-white/20 text-white rounded-champ px-2 py-0.5 font-bold text-[10px]">
                     {candidat.entretien_note}/5
                   </span>
                 )}
@@ -2118,7 +2118,7 @@ function FicheCandidat({ candidat, fonctions, grille, onClose, onSaved }) {
               </button>
             )}
             {candidat.entretien_note && (
-              <span className="bg-iip-turquoise/20 text-white/80 rounded-full px-1.5 font-bold text-xs">
+              <span className="bg-iip-turquoise/20 text-white/80 rounded-champ px-1.5 font-bold text-xs">
                 {candidat.entretien_note}/5
               </span>
             )}
@@ -2294,7 +2294,7 @@ function FicheCandidat({ candidat, fonctions, grille, onClose, onSaved }) {
                             </button>
                           )}
                           {ca.statut === 'engage' && (
-                            <span className="text-xs bg-green-100 text-green-700 border border-green-300 rounded-full px-2.5 py-0.5 font-semibold flex-shrink-0">
+                            <span className="text-xs bg-green-100 text-green-700 border border-green-300 rounded-champ px-2.5 py-0.5 font-semibold flex-shrink-0">
                               ✓ Engagé
                             </span>
                           )}
@@ -2544,7 +2544,7 @@ function ModalAjoutQualification({ onClose, onAjouter, onFermer }) {
                     {NIVEAUX_ETUDE.map(n => (
                       <button key={n.val} type="button"
                         onClick={() => majLigne(i, 'niveau', l.niveau === n.val ? '' : n.val)}
-                        className={`text-[11px] px-2.5 py-1 rounded-full border transition ${
+                        className={`text-[11px] px-2.5 py-1 rounded-champ border transition ${
                           l.niveau === n.val
                             ? 'bg-iip-blue text-white border-iip-blue font-semibold'
                             : 'border-gray-300 text-gray-600 hover:border-iip-blue/50 bg-white'
@@ -2584,7 +2584,7 @@ function ModalAjoutQualification({ onClose, onAjouter, onFermer }) {
                     {TITRES_PEDA.map(t => (
                       <button key={t.val} type="button"
                         onClick={() => majLigne(i, 'titre_peda', l.titre_peda === t.val ? '' : t.val)}
-                        className={`text-[11px] px-2.5 py-1 rounded-full border transition ${
+                        className={`text-[11px] px-2.5 py-1 rounded-champ border transition ${
                           l.titre_peda === t.val
                             ? 'bg-iip-turquoise text-white border-iip-turquoise font-semibold'
                             : 'border-gray-300 text-gray-600 hover:border-iip-turquoise/50 bg-white'
@@ -3198,7 +3198,7 @@ function EntretienLibre({ candidat, grille, onClose, onSaved, onAutoSave }) {
             <div className="text-white/60 text-xs mt-0.5 flex items-center gap-2">
               <span>Guide d'entretien · 30 min</span>
               {noteGlobale != null && (
-                <span className="bg-white/20 text-white rounded-full px-2 py-0.5 font-bold text-[10px]">
+                <span className="bg-white/20 text-white rounded-champ px-2 py-0.5 font-bold text-[10px]">
                   moy. {noteGlobale}/5
                 </span>
               )}
@@ -3229,7 +3229,7 @@ function EntretienLibre({ candidat, grille, onClose, onSaved, onAutoSave }) {
           const label = labels[s] || `Axe ${axeKeys.indexOf(s) + 1}`;
           return (
             <button key={s} onClick={() => setSection(s)}
-              className={`text-xs px-3 py-1.5 rounded-full whitespace-nowrap transition ${
+              className={`text-xs px-3 py-1.5 rounded-champ whitespace-nowrap transition ${
                 section === s ? 'bg-iip-blue text-white font-semibold' : 'bg-white text-gray-500 border border-gray-200 hover:border-iip-blue/50'
               }`}>{label}</button>
           );
@@ -3311,7 +3311,7 @@ function EntretienLibre({ candidat, grille, onClose, onSaved, onAutoSave }) {
                       {LIKERT.map(({ val, label, color }) => (
                         <button key={val} onClick={() => majReponse(i, 'note', reponses[i]?.note === val ? 0 : val)}
                           title={label}
-                          className={`flex items-center gap-1 text-xs px-2.5 py-1 rounded-full border transition font-medium ${
+                          className={`flex items-center gap-1 text-xs px-2.5 py-1 rounded-champ border transition font-medium ${
                             reponses[i]?.note === val
                               ? 'text-white border-transparent shadow-sm'
                               : 'bg-white border-gray-200 text-gray-400 hover:border-gray-300'

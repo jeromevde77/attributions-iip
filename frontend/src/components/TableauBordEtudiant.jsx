@@ -313,7 +313,7 @@ export default function TableauBordEtudiant({ etudId, ueNum, annee, onClose, onD
               <span className="text-slate-400">/20</span>
             )}
             {detail?.ue_faveur && (
-              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full
+              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-champ
                                bg-amber-100 text-amber-900 border border-amber-300">faveur</span>
             )}
           </span>
