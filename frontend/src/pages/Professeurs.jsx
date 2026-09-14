@@ -2338,9 +2338,14 @@ export default function Professeurs() {
         ]}
       />
       <div className="gouttiere-rail p-4 md:p-6">
+      {/* UN SEUL FORMAT DE TITRE, celui de PageHeader : icône turquoise,
+          dix-sept pixels, sous-titre sur la même ligne. Personnel écrivait le
+          sien en vingt-quatre pixels dorés, Étudiants n'en avait pas, et huit
+          autres écrans avaient chacun le leur. Ce n'est pas un détail de
+          goût : c'est ce qui fait qu'on doute d'être au même endroit. */}
       <div className="flex items-center justify-between mb-4 gap-3 flex-wrap">
-        <h1 className="text-2xl font-title text-iip-gold">
-          Membres du personnel <span className="text-base font-normal text-gray-400">({filtered.length})</span>
+        <h1 className="text-[17px] font-title text-iip-blue leading-tight">
+          Membres du personnel <span className="text-[12.5px] font-normal text-slate-400">· {filtered.length}</span>
         </h1>
         <div className="flex gap-2 items-center flex-wrap">
           <div className="relative">

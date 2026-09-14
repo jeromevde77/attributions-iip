@@ -366,7 +366,7 @@ table.grid-excel-soft td.num { text-align: right; font-variant-numeric: tabular-
  * soulignement, pas une bande qui coupe l'écran en deux. */
 .barre-haut::after {
   content: ""; position: absolute; bottom: 0; height: 1px;
-  left: var(--rail-largeur, 3.5rem); right: 1.25rem;
+  left: calc(var(--rail-largeur, 3.5rem) + 26px); right: 1.25rem;
   background: var(--menu-bord);
   transition: left 300ms cubic-bezier(.32,.72,0,1);
 }
@@ -474,4 +474,27 @@ select.controle { padding-right: 1.5rem; }
 .controle-fort {
   background: var(--menu-texte); color: var(--barre-fond);
   border-color: transparent; font-weight: 600;
+}
+
+/* ═══ LE RACCORD — un angle RENTRANT, pas un angle sortant ════════════════
+ *
+ * Le rail portait un coin arrondi en haut à droite, et l'arc partait dans le
+ * mauvais sens : un angle SORTANT s'éloigne du trait au lieu de le rejoindre.
+ * Le filet du haut s'arrêtait donc à un endroit, l'arc commençait vingt-six
+ * pixels plus bas et vingt-six pixels plus à gauche, et rien ne se touchait.
+ *
+ * Ce qu'il faut, c'est un angle RENTRANT : le trait arrive du bord droit de
+ * l'écran, s'incurve vers le bas à hauteur du rail, et devient son bord droit.
+ * C'est un carré de vingt-six pixels posé juste à droite du rail, qui ne porte
+ * que deux filets — dessus et à gauche — et un rayon en haut à gauche.
+ *
+ * Un seul geste, du bord droit de l'écran jusqu'en bas à gauche.
+ */
+.raccord-rail::before {
+  content: ""; position: absolute; top: -1px; left: 100%;
+  width: 26px; height: 26px;
+  border-top: 1px solid var(--menu-bord);
+  border-left: 1px solid var(--menu-bord);
+  border-top-left-radius: 26px;
+  pointer-events: none;
 }

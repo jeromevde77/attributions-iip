@@ -2266,6 +2266,14 @@ export default function Etudiants() {
           <button onClick={() => setMsgImport(null)} className="ml-3 opacity-60">✕</button>
         </div>
       )}
+      {/* UN TITRE, ET LE MÊME QUE PARTOUT. Il avait été retiré parce que le
+          rail le portait déjà ; mais Personnel gardait le sien, et huit autres
+          écrans chacun le leur. Uniforme veut dire partout ou nulle part — et
+          nulle part laisse l'écran sans point d'entrée pour le regard. */}
+      <h1 className="text-[17px] font-title text-iip-blue leading-tight">
+        Étudiants <span className="text-[12.5px] font-normal text-slate-400">· {filtres.length}</span>
+      </h1>
+
       <div className="flex gap-3 flex-wrap">
         <div className="relative flex-1 min-w-[200px]">
           <IconSearch size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />

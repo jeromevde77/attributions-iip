@@ -763,7 +763,7 @@ export default function Referentiels({ embedded = false }) {
   return (
     <div className={embedded ? 'space-y-4' : 'p-4 md:p-6 max-w-none mx-auto space-y-4'}>
       <div className="flex items-center justify-between flex-wrap gap-2">
-        {!embedded && <h1 className="text-2xl font-title text-iip-gold">Référentiels <span className="text-base font-normal text-gray-400">· {annee}</span></h1>}
+        {!embedded && <h1 className="text-[17px] font-title text-iip-blue leading-tight">Référentiels <span className="text-[12.5px] font-normal text-slate-400">· {annee}</span></h1>}
         {embedded && <div className="text-sm text-gray-500">Structure académique · {annee}</div>}
         <div className="flex gap-2">
           {annees.filter(a => a.code !== annee).length > 0 && (

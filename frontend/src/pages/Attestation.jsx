@@ -755,7 +755,7 @@ export default function Attestation() {
       {/* En-tête */}
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h1 className="text-2xl font-title text-iip-gold">Attestations de réussite</h1>
+          <h1 className="text-[17px] font-title text-iip-blue leading-tight">Attestations de réussite</h1>
           <p className="text-sm text-gray-500 mt-0.5">
             Année :{' '}
             <input value={annee}

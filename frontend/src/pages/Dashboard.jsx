@@ -100,7 +100,7 @@ export default function Dashboard() {
       />
       <div className="gouttiere-rail flex flex-col min-w-0">
         <div className="p-4 md:p-6 w-full space-y-6">
-      <h1 className="text-2xl font-title text-iip-gold">Tableau de bord <span className="text-base font-normal text-gray-400">· {annee}</span></h1>
+      <h1 className="text-[17px] font-title text-iip-blue leading-tight">Tableau de bord <span className="text-[12.5px] font-normal text-slate-400">· {annee}</span></h1>
 
       {/* Fil d'activité : nouveautés depuis la dernière visite */}
       <ActivityFeed />

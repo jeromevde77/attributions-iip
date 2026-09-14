@@ -302,13 +302,19 @@ export function RailDessine({ icon: HeaderIcon, titre, sousTitre, extra,
        */
       className={`group/rail fixed left-0 bottom-0 z-10 flex py-0
         top-[calc(var(--barre-h,4rem)-1px)]
-        rounded-tr-panneau rounded-br-panneau
-        border-l-0 border-b-0 border-t border-r
+        rounded-br-panneau raccord-rail
+        border-l-0 border-b-0 border-t-0 border-r
         transition-[width] duration-300 ease-ios
         ${volet ? 'w-[14.5rem]' : epingle ? 'w-[14.5rem]' : 'w-14'}`}
       style={{ background: 'var(--menu-fond)', borderColor: 'var(--menu-bord)' }}>
       {/* LA COLONNE DES ICÔNES — ce que tous les écrans ont en commun. */}
-      <div className={`flex flex-col py-3 min-h-0 flex-shrink-0
+      {/* LE RAIL RESPIRE COMME LA ZONE DE TRAVAIL.
+          Sa colonne d'icônes commençait douze pixels sous le filet, quand le
+          contenu en prend seize : la première icône et la première carte ne
+          tombaient donc jamais sur la même ligne, et l'oeil le voyait sans
+          pouvoir le nommer. Même retrait des deux côtés — c'est une règle, pas
+          un pixel choisi à la main. */}
+      <div className={`flex flex-col pt-4 pb-3 min-h-0 flex-shrink-0
         ${volet ? 'w-14 border-r' : 'flex-1'}`}
         style={{ borderColor: 'var(--menu-filet)' }}>
       {/* En-tête — replié, tout se centre : un libellé seulement masqué
