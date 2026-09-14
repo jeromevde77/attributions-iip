@@ -314,6 +314,12 @@ et 3 composants de tuile**. La stratégie tient en cinq chantiers, dans cet ordr
   employaient huit valeurs au hasard — des boutons pointus à côté de boutons
   ronds. On ne réécrit pas deux mille trois cents classes : **on redéfinit le
   défaut**, et tout y tombe, aujourd'hui comme demain.
+- **Un tableau n'a que deux tons** (`.tab-entete`, `.tab-repere`). L'en-tête
+  et la ligne de regroupement sont le **même objet** — l'un nomme les colonnes,
+  l'autre nomme un paquet de lignes : même fond, celui du cadre de titre. La
+  donnée reste blanche, et c'est le seul contraste dont un tableau a besoin.
+  Une même liste montrait cinq valeurs de gris et de bleuté pour dire deux
+  choses.
 - **Une seule échelle typographique** (`tailwind.config.js`) : **10** la
   mention · **11** l'étiquette · **12** le second plan · **13** LE CORPS ·
   **15** le titre d'une carte · **17** le titre d'un écran, et il n'y en a

@@ -343,7 +343,7 @@ export default function DatesUE({ annee }) {
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="bg-slate-50 border-b border-slate-200 text-[11px] uppercase tracking-wide text-slate-500">
+              <tr className="tab-entete">
                 <th className="px-3 py-2 w-9">
                   <input type="checkbox"
                     checked={selection.size > 0 && selection.size === lignes.length}

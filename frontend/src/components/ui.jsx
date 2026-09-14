@@ -561,8 +561,7 @@ export function Tableau({ children, className = '', dense = false }) {
 export function TableauEntete({ children, className = '' }) {
   return (
     <thead>
-      <tr className={`bg-slate-50 border-b border-slate-200 text-[10px] uppercase
-                      tracking-wide text-slate-500 ${className}`}>
+      <tr className={`tab-entete ${className}`}>
         {children}
       </tr>
     </thead>
@@ -607,7 +606,7 @@ export function Tr({ children, actif = false, className = '', ...props }) {
 /** Ligne de regroupement — section, catégorie — repliable le cas échéant. */
 export function TrGroupe({ children, className = '', ...props }) {
   return (
-    <tr className={`bg-iip-blue/5 border-y border-iip-blue/20 ${className}`} {...props}>
+    <tr className={`tab-repere ${className}`} {...props}>
       {children}
     </tr>
   );

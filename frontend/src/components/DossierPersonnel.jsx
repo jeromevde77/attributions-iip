@@ -88,7 +88,7 @@ export function DossierAdmin({ profId, peutEcrire }) {
       <div className="border border-slate-200 rounded-xl overflow-hidden">
         <table className="w-full text-sm">
           <thead>
-            <tr className="bg-slate-50 border-b border-slate-200 text-[11px] uppercase tracking-wide text-slate-500">
+            <tr className="tab-entete">
               <th className="px-3 py-2 text-left">Pièce</th>
               <th className="px-3 py-2 text-left w-32">Référence</th>
               <th className="px-3 py-2 text-left w-32">Reçue le</th>

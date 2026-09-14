@@ -2347,7 +2347,7 @@ export default function Etudiants() {
         <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
           <table className="w-full text-sm">
             <thead>
-              <tr className="bg-slate-50 border-b border-slate-200 text-[11px] uppercase tracking-wide text-slate-500">
+              <tr className="tab-entete">
                 <th className="px-3 py-2.5 w-10">
                   <input type="checkbox" checked={tousAffichesCoches}
                     onChange={() => cocherAffiches(!tousAffichesCoches)}
@@ -2371,12 +2371,16 @@ export default function Etudiants() {
                 const ouverte = sectionsDeployees[sec] === true;
                 return (
                   <Fragment key={sec}>
+                    {/* LE REGROUPEMENT EST UN EN-TÊTE, et il en prend le ton :
+                        l'un nomme les colonnes, l'autre nomme un paquet de
+                        lignes. Un bleuté propre à lui ajoutait une couleur pour
+                        ne rien dire de plus. */}
                     {parSection.length > 1 && (
-                      <tr className="bg-iip-blue/5 border-y border-iip-blue/20">
+                      <tr className="tab-repere">
                         <td colSpan={7} className="px-4 py-2">
                           <button onClick={() => setSectionsDeployees(d => ({ ...d, [sec]: !ouverte }))}
-                            className="flex items-center gap-1.5 text-[13px] font-semibold text-iip-blue">
-                            <span className="text-slate-400 w-3 inline-block">{ouverte ? '−' : '+'}</span>
+                            className="flex items-center gap-1.5 text-[13px] font-semibold">
+                            <span className="w-3 inline-block opacity-50">{ouverte ? '−' : '+'}</span>
                             {sec}
                             <span className="font-normal text-[11px] text-slate-500">
                               {liste.length} étudiant(s)

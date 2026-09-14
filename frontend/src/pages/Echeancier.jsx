@@ -373,7 +373,7 @@ function ListeEcheances({ lignes, onBasculer, onDetail, mien }) {
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
-            <tr className="bg-slate-50 border-b border-slate-200 text-[11px] uppercase tracking-wide text-slate-500">
+            <tr className="tab-entete">
               <th className="px-3 py-2 text-left w-24">Date</th>
               <th className="px-3 py-2 text-left">Échéance</th>
               <th className="px-3 py-2 text-left w-40">Zone</th>

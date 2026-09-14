@@ -291,7 +291,7 @@ export default function Classement({ annee: anneeProp }) {
           <div className="border border-slate-200 rounded-xl overflow-hidden bg-white">
             <table className="w-full text-sm">
               <thead>
-                <tr className="bg-slate-50 border-b border-slate-200 text-[11px] uppercase tracking-wide text-slate-500">
+                <tr className="tab-entete">
                   <th className="px-3 py-2 text-left w-28">Reçue le</th>
                   <th className="px-3 py-2 text-left">Candidat</th>
                   <th className="px-3 py-2 text-left">Fonction(s)</th>

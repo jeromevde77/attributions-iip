@@ -329,6 +329,7 @@ table.grid-excel-soft td.num { text-align: right; font-variant-numeric: tabular-
   --menu-accent:      #0093B0;   /* turquoise assombri : lisible sur gris pâle */
   --barre-fond:       #F8FAFC;   /* le fond de la page : la barre s'y fond aussi */
   --champ-fond:       #FFFFFF;
+  --tab-repere:       #F1F4F8;   /* en-têtes et regroupements : un seul ton */
 }
 :root[data-mode="sombre"] {
   --menu-fond:        #0F1A2E;   /* le fond de la page en mode sombre */
@@ -344,6 +345,7 @@ table.grid-excel-soft td.num { text-align: right; font-variant-numeric: tabular-
   --menu-accent:      #00AACC;
   --barre-fond:       #0F1A2E;
   --champ-fond:       rgba(255,255,255,.08);
+  --tab-repere:       rgba(255,255,255,.06);
 }
 
 /* ─── LA BARRE DU HAUT — entière, mais du même monde que le rail ─────────
@@ -510,3 +512,28 @@ select.controle { padding-right: 1.5rem; }
 .bouton-sortir:hover:not(:disabled)   { background: #007e97; }
 .bouton-detruire { background: #9d4a38; color: #fff; border-color: transparent; }
 .bouton-detruire:hover:not(:disabled) { background: #883f2f; }
+
+/* ═══ LES TABLEAUX — deux tons, pas cinq ══════════════════════════════════
+ *
+ * Une même liste montrait un en-tête gris pâle, des lignes de regroupement
+ * bleutées, un filet bleu, un « + » gris clair et un compteur d'un troisième
+ * gris. Cinq valeurs pour dire deux choses : ceci est un repère, ceci est une
+ * donnée.
+ *
+ * L'en-tête et le regroupement sont le MÊME objet — l'un nomme les colonnes,
+ * l'autre nomme un paquet de lignes. Ils prennent donc le même ton, et ce ton
+ * est celui du cadre de titre. La donnée reste sur fond blanc, et c'est le
+ * seul contraste dont un tableau a besoin.
+ */
+.tab-repere {
+  background: var(--tab-repere);
+  border-top: 1px solid var(--menu-bord);
+  border-bottom: 1px solid var(--menu-bord);
+  color: var(--menu-texte);
+}
+.tab-entete {
+  background: var(--tab-repere);
+  border-bottom: 1px solid var(--menu-bord);
+  color: var(--menu-texte-doux);
+  font-size: 11px; text-transform: uppercase; letter-spacing: .06em;
+}

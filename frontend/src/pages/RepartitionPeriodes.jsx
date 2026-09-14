@@ -285,7 +285,7 @@ export default function RepartitionPeriodes() {
         <div className="border border-slate-200 rounded-xl overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="bg-slate-50 border-b border-slate-200 text-[10px] uppercase tracking-wide text-slate-500">
+              <tr className="tab-entete">
                 <th className="px-3 py-2 text-left min-w-[240px]">Activité d'enseignement</th>
                 <th className="px-2 py-2 text-center w-16">Année</th>
                 <th className="px-2 py-2 text-center w-20">Quadri.</th>
@@ -304,7 +304,7 @@ export default function RepartitionPeriodes() {
                 const uesSection = data.ues.filter(u => (u.section || '(sans section)') === s.section);
                 return (
                   <Fragment key={s.section}>
-                    <tr className="bg-iip-blue/5 border-y border-iip-blue/20">
+                    <tr className="tab-repere">
                       <td className="px-3 py-2" colSpan={4}>
                         <button onClick={() => setDeployees(d => ({ ...d, [s.section]: !ouverte }))}
                           className="flex items-center gap-1.5 text-[13px] font-semibold text-iip-blue">
