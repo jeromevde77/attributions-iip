@@ -674,10 +674,16 @@ export function Fenetre({ icone: Ic, titre, sous, large = 'moyenne',
 
   return (
     <div role="dialog" aria-modal="true" aria-label={titre}
-      className="fixed inset-0 z-50 flex items-center justify-center p-4
-                 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px]"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
       onClick={e => e.target === e.currentTarget && onFermer?.()}>
-      <div className={`bg-white rounded-fenetre shadow-dessus overflow-hidden
+      {/* LE VOILE EST UNE COUCHE À PART, ET C'EST VOLONTAIRE.
+          Porté par le conteneur, son flou faisait de lui le cadre de référence
+          de tout « fixed » rendu à l'intérieur : une fenêtre ouverte DEPUIS une
+          fenêtre s'y trouvait enfermée. Le flou vit donc sur un calque frère du
+          panneau, jamais sur son ancêtre. */}
+      <div aria-hidden="true"
+        className="absolute inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px]" />
+      <div className={`relative bg-white rounded-fenetre shadow-dessus overflow-hidden
                        flex flex-col max-w-full max-h-[90vh] ${largeurs[large] || largeurs.moyenne}`}>
         <div className="flex items-center gap-3 px-5 py-3 text-white flex-shrink-0"
           style={{ background: ton === 'alerte' ? '#9d4a38' : '#1B2B4B' }}>

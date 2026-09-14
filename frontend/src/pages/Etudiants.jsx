@@ -12,7 +12,7 @@ import IdentiteEtudiant, { ComplementDossiers } from '../components/IdentiteEtud
 // LE CENTRE CENTRAL. Les boutons restent où on les cherche — là où l'on
 // travaille — mais mènent désormais au même endroit.
 import CentreImpressionCentral from '../components/CentreImpressionCentral.jsx';
-import { useEchangesDuRail } from '../components/ui.jsx';
+import { useEchangesDuRail, Fenetre } from '../components/ui.jsx';
 import CentrePAE from '../components/CentrePAE.jsx';
 import PassageAnnee from '../components/PassageAnnee.jsx';
 import CentreEchanges from '../components/CentreEchanges.jsx';
@@ -1365,26 +1365,17 @@ function FicheEtudiant({ id, annee, onClose, position, onPrec, onSuiv,
 
   if (!data) return <div className="p-6 text-slate-400 text-sm">Chargement…</div>;
 
+  // LA FICHE PREND LE CADRE COMMUN. Elle avait son propre bandeau marine, deux
+  // fois plus haut que celui des autres fenêtres, et sa propre croix : on
+  // changeait de maison en ouvrant un étudiant. Le nom devient le titre, le
+  // courriel et le matricule la ligne de contexte — c'est exactement ce que le
+  // bandeau commun sait faire.
   return (
-    <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] flex items-start justify-center z-50 p-4 overflow-auto">
-      <div className="bg-white rounded-fenetre shadow-dessus w-full max-w-[1400px] mt-8">
-        {/* En-tête */}
-        <div className="bg-iip-blue rounded-t-2xl px-6 py-5 flex items-start justify-between">
-          <div>
-            <div className="text-white font-bold text-xl">{data.nom} {data.prenom}</div>
-            <div className="text-blue-200 text-sm mt-0.5 flex items-center gap-2">
-              <span>{data.email_ecole} · {data.id_ecampus}</span>
-              {data.niveau?.libelle && (
-                <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-white/15 text-white">
-                  {data.niveau.libelle}
-                </span>
-              )}
-            </div>
-          </div>
-          <button onClick={onClose} className="text-blue-200 hover:text-white">
-            <IconX size={22} />
-          </button>
-        </div>
+    <Fenetre icone={IconUser} titre={`${data.nom} ${data.prenom}`}
+      sous={`${data.email_ecole} · ${data.id_ecampus}`
+            + (data.niveau?.libelle ? ' · ' + data.niveau.libelle : '')}
+      large="pleine" onFermer={onClose}>
+      <div className="-mx-5 -my-4">
 
         {(onPrec || onSuiv) && (
           <BarreParcours position={position} onPrec={onPrec} onSuiv={onSuiv}
@@ -1421,9 +1412,9 @@ function FicheEtudiant({ id, annee, onClose, position, onPrec, onSuiv,
               {onglet === 'parcours' && pae && !pae.erreur && (
                 <div className="sticky top-0 z-30 bg-white/95 backdrop-blur border-b border-slate-200 px-6 py-2.5 flex gap-2 items-center flex-wrap">
                   <button onClick={enregistrerPAE} disabled={enregistrement}
-                    className="flex items-center gap-1.5 px-3 py-1.5 text-sm
-                               bg-iip-turquoise text-white font-semibold rounded-lg
-                               disabled:opacity-50">
+                    className="flex items-center gap-1.5 px-4 py-2 text-[13px]
+                               bg-iip-blue text-white font-semibold rounded-champ
+                               disabled:opacity-40">
                     <IconCheck size={14} />
                     {enregistrement ? 'Enregistrement…' : 'Enregistrer le PAE'}
                   </button>
@@ -1431,10 +1422,10 @@ function FicheEtudiant({ id, annee, onClose, position, onPrec, onSuiv,
                     title={paeConfirme
                       ? 'Retirer la confirmation — les inscriptions sont conservées'
                       : "Confirmer le programme : l'étudiant passe en inscrit"}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 text-sm
-                      font-semibold rounded-lg disabled:opacity-50 ${paeConfirme
-                        ? 'border border-slate-300 text-slate-600'
-                        : 'bg-iip-blue text-white'}`}>
+                    className={`flex items-center gap-1.5 px-4 py-2 text-[13px]
+                      font-semibold rounded-champ disabled:opacity-40
+                      border border-slate-300 text-slate-600 hover:bg-slate-50
+                      ${paeConfirme ? 'bg-slate-100' : ''}`}>
                     <IconWritingSign size={14} />
                     {paeConfirme ? 'Programme confirmé' : 'Confirmer le programme'}
                   </button>
@@ -1805,7 +1796,7 @@ function FicheEtudiant({ id, annee, onClose, position, onPrec, onSuiv,
         typeDoc="fiche_etudiant"
         sujetMail={`${ficheInscription.titre || "Fiche d'inscription"} — Institut Ilya Prigogine`}
         onClose={() => setFicheInscription(null)} />}
-    </div>
+    </Fenetre>
   );
 }
 
