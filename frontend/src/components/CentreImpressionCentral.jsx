@@ -471,8 +471,45 @@ function OngletEtudiants({ perimetre = null }) {
   );
 }
 
+/**
+ * LES PIÈCES PROPRES À L'ÉCRAN D'OÙ L'ON VIENT.
+ *
+ * Certaines éditions ne sont pas des rapports du catalogue : elles ont leur
+ * propre fenêtre, bâtie pour elles. Elles occupaient chacune une icône du
+ * rail — « Rapport de la liste », « Rapport PAE » —, ce qui revenait à
+ * afficher un sommaire au mur plutôt que dans le livre. Elles se déclarent
+ * ici, en tête du centre : une pièce de plus ne coûte plus une icône.
+ */
+function PiecesDeLEcran({ pieces, onChoisir }) {
+  if (!pieces || !pieces.length) return null;
+  return (
+    <div className="px-4 pt-3 pb-3 border-b border-slate-200 bg-slate-50/70">
+      <div className="text-[10.5px] uppercase tracking-[.13em] text-slate-400 mb-2">
+        Pièces de cet écran
+      </div>
+      <div className="flex flex-wrap gap-2">
+        {pieces.map(p => (
+          <button key={p.cle} onClick={() => onChoisir(p)}
+            className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-white
+                       border border-slate-200 hover:border-iip-blue/40 text-[13px]
+                       text-slate-700 text-left transition">
+            {p.icon ? <p.icon size={15} className="text-slate-400 flex-shrink-0" /> : null}
+            <span>
+              {p.label}
+              {p.description
+                ? <span className="block text-[11px] text-slate-400">{p.description}</span>
+                : null}
+            </span>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export default function CentreImpressionCentral({ ongletInitial = 'etudiants',
-                                                  perimetre = null, onClose }) {
+                                                  perimetre = null, pieces = null,
+                                                  onClose }) {
   const [onglet, setOnglet] = useState(ongletInitial);
 
   return (
@@ -503,6 +540,12 @@ export default function CentreImpressionCentral({ ongletInitial = 'etudiants',
             </button>
           ))}
         </div>
+
+        {/* LA PIÈCE CHOISIE OUVRE SA FENÊTRE, ET LE CENTRE S'EFFACE : deux
+            fenêtres empilées, c'est une de trop — on ne sait plus laquelle
+            répond au clavier. */}
+        <PiecesDeLEcran pieces={pieces}
+          onChoisir={p => { onClose?.(); p.onClick?.(); }} />
 
         {onglet === 'etudiants'
           ? <OngletEtudiants perimetre={perimetre} />

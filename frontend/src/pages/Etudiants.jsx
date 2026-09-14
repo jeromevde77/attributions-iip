@@ -2193,16 +2193,21 @@ export default function Etudiants() {
     return n;
   });
 
+  // LES ÉDITIONS DE CET ÉCRAN, DÉCLARÉES POUR LE CENTRE.
+  // « Rapport de la liste » et « Rapport PAE » sont deux pièces d'un
+  // catalogue, pas deux entrées de menu : elles se présentent en tête du
+  // centre d'impression, avec tout le reste de ce qui sort d'ici.
+  const EDITIONS = [
+    { cle: 'rapport', label: 'Rapport de la liste', icon: IconFileText,
+      description: 'Une section, une année antérieure', onClick: ouvrirRapport },
+    { cle: 'rapport-pae', label: 'Rapport PAE', icon: IconTable,
+      description: "Unités inscrites, par étudiant", onClick: () => setRapportPAE(true) },
+  ];
+
   const RAIL = [
-    // LE CENTRE D'IMPRESSION EST DÉJÀ LA BULLE DU HAUT. Il occupait EN PLUS une
-    // entrée du rail : deux icônes, une seule fenêtre. La bulle le porte, et
-    // elle seule ; c'est elle qui annonce la sélection en cours.
-    { label: 'Éditions', items: [
-      { key: 'rapport', label: 'Rapport de la liste', icon: IconFileText,
-        onClick: ouvrirRapport },
-      { key: 'rapport-pae', label: 'Rapport PAE', icon: IconTable,
-        onClick: () => setRapportPAE(true) },
-    ] },
+    // LE CENTRE D'IMPRESSION EST DÉJÀ LA BULLE DU HAUT, et il porte désormais
+    // les deux rapports : trois icônes pour une seule porte, c'en était deux
+    // de trop.
     // LE PASSAGE D'ANNÉE PORTE SUR UNE SECTION ENTIÈRE, non sur une sélection :
     // sa place n'est pas dans la barre qui n'apparaît qu'une fois des étudiants
     // cochés. C'est le geste de fin de septembre, et il se trouve sans qu'on
@@ -2514,7 +2519,7 @@ export default function Etudiants() {
       )}
 
       {centreImpression && (
-        <CentreImpressionCentral ongletInitial="etudiants"
+        <CentreImpressionCentral ongletInitial="etudiants" pieces={EDITIONS}
           onClose={() => setCentreImpression(false)} />
       )}
 
