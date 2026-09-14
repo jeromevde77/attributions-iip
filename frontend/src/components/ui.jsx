@@ -312,9 +312,17 @@ export function RailDessine({ icon: HeaderIcon, titre, sousTitre, extra,
           tombaient donc jamais sur la même ligne, et l'oeil le voyait sans
           pouvoir le nommer. Même retrait des deux côtés — c'est une règle, pas
           un pixel choisi à la main. */}
-      <div className={`flex flex-col pt-4 pb-3 min-h-0 flex-shrink-0
+      {/* LA PREMIÈRE ICÔNE TOMBE SUR LE TITRE DE L'ÉCRAN.
+          Une case carrée de quarante et une ligne de titre de vingt-deux ne
+          s'alignent pas en leur donnant le même retrait : c'est leur MILIEU qui
+          doit coïncider. Le rail prend donc le retrait de la page moins la
+          moitié de l'écart entre les deux hauteurs — une règle, pas un pixel
+          choisi à la main : que la page respire plus ou moins, les deux
+          milieux restent sur la même ligne. */}
+      <div className={`flex flex-col pb-3 min-h-0 flex-shrink-0
         ${volet ? 'w-14 border-r' : 'flex-1'}`}
-        style={{ borderColor: 'var(--menu-filet)' }}>
+        style={{ borderColor: 'var(--menu-filet)',
+                 paddingTop: 'calc(var(--retrait-page, 1rem) - 0.5rem)' }}>
       {/* UN EN-TÊTE VIDE OCCUPE QUAND MÊME SA PLACE.
           Rail replié et sans icône de titre, ce bloc ne montrait rien — mais
           ses vingt-quatre pixels poussaient la première icône plus bas que le
@@ -526,7 +534,8 @@ export function RailDessine({ icon: HeaderIcon, titre, sousTitre, extra,
 
       {/* LE VOLET — ce que cet écran-ci ne peut pas dire en icônes. */}
       {volet && (
-        <div className="flex-1 min-w-0 flex flex-col pt-4 pb-3 px-3 min-h-0">
+        <div className="flex-1 min-w-0 flex flex-col pb-3 px-3 min-h-0"
+          style={{ paddingTop: 'calc(var(--retrait-page, 1rem) - 0.5rem)' }}>
           {volet.titre && (
             <div className="px-1 pb-2 text-[10px] font-semibold uppercase tracking-wider
                             flex-shrink-0"
