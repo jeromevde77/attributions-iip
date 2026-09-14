@@ -902,22 +902,22 @@ function QuorumBandeau({ membres }) {
   const consultatifs = membres.filter(m => m.voix === 'consultative').length;
 
   return (
-    <div className={`px-3 py-2 rounded-xl border flex items-center gap-3
+    /* LE QUORUM TIENT SUR UNE LIGNE. Le compte, l'état, la règle : trois
+       informations courtes qui prenaient deux lignes et un bandeau haut de
+       cinquante pixels, au-dessus d'une liste qu'on veut voir en entier. */
+    <div className={`px-3 py-1.5 rounded-carte border flex flex-wrap items-baseline gap-x-3
       ${ok ? 'bg-emerald-50 border-emerald-200' : 'bg-amber-50 border-amber-300'}`}>
-      <span className={`text-[19px] font-bold tabular-nums leading-none flex-none
+      <span className={`text-[17px] font-bold tabular-nums flex-none
         ${ok ? 'text-emerald-700' : 'text-amber-800'}`}>
         {presents}/{votants.length}
       </span>
-      <span className="flex-1 min-w-0">
-        <span className={`block text-[13px] font-semibold
-          ${ok ? 'text-emerald-900' : 'text-amber-900'}`}>
-          {ok ? 'Quorum atteint' : `Quorum non atteint — il en faut ${requis}`}
-        </span>
-        <span className="block text-[11px] text-slate-600">
-          Deux tiers des membres à voix délibérative (RGE art. 25 §1).
-          {consultatifs > 0 && ' Les voix consultatives figurent au procès-verbal '
-            + 'sans compter au quorum.'}
-        </span>
+      <span className={`text-[13px] font-semibold flex-none
+        ${ok ? 'text-emerald-900' : 'text-amber-900'}`}>
+        {ok ? 'Quorum atteint' : `Quorum non atteint — il en faut ${requis}`}
+      </span>
+      <span className="text-[11px] text-slate-600 flex-1 min-w-0">
+        Deux tiers des voix délibératives (RGE art. 25 §1).
+        {consultatifs > 0 && ' Les consultatives ne comptent pas.'}
       </span>
     </div>
   );
@@ -969,42 +969,45 @@ function Presences({ seance, onValider, enCours, ueNum, annee }) {
 
   return (
     <div className="space-y-3">
-      <div className="px-3 py-2 rounded-xl bg-iip-blue/5 border border-iip-blue/20">
-        <div className="text-[13px] font-semibold text-iip-blue">Conseil des études</div>
-        <p className="text-[12px] text-slate-600">
-          Cochez les présents avant d'ouvrir la délibération. La liste se déduit
-          des attributions de l'unité ; elle est donc à jour de l'année en cours.
-        </p>
-      </div>
-
-      <div className="border border-slate-200 rounded-xl p-3 space-y-2">
-        <div>
-          <div className="text-[13px] font-semibold text-iip-blue">Séance</div>
-          <p className="text-[12px] text-slate-500">
-            Date et heure de la délibération, telles qu'elles figureront au
-            procès-verbal. Elles restent modifiables jusqu'à la clôture.
+      {/* UNE SEULE LIGNE POUR CE QUI OUVRE LA SÉANCE.
+          Deux cartes empilées disaient la même chose à deux endroits : l'une
+          nommait le Conseil, l'autre nommait la séance, et il fallait descendre
+          de cent pixels pour atteindre deux champs qui se remplissent seuls. Ce
+          qui s'explique est à gauche, ce qui se remplit est à droite — et la
+          date comme l'heure arrivent déjà posées à maintenant. */}
+      <div className="carte px-3 py-2.5 flex flex-wrap items-end gap-x-4 gap-y-2">
+        <div className="flex-1 min-w-[260px]">
+          <div className="text-[13px] font-semibold text-iip-blue">Conseil des études</div>
+          <p className="text-[12px] text-slate-600">
+            Cochez les présents avant d'ouvrir la délibération. La liste se déduit
+            des attributions de l'unité. Date et heure figureront au procès-verbal
+            et restent modifiables jusqu'à la clôture.
           </p>
         </div>
-        <div className="grid grid-cols-2 gap-2">
-          <label className="text-[12px] text-slate-600">
-            Date
-            <input type="date" value={date} onChange={e => setDate(e.target.value)}
-              className="w-full mt-0.5 border border-slate-300 rounded-lg px-2 py-1.5 text-[13px]" />
-          </label>
-          <label className="text-[12px] text-slate-600">
-            Heure
-            <input type="time" value={heure} onChange={e => setHeure(e.target.value)}
-              className="w-full mt-0.5 border border-slate-300 rounded-lg px-2 py-1.5 text-[13px]" />
-          </label>
-        </div>
+        <label className="text-[11px] text-slate-500 flex-none">
+          Date
+          <input type="date" value={date} onChange={e => setDate(e.target.value)}
+            className="block mt-0.5 bg-white border border-slate-300 rounded-champ
+                       px-2 h-9 text-[13px]" />
+        </label>
+        <label className="text-[11px] text-slate-500 flex-none">
+          Heure
+          <input type="time" value={heure} onChange={e => setHeure(e.target.value)}
+            className="block mt-0.5 bg-white border border-slate-300 rounded-champ
+                       px-2 h-9 text-[13px]" />
+        </label>
       </div>
 
       <QuorumBandeau membres={membres} />
 
-      <div className="border border-slate-200 rounded-xl divide-y divide-slate-100">
+      {/* LES PRÉSENTS SUR DEUX COLONNES. Un Conseil de douze membres faisait
+          douze lignes pleine largeur dont la moitié droite restait vide, et
+          l'on cochait en descendant sur deux écrans. */}
+      <div className="carte grid sm:grid-cols-2 overflow-hidden">
         {membres.map((m, i) => (
           <label key={m.cle}
-            className="flex items-center gap-3 px-3 py-2 cursor-pointer hover:bg-slate-50">
+            className="flex items-center gap-3 px-3 py-1.5 cursor-pointer
+                       border-t border-slate-100 hover:bg-slate-50">
             <input type="checkbox" checked={!!m.present}
               onChange={e => setMembres(l => l.map((x, k) =>
                 k === i ? { ...x, present: e.target.checked } : x))}
@@ -1302,6 +1305,7 @@ function PleinDroit({ auto, onAppliquer, onPasser, enCours }) {
 function Cloture({ seance, onClore, onRetour, onPV, onRouvrir, enCours, nb, ajournes,
                    coursSession2, quorum, erreur, onPresences }) {
   const [motifR, setMotifR] = useState('');
+  const [precisionR, setPrecisionR] = useState('');
   // La séance elle-même : dernière occasion de corriger sa date et son heure,
   // car la clôture les fige au procès-verbal.
   const [dateS, setDateS] = useState(seance?.date_seance || '');
@@ -1580,11 +1584,10 @@ function Cloture({ seance, onClore, onRetour, onPV, onRouvrir, enCours, nb, ajou
               effacer — décisions, notes et présences restent. Le motif est
               conservé au dossier.
             </div>
-            <input value={motifR} onChange={e => setMotifR(e.target.value)}
-              placeholder="Pourquoi rouvrir la séance ? (erreur matérielle, pièce reçue…)"
-              className="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-[13px]" />
-            <button onClick={() => onRouvrir(motifR.trim())}
-              disabled={enCours || motifR.trim().length < 5}
+            <ChoixMotifReouverture valeur={motifR} precision={precisionR}
+              onValeur={setMotifR} onPrecision={setPrecisionR} />
+            <button onClick={() => onRouvrir(motifReouverture(motifR, precisionR))}
+              disabled={enCours || !motifReouvertureComplet(motifR, precisionR)}
               className="px-3 py-1.5 text-[13px] rounded-lg border border-amber-500
                          text-amber-900 font-semibold disabled:opacity-40">
               Rouvrir la séance
@@ -2966,9 +2969,74 @@ function CorrectionAdministrative({ ueNum, annee, session, seance, onFerme, onFa
   );
 }
 
+/**
+ * POURQUOI ON ROUVRE : ON CHOISIT, ON N'ÉCRIT PAS.
+ *
+ * Le motif était un champ libre, exigé de cinq caractères. À vingt heures, un
+ * soir de délibération, on y tape « erreur » — et un an plus tard, devant un
+ * recours, le dossier porte « erreur » là où il faudrait pouvoir dire de quoi
+ * il s'agissait. Un motif écrit à la hâte se défend aussi mal qu'un motif
+ * absent.
+ *
+ * Les raisons de rouvrir une séance sont connues et peu nombreuses : elles se
+ * choisissent d'un clic, dans les termes du règlement. La précision libre
+ * reste possible — elle s'ajoute au motif, elle ne le remplace pas — et n'est
+ * obligatoire que pour « autre motif », qui est justement celui qu'on ne peut
+ * pas deviner.
+ */
+export const MOTIFS_REOUVERTURE = [
+  { cle: 'encodage',   label: "Erreur d'encodage d'une note" },
+  { cle: 'decision',   label: "Correction d'une décision du Conseil" },
+  { cle: 'note_tard',  label: 'Note manquante ou parvenue après la séance' },
+  { cle: 'piece',      label: 'Pièce justificative reçue après la séance' },
+  { cle: 'recours',    label: 'Recours interne accueilli' },
+  { cle: 'oubli',      label: 'Étudiant omis de la liste délibérée' },
+  { cle: 'pv',         label: 'Erreur matérielle au procès-verbal' },
+  { cle: 'procedure',  label: 'Vice de procédure constaté (quorum, présidence)' },
+  { cle: 'autre',      label: 'Autre motif' },
+];
+
+function ChoixMotifReouverture({ valeur, precision, onValeur, onPrecision }) {
+  return (
+    <div className="space-y-2">
+      <div className="flex flex-wrap gap-1.5">
+        {MOTIFS_REOUVERTURE.map(m => (
+          <button key={m.cle} onClick={() => onValeur(m.cle)}
+            className={`px-2.5 py-1 text-[12px] rounded-champ border transition-colors
+              ${valeur === m.cle
+                ? 'border-amber-500 bg-amber-50 text-amber-900 font-semibold'
+                : 'border-slate-300 text-slate-600 hover:border-slate-400'}`}>
+            {m.label}
+          </button>
+        ))}
+      </div>
+      <input value={precision} onChange={e => onPrecision(e.target.value)}
+        placeholder={valeur === 'autre'
+          ? 'Précisez le motif — il figurera au dossier'
+          : 'Précision (facultative) : référence de la pièce, nom de l\u2019étudiant…'}
+        className="w-full bg-white border border-slate-300 rounded-champ px-2 h-9 text-[13px]" />
+    </div>
+  );
+}
+
+/** Le motif tel qu'il sera conservé : le libellé réglementaire, puis la précision. */
+export function motifReouverture(cle, precision) {
+  const m = MOTIFS_REOUVERTURE.find(x => x.cle === cle);
+  if (!m) return '';
+  const p = (precision || '').trim();
+  return p ? `${m.label} — ${p}` : m.label;
+}
+
+/** Peut-on confirmer ? « Autre motif » exige sa précision, les autres non. */
+export function motifReouvertureComplet(cle, precision) {
+  if (!cle) return false;
+  return cle !== 'autre' || (precision || '').trim().length >= 5;
+}
+
 function BandeauReouverture({ session, onRouvrir, onCorriger, enCours }) {
   const [ouvert, setOuvert] = useState(false);
   const [motif, setMotif] = useState('');
+  const [precision, setPrecision] = useState('');
 
   return (
     <div className="px-3 py-2 rounded-xl bg-slate-100 border border-slate-300 space-y-2">
@@ -3002,11 +3070,10 @@ function BandeauReouverture({ session, onRouvrir, onCorriger, enCours }) {
             est conservé au dossier — un procès-verbal signé que l'on rouvre doit
             pouvoir s'expliquer.
           </p>
-          <input value={motif} onChange={e => setMotif(e.target.value)} autoFocus
-            placeholder="Pourquoi rouvrir ? (erreur matérielle, pièce reçue, recours accueilli…)"
-            className="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-[13px]" />
-          <button onClick={() => onRouvrir(motif.trim())}
-            disabled={enCours || motif.trim().length < 5}
+          <ChoixMotifReouverture valeur={motif} precision={precision}
+            onValeur={setMotif} onPrecision={setPrecision} />
+          <button onClick={() => onRouvrir(motifReouverture(motif, precision))}
+            disabled={enCours || !motifReouvertureComplet(motif, precision)}
             className="px-3 py-1.5 text-[13px] rounded-lg bg-amber-600 text-white
                        font-semibold disabled:opacity-40">
             {enCours ? 'Réouverture…' : 'Confirmer la réouverture'}
