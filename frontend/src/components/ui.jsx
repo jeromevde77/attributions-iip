@@ -341,7 +341,13 @@ export function RailDessine({ icon: HeaderIcon, titre, sousTitre, extra,
       {extra && <div className={`px-3 pt-2 ${reveal}`}>{extra}</div>}
 
       {/* Sections */}
-      <div className="min-h-0 overflow-y-auto overflow-x-hidden rail-defile px-2 mt-1.5">
+      {/* LA COLONNE DES RUBRIQUES EST CE QUI CÈDE.
+          Sans « flex-1 », elle prenait sa hauteur naturelle : dès qu'un écran
+          avait dix rubriques, la pile poussait l'impression et le mode SOUS le
+          bas du rail — hors du cadre, coupés par le bord de la fenêtre. Ce qui
+          doit toujours se voir (imprimer, le mode) ne bouge pas ; c'est la
+          liste qui se comprime et défile. */}
+      <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden rail-defile px-2 mt-1.5">
         {sections.map((sec, si) => (
           <div key={si} className="mb-3">
             {sec.label && (
@@ -429,7 +435,13 @@ export function RailDessine({ icon: HeaderIcon, titre, sousTitre, extra,
           coupe le rail en deux morceaux ; retiré des côtés, il sépare sans
           trancher. */}
       {true && (
-        <div className="flex-shrink-0 px-2 pt-2 mt-1 mx-3 border-t space-y-1"
+        /* LE FILET SE RETIRE DES BORDS, PAS LES CASES.
+           La marge qui écartait le filet du bord (« mx-3 ») écartait aussi les
+           boutons : la case de quarante se retrouvait dans une colonne de
+           trente-deux, et toutes les icônes d'en bas glissaient vers la droite
+           tandis que celles du haut restaient centrées. Le filet est désormais
+           une ligne à lui seul ; les cases gardent la colonne entière. */
+        <div className="flex-shrink-0 pt-2 mt-1 space-y-1 border-t mx-2"
           style={{ borderColor: 'var(--menu-filet)' }}>
           {/* IMPRIMER D'ABORD, ET TOUJOURS.
               On imprime tous les jours, on importe quelques fois par an : le
@@ -509,10 +521,17 @@ export function RailDessine({ icon: HeaderIcon, titre, sousTitre, extra,
 
       {/* La bulle : une seule, au niveau du rail, hors de ce qui défile. */}
       {survol && !epingle && (
+        /* LA BULLE SE POSE CONTRE L'ICÔNE, PAS CONTRE LE RAIL ENTIER.
+           Calée sur « 100 % » de l'aside, elle sautait de l'autre côté du
+           volet quand celui-ci était ouvert : on survolait une icône à gauche
+           et le libellé s'affichait deux cent trente pixels plus loin, posé
+           sur le contenu de la page. Elle suit désormais la colonne d'icônes,
+           qui est ce qu'on survole. */
         <span style={{ top: survol.y, background: 'var(--menu-fond)',
                        borderColor: 'var(--menu-bord)', color: 'var(--menu-texte)',
-                       boxShadow: 'var(--menu-ombre)' }}
-          className="pointer-events-none absolute left-[calc(100%+10px)] -translate-y-1/2 z-50
+                       boxShadow: 'var(--menu-ombre)',
+                       left: volet ? 'calc(3.5rem + 10px)' : 'calc(100% + 10px)' }}
+          className="pointer-events-none absolute -translate-y-1/2 z-50
                      px-2.5 py-1.5 rounded-champ border backdrop-blur-xl backdrop-saturate-150
                      text-[12px] whitespace-nowrap">
           {survol.label}

@@ -3,7 +3,11 @@ import { useNavigate } from 'react-router-dom';
 import { api, getAnnee, getUser } from '../lib/api.js';
 import { RailLateral } from '../components/ui.jsx';
 import {
-  IconHome, IconBell, IconActivity, IconCheck, IconChevronRight,
+  IconHome, IconBell, IconCheck, IconChevronRight,
+  // TROIS PÉRIODES, TROIS ICÔNES. Les trois portaient la même : rail replié,
+  // on voyait trois fois le même dessin et il fallait survoler chacun pour
+  // savoir lequel on visait. Une icône qui ne distingue rien ne sert à rien.
+  IconCalendarWeek, IconCalendarMonth, IconCalendarStats,
   IconUserPlus, IconClipboardList, IconSettings, IconRefresh, IconCake} from '@tabler/icons-react';
 
 const tok = () => localStorage.getItem('token');
@@ -126,9 +130,9 @@ export default function Accueil() {
             { key: 'systeme',      label: `Système${nbSys > 0 ? ` (${nbSys})` : ''}`,              icon: IconSettings,      actif: filtre === 'systeme',      onClick: () => setFiltre('systeme') },
           ]},
           { label: 'Période', items: [
-            { key: '7',  label: '7 derniers jours',  icon: IconActivity, actif: jours === 7,  onClick: () => setJours(7) },
-            { key: '30', label: '30 derniers jours', icon: IconActivity, actif: jours === 30, onClick: () => setJours(30) },
-            { key: '90', label: '3 derniers mois',   icon: IconActivity, actif: jours === 90, onClick: () => setJours(90) },
+            { key: '7',  label: '7 derniers jours',  icon: IconCalendarWeek, actif: jours === 7,  onClick: () => setJours(7) },
+            { key: '30', label: '30 derniers jours', icon: IconCalendarMonth, actif: jours === 30, onClick: () => setJours(30) },
+            { key: '90', label: '3 derniers mois',   icon: IconCalendarStats, actif: jours === 90, onClick: () => setJours(90) },
           ]},
         ]}
       />
