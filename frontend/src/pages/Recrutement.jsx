@@ -242,7 +242,7 @@ export default function Recrutement() {
 
         {vue === 'postes' && (<>
         <div className="flex items-center justify-between mb-6">
-          <h1 className="text-2xl font-title text-iip-gold">
+          <h1 className="titre-ecran mb-0">
             Cours à pourvoir <span className="text-base font-normal text-gray-400">({annee})</span>
           </h1>
         </div>
@@ -1803,7 +1803,7 @@ ${tous.map(candidatHtml).join('')}
   return (
     <div className="max-w-none">
       <div className="flex items-center justify-between mb-4 gap-3">
-        <h1 className="text-2xl font-title text-iip-gold whitespace-nowrap">
+        <h1 className="titre-ecran mb-0 whitespace-nowrap">
           Candidats <span className="text-base font-normal text-gray-400">({candidats.length})</span>
         </h1>
         <input value={search} onChange={e => setSearch(e.target.value)}
@@ -3026,7 +3026,7 @@ function EditeurGrille({ grille, onSaved }) {
     <div className="max-w-none">
       <div className="flex items-center justify-between mb-5">
         <div>
-          <h1 className="text-2xl font-title text-iip-gold">Grille d'entretien</h1>
+          <h1 className="titre-ecran mb-0">Grille d'entretien</h1>
           <p className="text-sm text-gray-400 mt-1">
             Modifiez les axes et questions — appliqués à tous les entretiens.
             Chaque axe tire au hasard le nombre de questions qu'il déclare :

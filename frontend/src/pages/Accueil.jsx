@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api, getAnnee, getUser } from '../lib/api.js';
-import { RailLateral } from '../components/ui.jsx';
+import { PageHeader, RailLateral } from '../components/ui.jsx';
 import {
   IconHome, IconBell, IconCheck, IconChevronRight,
   // TROIS PÉRIODES, TROIS ICÔNES. Les trois portaient la même : rail replié,
@@ -139,15 +139,16 @@ export default function Accueil() {
 
       <div className="gouttiere-rail p-4 md:p-8">
 
-        {/* Bonjour */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-title text-iip-blue">
-            Bonjour, {prenom(u?.nom) || u?.email?.split('@')[0] || 'vous'} !
-          </h1>
-          <p className="text-sm text-gray-400 mt-1">
-            {new Date().toLocaleDateString('fr-BE', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
-          </p>
-        </div>
+        {/* LE SALUT EST UN TITRE D'ÉCRAN COMME LES AUTRES.
+            Il s'écrivait deux fois plus gros que celui de tous les autres
+            écrans, sa date empilée dessous et quarante pixels de marge sous le
+            tout : la première ligne de l'Accueil tombait cent pixels plus bas
+            que la première icône du rail, et ne répondait donc à rien. Une
+            seule échelle, et rien en dehors. */}
+        <PageHeader
+          titre={`Bonjour, ${prenom(u?.nom) || u?.email?.split('@')[0] || 'vous'} !`}
+          sous={new Date().toLocaleDateString('fr-BE',
+            { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })} />
 
         {/* En-tête du fil */}
         <div className="flex items-center justify-between mb-4">
