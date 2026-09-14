@@ -320,8 +320,14 @@ export function RailDessine({ icon: HeaderIcon, titre, sousTitre, extra,
           ses vingt-quatre pixels poussaient la première icône plus bas que le
           titre du volet juste à côté, et que la première carte de la page. Les
           trois colonnes doivent partir de la même ligne : ce qui ne s'affiche
-          pas ne se réserve pas de hauteur. */}
-      {(epingle || HeaderIcon) && (<>
+          pas ne se réserve pas de hauteur.
+
+          ET L'ICÔNE DU TITRE NE DESCEND PAS DANS LA COLONNE. Rail replié, elle
+          s'y rangeait comme une entrée de plus — même taille, même place, mais
+          rien à cliquer —, et c'était déjà celle de l'axe dans la barre du
+          haut : le même dessin, deux fois, à trente pixels d'écart. Un titre ne
+          s'écrit qu'une fois. L'en-tête n'existe donc que le rail ouvert. */}
+      {epingle && (<>
       <div className={`flex items-center gap-3 mb-1 flex-shrink-0
         text-[color:var(--menu-texte)] ${epingle ? 'px-4' : 'justify-center'}`}>
         {HeaderIcon && (
@@ -354,7 +360,7 @@ export function RailDessine({ icon: HeaderIcon, titre, sousTitre, extra,
           doit toujours se voir (imprimer, le mode) ne bouge pas ; c'est la
           liste qui se comprime et défile. */}
       <div className={`flex-1 min-h-0 overflow-y-auto overflow-x-hidden rail-defile px-2
-        ${epingle || HeaderIcon ? 'mt-1.5' : ''}`}>
+        ${epingle ? 'mt-1.5' : ''}`}>
         {sections.map((sec, si) => (
           <div key={si} className="mb-3">
             {sec.label && (

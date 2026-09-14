@@ -2,7 +2,7 @@ import { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
 import { nomPropre } from '../lib/nom.js';
 import { RailLateral } from '../components/ui.jsx';
 import {
-  IconAlertTriangle, IconAward, IconCheck, IconChecklist, IconChevronLeft, IconChevronRight, IconClock, IconFileText, IconFolder, IconPlus, IconPrinter, IconSearch, IconTable, IconTrash, IconUpload, IconUser, IconWritingSign, IconWritingSignOff, IconX,
+  IconAlertTriangle, IconAward, IconStairsUp, IconCheck, IconChecklist, IconChevronLeft, IconChevronRight, IconClock, IconFileText, IconFolder, IconPlus, IconPrinter, IconSearch, IconTable, IconTrash, IconUpload, IconUser, IconWritingSign, IconWritingSignOff, IconX,
 } from '@tabler/icons-react';
 import { authHeaders, getAnnee } from '../lib/api.js';
 import PreviewModal from '../components/PreviewModal.jsx';
@@ -2230,7 +2230,10 @@ export default function Etudiants() {
     ] }] : []),
     { label: 'Fin de cycle', items: [
       { key: 'passage', label: "Composer les PAE de l'année suivante",
-        icon: IconChecklist, onClick: () => setPassage(true) },
+        /* PAS DEUX FOIS LE MÊME DESSIN DANS UN RAIL. « Passage de classe »
+           portait l'icône de l'axe Étudiants : replié, on visait l'un pour
+           l'autre. Un escalier dit ce que fait l'action — on monte d'un an. */
+        icon: IconStairsUp, onClick: () => setPassage(true) },
       { key: 'diplomation', label: 'Diplômes et titres', icon: IconAward,
         onClick: () => setDiplomation(true) },
     ] },
