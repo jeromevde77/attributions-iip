@@ -1,4 +1,4 @@
-import { useState, useEffect, Component } from 'react';
+import { useState, useEffect, useRef, Component } from 'react';
 import { estDirection, droitEffectif } from './lib/modules.js';
 
 // Error boundary : affiche l'erreur au lieu d'une page blanche
@@ -151,6 +151,28 @@ function VoirCommePicker() {
 function ProtectedLayout({ children }) {
   const navigate = useNavigate();
   const [menuOpen, setMenuOpen] = useState(false);
+
+  /*
+   * LA BARRE MESURE SA PROPRE HAUTEUR, ET LE RAIL LA LIT.
+   *
+   * Elle valait « 64 px » dans une demi-douzaine d'endroits, écrits à la main.
+   * Or elle ne les fait pas toujours : une ligne de plus, un écran étroit, et
+   * le rail passait DESSOUS — son premier libellé se retrouvait coupé par une
+   * barre de la même couleur que lui, donc invisible à l'oeil et introuvable au
+   * raisonnement. Trois fois que nous recomptons des pixels : on arrête de
+   * compter, on mesure.
+   */
+  const refBarre = useRef(null);
+  useEffect(() => {
+    const el = refBarre.current;
+    if (!el) return undefined;
+    const poser = () => document.documentElement.style.setProperty(
+      '--barre-h', el.getBoundingClientRect().height + 'px');
+    poser();
+    const obs = new ResizeObserver(poser);
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, []);
   const [annees, setAnnees] = useState([]);
   const [anneeActive, setAnneeActive] = useState(getAnnee());
   const [env, setEnv] = useState(null);
@@ -270,7 +292,7 @@ function ProtectedLayout({ children }) {
           détachés sur le même écran, c'est un panneau de trop — il faut un
           point fixe, et c'est elle. Elle suit en revanche le mode des menus,
           sans quoi l'on retomberait sur deux espaces qui ne se parlent pas. */}
-      <header className="barre-haut px-3 md:px-6 py-3 sticky top-0 z-20">
+      <header ref={refBarre} className="barre-haut px-3 md:px-6 py-3 sticky top-0 z-20">
         <div className="flex items-center justify-between gap-3">
           {/* Burger mobile */}
           <button

@@ -351,15 +351,24 @@ table.grid-excel-soft td.num { text-align: right; font-variant-numeric: tabular-
    et il faut un point fixe. Elle suit en revanche le mode. */
 .barre-haut { background: var(--barre-fond); color: var(--menu-texte);
               border-color: transparent; position: relative; }
-/* LE FILET S'ARRÊTE AVANT LES BORDS.
- * D'un bord à l'autre, il faisait de la barre une BANDE : une zone qui coupe
- * l'écran en deux. Arrêté à la marge du contenu, il redevient ce qu'il est —
- * un soulignement. Il dit « ceci est un menu » sans dire « ceci est ailleurs ».
- * La distance est celle de la marge latérale, et ce n'est pas un réglage à
- * l'oeil : deux traits qui s'arrêtent au même endroit se répondent. */
+/* UN SEUL TRAIT, ET IL TOURNE.
+ *
+ * Le filet de la barre courait par-dessus le rail, et celui du rail montait à
+ * sa rencontre : deux traits qui se croisent à angle droit, avec un décroché.
+ * Ça se voyait, et ça ne se rattrape pas en déplaçant l'un des deux.
+ *
+ * Le filet du haut COMMENCE donc où le rail finit, et c'est l'angle arrondi du
+ * rail qui fait la jonction : le trait descend en arc de cercle et devient le
+ * bord droit du rail. Un seul geste, du bord droit de l'écran jusqu'en bas à
+ * gauche.
+ *
+ * À droite il s'arrête avant le bord, comme la marge du contenu : un
+ * soulignement, pas une bande qui coupe l'écran en deux. */
 .barre-haut::after {
-  content: ""; position: absolute; left: 1.25rem; right: 1.25rem; bottom: 0;
-  height: 1px; background: var(--menu-bord);
+  content: ""; position: absolute; bottom: 0; height: 1px;
+  left: var(--rail-largeur, 3.5rem); right: 1.25rem;
+  background: var(--menu-bord);
+  transition: left 300ms cubic-bezier(.32,.72,0,1);
 }
 .onglet-actif { background: var(--menu-actif); color: var(--menu-texte);
                 box-shadow: inset 0 0 0 1px var(--menu-actif-bord); }

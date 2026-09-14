@@ -255,7 +255,14 @@ export function RailDessine({ icon: HeaderIcon, titre, sousTitre, extra,
     const r = document.documentElement;
     r.style.setProperty('--rail', volet ? LARGEUR_RAIL.volet
       : epingle ? LARGEUR_RAIL.ouvert : LARGEUR_RAIL.replie);
-    return () => r.style.removeProperty('--rail');
+    // LA LARGEUR RÉELLE DU PANNEAU, distincte de la gouttière : c'est là que
+    // le filet du rail monte rejoindre celui de la barre du haut.
+    r.style.setProperty('--rail-largeur',
+      volet || epingle ? '14.5rem' : '3.5rem');
+    return () => {
+      r.style.removeProperty('--rail');
+      r.style.removeProperty('--rail-largeur');
+    };
   }, [epingle, volet]);
 
   /**
@@ -293,8 +300,10 @@ export function RailDessine({ icon: HeaderIcon, titre, sousTitre, extra,
        *
        * La barre du haut demeure le seul point fixe, et le rail s'y raccroche.
        */
-      className={`group/rail fixed left-0 top-16 bottom-0 z-10 flex py-0
-        rounded-r-panneau border-y-0 border-l-0 border-r
+      className={`group/rail fixed left-0 bottom-0 z-10 flex py-0
+        top-[var(--barre-h,4rem)]
+        rounded-tr-panneau rounded-br-panneau
+        border-l-0 border-b-0 border-t border-r
         transition-[width] duration-300 ease-ios
         ${volet ? 'w-[14.5rem]' : epingle ? 'w-[14.5rem]' : 'w-14'}`}
       style={{ background: 'var(--menu-fond)', borderColor: 'var(--menu-bord)' }}>
