@@ -382,8 +382,13 @@ export function RailDessine({ icon: HeaderIcon, titre, sousTitre, extra,
            trente-deux, et toutes les icônes d'en bas glissaient vers la droite
            tandis que celles du haut restaient centrées. Le filet est désormais
            une ligne à lui seul ; les cases gardent la colonne entière. */
-        <div className="flex-shrink-0 pb-2 mb-1 space-y-1 border-b mx-2"
-          style={{ borderColor: 'var(--menu-filet)' }}>
+        /* LE FILET EST UNE LIGNE À LUI, ET IL SE CENTRE SUR LES CASES.
+           Porté par le bloc lui-même, il prenait la largeur de la colonne
+           entière — donc exactement celle des cases, bords compris : il en
+           prolongeait les coins arrondis et l'œil le lisait décalé. Il vaut
+           désormais la moitié d'une case, centré dessous : rien à aligner,
+           puisqu'il part du même axe. */
+        <div className="flex-shrink-0 pb-1 mb-1 space-y-1">
           {/* IMPRIMER D'ABORD, ET TOUJOURS.
               On imprime tous les jours, on importe quelques fois par an : le
               geste le plus fréquent vient en tête, et il ne bouge jamais de
@@ -426,6 +431,8 @@ export function RailDessine({ icon: HeaderIcon, titre, sousTitre, extra,
               </button>
             );
           })}
+          <div className={`${epingle ? 'mx-2' : 'w-5 mx-auto'} pt-1.5 border-t`}
+            style={{ borderColor: 'var(--menu-filet)' }} />
         </div>
       )}
 

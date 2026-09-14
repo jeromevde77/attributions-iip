@@ -404,6 +404,21 @@ table.grid-excel-soft td.num { text-align: right; font-variant-numeric: tabular-
 .rail-defile::-webkit-scrollbar { width: 0; height: 0; }
 
 :root { --retrait-page: 1rem; }
+
+/* ═══ LE RETRAIT DE PAGE EST UN DÉFAUT, PAS UNE CONSIGNE ═══════════════════
+ *
+ * Chaque écran posait lui-même ses marges. Ceux qui portent un rail les ont
+ * (« gouttiere-rail p-4 md:p-8 ») ; les autres — Classement, Rôles, Rentrée,
+ * Sauvegardes, tous ceux qu'on ouvre par une route directe — n'avaient RIEN :
+ * leur titre touchait le bord gauche de la fenêtre pendant que la barre du
+ * haut, elle, gardait son retrait. Une règle qui n'est juste que si l'on y
+ * pense est une règle fausse : le défaut doit être correct.
+ *
+ * La zone de travail se donne donc le retrait de la page, SAUF quand l'écran
+ * gère déjà sa propre gouttière — auquel cas il la garde, sans doublon. */
+main:not(:has(> .gouttiere-rail)) {
+  padding: var(--retrait-page);
+}
 @media (min-width: 768px) { :root { --retrait-page: 2rem; } }
 
 .gouttiere-rail {
@@ -412,6 +427,21 @@ table.grid-excel-soft td.num { text-align: right; font-variant-numeric: tabular-
 }
 @media (prefers-reduced-motion: reduce) {
   :root { --retrait-page: 1rem; }
+
+/* ═══ LE RETRAIT DE PAGE EST UN DÉFAUT, PAS UNE CONSIGNE ═══════════════════
+ *
+ * Chaque écran posait lui-même ses marges. Ceux qui portent un rail les ont
+ * (« gouttiere-rail p-4 md:p-8 ») ; les autres — Classement, Rôles, Rentrée,
+ * Sauvegardes, tous ceux qu'on ouvre par une route directe — n'avaient RIEN :
+ * leur titre touchait le bord gauche de la fenêtre pendant que la barre du
+ * haut, elle, gardait son retrait. Une règle qui n'est juste que si l'on y
+ * pense est une règle fausse : le défaut doit être correct.
+ *
+ * La zone de travail se donne donc le retrait de la page, SAUF quand l'écran
+ * gère déjà sa propre gouttière — auquel cas il la garde, sans doublon. */
+main:not(:has(> .gouttiere-rail)) {
+  padding: var(--retrait-page);
+}
 @media (min-width: 768px) { :root { --retrait-page: 2rem; } }
 
 .gouttiere-rail { transition: none; }
