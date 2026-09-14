@@ -297,9 +297,14 @@ export function RailDessine({ icon: HeaderIcon, titre, sousTitre, extra,
          rail à volet fait presque toute la hauteur : centré, son bord haut
          tombait à quelques pixels au-dessus ou au-dessous de la première carte
          du contenu — un décalage qu'on ne peut pas ne pas voir, sans pouvoir
-         dire d'où il vient. Il part donc du même trait que le contenu. */
+         dire d'où il vient. Il part donc du même trait que le contenu.
+
+         CINQ REM, ET LE COMPTE EST JUSTE : 64 px de barre du haut, puis les
+         16 px de marge que l'écran pose autour de sa première carte. Quatre
+         pixels manquaient — assez pour que l'œil le voie, pas assez pour
+         qu'on sache quoi regarder. */
       className={`group/rail fixed left-3 z-10 flex py-0
-        ${volet ? 'top-[4.75rem] max-h-[calc(100vh-6rem)]'
+        ${volet ? 'top-20 max-h-[calc(100vh-6rem)]'
                 : 'top-[calc(50%+2rem)] -translate-y-1/2 max-h-[calc(100vh-9rem)]'}
         rounded-panneau border backdrop-blur-xl backdrop-saturate-150
         transition-[width] duration-300 ease-ios
