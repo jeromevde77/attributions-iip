@@ -1950,8 +1950,13 @@ export default function Attributions() {
               </div>
 
               {/* Filtres */}
-              <div>
-                <div className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 mb-1.5">Filtres</div>
+              <details className="group/vol">
+                <summary className="cursor-pointer list-none select-none
+                  text-[10px] font-semibold uppercase tracking-wider text-gray-400 mb-1.5
+                  flex items-center gap-1.5 hover:text-gray-600">
+                  <IconChevronRight size={12} className="transition-transform duration-150 shrink-0 group-open/vol:rotate-90" />
+                  Filtres
+                </summary>
                 <div className="space-y-2">
                   <label className="block"><span className="block text-xs text-gray-600 mb-0.5">Section</span>
                     <select value={filters.section} onChange={e=>{const f={...filters,section:e.target.value};setFilters(f);load(f);}} className="w-full border border-gray-300 rounded px-2 py-1.5 h-9 text-sm"><option value="">— Toutes —</option>{sections.map(s=><option key={s.code} value={s.code}>{s.code}</option>)}</select></label>
@@ -1972,11 +1977,16 @@ export default function Attributions() {
                     <button onClick={resetFilters} className="text-gray-500 hover:text-iip-blue text-sm px-2">Réinitialiser</button>
                   </div>
                 </div>
-              </div>
+              </details>
 
               {/* Actions */}
-              <div>
-                <div className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 mb-1.5">Actions</div>
+              <details className="group/vol">
+                <summary className="cursor-pointer list-none select-none
+                  text-[10px] font-semibold uppercase tracking-wider text-gray-400 mb-1.5
+                  flex items-center gap-1.5 hover:text-gray-600">
+                  <IconChevronRight size={12} className="transition-transform duration-150 shrink-0 group-open/vol:rotate-90" />
+                  Actions
+                </summary>
                 <div className="flex flex-col gap-1.5">
                   <button onClick={()=>{ const next = unite==='heures'?'periodes':'heures'; setUniteLocal(next); setUniteGlobal(next); window.dispatchEvent(new Event('unite-change')); }} title="Basculer périodes / heures" className="flex items-center gap-2 bg-white border border-slate-300 text-iip-blue hover:bg-slate-50 text-[13px] font-medium px-3 py-2 rounded-lg"><IconClock size={16}/>{unite==='heures' ? 'Heures' : 'Périodes'}</button>
                   <button onClick={()=>setShowForm(true)} className="flex items-center gap-2 bg-iip-blue hover:bg-iip-blue-dark text-white text-[13px] font-medium px-3 py-2 rounded-lg"><IconPlus size={16}/>Nouveau</button>
@@ -1991,7 +2001,7 @@ export default function Attributions() {
                     <button onClick={reimportExcel} className="flex items-center gap-2 bg-white border border-slate-300 text-iip-blue hover:bg-slate-50 text-[13px] font-medium px-3 py-2 rounded-lg"><IconRefresh size={16}/>Réimporter</button>
                   </>}
                 </div>
-              </div>
+              </details>
 
               {/* Stats */}
               <div className="text-[11px] text-gray-500 border-t border-gray-100 pt-3 leading-relaxed">

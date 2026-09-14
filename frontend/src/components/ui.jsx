@@ -292,8 +292,15 @@ export function RailDessine({ icon: HeaderIcon, titre, sousTitre, extra,
          « fixed », il reste où l'œil le cherche, et il suit quand on défile.
          Le décalage de deux rem le centre SOUS la barre du haut, non sur la
          fenêtre entière : sans lui, il montait par-dessus le logo. */
-      className={`group/rail fixed left-3 top-[calc(50%+2rem)] -translate-y-1/2 z-10
-        max-h-[calc(100vh-9rem)] flex py-0
+      /* UN RAIL ÉTROIT SE CENTRE ; UN RAIL LARGE S'ALIGNE.
+         Centrer verticalement une colonne de six icônes va de soi. Mais le
+         rail à volet fait presque toute la hauteur : centré, son bord haut
+         tombait à quelques pixels au-dessus ou au-dessous de la première carte
+         du contenu — un décalage qu'on ne peut pas ne pas voir, sans pouvoir
+         dire d'où il vient. Il part donc du même trait que le contenu. */
+      className={`group/rail fixed left-3 z-10 flex py-0
+        ${volet ? 'top-[4.75rem] max-h-[calc(100vh-6rem)]'
+                : 'top-[calc(50%+2rem)] -translate-y-1/2 max-h-[calc(100vh-9rem)]'}
         rounded-panneau border backdrop-blur-xl backdrop-saturate-150
         transition-[width] duration-300 ease-ios
         ${volet ? 'w-[21.5rem]' : epingle ? 'w-[14.5rem]' : 'w-14'}`}
