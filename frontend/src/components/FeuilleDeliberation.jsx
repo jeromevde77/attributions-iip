@@ -1317,6 +1317,24 @@ function Cloture({ seance, onClore, onRetour, onPV, onRouvrir, enCours, nb, ajou
   const [close, setClose] = useState(!!seance?.cloturee);
   const complet = date && heure && local.trim() && dateS;
 
+  // LA DATE SE POSE SEULE — et elle ne s'écrase jamais.
+  //
+  // Le bouton « proposer » existait, mais il fallait y penser, vingt fois par
+  // session, pour taper la date du jour. Une séance se tient le jour où on la
+  // saisit : c'est le cas ordinaire, il doit être le défaut.
+  //
+  // DEUX GARDE-FOUS. La proposition ne s'applique qu'à un champ VIDE : rouvrir
+  // une séance ne remplace pas sa date initiale par celle du jour — ce serait
+  // réécrire l'histoire, et le procès-verbal ne s'en remettrait pas. Et tout
+  // reste modifiable : ce qui est posé n'est pas ce qui est arrêté.
+  useEffect(() => {
+    if (!seance || seance.cloturee) return;
+    if (seance.date_seance) return;
+    const p = proposition(seance);
+    setDateS(d => d || p.date_seance);
+    setHeureS(h => h || p.heure_seance);
+  }, [seance]);
+
   // ── LE REMPLISSAGE PAR DÉFAUT ────────────────────────────────────────────
   //
   // Ces valeurs-là sont presque toujours les mêmes : la séance se tient le

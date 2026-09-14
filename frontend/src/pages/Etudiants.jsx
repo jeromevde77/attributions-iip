@@ -2340,7 +2340,11 @@ export default function Etudiants() {
             </thead>
             <tbody>
               {parSection.map(([sec, liste]) => {
-                const ouverte = sectionsDeployees[sec] !== false;
+                // FERMÉS PAR DÉFAUT. Toutes les sections dépliées, c'était
+                // huit cents lignes avant d'atteindre celle qu'on cherchait.
+                // Replié, l'écran tient sur une vue : on ouvre la section
+                // voulue, et on y est.
+                const ouverte = sectionsDeployees[sec] === true;
                 return (
                   <Fragment key={sec}>
                     {parSection.length > 1 && (
