@@ -710,11 +710,13 @@ export default function Pilotage({ vue = 'tout' }) {
     if (!dotTable) return;
     const groupes = dotTable.map(s => ({
       titre: s.section,
-      sous: `${fmt(s.periodes)} périodes · ${fmt(s.etp, 1)} ETP`
+      // L'ETP D'ABORD : c'est l'unité dans laquelle la dotation se pilote ;
+      // les périodes en sont le détail, et les étudiants le pourquoi.
+      sous: `${fmt(s.etp, 1)} ETP · ${fmt(s.periodes)} périodes`
         + (s.etudiants ? ` · ${s.etudiants} étudiants` : ''),
       lignes: s.grouped.flatMap(g => [
         ...(s.grouped.length > 1
-          ? [{ __repere: `${g.niv} — ${Math.round(g.periodes)} pér. · ${(g.etp || 0).toFixed(1)} ETP` }]
+          ? [{ __repere: `${g.niv} — ${(g.etp || 0).toFixed(1)} ETP · ${Math.round(g.periodes)} périodes` }]
           : []),
         ...g.ues.map(u => ({
           ue: `UE ${u.ue_num}`,

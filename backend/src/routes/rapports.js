@@ -34,6 +34,29 @@ const COLS = (l) => l.map(([cle, entete, largeur = 16]) => ({ cle, entete, large
  * doit demander avant de le produire. Un rapport qui réclame une section ne
  * doit pas pouvoir se lancer sans elle.
  */
+const STYLE_RAPPORT = `
+        /* LE TABLEAU D'UN RAPPORT SE LIT, IL NE SE QUADRILLE PAS.
+           Chaque cellule portait son filet : une grille de tableur posée sur
+           une feuille administrative, où l'œil suit les traits au lieu de
+           suivre les chiffres. On garde UN filet sous l'en-tête et UN filet
+           fin entre les lignes — le reste est du blanc, qui sépare aussi bien.
+           Les nombres passent en chiffres de largeur fixe : c'est ce qui rend
+           une colonne comparable d'un coup d'œil. */
+        h1 { font-size: 14pt; letter-spacing: -.2pt; }
+        .sous { color:#64748b; font-size:9pt; margin:0 0 6mm; }
+        .ref  { color:#94a3b8; font-size:8pt; margin-top:5mm; }
+        h3 { font-size: 10pt; margin: 7mm 0 1mm; letter-spacing: -.1pt; }
+        h3 .sous { display:inline; font-size:9pt; margin:0; }
+        table { margin: 0 0 2mm; }
+        th, td { border: 0; padding: 1.6mm 2mm; font-size: 8.5pt;
+                 border-bottom: 0.3pt solid #e2e8f0; }
+        th { background: transparent; color:#64748b; font-size: 7.5pt;
+             border-bottom: 0.8pt solid #cbd5e1; }
+        td { font-variant-numeric: tabular-nums; }
+        tr.repere td { background: transparent; font-weight: 600; color:#1B2B4B;
+                       padding-top: 3mm; border-bottom: 0.6pt solid #cbd5e1; }
+        tbody tr:last-child td { border-bottom: 0; }`;
+
 export const RAPPORTS = [
   // ── PILOTAGE ────────────────────────────────────────────────────────────
   {
@@ -368,9 +391,7 @@ r.post('/:id/document', authRequired, (req, res) => {
         // Un rapport large se lit en paysage : douze colonnes sur une A4
         // portrait deviennent illisibles, et on les imprime pour les lire.
         orientation: def.colonnes.length > 6 ? 'paysage' : 'portrait',
-        styles: `.sous { color:#475569; font-size:9pt; margin:0 0 4mm; }
-                 .ref { color:#64748b; font-size:8.5pt; margin-top:4mm; }
-                 th { background:#f1f5f9; }`,
+        styles: STYLE_RAPPORT,
       }),
       nom: `${def.id}-${p.annee || ''}.html`,
       titre: def.libelle,
@@ -478,11 +499,7 @@ r.post('/document-groupe', authRequired, (req, res) => {
       // tableau large se lit en paysage.
       orientation: b.orientation === 'paysage' || b.orientation === 'portrait'
         ? b.orientation : (colonnes.length > 6 ? 'paysage' : 'portrait'),
-      styles: `.sous { color:#475569; font-size:9pt; font-weight:400; margin:0 0 4mm; }
-               /* L'EN-TÊTE ET LA LIGNE DE REGROUPEMENT SONT LE MÊME OBJET :
-                  même fond, celui du cadre de titre. La donnée reste blanche,
-                  et c'est le seul contraste dont un tableau a besoin. */
-               tr.repere td { background:#f1f5f9; font-weight:600; color:#1B2B4B; }`,
+      styles: STYLE_RAPPORT,
     }),
     titre: b.titre || 'Rapport',
   });
