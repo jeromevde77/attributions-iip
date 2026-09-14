@@ -2,7 +2,9 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   IconPrinter, IconUsers, IconSchool, IconChartBar, IconCalendarStats,
   IconBooks, IconAlertTriangle, IconChevronRight, IconChevronDown, IconSearch,
+  IconDownload,
 } from '@tabler/icons-react';
+import PreviewModal from './PreviewModal.jsx';
 import { authHeaders, getAnnee } from '../lib/api.js';
 import { Fenetre, GroupeFenetre, PieceFenetre } from './ui.jsx';
 
@@ -55,6 +57,24 @@ function OngletRapports({ domaine }) {
   const [apercu, setApercu] = useState(null);
   const [erreur, setErreur] = useState(null);
   const [enCours, setEnCours] = useState(false);
+  const [document0, setDocument0] = useState(null);
+
+  // IMPRIMER, ET PAS SEULEMENT TÉLÉCHARGER. Un tableur se rouvre et s'édite ;
+  // il ne se dépose pas dans un dossier, ne s'annexe pas à un courrier et ne
+  // se présente pas au Conseil. Pour tout ce qui doit être MONTRÉ plutôt que
+  // retravaillé, la pièce manquait — et donc, en pratique, la fonction.
+  async function imprimer() {
+    if (!choisi) return;
+    setEnCours(true); setErreur(null);
+    try {
+      const rep = await fetch(`/api/rapports/${choisi.id}/document`, {
+        method: 'POST', headers: authHeaders(), body: corps(choisi),
+      });
+      const j = await rep.json();
+      if (!rep.ok) { setErreur(j.error); return; }
+      setDocument0(j);
+    } catch (e) { setErreur(e.message); } finally { setEnCours(false); }
+  }
 
   useEffect(() => {
     fetch('/api/rapports/catalogue', { headers: authHeaders() })
@@ -139,10 +159,15 @@ function OngletRapports({ domaine }) {
               {apercu.nb} ligne(s){apercu.tronque ? ' · 50 premières affichées' : ''}
             </span>
           )}
+          {/* IMPRIMER D'ABORD, comme dans le rail : c'est le geste le plus
+              fréquent, et il porte la couleur qui le fait trouver. */}
+          <button onClick={imprimer} disabled={!choisi || enCours}
+            className="controle controle-fort">
+            <IconPrinter size={14} /> Imprimer
+          </button>
           <button onClick={telecharger} disabled={!choisi || enCours}
-            className="px-3 py-1.5 text-[12.5px] rounded-lg bg-iip-blue text-white
-                       font-semibold disabled:opacity-40">
-            Télécharger le tableur
+            className="controle">
+            <IconDownload size={14} /> Tableur
           </button>
         </div>
 
@@ -193,6 +218,14 @@ function OngletRapports({ domaine }) {
           )}
         </div>
       </div>
+
+      {document0 && (
+        <PreviewModal html={document0.html} titre={document0.titre}
+          sousTitre={`${document0.nb} ligne(s)`} nomFichier={document0.nom}
+          typeDoc="rapport"
+          astuceImpression="Le format est déjà posé : imprimez tel quel."
+          onClose={() => setDocument0(null)} />
+      )}
     </div>
   );
 }

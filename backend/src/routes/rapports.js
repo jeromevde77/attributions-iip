@@ -18,6 +18,7 @@ import { Router } from 'express';
 import ExcelJS from 'exceljs';
 import db from '../db/index.js';
 import { authRequired, getUserSections } from '../middleware/auth.js';
+import { envelopperDocument } from '../lib/document.js';
 import { anneeDeTravail } from '../helpers/annee.js';
 import { decisionDeSession } from './acquis.js';
 
@@ -319,6 +320,61 @@ r.post('/:id/apercu', authRequired, (req, res) => {
       id: def.id, libelle: def.libelle, parametres: p,
       colonnes: def.colonnes, nb: lignes.length, lignes: lignes.slice(0, 50),
       tronque: lignes.length > 50,
+    });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+/*
+ * LE MÊME RAPPORT, MAIS IMPRIMABLE.
+ *
+ * Un rapport ne sortait qu'en tableur. Or un tableur ne se dépose pas dans un
+ * dossier, ne s'annexe pas à un courrier et ne se présente pas au Conseil : il
+ * se rouvre, et il s'édite. Pour tout ce qui doit être MONTRÉ plutôt que
+ * retravaillé, il manquait la pièce — et donc, en pratique, la fonction.
+ *
+ * C'est la même enveloppe que toutes les pièces administratives de Lucie
+ * (lib/document.js) : A4, marges de 18 mm, en-tête de l'établissement, pied
+ * numéroté. On n'en écrit pas une dixième.
+ */
+r.post('/:id/document', authRequired, (req, res) => {
+  const def = RAPPORTS.find(x => x.id === req.params.id);
+  if (!def) return res.status(404).json({ error: 'rapport inconnu' });
+  try {
+    const p = parametres(req, def);
+    const lignes = def.lignes(p);
+    const esc = v => String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;');
+
+    // Les colonnes de nombres s'alignent à droite : une colonne de chiffres
+    // cadrée à gauche ne se compare pas d'un coup d'oeil, et c'est pour la
+    // comparer qu'on l'imprime.
+    const nombre = c => lignes.some(l => typeof l[c.cle] === 'number');
+    const corps = `
+      <h1>${esc(def.libelle)}</h1>
+      <p class="sous">${esc(def.aide || '')}</p>
+      <table>
+        <thead><tr>${def.colonnes.map(c =>
+          `<th${nombre(c) ? ' style="text-align:right"' : ''}>${esc(c.entete)}</th>`).join('')}</tr></thead>
+        <tbody>${lignes.map(l => `<tr>${def.colonnes.map(c =>
+          `<td${nombre(c) ? ' style="text-align:right"' : ''}>${esc(l[c.cle])}</td>`).join('')}</tr>`).join('')}</tbody>
+      </table>
+      <p class="ref">${lignes.length} ligne(s)${
+        p.annee ? ` · année ${esc(p.annee)}` : ''}${
+        p.session ? ` · session ${esc(p.session)}` : ''}</p>`;
+
+    res.json({
+      html: envelopperDocument({
+        html: corps,
+        titre: def.libelle,
+        // Un rapport large se lit en paysage : douze colonnes sur une A4
+        // portrait deviennent illisibles, et on les imprime pour les lire.
+        orientation: def.colonnes.length > 6 ? 'paysage' : 'portrait',
+        styles: `.sous { color:#475569; font-size:9pt; margin:0 0 4mm; }
+                 .ref { color:#64748b; font-size:8.5pt; margin-top:4mm; }
+                 th { background:#f1f5f9; }`,
+      }),
+      nom: `${def.id}-${p.annee || ''}.html`,
+      titre: def.libelle,
+      nb: lignes.length,
     });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
