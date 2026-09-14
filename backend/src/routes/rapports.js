@@ -433,3 +433,57 @@ function parametres(req, def) {
 }
 
 export default r;
+
+/**
+ * UN DOCUMENT GROUPÉ, DANS L'ENVELOPPE DE LA MAISON.
+ *
+ * Le pilotage écrivait son rapport lui-même, dans le navigateur : sa propre
+ * page A4, ses propres marges de 14 mm, un en-tête de tableau en aplat marine,
+ * des lignes de regroupement indigo, une rayure une ligne sur deux — et pas de
+ * pied de page. C'était la dixième enveloppe, celle qu'on s'était promis de ne
+ * pas écrire, et la seule à ne pas porter l'identité de l'établissement.
+ *
+ * Elle disparaît au profit de celle-ci : l'écran envoie ce qu'il veut MONTRER —
+ * des groupes, des colonnes, des lignes —, jamais du balisage, et le serveur
+ * l'habille comme toutes les autres pièces. La couleur y devient inutile : un
+ * filet suffit à séparer, et le seul contraste est celui de l'en-tête.
+ */
+r.post('/document-groupe', authRequired, (req, res) => {
+  const b = req.body || {};
+  const esc = v => String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;');
+  const groupes = Array.isArray(b.groupes) ? b.groupes : [];
+  const colonnes = Array.isArray(b.colonnes) ? b.colonnes : [];
+  if (!colonnes.length) return res.status(400).json({ error: 'colonnes requises' });
+
+  const cell = (c, v, tag = 'td') =>
+    `<${tag}${c.num ? ' style="text-align:right"' : ''}>${esc(v)}</${tag}>`;
+
+  const corps = `
+    <h1>${esc(b.titre || 'Rapport')}</h1>
+    ${b.sous ? `<p class="sous">${esc(b.sous)}</p>` : ''}
+    ${groupes.map(g => `
+      <h3>${esc(g.titre || '')}${g.sous ? ` <span class="sous">— ${esc(g.sous)}</span>` : ''}</h3>
+      <table>
+        <thead><tr>${colonnes.map(c => cell(c, c.entete, 'th')).join('')}</tr></thead>
+        <tbody>${(g.lignes || []).map(l => l.__repere
+          ? `<tr class="repere"><td colspan="${colonnes.length}">${esc(l.__repere)}</td></tr>`
+          : `<tr>${colonnes.map(c => cell(c, l[c.cle])).join('')}</tr>`).join('')}</tbody>
+      </table>`).join('')}`;
+
+  res.json({
+    html: envelopperDocument({
+      html: corps,
+      titre: b.titre || 'Rapport',
+      // L'écran choisit le sens quand il en propose le choix ; à défaut, un
+      // tableau large se lit en paysage.
+      orientation: b.orientation === 'paysage' || b.orientation === 'portrait'
+        ? b.orientation : (colonnes.length > 6 ? 'paysage' : 'portrait'),
+      styles: `.sous { color:#475569; font-size:9pt; font-weight:400; margin:0 0 4mm; }
+               /* L'EN-TÊTE ET LA LIGNE DE REGROUPEMENT SONT LE MÊME OBJET :
+                  même fond, celui du cadre de titre. La donnée reste blanche,
+                  et c'est le seul contraste dont un tableau a besoin. */
+               tr.repere td { background:#f1f5f9; font-weight:600; color:#1B2B4B; }`,
+    }),
+    titre: b.titre || 'Rapport',
+  });
+});

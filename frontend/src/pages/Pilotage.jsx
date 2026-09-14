@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useRef, Fragment } from 'react';
-import { api, getAnnee, getUser} from '../lib/api.js';
+import { api, getAnnee, getUser, authHeaders } from '../lib/api.js';
 import { IconChartBar, IconHome, IconUsers, IconSettings, IconChevronRight, IconChevronDown, IconPrinter, IconRotateClockwise, IconCheck, IconX, IconTrash, IconCash, IconCalendar, IconArrowsLeftRight, IconScale } from '@tabler/icons-react';
 import { PageHeader, Tabs, RailLateral } from '../components/ui.jsx';
 import CentreImpressionCentral from '../components/CentreImpressionCentral.jsx';
@@ -689,39 +689,63 @@ export default function Pilotage({ vue = 'tout' }) {
 
   // Rapport A4 imprimable (bascule portrait / paysage)
   const [rapportPaysage, setRapportPaysage] = useState(false);
-  function imprimerDotation(paysage) {
+  /**
+   * LE RAPPORT PASSE PAR L'ENVELOPPE DE LA MAISON.
+   *
+   * Il s'écrivait ici, dans le navigateur : sa page A4 à lui, ses marges de
+   * 14 mm, un en-tête de tableau en aplat marine, des lignes de regroupement
+   * indigo, une rayure une ligne sur deux — et aucun pied de page. C'était la
+   * dixième enveloppe, et la seule pièce de Lucie à ne pas porter l'identité
+   * de l'établissement.
+   *
+   * L'écran n'envoie plus que ce qu'il veut MONTRER : des groupes, des
+   * colonnes, des lignes. Le serveur l'habille comme les attestations et les
+   * annexes — mêmes marges, même pied numéroté, mêmes tons.
+   *
+   * ET IL SE LIT EN ETP. La dotation se pilote en équivalents temps plein ;
+   * les périodes en sont le détail. La colonne existait dans l'écran et
+   * manquait au document.
+   */
+  async function imprimerDotation(paysage) {
     if (!dotTable) return;
-    const lignes = dotTable.map(s => {
-      const rows = s.grouped.map(g => {
-        const sub = s.grouped.length > 1
-          ? `<tr style="background:#eef2ff"><td colspan="2"><b>${g.niv}</b></td><td style="text-align:right"><b>${Math.round(g.periodes)}</b></td><td colspan="2"></td></tr>` : '';
-        const us = g.ues.map(u => `<tr>
-          <td>UE${u.ue_num}</td><td>${(u.ue_nom||'').replace(/</g,'&lt;')}</td>
-          <td style="text-align:right">${Math.round(u.periodes||0)}</td>
-          <td style="text-align:right">${u.pct!=null?u.pct.toFixed(0)+' %':'—'}</td>
-          <td style="text-align:right">${u.delta==null?'—':(u.delta>0?'+':'')+u.delta.toFixed(0)+' %'}</td></tr>`).join('');
-        return sub + us;
-      }).join('');
-      return `<h3 style="margin:14px 0 4px">${s.section} — ${Math.round(s.periodes)} pér. · ${(s.etp||0).toFixed(1)} ETP${s.etudiants?` · ${s.etudiants} ét.`:''}</h3>
-        <table><thead><tr><th>UE</th><th>Intitulé</th><th>Périodes</th><th>% dot.</th><th>Δ% ${anneePrec||''}</th></tr></thead><tbody>${rows}</tbody></table>`;
-    }).join('');
+    const groupes = dotTable.map(s => ({
+      titre: s.section,
+      sous: `${fmt(s.periodes)} périodes · ${fmt(s.etp, 1)} ETP`
+        + (s.etudiants ? ` · ${s.etudiants} étudiants` : ''),
+      lignes: s.grouped.flatMap(g => [
+        ...(s.grouped.length > 1
+          ? [{ __repere: `${g.niv} — ${Math.round(g.periodes)} pér. · ${(g.etp || 0).toFixed(1)} ETP` }]
+          : []),
+        ...g.ues.map(u => ({
+          ue: `UE ${u.ue_num}`,
+          nom: u.ue_nom || '',
+          periodes: Math.round(u.periodes || 0),
+          etp: (u.etp || 0).toFixed(2),
+          pct: u.pct != null ? `${u.pct.toFixed(0)} %` : '—',
+          delta: u.delta == null ? '—' : `${u.delta > 0 ? '+' : ''}${u.delta.toFixed(0)} %`,
+        })),
+      ]),
+    }));
+    const rep = await fetch('/api/rapports/document-groupe', {
+      method: 'POST', headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        titre: 'Dotation par section et unité',
+        sous: `Année ${anneeActive}${anneePrec ? ` · évolution par rapport à ${anneePrec}` : ''}`,
+        colonnes: [
+          { cle: 'ue', entete: 'UE' }, { cle: 'nom', entete: 'Intitulé' },
+          { cle: 'periodes', entete: 'Périodes', num: true },
+          { cle: 'etp', entete: 'ETP', num: true },
+          { cle: 'pct', entete: '% de la section', num: true },
+          { cle: 'delta', entete: `Δ ${anneePrec || ''}`, num: true },
+        ],
+        groupes,
+        orientation: paysage ? 'paysage' : 'portrait',
+      }),
+    });
+    if (!rep.ok) return;
+    const { html } = await rep.json();
     const w = window.open('about:blank');
-    w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>Dotation ${anneeActive}</title>
-      <style>
-        @page { size: A4 ${paysage ? 'landscape' : 'portrait'}; margin: 14mm; }
-        body { font-family: Inter, Arial, sans-serif; font-size: 11px; color: #1f2937; }
-        h1 { font-size: 16px; color: #1B2B4B; margin: 0 0 2px; }
-        h3 { font-size: 12px; color: #1B2B4B; }
-        table { border-collapse: collapse; width: 100%; margin-bottom: 6px; }
-        th, td { border: 0.5px solid #d1d5db; padding: 3px 6px; }
-        th { background: #1B2B4B; color: #fff; text-align: left; font-weight: 500; }
-        tbody tr:nth-child(even) { background: #f8fafc; }
-      </style></head><body>
-      <h1>Dotation détaillée par section et UE</h1>
-      <div style="color:#6b7280;margin-bottom:8px">Année ${anneeActive}${anneePrec?` · Δ% vs ${anneePrec}`:''} · Institut Ilya Prigogine</div>
-      ${lignes}
-      <script>window.onload=function(){window.print();}<\/script>
-      </body></html>`);
+    w.document.write(html);
     w.document.close();
   }
 
