@@ -323,6 +323,30 @@ export function migrerAA(dbx) {
       console.log('[migration] etudiant_report_note : grain AA, statut et motif');
     }
 
+    /*
+     * LA JUSTIFICATION PAR DÉFAUT D'UN ACQUIS.
+     *
+     * L'énoncé calculé dit ce que la base sait — l'épreuve n'a pas été
+     * présentée, la note est sous le seuil. C'est défendable, mais c'est
+     * général : deux dossiers portent la même phrase, et deux dossiers qui
+     * portent la même phrase s'affaiblissent l'un l'autre.
+     *
+     * L'école peut donc écrire, POUR CHAQUE ACQUIS, la formule qui le
+     * concerne : ce que cet acquis-là exige, dans les termes du dossier
+     * pédagogique. Elle vit avec l'acquis, dans le référentiel — un acquis ne
+     * change pas de contenu d'un étudiant à l'autre.
+     *
+     * L'ORDRE NE CHANGE PAS : ce que le Conseil écrit l'emporte sur le défaut
+     * de l'acquis, qui l'emporte sur l'énoncé calculé. Et rien de tout cela ne
+     * s'écrit en base tant que personne ne l'a repris : une proposition, même
+     * bien écrite, n'est pas une motivation du Conseil.
+     */
+    const colsAA = dbx.prepare('PRAGMA table_info(aa)').all().map(c => c.name);
+    if (colsAA.length && !colsAA.includes('motif_defaut')) {
+      dbx.exec('ALTER TABLE aa ADD COLUMN motif_defaut TEXT');
+      console.log('[migration] aa.motif_defaut ajoutée');
+    }
+
     // La note d'un AA se rattache au cours dans lequel il est évalué.
     const cols = dbx.prepare('PRAGMA table_info(etudiant_note_detail)').all().map(c => c.name);
     if (!cols.includes('cours_code')) {
@@ -1479,6 +1503,27 @@ r.get('/motivation/:etudId/:ueNum/document', authRequired, (req, res) => {
   res.json({ html: d.html, nom: d.nom });
 });
 
+
+// ── La justification par défaut d'un acquis ────────────────────────────────
+// Elle vit dans le référentiel : un acquis ne change pas de contenu d'un
+// étudiant à l'autre, ni d'une année à l'autre. On la lit par unité et on
+// l'écrit acquis par acquis.
+r.get('/motifs-defaut/:ueNum', authRequired, (req, res) => {
+  const rows = db.prepare(`
+    SELECT aa_code, aa_num, cours_code, description, motif_defaut
+    FROM aa WHERE ue_num = ? ORDER BY aa_num
+  `).all(Number(req.params.ueNum));
+  res.json(rows);
+});
+
+r.put('/motifs-defaut/:ueNum/:aaCode', authRequired, roleRequired('admin', 'editeur'),
+  (req, res) => {
+    const texte = String(req.body?.texte ?? '').trim();
+    const n = db.prepare('UPDATE aa SET motif_defaut = ? WHERE ue_num = ? AND aa_code = ?')
+      .run(texte || null, Number(req.params.ueNum), req.params.aaCode).changes;
+    if (!n) return res.status(404).json({ error: 'acquis inconnu dans cette unité' });
+    res.json({ ok: true, texte: texte || null });
+  });
 
 // ── Tous les cours suivis par un étudiant, toutes UE confondues ────────────
 // La dispense partielle exigeait de connaître le numéro d'UE et de le taper
@@ -2797,6 +2842,16 @@ export function decisionDeSession(etudId, ueNum, annee, session = 1) {
 
 export function delibererUE(etudId, ueNum, annee, session = 1) {
   const structure = structureUE(ueNum, annee);
+  // Les justifications propres aux acquis de cette unité : une lecture, pas
+  // une par acquis.
+  const motifDefaut = {};
+  try {
+    for (const l of db.prepare(
+      'SELECT aa_code, motif_defaut FROM aa WHERE ue_num = ? AND motif_defaut IS NOT NULL'
+    ).all(Number(ueNum))) {
+      if (String(l.motif_defaut).trim()) motifDefaut[l.aa_code] = String(l.motif_defaut).trim();
+    }
+  } catch { /* colonne absente : l'énoncé calculé suffira */ }
   const integree = estEpreuveIntegree(ueNum, annee);
   const regles = reglesDeliberation();
   // Ce que la base de délibération fait entrer dans la décision. L'unité y
@@ -2997,10 +3052,18 @@ export function delibererUE(etudId, ueNum, annee, session = 1) {
       // donc un énoncé défendable tel quel, SANS L'ÉCRIRE : la base reste vide
       // tant que personne ne l'a repris, l'écran l'affiche en gris, et la
       // clôture compte ce qui est resté tel quel et le nomme.
-      motif_propose: motifs[code] ? '' : motifPropose({
+      // TROIS SOURCES, UN SEUL ORDRE : ce que le Conseil a écrit, puis le
+      // motif propre à cet acquis (référentiel), puis l'énoncé calculé. Le
+      // défaut de l'acquis dit ce que CET acquis exige ; le calculé ne sait
+      // dire que ce que la base sait. On préfère le premier quand il existe.
+      motif_propose: motifs[code] ? '' : (motifDefaut[code] || motifPropose({
         note: affichee, na, faveur: forcee, non_evalue: !na && affichee == null,
         mention: (evals.find(x => x.mention) || {}).mention || null,
-      }, SEUIL_AA),
+      }, SEUIL_AA)),
+      // D'où vient la proposition — l'écran le dit, et la clôture aussi : une
+      // formule écrite par l'école ne se confond pas avec une phrase calculée.
+      motif_source: motifs[code] ? 'conseil'
+        : motifDefaut[code] ? 'defaut_aa' : 'calcule',
       // La faveur POSÉE SUR CET ACQUIS, distincte de celle qu'il hérite de
       // l'unité : c'est elle que le bouton retire, et elle seule.
       faveur_directe: aaFaveur(code),
