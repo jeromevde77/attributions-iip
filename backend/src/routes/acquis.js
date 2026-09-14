@@ -278,6 +278,51 @@ export function migrerAA(dbx) {
     );
     `);
 
+    /*
+     * LE REPORT CHANGE DE GRAIN, ET GARDE LA TRACE DES REFUS.
+     *
+     * La table ne connaissait que le cours, et son UNIQUE l'y enfermait : deux
+     * acquis d'un même cours ne pouvaient pas y tenir. Il faut la reconstruire
+     * — SQLite ne sait pas défaire une contrainte d'unicité.
+     *
+     * Et elle ne savait dire que ce qui avait été ACCORDÉ. Or Lucie propose et
+     * le Conseil peut dire non : un refus qui ne s'écrit nulle part est
+     * indistinguable d'un oubli, et dans un an personne ne saura lequel des
+     * deux s'est produit. Le statut et son motif entrent donc dans la table.
+     */
+    const colsRN = dbx.prepare('PRAGMA table_info(etudiant_report_note)').all().map(c => c.name);
+    if (colsRN.length && !colsRN.includes('cible')) {
+      dbx.exec(`
+        CREATE TABLE etudiant_report_note_v2 (
+          id             INTEGER PRIMARY KEY AUTOINCREMENT,
+          etudiant_id    INTEGER NOT NULL,
+          annee_scolaire TEXT NOT NULL,        -- année où le report s'applique
+          ue_num         INTEGER NOT NULL,
+          cible          TEXT NOT NULL DEFAULT 'cours',   -- 'cours' | 'aa'
+          cours_code     TEXT NOT NULL,
+          aa_code        TEXT,                 -- NULL quand la cible est le cours
+          note           REAL NOT NULL,        -- note reportée, sur 20
+          annee_origine  TEXT,                 -- année où la matière a été acquise
+          statut         TEXT NOT NULL DEFAULT 'accorde', -- propose|accorde|refuse
+          motif          TEXT,                 -- pourquoi le Conseil a refusé
+          decision_ce    TEXT,
+          decide_le      TEXT,
+          decide_par     TEXT,
+          cree_le        TEXT DEFAULT (datetime('now')),
+          UNIQUE(etudiant_id, annee_scolaire, ue_num, cible, cours_code, aa_code)
+        );
+        INSERT INTO etudiant_report_note_v2
+          (id, etudiant_id, annee_scolaire, ue_num, cible, cours_code, aa_code,
+           note, annee_origine, statut, decision_ce, cree_le)
+          SELECT id, etudiant_id, annee_scolaire, ue_num, 'cours', cours_code, NULL,
+                 note, annee_origine, 'accorde', decision_ce, cree_le
+            FROM etudiant_report_note;
+        DROP TABLE etudiant_report_note;
+        ALTER TABLE etudiant_report_note_v2 RENAME TO etudiant_report_note;
+      `);
+      console.log('[migration] etudiant_report_note : grain AA, statut et motif');
+    }
+
     // La note d'un AA se rattache au cours dans lequel il est évalué.
     const cols = dbx.prepare('PRAGMA table_info(etudiant_note_detail)').all().map(c => c.name);
     if (!cols.includes('cours_code')) {
@@ -483,29 +528,65 @@ export function calculerNoteCours(cours, notes) {
  * Sert à repérer les cours validés dans une UE non réussie : ce sont eux qui
  * ouvrent droit à un report de note.
  */
-export function coursValidesAnterieurs(etudId, ueNum, anneeCible) {
+/**
+ * LES REPORTS AUXQUELS UN ÉTUDIANT A DROIT — et ce qui les commande.
+ *
+ * Une unité échouée après la seconde session n'est pas forcément perdue en
+ * entier : ce qui y a été maîtrisé peut ne pas devoir être représenté l'année
+ * suivante. C'est la dispense partielle.
+ *
+ * TROIS RÈGLES, ET AUCUNE N'EST ÉCRITE ICI.
+ *
+ * Le GRAIN (acquis, cours, ou les deux), le SEUIL de maîtrise et l'ARRONDI
+ * sont ceux de la délibération de seconde session — « base_s2 », « seuil_aa »,
+ * « arrondi » —, réglés par la direction dans Configuration. Les redéfinir ici
+ * ferait deux endroits pour un même fait, et le second finirait par mentir :
+ * c'est exactement ce qui s'est produit avec l'épreuve intégrée.
+ *
+ * UN COURS NE SE REPORTE QUE SI TOUS SES ACQUIS PASSENT.
+ *
+ * Une moyenne de cours au-dessus du seuil ne dit pas que la matière est
+ * acquise : elle dit qu'un acquis manqué a été compensé par un autre. Or il
+ * n'y a pas de compensation entre acquis — c'est la règle qui gouverne toute
+ * la délibération, et elle ne peut pas s'arrêter à la porte du report. Un seul
+ * acquis en défaut, et le cours se représente entier.
+ *
+ * ET C'EST LA NOTE RÉELLE QUI SE REPORTE, jamais un « 10 » forfaitaire.
+ * Reporter le cours, c'est reporter les notes des acquis qui le composent :
+ * même ensemble d'acquis dispensés, mais la moyenne d'unité de l'année
+ * suivante reste vraie. Une cote forfaitaire la ferait mentir, et ne se
+ * défendrait pas devant un recours.
+ *
+ * Rien n'est écrit par cette fonction : elle PROPOSE. Le Conseil accorde ou
+ * refuse, et les deux laissent une trace.
+ */
+export function reportsEligibles(etudId, ueNum, anneeCible, regles = null) {
+  const R = regles || reglesDeliberation();
+  const SEUIL = R.seuil_aa;
+  const base = R.base_s2;
+  const veut = quoi => base === 'cours_aa' || base === quoi;
+
   const lignes = db.prepare(`
     SELECT annee_scolaire, code, cours_code, points, non_evalue
     FROM etudiant_note_detail
     WHERE etudiant_id = ? AND ue_num = ? AND type = 'aa' AND annee_scolaire < ?
   `).all(etudId, ueNum, anneeCible);
-  if (!lignes.length) return [];
+  if (!lignes.length) return { cours: [], aa: [] };
 
-  // Résultat de l'UE par année : un report ne se justifie que si l'UE a échoué
+  // UN REPORT NE SE JUSTIFIE QUE SI L'UNITÉ A ÉCHOUÉ. Sur une unité réussie,
+  // il n'y a rien à représenter, donc rien à dispenser.
   const resultats = {};
   for (const i of db.prepare(`
     SELECT annee_scolaire, resultat FROM etudiant_inscription
     WHERE etudiant_id = ? AND ue_num = ?
-  `).all(etudId, ueNum)) {
-    resultats[i.annee_scolaire] = i.resultat;
-  }
+  `).all(etudId, ueNum)) resultats[i.annee_scolaire] = i.resultat;
 
   const parAnnee = {};
   for (const l of lignes) (parAnnee[l.annee_scolaire] = parAnnee[l.annee_scolaire] || []).push(l);
 
-  const candidats = [];
+  const candCours = [], candAA = [];
   for (const [an, lg] of Object.entries(parAnnee)) {
-    if (resultats[an] === 'reussi') continue;          // UE réussie : rien à reporter
+    if (resultats[an] === 'reussi') continue;
     const structure = structureUE(ueNum, an);
     const notes = {};
     for (const l of lg) {
@@ -514,22 +595,71 @@ export function coursValidesAnterieurs(etudId, ueNum, anneeCible) {
         || structure.find(c => c.aas.some(a => a.aa_code === brut))?.cours_code;
       if (cc) notes[cc + '|' + brut] = { points: l.points, non_evalue: l.non_evalue };
     }
+
     for (const co of structure) {
-      const n = calculerNoteCours(co, notes);
-      if (n.sur20_exact != null && n.sur20_exact >= 10) {
-        candidats.push({
-          annee_origine: an, cours_code: co.cours_code, cours_nom: co.cours_nom,
-          note: n.sur20_exact, note_affichee: n.sur20,
-        });
+      // L'état acquis par acquis — il sert aux deux grains.
+      const etats = (co.aas || []).map(a => {
+        const n = notes[co.cours_code + '|' + a.aa_code];
+        const evalue = !!(n && !n.non_evalue && n.points != null && n.points !== '');
+        const pts = evalue ? Number(n.points) : null;
+        return {
+          aa_code: a.aa_code, description: a.description, poids: a.poids,
+          evalue, points: pts,
+          // L'arrondi de la maison décide : 9,6 passe ou ne passe pas, et ce
+          // n'est pas au report d'en juger tout seul.
+          passe: evalue && arrondiMaison(pts, R) >= SEUIL,
+        };
+      });
+
+      if (veut('aa')) {
+        for (const e of etats) {
+          if (e.passe) candAA.push({
+            cible: 'aa', annee_origine: an, cours_code: co.cours_code,
+            cours_nom: co.cours_nom, aa_code: e.aa_code, description: e.description,
+            note: e.points,
+          });
+        }
+      }
+
+      if (veut('cours')) {
+        const pesants = etats.filter(e => e.poids);
+        // Un cours sans acquis pesant ne se reporte pas : il n'y a rien à
+        // constater. Mieux vaut ne rien proposer qu'une dispense vide.
+        const tousPassent = pesants.length > 0 && pesants.every(e => e.passe);
+        if (tousPassent) {
+          const n = calculerNoteCours(co, notes);
+          candCours.push({
+            cible: 'cours', annee_origine: an, cours_code: co.cours_code,
+            cours_nom: co.cours_nom, note: n.sur20_exact, note_affichee: n.sur20,
+            // Ce qu'on reporte réellement : les acquis et LEURS notes.
+            aas: pesants.map(e => ({ aa_code: e.aa_code, note: e.points })),
+          });
+        }
       }
     }
   }
-  // La session la plus récente prime pour un même cours
-  const parCours = {};
-  for (const c0 of candidats.sort((a, b) => a.annee_origine.localeCompare(b.annee_origine))) {
-    parCours[c0.cours_code] = c0;
-  }
-  return Object.values(parCours);
+
+  // La session la plus récente prime pour une même cible.
+  const derniere = (liste, cle) => {
+    const par = {};
+    for (const c of liste.sort((a, b) => a.annee_origine.localeCompare(b.annee_origine))) {
+      par[cle(c)] = c;
+    }
+    return Object.values(par);
+  };
+  return {
+    cours: derniere(candCours, c => c.cours_code),
+    aa: derniere(candAA, c => c.cours_code + '|' + c.aa_code),
+  };
+}
+
+/**
+ * Compatibilité : les deux écrans qui existaient ne demandent que les cours.
+ * Ils passent par la même règle qu'avant — à ceci près qu'elle est désormais
+ * la bonne : tous les acquis du cours, et le seuil de la maison.
+ */
+export function coursValidesAnterieurs(etudId, ueNum, anneeCible) {
+  return reportsEligibles(etudId, ueNum, anneeCible).cours;
 }
 
 // ── Motivation d'une décision d'ajournement ou de refus ────────────────────
