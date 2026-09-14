@@ -13,6 +13,7 @@ const Pilotage = lazy(() => import('./Pilotage.jsx'));
 import Etudiants from './Etudiants.jsx';
 import Deliberation from './Deliberation.jsx';
 import Echeancier from './Echeancier.jsx';
+const SuiviEquipe = lazy(() => import('./SuiviEquipe.jsx'));
 
 const Listes = lazy(() => import('./Listes.jsx'));
 const Procedures = lazy(() => import('./Procedures.jsx'));
@@ -52,6 +53,16 @@ export function AxeAccueil() {
         { key: 'echeancier', label: 'Échéancier', icone: IconCalendarStats,
           sansMarge: true, railPropre: true,
           rendu: <Echeancier /> },
+        /* LE SUIVI D'ÉQUIPE EST UN TABLEAU DE BORD, PAS UN MODULE À PART.
+           « Où en sommes-nous ? » se pose à trois échelles : ce que je dois
+           faire aujourd'hui, ce que l'école a produit, et ce que l'équipe s'est
+           engagée à faire. La troisième manquait — elle vivait dans un carnet
+           et dans des courriels. L'échéancier porte les obligations légales de
+           l'établissement ; ceci porte les décisions d'une réunion de service.
+           Voisins, jamais confondus. */
+        { key: 'suivi', label: 'Suivi d\u2019équipe', icone: IconChecklist,
+          sansMarge: true, railPropre: true,
+          rendu: <Suspense fallback={<Attente />}><SuiviEquipe /></Suspense> },
         ...(voitReporting ? [{
           key: 'reporting', label: 'Chiffres de l\u2019école', icone: IconChartBar,
           sansMarge: true, railPropre: true,

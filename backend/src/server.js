@@ -10,11 +10,13 @@ import { fileURLToPath } from 'node:url';
 
 import db from './db/index.js';
 import { migrerEcheancier } from './db/migrations_echeancier.js';
+import { migrerReunions } from './db/migrations_reunions.js';
 import { migrerBesoinsOffres } from './db/migrations_besoins.js';
 import { migrerJournalPersonnel } from './db/migrations_journal.js';
 import { demarrerMoteur } from './services/echeancier.js';
 import annuelRoutes from './routes/annuel.js';
 import echeancierRoutes from './routes/echeancier.js';
+import reunionsRoutes from './routes/reunions.js';
 import dossierAdminRoutes from './routes/dossierAdmin.js';
 import listesRoutes from './routes/listes.js';
 import besoinsRoutes from './routes/besoins.js';
@@ -2656,6 +2658,7 @@ try {
 
 // ── Lucie V3++ : échéancier, dossier administratif, communication ──
 try { migrerEcheancier(db); } catch (e) { console.error('[migration] echeancier :', e.message); }
+try { migrerReunions(db); } catch (e) { console.error('[migration] reunions :', e.message); }
 try { migrerBesoinsOffres(db); } catch (e) { console.error('[migration] besoins :', e.message); }
 try { migrerJournalPersonnel(db); } catch (e) { console.error('[migration] journal :', e.message); }
 try { migrerClassement(db); } catch (e) { console.error('[migration] classement :', e.message); }
@@ -2755,6 +2758,7 @@ app.use('/api/admin',        adminRoutes);
 app.use('/api/annees',       anneesRoutes);
 app.use('/api/annuel',       annuelRoutes);
 app.use('/api/echeancier',   echeancierRoutes);
+app.use('/api/reunions',     reunionsRoutes);
 app.use('/api/dossier',      dossierAdminRoutes);
 app.use('/api/listes',       listesRoutes);
 app.use('/api/besoins',      besoinsRoutes);

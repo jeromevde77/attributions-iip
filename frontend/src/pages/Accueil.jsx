@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { api, getAnnee, getUser } from '../lib/api.js';
+import { api, getAnnee, getUser, authHeaders } from '../lib/api.js';
 import { PageHeader, RailLateral } from '../components/ui.jsx';
 import {
   IconHome, IconBell, IconCheck, IconChevronRight,
@@ -52,6 +52,83 @@ function timeAgo(iso) {
 function prenom(nomComplet) {
   if (!nomComplet) return '';
   return nomComplet.trim().split(/\s+/)[0];
+}
+
+/**
+ * MES TÂCHES — celles qu'on m'a confiées, nommément ou par mon rôle.
+ *
+ * Elles viennent du suivi d'équipe : ce qui se décide en réunion se retrouve
+ * ici le lendemain, chez la personne qui s'en est chargée. Cocher se fait sur
+ * place — repasser par l'écran des réunions pour dire « c'est fait » est un
+ * détour que personne ne prend.
+ */
+function MesTaches() {
+  const [taches, setTaches] = useState([]);
+  const charger = () => fetch('/api/reunions/taches?mien=1&ouvertes=1',
+    { headers: authHeaders() })
+    .then(r => (r.ok ? r.json() : []))
+    .then(l => setTaches(Array.isArray(l) ? l : []))
+    .catch(() => {});
+  useEffect(() => { charger(); }, []);
+
+  async function cocher(t) {
+    await fetch(`/api/reunions/taches/${t.id}`, {
+      method: 'PUT',
+      headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+      body: JSON.stringify({ statut: 'fait' }),
+    });
+    charger();
+  }
+
+  if (!taches.length) return null;
+  const jour = new Date().toISOString().slice(0, 10);
+  const fr = d => (d ? String(d).slice(0, 10).split('-').reverse().join('/') : null);
+
+  return (
+    <div className="mb-5">
+      <div className="flex items-baseline gap-2 mb-1.5">
+        <h2 className="text-[13px] font-semibold text-iip-blue">Ce qui m’attend</h2>
+        <span className="text-[11px] text-slate-400">
+          {taches.length} tâche(s) — décidées en réunion
+        </span>
+      </div>
+      <div className="carte overflow-hidden">
+        {taches.map(t => {
+          const retard = t.echeance && t.echeance < jour;
+          return (
+            <div key={t.id} className="px-3 py-2 flex items-center gap-3
+                                       border-t border-slate-100 first:border-t-0">
+              <button onClick={() => cocher(t)} title="Marquer comme faite"
+                className="w-5 h-5 flex-none grid place-items-center rounded-champ border
+                           border-slate-300 text-transparent hover:border-emerald-500
+                           hover:text-emerald-600">
+                <IconCheck size={13} />
+              </button>
+              <span className="flex-1 min-w-0 text-[13px] text-slate-800 truncate">
+                {t.titre}
+              </span>
+              {/* CE QUE L'ACTION SERT : l'obligation l'emporte sur la réunion.
+                  Savoir qu'une tâche tient une échéance de la circulaire change
+                  l'ordre dans lequel on la fait. */}
+              {(t.obligation_libelle || t.reunion_date) && (
+                <span className="text-[11px] text-slate-400 hidden sm:inline truncate max-w-[18rem]">
+                  {t.obligation_libelle
+                    ? `pour : ${t.obligation_libelle}${t.obligation_base ? ` — ${t.obligation_base}` : ''}`
+                    : `décidée le ${fr(t.reunion_date)}`}
+                </span>
+              )}
+              {t.echeance && (
+                <span className={`text-[11px] font-semibold tabular-nums
+                  ${retard ? 'text-amber-700' : 'text-slate-500'}`}>
+                  {retard ? 'en retard · ' : 'pour le '}{fr(t.echeance)}
+                </span>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
 }
 
 export default function Accueil() {
@@ -149,6 +226,15 @@ export default function Accueil() {
           titre={`Bonjour, ${prenom(u?.nom) || u?.email?.split('@')[0] || 'vous'} !`}
           sous={new Date().toLocaleDateString('fr-BE',
             { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })} />
+
+        {/* CE QUI M'ATTEND VIENT AVANT CE QUI S'EST PASSÉ.
+            Le fil d'activité raconte ce que les autres ont fait ; il ne dit pas
+            ce que MOI je dois faire. Une tâche décidée en réunion de service
+            n'avait donc aucun endroit où réapparaître : elle vivait dans le
+            procès-verbal, c'est-à-dire nulle part. Elle s'affiche ici, au-dessus
+            du fil, et se coche d'ici — avec les tâches confiées à mon rôle, pas
+            seulement à mon nom. */}
+        <MesTaches />
 
         {/* En-tête du fil */}
         <div className="flex items-center justify-between mb-4">
