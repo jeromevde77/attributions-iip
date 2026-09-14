@@ -1398,9 +1398,7 @@ function FicheEtudiant({ id, annee, onClose, position, onPrec, onSuiv,
             ['dossier', 'Dossier']].map(([k, l]) => (
             <button key={k}
             onClick={() => { setOnglet(k); if (k === 'parcours' && !pae) chargerPAE(); }}
-              className={`px-4 py-3 text-sm font-medium border-b-2 -mb-px ${onglet===k
-                ? 'border-iip-turquoise text-iip-blue font-semibold'
-                : 'border-transparent text-slate-500'}`}>
+              className={`onglet-page ${onglet === k ? 'onglet-page-actif' : ''}`}>
               {l}
             </button>
           ))}

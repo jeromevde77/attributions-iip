@@ -1044,7 +1044,7 @@ function ConfigAttestation() {
       <div className="flex gap-1 border-b border-gray-200 mb-4">
         {ONGLETS_LOC.map(o => (
           <button key={o.key} onClick={() => setOnglet(o.key)}
-            className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px ${onglet===o.key ? 'border-iip-turquoise text-iip-blue' : 'border-transparent text-gray-400 hover:text-gray-600'}`}>
+            className={`onglet-page ${onglet === o.key ? 'onglet-page-actif' : ''}`}>
             {o.label}
           </button>
         ))}

@@ -308,6 +308,28 @@ et 3 composants de tuile**. La stratégie tient en cinq chantiers, dans cet ordr
   `champ` 8 / `carte` 14 / `fenetre` 22 / `panneau` 26 ; ombres `pose`,
   `flottant`, `dessus` ; courbe `ease-ios`. Un seul voile de fenêtre : marine
   translucide, flou léger.
+  **Les rayons de Tailwind sont ramenés sur l'échelle** : `rounded`, `-sm`,
+  `-md`, `-lg` valent 8 ; `-xl` et `-2xl` valent 14. L'échelle existait et
+  servait soixante et une fois pendant que deux mille trois cents classes
+  employaient huit valeurs au hasard — des boutons pointus à côté de boutons
+  ronds. On ne réécrit pas deux mille trois cents classes : **on redéfinit le
+  défaut**, et tout y tombe, aujourd'hui comme demain.
+- **Deux formes d'onglet, et une règle qui dit laquelle.** La **pastille**
+  (fond clair, coins arrondis) dit *où l'on est* — barre du haut, rail : on
+  change de territoire. Le **soulignement** (`.onglet-page` /
+  `.onglet-page-actif`) dit *quelle face du même objet* on regarde — les
+  onglets d'une fiche, d'une fenêtre, d'un écran : on tourne une page. Le
+  désordre ne venait pas d'avoir deux formes, mais de n'avoir aucune règle :
+  douze barres d'onglets, cinq couleurs de soulignement, quatre hauteurs.
+- **Une seule fenêtre** (`Fenetre`, `GroupeFenetre`, `PieceFenetre`,
+  `BoutonFenetre` dans `ui.jsx`). Soixante et onze fichiers posaient leur
+  propre `fixed inset-0`. Le voile est une **couche à part** : porté par le
+  conteneur, son flou fait de lui le cadre de référence de tout `fixed` rendu
+  dedans — une fenêtre ouverte depuis une fenêtre s'y retrouve enfermée.
+- **On ne compte pas les pixels, on les mesure.** La hauteur de la barre du
+  haut était écrite « 64 px » à la main ; elle ne les fait pas toujours, et le
+  rail passait dessous. La barre publie sa hauteur (`--barre-h`), le rail la
+  lit. Même principe pour `--rail-largeur`, que le filet du haut consomme.
 - **Une entrée de rail sans icône est invisible** une fois le rail replié.
 - **Un titre ne s'écrit qu'une fois** par écran.
 - Un libellé ne promet que ce que la modale fait réellement.

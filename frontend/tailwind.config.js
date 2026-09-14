@@ -28,6 +28,30 @@ export default {
         carte:   '14px',   // cartes, tableaux, encadrés
         fenetre: '22px',   // fenêtres, pastilles
         panneau: '26px',   // panneaux flottants (le rail)
+
+        // ── ET LES RAYONS DE TAILWIND SONT RAMENÉS SUR L'ÉCHELLE ──────────
+        //
+        // L'échelle existait depuis des semaines et servait soixante et une
+        // fois. Pendant ce temps, deux mille trois cents classes employaient
+        // « rounded », « rounded-lg », « rounded-md », « rounded-xl » — huit
+        // valeurs différentes, de 2 à 16 pixels, réparties au hasard de qui
+        // écrivait. D'où des boutons pointus à côté de boutons ronds : ce
+        // n'est pas un détail, c'est CE QUI FAIT qu'une application paraît
+        // assemblée plutôt qu'aboutie.
+        //
+        // Les réécrire une à une, c'est deux mille trois cents occasions de se
+        // tromper. On redéfinit donc les noms de Tailwind eux-mêmes : tout ce
+        // qui est écrit aujourd'hui, et tout ce qui s'écrira demain, tombe sur
+        // l'échelle sans que personne ait à y penser. Trois rayons dans toute
+        // l'application, et le défaut est correct.
+        DEFAULT: '8px',    // rounded
+        sm:      '8px',
+        md:      '8px',
+        lg:      '8px',    // les boutons et les champs
+        xl:      '14px',   // les cartes
+        '2xl':   '14px',
+        '3xl':   '22px',
+        full:    '9999px', // les pastilles rondes, et elles seules
       },
       boxShadow: {
         pose:     '0 1px 2px rgba(11,21,45,.06)',

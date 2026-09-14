@@ -740,11 +740,11 @@ export default function Attestation() {
       {/* Onglets */}
       <div className="flex gap-1 border-b border-gray-200">
         <button onClick={() => setOnglet('attestations')}
-          className={`px-4 py-2 text-sm font-medium -mb-px border-b-2 ${onglet==='attestations' ? 'border-iip-gold text-iip-gold' : 'border-transparent text-gray-500 hover:text-iip-blue'}`}>
+          className={`onglet-page ${onglet === 'attestations' ? 'onglet-page-actif' : ''}`}>
           Attestations de réussite
         </button>
         <button onClick={() => setOnglet('diplome')}
-          className={`px-4 py-2 text-sm font-medium -mb-px border-b-2 ${onglet==='diplome' ? 'border-iip-gold text-iip-gold' : 'border-transparent text-gray-500 hover:text-iip-blue'}`}>
+          className={`onglet-page ${onglet === 'diplome' ? 'onglet-page-actif' : ''}`}>
           Modèle de diplôme
         </button>
       </div>

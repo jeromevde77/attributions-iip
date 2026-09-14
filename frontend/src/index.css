@@ -411,3 +411,35 @@ table.grid-excel-soft td.num { text-align: right; font-variant-numeric: tabular-
   box-shadow: inset 0 0 0 1px var(--menu-actif-bord);
   color: var(--menu-texte);
 }
+
+/* ═══ LES ONGLETS D'UN MÊME OBJET ═════════════════════════════════════════
+ *
+ * DEUX FORMES, ET UNE RÈGLE QUI DIT LAQUELLE.
+ *
+ * Le désordre ne venait pas d'avoir deux formes : il venait de n'avoir aucune
+ * règle. Douze barres d'onglets, cinq couleurs de soulignement — doré,
+ * turquoise, mauve, rose, marine —, quatre hauteurs. Chacune juste chez elle,
+ * toutes fausses ensemble.
+ *
+ *  · LA PASTILLE (fond clair, coins arrondis) dit OÙ L'ON EST : la barre du
+ *    haut, le rail. On passe d'un territoire à un autre.
+ *  · LE SOULIGNEMENT dit QUELLE FACE du même objet on regarde : les onglets
+ *    d'une fiche, d'une fenêtre, d'un écran. On ne change pas de lieu, on
+ *    tourne une page.
+ *
+ * Un seul trait, une seule couleur — l'accent —, une seule hauteur. Ces deux
+ * classes remplacent les douze variantes.
+ */
+.onglet-page {
+  padding: .625rem 1rem; font-size: 13.5px; font-weight: 500;
+  border-bottom: 2px solid transparent; margin-bottom: -1px;
+  color: var(--menu-texte-doux);
+  transition: color 150ms cubic-bezier(.32,.72,0,1),
+              border-color 150ms cubic-bezier(.32,.72,0,1);
+  white-space: nowrap;
+}
+.onglet-page:hover { color: var(--menu-texte); }
+.onglet-page-actif {
+  border-bottom-color: var(--menu-accent);
+  color: var(--menu-texte); font-weight: 600;
+}
