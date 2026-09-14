@@ -478,10 +478,12 @@ function DotationComparaison({ civil }) {
 
 import StatsDeliberation from '../components/StatsDeliberation.jsx';
 
-export default function Pilotage() {
+export default function Pilotage({ vue = 'tout' }) {
   const [centreImpression, setCentreImpression] = useState(false);
   const anneeActive = getAnnee();
-  const [tab, setTab]               = useState('synthese'); // synthese | etp | dotation | config
+  // L'écran ouvre sur ce que sa vue sait montrer : « Dotation » n'existe pas
+  // dans le reporting, et y atterrir donnerait une page vide.
+  const [tab, setTab]               = useState(vue === 'reporting' ? 'etp' : 'synthese');
   const [etpData, setEtpData]       = useState(null);
   // Dotation détaillée par section/UE (table fidèle maquette v3)
   const [dotEffic, setDotEffic]     = useState(null);   // efficience année active
@@ -1489,22 +1491,34 @@ export default function Pilotage() {
             ))}
           </select>
         }
+        /* CE QU'ON LIT ET CE QU'ON ENGAGE NE SE MÊLENT PLUS.
+           Le même écran servait les deux, et c'est pour cela qu'on ne pouvait
+           pas ouvrir l'un sans l'autre. « vue » le scinde : « reporting » ne
+           montre que ce qui se consulte, « gestion » que ce qui engage. */
         sections={[{ items: [
-          { key: 'synthese', label: 'Dotation',      icon: IconHome,     actif: tab === 'synthese', onClick: () => setTab('synthese') },
-          { key: 'etp',      label: 'ETP',           icon: IconUsers,    actif: tab === 'etp',      onClick: () => setTab('etp') },
-          { key: 'dotation', label: 'Comparaison',   icon: IconChartBar, actif: tab === 'dotation', onClick: () => setTab('dotation') },
-          { key: 'budget',   label: 'Budget',        icon: IconCash,     actif: tab === 'budget',   onClick: () => setTab('budget') },
+          ...(vue === 'gestion' ? [] : [
+            { key: 'etp',      label: 'ETP',         icon: IconUsers,    actif: tab === 'etp',      onClick: () => setTab('etp') },
+            { key: 'dotation', label: 'Comparaison', icon: IconChartBar, actif: tab === 'dotation', onClick: () => setTab('dotation') },
+          ]),
+          ...(vue === 'reporting' ? [] : [
+            { key: 'synthese', label: 'Dotation',    icon: IconHome,     actif: tab === 'synthese', onClick: () => setTab('synthese') },
+            { key: 'budget',   label: 'Budget',      icon: IconCash,     actif: tab === 'budget',   onClick: () => setTab('budget') },
+          ]),
           // La répartition entre années civiles relève de la direction : inutile
           // de la proposer à qui ne pourra pas l'ouvrir.
-          ...(getUser()?.role === 'coordination' ? [] : [
+          ...(vue === 'reporting' || getUser()?.role === 'coordination' ? [] : [
             { key: 'repartition', label: 'Répartition des périodes', icon: IconCalendar, actif: tab === 'repartition', onClick: () => setTab('repartition') },
           ]),
           // CE QUE LE CONSEIL A DÉCIDÉ, en chiffres. Ces taux se
           // reconstituaient à la main pour le rapport d'activité alors qu'ils
           // sont déjà en base.
-          { key: 'deliberation', label: 'Résultats', icon: IconChartBar,
-            actif: tab === 'deliberation', onClick: () => setTab('deliberation') },
-          { key: 'config',   label: 'Configuration', icon: IconSettings, actif: tab === 'config',   onClick: () => setTab('config') },
+          ...(vue === 'gestion' ? [] : [
+            { key: 'deliberation', label: 'Résultats', icon: IconChartBar,
+              actif: tab === 'deliberation', onClick: () => setTab('deliberation') },
+          ]),
+          ...(vue === 'reporting' ? [] : [
+            { key: 'config', label: 'Configuration', icon: IconSettings, actif: tab === 'config', onClick: () => setTab('config') },
+          ]),
         ] }]}
       />
 

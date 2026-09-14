@@ -137,7 +137,7 @@ export default function Users({ embedded = false }) {
     <div className={embedded ? 'p-4 space-y-4' : 'p-6 space-y-4'}>
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div className="flex-1 min-w-[320px]">
-          {!embedded && <h1 className="text-[17px] font-title text-iip-blue leading-tight mb-2">Accès à Lucie</h1>}
+          {!embedded && <h1 className="titre-ecran">Accès à Lucie</h1>}
           <div className="px-3 py-2 rounded-lg bg-sky-50 border border-sky-200 text-[12px] text-sky-900">
             Les accès d'un membre du personnel se règlent depuis sa fiche, onglet « Accès Lucie »,
             ou directement dans le tableau ci-dessous. Le bouton ne sert qu'aux comptes sans

@@ -19,10 +19,14 @@ export const MODULES_ACCES = [
   { key: 'personnel',    label: 'Personnel',     Icone: IconUsers,         desc: 'Voir et/ou modifier les fiches membres' },
   { key: 'organisation', label: 'Organisation',  Icone: IconFolders,       desc: "Dates d'UE, structure des sections, rentrée" },
   { key: 'planification',label: 'Horaires',      Icone: IconCalendar,      desc: 'Groupes, horaires et planification' },
-  { key: 'communication',label: 'Communication', Icone: IconMail,          desc: 'Listes, courriers, documents produits' },
   { key: 'listes',       label: 'Listes',        Icone: IconFileText,      desc: 'Accès aux listes et documents' },
   { key: 'procedures',   label: 'Procédures',    Icone: IconGavel,         desc: 'Accès aux procédures' },
-  { key: 'pilotage',     label: 'Pilotage',      Icone: IconChartBar,      desc: 'Dotation et statistiques de ses sections' },
+  // PILOTAGE SE LIT, DOTATION S'ENGAGE — et ce n'est pas le même cadenas.
+  // Tant que la dotation vivait dans « pilotage », ouvrir le reporting à une
+  // coordination lui ouvrait la dotation : la règle de la maison — elle
+  // consulte, elle propose, elle n'engage pas — était inexprimable.
+  { key: 'pilotage',     label: 'Reporting',     Icone: IconChartBar,      desc: 'Synthèse, ETP, résultats — en lecture' },
+  { key: 'dotation',     label: 'Dotation',      Icone: IconCoin,          desc: "Ce qui engage l'établissement — réservé" },
   { key: 'repartition',  label: 'Répartition',   Icone: IconCalendarStats, desc: 'Périodes entre années civiles — document 2' },
   { key: 'budget',       label: 'Budget',        Icone: IconCoin,          desc: 'Prévisions et dépenses de la section' },
   { key: 'recrutement',  label: 'Recrutement',   Icone: IconBriefcase,     desc: 'Accès au module recrutement' },
@@ -47,10 +51,13 @@ export const PLAFOND_ROLE = {
   editeur:           () => 'ecrit',
   // Le secrétariat encode les étudiants : c'est son métier, et cela n'engage
   // que de la donnée administrative.
-  secretariat:  m => (['etudiants', 'communication', 'listes', 'procedures'].includes(m)
+  secretariat:  m => (['etudiants', 'listes', 'procedures'].includes(m)
     ? 'ecrit' : 'lit'),
-  // La répartition entre années civiles engage l'établissement entier.
-  coordination: m => (['recrutement', 'repartition'].includes(m) ? 'rien' : 'validation'),
+  // LA COORDINATION CONSULTE, PROPOSE, MAIS N'ENGAGE PAS. C'est la règle de la
+  // maison, et elle se dit enfin : le reporting se lit, la dotation et la
+  // répartition ne s'ouvrent pas, le budget se prépare mais se fait valider.
+  coordination: m => (['recrutement', 'repartition', 'dotation'].includes(m)
+    ? 'rien' : m === 'pilotage' ? 'lit' : 'validation'),
   professeur:   m => (['attributions', 'personnel', 'planification'].includes(m) ? 'lit' : 'rien'),
   consultation: () => 'lit',
 };

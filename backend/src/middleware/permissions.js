@@ -20,9 +20,21 @@ import db from '../db/index.js';
 // Une case ne peut jamais accorder plus que le rôle ne le permet.
 // ─────────────────────────────────────────────────────────────────────────────
 
+/*
+ * PILOTAGE SE LIT, DOTATION S'ENGAGE.
+ *
+ * Tant que la dotation vivait dans « pilotage », ouvrir le reporting à une
+ * coordination lui ouvrait la dotation : la règle de la maison — elle
+ * consulte, elle propose, elle n'engage pas — n'était pas exprimable. Ce
+ * module-ci est la ligne qui manquait.
+ *
+ * « communication » disparaît avec son axe : ses listes sont des pièces du
+ * centre d'impression, et un module qui ne garde plus rien est un cadenas sur
+ * une porte qu'on a murée.
+ */
 export const MODULES = [
   'etudiants', 'attributions', 'personnel', 'organisation', 'planification',
-  'communication', 'listes', 'procedures', 'pilotage', 'repartition', 'budget',
+  'listes', 'procedures', 'pilotage', 'dotation', 'repartition', 'budget',
   'recrutement',
 ];
 
@@ -40,9 +52,12 @@ const PLAFOND_INITIAL = {
   directeur:         () => 'ecrit',
   directeur_adjoint: () => 'ecrit',
   editeur:           () => 'ecrit',
-  secretariat:  m => (['etudiants', 'communication', 'listes', 'procedures'].includes(m)
+  secretariat:  m => (['etudiants', 'listes', 'procedures'].includes(m)
     ? 'ecrit' : 'lit'),
-  coordination: m => (['recrutement', 'repartition'].includes(m) ? 'rien' : 'validation'),
+  // La coordination consulte le reporting, prépare un budget, et n'engage ni
+  // la dotation ni la répartition des périodes.
+  coordination: m => (['recrutement', 'repartition', 'dotation'].includes(m)
+    ? 'rien' : m === 'pilotage' ? 'lit' : 'validation'),
   professeur:   m => (['attributions', 'personnel', 'planification'].includes(m) ? 'lit' : 'rien'),
   consultation: () => 'lit',
 };

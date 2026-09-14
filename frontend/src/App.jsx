@@ -52,7 +52,7 @@ import Besoins from './pages/Besoins.jsx';
 import Organisation from './pages/Organisation.jsx';
 import DUE from './pages/DUE.jsx';
 import Classement from './pages/Classement.jsx';
-import { AxeAccueil, AxeEtudiants, AxeCommunication } from './pages/Axes.jsx';
+import { AxeAccueil, AxeEtudiants } from './pages/Axes.jsx';
 import { BoutonAide } from './pages/Aide.jsx';
 
 /* eslint-disable no-undef */
@@ -278,13 +278,29 @@ function ProtectedLayout({ children }) {
   // « role === coordination » pour ne montrer que deux entrées, alors que le
   // système de permissions accorde à la coordination un droit de validation sur
   // les étudiants : l'onglet était masqué à des gens qui y avaient droit.
+  /*
+   * CINQ AXES, ET CHACUN RÉPOND À UNE QUESTION.
+   *
+   * · COMMUNICATION DISPARAÎT. L'axe ne portait qu'un constructeur de listes
+   *   et deux raccourcis de documents — c'est exactement ce que fait le centre
+   *   d'impression. Une porte de moins pour le même geste.
+   *
+   * · ACCUEIL ET PILOTAGE FUSIONNENT en « Tableau de bord ». « Ce qui
+   *   m'attend » et « où en sommes-nous » sont la même question posée à deux
+   *   échelles ; ce qui les séparait n'était pas leur nature mais leur
+   *   confidentialité — et la confidentialité se règle par le rôle, pas par un
+   *   onglet. La direction y voit tout, une coordination sa section.
+   *
+   * · GESTION NAÎT, et c'est le vrai gain : ce qu'on ENGAGE — dotation,
+   *   budget, répartition — quitte ce qu'on CONSULTE. Un écran qu'on lit et un
+   *   écran où l'on décide ne peuvent pas porter le même cadenas.
+   */
   const AXES = [
-    ['/accueil',       'Accueil',       IconHome,           null],
-    ['/etudiants',     'Étudiants',     IconChecklist,      'etudiants'],
-    ['/professeurs',   'Personnel',     IconUsers,          'personnel'],
-    ['/organisation',  'Organisation',  IconClipboardList,  'attributions'],
-    ['/communication', 'Communication', IconFileExport,     'communication'],
-    ['/pilotage',      'Pilotage',      IconChartBar,       'pilotage'],
+    ['/accueil',       'Tableau de bord', IconHome,           null],
+    ['/etudiants',     'Étudiants',       IconChecklist,      'etudiants'],
+    ['/professeurs',   'Personnel',       IconUsers,          'personnel'],
+    ['/organisation',  'Organisation',    IconClipboardList,  'attributions'],
+    ['/gestion',       'Gestion',         IconChartBar,       'dotation'],
   ];
 
   const nav = AXES
@@ -453,7 +469,8 @@ export default function App() {
       <Route path="/accueil"      element={<ProtectedLayout><AxeAccueil /></ProtectedLayout>} />
       <Route path="/organisation" element={<ProtectedLayout><Organisation /></ProtectedLayout>} />
       <Route path="/etudiants"    element={<ProtectedLayout><AxeEtudiants /></ProtectedLayout>} />
-      <Route path="/communication" element={<ProtectedLayout><AxeCommunication /></ProtectedLayout>} />
+      {/* COMMUNICATION A DISPARU : ses listes sont dans le centre d'impression. */}
+      <Route path="/communication" element={<Navigate to="/accueil" replace />} />
       <Route path="/recrutement"   element={<ProtectedLayout><AdminOrRH><Recrutement /></AdminOrRH></ProtectedLayout>} />
       <Route path="/dcpp/:profId" element={<ProtectedLayout><DCPP /></ProtectedLayout>} />
       <Route path="/listes" element={
@@ -482,7 +499,10 @@ export default function App() {
       <Route path="/echeancier"     element={<ProtectedLayout><Echeancier /></ProtectedLayout>} /> {/* conservé : liens des rappels */}
       <Route path="/besoins"        element={<ProtectedLayout><Besoins /></ProtectedLayout>} />
       <Route path="/classement"     element={<ProtectedLayout><Classement /></ProtectedLayout>} />
-      <Route path="/pilotage"       element={<ProtectedLayout><Pilotage /></ProtectedLayout>} />
+      {/* GESTION — ce qu'on engage. « /pilotage » reste servi pour les liens
+          déjà notés ou mis en favori, et mène au tableau de bord. */}
+      <Route path="/gestion"        element={<ProtectedLayout><Pilotage vue="gestion" /></ProtectedLayout>} />
+      <Route path="/pilotage"       element={<Navigate to="/accueil" replace />} />
       <Route path="/planification"  element={<ProtectedLayout><Organisation ongletInitial="planification" /></ProtectedLayout>} />
       <Route path="/aide"           element={<ProtectedLayout><Aide /></ProtectedLayout>} />
       <Route path="/attestation"   element={<ProtectedLayout><Attestation /></ProtectedLayout>} />

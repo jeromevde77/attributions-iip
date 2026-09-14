@@ -329,7 +329,7 @@ table.grid-excel-soft td.num { text-align: right; font-variant-numeric: tabular-
   --menu-accent:      #0093B0;   /* turquoise assombri : lisible sur gris pâle */
   --barre-fond:       #F8FAFC;   /* le fond de la page : la barre s'y fond aussi */
   --champ-fond:       #FFFFFF;
-  --tab-repere:       #F1F4F8;   /* en-têtes et regroupements : un seul ton */
+  --tab-repere:       #F8FAFC;   /* le fond de la page : le filet suffit à démarquer */
 }
 :root[data-mode="sombre"] {
   --menu-fond:        #0F1A2E;   /* le fond de la page en mode sombre */
@@ -345,7 +345,7 @@ table.grid-excel-soft td.num { text-align: right; font-variant-numeric: tabular-
   --menu-accent:      #00AACC;
   --barre-fond:       #0F1A2E;
   --champ-fond:       rgba(255,255,255,.08);
-  --tab-repere:       rgba(255,255,255,.06);
+  --tab-repere:       rgba(255,255,255,.04);
 }
 
 /* ─── LA BARRE DU HAUT — entière, mais du même monde que le rail ─────────
@@ -527,8 +527,9 @@ select.controle { padding-right: 1.5rem; }
  *
  * L'en-tête et le regroupement sont le MÊME objet — l'un nomme les colonnes,
  * l'autre nomme un paquet de lignes. Ils prennent donc le même ton, et ce ton
- * est celui du cadre de titre. La donnée reste sur fond blanc, et c'est le
- * seul contraste dont un tableau a besoin.
+ * est CELUI DE LA PAGE : ton sur ton. Le filet démarque déjà ; y ajouter un
+ * gris, c'était dire deux fois la même chose, et la seconde fois plus fort que
+ * la première. Seule la DONNÉE est blanche — et c'est ainsi qu'on la voit.
  */
 .tab-repere {
   background: var(--tab-repere);
@@ -541,4 +542,27 @@ select.controle { padding-right: 1.5rem; }
   border-bottom: 1px solid var(--menu-bord);
   color: var(--menu-texte-doux);
   font-size: 11px; text-transform: uppercase; letter-spacing: .06em;
+}
+
+/* ═══ LE TITRE D'UN ÉCRAN ═════════════════════════════════════════════════
+ *
+ * « Étudiants », « Membres du personnel », « Pilotage des dotations » : même
+ * mot d'ordre, trois hauteurs, parce que chaque écran se donnait son propre
+ * retrait — p-4 ici, p-5 là, px-3 md:px-6 py-4 ailleurs. Le titre suivait, et
+ * l'oeil voyait l'écran sauter à chaque changement d'onglet.
+ *
+ * Une classe, et elle fixe TOUT : la police, la taille, la couleur, et surtout
+ * la distance au haut de la zone de travail. Un titre ne se compose plus, il
+ * se pose.
+ */
+.titre-ecran {
+  display: flex; align-items: baseline; gap: .55rem;
+  margin: 0 0 .9rem; padding: 0;
+  font-family: inherit;
+  font-size: 17px; font-weight: 600; line-height: 1.25;
+  color: var(--menu-texte);
+}
+.titre-ecran .compte {
+  font-family: inherit; font-size: 12px; font-weight: 400;
+  color: var(--menu-texte-doux);
 }

@@ -86,7 +86,7 @@ export default function Annees({ embedded = false }) {
   return (
     <div className={embedded ? 'space-y-4' : 'p-4 md:p-6 max-w-2xl mx-auto space-y-4'}>
       <div className="flex items-center justify-between">
-        {!embedded && <h1 className="text-[17px] font-title text-iip-blue leading-tight">Années scolaires</h1>}
+        {!embedded && <h1 className="titre-ecran">Années scolaires</h1>}
         {embedded && <div className="text-sm text-gray-500">Gestion des années scolaires</div>}
         <button onClick={() => { setShowForm(true); setForm({ code: nextYear(), libelle: `Année ${nextYear()}`, source: annees[annees.length-1]?.code || '2025-2026', mode: 'copie' }); }}
           className="bg-iip-gold hover:bg-iip-amber text-white text-sm px-4 py-2 rounded font-medium inline-flex items-center gap-1.5">

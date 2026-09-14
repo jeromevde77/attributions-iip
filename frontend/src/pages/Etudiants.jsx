@@ -2271,8 +2271,8 @@ export default function Etudiants() {
           rail le portait déjà ; mais Personnel gardait le sien, et huit autres
           écrans chacun le leur. Uniforme veut dire partout ou nulle part — et
           nulle part laisse l'écran sans point d'entrée pour le regard. */}
-      <h1 className="text-[17px] font-title text-iip-blue leading-tight">
-        Étudiants <span className="text-[13px] font-normal text-slate-400">· {filtres.length}</span>
+      <h1 className="titre-ecran">
+        Étudiants <span className="compte">· {filtres.length}</span>
       </h1>
 
       <div className="flex gap-3 flex-wrap">

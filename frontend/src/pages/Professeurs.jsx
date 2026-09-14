@@ -2345,8 +2345,8 @@ export default function Professeurs() {
           autres écrans avaient chacun le leur. Ce n'est pas un détail de
           goût : c'est ce qui fait qu'on doute d'être au même endroit. */}
       <div className="flex items-center justify-between mb-4 gap-3 flex-wrap">
-        <h1 className="text-[17px] font-title text-iip-blue leading-tight">
-          Membres du personnel <span className="text-[13px] font-normal text-slate-400">· {filtered.length}</span>
+        <h1 className="titre-ecran">
+          Membres du personnel <span className="compte">· {filtered.length}</span>
         </h1>
         <div className="flex gap-2 items-center flex-wrap">
           <div className="relative">

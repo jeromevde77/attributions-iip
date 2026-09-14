@@ -106,13 +106,12 @@ export function VoletRail({ titre, children }) {
 export function PageHeader({ icon: Icon, titre, sous, actions }) {
   return (
     <div className="flex items-center justify-between gap-4 mb-3.5">
+      {/* PLUS D'ICÔNE DEVANT LE TITRE.
+          Elle répétait celle de l'axe, à trois centimètres de distance, et
+          aucun des autres écrans n'en avait : le titre tombait donc plus à
+          droite ici qu'ailleurs, pour redire ce que le rail disait déjà. */}
       <div className="flex items-baseline gap-2.5 min-w-0">
-        {Icon && (
-          <Icon size={19} stroke={1.8}
-            className="text-iip-turquoise flex-shrink-0 self-center" />
-        )}
-        <h1 className="text-[17px] font-title text-iip-blue leading-tight
-                       flex-shrink-0">{titre}</h1>
+        <h1 className="titre-ecran flex-shrink-0 mb-0">{titre}</h1>
         {sous && (
           <p className="text-[13px] text-slate-400 truncate hidden md:block">
             <span className="mr-2 text-slate-300">·</span>{sous}
@@ -302,7 +301,7 @@ export function RailDessine({ icon: HeaderIcon, titre, sousTitre, extra,
        */
       className={`group/rail fixed left-0 z-10 flex py-0
         top-[calc(var(--barre-h,4rem)+1rem)] bottom-4
-        rounded-r-panneau border-l-0 border-r border-y
+        rounded-r-carte border-l-0 border-r border-y
         transition-[width] duration-300 ease-ios
         ${volet ? 'w-[14.5rem]' : epingle ? 'w-[14.5rem]' : 'w-14'}`}
       style={{ background: 'var(--menu-fond)', borderColor: 'var(--menu-bord)' }}>

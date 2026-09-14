@@ -1,11 +1,15 @@
 import { Suspense, lazy } from 'react';
 import {
   IconHome, IconChecklist, IconSend, IconLayoutDashboard, IconCalendarStats,
+  IconChartBar,
   IconClipboardList, IconScale, IconShieldExclamation, IconDoorEnter,
   IconUserCheck, IconRoute, IconFileText, IconFolder, IconNotes,
 } from '@tabler/icons-react';
 import Axe from '../components/Axe.jsx';
 import Accueil from './Accueil.jsx';
+import { droitEffectif } from '../lib/modules.js';
+import { getUser } from '../lib/api.js';
+const Pilotage = lazy(() => import('./Pilotage.jsx'));
 import Etudiants from './Etudiants.jsx';
 import Deliberation from './Deliberation.jsx';
 import Echeancier from './Echeancier.jsx';
@@ -23,17 +27,36 @@ const Attente = () => <div className="p-6 text-sm text-slate-400">Chargement…<
 
 // ── ACCUEIL — « Qu'est-ce qui m'attend ? » ──────────────────────────────────
 export function AxeAccueil() {
+  /*
+   * ACCUEIL ET PILOTAGE NE FONT PLUS QU'UN.
+   *
+   * « Qu'est-ce qui m'attend ? » et « où en sommes-nous ? » sont la même
+   * question posée à deux échelles : ce que je dois faire aujourd'hui, et ce
+   * que l'école a produit. Ce qui les séparait n'était pas leur nature mais
+   * leur confidentialité — et la confidentialité se règle par le RÔLE, pas par
+   * un onglet. La direction voit tout ; une coordination voit sa section, et
+   * les chiffres globaux qu'on aura décidé de montrer.
+   *
+   * Le reporting n'apparaît donc que si le module « pilotage » est ouvert, et
+   * il ne montre que ce qui se CONSULTE : ce qui engage est dans Gestion.
+   */
+  const voitReporting = droitEffectif(getUser(), 'pilotage') !== 'rien';
   return (
     <Axe
-      titre="Accueil" icone={IconHome}
-      question="« Qu'est-ce qui m'attend ? »"
+      titre="Tableau de bord" icone={IconHome}
+      question="« Où en sommes-nous ? »"
       onglets={[
-        { key: 'tableau', label: 'Tableau de bord', icone: IconLayoutDashboard,
+        { key: 'tableau', label: 'Ce qui m\u2019attend', icone: IconLayoutDashboard,
           sansMarge: true, railPropre: true,
           rendu: <Accueil /> },
         { key: 'echeancier', label: 'Échéancier', icone: IconCalendarStats,
           sansMarge: true, railPropre: true,
           rendu: <Echeancier /> },
+        ...(voitReporting ? [{
+          key: 'reporting', label: 'Chiffres de l\u2019école', icone: IconChartBar,
+          sansMarge: true, railPropre: true,
+          rendu: <Suspense fallback={<Attente />}><Pilotage vue="reporting" /></Suspense>,
+        }] : []),
       ]}
     />
   );
@@ -81,23 +104,9 @@ export function AxeEtudiants() {
   );
 }
 
-// ── COMMUNICATION — « Que dois-je produire ou envoyer ? » ───────────────────
-export function AxeCommunication() {
-  return (
-    <Axe
-      titre="Communication" icone={IconSend}
-      question="« Que dois-je produire ou envoyer ? »"
-      onglets={[
-        { key: 'listes', label: 'Listes & impressions', icone: IconFileText,
-          sansMarge: true, railPropre: true,
-          rendu: <Suspense fallback={<Attente />}><Listes /></Suspense> },
-        { key: 'diffusion', label: 'Diffusion ciblée', icone: IconSend, futur: true,
-          description: '« Envoyer à tous les professeurs de l\u2019UE 95 » — modèles, accusés de lecture, historique.' },
-        { key: 'documents', label: 'Courriers & documents', icone: IconFolder, futur: true,
-          description: "L'archive de tout ce que Lucie a généré : réimpression, production en lot." },
-        { key: 'reunions', label: 'Notes de réunion', icone: IconNotes, futur: true,
-          description: 'Décisions, diffusion aux absents, lien décision → action → échéance.' },
-      ]}
-    />
-  );
-}
+// ── COMMUNICATION N'EXISTE PLUS ─────────────────────────────────────────────
+// L'axe ne portait qu'un constructeur de listes et deux raccourcis de
+// documents — plus trois onglets jamais construits. Or c'est exactement ce que
+// fait le catalogue d'impression : la même chose, à un endroit de moins. Les
+// listes y sont des pièces, et « envoyer par courriel » est une SORTIE, pas
+// une porte.
