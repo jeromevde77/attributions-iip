@@ -314,6 +314,10 @@ et 3 composants de tuile**. La stratégie tient en cinq chantiers, dans cet ordr
   employaient huit valeurs au hasard — des boutons pointus à côté de boutons
   ronds. On ne réécrit pas deux mille trois cents classes : **on redéfinit le
   défaut**, et tout y tombe, aujourd'hui comme demain.
+- **Le filet de la barre s'aligne sur la colonne de contenu** :
+  `left: calc(var(--rail) + 1rem)`. Posé à une marge choisie, il ne répondait à
+  rien — ni au rail, ni au titre, ni au tableau. Il suit maintenant quand le
+  rail s'élargit, sans que personne ait à y penser.
 - **Un tableau n'a que deux tons** (`.tab-entete`, `.tab-repere`). L'en-tête
   et la ligne de regroupement sont le **même objet** — l'un nomme les colonnes,
   l'autre nomme un paquet de lignes : même fond, celui du cadre de titre. La

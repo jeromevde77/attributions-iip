@@ -368,7 +368,12 @@ table.grid-excel-soft td.num { text-align: right; font-variant-numeric: tabular-
  * soulignement, pas une bande qui coupe l'écran en deux. */
 .barre-haut::after {
   content: ""; position: absolute; bottom: 0; height: 1px;
-  left: 1.25rem; right: 1.25rem;
+  /* LE FILET COMMENCE OÙ COMMENCE LE TRAVAIL.
+     Posé à une marge choisie — 1,25 rem —, il ne répondait à rien : ni au
+     rail, ni au titre, ni au tableau. Il s'aligne désormais sur la COLONNE DE
+     CONTENU : la gouttière du rail, plus le retrait que l'écran se donne. Il
+     suit donc quand le rail s'élargit, sans que personne ait à y penser. */
+  left: calc(var(--rail, 5rem) + 1rem); right: 1rem;
   background: var(--menu-bord);
   transition: left 300ms cubic-bezier(.32,.72,0,1);
 }
