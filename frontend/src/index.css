@@ -580,3 +580,24 @@ select.controle { padding-right: 1.5rem; }
 .fond-argent      { background: #F4F6F8; border-color: #D8DEE6; }
 .fond-bronze      { background: #F8F2EB; border-color: #DFC9AE; }
 .fond-depassement { background: #F9EFEC; border-color: #E3C4BB; }
+
+/* ═══ LE BLANC EST RÉSERVÉ À CE QUI SE REMPLIT ════════════════════════════
+ *
+ * LA RÈGLE, ET ELLE EST SIMPLE : un champ de saisie ou de sélection est
+ * BLANC ; tout le reste est ton sur ton avec la page.
+ *
+ * Le blanc cesse d'être un décor pour devenir une INVITATION : là où c'est
+ * blanc, on écrit ou on choisit. Partout ailleurs — cartes, tableaux, listes,
+ * panneaux — c'est le fond de la page, et ce sont les filets qui séparent.
+ * Un aplat blanc sur un fond presque blanc ne sépare rien : il ajoute une
+ * ombre de différence que l'oeil enregistre sans pouvoir l'expliquer.
+ *
+ * Conséquence pratique : une carte n'a plus besoin d'ombre. Elle a un filet,
+ * un rayon, et cela suffit.
+ */
+.carte {
+  background: var(--tab-repere);
+  border: 1px solid var(--menu-bord);
+  border-radius: 14px;
+}
+.carte-plate { background: var(--tab-repere); }

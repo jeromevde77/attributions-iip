@@ -2339,7 +2339,9 @@ export default function Etudiants() {
           {chargement ? 'Chargement…' : 'Aucun étudiant — importez les données depuis eCampus.'}
         </div>
       ) : (
-        <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
+        /* LE BLANC EST RÉSERVÉ AUX CHAMPS : la liste prend le ton de la page,
+           et le filet sépare. */
+        <div className="carte overflow-hidden">
           <table className="w-full text-sm">
             <thead>
               <tr className="tab-entete">

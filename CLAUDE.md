@@ -323,6 +323,14 @@ et 3 composants de tuile**. La stratégie tient en cinq chantiers, dans cet ordr
   `left: calc(var(--rail) + 1rem)`. Posé à une marge choisie, il ne répondait à
   rien — ni au rail, ni au titre, ni au tableau. Il suit maintenant quand le
   rail s'élargit, sans que personne ait à y penser.
+- **Le blanc est réservé à ce qui se remplit.** Un champ de saisie ou de
+  sélection est blanc ; **tout le reste est ton sur ton** avec la page —
+  cartes, tableaux, listes, panneaux —, et ce sont les filets qui séparent
+  (`.carte`, `.carte-plate`). Le blanc cesse d'être un décor pour devenir une
+  invitation : là où c'est blanc, on écrit ou on choisit. Un aplat blanc sur un
+  fond presque blanc ne sépare rien ; il ajoute une ombre de différence que
+  l'œil enregistre sans pouvoir l'expliquer. Conséquence : une carte n'a plus
+  besoin d'ombre — un filet et un rayon suffisent.
 - **Un tableau n'a que deux tons** (`.tab-entete`, `.tab-repere`). L'en-tête
   et la ligne de regroupement sont le **même objet** — l'un nomme les colonnes,
   l'autre nomme un paquet de lignes : même fond, celui du cadre de titre. La

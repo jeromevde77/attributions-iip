@@ -2026,13 +2026,13 @@ export default function Attributions() {
             fenêtres. Écrite en « rounded-lg », elle prenait huit : le rayon
             des CHAMPS. Deux objets côte à côte, deux arrondis, et l'oeil le
             voit avant de savoir quoi regarder. */
-         : <div className="bg-white rounded-carte border border-gray-200 overflow-hidden">
+         : <div className="carte overflow-hidden">
              {sectionGroups.map(renderSection)}
            </div>}
       </div>}
 
       {/* VUE COMPLÈTE */}
-      {viewMode==='flat' && <div className="hidden md:block bg-white rounded-carte border border-gray-200 overflow-auto max-h-[calc(100vh-260px)]">
+      {viewMode==='flat' && <div className="hidden md:block carte overflow-auto max-h-[calc(100vh-260px)]">
         {loading ? <div className="p-8 text-center text-gray-400">Chargement…</div> : (
           <table className="grid-excel-soft" style={{tableLayout:'fixed'}}>
             <thead><tr>
