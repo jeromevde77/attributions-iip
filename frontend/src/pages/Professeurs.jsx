@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { nomPropre } from '../lib/nom.js';
+import { nomPropre, nomDepuisChaine } from '../lib/nom.js';
 import { useNavigate } from 'react-router-dom';
 import { api, getAnnee, getUser, nomDoc } from '../lib/api.js';
 import ProfFicheModal from './ProfFicheModal.jsx';
@@ -2235,15 +2235,18 @@ export default function Professeurs() {
         <td className="font-medium">
           {designer ? (
             <span className="inline-flex items-center gap-2">
-              <span className="bg-orange-100 text-orange-700 border border-orange-300 rounded-full px-3 py-0.5 text-xs font-bold">
+              {/* UN MÊME RAYON POUR TOUT — une pastille pleinement ronde ici,
+                  des coins de huit partout ailleurs : c'est le genre d'écart
+                  qu'on ne sait pas nommer mais qu'on voit. */}
+              <span className="bg-orange-100 text-orange-700 border border-orange-300 rounded-champ px-2.5 py-0.5 text-[11px] font-bold">
                 À désigner
               </span>
             </span>
           ) : (
             <button onClick={() => setDetailId(p.id)} className="hover:text-iip-gold hover:underline text-left flex items-center gap-2">
-              {p.nom_prenom}
+              {nomDepuisChaine(p.nom_prenom)}
               {nouveau && (
-                <span className="bg-green-600 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full uppercase tracking-wide flex-shrink-0">
+                <span className="bg-emerald-600 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-champ uppercase tracking-wide flex-shrink-0">
                   NEW
                 </span>
               )}
