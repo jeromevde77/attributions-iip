@@ -296,7 +296,7 @@ export function RailDessine({ icon: HeaderIcon, titre, sousTitre, extra,
       className={`group/rail fixed left-0 top-16 bottom-0 z-10 flex py-0
         rounded-r-panneau border-y-0 border-l-0 border-r
         transition-[width] duration-300 ease-ios
-        ${volet ? 'w-[21.5rem]' : epingle ? 'w-[14.5rem]' : 'w-14'}`}
+        ${volet ? 'w-[14.5rem]' : epingle ? 'w-[14.5rem]' : 'w-14'}`}
       style={{ background: 'var(--menu-fond)', borderColor: 'var(--menu-bord)' }}>
       {/* LA COLONNE DES ICÔNES — ce que tous les écrans ont en commun. */}
       <div className={`flex flex-col py-3 min-h-0 flex-shrink-0

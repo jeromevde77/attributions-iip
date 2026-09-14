@@ -46,10 +46,17 @@ export function useRailEpingle() {
   return v;
 }
 
-/** La largeur que le rail occupe réellement, en rem. */
+/**
+ * La largeur que le rail occupe réellement, en rem.
+ *
+ * LE VOLET A MAIGRI D'UN TIERS — 21,5 rem devenues 14,5. Il tenait des listes
+ * déroulantes et un champ de recherche : utile, mais rien là-dedans ne réclame
+ * trois cent quarante pixels. Ce qu'on lui reprend, le tableau le récupère, et
+ * c'est le tableau qu'on est venu lire.
+ */
 /**
  * LA PLACE QUE LE RAIL PREND — marge, panneau, et le même souffle de l'autre
  * côté : le rail flotte, le contenu ne doit pas venir se coller au verre.
  *   replié : 0,75 + 3,5 + 0,75 = 5rem · ouvert : 0,75 + 14,5 + 0,75 = 16rem
  */
-export const LARGEUR_RAIL = { replie: '5rem', ouvert: '16rem', volet: '22.5rem' };
+export const LARGEUR_RAIL = { replie: '5rem', ouvert: '16rem', volet: '15.5rem' };

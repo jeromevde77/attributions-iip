@@ -270,7 +270,7 @@ function ProtectedLayout({ children }) {
           détachés sur le même écran, c'est un panneau de trop — il faut un
           point fixe, et c'est elle. Elle suit en revanche le mode des menus,
           sans quoi l'on retomberait sur deux espaces qui ne se parlent pas. */}
-      <header className="barre-haut border-b px-3 md:px-6 py-3 sticky top-0 z-20 shadow-pose">
+      <header className="barre-haut px-3 md:px-6 py-3 sticky top-0 z-20">
         <div className="flex items-center justify-between gap-3">
           {/* Burger mobile */}
           <button
