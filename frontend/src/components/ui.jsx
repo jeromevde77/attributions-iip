@@ -315,8 +315,13 @@ export function RailDessine({ icon: HeaderIcon, titre, sousTitre, extra,
       <div className={`flex flex-col pt-4 pb-3 min-h-0 flex-shrink-0
         ${volet ? 'w-14 border-r' : 'flex-1'}`}
         style={{ borderColor: 'var(--menu-filet)' }}>
-      {/* En-tête — replié, tout se centre : un libellé seulement masqué
-          laisserait l'icône décalée par rapport à la colonne du dessous. */}
+      {/* UN EN-TÊTE VIDE OCCUPE QUAND MÊME SA PLACE.
+          Rail replié et sans icône de titre, ce bloc ne montrait rien — mais
+          ses vingt-quatre pixels poussaient la première icône plus bas que le
+          titre du volet juste à côté, et que la première carte de la page. Les
+          trois colonnes doivent partir de la même ligne : ce qui ne s'affiche
+          pas ne se réserve pas de hauteur. */}
+      {(epingle || HeaderIcon) && (<>
       <div className={`flex items-center gap-3 mb-1 flex-shrink-0
         text-[color:var(--menu-texte)] ${epingle ? 'px-4' : 'justify-center'}`}>
         {HeaderIcon && (
@@ -339,6 +344,7 @@ export function RailDessine({ icon: HeaderIcon, titre, sousTitre, extra,
           style={{ color: 'var(--menu-texte-doux)' }}>{sousTitre}</div>
       )}
       {extra && <div className={`px-3 pt-2 ${reveal}`}>{extra}</div>}
+      </>)}
 
       {/* Sections */}
       {/* LA COLONNE DES RUBRIQUES EST CE QUI CÈDE.
@@ -347,7 +353,8 @@ export function RailDessine({ icon: HeaderIcon, titre, sousTitre, extra,
           bas du rail — hors du cadre, coupés par le bord de la fenêtre. Ce qui
           doit toujours se voir (imprimer, le mode) ne bouge pas ; c'est la
           liste qui se comprime et défile. */}
-      <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden rail-defile px-2 mt-1.5">
+      <div className={`flex-1 min-h-0 overflow-y-auto overflow-x-hidden rail-defile px-2
+        ${epingle || HeaderIcon ? 'mt-1.5' : ''}`}>
         {sections.map((sec, si) => (
           <div key={si} className="mb-3">
             {sec.label && (
@@ -507,7 +514,7 @@ export function RailDessine({ icon: HeaderIcon, titre, sousTitre, extra,
 
       {/* LE VOLET — ce que cet écran-ci ne peut pas dire en icônes. */}
       {volet && (
-        <div className="flex-1 min-w-0 flex flex-col py-3 px-3 min-h-0">
+        <div className="flex-1 min-w-0 flex flex-col pt-4 pb-3 px-3 min-h-0">
           {volet.titre && (
             <div className="px-1 pb-2 text-[10px] font-semibold uppercase tracking-wider
                             flex-shrink-0"
