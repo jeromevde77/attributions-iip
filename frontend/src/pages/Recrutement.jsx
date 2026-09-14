@@ -5,7 +5,7 @@ import {
   IconCheck, IconX, IconUsersGroup, IconDownload, IconClipboardText,
   IconLayoutColumns, IconChevronRight, IconSettings, IconFileText,
 } from '@tabler/icons-react';
-import { Btn, RailLateral } from '../components/ui.jsx';
+import { Btn, RailLateral, VoletRail } from '../components/ui.jsx';
 import { getAnnee } from '../lib/api.js';
 
 // Champ texte simple (évite le ReferenceError: Champ non importé)
@@ -210,14 +210,25 @@ export default function Recrutement() {
             { key: 'nouveau',   label: 'Nouveau candidat',    icon: IconUserPlus,      actif: false, onClick: () => setNouveauGlobal(true) },
             { key: 'rapport',   label: 'Rapport PDF',         icon: IconFileText,      actif: false, onClick: () => setRapportPDF(true) },
           ]},
-          { label: 'Section', items: [
-            { key: 'all', label: 'Toutes', icon: IconBriefcase, actif: filtre === '', onClick: () => setFiltre('') },
-            ...sections.map(s => ({
-              key: s, label: s, icon: IconBriefcase, actif: filtre === s, onClick: () => setFiltre(s),
-            })),
-          ]},
         ]}
       />
+      {/* UN FILTRE N'EST PAS UNE RUBRIQUE.
+          Les sections occupaient la colonne d'icônes, toutes avec la MÊME
+          mallette : rail replié, sept dessins identiques qu'il fallait
+          survoler un par un pour savoir lequel on visait — et la liste
+          s'allonge à chaque section ouverte. Une icône se mérite. Le choix
+          revient à ce qu'il est, une liste déroulante, et il vit dans le volet
+          du rail, là où vivent déjà les filtres des autres écrans. */}
+      <VoletRail titre="Filtre">
+        <label className="block text-[11px] mb-1" style={{ color: 'var(--menu-texte-doux)' }}>
+          Section
+        </label>
+        <select value={filtre} onChange={e => setFiltre(e.target.value)}
+          className="controle w-full bg-white border border-slate-300 rounded-champ px-2 text-[13px]">
+          <option value="">Toutes les sections</option>
+          {sections.map(s => <option key={s} value={s}>{s}</option>)}
+        </select>
+      </VoletRail>
       <div className="gouttiere-rail p-4 md:p-6">
 
         {vue === 'grille' && <EditeurGrille grille={grille} onSaved={chargerGrille} />}
