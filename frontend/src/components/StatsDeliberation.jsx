@@ -173,20 +173,18 @@ export default function StatsDeliberation({ annee }) {
         </div>
         <div className="flex items-center gap-2">
           <select value={section} onChange={e => setSection(e.target.value)}
-            className="border border-slate-300 rounded-lg px-2.5 py-1.5 text-[12.5px]">
+            className="controle">
             <option value="">Toutes les sections</option>
             {sections.map(s => (
               <option key={s.code} value={s.code}>{s.libelle || s.code}</option>
             ))}
           </select>
           <button onClick={exporter} disabled={!data}
-            className="px-2.5 py-1.5 text-[12px] rounded-lg border border-slate-300
-                       text-slate-600 flex items-center gap-1.5 disabled:opacity-40">
+            className="controle">
             <IconDownload size={14} /> Tableur
           </button>
           <button onClick={charger} disabled={enCours}
-            className="px-2.5 py-1.5 text-[12px] rounded-lg border border-slate-300
-                       text-slate-600 flex items-center gap-1.5 disabled:opacity-40">
+            className="controle">
             <IconRefresh size={14} /> Relire
           </button>
         </div>

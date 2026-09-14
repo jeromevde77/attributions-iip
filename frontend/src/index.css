@@ -443,3 +443,35 @@ table.grid-excel-soft td.num { text-align: right; font-variant-numeric: tabular-
   border-bottom-color: var(--menu-accent);
   color: var(--menu-texte); font-weight: 600;
 }
+
+/* ═══ UNE SEULE HAUTEUR DE CONTRÔLE ═══════════════════════════════════════
+ *
+ * Une liste déroulante et deux boutons côte à côte, et les trois ne font pas
+ * la même hauteur : la liste porte les métriques natives du navigateur, les
+ * boutons celles qu'on leur a écrites, et personne ne les a comparées. Deux
+ * pixels d'écart et une ligne de base qui ne se répond pas — c'est exactement
+ * le genre de détail qui sépare une application assemblée d'une application
+ * aboutie.
+ *
+ * Le rayon, on l'a réglé en redéfinissant le défaut de Tailwind. La hauteur ne
+ * peut pas se régler ainsi : un bouton dans une cellule de tableau n'a rien à
+ * faire à trente-six pixels. C'est donc une CLASSE, à poser sur les contrôles
+ * d'une barre d'outils — et une seule suffit pour que tout s'aligne.
+ */
+.controle {
+  height: 2.25rem; display: inline-flex; align-items: center; gap: .4rem;
+  padding-inline: .7rem; font-size: 13px; line-height: 1;
+  border-radius: 8px; border: 1px solid var(--menu-bord);
+  background: var(--champ-fond); color: var(--menu-texte);
+  white-space: nowrap;
+  transition: border-color 150ms cubic-bezier(.32,.72,0,1),
+              background-color 150ms cubic-bezier(.32,.72,0,1);
+}
+button.controle:hover:not(:disabled) { background: var(--menu-survol); }
+.controle:disabled { opacity: .4; }
+select.controle { padding-right: 1.5rem; }
+/* Le contrôle PRINCIPAL d'une barre — un seul, et il porte l'accent. */
+.controle-fort {
+  background: var(--menu-texte); color: var(--barre-fond);
+  border-color: transparent; font-weight: 600;
+}

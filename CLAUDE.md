@@ -314,6 +314,14 @@ et 3 composants de tuile**. La stratégie tient en cinq chantiers, dans cet ordr
   employaient huit valeurs au hasard — des boutons pointus à côté de boutons
   ronds. On ne réécrit pas deux mille trois cents classes : **on redéfinit le
   défaut**, et tout y tombe, aujourd'hui comme demain.
+- **Une seule hauteur de contrôle** (`.controle`, 36 px, dans `index.css`).
+  Une liste déroulante porte les métriques natives du navigateur, un bouton
+  celles qu'on lui a écrites : côte à côte, ils ne font pas la même hauteur et
+  leurs lignes de base ne se répondent pas. Le rayon se règle en redéfinissant
+  le défaut de Tailwind ; la hauteur ne le peut pas — un bouton dans une
+  cellule de tableau n'a rien à faire à 36 px. C'est donc une **classe**, à
+  poser sur les contrôles d'une barre d'outils. `.controle-fort` pour le
+  principal, et il n'y en a qu'un.
 - **Deux formes d'onglet, et une règle qui dit laquelle.** La **pastille**
   (fond clair, coins arrondis) dit *où l'on est* — barre du haut, rail : on
   change de territoire. Le **soulignement** (`.onglet-page` /
