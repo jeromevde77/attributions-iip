@@ -316,7 +316,7 @@ table.grid-excel-soft td.num { text-align: right; font-variant-numeric: tabular-
    l'œil — la rubrique ouverte, une alerte. Tout le reste est gris.
    ───────────────────────────────────────────────────────────────────────── */
 :root, :root[data-mode="clair"] {
-  --menu-fond:        rgba(241, 243, 247, 0.97);
+  --menu-fond:        #F8FAFC;   /* le fond de la page : le rail s'y fond */
   --menu-bord:        rgba(27, 43, 75, 0.10);
   --menu-texte:       #1B2B4B;
   --menu-texte-doux:  rgba(27, 43, 75, 0.55);
@@ -331,7 +331,7 @@ table.grid-excel-soft td.num { text-align: right; font-variant-numeric: tabular-
   --champ-fond:       #FFFFFF;
 }
 :root[data-mode="sombre"] {
-  --menu-fond:        rgba(27, 43, 75, 0.95);
+  --menu-fond:        #0F1A2E;   /* le fond de la page en mode sombre */
   --menu-bord:        rgba(255, 255, 255, 0.10);
   --menu-texte:       #FFFFFF;
   --menu-texte-doux:  rgba(255, 255, 255, 0.45);

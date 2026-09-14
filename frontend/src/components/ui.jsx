@@ -273,44 +273,31 @@ export function RailDessine({ icon: HeaderIcon, titre, sousTitre, extra,
    */
   const reveal = epingle ? 'whitespace-normal' : 'hidden';
 
-  return (
-    /* UN PANNEAU POSÉ SUR LA PAGE, ET NON UNE COLONNE COLLÉE AU BORD.
-     *
-     * Le rail occupait toute la hauteur de l'écran, d'un bord à l'autre : une
-     * bande pleine, du même bleu, qui faisait de la page deux territoires — « on
-     * dirait deux espaces différents ». Il devient un objet : détaché des bords,
-     * coins largement arrondis, HAUT DE CE QU'IL CONTIENT et centré
-     * verticalement, translucide sur ce qu'il recouvre, porté par une ombre
-     * douce. Six rubriques ne réclament pas quatre-vingts centimètres de bleu.
-     *
-     * SES COULEURS VIENNENT DES JETONS, jamais d'un bleu écrit en dur : c'est
-     * ce qui lui permet d'être gris pâle ou marine sans qu'il ait à le savoir. */
+  const rail = (
+    /* Le parti est expliqué sur la balise ci-dessous : le rail fait
+       désormais partie du cadre de la page, il ne s'y pose plus. */
     <aside
-      /* POSÉ SUR LA FENÊTRE, NON SUR LA PAGE. En « absolute », le rail se
-         centrait sur la HAUTEUR DU CONTENU : sur un écran long, il descendait
-         sous le bas de la fenêtre et son pied devenait inatteignable. En
-         « fixed », il reste où l'œil le cherche, et il suit quand on défile.
-         Le décalage de deux rem le centre SOUS la barre du haut, non sur la
-         fenêtre entière : sans lui, il montait par-dessus le logo. */
-      /* UN RAIL ÉTROIT SE CENTRE ; UN RAIL LARGE S'ALIGNE.
-         Centrer verticalement une colonne de six icônes va de soi. Mais le
-         rail à volet fait presque toute la hauteur : centré, son bord haut
-         tombait à quelques pixels au-dessus ou au-dessous de la première carte
-         du contenu — un décalage qu'on ne peut pas ne pas voir, sans pouvoir
-         dire d'où il vient. Il part donc du même trait que le contenu.
-
-         CINQ REM, ET LE COMPTE EST JUSTE : 64 px de barre du haut, puis les
-         16 px de marge que l'écran pose autour de sa première carte. Quatre
-         pixels manquaient — assez pour que l'œil le voie, pas assez pour
-         qu'on sache quoi regarder. */
-      className={`group/rail fixed left-3 z-10 flex py-0
-        ${volet ? 'top-20 max-h-[calc(100vh-6rem)]'
-                : 'top-[calc(50%+2rem)] -translate-y-1/2 max-h-[calc(100vh-9rem)]'}
-        rounded-panneau border backdrop-blur-xl backdrop-saturate-150
+      /* LE RAIL SE FOND DANS LA PAGE.
+       *
+       * Panneau flottant, il posait une question sans réponse : à quelle
+       * hauteur commence-t-il ? Centré, il ne tombait sur rien ; aligné, il
+       * dépendait de la marge de chaque écran, et quatre pixels suffisaient à
+       * le trahir. Un objet qui flotte doit s'aligner sur quelque chose, et il
+       * n'y avait rien.
+       *
+       * Il prend donc le parti inverse : MÊME FOND QUE LA PAGE, collé au bord
+       * gauche, trois côtés seulement — un filet à droite, deux angles
+       * arrondis de ce côté-là. Il ne flotte plus : il fait partie du cadre,
+       * comme la barre du haut. Plus rien à aligner, puisqu'il va d'un bord à
+       * l'autre de ce qui reste sous la barre.
+       *
+       * La barre du haut demeure le seul point fixe, et le rail s'y raccroche.
+       */
+      className={`group/rail fixed left-0 top-16 bottom-0 z-10 flex py-0
+        rounded-r-panneau border-y-0 border-l-0 border-r
         transition-[width] duration-300 ease-ios
         ${volet ? 'w-[21.5rem]' : epingle ? 'w-[14.5rem]' : 'w-14'}`}
-      style={{ background: 'var(--menu-fond)', borderColor: 'var(--menu-bord)',
-               boxShadow: 'var(--menu-ombre)' }}>
+      style={{ background: 'var(--menu-fond)', borderColor: 'var(--menu-bord)' }}>
       {/* LA COLONNE DES ICÔNES — ce que tous les écrans ont en commun. */}
       <div className={`flex flex-col py-3 min-h-0 flex-shrink-0
         ${volet ? 'w-14 border-r' : 'flex-1'}`}
@@ -499,13 +486,24 @@ export function RailDessine({ icon: HeaderIcon, titre, sousTitre, extra,
           {survol.label}
         </span>
       )}
-      {centre && (
+    </aside>
+  );
+
+  return (
+    <>
+      {rail}
+      {/* LA FENÊTRE SORT DU RAIL, PAR UN PORTAIL.
+          Un élément « fixed » n'est fixe que si aucun de ses ancêtres ne
+          transforme ni ne filtre : le rail floutait son fond, ce qui suffit à
+          en faire le cadre de référence. Le centre d'impression se dessinait
+          alors dans une bande de cinquante-six pixels de large. Rendu sur le
+          corps du document, il retrouve la fenêtre entière. */}
+      {centre && createPortal(
         <Suspense fallback={null}>
           <CentreImpressionCentral ongletInitial={impression} pieces={pieces}
             onClose={() => setCentre(false)} />
-        </Suspense>
-      )}
-    </aside>
+        </Suspense>, document.body)}
+    </>
   );
 }
 
