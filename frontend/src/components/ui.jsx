@@ -301,7 +301,7 @@ export function RailDessine({ icon: HeaderIcon, titre, sousTitre, extra,
        * La barre du haut demeure le seul point fixe, et le rail s'y raccroche.
        */
       className={`group/rail fixed left-0 bottom-0 z-10 flex py-0
-        top-[var(--barre-h,4rem)]
+        top-[calc(var(--barre-h,4rem)-1px)]
         rounded-tr-panneau rounded-br-panneau
         border-l-0 border-b-0 border-t border-r
         transition-[width] duration-300 ease-ios

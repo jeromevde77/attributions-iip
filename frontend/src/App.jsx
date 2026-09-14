@@ -166,12 +166,31 @@ function ProtectedLayout({ children }) {
   useEffect(() => {
     const el = refBarre.current;
     if (!el) return undefined;
+    /*
+     * CE QUI COMPTE, C'EST LE BAS DE LA BARRE — pas sa hauteur.
+     *
+     * En développement, un bandeau rayé la précède ; demain ce sera autre
+     * chose. Mesurer la HAUTEUR donnait donc un chiffre juste et une position
+     * fausse : le rail commençait plus haut que le bas de la barre et passait
+     * dessous, ou s'en détachait de quelques dizaines de pixels. C'est le
+     * même défaut que les « 64 px » écrits à la main, en plus subtil.
+     *
+     * On prend le BORD BAS dans la fenêtre. La barre étant collée en haut, il
+     * décroît au défilement jusqu'à valoir sa hauteur — le rail suit, et il
+     * n'y a jamais d'espace entre eux.
+     */
     const poser = () => document.documentElement.style.setProperty(
-      '--barre-h', el.getBoundingClientRect().height + 'px');
+      '--barre-h', Math.round(el.getBoundingClientRect().bottom) + 'px');
     poser();
     const obs = new ResizeObserver(poser);
     obs.observe(el);
-    return () => obs.disconnect();
+    window.addEventListener('scroll', poser, { passive: true });
+    window.addEventListener('resize', poser);
+    return () => {
+      obs.disconnect();
+      window.removeEventListener('scroll', poser);
+      window.removeEventListener('resize', poser);
+    };
   }, []);
   const [annees, setAnnees] = useState([]);
   const [anneeActive, setAnneeActive] = useState(getAnnee());
