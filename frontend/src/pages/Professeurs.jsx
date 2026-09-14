@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { nomPropre } from '../lib/nom.js';
 import { useNavigate } from 'react-router-dom';
 import { api, getAnnee, getUser, nomDoc } from '../lib/api.js';
 import ProfFicheModal from './ProfFicheModal.jsx';
@@ -279,7 +280,7 @@ function PermissionsPanel({ userId, permissions, sectionsDispo, annee, onSaved, 
               {profsOpen && profs.map(p => (
                 <div key={p.id} className="flex items-center gap-2 px-3 py-1.5 bg-purple-50/30 border-t border-gray-100">
                   <span className="w-4 flex-shrink-0" />
-                  <span className="text-gray-600 truncate flex-1">{p.nom} {p.prenom}</span>
+                  <span className="text-gray-600 truncate flex-1">{nomPropre(p.nom, p.prenom)}</span>
                   <NiveauToggle type="professeur" id={p.id} />
                 </div>
               ))}

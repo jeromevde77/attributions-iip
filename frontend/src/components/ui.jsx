@@ -300,10 +300,9 @@ export function RailDessine({ icon: HeaderIcon, titre, sousTitre, extra,
        *
        * La barre du haut demeure le seul point fixe, et le rail s'y raccroche.
        */
-      className={`group/rail fixed left-0 bottom-0 z-10 flex py-0
-        top-[calc(var(--barre-h,4rem)-1px)]
-        rounded-br-panneau raccord-rail
-        border-l-0 border-b-0 border-t-0 border-r
+      className={`group/rail fixed left-0 z-10 flex py-0
+        top-[calc(var(--barre-h,4rem)+1rem)] bottom-4
+        rounded-r-panneau border-l-0 border-r border-y
         transition-[width] duration-300 ease-ios
         ${volet ? 'w-[14.5rem]' : epingle ? 'w-[14.5rem]' : 'w-14'}`}
       style={{ background: 'var(--menu-fond)', borderColor: 'var(--menu-bord)' }}>

@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { nomPropre } from '../lib/nom.js';
 import { IconTrash } from '@tabler/icons-react';
 
 const CODES_EPT = [
@@ -151,7 +152,7 @@ export default function EptModal({ section, ue_num, ue_nom, annee, onClose }) {
                   if (b.nom === 'À DÉSIGNER') return 1;
                   return a.nom.localeCompare(b.nom);
                 }).map(p => (
-                  <option key={p.id} value={p.id}>{p.nom} {p.prenom}</option>
+                  <option key={p.id} value={p.id}>{nomPropre(p.nom, p.prenom)}</option>
                 ))}
               </select>
             </div>

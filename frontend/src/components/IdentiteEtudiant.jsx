@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { nomPropre } from '../lib/nom.js';
 import { IconDeviceFloppy, IconUpload, IconAlertTriangle, IconCheck } from '@tabler/icons-react';
 import { authHeaders } from '../lib/api.js';
 import { Tableau, TableauEntete, Th, Td, Tr, Badge } from './ui.jsx';
@@ -459,7 +460,7 @@ export function ComplementDossiers({ onTermine }) {
               écrit pour eux.
               <div className="mt-1 text-[12px]">
                 {(rapport.ambigus || []).slice(0, 8).map((a, i) => (
-                  <span key={i}>{i > 0 && ' · '}{a.nom} {a.prenom}</span>
+                  <span key={i}>{i > 0 && ' · '}{nomPropre(a.nom, a.prenom)}</span>
                 ))}
               </div>
             </div>
@@ -476,7 +477,7 @@ export function ComplementDossiers({ onTermine }) {
               <div className="mt-1.5 space-y-0.5 text-[12px]">
                 {(rapport.conflits_matricule || []).slice(0, 8).map((c, i) => (
                   <div key={i}>
-                    <b>{c.nom} {c.prenom}</b> — matricule {c.id_ecampus} détenu par {c.detenu_par}
+                    <b>{nomPropre(c.nom, c.prenom)}</b> — matricule {c.id_ecampus} détenu par {c.detenu_par}
                   </div>
                 ))}
                 {rapport.nb_conflits > 8 && `… et ${rapport.nb_conflits - 8} autre(s)`}
@@ -523,7 +524,7 @@ export function ComplementDossiers({ onTermine }) {
               <tbody>
                 {rapport.modifications.slice(0, 40).map(m => (
                   <Tr key={m.id}>
-                    <Td>{m.nom} {m.prenom}</Td>
+                    <Td>{nomPropre(m.nom, m.prenom)}</Td>
                     <Td ton="secondaire">
                       {m.champs.map(ch => <Badge key={ch} ton="info" className="mr-1">{ch}</Badge>)}
                     </Td>

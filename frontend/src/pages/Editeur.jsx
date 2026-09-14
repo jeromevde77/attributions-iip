@@ -1,4 +1,5 @@
 import { useEditor, EditorContent } from '@tiptap/react';
+import { nomPropre } from '../lib/nom.js';
 import { IconAlignLeft, IconAlignCenter, IconAlignRight, IconAlignJustified, IconX, IconDeviceFloppy, IconPrinter } from '@tabler/icons-react';
 import StarterKit from '@tiptap/starter-kit';
 import { Table } from '@tiptap/extension-table';
@@ -941,7 +942,7 @@ export default function Editeur() {
           <select value={profId} onChange={e => setProfId(e.target.value)}
             className="border border-gray-300 rounded px-2 py-1.5 h-9 text-sm bg-white">
             <option value="">— Prof —</option>
-            {profs.map(p => <option key={p.id} value={p.id}>{p.nom} {p.prenom}</option>)}
+            {profs.map(p => <option key={p.id} value={p.id}>{nomPropre(p.nom, p.prenom)}</option>)}
           </select>
           <input type="number" value={ueNum} onChange={e => setUeNum(e.target.value)}
             placeholder="N° UE" className="w-20 border border-gray-300 rounded px-2 py-1.5 h-9 text-sm" />

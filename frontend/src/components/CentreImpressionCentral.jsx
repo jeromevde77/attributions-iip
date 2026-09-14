@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { nomPropre } from '../lib/nom.js';
 import {
   IconPrinter, IconUsers, IconSchool, IconChartBar, IconCalendarStats,
   IconBooks, IconAlertTriangle, IconChevronRight, IconChevronDown, IconSearch,
@@ -495,7 +496,7 @@ function OngletEtudiants({ perimetre = null }) {
                 onChange={() => setCoches(s => bascule(s, e.id))}
                 className="w-4 h-4 accent-iip-blue" />
               <span className="flex-1 min-w-0">
-                <span className="text-[13px] font-medium">{e.nom} {e.prenom}</span>
+                <span className="text-[13px] font-medium">{nomPropre(e.nom, e.prenom)}</span>
                 <span className="block text-[11px] text-slate-500">
                   {e.decide
                     ? `${e.reussites} réussite(s) · ${e.echecs} échec(s) sur ${e.unites.length} unité(s)`

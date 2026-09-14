@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { nomPropre } from '../lib/nom.js';
 import { getAnnee } from '../lib/api.js';
 import { IconCalendarStats, IconPencil, IconChevronDown, IconChevronRight, IconX, IconDeviceFloppy, IconTrash, IconPlus, IconHash, IconCalendar, IconSitemap, IconBook, IconAlertTriangle } from '@tabler/icons-react';
 import PlanificateurVisuel from '../components/PlanificateurVisuel.jsx';
@@ -399,7 +400,7 @@ function ModalGroupe({ initial, annee, profs, ues, onSave, onClose }) {
             <select value={profId} onChange={e => setProfId(e.target.value)}
               className="w-full border border-gray-300 rounded px-3 py-1.5 h-9 text-sm bg-white">
               <option value="">— Aucun / À définir —</option>
-              {profs.map(p => <option key={p.id} value={p.id}>{p.nom} {p.prenom}</option>)}
+              {profs.map(p => <option key={p.id} value={p.id}>{nomPropre(p.nom, p.prenom)}</option>)}
             </select>
           </div>
           <div>

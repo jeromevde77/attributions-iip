@@ -1,4 +1,5 @@
 import { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
+import { nomPropre } from '../lib/nom.js';
 import { RailLateral } from '../components/ui.jsx';
 import {
   IconAlertTriangle, IconAward, IconCheck, IconChecklist, IconChevronLeft, IconChevronRight, IconClock, IconFileText, IconFolder, IconPlus, IconPrinter, IconSearch, IconTable, IconTrash, IconUpload, IconUser, IconWritingSign, IconWritingSignOff, IconX,
@@ -2407,7 +2408,7 @@ export default function Etudiants() {
                         {(e.nom||'?')[0]}{(e.prenom||'?')[0]}
                       </div>
                       <div>
-                        <div className="font-medium text-slate-800">{e.nom} {e.prenom}</div>
+                        <div className="font-medium text-slate-800">{nomPropre(e.nom, e.prenom)}</div>
                         <div className="text-[11px] text-slate-400">{e.id_ecampus}</div>
                       </div>
                     </div>

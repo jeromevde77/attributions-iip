@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { nomPropre } from '../lib/nom.js';
 import { IconTrash, IconAlertTriangle, IconSearch } from '@tabler/icons-react';
 import { authHeaders } from '../lib/api.js';
 import { Fenetre } from './ui.jsx';
@@ -232,7 +233,7 @@ export default function PurgeResultats({ anneeCourante, onClose, onPurge }) {
                               ev.target.checked ? n.add(e.id) : n.delete(e.id);
                               return n;
                             })} />
-                          <span className="text-[12px] text-slate-700 flex-1">{e.nom} {e.prenom}</span>
+                          <span className="text-[12px] text-slate-700 flex-1">{nomPropre(e.nom, e.prenom)}</span>
                           <span className="text-[11px] text-slate-400">{e.nb_ue} UE · {e.nb_resultats} résultat(s)</span>
                         </label>
                       ))}

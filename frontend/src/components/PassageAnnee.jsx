@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { nomPropre } from '../lib/nom.js';
 import {
   IconX, IconCheck, IconAlertTriangle, IconClock, IconPrinter, IconSquare,
   IconSquareCheck, IconArrowRight,
@@ -200,7 +201,7 @@ export default function PassageAnnee({ annee, onClose, onTermine }) {
                           </button>
                           <div className={`flex-1 min-w-0 ${pris ? '' : 'opacity-40'}`}>
                             <div className="font-semibold text-iip-blue">
-                              {p.nom} {p.prenom}
+                              {nomPropre(p.nom, p.prenom)}
                               {p.niveau && <span className="ml-1.5 text-[10px] font-normal
                                 text-slate-500">{p.niveau}</span>}
                             </div>
@@ -241,7 +242,7 @@ export default function PassageAnnee({ annee, onClose, onTermine }) {
                   <div className="divide-y divide-amber-100 max-h-[200px] overflow-y-auto">
                     {rapport.attente.map(a => (
                       <div key={a.id} className="px-3 py-1.5">
-                        <div className="font-semibold text-slate-700">{a.nom} {a.prenom}</div>
+                        <div className="font-semibold text-slate-700">{nomPropre(a.nom, a.prenom)}</div>
                         <ul className="text-[11px] text-amber-800 mt-0.5">
                           {a.attentes.map((x, i) => (
                             <li key={i}>

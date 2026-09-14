@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { nomPropre } from '../lib/nom.js';
 import {
   IconX, IconAward, IconAlertTriangle, IconClock, IconSquare, IconSquareCheck,
   IconPrinter, IconCertificate,
@@ -200,7 +201,7 @@ export default function CentreDiplomation({ annee, onClose }) {
                           <div className={`flex-1 min-w-0 ${pris ? '' : 'opacity-45'}`}>
                             <div className="flex items-baseline gap-2 flex-wrap">
                               <span className="font-semibold text-iip-blue">
-                                {x.nom} {x.prenom}
+                                {nomPropre(x.nom, x.prenom)}
                               </span>
                               {x.mention.mention ? (
                                 <span className="text-[11px] px-1.5 py-px rounded

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { nomPropre } from '../lib/nom.js';
 import {
   IconAlertTriangle, IconCheck, IconDeviceFloppy, IconPencil, IconSearch,
 } from '@tabler/icons-react';
@@ -421,7 +422,7 @@ export default function EncodageRapide() {
                   </td>
                   <td className="sticky left-8 z-10 bg-white border-r border-b border-slate-100 px-3 py-1">
                     <div className="text-[13px] text-slate-800 truncate max-w-[180px]">
-                      {e.nom} {e.prenom}
+                      {nomPropre(e.nom, e.prenom)}
                     </div>
                     <div className="text-[10px] text-slate-400">{e.id_ecampus}</div>
                   </td>
@@ -564,7 +565,7 @@ function SyntheseAnnees({ synthese, recherche, onOuvrir }) {
               <tr key={e.id} className="hover:bg-slate-50/60">
                 <td className="sticky left-0 z-10 bg-white border-r border-b border-slate-100 px-3 py-1.5">
                   <div className="text-[13px] text-slate-800 truncate max-w-[200px]">
-                    {e.nom} {e.prenom}
+                    {nomPropre(e.nom, e.prenom)}
                   </div>
                   <div className="text-[10px] text-slate-400">{e.id_ecampus}</div>
                 </td>

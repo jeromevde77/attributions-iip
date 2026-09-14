@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { nomPropre } from '../lib/nom.js';
 import {
   IconX, IconSearch, IconAlertTriangle, IconChevronLeft, IconChevronRight,
   IconArrowUp, IconRepeat, IconList, IconFileText, IconMessage, IconBrush, IconGift,
@@ -721,7 +722,7 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose }) {
                 </button>
                 <div className="text-center min-w-0">
                   <div className="text-[15px] font-bold text-iip-blue truncate">
-                    {etud.nom} {etud.prenom}
+                    {nomPropre(etud.nom, etud.prenom)}
                   </div>
                   <div className="text-[11px] text-slate-500">
                     {etud.id_ecampus || '—'} · {idx + 1} / {liste.length}
@@ -823,7 +824,7 @@ function MotivationsProposees({ liste, detail, onRelire, onConfirmer, enCours })
           {liste.map(e => (
             <div key={e.etudiant_id} className="border border-slate-200 rounded-xl p-3">
               <div className="text-[13px] font-semibold text-iip-blue">
-                {e.nom} {e.prenom}
+                {nomPropre(e.nom, e.prenom)}
                 <span className="ml-2 text-[11px] font-normal text-slate-500">
                   {e.decision === 'refuse' ? 'refusé' : 'ajourné'}
                 </span>
@@ -1842,7 +1843,7 @@ function Pilotage({ e, ue, onBord }) {
                     lg:sticky lg:top-2">
       <div>
         <div className="text-[13px] font-bold text-white truncate">
-          {e.nom} {e.prenom}
+          {nomPropre(e.nom, e.prenom)}
         </div>
         <div className="text-[11px] text-slate-400">{e.id_ecampus || '—'}</div>
       </div>

@@ -215,7 +215,7 @@ export default function Users({ embedded = false }) {
           const p = profils.find(x => String(x.id) === String(profilId));
           if (!p) return;
           if (!window.confirm(
-            `Appliquer le profil « ${p.nom} » à ${u.nom_complet || u.email} ?\n\n`
+            `Appliquer le profil « ${p.nom} » à ${nomDepuisChaine(u.nom_complet) || u.email} ?\n\n`
             + `${p.description || ''}\n\nLe périmètre par sections reste inchangé.`)) return;
           try {
             await authFetch(`/api/users/${u.id}`, {
@@ -329,7 +329,7 @@ function MatriceAcces({ users, sectionsDispo, profils, onModifie, onProfil,
     <tr className="hover:bg-slate-50/60">
       <td className="sticky left-0 bg-white border-r border-b border-slate-100 px-3 py-1.5">
         <div className="text-[13px] text-slate-800 truncate max-w-[180px]">
-          {u.nom_complet || u.email}
+          {nomDepuisChaine(u.nom_complet) || u.email}
         </div>
         <div className="text-[10px] text-slate-400 truncate max-w-[180px]" title={u.email}>
           {u.role} · {u.email}

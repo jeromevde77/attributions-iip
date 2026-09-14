@@ -4588,7 +4588,10 @@ export function nomPropre(nom, prenom) {
     .filter(Boolean).join(' ');
   const P = String(prenom || '').trim().split(/\s+/).filter(Boolean)
     .map(capitaliser).join(' ');
-  return [N, P].filter(Boolean).join(' ');
+  // PRÉNOM D'ABORD, NOM EN CAPITALES. C'est l'usage administratif, et il a une
+  // vertu pratique : dans une liste, l'oeil trouve le nom de famille sans le
+  // chercher, parce qu'il est le seul en capitales.
+  return [P, N].filter(Boolean).join(' ');
 }
 
 /**
