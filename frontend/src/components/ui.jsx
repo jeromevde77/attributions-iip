@@ -423,26 +423,41 @@ export function RailDessine({ icon: HeaderIcon, titre, sousTitre, extra,
       {true && (
         <div className="flex-shrink-0 px-2 pt-2 mt-1 border-t space-y-1"
           style={{ borderColor: 'var(--menu-filet)' }}>
-          {[...actions, { key: '__impression', label: 'Centre d\u2019impression',
-                          icon: IconPrinter, primaire: true,
-                          onClick: () => setCentre(true) }].map(a2 => {
+          {/* IMPRIMER D'ABORD, ET TOUJOURS.
+              On imprime tous les jours, on importe quelques fois par an : le
+              geste le plus fréquent vient en tête, et il ne bouge jamais de
+              place. « Exporter » a disparu de cette liste — imprimer, c'est
+              sortir une pièce, quel que soit le format qu'on choisit ensuite
+              dans la fenêtre. Deux portes pour un même geste, c'en était une
+              de trop. */}
+          {[{ key: '__impression', label: 'Imprimer', icon: IconPrinter,
+              couleur: 'var(--menu-accent)', onClick: () => setCentre(true) },
+            ...actions].map(a2 => {
             const Ic = a2.icon;
             return (
               <button key={a2.key} onClick={a2.onClick} aria-label={a2.label}
                 onMouseEnter={e => !epingle && surviser(e, a2.label)}
                 onMouseLeave={() => setSurvol(null)}
-                className={`relative w-full flex items-center gap-3 py-2 rounded-fenetre
-                  text-[13px] transition-colors duration-150 ease-ios
-                  ${epingle ? 'px-2.5' : 'justify-center px-0'}
-                  ${a2.primaire ? 'font-semibold ring-1 ring-inset'
-                    : 'hover:bg-[color:var(--menu-survol)]'}`}
-                style={a2.primaire
-                  ? { background: 'var(--menu-actif)', color: 'var(--menu-texte)',
-                      '--tw-ring-color': 'var(--menu-actif-bord)' }
-                  : { color: 'var(--menu-texte-doux)' }}>
+                /* LA MÊME CASE QUE PARTOUT — un carré aux coins arrondis.
+                   L'impression s'affichait dans un cercle : une forme pour
+                   elle seule dans toute l'application, ce qui la faisait
+                   remarquer pour la mauvaise raison. Ce qui la distingue
+                   désormais, c'est la COULEUR de son icône, et rien d'autre. */
+                className={`relative flex text-[13px] mb-1
+                  transition-colors duration-150 ease-ios
+                  ${epingle
+                    ? 'w-full items-center gap-3 py-2 px-2.5 rounded-fenetre'
+                    : 'w-10 h-10 mx-auto items-center justify-center rounded-carte'}
+                  hover:shadow-pose`}
+                style={{ color: 'var(--menu-texte-doux)' }}
+                data-case-rail={epingle ? undefined : '1'}>
                 {Ic && (
+                  /* LA COULEUR N'EST PAS UNE DÉCORATION, C'EST UN REPÈRE.
+                     Turquoise : ce qui SORT — imprimer, et on le trouve sans
+                     le chercher. Brique : ce qui DÉTRUIT. Gris : tout le
+                     reste. Trois teintes, et chacune veut dire quelque chose. */
                   <Ic size={19} stroke={1.8} className="flex-shrink-0"
-                    style={{ color: a2.primaire ? 'var(--menu-accent)' : 'var(--menu-icone)' }} />
+                    style={{ color: a2.couleur || 'var(--menu-icone)' }} />
                 )}
                 <span className={`text-left leading-tight min-w-0 flex-1 ${reveal}`}>
                   {a2.label}

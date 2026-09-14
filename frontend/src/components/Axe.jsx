@@ -63,7 +63,7 @@ export default function Axe({ titre, question, icone, onglets, ongletInitial,
   const [portesEchanges, setPortesEchanges] = useState(null);
   const outilsCommuns = [
     ...(echanges && portesEchanges ? [{
-      key: 'echanges', label: 'Importer / exporter', icon: IconDatabaseImport,
+      key: 'echanges', label: 'Importer', icon: IconDatabaseImport,
       onClick: portesEchanges,
     }] : []),
   ];
