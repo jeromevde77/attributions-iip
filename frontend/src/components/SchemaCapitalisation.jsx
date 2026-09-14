@@ -13,10 +13,29 @@ import { useMemo, useRef, useState } from 'react';
  */
 
 export const COULEURS_CAP = {
-  acquise:      { fill: '#D1FAE5', stroke: '#10B981', text: '#065F46', label: 'Acquise' },
-  accessible:   { fill: '#DBEAFE', stroke: '#2563EB', text: '#1E3A8A', label: 'Accessible' },
-  sous_reserve: { fill: '#E0F2FE', stroke: '#0EA5E9', text: '#075985', label: 'Sous réserve' },
-  bloquee:      { fill: '#F1F5F9', stroke: '#CBD5E1', text: '#94A3B8', label: 'Pas encore accessible' },
+/*
+ * LES COULEURS DU SCHÉMA SONT CELLES DE LUCIE, ET PAS D'AUTRES.
+ *
+ * Le schéma avait sa propre palette : un bleu vif (#2563EB), un cyan, un vert
+ * émeraude — trois teintes qu'on ne trouvait nulle part ailleurs dans
+ * l'application. Un bleu de plus ne dit rien de plus : il dit seulement que ce
+ * bloc-ci a été dessiné un autre jour.
+ *
+ * Le schéma emploie donc les trois teintes de la maison, et chacune garde le
+ * sens qu'elle a partout :
+ *   · MARINE — l'unité, sa structure, ce qui est accessible ;
+ *   · TURQUOISE — ce qui est acquis, la seule bonne nouvelle du schéma ;
+ *   · GRIS — ce qui n'est pas encore ouvert, et qui doit s'effacer ;
+ *   · DORÉ — l'épreuve intégrée, et elle seule (règle du dépôt).
+ *
+ * « Sous réserve » se distingue d'« accessible » par son TRAIT, pas par une
+ * couleur de plus : même marine, contour plus clair. Une nuance de statut ne
+ * mérite pas une teinte, elle mérite un détail.
+ */
+  acquise:      { fill: '#E0F5F8', stroke: '#0093B0', text: '#00596B', label: 'Acquise' },
+  accessible:   { fill: '#EEF1F6', stroke: '#1B2B4B', text: '#1B2B4B', label: 'Accessible' },
+  sous_reserve: { fill: '#F5F7FA', stroke: '#8894AC', text: '#475A80', label: 'Sous réserve' },
+  bloquee:      { fill: '#F8FAFC', stroke: '#D8DEE7', text: '#9AA3B2', label: 'Pas encore accessible' },
   structure:    { fill: '#F8FAFC', stroke: '#1B2B4B', text: '#1B2B4B', label: 'Unité d\u2019enseignement' },
 };
 
