@@ -2,7 +2,7 @@ import { createContext, lazy, Suspense, useContext, useEffect, useState } from '
 
 const CentreImpressionCentral = lazy(() => import('./CentreImpressionCentral.jsx'));
 import { createPortal } from 'react-dom';
-import { IconPin, IconPinnedOff, IconSun, IconMoon, IconPrinter } from '@tabler/icons-react';
+import { IconPin, IconPinnedOff, IconSun, IconMoon, IconPrinter, IconX } from '@tabler/icons-react';
 import { useRailEpingle, basculerEpingle, LARGEUR_RAIL } from '../lib/railEpingle.js';
 import { useMode, basculerMode } from '../lib/theme.js';
 
@@ -618,4 +618,139 @@ export function Mention({ children, ton = 'neutre', className = '' }) {
   const t = ton === 'danger' ? 'text-red-600 font-semibold'
     : ton === 'alerte' ? 'text-amber-700' : 'text-slate-400';
   return <span className={`ml-1 text-[10px] ${t} ${className}`}>{children}</span>;
+}
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+// LES FENÊTRES — une seule, pour toutes.
+//
+// Soixante et onze fichiers posaient leur propre « fixed inset-0 » : autant de
+// voiles, de rayons, d'en-têtes et de boutons de fermeture, tous presque
+// pareils et jamais tout à fait. Le résultat se voyait — on changeait de
+// maison en changeant de fenêtre — et il se payait : corriger un détail de
+// mise en page demandait soixante et onze corrections.
+//
+// Le dessin est celui de la maquette : un voile marine léger, un panneau au
+// rayon « fenetre », un bandeau marine qui NOMME la fenêtre, et un corps clair
+// où les pièces sont des lignes bordées, plutôt que des boutons empilés. Rien
+// n'y crie : la couleur est réservée à ce qui avertit.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Le cadre. Il porte le voile, le panneau, le bandeau et la fermeture — et
+ * rien d'autre : ce qu'il y a dedans ne le regarde pas.
+ *
+ *   icone   : icône du bandeau
+ *   titre   : ce que la fenêtre EST (« Éditions — Étudiants »)
+ *   sous    : une ligne de contexte, facultative
+ *   large   : 'petite' | 'moyenne' | 'grande' | 'pleine'
+ *   pied    : noeud rendu sous un filet, en bas (les actions)
+ *   ton     : 'neutre' | 'alerte' — l'alerte teinte le bandeau, et elle seule
+ */
+export function Fenetre({ icone: Ic, titre, sous, large = 'moyenne',
+                          pied = null, ton = 'neutre', onFermer, children }) {
+  const largeurs = {
+    petite: 'w-[440px]', moyenne: 'w-[720px]',
+    grande: 'w-[1000px]', pleine: 'w-[1180px]',
+  };
+  // LA TOUCHE ÉCHAP FERME. Elle le faisait dans certaines fenêtres et pas dans
+  // d'autres, ce qui est pire que nulle part : on apprend un geste qui tombe
+  // parfois dans le vide.
+  useEffect(() => {
+    const f = e => { if (e.key === 'Escape') onFermer?.(); };
+    window.addEventListener('keydown', f);
+    return () => window.removeEventListener('keydown', f);
+  }, [onFermer]);
+
+  return (
+    <div role="dialog" aria-modal="true" aria-label={titre}
+      className="fixed inset-0 z-50 flex items-center justify-center p-4
+                 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px]"
+      onClick={e => e.target === e.currentTarget && onFermer?.()}>
+      <div className={`bg-white rounded-fenetre shadow-dessus overflow-hidden
+                       flex flex-col max-w-full max-h-[90vh] ${largeurs[large] || largeurs.moyenne}`}>
+        <div className="flex items-center gap-3 px-5 py-3 text-white flex-shrink-0"
+          style={{ background: ton === 'alerte' ? '#9d4a38' : '#1B2B4B' }}>
+          {Ic && <Ic size={18} className="flex-shrink-0"
+            style={{ color: ton === 'alerte' ? '#f1c7bf' : '#7fd4e6' }} />}
+          <div className="min-w-0 flex-1">
+            <div className="text-[14.5px] font-semibold truncate">{titre}</div>
+            {sous && <div className="text-[11.5px] text-white/70 truncate">{sous}</div>}
+          </div>
+          <button onClick={onFermer} aria-label="Fermer"
+            className="flex-none w-8 h-8 grid place-items-center rounded-champ
+                       hover:bg-white/15 transition-colors duration-150 ease-ios">
+            <IconX size={16} />
+          </button>
+        </div>
+
+        <div className="min-h-0 overflow-y-auto px-5 py-4">{children}</div>
+
+        {pied && (
+          <div className="flex-shrink-0 px-5 py-3 border-t border-slate-200
+                          flex items-center gap-2 flex-wrap">{pied}</div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/** Un intertitre : il dit de quoi parle ce qui suit, en petit et en gris. */
+export function GroupeFenetre({ titre, ton = 'neutre', children }) {
+  return (
+    <section className="mb-4 last:mb-0">
+      {titre && (
+        <div className="text-[10.5px] font-semibold uppercase tracking-[.13em] mb-2"
+          style={{ color: ton === 'alerte' ? '#9d4a38' : '#94a3b8' }}>{titre}</div>
+      )}
+      <div className="space-y-1.5">{children}</div>
+    </section>
+  );
+}
+
+/**
+ * UNE PIÈCE — une ligne bordée, et non un bouton de plus.
+ *
+ * L'ancien dessin empilait des boutons pleins, chacun d'une couleur : dix
+ * aplats côte à côte, et plus rien ne ressortait. Une ligne claire, un filet,
+ * l'icône en gris, ce qu'on emporte à droite. Ce qui doit alerter le dit par
+ * son ton, et il est alors le seul de la liste à le faire.
+ */
+export function PieceFenetre({ icone: Ic, titre, sous, meta, ton = 'neutre',
+                               actif = false, desactive = false, onClick }) {
+  const teinte = ton === 'alerte' ? '#9d4a38' : ton === 'neuf' ? '#00809c' : null;
+  const Balise = onClick ? 'button' : 'div';
+  return (
+    <Balise onClick={desactive ? undefined : onClick} disabled={desactive || undefined}
+      className={`w-full text-left flex items-center gap-3 px-3 py-2.5 rounded-carte
+        border transition-colors duration-150 ease-ios
+        ${desactive ? 'opacity-45' : onClick ? 'hover:border-slate-400' : ''}
+        ${actif ? 'bg-slate-50' : 'bg-white'}`}
+      style={{ borderColor: actif || teinte ? (teinte || '#1B2B4B') + '55' : '#e2e8f0' }}>
+      {Ic && <Ic size={17} className="flex-shrink-0"
+        style={{ color: teinte || '#94a3b8' }} />}
+      <span className="min-w-0 flex-1">
+        <span className="block text-[13.5px] text-slate-700">{titre}</span>
+        {sous && <span className="block text-[11.5px] text-slate-400">{sous}</span>}
+      </span>
+      {meta != null && (
+        <span className="flex-none text-[12px] text-slate-400 whitespace-nowrap">{meta}</span>
+      )}
+    </Balise>
+  );
+}
+
+/** Les boutons du pied : un seul principal, le reste en retrait. */
+export function BoutonFenetre({ principal = false, ton = 'neutre', desactive = false,
+                                onClick, children }) {
+  const fond = ton === 'alerte' ? '#9d4a38' : '#1B2B4B';
+  return (
+    <button onClick={onClick} disabled={desactive}
+      className={`px-4 py-2 rounded-champ text-[13px] font-semibold
+        transition-colors duration-150 ease-ios disabled:opacity-40
+        ${principal ? 'text-white' : 'text-slate-600 border border-slate-300 hover:bg-slate-50'}`}
+      style={principal ? { background: fond } : undefined}>
+      {children}
+    </button>
+  );
 }

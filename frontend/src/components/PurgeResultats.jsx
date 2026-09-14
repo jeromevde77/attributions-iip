@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
-import { IconX, IconAlertTriangle, IconSearch } from '@tabler/icons-react';
+import { IconTrash, IconAlertTriangle, IconSearch } from '@tabler/icons-react';
 import { authHeaders } from '../lib/api.js';
+import { Fenetre } from './ui.jsx';
 
 /**
  * Purge sélective des résultats.
@@ -112,20 +113,10 @@ export default function PurgeResultats({ anneeCourante, onClose, onPurge }) {
     co => cible !== 'cours' || !ueNum || co.ue_num === Number(ueNum));
 
   return (
-    <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] flex items-start justify-center z-50 p-4 overflow-auto"
-      onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="bg-white rounded-fenetre shadow-dessus w-full max-w-3xl mt-8">
-        <div className="bg-iip-blue rounded-t-2xl px-5 py-4 flex items-start justify-between">
-          <div>
-            <div className="text-white font-bold text-[15px]">Vider des résultats</div>
-            <div className="text-blue-200 text-[12px] mt-0.5">
-              Purge ciblée — le périmètre est annoncé avant toute suppression
-            </div>
-          </div>
-          <button onClick={onClose} className="text-blue-200 hover:text-white"><IconX size={19} /></button>
-        </div>
-
-        <div className="p-5 space-y-4">
+    <Fenetre icone={IconTrash} titre="Vider des résultats ou des inscriptions"
+      sous="Le périmètre est annoncé avant toute suppression."
+      large="grande" ton="alerte" onFermer={onClose}>
+      <div className="space-y-4">
           {erreur && (
             <div className="px-3 py-2 rounded-lg bg-red-50 border border-red-200 text-[12.5px] text-red-800">
               {erreur}
@@ -317,9 +308,8 @@ export default function PurgeResultats({ anneeCourante, onClose, onPurge }) {
               </div>
             </>
           )}
-        </div>
       </div>
-    </div>
+    </Fenetre>
   );
 }
 

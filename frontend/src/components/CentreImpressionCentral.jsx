@@ -4,6 +4,7 @@ import {
   IconBooks, IconAlertTriangle, IconChevronRight, IconChevronDown, IconSearch,
 } from '@tabler/icons-react';
 import { authHeaders, getAnnee } from '../lib/api.js';
+import { Fenetre, GroupeFenetre, PieceFenetre } from './ui.jsx';
 
 /**
  * LE CENTRE D'IMPRESSION — un seul endroit d'où tout sort.
@@ -483,27 +484,12 @@ function OngletEtudiants({ perimetre = null }) {
 function PiecesDeLEcran({ pieces, onChoisir }) {
   if (!pieces || !pieces.length) return null;
   return (
-    <div className="px-4 pt-3 pb-3 border-b border-slate-200 bg-slate-50/70">
-      <div className="text-[10.5px] uppercase tracking-[.13em] text-slate-400 mb-2">
-        Pièces de cet écran
-      </div>
-      <div className="flex flex-wrap gap-2">
-        {pieces.map(p => (
-          <button key={p.cle} onClick={() => onChoisir(p)}
-            className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-white
-                       border border-slate-200 hover:border-iip-blue/40 text-[13px]
-                       text-slate-700 text-left transition">
-            {p.icon ? <p.icon size={15} className="text-slate-400 flex-shrink-0" /> : null}
-            <span>
-              {p.label}
-              {p.description
-                ? <span className="block text-[11px] text-slate-400">{p.description}</span>
-                : null}
-            </span>
-          </button>
-        ))}
-      </div>
-    </div>
+    <GroupeFenetre titre="Pièces de cet écran">
+      {pieces.map(p => (
+        <PieceFenetre key={p.cle} icone={p.icon} titre={p.label} sous={p.description}
+          onClick={() => onChoisir(p)} />
+      ))}
+    </GroupeFenetre>
   );
 }
 
@@ -513,44 +499,31 @@ export default function CentreImpressionCentral({ ongletInitial = 'etudiants',
   const [onglet, setOnglet] = useState(ongletInitial);
 
   return (
-    <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-xl w-[1180px] max-w-full h-[90vh] flex flex-col">
-        <div className="px-4 py-3 border-b border-slate-200 flex items-center gap-3">
-          <IconPrinter size={18} className="text-iip-blue" />
-          <div className="flex-1">
-            <h3 className="text-[15px] font-semibold text-iip-blue">Centre d’impression</h3>
-            <p className="text-[11.5px] text-slate-500">
-              Tout ce que Lucie imprime, au même endroit.
-            </p>
-          </div>
-          <button onClick={onClose}
-            className="px-3 py-1.5 text-[12.5px] rounded-lg border border-slate-300 text-slate-600">
-            Fermer
+    <Fenetre icone={IconPrinter} titre="Éditions"
+      sous="Tout ce que Lucie imprime, au même endroit."
+      large="pleine" onFermer={onClose}>
+
+      <PiecesDeLEcran pieces={pieces}
+        onChoisir={p => { onClose?.(); p.onClick?.(); }} />
+
+      {/* Les domaines : ce qu'on sort ici porte sur les étudiants, le
+          personnel, l'établissement… Le domaine ouvert est le seul en marine. */}
+      <div className="flex gap-1 flex-wrap mb-4 pb-3 border-b border-slate-200">
+        {ONGLETS.map(o => (
+          <button key={o.cle} onClick={() => setOnglet(o.cle)}
+            className={`px-3 py-1.5 rounded-champ text-[12.5px] inline-flex items-center gap-1.5
+              transition-colors duration-150 ease-ios
+              ${onglet === o.cle
+                ? 'bg-iip-blue text-white font-semibold'
+                : 'text-slate-500 hover:bg-slate-100'}`}>
+            <o.icon size={14} /> {o.label}
           </button>
-        </div>
-
-        <div className="px-3 pt-2 border-b border-slate-200 flex gap-1">
-          {ONGLETS.map(o => (
-            <button key={o.cle} onClick={() => setOnglet(o.cle)}
-              className={`px-3 py-1.5 text-[12.5px] rounded-t-lg inline-flex items-center gap-1.5
-                ${onglet === o.cle
-                  ? 'bg-iip-blue/5 text-iip-blue font-semibold border-b-2 border-iip-blue'
-                  : 'text-slate-500 hover:text-slate-700'}`}>
-              <o.icon size={14} /> {o.label}
-            </button>
-          ))}
-        </div>
-
-        {/* LA PIÈCE CHOISIE OUVRE SA FENÊTRE, ET LE CENTRE S'EFFACE : deux
-            fenêtres empilées, c'est une de trop — on ne sait plus laquelle
-            répond au clavier. */}
-        <PiecesDeLEcran pieces={pieces}
-          onChoisir={p => { onClose?.(); p.onClick?.(); }} />
-
-        {onglet === 'etudiants'
-          ? <OngletEtudiants perimetre={perimetre} />
-          : <OngletRapports domaine={onglet} />}
+        ))}
       </div>
-    </div>
+
+      {onglet === 'etudiants'
+        ? <OngletEtudiants perimetre={perimetre} />
+        : <OngletRapports domaine={onglet} />}
+    </Fenetre>
   );
 }
