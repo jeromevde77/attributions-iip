@@ -1,9 +1,20 @@
 /**
  * grilleEntretienDefaut.js — La grille d'entretien de référence.
  *
- * QUATRE axes, deux questions tirées dans chacun : huit questions par
- * entretien. La grille en comptait huit, soit seize questions — un entretien
- * de sélection ne s'y tient pas, et les derniers axes se bâclaient.
+ * QUATRE axes. Dans chacun, TROIS questions sont tirées et UNE SEULE est
+ * posée : celle que le jury choisit en séance, selon ce que le candidat vient
+ * de dire. Quatre questions de fond pour tout l'entretien, donc — plus la
+ * présentation et la partie administrative.
+ *
+ * POURQUOI SI PEU. Un entretien de sélection dure une heure. Huit questions
+ * posées, c'est sept minutes chacune : le candidat récite et le jury n'a le
+ * temps de creuser nulle part. Quatre questions bien choisies laissent au
+ * candidat le temps de parler et au jury celui d'aller au fond — ce qui est
+ * précisément ce qu'on cherche à savoir.
+ *
+ * LE CHOIX EST UN OUTIL, pas une commodité : trois formulations d'une même
+ * intention permettent de prendre celle qui prolonge ce qui vient d'être dit,
+ * plutôt que de couper pour dérouler un questionnaire.
  *
  * Rien n'est perdu : les soixante et une questions des huit axes d'origine
  * sont reprises, regroupées par parenté. Le tirage aléatoire fait le reste,
@@ -12,10 +23,44 @@
  * Source unique : l'amorçage de la base et la remise à zéro depuis l'éditeur
  * lisent tous deux ce fichier, pour qu'ils ne puissent pas diverger.
  */
+/**
+ * LES RELANCES — comment creuser, une fois la question posée.
+ *
+ * Une réponse préparée se reconnaît à ce qu'elle ne résiste pas à la deuxième
+ * question. Ces relances-ci ne portent pas sur un SUJET mais sur une MANIÈRE
+ * de répondre : elles valent donc pour n'importe quelle question de leur axe,
+ * et c'est ce qui les rend utilisables en séance sans les avoir relues.
+ *
+ * Trois par axe, dans cet ordre : d'abord le fait, puis la limite, puis le
+ * retour sur soi. C'est l'ordre dans lequel une réponse se vérifie.
+ */
+export const RELANCES = {
+  contexte: [
+    "Vous venez de décrire ce que vous savez : d'où le tenez-vous — une lecture, une expérience, quelqu'un qui vous l'a dit ?",
+    "Qu'est-ce qui, dans ce que vous venez de dire, vous paraît le plus difficile à tenir au quotidien ?",
+    "Si un collègue vous disait exactement l'inverse, que lui répondriez-vous ?",
+  ],
+  expertise: [
+    "Prenez une situation précise où cela s'est passé : que s'est-il passé, concrètement, et quand ?",
+    "Qu'est-ce qui n'a pas marché cette fois-là, et qu'avez-vous changé ensuite ?",
+    "Comment sauriez-vous, dans six mois, que votre façon de faire a fonctionné ?",
+  ],
+  posture: [
+    "Racontez la dernière fois où cela vous est arrivé : qu'avez-vous dit, mot pour mot ?",
+    "Et si l'étudiant n'avait pas réagi comme vous l'espériez, qu'auriez-vous fait ensuite ?",
+    "Qu'est-ce que cette situation vous a appris sur vous-même ?",
+  ],
+  reflexif: [
+    "Sur quoi vous appuyez-vous pour dire cela — un texte, une pratique, une conviction ?",
+    "Qu'est-ce qui pourrait vous faire changer d'avis ?",
+    "Qu'est-ce que vous ne savez pas encore faire, et que vous aimeriez apprendre ici ?",
+  ],
+};
+
 export const GRILLE_DEFAUT = [
   {
     libelle: "Axe 1 — Contexte de l'IIP, enseignement pour adultes et motivation",
-    couleur: '#0369a1', nb: 2, type: 'contexte',
+    couleur: '#0369a1', nb: 3, type: 'contexte',
     questions: [
       "Que savez-vous de l'enseignement de promotion sociale et de sa différence avec l'enseignement supérieur ordinaire ?",
       "Selon vous, quelles sont les caractéristiques spécifiques d'un public adulte en reprise d'études ?",
@@ -29,7 +74,7 @@ export const GRILLE_DEFAUT = [
   },
   {
     libelle: "Axe 2 — Expertise professionnelle et compétences pédagogiques",
-    couleur: '#7c3aed', nb: 2, type: 'expertise',
+    couleur: '#7c3aed', nb: 3, type: 'expertise',
     questions: [
       "Décrivez votre parcours professionnel et les compétences que vous y avez développées en lien avec le cours proposé.",
       "Dans quels contextes cliniques ou professionnels avez-vous exercé, et pendant combien de temps ?",
@@ -50,7 +95,7 @@ export const GRILLE_DEFAUT = [
   },
   {
     libelle: "Axe 3 — Posture relationnelle, communication et gestion de soi",
-    couleur: '#15803d', nb: 2, type: 'posture',
+    couleur: '#15803d', nb: 3, type: 'posture',
     questions: [
       "Comment détectez-vous qu'un étudiant est en difficulté ? Quelle est votre démarche ensuite ?",
       "Comment gérez-vous un étudiant qui conteste votre expertise ou votre méthode devant le groupe ?",
@@ -70,7 +115,7 @@ export const GRILLE_DEFAUT = [
   },
   {
     libelle: "Axe 4 — Mise en situation, expérience vécue et réflexivité",
-    couleur: '#b45309', nb: 2, type: 'reflexif',
+    couleur: '#b45309', nb: 3, type: 'reflexif',
     questions: [
       "Un étudiant adulte s'effondre émotionnellement en classe après avoir évoqué une situation personnelle difficile. Que faites-vous ?",
       "Vous vous rendez compte, au milieu de votre cours, que le groupe n'a pas du tout le niveau prérequis pour comprendre la matière. Quelle est votre réaction immédiate ?",

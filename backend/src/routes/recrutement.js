@@ -5,7 +5,7 @@
 import { Router } from 'express';
 import db from '../db/index.js';
 import { authRequired, roleRequired } from '../middleware/auth.js';
-import { GRILLE_DEFAUT } from './grilleEntretienDefaut.js';
+import { GRILLE_DEFAUT, RELANCES } from './grilleEntretienDefaut.js';
 import multer from 'multer';
 import { mkdirSync, existsSync, unlinkSync } from 'fs';
 import { join } from 'path';
@@ -541,7 +541,13 @@ r.get('/grille', (req, res) => {
   const questions = db.prepare('SELECT * FROM recrutement_grille_question ORDER BY axe_id, ordre, id').all();
   res.json(axes.map(a => ({
     ...a,
-    nb_questions_tirees: a.nb_questions_tirees || 2,
+    // TROIS TIRÉES, UNE POSÉE. Le jury choisit en séance celle qui prolonge ce
+    // que le candidat vient de dire, au lieu de dérouler un questionnaire.
+    nb_questions_tirees: a.nb_questions_tirees || 3,
+    // LES RELANCES suivent le TYPE de l'axe, pas la question : elles portent
+    // sur la manière de répondre — le fait, la limite, le retour sur soi — et
+    // valent donc pour n'importe quelle question de cet axe.
+    relances: RELANCES[a.type_axe] || [],
     questions: questions.filter(q => q.axe_id === a.id),
   })));
 });
@@ -557,7 +563,7 @@ r.put('/grille', (req, res) => {
     axes.forEach((axe, ai) => {
       const { lastInsertRowid: axeId } = insAxe.run(
         axe.libelle || 'Axe', axe.couleur || '#1B2B4B', ai,
-        axe.nb_questions_tirees || 2, axe.type_axe || null
+        axe.nb_questions_tirees || 3, axe.type_axe || null
       );
       (axe.questions || []).forEach((q, qi) => {
         if (q.libelle?.trim()) insQ.run(axeId, q.libelle.trim(), qi);
