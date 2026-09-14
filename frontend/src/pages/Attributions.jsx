@@ -73,7 +73,7 @@ function CopierSectionModal({ sections, anneeActive, isAdmin, onClose, onCopied 
       <div className="bg-white rounded-xl shadow-2xl w-full max-w-md border-t-4 border-indigo-600">
         <div className="flex items-center justify-between px-5 py-3 border-b">
           <h2 className="font-title text-lg text-indigo-700 flex items-center gap-2"><IconClipboardText size={18}/> Copier les attributions</h2>
-          <button onClick={onClose} className="text-gray-400 hover:text-red-500 text-2xl">×</button>
+          <button onClick={onClose} className="text-gray-400 hover:text-slate-600 text-2xl">×</button>
         </div>
         <div className="p-5 space-y-4">
           <p className="text-sm text-gray-500">Copie toutes les attributions (prof inclus) d'une section vers une autre année.</p>
@@ -97,7 +97,7 @@ function CopierSectionModal({ sections, anneeActive, isAdmin, onClose, onCopied 
                 ))}
               </select>
               {anneesDispo.length === 0 && (
-                <p className="text-xs text-red-500 mt-1">Aucune attribution trouvée pour cette section.</p>
+                <p className="text-xs text-amber-700 mt-1">Aucune attribution trouvée pour cette section.</p>
               )}
             </label>
             <label className="block">
@@ -121,12 +121,12 @@ function CopierSectionModal({ sections, anneeActive, isAdmin, onClose, onCopied 
           )}
 
           {error && (
-            <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-sm text-red-700">
+            <div className="bg-[#FBF1EE] border border-[#E8CFC7] rounded-carte p-3 text-sm text-[#9d4a38]">
               {error}
               {conflict && isAdmin && (
                 <div className="mt-2">
                   <button onClick={() => copier(true)} disabled={loading}
-                    className="bg-red-600 hover:bg-red-700 text-white text-xs px-3 py-1.5 h-9 rounded font-medium disabled:opacity-40">
+                    className="bouton-detruire controle text-[12px] px-3 disabled:opacity-40">
                     ⚠️ Forcer — supprimer les {conflict.count} existantes et recopier
                   </button>
                 </div>
@@ -180,7 +180,7 @@ const DEFAULT_COLS = [
       const tip = `Cours_per=${per} · Total=${tot} · Ratio=${mult}`;
       return ok
         ? <span className="text-green-600 font-bold" title={`Conforme. ${tip}`}>✓</span>
-        : <span className="text-red-600 font-bold" title={`NON conforme. ${tip}`}>✗</span>;
+        : <span className="text-amber-700 font-bold" title={`NON conforme. ${tip}`}>✗</span>;
     }},
   { key: 'section',               label: 'Section',    width: 110, rowClickable: true, flatOnly: true },
   { key: 'contrat_mdp',           label: 'Contr.',     width: 60, edit: 'select',
@@ -1241,7 +1241,7 @@ export default function Attributions() {
           }
           if (c.key==='__actions') {
             return <td key={c.key} className="text-center" style={sty}>
-              <button onClick={()=>deleteRow(row.id)} className="text-red-500 hover:text-red-700" title="Supprimer"><IconTrash size={15}/></button>
+              <button onClick={()=>deleteRow(row.id)} className="text-[#9d4a38] hover:opacity-70" title="Supprimer"><IconTrash size={15}/></button>
             </td>;
           }
           if (c.key==='__conformite') return <td key={c.key} className="text-center" style={sty}>{c.render(null,row)}</td>;
@@ -1254,7 +1254,7 @@ export default function Attributions() {
                 {verrous[row.id] && <span title={`Nomination définitive — ${verrous[row.id].periodes_nommees||''} pér. ${verrous[row.id].type_charge||''} · code FWB ${verrous[row.id].code_fwb||''} (attribution verrouillée)`} className="shrink-0 text-iip-blue"><IconLock size={13}/></span>}
                 {!verrous[row.id] && alertesCours[row.id] && <span title={`⚠ ${alertesCours[row.id].definitif} est engagé(e) à titre définitif sur ce cours (${alertesCours[row.id].periodes_nommees||''} pér. ${alertesCours[row.id].type_charge||''}, FWB ${alertesCours[row.id].code_fwb||''})`} className="shrink-0 cursor-help text-amber-600"><IconLockOpen size={13}/></span>}
                 {!!row.remplace_attribution_id && <span title="Ligne de remplacement (titulaire en congé)" className="shrink-0 text-[10px] text-iip-blue font-bold">R</span>}
-                {!!row.est_rt && <span title="Remise au travail (RT) — charge d'un définitif recasée ici" className="shrink-0 text-[10px] px-1 py-0 rounded font-bold text-orange-600 border border-red-500">RT</span>}
+                {!!row.est_rt && <span title="Remise au travail (RT) — charge d'un définitif recasée ici" className="shrink-0 text-[10px] px-1 py-0 rounded font-bold text-[#9d4a38] border border-[#C9A69C]">RT</span>}
                 {badge === 'EXT' && <span className="text-[10px] px-1 py-0 rounded font-bold bg-teal-100 text-teal-700 border border-teal-300 shrink-0" title="Couvert par l'enveloppe externe">EXT</span>}
                 {badge === 'DOT' && <span className="text-[10px] px-1 py-0 rounded font-bold bg-orange-100 text-orange-700 border border-orange-300 shrink-0" title="Dépasse le plafond → dotation organique">DOT</span>}
                 {badge === 'EXT+DOT' && <span className="text-[10px] px-1 py-0 rounded font-bold bg-purple-100 text-purple-700 border border-purple-300 shrink-0" title="Partiellement EXT, partiellement DOT">EXT+DOT</span>}
@@ -1262,7 +1262,7 @@ export default function Attributions() {
                 {(!row.professeur || /désigner|designer/i.test(row.professeur || '')) && (
                   <button onClick={e=>{e.stopPropagation(); if(recrutMenu?.rowId===row.id){setRecrutMenu(null);}else{const r=e.currentTarget.getBoundingClientRect(); ouvrirRecrut(row, {top:r.bottom+4, right:window.innerWidth-r.right});}}} title="Piocher un candidat du recrutement (devient recruté et lié à ce groupe)" className="shrink-0 text-iip-turquoise hover:text-iip-blue"><IconBriefcase size={14}/></button>
                 )}
-                <button onClick={e=>{e.stopPropagation(); toggleConge(row);}} title={row.en_conge ? 'En congé — cliquer pour réactiver' : 'Mettre en congé (crée une ligne de remplacement)'} className={`shrink-0 text-[10px] font-bold px-1 py-0.5 rounded border ${row.en_conge ? 'bg-transparent text-red-600 border-red-500' : 'bg-gray-50 text-gray-400 border-gray-200 hover:border-red-400 hover:text-red-500'}`}>C</button>
+                <button onClick={e=>{e.stopPropagation(); toggleConge(row);}} title={row.en_conge ? 'En congé — cliquer pour réactiver' : 'Mettre en congé (crée une ligne de remplacement)'} className={`shrink-0 text-[10px] font-bold px-1 py-0.5 rounded border ${row.en_conge ? 'bg-transparent text-amber-700 border-amber-500' : 'bg-gray-50 text-gray-400 border-gray-200 hover:border-amber-400 hover:text-amber-600'}`}>C</button>
               </div>
 
               {!verrous[row.id] && alertesCours[row.id] && <div className="text-[10px] text-amber-600 leading-tight mt-0.5">⚠ définitif : {alertesCours[row.id].definitif}</div>}
@@ -1495,7 +1495,7 @@ export default function Attributions() {
             </td>;
           }
           if (c.edit==='select') return <td key={c.key} style={sty}><select defaultValue={v??''} onClick={e=>e.stopPropagation()} className="bg-transparent border-0 outline-none w-full text-sm cursor-pointer focus:bg-yellow-50" onChange={e=>{if(e.target.value!==(v??''))saveCell(row.id,c.key,e.target.value);}}>{c.options.map(([val,lbl])=><option key={val} value={val}>{lbl}</option>)}</select></td>;
-          if (c.edit==='prof') return <td key={c.key} style={sty}><div className="flex items-center gap-1">{verrous[row.id] && <span title={`Nomination définitive — ${verrous[row.id].periodes_nommees||''} pér. ${verrous[row.id].type_charge||''} · code FWB ${verrous[row.id].code_fwb||''} (attribution verrouillée)`} className="flex-shrink-0">🔒</span>}{!verrous[row.id] && alertesCours[row.id] && <span title={`⚠ ${alertesCours[row.id].definitif} est engagé(e) à titre définitif sur ce cours (${alertesCours[row.id].periodes_nommees||''} pér. ${alertesCours[row.id].type_charge||''}, FWB ${alertesCours[row.id].code_fwb||''})`} className="flex-shrink-0 cursor-help">🔓</span>}{row.remplace_attribution_id && <span title="Ligne de remplacement (titulaire en congé)" className="flex-shrink-0 text-[10px] text-iip-blue font-bold">R</span>}<select defaultValue={row.professeur_id??''} onClick={e=>e.stopPropagation()} className="bg-transparent border-0 outline-none w-full text-sm cursor-pointer focus:bg-yellow-50" onChange={e=>{const nid=e.target.value?Number(e.target.value):null;if(nid!==row.professeur_id)saveCell(row.id,'professeur_id',nid);}}><option value="">— Aucun —</option>{professeurs.map(p=><option key={p.id} value={p.id}>{p.nom_prenom}</option>)}</select><button onClick={e=>{e.stopPropagation(); toggleConge(row);}} title={row.en_conge ? 'En congé — cliquer pour réactiver' : 'Mettre en congé (crée une ligne de remplacement)'} className={`flex-shrink-0 text-[10px] font-bold px-1 py-0.5 rounded border ${row.en_conge ? 'bg-transparent text-red-600 border-red-500' : 'bg-gray-50 text-gray-400 border-gray-200 hover:border-red-400 hover:text-red-500'}`}>C</button></div>{!verrous[row.id] && alertesCours[row.id] && <div className="text-[10px] text-amber-600 leading-tight mt-0.5">⚠ définitif : {alertesCours[row.id].definitif}</div>}</td>;
+          if (c.edit==='prof') return <td key={c.key} style={sty}><div className="flex items-center gap-1">{verrous[row.id] && <span title={`Nomination définitive — ${verrous[row.id].periodes_nommees||''} pér. ${verrous[row.id].type_charge||''} · code FWB ${verrous[row.id].code_fwb||''} (attribution verrouillée)`} className="flex-shrink-0">🔒</span>}{!verrous[row.id] && alertesCours[row.id] && <span title={`⚠ ${alertesCours[row.id].definitif} est engagé(e) à titre définitif sur ce cours (${alertesCours[row.id].periodes_nommees||''} pér. ${alertesCours[row.id].type_charge||''}, FWB ${alertesCours[row.id].code_fwb||''})`} className="flex-shrink-0 cursor-help">🔓</span>}{row.remplace_attribution_id && <span title="Ligne de remplacement (titulaire en congé)" className="flex-shrink-0 text-[10px] text-iip-blue font-bold">R</span>}<select defaultValue={row.professeur_id??''} onClick={e=>e.stopPropagation()} className="bg-transparent border-0 outline-none w-full text-sm cursor-pointer focus:bg-yellow-50" onChange={e=>{const nid=e.target.value?Number(e.target.value):null;if(nid!==row.professeur_id)saveCell(row.id,'professeur_id',nid);}}><option value="">— Aucun —</option>{professeurs.map(p=><option key={p.id} value={p.id}>{p.nom_prenom}</option>)}</select><button onClick={e=>{e.stopPropagation(); toggleConge(row);}} title={row.en_conge ? 'En congé — cliquer pour réactiver' : 'Mettre en congé (crée une ligne de remplacement)'} className={`flex-shrink-0 text-[10px] font-bold px-1 py-0.5 rounded border ${row.en_conge ? 'bg-transparent text-amber-700 border-amber-500' : 'bg-gray-50 text-gray-400 border-gray-200 hover:border-amber-400 hover:text-amber-600'}`}>C</button></div>{!verrous[row.id] && alertesCours[row.id] && <div className="text-[10px] text-amber-600 leading-tight mt-0.5">⚠ définitif : {alertesCours[row.id].definitif}</div>}</td>;
           if (c.edit==='statut') {
             const isHelb = row.contrat_mdp === 'HELB';
             const statutOptions = c.options.map(([val, lbl]) => [val, (isHelb && val === 'EXP') ? 'PI' : lbl]);
@@ -1626,7 +1626,7 @@ export default function Attributions() {
                 <span className="text-sm text-gray-500">{cg.rows.length} attr.</span>
                 <span className="text-sm font-semibold text-iip-gold">{st.tPer}p</span>
                 {st.tAut>0 && <span className="text-sm text-gray-400">+{st.tAut}a</span>}
-                {st.nBad>0 ? <span className="text-sm text-red-600 font-bold">✗</span> : st.nConf>0 ? <span className="text-sm text-green-600 font-bold">✓</span> : null}
+                {st.nBad>0 ? <span className="text-sm text-amber-700 font-bold">✗</span> : st.nConf>0 ? <span className="text-sm text-green-600 font-bold">✓</span> : null}
               </>
           }
         </button>
@@ -1753,7 +1753,7 @@ export default function Attributions() {
               <span>{st.nProf} prof.</span>
               <span className="font-semibold text-iip-gold w-12 text-right">{st.tPer}p</span>
               {st.tAut>0 ? <span className="text-gray-400 w-10 text-right">+{st.tAut}a</span> : <span className="w-10"></span>}
-              {st.nBad>0 ? <span className="text-red-600 font-bold w-8 text-right">✗ {st.nBad}</span>
+              {st.nBad>0 ? <span className="text-amber-700 font-bold w-8 text-right">✗ {st.nBad}</span>
                 : st.nConf>0 ? <span className="text-green-600 font-bold w-8 text-right">✓</span>
                 : <span className="w-8"></span>}
             </span>
@@ -1832,7 +1832,7 @@ export default function Attributions() {
               const styles = {
                 ok:          'bg-green-50 border-green-200 text-green-800',
                 sous:        'bg-amber-50 border-amber-200 text-amber-800',
-                'dépassement':'bg-red-50 border-red-200 text-red-700',
+                'dépassement':'bg-[#FBF1EE] border-[#E8CFC7] text-[#9d4a38]',
                 cours:       'bg-orange-50 border-orange-200 text-orange-700',
               };
               const icone = { ok:'✓', sous:'➜', 'dépassement':'⚠', cours:'⚠' }[ctrl.etat] || 'ℹ';
@@ -1872,7 +1872,7 @@ export default function Attributions() {
             <span>{st.nProf} prof.</span>
             <span className="font-bold text-iip-gold">{st.tPer}p</span>
             {st.tAut>0 && <span className="text-gray-400">+{st.tAut}a</span>}
-            {st.nBad>0 && <span className="text-red-600 font-bold">✗ {st.nBad}</span>}
+            {st.nBad>0 && <span className="text-amber-700 font-bold">✗ {st.nBad}</span>}
             {st.nBad===0 && st.nConf>0 && <span className="text-green-600 font-bold">✓</span>}
             {isAdmin && (
               <span className="flex items-center gap-1 flex-shrink-0" onClick={e=>e.stopPropagation()}>
@@ -1885,9 +1885,9 @@ export default function Attributions() {
                 <button onClick={()=>genererExcel(sg.section)}
                   className="text-gray-400 hover:text-green-600" title="Exporter en Excel (.xlsx)"><IconFileSpreadsheet size={16}/></button>
                 <button onClick={()=>ouvrirSuppressionSection(sg.section)}
-                  className="text-orange-400 hover:text-red-600" title="Supprimer toutes les attributions de cette section (avec sauvegarde)"><IconEraser size={16}/></button>
+                  className="text-[#9d4a38] hover:opacity-70" title="Supprimer toutes les attributions de cette section (avec sauvegarde)"><IconEraser size={16}/></button>
                 <button onClick={()=>delSection(sg.section)}
-                  className="text-red-400 hover:text-red-600" title="Retirer cette section de la vue"><IconTrash size={16}/></button>
+                  className="text-slate-400 hover:text-slate-600" title="Retirer cette section de la vue"><IconTrash size={16}/></button>
               </span>
             )}
           </div>
@@ -1999,8 +1999,8 @@ export default function Attributions() {
                   <button onClick={()=>setShowCopierSection(true)} className="flex items-center gap-2 bg-white border border-slate-300 text-iip-blue hover:bg-slate-50 text-[13px] font-medium px-3 py-2 rounded-lg"><IconClipboardText size={16}/>Copier section</button>
                   <button onClick={()=>api.exportExcel()} className="flex items-center gap-2 bg-white border border-slate-300 text-iip-blue hover:bg-slate-50 text-[13px] font-medium px-3 py-2 rounded-lg"><IconFileImport size={16}/>Export</button>
                   {isAdmin && <>
-                    {selected.size>0 && <button onClick={()=>openBulkModal('selection')} className="flex items-center gap-2 bg-white border border-red-200 text-iip-danger hover:bg-red-50 text-[13px] font-medium px-3 py-2 rounded-lg"><IconTrash size={16}/>Sélection ({selected.size})</button>}
-                    <button onClick={()=>openBulkModal('filtered')} className="flex items-center gap-2 bg-white border border-red-200 text-iip-danger hover:bg-red-50 text-[13px] font-medium px-3 py-2 rounded-lg"><IconTrash size={16}/>Suppr. filtre</button>
+                    {selected.size>0 && <button onClick={()=>openBulkModal('selection')} className="flex items-center gap-2 bg-white border border-[#E8CFC7] text-[#9d4a38] hover:bg-[#FBF1EE] text-[13px] font-medium px-3 py-2 rounded-champ"><IconTrash size={16}/>Sélection ({selected.size})</button>}
+                    <button onClick={()=>openBulkModal('filtered')} className="flex items-center gap-2 bg-white border border-[#E8CFC7] text-[#9d4a38] hover:bg-[#FBF1EE] text-[13px] font-medium px-3 py-2 rounded-champ"><IconTrash size={16}/>Suppr. filtre</button>
                     <button onClick={()=>openBulkModal('all')} className="flex items-center gap-2 bg-iip-danger hover:brightness-110 text-white text-[13px] font-medium px-3 py-2 rounded-lg"><IconTrash size={16}/>Tout supprimer</button>
                     <button onClick={reimportExcel} className="flex items-center gap-2 bg-white border border-slate-300 text-iip-blue hover:bg-slate-50 text-[13px] font-medium px-3 py-2 rounded-lg"><IconRefresh size={16}/>Réimporter</button>
                   </>}
@@ -2305,7 +2305,7 @@ export default function Attributions() {
                 Annuler
               </button>
               <button onClick={() => delSectionConfirmed(confirmDeleteSection)}
-                className="px-4 py-2 text-sm bg-red-600 text-white rounded hover:bg-red-700">
+                className="bouton-detruire controle px-4">
                 Supprimer
               </button>
             </div>
@@ -2332,7 +2332,7 @@ export default function Attributions() {
             <p className="text-sm text-gray-600">
               Supprimer <strong>toutes les attributions</strong> de la section <strong>{confirmViderSection}</strong> pour l'année <strong>{getAnnee()}</strong> ?
             </p>
-            <p className="text-xs text-red-600 font-medium">Cette action est irréversible. Le référentiel (UE, cours) n'est pas touché.</p>
+            <p className="text-xs text-[#9d4a38] font-medium">Cette action est irréversible. Le référentiel (UE, cours) n'est pas touché.</p>
             <div className="flex gap-3 justify-end pt-2">
               <button onClick={() => setConfirmViderSection(null)}
                 className="px-4 py-2 text-sm border border-gray-300 rounded hover:bg-gray-50">Annuler</button>
@@ -2387,10 +2387,10 @@ export default function Attributions() {
 
       {secDel && (
         <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] flex items-center justify-center p-4 z-40" onClick={e=>e.target===e.currentTarget&&setSecDel(null)}>
-          <div className="bg-white rounded-xl shadow-2xl max-w-lg w-full p-6 border-t-4 border-red-600 flex flex-col" style={{maxHeight:'85vh'}}>
-            <h2 className="text-xl font-title text-red-700 mb-2">⚠️ Tout supprimer — section {secDel.section}</h2>
+          <div className="bg-white rounded-xl shadow-2xl max-w-lg w-full p-6 border-t-4 border-[#9d4a38] flex flex-col" style={{maxHeight:'85vh'}}>
+            <h2 className="text-xl font-title text-[#9d4a38] mb-2">⚠️ Tout supprimer — section {secDel.section}</h2>
             <p className="text-sm text-gray-700 mb-2">
-              Vous allez supprimer <b className="text-red-600">{secDel.count} attribution(s)</b> de la section <b>{secDel.section}</b> pour {getAnnee()}.
+              Vous allez supprimer <b className="text-[#9d4a38]">{secDel.count} attribution(s)</b> de la section <b>{secDel.section}</b> pour {getAnnee()}.
               La section et les cours restent dans le référentiel ; seules les attributions sont effacées.
             </p>
             <p className="text-xs text-gray-500 mb-2">Une <b>copie de sauvegarde</b> de la base est créée automatiquement juste avant. Action <b>irréversible</b> sans restauration de cette copie.</p>
@@ -2420,7 +2420,7 @@ export default function Attributions() {
             <div className="flex justify-end gap-2">
               <button onClick={()=>setSecDel(null)} className="px-4 py-2 text-sm text-gray-600">Annuler</button>
               <button onClick={confirmSuppressionSection} disabled={secDelText!==secDel.section || secDel.count===0 || secDelBusy}
-                className="bg-red-600 hover:bg-red-700 disabled:opacity-30 text-white text-sm px-5 py-2 rounded font-medium">
+                className="bouton-detruire controle px-5 disabled:opacity-30">
                 {secDelBusy ? 'Suppression…' : `Supprimer ${secDel.count} attribution(s)`}
               </button>
             </div>
@@ -2430,19 +2430,19 @@ export default function Attributions() {
 
       {bulkDeleteModal && (
         <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] flex items-center justify-center p-4 z-40" onClick={e=>e.target===e.currentTarget&&setBulkDeleteModal(null)}>
-          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6 border-t-4 border-red-600">
-            <h2 className="text-xl font-title text-red-700 mb-3">⚠️ Suppression en masse</h2>
+          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6 border-t-4 border-[#9d4a38]">
+            <h2 className="text-xl font-title text-[#9d4a38] mb-3">⚠️ Suppression en masse</h2>
             <p className="text-sm text-gray-700 mb-4">
               {bulkDeleteModal==='selection'&&<>Supprimer <b>{bulkPreview?.count??'…'}</b> attribution(s) sélectionnée(s) ?</>}
               {bulkDeleteModal==='filtered'&&<>Supprimer <b>{bulkPreview?.count??'…'}</b> attribution(s) correspondant aux filtres ?</>}
-              {bulkDeleteModal==='all'&&<>Supprimer <b className="text-red-600">TOUTES les {bulkPreview?.count??'…'} attributions</b> ?</>}
+              {bulkDeleteModal==='all'&&<>Supprimer <b className="text-[#9d4a38]">TOUTES les {bulkPreview?.count??'…'} attributions</b> ?</>}
             </p>
             <p className="text-xs text-gray-500 mb-3">Planning supprimé en cascade. <b>Irréversible.</b></p>
             <label className="block text-xs text-gray-600 mb-1">Tapez <code className="bg-gray-100 px-1 rounded font-mono">SUPPRIMER</code> :</label>
             <input value={bulkConfirmText} onChange={e=>setBulkConfirmText(e.target.value)} autoFocus className="w-full border border-gray-300 rounded px-3 py-2 text-sm font-mono mb-4" placeholder="SUPPRIMER"/>
             <div className="flex justify-end gap-2">
               <button onClick={()=>setBulkDeleteModal(null)} className="px-4 py-2 text-sm text-gray-600">Annuler</button>
-              <button onClick={confirmBulkDelete} disabled={bulkConfirmText!=='SUPPRIMER'} className="bg-red-600 hover:bg-red-700 disabled:opacity-30 text-white text-sm px-5 py-2 rounded font-medium">Confirmer</button>
+              <button onClick={confirmBulkDelete} disabled={bulkConfirmText!=='SUPPRIMER'} className="bouton-detruire controle px-5 disabled:opacity-30">Confirmer</button>
             </div>
           </div>
         </div>
@@ -2450,18 +2450,18 @@ export default function Attributions() {
 
       {/* Bandeau : profs définitifs en perte de charge (ETP global, en bas) */}
       {pertesCharge.length > 0 && (
-        <div className="mt-4 bg-red-50 border border-red-200 rounded-lg p-3">
-          <div className="flex items-center gap-2 text-red-700 font-medium text-sm mb-1.5">
+        <div className="mt-4 bg-[#FBF1EE] border border-[#E8CFC7] rounded-carte p-3">
+          <div className="flex items-center gap-2 text-[#9d4a38] font-medium text-sm mb-1.5">
             ⚠ {pertesCharge.length} engagement(s) à titre définitif en perte de charge
           </div>
-          <p className="text-[12px] text-red-600 mb-2">
+          <p className="text-[12px] text-[#9d4a38] mb-2">
             L'équivalent ETP de l'engagement définitif n'est pas couvert. Cochez des attributions comme remise au travail (RT) dans la fiche du prof, ou attribuez-leur de nouveaux cours.
           </p>
           <div className="space-y-1">
             {pertesCharge.map(p => (
               <div key={p.professeur_id} className="flex items-center justify-between bg-white rounded px-2.5 py-1.5 h-9 text-[12px]">
                 <span className="text-gray-700"><strong>{p.prof}</strong></span>
-                <span className="text-red-600 font-semibold whitespace-nowrap ml-2">
+                <span className="text-[#9d4a38] font-semibold whitespace-nowrap ml-2">
                   manque {p.etp_manque} ETP (~{p.equiv_periodes_ct} pér. CT)
                   <span className="text-gray-400 font-normal"> · nommé {p.etp_nomme} / couvert {p.etp_couvert}</span>
                 </span>
