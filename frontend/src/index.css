@@ -373,7 +373,7 @@ table.grid-excel-soft td.num { text-align: right; font-variant-numeric: tabular-
      rail, ni au titre, ni au tableau. Il s'aligne désormais sur la COLONNE DE
      CONTENU : la gouttière du rail, plus le retrait que l'écran se donne. Il
      suit donc quand le rail s'élargit, sans que personne ait à y penser. */
-  left: calc(var(--rail, 5rem) + 1rem); right: 1rem;
+  left: calc(var(--rail, 3.5rem) + 1rem); right: 1rem;
   background: var(--menu-bord);
   transition: left 300ms cubic-bezier(.32,.72,0,1);
 }
@@ -398,7 +398,7 @@ table.grid-excel-soft td.num { text-align: right; font-variant-numeric: tabular-
 .rail-defile::-webkit-scrollbar { width: 0; height: 0; }
 
 .gouttiere-rail {
-  margin-left: var(--rail, 5rem);
+  margin-left: var(--rail, 3.5rem);
   transition: margin-left 200ms ease-out;
 }
 @media (prefers-reduced-motion: reduce) {

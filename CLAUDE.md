@@ -314,6 +314,11 @@ et 3 composants de tuile**. La stratégie tient en cinq chantiers, dans cet ordr
   employaient huit valeurs au hasard — des boutons pointus à côté de boutons
   ronds. On ne réécrit pas deux mille trois cents classes : **on redéfinit le
   défaut**, et tout y tombe, aujourd'hui comme demain.
+- **Ce qui vaut à gauche vaut à droite.** La gouttière du rail vaut
+  **exactement** la largeur du rail (`LARGEUR_RAIL`), et rien de plus : c'est
+  le retrait que l'écran se donne — le même des deux côtés — qui fait l'écart.
+  Elle ajoutait 1,5 rem « pour respirer » : 40 px à gauche, 16 à droite, un
+  cadre qui n'est pas d'équerre sans qu'on puisse dire pourquoi.
 - **Le filet de la barre s'aligne sur la colonne de contenu** :
   `left: calc(var(--rail) + 1rem)`. Posé à une marge choisie, il ne répondait à
   rien — ni au rail, ni au titre, ni au tableau. Il suit maintenant quand le

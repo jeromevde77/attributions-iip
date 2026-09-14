@@ -59,4 +59,18 @@ export function useRailEpingle() {
  * côté : le rail flotte, le contenu ne doit pas venir se coller au verre.
  *   replié : 0,75 + 3,5 + 0,75 = 5rem · ouvert : 0,75 + 14,5 + 0,75 = 16rem
  */
-export const LARGEUR_RAIL = { replie: '5rem', ouvert: '16rem', volet: '15.5rem' };
+/*
+ * LA GOUTTIÈRE VAUT EXACTEMENT LA LARGEUR DU RAIL — et rien de plus.
+ *
+ * Elle valait la largeur du rail PLUS une rem et demie « pour respirer ». Mais
+ * l'écran, lui, se donne déjà son propre retrait de seize pixels, des deux
+ * côtés. Résultat : quarante pixels entre le rail et le contenu, seize entre
+ * le contenu et le bord droit. Un cadre qui n'est pas d'équerre, et personne
+ * ne pouvait dire pourquoi.
+ *
+ * La règle tient en une phrase : si l'écart est de dix pixels à gauche, il est
+ * de dix pixels à droite. Pour cela, la gouttière ne doit RIEN ajouter — elle
+ * pousse le contenu juste au-delà du rail, et le retrait de l'écran fait le
+ * reste, symétriquement.
+ */
+export const LARGEUR_RAIL = { replie: '3.5rem', ouvert: '14.5rem', volet: '14.5rem' };
