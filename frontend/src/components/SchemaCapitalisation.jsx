@@ -223,7 +223,7 @@ export default function SchemaCapitalisation({
       {ouvert && layout && (
         <div className="flex items-center justify-end gap-1 px-3 py-1.5
                         border-b border-slate-100 bg-white">
-          <span className="text-[10.5px] text-slate-400 mr-1">Taille</span>
+          <span className="text-[11px] text-slate-400 mr-1">Taille</span>
           <button type="button" onClick={() => setZoom(z => Math.max(0.8, Math.round((z - 0.25) * 100) / 100))}
             disabled={zoom <= 0.8}
             className="w-6 h-6 rounded border border-slate-200 text-slate-600
@@ -231,7 +231,7 @@ export default function SchemaCapitalisation({
             title="Réduire">−</button>
           <button type="button" onClick={() => setZoom(1)}
             className="px-2 h-6 rounded border border-slate-200 text-slate-600
-                       text-[10.5px] tabular-nums"
+                       text-[11px] tabular-nums"
             title="Revenir à la taille normale">{Math.round(zoom * 100)} %</button>
           <button type="button" onClick={() => setZoom(z => Math.min(3, Math.round((z + 0.25) * 100) / 100))}
             disabled={zoom >= 3}
@@ -449,7 +449,7 @@ export default function SchemaCapitalisation({
                       title={v === 'interne'
                         ? "Fondé sur des motifs pédagogiques : avertit l'étudiant sans lui interdire l'UE"
                         : "Imposé par le dossier pédagogique : bloque tant qu'il n'est pas acquis"}
-                      className={`px-2.5 py-1 text-[11.5px] ${natureLien === v
+                      className={`px-2.5 py-1 text-[12px] ${natureLien === v
                         ? 'bg-iip-blue text-white font-semibold' : 'text-slate-600 hover:bg-slate-50'}`}>
                       {l}
                     </button>
@@ -474,16 +474,16 @@ export default function SchemaCapitalisation({
                   {niveauxPossibles.map(v => (
                     <button key={v}
                       onClick={() => { onNiveau(selection, v); setSelection(null); }}
-                      className="text-[11.5px] px-2.5 py-1 rounded-lg border border-slate-300 hover:bg-iip-blue hover:text-white hover:border-iip-blue transition">
+                      className="text-[12px] px-2.5 py-1 rounded-lg border border-slate-300 hover:bg-iip-blue hover:text-white hover:border-iip-blue transition">
                       {v}
                     </button>
                   ))}
                   <button onClick={() => { onNiveau(selection, ''); setSelection(null); }}
-                    className="text-[11.5px] px-2.5 py-1 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50">
+                    className="text-[12px] px-2.5 py-1 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50">
                     Valeur du référentiel
                   </button>
                   <button onClick={() => setSelection(null)}
-                    className="text-[11.5px] px-2 py-1 text-slate-400">Annuler</button>
+                    className="text-[12px] px-2 py-1 text-slate-400">Annuler</button>
                 </div>
               ) : (
                 <div className="text-[11px] text-slate-400">
@@ -497,7 +497,7 @@ export default function SchemaCapitalisation({
           )}
 
           {mode === 'etudiant' && (
-            <div className="flex flex-wrap items-center gap-3 px-3 py-2 bg-slate-50 border-t border-slate-200 text-[10.5px] text-slate-500">
+            <div className="flex flex-wrap items-center gap-3 px-3 py-2 bg-slate-50 border-t border-slate-200 text-[11px] text-slate-500">
               {['acquise', 'accessible', 'sous_reserve', 'bloquee'].map(k => (
                 <span key={k} className="flex items-center gap-1.5">
                   <span className="inline-block w-3 h-3 rounded-sm border"

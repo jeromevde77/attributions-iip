@@ -128,15 +128,15 @@ function EnvCard({ env }) {
       {/* Alloc / Utilisé / Solde */}
       <div className="flex items-center gap-3 text-center flex-shrink-0">
         <div>
-          <div className="text-[9px] text-gray-400 uppercase">Alloc.</div>
+          <div className="text-[10px] text-gray-400 uppercase">Alloc.</div>
           <div className="text-xs font-bold text-gray-600">{fmt(env.periodes_b)}</div>
         </div>
         <div>
-          <div className="text-[9px] text-gray-400 uppercase">Utilisé</div>
+          <div className="text-[10px] text-gray-400 uppercase">Utilisé</div>
           <div className={`text-xs font-bold ${trafficColor(env.pct)}`}>{fmt(env.usage)}</div>
         </div>
         <div>
-          <div className="text-[9px] text-gray-400 uppercase">Solde</div>
+          <div className="text-[10px] text-gray-400 uppercase">Solde</div>
           <div className={`text-xs font-bold ${env.solde < 0 ? 'text-red-600' : 'text-green-700'}`}>{sign(env.solde)}{fmt(env.solde)}</div>
         </div>
       </div>
@@ -147,7 +147,7 @@ function EnvCard({ env }) {
       </div>
       {/* Badge dépassement */}
       {depasse && (
-        <span className="text-[9px] bg-orange-100 text-orange-700 border border-orange-200 px-1.5 py-0.5 rounded font-bold flex-shrink-0 whitespace-nowrap">
+        <span className="text-[10px] bg-orange-100 text-orange-700 border border-orange-200 px-1.5 py-0.5 rounded font-bold flex-shrink-0 whitespace-nowrap">
           ⚠ +{fmt(dot)}
         </span>
       )}
@@ -426,7 +426,7 @@ function DotationComparaison({ civil }) {
                           <span className="text-gray-600">{u.ue_nom}</span>
                         </td>
                         <td className="px-2 py-1.5 h-9 text-center" style={{width:colW.niv}}>
-                          {u.ue_niv && <span className="text-[9px] font-bold px-1 py-0.5 rounded text-white"
+                          {u.ue_niv && <span className="text-[10px] font-bold px-1 py-0.5 rounded text-white"
                             style={{background: nivColor(u.ue_niv)}}>{u.ue_niv}</span>}
                         </td>
                         <td className="px-2 py-1.5 h-9 text-center text-gray-400">{u.ue_quad||'—'}</td>
@@ -837,7 +837,7 @@ export default function Pilotage() {
                   { label: 'Taux',          value: <span className={trafficColor(d.pct_organique)}>{pct(d.pct_organique)}</span>, sub: <ProgressBar pct={d.pct_organique} />, taux: true },
                 ].map(({ label, value, sub, color, taux }) => (
                   <div key={label} className={`px-4 py-3 bg-white ${taux ? trafficBg(d.pct_organique) : ''}`}>
-                    <div className="text-[9px] uppercase tracking-wider text-gray-400 mb-0.5">{label}</div>
+                    <div className="text-[10px] uppercase tracking-wider text-gray-400 mb-0.5">{label}</div>
                     <div className={`text-lg font-bold leading-tight ${color || 'text-iip-blue'}`}>{value}</div>
                     <div className="text-[10px] text-gray-400 mt-0.5">{sub}</div>
                   </div>
@@ -853,7 +853,7 @@ export default function Pilotage() {
                   rentrée ? » */}
               {(d.usage_jan_juin > 0 || d.usage_sep_dec > 0) && (
                 <div className="px-4 py-3 border-b border-gray-100">
-                  <div className="text-[9px] font-semibold text-gray-400 uppercase
+                  <div className="text-[10px] font-semibold text-gray-400 uppercase
                                   tracking-wider mb-2">
                     L'année civile en deux moitiés
                   </div>
@@ -908,7 +908,7 @@ export default function Pilotage() {
                 <div className="px-4 py-3 border-b border-gray-100 bg-amber-50/60">
                   <div className="flex items-center gap-6 flex-wrap text-xs">
                     <div>
-                      <div className="text-[9px] uppercase tracking-wider text-amber-700 mb-0.5">
+                      <div className="text-[10px] uppercase tracking-wider text-amber-700 mb-0.5">
                         Solde constaté
                       </div>
                       <div className="text-lg font-bold text-amber-900 leading-tight">
@@ -917,7 +917,7 @@ export default function Pilotage() {
                       <div className="text-[10px] text-amber-700">déclaré par la direction</div>
                     </div>
                     <div>
-                      <div className="text-[9px] uppercase tracking-wider text-gray-400 mb-0.5">
+                      <div className="text-[10px] uppercase tracking-wider text-gray-400 mb-0.5">
                         Consommation qu'il implique
                       </div>
                       <div className="text-lg font-bold text-iip-blue leading-tight">
@@ -928,7 +928,7 @@ export default function Pilotage() {
                       </div>
                     </div>
                     <div>
-                      <div className="text-[9px] uppercase tracking-wider text-gray-400 mb-0.5">
+                      <div className="text-[10px] uppercase tracking-wider text-gray-400 mb-0.5">
                         Écart avec la base
                       </div>
                       <div className={`text-lg font-bold leading-tight ${
@@ -953,7 +953,7 @@ export default function Pilotage() {
               {/* Enveloppes extérieures — 4 cartes sur une ligne */}
               {d.enveloppes.length > 0 && (
                 <div className="px-4 py-3 border-b border-gray-100">
-                  <div className="text-[9px] font-semibold text-gray-400 uppercase tracking-wider mb-2">Enveloppes extérieures</div>
+                  <div className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-2">Enveloppes extérieures</div>
                   <div className="grid grid-cols-4 gap-2">
                     {d.enveloppes.map(e => {
                       const dep = e.solde < 0;
@@ -961,7 +961,7 @@ export default function Pilotage() {
                       return (
                         <div key={e.code} className={`rounded-lg border px-3 py-2 text-xs ${dep ? 'border-orange-200 bg-orange-50' : 'border-gray-200'}`}>
                           <div className="font-semibold text-iip-blue truncate">{e.label}</div>
-                          <div className="text-[9px] text-gray-400 mb-1.5">{e.code}</div>
+                          <div className="text-[10px] text-gray-400 mb-1.5">{e.code}</div>
                           <div className="flex justify-between text-[10px] text-gray-500 mb-1">
                             <span>{fmt(e.periodes_b)}</span>
                             <span className={trafficColor(e.pct)}>{fmt(e.usage)}</span>
@@ -969,8 +969,8 @@ export default function Pilotage() {
                           </div>
                           <ProgressBar pct={e.pct} />
                           <div className="flex justify-between mt-0.5">
-                            <span className={`text-[9px] font-medium ${trafficColor(e.pct)}`}>{pct(e.pct)}</span>
-                            {dep && <span className="text-[9px] text-orange-600 font-bold">⚠ +{fmt(dot)}</span>}
+                            <span className={`text-[10px] font-medium ${trafficColor(e.pct)}`}>{pct(e.pct)}</span>
+                            {dep && <span className="text-[10px] text-orange-600 font-bold">⚠ +{fmt(dot)}</span>}
                           </div>
                         </div>
                       );
@@ -982,7 +982,7 @@ export default function Pilotage() {
               {/* Table dotation par section/UE */}
               <div className="px-4 pt-3 pb-2">
                 <div className="flex items-center justify-between mb-2">
-                  <div className="text-[9px] font-semibold text-gray-400 uppercase tracking-wider">
+                  <div className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">
                     Détail par section · {anneeActive}{anneePrec ? ` · Δ% vs ${anneePrec}` : ''}
                   </div>
                   <div className="flex items-center gap-2">

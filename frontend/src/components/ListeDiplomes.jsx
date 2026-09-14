@@ -99,7 +99,7 @@ export default function ListeDiplomes({ annee, onClose }) {
       <input type="checkbox" checked={choisis.has(c.id)} onChange={() => basculer(c.id)}
         className="mt-0.5 w-4 h-4 accent-iip-blue flex-none" />
       <span className="flex-1 min-w-0">
-        <span className="text-[12.5px] text-slate-800">
+        <span className="text-[13px] text-slate-800">
           <b>{c.nom}</b> {c.prenom}
         </span>
         <span className="block text-[11px] text-slate-500">
@@ -156,7 +156,7 @@ export default function ListeDiplomes({ annee, onClose }) {
           <label className="block">
             <span className="block text-[11px] font-semibold text-slate-500 mb-0.5">Section</span>
             <select value={section} onChange={e => charger(e.target.value)}
-              className="w-full text-[12.5px] border border-slate-300 rounded-lg px-2 py-1.5">
+              className="w-full text-[13px] border border-slate-300 rounded-lg px-2 py-1.5">
               <option value="">— choisir la section —</option>
               {sections.map(s => (
                 <option key={s.code} value={s.code}>{s.code} — {s.libelle}</option>
@@ -171,7 +171,7 @@ export default function ListeDiplomes({ annee, onClose }) {
 
           {etat && !!cands.length && (
             <>
-              <p className="text-[11.5px] text-slate-500">
+              <p className="text-[12px] text-slate-500">
                 {etat.requises.length} unités composent la section
                 {etat.ects_total ? `, soit ${etat.ects_total} ECTS` : ''}.
                 Figurent ici ceux qui ont acquis toutes les unités, et ceux qui ont réussi
@@ -192,20 +192,20 @@ export default function ListeDiplomes({ annee, onClose }) {
                   <span className="block text-[11px] font-semibold text-slate-500 mb-0.5">Fait à</span>
                   <input value={lieu} placeholder="Anderlecht"
                     onChange={e => setLieu(e.target.value)}
-                    className="w-full text-[12.5px] border border-slate-300 rounded-lg px-2 py-1.5" />
+                    className="w-full text-[13px] border border-slate-300 rounded-lg px-2 py-1.5" />
                 </label>
                 <label className="block">
                   <span className="block text-[11px] font-semibold text-slate-500 mb-0.5">Le</span>
                   <input value={date} placeholder="laisser vide pour compléter à la main"
                     onChange={e => setDate(e.target.value)}
-                    className="w-full text-[12.5px] border border-slate-300 rounded-lg px-2 py-1.5" />
+                    className="w-full text-[13px] border border-slate-300 rounded-lg px-2 py-1.5" />
                 </label>
               </div>
             </>
           )}
 
           {etat && !cands.length && !etat.avertissement && (
-            <div className="py-6 text-center text-[12.5px] text-slate-500">
+            <div className="py-6 text-center text-[13px] text-slate-500">
               Aucun étudiant n'a terminé cette section : ni toutes les unités acquises,
               ni l'épreuve intégrée réussie.
             </div>
@@ -214,17 +214,17 @@ export default function ListeDiplomes({ annee, onClose }) {
 
         <div className="flex-none px-5 py-3 border-t border-slate-100 flex items-center
                         justify-between gap-2">
-          <span className="text-[11.5px] text-slate-500">
+          <span className="text-[12px] text-slate-500">
             {choisis.size} étudiant(s) sur la liste
           </span>
           <div className="flex gap-2">
             <button onClick={onClose}
-              className="px-3 py-1.5 text-[12.5px] rounded-lg border border-slate-300 text-slate-600">
+              className="px-3 py-1.5 text-[13px] rounded-lg border border-slate-300 text-slate-600">
               Fermer
             </button>
             <button onClick={() => imprimer('liste')} disabled={enCours || !choisis.size}
               title="Document de travail — ne figure pas dans la circulaire"
-              className="px-3 py-2 text-[12.5px] rounded-lg border border-slate-300
+              className="px-3 py-2 text-[13px] rounded-lg border border-slate-300
                          text-slate-600 disabled:opacity-40 flex items-center gap-1.5">
               <IconPrinter size={14} /> Liste des diplômés
             </button>
@@ -232,7 +232,7 @@ export default function ListeDiplomes({ annee, onClose }) {
                 titre, et c'est donc lui qui porte le bouton principal. */}
             <button onClick={() => imprimer('pv')} disabled={enCours || !choisis.size}
               title="Annexe 6 (section avec épreuve intégrée) ou 7 — l'acte qui fonde le titre"
-              className="px-4 py-2 text-[12.5px] rounded-lg bg-iip-blue text-white font-semibold
+              className="px-4 py-2 text-[13px] rounded-lg bg-iip-blue text-white font-semibold
                          disabled:opacity-40 flex items-center gap-1.5">
               <IconPrinter size={14} /> Procès-verbal de section
             </button>

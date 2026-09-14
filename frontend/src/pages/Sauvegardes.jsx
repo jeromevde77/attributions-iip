@@ -95,7 +95,7 @@ export default function Sauvegardes() {
       </div>
 
       {data.alerte && (
-        <div className="px-4 py-2.5 rounded-lg bg-amber-50 border border-amber-200 text-[12.5px] text-amber-900 flex items-center gap-2">
+        <div className="px-4 py-2.5 rounded-lg bg-amber-50 border border-amber-200 text-[13px] text-amber-900 flex items-center gap-2">
           <IconAlertTriangle size={15} className="flex-none" /> {data.alerte}
         </div>
       )}
@@ -116,7 +116,7 @@ export default function Sauvegardes() {
           <span className="text-[13px] font-semibold text-iip-blue">Planification</span>
         </div>
         <div className="p-4 flex flex-wrap items-end gap-4">
-          <label className="flex items-center gap-2 text-[12.5px]">
+          <label className="flex items-center gap-2 text-[13px]">
             <input type="checkbox" checked={config.active}
               onChange={e => enregistrerConfig({ active: e.target.checked })} />
             Sauvegarde quotidienne
@@ -174,13 +174,13 @@ export default function Sauvegardes() {
             <tbody>
               {data.sauvegardes.map(s => (
                 <tr key={s.id} className={`border-b border-slate-100 ${s.erreur ? 'bg-red-50/50' : 'hover:bg-slate-50/60'}`}>
-                  <td className="px-4 py-2 text-[12.5px] text-slate-800">
+                  <td className="px-4 py-2 text-[13px] text-slate-800">
                     {quand(s.cree_le)}
                     {s.duree_ms != null && (
                       <span className="block text-[10px] text-slate-400">{s.duree_ms} ms</span>
                     )}
                   </td>
-                  <td className="px-3 py-2 text-[11.5px] text-slate-500">
+                  <td className="px-3 py-2 text-[12px] text-slate-500">
                     {DECLENCHEUR[s.declencheur] || s.declencheur}
                   </td>
                   <td className="px-3 py-2 text-right text-[12px]">{octets(s.taille)}</td>
@@ -188,11 +188,11 @@ export default function Sauvegardes() {
                     {s.erreur ? (
                       <Badge ton="danger">échec</Badge>
                     ) : s.integrite === 'ok' ? (
-                      <span className="text-[11.5px] text-emerald-700 flex items-center gap-1">
+                      <span className="text-[12px] text-emerald-700 flex items-center gap-1">
                         <IconCheck size={13} /> ok
                       </span>
                     ) : (
-                      <span className="text-[11.5px] text-amber-700">{s.integrite}</span>
+                      <span className="text-[12px] text-amber-700">{s.integrite}</span>
                     )}
                   </td>
                   <td className="px-3 py-2 text-[11px] text-slate-500">

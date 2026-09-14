@@ -314,6 +314,19 @@ et 3 composants de tuile**. La stratégie tient en cinq chantiers, dans cet ordr
   employaient huit valeurs au hasard — des boutons pointus à côté de boutons
   ronds. On ne réécrit pas deux mille trois cents classes : **on redéfinit le
   défaut**, et tout y tombe, aujourd'hui comme demain.
+- **Une seule échelle typographique** (`tailwind.config.js`) : **10** la
+  mention · **11** l'étiquette · **12** le second plan · **13** LE CORPS ·
+  **15** le titre d'une carte · **17** le titre d'un écran, et il n'y en a
+  qu'un. Les noms de Tailwind y tombent aussi — `text-sm` vaut 13, pas 14.
+  Dix-neuf tailles cohabitaient, employées 2 500 fois : une même information
+  n'avait pas la même taille selon l'écran.
+- **Trois emplois de bouton, trois couleurs** (`.bouton`, `.bouton-fort`,
+  `.bouton-sortir`, `.bouton-detruire`). Neutre : ça n'engage rien. Fort :
+  l'action principale de l'écran, et il n'y en a **qu'une**. Sortir
+  (turquoise) : ce qui produit une pièce. Détruire (brique) : ce qui efface.
+  Dix fonds cohabitaient, dont `iip-gold` qui vaut du marine. **Un état ne se
+  dit pas avec un bouton** : « réussi » en vert est une information, pas une
+  action.
 - **Une seule hauteur de contrôle** (`.controle`, 36 px, dans `index.css`).
   Une liste déroulante porte les métriques natives du navigateur, un bouton
   celles qu'on lui a écrites : côte à côte, ils ne font pas la même hauteur et

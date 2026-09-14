@@ -169,7 +169,7 @@ export default function RepartitionPeriodes() {
       {/* Ce que la Fédération intègrera en avril */}
       {civile && (
         <div className="border border-iip-blue/30 rounded-xl overflow-hidden">
-          <div className="px-4 py-2 bg-iip-blue text-white text-[12.5px] font-semibold">
+          <div className="px-4 py-2 bg-iip-blue text-white text-[13px] font-semibold">
             Dotation de l'année civile {civile.annee_civile}
           </div>
           <div className="p-4 grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -177,8 +177,8 @@ export default function RepartitionPeriodes() {
               <div className="text-[10px] uppercase tracking-wide text-slate-500 font-semibold">
                 Janvier – juin {civile.annee_civile}
               </div>
-              <div className="text-[18px] font-bold text-iip-blue">{nb(civile.janvier_juin.periodes)} pér.</div>
-              <div className="text-[10.5px] text-slate-500">
+              <div className="text-[17px] font-bold text-iip-blue">{nb(civile.janvier_juin.periodes)} pér.</div>
+              <div className="text-[11px] text-slate-500">
                 année académique {civile.janvier_juin.annee_scolaire}
               </div>
             </div>
@@ -186,8 +186,8 @@ export default function RepartitionPeriodes() {
               <div className="text-[10px] uppercase tracking-wide text-slate-500 font-semibold">
                 Septembre – décembre {civile.annee_civile}
               </div>
-              <div className="text-[18px] font-bold text-iip-blue">{nb(civile.septembre_decembre.periodes)} pér.</div>
-              <div className="text-[10.5px] text-slate-500">
+              <div className="text-[17px] font-bold text-iip-blue">{nb(civile.septembre_decembre.periodes)} pér.</div>
+              <div className="text-[11px] text-slate-500">
                 année académique {civile.septembre_decembre.annee_scolaire}
               </div>
             </div>
@@ -196,7 +196,7 @@ export default function RepartitionPeriodes() {
                 Dotation organique
               </div>
               <div className="text-[22px] font-bold text-iip-turquoise">{nb(civile.total)} pér.</div>
-              <div className="text-[10.5px] text-slate-500">
+              <div className="text-[11px] text-slate-500">
                 intégré par la Fédération en avril
               </div>
             </div>
@@ -212,7 +212,7 @@ export default function RepartitionPeriodes() {
               <div className="flex flex-wrap gap-2">
                 {civile.enveloppes.map(e => (
                   <div key={e.code}
-                    className={`px-3 py-1.5 rounded-lg border text-[11.5px] ${e.depasse
+                    className={`px-3 py-1.5 rounded-lg border text-[12px] ${e.depasse
                       ? 'bg-red-50 border-red-300 text-red-800'
                       : 'bg-slate-50 border-slate-200 text-slate-700'}`}>
                     <b>{e.label}</b> · {nb(e.consomme)} pér.
@@ -228,7 +228,7 @@ export default function RepartitionPeriodes() {
                 ))}
               </div>
               {civile.avertissement && (
-                <div className="mt-2 text-[11.5px] text-red-800 flex items-center gap-1.5">
+                <div className="mt-2 text-[12px] text-red-800 flex items-center gap-1.5">
                   <IconAlertTriangle size={14} /> {civile.avertissement}
                 </div>
               )}
@@ -239,7 +239,7 @@ export default function RepartitionPeriodes() {
 
       {/* Bouclage : ce qui est réparti doit égaler ce qui est attribué. */}
       {data?.controle && (
-        <div className={`px-4 py-2.5 rounded-xl border text-[12.5px] flex items-center gap-3 flex-wrap ${
+        <div className={`px-4 py-2.5 rounded-xl border text-[13px] flex items-center gap-3 flex-wrap ${
           data.controle.boucle
             ? 'bg-emerald-50 border-emerald-200 text-emerald-900'
             : 'bg-red-50 border-red-300 text-red-900'}`}>
@@ -261,10 +261,10 @@ export default function RepartitionPeriodes() {
 
       {data?.anomalies?.length > 0 && (
         <div className="px-4 py-3 rounded-xl bg-amber-50 border border-amber-200">
-          <div className="flex items-center gap-1.5 text-[12.5px] font-semibold text-amber-900 mb-1.5">
+          <div className="flex items-center gap-1.5 text-[13px] font-semibold text-amber-900 mb-1.5">
             <IconAlertTriangle size={15} /> {data.anomalies.length} contrôle(s) à examiner
           </div>
-          <ul className="text-[11.5px] text-amber-900 space-y-0.5">
+          <ul className="text-[12px] text-amber-900 space-y-0.5">
             {data.anomalies.slice(0, 12).map((a, i) => (
               <li key={i} className={a.niveau === 'grave' ? 'text-red-800 font-medium' : ''}>
                 <b>UE {a.ue_num}</b> · {a.cours} — {a.message}
@@ -307,7 +307,7 @@ export default function RepartitionPeriodes() {
                     <tr className="bg-iip-blue/5 border-y border-iip-blue/20">
                       <td className="px-3 py-2" colSpan={4}>
                         <button onClick={() => setDeployees(d => ({ ...d, [s.section]: !ouverte }))}
-                          className="flex items-center gap-1.5 text-[12.5px] font-semibold text-iip-blue">
+                          className="flex items-center gap-1.5 text-[13px] font-semibold text-iip-blue">
                           <span className="text-slate-400 w-3 inline-block">{ouverte ? '−' : '+'}</span>
                           {s.section}
                           <span className="font-normal text-[11px] text-slate-500">
@@ -325,8 +325,8 @@ export default function RepartitionPeriodes() {
                           )}
                         </button>
                       </td>
-                      <td className="px-2 py-2 text-right text-[11.5px] text-slate-500">{nb(s.prevu_total)}</td>
-                      <td className="px-2 py-2 text-right text-[11.5px] text-slate-600">{nb(s.reel_total)}</td>
+                      <td className="px-2 py-2 text-right text-[12px] text-slate-500">{nb(s.prevu_total)}</td>
+                      <td className="px-2 py-2 text-right text-[12px] text-slate-600">{nb(s.reel_total)}</td>
                       <td className="px-2 py-2 text-center text-[12px] font-semibold text-iip-blue border-l border-slate-200">{nb(s.prevu_c1)}</td>
                       <td className="px-2 py-2 text-center text-[12px] font-semibold text-iip-blue">{nb(s.prevu_c2)}</td>
                       <td className="px-2 py-2 text-center text-[12px] font-semibold text-iip-blue border-l border-slate-200">{nb(s.reel_c1)}</td>
@@ -381,7 +381,7 @@ function UeBloc({ u, val, editer, cle, modifs, onAppliquerDates }) {
           className={`w-16 border rounded px-1 py-0.5 text-[12px] text-right
             ${modifie ? 'border-amber-400 bg-amber-50' : 'border-slate-200'}`} />
         {groupes && (
-          <div className={`text-[9px] leading-tight mt-0.5 ${
+          <div className={`text-[10px] leading-tight mt-0.5 ${
             groupes.entier ? 'text-slate-400' : 'text-amber-700 font-semibold'}`}
             title={groupes.entier
               ? `${groupes.q} groupe(s) — le réel est un multiple entier du prévu`
@@ -398,7 +398,7 @@ function UeBloc({ u, val, editer, cle, modifs, onAppliquerDates }) {
       <tr className="bg-slate-50/80 border-y border-slate-200">
         <td className="px-3 py-1.5 text-[12px] font-semibold text-iip-blue">
           UE {u.ue_num}{u.num_organisation > 1 ? ` · org. ${u.num_organisation}` : ''} — {u.ue_nom}
-          <span className="ml-2 text-[10.5px] font-normal text-slate-500">
+          <span className="ml-2 text-[11px] font-normal text-slate-500">
             {fr(u.date_debut)} → {fr(u.date_fin)}
           </span>
           {u.pot && u.pot !== 'organique' && (
@@ -416,7 +416,7 @@ function UeBloc({ u, val, editer, cle, modifs, onAppliquerDates }) {
           {u.part_dates != null && (
             <button onClick={onAppliquerDates}
               title="Répartir selon les dates réelles de l'organisation"
-              className="ml-2 inline-flex items-center gap-1 text-[10.5px] px-1.5 py-0.5 rounded border border-iip-turquoise text-iip-turquoise hover:bg-iip-turquoise/10">
+              className="ml-2 inline-flex items-center gap-1 text-[11px] px-1.5 py-0.5 rounded border border-iip-turquoise text-iip-turquoise hover:bg-iip-turquoise/10">
               <IconCalculator size={11} /> dates : {Math.round(u.part_dates * 100)} %
             </button>
           )}
@@ -432,8 +432,8 @@ function UeBloc({ u, val, editer, cle, modifs, onAppliquerDates }) {
           {u.quadri_simulation || '—'}
         </td>
         <td></td>
-        <td className="px-2 py-1.5 text-right text-[11.5px] text-slate-500">{u.totaux.prevu_total}</td>
-        <td className="px-2 py-1.5 text-right text-[11.5px] text-slate-500">
+        <td className="px-2 py-1.5 text-right text-[12px] text-slate-500">{u.totaux.prevu_total}</td>
+        <td className="px-2 py-1.5 text-right text-[12px] text-slate-500">
           {u.totaux.reel_total}
           {u.totaux.prevu_total > 0 && u.totaux.reel_total > 0 && (() => {
             const q = u.totaux.reel_total / u.totaux.prevu_total;
@@ -445,10 +445,10 @@ function UeBloc({ u, val, editer, cle, modifs, onAppliquerDates }) {
             );
           })()}
         </td>
-        <td className="px-2 py-1.5 text-center text-[11.5px] font-semibold border-l border-slate-200">{u.totaux.prevu_c1}</td>
-        <td className="px-2 py-1.5 text-center text-[11.5px] font-semibold">{u.totaux.prevu_c2}</td>
-        <td className="px-2 py-1.5 text-center text-[11.5px] font-semibold border-l border-slate-200">{u.totaux.reel_c1}</td>
-        <td className="px-2 py-1.5 text-center text-[11.5px] font-semibold">{u.totaux.reel_c2}</td>
+        <td className="px-2 py-1.5 text-center text-[12px] font-semibold border-l border-slate-200">{u.totaux.prevu_c1}</td>
+        <td className="px-2 py-1.5 text-center text-[12px] font-semibold">{u.totaux.prevu_c2}</td>
+        <td className="px-2 py-1.5 text-center text-[12px] font-semibold border-l border-slate-200">{u.totaux.reel_c1}</td>
+        <td className="px-2 py-1.5 text-center text-[12px] font-semibold">{u.totaux.reel_c2}</td>
       </tr>
 
       {u.lignes.map(l => (
@@ -456,18 +456,18 @@ function UeBloc({ u, val, editer, cle, modifs, onAppliquerDates }) {
           <td className="px-3 py-1 pl-6 text-[12px] text-slate-700">
             {l.nature === 'autonomie' ? (
               <span className="italic text-violet-700">Autonomie
-                <span className="ml-1.5 text-[9.5px] not-italic text-violet-500">hors cas généraux</span>
+                <span className="ml-1.5 text-[10px] not-italic text-violet-500">hors cas généraux</span>
               </span>
             ) : (
               <>
                 <b className="text-slate-500">{l.cours_code}</b> {l.libelle}
-                {l.type_cours && <span className="ml-1.5 text-[9.5px] text-slate-400">{l.type_cours}</span>}
+                {l.type_cours && <span className="ml-1.5 text-[10px] text-slate-400">{l.type_cours}</span>}
               </>
             )}
           </td>
           <td colSpan={3}></td>
-          <td className="px-2 py-1 text-right text-[11.5px] text-slate-500">{l.prevu_total || '—'}</td>
-          <td className="px-2 py-1 text-right text-[11.5px] text-slate-600">
+          <td className="px-2 py-1 text-right text-[12px] text-slate-500">{l.prevu_total || '—'}</td>
+          <td className="px-2 py-1 text-right text-[12px] text-slate-600">
             {l.reel_total || '—'}
             {/* Le multiple par rapport au prévu : c'est le nombre de groupes.
                 Une valeur non entière saute alors aux yeux. */}

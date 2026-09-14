@@ -67,7 +67,7 @@ export default function EtapesAmenagement({ d, onAller, etapeActive }) {
                   : 'border-slate-200 hover:bg-slate-50'}`}>
               <div className="flex items-center gap-1.5">
                 <span className={`w-4 h-4 rounded-full flex items-center justify-center
-                  text-[9px] font-bold flex-none ${
+                  text-[10px] font-bold flex-none ${
                   e.fait ? 'bg-emerald-600 text-white'
                          : 'bg-slate-200 text-slate-600'}`}>
                   {e.fait ? <IconCheck size={10} /> : i + 1}
@@ -76,7 +76,7 @@ export default function EtapesAmenagement({ d, onAller, etapeActive }) {
                   {e.titre}
                 </span>
               </div>
-              <div className="text-[10.5px] text-slate-500 truncate">{e.sous}</div>
+              <div className="text-[11px] text-slate-500 truncate">{e.sous}</div>
               {/* Ce qui manque est ÉNONCÉ, non bloquant : une demande urgente
                   se traite parfois avant que les annexes n'arrivent. */}
               {e.manque.length > 0 && (

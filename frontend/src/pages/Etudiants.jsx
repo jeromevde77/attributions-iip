@@ -71,7 +71,7 @@ function ThTri({ champ, tri, onTri, className = '', children }) {
       title="Trier sur cette colonne">
       <span className="inline-flex items-center gap-1">
         {children}
-        <span className={`text-[9px] leading-none ${actif ? 'text-iip-turquoise' : 'text-slate-300'}`}>
+        <span className={`text-[10px] leading-none ${actif ? 'text-iip-turquoise' : 'text-slate-300'}`}>
           {actif ? (tri.sens === 1 ? '▲' : '▼') : '▲'}
         </span>
       </span>
@@ -301,7 +301,7 @@ function GrilleParcours({ etudId, peutEcrire }) {
       <div className="overflow-x-auto border border-slate-200 rounded-xl">
         <table className="w-full text-sm border-collapse">
           <thead>
-            <tr className="bg-slate-50 text-[10.5px] uppercase tracking-wide text-slate-500">
+            <tr className="bg-slate-50 text-[11px] uppercase tracking-wide text-slate-500">
               <th className="px-3 py-2 text-left sticky left-0 bg-slate-50 z-10 min-w-[260px]">UE</th>
               <th className="px-2 py-2 text-left w-14">Niv.</th>
               {anneesAffichees.map((a, i) => {
@@ -329,15 +329,15 @@ function GrilleParcours({ etudId, peutEcrire }) {
                     <span className="text-slate-600 ml-1.5 text-[12px]">{u.ue_nom}</span>
                     {verrou && <span className="ml-1.5 text-[11px]"
                       title={'Exige : UE ' + ((u.prereq_chaine?.length ? u.prereq_chaine : u.prerequis) || []).join(', ')}>🔒</span>}
-                    {u.suggeree && <span className="ml-1.5 text-[9.5px] px-1 py-0.5 rounded bg-violet-50 text-violet-600 border border-violet-200" title="Probablement acquise (inférence prérequis) — à confirmer">à confirmer</span>}
+                    {u.suggeree && <span className="ml-1.5 text-[10px] px-1 py-0.5 rounded bg-violet-50 text-violet-600 border border-violet-200" title="Probablement acquise (inférence prérequis) — à confirmer">à confirmer</span>}
                     {u.hors_referentiel && (
-                      <span className="ml-1.5 text-[9.5px] px-1 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-200"
+                      <span className="ml-1.5 text-[10px] px-1 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-200"
                         title="Cette unité appartient à une autre section, ou sa section est inconnue">
                         autre section
                       </span>
                     )}
                     {u.hors_millesime && (
-                      <span className="ml-1.5 text-[9.5px] px-1 py-0.5 rounded bg-slate-100 text-slate-500"
+                      <span className="ml-1.5 text-[10px] px-1 py-0.5 rounded bg-slate-100 text-slate-500"
                         title="Unité de la section, absente du programme de l'année en cours">
                         hors programme {annee}
                       </span>
@@ -374,7 +374,7 @@ function GrilleParcours({ etudId, peutEcrire }) {
                               setPopover({ annee: a, ue_num: u.ue_num, verrou: true });
                             }
                           }}
-                          className={`w-full min-h-[30px] text-[11.5px] font-medium rounded-lg border px-1 py-1 transition
+                          className={`w-full min-h-[30px] text-[12px] font-medium rounded-lg border px-1 py-1 transition
                             ${kind ? kind.cls : 'border-transparent text-slate-300 hover:border-slate-200 hover:bg-slate-50'}
                             ${cl?.derogation ? 'ring-1 ring-amber-400' : ''}`}
                           title={cl?.derogation ? 'Encodée avec dérogation' : ''}>
@@ -390,7 +390,7 @@ function GrilleParcours({ etudId, peutEcrire }) {
                             const nivMap = Object.fromEntries(data.ues.map(x => [x.ue_num, (x.ue_niv || '').toUpperCase()]));
                             const manquants = u.prerequis.filter(p => !acquisSet.has(p));
                             if (manquants.length && manquants.every(p => cell(a, p) && nivMap[p] === (u.ue_niv || '').toUpperCase()))
-                              return <span className="ml-0.5 text-[9px]" title={'Sous réserve — réussite UE ' + manquants.join(', ') + ' requise en cours d\'année'}>⏳</span>;
+                              return <span className="ml-0.5 text-[10px]" title={'Sous réserve — réussite UE ' + manquants.join(', ') + ' requise en cours d\'année'}>⏳</span>;
                             return null;
                           })()}
                         </button>
@@ -464,7 +464,7 @@ function GrilleParcours({ etudId, peutEcrire }) {
                         ? 'bg-emerald-50 border-emerald-200'
                         : 'bg-red-50 border-red-200'}`}>
                     {detail.calcul.sur20 == null ? (
-                      <div className="text-[11.5px] text-slate-500">
+                      <div className="text-[12px] text-slate-500">
                         Aucun acquis coté, ou pondérations non encodées pour cette UE.
                       </div>
                     ) : (
@@ -480,7 +480,7 @@ function GrilleParcours({ etudId, peutEcrire }) {
                               {detail.calcul.pourcentage} %
                             </span>
                           </div>
-                          <div className="text-[10.5px] text-slate-500">
+                          <div className="text-[11px] text-slate-500">
                             {detail.calcul.evalues}/{detail.calcul.attendus} acquis cotés
                             {!detail.calcul.complet ? " — calcul partiel" : ''}
                           </div>
@@ -492,7 +492,7 @@ function GrilleParcours({ etudId, peutEcrire }) {
                             // seconde session et à un éventuel recours. Elle n'est
                             // simplement pas communiquée à l'étudiant.
                             { points: detail.calcul.sur20 })}
-                          className="flex-none text-[11.5px] px-2.5 py-1.5 rounded-lg bg-iip-blue text-white font-semibold">
+                          className="flex-none text-[12px] px-2.5 py-1.5 rounded-lg bg-iip-blue text-white font-semibold">
                           Reporter sur l\u2019UE
                         </button>
                       </div>
@@ -503,7 +503,7 @@ function GrilleParcours({ etudId, peutEcrire }) {
                 {/* Reports de note proposés : cours validés dans une UE échouée */}
                 {(detail.candidats_report || []).length > 0 && (
                   <div className="mb-3 border border-sky-200 bg-sky-50 rounded-xl px-3 py-2.5">
-                    <div className="text-[11.5px] font-semibold text-sky-900 mb-1.5">
+                    <div className="text-[12px] font-semibold text-sky-900 mb-1.5">
                       Report de note possible
                     </div>
                     <div className="space-y-1">
@@ -530,7 +530,7 @@ function GrilleParcours({ etudId, peutEcrire }) {
                   {detail.decision && (detail.decision.s1 || detail.decision.s2
                     || detail.decision.motivation) && (
                     <div className="mb-2 px-3 py-2 rounded-lg bg-slate-50 border
-                                    border-slate-200 text-[11.5px]">
+                                    border-slate-200 text-[12px]">
                       <span className="font-semibold text-iip-blue">Décision</span>
                       {detail.decision.s1 && (
                         <span className="ml-2">1<sup>re</sup> session :
@@ -556,7 +556,7 @@ function GrilleParcours({ etudId, peutEcrire }) {
                   {(detail.structure || []).map(co => (
                     <div key={co.cours_code} className="border border-slate-200 rounded-lg overflow-hidden">
                       <div className="flex items-center gap-2 px-2 py-1.5 bg-slate-50">
-                        <div className="flex-1 text-[11.5px] text-slate-700 truncate" title={co.cours_nom}>
+                        <div className="flex-1 text-[12px] text-slate-700 truncate" title={co.cours_nom}>
                           <b className="text-iip-blue">{co.cours_code}</b> {co.cours_nom}
                         </div>
                         <span className="text-[10px] text-slate-400 flex-none"
@@ -564,7 +564,7 @@ function GrilleParcours({ etudId, peutEcrire }) {
                           {co.poids_cours_affiche != null ? co.poids_cours_affiche + ' %' : '— %'}
                         </span>
                         {!co.complet && (
-                          <span className="text-[9.5px] px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-200 flex-none"
+                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-200 flex-none"
                             title={`Somme des pondérations : ${co.somme_poids} au lieu de 100`}>
                             pondérations {co.somme_poids}
                           </span>
@@ -579,12 +579,12 @@ function GrilleParcours({ etudId, peutEcrire }) {
                               <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-sky-600 text-white flex-none">
                                 RN
                               </span>
-                              <div className="flex-1 text-[11.5px] text-sky-900">
+                              <div className="flex-1 text-[12px] text-sky-900">
                                 Note reportée : <b>{Math.round(rn.note)}/20</b>
                                 {rn.annee_origine ? <span className="text-sky-700"> (validé en {rn.annee_origine})</span> : null}
                               </div>
                               <button onClick={() => retirerReport(co.cours_code)}
-                                className="flex-none text-[10.5px] px-2 py-0.5 rounded-lg border border-sky-300 text-sky-700 hover:bg-white">
+                                className="flex-none text-[11px] px-2 py-0.5 rounded-lg border border-sky-300 text-sky-700 hover:bg-white">
                                 Retirer
                               </button>
                             </div>
@@ -649,7 +649,7 @@ function GrilleParcours({ etudId, peutEcrire }) {
                   ))}
 
                   {!(detail.structure || []).length && (
-                    <div className="text-[11.5px] text-slate-400 text-center py-2">
+                    <div className="text-[12px] text-slate-400 text-center py-2">
                       Aucun cours au référentiel pour cette UE.
                     </div>
                   )}
@@ -839,12 +839,12 @@ function Valorisations({ etudId, annee }) {
                   fallait auparavant connaître le numéro d'UE et le taper avant
                   de voir quoi que ce soit. */}
               {!coursEtud ? (
-                <div className="py-4 text-center text-[12.5px] text-slate-400
+                <div className="py-4 text-center text-[13px] text-slate-400
                                 border-2 border-dashed rounded-xl">
                   Chargement des cours de l'étudiant…
                 </div>
               ) : !coursEtud.unites.length ? (
-                <div className="py-4 text-center text-[12.5px] text-slate-400
+                <div className="py-4 text-center text-[13px] text-slate-400
                                 border-2 border-dashed rounded-xl">
                   Cet étudiant n'est inscrit à aucune unité en {annee}.
                 </div>
@@ -859,8 +859,8 @@ function Valorisations({ etudId, annee }) {
                     {coursEtud.unites.map(u => (
                       <div key={u.ue_num}>
                         <div className="px-3 py-1 bg-slate-100/70 border-y border-slate-200
-                                        text-[11.5px] font-semibold text-iip-blue sticky top-0">
-                          <span className="font-mono text-[10.5px] text-slate-500 mr-1.5">
+                                        text-[12px] font-semibold text-iip-blue sticky top-0">
+                          <span className="font-mono text-[11px] text-slate-500 mr-1.5">
                             {u.ue_num}
                           </span>
                           {u.ue_nom}
@@ -912,7 +912,7 @@ function Valorisations({ etudId, annee }) {
                                   })}
                                   title={co.deja_reporte ? 'Déjà reportée'
                                     : `Obtenue en ${co.annee_anterieure} — cliquer pour la reprendre`}
-                                  className={`text-[10.5px] flex-none w-24 text-right
+                                  className={`text-[11px] flex-none w-24 text-right
                                     ${co.deja_reporte ? 'text-slate-300'
                                       : co.note_anterieure >= seuilReport
                                         ? 'text-emerald-700 font-semibold hover:underline'
@@ -922,7 +922,7 @@ function Valorisations({ etudId, annee }) {
                                   </span>{co.deja_reporte ? ' ✓' : ''}
                                 </button>
                               ) : (
-                                <span className="text-[10.5px] text-slate-300 flex-none
+                                <span className="text-[11px] text-slate-300 flex-none
                                                  w-24 text-right">—</span>
                               )}
 
@@ -1001,7 +1001,7 @@ function Valorisations({ etudId, annee }) {
             <div key={v.id} className="flex items-center justify-between gap-3 border border-slate-200 rounded-xl px-4 py-2.5">
               <div>
                 <span className="font-medium text-iip-blue">{v.ue_num}</span>
-                <span className="text-slate-600 ml-1.5 text-[12.5px]">{v.ue_nom}</span>
+                <span className="text-slate-600 ml-1.5 text-[13px]">{v.ue_nom}</span>
                 <div className="text-[11px] text-slate-400 mt-0.5">
                   {TYPES_VA.find(t => t.val === v.type)?.label}
                   {v.cible ? ` · ${v.cible === 'cours' ? 'cours' : 'AA'} : ${v.cible_detail}` : ''}
@@ -1018,7 +1018,7 @@ function Valorisations({ etudId, annee }) {
           ))}
         </div>
       )}
-      <p className="text-[10.5px] text-slate-400 mt-3">
+      <p className="text-[11px] text-slate-400 mt-3">
         Dispense complète : l'UE est acquise, l'apprenant n'est pas comptabilisé comme régulier pour cette UE (art. 4).
         Dispense partielle : dispense d'activités d'enseignement, l'apprenant reste comptabilisé (art. 3).
         Interdite pour les épreuves intégrées.
@@ -1450,7 +1450,7 @@ function FicheEtudiant({ id, annee, onClose, position, onPrec, onSuiv,
                         onClick: () => setAnnexe2(true) },
                     ]} />
 
-                  <span className="text-[11.5px] text-slate-500 ml-1">
+                  <span className="text-[12px] text-slate-500 ml-1">
                     {paeConfirme
                       ? "L'étudiant est inscrit aux unités retenues."
                       : "Rien n'est inscrit tant que vous n'avez pas confirmé."}
@@ -1500,7 +1500,7 @@ function FicheEtudiant({ id, annee, onClose, position, onPrec, onSuiv,
                              border-slate-300 text-slate-600 font-semibold rounded-lg">
                   <IconFileText size={14} /> Fiche d'inscription / reçu
                 </button>
-                <p className="text-[11.5px] text-slate-500 mt-1">
+                <p className="text-[12px] text-slate-500 mt-1">
                   Récapitulatif du programme, des droits et de l'engagement signé.
                 </p>
               </div>
@@ -1557,7 +1557,7 @@ function FicheEtudiant({ id, annee, onClose, position, onPrec, onSuiv,
               {/* Ce qui suit est une PROPOSITION tant qu'elle n'est pas
                   confirmée : le dire évite de la lire comme un état de fait,
                   maintenant que schéma et programme sont sur la même page. */}
-              <div className={`mb-3 px-3 py-2 rounded-lg text-[12.5px] border ${
+              <div className={`mb-3 px-3 py-2 rounded-lg text-[13px] border ${
                 paeConfirme
                   ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
                   : 'bg-amber-50 border-amber-200 text-amber-900'}`}>
@@ -1622,7 +1622,7 @@ function FicheEtudiant({ id, annee, onClose, position, onPrec, onSuiv,
                         )}
                         {(pae.sections_scores || []).length > 1 && (
                           <select value={sectionForcee} onChange={e => setSectionForcee(e.target.value)}
-                            className="border border-slate-300 rounded-lg px-1.5 py-0.5 text-[11.5px]">
+                            className="border border-slate-300 rounded-lg px-1.5 py-0.5 text-[12px]">
                             <option value="">Section détectée</option>
                             {pae.sections_scores.map(s => (
                               <option key={s.section} value={s.section}>{s.section} ({s.n} UE)</option>
@@ -1678,7 +1678,7 @@ function FicheEtudiant({ id, annee, onClose, position, onPrec, onSuiv,
                   ) : (
                     <table className="w-full text-sm">
                       <thead>
-                        <tr className="text-[10.5px] uppercase tracking-wide text-slate-400 border-b">
+                        <tr className="text-[11px] uppercase tracking-wide text-slate-400 border-b">
                           <th className="py-2 w-8"></th>
                           <th className="py-2 text-left">UE proposée</th>
                           <th className="py-2 text-left w-20">Niv.</th>
@@ -1695,8 +1695,8 @@ function FicheEtudiant({ id, annee, onClose, position, onPrec, onSuiv,
                             </td>
                             <td className="py-2">
                               <span className="font-medium text-iip-blue">{u.ue_num}</span>
-                              <span className="text-slate-600 ml-1.5 text-[12.5px]">{u.ue_nom}</span>
-                              {u.inscrite && <span className="ml-1.5 text-[9.5px] px-1 py-0.5 rounded bg-slate-100 text-slate-500">déjà inscrite</span>}
+                              <span className="text-slate-600 ml-1.5 text-[13px]">{u.ue_nom}</span>
+                              {u.inscrite && <span className="ml-1.5 text-[10px] px-1 py-0.5 rounded bg-slate-100 text-slate-500">déjà inscrite</span>}
                             </td>
                             <td className="py-2">
                               <BadgeUeNiveau niveau={u.ue_niv} />
@@ -1710,7 +1710,7 @@ function FicheEtudiant({ id, annee, onClose, position, onPrec, onSuiv,
 
                   {acquises.length > 0 && (
                     <details className="mt-4 border border-emerald-200 bg-emerald-50/40 rounded-xl">
-                      <summary className="px-3 py-2 text-[12.5px] font-semibold text-emerald-900 cursor-pointer">
+                      <summary className="px-3 py-2 text-[13px] font-semibold text-emerald-900 cursor-pointer">
                         {acquises.length} UE déjà acquise(s)
                         <span className="font-normal text-emerald-700"> — hors programme</span>
                       </summary>
@@ -1758,7 +1758,7 @@ function FicheEtudiant({ id, annee, onClose, position, onPrec, onSuiv,
                                 </td>
                                 <td className="py-1.5">
                                   <span className="font-medium text-iip-blue">{u.ue_num}</span>
-                                  <span className="text-slate-600 ml-1.5 text-[12.5px]">{u.ue_nom}</span>
+                                  <span className="text-slate-600 ml-1.5 text-[13px]">{u.ue_nom}</span>
                                 </td>
                                 <td className="py-1.5 w-16">
                                   <BadgeUeNiveau niveau={u.ue_niv} />
@@ -2271,7 +2271,7 @@ export default function Etudiants() {
           écrans chacun le leur. Uniforme veut dire partout ou nulle part — et
           nulle part laisse l'écran sans point d'entrée pour le regard. */}
       <h1 className="text-[17px] font-title text-iip-blue leading-tight">
-        Étudiants <span className="text-[12.5px] font-normal text-slate-400">· {filtres.length}</span>
+        Étudiants <span className="text-[13px] font-normal text-slate-400">· {filtres.length}</span>
       </h1>
 
       <div className="flex gap-3 flex-wrap">
@@ -2295,7 +2295,7 @@ export default function Etudiants() {
             { k: 'tous', l: 'Tous', t: 'Les uns et les autres' },
           ].map(x => (
             <button key={x.k} onClick={() => setStatut(x.k)} title={x.t}
-              className={`px-3 py-2 text-[12.5px] ${statut === x.k
+              className={`px-3 py-2 text-[13px] ${statut === x.k
                 ? 'bg-iip-blue text-white font-semibold' : 'text-slate-600'}`}>
               {x.l}
             </button>
@@ -2304,7 +2304,7 @@ export default function Etudiants() {
       </div>
 
       {erreurListe && (
-        <div className="px-4 py-3 rounded-xl bg-red-50 border border-red-200 text-[12.5px]
+        <div className="px-4 py-3 rounded-xl bg-red-50 border border-red-200 text-[13px]
                         text-red-800 mb-3">
           <b>La liste n'a pas pu être chargée.</b> {erreurListe}
         </div>
@@ -2346,7 +2346,7 @@ export default function Etudiants() {
         <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
           <table className="w-full text-sm">
             <thead>
-              <tr className="bg-slate-50 border-b border-slate-200 text-[10.5px] uppercase tracking-wide text-slate-500">
+              <tr className="bg-slate-50 border-b border-slate-200 text-[11px] uppercase tracking-wide text-slate-500">
                 <th className="px-3 py-2.5 w-10">
                   <input type="checkbox" checked={tousAffichesCoches}
                     onChange={() => cocherAffiches(!tousAffichesCoches)}
@@ -2374,7 +2374,7 @@ export default function Etudiants() {
                       <tr className="bg-iip-blue/5 border-y border-iip-blue/20">
                         <td colSpan={7} className="px-4 py-2">
                           <button onClick={() => setSectionsDeployees(d => ({ ...d, [sec]: !ouverte }))}
-                            className="flex items-center gap-1.5 text-[12.5px] font-semibold text-iip-blue">
+                            className="flex items-center gap-1.5 text-[13px] font-semibold text-iip-blue">
                             <span className="text-slate-400 w-3 inline-block">{ouverte ? '−' : '+'}</span>
                             {sec}
                             <span className="font-normal text-[11px] text-slate-500">
@@ -2412,8 +2412,8 @@ export default function Etudiants() {
                       </div>
                     </div>
                   </td>
-                  <td className="px-4 py-2.5 text-slate-500 text-[12.5px]">{e.email_ecole}</td>
-                  <td className="px-4 py-2.5 text-[11.5px] text-slate-500">{e.sections}</td>
+                  <td className="px-4 py-2.5 text-slate-500 text-[13px]">{e.email_ecole}</td>
+                  <td className="px-4 py-2.5 text-[12px] text-slate-500">{e.sections}</td>
                   <td className="px-4 py-2.5">
                     <BadgeNiveau niveau={e.niveau} libelle={e.niveau_libelle} />
                     {/* Le diplôme se dit là où on lit le niveau : c'est la même

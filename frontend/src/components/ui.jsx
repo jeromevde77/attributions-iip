@@ -114,7 +114,7 @@ export function PageHeader({ icon: Icon, titre, sous, actions }) {
         <h1 className="text-[17px] font-title text-iip-blue leading-tight
                        flex-shrink-0">{titre}</h1>
         {sous && (
-          <p className="text-[12.5px] text-slate-400 truncate hidden md:block">
+          <p className="text-[13px] text-slate-400 truncate hidden md:block">
             <span className="mr-2 text-slate-300">·</span>{sous}
           </p>
         )}
@@ -132,7 +132,7 @@ export function Tabs({ items, value, onChange }) {
         const actif = value === key;
         return (
           <button key={key} onClick={() => onChange(key)}
-            className={`flex items-center gap-2 px-3.5 py-2.5 text-[13.5px] whitespace-nowrap border-b-2 -mb-px transition-colors duration-150
+            className={`flex items-center gap-2 px-3.5 py-2.5 text-[13px] whitespace-nowrap border-b-2 -mb-px transition-colors duration-150
               ${actif
                 ? 'border-iip-turquoise text-iip-blue font-semibold'
                 : 'border-transparent text-gray-500 hover:text-iip-blue'}`}>
@@ -512,7 +512,7 @@ export function RailDessine({ icon: HeaderIcon, titre, sousTitre, extra,
                        boxShadow: 'var(--menu-ombre)' }}
           className="pointer-events-none absolute left-[calc(100%+10px)] -translate-y-1/2 z-50
                      px-2.5 py-1.5 rounded-champ border backdrop-blur-xl backdrop-saturate-150
-                     text-[11.5px] whitespace-nowrap">
+                     text-[12px] whitespace-nowrap">
           {survol.label}
         </span>
       )}
@@ -589,9 +589,9 @@ export function Th({ children, align = 'gauche', largeur, className = '', ...pro
  */
 export function Td({ children, align = 'gauche', ton = 'normal', className = '', ...props }) {
   const a = align === 'droite' ? 'text-right' : align === 'centre' ? 'text-center' : 'text-left';
-  const t = ton === 'secondaire' ? 'text-[11.5px] text-slate-500'
-    : ton === 'fort' ? 'text-[12.5px] font-semibold text-iip-blue'
-    : 'text-[12.5px] text-slate-800';
+  const t = ton === 'secondaire' ? 'text-[12px] text-slate-500'
+    : ton === 'fort' ? 'text-[13px] font-semibold text-iip-blue'
+    : 'text-[13px] text-slate-800';
   return <td className={`px-3 py-1.5 ${a} ${t} ${className}`} {...props}>{children}</td>;
 }
 
@@ -627,7 +627,7 @@ export function TrTotal({ children, className = '', ...props }) {
 export function TableauVide({ colonnes, children }) {
   return (
     <tr>
-      <td colSpan={colonnes} className="px-4 py-8 text-center text-[12.5px] text-slate-400">
+      <td colSpan={colonnes} className="px-4 py-8 text-center text-[13px] text-slate-400">
         {children}
       </td>
     </tr>
@@ -720,8 +720,8 @@ export function Fenetre({ icone: Ic, titre, sous, large = 'moyenne',
           {Ic && <Ic size={18} className="flex-shrink-0"
             style={{ color: ton === 'alerte' ? '#f1c7bf' : '#7fd4e6' }} />}
           <div className="min-w-0 flex-1">
-            <div className="text-[14.5px] font-semibold truncate">{titre}</div>
-            {sous && <div className="text-[11.5px] text-white/70 truncate">{sous}</div>}
+            <div className="text-[15px] font-semibold truncate">{titre}</div>
+            {sous && <div className="text-[12px] text-white/70 truncate">{sous}</div>}
           </div>
           <button onClick={onFermer} aria-label="Fermer"
             className="flex-none w-8 h-8 grid place-items-center rounded-champ
@@ -746,7 +746,7 @@ export function GroupeFenetre({ titre, ton = 'neutre', children }) {
   return (
     <section className="mb-4 last:mb-0">
       {titre && (
-        <div className="text-[10.5px] font-semibold uppercase tracking-[.13em] mb-2"
+        <div className="text-[11px] font-semibold uppercase tracking-[.13em] mb-2"
           style={{ color: ton === 'alerte' ? '#9d4a38' : '#94a3b8' }}>{titre}</div>
       )}
       <div className="space-y-1.5">{children}</div>
@@ -776,8 +776,8 @@ export function PieceFenetre({ icone: Ic, titre, sous, meta, ton = 'neutre',
       {Ic && <Ic size={17} className="flex-shrink-0"
         style={{ color: teinte || '#94a3b8' }} />}
       <span className="min-w-0 flex-1">
-        <span className="block text-[13.5px] text-slate-700">{titre}</span>
-        {sous && <span className="block text-[11.5px] text-slate-400">{sous}</span>}
+        <span className="block text-[13px] text-slate-700">{titre}</span>
+        {sous && <span className="block text-[12px] text-slate-400">{sous}</span>}
       </span>
       {meta != null && (
         <span className="flex-none text-[12px] text-slate-400 whitespace-nowrap">{meta}</span>

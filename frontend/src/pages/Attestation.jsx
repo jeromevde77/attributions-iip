@@ -845,12 +845,12 @@ export default function Attestation() {
                 ))}
                 {cfgActive.det.map(u => (
                   <th key={u.ue} onClick={() => trier('ue:' + u.ue)} className="px-1 py-2 font-semibold text-gray-500 w-14 text-center cursor-pointer select-none hover:text-iip-blue" title={u.nom}>
-                    UE{u.ue}{fleche('ue:' + u.ue)}<br/><span className="text-[9px] text-gray-400 font-normal">/20 · {u.periodes}p</span>
+                    UE{u.ue}{fleche('ue:' + u.ue)}<br/><span className="text-[10px] text-gray-400 font-normal">/20 · {u.periodes}p</span>
                   </th>
                 ))}
                 {cfgActive.intUe && (
                 <th onClick={() => trier('ue:' + cfgActive.intUe)} className="px-1 py-2 font-semibold text-amber-600 w-14 text-center cursor-pointer select-none hover:text-amber-700" title={cfgActive.intNom}>
-                  UE{cfgActive.intUe}{fleche('ue:' + cfgActive.intUe)}<br/><span className="text-[9px] text-amber-500 font-normal">/20 · 1/3</span>
+                  UE{cfgActive.intUe}{fleche('ue:' + cfgActive.intUe)}<br/><span className="text-[10px] text-amber-500 font-normal">/20 · 1/3</span>
                 </th>
                 )}
                 <th onClick={() => trier('mention')} className="px-2 py-2 font-semibold text-gray-500 w-32 text-center cursor-pointer select-none hover:text-iip-blue">Mention (auto){fleche('mention')}</th>

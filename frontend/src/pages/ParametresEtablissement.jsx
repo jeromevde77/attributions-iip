@@ -100,8 +100,8 @@ export default function ParametresEtablissement() {
                 onChange={() => setAjour(a => ({ ...a, portee: o.cle }))}
                 className="mt-0.5 accent-iip-blue" />
               <span>
-                <span className="text-[12.5px] font-semibold text-gray-800">{o.titre}</span>
-                <span className="block text-[11.5px] text-gray-500">{o.aide}</span>
+                <span className="text-[13px] font-semibold text-gray-800">{o.titre}</span>
+                <span className="block text-[12px] text-gray-500">{o.aide}</span>
               </span>
             </label>
           ))}
@@ -129,8 +129,8 @@ export default function ParametresEtablissement() {
                     onChange={() => setAjour(a => ({ ...a, session2: o.cle }))}
                     className="mt-0.5 accent-iip-blue" />
                   <span>
-                    <span className="text-[12.5px] font-semibold text-gray-800">{o.titre}</span>
-                    <span className="block text-[11.5px] text-gray-500">{o.aide}</span>
+                    <span className="text-[13px] font-semibold text-gray-800">{o.titre}</span>
+                    <span className="block text-[12px] text-gray-500">{o.aide}</span>
                   </span>
                 </label>
               ))}

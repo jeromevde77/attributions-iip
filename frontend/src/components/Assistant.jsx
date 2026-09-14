@@ -31,15 +31,15 @@ export default function Assistant({ cle, params = {}, onFerme = null }) {
       <div className="px-4 py-3 border-b border-slate-200 bg-slate-50">
         <div className="flex items-center justify-between gap-3 flex-wrap">
           <div>
-            <div className="font-semibold text-iip-blue text-[14px]">{etat.titre}</div>
-            <div className="text-[11.5px] text-slate-500 mt-0.5">{etat.intro}</div>
+            <div className="font-semibold text-iip-blue text-[15px]">{etat.titre}</div>
+            <div className="text-[12px] text-slate-500 mt-0.5">{etat.intro}</div>
           </div>
           <div className="flex items-center gap-3">
             <div className="text-[12px] font-semibold text-slate-600">
               {etat.faites}/{etat.total}
             </div>
             <button onClick={charger}
-              className="text-[11.5px] px-2.5 py-1 border border-slate-300 rounded-lg hover:bg-white">
+              className="text-[12px] px-2.5 py-1 border border-slate-300 rounded-lg hover:bg-white">
               Actualiser
             </button>
             {onFerme && (
@@ -53,7 +53,7 @@ export default function Assistant({ cle, params = {}, onFerme = null }) {
       </div>
 
       {etat.termine && (
-        <div className="px-4 py-2.5 bg-emerald-50 border-b border-emerald-200 text-[12.5px] text-emerald-800 flex items-center gap-2">
+        <div className="px-4 py-2.5 bg-emerald-50 border-b border-emerald-200 text-[13px] text-emerald-800 flex items-center gap-2">
           <IconCheck size={15} /> Toutes les étapes sont faites — la section est opérationnelle.
         </div>
       )}
@@ -77,17 +77,17 @@ export default function Assistant({ cle, params = {}, onFerme = null }) {
                     {e.titre}
                   </span>
                   {e.valeur && (
-                    <span className="text-[10.5px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-600">
+                    <span className="text-[11px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-600">
                       {e.valeur}
                     </span>
                   )}
                   {prochaine && (
-                    <span className="text-[9.5px] font-bold px-1.5 py-0.5 rounded-full bg-iip-turquoise/15 text-iip-blue">
+                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-iip-turquoise/15 text-iip-blue">
                       À FAIRE MAINTENANT
                     </span>
                   )}
                 </div>
-                <div className="text-[11.5px] text-slate-500 mt-0.5">{e.aide}</div>
+                <div className="text-[12px] text-slate-500 mt-0.5">{e.aide}</div>
                 {e.detail && (
                   <div className="text-[11px] text-amber-700 mt-1 flex items-start gap-1">
                     <IconAlertTriangle size={12} className="mt-0.5 flex-none" /> {e.detail}
@@ -96,7 +96,7 @@ export default function Assistant({ cle, params = {}, onFerme = null }) {
               </div>
 
               <button onClick={() => navigate(e.cible)}
-                className={`flex-none flex items-center gap-1 text-[11.5px] px-2.5 py-1.5 rounded-lg border transition
+                className={`flex-none flex items-center gap-1 text-[12px] px-2.5 py-1.5 rounded-lg border transition
                   ${prochaine
                     ? 'bg-iip-blue text-white border-iip-blue font-semibold'
                     : 'border-slate-300 text-slate-600 hover:bg-slate-50'}`}>
@@ -107,7 +107,7 @@ export default function Assistant({ cle, params = {}, onFerme = null }) {
         })}
       </ol>
 
-      <div className="px-4 py-2 bg-slate-50 border-t border-slate-200 text-[10.5px] text-slate-400">
+      <div className="px-4 py-2 bg-slate-50 border-t border-slate-200 text-[11px] text-slate-400">
         Chaque étape est vérifiée sur les données réelles : cet assistant sert aussi de
         diagnostic sur une section déjà en place.
       </div>

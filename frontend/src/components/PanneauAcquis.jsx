@@ -55,7 +55,7 @@ export default function PanneauAcquis({ colonnes, titre = 'Acquis d’apprentiss
       <div className="divide-y divide-slate-200">
         {parCours.map(g => (
           <div key={g.cours_code} className="px-3 py-2">
-            <div className="text-[11.5px] font-semibold text-iip-blue leading-tight">
+            <div className="text-[12px] font-semibold text-iip-blue leading-tight">
               {g.cours_nom || g.cours_code}
             </div>
             <div className="text-[10px] text-slate-500 font-mono">{g.cours_code}</div>

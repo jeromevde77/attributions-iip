@@ -497,12 +497,12 @@ function AccesLuciePanel({ profId, detail }) {
             {profils.map(p => (
               <button key={p.id} type="button" disabled={busy} title={p.description || ''}
                 onClick={() => appliquerProfil(p)}
-                className="text-[11.5px] px-2.5 py-1 rounded-lg border border-slate-300 bg-white hover:bg-iip-turquoise/10 hover:border-iip-turquoise">
+                className="text-[12px] px-2.5 py-1 rounded-lg border border-slate-300 bg-white hover:bg-iip-turquoise/10 hover:border-iip-turquoise">
                 {p.nom}
               </button>
             ))}
           </div>
-          <p className="text-[10.5px] text-slate-500 mt-1.5">
+          <p className="text-[11px] text-slate-500 mt-1.5">
             Un profil est un modèle : il remplit les cases une fois, et ce qui est coché
             ci-dessous reste la vérité. Le périmètre par sections n'est pas touché.
           </p>
@@ -512,7 +512,7 @@ function AccesLuciePanel({ profId, detail }) {
       <div className="border border-slate-200 rounded-lg p-2.5">
         <div className="flex items-center justify-between mb-1.5">
           <span className="text-xs text-gray-500 font-medium">Périmètre</span>
-          <label className="flex items-center gap-1.5 text-[11.5px] text-slate-600">
+          <label className="flex items-center gap-1.5 text-[12px] text-slate-600">
             <input type="checkbox" checked={sections.length === 0}
               onChange={e => setSections(e.target.checked ? [] : sectionsDispo.map(s => s.code))} />
             Toutes les sections
@@ -533,7 +533,7 @@ function AccesLuciePanel({ profId, detail }) {
             ))}
           </div>
         )}
-        <p className="text-[10.5px] text-slate-500 mt-1.5">
+        <p className="text-[11px] text-slate-500 mt-1.5">
           {sections.length === 0
             ? "Cette personne voit toutes les sections."
             : `Elle ne voit que : ${sections.join(', ') || '— aucune, l\u2019accès serait bloqué'}.`}
@@ -851,7 +851,7 @@ function DetailModal({ profId, onClose, onEdit, onFiche }) {
                   <div className="text-[11px] text-gray-500 mb-1.5 text-center">
                     Détail — autonomie comprise
                   </div>
-                  <table className="w-full text-[11.5px]">
+                  <table className="w-full text-[12px]">
                     <tbody>
                       {[['CT', detail.detail_etp.ct], ['PP', detail.detail_etp.pp]].map(
                         ([lib, d]) => (
@@ -931,7 +931,7 @@ function DetailModal({ profId, onClose, onEdit, onFiche }) {
                     <button onClick={() => setShowContratModal(true)} title="Contrat de travail (CDD)"
                       className="flex flex-col items-center gap-1 py-2 rounded-lg border border-gray-200 bg-white hover:border-green-400 hover:bg-green-50/50 transition">
                       <IconFileText size={17} className="text-green-600"/>
-                      <span className="text-[9px] text-gray-500 leading-none">Contrat</span>
+                      <span className="text-[10px] text-gray-500 leading-none">Contrat</span>
                     </button>
                   )}
                   {[['Global', 'Fiche globale — IIP + HELB', null],
@@ -940,14 +940,14 @@ function DetailModal({ profId, onClose, onEdit, onFiche }) {
                     <button key={lbl} onClick={() => onFiche && onFiche(profId, filtre)} title={titre}
                       className="flex flex-col items-center gap-1 py-2 rounded-lg border border-gray-200 bg-white hover:border-iip-turquoise hover:bg-iip-turquoise/5 transition">
                       <IconPrinter size={17} className="text-iip-blue"/>
-                      <span className="text-[9px] text-gray-500 leading-none">{lbl}</span>
+                      <span className="text-[10px] text-gray-500 leading-none">{lbl}</span>
                     </button>
                   ))}
                   {estDirection(u) && (
                     <button onClick={nouvelEA12} title="Nouvel EA12 — fiche de nomination"
                       className="flex flex-col items-center gap-1 py-2 rounded-lg border border-gray-200 bg-white hover:border-purple-400 hover:bg-purple-50/50 transition">
                       <IconPlus size={17} className="text-purple-600"/>
-                      <span className="text-[9px] text-gray-500 leading-none">EA12</span>
+                      <span className="text-[10px] text-gray-500 leading-none">EA12</span>
                     </button>
                   )}
                 </div>
@@ -2242,7 +2242,7 @@ export default function Professeurs() {
             <button onClick={() => setDetailId(p.id)} className="hover:text-iip-gold hover:underline text-left flex items-center gap-2">
               {p.nom_prenom}
               {nouveau && (
-                <span className="bg-green-600 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full uppercase tracking-wide flex-shrink-0">
+                <span className="bg-green-600 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full uppercase tracking-wide flex-shrink-0">
                   NEW
                 </span>
               )}
@@ -2345,7 +2345,7 @@ export default function Professeurs() {
           goût : c'est ce qui fait qu'on doute d'être au même endroit. */}
       <div className="flex items-center justify-between mb-4 gap-3 flex-wrap">
         <h1 className="text-[17px] font-title text-iip-blue leading-tight">
-          Membres du personnel <span className="text-[12.5px] font-normal text-slate-400">· {filtered.length}</span>
+          Membres du personnel <span className="text-[13px] font-normal text-slate-400">· {filtered.length}</span>
         </h1>
         <div className="flex gap-2 items-center flex-wrap">
           <div className="relative">

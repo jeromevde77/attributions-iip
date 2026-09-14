@@ -212,7 +212,7 @@ export default function CentreDocumentsUE({ ueNum, ueNom, annee, onClose }) {
 
         <div className="flex-1 overflow-y-auto p-5 space-y-3">
           <div>
-            <div className="text-[11.5px] text-slate-500 mb-1">Que montrent ces pièces ?</div>
+            <div className="text-[12px] text-slate-500 mb-1">Que montrent ces pièces ?</div>
             <div className="flex rounded-lg border border-slate-300 overflow-hidden">
               {[
                 { k: '1', l: '1re session', t: 'Tous les inscrits, décisions de juin' },
@@ -251,12 +251,12 @@ export default function CentreDocumentsUE({ ueNum, ueNom, annee, onClose }) {
                       onChange={e => setChoix(c => ({ ...c, [p.cle]: e.target.checked }))}
                       className="mt-0.5 w-4 h-4 accent-iip-blue" />
                     <span className="flex-1 min-w-0">
-                      <span className="text-[12.5px] font-semibold text-slate-800">
+                      <span className="text-[13px] font-semibold text-slate-800">
                         {p.noms ? `${p.nb} ` : ''}{p.libelle.toLowerCase()}
                       </span>
                       <span className="block text-[11px] text-slate-500">{p.aide}</span>
                       {!!p.noms?.length && (
-                        <span className="block text-[10.5px] text-slate-400 truncate">
+                        <span className="block text-[11px] text-slate-400 truncate">
                           {p.noms.map(x => x.nom).join(', ')}
                         </span>
                       )}
@@ -267,7 +267,7 @@ export default function CentreDocumentsUE({ ueNum, ueNom, annee, onClose }) {
 
               {!!etat.sans_decision.length && (
                 <div className="px-3 py-2 rounded-lg bg-amber-50 border border-amber-200
-                                text-[11.5px] text-amber-900">
+                                text-[12px] text-amber-900">
                   <b>{etat.sans_decision.length} étudiant(s) sans décision</b> : aucune pièce
                   ne peut être produite pour eux tant que le Conseil n'a pas délibéré.
                 </div>
@@ -283,7 +283,7 @@ export default function CentreDocumentsUE({ ueNum, ueNom, annee, onClose }) {
 
         <div className="flex-none px-5 py-3 border-t border-slate-100 flex items-center
                         justify-between gap-2">
-          <span className="text-[11.5px] text-slate-500">
+          <span className="text-[12px] text-slate-500">
             {total ? `${total} pièce(s) à produire` : 'Rien de coché'}
           {total ? (
             <span className="block text-[11px] text-slate-400">
@@ -307,19 +307,19 @@ export default function CentreDocumentsUE({ ueNum, ueNom, annee, onClose }) {
               </span>
             </label>
             <button onClick={onClose}
-              className="px-3 py-1.5 text-[12.5px] rounded-lg border border-slate-300 text-slate-600">
+              className="px-3 py-1.5 text-[13px] rounded-lg border border-slate-300 text-slate-600">
               Fermer
             </button>
             <button onClick={() => produire('impression')} disabled={enCours || !total}
               title="Aperçu HTML dans un onglet — sans pied de page répété"
-              className="px-3 py-2 text-[12.5px] rounded-lg border border-slate-300
+              className="px-3 py-2 text-[13px] rounded-lg border border-slate-300
                          text-slate-600 disabled:opacity-40
                          flex items-center gap-1.5">
               <IconPrinter size={14} /> Aperçu HTML
             </button>
             <button onClick={() => produire('pdf')} disabled={enCours || !total}
               title="Pied de page sur chaque feuille, une pièce par page"
-              className="px-4 py-2 text-[12.5px] rounded-lg bg-iip-blue text-white
+              className="px-4 py-2 text-[13px] rounded-lg bg-iip-blue text-white
                          font-semibold disabled:opacity-40 flex items-center gap-1.5">
               <IconFileText size={14} /> PDF — à imprimer
             </button>

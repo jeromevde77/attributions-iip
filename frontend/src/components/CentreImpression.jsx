@@ -195,13 +195,13 @@ export default function CentreImpression({ annee, section = null, onClose }) {
         <div className="px-5 py-4 space-y-4 overflow-y-auto">
           {erreur && (
             <div className="px-3 py-2 rounded-lg bg-amber-50 border border-amber-200
-                            text-[12.5px] text-amber-900 flex items-start gap-2">
+                            text-[13px] text-amber-900 flex items-start gap-2">
               <IconAlertTriangle size={15} className="mt-px shrink-0" /> {erreur}
             </div>
           )}
 
           {!etat ? (
-            <div className="py-8 text-center text-[12.5px] text-slate-400">Chargement…</div>
+            <div className="py-8 text-center text-[13px] text-slate-400">Chargement…</div>
           ) : (
             <>
               <div className="flex items-center gap-2 flex-wrap">
@@ -250,13 +250,13 @@ export default function CentreImpression({ annee, section = null, onClose }) {
               <div className="border border-slate-200 rounded-xl divide-y divide-slate-100
                               max-h-[32vh] overflow-y-auto">
                 {!unites.length && (
-                  <div className="px-3 py-6 text-center text-[12.5px] text-slate-400">
+                  <div className="px-3 py-6 text-center text-[13px] text-slate-400">
                     Aucune unité pour cette année.
                   </div>
                 )}
                 {unites.map(u => (
                   <label key={u.ue_num}
-                    className="px-3 py-1.5 flex items-center gap-2 text-[12.5px]
+                    className="px-3 py-1.5 flex items-center gap-2 text-[13px]
                                cursor-pointer hover:bg-slate-50">
                     <input type="checkbox" checked={choisies.has(u.ue_num)}
                       onChange={() => basculer(u.ue_num)} />
@@ -269,7 +269,7 @@ export default function CentreImpression({ annee, section = null, onClose }) {
                       ? 'text-emerald-700' : 'text-amber-700'}`}>
                       {u.cloturee ? `close · s${u.session}` : 'séance ouverte'}
                     </span>
-                    <span className="text-[11.5px] text-slate-500 w-44 text-right">
+                    <span className="text-[12px] text-slate-500 w-44 text-right">
                       {u.reussites} réussi · {u.ajournements} ajourné · {u.refus} refusé
                       {u.sans_decision ? ` · ${u.sans_decision} sans décision` : ''}
                     </span>
@@ -279,11 +279,11 @@ export default function CentreImpression({ annee, section = null, onClose }) {
 
               <div>
                 <div className="flex items-center justify-between gap-2 mb-1.5">
-                  <div className="text-[12.5px] font-semibold text-iip-blue">
+                  <div className="text-[13px] font-semibold text-iip-blue">
                     Les pièces à sortir
                   </div>
                   <div className="flex items-center gap-2">
-                    <label className="flex items-center gap-1.5 text-[11.5px] text-slate-600
+                    <label className="flex items-center gap-1.5 text-[12px] text-slate-600
                                       cursor-pointer"
                       title="Chaque étudiant reçoit ses pièces réunies, toutes unités confondues">
                       <input type="checkbox" checked={separer}
@@ -294,14 +294,14 @@ export default function CentreImpression({ annee, section = null, onClose }) {
                         className="w-3.5 h-3.5 accent-iip-blue" />
                       Un document par étudiant
                     </label>
-                    <span className="text-[11.5px] text-slate-500">Classement :</span>
+                    <span className="text-[12px] text-slate-500">Classement :</span>
                     <div className="flex rounded-lg border border-slate-300 overflow-hidden">
                       {[['unite', 'par unité'], ['pile', 'par pile']].map(([v, lib]) => (
                         <button key={v} onClick={() => setGroupement(v)}
                           title={v === 'unite'
                             ? 'Tout ce qui concerne une unité reste ensemble — pour classer'
                             : 'Toutes les attestations, puis tous les PV — pour plier et poster'}
-                          className={`px-2 py-1 text-[11.5px] ${groupement === v
+                          className={`px-2 py-1 text-[12px] ${groupement === v
                             ? 'bg-iip-blue text-white font-semibold' : 'text-slate-600'}`}>
                           {lib}
                         </button>
@@ -317,7 +317,7 @@ export default function CentreImpression({ annee, section = null, onClose }) {
                       <input type="checkbox" checked={!!choix[p.cle]} className="mt-0.5"
                         onChange={e => setChoix(c => ({ ...c, [p.cle]: e.target.checked }))} />
                       <span>
-                        <span className="text-[12.5px] font-semibold text-slate-800">
+                        <span className="text-[13px] font-semibold text-slate-800">
                           {p.libelle}
                         </span>
                         <span className="block text-[11px] text-slate-500">{p.aide}</span>
@@ -339,11 +339,11 @@ export default function CentreImpression({ annee, section = null, onClose }) {
           </span>
           <div className="flex gap-2">
             <button onClick={onClose}
-              className="px-3 py-1.5 text-[12.5px] rounded-lg border border-slate-300
+              className="px-3 py-1.5 text-[13px] rounded-lg border border-slate-300
                          text-slate-600">Fermer</button>
             <button disabled={enCours || !choisies.size || rien}
               onClick={() => produire('impression')}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-[12.5px] rounded-lg
+              className="flex items-center gap-1.5 px-3 py-1.5 text-[13px] rounded-lg
                          border border-slate-300 text-slate-600 disabled:opacity-40">
               <IconPrinter size={14} /> Aperçu
             </button>

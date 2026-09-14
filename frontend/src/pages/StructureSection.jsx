@@ -106,12 +106,12 @@ export default function StructureSection({ annee }) {
 
       {data?.alertes?.length > 0 && (
         <div className="border border-amber-200 bg-amber-50 rounded-xl px-4 py-3">
-          <div className="flex items-center gap-2 text-[12.5px] font-semibold text-amber-800 mb-1.5">
+          <div className="flex items-center gap-2 text-[13px] font-semibold text-amber-800 mb-1.5">
             <IconAlertTriangle size={15} /> Incohérences de progression
           </div>
           <ul className="space-y-1">
             {data.alertes.map((a, i) => (
-              <li key={i} className="text-[11.5px] text-amber-800">{a.message}</li>
+              <li key={i} className="text-[12px] text-amber-800">{a.message}</li>
             ))}
           </ul>
         </div>

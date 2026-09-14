@@ -577,7 +577,7 @@ export function Journal({ profId, peutEcrire, estAdmin }) {
         </div>
         {peutEcrire && (
           <button onClick={() => setRdv(r => r ? null : { type: 'suivi', date_prevue: '' })}
-            className="flex items-center gap-1.5 text-[12.5px] px-3 py-1.5 rounded-lg border border-iip-turquoise text-iip-turquoise hover:bg-iip-turquoise/5">
+            className="flex items-center gap-1.5 text-[13px] px-3 py-1.5 rounded-lg border border-iip-turquoise text-iip-turquoise hover:bg-iip-turquoise/5">
             <IconCalendarPlus size={14} /> {rdv ? 'Annuler le rendez-vous' : 'Planifier un rendez-vous'}
           </button>
         )}

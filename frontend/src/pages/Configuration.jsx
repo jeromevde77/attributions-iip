@@ -771,7 +771,7 @@ function GestionPrerequis() {
         <div className="flex rounded-lg border border-gray-300 overflow-hidden h-9">
           {[['schema', 'Schéma'], ['liste', 'Liste']].map(([v, l]) => (
             <button key={v} onClick={() => setVue(v)}
-              className={`px-3 text-[12.5px] ${vue === v
+              className={`px-3 text-[13px] ${vue === v
                 ? 'bg-iip-blue text-white font-semibold' : 'text-slate-600 hover:bg-slate-50'}`}>
               {l}
             </button>
@@ -780,14 +780,14 @@ function GestionPrerequis() {
         {section && <span className="text-xs text-gray-400">{prereqs.length} prérequis définis</span>}
       </div>
 
-      <div className="px-3 py-2 rounded-lg bg-amber-50 border border-amber-200 text-[11.5px] text-amber-900">
+      <div className="px-3 py-2 rounded-lg bg-amber-50 border border-amber-200 text-[12px] text-amber-900">
         Les prérequis constituent la bibliothèque : ils viennent du dossier pédagogique et
         valent pour <b>toutes les années</b>. Les modifier fait bouger les grilles de parcours
         et les PAE déjà établis. Réservé aux administrateurs.
       </div>
 
       {msgLien && (
-        <div className={`px-3 py-2 rounded-lg text-[12.5px] flex items-center justify-between ${
+        <div className={`px-3 py-2 rounded-lg text-[13px] flex items-center justify-between ${
           msgLien.type === 'ok' ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
                                 : 'bg-red-50 text-red-800 border border-red-200'}`}>
           <span>{msgLien.texte}</span>

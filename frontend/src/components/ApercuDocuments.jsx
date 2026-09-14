@@ -65,12 +65,12 @@ export default function ApercuDocuments({ onClose }) {
           <IconFileText size={18} className="text-iip-blue" />
           <div className="flex-1">
             <h3 className="text-[15px] font-semibold text-iip-blue">Aperçu des documents</h3>
-            <p className="text-[11.5px] text-slate-500">
+            <p className="text-[12px] text-slate-500">
               Mise en page des pièces officielles, sur un dossier d’exemple.
             </p>
           </div>
           <button onClick={onClose}
-            className="px-3 py-1.5 text-[12.5px] rounded-lg border border-slate-300 text-slate-600">
+            className="px-3 py-1.5 text-[13px] rounded-lg border border-slate-300 text-slate-600">
             Fermer
           </button>
         </div>
@@ -79,7 +79,7 @@ export default function ApercuDocuments({ onClose }) {
           <div className="w-[300px] border-r border-slate-200 overflow-auto p-2 space-y-1">
             {catalogue.map(d => (
               <button key={d.id} onClick={() => { setChoisi(d); setHtml(''); setErreur(null); }}
-                className={`w-full text-left px-2.5 py-2 rounded-lg border text-[12.5px]
+                className={`w-full text-left px-2.5 py-2 rounded-lg border text-[13px]
                   ${choisi?.id === d.id ? 'border-iip-blue bg-iip-blue/5'
                     : 'border-transparent hover:bg-slate-50'}`}>
                 <span className="block text-slate-800">{d.libelle}</span>
@@ -131,7 +131,7 @@ export default function ApercuDocuments({ onClose }) {
             </div>
 
             {erreur && (
-              <div className="m-3 px-3 py-2 rounded-lg bg-amber-50 text-amber-900 text-[12.5px]
+              <div className="m-3 px-3 py-2 rounded-lg bg-amber-50 text-amber-900 text-[13px]
                               flex items-start gap-2">
                 <IconAlertTriangle size={15} className="flex-none mt-0.5" /> {erreur}
               </div>
@@ -141,7 +141,7 @@ export default function ApercuDocuments({ onClose }) {
               {html
                 ? <iframe title="Aperçu" srcDoc={html} className="w-full h-full border-0" />
                 : (
-                  <p className="p-6 text-[12.5px] text-slate-400">
+                  <p className="p-6 text-[13px] text-slate-400">
                     {enCours ? 'Rendu en cours…'
                       : choisi?.mode === 'unite'
                         ? 'Cette pièce lit la délibération en base : indiquez une unité déjà délibérée.'

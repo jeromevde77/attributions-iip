@@ -522,7 +522,7 @@ export default function PlanificateurVisuel({ onClose }) {
                   const st = SEM_STYLE[s.type] || SEM_STYLE.cours;
                   return (
                     <div key={s.id} style={{ width: PX_SEM, background: st.bg }}
-                      className="border-r border-gray-100 text-center py-1 text-[9px] text-gray-500 flex-shrink-0"
+                      className="border-r border-gray-100 text-center py-1 text-[10px] text-gray-500 flex-shrink-0"
                       title={`Semaine ${s.semaine_num} — ${s.date_debut} (${s.type})${s.label ? ' · '+s.label : ''}`}>
                       <div className="font-semibold">{s.semaine_num}</div>
                       {st.label && <div className="text-[8px] text-gray-400">{st.label}</div>}

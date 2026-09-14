@@ -117,7 +117,7 @@ function BarrePose({ locaux, nbCoches, appliquerLot }) {
   return (
     <div className="flex flex-wrap items-center gap-2 mb-3 px-3 py-2 rounded-lg bg-slate-50
                     border border-slate-200">
-      <span className="text-[12.5px] text-slate-500">Poser</span>
+      <span className="text-[13px] text-slate-500">Poser</span>
       <select value={ses} onChange={e => {
         const n = Number(e.target.value); setSes(n);
         setCle(c => c.replace(/^s[12]/, n === 2 ? 's2' : 's1'));
@@ -158,7 +158,7 @@ function VueCoteACote({
   const fondS2 = 'bg-slate-100/70';
   return (
     <div className="overflow-x-auto border border-slate-200 rounded-xl">
-      <table className="w-full text-[12.5px] min-w-[1180px]">
+      <table className="w-full text-[13px] min-w-[1180px]">
         <thead>
           <tr className="text-[11px]">
             <th />
@@ -253,7 +253,7 @@ function VueCoteACote({
         </tbody>
       </table>
       {!ues.length && (
-        <p className="text-[12.5px] text-slate-400 p-3">Aucune unité pour cette section.</p>
+        <p className="text-[13px] text-slate-400 p-3">Aucune unité pour cette section.</p>
       )}
     </div>
   );
@@ -281,7 +281,7 @@ function BlocSession({
   return (
     <section className={`border rounded-xl p-3 mb-4 ${cadre}`}>
       <div className="flex flex-wrap items-center gap-2 mb-2.5">
-        <h3 className={`text-[14px] font-medium ${titre}`}>
+        <h3 className={`text-[15px] font-medium ${titre}`}>
           {bleu ? 'Première session' : 'Seconde session'}
         </h3>
         <span className="flex-1" />
@@ -303,13 +303,13 @@ function BlocSession({
         </button>
       </div>
 
-      <table className="w-full text-[12.5px] table-fixed">
+      <table className="w-full text-[13px] table-fixed">
         <colgroup>
           <col /><col className="w-[212px]" />
           <col className="w-[212px]" /><col className="w-[212px]" />
         </colgroup>
         <thead>
-          <tr className={`text-[11.5px] ${bleu ? 'text-iip-blue/80' : 'text-slate-500'}`}>
+          <tr className={`text-[12px] ${bleu ? 'text-iip-blue/80' : 'text-slate-500'}`}>
             <th className="text-left font-normal py-1 px-1">Unité · cours</th>
             <th className="font-normal py-1 px-1">Épreuve</th>
             <th className="font-normal py-1 px-1">Visite des copies</th>
@@ -342,7 +342,7 @@ function BlocSession({
                   <span className="font-medium ml-0.5">{u.ue_num}</span>{' '}
                   <span className="text-slate-500">{u.ue_nom}</span>
                   {close && (
-                    <span className="ml-1.5 px-1.5 py-px text-[10.5px] rounded bg-amber-50
+                    <span className="ml-1.5 px-1.5 py-px text-[11px] rounded bg-amber-50
                                      text-amber-700 inline-flex items-center gap-1">
                       <IconLock size={11} /> close
                     </span>
@@ -366,7 +366,7 @@ function BlocSession({
                     <td className="py-1 px-1 pl-7 text-slate-500 text-[12px]">
                       {c.cours_code} {c.cours_nom}
                       {c.professeurs && (
-                        <span className="block text-[10.5px] text-slate-400">{c.professeurs}</span>
+                        <span className="block text-[11px] text-slate-400">{c.professeurs}</span>
                       )}
                     </td>
                     <td className="py-1 px-1">
@@ -398,7 +398,7 @@ function BlocSession({
         </tbody>
       </table>
       {!ues.length && (
-        <p className="text-[12.5px] text-slate-400 py-3">Aucune unité pour cette section.</p>
+        <p className="text-[13px] text-slate-400 py-3">Aucune unité pour cette section.</p>
       )}
     </section>
   );
@@ -528,28 +528,28 @@ export default function CalendrierSessions() {
             <IconSearch size={13} className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400" />
             <input value={recherche} onChange={e => setRecherche(e.target.value)}
               placeholder="Unité ou cours…"
-              className="pl-7 pr-2 py-1.5 text-[12.5px] border border-slate-300 rounded-lg w-56" />
+              className="pl-7 pr-2 py-1.5 text-[13px] border border-slate-300 rounded-lg w-56" />
           </div>
           <button onClick={() => setDeplie(toutDeplie ? new Set() : new Set(ues.map(u => u.ue_num)))}
-            className="px-3 py-1.5 text-[12.5px] rounded-lg border border-slate-300
+            className="px-3 py-1.5 text-[13px] rounded-lg border border-slate-300
                        text-slate-600 inline-flex items-center gap-1.5">
             <IconLayoutRows size={14} /> {toutDeplie ? 'Tout replier' : 'Tout déplier'}
           </button>
           <button onClick={() => setCoches(coches.size ? new Set() : new Set(ues.map(u => u.ue_num)))}
-            className="px-3 py-1.5 text-[12.5px] rounded-lg border border-slate-300 text-slate-600">
+            className="px-3 py-1.5 text-[13px] rounded-lg border border-slate-300 text-slate-600">
             {coches.size ? 'Tout décocher' : 'Tout cocher'}
           </button>
           <button onClick={() => {
             const n = dispo === 'cote' ? 'empile' : 'cote';
             setDispo(n); localStorage.setItem('calendrier.dispo', n);
-          }} className="px-3 py-1.5 text-[12.5px] rounded-lg border border-slate-300
+          }} className="px-3 py-1.5 text-[13px] rounded-lg border border-slate-300
                         text-slate-600 inline-flex items-center gap-1.5">
             <IconColumns size={14} /> {dispo === 'cote' ? 'Sessions empilées' : 'Sessions côte à côte'}
           </button>
         </div>
 
         {erreur && (
-          <div className="mb-3 px-3 py-2 rounded-lg bg-red-50 text-red-700 text-[12.5px]
+          <div className="mb-3 px-3 py-2 rounded-lg bg-red-50 text-red-700 text-[13px]
                           inline-flex items-center gap-2">
             <IconAlertTriangle size={15} /> {erreur}
           </div>
@@ -578,17 +578,17 @@ export default function CalendrierSessions() {
           <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] flex items-center justify-center z-50">
             <div className="bg-white rounded-xl p-5 w-[520px] max-w-[92vw]">
               <h3 className="text-[15px] font-medium mb-1">Séance close</h3>
-              <p className="text-[12.5px] text-slate-600 mb-3">
+              <p className="text-[13px] text-slate-600 mb-3">
                 {aMotiver.detail || `Cette modification touche ${aMotiver.closes?.length || 0}
                  séance(s) déjà closes.`} La séance reste close ; seule la date change,
                 et la correction est conservée avec son motif.
               </p>
               <textarea value={motif} onChange={e => setMotif(e.target.value)} rows={3}
                 placeholder="Pourquoi cette date est-elle corrigée ?"
-                className="w-full px-2 py-1.5 text-[12.5px] border border-slate-300 rounded-lg mb-3" />
+                className="w-full px-2 py-1.5 text-[13px] border border-slate-300 rounded-lg mb-3" />
               <div className="flex justify-end gap-2">
                 <button onClick={() => { setAMotiver(null); setMotif(''); }}
-                  className="px-3 py-1.5 text-[12.5px] rounded-lg border border-slate-300">
+                  className="px-3 py-1.5 text-[13px] rounded-lg border border-slate-300">
                   Annuler
                 </button>
                 <button
@@ -597,7 +597,7 @@ export default function CalendrierSessions() {
                     const ok = await envoyer(aMotiver.charge, motif.trim());
                     if (ok) { setAMotiver(null); setMotif(''); }
                   }}
-                  className="px-3 py-1.5 text-[12.5px] rounded-lg bg-iip-blue text-white">
+                  className="px-3 py-1.5 text-[13px] rounded-lg bg-iip-blue text-white">
                   Corriger
                 </button>
               </div>

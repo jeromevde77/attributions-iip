@@ -173,12 +173,12 @@ function LigneGroupe({ groupe, semaines, cellules, onCellChange, onEditGroupe, w
             UE {groupe.ue_num}
           </span>
           {groupe.ue_niv && (
-            <span className="text-[9px] font-bold px-1 py-0.5 rounded bg-gray-100 text-gray-600">
+            <span className="text-[10px] font-bold px-1 py-0.5 rounded bg-gray-100 text-gray-600">
               {groupe.ue_niv}
             </span>
           )}
           {groupe.ue_quad && (
-            <span className="text-[9px] font-medium px-1 py-0.5 rounded bg-gray-100 text-gray-500">
+            <span className="text-[10px] font-medium px-1 py-0.5 rounded bg-gray-100 text-gray-500">
               {String(groupe.ue_quad).replace(/\s/g,'').toUpperCase() === 'Q1Q2' ? 'Q1/Q2' : groupe.ue_quad}
             </span>
           )}
@@ -206,7 +206,7 @@ function LigneGroupe({ groupe, semaines, cellules, onCellChange, onEditGroupe, w
         ${over ? 'bg-red-50 text-red-700' : done ? 'bg-green-50 text-green-700' : 'bg-gray-50 text-gray-500'}`}
         style={nivBorderColor ? { borderLeft: `3px solid ${nivBorderColor}` } : {}}>
         <div className="font-semibold text-[11px]">{Math.round(hPlanif * 10) / 10}h</div>
-        <div className="text-[9px] opacity-70">/{groupe.heures_attribuees}h · {pct}%</div>
+        <div className="text-[10px] opacity-70">/{groupe.heures_attribuees}h · {pct}%</div>
       </td>
       {/* Cellules */}
       {semaines.map(sem => (
@@ -496,7 +496,7 @@ function PanelCalendrier({ semaines, onUpdate, onClose }) {
                     ${style.header}`}>
                   <div className={`font-semibold ${style.text}`}>S{sem.semaine_num}</div>
                   <div className="text-gray-500 text-[10px]">{fmtDate(sem.date_debut)}</div>
-                  {sem.label && <div className={`text-[9px] mt-0.5 ${style.text}`}>{sem.label}</div>}
+                  {sem.label && <div className={`text-[10px] mt-0.5 ${style.text}`}>{sem.label}</div>}
                 </button>
               );
             })}
@@ -975,9 +975,9 @@ function StructureUE({ annee, section, groupes }) {
             'border-gray-200 hover:border-gray-400 bg-white'}`}>
         <div className="flex items-center gap-1.5">
           <span className="text-[10px] font-bold text-iip-mauve">UE{u.ue_num}</span>
-          {saving === u.ue_num && <span className="text-[9px] text-gray-400"><IconDeviceFloppy size={12} className="inline" /></span>}
-          {nbPre > 0 && <span className="text-[9px] bg-iip-turquoise/10 text-iip-blue px-1 rounded">{nbPre}↑</span>}
-          {nbDep > 0 && <span className="text-[9px] bg-orange-100 text-orange-600 px-1 rounded">{nbDep}↓</span>}
+          {saving === u.ue_num && <span className="text-[10px] text-gray-400"><IconDeviceFloppy size={12} className="inline" /></span>}
+          {nbPre > 0 && <span className="text-[10px] bg-iip-turquoise/10 text-iip-blue px-1 rounded">{nbPre}↑</span>}
+          {nbDep > 0 && <span className="text-[10px] bg-orange-100 text-orange-600 px-1 rounded">{nbDep}↓</span>}
         </div>
         <p className="text-[10px] text-gray-600 leading-tight mt-0.5">{u.ue_nom?.slice(0, 40)}</p>
       </div>
@@ -1502,30 +1502,30 @@ export default function Planification() {
               {/* Mois */}
               <tr>
                 <th className="sticky left-0 z-30 bg-white border border-gray-300 w-[260px]"></th>
-                <th className="sticky left-[260px] z-30 bg-white border border-gray-300 w-24 text-center text-[9px] text-gray-400">Total</th>
+                <th className="sticky left-[260px] z-30 bg-white border border-gray-300 w-24 text-center text-[10px] text-gray-400">Total</th>
                 {semaines.map((sem, i) => {
                   const style = TYPE_STYLE[sem.type] || TYPE_STYLE.cours;
                   const mois = new Date(sem.date_debut + 'T12:00:00').toLocaleDateString('fr-BE', { month: 'short' });
                   const prev = i > 0 ? new Date(semaines[i-1].date_debut + 'T12:00:00').toLocaleDateString('fr-BE', { month: 'short' }) : null;
                   return (
-                    <th key={sem.id} className={`border border-gray-200 text-center w-10 text-[9px] font-medium ${style.header} ${style.text}`}
+                    <th key={sem.id} className={`border border-gray-200 text-center w-10 text-[10px] font-medium ${style.header} ${style.text}`}
                       title={`S${sem.semaine_num} · ${fmtDate(sem.date_debut)}${sem.label ? ' · '+sem.label : ''}`}>
                       {mois !== prev ? mois : ''}
                     </th>
                   );
                 })}
-                <th className="border border-gray-300 bg-iip-turquoise/5 text-iip-blue text-[9px] w-14 text-center">PEP</th>
+                <th className="border border-gray-300 bg-iip-turquoise/5 text-iip-blue text-[10px] w-14 text-center">PEP</th>
               </tr>
               {/* N° semaine + date */}
               <tr>
-                <th className="sticky left-0 z-30 bg-gray-50 border border-gray-300 text-left px-2 text-[9px] text-gray-400 font-normal">Attribution</th>
-                <th className="sticky left-[260px] z-30 bg-gray-50 border border-gray-300 text-center text-[9px] text-gray-400 font-normal">planif./attr.</th>
+                <th className="sticky left-0 z-30 bg-gray-50 border border-gray-300 text-left px-2 text-[10px] text-gray-400 font-normal">Attribution</th>
+                <th className="sticky left-[260px] z-30 bg-gray-50 border border-gray-300 text-center text-[10px] text-gray-400 font-normal">planif./attr.</th>
                 {semaines.map(sem => {
                   const style = TYPE_STYLE[sem.type] || TYPE_STYLE.cours;
                   return (
                     <th key={sem.id} className={`border border-gray-200 text-center w-10 ${style.header} ${style.text}`}
                       title={`${fmtDate(sem.date_debut)}–${fmtDate(sem.date_fin)}`}>
-                      <div className="text-[9px] font-mono font-semibold">{sem.semaine_num}</div>
+                      <div className="text-[10px] font-mono font-semibold">{sem.semaine_num}</div>
                       <div className="text-[8px] font-normal text-gray-400">{fmtDate(sem.date_debut)}</div>
                     </th>
                   );

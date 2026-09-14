@@ -177,7 +177,7 @@ export default function ImportPAE({ annee, onClose, onImporte }) {
 
         <div className="p-5 space-y-4">
           {erreur && (
-            <div className="px-3 py-2 rounded-lg bg-red-50 border border-red-200 text-[12.5px] text-red-800">
+            <div className="px-3 py-2 rounded-lg bg-red-50 border border-red-200 text-[13px] text-red-800">
               {erreur}
             </div>
           )}
@@ -200,7 +200,7 @@ export default function ImportPAE({ annee, onClose, onImporte }) {
 
           {etape === 'legende' && analyse && (
             <>
-              <div className="text-[12.5px] text-slate-600">
+              <div className="text-[13px] text-slate-600">
                 Onglet <b>{analyse.onglet}</b> — {analyse.nEtudiants} étudiants,
                 {' '}{analyse.colonnes.length} colonnes de cours.
               </div>
@@ -242,7 +242,7 @@ export default function ImportPAE({ annee, onClose, onImporte }) {
                     </div>
                   ))}
                 </div>
-                <p className="text-[10.5px] text-slate-400 mt-1.5">
+                <p className="text-[11px] text-slate-400 mt-1.5">
                   Les commentaires libres du Conseil des études sont repris tels quels et
                   n'apparaissent pas ici. Une valeur laissée sur « ignorer » n'est pas importée.
                 </p>
@@ -272,7 +272,7 @@ export default function ImportPAE({ annee, onClose, onImporte }) {
               </div>
 
               {(rapport.matricules_inconnus?.length > 0 || rapport.cours_inconnus?.length > 0) && (
-                <div className="px-3 py-2.5 rounded-xl bg-amber-50 border border-amber-200 text-[11.5px] text-amber-900">
+                <div className="px-3 py-2.5 rounded-xl bg-amber-50 border border-amber-200 text-[12px] text-amber-900">
                   <div className="flex items-center gap-1.5 font-semibold mb-1">
                     <IconAlertTriangle size={14} /> À vérifier
                   </div>

@@ -128,7 +128,7 @@ export default function ComparaisonClasseur({ onClose }) {
       <div className="bg-white rounded-fenetre shadow-dessus w-full max-w-5xl mt-8 max-h-[90vh] overflow-hidden flex flex-col">
         <div className="flex-none p-5 pb-3 border-b border-slate-100 flex items-start justify-between">
           <div>
-            <h3 className="text-[16px] font-semibold text-iip-blue">
+            <h3 className="text-[15px] font-semibold text-iip-blue">
               Comparer un classeur de coordination
             </h3>
             <p className="text-[12px] text-slate-500">
@@ -151,7 +151,7 @@ export default function ComparaisonClasseur({ onClose }) {
               placeholder="2025-2026"
               className="border border-slate-300 rounded-lg px-2 py-1.5 text-sm w-36" />
           </label>
-          <label className="inline-flex items-center gap-2 px-3 py-2 text-[12.5px] border
+          <label className="inline-flex items-center gap-2 px-3 py-2 text-[13px] border
                             border-slate-300 rounded-lg cursor-pointer hover:bg-slate-50">
             <IconUpload size={15} /> {enCours ? 'Lecture…' : 'Choisir le classeur'}
             <input type="file" accept=".xls,.xlsx,.xlsm,.csv" className="hidden"
@@ -160,13 +160,13 @@ export default function ComparaisonClasseur({ onClose }) {
         </div>
 
         {erreur && (
-          <div className="px-3 py-2 rounded-lg bg-red-50 border border-red-200 text-[12.5px] text-red-800">
+          <div className="px-3 py-2 rounded-lg bg-red-50 border border-red-200 text-[13px] text-red-800">
             {erreur}
           </div>
         )}
 
         {resume && (
-          <div className="text-[11.5px] text-slate-600 bg-slate-50 rounded-lg p-2.5">
+          <div className="text-[12px] text-slate-600 bg-slate-50 rounded-lg p-2.5">
             Feuille <b>{resume.feuille}</b> · {resume.colonnes} colonne(s) pour {annee} ·{' '}
             {resume.etudiants} étudiant(s) porteurs d'au moins un résultat.
             <div className="mt-1">
@@ -192,7 +192,7 @@ export default function ComparaisonClasseur({ onClose }) {
               ].map(([l, v, ton]) => (
                 <div key={l} className="border border-slate-200 rounded-xl px-3 py-2">
                   <div className="text-[10px] uppercase tracking-wide text-slate-500 font-semibold">{l}</div>
-                  <div className={`text-[18px] font-bold ${ton}`}>{v}</div>
+                  <div className={`text-[17px] font-bold ${ton}`}>{v}</div>
                 </div>
               ))}
             </div>
@@ -224,7 +224,7 @@ export default function ComparaisonClasseur({ onClose }) {
 
             <div className="max-h-80 overflow-y-auto">
               {!listes[vue].length ? (
-                <div className="py-8 text-center text-[12.5px] text-slate-400">
+                <div className="py-8 text-center text-[13px] text-slate-400">
                   Rien dans cette catégorie.
                 </div>
               ) : vue === 'inconnus' ? (

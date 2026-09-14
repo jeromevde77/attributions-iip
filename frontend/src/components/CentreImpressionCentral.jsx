@@ -127,7 +127,7 @@ function OngletRapports({ domaine }) {
       <div className="w-[340px] border-r border-slate-200 overflow-auto p-2 space-y-1">
         {liste.map(r => (
           <button key={r.id} onClick={() => voir(r)}
-            className={`w-full text-left px-2.5 py-2 rounded-lg border text-[12.5px]
+            className={`w-full text-left px-2.5 py-2 rounded-lg border text-[13px]
               ${choisi?.id === r.id ? 'border-iip-blue bg-iip-blue/5'
                 : 'border-transparent hover:bg-slate-50'}`}>
             <span className="block text-slate-800">{r.libelle}</span>
@@ -135,7 +135,7 @@ function OngletRapports({ domaine }) {
           </button>
         ))}
         {catalogue && !liste.length && (
-          <p className="p-4 text-[12.5px] text-slate-400">
+          <p className="p-4 text-[13px] text-slate-400">
             Aucun rapport dans ce domaine pour l’instant.
           </p>
         )}
@@ -144,7 +144,7 @@ function OngletRapports({ domaine }) {
 
       <div className="flex-1 flex flex-col min-h-0">
         <div className="px-3 py-2 border-b border-slate-200 flex flex-wrap items-center gap-2">
-          <span className="text-[12.5px] text-slate-600">{annee}</span>
+          <span className="text-[13px] text-slate-600">{annee}</span>
           {choisi?.params?.includes('session') && (
             <select value={session}
               onChange={e => { setSession(Number(e.target.value)); setApercu(null); }}
@@ -172,7 +172,7 @@ function OngletRapports({ domaine }) {
         </div>
 
         {erreur && (
-          <div className="m-3 px-3 py-2 rounded-lg bg-amber-50 text-amber-900 text-[12.5px]
+          <div className="m-3 px-3 py-2 rounded-lg bg-amber-50 text-amber-900 text-[13px]
                           flex items-start gap-2">
             <IconAlertTriangle size={15} className="flex-none mt-0.5" /> {erreur}
           </div>
@@ -180,17 +180,17 @@ function OngletRapports({ domaine }) {
 
         <div className="flex-1 overflow-auto min-h-0">
           {!choisi && (
-            <p className="p-6 text-[12.5px] text-slate-400">
+            <p className="p-6 text-[13px] text-slate-400">
               Choisissez un rapport à gauche.
             </p>
           )}
           {choisi && !apercu && !erreur && (
-            <p className="p-6 text-[12.5px] text-slate-400">
+            <p className="p-6 text-[13px] text-slate-400">
               {enCours ? 'Calcul…' : '—'}
             </p>
           )}
           {apercu && (
-            <table className="w-full text-[11.5px]">
+            <table className="w-full text-[12px]">
               <thead className="sticky top-0 bg-slate-50">
                 <tr>{apercu.colonnes.map(c => (
                   <th key={c.cle} className="text-left font-medium text-slate-600
@@ -335,11 +335,11 @@ function OngletEtudiants({ perimetre = null }) {
       {/* LE PÉRIMÈTRE */}
       <div className="w-[340px] border-r border-slate-200 flex flex-col min-h-0">
         <div className="px-3 py-2 border-b border-slate-200">
-          <div className="text-[12.5px] font-semibold text-iip-blue mb-1.5">Périmètre</div>
+          <div className="text-[13px] font-semibold text-iip-blue mb-1.5">Périmètre</div>
           <div className="flex rounded-lg border border-slate-300 overflow-hidden w-full">
             {[[1, '1re session'], [2, '2e session']].map(([v, lib]) => (
               <button key={v} onClick={() => setSession(v)}
-                className={`flex-1 px-2 py-1 text-[11.5px] ${session === v
+                className={`flex-1 px-2 py-1 text-[12px] ${session === v
                   ? 'bg-iip-blue text-white font-semibold' : 'text-slate-600'}`}>
                 {lib}
               </button>
@@ -355,7 +355,7 @@ function OngletEtudiants({ perimetre = null }) {
                 <input type="checkbox" checked={sections.has(sec)}
                   onChange={() => setSections(s => bascule(s, sec))}
                   className="w-4 h-4 accent-iip-blue" />
-                <span className="text-[12.5px] font-medium text-slate-800">{sec}</span>
+                <span className="text-[13px] font-medium text-slate-800">{sec}</span>
               </label>
               <div className="pl-4">
                 {(arbre?.unites || []).filter(u => u.section === sec).map(u => (
@@ -383,7 +383,7 @@ function OngletEtudiants({ perimetre = null }) {
                               disabled={sections.has(sec) || ues.has(u.ue_num)}
                               onChange={() => setCours(s => bascule(s, c.cours_code))}
                               className="w-3.5 h-3.5 accent-iip-blue disabled:opacity-40" />
-                            <span className="text-[11.5px] text-slate-500 truncate">
+                            <span className="text-[12px] text-slate-500 truncate">
                               {c.cours_code} {c.cours_nom}
                             </span>
                           </label>
@@ -450,7 +450,7 @@ function OngletEtudiants({ perimetre = null }) {
           </div>
 
           {erreur && (
-            <div className="px-3 py-2 rounded-lg bg-amber-50 text-amber-900 text-[12.5px]
+            <div className="px-3 py-2 rounded-lg bg-amber-50 text-amber-900 text-[13px]
                             flex items-start gap-2">
               <IconAlertTriangle size={15} className="flex-none mt-0.5" /> {erreur}
             </div>
@@ -468,7 +468,7 @@ function OngletEtudiants({ perimetre = null }) {
             </label>
             <span className="flex-1" />
             <button onClick={produire} disabled={enCours || !coches.size}
-              className="px-4 py-2 text-[12.5px] rounded-lg bg-iip-blue text-white
+              className="px-4 py-2 text-[13px] rounded-lg bg-iip-blue text-white
                          font-semibold disabled:opacity-40 inline-flex items-center gap-1.5">
               <IconPrinter size={14} />
               {enCours ? 'Production…' : `Produire pour ${coches.size} étudiant(s)`}
@@ -477,13 +477,13 @@ function OngletEtudiants({ perimetre = null }) {
         </div>
         <div className="flex-1 overflow-auto min-h-0">
           {rien && (
-            <p className="p-6 text-[12.5px] text-slate-400">
+            <p className="p-6 text-[13px] text-slate-400">
               Choisissez un périmètre à gauche : une section, des unités, ou des
               cours.
             </p>
           )}
           {!rien && !etudiants.length && (
-            <p className="p-6 text-[12.5px] text-slate-400">
+            <p className="p-6 text-[13px] text-slate-400">
               Aucun étudiant dans ce périmètre.
             </p>
           )}
@@ -495,7 +495,7 @@ function OngletEtudiants({ perimetre = null }) {
                 onChange={() => setCoches(s => bascule(s, e.id))}
                 className="w-4 h-4 accent-iip-blue" />
               <span className="flex-1 min-w-0">
-                <span className="text-[12.5px] font-medium">{e.nom} {e.prenom}</span>
+                <span className="text-[13px] font-medium">{e.nom} {e.prenom}</span>
                 <span className="block text-[11px] text-slate-500">
                   {e.decide
                     ? `${e.reussites} réussite(s) · ${e.echecs} échec(s) sur ${e.unites.length} unité(s)`
@@ -550,7 +550,7 @@ export default function CentreImpressionCentral({ ongletInitial = 'etudiants',
       <div className="flex gap-1 flex-wrap mb-4 pb-3 border-b border-slate-200">
         {ONGLETS.map(o => (
           <button key={o.cle} onClick={() => setOnglet(o.cle)}
-            className={`px-3 py-1.5 rounded-champ text-[12.5px] inline-flex items-center gap-1.5
+            className={`px-3 py-1.5 rounded-champ text-[13px] inline-flex items-center gap-1.5
               transition-colors duration-150 ease-ios
               ${onglet === o.cle
                 ? 'bg-iip-blue text-white font-semibold'

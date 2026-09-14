@@ -966,7 +966,7 @@ export default function Editeur() {
         {!modeCode && <Toolbar editor={editor} />}
         {modeCode ? (
           <div className="flex-1 flex flex-col overflow-hidden bg-slate-50">
-            <div className="flex-none px-4 py-2 text-[11.5px] text-amber-900 bg-amber-50
+            <div className="flex-none px-4 py-2 text-[12px] text-amber-900 bg-amber-50
                             border-b border-amber-200">
               Le HTML du modèle. « Enregistrer » écrit ce que vous voyez ici.
               <b> Repasser en visuel</b> fait relire ce code par l'éditeur, qui ne

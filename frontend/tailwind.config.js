@@ -53,6 +53,33 @@ export default {
         '3xl':   '22px',
         full:    '9999px', // les pastilles rondes, et elles seules
       },
+      // ─── L'ÉCHELLE TYPOGRAPHIQUE ────────────────────────────────────────
+      //
+      // Dix-neuf tailles cohabitaient : douze écrites au pixel (9, 9,5, 10,
+      // 10,5, 11, 11,5, 12, 12,5, 13, 15, 16, 17) et les sept de Tailwind,
+      // employées deux mille cinq cents fois. Une même information n'avait
+      // donc pas la même taille selon l'écran qui l'affichait.
+      //
+      // Six degrés suffisent, et chacun a un emploi :
+      //   10 — la mention, la légende, ce qu'on ne lit que si on cherche
+      //   11 — l'étiquette d'un champ, l'en-tête d'une colonne
+      //   12 — le second plan : compteurs, aides, précisions
+      //   13 — LE CORPS. Tout ce qui se lit vraiment.
+      //   15 — le titre d'une carte, d'une section
+      //   17 — le titre d'un écran, et il n'y en a qu'un
+      //
+      // Les noms de Tailwind y tombent aussi : « text-sm » vaut désormais 13,
+      // comme le corps, et non quatorze. Une seule échelle, deux façons de
+      // l'écrire.
+      fontSize: {
+        xs:      ['11px', '1.45'],
+        sm:      ['13px', '1.5'],
+        base:    ['15px', '1.55'],
+        lg:      ['17px', '1.35'],
+        xl:      ['21px', '1.25'],
+        '2xl':   ['27px', '1.2'],
+        '3xl':   ['34px', '1.15'],
+      },
       boxShadow: {
         pose:     '0 1px 2px rgba(11,21,45,.06)',
         flottant: '0 20px 50px -18px rgba(11,21,45,.35)',

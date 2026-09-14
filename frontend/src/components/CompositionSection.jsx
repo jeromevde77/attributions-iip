@@ -96,13 +96,13 @@ export default function CompositionSection({ sectionCode, annee, estAdmin }) {
 
   const Ligne = ({ u, sel, onClick }) => (
     <button onClick={onClick}
-      className={`w-full text-left px-3 py-2 border-b border-slate-100 last:border-0 text-[12.5px]
+      className={`w-full text-left px-3 py-2 border-b border-slate-100 last:border-0 text-[13px]
         flex items-center justify-between gap-2 ${sel ? 'bg-cyan-50' : 'hover:bg-slate-50'}`}>
       <span className="min-w-0">
         <b className="text-iip-blue">UE {u.ue_num}</b>
         <span className="text-slate-700"> — {u.ue_nom}</span>
       </span>
-      <span className="flex items-center gap-1.5 flex-none text-[10.5px] text-slate-400">
+      <span className="flex items-center gap-1.5 flex-none text-[11px] text-slate-400">
         {u.ue_per_total ? `${u.ue_per_total} pér.` : ''}
         {u.autres_sections?.length > 0 && (
           <span className="px-1.5 py-0.5 rounded-full bg-sky-100 text-sky-800 font-bold">
@@ -141,7 +141,7 @@ export default function CompositionSection({ sectionCode, annee, estAdmin }) {
       </div>
 
       {message && (
-        <div className={`px-3 py-2 rounded-lg text-[12.5px] ${message.type === 'ok'
+        <div className={`px-3 py-2 rounded-lg text-[13px] ${message.type === 'ok'
           ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
           : 'bg-red-50 text-red-800 border border-red-200'}`}
           onClick={() => setMessage(null)}>
@@ -151,14 +151,14 @@ export default function CompositionSection({ sectionCode, annee, estAdmin }) {
 
       <div className="grid grid-cols-[1fr_auto_1fr] gap-2 items-stretch">
         <div className="border border-slate-200 rounded-xl overflow-hidden bg-white">
-          <div className="px-3 py-2 bg-slate-50 border-b border-slate-200 text-[10.5px] font-bold uppercase tracking-wide text-slate-500">
+          <div className="px-3 py-2 bg-slate-50 border-b border-slate-200 text-[11px] font-bold uppercase tracking-wide text-slate-500">
             UE disponibles ({disponibles.length})
           </div>
           <div className="flex items-center gap-1.5 border-b border-slate-100 px-3">
             <IconSearch size={13} className="text-slate-400 flex-none" />
             <input value={recherche} onChange={e => setRecherche(e.target.value)}
               placeholder="numéro ou intitulé…"
-              className="w-full py-1.5 text-[12.5px] outline-none" />
+              className="w-full py-1.5 text-[13px] outline-none" />
           </div>
           <div className="max-h-72 overflow-auto">
             {disponibles.map(u => (
@@ -183,7 +183,7 @@ export default function CompositionSection({ sectionCode, annee, estAdmin }) {
         </div>
 
         <div className="border border-slate-200 rounded-xl overflow-hidden bg-white">
-          <div className="px-3 py-2 bg-slate-50 border-b border-slate-200 text-[10.5px] font-bold uppercase tracking-wide text-slate-500">
+          <div className="px-3 py-2 bg-slate-50 border-b border-slate-200 text-[11px] font-bold uppercase tracking-wide text-slate-500">
             Composition de {sectionCode} ({choisies.length} UE)
           </div>
           <div className="max-h-[19.5rem] overflow-auto">
@@ -201,7 +201,7 @@ export default function CompositionSection({ sectionCode, annee, estAdmin }) {
       </div>
 
       {modifie && (
-        <p className="text-[11.5px] text-amber-700 flex items-center gap-1.5">
+        <p className="text-[12px] text-amber-700 flex items-center gap-1.5">
           <IconAlertTriangle size={13} /> Modifications non enregistrées.
         </p>
       )}

@@ -253,11 +253,11 @@ export default function DatesUE({ annee }) {
 
       {incoherentes > 0 && (
         <div className="px-4 py-3 rounded-xl bg-red-50 border border-red-200">
-          <div className="text-[12.5px] font-semibold text-red-900 mb-1">
+          <div className="text-[13px] font-semibold text-red-900 mb-1">
             {incoherentes === 1 ? 'Une organisation a ses dates inversées'
                                 : `${incoherentes} organisations ont leurs dates inversées`}
           </div>
-          <div className="text-[11.5px] text-red-800 space-y-0.5">
+          <div className="text-[12px] text-red-800 space-y-0.5">
             {lignesIncoherentes.slice(0, 8).map((l, i) => (
               <div key={i}>
                 <b>UE {l.ue_num}</b> {l.ue_nom ? '— ' + l.ue_nom : ''} :

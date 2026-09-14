@@ -344,7 +344,7 @@ ${j.granularite === 'cours' && !cotesCours ? `
 
           <div className="p-5 space-y-4">
             {erreur && (
-              <div className="px-3 py-2 rounded-lg bg-red-50 border border-red-200 text-[12.5px] text-red-800">
+              <div className="px-3 py-2 rounded-lg bg-red-50 border border-red-200 text-[13px] text-red-800">
                 {erreur}
               </div>
             )}
@@ -357,9 +357,9 @@ ${j.granularite === 'cours' && !cotesCours ? `
                   </span>
                   <div className="flex gap-1.5">
                     <button onClick={() => setChoisies(sections.map(s => s.code))}
-                      className="text-[10.5px] px-1.5 py-0.5 border border-slate-300 rounded">Toutes</button>
+                      className="text-[11px] px-1.5 py-0.5 border border-slate-300 rounded">Toutes</button>
                     <button onClick={() => setChoisies([])}
-                      className="text-[10.5px] px-1.5 py-0.5 border border-slate-300 rounded">Aucune</button>
+                      className="text-[11px] px-1.5 py-0.5 border border-slate-300 rounded">Aucune</button>
                   </div>
                 </div>
                 <div className="border border-slate-300 rounded-lg max-h-28 overflow-y-auto divide-y divide-slate-100">
@@ -387,7 +387,7 @@ ${j.granularite === 'cours' && !cotesCours ? `
               <div className="flex gap-3 flex-wrap mb-2">
                 {[['toutes', 'Toutes les UE'], ['niveau', 'Par année d\u2019études'], ['ue', 'Une seule UE']].map(([v, l]) => (
                   <label key={v}
-                    className={`flex items-center gap-1.5 text-[12.5px] ${v === 'ue' && choisies.length !== 1 ? 'opacity-40' : ''}`}
+                    className={`flex items-center gap-1.5 text-[13px] ${v === 'ue' && choisies.length !== 1 ? 'opacity-40' : ''}`}
                     title={v === 'ue' && choisies.length !== 1 ? 'Choisissez une seule section' : ''}>
                     <input type="radio" checked={etendue === v} onChange={() => setEtendue(v)}
                       disabled={v === 'ue' && choisies.length !== 1} /> {l}
@@ -414,7 +414,7 @@ ${j.granularite === 'cours' && !cotesCours ? `
                 <div className="text-[11px] font-semibold text-slate-500 uppercase tracking-wide mb-1.5">Contenu des cases</div>
                 {[['annee', "Année de validation"], ['etat', "État de l'année choisie"],
                   ['note', 'Note sur 20']].map(([v, l]) => (
-                  <label key={v} className="flex items-center gap-1.5 text-[12.5px] mb-1">
+                  <label key={v} className="flex items-center gap-1.5 text-[13px] mb-1">
                     <input type="radio" checked={contenu === v} onChange={() => setContenu(v)} /> {l}
                   </label>
                 ))}
@@ -432,7 +432,7 @@ ${j.granularite === 'cours' && !cotesCours ? `
             </label>
             <div className="text-[11px] font-semibold text-slate-500 uppercase tracking-wide mb-1.5">Colonnes</div>
                 {[['ue', 'Une par UE'], ['cours', 'Une par cours']].map(([v, l]) => (
-                  <label key={v} className="flex items-center gap-1.5 text-[12.5px] mb-1">
+                  <label key={v} className="flex items-center gap-1.5 text-[13px] mb-1">
                     <input type="radio" checked={granularite === v} onChange={() => setGranularite(v)} /> {l}
                   </label>
                 ))}
@@ -444,25 +444,25 @@ ${j.granularite === 'cours' && !cotesCours ? `
                 Enrichissements
               </div>
               <div className="grid grid-cols-2 gap-x-4 gap-y-1">
-                <label className="flex items-start gap-2 text-[12.5px]">
+                <label className="flex items-start gap-2 text-[13px]">
                   <input type="checkbox" checked={intitules} onChange={e => setIntitules(e.target.checked)} className="mt-0.5" />
                   <span>Intitulés en en-tête
-                    <span className="block text-[10.5px] text-slate-500">Sous le code, pour un document remis au jury</span>
+                    <span className="block text-[11px] text-slate-500">Sous le code, pour un document remis au jury</span>
                   </span>
                 </label>
-                <label className="flex items-start gap-2 text-[12.5px]">
+                <label className="flex items-start gap-2 text-[13px]">
                   <input type="checkbox" checked={synthese} onChange={e => setSynthese(e.target.checked)} className="mt-0.5" />
                   <span>Synthèse par étudiant
-                    <span className="block text-[10.5px] text-slate-500">UE acquises, ECTS cumulés, situation</span>
+                    <span className="block text-[11px] text-slate-500">UE acquises, ECTS cumulés, situation</span>
                   </span>
                 </label>
-                <label className="flex items-start gap-2 text-[12.5px]">
+                <label className="flex items-start gap-2 text-[13px]">
                   <input type="checkbox" checked={tauxUE} onChange={e => setTauxUE(e.target.checked)} className="mt-0.5" />
                   <span>Taux de réussite par UE
-                    <span className="block text-[10.5px] text-slate-500">En pied de tableau — désigne les UE qui font barrage</span>
+                    <span className="block text-[11px] text-slate-500">En pied de tableau — désigne les UE qui font barrage</span>
                   </span>
                 </label>
-                <label className="text-[12.5px]">
+                <label className="text-[13px]">
                   <span className="block mb-1">Étudiants retenus</span>
                   <select value={filtre} onChange={e => setFiltre(e.target.value)}
                     className="w-full border border-slate-300 rounded-lg px-2 py-1 text-[12px]">
@@ -475,7 +475,7 @@ ${j.granularite === 'cours' && !cotesCours ? `
             </div>
 
             {granularite === 'cours' && (
-              <div className="px-3 py-2 rounded-lg bg-amber-50 border border-amber-200 text-[11.5px] text-amber-900">
+              <div className="px-3 py-2 rounded-lg bg-amber-50 border border-amber-200 text-[12px] text-amber-900">
                 Les colonnes par cours ne portent de valeurs propres que si des résultats ont été
                 encodés à cette maille — par « Reconstruire l'historique » ou « Importer le classeur
                 PAE ». À défaut, chaque cours reprend la décision de son UE, en estompé.
@@ -483,14 +483,14 @@ ${j.granularite === 'cours' && !cotesCours ? `
             )}
 
             {choisies.length > 1 && (
-              <div className="px-3 py-2 rounded-lg bg-slate-50 border border-slate-200 text-[11.5px] text-slate-700">
+              <div className="px-3 py-2 rounded-lg bg-slate-50 border border-slate-200 text-[12px] text-slate-700">
                 {choisies.length} sections retenues : un document par section. L'aperçu les présente
                 l'une après l'autre, chacune imprimable séparément ; l'export réunit les classeurs
                 dans une archive.
               </div>
             )}
 
-            <div className="px-3 py-2 rounded-lg bg-sky-50 border border-sky-200 text-[11.5px] text-sky-900">
+            <div className="px-3 py-2 rounded-lg bg-sky-50 border border-sky-200 text-[12px] text-sky-900">
               Le classeur exporté reprend la forme de celui de la coordination : il peut être
               complété à la main, puis réimporté par « Importer le classeur PAE ». Choisissez
               alors des colonnes <b>par cours</b>, la maille de l'encodage.
@@ -537,7 +537,7 @@ function PreviewLite({ documents, onClose }) {
               {d.section}
             </button>
           ))}
-          <span className="text-white/60 text-[11.5px]">{doc.nom}</span>
+          <span className="text-white/60 text-[12px]">{doc.nom}</span>
         </div>
         <div className="flex gap-2">
           <button onClick={() => {

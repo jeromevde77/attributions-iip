@@ -24,7 +24,7 @@ export default function CentreEchanges({ sorties = [], entrees = [], risques = [
     if (!items.length) return null;
     return (
       <GroupeFenetre titre={titre} ton={ton === 'risque' ? 'alerte' : 'neutre'}>
-        <div className="-mt-1 mb-1 text-[11.5px] text-slate-400">{sous}</div>
+        <div className="-mt-1 mb-1 text-[12px] text-slate-400">{sous}</div>
         {items.map(it => (
           <PieceFenetre key={it.cle} icone={Ic} titre={it.titre} sous={it.quoi}
             meta={it.attend ? 'attend : ' + it.attend : null}
@@ -40,7 +40,7 @@ export default function CentreEchanges({ sorties = [], entrees = [], risques = [
       sous="Chaque outil dit le fichier qu'il attend."
       large="grande" onFermer={onClose}
       pied={<>
-        <p className="text-[11.5px] text-slate-500 flex-1 min-w-0">
+        <p className="text-[12px] text-slate-500 flex-1 min-w-0">
           Les imports montrent toujours ce qu'ils vont écrire avant de l'écrire.
         </p>
         <BoutonFenetre onClick={onClose}>Fermer</BoutonFenetre>

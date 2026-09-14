@@ -107,7 +107,7 @@ export default function ClasseurNotes({
                 className="text-slate-400 hover:text-slate-600"><IconX size={18} /></button>
             </div>
 
-            <div className="flex-1 overflow-y-auto p-5 space-y-3 text-[12.5px]">
+            <div className="flex-1 overflow-y-auto p-5 space-y-3 text-[13px]">
               {erreur && (
                 <div className="px-3 py-2 rounded-xl bg-rose-50 border border-rose-200
                                 text-rose-900">{erreur}</div>
@@ -152,13 +152,13 @@ export default function ClasseurNotes({
                     <div className="px-3 py-2 rounded-xl bg-rose-50 border border-rose-200
                                     text-rose-900">
                       <b>{lu.soucis.length} case(s) illisible(s)</b>, laissées de côté :
-                      <ul className="list-disc ml-5 mt-0.5 text-[11.5px]">
+                      <ul className="list-disc ml-5 mt-0.5 text-[12px]">
                         {lu.soucis.slice(0, 8).map((x, i) => <li key={i}>{x}</li>)}
                       </ul>
                     </div>
                   )}
 
-                  <p className="text-[11.5px] text-slate-500">
+                  <p className="text-[12px] text-slate-500">
                     Les notes écrites remplacent celles de la même session ; une case
                     laissée vide n'efface rien.
                   </p>
@@ -170,10 +170,10 @@ export default function ClasseurNotes({
               <div className="flex-none px-5 py-3 border-t border-slate-100 flex items-center
                               justify-end gap-2">
                 <button onClick={() => { setApercu(null); setLu(null); }}
-                  className="px-3 py-2 text-[12.5px] rounded-lg border border-slate-300
+                  className="px-3 py-2 text-[13px] rounded-lg border border-slate-300
                              text-slate-600">Annuler</button>
                 <button onClick={appliquer} disabled={enCours || !apercu.total.rapproches}
-                  className="px-3 py-2 text-[12.5px] rounded-lg bg-iip-blue text-white
+                  className="px-3 py-2 text-[13px] rounded-lg bg-iip-blue text-white
                              font-semibold flex items-center gap-1.5 disabled:opacity-40">
                   <IconCheck size={15} /> Écrire {apercu.total.notes} note(s)
                 </button>

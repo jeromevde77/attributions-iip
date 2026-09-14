@@ -328,7 +328,7 @@ function MatriceAcces({ users, sectionsDispo, profils, onModifie, onProfil,
   const Ligne = ({ u }) => (
     <tr className="hover:bg-slate-50/60">
       <td className="sticky left-0 bg-white border-r border-b border-slate-100 px-3 py-1.5">
-        <div className="text-[12.5px] text-slate-800 truncate max-w-[180px]">
+        <div className="text-[13px] text-slate-800 truncate max-w-[180px]">
           {u.nom_complet || u.email}
         </div>
         <div className="text-[10px] text-slate-400 truncate max-w-[180px]" title={u.email}>
@@ -350,7 +350,7 @@ function MatriceAcces({ users, sectionsDispo, profils, onModifie, onProfil,
       {/* Périmètre, modifiable en regard du nom */}
       <td className="border-b border-slate-100 px-2 py-1.5 relative">
         <button onClick={() => setPerimetreOuvert(perimetreOuvert === u.id ? null : u.id)}
-          className="text-[10.5px] text-left hover:text-iip-blue underline decoration-dotted">
+          className="text-[11px] text-left hover:text-iip-blue underline decoration-dotted">
           {u.sections?.length
             ? u.sections.join(', ')
             : <span className="text-slate-400">toutes</span>}
@@ -359,7 +359,7 @@ function MatriceAcces({ users, sectionsDispo, profils, onModifie, onProfil,
         {perimetreOuvert === u.id && (
           <div className="absolute z-30 left-2 top-9 bg-white border border-slate-300 rounded-lg shadow-lg p-2 w-56">
             <div className="text-[10px] uppercase tracking-wide text-slate-500 mb-1.5">Sections</div>
-            <label className="flex items-center gap-1.5 text-[11.5px] mb-1.5">
+            <label className="flex items-center gap-1.5 text-[12px] mb-1.5">
               <input type="checkbox" checked={!u.sections?.length}
                 onChange={() => onModifie(u.id, { sections: [] })} />
               Toutes les sections
@@ -374,7 +374,7 @@ function MatriceAcces({ users, sectionsDispo, profils, onModifie, onProfil,
                         ? (u.sections || []).filter(x => x !== s.code)
                         : [...(u.sections || []), s.code],
                     })}
-                    className={`text-[10.5px] px-1.5 py-0.5 rounded-full border ${
+                    className={`text-[11px] px-1.5 py-0.5 rounded-full border ${
                       dedans ? 'bg-iip-blue text-white border-iip-blue'
                              : 'border-slate-200 text-slate-400 hover:border-iip-blue'}`}>
                     {s.code}
@@ -411,7 +411,7 @@ function MatriceAcces({ users, sectionsDispo, profils, onModifie, onProfil,
               title={modifiable
                 ? `${m.label} — cliquer pour changer`
                 : `${m.label} — le rôle ${u.role} ne le permet pas`}
-              className={`text-[9.5px] px-1.5 py-0.5 rounded transition ${d.cls} ${
+              className={`text-[10px] px-1.5 py-0.5 rounded transition ${d.cls} ${
                 modifiable ? 'hover:ring-2 hover:ring-iip-turquoise/40 cursor-pointer' : 'cursor-default'}`}>
               {occupe ? '…' : d.texte}
             </button>
@@ -421,14 +421,14 @@ function MatriceAcces({ users, sectionsDispo, profils, onModifie, onProfil,
 
       <td className="border-b border-l border-slate-100 px-2 py-1.5 whitespace-nowrap text-right">
         <button onClick={() => onMotDePasse(u)} title="Réinitialiser le mot de passe"
-          className="text-[10.5px] text-iip-blue hover:underline mr-2">MDP</button>
+          className="text-[11px] text-iip-blue hover:underline mr-2">MDP</button>
         {u.id !== moiId && (
           <button onClick={() => onRetirer(u)} title="Retirer l'accès"
             className="text-slate-300 hover:text-red-500 align-middle">
             <IconTrash size={13} />
           </button>
         )}
-        <div className="text-[9.5px] text-slate-400">
+        <div className="text-[10px] text-slate-400">
           {u.last_login_at ? u.last_login_at.slice(0, 10) : 'jamais connecté'}
         </div>
       </td>
@@ -466,7 +466,7 @@ function MatriceAcces({ users, sectionsDispo, profils, onModifie, onProfil,
                 {MODULES_ACCES.map(m => (
                   <th key={m.key} className="border-b border-slate-200 px-1 py-2 w-20" title={m.desc}>
                     <div className="flex justify-center text-slate-400"><m.Icone size={14} stroke={1.6} /></div>
-                    <div className="text-[9px] text-slate-500 leading-tight">{m.label}</div>
+                    <div className="text-[10px] text-slate-500 leading-tight">{m.label}</div>
                   </th>
                 ))}
                 <th className="border-b border-l border-slate-200 px-2 py-2 w-24">
@@ -491,7 +491,7 @@ function MatriceAcces({ users, sectionsDispo, profils, onModifie, onProfil,
           </table>
         </div>
 
-        <div className="px-4 py-2 border-t border-slate-200 bg-slate-50 flex flex-wrap gap-3 text-[10.5px] text-slate-600">
+        <div className="px-4 py-2 border-t border-slate-200 bg-slate-50 flex flex-wrap gap-3 text-[11px] text-slate-600">
           <span><span className="px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800">écrit</span> modifie directement</span>
           <span><span className="px-1.5 py-0.5 rounded bg-amber-100 text-amber-800">validation</span> encode, la direction tranche</span>
           <span><span className="px-1.5 py-0.5 rounded bg-sky-100 text-sky-800">lit</span> consultation seule</span>

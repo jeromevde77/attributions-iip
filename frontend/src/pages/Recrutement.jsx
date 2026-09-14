@@ -1327,7 +1327,7 @@ function VueParallele({ postes, candidats, fonctions, annee, onRecharger }) {
                     </div>
                     <div className="flex-shrink-0 text-right">
                       <div className="text-base font-bold text-iip-blue">{p.nb_candidats}</div>
-                      <div className="text-[9px] text-gray-400">cand.</div>
+                      <div className="text-[10px] text-gray-400">cand.</div>
                     </div>
                   </div>
                   {isTarget && dragId && (

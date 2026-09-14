@@ -198,7 +198,7 @@ export default function PlanificateurUE({ items, annee, val, editer, modifs }) {
           </div>
 
           {elargie && (
-            <div className="px-3 py-1 bg-amber-50 border-b border-amber-200 text-[10.5px] text-amber-800">
+            <div className="px-3 py-1 bg-amber-50 border-b border-amber-200 text-[11px] text-amber-800">
               Des dates sortent de l'année académique : la ligne du temps a été élargie pour les
               montrer. Vérifiez qu'il ne s'agit pas d'une erreur de saisie.
             </div>
@@ -207,7 +207,7 @@ export default function PlanificateurUE({ items, annee, val, editer, modifs }) {
           {items.map((item, idx) => {
             if (item.type === 'groupe') {
               return (
-                <div key={`g-${idx}`} className="px-3 py-1 bg-slate-50/80 border-b border-slate-200 text-[10.5px] font-bold uppercase tracking-wide text-slate-500">
+                <div key={`g-${idx}`} className="px-3 py-1 bg-slate-50/80 border-b border-slate-200 text-[11px] font-bold uppercase tracking-wide text-slate-500">
                   {item.libelle}
                 </div>
               );
@@ -247,7 +247,7 @@ export default function PlanificateurUE({ items, annee, val, editer, modifs }) {
                       onPointerDown={e => e.target.dataset.poignee ? demarrer(e, l, 'etirer') : demarrer(e, l, 'deplacer')}
                       onClick={() => setSelection(l.id)}
                       title={`${frDate(val(l, 'date_debut'))} → ${frDate(val(l, 'date_fin'))}`}
-                      className={`absolute top-1.5 h-8 rounded-lg text-white text-[10.5px] font-semibold
+                      className={`absolute top-1.5 h-8 rounded-lg text-white text-[11px] font-semibold
                         flex items-center px-2 cursor-grab active:cursor-grabbing select-none whitespace-nowrap overflow-hidden
                         ${incoherente ? 'bg-red-600' : active ? 'bg-iip-turquoise shadow-md' : 'bg-iip-blue'}
                         ${modifiee ? 'ring-2 ring-amber-400 ring-offset-1' : ''}`}
@@ -275,7 +275,7 @@ export default function PlanificateurUE({ items, annee, val, editer, modifs }) {
       {/* Jalons de l'organisation sélectionnée */}
       {selectionnee && (
         <div className="border border-slate-200 rounded-xl bg-white px-4 py-3">
-          <div className="text-[12.5px] font-semibold text-iip-blue mb-1.5">
+          <div className="text-[13px] font-semibold text-iip-blue mb-1.5">
             Jalons — UE {selectionnee.ue_num}
             {selectionnee.num_organisation > 1 ? ` · organisation ${selectionnee.num_organisation}` : ''}
             <span className="font-normal text-slate-500">
@@ -292,7 +292,7 @@ export default function PlanificateurUE({ items, annee, val, editer, modifs }) {
           ) : jalons.length ? (
             <div className="divide-y divide-slate-100">
               {jalons.map((j, i) => (
-                <div key={i} className="flex gap-3 py-1 text-[12.5px]">
+                <div key={i} className="flex gap-3 py-1 text-[13px]">
                   <span className="font-bold text-iip-blue w-[86px] flex-none">{frDate(j.date_due)}</span>
                   <span className="text-slate-700">{j.libelle}</span>
                 </div>

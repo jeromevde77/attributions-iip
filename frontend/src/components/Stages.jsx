@@ -102,7 +102,7 @@ export default function Stages({ etudId, annee, peutEcrire = true }) {
       </div>
 
       {message && (
-        <div className={`px-3 py-2 rounded-lg text-[12.5px] flex items-start justify-between gap-2 ${
+        <div className={`px-3 py-2 rounded-lg text-[13px] flex items-start justify-between gap-2 ${
           message.type === 'rappel' ? 'bg-amber-50 border border-amber-200 text-amber-900'
                                     : 'bg-red-50 border border-red-200 text-red-800'}`}>
           <span>{message.texte}</span>
@@ -147,7 +147,7 @@ export default function Stages({ etudId, annee, peutEcrire = true }) {
                 <div className="border-t border-slate-100 p-4 space-y-3">
                   {!s.pret && (
                     <div className="px-3 py-2 rounded-lg bg-amber-50 border border-amber-200
-                                    text-[11.5px] text-amber-900 flex items-start gap-1.5">
+                                    text-[12px] text-amber-900 flex items-start gap-1.5">
                       <IconAlertTriangle size={14} className="mt-0.5 flex-none" />
                       <span>
                         Avant tout démarrage : {s.blocages.join(', ')}. Aucun stage ne peut
@@ -239,7 +239,7 @@ export default function Stages({ etudId, annee, peutEcrire = true }) {
                       onBlur={e => e.target.value !== (s.evaluation_tuteur || '')
                         && maj(s.id, { evaluation_tuteur: e.target.value })}
                       className="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-sm" />
-                    <p className="text-[10.5px] text-slate-500 mt-1">
+                    <p className="text-[11px] text-slate-500 mt-1">
                       L'évaluation du tuteur est l'un des éléments pris en compte par le Conseil
                       des études, qui reste seul habilité à sanctionner les études.
                     </p>
@@ -266,7 +266,7 @@ export default function Stages({ etudId, annee, peutEcrire = true }) {
           onClick={e => e.target === e.currentTarget && setNouveauLieu(null)}>
           <div className="bg-white rounded-fenetre shadow-dessus w-full max-w-2xl mt-16 p-5 space-y-3">
             <div className="text-[15px] font-semibold text-iip-blue">Nouveau lieu de stage</div>
-            <p className="text-[11.5px] text-slate-500">
+            <p className="text-[12px] text-slate-500">
               L'adresse complète figurera au supplément au diplôme de chaque étudiant accueilli.
             </p>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">

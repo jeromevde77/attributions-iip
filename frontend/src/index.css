@@ -498,3 +498,37 @@ select.controle { padding-right: 1.5rem; }
   border-top-left-radius: 26px;
   pointer-events: none;
 }
+
+/* ═══ LES BOUTONS — trois emplois, trois couleurs ═════════════════════════
+ *
+ * Dix fonds de bouton cohabitaient : marine, « iip-gold » (qui vaut du marine
+ * — le nom ment), turquoise, vert 600, vert 700, rouge, émeraude, ambre,
+ * ardoise. Chacun choisi le jour où il a été écrit. Un bouton vert à côté d'un
+ * bouton marine ne dit rien de plus : il dit seulement que deux personnes ont
+ * décidé séparément.
+ *
+ * Trois emplois suffisent, et la couleur DIT lequel :
+ *   · neutre   — on peut cliquer, ça n'engage rien
+ *   · fort     — l'action principale de l'écran, et il n'y en a QU'UNE
+ *   · sortir   — ce qui produit une pièce (turquoise, comme dans le rail)
+ *   · détruire — ce qui efface (brique, comme dans le rail)
+ *
+ * Un état ne se dit pas avec un bouton : « réussi » en vert reste vert, ce
+ * n'est pas un bouton, c'est une information.
+ */
+.bouton {
+  height: 2.25rem; display: inline-flex; align-items: center; gap: .4rem;
+  padding-inline: .9rem; font-size: 13px; font-weight: 600; line-height: 1;
+  border-radius: 8px; border: 1px solid var(--menu-bord);
+  background: var(--champ-fond); color: var(--menu-texte);
+  white-space: nowrap; transition: background-color 150ms cubic-bezier(.32,.72,0,1),
+                                   opacity 150ms cubic-bezier(.32,.72,0,1);
+}
+.bouton:hover:not(:disabled) { background: var(--menu-survol); }
+.bouton:disabled { opacity: .4; cursor: default; }
+.bouton-fort     { background: #1B2B4B; color: #fff; border-color: transparent; }
+.bouton-fort:hover:not(:disabled)     { background: #163A6B; }
+.bouton-sortir   { background: #0093B0; color: #fff; border-color: transparent; }
+.bouton-sortir:hover:not(:disabled)   { background: #007e97; }
+.bouton-detruire { background: #9d4a38; color: #fff; border-color: transparent; }
+.bouton-detruire:hover:not(:disabled) { background: #883f2f; }

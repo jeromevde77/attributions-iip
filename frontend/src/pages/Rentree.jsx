@@ -112,9 +112,9 @@ export default function Rentree({ annee }) {
       <div className="border border-slate-200 rounded-xl overflow-hidden">
         <div className="px-4 py-3 bg-slate-50 border-b border-slate-200 flex items-center gap-2">
           <IconScale size={16} className="text-iip-blue" />
-          <span className="font-semibold text-iip-blue text-[13.5px]">Veille réglementaire</span>
+          <span className="font-semibold text-iip-blue text-[13px]">Veille réglementaire</span>
           {veille && (
-            <span className="text-[11.5px] text-slate-500 ml-1">
+            <span className="text-[12px] text-slate-500 ml-1">
               {veille.revus}/{veille.total} type(s) confirmé(s)
             </span>
           )}
@@ -138,7 +138,7 @@ export default function Rentree({ annee }) {
               <p className="text-[13px] text-slate-700 mb-1">
                 Le décret ou la circulaire de rentrée ont-ils modifié les échéances légales ?
               </p>
-              <p className="text-[11.5px] text-slate-500 mb-3">
+              <p className="text-[12px] text-slate-500 mb-3">
                 Les dates sont calculées à partir des règles enregistrées une fois pour toutes.
                 Si rien n'a changé, elles se reconduisent sans ressaisie.
               </p>
@@ -164,14 +164,14 @@ export default function Rentree({ annee }) {
                   {veille.a_revoir.map(t => (
                     <div key={t.id} className="flex items-start justify-between gap-3 px-3 py-2">
                       <div className="min-w-0">
-                        <div className="text-[12.5px] font-medium text-slate-800">{t.libelle}</div>
+                        <div className="text-[13px] font-medium text-slate-800">{t.libelle}</div>
                         <div className="text-[11px] text-slate-500">
                           {t.base_legale || 'Sans base légale renseignée'}
                           {t.derniere_revue && ` · dernière revue ${t.derniere_revue}`}
                         </div>
                       </div>
                       <button onClick={() => confirmerType(t.id)}
-                        className="flex-none text-[11.5px] px-2 py-1 border border-slate-300 rounded-lg hover:bg-slate-50">
+                        className="flex-none text-[12px] px-2 py-1 border border-slate-300 rounded-lg hover:bg-slate-50">
                         Inchangé
                       </button>
                     </div>
@@ -188,8 +188,8 @@ export default function Rentree({ annee }) {
         <div className="px-4 py-3 bg-slate-50 border-b border-slate-200 flex items-center justify-between gap-3 flex-wrap">
           <div className="flex items-center gap-2">
             <IconCalendarEvent size={16} className="text-iip-blue" />
-            <span className="font-semibold text-iip-blue text-[13.5px]">Événements de l'établissement</span>
-            <span className="text-[11.5px] text-slate-500 ml-1">{evenements.length} pour {annee}</span>
+            <span className="font-semibold text-iip-blue text-[13px]">Événements de l'établissement</span>
+            <span className="text-[12px] text-slate-500 ml-1">{evenements.length} pour {annee}</span>
           </div>
           <button onClick={reporterEvenements}
             className="flex items-center gap-1.5 px-3 py-1.5 text-sm border border-slate-300 rounded-lg text-slate-600 hover:bg-slate-50">
@@ -205,7 +205,7 @@ export default function Rentree({ annee }) {
           ) : (
             <table className="w-full text-sm">
               <thead>
-                <tr className="text-[10.5px] uppercase tracking-wide text-slate-400 border-b">
+                <tr className="text-[11px] uppercase tracking-wide text-slate-400 border-b">
                   <th className="py-2 text-left w-28">Date</th>
                   <th className="py-2 text-left">Événement</th>
                   <th className="py-2 text-left w-32">Type</th>
@@ -216,7 +216,7 @@ export default function Rentree({ annee }) {
                 {evenements.map(e => (
                   <tr key={e.id} className="border-b border-slate-100 last:border-0">
                     <td className="py-2 text-[12px] text-slate-600">{e.date_debut}</td>
-                    <td className="py-2 text-[12.5px] text-slate-800">{e.titre}</td>
+                    <td className="py-2 text-[13px] text-slate-800">{e.titre}</td>
                     <td className="py-2 text-[11px] text-slate-400">{e.type}</td>
                     <td className="py-2 text-[11px] text-slate-400">{e.lieu || '—'}</td>
                   </tr>

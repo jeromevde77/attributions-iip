@@ -154,7 +154,7 @@ export default function ImportSurMesure({ onClose, onTermine, annee = null }) {
 
         <div className="flex-none p-5 pb-3 border-b border-slate-100 flex items-start justify-between">
           <div>
-            <h3 className="text-[16px] font-semibold text-iip-blue">Importateur sur mesure</h3>
+            <h3 className="text-[15px] font-semibold text-iip-blue">Importateur sur mesure</h3>
             <p className="text-[12px] text-slate-500">
               Choisissez ce que vous alimentez, puis reliez chaque champ à sa colonne.
             </p>
@@ -168,7 +168,7 @@ export default function ImportSurMesure({ onClose, onTermine, annee = null }) {
 
         {erreur && (
           <div className="px-3 py-2 rounded-lg bg-red-50 border border-red-200
-                          text-[12.5px] text-red-800">{erreur}</div>
+                          text-[13px] text-red-800">{erreur}</div>
         )}
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
@@ -193,7 +193,7 @@ export default function ImportSurMesure({ onClose, onTermine, annee = null }) {
           ))}
         </div>
 
-        <label className="inline-flex items-center gap-2 px-3 py-2 text-[12.5px] border
+        <label className="inline-flex items-center gap-2 px-3 py-2 text-[13px] border
                           border-slate-300 rounded-lg cursor-pointer hover:bg-slate-50">
           <IconUpload size={15} /> Choisir un classeur
           <input type="file" accept=".xls,.xlsx,.xlsm,.csv" className="hidden"
@@ -223,7 +223,7 @@ export default function ImportSurMesure({ onClose, onTermine, annee = null }) {
           <div className="border border-slate-200 rounded-xl p-4 space-y-3">
             <div>
               <span className="text-[13px] font-semibold text-iip-blue">Correspondances</span>
-              <p className="text-[11.5px] text-slate-500">
+              <p className="text-[12px] text-slate-500">
                 {brut.length} ligne(s), {entetes.length} colonne(s). À gauche le champ de
                 Lucie, à droite la colonne du document.
               </p>
@@ -239,7 +239,7 @@ export default function ImportSurMesure({ onClose, onTermine, annee = null }) {
                   <option key={k.champ} value={k.champ}>{k.libelle}</option>
                 ))}
               </select>
-              <span className="block text-[10.5px] text-amber-800 mt-1">
+              <span className="block text-[11px] text-amber-800 mt-1">
                 C'est elle qui retrouve le dossier à compléter. Le numéro national est le
                 plus sûr : le matricule change à chaque rentrée.
               </span>
@@ -249,7 +249,7 @@ export default function ImportSurMesure({ onClose, onTermine, annee = null }) {
                 première ligne peut être fausse sur la dixième. */}
             <div className="flex items-center justify-between gap-3 flex-wrap
                             px-3 py-1.5 rounded-lg bg-slate-50 border border-slate-200">
-              <span className="text-[11.5px] text-slate-500">
+              <span className="text-[12px] text-slate-500">
                 Exemple pris sur la ligne <b className="text-slate-700">{ligne + 1}</b> sur {brut.length}
               </span>
               <div className="flex items-center gap-1">
@@ -290,7 +290,7 @@ export default function ImportSurMesure({ onClose, onTermine, annee = null }) {
                     </select>
                     {/* Ce que la colonne choisie DONNE sur cette ligne : c'est
                         cela qu'on vérifie, pas l'intitulé de la colonne. */}
-                    <span className="w-40 flex-none truncate text-[11.5px]"
+                    <span className="w-40 flex-none truncate text-[12px]"
                       title={corresp[ch.champ]
                         ? String(brut[ligne]?.[corresp[ch.champ]] ?? '')
                         : ''}>
@@ -310,7 +310,7 @@ export default function ImportSurMesure({ onClose, onTermine, annee = null }) {
             </div>
 
             {corresp[cleChoisie] && (
-              <div className="text-[11.5px] text-slate-600 bg-slate-50 rounded-lg p-2.5">
+              <div className="text-[12px] text-slate-600 bg-slate-50 rounded-lg p-2.5">
                 <b>Ligne {ligne + 1} telle qu'elle sera lue :</b>
                 <div className="mt-1 space-y-0.5">
                   {cible.champs.filter(ch => corresp[ch.champ]).map(ch => (
@@ -324,7 +324,7 @@ export default function ImportSurMesure({ onClose, onTermine, annee = null }) {
             )}
 
             {cible.creation && (
-              <label className="flex items-center gap-2 text-[12.5px] text-slate-700
+              <label className="flex items-center gap-2 text-[13px] text-slate-700
                                 px-3 py-2 rounded-lg bg-amber-50 border border-amber-200">
                 <input type="checkbox" checked={creer}
                   onChange={e => setCreer(e.target.checked)} />
@@ -339,7 +339,7 @@ export default function ImportSurMesure({ onClose, onTermine, annee = null }) {
               </label>
             )}
 
-            <label className="flex items-center gap-2 text-[12.5px] text-slate-600">
+            <label className="flex items-center gap-2 text-[13px] text-slate-600">
               <input type="checkbox" checked={ecraser} onChange={e => setEcraser(e.target.checked)} />
               Écraser les valeurs déjà présentes
               <span className="text-[11px] text-slate-400">
@@ -360,7 +360,7 @@ export default function ImportSurMesure({ onClose, onTermine, annee = null }) {
                 className="border border-slate-300 rounded-lg px-2 py-1.5 text-[12px] w-40" />
               <button onClick={enregistrerProfil} disabled={!nomProfil.trim()}
                 title="Enregistrer ces correspondances pour tout l'établissement"
-                className="flex items-center gap-1.5 px-3 py-1.5 text-[12.5px] border
+                className="flex items-center gap-1.5 px-3 py-1.5 text-[13px] border
                            border-slate-300 text-slate-600 rounded-lg disabled:opacity-40">
                 <IconDeviceFloppy size={14} /> Enregistrer
               </button>
@@ -378,7 +378,7 @@ export default function ImportSurMesure({ onClose, onTermine, annee = null }) {
                 <div key={l} className="border border-slate-200 rounded-xl px-3 py-2">
                   <div className="text-[10px] uppercase tracking-wide text-slate-500
                                   font-semibold">{l}</div>
-                  <div className="text-[18px] font-bold text-iip-blue">{v}</div>
+                  <div className="text-[17px] font-bold text-iip-blue">{v}</div>
                 </div>
               ))}
             </div>
@@ -425,7 +425,7 @@ export default function ImportSurMesure({ onClose, onTermine, annee = null }) {
               </button>
             ) : (
               <div className="px-3 py-2 rounded-lg bg-emerald-50 border border-emerald-200
-                              text-[12.5px] text-emerald-800">
+                              text-[13px] text-emerald-800">
                 {rapport.nb_modifications} dossier(s) complété(s).
               </div>
             )}

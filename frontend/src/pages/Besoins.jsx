@@ -446,7 +446,7 @@ export default function Besoins({ annee: anneeProp }) {
                 </div>
                 <ul className="space-y-1">
                   {detail.acquis.map(a => (
-                    <li key={a.aa_code} className="text-[12.5px] text-slate-700 flex gap-2">
+                    <li key={a.aa_code} className="text-[13px] text-slate-700 flex gap-2">
                       <span className="text-[10px] font-bold text-iip-blue bg-iip-blue/8 px-1.5 py-0.5 rounded h-fit">
                         {a.aa_code}
                       </span>
@@ -498,7 +498,7 @@ export default function Besoins({ annee: anneeProp }) {
               </>
             ) : (
               <>
-                <p className="text-[12.5px] text-slate-500">
+                <p className="text-[13px] text-slate-500">
                   Le document mis en page part tel que l'aperçu le montre. Adresses
                   séparées par des virgules ou des retours à la ligne.
                 </p>
@@ -506,7 +506,7 @@ export default function Besoins({ annee: anneeProp }) {
                   onChange={e => setEnvoi(v => ({ ...v, destinataires: e.target.value }))}
                   placeholder="forem@exemple.be, federation@exemple.be…"
                   className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm" />
-                {envoi.erreur && <div className="text-[12.5px] text-red-700">{envoi.erreur}</div>}
+                {envoi.erreur && <div className="text-[13px] text-red-700">{envoi.erreur}</div>}
                 <div className="flex justify-end gap-2">
                   <button onClick={() => setEnvoi(null)}
                     className="text-sm px-3 py-1.5 rounded-lg border border-slate-300">Annuler</button>

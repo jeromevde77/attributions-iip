@@ -131,7 +131,7 @@ export default function OrganiserGroupesModal({ portee, section, ues, onClose, o
                     onClick={e => e.stopPropagation()} onChange={() => toggleO2(k)}
                     className="w-3.5 h-3.5 accent-iip-turquoise flex-shrink-0" title="Créer org. 2" />
                   <span className="text-gray-400 text-[11px] w-3">{open ? '▾' : '▸'}</span>
-                  {ue.bloc && <span className="text-[9px] font-bold px-1.5 py-0.5 rounded text-white flex-shrink-0"
+                  {ue.bloc && <span className="text-[10px] font-bold px-1.5 py-0.5 rounded text-white flex-shrink-0"
                     style={{ background: blocCouleur(ue.bloc) }}>{ue.bloc}</span>}
                   <span className="font-semibold text-sm text-iip-blue flex-1 truncate">
                     UE {ue.ue_num} — {ue.ue_nom}

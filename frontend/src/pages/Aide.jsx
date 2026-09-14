@@ -260,7 +260,7 @@ export function BoutonAide({ page }) {
               ))}
             </ul>
             <a href={`/aide#${aide.lien}`}
-              className="mt-3 block text-[11.5px] text-iip-turquoise hover:underline text-center">
+              className="mt-3 block text-[12px] text-iip-turquoise hover:underline text-center">
               Voir le guide complet
             </a>
           </div>
@@ -320,8 +320,8 @@ export default function Aide() {
                   className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-slate-50">
                   <r.Icone size={18} stroke={1.6} className="text-slate-400 flex-none" />
                   <div className="flex-1 min-w-0">
-                    <div className="text-[13.5px] font-semibold text-iip-blue">{r.titre}</div>
-                    <div className="text-[11.5px] text-slate-500">{r.resume}</div>
+                    <div className="text-[13px] font-semibold text-iip-blue">{r.titre}</div>
+                    <div className="text-[12px] text-slate-500">{r.resume}</div>
                   </div>
                   <span className="text-slate-400 text-[13px]">{deployee ? '−' : '+'}</span>
                 </button>
@@ -330,7 +330,7 @@ export default function Aide() {
                   <div className="border-t border-slate-100 divide-y divide-slate-100">
                     {r.points.map((p, i) => (
                       <div key={i} className="px-4 py-3">
-                        <div className="text-[12.5px] font-medium text-slate-800 mb-0.5">{p.titre}</div>
+                        <div className="text-[13px] font-medium text-slate-800 mb-0.5">{p.titre}</div>
                         <p className="text-[12px] text-slate-600 leading-relaxed">{p.texte}</p>
                       </div>
                     ))}

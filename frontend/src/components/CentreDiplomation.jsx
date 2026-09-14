@@ -114,11 +114,11 @@ export default function CentreDiplomation({ annee, onClose }) {
 
         <div className="flex-none px-5 py-3 border-b border-slate-100 flex items-end
                         gap-3 flex-wrap">
-          <label className="text-[11.5px] text-slate-600">
+          <label className="text-[12px] text-slate-600">
             <div className="font-semibold mb-0.5">Section</div>
             <select value={section}
               onChange={e => { setSection(e.target.value); if (e.target.value) charger(e.target.value); }}
-              className="border border-slate-300 rounded-lg px-2 py-1.5 text-[12.5px] min-w-[200px]">
+              className="border border-slate-300 rounded-lg px-2 py-1.5 text-[13px] min-w-[200px]">
               <option value="">— choisir —</option>
               {sections.map(s => (
                 <option key={s.code || s} value={s.code || s}>
@@ -127,18 +127,18 @@ export default function CentreDiplomation({ annee, onClose }) {
               ))}
             </select>
           </label>
-          <label className="text-[11.5px] text-slate-600">
+          <label className="text-[12px] text-slate-600">
             <div className="font-semibold mb-0.5">Date de délibération</div>
             <input type="date" value={date} onChange={e => setDate(e.target.value)}
-              className="border border-slate-300 rounded-lg px-2 py-1.5 text-[12.5px]" />
+              className="border border-slate-300 rounded-lg px-2 py-1.5 text-[13px]" />
           </label>
-          <div className="text-[11.5px] text-slate-600">
+          <div className="text-[12px] text-slate-600">
             <div className="font-semibold mb-0.5">Pièces</div>
             <div className="flex gap-1">
               {[['diplome', 'Diplôme'], ['attestation', 'Attestation de section'],
                 ['liste', 'Liste']].map(([k, l]) => (
                 <button key={k} onClick={() => setVeut(v => ({ ...v, [k]: !v[k] }))}
-                  className={`px-2 py-1.5 text-[11.5px] rounded-lg border font-medium
+                  className={`px-2 py-1.5 text-[12px] rounded-lg border font-medium
                     ${veut[k] ? 'bg-iip-blue border-iip-blue text-white'
                       : 'bg-white border-slate-300 text-slate-600'}`}>
                   {l}
@@ -148,7 +148,7 @@ export default function CentreDiplomation({ annee, onClose }) {
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto px-5 py-3 space-y-3 text-[12.5px]">
+        <div className="flex-1 overflow-y-auto px-5 py-3 space-y-3 text-[13px]">
           {erreur && (
             <div className="px-3 py-2 rounded-xl bg-rose-50 border border-rose-200
                             text-rose-900">{erreur}</div>
@@ -215,12 +215,12 @@ export default function CentreDiplomation({ annee, onClose }) {
                                 </span>
                               )}
                               {x.annee_fin !== annee && (
-                                <span className="text-[10.5px] text-slate-400">
+                                <span className="text-[11px] text-slate-400">
                                   terminé en {x.annee_fin}
                                 </span>
                               )}
                               {x.par_epreuve && !x.toutes_unites && (
-                                <span className="text-[10.5px] text-slate-400"
+                                <span className="text-[11px] text-slate-400"
                                   title="L'épreuve intégrée réussie vaut parcours complet">
                                   par l'épreuve intégrée
                                 </span>
@@ -279,7 +279,7 @@ export default function CentreDiplomation({ annee, onClose }) {
               )}
             </p>
             <button onClick={produire} disabled={enCours || !nb}
-              className="px-4 py-2 text-[12.5px] rounded-lg bg-iip-blue text-white
+              className="px-4 py-2 text-[13px] rounded-lg bg-iip-blue text-white
                          font-semibold flex items-center gap-1.5 disabled:opacity-40">
               <IconCertificate size={15} /> Produire les pièces
             </button>

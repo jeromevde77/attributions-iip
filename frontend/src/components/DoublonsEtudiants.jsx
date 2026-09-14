@@ -76,7 +76,7 @@ export default function DoublonsEtudiants() {
       <div className="px-4 py-3 rounded-xl bg-white border border-slate-200">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <div className="text-[14px] font-semibold text-iip-blue flex items-center gap-1.5">
+            <div className="text-[15px] font-semibold text-iip-blue flex items-center gap-1.5">
               <IconUsers size={16} /> Dossiers dédoublés
             </div>
             <p className="text-[12px] text-slate-600 mt-1 max-w-3xl">
@@ -110,7 +110,7 @@ export default function DoublonsEtudiants() {
       {data && (
         <div className="px-4 py-3 rounded-xl bg-slate-50 border border-slate-200
                         flex items-center justify-between gap-3 flex-wrap">
-          <div className="text-[12.5px] text-slate-700">
+          <div className="text-[13px] text-slate-700">
             <b>{data.total}</b> groupe(s) de dossiers portant le même nom, soit{' '}
             <b>{data.dossiers}</b> dossiers — dont <b>{data.surs}</b> sans
             contradiction de date de naissance.
@@ -133,14 +133,14 @@ export default function DoublonsEtudiants() {
             Simulation — {apercu.fusions} fusion(s), rien n'a été écrit
           </div>
           {!!apercu.nb_ecartes && (
-            <div className="text-[11.5px] text-amber-900">
+            <div className="text-[12px] text-amber-900">
               <b>{apercu.nb_ecartes} groupe(s) écarté(s)</b>, à traiter à la main :
               <ul className="list-disc ml-5 mt-0.5">
                 {apercu.ecartes.map((x, i) => <li key={i}>{x}</li>)}
               </ul>
             </div>
           )}
-          <div className="max-h-64 overflow-y-auto text-[11.5px] text-amber-900
+          <div className="max-h-64 overflow-y-auto text-[12px] text-amber-900
                           divide-y divide-amber-200">
             {(apercu.detail || []).map((d, i) => (
               <div key={i} className="py-1">
@@ -154,12 +154,12 @@ export default function DoublonsEtudiants() {
           </div>
           <div className="flex items-center gap-2 pt-1">
             <button onClick={() => lot(false)} disabled={enCours}
-              className="px-3 py-2 text-[12.5px] rounded-lg bg-amber-600 text-white
+              className="px-3 py-2 text-[13px] rounded-lg bg-amber-600 text-white
                          font-semibold flex items-center gap-1.5 disabled:opacity-40">
               <IconArrowMerge size={15} /> Appliquer les {apercu.fusions} fusions
             </button>
             <button onClick={() => setApercu(null)} disabled={enCours}
-              className="px-3 py-2 text-[12.5px] rounded-lg border border-amber-500
+              className="px-3 py-2 text-[13px] rounded-lg border border-amber-500
                          text-amber-900">
               Annuler
             </button>
@@ -184,7 +184,7 @@ export default function DoublonsEtudiants() {
             <div className="mt-1.5 grid gap-1.5 md:grid-cols-2">
               {g.dossiers.map(d => (
                 <div key={d.id} className="px-2.5 py-2 rounded-lg bg-slate-50
-                                           border border-slate-200 text-[11.5px]">
+                                           border border-slate-200 text-[12px]">
                   <div className="flex items-center justify-between gap-2">
                     <span className="font-mono font-bold text-slate-700">
                       #{d.id} · {d.matricules.join(' / ') || 'sans matricule'}
@@ -218,7 +218,7 @@ export default function DoublonsEtudiants() {
           </div>
         ))}
         {data && !data.total && (
-          <div className="px-4 py-6 text-center text-[12.5px] text-slate-500">
+          <div className="px-4 py-6 text-center text-[13px] text-slate-500">
             Aucun dossier dédoublé. Rien à réparer.
           </div>
         )}

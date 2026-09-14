@@ -139,7 +139,7 @@ export default function TableauBordEtudiant({ etudId, ueNum, annee, onClose, onD
       sous={`UE ${ueNum} · ${e.section || '—'} · ${annee}`}>
 
       {message && (
-        <div className={`px-3 py-2 rounded-lg text-[12.5px] ${message.type === 'ok'
+        <div className={`px-3 py-2 rounded-lg text-[13px] ${message.type === 'ok'
           ? 'bg-emerald-50 border border-emerald-200 text-emerald-800'
           : 'bg-red-50 border border-red-200 text-red-800'}`}>{message.texte}</div>
       )}
@@ -172,7 +172,7 @@ export default function TableauBordEtudiant({ etudId, ueNum, annee, onClose, onD
             tombe pas rond, c'est le référentiel qui est incomplet — mieux vaut
             le dire que d'afficher une jauge fausse sans le signaler. */}
         {!total && (
-          <p className="mt-1 text-[11.5px] text-amber-800 flex items-center gap-1">
+          <p className="mt-1 text-[12px] text-amber-800 flex items-center gap-1">
             <IconAlertTriangle size={13} /> Aucun ECTS au référentiel de cette section : la jauge ne peut rien situer.
           </p>
         )}
@@ -189,7 +189,7 @@ export default function TableauBordEtudiant({ etudId, ueNum, annee, onClose, onD
               : bilan.moyenne >= SEUIL ? 'text-iip-blue' : 'text-red-700'}`}>
             {bilan.moyenne == null ? '—' : `${String(bilan.moyenne).replace('.', ',')}/20`}
           </div>
-          <div className="text-[10.5px] text-slate-400">pondérée par les périodes du dossier pédagogique</div>
+          <div className="text-[11px] text-slate-400">pondérée par les périodes du dossier pédagogique</div>
         </div>
         <div>
           <div className="text-[10px] uppercase tracking-wide text-slate-500 font-semibold">
@@ -204,7 +204,7 @@ export default function TableauBordEtudiant({ etudId, ueNum, annee, onClose, onD
             pondération : la moyenne serait juste en apparence et fausse en
             silence. */}
         {bilan.moyenne_sans_ponderation > 0 && (
-          <div className="text-[11.5px] text-amber-800 flex items-start gap-1 max-w-sm">
+          <div className="text-[12px] text-amber-800 flex items-start gap-1 max-w-sm">
             <IconAlertTriangle size={13} className="mt-0.5 flex-none" />
             {bilan.moyenne_sans_ponderation} unité(s) notée(s) sans périodes au référentiel :
             elles ne pèsent pas dans la moyenne.
@@ -238,7 +238,7 @@ export default function TableauBordEtudiant({ etudId, ueNum, annee, onClose, onD
         )}
 
         {!!bilan.valorisations.length && (
-          <div className="mt-2 text-[11.5px] text-violet-800">
+          <div className="mt-2 text-[12px] text-violet-800">
             {bilan.valorisations.length} valorisation(s) :
             {' '}{bilan.valorisations.map(v => `UE ${v.ue_num}`).join(' · ')}
           </div>
@@ -255,29 +255,29 @@ export default function TableauBordEtudiant({ etudId, ueNum, annee, onClose, onD
             <div key={co.cours_code || '—'} className="px-3 py-2">
               <div className="flex items-baseline gap-2 mb-1">
                 <span className="font-mono text-[11px] text-slate-500">{co.cours_code || '—'}</span>
-                <span className="text-[12.5px] font-semibold text-slate-700">{co.cours_nom || 'Cours non rattaché'}</span>
+                <span className="text-[13px] font-semibold text-slate-700">{co.cours_nom || 'Cours non rattaché'}</span>
               </div>
               <div className="space-y-1">
                 {co.aas.map(a => (
                   <div key={a.aa_code} className="flex items-center gap-2 text-[12px]">
-                    <span className={`px-1.5 py-0.5 rounded font-bold tabular-nums text-[11.5px] ${tonNote(a.note)}`}>
+                    <span className={`px-1.5 py-0.5 rounded font-bold tabular-nums text-[12px] ${tonNote(a.note)}`}>
                       {a.note == null ? '—' : String(a.note).replace('.', ',')}
                     </span>
-                    <span className="font-mono text-[10.5px] text-slate-400 w-20 flex-none truncate">{a.aa_code}</span>
+                    <span className="font-mono text-[11px] text-slate-400 w-20 flex-none truncate">{a.aa_code}</span>
                     <span className="flex-1 text-slate-700">{a.description || ''}</span>
-                    {a.non_evalue && <span className="text-[10.5px] text-slate-400">non évalué</span>}
+                    {a.non_evalue && <span className="text-[11px] text-slate-400">non évalué</span>}
                   </div>
                 ))}
               </div>
             </div>
           ))}
           {!parCours.length && (
-            <div className="px-3 py-4 text-[12.5px] text-slate-400">
+            <div className="px-3 py-4 text-[13px] text-slate-400">
               Aucun acquis au référentiel de cette unité.
             </div>
           )}
         </div>
-        <p className="mt-1 text-[11.5px] text-slate-500">
+        <p className="mt-1 text-[12px] text-slate-500">
           {detail.nb_non_maitrises} acquis non maîtrisé(s) · {detail.nb_non_evalues} non évalué(s).
           Une absence d'évaluation n'est pas un échec.
         </p>
@@ -291,7 +291,7 @@ export default function TableauBordEtudiant({ etudId, ueNum, annee, onClose, onD
         <div className="flex flex-wrap items-center gap-2">
           {DECISIONS.map(d => (
             <button key={d.cle} type="button" onClick={() => setDecision(d.cle)}
-              className={`px-3 py-1.5 rounded-lg text-[12.5px] font-semibold border transition ${
+              className={`px-3 py-1.5 rounded-lg text-[13px] font-semibold border transition ${
                 decision === d.cle ? `${d.ton} text-white border-transparent`
                   : 'bg-white text-slate-600 border-slate-300 hover:border-slate-400'}`}>
               {d.libelle}
@@ -301,7 +301,7 @@ export default function TableauBordEtudiant({ etudId, ueNum, annee, onClose, onD
               par une faveur. Elle se lit, elle ne se ressaisit pas. */}
           <span className="ml-2 flex items-center gap-1.5 text-[12px] text-slate-600">
             Cote délibérée
-            <b className={`text-[14px] tabular-nums ${
+            <b className={`text-[15px] tabular-nums ${
               detail?.ue_na ? 'text-slate-500'
                 : detail?.ue_faveur ? 'text-amber-700'
                 : (detail?.note_deliberee ?? 0) < SEUIL ? 'text-red-700' : 'text-emerald-700'}`}>
@@ -346,7 +346,7 @@ export default function TableauBordEtudiant({ etudId, ueNum, annee, onClose, onD
                 Motivation — {nonMaitrises.length} acquis non maîtrisé(s)
               </span>
               {sansMotif > 0 && (
-                <span className="text-[11.5px] text-amber-800 flex items-center gap-1">
+                <span className="text-[12px] text-amber-800 flex items-center gap-1">
                   <IconAlertTriangle size={13} /> {sansMotif} sans motivation
                 </span>
               )}
@@ -356,15 +356,15 @@ export default function TableauBordEtudiant({ etudId, ueNum, annee, onClose, onD
                 <div key={a.aa_code} className="px-3 py-2">
                   <div className="flex items-baseline gap-2 mb-1">
                     <span className="font-mono text-[11px] text-slate-500">{a.aa_code}</span>
-                    <span className="text-[12.5px] flex-1">{a.description || a.cours_nom}</span>
-                    <span className="text-[11.5px] font-semibold text-red-700">
+                    <span className="text-[13px] flex-1">{a.description || a.cours_nom}</span>
+                    <span className="text-[12px] font-semibold text-red-700">
                       {a.note == null ? '—' : String(a.note).replace('.', ',')}/20
                     </span>
                   </div>
 
                   <button type="button"
                     onClick={() => setOuvert(o => ({ ...o, [a.aa_code]: !o[a.aa_code] }))}
-                    className="text-[11.5px] text-iip-blue underline mb-1">
+                    className="text-[12px] text-iip-blue underline mb-1">
                     {ouvert[a.aa_code] ? 'Masquer les motivations types' : 'Choisir des motivations types'}
                     {!!(coches[a.aa_code] || []).length && ` · ${(coches[a.aa_code] || []).length} cochée(s)`}
                   </button>
@@ -373,7 +373,7 @@ export default function TableauBordEtudiant({ etudId, ueNum, annee, onClose, onD
                     <div className="mb-2 border border-slate-200 rounded-lg divide-y divide-slate-100">
                       {MOTIFS_ECHEC.map(g => (
                         <div key={g.cle} className="px-2.5 py-2">
-                          <div className="text-[10.5px] uppercase tracking-wide font-semibold mb-1"
+                          <div className="text-[11px] uppercase tracking-wide font-semibold mb-1"
                             style={{ color: g.couleur }}>{g.libelle}</div>
                           <div className="space-y-1">
                             {g.motifs.map(m => {
@@ -397,7 +397,7 @@ export default function TableauBordEtudiant({ etudId, ueNum, annee, onClose, onD
                   )}
 
                   {!!(coches[a.aa_code] || []).length && !ouvert[a.aa_code] && (
-                    <div className="mb-1 text-[11.5px] text-slate-600 bg-slate-50
+                    <div className="mb-1 text-[12px] text-slate-600 bg-slate-50
                                     border border-slate-200 rounded-lg px-2 py-1.5">
                       {(coches[a.aa_code] || []).map(texteDuMotif).filter(Boolean).join(' ')}
                     </div>
@@ -425,7 +425,7 @@ export default function TableauBordEtudiant({ etudId, ueNum, annee, onClose, onD
             {enCours ? 'Enregistrement…' : 'Enregistrer la décision'}
           </button>
           {sansMotif > 0 && decision && decision !== 'reussi' && (
-            <span className="text-[11.5px] text-amber-800">
+            <span className="text-[12px] text-amber-800">
               {sansMotif} acquis sans motivation : la décision sera enregistrée, mais elle
               restera attaquable tant qu'ils ne sont pas motivés.
             </span>
@@ -455,7 +455,7 @@ function Badge({ i, courante = false, passe = false }) {
       title={`${i.ue_nom || ''}${i.points != null ? ` · ${i.points}/20` : ''}`
         + `${i.ects ? ` · ${i.ects} ECTS` : ''}${passe ? ` · ${i.annee_scolaire}` : ''}`
         + ' — cliquer pour le descriptif de l’unité'}
-      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-lg border text-[11.5px]
+      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-lg border text-[12px]
         cursor-pointer hover:shadow-sm
         ${tonResultat(i.resultat)} ${courante ? 'ring-2 ring-iip-blue ring-offset-1' : ''}`}>
       <b>{i.ue_num}</b>
@@ -475,7 +475,7 @@ function Cadre({ children, onClose, titre, sous }) {
                       max-h-[90vh] overflow-hidden flex flex-col">
         <div className="flex-none p-5 pb-3 border-b border-slate-100 flex items-start justify-between">
           <div>
-            <h3 className="text-[16px] font-semibold text-iip-blue">
+            <h3 className="text-[15px] font-semibold text-iip-blue">
               {titre || 'Tableau de bord de délibération'}
             </h3>
             {sous && <p className="text-[12px] text-slate-500">{sous}</p>}
