@@ -58,7 +58,7 @@ export default function Demandes() {
   return (
     <div className="p-5 space-y-4">
       <div>
-        <h2 className="text-xl font-semibold text-iip-blue">Demandes de modification</h2>
+        <h2 className="titre-ecran mb-0">Demandes de modification</h2>
         <p className="text-sm text-slate-500">
           Les saisies des coordinateurs n'entrent en vigueur qu'après décision.
         </p>

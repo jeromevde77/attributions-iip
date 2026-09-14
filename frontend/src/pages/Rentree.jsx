@@ -92,7 +92,7 @@ export default function Rentree({ annee }) {
   return (
     <div className="p-5 space-y-4 max-w-none">
       <div>
-        <h2 className="text-xl font-semibold text-iip-blue">Rentrée {annee}</h2>
+        <h2 className="titre-ecran mb-0">Rentrée {annee}</h2>
         <p className="text-sm text-slate-500">
           Ouvrir l'année : reconduire ce qui est réglementaire, reporter ce qui est propre à l'établissement.
         </p>

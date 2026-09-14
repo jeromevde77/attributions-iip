@@ -373,7 +373,13 @@ table.grid-excel-soft td.num { text-align: right; font-variant-numeric: tabular-
      rail, ni au titre, ni au tableau. Il s'aligne désormais sur la COLONNE DE
      CONTENU : la gouttière du rail, plus le retrait que l'écran se donne. Il
      suit donc quand le rail s'élargit, sans que personne ait à y penser. */
-  left: calc(var(--rail, 3.5rem) + 1rem); right: 1rem;
+  /* LE RETRAIT EST LE MÊME DES DEUX CÔTÉS, ET C'EST CELUI DE LA PAGE.
+     Le filet prenait 1 rem quand la colonne de contenu en prend 2 au-delà de
+     768 px (« p-4 md:p-8 ») : il partait donc seize pixels à gauche du titre
+     qu'il souligne, et l'écart se voyait sans qu'on puisse le nommer. Le
+     retrait de page est désormais un jeton unique, lu ici comme ailleurs. */
+  left: calc(var(--rail, 3.5rem) + var(--retrait-page, 1rem));
+  right: var(--retrait-page, 1rem);
   background: var(--menu-bord);
   transition: left 300ms cubic-bezier(.32,.72,0,1);
 }
@@ -397,12 +403,18 @@ table.grid-excel-soft td.num { text-align: right; font-variant-numeric: tabular-
 .rail-defile { scrollbar-width: none; -ms-overflow-style: none; }
 .rail-defile::-webkit-scrollbar { width: 0; height: 0; }
 
+:root { --retrait-page: 1rem; }
+@media (min-width: 768px) { :root { --retrait-page: 2rem; } }
+
 .gouttiere-rail {
   margin-left: var(--rail, 3.5rem);
   transition: margin-left 200ms ease-out;
 }
 @media (prefers-reduced-motion: reduce) {
-  .gouttiere-rail { transition: none; }
+  :root { --retrait-page: 1rem; }
+@media (min-width: 768px) { :root { --retrait-page: 2rem; } }
+
+.gouttiere-rail { transition: none; }
 }
 
 /* ═══ LA PASTILLE DE SURVOL DU RAIL ═══════════════════════════════════════

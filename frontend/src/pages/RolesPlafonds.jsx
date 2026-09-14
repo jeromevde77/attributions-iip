@@ -68,7 +68,7 @@ export default function RolesPlafonds() {
   return (
     <div className="p-5 space-y-4">
       <div>
-        <h2 className="text-xl font-semibold text-iip-blue">Rôles</h2>
+        <h2 className="titre-ecran mb-0">Rôles</h2>
         <p className="text-sm text-slate-500">
           Ce que chaque rôle autorise au mieux. Les cases d'une fiche affinent à l'intérieur.
         </p>

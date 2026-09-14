@@ -286,7 +286,7 @@ export default function Aide() {
   return (
     <div className="p-5 space-y-4 max-w-[1100px]">
       <div>
-        <h2 className="text-xl font-semibold text-iip-blue">Aide</h2>
+        <h2 className="titre-ecran mb-0">Aide</h2>
         <p className="text-sm text-slate-500">
           Ce que fait chaque module, et pourquoi il le fait ainsi.
         </p>

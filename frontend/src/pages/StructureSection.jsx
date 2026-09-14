@@ -68,7 +68,7 @@ export default function StructureSection({ annee }) {
   return (
     <div className="p-5 space-y-4 max-w-none">
       <div>
-        <h2 className="text-xl font-semibold text-iip-blue">Schéma de capitalisation</h2>
+        <h2 className="titre-ecran mb-0">Schéma de capitalisation</h2>
         <p className="text-sm text-slate-500">
           Structure de la section : les prérequis et l'année d'études de chaque UE — {annee}
         </p>

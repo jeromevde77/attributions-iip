@@ -164,9 +164,8 @@ export default function Classement({ annee: anneeProp }) {
     <div className="space-y-4">
       <div className="flex items-start justify-between gap-3 flex-wrap">
         <div>
-          <h2 className="text-xl font-semibold text-iip-blue flex items-center gap-2">
-            <IconScale size={22} className="text-iip-turquoise" />
-            Classement & prioritaires
+          <h2 className="titre-ecran mb-0">
+                        Classement & prioritaires
           </h2>
           <p className="text-sm text-slate-500 mt-1">
             Art. 34 (classement au 15 avril) et 34ter (candidatures prioritaires

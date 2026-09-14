@@ -85,7 +85,7 @@ export default function PonderationsAA() {
   return (
     <div className="p-5 space-y-4 max-w-none">
       <div>
-        <h2 className="text-xl font-semibold text-iip-blue">Pondération des acquis d'apprentissage</h2>
+        <h2 className="titre-ecran mb-0">Pondération des acquis d'apprentissage</h2>
         <p className="text-sm text-slate-500">
           La note d'une UE se calcule depuis ses acquis. Chacun pèse par sa pondération dans son
           cours et par les périodes de ce cours, autonomie exclue.

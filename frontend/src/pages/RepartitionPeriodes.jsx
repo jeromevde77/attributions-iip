@@ -133,7 +133,7 @@ export default function RepartitionPeriodes() {
     <div className="p-5 space-y-4">
       <div className="flex items-start justify-between gap-3 flex-wrap">
         <div>
-          <h2 className="text-xl font-semibold text-iip-blue">Répartition des périodes</h2>
+          <h2 className="titre-ecran mb-0">Répartition des périodes</h2>
           <p className="text-sm text-slate-500">
             Colonnes 16 à 19 du document 2, par activité d'enseignement.
           </p>

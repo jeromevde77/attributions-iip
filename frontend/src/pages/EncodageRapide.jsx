@@ -262,7 +262,7 @@ export default function EncodageRapide() {
     <div className="p-5 space-y-3 max-w-full">
       <div className="flex items-start justify-between gap-3 flex-wrap">
         <div>
-          <h2 className="text-xl font-semibold text-iip-blue">Encodage rapide</h2>
+          <h2 className="titre-ecran mb-0">Encodage rapide</h2>
           <p className="text-sm text-slate-500">
             Clics successifs : réussi, ajourné, refusé, effacer.{' '}
             Cliquez l'en-tête d'une unité pour sa feuille de délibération.{' '}

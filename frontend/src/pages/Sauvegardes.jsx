@@ -83,7 +83,7 @@ export default function Sauvegardes() {
     <div className="p-5 space-y-4">
       <div className="flex items-start justify-between gap-3 flex-wrap">
         <div>
-          <h2 className="text-xl font-semibold text-iip-blue">Sauvegardes</h2>
+          <h2 className="titre-ecran mb-0">Sauvegardes</h2>
           <p className="text-sm text-slate-500">
             Copies cohérentes de la base, contrôlées à chaque exécution.
           </p>

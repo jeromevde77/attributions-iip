@@ -199,9 +199,8 @@ export default function DatesUE({ annee }) {
     <div className="p-6 space-y-4">
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
-          <h2 className="text-xl font-semibold text-iip-blue flex items-center gap-2">
-            <IconCalendarEvent size={22} className="text-iip-turquoise" />
-            Dates des unités d'enseignement
+          <h2 className="titre-ecran mb-0">
+                        Dates des unités d'enseignement
           </h2>
           <p className="text-sm text-slate-500 mt-1">
             Paramétrage annuel — ces dates déclenchent le comptage au 1/10, le conseil

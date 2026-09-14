@@ -4,6 +4,7 @@ import {
   IconTargetArrow, IconBriefcase, IconAlertTriangle, IconCheck, IconX,
   IconSend, IconEye, IconMailForward, IconRefresh, IconChevronRight, IconSchool, IconCertificate,
 } from '@tabler/icons-react';
+import { PageHeader } from '../components/ui.jsx';
 import { authHeaders } from '../lib/api.js';
 import PreviewModal from '../components/PreviewModal.jsx';
 
@@ -150,22 +151,19 @@ export default function Besoins({ annee: anneeProp }) {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-start justify-between gap-3 flex-wrap">
-        <div>
-          <h2 className="text-xl font-semibold text-iip-blue flex items-center gap-2">
-            <IconTargetArrow size={22} className="text-iip-turquoise" />
-            Besoins en personnel
-          </h2>
-          <p className="text-sm text-slate-500 mt-1">
-            Un besoin naît d'un cours non pourvu. Il donne lieu à une offre, et
-            seule la publication ouvre le recrutement.
-          </p>
-        </div>
-        <button onClick={charger}
-          className="text-sm px-3 py-1.5 rounded-lg border border-slate-300 flex items-center gap-1.5">
-          <IconRefresh size={15} /> Actualiser
-        </button>
-      </div>
+      {/* LE TITRE D'ÉCRAN EST LE MÊME PARTOUT.
+          Celui-ci avait le sien : une icône devant — que plus aucun écran ne
+          porte —, une taille à lui, et un décalage de cinquante pixels par
+          rapport aux cartes et au tableau juste en dessous. Un titre qui ne
+          part pas de la même ligne que le contenu qu'il annonce se remarque
+          avant ce qu'il annonce. */}
+      <PageHeader titre="Besoins en personnel"
+        sous="Un besoin naît d'un cours non pourvu ; seule la publication ouvre le recrutement."
+        actions={
+          <button onClick={charger} className="controle bouton flex items-center gap-1.5">
+            <IconRefresh size={15} /> Actualiser
+          </button>
+        } />
 
       {message && (
         <div className={`px-4 py-2.5 rounded-lg text-sm flex items-center justify-between gap-3

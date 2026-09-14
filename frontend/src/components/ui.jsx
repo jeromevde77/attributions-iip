@@ -352,6 +352,75 @@ export function RailDessine({ icon: HeaderIcon, titre, sousTitre, extra,
       {extra && <div className={`px-3 pt-2 ${reveal}`}>{extra}</div>}
       </>)}
 
+      {/* LES ACTIONS, EN TÊTE ET SOUS UN FILET.
+          Au-dessus, ce qui change d'un écran à l'autre ; en dessous, ce qui ne
+          change jamais — même place, même ordre, quel que soit l'écran, si bien
+          qu'on finit par y aller sans regarder. L'impression d'abord : on
+          imprime tous les jours, on importe quelques fois par an.
+
+          ET CE BLOC EST EN HAUT. Rangé sous les rubriques, il finissait au bas
+          du rail — d'autant plus bas que l'écran avait de rubriques, donc
+          jamais à la même hauteur, et parfois hors de vue. Ce qu'on fait tous
+          les jours se met en premier, à l'endroit où l'œil entre dans le
+          rail. */}
+      {/* UN FILET NE TOUCHE JAMAIS LES BORDS — c'est la règle de Lucie, et elle
+          vaut ici comme dans la barre du haut. Posé d'un bord à l'autre, il
+          coupe le rail en deux morceaux ; retiré des côtés, il sépare sans
+          trancher. */}
+      {true && (
+        /* LE FILET SE RETIRE DES BORDS, PAS LES CASES.
+           La marge qui écartait le filet du bord (« mx-3 ») écartait aussi les
+           boutons : la case de quarante se retrouvait dans une colonne de
+           trente-deux, et toutes les icônes d'en bas glissaient vers la droite
+           tandis que celles du haut restaient centrées. Le filet est désormais
+           une ligne à lui seul ; les cases gardent la colonne entière. */
+        <div className="flex-shrink-0 pb-2 mb-1 space-y-1 border-b mx-2"
+          style={{ borderColor: 'var(--menu-filet)' }}>
+          {/* IMPRIMER D'ABORD, ET TOUJOURS.
+              On imprime tous les jours, on importe quelques fois par an : le
+              geste le plus fréquent vient en tête, et il ne bouge jamais de
+              place. « Exporter » a disparu de cette liste — imprimer, c'est
+              sortir une pièce, quel que soit le format qu'on choisit ensuite
+              dans la fenêtre. Deux portes pour un même geste, c'en était une
+              de trop. */}
+          {[{ key: '__impression', label: 'Imprimer', icon: IconPrinter,
+              couleur: 'var(--menu-accent)', onClick: () => setCentre(true) },
+            ...actions].map(a2 => {
+            const Ic = a2.icon;
+            return (
+              <button key={a2.key} onClick={a2.onClick} aria-label={a2.label}
+                onMouseEnter={e => !epingle && surviser(e, a2.label)}
+                onMouseLeave={() => setSurvol(null)}
+                /* LA MÊME CASE QUE PARTOUT — un carré aux coins arrondis.
+                   L'impression s'affichait dans un cercle : une forme pour
+                   elle seule dans toute l'application, ce qui la faisait
+                   remarquer pour la mauvaise raison. Ce qui la distingue
+                   désormais, c'est la COULEUR de son icône, et rien d'autre. */
+                className={`relative flex text-[13px] mb-1
+                  transition-colors duration-150 ease-ios
+                  ${epingle
+                    ? 'w-full items-center gap-3 py-2 px-2.5 rounded-fenetre'
+                    : 'w-10 h-10 mx-auto items-center justify-center rounded-carte'}
+                  hover:shadow-pose`}
+                style={{ color: 'var(--menu-texte-doux)' }}
+                data-case-rail={epingle ? undefined : '1'}>
+                {Ic && (
+                  /* LA COULEUR N'EST PAS UNE DÉCORATION, C'EST UN REPÈRE.
+                     Turquoise : ce qui SORT — imprimer, et on le trouve sans
+                     le chercher. Brique : ce qui DÉTRUIT. Gris : tout le
+                     reste. Trois teintes, et chacune veut dire quelque chose. */
+                  <Ic size={19} stroke={1.8} className="flex-shrink-0"
+                    style={{ color: a2.couleur || 'var(--menu-icone)' }} />
+                )}
+                <span className={`text-left leading-tight min-w-0 flex-1 ${reveal}`}>
+                  {a2.label}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      )}
+
       {/* Sections */}
       {/* LA COLONNE DES RUBRIQUES EST CE QUI CÈDE.
           Sans « flex-1 », elle prenait sa hauteur naturelle : dès qu'un écran
@@ -437,69 +506,6 @@ export function RailDessine({ icon: HeaderIcon, titre, sousTitre, extra,
           </div>
         ))}
       </div>
-
-      {/* LES ACTIONS, SOUS UN FILET.
-          Au-dessus, ce qui change d'un écran à l'autre ; en dessous, ce qui ne
-          change jamais — même place, même ordre, quel que soit l'écran, si bien
-          qu'on finit par y aller sans regarder. L'impression d'abord : on
-          imprime tous les jours, on importe quelques fois par an. */}
-      {/* UN FILET NE TOUCHE JAMAIS LES BORDS — c'est la règle de Lucie, et elle
-          vaut ici comme dans la barre du haut. Posé d'un bord à l'autre, il
-          coupe le rail en deux morceaux ; retiré des côtés, il sépare sans
-          trancher. */}
-      {true && (
-        /* LE FILET SE RETIRE DES BORDS, PAS LES CASES.
-           La marge qui écartait le filet du bord (« mx-3 ») écartait aussi les
-           boutons : la case de quarante se retrouvait dans une colonne de
-           trente-deux, et toutes les icônes d'en bas glissaient vers la droite
-           tandis que celles du haut restaient centrées. Le filet est désormais
-           une ligne à lui seul ; les cases gardent la colonne entière. */
-        <div className="flex-shrink-0 pt-2 mt-1 space-y-1 border-t mx-2"
-          style={{ borderColor: 'var(--menu-filet)' }}>
-          {/* IMPRIMER D'ABORD, ET TOUJOURS.
-              On imprime tous les jours, on importe quelques fois par an : le
-              geste le plus fréquent vient en tête, et il ne bouge jamais de
-              place. « Exporter » a disparu de cette liste — imprimer, c'est
-              sortir une pièce, quel que soit le format qu'on choisit ensuite
-              dans la fenêtre. Deux portes pour un même geste, c'en était une
-              de trop. */}
-          {[{ key: '__impression', label: 'Imprimer', icon: IconPrinter,
-              couleur: 'var(--menu-accent)', onClick: () => setCentre(true) },
-            ...actions].map(a2 => {
-            const Ic = a2.icon;
-            return (
-              <button key={a2.key} onClick={a2.onClick} aria-label={a2.label}
-                onMouseEnter={e => !epingle && surviser(e, a2.label)}
-                onMouseLeave={() => setSurvol(null)}
-                /* LA MÊME CASE QUE PARTOUT — un carré aux coins arrondis.
-                   L'impression s'affichait dans un cercle : une forme pour
-                   elle seule dans toute l'application, ce qui la faisait
-                   remarquer pour la mauvaise raison. Ce qui la distingue
-                   désormais, c'est la COULEUR de son icône, et rien d'autre. */
-                className={`relative flex text-[13px] mb-1
-                  transition-colors duration-150 ease-ios
-                  ${epingle
-                    ? 'w-full items-center gap-3 py-2 px-2.5 rounded-fenetre'
-                    : 'w-10 h-10 mx-auto items-center justify-center rounded-carte'}
-                  hover:shadow-pose`}
-                style={{ color: 'var(--menu-texte-doux)' }}
-                data-case-rail={epingle ? undefined : '1'}>
-                {Ic && (
-                  /* LA COULEUR N'EST PAS UNE DÉCORATION, C'EST UN REPÈRE.
-                     Turquoise : ce qui SORT — imprimer, et on le trouve sans
-                     le chercher. Brique : ce qui DÉTRUIT. Gris : tout le
-                     reste. Trois teintes, et chacune veut dire quelque chose. */
-                  <Ic size={19} stroke={1.8} className="flex-shrink-0"
-                    style={{ color: a2.couleur || 'var(--menu-icone)' }} />
-                )}
-                <span className={`text-left leading-tight min-w-0 flex-1 ${reveal}`}>
-                  {a2.label}
-                </span>
-              </button>
-            );
-          })}
-        </div>
-      )}
 
       {/* LE MODE SE CHANGE LÀ OÙ IL SE VOIT — c'est un réglage de confort, on
           l'essaie, on juge, on garde ; il se retient d'un jour à l'autre. */}
