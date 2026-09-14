@@ -2021,14 +2021,18 @@ export default function Attributions() {
       {/* VUE PAR SECTION/UE/COURS — tableau unique continu */}
       {viewMode!=='flat' && <div className="hidden md:block">
         {loading ? <div className="p-8 text-center text-gray-400">Chargement…</div>
-         : sectionGroups.length===0 ? <div className="p-8 text-center text-gray-400 bg-white rounded-lg border">Aucune attribution</div>
-         : <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+         : sectionGroups.length===0 ? <div className="p-8 text-center text-gray-400 bg-white rounded-carte border">Aucune attribution</div>
+         /* UNE CARTE A LE RAYON D'UNE CARTE — quatorze, celui du rail et des
+            fenêtres. Écrite en « rounded-lg », elle prenait huit : le rayon
+            des CHAMPS. Deux objets côte à côte, deux arrondis, et l'oeil le
+            voit avant de savoir quoi regarder. */
+         : <div className="bg-white rounded-carte border border-gray-200 overflow-hidden">
              {sectionGroups.map(renderSection)}
            </div>}
       </div>}
 
       {/* VUE COMPLÈTE */}
-      {viewMode==='flat' && <div className="hidden md:block bg-white rounded-lg border border-gray-200 overflow-auto max-h-[calc(100vh-260px)]">
+      {viewMode==='flat' && <div className="hidden md:block bg-white rounded-carte border border-gray-200 overflow-auto max-h-[calc(100vh-260px)]">
         {loading ? <div className="p-8 text-center text-gray-400">Chargement…</div> : (
           <table className="grid-excel-soft" style={{tableLayout:'fixed'}}>
             <thead><tr>
@@ -2051,7 +2055,7 @@ export default function Attributions() {
       {/* VUE MOBILE */}
       <div className="md:hidden">
         {loading ? <div className="p-8 text-center text-gray-400">Chargement…</div>
-         : sortedData.length===0 ? <div className="p-8 text-center text-gray-400 bg-white rounded-lg border">Aucune attribution</div>
+         : sortedData.length===0 ? <div className="p-8 text-center text-gray-400 bg-white rounded-carte border">Aucune attribution</div>
          : <div className="pb-24 space-y-4">
              {sectionGroups.map(sg => {
                const secKey = 'mobsec:' + sg.section;
