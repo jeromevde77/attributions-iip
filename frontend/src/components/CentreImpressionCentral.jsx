@@ -113,9 +113,15 @@ function OngletRapports({ domaine }) {
           html: apercu.html,
           nom: (apercu.nom || choisi?.id || 'document').replace(/\.html$/, ''),
           pagination: 'si-plusieurs',
-          // Le document porte déjà son pied : le gabarit du serveur en
-          // ajouterait un second.
-          pied: false,
+          /* LE GABARIT DU SERVEUR PREND LA MAIN SUR LE PIED DU DOCUMENT.
+             Je l'avais désactivé pour éviter un doublon — mais le rendu sait
+             déjà masquer le pied du flux quand il pose le sien. Sans gabarit,
+             le pied restait accroché à la fin du contenu : sur une page à
+             moitié remplie, il flottait au milieu de la feuille au lieu d'en
+             occuper le bas. Le gabarit, lui, vit dans la MARGE de page : il
+             est au bas de chaque feuille, quoi qu'il arrive, et la
+             numérotation s'y intègre. */
+          pied: true,
         }),
       });
       if (rep.ok) {
