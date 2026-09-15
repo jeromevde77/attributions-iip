@@ -71,6 +71,11 @@ function OngletRapports({ domaine }) {
      de l'établissement à la section, de la section à l'unité, de l'unité au
      cours, au lieu d'avoir une entrée de menu par échelle. */
   const [portee, setPortee] = useState({ niveau: 'etablissement', ue_num: '', code_cours: '' });
+  /* L'EFFECTIF SE COMPTE, OU SE POSE. Lucie connaît les inscrits et c'est le
+     défaut ; mais une pièce de COPIL se prépare souvent AVANT les
+     inscriptions — on projette la rentrée, on simule l'ouverture d'une
+     section. Laissé vide, le champ ne change rien. */
+  const [etudiants, setEtudiants] = useState('');
   const [ues, setUes] = useState([]);
   const [coursUe, setCoursUe] = useState([]);
   const [apercu, setApercu] = useState(null);
@@ -128,6 +133,7 @@ function OngletRapports({ domaine }) {
     ...(r.params.includes('section') && section ? { section } : {}),
     ...(r.params.includes('portee')
       ? { portee: { ...portee, section: section || null } } : {}),
+    ...(r.params.includes('etudiants') && etudiants ? { etudiants: Number(etudiants) } : {}),
   });
 
   /*
@@ -158,7 +164,7 @@ function OngletRapports({ domaine }) {
   // Changer de section ou de session refait la pièce : un aperçu qui ne suit
   // pas ses paramètres ment sur ce qui s'imprimera.
   useEffect(() => { if (choisi) voir(choisi); // eslint-disable-next-line
-  }, [section, session, annee, portee]);
+  }, [section, session, annee, portee, etudiants]);
 
   async function telecharger() {
     if (!choisi) return;
@@ -260,6 +266,15 @@ function OngletRapports({ domaine }) {
               <option value="">Toutes les sections</option>
               {sections.map(s2 => <option key={s2} value={s2}>{s2}</option>)}
             </select>
+          )}
+          {choisi?.params?.includes('etudiants') && (
+            <label className="flex items-center gap-1.5 text-[12px] text-slate-500">
+              Étudiants
+              <input type="number" min="0" value={etudiants} placeholder="inscrits"
+                onChange={e => setEtudiants(e.target.value)}
+                title="Laissez vide pour compter les inscrits encodés dans Lucie ; posez un nombre pour simuler."
+                className="w-20 px-2 py-1 text-[12px] border border-slate-300 rounded" />
+            </label>
           )}
           {choisi?.params?.includes('session') && (
             <select value={session}

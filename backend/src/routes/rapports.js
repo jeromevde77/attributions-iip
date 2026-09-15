@@ -454,7 +454,9 @@ function documentEtpEtablissement(p) {
   const tot = d.total || {};
   const coord = secs.reduce((s, x) => s + (x.etp_coord_helb || 0), 0);
   const global = (tot.etp_total || 0) + coord;
-  const etus = secs.reduce((s, x) => s + (x.nb_etudiants || 0), 0);
+  const etusLucie = secs.reduce((s, x) => s + (x.nb_etudiants || 0), 0);
+  const etus = p.etudiants || etusLucie;
+  const etusPose = !!p.etudiants && p.etudiants !== etusLucie;
   const ectsDe = (x) => (x.ues || []).reduce((t, u) => t + (Number(u.ects) || 0), 0);
   const ectsTot = secs.reduce((t, x) => t + ectsDe(x), 0);
   const ratio = (e) => (e > 0 && etus > 0 ? (etus / e).toFixed(1).replace('.', ',') : '—');
@@ -471,7 +473,9 @@ function documentEtpEtablissement(p) {
         precision: global ? `${Math.round(((tot.etp_helb || 0) + coord) / global * 100)} %` : '—',
         couleur: C.helb }),
       tuile({ valeur: etus ? n0(etus) : '—', libelle: 'Étudiants',
-        precision: etus ? `${ratio(global)} par ETP` : 'effectifs non encodés' }),
+        precision: etus
+          ? `${ratio(global)} par ETP${etusPose ? ' · effectif posé' : ''}`
+          : 'effectifs non encodés' }),
       tuile({ valeur: ectsTot ? n0(ectsTot) : '—', libelle: 'ECTS',
         precision: ectsTot && global > 0
           ? `${(ectsTot / global).toFixed(1).replace('.', ',')} par ETP` : 'non encodés' }),
@@ -524,7 +528,10 @@ function documentEtpEtablissement(p) {
     entete: {
       titre: "Charge en équivalents temps plein — tout l'établissement",
       sous: `Année académique ${p.annee} · ${secs.length} section(s)${
-        etus ? ` · ${n0(etus)} étudiant(s)` : ''}`,
+        etus ? ` · ${n0(etus)} étudiant(s)${etusPose ? ' (effectif posé)' : ''}` : ''}`,
+      mention: etusPose
+        ? `L'effectif de ${n0(etus)} étudiant(s) a été posé pour cette simulation ; `
+          + `Lucie en compte ${n0(etusLucie)} d'inscrits à ce jour.` : null,
     },
     titre: "Charge en ETP — établissement",
     nom: `ETP-etablissement-${p.annee}.html`,
@@ -578,7 +585,9 @@ function documentEtpUe(p) {
       tuile({ valeur: n2(etp - etpIip), unite: 'ETP', libelle: 'Haute École',
         precision: etp > 0 ? `${Math.round((etp - etpIip) / etp * 100)} %` : '—', couleur: C.helb }),
       tuile({ valeur: profs, libelle: profs > 1 ? 'Enseignants' : 'Enseignant',
-        precision: ue.nb_etudiants ? `${n0(ue.nb_etudiants)} étudiant(s)` : null }),
+        precision: (p.etudiants || ue.nb_etudiants)
+          ? `${n0(p.etudiants || ue.nb_etudiants)} étudiant(s)${
+              p.etudiants ? ' (posé)' : ''}` : null }),
       tuile({ valeur: ue.ects ? n0(ue.ects) : '—', libelle: 'ECTS',
         precision: ue.ects && etp > 0
           ? `${(Number(ue.ects) / etp).toFixed(1).replace('.', ',')} par ETP` : 'non encodés' }),
@@ -698,7 +707,9 @@ function documentEtpCursus(p) {
   const etpCoord = sec.etp_coord_helb || 0;
   const etpSecr = sec.etp_secretariat || 0;
   const global = etpCours + etpCoord;
-  const etus = sec.nb_etudiants || 0;
+  const etusLucie = sec.nb_etudiants || 0;
+  const etus = p.etudiants || etusLucie;
+  const etusPose = !!p.etudiants && p.etudiants !== etusLucie;
   const perTot = sec.ues.reduce((s, u) => s + periodesDe(u), 0);
   const ratio = (e) => (e > 0 && etus > 0 ? (etus / e).toFixed(1).replace('.', ',') : '—');
   const part = (e) => (global > 0 ? `${Math.round(e / global * 100)} %` : '—');
@@ -714,7 +725,9 @@ function documentEtpCursus(p) {
         precision: `${part(sec.etp_helb + etpCoord)}${etpCoord > 0
           ? ` · dont ${n2(etpCoord)} de coordination` : ''}`, couleur: C.helb }),
       tuile({ valeur: etus ? n0(etus) : '—', libelle: 'Étudiants',
-        precision: etus ? `${ratio(global)} par ETP` : 'effectifs non encodés' }),
+        precision: etus
+          ? `${ratio(global)} par ETP${etusPose ? ' · effectif posé' : ''}`
+          : 'effectifs non encodés' }),
       tuile({ valeur: ects ? n0(ects) : '—', libelle: 'ECTS',
         precision: ects && global > 0
           ? `${(ects / global).toFixed(1).replace('.', ',')} par ETP` : 'non encodés' }),
@@ -754,9 +767,14 @@ function documentEtpCursus(p) {
     corps,
     entete: {
       titre: `Charge en équivalents temps plein — ${sec.section}`,
-      sous: `Année académique ${p.annee}${etus > 0 ? ` · ${n0(etus)} étudiant(s) inscrits` : ''}`,
+      sous: `Année académique ${p.annee}${etus > 0
+        ? ` · ${n0(etus)} étudiant(s)${etusPose ? ' (effectif posé)' : ' inscrits'}` : ''}`,
       mention: "Pièce destinée au COPIL ou au Conseil d'administration. Elle reflète "
-        + "l'état des attributions encodées, et non un arrêté de dotation.",
+        + "l'état des attributions encodées, et non un arrêté de dotation."
+        + (etusPose
+          ? ` L'effectif de ${n0(etus)} étudiant(s) a été POSÉ pour cette simulation ; `
+            + `Lucie en compte ${n0(etusLucie)} d'inscrits à ce jour.`
+          : ''),
     },
     titre: `Rapport de charge ETP — ${sec.section}`,
     nom: `ETP-${String(sec.section).replace(/\W+/g, '-')}-${p.annee}.html`,
@@ -934,7 +952,7 @@ export const RAPPORTS = [
    * bandeau. Les chiffres, eux, sont les mêmes, au même calcul.
    */
   {
-    id: 'etp', domaine: 'pilotage', params: ['annee', 'portee'],
+    id: 'etp', domaine: 'pilotage', params: ['annee', 'portee', 'etudiants'],
     libelle: 'Charge en ETP',
     aide: "Tout l'établissement, une section, une unité ou un cours — la pièce s'adapte à la portée choisie.",
     // La portée descend jusqu'au cours : c'est le niveau où l'on voit enfin
@@ -1437,6 +1455,20 @@ function parametres(req, def) {
      confiance à rien de ce qui arrive : le niveau doit être l'un de ceux que
      le rapport déclare, l'unité doit être un nombre, et le code de cours ne
      sert que de filtre d'égalité dans une requête préparée. */
+  /* LE NOMBRE D'ÉTUDIANTS SE COMPTE, OU SE POSE.
+   *
+   * Lucie connaît les inscrits : c'est le chiffre juste, et c'est le défaut.
+   * Mais une pièce de COPIL se prépare souvent AVANT les inscriptions — on
+   * projette la rentrée suivante, on simule l'ouverture d'une section. Le
+   * chiffre encodé vaut alors zéro, et le ratio ne dit plus rien.
+   *
+   * On peut donc poser un effectif à la main. La pièce dit LEQUEL des deux
+   * elle a utilisé : un ratio dont on ignore d'où vient le dénominateur ne se
+   * défend pas en séance. */
+  if (def.params.includes('etudiants')) {
+    const n = Number(req.body?.etudiants);
+    p.etudiants = Number.isFinite(n) && n > 0 ? Math.round(n) : null;
+  }
   if (def.params.includes('portee')) {
     const b = req.body?.portee || {};
     const niveaux = def.portees || ['etablissement'];
