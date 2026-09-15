@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  IconCalendarStats, IconChevronRight, IconChevronDown, IconAlertTriangle,
+  IconChevronRight, IconChevronDown, IconAlertTriangle,
   IconLock, IconWand, IconSearch, IconLayoutRows, IconColumns,
 } from '@tabler/icons-react';
 import { authHeaders, getAnnee } from '../lib/api.js';
-import { PageHeader, RailLateral } from './ui.jsx';
+import { PageHeader } from './ui.jsx';
 
 /**
  * LE CALENDRIER DES SESSIONS — une section, une page, les deux sessions.
@@ -426,7 +426,10 @@ export default function CalendrierSessions() {
   useEffect(() => {
     (async () => {
       try {
-        const rep = await fetch(`/api/acquis/deliberation/plan?annee=${encodeURIComponent(annee)}`,
+        // TOUTES LES UNITÉS DE L'ANNÉE, inscrites ou non : on pose des dates avant
+        // que les inscriptions soient encodées, sinon on ne planifie qu'après coup.
+        const rep = await fetch(
+          `/api/acquis/deliberation/plan?toutes=1&annee=${encodeURIComponent(annee)}`,
           { headers: authHeaders() });
         const j = await rep.json();
         if (rep.ok) {
@@ -511,46 +514,57 @@ export default function CalendrierSessions() {
 
   return (
     <div>
-      <RailLateral sections={[{
-        label: 'Sections',
-        items: (sections || []).map(s => ({
-          key: s.section, label: s.section, actif: section === s.section,
-          onClick: () => { setSection(s.section); setCoches(new Set()); },
-        })),
-      }]} />
-
+      {/* LE CHOIX DE LA SECTION EST UN FILTRE, PAS UNE RUBRIQUE.
+          Il occupait la colonne d'icônes du rail, une entrée par section et
+          sans icône : replié, on ne voyait qu'une file de points identiques
+          qu'il fallait survoler un par un — et la liste s'allonge à chaque
+          section ouverte. Une icône se mérite. Le choix redescend dans la barre
+          de filtres de l'écran, avec la recherche et les autres réglages, là où
+          l'œil le cherche. */}
       <div className="gouttiere-rail p-5 pt-4">
-        <PageHeader icon={IconCalendarStats} titre="Calendrier des sessions"
+        <PageHeader titre="Calendrier des sessions"
           sous={`Épreuves, visite des copies et délibérations — ${section || '…'} · ${annee}`} />
 
         <div className="flex flex-wrap items-center gap-2 mb-3">
+          <label className="text-[11px] text-slate-500 flex items-center gap-1.5">
+            Section
+            <select value={section || ''}
+              onChange={e => { setSection(e.target.value); setCoches(new Set()); }}
+              className="controle bg-white border border-slate-300 rounded-champ
+                         px-2 text-[13px]">
+              {(sections || []).map(s2 => (
+                <option key={s2.section} value={s2.section}>
+                  {s2.section}{s2.nb_ues ? ` — ${s2.nb_ues} UE` : ''}
+                </option>
+              ))}
+            </select>
+          </label>
+
           <div className="relative">
             <IconSearch size={13} className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400" />
             <input value={recherche} onChange={e => setRecherche(e.target.value)}
               placeholder="Unité ou cours…"
-              className="pl-7 pr-2 py-1.5 text-[13px] border border-slate-300 rounded-lg w-56" />
+              className="controle pl-7 pr-2 text-[13px] bg-white border border-slate-300 rounded-champ w-56" />
           </div>
           <button onClick={() => setDeplie(toutDeplie ? new Set() : new Set(ues.map(u => u.ue_num)))}
-            className="px-3 py-1.5 text-[13px] rounded-lg border border-slate-300
-                       text-slate-600 inline-flex items-center gap-1.5">
+            className="bouton controle px-3 inline-flex items-center gap-1.5">
             <IconLayoutRows size={14} /> {toutDeplie ? 'Tout replier' : 'Tout déplier'}
           </button>
           <button onClick={() => setCoches(coches.size ? new Set() : new Set(ues.map(u => u.ue_num)))}
-            className="px-3 py-1.5 text-[13px] rounded-lg border border-slate-300 text-slate-600">
+            className="bouton controle px-3">
             {coches.size ? 'Tout décocher' : 'Tout cocher'}
           </button>
           <button onClick={() => {
             const n = dispo === 'cote' ? 'empile' : 'cote';
             setDispo(n); localStorage.setItem('calendrier.dispo', n);
-          }} className="px-3 py-1.5 text-[13px] rounded-lg border border-slate-300
-                        text-slate-600 inline-flex items-center gap-1.5">
+          }} className="bouton controle px-3 inline-flex items-center gap-1.5">
             <IconColumns size={14} /> {dispo === 'cote' ? 'Sessions empilées' : 'Sessions côte à côte'}
           </button>
         </div>
 
         {erreur && (
-          <div className="mb-3 px-3 py-2 rounded-lg bg-red-50 text-red-700 text-[13px]
-                          inline-flex items-center gap-2">
+          <div className="mb-3 px-3 py-2 rounded-carte bg-[#FBF1EE] text-[#9d4a38] text-[13px]
+                          border border-[#E8CFC7] inline-flex items-center gap-2">
             <IconAlertTriangle size={15} /> {erreur}
           </div>
         )}
