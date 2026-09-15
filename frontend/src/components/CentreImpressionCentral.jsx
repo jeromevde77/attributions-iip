@@ -55,6 +55,12 @@ function OngletRapports({ domaine }) {
   const [catalogue, setCatalogue] = useState(null);
   const [choisi, setChoisi] = useState(null);
   const [session, setSession] = useState(1);
+  // UN RAPPORT DE CURSUS NE SE DEMANDE PAS COMME UN RAPPORT D'ÉTABLISSEMENT.
+  // Vide, le rapport porte sur toute la maison — c'est ce que veulent le
+  // Conseil et la dotation ; choisie, il ne parle que d'une section — c'est ce
+  // que veut une coordination. Le même modèle sert les deux.
+  const [section, setSection] = useState('');
+  const [sections, setSections] = useState([]);
   const [apercu, setApercu] = useState(null);
   const [erreur, setErreur] = useState(null);
   const [enCours, setEnCours] = useState(false);
@@ -81,14 +87,20 @@ function OngletRapports({ domaine }) {
     fetch('/api/rapports/catalogue', { headers: authHeaders() })
       .then(r => r.json()).then(j => setCatalogue(j.rapports || []))
       .catch(e => setErreur(e.message));
-  }, []);
+    fetch(`/api/reunions/perimetre?annee=${encodeURIComponent(annee)}`,
+      { headers: authHeaders() })
+      .then(r => r.json()).then(j => setSections(j.sections || []))
+      .catch(() => { /* sans la liste, le filtre reste sur « toutes » */ });
+  }, [annee]);
 
   const liste = useMemo(
     () => (catalogue || []).filter(r => r.domaine === domaine), [catalogue, domaine]);
   useEffect(() => { setChoisi(null); setApercu(null); }, [domaine]);
 
   const corps = (r) => JSON.stringify({
-    annee, ...(r.params.includes('session') ? { session } : {}),
+    annee,
+    ...(r.params.includes('session') ? { session } : {}),
+    ...(r.params.includes('section') && section ? { section } : {}),
   });
 
   async function voir(r) {
@@ -146,6 +158,14 @@ function OngletRapports({ domaine }) {
       <div className="flex-1 flex flex-col min-h-0">
         <div className="px-3 py-2 border-b border-slate-200 flex flex-wrap items-center gap-2">
           <span className="text-[13px] text-slate-600">{annee}</span>
+          {choisi?.params?.includes('section') && (
+            <select value={section}
+              onChange={e => { setSection(e.target.value); setApercu(null); }}
+              className="px-2 py-1 text-[12px] border border-slate-300 rounded">
+              <option value="">Toutes les sections</option>
+              {sections.map(s2 => <option key={s2} value={s2}>{s2}</option>)}
+            </select>
+          )}
           {choisi?.params?.includes('session') && (
             <select value={session}
               onChange={e => { setSession(Number(e.target.value)); setApercu(null); }}

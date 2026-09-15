@@ -239,6 +239,79 @@ export const RAPPORTS = [
       ORDER BY professeur, section, ue_num, code_cours`).all(p.annee),
   },
 
+  /*
+   * ── CE QUI VIENT DU CONSTRUCTEUR DE LISTES ────────────────────────────
+   *
+   * Ces modèles existaient depuis longtemps, dans un écran à part : « profs
+   * par section », « synthèse de charge », « UE sans attribution ». En
+   * supprimant l'axe qui les portait, on a écrit qu'ils étaient « dans le
+   * centre d'impression » — ils n'y avaient jamais été portés, et ils sont
+   * restés un an derrière une porte fermée.
+   *
+   * Ils y sont maintenant, et ils y gagnent : aperçu avant téléchargement,
+   * tableur ET pièce imprimable dans l'enveloppe de la maison, le tout sans
+   * un écran de plus. LE CATALOGUE EST LA SEULE PORTE.
+   */
+  {
+    id: 'personnel-par-section', domaine: 'personnel', params: ['annee', 'section'],
+    libelle: 'Professeurs par section',
+    aide: "Qui enseigne dans un cursus, sur combien d'unités, pour combien de périodes.",
+    colonnes: COLS([['section', 'Section', 26], ['nom', 'Nom', 22],
+      ['prenom', 'Prénom', 18], ['statut', 'Statut', 12],
+      ['nb_ue', 'Unités', 10], ['nb_cours', 'Cours', 10],
+      ['periodes', 'Périodes'], ['etp', 'ETP', 10],
+      ['adresse_mail', 'Adresse électronique', 32]]),
+    lignes: (p) => db.prepare(`
+      SELECT v.section, pr.nom, pr.prenom, pr.statut, pr.adresse_mail,
+        COUNT(DISTINCT v.ue_num) AS nb_ue,
+        COUNT(DISTINCT v.code_cours) AS nb_cours,
+        ROUND(SUM(v.total_attribue_professeur), 2) AS periodes,
+        ROUND(SUM(v.total_attribue_professeur) / 800.0, 3) AS etp
+      FROM v_attribution_complete v
+      JOIN professeur pr ON pr.nom_prenom = v.professeur
+      WHERE v.annee_scolaire = ? AND (? IS NULL OR v.section = ?)
+      GROUP BY v.section, pr.id
+      ORDER BY v.section, pr.nom, pr.prenom`).all(p.annee, p.section, p.section),
+  },
+  {
+    id: 'personnel-charge', domaine: 'personnel', params: ['annee', 'section'],
+    libelle: 'Synthèse de charge par professeur',
+    aide: "Une ligne par professeur et par section : nombre de cours, périodes et heures.",
+    colonnes: COLS([['professeur', 'Professeur', 26], ['section', 'Section', 26],
+      ['nb_cours', 'Cours', 10], ['periodes', 'Périodes'],
+      ['heures', 'Heures', 12], ['etp', 'ETP', 10]]),
+    // LA PÉRIODE FAIT CINQUANTE MINUTES : les heures se déduisent, elles ne se
+    // saisissent pas — et c'est en heures que se lit un contrat.
+    lignes: (p) => db.prepare(`
+      SELECT professeur, section,
+        COUNT(DISTINCT code_cours) AS nb_cours,
+        ROUND(SUM(total_attribue_professeur), 2) AS periodes,
+        ROUND(SUM(total_attribue_professeur) * 50.0 / 60.0, 1) AS heures,
+        ROUND(SUM(total_attribue_professeur) / 800.0, 3) AS etp
+      FROM v_attribution_complete
+      WHERE annee_scolaire = ? AND professeur IS NOT NULL
+        AND (? IS NULL OR section = ?)
+      GROUP BY professeur, section
+      ORDER BY section, professeur`).all(p.annee, p.section, p.section),
+  },
+  {
+    id: 'personnel-encadrement', domaine: 'personnel', params: ['annee', 'section'],
+    libelle: 'Encadrements — TFE, stages, épreuves',
+    aide: "Ce qui s'attribue hors cours : accompagnement, supervision, jurys.",
+    colonnes: COLS([['section', 'Section', 26], ['professeur', 'Professeur', 26],
+      ['nom_cours', 'Encadrement', 34], ['ue_num', 'UE', 8],
+      ['ue_nom', 'Unité', 34], ['periodes', 'Périodes']]),
+    lignes: (p) => db.prepare(`
+      SELECT section, professeur, nom_cours, ue_num, ue_nom,
+        ROUND(SUM(total_attribue_professeur), 2) AS periodes
+      FROM v_attribution_complete
+      WHERE annee_scolaire = ? AND professeur IS NOT NULL
+        AND COALESCE(coordination_encadrement, '') <> ''
+        AND (? IS NULL OR section = ?)
+      GROUP BY section, professeur, nom_cours, ue_num, ue_nom
+      ORDER BY section, professeur, ue_num`).all(p.annee, p.section, p.section),
+  },
+
   // ── RÉFÉRENTIELS ────────────────────────────────────────────────────────
   {
     id: 'referentiel-ue', domaine: 'referentiels', params: ['annee'],
@@ -279,6 +352,22 @@ export const RAPPORTS = [
     lignes: () => db.prepare(`
       SELECT ue_num, aa_code, description FROM aa
       ORDER BY ue_num, aa_code`).all(),
+  },
+
+  {
+    id: 'referentiel-ue-sans-attribution', domaine: 'referentiels', params: ['annee', 'section'],
+    libelle: 'Unités sans attribution',
+    aide: "Ce qui est organisé mais que personne ne donne — à vérifier avant la rentrée.",
+    colonnes: COLS([['section', 'Section', 26], ['ue_num', 'UE', 8],
+      ['ue_nom', 'Intitulé', 44], ['ue_quad', 'Quadri', 10], ['ects', 'ECTS', 8]]),
+    lignes: (p) => db.prepare(`
+      SELECT u.section, u.ue_num, u.ue_nom, u.ue_quad, u.ects
+      FROM ue u
+      WHERE u.annee_scolaire = ? AND (? IS NULL OR u.section = ?)
+        AND NOT EXISTS (SELECT 1 FROM v_attribution_complete v
+                         WHERE v.annee_scolaire = u.annee_scolaire
+                           AND v.ue_num = u.ue_num AND v.professeur IS NOT NULL)
+      ORDER BY u.section, u.ue_num`).all(p.annee, p.section, p.section),
   },
 
   // ── ORGANISATION ────────────────────────────────────────────────────────
@@ -449,6 +538,10 @@ function parametres(req, def) {
   const p = {};
   if (def.params.includes('annee')) p.annee = req.body?.annee || anneeDeTravail(req);
   if (def.params.includes('session')) p.session = Number(req.body?.session) === 2 ? 2 : 1;
+  // LA SECTION EST UN FILTRE, PAS UNE OBLIGATION. Vide, le rapport porte sur
+  // tout l'établissement — c'est le cas du Conseil et de la dotation ; choisie,
+  // il ne parle que d'un cursus — c'est le cas d'une coordination.
+  if (def.params.includes('section')) p.section = req.body?.section || null;
   p.perimetre = getUserSections(req.user);
   return p;
 }
