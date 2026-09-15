@@ -57,7 +57,13 @@ const STYLE_RAPPORT = `
         td { font-variant-numeric: tabular-nums; }
         tr.repere td { background: transparent; font-weight: 600; color:#1B2B4B;
                        padding-top: 3mm; border-bottom: 0.6pt solid #cbd5e1; }
-        tbody tr:last-child td { border-bottom: 0; }`;
+        tbody tr:last-child td { border-bottom: 0; }
+        td.n, th.n { text-align: right; }
+        tr.groupe td { font-weight: 700; color:#1B2B4B; padding-top: 3.5mm;
+                       border-bottom: 0.5pt solid #cbd5e1; }
+        tr.groupe .fin { font-weight: 400; }
+        td.vide { color:#94a3b8; text-align:center; padding: 6mm 0; }
+        tfoot tr.repere td { border-top: 0.8pt solid #cbd5e1; border-bottom: 0; }`;
 
 /*
  * ── DEUX FAMILLES DE PIÈCES, ET ELLES NE SE RESSEMBLENT PAS ────────────────
@@ -99,38 +105,34 @@ const rangeeTuiles = (tuiles) =>
  * nommées. On lit d'abord le nom, puis la longueur : c'est l'ordre naturel,
  * et c'est ce qu'un camembert interdit dès qu'il y a plus de trois parts.
  */
-function barres({ donnees, largeur = 170, unite = '' }) {
+function barres({ donnees, unite = '' }) {
+  /* LE TEXTE NE VA PAS DANS LE SVG.
+     Une barre dessinée dans un SVG étiré à la largeur de la page voit son
+     texte étiré avec elle : huit points deviennent quatre, déformés, et
+     illisibles à l'impression. La barre est donc un simple bloc coloré dont
+     la LARGEUR est un pourcentage, et le libellé du texte, à côté, à la
+     taille du document. Rien à mettre à l'échelle, rien à déformer. */
   const max = Math.max(...donnees.map(d => d.valeur), 0) || 1;
-  const h = 14, ecart = 6;
-  const hauteur = donnees.length * (h + ecart);
-  const lignes = donnees.map((d, i) => {
-    const y = i * (h + ecart);
-    const l = Math.max(1, (d.valeur / max) * largeur);
-    return `<rect x="0" y="${y}" width="${l}" height="${h}" rx="2"
-              fill="${d.couleur || '#1B2B4B'}" opacity="${d.pale ? 0.35 : 0.85}" />
-            <text x="${l + 5}" y="${y + h - 3.5}" font-size="8" fill="#475569">${d.texte}</text>`;
-  }).join('');
-  return `<svg width="100%" viewBox="0 0 ${largeur + 90} ${hauteur}"
-            preserveAspectRatio="xMinYMin meet" style="max-height:${hauteur}px">
-    ${lignes}</svg>${unite ? `<div class="fin">${unite}</div>` : ''}`;
+  return `<table class="barres">${donnees.map(d => `<tr>
+      <td class="barres-lib">${d.nom || ''}</td>
+      <td class="barres-piste">
+        <span class="barres-barre" style="width:${Math.max(1, d.valeur / max * 100)}%;
+          background:${d.couleur || '#1B2B4B'};opacity:${d.pale ? 0.35 : 0.85}"></span>
+      </td>
+      <td class="barres-val">${d.texte}</td>
+    </tr>`).join('')}</table>${unite ? `<div class="fin">${unite}</div>` : ''}`;
 }
 
 /** Une seule barre, découpée en parts — pour dire « de quoi c'est fait ». */
-function barreParts(parts, largeur = 520) {
+function barreParts(parts) {
   const total = parts.reduce((s, p) => s + p.valeur, 0) || 1;
-  let x = 0;
-  const seg = parts.map(p => {
-    const l = (p.valeur / total) * largeur;
-    const r = `<rect x="${x}" y="0" width="${Math.max(0, l - 1)}" height="12" rx="2"
-                 fill="${p.couleur}" opacity="${p.pale ? 0.35 : 0.85}" />`;
-    x += l;
-    return r;
-  }).join('');
+  const seg = parts.filter(p => p.valeur > 0).map(p =>
+    `<span class="part" style="width:${p.valeur / total * 100}%;background:${p.couleur};
+       opacity:${p.pale ? 0.35 : 0.85}"></span>`).join('');
   const legende = parts.filter(p => p.valeur > 0).map(p =>
     `<span class="leg"><i style="background:${p.couleur};opacity:${p.pale ? 0.35 : 0.85}"></i>${
       p.nom} — ${Math.round(p.valeur / total * 100)} %</span>`).join('');
-  return `<svg width="100%" viewBox="0 0 ${largeur} 12" preserveAspectRatio="none"
-            style="height:12px">${seg}</svg><div class="legendes">${legende}</div>`;
+  return `<div class="parts">${seg}</div><div class="legendes">${legende}</div>`;
 }
 
 /** Les styles des pièces de reporting — tuiles, barres, légendes. */
@@ -142,16 +144,171 @@ const STYLE_REPORTING = `
   .tuile-val { font-size:17pt; font-weight:700; color:#1B2B4B; line-height:1.05;
                font-variant-numeric:tabular-nums; }
   .tuile-u   { font-size:8pt; font-weight:400; color:#64748b; margin-left:1mm; }
-  .tuile-lib { font-size:7.5pt; color:#475569; margin-top:.8mm;
-               text-transform:uppercase; letter-spacing:.4pt; }
+  /* PAS DE CAPITALES FORCÉES : « Étudiants » y perdait son accent, et une
+     étiquette en capitales se lit moins vite qu'une étiquette normale. */
+  .tuile-lib { font-size:8pt; color:#475569; margin-top:.8mm; font-weight:600; }
   .tuile-fin { font-size:7.5pt; color:#94a3b8; margin-top:.5mm; }
   .legendes { margin-top:1.5mm; }
   .leg { font-size:7.5pt; color:#475569; margin-right:4mm; white-space:nowrap; }
   .leg i { display:inline-block; width:7px; height:7px; border-radius:1.5px;
            margin-right:1.2mm; vertical-align:baseline; }
   .cadre { break-inside:avoid; page-break-inside:avoid; margin:0 0 5mm; }
+  table.barres { width:100%; border-collapse:collapse; margin:0; }
+  table.barres td { border:0; padding:.7mm 0; font-size:8.5pt; vertical-align:middle; }
+  .barres-lib { width:34mm; color:#1B2B4B; padding-right:2mm !important; }
+  .barres-piste { background:#f1f5f9; border-radius:1mm; height:4mm; line-height:0; }
+  .barres-barre { display:inline-block; height:4mm; border-radius:1mm; }
+  .barres-val { width:44mm; text-align:right; color:#475569;
+                padding-left:2mm !important; white-space:nowrap; }
+  .parts { display:flex; height:4mm; border-radius:1mm; overflow:hidden; }
+  .parts .part { display:block; height:4mm; }
   .marque { color:#fff; font-size:6.5pt; font-weight:700; padding:.3mm 1.2mm;
             border-radius:1mm; letter-spacing:.3pt; }`;
+
+/**
+ * ── LA GRILLE DE SECTION ──────────────────────────────────────────────────
+ *
+ * La pièce que Jérôme sortait tous les ans, et qui a disparu avec l'écran qui
+ * la portait. Elle n'est ni un tableau ni un rapport de reporting : c'est la
+ * STRUCTURE d'un cursus, et elle se lit en descendant — bloc, unité, cours —
+ * avec les sous-totaux à chaque palier.
+ *
+ * Trois colonnes de périodes, et elles ne disent pas la même chose : ce que
+ * preste le PROFESSEUR, ce que suit l'ÉTUDIANT, et l'AUTONOMIE. Les confondre
+ * en une seule colonne — ce que faisait le rendu générique — ôte à la grille
+ * tout ce qui en fait une grille.
+ */
+function documentGrilleSection(p) {
+  const section = p.section || p.portee?.section;
+  if (!section) throw new Error('Choisissez une section.');
+  const esc = v => String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;');
+  const n = v => (v ? Math.round(v).toLocaleString('fr-BE') : '—');
+
+  const ues = db.prepare(`
+    SELECT u.ue_num, u.ue_nom, u.ue_niv, u.ue_quad, u.ue_aut, u.ects
+      FROM ue u WHERE u.section = ? AND u.annee_scolaire = ?
+     ORDER BY CAST(SUBSTR(COALESCE(u.ue_niv,'ZZZ'), -1) AS INTEGER), u.ue_num
+  `).all(section, p.annee);
+  if (!ues.length) throw new Error(`Aucune unité pour la section « ${section} » en ${p.annee}.`);
+
+  const cours = db.prepare(`
+    SELECT c.cours_code, c.cours_nom, c.ue_num, c.ct_pp, c.cours_per,
+           c.ue_autonomie, c.heures, c.per_etudiant
+      FROM cours c WHERE c.section = ? AND c.annee_scolaire = ?
+     ORDER BY c.cours_code
+  `).all(section, p.annee);
+
+  /* LES PÉRIODES ÉTUDIANT NE SE DEVINENT PAS. Ordre de priorité du modèle :
+     ce qui est saisi explicitement, sinon les heures converties (×1,2), sinon
+     les périodes de cours. Un stage encodé à 400 h comptait pour 60 tant que
+     `heures` était ignoré. */
+  const vide = v => v === null || v === undefined || v === '';
+  const perEtudiant = c => (!vide(c.per_etudiant) ? Number(c.per_etudiant)
+    : !vide(c.heures) ? Math.round(Number(c.heures) * 1.2)
+    : Number(c.cours_per) || 0);
+
+  const parUe = new Map();
+  for (const c of cours) {
+    if (!parUe.has(c.ue_num)) parUe.set(c.ue_num, []);
+    parUe.get(c.ue_num).push(c);
+  }
+
+  let gCt = 0, gPp = 0, gAut = 0, gEtud = 0, gTot = 0;
+  let corps = '';
+  let blocCourant = null;
+
+  for (const u of ues) {
+    const liste = parUe.get(u.ue_num) || [];
+    const ct = liste.filter(c => c.ct_pp === 'CT').reduce((t, c) => t + (c.cours_per || 0), 0);
+    const pp = liste.filter(c => c.ct_pp === 'PP').reduce((t, c) => t + (c.cours_per || 0), 0);
+    const aut = Math.max(0, ...liste.map(c => c.ue_autonomie || 0), u.ue_aut || 0);
+    const etud = liste.reduce((t, c) => t + perEtudiant(c), 0);
+    const tot = ct + pp + aut;
+    gCt += ct; gPp += pp; gAut += aut; gEtud += etud; gTot += tot;
+
+    const bloc = u.ue_niv || '—';
+    if (bloc !== blocCourant) {
+      blocCourant = bloc;
+      corps += `<tr class="bloc"><td colspan="8">${esc(bloc)}</td></tr>`;
+    }
+
+    corps += `<tr class="ue">
+      <td class="ue-bloc">${esc(bloc)}</td>
+      <td colspan="3"><b>UE ${esc(u.ue_num)} — ${esc(u.ue_nom)}</b>${
+        u.ue_quad ? ` <span class="fin">${esc(u.ue_quad)}</span>` : ''}${
+        u.ects ? ` <span class="fin">· ${esc(u.ects)} ECTS</span>` : ''}</td>
+      <td colspan="4"></td></tr>`;
+
+    for (const c of liste) {
+      corps += `<tr>
+        <td class="code">${esc(c.cours_code)}</td>
+        <td colspan="2">${esc(c.cours_nom)}</td>
+        <td class="type">${esc(c.ct_pp || '')}</td>
+        <td class="n">${n(c.cours_per)}</td>
+        <td class="n etud">${n(perEtudiant(c))}</td>
+        <td class="n">${c.ue_autonomie ? n(c.ue_autonomie) : ''}</td>
+        <td class="n g">${n(c.cours_per)}</td>
+      </tr>`;
+    }
+    if (aut > 0) {
+      corps += `<tr><td></td><td colspan="2"><i>Autonomie</i></td>
+        <td class="type">Auto</td><td class="n">—</td><td class="n etud">—</td>
+        <td class="n aut">${n(aut)}</td><td class="n g">${n(aut)}</td></tr>`;
+    }
+    corps += `<tr class="sous"><td></td>
+      <td colspan="3">Sous-total UE ${esc(u.ue_num)}</td>
+      <td class="n">${n(ct + pp)}</td><td class="n etud">${n(etud)}</td>
+      <td class="n aut">${n(aut)}</td><td class="n g">${n(tot)}</td></tr>`;
+  }
+
+  corps = `<table class="grille">
+    <thead><tr>
+      <th style="width:18mm">Code</th><th colspan="2">Cours / unité</th>
+      <th style="width:14mm">CT/PP</th>
+      <th class="n" style="width:20mm">Pér. prof.</th>
+      <th class="n" style="width:20mm">Pér. étud.</th>
+      <th class="n" style="width:18mm">Autonomie</th>
+      <th class="n" style="width:16mm">Total</th>
+    </tr></thead>
+    <tbody>${corps}</tbody>
+    <tfoot><tr class="total">
+      <td colspan="4">Total — ${esc(section)}</td>
+      <td class="n">${n(gCt + gPp)}</td><td class="n etud">${n(gEtud)}</td>
+      <td class="n aut">${n(gAut)}</td><td class="n">${n(gTot)}</td>
+    </tr></tfoot>
+  </table>
+  <p class="ref">CT : ${n(gCt)} pér. · PP : ${n(gPp)} pér. · Autonomie : ${n(gAut)} pér.
+    · ${ues.length} unité(s), ${cours.length} cours · total ${n(gTot)} périodes</p>`;
+
+  return {
+    corps,
+    entete: {
+      titre: `Grille de section — ${section}`,
+      sous: `Année scolaire ${p.annee} · structure du référentiel`,
+      mention: "Périodes professeur, périodes étudiant et autonomie ne se confondent pas : "
+        + "la première est prestée, la deuxième est suivie, la troisième est encadrée.",
+    },
+    titre: `Grille de section — ${section}`,
+    nom: `Grille-${String(section).replace(/\W+/g, '-')}-${p.annee}.html`,
+    styles: STYLE_RAPPORT + `
+      table.grille td, table.grille th { padding: 1.1mm 2mm; font-size: 8pt; }
+      table.grille .n { text-align: right; font-variant-numeric: tabular-nums; }
+      tr.bloc td { font-weight: 700; color: #1B2B4B; font-size: 9pt;
+                   padding-top: 4mm; border-bottom: 0.8pt solid #1B2B4B; }
+      tr.ue td { padding-top: 2.5mm; border-bottom: 0.3pt solid #e2e8f0; }
+      tr.ue .ue-bloc { font-size: 6.5pt; color: #94a3b8; vertical-align: middle; }
+      td.code { font-family: ui-monospace, Menlo, Consolas, monospace;
+                font-size: 7.5pt; color: #64748b; }
+      td.type { font-size: 7pt; color: #64748b; text-align: center; }
+      td.etud { color: #64748b; }
+      td.aut  { color: #B45309; }
+      td.g    { font-weight: 700; color: #1B2B4B; }
+      tr.sous td { font-size: 7.5pt; color: #475569; font-style: italic;
+                   border-bottom: 0.6pt solid #cbd5e1; }
+      tfoot tr.total td { font-weight: 700; color: #1B2B4B; font-size: 9pt;
+                          border-top: 1pt solid #1B2B4B; border-bottom: 0; }`,
+  };
+}
 
 /** Ce que toutes les pièces de charge partagent. */
 const STYLE_ETP = `
@@ -288,8 +445,6 @@ function documentEtpEtablissement(p) {
   const ratio = (e) => (e > 0 && etus > 0 ? (etus / e).toFixed(1).replace('.', ',') : '—');
 
   const corps = `
-    <h1>Charge en ETP — tout l'établissement</h1>
-    <p class="sous">Année académique ${esc(p.annee)} · ${secs.length} section(s)</p>
 
     ${rangeeTuiles([
       tuile({ valeur: n2(global), unite: 'ETP', libelle: 'Charge globale',
@@ -316,9 +471,9 @@ function documentEtpEtablissement(p) {
     <div class="cadre">
       <h2>Le poids de chaque section</h2>
       ${barres({ donnees: secs.map(x => ({
-        valeur: x.etp_total || 0, couleur: C.iip,
-        texte: `${x.section} — ${n2(x.etp_total)} ETP${
-          global > 0 ? ` (${Math.round((x.etp_total || 0) / global * 100)} %)` : ''}`,
+        nom: x.section, valeur: x.etp_total || 0, couleur: C.iip,
+        texte: `${n2(x.etp_total)} ETP${
+          global > 0 ? ` · ${Math.round((x.etp_total || 0) / global * 100)} %` : ''}`,
       })) })}
     </div>
 
@@ -342,7 +497,13 @@ function documentEtpEtablissement(p) {
     </table>`;
 
   return {
-    corps, titre: "Charge en ETP — établissement",
+    corps,
+    entete: {
+      titre: "Charge en équivalents temps plein — tout l'établissement",
+      sous: `Année académique ${p.annee} · ${secs.length} section(s)${
+        etus ? ` · ${n0(etus)} étudiant(s)` : ''}`,
+    },
+    titre: "Charge en ETP — établissement",
     nom: `ETP-etablissement-${p.annee}.html`,
     styles: STYLE_RAPPORT + STYLE_REPORTING + STYLE_ETP,
   };
@@ -385,9 +546,6 @@ function documentEtpUe(p) {
   }
 
   const corps = `
-    <h1>Charge en ETP — ${code ? `cours ${esc(code)}` : `UE ${esc(ueNum)}`}</h1>
-    <p class="sous">${esc(ue.ue_nom || '')}${ue.section ? ` · ${esc(ue.section)}` : ''}
-      · année ${esc(p.annee)}</p>
 
     ${rangeeTuiles([
       tuile({ valeur: n4(etp), unite: 'ETP', libelle: 'Charge', ton: 'fort',
@@ -403,8 +561,8 @@ function documentEtpUe(p) {
     ${parCours.size > 1 ? `<div class="cadre">
       <h2>Le poids de chaque cours</h2>
       ${barres({ donnees: [...parCours.entries()].map(([k, v]) => ({
-        valeur: v.etp, couleur: C.iip,
-        texte: `${k} — ${n0(v.periodes)} pér. · ${n4(v.etp)} ETP`,
+        nom: k, valeur: v.etp, couleur: C.iip,
+        texte: `${n0(v.periodes)} pér. · ${n4(v.etp)} ETP`,
       })) })}
     </div>` : ''}
 
@@ -427,6 +585,10 @@ function documentEtpUe(p) {
 
   return {
     corps,
+    entete: {
+      titre: `Charge en équivalents temps plein — ${code ? `cours ${code}` : `UE ${ueNum}`}`,
+      sous: [ue.ue_nom, ue.section, `année ${p.annee}`].filter(Boolean).join(' · '),
+    },
     titre: `Charge en ETP — ${code ? `cours ${code}` : `UE ${ueNum}`}`,
     nom: `ETP-${code || `UE${ueNum}`}-${p.annee}.html`,
     styles: STYLE_RAPPORT + STYLE_REPORTING + STYLE_ETP,
@@ -509,11 +671,6 @@ function documentEtpCursus(p) {
   const part = (e) => (global > 0 ? `${Math.round(e / global * 100)} %` : '—');
 
   const corps = `
-    <h1>Rapport de charge ETP — Section ${esc(sec.section)}</h1>
-    <p class="sous">Année académique ${esc(p.annee)} · charge enseignante en équivalents temps plein</p>
-    <p class="fin">Pièce destinée au COPIL ou au Conseil d'administration. Elle reflète
-      l'état des attributions encodées${etus > 0 ? `, pour ${n0(etus)} étudiant(s) inscrits` : ''}
-      — et non un arrêté de dotation.</p>
 
     ${rangeeTuiles([
       tuile({ valeur: n2(global), unite: 'ETP', libelle: 'Charge globale',
@@ -542,9 +699,8 @@ function documentEtpCursus(p) {
       ${barres({
         donnees: blocs.map(b => {
           const e = parBloc.get(b).reduce((s, u) => s + (u.etp_total || 0), 0);
-          return { valeur: e, couleur: C.iip,
-            texte: `${NOM_BLOC[b] || b} — ${n2(e)} ETP${
-              global > 0 ? ` (${Math.round(e / global * 100)} %)` : ''}` };
+          return { nom: NOM_BLOC[b] || b, valeur: e, couleur: C.iip,
+            texte: `${n2(e)} ETP${global > 0 ? ` · ${Math.round(e / global * 100)} %` : ''}` };
         }),
       })}
     </div>` : ''}
@@ -560,6 +716,12 @@ function documentEtpCursus(p) {
 
   return {
     corps,
+    entete: {
+      titre: `Charge en équivalents temps plein — ${sec.section}`,
+      sous: `Année académique ${p.annee}${etus > 0 ? ` · ${n0(etus)} étudiant(s) inscrits` : ''}`,
+      mention: "Pièce destinée au COPIL ou au Conseil d'administration. Elle reflète "
+        + "l'état des attributions encodées, et non un arrêté de dotation.",
+    },
     titre: `Rapport de charge ETP — ${sec.section}`,
     nom: `ETP-${String(sec.section).replace(/\W+/g, '-')}-${p.annee}.html`,
     orientation: 'portrait',
@@ -893,6 +1055,20 @@ export const RAPPORTS = [
        ORDER BY u.section, u.ue_num`).all(p.annee, p.section, p.section),
   },
   {
+    id: 'grille-section', domaine: 'referentiels', params: ['annee', 'section'],
+    libelle: 'Grille de section',
+    aide: "La structure d'un cursus : blocs, unités, cours, avec périodes professeur, étudiant et autonomie.",
+    colonnes: COLS([['ue_num', 'UE', 8], ['ue_nom', 'Unité', 44],
+      ['cours_code', 'Cours', 14], ['cours_nom', 'Intitulé', 40],
+      ['ct_pp', 'Type', 8], ['cours_per', 'Périodes']]),
+    lignes: (p) => db.prepare(`
+      SELECT c.ue_num, u.ue_nom, c.cours_code, c.cours_nom, c.ct_pp, c.cours_per
+        FROM cours c LEFT JOIN ue u ON u.ue_num = c.ue_num AND u.annee_scolaire = c.annee_scolaire
+       WHERE c.annee_scolaire = ? AND (? IS NULL OR c.section = ?)
+       ORDER BY c.ue_num, c.cours_code`).all(p.annee, p.section, p.section),
+    document: (p) => documentGrilleSection(p),
+  },
+  {
     /* QUI DONNE QUOI DANS UNE UNITÉ — la liste « profs par UE » de l'ancien
        écran, celle qu'on imprime avant une réunion d'équipe d'unité. */
     id: 'referentiel-profs-ue', domaine: 'referentiels', params: ['annee', 'section'],
@@ -1071,6 +1247,7 @@ r.post('/:id/document', authRequired, (req, res) => {
           html: d.corps, titre: d.titre,
           orientation: d.orientation || 'portrait',
           styles: d.styles || STYLE_RAPPORT,
+          entete: d.entete || { titre: d.titre },
         }),
         nom: d.nom, titre: d.titre,
       });
@@ -1079,27 +1256,82 @@ r.post('/:id/document', authRequired, (req, res) => {
     const lignes = def.lignes(p);
     const esc = v => String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;');
 
-    // Les colonnes de nombres s'alignent à droite : une colonne de chiffres
-    // cadrée à gauche ne se compare pas d'un coup d'oeil, et c'est pour la
-    // comparer qu'on l'imprime.
+    /* UNE LISTE N'EST PAS UN DOCUMENT.
+     *
+     * Le rendu générique posait les lignes telles quelles : « AeSI » répété
+     * quatre-vingts fois dans la première colonne, aucun total, aucun
+     * regroupement. Sur papier, cela ne se lit pas — cela se subit. Or ce qui
+     * rend une liste lisible tient en trois gestes, et ils sont les mêmes
+     * pour tous les rapports :
+     *
+     *  · GROUPER sur la première colonne quand elle se répète — la section,
+     *    l'enseignant — et l'écrire UNE fois, en tête de son paquet ;
+     *  · TOTALISER les colonnes de nombres, par groupe et pour l'ensemble :
+     *    c'est presque toujours le chiffre qu'on cherchait ;
+     *  · COMPTER ce qu'on montre, pour savoir si la page est complète.
+     *
+     * Écrit une fois ici, chaque rapport du catalogue en profite — y compris
+     * ceux qu'on ajoutera demain. */
     const nombre = c => lignes.some(l => typeof l[c.cle] === 'number');
+    const colonnes = def.colonnes;
+    const premiere = colonnes[0];
+    const groupable = lignes.length > 4 && premiere
+      && new Set(lignes.map(l => l[premiere.cle])).size > 1
+      && new Set(lignes.map(l => l[premiere.cle])).size <= lignes.length / 2;
+
+    const cellules = (l, sauterPremiere) => colonnes.map((c, i) =>
+      (sauterPremiere && i === 0)
+        ? '<td></td>'
+        : `<td${nombre(c) ? ' class="n"' : ''}>${esc(l[c.cle])}</td>`).join('');
+
+    const somme = (liste, c) => liste.reduce((t, l) =>
+      t + (typeof l[c.cle] === 'number' ? l[c.cle] : 0), 0);
+    const ligneTotal = (liste, libelle) => `<tr class="repere">
+      <td${colonnes.length > 1 ? ` colspan="${1 + colonnes.findIndex((c, i) => i > 0 && nombre(c)) - 1}"` : ''}>${esc(libelle)}</td>
+      ${colonnes.slice(colonnes.findIndex((c, i) => i > 0 && nombre(c))).map(c =>
+        `<td class="n">${nombre(c)
+          ? Math.round(somme(liste, c) * 100) / 100 : ''}</td>`).join('')}
+    </tr>`;
+    const aDesNombres = colonnes.some((c, i) => i > 0 && nombre(c));
+
+    let corpsTable = '';
+    if (groupable) {
+      const groupes = new Map();
+      for (const l of lignes) {
+        const k = l[premiere.cle] ?? '—';
+        if (!groupes.has(k)) groupes.set(k, []);
+        groupes.get(k).push(l);
+      }
+      for (const [k, liste] of groupes) {
+        corpsTable += `<tr class="groupe"><td colspan="${colonnes.length}">${esc(k)}
+          <span class="fin">— ${liste.length} ligne(s)</span></td></tr>`;
+        corpsTable += liste.map(l => `<tr>${cellules(l, true)}</tr>`).join('');
+        if (aDesNombres && liste.length > 1) corpsTable += ligneTotal(liste, `Total ${k}`);
+      }
+    } else {
+      corpsTable = lignes.map(l => `<tr>${cellules(l, false)}</tr>`).join('');
+    }
+
     const corps = `
-      <h1>${esc(def.libelle)}</h1>
-      <p class="sous">${esc(def.aide || '')}</p>
       <table>
-        <thead><tr>${def.colonnes.map(c =>
-          `<th${nombre(c) ? ' style="text-align:right"' : ''}>${esc(c.entete)}</th>`).join('')}</tr></thead>
-        <tbody>${lignes.map(l => `<tr>${def.colonnes.map(c =>
-          `<td${nombre(c) ? ' style="text-align:right"' : ''}>${esc(l[c.cle])}</td>`).join('')}</tr>`).join('')}</tbody>
-      </table>
-      <p class="ref">${lignes.length} ligne(s)${
-        p.annee ? ` · année ${esc(p.annee)}` : ''}${
-        p.session ? ` · session ${esc(p.session)}` : ''}</p>`;
+        <thead><tr>${colonnes.map(c =>
+          `<th${nombre(c) ? ' class="n"' : ''}>${esc(c.entete)}</th>`).join('')}</tr></thead>
+        <tbody>${corpsTable || `<tr><td colspan="${colonnes.length}" class="vide">
+          Aucune donnée pour ces paramètres.</td></tr>`}</tbody>
+        ${lignes.length && aDesNombres ? `<tfoot>${ligneTotal(lignes, 'Ensemble')}</tfoot>` : ''}
+      </table>`;
 
     res.json({
       html: envelopperDocument({
         html: corps,
         titre: def.libelle,
+        entete: {
+          titre: def.libelle,
+          sous: [p.annee ? `Année ${p.annee}` : null, p.section || null,
+                 p.session ? `session ${p.session}` : null,
+                 `${lignes.length} ligne(s)`].filter(Boolean).join(' · '),
+          mention: def.aide || null,
+        },
         // Un rapport large se lit en paysage : douze colonnes sur une A4
         // portrait deviennent illisibles, et on les imprime pour les lire.
         orientation: def.colonnes.length > 6 ? 'paysage' : 'portrait',

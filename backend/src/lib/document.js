@@ -16,6 +16,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { piedDocument } from '../routes/parametres.js';
+import db from '../db/index.js';
 
 // ── RÈGLE UNIQUE DU PIED DE PAGE ─────────────────────────────────────────────
 // Une seule réserve, pour TOUS les documents, comme le pied d'un Word : les
@@ -122,13 +123,53 @@ export function piedStyles(hauteur = HAUTEUR_PIED_MM, margeHaut = 18) {
   }`;
 }
 
+/**
+ * L'EN-TÊTE DE L'ÉTABLISSEMENT — ce qui manquait à toutes les pièces.
+ *
+ * L'enveloppe commune ne posait qu'un PIED. Les rapports sortaient donc avec
+ * un titre en gras sur une page blanche : ni le nom de l'école, ni son numéro
+ * FASE, ni la nature de la pièce. Présenté au COPIL, à une inspection ou à la
+ * Fédération, un tel papier ne prouve rien — et c'est bien la question posée :
+ * « je fais quoi avec ça ? »
+ *
+ * L'ordre est celui de la charte : filet fin, identité de l'établissement,
+ * puis un cadre de titre portant ce que la pièce est, pour qui et pour quand.
+ * Le tout tient en trois centimètres, et ne se répète pas d'une page à
+ * l'autre : c'est une pièce, pas un formulaire.
+ */
+export function enteteDocument({ titre, sous = null, mention = null } = {}) {
+  let etab = {};
+  try { etab = db.prepare('SELECT * FROM etablissement WHERE id = 1').get() || {}; } catch { /* base minimale */ }
+  const esc = s => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;');
+  const ident = [etab.etab_nom, etab.adresse].filter(Boolean).map(esc).join(' · ');
+  const refs = [
+    etab.num_fase ? `FASE ${esc(etab.num_fase)}` : null,
+    etab.num_entreprise ? `N° entreprise ${esc(etab.num_entreprise)}` : null,
+  ].filter(Boolean).join(' · ');
+
+  return `<div class="doc-entete">
+    <div class="doc-ident">${ident || 'Institut Ilya Prigogine'}${
+      refs ? `<span class="doc-refs">${refs}</span>` : ''}</div>
+    <div class="doc-titre">
+      <div class="doc-titre-t">${esc(titre)}</div>
+      ${sous ? `<div class="doc-titre-s">${esc(sous)}</div>` : ''}
+      ${mention ? `<div class="doc-titre-m">${esc(mention)}</div>` : ''}
+    </div>
+  </div>`;
+}
+
 export function envelopperDocument({ html, titre, orientation = 'portrait',
                                      styles = '', logo = null, avecPied = true,
-                                     margeHaut = 18, margeCote = 18 }) {
+                                     margeHaut = 18, margeCote = 18,
+                                     entete = null }) {
   const pied = avecPied ? piedDocument() : '';
   const esc = s => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;');
 
   const piedHtml = avecPied && pied ? piedBalisage(logo) : '';
+  // `entete` porte ce que la pièce veut annoncer ; passé à `false`, on n'en
+  // met pas — le diplôme et le corps de courriel restent hors standard.
+  const enteteHtml = entete === false ? ''
+    : enteteDocument(entete || { titre });
 
   return `<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8">
 <title>${esc(titre)}</title>
@@ -141,9 +182,26 @@ export function envelopperDocument({ html, titre, orientation = 'portrait',
          color: #1a1a2e; margin: 0; }
   /* La place du pied se réserve ici, faute de quoi le texte passerait dessous. */
   img { max-width: 100%; background: #fff; }
+  /* ── L'EN-TÊTE ──────────────────────────────────────────────────────── */
+  .doc-entete { margin: 0 0 6mm; }
+  .doc-ident { font-size: 8pt; color: #475569; letter-spacing: .2pt;
+               padding-bottom: 1.5mm; border-bottom: 0.3mm solid #C9A84C;
+               display: flex; justify-content: space-between; gap: 6mm; }
+  .doc-refs { color: #94a3b8; white-space: nowrap; }
+  .doc-titre { border: 0.4mm solid #1B2B4B; border-radius: 1.5mm;
+               padding: 2.5mm 3mm; margin-top: 3mm; }
+  .doc-titre-t { font-size: 13pt; font-weight: 700; color: #1B2B4B;
+                 letter-spacing: -.2pt; line-height: 1.15; }
+  .doc-titre-s { font-size: 9pt; color: #475569; margin-top: .8mm; }
+  .doc-titre-m { font-size: 8pt; color: #94a3b8; margin-top: 1.2mm; }
+  /* Le titre est dans le cadre : un h1 dans le corps le dirait deux fois. */
   h1 { font-size: 15pt; color: #1B2B4B; margin: 0 0 2mm; }
-  h2 { font-size: 12pt; color: #1B2B4B; margin: 6mm 0 2mm;
-       border-bottom: 1.5pt solid #C9A84C; padding-bottom: 1mm; }
+  /* UN SEUL FILET DORÉ PAR PAGE, ET IL EST EN TÊTE. Sous chaque titre de
+     section, il transformait la pièce en page de garde des années 2000 :
+     quatre traits dorés sur une feuille qui n'a qu'un sujet. Un titre se
+     distingue par sa graisse et par l'air qu'on lui laisse. */
+  h2 { font-size: 11pt; color: #1B2B4B; margin: 7mm 0 2mm;
+       letter-spacing: -.1pt; }
   h3 { font-size: 10.5pt; color: #1B2B4B; margin: 5mm 0 1.5mm; }
   p  { margin: 1.5mm 0; line-height: 1.5; }
   table { width: 100%; border-collapse: collapse; margin: 2mm 0; }
@@ -170,6 +228,7 @@ export function envelopperDocument({ html, titre, orientation = 'portrait',
 
 ${styles}
 </style></head><body>
+${enteteHtml}
 ${html}
 ${piedHtml}
 </body></html>`;
