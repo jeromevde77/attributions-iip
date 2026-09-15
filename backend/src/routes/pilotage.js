@@ -573,10 +573,18 @@ r.get('/efficience', authRequired, (req, res) => {
   });
 });
 
-// GET /etp?annee= — Répartition ETP par section et UE (IIP et HELB), tout en CT/800 + PP/1000 sur les périodes
-r.get('/etp', authRequired, (req, res) => {
-  const { annee } = req.query;
-  if (!annee) return res.status(400).json({ error: 'annee requise' });
+/**
+ * LA RÉPARTITION ETP, CALCULÉE UNE FOIS POUR TOUS CEUX QUI EN ONT BESOIN.
+ *
+ * Ce calcul ne vivait que dans une route : l'écran l'appelait, et le document
+ * du COPIL était fabriqué dans le navigateur à partir de la réponse. Un
+ * rapport qui n'existe que si un écran est ouvert n'est pas un rapport — il ne
+ * peut ni s'imprimer depuis le catalogue, ni se programmer, ni se vérifier.
+ *
+ * La fonction rend exactement ce que la route rendait ; la route l'appelle.
+ * UN SEUL CALCUL, DEUX PORTES — et aucune chance qu'ils divergent.
+ */
+export function calculerEtp(annee) {
 
   // IIP : périodes CT et PP par section/UE (autonomie incluse dans total_attribue_professeur)
   const lignesIIP = db.prepare(`
@@ -721,7 +729,7 @@ r.get('/etp', authRequired, (req, res) => {
     etp_secretariat: etpSecEtuProrata,
   }));
 
-  res.json({
+  return {
     annee,
     sections: outFinal,
     total: { ...total, etp_coord_helb: totalCoordHelb },
@@ -730,7 +738,14 @@ r.get('/etp', authRequired, (req, res) => {
     nb_sections: nbSections,
     etp_sec_etu_total: r4(etpSecEtu),
     etp_sec_etu_prorata: etpSecEtuProrata,
-  });
+  };
+}
+
+// GET /etp?annee= — la même chose, par la porte de l'écran.
+r.get('/etp', authRequired, (req, res) => {
+  const { annee } = req.query;
+  if (!annee) return res.status(400).json({ error: 'annee requise' });
+  res.json(calculerEtp(annee));
 });
 
 // ── CRUD poste_pncc ──────────────────────────────────────────────────────────

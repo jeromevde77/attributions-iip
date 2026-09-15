@@ -186,10 +186,14 @@ function OngletRapports({ domaine }) {
             className="controle controle-fort">
             <IconPrinter size={14} /> Imprimer
           </button>
-          <button onClick={telecharger} disabled={!choisi || enCours}
-            className="controle">
-            <IconDownload size={14} /> Tableur
-          </button>
+          {/* Une pièce mise en page ne sort pas en tableur : elle n'a pas de
+              lignes à retrier, elle a une forme. */}
+          {!choisi?.piece && (
+            <button onClick={telecharger} disabled={!choisi || enCours}
+              className="controle">
+              <IconDownload size={14} /> Tableur
+            </button>
+          )}
         </div>
 
         {erreur && (

@@ -21,6 +21,7 @@ import { authRequired, getUserSections } from '../middleware/auth.js';
 import { envelopperDocument } from '../lib/document.js';
 import { anneeDeTravail } from '../helpers/annee.js';
 import { decisionDeSession } from './acquis.js';
+import { calculerEtp } from './pilotage.js';
 
 const r = Router();
 
@@ -56,6 +57,179 @@ const STYLE_RAPPORT = `
         tr.repere td { background: transparent; font-weight: 600; color:#1B2B4B;
                        padding-top: 3mm; border-bottom: 0.6pt solid #cbd5e1; }
         tbody tr:last-child td { border-bottom: 0; }`;
+
+/** Le bloc d'une unité — « BA1 », « BA2 »… ; à défaut, « Autres ». */
+const blocDe = (u) => {
+  const m = String(u.ue_niv || '').match(/\d+/);
+  return m ? `BA${m[0]}` : 'Autres';
+};
+const NOM_BLOC = { BA1: 'Bloc 1', BA2: 'Bloc 2', BA3: 'Bloc 3', Autres: 'Hors bloc' };
+const ORDRE_BLOC = ['BA1', 'BA2', 'BA3', 'Autres'];
+
+/**
+ * UNE UNITÉ EST « HELB » QUAND ELLE N'EST PORTÉE QUE PAR LA HAUTE ÉCOLE.
+ * Ce n'est pas une propriété de l'unité : c'est un constat sur qui la donne
+ * cette année-là. Il se refait donc à chaque édition, et ne se stocke pas.
+ */
+const contratDe = (u) => (u.etp_helb > 0 && u.etp_iip <= 0 ? 'HELB' : 'IIP');
+const periodesDe = (u) => (u.per_ct || 0) + (u.per_pp || 0)
+  + (u.per_ct_helb || 0) + (u.per_pp_helb || 0);
+
+/** La section demandée, ou la première — un rapport de cursus en vise un. */
+function cursus(p) {
+  const d = calculerEtp(p.annee);
+  const sec = p.section
+    ? (d.sections || []).find(s => s.section === p.section)
+    : (d.sections || [])[0];
+  if (!sec) {
+    throw new Error(p.section
+      ? `Aucune charge ETP pour la section « ${p.section} » en ${p.annee}.`
+      : `Aucune charge ETP en ${p.annee}.`);
+  }
+  return { d, sec };
+}
+
+/** L'aperçu : les mêmes unités que la pièce, à plat. */
+function lignesEtpCursus(p) {
+  const { sec } = cursus(p);
+  return [...sec.ues]
+    .sort((a, b) => (ORDRE_BLOC.indexOf(blocDe(a)) - ORDRE_BLOC.indexOf(blocDe(b)))
+      || String(a.ue_num).localeCompare(String(b.ue_num), 'fr', { numeric: true }))
+    .map(u => ({
+      bloc: NOM_BLOC[blocDe(u)] || blocDe(u),
+      ue_num: u.ue_num, ue_nom: u.ue_nom || '—',
+      contrat: contratDe(u),
+      per_ct: Math.round((u.per_ct || 0) + (u.per_ct_helb || 0)) || null,
+      per_pp: Math.round((u.per_pp || 0) + (u.per_pp_helb || 0)) || null,
+      periodes: Math.round(periodesDe(u)),
+      etp: Math.round((u.etp_total || 0) * 10000) / 10000,
+    }));
+}
+
+/** La pièce elle-même : blocs, sous-totaux, parts et ratios. */
+function documentEtpCursus(p) {
+  const { sec } = cursus(p);
+  const esc = v => String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;');
+  const n0 = n => Math.round(n || 0).toLocaleString('fr-BE').replace(/ /g, ' ');
+  const n2 = n => (n || 0).toFixed(2).replace('.', ',');
+  const n4 = n => (n || 0).toFixed(4).replace('.', ',');
+
+  const parBloc = new Map();
+  for (const u of sec.ues) {
+    const b = blocDe(u);
+    if (!parBloc.has(b)) parBloc.set(b, []);
+    parBloc.get(b).push(u);
+  }
+  const blocs = [...parBloc.keys()].sort(
+    (a, b) => ORDRE_BLOC.indexOf(a) - ORDRE_BLOC.indexOf(b));
+
+  let corpsBlocs = '';
+  for (const b of blocs) {
+    const ues = parBloc.get(b).sort((x, y) =>
+      String(x.ue_num).localeCompare(String(y.ue_num), 'fr', { numeric: true }));
+    let tPer = 0, tEtp = 0, iPer = 0, iEtp = 0, hPer = 0, hEtp = 0;
+    const lignes = ues.map(u => {
+      const per = periodesDe(u), c = contratDe(u);
+      tPer += per; tEtp += u.etp_total || 0;
+      if (c === 'IIP') { iPer += per; iEtp += u.etp_total || 0; }
+      else { hPer += per; hEtp += u.etp_total || 0; }
+      const ct = Math.round((u.per_ct || 0) + (u.per_ct_helb || 0));
+      const pp = Math.round((u.per_pp || 0) + (u.per_pp_helb || 0));
+      return `<tr>
+        <td class="ue">${esc(u.ue_num)}</td>
+        <td>${esc(u.ue_nom || '—')}${u.ects ? `<span class="fin"> · ${esc(u.ects)} ECTS</span>` : ''}</td>
+        <td>${c === 'IIP' ? '' : 'HELB'}</td>
+        <td class="n">${ct ? n0(ct) : ''}</td>
+        <td class="n">${pp ? n0(pp) : ''}</td>
+        <td class="n">${n0(per)}</td>
+        <td class="n g">${n4(u.etp_total)}</td>
+      </tr>`;
+    }).join('');
+
+    // « dont HELB » ne s'affiche que s'il y a du HELB : une ligne à zéro
+    // n'informe de rien et allonge la page.
+    const dont = (lib, per, etp) => (etp > 0 ? `<tr class="dont">
+      <td colspan="5">dont ${lib}</td><td class="n">${n0(per)}</td><td class="n">${n4(etp)}</td></tr>` : '');
+
+    corpsBlocs += `
+      <h3>${esc(NOM_BLOC[b] || b)} <span class="sous">— ${ues.length} unité(s)</span></h3>
+      <table>
+        <thead><tr>
+          <th style="width:12mm">UE</th><th>Intitulé</th><th style="width:16mm">Contrat</th>
+          <th class="n" style="width:20mm">Pér. CT</th><th class="n" style="width:20mm">Pér. PP</th>
+          <th class="n" style="width:22mm">Périodes</th><th class="n" style="width:20mm">ETP</th>
+        </tr></thead>
+        <tbody>${lignes}</tbody>
+        <tfoot>
+          ${dont('IIP', iPer, iEtp)}${dont('HELB', hPer, hEtp)}
+          <tr class="repere"><td colspan="5">Sous-total ${esc(NOM_BLOC[b] || b)}</td>
+            <td class="n">${n0(tPer)}</td><td class="n">${n4(tEtp)}</td></tr>
+        </tfoot>
+      </table>`;
+  }
+
+  const etpCours = sec.etp_total || 0;
+  const etpCoord = sec.etp_coord_helb || 0;
+  const etpSecr = sec.etp_secretariat || 0;
+  const global = etpCours + etpCoord;
+  const etus = sec.nb_etudiants || 0;
+  const perTot = sec.ues.reduce((s, u) => s + periodesDe(u), 0);
+  const ratio = (e) => (e > 0 && etus > 0 ? (etus / e).toFixed(1).replace('.', ',') : '—');
+  const part = (e) => (global > 0 ? `${Math.round(e / global * 100)} %` : '—');
+
+  const corps = `
+    <h1>Rapport de charge ETP — Section ${esc(sec.section)}</h1>
+    <p class="sous">Année académique ${esc(p.annee)} · charge enseignante en équivalents temps plein</p>
+    <p class="fin">Pièce destinée au COPIL ou au Conseil d'administration. Elle reflète
+      l'état des attributions encodées${etus > 0 ? `, pour ${n0(etus)} étudiant(s) inscrits` : ''}
+      — et non un arrêté de dotation.</p>
+
+    <h2>La charge en un coup d'œil</h2>
+    <table>
+      <thead><tr><th>Poste</th><th class="n" style="width:26mm">ETP</th>
+        <th class="n" style="width:26mm">Part</th>
+        <th class="n" style="width:34mm">Étudiants par ETP</th></tr></thead>
+      <tbody>
+        <tr><td>Cours <span class="fin">— ${n0(perTot)} périodes</span></td>
+          <td class="n g">${n2(etpCours)}</td><td class="n">${part(etpCours)}</td>
+          <td class="n">${ratio(etpCours)}</td></tr>
+        <tr><td>dont Institut (IIP)</td><td class="n">${n2(sec.etp_iip)}</td>
+          <td class="n">${part(sec.etp_iip)}</td><td class="n"></td></tr>
+        <tr><td>dont Haute École (HELB)</td><td class="n">${n2(sec.etp_helb)}</td>
+          <td class="n">${part(sec.etp_helb)}</td><td class="n"></td></tr>
+        ${etpCoord > 0 ? `<tr><td>Coordination HELB</td><td class="n">${n2(etpCoord)}</td>
+          <td class="n">${part(etpCoord)}</td><td class="n">${ratio(etpCoord)}</td></tr>` : ''}
+        ${etpSecr > 0 ? `<tr><td>Secrétariat étudiant <span class="fin">— quote-part</span></td>
+          <td class="n">${n2(etpSecr)}</td><td class="n"></td>
+          <td class="n">${ratio(etpSecr)}</td></tr>` : ''}
+      </tbody>
+      <tfoot><tr class="repere"><td>Charge globale <span class="fin">— cours et coordination</span></td>
+        <td class="n">${n2(global)}</td><td class="n">100 %</td>
+        <td class="n">${ratio(global)}</td></tr></tfoot>
+    </table>
+
+    <h2>Le détail par bloc</h2>
+    ${corpsBlocs}
+
+    <p class="ref">${sec.ues.length} unité(s) · ${n0(perTot)} périodes ·
+      ${n4(etpCours)} ETP de cours · année ${esc(p.annee)}</p>`;
+
+  return {
+    corps,
+    titre: `Rapport de charge ETP — ${sec.section}`,
+    nom: `ETP-${String(sec.section).replace(/\W+/g, '-')}-${p.annee}.html`,
+    orientation: 'portrait',
+    // La colonne des ETP est celle qu'on lit : elle se distingue par la
+    // graisse, non par une couleur — et le bloc par un filet, non un bandeau.
+    styles: STYLE_RAPPORT + `
+      td.ue { font-weight: 600; color: #1B2B4B; white-space: nowrap; }
+      td.n, th.n { text-align: right; }
+      td.g { font-weight: 700; color: #1B2B4B; }
+      tr.dont td { color: #64748b; font-size: 8pt; border-bottom: 0; }
+      tr.dont td:first-child { text-align: right; }
+      tfoot tr.repere td { border-top: 0.6pt solid #cbd5e1; }`,
+  };
+}
 
 export const RAPPORTS = [
   // ── PILOTAGE ────────────────────────────────────────────────────────────
@@ -240,6 +414,35 @@ export const RAPPORTS = [
   },
 
   /*
+   * ── LE RAPPORT DE CHARGE ETP D'UN CURSUS ──────────────────────────────
+   *
+   * C'est LA pièce du COPIL et du Conseil d'administration : ce que coûte une
+   * section en équivalents temps plein, unité par unité, bloc par bloc, et
+   * combien d'étudiants chaque ETP porte.
+   *
+   * Elle existait — et elle se fabriquait DANS LE NAVIGATEUR, avec sa propre
+   * page A4, ses propres marges, un en-tête en aplat marine, des bandeaux
+   * turquoise par bloc, des pastilles violettes, une rayure une ligne sur
+   * deux, et pas de pied de page. C'était la dixième enveloppe, et la seule à
+   * ne pas porter l'identité de l'établissement. Elle est donc ici, dans celle
+   * de la maison — et sa lecture y gagne : ce qui distingue IIP de HELB est un
+   * mot, non une couleur ; ce qui sépare les blocs est un filet, non un
+   * bandeau. Les chiffres, eux, sont les mêmes, au même calcul.
+   */
+  {
+    id: 'etp-cursus', domaine: 'pilotage', params: ['annee', 'section'],
+    libelle: 'Rapport de charge ETP par cursus',
+    aide: "La pièce du COPIL : ETP par unité et par bloc, part IIP et HELB, ratios étudiants par ETP.",
+    // Ce rapport n'est pas un tableau de lignes : il ne sort pas en tableur.
+    // Les colonnes servent à l'aperçu, qui montre ce que la pièce contiendra.
+    colonnes: COLS([['bloc', 'Bloc', 14], ['ue_num', 'UE', 8], ['ue_nom', 'Intitulé', 44],
+      ['contrat', 'Contrat', 12], ['per_ct', 'Périodes CT'], ['per_pp', 'Périodes PP'],
+      ['periodes', 'Périodes'], ['etp', 'ETP', 10]]),
+    lignes: (p) => lignesEtpCursus(p),
+    document: (p) => documentEtpCursus(p),
+  },
+
+  /*
    * ── CE QUI VIENT DU CONSTRUCTEUR DE LISTES ────────────────────────────
    *
    * Ces modèles existaient depuis longtemps, dans un écran à part : « profs
@@ -415,8 +618,12 @@ export const RAPPORTS = [
 
 r.get('/catalogue', authRequired, (req, res) => {
   res.json({
-    rapports: RAPPORTS.map(({ id, domaine, libelle, aide, params, colonnes }) => ({
+    // « piece » dit à l'écran que ce rapport est une MISE EN PAGE et non un
+    // tableau : le bouton « Tableur » n'a rien à y proposer, et un bouton qui
+    // ne fait rien est pire qu'un bouton absent.
+    rapports: RAPPORTS.map(({ id, domaine, libelle, aide, params, colonnes, document }) => ({
       id, domaine, libelle, aide, params, colonnes: colonnes.length,
+      piece: !!document,
     })),
   });
 });
@@ -453,6 +660,25 @@ r.post('/:id/document', authRequired, (req, res) => {
   if (!def) return res.status(404).json({ error: 'rapport inconnu' });
   try {
     const p = parametres(req, def);
+
+    /* CERTAINES PIÈCES NE SONT PAS DES TABLEAUX.
+       Le rapport de charge d'un cursus a des blocs, des sous-totaux et des
+       ratios : le rendu générique en ferait une liste de lignes, et la pièce
+       du COPIL perdrait justement ce qui la rend lisible. Un rapport peut donc
+       écrire son propre corps — dans LA MÊME enveloppe, ce qui est tout
+       l'enjeu : on n'en recrée pas une dixième. */
+    if (def.document) {
+      const d = def.document(p);
+      return res.json({
+        html: envelopperDocument({
+          html: d.corps, titre: d.titre,
+          orientation: d.orientation || 'portrait',
+          styles: d.styles || STYLE_RAPPORT,
+        }),
+        nom: d.nom, titre: d.titre,
+      });
+    }
+
     const lignes = def.lignes(p);
     const esc = v => String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;');
 
