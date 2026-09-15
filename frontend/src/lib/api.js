@@ -1,3 +1,4 @@
+import { confirmerAnnee } from './annee.js';
 const BASE = '/api';
 
 function getToken() { return localStorage.getItem('token'); }
@@ -171,11 +172,23 @@ export const api = {
     const qs = q.toString();
     return request(`/ref/activites${qs ? '?' + qs : ''}`);
   },
-  updateAttribution(id, data) { return request(`/attributions/${id}`, { method: 'PATCH', body: data }); },
+  /* LA GARDE D'ANNÉE EST ICI, ET NON SUR LES BOUTONS.
+     Douze endroits de l'écran des attributions lancent une modification, et il
+     y en aura treize demain : une garde qu'il faut penser à poser est une
+     garde fausse. Elle ne demande rien dans l'année en cours, et une seule
+     fois par année dans la session — pas à chaque cellule, sinon on cesse de
+     lire ce qu'on confirme. */
+  async updateAttribution(id, data) {
+    if (!await confirmerAnnee('une attribution')) throw new Error('Modification annulée.');
+    return request(`/attributions/${id}`, { method: 'PATCH', body: data });
+  },
   updateProfStatut(profId, statut) {
     return request(`/attributions/professeur/${profId}/statut`, { method: 'PATCH', body: { statut } });
   },
-  deleteAttribution(id) { return request(`/attributions/${id}`, { method: 'DELETE' }); },
+  async deleteAttribution(id) {
+    if (!await confirmerAnnee('une attribution')) throw new Error('Suppression annulée.');
+    return request(`/attributions/${id}`, { method: 'DELETE' });
+  },
   bulkDeleteAttributions(ids) {
     return request('/attributions/bulk-delete', { method: 'POST', body: { ids } });
   },
@@ -233,7 +246,10 @@ export const api = {
   catalogueUE() { return request(withAnnee('/ref/catalogue-ue')); },
   rattacherUE(ue_num, section_code) { return request('/ref/ue-section', { method: 'POST', body: { ue_num, section_code, annee_scolaire: getAnnee() } }); },
   appliquerNominations(ue_num, section) { return request('/nominations/appliquer', { method: 'POST', body: { annee: getAnnee(), ue_num, section } }); },
-  creerLigneDepuisCours(cours_code, ue_num, section) { return request('/attributions/creer-depuis-cours', { method: 'POST', body: { annee: getAnnee(), cours_code, ue_num, section } }); },
+  async creerLigneDepuisCours(cours_code, ue_num, section) {
+    if (!await confirmerAnnee('une attribution')) throw new Error('Création annulée.');
+    return request('/attributions/creer-depuis-cours', { method: 'POST', body: { annee: getAnnee(), cours_code, ue_num, section } });
+  },
   toggleConge(id) { return request(`/attributions/${id}/conge`, { method: 'POST', body: {} }); },
   apercuSuppressionSection(section) { return request(`/attributions/section/${encodeURIComponent(section)}/apercu-suppression?annee=${encodeURIComponent(getAnnee())}`); },
   supprimerToutSection(section) { return request(`/attributions/section/${encodeURIComponent(section)}/tout?annee=${encodeURIComponent(getAnnee())}`, { method: 'DELETE' }); },
