@@ -134,8 +134,14 @@ export default function Users({ embedded = false }) {
     return <div className="p-6 max-w-none mx-auto text-center text-gray-500">Accès réservé aux administrateurs.</div>;
   }
 
+  /* UN ÉCRAN IMBRIQUÉ NE SE DONNE PAS DE RETRAIT.
+     Celui-ci ajoutait 16 px par-dessus le retrait de Configuration : le titre
+     de la page partait de la marge, et tout ce qui suivait était décalé d'un
+     cran vers la droite. Deux bords de gauche sur le même écran, sans que rien
+     ne le justifie. C'est la page hôte qui donne la gouttière — comme Années
+     et Référentiels le font déjà. */
   return (
-    <div className={embedded ? 'p-4 space-y-4' : 'p-6 space-y-4'}>
+    <div className={embedded ? 'space-y-4' : 'p-6 space-y-4'}>
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div className="flex-1 min-w-[320px]">
           {!embedded && <h1 className="titre-ecran">Accès à Lucie</h1>}
