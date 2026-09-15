@@ -59,8 +59,10 @@ const STYLE_RAPPORT = `
                        padding-top: 3mm; border-bottom: 0.6pt solid #cbd5e1; }
         tbody tr:last-child td { border-bottom: 0; }
         td.n, th.n { text-align: right; }
-        tr.groupe td { font-weight: 700; color:#1B2B4B; padding-top: 3.5mm;
-                       border-bottom: 0.5pt solid #cbd5e1; }
+        /* Le titre de groupe EST la section : en gras, sur sa ligne, et rien
+           d'autre. C'est un titre, pas une cellule de plus. */
+        tr.groupe td { font-weight: 700; color:#1B2B4B; padding-top: 4mm;
+                       font-size: 9.5pt; border-bottom: 0.5pt solid #cbd5e1; }
         tr.groupe .fin { font-weight: 400; }
         td.vide { color:#94a3b8; text-align:center; padding: 6mm 0; }
         tfoot tr.repere td { border-top: 0.8pt solid #cbd5e1; border-bottom: 0; }`;
@@ -1333,19 +1335,31 @@ r.post('/:id/document', authRequired, (req, res) => {
       && new Set(lignes.map(l => l[premiere.cle])).size > 1
       && new Set(lignes.map(l => l[premiere.cle])).size <= lignes.length / 2;
 
-    const cellules = (l, sauterPremiere) => colonnes.map((c, i) =>
-      (sauterPremiere && i === 0)
-        ? '<td></td>'
-        : `<td${nombre(c) ? ' class="n"' : ''}>${esc(l[c.cle])}</td>`).join('');
+    /* GROUPER, C'EST SUPPRIMER UNE COLONNE, PAS LA VIDER.
+       La première colonne — la section — était laissée en place et vide sur
+       chaque ligne : deux centimètres de blanc sur toute la hauteur de la
+       page, pour une information déjà écrite en tête du groupe. Le titre du
+       groupe EST cette colonne ; les lignes n'ont donc plus qu'à porter le
+       reste, et l'intitulé récupère la place. */
+    const visibles = groupable => (groupable ? colonnes.slice(1) : colonnes);
+    const cellules = (l, groupable) => visibles(groupable).map(c =>
+      `<td${nombre(c) ? ' class="n"' : ''}>${esc(l[c.cle])}</td>`).join('');
 
     const somme = (liste, c) => liste.reduce((t, l) =>
       t + (typeof l[c.cle] === 'number' ? l[c.cle] : 0), 0);
-    const ligneTotal = (liste, libelle) => `<tr class="repere">
-      <td${colonnes.length > 1 ? ` colspan="${1 + colonnes.findIndex((c, i) => i > 0 && nombre(c)) - 1}"` : ''}>${esc(libelle)}</td>
-      ${colonnes.slice(colonnes.findIndex((c, i) => i > 0 && nombre(c))).map(c =>
-        `<td class="n">${nombre(c)
+    /* Le libellé du total occupe les colonnes de texte, et les sommes se
+       posent SOUS leurs colonnes de nombres : un total décalé d'une case ne
+       se lit pas, il se devine. */
+    const ligneTotal = (liste, libelle, groupable) => {
+      const cols = visibles(groupable);
+      const premierNombre = cols.findIndex(c => nombre(c));
+      const avant = premierNombre < 0 ? cols.length : premierNombre;
+      return `<tr class="repere">
+        <td${avant > 1 ? ` colspan="${avant}"` : ''}>${esc(libelle)}</td>
+        ${cols.slice(avant).map(c => `<td class="n">${nombre(c)
           ? Math.round(somme(liste, c) * 100) / 100 : ''}</td>`).join('')}
-    </tr>`;
+      </tr>`;
+    };
     const aDesNombres = colonnes.some((c, i) => i > 0 && nombre(c));
 
     let corpsTable = '';
@@ -1357,10 +1371,12 @@ r.post('/:id/document', authRequired, (req, res) => {
         groupes.get(k).push(l);
       }
       for (const [k, liste] of groupes) {
-        corpsTable += `<tr class="groupe"><td colspan="${colonnes.length}">${esc(k)}
+        corpsTable += `<tr class="groupe"><td colspan="${colonnes.length - 1}">${esc(k)}
           <span class="fin">— ${liste.length} ligne(s)</span></td></tr>`;
         corpsTable += liste.map(l => `<tr>${cellules(l, true)}</tr>`).join('');
-        if (aDesNombres && liste.length > 1) corpsTable += ligneTotal(liste, `Total ${k}`);
+        if (aDesNombres && liste.length > 1) {
+          corpsTable += ligneTotal(liste, `Total ${k}`, true);
+        }
       }
     } else {
       corpsTable = lignes.map(l => `<tr>${cellules(l, false)}</tr>`).join('');
@@ -1368,11 +1384,12 @@ r.post('/:id/document', authRequired, (req, res) => {
 
     const corps = `
       <table>
-        <thead><tr>${colonnes.map(c =>
+        <thead><tr>${visibles(groupable).map(c =>
           `<th${nombre(c) ? ' class="n"' : ''}>${esc(c.entete)}</th>`).join('')}</tr></thead>
-        <tbody>${corpsTable || `<tr><td colspan="${colonnes.length}" class="vide">
+        <tbody>${corpsTable || `<tr><td colspan="${visibles(groupable).length}" class="vide">
           Aucune donnée pour ces paramètres.</td></tr>`}</tbody>
-        ${lignes.length && aDesNombres ? `<tfoot>${ligneTotal(lignes, 'Ensemble')}</tfoot>` : ''}
+        ${lignes.length && aDesNombres
+          ? `<tfoot>${ligneTotal(lignes, 'Ensemble', groupable)}</tfoot>` : ''}
       </table>`;
 
     res.json({
