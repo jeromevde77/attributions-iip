@@ -134,8 +134,230 @@ function agreger(lignes, clef) {
   return par;
 }
 
+
+/*
+ * ── LA DISTRIBUTION, ET PAS SEULEMENT LA MOYENNE ──────────────────────────
+ *
+ * Une moyenne seule ment par omission. Deux cours à 12 de moyenne peuvent
+ * cacher, l'un une promotion homogène, l'autre deux paquets d'étudiants à 6 et
+ * à 18 — et ce n'est pas la même conversation en Conseil. D'où trois mesures,
+ * qui ne disent pas la même chose :
+ *
+ *  · LA MOYENNE se déplace avec les extrêmes. Trois absents notés zéro la font
+ *    chuter de deux points sans que personne n'ait moins bien travaillé.
+ *  · LA MÉDIANE coupe la promotion en deux : la moitié fait mieux, la moitié
+ *    fait moins bien. Elle ne bouge pas parce qu'un étudiant a eu 2.
+ *  · LE MODE est la note la plus fréquente. Sur des cotes arrondies, c'est
+ *    souvent le chiffre que le correcteur a le plus écrit — et l'écart entre
+ *    le mode et la moyenne en dit long sur la forme de la distribution.
+ *
+ * Quand deux valeurs sont également fréquentes, il n'y a pas UN mode : on les
+ * rend toutes plutôt que d'en choisir une au hasard.
+ */
+function distribution(valeurs) {
+  const v = valeurs.filter(x => x !== null && x !== undefined && Number.isFinite(Number(x)))
+    .map(Number).sort((a, b) => a - b);
+  if (!v.length) return { n: 0, moyenne: null, mediane: null, mode: null, min: null, max: null };
+
+  const somme = v.reduce((t, x) => t + x, 0);
+  const m = v.length % 2
+    ? v[(v.length - 1) / 2]
+    : (v[v.length / 2 - 1] + v[v.length / 2]) / 2;
+
+  const freq = new Map();
+  for (const x of v) freq.set(x, (freq.get(x) || 0) + 1);
+  const maxi = Math.max(...freq.values());
+  // Un mode qui n'apparaît qu'une fois n'est pas un mode : c'est une liste de
+  // valeurs toutes distinctes, et le dire vaut mieux que d'en désigner une.
+  const modes = maxi < 2 ? [] : [...freq.entries()].filter(([, n]) => n === maxi).map(([x]) => x);
+
+  const r1 = x => Math.round(x * 10) / 10;
+  return {
+    n: v.length,
+    moyenne: r1(somme / v.length),
+    mediane: r1(m),
+    mode: modes.length ? modes.map(r1) : null,
+    mode_effectif: modes.length ? maxi : null,
+    min: v[0], max: v[v.length - 1],
+  };
+}
+
+/** Regrouper des valeurs par une clé, puis en donner la distribution. */
+function distributions(lignes, clef, valeur) {
+  const par = new Map();
+  for (const l of lignes) {
+    const k = clef(l);
+    if (k == null) continue;
+    if (!par.has(k)) par.set(k, []);
+    par.get(k).push(valeur(l));
+  }
+  return par;
+}
+
+/**
+ * LA CATÉGORIE DE FORMATION — bachelier, BES, formation continue.
+ *
+ * Elle vit dans `section.niveau`, et elle n'est remplie que si quelqu'un l'a
+ * saisie : aucun import ne l'alimente. Une section non qualifiée n'est donc pas
+ * rangée d'office quelque part — elle est rendue sous « (non qualifiée) », ce
+ * qui se voit et se corrige, au lieu de fausser un total en silence.
+ */
+function categories() {
+  const m = new Map();
+  try {
+    for (const s of db.prepare('SELECT code, niveau FROM section').all()) {
+      m.set(s.code, s.niveau || null);
+    }
+  } catch { /* table absente : tout sera « non qualifiée » */ }
+  return m;
+}
+const CATEGORIES = {
+  tout: () => true,
+  bachelier: n => n === 'Bachelier',
+  bes: n => n === 'BES',
+  master: n => n === 'Master',
+  continue: n => typeof n === 'string' && n.startsWith('FC'),
+  non_qualifiee: n => !n,
+};
+
 /** L'année d'un étudiant dans sa section, telle que l'unité la porte. */
 const niveauDe = l => (l.ue_niv ? `BA${String(l.ue_niv).replace(/\D/g, '') || '?'}` : null);
+
+
+/**
+ * ── GET /distributions ────────────────────────────────────────────────────
+ *
+ * Moyenne, médiane et mode — de quatre choses qui n'ont rien à voir entre
+ * elles, et qu'il faut donc nommer :
+ *
+ *  · COTES D'UNITÉ : les points de la délibération, ce qui fait foi.
+ *  · COTES DE COURS : les notes encodées par acquis. N'existent que pour les
+ *    unités dont les acquis ont été saisis — une section qui délibère sans
+ *    encoder n'y apparaît pas, et c'est un fait, pas un oubli.
+ *  · EFFECTIFS : la taille des groupes. La médiane y est plus parlante que la
+ *    moyenne, qu'une seule grosse unité suffit à tirer vers le haut.
+ *  · UNITÉS PAR ÉTUDIANT : combien d'UE chacun porte dans son PAE.
+ *
+ * `categorie` filtre sur le niveau de la section (bachelier, BES, formation
+ * continue). `tout` par défaut.
+ */
+r.get('/distributions', authRequired, (req, res) => {
+  const annee = req.query.annee || anneeDeTravail(req);
+  const perim = getUserSections(req.user);
+  const demandee = req.query.section ? [req.query.section] : null;
+  const sections = demandee
+    ? (perim ? demandee.filter(s => perim.includes(s)) : demandee)
+    : (perim || null);
+
+  const cat = CATEGORIES[req.query.categorie] ? req.query.categorie : 'tout';
+  const niveaux = categories();
+  const retenue = (section) => CATEGORIES[cat](niveaux.get(section) ?? null);
+
+  const dansSections = sections?.length
+    ? ` AND u.section IN (${sections.map(() => '?').join(',')})` : '';
+  const args = sections?.length ? [annee, ...sections] : [annee];
+
+  // ── LES COTES D'UNITÉ ───────────────────────────────────────────────────
+  // La trace de séance d'abord ; le dossier ne comble que ses silences —
+  // la même règle que partout ailleurs dans ce module.
+  const cotesUe = db.prepare(`
+    SELECT i.ue_num, u.section, u.ue_nom,
+           COALESCE((SELECT d.points FROM deliberation_resultat d
+                      WHERE d.etudiant_id = i.etudiant_id
+                        AND d.annee_scolaire = i.annee_scolaire
+                        AND d.ue_num = i.ue_num AND d.session = 1),
+                    i.points) AS points
+      FROM etudiant_inscription i
+      LEFT JOIN ue u ON u.ue_num = i.ue_num AND u.annee_scolaire = i.annee_scolaire
+     WHERE i.annee_scolaire = ?${dansSections}
+  `).all(...args).filter(l => retenue(l.section));
+
+  // ── LES COTES DE COURS ──────────────────────────────────────────────────
+  const cotesCours = db.prepare(`
+    SELECT n.code, n.points, n.ue_num, u.section, u.ue_nom
+      FROM etudiant_note_detail n
+      LEFT JOIN ue u ON u.ue_num = n.ue_num AND u.annee_scolaire = n.annee_scolaire
+     WHERE n.annee_scolaire = ? AND n.type = 'aa' AND n.points IS NOT NULL${dansSections}
+  `).all(...args)
+    .filter(l => retenue(l.section))
+    // Le code d'un acquis s'écrit « CODECOURS|ACQUIS » : le cours est devant.
+    .map(l => ({ ...l, cours_code: String(l.code || '').split('|')[0] || null }))
+    .filter(l => l.cours_code);
+
+  // ── LES EFFECTIFS ───────────────────────────────────────────────────────
+  const effectifs = db.prepare(`
+    SELECT i.ue_num, u.section, u.ue_nom, COUNT(DISTINCT i.etudiant_id) AS n
+      FROM etudiant_inscription i
+      LEFT JOIN ue u ON u.ue_num = i.ue_num AND u.annee_scolaire = i.annee_scolaire
+     WHERE i.annee_scolaire = ?${dansSections}
+     GROUP BY i.ue_num
+  `).all(...args).filter(l => retenue(l.section));
+
+  // ── LES UNITÉS PAR ÉTUDIANT ─────────────────────────────────────────────
+  // Un étudiant peut suivre des unités de plusieurs sections : on le compte
+  // une fois, et sa section est celle où il porte le plus d'unités.
+  const lignesEtu = db.prepare(`
+    SELECT i.etudiant_id, i.ue_num, u.section
+      FROM etudiant_inscription i
+      LEFT JOIN ue u ON u.ue_num = i.ue_num AND u.annee_scolaire = i.annee_scolaire
+     WHERE i.annee_scolaire = ?${dansSections}
+  `).all(...args);
+  const parEtudiant = new Map();
+  for (const l of lignesEtu) {
+    if (!parEtudiant.has(l.etudiant_id)) parEtudiant.set(l.etudiant_id, { n: 0, sections: new Map() });
+    const e = parEtudiant.get(l.etudiant_id);
+    e.n++;
+    e.sections.set(l.section, (e.sections.get(l.section) || 0) + 1);
+  }
+  const etudiants = [...parEtudiant.entries()].map(([id, e]) => ({
+    etudiant_id: id, n: e.n,
+    section: [...e.sections.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] || null,
+  })).filter(e => retenue(e.section));
+
+  const sortir = (map, libelle) => [...map.entries()]
+    .map(([cle, valeurs]) => ({ cle, libelle: libelle ? libelle(cle) : String(cle),
+                                ...distribution(valeurs) }))
+    .filter(x => x.n > 0)
+    .sort((a, b) => String(a.cle).localeCompare(String(b.cle), 'fr', { numeric: true }));
+
+  const nomUe = new Map(cotesUe.concat(effectifs).map(l => [l.ue_num, l.ue_nom]));
+  const titreUe = k => `UE ${k}${nomUe.get(Number(k)) ? ` — ${nomUe.get(Number(k))}` : ''}`;
+
+  res.json({
+    annee,
+    categorie: cat,
+    sections: sections || 'toutes',
+    // Ce qui n'est pas qualifié se dit : sans quoi un filtre « bachelier »
+    // paraîtrait exhaustif alors qu'il ignore les sections non renseignées.
+    sections_non_qualifiees: [...new Set(
+      [...cotesUe, ...effectifs].map(l => l.section)
+        .filter(sec => sec && !niveaux.get(sec)))].sort(),
+
+    cotes_ue: {
+      ensemble: distribution(cotesUe.map(l => l.points)),
+      par_ue: sortir(distributions(cotesUe, l => l.ue_num, l => l.points), titreUe),
+      par_section: sortir(distributions(cotesUe, l => l.section, l => l.points)),
+    },
+    cotes_cours: {
+      ensemble: distribution(cotesCours.map(l => l.points)),
+      par_cours: sortir(distributions(cotesCours, l => l.cours_code, l => l.points)),
+      par_ue: sortir(distributions(cotesCours, l => l.ue_num, l => l.points), titreUe),
+      par_section: sortir(distributions(cotesCours, l => l.section, l => l.points)),
+    },
+    effectifs: {
+      ensemble: distribution(effectifs.map(l => l.n)),
+      par_section: sortir(distributions(effectifs, l => l.section, l => l.n)),
+      detail_ue: effectifs.map(l => ({ ue_num: l.ue_num, libelle: titreUe(l.ue_num),
+                                       section: l.section, n: l.n }))
+        .sort((a, b) => b.n - a.n),
+    },
+    ue_par_etudiant: {
+      ensemble: distribution(etudiants.map(e => e.n)),
+      par_section: sortir(distributions(etudiants, e => e.section, e => e.n)),
+      etudiants: etudiants.length,
+    },
+  });
+});
 
 r.get('/', authRequired, (req, res) => {
   const annee = req.query.annee || anneeDeTravail(req);
