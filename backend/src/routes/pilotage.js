@@ -120,6 +120,14 @@ function usagePotDetail(usageDB, y, potKey) {
     sep_dec: Math.round(q1val.q1 * 100) / 100,    // Q1 de l'année scolaire ouverte
     scolaire_jan_juin: q2,
     scolaire_sep_dec: q1,
+    // LA MOITIÉ QUI VIENT — et qui manquait. L'année scolaire OUVERTE a deux
+    // quadrimestres : son Q1 tombe en septembre-décembre de cette année civile,
+    // son Q2 en janvier-juin de la SUIVANTE. Le tableau ne montrait que les
+    // deux moitiés de l'année civile : de l'année académique en cours, on ne
+    // voyait donc que le premier quadrimestre, et l'engagement déjà pris pour
+    // janvier n'apparaissait nulle part — alors qu'il est attribué, connu, et
+    // qu'il pèsera sur la dotation de l'année civile suivante.
+    jan_juin_suivant: Math.round(q1val.q2 * 100) / 100,
   };
 }
 
@@ -288,6 +296,9 @@ r.get('/civil', authRequired, (req, res) => {
         return {
           usage_jan_juin: det.jan_juin,
           usage_sep_dec: det.sep_dec,
+          // Le second quadrimestre de l'année scolaire EN COURS : il tombe en
+          // janvier-juin de l'année civile suivante.
+          usage_jan_juin_suivant: det.jan_juin_suivant,
           scolaire_jan_juin: det.scolaire_jan_juin,
           scolaire_sep_dec: det.scolaire_sep_dec,
           // Ce qui reste UNE FOIS LA PREMIÈRE MOITIÉ DÉCOMPTÉE : le budget de

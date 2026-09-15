@@ -910,14 +910,15 @@ export default function Pilotage({ vue = 'tout' }) {
                   cache la question qu'on se pose en juillet : « la première
                   moitié est derrière moi, combien me reste-t-il pour la
                   rentrée ? » */}
-              {(d.usage_jan_juin > 0 || d.usage_sep_dec > 0) && (
+              {(d.usage_jan_juin > 0 || d.usage_sep_dec > 0
+                || d.usage_jan_juin_suivant > 0) && (
                 <div className="px-4 py-3 border-b border-gray-100">
                   <div className="text-[10px] font-semibold text-gray-400 uppercase
                                   tracking-wider mb-2">
                     L'année civile en deux moitiés
                   </div>
-                  <div className="grid grid-cols-3 gap-3">
-                    <div className="rounded-lg border border-gray-200 px-3 py-2">
+                  <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                    <div className="rounded-carte border border-gray-200 px-3 py-2">
                       <div className="text-[10px] text-gray-500">
                         Janvier – juin {d.annee_civile}
                       </div>
@@ -928,7 +929,7 @@ export default function Pilotage({ vue = 'tout' }) {
                         Q2 de {d.scolaire_jan_juin} — consommé
                       </div>
                     </div>
-                    <div className="rounded-lg border border-gray-200 px-3 py-2">
+                    <div className="rounded-carte border border-gray-200 px-3 py-2">
                       <div className="text-[10px] text-gray-500">
                         Septembre – décembre {d.annee_civile}
                       </div>
@@ -939,14 +940,33 @@ export default function Pilotage({ vue = 'tout' }) {
                         Q1 de {d.scolaire_sep_dec} — engagé, encore mouvant
                       </div>
                     </div>
-                    <div className={`rounded-lg border px-3 py-2 ${
+                    {/* LA MOITIÉ QUI VIENT — l'année académique en cours ne
+                        s'arrête pas en décembre. Son second quadrimestre est
+                        déjà attribué : il tombe en janvier-juin de l'année
+                        civile suivante, et il pèsera sur la dotation de
+                        celle-ci. Ne montrer que les deux moitiés de l'année
+                        civile revenait à couper l'année académique en cours en
+                        deux et à n'en regarder que la première moitié. */}
+                    <div className="rounded-carte border border-gray-200 px-3 py-2">
+                      <div className="text-[10px] text-gray-500">
+                        Janvier – juin {d.annee_civile + 1}
+                      </div>
+                      <div className="text-lg font-bold text-iip-blue leading-tight">
+                        {fmt(d.usage_jan_juin_suivant)}
+                      </div>
+                      <div className="text-[10px] text-gray-400">
+                        Q2 de {d.scolaire_sep_dec} — engagé, sur la dotation {d.annee_civile + 1}
+                      </div>
+                    </div>
+
+                    <div className={`rounded-carte border px-3 py-2 ${
                       d.solde_apres_jan_juin < 0
-                        ? 'border-red-200 bg-red-50' : 'border-emerald-200 bg-emerald-50'}`}>
+                        ? 'border-[#E8CFC7] bg-[#FBF1EE]' : 'border-emerald-200 bg-emerald-50'}`}>
                       <div className="text-[10px] text-gray-600">
                         Reste pour la rentrée
                       </div>
                       <div className={`text-lg font-bold leading-tight ${
-                        d.solde_apres_jan_juin < 0 ? 'text-red-700' : 'text-emerald-800'}`}>
+                        d.solde_apres_jan_juin < 0 ? 'text-[#9d4a38]' : 'text-emerald-800'}`}>
                         {fmt(d.solde_apres_jan_juin)}
                       </div>
                       <div className="text-[10px] text-gray-500">
