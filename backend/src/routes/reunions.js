@@ -88,8 +88,50 @@ r.get('/obligations', authRequired, (req, res) => {
            t.base_legale, t.categorie, t.zone
       FROM echeance e JOIN echeance_type t ON t.id = e.type_id
      WHERE e.annee_scolaire = ? AND e.statut NOT IN ('annule','sans_objet')
-     ORDER BY e.date_due
+       -- DES THÉMATIQUES GLOBALES, PAS DES UNITÉS. L'échéancier contient aussi
+       -- les dates propres à chaque UE — épreuves, remises, visites des copies :
+       -- elles se posent au calendrier des sessions, unité par unité, et elles
+       -- noyaient ici les obligations de l'établissement sous trois cents
+       -- lignes. Une action de réunion sert une obligation GÉNÉRALE ; ce qui
+       -- tient à une unité se dit par la portée de la séance.
+       AND COALESCE(t.zone, '') <> 'ue'
+       AND COALESCE(e.source_type, '') <> 'organisation_ue'
+     ORDER BY t.categorie, e.date_due
   `).all(annee));
+});
+
+/**
+ * LES RÉUNIONS DE LA MAISON ONT DES NOMS, ET ILS SE RÉPÈTENT.
+ *
+ * Écrire l'intitulé à la main produit « Réunion secrétariat », « réu secrét. »
+ * et « Secrétariat 15/09 » pour la même chose : trois libellés, aucun
+ * regroupement possible, et l'historique d'un type de réunion introuvable. La
+ * liste est courte et connue — autant la donner.
+ */
+export const TYPES_REUNION = [
+  { cle: 'secretariat',      libelle: 'Secrétariat' },
+  { cle: 'coord_section',    libelle: 'Coordination de section',  portee: 'section' },
+  { cle: 'coord_stage',      libelle: 'Coordination de stage',    portee: 'section' },
+  { cle: 'copil',            libelle: 'COPIL' },
+  { cle: 'bilat_coord',      libelle: 'Bilatérale direction — coordination', portee: 'section' },
+  { cle: 'bilat_direction',  libelle: 'Bilatérale de direction' },
+  { cle: 'conseil_etudes',   libelle: "Conseil des études (hors délibération)", portee: 'ue' },
+  { cle: 'equipe_ue',        libelle: "Équipe d'unité",           portee: 'ue' },
+  { cle: 'qualite',          libelle: 'Démarche qualité (AEQES)' },
+  { cle: 'autre',            libelle: 'Autre réunion' },
+];
+
+r.get('/types', authRequired, (req, res) => res.json(TYPES_REUNION));
+
+/** Les sections et leurs unités — de quoi poser la portée d'une séance. */
+r.get('/perimetre', authRequired, (req, res) => {
+  const annee = anneeDeTravail(req);
+  const ues = db.prepare(`
+    SELECT ue_num, ue_nom, section FROM ue
+     WHERE annee_scolaire = ? ORDER BY section, ue_num
+  `).all(annee);
+  const sections = [...new Set(ues.map(u => u.section).filter(Boolean))].sort();
+  res.json({ annee, sections, ues });
 });
 
 // ─── LES TÂCHES ─────────────────────────────────────────────────────────────
@@ -131,6 +173,25 @@ r.get('/taches', authRequired, (req, res) => {
                       AND t.responsable_professeur_id = (
                         SELECT professeur_id FROM utilisateur WHERE id = ?)))`;
     p.push(req.user.id, req.user.role, req.user.id);
+  }
+
+  // CE QUE J'AI CONFIÉ ME REGARDE AUSSI.
+  //
+  // Une action décidée en séance concerne trois personnes : celle qui la fait,
+  // CELUI QUI A CONVOQUÉ — c'est lui qui rouvrira le point la fois suivante —
+  // et la direction, qui répond de l'ensemble. Tant que la tâche n'apparaissait
+  // que chez son responsable, le suivi reposait sur la mémoire de celui qui
+  // présidait : au point suivant, on redemandait « où en est-on ? ».
+  if (req.query.confie === '1') {
+    const direction = ['admin', 'directeur', 'directeur_adjoint'].includes(req.user.role);
+    if (direction) {
+      // La direction voit tout ce qui est confié à quelqu'un d'autre qu'elle.
+      sql += ` AND (t.responsable_user_id IS NOT ? OR t.responsable_user_id IS NULL)`;
+      p.push(req.user.id);
+    } else {
+      sql += ` AND r.organisateur_user_id = ?`;
+      p.push(req.user.id);
+    }
   }
   // L'ordre d'une liste de tâches n'est pas l'ordre de création : ce qui est en
   // retard d'abord, puis ce qui vient, puis ce qui n'a pas de date.
@@ -209,18 +270,67 @@ r.get('/', authRequired, (req, res) => {
   const annee = anneeDeTravail(req);
   const lignes = db.prepare(`
     SELECT r.*,
+      COALESCE(u.nom_complet, pr.prenom || ' ' || pr.nom) AS organisateur_nom,
+      (SELECT GROUP_CONCAT(ue_num, ', ') FROM reunion_ue x WHERE x.reunion_id = r.id)
+        AS ues_libelle,
       (SELECT COUNT(*) FROM tache t WHERE t.reunion_id = r.id) AS nb_taches,
       (SELECT COUNT(*) FROM tache t WHERE t.reunion_id = r.id
          AND t.statut IN ('a_faire','en_cours')) AS nb_ouvertes
-    FROM reunion r WHERE r.annee_scolaire = ?
+    FROM reunion r
+    LEFT JOIN utilisateur u  ON u.id  = r.organisateur_user_id
+    LEFT JOIN professeur  pr ON pr.id = r.organisateur_professeur_id
+    WHERE r.annee_scolaire = ?
     ORDER BY r.date_seance DESC, r.id DESC
   `).all(annee);
   res.json(lignes);
 });
 
+// UNE ROUTE NOMMÉE PASSE AVANT UNE ROUTE À PARAMÈTRE : posée après
+// « /:id », « /prochaine » serait lue comme une réunion d'identifiant
+// « prochaine » — et répondrait 404 sans que rien ne le dise.
+/**
+ * LE PROCHAIN RENDEZ-VOUS DE CHACUN.
+ *
+ * Il se fixe à la fin d'une séance, quand tout le monde est là — puis il se
+ * perd, parce qu'il vit dans le procès-verbal que personne ne rouvre. Il
+ * s'affiche donc sur le tableau de bord de ceux qui y sont attendus : les
+ * participants de la séance où il a été fixé, et l'organisateur.
+ */
+r.get('/prochaine', authRequired, (req, res) => {
+  const annee = anneeDeTravail(req);
+  const jour = new Date().toISOString().slice(0, 10);
+  const ligne = db.prepare(`
+    SELECT r.id, r.titre, r.genre, r.section,
+           r.prochaine_date, r.prochaine_heure, r.prochain_lieu, r.prochaine_qui,
+           COALESCE(u.nom_complet, pr.prenom || ' ' || pr.nom) AS organisateur_nom
+      FROM reunion r
+      LEFT JOIN utilisateur u  ON u.id  = r.organisateur_user_id
+      LEFT JOIN professeur  pr ON pr.id = r.organisateur_professeur_id
+     WHERE r.annee_scolaire = ? AND r.prochaine_date IS NOT NULL
+       AND r.prochaine_date >= ?
+       AND (r.organisateur_user_id = ?
+            OR EXISTS (SELECT 1 FROM reunion_participant x
+                        WHERE x.reunion_id = r.id
+                          AND (x.user_id = ?
+                               OR (x.professeur_id IS NOT NULL
+                                   AND x.professeur_id = (SELECT professeur_id
+                                       FROM utilisateur WHERE id = ?)))))
+     ORDER BY r.prochaine_date, r.prochaine_heure LIMIT 1
+  `).get(annee, jour, req.user.id, req.user.id, req.user.id);
+  res.json(ligne || null);
+});
+
 r.get('/:id', authRequired, (req, res) => {
-  const reunion = db.prepare('SELECT * FROM reunion WHERE id = ?').get(req.params.id);
+  const reunion = db.prepare(`
+    SELECT r.*, COALESCE(u.nom_complet, pr.prenom || ' ' || pr.nom) AS organisateur_nom
+      FROM reunion r
+      LEFT JOIN utilisateur u  ON u.id  = r.organisateur_user_id
+      LEFT JOIN professeur  pr ON pr.id = r.organisateur_professeur_id
+     WHERE r.id = ?`).get(req.params.id);
   if (!reunion) return res.status(404).json({ error: 'réunion inconnue' });
+  reunion.ues = db.prepare(
+    'SELECT ue_num FROM reunion_ue WHERE reunion_id = ? ORDER BY ue_num')
+    .all(reunion.id).map(x => x.ue_num);
   const participants = db.prepare(
     'SELECT * FROM reunion_participant WHERE reunion_id = ? ORDER BY nom').all(reunion.id);
   const taches = db.prepare(SELECT_TACHE + ' WHERE t.reunion_id = ? ORDER BY t.id')
@@ -239,13 +349,27 @@ r.post('/', authRequired, (req, res) => {
   const b = req.body || {};
   const info = db.prepare(`
     INSERT INTO reunion (annee_scolaire, titre, genre, date_seance, heure_seance,
-                         lieu, ordre_du_jour, notes, statut, cree_par)
-    VALUES (?,?,?,?,?,?,?,?,?,?)
+                         lieu, ordre_du_jour, notes, statut,
+                         organisateur_user_id, organisateur_professeur_id, section,
+                         prochaine_date, prochaine_heure, prochain_lieu, prochaine_qui,
+                         cree_par)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
   `).run(anneeDeTravail(req), (b.titre || 'Réunion').trim(),
     b.genre || 'secretariat',
     b.date_seance || new Date().toISOString().slice(0, 10),
     b.heure_seance || null, b.lieu || null,
-    b.ordre_du_jour || null, b.notes || null, b.statut || 'preparee', qui(req));
+    b.ordre_du_jour || null, b.notes || null, b.statut || 'preparee',
+    // À DÉFAUT, CELUI QUI CRÉE LA SÉANCE L'ORGANISE. C'est vrai neuf fois sur
+    // dix, et cela évite une réunion sans personne pour en suivre les suites.
+    b.organisateur_user_id ?? req.user.id, b.organisateur_professeur_id || null,
+    b.section || null,
+    b.prochaine_date || null, b.prochaine_heure || null,
+    b.prochain_lieu || null, b.prochaine_qui || null, qui(req));
+
+  for (const ue of (b.ues || [])) {
+    db.prepare('INSERT OR IGNORE INTO reunion_ue (reunion_id, ue_num) VALUES (?,?)')
+      .run(info.lastInsertRowid, Number(ue));
+  }
 
   for (const p of (b.participants || [])) {
     db.prepare(`INSERT INTO reunion_participant (reunion_id, user_id, nom, present, excuse)
@@ -262,9 +386,23 @@ r.put('/:id', authRequired, (req, res) => {
   const v = (k) => (b[k] === undefined ? reunion[k] : b[k]);
   db.prepare(`
     UPDATE reunion SET titre=?, genre=?, date_seance=?, heure_seance=?, lieu=?,
-      ordre_du_jour=?, notes=?, statut=? WHERE id=?
+      ordre_du_jour=?, notes=?, statut=?,
+      organisateur_user_id=?, organisateur_professeur_id=?, section=?,
+      prochaine_date=?, prochaine_heure=?, prochain_lieu=?, prochaine_qui=?
+    WHERE id=?
   `).run(v('titre'), v('genre'), v('date_seance'), v('heure_seance'), v('lieu'),
-    v('ordre_du_jour'), v('notes'), v('statut'), req.params.id);
+    v('ordre_du_jour'), v('notes'), v('statut'),
+    v('organisateur_user_id'), v('organisateur_professeur_id'), v('section'),
+    v('prochaine_date'), v('prochaine_heure'), v('prochain_lieu'), v('prochaine_qui'),
+    req.params.id);
+
+  if (Array.isArray(b.ues)) {
+    db.prepare('DELETE FROM reunion_ue WHERE reunion_id = ?').run(req.params.id);
+    for (const ue of b.ues) {
+      db.prepare('INSERT OR IGNORE INTO reunion_ue (reunion_id, ue_num) VALUES (?,?)')
+        .run(req.params.id, Number(ue));
+    }
+  }
 
   if (Array.isArray(b.participants)) {
     db.prepare('DELETE FROM reunion_participant WHERE reunion_id = ?').run(req.params.id);
@@ -297,6 +435,13 @@ r.post('/:id/document', authRequired, (req, res) => {
   const esc = v => String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;');
   const fr = d => (d ? String(d).slice(0, 10).split('-').reverse().join('/') : '—');
 
+  const org = db.prepare(`
+    SELECT COALESCE(u.nom_complet, pr.prenom || ' ' || pr.nom) AS nom
+      FROM reunion r
+      LEFT JOIN utilisateur u  ON u.id  = r.organisateur_user_id
+      LEFT JOIN professeur  pr ON pr.id = r.organisateur_professeur_id
+     WHERE r.id = ?`).get(reunion.id);
+  reunion.organisateur_nom = org?.nom || null;
   const participants = db.prepare(
     'SELECT * FROM reunion_participant WHERE reunion_id = ? ORDER BY nom').all(reunion.id);
   const taches = db.prepare(SELECT_TACHE + ' WHERE t.reunion_id = ? ORDER BY t.id')
@@ -323,6 +468,9 @@ r.post('/:id/document', authRequired, (req, res) => {
     <p class="sous">${fr(reunion.date_seance)}${reunion.heure_seance
       ? ` à ${esc(reunion.heure_seance)}` : ''}${reunion.lieu ? ` · ${esc(reunion.lieu)}` : ''}</p>
 
+    ${reunion.organisateur_nom ? `<p class="fin">Organisée par ${
+      esc(reunion.organisateur_nom)}${reunion.section ? ` · ${esc(reunion.section)}` : ''}</p>` : ''}
+
     <h3>Présences</h3>
     <p>${presents.length ? `<b>Présents :</b> ${presents.join(', ')}` : 'Aucun présent noté.'}
       ${excuses.length ? `<br><b>Excusés :</b> ${excuses.join(', ')}` : ''}
@@ -334,6 +482,12 @@ r.post('/:id/document', authRequired, (req, res) => {
     ${reunion.notes ? `<h3>Notes de séance</h3>${
       String(reunion.notes).split('\n').filter(l => l.trim())
         .map(l => `<p>${esc(l)}</p>`).join('')}` : ''}
+
+    ${reunion.prochaine_date ? `<h3>Prochaine séance</h3><p>${fr(reunion.prochaine_date)}${
+      reunion.prochaine_heure ? ` à ${esc(reunion.prochaine_heure)}` : ''}${
+      reunion.prochain_lieu ? ` · ${esc(reunion.prochain_lieu)}` : ''}${
+      reunion.prochaine_qui ? `<br><span class="fin">Attendus : ${
+        esc(reunion.prochaine_qui)}</span>` : ''}</p>` : ''}
 
     <h3>Ce qui a été décidé — et par qui</h3>
     ${taches.length ? `<table>

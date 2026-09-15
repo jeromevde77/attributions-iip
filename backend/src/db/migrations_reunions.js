@@ -89,6 +89,16 @@ export function migrerReunions(db) {
     CREATE INDEX IF NOT EXISTS idx_tache_annee   ON tache(annee_scolaire, statut);
     CREATE INDEX IF NOT EXISTS idx_tache_resp    ON tache(responsable_user_id, statut);
     CREATE INDEX IF NOT EXISTS idx_tache_reunion ON tache(reunion_id);
+
+    -- UNE RÉUNION PEUT PORTER SUR PLUSIEURS UNITÉS. « On revoit 281 et 283 » :
+    -- une colonne ne suffit pas, et les écrire dans le titre revient à ne pas
+    -- pouvoir les retrouver. Une table de liens, donc — vide la plupart du
+    -- temps, ce qui est le cas normal.
+    CREATE TABLE IF NOT EXISTS reunion_ue (
+      reunion_id INTEGER NOT NULL REFERENCES reunion(id) ON DELETE CASCADE,
+      ue_num     INTEGER NOT NULL,
+      PRIMARY KEY (reunion_id, ue_num)
+    );
   `);
 
   // Migration additive : les colonnes du personnel ont été ajoutées après la
@@ -104,6 +114,25 @@ export function migrerReunions(db) {
     // fait quoi pour tenir l'obligation, et dans l'autre sens montrer, sur
     // l'échéance, le travail qui l'a préparée.
     ['tache', 'echeance_id', 'INTEGER REFERENCES echeance(id)'],
+    // QUI CONVOQUE SUIT. Une action confiée en réunion regarde trois personnes :
+    // celle qui la fait, la direction, et CELUI QUI A CONVOQUÉ — c'est lui qui
+    // rouvrira le point à la séance suivante. Sans organisateur nommé, la tâche
+    // n'apparaissait que chez son responsable, et le suivi reposait sur la
+    // mémoire de celui qui présidait.
+    ['reunion', 'organisateur_user_id', 'INTEGER REFERENCES utilisateur(id)'],
+    ['reunion', 'organisateur_professeur_id', 'INTEGER REFERENCES professeur(id)'],
+    // CE DONT LA RÉUNION PARLE. Une coordination de section ne parle pas de
+    // tout l'institut, et une réunion d'UE encore moins : la portée se pose une
+    // fois, en tête de séance, au lieu d'être répétée dans chaque intitulé.
+    ['reunion', 'section', 'TEXT'],
+    // LA PROCHAINE SÉANCE SE FIXE À LA FIN DE CELLE-CI, quand tout le monde est
+    // là — pas trois semaines plus tard par courriels croisés. Les trois seules
+    // choses à savoir : quand, où, et qui est attendu. Elles s'affichent
+    // ensuite sur le tableau de bord de chacun d'eux.
+    ['reunion', 'prochaine_date', 'TEXT'],
+    ['reunion', 'prochaine_heure', 'TEXT'],
+    ['reunion', 'prochain_lieu', 'TEXT'],
+    ['reunion', 'prochaine_qui', 'TEXT'],
   ]) {
     const colonnes = db.prepare(`PRAGMA table_info(${table})`).all().map(c => c.name);
     if (!colonnes.includes(colonne)) {

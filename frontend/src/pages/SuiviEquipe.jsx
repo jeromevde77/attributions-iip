@@ -56,6 +56,8 @@ export default function SuiviEquipe() {
   const [taches, setTaches] = useState([]);
   const [personnes, setPersonnes] = useState([]);
   const [obligations, setObligations] = useState([]);
+  const [types, setTypes] = useState([]);
+  const [perimetre, setPerimetre] = useState({ sections: [], ues: [] });
   const [apercu, setApercu] = useState(null);
   const [filtreStatut, setFiltreStatut] = useState('ouvertes');
 
@@ -73,13 +75,16 @@ export default function SuiviEquipe() {
 
   useEffect(() => { chargerReunions(); chargerTaches();
     api('/personnes').then(setPersonnes).catch(() => {});
-    api('/obligations').then(setObligations).catch(() => {}); }, []);
+    api('/obligations').then(setObligations).catch(() => {});
+    api('/types').then(setTypes).catch(() => {});
+    api('/perimetre').then(setPerimetre).catch(() => {}); }, []);
 
   const ouvrir = id => api('/' + id).then(setOuverte).catch(() => {});
 
-  async function nouvelleReunion() {
+  async function nouvelleReunion(genre = 'secretariat') {
+    const t = types.find(x => x.cle === genre);
     const { id } = await api('/', { method: 'POST', body: JSON.stringify({
-      titre: 'Réunion de secrétariat', date_seance: aujourdhui(),
+      genre, titre: t?.libelle || 'Réunion', date_seance: aujourdhui(),
       heure_seance: new Date().toTimeString().slice(0, 5),
       // LES PRÉSENTS SONT PROPOSÉS, PAS SAISIS. L'équipe ne change pas d'une
       // semaine à l'autre : on précoche tout le monde et l'on décoche l'absent,
@@ -118,7 +123,7 @@ export default function SuiviEquipe() {
           ]},
           { label: 'Actions', items: [
             { key: 'nouvelle', label: 'Nouvelle réunion', icon: IconPlus,
-              onClick: nouvelleReunion },
+              onClick: () => nouvelleReunion() },
             { key: 'feuille', label: 'Feuille des tâches', icon: IconPrinter,
               couleur: 'var(--menu-accent)',
               onClick: () => imprimer('/taches/document') },
@@ -128,7 +133,8 @@ export default function SuiviEquipe() {
 
       <div className="gouttiere-rail p-4 md:p-8">
         {ouverte ? (
-          <DetailReunion reunion={ouverte} personnes={personnes} obligations={obligations} api={api}
+          <DetailReunion reunion={ouverte} personnes={personnes} obligations={obligations}
+            types={types} perimetre={perimetre} api={api}
             onRetour={() => { setOuverte(null); chargerReunions(); chargerTaches(); }}
             onRecharger={() => { ouvrir(ouverte.id); chargerTaches(); }}
             onImprimer={() => imprimer(`/${ouverte.id}/document`)} />
@@ -136,10 +142,17 @@ export default function SuiviEquipe() {
           <>
             <PageHeader titre="Réunions" sous="Ordre du jour, décisions, et ce qui en découle"
               actions={
-                <button onClick={nouvelleReunion} className="bouton-fort controle px-3
-                  flex items-center gap-1.5">
-                  <IconPlus size={16} /> Nouvelle réunion
-                </button>
+                /* ON CHOISIT LE TYPE, ON N'ÉCRIT PAS L'INTITULÉ. Écrit à la
+                   main, « Réunion secrétariat », « réu secrét. » et
+                   « Secrétariat 15/09 » désignent la même chose sans jamais se
+                   regrouper : l'historique d'un type de réunion devient
+                   introuvable. La liste est courte et connue. */
+                <select value="" className="controle-fort controle px-3 text-[13px]
+                    bg-iip-blue text-white rounded-champ border-0"
+                  onChange={e => e.target.value && nouvelleReunion(e.target.value)}>
+                  <option value="">+ Nouvelle réunion…</option>
+                  {types.map(t => <option key={t.cle} value={t.cle}>{t.libelle}</option>)}
+                </select>
               } />
             {!reunions.length && (
               <p className="text-[13px] text-slate-400">
@@ -156,8 +169,17 @@ export default function SuiviEquipe() {
                   <span className="text-[13px] text-slate-500 w-24 flex-none tabular-nums">
                     {fr(r.date_seance)}
                   </span>
-                  <span className="flex-1 min-w-0 text-[13px] font-semibold text-iip-blue truncate">
-                    {r.titre}
+                  <span className="flex-1 min-w-0">
+                    <span className="block text-[13px] font-semibold text-iip-blue truncate">
+                      {r.titre}
+                    </span>
+                    {(r.organisateur_nom || r.section || r.ues_libelle) && (
+                      <span className="block text-[11px] text-slate-400 truncate">
+                        {[r.organisateur_nom && nomDepuisChaine(r.organisateur_nom),
+                          r.section, r.ues_libelle && `UE ${r.ues_libelle}`]
+                          .filter(Boolean).join(' · ')}
+                      </span>
+                    )}
                   </span>
                   {r.nb_ouvertes > 0 && (
                     <span className="text-[11px] font-semibold text-amber-700">
@@ -187,12 +209,22 @@ export default function SuiviEquipe() {
 
 // ─── UNE RÉUNION ────────────────────────────────────────────────────────────
 
-function DetailReunion({ reunion, personnes, obligations, api, onRetour, onRecharger, onImprimer }) {
+function DetailReunion({ reunion, personnes, obligations, types = [], perimetre,
+                        api, onRetour, onRecharger, onImprimer }) {
   const [champs, setChamps] = useState({
-    titre: reunion.titre, date_seance: reunion.date_seance,
+    titre: reunion.titre, genre: reunion.genre || 'secretariat',
+    date_seance: reunion.date_seance,
     heure_seance: reunion.heure_seance || '', lieu: reunion.lieu || '',
     ordre_du_jour: reunion.ordre_du_jour || '', notes: reunion.notes || '',
+    section: reunion.section || '',
+    organisateur_user_id: reunion.organisateur_user_id || null,
+    organisateur_professeur_id: reunion.organisateur_professeur_id || null,
+    prochaine_date: reunion.prochaine_date || '',
+    prochaine_heure: reunion.prochaine_heure || '',
+    prochain_lieu: reunion.prochain_lieu || '',
+    prochaine_qui: reunion.prochaine_qui || '',
   });
+  const [ues, setUes] = useState(reunion.ues || []);
   const [participants, setParticipants] = useState(reunion.participants || []);
   const [enregistre, setEnregistre] = useState(false);
 
@@ -200,7 +232,7 @@ function DetailReunion({ reunion, personnes, obligations, api, onRetour, onRecha
 
   async function enregistrer() {
     await api(`/${reunion.id}`, { method: 'PUT',
-      body: JSON.stringify({ ...champs, participants }) });
+      body: JSON.stringify({ ...champs, participants, ues }) });
     setEnregistre(true);
     onRecharger();
   }
@@ -224,7 +256,24 @@ function DetailReunion({ reunion, personnes, obligations, api, onRetour, onRecha
       {/* L'IDENTITÉ DE LA SÉANCE SUR UNE LIGNE — ce qui s'explique à gauche,
           ce qui se remplit à droite, comme à la délibération. */}
       <div className="carte px-3 py-2.5 flex flex-wrap items-end gap-x-4 gap-y-2 mb-3">
-        <label className="flex-1 min-w-[220px] text-[11px] text-slate-500">
+        <label className="text-[11px] text-slate-500">
+          Type de réunion
+          <select value={champs.genre}
+            onChange={e => {
+              const t = types.find(x => x.cle === e.target.value);
+              poser('genre', e.target.value);
+              // Changer de type renomme la séance tant qu'on n'a pas écrit un
+              // intitulé à soi : « Réunion » ne dit rien, « COPIL » si.
+              if (t && (!champs.titre || types.some(x => x.libelle === champs.titre))) {
+                poser('titre', t.libelle);
+              }
+            }}
+            className="block mt-0.5 bg-white border border-slate-300 rounded-champ
+                       px-2 h-9 text-[13px] max-w-[16rem]">
+            {types.map(t => <option key={t.cle} value={t.cle}>{t.libelle}</option>)}
+          </select>
+        </label>
+        <label className="flex-1 min-w-[200px] text-[11px] text-slate-500">
           Intitulé
           <input value={champs.titre} onChange={e => poser('titre', e.target.value)}
             className="block w-full mt-0.5 bg-white border border-slate-300 rounded-champ
@@ -247,6 +296,58 @@ function DetailReunion({ reunion, personnes, obligations, api, onRetour, onRecha
           <input value={champs.lieu} onChange={e => poser('lieu', e.target.value)}
             placeholder="Secrétariat"
             className="block mt-0.5 bg-white border border-slate-300 rounded-champ px-2 h-9 text-[13px]" />
+        </label>
+        {/* QUI CONVOQUE SUIT. C'est lui qui rouvrira les points à la séance
+            suivante : les actions décidées ici apparaissent aussi sur SON
+            tableau de bord, en plus de celui de leur responsable. */}
+        <label className="text-[11px] text-slate-500">
+          Organisée par
+          <select
+            value={champs.organisateur_user_id ? `u:${champs.organisateur_user_id}`
+              : champs.organisateur_professeur_id ? `p:${champs.organisateur_professeur_id}` : ''}
+            onChange={e => {
+              const [g, v2] = e.target.value.split(':');
+              poser('organisateur_user_id', g === 'u' ? Number(v2) : null);
+              poser('organisateur_professeur_id', g === 'p' ? Number(v2) : null);
+            }}
+            className="block mt-0.5 bg-white border border-slate-300 rounded-champ
+                       px-2 h-9 text-[13px] max-w-[14rem]">
+            <option value="">—</option>
+            {personnes.map(p2 => (
+              <option key={p2.cle} value={p2.cle}>{nomDepuisChaine(p2.nom)}</option>
+            ))}
+          </select>
+        </label>
+      </div>
+
+      {/* SUR QUOI PORTE CETTE SÉANCE. Une coordination de section ne parle pas
+          de tout l'institut, et une équipe d'unité encore moins. Écrire « UE
+          281 » dans le titre ne permet ni de retrouver, ni de regrouper. */}
+      <div className="carte px-3 py-2.5 flex flex-wrap items-end gap-x-4 gap-y-2 mb-3">
+        <label className="text-[11px] text-slate-500">
+          Section
+          <select value={champs.section}
+            onChange={e => { poser('section', e.target.value); setUes([]); }}
+            className="block mt-0.5 bg-white border border-slate-300 rounded-champ
+                       px-2 h-9 text-[13px] max-w-[14rem]">
+            <option value="">Toutes — portée générale</option>
+            {(perimetre?.sections || []).map(s2 => <option key={s2} value={s2}>{s2}</option>)}
+          </select>
+        </label>
+        <label className="flex-1 min-w-[260px] text-[11px] text-slate-500">
+          Unités concernées <span className="text-slate-400">— facultatif, plusieurs possibles</span>
+          <select multiple value={ues.map(String)} size={3}
+            onChange={e => setUes([...e.target.selectedOptions].map(o => Number(o.value)))}
+            className="block w-full mt-0.5 bg-white border border-slate-300 rounded-champ
+                       px-2 py-1 text-[13px]">
+            {(perimetre?.ues || [])
+              .filter(u => !champs.section || u.section === champs.section)
+              .map(u => (
+                <option key={u.ue_num} value={u.ue_num}>
+                  UE {u.ue_num} — {u.ue_nom}
+                </option>
+              ))}
+          </select>
         </label>
       </div>
 
@@ -303,6 +404,46 @@ function DetailReunion({ reunion, personnes, obligations, api, onRetour, onRecha
             obligations={obligations} api={api} onRecharger={onRecharger} compact />
         </div>
       )}
+
+      {/* LA PROCHAINE SÉANCE SE FIXE MAINTENANT, quand tout le monde est là —
+          pas trois semaines plus tard par courriels croisés. Quand, où, et qui
+          est attendu : ces trois lignes s'affichent ensuite sur le tableau de
+          bord de chacun des présents. */}
+      <div className="carte px-3 py-2.5 flex flex-wrap items-end gap-x-4 gap-y-2 mb-3">
+        <div className="flex-none text-[11px] font-semibold uppercase tracking-wider
+                        text-slate-500 w-full sm:w-auto sm:mr-2">
+          Prochaine séance
+        </div>
+        <label className="text-[11px] text-slate-500">
+          Date
+          <input type="date" value={champs.prochaine_date}
+            onChange={e => poser('prochaine_date', e.target.value)}
+            className="block mt-0.5 bg-white border border-slate-300 rounded-champ
+                       px-2 h-9 text-[13px]" />
+        </label>
+        <label className="text-[11px] text-slate-500">
+          Heure
+          <input type="time" value={champs.prochaine_heure}
+            onChange={e => poser('prochaine_heure', e.target.value)}
+            className="block mt-0.5 bg-white border border-slate-300 rounded-champ
+                       px-2 h-9 text-[13px]" />
+        </label>
+        <label className="text-[11px] text-slate-500">
+          Lieu
+          <input value={champs.prochain_lieu} placeholder={champs.lieu || 'Secrétariat'}
+            onChange={e => poser('prochain_lieu', e.target.value)}
+            className="block mt-0.5 bg-white border border-slate-300 rounded-champ
+                       px-2 h-9 text-[13px]" />
+        </label>
+        <label className="flex-1 min-w-[220px] text-[11px] text-slate-500">
+          Qui est attendu
+          <input value={champs.prochaine_qui}
+            placeholder="Les mêmes, ou : Florian, Natacha, la coordination TIM"
+            onChange={e => poser('prochaine_qui', e.target.value)}
+            className="block w-full mt-0.5 bg-white border border-slate-300 rounded-champ
+                       px-2 h-9 text-[13px]" />
+        </label>
+      </div>
 
       <h2 className="text-[13px] font-semibold text-iip-blue mb-1.5">
         Décidé au cours de cette séance

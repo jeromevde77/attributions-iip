@@ -64,11 +64,21 @@ function prenom(nomComplet) {
  */
 function MesTaches() {
   const [taches, setTaches] = useState([]);
-  const charger = () => fetch('/api/reunions/taches?mien=1&ouvertes=1',
-    { headers: authHeaders() })
-    .then(r => (r.ok ? r.json() : []))
-    .then(l => setTaches(Array.isArray(l) ? l : []))
-    .catch(() => {});
+  const [confiees, setConfiees] = useState([]);
+  const [prochaine, setProchaine] = useState(null);
+
+  const lire = (chemin, pose) => fetch(chemin, { headers: authHeaders() })
+    .then(r => (r.ok ? r.json() : null)).then(pose).catch(() => {});
+
+  const charger = () => {
+    lire('/api/reunions/taches?mien=1&ouvertes=1',
+      l => setTaches(Array.isArray(l) ? l : []));
+    // CE QUE J'AI CONFIÉ ME REGARDE AUSSI : l'organisateur d'une réunion rouvre
+    // les points à la séance suivante, et la direction répond de l'ensemble.
+    lire('/api/reunions/taches?confie=1&ouvertes=1',
+      l => setConfiees(Array.isArray(l) ? l : []));
+    lire('/api/reunions/prochaine', setProchaine);
+  };
   useEffect(() => { charger(); }, []);
 
   async function cocher(t) {
@@ -80,18 +90,42 @@ function MesTaches() {
     charger();
   }
 
-  if (!taches.length) return null;
   const jour = new Date().toISOString().slice(0, 10);
   const fr = d => (d ? String(d).slice(0, 10).split('-').reverse().join('/') : null);
+  if (!taches.length && !confiees.length && !prochaine) return null;
 
   return (
     <div className="mb-5">
+      {/* LE PROCHAIN RENDEZ-VOUS, chez ceux qui y sont attendus. Fixé en fin de
+          séance, il vivait dans un procès-verbal que personne ne rouvre. */}
+      {prochaine && (
+        <div className="carte px-3 py-2 mb-3 flex flex-wrap items-baseline gap-x-3 gap-y-1">
+          <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+            Prochaine réunion
+          </span>
+          <span className="text-[13px] font-semibold text-iip-blue">
+            {prochaine.titre}
+          </span>
+          <span className="text-[13px] text-slate-600 tabular-nums">
+            {fr(prochaine.prochaine_date)}
+            {prochaine.prochaine_heure ? ` à ${prochaine.prochaine_heure}` : ''}
+            {prochaine.prochain_lieu ? ` · ${prochaine.prochain_lieu}` : ''}
+          </span>
+          {prochaine.prochaine_qui && (
+            <span className="text-[11px] text-slate-400">
+              attendus : {prochaine.prochaine_qui}
+            </span>
+          )}
+        </div>
+      )}
+
       <div className="flex items-baseline gap-2 mb-1.5">
         <h2 className="text-[13px] font-semibold text-iip-blue">Ce qui m’attend</h2>
         <span className="text-[11px] text-slate-400">
           {taches.length} tâche(s) — décidées en réunion
         </span>
       </div>
+      {!!taches.length && (
       <div className="carte overflow-hidden">
         {taches.map(t => {
           const retard = t.echeance && t.echeance < jour;
@@ -127,6 +161,43 @@ function MesTaches() {
           );
         })}
       </div>
+      )}
+
+      {/* CE QUE J'AI CONFIÉ — chez l'organisateur de la séance et chez la
+          direction. Sans cela, le suivi reposait sur la mémoire de celui qui
+          présidait : au point suivant, on redemandait « où en est-on ? ». */}
+      {!!confiees.length && (
+        <div className="mt-3">
+          <div className="flex items-baseline gap-2 mb-1.5">
+            <h2 className="text-[13px] font-semibold text-iip-blue">Ce que j’ai confié</h2>
+            <span className="text-[11px] text-slate-400">
+              {confiees.length} action(s) chez d’autres
+            </span>
+          </div>
+          <div className="carte overflow-hidden">
+            {confiees.map(t => {
+              const retard = t.echeance && t.echeance < jour;
+              return (
+                <div key={t.id} className="px-3 py-2 flex items-center gap-3
+                                           border-t border-slate-100 first:border-t-0">
+                  <span className="flex-1 min-w-0 text-[13px] text-slate-800 truncate">
+                    {t.titre}
+                  </span>
+                  <span className="text-[11px] text-slate-500 truncate max-w-[12rem]">
+                    {t.responsable_nom || t.responsable_role || 'sans responsable'}
+                  </span>
+                  {t.echeance && (
+                    <span className={`text-[11px] font-semibold tabular-nums
+                      ${retard ? 'text-amber-700' : 'text-slate-500'}`}>
+                      {retard ? 'en retard · ' : 'pour le '}{fr(t.echeance)}
+                    </span>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
