@@ -1,7 +1,8 @@
 import { useEffect, useState, lazy, Suspense } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { api, getAnnee } from '../lib/api.js';
-import { IconAdjustments, IconAward, IconBooks, IconBuilding, IconCalendar, IconCalendarEvent, IconChartBar, IconCheck, IconChevronRight, IconDownload, IconFileText, IconHistory, IconLink, IconScale, IconSettings, IconSparkles, IconUserShield, IconUsers, IconX, IconGavel, IconPlus, IconTrash, IconGripVertical, IconEdit, IconMail } from '@tabler/icons-react';
+import { chargerCouleurs } from '../lib/couleurs.js';
+import { IconAdjustments, IconAward, IconBooks, IconBuilding, IconCalendar, IconCalendarEvent, IconChartBar, IconCheck, IconChevronRight, IconDownload, IconFileText, IconHistory, IconLink, IconScale, IconSettings, IconSparkles, IconUserShield, IconUsers, IconX, IconGavel, IconPlus, IconTrash, IconGripVertical, IconEdit, IconMail, IconPalette } from '@tabler/icons-react';
 import { PageHeader, RailLateral } from '../components/ui.jsx';
 import ApercuDocuments from '../components/ApercuDocuments.jsx';
 const Editeur = lazy(() => import('./Editeur.jsx'));
@@ -1297,6 +1298,7 @@ export default function Configuration() {
     { label: 'Documents', items: [
       { key: 'editeur', label: 'Éditeur de modèles', icon: IconEdit },
       { key: 'apercu', label: 'Aperçu des pièces', icon: IconFileText },
+      { key: 'couleurs', label: 'Couleurs de Lucie', icon: IconPalette },
       { key: 'contrat', label: 'Contrat', icon: IconFileText },
       { key: 'attestation', label: 'Attestation', icon: IconAward },
       { key: 'recrutement', label: 'Recrutement', icon: IconSettings },
@@ -1393,6 +1395,8 @@ export default function Configuration() {
       {tab === 'apercu' && (
         <ApercuDocuments onClose={() => setTab('editeur')} />
       )}
+
+      {tab === 'couleurs' && <ReglageCouleurs />}
 
       {/* ── Onglet Recrutement ── */}
       {tab === 'recrutement' && <ConfigRecrutement />}
@@ -2143,6 +2147,88 @@ function ConfigRecrutement() {
         desc="Texte lu en fin d'entretien — suite de la procédure, délais, remerciements."
         field={conclusion}
       />
+    </div>
+  );
+}
+
+/**
+ * LES COULEURS QUI VEULENT DIRE QUELQUE CHOSE.
+ *
+ * « HELB » se lisait en rose dans Attributions, en violet dans Professeurs, en
+ * cyan dans les badges, en violet encore sur le rapport ETP imprimé. Quatre
+ * réponses à une question qui n'en a qu'une — et un imprimé qui ne ressemblait
+ * à aucun écran.
+ *
+ * Elles se règlent ici, une fois, et valent partout : à l'écran comme sur le
+ * papier. Une couleur qui signifie quelque chose pour l'école n'a pas à être
+ * décidée dans le code.
+ */
+function ReglageCouleurs() {
+  const [catalogue, setCatalogue] = useState({});
+  const [valeurs, setValeurs] = useState({});
+  const [etat, setEtat] = useState('');
+
+  useEffect(() => {
+    fetch('/api/config/couleurs', { headers: authHeaders() })
+      .then(r => r.json())
+      .then(j => { setCatalogue(j.catalogue || {}); setValeurs(j.couleurs || {}); })
+      .catch(e => setEtat('Lecture impossible : ' + e.message));
+  }, []);
+
+  async function enregistrer() {
+    setEtat('Enregistrement…');
+    try {
+      const rep = await fetch('/api/config/couleurs', {
+        method: 'PUT',
+        headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+        body: JSON.stringify({ couleurs: valeurs }),
+      });
+      const j = await rep.json();
+      if (!rep.ok) throw new Error(j.error || 'refusé');
+      setValeurs(j.couleurs);
+      // Reposées tout de suite : le changement se voit sur l'écran qui le
+      // demande, sans recharger — sinon on doute de l'avoir enregistré.
+      await chargerCouleurs();
+      setEtat('Enregistré. Les écrans et les documents suivent.');
+    } catch (e) { setEtat('Erreur : ' + e.message); }
+  }
+
+  return (
+    <div className="max-w-3xl">
+      <h2 className="text-[17px] font-semibold text-iip-blue mb-1">Couleurs de Lucie</h2>
+      <p className="text-[13px] text-slate-500 mb-4">
+        Ces couleurs portent un sens : un contrat, une nature de cours, une décision.
+        Elles valent partout — badges, tableaux, tuiles et documents imprimés.
+        L'habillage de l'application (gris, filets, fonds) relève de la charte et ne se
+        règle pas ici.
+      </p>
+
+      <div className="carte overflow-hidden mb-3">
+        {Object.entries(catalogue).map(([cle, d]) => (
+          <div key={cle} className="px-3 py-2 flex items-center gap-3
+                                    border-t border-slate-100 first:border-t-0">
+            <span className="flex-1 text-[13px] text-slate-800">{d.libelle}</span>
+            <span className="text-[11px] tabular-nums text-slate-400 w-20 text-right">
+              {(valeurs[cle] || d.valeur).toUpperCase()}
+            </span>
+            <input type="color" value={valeurs[cle] || d.valeur}
+              onChange={e => setValeurs(v => ({ ...v, [cle]: e.target.value }))}
+              className="w-10 h-8 rounded-champ border border-slate-300 bg-white p-0.5"
+              title={d.libelle} />
+            {(valeurs[cle] || d.valeur).toUpperCase() !== d.valeur.toUpperCase() && (
+              <button onClick={() => setValeurs(v => ({ ...v, [cle]: d.valeur }))}
+                className="text-[11px] text-slate-400 hover:text-iip-blue" title="Revenir au défaut">
+                défaut
+              </button>
+            )}
+          </div>
+        ))}
+      </div>
+
+      <div className="flex items-center gap-3">
+        <button onClick={enregistrer} className="bouton-fort controle px-3">Enregistrer</button>
+        {etat && <span className="text-[12px] text-slate-500">{etat}</span>}
+      </div>
     </div>
   );
 }

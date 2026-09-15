@@ -22,6 +22,7 @@ import { envelopperDocument } from '../lib/document.js';
 import { anneeDeTravail } from '../helpers/annee.js';
 import { decisionDeSession } from './acquis.js';
 import { calculerEtp } from './pilotage.js';
+import { couleurs } from '../lib/couleurs.js';
 
 const r = Router();
 
@@ -78,8 +79,12 @@ const STYLE_RAPPORT = `
  */
 
 /** Une tuile : le chiffre d'abord, le libellé dessous — comme à l'écran. */
-function tuile({ valeur, unite = '', libelle, precision = null, ton = 'neutre' }) {
-  const bord = { neutre: '#cbd5e1', fort: '#1B2B4B', doux: '#94a3b8' }[ton] || '#cbd5e1';
+function tuile({ valeur, unite = '', libelle, precision = null, ton = 'neutre',
+                couleur = null }) {
+  // Le filet de gauche porte la signification : la couleur d'un contrat quand
+  // la tuile en parle, un gris neutre sinon. Jamais un fond coloré — la charte
+  // le dit, et une page de fonds colorés ne signale plus rien.
+  const bord = couleur || { neutre: '#cbd5e1', fort: '#1B2B4B', doux: '#94a3b8' }[ton] || '#cbd5e1';
   return `<td class="tuile" style="border-left-color:${bord}">
     <div class="tuile-val">${valeur}${unite ? `<span class="tuile-u">${unite}</span>` : ''}</div>
     <div class="tuile-lib">${libelle}</div>
@@ -144,7 +149,9 @@ const STYLE_REPORTING = `
   .leg { font-size:7.5pt; color:#475569; margin-right:4mm; white-space:nowrap; }
   .leg i { display:inline-block; width:7px; height:7px; border-radius:1.5px;
            margin-right:1.2mm; vertical-align:baseline; }
-  .cadre { break-inside:avoid; page-break-inside:avoid; margin:0 0 5mm; }`;
+  .cadre { break-inside:avoid; page-break-inside:avoid; margin:0 0 5mm; }
+  .marque { color:#fff; font-size:6.5pt; font-weight:700; padding:.3mm 1.2mm;
+            border-radius:1mm; letter-spacing:.3pt; }`;
 
 /** Le bloc d'une unité — « BA1 », « BA2 »… ; à défaut, « Autres ». */
 const blocDe = (u) => {
@@ -197,6 +204,10 @@ function lignesEtpCursus(p) {
 /** La pièce elle-même : blocs, sous-totaux, parts et ratios. */
 function documentEtpCursus(p) {
   const { sec } = cursus(p);
+  // LA MÊME COULEUR QU'À L'ÉCRAN. HELB est rose dans Attributions et dans
+  // Référentiels : elle doit l'être ici. Une pièce qui repeint ce que
+  // l'utilisateur voit tous les jours lui demande de traduire.
+  const C = couleurs();
   const esc = v => String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;');
   const n0 = n => Math.round(n || 0).toLocaleString('fr-BE').replace(/ /g, ' ');
   const n2 = n => (n || 0).toFixed(2).replace('.', ',');
@@ -226,7 +237,7 @@ function documentEtpCursus(p) {
       return `<tr>
         <td class="ue">${esc(u.ue_num)}</td>
         <td>${esc(u.ue_nom || '—')}${u.ects ? `<span class="fin"> · ${esc(u.ects)} ECTS</span>` : ''}</td>
-        <td>${c === 'IIP' ? '' : 'HELB'}</td>
+        <td>${c === 'IIP' ? '' : `<span class="marque" style="background:${C.helb}">HELB</span>`}</td>
         <td class="n">${ct ? n0(ct) : ''}</td>
         <td class="n">${pp ? n0(pp) : ''}</td>
         <td class="n">${n0(per)}</td>
@@ -276,10 +287,10 @@ function documentEtpCursus(p) {
       tuile({ valeur: n2(global), unite: 'ETP', libelle: 'Charge globale',
         precision: `${n0(perTot)} périodes de cours`, ton: 'fort' }),
       tuile({ valeur: n2(sec.etp_iip), unite: 'ETP', libelle: 'Institut',
-        precision: part(sec.etp_iip) }),
+        precision: part(sec.etp_iip), couleur: C.iip }),
       tuile({ valeur: n2(sec.etp_helb + etpCoord), unite: 'ETP', libelle: 'Haute École',
         precision: `${part(sec.etp_helb + etpCoord)}${etpCoord > 0
-          ? ` · dont ${n2(etpCoord)} de coordination` : ''}`, ton: 'doux' }),
+          ? ` · dont ${n2(etpCoord)} de coordination` : ''}`, couleur: C.helb }),
       tuile({ valeur: etus ? n0(etus) : '—', libelle: 'Étudiants',
         precision: etus ? `${ratio(global)} par ETP` : 'effectifs non encodés' }),
     ])}
@@ -287,9 +298,10 @@ function documentEtpCursus(p) {
     <div class="cadre">
       <h2>De quoi la charge est faite</h2>
       ${barreParts([
-        { nom: 'Institut', valeur: sec.etp_iip || 0, couleur: '#1B2B4B' },
-        { nom: 'Haute École', valeur: sec.etp_helb || 0, couleur: '#1B2B4B', pale: true },
-        ...(etpCoord > 0 ? [{ nom: 'Coordination HELB', valeur: etpCoord, couleur: '#0093B0' }] : []),
+        { nom: 'Institut', valeur: sec.etp_iip || 0, couleur: C.iip },
+        { nom: 'Haute École', valeur: sec.etp_helb || 0, couleur: C.helb },
+        ...(etpCoord > 0
+          ? [{ nom: 'Coordination HELB', valeur: etpCoord, couleur: C.helb, pale: true }] : []),
       ])}
     </div>
 
@@ -298,7 +310,7 @@ function documentEtpCursus(p) {
       ${barres({
         donnees: blocs.map(b => {
           const e = parBloc.get(b).reduce((s, u) => s + (u.etp_total || 0), 0);
-          return { valeur: e, couleur: '#1B2B4B',
+          return { valeur: e, couleur: C.iip,
             texte: `${NOM_BLOC[b] || b} — ${n2(e)} ETP${
               global > 0 ? ` (${Math.round(e / global * 100)} %)` : ''}` };
         }),

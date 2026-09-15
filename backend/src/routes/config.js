@@ -28,6 +28,36 @@ r.get('/contrat_template', authRequired, async (req, res) => {
 });
 
 
+/*
+ * ── LES COULEURS QUI VEULENT DIRE QUELQUE CHOSE (avant /:cle) ─────────────
+ *
+ * Lecture ouverte à tous : l'application les pose en variables CSS dès
+ * l'ouverture, et sans elles l'écran serait en noir et blanc. L'écriture, elle,
+ * reste à la direction — une couleur de Lucie est une convention de la maison,
+ * pas une préférence personnelle.
+ */
+r.get('/couleurs', authRequired, async (req, res) => {
+  const { couleurs, COULEURS_DEFAUT } = await import('../lib/couleurs.js');
+  res.json({ couleurs: couleurs(), catalogue: COULEURS_DEFAUT });
+});
+
+r.put('/couleurs', authRequired,
+  roleRequired('admin', 'directeur', 'directeur_adjoint'), async (req, res) => {
+    const { COULEURS_DEFAUT, couleurs } = await import('../lib/couleurs.js');
+    const propre = {};
+    for (const [cle, v] of Object.entries(req.body?.couleurs || {})) {
+      // Même garde qu'à la lecture : seul le dièse et six chiffres passent.
+      if (cle in COULEURS_DEFAUT && /^#[0-9a-fA-F]{6}$/.test(String(v))) {
+        propre[cle] = String(v).toUpperCase();
+      }
+    }
+    db.prepare(`INSERT INTO lucie_config (cle, valeur, description) VALUES (?,?,?)
+                ON CONFLICT(cle) DO UPDATE SET valeur = excluded.valeur`)
+      .run('couleurs', JSON.stringify(propre),
+        'Couleurs de signification : contrats, natures de cours, états');
+    res.json({ couleurs: couleurs() });
+  });
+
 // ── Routes attestation (avant /:cle) ────────────────────────────────────────
 r.get('/attestation_sections_defaut', authRequired, roleRequired('admin'), (req, res) => {
   res.json({ valeur: JSON.stringify([
