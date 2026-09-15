@@ -841,16 +841,76 @@ export const RAPPORTS = [
       FROM ue WHERE annee_scolaire = ? ORDER BY section, ue_num`).all(p.annee),
   },
   {
-    id: 'referentiel-cours', domaine: 'referentiels', params: ['annee'],
+    /* LA GRILLE DE COURS D'UNE SECTION — heures ET périodes.
+       Elle sortait de l'ancien écran avec ses deux unités de compte, et c'est
+       ce qui la rendait utile : le dossier pédagogique parle en PÉRIODES, un
+       horaire et un contrat parlent en HEURES. Réduite aux seules périodes,
+       elle obligeait à refaire la conversion à la main — cinquante fois. */
+    id: 'referentiel-cours', domaine: 'referentiels', params: ['annee', 'section'],
     libelle: 'Grille de cours',
-    aide: "Les cours de chaque unité, avec leurs périodes.",
+    aide: "Les cours de chaque unité, en périodes et en heures, avec les totaux par unité.",
     colonnes: COLS([['section', 'Section', 24], ['ue_num', 'UE', 8],
-      ['ue_nom', 'Unité', 36], ['cours_code', 'Cours', 12],
-      ['cours_nom', 'Intitulé', 40], ['cours_per', 'Périodes']]),
+      ['ue_nom', 'Unité', 34], ['cours_code', 'Cours', 12],
+      ['cours_nom', 'Intitulé', 38], ['type', 'Type', 8],
+      ['quadri', 'Quadri', 8],
+      ['periodes', 'Périodes'], ['heures', 'Heures'],
+      ['autonomie', 'Autonomie']]),
     lignes: (p) => db.prepare(`
-      SELECT u.section, c.ue_num, u.ue_nom, c.cours_code, c.cours_nom, c.cours_per
-      FROM cours c LEFT JOIN ue u ON u.ue_num = c.ue_num AND u.annee_scolaire = c.annee_scolaire
-      WHERE c.annee_scolaire = ? ORDER BY u.section, c.ue_num, c.cours_code`).all(p.annee),
+      SELECT u.section, c.ue_num, u.ue_nom, c.cours_code, c.cours_nom,
+             c.ct_pp AS type, c.quadrimestre_cours AS quadri,
+             c.cours_per AS periodes,
+             -- UNE PÉRIODE FAIT CINQUANTE MINUTES. Quand les heures ne sont pas
+             -- encodées, on les déduit plutôt que de laisser la colonne vide :
+             -- la règle est connue, et une case vide se lit comme un zéro.
+             COALESCE(c.heures, ROUND(c.cours_per * 50.0 / 60.0, 1)) AS heures,
+             c.ue_autonomie AS autonomie
+        FROM cours c
+        LEFT JOIN ue u ON u.ue_num = c.ue_num AND u.annee_scolaire = c.annee_scolaire
+       WHERE c.annee_scolaire = ? AND (? IS NULL OR u.section = ? OR c.section = ?)
+       ORDER BY u.section, c.ue_num, c.cours_code`)
+      .all(p.annee, p.section, p.section, p.section),
+  },
+  {
+    /* LA MÊME MATIÈRE, VUE PAR UNITÉ — ce que pèse une UE, d'un coup d'œil.
+       C'est ce qu'on regarde pour décider d'ouvrir une unité, pas le détail
+       cours par cours. */
+    id: 'referentiel-poids-ue', domaine: 'referentiels', params: ['annee', 'section'],
+    libelle: 'Poids des unités — périodes et heures',
+    aide: "Une ligne par unité : nombre de cours, périodes, heures, autonomie et ECTS.",
+    colonnes: COLS([['section', 'Section', 24], ['ue_num', 'UE', 8],
+      ['ue_nom', 'Intitulé', 42], ['nb_cours', 'Cours', 10],
+      ['periodes', 'Périodes'], ['heures', 'Heures'],
+      ['autonomie', 'Autonomie'], ['ects', 'ECTS', 8]]),
+    lignes: (p) => db.prepare(`
+      SELECT u.section, u.ue_num, u.ue_nom, u.ects, u.ue_aut AS autonomie,
+             COUNT(c.cours_code) AS nb_cours,
+             SUM(c.cours_per) AS periodes,
+             ROUND(SUM(COALESCE(c.heures, c.cours_per * 50.0 / 60.0)), 1) AS heures
+        FROM ue u
+        LEFT JOIN cours c ON c.ue_num = u.ue_num AND c.annee_scolaire = u.annee_scolaire
+       WHERE u.annee_scolaire = ? AND (? IS NULL OR u.section = ?)
+       GROUP BY u.section, u.ue_num, u.ue_nom, u.ects, u.ue_aut
+       ORDER BY u.section, u.ue_num`).all(p.annee, p.section, p.section),
+  },
+  {
+    /* QUI DONNE QUOI DANS UNE UNITÉ — la liste « profs par UE » de l'ancien
+       écran, celle qu'on imprime avant une réunion d'équipe d'unité. */
+    id: 'referentiel-profs-ue', domaine: 'referentiels', params: ['annee', 'section'],
+    libelle: 'Enseignants par unité',
+    aide: "Qui donne quel cours dans quelle unité, et pour combien de périodes.",
+    colonnes: COLS([['section', 'Section', 22], ['ue_num', 'UE', 8],
+      ['ue_nom', 'Unité', 32], ['code_cours', 'Cours', 12],
+      ['nom_cours', 'Intitulé', 32], ['professeur', 'Enseignant', 26],
+      ['type_cours', 'Type', 8], ['periodes', 'Périodes']]),
+    lignes: (p) => db.prepare(`
+      SELECT section, ue_num, ue_nom, code_cours, nom_cours, professeur, type_cours,
+             ROUND(SUM(total_attribue_professeur), 2) AS periodes
+        FROM v_attribution_complete
+       WHERE annee_scolaire = ? AND professeur IS NOT NULL
+         AND (? IS NULL OR section = ?)
+       GROUP BY section, ue_num, ue_nom, code_cours, nom_cours, professeur, type_cours
+       ORDER BY section, ue_num, code_cours, professeur`)
+      .all(p.annee, p.section, p.section),
   },
   {
     id: 'referentiel-acquis', domaine: 'referentiels', params: [],
@@ -898,6 +958,33 @@ export const RAPPORTS = [
       LEFT JOIN ue u ON u.ue_num = s.ue_num AND u.annee_scolaire = s.annee_scolaire
       WHERE s.annee_scolaire = ?
       ORDER BY u.section, s.ue_num, s.session`).all(p.annee),
+  },
+  {
+    /* LES EFFECTIFS PAR UNITÉ — « étudiants par UE » de l'ancien écran. C'est
+       le chiffre qu'on croise avec la charge pour décider d'un dédoublement,
+       et celui que l'AEQES redemande section par section. */
+    id: 'organisation-effectifs', domaine: 'organisation', params: ['annee', 'section'],
+    libelle: 'Effectifs par unité',
+    aide: "Inscrits par unité, avec la charge correspondante et le nombre d'étudiants par période.",
+    colonnes: COLS([['section', 'Section', 24], ['ue_num', 'UE', 8],
+      ['ue_nom', 'Intitulé', 40], ['ue_quad', 'Quadri', 10],
+      ['etudiants', 'Inscrits'], ['periodes', 'Périodes attribuées'],
+      ['par_periode', 'Étu. par période', 18]]),
+    lignes: (p) => db.prepare(`
+      SELECT u.section, u.ue_num, u.ue_nom, u.ue_quad,
+             u.nb_etudiants AS etudiants,
+             ROUND(COALESCE((SELECT SUM(v.total_attribue_professeur)
+                               FROM v_attribution_complete v
+                              WHERE v.annee_scolaire = u.annee_scolaire
+                                AND v.ue_num = u.ue_num), 0), 2) AS periodes,
+             CASE WHEN u.nb_etudiants > 0 THEN
+               ROUND(u.nb_etudiants / NULLIF((SELECT SUM(v2.total_attribue_professeur)
+                 FROM v_attribution_complete v2
+                WHERE v2.annee_scolaire = u.annee_scolaire AND v2.ue_num = u.ue_num), 0), 2)
+             END AS par_periode
+        FROM ue u
+       WHERE u.annee_scolaire = ? AND (? IS NULL OR u.section = ?)
+       ORDER BY u.section, u.ue_num`).all(p.annee, p.section, p.section),
   },
   {
     id: 'organisation-locaux', domaine: 'organisation', params: [],
