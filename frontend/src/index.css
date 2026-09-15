@@ -12,8 +12,21 @@ body {
   font-family: 'Inter', 'Aptos', system-ui, Arial, Helvetica, sans-serif;
   font-size: var(--app-font-size);
   line-height: 1.5;
-  background: #F5F7FA;
-  color: #1f2937;
+  /* UN SEUL SOL, ET TOUT EST POSÉ DESSUS.
+   *
+   * La page était en #F5F7FA et la barre du haut en #F8FAFC : deux gris à
+   * trois points d'écart, empilés sur toute la largeur. Trop proches pour
+   * qu'on puisse dire ce qui les sépare, trop différents pour se confondre —
+   * l'œil enregistre une bande sans savoir pourquoi, et l'écran paraît fait
+   * de couches. Le mode sombre était pire : les jetons basculaient, ce fond-ci
+   * restait gris clair.
+   *
+   * Le fond de la page est désormais LE MÊME JETON que celui du rail et de la
+   * barre. Il n'y a plus qu'un gris de haut en bas, et le blanc redevient ce
+   * qu'il doit être : le signe de ce qui se remplit.
+   */
+  background: var(--menu-fond, #F8FAFC);
+  color: var(--menu-texte, #1f2937);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
