@@ -25,8 +25,8 @@ body {
    * barre. Il n'y a plus qu'un gris de haut en bas, et le blanc redevient ce
    * qu'il doit être : le signe de ce qui se remplit.
    */
-  background: var(--menu-fond, #F8FAFC);
-  color: var(--menu-texte, #1f2937);
+  background: var(--page-fond, #F8FAFC);
+  color: #1f2937;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
@@ -330,6 +330,7 @@ table.grid-excel-soft td.num { text-align: right; font-variant-numeric: tabular-
    ───────────────────────────────────────────────────────────────────────── */
 :root, :root[data-mode="clair"] {
   --menu-fond:        #F8FAFC;   /* le fond de la page : le rail s'y fond */
+  --page-fond:        #F8FAFC;   /* en clair, la page et les menus ont UN sol */
   --menu-bord:        rgba(27, 43, 75, 0.10);
   --menu-texte:       #1B2B4B;
   --menu-texte-doux:  rgba(27, 43, 75, 0.55);
@@ -345,7 +346,15 @@ table.grid-excel-soft td.num { text-align: right; font-variant-numeric: tabular-
   --tab-repere:       #F8FAFC;   /* le fond de la page : le filet suffit à démarquer */
 }
 :root[data-mode="sombre"] {
-  --menu-fond:        #0F1A2E;   /* le fond de la page en mode sombre */
+  --menu-fond:        #0F1A2E;   /* le marine des MENUS en mode sombre */
+  /* LE MODE SOMBRE EST CELUI DES MENUS, PAS CELUI DE LA PAGE.
+     La barre et le rail passent au marine ; les écrans, eux, restent clairs —
+     on y lit des tableaux, des notes et des documents. En donnant à la page le
+     fond des menus, le marine descendait sous la barre et courait derrière le
+     contenu : une bande que rien ne justifiait, et une zone de plus à
+     expliquer. La page garde donc son sol ; ce qui change de mode, ce sont les
+     panneaux qui portent la navigation. */
+  --page-fond:        #F5F7FA;
   --menu-bord:        rgba(255, 255, 255, 0.10);
   --menu-texte:       #FFFFFF;
   --menu-texte-doux:  rgba(255, 255, 255, 0.45);
