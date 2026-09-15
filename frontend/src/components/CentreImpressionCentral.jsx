@@ -51,7 +51,12 @@ const PIECES = [
  * télécharger : un tableur qu'on découvre après coup se refait deux fois.
  */
 function OngletRapports({ domaine }) {
-  const annee = getAnnee();
+  /* L'ANNÉE SE CHOISIT ICI. Le centre reprenait l'année de travail sans
+     jamais la montrer : pour sortir la charge de l'an dernier — ce que
+     demandent la dotation, le COPIL et l'AEQES —, il fallait changer l'année
+     de toute l'application, faire la pièce, puis penser à la remettre. */
+  const [annee, setAnnee] = useState(getAnnee());
+  const [annees, setAnnees] = useState([]);
   const [catalogue, setCatalogue] = useState(null);
   const [choisi, setChoisi] = useState(null);
   const [session, setSession] = useState(1);
@@ -61,6 +66,13 @@ function OngletRapports({ domaine }) {
   // que veut une coordination. Le même modèle sert les deux.
   const [section, setSection] = useState('');
   const [sections, setSections] = useState([]);
+  /* LA PORTÉE — le niveau de détail, et ce qu'on a choisi à ce niveau. Un
+     logiciel de gestion sert à montrer LES données qu'on choisit : on descend
+     de l'établissement à la section, de la section à l'unité, de l'unité au
+     cours, au lieu d'avoir une entrée de menu par échelle. */
+  const [portee, setPortee] = useState({ niveau: 'etablissement', ue_num: '', code_cours: '' });
+  const [ues, setUes] = useState([]);
+  const [coursUe, setCoursUe] = useState([]);
   const [apercu, setApercu] = useState(null);
   const [erreur, setErreur] = useState(null);
   const [enCours, setEnCours] = useState(false);
@@ -84,9 +96,27 @@ function OngletRapports({ domaine }) {
       .catch(e => setErreur(e.message));
     fetch(`/api/reunions/perimetre?annee=${encodeURIComponent(annee)}`,
       { headers: authHeaders() })
-      .then(r => r.json()).then(j => setSections(j.sections || []))
+      .then(r => r.json())
+      .then(j => { setSections(j.sections || []); setUes(j.ues || []); })
       .catch(() => { /* sans la liste, le filtre reste sur « toutes » */ });
   }, [annee]);
+
+  useEffect(() => {
+    fetch('/api/annees', { headers: authHeaders() })
+      .then(r => r.json())
+      .then(l => setAnnees((Array.isArray(l) ? l : []).map(a => a.code).filter(Boolean)))
+      .catch(() => setAnnees([annee]));
+    // eslint-disable-next-line
+  }, []);
+
+  // Les cours d'une unité ne se chargent qu'au moment où l'on descend jusque-là.
+  useEffect(() => {
+    if (portee.niveau !== 'cours' || !portee.ue_num) { setCoursUe([]); return; }
+    fetch(`/api/ref/cours?annee=${encodeURIComponent(annee)}&ue_num=${encodeURIComponent(portee.ue_num)}`,
+      { headers: authHeaders() })
+      .then(r => r.json()).then(l => setCoursUe(Array.isArray(l) ? l : []))
+      .catch(() => setCoursUe([]));
+  }, [portee.niveau, portee.ue_num, annee]);
 
   const liste = useMemo(
     () => (catalogue || []).filter(r => r.domaine === domaine), [catalogue, domaine]);
@@ -96,6 +126,8 @@ function OngletRapports({ domaine }) {
     annee,
     ...(r.params.includes('session') ? { session } : {}),
     ...(r.params.includes('section') && section ? { section } : {}),
+    ...(r.params.includes('portee')
+      ? { portee: { ...portee, section: section || null } } : {}),
   });
 
   /*
@@ -126,7 +158,7 @@ function OngletRapports({ domaine }) {
   // Changer de section ou de session refait la pièce : un aperçu qui ne suit
   // pas ses paramètres ment sur ce qui s'imprimera.
   useEffect(() => { if (choisi) voir(choisi); // eslint-disable-next-line
-  }, [section, session]);
+  }, [section, session, annee, portee]);
 
   async function telecharger() {
     if (!choisi) return;
@@ -170,7 +202,57 @@ function OngletRapports({ domaine }) {
 
       <div className="flex-1 flex flex-col min-h-0">
         <div className="px-3 py-2 border-b border-slate-200 flex flex-wrap items-center gap-2">
-          <span className="text-[13px] text-slate-600">{annee}</span>
+          <select value={annee} onChange={e => setAnnee(e.target.value)}
+            className="px-2 py-1 text-[12px] border border-slate-300 rounded"
+            title="Année sur laquelle porte la pièce">
+            {(annees.length ? annees : [annee]).map(a =>
+              <option key={a} value={a}>{a}</option>)}
+          </select>
+
+          {choisi?.portees?.length > 1 && (
+            <>
+              <select value={portee.niveau}
+                onChange={e => setPortee(p => ({ ...p, niveau: e.target.value }))}
+                className="px-2 py-1 text-[12px] border border-slate-300 rounded"
+                title="Jusqu'où descendre">
+                {choisi.portees.map(n => (
+                  <option key={n} value={n}>{{
+                    etablissement: "Tout l'établissement", section: 'Une section',
+                    ue: 'Une unité', cours: 'Un cours',
+                  }[n] || n}</option>
+                ))}
+              </select>
+              {portee.niveau !== 'etablissement' && (
+                <select value={section} onChange={e => setSection(e.target.value)}
+                  className="px-2 py-1 text-[12px] border border-slate-300 rounded">
+                  <option value="">Toutes les sections</option>
+                  {sections.map(s2 => <option key={s2} value={s2}>{s2}</option>)}
+                </select>
+              )}
+              {(portee.niveau === 'ue' || portee.niveau === 'cours') && (
+                <select value={portee.ue_num}
+                  onChange={e => setPortee(p => ({ ...p, ue_num: e.target.value, code_cours: '' }))}
+                  className="px-2 py-1 text-[12px] border border-slate-300 rounded max-w-[16rem]">
+                  <option value="">— choisir une unité —</option>
+                  {ues.filter(u => !section || u.section === section).map(u => (
+                    <option key={u.ue_num} value={u.ue_num}>UE {u.ue_num} — {u.ue_nom}</option>
+                  ))}
+                </select>
+              )}
+              {portee.niveau === 'cours' && !!coursUe.length && (
+                <select value={portee.code_cours}
+                  onChange={e => setPortee(p => ({ ...p, code_cours: e.target.value }))}
+                  className="px-2 py-1 text-[12px] border border-slate-300 rounded max-w-[16rem]">
+                  <option value="">Tous les cours de l'unité</option>
+                  {coursUe.map(c => (
+                    <option key={c.cours_code} value={c.cours_code}>
+                      {c.cours_code} — {c.cours_nom}
+                    </option>
+                  ))}
+                </select>
+              )}
+            </>
+          )}
           {choisi?.params?.includes('section') && (
             <select value={section}
               onChange={e => { setSection(e.target.value); setApercu(null); }}

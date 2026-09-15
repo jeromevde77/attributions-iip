@@ -153,6 +153,15 @@ const STYLE_REPORTING = `
   .marque { color:#fff; font-size:6.5pt; font-weight:700; padding:.3mm 1.2mm;
             border-radius:1mm; letter-spacing:.3pt; }`;
 
+/** Ce que toutes les pièces de charge partagent. */
+const STYLE_ETP = `
+  td.ue { font-weight: 600; color: #1B2B4B; white-space: nowrap; }
+  td.n, th.n { text-align: right; }
+  td.g { font-weight: 700; color: #1B2B4B; }
+  tr.dont td { color: #64748b; font-size: 8pt; border-bottom: 0; }
+  tr.dont td:first-child { text-align: right; }
+  tfoot tr.repere td { border-top: 0.6pt solid #cbd5e1; }`;
+
 /** Le bloc d'une unité — « BA1 », « BA2 »… ; à défaut, « Autres ». */
 const blocDe = (u) => {
   const m = String(u.ue_niv || '').match(/\d+/);
@@ -173,16 +182,50 @@ const periodesDe = (u) => (u.per_ct || 0) + (u.per_pp || 0)
 /** La section demandée, ou la première — un rapport de cursus en vise un. */
 function cursus(p) {
   const d = calculerEtp(p.annee);
-  const sec = p.section
-    ? (d.sections || []).find(s => s.section === p.section)
+  const voulue = p.section || p.portee?.section;
+  const sec = voulue
+    ? (d.sections || []).find(s => s.section === voulue)
     : (d.sections || [])[0];
   if (!sec) {
-    throw new Error(p.section
-      ? `Aucune charge ETP pour la section « ${p.section} » en ${p.annee}.`
+    throw new Error(voulue
+      ? `Aucune charge ETP pour la section « ${voulue} » en ${p.annee}.`
       : `Aucune charge ETP en ${p.annee}.`);
   }
   return { d, sec };
 }
+
+/*
+ * ── LA PORTÉE ────────────────────────────────────────────────────────────
+ *
+ * Quatre niveaux, du plus large au plus fin : l'établissement, une section,
+ * une unité, un cours. Ils ne changent pas la question — « ce que coûte
+ * l'enseignement » — mais l'échelle à laquelle on la pose, et donc ce qu'il
+ * faut montrer : à l'établissement on compare des sections, dans une section
+ * des blocs et des unités, dans une unité des cours, dans un cours des
+ * personnes. LE DÉTAIL D'UN NIVEAU EST LE NIVEAU D'EN DESSOUS.
+ */
+const NIVEAUX = {
+  etablissement: "Tout l'établissement",
+  section: 'Une section', ue: 'Une unité', cours: 'Un cours',
+};
+
+/** Ce que le cours fait porter à qui — le niveau le plus fin. */
+function attributionsDuCours(annee, ueNum, codeCours) {
+  return db.prepare(`
+    SELECT professeur, code_cours, nom_cours, type_cours, contrat_mdp, section,
+           ue_num, ue_nom,
+           ROUND(SUM(total_attribue_professeur), 2) AS periodes
+      FROM v_attribution_complete
+     WHERE annee_scolaire = ? AND ue_num = ?
+       AND (? IS NULL OR code_cours = ?) AND professeur IS NOT NULL
+     GROUP BY professeur, code_cours, nom_cours, type_cours, contrat_mdp
+     ORDER BY code_cours, professeur
+  `).all(annee, ueNum, codeCours || null, codeCours || null);
+}
+
+/** L'ETP d'une ligne de charge : CT sur 800, PP sur 1000 — la règle maison. */
+const etpDe = (l) => (l.type_cours === 'PP' ? (l.periodes || 0) / 1000
+  : (l.periodes || 0) / 800);
 
 /** L'aperçu : les mêmes unités que la pièce, à plat. */
 function lignesEtpCursus(p) {
@@ -199,6 +242,195 @@ function lignesEtpCursus(p) {
       periodes: Math.round(periodesDe(u)),
       etp: Math.round((u.etp_total || 0) * 10000) / 10000,
     }));
+}
+
+/**
+ * L'AIGUILLAGE. Une seule entrée au catalogue, quatre pièces selon la portée —
+ * et c'est l'utilisateur qui choisit, non le menu qui a décidé pour lui.
+ */
+function documentEtp(p) {
+  const niveau = p.portee?.niveau || 'etablissement';
+  if (niveau === 'section') return documentEtpCursus(p);
+  if (niveau === 'ue' || niveau === 'cours') return documentEtpUe(p);
+  return documentEtpEtablissement(p);
+}
+
+function lignesEtp(p) {
+  const niveau = p.portee?.niveau || 'etablissement';
+  if (niveau === 'section') return lignesEtpCursus(p);
+  if (niveau === 'ue' || niveau === 'cours') {
+    return attributionsDuCours(p.annee, p.portee?.ue_num, p.portee?.code_cours)
+      .map(l => ({ ...l, etp: Math.round(etpDe(l) * 10000) / 10000 }));
+  }
+  const d = calculerEtp(p.annee);
+  return (d.sections || []).map(s => ({
+    section: s.section, periodes: null, etp: s.etp_total,
+    etp_iip: s.etp_iip, etp_helb: s.etp_helb, etudiants: s.nb_etudiants,
+  }));
+}
+
+/**
+ * TOUT L'ÉTABLISSEMENT — on y compare des SECTIONS, et rien d'autre. Le détail
+ * unité par unité, à cette échelle, fait trois cents lignes que personne ne
+ * lit : il est à un clic, au niveau du dessous.
+ */
+function documentEtpEtablissement(p) {
+  const d = calculerEtp(p.annee);
+  const C = couleurs();
+  const esc = v => String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;');
+  const n0 = n => Math.round(n || 0).toLocaleString('fr-BE');
+  const n2 = n => (n || 0).toFixed(2).replace('.', ',');
+  const secs = d.sections || [];
+  const tot = d.total || {};
+  const coord = secs.reduce((s, x) => s + (x.etp_coord_helb || 0), 0);
+  const global = (tot.etp_total || 0) + coord;
+  const etus = secs.reduce((s, x) => s + (x.nb_etudiants || 0), 0);
+  const ratio = (e) => (e > 0 && etus > 0 ? (etus / e).toFixed(1).replace('.', ',') : '—');
+
+  const corps = `
+    <h1>Charge en ETP — tout l'établissement</h1>
+    <p class="sous">Année académique ${esc(p.annee)} · ${secs.length} section(s)</p>
+
+    ${rangeeTuiles([
+      tuile({ valeur: n2(global), unite: 'ETP', libelle: 'Charge globale',
+        precision: `${secs.length} section(s)`, ton: 'fort' }),
+      tuile({ valeur: n2(tot.etp_iip), unite: 'ETP', libelle: 'Institut',
+        precision: global ? `${Math.round((tot.etp_iip || 0) / global * 100)} %` : '—',
+        couleur: C.iip }),
+      tuile({ valeur: n2((tot.etp_helb || 0) + coord), unite: 'ETP', libelle: 'Haute École',
+        precision: global ? `${Math.round(((tot.etp_helb || 0) + coord) / global * 100)} %` : '—',
+        couleur: C.helb }),
+      tuile({ valeur: etus ? n0(etus) : '—', libelle: 'Étudiants',
+        precision: etus ? `${ratio(global)} par ETP` : 'effectifs non encodés' }),
+    ])}
+
+    <div class="cadre">
+      <h2>De quoi la charge est faite</h2>
+      ${barreParts([
+        { nom: 'Institut', valeur: tot.etp_iip || 0, couleur: C.iip },
+        { nom: 'Haute École', valeur: tot.etp_helb || 0, couleur: C.helb },
+        ...(coord > 0 ? [{ nom: 'Coordination HELB', valeur: coord, couleur: C.helb, pale: true }] : []),
+      ])}
+    </div>
+
+    <div class="cadre">
+      <h2>Le poids de chaque section</h2>
+      ${barres({ donnees: secs.map(x => ({
+        valeur: x.etp_total || 0, couleur: C.iip,
+        texte: `${x.section} — ${n2(x.etp_total)} ETP${
+          global > 0 ? ` (${Math.round((x.etp_total || 0) / global * 100)} %)` : ''}`,
+      })) })}
+    </div>
+
+    <h2>Section par section</h2>
+    <table>
+      <thead><tr><th>Section</th><th class="n" style="width:22mm">ETP</th>
+        <th class="n" style="width:22mm">Institut</th><th class="n" style="width:22mm">Haute École</th>
+        <th class="n" style="width:22mm">Étudiants</th>
+        <th class="n" style="width:26mm">Étu. par ETP</th></tr></thead>
+      <tbody>${secs.map(x => `<tr>
+        <td>${esc(x.section)}</td><td class="n g">${n2(x.etp_total)}</td>
+        <td class="n">${n2(x.etp_iip)}</td><td class="n">${n2(x.etp_helb)}</td>
+        <td class="n">${x.nb_etudiants ? n0(x.nb_etudiants) : '—'}</td>
+        <td class="n">${x.nb_etudiants && x.etp_total > 0
+          ? (x.nb_etudiants / x.etp_total).toFixed(1).replace('.', ',') : '—'}</td>
+      </tr>`).join('')}</tbody>
+      <tfoot><tr class="repere"><td>Ensemble</td><td class="n">${n2(tot.etp_total)}</td>
+        <td class="n">${n2(tot.etp_iip)}</td><td class="n">${n2(tot.etp_helb)}</td>
+        <td class="n">${etus ? n0(etus) : '—'}</td><td class="n">${ratio(tot.etp_total)}</td>
+      </tr></tfoot>
+    </table>`;
+
+  return {
+    corps, titre: "Charge en ETP — établissement",
+    nom: `ETP-etablissement-${p.annee}.html`,
+    styles: STYLE_RAPPORT + STYLE_REPORTING + STYLE_ETP,
+  };
+}
+
+/**
+ * UNE UNITÉ, OU UN DE SES COURS — le niveau où l'on voit enfin QUI porte la
+ * charge. C'est la question qui vient toujours en séance, et à laquelle aucun
+ * des quatre anciens rapports ne répondait.
+ */
+function documentEtpUe(p) {
+  const C = couleurs();
+  const ueNum = p.portee?.ue_num;
+  const code = p.portee?.niveau === 'cours' ? p.portee?.code_cours : null;
+  const lignes = attributionsDuCours(p.annee, ueNum, code);
+  if (!lignes.length) {
+    throw new Error(`Aucune attribution pour l'unité ${ueNum || '—'} en ${p.annee}.`);
+  }
+  const esc = v => String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;');
+  const n0 = n => Math.round(n || 0).toLocaleString('fr-BE');
+  const n2 = n => (n || 0).toFixed(2).replace('.', ',');
+  const n4 = n => (n || 0).toFixed(4).replace('.', ',');
+
+  const ue = db.prepare(
+    'SELECT ue_nom, section, ects, nb_etudiants FROM ue WHERE annee_scolaire = ? AND ue_num = ?')
+    .get(p.annee, ueNum) || {};
+  const per = lignes.reduce((s, l) => s + (l.periodes || 0), 0);
+  const etp = lignes.reduce((s, l) => s + etpDe(l), 0);
+  const etpIip = lignes.filter(l => (l.contrat_mdp || 'IIP') === 'IIP')
+    .reduce((s, l) => s + etpDe(l), 0);
+  const profs = new Set(lignes.map(l => l.professeur)).size;
+
+  // Par cours quand on regarde l'unité ; par personne quand on regarde un cours.
+  const parCours = new Map();
+  for (const l of lignes) {
+    const k = l.code_cours || '—';
+    if (!parCours.has(k)) parCours.set(k, { nom: l.nom_cours, periodes: 0, etp: 0 });
+    const g = parCours.get(k);
+    g.periodes += l.periodes || 0; g.etp += etpDe(l);
+  }
+
+  const corps = `
+    <h1>Charge en ETP — ${code ? `cours ${esc(code)}` : `UE ${esc(ueNum)}`}</h1>
+    <p class="sous">${esc(ue.ue_nom || '')}${ue.section ? ` · ${esc(ue.section)}` : ''}
+      · année ${esc(p.annee)}</p>
+
+    ${rangeeTuiles([
+      tuile({ valeur: n4(etp), unite: 'ETP', libelle: 'Charge', ton: 'fort',
+        precision: `${n0(per)} périodes` }),
+      tuile({ valeur: n2(etpIip), unite: 'ETP', libelle: 'Institut',
+        precision: etp > 0 ? `${Math.round(etpIip / etp * 100)} %` : '—', couleur: C.iip }),
+      tuile({ valeur: n2(etp - etpIip), unite: 'ETP', libelle: 'Haute École',
+        precision: etp > 0 ? `${Math.round((etp - etpIip) / etp * 100)} %` : '—', couleur: C.helb }),
+      tuile({ valeur: profs, libelle: profs > 1 ? 'Enseignants' : 'Enseignant',
+        precision: ue.nb_etudiants ? `${n0(ue.nb_etudiants)} étudiant(s)` : null }),
+    ])}
+
+    ${parCours.size > 1 ? `<div class="cadre">
+      <h2>Le poids de chaque cours</h2>
+      ${barres({ donnees: [...parCours.entries()].map(([k, v]) => ({
+        valeur: v.etp, couleur: C.iip,
+        texte: `${k} — ${n0(v.periodes)} pér. · ${n4(v.etp)} ETP`,
+      })) })}
+    </div>` : ''}
+
+    <h2>Qui porte cette charge</h2>
+    <table>
+      <thead><tr><th>Enseignant</th><th style="width:18mm">Cours</th>
+        <th>Intitulé</th><th style="width:12mm">Type</th><th style="width:16mm">Contrat</th>
+        <th class="n" style="width:22mm">Périodes</th><th class="n" style="width:20mm">ETP</th>
+      </tr></thead>
+      <tbody>${lignes.map(l => `<tr>
+        <td>${esc(l.professeur)}</td><td class="ue">${esc(l.code_cours || '—')}</td>
+        <td>${esc(l.nom_cours || '—')}</td><td>${esc(l.type_cours || '')}</td>
+        <td>${(l.contrat_mdp || 'IIP') === 'IIP' ? ''
+          : `<span class="marque" style="background:${C.helb}">HELB</span>`}</td>
+        <td class="n">${n0(l.periodes)}</td><td class="n g">${n4(etpDe(l))}</td>
+      </tr>`).join('')}</tbody>
+      <tfoot><tr class="repere"><td colspan="5">Ensemble</td>
+        <td class="n">${n0(per)}</td><td class="n">${n4(etp)}</td></tr></tfoot>
+    </table>`;
+
+  return {
+    corps,
+    titre: `Charge en ETP — ${code ? `cours ${code}` : `UE ${ueNum}`}`,
+    nom: `ETP-${code || `UE${ueNum}`}-${p.annee}.html`,
+    styles: STYLE_RAPPORT + STYLE_REPORTING + STYLE_ETP,
+  };
 }
 
 /** La pièce elle-même : blocs, sous-totaux, parts et ratios. */
@@ -333,66 +565,28 @@ function documentEtpCursus(p) {
     orientation: 'portrait',
     // La colonne des ETP est celle qu'on lit : elle se distingue par la
     // graisse, non par une couleur — et le bloc par un filet, non un bandeau.
-    styles: STYLE_RAPPORT + STYLE_REPORTING + `
-      td.ue { font-weight: 600; color: #1B2B4B; white-space: nowrap; }
-      td.n, th.n { text-align: right; }
-      td.g { font-weight: 700; color: #1B2B4B; }
-      tr.dont td { color: #64748b; font-size: 8pt; border-bottom: 0; }
-      tr.dont td:first-child { text-align: right; }
-      tfoot tr.repere td { border-top: 0.6pt solid #cbd5e1; }`,
+    styles: STYLE_RAPPORT + STYLE_REPORTING + STYLE_ETP,
   };
 }
 
 export const RAPPORTS = [
   // ── PILOTAGE ────────────────────────────────────────────────────────────
-  {
-    id: 'etp-section', domaine: 'pilotage', params: ['annee'],
-    libelle: 'ETP et périodes par section',
-    aide: "Périodes attribuées, réparties entre référents, et l'équivalent temps plein correspondant.",
-    colonnes: COLS([['section', 'Section', 28], ['bloc', 'Bloc', 10],
-      ['periodes_att', 'Périodes attribuées'], ['iip', 'dont IIP'], ['helb', 'dont HELB'],
-      ['etp', 'ETP', 10], ['cout_dotation', 'Coût dotation']]),
-    lignes: (p) => db.prepare(`
-      SELECT section, bloc,
-        ROUND(SUM(total_attribue_professeur), 2) AS periodes_att,
-        ROUND(SUM(CASE WHEN contrat_mdp='IIP'  THEN total_attribue_professeur ELSE 0 END), 2) AS iip,
-        ROUND(SUM(CASE WHEN contrat_mdp='HELB' THEN total_attribue_professeur ELSE 0 END), 2) AS helb,
-        ROUND(SUM(total_attribue_professeur) / 800.0, 3) AS etp,
-        ROUND(SUM(cout_dotation), 2) AS cout_dotation
-      FROM v_attribution_complete WHERE annee_scolaire = ?
-      GROUP BY section, bloc ORDER BY section, bloc`).all(p.annee),
-  },
-  {
-    id: 'etp-ue', domaine: 'pilotage', params: ['annee'],
-    libelle: 'Périodes et ETP par unité',
-    aide: "Le détail unité par unité, pour repérer ce qui pèse.",
-    colonnes: COLS([['section', 'Section', 24], ['ue_num', 'UE', 8],
-      ['ue_nom', 'Intitulé', 44], ['periodes_att', 'Périodes attribuées'],
-      ['etp', 'ETP', 10], ['organisees', 'Périodes organisées']]),
-    lignes: (p) => db.prepare(`
-      SELECT section, ue_num, ue_nom,
-        ROUND(SUM(total_attribue_professeur), 2) AS periodes_att,
-        ROUND(SUM(total_attribue_professeur) / 800.0, 3) AS etp,
-        ROUND(SUM(total_periodes_organisees), 2) AS organisees
-      FROM v_attribution_complete WHERE annee_scolaire = ?
-      GROUP BY section, ue_num, ue_nom ORDER BY section, ue_num`).all(p.annee),
-  },
-  {
-    id: 'etp-etablissement', domaine: 'pilotage', params: ['annee'],
-    libelle: "ETP par établissement référent",
-    aide: "La répartition entre l'Institut et la Haute École.",
-    colonnes: COLS([['contrat_mdp', 'Référent', 18],
-      ['periodes_att', 'Périodes attribuées'], ['etp', 'ETP', 10],
-      ['professeurs', 'Professeurs'], ['cout_dotation', 'Coût dotation']]),
-    lignes: (p) => db.prepare(`
-      SELECT COALESCE(contrat_mdp, '(non renseigné)') AS contrat_mdp,
-        ROUND(SUM(total_attribue_professeur), 2) AS periodes_att,
-        ROUND(SUM(total_attribue_professeur) / 800.0, 3) AS etp,
-        COUNT(DISTINCT professeur) AS professeurs,
-        ROUND(SUM(cout_dotation), 2) AS cout_dotation
-      FROM v_attribution_complete WHERE annee_scolaire = ?
-      GROUP BY contrat_mdp ORDER BY periodes_att DESC`).all(p.annee),
-  },
+  /*
+   * ── UN SEUL RAPPORT ETP, ET UNE PORTÉE ────────────────────────────────
+   *
+   * Il y en avait quatre : par section, par unité, par établissement
+   * référent, et le rapport de cursus. Quatre entrées de menu pour UNE
+   * question — « ce que coûte l'enseignement » — posée à quatre échelles.
+   * L'utilisateur devait deviner laquelle répondait à la sienne, et les
+   * quatre se présentaient différemment.
+   *
+   * Tout l'intérêt d'un logiciel de gestion est de MONTRER LES DONNÉES QU'ON
+   * CHOISIT. On choisit donc le rapport une fois, puis on descend : tout
+   * l'établissement, une section, une unité, un cours. La pièce s'adapte —
+   * les tuiles disent ce qui compte à ce niveau-là, le graphique compare ce
+   * qui est comparable à ce niveau-là, et le détail est celui du niveau
+   * d'en dessous.
+   */
   {
     id: 'resultats-section', domaine: 'pilotage', params: ['annee', 'session'],
     libelle: 'Résultats de délibération par unité',
@@ -542,16 +736,19 @@ export const RAPPORTS = [
    * bandeau. Les chiffres, eux, sont les mêmes, au même calcul.
    */
   {
-    id: 'etp-cursus', domaine: 'pilotage', params: ['annee', 'section'],
-    libelle: 'Rapport de charge ETP par cursus',
-    aide: "La pièce du COPIL : ETP par unité et par bloc, part IIP et HELB, ratios étudiants par ETP.",
+    id: 'etp', domaine: 'pilotage', params: ['annee', 'portee'],
+    libelle: 'Charge en ETP',
+    aide: "Tout l'établissement, une section, une unité ou un cours — la pièce s'adapte à la portée choisie.",
+    // La portée descend jusqu'au cours : c'est le niveau où l'on voit enfin
+    // QUI porte la charge, et c'est la question qui vient toujours en séance.
+    portees: ['etablissement', 'section', 'ue', 'cours'],
     // Ce rapport n'est pas un tableau de lignes : il ne sort pas en tableur.
     // Les colonnes servent à l'aperçu, qui montre ce que la pièce contiendra.
     colonnes: COLS([['bloc', 'Bloc', 14], ['ue_num', 'UE', 8], ['ue_nom', 'Intitulé', 44],
       ['contrat', 'Contrat', 12], ['per_ct', 'Périodes CT'], ['per_pp', 'Périodes PP'],
       ['periodes', 'Périodes'], ['etp', 'ETP', 10]]),
-    lignes: (p) => lignesEtpCursus(p),
-    document: (p) => documentEtpCursus(p),
+    lignes: (p) => lignesEtp(p),
+    document: (p) => documentEtp(p),
   },
 
   /*
@@ -733,9 +930,10 @@ r.get('/catalogue', authRequired, (req, res) => {
     // « piece » dit à l'écran que ce rapport est une MISE EN PAGE et non un
     // tableau : le bouton « Tableur » n'a rien à y proposer, et un bouton qui
     // ne fait rien est pire qu'un bouton absent.
-    rapports: RAPPORTS.map(({ id, domaine, libelle, aide, params, colonnes, document }) => ({
+    rapports: RAPPORTS.map(({ id, domaine, libelle, aide, params, colonnes,
+                             document, portees }) => ({
       id, domaine, libelle, aide, params, colonnes: colonnes.length,
-      piece: !!document,
+      piece: !!document, portees: portees || null,
     })),
   });
 });
@@ -880,6 +1078,25 @@ function parametres(req, def) {
   // tout l'établissement — c'est le cas du Conseil et de la dotation ; choisie,
   // il ne parle que d'un cursus — c'est le cas d'une coordination.
   if (def.params.includes('section')) p.section = req.body?.section || null;
+  /* LA PORTÉE : le niveau, et ce qu'on a choisi à ce niveau. On ne fait
+     confiance à rien de ce qui arrive : le niveau doit être l'un de ceux que
+     le rapport déclare, l'unité doit être un nombre, et le code de cours ne
+     sert que de filtre d'égalité dans une requête préparée. */
+  if (def.params.includes('portee')) {
+    const b = req.body?.portee || {};
+    const niveaux = def.portees || ['etablissement'];
+    const niveau = niveaux.includes(b.niveau) ? b.niveau : niveaux[0];
+    p.portee = {
+      niveau,
+      section: b.section ? String(b.section) : null,
+      ue_num: Number.isFinite(Number(b.ue_num)) && b.ue_num !== null && b.ue_num !== ''
+        ? Number(b.ue_num) : null,
+      code_cours: b.code_cours ? String(b.code_cours) : null,
+    };
+    // Une portée « section » sert aussi de filtre aux pièces qui lisent
+    // p.section : les deux disent la même chose, autant ne pas les séparer.
+    if (!p.section && p.portee.section) p.section = p.portee.section;
+  }
   p.perimetre = getUserSections(req.user);
   return p;
 }
