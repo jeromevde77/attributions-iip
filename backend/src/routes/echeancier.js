@@ -96,6 +96,22 @@ r.get('/', authRequired, (req, res) => {
       SELECT t.id, t.titre, t.detail, t.statut, t.echeance, t.responsable_role,
              t.responsable_user_id, t.reunion_id,
              COALESCE(u.nom_complet, pr.prenom || ' ' || pr.nom) AS responsable_nom,
+             -- UNE ACTION PORTÉE À PLUSIEURS SE LIT CHEZ CHACUN. La colonne
+             -- responsable_user_id ne porte que le premier nommé ; l'équipage
+             -- est dans tache_personne, et c'est lui qu'il faut interroger pour
+             -- que « ce qui m'attend » n'oublie pas le second.
+             (SELECT GROUP_CONCAT(COALESCE(u2.nom_complet,
+                       pr2.prenom || ' ' || pr2.nom, tp.role), ', ')
+                FROM tache_personne tp
+                LEFT JOIN utilisateur u2  ON u2.id  = tp.user_id
+                LEFT JOIN professeur  pr2 ON pr2.id = tp.professeur_id
+               WHERE tp.tache_id = t.id) AS equipage,
+             EXISTS (SELECT 1 FROM tache_personne tp2
+                      WHERE tp2.tache_id = t.id
+                        AND (tp2.user_id = @moi OR tp2.role = @role
+                             OR (tp2.professeur_id IS NOT NULL
+                                 AND tp2.professeur_id = (SELECT professeur_id
+                                     FROM utilisateur WHERE id = @moi)))) AS est_mienne,
              r.titre AS reunion_titre, r.date_seance,
              COALESCE(e2.libelle_override, et2.libelle) AS obligation_libelle
         FROM tache t
@@ -104,8 +120,8 @@ r.get('/', authRequired, (req, res) => {
         LEFT JOIN reunion r      ON r.id  = t.reunion_id
         LEFT JOIN echeance e2    ON e2.id = t.echeance_id
         LEFT JOIN echeance_type et2 ON et2.id = e2.type_id
-       WHERE t.annee_scolaire = ?
-    `).all(annee);
+       WHERE t.annee_scolaire = @annee
+    `).all({ annee, moi: req.user.id, role: req.user.role || '' });
   } catch { /* module de suivi absent (base non migrée) : l'échéancier vit sans */ }
 
   const jour = new Date().toISOString().slice(0, 10);
@@ -114,11 +130,12 @@ r.get('/', authRequired, (req, res) => {
       if (statut && t.statut !== statut) return false;
       if (zone && zone !== 'equipe') return false;
       if (mien === '1') {
-        return t.responsable_user_id === req.user.id
+        return !!t.est_mienne
+          || t.responsable_user_id === req.user.id
           || t.responsable_role === req.user.role
           || t.responsable_nom === req.user.nom_complet;
       }
-      if (responsable && t.responsable_nom !== responsable
+      if (responsable && !String(t.equipage || t.responsable_nom || '').includes(responsable)
           && t.responsable_role !== responsable) return false;
       return true;
     })
@@ -141,7 +158,7 @@ r.get('/', authRequired, (req, res) => {
       statut: t.statut === 'fait' ? 'fait'
         : (t.echeance && t.echeance < jour && t.statut !== 'abandonnee') ? 'en_retard'
         : t.statut === 'abandonnee' ? 'sans_objet' : 'a_faire',
-      responsable_nom: t.responsable_nom,
+      responsable_nom: t.equipage || t.responsable_nom,
       responsable_role: t.responsable_role,
       source_type: 'reunion',
       source_id: t.reunion_id,

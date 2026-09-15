@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
   IconCalendarEvent, IconChecklist, IconPlus, IconPrinter,
-  IconCheck, IconChevronLeft, IconClock, IconUser,
+  IconCheck, IconChevronLeft, IconClock, IconUser, IconX, IconTrash,
 } from '@tabler/icons-react';
 import { authHeaders } from '../lib/api.js';
 import { PageHeader, RailLateral } from '../components/ui.jsx';
-import { nomDepuisChaine } from '../lib/nom.js';
+import { nomDepuisChaine, nomListe, parNom } from '../lib/nom.js';
 import PreviewModal from '../components/PreviewModal.jsx';
 
 /**
@@ -226,16 +226,44 @@ function DetailReunion({ reunion, personnes, obligations, types = [], perimetre,
   });
   const [ues, setUes] = useState(reunion.ues || []);
   const [participants, setParticipants] = useState(reunion.participants || []);
+  const [points, setPoints] = useState(reunion.points || []);
   const [enregistre, setEnregistre] = useState(false);
 
   const poser = (k, v) => { setChamps(c => ({ ...c, [k]: v })); setEnregistre(false); };
+  const poserPoint = (i, k, v) => {
+    setPoints(l => l.map((p, j) => (j === i ? { ...p, [k]: v } : p)));
+    setEnregistre(false);
+  };
 
-  async function enregistrer() {
+  // QUI EST DANS LA SALLE. C'est la première liste à proposer quand on confie
+  // une action : neuf fois sur dix, celui qui la prend est assis là.
+  const presents = participants.filter(p => p.present).map(p => ({
+    cle: p.user_id ? `u:${p.user_id}` : p.professeur_id ? `p:${p.professeur_id}` : '',
+    nom: p.nom,
+  })).filter(p => p.cle);
+
+  async function enregistrer(listePoints = points) {
     await api(`/${reunion.id}`, { method: 'PUT',
-      body: JSON.stringify({ ...champs, participants, ues }) });
+      body: JSON.stringify({ ...champs, participants, ues, points: listePoints }) });
     setEnregistre(true);
     onRecharger();
   }
+
+  // UN POINT NAÎT ENREGISTRÉ. Il doit porter un identifiant avant qu'on puisse
+  // y rattacher une action : créé seulement en mémoire, la première tâche
+  // décidée dessous se retrouverait orpheline.
+  async function ajouterPoint() {
+    const liste = [...points, { intitule: '', notes: '' }];
+    setPoints(liste);
+    await enregistrer(liste);
+  }
+
+  // Les identifiants que le serveur vient d'attribuer redescendent dans l'état
+  // local SANS écraser ce qui est en train d'être tapé : on ne reprend que ce
+  // qui manque.
+  useEffect(() => {
+    setPoints(l => l.map((p, i) => (p.id ? p : { ...p, id: reunion.points?.[i]?.id })));
+  }, [reunion]);
 
   return (
     <>
@@ -313,8 +341,8 @@ function DetailReunion({ reunion, personnes, obligations, types = [], perimetre,
             className="block mt-0.5 bg-white border border-slate-300 rounded-champ
                        px-2 h-9 text-[13px] max-w-[14rem]">
             <option value="">—</option>
-            {personnes.map(p2 => (
-              <option key={p2.cle} value={p2.cle}>{nomDepuisChaine(p2.nom)}</option>
+            {[...personnes].sort((a, b) => parNom(a.nom, b.nom)).map(p2 => (
+              <option key={p2.cle} value={p2.cle}>{nomListe(p2.nom)}</option>
             ))}
           </select>
         </label>
@@ -351,27 +379,6 @@ function DetailReunion({ reunion, personnes, obligations, types = [], perimetre,
         </label>
       </div>
 
-      <div className="grid lg:grid-cols-2 gap-3 mb-3">
-        <div className="carte p-3">
-          <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-1">
-            Ordre du jour
-          </div>
-          <textarea value={champs.ordre_du_jour} rows={5}
-            onChange={e => poser('ordre_du_jour', e.target.value)}
-            placeholder={'Un point par ligne\nRentrée AeSI\nDossiers en attente'}
-            className="w-full bg-white border border-slate-300 rounded-champ px-2 py-1.5 text-[13px]" />
-        </div>
-        <div className="carte p-3">
-          <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-1">
-            Notes de séance
-          </div>
-          <textarea value={champs.notes} rows={5}
-            onChange={e => poser('notes', e.target.value)}
-            placeholder="Ce qui s'est dit, ce qui a été tranché."
-            className="w-full bg-white border border-slate-300 rounded-champ px-2 py-1.5 text-[13px]" />
-        </div>
-      </div>
-
       {/* LES PRÉSENTS, sur deux colonnes : un service de cinq personnes ne
           mérite pas cinq lignes pleine largeur. */}
       <div className="carte p-3 mb-3">
@@ -379,18 +386,79 @@ function DetailReunion({ reunion, personnes, obligations, types = [], perimetre,
           Présents
         </div>
         <div className="grid sm:grid-cols-3 gap-x-4">
-          {participants.map((p, i) => (
+          {/* PAR NOM DE FAMILLE, comme partout ailleurs : une liste rangée par
+              prénom n'est rangée pour personne. */}
+          {participants
+            .map((p, i) => ({ p, i }))
+            .sort((a, b) => parNom(a.p.nom, b.p.nom))
+            .map(({ p, i }) => (
             <label key={p.id || p.cle || p.nom} className="flex items-center gap-2 py-0.5 text-[13px]">
               <input type="checkbox" checked={!!p.present}
                 onChange={e => setParticipants(l => l.map((x, k) =>
                   k === i ? { ...x, present: e.target.checked ? 1 : 0 } : x))} />
-              <span className={p.present ? '' : 'text-slate-400'}>{nomDepuisChaine(p.nom)}</span>
+              <span className={p.present ? '' : 'text-slate-400'}>{nomListe(p.nom)}</span>
             </label>
           ))}
           <AjoutParticipant personnes={personnes} deja={participants}
             onAjout={p => setParticipants(l => [...l, p])} />
         </div>
       </div>
+
+      {/* L'ORDRE DU JOUR, POINT PAR POINT.
+          Un pavé de texte pour les points et un autre pour les notes obligeait
+          à refaire soi-même le rapprochement trois semaines plus tard : quelle
+          remarque allait avec quel point, et quelle décision répondait à quoi.
+          Chaque point porte donc son intitulé, ce qui s'y est dit, et les
+          actions qui en sortent — et le procès-verbal s'écrit tout seul, dans
+          l'ordre de la séance. */}
+      <h2 className="text-[13px] font-semibold text-iip-blue mb-1.5">Ordre du jour</h2>
+      {!points.length && (
+        <p className="text-[13px] text-slate-400 mb-2">
+          Aucun point. Le premier se crée d'un bouton : l'intitulé se pose avant la séance,
+          les notes et les décisions se remplissent pendant.
+        </p>
+      )}
+      {points.map((p, i) => (
+        <div key={p.id || `neuf-${i}`} className="carte p-3 mb-2">
+          <div className="flex items-center gap-2 mb-1.5">
+            <span className="text-[13px] font-semibold text-slate-400 tabular-nums w-5 flex-none">
+              {i + 1}.
+            </span>
+            <input value={p.intitule || ''} autoFocus={!p.intitule}
+              onChange={e => poserPoint(i, 'intitule', e.target.value)}
+              onBlur={() => enregistrer()}
+              placeholder="Intitulé du point — « Rentrée AeSI »"
+              className="flex-1 min-w-0 bg-white border border-slate-300 rounded-champ
+                         px-2 h-9 text-[13px] font-semibold" />
+            <button
+              onClick={() => { const l = points.filter((_, j) => j !== i);
+                               setPoints(l); enregistrer(l); }}
+              title="Retirer ce point — les actions décidées dessous sont conservées"
+              className="bouton controle px-2 text-slate-400 hover:text-[color:var(--brique)]">
+              <IconTrash size={15} />
+            </button>
+          </div>
+          <textarea value={p.notes || ''} rows={3}
+            onChange={e => poserPoint(i, 'notes', e.target.value)}
+            onBlur={() => enregistrer()}
+            placeholder="Ce qui s'est dit, ce qui a été tranché."
+            className="w-full bg-white border border-slate-300 rounded-champ
+                       px-2 py-1.5 text-[13px] mb-2" />
+          {p.id ? (
+            <ListeTaches taches={(reunion.taches || []).filter(t => t.point_id === p.id)}
+              personnes={personnes} presents={presents} obligations={obligations} api={api}
+              onRecharger={onRecharger} reunionId={reunion.id} pointId={p.id} avecAjout />
+          ) : (
+            <p className="text-[11px] text-slate-400">
+              Enregistrez le point pour pouvoir y décider des actions.
+            </p>
+          )}
+        </div>
+      ))}
+      <button onClick={ajouterPoint}
+        className="bouton controle px-3 flex items-center gap-1.5 mb-3">
+        <IconPlus size={15} /> Ajouter un point
+      </button>
 
       {/* CE QUI RESTE OUVERT D'AVANT — le premier point de toute réunion de
           suivi, et celui qu'on oublie de préparer. */}
@@ -400,7 +468,7 @@ function DetailReunion({ reunion, personnes, obligations, types = [], perimetre,
             Ce qui restait ouvert <span className="font-normal text-slate-400">
               — {reunion.reste.length} tâche(s) des séances précédentes</span>
           </h2>
-          <ListeTaches taches={reunion.reste} personnes={personnes}
+          <ListeTaches taches={reunion.reste} personnes={personnes} presents={presents}
             obligations={obligations} api={api} onRecharger={onRecharger} compact />
         </div>
       )}
@@ -445,12 +513,26 @@ function DetailReunion({ reunion, personnes, obligations, types = [], perimetre,
         </label>
       </div>
 
+      {/* CE QUI SE DÉCIDE HORS D'UN POINT — les divers, et tout ce qui a été
+          noté avant que la séance ne soit tenue par points. */}
       <h2 className="text-[13px] font-semibold text-iip-blue mb-1.5">
-        Décidé au cours de cette séance
+        {points.length ? 'Divers — décidé hors des points' : 'Décidé au cours de cette séance'}
       </h2>
-      <ListeTaches taches={reunion.taches} personnes={personnes}
+      <ListeTaches taches={(reunion.taches || []).filter(t => !t.point_id)}
+        personnes={personnes} presents={presents}
         obligations={obligations} api={api}
         onRecharger={onRecharger} reunionId={reunion.id} avecAjout />
+
+      <div className="carte p-3 mt-3">
+        <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-1">
+          Notes générales <span className="normal-case font-normal text-slate-400">
+            — ce qui ne tient à aucun point</span>
+        </div>
+        <textarea value={champs.notes} rows={3}
+          onChange={e => poser('notes', e.target.value)} onBlur={() => enregistrer()}
+          placeholder="Rarement nécessaire : ce qui s'est dit se note sous son point."
+          className="w-full bg-white border border-slate-300 rounded-champ px-2 py-1.5 text-[13px]" />
+      </div>
     </>
   );
 }
@@ -474,57 +556,99 @@ function AjoutParticipant({ personnes, deja, onAjout }) {
       className="mt-0.5 bg-white border border-slate-300 rounded-champ px-2 h-8 text-[12px]
                  text-slate-500">
       <option value="">+ Ajouter quelqu'un…</option>
-      {restants.map(p => <option key={p.cle} value={p.cle}>{nomDepuisChaine(p.nom)}</option>)}
+      {[...restants].sort((a, b) => parNom(a.nom, b.nom))
+        .map(p => <option key={p.cle} value={p.cle}>{nomListe(p.nom)}</option>)}
     </select>
   );
 }
 
-/** « u:3 », « p:12 », « r:secretariat » → les colonnes correspondantes. */
-function responsableDepuisCle(cle) {
-  const [genre, valeur] = String(cle || '').split(':');
-  return {
-    responsable_user_id:       genre === 'u' ? Number(valeur) : null,
-    responsable_professeur_id: genre === 'p' ? Number(valeur) : null,
-    responsable_role:          genre === 'r' ? valeur : null,
-  };
+/**
+ * LES CLÉS DÉJÀ PORTÉES PAR UNE TÂCHE, quelle que soit sa génération.
+ *
+ * Les tâches d'avant n'ont qu'un responsable, dans les colonnes historiques ;
+ * les nouvelles ont un équipage. L'écran ne doit pas avoir à le savoir.
+ */
+function clesDeTache(t) {
+  if (t.responsables?.length) return t.responsables.map(x => x.cle).filter(Boolean);
+  if (t.responsable_user_id) return [`u:${t.responsable_user_id}`];
+  if (t.responsable_professeur_id) return [`p:${t.responsable_professeur_id}`];
+  if (t.responsable_role) return [`r:${t.responsable_role}`];
+  return [];
 }
 
 /**
- * À QUI — le personnel complet, et les services.
+ * À QUI — LES PRÉSENTS D'ABORD, LE PERSONNEL ENSUITE, LES SERVICES ENFIN.
  *
- * On ne proposait que les comptes Lucie : la moitié de l'équipe était
- * inassignable, et les enseignants, qui n'en ont pas, invisibles. Le compte
- * dit qui peut se connecter ; il ne dit pas qui travaille ici.
+ * Neuf fois sur dix, celui qui prend l'action est dans la salle : c'est lui
+ * qu'il faut trouver en premier, et non au milieu d'une liste de quarante
+ * noms. La liste complète reste dessous — une réunion charge parfois quelqu'un
+ * qui n'y était pas, et le lui cacher obligerait à rouvrir la tâche ailleurs.
+ *
+ * ET L'ON PEUT ÊTRE PLUSIEURS. « Florian et Natacha préparent les dossiers »
+ * se notait en choisissant l'un des deux : l'autre ne voyait rien sur son
+ * tableau de bord. Chaque nom retenu devient une pastille ; la première est
+ * celle qui répond de l'action.
  */
-function ChoixResponsable({ personnes, tache, onChange }) {
-  const valeur = tache.responsable_user_id ? `u:${tache.responsable_user_id}`
-    : tache.responsable_professeur_id ? `p:${tache.responsable_professeur_id}`
-    : tache.responsable_role ? `r:${tache.responsable_role}` : '';
+function ChoixResponsables({ personnes, presents = [], tache, onChange }) {
+  const cles = clesDeTache(tache);
+  const nomDeCle = cle => {
+    if (cle.startsWith('r:')) return ROLES_CIBLES.find(r => r[0] === cle.slice(2))?.[1] || cle.slice(2);
+    const p = personnes.find(x => x.cle === cle);
+    return p ? nomListe(p.nom)
+      : nomListe(tache.responsables?.find(x => x.cle === cle)?.nom || '') || '—';
+  };
+  const dansLaSalle = presents
+    .map(p => personnes.find(x => x.cle === p.cle) || p)
+    .filter(p => p?.cle && !cles.includes(p.cle))
+    .sort((a, b) => parNom(a.nom, b.nom));
+  const restants = personnes
+    .filter(p => !cles.includes(p.cle) && !dansLaSalle.some(d => d.cle === p.cle))
+    .sort((a, b) => parNom(a.nom, b.nom));
+
   return (
-    <select value={valeur} onChange={e => onChange(responsableDepuisCle(e.target.value))}
-      className={`bg-white border rounded-champ px-1.5 h-8 text-[12px] max-w-[12rem]
-        ${valeur ? 'border-slate-300' : 'border-amber-300'}`}>
-      <option value="">— qui ? —</option>
-      <optgroup label="Personnel">
-        {personnes.map(p => (
-          <option key={p.cle} value={p.cle}>{nomDepuisChaine(p.nom)}</option>
-        ))}
-      </optgroup>
-      <optgroup label="Un service">
-        {ROLES_CIBLES.map(([cle, lib]) => (
-          <option key={cle} value={`r:${cle}`}>{lib}</option>
-        ))}
-      </optgroup>
-    </select>
+    <div className={`flex flex-wrap items-center gap-1 min-w-[10rem] max-w-[18rem]
+      ${cles.length ? '' : 'rounded-champ ring-1 ring-amber-300 px-1 py-0.5'}`}>
+      {cles.map((cle, i) => (
+        <span key={cle} title={i === 0 ? "Répond de l'action" : undefined}
+          className={`inline-flex items-center gap-1 rounded-champ px-1.5 h-6 text-[11px]
+            ${i === 0 ? 'bg-iip-blue/10 text-iip-blue font-semibold'
+                      : 'bg-slate-100 text-slate-600'}`}>
+          {nomDeCle(cle)}
+          <button onClick={() => onChange(cles.filter(c => c !== cle))}
+            className="text-slate-400 hover:text-slate-700" title="Retirer">
+            <IconX size={11} />
+          </button>
+        </span>
+      ))}
+      <select value="" onChange={e => e.target.value && onChange([...cles, e.target.value])}
+        className="bg-white border border-slate-300 rounded-champ px-1 h-6 text-[11px]
+                   text-slate-500 max-w-[8rem]">
+        <option value="">{cles.length ? '+ aussi…' : '— qui ? —'}</option>
+        {!!dansLaSalle.length && (
+          <optgroup label="Présents à la séance">
+            {dansLaSalle.map(p => (
+              <option key={p.cle} value={p.cle}>{nomListe(p.nom)}</option>
+            ))}
+          </optgroup>
+        )}
+        <optgroup label="Tout le personnel">
+          {restants.map(p => <option key={p.cle} value={p.cle}>{nomListe(p.nom)}</option>)}
+        </optgroup>
+        <optgroup label="Un service">
+          {ROLES_CIBLES.filter(([c]) => !cles.includes(`r:${c}`))
+            .map(([cle, lib]) => <option key={cle} value={`r:${cle}`}>{lib}</option>)}
+        </optgroup>
+      </select>
+    </div>
   );
 }
 
 // ─── LES TÂCHES ─────────────────────────────────────────────────────────────
 
-function ListeTaches({ taches, personnes, obligations = [], api, onRecharger,
-                       reunionId, avecAjout, compact }) {
+function ListeTaches({ taches, personnes, presents = [], obligations = [], api, onRecharger,
+                       reunionId, pointId, avecAjout, compact }) {
   const [nouvelle, setNouvelle] = useState({
-    titre: '', responsable: '', echeance: '', echeance_id: '' });
+    titre: '', responsables: [], echeance: '', echeance_id: '' });
 
   async function ajouter() {
     if (!nouvelle.titre.trim()) return;
@@ -532,10 +656,13 @@ function ListeTaches({ taches, personnes, obligations = [], api, onRecharger,
       titre: nouvelle.titre.trim(),
       echeance: nouvelle.echeance || null,
       reunion_id: reunionId || null,
+      point_id: pointId || null,
       echeance_id: nouvelle.echeance_id ? Number(nouvelle.echeance_id) : null,
-      ...responsableDepuisCle(nouvelle.responsable),
+      responsables: nouvelle.responsables,
     }) });
-    setNouvelle({ titre: '', responsable: nouvelle.responsable, echeance: '',
+    // La suivante garde le même destinataire et la même échéance : en séance,
+    // les actions viennent par grappes et se confient à la même personne.
+    setNouvelle({ titre: '', responsables: nouvelle.responsables, echeance: '',
                   echeance_id: nouvelle.echeance_id });
     onRecharger();
   }
@@ -583,8 +710,8 @@ function ListeTaches({ taches, personnes, obligations = [], api, onRecharger,
             </select>
           )}
 
-          <ChoixResponsable personnes={personnes} tache={t}
-            onChange={champs => majTache(t, champs)} />
+          <ChoixResponsables personnes={personnes} presents={presents} tache={t}
+            onChange={cles => majTache(t, { responsables: cles })} />
 
           {/* POUR QUAND — la deuxième moitié de toute décision. « Qui fait
               quoi » sans « pour quand » n'est pas une action, c'est une
@@ -619,22 +746,9 @@ function ListeTaches({ taches, personnes, obligations = [], api, onRecharger,
             placeholder="Ce qu'il y a à faire…"
             className="flex-1 min-w-0 bg-white border border-slate-300 rounded-champ
                        px-2 h-8 text-[13px]" />
-          <select value={nouvelle.responsable}
-            onChange={e => setNouvelle(n => ({ ...n, responsable: e.target.value }))}
-            className="bg-white border border-slate-300 rounded-champ px-1.5 h-8 text-[12px]
-                       max-w-[12rem]">
-            <option value="">— qui ? —</option>
-            <optgroup label="Personnel">
-              {personnes.map(p => (
-                <option key={p.cle} value={p.cle}>{nomDepuisChaine(p.nom)}</option>
-              ))}
-            </optgroup>
-            <optgroup label="Un service">
-              {ROLES_CIBLES.map(([cle, lib]) => (
-                <option key={cle} value={`r:${cle}`}>{lib}</option>
-              ))}
-            </optgroup>
-          </select>
+          <ChoixResponsables personnes={personnes} presents={presents}
+            tache={{ responsables: nouvelle.responsables.map(c => ({ cle: c })) }}
+            onChange={cles => setNouvelle(n => ({ ...n, responsables: cles }))} />
           <input type="date" value={nouvelle.echeance} title="Pour quand"
             onChange={e => setNouvelle(n => ({ ...n, echeance: e.target.value }))}
             className="bg-white border border-slate-300 rounded-champ px-1.5 h-8 text-[12px]" />
@@ -673,16 +787,25 @@ function VueTaches({ taches, personnes, obligations, api, filtre, setFiltre,
     || (filtre === 'ouvertes' && (t.statut === 'a_faire' || t.statut === 'en_cours'))
     || (filtre === 'retard' && enRetard(t)));
 
+  // UNE ACTION PORTÉE À DEUX FIGURE CHEZ LES DEUX. La ranger chez le seul
+  // premier nommé revient à dire au second qu'elle ne le concerne pas — c'est
+  // exactement ce qu'on lui reprochera en séance.
   const groupes = useMemo(() => {
+    const libRole = r => ROLES_CIBLES.find(x => x[0] === r)?.[1] || r;
     const m = new Map();
     for (const t of visibles) {
-      const cle = t.responsable_nom || (t.responsable_role
-        ? (ROLES_CIBLES.find(r => r[0] === t.responsable_role)?.[1] || t.responsable_role)
-        : 'Sans responsable');
-      if (!m.has(cle)) m.set(cle, []);
-      m.get(cle).push(t);
+      const cibles = t.responsables?.length
+        ? t.responsables.map(x => x.nom || libRole(x.role) || 'Sans responsable')
+        : [t.responsable_nom || (t.responsable_role ? libRole(t.responsable_role)
+            : 'Sans responsable')];
+      for (const cle of [...new Set(cibles)]) {
+        if (!m.has(cle)) m.set(cle, []);
+        m.get(cle).push(t);
+      }
     }
-    return [...m.entries()].sort((a, b) => a[0].localeCompare(b[0], 'fr'));
+    // Trié par NOM DE FAMILLE, comme la liste s'affiche : trier sur le prénom
+    // donnait un ordre que personne ne pouvait suivre des yeux.
+    return [...m.entries()].sort((a, b) => parNom(a[0], b[0]));
   }, [visibles]);
 
   const nbRetard = taches.filter(enRetard).length;
@@ -717,7 +840,7 @@ function VueTaches({ taches, personnes, obligations, api, filtre, setFiltre,
         <div key={nom} className="mb-3">
           <h2 className="text-[13px] font-semibold text-iip-blue mb-1.5 flex items-center gap-2">
             <IconUser size={15} className="text-slate-400" />
-            {nomDepuisChaine(nom)}
+            {nomListe(nom)}
             <span className="font-normal text-slate-400">— {liste.length} tâche(s)</span>
             {liste.some(enRetard) && (
               <span className="text-[11px] font-semibold text-amber-700 flex items-center gap-1">

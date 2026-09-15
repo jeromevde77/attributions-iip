@@ -99,6 +99,43 @@ export function migrerReunions(db) {
       ue_num     INTEGER NOT NULL,
       PRIMARY KEY (reunion_id, ue_num)
     );
+
+    -- UN POINT DE L'ORDRE DU JOUR EST UN OBJET, PAS UNE LIGNE DE TEXTE.
+    --
+    -- L'ordre du jour tenait dans un champ libre et les notes dans un autre :
+    -- deux blocs qui ne se répondaient pas. Relire trois semaines plus tard
+    -- demandait de reconstituer soi-même quelle remarque allait avec quel
+    -- point — et une décision notée au milieu d'un pavé ne se retrouve pas.
+    --
+    -- Chaque point porte donc son intitulé, ce qui s'y est dit, et les actions
+    -- qui en sortent. Le procès-verbal s'écrit alors tout seul, dans l'ordre
+    -- de la séance.
+    CREATE TABLE IF NOT EXISTS reunion_point (
+      id         INTEGER PRIMARY KEY AUTOINCREMENT,
+      reunion_id INTEGER NOT NULL REFERENCES reunion(id) ON DELETE CASCADE,
+      ordre      INTEGER NOT NULL DEFAULT 0,
+      intitule   TEXT NOT NULL DEFAULT '',
+      notes      TEXT
+    );
+    CREATE INDEX IF NOT EXISTS idx_reunion_point ON reunion_point(reunion_id, ordre);
+
+    -- ON NE CONFIE PAS TOUJOURS UNE ACTION À UNE SEULE PERSONNE.
+    --
+    -- « Florian et Natacha préparent les dossiers » se notait jusqu'ici en
+    -- choisissant l'un des deux — l'autre ne voyait rien sur son tableau de
+    -- bord, et le jour du contrôle la tâche paraissait reposer sur une seule
+    -- tête. Les colonnes responsable_* de la table tache restent : elles portent le
+    -- PREMIER nommé, celui qui répond de l'action, et tout ce qui lit déjà la
+    -- table continue de fonctionner. Cette table-ci porte l'équipage complet.
+    CREATE TABLE IF NOT EXISTS tache_personne (
+      id            INTEGER PRIMARY KEY AUTOINCREMENT,
+      tache_id      INTEGER NOT NULL REFERENCES tache(id) ON DELETE CASCADE,
+      user_id       INTEGER REFERENCES utilisateur(id),
+      professeur_id INTEGER REFERENCES professeur(id),
+      role          TEXT,
+      rang          INTEGER NOT NULL DEFAULT 0
+    );
+    CREATE INDEX IF NOT EXISTS idx_tache_personne ON tache_personne(tache_id, rang);
   `);
 
   // Migration additive : les colonnes du personnel ont été ajoutées après la
@@ -133,12 +170,48 @@ export function migrerReunions(db) {
     ['reunion', 'prochaine_heure', 'TEXT'],
     ['reunion', 'prochain_lieu', 'TEXT'],
     ['reunion', 'prochaine_qui', 'TEXT'],
+    // UNE ACTION NAÎT D'UN POINT PRÉCIS. Sans ce lien, le procès-verbal met
+    // toutes les décisions en bloc à la fin, et l'on ne sait plus laquelle
+    // répondait à quelle discussion.
+    ['tache', 'point_id', 'INTEGER REFERENCES reunion_point(id)'],
   ]) {
     const colonnes = db.prepare(`PRAGMA table_info(${table})`).all().map(c => c.name);
     if (!colonnes.includes(colonne)) {
       db.exec(`ALTER TABLE ${table} ADD COLUMN ${colonne} ${decl}`);
     }
   }
+
+  // ── REPRISE DE L'EXISTANT ──────────────────────────────────────────────
+  //
+  // Les réunions déjà encodées portent leur ordre du jour dans un champ libre,
+  // une ligne par point : c'est exactement la matière des points. On la reprend
+  // une fois, pour que rien de ce qui a été saisi ne disparaisse de l'écran.
+  // Les notes de séance, elles, restent où elles sont — les découper à la
+  // machine reviendrait à deviner.
+  const aReprendre = db.prepare(`
+    SELECT id, ordre_du_jour FROM reunion
+     WHERE COALESCE(ordre_du_jour, '') <> ''
+       AND id NOT IN (SELECT reunion_id FROM reunion_point)
+  `).all();
+  const poser = db.prepare(
+    'INSERT INTO reunion_point (reunion_id, ordre, intitule) VALUES (?,?,?)');
+  for (const r of aReprendre) {
+    String(r.ordre_du_jour).split('\n').map(l => l.trim()).filter(Boolean)
+      .forEach((ligne, i) => poser.run(r.id, i, ligne));
+  }
+
+  // Même principe pour les responsables : la tâche qui en portait un seul le
+  // garde, et il devient le premier de son équipage.
+  db.exec(`
+    INSERT INTO tache_personne (tache_id, user_id, professeur_id, role, rang)
+    SELECT t.id, t.responsable_user_id, t.responsable_professeur_id,
+           t.responsable_role, 0
+      FROM tache t
+     WHERE (t.responsable_user_id IS NOT NULL
+            OR t.responsable_professeur_id IS NOT NULL
+            OR t.responsable_role IS NOT NULL)
+       AND t.id NOT IN (SELECT tache_id FROM tache_personne)
+  `);
 }
 
 export default migrerReunions;

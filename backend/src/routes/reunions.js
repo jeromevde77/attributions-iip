@@ -136,9 +136,75 @@ r.get('/perimetre', authRequired, (req, res) => {
 
 // ─── LES TÂCHES ─────────────────────────────────────────────────────────────
 
+/**
+ * UNE CLÉ DE CHOIX → LES TROIS COLONNES QUI LA PORTENT.
+ *
+ * L'écran manipule « u:3 », « p:12 », « r:secretariat » — un seul jeton par
+ * personne, qu'elle ait un compte, une fiche, ou qu'il s'agisse d'un service.
+ * La base, elle, a trois colonnes. La traduction se fait ici, une fois.
+ */
+function depuisCle(cle) {
+  const [genre, valeur] = String(cle || '').split(':');
+  return {
+    user_id:       genre === 'u' ? Number(valeur) : null,
+    professeur_id: genre === 'p' ? Number(valeur) : null,
+    role:          genre === 'r' ? valeur : null,
+  };
+}
+
+/**
+ * L'ÉQUIPAGE D'UNE TÂCHE.
+ *
+ * Le premier nommé est celui qui répond de l'action : c'est lui qu'on écrit
+ * dans les colonnes `responsable_*`, pour que l'échéancier, les tableaux de
+ * bord et le procès-verbal — qui ne connaissent qu'une colonne — continuent de
+ * dire quelque chose de juste. Les autres vivent dans `tache_personne`, et
+ * voient la tâche sur leur propre tableau de bord.
+ */
+function ecrireResponsables(tacheId, cles) {
+  db.prepare('DELETE FROM tache_personne WHERE tache_id = ?').run(tacheId);
+  const poser = db.prepare(`INSERT INTO tache_personne
+    (tache_id, user_id, professeur_id, role, rang) VALUES (?,?,?,?,?)`);
+  (cles || []).filter(Boolean).forEach((cle, i) => {
+    const c = depuisCle(cle);
+    poser.run(tacheId, c.user_id, c.professeur_id, c.role, i);
+  });
+  const premier = depuisCle((cles || []).filter(Boolean)[0]);
+  db.prepare(`UPDATE tache SET responsable_user_id=?, responsable_professeur_id=?,
+              responsable_role=? WHERE id=?`)
+    .run(premier.user_id, premier.professeur_id, premier.role, tacheId);
+}
+
+/** Les équipages des tâches rendues, en une seule requête plutôt qu'une par ligne. */
+function attacherResponsables(lignes) {
+  if (!lignes.length) return lignes;
+  const ids = lignes.map(l => l.id);
+  const rangs = db.prepare(`
+    SELECT tp.tache_id, tp.user_id, tp.professeur_id, tp.role, tp.rang,
+           COALESCE(u.nom_complet, pr.prenom || ' ' || pr.nom) AS nom
+      FROM tache_personne tp
+      LEFT JOIN utilisateur u  ON u.id  = tp.user_id
+      LEFT JOIN professeur  pr ON pr.id = tp.professeur_id
+     WHERE tp.tache_id IN (${ids.map(() => '?').join(',')})
+     ORDER BY tp.rang
+  `).all(...ids);
+  const par = new Map();
+  for (const x of rangs) {
+    if (!par.has(x.tache_id)) par.set(x.tache_id, []);
+    par.get(x.tache_id).push({
+      cle: x.user_id ? `u:${x.user_id}` : x.professeur_id ? `p:${x.professeur_id}`
+        : x.role ? `r:${x.role}` : '',
+      nom: x.nom || null, role: x.role || null,
+    });
+  }
+  for (const l of lignes) l.responsables = par.get(l.id) || [];
+  return lignes;
+}
+
 const SELECT_TACHE = `
   SELECT t.*,
          COALESCE(u.nom_complet, pr.prenom || ' ' || pr.nom) AS responsable_nom,
+         pt.intitule AS point_intitule,
          r.titre AS reunion_titre, r.date_seance AS reunion_date,
          COALESCE(e.libelle_override, et.libelle) AS obligation_libelle,
          et.base_legale AS obligation_base, e.date_due AS obligation_date
@@ -148,6 +214,7 @@ const SELECT_TACHE = `
     LEFT JOIN reunion r      ON r.id  = t.reunion_id
     LEFT JOIN echeance e     ON e.id  = t.echeance_id
     LEFT JOIN echeance_type et ON et.id = e.type_id
+    LEFT JOIN reunion_point pt ON pt.id = t.point_id
 `;
 
 /**
@@ -167,12 +234,21 @@ r.get('/taches', authRequired, (req, res) => {
   // « Les miennes » : ce qui m'est confié nommément ET ce qui l'est à mon rôle.
   // Ne retenir que le nom laisserait de côté « le secrétariat fait X », qui est
   // pourtant ma tâche si je suis au secrétariat.
+  // Et ce qui m'est confié AVEC QUELQU'UN D'AUTRE : une action portée à deux
+  // n'est pas à moitié la mienne.
   if (req.query.mien === '1') {
     sql += ` AND (t.responsable_user_id = ? OR t.responsable_role = ?
                   OR (t.responsable_professeur_id IS NOT NULL
                       AND t.responsable_professeur_id = (
-                        SELECT professeur_id FROM utilisateur WHERE id = ?)))`;
-    p.push(req.user.id, req.user.role, req.user.id);
+                        SELECT professeur_id FROM utilisateur WHERE id = ?))
+                  OR EXISTS (SELECT 1 FROM tache_personne tp
+                              WHERE tp.tache_id = t.id
+                                AND (tp.user_id = ? OR tp.role = ?
+                                     OR (tp.professeur_id IS NOT NULL
+                                         AND tp.professeur_id = (
+                                           SELECT professeur_id FROM utilisateur WHERE id = ?)))))`;
+    p.push(req.user.id, req.user.role, req.user.id,
+      req.user.id, req.user.role, req.user.id);
   }
 
   // CE QUE J'AI CONFIÉ ME REGARDE AUSSI.
@@ -198,7 +274,7 @@ r.get('/taches', authRequired, (req, res) => {
   sql += ` ORDER BY CASE WHEN t.statut IN ('fait','abandonnee') THEN 1 ELSE 0 END,
                     CASE WHEN t.echeance IS NULL THEN 1 ELSE 0 END,
                     t.echeance, t.priorite DESC, t.id`;
-  res.json(db.prepare(sql).all(...p));
+  res.json(attacherResponsables(db.prepare(sql).all(...p)));
 });
 
 r.post('/taches', authRequired, (req, res) => {
@@ -210,15 +286,26 @@ r.post('/taches', authRequired, (req, res) => {
     INSERT INTO tache (annee_scolaire, titre, detail, responsable_user_id,
                        responsable_professeur_id,
                        responsable_role, echeance, statut, priorite, reunion_id,
-                       echeance_id, cree_par, maj_le)
-    VALUES (?,?,?,?,?,?,?,?,?,?,?,?, datetime('now'))
+                       echeance_id, point_id, cree_par, maj_le)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?, datetime('now'))
   `).run(anneeDeTravail(req), String(b.titre).trim(), b.detail || null,
     b.responsable_user_id || null, b.responsable_professeur_id || null,
     b.responsable_role || null,
     b.echeance || null, b.statut || 'a_faire',
     Number.isInteger(b.priorite) ? b.priorite : 1,
-    b.reunion_id || null, b.echeance_id || null, qui(req));
-  res.json(db.prepare(SELECT_TACHE + ' WHERE t.id = ?').get(info.lastInsertRowid));
+    b.reunion_id || null, b.echeance_id || null, b.point_id || null, qui(req));
+  if (Array.isArray(b.responsables)) {
+    ecrireResponsables(info.lastInsertRowid, b.responsables);
+  } else if (b.responsable_user_id || b.responsable_professeur_id || b.responsable_role) {
+    // Une tâche créée à l'ancienne — un seul responsable — rejoint quand même
+    // la table d'équipage : sinon elle n'y serait jamais.
+    ecrireResponsables(info.lastInsertRowid, [
+      b.responsable_user_id ? `u:${b.responsable_user_id}`
+        : b.responsable_professeur_id ? `p:${b.responsable_professeur_id}`
+        : `r:${b.responsable_role}`]);
+  }
+  res.json(attacherResponsables(
+    [db.prepare(SELECT_TACHE + ' WHERE t.id = ?').get(info.lastInsertRowid)])[0]);
 });
 
 r.put('/taches/:id', authRequired, (req, res) => {
@@ -236,7 +323,8 @@ r.put('/taches/:id', authRequired, (req, res) => {
     UPDATE tache SET titre=?, detail=?, responsable_user_id=?,
       responsable_professeur_id=?, responsable_role=?,
       echeance=?, statut=?, priorite=?, commentaire=?, reunion_id=?,
-      revue_reunion_id=?, echeance_id=?, fait_le=?, fait_par=?, maj_le=datetime('now')
+      revue_reunion_id=?, echeance_id=?, point_id=?,
+      fait_le=?, fait_par=?, maj_le=datetime('now')
     WHERE id=?
   `).run(
     v('titre', t.titre), v('detail', t.detail),
@@ -246,13 +334,18 @@ r.put('/taches/:id', authRequired, (req, res) => {
     v('echeance', t.echeance), v('statut', t.statut),
     v('priorite', t.priorite), v('commentaire', t.commentaire),
     v('reunion_id', t.reunion_id), v('revue_reunion_id', t.revue_reunion_id),
-    v('echeance_id', t.echeance_id),
+    v('echeance_id', t.echeance_id), v('point_id', t.point_id),
     devientFaite ? new Date().toISOString().slice(0, 10)
       : redevientOuverte ? null : t.fait_le,
     devientFaite ? qui(req) : redevientOuverte ? null : t.fait_par,
     req.params.id);
 
-  res.json(db.prepare(SELECT_TACHE + ' WHERE t.id = ?').get(req.params.id));
+  // L'ÉQUIPAGE NE SE MODIFIE QUE SI ON LE DIT. Cocher « fait » envoie un seul
+  // champ : réécrire les responsables à cette occasion les effacerait.
+  if (Array.isArray(b.responsables)) ecrireResponsables(Number(req.params.id), b.responsables);
+
+  res.json(attacherResponsables(
+    [db.prepare(SELECT_TACHE + ' WHERE t.id = ?').get(req.params.id)])[0]);
 });
 
 // Supprimer une tâche reste possible — une tâche créée par erreur n'a pas à
@@ -333,8 +426,10 @@ r.get('/:id', authRequired, (req, res) => {
     .all(reunion.id).map(x => x.ue_num);
   const participants = db.prepare(
     'SELECT * FROM reunion_participant WHERE reunion_id = ? ORDER BY nom').all(reunion.id);
-  const taches = db.prepare(SELECT_TACHE + ' WHERE t.reunion_id = ? ORDER BY t.id')
-    .all(reunion.id);
+  reunion.points = db.prepare(
+    'SELECT * FROM reunion_point WHERE reunion_id = ? ORDER BY ordre, id').all(reunion.id);
+  const taches = attacherResponsables(
+    db.prepare(SELECT_TACHE + ' WHERE t.reunion_id = ? ORDER BY t.id').all(reunion.id));
   // CE QUI RESTE OUVERT DES SÉANCES PRÉCÉDENTES, c'est le premier point de
   // toute réunion de suivi — et c'est justement ce qu'on oublie de préparer.
   const reste = db.prepare(SELECT_TACHE + `
@@ -342,6 +437,7 @@ r.get('/:id', authRequired, (req, res) => {
       AND (t.reunion_id IS NULL OR t.reunion_id <> ?)
     ORDER BY CASE WHEN t.echeance IS NULL THEN 1 ELSE 0 END, t.echeance, t.id
   `).all(reunion.annee_scolaire, reunion.id);
+  attacherResponsables(reste);
   res.json({ ...reunion, participants, taches, reste });
 });
 
@@ -372,10 +468,16 @@ r.post('/', authRequired, (req, res) => {
   }
 
   for (const p of (b.participants || [])) {
-    db.prepare(`INSERT INTO reunion_participant (reunion_id, user_id, nom, present, excuse)
-                VALUES (?,?,?,?,?)`)
-      .run(info.lastInsertRowid, p.user_id || null, p.nom, p.present ? 1 : 0, p.excuse ? 1 : 0);
+    db.prepare(`INSERT INTO reunion_participant
+                (reunion_id, user_id, professeur_id, nom, present, excuse)
+                VALUES (?,?,?,?,?,?)`)
+      .run(info.lastInsertRowid, p.user_id || null, p.professeur_id || null,
+        p.nom, p.present ? 1 : 0, p.excuse ? 1 : 0);
   }
+  (b.points || []).forEach((pt, i) => {
+    db.prepare('INSERT INTO reunion_point (reunion_id, ordre, intitule, notes) VALUES (?,?,?,?)')
+      .run(info.lastInsertRowid, i, String(pt.intitule || '').trim(), pt.notes || null);
+  });
   res.json({ id: info.lastInsertRowid });
 });
 
@@ -414,6 +516,38 @@ r.put('/:id', authRequired, (req, res) => {
           p.nom, p.present ? 1 : 0, p.excuse ? 1 : 0);
     }
   }
+
+  // LES POINTS SE MODIFIENT, ILS NE SE REFONT PAS.
+  //
+  // Vider la table pour la réécrire — ce qu'on fait pour les présents, qui ne
+  // portent rien — détacherait les actions décidées sous chaque point : elles
+  // pointeraient vers des identifiants disparus. Chaque point garde donc le
+  // sien ; seuls ceux que l'on retire s'en vont, et les actions qui en
+  // dépendaient redeviennent simplement des actions de la séance.
+  if (Array.isArray(b.points)) {
+    const gardes = [];
+    b.points.forEach((pt, i) => {
+      const intitule = String(pt.intitule || '').trim();
+      if (pt.id) {
+        db.prepare('UPDATE reunion_point SET ordre=?, intitule=?, notes=? WHERE id=? AND reunion_id=?')
+          .run(i, intitule, pt.notes || null, pt.id, req.params.id);
+        gardes.push(pt.id);
+      } else if (intitule || pt.notes) {
+        const r2 = db.prepare(
+          'INSERT INTO reunion_point (reunion_id, ordre, intitule, notes) VALUES (?,?,?,?)')
+          .run(req.params.id, i, intitule, pt.notes || null);
+        gardes.push(r2.lastInsertRowid);
+      }
+    });
+    const partis = db.prepare(
+      `SELECT id FROM reunion_point WHERE reunion_id = ?
+        ${gardes.length ? `AND id NOT IN (${gardes.map(() => '?').join(',')})` : ''}`)
+      .all(req.params.id, ...gardes).map(x => x.id);
+    for (const id of partis) {
+      db.prepare('UPDATE tache SET point_id = NULL WHERE point_id = ?').run(id);
+      db.prepare('DELETE FROM reunion_point WHERE id = ?').run(id);
+    }
+  }
   res.json({ ok: true });
 });
 
@@ -444,19 +578,24 @@ r.post('/:id/document', authRequired, (req, res) => {
   reunion.organisateur_nom = org?.nom || null;
   const participants = db.prepare(
     'SELECT * FROM reunion_participant WHERE reunion_id = ? ORDER BY nom').all(reunion.id);
-  const taches = db.prepare(SELECT_TACHE + ' WHERE t.reunion_id = ? ORDER BY t.id')
-    .all(reunion.id);
+  const taches = attacherResponsables(
+    db.prepare(SELECT_TACHE + ' WHERE t.reunion_id = ? ORDER BY t.id').all(reunion.id));
 
   const presents = participants.filter(p => p.present).map(p => esc(p.nom));
   const excuses = participants.filter(p => !p.present && p.excuse).map(p => esc(p.nom));
   const absents = participants.filter(p => !p.present && !p.excuse).map(p => esc(p.nom));
 
-  const points = String(reunion.ordre_du_jour || '').split('\n')
-    .map(l => l.trim()).filter(Boolean);
+  const points = db.prepare(
+    'SELECT * FROM reunion_point WHERE reunion_id = ? ORDER BY ordre, id').all(reunion.id);
+
+  /** Tout l'équipage, pas seulement le premier nommé. */
+  const quiFait = t => (t.responsables?.length
+    ? t.responsables.map(x => x.nom || LIB_ROLE[x.role] || x.role).filter(Boolean).join(', ')
+    : (t.responsable_nom || t.responsable_role)) || '—';
 
   const ligneTache = t => `<tr>
     <td>${esc(t.titre)}${t.detail ? `<br><span class="fin">${esc(t.detail)}</span>` : ''}</td>
-    <td>${esc(t.responsable_nom || t.responsable_role || '—')}${t.obligation_libelle
+    <td>${esc(quiFait(t))}${t.obligation_libelle
       ? `<br><span class="fin">pour : ${esc(t.obligation_libelle)}${
           t.obligation_base ? ` — ${esc(t.obligation_base)}` : ''}</span>` : ''}</td>
     <td>${fr(t.echeance)}</td>
@@ -477,7 +616,22 @@ r.post('/:id/document', authRequired, (req, res) => {
       ${absents.length ? `<br><b>Absents :</b> ${absents.join(', ')}` : ''}</p>
 
     ${points.length ? `<h3>Ordre du jour</h3><ol>${
-      points.map(p => `<li>${esc(p)}</li>`).join('')}</ol>` : ''}
+      points.map(p => `<li>${esc(p.intitule)}</li>`).join('')}</ol>` : ''}
+
+    ${/* LE PROCÈS-VERBAL SUIT LA SÉANCE, POINT PAR POINT. Un pavé de notes
+          suivi d'un tableau d'actions oblige le lecteur à refaire lui-même le
+          rapprochement : sous chaque point, ce qui s'y est dit et ce qui en a
+          été décidé. */
+      points.map((p, i) => {
+        const siennes = taches.filter(t => t.point_id === p.id);
+        if (!p.notes && !siennes.length) return '';
+        return `<h3>${i + 1}. ${esc(p.intitule) || 'Point sans intitulé'}</h3>
+          ${String(p.notes || '').split('\n').filter(l => l.trim())
+            .map(l => `<p>${esc(l)}</p>`).join('')}
+          ${siennes.length ? `<table>
+            <thead><tr><th>Décidé</th><th>Qui</th><th>Pour le</th><th>État</th></tr></thead>
+            <tbody>${siennes.map(ligneTache).join('')}</tbody></table>` : ''}`;
+      }).join('')}
 
     ${reunion.notes ? `<h3>Notes de séance</h3>${
       String(reunion.notes).split('\n').filter(l => l.trim())
@@ -489,11 +643,16 @@ r.post('/:id/document', authRequired, (req, res) => {
       reunion.prochaine_qui ? `<br><span class="fin">Attendus : ${
         esc(reunion.prochaine_qui)}</span>` : ''}</p>` : ''}
 
-    <h3>Ce qui a été décidé — et par qui</h3>
-    ${taches.length ? `<table>
-      <thead><tr><th>Tâche</th><th>Responsable</th><th>Pour le</th><th>État</th></tr></thead>
-      <tbody>${taches.map(ligneTache).join('')}</tbody></table>`
-      : '<p class="fin">Aucune tâche n\'a été confiée au cours de cette séance.</p>'}`;
+    ${/* Ce qui a été décidé hors d'un point — et le récapitulatif quand la
+          séance n'a pas été tenue par points. */''}
+    <h3>${points.length ? 'Autres décisions' : 'Ce qui a été décidé — et par qui'}</h3>
+    ${(() => {
+      const hors = taches.filter(t => !points.length || !t.point_id);
+      return hors.length ? `<table>
+        <thead><tr><th>Tâche</th><th>Qui</th><th>Pour le</th><th>État</th></tr></thead>
+        <tbody>${hors.map(ligneTache).join('')}</tbody></table>`
+        : '<p class="fin">Aucune autre décision.</p>';
+    })()}`;
 
   res.json({
     html: envelopperDocument({
@@ -516,15 +675,24 @@ r.post('/taches/document', authRequired, (req, res) => {
     ORDER BY COALESCE(u.nom_complet, t.responsable_role, 'zzz'),
              CASE WHEN t.echeance IS NULL THEN 1 ELSE 0 END, t.echeance
   `).all(annee);
+  attacherResponsables(taches);
 
   // PAR PERSONNE, PAS PAR DATE. On ne lit pas cette feuille pour savoir ce qui
   // tombe mardi : on la lit pour dire à chacun ce qu'il doit, et un nom qui
   // revient dix fois dans une liste chronologique ne se voit jamais d'un coup.
+  //
+  // UNE ACTION PORTÉE À DEUX FIGURE CHEZ LES DEUX. La compter une seule fois,
+  // chez le premier nommé, revient à dire au second qu'elle ne le regarde pas.
   const groupes = new Map();
   for (const t of taches) {
-    const cle = t.responsable_nom || t.responsable_role || 'Sans responsable';
-    if (!groupes.has(cle)) groupes.set(cle, []);
-    groupes.get(cle).push(t);
+    const cibles = t.responsables?.length
+      ? t.responsables.map(x => x.nom || LIB_ROLE[x.role] || x.role || 'Sans responsable')
+      : [t.responsable_nom || LIB_ROLE[t.responsable_role] || t.responsable_role
+         || 'Sans responsable'];
+    for (const cle of [...new Set(cibles)]) {
+      if (!groupes.has(cle)) groupes.set(cle, []);
+      groupes.get(cle).push(t);
+    }
   }
 
   const corps = `
@@ -553,6 +721,14 @@ r.post('/taches/document', authRequired, (req, res) => {
 
 const LIB_STATUT = {
   a_faire: 'à faire', en_cours: 'en cours', fait: 'fait', abandonnee: 'abandonnée',
+};
+
+// Un service porte une action comme une personne : sur le papier, il doit se
+// lire en toutes lettres et non par sa clé technique.
+const LIB_ROLE = {
+  secretariat: 'Le secrétariat', coordination: 'La coordination',
+  directeur_adjoint: 'La direction adjointe', directeur: 'La direction',
+  admin: "L'administration",
 };
 
 // Le même papier que les rapports : un filet sous l'en-tête, un filet fin entre
