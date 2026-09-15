@@ -53,9 +53,19 @@ export function reglesDePage({ haut = 18, cote = 18,
     /* La marge basse EST la réserve du pied. Elle n'ajoute rien au flux, à la
        différence d'un padding : c'est ce qui empêche une page blanche
        surnuméraire quand le contenu finit près du bas. */
+    /* LA MARGE BASSE S'ARRÊTE OÙ LE PIED COMMENCE. Elle valait la bande
+       entière (${BANDE_PIED_MM}mm) et le pied était repoussé SOUS elle par un
+       décalage négatif : à l'impression, il sortait de la page — le filet seul
+       restait en bas de la première, et le texte réapparaissait EN HAUT de la
+       suivante, par-dessus l'en-tête du tableau. Un élément fixe ne doit pas
+       déborder de la boîte de page ; la marge basse ne réserve donc plus que
+       l'espace SOUS le pied, et le pied occupe le reste. */
     margin: ${haut}mm ${cote}mm ${avecPied ? BANDE_PIED_MM : haut}mm ${cote}mm;
   }
-  /* Aucun padding de réserve : il ferait partie du flux et déborderait. */
+  /* Aucun padding de réserve : un padding de corps ne vaut que sur la DERNIÈRE
+     page — essayé, et le pied venait s'imprimer par-dessus les lignes de la
+     première. C'est la marge basse, ci-dessus, qui réserve la bande sur
+     CHAQUE page ; le pied s'y loge sans déborder. */
   body { padding-bottom: 0; }`;
 }
 
@@ -90,9 +100,29 @@ export function piedStyles(hauteur = HAUTEUR_PIED_MM, margeHaut = 18) {
   return `
   /* Le pied descend DANS la marge basse : « bottom: 0 » l'arrêterait au bas de
      la zone de contenu, soit à ${BANDE_PIED_MM}mm du bord, d'où le blanc dessous. */
-  .pied-lucie { position: fixed; left: 0; right: 0;
-                bottom: -${BANDE_PIED_MM - MARGE_SOUS_PIED_MM}mm;
-                height: ${hauteur}mm; }
+  /* LE PIED SE RÉPÈTE PARCE QU'IL EST UN « tfoot », NON PARCE QU'IL EST FIXE.
+   *
+   * Un élément en position fixe n'est PAS répété de page en page à
+   * l'impression : Chromium le dessine une fois, à cheval sur la coupure —
+   * on obtenait le filet seul en bas de la première page et le texte en haut
+   * de la seconde, par-dessus l'en-tête du tableau. Vérifié, PDF à l'appui,
+   * puis vérifié encore après correction.
+   *
+   * La seule mécanique qui se répète vraiment est celle des tableaux : un
+   * pied de tableau est redessiné au bas de CHAQUE page. Le corps du document
+   * est donc posé dans une table d'une seule cellule, dont le pied de tableau
+   * est le nôtre. C'est
+   * la technique unique que la charte réclamait — il y en avait quatre. */
+  /* La hauteur d'une table est un MINIMUM : en lui donnant celle de la zone
+     de contenu, le pied descend au bas de la feuille même quand la pièce ne
+     fait que dix lignes — sans quoi il se collait sous le dernier paragraphe. */
+  table.feuille { width: 100%; border-collapse: collapse;
+                  height: calc(297mm - ${margeHaut}mm - ${BANDE_PIED_MM}mm); }
+  table.feuille > tbody > tr > td { vertical-align: top; }
+  table.feuille > tbody > tr > td,
+  table.feuille > tfoot > tr > td { border: 0; padding: 0; }
+  table.feuille > tfoot { display: table-footer-group; }
+  .pied-lucie { height: ${hauteur}mm; padding-top: 2mm; }
   .pied-lucie .pied-logo { height: ${Math.max(5, hauteur - 10)}mm; width: auto;
                            display: block; margin: 0 0 1.2mm; opacity: .9; }
   .pied-lucie .pied-filet { border-top: 0.5pt solid #C9A84C; padding-top: 1.5mm;
@@ -103,24 +133,15 @@ export function piedStyles(hauteur = HAUTEUR_PIED_MM, margeHaut = 18) {
      bas par « margin-top: auto ». L'aperçu montre alors ce que donnera
      l'impression, au lieu d'un pied collé sous le texte. */
   @media screen {
-    body { min-height: 297mm; display: flex; flex-direction: column; }
-    body > .pied-lucie { position: static; height: auto; margin-top: auto;
-                         padding-top: 10mm; }
+    /* À l'écran il n'y a pas de pages : on simule la feuille pour que l'aperçu
+       montre le pied là où il s'imprimera, au lieu de le coller sous le texte. */
+    body { min-height: 297mm; }
+    table.feuille { min-height: calc(297mm - ${margeHaut}mm - ${BANDE_PIED_MM}mm); }
   }
 
-  /* Repli pour Safari, qui ne place pas correctement les éléments en position
-     fixe à l'impression : le pied y reste dans le flux. On le pousse alors en
-     bas de la page par la même mécanique qu'à l'écran, ce qui donne un résultat
-     correct sur un document d'une page. Le PDF, lui, passe par Chromium et
-     n'a pas besoin de ce détour. */
-  @supports (-webkit-hyphens: none) and (not (translate: none)) {
-    @media print {
-      body { min-height: calc(297mm - ${margeHaut}mm - ${BANDE_PIED_MM}mm);
-             display: flex; flex-direction: column; }
-      body > .pied-lucie { position: static; bottom: auto; height: auto;
-                           margin-top: auto; }
-    }
-  }`;
+  /* Plus de repli propre à Safari : un pied de tableau se répète de la même
+     façon dans tous les navigateurs — c'était bien l'objet de l'unification. */
+`;
 }
 
 /**
@@ -205,6 +226,15 @@ export function envelopperDocument({ html, titre, orientation = 'portrait',
   h3 { font-size: 10.5pt; color: #1B2B4B; margin: 5mm 0 1.5mm; }
   p  { margin: 1.5mm 0; line-height: 1.5; }
   table { width: 100%; border-collapse: collapse; margin: 2mm 0; }
+  /* LES COLONNES S'ALIGNENT SUR LES BORDS DE LA PIÈCE.
+     Le padding de cellule décalait le texte de la première colonne de 2 mm
+     vers l'intérieur : « SECTION » commençait à droite du nom de
+     l'établissement et du cadre de titre, qui, eux, partent de la marge. Trois
+     bords de gauche différents sur la même feuille. La première et la dernière
+     cellule perdent donc leur retrait extérieur ; l'air entre les colonnes,
+     lui, reste. */
+  table:not(.feuille) > * > tr > *:first-child { padding-left: 0; }
+  table:not(.feuille) > * > tr > *:last-child { padding-right: 0; }
   th, td { border: 0.5pt solid #cbd5e1; padding: 1.2mm 2mm; vertical-align: top;
            font-size: 9pt; }
   th { background: #f1f5f9; text-align: left; font-size: 8pt;
@@ -228,9 +258,11 @@ export function envelopperDocument({ html, titre, orientation = 'portrait',
 
 ${styles}
 </style></head><body>
+<table class="feuille"><tfoot><tr><td>${piedHtml}</td></tr></tfoot>
+<tbody><tr><td>
 ${enteteHtml}
 ${html}
-${piedHtml}
+</td></tr></tbody></table>
 </body></html>`;
 }
 
