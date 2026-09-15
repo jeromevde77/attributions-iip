@@ -87,12 +87,54 @@ function OngletRapports({ domaine }) {
   // il ne se dépose pas dans un dossier, ne s'annexe pas à un courrier et ne
   // se présente pas au Conseil. Pour tout ce qui doit être MONTRÉ plutôt que
   // retravaillé, la pièce manquait — et donc, en pratique, la fonction.
-  // La pièce est déjà composée sous les yeux : imprimer ne la recalcule pas,
-  // il l'ouvre. Refaire l'appel risquerait d'imprimer autre chose que ce qui
-  // est affiché — c'est précisément ce qu'on veut rendre impossible.
-  function imprimer() {
+  /*
+   * IMPRIMER PASSE PAR LE PDF DU SERVEUR QUAND LE SERVEUR SAIT LE FAIRE.
+   *
+   * L'impression depuis le navigateur ne répète PAS l'en-tête et le pied d'un
+   * document long : Safari ne redessine pas les en-têtes de tableau autour
+   * d'une cellule qui déborde de la page. Un rapport de cinq pages sortait
+   * donc avec l'identité de l'école en page 1 et le pied en page 5 — les
+   * pages du milieu, détachées d'une pile, ne prouvaient plus rien.
+   *
+   * Le PDF du serveur, lui, dispose d'un vrai gabarit de page : le pied et la
+   * numérotation sont posés par le moteur, sur CHAQUE feuille. C'est la règle
+   * de la maison, écrite depuis longtemps et jamais appliquée ici : PDF
+   * serveur si le serveur peut, impression navigateur sinon.
+   *
+   * La pièce n'est pas recalculée : on envoie CELLE QUI EST À L'ÉCRAN.
+   */
+  async function imprimer() {
     if (!apercu?.html) return;
-    setDocument0(apercu);
+    setEnCours(true); setErreur(null);
+    try {
+      const rep = await fetch('/api/impression/pdf', {
+        method: 'POST', headers: authHeaders(),
+        body: JSON.stringify({
+          html: apercu.html,
+          nom: (apercu.nom || choisi?.id || 'document').replace(/\.html$/, ''),
+          pagination: 'si-plusieurs',
+          // Le document porte déjà son pied : le gabarit du serveur en
+          // ajouterait un second.
+          pied: false,
+        }),
+      });
+      if (rep.ok) {
+        const url = URL.createObjectURL(await rep.blob());
+        const w = window.open(url, '_blank');
+        if (!w) {
+          const a = document.createElement('a');
+          a.href = url; a.download = `${(apercu.nom || 'document').replace(/\.html$/, '')}.pdf`;
+          document.body.appendChild(a); a.click(); a.remove();
+        }
+        setTimeout(() => URL.revokeObjectURL(url), 60000);
+        return;
+      }
+      // Serveur sans moteur PDF : on retombe sur l'impression navigateur,
+      // le même repli que partout ailleurs.
+      setDocument0(apercu);
+    } catch {
+      setDocument0(apercu);
+    } finally { setEnCours(false); }
   }
 
   useEffect(() => {

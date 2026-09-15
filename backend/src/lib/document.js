@@ -121,8 +121,11 @@ export function piedStyles(hauteur = HAUTEUR_PIED_MM, margeHaut = 18) {
                   height: calc(297mm - ${margeHaut}mm - ${BANDE_PIED_MM}mm); }
   table.feuille > tbody > tr > td { vertical-align: top; }
   table.feuille > tbody > tr > td,
+  table.feuille > thead > tr > td,
   table.feuille > tfoot > tr > td { border: 0; padding: 0; }
+  table.feuille > thead { display: table-header-group; }
   table.feuille > tfoot { display: table-footer-group; }
+  table.feuille > thead > tr > td { padding-bottom: 3mm; }
   .pied-lucie { height: ${hauteur}mm; padding-top: 2mm; }
   .pied-lucie .pied-logo { height: ${Math.max(5, hauteur - 10)}mm; width: auto;
                            display: block; margin: 0 0 1.2mm; opacity: .9; }
@@ -140,8 +143,19 @@ export function piedStyles(hauteur = HAUTEUR_PIED_MM, margeHaut = 18) {
     table.feuille { min-height: calc(297mm - ${margeHaut}mm - ${BANDE_PIED_MM}mm); }
   }
 
-  /* Plus de repli propre à Safari : un pied de tableau se répète de la même
-     façon dans tous les navigateurs — c'était bien l'objet de l'unification. */
+  /* LE REPLI SAFARI EST DE RETOUR, ET IL EST NÉCESSAIRE.
+     Je l'avais retiré en écrivant qu'un pied de tableau se répète « dans tous
+     les navigateurs » : c'est faux pour Safari dès que la cellule déborde de
+     la page — vérifié sur une impression réelle, où le pied n'apparaissait
+     qu'en page 5 sur 5. Chromium répète ; Safari, non. Pour Safari,
+     l'impression navigateur donne donc un pied en fin de document, et c'est
+     le PDF DU SERVEUR — rendu par Chromium — qui donne le résultat juste :
+     c'est lui que le centre d'impression demande en premier. */
+  @supports (-webkit-hyphens: none) and (not (translate: none)) {
+    @media print {
+      table.feuille { height: auto; }
+    }
+  }
 `;
 }
 
@@ -170,14 +184,35 @@ export function enteteDocument({ titre, sous = null, mention = null } = {}) {
   ].filter(Boolean).join(' · ');
 
   return `<div class="doc-entete">
-    <div class="doc-ident">${ident || 'Institut Ilya Prigogine'}${
-      refs ? `<span class="doc-refs">${refs}</span>` : ''}</div>
     <div class="doc-titre">
       <div class="doc-titre-t">${esc(titre)}</div>
       ${sous ? `<div class="doc-titre-s">${esc(sous)}</div>` : ''}
       ${mention ? `<div class="doc-titre-m">${esc(mention)}</div>` : ''}
     </div>
   </div>`;
+}
+
+/**
+ * LA LIGNE D'IDENTITÉ, À PART — parce qu'elle doit se RÉPÉTER.
+ *
+ * Elle vivait dans le flux : elle n'apparaissait donc qu'en page 1. Sur un
+ * rapport de cinq pages, les pages 2 à 5 sortaient sans un mot indiquant d'où
+ * elles viennent — détachées d'une pile, elles ne prouvent plus rien.
+ *
+ * Comme le pied, elle passe donc en en-tête de tableau : c'est la seule
+ * mécanique que les navigateurs répètent réellement d'une page à l'autre.
+ */
+export function identiteDocument() {
+  let etab = {};
+  try { etab = db.prepare('SELECT * FROM etablissement WHERE id = 1').get() || {}; } catch { /* base minimale */ }
+  const esc = s2 => String(s2 ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;');
+  const ident = [etab.etab_nom, etab.adresse].filter(Boolean).map(esc).join(' · ');
+  const refs = [
+    etab.num_fase ? `FASE ${esc(etab.num_fase)}` : null,
+    etab.num_entreprise ? `N° entreprise ${esc(etab.num_entreprise)}` : null,
+  ].filter(Boolean).join(' · ');
+  return `<div class="doc-ident">${ident || 'Institut Ilya Prigogine'}${
+    refs ? `<span class="doc-refs">${refs}</span>` : ''}</div>`;
 }
 
 export function envelopperDocument({ html, titre, orientation = 'portrait',
@@ -229,6 +264,9 @@ export function envelopperDocument({ html, titre, orientation = 'portrait',
    * maison. Rien d'autre.
    */
   .doc-entete { margin: 0 0 9mm; }
+  /* La marge du haut n'a plus lieu d'être : l'identité, au-dessus, est
+     maintenant rendue par l'en-tête répétable de la feuille. */
+  .doc-titre { margin-top: 0 !important; }
   .doc-ident { font-size: 7.5pt; color: #6e6e73; letter-spacing: .35pt;
                text-transform: uppercase; font-weight: 600;
                padding-bottom: 2mm; border-bottom: 0.25mm solid #C9A84C;
@@ -291,7 +329,9 @@ export function envelopperDocument({ html, titre, orientation = 'portrait',
 
 ${styles}
 </style></head><body>
-<table class="feuille"><tfoot><tr><td>${piedHtml}</td></tr></tfoot>
+<table class="feuille">
+<thead><tr><td>${entete === false ? '' : identiteDocument()}</td></tr></thead>
+<tfoot><tr><td>${piedHtml}</td></tr></tfoot>
 <tbody><tr><td>
 ${enteteHtml}
 ${html}

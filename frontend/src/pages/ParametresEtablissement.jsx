@@ -22,8 +22,10 @@ export default function ParametresEtablissement() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState('');
-  // La règle d'ajournement de l'établissement — le décret ne la fixe pas.
-  const [ajour, setAjour] = useState({ portee: 'cours', session2: 'par_cours' });
+  /* La règle d'ajournement ne vit plus ici : elle a son composant, qui la lit
+     et l'enregistre seul. La garder en double ferait qu'enregistrer l'adresse
+     de l'école réécrirait une règle de délibération avec une valeur périmée —
+     deux sources pour un même fait, et la pire des deux qui gagne. */
 
   useEffect(() => {
     Promise.all([
@@ -34,10 +36,6 @@ export default function ParametresEtablissement() {
         for (const p of arr) o[p.cle] = p.valeur;
         setMep(o);
       }).catch(() => {}),
-      fetch('/api/config/deliberation_ajournement', { headers: authHeaders() })
-        .then(r => r.ok ? r.json() : null)
-        .then(j => { if (j?.valeur) setAjour(JSON.parse(j.valeur)); })
-        .catch(() => {}),
     ]).finally(() => setLoading(false));
   }, []);
 
@@ -49,10 +47,6 @@ export default function ParametresEtablissement() {
     try {
       await api.saveEtablissement(f);
       if (Object.keys(mep).length) await api.saveParametres(mep);
-      await fetch('/api/config/deliberation_ajournement', {
-        method: 'PUT', headers: authHeaders(),
-        body: JSON.stringify({ valeur: JSON.stringify(ajour) }),
-      });
       setMsg('Paramètres enregistrés ✓');
       setTimeout(() => setMsg(''), 3000);
     } catch (e) { setMsg('Erreur : ' + e.message); }
@@ -71,73 +65,11 @@ export default function ParametresEtablissement() {
         </p>
       </div>
 
-      {/* ── LA RÈGLE D'AJOURNEMENT ────────────────────────────────────────
-          Le décret ne tranche pas : c'est à l'établissement de dire ce que le
-          Conseil ajourne, et ce que l'étudiant représente. */}
-      <section className="bg-white rounded-lg border border-gray-200 p-4 space-y-3">
-        <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
-          Délibération — ce que le Conseil ajourne
-        </div>
-        <p className="text-[12px] text-gray-500">
-          Le décret ne fixe pas cette règle. Elle s'applique à toutes les
-          délibérations et détermine ce que porte la notification d'ajournement
-          (annexe 8).
-        </p>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-          {[
-            { cle: 'cours', titre: 'Ajournement par cours',
-              aide: "Le Conseil ajourne un cours. TOUS ses acquis sont à représenter avec lui, "
-                  + "y compris ceux qu'un autre cours évalue aussi. L'étudiant repasse le cours entier." },
-            { cle: 'aa', titre: 'Ajournement par acquis',
-              aide: "Le Conseil ajourne un acquis. Le cours n'est pas emporté : l'étudiant ne "
-                  + "représente que ce qui n'est pas maîtrisé." },
-          ].map(o => (
-            <label key={o.cle}
-              className={`flex items-start gap-2.5 px-3 py-2 rounded-lg border cursor-pointer ${
-                ajour.portee === o.cle ? 'border-iip-blue bg-iip-blue/5' : 'border-gray-200'}`}>
-              <input type="radio" name="portee" checked={ajour.portee === o.cle}
-                onChange={() => setAjour(a => ({ ...a, portee: o.cle }))}
-                className="mt-0.5 accent-iip-blue" />
-              <span>
-                <span className="text-[13px] font-semibold text-gray-800">{o.titre}</span>
-                <span className="block text-[12px] text-gray-500">{o.aide}</span>
-              </span>
-            </label>
-          ))}
-        </div>
-
-        {/* La forme de la seconde session ne se pose qu'en portée « acquis » :
-            en portée « cours », l'étudiant repasse le cours, la question ne
-            se pose pas. */}
-        {ajour.portee === 'aa' && (
-          <div className="pl-4 border-l-2 border-iip-blue/30 space-y-2">
-            <div className="text-[12px] font-semibold text-gray-700">
-              Seconde session — comment l'acquis se représente
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-              {[
-                { cle: 'unique', titre: 'Une épreuve unique par acquis',
-                  aide: "Un seul examen, quels que soient les cours où l'acquis est évalué." },
-                { cle: 'par_cours', titre: 'Une épreuve dans chaque cours',
-                  aide: "L'acquis se représente dans chacun des cours où il est évalué." },
-              ].map(o => (
-                <label key={o.cle}
-                  className={`flex items-start gap-2.5 px-3 py-2 rounded-lg border cursor-pointer ${
-                    ajour.session2 === o.cle ? 'border-iip-blue bg-iip-blue/5' : 'border-gray-200'}`}>
-                  <input type="radio" name="session2" checked={ajour.session2 === o.cle}
-                    onChange={() => setAjour(a => ({ ...a, session2: o.cle }))}
-                    className="mt-0.5 accent-iip-blue" />
-                  <span>
-                    <span className="text-[13px] font-semibold text-gray-800">{o.titre}</span>
-                    <span className="block text-[12px] text-gray-500">{o.aide}</span>
-                  </span>
-                </label>
-              ))}
-            </div>
-          </div>
-        )}
-      </section>
+      {/* LA RÈGLE D'AJOURNEMENT A REJOINT LE RÉFÉRENTIEL DE L'ANNÉE.
+          Elle décrit comment le Conseil délibère sur ce référentiel : sa place
+          est à côté des unités, des prérequis et de la pondération, non dans
+          l'identité de l'établissement — qui parle d'adresse et de matricule. */}
+      <ReglesDeliberation />
 
       {/* Identification de l'établissement */}
       <section className="bg-white rounded-lg border border-gray-200 p-4 space-y-3">
@@ -286,5 +218,103 @@ export default function ParametresEtablissement() {
         {msg && <span className={`text-sm ${msg.startsWith('Erreur') ? 'text-red-600' : 'text-green-600'}`}>{msg}</span>}
       </div>
     </div>
+  );
+}
+
+
+/**
+ * CE QUE LE CONSEIL AJOURNE — une règle de l'établissement, pas du décret.
+ *
+ * Elle vivait au milieu de l'adresse et du matricule, dans « Identité et
+ * sections » : on la cherchait dans Délibération, où elle n'était pas. Elle
+ * décrit comment le Conseil délibère sur le référentiel, et elle s'enregistre
+ * seule — sans quoi un réglage de délibération ne se sauvait qu'en passant par
+ * le bouton d'un écran qui parle d'autre chose.
+ */
+export function ReglesDeliberation() {
+  const [ajour, setAjour] = useState({ portee: 'cours', session2: 'par_cours' });
+  const [etat, setEtat] = useState('');
+
+  useEffect(() => {
+    fetch('/api/config/deliberation_ajournement', { headers: authHeaders() })
+      .then(r => (r.ok ? r.json() : null))
+      .then(j => { if (j?.valeur) setAjour(JSON.parse(j.valeur)); })
+      .catch(() => {});
+  }, []);
+
+  async function enregistrer() {
+    setEtat('Enregistrement…');
+    try {
+      const rep = await fetch('/api/config/deliberation_ajournement', {
+        method: 'PUT', headers: authHeaders(),
+        body: JSON.stringify({ valeur: JSON.stringify(ajour) }),
+      });
+      if (!rep.ok) throw new Error('refusé');
+      setEtat('Enregistré ✓');
+      setTimeout(() => setEtat(''), 3000);
+    } catch (e) { setEtat('Erreur : ' + e.message); }
+  }
+
+  const Choix = ({ nom, valeur, options, onChoisir }) => (
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+      {options.map(o => (
+        <label key={o.cle}
+          className={`flex items-start gap-2.5 px-3 py-2 rounded-carte border cursor-pointer ${
+            valeur === o.cle ? 'border-iip-blue bg-iip-blue/5' : 'border-slate-200'}`}>
+          <input type="radio" name={nom} checked={valeur === o.cle}
+            onChange={() => onChoisir(o.cle)} className="mt-0.5 accent-iip-blue" />
+          <span>
+            <span className="text-[13px] font-semibold text-slate-800">{o.titre}</span>
+            <span className="block text-[12px] text-slate-500">{o.aide}</span>
+          </span>
+        </label>
+      ))}
+    </div>
+  );
+
+  return (
+    <section className="carte p-4 space-y-3 max-w-4xl">
+      <div className="text-[11px] font-semibold text-slate-500 uppercase tracking-wide">
+        Délibération — ce que le Conseil ajourne
+      </div>
+      <p className="text-[12px] text-slate-500">
+        Le décret ne fixe pas cette règle. Elle s'applique à toutes les délibérations et
+        détermine ce que porte la notification d'ajournement (annexe 8).
+      </p>
+
+      <Choix nom="portee" valeur={ajour.portee}
+        onChoisir={v => setAjour(a => ({ ...a, portee: v }))}
+        options={[
+          { cle: 'cours', titre: 'Ajournement par cours',
+            aide: "Le Conseil ajourne un cours. TOUS ses acquis sont à représenter avec lui, "
+                + "y compris ceux qu'un autre cours évalue aussi. L'étudiant repasse le cours entier." },
+          { cle: 'aa', titre: 'Ajournement par acquis',
+            aide: "Le Conseil ajourne un acquis. Le cours n'est pas emporté : l'étudiant ne "
+                + "représente que ce qui n'est pas maîtrisé." },
+        ]} />
+
+      {/* La forme de la seconde session ne se pose qu'en portée « acquis » : en
+          portée « cours », l'étudiant repasse le cours, la question ne se pose pas. */}
+      {ajour.portee === 'aa' && (
+        <div className="pl-4 border-l-2 border-iip-blue/30 space-y-2">
+          <div className="text-[12px] font-semibold text-slate-700">
+            Seconde session — comment l'acquis se représente
+          </div>
+          <Choix nom="session2" valeur={ajour.session2}
+            onChoisir={v => setAjour(a => ({ ...a, session2: v }))}
+            options={[
+              { cle: 'unique', titre: 'Une épreuve unique par acquis',
+                aide: "Un seul examen, quels que soient les cours où l'acquis est évalué." },
+              { cle: 'par_cours', titre: 'Une épreuve dans chaque cours',
+                aide: "L'acquis se représente dans chacun des cours où il est évalué." },
+            ]} />
+        </div>
+      )}
+
+      <div className="flex items-center gap-3 pt-1">
+        <button onClick={enregistrer} className="bouton-fort controle px-3">Enregistrer</button>
+        {etat && <span className="text-[12px] text-slate-500">{etat}</span>}
+      </div>
+    </section>
   );
 }
