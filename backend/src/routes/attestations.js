@@ -272,9 +272,11 @@ export function envelopper(corps, titre = 'Attestations de réussite') {
     color: #1B2B4B; margin-top: 1mm; }
   .entete .annee { font-size: 8.5pt; margin-top: 1.2mm; color: #475569; }
 
+  /* Pas de filet sous l'identité : le bandeau au-dessus est déjà tenu par deux
+     traits dorés, et le titre en dessous porte le sien. Trois filets pour
+     quatre centimètres de papier, c'est deux de trop. */
   .etab { display: flex; justify-content: space-between; gap: 6mm;
-          padding: 3mm 0 2.5mm; border-bottom: 0.4pt solid #cbd5e1; font-size: 8pt;
-          color: #475569; }
+          padding: 3mm 0 0; font-size: 8pt; color: #475569; }
   .etab .nom { font-weight: 600; color: #1B2B4B; font-size: 9pt; }
   .etab .ident { text-align: right; white-space: nowrap; }
 

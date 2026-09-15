@@ -12,7 +12,20 @@ body {
   font-family: 'Inter', 'Aptos', system-ui, Arial, Helvetica, sans-serif;
   font-size: var(--app-font-size);
   line-height: 1.5;
-  background: #F5F7FA;
+  /* UN SEUL SOL, ET TOUT EST POSÉ DESSUS.
+   *
+   * La page était en #F5F7FA et la barre du haut en #F8FAFC : deux gris à
+   * trois points d'écart, empilés sur toute la largeur. Trop proches pour
+   * qu'on puisse dire ce qui les sépare, trop différents pour se confondre —
+   * l'œil enregistre une bande sans savoir pourquoi, et l'écran paraît fait
+   * de couches. Le mode sombre était pire : les jetons basculaient, ce fond-ci
+   * restait gris clair.
+   *
+   * Le fond de la page est désormais LE MÊME JETON que celui du rail et de la
+   * barre. Il n'y a plus qu'un gris de haut en bas, et le blanc redevient ce
+   * qu'il doit être : le signe de ce qui se remplit.
+   */
+  background: var(--page-fond, #F8FAFC);
   color: #1f2937;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -98,8 +111,15 @@ table.grid-excel-soft td.num { text-align: right; font-variant-numeric: tabular-
   padding: 0.15rem 0; border-radius: 0.375rem;
   font-size: 0.7rem; font-weight: 700;
   min-width: 2rem; width: 2rem; text-align: center; white-space: nowrap; }
-.badge-iip   { background: #dbeafe; color: #1B2B4B; }
-.badge-helb  { background: #cffafe; color: #0e7490; }
+/* UNE COULEUR DE SIGNIFICATION NE S'ÉCRIT PLUS DANS LA FEUILLE DE STYLE.
+   « HELB » se lisait en cyan ici, en rose dans Attributions, en violet dans
+   Professeurs : trois réponses à une question qui n'en a qu'une. Les badges
+   lisent le réglage de la maison, posé sur la racine au démarrage — et le
+   papier lit exactement le même. */
+.badge-iip   { background: color-mix(in srgb, var(--c-iip, #1B2B4B) 14%, #fff);
+               color: var(--c-iip, #1B2B4B); }
+.badge-helb  { background: color-mix(in srgb, var(--c-helb, #DB2777) 14%, #fff);
+               color: var(--c-helb, #DB2777); }
 .badge-ct    { background: #dbeafe; color: #1e40af; }
 .badge-pp    { background: #dcfce7; color: #166534; }
 .badge-z     { background: #1F3864; color: #ffffff; letter-spacing: 0.05em; }
@@ -317,6 +337,7 @@ table.grid-excel-soft td.num { text-align: right; font-variant-numeric: tabular-
    ───────────────────────────────────────────────────────────────────────── */
 :root, :root[data-mode="clair"] {
   --menu-fond:        #F8FAFC;   /* le fond de la page : le rail s'y fond */
+  --page-fond:        #F8FAFC;   /* en clair, la page et les menus ont UN sol */
   --menu-bord:        rgba(27, 43, 75, 0.10);
   --menu-texte:       #1B2B4B;
   --menu-texte-doux:  rgba(27, 43, 75, 0.55);
@@ -332,7 +353,15 @@ table.grid-excel-soft td.num { text-align: right; font-variant-numeric: tabular-
   --tab-repere:       #F8FAFC;   /* le fond de la page : le filet suffit à démarquer */
 }
 :root[data-mode="sombre"] {
-  --menu-fond:        #0F1A2E;   /* le fond de la page en mode sombre */
+  --menu-fond:        #0F1A2E;   /* le marine des MENUS en mode sombre */
+  /* LE MODE SOMBRE EST CELUI DES MENUS, PAS CELUI DE LA PAGE.
+     La barre et le rail passent au marine ; les écrans, eux, restent clairs —
+     on y lit des tableaux, des notes et des documents. En donnant à la page le
+     fond des menus, le marine descendait sous la barre et courait derrière le
+     contenu : une bande que rien ne justifiait, et une zone de plus à
+     expliquer. La page garde donc son sol ; ce qui change de mode, ce sont les
+     panneaux qui portent la navigation. */
+  --page-fond:        #F5F7FA;
   --menu-bord:        rgba(255, 255, 255, 0.10);
   --menu-texte:       #FFFFFF;
   --menu-texte-doux:  rgba(255, 255, 255, 0.45);
@@ -389,8 +418,17 @@ table.grid-excel-soft td.num { text-align: right; font-variant-numeric: tabular-
 .onglet-dormant:hover { background: var(--menu-survol); color: var(--menu-texte); }
 .champ-barre { background: var(--champ-fond); color: var(--menu-texte);
                border: 1px solid var(--menu-bord); }
+/* DEUX PASTILLES VOISINES ONT LA MÊME MÉTRIQUE.
+   Le badge de version se dimensionnait par son texte — une pilule basse, aux
+   coins presque ronds — à côté du bouton de compte, carré de 32 px et de rayon
+   8. Deux rectangles de tailles et de rayons différents posés l'un contre
+   l'autre : rien ne le justifie, et l'œil le voit avant de lire. Même hauteur,
+   même rayon, même surface ; ce qui les distingue est leur contenu. */
 .pastille-version { background: var(--menu-actif); color: var(--menu-texte);
-                    box-shadow: inset 0 0 0 1px var(--menu-actif-bord); }
+                    box-shadow: inset 0 0 0 1px var(--menu-actif-bord);
+                    display: inline-flex; align-items: center; justify-content: center;
+                    height: 2rem; padding: 0 .625rem; border-radius: 8px;
+                    letter-spacing: .02em; }
 
 /* EN MODE SOMBRE, UN LOGO MARINE DISPARAÎT. Ses traits marine s'éclaircissent,
    le turquoise reste turquoise : c'est lui qui porte la marque. */
@@ -500,13 +538,8 @@ main:not(:has(> .gouttiere-rail)) {
    Le nom complet prenait un quart de la barre du haut et poussait le rôle et
    la déconnexion sur deux lignes de plus : la barre grandissait, et avec elle
    le rail et la zone de travail, qui s'y raccrochent. */
-.pastille-compte {
-  display: inline-flex; align-items: center; justify-content: center;
-  height: 2rem; min-width: 2rem; padding: 0 .5rem;
-  border-radius: 8px; font-size: 12px; font-weight: 700; letter-spacing: .02em;
-  color: var(--menu-texte, #1B2B4B); background: var(--menu-actif, #EEF2F7);
-  box-shadow: inset 0 0 0 1px var(--menu-actif-bord, #E2E8F0);
-}
+/* (La définition de .pastille-compte est plus haut : elle vivait ici en
+   double, à l'identique — deux sources pour un même fait. Une de moins.) */
 
 :root { --retrait-page: 1rem; }
 

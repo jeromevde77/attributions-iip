@@ -1,7 +1,8 @@
 import { useEffect, useState, lazy, Suspense } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { api, getAnnee } from '../lib/api.js';
-import { IconAdjustments, IconAward, IconBooks, IconBuilding, IconCalendar, IconCalendarEvent, IconChartBar, IconCheck, IconChevronRight, IconDownload, IconFileText, IconHistory, IconLink, IconScale, IconSettings, IconSparkles, IconUserShield, IconUsers, IconX, IconGavel, IconPlus, IconTrash, IconGripVertical, IconEdit, IconMail } from '@tabler/icons-react';
+import { api, getAnnee, setAnnee as setAnneeActive } from '../lib/api.js';
+import { chargerCouleurs } from '../lib/couleurs.js';
+import { IconAdjustments, IconAward, IconBooks, IconBuilding, IconCalendar, IconCalendarEvent, IconChartBar, IconCheck, IconChevronRight, IconDownload, IconFileText, IconHistory, IconLink, IconScale, IconSettings, IconSparkles, IconUserShield, IconUsers, IconX, IconGavel, IconPlus, IconTrash, IconGripVertical, IconEdit, IconMail, IconPalette } from '@tabler/icons-react';
 import { PageHeader, RailLateral } from '../components/ui.jsx';
 import ApercuDocuments from '../components/ApercuDocuments.jsx';
 const Editeur = lazy(() => import('./Editeur.jsx'));
@@ -446,7 +447,7 @@ import SchemaCapitalisation from '../components/SchemaCapitalisation.jsx';
 import Demandes from './Demandes.jsx';
 import Sauvegardes from './Sauvegardes.jsx';
 import RolesPlafonds from './RolesPlafonds.jsx';
-import ParametresEtablissement from './ParametresEtablissement.jsx';
+import ParametresEtablissement, { ReglesDeliberation } from './ParametresEtablissement.jsx';
 import { authHeaders } from '../lib/api.js';
 
 function Toggle({ label, description, checked, onChange, disabled }) {
@@ -1281,22 +1282,26 @@ export default function Configuration() {
       { key: 'etablissement', label: 'Identité et sections', icon: IconBuilding },
       { key: 'annees', label: 'Années scolaires', icon: IconCalendar },
     ]},
-    // LE RÉFÉRENTIEL ET SES PRÉREQUIS NE SE SÉPARENT PAS : un prérequis est
-    // une arête du référentiel, pas un réglage à côté.
+    /* QUATRE ONGLETS DÉCRIVAIENT LE MÊME OBJET.
+     *
+     * Référentiel, prérequis, pondération des acquis, règles de délibération :
+     * ce sont quatre FACES d'une seule chose — ce qu'on enseigne une année
+     * donnée et comment on le sanctionne. Les séparer obligeait à sortir d'un
+     * écran pour vérifier dans un autre ce qu'on venait d'y régler, et rien ne
+     * disait qu'ils parlaient tous de la MÊME ANNÉE.
+     *
+     * Ils tiennent donc en un onglet, avec l'année posée UNE FOIS en tête.
+     * Qu'elle change d'une année à l'autre n'est pas une raison de les
+     * éclater : c'est une raison de nommer l'année, et de la nommer une
+     * seule fois. */
     { label: 'Référentiel', items: [
-      { key: 'referentiels', label: 'Référentiels', icon: IconBooks },
-      { key: 'prerequis', label: "Prérequis d'UE", icon: IconLink },
-    ]},
-    // LA PONDÉRATION EST UNE RÈGLE DE DÉLIBÉRATION, et non un réglage
-    // général : c'est elle qui fabrique la note d'unité. Elle rejoint les
-    // délais et les procédures, qui décident du reste de la décision.
-    { label: 'Délibération', items: [
-      { key: 'ponderations', label: 'Pondération des acquis', icon: IconScale },
+      { key: 'referentiel-annee', label: "Référentiel de l'année", icon: IconBooks },
       { key: 'procedures', label: 'Procédures et délais', icon: IconGavel },
     ]},
     { label: 'Documents', items: [
       { key: 'editeur', label: 'Éditeur de modèles', icon: IconEdit },
       { key: 'apercu', label: 'Aperçu des pièces', icon: IconFileText },
+      { key: 'couleurs', label: 'Couleurs de Lucie', icon: IconPalette },
       { key: 'contrat', label: 'Contrat', icon: IconFileText },
       { key: 'attestation', label: 'Attestation', icon: IconAward },
       { key: 'recrutement', label: 'Recrutement', icon: IconSettings },
@@ -1340,8 +1345,8 @@ export default function Configuration() {
         <PageHeader icon={IconSettings} titre="Configuration"
           sous="Référentiels, années, établissement, personnel et paramètres système" />
 
-      {/* ── Onglet Référentiels ── */}
-      {tab === 'referentiels' && <Referentiels embedded />}
+      {/* ── Onglet Référentiel de l'année ── */}
+      {tab === 'referentiel-annee' && <ReferentielDeLAnnee />}
 
       {/* ── Onglet Années ── */}
       {tab === 'annees' && <Annees embedded />}
@@ -1364,8 +1369,6 @@ export default function Configuration() {
       {tab === 'parametres' && <GestionParametres />}
 
       {/* ── Onglet Prérequis ── */}
-      {tab === 'prerequis' && <GestionPrerequis />}
-      {tab === 'ponderations' && <PonderationsAA />}
       {tab === 'demandes' && <Demandes />}
       {tab === 'sauvegardes' && <Sauvegardes />}
 
@@ -1393,6 +1396,8 @@ export default function Configuration() {
       {tab === 'apercu' && (
         <ApercuDocuments onClose={() => setTab('editeur')} />
       )}
+
+      {tab === 'couleurs' && <ReglageCouleurs />}
 
       {/* ── Onglet Recrutement ── */}
       {tab === 'recrutement' && <ConfigRecrutement />}
@@ -2143,6 +2148,173 @@ function ConfigRecrutement() {
         desc="Texte lu en fin d'entretien — suite de la procédure, délais, remerciements."
         field={conclusion}
       />
+    </div>
+  );
+}
+
+/**
+ * LES COULEURS QUI VEULENT DIRE QUELQUE CHOSE.
+ *
+ * « HELB » se lisait en rose dans Attributions, en violet dans Professeurs, en
+ * cyan dans les badges, en violet encore sur le rapport ETP imprimé. Quatre
+ * réponses à une question qui n'en a qu'une — et un imprimé qui ne ressemblait
+ * à aucun écran.
+ *
+ * Elles se règlent ici, une fois, et valent partout : à l'écran comme sur le
+ * papier. Une couleur qui signifie quelque chose pour l'école n'a pas à être
+ * décidée dans le code.
+ */
+function ReglageCouleurs() {
+  const [catalogue, setCatalogue] = useState({});
+  const [valeurs, setValeurs] = useState({});
+  const [etat, setEtat] = useState('');
+
+  useEffect(() => {
+    fetch('/api/config/couleurs', { headers: authHeaders() })
+      .then(r => r.json())
+      .then(j => { setCatalogue(j.catalogue || {}); setValeurs(j.couleurs || {}); })
+      .catch(e => setEtat('Lecture impossible : ' + e.message));
+  }, []);
+
+  async function enregistrer() {
+    setEtat('Enregistrement…');
+    try {
+      const rep = await fetch('/api/config/couleurs', {
+        method: 'PUT',
+        headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+        body: JSON.stringify({ couleurs: valeurs }),
+      });
+      const j = await rep.json();
+      if (!rep.ok) throw new Error(j.error || 'refusé');
+      setValeurs(j.couleurs);
+      // Reposées tout de suite : le changement se voit sur l'écran qui le
+      // demande, sans recharger — sinon on doute de l'avoir enregistré.
+      await chargerCouleurs();
+      setEtat('Enregistré. Les écrans et les documents suivent.');
+    } catch (e) { setEtat('Erreur : ' + e.message); }
+  }
+
+  return (
+    <div className="max-w-3xl">
+      <h2 className="text-[17px] font-semibold text-iip-blue mb-1">Couleurs de Lucie</h2>
+      <p className="text-[13px] text-slate-500 mb-4">
+        Ces couleurs portent un sens : un contrat, une nature de cours, une décision.
+        Elles valent partout — badges, tableaux, tuiles et documents imprimés.
+        L'habillage de l'application (gris, filets, fonds) relève de la charte et ne se
+        règle pas ici.
+      </p>
+
+      <div className="carte overflow-hidden mb-3">
+        {Object.entries(catalogue).map(([cle, d]) => (
+          <div key={cle} className="px-3 py-2 flex items-center gap-3
+                                    border-t border-slate-100 first:border-t-0">
+            <span className="flex-1 text-[13px] text-slate-800">{d.libelle}</span>
+            <span className="text-[11px] tabular-nums text-slate-400 w-20 text-right">
+              {(valeurs[cle] || d.valeur).toUpperCase()}
+            </span>
+            <input type="color" value={valeurs[cle] || d.valeur}
+              onChange={e => setValeurs(v => ({ ...v, [cle]: e.target.value }))}
+              className="w-10 h-8 rounded-champ border border-slate-300 bg-white p-0.5"
+              title={d.libelle} />
+            {(valeurs[cle] || d.valeur).toUpperCase() !== d.valeur.toUpperCase() && (
+              <button onClick={() => setValeurs(v => ({ ...v, [cle]: d.valeur }))}
+                className="text-[11px] text-slate-400 hover:text-iip-blue" title="Revenir au défaut">
+                défaut
+              </button>
+            )}
+          </div>
+        ))}
+      </div>
+
+      <div className="flex items-center gap-3">
+        <button onClick={enregistrer} className="bouton-fort controle px-3">Enregistrer</button>
+        {etat && <span className="text-[12px] text-slate-500">{etat}</span>}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * LE RÉFÉRENTIEL D'UNE ANNÉE — ce qu'on enseigne, et comment on le sanctionne.
+ *
+ * Quatre onglets décrivaient le même objet : le référentiel, ses prérequis, la
+ * pondération de ses acquis, et les règles avec lesquelles le Conseil délibère
+ * dessus. Les séparer obligeait à sortir d'un écran pour vérifier dans un autre
+ * ce qu'on venait d'y régler — et surtout, rien ne disait qu'ils parlaient tous
+ * de la MÊME ANNÉE.
+ *
+ * L'année se pose donc UNE FOIS, en tête, et vaut pour les quatre faces.
+ * Qu'elle change d'une année à l'autre n'est pas une raison de les éclater :
+ * c'est une raison de la nommer, et de ne la nommer qu'une fois.
+ *
+ * Le soulignement plutôt que la pastille : on ne change pas de territoire, on
+ * tourne une page du même dossier — c'est la règle de la maison.
+ */
+function ReferentielDeLAnnee() {
+  const [face, setFace] = useState('referentiel');
+  const [annees, setAnnees] = useState([]);
+  const annee = getAnnee();
+
+  useEffect(() => {
+    fetch('/api/annees', { headers: authHeaders() })
+      .then(r => r.json())
+      .then(l => setAnnees((Array.isArray(l) ? l : []).map(a => a.code).filter(Boolean)))
+      .catch(() => {});
+  }, []);
+
+  /* CHANGER D'ANNÉE ICI, C'EST CHANGER D'ANNÉE DE TRAVAIL. Ces écrans lisent
+     tous l'année active : lui en donner une autre en douce ferait afficher
+     2025 ici et 2026 partout ailleurs — l'erreur de contexte qu'on vient
+     justement de cadenasser ailleurs. On la change donc pour de bon, et l'on
+     revient sur le même onglet. */
+  function changerAnnee(code) {
+    if (!code || code === annee) return;
+    setAnneeActive(code);
+    window.location.href = '/configuration?onglet=referentiel-annee';
+  }
+
+  const FACES = [
+    ['referentiel', 'Unités et cours'],
+    ['prerequis', "Prérequis d'UE"],
+    ['ponderations', 'Pondération des acquis'],
+    ['deliberation', 'Règles de délibération'],
+  ];
+
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h2 className="text-[17px] font-semibold text-iip-blue">Référentiel de l'année</h2>
+          <p className="text-[13px] text-slate-500 mt-0.5">
+            Ce qu'on enseigne cette année-là, et les règles avec lesquelles le Conseil
+            le sanctionne.
+          </p>
+        </div>
+        <label className="text-[11px] text-slate-500">
+          Année de travail
+          <select value={annee} onChange={e => changerAnnee(e.target.value)}
+            className="block mt-0.5 bg-white border border-slate-300 rounded-champ
+                       px-2 h-9 text-[13px] min-w-[10rem]">
+            {(annees.length ? annees : [annee]).map(a => (
+              <option key={a} value={a}>{a}</option>
+            ))}
+          </select>
+        </label>
+      </div>
+
+      <div className="flex gap-1 border-b border-slate-200">
+        {FACES.map(([cle, lib]) => (
+          <button key={cle} onClick={() => setFace(cle)}
+            className={`onglet-page ${face === cle ? 'onglet-page-actif' : ''}`}>
+            {lib}
+          </button>
+        ))}
+      </div>
+
+      {face === 'referentiel' && <Referentiels embedded />}
+      {face === 'prerequis' && <GestionPrerequis />}
+      {face === 'ponderations' && <PonderationsAA />}
+      {face === 'deliberation' && <ReglesDeliberation />}
     </div>
   );
 }

@@ -5464,9 +5464,10 @@ const STYLE_ENTETE_DELIB = `<style>
   .delib-cf .epa { font-size: 10.5pt; font-weight: 700; letter-spacing: .5pt;
     color: #1B2B4B; margin-top: 1mm; }
   .delib-cf .an { font-size: 8.5pt; margin-top: 1.2mm; color: #475569; }
+  /* PAS DE FILET SOUS L'IDENTITÉ : le cadre du titre, juste en dessous, sépare
+     déjà. Un trait de plus ne dit rien que le cadre ne dise. */
   .delib-etab { display: flex; justify-content: space-between; gap: 6mm;
-    padding: 3mm 0 2.5mm; border-bottom: 0.4pt solid #cbd5e1; font-size: 8pt;
-    color: #475569; }
+    padding: 3mm 0 0; font-size: 8pt; color: #475569; }
   .delib-etab .nom { font-weight: 600; color: #1B2B4B; font-size: 9pt; }
   .delib-etab .ident { text-align: right; white-space: nowrap; }
   /* LE TITRE DANS SON CADRE MARINE, comme les autres pièces de la maison. */
@@ -5474,13 +5475,16 @@ const STYLE_ENTETE_DELIB = `<style>
     padding: 3mm 4mm; margin: 5mm 0 2mm; text-align: center; }
   /* LA SECTION, EN TÊTE DU CADRE : c'est la première chose qu'on cherche sur
      une pile de documents, avant même le nom de la pièce. */
+  /* LA SECTION SE DISTINGUE PAR SA COULEUR ET SA CASSE, pas par un trait :
+     un filet à l'intérieur d'un cadre, c'est un cadre coupé en deux. */
   .delib-titre .sect { font-size: 8.5pt; font-weight: 700; letter-spacing: 1pt;
-    text-transform: uppercase; color: #8a6d2f; margin-bottom: 1.2mm;
-    padding-bottom: 1.2mm; border-bottom: 0.25mm solid #E4D6AE; }
+    text-transform: uppercase; color: #8a6d2f; margin-bottom: 2mm; }
   .delib-titre .quoi { font-size: 12pt; font-weight: 700; color: #1B2B4B;
     letter-spacing: .3pt; }
   .delib-titre .ue { font-size: 10pt; color: #1B2B4B; margin-top: 1mm; }
-  .delib-filet { width: 40mm; height: 0.3mm; background: #C9A84C; margin: 0 auto 3mm; }
+  /* Le petit trait doré sous le cadre faisait un SIXIÈME filet avant la
+     première ligne de contenu. Il ne séparait rien : le cadre s'en charge. */
+  .delib-filet { display: none; }
   /* LA SESSION ET SA DATE, en évidence : c'est ce qui manquait le plus. */
   .delib-seance { display: flex; justify-content: center; gap: 4mm; flex-wrap: wrap;
     font-size: 8.5pt; color: #1B2B4B; margin-bottom: 4mm; }

@@ -51,10 +51,33 @@ const PIECES = [
  * télécharger : un tableur qu'on découvre après coup se refait deux fois.
  */
 function OngletRapports({ domaine }) {
-  const annee = getAnnee();
+  /* L'ANNÉE SE CHOISIT ICI. Le centre reprenait l'année de travail sans
+     jamais la montrer : pour sortir la charge de l'an dernier — ce que
+     demandent la dotation, le COPIL et l'AEQES —, il fallait changer l'année
+     de toute l'application, faire la pièce, puis penser à la remettre. */
+  const [annee, setAnnee] = useState(getAnnee());
+  const [annees, setAnnees] = useState([]);
   const [catalogue, setCatalogue] = useState(null);
   const [choisi, setChoisi] = useState(null);
   const [session, setSession] = useState(1);
+  // UN RAPPORT DE CURSUS NE SE DEMANDE PAS COMME UN RAPPORT D'ÉTABLISSEMENT.
+  // Vide, le rapport porte sur toute la maison — c'est ce que veulent le
+  // Conseil et la dotation ; choisie, il ne parle que d'une section — c'est ce
+  // que veut une coordination. Le même modèle sert les deux.
+  const [section, setSection] = useState('');
+  const [sections, setSections] = useState([]);
+  /* LA PORTÉE — le niveau de détail, et ce qu'on a choisi à ce niveau. Un
+     logiciel de gestion sert à montrer LES données qu'on choisit : on descend
+     de l'établissement à la section, de la section à l'unité, de l'unité au
+     cours, au lieu d'avoir une entrée de menu par échelle. */
+  const [portee, setPortee] = useState({ niveau: 'etablissement', ue_num: '', code_cours: '' });
+  /* L'EFFECTIF SE COMPTE, OU SE POSE. Lucie connaît les inscrits et c'est le
+     défaut ; mais une pièce de COPIL se prépare souvent AVANT les
+     inscriptions — on projette la rentrée, on simule l'ouverture d'une
+     section. Laissé vide, le champ ne change rien. */
+  const [etudiants, setEtudiants] = useState('');
+  const [ues, setUes] = useState([]);
+  const [coursUe, setCoursUe] = useState([]);
   const [apercu, setApercu] = useState(null);
   const [erreur, setErreur] = useState(null);
   const [enCours, setEnCours] = useState(false);
@@ -64,37 +87,114 @@ function OngletRapports({ domaine }) {
   // il ne se dépose pas dans un dossier, ne s'annexe pas à un courrier et ne
   // se présente pas au Conseil. Pour tout ce qui doit être MONTRÉ plutôt que
   // retravaillé, la pièce manquait — et donc, en pratique, la fonction.
+  /*
+   * IMPRIMER PASSE PAR LE PDF DU SERVEUR QUAND LE SERVEUR SAIT LE FAIRE.
+   *
+   * L'impression depuis le navigateur ne répète PAS l'en-tête et le pied d'un
+   * document long : Safari ne redessine pas les en-têtes de tableau autour
+   * d'une cellule qui déborde de la page. Un rapport de cinq pages sortait
+   * donc avec l'identité de l'école en page 1 et le pied en page 5 — les
+   * pages du milieu, détachées d'une pile, ne prouvaient plus rien.
+   *
+   * Le PDF du serveur, lui, dispose d'un vrai gabarit de page : le pied et la
+   * numérotation sont posés par le moteur, sur CHAQUE feuille. C'est la règle
+   * de la maison, écrite depuis longtemps et jamais appliquée ici : PDF
+   * serveur si le serveur peut, impression navigateur sinon.
+   *
+   * La pièce n'est pas recalculée : on envoie CELLE QUI EST À L'ÉCRAN.
+   */
   async function imprimer() {
-    if (!choisi) return;
+    if (!apercu?.html) return;
     setEnCours(true); setErreur(null);
     try {
-      const rep = await fetch(`/api/rapports/${choisi.id}/document`, {
-        method: 'POST', headers: authHeaders(), body: corps(choisi),
+      const rep = await fetch('/api/impression/pdf', {
+        method: 'POST', headers: authHeaders(),
+        body: JSON.stringify({
+          html: apercu.html,
+          nom: (apercu.nom || choisi?.id || 'document').replace(/\.html$/, ''),
+          pagination: 'si-plusieurs',
+          // Le document porte déjà son pied : le gabarit du serveur en
+          // ajouterait un second.
+          pied: false,
+        }),
       });
-      const j = await rep.json();
-      if (!rep.ok) { setErreur(j.error); return; }
-      setDocument0(j);
-    } catch (e) { setErreur(e.message); } finally { setEnCours(false); }
+      if (rep.ok) {
+        const url = URL.createObjectURL(await rep.blob());
+        const w = window.open(url, '_blank');
+        if (!w) {
+          const a = document.createElement('a');
+          a.href = url; a.download = `${(apercu.nom || 'document').replace(/\.html$/, '')}.pdf`;
+          document.body.appendChild(a); a.click(); a.remove();
+        }
+        setTimeout(() => URL.revokeObjectURL(url), 60000);
+        return;
+      }
+      // Serveur sans moteur PDF : on retombe sur l'impression navigateur,
+      // le même repli que partout ailleurs.
+      setDocument0(apercu);
+    } catch {
+      setDocument0(apercu);
+    } finally { setEnCours(false); }
   }
 
   useEffect(() => {
     fetch('/api/rapports/catalogue', { headers: authHeaders() })
       .then(r => r.json()).then(j => setCatalogue(j.rapports || []))
       .catch(e => setErreur(e.message));
+    fetch(`/api/reunions/perimetre?annee=${encodeURIComponent(annee)}`,
+      { headers: authHeaders() })
+      .then(r => r.json())
+      .then(j => { setSections(j.sections || []); setUes(j.ues || []); })
+      .catch(() => { /* sans la liste, le filtre reste sur « toutes » */ });
+  }, [annee]);
+
+  useEffect(() => {
+    fetch('/api/annees', { headers: authHeaders() })
+      .then(r => r.json())
+      .then(l => setAnnees((Array.isArray(l) ? l : []).map(a => a.code).filter(Boolean)))
+      .catch(() => setAnnees([annee]));
+    // eslint-disable-next-line
   }, []);
+
+  // Les cours d'une unité ne se chargent qu'au moment où l'on descend jusque-là.
+  useEffect(() => {
+    if (portee.niveau !== 'cours' || !portee.ue_num) { setCoursUe([]); return; }
+    fetch(`/api/ref/cours?annee=${encodeURIComponent(annee)}&ue_num=${encodeURIComponent(portee.ue_num)}`,
+      { headers: authHeaders() })
+      .then(r => r.json()).then(l => setCoursUe(Array.isArray(l) ? l : []))
+      .catch(() => setCoursUe([]));
+  }, [portee.niveau, portee.ue_num, annee]);
 
   const liste = useMemo(
     () => (catalogue || []).filter(r => r.domaine === domaine), [catalogue, domaine]);
   useEffect(() => { setChoisi(null); setApercu(null); }, [domaine]);
 
   const corps = (r) => JSON.stringify({
-    annee, ...(r.params.includes('session') ? { session } : {}),
+    annee,
+    ...(r.params.includes('session') ? { session } : {}),
+    ...(r.params.includes('section') && section ? { section } : {}),
+    ...(r.params.includes('portee')
+      ? { portee: { ...portee, section: section || null } } : {}),
+    ...(r.params.includes('etudiants') && etudiants ? { etudiants: Number(etudiants) } : {}),
   });
 
+  /*
+   * CE QU'ON VOIT EST CE QUI SORT.
+   *
+   * L'aperçu montrait un tableau de cinquante lignes : des colonnes grises,
+   * sans en-tête d'établissement, sans tuiles, sans graphique — c'est-à-dire
+   * tout sauf la pièce. On choisissait « ETP pour TIM » et l'on découvrait un
+   * listing ; le document, lui, n'apparaissait qu'après avoir cliqué sur
+   * Imprimer, et il ne lui ressemblait pas. Deux rendus pour une même pièce,
+   * donc deux occasions de se tromper.
+   *
+   * L'aperçu EST le document : la page réelle, dans son enveloppe, à l'échelle.
+   * Imprimer n'ajoute plus rien — c'est la même page qui part.
+   */
   async function voir(r) {
     setChoisi(r); setApercu(null); setErreur(null); setEnCours(true);
     try {
-      const rep = await fetch(`/api/rapports/${r.id}/apercu`, {
+      const rep = await fetch(`/api/rapports/${r.id}/document`, {
         method: 'POST', headers: authHeaders(), body: corps(r),
       });
       const j = await rep.json();
@@ -102,6 +202,11 @@ function OngletRapports({ domaine }) {
       setApercu(j);
     } catch (e) { setErreur(e.message); } finally { setEnCours(false); }
   }
+
+  // Changer de section ou de session refait la pièce : un aperçu qui ne suit
+  // pas ses paramètres ment sur ce qui s'imprimera.
+  useEffect(() => { if (choisi) voir(choisi); // eslint-disable-next-line
+  }, [section, session, annee, portee, etudiants]);
 
   async function telecharger() {
     if (!choisi) return;
@@ -145,7 +250,74 @@ function OngletRapports({ domaine }) {
 
       <div className="flex-1 flex flex-col min-h-0">
         <div className="px-3 py-2 border-b border-slate-200 flex flex-wrap items-center gap-2">
-          <span className="text-[13px] text-slate-600">{annee}</span>
+          <select value={annee} onChange={e => setAnnee(e.target.value)}
+            className="px-2 py-1 text-[12px] border border-slate-300 rounded"
+            title="Année sur laquelle porte la pièce">
+            {(annees.length ? annees : [annee]).map(a =>
+              <option key={a} value={a}>{a}</option>)}
+          </select>
+
+          {choisi?.portees?.length > 1 && (
+            <>
+              <select value={portee.niveau}
+                onChange={e => setPortee(p => ({ ...p, niveau: e.target.value }))}
+                className="px-2 py-1 text-[12px] border border-slate-300 rounded"
+                title="Jusqu'où descendre">
+                {choisi.portees.map(n => (
+                  <option key={n} value={n}>{{
+                    etablissement: "Tout l'établissement", section: 'Une section',
+                    ue: 'Une unité', cours: 'Un cours',
+                  }[n] || n}</option>
+                ))}
+              </select>
+              {portee.niveau !== 'etablissement' && (
+                <select value={section} onChange={e => setSection(e.target.value)}
+                  className="px-2 py-1 text-[12px] border border-slate-300 rounded">
+                  <option value="">Toutes les sections</option>
+                  {sections.map(s2 => <option key={s2} value={s2}>{s2}</option>)}
+                </select>
+              )}
+              {(portee.niveau === 'ue' || portee.niveau === 'cours') && (
+                <select value={portee.ue_num}
+                  onChange={e => setPortee(p => ({ ...p, ue_num: e.target.value, code_cours: '' }))}
+                  className="px-2 py-1 text-[12px] border border-slate-300 rounded max-w-[16rem]">
+                  <option value="">— choisir une unité —</option>
+                  {ues.filter(u => !section || u.section === section).map(u => (
+                    <option key={u.ue_num} value={u.ue_num}>UE {u.ue_num} — {u.ue_nom}</option>
+                  ))}
+                </select>
+              )}
+              {portee.niveau === 'cours' && !!coursUe.length && (
+                <select value={portee.code_cours}
+                  onChange={e => setPortee(p => ({ ...p, code_cours: e.target.value }))}
+                  className="px-2 py-1 text-[12px] border border-slate-300 rounded max-w-[16rem]">
+                  <option value="">Tous les cours de l'unité</option>
+                  {coursUe.map(c => (
+                    <option key={c.cours_code} value={c.cours_code}>
+                      {c.cours_code} — {c.cours_nom}
+                    </option>
+                  ))}
+                </select>
+              )}
+            </>
+          )}
+          {choisi?.params?.includes('section') && (
+            <select value={section}
+              onChange={e => { setSection(e.target.value); setApercu(null); }}
+              className="px-2 py-1 text-[12px] border border-slate-300 rounded">
+              <option value="">Toutes les sections</option>
+              {sections.map(s2 => <option key={s2} value={s2}>{s2}</option>)}
+            </select>
+          )}
+          {choisi?.params?.includes('etudiants') && (
+            <label className="flex items-center gap-1.5 text-[12px] text-slate-500">
+              Étudiants
+              <input type="number" min="0" value={etudiants} placeholder="inscrits"
+                onChange={e => setEtudiants(e.target.value)}
+                title="Laissez vide pour compter les inscrits encodés dans Lucie ; posez un nombre pour simuler."
+                className="w-20 px-2 py-1 text-[12px] border border-slate-300 rounded" />
+            </label>
+          )}
           {choisi?.params?.includes('session') && (
             <select value={session}
               onChange={e => { setSession(Number(e.target.value)); setApercu(null); }}
@@ -166,10 +338,14 @@ function OngletRapports({ domaine }) {
             className="controle controle-fort">
             <IconPrinter size={14} /> Imprimer
           </button>
-          <button onClick={telecharger} disabled={!choisi || enCours}
-            className="controle">
-            <IconDownload size={14} /> Tableur
-          </button>
+          {/* Une pièce mise en page ne sort pas en tableur : elle n'a pas de
+              lignes à retrier, elle a une forme. */}
+          {!choisi?.piece && (
+            <button onClick={telecharger} disabled={!choisi || enCours}
+              className="controle">
+              <IconDownload size={14} /> Tableur
+            </button>
+          )}
         </div>
 
         {erreur && (
@@ -179,7 +355,7 @@ function OngletRapports({ domaine }) {
           </div>
         )}
 
-        <div className="flex-1 overflow-auto min-h-0">
+        <div className="flex-1 overflow-auto min-h-0 bg-slate-100 p-3">
           {!choisi && (
             <p className="p-6 text-[13px] text-slate-400">
               Choisissez un rapport à gauche.
@@ -187,42 +363,25 @@ function OngletRapports({ domaine }) {
           )}
           {choisi && !apercu && !erreur && (
             <p className="p-6 text-[13px] text-slate-400">
-              {enCours ? 'Calcul…' : '—'}
+              {enCours ? 'Composition de la pièce…' : '—'}
             </p>
           )}
-          {apercu && (
-            <table className="w-full text-[12px]">
-              <thead className="sticky top-0 bg-slate-50">
-                <tr>{apercu.colonnes.map(c => (
-                  <th key={c.cle} className="text-left font-medium text-slate-600
-                                             px-2 py-1.5 border-b border-slate-200">
-                    {c.entete}
-                  </th>))}</tr>
-              </thead>
-              <tbody>
-                {apercu.lignes.map((l, i) => (
-                  <tr key={i} className="border-b border-slate-50">
-                    {apercu.colonnes.map(c => (
-                      <td key={c.cle} className="px-2 py-1 text-slate-700">
-                        {l[c.cle] ?? ''}
-                      </td>))}
-                  </tr>
-                ))}
-                {!apercu.lignes.length && (
-                  <tr><td colSpan={apercu.colonnes.length}
-                    className="px-2 py-4 text-slate-400 text-center">
-                    Aucune donnée pour ces paramètres.
-                  </td></tr>
-                )}
-              </tbody>
-            </table>
+          {apercu?.html && (
+            /* La page telle qu'elle sortira. Le cadre est isolé : les styles
+               du document ne débordent pas sur l'application, et ceux de
+               l'application ne viennent pas l'embellir — ce qu'on voit est
+               donc bien ce qui s'imprime. */
+            <iframe title="Aperçu de la pièce" srcDoc={apercu.html}
+              className="w-full bg-white rounded-carte shadow-pose border border-slate-200"
+              style={{ height: 'calc(100vh - 14rem)', minHeight: '32rem' }} />
           )}
         </div>
       </div>
 
       {document0 && (
         <PreviewModal html={document0.html} titre={document0.titre}
-          sousTitre={`${document0.nb} ligne(s)`} nomFichier={document0.nom}
+          sousTitre={document0.nb ? `${document0.nb} ligne(s)` : null}
+          nomFichier={document0.nom}
           typeDoc="rapport"
           astuceImpression="Le format est déjà posé : imprimez tel quel."
           onClose={() => setDocument0(null)} />

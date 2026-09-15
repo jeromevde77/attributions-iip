@@ -16,6 +16,8 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { piedDocument } from '../routes/parametres.js';
+import db from '../db/index.js';
+import { LOGO_IIP_JPEG } from '../services/assets/logo_iip_jpeg.js';
 
 // ── RÈGLE UNIQUE DU PIED DE PAGE ─────────────────────────────────────────────
 // Une seule réserve, pour TOUS les documents, comme le pied d'un Word : les
@@ -52,9 +54,19 @@ export function reglesDePage({ haut = 18, cote = 18,
     /* La marge basse EST la réserve du pied. Elle n'ajoute rien au flux, à la
        différence d'un padding : c'est ce qui empêche une page blanche
        surnuméraire quand le contenu finit près du bas. */
+    /* LA MARGE BASSE S'ARRÊTE OÙ LE PIED COMMENCE. Elle valait la bande
+       entière (${BANDE_PIED_MM}mm) et le pied était repoussé SOUS elle par un
+       décalage négatif : à l'impression, il sortait de la page — le filet seul
+       restait en bas de la première, et le texte réapparaissait EN HAUT de la
+       suivante, par-dessus l'en-tête du tableau. Un élément fixe ne doit pas
+       déborder de la boîte de page ; la marge basse ne réserve donc plus que
+       l'espace SOUS le pied, et le pied occupe le reste. */
     margin: ${haut}mm ${cote}mm ${avecPied ? BANDE_PIED_MM : haut}mm ${cote}mm;
   }
-  /* Aucun padding de réserve : il ferait partie du flux et déborderait. */
+  /* Aucun padding de réserve : un padding de corps ne vaut que sur la DERNIÈRE
+     page — essayé, et le pied venait s'imprimer par-dessus les lignes de la
+     première. C'est la marge basse, ci-dessus, qui réserve la bande sur
+     CHAQUE page ; le pied s'y loge sans déborder. */
   body { padding-bottom: 0; }`;
 }
 
@@ -89,9 +101,32 @@ export function piedStyles(hauteur = HAUTEUR_PIED_MM, margeHaut = 18) {
   return `
   /* Le pied descend DANS la marge basse : « bottom: 0 » l'arrêterait au bas de
      la zone de contenu, soit à ${BANDE_PIED_MM}mm du bord, d'où le blanc dessous. */
-  .pied-lucie { position: fixed; left: 0; right: 0;
-                bottom: -${BANDE_PIED_MM - MARGE_SOUS_PIED_MM}mm;
-                height: ${hauteur}mm; }
+  /* LE PIED SE RÉPÈTE PARCE QU'IL EST UN « tfoot », NON PARCE QU'IL EST FIXE.
+   *
+   * Un élément en position fixe n'est PAS répété de page en page à
+   * l'impression : Chromium le dessine une fois, à cheval sur la coupure —
+   * on obtenait le filet seul en bas de la première page et le texte en haut
+   * de la seconde, par-dessus l'en-tête du tableau. Vérifié, PDF à l'appui,
+   * puis vérifié encore après correction.
+   *
+   * La seule mécanique qui se répète vraiment est celle des tableaux : un
+   * pied de tableau est redessiné au bas de CHAQUE page. Le corps du document
+   * est donc posé dans une table d'une seule cellule, dont le pied de tableau
+   * est le nôtre. C'est
+   * la technique unique que la charte réclamait — il y en avait quatre. */
+  /* La hauteur d'une table est un MINIMUM : en lui donnant celle de la zone
+     de contenu, le pied descend au bas de la feuille même quand la pièce ne
+     fait que dix lignes — sans quoi il se collait sous le dernier paragraphe. */
+  table.feuille { width: 100%; border-collapse: collapse;
+                  height: calc(297mm - ${margeHaut}mm - ${BANDE_PIED_MM}mm); }
+  table.feuille > tbody > tr > td { vertical-align: top; }
+  table.feuille > tbody > tr > td,
+  table.feuille > thead > tr > td,
+  table.feuille > tfoot > tr > td { border: 0; padding: 0; }
+  table.feuille > thead { display: table-header-group; }
+  table.feuille > tfoot { display: table-footer-group; }
+  table.feuille > thead > tr > td { padding-bottom: 3mm; }
+  .pied-lucie { height: ${hauteur}mm; padding-top: 2mm; }
   .pied-lucie .pied-logo { height: ${Math.max(5, hauteur - 10)}mm; width: auto;
                            display: block; margin: 0 0 1.2mm; opacity: .9; }
   .pied-lucie .pied-filet { border-top: 0.5pt solid #C9A84C; padding-top: 1.5mm;
@@ -102,33 +137,106 @@ export function piedStyles(hauteur = HAUTEUR_PIED_MM, margeHaut = 18) {
      bas par « margin-top: auto ». L'aperçu montre alors ce que donnera
      l'impression, au lieu d'un pied collé sous le texte. */
   @media screen {
-    body { min-height: 297mm; display: flex; flex-direction: column; }
-    body > .pied-lucie { position: static; height: auto; margin-top: auto;
-                         padding-top: 10mm; }
+    /* À l'écran il n'y a pas de pages : on simule la feuille pour que l'aperçu
+       montre le pied là où il s'imprimera, au lieu de le coller sous le texte. */
+    body { min-height: 297mm; }
+    table.feuille { min-height: calc(297mm - ${margeHaut}mm - ${BANDE_PIED_MM}mm); }
   }
 
-  /* Repli pour Safari, qui ne place pas correctement les éléments en position
-     fixe à l'impression : le pied y reste dans le flux. On le pousse alors en
-     bas de la page par la même mécanique qu'à l'écran, ce qui donne un résultat
-     correct sur un document d'une page. Le PDF, lui, passe par Chromium et
-     n'a pas besoin de ce détour. */
+  /* LE REPLI SAFARI EST DE RETOUR, ET IL EST NÉCESSAIRE.
+     Je l'avais retiré en écrivant qu'un pied de tableau se répète « dans tous
+     les navigateurs » : c'est faux pour Safari dès que la cellule déborde de
+     la page — vérifié sur une impression réelle, où le pied n'apparaissait
+     qu'en page 5 sur 5. Chromium répète ; Safari, non. Pour Safari,
+     l'impression navigateur donne donc un pied en fin de document, et c'est
+     le PDF DU SERVEUR — rendu par Chromium — qui donne le résultat juste :
+     c'est lui que le centre d'impression demande en premier. */
   @supports (-webkit-hyphens: none) and (not (translate: none)) {
     @media print {
-      body { min-height: calc(297mm - ${margeHaut}mm - ${BANDE_PIED_MM}mm);
-             display: flex; flex-direction: column; }
-      body > .pied-lucie { position: static; bottom: auto; height: auto;
-                           margin-top: auto; }
+      table.feuille { height: auto; }
     }
-  }`;
+  }
+`;
+}
+
+/**
+ * L'EN-TÊTE DE L'ÉTABLISSEMENT — ce qui manquait à toutes les pièces.
+ *
+ * L'enveloppe commune ne posait qu'un PIED. Les rapports sortaient donc avec
+ * un titre en gras sur une page blanche : ni le nom de l'école, ni son numéro
+ * FASE, ni la nature de la pièce. Présenté au COPIL, à une inspection ou à la
+ * Fédération, un tel papier ne prouve rien — et c'est bien la question posée :
+ * « je fais quoi avec ça ? »
+ *
+ * L'ordre est celui de la charte : filet fin, identité de l'établissement,
+ * puis un cadre de titre portant ce que la pièce est, pour qui et pour quand.
+ * Le tout tient en trois centimètres, et ne se répète pas d'une page à
+ * l'autre : c'est une pièce, pas un formulaire.
+ */
+export function enteteDocument({ titre, sous = null, mention = null } = {}) {
+  let etab = {};
+  try { etab = db.prepare('SELECT * FROM etablissement WHERE id = 1').get() || {}; } catch { /* base minimale */ }
+  const esc = s => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;');
+  const ident = [etab.etab_nom, etab.adresse].filter(Boolean).map(esc).join(' · ');
+  const refs = [
+    etab.num_fase ? `FASE ${esc(etab.num_fase)}` : null,
+    etab.num_entreprise ? `N° entreprise ${esc(etab.num_entreprise)}` : null,
+  ].filter(Boolean).join(' · ');
+
+  return `<div class="doc-entete">
+    <div class="doc-titre">
+      <div class="doc-titre-t">${esc(titre)}</div>
+      ${sous ? `<div class="doc-titre-s">${esc(sous)}</div>` : ''}
+      ${mention ? `<div class="doc-titre-m">${esc(mention)}</div>` : ''}
+    </div>
+  </div>`;
+}
+
+/**
+ * LA LIGNE D'IDENTITÉ, À PART — parce qu'elle doit se RÉPÉTER.
+ *
+ * Elle vivait dans le flux : elle n'apparaissait donc qu'en page 1. Sur un
+ * rapport de cinq pages, les pages 2 à 5 sortaient sans un mot indiquant d'où
+ * elles viennent — détachées d'une pile, elles ne prouvent plus rien.
+ *
+ * Comme le pied, elle passe donc en en-tête de tableau : c'est la seule
+ * mécanique que les navigateurs répètent réellement d'une page à l'autre.
+ */
+export function identiteDocument() {
+  let etab = {};
+  try { etab = db.prepare('SELECT * FROM etablissement WHERE id = 1').get() || {}; } catch { /* base minimale */ }
+  const esc = s2 => String(s2 ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;');
+  const ident = [etab.etab_nom, etab.adresse].filter(Boolean).map(esc).join(' · ');
+  const refs = [
+    etab.num_fase ? `FASE ${esc(etab.num_fase)}` : null,
+    etab.num_entreprise ? `N° entreprise ${esc(etab.num_entreprise)}` : null,
+  ].filter(Boolean).join(' · ');
+  return `<div class="doc-ident">${ident || 'Institut Ilya Prigogine'}${
+    refs ? `<span class="doc-refs">${refs}</span>` : ''}</div>`;
 }
 
 export function envelopperDocument({ html, titre, orientation = 'portrait',
-                                     styles = '', logo = null, avecPied = true,
-                                     margeHaut = 18, margeCote = 18 }) {
+                                     /* LE LOGO EST LE DÉFAUT, PAS UNE OPTION.
+                                        Il fallait le passer à la main : cinq
+                                        écrans le faisaient, le catalogue ne le
+                                        faisait pas — et toutes ses pièces
+                                        sortaient sans logo. Une enveloppe
+                                        commune qui n'habille pas de la même
+                                        façon n'est pas commune. Passer `false`
+                                        reste possible pour les rares pièces
+                                        qui n'en portent pas. */
+                                     styles = '', logo = undefined, avecPied = true,
+                                     margeHaut = 18, margeCote = 18,
+                                     entete = null }) {
   const pied = avecPied ? piedDocument() : '';
   const esc = s => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;');
 
-  const piedHtml = avecPied && pied ? piedBalisage(logo) : '';
+  const marque = logo === undefined ? LOGO_IIP_JPEG : logo;
+  const piedHtml = avecPied && pied ? piedBalisage(marque || null) : '';
+  // `entete` porte ce que la pièce veut annoncer ; passé à `false`, on n'en
+  // met pas — le diplôme et le corps de courriel restent hors standard.
+  const enteteHtml = entete === false ? ''
+    : enteteDocument(entete || { titre });
 
   return `<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8">
 <title>${esc(titre)}</title>
@@ -141,12 +249,63 @@ export function envelopperDocument({ html, titre, orientation = 'portrait',
          color: #1a1a2e; margin: 0; }
   /* La place du pied se réserve ici, faute de quoi le texte passerait dessous. */
   img { max-width: 100%; background: #fff; }
+  /* ── L'EN-TÊTE ──────────────────────────────────────────────────────────
+   *
+   * LA HIÉRARCHIE SE FAIT PAR LA GRAISSE ET PAR L'AIR, PAS PAR DES TRAITS.
+   *
+   * Le titre vivait dans un cadre à filet marine : une convention de formulaire
+   * administratif, qui date la pièce au premier coup d'œil. Un cadre dit
+   * « ceci est une case à remplir » ; or ce n'en est pas une. Ce qu'il faut
+   * lire en premier doit simplement être PLUS GROS et PLUS NOIR que le reste,
+   * et avoir de la place autour de lui.
+   *
+   * Trois niveaux, trois graisses, un seul filet — celui qui sépare l'identité
+   * de l'établissement du titre de la pièce, et il est de la couleur de la
+   * maison. Rien d'autre.
+   */
+  .doc-entete { margin: 0 0 9mm; }
+  /* La marge du haut n'a plus lieu d'être : l'identité, au-dessus, est
+     maintenant rendue par l'en-tête répétable de la feuille. */
+  .doc-titre { margin-top: 0 !important; }
+  .doc-ident { font-size: 7.5pt; color: #6e6e73; letter-spacing: .35pt;
+               text-transform: uppercase; font-weight: 600;
+               padding-bottom: 2mm; border-bottom: 0.25mm solid #C9A84C;
+               display: flex; justify-content: space-between; gap: 6mm; }
+  .doc-refs { color: #a1a1a6; white-space: nowrap; font-weight: 400;
+              letter-spacing: .2pt; }
+  .doc-titre { margin-top: 7mm; }
+  /* Un titre de pièce se lit de loin, sur une table de réunion : grand, serré,
+     et d'un seul poids. */
+  .doc-titre-t { font-size: 19pt; font-weight: 700; color: #1B2B4B;
+                 letter-spacing: -.45pt; line-height: 1.08; }
+  .doc-titre-s { font-size: 10.5pt; color: #6e6e73; margin-top: 1.8mm;
+                 letter-spacing: -.1pt; }
+  .doc-titre-m { font-size: 8pt; color: #a1a1a6; margin-top: 2.5mm;
+                 max-width: 150mm; line-height: 1.4; }
+  /* Le titre est dans le cadre : un h1 dans le corps le dirait deux fois. */
   h1 { font-size: 15pt; color: #1B2B4B; margin: 0 0 2mm; }
-  h2 { font-size: 12pt; color: #1B2B4B; margin: 6mm 0 2mm;
-       border-bottom: 1.5pt solid #C9A84C; padding-bottom: 1mm; }
+  /* UN SEUL FILET DORÉ PAR PAGE, ET IL EST EN TÊTE. Sous chaque titre de
+     section, il transformait la pièce en page de garde des années 2000 :
+     quatre traits dorés sur une feuille qui n'a qu'un sujet. Un titre se
+     distingue par sa graisse et par l'air qu'on lui laisse. */
+  /* UN INTERTITRE SE VOIT PARCE QU'IL A DE LA PLACE, pas parce qu'il est
+     souligné. Onze points collés au tableau précédent se lisaient comme une
+     ligne de données ; treize points avec de l'air au-dessus ouvrent une
+     section. */
+  h2 { font-size: 13pt; color: #1B2B4B; margin: 9mm 0 3mm;
+       letter-spacing: -.35pt; font-weight: 700; }
   h3 { font-size: 10.5pt; color: #1B2B4B; margin: 5mm 0 1.5mm; }
   p  { margin: 1.5mm 0; line-height: 1.5; }
   table { width: 100%; border-collapse: collapse; margin: 2mm 0; }
+  /* LES COLONNES S'ALIGNENT SUR LES BORDS DE LA PIÈCE.
+     Le padding de cellule décalait le texte de la première colonne de 2 mm
+     vers l'intérieur : « SECTION » commençait à droite du nom de
+     l'établissement et du cadre de titre, qui, eux, partent de la marge. Trois
+     bords de gauche différents sur la même feuille. La première et la dernière
+     cellule perdent donc leur retrait extérieur ; l'air entre les colonnes,
+     lui, reste. */
+  table:not(.feuille) > * > tr > *:first-child { padding-left: 0; }
+  table:not(.feuille) > * > tr > *:last-child { padding-right: 0; }
   th, td { border: 0.5pt solid #cbd5e1; padding: 1.2mm 2mm; vertical-align: top;
            font-size: 9pt; }
   th { background: #f1f5f9; text-align: left; font-size: 8pt;
@@ -170,8 +329,13 @@ export function envelopperDocument({ html, titre, orientation = 'portrait',
 
 ${styles}
 </style></head><body>
+<table class="feuille">
+<thead><tr><td>${entete === false ? '' : identiteDocument()}</td></tr></thead>
+<tfoot><tr><td>${piedHtml}</td></tr></tfoot>
+<tbody><tr><td>
+${enteteHtml}
 ${html}
-${piedHtml}
+</td></tr></tbody></table>
 </body></html>`;
 }
 

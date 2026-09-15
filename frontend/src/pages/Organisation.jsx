@@ -1,4 +1,5 @@
 import { lazy, Suspense, useEffect, useState } from 'react';
+import GardeAnnee from '../components/GardeAnnee.jsx';
 import { useSearchParams } from 'react-router-dom';
 import Axe from '../components/Axe.jsx';
 import {
@@ -40,6 +41,11 @@ export default function Organisation({ ongletInitial }) {
   }, []);
 
   return (
+    <>
+    {/* ON ORGANISE UNE ANNÉE, ET IL FAUT SAVOIR LAQUELLE. L'année de travail
+        est rémanente : ouvert un jour sur l'an dernier pour vérifier une
+        charge, on y reste le lendemain — et l'on y encode. */}
+    <GardeAnnee quoi="l'organisation" />
     <Axe
       titre="Organisation" icone={IconBooks} impression="organisation" echanges
       question="« Qu'organise-t-on cette année ? »"
@@ -85,5 +91,6 @@ export default function Organisation({ ongletInitial }) {
           description: "Les locaux quitteront Configuration pour rejoindre le travail d'organisation." },
       ]}
     />
+    </>
   );
 }
