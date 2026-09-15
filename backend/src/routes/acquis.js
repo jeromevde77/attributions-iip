@@ -2074,6 +2074,28 @@ r.get('/deliberation/plan', authRequired, (req, res) => {
     }
   }
 
+  // ORGANISER N'EST PAS DÉLIBÉRER.
+  //
+  // Une unité entre au plan de DÉLIBÉRATION dès qu'un étudiant y est inscrit :
+  // c'est l'inscription qui appelle un Conseil, et délibérer une unité sans
+  // étudiant n'a aucun sens. Mais le CALENDRIER, lui, pose des dates —
+  // épreuves, visite des copies, séances — et il faut pouvoir les poser AVANT
+  // que les inscriptions soient encodées, sinon on ne planifie jamais qu'après
+  // coup. C'est ainsi que l'écran des sessions ne montrait que les sections
+  // déjà remplies : les autres existaient au référentiel et restaient
+  // invisibles là où on organise l'année.
+  //
+  // « toutes=1 » part donc du RÉFÉRENTIEL de l'année et compte les inscrits
+  // quand il y en a. Sans ce drapeau, rien ne change pour la délibération.
+  if (req.query.toutes === '1') {
+    for (const r0 of db.prepare(
+      'SELECT ue_num FROM ue WHERE annee_scolaire = ?').all(annee)) {
+      parUe[r0.ue_num] = parUe[r0.ue_num] || {
+        ue_num: r0.ue_num, inscrits: 0, decides: 0, echecs: 0, echecs_non_motives: 0,
+      };
+    }
+  }
+
   const sections = {};
   for (const u of Object.values(parUe)) {
     const r0 = refDe[u.ue_num] || {};

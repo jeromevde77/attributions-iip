@@ -426,7 +426,10 @@ export default function CalendrierSessions() {
   useEffect(() => {
     (async () => {
       try {
-        const rep = await fetch(`/api/acquis/deliberation/plan?annee=${encodeURIComponent(annee)}`,
+        // TOUTES LES UNITÉS DE L'ANNÉE, inscrites ou non : on pose des dates avant
+        // que les inscriptions soient encodées, sinon on ne planifie qu'après coup.
+        const rep = await fetch(
+          `/api/acquis/deliberation/plan?toutes=1&annee=${encodeURIComponent(annee)}`,
           { headers: authHeaders() });
         const j = await rep.json();
         if (rep.ok) {
