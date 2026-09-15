@@ -137,19 +137,24 @@ function barreParts(parts) {
 
 /** Les styles des pièces de reporting — tuiles, barres, légendes. */
 const STYLE_REPORTING = `
-  table.tuiles { width:100%; border-collapse:separate; border-spacing:3mm 0;
-                 margin:0 0 5mm; table-layout:fixed; }
-  td.tuile { border:0; border-left:2.5pt solid #cbd5e1; padding:1mm 0 1mm 2.5mm;
+  table.tuiles { width:100%; border-collapse:separate; border-spacing:5mm 0;
+                 margin:2mm -5mm 7mm; table-layout:fixed; }
+  td.tuile { border:0; border-left:2.5pt solid #cbd5e1; padding:.5mm 0 .5mm 3mm;
              vertical-align:top; }
-  .tuile-val { font-size:17pt; font-weight:700; color:#1B2B4B; line-height:1.05;
-               font-variant-numeric:tabular-nums; }
-  .tuile-u   { font-size:8pt; font-weight:400; color:#64748b; margin-left:1mm; }
+  /* LE CHIFFRE EST LE SUJET DE LA TUILE : il est grand, serré, et tout le
+     reste est gris. Une tuile où le libellé pèse autant que le nombre ne dit
+     plus rien d'un coup d'œil. */
+  .tuile-val { font-size:22pt; font-weight:700; color:#1B2B4B; line-height:1;
+               letter-spacing:-.8pt; font-variant-numeric:tabular-nums; }
+  .tuile-u   { font-size:9pt; font-weight:500; color:#a1a1a6; margin-left:1.2mm;
+               letter-spacing:0; }
   /* PAS DE CAPITALES FORCÉES : « Étudiants » y perdait son accent, et une
      étiquette en capitales se lit moins vite qu'une étiquette normale. */
-  .tuile-lib { font-size:8pt; color:#475569; margin-top:.8mm; font-weight:600; }
-  .tuile-fin { font-size:7.5pt; color:#94a3b8; margin-top:.5mm; }
+  .tuile-lib { font-size:9pt; color:#1B2B4B; margin-top:1.6mm; font-weight:500;
+               letter-spacing:-.1pt; }
+  .tuile-fin { font-size:8pt; color:#a1a1a6; margin-top:.8mm; }
   .legendes { margin-top:1.5mm; }
-  .leg { font-size:7.5pt; color:#475569; margin-right:4mm; white-space:nowrap; }
+  .leg { font-size:8pt; color:#6e6e73; margin-right:5mm; white-space:nowrap; }
   .leg i { display:inline-block; width:7px; height:7px; border-radius:1.5px;
            margin-right:1.2mm; vertical-align:baseline; }
   .cadre { break-inside:avoid; page-break-inside:avoid; margin:0 0 5mm; }

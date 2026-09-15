@@ -203,26 +203,48 @@ export function envelopperDocument({ html, titre, orientation = 'portrait',
          color: #1a1a2e; margin: 0; }
   /* La place du pied se réserve ici, faute de quoi le texte passerait dessous. */
   img { max-width: 100%; background: #fff; }
-  /* ── L'EN-TÊTE ──────────────────────────────────────────────────────── */
-  .doc-entete { margin: 0 0 6mm; }
-  .doc-ident { font-size: 8pt; color: #475569; letter-spacing: .2pt;
-               padding-bottom: 1.5mm; border-bottom: 0.3mm solid #C9A84C;
+  /* ── L'EN-TÊTE ──────────────────────────────────────────────────────────
+   *
+   * LA HIÉRARCHIE SE FAIT PAR LA GRAISSE ET PAR L'AIR, PAS PAR DES TRAITS.
+   *
+   * Le titre vivait dans un cadre à filet marine : une convention de formulaire
+   * administratif, qui date la pièce au premier coup d'œil. Un cadre dit
+   * « ceci est une case à remplir » ; or ce n'en est pas une. Ce qu'il faut
+   * lire en premier doit simplement être PLUS GROS et PLUS NOIR que le reste,
+   * et avoir de la place autour de lui.
+   *
+   * Trois niveaux, trois graisses, un seul filet — celui qui sépare l'identité
+   * de l'établissement du titre de la pièce, et il est de la couleur de la
+   * maison. Rien d'autre.
+   */
+  .doc-entete { margin: 0 0 9mm; }
+  .doc-ident { font-size: 7.5pt; color: #6e6e73; letter-spacing: .35pt;
+               text-transform: uppercase; font-weight: 600;
+               padding-bottom: 2mm; border-bottom: 0.25mm solid #C9A84C;
                display: flex; justify-content: space-between; gap: 6mm; }
-  .doc-refs { color: #94a3b8; white-space: nowrap; }
-  .doc-titre { border: 0.4mm solid #1B2B4B; border-radius: 1.5mm;
-               padding: 2.5mm 3mm; margin-top: 3mm; }
-  .doc-titre-t { font-size: 13pt; font-weight: 700; color: #1B2B4B;
-                 letter-spacing: -.2pt; line-height: 1.15; }
-  .doc-titre-s { font-size: 9pt; color: #475569; margin-top: .8mm; }
-  .doc-titre-m { font-size: 8pt; color: #94a3b8; margin-top: 1.2mm; }
+  .doc-refs { color: #a1a1a6; white-space: nowrap; font-weight: 400;
+              letter-spacing: .2pt; }
+  .doc-titre { margin-top: 7mm; }
+  /* Un titre de pièce se lit de loin, sur une table de réunion : grand, serré,
+     et d'un seul poids. */
+  .doc-titre-t { font-size: 19pt; font-weight: 700; color: #1B2B4B;
+                 letter-spacing: -.45pt; line-height: 1.08; }
+  .doc-titre-s { font-size: 10.5pt; color: #6e6e73; margin-top: 1.8mm;
+                 letter-spacing: -.1pt; }
+  .doc-titre-m { font-size: 8pt; color: #a1a1a6; margin-top: 2.5mm;
+                 max-width: 150mm; line-height: 1.4; }
   /* Le titre est dans le cadre : un h1 dans le corps le dirait deux fois. */
   h1 { font-size: 15pt; color: #1B2B4B; margin: 0 0 2mm; }
   /* UN SEUL FILET DORÉ PAR PAGE, ET IL EST EN TÊTE. Sous chaque titre de
      section, il transformait la pièce en page de garde des années 2000 :
      quatre traits dorés sur une feuille qui n'a qu'un sujet. Un titre se
      distingue par sa graisse et par l'air qu'on lui laisse. */
-  h2 { font-size: 11pt; color: #1B2B4B; margin: 7mm 0 2mm;
-       letter-spacing: -.1pt; }
+  /* UN INTERTITRE SE VOIT PARCE QU'IL A DE LA PLACE, pas parce qu'il est
+     souligné. Onze points collés au tableau précédent se lisaient comme une
+     ligne de données ; treize points avec de l'air au-dessus ouvrent une
+     section. */
+  h2 { font-size: 13pt; color: #1B2B4B; margin: 9mm 0 3mm;
+       letter-spacing: -.35pt; font-weight: 700; }
   h3 { font-size: 10.5pt; color: #1B2B4B; margin: 5mm 0 1.5mm; }
   p  { margin: 1.5mm 0; line-height: 1.5; }
   table { width: 100%; border-collapse: collapse; margin: 2mm 0; }
