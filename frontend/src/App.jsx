@@ -454,8 +454,8 @@ function ProtectedLayout({ children }) {
             <span
               /* SUR UNE BARRE MARINE, UNE PASTILLE MARINE DISPARAÎT : le badge
                  prend la surface des menus, comme l'onglet actif. */
-              className={`relative pastille-version font-semibold px-2 py-0.5 rounded-champ
-                text-[11px] tracking-wide hidden md:inline ${versionIsNew ? 'version-badge-new' : ''}`}
+              className={`relative pastille-version font-semibold
+                text-[11px] hidden md:inline-flex ${versionIsNew ? 'version-badge-new' : ''}`}
               title={versionIsNew ? 'Nouvelle version déployée\u00a0!' : `Version ${versionNum}`}>
               v{versionNum}
               {versionIsNew && (

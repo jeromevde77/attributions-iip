@@ -402,8 +402,17 @@ table.grid-excel-soft td.num { text-align: right; font-variant-numeric: tabular-
 .onglet-dormant:hover { background: var(--menu-survol); color: var(--menu-texte); }
 .champ-barre { background: var(--champ-fond); color: var(--menu-texte);
                border: 1px solid var(--menu-bord); }
+/* DEUX PASTILLES VOISINES ONT LA MÊME MÉTRIQUE.
+   Le badge de version se dimensionnait par son texte — une pilule basse, aux
+   coins presque ronds — à côté du bouton de compte, carré de 32 px et de rayon
+   8. Deux rectangles de tailles et de rayons différents posés l'un contre
+   l'autre : rien ne le justifie, et l'œil le voit avant de lire. Même hauteur,
+   même rayon, même surface ; ce qui les distingue est leur contenu. */
 .pastille-version { background: var(--menu-actif); color: var(--menu-texte);
-                    box-shadow: inset 0 0 0 1px var(--menu-actif-bord); }
+                    box-shadow: inset 0 0 0 1px var(--menu-actif-bord);
+                    display: inline-flex; align-items: center; justify-content: center;
+                    height: 2rem; padding: 0 .625rem; border-radius: 8px;
+                    letter-spacing: .02em; }
 
 /* EN MODE SOMBRE, UN LOGO MARINE DISPARAÎT. Ses traits marine s'éclaircissent,
    le turquoise reste turquoise : c'est lui qui porte la marque. */
@@ -513,13 +522,8 @@ main:not(:has(> .gouttiere-rail)) {
    Le nom complet prenait un quart de la barre du haut et poussait le rôle et
    la déconnexion sur deux lignes de plus : la barre grandissait, et avec elle
    le rail et la zone de travail, qui s'y raccrochent. */
-.pastille-compte {
-  display: inline-flex; align-items: center; justify-content: center;
-  height: 2rem; min-width: 2rem; padding: 0 .5rem;
-  border-radius: 8px; font-size: 12px; font-weight: 700; letter-spacing: .02em;
-  color: var(--menu-texte, #1B2B4B); background: var(--menu-actif, #EEF2F7);
-  box-shadow: inset 0 0 0 1px var(--menu-actif-bord, #E2E8F0);
-}
+/* (La définition de .pastille-compte est plus haut : elle vivait ici en
+   double, à l'identique — deux sources pour un même fait. Une de moins.) */
 
 :root { --retrait-page: 1rem; }
 
