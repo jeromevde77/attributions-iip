@@ -137,14 +137,22 @@ function barreParts(parts) {
 
 /** Les styles des pièces de reporting — tuiles, barres, légendes. */
 const STYLE_REPORTING = `
-  table.tuiles { width:100%; border-collapse:separate; border-spacing:5mm 0;
-                 margin:2mm -5mm 7mm; table-layout:fixed; }
-  td.tuile { border:0; border-left:2.5pt solid #cbd5e1; padding:.5mm 0 .5mm 3mm;
+  /* LA RANGÉE DE TUILES RESTE DANS LA COLONNE DE TEXTE. Un écartement de
+     cellules « déborde » d'une demi-valeur de chaque côté : la première tuile
+     sortait de 5 mm à gauche, sous l'en-tête et le tableau qui, eux, partent
+     de la marge. On écarte donc les tuiles SANS écarter la table : c'est le
+     padding intérieur qui fait l'air, pas l'espacement extérieur. */
+  table.tuiles { width:100%; border-collapse:collapse;
+                 margin:3mm 0 8mm; table-layout:fixed; }
+  td.tuile + td.tuile { padding-left:7mm !important; }
+  td.tuile { border:0; border-left:2.5pt solid #cbd5e1; padding:1.5mm 0 1mm 3mm;
              vertical-align:top; }
   /* LE CHIFFRE EST LE SUJET DE LA TUILE : il est grand, serré, et tout le
      reste est gris. Une tuile où le libellé pèse autant que le nombre ne dit
      plus rien d'un coup d'œil. */
-  .tuile-val { font-size:22pt; font-weight:700; color:#1B2B4B; line-height:1;
+  /* Une interligne de 1 rogne les accents et les hampes : le haut du chiffre
+     touchait le bord de la cellule. */
+  .tuile-val { font-size:22pt; font-weight:700; color:#1B2B4B; line-height:1.12;
                letter-spacing:-.8pt; font-variant-numeric:tabular-nums; }
   .tuile-u   { font-size:9pt; font-weight:500; color:#a1a1a6; margin-left:1.2mm;
                letter-spacing:0; }
@@ -447,6 +455,8 @@ function documentEtpEtablissement(p) {
   const coord = secs.reduce((s, x) => s + (x.etp_coord_helb || 0), 0);
   const global = (tot.etp_total || 0) + coord;
   const etus = secs.reduce((s, x) => s + (x.nb_etudiants || 0), 0);
+  const ectsDe = (x) => (x.ues || []).reduce((t, u) => t + (Number(u.ects) || 0), 0);
+  const ectsTot = secs.reduce((t, x) => t + ectsDe(x), 0);
   const ratio = (e) => (e > 0 && etus > 0 ? (etus / e).toFixed(1).replace('.', ',') : '—');
 
   const corps = `
@@ -462,6 +472,9 @@ function documentEtpEtablissement(p) {
         couleur: C.helb }),
       tuile({ valeur: etus ? n0(etus) : '—', libelle: 'Étudiants',
         precision: etus ? `${ratio(global)} par ETP` : 'effectifs non encodés' }),
+      tuile({ valeur: ectsTot ? n0(ectsTot) : '—', libelle: 'ECTS',
+        precision: ectsTot && global > 0
+          ? `${(ectsTot / global).toFixed(1).replace('.', ',')} par ETP` : 'non encodés' }),
     ])}
 
     <div class="cadre">
@@ -484,18 +497,23 @@ function documentEtpEtablissement(p) {
 
     <h2>Section par section</h2>
     <table>
-      <thead><tr><th>Section</th><th class="n" style="width:22mm">ETP</th>
-        <th class="n" style="width:22mm">Institut</th><th class="n" style="width:22mm">Haute École</th>
-        <th class="n" style="width:22mm">Étudiants</th>
-        <th class="n" style="width:26mm">Étu. par ETP</th></tr></thead>
+      <thead><tr><th>Section</th><th class="n" style="width:18mm">ECTS</th>
+        <th class="n" style="width:20mm">ETP</th>
+        <th class="n" style="width:20mm">Institut</th><th class="n" style="width:22mm">Haute École</th>
+        <th class="n" style="width:20mm">Étudiants</th>
+        <th class="n" style="width:24mm">Étu. par ETP</th></tr></thead>
       <tbody>${secs.map(x => `<tr>
-        <td>${esc(x.section)}</td><td class="n g">${n2(x.etp_total)}</td>
+        <td>${esc(x.section)}</td>
+        <td class="n">${ectsDe(x) ? n0(ectsDe(x)) : '—'}</td>
+        <td class="n g">${n2(x.etp_total)}</td>
         <td class="n">${n2(x.etp_iip)}</td><td class="n">${n2(x.etp_helb)}</td>
         <td class="n">${x.nb_etudiants ? n0(x.nb_etudiants) : '—'}</td>
         <td class="n">${x.nb_etudiants && x.etp_total > 0
           ? (x.nb_etudiants / x.etp_total).toFixed(1).replace('.', ',') : '—'}</td>
       </tr>`).join('')}</tbody>
-      <tfoot><tr class="repere"><td>Ensemble</td><td class="n">${n2(tot.etp_total)}</td>
+      <tfoot><tr class="repere"><td>Ensemble</td>
+        <td class="n">${ectsTot ? n0(ectsTot) : '—'}</td>
+        <td class="n">${n2(tot.etp_total)}</td>
         <td class="n">${n2(tot.etp_iip)}</td><td class="n">${n2(tot.etp_helb)}</td>
         <td class="n">${etus ? n0(etus) : '—'}</td><td class="n">${ratio(tot.etp_total)}</td>
       </tr></tfoot>
@@ -561,6 +579,9 @@ function documentEtpUe(p) {
         precision: etp > 0 ? `${Math.round((etp - etpIip) / etp * 100)} %` : '—', couleur: C.helb }),
       tuile({ valeur: profs, libelle: profs > 1 ? 'Enseignants' : 'Enseignant',
         precision: ue.nb_etudiants ? `${n0(ue.nb_etudiants)} étudiant(s)` : null }),
+      tuile({ valeur: ue.ects ? n0(ue.ects) : '—', libelle: 'ECTS',
+        precision: ue.ects && etp > 0
+          ? `${(Number(ue.ects) / etp).toFixed(1).replace('.', ',')} par ETP` : 'non encodés' }),
     ])}
 
     ${parCours.size > 1 ? `<div class="cadre">
@@ -625,18 +646,19 @@ function documentEtpCursus(p) {
   for (const b of blocs) {
     const ues = parBloc.get(b).sort((x, y) =>
       String(x.ue_num).localeCompare(String(y.ue_num), 'fr', { numeric: true }));
-    let tPer = 0, tEtp = 0, iPer = 0, iEtp = 0, hPer = 0, hEtp = 0;
+    let tPer = 0, tEtp = 0, iPer = 0, iEtp = 0, hPer = 0, hEtp = 0, tEcts = 0;
     const lignes = ues.map(u => {
       const per = periodesDe(u), c = contratDe(u);
-      tPer += per; tEtp += u.etp_total || 0;
+      tPer += per; tEtp += u.etp_total || 0; tEcts += Number(u.ects) || 0;
       if (c === 'IIP') { iPer += per; iEtp += u.etp_total || 0; }
       else { hPer += per; hEtp += u.etp_total || 0; }
       const ct = Math.round((u.per_ct || 0) + (u.per_ct_helb || 0));
       const pp = Math.round((u.per_pp || 0) + (u.per_pp_helb || 0));
       return `<tr>
         <td class="ue">${esc(u.ue_num)}</td>
-        <td>${esc(u.ue_nom || '—')}${u.ects ? `<span class="fin"> · ${esc(u.ects)} ECTS</span>` : ''}</td>
+        <td>${esc(u.ue_nom || '—')}</td>
         <td>${c === 'IIP' ? '' : `<span class="marque" style="background:${C.helb}">HELB</span>`}</td>
+        <td class="n">${u.ects ? esc(u.ects) : ''}</td>
         <td class="n">${ct ? n0(ct) : ''}</td>
         <td class="n">${pp ? n0(pp) : ''}</td>
         <td class="n">${n0(per)}</td>
@@ -647,25 +669,31 @@ function documentEtpCursus(p) {
     // « dont HELB » ne s'affiche que s'il y a du HELB : une ligne à zéro
     // n'informe de rien et allonge la page.
     const dont = (lib, per, etp) => (etp > 0 ? `<tr class="dont">
-      <td colspan="5">dont ${lib}</td><td class="n">${n0(per)}</td><td class="n">${n4(etp)}</td></tr>` : '');
+      <td colspan="6">dont ${lib}</td><td class="n">${n0(per)}</td><td class="n">${n4(etp)}</td></tr>` : '');
 
     corpsBlocs += `
       <h3>${esc(NOM_BLOC[b] || b)} <span class="sous">— ${ues.length} unité(s)</span></h3>
       <table>
         <thead><tr>
           <th style="width:12mm">UE</th><th>Intitulé</th><th style="width:16mm">Contrat</th>
-          <th class="n" style="width:20mm">Pér. CT</th><th class="n" style="width:20mm">Pér. PP</th>
-          <th class="n" style="width:22mm">Périodes</th><th class="n" style="width:20mm">ETP</th>
+          <th class="n" style="width:14mm">ECTS</th>
+          <th class="n" style="width:18mm">Pér. CT</th><th class="n" style="width:18mm">Pér. PP</th>
+          <th class="n" style="width:20mm">Périodes</th><th class="n" style="width:20mm">ETP</th>
         </tr></thead>
         <tbody>${lignes}</tbody>
         <tfoot>
           ${dont('IIP', iPer, iEtp)}${dont('HELB', hPer, hEtp)}
-          <tr class="repere"><td colspan="5">Sous-total ${esc(NOM_BLOC[b] || b)}</td>
+          <tr class="repere"><td colspan="3">Sous-total ${esc(NOM_BLOC[b] || b)}</td>
+            <td class="n">${tEcts ? n0(tEcts) : ''}</td><td class="n"></td><td class="n"></td>
             <td class="n">${n0(tPer)}</td><td class="n">${n4(tEtp)}</td></tr>
         </tfoot>
       </table>`;
   }
 
+  /* LES ECTS SONT LA MONNAIE DU CURSUS. Une charge en ETP ne dit rien de ce
+     que l'étudiant valide : c'est le rapprochement des deux qui parle — ce
+     qu'une section coûte, et ce qu'elle délivre. */
+  const ects = sec.ues.reduce((t, u) => t + (Number(u.ects) || 0), 0);
   const etpCours = sec.etp_total || 0;
   const etpCoord = sec.etp_coord_helb || 0;
   const etpSecr = sec.etp_secretariat || 0;
@@ -687,6 +715,9 @@ function documentEtpCursus(p) {
           ? ` · dont ${n2(etpCoord)} de coordination` : ''}`, couleur: C.helb }),
       tuile({ valeur: etus ? n0(etus) : '—', libelle: 'Étudiants',
         precision: etus ? `${ratio(global)} par ETP` : 'effectifs non encodés' }),
+      tuile({ valeur: ects ? n0(ects) : '—', libelle: 'ECTS',
+        precision: ects && global > 0
+          ? `${(ects / global).toFixed(1).replace('.', ',')} par ETP` : 'non encodés' }),
     ])}
 
     <div class="cadre">
@@ -716,8 +747,8 @@ function documentEtpCursus(p) {
     <h2>Le détail par bloc</h2>
     ${corpsBlocs}
 
-    <p class="ref">${sec.ues.length} unité(s) · ${n0(perTot)} périodes ·
-      ${n4(etpCours)} ETP de cours · année ${esc(p.annee)}</p>`;
+    <p class="ref">${sec.ues.length} unité(s) · ${ects ? `${n0(ects)} ECTS · ` : ''}${
+      n0(perTot)} périodes · ${n4(etpCours)} ETP de cours · année ${esc(p.annee)}</p>`;
 
   return {
     corps,
