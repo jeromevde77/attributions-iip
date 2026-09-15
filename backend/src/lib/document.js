@@ -17,6 +17,7 @@
 
 import { piedDocument } from '../routes/parametres.js';
 import db from '../db/index.js';
+import { LOGO_IIP_JPEG } from '../services/assets/logo_iip_jpeg.js';
 
 // ── RÈGLE UNIQUE DU PIED DE PAGE ─────────────────────────────────────────────
 // Une seule réserve, pour TOUS les documents, comme le pied d'un Word : les
@@ -180,13 +181,23 @@ export function enteteDocument({ titre, sous = null, mention = null } = {}) {
 }
 
 export function envelopperDocument({ html, titre, orientation = 'portrait',
-                                     styles = '', logo = null, avecPied = true,
+                                     /* LE LOGO EST LE DÉFAUT, PAS UNE OPTION.
+                                        Il fallait le passer à la main : cinq
+                                        écrans le faisaient, le catalogue ne le
+                                        faisait pas — et toutes ses pièces
+                                        sortaient sans logo. Une enveloppe
+                                        commune qui n'habille pas de la même
+                                        façon n'est pas commune. Passer `false`
+                                        reste possible pour les rares pièces
+                                        qui n'en portent pas. */
+                                     styles = '', logo = undefined, avecPied = true,
                                      margeHaut = 18, margeCote = 18,
                                      entete = null }) {
   const pied = avecPied ? piedDocument() : '';
   const esc = s => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;');
 
-  const piedHtml = avecPied && pied ? piedBalisage(logo) : '';
+  const marque = logo === undefined ? LOGO_IIP_JPEG : logo;
+  const piedHtml = avecPied && pied ? piedBalisage(marque || null) : '';
   // `entete` porte ce que la pièce veut annoncer ; passé à `false`, on n'en
   // met pas — le diplôme et le corps de courriel restent hors standard.
   const enteteHtml = entete === false ? ''
