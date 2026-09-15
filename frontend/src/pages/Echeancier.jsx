@@ -14,6 +14,9 @@ const ZONES = {
   documents:     'Documents',
   ue:            'Travail administratif UE',
   etablissement: 'Établissement',
+  // LES ACTIONS DE RÉUNION SONT UNE ZONE COMME UNE AUTRE — un seul registre,
+  // deux lentilles : ce que la circulaire impose, et ce qu'une séance a décidé.
+  equipe:        'Suivi d’équipe',
 };
 
 const fr = (iso) => iso ? iso.slice(0, 10).split('-').reverse().join('/') : '—';
@@ -83,10 +86,19 @@ export default function Echeancier() {
 
   async function basculer(e) {
     const nouveau = e.statut === 'fait' ? 'a_faire' : 'fait';
-    const rep = await fetch(`/api/echeancier/${e.id}`, {
-      method: 'PATCH', headers: authHeaders(),
-      body: JSON.stringify({ statut: nouveau }),
-    });
+    // DEUX REGISTRES, DEUX PORTES. Une action de réunion vit dans sa table :
+    // la cocher ici doit s'adresser à celle-là, sinon on modifie l'échéance
+    // légale qui porte par hasard le même numéro.
+    const rep = e.origine === 'tache'
+      ? await fetch(`/api/reunions/taches/${e.id}`, {
+          method: 'PUT',
+          headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+          body: JSON.stringify({ statut: nouveau }),
+        })
+      : await fetch(`/api/echeancier/${e.id}`, {
+          method: 'PATCH', headers: authHeaders(),
+          body: JSON.stringify({ statut: nouveau }),
+        });
     if (!rep.ok) {
       const j = await rep.json().catch(() => ({}));
       setMessage({ type: 'err', texte: j.error || 'modification refusée' });
@@ -211,7 +223,10 @@ export default function Echeancier() {
                       : e.statut === 'en_retard' || n < 0 ? 'border-l-red-500'
                       : n <= 7 ? 'border-l-amber-500' : 'border-l-slate-200';
                     return (
-                      <div key={e.id}
+                      /* DEUX TABLES, DEUX NUMÉROTATIONS : l'échéance 12 et la
+                         tâche 12 existent toutes les deux. Sans préfixe, React
+                         les confond et recycle la mauvaise ligne. */
+                      <div key={`${e.origine || 'ech'}-${e.id}`}
                         className={`bg-white border border-slate-200 border-l-[3px] ${bord} rounded-lg
                           px-3.5 py-2.5 flex items-center gap-3 ${e.statut === 'fait' ? 'opacity-60' : ''}`}>
                         <div className="text-[13px] font-bold text-iip-blue w-12 flex-none">{jourMois(e.date_due)}</div>
@@ -225,6 +240,12 @@ export default function Echeancier() {
                             {e.base_legale ? ` · ${e.base_legale}` : ''}
                           </div>
                         </button>
+                        {e.origine === 'tache' && (
+                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-500 font-semibold flex-none"
+                                title={e.reunion_titre ? `Décidé en séance : ${e.reunion_titre}` : 'Action de suivi'}>
+                            suivi
+                          </span>
+                        )}
                         {e.genere_auto === 1 && (
                           <span className="text-[10px] px-1.5 py-0.5 rounded bg-iip-turquoise/12 text-iip-blue font-semibold flex-none">auto</span>
                         )}
@@ -324,6 +345,9 @@ export default function Echeancier() {
                 <Info label="Statut" valeur={<Pastille echeance={detail} />} />
                 <Info label="Zone" valeur={ZONES[detail.zone] || detail.zone || '—'} />
                 <Info label="Responsable" valeur={detail.responsable_nom || detail.responsable_role || '—'} />
+                {detail.origine === 'tache' && detail.reunion_titre && (
+                  <Info label="Décidé en séance" valeur={detail.reunion_titre} />
+                )}
                 {detail.fait_le && <Info label="Fait le" valeur={`${fr(detail.fait_le)} par ${detail.fait_par}`} />}
               </div>
               {detail.base_legale && (
@@ -384,12 +408,17 @@ function ListeEcheances({ lignes, onBasculer, onDetail, mien }) {
           </thead>
           <tbody>
             {lignes.map(e => (
-              <tr key={e.id} className={`border-b border-slate-100 last:border-0 hover:bg-slate-50/60
+              <tr key={`${e.origine || 'ech'}-${e.id}`} className={`border-b border-slate-100 last:border-0 hover:bg-slate-50/60
                 ${e.statut === 'fait' ? 'opacity-60' : ''}`}>
                 <td className="px-3 py-2 font-medium text-iip-blue whitespace-nowrap">{fr(e.date_due)}</td>
                 <td className="px-3 py-2">
                   <button onClick={() => onDetail(e)} className="text-left">
-                    <div className="text-slate-800">{e.libelle}</div>
+                    <div className="text-slate-800">
+                      {e.libelle}
+                      {e.origine === 'tache' && (
+                        <span className="text-[10px] ml-2 px-1.5 py-0.5 rounded bg-slate-100 text-slate-500 font-semibold">suivi</span>
+                      )}
+                    </div>
                     {e.libelle_override && <div className="text-[11px] text-slate-500">{e.libelle_override}</div>}
                   </button>
                 </td>

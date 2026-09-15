@@ -71,4 +71,30 @@ export function nomDepuisChaine(texte) {
   return nomPropre(mots[mots.length - 1], mots.slice(0, -1).join(' '));
 }
 
+/**
+ * « NOM Prénom » — la forme des LISTES DE CHOIX, et d'elles seules.
+ *
+ * Dans une phrase, on écrit « Charles SOHET » ; dans une liste déroulante de
+ * quarante personnes, on cherche un nom de famille. Le prénom d'abord, l'œil
+ * balaie « Charles, Florian, Natacha… » sans jamais tomber sur ce qu'il
+ * cherche, et l'ordre alphabétique de la liste — qui est celui des noms —
+ * paraît faux. Le nom passe donc devant, et la liste redevient lisible.
+ *
+ * Ce n'est pas une seconde façon d'écrire les noms : c'est la même règle vue
+ * de la colonne de tri.
+ */
+export function nomListe(texte) {
+  const propre = nomDepuisChaine(texte);
+  const mots = propre.split(/\s+/).filter(Boolean);
+  const nom = mots.filter(m => m === m.toLocaleUpperCase('fr') && /\p{L}/u.test(m));
+  const prenom = mots.filter(m => !nom.includes(m));
+  if (!nom.length) return propre;
+  return [nom.join(' '), prenom.join(' ')].filter(Boolean).join(' ');
+}
+
+/** Trier une liste de personnes comme elle s'affiche : par nom de famille. */
+export function parNom(a, b) {
+  return nomListe(a).localeCompare(nomListe(b), 'fr');
+}
+
 export default nomPropre;

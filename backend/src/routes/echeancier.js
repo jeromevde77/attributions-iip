@@ -79,7 +79,119 @@ r.get('/', authRequired, (req, res) => {
      GROUP BY nom ORDER BY n DESC
   `).all(annee);
 
-  res.json({ annee, compteurs: c, zones, responsables, lignes });
+  // ── LES ACTIONS DE RÉUNION ENTRENT DANS L'ÉCHÉANCIER ────────────────────
+  //
+  // Un seul registre, deux lentilles. L'échéancier porte ce que la circulaire
+  // impose ; le suivi d'équipe porte ce qu'une séance a décidé. Mais celui qui
+  // ouvre « ce qui m'attend » ne fait pas cette distinction : il veut SA liste,
+  // et il la veut entière. Une action confiée en réunion n'apparaissait que
+  // dans l'écran des réunions — donc nulle part, pour qui n'y va pas.
+  //
+  // Elles arrivent donc ici, datées de leur échéance (à défaut, du jour de la
+  // séance), marquées « suivi d'équipe » et reconnaissables à leur origine :
+  // l'écran sait alors qu'un clic dessus s'adresse à l'autre table.
+  let taches = [];
+  try {
+    taches = db.prepare(`
+      SELECT t.id, t.titre, t.detail, t.statut, t.echeance, t.responsable_role,
+             t.responsable_user_id, t.reunion_id,
+             COALESCE(u.nom_complet, pr.prenom || ' ' || pr.nom) AS responsable_nom,
+             -- UNE ACTION PORTÉE À PLUSIEURS SE LIT CHEZ CHACUN. La colonne
+             -- responsable_user_id ne porte que le premier nommé ; l'équipage
+             -- est dans tache_personne, et c'est lui qu'il faut interroger pour
+             -- que « ce qui m'attend » n'oublie pas le second.
+             (SELECT GROUP_CONCAT(COALESCE(u2.nom_complet,
+                       pr2.prenom || ' ' || pr2.nom, tp.role), ', ')
+                FROM tache_personne tp
+                LEFT JOIN utilisateur u2  ON u2.id  = tp.user_id
+                LEFT JOIN professeur  pr2 ON pr2.id = tp.professeur_id
+               WHERE tp.tache_id = t.id) AS equipage,
+             EXISTS (SELECT 1 FROM tache_personne tp2
+                      WHERE tp2.tache_id = t.id
+                        AND (tp2.user_id = @moi OR tp2.role = @role
+                             OR (tp2.professeur_id IS NOT NULL
+                                 AND tp2.professeur_id = (SELECT professeur_id
+                                     FROM utilisateur WHERE id = @moi)))) AS est_mienne,
+             r.titre AS reunion_titre, r.date_seance,
+             COALESCE(e2.libelle_override, et2.libelle) AS obligation_libelle
+        FROM tache t
+        LEFT JOIN utilisateur u  ON u.id  = t.responsable_user_id
+        LEFT JOIN professeur  pr ON pr.id = t.responsable_professeur_id
+        LEFT JOIN reunion r      ON r.id  = t.reunion_id
+        LEFT JOIN echeance e2    ON e2.id = t.echeance_id
+        LEFT JOIN echeance_type et2 ON et2.id = e2.type_id
+       WHERE t.annee_scolaire = @annee
+    `).all({ annee, moi: req.user.id, role: req.user.role || '' });
+  } catch { /* module de suivi absent (base non migrée) : l'échéancier vit sans */ }
+
+  const jour = new Date().toISOString().slice(0, 10);
+  const lignesTaches = taches
+    .filter(t => {
+      if (statut && t.statut !== statut) return false;
+      if (zone && zone !== 'equipe') return false;
+      if (mien === '1') {
+        return !!t.est_mienne
+          || t.responsable_user_id === req.user.id
+          || t.responsable_role === req.user.role
+          || t.responsable_nom === req.user.nom_complet;
+      }
+      if (responsable && !String(t.equipage || t.responsable_nom || '').includes(responsable)
+          && t.responsable_role !== responsable) return false;
+      return true;
+    })
+    .map(t => ({
+      id: t.id,
+      // L'ORIGINE EST DANS LA LIGNE, PAS DANS UNE CONVENTION D'IDENTIFIANT :
+      // les deux tables numérotent chacune depuis un, et confondre la 12 de
+      // l'une avec la 12 de l'autre coche la mauvaise chose.
+      origine: 'tache',
+      annee_scolaire: annee,
+      date_due: t.echeance || t.date_seance || jour,
+      libelle: t.titre,
+      libelle_override: null,
+      description: t.detail || null,
+      code: null,
+      zone: 'equipe',
+      categorie: 'suivi',
+      base_legale: t.obligation_libelle || null,
+      lien_interne: '/suivi',
+      statut: t.statut === 'fait' ? 'fait'
+        : (t.echeance && t.echeance < jour && t.statut !== 'abandonnee') ? 'en_retard'
+        : t.statut === 'abandonnee' ? 'sans_objet' : 'a_faire',
+      responsable_nom: t.equipage || t.responsable_nom,
+      responsable_role: t.responsable_role,
+      source_type: 'reunion',
+      source_id: t.reunion_id,
+      reunion_titre: t.reunion_titre,
+    }));
+
+  const toutes = [...lignes, ...lignesTaches]
+    .sort((a, b) => String(a.date_due).localeCompare(String(b.date_due)));
+
+  // LES TUILES COMPTENT CE QUE LA LISTE MONTRE. Si « en retard » ignore les
+  // actions d'équipe, l'écran s'annonce en ordre tout en affichant trois
+  // lignes rouges dessous. Les compteurs portent sur l'année entière — comme
+  // ceux des échéances — et non sur les filtres en cours.
+  const dans = (n) => { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10); };
+  const j7 = dans(7), j30 = dans(30);
+  for (const t of taches) {
+    const d = t.echeance || t.date_seance || jour;
+    const fait = t.statut === 'fait', mort = t.statut === 'abandonnee';
+    c.total = (c.total || 0) + 1;
+    if (fait) c.faites = (c.faites || 0) + 1;
+    else if (!mort) {
+      if (d < jour) c.en_retard = (c.en_retard || 0) + 1;
+      if (d <= j7)  c.semaine  = (c.semaine  || 0) + 1;
+      if (d <= j30) c.mois     = (c.mois     || 0) + 1;
+    }
+  }
+  const zonesPlus = taches.length
+    ? [...zones, { zone: 'equipe', n: taches.length,
+        retard: taches.filter(t => t.statut !== 'fait' && t.statut !== 'abandonnee'
+          && (t.echeance || t.date_seance || jour) < jour).length }]
+    : zones;
+
+  res.json({ annee, compteurs: c, zones: zonesPlus, responsables, lignes: toutes });
 });
 
 // ── PATCH /echeancier/:id ───────────────────────────────────────────────────

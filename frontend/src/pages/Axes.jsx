@@ -67,6 +67,19 @@ export function AxeAccueil() {
           key: 'reporting', label: 'Chiffres de l\u2019école', icone: IconChartBar,
           sansMarge: true, railPropre: true,
           rendu: <Suspense fallback={<Attente />}><Pilotage vue="reporting" /></Suspense>,
+        }, {
+          /* LE CONSTRUCTEUR DE LISTES ÉTAIT DEVENU INATTEIGNABLE.
+             En supprimant l'axe Communication, on a écrit que ses listes
+             étaient « dans le centre d'impression » — elles n'y ont jamais été
+             portées. Seize modèles — rapport ETP, professeurs par section,
+             grille et rapport de section, synthèse de charge — sont restés
+             dans le code, avec leurs requêtes et leurs mises en page, derrière
+             une route que plus aucun écran n'ouvrait. Rien n'avait disparu :
+             il manquait la porte. La voici, là où l'on cherche ce genre de
+             pièce — les chiffres de l'école. */
+          key: 'listes', label: 'Listes et rapports', icone: IconFileText,
+          sansMarge: true, railPropre: true,
+          rendu: <Suspense fallback={<Attente />}><Listes /></Suspense>,
         }] : []),
       ]}
     />
