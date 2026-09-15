@@ -58,6 +58,94 @@ const STYLE_RAPPORT = `
                        padding-top: 3mm; border-bottom: 0.6pt solid #cbd5e1; }
         tbody tr:last-child td { border-bottom: 0; }`;
 
+/*
+ * ── DEUX FAMILLES DE PIÈCES, ET ELLES NE SE RESSEMBLENT PAS ────────────────
+ *
+ * Une pièce ADMINISTRATIVE — attestation, procès-verbal, grille de
+ * délibération — se lit ligne à ligne et se dépose dans un dossier : elle est
+ * sobre, dense, et rien n'y attire l'œil plus qu'autre chose, parce que tout y
+ * fait foi.
+ *
+ * Une pièce de REPORTING — ETP, ratios, dotation — se présente à un COPIL ou à
+ * un Conseil d'administration. Personne n'y lit trois cents lignes : on y
+ * cherche un ordre de grandeur, une proportion, une évolution. Un listing ne
+ * répond pas à cela ; une tuile et une barre, si.
+ *
+ * TOUT EST DESSINÉ EN SVG, sans une ligne de JavaScript. Une bibliothèque de
+ * graphiques ne s'exécute pas dans une fenêtre d'impression, et un graphique
+ * qui manque à l'impression est pire qu'un graphique absent : on ne s'en
+ * aperçoit qu'une fois la pièce distribuée.
+ */
+
+/** Une tuile : le chiffre d'abord, le libellé dessous — comme à l'écran. */
+function tuile({ valeur, unite = '', libelle, precision = null, ton = 'neutre' }) {
+  const bord = { neutre: '#cbd5e1', fort: '#1B2B4B', doux: '#94a3b8' }[ton] || '#cbd5e1';
+  return `<td class="tuile" style="border-left-color:${bord}">
+    <div class="tuile-val">${valeur}${unite ? `<span class="tuile-u">${unite}</span>` : ''}</div>
+    <div class="tuile-lib">${libelle}</div>
+    ${precision ? `<div class="tuile-fin">${precision}</div>` : ''}
+  </td>`;
+}
+const rangeeTuiles = (tuiles) =>
+  `<table class="tuiles"><tr>${tuiles.join('')}</tr></table>`;
+
+/**
+ * UNE BARRE HORIZONTALE PAR LIGNE — la forme qui compare des grandeurs
+ * nommées. On lit d'abord le nom, puis la longueur : c'est l'ordre naturel,
+ * et c'est ce qu'un camembert interdit dès qu'il y a plus de trois parts.
+ */
+function barres({ donnees, largeur = 170, unite = '' }) {
+  const max = Math.max(...donnees.map(d => d.valeur), 0) || 1;
+  const h = 14, ecart = 6;
+  const hauteur = donnees.length * (h + ecart);
+  const lignes = donnees.map((d, i) => {
+    const y = i * (h + ecart);
+    const l = Math.max(1, (d.valeur / max) * largeur);
+    return `<rect x="0" y="${y}" width="${l}" height="${h}" rx="2"
+              fill="${d.couleur || '#1B2B4B'}" opacity="${d.pale ? 0.35 : 0.85}" />
+            <text x="${l + 5}" y="${y + h - 3.5}" font-size="8" fill="#475569">${d.texte}</text>`;
+  }).join('');
+  return `<svg width="100%" viewBox="0 0 ${largeur + 90} ${hauteur}"
+            preserveAspectRatio="xMinYMin meet" style="max-height:${hauteur}px">
+    ${lignes}</svg>${unite ? `<div class="fin">${unite}</div>` : ''}`;
+}
+
+/** Une seule barre, découpée en parts — pour dire « de quoi c'est fait ». */
+function barreParts(parts, largeur = 520) {
+  const total = parts.reduce((s, p) => s + p.valeur, 0) || 1;
+  let x = 0;
+  const seg = parts.map(p => {
+    const l = (p.valeur / total) * largeur;
+    const r = `<rect x="${x}" y="0" width="${Math.max(0, l - 1)}" height="12" rx="2"
+                 fill="${p.couleur}" opacity="${p.pale ? 0.35 : 0.85}" />`;
+    x += l;
+    return r;
+  }).join('');
+  const legende = parts.filter(p => p.valeur > 0).map(p =>
+    `<span class="leg"><i style="background:${p.couleur};opacity:${p.pale ? 0.35 : 0.85}"></i>${
+      p.nom} — ${Math.round(p.valeur / total * 100)} %</span>`).join('');
+  return `<svg width="100%" viewBox="0 0 ${largeur} 12" preserveAspectRatio="none"
+            style="height:12px">${seg}</svg><div class="legendes">${legende}</div>`;
+}
+
+/** Les styles des pièces de reporting — tuiles, barres, légendes. */
+const STYLE_REPORTING = `
+  table.tuiles { width:100%; border-collapse:separate; border-spacing:3mm 0;
+                 margin:0 0 5mm; table-layout:fixed; }
+  td.tuile { border:0; border-left:2.5pt solid #cbd5e1; padding:1mm 0 1mm 2.5mm;
+             vertical-align:top; }
+  .tuile-val { font-size:17pt; font-weight:700; color:#1B2B4B; line-height:1.05;
+               font-variant-numeric:tabular-nums; }
+  .tuile-u   { font-size:8pt; font-weight:400; color:#64748b; margin-left:1mm; }
+  .tuile-lib { font-size:7.5pt; color:#475569; margin-top:.8mm;
+               text-transform:uppercase; letter-spacing:.4pt; }
+  .tuile-fin { font-size:7.5pt; color:#94a3b8; margin-top:.5mm; }
+  .legendes { margin-top:1.5mm; }
+  .leg { font-size:7.5pt; color:#475569; margin-right:4mm; white-space:nowrap; }
+  .leg i { display:inline-block; width:7px; height:7px; border-radius:1.5px;
+           margin-right:1.2mm; vertical-align:baseline; }
+  .cadre { break-inside:avoid; page-break-inside:avoid; margin:0 0 5mm; }`;
+
 /** Le bloc d'une unité — « BA1 », « BA2 »… ; à défaut, « Autres ». */
 const blocDe = (u) => {
   const m = String(u.ue_niv || '').match(/\d+/);
@@ -184,29 +272,41 @@ function documentEtpCursus(p) {
       l'état des attributions encodées${etus > 0 ? `, pour ${n0(etus)} étudiant(s) inscrits` : ''}
       — et non un arrêté de dotation.</p>
 
-    <h2>La charge en un coup d'œil</h2>
-    <table>
-      <thead><tr><th>Poste</th><th class="n" style="width:26mm">ETP</th>
-        <th class="n" style="width:26mm">Part</th>
-        <th class="n" style="width:34mm">Étudiants par ETP</th></tr></thead>
-      <tbody>
-        <tr><td>Cours <span class="fin">— ${n0(perTot)} périodes</span></td>
-          <td class="n g">${n2(etpCours)}</td><td class="n">${part(etpCours)}</td>
-          <td class="n">${ratio(etpCours)}</td></tr>
-        <tr><td>dont Institut (IIP)</td><td class="n">${n2(sec.etp_iip)}</td>
-          <td class="n">${part(sec.etp_iip)}</td><td class="n"></td></tr>
-        <tr><td>dont Haute École (HELB)</td><td class="n">${n2(sec.etp_helb)}</td>
-          <td class="n">${part(sec.etp_helb)}</td><td class="n"></td></tr>
-        ${etpCoord > 0 ? `<tr><td>Coordination HELB</td><td class="n">${n2(etpCoord)}</td>
-          <td class="n">${part(etpCoord)}</td><td class="n">${ratio(etpCoord)}</td></tr>` : ''}
-        ${etpSecr > 0 ? `<tr><td>Secrétariat étudiant <span class="fin">— quote-part</span></td>
-          <td class="n">${n2(etpSecr)}</td><td class="n"></td>
-          <td class="n">${ratio(etpSecr)}</td></tr>` : ''}
-      </tbody>
-      <tfoot><tr class="repere"><td>Charge globale <span class="fin">— cours et coordination</span></td>
-        <td class="n">${n2(global)}</td><td class="n">100 %</td>
-        <td class="n">${ratio(global)}</td></tr></tfoot>
-    </table>
+    ${rangeeTuiles([
+      tuile({ valeur: n2(global), unite: 'ETP', libelle: 'Charge globale',
+        precision: `${n0(perTot)} périodes de cours`, ton: 'fort' }),
+      tuile({ valeur: n2(sec.etp_iip), unite: 'ETP', libelle: 'Institut',
+        precision: part(sec.etp_iip) }),
+      tuile({ valeur: n2(sec.etp_helb + etpCoord), unite: 'ETP', libelle: 'Haute École',
+        precision: `${part(sec.etp_helb + etpCoord)}${etpCoord > 0
+          ? ` · dont ${n2(etpCoord)} de coordination` : ''}`, ton: 'doux' }),
+      tuile({ valeur: etus ? n0(etus) : '—', libelle: 'Étudiants',
+        precision: etus ? `${ratio(global)} par ETP` : 'effectifs non encodés' }),
+    ])}
+
+    <div class="cadre">
+      <h2>De quoi la charge est faite</h2>
+      ${barreParts([
+        { nom: 'Institut', valeur: sec.etp_iip || 0, couleur: '#1B2B4B' },
+        { nom: 'Haute École', valeur: sec.etp_helb || 0, couleur: '#1B2B4B', pale: true },
+        ...(etpCoord > 0 ? [{ nom: 'Coordination HELB', valeur: etpCoord, couleur: '#0093B0' }] : []),
+      ])}
+    </div>
+
+    ${blocs.length > 1 ? `<div class="cadre">
+      <h2>Le poids de chaque bloc</h2>
+      ${barres({
+        donnees: blocs.map(b => {
+          const e = parBloc.get(b).reduce((s, u) => s + (u.etp_total || 0), 0);
+          return { valeur: e, couleur: '#1B2B4B',
+            texte: `${NOM_BLOC[b] || b} — ${n2(e)} ETP${
+              global > 0 ? ` (${Math.round(e / global * 100)} %)` : ''}` };
+        }),
+      })}
+    </div>` : ''}
+
+    ${etpSecr > 0 ? `<p class="fin">S'y ajoute la quote-part de secrétariat
+      étudiant : ${n2(etpSecr)} ETP, soit ${ratio(etpSecr)} étudiant(s) par ETP.</p>` : ''}
 
     <h2>Le détail par bloc</h2>
     ${corpsBlocs}
@@ -221,7 +321,7 @@ function documentEtpCursus(p) {
     orientation: 'portrait',
     // La colonne des ETP est celle qu'on lit : elle se distingue par la
     // graisse, non par une couleur — et le bloc par un filet, non un bandeau.
-    styles: STYLE_RAPPORT + `
+    styles: STYLE_RAPPORT + STYLE_REPORTING + `
       td.ue { font-weight: 600; color: #1B2B4B; white-space: nowrap; }
       td.n, th.n { text-align: right; }
       td.g { font-weight: 700; color: #1B2B4B; }

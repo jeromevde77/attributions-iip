@@ -70,17 +70,12 @@ function OngletRapports({ domaine }) {
   // il ne se dépose pas dans un dossier, ne s'annexe pas à un courrier et ne
   // se présente pas au Conseil. Pour tout ce qui doit être MONTRÉ plutôt que
   // retravaillé, la pièce manquait — et donc, en pratique, la fonction.
-  async function imprimer() {
-    if (!choisi) return;
-    setEnCours(true); setErreur(null);
-    try {
-      const rep = await fetch(`/api/rapports/${choisi.id}/document`, {
-        method: 'POST', headers: authHeaders(), body: corps(choisi),
-      });
-      const j = await rep.json();
-      if (!rep.ok) { setErreur(j.error); return; }
-      setDocument0(j);
-    } catch (e) { setErreur(e.message); } finally { setEnCours(false); }
+  // La pièce est déjà composée sous les yeux : imprimer ne la recalcule pas,
+  // il l'ouvre. Refaire l'appel risquerait d'imprimer autre chose que ce qui
+  // est affiché — c'est précisément ce qu'on veut rendre impossible.
+  function imprimer() {
+    if (!apercu?.html) return;
+    setDocument0(apercu);
   }
 
   useEffect(() => {
@@ -103,10 +98,23 @@ function OngletRapports({ domaine }) {
     ...(r.params.includes('section') && section ? { section } : {}),
   });
 
+  /*
+   * CE QU'ON VOIT EST CE QUI SORT.
+   *
+   * L'aperçu montrait un tableau de cinquante lignes : des colonnes grises,
+   * sans en-tête d'établissement, sans tuiles, sans graphique — c'est-à-dire
+   * tout sauf la pièce. On choisissait « ETP pour TIM » et l'on découvrait un
+   * listing ; le document, lui, n'apparaissait qu'après avoir cliqué sur
+   * Imprimer, et il ne lui ressemblait pas. Deux rendus pour une même pièce,
+   * donc deux occasions de se tromper.
+   *
+   * L'aperçu EST le document : la page réelle, dans son enveloppe, à l'échelle.
+   * Imprimer n'ajoute plus rien — c'est la même page qui part.
+   */
   async function voir(r) {
     setChoisi(r); setApercu(null); setErreur(null); setEnCours(true);
     try {
-      const rep = await fetch(`/api/rapports/${r.id}/apercu`, {
+      const rep = await fetch(`/api/rapports/${r.id}/document`, {
         method: 'POST', headers: authHeaders(), body: corps(r),
       });
       const j = await rep.json();
@@ -114,6 +122,11 @@ function OngletRapports({ domaine }) {
       setApercu(j);
     } catch (e) { setErreur(e.message); } finally { setEnCours(false); }
   }
+
+  // Changer de section ou de session refait la pièce : un aperçu qui ne suit
+  // pas ses paramètres ment sur ce qui s'imprimera.
+  useEffect(() => { if (choisi) voir(choisi); // eslint-disable-next-line
+  }, [section, session]);
 
   async function telecharger() {
     if (!choisi) return;
@@ -203,7 +216,7 @@ function OngletRapports({ domaine }) {
           </div>
         )}
 
-        <div className="flex-1 overflow-auto min-h-0">
+        <div className="flex-1 overflow-auto min-h-0 bg-slate-100 p-3">
           {!choisi && (
             <p className="p-6 text-[13px] text-slate-400">
               Choisissez un rapport à gauche.
@@ -211,42 +224,25 @@ function OngletRapports({ domaine }) {
           )}
           {choisi && !apercu && !erreur && (
             <p className="p-6 text-[13px] text-slate-400">
-              {enCours ? 'Calcul…' : '—'}
+              {enCours ? 'Composition de la pièce…' : '—'}
             </p>
           )}
-          {apercu && (
-            <table className="w-full text-[12px]">
-              <thead className="sticky top-0 bg-slate-50">
-                <tr>{apercu.colonnes.map(c => (
-                  <th key={c.cle} className="text-left font-medium text-slate-600
-                                             px-2 py-1.5 border-b border-slate-200">
-                    {c.entete}
-                  </th>))}</tr>
-              </thead>
-              <tbody>
-                {apercu.lignes.map((l, i) => (
-                  <tr key={i} className="border-b border-slate-50">
-                    {apercu.colonnes.map(c => (
-                      <td key={c.cle} className="px-2 py-1 text-slate-700">
-                        {l[c.cle] ?? ''}
-                      </td>))}
-                  </tr>
-                ))}
-                {!apercu.lignes.length && (
-                  <tr><td colSpan={apercu.colonnes.length}
-                    className="px-2 py-4 text-slate-400 text-center">
-                    Aucune donnée pour ces paramètres.
-                  </td></tr>
-                )}
-              </tbody>
-            </table>
+          {apercu?.html && (
+            /* La page telle qu'elle sortira. Le cadre est isolé : les styles
+               du document ne débordent pas sur l'application, et ceux de
+               l'application ne viennent pas l'embellir — ce qu'on voit est
+               donc bien ce qui s'imprime. */
+            <iframe title="Aperçu de la pièce" srcDoc={apercu.html}
+              className="w-full bg-white rounded-carte shadow-pose border border-slate-200"
+              style={{ height: 'calc(100vh - 14rem)', minHeight: '32rem' }} />
           )}
         </div>
       </div>
 
       {document0 && (
         <PreviewModal html={document0.html} titre={document0.titre}
-          sousTitre={`${document0.nb} ligne(s)`} nomFichier={document0.nom}
+          sousTitre={document0.nb ? `${document0.nb} ligne(s)` : null}
+          nomFichier={document0.nom}
           typeDoc="rapport"
           astuceImpression="Le format est déjà posé : imprimez tel quel."
           onClose={() => setDocument0(null)} />
