@@ -1332,7 +1332,13 @@ function Cloture({ seance, onClore, onRetour, onPV, onRouvrir, enCours, nb, ajou
   const reporterPartout = () => setS2(l => l.length ? l.map(c => ({
     ...c, date: l[0].date, heure: l[0].heure, local: l[0].local })) : l);
   const [close, setClose] = useState(!!seance?.cloturee);
-  const complet = date && heure && local.trim() && dateS;
+  /* DEUX FORMES DE VISITE, UNE SEULE RÈGLE DE COMPLÉTUDE.
+     Le panneau cache les trois champs dès qu'une mention est écrite — mais la
+     complétude, elle, continuait de les exiger : la mention rendait donc la
+     clôture IMPOSSIBLE, sans rien dire, et sans champ où la débloquer. Ce qui
+     est demandé, c'est de dire à l'étudiant comment exercer son droit : une
+     plage OU une mention y suffit. */
+  const complet = dateS && (mention.trim() || (date && heure && local.trim()));
 
   // LA DATE SE POSE SEULE — et elle ne s'écrase jamais.
   //
@@ -1592,7 +1598,9 @@ function Cloture({ seance, onClore, onRetour, onPV, onRouvrir, enCours, nb, ajou
               session2_heure: s2[0]?.heure || null,
               session2_local: s2[0]?.local || null })
               .then(ok => ok && setClose(true))}
-            title={complet ? '' : 'La date de délibération, et la date, l’heure et le local de visite des copies sont requis'}
+            title={complet ? '' : 'La date de délibération est requise, ainsi que '
+              + 'la date, l’heure et le local de visite des copies — ou, à leur '
+              + 'place, la mention qui dit comment les obtenir'}
             className="px-4 py-2 text-[13px] rounded-lg bg-emerald-600 text-white font-semibold
                        disabled:opacity-40">
             {close ? 'Enregistré' : 'Clore la délibération'}
