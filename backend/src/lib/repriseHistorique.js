@@ -222,4 +222,59 @@ export function appliquerReprise(annee, opts = {}) {
   return { ...plan, ecrit };
 }
 
-export default { simulerReprise, appliquerReprise, MOTIF_REPRISE, MENTION_REPRISE };
+
+/**
+ * FORCER LA CLÔTURE D'UNITÉS CHOISIES — sans quorum, et en le disant.
+ *
+ * Le quorum des deux tiers s'oppose à la clôture (RGE art. 25 §1), et c'est
+ * juste : une délibération close sous le quorum est attaquable. Mais il
+ * suppose un Conseil, donc des attributions, donc des membres à qui cocher une
+ * présence. Sur une année reprise d'archives il n'y en a pas, et la règle
+ * n'interdit plus rien — elle rend seulement l'année inclôturable.
+ *
+ * On force donc, à trois conditions qui ne se négocient pas :
+ *  · l'appelant DÉSIGNE les unités et les sessions, une par une. Pas de « tout
+ *    l'établissement » : ce qu'on ferme, on le nomme.
+ *  · la séance porte `reprise = 1` et son motif. Elle ne se fera jamais passer
+ *    pour une séance tenue.
+ *  · rien d'autre n'est touché — aucune décision, aucune note, aucune
+ *    motivation. Clôturer, c'est arrêter l'acte, pas le rédiger.
+ *
+ * @param {string} annee
+ * @param {Array<{ue_num:number, session:number}>} cibles
+ * @param {object} opts { motif, par }
+ */
+export function forcerCloture(annee, cibles, opts = {}) {
+  migrerReprise();
+  const motif = (opts.motif || '').trim() || MENTION_REPRISE;
+  const liste = (Array.isArray(cibles) ? cibles : [])
+    .map(c => ({ ue_num: Number(c?.ue_num), session: Number(c?.session) === 2 ? 2 : 1 }))
+    .filter(c => Number.isFinite(c.ue_num) && c.ue_num > 0);
+  if (!liste.length) return { closes: 0, deja: 0, detail: [] };
+
+  const etat = db.prepare(`
+    SELECT cloturee FROM deliberation_seance
+     WHERE ue_num = ? AND annee_scolaire = ? AND session = ?`);
+  const poser = db.prepare(`
+    INSERT INTO deliberation_seance
+      (ue_num, annee_scolaire, session, cloturee, reprise, reprise_motif, maj_le, maj_par)
+    VALUES (?,?,?,1,1,?,datetime('now'),?)
+    ON CONFLICT(ue_num, annee_scolaire, session) DO UPDATE SET
+      cloturee = 1, reprise = 1,
+      reprise_motif = COALESCE(deliberation_seance.reprise_motif, excluded.reprise_motif),
+      maj_le = datetime('now'), maj_par = excluded.maj_par`);
+
+  return db.transaction(() => {
+    let closes = 0, deja = 0;
+    const detail = [];
+    for (const c of liste) {
+      const avant = etat.get(c.ue_num, annee, c.session);
+      if (avant?.cloturee) { deja++; detail.push({ ...c, etat: 'déjà close' }); continue; }
+      poser.run(c.ue_num, annee, c.session, motif, opts.par || null);
+      closes++; detail.push({ ...c, etat: 'close' });
+    }
+    return { closes, deja, detail };
+  })();
+}
+
+export default { simulerReprise, appliquerReprise, forcerCloture, MOTIF_REPRISE, MENTION_REPRISE };

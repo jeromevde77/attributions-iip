@@ -73,7 +73,17 @@ indiscutables. Il en reste sans doute : les nommer plutôt que les découvrir.
 - ~~La base de délibération de **seconde session**~~ — réglable depuis 1.27.0.
 - Le **seuil de réussite de l'unité** (10/20) : c'est le décret, il ne doit
   **pas** devenir réglable.
-- La règle de **report des notes** d'une session à l'autre : à vérifier.
+- ~~La règle de **report des notes** d'une session à l'autre~~ — vérifiée et
+  corrigée en 2.9.5. La préséance se faisait au seul RANG DE SESSION : une
+  note « s2| » recouvrait celle de juin pour toujours. On corrigeait donc une
+  note de première session, on retirait l'ajournement du cours, et la note de
+  septembre — qui ne correspondait plus à aucune épreuve — continuait de
+  gagner, en silence. **Une note de seconde session ne vaut que pour ce qui a
+  été représenté** : retirer l'ajournement rend la main à la note de juin.
+  Garde-fou : si la première session n'a laissé aucune trace d'ajournement —
+  ni cours, ni acquis —, l'ancienne règle s'applique, faute de savoir ce qui
+  était à représenter ; mieux vaut ne rien changer que modifier à l'aveugle
+  une décision déjà notifiée.
 - La cote montrée à un **ajourné dont la moyenne d'unité dépasse dix** : elle
   vaut aujourd'hui cette moyenne, alors que l'unité n'est pas acquise. À
   trancher avec Charles.

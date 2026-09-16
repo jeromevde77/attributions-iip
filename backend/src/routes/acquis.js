@@ -32,7 +32,7 @@ import { identiteEtablissement } from './config.js';
 // Le contenu légal diffère ; la charte, non.
 import { envelopper, unitesReussies, pageAttestation, frDate } from './attestations.js';
 import { motifPropose } from '../lib/motifPropose.js';
-import { migrerReprise, simulerReprise, appliquerReprise,
+import { migrerReprise, simulerReprise, appliquerReprise, forcerCloture,
          MOTIF_REPRISE, MENTION_REPRISE } from '../lib/repriseHistorique.js';
 
 const r = Router();
@@ -2980,6 +2980,44 @@ export function delibererUE(etudId, ueNum, annee, session = 1) {
   // quand elle existe, et celle de la première subsiste pour les cours qui
   // n'étaient pas à représenter : c'est ce qui fait que la seconde session
   // s'AJOUTE au lieu d'effacer.
+  // ── CE QUE LA PREMIÈRE SESSION A LAISSÉ À REPRÉSENTER ────────────────────
+  //
+  // Lu AVANT les notes, parce que c'est lui qui dit lesquelles comptent.
+  const ajournesS1 = session < 2 ? [] : db.prepare(`
+    SELECT portee, code FROM deliberation_ajustement
+    WHERE etudiant_id = ? AND annee_scolaire = ? AND ue_num = ?
+      AND session = 1 AND action = 'ajourne'
+  `).all(etudId, annee, ueNum);
+  const coursARepresenter = new Set(
+    ajournesS1.filter(a => a.portee === 'cours').map(a => a.code));
+  const aaARepresenter = new Set(
+    ajournesS1.filter(a => a.portee === 'aa').map(a => a.code));
+
+  /**
+   * UNE NOTE DE SEPTEMBRE NE VAUT QUE POUR CE QUI A ÉTÉ REPRÉSENTÉ.
+   *
+   * La préséance se faisait au seul RANG DE SESSION : dès qu'une note « s2| »
+   * existait, elle recouvrait celle de juin, pour toujours. Or on corrige une
+   * note de première session, on retire l'ajournement du cours — l'étudiante
+   * réussit donc en juin —, et la note de septembre, qui ne correspond plus à
+   * aucune épreuve, continuait de gagner. La correction restait sans effet, en
+   * silence, sur la seule session qui décide.
+   *
+   * Une note de seconde session suppose qu'il y a eu seconde session POUR CE
+   * COURS-LÀ. Retirer l'ajournement, c'est dire qu'il n'y en a pas eu : la
+   * note de juin reprend la main.
+   *
+   * LE GARDE-FOU. Si la première session n'a laissé AUCUNE trace
+   * d'ajournement — ni sur un cours, ni sur un acquis —, on ne sait pas ce qui
+   * était à représenter, et écarter les notes de septembre reviendrait à
+   * effacer des résultats déjà notifiés. Dans ce cas seulement, l'ancienne
+   * règle s'applique telle quelle. Mieux vaut ne rien changer que changer à
+   * l'aveugle une décision remise à l'étudiant.
+   */
+  const sansTrace = !coursARepresenter.size && !aaARepresenter.size;
+  const s2Compte = (cours, aa) => sansTrace
+    || (cours ? coursARepresenter.has(cours) : false) || aaARepresenter.has(aa);
+
   const parCoursAA = {}, parAA = {}, mentionDe = {};
   const rang = { '': 0, s1: 1, s2: 2 };
   const meilleur = {};
@@ -2988,6 +3026,8 @@ export function delibererUE(etudId, ueNum, annee, session = 1) {
     const ses = /^s[12]$/.test(parts[0]) ? parts[0] : '';
     if (ses) parts = parts.slice(1);
     if (ses === 's2' && session < 2) continue;          // pas encore délibérée
+    if (ses === 's2' && !s2Compte(parts.length === 2 ? parts[0] : null,
+                                  parts[parts.length - 1])) continue;
     const cle = parts.length === 2 ? `${parts[0]}|${parts[1]}` : parts[0];
     // À clé égale, la note la plus récemment sessionnée gagne ; une note sans
     // préfixe, écrite avant qu'on ne distingue les sessions, vaut pour la
@@ -3019,12 +3059,7 @@ export function delibererUE(etudId, ueNum, annee, session = 1) {
     WHERE etudiant_id = ? AND annee_scolaire = ? AND ue_num = ? AND session = ?
   `).all(etudId, annee, ueNum, session)) ajust[`${a.portee}|${a.code}`] = a.action;
 
-  // Ce que la première session a laissé à représenter — vide en session 1.
-  const coursARepresenter = session < 2 ? new Set() : new Set(db.prepare(`
-    SELECT code FROM deliberation_ajustement
-    WHERE etudiant_id = ? AND annee_scolaire = ? AND ue_num = ?
-      AND session = 1 AND portee = 'cours' AND action = 'ajourne'
-  `).all(etudId, annee, ueNum).map(x => x.code));
+  // `coursARepresenter` est lu plus haut : la préséance des notes en dépend.
 
   // ── L'ARRONDI DE LA MAISON ────────────────────────────────────────────────
   //
@@ -7712,6 +7747,39 @@ r.post('/reprise/:annee', authRequired,
     }
     try {
       res.json(appliquerReprise(annee, {
+        motif: req.body?.motif, par: req.user?.email || null,
+      }));
+    } catch (e) { res.status(500).json({ error: e.message }); }
+  });
+
+/**
+ * FORCER LA CLÔTURE D'UNITÉS DÉSIGNÉES.
+ *
+ * Réservé à la direction. Le quorum reste opposé à la clôture d'une
+ * délibération tenue ; il ne peut pas l'être à une année sans attributions,
+ * où il n'existe personne à qui cocher une présence. Ce qui est fermé ici est
+ * MARQUÉ reprise, et l'appelant nomme chaque unité et chaque session.
+ */
+r.post('/cloture-forcee', authRequired,
+  roleRequired('admin', 'directeur', 'directeur_adjoint'), (req, res) => {
+    const annee = req.body?.annee;
+    const cibles = req.body?.cibles;
+    if (!annee) return res.status(400).json({ error: 'annee requise' });
+    if (!Array.isArray(cibles) || !cibles.length) {
+      return res.status(400).json({ error: 'Aucune unité désignée.' });
+    }
+    // LA CONFIRMATION PORTE LE NOMBRE. Un « oui » seul se clique ; voir passer
+    // « 27 » oblige à regarder combien de séances on ferme d'un geste.
+    if (Number(req.body?.confirmation) !== cibles.length) {
+      return res.status(409).json({
+        error: 'Confirmation manquante.',
+        detail: `Renvoyez confirmation = ${cibles.length}, le nombre de séances `
+              + 'à clôturer.',
+        attendu: cibles.length,
+      });
+    }
+    try {
+      res.json(forcerCloture(annee, cibles, {
         motif: req.body?.motif, par: req.user?.email || null,
       }));
     } catch (e) { res.status(500).json({ error: e.message }); }
