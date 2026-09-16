@@ -64,6 +64,16 @@ ouverte en 2026-2027). ~588 étudiants.
 - Affirmer un détail visuel sans capture : un guide a annoncé un « liseré
   doré » pour les UE inscrites alors que c'est une **pastille ronde** (le cadre
   doré est réservé à l'épreuve intégrée).
+- **La section d'une UE n'est pas toujours un rattachement.** L'UE 95 portait
+  « Restart » parce que l'import de mai l'avait rangée là ; elle s'ajoute au
+  programme d'étudiants de plusieurs sections. Compter par `ue.section` versait
+  donc TOUTES ses inscriptions dans Restart — effectifs, taux et cotes d'une
+  section entière faussés en silence. Depuis 2.11.1, une case **« hors
+  cursus »** sur l'unité : ses dossiers se comptent dans la section **de
+  l'étudiant** (`etudiant.section_rattachement`, déduction à défaut — et la
+  déduction ignore les unités hors cursus). Un effectif, lui, reste la taille
+  d'un groupe : un groupe hors cursus est mixte, il sort des effectifs par
+  section au lieu d'être attribué à l'une d'elles.
 
 ### Ce qui est décidé dans le code et devrait se régler à l'écran
 
