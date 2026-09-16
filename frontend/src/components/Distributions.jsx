@@ -287,7 +287,11 @@ function Table({ lignes, max }) {
 }
 
 function Famille({ famille, donnees }) {
-  const [vue, setVue] = useState(famille.vues[0][0]);
+  /* UNE FAMILLE PEUT N'AVOIR AUCUNE VUE. « Cotes d'unité » a perdu les siennes
+     en même temps que sa table, partie rejoindre celle des décisions — et
+     cette ligne lisait toujours la première, sur un tableau vide. Tout l'écran
+     tombait, pas seulement la carte. */
+  const [vue, setVue] = useState(famille.vues[0]?.[0] || null);
   const d = donnees?.[famille.cle];
   const ens = d?.ensemble;
   const lignes = d?.[vue] || [];
