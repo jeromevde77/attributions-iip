@@ -1313,6 +1313,12 @@ function Cloture({ seance, onClore, onRetour, onPV, onRouvrir, enCours, nb, ajou
   const [date, setDate] = useState(seance?.visite_date || '');
   const [heure, setHeure] = useState(seance?.visite_heure || '');
   const [local, setLocal] = useState(seance?.visite_local || '');
+  /* LA VISITE N'A PAS TOUJOURS DE PLAGE. Quand l'Institut renvoie l'étudiant
+     vers son enseignant, il n'y a ni jour, ni heure, ni local à annoncer — et
+     la notification partait alors avec trois rangées de pointillés, c'est-à-dire
+     en annonçant un droit sans dire comment l'exercer. La mention remplace la
+     ligne ; le droit, lui, reste annoncé. */
+  const [mention, setMention] = useState(seance?.visite_mention || '');
   // LA SECONDE SESSION SE TIENT COURS PAR COURS : deux professeurs ne
   // repassent pas leurs épreuves le même jour. Une date unique pour l'unité
   // obligeait le secrétariat à corriger chaque notification à la main.
@@ -1468,24 +1474,49 @@ function Cloture({ seance, onClore, onRetour, onPV, onRouvrir, enCours, nb, ajou
             local figurent sur la notification qui lui est remise.
           </p>
         </div>
-        <div className="grid grid-cols-2 gap-2">
-          <label className="text-[12px] text-slate-600">
-            Date
-            <input type="date" value={date} onChange={e => setDate(e.target.value)}
+        {!mention && (
+          <>
+            <div className="grid grid-cols-2 gap-2">
+              <label className="text-[12px] text-slate-600">
+                Date
+                <input type="date" value={date} onChange={e => setDate(e.target.value)}
+                  className="w-full mt-0.5 border border-slate-300 rounded-lg px-2 py-1.5 text-[13px]" />
+              </label>
+              <label className="text-[12px] text-slate-600">
+                Heure
+                <input type="time" value={heure} onChange={e => setHeure(e.target.value)}
+                  className="w-full mt-0.5 border border-slate-300 rounded-lg px-2 py-1.5 text-[13px]" />
+              </label>
+            </div>
+            <label className="text-[12px] text-slate-600 block">
+              Local
+              <input value={local} onChange={e => setLocal(e.target.value)}
+                placeholder="Bâtiment P, local 2.14…"
+                className="w-full mt-0.5 border border-slate-300 rounded-lg px-2 py-1.5 text-[13px]" />
+            </label>
+          </>
+        )}
+
+        {/* UNE SEULE DES DEUX FORMES À LA FOIS. Montrer la mention ET les trois
+            champs laisserait croire que les deux sortent sur la pièce ; c'est
+            la mention qui l'emporte, autant que l'écran le dise en cachant ce
+            qui ne servira pas. */}
+        {mention ? (
+          <label className="text-[12px] text-slate-600 block">
+            Mention portée sur la notification, à la place de la date
+            <textarea value={mention} onChange={e => setMention(e.target.value)} rows={2}
               className="w-full mt-0.5 border border-slate-300 rounded-lg px-2 py-1.5 text-[13px]" />
+            <button onClick={() => setMention('')}
+              className="mt-1 text-[11px] text-slate-500 underline">
+              Revenir à une date, une heure et un local
+            </button>
           </label>
-          <label className="text-[12px] text-slate-600">
-            Heure
-            <input type="time" value={heure} onChange={e => setHeure(e.target.value)}
-              className="w-full mt-0.5 border border-slate-300 rounded-lg px-2 py-1.5 text-[13px]" />
-          </label>
-        </div>
-        <label className="text-[12px] text-slate-600 block">
-          Local
-          <input value={local} onChange={e => setLocal(e.target.value)}
-            placeholder="Bâtiment P, local 2.14…"
-            className="w-full mt-0.5 border border-slate-300 rounded-lg px-2 py-1.5 text-[13px]" />
-        </label>
+        ) : (
+          <button onClick={() => setMention(MENTION_VISITE)}
+            className="text-[12px] text-iip-blue underline">
+            Pas de plage de consultation — porter une mention à la place
+          </button>
+        )}
       </div>
 
       {/* La seconde session, cours par cours, portée par l'annexe 8. */}
@@ -1554,6 +1585,7 @@ function Cloture({ seance, onClore, onRetour, onPV, onRouvrir, enCours, nb, ajou
           <button disabled={enCours || !complet} onClick={() => onClore({
               date_seance: dateS, heure_seance: heureS || null,
               visite_date: date, visite_heure: heure, visite_local: local.trim(),
+              visite_mention: mention.trim(),
               session2_cours: s2,
               // La première date sert de repli pour ce qui n'est pas fixé.
               session2_date: s2[0]?.date || null,
@@ -2321,6 +2353,17 @@ function AideDecision({ ue }) {
 
 const LIB_RES = { reussi: 'Réussi', ajourne: 'Ajourné', refuse: 'Refusé', absent: 'Absent' };
 
+/**
+ * LA MENTION DE VISITE PAR DÉFAUT.
+ *
+ * Proposée en un clic parce qu'elle sera la même partout : ce qui se retape à
+ * chaque unité finit par se retaper avec une faute. Elle reste modifiable —
+ * c'est un point de départ, pas une formule imposée.
+ */
+const MENTION_VISITE =
+  'Les modalités de visite des copies peuvent être obtenues sur simple demande '
+  + 'auprès de l’enseignant, par courriel.';
+
 const DECISIONS = [
   { cle: 'reussi',  libelle: 'Réussi',  ton: 'bg-emerald-600 border-emerald-700' },
   { cle: 'ajourne', libelle: 'Ajourné', ton: 'bg-amber-500 border-amber-600' },
@@ -2862,6 +2905,7 @@ function CorrectionAdministrative({ ueNum, annee, session, seance, onFerme, onFa
     date_seance: s.date_seance || '', heure_seance: s.heure_seance || '',
     visite_date: s.visite_date || '', visite_heure: s.visite_heure || '',
     visite_local: s.visite_local || '',
+    visite_mention: s.visite_mention || '',
     president_nom: s.president_nom || '', president_titre: s.president_titre || '',
   });
   const [membres, setMembres] = useState(() => (seance?.membres || []).map(m => ({ ...m })));
@@ -2916,6 +2960,24 @@ function CorrectionAdministrative({ ueNum, annee, session, seance, onFerme, onFa
           <Ligne cle="president_nom" label="Président de la séance (si désigné)" />
           <Ligne cle="president_titre" label="Titre porté au procès-verbal" />
         </div>
+
+        {/* LA MENTION REMPLACE LA LIGNE sur la notification. C'est la forme à
+            employer quand aucune plage n'est organisée : sans elle, la pièce
+            part avec trois rangées de pointillés à l'endroit même où elle
+            annonce un droit. */}
+        <label className="text-[12px] text-slate-600 block">
+          Visite des copies — mention à la place de la date
+          <textarea rows={2}
+            value={champs.visite_mention}
+            onChange={e => setChamps(c => ({ ...c, visite_mention: e.target.value }))}
+            placeholder="Laissez vide pour porter la date, l’heure et le local."
+            className="w-full mt-0.5 border border-slate-300 rounded-lg px-2 py-1.5 text-[13px]" />
+          <button
+            onClick={() => setChamps(c => ({ ...c, visite_mention: MENTION_VISITE }))}
+            className="mt-1 text-[11px] text-iip-blue underline">
+            Utiliser la mention type
+          </button>
+        </label>
 
         <div className="border border-slate-200 rounded-xl divide-y divide-slate-100">
           {membres.map((m, i) => (
