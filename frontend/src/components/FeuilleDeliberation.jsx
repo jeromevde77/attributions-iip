@@ -572,14 +572,14 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose }) {
               feuille s'affiche en session 2 et la séance close de juin devient
               inatteignable. Le bandeau la rend accessible dans tous les cas. */}
           {seance?.seance?.cloturee && (
-            <BandeauReouverture session={session} enCours={enCours}
-              onRouvrir={rouvrirSeance} onCorriger={() => setCorrection(true)} />
+            <BandeauReouverture session={session}
+              onReprendre={() => setCorrection(true)} />
           )}
 
           {correction && (
             <CorrectionAdministrative ueNum={ueNum} annee={annee} session={session}
               seance={seance} onFerme={() => setCorrection(false)}
-              onFait={chargerAuto} />
+              onFait={chargerAuto} onRouvrir={rouvrirSeance} enCours={enCours} />
           )}
 
           {/* LA SECONDE SESSION S'OUVRE À LA CLÔTURE — encore faut-il pouvoir
@@ -703,7 +703,7 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose }) {
               ajournes={(data?.etudiants || []).filter(e => e.resultat === 'ajourne').length}
               onRetour={() => setEtape('fiche')} onPV={() => setDocuments(true)}
               coursSession2={seance?.session2 || []}
-              onRouvrir={rouvrirSeance}
+              onReprendre={() => setCorrection(true)}
               onClore={champs => enregistrerSeance({ ...champs, cloturee: 1 })} />
           ) : !liste.length ? (
             <div className="py-10 text-center text-[13px] text-slate-400 border-2
@@ -1302,10 +1302,8 @@ function PleinDroit({ auto, onAppliquer, onPasser, enCours }) {
  * sans avoir dit quand et où. Trois champs, et l'affaire est close.
  */
 
-function Cloture({ seance, onClore, onRetour, onPV, onRouvrir, enCours, nb, ajournes,
+function Cloture({ seance, onClore, onRetour, onPV, onReprendre, enCours, nb, ajournes,
                    coursSession2, quorum, erreur, onPresences }) {
-  const [motifR, setMotifR] = useState('');
-  const [precisionR, setPrecisionR] = useState('');
   // La séance elle-même : dernière occasion de corriger sa date et son heure,
   // car la clôture les fige au procès-verbal.
   const [dateS, setDateS] = useState(seance?.date_seance || '');
@@ -1318,7 +1316,10 @@ function Cloture({ seance, onClore, onRetour, onPV, onRouvrir, enCours, nb, ajou
      la notification partait alors avec trois rangées de pointillés, c'est-à-dire
      en annonçant un droit sans dire comment l'exercer. La mention remplace la
      ligne ; le droit, lui, reste annoncé. */
-  const [mention, setMention] = useState(seance?.visite_mention || '');
+  // Elle se LIT ici, elle ne s'y écrit plus (voir plus bas) — mais elle doit
+  // repartir telle quelle dans la charge utile : le serveur écrase cette
+  // colonne sans COALESCE, et ne rien envoyer l'effacerait à la clôture.
+  const mention = (seance?.visite_mention || '').trim();
   // LA SECONDE SESSION SE TIENT COURS PAR COURS : deux professeurs ne
   // repassent pas leurs épreuves le même jour. Une date unique pour l'unité
   // obligeait le secrétariat à corriger chaque notification à la main.
@@ -1338,7 +1339,7 @@ function Cloture({ seance, onClore, onRetour, onPV, onRouvrir, enCours, nb, ajou
      clôture IMPOSSIBLE, sans rien dire, et sans champ où la débloquer. Ce qui
      est demandé, c'est de dire à l'étudiant comment exercer son droit : une
      plage OU une mention y suffit. */
-  const complet = dateS && (mention.trim() || (date && heure && local.trim()));
+  const complet = dateS && (mention || (date && heure && local.trim()));
 
   // LA DATE SE POSE SEULE — et elle ne s'écrase jamais.
   //
@@ -1480,48 +1481,50 @@ function Cloture({ seance, onClore, onRetour, onPV, onRouvrir, enCours, nb, ajou
             local figurent sur la notification qui lui est remise.
           </p>
         </div>
-        {!mention && (
-          <>
-            <div className="grid grid-cols-2 gap-2">
-              <label className="text-[12px] text-slate-600">
-                Date
-                <input type="date" value={date} onChange={e => setDate(e.target.value)}
-                  className="w-full mt-0.5 border border-slate-300 rounded-lg px-2 py-1.5 text-[13px]" />
-              </label>
-              <label className="text-[12px] text-slate-600">
-                Heure
-                <input type="time" value={heure} onChange={e => setHeure(e.target.value)}
-                  className="w-full mt-0.5 border border-slate-300 rounded-lg px-2 py-1.5 text-[13px]" />
-              </label>
-            </div>
-            <label className="text-[12px] text-slate-600 block">
-              Local
-              <input value={local} onChange={e => setLocal(e.target.value)}
-                placeholder="Bâtiment P, local 2.14…"
-                className="w-full mt-0.5 border border-slate-300 rounded-lg px-2 py-1.5 text-[13px]" />
-            </label>
-          </>
-        )}
-
-        {/* UNE SEULE DES DEUX FORMES À LA FOIS. Montrer la mention ET les trois
-            champs laisserait croire que les deux sortent sur la pièce ; c'est
-            la mention qui l'emporte, autant que l'écran le dise en cachant ce
-            qui ne servira pas. */}
-        {mention ? (
-          <label className="text-[12px] text-slate-600 block">
-            Mention portée sur la notification, à la place de la date
-            <textarea value={mention} onChange={e => setMention(e.target.value)} rows={2}
-              className="w-full mt-0.5 border border-slate-300 rounded-lg px-2 py-1.5 text-[13px]" />
-            <button onClick={() => setMention('')}
-              className="mt-1 text-[11px] text-slate-500 underline">
-              Revenir à une date, une heure et un local
-            </button>
+        {/* GRISER PLUTÔT QUE CACHER. Les trois champs disparaissaient dès
+            qu'une mention existait : l'écran devenait incompréhensible — on ne
+            voyait plus ce qui était remplacé, ni pourquoi. Grisés, ils disent
+            à la fois qu'ils existent, qu'ils sont sans effet, et ce qui les
+            neutralise. */}
+        <div className="grid grid-cols-2 gap-2">
+          <label className="text-[12px] text-slate-600">
+            Date
+            <input type="date" value={date} disabled={!!mention}
+              onChange={e => setDate(e.target.value)}
+              className="w-full mt-0.5 border border-slate-300 rounded-lg px-2 py-1.5 text-[13px]
+                         disabled:bg-slate-100 disabled:text-slate-400" />
           </label>
-        ) : (
-          <button onClick={() => setMention(MENTION_VISITE)}
-            className="text-[12px] text-iip-blue underline">
-            Pas de plage de consultation — porter une mention à la place
-          </button>
+          <label className="text-[12px] text-slate-600">
+            Heure
+            <input type="time" value={heure} disabled={!!mention}
+              onChange={e => setHeure(e.target.value)}
+              className="w-full mt-0.5 border border-slate-300 rounded-lg px-2 py-1.5 text-[13px]
+                         disabled:bg-slate-100 disabled:text-slate-400" />
+          </label>
+        </div>
+        <label className="text-[12px] text-slate-600 block">
+          Local
+          <input value={local} disabled={!!mention}
+            onChange={e => setLocal(e.target.value)}
+            placeholder="Bâtiment P, local 2.14…"
+            className="w-full mt-0.5 border border-slate-300 rounded-lg px-2 py-1.5 text-[13px]
+                       disabled:bg-slate-100 disabled:text-slate-400" />
+        </label>
+
+        {/* LA MENTION NE SE DÉCIDE PAS ICI. Une délibération se clôt avec ce
+            qu'on lui a donné ; changer la forme de la communication des
+            résultats est une correction administrative — elle se motive, elle
+            s'horodate, et elle a son écran. La clôture ne fait que montrer
+            l'état, sans jamais l'effacer. */}
+        {!!mention && (
+          <div className="rounded-lg bg-slate-50 border border-slate-200 px-3 py-2">
+            <div className="text-[12px] text-slate-700">{mention}</div>
+            <div className="text-[11px] text-slate-500 mt-1">
+              Une mention administrative tient lieu de plage de consultation :
+              c'est elle qui figurera sur la notification et au procès-verbal.
+              Elle se modifie depuis <b>Corriger</b>.
+            </div>
+          </div>
         )}
       </div>
 
@@ -1591,7 +1594,7 @@ function Cloture({ seance, onClore, onRetour, onPV, onRouvrir, enCours, nb, ajou
           <button disabled={enCours || !complet} onClick={() => onClore({
               date_seance: dateS, heure_seance: heureS || null,
               visite_date: date, visite_heure: heure, visite_local: local.trim(),
-              visite_mention: mention.trim(),
+              visite_mention: mention,
               session2_cours: s2,
               // La première date sert de repli pour ce qui n'est pas fixé.
               session2_date: s2[0]?.date || null,
@@ -1613,26 +1616,16 @@ function Cloture({ seance, onClore, onRetour, onPV, onRouvrir, enCours, nb, ajou
           <p className="text-[12px] text-emerald-800 text-center">
             Séance close. Les documents peuvent être générés, imprimés, puis signés.
           </p>
-          {/* UN CONSEIL SE RECONVOQUE. La clôture fige, c'est ce qu'on lui
-              demande — mais une erreur matérielle, une pièce arrivée après
-              coup ou un recours accueilli obligent à reprendre. La seule
-              issue était d'annuler la délibération, donc d'effacer TOUTES les
-              décisions pour en corriger une. */}
-          <div className="border border-slate-200 rounded-xl p-3 space-y-2">
-            <div className="text-[12px] text-slate-600">
-              Besoin de reprendre la délibération ? La séance se rouvre sans rien
-              effacer — décisions, notes et présences restent. Le motif est
-              conservé au dossier.
-            </div>
-            <ChoixMotifReouverture valeur={motifR} precision={precisionR}
-              onValeur={setMotifR} onPrecision={setPrecisionR} />
-            <button onClick={() => onRouvrir(motifReouverture(motifR, precisionR))}
-              disabled={enCours || !motifReouvertureComplet(motifR, precisionR)}
-              className="px-3 py-1.5 text-[13px] rounded-lg border border-amber-500
-                         text-amber-900 font-semibold disabled:opacity-40">
-              Rouvrir la séance
-            </button>
-          </div>
+          {/* LA RÉOUVERTURE N'EST PLUS ICI. Elle vivait au bas de l'écran de
+              clôture, avec son propre choix de motif, pendant que « corriger »
+              vivait ailleurs avec le sien : deux chemins, deux motifs, et il
+              fallait deviner lequel prendre avant d'avoir vu les champs. Les
+              deux se sont rejoints dans « Corriger ou rouvrir… », en tête de
+              l'unité close. */}
+          <button onClick={onReprendre}
+            className="mx-auto block text-[12px] text-amber-900 underline">
+            Corriger ou rouvrir cette séance
+          </button>
         </div>
       )}
     </div>
@@ -2900,6 +2893,20 @@ function VueLot({ liste, onAjourner, onOuvrir, enCours }) {
 
 /* ═══ Rouvrir une séance close, depuis n'importe où ═══════════════════════ */
 
+/** Un champ de la correction administrative. Défini ICI, et non dans le rendu :
+ *  un composant recréé à chaque frappe se démonte, et le curseur part avec. */
+function Ligne({ label, type = 'text', valeur, onChange, disabled }) {
+  return (
+    <label className={`text-[12px] ${disabled ? 'text-slate-400' : 'text-slate-600'}`}>
+      {label}
+      <input type={type} value={valeur} disabled={disabled}
+        onChange={e => onChange(e.target.value)}
+        className="w-full mt-0.5 border border-slate-300 rounded-lg px-2 py-1.5 text-[13px]
+                   disabled:bg-slate-100 disabled:text-slate-400" />
+    </label>
+  );
+}
+
 /**
  * CORRIGER LES MENTIONS ADMINISTRATIVES D'UNE SÉANCE CLOSE.
  *
@@ -2907,8 +2914,16 @@ function VueLot({ liste, onAjourner, onOuvrir, enCours }) {
  * décisions, les notes et les résultats ne passent pas par ici. La séance
  * reste close, un motif écrit est exigé, et l'avant/après est conservé.
  */
-function CorrectionAdministrative({ ueNum, annee, session, seance, onFerme, onFait }) {
+function CorrectionAdministrative({ ueNum, annee, session, seance, onFerme, onFait,
+                                    onRouvrir, enCours: rouvertureEnCours }) {
   const s = seance?.seance || {};
+  /* DEUX GESTES, UN SEUL ÉCRAN. Corriger et rouvrir répondent à la même
+     question — « quelque chose ne va pas dans cette séance close » — et on ne
+     sait souvent lequel des deux s'impose qu'une fois les champs sous les yeux.
+     Les séparer obligeait à fermer, retrouver le bandeau, rechoisir un motif et
+     le retaper : trois minutes à chaque fois, pour un geste d'une seconde.
+     Ici, on bascule d'un onglet, et le motif déjà choisi suit. */
+  const [mode, setMode] = useState('corriger');
   const [champs, setChamps] = useState({
     date_seance: s.date_seance || '', heure_seance: s.heure_seance || '',
     visite_date: s.visite_date || '', visite_heure: s.visite_heure || '',
@@ -2917,16 +2932,30 @@ function CorrectionAdministrative({ ueNum, annee, session, seance, onFerme, onFa
     president_nom: s.president_nom || '', president_titre: s.president_titre || '',
   });
   const [membres, setMembres] = useState(() => (seance?.membres || []).map(m => ({ ...m })));
-  const [motif, setMotif] = useState('');
+  // Le motif se CHOISIT, ici comme pour la réouverture : à vingt heures un soir
+  // de délibération, un champ libre récolte « erreur », et un an plus tard le
+  // dossier ne dit plus rien. La liste change avec le mode, la précision suit.
+  const [cle, setCle] = useState('');
+  const [precision, setPrecision] = useState('');
   const [erreur, setErreur] = useState(null);
   const [enCours, setEnCours] = useState(false);
+
+  const motifs = mode === 'corriger' ? MOTIFS_CORRECTION : MOTIFS_REOUVERTURE;
+  const motif = motifChoisi(cle, precision, motifs);
+  const motifOk = motifComplet(cle, precision);
+  // Changer d'onglet ne garde que ce qui a un sens dans l'autre liste.
+  const changerMode = (m) => {
+    setMode(m);
+    const liste = m === 'corriger' ? MOTIFS_CORRECTION : MOTIFS_REOUVERTURE;
+    setCle(c => (liste.some(x => x.cle === c) ? c : ''));
+  };
 
   async function envoyer() {
     setEnCours(true); setErreur(null);
     try {
       const rep = await fetch(`/api/acquis/deliberation/ue/${ueNum}/seance/administratif`, {
         method: 'PUT', headers: authHeaders(),
-        body: JSON.stringify({ annee, session, motif: motif.trim(), ...champs, membres }),
+        body: JSON.stringify({ annee, session, motif, ...champs, membres }),
       });
       const j = await rep.json().catch(() => ({}));
       if (!rep.ok) throw new Error(j.detail || j.error || 'Correction refusée.');
@@ -2935,57 +2964,87 @@ function CorrectionAdministrative({ ueNum, annee, session, seance, onFerme, onFa
     } catch (e) { setErreur(e.message); } finally { setEnCours(false); }
   }
 
-  const Ligne = ({ cle, label, type = 'text' }) => (
-    <label className="text-[12px] text-slate-600">
-      {label}
-      <input type={type} value={champs[cle]}
-        onChange={e => setChamps(c => ({ ...c, [cle]: e.target.value }))}
-        className="w-full mt-0.5 border border-slate-300 rounded-lg px-2 py-1.5 text-[13px]" />
-    </label>
+  // UN COMPOSANT DÉFINI DANS LE RENDU EST UN COMPOSANT NEUF À CHAQUE FRAPPE :
+  // React démonte l'ancien, monte le nouveau, et le champ perd le curseur à la
+  // première lettre. `Ligne` vivait ici ; elle vit désormais hors du rendu.
+  const ligne = (cle, label, type = 'text', off = false) => (
+    <Ligne cle={cle} label={label} type={type} disabled={off}
+      valeur={champs[cle]}
+      onChange={v => setChamps(c => ({ ...c, [cle]: v }))} />
   );
+
+  // LA MENTION EST UN MODE, PAS UN TEXTE À RETAPER. La case dit ce qui change ;
+  // le texte reste ajustable en dessous, mais personne n'a à le connaître pour
+  // l'employer.
+  const surDemande = !!champs.visite_mention.trim();
+  const basculer = (coche) => setChamps(c => ({
+    ...c, visite_mention: coche ? (c.visite_mention.trim() || MENTION_VISITE) : '',
+  }));
 
   return (
     <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-xl w-[720px] max-w-full max-h-[90vh] overflow-auto p-5 space-y-3">
         <div>
           <h3 className="text-[15px] font-semibold text-iip-blue">
-            Corriger les mentions administratives
+            Reprendre une séance close
           </h3>
-          <p className="text-[12px] text-slate-600">
-            La séance <b>reste close</b>. Les décisions, les notes et les résultats
-            ne sont pas touchés — pour les modifier, il faut rouvrir la séance.
-            La correction est conservée avec son motif, son auteur et son horodatage.
+          <div className="flex gap-4 mt-2 border-b border-slate-200">
+            {[['corriger', 'Corriger l’administratif'],
+              ['rouvrir', 'Rouvrir la séance']].map(([m, lib]) => (
+              <button key={m} onClick={() => changerMode(m)}
+                className={mode === m ? 'onglet-page-actif' : 'onglet-page'}>
+                {lib}
+              </button>
+            ))}
+          </div>
+          <p className="text-[12px] text-slate-600 mt-2">
+            {mode === 'corriger'
+              ? 'La séance reste close. Dates, visite des copies, présidence et '
+                + 'présences se corrigent ici ; les décisions, les notes et les '
+                + 'résultats ne sont pas touchés.'
+              : 'Rien n’est effacé : décisions, notes, présences et dates restent. '
+                + 'La séance redevient modifiable, et devra être close à nouveau.'}
+            {' '}La reprise est conservée avec son motif, son auteur et son horodatage.
           </p>
         </div>
 
+        {mode === 'corriger' && (<>
         <div className="grid grid-cols-2 gap-2">
-          <Ligne cle="date_seance" label="Date de la séance" type="date" />
-          <Ligne cle="heure_seance" label="Heure" type="time" />
-          <Ligne cle="visite_date" label="Visite des copies — date" type="date" />
-          <Ligne cle="visite_heure" label="Visite des copies — heure" type="time" />
-          <Ligne cle="visite_local" label="Visite des copies — local" />
-          <div />
-          <Ligne cle="president_nom" label="Président de la séance (si désigné)" />
-          <Ligne cle="president_titre" label="Titre porté au procès-verbal" />
+          {ligne('date_seance', 'Date de la séance', 'date')}
+          {ligne('heure_seance', 'Heure', 'time')}
+          {ligne('president_nom', 'Président de la séance (si désigné)')}
+          {ligne('president_titre', 'Titre porté au procès-verbal')}
         </div>
 
-        {/* LA MENTION REMPLACE LA LIGNE sur la notification. C'est la forme à
-            employer quand aucune plage n'est organisée : sans elle, la pièce
-            part avec trois rangées de pointillés à l'endroit même où elle
-            annonce un droit. */}
-        <label className="text-[12px] text-slate-600 block">
-          Visite des copies — mention à la place de la date
-          <textarea rows={2}
-            value={champs.visite_mention}
-            onChange={e => setChamps(c => ({ ...c, visite_mention: e.target.value }))}
-            placeholder="Laissez vide pour porter la date, l’heure et le local."
-            className="w-full mt-0.5 border border-slate-300 rounded-lg px-2 py-1.5 text-[13px]" />
-          <button
-            onClick={() => setChamps(c => ({ ...c, visite_mention: MENTION_VISITE }))}
-            className="mt-1 text-[11px] text-iip-blue underline">
-            Utiliser la mention type
-          </button>
-        </label>
+        {/* LA VISITE DES COPIES : UNE FORME OU L'AUTRE, ET LA CASE LE DIT.
+            C'est ici — et nulle part ailleurs — que la forme se décide : la
+            clôture prend la séance telle qu'elle est, la corriger se motive et
+            s'horodate. Les trois champs restent visibles mais grisés quand la
+            mention s'applique : on voit ce qui est remplacé. */}
+        <div className="border border-slate-200 rounded-xl p-3 space-y-2">
+          <div className="text-[12px] font-semibold text-iip-blue">Visite des copies</div>
+          <div className="grid grid-cols-2 gap-2">
+            {ligne('visite_date', 'Date', 'date', surDemande)}
+            {ligne('visite_heure', 'Heure', 'time', surDemande)}
+            {ligne('visite_local', 'Local', 'text', surDemande)}
+          </div>
+          <label className="flex items-start gap-2 text-[12px] text-slate-700">
+            <input type="checkbox" checked={surDemande} className="mt-0.5"
+              onChange={e => basculer(e.target.checked)} />
+            <span>
+              Aucune plage organisée — les modalités sont communiquées sur demande
+              <span className="block text-[11px] text-slate-500">
+                La mention ci-dessous remplace la date, l'heure et le local sur la
+                notification remise à l'étudiant et au procès-verbal.
+              </span>
+            </span>
+          </label>
+          {surDemande && (
+            <textarea rows={2} value={champs.visite_mention}
+              onChange={e => setChamps(c => ({ ...c, visite_mention: e.target.value }))}
+              className="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-[13px]" />
+          )}
+        </div>
 
         <div className="border border-slate-200 rounded-xl divide-y divide-slate-100">
           {membres.map((m, i) => (
@@ -3014,10 +3073,15 @@ function CorrectionAdministrative({ ueNum, annee, session, seance, onFerme, onFa
             </div>
           ))}
         </div>
+        </>)}
 
-        <textarea value={motif} onChange={e => setMotif(e.target.value)} rows={2}
-          placeholder="Pourquoi cette correction ? (erreur de saisie, membre omis…)"
-          className="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-[13px]" />
+        <div className="pt-1">
+          <div className="text-[12px] font-semibold text-slate-700 mb-1">
+            Motif — il figurera au dossier
+          </div>
+          <ChoixMotif motifs={motifs} valeur={cle} precision={precision}
+            onValeur={setCle} onPrecision={setPrecision} />
+        </div>
 
         {erreur && (
           <div className="px-3 py-2 rounded-lg bg-red-50 text-red-700 text-[13px]">{erreur}</div>
@@ -3028,11 +3092,20 @@ function CorrectionAdministrative({ ueNum, annee, session, seance, onFerme, onFa
             className="px-3 py-1.5 text-[13px] rounded-lg border border-slate-300">
             Annuler
           </button>
-          <button onClick={envoyer} disabled={enCours || motif.trim().length < 3}
-            className="px-3 py-1.5 text-[13px] rounded-lg bg-iip-blue text-white
-                       font-semibold disabled:opacity-40">
-            Corriger
-          </button>
+          {mode === 'corriger' ? (
+            <button onClick={envoyer} disabled={enCours || !motifOk}
+              className="px-3 py-1.5 text-[13px] rounded-lg bg-iip-blue text-white
+                         font-semibold disabled:opacity-40">
+              {enCours ? 'Enregistrement…' : 'Corriger'}
+            </button>
+          ) : (
+            <button disabled={rouvertureEnCours || !motifOk}
+              onClick={() => { onRouvrir(motif); onFerme(); }}
+              className="px-3 py-1.5 text-[13px] rounded-lg bg-amber-600 text-white
+                         font-semibold disabled:opacity-40">
+              {rouvertureEnCours ? 'Réouverture…' : 'Rouvrir la séance'}
+            </button>
+          )}
         </div>
       </div>
     </div>
@@ -3066,11 +3139,24 @@ export const MOTIFS_REOUVERTURE = [
   { cle: 'autre',      label: 'Autre motif' },
 ];
 
-function ChoixMotifReouverture({ valeur, precision, onValeur, onPrecision }) {
+/** Les raisons de CORRIGER, distinctes de celles de rouvrir : aucune d'elles ne
+ *  rejuge un étudiant, et c'est exactement ce qui les rend admissibles sur une
+ *  séance close. */
+export const MOTIFS_CORRECTION = [
+  { cle: 'date',       label: 'Date ou heure de séance mal encodée' },
+  { cle: 'visite',     label: 'Modalités de visite des copies à préciser' },
+  { cle: 'presidence', label: 'Présidence ou titre à corriger' },
+  { cle: 'presence',   label: 'Membre présent omis ou en trop' },
+  { cle: 'pv',         label: 'Erreur matérielle au procès-verbal' },
+  { cle: 'autre',      label: 'Autre motif' },
+];
+
+function ChoixMotif({ valeur, precision, onValeur, onPrecision,
+                      motifs = MOTIFS_REOUVERTURE }) {
   return (
     <div className="space-y-2">
       <div className="flex flex-wrap gap-1.5">
-        {MOTIFS_REOUVERTURE.map(m => (
+        {motifs.map(m => (
           <button key={m.cle} onClick={() => onValeur(m.cle)}
             className={`px-2.5 py-1 text-[12px] rounded-champ border transition-colors
               ${valeur === m.cle
@@ -3090,66 +3176,43 @@ function ChoixMotifReouverture({ valeur, precision, onValeur, onPrecision }) {
 }
 
 /** Le motif tel qu'il sera conservé : le libellé réglementaire, puis la précision. */
-export function motifReouverture(cle, precision) {
-  const m = MOTIFS_REOUVERTURE.find(x => x.cle === cle);
+export function motifChoisi(cle, precision, motifs = MOTIFS_REOUVERTURE) {
+  const m = motifs.find(x => x.cle === cle);
   if (!m) return '';
   const p = (precision || '').trim();
   return p ? `${m.label} — ${p}` : m.label;
 }
 
 /** Peut-on confirmer ? « Autre motif » exige sa précision, les autres non. */
-export function motifReouvertureComplet(cle, precision) {
+export function motifComplet(cle, precision) {
   if (!cle) return false;
   return cle !== 'autre' || (precision || '').trim().length >= 5;
 }
 
-function BandeauReouverture({ session, onRouvrir, onCorriger, enCours }) {
-  const [ouvert, setOuvert] = useState(false);
-  const [motif, setMotif] = useState('');
-  const [precision, setPrecision] = useState('');
+/* Les noms d'avant restent : d'autres écrans importent ceux-là. */
+export const motifReouverture = motifChoisi;
+export const motifReouvertureComplet = motifComplet;
 
+function BandeauReouverture({ session, onReprendre }) {
   return (
-    <div className="px-3 py-2 rounded-xl bg-slate-100 border border-slate-300 space-y-2">
-      <div className="flex items-center justify-between gap-3">
-        <span className="text-[13px] text-slate-700">
-          <b>Séance close</b> — {session === 2 ? 'seconde' : 'première'} session.
-          Les décisions ne peuvent plus être modifiées.
-        </span>
-        <span className="flex-none flex items-center gap-2">
-          {/* CORRIGER N'EST PAS ROUVRIR. Une date mal tapée, un prénom, un
-              membre oublié : rien de cela ne rejuge un étudiant. Il fallait
-              pourtant annuler la délibération, donc repasser toutes les
-              décisions. Les deux gestes se présentent maintenant côte à côte,
-              et le moins grave est le premier. */}
-          <button onClick={onCorriger}
-            className="px-2.5 py-1 text-[12px] rounded-lg border border-slate-400
-                       text-slate-700">
-            Corriger l'administratif
-          </button>
-          <button onClick={() => setOuvert(o => !o)}
-            className="px-2.5 py-1 text-[12px] rounded-lg border border-amber-500
-                       text-amber-900 font-semibold">
-            {ouvert ? 'Annuler' : 'Rouvrir la séance'}
-          </button>
-        </span>
-      </div>
-      {ouvert && (
-        <div className="space-y-2">
-          <p className="text-[12px] text-slate-600">
-            Rien n'est effacé : décisions, notes, présences et dates restent. Le motif
-            est conservé au dossier — un procès-verbal signé que l'on rouvre doit
-            pouvoir s'expliquer.
-          </p>
-          <ChoixMotifReouverture valeur={motif} precision={precision}
-            onValeur={setMotif} onPrecision={setPrecision} />
-          <button onClick={() => onRouvrir(motifReouverture(motif, precision))}
-            disabled={enCours || !motifReouvertureComplet(motif, precision)}
-            className="px-3 py-1.5 text-[13px] rounded-lg bg-amber-600 text-white
-                       font-semibold disabled:opacity-40">
-            {enCours ? 'Réouverture…' : 'Confirmer la réouverture'}
-          </button>
-        </div>
-      )}
+    <div className="px-3 py-2 rounded-xl bg-slate-100 border border-slate-300
+                    flex items-center justify-between gap-3">
+      <span className="text-[13px] text-slate-700">
+        <b>Séance close</b> — {session === 2 ? 'seconde' : 'première'} session.
+        Les décisions ne peuvent plus être modifiées.
+      </span>
+      {/* UN SEUL BOUTON, PARCE QU'ON NE SAIT PAS ENCORE LEQUEL DES DEUX.
+          Corriger et rouvrir répondent à la même question, et laquelle
+          s'impose ne se voit qu'une fois les champs sous les yeux. Deux
+          boutons obligeaient à trancher AVANT de regarder, puis à tout
+          reprendre si l'on s'était trompé : un motif retapé, une fenêtre
+          refermée, trois minutes perdues. Les deux gestes sont maintenant
+          deux onglets d'un même écran, et le motif les traverse. */}
+      <button onClick={onReprendre}
+        className="flex-none px-2.5 py-1 text-[12px] rounded-lg border border-amber-500
+                   text-amber-900 font-semibold">
+        Corriger ou rouvrir…
+      </button>
     </div>
   );
 }
