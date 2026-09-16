@@ -201,7 +201,16 @@ poids du cours, lignes 17+ poids des acquis.
   obligatoire**, conservé au dossier.
 - **Une motivation inventée se défend plus mal qu'un motif absent.**
 - Une reprise d'historique ne doit **jamais** pouvoir se faire passer pour une
-  délibération tenue.
+  délibération tenue. Les années importées d'Excel se clôturent donc par la
+  **reprise d'archives** (Configuration → *Clôturer une année reprise*) : elle
+  écrit un énoncé **uniforme** — volontairement, une phrase individualisée
+  laisserait croire à un examen qui n'a pas eu lieu — sous la provenance
+  `source = 'reprise'`, marque la séance `reprise = 1`, et fait porter à la
+  pièce remise à l'étudiant la mention qui le lui dit. Elle est **additive** :
+  aucune décision changée, aucune faveur octroyée, aucune motivation écrasée.
+  Trois provenances désormais, et elles ne se valent pas : `conseil` (rédigée
+  en séance), `propose` (proposée par Lucie, acceptée en bloc à la clôture),
+  `reprise` (reconstituée après coup par l'administration).
 
 **Chantiers de conformité ouverts, dans l'ordre :** geler les décisions à la
 clôture et historiser par ajout ; figer et horodater le PV ; bloc de signatures

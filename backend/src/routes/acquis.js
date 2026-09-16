@@ -32,6 +32,8 @@ import { identiteEtablissement } from './config.js';
 // Le contenu légal diffère ; la charte, non.
 import { envelopper, unitesReussies, pageAttestation, frDate } from './attestations.js';
 import { motifPropose } from '../lib/motifPropose.js';
+import { migrerReprise, simulerReprise, appliquerReprise,
+         MOTIF_REPRISE, MENTION_REPRISE } from '../lib/repriseHistorique.js';
 
 const r = Router();
 
@@ -60,6 +62,9 @@ export function migrerSessions(dbx) {
       console.log('[migration] decision_motivation.source ajoutée');
     }
   } catch (e) { console.error('[migration] decision_motivation :', e.message); }
+
+  // La séance reconstituée d'archives se marque comme telle.
+  migrerReprise(dbx);
 
   // Chaque migration dans son propre try : groupées, la première qui échoue
   // emportait les suivantes, et la table des résultats n'était jamais créée.
@@ -1123,10 +1128,14 @@ export function documentMotivation(etudId, ueNum, annee, session = 1) {
   // d'autres. Un acquis rattrapé en seconde session restait « non maîtrisé »
   // sur la pièce qui ouvre le recours.
   const d = delibererUE(etudId, ueNum, annee, session);
-  const motifs = Object.fromEntries(db.prepare(`
-    SELECT aa_code, motif FROM decision_motivation
+  // LA PROVENANCE VOYAGE AVEC LE TEXTE. Une motivation reconstituée d'archives
+  // se lit comme les autres ; c'est justement pourquoi la pièce doit le dire.
+  const lignesMotif = db.prepare(`
+    SELECT aa_code, motif, source FROM decision_motivation
     WHERE etudiant_id = ? AND annee_scolaire = ? AND ue_num = ?
-  `).all(etudId, annee, ueNum).map(m => [m.aa_code, m.motif]));
+  `).all(etudId, annee, ueNum);
+  const motifs = Object.fromEntries(lignesMotif.map(m => [m.aa_code, m.motif]));
+  const sources = Object.fromEntries(lignesMotif.map(m => [m.aa_code, m.source || 'conseil']));
 
   // Ce dont il faut rendre compte : l'acquis sous le seuil, et celui que le
   // Conseil a ajourné. Celui qu'une faveur a levé, non — il est acquis.
@@ -1161,6 +1170,7 @@ export function documentMotivation(etudId, ueNum, annee, session = 1) {
                  // un énoncé général reste attaquable, une case vide est
                  // indéfendable.
                  propose: !motifs[a.aa_code] && !!a.motif_propose,
+                 source: sources[a.aa_code] || null,
                  motif_propose: a.motif_propose || '' }));
 
   if (!lignes.length) {
@@ -1340,6 +1350,22 @@ export function documentMotivation(etudId, ueNum, annee, session = 1) {
       </tr>`).join('')}
     </tbody>
   </table>
+
+  <!-- ELLE PORTE SUR LA MOTIVATION, NON SUR LA SÉANCE. Une unité dont le
+       Conseil a bel et bien rédigé la justification n'a pas à porter une
+       mention de reconstitution parce que la séance, elle, a été clôturée
+       d'archives : ce serait affaiblir une motivation qui tient. C'est donc la
+       provenance des LIGNES qui décide, et d'elle seule. -->
+  ${lignes.some(l => l.source === 'reprise') ? `
+  <!-- LA MENTION DE REPRISE. Elle n'est pas une précaution d'écriture : elle
+       est ce qui permet à l'étudiant de savoir ce qu'il tient. Une motivation
+       reconstituée après coup ne se conteste pas comme une motivation
+       prononcée en séance, et le lui cacher reviendrait à lui retirer un
+       moyen. Elle se lit donc AVANT les voies de recours. -->
+  <div class="info">
+    <div class="titre">Origine de la présente motivation</div>
+    <div class="ligne">${esc2(MENTION_REPRISE)}</div>
+  </div>` : ''}
 
   ${estRefus ? `
   <!-- LES VOIES DE RECOURS, avec leurs fondements. Le décret ouvre le recours
@@ -7656,5 +7682,43 @@ export function avecAide(etudId, ueNum, annee, session = 1) {
   return { ...d, parcours: parcoursDeLAnnee(etudId, annee),
            ue: { ...d.ue, ...aideDecision(d, moyenne, ailleurs) } };
 }
+
+// ── CLÔTURER UNE ANNÉE REPRISE D'ARCHIVES ────────────────────────────────────
+//
+// Réservé à la direction : c'est une écriture en masse sur des dossiers clos,
+// et elle marque les pièces qui en sortiront. Elle se simule avant de
+// s'appliquer — « rien ne s'écrit sans qu'on ait vu ce qui sera écrit » — et
+// l'application ne se déclenche que si l'appelant a nommé l'année ET confirmé.
+
+r.get('/reprise/:annee/simulation', authRequired,
+  roleRequired('admin', 'directeur', 'directeur_adjoint'), (req, res) => {
+    try {
+      res.json(simulerReprise(req.params.annee, { motif: req.query.motif }));
+    } catch (e) { res.status(500).json({ error: e.message }); }
+  });
+
+r.post('/reprise/:annee', authRequired,
+  roleRequired('admin', 'directeur', 'directeur_adjoint'), (req, res) => {
+    const annee = req.params.annee;
+    // LA CONFIRMATION PORTE L'ANNÉE. Un « oui » seul se clique ; retaper
+    // « 2024-2025 » oblige à regarder sur quoi on écrit.
+    if (req.body?.confirmation !== annee) {
+      return res.status(409).json({
+        error: 'Confirmation manquante.',
+        detail: "Renvoyez `confirmation` avec l'année exacte à clôturer : cette "
+              + 'opération écrit une motivation sur chaque acquis en défaut de '
+              + "l'année et marque les séances comme reconstituées d'archives.",
+      });
+    }
+    try {
+      res.json(appliquerReprise(annee, {
+        motif: req.body?.motif, par: req.user?.email || null,
+      }));
+    } catch (e) { res.status(500).json({ error: e.message }); }
+  });
+
+/** Les énoncés par défaut, pour que l'écran n'ait pas à les recopier. */
+r.get('/reprise/enonces', authRequired, (req, res) =>
+  res.json({ motif: MOTIF_REPRISE, mention: MENTION_REPRISE }));
 
 export default r;
