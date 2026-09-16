@@ -635,7 +635,6 @@ main:not(:has(> .gouttiere-rail)) {
 }
 button.controle:hover:not(:disabled) { background: var(--menu-survol); }
 .controle:disabled { opacity: .4; }
-select.controle { padding-right: 1.6rem; }
 
 /* ═══ LES LISTES DÉROULANTES, À PLAT ══════════════════════════════════════
  *
@@ -657,18 +656,29 @@ select {
   -webkit-appearance: none;
   -moz-appearance: none;
   appearance: none;
+  /* SANS COULEUR DÉCLARÉE, LE NAVIGATEUR REMET LA SIENNE : un aplat gris de
+     système, sur une liste posée à côté d'un champ blanc. Une liste est un
+     choix — elle appartient à ce qui se remplit, et garde donc le blanc. Les
+     classes qui posent leur propre fond (barre du haut, mode sombre) gagnent
+     sur cette ligne, comme il se doit. */
+  background-color: var(--champ-fond);
   background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%2394A3B8' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
   background-position: right .6rem center;
   background-size: 10px 6px;
-  padding-right: 1.7rem;
+  /* LA PLACE DU CHEVRON NE SE NÉGOCIE PAS. Une classe utilitaire `px-2` posée
+     sur une liste l'emporte sur un sélecteur d'élément : le chevron se
+     retrouvait alors SOUS le dernier mot. C'est le même raisonnement que pour
+     l'échelle des rayons — on ne réécrit pas soixante et onze écrans, on rend
+     le défaut juste, et il tient. */
+  padding-inline-end: 1.7rem !important;
 }
 /* Une liste sans flèche n'est plus une liste : le chevron s'efface avec le
    reste quand le contrôle est désactivé, et pas avant. */
-select:disabled { background-image: none; padding-right: .7rem; }
+select:disabled { background-image: none; padding-inline-end: .7rem !important; }
 /* Le multiple et le déroulant ouvert n'ont pas de flèche à porter. */
 select[multiple], select[size]:not([size="1"]) {
-  background-image: none; padding-right: .7rem;
+  background-image: none; padding-inline-end: .7rem !important;
 }
 /* Le contrôle PRINCIPAL d'une barre — un seul, et il porte l'accent. */
 .controle-fort {
