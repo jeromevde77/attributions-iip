@@ -167,14 +167,22 @@ s'exécuter hors développement**, côté serveur.
 
 ### Sauvegarde avant tout merge vers `main`
 
+Sur le VPS OVH, la base de production vit dans `/opt/lucie/prod/data/` :
+
 ```bash
-cp /volume1/docker/attributions-app/backend/data/attributions.db \
-   /volume1/docker/avant_merge_$(date +%Y%m%d).db
+cd /opt/lucie
+cp prod/data/attributions.db prod/backups/avant_merge_$(date +%Y%m%d).db
+ls -lh prod/backups/avant_merge_*.db | tail -1
 ```
 
-> Chemin d'avant le déménagement chez OVH. **À réécrire pour le nouvel
-> hébergement** : la sauvegarde automatique part désormais vers le NAS, mais la
-> copie manuelle d'avant-merge doit être refaite là où la base vit maintenant.
+> La copie va dans `prod/backups/`, qui est monté hors du dossier de la base :
+> une sauvegarde rangée à côté de ce qu'elle protège disparaît avec lui. C'est
+> aussi ce dossier que la sauvegarde automatique vers le NAS surveille.
+> La ligne `ls` n'est pas une politesse : une copie qu'on ne regarde pas est
+> une copie dont on ignore si elle a eu lieu.
+>
+> Pour mémoire, avant le déménagement, c'était
+> `/volume1/docker/attributions-app/backend/data/attributions.db`.
 
 ### Workflow de branches
 
