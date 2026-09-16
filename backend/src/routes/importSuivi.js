@@ -71,7 +71,11 @@ function chercheur(annee, ueNum) {
       const c = inscrits.filter(x => clean(x.nom) === nom
         && (!prenom || clean(x.prenom).startsWith(prenom.slice(0, 5))));
       if (c.length === 1) return { id: c[0].id, methode: 'identité', inscrit: true };
-      if (c.length > 1) return { ambigu: true };
+      // AMBIGU N'EST PAS INCONNU — c'est le contraire. On rend donc les
+      // dossiers qui répondent : sans eux, l'écran annonce « inconnu de
+      // Lucie » pour quelqu'un qui y figure DEUX fois, et personne ne peut
+      // deviner qu'il faut aller fusionner des doublons.
+      if (c.length > 1) return { ambigu: true, candidats: c, ou: 'cette unité' };
 
       // ── LE REVENANT ────────────────────────────────────────────────────────
       //
@@ -97,7 +101,7 @@ function chercheur(annee, ueNum) {
         return { id: base[0].id, methode: 'identité (autre année)',
                  inscrit: idsInscrits.has(base[0].id), rattacher: mat || null };
       }
-      if (base.length > 1) return { ambigu: true };
+      if (base.length > 1) return { ambigu: true, candidats: base, ou: 'toute la base' };
     }
     return null;
   };
@@ -153,7 +157,7 @@ r.post('/', authRequired, roleRequired('admin', 'directeur', 'directeur_adjoint'
   const perim = getUserSections(req.user);
   const par = req.user?.email || null;
   const rapport = { simulation, annee: an, unites: [], total: {
-    unites: 0, etudiants: 0, rapproches: 0, inconnus: 0, hors_inscription: 0,
+    unites: 0, etudiants: 0, rapproches: 0, inconnus: 0, ambigus: 0, hors_inscription: 0,
     collisions: 0, notes_s1: 0, notes_s2: 0, decisions: 0, ajournements: 0,
     ponderations: 0, acquis: 0, acquis_retires: 0, crees: 0, inscrits: 0,
     s2_recopiees: 0, cotes: 0, motifs: 0, motifs_imposes: 0, sans_motif: 0,
@@ -294,7 +298,7 @@ r.post('/', authRequired, roleRequired('admin', 'directeur', 'directeur_adjoint'
       const ueNum = Number(u.ue_num);
       const fiche = { ue_num: ueNum, etudiants: 0, rapproches: 0, crees: 0, inscrits: 0,
         s2_recopiees: 0, cotes: 0, motifs: 0, motifs_imposes: 0, sans_motif: 0,
-        seances: 0, seances_sans_date: [], cotes_illisibles: [], inconnus: [],
+        seances: 0, seances_sans_date: [], cotes_illisibles: [], inconnus: [], ambigus: [],
         hors_inscription: [], collisions: [], notes_s1: 0, notes_s2: 0,
         decisions: 0, ajournements: 0, ponderations: 0, acquis: 0,
         acquis_hors_referentiel: [], acquis_retires: [], acquis_a_verifier: [],
@@ -430,8 +434,24 @@ r.post('/', authRequired, roleRequired('admin', 'directeur', 'directeur_adjoint'
         }
 
         if (!t || t.ambigu) {
-          if (fiche.inconnus.length < 30) fiche.inconnus.push(nomComplet + (t?.ambigu ? ' (homonymes)' : ''));
-          rapport.total.inconnus++;
+          if (t?.ambigu) {
+            // Plusieurs dossiers répondent : on NOMME lesquels. Le plus
+            // souvent ce ne sont pas deux personnes mais une seule, entrée
+            // deux fois — et c'est réparable en un clic, à condition de le
+            // savoir.
+            if (fiche.ambigus.length < 30) {
+              fiche.ambigus.push({
+                nom: nomComplet,
+                ou: t.ou || null,
+                candidats: (t.candidats || []).slice(0, 5).map(x => ({
+                  id: x.id, nom: x.nom, prenom: x.prenom })),
+              });
+            }
+            rapport.total.ambigus = (rapport.total.ambigus || 0) + 1;
+          } else {
+            if (fiche.inconnus.length < 30) fiche.inconnus.push(nomComplet);
+            rapport.total.inconnus++;
+          }
           continue;
         }
         if (collision.has(t.id)) continue;   // signalé plus haut, jamais écrit
