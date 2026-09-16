@@ -412,7 +412,16 @@ function GrilleParcours({ etudId, peutEcrire, annee }) {
       {popover && (
         <div className="fixed inset-0 z-[60] bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] flex items-center justify-center p-4"
           onClick={() => { setPopover(null); setPts(''); setDetail(null); setDetailOuvert(false); }}>
-          <div className="bg-white rounded-fenetre shadow-dessus p-5 w-80" onClick={e => e.stopPropagation()}>
+          {/* DEUX FENÊTRES EN UNE, ET UNE SEULE LARGEUR POUR LES DEUX.
+              Fermée, cette fenêtre ne porte qu'une poignée de boutons : 320 px
+              suffisent. Ouverte sur le détail, elle doit montrer une grille —
+              cours, acquis, notes des deux sessions — et 320 px la réduisaient
+              à une colonne de libellés tronqués. La largeur suit donc ce qu'on
+              y fait, et la hauteur aussi : c'est le contenu qui défile, pas la
+              fenêtre qui s'étire hors de l'écran. */}
+          <div onClick={e => e.stopPropagation()}
+            className={`bg-white rounded-fenetre shadow-dessus p-5 flex flex-col
+                        ${detailOuvert ? 'w-full max-w-3xl max-h-[88vh]' : 'w-80'}`}>
             <div className="font-semibold text-iip-blue mb-1">
               UE {popover.ue_num} — {popover.annee}
             </div>
@@ -459,7 +468,10 @@ function GrilleParcours({ etudId, peutEcrire, annee }) {
             </button>
 
             {detailOuvert && detail && (
-              <div className="mt-3 border-t border-slate-100 pt-3">
+              // La chaîne flex doit être CONTINUE jusqu'à la grille : un seul
+              // maillon qui l'oublie, et `flex-1 min-h-0` plus bas ne mesure
+              // plus rien — la fenêtre repart en hauteur libre.
+              <div className="mt-3 border-t border-slate-100 pt-3 flex flex-col flex-1 min-h-0">
                 {/* Note calculée depuis les acquis d'apprentissage */}
                 {detail.calcul && (
                   <div className={`rounded-xl px-3 py-2.5 mb-3 border ${
@@ -498,7 +510,7 @@ function GrilleParcours({ etudId, peutEcrire, annee }) {
                             // simplement pas communiquée à l'étudiant.
                             { points: detail.calcul.sur20 })}
                           className="flex-none text-[12px] px-2.5 py-1.5 rounded-lg bg-iip-blue text-white font-semibold">
-                          Reporter sur l\u2019UE
+                          Reporter sur l’UE
                         </button>
                       </div>
                     )}
@@ -531,9 +543,13 @@ function GrilleParcours({ etudId, peutEcrire, annee }) {
                   </div>
                 )}
 
-                <div className="max-h-72 overflow-y-auto space-y-2.5">
-                  {detail.decision && (detail.decision.s1 || detail.decision.s2
-                    || detail.decision.motivation) && (
+                {/* LA DÉCISION NE DÉFILE PAS. Elle était le premier élément
+                    d'une boîte à défilement de 288 px : il fallait faire rouler
+                    la molette pour savoir ce que le Conseil avait décidé, sur
+                    l'écran même où l'on corrige la note qui en découle. Elle
+                    reste maintenant sous les yeux. */}
+                {detail.decision && (detail.decision.s1 || detail.decision.s2
+                  || detail.decision.finale || detail.decision.motivation) && (
                     <div className="mb-2 px-3 py-2 rounded-lg bg-slate-50 border
                                     border-slate-200 text-[12px]">
                       <span className="font-semibold text-iip-blue">Décision</span>
@@ -556,8 +572,10 @@ function GrilleParcours({ etudId, peutEcrire, annee }) {
                         </div>
                       )}
                     </div>
-                  )}
+                )}
 
+                {/* LA GRILLE, ELLE, DÉFILE — et elle seule. */}
+                <div className="flex-1 min-h-0 overflow-y-auto space-y-2.5 pr-1">
                   {(detail.structure || []).map(co => (
                     <div key={co.cours_code} className="border border-slate-200 rounded-lg overflow-hidden">
                       <div className="flex items-center gap-2 px-2 py-1.5 bg-slate-50">
@@ -597,7 +615,7 @@ function GrilleParcours({ etudId, peutEcrire, annee }) {
                         })()
                       ) : !co.aas.length ? (
                         <div className="px-3 py-2 text-[11px] text-slate-400">
-                          Aucun acquis d\u2019apprentissage rattaché à ce cours.
+                          Aucun acquis d’apprentissage rattaché à ce cours.
                         </div>
                       ) : (
                         <div className="px-2 py-1 space-y-0.5">
