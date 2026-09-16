@@ -1,3 +1,8 @@
+# ⚠️ HÉRITAGE — INSTALLATION NAS SYNOLOGY, HORS SERVICE DEPUIS LE 17/09/2026.
+# Lucie tourne désormais sur un VPS OVH, derrière Caddy : voir
+# `docker-compose.vps.yml` (production), `docker-compose.vps.dev.yml`
+# (développement) et `Caddyfile.vps`. Ce fichier est conservé pour mémoire ;
+# il ne décrit plus l'installation en service.
 # Environnement de DÉVELOPPEMENT — port 10801 HTTPS
 # Base de données séparée de la production (volume data-dev).
 # Images taguées :dev, mises à jour par la branche develop.

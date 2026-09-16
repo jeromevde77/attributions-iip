@@ -20,7 +20,11 @@ services:
       PORT: 3001
       JWT_SECRET: ${JWT_SECRET:?JWT_SECRET manquant — openssl rand -hex 32}
       DB_PATH: /app/data/attributions.db
-      CORS_ORIGIN: ${CORS_ORIGIN:?CORS_ORIGIN manquant — https://votre-domaine}
+      CORS_ORIGIN: ${CORS_ORIGIN:-https://www.lucie-iip.be}
+      # L'ADRESSE QUI PART DANS LES COURRIELS. Sans elle, les notifications
+      # renvoient vers l'adresse de repli inscrite dans le code : un lien qui
+      # mène ailleurs se remarque, et ne se rattrape pas une fois envoyé.
+      LUCIE_URL: ${LUCIE_URL:-https://www.lucie-iip.be}
     volumes:
       - /opt/lucie/data:/app/data
       # Sauvegardes hors du dossier de la base : une copie rangée à côté de ce

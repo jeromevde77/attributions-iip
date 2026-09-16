@@ -274,7 +274,11 @@ export async function envoyerEmail({ to, subject, html, text, attachments }) {
  * Template HTML de base pour les notifications Lucie.
  */
 export function templateNotif({ titre, corps, lien, lienTexte = 'Voir dans Lucie' }) {
-  const BASE_URL = process.env.LUCIE_URL || 'https://server.domobel.be:10800';
+  // L'ADRESSE DE PRODUCTION EST CELLE DU REPLI. Un courriel part vers des
+  // dizaines de destinataires : si `LUCIE_URL` manque, le lien doit tout de
+  // même mener quelque part — un lien mort dans une notification officielle se
+  // remarque, et ne se rattrape pas.
+  const BASE_URL = process.env.LUCIE_URL || 'https://www.lucie-iip.be';
   return `<!DOCTYPE html>
 <html><head><meta charset="utf-8"></head>
 <body style="font-family:Arial,sans-serif;color:#222;max-width:600px;margin:0 auto;padding:20px">

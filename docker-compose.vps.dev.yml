@@ -1,0 +1,68 @@
+# =================================================================
+# docker-compose VPS — environnement de DÉVELOPPEMENT (OVH, Debian 12).
+#
+# Jumeau de `docker-compose.vps.yml`, avec quatre différences, et elles sont
+# toutes délibérées :
+#   — les images sont taguées `:dev` (construites depuis la branche develop) ;
+#   — les données vivent dans /opt/lucie-dev, séparées de la production : une
+#     restauration en développement ne doit jamais pouvoir toucher les données
+#     réelles ;
+#   — le frontend écoute sur 8081, derrière le bloc `dev.lucie-iip.be` du
+#     Caddyfile ;
+#   — NODE_ENV vaut `development`, ce qui OUVRE la route de restauration de la
+#     base. C'est l'objet même de cet environnement, et c'est aussi la raison
+#     pour laquelle le Caddyfile propose d'y poser une authentification
+#     supplémentaire : ce qui était protégé par le réseau local ne l'est plus.
+#
+# À placer dans /opt/lucie-dev/docker-compose.yml.
+# =================================================================
+
+services:
+  backend:
+    image: ghcr.io/jeromevde77/attributions-backend:dev
+    pull_policy: always
+    container_name: lucie-backend-dev
+    restart: unless-stopped
+    environment:
+      # `development` n'est pas une négligence : c'est ce qui autorise la
+      # restauration d'une copie de la base de production. La route la refuse
+      # partout ailleurs, côté serveur.
+      NODE_ENV: development
+      TZ: Europe/Brussels
+      PORT: 3001
+      # Un secret PROPRE au développement : partager celui de la production
+      # rendrait un jeton émis ici valable là-bas.
+      JWT_SECRET: ${JWT_SECRET_DEV:?JWT_SECRET_DEV manquant — openssl rand -hex 32}
+      DB_PATH: /app/data/attributions.db
+      CORS_ORIGIN: ${CORS_ORIGIN_DEV:-https://dev.lucie-iip.be}
+      # Les liens des courriels doivent ramener sur DEV : un essai qui renvoie
+      # l'utilisateur en production est pire qu'un lien mort.
+      LUCIE_URL: ${LUCIE_URL_DEV:-https://dev.lucie-iip.be}
+    volumes:
+      - /opt/lucie-dev/data:/app/data
+      # Les sauvegardes hors du dossier de la base : une copie rangée à côté de
+      # ce qu'elle protège disparaît avec lui.
+      - /opt/lucie-dev/backups:/app/data/backups
+    expose:
+      - "3001"
+    networks:
+      - lucie-dev-net
+
+  frontend:
+    image: ghcr.io/jeromevde77/attributions-frontend:dev
+    pull_policy: always
+    container_name: lucie-frontend-dev
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      # Jamais 0.0.0.0 : Docker écrit ses propres règles iptables et
+      # court-circuite UFW — un port publié sur toutes les interfaces serait
+      # exposé à Internet malgré le pare-feu. C'est Caddy qui fait la façade.
+      - "127.0.0.1:8081:80"
+    networks:
+      - lucie-dev-net
+
+networks:
+  lucie-dev-net:
+    driver: bridge

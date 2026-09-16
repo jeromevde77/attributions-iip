@@ -2737,7 +2737,21 @@ app.use(helmet());
 // ── Guard écriture en mode DEMO ──────────────────────────────────────────────
 app.use((req, res, next) => demoWriteGuard(req, res, next));
 
-app.use(cors({ origin: process.env.CORS_ORIGIN || true, credentials: true }));
+/*
+ * UNE SEULE ORIGINE NE SUFFIT PLUS.
+ *
+ * `CORS_ORIGIN` ne portait qu'une chaîne : une adresse, et une seule. Or le
+ * même service se rejoint par plusieurs chemins — avec et sans « www »,
+ * l'ancien domaine pendant la bascule, l'adresse interne du NAS. Une origine
+ * oubliée ne donne pas un message clair : elle donne une page qui charge et une
+ * application qui ne répond pas, ce qui se diagnostique mal.
+ *
+ * La variable accepte donc une liste séparée par des virgules. Une valeur
+ * unique continue de fonctionner telle quelle.
+ */
+const ORIGINES = String(process.env.CORS_ORIGIN || '')
+  .split(',').map(o => o.trim()).filter(Boolean);
+app.use(cors({ origin: ORIGINES.length ? ORIGINES : true, credentials: true }));
 // L'envoi par courriel transporte jusqu'à deux cents documents HTML en un
 // appel : il lui faut plus que la limite commune. Déclaré AVANT, car un
 // corps déjà lu n'est pas relu par le parseur suivant.

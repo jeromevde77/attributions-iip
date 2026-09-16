@@ -1,3 +1,8 @@
+# ⚠️ HÉRITAGE — INSTALLATION NAS SYNOLOGY, HORS SERVICE DEPUIS LE 17/09/2026.
+# Lucie tourne désormais sur un VPS OVH, derrière Caddy : voir
+# `docker-compose.vps.yml` (production), `docker-compose.vps.dev.yml`
+# (développement) et `Caddyfile.vps`. Ce fichier est conservé pour mémoire ;
+# il ne décrit plus l'installation en service.
 # =================================================================
 # docker-compose PROD — SSL DIRECT dans nginx (sans reverse proxy DSM)
 #
@@ -27,7 +32,7 @@ services:
       PORT: 3001
       JWT_SECRET: ${JWT_SECRET:-change-me-jwt-secret-please}
       DB_PATH: /app/data/attributions.db
-      CORS_ORIGIN: ${CORS_ORIGIN:-https://server.domobel.be:10800}
+      CORS_ORIGIN: ${CORS_ORIGIN:-https://www.lucie-iip.be,https://lucie-iip.be}
     volumes:
       - ./backend/data:/app/data
     expose:

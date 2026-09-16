@@ -111,10 +111,28 @@ annuelle l'emporte quand elle existe.
 **Stack** : Node/Express + `better-sqlite3` · React/Vite · Tailwind · Docker sur
 NAS Synology.
 
-| Environnement | Branche | Image | Port | Données |
+| Environnement | Branche | Image | Adresse | Données |
 |---|---|---|---|---|
-| Production | `main` | `:latest` | 10800 | réelles |
-| Développement | `develop` | `:dev` | 10801 | copie restaurée |
+| Production | `main` | `:latest` | **https://www.lucie-iip.be** | réelles |
+| Développement | `develop` | `:dev` | **https://dev.lucie-iip.be** | copie synchronisée |
+
+> **Déménagement du 17 septembre 2026.** Le service a quitté le NAS pour un
+> **VPS OVH**, derrière **Caddy** (TLS, certificats Let's Encrypt automatiques).
+> Les bases ont été synchronisées et la **sauvegarde de la base part vers le
+> NAS**. Les fichiers de déploiement en service sont `Caddyfile.vps`,
+> `docker-compose.vps.yml` (production, frontend sur 127.0.0.1:8080) et
+> `docker-compose.vps.dev.yml` (développement, 127.0.0.1:8081). Les
+> `docker-compose` du NAS sont conservés pour mémoire et marqués **héritage** :
+> ils ne décrivent plus l'installation courante. Les anciennes adresses `server.domobel.be:10800` et `:10801`
+> ne valent plus. Trois endroits portaient une adresse en dur et ont été
+> repris : `CORS_ORIGIN` dans les deux `docker-compose` (qui accepte désormais
+> une **liste séparée par des virgules** — avec et sans `www`), le repli de
+> `LUCIE_URL` dans `services/mailer.js` (les liens des courriels), et la note
+> sur l'allowlist de l'eID Reader dans `frontend/src/lib/eid.js`.
+> **L'allowlist de l'app eID Reader n'est pas dans ce dépôt** : tant qu'elle
+> porte l'ancienne adresse, la lecture de carte échoue en silence.
+> La restauration de sauvegarde reste gardée par `NODE_ENV`, non par l'adresse :
+> le déménagement ne l'affaiblit pas.
 
 - Base : `/app/data/attributions.db` dans le conteneur. **SQLite3 n'est pas
   installé** → interroger via `node -e "const Database = require('better-sqlite3') …"`.
@@ -134,8 +152,9 @@ NAS Synology.
 
 ### Restaurer des données réelles en dev
 
-Configuration → Sauvegardes → *Télécharger* en **prod**, puis, sur **dev**
-(10801), même écran, section rouge « Restauration de la base ». La route valide
+Configuration → Sauvegardes → *Télécharger* en **prod**
+(www.lucie-iip.be), puis, sur **dev** (dev.lucie-iip.be), même écran, section
+rouge « Restauration de la base ». La route valide
 le fichier, sauvegarde l'état courant sous `backups-auto/`, remet l'ancienne
 base si la nouvelle s'avère illisible, et redémarre. **Elle refuse de
 s'exécuter hors développement**, côté serveur.
@@ -146,6 +165,10 @@ s'exécuter hors développement**, côté serveur.
 cp /volume1/docker/attributions-app/backend/data/attributions.db \
    /volume1/docker/avant_merge_$(date +%Y%m%d).db
 ```
+
+> Chemin d'avant le déménagement chez OVH. **À réécrire pour le nouvel
+> hébergement** : la sauvegarde automatique part désormais vers le NAS, mais la
+> copie manuelle d'avant-merge doit être refaite là où la base vit maintenant.
 
 ### Workflow de branches
 
