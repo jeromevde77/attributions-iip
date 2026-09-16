@@ -614,9 +614,32 @@ r.post('/', authRequired, roleRequired('admin', 'directeur', 'directeur_adjoint'
       //
       // Une fois par unité, non par étudiant : c'est le Conseil qui s'est
       // réuni, pas chacun séparément. Ce qui n'est pas déclaré n'écrase rien.
+      //
+      // CLÔTURER EST UNE DÉCISION, PAS UNE DÉDUCTION.
+      //
+      // La boucle passait son chemin dès que le bloc de séance était vide :
+      // pas de date, pas de président, donc rien d'écrit — et donc rien de
+      // clos. Or un classeur repris d'archives ne porte presque jamais ces
+      // renseignements : on importait toute une année, on cochait « clôturer »,
+      // et l'unité restait ouverte sans qu'aucun message ne le dise. Optométrie
+      // 24-25 est exactement ce cas.
+      //
+      // Quand la clôture est DEMANDÉE, elle se fait donc, bloc vide ou non :
+      // c'est l'utilisateur qui décide de figer l'acte, pas la complétude du
+      // classeur. Ce qui manque reste manquant — on n'invente ni date ni
+      // président —, mais la séance existe et elle est close.
+      //
+      // LA SECONDE SESSION NE SE CLÔT PAS PAR RICOCHET. Clore une session 2
+      // dont rien n'atteste la tenue reviendrait à faire dire au dossier qu'un
+      // second Conseil s'est réuni. Elle n'est donc close que si le classeur
+      // en portait la trace : un bloc rempli, ou des notes de seconde session.
       if (migration && u.seance) {
-        for (const [ses, bloc] of [[1, u.seance.s1], [2, u.seance.s2]]) {
-          if (!bloc || !Object.values(bloc).some(v => String(v ?? '').trim())) continue;
+        const clore = u.seance.cloturer === true;
+        const traceS2 = !!fiche.notes_s2;
+        for (const [ses, bloc0] of [[1, u.seance.s1], [2, u.seance.s2]]) {
+          const rempli = bloc0 && Object.values(bloc0).some(v => String(v ?? '').trim());
+          const bloc = bloc0 || {};
+          if (!rempli && !(clore && (ses === 1 || traceS2))) continue;
           const role = ['titulaire', 'suppleant', 'autre'].includes(bloc.president_role)
             ? bloc.president_role : null;
           if (!simulation) {
@@ -628,7 +651,7 @@ r.post('/', authRequired, roleRequired('admin', 'directeur', 'directeur_adjoint'
               role, bloc.president_nom || null, bloc.president_titre || null,
               // LA CLÔTURE NE SE DÉDUIT PAS D'UNE DATE. Une séance close fige
               // l'acte et ouvre le délai de recours : on la demande.
-              u.seance.cloturer === true ? 1 : 0, par);
+              clore ? 1 : 0, par);
           }
           fiche.seances++; rapport.total.seances++;
           if (!bloc.date_seance) {
