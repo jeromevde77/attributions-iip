@@ -1279,8 +1279,14 @@ export function sectionRattachement(etudId, annee = null) {
   const e = db.prepare('SELECT section_rattachement FROM etudiant WHERE id = ?').get(etudId);
   if (e?.section_rattachement) return { section: e.section_rattachement, deduite: false };
 
+  // LES UNITÉS HORS CURSUS NE VOTENT PAS. Une unité qui s'ajoute au programme
+  // d'étudiants de plusieurs sections ne dit rien du cursus de celui-ci : la
+  // compter dans la déduction, c'est laisser un héritage d'import trancher un
+  // rattachement — et, sur un étudiant qui ne porte qu'une ou deux unités, le
+  // trancher faux.
   const lignes = db.prepare(`
     SELECT (SELECT section FROM ue u WHERE u.ue_num = i.ue_num AND u.section IS NOT NULL
+              AND COALESCE(u.hors_cursus, 0) = 0
              ORDER BY u.annee_scolaire DESC LIMIT 1) AS section
     FROM etudiant_inscription i
     WHERE i.etudiant_id = ?${annee ? ' AND i.annee_scolaire = ?' : ''}

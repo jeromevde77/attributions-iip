@@ -1700,6 +1700,27 @@ try {
       console.log('[migration] Table ue : colonne pot_code ajoutée');
     }
 
+    /*
+     * UNE UNITÉ HORS CURSUS NE RATTACHE PERSONNE À SA SECTION.
+     *
+     * L'UE 95 porte « Restart » parce que l'import de mai l'a rangée là, et
+     * non parce qu'elle appartient à ce cursus : elle s'ajoute au programme
+     * d'étudiants de plusieurs sections. Tant que la section DÉCLARÉE SUR
+     * L'UNITÉ servait à compter, chaque inscription tombait dans Restart —
+     * les effectifs, les taux de réussite et les cotes d'une section entière
+     * s'en trouvaient faussés, sans que rien ne le signale.
+     *
+     * Ce drapeau dit que la section de l'unité est un héritage d'import, pas
+     * un rattachement : le dossier se compte alors dans la section DE
+     * L'ÉTUDIANT, et si celui-ci est inscrit en Restart, il compte bien en
+     * Restart. La colonne est additive et vaut 0 partout : rien ne change tant
+     * que personne ne coche.
+     */
+    if (!ueColsNow.includes('hors_cursus')) {
+      db.exec("ALTER TABLE ue ADD COLUMN hors_cursus INTEGER NOT NULL DEFAULT 0");
+      console.log('[migration] Table ue : colonne hors_cursus ajoutée');
+    }
+
     // Table dotation_civile : dotation organique par année civile
     db.exec(`
       CREATE TABLE IF NOT EXISTS dotation_civile (

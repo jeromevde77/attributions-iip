@@ -31,6 +31,57 @@ import { anneeDeTravail } from '../helpers/annee.js';
 const r = Router();
 
 const SEUIL = 10;
+
+/**
+ * DE QUELLE SECTION EST CE DOSSIER ?
+ *
+ * Par défaut, de celle de l'unité : une unité appartient à un cursus, et ses
+ * inscrits sont les étudiants de ce cursus. Mais certaines unités s'ajoutent au
+ * programme d'étudiants de plusieurs sections — l'UE 95 porte « Restart »
+ * parce que l'import de mai l'a rangée là, non parce qu'elle lui appartient.
+ * Tant que sa section déclarée comptait, chaque inscrit tombait dans Restart :
+ * effectifs, taux de réussite et cotes d'une section entière s'en trouvaient
+ * faussés, en silence.
+ *
+ * Pour ces unités-là — celles marquées « hors cursus » —, c'est la SECTION DE
+ * L'ÉTUDIANT qui compte : inscrit en Restart, il compte en Restart ; inscrit
+ * ailleurs, il compte ailleurs. Le rattachement explicite fait foi, la
+ * déduction ne sert qu'à défaut, et elle ignore elle-même les unités hors
+ * cursus — sans quoi l'héritage d'import trancherait encore.
+ *
+ * Un étudiant qui ne porte QUE des unités hors cursus n'a pas de cursus : sa
+ * section reste nulle, et son dossier se compte à part plutôt que d'être
+ * attribué au hasard.
+ */
+function resolveurSection(annee) {
+  const parEtudiant = new Map();
+  for (const e of db.prepare(`
+    SELECT id, section_rattachement FROM etudiant WHERE section_rattachement IS NOT NULL
+  `).all()) parEtudiant.set(e.id, e.section_rattachement);
+
+  // La déduction, en un seul passage plutôt qu'une requête par étudiant.
+  const compte = new Map();
+  for (const l of db.prepare(`
+    SELECT i.etudiant_id, u.section
+      FROM etudiant_inscription i
+      JOIN ue u ON u.ue_num = i.ue_num AND u.annee_scolaire = i.annee_scolaire
+     WHERE i.annee_scolaire = ? AND u.section IS NOT NULL
+       AND COALESCE(u.hors_cursus, 0) = 0
+  `).all(annee)) {
+    if (!compte.has(l.etudiant_id)) compte.set(l.etudiant_id, new Map());
+    const m = compte.get(l.etudiant_id);
+    m.set(l.section, (m.get(l.section) || 0) + 1);
+  }
+  for (const [id, m] of compte) {
+    if (parEtudiant.has(id)) continue;
+    const gagnante = [...m.entries()].sort((a, b) => b[1] - a[1])[0];
+    if (gagnante) parEtudiant.set(id, gagnante[0]);
+  }
+
+  return (ligne) => (Number(ligne.hors_cursus) === 1
+    ? (parEtudiant.get(ligne.etudiant_id) || null)
+    : (ligne.section || null));
+}
 const pct = (n, d) => (d ? Math.round((n / d) * 1000) / 10 : null);
 
 /** Un compteur vide, pour n'avoir jamais à tester l'existence d'une case. */
@@ -67,12 +118,18 @@ function taux(c) {
  * septembre s'il y en a une, et le résultat final qui en découle.
  */
 function decisions(annee, sections) {
+  // LE FILTRE NE PEUT PLUS SE FAIRE EN SQL SEUL : pour une unité hors cursus,
+  // la section n'est connue qu'une fois l'étudiant résolu. On ramène donc ces
+  // lignes-là dans tous les cas, et on filtre après résolution.
   const dansSections = sections?.length
-    ? ` AND u.section IN (${sections.map(() => '?').join(',')})` : '';
+    ? ` AND (u.section IN (${sections.map(() => '?').join(',')})`
+      + ' OR COALESCE(u.hors_cursus, 0) = 1)' : '';
   const args = sections?.length ? [annee, ...sections] : [annee];
+  const sectionDe = resolveurSection(annee);
 
   const lignes = db.prepare(`
     SELECT i.etudiant_id, i.ue_num, u.section, u.ue_nom, u.ue_niv,
+           COALESCE(u.hors_cursus, 0) AS hors_cursus,
            i.resultat AS dossier,
            (SELECT resultat FROM deliberation_resultat d
              WHERE d.etudiant_id = i.etudiant_id AND d.annee_scolaire = i.annee_scolaire
@@ -95,7 +152,7 @@ function decisions(annee, sections) {
     // faisait revenir en septembre des étudiants refusés en juin.
     const s1 = net(l.trace1) || net(l.dossier);
     const s2 = net(l.trace2);
-    return { ...l, s1, s2,
+    return { ...l, section: sectionDe(l), s1, s2,
       // Une valorisation est une réussite acquise autrement : elle compte comme
       // telle au final, mais elle n'a pas été délibérée en séance.
       final: s2 || (s1 === 'ajourne' ? null : s1) };
@@ -253,15 +310,26 @@ r.get('/distributions', authRequired, (req, res) => {
   const niveaux = categories();
   const retenue = (section) => CATEGORIES[cat](niveaux.get(section) ?? null);
 
+  // Même règle qu'ailleurs : une unité hors cursus revient dans tous les cas,
+  // sa section n'étant connue qu'une fois l'étudiant résolu.
   const dansSections = sections?.length
-    ? ` AND u.section IN (${sections.map(() => '?').join(',')})` : '';
+    ? ` AND (u.section IN (${sections.map(() => '?').join(',')})`
+      + ' OR COALESCE(u.hors_cursus, 0) = 1)' : '';
   const args = sections?.length ? [annee, ...sections] : [annee];
+  const sectionDe = resolveurSection(annee);
+  // Retenue = dans la catégorie demandée ET, s'il y a un périmètre, dedans.
+  const garde = (l) => {
+    const sec = sectionDe(l);
+    if (sections?.length && !(sec && sections.includes(sec))) return false;
+    return retenue(sec);
+  };
 
   // ── LES COTES D'UNITÉ ───────────────────────────────────────────────────
   // La trace de séance d'abord ; le dossier ne comble que ses silences —
   // la même règle que partout ailleurs dans ce module.
   const cotesUe = db.prepare(`
-    SELECT i.ue_num, u.section, u.ue_nom,
+    SELECT i.ue_num, u.section, u.ue_nom, i.etudiant_id,
+           COALESCE(u.hors_cursus, 0) AS hors_cursus,
            COALESCE((SELECT d.points FROM deliberation_resultat d
                       WHERE d.etudiant_id = i.etudiant_id
                         AND d.annee_scolaire = i.annee_scolaire
@@ -270,49 +338,60 @@ r.get('/distributions', authRequired, (req, res) => {
       FROM etudiant_inscription i
       LEFT JOIN ue u ON u.ue_num = i.ue_num AND u.annee_scolaire = i.annee_scolaire
      WHERE i.annee_scolaire = ?${dansSections}
-  `).all(...args).filter(l => retenue(l.section));
+  `).all(...args).filter(garde).map(l => ({ ...l, section: sectionDe(l) }));
 
   // ── LES COTES DE COURS ──────────────────────────────────────────────────
   const cotesCours = db.prepare(`
-    SELECT n.code, n.points, n.ue_num, u.section, u.ue_nom
+    SELECT n.code, n.points, n.ue_num, u.section, u.ue_nom, n.etudiant_id,
+           COALESCE(u.hors_cursus, 0) AS hors_cursus
       FROM etudiant_note_detail n
       LEFT JOIN ue u ON u.ue_num = n.ue_num AND u.annee_scolaire = n.annee_scolaire
      WHERE n.annee_scolaire = ? AND n.type = 'aa' AND n.points IS NOT NULL${dansSections}
   `).all(...args)
-    .filter(l => retenue(l.section))
+    .filter(garde)
+    .map(l => ({ ...l, section: sectionDe(l) }))
     // Le code d'un acquis s'écrit « CODECOURS|ACQUIS » : le cours est devant.
     .map(l => ({ ...l, cours_code: String(l.code || '').split('|')[0] || null }))
     .filter(l => l.cours_code);
 
   // ── LES EFFECTIFS ───────────────────────────────────────────────────────
   const effectifs = db.prepare(`
-    SELECT i.ue_num, u.section, u.ue_nom, COUNT(DISTINCT i.etudiant_id) AS n
+    SELECT i.ue_num, u.section, u.ue_nom, COALESCE(u.hors_cursus, 0) AS hors_cursus,
+           COUNT(DISTINCT i.etudiant_id) AS n
       FROM etudiant_inscription i
       LEFT JOIN ue u ON u.ue_num = i.ue_num AND u.annee_scolaire = i.annee_scolaire
      WHERE i.annee_scolaire = ?${dansSections}
      GROUP BY i.ue_num
-  `).all(...args).filter(l => retenue(l.section));
+  `).all(...args)
+    // UN EFFECTIF EST LA TAILLE D'UN GROUPE, et un groupe hors cursus est
+    // réellement mixte : l'attribuer à une section serait inventer. Il sort
+    // donc des effectifs par section, et reste dans l'ensemble.
+    .map(l => ({ ...l, section: Number(l.hors_cursus) === 1 ? null : l.section }))
+    .filter(l => retenue(l.section));
 
   // ── LES UNITÉS PAR ÉTUDIANT ─────────────────────────────────────────────
   // Un étudiant peut suivre des unités de plusieurs sections : on le compte
   // une fois, et sa section est celle où il porte le plus d'unités.
+  // LA SECTION D'UN ÉTUDIANT NE SE DEVINE PLUS ICI : le résolveur la donne,
+  // rattachement explicite d'abord, déduction ensuite — une seule règle pour
+  // tout le module, au lieu d'une majorité recalculée dans son coin.
   const lignesEtu = db.prepare(`
-    SELECT i.etudiant_id, i.ue_num, u.section
+    SELECT i.etudiant_id, i.ue_num, u.section,
+           COALESCE(u.hors_cursus, 0) AS hors_cursus
       FROM etudiant_inscription i
       LEFT JOIN ue u ON u.ue_num = i.ue_num AND u.annee_scolaire = i.annee_scolaire
      WHERE i.annee_scolaire = ?${dansSections}
   `).all(...args);
   const parEtudiant = new Map();
   for (const l of lignesEtu) {
-    if (!parEtudiant.has(l.etudiant_id)) parEtudiant.set(l.etudiant_id, { n: 0, sections: new Map() });
-    const e = parEtudiant.get(l.etudiant_id);
-    e.n++;
-    e.sections.set(l.section, (e.sections.get(l.section) || 0) + 1);
+    if (!parEtudiant.has(l.etudiant_id)) parEtudiant.set(l.etudiant_id, { n: 0, ligne: l });
+    parEtudiant.get(l.etudiant_id).n++;
   }
   const etudiants = [...parEtudiant.entries()].map(([id, e]) => ({
     etudiant_id: id, n: e.n,
-    section: [...e.sections.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] || null,
-  })).filter(e => retenue(e.section));
+    section: sectionDe({ ...e.ligne, hors_cursus: 1, etudiant_id: id }),
+  })).filter(e => (!sections?.length || (e.section && sections.includes(e.section)))
+                  && retenue(e.section));
 
   const sortir = (map, libelle) => [...map.entries()]
     .map(([cle, valeurs]) => ({ cle, libelle: libelle ? libelle(cle) : String(cle),
@@ -367,7 +446,10 @@ r.get('/', authRequired, (req, res) => {
     ? (perim ? demandee.filter(s => perim.includes(s)) : demandee)
     : (perim || null);
 
-  const lignes = decisions(annee, sections);
+  // Le filtre s'achève ici : une unité hors cursus n'est retenue que si la
+  // section de SON étudiant est dans le périmètre demandé.
+  const lignes = decisions(annee, sections)
+    .filter(l => !sections?.length || (l.section && sections.includes(l.section)));
 
   const nomsUE = new Map(lignes.map(l => [l.ue_num, l.ue_nom]));
   const secUE = new Map(lignes.map(l => [l.ue_num, l.section]));
