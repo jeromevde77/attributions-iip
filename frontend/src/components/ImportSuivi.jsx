@@ -92,6 +92,16 @@ export default function ImportSuivi({ annee, onClose, onFini }) {
     ? rapport.unites.flatMap(u => [
       ...u.collisions.map(t => ({ ue: u.ue_num, gravite: 'haute', t })),
       ...u.inconnus.map(t => ({ ue: u.ue_num, gravite: 'moyenne', t: `${t} — inconnu de Lucie` })),
+      /* AMBIGU N'EST PAS INCONNU, C'EST LE CONTRAIRE : plusieurs dossiers
+         répondent. Les deux états tombaient dans le même seau et sortaient
+         sous le libellé « (homonymes) — inconnu de Lucie », qui se contredit
+         lui-même — et qui envoie chercher au mauvais endroit. Le plus souvent
+         ce ne sont pas deux personnes mais une seule, entrée deux fois. */
+      ...(u.ambigus || []).map(a => ({ ue: u.ue_num, gravite: 'haute',
+        t: `${a.nom} — ${(a.candidats || []).length} dossiers portent ce nom`
+          + `${a.candidats?.length ? ` (n° ${a.candidats.map(c => c.id).join(', ')})` : ''}`
+          + ' : Lucie refuse de choisir. Fusionnez-les dans Configuration →'
+          + ' Dossiers dédoublés, puis relancez.' })),
       ...u.hors_inscription.map(t => ({ ue: u.ue_num, gravite: 'moyenne',
         t: `${t} — pas inscrit à cette unité en ${annee}` })),
     ])
@@ -376,8 +386,9 @@ export default function ImportSuivi({ annee, onClose, onFini }) {
                   ['séances sans date', rapport.total.seances_sans_date || 0],
                   ['cours à représenter', rapport.total.ajournements],
                   ['acquis', rapport.total.acquis],
+                  ['plusieurs dossiers', rapport.total.ambigus || 0],
                   ['non rapprochés', rapport.total.inconnus + rapport.total.hors_inscription
-                    + rapport.total.collisions]].map(([l, n]) => (
+                    + rapport.total.collisions + (rapport.total.ambigus || 0)]].map(([l, n]) => (
                   <div key={l} className="bg-white/70 rounded-lg px-2 py-1.5">
                     <div className="text-[17px] font-bold tabular-nums text-iip-blue">{n}</div>
                     <div className="text-[11px] text-slate-600">{l}</div>

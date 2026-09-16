@@ -127,7 +127,10 @@ r.get('/types', authRequired, (req, res) => res.json(TYPES_REUNION));
 r.get('/perimetre', authRequired, (req, res) => {
   const annee = anneeDeTravail(req);
   const ues = db.prepare(`
-    SELECT ue_num, ue_nom, section FROM ue
+    -- La marque de tronc commun voyage avec l'unité : le centre d'impression
+    -- filtre dessus, et sans cette colonne il devrait la redemander au serveur
+    -- à chaque frappe.
+    SELECT ue_num, ue_nom, section, ue_tc FROM ue
      WHERE annee_scolaire = ? ORDER BY section, ue_num
   `).all(annee);
   const sections = [...new Set(ues.map(u => u.section).filter(Boolean))].sort();

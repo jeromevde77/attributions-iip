@@ -59,8 +59,10 @@ const STYLE_RAPPORT = `
                        padding-top: 3mm; border-bottom: 0.6pt solid #cbd5e1; }
         tbody tr:last-child td { border-bottom: 0; }
         td.n, th.n { text-align: right; }
-        tr.groupe td { font-weight: 700; color:#1B2B4B; padding-top: 3.5mm;
-                       border-bottom: 0.5pt solid #cbd5e1; }
+        /* Le titre de groupe EST la section : en gras, sur sa ligne, et rien
+           d'autre. C'est un titre, pas une cellule de plus. */
+        tr.groupe td { font-weight: 700; color:#1B2B4B; padding-top: 4mm;
+                       font-size: 9.5pt; border-bottom: 0.5pt solid #cbd5e1; }
         tr.groupe .fin { font-weight: 400; }
         td.vide { color:#94a3b8; text-align:center; padding: 6mm 0; }
         tfoot tr.repere td { border-top: 0.8pt solid #cbd5e1; border-bottom: 0; }`;
@@ -361,7 +363,65 @@ function cursus(p) {
       ? `Aucune charge ETP pour la section « ${voulue} » en ${p.annee}.`
       : `Aucune charge ETP en ${p.annee}.`);
   }
-  return { d, sec };
+  return { d, sec: filtrerTc(sec, p) };
+}
+
+/**
+ * LE TRONC COMMUN EST UNE QUESTION, PAS UNE DÉCORATION.
+ *
+ * « Ce que coûte le tronc commun » et « ce que coûte le reste » sont deux
+ * chiffres qu'on demande séparément : le premier se mutualise entre cursus,
+ * le second est propre à la section. Sans ce filtre, il fallait sortir la
+ * grille entière et recompter à la main — et deux personnes ne trouvaient pas
+ * le même total.
+ *
+ * Le filtre porte sur l'UNITÉ (la marque est à ce niveau) et vaut donc pour
+ * toutes les échelles qui en agrègent.
+ */
+export function gardeTc(u, tc) {
+  if (tc !== 'tc' && tc !== 'hors') return true;
+  const est = String(u?.ue_tc || '').trim().toLowerCase() === 'x';
+  return tc === 'tc' ? est : !est;
+}
+
+/** Le même filtre, appliqué à toutes les sections d'un calcul d'établissement. */
+function restreindreTc(d, p) {
+  const tc = p.portee?.tc || p.tc;
+  if (tc !== 'tc' && tc !== 'hors') return d;
+  const somme = (ues, f) => ues.reduce((n, u) => n + (Number(f(u)) || 0), 0);
+  const sections = (d.sections || []).map(s => {
+    const ues = (s.ues || []).filter(u => gardeTc(u, tc));
+    return { ...s, ues,
+      etp_total: somme(ues, u => u.etp_total),
+      etp_iip:   somme(ues, u => u.etp_iip),
+      etp_helb:  somme(ues, u => u.etp_helb) };
+  }).filter(s => s.ues.length);
+  if (!sections.length) {
+    throw new Error(`Aucune unité ${tc === 'tc' ? 'du' : 'hors'} tronc commun en ${p.annee}.`);
+  }
+  return { ...d, sections,
+    total: { ...(d.total || {}),
+      etp_total: somme(sections, s => s.etp_total),
+      etp_iip:   somme(sections, s => s.etp_iip),
+      etp_helb:  somme(sections, s => s.etp_helb) } };
+}
+
+function filtrerTc(sec, p) {
+  const tc = p.portee?.tc || p.tc;
+  if (tc !== 'tc' && tc !== 'hors') return sec;
+  const ues = (sec.ues || []).filter(u => gardeTc(u, tc));
+  if (!ues.length) {
+    throw new Error(tc === 'tc'
+      ? `Aucune unité du tronc commun dans « ${sec.section} » en ${p.annee}.`
+      : `Aucune unité hors tronc commun dans « ${sec.section} » en ${p.annee}.`);
+  }
+  // Les totaux de la section sont RECALCULÉS sur le sous-ensemble : garder
+  // ceux de la section entière ferait mentir chaque tuile.
+  const somme = (f) => ues.reduce((n, u) => n + (Number(f(u)) || 0), 0);
+  return { ...sec, ues,
+    etp_total: somme(u => u.etp_total),
+    etp_iip:   somme(u => u.etp_iip),
+    etp_helb:  somme(u => u.etp_helb) };
 }
 
 /*
@@ -380,17 +440,46 @@ const NIVEAUX = {
 };
 
 /** Ce que le cours fait porter à qui — le niveau le plus fin. */
-function attributionsDuCours(annee, ueNum, codeCours) {
+function attributionsDuCours(annee, ueNums, codeCours) {
+  // UNE UNITÉ OU PLUSIEURS — la question ne change pas, l'échelle si. On
+  // demandait « l'ETP de l'UE 286 » puis « celui de l'UE 290 » et l'on
+  // additionnait à la main deux pièces qui ne se totalisaient nulle part.
+  const liste = (Array.isArray(ueNums) ? ueNums : [ueNums])
+    .map(n => Number(n)).filter(n => Number.isFinite(n));
+  if (!liste.length) return [];
+  const trous = liste.map(() => '?').join(',');
   return db.prepare(`
     SELECT professeur, code_cours, nom_cours, type_cours, contrat_mdp, section,
            ue_num, ue_nom,
            ROUND(SUM(total_attribue_professeur), 2) AS periodes
       FROM v_attribution_complete
-     WHERE annee_scolaire = ? AND ue_num = ?
+     WHERE annee_scolaire = ? AND ue_num IN (${trous})
        AND (? IS NULL OR code_cours = ?) AND professeur IS NOT NULL
-     GROUP BY professeur, code_cours, nom_cours, type_cours, contrat_mdp
-     ORDER BY code_cours, professeur
-  `).all(annee, ueNum, codeCours || null, codeCours || null);
+     GROUP BY professeur, ue_num, code_cours, nom_cours, type_cours, contrat_mdp
+     ORDER BY ue_num, code_cours, professeur
+  `).all(annee, ...liste, codeCours || null, codeCours || null);
+}
+
+/**
+ * LES UNITÉS VISÉES PAR LA PORTÉE. Une, plusieurs, ou celles que le filtre
+ * tronc commun retient — résolues UNE FOIS, ici, pour que la pièce et son
+ * aperçu ne puissent pas travailler sur deux listes différentes.
+ */
+function unitesVisees(p) {
+  const po = p.portee || {};
+  let nums = Array.isArray(po.ue_nums) && po.ue_nums.length
+    ? po.ue_nums : (po.ue_num ? [po.ue_num] : []);
+  nums = nums.map(n => Number(n)).filter(n => Number.isFinite(n));
+  const tc = po.tc || p.tc;
+  if ((tc === 'tc' || tc === 'hors') && nums.length) {
+    const trous = nums.map(() => '?').join(',');
+    const marques = db.prepare(
+      `SELECT ue_num, ue_tc FROM ue WHERE annee_scolaire = ? AND ue_num IN (${trous})`)
+      .all(p.annee, ...nums);
+    const gardees = new Set(marques.filter(u => gardeTc(u, tc)).map(u => Number(u.ue_num)));
+    nums = nums.filter(n => gardees.has(n));
+  }
+  return nums;
 }
 
 /** L'ETP d'une ligne de charge : CT sur 800, PP sur 1000 — la règle maison. */
@@ -429,10 +518,10 @@ function lignesEtp(p) {
   const niveau = p.portee?.niveau || 'etablissement';
   if (niveau === 'section') return lignesEtpCursus(p);
   if (niveau === 'ue' || niveau === 'cours') {
-    return attributionsDuCours(p.annee, p.portee?.ue_num, p.portee?.code_cours)
+    return attributionsDuCours(p.annee, unitesVisees(p), p.portee?.code_cours)
       .map(l => ({ ...l, etp: Math.round(etpDe(l) * 10000) / 10000 }));
   }
-  const d = calculerEtp(p.annee);
+  const d = restreindreTc(calculerEtp(p.annee), p);
   return (d.sections || []).map(s => ({
     section: s.section, periodes: null, etp: s.etp_total,
     etp_iip: s.etp_iip, etp_helb: s.etp_helb, etudiants: s.nb_etudiants,
@@ -445,7 +534,9 @@ function lignesEtp(p) {
  * lit : il est à un clic, au niveau du dessous.
  */
 function documentEtpEtablissement(p) {
-  const d = calculerEtp(p.annee);
+  // LE TRONC COMMUN SE DEMANDE AUSSI À L'ÉCHELLE DE LA MAISON — « ce que
+  // coûte ce qu'on mutualise » est une question de dotation, pas de cursus.
+  const d = restreindreTc(calculerEtp(p.annee), p);
   const C = couleurs();
   const esc = v => String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;');
   const n0 = n => Math.round(n || 0).toLocaleString('fr-BE');
@@ -546,20 +637,41 @@ function documentEtpEtablissement(p) {
  */
 function documentEtpUe(p) {
   const C = couleurs();
-  const ueNum = p.portee?.ue_num;
+  const nums = unitesVisees(p);
+  const ueNum = nums[0];
+  const plusieurs = nums.length > 1;
   const code = p.portee?.niveau === 'cours' ? p.portee?.code_cours : null;
-  const lignes = attributionsDuCours(p.annee, ueNum, code);
+  if (!nums.length) {
+    const tc = p.portee?.tc;
+    throw new Error(tc === 'tc' || tc === 'hors'
+      ? `Aucune des unités choisies n'est ${tc === 'tc' ? 'du' : 'hors'} tronc commun.`
+      : 'Choisissez au moins une unité.');
+  }
+  const lignes = attributionsDuCours(p.annee, nums, code);
   if (!lignes.length) {
-    throw new Error(`Aucune attribution pour l'unité ${ueNum || '—'} en ${p.annee}.`);
+    throw new Error(`Aucune attribution pour ${plusieurs
+      ? `les ${nums.length} unités choisies` : `l'unité ${ueNum}`} en ${p.annee}.`);
   }
   const esc = v => String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;');
   const n0 = n => Math.round(n || 0).toLocaleString('fr-BE');
   const n2 = n => (n || 0).toFixed(2).replace('.', ',');
   const n4 = n => (n || 0).toFixed(4).replace('.', ',');
 
-  const ue = db.prepare(
-    'SELECT ue_nom, section, ects, nb_etudiants FROM ue WHERE annee_scolaire = ? AND ue_num = ?')
-    .get(p.annee, ueNum) || {};
+  // L'IDENTITÉ DE LA PIÈCE. Une unité parle d'elle-même ; plusieurs ne
+  // peuvent emprunter le nom d'aucune — elles totalisent leurs ECTS et
+  // nomment leurs sections, et l'effectif ne s'additionne PAS (un étudiant
+  // inscrit à trois unités serait compté trois fois).
+  const trous = nums.map(() => '?').join(',');
+  const ueLignes = db.prepare(
+    `SELECT ue_num, ue_nom, section, ects, nb_etudiants, ue_tc
+       FROM ue WHERE annee_scolaire = ? AND ue_num IN (${trous})
+      ORDER BY ue_num`).all(p.annee, ...nums);
+  const ue = plusieurs
+    ? { ue_nom: `${nums.length} unités`,
+        section: [...new Set(ueLignes.map(u => u.section).filter(Boolean))].join(', '),
+        ects: ueLignes.reduce((n, u) => n + (Number(u.ects) || 0), 0) || null,
+        nb_etudiants: null }
+    : (ueLignes[0] || {});
   const per = lignes.reduce((s, l) => s + (l.periodes || 0), 0);
   const etp = lignes.reduce((s, l) => s + etpDe(l), 0);
   const etpIip = lignes.filter(l => (l.contrat_mdp || 'IIP') === 'IIP')
@@ -569,8 +681,10 @@ function documentEtpUe(p) {
   // Par cours quand on regarde l'unité ; par personne quand on regarde un cours.
   const parCours = new Map();
   for (const l of lignes) {
-    const k = l.code_cours || '—';
-    if (!parCours.has(k)) parCours.set(k, { nom: l.nom_cours, periodes: 0, etp: 0 });
+    const k = plusieurs ? `UE ${l.ue_num}` : (l.code_cours || '—');
+    if (!parCours.has(k)) {
+      parCours.set(k, { nom: plusieurs ? l.ue_nom : l.nom_cours, periodes: 0, etp: 0 });
+    }
     const g = parCours.get(k);
     g.periodes += l.periodes || 0; g.etp += etpDe(l);
   }
@@ -594,7 +708,7 @@ function documentEtpUe(p) {
     ])}
 
     ${parCours.size > 1 ? `<div class="cadre">
-      <h2>Le poids de chaque cours</h2>
+      <h2>Le poids de chaque ${plusieurs ? 'unité' : 'cours'}</h2>
       ${barres({ donnees: [...parCours.entries()].map(([k, v]) => ({
         nom: k, valeur: v.etp, couleur: C.iip,
         texte: `${n0(v.periodes)} pér. · ${n4(v.etp)} ETP`,
@@ -603,29 +717,39 @@ function documentEtpUe(p) {
 
     <h2>Qui porte cette charge</h2>
     <table>
-      <thead><tr><th>Enseignant</th><th style="width:18mm">Cours</th>
+      <thead><tr>${plusieurs ? '<th style="width:14mm">UE</th>' : ''}
+        <th>Enseignant</th><th style="width:18mm">Cours</th>
         <th>Intitulé</th><th style="width:12mm">Type</th><th style="width:16mm">Contrat</th>
         <th class="n" style="width:22mm">Périodes</th><th class="n" style="width:20mm">ETP</th>
       </tr></thead>
       <tbody>${lignes.map(l => `<tr>
+        ${plusieurs ? `<td class="ue">${esc(l.ue_num)}</td>` : ''}
         <td>${esc(l.professeur)}</td><td class="ue">${esc(l.code_cours || '—')}</td>
         <td>${esc(l.nom_cours || '—')}</td><td>${esc(l.type_cours || '')}</td>
         <td>${(l.contrat_mdp || 'IIP') === 'IIP' ? ''
           : `<span class="marque" style="background:${C.helb}">HELB</span>`}</td>
         <td class="n">${n0(l.periodes)}</td><td class="n g">${n4(etpDe(l))}</td>
       </tr>`).join('')}</tbody>
-      <tfoot><tr class="repere"><td colspan="5">Ensemble</td>
+      <tfoot><tr class="repere"><td colspan="${plusieurs ? 6 : 5}">Ensemble</td>
         <td class="n">${n0(per)}</td><td class="n">${n4(etp)}</td></tr></tfoot>
     </table>`;
 
+  const quoi = code ? `cours ${code}`
+    : plusieurs ? `${nums.length} unités` : `UE ${ueNum}`;
+  const mentionTc = p.portee?.tc === 'tc' ? 'tronc commun'
+    : p.portee?.tc === 'hors' ? 'hors tronc commun' : null;
   return {
     corps,
     entete: {
-      titre: `Charge en équivalents temps plein — ${code ? `cours ${code}` : `UE ${ueNum}`}`,
-      sous: [ue.ue_nom, ue.section, `année ${p.annee}`].filter(Boolean).join(' · '),
+      titre: `Charge en équivalents temps plein — ${quoi}`,
+      // LA RESTRICTION SE LIT SUR LA PIÈCE. Un total filtré qui ne dit pas
+      // qu'il l'est se retrouve, trois mois plus tard, comparé à un total
+      // complet — et c'est le logiciel qu'on accuse.
+      sous: [plusieurs ? nums.map(n => `UE ${n}`).join(', ') : ue.ue_nom,
+        ue.section, mentionTc, `année ${p.annee}`].filter(Boolean).join(' · '),
     },
-    titre: `Charge en ETP — ${code ? `cours ${code}` : `UE ${ueNum}`}`,
-    nom: `ETP-${code || `UE${ueNum}`}-${p.annee}.html`,
+    titre: `Charge en ETP — ${quoi}`,
+    nom: `ETP-${code || (plusieurs ? `${nums.length}UE` : `UE${ueNum}`)}-${p.annee}.html`,
     styles: STYLE_RAPPORT + STYLE_REPORTING + STYLE_ETP,
   };
 }
@@ -766,9 +890,15 @@ function documentEtpCursus(p) {
   return {
     corps,
     entete: {
-      titre: `Charge en équivalents temps plein — ${sec.section}`,
+      titre: `Charge en équivalents temps plein — ${sec.section}`
+        + (p.portee?.tc === 'tc' ? ' · tronc commun'
+          : p.portee?.tc === 'hors' ? ' · hors tronc commun' : ''),
+      // UN TOTAL FILTRÉ LE DIT. Sans cette mention, la pièce se compare trois
+      // mois plus tard à un total complet, et c'est le logiciel qu'on accuse.
       sous: `Année académique ${p.annee}${etus > 0
-        ? ` · ${n0(etus)} étudiant(s)${etusPose ? ' (effectif posé)' : ' inscrits'}` : ''}`,
+        ? ` · ${n0(etus)} étudiant(s)${etusPose ? ' (effectif posé)' : ' inscrits'}` : ''}${
+        p.portee?.tc === 'tc' ? ' · unités du tronc commun uniquement'
+          : p.portee?.tc === 'hors' ? ' · unités hors tronc commun uniquement' : ''}`,
       mention: "Pièce destinée au COPIL ou au Conseil d'administration. Elle reflète "
         + "l'état des attributions encodées, et non un arrêté de dotation."
         + (etusPose
@@ -1333,19 +1463,31 @@ r.post('/:id/document', authRequired, (req, res) => {
       && new Set(lignes.map(l => l[premiere.cle])).size > 1
       && new Set(lignes.map(l => l[premiere.cle])).size <= lignes.length / 2;
 
-    const cellules = (l, sauterPremiere) => colonnes.map((c, i) =>
-      (sauterPremiere && i === 0)
-        ? '<td></td>'
-        : `<td${nombre(c) ? ' class="n"' : ''}>${esc(l[c.cle])}</td>`).join('');
+    /* GROUPER, C'EST SUPPRIMER UNE COLONNE, PAS LA VIDER.
+       La première colonne — la section — était laissée en place et vide sur
+       chaque ligne : deux centimètres de blanc sur toute la hauteur de la
+       page, pour une information déjà écrite en tête du groupe. Le titre du
+       groupe EST cette colonne ; les lignes n'ont donc plus qu'à porter le
+       reste, et l'intitulé récupère la place. */
+    const visibles = groupable => (groupable ? colonnes.slice(1) : colonnes);
+    const cellules = (l, groupable) => visibles(groupable).map(c =>
+      `<td${nombre(c) ? ' class="n"' : ''}>${esc(l[c.cle])}</td>`).join('');
 
     const somme = (liste, c) => liste.reduce((t, l) =>
       t + (typeof l[c.cle] === 'number' ? l[c.cle] : 0), 0);
-    const ligneTotal = (liste, libelle) => `<tr class="repere">
-      <td${colonnes.length > 1 ? ` colspan="${1 + colonnes.findIndex((c, i) => i > 0 && nombre(c)) - 1}"` : ''}>${esc(libelle)}</td>
-      ${colonnes.slice(colonnes.findIndex((c, i) => i > 0 && nombre(c))).map(c =>
-        `<td class="n">${nombre(c)
+    /* Le libellé du total occupe les colonnes de texte, et les sommes se
+       posent SOUS leurs colonnes de nombres : un total décalé d'une case ne
+       se lit pas, il se devine. */
+    const ligneTotal = (liste, libelle, groupable) => {
+      const cols = visibles(groupable);
+      const premierNombre = cols.findIndex(c => nombre(c));
+      const avant = premierNombre < 0 ? cols.length : premierNombre;
+      return `<tr class="repere">
+        <td${avant > 1 ? ` colspan="${avant}"` : ''}>${esc(libelle)}</td>
+        ${cols.slice(avant).map(c => `<td class="n">${nombre(c)
           ? Math.round(somme(liste, c) * 100) / 100 : ''}</td>`).join('')}
-    </tr>`;
+      </tr>`;
+    };
     const aDesNombres = colonnes.some((c, i) => i > 0 && nombre(c));
 
     let corpsTable = '';
@@ -1357,10 +1499,12 @@ r.post('/:id/document', authRequired, (req, res) => {
         groupes.get(k).push(l);
       }
       for (const [k, liste] of groupes) {
-        corpsTable += `<tr class="groupe"><td colspan="${colonnes.length}">${esc(k)}
+        corpsTable += `<tr class="groupe"><td colspan="${colonnes.length - 1}">${esc(k)}
           <span class="fin">— ${liste.length} ligne(s)</span></td></tr>`;
         corpsTable += liste.map(l => `<tr>${cellules(l, true)}</tr>`).join('');
-        if (aDesNombres && liste.length > 1) corpsTable += ligneTotal(liste, `Total ${k}`);
+        if (aDesNombres && liste.length > 1) {
+          corpsTable += ligneTotal(liste, `Total ${k}`, true);
+        }
       }
     } else {
       corpsTable = lignes.map(l => `<tr>${cellules(l, false)}</tr>`).join('');
@@ -1368,11 +1512,12 @@ r.post('/:id/document', authRequired, (req, res) => {
 
     const corps = `
       <table>
-        <thead><tr>${colonnes.map(c =>
+        <thead><tr>${visibles(groupable).map(c =>
           `<th${nombre(c) ? ' class="n"' : ''}>${esc(c.entete)}</th>`).join('')}</tr></thead>
-        <tbody>${corpsTable || `<tr><td colspan="${colonnes.length}" class="vide">
+        <tbody>${corpsTable || `<tr><td colspan="${visibles(groupable).length}" class="vide">
           Aucune donnée pour ces paramètres.</td></tr>`}</tbody>
-        ${lignes.length && aDesNombres ? `<tfoot>${ligneTotal(lignes, 'Ensemble')}</tfoot>` : ''}
+        ${lignes.length && aDesNombres
+          ? `<tfoot>${ligneTotal(lignes, 'Ensemble', groupable)}</tfoot>` : ''}
       </table>`;
 
     res.json({
@@ -1478,6 +1623,14 @@ function parametres(req, def) {
       section: b.section ? String(b.section) : null,
       ue_num: Number.isFinite(Number(b.ue_num)) && b.ue_num !== null && b.ue_num !== ''
         ? Number(b.ue_num) : null,
+      // PLUSIEURS UNITÉS. Chacune est validée comme l'était la seule : un
+      // nombre, et rien d'autre.
+      ue_nums: (Array.isArray(b.ue_nums) ? b.ue_nums : [])
+        .map(n => Number(n)).filter(n => Number.isFinite(n) && n > 0),
+      // LE FILTRE TRONC COMMUN. Il ne fait PAS partie du niveau : on peut
+      // restreindre au tronc commun à n'importe quelle échelle. Deux valeurs
+      // seulement sont reconnues ; tout le reste vaut « pas de filtre ».
+      tc: b.tc === 'tc' || b.tc === 'hors' ? b.tc : null,
       code_cours: b.code_cours ? String(b.code_cours) : null,
     };
     // Une portée « section » sert aussi de filtre aux pièces qui lisent

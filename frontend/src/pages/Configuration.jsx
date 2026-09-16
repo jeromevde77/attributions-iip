@@ -2,7 +2,7 @@ import { useEffect, useState, lazy, Suspense } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { api, getAnnee, setAnnee as setAnneeActive } from '../lib/api.js';
 import { chargerCouleurs } from '../lib/couleurs.js';
-import { IconAdjustments, IconAward, IconBooks, IconBuilding, IconCalendar, IconCalendarEvent, IconChartBar, IconCheck, IconChevronRight, IconDownload, IconFileText, IconHistory, IconLink, IconScale, IconSettings, IconSparkles, IconUserShield, IconUsers, IconX, IconGavel, IconPlus, IconTrash, IconGripVertical, IconEdit, IconMail, IconPalette } from '@tabler/icons-react';
+import { IconAdjustments, IconAward, IconBooks, IconBuilding, IconCalendar, IconCalendarEvent, IconChartBar, IconCheck, IconChevronRight, IconDownload, IconFileText, IconHistory, IconLink, IconScale, IconSettings, IconSparkles, IconUserShield, IconUsers, IconX, IconGavel, IconPlus, IconTrash, IconGripVertical, IconEdit, IconMail, IconPalette, IconArchive, IconAlertTriangle } from '@tabler/icons-react';
 import { PageHeader, RailLateral } from '../components/ui.jsx';
 import ApercuDocuments from '../components/ApercuDocuments.jsx';
 const Editeur = lazy(() => import('./Editeur.jsx'));
@@ -1281,6 +1281,7 @@ export default function Configuration() {
     { label: 'Établissement', items: [
       { key: 'etablissement', label: 'Identité et sections', icon: IconBuilding },
       { key: 'annees', label: 'Années scolaires', icon: IconCalendar },
+      { key: 'reprise', label: "Clôturer une année reprise", icon: IconArchive },
     ]},
     /* QUATRE ONGLETS DÉCRIVAIENT LE MÊME OBJET.
      *
@@ -1350,6 +1351,9 @@ export default function Configuration() {
 
       {/* ── Onglet Années ── */}
       {tab === 'annees' && <Annees embedded />}
+
+      {/* ── Onglet Clôture d'une année reprise d'archives ── */}
+      {tab === 'reprise' && <ClotureReprise />}
 
       {/* ── Onglet Dossiers dédoublés ──
           Le matricule change d'une année à l'autre : l'import d'une seconde
@@ -2315,6 +2319,173 @@ function ReferentielDeLAnnee() {
       {face === 'prerequis' && <GestionPrerequis />}
       {face === 'ponderations' && <PonderationsAA />}
       {face === 'deliberation' && <ReglesDeliberation />}
+    </div>
+  );
+}
+
+// ── CLÔTURER UNE ANNÉE REPRISE D'ARCHIVES ────────────────────────────────────
+//
+// Les années importées d'Excel portent des décisions sans motivation : les
+// dossiers sont incomplets là où le règlement en exige une, acquis par acquis.
+// On peut les compléter — à condition que ce qui s'écrit ne se fasse jamais
+// passer pour ce que le Conseil a dit en séance.
+//
+// L'écran ne cache donc rien de ce qu'il fait : il montre d'abord CE QUI SERA
+// ÉCRIT, dossier par dossier, et ne laisse écrire qu'après avoir retapé
+// l'année. Un bouton « Appliquer » seul se clique sans lire.
+function ClotureReprise() {
+  const [annees, setAnnees]   = useState([]);
+  const [annee, setAnnee]     = useState('');
+  const [plan, setPlan]       = useState(null);
+  const [enonces, setEnonces] = useState({ motif: '', mention: '' });
+  const [motif, setMotif]     = useState('');
+  const [confirm, setConfirm] = useState('');
+  const [occupe, setOccupe]   = useState(false);
+  const [fait, setFait]       = useState(null);
+  const [err, setErr]         = useState('');
+
+  useEffect(() => {
+    fetch('/api/annees', { headers: authHeaders() }).then(r => r.json())
+      .then(l => setAnnees((Array.isArray(l) ? l : []).map(a => a.code).filter(Boolean)))
+      .catch(() => {});
+    fetch('/api/acquis/reprise/enonces', { headers: authHeaders() }).then(r => r.json())
+      .then(j => { setEnonces(j); setMotif(j.motif || ''); }).catch(() => {});
+  }, []);
+
+  const simuler = async () => {
+    setErr(''); setFait(null); setPlan(null); setOccupe(true);
+    try {
+      const r = await fetch(`/api/acquis/reprise/${annee}/simulation?motif=`
+        + encodeURIComponent(motif), { headers: authHeaders() });
+      const j = await r.json();
+      if (!r.ok) throw new Error(j.error || 'échec');
+      setPlan(j);
+    } catch (e) { setErr(e.message); } finally { setOccupe(false); }
+  };
+
+  const appliquer = async () => {
+    setErr(''); setOccupe(true);
+    try {
+      const r = await fetch(`/api/acquis/reprise/${annee}`, {
+        method: 'POST',
+        headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+        body: JSON.stringify({ confirmation: confirm, motif }),
+      });
+      const j = await r.json();
+      if (!r.ok) throw new Error(j.detail || j.error || 'échec');
+      setFait(j.ecrit); setPlan(null); setConfirm('');
+    } catch (e) { setErr(e.message); } finally { setOccupe(false); }
+  };
+
+  return (
+    <div className="space-y-4">
+      <h2 className="text-[17px] font-semibold text-iip-blue">
+        Clôturer une année reprise d'archives
+      </h2>
+
+      <div className="carte p-4 space-y-2">
+        <div className="flex items-start gap-2">
+          <IconAlertTriangle size={18} className="text-[color:var(--c-attente,#B45309)] flex-none mt-0.5" />
+          <p className="text-[13px] text-slate-600">
+            Cette opération écrit une motivation sur chaque acquis en défaut des
+            décisions défavorables de l'année, et marque les séances comme
+            <b> reconstituées d'archives</b>. Ce qu'elle écrit est enregistré sous la
+            provenance <code>reprise</code> : il ne se confondra jamais avec ce que le
+            Conseil a rédigé, et les pièces remises aux étudiants le mentionnent.
+            Elle ne modifie <b>aucune décision</b>, n'octroie <b>aucune faveur</b> et
+            n'écrase <b>aucune motivation existante</b>.
+          </p>
+        </div>
+      </div>
+
+      <div className="carte p-4 space-y-3">
+        <label className="block text-[11px] text-slate-500">
+          Année à clôturer
+          <select value={annee} onChange={e => { setAnnee(e.target.value); setPlan(null); setFait(null); }}
+            className="block w-64 mt-1 bg-white border border-slate-300 rounded-champ px-2 controle text-[13px]">
+            <option value="">—</option>
+            {annees.map(a => <option key={a} value={a}>{a}</option>)}
+          </select>
+        </label>
+
+        <label className="block text-[11px] text-slate-500">
+          Énoncé écrit là où aucune motivation n'existe
+          <textarea value={motif} onChange={e => setMotif(e.target.value)} rows={2}
+            className="block w-full mt-1 bg-white border border-slate-300 rounded-champ px-2 py-1.5 text-[13px]" />
+          <span className="text-[10px] text-slate-400">
+            Volontairement uniforme : une phrase individualisée laisserait croire à un
+            examen individuel qui n'a pas eu lieu sous cette forme.
+          </span>
+        </label>
+
+        <button onClick={simuler} disabled={!annee || occupe} className="bouton controle px-3">
+          {occupe ? 'Calcul…' : 'Voir ce qui serait écrit'}
+        </button>
+      </div>
+
+      {err && <div className="carte p-3 text-[13px] text-[color:var(--c-refuse,#9D4A38)]">{err}</div>}
+
+      {fait && (
+        <div className="carte p-4 text-[13px]">
+          <b>{fait.motivations}</b> motivation(s) écrite(s), <b>{fait.seances}</b> séance(s)
+          clôturée(s) et marquée(s) comme reconstituée(s).
+        </div>
+      )}
+
+      {plan && (
+        <div className="carte p-4 space-y-3">
+          <div className="text-[13px]">
+            <b>{plan.nb_motivations}</b> motivation(s) à écrire, sur <b>{plan.nb_dossiers}</b> dossier(s)
+            d'unité et <b>{plan.nb_etudiants}</b> étudiant(s).
+            {' '}<b>{plan.seances_a_clore.length}</b> séance(s) à clôturer.
+            {plan.deja_motivees > 0 && <> {plan.deja_motivees} motivation(s) déjà en base sont laissées telles quelles.</>}
+          </div>
+
+          {!!plan.unites_sans_referentiel?.length && (
+            <div className="text-[12px] text-[color:var(--c-attente,#B45309)]">
+              {plan.unites_sans_referentiel.length} dossier(s) portent une décision défavorable
+              sur une unité sans acquis au référentiel : rien ne peut y être écrit, et le dossier
+              restera incomplet.
+            </div>
+          )}
+
+          {plan.nb_motivations > 0 && (
+            <>
+              <div className="max-h-72 overflow-auto">
+                <table className="w-full text-[12px]">
+                  <thead className="tab-entete sticky top-0">
+                    <tr><th className="text-left px-2 py-1">Étudiant</th>
+                        <th className="text-left px-2 py-1">UE</th>
+                        <th className="text-left px-2 py-1">Décision</th>
+                        <th className="text-left px-2 py-1">Acquis motivés</th></tr>
+                  </thead>
+                  <tbody>
+                    {plan.motivations.map((m, i) => (
+                      <tr key={i} className="border-t border-slate-100">
+                        <td className="px-2 py-1">{m.nom} {m.prenom}</td>
+                        <td className="px-2 py-1">{m.ue_num}</td>
+                        <td className="px-2 py-1">{m.resultat}</td>
+                        <td className="px-2 py-1">{m.acquis.join(', ')}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              <label className="block text-[11px] text-slate-500">
+                Pour appliquer, retapez l'année : <b>{plan.annee}</b>
+                <input value={confirm} onChange={e => setConfirm(e.target.value)}
+                  className="block w-48 mt-1 bg-white border border-slate-300 rounded-champ px-2 controle text-[13px]" />
+              </label>
+
+              <button onClick={appliquer} disabled={confirm !== plan.annee || occupe}
+                className="bouton-fort controle px-3">
+                Écrire et clôturer {plan.annee}
+              </button>
+            </>
+          )}
+        </div>
+      )}
     </div>
   );
 }
