@@ -2914,7 +2914,7 @@ function Ligne({ label, type = 'text', valeur, onChange, disabled }) {
  * décisions, les notes et les résultats ne passent pas par ici. La séance
  * reste close, un motif écrit est exigé, et l'avant/après est conservé.
  */
-function CorrectionAdministrative({ ueNum, annee, session, seance, onFerme, onFait,
+export function CorrectionAdministrative({ ueNum, annee, session, seance, onFerme, onFait,
                                     onRouvrir, enCours: rouvertureEnCours }) {
   const s = seance?.seance || {};
   /* DEUX GESTES, UN SEUL ÉCRAN. Corriger et rouvrir répondent à la même
@@ -3193,7 +3193,7 @@ export function motifComplet(cle, precision) {
 export const motifReouverture = motifChoisi;
 export const motifReouvertureComplet = motifComplet;
 
-function BandeauReouverture({ session, onReprendre }) {
+export function BandeauReouverture({ session, onReprendre }) {
   return (
     <div className="px-3 py-2 rounded-xl bg-slate-100 border border-slate-300
                     flex items-center justify-between gap-3">

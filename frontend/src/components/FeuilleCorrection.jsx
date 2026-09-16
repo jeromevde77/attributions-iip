@@ -5,6 +5,9 @@ import {
 import { authHeaders } from '../lib/api.js';
 import { naviguerGrille, caseGrille } from '../lib/grilleClavier.js';
 import PanneauAcquis from './PanneauAcquis.jsx';
+import {
+  BandeauReouverture, CorrectionAdministrative,
+} from './FeuilleDeliberation.jsx';
 
 /**
  * LA FEUILLE DE CORRECTION — toute l'unité sur une page, et modifiable.
@@ -63,7 +66,40 @@ export default function FeuilleCorrection({ ueNum, annee, onClose, onModifie }) 
   const [enAttente, setEnAttente] = useState(0);
   const [erreur, setErreur] = useState(null);
   const [dernier, setDernier] = useState(null);
+  /* LA SÉANCE SE REPREND D'ICI AUSSI.
+     « Corriger » se choisit en regard de l'unité : c'est le geste qu'on fait
+     quand quelque chose ne va plus dans une unité délibérée. Y arriver et
+     n'avoir aucune prise sur la séance elle-même — sa date, la visite des
+     copies, une réouverture — obligeait à ressortir, à rouvrir la
+     délibération, à redescendre jusqu'à l'écran de clôture. Le même bandeau
+     qu'en délibération se pose donc ici, avec la même fenêtre derrière. */
+  const [seance, setSeance] = useState(null);
+  const [correction, setCorrection] = useState(false);
+  const [reouvrant, setReouvrant] = useState(false);
   const grille = useRef(null);
+
+  async function chargerSeance() {
+    try {
+      const rep = await fetch(
+        `/api/acquis/deliberation/ue/${ueNum}/seance?annee=${encodeURIComponent(annee)}`
+        + `&session=${session}`, { headers: authHeaders() });
+      const j = await rep.json();
+      if (rep.ok) setSeance(j);
+    } catch { /* la séance est un cadre, pas un bloquant */ }
+  }
+
+  async function rouvrirSeance(motif) {
+    setReouvrant(true); setErreur(null);
+    try {
+      const rep = await fetch(`/api/acquis/deliberation/ue/${ueNum}/rouvrir`, {
+        method: 'POST', headers: authHeaders(),
+        body: JSON.stringify({ annee, session, motif }),
+      });
+      const j = await rep.json().catch(() => ({}));
+      if (!rep.ok) { setErreur(j.detail || j.error || 'Réouverture refusée.'); return; }
+      await chargerSeance(); await charger(); onModifie?.();
+    } catch (e) { setErreur(e.message); } finally { setReouvrant(false); }
+  }
 
   async function charger() {
     try {
@@ -83,7 +119,8 @@ export default function FeuilleCorrection({ ueNum, annee, onClose, onModifie }) 
       return j;
     } catch (e) { setErreur(e.message); return null; }
   }
-  useEffect(() => { charger(); /* eslint-disable-next-line */ }, [ueNum, annee, session]);
+  useEffect(() => { charger(); chargerSeance();
+    /* eslint-disable-next-line */ }, [ueNum, annee, session]);
 
   /** Un appel qui écrit, puis relit : la ligne entière se recalcule. */
   async function ecrire(url, corps) {
@@ -189,6 +226,20 @@ export default function FeuilleCorrection({ ueNum, annee, onClose, onModifie }) 
             </button>
           </div>
         </div>
+
+        {seance?.seance?.cloturee && (
+          <div className="flex-none mx-5 mb-2">
+            <BandeauReouverture session={session}
+              onReprendre={() => setCorrection(true)} />
+          </div>
+        )}
+
+        {correction && (
+          <CorrectionAdministrative ueNum={ueNum} annee={annee} session={session}
+            seance={seance} onFerme={() => setCorrection(false)}
+            onFait={() => { chargerSeance(); charger(); onModifie?.(); }}
+            onRouvrir={rouvrirSeance} enCours={reouvrant} />
+        )}
 
         {erreur && (
           <div className="flex-none mx-5 mb-2 px-3 py-2 rounded-lg bg-red-50 border
