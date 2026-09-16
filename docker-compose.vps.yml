@@ -1,52 +1,103 @@
-# =================================================================
-# docker-compose VPS (OVH, Debian 12) — TLS assuré par Caddy sur l'hôte.
+# /opt/lucie/docker-compose.yml — COPIE DE RÉFÉRENCE DE CE QUI TOURNE SUR LE VPS.
 #
-# Le frontend nginx sert en HTTP simple et n'est publié QUE sur la boucle
-# locale : Docker écrit ses règles iptables directement et court-circuite UFW,
-# donc un port publié sur 0.0.0.0 serait exposé à Internet malgré le pare-feu.
+# Dev ET prod sur le même VPS, chacun sur son réseau ; Caddy rejoint les deux et
+# fait seul la façade. Aucun port publié sauf le sien (Docker écrit ses propres
+# règles iptables et court-circuite UFW : un port publié serait exposé à
+# Internet malgré le pare-feu).
 #
-# À placer dans /opt/lucie/docker-compose.yml.
-# =================================================================
+#   - backend  écoute en 3001
+#   - frontend écoute en 80 (pas de TLS dans l'image : Caddy termine le TLS)
+#   - alias réseau "backend" : nginx fait proxy_pass vers ce nom → obligatoire
+#   - sauvegardes hors du volume Docker
+#   - TZ=Europe/Brussels, sinon les horodatages décalent de deux heures
+#
+# LES IMAGES NE SE METTENT PAS À JOUR SEULES. `restart: unless-stopped` relance
+# le conteneur, il ne va pas chercher une image plus récente : après un build,
+# il faut `docker compose pull` PUIS `docker compose up -d`.
 
 services:
+
+  caddy:
+    image: caddy:2-alpine
+    container_name: lucie-caddy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    networks: [lucie-prod, lucie-dev]
+
+  # ----------------------------------------------------------------- DEV
+  backend-dev:
+    image: ghcr.io/jeromevde77/attributions-backend:dev
+    container_name: attributions-backend-dev
+    restart: unless-stopped
+    environment:
+      NODE_ENV: development
+      TZ: Europe/Brussels
+      PORT: 3001
+      JWT_SECRET: ${JWT_SECRET_DEV:?JWT_SECRET_DEV manquant dans .env}
+      # UN COURRIEL PARTI DE DEV DOIT RAMENER SUR DEV. Sans cette ligne, le
+      # repli inscrit dans le code envoie le destinataire en PRODUCTION : un
+      # essai qui fait atterrir quelqu'un sur les données réelles est pire
+      # qu'un lien mort.
+      LUCIE_URL: https://dev.lucie-iip.be
+    volumes:
+      - ./dev/data:/app/data
+      - ./dev/backups:/app/data/backups
+    mem_limit: 768m
+    networks:
+      lucie-dev:
+        aliases:
+          - backend
+
+  frontend-dev:
+    image: ghcr.io/jeromevde77/attributions-frontend:dev
+    container_name: attributions-frontend-dev
+    restart: unless-stopped
+    environment:
+      TZ: Europe/Brussels
+    networks: [lucie-dev]
+
+  # ---------------------------------------------------------------- PROD
   backend:
     image: ghcr.io/jeromevde77/attributions-backend:latest
-    pull_policy: always
-    container_name: lucie-backend
+    container_name: attributions-backend
     restart: unless-stopped
     environment:
       NODE_ENV: production
       TZ: Europe/Brussels
       PORT: 3001
-      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET manquant — openssl rand -hex 32}
-      DB_PATH: /app/data/attributions.db
-      CORS_ORIGIN: ${CORS_ORIGIN:-https://www.lucie-iip.be}
-      # L'ADRESSE QUI PART DANS LES COURRIELS. Sans elle, les notifications
-      # renvoient vers l'adresse de repli inscrite dans le code : un lien qui
-      # mène ailleurs se remarque, et ne se rattrape pas une fois envoyé.
-      LUCIE_URL: ${LUCIE_URL:-https://www.lucie-iip.be}
+      JWT_SECRET: ${JWT_SECRET_PROD:?JWT_SECRET_PROD manquant dans .env}
+      # Déclarée plutôt que laissée au repli du code : l'adresse qui part dans
+      # des dizaines de courriels ne doit pas dépendre d'une valeur par défaut
+      # qu'une version ultérieure pourrait changer.
+      LUCIE_URL: https://www.lucie-iip.be
     volumes:
-      - /opt/lucie/data:/app/data
-      # Sauvegardes hors du dossier de la base : une copie rangée à côté de ce
-      # qu'elle protège disparaît avec lui.
-      - /opt/lucie/backups:/app/data/backups
-    expose:
-      - "3001"
+      - ./prod/data:/app/data
+      - ./prod/backups:/app/data/backups
     networks:
-      - lucie-net
+      lucie-prod:
+        aliases:
+          - backend
 
   frontend:
     image: ghcr.io/jeromevde77/attributions-frontend:latest
-    pull_policy: always
-    container_name: lucie-frontend
+    container_name: attributions-frontend
     restart: unless-stopped
-    depends_on:
-      - backend
-    ports:
-      - "127.0.0.1:8080:80"   # jamais 0.0.0.0 — voir l'en-tête
-    networks:
-      - lucie-net
+    environment:
+      TZ: Europe/Brussels
+    networks: [lucie-prod]
 
 networks:
-  lucie-net:
+  lucie-prod:
     driver: bridge
+  lucie-dev:
+    driver: bridge
+
+volumes:
+  caddy_data:
+  caddy_config:

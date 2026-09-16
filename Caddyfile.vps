@@ -1,90 +1,73 @@
-# Caddyfile — VPS OVH. À placer dans /etc/caddy/Caddyfile.
+# /opt/lucie/Caddyfile — COPIE DE RÉFÉRENCE DE CE QUI TOURNE SUR LE VPS OVH.
 #
-# Caddy obtient et renouvelle seul les certificats Let's Encrypt : les ports 80
-# et 443 doivent être joignables depuis Internet, et les enregistrements DNS
-# A/AAAA pointer sur le VPS AVANT le premier démarrage. Un nom qui ne résout
-# pas encore fait échouer l'émission du certificat, et Caddy réessaie ensuite
-# avec un délai croissant : mieux vaut vérifier le DNS d'abord.
+# Ce fichier n'est pas un modèle : c'est le double, dans le dépôt, de celui qui
+# est monté en lecture seule dans le conteneur `lucie-caddy`. Le dépôt portait
+# auparavant un exemple avec un nom fictif et un Caddy installé sur l'hôte ;
+# décrire une installation qui n'existe pas est pire qu'un fichier absent — la
+# prochaine session y croit.
 #
-# Trois noms, trois rôles :
-#   www.lucie-iip.be   production   → conteneurs :latest, port 8080
-#   lucie-iip.be       redirection  → renvoie vers www, en 308
-#   dev.lucie-iip.be   développement → conteneurs :dev,    port 8081
+# Caddy termine le TLS ; nginx (frontend) écoute en 80 et fait lui-même le
+# proxy_pass vers le backend. Caddy ne route donc PAS /api/*, et le navigateur
+# ne parle qu'à UNE origine : le CORS n'entre jamais en jeu en usage normal.
 #
-# CE FICHIER SUPPOSE QUE LES DEUX ENVIRONNEMENTS VIVENT SUR LE MÊME VPS. S'ils
-# sont sur deux machines, chaque bloc va sur la sienne, sans autre changement
-# que l'adresse de `reverse_proxy`.
+# Recharger sans coupure :
+#   docker exec lucie-caddy caddy reload --config /etc/caddy/Caddyfile
 
-# ── PRODUCTION ────────────────────────────────────────────────────────────
-www.lucie-iip.be {
+(commun) {
 	encode zstd gzip
-
-	reverse_proxy 127.0.0.1:8080 {
-		# Un lot d'impression peut demander plusieurs minutes de rendu.
-		transport http {
-			read_timeout 900s
-			write_timeout 900s
-		}
-	}
-
 	header {
-		Strict-Transport-Security "max-age=31536000; includeSubDomains"
-		X-Content-Type-Options "nosniff"
-		X-Frame-Options "SAMEORIGIN"
-		Referrer-Policy "same-origin"
-	}
-
-	log {
-		output file /var/log/caddy/lucie.log
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options nosniff
+		X-Frame-Options DENY
+		Referrer-Policy strict-origin-when-cross-origin
+		-Server
+		# RIEN ICI N'A VOCATION À ÊTRE INDEXÉ. Lucie est une application
+		# d'administration : ni la production ni le développement n'ont
+		# d'audience publique, et le développement porte en outre des données
+		# réelles. L'en-tête vit dans le bloc commun pour qu'aucun des deux ne
+		# puisse l'oublier.
+		X-Robots-Tag "noindex, nofollow"
 	}
 }
 
-# ── L'APEX REDIRIGE, IL NE SERT PAS ───────────────────────────────────────
-# Servir la même application sous deux noms, c'est deux origines pour un seul
-# service : le CORS, les cookies et les liens des courriels devraient connaître
-# les deux, et un seul oubli suffit à produire une panne qu'on ne lit pas. Un
-# seul nom fait autorité, l'autre y renvoie.
+# ----------------------------------------------------------------- PROD
 lucie-iip.be {
 	redir https://www.lucie-iip.be{uri} permanent
 }
 
-# ── DÉVELOPPEMENT ─────────────────────────────────────────────────────────
-dev.lucie-iip.be {
-	encode zstd gzip
+www.lucie-iip.be {
+	import commun
+	reverse_proxy frontend:80
+}
 
-	# LE DÉVELOPPEMENT EST DÉSORMAIS SUR INTERNET, ET PLUS SUR LE RÉSEAU
-	# LOCAL. Il tourne en NODE_ENV=development, ce qui ouvre la route de
-	# restauration de la base — c'est voulu, c'est ainsi qu'on y remet une copie
-	# des données réelles. Mais ce qui était protégé par le simple fait d'être
-	# injoignable de l'extérieur ne l'est plus que par l'authentification de
-	# l'application.
+# ------------------------------------------------------------------ DEV
+dev.lucie-iip.be {
+	import commun
+	header X-Lucie-Env "DEVELOPPEMENT"
+
+	# LE DÉVELOPPEMENT EST SUR INTERNET DEPUIS LE DÉMÉNAGEMENT, et il tourne en
+	# NODE_ENV=development : la route de restauration de la base y est ouverte.
+	# C'est voulu — c'est ainsi qu'on y remet une copie des données réelles —
+	# mais ce qui était protégé par le fait d'être injoignable de l'extérieur ne
+	# l'est plus que par l'authentification de l'application.
 	#
-	# Une seconde porte, à ce niveau-ci, coûte une ligne et referme la
-	# différence. Décommenter après avoir généré le condensat :
-	#     caddy hash-password --plaintext 'le-mot-de-passe'
+	# Deux façons de refermer l'écart, au choix :
 	#
+	# 1. Par adresse, quand elles seront connues — simple, mais fragile avec des
+	#    connexions domestiques dont l'adresse change :
+	# @interdit not remote_ip 1.2.3.4 5.6.7.8
+	# respond @interdit 403
+	#
+	# 2. Par mot de passe — tient partout, et ne dépend pas du réseau.
+	#    Engendrer le condensat : caddy hash-password --plaintext 'le-mot'
 	# basic_auth {
-	# 	iip $2a$14$remplacer_par_le_condensat_genere
+	# 	iip $2a$14$remplacer_par_le_condensat_engendre
 	# }
 
-	reverse_proxy 127.0.0.1:8081 {
-		transport http {
-			read_timeout 900s
-			write_timeout 900s
-		}
-	}
+	reverse_proxy frontend-dev:80
+}
 
-	header {
-		Strict-Transport-Security "max-age=31536000; includeSubDomains"
-		X-Content-Type-Options "nosniff"
-		X-Frame-Options "SAMEORIGIN"
-		Referrer-Policy "same-origin"
-		# Un moteur de recherche n'a rien à indexer d'un environnement d'essai
-		# rempli de données réelles.
-		X-Robots-Tag "noindex, nofollow"
-	}
-
-	log {
-		output file /var/log/caddy/lucie-dev.log
-	}
+# Ancien nom, redirige vers le nouveau. À retirer plus tard.
+vps-7c1bfaa0.vps.ovh.net {
+	redir https://dev.lucie-iip.be{uri} permanent
 }

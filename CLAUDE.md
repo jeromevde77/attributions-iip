@@ -119,11 +119,17 @@ NAS Synology.
 > **Déménagement du 17 septembre 2026.** Le service a quitté le NAS pour un
 > **VPS OVH**, derrière **Caddy** (TLS, certificats Let's Encrypt automatiques).
 > Les bases ont été synchronisées et la **sauvegarde de la base part vers le
-> NAS**. Les fichiers de déploiement en service sont `Caddyfile.vps`,
-> `docker-compose.vps.yml` (production, frontend sur 127.0.0.1:8080) et
-> `docker-compose.vps.dev.yml` (développement, 127.0.0.1:8081). Les
-> `docker-compose` du NAS sont conservés pour mémoire et marqués **héritage** :
-> ils ne décrivent plus l'installation courante. Les anciennes adresses `server.domobel.be:10800` et `:10801`
+> NAS**. **Dev ET prod vivent sur le même VPS**, chacun sur son réseau Docker
+> (`lucie-prod`, `lucie-dev`) ; Caddy rejoint les deux et publie seul 80 et 443,
+> aucun autre port n'étant exposé. Le frontend (nginx) fait lui-même le
+> `proxy_pass` de `/api/` vers l'alias réseau `backend:3001` : **le navigateur
+> ne parle qu'à une seule origine, et le CORS n'entre pas en jeu** en usage
+> normal. `Caddyfile.vps` et `docker-compose.vps.yml` sont les **copies de
+> référence** de `/opt/lucie/Caddyfile` et `/opt/lucie/docker-compose.yml` — à
+> tenir à jour avec eux, sans quoi le dépôt décrit une installation qui
+> n'existe pas. Les `docker-compose` du NAS sont conservés pour mémoire et
+> marqués **héritage**. Les images ne se mettent pas à jour seules :
+> `docker compose pull` puis `up -d`. Les anciennes adresses `server.domobel.be:10800` et `:10801`
 > ne valent plus. Trois endroits portaient une adresse en dur et ont été
 > repris : `CORS_ORIGIN` dans les deux `docker-compose` (qui accepte désormais
 > une **liste séparée par des virgules** — avec et sans `www`), le repli de
