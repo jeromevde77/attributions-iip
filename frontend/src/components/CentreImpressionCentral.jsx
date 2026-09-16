@@ -70,7 +70,14 @@ function OngletRapports({ domaine }) {
      logiciel de gestion sert à montrer LES données qu'on choisit : on descend
      de l'établissement à la section, de la section à l'unité, de l'unité au
      cours, au lieu d'avoir une entrée de menu par échelle. */
-  const [portee, setPortee] = useState({ niveau: 'etablissement', ue_num: '', code_cours: '' });
+  /* PLUSIEURS UNITÉS, ET LE TRONC COMMUN. On demandait « l'ETP de l'UE 286 »,
+     puis celui de l'UE 290, et l'on additionnait deux pièces à la main — deux
+     personnes ne trouvaient pas le même total. `ue_nums` porte la sélection ;
+     `ue_num` reste pour descendre jusqu'au cours, qui n'a de sens que dans UNE
+     unité. `tc` restreint aux unités du tronc commun, ou les exclut. */
+  const [portee, setPortee] = useState({
+    niveau: 'etablissement', ue_num: '', ue_nums: [], code_cours: '', tc: '' });
+  const [ouvreUes, setOuvreUes] = useState(false);
   /* L'EFFECTIF SE COMPTE, OU SE POSE. Lucie connaît les inscrits et c'est le
      défaut ; mais une pièce de COPIL se prépare souvent AVANT les
      inscriptions — on projette la rentrée, on simule l'ouverture d'une
@@ -164,7 +171,7 @@ function OngletRapports({ domaine }) {
 
   // Les cours d'une unité ne se chargent qu'au moment où l'on descend jusque-là.
   useEffect(() => {
-    if (portee.niveau !== 'cours' || !portee.ue_num) { setCoursUe([]); return; }
+    if (portee.niveau !== 'cours' || !portee.ue_num) { setCoursUe([]); return; }  // eslint-disable-line
     fetch(`/api/ref/cours?annee=${encodeURIComponent(annee)}&ue_num=${encodeURIComponent(portee.ue_num)}`,
       { headers: authHeaders() })
       .then(r => r.json()).then(l => setCoursUe(Array.isArray(l) ? l : []))
@@ -173,6 +180,29 @@ function OngletRapports({ domaine }) {
 
   const liste = useMemo(
     () => (catalogue || []).filter(r => r.domaine === domaine), [catalogue, domaine]);
+
+  // LES UNITÉS PROPOSÉES — une seule liste, filtrée une seule fois : la
+  // section choisie, puis le tronc commun. Deux endroits qui filtrent
+  // séparément finissent par ne plus proposer la même chose.
+  const uesOffertes = useMemo(() => (ues || []).filter(u => {
+    if (section && u.section !== section) return false;
+    const est = String(u.ue_tc || '').trim().toLowerCase() === 'x';
+    if (portee.tc === 'tc') return est;
+    if (portee.tc === 'hors') return !est;
+    return true;
+  }), [ues, section, portee.tc]);
+
+  // Une unité décochée par un changement de filtre ne doit pas rester dans la
+  // sélection : la pièce porterait sur autre chose que ce qui est affiché.
+  useEffect(() => {
+    setPortee(p0 => {
+      const offerts = new Set(uesOffertes.map(u => String(u.ue_num)));
+      const gardes = (p0.ue_nums || []).filter(n => offerts.has(String(n)));
+      if (gardes.length === (p0.ue_nums || []).length) return p0;
+      return { ...p0, ue_nums: gardes,
+        ue_num: offerts.has(String(p0.ue_num)) ? p0.ue_num : '' };
+    });
+  }, [uesOffertes]);
   useEffect(() => { setChoisi(null); setApercu(null); }, [domaine]);
 
   const corps = (r) => JSON.stringify({
@@ -283,12 +313,80 @@ function OngletRapports({ domaine }) {
                   {sections.map(s2 => <option key={s2} value={s2}>{s2}</option>)}
                 </select>
               )}
-              {(portee.niveau === 'ue' || portee.niveau === 'cours') && (
+              {portee.niveau !== 'etablissement' && (
+                <select value={portee.tc}
+                  onChange={e => setPortee(p => ({ ...p, tc: e.target.value }))}
+                  className="px-2 py-1 text-[12px] border border-slate-300 rounded"
+                  title="Restreindre au tronc commun, ou l'exclure">
+                  <option value="">Tronc commun compris</option>
+                  <option value="tc">Tronc commun seul</option>
+                  <option value="hors">Hors tronc commun</option>
+                </select>
+              )}
+              {/* UNE UNITÉ SE CHOISIT, PLUSIEURS SE COCHENT. Une liste
+                  déroulante ne sait dire qu'une chose à la fois ; on sortait
+                  donc une pièce par unité et on additionnait à la main. */}
+              {portee.niveau === 'ue' && (
+                <div className="relative">
+                  <button onClick={() => setOuvreUes(o => !o)}
+                    className="px-2 py-1 text-[12px] border border-slate-300 rounded
+                               bg-white max-w-[18rem] truncate text-left">
+                    {portee.ue_nums.length === 0 ? '— choisir des unités —'
+                      : portee.ue_nums.length === 1 ? `UE ${portee.ue_nums[0]}`
+                      : `${portee.ue_nums.length} unités`}
+                  </button>
+                  {ouvreUes && (
+                    <div className="absolute z-30 mt-1 w-[24rem] max-h-72 overflow-auto
+                                    bg-white border border-slate-300 rounded-carte shadow-flottant p-2">
+                      <div className="flex gap-2 pb-2 mb-1 border-b border-slate-200">
+                        <button className="text-[11px] text-iip-blue underline"
+                          onClick={() => setPortee(p => ({ ...p,
+                            ue_nums: uesOffertes.map(u => String(u.ue_num)) }))}>
+                          Tout cocher ({uesOffertes.length})
+                        </button>
+                        <button className="text-[11px] text-slate-500 underline"
+                          onClick={() => setPortee(p => ({ ...p, ue_nums: [] }))}>
+                          Tout décocher
+                        </button>
+                      </div>
+                      {uesOffertes.length === 0 && (
+                        <div className="text-[12px] text-slate-400 px-1 py-2">
+                          Aucune unité ne répond à ces filtres.
+                        </div>
+                      )}
+                      {uesOffertes.map(u => {
+                        const k = String(u.ue_num);
+                        const coche = portee.ue_nums.includes(k);
+                        return (
+                          <label key={k} className="flex items-start gap-2 py-0.5 text-[12px]
+                                                    cursor-pointer hover:bg-slate-50 rounded px-1">
+                            <input type="checkbox" checked={coche} className="mt-0.5"
+                              onChange={() => setPortee(p => ({ ...p,
+                                ue_nums: coche ? p.ue_nums.filter(x => x !== k)
+                                               : [...p.ue_nums, k] }))} />
+                            <span>
+                              <b>UE {u.ue_num}</b> {u.ue_nom}
+                              {String(u.ue_tc || '').toLowerCase() === 'x' && (
+                                <span className="ml-1.5 text-[10px] px-1 rounded border
+                                                 border-iip-turquoise text-iip-blue font-bold">TC</span>
+                              )}
+                            </span>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              )}
+              {/* UN COURS VIT DANS UNE SEULE UNITÉ : là, on choisit. */}
+              {portee.niveau === 'cours' && (
                 <select value={portee.ue_num}
-                  onChange={e => setPortee(p => ({ ...p, ue_num: e.target.value, code_cours: '' }))}
+                  onChange={e => setPortee(p => ({ ...p,
+                    ue_num: e.target.value, ue_nums: e.target.value ? [e.target.value] : [],
+                    code_cours: '' }))}
                   className="px-2 py-1 text-[12px] border border-slate-300 rounded max-w-[16rem]">
                   <option value="">— choisir une unité —</option>
-                  {ues.filter(u => !section || u.section === section).map(u => (
+                  {uesOffertes.map(u => (
                     <option key={u.ue_num} value={u.ue_num}>UE {u.ue_num} — {u.ue_nom}</option>
                   ))}
                 </select>

@@ -588,14 +588,14 @@ export function calculerEtp(annee) {
 
   // IIP : périodes CT et PP par section/UE (autonomie incluse dans total_attribue_professeur)
   const lignesIIP = db.prepare(`
-    SELECT v.section, v.ue_num, u.ue_nom, u.ue_niv, u.ects,
+    SELECT v.section, v.ue_num, u.ue_nom, u.ue_niv, u.ects, u.ue_tc,
       SUM(CASE WHEN v.type_cours='CT' THEN v.total_attribue_professeur ELSE 0 END) AS per_ct,
       SUM(CASE WHEN v.type_cours='PP' THEN v.total_attribue_professeur ELSE 0 END) AS per_pp,
       SUM(CASE WHEN v.type_cours NOT IN ('CT','PP') THEN v.total_attribue_professeur ELSE 0 END) AS per_autre
     FROM v_attribution_complete v
     LEFT JOIN ue u ON u.ue_num = v.ue_num AND u.annee_scolaire = v.annee_scolaire
     WHERE v.annee_scolaire = ? AND COALESCE(v.contrat_mdp,'IIP')='IIP'
-    GROUP BY v.section, v.ue_num, u.ue_nom, u.ue_niv, u.ects
+    GROUP BY v.section, v.ue_num, u.ue_nom, u.ue_niv, u.ects, u.ue_tc
     ORDER BY v.section, v.ue_num
   `).all(annee);
 
@@ -634,6 +634,9 @@ export function calculerEtp(annee) {
     s.etp_iip += etpIip; s.etp_helb += etpHelb; s.etp_ct += etpCt + etpAutre; s.etp_pp += etpPp;
     s.ues.push({
       ue_num: l.ue_num, ue_nom: l.ue_nom, ue_niv: l.ue_niv || null, ects: l.ects || null,
+      // La marque de tronc commun descend jusqu'ici : c'est sur cette clé que
+      // le centre d'impression restreint une pièce d'ETP.
+      ue_tc: l.ue_tc || null,
       per_ct: Math.round((l.per_ct || 0) + (l.per_autre || 0)), per_pp: Math.round(l.per_pp || 0),
       per_ct_helb: helbInfo ? helbInfo.per_ct : 0, per_pp_helb: helbInfo ? helbInfo.per_pp : 0,
       etp_ct: r4(etpCt + etpAutre), etp_pp: r4(etpPp),
@@ -641,7 +644,7 @@ export function calculerEtp(annee) {
     });
   }
   // Sections HELB sans ligne IIP — récupérer nom/niveau depuis la table ue
-  const ueInfo = db.prepare(`SELECT ue_num, ue_nom, ue_niv, ects FROM ue WHERE annee_scolaire = ?`).all(annee);
+  const ueInfo = db.prepare(`SELECT ue_num, ue_nom, ue_niv, ects, ue_tc FROM ue WHERE annee_scolaire = ?`).all(annee);
   const ueInfoMap = {};
   for (const u of ueInfo) ueInfoMap[String(u.ue_num)] = u;
   for (const k of Object.keys(helbUE)) {
@@ -654,6 +657,7 @@ export function calculerEtp(annee) {
     s.etp_helb += info.etp;
     s.ues.push({
       ue_num: Number(ueNum), ue_nom: ui.ue_nom || null, ue_niv: ui.ue_niv || null, ects: ui.ects || null,
+      ue_tc: ui.ue_tc || null,
       per_ct: 0, per_pp: 0, per_ct_helb: info.per_ct, per_pp_helb: info.per_pp,
       etp_ct: 0, etp_pp: 0, etp_iip: 0, etp_helb: r4(info.etp), etp_total: r4(info.etp),
     });
