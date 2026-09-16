@@ -44,11 +44,10 @@ const CATEGORIES = [
 /* Les quatre familles, et ce qu'on montre de chacune. */
 const FAMILLES = [
   { cle: 'cotes_ue', titre: 'Cotes d’unité',
-    aide: 'Les points arrêtés par le Conseil — ce qui fait foi.',
-    unite: '/20', vues: [
-      ['par_section', 'Par section'],
-      ['par_ue', 'Par unité'],
-    ] },
+    aide: 'Les points arrêtés par le Conseil — ce qui fait foi. Le détail ligne à '
+        + 'ligne est dans le tableau des décisions, ci-dessus : une cote et la '
+        + 'décision qu’elle a produite se lisent ensemble.',
+    unite: '/20', sansTable: true, vues: [] },
   { cle: 'cotes_cours', titre: 'Cotes de cours',
     aide: 'Les notes encodées acquis par acquis. N’existent que là où les acquis ont été saisis.',
     unite: '/20', vues: [
@@ -86,10 +85,21 @@ const modeTexte = (m, effectif) => {
  * médiane est basse : combien sont passés ? La barre répond sans qu'on ait à
  * lire un chiffre, et le taux porte la même teinte que dans « Résultats ».
  */
-function Decisions({ stats, section, categorie }) {
+function Decisions({ stats, donnees, section, categorie }) {
   const [vue, setVue] = useState('par_section');
   if (!stats) return null;
-  const lignes = (vue === 'par_section' ? stats.par_section : stats.par_ue) || [];
+  const brutes = (vue === 'par_section' ? stats.par_section : stats.par_ue) || [];
+  /* UNE LIGNE, DEUX FAMILLES DE COLONNES.
+     La cote d'une unité et le sort de ses étudiants sont la même ligne vue deux
+     fois : les lire dans deux tableaux séparés oblige à comparer en zigzag, et
+     rien ne garantit que l'œil retombe sur la bonne unité. On les mêle donc —
+     ce que le Conseil a décidé à gauche, la forme des cotes qui l'a produit à
+     droite —, et un bandeau nomme les deux familles pour qu'on ne lise jamais
+     une moyenne comme un taux. */
+  const cotes = new Map(((vue === 'par_section'
+    ? donnees?.cotes_ue?.par_section : donnees?.cotes_ue?.par_ue) || [])
+    .map(c => [String(c.cle), c]));
+  const lignes = brutes.map(l => ({ ...l, cote: cotes.get(String(l.cle)) || null }));
   const f = forme(lignes.filter(l => l.s1.decides > 0).map(l => l.s1.taux_reussite));
   const t = stats.total;
 
@@ -150,14 +160,29 @@ function Decisions({ stats, section, categorie }) {
         <table className="w-full text-[12px]">
           <thead className="tab-entete">
             <tr>
-              <th className="text-left px-2 py-1.5">Libellé</th>
-              <th className="text-right px-2 py-1.5 w-16">Décidés</th>
-              <th className="px-2 py-1.5 w-32">Répartition</th>
-              <th className="text-right px-2 py-1.5 w-20">Réussis</th>
-              <th className="text-right px-2 py-1.5 w-20">Ajournés</th>
-              <th className="text-right px-2 py-1.5 w-20">Refusés</th>
-              <th className="text-right px-2 py-1.5 w-24">Réussite S1</th>
-              <th className="text-right px-2 py-1.5 w-24">Réussite finale</th>
+              <th className="px-2 pt-1.5 pb-0.5" />
+              <th className="px-2 pt-1.5 pb-0.5 text-left text-[10px] uppercase
+                             tracking-wide text-slate-500" colSpan={6}>
+                Ce que le Conseil a décidé
+              </th>
+              <th className="px-2 pt-1.5 pb-0.5 text-left text-[10px] uppercase
+                             tracking-wide text-slate-500 border-l border-slate-200"
+                  colSpan={4}>
+                La forme des cotes d’unité
+              </th>
+            </tr>
+            <tr>
+              <th className="text-left px-2 pb-1.5">Libellé</th>
+              <th className="text-right px-2 pb-1.5 w-16">Décidés</th>
+              <th className="px-2 pb-1.5 w-28">Répartition</th>
+              <th className="text-right px-2 pb-1.5 w-16">Réussis</th>
+              <th className="text-right px-2 pb-1.5 w-16">Ajournés</th>
+              <th className="text-right px-2 pb-1.5 w-16">Refusés</th>
+              <th className="text-right px-2 pb-1.5 w-20">Réussite S1</th>
+              <th className="text-right px-2 pb-1.5 w-20 border-l border-slate-200">Moyenne</th>
+              <th className="text-right px-2 pb-1.5 w-20">Médiane</th>
+              <th className="text-right px-2 pb-1.5 w-20">Étendue</th>
+              <th className="px-2 pb-1.5 w-32">Forme</th>
             </tr>
           </thead>
           <tbody>
@@ -178,8 +203,23 @@ function Decisions({ stats, section, categorie }) {
                 </td>
                 <td className={`px-2 py-1.5 text-right tabular-nums font-semibold
                   ${tonTaux(l.s1.taux_reussite)}`}>{pc(l.s1.taux_reussite)}</td>
+                {/* L'ÉCART MOYENNE / MÉDIANE se signale ici comme ailleurs :
+                    au-delà d'un point, la distribution est tirée par un bout. */}
                 <td className={`px-2 py-1.5 text-right tabular-nums font-semibold
-                  ${tonTaux(l.final.taux_reussite)}`}>{pc(l.final.taux_reussite)}</td>
+                    border-l border-slate-100 ${l.cote && Math.abs(
+                      (l.cote.moyenne ?? 0) - (l.cote.mediane ?? 0)) > 1
+                      ? 'text-[color:var(--c-attente,#B45309)]' : 'text-iip-blue'}`}>
+                  {nb(l.cote?.moyenne)}
+                </td>
+                <td className="px-2 py-1.5 text-right tabular-nums text-iip-blue font-semibold">
+                  {nb(l.cote?.mediane)}
+                </td>
+                <td className="px-2 py-1.5 text-right tabular-nums text-slate-500">
+                  {l.cote ? `${nb(l.cote.min)} – ${nb(l.cote.max)}` : '—'}
+                </td>
+                <td className="px-2 py-1.5">
+                  {l.cote && <Etendue d={l.cote} max={20} />}
+                </td>
               </tr>
             ))}
           </tbody>
@@ -305,7 +345,12 @@ function Famille({ famille, donnees }) {
         <Tuile libelle="Observations" valeur={ens.n.toLocaleString('fr-BE')} />
       </div>
 
-      <Table lignes={lignes} max={max} />
+      {/* LA TABLE DE CETTE FAMILLE A REJOINT CELLE DES DÉCISIONS. Lire la
+          moyenne d'une unité dans un tableau et le sort de ses étudiants dans
+          un autre, c'est comparer en zigzag deux listes qui portent les mêmes
+          lignes. Les tuiles d'ensemble restent : elles répondent à une question
+          d'ensemble, pas à une question de ligne. */}
+      {!famille.sansTable && <Table lignes={lignes} max={max} />}
     </div>
   );
 }
@@ -369,16 +414,16 @@ export default function Distributions() {
     <div className="space-y-4">
       <div className="flex items-center gap-2 flex-wrap">
         <select value={annee} onChange={e => setAnnee(e.target.value)}
-          className="px-2 py-1 text-[12px] border border-slate-300 rounded bg-white">
+          className="controle">
           {(annees.length ? annees : [annee]).map(a => <option key={a} value={a}>{a}</option>)}
         </select>
         <select value={categorie} onChange={e => setCategorie(e.target.value)}
-          className="px-2 py-1 text-[12px] border border-slate-300 rounded bg-white"
+          className="controle"
           title="Le niveau vient du référentiel de la section">
           {CATEGORIES.map(([k, l]) => <option key={k} value={k}>{l}</option>)}
         </select>
         <select value={section} onChange={e => setSection(e.target.value)}
-          className="px-2 py-1 text-[12px] border border-slate-300 rounded bg-white">
+          className="controle">
           <option value="">Toutes les sections</option>
           {sections.map(s => <option key={s} value={s}>{s}</option>)}
         </select>
@@ -419,7 +464,7 @@ export default function Distributions() {
 
       {/* LES DÉCISIONS D'ABORD : c'est la question qu'on se pose en arrivant, et
           les distributions expliquent ensuite ce qui les a produites. */}
-      <Decisions stats={stats} section={section} categorie={categorie} />
+      <Decisions stats={stats} donnees={donnees} section={section} categorie={categorie} />
 
       {donnees && FAMILLES.map(f => (
         <Famille key={f.cle} famille={f} donnees={donnees} />

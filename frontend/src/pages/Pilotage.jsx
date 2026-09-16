@@ -1606,8 +1606,18 @@ export default function Pilotage({ vue = 'tout' }) {
       />
 
       <div className="gouttiere-rail px-3 md:px-6 py-4 space-y-5">
-        <PageHeader icon={IconChartBar} titre="Pilotage des dotations"
-          sous={`Année civile ${selYear} · Enveloppes extérieures · Comparaison pluriannuelle`} />
+        {/* UN TITRE NE PROMET QUE CE QUE L'ÉCRAN MONTRE.
+            « Pilotage des dotations · Enveloppes extérieures · Comparaison
+            pluriannuelle » coiffait aussi les résultats de délibération et les
+            distributions de cotes : on annonçait de l'argent et des périodes
+            au-dessus de chiffres d'étudiants. */}
+        {['deliberation', 'distributions'].includes(tab) ? (
+          <PageHeader icon={IconChartBar} titre="Statistiques étudiantes"
+            sous="Décisions du Conseil, cotes et effectifs — par section et par unité" />
+        ) : (
+          <PageHeader icon={IconChartBar} titre="Pilotage des dotations"
+            sous={`Année civile ${selYear} · Enveloppes extérieures · Comparaison pluriannuelle`} />
+        )}
 
         {tab === 'repartition' ? (
           <RepartitionPeriodes />
