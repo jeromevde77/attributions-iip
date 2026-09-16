@@ -6915,10 +6915,17 @@ export function documentPV(ueNum, annee, session = 1) {
     <div class="ligne">Le ${esc(conseil)} a délibéré le
       <b>${esc(jour(seance.date_seance) || '……………')}</b>${
       seance.heure_seance ? ` à <b>${esc(seance.heure_seance)}</b>` : ''}.</div>
-    <div class="ligne">Les résultats sont communiqués conformément au ROI de
-      l'établissement le <b>${esc(jour(seance.visite_date) || '……………')}</b>${
-      seance.visite_heure ? ` à ${esc(seance.visite_heure)}` : ''}${
-      seance.visite_local ? `, local ${esc(seance.visite_local)}` : ''}.</div>
+    <!-- LA MENTION VAUT POUR LE PV COMME POUR LA NOTIFICATION. Elle remplaçait
+         la ligne sur la pièce remise à l'étudiant, et le procès-verbal, lui,
+         continuait d'annoncer une date en pointillés : deux versions du même
+         fait, dont une fausse, dans le dossier de la séance. -->
+    ${(seance.visite_mention || '').trim()
+      ? `<div class="ligne">Les résultats sont communiqués conformément au ROI de
+          l'établissement. ${esc(seance.visite_mention.trim())}</div>`
+      : `<div class="ligne">Les résultats sont communiqués conformément au ROI de
+          l'établissement le <b>${esc(jour(seance.visite_date) || '……………')}</b>${
+          seance.visite_heure ? ` à ${esc(seance.visite_heure)}` : ''}${
+          seance.visite_local ? `, local ${esc(seance.visite_local)}` : ''}.</div>`}
     ${seance.session2_date ? `<div class="ligne">Seconde session le
       <b>${esc(jour(seance.session2_date))}</b>${
       seance.session2_heure ? ` à ${esc(seance.session2_heure)}` : ''}${

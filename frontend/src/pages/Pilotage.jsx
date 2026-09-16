@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo, useRef, Fragment } from 'react';
 import { api, getAnnee, getUser, authHeaders } from '../lib/api.js';
 import { IconChartBar, IconHome, IconUsers, IconSettings, IconChevronRight, IconChevronDown, IconPrinter, IconRotateClockwise, IconCheck, IconX, IconTrash, IconCash, IconCalendar, IconArrowsLeftRight, IconScale } from '@tabler/icons-react';
 import { PageHeader, Tabs, RailLateral } from '../components/ui.jsx';
+import Distributions from '../components/Distributions.jsx';
 import CentreImpressionCentral from '../components/CentreImpressionCentral.jsx';
 import Budget from './Budget.jsx';
 import RepartitionPeriodes from './RepartitionPeriodes.jsx';
@@ -1592,6 +1593,11 @@ export default function Pilotage({ vue = 'tout' }) {
           ...(vue === 'gestion' ? [] : [
             { key: 'deliberation', label: 'Résultats', icon: IconScale,
               actif: tab === 'deliberation', onClick: () => setTab('deliberation') },
+            /* LA DISTRIBUTION À CÔTÉ DES RÉSULTATS, et non dans un menu à part :
+               « 62 % de réussite » et « une moyenne de 12 tirée par deux
+               extrêmes » répondent à la même question, posée deux fois. */
+            { key: 'distributions', label: 'Distributions', icon: IconChartBar,
+              actif: tab === 'distributions', onClick: () => setTab('distributions') },
           ]),
           ...(vue === 'reporting' ? [] : [
             { key: 'config', label: 'Configuration', icon: IconSettings, actif: tab === 'config', onClick: () => setTab('config') },
@@ -1605,6 +1611,8 @@ export default function Pilotage({ vue = 'tout' }) {
 
         {tab === 'repartition' ? (
           <RepartitionPeriodes />
+        ) : tab === 'distributions' ? (
+          <Distributions />
         ) : tab === 'budget' ? (
           <Budget />
         ) : loading ? (
