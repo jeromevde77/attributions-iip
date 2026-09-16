@@ -68,6 +68,45 @@ export default function Deliberation() {
   const [docs, setDocs] = useState(null);           // l'unité dont on imprime les pièces
   const [annuler, setAnnuler] = useState(null);     // ue en cours d'annulation
   const [enCours, setEnCours] = useState(false);
+  /* LA CLÔTURE FORCÉE — pour une année sans attributions.
+     `forcage` porte les unités cochées et les sessions visées ; null quand le
+     mode est fermé, ce qui garde l'écran ordinaire tel qu'il est. */
+  const [forcage, setForcage] = useState(null);   // { ues:Set, s1:bool, s2:bool }
+  const [forceFait, setForceFait] = useState(null);
+
+  /**
+   * CLÔTURER SANS QUORUM, ET EN LE DISANT.
+   *
+   * Le quorum des deux tiers s'oppose à la clôture d'une délibération TENUE —
+   * il protège l'étudiant, et il reste. Mais il suppose un Conseil, donc des
+   * attributions, donc des membres à qui cocher une présence : sur une année
+   * reprise d'archives il n'y en a pas, et la règle ne protège plus rien, elle
+   * rend seulement l'année inclôturable.
+   *
+   * Ce qui est fermé ici porte donc la marque « reprise » : la séance ne se
+   * fera jamais passer pour une séance tenue, et les pièces le disent.
+   */
+  async function forcerCloture() {
+    const cibles = [];
+    for (const n of forcage.ues) {
+      if (forcage.s1) cibles.push({ ue_num: n, session: 1 });
+      if (forcage.s2) cibles.push({ ue_num: n, session: 2 });
+    }
+    if (!cibles.length) return;
+    setEnCours(true); setErreur(null); setForceFait(null);
+    try {
+      const rep = await fetch('/api/acquis/cloture-forcee', {
+        method: 'POST',
+        headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+        body: JSON.stringify({ annee, cibles, confirmation: cibles.length }),
+      });
+      const j = await rep.json();
+      if (!rep.ok) throw new Error(j.detail || j.error || 'échec');
+      setForceFait(j);
+      setForcage(null);
+      charger();
+    } catch (e) { setErreur(e.message); } finally { setEnCours(false); }
+  }
 
   /**
    * ANNULER LA DÉLIBÉRATION d'une unité : effacer les décisions et les
@@ -253,13 +292,79 @@ export default function Deliberation() {
                   {sec.nb_ues} unité(s) · {sec.inscrits} inscription(s)
                 </span>
               </span>
+              {/* CLÔTURER SANS QUORUM. Réservé à la direction, et nommé pour
+                  ce que c'est : on force, on ne délibère pas. */}
+              {estDirection(moi) && (
+                <button onClick={() => setForcage(f => f
+                  ? null : { ues: new Set(), s1: true, s2: false })}
+                  className={`px-2 py-1 text-[12px] rounded-lg border font-semibold flex-none
+                    ${forcage ? 'border-amber-500 bg-amber-50 text-amber-900'
+                              : 'border-slate-300 text-slate-600'}`}>
+                  {forcage ? 'Annuler le forçage' : 'Forcer la clôture…'}
+                </button>
+              )}
             </div>
+
+            {forceFait && (
+              <div className="px-3 py-2 text-[12px] bg-emerald-50 border-b border-emerald-200
+                              text-emerald-900">
+                <b>{forceFait.closes}</b> séance(s) clôturée(s)
+                {forceFait.deja ? `, ${forceFait.deja} déjà close(s)` : ''} — marquées
+                « reprise d'archives ».
+              </div>
+            )}
+
+            {forcage && (
+              <div className="px-3 py-2.5 bg-amber-50 border-b border-amber-200 space-y-2">
+                <p className="text-[12px] text-amber-900">
+                  Cochez les unités, puis les sessions à clôturer. Le quorum n'est pas
+                  constatable sans attributions : ces séances seront closes et
+                  <b> marquées « reprise d'archives »</b> — elles ne se feront pas
+                  passer pour des séances tenues, et les pièces le mentionnent.
+                  Aucune décision, aucune note, aucune motivation n'est modifiée.
+                </p>
+                <div className="flex items-center gap-3 flex-wrap text-[12px]">
+                  <button onClick={() => setForcage(f => ({ ...f,
+                    ues: new Set(sec.ues.map(u => u.ue_num)) }))}
+                    className="text-iip-blue underline">Tout cocher ({sec.ues.length})</button>
+                  <button onClick={() => setForcage(f => ({ ...f, ues: new Set() }))}
+                    className="text-slate-500 underline">Tout décocher</button>
+                  <span className="text-slate-400">·</span>
+                  <label className="flex items-center gap-1.5">
+                    <input type="checkbox" checked={forcage.s1}
+                      onChange={e => setForcage(f => ({ ...f, s1: e.target.checked }))} />
+                    1<sup>re</sup> session
+                  </label>
+                  <label className="flex items-center gap-1.5">
+                    <input type="checkbox" checked={forcage.s2}
+                      onChange={e => setForcage(f => ({ ...f, s2: e.target.checked }))} />
+                    2<sup>e</sup> session
+                  </label>
+                  <span className="flex-1" />
+                  <button onClick={forcerCloture}
+                    disabled={enCours || !forcage.ues.size || (!forcage.s1 && !forcage.s2)}
+                    className="px-2.5 py-1 rounded-lg bg-amber-600 text-white font-semibold
+                               disabled:opacity-40">
+                    Clôturer {forcage.ues.size * ((forcage.s1 ? 1 : 0) + (forcage.s2 ? 1 : 0))} séance(s)
+                  </button>
+                </div>
+              </div>
+            )}
             <div className="divide-y divide-slate-100">
               {sec.ues.map(u => {
                 const reste = u.inscrits - u.decides;
                 return (
                   <div key={u.ue_num}>
                   <div className="w-full px-3 py-2 hover:bg-slate-50 flex items-center gap-3">
+                    {forcage && (
+                      <input type="checkbox" className="flex-none"
+                        checked={forcage.ues.has(u.ue_num)}
+                        onChange={() => setForcage(f => {
+                          const ues = new Set(f.ues);
+                          if (ues.has(u.ue_num)) ues.delete(u.ue_num); else ues.add(u.ue_num);
+                          return { ...f, ues };
+                        })} />
+                    )}
                     <button onClick={() => setUeNum(u.ue_num)}
                       className="font-bold text-iip-blue w-12 flex-none tabular-nums text-left
                                  hover:underline">{u.ue_num}</button>

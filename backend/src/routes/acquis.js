@@ -32,7 +32,7 @@ import { identiteEtablissement } from './config.js';
 // Le contenu légal diffère ; la charte, non.
 import { envelopper, unitesReussies, pageAttestation, frDate } from './attestations.js';
 import { motifPropose } from '../lib/motifPropose.js';
-import { migrerReprise, simulerReprise, appliquerReprise,
+import { migrerReprise, simulerReprise, appliquerReprise, forcerCloture,
          MOTIF_REPRISE, MENTION_REPRISE } from '../lib/repriseHistorique.js';
 
 const r = Router();
@@ -7747,6 +7747,39 @@ r.post('/reprise/:annee', authRequired,
     }
     try {
       res.json(appliquerReprise(annee, {
+        motif: req.body?.motif, par: req.user?.email || null,
+      }));
+    } catch (e) { res.status(500).json({ error: e.message }); }
+  });
+
+/**
+ * FORCER LA CLÔTURE D'UNITÉS DÉSIGNÉES.
+ *
+ * Réservé à la direction. Le quorum reste opposé à la clôture d'une
+ * délibération tenue ; il ne peut pas l'être à une année sans attributions,
+ * où il n'existe personne à qui cocher une présence. Ce qui est fermé ici est
+ * MARQUÉ reprise, et l'appelant nomme chaque unité et chaque session.
+ */
+r.post('/cloture-forcee', authRequired,
+  roleRequired('admin', 'directeur', 'directeur_adjoint'), (req, res) => {
+    const annee = req.body?.annee;
+    const cibles = req.body?.cibles;
+    if (!annee) return res.status(400).json({ error: 'annee requise' });
+    if (!Array.isArray(cibles) || !cibles.length) {
+      return res.status(400).json({ error: 'Aucune unité désignée.' });
+    }
+    // LA CONFIRMATION PORTE LE NOMBRE. Un « oui » seul se clique ; voir passer
+    // « 27 » oblige à regarder combien de séances on ferme d'un geste.
+    if (Number(req.body?.confirmation) !== cibles.length) {
+      return res.status(409).json({
+        error: 'Confirmation manquante.',
+        detail: `Renvoyez confirmation = ${cibles.length}, le nombre de séances `
+              + 'à clôturer.',
+        attendu: cibles.length,
+      });
+    }
+    try {
+      res.json(forcerCloture(annee, cibles, {
         motif: req.body?.motif, par: req.user?.email || null,
       }));
     } catch (e) { res.status(500).json({ error: e.message }); }
