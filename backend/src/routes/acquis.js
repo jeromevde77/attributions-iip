@@ -63,6 +63,24 @@ export function migrerSessions(dbx) {
     }
   } catch (e) { console.error('[migration] decision_motivation :', e.message); }
 
+  // ── LA VISITE DES COPIES N'A PAS TOUJOURS DE DATE ────────────────────────
+  //
+  // La pièce réclamait un jour, une heure et un local. C'est la bonne forme
+  // quand une plage de consultation est organisée ; ce n'en est pas une quand
+  // l'Institut renvoie l'étudiant vers l'enseignant. Faute de pouvoir le dire,
+  // la notification partait avec trois rangées de pointillés — c'est-à-dire en
+  // annonçant un droit sans dire comment l'exercer.
+  //
+  // `visite_mention` remplace la ligne quand elle est remplie. Le droit est
+  // toujours annoncé ; seules ses modalités changent de forme.
+  try {
+    const cols = dbx.prepare('PRAGMA table_info(deliberation_seance)').all().map(c => c.name);
+    if (cols.length && !cols.includes('visite_mention')) {
+      dbx.exec('ALTER TABLE deliberation_seance ADD COLUMN visite_mention TEXT');
+      console.log('[migration] deliberation_seance.visite_mention ajoutée');
+    }
+  } catch (e) { console.error('[migration] decision_motivation :', e.message); }
+
   // La séance reconstituée d'archives se marque comme telle.
   migrerReprise(dbx);
 
@@ -1262,6 +1280,10 @@ export function documentMotivation(etudId, ueNum, annee, session = 1) {
     return l || null;
   })();
   const visite = {
+    // LA MENTION L'EMPORTE SUR LA DATE. Si on a pris la peine de l'écrire,
+    // c'est qu'il n'y a pas de plage à annoncer : la laisser derrière une date
+    // héritée d'un cours reviendrait à l'ignorer.
+    mention: (seance.visite_mention || '').trim() || null,
     date: seance.visite_date || visiteCours?.d || null,
     heure: seance.visite_heure || visiteCours?.h || null,
     local: seance.visite_local || visiteCours?.loc || null,
@@ -1486,9 +1508,11 @@ export function documentMotivation(etudId, ueNum, annee, session = 1) {
 
   <div class="info">
     <div class="titre">Consultation de la copie</div>
-    <div class="ligne">Le ${visite.date ? `<b>${jour(visite.date)}</b>` : '………………'}
+    ${visite.mention
+      ? `<div class="ligne">${esc2(visite.mention)}</div>`
+      : `<div class="ligne">Le ${visite.date ? `<b>${jour(visite.date)}</b>` : '………………'}
       à ${visite.heure ? `<b>${esc2(visite.heure)}</b>` : '……h……'},
-      local ${visite.local ? `<b>${esc2(visite.local)}</b>` : '…………'}</div>
+      local ${visite.local ? `<b>${esc2(visite.local)}</b>` : '…………'}</div>`}
   </div>
 
   <div class="cloture${president.signature ? '' : ' sans-paraphe'}">
@@ -2566,7 +2590,11 @@ export function voixDeLaCategorie(cle) {
 })();
 
 const CHAMPS_ADMIN = ['date_seance', 'heure_seance',
-  'visite_date', 'visite_heure', 'visite_local',
+  // `visite_mention` est administrative au même titre que la date : elle dit
+  // COMMENT consulter sa copie, pas ce qui a été décidé. Une séance close doit
+  // pouvoir la recevoir — c'est même le cas le plus fréquent, puisqu'on
+  // s'aperçoit qu'il n'y a pas de plage au moment d'imprimer.
+  'visite_date', 'visite_heure', 'visite_local', 'visite_mention',
   'president_role', 'president_nom', 'president_titre'];
 
 r.put('/deliberation/ue/:ueNum/seance/administratif', authRequired,
@@ -5246,7 +5274,8 @@ r.put('/deliberation/ue/:ueNum/seance', authRequired,
   const ueNum = Number(req.params.ueNum);
   const annee = req.body?.annee || anneeDeTravail(req);
   const session = Number(req.body?.session) === 2 ? 2 : 1;
-  const { membres, date_seance, heure_seance, visite_date, visite_heure, visite_local, cloturee,
+  const { membres, date_seance, heure_seance, visite_date, visite_heure, visite_local,
+          visite_mention, cloturee,
           session2_date, session2_heure, session2_local, session2_adresse,
           session2_cours, president_role, president_nom, president_titre } = req.body || {};
 
@@ -5386,7 +5415,7 @@ r.put('/deliberation/ue/:ueNum/seance', authRequired,
     db.prepare(`
       INSERT INTO deliberation_seance
         (ue_num, annee_scolaire, session, date_seance, heure_seance,
-         visite_date, visite_heure, visite_local,
+         visite_date, visite_heure, visite_local, visite_mention,
          session2_date, session2_heure, session2_local, session2_adresse,
          president_role, president_nom, president_titre,
          cloturee, maj_le, maj_par)
@@ -5397,6 +5426,8 @@ r.put('/deliberation/ue/:ueNum/seance', authRequired,
         visite_date      = COALESCE(excluded.visite_date,      deliberation_seance.visite_date),
         visite_heure     = COALESCE(excluded.visite_heure,     deliberation_seance.visite_heure),
         visite_local     = COALESCE(excluded.visite_local,     deliberation_seance.visite_local),
+        -- La mention se VIDE aussi : on doit pouvoir revenir à une vraie date.
+        visite_mention   = excluded.visite_mention,
         session2_date    = COALESCE(excluded.session2_date,    deliberation_seance.session2_date),
         session2_heure   = COALESCE(excluded.session2_heure,   deliberation_seance.session2_heure),
         session2_local   = COALESCE(excluded.session2_local,   deliberation_seance.session2_local),
@@ -5407,8 +5438,11 @@ r.put('/deliberation/ue/:ueNum/seance', authRequired,
         cloturee     = MAX(excluded.cloturee, deliberation_seance.cloturee),
         maj_le = datetime('now'), maj_par = excluded.maj_par
     `).run(ueNum, annee, session, date_seance || null, heure_seance || null,
-      visite_date || null, visite_heure || null,
-           visite_local || null, session2_date || null, session2_heure || null,
+      visite_date || null, visite_heure || null, visite_local || null,
+           // La mention vidée doit s'effacer : chaîne blanche => null, et la
+           // colonne se remet à zéro plutôt que de garder l'ancien texte.
+           (visite_mention || '').trim() || null,
+           session2_date || null, session2_heure || null,
            session2_local || null, session2_adresse || null,
            ['titulaire', 'suppleant', 'autre'].includes(president_role) ? president_role : null,
            president_nom || null, president_titre || null,
