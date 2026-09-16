@@ -1,6 +1,9 @@
 import { useEffect, useState } from 'react';
 import { IconAlertTriangle, IconChartBar } from '@tabler/icons-react';
 import { authHeaders, getAnnee } from '../lib/api.js';
+import {
+  nb, pc, tonTaux, couleurTaux, BarreDecisions, Tuile, Etendue, forme,
+} from './statsUi.jsx';
 
 /**
  * LA DISTRIBUTION, ET PAS SEULEMENT LA MOYENNE.
@@ -65,9 +68,6 @@ const FAMILLES = [
     ] },
 ];
 
-const nb = (v, dec = 1) => (v == null ? '—'
-  : Number(v).toFixed(dec).replace('.', ',').replace(/,0$/, ''));
-
 /** Le mode peut être multiple — ou ne pas exister. Les deux se disent. */
 const modeTexte = (m, effectif) => {
   if (!m || !m.length) return '—';
@@ -75,46 +75,116 @@ const modeTexte = (m, effectif) => {
   return effectif ? `${v} (×${effectif})` : v;
 };
 
-/**
- * LA TUILE D'ENSEMBLE. Chiffre d'abord, libellé dessous — et l'écart entre la
- * moyenne et la médiane mis en avant quand il dépasse un point, parce que
- * c'est là qu'il y a quelque chose à comprendre.
- */
-function Tuile({ libelle, valeur, unite, precision, ton }) {
-  const bord = ton === 'fort' ? 'var(--c-iip, #1B2B4B)'
-    : ton === 'alerte' ? 'var(--c-attente, #B45309)' : '#CBD5E1';
-  return (
-    <div className="carte px-3 py-2.5 flex-1 min-w-[132px]"
-      style={{ borderLeft: `3px solid ${bord}` }}>
-      <div className="text-[19px] font-bold text-iip-blue tabular-nums leading-tight">
-        {valeur}
-        {unite && <span className="text-[11px] font-normal text-slate-500 ml-1">{unite}</span>}
-      </div>
-      <div className="text-[11px] text-slate-600">{libelle}</div>
-      {precision && <div className="text-[10px] text-slate-400">{precision}</div>}
-    </div>
-  );
-}
+/* Tuile, Etendue, BarreDecisions et les teintes de taux vivent dans
+   statsUi.jsx : cet écran et « Résultats » parlent désormais la même langue. */
 
-/** La barre d'étendue : min — médiane — max, pour voir la forme d'un coup. */
-function Etendue({ d, max = 20 }) {
-  if (d?.min == null || d?.max == null) return null;
-  const pc = v => Math.max(0, Math.min(100, (v / max) * 100));
-  const g = pc(d.min);
-  const larg = Math.max(1.5, pc(d.max) - g);
-  const med = pc(d.mediane);
-  const moy = pc(d.moyenne);
+/**
+ * LES DÉCISIONS, EN COULEUR — la langue de l'écran « Résultats », ramenée ici.
+ *
+ * La distribution dit la forme des cotes ; elle ne dit pas ce que le Conseil en
+ * a fait. Or c'est la première question qu'on se pose devant une unité dont la
+ * médiane est basse : combien sont passés ? La barre répond sans qu'on ait à
+ * lire un chiffre, et le taux porte la même teinte que dans « Résultats ».
+ */
+function Decisions({ stats, section, categorie }) {
+  const [vue, setVue] = useState('par_section');
+  if (!stats) return null;
+  const lignes = (vue === 'par_section' ? stats.par_section : stats.par_ue) || [];
+  const f = forme(lignes.filter(l => l.s1.decides > 0).map(l => l.s1.taux_reussite));
+  const t = stats.total;
+
   return (
-    <div className="relative h-3 bg-slate-100 rounded-full overflow-visible" title={
-      `De ${nb(d.min)} à ${nb(d.max)} · médiane ${nb(d.mediane)} · moyenne ${nb(d.moyenne)}`}>
-      <div className="absolute inset-y-0 rounded-full bg-iip-blue/20"
-        style={{ left: `${g}%`, width: `${larg}%` }} />
-      {/* La médiane est un trait plein, la moyenne un trait creux : on doit
-          pouvoir les distinguer sans légende quand elles se chevauchent. */}
-      <div className="absolute inset-y-[-2px] w-[2px] bg-iip-blue rounded"
-        style={{ left: `${med}%` }} />
-      <div className="absolute inset-y-[-2px] w-[2px] rounded"
-        style={{ left: `${moy}%`, background: 'var(--c-attente, #B45309)' }} />
+    <div className="carte p-4 space-y-3">
+      <div className="flex items-start justify-between gap-3 flex-wrap">
+        <div>
+          <div className="text-[15px] font-semibold text-iip-blue">Décisions du Conseil</div>
+          <p className="text-[12px] text-slate-500">
+            Ce que le Conseil a décidé, en regard des cotes. Le taux se calcule sur les
+            dossiers décidés — un dossier sans décision n’est pas un échec.
+          </p>
+        </div>
+        <div className="flex gap-1 flex-none">
+          {[['par_section', 'Par section'], ['par_ue', 'Par unité']].map(([k, lib]) => (
+            <button key={k} onClick={() => setVue(k)}
+              className={`px-2 py-1 text-[12px] rounded-lg border
+                ${vue === k ? 'border-iip-blue text-iip-blue font-semibold bg-iip-blue/5'
+                            : 'border-slate-300 text-slate-600'}`}>
+              {lib}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* CE BLOC NE SUIT PAS LE FILTRE DE CATÉGORIE, et il faut le dire :
+          un chiffre qui ignore un filtre affiché est un chiffre faux. */}
+      {categorie !== 'tout' && (
+        <div className="text-[11px] text-[color:var(--c-attente,#B45309)]">
+          Les décisions ne se filtrent pas par catégorie : ce bloc porte
+          {section ? ` la section ${section}` : ' toutes les sections'}.
+        </div>
+      )}
+
+      <div className="flex gap-2 flex-wrap">
+        <Tuile libelle="Décisions prises" valeur={t.s1.decides} />
+        <Tuile libelle="Réussite en 1re session" valeur={pc(t.s1.taux_reussite)}
+          couleur={couleurTaux(t.s1.taux_reussite)} />
+        <Tuile libelle="Réussite après les 2 sessions" valeur={pc(t.final.taux_reussite)}
+          couleur={couleurTaux(t.final.taux_reussite)} />
+        <Tuile libelle="Dossiers à finir" valeur={stats.dossiers_ouverts}
+          ton={stats.dossiers_ouverts ? 'alerte' : null}
+          precision={stats.dossiers_ouverts ? 'hors de tous les taux' : null} />
+      </div>
+
+      {f && f.n > 2 && (
+        <div className="space-y-1">
+          <div className="text-[11px] text-slate-500 tabular-nums">
+            Dispersion des taux sur {f.n} {vue === 'par_ue' ? 'unité(s)' : 'section(s)'} :
+            de {nb(f.min)} % à {nb(f.max)} % · médiane <b className="text-iip-blue">
+              {nb(f.mediane)} %</b> · moyenne {nb(f.moyenne)} %
+          </div>
+          <Etendue d={f} max={100} />
+        </div>
+      )}
+
+      <div className="overflow-x-auto">
+        <table className="w-full text-[12px]">
+          <thead className="tab-entete">
+            <tr>
+              <th className="text-left px-2 py-1.5">Libellé</th>
+              <th className="text-right px-2 py-1.5 w-16">Décidés</th>
+              <th className="px-2 py-1.5 w-32">Répartition</th>
+              <th className="text-right px-2 py-1.5 w-20">Réussis</th>
+              <th className="text-right px-2 py-1.5 w-20">Ajournés</th>
+              <th className="text-right px-2 py-1.5 w-20">Refusés</th>
+              <th className="text-right px-2 py-1.5 w-24">Réussite S1</th>
+              <th className="text-right px-2 py-1.5 w-24">Réussite finale</th>
+            </tr>
+          </thead>
+          <tbody>
+            {lignes.map(l => (
+              <tr key={l.cle} className="border-t border-slate-100">
+                <td className="px-2 py-1.5 text-slate-700">{l.libelle}</td>
+                <td className="px-2 py-1.5 text-right tabular-nums text-slate-500">
+                  {l.s1.decides}
+                </td>
+                <td className="px-2 py-1.5">
+                  <BarreDecisions reussi={l.s1.reussi} ajourne={l.s1.ajourne}
+                    refuse={l.s1.refuse + l.s1.absent} largeur="w-32" />
+                </td>
+                <td className="px-2 py-1.5 text-right tabular-nums">{l.s1.reussi}</td>
+                <td className="px-2 py-1.5 text-right tabular-nums">{l.s1.ajourne}</td>
+                <td className="px-2 py-1.5 text-right tabular-nums">
+                  {l.s1.refuse + l.s1.absent}
+                </td>
+                <td className={`px-2 py-1.5 text-right tabular-nums font-semibold
+                  ${tonTaux(l.s1.taux_reussite)}`}>{pc(l.s1.taux_reussite)}</td>
+                <td className={`px-2 py-1.5 text-right tabular-nums font-semibold
+                  ${tonTaux(l.final.taux_reussite)}`}>{pc(l.final.taux_reussite)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }
@@ -247,6 +317,10 @@ export default function Distributions() {
   const [section, setSection] = useState('');
   const [sections, setSections] = useState([]);
   const [donnees, setDonnees] = useState(null);
+  // LES DÉCISIONS VIENNENT DE LEUR PROPRE SOURCE — celle de l'écran
+  // « Résultats ». On ne recalcule pas des taux ici : on les lit là où ils sont
+  // déjà établis, avec leurs trois précautions.
+  const [stats, setStats] = useState(null);
   const [erreur, setErreur] = useState(null);
   const [enCours, setEnCours] = useState(false);
 
@@ -279,6 +353,15 @@ export default function Distributions() {
       .catch(e => { setErreur(e.message); setDonnees(null); })
       .finally(() => setEnCours(false));
   }, [annee, categorie, section]);
+
+  useEffect(() => {
+    const q = new URLSearchParams({ annee });
+    if (section) q.set('section', section);
+    fetch(`/api/stats-deliberation?${q}`, { headers: authHeaders() })
+      .then(r => (r.ok ? r.json() : null))
+      .then(j => setStats(j && j.total ? j : null))
+      .catch(() => setStats(null));
+  }, [annee, section]);
 
   const nonQualifiees = donnees?.sections_non_qualifiees || [];
 
@@ -333,6 +416,10 @@ export default function Distributions() {
           Aucune donnée.
         </div>
       )}
+
+      {/* LES DÉCISIONS D'ABORD : c'est la question qu'on se pose en arrivant, et
+          les distributions expliquent ensuite ce qui les a produites. */}
+      <Decisions stats={stats} section={section} categorie={categorie} />
 
       {donnees && FAMILLES.map(f => (
         <Famille key={f.cle} famille={f} donnees={donnees} />
