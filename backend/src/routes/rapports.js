@@ -1623,6 +1623,14 @@ function parametres(req, def) {
       section: b.section ? String(b.section) : null,
       ue_num: Number.isFinite(Number(b.ue_num)) && b.ue_num !== null && b.ue_num !== ''
         ? Number(b.ue_num) : null,
+      // PLUSIEURS UNITÉS. Chacune est validée comme l'était la seule : un
+      // nombre, et rien d'autre.
+      ue_nums: (Array.isArray(b.ue_nums) ? b.ue_nums : [])
+        .map(n => Number(n)).filter(n => Number.isFinite(n) && n > 0),
+      // LE FILTRE TRONC COMMUN. Il ne fait PAS partie du niveau : on peut
+      // restreindre au tronc commun à n'importe quelle échelle. Deux valeurs
+      // seulement sont reconnues ; tout le reste vaut « pas de filtre ».
+      tc: b.tc === 'tc' || b.tc === 'hors' ? b.tc : null,
       code_cours: b.code_cours ? String(b.code_cours) : null,
     };
     // Une portée « section » sert aussi de filtre aux pièces qui lisent
