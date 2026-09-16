@@ -144,13 +144,26 @@ export function simulerReprise(annee, opts = {}) {
     aEcrire.push({ ...i, acquis: codes });
   }
 
-  // Les séances à marquer : celles des unités touchées, plus toutes celles de
-  // l'année qui ne sont pas closes — clôturer, c'est clôturer l'année.
+  // ── CLÔTURER L'ANNÉE, C'EST CLÔTURER TOUTES SES UNITÉS ──────────────────
+  //
+  // On ne prenait ici que les unités portant une décision défavorable, parce
+  // que ce sont les seules à motiver. Mais une unité où tout le monde a réussi
+  // est une unité délibérée elle aussi : elle restait indéfiniment ouverte,
+  // et l'écran la réclamait sans que rien ne permette de la clore — sur une
+  // année reprise d'Excel, il n'y a pas d'attributions, donc pas de Conseil à
+  // qui cocher des présences, donc pas de quorum constatable.
+  //
+  // C'est précisément ce que la reprise est faite pour dénouer : elle ne
+  // prétend pas qu'un Conseil s'est tenu, elle enregistre qu'une année est
+  // close et le DIT. Le quorum garde tout son sens là où il en a un — une
+  // délibération réellement tenue dans Lucie —, et n'a rien à verrouiller ici.
   const seances = db.prepare(`
     SELECT s.ue_num, s.session, s.cloturee, s.reprise
       FROM deliberation_seance s WHERE s.annee_scolaire = ?
   `).all(annee);
-  const unites = [...new Set(inscriptions.map(i => i.ue_num))];
+  const unites = db.prepare(`
+    SELECT DISTINCT ue_num FROM etudiant_inscription WHERE annee_scolaire = ?
+  `).all(annee).map(l => l.ue_num);
   const aClore = unites.filter(u =>
     !seances.some(s => s.ue_num === u && s.session === 1 && s.cloturee));
 

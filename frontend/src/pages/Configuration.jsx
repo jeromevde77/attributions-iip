@@ -2449,9 +2449,19 @@ function ClotureReprise() {
             </div>
           )}
 
-          {plan.nb_motivations > 0 && (
+          {/* IL Y A DEUX RAISONS D'AGIR, PAS UNE. Le bouton ne s'affichait que
+              s'il y avait des motivations à écrire ; une année dont il ne
+              reste qu'à clôturer les séances n'offrait donc aucun geste — et
+              c'est précisément le cas d'une année entièrement réussie ou déjà
+              motivée. */}
+          {(plan.nb_motivations > 0 || plan.seances_a_clore.length > 0) && (
             <>
-              <div className="max-h-72 overflow-auto">
+              {plan.nb_motivations === 0 && (
+                <div className="text-[12px] text-slate-500">
+                  Aucune motivation à écrire — il ne reste qu'à clôturer les séances.
+                </div>
+              )}
+              <div className={`max-h-72 overflow-auto${plan.nb_motivations ? '' : ' hidden'}`}>
                 <table className="w-full text-[12px]">
                   <thead className="tab-entete sticky top-0">
                     <tr><th className="text-left px-2 py-1">Étudiant</th>
