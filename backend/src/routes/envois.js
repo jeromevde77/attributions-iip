@@ -42,6 +42,31 @@ function ensureTable() {
 const ADRESSE_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 /**
+ * QUI PEUT ENVOYER. Une impression se jette ; un courriel parti ne revient
+ * pas. Le secrétariat, la direction adjointe et la direction — ceux qui
+ * expédient déjà le courrier de l'établissement —, plus l'administrateur
+ * technique, qui ne s'exclut d'aucune route.
+ */
+const PEUT_ENVOYER = ['admin', 'directeur', 'directeur_adjoint', 'secretariat'];
+
+/**
+ * LE MOT D'ACCOMPAGNEMENT — UN SEUL, POUR TOUTES LES PIÈCES.
+ *
+ * Un texte par type de document serait une bibliothèque à tenir à jour, et
+ * surtout : la phrase d'une notification de refus ne s'écrit pas à la légère.
+ * Le courriel ne redit donc pas ce que la pièce contient — il annonce qu'elle
+ * est jointe. Ce qui fait foi est le document, pas le message qui l'apporte.
+ * Il reste modifiable avant chaque envoi.
+ */
+export const MESSAGE_ACCOMPAGNEMENT =
+  'Madame, Monsieur,\n\n'
+  + 'Vous trouverez en pièce jointe le document vous concernant, '
+  + "émis par l'Institut Ilya Prigogine.\n\n"
+  + 'Ce courriel est envoyé automatiquement : merci de ne pas y répondre. '
+  + "Pour toute question, adressez-vous au secrétariat de l'établissement.\n\n"
+  + 'Cordialement,';
+
+/**
  * L'interrupteur : Configuration → Courriels, clé `envoi_mail_actif` de
  * lucie_config. ÉTEINT par défaut : sur un serveur où personne ne l'a allumé
  * (la prod, par exemple), les boutons n'apparaissent pas et la route refuse.
@@ -67,7 +92,13 @@ r.get('/etat', authRequired, async (req, res) => {
   // Éteint, on ne lance pas Chromium pour rien.
   const pdf = actif ? await capacitePdf() : { disponible: false, raison: null };
   res.json({ actif, smtp: mailerConfigure(), pdf: pdf.disponible, pdf_raison: pdf.raison,
-             redirection: lireConfigSmtp().redirection || null });
+             redirection: lireConfigSmtp().redirection || null,
+             // Le mot d'accompagnement vient du serveur : un second exemplaire
+             // dans l'écran finirait par ne plus dire la même chose.
+             message_defaut: MESSAGE_ACCOMPAGNEMENT,
+             // L'écran cache le bouton à qui n'a pas le droit ; la route le
+             // refuse quand même — un bouton caché n'est pas une protection.
+             peut_envoyer: PEUT_ENVOYER.includes(req.user?.role) });
 });
 
 // ── Réglages (admin) : interrupteur et serveur SMTP ─────────────────────────
@@ -113,6 +144,113 @@ r.post('/smtp/test', authRequired, roleRequired('admin'), async (req, res) => {
  * On renvoie TOUTES les adresses (école et privée) : l'écran laisse choisir,
  * c'est l'utilisateur qui sait laquelle est lue.
  */
+/**
+ * À QUI CETTE PIÈCE S'ENVOIE — ET CE N'EST PAS UN CHOIX.
+ *
+ * Une attestation part à l'étudiant qu'elle nomme ; un procès-verbal, à ceux
+ * qui composaient le Conseil. Laisser l'écran choisir, c'est rouvrir la porte
+ * à l'erreur que la règle referme : on sélectionne un étudiant, on produit la
+ * pièce d'un autre, et personne ne s'en aperçoit avant la réclamation.
+ *
+ * L'écran affiche donc une liste DÉJÀ CALCULÉE, où l'on peut retirer quelqu'un
+ * — jamais en ajouter un que la pièce ne concerne pas.
+ *
+ * GET /api/envois/destinataires?regle=etudiant|professeur|conseil
+ *      &ids=1,2,3            (pour etudiant / professeur)
+ *      &ue=95&annee=2025-2026 (pour conseil)
+ */
+r.get('/destinataires', authRequired, actifRequis, async (req, res) => {
+  const regle = String(req.query.regle || '');
+  const ids = String(req.query.ids || '').split(',').map(Number).filter(Boolean);
+
+  // L'ADRESSE DE L'ÉCOLE, ET ELLE SEULE. Une pièce de l'institution part à
+  // l'adresse de l'institution : l'adresse privée n'est pas un repli, c'est
+  // une autre destination. Sans adresse d'école, la pièce ne part pas — et on
+  // le dit, plutôt que de la faire disparaître d'une liste.
+  if (regle === 'etudiant') {
+    if (!ids.length) return res.json([]);
+    const marks = ids.map(() => '?').join(',');
+    return res.json(db.prepare(`SELECT id, nom, prenom, email_ecole
+      FROM etudiant WHERE id IN (${marks})`).all(...ids)
+      .map(e => ({
+        type: 'etudiant', id: e.id,
+        nom: `${e.nom} ${e.prenom || ''}`.trim(),
+        email: (e.email_ecole || '').trim() || null,
+        motif: 'destinataire de la pièce',
+        manque: (e.email_ecole || '').trim() ? null : "pas d'adresse école",
+      })));
+  }
+
+  if (regle === 'professeur') {
+    if (!ids.length) return res.json([]);
+    const marks = ids.map(() => '?').join(',');
+    return res.json(db.prepare(`SELECT id, nom, prenom, adresse_mail
+      FROM professeur WHERE id IN (${marks})`).all(...ids)
+      .map(p => ({
+        type: 'professeur', id: p.id,
+        nom: `${p.nom} ${p.prenom || ''}`.trim(),
+        email: (p.adresse_mail || '').trim() || null,
+        motif: 'destinataire de la pièce',
+        manque: (p.adresse_mail || '').trim() ? null : "pas d'adresse d'institut",
+      })));
+  }
+
+  if (regle === 'conseil') {
+    const ueNum = Number(req.query.ue);
+    const annee = req.query.annee;
+    if (!ueNum || !annee) return res.status(400).json({ error: 'ue et annee requises' });
+
+    // TOUTE LA COMPOSITION, présents ET absents : un membre empêché doit
+    // connaître ce qui a été décidé, même s'il ne le signe pas.
+    const { membresDuConseil } = await import('./acquis.js');
+    const membres = membresDuConseil(ueNum, annee);
+
+    const liste = [];
+    for (const m of membres) {
+      if (m.cle?.startsWith('prof:')) {
+        const p = db.prepare('SELECT id, nom, prenom, adresse_mail FROM professeur WHERE id = ?')
+          .get(Number(m.cle.slice(5)));
+        liste.push({ type: 'professeur', id: p?.id || null, nom: m.nom,
+          email: (p?.adresse_mail || '').trim() || null,
+          motif: m.qualite || 'membre du Conseil',
+          manque: (p?.adresse_mail || '').trim() ? null : "pas d'adresse d'institut" });
+      } else {
+        // La coordination et la direction sont des utilisateurs de Lucie : on
+        // les retrouve par leur nom, faute d'identifiant dans la composition.
+        const u = db.prepare(`SELECT id, email, nom_complet FROM utilisateur
+          WHERE actif = 1 AND UPPER(REPLACE(nom_complet,' ','')) = UPPER(REPLACE(?,' ',''))`)
+          .get(m.nom || '');
+        liste.push({ type: 'utilisateur', id: u?.id || null, nom: m.nom,
+          email: (u?.email || '').trim() || null,
+          motif: m.qualite || 'membre du Conseil',
+          manque: (u?.email || '').trim() ? null : 'aucun compte Lucie à ce nom' });
+      }
+    }
+
+    // La boîte de service : elle reçoit toutes les pièces du Conseil.
+    const service = lireConfigSmtp().service_examens;
+    if (service) {
+      liste.push({ type: 'service', id: null, nom: 'Secrétariat des examens',
+        email: service, motif: 'boîte de service', manque: null });
+    }
+
+    // LA DIRECTION ADJOINTE, PAR RÔLE ET NON PAR SON NOM : le jour où ce n'est
+    // plus la même personne, la règle tient toujours. La direction, elle, ne
+    // figure pas ici — elle reçoit le procès-verbal parce qu'elle est membre
+    // du Conseil, pas parce qu'elle est la direction.
+    for (const u of db.prepare(`SELECT id, email, nom_complet FROM utilisateur
+      WHERE actif = 1 AND role = 'directeur_adjoint'`).all()) {
+      if (liste.some(x => x.email && x.email === u.email)) continue;
+      liste.push({ type: 'utilisateur', id: u.id, nom: u.nom_complet || 'Direction adjointe',
+        email: (u.email || '').trim() || null, motif: 'direction adjointe',
+        manque: (u.email || '').trim() ? null : 'aucune adresse enregistrée' });
+    }
+    return res.json(liste);
+  }
+
+  res.status(400).json({ error: 'règle de destination inconnue' });
+});
+
 r.get('/adresses', authRequired, actifRequis, (req, res) => {
   const { type, ids } = req.query;
   const liste = String(ids || '').split(',').map(Number).filter(Boolean);
@@ -121,14 +259,15 @@ r.get('/adresses', authRequired, actifRequis, (req, res) => {
 
   if (type === 'etudiant') {
     const rows = db.prepare(`
-      SELECT id, nom, prenom, email_ecole, email_perso FROM etudiant WHERE id IN (${marks})
+      SELECT id, nom, prenom, email_ecole FROM etudiant WHERE id IN (${marks})
     `).all(...liste);
+    // ADRESSE ÉCOLE UNIQUEMENT. L'adresse privée existe en base pour d'autres
+    // usages ; elle n'est pas un repli quand l'école manque, c'est une autre
+    // destination. La proposer ici ferait partir une pièce officielle sur une
+    // boîte personnelle sans que personne n'ait décidé de le faire.
     return res.json(rows.map(e => ({
       id: e.id, nom: e.nom, prenom: e.prenom,
-      adresses: [
-        e.email_ecole && { email: e.email_ecole, libelle: 'école' },
-        e.email_perso && { email: e.email_perso, libelle: 'privée' },
-      ].filter(Boolean),
+      adresses: [e.email_ecole && { email: e.email_ecole, libelle: 'école' }].filter(Boolean),
     })));
   }
   if (type === 'professeur') {
@@ -155,7 +294,7 @@ r.get('/adresses', authRequired, actifRequis, (req, res) => {
  * Réponse : un résultat par pièce, jamais un échec global — dix envois dont
  * un rate doivent rendre neuf « envoyé » et un « échec » nommé.
  */
-r.post('/', authRequired, actifRequis, async (req, res) => {
+r.post('/', authRequired, roleRequired(...PEUT_ENVOYER), actifRequis, async (req, res) => {
   const { sujet, message, type_doc, pieces } = req.body || {};
   if (!sujet?.trim()) return res.status(400).json({ error: 'sujet requis' });
   if (!Array.isArray(pieces) || !pieces.length) {

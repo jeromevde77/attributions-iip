@@ -24,8 +24,12 @@ export default function EnvoiMailModal({ pieces, typeDoc, sujet: sujetInitial = 
   const etat = useEnvoiMail(true);                 // { actif, smtp, pdf } — relu à l'ouverture
   const [lignes, setLignes] = useState(null);      // une par pièce
   const [sujet, setSujet] = useState(sujetInitial);
-  const [message, setMessage] = useState(messageInitial
-    || "Bonjour,\n\nVeuillez trouver ci-joint votre document.\n\nCordialement,");
+  // LE MOT D'ACCOMPAGNEMENT VIENT DU SERVEUR, comme la phrase d'équivalence
+  // des acquis : deux libellés, un affiché et un envoyé, divergent tôt ou tard.
+  const [message, setMessage] = useState(messageInitial);
+  useEffect(() => {
+    if (!messageInitial && etat?.message_defaut) setMessage(m => m || etat.message_defaut);
+  }, [etat?.message_defaut, messageInitial]);
   const [enCours, setEnCours] = useState(false);
   const [resultat, setResultat] = useState(null);
   const [erreur, setErreur] = useState(null);

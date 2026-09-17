@@ -309,6 +309,27 @@ unité est `decrireUnite()`, commune aux deux voies : la délibération y entre
 avec des points sur 20, la valorisation avec le pourcentage arrêté par le
 Conseil. Les mentions manquantes de l'attestation rejoignent la barrière du PV —
 elles étaient signalées dans un coin de la réponse que personne ne lisait.
+**Une pièce par onglet, c'est une pièce tout court** : le navigateur bloque les
+fenêtres successives, si bien que seul le PV sortait. Depuis 2.11.11, les pièces
+d'une même production partent dans **une seule enveloppe**, chacune sur sa page —
+la règle que suivait déjà le centre d'impression des unités.
+
+**Une pièce s'envoie à qui elle nomme, et cela ne se choisit pas.** Depuis
+2.11.12, le catalogue déclare le destinataire de chaque document : `etudiant`
+(la personne nommée dessus), `professeur`, ou `conseil` — et « conseil » veut
+dire **toute la composition**, présents et absents, plus la **boîte de service
+des examens** (en configuration, jamais en dur) et la **direction adjointe par
+rôle**. La direction y figure parce qu'elle est membre du Conseil, non parce
+qu'elle est la direction. `GET /api/envois/destinataires` calcule la liste ;
+l'écran la montre et permet d'en retirer quelqu'un, jamais d'ajouter un
+destinataire que la pièce ne concerne pas. **Adresse école uniquement** pour un
+étudiant : l'adresse privée n'est pas un repli, c'est une autre destination — et
+celui qui n'a pas d'adresse d'école reste **visible** dans la liste, marqué,
+plutôt que d'en disparaître. Envoyer est réservé au secrétariat, à la direction
+adjointe, à la direction et à l'administrateur ; **un seul mot
+d'accompagnement**, servi par le serveur : il annonce la pièce, il ne la résume
+pas — ce qui fait foi est le document. Enfin, un envoi force **un document par
+personne** : on n'adresse à quelqu'un un fichier qui porte vingt noms.
 
 **Chantiers de conformité ouverts, dans l'ordre :** geler les décisions à la
 clôture et historiser par ajout ; figer et horodater le PV ; bloc de signatures
@@ -430,14 +451,38 @@ et 3 composants de tuile**. La stratégie tient en cinq chantiers, dans cet ordr
   `left: calc(var(--rail) + 1rem)`. Posé à une marge choisie, il ne répondait à
   rien — ni au rail, ni au titre, ni au tableau. Il suit maintenant quand le
   rail s'élargit, sans que personne ait à y penser.
-- **Le blanc est réservé à ce qui se remplit.** Un champ de saisie ou de
-  sélection est blanc ; **tout le reste est ton sur ton** avec la page —
-  cartes, tableaux, listes, panneaux —, et ce sont les filets qui séparent
-  (`.carte`, `.carte-plate`). Le blanc cesse d'être un décor pour devenir une
-  invitation : là où c'est blanc, on écrit ou on choisit. Un aplat blanc sur un
-  fond presque blanc ne sépare rien ; il ajoute une ombre de différence que
-  l'œil enregistre sans pouvoir l'expliquer. Conséquence : une carte n'a plus
-  besoin d'ombre — un filet et un rayon suffisent.
+- **Le blanc porte ce qui est isolé, pas ce qui regroupe.** Deux objets sont
+  blancs, et eux seuls : le **champ** où l'on écrit ou choisit, et la **tuile**
+  qui détache un chiffre. Tout ce qui regroupe — cartes, tableaux, listes,
+  panneaux — est **ton sur ton** avec la page, et ce sont les filets qui
+  séparent (`.carte`, `.carte-plate`). Un aplat blanc sur un fond presque blanc
+  ne sépare rien ; il ajoute une ombre de différence que l'œil enregistre sans
+  pouvoir l'expliquer. Conséquence : une carte n'a plus besoin d'ombre — un
+  filet et un rayon suffisent.
+  > Cette règle disait auparavant « le blanc est réservé à ce qui se remplit »
+  > tout en donnant un fond blanc aux tuiles : deux phrases, deux dessins, et
+  > le désordre constaté entre l'écran et le papier. Tranché en septembre 2026 :
+  > **la tuile garde son fond blanc**, et la règle est réécrite pour dire ce que
+  > l'on fait réellement.
+
+- **Un seul objet pour signaler : le bloc signalé.** Tuile d'indicateur à
+  l'écran, encadré de caractéristiques sur un document : c'est le même geste, il
+  se dessine une fois. Cinq pièces, jamais une de plus — un **rail à gauche**
+  qui porte l'état *et lui seul* (la couleur ne va ni au fond, ni au texte, ni à
+  l'icône), un **fond** selon la règle du blanc ci-dessus, un **filet de
+  contour** fin qui ferme la forme et remplace l'ombre, un **rayon** pris sur
+  l'échelle, et un **contenu toujours dans le même ordre** : valeur ou intitulé,
+  libellé dessous, précision en gris. Seules les **mesures** changent de support
+  à l'autre, parce que l'encre n'a pas un rayon de 14 px :
+
+  | | Écran | Papier |
+  |---|---|---|
+  | Rail | 3 px | 1,6 mm |
+  | Rayon | 14 px (`carte`) | 1,5 mm |
+  | Fond | blanc (tuile, champ) | `#FAFAFB` — le blanc est déjà celui de la feuille |
+  | Contour | 1 px `#D8DCE4` | 0,3 mm, même gris |
+  | Corps | 13 px | 9 pt |
+  | Rail teinté | marine, vert, ocre, brique | marine à l'intérieur, **or** sur la pièce extérieure |
 - **Un tableau n'a que deux tons** (`.tab-entete`, `.tab-repere`). L'en-tête
   et la ligne de regroupement sont le **même objet** — l'un nomme les colonnes,
   l'autre nomme un paquet de lignes : même fond, celui du cadre de titre. La

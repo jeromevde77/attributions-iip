@@ -25,6 +25,16 @@ import db from '../db/index.js';
  *  - parametres   ce que l'écran doit demander avant de produire
  *  - roles        qui peut le produire ; null = tout le monde
  *  - nomFichier   comment nommer la pièce séparée
+ *  - destinataires  À QUI LA PIÈCE S'ENVOIE, et ce n'est pas un choix :
+ *        'etudiant'   — la personne nommée sur la pièce
+ *        'professeur' — le professeur concerné
+ *        'conseil'    — la composition du Conseil de la séance, la boîte de
+ *                       service des examens, et la direction adjointe
+ *        null         — pièce qui ne s'envoie pas
+ *
+ *    Laisser choisir le destinataire à l'écran, c'est rouvrir la porte à
+ *    l'erreur que la règle referme : une attestation part à l'étudiant qu'elle
+ *    nomme, pas à celui qu'on a sélectionné juste avant.
  */
 export const DOCUMENTS = [
   {
@@ -36,6 +46,7 @@ export const DOCUMENTS = [
     routeLot: { methode: 'POST', chemin: '/api/attestations/lot' },
     parametres: ['annee', 'section', 'ue'],
     nomFichier: '{nom}_{prenom}_UE{ue}_{annee}',
+    destinataires: 'etudiant',
     roles: null,
   },
   {
@@ -46,6 +57,7 @@ export const DOCUMENTS = [
     route: { methode: 'GET', chemin: '/api/acquis/motivation/:id/:ue/document' },
     parametres: ['annee', 'section', 'ue'],
     nomFichier: 'Motivation_UE{ue}_{nom}_{prenom}_{annee}',
+    destinataires: 'etudiant',
     roles: ['admin', 'directeur', 'directeur_adjoint', 'editeur'],
   },
   {
@@ -56,6 +68,7 @@ export const DOCUMENTS = [
     route: { methode: 'POST', chemin: '/api/annexe2/document' },
     parametres: ['annee', 'motif', 'avis'],
     nomFichier: 'Annexe2_{nom}_{prenom}_{annee}',
+    destinataires: 'etudiant',
     roles: ['admin', 'directeur', 'directeur_adjoint', 'editeur', 'secretariat'],
   },
   {
@@ -66,6 +79,7 @@ export const DOCUMENTS = [
     route: { methode: 'GET', chemin: '/api/etudiants/:id/fiche-inscription' },
     parametres: ['annee'],
     nomFichier: 'Inscription_{nom}_{prenom}_{annee}',
+    destinataires: 'etudiant',
     roles: null,
   },
   {
@@ -76,6 +90,7 @@ export const DOCUMENTS = [
     route: { methode: 'GET', chemin: '/api/frais-scolarite/etudiant/:id/document' },
     parametres: ['annee'],
     nomFichier: 'Frais_{nom}_{prenom}_{annee}',
+    destinataires: 'etudiant',
     roles: ['admin', 'directeur', 'directeur_adjoint', 'editeur', 'secretariat'],
   },
   {
@@ -91,6 +106,7 @@ export const DOCUMENTS = [
     route: { methode: 'POST', chemin: '/api/attestations/valorisation/ue/:ueNum/documents' },
     parametres: ['annee', 'ue'],
     nomFichier: 'Valorisation_UE{ue}_{annee}',
+    destinataires: 'conseil',
     roles: ['admin', 'directeur', 'directeur_adjoint', 'editeur', 'secretariat'],
   },
 ];

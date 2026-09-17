@@ -30,6 +30,7 @@ export default function SeanceValorisation({ ueNum, ueNom, annee, onClose }) {
   const [etat, setEtat] = useState(null);
   const [erreur, setErreur] = useState(null);
   const [manques, setManques] = useState([]);
+  const [info, setInfo] = useState(null);
   const [enCours, setEnCours] = useState(false);
 
   async function charger() {
@@ -83,7 +84,7 @@ export default function SeanceValorisation({ ueNum, ueNom, annee, onClose }) {
     const reste = await enregistrer();
     if (reste === null) return;
     if (reste.length) return;                 // le serveur redira non de toute façon
-    setEnCours(true); setErreur(null);
+    setEnCours(true); setErreur(null); setInfo(null);
     try {
       const rep = await fetch(`/api/attestations/valorisation/ue/${ueNum}/documents`, {
         method: 'POST', headers: authHeaders(), body: JSON.stringify({ annee }),
@@ -93,15 +94,16 @@ export default function SeanceValorisation({ ueNum, ueNom, annee, onClose }) {
         setManques(j.manques || []);
         throw new Error(j.error || 'Erreur');
       }
-      // Le procès-verbal d'abord, puis une attestation par étudiant dont
-      // l'unité est acquise : chacune part dans son onglet, parce qu'une
-      // attestation se range dans un dossier et se remet à une personne.
-      const pieces = [j.html, ...(j.attestations || []).map(a => a.html)];
-      for (const html of pieces) {
-        const f = window.open('', '_blank');
-        if (!f) { setErreur('Le navigateur a bloqué les fenêtres d’impression.'); return; }
-        f.document.write(html); f.document.close();
-      }
+      // UN SEUL ONGLET, ET C'EST VOLONTAIRE. En ouvrir un par pièce revenait
+      // à n'en ouvrir qu'un : le navigateur bloque les suivants, et
+      // l'attestation ne sortait jamais. Le document porte le procès-verbal
+      // puis chaque attestation, chacune sur sa page.
+      const f = window.open('', '_blank');
+      if (!f) { setErreur('Le navigateur a bloqué la fenêtre d’impression.'); return; }
+      f.document.write(j.html); f.document.close();
+      setInfo(`Procès-verbal (${j.pages || '?'} page(s))`
+        + ` + ${(j.attestations || []).length} attestation(s) `
+        + `— annexe ${(j.attestations || [])[0]?.annexe || 15}.`);
     } catch (e) { setErreur(e.message); }
     finally { setEnCours(false); }
   }
@@ -177,6 +179,7 @@ export default function SeanceValorisation({ ueNum, ueNom, annee, onClose }) {
               </ul>
             </div>
           )}
+          {info && <div className="text-[12px] text-emerald-700">{info}</div>}
           {erreur && <div className="text-[12px] text-rose-700">{erreur}</div>}
 
           <div className="flex gap-2">
