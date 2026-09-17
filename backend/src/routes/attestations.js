@@ -1192,8 +1192,14 @@ function manquesValorisation({ seance, membres, quorum }, vas, ue) {
     const qui = `${v.nom} ${v.prenom || ''}`.trim();
     if (!v.date_naissance) m.push(`${qui} : date de naissance.`);
     if (!v.lieu_naissance) m.push(`${qui} : lieu de naissance.`);
-    if (v.type === 'complete' && v.pourcentage == null) {
+    // UN REFUS N'A PAS DE POURCENTAGE, et c'est normal : il n'y a rien à
+    // porter. L'exiger bloquerait l'impression d'un procès-verbal dont la
+    // seule anomalie serait de contenir une décision défavorable.
+    if (v.decision !== 'refusee' && v.type === 'complete' && v.pourcentage == null) {
       m.push(`${qui} : pourcentage obtenu (valorisation complète).`);
+    }
+    if (v.decision === 'refusee' && !String(v.motif_refus || '').trim()) {
+      m.push(`${qui} : motif du refus.`);
     }
   }
   return m;
@@ -1332,7 +1338,8 @@ r.post('/valorisation/ue/:ueNum/documents', authRequired, async (req, res) => {
   // mais dans un coin de la réponse que personne ne lisait : elles rejoignent
   // la même barrière que le reste, sans quoi il y aurait deux exigences pour
   // une seule pièce.
-  for (const v of vas.filter(v => v.type === 'complete' && v.pourcentage != null)) {
+  for (const v of vas.filter(v => v.decision !== 'refusee'
+      && v.type === 'complete' && v.pourcentage != null)) {
     for (const m of decrireUnite(ueNum, annee, { pourcentage: v.pourcentage }).manques || []) {
       const dit = `Attestation de réussite : ${m}.`;
       if (!manques.includes(dit)) manques.push(dit);
@@ -1410,6 +1417,12 @@ r.post('/valorisation/ue/:ueNum/documents', authRequired, async (req, res) => {
   } catch (e) { console.error('[valorisation/PV] acquis de l’unité :', e.message); }
 
   const dit = v => {
+    // LE REFUS SE DIT, ET IL SE MOTIVE. Rien n'est dispensé : la colonne ne
+    // porte donc pas une dispense mais la raison du refus.
+    if (v.decision === 'refusee') {
+      return `<i>Aucune dispense</i><div class="ref" style="margin-top:.8mm">`
+        + `<b>Motif du refus :</b> ${esc(String(v.motif_refus || '').trim())}</div>`;
+    }
     const base = v.type === 'complete' ? 'Unité entière'
       : v.cible_detail ? `${v.cible === 'aa' ? 'Acquis' : 'Cours'} : ${v.cible_detail}`
         : v.type === 'admission' ? 'Admission' : 'Dispense partielle';
@@ -1450,7 +1463,8 @@ r.post('/valorisation/ue/:ueNum/documents', authRequired, async (req, res) => {
     <td><b>${esc((v.nom || '').toUpperCase())} ${esc(v.prenom || '')}</b><br>
       <span class="ref">${esc(v.lieu_naissance || '')}${
         v.date_naissance ? `, ${frDate(v.date_naissance)}` : ''}</span></td>
-    <td class="c">${v.pourcentage != null ? 'Réussite' : 'Refus'}</td>
+    <td class="c">${v.decision === 'refusee' ? 'Refus'
+      : v.pourcentage != null ? 'Réussite' : 'Refus'}</td>
     <td>${dit(v)}</td>
     <td class="c">${v.pourcentage != null
       ? `${Math.round(Number(v.pourcentage))} %` : ''}</td>
@@ -1527,7 +1541,7 @@ r.post('/valorisation/ue/:ueNum/documents', authRequired, async (req, res) => {
   </table>
   <p style="font-size:7.5pt;color:#64748b"><sup>1</sup> À ne compléter qu'en cas
     de « Réussite ».</p>
-  ${vas.some(v => v.type === 'partielle') ? `
+  ${vas.some(v => v.type === 'partielle' && v.decision !== 'refusee') ? `
   <div class="info" style="margin-top:3mm">
     <div class="ligne">Le Conseil des études a évalué si l'étudiant ou
       l'étudiante maîtrise de façon suffisante et globale des capacités
@@ -1587,7 +1601,9 @@ r.post('/valorisation/ue/:ueNum/documents', authRequired, async (req, res) => {
   // par valorisation n'en a pas : la description revenait vide, le filtre
   // écartait l'étudiant, et AUCUNE attestation ne sortait — sans un mot. La
   // description se demande donc directement à l'unité.
-  const completes = vas.filter(v => v.type === 'complete' && v.pourcentage != null);
+  // Une attestation de réussite ne se tire pas d'un refus.
+  const completes = vas.filter(v => v.decision !== 'refusee'
+    && v.type === 'complete' && v.pourcentage != null);
   const attestations = completes.map(v => {
     const u = decrireUnite(ueNum, annee, { pourcentage: v.pourcentage });
     return {

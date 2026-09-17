@@ -1,8 +1,9 @@
 import { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
 import { nomPropre } from '../lib/nom.js';
 import { RailLateral } from '../components/ui.jsx';
+import RegistreValorisations from '../components/RegistreValorisations.jsx';
 import {
-  IconAlertTriangle, IconAward, IconStairsUp, IconCheck, IconChecklist, IconChevronLeft, IconChevronRight, IconClock, IconFileText, IconFolder, IconPlus, IconPrinter, IconSearch, IconTable, IconTrash, IconUpload, IconUser, IconWritingSign, IconWritingSignOff, IconX,
+  IconAlertTriangle, IconAward, IconCertificate, IconStairsUp, IconCheck, IconChecklist, IconChevronLeft, IconChevronRight, IconClock, IconFileText, IconFolder, IconPlus, IconPrinter, IconSearch, IconTable, IconTrash, IconUpload, IconUser, IconWritingSign, IconWritingSignOff, IconX,
 } from '@tabler/icons-react';
 import { authHeaders, getAnnee } from '../lib/api.js';
 import PreviewModal from '../components/PreviewModal.jsx';
@@ -803,9 +804,16 @@ function Valorisations({ etudId, annee }) {
   }
 
   async function sauver() {
-    const rep = await fetch(`/api/etudiants/${etudId}/valorisations`, {
-      method: 'POST', headers: authHeaders(),
-      body: JSON.stringify({ ...form, annee_scolaire: annee,
+    // CRÉER ET CORRIGER SONT LE MÊME GESTE. Une valorisation encodée ne se
+    // rouvrait pas : une faute de frappe imposait de supprimer — ce qui
+    // emporte les preuves déposées — puis de tout redéposer. Personne ne le
+    // faisait, et la faute restait.
+    const modif = !!form.id;
+    const rep = await fetch(modif
+      ? `/api/etudiants/valorisations/${form.id}`
+      : `/api/etudiants/${etudId}/valorisations`, {
+      method: modif ? 'PUT' : 'POST', headers: authHeaders(),
+      body: JSON.stringify({ ...form, annee_scolaire: form.annee_scolaire || annee,
         equivalences: Object.entries(form.equivalences || {})
           .map(([aa_code, texte]) => ({ aa_code, texte })) }),
     });
@@ -885,6 +893,23 @@ function Valorisations({ etudId, annee }) {
     await charger();
   }
 
+  /** Rouvrir une valorisation dans le formulaire, telle qu'elle est en base. */
+  function rouvrir(v) {
+    setForm({
+      id: v.id, annee_scolaire: v.annee_scolaire,
+      type: v.type, ue_num: String(v.ue_num),
+      cible: v.cible || 'cours', cible_detail: v.cible_detail || '',
+      pourcentage: v.pourcentage, decision_ce_date: v.decision_ce_date || '',
+      commentaire: v.commentaire || '',
+      decision: v.decision === 'refusee' ? 'refusee' : 'accordee',
+      motif_refus: v.motif_refus || '',
+      equivalences: Object.fromEntries(
+        (v.equivalences || []).map(e => [e.aa_code, e.texte || ''])),
+      notes: {},
+    });
+    setSectionVA(v.section || '');
+  }
+
   async function supprimer(vid) {
     if (!confirm('Supprimer cette valorisation ?')) return;
     await fetch(`/api/etudiants/valorisations/${vid}`, { method: 'DELETE', headers: authHeaders() });
@@ -900,7 +925,7 @@ function Valorisations({ etudId, annee }) {
           Valorisation des acquis — AGCF du 13-12-2024 · décisions du Conseil des études
         </p>
         <button onClick={() => setForm({ type: 'complete', ue_num: '', pourcentage: 50, cible: 'cours',
-                             cible_detail: '', equivalences: {} })}
+                             cible_detail: '', equivalences: {}, decision: 'accordee' })}
           className="flex items-center gap-1.5 px-3 py-1.5 text-sm border border-slate-300 rounded-lg">
           <IconPlus size={14} /> Ajouter une VA
         </button>
@@ -908,6 +933,60 @@ function Valorisations({ etudId, annee }) {
 
       {form && (
         <div className="border border-slate-200 rounded-xl p-4 bg-slate-50/60 space-y-3 mb-4">
+
+          {/* ACCORDÉE OU REFUSÉE — C'EST LA PREMIÈRE QUESTION.
+              La table ne connaissait que des dispenses accordées : une demande
+              refusée n'avait nulle part où s'écrire, donc elle ne s'écrivait
+              pas — et une demande dont rien ne garde trace se réintroduit
+              l'année suivante, sans qu'on sache qu'elle a déjà été examinée. */}
+          <div className="flex items-center gap-4 text-[13px]">
+            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
+              Décision du Conseil
+            </span>
+            {[['accordee', 'Accordée'], ['refusee', 'Refusée']].map(([val, lab]) => (
+              <label key={val} className="flex items-center gap-1.5 cursor-pointer">
+                <input type="radio" checked={(form.decision || 'accordee') === val}
+                  onChange={() => setForm(f => ({ ...f, decision: val }))} />
+                {lab}
+              </label>
+            ))}
+            {form.id && (
+              <span className="ml-auto text-[11px] text-slate-400">
+                Correction d'une valorisation déjà encodée — les preuves déposées sont conservées.
+              </span>
+            )}
+          </div>
+
+          {form.decision === 'refusee' ? (
+            <>
+              <label className="block text-xs">
+                <span className="block font-semibold text-slate-500 uppercase tracking-wide mb-1">
+                  Unité demandée
+                </span>
+                <select value={form.ue_num || ''} className="controle w-full"
+                  onChange={e => setForm(f => ({ ...f, ue_num: e.target.value }))}>
+                  <option value="">—</option>
+                  {(unites?.unites || []).map(u => (
+                    <option key={u.ue_num} value={u.ue_num}>
+                      {u.ue_num} — {u.ue_nom}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              {/* UN REFUS SE MOTIVE. C'est une décision défavorable, et
+                  « refusé » sans motif ne se défend pas devant un recours. */}
+              <label className="block text-xs">
+                <span className="block font-semibold text-slate-500 uppercase tracking-wide mb-1">
+                  Motif du refus <span className="text-[#9D4A38]">— obligatoire</span>
+                </span>
+                <textarea rows={3} value={form.motif_refus || ''}
+                  placeholder="Ce que le Conseil a constaté : pièces insuffisantes, acquis non démontrés, formation sans rapport…"
+                  className="w-full border border-slate-300 rounded-champ px-2 py-1.5 text-[13px]"
+                  onChange={e => setForm(f => ({ ...f, motif_refus: e.target.value }))} />
+              </label>
+            </>
+          ) : (
+          <>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             <label className="text-xs col-span-2"><span className="block font-semibold text-slate-500 uppercase tracking-wide mb-1">Type</span>
               <select value={form.type} onChange={e => setForm(f => {
@@ -1213,6 +1292,8 @@ function Valorisations({ etudId, annee }) {
               </div>
             </div>
           )}
+          </>
+          )}
 
           <div className="grid grid-cols-2 gap-3">
             <label className="text-xs"><span className="block font-semibold text-slate-500 uppercase tracking-wide mb-1">Date décision CE</span>
@@ -1229,21 +1310,29 @@ function Valorisations({ etudId, annee }) {
               « Il ne veut pas de ma valorisation » : il en voulait bien, mais
               rien à l'écran ne nommait ce qui manquait. */}
           {(() => {
+            const refus = form.decision === 'refusee';
             const manque = !form.ue_num
               ? "Choisissez l'unité d'enseignement."
-              : (form.type === 'partielle' && !form.cible_detail)
-                ? `Cochez au moins un ${form.cible === 'cours' ? 'cours'
-                    : "acquis d'apprentissage"} à dispenser.`
-                : null;
+              : refus
+                ? (String(form.motif_refus || '').trim() ? null
+                  : 'Un refus se motive : écrivez ce que le Conseil a constaté.')
+                : (form.type === 'partielle' && !form.cible_detail)
+                  ? `Cochez au moins un ${form.cible === 'cours' ? 'cours'
+                      : "acquis d'apprentissage"} à dispenser.`
+                  : null;
             return manque && (
               <div className="text-[12px] text-amber-800">{manque}</div>
             );
           })()}
 
           <div className="flex gap-2">
-            <button onClick={sauver} disabled={!form.ue_num || (form.type === 'partielle' && !form.cible_detail)}
+            <button onClick={sauver}
+              disabled={!form.ue_num
+                || (form.decision === 'refusee'
+                  ? !String(form.motif_refus || '').trim()
+                  : form.type === 'partielle' && !form.cible_detail)}
               className="bouton bouton-fort disabled:opacity-40">
-              Enregistrer
+              {form.id ? 'Enregistrer la correction' : 'Enregistrer'}
             </button>
             <button onClick={() => { setForm(null); setComposantes(null); }}
               className="text-sm px-3 py-1.5 rounded-lg border border-slate-300">Annuler</button>
@@ -1262,12 +1351,22 @@ function Valorisations({ etudId, annee }) {
               <div>
                 <span className="font-medium text-iip-blue">{v.ue_num}</span>
                 <span className="text-slate-600 ml-1.5 text-[13px]">{v.ue_nom}</span>
+                {v.decision === 'refusee' && (
+                  <span className="ml-2 text-[11px] font-semibold text-[#9D4A38]">refusée</span>
+                )}
                 <div className="text-[11px] text-slate-400 mt-0.5">
-                  {TYPES_VA.find(t => t.val === v.type)?.label}
-                  {v.cible ? ` · ${v.cible === 'cours' ? 'cours' : 'AA'} : ${v.cible_detail}` : ''}
-                  {v.pourcentage != null ? ` · ${v.pourcentage} %` : ''}
+                  {v.decision === 'refusee' ? 'Demande refusée' : (
+                    <>
+                      {TYPES_VA.find(t => t.val === v.type)?.label}
+                      {v.cible ? ` · ${v.cible === 'cours' ? 'cours' : 'AA'} : ${v.cible_detail}` : ''}
+                      {v.pourcentage != null ? ` · ${v.pourcentage} %` : ''}
+                    </>
+                  )}
                   {v.decision_ce_date ? ` · CE du ${v.decision_ce_date}` : ''}
                 </div>
+                {v.decision === 'refusee' && v.motif_refus && (
+                  <div className="text-[12px] text-slate-600 mt-0.5">{v.motif_refus}</div>
+                )}
 
                 {/* LES PREUVES. Une valorisation se décide sur pièces — un
                     diplôme, une attestation, un dossier pédagogique. Elles
@@ -1316,6 +1415,10 @@ function Valorisations({ etudId, annee }) {
                 {/* UNE ICÔNE SE MÉRITE. Celle-ci ouvrait une fenêtre entière et
                     produisait des pièces officielles : au bout d'une ligne, à
                     côté d'une corbeille, personne ne la trouvait. Un libellé. */}
+                <button onClick={() => rouvrir(v)} title="Rouvrir et corriger"
+                  className="bouton text-[12px] px-2.5 py-1">
+                  <IconWritingSign size={14} /> Modifier
+                </button>
                 <button onClick={() => setDocuments({ ue_num: v.ue_num, ue_nom: v.ue_nom })}
                   title="Procès-verbal de valorisation et attestations — pièce de l'unité"
                   className="bouton bouton-sortir text-[12px] px-2.5 py-1">
@@ -2183,6 +2286,7 @@ export default function Etudiants() {
   const [rapport, setRapport] = useState(null);
   const [importPAE, setImportPAE] = useState(false);
   const [purge, setPurge] = useState(false);
+  const [registreVA, setRegistreVA] = useState(false);
   const [rapportPAE, setRapportPAE] = useState(false);
   const [importListe, setImportListe] = useState(false);
   const [importHisto, setImportHisto] = useState(false);
@@ -2555,6 +2659,14 @@ export default function Etudiants() {
       { key: 'purge', label: 'Vider des résultats ou des inscriptions',
         icon: IconTrash, couleur: '#9d4a38', onClick: () => setPurge(true) },
     ] }] : []),
+    // LA VALORISATION SE LISAIT FICHE PAR FICHE, donc elle ne se lisait pas :
+    // personne n'ouvre cinq cent quatre-vingt-huit dossiers pour savoir qui a
+    // demandé quoi. Le registre est une LECTURE de l'existant — il n'encode
+    // rien, il montre.
+    { label: 'Valorisation', items: [
+      { key: 'registre-va', label: 'Les valorisations des acquis',
+        icon: IconCertificate, onClick: () => setRegistreVA(true) },
+    ] },
     { label: 'Fin de cycle', items: [
       { key: 'passage', label: "Composer les PAE de l'année suivante",
         /* PAS DEUX FOIS LE MÊME DESSIN DANS UN RAIL. « Passage de classe »
@@ -2771,6 +2883,11 @@ export default function Etudiants() {
             </tbody>
           </table>
         </div>
+      )}
+
+      {registreVA && (
+        <RegistreValorisations onClose={() => setRegistreVA(false)}
+          onOuvrirEtudiant={id => { setRegistreVA(false); setSelId(id); }} />
       )}
 
       {selId && (

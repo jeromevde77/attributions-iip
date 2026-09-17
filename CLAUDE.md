@@ -376,6 +376,28 @@ le **visa du décret du 16 avril 1991**, dont c'est le titre officiel — un vis
 faux fait tomber la pièce —, et la valeur `etab_nom` en base, qui vit dans
 Configuration → Établissement et écrase celle du code.
 
+**Une valorisation se corrige, et une demande peut se refuser.** La table ne
+connaissait que des dispenses accordées et n'offrait aucune modification : une
+faute de frappe imposait de SUPPRIMER — ce qui emporte les preuves déposées avec
+la décision —, et un refus n'avait nulle part où s'écrire, donc il ne s'écrivait
+pas. Une demande dont rien ne garde trace se réintroduit l'année suivante, sans
+qu'on sache qu'elle a déjà été examinée. Depuis 2.11.17 : `PUT
+/valorisations/:vid` corrige sans toucher aux preuves — **la même règle de
+validation qu'à la création**, sans quoi on aurait bâti une porte dérobée pour
+écrire ce que la porte d'entrée refuse —, et deux colonnes (`decision`,
+`motif_refus`) portent le refus. **Un refus se motive** (RDE art. 88 §3) : le
+bouton reste gris tant que le motif est vide. Sur le procès-verbal, la colonne
+« Réussite / Refus » dit *Refus*, la colonne de dispense porte le motif, le
+garde-fou n'exige plus de pourcentage là où il n'y a rien à porter, et aucune
+attestation de réussite ne se tire d'un refus.
+
+**Le registre des valorisations** (rail *Étudiants → Valorisation*) : elles ne se
+lisaient que fiche par fiche, donc elles ne se lisaient pas — personne n'ouvre
+588 dossiers pour savoir qui a demandé quoi. Une ligne par demande, filtrable par
+année, section et décision, cliquable vers la fiche, et les valorisations **sans
+aucune preuve** signalées en ocre : une décision sans dossier se voit là plutôt
+qu'au moment du contrôle.
+
 **Chantiers de conformité ouverts, dans l'ordre :** geler les décisions à la
 clôture et historiser par ajout ; figer et horodater le PV ; bloc de signatures
 nominatif ; date d'affichage et mode de publication en champs propres ; écrire

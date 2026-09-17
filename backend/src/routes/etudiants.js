@@ -245,6 +245,29 @@ export function migrerEtudiants(dbx) {
     `);
     console.log('[migration] etudiant_note_detail créée');
   } catch (e) { console.error('[migration] etudiants :', e.message); }
+
+  // UNE DEMANDE DE VALORISATION PEUT ÊTRE REFUSÉE, et le refus s'encode.
+  //
+  // La table ne connaissait que des dispenses accordées : un refus n'avait
+  // nulle part où s'écrire, donc il ne s'écrivait pas — et une demande dont
+  // rien ne garde trace est une demande qu'on réintroduit l'année suivante,
+  // sans savoir qu'elle a déjà été examinée. Le procès-verbal, lui, réserve
+  // depuis toujours une colonne « Réussite / Refus ».
+  //
+  // Le motif n'est pas un commentaire : toute décision défavorable se motive
+  // (RDE art. 88 §3). Il a sa colonne pour qu'on puisse exiger qu'il soit
+  // rempli, ce qu'un champ libre partagé ne permet pas.
+  try {
+    const cols = dbx.prepare('PRAGMA table_info(etudiant_valorisation)').all();
+    if (cols.length) {
+      if (!cols.some(c => c.name === 'decision')) {
+        dbx.exec("ALTER TABLE etudiant_valorisation ADD COLUMN decision TEXT NOT NULL DEFAULT 'accordee'");
+      }
+      if (!cols.some(c => c.name === 'motif_refus')) {
+        dbx.exec('ALTER TABLE etudiant_valorisation ADD COLUMN motif_refus TEXT');
+      }
+    }
+  } catch (e) { console.error('[migration] valorisation/décision :', e.message); }
 }
 
 // Les 5 pièces réglementaires (circulaire dossiers apprenants EA)
@@ -3963,6 +3986,47 @@ const envoiPreuve = multer({
 // second exemplaire dans l'écran finirait par ne plus dire la même chose.
 r.get('/valorisations/natures', authRequired, (req, res) => res.json(NATURES_PREUVE));
 
+/**
+ * LE REGISTRE DES VALORISATIONS — qui en a, et lesquelles.
+ *
+ * Les valorisations ne se lisaient que fiche par fiche : pour savoir qui en
+ * avait, il fallait ouvrir les cinq cent quatre-vingt-huit dossiers. On ne le
+ * faisait pas, donc on ne savait pas — ni combien de demandes l'année avait
+ * porté, ni lesquelles avaient été refusées, ni quelles unités revenaient.
+ *
+ * Une ligne par valorisation, l'étudiant devant : c'est la lecture qui manque,
+ * pas un comptage.
+ */
+r.get('/valorisations/registre', authRequired, (req, res) => {
+  const { annee, section, decision } = req.query;
+  const ou = [];
+  const par = [];
+  if (annee) { ou.push('v.annee_scolaire = ?'); par.push(annee); }
+  if (section) { ou.push('u.section = ?'); par.push(section); }
+  if (decision) { ou.push('COALESCE(v.decision, \'accordee\') = ?'); par.push(decision); }
+  const where = ou.length ? `WHERE ${ou.join(' AND ')}` : '';
+  try {
+    const lignes = db.prepare(`
+      SELECT v.id, v.etudiant_id, v.annee_scolaire, v.ue_num, v.type, v.cible,
+             v.cible_detail, v.pourcentage, v.decision_ce_date, v.commentaire,
+             COALESCE(v.decision, 'accordee') AS decision, v.motif_refus,
+             e.nom, e.prenom,
+             u.ue_nom, u.section,
+             (SELECT COUNT(*) FROM etudiant_valorisation_fichier f
+               WHERE f.valorisation_id = v.id) AS preuves
+        FROM etudiant_valorisation v
+        JOIN etudiant e ON e.id = v.etudiant_id
+        LEFT JOIN ${UE_REF} u ON u.ue_num = v.ue_num
+        ${where}
+       ORDER BY e.nom, e.prenom, v.annee_scolaire DESC, v.ue_num
+    `).all(...par);
+    res.json(lignes);
+  } catch (e) {
+    console.error('[valorisations/registre]', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
 r.get('/valorisations/fichiers/:fid', authRequired, (req, res) => {
   const f = db.prepare('SELECT * FROM etudiant_valorisation_fichier WHERE id = ?')
     .get(Number(req.params.fid));
@@ -4075,18 +4139,39 @@ r.get('/:id/valorisations/unites', authRequired, (req, res) => {
   });
 });
 
+/**
+ * CE QU'UNE VALORISATION DOIT AVOIR POUR ÊTRE ENREGISTRABLE.
+ *
+ * La même règle sert à créer et à corriger : une valorisation qu'on modifie
+ * doit rester aussi valable qu'à sa création, sinon on aurait bâti une porte
+ * dérobée pour écrire ce que la porte d'entrée refuse.
+ */
+function verifierValorisation(b) {
+  const { annee_scolaire, ue_num, type, cible } = b;
+  if (!annee_scolaire || !ue_num || !type) {
+    return 'annee_scolaire, ue_num et type requis';
+  }
+  if (!['complete','partielle','admission'].includes(type)) return 'type invalide';
+  const decision = b.decision === 'refusee' ? 'refusee' : 'accordee';
+  // UN REFUS SE MOTIVE. C'est une décision défavorable (RDE art. 88 §3), et
+  // « refusé » sans motif ne se défend pas devant un recours. En revanche il
+  // ne réclame ni cible ni dispense : on ne dispense rien.
+  if (decision === 'refusee') {
+    if (!String(b.motif_refus || '').trim()) return 'Un refus doit être motivé.';
+    return null;
+  }
+  if (type === 'partielle' && !['aa','cours'].includes(cible)) {
+    return 'dispense partielle : cible aa ou cours requise';
+  }
+  return null;
+}
+
 r.post('/:id/valorisations', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
   const { annee_scolaire, ue_num, type, cible, cible_detail, pourcentage,
           decision_ce_date, commentaire } = req.body;
-  if (!annee_scolaire || !ue_num || !type) {
-    return res.status(400).json({ error: 'annee_scolaire, ue_num et type requis' });
-  }
-  if (!['complete','partielle','admission'].includes(type)) {
-    return res.status(400).json({ error: 'type invalide' });
-  }
-  if (type === 'partielle' && !['aa','cours'].includes(cible)) {
-    return res.status(400).json({ error: 'dispense partielle : cible aa ou cours requise' });
-  }
+  const souci = verifierValorisation(req.body);
+  if (souci) return res.status(400).json({ error: souci });
+  const decision = req.body.decision === 'refusee' ? 'refusee' : 'accordee';
   // L'UNITÉ DOIT EXISTER CHEZ NOUS. Le numéro se tapait à la main : une unité
   // inconnue s'enregistrait sans un mot, et ne se découvrait qu'au moment
   // d'imprimer une pièce qui ne pouvait plus être juste.
@@ -4097,30 +4182,95 @@ r.post('/:id/valorisations', authRequired, roleRequired('admin', 'editeur'), (re
       error: `L'unité ${ue_num} n'existe pas dans le référentiel.` });
   }
 
+  // UN REFUS NE PORTE NI DISPENSE NI POURCENTAGE. Le procès-verbal lit
+  // l'absence de pourcentage comme un refus : lui en laisser un le ferait
+  // basculer en « Réussite » sur la pièce officielle.
+  const refus = decision === 'refusee';
   const info = db.prepare(`
     INSERT INTO etudiant_valorisation
       (etudiant_id, annee_scolaire, ue_num, type, cible, cible_detail,
-       pourcentage, decision_ce_date, commentaire)
-    VALUES (?,?,?,?,?,?,?,?,?)
+       pourcentage, decision_ce_date, commentaire, decision, motif_refus)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?)
   `).run(Number(req.params.id), annee_scolaire, Number(ue_num), type,
-         type === 'partielle' ? cible : null,
-         type === 'partielle' ? (cible_detail || null) : null,
-         pourcentage != null ? Number(pourcentage) : (type !== 'admission' ? 50 : null),
-         decision_ce_date || null, commentaire || null);
+         !refus && type === 'partielle' ? cible : null,
+         !refus && type === 'partielle' ? (cible_detail || null) : null,
+         refus ? null
+           : pourcentage != null ? Number(pourcentage)
+             : (type !== 'admission' ? 50 : null),
+         decision_ce_date || null, commentaire || null,
+         decision, refus ? String(req.body.motif_refus).trim() : null);
 
   // Les acquis reconnus équivalents, avec leur motivation. Une case cochée
   // sans texte reprend la phrase proposée : l'annexe ne part jamais avec un
   // blanc, mais le texte reste celui du Conseil dès qu'il l'a écrit.
-  if (Array.isArray(req.body.equivalences)) {
-    const ins = db.prepare(`INSERT OR REPLACE INTO etudiant_valorisation_aa
-      (valorisation_id, aa_code, texte) VALUES (?,?,?)`);
-    for (const e of req.body.equivalences) {
-      if (!e?.aa_code) continue;
-      ins.run(info.lastInsertRowid, String(e.aa_code),
-        (e.texte || '').trim() || TEXTE_EQUIVALENCE);
-    }
+  if (!refus && Array.isArray(req.body.equivalences)) {
+    ecrireEquivalences(info.lastInsertRowid, req.body.equivalences);
   }
   res.json({ ok: true, id: info.lastInsertRowid });
+});
+
+/** Les acquis reconnus équivalents d'une valorisation — on remplace le lot. */
+function ecrireEquivalences(vid, liste) {
+  db.prepare('DELETE FROM etudiant_valorisation_aa WHERE valorisation_id = ?').run(vid);
+  const ins = db.prepare(`INSERT OR REPLACE INTO etudiant_valorisation_aa
+    (valorisation_id, aa_code, texte) VALUES (?,?,?)`);
+  for (const e of liste) {
+    if (!e?.aa_code) continue;
+    ins.run(vid, String(e.aa_code), (e.texte || '').trim() || TEXTE_EQUIVALENCE);
+  }
+}
+
+/**
+ * CORRIGER UNE VALORISATION DÉJÀ ENCODÉE.
+ *
+ * Elle ne se corrigeait pas : une faute de frappe sur le pourcentage, un
+ * acquis coché de trop, et la seule issue était de supprimer — ce qui emporte
+ * les preuves déposées avec elle. On rouvrait donc le dossier, on redéposait
+ * les pièces, et personne ne le faisait : la faute restait.
+ *
+ * Les preuves survivent : c'est la décision qu'on corrige, pas le dossier qui
+ * la fonde.
+ */
+r.put('/valorisations/:vid', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
+  const vid = Number(req.params.vid);
+  const avant = db.prepare('SELECT * FROM etudiant_valorisation WHERE id = ?').get(vid);
+  if (!avant) return res.status(404).json({ error: 'Valorisation introuvable.' });
+
+  const b = { ...req.body,
+    annee_scolaire: req.body.annee_scolaire || avant.annee_scolaire,
+    ue_num: req.body.ue_num || avant.ue_num };
+  const souci = verifierValorisation(b);
+  if (souci) return res.status(400).json({ error: souci });
+
+  const connue = db.prepare('SELECT 1 FROM ue WHERE ue_num = ? LIMIT 1').get(Number(b.ue_num));
+  if (!connue) {
+    return res.status(400).json({ error: `L'unité ${b.ue_num} n'existe pas dans le référentiel.` });
+  }
+
+  const decision = b.decision === 'refusee' ? 'refusee' : 'accordee';
+  const refus = decision === 'refusee';
+  db.transaction(() => {
+    db.prepare(`UPDATE etudiant_valorisation SET
+        annee_scolaire = ?, ue_num = ?, type = ?, cible = ?, cible_detail = ?,
+        pourcentage = ?, decision_ce_date = ?, commentaire = ?,
+        decision = ?, motif_refus = ?
+      WHERE id = ?`).run(
+      b.annee_scolaire, Number(b.ue_num), b.type,
+      !refus && b.type === 'partielle' ? b.cible : null,
+      !refus && b.type === 'partielle' ? (b.cible_detail || null) : null,
+      refus ? null
+        : b.pourcentage != null ? Number(b.pourcentage)
+          : (b.type !== 'admission' ? 50 : null),
+      b.decision_ce_date || null, b.commentaire || null,
+      decision, refus ? String(b.motif_refus).trim() : null, vid);
+
+    if (refus) {
+      db.prepare('DELETE FROM etudiant_valorisation_aa WHERE valorisation_id = ?').run(vid);
+    } else if (Array.isArray(b.equivalences)) {
+      ecrireEquivalences(vid, b.equivalences);
+    }
+  })();
+  res.json({ ok: true, id: vid });
 });
 
 /**
