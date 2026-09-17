@@ -93,6 +93,9 @@ export default function SeanceValorisation({ ueNum, ueNom, annee, onClose }) {
         setManques(j.manques || []);
         throw new Error(j.error || 'Erreur');
       }
+      // Le procès-verbal d'abord, puis une attestation par étudiant dont
+      // l'unité est acquise : chacune part dans son onglet, parce qu'une
+      // attestation se range dans un dossier et se remet à une personne.
       const pieces = [j.html, ...(j.attestations || []).map(a => a.html)];
       for (const html of pieces) {
         const f = window.open('', '_blank');
@@ -116,7 +119,9 @@ export default function SeanceValorisation({ ueNum, ueNom, annee, onClose }) {
           <p className="text-[12px] text-slate-500">
             Procès-verbal de délibération de valorisation des acquis (annexe 4) et
             attestations de réussite par valorisation. <b>{etat.nb}</b> valorisation(s)
-            enregistrée(s) pour cette unité — le procès-verbal les porte toutes.
+            enregistrée(s) pour cette unité — le procès-verbal les porte toutes,
+            et chaque dispense <b>complète</b> donne en outre son attestation de
+            réussite (annexe 15 en supérieur, 14 en secondaire).
           </p>
 
           <div className="grid grid-cols-2 gap-3">

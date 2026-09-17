@@ -176,7 +176,24 @@ export function unitesReussies(etudId, annee, surcharge = null) {
   `).all(etudId, annee).map(i => (surcharge && surcharge[i.ue_num] !== undefined
     ? { ...i, points: surcharge[i.ue_num] } : i));
 
-  return insc.map(i => {
+  return insc.map(i => decrireUnite(i.ue_num, i.annee_scolaire, { points: i.points }));
+}
+
+/**
+ * CE QU'UNE ATTESTATION DOIT DIRE D'UNE UNITÉ — quelle qu'en soit la voie.
+ *
+ * Cette description se calculait à l'intérieur de « les unités réussies par
+ * délibération ». Une unité acquise PAR VALORISATION n'y passe pas : elle n'a
+ * pas d'inscription marquée « réussi », donc aucune description, donc aucune
+ * attestation — et la pièce disparaissait sans un mot. Le calcul est le même
+ * dans les deux cas ; seule la porte d'entrée change.
+ *
+ * @param {object} resultat  { points } sur 20, ou { pourcentage } déjà en %.
+ */
+export function decrireUnite(ueNum, anneeRef, resultat = {}) {
+  const i = { ue_num: ueNum, annee_scolaire: anneeRef,
+              points: resultat.points ?? null };
+  {
     // Le référentiel de l'année de l'inscription, à défaut le plus récent.
     const ue = db.prepare(`
       SELECT * FROM ue WHERE ue_num = ?
@@ -240,7 +257,7 @@ export function unitesReussies(etudId, annee, surcharge = null) {
     if (superieur && !(ue.domaine || sec?.domaine)) manques.push("le domaine d'études");
     if (!periodesCours) manques.push("le total des périodes");
     if (!activites.length) manques.push("la répartition par activité d'enseignement");
-    if (i.points == null) manques.push("le pourcentage obtenu");
+    if (i.points == null && resultat.pourcentage == null) manques.push("le pourcentage obtenu");
 
     return {
       ue_num: i.ue_num,
@@ -277,12 +294,17 @@ export function unitesReussies(etudId, annee, surcharge = null) {
       // délivrer une attestation de réussite portant 40 % serait un document
       // qui se contredit lui-même, et la circulaire Sanction des études ne
       // l'admet pas.
-      pourcentage: i.points != null
-        ? Math.max(50, Math.round(Number(i.points) * 5)) : null,
-      points: i.points != null ? Math.max(10, Number(i.points)) : null,
+      // Une valorisation arrive avec un pourcentage déjà arrêté par le
+      // Conseil ; une délibération, avec des points sur 20.
+      pourcentage: resultat.pourcentage != null
+        ? Math.max(50, Math.round(Number(resultat.pourcentage)))
+        : i.points != null ? Math.max(50, Math.round(Number(i.points) * 5)) : null,
+      points: i.points != null ? Math.max(10, Number(i.points))
+        : resultat.pourcentage != null
+          ? Math.max(10, Math.round(Number(resultat.pourcentage) / 5)) : null,
       manques,
     };
-  });
+  }
 }
 
 /**
@@ -1291,6 +1313,17 @@ r.post('/valorisation/ue/:ueNum/documents', authRequired, async (req, res) => {
   // vérifie de son côté ne protège que les chemins auxquels il a pensé.
   const etatSeance = lireSeanceValorisation(ueNum, annee);
   const manques = manquesValorisation(etatSeance, vas, ue);
+  // L'ATTESTATION A SES PROPRES MENTIONS OBLIGATOIRES — domaine d'études,
+  // ECTS, répartition par activité, liste des acquis. Elle les signalait déjà,
+  // mais dans un coin de la réponse que personne ne lisait : elles rejoignent
+  // la même barrière que le reste, sans quoi il y aurait deux exigences pour
+  // une seule pièce.
+  for (const v of vas.filter(v => v.type === 'complete' && v.pourcentage != null)) {
+    for (const m of decrireUnite(ueNum, annee, { pourcentage: v.pourcentage }).manques || []) {
+      const dit = `Attestation de réussite : ${m}.`;
+      if (!manques.includes(dit)) manques.push(dit);
+    }
+  }
   if (manques.length) {
     return res.status(409).json({
       error: 'Valeurs manquantes : à encoder avant impression.', manques });
@@ -1481,22 +1514,29 @@ r.post('/valorisation/ue/:ueNum/documents', authRequired, async (req, res) => {
   </div>
 </div>`;
 
-  // Les attestations : seules les valorisations COMPLÈTES en produisent une.
-  // Une dispense partielle ne fait pas réussir l'unité — elle allège son
-  // évaluation, et l'attestation viendra de la délibération ordinaire.
+  // LES ATTESTATIONS — ANNEXE 15 EN SUPÉRIEUR, 14 EN SECONDAIRE.
+  //
+  // Seules les valorisations COMPLÈTES en produisent une : une dispense
+  // partielle ne fait pas réussir l'unité, elle allège son évaluation, et
+  // l'attestation viendra de la délibération ordinaire.
+  //
+  // Elles passaient auparavant par « les unités réussies », qui ne lit que les
+  // inscriptions marquées « réussi » par une délibération. Une unité acquise
+  // par valorisation n'en a pas : la description revenait vide, le filtre
+  // écartait l'étudiant, et AUCUNE attestation ne sortait — sans un mot. La
+  // description se demande donc directement à l'unité.
   const completes = vas.filter(v => v.type === 'complete' && v.pourcentage != null);
-  const unites = completes.length
-    ? Object.fromEntries(completes.map(v => [v.etudiant_id,
-        (unitesReussies(v.etudiant_id, annee) || []).find(x => Number(x.ue_num) === ueNum)]))
-    : {};
-  const attestations = completes
-    .filter(v => unites[v.etudiant_id])
-    .map(v => ({
+  const attestations = completes.map(v => {
+    const u = decrireUnite(ueNum, annee, { pourcentage: v.pourcentage });
+    return {
       etudiant_id: v.etudiant_id,
       etudiant: `${v.nom} ${v.prenom || ''}`.trim(),
-      html: pageAttestationValorisation(v, { ...unites[v.etudiant_id], superieur },
+      annexe: superieur ? 15 : 14,
+      manques: u.manques || [],
+      html: pageAttestationValorisation(v, { ...u, superieur },
         annee, etab, v, req.body?.date_document || null, ident),
-    }));
+    };
+  });
 
   // LE NOMBRE DE PAGES SE CONSTATE, IL NE SE SAISIT PAS.
   //

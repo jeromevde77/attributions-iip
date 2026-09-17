@@ -300,6 +300,16 @@ enfin les mentions que le modèle exige : code approuvé par le Gouvernement,
 ECTS, total des périodes **et leur répartition par activité d'enseignement**,
 cours par cours — leur absence bloque l'impression comme le reste.
 
+**Une attestation ne se produisait pas, et rien ne le disait.** Les attestations
+de valorisation passaient par `unitesReussies()`, qui ne lit que les
+inscriptions marquées « réussi » **par une délibération** ; une unité acquise
+par valorisation n'en a pas, la description revenait vide, le filtre écartait
+l'étudiant — zéro attestation, en silence. Depuis 2.11.10, la description d'une
+unité est `decrireUnite()`, commune aux deux voies : la délibération y entre
+avec des points sur 20, la valorisation avec le pourcentage arrêté par le
+Conseil. Les mentions manquantes de l'attestation rejoignent la barrière du PV —
+elles étaient signalées dans un coin de la réponse que personne ne lisait.
+
 **Chantiers de conformité ouverts, dans l'ordre :** geler les décisions à la
 clôture et historiser par ajout ; figer et horodater le PV ; bloc de signatures
 nominatif ; date d'affichage et mode de publication en champs propres ; écrire
