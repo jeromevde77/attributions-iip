@@ -348,6 +348,12 @@ table.grid-excel-soft td.num { text-align: right; font-variant-numeric: tabular-
   --menu-ombre:       0 18px 45px -20px rgba(11, 21, 45, 0.28);
   --menu-icone:       rgba(27, 43, 75, 0.60);
   --menu-accent:      #0093B0;   /* turquoise assombri : lisible sur gris pâle */
+  /* LE SOUS-MENU DÉPLIÉ. Il vit DANS le rail, entre deux filets, et doit se
+     distinguer des rubriques de l'axe sans crier : un bleu clair, qui se lit
+     comme « second niveau » et non comme « alerte ». */
+  --menu-sous:        #3E7FB8;
+  --menu-sous-filet:  rgba(62, 127, 184, 0.34);
+  --menu-sous-actif:  rgba(62, 127, 184, 0.12);
   --barre-fond:       #F8FAFC;   /* le fond de la page : la barre s'y fond aussi */
   --champ-fond:       #FFFFFF;
   --tab-repere:       #F8FAFC;   /* le fond de la page : le filet suffit à démarquer */
@@ -372,6 +378,9 @@ table.grid-excel-soft td.num { text-align: right; font-variant-numeric: tabular-
   --menu-ombre:       0 20px 50px -15px rgba(11, 21, 45, 0.55);
   --menu-icone:       rgba(255, 255, 255, 0.70);
   --menu-accent:      #00AACC;
+  --menu-sous:        #7FB6E8;
+  --menu-sous-filet:  rgba(127, 182, 232, 0.38);
+  --menu-sous-actif:  rgba(127, 182, 232, 0.16);
   --barre-fond:       #0F1A2E;
   --champ-fond:       rgba(255,255,255,.08);
   --tab-repere:       rgba(255,255,255,.04);

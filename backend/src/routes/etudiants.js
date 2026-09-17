@@ -5004,17 +5004,58 @@ r.post('/completer', authRequired, roleRequired('admin', 'directeur', 'directeur
   });
 });
 
+/**
+ * CRÉER UN ÉTUDIANT À LA MAIN.
+ *
+ * La route existait depuis toujours ; aucun écran ne l'appelait. Un étudiant
+ * qui se présente hors import eCampus — une inscription tardive, un dossier
+ * repris d'un autre établissement — n'avait donc aucun moyen d'entrer dans
+ * Lucie. Une fonction sans porte est une fonction qui n'existe pas.
+ *
+ * ELLE REFUSE UN DOUBLON PLUTÔT QUE DE LE CRÉER. Nous venons de passer une
+ * journée à fusionner des étudiants de TIM dont le parcours était coupé en
+ * deux ; c'est exactement ainsi que cela commence — on ne trouve pas
+ * quelqu'un dans la liste, on le recrée, et son historique se scinde. Le
+ * registre national d'abord, puis nom + prénom + date de naissance. Le doublon
+ * n'est pas bloqué au sens strict : le serveur le SIGNALE et laisse le
+ * secrétariat trancher, parce que deux homonymes nés le même jour existent.
+ */
 r.post('/', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
   const { nom, prenom, annee, ue_nums, ...rest } = req.body;
   if (!nom || !prenom) return res.status(400).json({ error: 'nom et prenom requis' });
 
+  if (!rest.forcer) {
+    const nn = String(rest.num_national || '').replace(/\D/g, '');
+    let candidats = [];
+    if (nn.length >= 11) {
+      candidats = db.prepare(`SELECT id, nom, prenom, date_naissance, email_ecole
+        FROM etudiant WHERE REPLACE(REPLACE(REPLACE(num_national,'.',''),'-',''),' ','') = ?`)
+        .all(nn);
+    }
+    if (!candidats.length) {
+      candidats = db.prepare(`SELECT id, nom, prenom, date_naissance, email_ecole
+        FROM etudiant
+        WHERE LOWER(TRIM(nom)) = LOWER(TRIM(?)) AND LOWER(TRIM(prenom)) = LOWER(TRIM(?))
+          ${rest.date_naissance ? 'AND date_naissance = ?' : ''}`)
+        .all(...(rest.date_naissance ? [nom, prenom, rest.date_naissance] : [nom, prenom]));
+    }
+    if (candidats.length) {
+      return res.status(409).json({
+        error: 'Un dossier existe déjà pour cette personne.',
+        candidats,
+      });
+    }
+  }
+
   const info = db.prepare(`
     INSERT INTO etudiant (nom, prenom, email_ecole, email_perso, date_naissance,
-                         num_national, gsm, adresse, localite, cp, titre)
-    VALUES (?,?,?,?,?,?,?,?,?,?,?)
-  `).run(nom, prenom, rest.email_ecole||null, rest.email_perso||null,
+                         num_national, gsm, adresse, localite, cp, titre,
+                         section_rattachement)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,?)
+  `).run(nom.trim(), prenom.trim(), rest.email_ecole||null, rest.email_perso||null,
          rest.date_naissance||null, rest.num_national||null, rest.gsm||null,
-         rest.adresse||null, rest.localite||null, rest.cp||null, rest.titre||null);
+         rest.adresse||null, rest.localite||null, rest.cp||null, rest.titre||null,
+         rest.section_rattachement||null);
 
   const id = Number(info.lastInsertRowid);
 

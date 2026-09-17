@@ -398,6 +398,17 @@ année, section et décision, cliquable vers la fiche, et les valorisations **sa
 aucune preuve** signalées en ocre : une décision sans dossier se voit là plutôt
 qu'au moment du contrôle.
 
+**Créer un étudiant** (rail *Étudiants → Inscrire*) : la route `POST
+/api/etudiants` existait depuis l'origine sans qu'aucun écran ne l'appelle —
+tout entrait par l'import eCampus, et l'inscription tardive n'avait nulle part
+où aller. **Le doublon est le vrai risque** de la saisie manuelle : on ne trouve
+pas quelqu'un, on le recrée, et son parcours se coupe en deux — ce que nous
+avons passé une journée à réparer pour TIM. Le serveur cherche donc avant
+d'écrire (registre national d'abord, chiffres seuls ; puis nom + prénom + date
+de naissance, casse ignorée), rend un 409 avec les dossiers trouvés, et l'écran
+propose de les ouvrir. Il **signale**, il ne bloque pas : deux homonymes nés le
+même jour existent, et un lien permet de passer outre.
+
 **Chantiers de conformité ouverts, dans l'ordre :** geler les décisions à la
 clôture et historiser par ajout ; figer et horodater le PV ; bloc de signatures
 nominatif ; date d'affichage et mode de publication en champs propres ; écrire
@@ -598,6 +609,23 @@ et 3 composants de tuile**. La stratégie tient en cinq chantiers, dans cet ordr
   haut était écrite « 64 px » à la main ; elle ne les fait pas toujours, et le
   rail passait dessous. La barre publie sa hauteur (`--barre-h`), le rail la
   lit. Même principe pour `--rail-largeur`, que le filet du haut consomme.
+- **Le rail s'ouvre en son milieu.** Les outils de l'écran ouvert étaient une
+  section ajoutée SOUS les rubriques : le rail semblait se réécrire tout seul à
+  chaque clic, et rien ne disait que ces icônes-là appartenaient à l'écran
+  plutôt qu'à l'axe. Ils se déplient désormais **sous leur rubrique**, entre
+  deux filets, en bleu clair (`--menu-sous`, déclaré dans les deux modes) ; ce
+  qui suit glisse vers le bas. Le tiroir se monte **fermé** et s'ouvre à l'image
+  suivante — c'est le mouvement qui dit la parenté, pas la présence ; monté à sa
+  hauteur finale, il surgissait d'un bloc. La hauteur passe de `0fr` à `1fr` :
+  la seule transition qui n'oblige pas à mesurer le contenu, donc la seule qui
+  reste juste le jour où une entrée s'ajoute. **Les intertitres des sections
+  d'écran disparaissent** — rail replié, le libellé est masqué, et un séparateur
+  invisible n'est pas un séparateur.
+- **L'entrée active du rail est un bloc signalé**, comme partout ailleurs :
+  fond, filet de contour, rayon sur l'échelle, et un **rail de trois pixels à
+  gauche** qui porte la couleur, seul. Elle portait un anneau tout autour — une
+  forme de plus, qui ne disait rien de la règle suivie sur les écrans et sur le
+  papier.
 - **Une entrée de rail sans icône est invisible** une fois le rail replié.
 - **Un titre ne s'écrit qu'une fois** par écran.
 - Un libellé ne promet que ce que la modale fait réellement.

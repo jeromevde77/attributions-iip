@@ -2,8 +2,9 @@ import { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
 import { nomPropre } from '../lib/nom.js';
 import { RailLateral } from '../components/ui.jsx';
 import RegistreValorisations from '../components/RegistreValorisations.jsx';
+import NouvelEtudiant from '../components/NouvelEtudiant.jsx';
 import {
-  IconAlertTriangle, IconAward, IconCertificate, IconStairsUp, IconCheck, IconChecklist, IconChevronLeft, IconChevronRight, IconClock, IconFileText, IconFolder, IconPlus, IconPrinter, IconSearch, IconTable, IconTrash, IconUpload, IconUser, IconWritingSign, IconWritingSignOff, IconX,
+  IconAlertTriangle, IconAward, IconCertificate, IconStairsUp, IconUserPlus, IconCheck, IconChecklist, IconChevronLeft, IconChevronRight, IconClock, IconFileText, IconFolder, IconPlus, IconPrinter, IconSearch, IconTable, IconTrash, IconUpload, IconUser, IconWritingSign, IconWritingSignOff, IconX,
 } from '@tabler/icons-react';
 import { authHeaders, getAnnee } from '../lib/api.js';
 import PreviewModal from '../components/PreviewModal.jsx';
@@ -2287,6 +2288,7 @@ export default function Etudiants() {
   const [importPAE, setImportPAE] = useState(false);
   const [purge, setPurge] = useState(false);
   const [registreVA, setRegistreVA] = useState(false);
+  const [nouvel, setNouvel] = useState(false);
   const [rapportPAE, setRapportPAE] = useState(false);
   const [importListe, setImportListe] = useState(false);
   const [importHisto, setImportHisto] = useState(false);
@@ -2659,6 +2661,14 @@ export default function Etudiants() {
       { key: 'purge', label: 'Vider des résultats ou des inscriptions',
         icon: IconTrash, couleur: '#9d4a38', onClick: () => setPurge(true) },
     ] }] : []),
+    // INSCRIRE QUELQU'UN. La route serveur existait depuis l'origine, sans
+    // aucun écran pour l'appeler : tout entrait par l'import eCampus, et
+    // l'inscription tardive n'avait nulle part où aller. C'est la première
+    // entrée du rail parce que c'est le premier geste de l'année.
+    { label: 'Inscrire', items: [
+      { key: 'nouvel-etudiant', label: 'Créer un étudiant',
+        icon: IconUserPlus, onClick: () => setNouvel(true) },
+    ] },
     // LA VALORISATION SE LISAIT FICHE PAR FICHE, donc elle ne se lisait pas :
     // personne n'ouvre cinq cent quatre-vingt-huit dossiers pour savoir qui a
     // demandé quoi. Le registre est une LECTURE de l'existant — il n'encode
@@ -2883,6 +2893,11 @@ export default function Etudiants() {
             </tbody>
           </table>
         </div>
+      )}
+
+      {nouvel && (
+        <NouvelEtudiant onClose={() => setNouvel(false)}
+          onCree={id => { setNouvel(false); charger(); setSelId(id); }} />
       )}
 
       {registreVA && (

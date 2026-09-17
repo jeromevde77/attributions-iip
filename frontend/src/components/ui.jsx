@@ -1,4 +1,4 @@
-import { createContext, lazy, Suspense, useContext, useEffect, useState } from 'react';
+import { createContext, Fragment, lazy, Suspense, useContext, useEffect, useState } from 'react';
 
 const CentreImpressionCentral = lazy(() => import('./CentreImpressionCentral.jsx'));
 import { createPortal } from 'react-dom';
@@ -213,6 +213,32 @@ export function RailLateral({ icon: HeaderIcon, titre, sousTitre, extra,
 }
 
 /** Le rail tel qu'il se dessine — appelé par l'axe, ou par un écran isolé. */
+/**
+ * LE TIROIR DU RAIL — il s'ouvre, il n'apparaît pas.
+ *
+ * Monté directement à sa hauteur finale, le sous-menu surgissait d'un bloc :
+ * on ne voyait pas d'où il venait, et le lien avec la rubrique cliquée se
+ * perdait. Il se monte donc FERMÉ, et s'ouvre à l'image suivante — c'est le
+ * mouvement, pas la présence, qui dit la parenté.
+ *
+ * La hauteur passe de 0fr à 1fr : la seule transition de hauteur qui n'oblige
+ * pas à mesurer le contenu, donc la seule qui reste juste le jour où une
+ * entrée s'ajoute.
+ */
+function TiroirRail({ children }) {
+  const [ouvert, setOuvert] = useState(false);
+  useEffect(() => {
+    const t = requestAnimationFrame(() => setOuvert(true));
+    return () => cancelAnimationFrame(t);
+  }, []);
+  return (
+    <div className="grid transition-[grid-template-rows] duration-300 ease-ios"
+      style={{ gridTemplateRows: ouvert ? '1fr' : '0fr' }}>
+      <div className="overflow-hidden">{children}</div>
+    </div>
+  );
+}
+
 export function RailDessine({ icon: HeaderIcon, titre, sousTitre, extra,
                               sections = [], actions = [], volet = null,
                               surNoeudVolet = null, impression = 'etudiants',
@@ -456,6 +482,7 @@ export function RailDessine({ icon: HeaderIcon, titre, sousTitre, extra,
             {sec.items.map(it => {
               const Ic = it.icon;
               return (
+                <Fragment key={it.key}>
                 <button key={it.key} onClick={it.onClick} aria-label={it.label}
                   onMouseEnter={e => !epingle && surviser(e, it.label)}
                   onMouseLeave={() => setSurvol(null)}
@@ -475,10 +502,18 @@ export function RailDessine({ icon: HeaderIcon, titre, sousTitre, extra,
                     ${epingle
                       ? 'w-full items-start gap-3 py-2 px-2.5 rounded-fenetre'
                       : 'w-10 h-10 mx-auto items-center justify-center rounded-carte'}
-                    ${it.actif ? 'font-semibold ring-1 ring-inset' : 'hover:shadow-pose'}`}
+                    ${it.actif ? 'font-semibold' : 'hover:shadow-pose'}`}
+                  /* LE BLOC SIGNALÉ, À L'ÉCHELLE DU RAIL.
+                     L'entrée active portait un anneau tout autour : une forme
+                     de plus, qui ne disait rien de la règle suivie partout
+                     ailleurs dans Lucie. C'est la même tuile que sur un écran
+                     ou sur une pièce imprimée — fond, filet de contour, rayon
+                     sur l'échelle, et un RAIL DE TROIS PIXELS À GAUCHE qui
+                     porte la couleur, seul. */
                   style={it.actif
                     ? { background: 'var(--menu-actif)', color: 'var(--menu-texte)',
-                        '--tw-ring-color': 'var(--menu-actif-bord)' }
+                        boxShadow: 'inset 0 0 0 1px var(--menu-actif-bord),'
+                          + ' inset 3px 0 0 var(--menu-accent)' }
                     : { color: 'var(--menu-texte-doux)' }}
                   onFocus={undefined}
                   data-case-rail={epingle ? undefined : '1'}>
@@ -516,6 +551,62 @@ export function RailDessine({ icon: HeaderIcon, titre, sousTitre, extra,
                     {it.label}
                   </span>
                 </button>
+
+                {/* LE RAIL S'OUVRE EN SON MILIEU.
+                    Les outils de l'écran ouvert étaient ajoutés SOUS les
+                    rubriques, dans une section à part : le rail semblait se
+                    réécrire tout seul à chaque clic, et rien ne disait que ces
+                    icônes-là appartenaient à l'écran plutôt qu'à l'axe.
+
+                    Ils naissent désormais SOUS LEUR RUBRIQUE, entre deux
+                    filets, en bleu clair : la parenté se lit sans qu'on
+                    l'explique. Ce qui suit glisse vers le bas.
+
+                    La hauteur passe de 0fr à 1fr — la seule transition de
+                    hauteur qui n'oblige pas à mesurer le contenu, donc la seule
+                    qui reste juste quand une entrée s'ajoute. */}
+                {it.sous?.length > 0 && (
+                  <TiroirRail key={`sous-${it.key}`}>
+                      <div className={`${epingle ? 'mx-2' : 'w-5 mx-auto'} my-1 border-t`}
+                        style={{ borderColor: 'var(--menu-sous-filet)' }} />
+                      {it.sous.map(sv => {
+                        const Sc = sv.icon;
+                        return (
+                          <button key={sv.key} onClick={sv.onClick} aria-label={sv.label}
+                            onMouseEnter={e => !epingle && surviser(e, sv.label)}
+                            onMouseLeave={() => setSurvol(null)}
+                            className={`relative flex text-[13px] mb-1
+                              transition-colors duration-150 ease-ios
+                              ${epingle
+                                ? 'w-full items-center gap-3 py-2 px-2.5 rounded-fenetre'
+                                : 'w-10 h-10 mx-auto items-center justify-center rounded-carte'}
+                              ${sv.actif ? 'font-semibold' : 'hover:shadow-pose'}`}
+                            style={sv.actif
+                              ? { background: 'var(--menu-sous-actif)',
+                                  color: 'var(--menu-texte)',
+                                  boxShadow: 'inset 3px 0 0 var(--menu-sous)' }
+                              : { color: 'var(--menu-texte-doux)' }}
+                            data-case-rail={epingle ? undefined : '1'}>
+                            {Sc ? (
+                              <Sc size={18} stroke={1.8} className="flex-shrink-0"
+                                style={{ color: sv.couleur || 'var(--menu-sous)' }} />
+                            ) : (
+                              <span className="flex-shrink-0 w-[18px] flex justify-center"
+                                aria-hidden="true">
+                                <span className="w-1.5 h-1.5 rounded-full"
+                                  style={{ background: 'var(--menu-sous)' }} />
+                              </span>
+                            )}
+                            <span className={`text-left leading-tight min-w-0 flex-1
+                              break-words ${reveal}`}>{sv.label}</span>
+                          </button>
+                        );
+                      })}
+                      <div className={`${epingle ? 'mx-2' : 'w-5 mx-auto'} mt-1 mb-2 border-t`}
+                        style={{ borderColor: 'var(--menu-sous-filet)' }} />
+                  </TiroirRail>
+                )}
+                </Fragment>
               );
             })}
           </div>

@@ -68,11 +68,30 @@ export default function Axe({ titre, question, icone, onglets, ongletInitial,
     }] : []),
   ];
 
+  /*
+   * LES OUTILS DE L'ÉCRAN NAISSENT SOUS LEUR RUBRIQUE.
+   *
+   * Ils formaient une section à part, ajoutée SOUS la liste des rubriques. Le
+   * rail semblait donc se réécrire tout seul à chaque clic — les rubriques
+   * restaient, mais la moitié basse changeait sans que rien l'annonce, et rien
+   * ne disait que ces icônes-là appartenaient à l'écran ouvert plutôt qu'à
+   * l'axe.
+   *
+   * Elles se déplient désormais SOUS la rubrique qui les a ouvertes, entre deux
+   * filets : la parenté se lit, et ce qui suit glisse simplement vers le bas.
+   *
+   * Les sections que l'écran déclare sont aplaties : leurs intertitres — « Fin
+   * de cycle », « Supprimer » — ne survivraient pas au rail replié, où le
+   * libellé est masqué. Un séparateur invisible n'est pas un séparateur.
+   */
+  const sousOutils = (outils || []).flatMap(sec => sec.items || []);
+
   const rubriques = {
     label: 'Dans cet axe',
     items: visibles.map(o => ({
       key: o.key,
       label: o.label + (o.futur ? ' — à venir' : ''),
+      sous: actif === o.key ? sousOutils : undefined,
       // SANS ICÔNE, LE RAIL REPLIÉ N'A RIEN À MONTRER : le libellé y est
       // masqué, et une rubrique sans icône devient une ligne vide qu'on ne
       // peut ni lire ni viser. L'axe en fournit une par défaut, pour qu'un
@@ -86,7 +105,7 @@ export default function Axe({ titre, question, icone, onglets, ongletInitial,
   return (
     <div className="relative bg-slate-50" style={{ minHeight: 'calc(100vh - 64px)' }}>
       <RailDessine icon={icone} titre={titre} sousTitre={question}
-        sections={[rubriques, ...(outils || [])]}
+        sections={[rubriques]}
         volet={voletTitre === null ? null : { titre: voletTitre }}
         surNoeudVolet={setNoeudVolet}
         actions={outilsCommuns} impression={impression} />
