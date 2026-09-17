@@ -1049,13 +1049,23 @@ function Valorisations({ etudId, annee }) {
                       const sousSeuil = note !== '' && Number(note) < seuilReport;
                       return (
                         <div key={code}
-                          className={`flex items-center gap-2 px-3 py-1.5 text-[12px]
+                          className={`px-3 py-1.5 text-[12px]
                                       border-b border-slate-50 last:border-0
                                       ${actif ? 'bg-iip-blue/5' : ''}`}>
+                        <div className="flex items-center gap-2">
                           <input type="checkbox" checked={actif}
                             onChange={() => {
                               const next = actif ? sel.filter(x => x !== code) : [...sel, code];
-                              setForm(f => ({ ...f, cible_detail: next.join(',') }));
+                              setForm(f => {
+                                // COCHER UN ACQUIS, C'EST LE RECONNAÎTRE ÉQUIVALENT.
+                                // Les deux gestes n'en font qu'un : la motivation
+                                // s'ouvre sous la case, pré-remplie.
+                                if (f.cible !== 'aa') return { ...f, cible_detail: next.join(',') };
+                                const eq = { ...(f.equivalences || {}) };
+                                if (actif) delete eq[code];
+                                else eq[code] = composantes.texte_equivalence || '';
+                                return { ...f, cible_detail: next.join(','), equivalences: eq };
+                              });
                             }} />
                           <span className="w-20 flex-none font-mono text-[11px] text-slate-500">
                             {code}
@@ -1116,6 +1126,20 @@ function Valorisations({ etudId, annee }) {
                                             : 'border-slate-300'}`} />
                           ) : <span className="w-16 flex-none" />}
                         </div>
+
+                        {/* LA MOTIVATION, SOUS L'ACQUIS QU'ELLE MOTIVE. Elle
+                            vivait dans un second bloc qui rejouait la même
+                            liste : on cochait en bas, le bouton restait gris,
+                            et rien ne disait que la case utile était en haut. */}
+                        {form.cible === 'aa' && actif && (
+                          <textarea rows={2}
+                            value={(form.equivalences || {})[code] || ''}
+                            onChange={e => setForm(f => ({ ...f,
+                              equivalences: { ...(f.equivalences || {}), [code]: e.target.value } }))}
+                            className="mt-1.5 ml-6 w-[calc(100%-1.5rem)] border border-slate-300
+                                       rounded-lg px-2 py-1 text-[12px]" />
+                        )}
+                        </div>
                       );
                     })}
                   </div>
@@ -1142,7 +1166,8 @@ function Valorisations({ etudId, annee }) {
               maîtrisé ailleurs. C'est ce constat, écrit acquis par acquis, qui
               tient devant une inspection — d'où une phrase proposée, jamais un
               blanc, et toujours remplaçable. */}
-          {form.ue_num && composantes?.aas?.length > 0 && (
+          {form.ue_num && composantes?.aas?.length > 0
+            && !(form.type === 'partielle' && form.cible === 'aa') && (
             <div className="border border-slate-200 rounded-xl overflow-hidden bg-white">
               <div className="px-3 py-1.5 bg-slate-50 border-b border-slate-200
                               flex items-center justify-between">
@@ -1200,9 +1225,24 @@ function Valorisations({ etudId, annee }) {
                 className="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-sm" /></label>
           </div>
 
+          {/* UN BOUTON GRIS QUI NE DIT PAS POURQUOI EST UN BOUTON CASSÉ.
+              « Il ne veut pas de ma valorisation » : il en voulait bien, mais
+              rien à l'écran ne nommait ce qui manquait. */}
+          {(() => {
+            const manque = !form.ue_num
+              ? "Choisissez l'unité d'enseignement."
+              : (form.type === 'partielle' && !form.cible_detail)
+                ? `Cochez au moins un ${form.cible === 'cours' ? 'cours'
+                    : "acquis d'apprentissage"} à dispenser.`
+                : null;
+            return manque && (
+              <div className="text-[12px] text-amber-800">{manque}</div>
+            );
+          })()}
+
           <div className="flex gap-2">
             <button onClick={sauver} disabled={!form.ue_num || (form.type === 'partielle' && !form.cible_detail)}
-              className="bouton bouton-fort">
+              className="bouton bouton-fort disabled:opacity-40">
               Enregistrer
             </button>
             <button onClick={() => { setForm(null); setComposantes(null); }}

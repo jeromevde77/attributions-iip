@@ -141,28 +141,24 @@ function MesTaches({ signal = 0 }) {
           // lib/urgence.js — deux écrans qui le referaient chacun de leur côté
           // finiraient par ne plus dire la même chose.
           const u = urgence(t.echeance);
-          const presse = u.niveau === 'presse' || u.niveau === 'depasse';
           return (
             <div key={t.id} className={`px-3 py-2 flex items-center gap-3
                                        border-t border-slate-100 first:border-t-0
-                                       ${u.ligne}`}>
+                                       ${u.rail}`}>
               <button onClick={() => cocher(t)} title="Marquer comme faite"
-                className={`w-5 h-5 flex-none grid place-items-center rounded-champ border
-                            text-transparent hover:text-emerald-600
-                            ${presse ? 'border-white/70 hover:border-white'
-                                     : 'border-slate-300 hover:border-emerald-500'}`}>
+                className="w-5 h-5 flex-none grid place-items-center rounded-champ border
+                           border-slate-300 text-transparent hover:border-emerald-500
+                           hover:text-emerald-600">
                 <IconCheck size={13} />
               </button>
-              <span className={`flex-1 min-w-0 text-[13px] truncate
-                ${presse ? 'text-white font-medium' : 'text-slate-800'}`}>
+              <span className="flex-1 min-w-0 text-[13px] text-slate-800 truncate">
                 {t.titre}
               </span>
               {/* CE QUE L'ACTION SERT : l'obligation l'emporte sur la réunion.
                   Savoir qu'une tâche tient une échéance de la circulaire change
                   l'ordre dans lequel on la fait. */}
               {(t.obligation_libelle || t.reunion_date) && (
-                <span className={`text-[11px] hidden sm:inline truncate max-w-[18rem]
-                  ${presse ? 'text-white/70' : 'text-slate-400'}`}>
+                <span className="text-[11px] text-slate-400 hidden sm:inline truncate max-w-[18rem]">
                   {t.obligation_libelle
                     ? `pour : ${t.obligation_libelle}${t.obligation_base ? ` — ${t.obligation_base}` : ''}`
                     : `décidée le ${fr(t.reunion_date)}`}
@@ -194,17 +190,14 @@ function MesTaches({ signal = 0 }) {
           <div className="carte overflow-hidden">
             {confiees.map(t => {
               const u = urgence(t.echeance);
-              const presse = u.niveau === 'presse' || u.niveau === 'depasse';
               return (
                 <div key={t.id} className={`px-3 py-2 flex items-center gap-3
                                            border-t border-slate-100 first:border-t-0
-                                           ${u.ligne}`}>
-                  <span className={`flex-1 min-w-0 text-[13px] truncate
-                    ${presse ? 'text-white font-medium' : 'text-slate-800'}`}>
+                                           ${u.rail}`}>
+                  <span className="flex-1 min-w-0 text-[13px] text-slate-800 truncate">
                     {t.titre}
                   </span>
-                  <span className={`text-[11px] truncate max-w-[12rem]
-                    ${presse ? 'text-white/80' : 'text-slate-500'}`}>
+                  <span className="text-[11px] text-slate-500 truncate max-w-[12rem]">
                     {t.responsable_nom || t.responsable_role || 'sans responsable'}
                   </span>
                   {t.echeance && (
