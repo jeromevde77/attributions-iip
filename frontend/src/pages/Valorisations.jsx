@@ -206,8 +206,8 @@ function LigneEtudiant({ etudiant, annee, ouvert, onBasculer, onAjouterUE,
           </span>
         </span>
         <button onClick={onAjouterUE} className="bouton text-[12px] px-2.5 py-1"
-          title="Ajouter une unité à valoriser">
-          <IconPlus size={14} /> Unité
+          title="Ajouter une ou plusieurs unités à valoriser">
+          <IconPlus size={14} /> Unités
         </button>
       </div>
 
@@ -215,7 +215,7 @@ function LigneEtudiant({ etudiant, annee, ouvert, onBasculer, onAjouterUE,
         <div className="border-t border-slate-200">
           {!etudiant.vas.length ? (
             <div className="px-4 py-3 text-[12px] text-slate-400">
-              Aucune unité. Le bouton <b>Unité</b> en ajoute une.
+              Aucune unité. Le bouton <b>Unités</b> en ajoute une ou plusieurs.
             </div>
           ) : etudiant.vas.map(v => (
             <UniteValorisee key={v.id} va={v} annee={annee}
@@ -622,7 +622,8 @@ function ChoisirEtudiants({ annee, onClose, onChoisis }) {
 function ChoisirUnite({ annee, etudiant, onClose, onCree }) {
   const [unites, setUnites] = useState(null);
   const [section, setSection] = useState('');
-  const [ueNum, setUeNum] = useState('');
+  const [q, setQ] = useState('');
+  const [coches, setCoches] = useState(() => new Set());
   const [erreur, setErreur] = useState(null);
   const [enCours, setEnCours] = useState(false);
 
@@ -630,83 +631,141 @@ function ChoisirUnite({ annee, etudiant, onClose, onCree }) {
     fetch(`/api/etudiants/${etudiant.id}/valorisations/unites?annee=${encodeURIComponent(annee)}`,
       { headers: authHeaders() })
       .then(r => (r.ok ? r.json() : { sections: [], unites: [] }))
-      .then(setUnites)
+      .then(j => {
+        setUnites(j);
+        // La section de rattachement est la bonne par défaut : c'est celle du
+        // programme de l'étudiant, donc celle où l'on cherche neuf fois sur dix.
+        if (j.section_etudiant) setSection(j.section_etudiant);
+      })
       .catch(() => setUnites({ sections: [], unites: [] }));
   }, [etudiant.id, annee]);
 
-  const visibles = useMemo(() => (unites?.unites || [])
-    .filter(u => !section || u.section === section), [unites, section]);
+  const visibles = useMemo(() => {
+    const t = q.trim().toLowerCase();
+    return (unites?.unites || []).filter(u =>
+      (!section || u.section === section)
+      && (!t || String(u.ue_num).includes(t) || (u.ue_nom || '').toLowerCase().includes(t)));
+  }, [unites, section, q]);
+
+  const basculer = n => setCoches(s2 => {
+    const n2 = new Set(s2);
+    if (n2.has(n)) n2.delete(n); else n2.add(n);
+    return n2;
+  });
 
   async function creer() {
-    if (!ueNum) return;
+    if (!coches.size) return;
     setEnCours(true); setErreur(null);
     try {
-      /* ELLE NAÎT « PARTIELLE ET VIDE », et c'est volontaire : la décision se
-         prend dans la ligne, sous les yeux des cours et des acquis. Naître
-         « totale » par défaut ferait accorder l'unité entière d'un clic
-         distrait. */
-      const rep = await fetch(`/api/etudiants/${etudiant.id}/valorisations`, {
-        method: 'POST', headers: authHeaders(),
-        body: JSON.stringify({
-          annee_scolaire: annee, ue_num: Number(ueNum),
-          type: 'partielle', cible: 'cours', cible_detail: '',
-          decision: 'accordee',
-        }),
-      });
-      const j = await rep.json();
-      if (!rep.ok) throw new Error(j.error || 'Erreur');
+      /* ELLES NAISSENT « PARTIELLES ET VIDES », et c'est volontaire : la
+         décision se prend dans la ligne, sous les yeux des cours et des acquis.
+         Naître « totale » par défaut ferait accorder des unités entières d'un
+         clic distrait — d'autant plus qu'on en coche maintenant plusieurs. */
+      const echecs = [];
+      for (const ueNum of coches) {
+        const rep = await fetch(`/api/etudiants/${etudiant.id}/valorisations`, {
+          method: 'POST', headers: authHeaders(),
+          body: JSON.stringify({
+            annee_scolaire: annee, ue_num: Number(ueNum),
+            type: 'partielle', cible: 'cours', cible_detail: '',
+            decision: 'accordee',
+          }),
+        });
+        if (!rep.ok) {
+          const j = await rep.json().catch(() => ({}));
+          echecs.push(`UE ${ueNum} : ${j.error || 'refusée'}`);
+        }
+      }
+      // ON DIT CE QUI N'EST PAS PASSÉ. Sur dix unités cochées, une seule peut
+      // échouer ; un message unique « erreur » ferait croire que rien n'a été
+      // créé, et on recommencerait tout — en doublant les neuf autres.
+      if (echecs.length) setErreur(echecs.join(' · '));
       await onCree?.();
     } catch (e) { setErreur(e.message); }
     finally { setEnCours(false); }
   }
 
   return (
-    <Fenetre icone={IconPlus} onFermer={onClose}
-      titre="Une unité à valoriser"
+    <Fenetre icone={IconPlus} large="grande" onFermer={onClose}
+      titre="Des unités à valoriser"
       sous={`${(etudiant.nom || '').toUpperCase()} ${etudiant.prenom} · ${annee}`}
       pied={<>
-        <button onClick={creer} disabled={!ueNum || enCours}
-          className="bouton bouton-fort disabled:opacity-40">Ajouter l'unité</button>
-        <button onClick={onClose} className="bouton ml-auto">Annuler</button>
+        <button onClick={creer} disabled={!coches.size || enCours}
+          className="bouton bouton-fort disabled:opacity-40">
+          {enCours ? 'Ajout…'
+            : coches.size > 1 ? `Ajouter ${coches.size} unités` : "Ajouter l'unité"}
+        </button>
+        <span className="text-[12px] text-slate-500">
+          {coches.size ? `${coches.size} cochée(s)` : 'Aucune cochée'}
+        </span>
+        {erreur && (
+          <span className="flex items-start gap-1.5 text-[12px] text-rose-700">
+            <IconAlertTriangle size={14} className="mt-0.5 flex-none" />{erreur}
+          </span>
+        )}
+        <button onClick={onClose} className="bouton ml-auto">Fermer</button>
       </>}>
-      <div className="p-5 space-y-3">
-        {/* ON NE VALORISE QU'UNE UNITÉ DE CHEZ NOUS — le serveur refuse un
-            numéro inconnu du référentiel, et l'écran ne le propose même pas. */}
-        <label className="block text-xs">
-          <span className="block font-semibold text-slate-500 uppercase tracking-wide mb-1">
-            Section
-          </span>
-          <select value={section} onChange={e => { setSection(e.target.value); setUeNum(''); }}
-            className="controle w-full">
-            <option value="">Toutes</option>
-            {(unites?.sections || []).map(s => (
-              <option key={s.code || s} value={s.code || s}>{s.libelle || s.code || s}</option>
-            ))}
-          </select>
-        </label>
+      <div className="flex-1 min-h-0 flex flex-col -mx-5 -my-4">
 
-        <label className="block text-xs">
-          <span className="block font-semibold text-slate-500 uppercase tracking-wide mb-1">
-            Unité d'enseignement
-          </span>
-          <select value={ueNum} onChange={e => setUeNum(e.target.value)}
-            className="controle w-full">
-            <option value="">—</option>
-            {visibles.map(u => (
-              <option key={u.ue_num} value={u.ue_num}>
-                {u.ue_num} — {u.ue_nom}{u.au_pae ? '  (à son programme)' : ''}
+        <div className="flex-none flex flex-wrap items-center gap-2 px-5 py-3
+                        border-b border-slate-200">
+          {/* ON NE VALORISE QU'UNE UNITÉ DE CHEZ NOUS — le serveur refuse un
+              numéro inconnu du référentiel, et l'écran ne le propose même pas. */}
+          <select value={section} onChange={e => { setSection(e.target.value); }}
+            className="controle text-[13px]">
+            <option value="">Toutes les sections</option>
+            {(unites?.sections || []).map(sx => (
+              <option key={sx.code || sx} value={sx.code || sx}>
+                {sx.libelle || sx.code || sx}
               </option>
             ))}
           </select>
-        </label>
-
-        {!unites && <div className="text-[12px] text-slate-400">Chargement…</div>}
-        {erreur && (
-          <div className="flex items-start gap-1.5 text-[12px] text-rose-700">
-            <IconAlertTriangle size={14} className="mt-0.5 flex-none" />{erreur}
+          <div className="relative">
+            <IconSearch size={14}
+              className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+            <input value={q} onChange={e => setQ(e.target.value)}
+              placeholder="Un numéro, un intitulé…" className="controle pl-8 text-[13px]" />
           </div>
-        )}
+          {coches.size > 0 && (
+            <button onClick={() => setCoches(new Set())}
+              className="text-slate-400 hover:text-iip-blue" title="Tout décocher">
+              <IconX size={14} />
+            </button>
+          )}
+          <span className="ml-auto text-[12px] text-slate-400">
+            {visibles.length} unité(s)
+          </span>
+        </div>
 
+        <div className="flex-1 overflow-auto min-h-0">
+          {!unites ? (
+            <div className="p-6 text-[13px] text-slate-400">Chargement…</div>
+          ) : !visibles.length ? (
+            <div className="p-6 text-[13px] text-slate-400">
+              Aucune unité ne correspond à ce filtre.
+            </div>
+          ) : visibles.map(u => (
+            <label key={u.ue_num}
+              className={`flex items-center gap-2 px-5 py-1.5 cursor-pointer
+                border-b border-slate-50 ${coches.has(u.ue_num) ? 'bg-iip-blue/5' : ''}`}>
+              <input type="checkbox" checked={coches.has(u.ue_num)}
+                onChange={() => basculer(u.ue_num)} className="w-4 h-4 accent-iip-blue" />
+              <span className="font-mono text-[11px] text-slate-500 w-12 flex-none">
+                {u.ue_num}
+              </span>
+              <span className="flex-1 min-w-0 text-[13px] truncate">{u.ue_nom}</span>
+              {/* CELLES DE SON PROGRAMME SE SIGNALENT : ce sont les plus
+                  probables, et elles arrivent déjà en tête de la liste. */}
+              {u.au_pae && (
+                <span className="text-[10px] uppercase tracking-wider text-[#0093B0]
+                                 flex-none">à son programme</span>
+              )}
+              <span className="text-[11px] text-slate-400 flex-none w-24 text-right truncate">
+                {u.section || ''}
+              </span>
+            </label>
+          ))}
+        </div>
       </div>
     </Fenetre>
   );
