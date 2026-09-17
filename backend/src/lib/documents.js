@@ -77,8 +77,22 @@ export const DOCUMENTS = [
     parametres: ['annee'],
     nomFichier: 'Frais_{nom}_{prenom}_{annee}',
     roles: ['admin', 'directeur', 'directeur_adjoint', 'editeur', 'secretariat'],
-  }
-
+  },
+  {
+    cle: 'valorisation_ue',
+    libelle: 'Valorisation des acquis — PV et attestations',
+    description: "Annexe 4 (procès-verbal) et annexe 15 / 14 (attestations de "
+      + "réussite par valorisation). Pièce d'UNITÉ : elle porte tous les "
+      + "étudiants valorisés dans l'unité cette année-là.",
+    // Une portée d'UNITÉ, et non d'étudiant : le procès-verbal ne se découpe
+    // pas par personne. Elle se déclare ici pour que le catalogue reste la
+    // seule porte, même quand la pièce s'ouvre depuis la fiche d'un étudiant.
+    portee: 'unite', lot: false, groupe: 'Unités',
+    route: { methode: 'POST', chemin: '/api/attestations/valorisation/ue/:ueNum/documents' },
+    parametres: ['annee', 'ue'],
+    nomFichier: 'Valorisation_UE{ue}_{annee}',
+    roles: ['admin', 'directeur', 'directeur_adjoint', 'editeur', 'secretariat'],
+  },
 ];
 
 /** Le catalogue taillé au périmètre de la personne. */

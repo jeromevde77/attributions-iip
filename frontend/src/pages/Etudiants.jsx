@@ -18,6 +18,7 @@ import CentrePAE from '../components/CentrePAE.jsx';
 import PassageAnnee from '../components/PassageAnnee.jsx';
 import CentreEchanges from '../components/CentreEchanges.jsx';
 import CentreDiplomation from '../components/CentreDiplomation.jsx';
+import SeanceValorisation from '../components/SeanceValorisation.jsx';
 import ImportSurMesure from '../components/ImportSurMesure.jsx';
 import ImportSuivi from '../components/ImportSuivi.jsx';
 import Annexe2 from '../components/Annexe2.jsx';
@@ -699,6 +700,10 @@ const TYPES_VA = [
 
 function Valorisations({ etudId, annee }) {
   const [valos, setValos] = useState(null);
+  // L'unité dont on veut les pièces. Le procès-verbal est une pièce d'UNITÉ :
+  // il porte tous les étudiants valorisés dans cette unité, pas seulement
+  // celui dont on a la fiche sous les yeux.
+  const [documents, setDocuments] = useState(null);
   const [form, setForm] = useState(null);
   // Le seuil de report. Le RDE fixe la réussite à 10/20 (art. 78) et ne
   // mentionne pas de seuil propre au report : celui-ci relève donc d'une règle
@@ -1032,15 +1037,30 @@ function Valorisations({ etudId, annee }) {
                   {v.decision_ce_date ? ` · CE du ${v.decision_ce_date}` : ''}
                 </div>
               </div>
-              {estAdmin && (
-                <button onClick={() => supprimer(v.id)} className="text-slate-300 hover:text-red-500 flex-none">
-                  <IconTrash size={15} />
+              <div className="flex items-center gap-2 flex-none">
+                {/* UNE ICÔNE SE MÉRITE. Celle-ci ouvrait une fenêtre entière et
+                    produisait des pièces officielles : au bout d'une ligne, à
+                    côté d'une corbeille, personne ne la trouvait. Un libellé. */}
+                <button onClick={() => setDocuments({ ue_num: v.ue_num, ue_nom: v.ue_nom })}
+                  title="Procès-verbal de valorisation et attestations — pièce de l'unité"
+                  className="bouton bouton-sortir text-[12px] px-2.5 py-1">
+                  <IconPrinter size={14} /> Documents
                 </button>
-              )}
+                {estAdmin && (
+                  <button onClick={() => supprimer(v.id)} className="text-slate-300 hover:text-red-500">
+                    <IconTrash size={15} />
+                  </button>
+                )}
+              </div>
             </div>
           ))}
         </div>
       )}
+      {documents && (
+        <SeanceValorisation ueNum={documents.ue_num} ueNom={documents.ue_nom}
+          annee={annee} onClose={() => setDocuments(null)} />
+      )}
+
       <p className="text-[11px] text-slate-400 mt-3">
         Dispense complète : l'UE est acquise, l'apprenant n'est pas comptabilisé comme régulier pour cette UE (art. 4).
         Dispense partielle : dispense d'activités d'enseignement, l'apprenant reste comptabilisé (art. 3).

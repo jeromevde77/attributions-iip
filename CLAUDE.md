@@ -269,6 +269,21 @@ poids du cours, lignes 17+ poids des acquis.
   en séance), `propose` (proposée par Lucie, acceptée en bloc à la clôture),
   `reprise` (reconstituée après coup par l'administration).
 
+**La valorisation des acquis a sa séance.** Le procès-verbal d'annexe 4 et les
+attestations qui en découlent (annexe 15 pour le supérieur, 14 pour le
+secondaire) existaient côté serveur sans qu'aucun écran ne les demande : une
+pièce que personne ne peut produire n'existe pas. Depuis 2.11.7, une table
+`valorisation_seance` propre — et non la séance de délibération, dont la clé
+unique porte la SESSION, que la valorisation n'a pas — porte la date de séance,
+la date de communication et la présidence ; `valorisation_presence` porte les
+présences, et le quorum se calcule avec la même fonction que la délibération.
+**Le serveur refuse de produire tant qu'il manque une valeur** : un PV sorti à
+trous se complète à la main, et c'est cette main qu'on ne retrouve plus un an
+après. Le **nombre de pages**, lui, ne se saisit pas : il se constate — la pièce
+est composée une première fois pour être comptée. L'écran est le bouton
+*Documents* de l'onglet VA de la fiche étudiant, et ce qui en sort concerne
+**l'unité entière**, pas le seul étudiant dont on a la fiche sous les yeux.
+
 **Chantiers de conformité ouverts, dans l'ordre :** geler les décisions à la
 clôture et historiser par ajout ; figer et horodater le PV ; bloc de signatures
 nominatif ; date d'affichage et mode de publication en champs propres ; écrire

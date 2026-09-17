@@ -165,8 +165,14 @@ export async function rendrePdf(html, options = {}) {
   }
 }
 
-/** Compte les pages d'un PDF sans dépendance : le nombre est dans le catalogue. */
-function compterPages(buf) {
+/**
+ * Compte les pages d'un PDF sans dépendance : le nombre est dans le catalogue.
+ *
+ * Exporté parce qu'une pièce administrative doit parfois DIRE combien de pages
+ * elle comporte — le procès-verbal de valorisation le fait —, et ce nombre ne
+ * se connaît qu'une fois la pièce composée.
+ */
+export function compterPages(buf) {
   const s = Buffer.from(buf).toString('latin1');
   const m = [...s.matchAll(/\/Type\s*\/Page[^s]/g)];
   if (m.length) return m.length;
