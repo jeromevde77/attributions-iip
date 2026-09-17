@@ -904,8 +904,13 @@ export default function CentreImpressionCentral({ ongletInitial = 'etudiants',
   const [onglet, setOnglet] = useState(ongletInitial);
 
   return (
-    <Fenetre icone={IconPrinter} titre="Éditions"
-      sous="Tout ce que Lucie imprime, au même endroit."
+    /* L'AVION, ET LE SOUS-TITRE AVEC LUI.
+       La porte du rail portait l'avion et la fenêtre l'imprimante : on cliquait
+       sur un envoi pour tomber sur une impression. Depuis que ce centre envoie
+       aussi par courriel, « tout ce que Lucie imprime » n'était plus vrai — et
+       un sous-titre qui ment coûte plus cher qu'une icône qui dépareille. */
+    <Fenetre icone={IconSend} titre="Éditions"
+      sous="Tout ce que Lucie produit — à imprimer ou à envoyer."
       large="pleine" onFermer={onClose}>
 
       <PiecesDeLEcran pieces={pieces}
