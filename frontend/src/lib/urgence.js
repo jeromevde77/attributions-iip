@@ -12,9 +12,13 @@
  *   J-3 à J-0   brique  — elle presse : on la fait, ou on la déplace
  *   dépassée    brique  — on ne l'a pas faite, et cela se voit
  *
- * La brique s'écrit en BLANC sur fond plein : c'est le seul endroit de Lucie
- * où un fond porte la couleur plutôt qu'un filet, et c'est voulu — trois jours
- * avant, on ne doit pas avoir à lire la ligne pour la voir.
+ * ET C'EST LE RAIL QUI LE PORTE, comme partout ailleurs dans Lucie : un filet
+ * de trois pixels à gauche de la ligne, et rien d'autre. Un premier essai
+ * peignait la ligne entière en brique, texte blanc — vu à l'écran, c'était
+ * massif, et six lignes en retard rendaient l'Accueil illisible. Le bloc
+ * signalé dit l'inverse depuis toujours : la couleur ne va ni au fond, ni au
+ * texte, ni à l'icône. Seule la mention — « J-3 », « en retard de 4 jours » —
+ * reprend la teinte, parce qu'elle EST l'information.
  *
  * Au-delà de sept jours, rien : si tout est signalé, plus rien ne signale.
  */
@@ -38,17 +42,17 @@ export function joursAvant(echeance, depuis = aujourdhui()) {
 /**
  * L'état d'une échéance : ce qu'il faut écrire, et comment.
  *
- * @returns {{ niveau, jours, mention, ligne, pastille }}
+ * @returns {{ niveau, jours, mention, rail, pastille }}
  *   niveau   'depasse' | 'presse' | 'approche' | 'calme' | null
- *   mention  « J-5 », « aujourd'hui », « en retard de 3 j »
- *   ligne    classes du fond de ligne
+ *   mention  « J-5 », « aujourd'hui », « en retard de 3 jours »
+ *   rail     classes du filet gauche — la seule couleur de la ligne
  *   pastille classes de la mention elle-même
  */
 export function urgence(echeance, depuis = aujourdhui()) {
   const j = joursAvant(echeance, depuis);
-  if (j === null) {
-    return { niveau: null, jours: null, mention: null, ligne: '', pastille: '' };
-  }
+  const RIEN = { niveau: null, jours: null, mention: null,
+                 rail: 'border-l-[3px] border-l-transparent', pastille: 'text-slate-500' };
+  if (j === null) return RIEN;
 
   // DÉPASSÉE. On dit de combien : « en retard » seul ne distingue pas hier
   // d'il y a trois semaines, et ce n'est pas la même conversation.
@@ -57,8 +61,8 @@ export function urgence(echeance, depuis = aujourdhui()) {
     return {
       niveau: 'depasse', jours: j,
       mention: n === 1 ? 'en retard d’un jour' : `en retard de ${n} jours`,
-      ligne: 'bg-[#9D4A38]',
-      pastille: 'text-white',
+      rail: 'border-l-[3px] border-l-[#9D4A38]',
+      pastille: 'text-[#9D4A38]',
     };
   }
 
@@ -66,8 +70,8 @@ export function urgence(echeance, depuis = aujourdhui()) {
     return {
       niveau: 'presse', jours: j,
       mention: j === 0 ? 'aujourd’hui' : `J-${j}`,
-      ligne: 'bg-[#9D4A38]',
-      pastille: 'text-white',
+      rail: 'border-l-[3px] border-l-[#9D4A38]',
+      pastille: 'text-[#9D4A38]',
     };
   }
 
@@ -75,10 +79,10 @@ export function urgence(echeance, depuis = aujourdhui()) {
     return {
       niveau: 'approche', jours: j,
       mention: `J-${j}`,
-      ligne: 'bg-amber-50',
+      rail: 'border-l-[3px] border-l-[#B45309]',
       pastille: 'text-amber-800',
     };
   }
 
-  return { niveau: 'calme', jours: j, mention: null, ligne: '', pastille: 'text-slate-500' };
+  return { ...RIEN, niveau: 'calme', jours: j };
 }
