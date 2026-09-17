@@ -24,7 +24,7 @@ l'application de gestion académique de l'Institut Ilya Prigogine (IIP).
 destinés à l'école expliquent **le travail, pas l'informatique**.
 
 **Établissement :** IIP — N° ECOT 5222132070, FASE 292, Campus Erasme,
-Route de Lennik 808, 1070 Anderlecht. Enseignement de promotion sociale (FWB).
+Route de Lennik 808, 1070 Anderlecht. Enseignement pour adultes (FWB).
 Sections : TIM (la plus grande), Psychomotricité, AeSI (soins infirmiers,
 ouverte en 2026-2027). ~588 étudiants.
 
@@ -350,6 +350,31 @@ cours. Corrigé en 2.11.14 : les composantes de l'unité font foi, les notes dé
 obtenues s'y ajoutent quand il y en a, et le champ de note disparaît en mode
 « par acquis » — le report se fait par COURS, c'est ce que porte
 `etudiant_report_note`.
+
+**Le procès-verbal d'une dispense partielle doit dire TROIS choses**, et il
+n'en disait que deux. Le texte est explicite : les activités d'enseignement
+dispensées, les acquis d'apprentissage maîtrisés, **et les acquis qui restent
+encore à évaluer**. La troisième n'existait nulle part — sans elle, une dispense
+partielle se lit comme une dispense d'unité. Depuis 2.11.16 elle se **déduit**
+(tous les acquis de l'unité, moins ceux reconnus) plutôt que de se saisir : une
+mention qu'il faut penser à écrire est une mention oubliée une fois sur deux. La
+**remarque du Conseil** s'imprime enfin — elle était enregistrée et jamais lue,
+alors que c'est là qu'on écrit « dispensé des heures de stage, mais doit
+présenter l'examen » : une condition que le PV tait n'a jamais été posée. Deux
+mentions de cadre l'accompagnent, quand au moins une dispense est partielle : le
+fondement de l'évaluation, et l'exclusion — **la dispense ne s'applique jamais
+aux évaluations, tests, rapports ou épreuves de stage ou d'activités
+professionnelles**. Le fondement distingue « sur dossier » de « après test
+complémentaire », d'où une colonne `test_complementaire` sur la séance et une
+case à l'écran : la mention aurait été muette pour toujours.
+
+**« Promotion sociale » est devenu « Enseignement pour adultes »**, et le nom de
+l'établissement est **Institut Ilya Prigogine** — l'en-tête des attestations, des
+PV, des diplômes, les pieds de page et le contrat de travail en portaient encore
+l'ancien. Deux endroits n'ont **pas** été renommés, et ce n'est pas un oubli :
+le **visa du décret du 16 avril 1991**, dont c'est le titre officiel — un visa
+faux fait tomber la pièce —, et la valeur `etab_nom` en base, qui vit dans
+Configuration → Établissement et écrase celle du code.
 
 **Chantiers de conformité ouverts, dans l'ordre :** geler les décisions à la
 clôture et historiser par ajout ; figer et horodater le PV ; bloc de signatures

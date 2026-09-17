@@ -112,6 +112,17 @@ export function migrerAttestations(dbx) {
       );
     `);
   } catch (e) { console.error('[migration] valorisation_seance :', e.message); }
+
+  // LE TEST COMPLÉMENTAIRE SE CONSTATE. Le Conseil fonde son évaluation sur le
+  // dossier ; il PEUT en outre organiser un test ou une épreuve. Le
+  // procès-verbal doit dire lequel des deux — et une mention qu'aucune donnée
+  // ne soutient est une mention qu'on finit par écrire à la main.
+  try {
+    const cols = dbx.prepare('PRAGMA table_info(valorisation_seance)').all();
+    if (cols.length && !cols.some(c => c.name === 'test_complementaire')) {
+      dbx.exec('ALTER TABLE valorisation_seance ADD COLUMN test_complementaire INTEGER NOT NULL DEFAULT 0');
+    }
+  } catch (e) { console.error('[migration] test_complementaire :', e.message); }
 }
 
 const esc = s => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;');
@@ -268,7 +279,7 @@ export function decrireUnite(ueNum, anneeRef, resultat = {}) {
       domaine: superieur ? (ue.domaine || sec?.domaine || null) : null,
       type_enseignement: ue.type_enseignement || sec?.type_enseignement
         || (superieur ? 'Enseignement supérieur de type court'
-                      : 'Enseignement secondaire de promotion sociale'),
+                      : 'Enseignement secondaire pour adultes'),
       section: ue.section || null,
       // LE LIBELLÉ DE LA SECTION, et pas seulement son code. Sur une
       // attestation, « TIM » ne dit rien à qui la reçoit — ni à l'employeur,
@@ -629,7 +640,7 @@ export function pageAttestationValorisation(e, u, annee, etab, va,
   return `<div class="attestation">
   <div class="entete">
     <div class="cf">COMMUNAUTÉ FRANÇAISE DE BELGIQUE</div>
-    <div class="epa">ENSEIGNEMENT DE PROMOTION SOCIALE</div>
+    <div class="epa">ENSEIGNEMENT POUR ADULTES</div>
     <div class="annee">Année ${u.superieur ? 'académique' : 'scolaire'}
       ${esc(String(annee).replace('-', '/'))}</div>
   </div>
@@ -1240,22 +1251,25 @@ r.put('/valorisation/ue/:ueNum/seance', authRequired, (req, res) => {
     communication_date: req.body.communication_date || null,
     president_nom: (req.body.president_nom || '').trim() || null,
     president_titre: (req.body.president_titre || '').trim() || null,
+    test_complementaire: req.body.test_complementaire ? 1 : 0,
   };
 
   db.transaction(() => {
     if (avant) {
       db.prepare(`UPDATE valorisation_seance SET date_seance = ?,
         communication_date = ?, president_nom = ?,
-        president_titre = ?, maj_le = CURRENT_TIMESTAMP, maj_par = ?
+        president_titre = ?, test_complementaire = ?,
+        maj_le = CURRENT_TIMESTAMP, maj_par = ?
         WHERE id = ?`).run(ch.date_seance, ch.communication_date,
-          ch.president_nom, ch.president_titre, req.user?.username || null, avant.id);
+          ch.president_nom, ch.president_titre, ch.test_complementaire,
+          req.user?.username || null, avant.id);
     } else {
       db.prepare(`INSERT INTO valorisation_seance
         (ue_num, annee_scolaire, date_seance, communication_date,
-         president_nom, president_titre, maj_par)
-        VALUES (?,?,?,?,?,?,?)`).run(ueNum, annee, ch.date_seance,
-          ch.communication_date, ch.president_nom,
-          ch.president_titre, req.user?.username || null);
+         president_nom, president_titre, test_complementaire, maj_par)
+        VALUES (?,?,?,?,?,?,?,?)`).run(ueNum, annee, ch.date_seance,
+          ch.communication_date, ch.president_nom, ch.president_titre,
+          ch.test_complementaire, req.user?.username || null);
     }
     const id = db.prepare(`SELECT id FROM valorisation_seance
       WHERE ue_num = ? AND annee_scolaire = ?`).get(ueNum, annee).id;
@@ -1382,18 +1396,54 @@ r.post('/valorisation/ue/:ueNum/documents', authRequired, async (req, res) => {
     }
   } catch { /* table absente : la colonne se contente des codes */ }
 
+  // LES ACQUIS DE L'UNITÉ — pour dire ce qui RESTE. Le procès-verbal d'une
+  // dispense partielle doit préciser trois choses : les activités
+  // d'enseignement dispensées, les acquis maîtrisés, et « les acquis qui
+  // restent encore à évaluer ». Les deux premières y figuraient ; la
+  // troisième, jamais. Or c'est elle qui empêche de lire une dispense
+  // partielle comme une dispense d'unité — et elle ne s'écrit pas à la main,
+  // elle se déduit : tout ce que porte l'unité, moins ce qui a été reconnu.
+  let aasUE = [];
+  try {
+    aasUE = db.prepare(
+      'SELECT aa_code, description FROM aa WHERE ue_num = ? ORDER BY aa_code').all(ueNum);
+  } catch (e) { console.error('[valorisation/PV] acquis de l’unité :', e.message); }
+
   const dit = v => {
     const base = v.type === 'complete' ? 'Unité entière'
       : v.cible_detail ? `${v.cible === 'aa' ? 'Acquis' : 'Cours'} : ${v.cible_detail}`
         : v.type === 'admission' ? 'Admission' : 'Dispense partielle';
     const eq = equivalences[v.id] || [];
-    if (!eq.length) return esc(base);
+
+    // CE QUI RESTE À ÉVALUER, pour une dispense partielle seulement : en
+    // dispense complète l'unité entière est acquise, il ne reste rien.
+    let reste = '';
+    if (v.type === 'partielle' && aasUE.length) {
+      const maitrises = new Set([
+        ...eq.map(x => x.aa_code),
+        ...(v.cible === 'aa' ? String(v.cible_detail || '').split(',').filter(Boolean) : []),
+      ]);
+      const aEvaluer = aasUE.filter(a => !maitrises.has(a.aa_code));
+      reste = `<div class="ref" style="margin-top:.8mm"><b>Acquis restant à évaluer :</b> `
+        + (aEvaluer.length ? esc(aEvaluer.map(a => a.aa_code).join(', '))
+          : '<i>aucun</i>') + '</div>';
+    }
+    // LA REMARQUE DU CONSEIL S'IMPRIME. Elle ne décorait pas l'écran : c'est
+    // là qu'on écrit « dispensé des heures de stage, mais doit présenter
+    // l'examen ». Une condition que le procès-verbal taisait n'a jamais été
+    // posée — et c'est le procès-verbal qui fait foi, pas la fiche.
+    const remarque = (v.commentaire || '').trim();
+    const suite = remarque
+      ? `<div class="ref" style="margin-top:.8mm"><b>Remarque du Conseil :</b> `
+        + `${esc(remarque)}</div>`
+      : '';
+    if (!eq.length) return esc(base) + reste + suite;
     // Un seul constat pour tous les acquis : on ne le répète pas vingt fois.
     const textes = [...new Set(eq.map(x => (x.texte || '').trim()).filter(Boolean))];
     return `${esc(base)}<div class="ref" style="margin-top:.8mm">`
-      + `Acquis reconnus équivalents : ${esc(eq.map(x => x.aa_code).join(', '))}`
+      + `<b>Acquis maîtrisés :</b> ${esc(eq.map(x => x.aa_code).join(', '))}`
       + textes.map(t => `<div>${esc(t)}</div>`).join('')
-      + '</div>';
+      + '</div>' + reste + suite;
   };
 
   const lignes = vas.map(v => `<tr>
@@ -1409,7 +1459,7 @@ r.post('/valorisation/ue/:ueNum/documents', authRequired, async (req, res) => {
   const pv = `<div class="attestation">
   <div class="entete">
     <div class="cf">COMMUNAUTÉ FRANÇAISE DE BELGIQUE</div>
-    <div class="epa">ENSEIGNEMENT DE PROMOTION SOCIALE</div>
+    <div class="epa">ENSEIGNEMENT POUR ADULTES</div>
     <div class="annee">Année scolaire / académique ${esc(String(annee).replace('-', '/'))}
       · ${superieur ? 'Enseignement supérieur' : 'Enseignement secondaire'}</div>
   </div>
@@ -1477,6 +1527,18 @@ r.post('/valorisation/ue/:ueNum/documents', authRequired, async (req, res) => {
   </table>
   <p style="font-size:7.5pt;color:#64748b"><sup>1</sup> À ne compléter qu'en cas
     de « Réussite ».</p>
+  ${vas.some(v => v.type === 'partielle') ? `
+  <div class="info" style="margin-top:3mm">
+    <div class="ligne">Le Conseil des études a évalué si l'étudiant ou
+      l'étudiante maîtrise de façon suffisante et globale des capacités
+      équivalentes ou supérieures au seuil de réussite d'un ou de plusieurs
+      acquis d'apprentissage. Il a fondé son évaluation sur le dossier remis
+      lors de l'introduction de la demande${seance.test_complementaire
+        ? ", ainsi que sur le test ou l'épreuve complémentaire qu'il a organisé" : ''}.</div>
+    <div class="ligne"><b>La dispense ne s'applique en aucun cas aux
+      évaluations, tests, rapports ou épreuves prévus pour les stages ou les
+      activités professionnelles d'${superieur ? 'formation' : 'apprentissage'}.</b></div>
+  </div>` : ''}
 
   <table class="doc" style="margin-top:4mm">
     <thead><tr>

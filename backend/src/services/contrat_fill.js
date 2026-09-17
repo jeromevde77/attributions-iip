@@ -103,7 +103,7 @@ export async function genererContrat({ etab, prof, attributions, annee, date_con
 
         // ── Pouvoir Organisateur ───────────────────────────────────────────
         pp([tr('Entre, d\u2019une part, le Pouvoir Organisateur\u00a0: '), tr(etab.po_nom || 'ASBL Ilya Prigogine', { bold: true })]),
-        pp([tr(`(pour l\u2019${etab.etab_nom || 'Institut Supérieur de Promotion Sociale Libre de Bruxelles Ilya Prigogine'} (en abrégé ${etab.etab_abrev || 'IIP'}))`, { italics: true, size: 20 })]),
+        pp([tr(`(pour l\u2019${etab.etab_nom || 'Institut Ilya Prigogine'} (en abrégé ${etab.etab_abrev || 'IIP'}))`, { italics: true, size: 20 })]),
         pp([tr(`Dont le siège social est situé\u00a0: ${etab.adresse || ''}, ${etab.code_postal || ''} ${etab.commune || ''}`.trim())]),
         pp([tr(`Numéro matricule FASE\u00a0: ${etab.num_fase || ''}  |  Matricule ETNIC\u00a0: ${etab.num_ecot || ''}`)]),
         pp([tr('Représenté par\u00a0: '), tr(rep, { bold: true })]),
@@ -256,7 +256,7 @@ export async function genererContrat({ etab, prof, attributions, annee, date_con
         // ── Pied de page ───────────────────────────────────────────────────
         sp(),
         new Paragraph({
-          children: [tr('Institut Supérieur de Promotion Sociale Libre Ilya Prigogine  \u2022  PO ASBL Ilya Prigogine  \u2022  Matricule N° 2.132.070  \u2022  FASE 292', { size: 18, color: '666666' })],
+          children: [tr('Institut Ilya Prigogine  \u2022  PO ASBL Ilya Prigogine  \u2022  Matricule N° 2.132.070  \u2022  FASE 292', { size: 18, color: '666666' })],
           alignment: AlignmentType.CENTER,
           border: { top: { style: BorderStyle.SINGLE, size: 4, color: 'BBBBBB', space: 4 } },
           spacing: { before: 200, after: 40 },

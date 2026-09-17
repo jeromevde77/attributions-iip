@@ -2111,7 +2111,7 @@ try {
       `<li>un exemplaire des décisions éventuelles de la ou des commissions paritaires compétentes</li>`,
       `<li>Le document intitulé \u00ab\u00a0contenu des prestations\u00a0\u00bb.</li>`,
       `</ol>`,
-      `<p style="text-align:center;font-size:9pt;color:#888;border-top:1px solid #ccc;padding-top:8px;margin-top:20px">Institut Supérieur de Promotion Sociale Libre Ilya Prigogine\u2003\u2022\u2003PO ASBL Ilya Prigogine\u2003\u2022\u2003FASE 292<br>Campus Erasme\u2003\u2022\u2003Bâtiment P\u2003\u2022\u2003Route de Lennik 808, 1070 Bruxelles\u2003\u2022\u2003T. +32 (0)2 560 29 59</p>`,
+      `<p style="text-align:center;font-size:9pt;color:#888;border-top:1px solid #ccc;padding-top:8px;margin-top:20px">Institut Ilya Prigogine\u2003\u2022\u2003PO ASBL Ilya Prigogine\u2003\u2022\u2003FASE 292<br>Campus Erasme\u2003\u2022\u2003Bâtiment P\u2003\u2022\u2003Route de Lennik 808, 1070 Bruxelles\u2003\u2022\u2003T. +32 (0)2 560 29 59</p>`,
     ].join('');
     db.prepare(`INSERT INTO document_template (nom, description, contenu, cree_par) VALUES (?, ?, ?, 'Lucie')`).run(
       'Contrat de travail CDD',
