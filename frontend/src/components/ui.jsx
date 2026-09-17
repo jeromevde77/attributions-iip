@@ -240,7 +240,7 @@ function TiroirRail({ children }) {
   );
 }
 
-export function RailDessine({ icon: HeaderIcon, titre, sousTitre, extra,
+export function RailDessine({ icon: HeaderIcon, titre, sousTitre, extra, surAccueil,
                               sections = [], actions = [], volet = null,
                               surNoeudVolet = null, impression = 'etudiants',
                               pieces = null }) {
@@ -363,14 +363,50 @@ export function RailDessine({ icon: HeaderIcon, titre, sousTitre, extra,
           rien à cliquer —, et c'était déjà celle de l'axe dans la barre du
           haut : le même dessin, deux fois, à trente pixels d'écart. Un titre ne
           s'écrit qu'une fois. L'en-tête n'existe donc que le rail ouvert. */}
+      {/* LA PORTE DE L'AXE — TOUJOURS LÀ, MÊME REPLIÉE.
+          L'en-tête n'existait qu'une fois le rail épinglé, au motif que son
+          icône redisait celle de la barre du haut. Le raisonnement était joli
+          et faux : replié — c'est-à-dire presque toujours —, le rail n'avait
+          plus ni nom ni retour. On cliquait « Délibération », le tiroir de la
+          rubrique précédente se refermait, la colonne raccourcissait, et plus
+          rien ne disait où l'on était ni comment rentrer.
+
+          Ce bouton est donc le MÊME GESTE PARTOUT : il porte l'icône de l'axe,
+          il le nomme, et il ramène à sa première rubrique — l'écran de base de
+          cette partie de Lucie. C'est ce qui manquait : un point d'ancrage
+          identique d'un axe à l'autre. */}
+      {HeaderIcon && (
+        <div className="flex-shrink-0 pb-1 mb-1">
+          <button onClick={surAccueil} aria-label={`Revenir à ${titre}`}
+            onMouseEnter={e => !epingle && surviser(e, `${titre} — écran de base`)}
+            onMouseLeave={() => setSurvol(null)}
+            disabled={!surAccueil}
+            className={`relative flex text-[13px] transition-colors duration-150 ease-ios
+              ${epingle
+                ? 'w-full items-center gap-3 py-2 px-2.5 rounded-fenetre'
+                : 'w-10 h-10 mx-auto items-center justify-center rounded-carte'}
+              ${surAccueil ? 'hover:shadow-pose' : 'cursor-default'}`}
+            style={{ color: 'var(--menu-texte)' }}
+            data-case-rail={epingle ? undefined : '1'}>
+            <HeaderIcon size={20} stroke={1.8} className="flex-shrink-0"
+              style={{ color: 'var(--menu-accent)' }} />
+            <span className={`text-left font-semibold min-w-0 flex-1 ${reveal}`}>
+              {titre}
+            </span>
+          </button>
+          <div className={`${epingle ? 'mx-2' : 'w-5 mx-auto'} pt-1.5 border-t`}
+            style={{ borderColor: 'var(--menu-filet)' }} />
+        </div>
+      )}
+
       {epingle && (<>
       <div className={`flex items-center gap-3 mb-1 flex-shrink-0
         text-[color:var(--menu-texte)] ${epingle ? 'px-4' : 'justify-center'}`}>
-        {HeaderIcon && (
-          <HeaderIcon size={22} className="flex-shrink-0"
-            style={{ color: 'var(--menu-accent)' }} />
-        )}
-        <span className={`text-[15px] font-semibold flex-1 min-w-0 ${reveal}`}>{titre}</span>
+        {/* Le titre est porté par la porte de l'axe, juste au-dessus : ici il
+            ne reste que le sous-titre et l'épingle. Un titre ne s'écrit
+            qu'une fois. */}
+        <span className={`text-[15px] font-semibold flex-1 min-w-0 ${reveal}
+                          sr-only`}>{titre}</span>
         {/* L'ÉPINGLE : le survol montre, l'épingle décide. Décaler la page au
             survol la ferait sauter chaque fois qu'on frôle le bord gauche. */}
         <button onClick={basculerEpingle}
