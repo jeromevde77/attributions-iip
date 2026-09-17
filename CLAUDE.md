@@ -434,14 +434,38 @@ et 3 composants de tuile**. La stratégie tient en cinq chantiers, dans cet ordr
   `left: calc(var(--rail) + 1rem)`. Posé à une marge choisie, il ne répondait à
   rien — ni au rail, ni au titre, ni au tableau. Il suit maintenant quand le
   rail s'élargit, sans que personne ait à y penser.
-- **Le blanc est réservé à ce qui se remplit.** Un champ de saisie ou de
-  sélection est blanc ; **tout le reste est ton sur ton** avec la page —
-  cartes, tableaux, listes, panneaux —, et ce sont les filets qui séparent
-  (`.carte`, `.carte-plate`). Le blanc cesse d'être un décor pour devenir une
-  invitation : là où c'est blanc, on écrit ou on choisit. Un aplat blanc sur un
-  fond presque blanc ne sépare rien ; il ajoute une ombre de différence que
-  l'œil enregistre sans pouvoir l'expliquer. Conséquence : une carte n'a plus
-  besoin d'ombre — un filet et un rayon suffisent.
+- **Le blanc porte ce qui est isolé, pas ce qui regroupe.** Deux objets sont
+  blancs, et eux seuls : le **champ** où l'on écrit ou choisit, et la **tuile**
+  qui détache un chiffre. Tout ce qui regroupe — cartes, tableaux, listes,
+  panneaux — est **ton sur ton** avec la page, et ce sont les filets qui
+  séparent (`.carte`, `.carte-plate`). Un aplat blanc sur un fond presque blanc
+  ne sépare rien ; il ajoute une ombre de différence que l'œil enregistre sans
+  pouvoir l'expliquer. Conséquence : une carte n'a plus besoin d'ombre — un
+  filet et un rayon suffisent.
+  > Cette règle disait auparavant « le blanc est réservé à ce qui se remplit »
+  > tout en donnant un fond blanc aux tuiles : deux phrases, deux dessins, et
+  > le désordre constaté entre l'écran et le papier. Tranché en septembre 2026 :
+  > **la tuile garde son fond blanc**, et la règle est réécrite pour dire ce que
+  > l'on fait réellement.
+
+- **Un seul objet pour signaler : le bloc signalé.** Tuile d'indicateur à
+  l'écran, encadré de caractéristiques sur un document : c'est le même geste, il
+  se dessine une fois. Cinq pièces, jamais une de plus — un **rail à gauche**
+  qui porte l'état *et lui seul* (la couleur ne va ni au fond, ni au texte, ni à
+  l'icône), un **fond** selon la règle du blanc ci-dessus, un **filet de
+  contour** fin qui ferme la forme et remplace l'ombre, un **rayon** pris sur
+  l'échelle, et un **contenu toujours dans le même ordre** : valeur ou intitulé,
+  libellé dessous, précision en gris. Seules les **mesures** changent de support
+  à l'autre, parce que l'encre n'a pas un rayon de 14 px :
+
+  | | Écran | Papier |
+  |---|---|---|
+  | Rail | 3 px | 1,6 mm |
+  | Rayon | 14 px (`carte`) | 1,5 mm |
+  | Fond | blanc (tuile, champ) | `#FAFAFB` — le blanc est déjà celui de la feuille |
+  | Contour | 1 px `#D8DCE4` | 0,3 mm, même gris |
+  | Corps | 13 px | 9 pt |
+  | Rail teinté | marine, vert, ocre, brique | marine à l'intérieur, **or** sur la pièce extérieure |
 - **Un tableau n'a que deux tons** (`.tab-entete`, `.tab-repere`). L'en-tête
   et la ligne de regroupement sont le **même objet** — l'un nomme les colonnes,
   l'autre nomme un paquet de lignes : même fond, celui du cadre de titre. La
