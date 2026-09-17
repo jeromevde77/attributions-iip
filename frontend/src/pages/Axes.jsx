@@ -2,7 +2,7 @@ import { Suspense, lazy } from 'react';
 import {
   IconHome, IconChecklist, IconSend, IconLayoutDashboard, IconCalendarStats,
   IconChartBar,
-  IconClipboardList, IconScale, IconShieldExclamation, IconDoorEnter,
+  IconCertificate, IconClipboardList, IconScale, IconShieldExclamation, IconDoorEnter,
   IconUserCheck, IconRoute, IconFileText, IconFolder, IconNotes,
 } from '@tabler/icons-react';
 import Axe from '../components/Axe.jsx';
@@ -17,6 +17,7 @@ const SuiviEquipe = lazy(() => import('./SuiviEquipe.jsx'));
 
 const Listes = lazy(() => import('./Listes.jsx'));
 const Procedures = lazy(() => import('./Procedures.jsx'));
+const Valorisations = lazy(() => import('./Valorisations.jsx'));
 const CalendrierSessions = lazy(() => import('../components/CalendrierSessions.jsx'));
 
 const Attente = () => <div className="p-6 text-sm text-slate-400">Chargement…</div>;
@@ -101,6 +102,14 @@ export function AxeEtudiants() {
         // L'onglet ouvre TOUTE la page Procédures — recours, fraude,
         // disciplinaire, examens, archives. L'appeler « Recours » annonçait un
         // cinquième de son contenu et cachait le reste.
+        /* LA VALORISATION EST UN TRAVAIL DE SÉRIE, PAS UNE MODALE.
+           Elle se saisissait dans une fenêtre ouverte depuis la fiche d'un
+           étudiant : pour encoder dix dossiers, il fallait ouvrir dix fiches,
+           et rien ne se lisait d'ensemble. Or on traite les demandes d'une
+           section l'une après l'autre, en regardant les mêmes unités. */
+        { key: 'valorisation', label: 'Valorisation des acquis', icone: IconCertificate,
+          sansMarge: true, railPropre: true,
+          rendu: <Suspense fallback={<Attente />}><Valorisations /></Suspense> },
         { key: 'procedures', label: 'Procédures', icone: IconShieldExclamation,
           sansMarge: true, railPropre: true,
           rendu: <Suspense fallback={<Attente />}><Procedures /></Suspense> },

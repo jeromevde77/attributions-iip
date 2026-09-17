@@ -409,6 +409,35 @@ de naissance, casse ignorée), rend un 409 avec les dossiers trouvés, et l'écr
 propose de les ouvrir. Il **signale**, il ne bloque pas : deux homonymes nés le
 même jour existent, et un lien permet de passer outre.
 
+**La valorisation a son écran, et la décision a trois branches.** Elle se
+saisissait dans une modale ouverte depuis la fiche d'un étudiant : pour encoder
+dix dossiers, il fallait ouvrir dix fiches, et rien ne se lisait d'ensemble — or
+c'est un travail de SÉRIE, on traite les demandes d'une section l'une après
+l'autre en regardant les mêmes unités. Depuis 2.11.19, un onglet plein de l'axe
+Étudiants, lu en trois niveaux : l'étudiant, l'unité qu'il demande, ce qui lui
+est dispensé. Une seule question au niveau de l'UNITÉ — **totale** (l'unité et
+tous ses acquis, rien à cocher), **partielle** (cours, acquis, *ou les deux* :
+les deux coexistaient déjà en base, l'écran les donnait exclusifs par un bouton
+radio alors que le modèle ne l'exige pas), **refusée** (rien de dispensé, motif
+obligatoire). Chaque cours porte SES acquis, et un acquis coché ouvre sa
+motivation. Une unité ajoutée naît **partielle et vide** : naître totale ferait
+accorder l'unité entière d'un clic distrait.
+
+**Le procès-verbal ne portait son pied qu'une fois, à la fin.** En HTML il ne
+peut être qu'en fin de document — un commentaire du code le disait déjà : *« un
+pied répété demanderait de produire le PDF côté serveur, où l'on dispose d'un
+vrai gabarit »*. Ce gabarit existe (`piedGabaritPdf`, employé par
+`/api/impression/pdf`) ; la fenêtre de valorisation ne passait simplement pas par
+là, elle ouvrait un onglet et laissait le navigateur imprimer — format, marges et
+échelle rendus à la boîte d'impression de chacun. Elle propose désormais le PDF
+serveur : **A4 imposé, pied sur chaque feuille**, numérotation au-delà d'une
+page ; l'onglet reste, annoncé pour ce qu'il est — un aperçu.
+**Et le nombre de pages pouvait être faux** : le comptage réservait 22 mm en bas
+là où le rendu réel en réserve 24 (`BANDE_PIED_MM`). Deux millimètres, et un PV
+qui finit près du bas se comptait en deux pages pour en sortir trois — sur une
+mention réglementaire, portée par une pièce signée. Le comptage emploie
+désormais **exactement** les options du rendu réel.
+
 **Chantiers de conformité ouverts, dans l'ordre :** geler les décisions à la
 clôture et historiser par ajout ; figer et horodater le PV ; bloc de signatures
 nominatif ; date d'affichage et mode de publication en champs propres ; écrire
@@ -613,19 +642,25 @@ et 3 composants de tuile**. La stratégie tient en cinq chantiers, dans cet ordr
   section ajoutée SOUS les rubriques : le rail semblait se réécrire tout seul à
   chaque clic, et rien ne disait que ces icônes-là appartenaient à l'écran
   plutôt qu'à l'axe. Ils se déplient désormais **sous leur rubrique**, entre
-  deux filets, en bleu clair (`--menu-sous`, déclaré dans les deux modes) ; ce
+  deux filets teintés (`--menu-sous`, déclaré dans les deux modes) ; ce
   qui suit glisse vers le bas. Le tiroir se monte **fermé** et s'ouvre à l'image
   suivante — c'est le mouvement qui dit la parenté, pas la présence ; monté à sa
   hauteur finale, il surgissait d'un bloc. La hauteur passe de `0fr` à `1fr` :
   la seule transition qui n'oblige pas à mesurer le contenu, donc la seule qui
-  reste juste le jour où une entrée s'ajoute. **Les intertitres des sections
+  reste juste le jour où une entrée s'ajoute. **Les icônes du sous-menu restent
+  grises** : les peindre toutes en bleu en faisait un autre menu, et cinq icônes
+  colorées côte à côte ne signalent plus rien. Seuls les deux filets portent la
+  teinte. **Les intertitres des sections
   d'écran disparaissent** — rail replié, le libellé est masqué, et un séparateur
   invisible n'est pas un séparateur.
-- **L'entrée active du rail est un bloc signalé**, comme partout ailleurs :
-  fond, filet de contour, rayon sur l'échelle, et un **rail de trois pixels à
-  gauche** qui porte la couleur, seul. Elle portait un anneau tout autour — une
-  forme de plus, qui ne disait rien de la règle suivie sur les écrans et sur le
-  papier.
+- **La tuile active garde son dessin ; c'est un FILET qui dit qu'elle a
+  ouvert quelque chose.** Le rail de trois pixels du bloc signalé a été essayé
+  ici : collé au bord de la tuile, il en barre le côté gauche et écrase la
+  forme — ce n'est plus une tuile, c'est un onglet. La règle du bloc signalé
+  vaut pour ce qui PORTE UN ÉTAT (une tuile d'indicateur, une ligne en retard) ;
+  une entrée de menu n'a pas d'état, elle a une position. Elle porte donc un
+  **filet fin de deux pixels, posé à côté, plus court que la tuile et terminé en
+  arc aux deux bouts**, et seulement quand un sous-menu est ouvert dessous.
 - **Une entrée de rail sans icône est invisible** une fois le rail replié.
 - **Un titre ne s'écrit qu'une fois** par écran.
 - Un libellé ne promet que ce que la modale fait réellement.

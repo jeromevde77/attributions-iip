@@ -502,21 +502,26 @@ export function RailDessine({ icon: HeaderIcon, titre, sousTitre, extra,
                     ${epingle
                       ? 'w-full items-start gap-3 py-2 px-2.5 rounded-fenetre'
                       : 'w-10 h-10 mx-auto items-center justify-center rounded-carte'}
-                    ${it.actif ? 'font-semibold' : 'hover:shadow-pose'}`}
-                  /* LE BLOC SIGNALÉ, À L'ÉCHELLE DU RAIL.
-                     L'entrée active portait un anneau tout autour : une forme
-                     de plus, qui ne disait rien de la règle suivie partout
-                     ailleurs dans Lucie. C'est la même tuile que sur un écran
-                     ou sur une pièce imprimée — fond, filet de contour, rayon
-                     sur l'échelle, et un RAIL DE TROIS PIXELS À GAUCHE qui
-                     porte la couleur, seul. */
+                    ${it.actif ? 'font-semibold ring-1 ring-inset' : 'hover:shadow-pose'}`}
                   style={it.actif
                     ? { background: 'var(--menu-actif)', color: 'var(--menu-texte)',
-                        boxShadow: 'inset 0 0 0 1px var(--menu-actif-bord),'
-                          + ' inset 3px 0 0 var(--menu-accent)' }
+                        '--tw-ring-color': 'var(--menu-actif-bord)' }
                     : { color: 'var(--menu-texte-doux)' }}
                   onFocus={undefined}
                   data-case-rail={epingle ? undefined : '1'}>
+                  {/* CELLE-CI A OUVERT QUELQUE CHOSE.
+                      Un rail de trois pixels collé au bord de la tuile a été
+                      essayé : vu à l'écran, il barre le côté gauche et écrase
+                      la forme — la tuile n'est plus une tuile, c'est un onglet.
+                      Un FILET FIN, posé à côté, plus court que la tuile et
+                      terminé en arc aux deux bouts : il marque sans peser, et
+                      la tuile garde son dessin d'origine. */}
+                  {it.actif && it.sous?.length > 0 && (
+                    <span aria-hidden="true"
+                      className="absolute left-0.5 top-1/2 -translate-y-1/2
+                                 w-[2px] h-4 rounded-full"
+                      style={{ background: 'var(--menu-accent)' }} />
+                  )}
                   {Ic ? (
                     /* L'ACCENT EST SUR L'ICÔNE, non sur toute la pastille : un
                        aplat turquoise pleine largeur criait plus fort que le
@@ -583,18 +588,25 @@ export function RailDessine({ icon: HeaderIcon, titre, sousTitre, extra,
                               ${sv.actif ? 'font-semibold' : 'hover:shadow-pose'}`}
                             style={sv.actif
                               ? { background: 'var(--menu-sous-actif)',
-                                  color: 'var(--menu-texte)',
-                                  boxShadow: 'inset 3px 0 0 var(--menu-sous)' }
+                                  color: 'var(--menu-texte)' }
                               : { color: 'var(--menu-texte-doux)' }}
                             data-case-rail={epingle ? undefined : '1'}>
                             {Sc ? (
+                              /* GRISES, COMME CELLES DU DESSUS.
+                                 Les peindre toutes en bleu faisait du sous-menu
+                                 un autre menu : cinq icônes colorées côte à
+                                 côte ne signalent plus rien, elles décorent. La
+                                 couleur reste ce qu'elle est partout dans
+                                 Lucie — une dépense, réservée à ce qui doit
+                                 être vu. Le bleu du sous-menu ne vit plus que
+                                 dans ses deux filets. */
                               <Sc size={18} stroke={1.8} className="flex-shrink-0"
-                                style={{ color: sv.couleur || 'var(--menu-sous)' }} />
+                                style={{ color: sv.couleur || 'var(--menu-icone)' }} />
                             ) : (
                               <span className="flex-shrink-0 w-[18px] flex justify-center"
                                 aria-hidden="true">
                                 <span className="w-1.5 h-1.5 rounded-full"
-                                  style={{ background: 'var(--menu-sous)' }} />
+                                  style={{ background: 'var(--menu-icone)' }} />
                               </span>
                             )}
                             <span className={`text-left leading-tight min-w-0 flex-1

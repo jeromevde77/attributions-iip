@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { IconAlertTriangle, IconPrinter } from '@tabler/icons-react';
+import { IconAlertTriangle, IconFileTypePdf, IconPrinter } from '@tabler/icons-react';
 import { authHeaders } from '../lib/api.js';
 import { Fenetre } from './ui.jsx';
 
@@ -31,6 +31,7 @@ export default function SeanceValorisation({ ueNum, ueNom, annee, onClose }) {
   const [erreur, setErreur] = useState(null);
   const [manques, setManques] = useState([]);
   const [info, setInfo] = useState(null);
+  const [doc, setDoc] = useState(null);   // la pièce produite, pour la reprendre en PDF
   const [enCours, setEnCours] = useState(false);
 
   async function charger() {
@@ -81,6 +82,39 @@ export default function SeanceValorisation({ ueNum, ueNom, annee, onClose }) {
    * enregistré la séance ferait sortir un document qui ne correspond pas à
    * l'écran qu'on a sous les yeux.
    */
+  /**
+   * LE PDF, PAR LE CENTRE — ET C'EST LUI QUI GARANTIT LE A4.
+   *
+   * La pièce ne sortait que par un onglet du navigateur : le format, les
+   * marges et l'échelle dépendaient alors de la boîte d'impression de chacun,
+   * et le pied de page n'apparaissait qu'UNE fois, à la fin du document — les
+   * pages intermédiaires d'un procès-verbal long n'en portaient aucun.
+   *
+   * Le rendu serveur dispose d'un vrai gabarit de pied, répété sur chaque
+   * feuille, et d'un format imposé. L'aperçu HTML reste ce qu'il est : un
+   * aperçu.
+   */
+  async function enPdf(html, nom) {
+    setEnCours(true); setErreur(null);
+    try {
+      const rep = await fetch('/api/impression/pdf', {
+        method: 'POST', headers: authHeaders(),
+        body: JSON.stringify({ html, nom, pagination: 'si-plusieurs' }),
+      });
+      if (!rep.ok) {
+        const j = await rep.json().catch(() => ({}));
+        throw new Error(j.error || 'Le rendu PDF a échoué.');
+      }
+      const blob = await rep.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = `${nom}.pdf`;
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 30000);
+    } catch (e) { setErreur(e.message); }
+    finally { setEnCours(false); }
+  }
+
   async function produire() {
     const reste = await enregistrer();
     if (reste === null) return;
@@ -102,6 +136,7 @@ export default function SeanceValorisation({ ueNum, ueNom, annee, onClose }) {
       const f = window.open('', '_blank');
       if (!f) { setErreur('Le navigateur a bloqué la fenêtre d’impression.'); return; }
       f.document.write(j.html); f.document.close();
+      setDoc({ html: j.html, nom: (j.nom || `Valorisation_UE${ueNum}`).replace(/\.html$/, '') });
       setInfo(`Procès-verbal (${j.pages || '?'} page(s))`
         + ` + ${(j.attestations || []).length} attestation(s) `
         + `— annexe ${(j.attestations || [])[0]?.annexe || 15}.`);
@@ -197,6 +232,25 @@ export default function SeanceValorisation({ ueNum, ueNom, annee, onClose }) {
             </div>
           )}
           {info && <div className="text-[12px] text-emerald-700">{info}</div>}
+
+          {/* L'APERÇU EST UN APERÇU ; LE PDF EST LA PIÈCE.
+              L'onglet du navigateur rend le format à la boîte d'impression de
+              chacun — marges, échelle, « ajuster à la page » — et ne porte le
+              pied qu'une fois, à la fin. Le A4 et le pied répété se garantissent
+              côté serveur, pas dans un onglet. */}
+          {doc && (
+            <div className="flex items-center gap-2 text-[12px] border border-slate-200
+                            rounded-carte px-3 py-2 border-l-[3px] border-l-[#C9A84C]">
+              <span className="flex-1">
+                L'onglet ouvert est un <b>aperçu</b>. Pour la pièce elle-même —
+                A4 garanti, pied de page sur chaque feuille — prends le PDF.
+              </span>
+              <button onClick={() => enPdf(doc.html, doc.nom)} disabled={enCours}
+                className="bouton bouton-sortir text-[12px] px-2.5 py-1 disabled:opacity-50">
+                <IconFileTypePdf size={14} /> PDF
+              </button>
+            </div>
+          )}
           {erreur && <div className="text-[12px] text-rose-700">{erreur}</div>}
 
           <div className="flex gap-2">
