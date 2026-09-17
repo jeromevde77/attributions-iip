@@ -539,9 +539,26 @@ function ChoisirEtudiants({ annee, onClose, onChoisis }) {
   });
 
   return (
+    /* LE BOUTON NE DÉFILE PAS AVEC LA LISTE.
+       Posé au bas du contenu, il descendait sous cinq cents étudiants : pour
+       valider trois cases cochées en haut, il fallait dérouler tout le
+       fichier. Le pied de la fenêtre est fait pour cela — il existait, et
+       personne ne s'en servait. */
     <Fenetre icone={IconUserPlus} large="grande" onFermer={onClose}
       titre="Ajouter des étudiants"
-      sous="Ceux dont on va examiner une demande de valorisation">
+      sous="Ceux dont on va examiner une demande de valorisation"
+      pied={<>
+        <button disabled={!coches.size} className="bouton bouton-fort disabled:opacity-40"
+          onClick={() => onChoisis((liste || []).filter(e => coches.has(e.id))
+            .map(e => ({ id: e.id, nom: e.nom, prenom: e.prenom,
+                         section: e.section_rattachement || e.section })))}>
+          {coches.size > 1 ? `Ajouter ${coches.size} étudiants` : 'Ajouter'}
+        </button>
+        <span className="text-[12px] text-slate-500">
+          {coches.size ? `${coches.size} coché(s)` : 'Aucun coché'}
+        </span>
+        <button onClick={onClose} className="bouton ml-auto">Annuler</button>
+      </>}>
       <div className="flex-1 min-h-0 flex flex-col">
         <div className="flex-none flex flex-wrap items-center gap-2 px-5 py-3
                         border-b border-slate-200">
@@ -595,15 +612,6 @@ function ChoisirEtudiants({ annee, onClose, onChoisis }) {
           ))}
         </div>
 
-        <div className="flex-none flex gap-2 px-5 py-3 border-t border-slate-200">
-          <button disabled={!coches.size} className="bouton bouton-fort disabled:opacity-40"
-            onClick={() => onChoisis((liste || []).filter(e => coches.has(e.id))
-              .map(e => ({ id: e.id, nom: e.nom, prenom: e.prenom,
-                           section: e.section_rattachement || e.section })))}>
-            {coches.size > 1 ? `Ajouter ${coches.size} étudiants` : 'Ajouter'}
-          </button>
-          <button onClick={onClose} className="bouton ml-auto">Annuler</button>
-        </div>
       </div>
     </Fenetre>
   );
@@ -655,7 +663,12 @@ function ChoisirUnite({ annee, etudiant, onClose, onCree }) {
   return (
     <Fenetre icone={IconPlus} onFermer={onClose}
       titre="Une unité à valoriser"
-      sous={`${(etudiant.nom || '').toUpperCase()} ${etudiant.prenom} · ${annee}`}>
+      sous={`${(etudiant.nom || '').toUpperCase()} ${etudiant.prenom} · ${annee}`}
+      pied={<>
+        <button onClick={creer} disabled={!ueNum || enCours}
+          className="bouton bouton-fort disabled:opacity-40">Ajouter l'unité</button>
+        <button onClick={onClose} className="bouton ml-auto">Annuler</button>
+      </>}>
       <div className="p-5 space-y-3">
         {/* ON NE VALORISE QU'UNE UNITÉ DE CHEZ NOUS — le serveur refuse un
             numéro inconnu du référentiel, et l'écran ne le propose même pas. */}
@@ -694,13 +707,6 @@ function ChoisirUnite({ annee, etudiant, onClose, onCree }) {
           </div>
         )}
 
-        <div className="flex gap-2 pt-1">
-          <button onClick={creer} disabled={!ueNum || enCours}
-            className="bouton bouton-fort disabled:opacity-40">
-            Ajouter l'unité
-          </button>
-          <button onClick={onClose} className="bouton ml-auto">Annuler</button>
-        </div>
       </div>
     </Fenetre>
   );

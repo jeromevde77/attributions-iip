@@ -647,6 +647,15 @@ et 3 composants de tuile**. La stratégie tient en cinq chantiers, dans cet ordr
   le contenu qui défile. Centrée verticalement, elle se recentrait à chaque
   changement d'onglet — un onglet court la faisait monter, un long descendre,
   et le bouton qu'on visait n'était plus là où on l'avait laissé.
+- **L'ACTION D'UNE FENÊTRE NE DÉFILE JAMAIS AVEC SON CONTENU.** Elle vit dans
+  le **pied** (`pied={…}` sur `Fenetre`), une bande fixe au bas du panneau.
+  Posé au bas du contenu, un bouton descend avec lui : pour valider trois cases
+  cochées en haut d'une liste de cinq cents étudiants, il fallait dérouler tout
+  le fichier. Le pied existait depuis le début et **personne ne s'en servait** —
+  chaque fenêtre rangeait ses boutons dans `children`, qui est la zone qui
+  défile. Corollaire : le pied porte aussi **ce qui dit pourquoi le bouton est
+  gris** (« coche au moins une personne »), au même endroit que le bouton, sinon
+  l'explication reste elle aussi hors de vue.
 - **Une seule fenêtre** (`Fenetre`, `GroupeFenetre`, `PieceFenetre`,
   `BoutonFenetre` dans `ui.jsx`). Soixante et onze fichiers posaient leur
   propre `fixed inset-0`. Le voile est une **couche à part** : porté par le

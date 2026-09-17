@@ -73,7 +73,14 @@ export default function NouvelEtudiant({ onClose, onCree }) {
   return (
     <Fenetre icone={IconUserPlus} onFermer={onClose}
       titre="Nouvel étudiant"
-      sous="Son identité — le programme se compose ensuite dans le Parcours">
+      sous="Son identité — le programme se compose ensuite dans le Parcours"
+      pied={<>
+        <button onClick={() => creer(false)} disabled={!pret || enCours || !!doublons}
+          className="bouton bouton-fort disabled:opacity-40">
+          {enCours ? 'Création…' : "Créer l'étudiant"}
+        </button>
+        <button onClick={onClose} className="bouton ml-auto">Annuler</button>
+      </>}>
       <div className="p-5 space-y-4 overflow-auto">
 
         <div className="grid grid-cols-2 gap-3">
@@ -160,14 +167,6 @@ export default function NouvelEtudiant({ onClose, onCree }) {
         )}
 
         {erreur && <div className="text-[12px] text-rose-700">{erreur}</div>}
-
-        <div className="flex gap-2 pt-1">
-          <button onClick={() => creer(false)} disabled={!pret || enCours || !!doublons}
-            className="bouton bouton-fort disabled:opacity-40">
-            {enCours ? 'Création…' : "Créer l'étudiant"}
-          </button>
-          <button onClick={onClose} className="bouton ml-auto">Annuler</button>
-        </div>
 
         <p className="text-[11px] text-slate-400">
           Créé, il n'est encore inscrit à rien : ouvrez son onglet <b>Parcours</b>

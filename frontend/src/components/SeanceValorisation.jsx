@@ -149,7 +149,17 @@ export default function SeanceValorisation({ ueNum, ueNom, annee, onClose }) {
   return (
     <Fenetre icone={IconPrinter} large="moyenne" onFermer={onClose}
       titre={`Valorisation des acquis — UE ${ueNum}`}
-      sous={`${ueNom || etat?.ue?.ue_nom || ''} · ${annee}`}>
+      sous={`${ueNom || etat?.ue?.ue_nom || ''} · ${annee}`}
+      pied={<>
+        <button onClick={produire} disabled={enCours}
+          className="bouton bouton-sortir disabled:opacity-50">
+          <IconPrinter size={15} /> Produire le PV et les attestations
+        </button>
+        <button onClick={enregistrer} disabled={enCours} className="bouton">
+          Enregistrer la séance
+        </button>
+        <button onClick={onClose} className="bouton ml-auto">Fermer</button>
+      </>}>
       {!etat ? (
         <div className="p-6 text-sm text-slate-400">Chargement…</div>
       ) : (
@@ -253,16 +263,7 @@ export default function SeanceValorisation({ ueNum, ueNom, annee, onClose }) {
           )}
           {erreur && <div className="text-[12px] text-rose-700">{erreur}</div>}
 
-          <div className="flex gap-2">
-            <button onClick={produire} disabled={enCours}
-              className="bouton bouton-sortir disabled:opacity-50">
-              <IconPrinter size={15} /> Produire le PV et les attestations
-            </button>
-            <button onClick={enregistrer} disabled={enCours} className="bouton">
-              Enregistrer la séance
-            </button>
-            <button onClick={onClose} className="bouton ml-auto">Fermer</button>
-          </div>
+
         </div>
       )}
     </Fenetre>

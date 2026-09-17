@@ -75,7 +75,13 @@ export default function Ameliorations({ ecran, onClose }) {
   return (
     <Fenetre icone={IconBulb} large="grande" onFermer={onClose}
       titre="Améliorations"
-      sous="Ce qui manque, ce qui gêne, ce qui irait mieux autrement">
+      sous="Ce qui manque, ce qui gêne, ce qui irait mieux autrement"
+      pied={<>
+        <button onClick={deposer} disabled={!titre.trim() || enCours}
+          className="bouton bouton-fort disabled:opacity-40">Déposer l'idée</button>
+        {erreur && <span className="text-[12px] text-rose-700">{erreur}</span>}
+        <button onClick={onClose} className="bouton ml-auto">Fermer</button>
+      </>}>
       <div className="flex-1 min-h-0 flex flex-col">
 
         <div className="flex-none px-5 py-3 border-b border-slate-200 space-y-2">
@@ -85,16 +91,11 @@ export default function Ameliorations({ ecran, onClose }) {
           <textarea rows={3} value={detail} onChange={e => setDetail(e.target.value)}
             placeholder="Le contexte : quand cela arrive, ce que vous faites aujourd'hui à la place, ce que cela coûte"
             className="w-full border border-slate-300 rounded-champ px-2 py-1.5 text-[13px]" />
-          <div className="flex items-center gap-2">
-            <button onClick={deposer} disabled={!titre.trim() || enCours}
-              className="bouton bouton-fort disabled:opacity-40">Déposer l'idée</button>
-            {ecran && (
-              <span className="text-[11px] text-slate-400">
-                Déposée depuis <b>{ecran}</b> — l'écran est enregistré avec elle.
-              </span>
-            )}
-            {erreur && <span className="text-[12px] text-rose-700">{erreur}</span>}
-          </div>
+          {ecran && (
+            <span className="text-[11px] text-slate-400">
+              Déposée depuis <b>{ecran}</b> — l'écran est enregistré avec elle.
+            </span>
+          )}
         </div>
 
         <div className="flex-1 overflow-auto min-h-0 p-3 space-y-2">
