@@ -56,6 +56,41 @@ r.get('/personnes', authRequired, (req, res) => {
     nom: `${p.prenom} ${p.nom}`, statut: p.statut || null, source: 'personnel',
   }));
 
+  /**
+   * LA SECTION D'UN ENSEIGNANT NE S'ÉCRIT NULLE PART — elle se déduit de ce
+   * qu'il enseigne. Un professeur peut porter des heures dans deux sections :
+   * on rend donc une LISTE, jamais une valeur unique.
+   *
+   * Les unités HORS CURSUS sont écartées : elles s'ajoutent au programme
+   * d'étudiants de plusieurs sections, et rattacher quelqu'un à la section
+   * d'import de l'UE 95 fausserait le filtre comme elle a faussé les
+   * statistiques.
+   */
+  const annee = req.query.annee || anneeDeTravail(req);
+  const parProf = new Map();
+  try {
+    // La colonne « hors cursus » date de 2.11.1 : une base plus ancienne ne la
+    // porte pas. On regarde plutôt que de supposer — une requête qui échoue
+    // dans un try muet aurait vidé le filtre sans que personne ne sache
+    // pourquoi.
+    const aHorsCursus = db.prepare('PRAGMA table_info(ue)').all()
+      .some(c => c.name === 'hors_cursus');
+    for (const l of db.prepare(`
+      SELECT DISTINCT a.professeur_id AS pid, u.section
+        FROM attribution a
+        JOIN ue u ON u.ue_num = a.ue_num AND u.annee_scolaire = a.annee_scolaire
+       WHERE a.annee_scolaire = ? AND a.professeur_id IS NOT NULL
+         AND u.section IS NOT NULL
+         ${aHorsCursus ? 'AND COALESCE(u.hors_cursus, 0) = 0' : ''}
+    `).all(annee)) {
+      if (!parProf.has(l.pid)) parProf.set(l.pid, []);
+      parProf.get(l.pid).push(l.section);
+    }
+  } catch (e) {
+    console.error('[reunions/personnes] sections :', e.message);
+  }
+  for (const p of personnel) p.sections = parProf.get(p.professeur_id) || [];
+
   // Les comptes sans fiche — l'administrateur technique, par exemple — restent
   // joignables : ils tiennent des tâches, eux aussi.
   const sansFiche = db.prepare(`
@@ -65,7 +100,7 @@ r.get('/personnes', authRequired, (req, res) => {
      ORDER BY nom_complet
   `).all().map(u => ({
     cle: `u:${u.id}`, user_id: u.id, professeur_id: null,
-    nom: u.nom, role: u.role, source: 'compte',
+    nom: u.nom, role: u.role, source: 'compte', sections: [],
   }));
 
   res.json([...personnel, ...sansFiche]);

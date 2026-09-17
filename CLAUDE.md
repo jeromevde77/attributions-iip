@@ -340,6 +340,17 @@ quoi, à qui, pour quand, priorité. Elle rejoint le même registre et paraît
 aussitôt dans « Ce que j'ai confié ». **Une personne, jamais un texte libre** —
 et la liste vient du personnel *et* des comptes, les enseignants n'en ayant pas.
 
+**La liste d'une dispense partielle vient de l'UNITÉ, pas du programme.** Elle
+était chargée depuis « les cours auxquels l'étudiant est inscrit » — cohérent
+tant que l'unité se devinait de ce programme. Depuis que l'unité se choisit
+dans le catalogue de la section (2.11.8), une unité pas encore au PAE rendait
+une liste **vide** : on cochait « par cours » et il ne restait à l'écran que les
+acquis, plus bas — d'où l'impression que Lucie proposait les AA au lieu des
+cours. Corrigé en 2.11.14 : les composantes de l'unité font foi, les notes déjà
+obtenues s'y ajoutent quand il y en a, et le champ de note disparaît en mode
+« par acquis » — le report se fait par COURS, c'est ce que porte
+`etudiant_report_note`.
+
 **Chantiers de conformité ouverts, dans l'ordre :** geler les décisions à la
 clôture et historiser par ajout ; figer et horodater le PV ; bloc de signatures
 nominatif ; date d'affichage et mode de publication en champs propres ; écrire

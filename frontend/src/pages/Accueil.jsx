@@ -4,15 +4,22 @@ import { api, getAnnee, getUser, authHeaders } from '../lib/api.js';
 import { PageHeader, RailLateral } from '../components/ui.jsx';
 import {
   IconHome, IconBell, IconCheck, IconChevronRight,
-  // TROIS PÉRIODES, TROIS ICÔNES. Les trois portaient la même : rail replié,
-  // on voyait trois fois le même dessin et il fallait survoler chacun pour
-  // savoir lequel on visait. Une icône qui ne distingue rien ne sert à rien.
-  IconCalendarWeek, IconCalendarMonth, IconCalendarStats,
+  // Les trois icônes de calendrier ont disparu avec les trois entrées de
+  // période : un réglage n'est pas un territoire, il vit dans une fenêtre.
   IconUserPlus, IconClipboardList, IconSettings, IconRefresh, IconCake,
-  IconClipboardPlus} from '@tabler/icons-react';
+  IconClipboardPlus, IconFilter} from '@tabler/icons-react';
 import ConfierTache from '../components/ConfierTache.jsx';
+import { urgence } from '../lib/urgence.js';
+import { Fenetre } from '../components/ui.jsx';
 
 const tok = () => localStorage.getItem('token');
+
+/* Les libellés du filtre courant, rappelés sous le titre de l'écran. */
+const LIBELLES_FILTRE = {
+  attribution: 'attributions seules', recrutement: 'recrutement seul',
+  systeme: 'système seul',
+};
+const LIBELLES_PERIODE = { 7: '7 derniers jours', 90: '3 derniers mois' };
 
 // ── Config visuelle par type d'événement ──────────────────────────────────────
 const TYPE_CONFIG = {
@@ -92,7 +99,6 @@ function MesTaches({ signal = 0 }) {
     charger();
   }
 
-  const jour = new Date().toISOString().slice(0, 10);
   const fr = d => (d ? String(d).slice(0, 10).split('-').reverse().join('/') : null);
   if (!taches.length && !confiees.length && !prochaine) return null;
 
@@ -130,33 +136,42 @@ function MesTaches({ signal = 0 }) {
       {!!taches.length && (
       <div className="carte overflow-hidden">
         {taches.map(t => {
-          const retard = t.echeance && t.echeance < jour;
+          // TROIS SEUILS, ET RIEN ENTRE EUX : ocre à sept jours, brique à
+          // trois, brique encore une fois dépassée. Le jugement vit dans
+          // lib/urgence.js — deux écrans qui le referaient chacun de leur côté
+          // finiraient par ne plus dire la même chose.
+          const u = urgence(t.echeance);
+          const presse = u.niveau === 'presse' || u.niveau === 'depasse';
           return (
-            <div key={t.id} className="px-3 py-2 flex items-center gap-3
-                                       border-t border-slate-100 first:border-t-0">
+            <div key={t.id} className={`px-3 py-2 flex items-center gap-3
+                                       border-t border-slate-100 first:border-t-0
+                                       ${u.ligne}`}>
               <button onClick={() => cocher(t)} title="Marquer comme faite"
-                className="w-5 h-5 flex-none grid place-items-center rounded-champ border
-                           border-slate-300 text-transparent hover:border-emerald-500
-                           hover:text-emerald-600">
+                className={`w-5 h-5 flex-none grid place-items-center rounded-champ border
+                            text-transparent hover:text-emerald-600
+                            ${presse ? 'border-white/70 hover:border-white'
+                                     : 'border-slate-300 hover:border-emerald-500'}`}>
                 <IconCheck size={13} />
               </button>
-              <span className="flex-1 min-w-0 text-[13px] text-slate-800 truncate">
+              <span className={`flex-1 min-w-0 text-[13px] truncate
+                ${presse ? 'text-white font-medium' : 'text-slate-800'}`}>
                 {t.titre}
               </span>
               {/* CE QUE L'ACTION SERT : l'obligation l'emporte sur la réunion.
                   Savoir qu'une tâche tient une échéance de la circulaire change
                   l'ordre dans lequel on la fait. */}
               {(t.obligation_libelle || t.reunion_date) && (
-                <span className="text-[11px] text-slate-400 hidden sm:inline truncate max-w-[18rem]">
+                <span className={`text-[11px] hidden sm:inline truncate max-w-[18rem]
+                  ${presse ? 'text-white/70' : 'text-slate-400'}`}>
                   {t.obligation_libelle
                     ? `pour : ${t.obligation_libelle}${t.obligation_base ? ` — ${t.obligation_base}` : ''}`
                     : `décidée le ${fr(t.reunion_date)}`}
                 </span>
               )}
               {t.echeance && (
-                <span className={`text-[11px] font-semibold tabular-nums
-                  ${retard ? 'text-amber-700' : 'text-slate-500'}`}>
-                  {retard ? 'en retard · ' : 'pour le '}{fr(t.echeance)}
+                <span className={`text-[11px] font-semibold tabular-nums flex-none
+                  ${u.pastille}`}>
+                  {u.mention ? `${u.mention} · ` : 'pour le '}{fr(t.echeance)}
                 </span>
               )}
             </div>
@@ -178,20 +193,24 @@ function MesTaches({ signal = 0 }) {
           </div>
           <div className="carte overflow-hidden">
             {confiees.map(t => {
-              const retard = t.echeance && t.echeance < jour;
+              const u = urgence(t.echeance);
+              const presse = u.niveau === 'presse' || u.niveau === 'depasse';
               return (
-                <div key={t.id} className="px-3 py-2 flex items-center gap-3
-                                           border-t border-slate-100 first:border-t-0">
-                  <span className="flex-1 min-w-0 text-[13px] text-slate-800 truncate">
+                <div key={t.id} className={`px-3 py-2 flex items-center gap-3
+                                           border-t border-slate-100 first:border-t-0
+                                           ${u.ligne}`}>
+                  <span className={`flex-1 min-w-0 text-[13px] truncate
+                    ${presse ? 'text-white font-medium' : 'text-slate-800'}`}>
                     {t.titre}
                   </span>
-                  <span className="text-[11px] text-slate-500 truncate max-w-[12rem]">
+                  <span className={`text-[11px] truncate max-w-[12rem]
+                    ${presse ? 'text-white/80' : 'text-slate-500'}`}>
                     {t.responsable_nom || t.responsable_role || 'sans responsable'}
                   </span>
                   {t.echeance && (
-                    <span className={`text-[11px] font-semibold tabular-nums
-                      ${retard ? 'text-amber-700' : 'text-slate-500'}`}>
-                      {retard ? 'en retard · ' : 'pour le '}{fr(t.echeance)}
+                    <span className={`text-[11px] font-semibold tabular-nums flex-none
+                      ${u.pastille}`}>
+                      {u.mention ? `${u.mention} · ` : 'pour le '}{fr(t.echeance)}
                     </span>
                   )}
                 </div>
@@ -211,6 +230,7 @@ export default function Accueil() {
   const [filtre, setFiltre]   = useState('tout'); // 'tout' | 'attribution' | 'recrutement' | 'systeme'
   const [jours, setJours]     = useState(30);
   const [confier, setConfier] = useState(false);
+  const [filtres, setFiltres] = useState(false);
   // Confier une tâche doit se voir tout de suite dans « Ce que j'ai confié » :
   // une action qu'on ne retrouve pas donne l'impression de n'avoir rien fait.
   const [rafraichirTaches, setRafraichirTaches] = useState(0);
@@ -276,27 +296,80 @@ export default function Accueil() {
         icon={IconHome}
         titre="Accueil"
         sousTitre={annee}
+        /* UNE ICÔNE SE MÉRITE.
+           Le rail portait SEPT entrées pour DEUX réglages : quatre types
+           d'événement et trois périodes — dont trois calendriers d'affilée,
+           qu'un commentaire d'ici s'employait à distinguer alors que la vraie
+           réponse était de ne pas leur donner d'icône du tout. Un réglage
+           n'est pas un territoire : il s'ouvre, se règle, et se referme.
+           Restent deux entrées — ce qu'on FAIT, et ce qu'on filtre. */
         sections={[
-          /* CONFIER SE FAIT D'ICI. Une consigne donnée dans un couloir n'avait
-             nulle part où aller : le seul écran qui créait des tâches était
-             celui d'une réunion. Le modèle, lui, l'a toujours permis. */
-          { label: 'Action', items: [
+          { items: [
+            /* CONFIER SE FAIT D'ICI. Une consigne donnée dans un couloir
+               n'avait nulle part où aller : le seul écran qui créait des
+               tâches était celui d'une réunion. */
             { key: 'confier', label: 'Confier une tâche', icon: IconClipboardPlus,
               onClick: () => setConfier(true) },
-          ]},
-          { label: 'Filtre', items: [
-            { key: 'tout',         label: `Tout${nbNonLus > 0 ? ` (${nbNonLus})` : ''}`,            icon: IconBell,          actif: filtre === 'tout',         onClick: () => setFiltre('tout') },
-            { key: 'attribution',  label: `Attributions${nbAttr > 0 ? ` (${nbAttr})` : ''}`,       icon: IconClipboardList, actif: filtre === 'attribution',  onClick: () => setFiltre('attribution') },
-            { key: 'recrutement',  label: `Recrutement${nbRecr > 0 ? ` (${nbRecr})` : ''}`,        icon: IconUserPlus,      actif: filtre === 'recrutement',  onClick: () => setFiltre('recrutement') },
-            { key: 'systeme',      label: `Système${nbSys > 0 ? ` (${nbSys})` : ''}`,              icon: IconSettings,      actif: filtre === 'systeme',      onClick: () => setFiltre('systeme') },
-          ]},
-          { label: 'Période', items: [
-            { key: '7',  label: '7 derniers jours',  icon: IconCalendarWeek, actif: jours === 7,  onClick: () => setJours(7) },
-            { key: '30', label: '30 derniers jours', icon: IconCalendarMonth, actif: jours === 30, onClick: () => setJours(30) },
-            { key: '90', label: '3 derniers mois',   icon: IconCalendarStats, actif: jours === 90, onClick: () => setJours(90) },
+            { key: 'filtres', label: 'Filtrer', icon: IconFilter,
+              // L'accent ne signale QUE ce qui n'est pas le réglage par
+              // défaut : une icône qui brille en permanence n'apprend rien.
+              actif: filtre !== 'tout' || jours !== 30,
+              onClick: () => setFiltres(true) },
           ]},
         ]}
       />
+
+      {filtres && (
+        <Fenetre icone={IconFilter} large="petite" titre="Filtrer le journal"
+          sous="Ce qu'on regarde, et sur quelle durée"
+          onFermer={() => setFiltres(false)}>
+          <div className="p-5 space-y-4">
+            <div>
+              <div className="text-xs font-semibold text-slate-500 uppercase
+                              tracking-wide mb-1.5">Quels événements</div>
+              <div className="carte divide-y divide-slate-100">
+                {[['tout', `Tout`, nbNonLus],
+                  ['attribution', 'Attributions', nbAttr],
+                  ['recrutement', 'Recrutement', nbRecr],
+                  ['systeme', 'Système', nbSys]].map(([cle, lib, n]) => (
+                  <label key={cle}
+                    className="flex items-center gap-2.5 px-3 py-2 cursor-pointer">
+                    <input type="radio" name="filtre-accueil" checked={filtre === cle}
+                      onChange={() => setFiltre(cle)} className="accent-iip-blue" />
+                    <span className="text-[13px] flex-1">{lib}</span>
+                    {n > 0 && (
+                      <span className="text-[11px] text-slate-500 tabular-nums">
+                        {n} non lu(s)
+                      </span>
+                    )}
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <div className="text-xs font-semibold text-slate-500 uppercase
+                              tracking-wide mb-1.5">Sur quelle durée</div>
+              <div className="segments w-full">
+                {[[7, '7 jours'], [30, '30 jours'], [90, '3 mois']].map(([v, lib]) => (
+                  <button key={v} onClick={() => setJours(v)}
+                    className={`flex-1 px-2 py-1.5 text-[12px] ${jours === v
+                      ? 'bg-iip-blue text-white font-semibold' : 'text-slate-600'}`}>
+                    {lib}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="flex gap-2">
+              <button onClick={() => { setFiltre('tout'); setJours(30); }}
+                className="bouton">Tout revoir</button>
+              <button onClick={() => setFiltres(false)}
+                className="bouton bouton-fort ml-auto">Fermer</button>
+            </div>
+          </div>
+        </Fenetre>
+      )}
 
       {confier && (
         <ConfierTache onClose={() => setConfier(false)}
@@ -313,8 +386,15 @@ export default function Accueil() {
             seule échelle, et rien en dehors. */}
         <PageHeader
           titre={`Bonjour, ${prenom(u?.nom) || u?.email?.split('@')[0] || 'vous'} !`}
-          sous={new Date().toLocaleDateString('fr-BE',
-            { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })} />
+          /* CE QU'ON REGARDE SE DIT EN HAUT DE L'ÉCRAN. Le filtre vivant
+             désormais dans une fenêtre, rien ne dirait plus qu'on ne voit
+             qu'une partie des événements — et c'est ainsi qu'on croit un
+             journal vide alors qu'il est filtré. */
+          sous={[new Date().toLocaleDateString('fr-BE',
+            { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }),
+            filtre !== 'tout' ? LIBELLES_FILTRE[filtre] : null,
+            jours !== 30 ? LIBELLES_PERIODE[jours] : null,
+          ].filter(Boolean).join(' · ')} />
 
         {/* CE QUI M'ATTEND VIENT AVANT CE QUI S'EST PASSÉ.
             Le fil d'activité raconte ce que les autres ont fait ; il ne dit pas
