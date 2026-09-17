@@ -90,6 +90,22 @@ function MesTaches({ signal = 0 }) {
   };
   useEffect(() => { charger(); /* eslint-disable-next-line */ }, [signal]);
 
+  /* CE QUI VIENT D'ARRIVER SE VOIT, PUIS CESSE D'ÊTRE NOUVEAU.
+     Le serveur dit lesquelles cette personne n'a jamais lues ; l'écran les
+     cercle, et les acquitte dans la foulée — le signal n'est pas une alerte
+     qu'on ferme, c'est une nouveauté qui cesse de l'être. Le cerclage reste
+     visible tant que l'écran l'est : on l'acquitte en base, pas à l'écran,
+     sans quoi il s'effacerait sous les yeux de qui le regarde. */
+  useEffect(() => {
+    const neuves = taches.filter(t => t.nouveau).map(t => t.id);
+    if (!neuves.length) return;
+    fetch('/api/reunions/taches/vues', {
+      method: 'POST',
+      headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ids: neuves }),
+    }).catch(() => {});
+  }, [taches]);
+
   async function cocher(t) {
     await fetch(`/api/reunions/taches/${t.id}`, {
       method: 'PUT',
@@ -142,9 +158,24 @@ function MesTaches({ signal = 0 }) {
           // finiraient par ne plus dire la même chose.
           const u = urgence(t.echeance);
           return (
-            <div key={t.id} className={`px-3 py-2 flex items-center gap-3
+            /* LE CERCLAGE D'UNE TÂCHE JAMAIS LUE.
+               Il entoure — il ne remplit pas : la couleur de la ligne reste
+               celle de son échéance, et deux signaux superposés n'en feraient
+               plus aucun. Marine lumineux, parce que le marine est la couleur
+               de la maison et que « nouveau » n'est ni une alerte ni un
+               retard. */
+            <div key={t.id} className={`relative px-3 py-2 flex items-center gap-3
                                        border-t border-slate-100 first:border-t-0
-                                       ${u.rail}`}>
+                                       ${u.rail}
+                                       ${t.nouveau ? 'ring-1 ring-inset ring-iip-blue/70 '
+                                         + 'rounded-carte shadow-[0_0_0_3px_rgba(27,43,75,0.10)]' : ''}`}>
+              {t.nouveau && (
+                <span className="absolute -top-1 left-8 px-1.5 text-[9px] font-semibold
+                                 uppercase tracking-wider rounded-full
+                                 bg-iip-blue text-white">
+                  nouveau
+                </span>
+              )}
               <button onClick={() => cocher(t)} title="Marquer comme faite"
                 className="w-5 h-5 flex-none grid place-items-center rounded-champ border
                            border-slate-300 text-transparent hover:border-emerald-500

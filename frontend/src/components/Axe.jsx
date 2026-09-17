@@ -25,7 +25,13 @@ import { RailDessine, FournisseurRail } from './ui.jsx';
  */
 export default function Axe({ titre, question, icone, onglets, ongletInitial,
                               impression = 'etudiants', echanges = false }) {
-  const visibles = onglets.filter(o => !o.masque);
+  // LES RUBRIQUES « À VENIR » NE SONT PLUS DANS LE MENU.
+  // Une place réservée annonçant un écran qui n'existe pas est une promesse
+  // faite à qui n'a rien demandé : on vise une entrée, on tombe sur « à venir »,
+  // et l'icône qui la portait parasitait le rail replié de ceux qui
+  // travaillent. Les idées ont désormais leur porte — « Proposer une
+  // amélioration », présente sur tous les écrans, au même endroit.
+  const visibles = onglets.filter(o => !o.masque && !o.futur);
   const [actif, setActif] = useState(
     ongletInitial && visibles.some(o => o.key === ongletInitial)
       ? ongletInitial
@@ -84,7 +90,13 @@ export default function Axe({ titre, question, icone, onglets, ongletInitial,
    * de cycle », « Supprimer » — ne survivraient pas au rail replié, où le
    * libellé est masqué. Un séparateur invisible n'est pas un séparateur.
    */
-  const sousOutils = (outils || []).flatMap(sec => sec.items || []);
+  const sousOutils = (() => {
+    const tous = (outils || []).flatMap(sec => sec.items || []);
+    // DÉTRUIRE EN DERNIER, TOUJOURS. Rangé au milieu, ce bouton finit par se
+    // trouver là où l'on visait autre chose la veille — et c'est le seul du
+    // rail qu'on ne peut pas défaire.
+    return [...tous.filter(i => !i.destructif), ...tous.filter(i => i.destructif)];
+  })();
 
   const rubriques = {
     label: 'Dans cet axe',

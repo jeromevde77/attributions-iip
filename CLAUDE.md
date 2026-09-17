@@ -438,6 +438,24 @@ qui finit près du bas se comptait en deux pages pour en sortir trois — sur un
 mention réglementaire, portée par une pièce signée. Le comptage emploie
 désormais **exactement** les options du rendu réel.
 
+**Le suivi des tâches se lit dans le temps, pas seulement par personne.** La
+liste groupée par personne répond à « qu'a Untel en charge ? » et cache
+précisément l'autre question — « qu'est-ce qui tombe la semaine prochaine ? » —,
+celle d'une réunion de service, et la seule qui fasse déplacer une date avant
+qu'il ne soit trop tard. La **frise** (Suivi d'équipe → Tâches) porte trente
+jours devant et sept derrière : une tâche dépassée de trois jours se traite
+encore. L'échelle est le TEMPS, pas le nombre — un jour garde la même largeur
+qu'il porte une tâche ou dix, et c'est ainsi qu'un amas se voit. Couleurs de
+`lib/urgence.js`, vert pour ce qui est fait.
+**Le titre d'une tâche se corrige** : tout était modifiable sur la ligne —
+responsable, échéance, statut, obligation — sauf ce qu'on lit en premier, donc
+le seul champ dont la faute de frappe se voit ; la corriger imposait de
+supprimer et refaire, ce qui perd la date de création et le lien à la réunion.
+**Ce qui vient d'arriver se voit** : `tache_personne.vu_le` par PERSONNE — une
+tâche confiée vendredi doit être encore signalée lundi, et « récente » ne dit
+pas cela. L'équipage se réécrivant en entier, `vu_le` est préservé : sans quoi
+ajouter quelqu'un rallumerait le signal chez tous les autres.
+
 **Chantiers de conformité ouverts, dans l'ordre :** geler les décisions à la
 clôture et historiser par ajout ; figer et horodater le PV ; bloc de signatures
 nominatif ; date d'affichage et mode de publication en champs propres ; écrire
@@ -661,6 +679,23 @@ et 3 composants de tuile**. La stratégie tient en cinq chantiers, dans cet ordr
   une entrée de menu n'a pas d'état, elle a une position. Elle porte donc un
   **filet fin de deux pixels, posé à côté, plus court que la tuile et terminé en
   arc aux deux bouts**, et seulement quand un sous-menu est ouvert dessous.
+- **Le même ordre dans tous les rails, et il ne se discute pas** : SORTIR
+  d'abord — « Imprimer ou envoyer », l'avion plutôt que l'imprimante depuis que
+  le centre fait les deux, et le libellé suit le dessin —, puis les outils de
+  l'écran, puis *Proposer une amélioration*, puis **DÉTRUIRE, toujours en
+  dernier**. Le tri se fait sur un drapeau `destructif`, pas sur la place où
+  chaque écran a rangé son entrée : une règle qui n'est juste que si l'on y
+  pense est une règle fausse.
+- **Les rubriques « à venir » ont quitté les rails.** Une place réservée
+  annonçant un écran qui n'existe pas est une promesse faite à qui n'a rien
+  demandé, et son icône occupait une place dans le rail replié de ceux qui
+  travaillent. Les idées ont leur porte : *Proposer une amélioration*, présente
+  sur TOUS les écrans au même endroit — une demande s'écrit au moment où l'on
+  bute, pas trois jours plus tard en réunion, et si la porte n'est pas là où
+  l'on est, elle n'est nulle part. Le registre (`suggestion`) garde l'auteur,
+  l'écran d'où elle part, l'état et **la réponse qu'on lui a faite** : on répond
+  même pour dire non — une idée jamais commentée n'apprend qu'une chose à son
+  auteur, que cela ne sert à rien d'écrire.
 - **Une entrée de rail sans icône est invisible** une fois le rail replié.
 - **Un titre ne s'écrit qu'une fois** par écran.
 - Un libellé ne promet que ce que la modale fait réellement.

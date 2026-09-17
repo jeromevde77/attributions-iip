@@ -138,6 +138,22 @@ export function migrerReunions(db) {
     CREATE INDEX IF NOT EXISTS idx_tache_personne ON tache_personne(tache_id, rang);
   `);
 
+  // UNE TÂCHE QUI ARRIVE DOIT SE VOIR ARRIVER.
+  //
+  // Confiée un vendredi soir, elle se noyait le lundi parmi les six autres :
+  // rien ne distinguait celle qu'on n'avait jamais lue de celles qu'on traîne
+  // depuis trois semaines. « Récente » ne suffit pas — une tâche de vendredi
+  // n'est plus récente le lundi, et elle resterait signalée après dix lectures.
+  // Ce qui compte est : CETTE PERSONNE l'a-t-elle déjà vue ? La marque suit
+  // donc la personne, pas le navigateur — signalée sur son portable, elle ne
+  // l'est plus sur son poste.
+  try {
+    const cols = db.prepare('PRAGMA table_info(tache_personne)').all();
+    if (cols.length && !cols.some(c => c.name === 'vu_le')) {
+      db.exec('ALTER TABLE tache_personne ADD COLUMN vu_le TEXT');
+    }
+  } catch (e) { console.error('[migration] tache_personne.vu_le :', e.message); }
+
   // Migration additive : les colonnes du personnel ont été ajoutées après la
   // première version des tables. Ajouter une colonne à une table existante ne
   // se fait pas dans le CREATE — il faut le dire, et supporter qu'elle soit

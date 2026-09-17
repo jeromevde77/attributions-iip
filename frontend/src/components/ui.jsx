@@ -1,8 +1,9 @@
 import { createContext, Fragment, lazy, Suspense, useContext, useEffect, useState } from 'react';
 
 const CentreImpressionCentral = lazy(() => import('./CentreImpressionCentral.jsx'));
+const Ameliorations = lazy(() => import('./Ameliorations.jsx'));
 import { createPortal } from 'react-dom';
-import { IconPin, IconPinnedOff, IconSun, IconMoon, IconPrinter, IconX } from '@tabler/icons-react';
+import { IconPin, IconPinnedOff, IconSun, IconMoon, IconSend, IconBulb, IconX } from '@tabler/icons-react';
 import { useRailEpingle, basculerEpingle, LARGEUR_RAIL } from '../lib/railEpingle.js';
 import { useMode, basculerMode } from '../lib/theme.js';
 
@@ -267,6 +268,7 @@ export function RailDessine({ icon: HeaderIcon, titre, sousTitre, extra,
    * sa hauteur, et on la dessine une fois, au niveau du rail.
    */
   const [survol, setSurvol] = useState(null);
+  const [idees, setIdees] = useState(false);
   const surviser = (e, label) => {
     const r = e.currentTarget.getBoundingClientRect();
     const p = e.currentTarget.closest('aside').getBoundingClientRect();
@@ -422,9 +424,25 @@ export function RailDessine({ icon: HeaderIcon, titre, sousTitre, extra,
               sortir une pièce, quel que soit le format qu'on choisit ensuite
               dans la fenêtre. Deux portes pour un même geste, c'en était une
               de trop. */}
-          {[{ key: '__impression', label: 'Imprimer', icon: IconPrinter,
+          {/* LE MÊME ORDRE PARTOUT, ET IL NE SE DISCUTE PAS :
+              SORTIR d'abord — imprimer une pièce ou l'envoyer, c'est le même
+              geste depuis que le centre fait les deux —, puis ce que l'écran
+              apporte, puis DÉTRUIRE, toujours en dernier.
+              L'avion plutôt que l'imprimante : ce qu'on ouvre là ne sort pas
+              que du papier. Et le libellé suit le dessin — une enveloppe qui
+              dirait « Imprimer » serait un libellé qui ment. */}
+          {[{ key: '__impression', label: 'Imprimer ou envoyer', icon: IconSend,
               couleur: 'var(--menu-accent)', onClick: () => setCentre(true) },
-            ...actions].map(a2 => {
+            ...actions.filter(a2 => !a2.destructif),
+            /* LA PORTE DES IDÉES, SUR TOUS LES ÉCRANS ET AU MÊME ENDROIT.
+               Une demande s'écrit au moment où l'on bute, pas trois jours plus
+               tard en réunion : si la porte n'est pas là où l'on est, elle
+               n'est nulle part. Elle remplace les rubriques « à venir », qui
+               promettaient des écrans inexistants dans le menu de ceux qui
+               travaillent. */
+            { key: '__idee', label: 'Proposer une amélioration', icon: IconBulb,
+              onClick: () => setIdees(true) },
+            ...actions.filter(a2 => a2.destructif)].map(a2 => {
             const Ic = a2.icon;
             return (
               <button key={a2.key} onClick={a2.onClick} aria-label={a2.label}
@@ -676,6 +694,11 @@ export function RailDessine({ icon: HeaderIcon, titre, sousTitre, extra,
         <Suspense fallback={null}>
           <CentreImpressionCentral ongletInitial={impression} pieces={pieces}
             onClose={() => setCentre(false)} />
+        </Suspense>, document.body)}
+
+      {idees && createPortal(
+        <Suspense fallback={null}>
+          <Ameliorations ecran={titre} onClose={() => setIdees(false)} />
         </Suspense>, document.body)}
     </>
   );

@@ -80,45 +80,32 @@ export function AxeEtudiants() {
     <Axe
       titre="Étudiants" icone={IconChecklist} impression="etudiants" echanges
       question="« Où en est cet étudiant ? »"
+      /* L'ORDRE EST CELUI DU PARCOURS, PAS CELUI DE LA CONSTRUCTION.
+         On entre dans l'école, on demande une valorisation, on compose son
+         programme, on délibère, on délivre le titre — et les procédures sont
+         l'exception, à part et signalée. Un menu rangé dans l'ordre où les
+         écrans ont été écrits oblige chacun à retenir une liste ; rangé dans
+         l'ordre du travail, il ne se retient pas, il se suit. */
       onglets={[
-        { key: 'pae', label: 'PAE & inscriptions', icone: IconClipboardList,
+        { key: 'pae', label: 'Inscriptions & PAE', icone: IconClipboardList,
           sansMarge: true, railPropre: true,
           rendu: <Etudiants /> },
-        // La DÉLIBÉRATION prend la place de la saisie rapide, qu'elle contient.
-        // On atteignait la feuille par un clic non annoncé sur un en-tête de
-        // colonne, dans l'écran de saisie : on arrivait au sens par
-        // l'accessoire. L'onglet nomme désormais ce qu'on vient y faire, et la
-        // saisie rapide s'y ouvre d'un bouton.
-        { key: 'deliberation', label: 'Délibération', icone: IconScale, sansMarge: true,
-          rendu: <Deliberation /> },
-        // LE CALENDRIER, HORS DE LA DÉLIBÉRATION. Les dates se posaient au fond
-        // de l'écran de délibération, unité par unité : fixer celui d'une
-        // section demandait d'ouvrir trente actes de Conseil pour y taper des
-        // dates. Elles ont leur page, et elle se lit d'un coup d'œil.
-        // LE CALENDRIER A REJOINT ORGANISATION. Fixer la date d'une épreuve,
-        // d'une visite des copies ou d'une délibération, c'est organiser
-        // l'année — pas suivre un étudiant. Et l'écran des dates d'UE y est
-        // déjà : les deux doivent se lire côte à côte.
-        // L'onglet ouvre TOUTE la page Procédures — recours, fraude,
-        // disciplinaire, examens, archives. L'appeler « Recours » annonçait un
-        // cinquième de son contenu et cachait le reste.
-        /* LA VALORISATION EST UN TRAVAIL DE SÉRIE, PAS UNE MODALE.
-           Elle se saisissait dans une fenêtre ouverte depuis la fiche d'un
-           étudiant : pour encoder dix dossiers, il fallait ouvrir dix fiches,
-           et rien ne se lisait d'ensemble. Or on traite les demandes d'une
-           section l'une après l'autre, en regardant les mêmes unités. */
         { key: 'valorisation', label: 'Valorisation des acquis', icone: IconCertificate,
           sansMarge: true, railPropre: true,
           rendu: <Suspense fallback={<Attente />}><Valorisations /></Suspense> },
+        { key: 'deliberation', label: 'Délibération', icone: IconScale, sansMarge: true,
+          rendu: <Deliberation /> },
+        /* LES PROCÉDURES SONT L'EXCEPTION, ET ELLES SE SIGNALENT.
+           Recours, fraude, disciplinaire : on n'y va pas dans le cours normal
+           du travail, on y va quand quelque chose a dérapé. L'ocre le dit —
+           c'est la seule rubrique de l'axe qui porte une couleur, et c'est
+           pour cela qu'elle la porte. */
         { key: 'procedures', label: 'Procédures', icone: IconShieldExclamation,
+          couleur: '#B45309',
           sansMarge: true, railPropre: true,
           rendu: <Suspense fallback={<Attente />}><Procedures /></Suspense> },
-        { key: 'admission', label: 'Admission & inscription', icone: IconDoorEnter, futur: true,
-          description: "Titres d'accès, valorisation des acquis, droit d'inscription et exemptions." },
         { key: 'presences', label: 'Présences', icone: IconUserCheck, futur: true,
           description: 'Encodage, comptages réglementaires (1er/10e), justificatifs.' },
-        { key: 'parcours', label: 'Parcours & sanction', icone: IconRoute, futur: true,
-          description: 'Notes, conseils des études, épreuve intégrée, attestations.' },
       ]}
     />
   );
