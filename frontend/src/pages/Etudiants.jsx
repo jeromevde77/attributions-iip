@@ -710,19 +710,13 @@ function Valorisations({ etudId, annee }) {
   // interne, et reste modifiable au cas par cas.
   const [seuilReport, setSeuilReport] = useState(12);
   const [anterieur, setAnterieur] = useState(null);   // notes des années passées
-  const [coursEtud, setCoursEtud] = useState(null);   // tous les cours suivis
-
-  // Chargés dès qu'une dispense partielle est ouverte : le sélecteur doit être
-  // là avant qu'on ait tapé quoi que ce soit.
-  useEffect(() => {
-    if (form?.type !== 'partielle') { setCoursEtud(null); return; }
-    if (coursEtud) return;
-    fetch(`/api/acquis/cours-etudiant/${etudId}?annee=${annee}`, { headers: authHeaders() })
-      .then(r => r.json())
-      .then(j => setCoursEtud(j?.unites ? j : { unites: [], nb_cours: 0 }))
-      .catch(() => setCoursEtud({ unites: [], nb_cours: 0 }));
-    /* eslint-disable-next-line */
-  }, [form?.type, etudId, annee]);
+  /* LA LISTE DES COURS NE VIENT PLUS DU PROGRAMME DE L'ÉTUDIANT.
+     Elle était chargée depuis « les cours auxquels il est inscrit » — utile
+     tant que l'unité se devinait de ce programme. Depuis que l'unité se
+     choisit dans le catalogue de la section, une unité pas encore inscrite
+     rendait une liste vide : on cochait « par cours » et il ne restait à
+     l'écran que les acquis. Les composantes de l'UNITÉ font désormais foi, et
+     les notes déjà obtenues s'y ajoutent quand il y en a. */
   const [composantes, setComposantes] = useState(null);
   // LES UNITÉS QU'ON PEUT VALORISER. Le numéro se tapait à la main : on ne
   // valorise pourtant que ce qui existe chez nous, et ce que l'étudiant aura à
@@ -984,127 +978,146 @@ function Valorisations({ etudId, annee }) {
                 </label>
               </div>
 
-              {/* TOUS les cours suivis par l'étudiant, groupés par unité. Il
-                  fallait auparavant connaître le numéro d'UE et le taper avant
-                  de voir quoi que ce soit. */}
-              {!coursEtud ? (
+              {/* LES COMPOSANTES DE L'UNITÉ CHOISIE — PAS LE PROGRAMME DE
+                  L'ÉTUDIANT.
+                  Cette liste venait des cours AUXQUELS L'ÉTUDIANT EST INSCRIT.
+                  Depuis que l'unité se choisit dans le catalogue de la section,
+                  une unité qu'il n'a pas encore à son programme ne rendait donc
+                  aucun cours : on cochait « par cours » et il ne restait à
+                  l'écran que les acquis, plus bas. Or on valorise une unité
+                  qu'il AURA — la liste doit venir de l'unité, et les notes
+                  déjà obtenues s'y ajoutent quand elles existent. */}
+              {!form.ue_num ? (
                 <div className="py-4 text-center text-[13px] text-slate-400
                                 border-2 border-dashed rounded-xl">
-                  Chargement des cours de l'étudiant…
+                  Choisissez d'abord l'unité d'enseignement.
                 </div>
-              ) : !coursEtud.unites.length ? (
+              ) : !composantes ? (
                 <div className="py-4 text-center text-[13px] text-slate-400
                                 border-2 border-dashed rounded-xl">
-                  Cet étudiant n'est inscrit à aucune unité en {annee}.
+                  Chargement des composantes de l'unité…
                 </div>
-              ) : (
+              ) : (() => {
+                const anterieurParCours = Object.fromEntries(
+                  (anterieur?.cours || []).map(c => [c.cours_code, c]));
+                const dejaReportes = new Set(anterieur?.deja_reportes || []);
+                const liste = form.cible === 'cours'
+                  ? (composantes.cours || []).map(c => ({
+                      code: c.cours_code, libelle: c.cours_nom,
+                      note_anterieure: anterieurParCours[c.cours_code]?.note ?? null,
+                      annee_anterieure: anterieurParCours[c.cours_code]?.annee_origine || null,
+                      deja_reporte: dejaReportes.has(c.cours_code),
+                    }))
+                  : (composantes.aas || []).map(a => ({
+                      code: a.aa_code,
+                      libelle: a.description || a.aa_code,
+                      // Un acquis ne porte pas de note reportable : le report se
+                      // fait par COURS. On ne propose donc rien ici plutôt que
+                      // d'afficher un tiret qui laisserait croire à un oubli.
+                      note_anterieure: null, annee_anterieure: null, deja_reporte: false,
+                    }));
+
+                if (!liste.length) {
+                  return (
+                    <div className="py-4 text-center text-[13px] text-amber-700
+                                    border-2 border-dashed border-amber-300 rounded-xl">
+                      Cette unité ne porte aucun {form.cible === 'cours' ? 'cours'
+                        : "acquis d'apprentissage"} au référentiel {annee}.
+                    </div>
+                  );
+                }
+
+                return (
                 <div className="border border-slate-200 rounded-xl overflow-hidden">
                   <div className="px-3 py-1.5 bg-slate-50 border-b border-slate-200
                                   text-[11px] uppercase tracking-wide text-slate-500 font-semibold">
-                    {coursEtud.nb_cours} cours · {coursEtud.unites.length} unité(s)
+                    UE {form.ue_num} · {liste.length}{' '}
+                    {form.cible === 'cours' ? 'cours' : "acquis d'apprentissage"}
+                    {anterieur?.annee_source && (
+                      <span className="normal-case tracking-normal text-slate-400">
+                        {' '}· notes de {anterieur.annee_source}
+                      </span>
+                    )}
                   </div>
 
                   <div className="max-h-72 overflow-y-auto">
-                    {/* LES COURS DE L'UNITÉ CHOISIE, et d'elle seule : une
-                        dispense partielle porte sur l'unité qu'on valorise, et
-                        dérouler tout le programme invitait à cocher ailleurs. */}
-                    {coursEtud.unites
-                      .filter(u => !form.ue_num || Number(u.ue_num) === Number(form.ue_num))
-                      .map(u => (
-                      <div key={u.ue_num}>
-                        <div className="px-3 py-1 bg-slate-100/70 border-y border-slate-200
-                                        text-[12px] font-semibold text-iip-blue sticky top-0">
-                          <span className="font-mono text-[11px] text-slate-500 mr-1.5">
-                            {u.ue_num}
+                    {liste.map(co => {
+                      const code = co.code;
+                      const sel = (form.cible_detail || '').split(',').filter(Boolean);
+                      const actif = sel.includes(code);
+                      const note = form.notes?.[code] ?? '';
+                      const sousSeuil = note !== '' && Number(note) < seuilReport;
+                      return (
+                        <div key={code}
+                          className={`flex items-center gap-2 px-3 py-1.5 text-[12px]
+                                      border-b border-slate-50 last:border-0
+                                      ${actif ? 'bg-iip-blue/5' : ''}`}>
+                          <input type="checkbox" checked={actif}
+                            onChange={() => {
+                              const next = actif ? sel.filter(x => x !== code) : [...sel, code];
+                              setForm(f => ({ ...f, cible_detail: next.join(',') }));
+                            }} />
+                          <span className="w-20 flex-none font-mono text-[11px] text-slate-500">
+                            {code}
                           </span>
-                          {u.ue_nom}
-                          {u.ue_niv && (
-                            <span className="text-[10px] text-slate-400 ml-1.5">{u.ue_niv}</span>
+                          <span className="flex-1 min-w-0 truncate" title={co.libelle}>
+                            {co.libelle}
+                          </span>
+
+                          {/* La note déjà connue : un clic la reprend, plutôt
+                              que de la retenir de tête et la ressaisir. */}
+                          {co.note_anterieure != null ? (
+                            <button type="button"
+                              onClick={() => setForm(f => {
+                                const x = (f.cible_detail || '').split(',').filter(Boolean);
+                                return { ...f,
+                                  notes: { ...(f.notes || {}), [code]: String(co.note_anterieure) },
+                                  cible_detail: x.includes(code) ? f.cible_detail
+                                                                 : [...x, code].join(','),
+                                  annee_origine: f.annee_origine || co.annee_anterieure };
+                              })}
+                              title={co.deja_reporte ? 'Déjà reportée'
+                                : `Obtenue en ${co.annee_anterieure} — cliquer pour la reprendre`}
+                              className={`text-[11px] flex-none w-24 text-right
+                                ${co.deja_reporte ? 'text-slate-300'
+                                  : co.note_anterieure >= seuilReport
+                                    ? 'text-emerald-700 font-semibold hover:underline'
+                                    : 'text-slate-400 hover:underline'}`}>
+                              {co.note_anterieure}/20 <span className="text-slate-400">
+                                {String(co.annee_anterieure || '').slice(2, 7)}
+                              </span>{co.deja_reporte ? ' ✓' : ''}
+                            </button>
+                          ) : (
+                            <span className="text-[11px] text-slate-300 flex-none
+                                             w-24 text-right">—</span>
                           )}
+
+                          {/* LE REPORT SE FAIT PAR COURS, jamais par acquis :
+                              c'est ce que porte etudiant_report_note. */}
+                          {form.cible === 'cours' ? (
+                            <input type="number" min="0" max="20" step="0.5" value={note}
+                              placeholder="note"
+                              onChange={e => {
+                                const v = e.target.value;
+                                setForm(f => {
+                                  const notes = { ...(f.notes || {}) };
+                                  if (v === '') delete notes[code]; else notes[code] = v;
+                                  // Saisir une note vaut sélection : sans cela on
+                                  // encoderait un point sans dispenser le cours.
+                                  const x = (f.cible_detail || '').split(',').filter(Boolean);
+                                  return { ...f, notes,
+                                    cible_detail: v !== '' && !x.includes(code)
+                                      ? [...x, code].join(',') : f.cible_detail };
+                                });
+                              }}
+                              className={`w-16 flex-none border rounded px-1.5 py-0.5
+                                          text-[12px] text-right ${sousSeuil
+                                            ? 'border-amber-400 bg-amber-50'
+                                            : 'border-slate-300'}`} />
+                          ) : <span className="w-16 flex-none" />}
                         </div>
-
-                        {(form.cible === 'cours' ? u.cours
-                          : u.cours.flatMap(co => co.aas.map(a => ({
-                              ...co, cours_code: a.aa_code,
-                              cours_nom: a.description || a.aa_code,
-                            })))).map(co => {
-                          const code = co.cours_code;
-                          const sel = (form.cible_detail || '').split(',').filter(Boolean);
-                          const actif = sel.includes(code);
-                          const note = form.notes?.[code] ?? '';
-                          const sousSeuil = note !== '' && Number(note) < seuilReport;
-                          return (
-                            <div key={u.ue_num + '|' + code}
-                              className={`flex items-center gap-2 px-3 py-1.5 text-[12px]
-                                          border-b border-slate-50 last:border-0
-                                          ${actif ? 'bg-iip-blue/5' : ''}`}>
-                              <input type="checkbox" checked={actif}
-                                onChange={() => {
-                                  const next = actif ? sel.filter(s => s !== code) : [...sel, code];
-                                  setForm(f => ({ ...f, cible_detail: next.join(','),
-                                                  ue_num: f.ue_num || u.ue_num }));
-                                }} />
-                              <span className="w-20 flex-none font-mono text-[11px] text-slate-500">
-                                {code}
-                              </span>
-                              <span className="flex-1 min-w-0 truncate" title={co.cours_nom}>
-                                {co.cours_nom}
-                              </span>
-
-                              {/* La note déjà connue : un clic la reprend, plutôt
-                                  que de la retenir de tête et la ressaisir. */}
-                              {co.note_anterieure != null ? (
-                                <button type="button"
-                                  onClick={() => setForm(f => {
-                                    const s = (f.cible_detail || '').split(',').filter(Boolean);
-                                    return { ...f,
-                                      notes: { ...(f.notes || {}), [code]: String(co.note_anterieure) },
-                                      cible_detail: s.includes(code) ? f.cible_detail
-                                                                     : [...s, code].join(','),
-                                      ue_num: f.ue_num || u.ue_num,
-                                      annee_origine: f.annee_origine || co.annee_anterieure };
-                                  })}
-                                  title={co.deja_reporte ? 'Déjà reportée'
-                                    : `Obtenue en ${co.annee_anterieure} — cliquer pour la reprendre`}
-                                  className={`text-[11px] flex-none w-24 text-right
-                                    ${co.deja_reporte ? 'text-slate-300'
-                                      : co.note_anterieure >= seuilReport
-                                        ? 'text-emerald-700 font-semibold hover:underline'
-                                        : 'text-slate-400 hover:underline'}`}>
-                                  {co.note_anterieure}/20 <span className="text-slate-400">
-                                    {String(co.annee_anterieure || '').slice(2, 7)}
-                                  </span>{co.deja_reporte ? ' ✓' : ''}
-                                </button>
-                              ) : (
-                                <span className="text-[11px] text-slate-300 flex-none
-                                                 w-24 text-right">—</span>
-                              )}
-
-                              <input type="number" min="0" max="20" step="0.5" value={note}
-                                placeholder="note"
-                                onChange={e => {
-                                  const v = e.target.value;
-                                  setForm(f => {
-                                    const notes = { ...(f.notes || {}) };
-                                    if (v === '') delete notes[code]; else notes[code] = v;
-                                    // Saisir une note vaut sélection : sans cela on
-                                    // encoderait un point sans dispenser le cours.
-                                    const s = (f.cible_detail || '').split(',').filter(Boolean);
-                                    return { ...f, notes,
-                                      cible_detail: v !== '' && !s.includes(code)
-                                        ? [...s, code].join(',') : f.cible_detail,
-                                      ue_num: f.ue_num || u.ue_num };
-                                  });
-                                }}
-                                className={`w-16 flex-none border rounded px-1.5 py-0.5
-                                            text-[12px] text-right ${sousSeuil
-                                              ? 'border-amber-400 bg-amber-50'
-                                              : 'border-slate-300'}`} />
-                            </div>
-                          );
-                        })}
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
 
                   {Object.keys(form.notes || {}).length > 0 && (
@@ -1119,7 +1132,8 @@ function Valorisations({ etudId, annee }) {
                     </div>
                   )}
                 </div>
-              )}
+                );
+              })()}
             </div>
           )}
 
