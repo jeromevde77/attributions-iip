@@ -1133,7 +1133,28 @@ function manquesValorisation({ seance, membres, quorum }, vas, ue) {
     m.push(`Quorum des deux tiers non atteint : ${quorum.presents} présent(s) `
       + `sur ${quorum.membres} voix délibératives, ${quorum.requis} requis.`);
   }
+  // LES MENTIONS QUE LE MODÈLE EXIGE. Leur absence ne rend pas la pièce
+  // incomplète : elle la rend irrégulière.
   if (!ue?.ue_code_fwb) m.push("Numéro de code de l'unité approuvé par le Gouvernement.");
+  if (ue?.ue_num != null) {
+    const cours = db.prepare(`SELECT cours_code, cours_nom, cours_per FROM cours
+      WHERE ue_num = ? AND annee_scolaire = ?`).all(ue.ue_num, ue.annee_scolaire);
+    if (!cours.length) {
+      m.push("Répartition par activité d'enseignement : aucun cours n'est encodé "
+        + 'pour cette unité cette année.');
+    } else {
+      for (const c of cours.filter(c => !c.cours_per)) {
+        m.push(`Périodes du cours ${c.cours_code} — ${c.cours_nom}.`);
+      }
+    }
+    if (!ue.ue_per_etudiants && !cours.some(c => c.cours_per)) {
+      m.push("Total des périodes de l'unité.");
+    }
+    const niv = String(ue.ue_niv || '').toUpperCase();
+    const sup = /SUP|BES|BAC|ESTC|ESTL/.test(niv) ? true
+      : /SEC|ESI|ESS/.test(niv) ? false : !!ue.ects;
+    if (sup && !ue.ects) m.push("Nombre d'E.C.T.S. de l'unité.");
+  }
   for (const v of vas) {
     const qui = `${v.nom} ${v.prenom || ''}`.trim();
     if (!v.date_naissance) m.push(`${qui} : date de naissance.`);
@@ -1274,6 +1295,24 @@ r.post('/valorisation/ue/:ueNum/documents', authRequired, async (req, res) => {
     return res.status(409).json({
       error: 'Valeurs manquantes : à encoder avant impression.', manques });
   }
+  // LES MENTIONS OBLIGATOIRES DE L'UNITÉ.
+  //
+  // Le modèle ne se contente pas d'un intitulé : il veut le numéro de code
+  // approuvé par le Gouvernement, le total des périodes ET leur répartition
+  // par activité d'enseignement — cours par cours, avec ses périodes. Sans
+  // cette répartition, la pièce ne dit pas sur quoi la dispense porte, et
+  // l'administration ne peut pas la vérifier.
+  const coursUE = db.prepare(`
+    SELECT cours_code, cours_nom, cours_per, ct_pp, enc_cours
+      FROM cours WHERE ue_num = ? AND annee_scolaire = ?
+     ORDER BY cours_num, cours_code`).all(ueNum, annee);
+  const sectionUE = ue.section
+    ? db.prepare('SELECT code, libelle, domaine, type_enseignement FROM section WHERE code = ?')
+      .get(ue.section) : null;
+  const perCours = coursUE.reduce((t, c) => t + (Number(c.cours_per) || 0), 0);
+  const autonomie = Number(ue.ue_aut) || 0;
+  const perTotal = (Number(ue.ue_per_etudiants) || perCours) + autonomie;
+
   const { seance, membres } = etatSeance;
   // QUI A PRÉSIDÉ SE CONSTATE, IL NE SE DÉDUIT PAS. Le nom saisi pour la
   // séance fait foi ; s'il correspond à un membre présent, c'est ce membre
@@ -1294,16 +1333,42 @@ r.post('/valorisation/ue/:ueNum/documents', authRequired, async (req, res) => {
     });
   }
 
-  const dit = v => v.type === 'complete' ? "Unité entière"
-    : v.cible_detail ? `${v.cible === 'aa' ? 'Acquis' : 'Cours'} : ${v.cible_detail}`
-      : v.type === 'admission' ? 'Admission' : 'Dispense partielle';
+  // LA COLONNE « DISPENSE(S) » EST LA SEULE PIÈCE OÙ L'ON DIT CE QUI A ÉTÉ
+  // DISPENSÉ, et désormais POURQUOI : les acquis reconnus équivalents y
+  // figurent avec le constat du Conseil. Sans cela, une valorisation partielle
+  // serait indistinguable d'une complète, et aucune des deux motivée.
+  const equivalences = {};
+  try {
+    for (const l of db.prepare(`
+      SELECT a.valorisation_id, a.aa_code, a.texte, aa.description
+        FROM etudiant_valorisation_aa a
+        LEFT JOIN aa ON aa.aa_code = a.aa_code AND aa.ue_num = ?
+       WHERE a.valorisation_id IN (${vas.map(() => '?').join(',') || 'NULL'})
+    `).all(ueNum, ...vas.map(v => v.id))) {
+      (equivalences[l.valorisation_id] ||= []).push(l);
+    }
+  } catch { /* table absente : la colonne se contente des codes */ }
+
+  const dit = v => {
+    const base = v.type === 'complete' ? 'Unité entière'
+      : v.cible_detail ? `${v.cible === 'aa' ? 'Acquis' : 'Cours'} : ${v.cible_detail}`
+        : v.type === 'admission' ? 'Admission' : 'Dispense partielle';
+    const eq = equivalences[v.id] || [];
+    if (!eq.length) return esc(base);
+    // Un seul constat pour tous les acquis : on ne le répète pas vingt fois.
+    const textes = [...new Set(eq.map(x => (x.texte || '').trim()).filter(Boolean))];
+    return `${esc(base)}<div class="ref" style="margin-top:.8mm">`
+      + `Acquis reconnus équivalents : ${esc(eq.map(x => x.aa_code).join(', '))}`
+      + textes.map(t => `<div>${esc(t)}</div>`).join('')
+      + '</div>';
+  };
 
   const lignes = vas.map(v => `<tr>
     <td><b>${esc((v.nom || '').toUpperCase())} ${esc(v.prenom || '')}</b><br>
       <span class="ref">${esc(v.lieu_naissance || '')}${
         v.date_naissance ? `, ${frDate(v.date_naissance)}` : ''}</span></td>
     <td class="c">${v.pourcentage != null ? 'Réussite' : 'Refus'}</td>
-    <td>${esc(dit(v))}</td>
+    <td>${dit(v)}</td>
     <td class="c">${v.pourcentage != null
       ? `${Math.round(Number(v.pourcentage))} %` : ''}</td>
   </tr>`).join('');
@@ -1333,10 +1398,37 @@ r.post('/valorisation/ue/:ueNum/documents', authRequired, async (req, res) => {
   <div class="carac">
     <div class="large">Intitulé de l'unité d'enseignement :
       <b>${esc(ue.ue_nom || `UE ${ueNum}`)}</b></div>
-    <div>${ue.ue_per_etudiants ? `<b>${ue.ue_per_etudiants}</b> périodes` : '…… périodes'}</div>
-    <div>Numéro de code : ${ue.ue_code_fwb ? `<b>${esc(ue.ue_code_fwb)}</b>`
-      : '<span class="manque">à compléter</span>'}</div>
+    <div>Numéro de code approuvé par le Gouvernement :
+      <b>${esc(ue.ue_code_fwb || '')}</b></div>
+    <div>Total des périodes : <b>${perTotal}</b>${
+      autonomie ? ` <span class="detail">(dont ${autonomie} d'autonomie)</span>` : ''}</div>
+    ${superieur && ue.ects ? `<div>Nombre d'E.C.T.S. : <b>${ue.ects}</b></div>` : ''}
+    <div>Section : <b>${esc(sectionUE?.libelle || ue.section || '')}</b></div>
+    ${superieur && (ue.domaine || sectionUE?.domaine)
+      ? `<div class="large">Domaine d'études :
+          <b>${esc(ue.domaine || sectionUE.domaine)}</b></div>` : ''}
   </div>
+
+  <p class="corps" style="margin-bottom:1mm">Répartition des périodes par
+    activité d'enseignement :</p>
+  <table class="doc">
+    <thead><tr>
+      <th style="width:16%">Code</th>
+      <th>Activité d'enseignement</th>
+      <th style="width:14%">Classement</th>
+      <th style="width:16%">Périodes</th>
+    </tr></thead>
+    <tbody>${coursUE.map(c => `<tr>
+      <td>${esc(c.cours_code || '')}</td>
+      <td>${esc(c.cours_nom || '')}</td>
+      <td class="c">${esc(c.ct_pp || '')}</td>
+      <td class="c">${c.cours_per != null ? c.cours_per : ''}</td>
+    </tr>`).join('')}${autonomie ? `<tr>
+      <td></td><td><i>Activités d'apprentissage en autonomie</i></td>
+      <td class="c"></td><td class="c">${autonomie}</td></tr>` : ''}
+      <tr><td></td><td><b>Total</b></td><td class="c"></td>
+        <td class="c"><b>${perTotal}</b></td></tr></tbody>
+  </table>
 
   <p class="corps">Après en avoir délibéré, avons pris les décisions suivantes :</p>
 

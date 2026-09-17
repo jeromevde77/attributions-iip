@@ -724,6 +724,27 @@ function Valorisations({ etudId, annee }) {
     /* eslint-disable-next-line */
   }, [form?.type, etudId, annee]);
   const [composantes, setComposantes] = useState(null);
+  // LES UNITÉS QU'ON PEUT VALORISER. Le numéro se tapait à la main : on ne
+  // valorise pourtant que ce qui existe chez nous, et ce que l'étudiant aura à
+  // son programme. Section d'abord, unités ensuite — celles du PAE en tête.
+  const [unites, setUnites] = useState(null);
+  const [sectionVA, setSectionVA] = useState('');
+
+  useEffect(() => {
+    if (!form) return;
+    const qs = new URLSearchParams({ annee });
+    if (sectionVA) qs.set('section', sectionVA);
+    fetch(`/api/etudiants/${etudId}/valorisations/unites?${qs}`, { headers: authHeaders() })
+      .then(r => r.json())
+      .then(j => {
+        setUnites(j);
+        // La section de l'étudiant est proposée d'emblée : c'est celle qu'on
+        // veut neuf fois sur dix, et l'écran ne doit pas la faire chercher.
+        if (!sectionVA && j.section_etudiant) setSectionVA(j.section_etudiant);
+      })
+      .catch(() => setUnites({ sections: [], unites: [] }));
+    /* eslint-disable-next-line */
+  }, [!!form, sectionVA, etudId, annee]);
   // Directeur, directeur adjoint et administrateur technique ont les mêmes
   // droits ici : comparer à la seule chaîne 'admin' en écartait la direction.
   const [estAdmin] = useState(() => {
@@ -743,7 +764,17 @@ function Valorisations({ etudId, annee }) {
     if (!ueNum) { setComposantes(null); setAnterieur(null); return; }
     const rep = await fetch(`/api/etudiants/ue/${ueNum}/composantes?annee=${annee}`,
       { headers: authHeaders() });
-    if (rep.ok) setComposantes(await rep.json());
+    if (rep.ok) {
+      const c = await rep.json();
+      setComposantes(c);
+      // EN DISPENSE COMPLÈTE, TOUS LES ACQUIS SONT ÉQUIVALENTS — c'est ce que
+      // « complète » veut dire. Les cocher un à un serait faire ressaisir une
+      // conséquence de la décision déjà prise.
+      setForm(f => (f && f.type === 'complete'
+        ? { ...f, equivalences: Object.fromEntries(
+            (c.aas || []).map(a => [a.aa_code, c.texte_equivalence])) }
+        : f));
+    }
 
     // Les notes déjà connues de l'étudiant : le report se décidait à l'aveugle,
     // il fallait les retenir de tête et les ressaisir.
@@ -771,7 +802,9 @@ function Valorisations({ etudId, annee }) {
   async function sauver() {
     const rep = await fetch(`/api/etudiants/${etudId}/valorisations`, {
       method: 'POST', headers: authHeaders(),
-      body: JSON.stringify({ ...form, annee_scolaire: annee }),
+      body: JSON.stringify({ ...form, annee_scolaire: annee,
+        equivalences: Object.entries(form.equivalences || {})
+          .map(([aa_code, texte]) => ({ aa_code, texte })) }),
     });
     const j = await rep.json();
     if (!rep.ok) { alert(j.error || 'Erreur'); return; }
@@ -800,6 +833,46 @@ function Valorisations({ etudId, annee }) {
     setForm(null); setComposantes(null); await charger();
   }
 
+  /**
+   * LE DÉPÔT D'UNE PREUVE.
+   *
+   * L'en-tête d'authentification porte « Content-Type: application/json » ; le
+   * laisser ici ferait envoyer un formulaire multipart sous une étiquette qui
+   * ment, et le serveur ne verrait aucun fichier.
+   */
+  async function deposer(vid, file) {
+    if (!file) return;
+    const { 'Content-Type': _ignore, ...entetes } = authHeaders();
+    const fd = new FormData();
+    fd.append('fichier', file);
+    const rep = await fetch(`/api/etudiants/valorisations/${vid}/fichiers`, {
+      method: 'POST', headers: entetes, body: fd });
+    if (!rep.ok) {
+      const e = await rep.json().catch(() => ({}));
+      alert(e.error || "La pièce n'a pas pu être déposée.");
+      return;
+    }
+    await charger();
+  }
+
+  async function telecharger(f) {
+    const { 'Content-Type': _ignore, ...entetes } = authHeaders();
+    const rep = await fetch(`/api/etudiants/valorisations/fichiers/${f.id}`,
+      { headers: entetes });
+    if (!rep.ok) { alert('Pièce introuvable.'); return; }
+    const url = URL.createObjectURL(await rep.blob());
+    const a = document.createElement('a');
+    a.href = url; a.download = f.nom; a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  async function supprimerPiece(fid) {
+    if (!confirm('Supprimer cette pièce ?')) return;
+    await fetch(`/api/etudiants/valorisations/fichiers/${fid}`,
+      { method: 'DELETE', headers: authHeaders() });
+    await charger();
+  }
+
   async function supprimer(vid) {
     if (!confirm('Supprimer cette valorisation ?')) return;
     await fetch(`/api/etudiants/valorisations/${vid}`, { method: 'DELETE', headers: authHeaders() });
@@ -814,7 +887,8 @@ function Valorisations({ etudId, annee }) {
         <p className="text-[12px] text-slate-500">
           Valorisation des acquis — AGCF du 13-12-2024 · décisions du Conseil des études
         </p>
-        <button onClick={() => setForm({ type: 'complete', ue_num: '', pourcentage: 50, cible: 'cours', cible_detail: '' })}
+        <button onClick={() => setForm({ type: 'complete', ue_num: '', pourcentage: 50, cible: 'cours',
+                             cible_detail: '', equivalences: {} })}
           className="flex items-center gap-1.5 px-3 py-1.5 text-sm border border-slate-300 rounded-lg">
           <IconPlus size={14} /> Ajouter une VA
         </button>
@@ -824,18 +898,47 @@ function Valorisations({ etudId, annee }) {
         <div className="border border-slate-200 rounded-xl p-4 bg-slate-50/60 space-y-3 mb-4">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             <label className="text-xs col-span-2"><span className="block font-semibold text-slate-500 uppercase tracking-wide mb-1">Type</span>
-              <select value={form.type} onChange={e => setForm(f => ({ ...f, type: e.target.value }))}
+              <select value={form.type} onChange={e => setForm(f => {
+                const t = e.target.value;
+                // Passer en « complète » coche tout : c'est ce que le mot dit.
+                // Repasser en partielle laisse la sélection, on y retire.
+                return { ...f, type: t,
+                  equivalences: t === 'complete' && composantes?.aas
+                    ? Object.fromEntries(composantes.aas.map(
+                        a => [a.aa_code, composantes.texte_equivalence || '']))
+                    : (f.equivalences || {}) };
+              })}
                 className="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-sm">
                 {TYPES_VA.map(t => <option key={t.val} value={t.val}>{t.label}</option>)}
               </select></label>
-            <label className="text-xs"><span className="block font-semibold text-slate-500 uppercase tracking-wide mb-1">N° UE</span>
-              <input type="number" value={form.ue_num}
-                onChange={e => { setForm(f => ({ ...f, ue_num: e.target.value })); }}
-                readOnly={form.type === 'partielle'}
-                title={form.type === 'partielle'
-                  ? "En dispense partielle, l'unité se déduit du cours choisi"
-                  : undefined}
-                className="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-sm" /></label>
+            <label className="text-xs"><span className="block font-semibold text-slate-500 uppercase tracking-wide mb-1">Section</span>
+              <select value={sectionVA} onChange={e => setSectionVA(e.target.value)}
+                className="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-sm">
+                <option value="">Toutes</option>
+                {(unites?.sections || []).map(sx => (
+                  <option key={sx.code} value={sx.code}>{sx.libelle || sx.code}</option>
+                ))}
+              </select></label>
+            <label className="text-xs col-span-2"><span className="block font-semibold text-slate-500 uppercase tracking-wide mb-1">Unité d'enseignement</span>
+              <select value={form.ue_num || ''}
+                onChange={e => {
+                  const n = e.target.value;
+                  setForm(f => ({ ...f, ue_num: n, cible_detail: '', notes: {},
+                                  equivalences: {} }));
+                  if (n) chargerComposantes(Number(n));
+                  else { setComposantes(null); setAnterieur(null); }
+                }}
+                className="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-sm">
+                <option value="">— choisir une unité —</option>
+                {(unites?.unites || []).map(u => (
+                  <option key={u.ue_num} value={u.ue_num}>
+                    {u.au_pae ? '★ ' : ''}{u.ue_num} — {u.ue_nom}
+                  </option>
+                ))}
+              </select>
+              <span className="block text-[10px] text-slate-400 mt-1">
+                ★ déjà au programme de l'étudiant en {annee}
+              </span></label>
             {form.type !== 'admission' && (
               <label className="text-xs"><span className="block font-semibold text-slate-500 uppercase tracking-wide mb-1">%</span>
                 <input type="number" min="0" max="100" value={form.pourcentage}
@@ -884,7 +987,12 @@ function Valorisations({ etudId, annee }) {
                   </div>
 
                   <div className="max-h-72 overflow-y-auto">
-                    {coursEtud.unites.map(u => (
+                    {/* LES COURS DE L'UNITÉ CHOISIE, et d'elle seule : une
+                        dispense partielle porte sur l'unité qu'on valorise, et
+                        dérouler tout le programme invitait à cocher ailleurs. */}
+                    {coursEtud.unites
+                      .filter(u => !form.ue_num || Number(u.ue_num) === Number(form.ue_num))
+                      .map(u => (
                       <div key={u.ue_num}>
                         <div className="px-3 py-1 bg-slate-100/70 border-y border-slate-200
                                         text-[12px] font-semibold text-iip-blue sticky top-0">
@@ -997,6 +1105,58 @@ function Valorisations({ etudId, annee }) {
             </div>
           )}
 
+          {/* ═══ LES ACQUIS RECONNUS ÉQUIVALENTS ═══
+              Le Conseil ne dispense pas d'un acquis : il constate qu'il est
+              maîtrisé ailleurs. C'est ce constat, écrit acquis par acquis, qui
+              tient devant une inspection — d'où une phrase proposée, jamais un
+              blanc, et toujours remplaçable. */}
+          {form.ue_num && composantes?.aas?.length > 0 && (
+            <div className="border border-slate-200 rounded-xl overflow-hidden bg-white">
+              <div className="px-3 py-1.5 bg-slate-50 border-b border-slate-200
+                              flex items-center justify-between">
+                <span className="text-[11px] uppercase tracking-wide text-slate-500 font-semibold">
+                  Acquis d'apprentissage reconnus équivalents
+                </span>
+                <span className="text-[11px] text-slate-500">
+                  {Object.keys(form.equivalences || {}).length} / {composantes.aas.length}
+                  {form.type === 'complete' && ' · dispense complète'}
+                </span>
+              </div>
+              <div className="max-h-72 overflow-y-auto divide-y divide-slate-100">
+                {composantes.aas.map(a => {
+                  const coche = (form.equivalences || {})[a.aa_code] !== undefined;
+                  return (
+                    <div key={a.aa_code} className={`px-3 py-2 ${coche ? 'bg-iip-blue/5' : ''}`}>
+                      <label className="flex items-start gap-2 cursor-pointer">
+                        <input type="checkbox" checked={coche} className="mt-0.5"
+                          onChange={() => setForm(f => {
+                            const eq = { ...(f.equivalences || {}) };
+                            if (coche) delete eq[a.aa_code];
+                            else eq[a.aa_code] = composantes.texte_equivalence || '';
+                            return { ...f, equivalences: eq };
+                          })} />
+                        <span className="text-[12px] flex-1 min-w-0">
+                          <span className="font-mono text-[11px] text-slate-500 mr-1.5">
+                            {a.aa_code}
+                          </span>
+                          {a.description || ''}
+                        </span>
+                      </label>
+                      {coche && (
+                        <textarea rows={2}
+                          value={(form.equivalences || {})[a.aa_code] || ''}
+                          onChange={e => setForm(f => ({ ...f,
+                            equivalences: { ...(f.equivalences || {}), [a.aa_code]: e.target.value } }))}
+                          className="mt-1.5 ml-6 w-[calc(100%-1.5rem)] border border-slate-300
+                                     rounded-lg px-2 py-1 text-[12px]" />
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
           <div className="grid grid-cols-2 gap-3">
             <label className="text-xs"><span className="block font-semibold text-slate-500 uppercase tracking-wide mb-1">Date décision CE</span>
               <input type="date" value={form.decision_ce_date || ''}
@@ -1035,6 +1195,38 @@ function Valorisations({ etudId, annee }) {
                   {v.cible ? ` · ${v.cible === 'cours' ? 'cours' : 'AA'} : ${v.cible_detail}` : ''}
                   {v.pourcentage != null ? ` · ${v.pourcentage} %` : ''}
                   {v.decision_ce_date ? ` · CE du ${v.decision_ce_date}` : ''}
+                </div>
+
+                {/* LES PREUVES. Une valorisation se décide sur pièces — un
+                    diplôme, une attestation, un dossier pédagogique. Elles
+                    vivaient dans une armoire ou une boîte courriel : deux ans
+                    plus tard, la décision ne s'appuyait plus sur rien. */}
+                <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
+                  {(v.fichiers || []).map(f => (
+                    <span key={f.id}
+                      className="inline-flex items-center gap-1 text-[11px] border
+                                 border-slate-200 rounded-lg pl-2 pr-1 py-0.5 bg-white">
+                      <button type="button" onClick={() => telecharger(f)}
+                        className="hover:underline text-iip-blue max-w-[220px] truncate"
+                        title={`${f.nom} · ${Math.round((f.taille || 0) / 1024)} Ko`}>
+                        {f.nom}
+                      </button>
+                      {estAdmin && (
+                        <button type="button" onClick={() => supprimerPiece(f.id)}
+                          className="text-slate-300 hover:text-red-500" title="Supprimer la pièce">
+                          <IconX size={12} />
+                        </button>
+                      )}
+                    </span>
+                  ))}
+                  <label className="inline-flex items-center gap-1 text-[11px] text-slate-500
+                                    border border-dashed border-slate-300 rounded-lg px-2 py-0.5
+                                    cursor-pointer hover:border-iip-blue hover:text-iip-blue">
+                    <IconUpload size={12} /> Déposer une preuve
+                    <input type="file" className="hidden"
+                      accept=".pdf,.jpg,.jpeg,.png,.gif,.webp,.heic,.tif,.tiff,.doc,.docx,.odt,.xls,.xlsx,.ods,.txt,.eml"
+                      onChange={e => { deposer(v.id, e.target.files?.[0]); e.target.value = ''; }} />
+                  </label>
                 </div>
               </div>
               <div className="flex items-center gap-2 flex-none">

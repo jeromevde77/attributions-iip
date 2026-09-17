@@ -284,6 +284,19 @@ est composée une première fois pour être comptée. L'écran est le bouton
 *Documents* de l'onglet VA de la fiche étudiant, et ce qui en sort concerne
 **l'unité entière**, pas le seul étudiant dont on a la fiche sous les yeux.
 
+**Une valorisation se décide sur pièces, et elle se motive.** Depuis 2.11.8, le
+numéro d'unité ne se tape plus : **section → unité**, liste filtrée, celles du
+PAE en tête — on ne valorise qu'une unité de chez nous, et le serveur refuse un
+numéro inconnu du référentiel. Les **acquis reconnus équivalents** se cochent un
+à un (tous en dispense complète, c'est ce que le mot veut dire), chacun avec son
+constat écrit : une phrase proposée **par le serveur** — deux libellés, un
+affiché et un enregistré, finiraient par diverger — remplaçable, jamais un
+blanc. Les **preuves** (PDF, image, Word, tableur ; 25 Mo) se déposent sur
+chaque valorisation et partent avec elle, disque compris. Le procès-verbal porte
+enfin les mentions que le modèle exige : code approuvé par le Gouvernement,
+ECTS, total des périodes **et leur répartition par activité d'enseignement**,
+cours par cours — leur absence bloque l'impression comme le reste.
+
 **Chantiers de conformité ouverts, dans l'ordre :** geler les décisions à la
 clôture et historiser par ajout ; figer et horodater le PV ; bloc de signatures
 nominatif ; date d'affichage et mode de publication en champs propres ; écrire
