@@ -1533,8 +1533,13 @@ r.post('/valorisation/ue/:ueNum/documents', authRequired, async (req, res) => {
       etudiant: `${v.nom} ${v.prenom || ''}`.trim(),
       annexe: superieur ? 15 : 14,
       manques: u.manques || [],
-      html: pageAttestationValorisation(v, { ...u, superieur },
+      // Le corps nu, pour l'assemblage ; la page complète, pour qui voudrait
+      // n'imprimer que celle-ci.
+      corps: pageAttestationValorisation(v, { ...u, superieur },
         annee, etab, v, req.body?.date_document || null, ident),
+      html: envelopper(pageAttestationValorisation(v, { ...u, superieur },
+        annee, etab, v, req.body?.date_document || null, ident),
+        `Attestation — ${`${v.nom} ${v.prenom || ''}`.trim()}`),
     };
   });
 
@@ -1563,8 +1568,21 @@ r.post('/valorisation/ue/:ueNum/documents', authRequired, async (req, res) => {
     }
   } catch (e) { console.error('[valorisation/pages]', e.message); }
 
+  // UN SEUL DOCUMENT, CHAQUE PIÈCE SUR SA PAGE.
+  //
+  // L'écran ouvrait un onglet par pièce. Le navigateur n'en laisse passer
+  // qu'un : les suivants sont bloqués, et l'attestation ne sortait jamais —
+  // on croyait qu'elle n'était pas produite. C'est d'ailleurs la règle déjà
+  // suivie par le centre d'impression des unités : une enveloppe, des sauts
+  // de page, et l'impression décide du reste.
+  const corpsPv = pv.replace('{{NB_PAGES}}', pages != null ? String(pages) : '……');
+  const tout = [corpsPv, ...attestations.map(a => a.corps)]
+    .join('<div class="saut"></div>');
+
   res.json({
-    html: htmlAvec(pages != null ? String(pages) : '……'),
+    html: envelopper(tout, `Valorisation — UE ${ueNum}`),
+    // Le procès-verbal seul, pour qui ne veut que lui.
+    html_pv: htmlAvec(pages != null ? String(pages) : '……'),
     pages,
     nom: `Valorisation_UE${ueNum}_${String(annee).replace(/\W/g, '')}.html`,
     annexe: 4,

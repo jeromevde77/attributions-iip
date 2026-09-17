@@ -309,6 +309,10 @@ unité est `decrireUnite()`, commune aux deux voies : la délibération y entre
 avec des points sur 20, la valorisation avec le pourcentage arrêté par le
 Conseil. Les mentions manquantes de l'attestation rejoignent la barrière du PV —
 elles étaient signalées dans un coin de la réponse que personne ne lisait.
+**Une pièce par onglet, c'est une pièce tout court** : le navigateur bloque les
+fenêtres successives, si bien que seul le PV sortait. Depuis 2.11.11, les pièces
+d'une même production partent dans **une seule enveloppe**, chacune sur sa page —
+la règle que suivait déjà le centre d'impression des unités.
 
 **Chantiers de conformité ouverts, dans l'ordre :** geler les décisions à la
 clôture et historiser par ajout ; figer et horodater le PV ; bloc de signatures
