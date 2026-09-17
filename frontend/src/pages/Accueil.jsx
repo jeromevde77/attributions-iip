@@ -8,7 +8,9 @@ import {
   // on voyait trois fois le même dessin et il fallait survoler chacun pour
   // savoir lequel on visait. Une icône qui ne distingue rien ne sert à rien.
   IconCalendarWeek, IconCalendarMonth, IconCalendarStats,
-  IconUserPlus, IconClipboardList, IconSettings, IconRefresh, IconCake} from '@tabler/icons-react';
+  IconUserPlus, IconClipboardList, IconSettings, IconRefresh, IconCake,
+  IconClipboardPlus} from '@tabler/icons-react';
+import ConfierTache from '../components/ConfierTache.jsx';
 
 const tok = () => localStorage.getItem('token');
 
@@ -62,7 +64,7 @@ function prenom(nomComplet) {
  * place — repasser par l'écran des réunions pour dire « c'est fait » est un
  * détour que personne ne prend.
  */
-function MesTaches() {
+function MesTaches({ signal = 0 }) {
   const [taches, setTaches] = useState([]);
   const [confiees, setConfiees] = useState([]);
   const [prochaine, setProchaine] = useState(null);
@@ -79,7 +81,7 @@ function MesTaches() {
       l => setConfiees(Array.isArray(l) ? l : []));
     lire('/api/reunions/prochaine', setProchaine);
   };
-  useEffect(() => { charger(); }, []);
+  useEffect(() => { charger(); /* eslint-disable-next-line */ }, [signal]);
 
   async function cocher(t) {
     await fetch(`/api/reunions/taches/${t.id}`, {
@@ -208,6 +210,10 @@ export default function Accueil() {
   const [loading, setLoading] = useState(true);
   const [filtre, setFiltre]   = useState('tout'); // 'tout' | 'attribution' | 'recrutement' | 'systeme'
   const [jours, setJours]     = useState(30);
+  const [confier, setConfier] = useState(false);
+  // Confier une tâche doit se voir tout de suite dans « Ce que j'ai confié » :
+  // une action qu'on ne retrouve pas donne l'impression de n'avoir rien fait.
+  const [rafraichirTaches, setRafraichirTaches] = useState(0);
   const annee   = getAnnee();
   const u       = getUser();
   const navigate = useNavigate();
@@ -271,6 +277,13 @@ export default function Accueil() {
         titre="Accueil"
         sousTitre={annee}
         sections={[
+          /* CONFIER SE FAIT D'ICI. Une consigne donnée dans un couloir n'avait
+             nulle part où aller : le seul écran qui créait des tâches était
+             celui d'une réunion. Le modèle, lui, l'a toujours permis. */
+          { label: 'Action', items: [
+            { key: 'confier', label: 'Confier une tâche', icon: IconClipboardPlus,
+              onClick: () => setConfier(true) },
+          ]},
           { label: 'Filtre', items: [
             { key: 'tout',         label: `Tout${nbNonLus > 0 ? ` (${nbNonLus})` : ''}`,            icon: IconBell,          actif: filtre === 'tout',         onClick: () => setFiltre('tout') },
             { key: 'attribution',  label: `Attributions${nbAttr > 0 ? ` (${nbAttr})` : ''}`,       icon: IconClipboardList, actif: filtre === 'attribution',  onClick: () => setFiltre('attribution') },
@@ -284,6 +297,11 @@ export default function Accueil() {
           ]},
         ]}
       />
+
+      {confier && (
+        <ConfierTache onClose={() => setConfier(false)}
+          onCree={() => setRafraichirTaches(n => n + 1)} />
+      )}
 
       <div className="gouttiere-rail p-4 md:p-8">
 
@@ -305,7 +323,7 @@ export default function Accueil() {
             procès-verbal, c'est-à-dire nulle part. Elle s'affiche ici, au-dessus
             du fil, et se coche d'ici — avec les tâches confiées à mon rôle, pas
             seulement à mon nom. */}
-        <MesTaches />
+        <MesTaches signal={rafraichirTaches} />
 
         {/* En-tête du fil */}
         <div className="flex items-center justify-between mb-4">
