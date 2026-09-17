@@ -259,6 +259,9 @@ function UniteValorisee({ va, annee, onSupprimer, onDocuments, onChange, onErreu
     setForm({
       decision: va.decision === 'refusee' ? 'refusee'
         : va.type === 'complete' ? 'totale' : 'partielle',
+      // LA LECTURE SE DÉDUIT DE CE QUI EST ÉCRIT : des cours dispensés, on
+      // rouvre par cours ; sinon par acquis — c'est ce qu'on regardait.
+      mode: cours.length ? 'cours' : (va.cible === 'aa' ? 'aa' : 'cours'),
       cours,
       aas: {},                       // rempli par le chargement des équivalences
       motif_refus: va.motif_refus || '',
@@ -393,10 +396,79 @@ function UniteValorisee({ va, annee, onSupprimer, onDocuments, onChange, onErreu
             ) : !comp ? (
               <div className="text-[12px] text-slate-400">Chargement des composantes…</div>
             ) : (
-              /* PARTIELLE : cours, acquis, OU LES DEUX. Les deux listes sont
-                 indépendantes — c'est la question posée, et le modèle la
-                 supporte depuis toujours. */
+              /* PARTIELLE — DEUX LECTURES DE LA MÊME UNITÉ.
+                 PAR ACQUIS : on valorise une COMPÉTENCE, une ou plusieurs.
+                 Elles se lisent d'affilée, sans le détour des cours — c'est
+                 ainsi que le Conseil raisonne quand la formation antérieure ne
+                 se découpe pas comme la nôtre.
+                 PAR COURS : on dispense une activité d'enseignement, et les
+                 acquis de CE cours restent sous les yeux — on ne dispense pas
+                 un cours sans savoir quelles compétences partent avec lui.
+                 Les deux écrivent au même endroit : les cours cochés dans
+                 `cible_detail`, les acquis reconnus dans leur table. Changer de
+                 lecture ne perd donc rien de ce qui est déjà coché. */
               <div className="space-y-2">
+                <div className="flex gap-3 text-[13px] items-center">
+                  {[['cours', 'Par cours', 'Une activité d’enseignement, et ses acquis'],
+                    ['aa', 'Par acquis', 'Une compétence, ou plusieurs']].map(([v, lab, aide]) => (
+                    <label key={v} className="flex items-center gap-1.5 cursor-pointer"
+                      title={aide}>
+                      <input type="radio" checked={(form.mode || 'cours') === v}
+                        onChange={() => set('mode', v)} />
+                      {lab}
+                    </label>
+                  ))}
+                  <span className="ml-auto text-[11px] text-slate-400">
+                    {form.cours.length} cours · {Object.keys(form.aas).length} acquis
+                  </span>
+                </div>
+
+                {(form.mode || 'cours') === 'aa' ? (
+                  /* TOUS LES ACQUIS DE L'UNITÉ, À PLAT. Groupés par cours, ils
+                     obligeraient à ouvrir quatre cours pour en cocher deux qui
+                     n'ont rien à voir entre eux. Le code du cours reste écrit à
+                     droite : on sait d'où vient la compétence sans que le
+                     rangement l'impose. */
+                  <div className="border border-slate-200 rounded-carte overflow-hidden">
+                    {!(comp.aas || []).length ? (
+                      <div className="px-3 py-3 text-[12px] text-amber-800">
+                        Cette unité ne porte aucun acquis au référentiel.
+                      </div>
+                    ) : comp.aas.map(a2 => {
+                      const coche = form.aas[a2.aa_code] !== undefined;
+                      return (
+                        <div key={a2.aa_code}
+                          className={`px-3 py-1.5 border-b border-slate-50 last:border-0
+                            ${coche ? 'bg-iip-blue/5' : ''}`}>
+                          <label className="flex items-start gap-2 cursor-pointer">
+                            <input type="checkbox" checked={coche} className="mt-0.5"
+                              onChange={() => setForm(f => {
+                                const aas = { ...f.aas };
+                                if (coche) delete aas[a2.aa_code];
+                                else aas[a2.aa_code] = comp.texte_equivalence || '';
+                                return { ...f, aas };
+                              })} />
+                            <span className="text-[12px] flex-1 min-w-0">
+                              <span className="font-mono text-[11px] text-slate-500 mr-1.5">
+                                {a2.aa_code}
+                              </span>{a2.description || ''}
+                            </span>
+                            <span className="text-[11px] text-slate-400 flex-none">
+                              {a2.cours_code || ''}
+                            </span>
+                          </label>
+                          {coche && (
+                            <textarea rows={2} value={form.aas[a2.aa_code] || ''}
+                              onChange={e => setForm(f => ({ ...f,
+                                aas: { ...f.aas, [a2.aa_code]: e.target.value } }))}
+                              className="mt-1.5 ml-6 w-[calc(100%-1.5rem)] border
+                                         border-slate-300 rounded-champ px-2 py-1 text-[12px]" />
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (<>
                 {(comp.cours || []).length === 0 && (
                   <div className="text-[12px] text-amber-800">
                     Cette unité ne porte aucun cours au référentiel {annee}.
@@ -463,6 +535,7 @@ function UniteValorisee({ va, annee, onSupprimer, onDocuments, onChange, onErreu
                     </div>
                   );
                 })}
+                </>)}
               </div>
             )}
 
