@@ -91,9 +91,25 @@ export default function ConfierTache({ onClose, onCree }) {
   const pret = form.titre.trim() && choisies.size;
 
   return (
+    /* L'ACTION VIT DANS LE PIED, JAMAIS DANS LE CONTENU.
+       La liste des personnes défile ; un bouton posé dessous descend avec
+       elle, et il faut dérouler tout le personnel pour valider trois cases
+       cochées en haut. */
     <Fenetre icone={IconClipboardPlus} large="grande" onFermer={onClose}
       titre="Confier une tâche"
-      sous="Elle rejoint le suivi, sans passer par une réunion">
+      sous="Elle rejoint le suivi, sans passer par une réunion"
+      pied={<>
+        <button onClick={confier} disabled={!pret || enCours}
+          className="bouton bouton-fort disabled:opacity-40">
+          {choisies.size > 1 ? `Confier à ${choisies.size} personnes` : 'Confier'}
+        </button>
+        {!pret && (
+          <span className="text-[12px] text-amber-800">
+            {!form.titre.trim() ? "Écris ce qu'il y a à faire." : 'Coche au moins une personne.'}
+          </span>
+        )}
+        <button onClick={onClose} className="bouton ml-auto">Annuler</button>
+      </>}>
       <div className="flex-1 min-h-0 flex">
 
         {/* ── À QUI ─────────────────────────────────────────── */}
@@ -199,13 +215,7 @@ export default function ConfierTache({ onClose, onCree }) {
 
           {erreur && <div className="text-[12px] text-rose-700">{erreur}</div>}
 
-          <div className="flex gap-2 pt-1">
-            <button onClick={confier} disabled={!pret || enCours}
-              className="bouton bouton-fort disabled:opacity-40">
-              {choisies.size > 1 ? `Confier à ${choisies.size} personnes` : 'Confier'}
-            </button>
-            <button onClick={onClose} className="bouton ml-auto">Annuler</button>
-          </div>
+
         </div>
       </div>
     </Fenetre>

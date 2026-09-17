@@ -4,6 +4,7 @@ import {
   IconCheck, IconChevronLeft, IconClock, IconUser, IconX, IconTrash,
 } from '@tabler/icons-react';
 import { authHeaders } from '../lib/api.js';
+import FriseEcheances from '../components/FriseEcheances.jsx';
 import { PageHeader, RailLateral } from '../components/ui.jsx';
 import { nomDepuisChaine, nomListe, parNom } from '../lib/nom.js';
 import PreviewModal from '../components/PreviewModal.jsx';
@@ -645,6 +646,53 @@ function ChoixResponsables({ personnes, presents = [], tache, onChange }) {
 
 // ─── LES TÂCHES ─────────────────────────────────────────────────────────────
 
+/**
+ * UN TITRE QUI SE CORRIGE SUR PLACE.
+ *
+ * Une fenêtre pour changer trois mots coûte plus que de les taper — c'est déjà
+ * l'argument qui a fait poser la création au bas de la liste. Le titre suit la
+ * même règle : il s'édite là où il se lit.
+ */
+function TitreModifiable({ tache, compact, onValider }) {
+  const [edite, setEdite] = useState(false);
+  const [texte, setTexte] = useState(tache.titre || '');
+  useEffect(() => { setTexte(tache.titre || ''); }, [tache.titre]);
+
+  function valider() {
+    const t = texte.trim();
+    setEdite(false);
+    if (t && t !== tache.titre) onValider(t);
+    else setTexte(tache.titre || '');
+  }
+
+  if (edite) {
+    return (
+      <input autoFocus value={texte} onChange={e => setTexte(e.target.value)}
+        onBlur={valider}
+        onKeyDown={e => {
+          if (e.key === 'Enter') valider();
+          // ÉCHAP REND LA MAIN SANS RIEN ÉCRIRE : sans lui, on ne peut plus
+          // sortir d'une modification entamée par erreur qu'en la validant.
+          if (e.key === 'Escape') { setTexte(tache.titre || ''); setEdite(false); }
+        }}
+        className="flex-1 min-w-0 bg-white border border-iip-blue rounded-champ
+                   px-2 h-8 text-[13px]" />
+    );
+  }
+  return (
+    <button onClick={() => setEdite(true)} title="Corriger l'intitulé"
+      className={`flex-1 min-w-0 text-left text-[13px] truncate
+        hover:underline decoration-dotted underline-offset-2
+        ${tache.statut === 'fait' || tache.statut === 'abandonnee'
+          ? 'text-slate-400 line-through' : 'text-slate-800'}`}>
+      {tache.titre}
+      {tache.reunion_date && compact && (
+        <span className="text-[11px] text-slate-400"> · décidée le {fr(tache.reunion_date)}</span>
+      )}
+    </button>
+  );
+}
+
 function ListeTaches({ taches, personnes, presents = [], obligations = [], api, onRecharger,
                        reunionId, pointId, avecAjout, compact }) {
   const [nouvelle, setNouvelle] = useState({
@@ -687,14 +735,15 @@ function ListeTaches({ taches, personnes, presents = [], obligations = [], api, 
             <IconCheck size={13} />
           </button>
 
-          <span className={`flex-1 min-w-0 text-[13px]
-            ${t.statut === 'fait' || t.statut === 'abandonnee'
-              ? 'text-slate-400 line-through' : 'text-slate-800'}`}>
-            {t.titre}
-            {t.reunion_date && compact && (
-              <span className="text-[11px] text-slate-400"> · décidée le {fr(t.reunion_date)}</span>
-            )}
-          </span>
+          {/* LE TITRE SE CORRIGE. Tout était modifiable sur cette ligne —
+              responsable, échéance, statut, obligation — SAUF ce qu'on lit en
+              premier. Une faute de frappe ou une consigne qui change n'avaient
+              donc qu'une issue : supprimer la tâche et la refaire, ce qui perd
+              sa date de création et son rattachement à la réunion qui l'a
+              décidée. On clique dessus, on écrit, Entrée enregistre ; Échap
+              rend la main sans rien changer. */}
+          <TitreModifiable tache={t} compact={compact}
+            onValider={titre => majTache(t, { titre })} />
 
           {!!obligations.length && (
             <select value={t.echeance_id || ''} title="Obligation servie par cette action"
@@ -831,6 +880,18 @@ function VueTaches({ taches, personnes, obligations, api, filtre, setFiltre,
             </button>
           </>
         } />
+
+      {/* LA FRISE AVANT LES LISTES.
+          Groupée par personne, la matière répond à « qu'a Untel en charge ? »
+          et cache précisément l'autre question — « qu'est-ce qui tombe la
+          semaine prochaine ? » —, celle d'une réunion de service, et la seule
+          qui fasse déplacer une date avant qu'il ne soit trop tard. Les trois
+          échéances du 12 sont réparties entre trois groupes, et personne ne les
+          voit tomber ensemble.
+          Elle porte TOUTES les tâches, pas seulement celles du filtre : une
+          frise qui suivrait « Ouvertes » perdrait ce qui vient d'être clos, et
+          on ne verrait plus que le mois est chargé. */}
+      <FriseEcheances taches={taches} />
 
       {!groupes.length && (
         <p className="text-[13px] text-slate-400">Rien à ce filtre.</p>

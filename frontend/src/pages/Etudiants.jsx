@@ -1,9 +1,9 @@
 import { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
 import { nomPropre } from '../lib/nom.js';
 import { RailLateral } from '../components/ui.jsx';
-import RegistreValorisations from '../components/RegistreValorisations.jsx';
+import NouvelEtudiant from '../components/NouvelEtudiant.jsx';
 import {
-  IconAlertTriangle, IconAward, IconCertificate, IconStairsUp, IconCheck, IconChecklist, IconChevronLeft, IconChevronRight, IconClock, IconFileText, IconFolder, IconPlus, IconPrinter, IconSearch, IconTable, IconTrash, IconUpload, IconUser, IconWritingSign, IconWritingSignOff, IconX,
+  IconAlertTriangle, IconAward, IconCertificate, IconStairsUp, IconUserPlus, IconCheck, IconChecklist, IconChevronLeft, IconChevronRight, IconClock, IconFileText, IconFolder, IconPlus, IconPrinter, IconSearch, IconTable, IconTrash, IconUpload, IconUser, IconWritingSign, IconWritingSignOff, IconX,
 } from '@tabler/icons-react';
 import { authHeaders, getAnnee } from '../lib/api.js';
 import PreviewModal from '../components/PreviewModal.jsx';
@@ -2286,7 +2286,7 @@ export default function Etudiants() {
   const [rapport, setRapport] = useState(null);
   const [importPAE, setImportPAE] = useState(false);
   const [purge, setPurge] = useState(false);
-  const [registreVA, setRegistreVA] = useState(false);
+  const [nouvel, setNouvel] = useState(false);
   const [rapportPAE, setRapportPAE] = useState(false);
   const [importListe, setImportListe] = useState(false);
   const [importHisto, setImportHisto] = useState(false);
@@ -2657,16 +2657,22 @@ export default function Etudiants() {
     // avertissement, pas une décoration.
     ...(peutSupprimer ? [{ label: 'Supprimer', items: [
       { key: 'purge', label: 'Vider des résultats ou des inscriptions',
-        icon: IconTrash, couleur: '#9d4a38', onClick: () => setPurge(true) },
+        icon: IconTrash, couleur: '#9d4a38', destructif: true,
+        onClick: () => setPurge(true) },
     ] }] : []),
-    // LA VALORISATION SE LISAIT FICHE PAR FICHE, donc elle ne se lisait pas :
-    // personne n'ouvre cinq cent quatre-vingt-huit dossiers pour savoir qui a
-    // demandé quoi. Le registre est une LECTURE de l'existant — il n'encode
-    // rien, il montre.
-    { label: 'Valorisation', items: [
-      { key: 'registre-va', label: 'Les valorisations des acquis',
-        icon: IconCertificate, onClick: () => setRegistreVA(true) },
+    // INSCRIRE QUELQU'UN. La route serveur existait depuis l'origine, sans
+    // aucun écran pour l'appeler : tout entrait par l'import eCampus, et
+    // l'inscription tardive n'avait nulle part où aller. C'est la première
+    // entrée du rail parce que c'est le premier geste de l'année.
+    { label: 'Inscrire', items: [
+      { key: 'nouvel-etudiant', label: 'Créer un étudiant',
+        icon: IconUserPlus, onClick: () => setNouvel(true) },
     ] },
+    // LE REGISTRE DES VALORISATIONS A QUITTÉ CE RAIL. Il y figurait en même
+    // temps que l'onglet « Valorisation des acquis » de l'axe : deux portes
+    // pour la même matière, à trois centimètres l'une de l'autre, et « VA »
+    // écrit deux fois dans le même menu. L'onglet fait tout ce que faisait le
+    // registre, et il encode en plus.
     { label: 'Fin de cycle', items: [
       { key: 'passage', label: "Composer les PAE de l'année suivante",
         /* PAS DEUX FOIS LE MÊME DESSIN DANS UN RAIL. « Passage de classe »
@@ -2885,9 +2891,9 @@ export default function Etudiants() {
         </div>
       )}
 
-      {registreVA && (
-        <RegistreValorisations onClose={() => setRegistreVA(false)}
-          onOuvrirEtudiant={id => { setRegistreVA(false); setSelId(id); }} />
+      {nouvel && (
+        <NouvelEtudiant onClose={() => setNouvel(false)}
+          onCree={id => { setNouvel(false); charger(); setSelId(id); }} />
       )}
 
       {selId && (

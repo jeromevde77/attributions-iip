@@ -1,8 +1,9 @@
-import { createContext, lazy, Suspense, useContext, useEffect, useState } from 'react';
+import { createContext, Fragment, lazy, Suspense, useContext, useEffect, useState } from 'react';
 
 const CentreImpressionCentral = lazy(() => import('./CentreImpressionCentral.jsx'));
+const Ameliorations = lazy(() => import('./Ameliorations.jsx'));
 import { createPortal } from 'react-dom';
-import { IconPin, IconPinnedOff, IconSun, IconMoon, IconPrinter, IconX } from '@tabler/icons-react';
+import { IconPin, IconPinnedOff, IconSun, IconMoon, IconSend, IconBulb, IconX } from '@tabler/icons-react';
 import { useRailEpingle, basculerEpingle, LARGEUR_RAIL } from '../lib/railEpingle.js';
 import { useMode, basculerMode } from '../lib/theme.js';
 
@@ -213,6 +214,32 @@ export function RailLateral({ icon: HeaderIcon, titre, sousTitre, extra,
 }
 
 /** Le rail tel qu'il se dessine — appelé par l'axe, ou par un écran isolé. */
+/**
+ * LE TIROIR DU RAIL — il s'ouvre, il n'apparaît pas.
+ *
+ * Monté directement à sa hauteur finale, le sous-menu surgissait d'un bloc :
+ * on ne voyait pas d'où il venait, et le lien avec la rubrique cliquée se
+ * perdait. Il se monte donc FERMÉ, et s'ouvre à l'image suivante — c'est le
+ * mouvement, pas la présence, qui dit la parenté.
+ *
+ * La hauteur passe de 0fr à 1fr : la seule transition de hauteur qui n'oblige
+ * pas à mesurer le contenu, donc la seule qui reste juste le jour où une
+ * entrée s'ajoute.
+ */
+function TiroirRail({ children }) {
+  const [ouvert, setOuvert] = useState(false);
+  useEffect(() => {
+    const t = requestAnimationFrame(() => setOuvert(true));
+    return () => cancelAnimationFrame(t);
+  }, []);
+  return (
+    <div className="grid transition-[grid-template-rows] duration-300 ease-ios"
+      style={{ gridTemplateRows: ouvert ? '1fr' : '0fr' }}>
+      <div className="overflow-hidden">{children}</div>
+    </div>
+  );
+}
+
 export function RailDessine({ icon: HeaderIcon, titre, sousTitre, extra,
                               sections = [], actions = [], volet = null,
                               surNoeudVolet = null, impression = 'etudiants',
@@ -241,6 +268,7 @@ export function RailDessine({ icon: HeaderIcon, titre, sousTitre, extra,
    * sa hauteur, et on la dessine une fois, au niveau du rail.
    */
   const [survol, setSurvol] = useState(null);
+  const [idees, setIdees] = useState(false);
   const surviser = (e, label) => {
     const r = e.currentTarget.getBoundingClientRect();
     const p = e.currentTarget.closest('aside').getBoundingClientRect();
@@ -396,9 +424,25 @@ export function RailDessine({ icon: HeaderIcon, titre, sousTitre, extra,
               sortir une pièce, quel que soit le format qu'on choisit ensuite
               dans la fenêtre. Deux portes pour un même geste, c'en était une
               de trop. */}
-          {[{ key: '__impression', label: 'Imprimer', icon: IconPrinter,
+          {/* LE MÊME ORDRE PARTOUT, ET IL NE SE DISCUTE PAS :
+              SORTIR d'abord — imprimer une pièce ou l'envoyer, c'est le même
+              geste depuis que le centre fait les deux —, puis ce que l'écran
+              apporte, puis DÉTRUIRE, toujours en dernier.
+              L'avion plutôt que l'imprimante : ce qu'on ouvre là ne sort pas
+              que du papier. Et le libellé suit le dessin — une enveloppe qui
+              dirait « Imprimer » serait un libellé qui ment. */}
+          {[{ key: '__impression', label: 'Imprimer ou envoyer', icon: IconSend,
               couleur: 'var(--menu-accent)', onClick: () => setCentre(true) },
-            ...actions].map(a2 => {
+            ...actions.filter(a2 => !a2.destructif),
+            /* LA PORTE DES IDÉES, SUR TOUS LES ÉCRANS ET AU MÊME ENDROIT.
+               Une demande s'écrit au moment où l'on bute, pas trois jours plus
+               tard en réunion : si la porte n'est pas là où l'on est, elle
+               n'est nulle part. Elle remplace les rubriques « à venir », qui
+               promettaient des écrans inexistants dans le menu de ceux qui
+               travaillent. */
+            { key: '__idee', label: 'Proposer une amélioration', icon: IconBulb,
+              onClick: () => setIdees(true) },
+            ...actions.filter(a2 => a2.destructif)].map(a2 => {
             const Ic = a2.icon;
             return (
               <button key={a2.key} onClick={a2.onClick} aria-label={a2.label}
@@ -456,6 +500,7 @@ export function RailDessine({ icon: HeaderIcon, titre, sousTitre, extra,
             {sec.items.map(it => {
               const Ic = it.icon;
               return (
+                <Fragment key={it.key}>
                 <button key={it.key} onClick={it.onClick} aria-label={it.label}
                   onMouseEnter={e => !epingle && surviser(e, it.label)}
                   onMouseLeave={() => setSurvol(null)}
@@ -482,6 +527,19 @@ export function RailDessine({ icon: HeaderIcon, titre, sousTitre, extra,
                     : { color: 'var(--menu-texte-doux)' }}
                   onFocus={undefined}
                   data-case-rail={epingle ? undefined : '1'}>
+                  {/* CELLE-CI A OUVERT QUELQUE CHOSE.
+                      Un rail de trois pixels collé au bord de la tuile a été
+                      essayé : vu à l'écran, il barre le côté gauche et écrase
+                      la forme — la tuile n'est plus une tuile, c'est un onglet.
+                      Un FILET FIN, posé à côté, plus court que la tuile et
+                      terminé en arc aux deux bouts : il marque sans peser, et
+                      la tuile garde son dessin d'origine. */}
+                  {it.actif && it.sous?.length > 0 && (
+                    <span aria-hidden="true"
+                      className="absolute left-0.5 top-1/2 -translate-y-1/2
+                                 w-[2px] h-4 rounded-full"
+                      style={{ background: 'var(--menu-accent)' }} />
+                  )}
                   {Ic ? (
                     /* L'ACCENT EST SUR L'ICÔNE, non sur toute la pastille : un
                        aplat turquoise pleine largeur criait plus fort que le
@@ -516,6 +574,69 @@ export function RailDessine({ icon: HeaderIcon, titre, sousTitre, extra,
                     {it.label}
                   </span>
                 </button>
+
+                {/* LE RAIL S'OUVRE EN SON MILIEU.
+                    Les outils de l'écran ouvert étaient ajoutés SOUS les
+                    rubriques, dans une section à part : le rail semblait se
+                    réécrire tout seul à chaque clic, et rien ne disait que ces
+                    icônes-là appartenaient à l'écran plutôt qu'à l'axe.
+
+                    Ils naissent désormais SOUS LEUR RUBRIQUE, entre deux
+                    filets, en bleu clair : la parenté se lit sans qu'on
+                    l'explique. Ce qui suit glisse vers le bas.
+
+                    La hauteur passe de 0fr à 1fr — la seule transition de
+                    hauteur qui n'oblige pas à mesurer le contenu, donc la seule
+                    qui reste juste quand une entrée s'ajoute. */}
+                {it.sous?.length > 0 && (
+                  <TiroirRail key={`sous-${it.key}`}>
+                      <div className={`${epingle ? 'mx-2' : 'w-5 mx-auto'} my-1 border-t`}
+                        style={{ borderColor: 'var(--menu-sous-filet)' }} />
+                      {it.sous.map(sv => {
+                        const Sc = sv.icon;
+                        return (
+                          <button key={sv.key} onClick={sv.onClick} aria-label={sv.label}
+                            onMouseEnter={e => !epingle && surviser(e, sv.label)}
+                            onMouseLeave={() => setSurvol(null)}
+                            className={`relative flex text-[13px] mb-1
+                              transition-colors duration-150 ease-ios
+                              ${epingle
+                                ? 'w-full items-center gap-3 py-2 px-2.5 rounded-fenetre'
+                                : 'w-10 h-10 mx-auto items-center justify-center rounded-carte'}
+                              ${sv.actif ? 'font-semibold' : 'hover:shadow-pose'}`}
+                            style={sv.actif
+                              ? { background: 'var(--menu-sous-actif)',
+                                  color: 'var(--menu-texte)' }
+                              : { color: 'var(--menu-texte-doux)' }}
+                            data-case-rail={epingle ? undefined : '1'}>
+                            {Sc ? (
+                              /* GRISES, COMME CELLES DU DESSUS.
+                                 Les peindre toutes en bleu faisait du sous-menu
+                                 un autre menu : cinq icônes colorées côte à
+                                 côte ne signalent plus rien, elles décorent. La
+                                 couleur reste ce qu'elle est partout dans
+                                 Lucie — une dépense, réservée à ce qui doit
+                                 être vu. Le bleu du sous-menu ne vit plus que
+                                 dans ses deux filets. */
+                              <Sc size={18} stroke={1.8} className="flex-shrink-0"
+                                style={{ color: sv.couleur || 'var(--menu-icone)' }} />
+                            ) : (
+                              <span className="flex-shrink-0 w-[18px] flex justify-center"
+                                aria-hidden="true">
+                                <span className="w-1.5 h-1.5 rounded-full"
+                                  style={{ background: 'var(--menu-icone)' }} />
+                              </span>
+                            )}
+                            <span className={`text-left leading-tight min-w-0 flex-1
+                              break-words ${reveal}`}>{sv.label}</span>
+                          </button>
+                        );
+                      })}
+                      <div className={`${epingle ? 'mx-2' : 'w-5 mx-auto'} mt-1 mb-2 border-t`}
+                        style={{ borderColor: 'var(--menu-sous-filet)' }} />
+                  </TiroirRail>
+                )}
+                </Fragment>
               );
             })}
           </div>
@@ -573,6 +694,11 @@ export function RailDessine({ icon: HeaderIcon, titre, sousTitre, extra,
         <Suspense fallback={null}>
           <CentreImpressionCentral ongletInitial={impression} pieces={pieces}
             onClose={() => setCentre(false)} />
+        </Suspense>, document.body)}
+
+      {idees && createPortal(
+        <Suspense fallback={null}>
+          <Ameliorations ecran={titre} onClose={() => setIdees(false)} />
         </Suspense>, document.body)}
     </>
   );

@@ -398,6 +398,64 @@ année, section et décision, cliquable vers la fiche, et les valorisations **sa
 aucune preuve** signalées en ocre : une décision sans dossier se voit là plutôt
 qu'au moment du contrôle.
 
+**Créer un étudiant** (rail *Étudiants → Inscrire*) : la route `POST
+/api/etudiants` existait depuis l'origine sans qu'aucun écran ne l'appelle —
+tout entrait par l'import eCampus, et l'inscription tardive n'avait nulle part
+où aller. **Le doublon est le vrai risque** de la saisie manuelle : on ne trouve
+pas quelqu'un, on le recrée, et son parcours se coupe en deux — ce que nous
+avons passé une journée à réparer pour TIM. Le serveur cherche donc avant
+d'écrire (registre national d'abord, chiffres seuls ; puis nom + prénom + date
+de naissance, casse ignorée), rend un 409 avec les dossiers trouvés, et l'écran
+propose de les ouvrir. Il **signale**, il ne bloque pas : deux homonymes nés le
+même jour existent, et un lien permet de passer outre.
+
+**La valorisation a son écran, et la décision a trois branches.** Elle se
+saisissait dans une modale ouverte depuis la fiche d'un étudiant : pour encoder
+dix dossiers, il fallait ouvrir dix fiches, et rien ne se lisait d'ensemble — or
+c'est un travail de SÉRIE, on traite les demandes d'une section l'une après
+l'autre en regardant les mêmes unités. Depuis 2.11.19, un onglet plein de l'axe
+Étudiants, lu en trois niveaux : l'étudiant, l'unité qu'il demande, ce qui lui
+est dispensé. Une seule question au niveau de l'UNITÉ — **totale** (l'unité et
+tous ses acquis, rien à cocher), **partielle** (cours, acquis, *ou les deux* :
+les deux coexistaient déjà en base, l'écran les donnait exclusifs par un bouton
+radio alors que le modèle ne l'exige pas), **refusée** (rien de dispensé, motif
+obligatoire). Chaque cours porte SES acquis, et un acquis coché ouvre sa
+motivation. Une unité ajoutée naît **partielle et vide** : naître totale ferait
+accorder l'unité entière d'un clic distrait.
+
+**Le procès-verbal ne portait son pied qu'une fois, à la fin.** En HTML il ne
+peut être qu'en fin de document — un commentaire du code le disait déjà : *« un
+pied répété demanderait de produire le PDF côté serveur, où l'on dispose d'un
+vrai gabarit »*. Ce gabarit existe (`piedGabaritPdf`, employé par
+`/api/impression/pdf`) ; la fenêtre de valorisation ne passait simplement pas par
+là, elle ouvrait un onglet et laissait le navigateur imprimer — format, marges et
+échelle rendus à la boîte d'impression de chacun. Elle propose désormais le PDF
+serveur : **A4 imposé, pied sur chaque feuille**, numérotation au-delà d'une
+page ; l'onglet reste, annoncé pour ce qu'il est — un aperçu.
+**Et le nombre de pages pouvait être faux** : le comptage réservait 22 mm en bas
+là où le rendu réel en réserve 24 (`BANDE_PIED_MM`). Deux millimètres, et un PV
+qui finit près du bas se comptait en deux pages pour en sortir trois — sur une
+mention réglementaire, portée par une pièce signée. Le comptage emploie
+désormais **exactement** les options du rendu réel.
+
+**Le suivi des tâches se lit dans le temps, pas seulement par personne.** La
+liste groupée par personne répond à « qu'a Untel en charge ? » et cache
+précisément l'autre question — « qu'est-ce qui tombe la semaine prochaine ? » —,
+celle d'une réunion de service, et la seule qui fasse déplacer une date avant
+qu'il ne soit trop tard. La **frise** (Suivi d'équipe → Tâches) porte trente
+jours devant et sept derrière : une tâche dépassée de trois jours se traite
+encore. L'échelle est le TEMPS, pas le nombre — un jour garde la même largeur
+qu'il porte une tâche ou dix, et c'est ainsi qu'un amas se voit. Couleurs de
+`lib/urgence.js`, vert pour ce qui est fait.
+**Le titre d'une tâche se corrige** : tout était modifiable sur la ligne —
+responsable, échéance, statut, obligation — sauf ce qu'on lit en premier, donc
+le seul champ dont la faute de frappe se voit ; la corriger imposait de
+supprimer et refaire, ce qui perd la date de création et le lien à la réunion.
+**Ce qui vient d'arriver se voit** : `tache_personne.vu_le` par PERSONNE — une
+tâche confiée vendredi doit être encore signalée lundi, et « récente » ne dit
+pas cela. L'équipage se réécrivant en entier, `vu_le` est préservé : sans quoi
+ajouter quelqu'un rallumerait le signal chez tous les autres.
+
 **Chantiers de conformité ouverts, dans l'ordre :** geler les décisions à la
 clôture et historiser par ajout ; figer et horodater le PV ; bloc de signatures
 nominatif ; date d'affichage et mode de publication en champs propres ; écrire
@@ -589,6 +647,15 @@ et 3 composants de tuile**. La stratégie tient en cinq chantiers, dans cet ordr
   le contenu qui défile. Centrée verticalement, elle se recentrait à chaque
   changement d'onglet — un onglet court la faisait monter, un long descendre,
   et le bouton qu'on visait n'était plus là où on l'avait laissé.
+- **L'ACTION D'UNE FENÊTRE NE DÉFILE JAMAIS AVEC SON CONTENU.** Elle vit dans
+  le **pied** (`pied={…}` sur `Fenetre`), une bande fixe au bas du panneau.
+  Posé au bas du contenu, un bouton descend avec lui : pour valider trois cases
+  cochées en haut d'une liste de cinq cents étudiants, il fallait dérouler tout
+  le fichier. Le pied existait depuis le début et **personne ne s'en servait** —
+  chaque fenêtre rangeait ses boutons dans `children`, qui est la zone qui
+  défile. Corollaire : le pied porte aussi **ce qui dit pourquoi le bouton est
+  gris** (« coche au moins une personne »), au même endroit que le bouton, sinon
+  l'explication reste elle aussi hors de vue.
 - **Une seule fenêtre** (`Fenetre`, `GroupeFenetre`, `PieceFenetre`,
   `BoutonFenetre` dans `ui.jsx`). Soixante et onze fichiers posaient leur
   propre `fixed inset-0`. Le voile est une **couche à part** : porté par le
@@ -598,6 +665,46 @@ et 3 composants de tuile**. La stratégie tient en cinq chantiers, dans cet ordr
   haut était écrite « 64 px » à la main ; elle ne les fait pas toujours, et le
   rail passait dessous. La barre publie sa hauteur (`--barre-h`), le rail la
   lit. Même principe pour `--rail-largeur`, que le filet du haut consomme.
+- **Le rail s'ouvre en son milieu.** Les outils de l'écran ouvert étaient une
+  section ajoutée SOUS les rubriques : le rail semblait se réécrire tout seul à
+  chaque clic, et rien ne disait que ces icônes-là appartenaient à l'écran
+  plutôt qu'à l'axe. Ils se déplient désormais **sous leur rubrique**, entre
+  deux filets teintés (`--menu-sous`, déclaré dans les deux modes) ; ce
+  qui suit glisse vers le bas. Le tiroir se monte **fermé** et s'ouvre à l'image
+  suivante — c'est le mouvement qui dit la parenté, pas la présence ; monté à sa
+  hauteur finale, il surgissait d'un bloc. La hauteur passe de `0fr` à `1fr` :
+  la seule transition qui n'oblige pas à mesurer le contenu, donc la seule qui
+  reste juste le jour où une entrée s'ajoute. **Les icônes du sous-menu restent
+  grises** : les peindre toutes en bleu en faisait un autre menu, et cinq icônes
+  colorées côte à côte ne signalent plus rien. Seuls les deux filets portent la
+  teinte. **Les intertitres des sections
+  d'écran disparaissent** — rail replié, le libellé est masqué, et un séparateur
+  invisible n'est pas un séparateur.
+- **La tuile active garde son dessin ; c'est un FILET qui dit qu'elle a
+  ouvert quelque chose.** Le rail de trois pixels du bloc signalé a été essayé
+  ici : collé au bord de la tuile, il en barre le côté gauche et écrase la
+  forme — ce n'est plus une tuile, c'est un onglet. La règle du bloc signalé
+  vaut pour ce qui PORTE UN ÉTAT (une tuile d'indicateur, une ligne en retard) ;
+  une entrée de menu n'a pas d'état, elle a une position. Elle porte donc un
+  **filet fin de deux pixels, posé à côté, plus court que la tuile et terminé en
+  arc aux deux bouts**, et seulement quand un sous-menu est ouvert dessous.
+- **Le même ordre dans tous les rails, et il ne se discute pas** : SORTIR
+  d'abord — « Imprimer ou envoyer », l'avion plutôt que l'imprimante depuis que
+  le centre fait les deux, et le libellé suit le dessin —, puis les outils de
+  l'écran, puis *Proposer une amélioration*, puis **DÉTRUIRE, toujours en
+  dernier**. Le tri se fait sur un drapeau `destructif`, pas sur la place où
+  chaque écran a rangé son entrée : une règle qui n'est juste que si l'on y
+  pense est une règle fausse.
+- **Les rubriques « à venir » ont quitté les rails.** Une place réservée
+  annonçant un écran qui n'existe pas est une promesse faite à qui n'a rien
+  demandé, et son icône occupait une place dans le rail replié de ceux qui
+  travaillent. Les idées ont leur porte : *Proposer une amélioration*, présente
+  sur TOUS les écrans au même endroit — une demande s'écrit au moment où l'on
+  bute, pas trois jours plus tard en réunion, et si la porte n'est pas là où
+  l'on est, elle n'est nulle part. Le registre (`suggestion`) garde l'auteur,
+  l'écran d'où elle part, l'état et **la réponse qu'on lui a faite** : on répond
+  même pour dire non — une idée jamais commentée n'apprend qu'une chose à son
+  auteur, que cela ne sert à rien d'écrire.
 - **Une entrée de rail sans icône est invisible** une fois le rail replié.
 - **Un titre ne s'écrit qu'une fois** par écran.
 - Un libellé ne promet que ce que la modale fait réellement.

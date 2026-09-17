@@ -16,7 +16,7 @@
 import { Router } from 'express';
 import { LOGO_IIP_JPEG } from '../services/assets/logo_iip_jpeg.js';
 import { piedBalisage, piedStyles, reglesDePage,
-  BANDE_PIED_MM, MARGE_SOUS_PIED_MM } from '../lib/document.js';
+  BANDE_PIED_MM, MARGE_SOUS_PIED_MM, piedGabaritPdf } from '../lib/document.js';
 import db from '../db/index.js';
 import { authRequired, getUserSections } from '../middleware/auth.js';
 import { capacitePdf, rendrePdf, compterPages } from '../services/pdf.js';
@@ -1639,8 +1639,16 @@ r.post('/valorisation/ue/:ueNum/documents', authRequired, async (req, res) => {
   let pages = null;
   try {
     if ((await capacitePdf()).disponible) {
+      // ON COMPTE LA PIÈCE TELLE QU'ELLE S'IMPRIMERA, PAS UNE AUTRE.
+      // Le comptage réservait 22 mm en bas, là où le rendu réel en réserve 24
+      // (BANDE_PIED_MM) parce qu'il y loge le pied répété. Deux millimètres :
+      // un procès-verbal qui finit près du bas se comptait en deux pages et
+      // sortait en trois. « Le présent procès-verbal comporte N page(s) » est
+      // une mention réglementaire — fausse, elle vaut mieux absente.
       pages = compterPages(await rendrePdf(htmlAvec('……'), {
-        marges: { top: '12mm', right: '15mm', bottom: '22mm', left: '15mm' },
+        marges: { top: '12mm', right: '15mm',
+                  bottom: `${BANDE_PIED_MM}mm`, left: '15mm' },
+        pied: avecNum => piedGabaritPdf(LOGO_IIP_JPEG, piedDocument(), avecNum),
         pagination: 'si-plusieurs',
       }));
     }

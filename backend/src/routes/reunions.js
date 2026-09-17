@@ -200,12 +200,23 @@ function depuisCle(cle) {
  * voient la tâche sur leur propre tableau de bord.
  */
 function ecrireResponsables(tacheId, cles) {
+  // CE QUI A ÉTÉ VU RESTE VU. L'équipage se réécrit en entier — on efface, on
+  // repose —, et « vu_le » partait avec. Ajouter quelqu'un à une tâche aurait
+  // donc rendu la tâche « nouvelle » pour tous les autres, qui l'avaient lue
+  // depuis longtemps : un signal qui se rallume tout seul ne signale plus rien.
+  const vus = new Map();
+  for (const l of db.prepare(
+    'SELECT user_id, professeur_id, role, vu_le FROM tache_personne WHERE tache_id = ?')
+    .all(tacheId)) {
+    if (l.vu_le) vus.set(`${l.user_id || ''}|${l.professeur_id || ''}|${l.role || ''}`, l.vu_le);
+  }
   db.prepare('DELETE FROM tache_personne WHERE tache_id = ?').run(tacheId);
   const poser = db.prepare(`INSERT INTO tache_personne
-    (tache_id, user_id, professeur_id, role, rang) VALUES (?,?,?,?,?)`);
+    (tache_id, user_id, professeur_id, role, rang, vu_le) VALUES (?,?,?,?,?,?)`);
   (cles || []).filter(Boolean).forEach((cle, i) => {
     const c = depuisCle(cle);
-    poser.run(tacheId, c.user_id, c.professeur_id, c.role, i);
+    poser.run(tacheId, c.user_id, c.professeur_id, c.role, i,
+      vus.get(`${c.user_id || ''}|${c.professeur_id || ''}|${c.role || ''}`) || null);
   });
   const premier = depuisCle((cles || []).filter(Boolean)[0]);
   db.prepare(`UPDATE tache SET responsable_user_id=?, responsable_professeur_id=?,
@@ -312,7 +323,64 @@ r.get('/taches', authRequired, (req, res) => {
   sql += ` ORDER BY CASE WHEN t.statut IN ('fait','abandonnee') THEN 1 ELSE 0 END,
                     CASE WHEN t.echeance IS NULL THEN 1 ELSE 0 END,
                     t.echeance, t.priorite DESC, t.id`;
-  res.json(attacherResponsables(db.prepare(sql).all(...p)));
+  const lignes = attacherResponsables(db.prepare(sql).all(...p));
+  res.json(marquerNouvelles(lignes, req.user));
+});
+
+/**
+ * CE QUE CETTE PERSONNE N'A PAS ENCORE VU.
+ *
+ * Une tâche confiée un vendredi soir se noyait le lundi parmi les six autres :
+ * rien ne distinguait celle qu'on n'avait jamais lue de celles qu'on traîne
+ * depuis trois semaines.
+ *
+ * Seule la ligne de `tache_personne` qui NOMME cette personne fait foi — une
+ * tâche confiée à un rôle qu'elle porte aussi n'a pas de ligne à son nom, et
+ * elle n'est alors pas signalée : mieux vaut ne rien annoncer qu'annoncer à
+ * tort une nouveauté à quatre personnes à la fois.
+ */
+function marquerNouvelles(lignes, user) {
+  if (!lignes.length || !user?.id) return lignes;
+  try {
+    const ids = lignes.map(l => l.id);
+    const vus = db.prepare(`
+      SELECT tache_id, vu_le FROM tache_personne
+       WHERE tache_id IN (${ids.map(() => '?').join(',')})
+         AND (user_id = ? OR (professeur_id IS NOT NULL AND professeur_id = (
+               SELECT professeur_id FROM utilisateur WHERE id = ?)))
+    `).all(...ids, user.id, user.id);
+    const sansVue = new Set(vus.filter(v => !v.vu_le).map(v => v.tache_id));
+    return lignes.map(l => ({ ...l, nouveau: sansVue.has(l.id) ? 1 : 0 }));
+  } catch (e) {
+    // La colonne peut manquer sur une base qui n'a pas encore migré : sans ce
+    // filet, tout l'écran des tâches tomberait pour un signal décoratif.
+    console.error('[taches/nouveau]', e.message);
+    return lignes;
+  }
+}
+
+/**
+ * ACQUITTER — « je les ai vues ».
+ *
+ * L'écran le dit une fois affichées. Il n'y a rien à confirmer : le signal
+ * n'est pas une alerte qu'on ferme, c'est une nouveauté qui cesse de l'être.
+ */
+r.post('/taches/vues', authRequired, (req, res) => {
+  const ids = (req.body?.ids || []).map(Number).filter(Boolean);
+  if (!ids.length) return res.json({ ok: true, marquees: 0 });
+  try {
+    const info = db.prepare(`
+      UPDATE tache_personne SET vu_le = datetime('now')
+       WHERE vu_le IS NULL
+         AND tache_id IN (${ids.map(() => '?').join(',')})
+         AND (user_id = ? OR (professeur_id IS NOT NULL AND professeur_id = (
+               SELECT professeur_id FROM utilisateur WHERE id = ?)))
+    `).run(...ids, req.user.id, req.user.id);
+    res.json({ ok: true, marquees: info.changes });
+  } catch (e) {
+    console.error('[taches/vues]', e.message);
+    res.json({ ok: true, marquees: 0 });
+  }
 });
 
 r.post('/taches', authRequired, (req, res) => {
