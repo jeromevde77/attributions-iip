@@ -21,7 +21,7 @@ import { Routes, Route, Navigate, NavLink, useNavigate } from 'react-router-dom'
 import { isAuthenticated, getUser, api, getAnnee, setAnnee } from './lib/api.js';
 import { useMode, basculerMode } from './lib/theme.js';
 import {
-  IconClipboardList, IconUsers, IconFileExport, IconChecklist,
+  IconClipboardList, IconBooks, IconUsers, IconFileExport, IconChecklist,
   IconChartBar, IconCalendarStats, IconEdit, IconSettings, IconLogout, IconMenu2, IconX,
   IconHome, IconBell, IconHelpCircle, IconGavel, IconSun, IconMoon,
 } from '@tabler/icons-react';
@@ -327,7 +327,14 @@ function ProtectedLayout({ children }) {
     ['/accueil',       'Tableau de bord', IconHome,           null],
     ['/etudiants',     'Étudiants',       IconChecklist,      'etudiants'],
     ['/professeurs',   'Personnel',       IconUsers,          'personnel'],
-    ['/organisation',  'Organisation',    IconClipboardList,  'attributions'],
+    /* L'ICÔNE D'UN AXE EST LA MÊME DANS LA BARRE ET DANS SON RAIL, et elle
+       n'appartient qu'à lui. Organisation portait IconClipboardList ici et
+       IconBooks dans son rail : deux dessins pour un même territoire, et le
+       presse-papiers désignait DÉJÀ l'onglet « Inscriptions & PAE » de l'axe
+       Étudiants. Organisation est l'axe des unités, des cours et des
+       référentiels — des livres —, ce qui rend le presse-papiers au PAE, qui
+       est littéralement une liste à cocher. */
+    ['/organisation',  'Organisation',    IconBooks,          'attributions'],
     ['/gestion',       'Gestion',         IconChartBar,       'dotation'],
   ];
 

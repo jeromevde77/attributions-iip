@@ -730,6 +730,14 @@ et 3 composants de tuile**. La stratégie tient en cinq chantiers, dans cet ordr
   l'écran d'où elle part, l'état et **la réponse qu'on lui a faite** : on répond
   même pour dire non — une idée jamais commentée n'apprend qu'une chose à son
   auteur, que cela ne sert à rien d'écrire.
+- **L'icône d'un axe est la même dans la barre du haut et dans la porte de son
+  rail, et elle n'appartient qu'à lui.** Organisation portait
+  `IconClipboardList` dans la barre et `IconBooks` dans son rail — deux dessins
+  pour un même territoire —, et le presse-papiers désignait DÉJÀ l'onglet
+  « Inscriptions & PAE » de l'axe Étudiants. Tranché : Organisation est l'axe
+  des unités, des cours et des référentiels, donc `IconBooks` des deux côtés ;
+  le presse-papiers revient au PAE, qui est littéralement une liste à cocher.
+  Sans cette règle, on réaligne à la main tous les six mois.
 - **Une entrée de rail sans icône est invisible** une fois le rail replié.
 - **Un titre ne s'écrit qu'une fois** par écran.
 - Un libellé ne promet que ce que la modale fait réellement.
