@@ -3,9 +3,11 @@ import { nomPropre } from '../lib/nom.js';
 import {
   IconPrinter, IconUsers, IconSchool, IconChartBar, IconCalendarStats,
   IconBooks, IconAlertTriangle, IconChevronRight, IconChevronDown, IconSearch,
-  IconDownload,
+  IconDownload, IconSend,
 } from '@tabler/icons-react';
 import PreviewModal from './PreviewModal.jsx';
+import EnvoiMailModal from './EnvoiMailModal.jsx';
+import { useEnvoiMail } from '../lib/envoiMail.js';
 import { authHeaders, getAnnee } from '../lib/api.js';
 import { Fenetre, GroupeFenetre, PieceFenetre } from './ui.jsx';
 
@@ -495,7 +497,20 @@ function OngletRapports({ domaine }) {
 }
 
 function OngletEtudiants({ perimetre = null }) {
-  const annee = getAnnee();
+  /* L'ANNÉE SE CHOISIT ICI AUSSI. L'onglet des rapports la montre depuis
+     longtemps ; celui des étudiants reprenait l'année de travail sans jamais
+     la dire. Pour retirer une attestation de l'an dernier, il fallait changer
+     l'année de toute l'application, produire la pièce, puis penser à la
+     remettre — et la fenêtre couvre justement le sélecteur de la barre. */
+  const [annee, setAnnee] = useState(getAnnee());
+  const [annees, setAnnees] = useState([]);
+  useEffect(() => {
+    fetch('/api/annees', { headers: authHeaders() })
+      .then(r => r.json())
+      .then(l => setAnnees((Array.isArray(l) ? l : []).map(a => a.code).filter(Boolean)))
+      .catch(() => setAnnees([annee]));
+    // eslint-disable-next-line
+  }, []);
   const [arbre, setArbre] = useState(null);
   // LE CONTEXTE SUIT LE BOUTON. Ouvrir le centre depuis la délibération d'une
   // unité sans que cette unité soit déjà choisie ferait recommencer un travail
@@ -511,6 +526,11 @@ function OngletEtudiants({ perimetre = null }) {
   const [choix, setChoix] = useState({ reussite: true, ajournement: true, refus: true });
   const [separer, setSeparer] = useState(
     () => localStorage.getItem('impression.separer') === '1');
+  // L'envoi ne se montre que s'il est allumé ET permis. La route refuse de
+  // toute façon : un bouton caché n'est pas une protection, c'est une
+  // politesse envers qui n'a rien à faire là.
+  const etatEnvoi = useEnvoiMail();
+  const [envoi, setEnvoi] = useState(null);
   const [erreur, setErreur] = useState(null);
   const [enCours, setEnCours] = useState(false);
 
@@ -592,6 +612,65 @@ function OngletEtudiants({ perimetre = null }) {
     finally { setEnCours(false); }
   }
 
+  /**
+   * ENVOYER : UNE PIÈCE, UNE PERSONNE, UN COURRIEL.
+   *
+   * La séparation par étudiant est FORCÉE, quoi que dise la case : on
+   * n'adresse pas à quelqu'un un document qui porte vingt noms. Les pièces
+   * collectives — procès-verbal, composition, grille — restent groupées et
+   * partent à la composition du Conseil, à la boîte des examens et à la
+   * direction adjointe, chacun recevant la sienne.
+   *
+   * Le destinataire ne se choisit pas : il découle de la pièce.
+   */
+  async function envoyer() {
+    setEnCours(true); setErreur(null);
+    try {
+      const rep = await fetch('/api/acquis/deliberation/documents-lot', {
+        method: 'POST', headers: authHeaders(),
+        body: JSON.stringify({
+          annee, session, separer: true,
+          ue_nums: (liste?.unites || []).map(u => u.ue_num),
+          etudiants: [...coches],
+          ...choix,
+        }),
+      });
+      const j = await rep.json();
+      if (!rep.ok) { setErreur(j.error); return; }
+
+      const pieces = (j.documents || []).map(d => ({
+        html: d.html, nom_fichier: d.nom,
+        destinataire: { type: 'etudiant', id: d.etudiant_id, nom: d.etudiant },
+      }));
+
+      if (j.collectif) {
+        // Une pièce du Conseil se rattache à UNE unité : sans elle, on ne sait
+        // pas quelle composition interroger. Quand le périmètre en porte
+        // plusieurs, on ne devine pas — on le dit.
+        const unites = (liste?.unites || []).map(u => u.ue_num);
+        if (unites.length !== 1) {
+          setErreur("Les pièces du Conseil ne s'envoient que pour une unité à la "
+            + `fois (${unites.length} dans ce périmètre) : restreignez le périmètre, `
+            + 'ou décochez-les.');
+          return;
+        }
+        const rd = await fetch('/api/envois/destinataires?regle=conseil'
+          + `&ue=${unites[0]}&annee=${encodeURIComponent(annee)}`,
+          { headers: authHeaders() });
+        for (const m of (rd.ok ? await rd.json() : [])) {
+          pieces.push({
+            html: j.collectif.html, nom_fichier: j.collectif.nom,
+            destinataire: { type: m.type, id: m.id, nom: m.nom, email: m.email || '' },
+          });
+        }
+      }
+
+      if (!pieces.length) { setErreur('Aucune pièce à envoyer.'); return; }
+      setEnvoi(pieces);
+    } catch (e) { setErreur(e.message); }
+    finally { setEnCours(false); }
+  }
+
   const rien = !sections.size && !ues.size && !cours.size;
 
   return (
@@ -600,6 +679,13 @@ function OngletEtudiants({ perimetre = null }) {
       <div className="w-[340px] border-r border-slate-200 flex flex-col min-h-0">
         <div className="px-3 py-2 border-b border-slate-200">
           <div className="text-[13px] font-semibold text-iip-blue mb-1.5">Périmètre</div>
+          <select value={annee} onChange={e => setAnnee(e.target.value)}
+            title="L'année sur laquelle portent les pièces"
+            className="controle w-full mb-2 text-[13px]">
+            {(annees.length ? annees : [annee]).map(a => (
+              <option key={a} value={a}>{a}</option>
+            ))}
+          </select>
           <div className="segments w-full">
             {[[1, '1re session'], [2, '2e session']].map(([v, lib]) => (
               <button key={v} onClick={() => setSession(v)}
@@ -737,6 +823,14 @@ function OngletEtudiants({ perimetre = null }) {
               <IconPrinter size={14} />
               {enCours ? 'Production…' : `Produire pour ${coches.size} étudiant(s)`}
             </button>
+            {etatEnvoi?.actif && etatEnvoi?.peut_envoyer && (
+              <button onClick={envoyer} disabled={enCours || !coches.size}
+                title="Envoyer par courriel — un document par personne, jamais de copie collective"
+                className="px-4 py-2 text-[13px] rounded-lg bg-iip-blue text-white
+                           font-semibold disabled:opacity-40 inline-flex items-center gap-1.5">
+                <IconSend size={14} /> Envoyer
+              </button>
+            )}
           </div>
         </div>
         <div className="flex-1 overflow-auto min-h-0">
@@ -771,6 +865,14 @@ function OngletEtudiants({ perimetre = null }) {
         </div>
 
       </div>
+
+      {envoi && (
+        <EnvoiMailModal
+          pieces={envoi}
+          typeDoc="deliberation_lot"
+          sujet={`Documents de délibération — ${annee}`}
+          onClose={() => setEnvoi(null)} />
+      )}
     </div>
   );
 }

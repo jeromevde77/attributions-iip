@@ -331,6 +331,15 @@ d'accompagnement**, servi par le serveur : il annonce la pièce, il ne la résum
 pas — ce qui fait foi est le document. Enfin, un envoi force **un document par
 personne** : on n'adresse à quelqu'un un fichier qui porte vingt noms.
 
+**Une consigne donnée dans un couloir doit pouvoir se consigner.** Le modèle
+permettait depuis l'origine une tâche sans réunion — `reunion_id` est facultatif
+sur la table `tache` —, mais le seul écran qui en créait était celui d'une
+réunion : la consigne n'avait nulle part où aller, et « je te l'avais demandé »
+ne se vérifie pas. Depuis 2.11.13, **Accueil → Action → Confier une tâche** :
+quoi, à qui, pour quand, priorité. Elle rejoint le même registre et paraît
+aussitôt dans « Ce que j'ai confié ». **Une personne, jamais un texte libre** —
+et la liste vient du personnel *et* des comptes, les enseignants n'en ayant pas.
+
 **Chantiers de conformité ouverts, dans l'ordre :** geler les décisions à la
 clôture et historiser par ajout ; figer et horodater le PV ; bloc de signatures
 nominatif ; date d'affichage et mode de publication en champs propres ; écrire
