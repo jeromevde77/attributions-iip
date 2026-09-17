@@ -416,7 +416,7 @@ table.grid-excel-soft td.num { text-align: right; font-variant-numeric: tabular-
                 box-shadow: inset 0 0 0 1px var(--menu-actif-bord); }
 .onglet-dormant { color: var(--menu-texte-doux); }
 .onglet-dormant:hover { background: var(--menu-survol); color: var(--menu-texte); }
-.champ-barre { background: var(--champ-fond); color: var(--menu-texte);
+.champ-barre { background-color: var(--champ-fond); color: var(--menu-texte);
                border: 1px solid var(--menu-bord); }
 /* DEUX PASTILLES VOISINES ONT LA MÊME MÉTRIQUE.
    Le badge de version se dimensionnait par son texte — une pilule basse, aux
@@ -626,14 +626,60 @@ main:not(:has(> .gouttiere-rail)) {
   height: 2.25rem; display: inline-flex; align-items: center; gap: .4rem;
   padding-inline: .7rem; font-size: 13px; line-height: 1;
   border-radius: 8px; border: 1px solid var(--menu-bord);
-  background: var(--champ-fond); color: var(--menu-texte);
+  /* `background-color` et NON `background` : le raccourci remet l'image de fond
+     à zéro, et c'est lui qui effaçait le chevron des listes déroulantes. */
+  background-color: var(--champ-fond); color: var(--menu-texte);
   white-space: nowrap;
   transition: border-color 150ms cubic-bezier(.32,.72,0,1),
               background-color 150ms cubic-bezier(.32,.72,0,1);
 }
 button.controle:hover:not(:disabled) { background: var(--menu-survol); }
 .controle:disabled { opacity: .4; }
-select.controle { padding-right: 1.5rem; }
+
+/* ═══ LES LISTES DÉROULANTES, À PLAT ══════════════════════════════════════
+ *
+ * Le navigateur dessine sa propre boîte : un cadre en relief, un aplat gris et
+ * une flèche dans un caisson, hérités d'un système d'exploitation et non de
+ * cette charte. Posée à côté d'un bouton dessiné à la main, elle ne partage ni
+ * son rayon, ni son filet, ni sa hauteur — et soixante et onze écrans en
+ * portent.
+ *
+ * On reprend donc le dessin : pas de relief, le filet et le rayon de l'échelle,
+ * et un chevron discret tracé en fond, à la place du caisson. Le blanc reste
+ * réservé à ce qui se remplit — une liste est un choix, elle le garde.
+ *
+ * Le défaut doit être correct : la règle porte sur `select`, et non sur une
+ * classe qu'il faudrait penser à poser. Le chevron est un SVG en fond plutôt
+ * qu'un pseudo-élément, qu'un `select` ne peut pas recevoir.
+ */
+select {
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  /* SANS COULEUR DÉCLARÉE, LE NAVIGATEUR REMET LA SIENNE : un aplat gris de
+     système, sur une liste posée à côté d'un champ blanc. Une liste est un
+     choix — elle appartient à ce qui se remplit, et garde donc le blanc. Les
+     classes qui posent leur propre fond (barre du haut, mode sombre) gagnent
+     sur cette ligne, comme il se doit. */
+  background-color: var(--champ-fond);
+  background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%2394A3B8' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right .6rem center;
+  background-size: 10px 6px;
+  /* LA PLACE DU CHEVRON NE SE NÉGOCIE PAS. Une classe utilitaire `px-2` posée
+     sur une liste l'emporte sur un sélecteur d'élément : le chevron se
+     retrouvait alors SOUS le dernier mot. C'est le même raisonnement que pour
+     l'échelle des rayons — on ne réécrit pas soixante et onze écrans, on rend
+     le défaut juste, et il tient. */
+  padding-inline-end: 1.7rem !important;
+}
+/* Une liste sans flèche n'est plus une liste : le chevron s'efface avec le
+   reste quand le contrôle est désactivé, et pas avant. */
+select:disabled { background-image: none; padding-inline-end: .7rem !important; }
+/* Le multiple et le déroulant ouvert n'ont pas de flèche à porter. */
+select[multiple], select[size]:not([size="1"]) {
+  background-image: none; padding-inline-end: .7rem !important;
+}
 /* Le contrôle PRINCIPAL d'une barre — un seul, et il porte l'accent. */
 .controle-fort {
   background: var(--menu-texte); color: var(--barre-fond);

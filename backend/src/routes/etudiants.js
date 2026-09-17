@@ -3,6 +3,9 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { Router } from 'express';
+import multer from 'multer';
+import { existsSync, mkdirSync, unlinkSync } from 'fs';
+import { join } from 'path';
 import { LOGO_IIP_JPEG } from '../services/assets/logo_iip_jpeg.js';
 import { piedBalisage, piedStyles, reglesDePage, envelopperDocument } from '../lib/document.js';
 
@@ -183,7 +186,44 @@ export function migrerEtudiants(dbx) {
       cree_le        TEXT DEFAULT (datetime('now'))
     );
     CREATE INDEX IF NOT EXISTS idx_valo_etud ON etudiant_valorisation(etudiant_id);
+    -- L'ÉQUIVALENCE SE DIT ACQUIS PAR ACQUIS, ET ELLE SE MOTIVE.
+    --
+    -- « cible_detail » retenait des codes séparés par des virgules : il disait
+    -- QUOI est dispensé, jamais POURQUOI. Or le Conseil ne dispense pas d'un
+    -- acquis, il constate qu'il est maîtrisé ailleurs — et c'est ce constat,
+    -- écrit, qui tient devant une inspection. Une ligne par acquis, avec son
+    -- texte : une phrase proposée, remplaçable, jamais un blanc.
+    -- LA PREUVE QUI FONDE LA DÉCISION.
+    --
+    -- Une valorisation se décide sur pièces : un diplôme, une attestation de
+    -- formation, un dossier pédagogique, un contrat de travail. Ces pièces
+    -- vivaient dans une armoire, ou dans la boîte courriel de celui qui les a
+    -- reçues. Un Conseil qui relit sa décision deux ans plus tard, ou une
+    -- inspection qui la vérifie, ne trouve alors plus rien.
+    CREATE TABLE IF NOT EXISTS etudiant_valorisation_fichier (
+      id              INTEGER PRIMARY KEY AUTOINCREMENT,
+      valorisation_id INTEGER NOT NULL
+        REFERENCES etudiant_valorisation(id) ON DELETE CASCADE,
+      nom             TEXT NOT NULL,
+      chemin          TEXT NOT NULL,
+      taille          INTEGER,
+      type_mime       TEXT,
+      nature          TEXT,
+      cree_par        TEXT,
+      cree_le         TEXT DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_valo_fic
+      ON etudiant_valorisation_fichier(valorisation_id);
+    CREATE TABLE IF NOT EXISTS etudiant_valorisation_aa (
+      valorisation_id INTEGER NOT NULL
+        REFERENCES etudiant_valorisation(id) ON DELETE CASCADE,
+      aa_code         TEXT NOT NULL,
+      texte           TEXT,
+      PRIMARY KEY (valorisation_id, aa_code)
+    );
     `);
+    try { dbx.exec('ALTER TABLE etudiant_valorisation_fichier ADD COLUMN nature TEXT'); }
+    catch { /* déjà là */ }
     console.log('[migration] etudiant_valorisation créée');
 
     // Notes détaillées par cours et par acquis d'apprentissage
@@ -1279,8 +1319,14 @@ export function sectionRattachement(etudId, annee = null) {
   const e = db.prepare('SELECT section_rattachement FROM etudiant WHERE id = ?').get(etudId);
   if (e?.section_rattachement) return { section: e.section_rattachement, deduite: false };
 
+  // LES UNITÉS HORS CURSUS NE VOTENT PAS. Une unité qui s'ajoute au programme
+  // d'étudiants de plusieurs sections ne dit rien du cursus de celui-ci : la
+  // compter dans la déduction, c'est laisser un héritage d'import trancher un
+  // rattachement — et, sur un étudiant qui ne porte qu'une ou deux unités, le
+  // trancher faux.
   const lignes = db.prepare(`
     SELECT (SELECT section FROM ue u WHERE u.ue_num = i.ue_num AND u.section IS NOT NULL
+              AND COALESCE(u.hors_cursus, 0) = 0
              ORDER BY u.annee_scolaire DESC LIMIT 1) AS section
     FROM etudiant_inscription i
     WHERE i.etudiant_id = ?${annee ? ' AND i.annee_scolaire = ?' : ''}
@@ -3786,7 +3832,247 @@ r.get('/:id/valorisations', authRequired, (req, res) => {
     WHERE v.etudiant_id = ?
     ORDER BY v.annee_scolaire DESC, v.ue_num
   `).all(Number(req.params.id));
-  res.json(rows);
+  const eq = db.prepare(`
+    SELECT a.valorisation_id, a.aa_code, a.texte, aa.description
+      FROM etudiant_valorisation_aa a
+      LEFT JOIN aa ON aa.aa_code = a.aa_code
+     WHERE a.valorisation_id IN (SELECT id FROM etudiant_valorisation WHERE etudiant_id = ?)
+  `).all(Number(req.params.id));
+  const parValo = {};
+  for (const l of eq) (parValo[l.valorisation_id] ||= []).push(l);
+
+  const fics = db.prepare(`
+    SELECT id, valorisation_id, nom, taille, type_mime, nature, cree_le
+      FROM etudiant_valorisation_fichier
+     WHERE valorisation_id IN (SELECT id FROM etudiant_valorisation WHERE etudiant_id = ?)
+     ORDER BY cree_le`).all(Number(req.params.id));
+  const ficParValo = {};
+  for (const f of fics) (ficParValo[f.valorisation_id] ||= []).push(f);
+
+  res.json(rows.map(v => ({ ...v,
+    equivalences: parValo[v.id] || [], fichiers: ficParValo[v.id] || [] })));
+});
+
+// ── Les preuves d'une valorisation ──────────────────────────────────────────
+const DATA_DIR_VA = process.env.DATA_DIR || '/app/data';
+
+/**
+ * CE QU'ON ACCEPTE DE DÉPOSER.
+ *
+ * Une preuve est un document qu'on lit : un PDF, une image d'un diplôme, un
+ * fichier de traitement de texte ou de tableur. Tout le reste est refusé — non
+ * par méfiance envers le secrétariat, mais parce qu'un dossier d'étudiant
+ * n'est pas un endroit où l'on range des exécutables, et qu'un refus net vaut
+ * mieux qu'un fichier accepté que personne ne pourra jamais ouvrir.
+ */
+const TYPES_PREUVE = new Set([
+  'application/pdf',
+  'image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/heic', 'image/tiff',
+  'application/msword',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'application/vnd.oasis.opendocument.text',
+  'application/vnd.ms-excel',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  'application/vnd.oasis.opendocument.spreadsheet',
+  'text/plain', 'message/rfc822',
+]);
+
+/**
+ * LA NATURE D'UNE PIÈCE — et ce qu'elle vaut au dossier.
+ *
+ * « 23453.docx » ne dit rien à personne. Six mois plus tard, retrouver la carte
+ * d'identité au milieu de douze fichiers ainsi nommés demande de les ouvrir un
+ * par un. Lucie ne peut pas deviner ce que contient un fichier : elle demande
+ * sa nature au dépôt — un menu, une seconde — et le nom se construit seul.
+ */
+export const NATURES_PREUVE = [
+  { cle: 'CI', label: "Carte d'identité" },
+  { cle: 'DIP', label: 'Diplôme ou titre' },
+  { cle: 'REL', label: 'Relevé de notes / bulletin' },
+  { cle: 'ATT', label: 'Attestation de formation' },
+  { cle: 'DP', label: 'Dossier pédagogique / programme' },
+  { cle: 'EXP', label: "Attestation d'expérience professionnelle" },
+  { cle: 'CT', label: 'Contrat de travail' },
+  { cle: 'CV', label: 'Curriculum vitae' },
+  { cle: 'DEM', label: 'Demande de valorisation' },
+  { cle: 'AUT', label: 'Autre pièce' },
+];
+
+/**
+ * LE NOM SOUS LEQUEL LA PIÈCE SE LIT.
+ *
+ * Nature, nom, prénom, unité, année — et l'extension d'origine, qu'on ne
+ * touche pas : c'est elle qui dit au système avec quoi l'ouvrir. Tout est
+ * ramené à des caractères sûrs, accents compris : un nom de fichier qui
+ * voyage entre Windows, macOS et un NAS ne survit pas aux fantaisies.
+ */
+function nommerPreuve(nature, etud, valo, original) {
+  const pur = t => String(t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^\w]+/g, '-').replace(/^-+|-+$/g, '');
+  const ext = (String(original || '').match(/\.[A-Za-z0-9]{1,8}$/) || [''])[0].toLowerCase();
+  const code = NATURES_PREUVE.some(n => n.cle === nature) ? nature : 'AUT';
+  return [code, pur(etud?.nom).toUpperCase(), pur(etud?.prenom),
+    valo?.ue_num ? `UE${valo.ue_num}` : null,
+    valo?.annee_scolaire ? String(valo.annee_scolaire).replace(/\W/g, '') : null]
+    .filter(Boolean).join('_') + ext;
+}
+
+/**
+ * DEUX PIÈCES DE MÊME NATURE NE S'ÉCRASENT PAS. Un étudiant peut déposer deux
+ * diplômes : le second devient « …_2 », sans quoi le nom affiché mentirait sur
+ * ce qu'on télécharge.
+ */
+function nomLibre(valorisationId, propose) {
+  const pris = new Set(db.prepare(
+    'SELECT nom FROM etudiant_valorisation_fichier WHERE valorisation_id = ?')
+    .all(valorisationId).map(f => f.nom));
+  if (!pris.has(propose)) return propose;
+  const m = propose.match(/^(.*?)(\.[A-Za-z0-9]{1,8})?$/);
+  const base = m[1]; const ext = m[2] || '';
+  for (let i = 2; i < 100; i++) if (!pris.has(`${base}_${i}${ext}`)) return `${base}_${i}${ext}`;
+  return `${base}_${Date.now()}${ext}`;
+}
+
+const stockagePreuve = multer.diskStorage({
+  destination(req, file, cb) {
+    const dir = join(DATA_DIR_VA, 'valorisations', String(req.params.vid));
+    try { mkdirSync(dir, { recursive: true }); } catch { /* déjà là */ }
+    cb(null, dir);
+  },
+  // Le nom d'origine est conservé pour l'affichage ; sur le disque il est
+  // horodaté et nettoyé — deux diplômes nommés « scan.pdf » ne doivent pas
+  // s'écraser l'un l'autre, et un nom de fichier ne doit pas pouvoir remonter
+  // l'arborescence.
+  filename(req, file, cb) {
+    cb(null, `${Date.now()}_${file.originalname.replace(/[^\w.\-]+/g, '_')}`);
+  },
+});
+const envoiPreuve = multer({
+  storage: stockagePreuve,
+  limits: { fileSize: 25 * 1024 * 1024 },
+  fileFilter(req, file, cb) {
+    if (TYPES_PREUVE.has(file.mimetype)) return cb(null, true);
+    cb(new Error(`Type de fichier non accepté (${file.mimetype}).`));
+  },
+});
+
+// LES ROUTES SPÉCIFIQUES AVANT LES PARAMÉTRIQUES : « /valorisations/fichiers/… »
+// doit passer avant « /valorisations/:vid », sans quoi « fichiers » est lu
+// comme un identifiant.
+// La liste vit côté serveur : c'est elle qui décide du préfixe du nom, et un
+// second exemplaire dans l'écran finirait par ne plus dire la même chose.
+r.get('/valorisations/natures', authRequired, (req, res) => res.json(NATURES_PREUVE));
+
+r.get('/valorisations/fichiers/:fid', authRequired, (req, res) => {
+  const f = db.prepare('SELECT * FROM etudiant_valorisation_fichier WHERE id = ?')
+    .get(Number(req.params.fid));
+  if (!f || !existsSync(f.chemin)) return res.status(404).json({ error: 'Pièce introuvable' });
+  res.download(f.chemin, f.nom);
+});
+
+r.delete('/valorisations/fichiers/:fid', authRequired, roleRequired('admin', 'editeur'),
+  (req, res) => {
+    const f = db.prepare('SELECT * FROM etudiant_valorisation_fichier WHERE id = ?')
+      .get(Number(req.params.fid));
+    if (!f) return res.status(404).json({ error: 'Introuvable' });
+    try { unlinkSync(f.chemin); } catch { /* déjà parti du disque */ }
+    db.prepare('DELETE FROM etudiant_valorisation_fichier WHERE id = ?').run(f.id);
+    res.json({ ok: true });
+  });
+
+/**
+ * RENOMMER UNE PIÈCE. La nature choisie peut avoir été la mauvaise, ou le nom
+ * proposé ne pas convenir : on corrige le nom affiché, jamais le fichier sur
+ * le disque — le chemin est ce qui permet de le retrouver.
+ */
+r.patch('/valorisations/fichiers/:fid', authRequired, roleRequired('admin', 'editeur'),
+  (req, res) => {
+    const f = db.prepare('SELECT * FROM etudiant_valorisation_fichier WHERE id = ?')
+      .get(Number(req.params.fid));
+    if (!f) return res.status(404).json({ error: 'Introuvable' });
+    const nom = String(req.body?.nom || '').trim().replace(/[\\/]/g, '_');
+    if (!nom) return res.status(400).json({ error: 'Nom vide.' });
+    db.prepare('UPDATE etudiant_valorisation_fichier SET nom = ?, nature = ? WHERE id = ?')
+      .run(nom, req.body?.nature || f.nature, f.id);
+    res.json({ ok: true, nom });
+  });
+
+r.post('/valorisations/:vid/fichiers', authRequired, roleRequired('admin', 'editeur'),
+  (req, res) => {
+    const valo = db.prepare(
+      'SELECT id, ue_num, annee_scolaire FROM etudiant_valorisation WHERE id = ?')
+      .get(Number(req.params.vid));
+    if (!valo) return res.status(404).json({ error: 'Valorisation introuvable' });
+    // Le filtre de multer rejette par une exception : sans ce relais, elle
+    // remonterait en erreur 500 et l'écran dirait « erreur » là où il doit
+    // dire quel type de fichier n'est pas accepté.
+    envoiPreuve.single('fichier')(req, res, err => {
+      if (err) return res.status(400).json({ error: err.message });
+      if (!req.file) return res.status(400).json({ error: 'Aucun fichier reçu.' });
+      // LE NOM D'ORIGINE N'EST PAS CONSERVÉ, ET C'EST LE BUT : « 23453.docx »
+      // ne dit rien. Le nom affiché se reconstruit à partir de la nature
+      // choisie, de l'étudiant et de l'unité — le fichier reste le même.
+      const etud = db.prepare(`SELECT e.nom, e.prenom FROM etudiant e
+        JOIN etudiant_valorisation v ON v.etudiant_id = e.id
+        WHERE v.id = ?`).get(valo.id) || {};
+      const nature = String(req.body?.nature || 'AUT').toUpperCase();
+      const nom = nomLibre(valo.id, nommerPreuve(nature, etud, valo, req.file.originalname));
+      const info = db.prepare(`INSERT INTO etudiant_valorisation_fichier
+        (valorisation_id, nom, chemin, taille, type_mime, nature, cree_par)
+        VALUES (?,?,?,?,?,?,?)`).run(valo.id, nom, req.file.path,
+          req.file.size, req.file.mimetype, nature, req.user?.username || null);
+      res.json({ ok: true, id: info.lastInsertRowid, nom, nom_origine: req.file.originalname });
+    });
+  });
+
+/**
+ * LES UNITÉS QU'ON PEUT VALORISER POUR CET ÉTUDIANT.
+ *
+ * Le numéro d'UE se tapait à la main. Or on ne valorise pas n'importe quelle
+ * unité : on valorise une unité DE CHEZ NOUS, celle que l'étudiant aura à son
+ * programme. Un numéro libre laissait passer une unité d'une autre section, ou
+ * qui n'existe pas — et rien ne le signalait.
+ *
+ * Les unités du PAE viennent en tête, marquées : une valorisation se décide
+ * souvent AVANT que le programme soit encodé, fermer la liste au seul PAE
+ * empêcherait le cas normal.
+ */
+r.get('/:id/valorisations/unites', authRequired, (req, res) => {
+  const etudId = Number(req.params.id);
+  const annee = req.query.annee;
+  if (!annee) return res.status(400).json({ error: 'annee requise' });
+  const section = req.query.section || null;
+
+  const etud = db.prepare(
+    'SELECT section_rattachement FROM etudiant WHERE id = ?').get(etudId) || {};
+  const sections = db.prepare(
+    'SELECT code, libelle FROM section ORDER BY code').all();
+
+  const auPae = new Set(db.prepare(`SELECT ue_num FROM etudiant_inscription
+    WHERE etudiant_id = ? AND annee_scolaire = ?`).all(etudId, annee)
+    .map(l => l.ue_num));
+
+  // DEUX SOURCES POUR LE RATTACHEMENT, ET ELLES NE DISENT PAS LA MÊME CHOSE :
+  // ue.section est le rangement d'import, ue_section la composition déclarée.
+  // On prend l'union — une unité partagée entre deux sections doit apparaître
+  // dans les deux, faute de quoi elle devient invalorisable dans l'une d'elles.
+  const params = [annee];
+  let filtre = '';
+  if (section) {
+    filtre = `AND (u.section = ? OR EXISTS (SELECT 1 FROM ue_section s
+      WHERE s.ue_num = u.ue_num AND s.section_code = ? AND s.annee_scolaire = ?))`;
+    params.push(section, section, annee);
+  }
+  const unites = db.prepare(`
+    SELECT u.ue_num, u.ue_nom, u.section, u.ue_niv
+      FROM ue u WHERE u.annee_scolaire = ? ${filtre}
+     ORDER BY u.ue_num`).all(...params)
+    .map(u => ({ ...u, au_pae: auPae.has(u.ue_num) }));
+
+  res.json({
+    sections, section_etudiant: etud.section_rattachement || null,
+    unites: [...unites.filter(u => u.au_pae), ...unites.filter(u => !u.au_pae)],
+  });
 });
 
 r.post('/:id/valorisations', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
@@ -3801,7 +4087,17 @@ r.post('/:id/valorisations', authRequired, roleRequired('admin', 'editeur'), (re
   if (type === 'partielle' && !['aa','cours'].includes(cible)) {
     return res.status(400).json({ error: 'dispense partielle : cible aa ou cours requise' });
   }
-  db.prepare(`
+  // L'UNITÉ DOIT EXISTER CHEZ NOUS. Le numéro se tapait à la main : une unité
+  // inconnue s'enregistrait sans un mot, et ne se découvrait qu'au moment
+  // d'imprimer une pièce qui ne pouvait plus être juste.
+  const connue = db.prepare(
+    'SELECT 1 FROM ue WHERE ue_num = ? LIMIT 1').get(Number(ue_num));
+  if (!connue) {
+    return res.status(400).json({
+      error: `L'unité ${ue_num} n'existe pas dans le référentiel.` });
+  }
+
+  const info = db.prepare(`
     INSERT INTO etudiant_valorisation
       (etudiant_id, annee_scolaire, ue_num, type, cible, cible_detail,
        pourcentage, decision_ce_date, commentaire)
@@ -3811,11 +4107,44 @@ r.post('/:id/valorisations', authRequired, roleRequired('admin', 'editeur'), (re
          type === 'partielle' ? (cible_detail || null) : null,
          pourcentage != null ? Number(pourcentage) : (type !== 'admission' ? 50 : null),
          decision_ce_date || null, commentaire || null);
-  res.json({ ok: true });
+
+  // Les acquis reconnus équivalents, avec leur motivation. Une case cochée
+  // sans texte reprend la phrase proposée : l'annexe ne part jamais avec un
+  // blanc, mais le texte reste celui du Conseil dès qu'il l'a écrit.
+  if (Array.isArray(req.body.equivalences)) {
+    const ins = db.prepare(`INSERT OR REPLACE INTO etudiant_valorisation_aa
+      (valorisation_id, aa_code, texte) VALUES (?,?,?)`);
+    for (const e of req.body.equivalences) {
+      if (!e?.aa_code) continue;
+      ins.run(info.lastInsertRowid, String(e.aa_code),
+        (e.texte || '').trim() || TEXTE_EQUIVALENCE);
+    }
+  }
+  res.json({ ok: true, id: info.lastInsertRowid });
 });
 
+/**
+ * LA PHRASE PROPOSÉE POUR UNE ÉQUIVALENCE.
+ *
+ * Elle vit ici, côté serveur, et non dans l'écran : c'est elle qui part sur la
+ * pièce quand personne n'a rien écrit, et deux libellés — un affiché, un
+ * enregistré — finiraient par diverger sans que personne ne s'en aperçoive.
+ */
+export const TEXTE_EQUIVALENCE = "Les acquis d'apprentissage de cette unité "
+  + "sont équivalents aux acquis vus dans le cadre du cours démontré ou dans "
+  + 'un dossier pédagogique.';
+
 r.delete('/valorisations/:vid', authRequired, roleRequired('admin'), (req, res) => {
-  db.prepare('DELETE FROM etudiant_valorisation WHERE id = ?').run(Number(req.params.vid));
+  const vid = Number(req.params.vid);
+  // Les pièces partent avec la décision qu'elles fondaient. La ligne de la
+  // base s'en va par la clé étrangère ; le fichier sur le disque, lui, ne
+  // s'efface pas tout seul et resterait là sans que rien ne le nomme.
+  for (const f of db.prepare(
+    'SELECT chemin FROM etudiant_valorisation_fichier WHERE valorisation_id = ?').all(vid)) {
+    try { unlinkSync(f.chemin); } catch { /* déjà parti */ }
+  }
+  db.prepare('DELETE FROM etudiant_valorisation_fichier WHERE valorisation_id = ?').run(vid);
+  db.prepare('DELETE FROM etudiant_valorisation WHERE id = ?').run(vid);
   res.json({ ok: true });
 });
 
@@ -3832,7 +4161,10 @@ r.get('/ue/:ueNum/composantes', authRequired, (req, res) => {
     SELECT aa_code, aa_num, cours_code, description FROM aa
     WHERE ue_num = ? ORDER BY aa_num
   `).all(ueNum);
-  res.json({ cours, aas });
+  // LA PHRASE PROPOSÉE VIENT D'ICI, PAS DE L'ÉCRAN. C'est elle qui part sur la
+  // pièce quand le Conseil n'a rien écrit : deux libellés, un affiché et un
+  // enregistré, finiraient par diverger sans que personne ne s'en aperçoive.
+  res.json({ cours, aas, texte_equivalence: TEXTE_EQUIVALENCE });
 });
 
 // ── Dossier individuel : les 5 pièces réglementaires ─────────────────────────

@@ -1,6 +1,9 @@
 import { useEffect, useState } from 'react';
 import { IconRefresh, IconAlertTriangle, IconDownload } from '@tabler/icons-react';
 import { authHeaders } from '../lib/api.js';
+import {
+  nb, pc, tonTaux, couleurTaux, BarreDecisions, Tuile, Etendue, forme,
+} from './statsUi.jsx';
 
 /**
  * LES CHIFFRES DE LA DÉLIBÉRATION.
@@ -21,31 +24,13 @@ import { authHeaders } from '../lib/api.js';
  *     indicateur d'évaluation, pas de délibération.
  */
 
-const pc = v => (v == null ? '—' : `${String(v).replace('.', ',')} %`);
-
-function tonTaux(v) {
-  if (v == null) return 'text-slate-400';
-  if (v >= 75) return 'text-emerald-700';
-  if (v >= 50) return 'text-amber-700';
-  return 'text-rose-700';
-}
-
-function Barre({ c }) {
-  const t = c.s1.decides || 1;
-  const seg = [
-    ['reussi', c.s1.reussi, 'bg-emerald-500'],
-    ['ajourne', c.s1.ajourne, 'bg-amber-500'],
-    ['refuse', c.s1.refuse + c.s1.absent, 'bg-rose-500'],
-  ];
-  return (
-    <div className="flex h-2 w-28 rounded-full overflow-hidden bg-slate-100"
-      title={`${c.s1.reussi} réussi(s) · ${c.s1.ajourne} ajourné(s) · `
-           + `${c.s1.refuse + c.s1.absent} refusé(s) — sur ${c.s1.decides} décidés`}>
-      {seg.map(([k, n, cl]) => n
-        ? <div key={k} className={cl} style={{ width: `${(n / t) * 100}%` }} /> : null)}
-    </div>
-  );
-}
+/* Les couleurs, les tuiles et la barre d'étendue vivent dans statsUi.jsx : les
+   deux écrans de statistiques parlent désormais les deux langues, et une teinte
+   qui change doit changer aux deux endroits à la fois. */
+const Barre = ({ c }) => (
+  <BarreDecisions reussi={c.s1.reussi} ajourne={c.s1.ajourne}
+    refuse={c.s1.refuse + c.s1.absent} />
+);
 
 function Tableau({ titre, sous, lignes, colonne = 'Groupe' }) {
   if (!lignes?.length) return null;
@@ -133,6 +118,12 @@ export default function StatsDeliberation({ annee }) {
   };
   useEffect(() => { charger(); /* eslint-disable-next-line */ }, [annee, section]);
 
+  // LA FORME SE CALCULE ICI, à partir de ce qui est déjà chargé : redemander
+  // au serveur la distribution des taux serait une seconde source pour un même
+  // fait. Les unités sans décision n'y entrent pas — elles n'ont pas de taux.
+  const formeUE = forme((data?.par_ue || [])
+    .filter(u => u.s1.decides > 0).map(u => u.s1.taux_reussite));
+
   // Le tableur reste le format du rapport d'activité : autant le donner.
   const exporter = () => {
     if (!data) return;
@@ -197,23 +188,55 @@ export default function StatsDeliberation({ annee }) {
 
       {data && (
         <>
-          <div className="grid gap-2 sm:grid-cols-5">
-            {[
-              ['Décisions prises', data.total.s1.decides],
-              ['Réussite en 1re session', pc(data.total.s1.taux_reussite)],
-              ['Ajournés revenus en 2e', data.total.s2.attendus
-                ? `${data.total.s2.decides} / ${data.total.s2.attendus}` : '—'],
-              ['Réussite après les 2 sessions', pc(data.total.final.taux_reussite)],
-              ['Dossiers à finir', data.dossiers_ouverts],
-            ].map(([l, v], i) => (
-              <div key={l} className={`px-3 py-2 rounded-xl border ${
-                i === 4 && data.dossiers_ouverts
-                  ? 'bg-amber-50 border-amber-300' : 'bg-white border-slate-200'}`}>
-                <div className="text-[11px] text-slate-500">{l}</div>
-                <div className="text-[17px] font-bold text-iip-blue tabular-nums">{v}</div>
-              </div>
-            ))}
+          {/* LES MÊMES TUILES QU'EN DISTRIBUTIONS — filet gauche teinté, chiffre
+              d'abord —, mais la teinte dit ici ce que la couleur disait déjà
+              dans le tableau : un taux se juge, et le vert, l'ocre et le rose
+              sont ce jugement. Le vocabulaire est commun aux deux écrans. */}
+          <div className="flex gap-2 flex-wrap">
+            <Tuile libelle="Décisions prises" valeur={data.total.s1.decides} />
+            <Tuile libelle="Réussite en 1re session"
+              valeur={pc(data.total.s1.taux_reussite)}
+              couleur={couleurTaux(data.total.s1.taux_reussite)} />
+            <Tuile libelle="Ajournés revenus en 2e"
+              valeur={data.total.s2.attendus
+                ? `${data.total.s2.decides} / ${data.total.s2.attendus}` : '—'}
+              precision={data.total.s2.attendus ? 'décidés sur ajournés de juin' : null} />
+            <Tuile libelle="Réussite après les 2 sessions"
+              valeur={pc(data.total.final.taux_reussite)}
+              couleur={couleurTaux(data.total.final.taux_reussite)} />
+            <Tuile libelle="Dossiers à finir" valeur={data.dossiers_ouverts}
+              ton={data.dossiers_ouverts ? 'alerte' : null}
+              precision={data.dossiers_ouverts ? 'hors de tous les taux' : null} />
           </div>
+
+          {/* ET LA FORME, QUE LE TAUX GLOBAL NE DIT PAS.
+              « 68 % de réussite » peut être vingt unités toutes autour de 68,
+              ou dix à 95 et dix à 40 : ce n'est pas la même année, et ce n'est
+              pas la même conversation à tenir avec l'équipe. La barre montre
+              d'où à où vont les unités, où se tient celle du milieu, et où
+              tombe la moyenne. */}
+          {formeUE && formeUE.n > 2 && (
+            <div className="carte px-3 py-2.5 space-y-1.5">
+              <div className="flex items-baseline justify-between gap-3 flex-wrap">
+                <div className="text-[12px] text-slate-600">
+                  Dispersion des taux de réussite de 1re session,
+                  sur <b>{formeUE.n}</b> unité(s) délibérée(s)
+                </div>
+                <div className="text-[11px] text-slate-500 tabular-nums">
+                  la plus basse {nb(formeUE.min)} % · médiane <b className="text-iip-blue">
+                    {nb(formeUE.mediane)} %</b> · moyenne {nb(formeUE.moyenne)} %
+                  · la plus haute {nb(formeUE.max)} %
+                </div>
+              </div>
+              <Etendue d={formeUE} max={100} />
+              {Math.abs(formeUE.moyenne - formeUE.mediane) > 5 && (
+                <div className="text-[11px] text-[color:var(--c-attente,#B45309)]">
+                  Plus de cinq points entre la moyenne et la médiane : la série est
+                  tirée par un bout — quelques unités pèsent sur l'ensemble.
+                </div>
+              )}
+            </div>
+          )}
 
           {!!data.dossiers_ouverts && (
             <div className="px-3 py-2 rounded-xl bg-amber-50 border border-amber-300

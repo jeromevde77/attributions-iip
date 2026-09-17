@@ -64,6 +64,16 @@ ouverte en 2026-2027). ~588 étudiants.
 - Affirmer un détail visuel sans capture : un guide a annoncé un « liseré
   doré » pour les UE inscrites alors que c'est une **pastille ronde** (le cadre
   doré est réservé à l'épreuve intégrée).
+- **La section d'une UE n'est pas toujours un rattachement.** L'UE 95 portait
+  « Restart » parce que l'import de mai l'avait rangée là ; elle s'ajoute au
+  programme d'étudiants de plusieurs sections. Compter par `ue.section` versait
+  donc TOUTES ses inscriptions dans Restart — effectifs, taux et cotes d'une
+  section entière faussés en silence. Depuis 2.11.1, une case **« hors
+  cursus »** sur l'unité : ses dossiers se comptent dans la section **de
+  l'étudiant** (`etudiant.section_rattachement`, déduction à défaut — et la
+  déduction ignore les unités hors cursus). Un effectif, lui, reste la taille
+  d'un groupe : un groupe hors cursus est mixte, il sort des effectifs par
+  section au lieu d'être attribué à l'une d'elles.
 
 ### Ce qui est décidé dans le code et devrait se régler à l'écran
 
@@ -101,10 +111,34 @@ annuelle l'emporte quand elle existe.
 **Stack** : Node/Express + `better-sqlite3` · React/Vite · Tailwind · Docker sur
 NAS Synology.
 
-| Environnement | Branche | Image | Port | Données |
+| Environnement | Branche | Image | Adresse | Données |
 |---|---|---|---|---|
-| Production | `main` | `:latest` | 10800 | réelles |
-| Développement | `develop` | `:dev` | 10801 | copie restaurée |
+| Production | `main` | `:latest` | **https://www.lucie-iip.be** | réelles |
+| Développement | `develop` | `:dev` | **https://dev.lucie-iip.be** | copie synchronisée |
+
+> **Déménagement du 17 septembre 2026.** Le service a quitté le NAS pour un
+> **VPS OVH**, derrière **Caddy** (TLS, certificats Let's Encrypt automatiques).
+> Les bases ont été synchronisées et la **sauvegarde de la base part vers le
+> NAS**. **Dev ET prod vivent sur le même VPS**, chacun sur son réseau Docker
+> (`lucie-prod`, `lucie-dev`) ; Caddy rejoint les deux et publie seul 80 et 443,
+> aucun autre port n'étant exposé. Le frontend (nginx) fait lui-même le
+> `proxy_pass` de `/api/` vers l'alias réseau `backend:3001` : **le navigateur
+> ne parle qu'à une seule origine, et le CORS n'entre pas en jeu** en usage
+> normal. `Caddyfile.vps` et `docker-compose.vps.yml` sont les **copies de
+> référence** de `/opt/lucie/Caddyfile` et `/opt/lucie/docker-compose.yml` — à
+> tenir à jour avec eux, sans quoi le dépôt décrit une installation qui
+> n'existe pas. Les `docker-compose` du NAS sont conservés pour mémoire et
+> marqués **héritage**. Les images ne se mettent pas à jour seules :
+> `docker compose pull` puis `up -d`. Les anciennes adresses `server.domobel.be:10800` et `:10801`
+> ne valent plus. Trois endroits portaient une adresse en dur et ont été
+> repris : `CORS_ORIGIN` dans les deux `docker-compose` (qui accepte désormais
+> une **liste séparée par des virgules** — avec et sans `www`), le repli de
+> `LUCIE_URL` dans `services/mailer.js` (les liens des courriels), et la note
+> sur l'allowlist de l'eID Reader dans `frontend/src/lib/eid.js`.
+> **L'allowlist de l'app eID Reader n'est pas dans ce dépôt** : tant qu'elle
+> porte l'ancienne adresse, la lecture de carte échoue en silence.
+> La restauration de sauvegarde reste gardée par `NODE_ENV`, non par l'adresse :
+> le déménagement ne l'affaiblit pas.
 
 - Base : `/app/data/attributions.db` dans le conteneur. **SQLite3 n'est pas
   installé** → interroger via `node -e "const Database = require('better-sqlite3') …"`.
@@ -124,18 +158,31 @@ NAS Synology.
 
 ### Restaurer des données réelles en dev
 
-Configuration → Sauvegardes → *Télécharger* en **prod**, puis, sur **dev**
-(10801), même écran, section rouge « Restauration de la base ». La route valide
+Configuration → Sauvegardes → *Télécharger* en **prod**
+(www.lucie-iip.be), puis, sur **dev** (dev.lucie-iip.be), même écran, section
+rouge « Restauration de la base ». La route valide
 le fichier, sauvegarde l'état courant sous `backups-auto/`, remet l'ancienne
 base si la nouvelle s'avère illisible, et redémarre. **Elle refuse de
 s'exécuter hors développement**, côté serveur.
 
 ### Sauvegarde avant tout merge vers `main`
 
+Sur le VPS OVH, la base de production vit dans `/opt/lucie/prod/data/` :
+
 ```bash
-cp /volume1/docker/attributions-app/backend/data/attributions.db \
-   /volume1/docker/avant_merge_$(date +%Y%m%d).db
+cd /opt/lucie
+cp prod/data/attributions.db prod/backups/avant_merge_$(date +%Y%m%d).db
+ls -lh prod/backups/avant_merge_*.db | tail -1
 ```
+
+> La copie va dans `prod/backups/`, qui est monté hors du dossier de la base :
+> une sauvegarde rangée à côté de ce qu'elle protège disparaît avec lui. C'est
+> aussi ce dossier que la sauvegarde automatique vers le NAS surveille.
+> La ligne `ls` n'est pas une politesse : une copie qu'on ne regarde pas est
+> une copie dont on ignore si elle a eu lieu.
+>
+> Pour mémoire, avant le déménagement, c'était
+> `/volume1/docker/attributions-app/backend/data/attributions.db`.
 
 ### Workflow de branches
 
@@ -221,6 +268,47 @@ poids du cours, lignes 17+ poids des acquis.
   Trois provenances désormais, et elles ne se valent pas : `conseil` (rédigée
   en séance), `propose` (proposée par Lucie, acceptée en bloc à la clôture),
   `reprise` (reconstituée après coup par l'administration).
+
+**La valorisation des acquis a sa séance.** Le procès-verbal d'annexe 4 et les
+attestations qui en découlent (annexe 15 pour le supérieur, 14 pour le
+secondaire) existaient côté serveur sans qu'aucun écran ne les demande : une
+pièce que personne ne peut produire n'existe pas. Depuis 2.11.7, une table
+`valorisation_seance` propre — et non la séance de délibération, dont la clé
+unique porte la SESSION, que la valorisation n'a pas — porte la date de séance,
+la date de communication et la présidence ; `valorisation_presence` porte les
+présences, et le quorum se calcule avec la même fonction que la délibération.
+**Le serveur refuse de produire tant qu'il manque une valeur** : un PV sorti à
+trous se complète à la main, et c'est cette main qu'on ne retrouve plus un an
+après. Le **nombre de pages**, lui, ne se saisit pas : il se constate — la pièce
+est composée une première fois pour être comptée. L'écran est le bouton
+*Documents* de l'onglet VA de la fiche étudiant, et ce qui en sort concerne
+**l'unité entière**, pas le seul étudiant dont on a la fiche sous les yeux.
+
+**Une valorisation se décide sur pièces, et elle se motive.** Depuis 2.11.8, le
+numéro d'unité ne se tape plus : **section → unité**, liste filtrée, celles du
+PAE en tête — on ne valorise qu'une unité de chez nous, et le serveur refuse un
+numéro inconnu du référentiel. Les **acquis reconnus équivalents** se cochent un
+à un (tous en dispense complète, c'est ce que le mot veut dire), chacun avec son
+constat écrit : une phrase proposée **par le serveur** — deux libellés, un
+affiché et un enregistré, finiraient par diverger — remplaçable, jamais un
+blanc. Les **preuves** (PDF, image, Word, tableur ; 25 Mo) se déposent sur
+chaque valorisation et partent avec elle, disque compris. Leur **nom se
+construit** — `CI_DE-WILDE_Jean-Eric_UE95_20252026.pdf` — à partir de la nature
+demandée au dépôt : « 23453.docx » ne dit rien, et six mois plus tard on ouvre
+douze fichiers un par un pour retrouver la carte d'identité. Le procès-verbal porte
+enfin les mentions que le modèle exige : code approuvé par le Gouvernement,
+ECTS, total des périodes **et leur répartition par activité d'enseignement**,
+cours par cours — leur absence bloque l'impression comme le reste.
+
+**Une attestation ne se produisait pas, et rien ne le disait.** Les attestations
+de valorisation passaient par `unitesReussies()`, qui ne lit que les
+inscriptions marquées « réussi » **par une délibération** ; une unité acquise
+par valorisation n'en a pas, la description revenait vide, le filtre écartait
+l'étudiant — zéro attestation, en silence. Depuis 2.11.10, la description d'une
+unité est `decrireUnite()`, commune aux deux voies : la délibération y entre
+avec des points sur 20, la valorisation avec le pourcentage arrêté par le
+Conseil. Les mentions manquantes de l'attestation rejoignent la barrière du PV —
+elles étaient signalées dans un coin de la réponse que personne ne lisait.
 
 **Chantiers de conformité ouverts, dans l'ordre :** geler les décisions à la
 clôture et historiser par ajout ; figer et horodater le PV ; bloc de signatures

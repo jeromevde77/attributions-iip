@@ -10,11 +10,14 @@
 //    joignable » et l'UI invite à approuver / lancer l'app. La saisie manuelle
 //    reste toujours possible.
 //
-// ⚠️ CORS / origine : l'eID Reader autorise localhost, 127.0.0.1, file:// et
-//    https://server.domobel.be. Une origine = scheme + host + PORT : le dev est
-//    servi sur https://server.domobel.be:10801 (port 10801), donc cette origine
-//    avec son port doit figurer dans l'allowlist de l'eID Reader, sinon le
-//    navigateur bloque l'appel même quand le service tourne.
+// ⚠️ CORS / origine : l'eID Reader tient sa PROPRE liste d'origines autorisées
+//    — localhost, 127.0.0.1, file://, et les adresses de Lucie. Une origine =
+//    scheme + host + PORT. Depuis le passage chez OVH (17 septembre 2026), ce
+//    sont https://www.lucie-iip.be et https://dev.lucie-iip.be qui doivent y
+//    figurer, à la place de https://server.domobel.be:10800 et :10801. Cette
+//    liste vit dans l'app eID Reader, pas ici : changer d'adresse sans la
+//    mettre à jour fait échouer la lecture de carte alors que le service
+//    tourne, et le navigateur ne dit pas pourquoi.
 // ─────────────────────────────────────────────────────────────────────────────
 
 const EID_BASE = 'https://localhost:9140';

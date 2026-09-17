@@ -147,7 +147,12 @@ const STYLE_REPORTING = `
   table.tuiles { width:100%; border-collapse:collapse;
                  margin:3mm 0 8mm; table-layout:fixed; }
   td.tuile + td.tuile { padding-left:7mm !important; }
-  td.tuile { border:0; border-left:2.5pt solid #cbd5e1; padding:1.5mm 0 1mm 3mm;
+  /* LE FILET N'EST PAS UN SOULIGNEMENT COLLÉ AU CHIFFRE. À 22 points, un
+     nombre a besoin d'air : 3 mm, le filet semblait poussé contre lui, et l'œil
+     lisait « barre + chiffre » comme un seul objet au lieu d'un repère et d'une
+     valeur. Le retrait passe à 4,5 mm — la même respiration que les tuiles de
+     l'écran, où le filet de 3 px est suivi de 12 px. */
+  td.tuile { border:0; border-left:2.5pt solid #cbd5e1; padding:1.2mm 0 1.2mm 4.5mm;
              vertical-align:top; }
   /* LE CHIFFRE EST LE SUJET DE LA TUILE : il est grand, serré, et tout le
      reste est gris. Une tuile où le libellé pèse autant que le nombre ne dit

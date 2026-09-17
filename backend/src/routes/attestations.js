@@ -19,10 +19,16 @@ import { piedBalisage, piedStyles, reglesDePage,
   BANDE_PIED_MM, MARGE_SOUS_PIED_MM } from '../lib/document.js';
 import db from '../db/index.js';
 import { authRequired, getUserSections } from '../middleware/auth.js';
-import { capacitePdf, rendrePdf } from '../services/pdf.js';
+import { capacitePdf, rendrePdf, compterPages } from '../services/pdf.js';
 import { SIGNATURE_SOHET, SCEAU_IIP } from '../services/assets/signature_sohet.js';
 import { piedDocument } from './parametres.js';
 import { identiteEtablissement } from './config.js';
+// Le Conseil des études est le même pour la valorisation que pour la
+// délibération : ce sont les professeurs de l'unité, la coordination et la
+// direction. Recomposer la liste ici en aurait fait une seconde source — et
+// deux sources pour un même fait, c'est une source de moins.
+import { membresDuConseil, etatQuorum, CATEGORIES_MEMBRE,
+  nomPropreDepuisChaine } from './acquis.js';
 
 const r = Router();
 
@@ -56,6 +62,56 @@ export function migrerAttestations(dbx) {
       dbx.exec('ALTER TABLE section ADD COLUMN type_enseignement TEXT');
     }
   } catch (e) { console.error('[migration] attestations :', e.message); }
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // LA SÉANCE DE VALORISATION DES ACQUIS.
+  //
+  // Une table à elle, et non la séance de délibération : celle-ci est unique
+  // par (unité, année, SESSION), et la valorisation n'a pas de session — elle
+  // se décide une fois, avant que l'unité ne commence. Loger l'une dans
+  // l'autre aurait voulu dire changer la clé unique d'une table de production,
+  // ce que SQLite ne fait pas par `ALTER` : reconstruire la table des
+  // délibérations pour y ranger autre chose serait risquer ce qui marche pour
+  // ce qui n'existe pas encore.
+  //
+  // Les champs sont les blancs du modèle d'annexe 4 QUI SE DÉCIDENT : la date
+  // de la séance, la date de communication des résultats, qui a présidé. Tant
+  // qu'ils sont vides, le procès-verbal part avec des pointillés que le
+  // secrétariat remplit à la main, cent fois.
+  //
+  // Le NOMBRE DE PAGES n'en fait pas partie, et c'est voulu : il ne se décide
+  // pas, il se constate. Le faire saisir, c'est le faire deviner — et une
+  // pièce qui annonce trois pages quand elle en compte quatre est fausse. Il
+  // se compte donc sur la pièce composée, au moment de la produire.
+  // ═══════════════════════════════════════════════════════════════════════
+  try {
+    dbx.exec(`
+      CREATE TABLE IF NOT EXISTS valorisation_seance (
+        id                 INTEGER PRIMARY KEY AUTOINCREMENT,
+        ue_num             INTEGER NOT NULL,
+        annee_scolaire     TEXT    NOT NULL,
+        date_seance        TEXT,
+        communication_date TEXT,
+        president_nom      TEXT,
+        president_titre    TEXT,
+        cloturee           INTEGER NOT NULL DEFAULT 0,
+        maj_le             TEXT DEFAULT CURRENT_TIMESTAMP,
+        maj_par            TEXT,
+        UNIQUE(ue_num, annee_scolaire)
+      );
+      CREATE TABLE IF NOT EXISTS valorisation_presence (
+        seance_id INTEGER NOT NULL,
+        cle       TEXT    NOT NULL,
+        nom       TEXT    NOT NULL,
+        prenom    TEXT,
+        qualite   TEXT,
+        categorie TEXT,
+        voix      TEXT,
+        present   INTEGER NOT NULL DEFAULT 0,
+        PRIMARY KEY (seance_id, cle)
+      );
+    `);
+  } catch (e) { console.error('[migration] valorisation_seance :', e.message); }
 }
 
 const esc = s => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;');
@@ -120,7 +176,24 @@ export function unitesReussies(etudId, annee, surcharge = null) {
   `).all(etudId, annee).map(i => (surcharge && surcharge[i.ue_num] !== undefined
     ? { ...i, points: surcharge[i.ue_num] } : i));
 
-  return insc.map(i => {
+  return insc.map(i => decrireUnite(i.ue_num, i.annee_scolaire, { points: i.points }));
+}
+
+/**
+ * CE QU'UNE ATTESTATION DOIT DIRE D'UNE UNITÉ — quelle qu'en soit la voie.
+ *
+ * Cette description se calculait à l'intérieur de « les unités réussies par
+ * délibération ». Une unité acquise PAR VALORISATION n'y passe pas : elle n'a
+ * pas d'inscription marquée « réussi », donc aucune description, donc aucune
+ * attestation — et la pièce disparaissait sans un mot. Le calcul est le même
+ * dans les deux cas ; seule la porte d'entrée change.
+ *
+ * @param {object} resultat  { points } sur 20, ou { pourcentage } déjà en %.
+ */
+export function decrireUnite(ueNum, anneeRef, resultat = {}) {
+  const i = { ue_num: ueNum, annee_scolaire: anneeRef,
+              points: resultat.points ?? null };
+  {
     // Le référentiel de l'année de l'inscription, à défaut le plus récent.
     const ue = db.prepare(`
       SELECT * FROM ue WHERE ue_num = ?
@@ -184,7 +257,7 @@ export function unitesReussies(etudId, annee, surcharge = null) {
     if (superieur && !(ue.domaine || sec?.domaine)) manques.push("le domaine d'études");
     if (!periodesCours) manques.push("le total des périodes");
     if (!activites.length) manques.push("la répartition par activité d'enseignement");
-    if (i.points == null) manques.push("le pourcentage obtenu");
+    if (i.points == null && resultat.pourcentage == null) manques.push("le pourcentage obtenu");
 
     return {
       ue_num: i.ue_num,
@@ -221,12 +294,17 @@ export function unitesReussies(etudId, annee, surcharge = null) {
       // délivrer une attestation de réussite portant 40 % serait un document
       // qui se contredit lui-même, et la circulaire Sanction des études ne
       // l'admet pas.
-      pourcentage: i.points != null
-        ? Math.max(50, Math.round(Number(i.points) * 5)) : null,
-      points: i.points != null ? Math.max(10, Number(i.points)) : null,
+      // Une valorisation arrive avec un pourcentage déjà arrêté par le
+      // Conseil ; une délibération, avec des points sur 20.
+      pourcentage: resultat.pourcentage != null
+        ? Math.max(50, Math.round(Number(resultat.pourcentage)))
+        : i.points != null ? Math.max(50, Math.round(Number(i.points) * 5)) : null,
+      points: i.points != null ? Math.max(10, Number(i.points))
+        : resultat.pourcentage != null
+          ? Math.max(10, Math.round(Number(resultat.pourcentage) / 5)) : null,
       manques,
     };
-  });
+  }
 }
 
 /**
@@ -1020,7 +1098,193 @@ r.post('/pdf', authRequired, async (req, res) => {
  * l'on dit ce qui a été dispensé, cours par cours ou acquis par acquis. Sans
  * elle, une valorisation partielle serait indistinguable d'une complète.
  */
-r.post('/valorisation/ue/:ueNum/documents', authRequired, (req, res) => {
+/**
+ * LA SÉANCE DE VALORISATION D'UNE UNITÉ — lecture.
+ *
+ * Les membres se recalculent à chaque ouverture, comme pour la délibération :
+ * une attribution a pu changer depuis. Ce qui a été posé lors d'une séance
+ * précédente prime sur le calcul ; ce qui n'a jamais été posé arrive présent,
+ * parce que l'usage est qu'on décoche les absents, pas qu'on coche les présents.
+ */
+function lireSeanceValorisation(ueNum, annee) {
+  const seance = db.prepare(`SELECT * FROM valorisation_seance
+    WHERE ue_num = ? AND annee_scolaire = ?`).get(ueNum, annee) || null;
+
+  const poses = seance ? Object.fromEntries(db.prepare(
+    `SELECT cle, present, nom, prenom, qualite, categorie, voix
+       FROM valorisation_presence WHERE seance_id = ?`).all(seance.id)
+    .map(l => [l.cle, l])) : {};
+
+  const membres = membresDuConseil(ueNum, annee).map(m => ({
+    ...m,
+    nom: poses[m.cle]?.nom || m.nom,
+    present: poses[m.cle] ? !!poses[m.cle].present : true,
+  }));
+  for (const [cle, l] of Object.entries(poses)) {
+    if (membres.some(m => m.cle === cle)) continue;
+    membres.push({
+      cle, nom: l.nom, prenom: l.prenom || null, qualite: l.qualite,
+      categorie: l.categorie || null, role: 'ajoute',
+      voix: l.voix || 'deliberative', present: !!l.present,
+    });
+  }
+
+  const quorum = etatQuorum(membres,
+    Object.fromEntries(membres.map(m => [m.cle, m.present])));
+  return { seance, membres, quorum };
+}
+
+/**
+ * CE QUI MANQUE POUR QUE LA PIÈCE SOIT RÉGULIÈRE.
+ *
+ * Une seule liste, calculée côté serveur, et c'est elle qui décide : un écran
+ * qui vérifie de son côté finirait par vérifier autre chose. Le nombre de
+ * pages n'y figure pas — il ne se connaît qu'une fois la pièce composée, et
+ * demander de le deviner avant serait demander de l'inventer.
+ */
+function manquesValorisation({ seance, membres, quorum }, vas, ue) {
+  const m = [];
+  if (!seance) m.push("La séance de valorisation n'a pas encore été ouverte.");
+  else {
+    if (!seance.date_seance) m.push('Date de la séance du Conseil des études.');
+    if (!seance.communication_date) m.push('Date de communication des résultats.');
+    if (!(seance.president_nom || '').trim()) m.push('Nom du président de séance.');
+  }
+  if (!membres.some(x => x.present)) m.push("Aucun membre n'est noté présent.");
+  else if (!quorum.atteint) {
+    m.push(`Quorum des deux tiers non atteint : ${quorum.presents} présent(s) `
+      + `sur ${quorum.membres} voix délibératives, ${quorum.requis} requis.`);
+  }
+  // LES MENTIONS QUE LE MODÈLE EXIGE. Leur absence ne rend pas la pièce
+  // incomplète : elle la rend irrégulière.
+  if (!ue?.ue_code_fwb) m.push("Numéro de code de l'unité approuvé par le Gouvernement.");
+  if (ue?.ue_num != null) {
+    const cours = db.prepare(`SELECT cours_code, cours_nom, cours_per FROM cours
+      WHERE ue_num = ? AND annee_scolaire = ?`).all(ue.ue_num, ue.annee_scolaire);
+    if (!cours.length) {
+      m.push("Répartition par activité d'enseignement : aucun cours n'est encodé "
+        + 'pour cette unité cette année.');
+    } else {
+      for (const c of cours.filter(c => !c.cours_per)) {
+        m.push(`Périodes du cours ${c.cours_code} — ${c.cours_nom}.`);
+      }
+    }
+    if (!ue.ue_per_etudiants && !cours.some(c => c.cours_per)) {
+      m.push("Total des périodes de l'unité.");
+    }
+    const niv = String(ue.ue_niv || '').toUpperCase();
+    const sup = /SUP|BES|BAC|ESTC|ESTL/.test(niv) ? true
+      : /SEC|ESI|ESS/.test(niv) ? false : !!ue.ects;
+    if (sup && !ue.ects) m.push("Nombre d'E.C.T.S. de l'unité.");
+  }
+  for (const v of vas) {
+    const qui = `${v.nom} ${v.prenom || ''}`.trim();
+    if (!v.date_naissance) m.push(`${qui} : date de naissance.`);
+    if (!v.lieu_naissance) m.push(`${qui} : lieu de naissance.`);
+    if (v.type === 'complete' && v.pourcentage == null) {
+      m.push(`${qui} : pourcentage obtenu (valorisation complète).`);
+    }
+  }
+  return m;
+}
+
+r.get('/valorisation/ue/:ueNum/seance', authRequired, (req, res) => {
+  const ueNum = Number(req.params.ueNum);
+  const annee = req.query.annee;
+  if (!annee) return res.status(400).json({ error: 'annee requise' });
+
+  const etat = lireSeanceValorisation(ueNum, annee);
+  const ue = db.prepare(`SELECT * FROM ue WHERE ue_num = ?
+    ORDER BY (annee_scolaire = ?) DESC, annee_scolaire DESC LIMIT 1`).get(ueNum, annee) || {};
+  const vas = db.prepare(`
+    SELECT v.*, e.nom, e.prenom, e.date_naissance, e.lieu_naissance
+      FROM etudiant_valorisation v JOIN etudiant e ON e.id = v.etudiant_id
+     WHERE v.ue_num = ? AND v.annee_scolaire = ?
+     ORDER BY e.nom, e.prenom`).all(ueNum, annee);
+
+  let directeur = null;
+  try { directeur = identiteEtablissement()?.directeur || null; } catch { /* défaut */ }
+
+  res.json({
+    ue_num: ueNum, annee,
+    ue: { ue_nom: ue.ue_nom || null, ue_code_fwb: ue.ue_code_fwb || null },
+    ...etat,
+    categories: CATEGORIES_MEMBRE,
+    // La présidence proposée, jamais imposée : le directeur peut avoir été
+    // absent ce jour-là, et le procès-verbal doit dire qui a présidé.
+    president_propose: directeur ? nomPropreDepuisChaine(directeur) : null,
+    nb: vas.length,
+    manques: manquesValorisation(etat, vas, ue),
+  });
+});
+
+/**
+ * LA SÉANCE DE VALORISATION — écriture.
+ *
+ * Les présences sont remplacées en bloc : ce que l'écran envoie est l'état de
+ * la séance, pas un correctif. Une séance close ne se modifie plus.
+ */
+r.put('/valorisation/ue/:ueNum/seance', authRequired, (req, res) => {
+  const ueNum = Number(req.params.ueNum);
+  const annee = req.body?.annee;
+  if (!annee) return res.status(400).json({ error: 'annee requise' });
+
+  const avant = db.prepare(`SELECT * FROM valorisation_seance
+    WHERE ue_num = ? AND annee_scolaire = ?`).get(ueNum, annee);
+  if (avant?.cloturee) {
+    return res.status(409).json({ error: 'Séance de valorisation clôturée.' });
+  }
+
+  const ch = {
+    date_seance: req.body.date_seance || null,
+    communication_date: req.body.communication_date || null,
+    president_nom: (req.body.president_nom || '').trim() || null,
+    president_titre: (req.body.president_titre || '').trim() || null,
+  };
+
+  db.transaction(() => {
+    if (avant) {
+      db.prepare(`UPDATE valorisation_seance SET date_seance = ?,
+        communication_date = ?, president_nom = ?,
+        president_titre = ?, maj_le = CURRENT_TIMESTAMP, maj_par = ?
+        WHERE id = ?`).run(ch.date_seance, ch.communication_date,
+          ch.president_nom, ch.president_titre, req.user?.username || null, avant.id);
+    } else {
+      db.prepare(`INSERT INTO valorisation_seance
+        (ue_num, annee_scolaire, date_seance, communication_date,
+         president_nom, president_titre, maj_par)
+        VALUES (?,?,?,?,?,?,?)`).run(ueNum, annee, ch.date_seance,
+          ch.communication_date, ch.president_nom,
+          ch.president_titre, req.user?.username || null);
+    }
+    const id = db.prepare(`SELECT id FROM valorisation_seance
+      WHERE ue_num = ? AND annee_scolaire = ?`).get(ueNum, annee).id;
+
+    if (Array.isArray(req.body.membres)) {
+      db.prepare('DELETE FROM valorisation_presence WHERE seance_id = ?').run(id);
+      const ins = db.prepare(`INSERT INTO valorisation_presence
+        (seance_id, cle, nom, prenom, qualite, categorie, voix, present)
+        VALUES (?,?,?,?,?,?,?,?)`);
+      for (const m of req.body.membres) {
+        if (!m?.cle || !m?.nom) continue;
+        ins.run(id, String(m.cle), String(m.nom), m.prenom || null,
+          m.qualite || null, m.categorie || null, m.voix || 'deliberative',
+          m.present ? 1 : 0);
+      }
+    }
+  })();
+
+  const etat = lireSeanceValorisation(ueNum, annee);
+  const ue = db.prepare(`SELECT * FROM ue WHERE ue_num = ?
+    ORDER BY (annee_scolaire = ?) DESC, annee_scolaire DESC LIMIT 1`).get(ueNum, annee) || {};
+  const vas = db.prepare(`
+    SELECT v.*, e.nom, e.prenom, e.date_naissance, e.lieu_naissance
+      FROM etudiant_valorisation v JOIN etudiant e ON e.id = v.etudiant_id
+     WHERE v.ue_num = ? AND v.annee_scolaire = ?`).all(ueNum, annee);
+  res.json({ ok: true, ...etat, manques: manquesValorisation(etat, vas, ue) });
+});
+
+r.post('/valorisation/ue/:ueNum/documents', authRequired, async (req, res) => {
   const ueNum = Number(req.params.ueNum);
   const annee = req.body?.annee;
   if (!annee) return res.status(400).json({ error: 'annee requise' });
@@ -1043,16 +1307,101 @@ r.post('/valorisation/ue/:ueNum/documents', authRequired, (req, res) => {
   const superieur = /SUP|BES|BAC|ESTC|ESTL/.test(niv) ? true
     : /SEC|ESI|ESS/.test(niv) ? false : !!ue.ects;
 
-  const dit = v => v.type === 'complete' ? "Unité entière"
-    : v.cible_detail ? `${v.cible === 'aa' ? 'Acquis' : 'Cours'} : ${v.cible_detail}`
-      : v.type === 'admission' ? 'Admission' : 'Dispense partielle';
+  // RIEN NE S'IMPRIME TANT QU'IL MANQUE QUELQUE CHOSE. Un procès-verbal sorti
+  // avec des pointillés se complète à la main, et c'est cette main qu'on ne
+  // retrouve plus un an après. Le refus vient du serveur : un écran qui
+  // vérifie de son côté ne protège que les chemins auxquels il a pensé.
+  const etatSeance = lireSeanceValorisation(ueNum, annee);
+  const manques = manquesValorisation(etatSeance, vas, ue);
+  // L'ATTESTATION A SES PROPRES MENTIONS OBLIGATOIRES — domaine d'études,
+  // ECTS, répartition par activité, liste des acquis. Elle les signalait déjà,
+  // mais dans un coin de la réponse que personne ne lisait : elles rejoignent
+  // la même barrière que le reste, sans quoi il y aurait deux exigences pour
+  // une seule pièce.
+  for (const v of vas.filter(v => v.type === 'complete' && v.pourcentage != null)) {
+    for (const m of decrireUnite(ueNum, annee, { pourcentage: v.pourcentage }).manques || []) {
+      const dit = `Attestation de réussite : ${m}.`;
+      if (!manques.includes(dit)) manques.push(dit);
+    }
+  }
+  if (manques.length) {
+    return res.status(409).json({
+      error: 'Valeurs manquantes : à encoder avant impression.', manques });
+  }
+  // LES MENTIONS OBLIGATOIRES DE L'UNITÉ.
+  //
+  // Le modèle ne se contente pas d'un intitulé : il veut le numéro de code
+  // approuvé par le Gouvernement, le total des périodes ET leur répartition
+  // par activité d'enseignement — cours par cours, avec ses périodes. Sans
+  // cette répartition, la pièce ne dit pas sur quoi la dispense porte, et
+  // l'administration ne peut pas la vérifier.
+  const coursUE = db.prepare(`
+    SELECT cours_code, cours_nom, cours_per, ct_pp, enc_cours
+      FROM cours WHERE ue_num = ? AND annee_scolaire = ?
+     ORDER BY cours_num, cours_code`).all(ueNum, annee);
+  const sectionUE = ue.section
+    ? db.prepare('SELECT code, libelle, domaine, type_enseignement FROM section WHERE code = ?')
+      .get(ue.section) : null;
+  const perCours = coursUE.reduce((t, c) => t + (Number(c.cours_per) || 0), 0);
+  const autonomie = Number(ue.ue_aut) || 0;
+  const perTotal = (Number(ue.ue_per_etudiants) || perCours) + autonomie;
+
+  const { seance, membres } = etatSeance;
+  // QUI A PRÉSIDÉ SE CONSTATE, IL NE SE DÉDUIT PAS. Le nom saisi pour la
+  // séance fait foi ; s'il correspond à un membre présent, c'est ce membre
+  // qu'on marque, sinon il s'ajoute au bas du tableau — un président qui ne
+  // figure pas parmi les présents est une anomalie qui doit se voir.
+  const memeNom = (a, b) => String(a || '').trim().toLocaleUpperCase('fr')
+    === String(b || '').trim().toLocaleUpperCase('fr');
+  const presents = membres.filter(m => m.present);
+  const preside = presents.find(m => memeNom(m.nom, seance.president_nom));
+  const lignesConseil = presents.map(m => ({
+    nom: m.nom, qualite: m.qualite, voix: m.voix, president: m === preside,
+  }));
+  if (!preside) {
+    lignesConseil.push({
+      nom: seance.president_nom,
+      qualite: seance.president_titre || 'Direction ou son représentant',
+      voix: 'deliberative', president: true,
+    });
+  }
+
+  // LA COLONNE « DISPENSE(S) » EST LA SEULE PIÈCE OÙ L'ON DIT CE QUI A ÉTÉ
+  // DISPENSÉ, et désormais POURQUOI : les acquis reconnus équivalents y
+  // figurent avec le constat du Conseil. Sans cela, une valorisation partielle
+  // serait indistinguable d'une complète, et aucune des deux motivée.
+  const equivalences = {};
+  try {
+    for (const l of db.prepare(`
+      SELECT a.valorisation_id, a.aa_code, a.texte, aa.description
+        FROM etudiant_valorisation_aa a
+        LEFT JOIN aa ON aa.aa_code = a.aa_code AND aa.ue_num = ?
+       WHERE a.valorisation_id IN (${vas.map(() => '?').join(',') || 'NULL'})
+    `).all(ueNum, ...vas.map(v => v.id))) {
+      (equivalences[l.valorisation_id] ||= []).push(l);
+    }
+  } catch { /* table absente : la colonne se contente des codes */ }
+
+  const dit = v => {
+    const base = v.type === 'complete' ? 'Unité entière'
+      : v.cible_detail ? `${v.cible === 'aa' ? 'Acquis' : 'Cours'} : ${v.cible_detail}`
+        : v.type === 'admission' ? 'Admission' : 'Dispense partielle';
+    const eq = equivalences[v.id] || [];
+    if (!eq.length) return esc(base);
+    // Un seul constat pour tous les acquis : on ne le répète pas vingt fois.
+    const textes = [...new Set(eq.map(x => (x.texte || '').trim()).filter(Boolean))];
+    return `${esc(base)}<div class="ref" style="margin-top:.8mm">`
+      + `Acquis reconnus équivalents : ${esc(eq.map(x => x.aa_code).join(', '))}`
+      + textes.map(t => `<div>${esc(t)}</div>`).join('')
+      + '</div>';
+  };
 
   const lignes = vas.map(v => `<tr>
     <td><b>${esc((v.nom || '').toUpperCase())} ${esc(v.prenom || '')}</b><br>
       <span class="ref">${esc(v.lieu_naissance || '')}${
         v.date_naissance ? `, ${frDate(v.date_naissance)}` : ''}</span></td>
     <td class="c">${v.pourcentage != null ? 'Réussite' : 'Refus'}</td>
-    <td>${esc(dit(v))}</td>
+    <td>${dit(v)}</td>
     <td class="c">${v.pourcentage != null
       ? `${Math.round(Number(v.pourcentage))} %` : ''}</td>
   </tr>`).join('');
@@ -1082,10 +1431,37 @@ r.post('/valorisation/ue/:ueNum/documents', authRequired, (req, res) => {
   <div class="carac">
     <div class="large">Intitulé de l'unité d'enseignement :
       <b>${esc(ue.ue_nom || `UE ${ueNum}`)}</b></div>
-    <div>${ue.ue_per_etudiants ? `<b>${ue.ue_per_etudiants}</b> périodes` : '…… périodes'}</div>
-    <div>Numéro de code : ${ue.ue_code_fwb ? `<b>${esc(ue.ue_code_fwb)}</b>`
-      : '<span class="manque">à compléter</span>'}</div>
+    <div>Numéro de code approuvé par le Gouvernement :
+      <b>${esc(ue.ue_code_fwb || '')}</b></div>
+    <div>Total des périodes : <b>${perTotal}</b>${
+      autonomie ? ` <span class="detail">(dont ${autonomie} d'autonomie)</span>` : ''}</div>
+    ${superieur && ue.ects ? `<div>Nombre d'E.C.T.S. : <b>${ue.ects}</b></div>` : ''}
+    <div>Section : <b>${esc(sectionUE?.libelle || ue.section || '')}</b></div>
+    ${superieur && (ue.domaine || sectionUE?.domaine)
+      ? `<div class="large">Domaine d'études :
+          <b>${esc(ue.domaine || sectionUE.domaine)}</b></div>` : ''}
   </div>
+
+  <p class="corps" style="margin-bottom:1mm">Répartition des périodes par
+    activité d'enseignement :</p>
+  <table class="doc">
+    <thead><tr>
+      <th style="width:16%">Code</th>
+      <th>Activité d'enseignement</th>
+      <th style="width:14%">Classement</th>
+      <th style="width:16%">Périodes</th>
+    </tr></thead>
+    <tbody>${coursUE.map(c => `<tr>
+      <td>${esc(c.cours_code || '')}</td>
+      <td>${esc(c.cours_nom || '')}</td>
+      <td class="c">${esc(c.ct_pp || '')}</td>
+      <td class="c">${c.cours_per != null ? c.cours_per : ''}</td>
+    </tr>`).join('')}${autonomie ? `<tr>
+      <td></td><td><i>Activités d'apprentissage en autonomie</i></td>
+      <td class="c"></td><td class="c">${autonomie}</td></tr>` : ''}
+      <tr><td></td><td><b>Total</b></td><td class="c"></td>
+        <td class="c"><b>${perTotal}</b></td></tr></tbody>
+  </table>
 
   <p class="corps">Après en avoir délibéré, avons pris les décisions suivantes :</p>
 
@@ -1102,13 +1478,27 @@ r.post('/valorisation/ue/:ueNum/documents', authRequired, (req, res) => {
   <p style="font-size:7.5pt;color:#64748b"><sup>1</sup> À ne compléter qu'en cas
     de « Réussite ».</p>
 
+  <table class="doc" style="margin-top:4mm">
+    <thead><tr>
+      <th style="width:38%">Président-e et membres du Conseil des études</th>
+      <th style="width:38%">Qualité</th>
+      <th>Signature</th>
+    </tr></thead>
+    <tbody>${lignesConseil.map(m => `<tr>
+      <td><b>${esc(m.nom)}</b>${m.president ? ' — Président-e' : ''}</td>
+      <td>${esc(m.qualite || '')}${
+        (m.voix || 'deliberative') === 'consultative' ? ' <span class="ref">(voix consultative)</span>' : ''}</td>
+      <td style="height:9mm"></td>
+    </tr>`).join('')}</tbody>
+  </table>
+
   <div class="info">
-    <div class="ligne">Le présent procès-verbal comporte …… page(s).</div>
+    <div class="ligne">Le présent procès-verbal comporte
+      <b>{{NB_PAGES}}</b> page(s).</div>
     <div class="ligne">Le Conseil des études a délibéré le
-      <b>${esc(vas.find(v => v.decision_ce_date)
-        ? frDate(vas.find(v => v.decision_ce_date).decision_ce_date) : '……………')}</b>.</div>
+      <b>${esc(frDate(seance.date_seance))}</b>.</div>
     <div class="ligne">Les résultats sont communiqués conformément au ROI de
-      l'établissement le ……………………</div>
+      l'établissement le <b>${esc(frDate(seance.communication_date))}</b>.</div>
   </div>
 
   <div class="cloture sans-paraphe">
@@ -1117,37 +1507,72 @@ r.post('/valorisation/ue/:ueNum/documents', authRequired, (req, res) => {
     <div class="lieu">Fait en un exemplaire à ${esc(ident.ville || 'Anderlecht')},
       le ${frDate(new Date().toISOString())}</div>
     <div class="legende">
-      <div class="qualite">Pour le Conseil des études,<br>le Directeur</div>
-      <div class="nom">${esc(ident.directeur || '……………………')}</div>
+      <div class="qualite">Pour le Conseil des études,<br>${
+        esc(seance.president_titre || 'le Directeur')}</div>
+      <div class="nom">${esc(seance.president_nom)}</div>
     </div>
   </div>
 </div>`;
 
-  // Les attestations : seules les valorisations COMPLÈTES en produisent une.
-  // Une dispense partielle ne fait pas réussir l'unité — elle allège son
-  // évaluation, et l'attestation viendra de la délibération ordinaire.
+  // LES ATTESTATIONS — ANNEXE 15 EN SUPÉRIEUR, 14 EN SECONDAIRE.
+  //
+  // Seules les valorisations COMPLÈTES en produisent une : une dispense
+  // partielle ne fait pas réussir l'unité, elle allège son évaluation, et
+  // l'attestation viendra de la délibération ordinaire.
+  //
+  // Elles passaient auparavant par « les unités réussies », qui ne lit que les
+  // inscriptions marquées « réussi » par une délibération. Une unité acquise
+  // par valorisation n'en a pas : la description revenait vide, le filtre
+  // écartait l'étudiant, et AUCUNE attestation ne sortait — sans un mot. La
+  // description se demande donc directement à l'unité.
   const completes = vas.filter(v => v.type === 'complete' && v.pourcentage != null);
-  const unites = completes.length
-    ? Object.fromEntries(completes.map(v => [v.etudiant_id,
-        (unitesReussies(v.etudiant_id, annee) || []).find(x => Number(x.ue_num) === ueNum)]))
-    : {};
-  const attestations = completes
-    .filter(v => unites[v.etudiant_id])
-    .map(v => ({
+  const attestations = completes.map(v => {
+    const u = decrireUnite(ueNum, annee, { pourcentage: v.pourcentage });
+    return {
       etudiant_id: v.etudiant_id,
       etudiant: `${v.nom} ${v.prenom || ''}`.trim(),
-      html: pageAttestationValorisation(v, { ...unites[v.etudiant_id], superieur },
+      annexe: superieur ? 15 : 14,
+      manques: u.manques || [],
+      html: pageAttestationValorisation(v, { ...u, superieur },
         annee, etab, v, req.body?.date_document || null, ident),
-    }));
+    };
+  });
+
+  // LE NOMBRE DE PAGES SE CONSTATE, IL NE SE SAISIT PAS.
+  //
+  // Le modèle demande « le présent procès-verbal comporte …… page(s) ». Le
+  // faire encoder d'avance revenait à le faire deviner, et une pièce qui
+  // annonce trois pages quand elle en compte quatre est fausse — c'est
+  // précisément ce que la mention sert à empêcher. On compose donc la pièce
+  // une première fois pour la compter, puis on inscrit le nombre trouvé.
+  //
+  // Le comptage passe par le rendu PDF, seul endroit où une page existe
+  // vraiment : le HTML, lui, ne sait pas où le papier se coupe. Faute de
+  // Chromium sur le serveur, la mention garde ses pointillés plutôt que
+  // d'annoncer un nombre inventé, et le dit.
+  const htmlAvec = n => envelopper(pv.replace('{{NB_PAGES}}', n),
+    `Valorisation — UE ${ueNum}`);
+
+  let pages = null;
+  try {
+    if ((await capacitePdf()).disponible) {
+      pages = compterPages(await rendrePdf(htmlAvec('……'), {
+        marges: { top: '12mm', right: '15mm', bottom: '22mm', left: '15mm' },
+        pagination: 'si-plusieurs',
+      }));
+    }
+  } catch (e) { console.error('[valorisation/pages]', e.message); }
 
   res.json({
-    html: envelopper(pv, `Valorisation — UE ${ueNum}`),
+    html: htmlAvec(pages != null ? String(pages) : '……'),
+    pages,
     nom: `Valorisation_UE${ueNum}_${String(annee).replace(/\W/g, '')}.html`,
     annexe: 4,
     attestations,
     nb: vas.length,
-    manques: vas.filter(v => !v.date_naissance || !v.lieu_naissance)
-      .map(v => `${v.nom} ${v.prenom} : identité incomplète`),
+    manques: pages == null
+      ? ["Le nombre de pages n'a pas pu être compté (rendu PDF indisponible) : "
+         + 'le procès-verbal garde les pointillés du modèle.'] : [],
   });
 });
 

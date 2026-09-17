@@ -4868,7 +4868,7 @@ export function membresDeLaSeance(ueNum, annee, session = 1) {
   return membres;
 }
 
-function membresDuConseil(ueNum, annee) {
+export function membresDuConseil(ueNum, annee) {
   const membres = [];
 
   for (const p of db.prepare(`
@@ -4947,7 +4947,7 @@ function membresDuConseil(ueNum, annee) {
  * pas. Les deux tiers s'arrondissent VERS LE HAUT — deux tiers de 4 font 2,67,
  * et l'on ne délibère pas à 2,67 : il en faut 3.
  */
-function etatQuorum(membres, presences) {
+export function etatQuorum(membres, presences) {
   const votants = membres.filter(m => (m.voix || 'deliberative') === 'deliberative');
   const presents = votants.filter(m => presences[m.cle]);
   const requis = Math.ceil((votants.length * 2) / 3);
@@ -5213,7 +5213,6 @@ r.get('/deliberation/ue/:ueNum/seance', authRequired, (req, res) => {
              // Les titres auxquels on siège, pour que l'écran n'invente pas sa
              // propre liste et que la voix suive le décret des deux côtés.
              categories: CATEGORIES_MEMBRE,
-             presidence: presidenceConseil(),
              presidence: presidenceConseil(),
              president: presidentDeLaSeance(ueNum, annee, session) });
 });

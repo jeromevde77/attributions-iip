@@ -1700,6 +1700,27 @@ try {
       console.log('[migration] Table ue : colonne pot_code ajoutée');
     }
 
+    /*
+     * UNE UNITÉ HORS CURSUS NE RATTACHE PERSONNE À SA SECTION.
+     *
+     * L'UE 95 porte « Restart » parce que l'import de mai l'a rangée là, et
+     * non parce qu'elle appartient à ce cursus : elle s'ajoute au programme
+     * d'étudiants de plusieurs sections. Tant que la section DÉCLARÉE SUR
+     * L'UNITÉ servait à compter, chaque inscription tombait dans Restart —
+     * les effectifs, les taux de réussite et les cotes d'une section entière
+     * s'en trouvaient faussés, sans que rien ne le signale.
+     *
+     * Ce drapeau dit que la section de l'unité est un héritage d'import, pas
+     * un rattachement : le dossier se compte alors dans la section DE
+     * L'ÉTUDIANT, et si celui-ci est inscrit en Restart, il compte bien en
+     * Restart. La colonne est additive et vaut 0 partout : rien ne change tant
+     * que personne ne coche.
+     */
+    if (!ueColsNow.includes('hors_cursus')) {
+      db.exec("ALTER TABLE ue ADD COLUMN hors_cursus INTEGER NOT NULL DEFAULT 0");
+      console.log('[migration] Table ue : colonne hors_cursus ajoutée');
+    }
+
     // Table dotation_civile : dotation organique par année civile
     db.exec(`
       CREATE TABLE IF NOT EXISTS dotation_civile (
@@ -2716,7 +2737,21 @@ app.use(helmet());
 // ── Guard écriture en mode DEMO ──────────────────────────────────────────────
 app.use((req, res, next) => demoWriteGuard(req, res, next));
 
-app.use(cors({ origin: process.env.CORS_ORIGIN || true, credentials: true }));
+/*
+ * UNE SEULE ORIGINE NE SUFFIT PLUS.
+ *
+ * `CORS_ORIGIN` ne portait qu'une chaîne : une adresse, et une seule. Or le
+ * même service se rejoint par plusieurs chemins — avec et sans « www »,
+ * l'ancien domaine pendant la bascule, l'adresse interne du NAS. Une origine
+ * oubliée ne donne pas un message clair : elle donne une page qui charge et une
+ * application qui ne répond pas, ce qui se diagnostique mal.
+ *
+ * La variable accepte donc une liste séparée par des virgules. Une valeur
+ * unique continue de fonctionner telle quelle.
+ */
+const ORIGINES = String(process.env.CORS_ORIGIN || '')
+  .split(',').map(o => o.trim()).filter(Boolean);
+app.use(cors({ origin: ORIGINES.length ? ORIGINES : true, credentials: true }));
 // L'envoi par courriel transporte jusqu'à deux cents documents HTML en un
 // appel : il lui faut plus que la limite commune. Déclaré AVANT, car un
 // corps déjà lu n'est pas relu par le parseur suivant.
