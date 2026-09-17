@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
-import { IconPrinter, IconFileText, IconX, IconAlertTriangle } from '@tabler/icons-react';
+import { IconPrinter, IconFileText, IconX, IconAlertTriangle, IconSend } from '@tabler/icons-react';
 import { authHeaders } from '../lib/api.js';
+import { useEnvoiMail } from '../lib/envoiMail.js';
+import EnvoiMailModal from './EnvoiMailModal.jsx';
 
 /**
  * LE CENTRE D'IMPRESSION D'UNE UNITÉ.
@@ -21,6 +23,11 @@ export default function CentreDocumentsUE({ ueNum, ueNom, annee, onClose }) {
     grille: false, ajustements: false, motivations: false });
   const [erreur, setErreur] = useState(null);
   const [enCours, setEnCours] = useState(false);
+  // L'envoi n'apparaît que s'il est allumé ET que la personne y a droit ; la
+  // route refuse de toute façon, mais un bouton qui ne mène nulle part est
+  // une promesse en l'air.
+  const etatEnvoi = useEnvoiMail();
+  const [envoi, setEnvoi] = useState(null);   // les pièces prêtes à partir
   // TROIS LECTURES. Juin, septembre — et le résultat de l'unité APRÈS LES DEUX
   // SESSIONS. Les documents ne disaient même pas laquelle ils montraient : deux
   // pièces voisines étaient indiscernables. Et en seconde session, ceux qui ont
@@ -187,6 +194,52 @@ export default function CentreDocumentsUE({ ueNum, ueNom, annee, onClose }) {
       ton: 'border-slate-400 bg-slate-50' },
   ] : [];
 
+  /**
+   * ENVOYER : UNE PIÈCE, UNE PERSONNE, UN COURRIEL.
+   *
+   * Cliquer ici force la séparation par étudiant — on n'envoie pas à quelqu'un
+   * un document qui porte vingt noms. Les pièces du Conseil, elles, restent
+   * groupées : c'est UN procès-verbal, adressé à chacun de ses membres.
+   *
+   * Le destinataire ne se choisit pas : une pièce d'étudiant va à l'étudiant
+   * qu'elle nomme, une pièce du Conseil à sa composition, à la boîte des
+   * examens et à la direction adjointe. Le serveur dit qui ; l'écran ne fait
+   * que le montrer avant d'envoyer.
+   */
+  async function preparerEnvoi() {
+    setEnCours(true); setErreur(null);
+    try {
+      const rep = await fetch(`/api/acquis/deliberation/ue/${ueNum}/documents`, {
+        method: 'POST', headers: authHeaders(),
+        body: JSON.stringify({ annee, ...choix, separer: true,
+          session: lecture === '1' ? 1 : 2, total: lecture === 'T' }),
+      });
+      const j = await rep.json();
+      if (!rep.ok) { setErreur(j.error); return; }
+
+      const aEnvoyer = (j.documents || []).map(d => ({
+        html: d.html, nom_fichier: d.nom,
+        destinataire: { type: 'etudiant', id: d.etudiant_id, nom: d.etudiant },
+      }));
+
+      if (j.collectif) {
+        const rd = await fetch('/api/envois/destinataires?regle=conseil'
+          + `&ue=${ueNum}&annee=${encodeURIComponent(annee)}`, { headers: authHeaders() });
+        const membres = rd.ok ? await rd.json() : [];
+        for (const m of membres) {
+          aEnvoyer.push({
+            html: j.collectif.html, nom_fichier: j.collectif.nom,
+            destinataire: { type: m.type, id: m.id, nom: m.nom, email: m.email || '' },
+          });
+        }
+      }
+
+      if (!aEnvoyer.length) { setErreur('Aucune pièce à envoyer.'); return; }
+      setEnvoi(aEnvoyer);
+    } catch (e) { setErreur(e.message); }
+    finally { setEnCours(false); }
+  }
+
   const total = pieces.filter(p => choix[p.cle] && p.nb).reduce((n, p) => n + p.nb, 0);
 
   return (
@@ -323,9 +376,25 @@ export default function CentreDocumentsUE({ ueNum, ueNom, annee, onClose }) {
                          font-semibold disabled:opacity-40 flex items-center gap-1.5">
               <IconFileText size={14} /> PDF — à imprimer
             </button>
+            {etatEnvoi?.actif && etatEnvoi?.peut_envoyer && (
+              <button onClick={preparerEnvoi} disabled={enCours || !total}
+                title="Envoyer par courriel — une pièce par personne, jamais de copie collective"
+                className="px-4 py-2 text-[13px] rounded-lg bg-iip-blue text-white
+                           font-semibold disabled:opacity-40 flex items-center gap-1.5">
+                <IconSend size={14} /> Envoyer
+              </button>
+            )}
           </div>
         </div>
       </div>
+
+      {envoi && (
+        <EnvoiMailModal
+          pieces={envoi}
+          typeDoc={`deliberation_ue${ueNum}`}
+          sujet={`${ueNom || `UE ${ueNum}`} — ${annee}`}
+          onClose={() => setEnvoi(null)} />
+      )}
     </div>
   );
 }

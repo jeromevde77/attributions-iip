@@ -45,6 +45,12 @@ export function lireConfigSmtp() {
     // quel que soit le destinataire. Vit en base, donc propre à chaque serveur :
     // posée sur dev, elle n'existe pas en prod.
     redirection: (cfg.redirection ?? '').trim(),
+    // LA BOÎTE DE SERVICE QUI REÇOIT LES PIÈCES DU CONSEIL.
+    //
+    // En base, jamais en dur : trois adresses écrites dans le code nous ont
+    // déjà coûté une panne silencieuse chacune. Le jour où la boîte change,
+    // cela se règle dans Configuration → Courriels.
+    service_examens: (cfg.service_examens ?? 'examens@institut-prigogine.be').trim(),
     graph: {
       tenant:        (cfg.graph?.tenant        ?? '').trim(),
       client_id:     (cfg.graph?.client_id     ?? '').trim(),
@@ -67,6 +73,7 @@ export function ecrireConfigSmtp(patch) {
     tolerer_certificat: patch.tolerer_certificat != null ? !!patch.tolerer_certificat : actuel.tolerer_certificat,
     mode: patch.mode === 'graph' ? 'graph' : patch.mode === 'smtp' ? 'smtp' : actuel.mode,
     redirection: String(patch.redirection ?? actuel.redirection).trim(),
+    service_examens: String(patch.service_examens ?? actuel.service_examens).trim(),
     graph: {
       tenant:    String(patch.graph?.tenant    ?? actuel.graph.tenant).trim(),
       client_id: String(patch.graph?.client_id ?? actuel.graph.client_id).trim(),

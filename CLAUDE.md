@@ -314,6 +314,23 @@ fenêtres successives, si bien que seul le PV sortait. Depuis 2.11.11, les pièc
 d'une même production partent dans **une seule enveloppe**, chacune sur sa page —
 la règle que suivait déjà le centre d'impression des unités.
 
+**Une pièce s'envoie à qui elle nomme, et cela ne se choisit pas.** Depuis
+2.11.12, le catalogue déclare le destinataire de chaque document : `etudiant`
+(la personne nommée dessus), `professeur`, ou `conseil` — et « conseil » veut
+dire **toute la composition**, présents et absents, plus la **boîte de service
+des examens** (en configuration, jamais en dur) et la **direction adjointe par
+rôle**. La direction y figure parce qu'elle est membre du Conseil, non parce
+qu'elle est la direction. `GET /api/envois/destinataires` calcule la liste ;
+l'écran la montre et permet d'en retirer quelqu'un, jamais d'ajouter un
+destinataire que la pièce ne concerne pas. **Adresse école uniquement** pour un
+étudiant : l'adresse privée n'est pas un repli, c'est une autre destination — et
+celui qui n'a pas d'adresse d'école reste **visible** dans la liste, marqué,
+plutôt que d'en disparaître. Envoyer est réservé au secrétariat, à la direction
+adjointe, à la direction et à l'administrateur ; **un seul mot
+d'accompagnement**, servi par le serveur : il annonce la pièce, il ne la résume
+pas — ce qui fait foi est le document. Enfin, un envoi force **un document par
+personne** : on n'adresse à quelqu'un un fichier qui porte vingt noms.
+
 **Chantiers de conformité ouverts, dans l'ordre :** geler les décisions à la
 clôture et historiser par ajout ; figer et horodater le PV ; bloc de signatures
 nominatif ; date d'affichage et mode de publication en champs propres ; écrire
