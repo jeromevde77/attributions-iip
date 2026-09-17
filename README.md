@@ -8,7 +8,7 @@ Née de la migration des classeurs `Attributions.xlsm` et `BD_UE_COURS.xlsx`,
 elle couvre aujourd'hui la chaîne complète, de l'attribution d'un cours à
 l'attestation de réussite.
 
-> **Enseignement de promotion sociale (FWB).** Ce que fait l'application est
+> **Enseignement pour adultes (FWB).** Ce que fait l'application est
 > encadré par le décret du 16 avril 1991, le RGE/ROI de l'établissement et la
 > circulaire *Sanction des études*. Les règles métier ne sont pas des choix
 > d'implémentation : voir [`CLAUDE.md`](CLAUDE.md) §5 avant d'y toucher.

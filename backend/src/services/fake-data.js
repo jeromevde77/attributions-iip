@@ -114,7 +114,7 @@ const ORGANISMES_TITRE = [
   'Haute École Libre de Bruxelles - Ilya Prigogine (HELB)',
   'Haute École Léonard de Vinci',
   'Haute École Bruxelles-Brabant (HE2B)',
-  'Institut Ilya Prigogine - Promotion sociale',
+  'Institut Ilya Prigogine',
   'Communauté française de Belgique',
   'Jury de la Fédération Wallonie-Bruxelles',
 ];

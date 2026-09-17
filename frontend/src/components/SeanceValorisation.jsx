@@ -49,6 +49,7 @@ export default function SeanceValorisation({ ueNum, ueNom, annee, onClose }) {
         communication_date: s.communication_date || '',
         president_nom: s.president_nom || j.president_propose || '',
         president_titre: s.president_titre || 'le Directeur',
+        test_complementaire: !!s.test_complementaire,
       } });
       setManques(j.manques || []);
     } catch (e) { setErreur(e.message); }
@@ -144,6 +145,22 @@ export default function SeanceValorisation({ ueNum, ueNom, annee, onClose }) {
               <input value={etat.champs.president_titre} className="controle w-full"
                 onChange={e => set('president_titre', e.target.value)} /></label>
           </div>
+
+          {/* LE CONSEIL FONDE SON ÉVALUATION SUR LE DOSSIER — et il PEUT, en
+              outre, organiser un test ou une épreuve. Le procès-verbal doit
+              dire lequel des deux : c'est ce qui distingue une dispense
+              accordée sur pièces d'une dispense accordée après épreuve. */}
+          <label className="flex items-start gap-2 text-[13px] cursor-pointer">
+            <input type="checkbox" className="mt-0.5 w-4 h-4 accent-iip-blue"
+              checked={!!etat.champs.test_complementaire}
+              onChange={e => set('test_complementaire', e.target.checked)} />
+            <span>Le Conseil a organisé un <b>test ou une épreuve
+              complémentaire</b>
+              <span className="block text-[11px] text-slate-500">
+                À défaut, le procès-verbal indique que l'évaluation s'est fondée
+                sur le seul dossier remis à l'appui de la demande.
+              </span></span>
+          </label>
 
           <div>
             <div className="flex items-baseline justify-between mb-1.5">

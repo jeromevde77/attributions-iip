@@ -465,7 +465,7 @@ function attestationSection(d, ctx) {
   return `<div class="attestation piece">
     <div class="entete">
       <div class="cf">COMMUNAUTÉ FRANÇAISE DE BELGIQUE</div>
-      <div class="epa">ENSEIGNEMENT DE PROMOTION SOCIALE</div>
+      <div class="epa">ENSEIGNEMENT POUR ADULTES</div>
     </div>
     <div class="etab">
       <div><b>${esc(ident.nom)}</b><br>${esc(ident.adresse)}</div>
@@ -680,7 +680,7 @@ export function pvDeSection(sectionCode, annee, lignes, { session = 1, lieu = nu
   const corps = `<div class="attestation">
     <div class="entete">
       <div class="nom">COMMUNAUTÉ FRANÇAISE DE BELGIQUE</div>
-      <div class="sous">ENSEIGNEMENT DE PROMOTION SOCIALE</div>
+      <div class="sous">ENSEIGNEMENT POUR ADULTES</div>
       <div class="sous">ANNÉE SCOLAIRE / ANNÉE ACADÉMIQUE : ${esc(String(annee).replace('-', '/'))}</div>
       <div class="sous">${esc(/SUP|BES|BAC/i.test(String(sec.niveau || ''))
         ? 'ENSEIGNEMENT SUPÉRIEUR' : 'ENSEIGNEMENT SECONDAIRE')}</div>
