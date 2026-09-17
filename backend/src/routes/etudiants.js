@@ -208,6 +208,7 @@ export function migrerEtudiants(dbx) {
       chemin          TEXT NOT NULL,
       taille          INTEGER,
       type_mime       TEXT,
+      nature          TEXT,
       cree_par        TEXT,
       cree_le         TEXT DEFAULT (datetime('now'))
     );
@@ -221,6 +222,8 @@ export function migrerEtudiants(dbx) {
       PRIMARY KEY (valorisation_id, aa_code)
     );
     `);
+    try { dbx.exec('ALTER TABLE etudiant_valorisation_fichier ADD COLUMN nature TEXT'); }
+    catch { /* déjà là */ }
     console.log('[migration] etudiant_valorisation créée');
 
     // Notes détaillées par cours et par acquis d'apprentissage
@@ -3839,7 +3842,7 @@ r.get('/:id/valorisations', authRequired, (req, res) => {
   for (const l of eq) (parValo[l.valorisation_id] ||= []).push(l);
 
   const fics = db.prepare(`
-    SELECT id, valorisation_id, nom, taille, type_mime, cree_le
+    SELECT id, valorisation_id, nom, taille, type_mime, nature, cree_le
       FROM etudiant_valorisation_fichier
      WHERE valorisation_id IN (SELECT id FROM etudiant_valorisation WHERE etudiant_id = ?)
      ORDER BY cree_le`).all(Number(req.params.id));
@@ -3874,6 +3877,62 @@ const TYPES_PREUVE = new Set([
   'text/plain', 'message/rfc822',
 ]);
 
+/**
+ * LA NATURE D'UNE PIÈCE — et ce qu'elle vaut au dossier.
+ *
+ * « 23453.docx » ne dit rien à personne. Six mois plus tard, retrouver la carte
+ * d'identité au milieu de douze fichiers ainsi nommés demande de les ouvrir un
+ * par un. Lucie ne peut pas deviner ce que contient un fichier : elle demande
+ * sa nature au dépôt — un menu, une seconde — et le nom se construit seul.
+ */
+export const NATURES_PREUVE = [
+  { cle: 'CI', label: "Carte d'identité" },
+  { cle: 'DIP', label: 'Diplôme ou titre' },
+  { cle: 'REL', label: 'Relevé de notes / bulletin' },
+  { cle: 'ATT', label: 'Attestation de formation' },
+  { cle: 'DP', label: 'Dossier pédagogique / programme' },
+  { cle: 'EXP', label: "Attestation d'expérience professionnelle" },
+  { cle: 'CT', label: 'Contrat de travail' },
+  { cle: 'CV', label: 'Curriculum vitae' },
+  { cle: 'DEM', label: 'Demande de valorisation' },
+  { cle: 'AUT', label: 'Autre pièce' },
+];
+
+/**
+ * LE NOM SOUS LEQUEL LA PIÈCE SE LIT.
+ *
+ * Nature, nom, prénom, unité, année — et l'extension d'origine, qu'on ne
+ * touche pas : c'est elle qui dit au système avec quoi l'ouvrir. Tout est
+ * ramené à des caractères sûrs, accents compris : un nom de fichier qui
+ * voyage entre Windows, macOS et un NAS ne survit pas aux fantaisies.
+ */
+function nommerPreuve(nature, etud, valo, original) {
+  const pur = t => String(t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^\w]+/g, '-').replace(/^-+|-+$/g, '');
+  const ext = (String(original || '').match(/\.[A-Za-z0-9]{1,8}$/) || [''])[0].toLowerCase();
+  const code = NATURES_PREUVE.some(n => n.cle === nature) ? nature : 'AUT';
+  return [code, pur(etud?.nom).toUpperCase(), pur(etud?.prenom),
+    valo?.ue_num ? `UE${valo.ue_num}` : null,
+    valo?.annee_scolaire ? String(valo.annee_scolaire).replace(/\W/g, '') : null]
+    .filter(Boolean).join('_') + ext;
+}
+
+/**
+ * DEUX PIÈCES DE MÊME NATURE NE S'ÉCRASENT PAS. Un étudiant peut déposer deux
+ * diplômes : le second devient « …_2 », sans quoi le nom affiché mentirait sur
+ * ce qu'on télécharge.
+ */
+function nomLibre(valorisationId, propose) {
+  const pris = new Set(db.prepare(
+    'SELECT nom FROM etudiant_valorisation_fichier WHERE valorisation_id = ?')
+    .all(valorisationId).map(f => f.nom));
+  if (!pris.has(propose)) return propose;
+  const m = propose.match(/^(.*?)(\.[A-Za-z0-9]{1,8})?$/);
+  const base = m[1]; const ext = m[2] || '';
+  for (let i = 2; i < 100; i++) if (!pris.has(`${base}_${i}${ext}`)) return `${base}_${i}${ext}`;
+  return `${base}_${Date.now()}${ext}`;
+}
+
 const stockagePreuve = multer.diskStorage({
   destination(req, file, cb) {
     const dir = join(DATA_DIR_VA, 'valorisations', String(req.params.vid));
@@ -3900,6 +3959,10 @@ const envoiPreuve = multer({
 // LES ROUTES SPÉCIFIQUES AVANT LES PARAMÉTRIQUES : « /valorisations/fichiers/… »
 // doit passer avant « /valorisations/:vid », sans quoi « fichiers » est lu
 // comme un identifiant.
+// La liste vit côté serveur : c'est elle qui décide du préfixe du nom, et un
+// second exemplaire dans l'écran finirait par ne plus dire la même chose.
+r.get('/valorisations/natures', authRequired, (req, res) => res.json(NATURES_PREUVE));
+
 r.get('/valorisations/fichiers/:fid', authRequired, (req, res) => {
   const f = db.prepare('SELECT * FROM etudiant_valorisation_fichier WHERE id = ?')
     .get(Number(req.params.fid));
@@ -3917,9 +3980,27 @@ r.delete('/valorisations/fichiers/:fid', authRequired, roleRequired('admin', 'ed
     res.json({ ok: true });
   });
 
+/**
+ * RENOMMER UNE PIÈCE. La nature choisie peut avoir été la mauvaise, ou le nom
+ * proposé ne pas convenir : on corrige le nom affiché, jamais le fichier sur
+ * le disque — le chemin est ce qui permet de le retrouver.
+ */
+r.patch('/valorisations/fichiers/:fid', authRequired, roleRequired('admin', 'editeur'),
+  (req, res) => {
+    const f = db.prepare('SELECT * FROM etudiant_valorisation_fichier WHERE id = ?')
+      .get(Number(req.params.fid));
+    if (!f) return res.status(404).json({ error: 'Introuvable' });
+    const nom = String(req.body?.nom || '').trim().replace(/[\\/]/g, '_');
+    if (!nom) return res.status(400).json({ error: 'Nom vide.' });
+    db.prepare('UPDATE etudiant_valorisation_fichier SET nom = ?, nature = ? WHERE id = ?')
+      .run(nom, req.body?.nature || f.nature, f.id);
+    res.json({ ok: true, nom });
+  });
+
 r.post('/valorisations/:vid/fichiers', authRequired, roleRequired('admin', 'editeur'),
   (req, res) => {
-    const valo = db.prepare('SELECT id FROM etudiant_valorisation WHERE id = ?')
+    const valo = db.prepare(
+      'SELECT id, ue_num, annee_scolaire FROM etudiant_valorisation WHERE id = ?')
       .get(Number(req.params.vid));
     if (!valo) return res.status(404).json({ error: 'Valorisation introuvable' });
     // Le filtre de multer rejette par une exception : sans ce relais, elle
@@ -3928,11 +4009,19 @@ r.post('/valorisations/:vid/fichiers', authRequired, roleRequired('admin', 'edit
     envoiPreuve.single('fichier')(req, res, err => {
       if (err) return res.status(400).json({ error: err.message });
       if (!req.file) return res.status(400).json({ error: 'Aucun fichier reçu.' });
+      // LE NOM D'ORIGINE N'EST PAS CONSERVÉ, ET C'EST LE BUT : « 23453.docx »
+      // ne dit rien. Le nom affiché se reconstruit à partir de la nature
+      // choisie, de l'étudiant et de l'unité — le fichier reste le même.
+      const etud = db.prepare(`SELECT e.nom, e.prenom FROM etudiant e
+        JOIN etudiant_valorisation v ON v.etudiant_id = e.id
+        WHERE v.id = ?`).get(valo.id) || {};
+      const nature = String(req.body?.nature || 'AUT').toUpperCase();
+      const nom = nomLibre(valo.id, nommerPreuve(nature, etud, valo, req.file.originalname));
       const info = db.prepare(`INSERT INTO etudiant_valorisation_fichier
-        (valorisation_id, nom, chemin, taille, type_mime, cree_par)
-        VALUES (?,?,?,?,?,?)`).run(valo.id, req.file.originalname, req.file.path,
-          req.file.size, req.file.mimetype, req.user?.username || null);
-      res.json({ ok: true, id: info.lastInsertRowid });
+        (valorisation_id, nom, chemin, taille, type_mime, nature, cree_par)
+        VALUES (?,?,?,?,?,?,?)`).run(valo.id, nom, req.file.path,
+          req.file.size, req.file.mimetype, nature, req.user?.username || null);
+      res.json({ ok: true, id: info.lastInsertRowid, nom, nom_origine: req.file.originalname });
     });
   });
 

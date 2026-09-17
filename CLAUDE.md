@@ -292,7 +292,10 @@ numéro inconnu du référentiel. Les **acquis reconnus équivalents** se cochen
 constat écrit : une phrase proposée **par le serveur** — deux libellés, un
 affiché et un enregistré, finiraient par diverger — remplaçable, jamais un
 blanc. Les **preuves** (PDF, image, Word, tableur ; 25 Mo) se déposent sur
-chaque valorisation et partent avec elle, disque compris. Le procès-verbal porte
+chaque valorisation et partent avec elle, disque compris. Leur **nom se
+construit** — `CI_DE-WILDE_Jean-Eric_UE95_20252026.pdf` — à partir de la nature
+demandée au dépôt : « 23453.docx » ne dit rien, et six mois plus tard on ouvre
+douze fichiers un par un pour retrouver la carte d'identité. Le procès-verbal porte
 enfin les mentions que le modèle exige : code approuvé par le Gouvernement,
 ECTS, total des périodes **et leur répartition par activité d'enseignement**,
 cours par cours — leur absence bloque l'impression comme le reste.

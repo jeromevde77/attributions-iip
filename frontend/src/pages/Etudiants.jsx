@@ -728,6 +728,15 @@ function Valorisations({ etudId, annee }) {
   // valorise pourtant que ce qui existe chez nous, et ce que l'étudiant aura à
   // son programme. Section d'abord, unités ensuite — celles du PAE en tête.
   const [unites, setUnites] = useState(null);
+  // LA NATURE D'UNE PIÈCE, demandée au dépôt : « 23453.docx » ne dit rien, et
+  // Lucie ne peut pas deviner ce qu'un fichier contient. Un menu, une seconde,
+  // et le nom se construit seul.
+  const [natures, setNatures] = useState([]);
+  const [nature, setNature] = useState('CI');
+  useEffect(() => {
+    fetch('/api/etudiants/valorisations/natures', { headers: authHeaders() })
+      .then(r => r.json()).then(j => Array.isArray(j) && setNatures(j)).catch(() => {});
+  }, []);
   const [sectionVA, setSectionVA] = useState('');
 
   useEffect(() => {
@@ -845,6 +854,7 @@ function Valorisations({ etudId, annee }) {
     const { 'Content-Type': _ignore, ...entetes } = authHeaders();
     const fd = new FormData();
     fd.append('fichier', file);
+    fd.append('nature', nature);
     const rep = await fetch(`/api/etudiants/valorisations/${vid}/fichiers`, {
       method: 'POST', headers: entetes, body: fd });
     if (!rep.ok) {
@@ -864,6 +874,14 @@ function Valorisations({ etudId, annee }) {
     const a = document.createElement('a');
     a.href = url; a.download = f.nom; a.click();
     URL.revokeObjectURL(url);
+  }
+
+  async function renommer(f) {
+    const nom = prompt('Nom de la pièce :', f.nom);
+    if (!nom || nom === f.nom) return;
+    await fetch(`/api/etudiants/valorisations/fichiers/${f.id}`, {
+      method: 'PATCH', headers: authHeaders(), body: JSON.stringify({ nom }) });
+    await charger();
   }
 
   async function supprimerPiece(fid) {
@@ -1212,13 +1230,24 @@ function Valorisations({ etudId, annee }) {
                         {f.nom}
                       </button>
                       {estAdmin && (
-                        <button type="button" onClick={() => supprimerPiece(f.id)}
-                          className="text-slate-300 hover:text-red-500" title="Supprimer la pièce">
-                          <IconX size={12} />
-                        </button>
+                        <>
+                          <button type="button" onClick={() => renommer(f)}
+                            className="text-slate-300 hover:text-iip-blue" title="Renommer">
+                            <IconWritingSign size={12} />
+                          </button>
+                          <button type="button" onClick={() => supprimerPiece(f.id)}
+                            className="text-slate-300 hover:text-red-500" title="Supprimer la pièce">
+                            <IconX size={12} />
+                          </button>
+                        </>
                       )}
                     </span>
                   ))}
+                  <select value={nature} onChange={e => setNature(e.target.value)}
+                    title="Nature de la pièce — elle donne son nom au fichier"
+                    className="text-[11px] border border-slate-300 rounded-lg px-1.5 py-0.5">
+                    {natures.map(n => <option key={n.cle} value={n.cle}>{n.label}</option>)}
+                  </select>
                   <label className="inline-flex items-center gap-1 text-[11px] text-slate-500
                                     border border-dashed border-slate-300 rounded-lg px-2 py-0.5
                                     cursor-pointer hover:border-iip-blue hover:text-iip-blue">
