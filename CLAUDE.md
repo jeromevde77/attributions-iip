@@ -456,6 +456,31 @@ tâche confiée vendredi doit être encore signalée lundi, et « récente » ne
 pas cela. L'équipage se réécrivant en entier, `vu_le` est préservé : sans quoi
 ajouter quelqu'un rallumerait le signal chez tous les autres.
 
+**LE PÉRIMÈTRE SE POSE SUR CHAQUE PORTE, PAS SUR LA PORTE D'ENTRÉE.** Le filtre
+par section existait et était juste (`withSectionScope` / `req.allowedSections`
+— chercher `perimetre(` ou `getUserSections` ne le trouve pas, et cette erreur
+a été commise), mais sur les trente-trois routes d'attribution **une seule**
+l'appliquait : la liste. Les écrans de contrôle et les rapports rendaient tout,
+et `/:id` laissait lire n'importe quelle attribution en devinant un numéro. Un
+cadenas sur la porte et six fenêtres ouvertes au rez-de-chaussée. Depuis
+2.11.26, les onze routes de lecture le posent, par trois aides écrites **une
+fois** (`sectionsDe`, `sectionPermise`, `clausePerimetre`) : un filtre réécrit
+onze fois finit par différer onze fois. Deux règles de réponse : **404 et non
+403 sur `/:id`** — « interdit » confirmerait que l'attribution existe —, et
+**403 et non une liste vide** sur une section refusée — une liste vide se lit
+« ce cours n'a aucune attribution », et l'on décide là-dessus.
+
+**COMPTER SANS ÉNUMÉRER.** Une coordination limitée à TIM ne doit pas lire les
+attributions d'optométrie — quelle unité, quel cours, combien d'heures ne la
+regardent pas. Mais quand elle compose un horaire, elle DOIT savoir que son
+professeur est déjà chargé ailleurs : lui cacher ce total ne protège rien et
+lui fait bâtir un horaire faux. Le **détail** d'une autre section se cache,
+l'**agrégat** se montre — `GET /api/attributions/charge/:profId` rend l'ETP
+total, les sections **nommées sans leur volume**, et celles que le demandeur
+peut détailler. L'ETP est celui de Pilotage (CT/800 + PP/1000), repris et non
+réécrit : deux formules pour une même grandeur donneraient deux chiffres, et
+c'est celui qu'on ne regarde pas qui serait le bon.
+
 **Chantiers de conformité ouverts, dans l'ordre :** geler les décisions à la
 clôture et historiser par ajout ; figer et horodater le PV ; bloc de signatures
 nominatif ; date d'affichage et mode de publication en champs propres ; écrire
