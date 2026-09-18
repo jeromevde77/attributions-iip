@@ -842,6 +842,7 @@ try {
     ['planning.ev2_heures',              '0',                               'Heures comptées pour EV2',                             null, 'planification'],
     ['planning.vc_heures',               '1',                               'Heures comptées pour VC (visite des copies)',           null, 'planification'],
     ['planning.periode_minutes',         '50',                              'Durée d\'une période (minutes)',                        null, 'planification'],
+    ['planning.evaluation_periodes',     '3',                               'Périodes proposées pour l\'examen de fin d\'UE et la visite des copies', null, 'planification'],
     ['planning.min_semaines_ev1_ev2',    '1',                               'Semaines minimum libres entre EV1 et EV2',             null, 'planification'],
     // Procédures
     ['procedures.email_direction',       'direction@institut-prigogine.be', 'Email de la direction (procédures)',                   null, 'procedures'],

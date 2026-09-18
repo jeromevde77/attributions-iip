@@ -3,7 +3,7 @@ import { nomPropre } from '../lib/nom.js';
 import {
   IconPrinter, IconUsers, IconSchool, IconChartBar, IconCalendarStats,
   IconBooks, IconAlertTriangle, IconChevronRight, IconChevronDown, IconSearch,
-  IconDownload, IconSend, IconFileExport,
+  IconDownload, IconSend,
 } from '@tabler/icons-react';
 import PreviewModal from './PreviewModal.jsx';
 import EnvoiMailModal from './EnvoiMailModal.jsx';
@@ -30,12 +30,6 @@ import { Fenetre, GroupeFenetre, PieceFenetre } from './ui.jsx';
 
 const Listes = lazy(() => import('../pages/Listes.jsx'));
 
-/* LE GÉNÉRATEUR EST UN ONGLET D'ICI, PAS UN ÉCRAN À CÔTÉ.
-   Le catalogue offre des pièces écrites d'avance ; le générateur sert quand
-   aucune ne convient — on coche ses colonnes, on filtre. Ce sont deux réponses
-   à une même question, « qu'est-ce que j'emporte ? », et elles vivaient à deux
-   endroits dont le second n'était référencé NULLE PART : seize listes
-   injoignables autrement qu'en tapant leur adresse. */
 /* LES DOMAINES D'ÉDITIONS SONT LES AXES DE LUCIE, ET RIEN D'AUTRE.
    On rangeait ici en « Étudiants · Personnel · Pilotage · Organisation ·
    Référentiels » pendant que l'application a « Étudiants · Personnel ·
@@ -44,9 +38,16 @@ const Listes = lazy(() => import('../pages/Listes.jsx'));
    « Pilotage » devient GESTION — même territoire, celui de ce qu'on engage.
    « Référentiels » rentre dans ORGANISATION : une unité, un cours, une grille,
    un acquis sont les objets de cet axe, pas un métier séparé.
-   Le générateur n'est pas un axe mais un OUTIL : il garde sa place, en tête. */
+   Le générateur n'est pas un axe : ses listes se rangent dans les axes. */
+/* « CONSTRUIRE UNE LISTE » A DISPARU, ET C'EST LE BUT.
+   L'onglet proposait les seize listes prédéfinies, qui reparaissaient ensuite
+   dans Étudiants, Personnel, Organisation et Gestion : deux chemins pour une
+   même pièce, et l'on ne savait plus lequel faisait foi. Leur donner un axe
+   (2.12.27) n'a pas suffi tant que le second chemin restait ouvert. Chaque
+   liste vit maintenant dans SON axe, sous la bascule « Listes » — et c'est là
+   qu'on choisit ses colonnes, puisque c'est le même écran. Une place par
+   pièce. */
 const ONGLETS = [
-  { cle: 'listes', label: 'Construire une liste', icon: IconFileExport, outil: true },
   { cle: 'etudiants', label: 'Étudiants', icon: IconSchool },
   { cle: 'personnel', label: 'Personnel', icon: IconUsers },
   { cle: 'organisation', label: 'Organisation', icon: IconBooks },
@@ -1043,9 +1044,7 @@ export default function CentreImpressionCentral({ ongletInitial = 'etudiants',
             : famille === 'listes' ? <CadreListes domaine="etudiants" />
             : <OngletRapports domaine="etudiants" />}
         </>
-      ) : onglet === 'listes'
-        ? <CadreListes />
-        : (
+      ) : (
         /* CHAQUE AXE PORTE SES DEUX FAMILLES, ET LE GÉNÉRATEUR N'EST PLUS UN
            SECOND CATALOGUE. « Construire une liste » proposait les seize listes
            prédéfinies, ET les mêmes reparaissaient dans Personnel, Organisation,

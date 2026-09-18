@@ -222,6 +222,7 @@ export default function GrilleOrganisation() {
       {fiche && (
         <FenetreCours etat={fiche} annee={annee} section={section}
           periodeMinutes={data?.periode_minutes || 50}
+          evaluation={data?.evaluation || null}
           onFermer={() => setFiche(null)}
           onEnregistre={() => { setFiche(null); charger(); }} />
       )}
@@ -330,11 +331,47 @@ function LigneUE({ u, semaines, nbSem, ouverte, surOuvrir, surCours, vue }) {
  * périodes du dossier.
  */
 function FenetreCours({ etat, annee, section, periodeMinutes = 50,
-                        onFermer, onEnregistre }) {
+                        evaluation = null, onFermer, onEnregistre }) {
   const { ue, cours } = etat;
-  const [lignes, setLignes] = useState(() => (cours.activites || []).map(a => ({
-    activite_id: a.activite_id, periodes: a.periodes, vu_etudiant: a.vu_etudiant !== 0,
-  })));
+  /* TOUT COURS EST ÉVALUÉ, ET ON L'OUBLIAIT.
+     Un cours jamais ouvert dans la grille arrive avec l'évaluation DÉJÀ
+     proposée : l'examen de fin d'unité, sa correction en classe et la visite
+     des copies, pour les périodes réglées dans Configuration. On la décoche si
+     le cours est en évaluation continue, on change son nombre de périodes, et
+     on la placera dans l'année au moment de l'horaire — c'est une activité
+     comme les autres, pas une case à part.
+     La proposition ne vaut QUE pour un cours pas encore organisé : la
+     ressusciter sur un cours qu'on a sciemment laissé sans elle la ferait
+     revenir à chaque ouverture, et l'on croirait à un bug. */
+  /* UN COURS NEUF ARRIVE DONNÉ, PAS VIDE. La fenêtre s'ouvrait sur zéro
+     période : on y lisait « il manque 64 » sur un cours dont personne n'avait
+     encore rien dit, et il fallait retaper ce que le dossier pédagogique
+     savait déjà. Le cas NORMAL est que le cours se donne en entier — c'est
+     donc ce qui est proposé : la matière pour ce que le dossier prévoit,
+     moins l'évaluation, et l'évaluation à côté. Le total tombe juste dès
+     l'ouverture ; il n'y a qu'à corriger ce qui diffère. */
+  const [lignes, setLignes] = useState(() => {
+    const dejaLa = (cours.activites || []).map(a => ({
+      activite_id: a.activite_id, periodes: a.periodes, vu_etudiant: a.vu_etudiant !== 0,
+    }));
+    if (cours.organise) return dejaLa;
+    const total = Number(cours.cours_per) || 0;
+    const pEval = evaluation?.activite_id ? (Number(evaluation.periodes) || 0) : 0;
+    // L'évaluation ne mange jamais tout le cours : s'il est plus court
+    // qu'elle, c'est la matière qui garde la main et l'évaluation attend.
+    const pMatiere = Math.max(0, total - pEval);
+    const propose = [];
+    if (evaluation?.matiere_id && pMatiere > 0) {
+      propose.push({ activite_id: evaluation.matiere_id, periodes: pMatiere, vu_etudiant: true });
+    }
+    if (evaluation?.activite_id && pEval > 0 && pMatiere > 0) {
+      propose.push({ activite_id: evaluation.activite_id, periodes: pEval, vu_etudiant: true });
+    } else if (evaluation?.matiere_id && pMatiere === 0 && total > 0) {
+      propose.push({ activite_id: evaluation.matiere_id, periodes: total, vu_etudiant: true });
+    }
+    return [...dejaLa, ...propose];
+  });
+  const [modeEval, setModeEval] = useState(cours.evaluation_mode || 'examen');
   const [auto, setAuto] = useState(Number(cours.autonomie_placee) || 0);
   const [dispo, setDispo] = useState([]);
   const [enCours, setEnCours] = useState(false);
@@ -347,7 +384,34 @@ function FenetreCours({ etat, annee, section, periodeMinutes = 50,
   }, [section]);
 
   const dp = Number(cours.cours_per) || 0;
-  const somme = lignes.reduce((t, l) => t + (Number(l.periodes) || 0), 0);
+  /* On reconnaît la ligne d'évaluation par le RÔLE de son type d'activité,
+     jamais par son libellé : un libellé se renomme à l'écran. */
+  const idEval = dispo.find(a => a.role === 'evaluation')?.id
+    ?? evaluation?.activite_id ?? null;
+  const estEval = l => idEval != null && Number(l.activite_id) === Number(idEval);
+  /* En évaluation continue, il n'y a RIEN à compter : l'évaluation se fait
+     pendant le cours. La ligne n'est pas seulement mise à zéro, elle sort. */
+  const lignesEffectives = modeEval === 'continue' ? lignes.filter(l => !estEval(l)) : lignes;
+
+  /* CHANGER DE MODE NE DOIT PAS FAIRE FAUSSER LE TOTAL. En passant en continue,
+     les périodes de l'évaluation reviennent à la matière — le cours dure
+     toujours autant, il est simplement évalué autrement ; en repassant à
+     l'examen, elles lui sont reprises. Sans cela on basculait et le total
+     tombait de trois périodes sans que rien ne l'explique. */
+  function basculerEval(vers) {
+    if (vers === modeEval) return;
+    const pEval = lignes.filter(estEval).reduce((t, l) => t + (Number(l.periodes) || 0), 0)
+      || Number(evaluation?.periodes) || 0;
+    setLignes(ls => {
+      const i = ls.findIndex(l => !estEval(l) && l.activite_id);
+      if (i < 0) return ls;
+      const delta = vers === 'continue' ? pEval : -pEval;
+      const nouveau = Math.max(0, (Number(ls[i].periodes) || 0) + delta);
+      return ls.map((l, j) => (j === i ? { ...l, periodes: nouveau } : l));
+    });
+    setModeEval(vers);
+  }
+  const somme = lignesEffectives.reduce((t, l) => t + (Number(l.periodes) || 0), 0);
   const total = Math.round((somme + Number(auto || 0)) * 100) / 100;
   const reste = dp ? Math.round((total % dp) * 100) / 100 : 0;
   const manque = dp && reste ? Math.round((dp - reste) * 100) / 100 : 0;
@@ -363,7 +427,8 @@ function FenetreCours({ etat, annee, section, periodeMinutes = 50,
         body: JSON.stringify({
           annee_scolaire: annee, section, ue_num: ue.ue_num, cours_code: cours.cours_code,
           autonomie_placee: Number(auto) || 0,
-          activites: lignes.filter(l => l.activite_id),
+          evaluation_mode: modeEval,
+          activites: lignesEffectives.filter(l => l.activite_id),
         }),
       });
       const j = await rep.json();
@@ -407,7 +472,7 @@ function FenetreCours({ etat, annee, section, periodeMinutes = 50,
             mise à l'échelle du total, la barre serait toujours pleine et ne
             dirait jamais qu'on déborde. Le repère du dossier reste donc fixe,
             et ce qui le dépasse se voit sortir. */}
-        <JaugeCours dp={dp} lignes={lignes} auto={Number(auto) || 0}
+        <JaugeCours dp={dp} lignes={lignesEffectives} auto={Number(auto) || 0}
           dispo={dispo} minutes={periodeMinutes} />
 
         <table className="w-full text-[13px]">
@@ -461,6 +526,34 @@ function FenetreCours({ etat, annee, section, periodeMinutes = 50,
           className="text-[12px] text-iip-blue hover:underline">
           <IconPlus size={14} className="inline align-[-2px] mr-1" />Ajouter une activité
         </button>
+
+        {/* COMMENT CE COURS EST-IL ÉVALUÉ ? La question se pose une fois, en
+            haut du découpage, parce que la réponse commande des périodes :
+            l'examen de fin d'unité en prend, l'évaluation continue n'en prend
+            aucune puisqu'elle se fait pendant le cours. */}
+        <div className="carte px-3 py-2.5">
+          <div className="flex items-baseline gap-2 flex-wrap">
+            <b className="text-[12.5px]">Évaluation de ce cours</b>
+            <span className="seg-fam ml-auto">
+              <button className={modeEval === 'examen' ? 'on' : ''}
+                onClick={() => basculerEval('examen')}>
+                Examen de fin d'UE
+              </button>
+              <button className={modeEval === 'continue' ? 'on' : ''}
+                onClick={() => basculerEval('continue')}>
+                Évaluation continue
+              </button>
+            </span>
+          </div>
+          <p className="text-[11.5px] text-slate-500 mt-1">
+            {modeEval === 'examen'
+              ? `L'examen, sa correction en classe et la visite des copies sont proposés
+                 ci-dessus comme une activité : ses périodes comptent dans le total, se
+                 corrigent, et se placeront dans l'année au moment de l'horaire.`
+              : `Rien n'est compté : l'évaluation se fait pendant le cours. La ligne
+                 d'évaluation est retirée du découpage.`}
+          </p>
+        </div>
 
         {/* L'AUTONOMIE SE FAIT GLISSER VERS LE COURS. Ce qui reste non placé est
             signalé, jamais réparti d'office. */}

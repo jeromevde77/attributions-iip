@@ -81,6 +81,45 @@ export function migrerGrille(dbx) {
       CREATE INDEX IF NOT EXISTS idx_grille_cours_org ON grille_cours(organisation_id);
       CREATE INDEX IF NOT EXISTS idx_grille_act_cours ON grille_activite(grille_cours_id);
     `);
+
+    /* TOUT COURS EST ÉVALUÉ, ET CELA SE PLANIFIE COMME LE RESTE.
+     *
+     * Un examen de fin d'unité, sa correction et la visite des copies prennent
+     * des périodes RÉELLES — trois, chez nous — et personne ne pensait à les
+     * poser : on découpait le cours en théorie et exercices jusqu'au dernier
+     * quart d'heure, puis l'évaluation se tenait « en plus », hors grille. La
+     * grille la PROPOSE donc d'office, cochée, et l'on décoche quand le cours
+     * est en évaluation continue — auquel cas il n'y a pas de périodes à
+     * compter, l'évaluation se faisant pendant le cours.
+     *
+     * Elle est une ACTIVITÉ comme les autres, et c'est voulu : son nombre de
+     * périodes se corrige, elle entre dans le total, et elle se placera dans
+     * l'année au moment venu — une partie en janvier, le reste en juin, si
+     * c'est le choix du professeur. Un champ « nombre d'heures d'examen » posé
+     * à côté n'aurait rien permis de tout cela. */
+    const colsAct = dbx.prepare('PRAGMA table_info(activite_type)').all().map(c => c.name);
+    if (!colsAct.includes('role')) {
+      dbx.exec("ALTER TABLE activite_type ADD COLUMN role TEXT");
+    }
+    /* On la RECONNAÎT par son rôle, jamais par son libellé : un libellé se
+       renomme à l'écran, et le jour où quelqu'un écrit « Examen » au lieu
+       d'« Évaluation », la proposition d'office cesserait sans bruit. */
+    const evalExistante = dbx.prepare("SELECT id FROM activite_type WHERE role = 'evaluation'").get();
+    if (!evalExistante) {
+      const ordre = (dbx.prepare('SELECT MAX(ordre) AS m FROM activite_type').get().m || 0) + 1;
+      dbx.prepare(`INSERT INTO activite_type (libelle, ordre, role)
+        VALUES (?, ?, 'evaluation')`)
+        .run('Évaluation et visite des copies', ordre);
+    }
+
+    /* LE MODE D'ÉVALUATION DU COURS : examen de fin d'unité (le défaut), ou
+       évaluation continue. Il vit sur le cours et non sur l'activité, parce
+       que c'est un choix du cours — et qu'en continue il n'y a justement
+       aucune ligne d'activité pour le porter. */
+    const colsGC = dbx.prepare('PRAGMA table_info(grille_cours)').all().map(c => c.name);
+    if (!colsGC.includes('evaluation_mode')) {
+      dbx.exec("ALTER TABLE grille_cours ADD COLUMN evaluation_mode TEXT NOT NULL DEFAULT 'examen'");
+    }
   } catch (e) { console.error('[migration] grille :', e.message); }
 }
 
@@ -224,6 +263,12 @@ r.get('/', authRequired, (req, res) => {
         sem_debut: semaineDe(semaines, gc?.date_debut || o?.date_debut),
         sem_fin: semaineDe(semaines, gc?.date_fin || o?.date_fin),
         autonomie_placee: gc ? Number(gc.autonomie_placee) || 0 : 0,
+        /* `organise` dit si ce cours a DÉJÀ été ouvert dans la grille. C'est
+           lui qui autorise la proposition d'office : proposer l'évaluation sur
+           un cours qu'on a sciemment laissé sans elle la ferait revenir à
+           chaque ouverture de la fenêtre, et l'on croirait à un bug. */
+        organise: !!gc,
+        evaluation_mode: gc ? (gc.evaluation_mode || 'examen') : 'examen',
         activites,
       };
     });
@@ -267,7 +312,33 @@ r.get('/', authRequired, (req, res) => {
     if (p && Number(p.valeur) > 0) periodeMinutes = Number(p.valeur);
   } catch { /* paramètre absent : la valeur de la maison */ }
 
-  res.json({ annee, section, semaines, periode_minutes: periodeMinutes, ues: sortie });
+  /* TROIS PÉRIODES POUR L'EXAMEN, LA CORRECTION ET LA VISITE DES COPIES —
+     c'est l'usage de la maison, donc un RÉGLAGE et non une constante du code.
+     Écrit en dur, il aurait rejoint la liste des décisions invisibles et
+     indiscutables que ce projet passe son temps à déterrer. */
+  let evalPeriodes = 3;
+  try {
+    const p = db.prepare("SELECT valeur FROM parametre WHERE cle = 'planning.evaluation_periodes'").get();
+    if (p && Number(p.valeur) >= 0) evalPeriodes = Number(p.valeur);
+  } catch { /* paramètre absent : l'usage de la maison */ }
+  let evalActiviteId = null;
+  let matiereId = null;
+  try {
+    evalActiviteId = db.prepare("SELECT id FROM activite_type WHERE role = 'evaluation'").get()?.id ?? null;
+    /* LA MATIÈRE : la première activité de la maison qui n'est pas
+       l'évaluation — « Théorie » chez nous. C'est ce que la grille propose
+       pour le corps du cours, parce qu'un cours est donné : ouvrir la fenêtre
+       sur zéro période obligeait à retaper ce que le dossier pédagogique sait
+       déjà, et affichait « il manque 64 » sur un cours dont personne n'avait
+       encore rien dit. */
+    matiereId = db.prepare(`SELECT id FROM activite_type
+      WHERE section IS NULL AND (role IS NULL OR role <> 'evaluation')
+      ORDER BY ordre, id LIMIT 1`).get()?.id ?? null;
+  } catch { /* pas encore migré */ }
+
+  res.json({ annee, section, semaines, periode_minutes: periodeMinutes,
+    evaluation: { activite_id: evalActiviteId, matiere_id: matiereId, periodes: evalPeriodes },
+    ues: sortie });
 });
 
 /**
@@ -309,13 +380,19 @@ r.put('/cours', authRequired, roleRequired('admin', 'editeur', 'coordination'), 
 
   db.transaction(() => {
     const o = organisationDe(annee, section, ueNum, true);
-    db.prepare(`INSERT INTO grille_cours (organisation_id, cours_code, date_debut, date_fin, autonomie_placee)
-      VALUES (?,?,?,?,?)
+    /* Le mode d'évaluation : 'examen' (le défaut) ou 'continue'. Toute autre
+       valeur est ramenée au défaut — un mode inconnu écrit en base ferait
+       disparaître la proposition sans que rien ne le dise. */
+    const mode = b.evaluation_mode === 'continue' ? 'continue' : 'examen';
+    db.prepare(`INSERT INTO grille_cours
+        (organisation_id, cours_code, date_debut, date_fin, autonomie_placee, evaluation_mode)
+      VALUES (?,?,?,?,?,?)
       ON CONFLICT(organisation_id, cours_code) DO UPDATE SET
         date_debut = excluded.date_debut, date_fin = excluded.date_fin,
-        autonomie_placee = excluded.autonomie_placee`)
+        autonomie_placee = excluded.autonomie_placee,
+        evaluation_mode = excluded.evaluation_mode`)
       .run(o.id, code, b.date_debut || null, b.date_fin || null,
-           Number(b.autonomie_placee) || 0);
+           Number(b.autonomie_placee) || 0, mode);
 
     const gc = db.prepare(`SELECT id FROM grille_cours
       WHERE organisation_id = ? AND cours_code = ?`).get(o.id, code);
@@ -338,7 +415,7 @@ r.put('/cours', authRequired, roleRequired('admin', 'editeur', 'coordination'), 
 r.get('/activites', authRequired, (req, res) => {
   const section = String(req.query.section || '').trim();
   try {
-    res.json(db.prepare(`SELECT id, libelle, section, ordre FROM activite_type
+    res.json(db.prepare(`SELECT id, libelle, section, ordre, role FROM activite_type
       WHERE section IS NULL OR section = ? ORDER BY section IS NOT NULL, ordre, libelle`)
       .all(section));
   } catch { res.json([]); }
