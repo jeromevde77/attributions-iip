@@ -183,12 +183,33 @@ export function enteteDocument({ titre, sous = null, mention = null } = {}) {
     etab.num_entreprise ? `N° entreprise ${esc(etab.num_entreprise)}` : null,
   ].filter(Boolean).join(' · ');
 
+  /* L'EN-TÊTE VALIDÉ — LE MÊME POUR LES QUARANTE ET UNE PIÈCES.
+   *
+   * Il ne dessinait qu'un titre aligné à gauche. Or une pièce de l'IIP en porte
+   * quatre choses, et elles ne sont pas décoratives : le BANDEAU de la
+   * Communauté française, qui dit sous quel régime la pièce est délivrée ;
+   * l'IDENTITÉ de l'établissement, centrée, avec FASE et numéro d'entreprise —
+   * c'est ce qui la rend opposable ; le CADRE DE TITRE, qui dit ce que c'est et
+   * sur quoi ça porte ; et le FILET DORÉ qui ferme l'en-tête.
+   *
+   * On corrigeait les tableaux pièce par pièce pendant que ce cadre n'existait
+   * nulle part. Il est ICI, et nulle part ailleurs : une pièce qui redessinerait
+   * son en-tête recréerait la neuvième enveloppe qu'on a passé un an à
+   * supprimer.
+   */
   return `<div class="doc-entete">
-    <div class="doc-titre">
-      <div class="doc-titre-t">${esc(titre)}</div>
-      ${sous ? `<div class="doc-titre-s">${esc(sous)}</div>` : ''}
-      ${mention ? `<div class="doc-titre-m">${esc(mention)}</div>` : ''}
+    <div class="doc-cf">COMMUNAUTÉ FRANÇAISE DE BELGIQUE — ENSEIGNEMENT POUR ADULTES</div>
+    <div class="doc-ident-c">
+      <b>${esc(etab.etab_nom || 'Institut Ilya Prigogine')}</b>
+      ${etab.adresse ? `<span>${esc(etab.adresse)}</span>` : ''}
+      ${refs ? `<span>${refs}</span>` : ''}
     </div>
+    <div class="doc-cadre">
+      <div class="doc-cadre-t">${esc(titre)}</div>
+      ${sous ? `<div class="doc-cadre-s">${esc(sous)}</div>` : ''}
+    </div>
+    <div class="doc-filet-or"></div>
+    ${mention ? `<div class="doc-titre-m">${esc(mention)}</div>` : ''}
   </div>`;
 }
 
@@ -263,7 +284,28 @@ export function envelopperDocument({ html, titre, orientation = 'portrait',
    * de l'établissement du titre de la pièce, et il est de la couleur de la
    * maison. Rien d'autre.
    */
-  .doc-entete { margin: 0 0 9mm; }
+  .doc-entete { margin: 0 0 7mm; }
+  /* Le bandeau du régime, entre deux filets : il dit sous quelle autorité la
+     pièce est délivrée, et c'est la première chose qu'un contrôle cherche. */
+  .doc-cf { font-size: 7pt; letter-spacing: 1.1pt; text-align: center;
+            color: #1B2B4B; font-weight: 600;
+            border-top: 0.25mm solid #1B2B4B; border-bottom: 0.25mm solid #1B2B4B;
+            padding: 0.8mm 0; margin-bottom: 3mm; }
+  /* L'identité, centrée : le nom d'abord, puis ce qui la rend opposable. */
+  .doc-ident-c { text-align: center; font-size: 8pt; color: #6e6e73;
+                 line-height: 1.4; margin-bottom: 3.5mm; }
+  .doc-ident-c b { display: block; font-size: 10.5pt; color: #1B2B4B;
+                   letter-spacing: -.1pt; }
+  .doc-ident-c span { display: inline; }
+  .doc-ident-c span + span::before { content: ' · '; color: #a1a1a6; }
+  /* Le cadre de titre : ce que c'est, et sur quoi ça porte. */
+  .doc-cadre { border: 0.3mm solid #1B2B4B; border-radius: 1.5mm;
+               padding: 2mm 4mm; text-align: center; }
+  .doc-cadre-t { font-size: 11pt; font-weight: 700; color: #1B2B4B;
+                 letter-spacing: .2pt; text-transform: uppercase; }
+  .doc-cadre-s { font-size: 8.5pt; color: #6e6e73; margin-top: 0.6mm; }
+  .doc-filet-or { height: 0.6mm; background: #C9A84C; border-radius: 0.3mm;
+                  margin: 2.5mm 0 0; }
   /* La marge du haut n'a plus lieu d'être : l'identité, au-dessus, est
      maintenant rendue par l'en-tête répétable de la feuille. */
   .doc-titre { margin-top: 0 !important; }
