@@ -497,7 +497,7 @@ function FenetreCours({ etat, annee, section, periodeMinutes = 50,
             dirait jamais qu'on déborde. Le repère du dossier reste donc fixe,
             et ce qui le dépasse se voit sortir. */}
         <JaugeCours dp={dp} lignes={lignesEffectives} auto={Number(auto) || 0}
-          dispo={dispo} minutes={periodeMinutes} />
+          dispo={dispo} minutes={periodeMinutes} idEval={idEval} />
 
         <table className="w-full text-[13px]">
           <thead>
@@ -624,17 +624,37 @@ function enHeures(periodes, minutes) {
   return r ? `${h} h ${String(r).padStart(2, '0')}` : `${h} h`;
 }
 
-/** Les teintes des segments : la maison, déclinée — jamais un état. */
-const TEINTES = ['#1B2B4B', '#3B5488', '#00AACC', '#5B7FB8', '#7FB3D5', '#A9C6E0'];
+/**
+ * LES TEINTES DES SEGMENTS — ET DEUX VOISINES DOIVENT SE DISTINGUER.
+ *
+ * La rampe allait du marine au bleu pâle en passant par un marine à peine
+ * éclairci : « Théorie » et « Évaluation » côte à côte donnaient une seule
+ * barre marine où l'on ne voyait aucune coupure. Une jauge dont on ne
+ * distingue pas les parts ne jauge rien. Les teintes s'écartent donc :
+ * deux segments successifs changent franchement.
+ */
+const TEINTES = ['#1B2B4B', '#00AACC', '#5B7FB8', '#7FB3D5', '#3B5488', '#A9C6E0'];
+
+/* L'ÉVALUATION A SA TEINTE, ET ELLE NE DÉPEND PAS DE SON RANG.
+   Elle est la seule activité que la grille propose d'office, la seule qu'une
+   bascule commande, et celle qu'on cherche du regard. Orange, donc — quelle
+   que soit sa place dans la liste : lui donner la couleur de son rang la
+   faisait changer de teinte quand on ajoutait une activité au-dessus. */
+const TEINTE_EVALUATION = '#E8890C';
 const TEINTE_AUTONOMIE = '#8B5CF6';
 
-function JaugeCours({ dp, lignes, auto, dispo, minutes }) {
+function JaugeCours({ dp, lignes, auto, dispo, minutes, idEval = null }) {
   const nom = id => dispo.find(a => a.id === Number(id))?.libelle || 'Activité';
+  let rang = 0;
   const segments = [
-    ...lignes.map((l, i) => ({
-      cle: `a${i}`, libelle: l.activite_id ? nom(l.activite_id) : 'À choisir',
-      valeur: Number(l.periodes) || 0, teinte: TEINTES[i % TEINTES.length],
-    })),
+    ...lignes.map((l, i) => {
+      const estEval = idEval != null && Number(l.activite_id) === Number(idEval);
+      return {
+        cle: `a${i}`, libelle: l.activite_id ? nom(l.activite_id) : 'À choisir',
+        valeur: Number(l.periodes) || 0,
+        teinte: estEval ? TEINTE_EVALUATION : TEINTES[rang++ % TEINTES.length],
+      };
+    }),
     ...(auto > 0 ? [{ cle: 'auto', libelle: 'Autonomie', valeur: auto,
       teinte: TEINTE_AUTONOMIE }] : []),
   ].filter(s => s.valeur > 0);
