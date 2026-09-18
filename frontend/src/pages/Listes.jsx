@@ -46,7 +46,7 @@ function authFetch(url) {
 // ─── Définition des entités ─────────────────────────────────────────────────
 const ENTITES = {
   profs: {
-    label: 'Professeurs', groupe: 'data', icon: '👤', tabler: 'IconUser',
+    domaine: 'personnel', label: 'Professeurs', groupe: 'data', icon: '👤', tabler: 'IconUser',
     cols: [
       { key: 'nom',            label: 'Nom',          defaut: true  },
       { key: 'prenom',         label: 'Prénom',       defaut: true  },
@@ -64,7 +64,7 @@ const ENTITES = {
     filtres: [],
   },
   profs_section: {
-    label: 'Professeurs par section', groupe: 'data', icon: '🧑‍🏫', tabler: 'IconUsersGroup',
+    domaine: 'personnel', label: 'Professeurs par section', groupe: 'data', icon: '🧑‍🏫', tabler: 'IconUsersGroup',
     cols: [
       { key: 'section',        label: 'Section',   defaut: true  },
       { key: 'nom',            label: 'Nom',       defaut: true  },
@@ -95,7 +95,7 @@ const ENTITES = {
     colonnesDynamiques: 'cours_',
   },
   ues: {
-    label: 'Unités d\'enseignement', groupe: 'data', icon: '📚', tabler: 'IconBooks',
+    domaine: 'organisation', label: 'Unités d\'enseignement', groupe: 'data', icon: '📚', tabler: 'IconBooks',
     cols: [
       { key: 'ue_num',        label: 'N° UE',          defaut: true  },
       { key: 'ue_nom',        label: 'Nom',             defaut: true  },
@@ -140,7 +140,7 @@ const ENTITES = {
     filtres: ['section', 'niveau'],
   },
   cours: {
-    label: 'Cours', groupe: 'data', icon: '📖', tabler: 'IconBook',
+    domaine: 'organisation', label: 'Cours', groupe: 'data', icon: '📖', tabler: 'IconBook',
     cols: [
       { key: 'cours_code',         label: 'Code cours',   defaut: true  },
       { key: 'cours_nom',          label: 'Nom du cours', defaut: true  },
@@ -162,7 +162,7 @@ const ENTITES = {
     filtres: ['section', 'ue_num'],
   },
   profs_par_ue: {
-    label: 'Profs par UE', groupe: 'data', icon: '🔗', tabler: 'IconLink',
+    domaine: 'personnel', label: 'Profs par UE', groupe: 'data', icon: '🔗', tabler: 'IconLink',
     cols: [
       { key: 'professeur',    label: 'Professeur',  defaut: true  },
       { key: 'ue_num',        label: 'N° UE',        defaut: true  },
@@ -184,7 +184,7 @@ const ENTITES = {
     filtres: ['section', 'ue_num'],
   },
   profs_par_section: {
-    label: 'Profs par section', groupe: 'data', icon: '🏫', tabler: 'IconSchool',
+    domaine: 'personnel', label: 'Profs par section', groupe: 'data', icon: '🏫', tabler: 'IconSchool',
     cols: [
       { key: 'section',       label: 'Section',     defaut: true  },
       { key: 'professeur',    label: 'Professeur',  defaut: true  },
@@ -203,7 +203,7 @@ const ENTITES = {
     filtres: ['section'],
   },
   synthese_charge: {
-    label: 'Synthèse charge / prof', groupe: 'data', icon: '⚖️', tabler: 'IconScale',
+    domaine: 'personnel', label: 'Synthèse charge / prof', groupe: 'data', icon: '⚖️', tabler: 'IconScale',
     cols: [
       { key: 'professeur',    label: 'Professeur',  defaut: true  },
       { key: 'section',       label: 'Section',     defaut: true  },
@@ -231,7 +231,7 @@ const ENTITES = {
     filtres: ['section'],
   },
   ues_sans_attribution: {
-    label: 'UE sans attribution', groupe: 'data', icon: '⚠️', tabler: 'IconAlertTriangle',
+    domaine: 'organisation', label: 'UE sans attribution', groupe: 'data', icon: '⚠️', tabler: 'IconAlertTriangle',
     cols: [
       { key: 'ue_num',  label: 'N° UE',  defaut: true  },
       { key: 'ue_nom',  label: 'Nom',    defaut: true  },
@@ -251,7 +251,7 @@ const ENTITES = {
     filtres: ['section'],
   },
   'heures-contact': {
-    label: 'Grille de cours', groupe: 'rapport', icon: '🕐', tabler: 'IconClock',
+    domaine: 'organisation', label: 'Grille de cours', groupe: 'rapport', icon: '🕐', tabler: 'IconClock',
     heuresContact: true, // rendu personnalisé
     cols: [],
     fetch: (annee, filtres) => {
@@ -262,7 +262,7 @@ const ENTITES = {
     filtres: ['section'],
   },
   'grille-section': {
-    label: 'Grille de section', groupe: 'rapport', icon: '📐', tabler: 'IconLayoutGrid',
+    domaine: 'organisation', label: 'Grille de section', groupe: 'rapport', icon: '📐', tabler: 'IconLayoutGrid',
     grille: true,
     cols: [],
     fetch: (annee, filtres) => authFetch(
@@ -271,7 +271,7 @@ const ENTITES = {
     filtres: ['section'],
   },
   'rapport-section': {
-    label: 'Rapport par section', groupe: 'rapport', icon: '📄', tabler: 'IconFileText',
+    domaine: 'organisation', label: 'Rapport par section', groupe: 'rapport', icon: '📄', tabler: 'IconFileText',
     rapport: true,
     cols: [],
     fetch: (annee, filtres) => {
@@ -283,7 +283,7 @@ const ENTITES = {
     filtres: ['section', 'tc'],
   },
   'rapport-ue': {
-    label: 'Rapport par UE', groupe: 'rapport', icon: '📋', tabler: 'IconFileDescription',
+    domaine: 'organisation', label: 'Rapport par UE', groupe: 'rapport', icon: '📋', tabler: 'IconFileDescription',
     rapport: true,
     cols: [],
     fetch: (annee, filtres) => authFetch(
@@ -293,7 +293,7 @@ const ENTITES = {
   },
 
   etudiants_ue: {
-    label: 'Étudiants par UE', groupe: 'data', icon: '🎓', tabler: 'IconSchool',
+    domaine: 'etudiants', label: 'Étudiants par UE', groupe: 'data', icon: '🎓', tabler: 'IconSchool',
     cols: [
       { key: 'ue_num',               label: 'N° UE',              defaut: true  },
       { key: 'ue_nom',               label: 'Nom UE',             defaut: true  },
@@ -321,7 +321,7 @@ const ENTITES = {
     filtres: ['section'],
   },
   encadrement_tfe: {
-    label: 'Encadrement TFE', groupe: 'data', icon: '📝', tabler: 'IconFileText',
+    domaine: 'personnel', label: 'Encadrement TFE', groupe: 'data', icon: '📝', tabler: 'IconFileText',
     cols: [
       { key: 'professeur',           label: 'Professeur',         defaut: true  },
       { key: 'section',              label: 'Section',            defaut: true  },
@@ -340,7 +340,7 @@ const ENTITES = {
     filtres: ['section'],
   },
   encadrement_stage: {
-    label: 'Encadrement stage', groupe: 'data', icon: '🏥', tabler: 'IconStethoscope',
+    domaine: 'personnel', label: 'Encadrement stage', groupe: 'data', icon: '🏥', tabler: 'IconStethoscope',
     cols: [
       { key: 'professeur',           label: 'Professeur',         defaut: true  },
       { key: 'section',              label: 'Section',            defaut: true  },
@@ -361,7 +361,7 @@ const ENTITES = {
     filtres: ['section'],
   },
   'rapport-etp': {
-    label: 'Rapport ETP', groupe: 'rapport', icon: '🎓', tabler: 'IconCertificate',
+    domaine: 'gestion', label: 'Rapport ETP', groupe: 'rapport', icon: '🎓', tabler: 'IconCertificate',
     rapport: true,
     cols: [],
     fetch: (annee) => authFetch(`/api/pilotage/etp?annee=${encodeURIComponent(annee)}`),
@@ -456,11 +456,32 @@ const LOGO_IIP = 'data:image/jpeg;base64,/9j/4AAQSkZJRgABAgAAZABkAAD/7AARRHVja3k
  * `integre` retire la coquille d'écran : le rail latéral devient la colonne de
  * gauche de la fenêtre, et la hauteur vient de la fenêtre au lieu de l'écran.
  */
-export default function Listes({ integre = false }) {
+/**
+ * `domaine` RANGE CHAQUE LISTE DANS SON AXE — et c'est ce qui manquait.
+ *
+ * Le centre d'éditions offrait « Construire une liste » ET les mêmes listes
+ * une seconde fois dans Étudiants, Personnel, Organisation : on apprenait deux
+ * chemins pour une même pièce, et l'on ne savait plus lequel faisait foi. La
+ * proposition validée disait pourtant l'inverse — chaque liste vit dans SON
+ * axe, et le générateur reste « à part, en tête », parce qu'il n'est pas un
+ * axe mais un OUTIL : celui où l'on choisit ses colonnes.
+ *
+ * Passé un `domaine`, l'écran ne montre que les listes de cet axe. Sans
+ * `domaine`, il les montre toutes — c'est l'écran plein, hors du centre.
+ */
+export default function Listes({ integre = false, domaine = null }) {
   const navigate = useNavigate();
   const annee = getAnnee() || '2026-2027';
   const [diplomes, setDiplomes] = useState(false);
-  const [entite, setEntite] = useState('profs');
+  /* L'ENTITÉ DE DÉPART APPARTIENT À L'AXE OUVERT. « profs » en dur affichait,
+     dans l'onglet Étudiants, une liste de professeurs — et la colonne de
+     gauche, elle, n'en proposait pas : on ouvrait sur une pièce qui n'était
+     nulle part dans le menu. */
+  const [entite, setEntite] = useState(() => {
+    if (!domaine) return 'profs';
+    const premier = Object.entries(ENTITES).find(([, e]) => e.domaine === domaine);
+    return premier ? premier[0] : 'profs';
+  });
   const [colsActives, setColsActives] = useState(() => new Set(ENTITES['profs'].cols.filter(c => c.defaut).map(c => c.key)));
   const [filtres, setFiltres] = useState({});
   const [showOptionsRapport, setShowOptionsRapport] = useState(false); // pop-up de critères avant génération
@@ -1333,9 +1354,11 @@ export default function Listes({ integre = false }) {
      Le même contenu, rendu là où il a un sens — un rail flottant n'a rien à
      faire à l'intérieur d'une fenêtre, et une colonne perdue au milieu d'un
      écran non plus. */
+  const deLAxe = ([, e]) => !domaine || e.domaine === domaine;
   const groupesTypes = ordreGroupes.map(grp => ({
     label: GROUPES_LABEL[grp],
     items: Object.entries(ENTITES)
+      .filter(deLAxe)
       .filter(([, e]) => (e.groupe || 'data') === grp)
       .map(([k, e]) => ({ key: k, label: e.label,
         icon: TABLER[e.tabler] || IconFileText,

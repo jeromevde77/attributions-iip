@@ -69,6 +69,15 @@ const PIECES = [
  * On voit d'abord ce qu'on emporte — cinquante lignes d'aperçu — avant de
  * télécharger : un tableur qu'on découvre après coup se refait deux fois.
  */
+/** Le générateur, servi dans une fenêtre — filtré sur un axe, ou complet. */
+function CadreListes({ domaine = null }) {
+  return (
+    <Suspense fallback={<div className="p-6 text-[13px] text-slate-400">Chargement…</div>}>
+      <Listes integre domaine={domaine} />
+    </Suspense>
+  );
+}
+
 function OngletRapports({ domaine }) {
   /* L'ANNÉE SE CHOISIT ICI. Le centre reprenait l'année de travail sans
      jamais la montrer : pour sortir la charge de l'an dernier — ce que
@@ -968,7 +977,12 @@ export default function CentreImpressionCentral({ ongletInitial = 'etudiants',
   const [onglet, setOnglet] = useState(ongletInitial);
   // Dans un axe qui porte deux familles : les pièces par personne, ou les
   // rapports du catalogue. On entre par les pièces, qui sont le quotidien.
+  /* La famille par défaut : les pièces dans Étudiants — c'est son métier —,
+     les rapports partout ailleurs. Elle se remet à sa valeur d'origine quand
+     on change d'axe : « Listes » laissé actif en passant de Personnel à
+     Gestion ouvrait une colonne vide, et l'on croyait l'axe vide. */
   const [famille, setFamille] = useState('pieces');
+  useEffect(() => { setFamille(onglet === 'etudiants' ? 'pieces' : 'rapports'); }, [onglet]);
 
   return (
     /* L'AVION, ET LE SOUS-TITRE AVEC LUI.
@@ -1019,17 +1033,44 @@ export default function CentreImpressionCentral({ ongletInitial = 'etudiants',
                 className={famille === 'rapports' ? 'on' : ''}>
                 Rapports
               </button>
+              <button onClick={() => setFamille('listes')}
+                className={famille === 'listes' ? 'on' : ''}>
+                Listes
+              </button>
             </span>
           </div>
-          {famille === 'pieces'
-            ? <OngletEtudiants perimetre={perimetre} />
+          {famille === 'pieces' ? <OngletEtudiants perimetre={perimetre} />
+            : famille === 'listes' ? <CadreListes domaine="etudiants" />
             : <OngletRapports domaine="etudiants" />}
         </>
       ) : onglet === 'listes'
-        ? <Suspense fallback={<div className="p-6 text-[13px] text-slate-400">Chargement…</div>}>
-            <Listes integre />
-          </Suspense>
-        : <OngletRapports domaine={onglet} />}
+        ? <CadreListes />
+        : (
+        /* CHAQUE AXE PORTE SES DEUX FAMILLES, ET LE GÉNÉRATEUR N'EST PLUS UN
+           SECOND CATALOGUE. « Construire une liste » proposait les seize listes
+           prédéfinies, ET les mêmes reparaissaient dans Personnel, Organisation,
+           Gestion : deux chemins pour une même pièce, et plus moyen de dire
+           lequel fait foi. La liste vit maintenant dans SON axe — c'est ce que
+           disait la proposition validée — et l'onglet en tête redevient ce
+           qu'il est, l'OUTIL où l'on choisit ses colonnes. */
+        <>
+          <div className="px-1 pb-3">
+            <span className="seg-fam">
+              <button onClick={() => setFamille('rapports')}
+                className={famille === 'listes' ? '' : 'on'}>
+                Rapports
+              </button>
+              <button onClick={() => setFamille('listes')}
+                className={famille === 'listes' ? 'on' : ''}>
+                Listes
+              </button>
+            </span>
+          </div>
+          {famille === 'listes'
+            ? <CadreListes domaine={onglet} />
+            : <OngletRapports domaine={onglet} />}
+        </>
+      )}
     </Fenetre>
   );
 }
