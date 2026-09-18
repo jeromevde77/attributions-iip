@@ -762,6 +762,98 @@ et 3 composants de tuile**. La stratégie tient en cinq chantiers, dans cet ordr
   lendemain : **risque humain, pas technique** — à annoncer, pas à livrer en
   silence.
 
+### Les trois gabarits de pièce — et rien d'autre
+
+Quarante et une pièces sortent de Lucie, par trois mécanismes : les **pièces**
+(un modèle écrit d'avance), les **rapports** du catalogue (colonnes fixées), les
+**listes** du générateur (colonnes au choix). Elles n'ont pas besoin de trois
+dessins : l'en-tête, le filet doré, le pied et les marges sont **identiques** —
+ils viennent déjà de la même enveloppe. Seul le CORPS change, et il n'en existe
+que trois formes :
+
+- **A — la liste.** Un tableau, éventuellement groupé, avec sous-totaux et total.
+- **B — le rapport.** Une liste précédée de ce qu'elle démontre : une rangée de
+  tuiles d'indicateur. La tuile porte l'état par son **rail gauche**, et lui
+  seul — ni le fond, ni le chiffre.
+- **C — la pièce nominative.** Ce qui nomme quelqu'un et l'engage : du texte, un
+  tableau court, la mention réglementaire, un bloc de signatures.
+
+**Une quatrième forme ne s'invente pas** : elle se discute, et elle entre ici.
+
+**LE REPÈRE DE BLOC : la bande PORTE la couleur.** BA1/BE1 **orange** `#E8890C`,
+BA2 **bleu clair** `#7FB3D5` (texte foncé, sinon illisible), BA3 **marine**
+`#1B2B4B`, celui du logo. Premier essai : un filet de 4 px sur une bande marine
+— au premier coup d'œil tout restait marine, et *un repère qu'il faut chercher
+n'est pas un repère*. Ces trois teintes ne servent **qu'à ça** : elles ne disent
+jamais un état, ce qui laisse vert, ocre et brique libres pour ce qui alerte.
+
+**LE SOUS-TOTAL ADDITIONNE, IL N'ALERTE PAS.** Il se dessinait en jaune-marron.
+Or l'ocre veut dire « regarde ça » partout ailleurs dans Lucie, et un sous-total
+ne demande rien. Bleu très pâle `#EDF2F8` : il se détache de la donnée sans
+prendre un sens qu'il n'a pas.
+
+**LES DOMAINES D'ÉDITIONS SONT LES AXES DE LUCIE, ET RIEN D'AUTRE.** Le centre
+rangeait en *Étudiants · Personnel · Pilotage · Organisation · Référentiels*
+pendant que l'application a *Étudiants · Personnel · Organisation · Gestion* :
+on apprenait un rangement pour travailler et un autre pour imprimer, et quand on
+cherchait la dotation on essayait les deux. « Pilotage » devient **Gestion** —
+même territoire, celui de ce qu'on engage. « Référentiels » rentre dans
+**Organisation** : une unité, un cours, une grille, un acquis sont les objets de
+cet axe, pas un métier séparé. **Configuration ne reçoit rien** : on y règle des
+MODÈLES, on n'y produit pas de pièces.
+
+---
+
+## 6 bis. Les trois couches : dossier, organisation, attribution
+
+Le **dossier pédagogique** dit ce qu'EST l'unité. Il ne bouge pas : c'est le
+référentiel, approuvé par le Gouvernement.
+
+La **grille d'organisation** dit ce qu'on en FAIT cette année — comment les
+périodes se découpent, où l'autonomie se place, quand l'unité tombe dans
+l'année. Elle se planifie AVANT d'attribuer : c'est la structure de l'année.
+Elle se reprend d'une année sur l'autre comme le reste.
+
+L'**attribution** dit QUI le fait.
+
+Le `PlanificateurVisuel` existant a été bâti sur la troisième pour faire le
+travail de la deuxième — `const voie = l.attribution_id`. On ne pouvait donc
+planifier qu'après avoir attribué, et chaque bloc pendait à une ligne
+d'attribution : c'est pour cela qu'il n'a jamais été fini, et non par manque de
+courage. Il est remplacé, pas conservé à côté.
+
+**LA GRILLE PROPOSE, ELLE N'IMPOSE PAS.** Ajouter une unité aux attributions
+pose la question — « selon la planification ? » : oui, les lignes prévues sont
+créées ; non, on garde la structure du dossier pédagogique. Jamais de
+pré-remplissage muet, jamais de simple comparaison non plus.
+
+**LA RÈGLE DES MULTIPLES EST OBLIGATOIRE, ET LE GÉNÉRATEUR LE DIT.** Les
+périodes d'un cours doivent être un multiple de ce que fixe le dossier. On peut
+combler avec de l'autonomie pour y parvenir — l'écran annonce alors de combien
+on s'écarte, et si l'autonomie disponible suffit. Le reste non placé est
+signalé, **jamais réparti d'office**.
+
+**LA FRISE PORTE DEUX GRANDEURS.** La **longueur** d'une barre est sa durée sur
+l'année ; son **épaisseur**, son intensité — 5 px pour 2 h par semaine. Une
+unité étalée sur deux quadrimestres est longue et fine, la même massée sur six
+semaines est courte et épaisse, un stage à 22 h par semaine devient un pavé
+qu'on ne peut pas rater. On voit la charge, pas seulement le calendrier.
+
+**UNE SEULE GRILLE, DEUX LECTURES.** Ce qui est confié au professeur et ce que
+vit l'étudiant coïncident presque toujours — presque : sur un stage, les heures
+d'encadrement du superviseur ne sont pas les heures de l'étudiant. D'où une
+BASCULE, pas deux grilles : deux grilles finiraient par diverger, et c'est celle
+qu'on ne regarde pas qui serait affichée aux étudiants.
+
+**UNE ACTIVITÉ EST UN SOUS-COURS, ET ELLE NE PARAÎT SUR AUCUNE PIÈCE
+OFFICIELLE.** Théorie, TP, remédiation, évaluation, visite des copies : leur
+somme retombe sur les périodes du cours, et c'est le COURS qui figure au contrat
+de travail, sur l'attestation et sur le procès-verbal. C'est un choix
+pédagogique, il peut différer d'un professeur à l'autre — la grille en propose
+un, l'attribution peut en retenir un autre.
+
+---
+
 ### Écritures et garde-fous
 
 - **Rien ne s'écrit sans qu'on ait vu ce qui sera écrit** : tout import et tout
