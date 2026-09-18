@@ -952,7 +952,7 @@ export const RAPPORTS = [
    * d'en dessous.
    */
   {
-    id: 'resultats-section', domaine: 'pilotage', params: ['annee', 'session'],
+    id: 'resultats-section', domaine: 'etudiants', params: ['annee', 'session'],
     libelle: 'Résultats de délibération par unité',
     aide: "Réussites, ajournements et refus POUR LA SESSION CHOISIE — non l'état de l'année.",
     colonnes: COLS([['section', 'Section', 24], ['ue_num', 'UE', 8],
@@ -984,7 +984,7 @@ export const RAPPORTS = [
     },
   },
   {
-    id: 'dotation-emploi', domaine: 'pilotage', params: ['annee'],
+    id: 'dotation-emploi', domaine: 'gestion', params: ['annee'],
     libelle: "Emploi de la dotation par section",
     aide: "Ce qui est organisé, ce qui est attribué, et l'écart entre les deux.",
     colonnes: COLS([['section', 'Section', 28],
@@ -1100,7 +1100,7 @@ export const RAPPORTS = [
    * bandeau. Les chiffres, eux, sont les mêmes, au même calcul.
    */
   {
-    id: 'etp', domaine: 'pilotage', params: ['annee', 'portee', 'etudiants'],
+    id: 'etp', domaine: 'gestion', params: ['annee', 'portee', 'etudiants'],
     libelle: 'Charge en ETP',
     aide: "Tout l'établissement, une section, une unité ou un cours — la pièce s'adapte à la portée choisie.",
     // La portée descend jusqu'au cours : c'est le niveau où l'on voit enfin
@@ -1190,7 +1190,7 @@ export const RAPPORTS = [
 
   // ── RÉFÉRENTIELS ────────────────────────────────────────────────────────
   {
-    id: 'referentiel-ue', domaine: 'referentiels', params: ['annee'],
+    id: 'referentiel-ue', domaine: 'organisation', params: ['annee'],
     libelle: 'Unités d’enseignement du référentiel',
     aide: "Code approuvé, niveau, périodes, déterminante, épreuve intégrée.",
     colonnes: COLS([['section', 'Section', 26], ['ue_num', 'UE', 8],
@@ -1210,7 +1210,7 @@ export const RAPPORTS = [
        ce qui la rendait utile : le dossier pédagogique parle en PÉRIODES, un
        horaire et un contrat parlent en HEURES. Réduite aux seules périodes,
        elle obligeait à refaire la conversion à la main — cinquante fois. */
-    id: 'referentiel-cours', domaine: 'referentiels', params: ['annee', 'section'],
+    id: 'referentiel-cours', domaine: 'organisation', params: ['annee', 'section'],
     libelle: 'Grille de cours',
     aide: "Les cours de chaque unité, en périodes et en heures, avec les totaux par unité.",
     colonnes: COLS([['section', 'Section', 24], ['ue_num', 'UE', 8],
@@ -1238,7 +1238,7 @@ export const RAPPORTS = [
     /* LA MÊME MATIÈRE, VUE PAR UNITÉ — ce que pèse une UE, d'un coup d'œil.
        C'est ce qu'on regarde pour décider d'ouvrir une unité, pas le détail
        cours par cours. */
-    id: 'referentiel-poids-ue', domaine: 'referentiels', params: ['annee', 'section'],
+    id: 'referentiel-poids-ue', domaine: 'organisation', params: ['annee', 'section'],
     libelle: 'Poids des unités — périodes et heures',
     aide: "Une ligne par unité : nombre de cours, périodes, heures, autonomie et ECTS.",
     colonnes: COLS([['section', 'Section', 24], ['ue_num', 'UE', 8],
@@ -1257,7 +1257,7 @@ export const RAPPORTS = [
        ORDER BY u.section, u.ue_num`).all(p.annee, p.section, p.section),
   },
   {
-    id: 'grille-section', domaine: 'referentiels', params: ['annee', 'section'],
+    id: 'grille-section', domaine: 'organisation', params: ['annee', 'section'],
     libelle: 'Grille de section',
     aide: "La structure d'un cursus : blocs, unités, cours, avec périodes professeur, étudiant et autonomie.",
     colonnes: COLS([['ue_num', 'UE', 8], ['ue_nom', 'Unité', 44],
@@ -1273,7 +1273,7 @@ export const RAPPORTS = [
   {
     /* QUI DONNE QUOI DANS UNE UNITÉ — la liste « profs par UE » de l'ancien
        écran, celle qu'on imprime avant une réunion d'équipe d'unité. */
-    id: 'referentiel-profs-ue', domaine: 'referentiels', params: ['annee', 'section'],
+    id: 'referentiel-profs-ue', domaine: 'organisation', params: ['annee', 'section'],
     libelle: 'Enseignants par unité',
     aide: "Qui donne quel cours dans quelle unité, et pour combien de périodes.",
     colonnes: COLS([['section', 'Section', 22], ['ue_num', 'UE', 8],
@@ -1291,7 +1291,7 @@ export const RAPPORTS = [
       .all(p.annee, p.section, p.section),
   },
   {
-    id: 'referentiel-acquis', domaine: 'referentiels', params: [],
+    id: 'referentiel-acquis', domaine: 'organisation', params: [],
     libelle: 'Acquis d’apprentissage',
     aide: "Les acquis de chaque unité, tels qu'ils figurent aux attestations.",
     colonnes: COLS([['ue_num', 'UE', 8], ['aa_code', 'Acquis', 14],
@@ -1305,7 +1305,7 @@ export const RAPPORTS = [
   },
 
   {
-    id: 'referentiel-ue-sans-attribution', domaine: 'referentiels', params: ['annee', 'section'],
+    id: 'referentiel-ue-sans-attribution', domaine: 'organisation', params: ['annee', 'section'],
     libelle: 'Unités sans attribution',
     aide: "Ce qui est organisé mais que personne ne donne — à vérifier avant la rentrée.",
     colonnes: COLS([['section', 'Section', 26], ['ue_num', 'UE', 8],
@@ -1341,7 +1341,7 @@ export const RAPPORTS = [
     /* LES EFFECTIFS PAR UNITÉ — « étudiants par UE » de l'ancien écran. C'est
        le chiffre qu'on croise avec la charge pour décider d'un dédoublement,
        et celui que l'AEQES redemande section par section. */
-    id: 'organisation-effectifs', domaine: 'organisation', params: ['annee', 'section'],
+    id: 'organisation-effectifs', domaine: 'etudiants', params: ['annee', 'section'],
     libelle: 'Effectifs par unité',
     aide: "Inscrits par unité, avec la charge correspondante et le nombre d'étudiants par période.",
     colonnes: COLS([['section', 'Section', 24], ['ue_num', 'UE', 8],

@@ -36,13 +36,21 @@ const Listes = lazy(() => import('../pages/Listes.jsx'));
    à une même question, « qu'est-ce que j'emporte ? », et elles vivaient à deux
    endroits dont le second n'était référencé NULLE PART : seize listes
    injoignables autrement qu'en tapant leur adresse. */
+/* LES DOMAINES D'ÉDITIONS SONT LES AXES DE LUCIE, ET RIEN D'AUTRE.
+   On rangeait ici en « Étudiants · Personnel · Pilotage · Organisation ·
+   Référentiels » pendant que l'application a « Étudiants · Personnel ·
+   Organisation · Gestion » : on apprenait un rangement pour travailler et un
+   autre pour imprimer, et quand on cherchait la dotation on essayait les deux.
+   « Pilotage » devient GESTION — même territoire, celui de ce qu'on engage.
+   « Référentiels » rentre dans ORGANISATION : une unité, un cours, une grille,
+   un acquis sont les objets de cet axe, pas un métier séparé.
+   Le générateur n'est pas un axe mais un OUTIL : il garde sa place, en tête. */
 const ONGLETS = [
+  { cle: 'listes', label: 'Construire une liste', icon: IconFileExport, outil: true },
   { cle: 'etudiants', label: 'Étudiants', icon: IconSchool },
-  { cle: 'listes', label: 'Construire une liste', icon: IconFileExport },
   { cle: 'personnel', label: 'Personnel', icon: IconUsers },
-  { cle: 'pilotage', label: 'Pilotage', icon: IconChartBar },
-  { cle: 'organisation', label: 'Organisation', icon: IconCalendarStats },
-  { cle: 'referentiels', label: 'Référentiels', icon: IconBooks },
+  { cle: 'organisation', label: 'Organisation', icon: IconBooks },
+  { cle: 'gestion', label: 'Gestion', icon: IconChartBar },
 ];
 
 const PIECES = [
@@ -278,15 +286,41 @@ function OngletRapports({ domaine }) {
   return (
     <div className="flex min-h-0 flex-1">
       <div className="w-[340px] border-r border-slate-200 overflow-auto p-2 space-y-1">
-        {liste.map(r => (
-          <button key={r.id} onClick={() => voir(r)}
-            className={`w-full text-left px-2.5 py-2 rounded-lg border text-[13px]
-              ${choisi?.id === r.id ? 'border-iip-blue bg-iip-blue/5'
-                : 'border-transparent hover:bg-slate-50'}`}>
-            <span className="block text-slate-800">{r.libelle}</span>
-            <span className="block text-[11px] text-slate-500">{r.aide}</span>
-          </button>
-        ))}
+        {/* UNE LISTE SE PARCOURT, UNE FICHE SE LIT.
+            Chaque entrée portait son libellé ET une phrase entière d'aide, en
+            11 px, dans une colonne de 340 px : trois à quatre lignes de gris
+            par pièce, et le nom — la seule chose qu'on cherche — noyé dans son
+            propre commentaire. L'aide descend dans le panneau de droite, où
+            l'on en a besoin : au moment de régler l'année et la section, pas
+            au moment de parcourir.
+            Et la ligne dit enfin CE QUI VA SORTIR — une pièce mise en page ou
+            un tableau — et SUR QUOI elle porte. Les deux étaient calculés,
+            envoyés à l'écran, et affichés nulle part : on choisissait, et on
+            découvrait ensuite. */}
+        {liste.map(r => {
+          const portee = r.portees?.length
+            ? { etablissement: "tout l'établissement", section: 'par section',
+                ue: 'par unité', cours: 'par cours' }[r.portees[0]] || r.portees[0]
+            : null;
+          return (
+            <button key={r.id} onClick={() => voir(r)}
+              className={`w-full text-left px-2.5 py-1.5 rounded-lg border text-[13px]
+                flex items-center gap-2
+                ${choisi?.id === r.id ? 'border-iip-blue bg-iip-blue/5'
+                  : 'border-transparent hover:bg-slate-50'}`}>
+              <span className="flex-1 min-w-0 truncate">{r.libelle}</span>
+              <span className={`text-[10px] px-1.5 py-0.5 rounded-md flex-shrink-0
+                ${r.piece ? 'bg-[#00AACC]/12 text-[#046B80]' : 'bg-slate-100 text-slate-500'}`}>
+                {r.piece ? 'pièce' : 'tableau'}
+              </span>
+              {portee && (
+                <span className="text-[10px] text-slate-400 flex-shrink-0 hidden lg:inline">
+                  {portee}
+                </span>
+              )}
+            </button>
+          );
+        })}
         {catalogue && !liste.length && (
           <p className="p-4 text-[13px] text-slate-400">
             Aucun rapport dans ce domaine pour l’instant.
@@ -470,10 +504,19 @@ function OngletRapports({ domaine }) {
           </div>
         )}
 
+        {/* L'AIDE SE LIT ICI, au moment où l'on règle l'année et la section —
+            pas dans la liste, où elle noyait le nom des pièces. */}
+        {choisi?.aide && (
+          <div className="px-3 py-2 border-b border-slate-200 bg-[#FCFCFD]">
+            <div className="text-[13px] font-medium">{choisi.libelle}</div>
+            <div className="text-[12px] text-slate-500 mt-0.5">{choisi.aide}</div>
+          </div>
+        )}
+
         <div className="flex-1 overflow-auto min-h-0 bg-slate-100 p-3">
           {!choisi && (
             <p className="p-6 text-[13px] text-slate-400">
-              Choisissez un rapport à gauche.
+              Choisissez une pièce à gauche.
             </p>
           )}
           {choisi && !apercu && !erreur && (
