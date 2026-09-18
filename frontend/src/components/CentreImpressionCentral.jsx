@@ -960,6 +960,9 @@ export default function CentreImpressionCentral({ ongletInitial = 'etudiants',
                                                   perimetre = null, pieces = null,
                                                   onClose }) {
   const [onglet, setOnglet] = useState(ongletInitial);
+  // Dans un axe qui porte deux familles : les pièces par personne, ou les
+  // rapports du catalogue. On entre par les pièces, qui sont le quotidien.
+  const [famille, setFamille] = useState('pieces');
 
   return (
     /* L'AVION, ET LE SOUS-TITRE AVEC LUI.
@@ -989,12 +992,38 @@ export default function CentreImpressionCentral({ ongletInitial = 'etudiants',
         ))}
       </div>
 
-      {onglet === 'etudiants' ? <OngletEtudiants perimetre={perimetre} />
-        : onglet === 'listes'
-          ? <Suspense fallback={<div className="p-6 text-[13px] text-slate-400">Chargement…</div>}>
-              <Listes integre />
-            </Suspense>
-          : <OngletRapports domaine={onglet} />}
+      {/* UN AXE PEUT PORTER DEUX FAMILLES, ET L'ÉCRAN DOIT LES MONTRER TOUTES.
+          Étudiants a son écran propre — un périmètre, des pièces NOMINATIVES
+          qu'on produit par personne — et il ne rendait QUE cela. En y rangeant
+          les rapports qui comptent des étudiants (résultats de délibération,
+          effectifs par section), je les avais rendus INJOIGNABLES : rangés dans
+          un axe dont l'onglet n'affiche pas le catalogue.
+          Ranger sans vérifier que la pièce arrive quelque part, c'est déplacer
+          un dossier dans un tiroir qui n'existe pas. L'axe porte donc une
+          bascule quand il a les deux familles. */}
+      {onglet === 'etudiants' ? (
+        <>
+          <div className="px-1 pb-3">
+            <span className="seg-fam">
+              <button onClick={() => setFamille('pieces')}
+                className={famille === 'pieces' ? 'on' : ''}>
+                Pièces par étudiant
+              </button>
+              <button onClick={() => setFamille('rapports')}
+                className={famille === 'rapports' ? 'on' : ''}>
+                Rapports
+              </button>
+            </span>
+          </div>
+          {famille === 'pieces'
+            ? <OngletEtudiants perimetre={perimetre} />
+            : <OngletRapports domaine="etudiants" />}
+        </>
+      ) : onglet === 'listes'
+        ? <Suspense fallback={<div className="p-6 text-[13px] text-slate-400">Chargement…</div>}>
+            <Listes integre />
+          </Suspense>
+        : <OngletRapports domaine={onglet} />}
     </Fenetre>
   );
 }

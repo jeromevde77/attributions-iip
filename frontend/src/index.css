@@ -77,6 +77,16 @@ table.grid-excel-soft tbody td:first-child,
 table.grid-excel-soft thead th:first-child { padding-left: 1rem; }
 table.grid-excel-soft tbody td:last-child,
 table.grid-excel-soft thead th:last-child { padding-right: 1rem; }
+/* UNE BASCULE DE FAMILLE, dans un axe qui en porte deux : les pièces qu'on
+   produit par personne, et les rapports du catalogue. Même dessin que les
+   segments de la maison — le choix ouvert en marine, le reste en gris. */
+.seg-fam { display:inline-flex; border:1px solid #D8DCE4; border-radius:8px;
+           overflow:hidden; }
+.seg-fam button { border:0; background:#fff; padding:0 12px; height:30px;
+                  font-size:12.5px; font-family:inherit; color:#6B7280;
+                  cursor:pointer; }
+.seg-fam button.on { background:#1B2B4B; color:#fff; font-weight:600; }
+
 /* LA BANDE DU COURS ET SON EN-TÊTE NE FONT QU'UN OBJET.
    Le titre du cours et la ligne « VAL. CONTR. ACTIVITÉ… » étaient deux bandeaux
    superposés, de deux fonds et de deux tailles, qui se disputaient la hauteur —
