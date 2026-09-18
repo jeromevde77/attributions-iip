@@ -15,7 +15,7 @@
 
 import { Router } from 'express';
 import { LOGO_IIP_JPEG } from '../services/assets/logo_iip_jpeg.js';
-import { piedBalisage, piedStyles, reglesDePage,
+import { piedBalisage, piedStyles, reglesDePage, stylesEntete, enteteDocument,
   BANDE_PIED_MM, MARGE_SOUS_PIED_MM, piedGabaritPdf } from '../lib/document.js';
 import db from '../db/index.js';
 import { authRequired, getUserSections } from '../middleware/auth.js';
@@ -352,28 +352,25 @@ export function envelopper(corps, titre = 'Attestations de réussite') {
   /* Bandeau marine et filet doré, comme les autres documents de la maison. */
   /* Mention encadrée de deux filets dorés, plutôt qu'en réserve sur marine :
      c'est la présentation des attestations de réussite. */
-  /* Filets dorés FINS : à 0,9 mm ils faisaient bandeau et écrasaient le titre.
-     Un filet doit se voir sans peser. */
-  .entete { text-align: center; padding: 3.5mm 6mm;
-    border-top: 0.3mm solid #C9A84C; border-bottom: 0.3mm solid #C9A84C; }
-  .entete .cf { font-size: 8pt; letter-spacing: .7pt; color: #1B2B4B; font-weight: 600; }
-  .entete .epa { font-size: 10.5pt; font-weight: 700; letter-spacing: .5pt;
-    color: #1B2B4B; margin-top: 1mm; }
-  .entete .annee { font-size: 8.5pt; margin-top: 1.2mm; color: #475569; }
-
-  /* Pas de filet sous l'identité : le bandeau au-dessus est déjà tenu par deux
-     traits dorés, et le titre en dessous porte le sien. Trois filets pour
-     quatre centimètres de papier, c'est deux de trop. */
-  .etab { display: flex; justify-content: space-between; gap: 6mm;
-          padding: 3mm 0 0; font-size: 8pt; color: #475569; }
-  .etab .nom { font-weight: 600; color: #1B2B4B; font-size: 9pt; }
-  .etab .ident { text-align: right; white-space: nowrap; }
-
-  h1 { font-size: 10.5pt; text-align: center; margin: 5mm 0 1mm; font-weight: 600;
-       letter-spacing: .3pt; color: #1B2B4B; }
-  h2 { font-size: 12pt; text-align: center; margin: 0 0 1.5mm; font-weight: 700;
-       color: #1B2B4B; }
-  .filet { width: 40mm; height: 0.3mm; background: #C9A84C; margin: 0 auto 4mm; }
+  /* L'EN-TÊTE VIENT DE L'ENVELOPPE COMMUNE, IL N'EST PLUS REDESSINÉ ICI.
+   *
+   * Ces quelques lignes étaient la DIXIÈME enveloppe que l'audit demandait de
+   * supprimer, et la plus servie de toutes : attestations, diplômes, PV de
+   * valorisation, grilles de délibération, et TOUS les aperçus du centre
+   * d'éditions passent par cette enveloppe. L'en-tête validé était donc écrit
+   * pour les rapports seuls, et les pièces qu'on imprime le plus gardaient un
+   * bandeau doré, un titre en 10,5 pt et aucun cadre. Deux dessins pour une
+   * même pièce : c'est toujours celui qu'on n'a pas corrigé qui sort de
+   * l'imprimante.
+   *
+   * Sur une pièce nominative, l'en-tête se répète à CHAQUE page — une
+   * attestation par étudiant, cinq cents pages, cinq cents en-têtes : c'est le
+   * corps de la pièce qui l'appelle, pas l'enveloppe. Les mesures, elles, sont
+   * les mêmes qu'ailleurs, parce qu'elles viennent du même endroit. */
+  ${stylesEntete()}
+  /* L'en-tête d'une pièce nominative ferme plus serré : la page porte déjà un
+     cadre de titre, un tableau et un bloc de signatures. */
+  .attestation .doc-entete { margin-bottom: 4.5mm; }
 
   /* Caractéristiques de l'unité, en deux colonnes pour gagner de la hauteur. */
   .carac { display: grid; grid-template-columns: 1fr 1fr; gap: 1mm 6mm;
@@ -638,27 +635,12 @@ export function pageAttestationValorisation(e, u, annee, etab, va,
     : '<i style="color:#b45309">répartition par activité à compléter</i>';
 
   return `<div class="attestation">
-  <div class="entete">
-    <div class="cf">COMMUNAUTÉ FRANÇAISE DE BELGIQUE</div>
-    <div class="epa">ENSEIGNEMENT POUR ADULTES</div>
-    <div class="annee">Année ${u.superieur ? 'académique' : 'scolaire'}
-      ${esc(String(annee).replace('-', '/'))}</div>
-  </div>
-
-  <div class="etab">
-    <div>
-      <div class="nom">${esc(ident.nom || 'Institut Ilya Prigogine')}</div>
-      <div>${esc(ident.adresse || '')}</div>
-    </div>
-    <div class="ident">
-      Matricule ${esc(ident.matricule || etab.num_ecot || '……………')}<br>
-      FASE ${esc(ident.fase || etab.num_fase || '……………')}
-    </div>
-  </div>
-
-  <h1>ATTESTATION DE RÉUSSITE VALORISATION DE L'UNITÉ D'ENSEIGNEMENT</h1>
-  <h2>${esc((u.ue_nom || '').toUpperCase())}</h2>
-  <div class="filet"></div>
+  ${enteteDocument({
+    titre: "Attestation de réussite — valorisation de l'unité d'enseignement",
+    sous: u.ue_nom || null,
+    ligne: `Année ${u.superieur ? 'académique' : 'scolaire'} `
+         + `${String(annee).replace('-', '/')}`,
+  })}
 
   <div class="carac">
     <div>${esc(u.type_enseignement)}</div>
@@ -749,27 +731,12 @@ export function pageAttestation(e, u, annee, etab, dateDoc = null,
 
   return `
 <div class="attestation">
-  <div class="entete">
-    <div class="cf">COMMUNAUTÉ FRANÇAISE DE BELGIQUE</div>
-    <div class="epa">ENSEIGNEMENT POUR ADULTES</div>
-    <div class="annee">Année académique ${esc(annee.replace('-', '/'))}</div>
-  </div>
-
-  <div class="etab">
-    <div>
-      <div class="nom">${esc(ident.nom || 'Institut Ilya Prigogine')}</div>
-      <div>${esc(ident.adresse || '')}</div>
-    </div>
-    <div class="ident">
-      Matricule ${esc(etab.num_matricule || '2.132.070')}<br>
-      FASE ${esc(ident.fase || '292')}
-    </div>
-  </div>
-
-  <h1>ATTESTATION DE RÉUSSITE DE L'UNITÉ D'ENSEIGNEMENT${
-    u.epreuve_integree ? ' « ÉPREUVE INTÉGRÉE »' : ''}</h1>
-  <h2>${esc((u.ue_nom || '').toUpperCase())}</h2>
-  <div class="filet"></div>
+  ${enteteDocument({
+    titre: "Attestation de réussite de l'unité d'enseignement"
+         + (u.epreuve_integree ? ' « épreuve intégrée »' : ''),
+    sous: u.ue_nom || null,
+    ligne: `Année académique ${String(annee).replace('-', '/')}`,
+  })}
 
   <div class="carac">
     <!-- LA SECTION, EN TÊTE DES CARACTÉRISTIQUES.
@@ -1550,20 +1517,12 @@ r.post('/valorisation/ue/:ueNum/documents', authRequired, async (req, res) => {
   </tr>`).join('');
 
   const pv = `<div class="attestation">
-  <div class="entete">
-    <div class="cf">COMMUNAUTÉ FRANÇAISE DE BELGIQUE</div>
-    <div class="epa">ENSEIGNEMENT POUR ADULTES</div>
-    <div class="annee">Année scolaire / académique ${esc(String(annee).replace('-', '/'))}
-      · ${superieur ? 'Enseignement supérieur' : 'Enseignement secondaire'}</div>
-  </div>
-  <div class="etab">
-    <div><div class="nom">${esc(ident.nom || '')}</div><div>${esc(ident.adresse || '')}</div></div>
-    <div class="ident">Matricule ${esc(ident.matricule || '……')}<br>
-      FASE ${esc(ident.fase || '……')}</div>
-  </div>
-
-  <h1>PROCÈS-VERBAL DE DÉLIBÉRATION DE VALORISATION DES ACQUIS</h1>
-  <div class="filet"></div>
+  ${enteteDocument({
+    titre: 'Procès-verbal de délibération de valorisation des acquis',
+    sous: ue.ue_nom || `UE ${ueNum}`,
+    ligne: `Année ${String(annee).replace('-', '/')} · `
+         + `${superieur ? 'Enseignement supérieur' : 'Enseignement secondaire'}`,
+  })}
 
   <p class="corps">
     Nous, soussignés, Président-e et Membres du Conseil des études constitué en

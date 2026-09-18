@@ -18,6 +18,7 @@ import db from '../db/index.js';
 import { authRequired, roleRequired, getUserSections } from '../middleware/auth.js';
 import { anneeDeTravail } from '../helpers/annee.js';
 import { envelopper } from './attestations.js';
+import { enteteDocument } from '../lib/document.js';
 import { identiteEtablissement } from './config.js';
 import { calculerMention, reglesMention } from '../lib/mention.js';
 import { presidenceConseil } from './acquis.js';
@@ -463,18 +464,11 @@ function attestationSection(d, ctx) {
   const cote = v => v == null ? '………' : `${Math.round(Number(v))}/20`;
 
   return `<div class="attestation piece">
-    <div class="entete">
-      <div class="cf">COMMUNAUTÉ FRANÇAISE DE BELGIQUE</div>
-      <div class="epa">ENSEIGNEMENT POUR ADULTES</div>
-    </div>
-    <div class="etab">
-      <div><b>${esc(ident.nom)}</b><br>${esc(ident.adresse)}</div>
-      <div class="ident">${ident.matricule ? `Matricule : ${esc(ident.matricule)}<br>` : ''}
-        ${ident.fase ? `FASE : ${esc(ident.fase)}` : ''}</div>
-    </div>
-
-    <div class="titre-piece">Attestation de réussite de section</div>
-    <div class="sous-piece">${esc(section.libelle || section.code)}</div>
+    ${enteteDocument({
+      titre: 'Attestation de réussite de section',
+      sous: section.libelle || section.code,
+      ligne: annee ? `Année ${String(annee).replace('-', '/')}` : null,
+    })}
 
     <p class="corps">Le Conseil des études atteste que</p>
     <div class="etudiant">
@@ -771,6 +765,20 @@ export function pvDeSection(sectionCode, annee, lignes, { session = 1, lieu = nu
   // Les classes propres au PV de section : ce module n'avait que de quoi
   // composer une liste.
   const style = `<style>
+    /* LE BANDEAU DES FORMULAIRES IMPOSÉS, LOCALEMENT.
+       Ces deux pièces — le procès-verbal du jury et la liste des diplômés —
+       ne suivent PAS notre charte, et c'est voulu : leur forme est celle du
+       formulaire de la Fédération, tableau « Établissement / Adresse /
+       Matricule / FASE » compris. Leur bandeau empruntait celui de l'enveloppe
+       des attestations, qui vient d'être remplacé par l'en-tête commun : il se
+       déclare donc ici, là où il est employé, plutôt que de retenir dans
+       l'enveloppe de tout le monde un dessin qui ne sert qu'à deux pièces. */
+    .entete { text-align:center; padding: 3mm 6mm; margin-bottom: 4mm;
+              border-top: 0.3mm solid #C9A84C; border-bottom: 0.3mm solid #C9A84C; }
+    .entete .nom { font-size: 10pt; font-weight: 700; letter-spacing:.5pt;
+                   color:#1B2B4B; }
+    .entete .sous { font-size: 8.5pt; color:#475569; margin-top: .8mm;
+                    letter-spacing:.3pt; }
     .titre-dip { text-align:center; font-size:13pt; font-weight:700; color:#1B2B4B;
                  margin: 6mm 0 4mm; letter-spacing:.02em; }
     table.doc.etab-liste th { width: 62mm; text-align:left; }
@@ -869,6 +877,20 @@ r.post('/document', authRequired,
   </div>
 
   <style>
+    /* LE BANDEAU DES FORMULAIRES IMPOSÉS, LOCALEMENT.
+       Ces deux pièces — le procès-verbal du jury et la liste des diplômés —
+       ne suivent PAS notre charte, et c'est voulu : leur forme est celle du
+       formulaire de la Fédération, tableau « Établissement / Adresse /
+       Matricule / FASE » compris. Leur bandeau empruntait celui de l'enveloppe
+       des attestations, qui vient d'être remplacé par l'en-tête commun : il se
+       déclare donc ici, là où il est employé, plutôt que de retenir dans
+       l'enveloppe de tout le monde un dessin qui ne sert qu'à deux pièces. */
+    .entete { text-align:center; padding: 3mm 6mm; margin-bottom: 4mm;
+              border-top: 0.3mm solid #C9A84C; border-bottom: 0.3mm solid #C9A84C; }
+    .entete .nom { font-size: 10pt; font-weight: 700; letter-spacing:.5pt;
+                   color:#1B2B4B; }
+    .entete .sous { font-size: 8.5pt; color:#475569; margin-top: .8mm;
+                    letter-spacing:.3pt; }
     .titre-dip { text-align:center; font-size:13pt; font-weight:700; color:#1B2B4B;
                  margin: 6mm 0 4mm; letter-spacing:.02em; }
     table.doc.etab-liste th { width: 62mm; text-align:left; }

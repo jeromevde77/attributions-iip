@@ -16,6 +16,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { piedDocument } from '../routes/parametres.js';
+import { identiteEtablissement } from '../routes/config.js';
 import db from '../db/index.js';
 import { LOGO_IIP_JPEG } from '../services/assets/logo_iip_jpeg.js';
 
@@ -173,14 +174,74 @@ export function piedStyles(hauteur = HAUTEUR_PIED_MM, margeHaut = 18) {
  * Le tout tient en trois centimètres, et ne se répète pas d'une page à
  * l'autre : c'est une pièce, pas un formulaire.
  */
-export function enteteDocument({ titre, sous = null, mention = null } = {}) {
+/**
+ * LES STYLES DE L'EN-TÊTE, EXPORTÉS — parce que l'en-tête n'est pas servi par
+ * une seule enveloppe.
+ *
+ * L'en-tête validé a été écrit dans `envelopperDocument` et son dessin est
+ * juste. Mais une DIXIÈME enveloppe vivait toujours dans `attestations.js`
+ * (`envelopper`), et c'est elle que servent les attestations, les diplômes, les
+ * procès-verbaux, les grilles de délibération — ET TOUS LES APERÇUS du centre
+ * d'éditions. Elle redessinait son propre bandeau. On a donc corrigé l'en-tête
+ * de l'enveloppe que seuls les rapports empruntent, pendant que les pièces
+ * qu'on imprime le plus gardaient l'ancien : « ce n'est pas le design que j'ai
+ * validé » était exact, et le code le disait.
+ *
+ * Les styles sortent donc de l'enveloppe pour devenir une PIÈCE À PART, que
+ * les deux empruntent. Une règle qui n'est juste que dans une enveloppe sur
+ * deux est une règle fausse.
+ */
+export function stylesEntete() {
+  return `
+  .doc-entete { margin: 0 0 7mm; }
+  /* Le bandeau du régime, entre deux filets : il dit sous quelle autorité la
+     pièce est délivrée, et c'est la première chose qu'un contrôle cherche. */
+  .doc-cf { font-size: 7pt; letter-spacing: 1.1pt; text-align: center;
+            color: #1B2B4B; font-weight: 600;
+            border-top: 0.25mm solid #1B2B4B; border-bottom: 0.25mm solid #1B2B4B;
+            padding: 0.8mm 0; margin-bottom: 3mm; }
+  /* L'identité, centrée : le nom d'abord, puis ce qui la rend opposable. */
+  .doc-ident-c { text-align: center; font-size: 8pt; color: #6e6e73;
+                 line-height: 1.4; margin-bottom: 3.5mm; }
+  .doc-ident-c b { display: block; font-size: 10.5pt; color: #1B2B4B;
+                   letter-spacing: -.1pt; }
+  .doc-ident-c span { display: inline; }
+  .doc-ident-c span + span::before { content: ' · '; color: #a1a1a6; }
+  /* Le cadre de titre : ce que c'est, et sur quoi ça porte. */
+  .doc-cadre { border: 0.3mm solid #1B2B4B; border-radius: 1.5mm;
+               padding: 2mm 4mm; text-align: center; }
+  .doc-cadre-t { font-size: 11pt; font-weight: 700; color: #1B2B4B;
+                 letter-spacing: .2pt; text-transform: uppercase; }
+  .doc-cadre-s { font-size: 8.5pt; color: #6e6e73; margin-top: 0.6mm; }
+  .doc-cadre-l { font-size: 8pt; color: #6e6e73; margin-top: 0.4mm; }
+  .doc-filet-or { height: 0.6mm; background: #C9A84C; border-radius: 0.3mm;
+                  margin: 2.5mm 0 0; }`;
+}
+
+/**
+ * @param {string}  titre    ce que la pièce EST.
+ * @param {?string} sous     sur quoi elle porte (section, unité, année).
+ * @param {?string} ligne    une troisième ligne dans le cadre — l'année
+ *   académique des pièces nominatives, qui doit figurer DANS le cadre : posée
+ *   au-dessus, elle se lisait comme un en-tête de l'école, pas comme une
+ *   mention de la pièce.
+ */
+export function enteteDocument({ titre, sous = null, mention = null,
+                                 ligne = null } = {}) {
+  /* DEUX SOURCES POUR UNE MÊME IDENTITÉ, C'EST UNE SOURCE DE MOINS.
+   *
+   * L'en-tête lisait la table `etablissement` en direct, pendant que toutes les
+   * pièces nominatives passaient par `identiteEtablissement()`, qui superpose
+   * ce qui a été réglé dans Configuration → Établissement. Le nom corrigé à
+   * l'écran ne changeait donc rien aux rapports, en silence — et le MATRICULE,
+   * que tout contrôle cherche sur une pièce, n'y figurait pas du tout : on y
+   * imprimait le numéro d'entreprise à sa place. */
   let etab = {};
-  try { etab = db.prepare('SELECT * FROM etablissement WHERE id = 1').get() || {}; } catch { /* base minimale */ }
+  try { etab = identiteEtablissement() || {}; } catch { /* base minimale */ }
   const esc = s => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;');
-  const ident = [etab.etab_nom, etab.adresse].filter(Boolean).map(esc).join(' · ');
   const refs = [
-    etab.num_fase ? `FASE ${esc(etab.num_fase)}` : null,
-    etab.num_entreprise ? `N° entreprise ${esc(etab.num_entreprise)}` : null,
+    etab.matricule ? `Matricule ${esc(etab.matricule)}` : null,
+    etab.fase ? `FASE ${esc(etab.fase)}` : null,
   ].filter(Boolean).join(' · ');
 
   /* L'EN-TÊTE VALIDÉ — LE MÊME POUR LES QUARANTE ET UNE PIÈCES.
@@ -200,13 +261,14 @@ export function enteteDocument({ titre, sous = null, mention = null } = {}) {
   return `<div class="doc-entete">
     <div class="doc-cf">COMMUNAUTÉ FRANÇAISE DE BELGIQUE — ENSEIGNEMENT POUR ADULTES</div>
     <div class="doc-ident-c">
-      <b>${esc(etab.etab_nom || 'Institut Ilya Prigogine')}</b>
+      <b>${esc(etab.nom || 'Institut Ilya Prigogine')}</b>
       ${etab.adresse ? `<span>${esc(etab.adresse)}</span>` : ''}
       ${refs ? `<span>${refs}</span>` : ''}
     </div>
     <div class="doc-cadre">
       <div class="doc-cadre-t">${esc(titre)}</div>
       ${sous ? `<div class="doc-cadre-s">${esc(sous)}</div>` : ''}
+      ${ligne ? `<div class="doc-cadre-l">${esc(ligne)}</div>` : ''}
     </div>
     <div class="doc-filet-or"></div>
     ${mention ? `<div class="doc-titre-m">${esc(mention)}</div>` : ''}
@@ -224,13 +286,15 @@ export function enteteDocument({ titre, sous = null, mention = null } = {}) {
  * mécanique que les navigateurs répètent réellement d'une page à l'autre.
  */
 export function identiteDocument() {
+  /* Même source que l'en-tête, pour la même raison : ce qui est réglé dans
+     Configuration doit se lire sur le papier. */
   let etab = {};
-  try { etab = db.prepare('SELECT * FROM etablissement WHERE id = 1').get() || {}; } catch { /* base minimale */ }
+  try { etab = identiteEtablissement() || {}; } catch { /* base minimale */ }
   const esc = s2 => String(s2 ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;');
-  const ident = [etab.etab_nom, etab.adresse].filter(Boolean).map(esc).join(' · ');
+  const ident = [etab.nom, etab.adresse].filter(Boolean).map(esc).join(' · ');
   const refs = [
-    etab.num_fase ? `FASE ${esc(etab.num_fase)}` : null,
-    etab.num_entreprise ? `N° entreprise ${esc(etab.num_entreprise)}` : null,
+    etab.matricule ? `Matricule ${esc(etab.matricule)}` : null,
+    etab.fase ? `FASE ${esc(etab.fase)}` : null,
   ].filter(Boolean).join(' · ');
   return `<div class="doc-ident">${ident || 'Institut Ilya Prigogine'}${
     refs ? `<span class="doc-refs">${refs}</span>` : ''}</div>`;
@@ -284,28 +348,7 @@ export function envelopperDocument({ html, titre, orientation = 'portrait',
    * de l'établissement du titre de la pièce, et il est de la couleur de la
    * maison. Rien d'autre.
    */
-  .doc-entete { margin: 0 0 7mm; }
-  /* Le bandeau du régime, entre deux filets : il dit sous quelle autorité la
-     pièce est délivrée, et c'est la première chose qu'un contrôle cherche. */
-  .doc-cf { font-size: 7pt; letter-spacing: 1.1pt; text-align: center;
-            color: #1B2B4B; font-weight: 600;
-            border-top: 0.25mm solid #1B2B4B; border-bottom: 0.25mm solid #1B2B4B;
-            padding: 0.8mm 0; margin-bottom: 3mm; }
-  /* L'identité, centrée : le nom d'abord, puis ce qui la rend opposable. */
-  .doc-ident-c { text-align: center; font-size: 8pt; color: #6e6e73;
-                 line-height: 1.4; margin-bottom: 3.5mm; }
-  .doc-ident-c b { display: block; font-size: 10.5pt; color: #1B2B4B;
-                   letter-spacing: -.1pt; }
-  .doc-ident-c span { display: inline; }
-  .doc-ident-c span + span::before { content: ' · '; color: #a1a1a6; }
-  /* Le cadre de titre : ce que c'est, et sur quoi ça porte. */
-  .doc-cadre { border: 0.3mm solid #1B2B4B; border-radius: 1.5mm;
-               padding: 2mm 4mm; text-align: center; }
-  .doc-cadre-t { font-size: 11pt; font-weight: 700; color: #1B2B4B;
-                 letter-spacing: .2pt; text-transform: uppercase; }
-  .doc-cadre-s { font-size: 8.5pt; color: #6e6e73; margin-top: 0.6mm; }
-  .doc-filet-or { height: 0.6mm; background: #C9A84C; border-radius: 0.3mm;
-                  margin: 2.5mm 0 0; }
+  ${stylesEntete()}
   /* La marge du haut n'a plus lieu d'être : l'identité, au-dessus, est
      maintenant rendue par l'en-tête répétable de la feuille. */
   .doc-titre { margin-top: 0 !important; }
