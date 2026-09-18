@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo } from 'react';
 import { estDirection } from '../lib/modules.js';
-import { VoletRail } from '../components/ui.jsx';
+import { VoletRail, Fenetre } from '../components/ui.jsx';
 import { createPortal } from 'react-dom';
 import { api, getAnnee, nomDoc, getUnite, setUnite as setUniteGlobal, perToH, hToPer } from '../lib/api.js';
 import PreviewModal from '../components/PreviewModal.jsx';
@@ -10,7 +10,7 @@ import OrganiserGroupesModal from '../components/OrganiserGroupesModal.jsx';
 import Doc23Modal from '../components/Doc23Modal.jsx';
 import AnnulationPanel from '../components/AnnulationPanel.jsx';
 import * as XLSX from 'xlsx';
-import { IconClipboardText, IconTrash, IconLock, IconLockOpen, IconRefresh, IconCalendar, IconFileText, IconEraser, IconWand, IconX, IconSettings, IconFolder, IconPlus, IconFileImport, IconFileSpreadsheet, IconUsersGroup, IconScissors, IconClock, IconChevronLeft, IconChevronRight, IconFilter, IconBriefcase, IconArrowBackUp, IconInfoCircle } from '@tabler/icons-react';
+import { IconClipboardText, IconTrash, IconLock, IconLockOpen, IconRefresh, IconCalendar, IconFileText, IconEraser, IconWand, IconX, IconSettings, IconFolder, IconPlus, IconFileImport, IconFileSpreadsheet, IconUsersGroup, IconScissors, IconClock, IconChevronLeft, IconChevronRight, IconFilter, IconBriefcase, IconArrowBackUp, IconInfoCircle, IconUserCog } from '@tabler/icons-react';
 
 // ─── Modale : copier les attributions d'une section d'une année vers une autre ─
 function CopierSectionModal({ sections, anneeActive, isAdmin, onClose, onCopied }) {
@@ -167,6 +167,138 @@ import ResizableHeader from '../components/ResizableHeader.jsx';
 import CoursEditModal from '../components/CoursEditModal.jsx';
 import CoursFormModal from '../components/CoursFormModal.jsx';
 
+/**
+ * LE STATUT D'UN MEMBRE DU PERSONNEL, ET L'EXCEPTION D'UNE LIGNE.
+ *
+ * Le statut (CC / EXP, PI côté HELB) appartient à la PERSONNE : il vit dans sa
+ * fiche, il porte son contrat de travail et il entre dans le calcul de son
+ * ancienneté. Il n'entre pas dans la dotation.
+ *
+ * Mais la même personne peut être CC sur une charge et EXP sur une autre. Cela
+ * n'avait nulle part où s'écrire : on modifiait donc son statut général pour
+ * une seule ligne, et toutes ses autres charges suivaient en silence.
+ *
+ * D'où la question posée AVANT d'écrire — « son statut général, ou une
+ * exception pour cette attribution ? ». Les deux gestes se ressemblent et n'ont
+ * pas la même portée : ne pas demander, c'est choisir à la place de celui qui
+ * clique. Et l'on ne propose l'exception que lorsqu'un statut général existe :
+ * déroger à rien n'a pas de sens.
+ */
+function FenetreStatut({ etat, onFermer, onGeneral, onException }) {
+  const { nom, isHelb, statutMdp, exception } = etat;
+  const lib = v => (isHelb && v === 'EXP') ? 'PI' : v;
+  const CHOIX = ['CC', 'EXP'];
+  const [mode, setMode] = useState(statutMdp ? null : 'general');
+  const [valeur, setValeur] = useState(exception || statutMdp || '');
+  const [enCours, setEnCours] = useState(false);
+  const [erreur, setErreur] = useState(null);
+
+  async function valider() {
+    if (!mode) return;
+    setEnCours(true); setErreur(null);
+    try {
+      if (mode === 'general') await onGeneral(valeur);
+      else await onException(mode === 'retirer' ? null : valeur);
+    } catch (e) { setErreur(e.message); setEnCours(false); }
+  }
+
+  const boutons = (
+    <div className="flex flex-wrap gap-1.5">
+      {CHOIX.map(s => (
+        <button key={s} onClick={()=>setValeur(s)}
+          className={`px-3 py-1 rounded-champ text-[12px] font-semibold border
+            ${valeur === s ? 'border-iip-blue bg-iip-blue/10 text-iip-blue'
+                           : 'border-slate-300 text-slate-600 hover:border-slate-400'}`}>
+          {lib(s)}
+        </button>
+      ))}
+    </div>
+  );
+
+  return (
+    <Fenetre icone={IconUserCog} large="petite" onFermer={onFermer}
+      titre={nom || 'Statut'}
+      sous={statutMdp
+        ? `Statut du membre du personnel : ${lib(statutMdp)}`
+        : "Aucun statut n'est défini pour ce membre du personnel"}
+      pied={<>
+        <button onClick={valider} disabled={!mode || enCours || (mode !== 'retirer' && !valeur)}
+          className="bouton bouton-fort disabled:opacity-40">
+          {enCours ? 'Enregistrement…' : 'Enregistrer'}
+        </button>
+        {!mode && <span className="text-[11px] text-slate-400">Choisissez d'abord ce que vous modifiez.</span>}
+        {erreur && <span className="text-[12px] text-rose-700">{erreur}</span>}
+        <button onClick={onFermer} className="bouton ml-auto">Annuler</button>
+      </>}>
+      <div className="p-5 space-y-4 text-[13px]">
+
+        {!statutMdp ? (
+          <>
+            {/* RIEN N'EST DÉFINI : IL N'Y A QU'UNE CHOSE À FAIRE. Proposer une
+                exception ici reviendrait à déroger à une règle qui n'existe
+                pas — et le dossier resterait incomplet. */}
+            <p className="text-slate-600">
+              Son statut de base se définit dans sa fiche, et c'est lui qui
+              portera son contrat de travail et son ancienneté.
+            </p>
+            {boutons}
+          </>
+        ) : (
+          <>
+            <p className="text-slate-600">
+              Son statut est <b>{lib(statutMdp)}</b>
+              {exception && <> et cette attribution porte déjà une exception&nbsp;
+                <b>{lib(exception)}</b></>}. Que voulez-vous modifier&nbsp;?
+            </p>
+
+            <div className="space-y-2">
+              <label className={`carte flex gap-2.5 px-3 py-2 cursor-pointer
+                ${mode === 'general' ? 'ring-1 ring-inset ring-iip-blue' : ''}`}>
+                <input type="radio" name="portee" className="mt-0.5" checked={mode === 'general'}
+                  onChange={()=>{ setMode('general'); setValeur(statutMdp); }}/>
+                <span>
+                  <b>Son statut général</b>
+                  <span className="block text-[11px] text-slate-500">
+                    Vaut pour toutes ses charges — sauf celles qui portent une exception.
+                  </span>
+                </span>
+              </label>
+
+              <label className={`carte flex gap-2.5 px-3 py-2 cursor-pointer
+                ${mode === 'exception' ? 'ring-1 ring-inset ring-[#B45309]' : ''}`}>
+                <input type="radio" name="portee" className="mt-0.5" checked={mode === 'exception'}
+                  onChange={()=>{ setMode('exception'); setValeur(exception || statutMdp); }}/>
+                <span>
+                  <b>Une exception pour cette attribution</b>
+                  <span className="block text-[11px] text-slate-500">
+                    Cette ligne seule. Sa fiche et ses autres charges ne bougent pas.
+                  </span>
+                </span>
+              </label>
+
+              {exception && (
+                <label className={`carte flex gap-2.5 px-3 py-2 cursor-pointer
+                  ${mode === 'retirer' ? 'ring-1 ring-inset ring-slate-400' : ''}`}>
+                  <input type="radio" name="portee" className="mt-0.5" checked={mode === 'retirer'}
+                    onChange={()=>setMode('retirer')}/>
+                  <span>
+                    <b>Retirer l'exception</b>
+                    <span className="block text-[11px] text-slate-500">
+                      Cette ligne reprend le statut général, et le suivra s'il change.
+                    </span>
+                  </span>
+                </label>
+              )}
+            </div>
+
+            {mode && mode !== 'retirer' && boutons}
+          </>
+        )}
+      </div>
+    </Fenetre>
+  );
+}
+
 // ---------------------------------------------------------------------------
 // Colonnes de la grille
 // ---------------------------------------------------------------------------
@@ -289,6 +421,7 @@ export default function Attributions() {
   const [menuPos, setMenuPos] = useState({ top: 0, right: 0 }); // position fixe du menu
   const [recrutMenu, setRecrutMenu] = useState(null); // { rowId } — menu pioche candidat recrutement
   const [noteMenu, setNoteMenu] = useState(null);     // { rowId, top, right, texte } — note d'une attribution
+  const [statutFenetre, setStatutFenetre] = useState(null); // { rowId, profId, nom, isHelb, statutMdp, exception }
   const [recrutCands, setRecrutCands] = useState(null);
   const [eptModal, setEptModal] = useState(null);
   const [orgModal, setOrgModal] = useState(null);
@@ -1533,30 +1666,51 @@ export default function Attributions() {
           }
           if (c.edit==='select') return <td key={c.key} style={sty}><select defaultValue={v??''} onClick={e=>e.stopPropagation()} className="bg-transparent border-0 outline-none w-full text-sm cursor-pointer focus:bg-yellow-50" onChange={e=>{if(e.target.value!==(v??''))saveCell(row.id,c.key,e.target.value);}}>{c.options.map(([val,lbl])=><option key={val} value={val}>{lbl}</option>)}</select></td>;
           if (c.edit==='prof') return <td key={c.key} style={sty}><div className="flex items-center gap-1">{verrous[row.id] && <span title={`Nomination définitive — ${verrous[row.id].periodes_nommees||''} pér. ${verrous[row.id].type_charge||''} · code FWB ${verrous[row.id].code_fwb||''} (attribution verrouillée)`} className="flex-shrink-0">🔒</span>}{!verrous[row.id] && alertesCours[row.id] && <span title={`⚠ ${alertesCours[row.id].definitif} est engagé(e) à titre définitif sur ce cours (${alertesCours[row.id].periodes_nommees||''} pér. ${alertesCours[row.id].type_charge||''}, FWB ${alertesCours[row.id].code_fwb||''})`} className="flex-shrink-0 cursor-help">🔓</span>}{row.remplace_attribution_id && <span title="Ligne de remplacement (titulaire en congé)" className="flex-shrink-0 text-[10px] text-iip-blue font-bold">R</span>}<select defaultValue={row.professeur_id??''} onClick={e=>e.stopPropagation()} className="bg-transparent border-0 outline-none w-full text-sm cursor-pointer focus:bg-yellow-50" onChange={e=>{const nid=e.target.value?Number(e.target.value):null;if(nid!==row.professeur_id)saveCell(row.id,'professeur_id',nid);}}><option value="">— Aucun —</option>{professeurs.map(p=><option key={p.id} value={p.id}>{p.nom_prenom}</option>)}</select><button onClick={e=>{e.stopPropagation(); toggleConge(row);}} title={row.en_conge ? 'En congé — cliquer pour réactiver' : 'Mettre en congé (crée une ligne de remplacement)'} className={`flex-shrink-0 text-[10px] font-bold px-1 py-0.5 rounded border ${row.en_conge ? 'bg-transparent text-amber-700 border-amber-500' : 'bg-gray-50 text-gray-400 border-gray-200 hover:border-amber-400 hover:text-amber-600'}`}>C</button></div>{!verrous[row.id] && alertesCours[row.id] && <div className="text-[10px] text-amber-600 leading-tight mt-0.5">⚠ définitif : {alertesCours[row.id].definitif}</div>}</td>;
+          /* LE STATUT SE DEMANDE, IL NE SE DEVINE PAS.
+             Une liste déroulante invisible posée sur le badge écrivait dans la
+             fiche du MDP sans jamais le dire : on croyait corriger une ligne,
+             on changeait la personne sur toutes ses charges. Et l'absence de
+             statut s'affichait « — », un tiret gris qui ne demande rien à
+             personne : le dossier restait incomplet jusqu'au jour du contrat.
+             Désormais : pas de statut → un « ? » OCRE, qui se voit et qui
+             appelle ; statut présent → le badge, et le clic demande d'abord
+             CE QU'ON VEUT CHANGER, le général ou cette seule ligne. */
           if (c.edit==='statut') {
             const isHelb = row.contrat_mdp === 'HELB';
-            const statutOptions = c.options.map(([val, lbl]) => [val, (isHelb && val === 'EXP') ? 'PI' : lbl]);
             if (!row.professeur_id) return <td key={c.key} style={sty}><span className="text-gray-300">—</span></td>;
+            const exception = row.statut_exception || null;
             const displayVal = (isHelb && v === 'EXP') ? 'PI' : v;
             const badgeCls = v === 'CC' ? 'badge-iip' : v === 'EXP' ? 'badge-exp' : '';
+            const ouvrir = e => {
+              e.stopPropagation();
+              setStatutFenetre({
+                rowId: row.id, profId: row.professeur_id,
+                nom: row.professeur || '', isHelb,
+                statutMdp: row.statut_mdp || null, exception,
+              });
+            };
             return <td key={c.key} style={sty}>
-              <div className="relative inline-flex justify-center w-full">
-                {displayVal
-                  ? <span className={`inline-flex items-center justify-center min-w-[2.2rem] h-6 px-1.5 rounded text-[10px] font-bold ${badgeCls}`}>{displayVal}</span>
-                  : <span className="text-gray-300 text-xs">—</span>}
-                <select key={`stat-${row.id}-${v??''}`} defaultValue={v??''} onClick={e=>e.stopPropagation()}
-                  className="absolute inset-0 opacity-0 cursor-pointer w-full"
-                  onChange={async e=>{
-                    const nv = e.target.value;
-                    try {
-                      await api.updateProfStatut(row.professeur_id, nv);
-                      // Mise à jour locale : toutes les lignes du même prof prennent le nouveau statut
-                      // (sans recharger toute la vue, pour ne pas perdre la position de défilement)
-                      setData(prev => prev.map(r => r.professeur_id === row.professeur_id ? { ...r, contrat: nv } : r));
-                    } catch(err){ alert(err.message); }
-                  }}>
-                  {statutOptions.map(([val,lbl])=><option key={val} value={val}>{lbl}</option>)}
-                </select>
+              <div className="inline-flex justify-center w-full">
+                {displayVal ? (
+                  <button onClick={ouvrir}
+                    title={exception
+                      ? `Exception sur cette attribution — statut général du MDP : ${row.statut_mdp || 'non défini'}`
+                      : 'Statut du membre du personnel — cliquer pour le modifier'}
+                    className={`relative inline-flex items-center justify-center min-w-[2.2rem] h-6 px-1.5
+                                rounded text-[10px] font-bold ${badgeCls}
+                                ${exception ? 'ring-1 ring-inset ring-[#B45309]' : ''}`}>
+                    {displayVal}
+                    {/* L'EXCEPTION SE VOIT. Un badge identique au statut général
+                        ferait passer une dérogation pour la règle. */}
+                    {exception && <span className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5
+                                                   rounded-full bg-[#B45309]"/>}
+                  </button>
+                ) : (
+                  <button onClick={ouvrir} title="Aucun statut défini pour ce membre du personnel — cliquer pour le définir"
+                    className="inline-flex items-center justify-center min-w-[2.2rem] h-6 px-1.5 rounded
+                               text-[10px] font-bold bg-amber-100 text-amber-800
+                               ring-1 ring-inset ring-[#B45309]/40">?</button>
+                )}
               </div>
             </td>;
           }
@@ -2515,6 +2669,21 @@ export default function Attributions() {
             ))}
           </div>
         </div>
+      )}
+      {statutFenetre && (
+        <FenetreStatut etat={statutFenetre} onFermer={()=>setStatutFenetre(null)}
+          onGeneral={async nv => {
+            await api.updateProfStatut(statutFenetre.profId, nv);
+            /* Le statut général vaut pour toutes ses charges — sauf celles qui
+               portent une exception, qui sont justement là pour ne pas suivre. */
+            setData(prev => prev.map(r => r.professeur_id === statutFenetre.profId
+              ? { ...r, statut_mdp: nv, contrat: r.statut_exception || nv } : r));
+            setStatutFenetre(null);
+          }}
+          onException={async nv => {
+            await appliquerCellule(statutFenetre.rowId, 'statut_exception', nv || null);
+            setStatutFenetre(null);
+          }} />
       )}
       {/* LA BULLE DE NOTE. Deux lignes n'appellent pas une fenêtre : une
           fenêtre voile l'écran et fait perdre la ligne qu'on annotait. Le

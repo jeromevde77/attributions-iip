@@ -202,6 +202,25 @@ try {
     console.log('[migration] Colonne attribution.titre_rtf ajoutée');
   }
 
+  /* LE STATUT EST CELUI DE LA PERSONNE ; L'EXCEPTION EST CELLE D'UNE LIGNE.
+     `professeur.statut` (CC / EXP / MDP) est le statut général, et il le
+     reste : la vue le lit, la fiche l'écrit, le classement s'y réfère. Mais un
+     même membre du personnel peut être CC sur une charge et EXP sur une autre
+     — « CC ou EXP », « PI ou CC » —, et cela n'avait nulle part où s'écrire :
+     on changeait donc son statut général pour une seule ligne, et toutes les
+     autres suivaient en silence.
+     Cette colonne reste VIDE dans le cas normal, et vide veut dire « celui du
+     MDP » : une valeur recopiée depuis la fiche cesserait de la suivre le jour
+     où elle change, et l'on aurait deux sources pour un même fait.
+     Le statut n'entre PAS dans la dotation (confirmé par Charles) ; il porte
+     sur le contrat de travail et le calcul de l'ancienneté. Rien ne lit encore
+     l'exception : l'y raccorder est une décision à prendre, pas un effet de
+     bord de cette colonne. */
+  if (!cols.find(c => c.name === 'statut_exception')) {
+    db.exec(`ALTER TABLE attribution ADD COLUMN statut_exception TEXT;`);
+    console.log('[migration] Colonne attribution.statut_exception ajoutée');
+  }
+
   // Refonte dossier pédagogique (DP) :
   // - cours.cours_autonomie : autonomie PROPOSÉE pour ce cours (part de 7.2 rattachée).
   //   La somme des cours_autonomie d'une UE ne peut dépasser ue.ue_aut (× dédoublement).

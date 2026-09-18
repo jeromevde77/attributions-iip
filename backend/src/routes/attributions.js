@@ -975,7 +975,7 @@ r.patch('/:id', authRequired, roleRequired('admin', 'editeur', 'coordination'), 
     'type_cours_helb','code','nb_groupes','split_groupe','num_split','num_groupe',
     'activite_id', 'titre_rtf',
     'professeur_id','cours_ept_ad','coordination_encadrement',
-    'modification_attribution','commentaire','commentaire_2',
+    'modification_attribution','commentaire','commentaire_2','statut_exception',
     'per_etudiant_total_dp','periodes_attribuees','autonomie_attribuee','helb_nature'
   ];
   const updates = [];
