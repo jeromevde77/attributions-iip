@@ -71,6 +71,7 @@ import contratsRoutes   from './routes/contrats.js';
 import proceduresRoutes from './routes/procedures.js';
 import disciplinaireRoutes from './routes/disciplinaire.js';
 import planificationRoutes from './routes/planification.js';
+import grilleRoutes, { migrerGrille } from './routes/grille.js';
 import parametresRoutes    from './routes/parametres.js';
 import prerequisRoutes     from './routes/prerequis.js';
 import planifIARoutes      from './routes/planification-ia.js';
@@ -216,6 +217,8 @@ try {
      sur le contrat de travail et le calcul de l'ancienneté. Rien ne lit encore
      l'exception : l'y raccorder est une décision à prendre, pas un effet de
      bord de cette colonne. */
+  migrerGrille(db);
+
   if (!cols.find(c => c.name === 'statut_exception')) {
     db.exec(`ALTER TABLE attribution ADD COLUMN statut_exception TEXT;`);
     console.log('[migration] Colonne attribution.statut_exception ajoutée');
@@ -2885,6 +2888,7 @@ app.use('/api/contrats',    contratsRoutes);
 app.use('/api/procedures',    proceduresRoutes);
 app.use('/api/disciplinaire', disciplinaireRoutes);
 app.use('/api/planification', planificationRoutes);
+app.use('/api/grille', grilleRoutes);
 app.use('/api/parametres',   parametresRoutes);
 app.use('/api/prerequis',      prerequisRoutes);
 app.use('/api/planification-ia', planifIARoutes);
