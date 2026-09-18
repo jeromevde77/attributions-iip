@@ -28,7 +28,11 @@ function DPImportModal({ annee, sections, onClose, onSaved }) {
 
   async function envoyer(fichier, apercu) {
     const buf = await fichier.arrayBuffer();
+    // LE NOM DU FICHIER PART AVEC LUI. L'école nomme ces pièces par leur code
+    // FWB ; le serveur s'en sert quand le document ne le porte pas, et il n'y
+    // avait aucune raison de le lui cacher.
     const res = await fetch(`/api/ref/import-dp?annee=${annee}&section=${section}`
+      + `&fichier=${encodeURIComponent(fichier.name || '')}`
       + (apercu ? '&preview=1' : ''), {
       method: 'POST',
       headers: { 'Content-Type': 'application/octet-stream',
@@ -163,6 +167,15 @@ function DPImportModal({ annee, sections, onClose, onSaved }) {
                           {resultats && x.data.cours_crees?.length
                             ? ` · ${x.data.cours_crees.length} cours créé(s)` : ''}
                         </div>
+                        {/* D'OÙ VIENT LE CODE. Repris du nom du fichier, il
+                            n'a pas été lu dans la pièce : ça se dit au moment
+                            de l'import, pas six mois plus tard devant une
+                            unité dont personne ne sait d'où elle sort. */}
+                        {x.data.code_depuis_nom && (
+                          <div className="text-[11px] text-[#B45309] mt-0.5">
+                            Code FWB repris du <b>nom du fichier</b> — le document ne le porte pas.
+                          </div>
+                        )}
                       </>
                     ) : (
                       <div className="flex items-start gap-2 text-red-700">
