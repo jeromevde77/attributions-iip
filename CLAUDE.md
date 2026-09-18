@@ -738,6 +738,23 @@ et 3 composants de tuile**. La stratégie tient en cinq chantiers, dans cet ordr
   des unités, des cours et des référentiels, donc `IconBooks` des deux côtés ;
   le presse-papiers revient au PAE, qui est littéralement une liste à cocher.
   Sans cette règle, on réaligne à la main tous les six mois.
+- **UNE NOTE SE POSE OÙ L'ON TRAVAILLE, et on ne crée pas un champ pour cela.**
+  `attribution.commentaire` existait depuis l'origine, partait dans la vue et
+  figurait dans la liste blanche du `PATCH` — mais il ne s'atteignait qu'en
+  ouvrant la fiche complète : quarante champs pour écrire « accord verbal du
+  3/9 », et **rien dans la grille ne disait qu'une note existait**. Une
+  remarque qu'on ne voit pas n'a pas été écrite. Un second champ « note »
+  aurait fait deux sources pour un même fait ; depuis 2.12.1 une colonne
+  `__note` donne une porte à celui qui existe : `IconInfoCircle` **grise quand
+  la note est vide, marine quand elle porte un texte** — la couleur ne dit que
+  cela, trente icônes colorées ne signalant plus rien —, le **survol affiche la
+  note** (on parcourt une grille, on ne l'ouvre pas trente fois pour savoir
+  laquelle parle), et le clic ouvre une **bulle ancrée sur la ligne**, non une
+  fenêtre : un voile fait perdre de vue la ligne qu'on annotait. Ses boutons
+  sont dans la bulle, jamais sous un contenu qui défile, et *Effacer* ne paraît
+  que s'il y a quelque chose à effacer. **À trancher :** une modification par
+  une coordination repasse l'attribution en « à valider » (règle du `PATCH`) —
+  écrire une note fait donc retomber la validation.
 - **Une entrée de rail sans icône est invisible** une fois le rail replié.
 - **Un titre ne s'écrit qu'une fois** par écran.
 - Un libellé ne promet que ce que la modale fait réellement.

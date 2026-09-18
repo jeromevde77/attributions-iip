@@ -10,7 +10,7 @@ import OrganiserGroupesModal from '../components/OrganiserGroupesModal.jsx';
 import Doc23Modal from '../components/Doc23Modal.jsx';
 import AnnulationPanel from '../components/AnnulationPanel.jsx';
 import * as XLSX from 'xlsx';
-import { IconClipboardText, IconTrash, IconLock, IconLockOpen, IconRefresh, IconCalendar, IconFileText, IconEraser, IconWand, IconX, IconSettings, IconFolder, IconPlus, IconFileImport, IconFileSpreadsheet, IconUsersGroup, IconScissors, IconClock, IconChevronLeft, IconChevronRight, IconFilter, IconBriefcase, IconArrowBackUp } from '@tabler/icons-react';
+import { IconClipboardText, IconTrash, IconLock, IconLockOpen, IconRefresh, IconCalendar, IconFileText, IconEraser, IconWand, IconX, IconSettings, IconFolder, IconPlus, IconFileImport, IconFileSpreadsheet, IconUsersGroup, IconScissors, IconClock, IconChevronLeft, IconChevronRight, IconFilter, IconBriefcase, IconArrowBackUp, IconInfoCircle } from '@tabler/icons-react';
 
 // ─── Modale : copier les attributions d'une section d'une année vers une autre ─
 function CopierSectionModal({ sections, anneeActive, isAdmin, onClose, onCopied }) {
@@ -215,6 +215,14 @@ const DEFAULT_COLS = [
   { key: 'autonomie_attribuee',   label: 'Aut.',       width: 84, num: true, edit: 'number' },
   { key: 'total_attribue_professeur', label: 'Total',  width: 64, num: true, calc: true, rowClickable: true },
   { key: 'charge_en_heures',      label: 'Hrs',        width: 60, num: true, calc: true, rowClickable: true },
+  /* UNE NOTE SE POSE OÙ L'ON TRAVAILLE. Le champ `commentaire` existe depuis
+     l'origine sur l'attribution, et il ne s'atteignait qu'en ouvrant la fiche
+     complète : pour deux mots — « accord verbal du 3/9 », « à revoir avec la
+     HELB » —, il fallait ouvrir un formulaire de quarante champs, et rien dans
+     la grille ne disait qu'une note existait. Une remarque qu'on ne voit pas
+     n'a pas été écrite. On ne crée donc PAS un second champ : on donne une
+     porte à celui qui existe. */
+  { key: '__note',                label: '',           width: 34 },
   { key: '__actions',             label: '',           width: 44 },
 ];
 
@@ -274,6 +282,7 @@ export default function Attributions() {
   const [coursManquants, setCoursManquants] = useState([]); // cours du DP sans ligne (pour l'UE du menu ouvert)
   const [menuPos, setMenuPos] = useState({ top: 0, right: 0 }); // position fixe du menu
   const [recrutMenu, setRecrutMenu] = useState(null); // { rowId } — menu pioche candidat recrutement
+  const [noteMenu, setNoteMenu] = useState(null);     // { rowId, top, right, texte } — note d'une attribution
   const [recrutCands, setRecrutCands] = useState(null);
   const [eptModal, setEptModal] = useState(null);
   const [orgModal, setOrgModal] = useState(null);
@@ -624,7 +633,7 @@ export default function Attributions() {
 
   /* --- Tri --- */
   function toggleSort(key) {
-    if (['__actions','__conformite','__select'].includes(key)) return;
+    if (['__actions','__conformite','__select','__note'].includes(key)) return;
     setSortBy(s => s.key !== key ? { key, dir:'asc' } : s.dir === 'asc' ? { key, dir:'desc' } : { key:null, dir:'asc' });
   }
   const sortedData = useMemo(() => {
@@ -1237,6 +1246,28 @@ export default function Attributions() {
                 onChange={()=>saveValide(row.id, !ok)}
                 title={isValidateur ? (ok ? 'Validé — cliquer pour invalider' : 'À valider — cliquer pour valider') : (ok ? 'Validé par la direction' : 'En attente de validation par la direction')}
                 className={isValidateur ? 'cursor-pointer accent-green-600' : 'cursor-not-allowed accent-orange-500'}/>
+            </td>;
+          }
+          /* LA COULEUR DIT QU'IL Y A QUELQUE CHOSE À LIRE, et elle ne dit que
+             cela : grise quand la note est vide, marine quand elle porte un
+             texte. Une icône colorée sur chaque ligne ne signale plus rien. Le
+             survol rend la note lisible sans ouvrir la bulle — on parcourt une
+             grille, on ne clique pas trente fois pour savoir laquelle parle. */
+          if (c.key==='__note') {
+            const texte = (row.commentaire || '').trim();
+            return <td key={c.key} className="text-center" style={sty}>
+              <button
+                onClick={e=>{
+                  e.stopPropagation();
+                  if (noteMenu?.rowId === row.id) { setNoteMenu(null); return; }
+                  const r = e.currentTarget.getBoundingClientRect();
+                  setNoteMenu({ rowId: row.id, top: r.bottom + 4,
+                    right: window.innerWidth - r.right, texte });
+                }}
+                title={texte || 'Aucune note — cliquer pour en écrire une'}
+                className={texte ? 'text-iip-blue hover:opacity-70' : 'text-slate-300 hover:text-slate-500'}>
+                <IconInfoCircle size={15}/>
+              </button>
             </td>;
           }
           if (c.key==='__actions') {
@@ -2467,6 +2498,43 @@ export default function Attributions() {
                 </span>
               </div>
             ))}
+          </div>
+        </div>
+      )}
+      {/* LA BULLE DE NOTE. Deux lignes n'appellent pas une fenêtre : une
+          fenêtre voile l'écran et fait perdre la ligne qu'on annotait. Le
+          bouton est DANS la bulle, jamais sous un contenu qui défile — et
+          « Effacer » ne paraît que s'il y a quelque chose à effacer. */}
+      {noteMenu && (
+        <div className="fixed z-50 carte bg-white w-80 shadow-flottant"
+          style={{top: noteMenu.top, right: noteMenu.right}} onClick={e=>e.stopPropagation()}>
+          <div className="px-3 py-1.5 text-[11px] font-semibold text-slate-400 border-b
+                          border-slate-200 flex items-center justify-between">
+            <span>Note — {data.find(d=>d.id===noteMenu.rowId)?.code_cours || 'attribution'}</span>
+            <button onClick={()=>setNoteMenu(null)} className="text-slate-300 hover:text-slate-500">×</button>
+          </div>
+          <div className="p-2.5">
+            <textarea rows={4} autoFocus value={noteMenu.texte}
+              onChange={e=>setNoteMenu(m=>({ ...m, texte: e.target.value }))}
+              placeholder="Ce qu'il faut savoir sur cette attribution : un accord, une réserve, ce qui reste à confirmer"
+              className="w-full border border-slate-300 rounded-champ px-2 py-1.5 text-[13px]"/>
+          </div>
+          <div className="px-2.5 pb-2.5 flex items-center gap-2">
+            <button onClick={async()=>{
+                const t = noteMenu.texte.trim();
+                await appliquerCellule(noteMenu.rowId, 'commentaire', t || null);
+                setNoteMenu(null);
+              }}
+              className="bouton bouton-fort text-[12px] px-3 py-1">Enregistrer</button>
+            {(data.find(d=>d.id===noteMenu.rowId)?.commentaire || '').trim() && (
+              <button onClick={async()=>{
+                  await appliquerCellule(noteMenu.rowId, 'commentaire', null);
+                  setNoteMenu(null);
+                }}
+                className="text-[12px] text-[#9d4a38] hover:underline">Effacer</button>
+            )}
+            <button onClick={()=>setNoteMenu(null)}
+              className="bouton text-[12px] px-3 py-1 ml-auto">Annuler</button>
           </div>
         </div>
       )}
