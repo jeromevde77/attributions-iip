@@ -373,7 +373,17 @@ function FenetreCours({ etat, annee, section, periodeMinutes = 50,
     const dejaLa = (cours.activites || []).map(a => ({
       activite_id: a.activite_id, periodes: a.periodes, vu_etudiant: a.vu_etudiant !== 0,
     }));
-    if (cours.organise) return dejaLa;
+    /* UN COURS SANS AUCUNE LIGNE REÇOIT SON CONTENU — ON NE SE CONTENTE PAS DE
+       LE DIRE. Le garde-fou portait sur « le cours a-t-il déjà été ouvert dans
+       la grille ». Conséquence : un cours ouvert puis vidé se rouvrait à ZÉRO,
+       avec une phrase en bas annonçant ce qui se passerait à l'enregistrement.
+       Annoncer un repli n'est pas le faire : on ouvrait sur un cours qui
+       n'existe pas, et il fallait deviner qu'un clic sur Enregistrer le
+       réparerait. La condition porte donc sur ce qui compte — Y A-T-IL UNE
+       LIGNE ? S'il n'y en a aucune, le contenu du dossier EST la ligne, posée
+       et modifiable. Un cours qui garde ses lignes, lui, n'est pas touché :
+       rien ne ressuscite ce qu'on a sciemment retiré. */
+    if (dejaLa.length > 0) return dejaLa;
     const total = Number(cours.cours_per) || 0;
     const pEval = evaluation?.activite_id ? (Number(evaluation.periodes) || 0) : 0;
     // L'évaluation ne mange jamais tout le cours : s'il est plus court

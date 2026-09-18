@@ -865,6 +865,15 @@ matière aux périodes du dossier, et la réponse le dit pour que l'écran n'ait
 l'air d'avoir enregistré autre chose. Le contrôle, lui, signale « plus aucune
 période » comme une anomalie propre — il rattrape ce qui a pu être écrit avant.
 
+> **ANNONCER UN REPLI N'EST PAS LE FAIRE.** Première tentative : la fenêtre
+> s'ouvrait sur un cours vidé à ZÉRO, avec une phrase en bas disant que le
+> contenu reviendrait à l'enregistrement. On ouvrait donc sur un cours qui
+> n'existe pas, et il fallait deviner qu'un clic sur *Enregistrer* le
+> réparerait. **Le contenu du dossier EST la ligne**, posée et modifiable dès
+> l'ouverture. La condition ne porte pas sur « ce cours a-t-il déjà été
+> ouvert » mais sur **« y a-t-il une ligne ? »** : un cours qui garde les
+> siennes n'est pas touché, et ce qu'on a sciemment retiré ne ressuscite pas.
+
 **LA FRISE PORTE DEUX GRANDEURS.** La **longueur** d'une barre est sa durée sur
 l'année ; son **épaisseur**, son intensité — 5 px pour 2 h par semaine. Une
 unité étalée sur deux quadrimestres est longue et fine, la même massée sur six

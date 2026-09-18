@@ -320,10 +320,11 @@ r.get('/', authRequired, (req, res) => {
         sem_debut: semaineDe(semaines, gc?.date_debut || o?.date_debut),
         sem_fin: semaineDe(semaines, gc?.date_fin || o?.date_fin),
         autonomie_placee: gc ? Number(gc.autonomie_placee) || 0 : 0,
-        /* `organise` dit si ce cours a DÉJÀ été ouvert dans la grille. C'est
-           lui qui autorise la proposition d'office : proposer l'évaluation sur
-           un cours qu'on a sciemment laissé sans elle la ferait revenir à
-           chaque ouverture de la fenêtre, et l'on croirait à un bug. */
+        /* `organise` dit si ce cours a déjà été ouvert dans la grille. Il ne
+           commande plus la proposition — c'est la PRÉSENCE DE LIGNES qui la
+           commande, côté écran : un cours ouvert puis vidé se rouvrait sinon à
+           zéro. Le champ reste parce qu'il distingue « jamais touché » de
+           « organisé », ce que le nombre de lignes ne dit pas. */
         organise: !!gc,
         evaluation_mode: gc ? (gc.evaluation_mode || 'examen') : 'examen',
         activites,
