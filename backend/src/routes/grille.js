@@ -219,6 +219,33 @@ function controlerUE(annee, section, ueNum) {
   };
 }
 
+/**
+ * LA COUPURE ENTRE LES DEUX QUADRIMESTRES — déduite, jamais saisie.
+ *
+ * C'est la plus longue suite de semaines sans cours au milieu de l'année. Elle
+ * se calculait déjà à l'écran pour dessiner la frise ; la voici côté serveur,
+ * parce que l'intensité en dépend maintenant. DEUX calculs de la même coupure
+ * finiraient par ne plus tomber au même endroit, et c'est celui qu'on ne
+ * regarde pas qui aurait raison.
+ */
+function coupureQuadri(semaines) {
+  if (!semaines.length) return 0;
+  const milieu = Math.floor(semaines.length / 2);
+  let best = semaines[milieu]?.semaine_num ?? 0, bestLen = 0, i = 0;
+  while (i < semaines.length) {
+    if (semaines[i].type === 'cours') { i++; continue; }
+    let j = i;
+    while (j < semaines.length && semaines[j].type !== 'cours') j++;
+    const len = j - i;
+    if (len > bestLen && Math.abs(i - milieu) < semaines.length / 3) {
+      bestLen = len;
+      best = semaines[i + Math.floor(len / 2)]?.semaine_num ?? best;
+    }
+    i = j;
+  }
+  return best;
+}
+
 /** Le calendrier de l'année, pour que la frise sache où sont les semaines. */
 r.get('/calendrier', authRequired, (req, res) => {
   const annee = req.query.annee || anneeDeTravail(req);
@@ -276,13 +303,49 @@ r.get('/', authRequired, (req, res) => {
     const perTotal = cours.reduce((t, c) => t + (Number(c.cours_per) || 0), 0);
     const semDeb = semaineDe(semaines, o?.date_debut);
     const semFin = semaineDe(semaines, o?.date_fin);
-    /* L'ÉPAISSEUR EST L'INTENSITÉ. Les périodes rapportées aux semaines de
-       COURS traversées — on ne compte pas les congés, sinon une unité qui
-       enjambe Noël paraîtrait plus légère qu'elle n'est. */
+    /* L'ÉPAISSEUR EST L'INTENSITÉ, ET ELLE NE SE TAIT JAMAIS.
+     *
+     * Les périodes rapportées aux semaines de COURS traversées — on ne compte
+     * pas les congés, sinon une unité qui enjambe Noël paraîtrait plus légère
+     * qu'elle n'est.
+     *
+     * MAIS ELLE NE PEUT PAS DÉPENDRE DES SEULES DATES ENCODÉES. Tant qu'une
+     * unité n'avait pas ses dates, il n'y avait pas d'assiette, donc pas
+     * d'intensité, donc une barre au minimum : les unités pas encore posées
+     * — c'est-à-dire précisément celles qu'on vient planifier — se ressemblaient
+     * toutes, la plus lourde comme la plus légère. Or on en sait assez pour
+     * répondre : le dossier dit le QUADRIMESTRE, et le calendrier dit combien
+     * de semaines de cours ce quadrimestre porte.
+     *
+     * Deux assiettes, dans cet ordre : les DATES quand elles sont encodées —
+     * c'est ce qu'on a décidé pour cette unité —, le QUADRIMESTRE sinon.
+     * L'écran dit laquelle a servi : une épaisseur calculée sur une hypothèse
+     * ne doit pas se lire comme une épaisseur mesurée. */
+    const semainesCoursEntre = (a, b) => semaines.filter(
+      s => s.semaine_num >= a && s.semaine_num <= b && s.type === 'cours').length;
+
     let semCours = 0;
+    let assiette = null;
     if (semDeb && semFin) {
-      semCours = semaines.filter(s => s.semaine_num >= semDeb && s.semaine_num <= semFin
-        && s.type === 'cours').length;
+      semCours = semainesCoursEntre(semDeb, semFin);
+      if (semCours > 0) assiette = 'dates';
+    }
+    if (!semCours) {
+      /* LE QUADRIMESTRE VIENT DU DOSSIER (`ue_quad`), la coupure du CALENDRIER.
+         Elle se déduit de la plus longue suite de semaines sans cours au milieu
+         de l'année : c'est ce qui sépare Q1 de Q2, et on ne la saisit pas une
+         seconde fois. Une unité annuelle, ou dont le quadrimestre n'est pas
+         renseigné, s'étale sur toutes les semaines de cours. */
+      const q = String(u.ue_quad ?? '').trim();
+      const toutes = semaines.filter(s => s.type === 'cours').map(s => s.semaine_num);
+      let fenetre = toutes;
+      if (toutes.length) {
+        const coupure = coupureQuadri(semaines);
+        if (q === '1') fenetre = toutes.filter(n => n <= coupure);
+        else if (q === '2') fenetre = toutes.filter(n => n > coupure);
+      }
+      semCours = fenetre.length;
+      if (semCours > 0) assiette = 'quadrimestre';
     }
     const perSemaine = semCours > 0 ? Math.round((perTotal / semCours) * 10) / 10 : null;
 
@@ -296,6 +359,9 @@ r.get('/', authRequired, (req, res) => {
       // grille sert à compléter, et l'écran doit le dire plutôt que d'inventer.
       planifiee: !!(o && o.date_debut && o.date_fin),
       per_total: perTotal, per_semaine: perSemaine,
+      // Sur quoi l'intensité a été calculée — l'écran le dit, pour qu'une
+      // épaisseur supposée ne se lise pas comme une épaisseur mesurée.
+      intensite_assiette: assiette, semaines_cours: semCours,
       cours,
       controle: controlerUE(annee, section, u.ue_num),
     };

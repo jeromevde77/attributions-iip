@@ -208,7 +208,7 @@ export default function GrilleOrganisation() {
               </div>
 
               {data.ues.map(u => (
-                <LigneUE key={u.ue_num} u={u} semaines={semaines} nbSem={nbSem}
+                <LigneUE key={u.ue_num} u={u} semaines={semaines} nbSem={nbSem} coupure={coupure}
                   ouverte={ouverte === u.ue_num}
                   surOuvrir={() => setOuverte(o => (o === u.ue_num ? null : u.ue_num))}
                   surCours={c => setFiche({ ue: u, cours: c })}
@@ -231,10 +231,18 @@ export default function GrilleOrganisation() {
 }
 
 /** Une unité, et ses cours quand on la déplie. */
-function LigneUE({ u, semaines, nbSem, ouverte, surOuvrir, surCours, vue }) {
+function LigneUE({ u, semaines, nbSem, coupure, ouverte, surOuvrir, surCours, vue }) {
   const teinte = teinteBloc(u.ue_niv);
-  const deb = u.sem_debut || 1;
-  const fin = u.sem_fin || nbSem;
+  /* SANS DATES, LA BARRE EXISTE QUAND MÊME — SUR LE QUADRIMESTRE.
+     Elle ne se dessinait pas du tout : les unités pas encore posées, c'est-à-dire
+     précisément celles qu'on vient planifier, se ressemblaient toutes. Or le
+     dossier dit le quadrimestre et le calendrier dit où il commence : on en sait
+     assez pour montrer la charge. La barre est alors HACHURÉE et sans bord net —
+     une intensité supposée ne doit pas se lire comme une intensité décidée. */
+  const q = String(u.ue_quad ?? '').trim();
+  const supposee = !u.planifiee;
+  const deb = u.sem_debut || (supposee && q === '2' ? coupure + 1 : 1);
+  const fin = u.sem_fin || (supposee && q === '1' ? Math.max(1, coupure) : nbSem);
   const h = epaisseur(u.per_semaine);
 
   return (
@@ -262,8 +270,17 @@ function LigneUE({ u, semaines, nbSem, ouverte, surOuvrir, surCours, vue }) {
               style={{ gridRow: 1, gridColumn: `${deb} / ${fin + 1}`,
                 height: h, background: teinte, borderRadius: 3, zIndex: 1 }} />
           ) : (
-            <div style={{ gridRow: 1, gridColumn: `1 / ${nbSem + 1}`, zIndex: 1 }}
-              className="text-[10px] text-[#B45309] pl-1">sans dates — à poser</div>
+            <>
+              <div title={`${u.per_semaine || '?'} pér./semaine — estimé sur le `
+                + `${q === '1' ? 'quadrimestre 1' : q === '2' ? 'quadrimestre 2' : 'reste de l\'année'}`
+                + `, les dates n'étant pas encodées`}
+                style={{ gridRow: 1, gridColumn: `${deb} / ${fin + 1}`,
+                  height: h, borderRadius: 3, zIndex: 1, opacity: .55,
+                  backgroundImage: `repeating-linear-gradient(45deg, ${teinte} 0 3px,`
+                    + ` transparent 3px 6px)` }} />
+              <span style={{ gridRow: 1, gridColumn: `${deb} / ${nbSem + 1}`, zIndex: 2 }}
+                className="text-[10px] text-[#B45309] pl-1 self-start">sans dates — à poser</span>
+            </>
           )}
         </div>
       </div>
