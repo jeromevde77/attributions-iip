@@ -151,11 +151,9 @@ export default function GrilleOrganisation() {
                 <b>UE {u.ue_num}</b> — la règle des multiples n'est pas respectée.
                 {u.controle.anomalies.map(a => (
                   <div key={a.cours_code} className="text-slate-600 mt-0.5">
-                    {a.cours_code} est à {a.total} périodes ; le dossier en attend un
-                    multiple de {a.multiple}. Il manque <b>{a.manque}</b> —
-                    {a.autonomie_suffit
-                      ? ` l'autonomie disponible (${u.controle.autonomie.restante}) suffit à combler.`
-                      : ` l'autonomie restante (${u.controle.autonomie.restante}) NE suffit pas.`}
+                    {a.cours_code} est à {a.total} périodes de cours ; le dossier en
+                    attend un multiple de {a.multiple}. Il manque <b>{a.manque}</b>.
+                    {' '}L'autonomie ne comble pas : elle se compte à part.
                   </div>
                 ))}
               </div>
@@ -429,7 +427,12 @@ function FenetreCours({ etat, annee, section, periodeMinutes = 50,
     setModeEval(vers);
   }
   const somme = lignesEffectives.reduce((t, l) => t + (Number(l.periodes) || 0), 0);
-  const total = Math.round((somme + Number(auto || 0)) * 100) / 100;
+  /* L'AUTONOMIE N'ENTRE PAS DANS LE MULTIPLE : le total qui doit tomber juste
+     est celui des PÉRIODES DU COURS. L'autonomie de l'unité se répartit à
+     côté, contre son propre plafond. Les additionner faisait déclencher
+     « il manque 60 » sur un cours de 64 parfaitement découpé auquel on venait
+     de poser 4 périodes d'autonomie. */
+  const total = Math.round(somme * 100) / 100;
   const reste = dp ? Math.round((total % dp) * 100) / 100 : 0;
   const manque = dp && reste ? Math.round((dp - reste) * 100) / 100 : 0;
   const restanteUE = Math.round(
@@ -466,11 +469,15 @@ function FenetreCours({ etat, annee, section, periodeMinutes = 50,
         </button>
         {dp > 0 && (manque
           ? <span className="text-[12px] text-[#9D4A38]">
-              Total {total} — il manque {manque} pour un multiple de {dp}.
+              Cours {total} pér. — il manque {manque} pour un multiple de {dp}.
+              {Number(auto) > 0 && <span className="text-slate-500">
+                {' '}(autonomie {auto} comptée à part)</span>}
             </span>
           : <span className="text-[12px] text-[#15803D]">
               <IconCheck size={13} className="inline align-[-2px] mr-1" />
-              Total {total} — multiple de {dp} respecté.
+              Cours {total} pér. — multiple de {dp} respecté.
+              {Number(auto) > 0 && <span className="text-slate-500">
+                {' '}(autonomie {auto} comptée à part)</span>}
             </span>)}
         {err && <span className="text-[12px] text-rose-700">{err}</span>}
         <button onClick={onFermer} className="bouton ml-auto">Annuler</button>

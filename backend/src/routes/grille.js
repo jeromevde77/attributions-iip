@@ -192,6 +192,10 @@ function controlerUE(annee, section, ueNum) {
 
   const autonomieUE = Number(cours.find(c => c.ue_autonomie != null)?.ue_autonomie) || 0;
   const restante = Math.round((autonomieUE - autonomiePlacee) * 100) / 100;
+  /* L'AUTONOMIE A SON PROPRE CONTRÔLE, et c'est le seul qui la concerne : on
+     n'en place pas plus que l'unité n'en porte. Ce qui reste non placé est
+     SIGNALÉ, jamais réparti d'office. */
+  const autonomieDepassee = restante < 0;
 
   const anomalies = [];
   for (const c of cours) {
@@ -199,7 +203,19 @@ function controlerUE(annee, section, ueNum) {
     if (!dp) continue;                        // sans périodes au dossier, rien à contrôler
     const p = parCours.get(c.cours_code);
     if (!p) continue;                         // cours pas encore organisé : ce n'est pas une faute
-    const total = Math.round((p.somme + p.autonomie) * 100) / 100;
+    /* L'AUTONOMIE N'ENTRE PAS DANS LE MULTIPLE. ELLE SE COMPTE À PART.
+     *
+     * Elle y entrait, et le calcul était FAUX : un cours de 64 découpé en 64
+     * périodes de théorie est conforme ; y poser 4 d'autonomie le portait à 68
+     * et déclenchait « il manque 60 pour un multiple de 64 ». On demandait donc
+     * de casser une grille juste pour satisfaire un contrôle qui l'était moins.
+     *
+     * Ce sont deux grandeurs distinctes : les périodes du COURS, qui doivent
+     * tomber sur un multiple de ce que fixe le dossier, et l'AUTONOMIE de
+     * l'unité, qui se répartit sur ses cours et se contrôle contre son propre
+     * plafond. Les additionner revenait à comparer des heures de cours à des
+     * heures de travail autonome. */
+    const total = Math.round(p.somme * 100) / 100;
     if (total === 0) continue;
     const reste = Math.round((total % dp) * 100) / 100;
     if (reste === 0) continue;
@@ -207,14 +223,14 @@ function controlerUE(annee, section, ueNum) {
     anomalies.push({
       cours_code: c.cours_code, cours_nom: c.cours_nom,
       total, multiple: dp, manque,
-      autonomie_suffit: restante >= manque,
     });
   }
 
   return {
     ue_num: ueNum,
-    conforme: anomalies.length === 0,
+    conforme: anomalies.length === 0 && !autonomieDepassee,
     anomalies,
+    autonomie_depassee: autonomieDepassee,
     autonomie: { unite: autonomieUE, placee: Math.round(autonomiePlacee * 100) / 100, restante },
   };
 }

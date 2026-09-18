@@ -827,11 +827,24 @@ pose la question — « selon la planification ? » : oui, les lignes prévues s
 créées ; non, on garde la structure du dossier pédagogique. Jamais de
 pré-remplissage muet, jamais de simple comparaison non plus.
 
-**LA RÈGLE DES MULTIPLES EST OBLIGATOIRE, ET LE GÉNÉRATEUR LE DIT.** Les
-périodes d'un cours doivent être un multiple de ce que fixe le dossier. On peut
-combler avec de l'autonomie pour y parvenir — l'écran annonce alors de combien
-on s'écarte, et si l'autonomie disponible suffit. Le reste non placé est
-signalé, **jamais réparti d'office**.
+**LA RÈGLE DES MULTIPLES EST OBLIGATOIRE, ET L'AUTONOMIE N'Y ENTRE PAS.** Les
+périodes d'un COURS doivent être un multiple de ce que fixe le dossier. L'écran
+annonce de combien on s'écarte.
+
+> **L'AUTONOMIE SE COMPTE À PART, ET CE POINT A ÉTÉ CODÉ FAUX.** Elle était
+> additionnée aux périodes du cours avant le modulo : un cours de 64 découpé en
+> 64 périodes de théorie est conforme, mais y poser 4 périodes d'autonomie le
+> portait à 68 et déclenchait « il manque 60 pour un multiple de 64 ». On
+> demandait donc de casser une grille juste pour satisfaire un contrôle qui
+> l'était moins. Ce sont **deux grandeurs distinctes** : les périodes de cours,
+> qui tombent sur un multiple ; et l'autonomie de l'unité, qui se répartit sur
+> ses cours et se contrôle **contre son propre plafond**. Les additionner
+> revient à comparer des heures de cours à des heures de travail autonome.
+> Corrigé en 2.12.30, après que la règle eut été écrite ici à l'envers — c'est
+> ce texte qui avait fait écrire le code faux.
+
+L'autonomie non placée est **signalée**, jamais répartie d'office ; en placer
+plus que l'unité n'en porte est une anomalie à part entière.
 
 **LA FRISE PORTE DEUX GRANDEURS.** La **longueur** d'une barre est sa durée sur
 l'année ; son **épaisseur**, son intensité — 5 px pour 2 h par semaine. Une
