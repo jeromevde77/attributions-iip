@@ -216,7 +216,21 @@ function controlerUE(annee, section, ueNum) {
      * plafond. Les additionner revenait à comparer des heures de cours à des
      * heures de travail autonome. */
     const total = Math.round(p.somme * 100) / 100;
-    if (total === 0) continue;
+    /* UN COURS ORGANISÉ À ZÉRO N'EXISTE PAS, ET C'ÉTAIT COMPTÉ « CONFORME ».
+     *
+     * Zéro passait le modulo sans bruit : on retirait toutes les activités d'un
+     * cours, et la grille le déclarait en règle. Or on ne SUPPRIME pas un cours
+     * — il vient du dossier pédagogique, qui ne bouge pas. Un cours vidé n'est
+     * donc pas un cours sans périodes : c'est un découpage qu'on a perdu, et il
+     * faut le dire. L'écriture, elle, ne le laisse plus arriver (voir
+     * `PUT /cours`) ; ce contrôle rattrape ce qui a pu être enregistré avant. */
+    if (total === 0) {
+      anomalies.push({
+        cours_code: c.cours_code, cours_nom: c.cours_nom,
+        total: 0, multiple: dp, manque: dp, vide: true,
+      });
+      continue;
+    }
     const reste = Math.round((total % dp) * 100) / 100;
     if (reste === 0) continue;
     const manque = Math.round((dp - reste) * 100) / 100;
@@ -460,6 +474,7 @@ r.put('/cours', authRequired, roleRequired('admin', 'editeur', 'coordination'), 
     return res.status(400).json({ error: 'section, ue_num et cours_code requis' });
   }
 
+  let repli = { applique: false, periodes: 0 };
   db.transaction(() => {
     const o = organisationDe(annee, section, ueNum, true);
     /* Le mode d'évaluation : 'examen' (le défaut) ou 'continue'. Toute autre
@@ -480,17 +495,44 @@ r.put('/cours', authRequired, roleRequired('admin', 'editeur', 'coordination'), 
       WHERE organisation_id = ? AND cours_code = ?`).get(o.id, code);
 
     if (Array.isArray(b.activites)) {
+      /* ON NE SUPPRIME PAS UN COURS, DONC ON NE L'ENREGISTRE PAS À ZÉRO.
+       *
+       * Le cours vient du dossier pédagogique : il existe, qu'on l'ait découpé
+       * ou non. Vider ses activités n'était pourtant pas empêché — on retirait
+       * les lignes, on enregistrait, et le cours se retrouvait à zéro période
+       * avec un contrôle qui le déclarait en règle. AU PIRE, ON REVIENT AU
+       * CONTENU DU COURS : le dossier dit combien il porte, et c'est ce qu'on
+       * réécrit, en une ligne de matière. On ne perd pas le cours, on perd
+       * seulement le découpage qu'on venait d'effacer — et la réponse le dit,
+       * pour que l'écran ne fasse pas semblant d'avoir enregistré autre chose. */
+      const utiles = b.activites.filter(a => a.activite_id && (Number(a.periodes) || 0) > 0);
+      const somme = utiles.reduce((t, a) => t + (Number(a.periodes) || 0), 0);
+
+      let lignes = utiles;
+      if (somme <= 0) {
+        const dp = Number(db.prepare(`SELECT cours_per FROM cours
+          WHERE ue_num = ? AND cours_code = ? AND annee_scolaire = ?`)
+          .get(ueNum, code, annee)?.cours_per) || 0;
+        const matiere = db.prepare(`SELECT id FROM activite_type
+          WHERE section IS NULL AND (role IS NULL OR role <> 'evaluation')
+          ORDER BY ordre, id LIMIT 1`).get()?.id ?? null;
+        if (dp > 0 && matiere) {
+          lignes = [{ activite_id: matiere, periodes: dp, vu_etudiant: true }];
+          repli = { applique: true, periodes: dp };
+        }
+      }
+
       db.prepare('DELETE FROM grille_activite WHERE grille_cours_id = ?').run(gc.id);
       const ins = db.prepare(`INSERT INTO grille_activite
         (grille_cours_id, activite_id, periodes, vu_etudiant, ordre) VALUES (?,?,?,?,?)`);
-      b.activites.forEach((a, i) => {
+      lignes.forEach((a, i) => {
         ins.run(gc.id, a.activite_id ? Number(a.activite_id) : null,
                 Number(a.periodes) || 0, a.vu_etudiant === false ? 0 : 1, i);
       });
     }
   })();
 
-  res.json({ ok: true, controle: controlerUE(annee, section, ueNum) });
+  res.json({ ok: true, repli, controle: controlerUE(annee, section, ueNum) });
 });
 
 /** Les activités proposables : celles de la maison, plus celles de la section. */

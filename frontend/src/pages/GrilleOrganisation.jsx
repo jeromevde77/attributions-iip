@@ -151,9 +151,13 @@ export default function GrilleOrganisation() {
                 <b>UE {u.ue_num}</b> — la règle des multiples n'est pas respectée.
                 {u.controle.anomalies.map(a => (
                   <div key={a.cours_code} className="text-slate-600 mt-0.5">
-                    {a.cours_code} est à {a.total} périodes de cours ; le dossier en
-                    attend un multiple de {a.multiple}. Il manque <b>{a.manque}</b>.
-                    {' '}L'autonomie ne comble pas : elle se compte à part.
+                    {a.vide
+                      ? <>{a.cours_code} n'a plus aucune période. Un cours ne se
+                          supprime pas : le dossier lui en donne <b>{a.multiple}</b>,
+                          à redécouper.</>
+                      : <>{a.cours_code} est à {a.total} périodes de cours ; le dossier
+                          en attend un multiple de {a.multiple}. Il manque <b>{a.manque}</b>.
+                          {' '}L'autonomie ne comble pas : elle se compte à part.</>}
                   </div>
                 ))}
               </div>
@@ -467,7 +471,12 @@ function FenetreCours({ etat, annee, section, periodeMinutes = 50,
           <IconDeviceFloppy size={15} className="inline align-[-2px] mr-1" />
           {enCours ? 'Enregistrement…' : 'Enregistrer'}
         </button>
-        {dp > 0 && (manque
+        {dp > 0 && total === 0
+          ? <span className="text-[12px] text-[#B45309]">
+              Sans activité, le cours revient à son contenu du dossier
+              — <b>{dp} périodes</b>. On ne supprime pas un cours.
+            </span>
+          : dp > 0 && (manque
           ? <span className="text-[12px] text-[#9D4A38]">
               Cours {total} pér. — il manque {manque} pour un multiple de {dp}.
               {Number(auto) > 0 && <span className="text-slate-500">

@@ -856,6 +856,15 @@ annonce de combien on s'écarte.
 L'autonomie non placée est **signalée**, jamais répartie d'office ; en placer
 plus que l'unité n'en porte est une anomalie à part entière.
 
+**UN COURS NE SE SUPPRIME PAS, DONC IL NE S'ENREGISTRE PAS À ZÉRO.** Le cours
+vient du dossier pédagogique : il existe, qu'on l'ait découpé ou non. On pouvait
+pourtant retirer toutes ses activités, enregistrer, et le laisser à zéro période
+— où **le contrôle le déclarait « conforme »**, zéro passant le modulo sans
+bruit. Depuis 2.12.33 : **au pire, on revient au contenu du cours**, une ligne de
+matière aux périodes du dossier, et la réponse le dit pour que l'écran n'ait pas
+l'air d'avoir enregistré autre chose. Le contrôle, lui, signale « plus aucune
+période » comme une anomalie propre — il rattrape ce qui a pu être écrit avant.
+
 **LA FRISE PORTE DEUX GRANDEURS.** La **longueur** d'une barre est sa durée sur
 l'année ; son **épaisseur**, son intensité — 5 px pour 2 h par semaine. Une
 unité étalée sur deux quadrimestres est longue et fine, la même massée sur six
