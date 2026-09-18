@@ -173,7 +173,13 @@ import CoursFormModal from '../components/CoursFormModal.jsx';
 const DEFAULT_COLS = [
   { key: '__select', label: '', width: 36 },
   { key: '__valide', label: 'Val.', width: 42 },
-  { key: '__conformite', label: '✓', width: 38,
+  /* CONFORMITÉ ET TYPE PARLENT DU COURS, PAS DE L'ATTRIBUTION. En arborescence,
+     la ligne du cours les porte déjà — « CT ×1 … ✓ » —, et les répéter sur
+     chacune de ses attributions écrivait la même chose deux à six fois par
+     cours, en volant 94 px à la seule colonne qui manque de place, celle du
+     professeur. `flatOnly` les garde dans la grille à plat, où aucune ligne
+     parente ne les dit. */
+  { key: '__conformite', label: '✓', width: 38, flatOnly: true,
     render: (_, row) => {
       const { cours_conforme: ok, cours_total_attribue: tot, cours_per: per, cours_multiple_attendu: mult } = row;
       if (per == null || per === 0) return <span className="text-gray-300" title="Pas de Cours_per défini">—</span>;
@@ -198,7 +204,7 @@ const DEFAULT_COLS = [
   { key: 'nom_cours',             label: 'Cours',      width: 200, rowClickable: true, coursOnly: true },
   { key: 'activite_nom',          label: 'Activité',   width: 120,
     render: v => v || <span className="text-gray-300 text-xs italic">—</span> },
-  { key: 'type_cours',            label: 'Type',       width: 56, rowClickable: true,
+  { key: 'type_cours',            label: 'Type',       width: 56, rowClickable: true, flatOnly: true,
     render: v => { const cls = {CT:'badge-ct',CG:'badge-cc',PP:'badge-pp',Z:'badge-z',B:'badge-b',F:'badge-f',T:'badge-t',P:'badge-p',O:'badge-o'}[v]; return cls ? <span className={`badge ${cls}`}>{v}</span> : (v || '—'); } },
   { key: 'code',                  label: 'Gr.',        width: 92, edit: 'text' },
   { key: 'professeur_id',         label: 'Professeur', width: 200, edit: 'prof',
@@ -1934,7 +1940,16 @@ export default function Attributions() {
 
   // ===================== RENDU =====================
   return (
-    <div className="p-2 md:p-4">
+    /* LE TABLEAU S'ALIGNE SUR LE RAIL, ET LA MARCHE DISPARAÎT.
+       L'écran n'avait pas la classe `gouttiere-rail` : `main` lui donnait donc
+       2 rem de retrait sur les quatre côtés, auxquels s'ajoutait son propre
+       `md:p-4`. Trois rem à gauche, pour un rail qui en occupe trois et demi :
+       le tableau passait SOUS le rail, et l'on voyait une marche. En haut,
+       2 rem contre le 1 rem du rail — deux départs pour un même bord.
+       La gouttière vaut désormais EXACTEMENT la largeur du rail (elle la suit
+       quand il s'ouvre), le haut prend le 1 rem du rail, et l'écart se fait
+       par le retrait que l'écran se donne — le même des deux côtés. */
+    <div className="gouttiere-rail px-3 pt-4 pb-8">
       {/* (bandeau perte de charge déplacé en bas de page) */}
 
       {/* Barre mobile */}
