@@ -500,13 +500,23 @@ export default function Listes({ integre = false, domaine = null }) {
     api.sections().then(s => setSections(Array.isArray(s) ? s : [])).catch(() => {});
   }, []);
 
-  // Charger les UE quand section change (pour rapport-ue)
+  /* UNE UNITÉ SE CHOISIT, ELLE NE SE TAPE PAS — ET LA LISTE SE CHARGE POUR
+     TOUTES LES LISTES QUI FILTRENT PAR UNITÉ, pas pour une seule.
+     Le chargement était conditionné à `entite === 'rapport-ue'` : partout
+     ailleurs la liste restait vide, donc le champ retombait sur une saisie
+     libre « ex: 95 ». Or une UE libre n'existe pas — on tape 95, l'unité 95
+     n'est pas de cette section ou de cette année, et la liste sort vide sans
+     rien dire. C'est la leçon déjà tirée pour la valorisation en 2.11.8 : le
+     numéro d'unité ne se tape plus, il se choisit dans le catalogue.
+     Sans section choisie, on charge les unités de l'année : « toutes
+     sections » est un filtre légitime, et le choix reste dans une liste. */
   useEffect(() => {
-    if (entite === 'rapport-ue' && filtres.section) {
-      authFetch(`/api/ref/ue?section=${encodeURIComponent(filtres.section)}&annee=${encodeURIComponent(annee)}`)
-        .then(d => setUeList(Array.isArray(d) ? d : [])).catch(() => {});
-    }
-  }, [filtres.section, entite]);
+    if (!def?.filtres?.includes('ue_num')) return;
+    const p = new URLSearchParams({ annee });
+    if (filtres.section) p.set('section', filtres.section);
+    authFetch(`/api/ref/ue?${p.toString()}`)
+      .then(d => setUeList(Array.isArray(d) ? d : [])).catch(() => setUeList([]));
+  }, [filtres.section, entite, annee]);
 
   const def = ENTITES[entite];
 
@@ -1460,14 +1470,23 @@ export default function Listes({ integre = false, domaine = null }) {
           {def.filtres.includes('ue_num') && (
             <label className="flex items-center gap-2">
               <span className="text-xs text-slate-500">UE</span>
-              {entite === 'rapport-ue' && ueList.length > 0
+              {/* PAS DE REPLI EN SAISIE LIBRE. Quand la liste est vide, c'est
+                  qu'il n'y a rien à choisir — un champ ouvert ne ferait
+                  qu'inviter à taper un numéro qui ne mène nulle part. On le
+                  dit, au lieu de laisser croire. */}
+              {ueList.length > 0
                 ? <select value={filtres.ue_num || ''} onChange={e => setFiltres(f => ({ ...f, ue_num: e.target.value }))}
                     className="border border-slate-300 rounded-lg px-2.5 py-1.5 h-9 text-sm bg-white">
                     <option value="">— Toutes les UE —</option>
-                    {ueList.map(u => <option key={u.ue_num} value={u.ue_num}>UE {u.ue_num} — {u.ue_nom?.slice(0,35)}</option>)}
+                    {ueList.map(u => (
+                      <option key={u.ue_num} value={u.ue_num}>
+                        UE {u.ue_num} — {(u.ue_nom || '').slice(0, 45)}
+                      </option>
+                    ))}
                   </select>
-                : <input type="number" value={filtres.ue_num || ''} onChange={e => setFiltres(f => ({ ...f, ue_num: e.target.value }))}
-                    placeholder="ex: 95" className="border border-slate-300 rounded-lg px-2.5 py-1.5 h-9 text-sm w-24" />
+                : <span className="text-[12px] text-slate-400 italic">
+                    aucune unité pour cette année{filtres.section ? ' et cette section' : ''}
+                  </span>
               }
             </label>
           )}

@@ -116,6 +116,11 @@ function TableauDeBord({ profId, profNom, annee, onNavigate }) {
 // ─── Liste des séances d'un dispositif + création ─────────────────────────────
 function ListeSeances({ profId, annee, dispositif, onOuvrir }) {
   const [seances, setSeances] = useState([]);
+  /* UNE UNITÉ SE CHOISIT, ELLE NE SE TAPE PAS. Le champ « Num. UE » était
+     libre : on tapait un numéro, et rien ne disait qu'il ne correspondait à
+     aucune unité du millésime. La séance restait alors rattachée à une unité
+     qui n'existe pas, et personne ne s'en apercevait avant de chercher. */
+  const [ues, setUes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
   const [form, setForm] = useState({ date_seance: '', ue_num: '', cours_nom: '', type_cours: 'cours', rencontre_num: 1 });
@@ -128,6 +133,17 @@ function ListeSeances({ profId, annee, dispositif, onOuvrir }) {
   }, [profId, annee, dispositif]);
 
   useEffect(() => { load(); }, [load]);
+
+  /* `af` préfixe `/api/dcpp` : le référentiel se demande par son propre chemin,
+     avec le même jeton. Bricoler un `/../` marcherait peut-être aujourd'hui et
+     casserait au premier changement de montage. */
+  useEffect(() => {
+    fetch(`/api/ref/ue?annee=${encodeURIComponent(annee)}`,
+      { headers: { Authorization: `Bearer ${tok()}` } })
+      .then(r => (r.ok ? r.json() : []))
+      .then(l => setUes(Array.isArray(l) ? l : []))
+      .catch(() => setUes([]));
+  }, [annee]);
 
   async function creer() {
     try {
@@ -166,7 +182,20 @@ function ListeSeances({ profId, annee, dispositif, onOuvrir }) {
               <input type="date" value={form.date_seance} onChange={e => setForm(f => ({ ...f, date_seance: e.target.value }))} className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm" />
             </Field>
             <Field label="Num. UE">
-              <input value={form.ue_num} onChange={e => setForm(f => ({ ...f, ue_num: e.target.value }))} placeholder="ex: 47" className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm" />
+              {ues.length > 0
+                ? <select value={form.ue_num}
+                    onChange={e => setForm(f => ({ ...f, ue_num: e.target.value }))}
+                    className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm bg-white">
+                    <option value="">— choisir —</option>
+                    {ues.map(u => (
+                      <option key={u.ue_num} value={u.ue_num}>
+                        UE {u.ue_num} — {(u.ue_nom || '').slice(0, 40)}
+                      </option>
+                    ))}
+                  </select>
+                : <span className="text-[12px] text-slate-400 italic">
+                    aucune unité pour {annee}
+                  </span>}
             </Field>
             <Field label="Cours">
               <input value={form.cours_nom} onChange={e => setForm(f => ({ ...f, cours_nom: e.target.value }))} placeholder="Intitulé du cours" className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm" />

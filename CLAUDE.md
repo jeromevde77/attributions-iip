@@ -755,6 +755,16 @@ et 3 composants de tuile**. La stratégie tient en cinq chantiers, dans cet ordr
   que s'il y a quelque chose à effacer. **À trancher :** une modification par
   une coordination repasse l'attribution en « à valider » (règle du `PATCH`) —
   écrire une note fait donc retomber la validation.
+- **UNE UNITÉ SE CHOISIT, ELLE NE SE TAPE PAS.** La règle avait été posée pour
+  la valorisation en 2.11.8 et n'avait jamais été généralisée : trois écrans
+  gardaient un champ libre « ex: 95 » — le générateur de listes, l'éditeur de
+  modèles et les séances DCPP. On tape 95, l'unité n'est pas de cette section ou
+  de ce millésime, et la liste sort vide **sans rien dire** ; côté DCPP, la
+  séance restait rattachée à une unité qui n'existe pas. Depuis 2.12.32, la
+  liste des unités du millésime — restreinte à la section quand elle est
+  choisie. **Et pas de repli en saisie libre quand la liste est vide** : on
+  écrit qu'il n'y a rien à choisir, un champ ouvert ne ferait qu'inviter à
+  taper un numéro qui ne mène nulle part.
 - **Une entrée de rail sans icône est invisible** une fois le rail replié.
 - **Un titre ne s'écrit qu'une fois** par écran.
 - Un libellé ne promet que ce que la modale fait réellement.

@@ -619,6 +619,10 @@ export default function Editeur() {
   const [section, setSection]         = useState('');
   const [profs, setProfs]             = useState([]);
   const [sections, setSections]       = useState([]);
+  /* UNE UNITÉ SE CHOISIT, ELLE NE SE TAPE PAS. Le champ « N° UE » était libre :
+     on tapait 95, l'unité n'était pas de cette section ou de ce millésime, et
+     l'aperçu sortait vide sans dire pourquoi. */
+  const [uesEd, setUesEd]             = useState([]);
   const [search, setSearch]           = useState('');
   const [panelMode, setPanelMode]     = useState('champs');
   const [boucleActive, setBoucleActive] = useState('profs_ue');
@@ -628,6 +632,14 @@ export default function Editeur() {
     api.professeurs(true).then(setProfs).catch(() => {});
     api.sections().then(setSections).catch(() => {});
   }, []);
+
+  /* Les unités du millésime, restreintes à la section quand elle est choisie :
+     la liste suit le filtre au lieu de proposer des unités qui n'y sont pas. */
+  useEffect(() => {
+    api.ue(section || undefined)
+      .then(l => setUesEd(Array.isArray(l) ? l : []))
+      .catch(() => setUesEd([]));
+  }, [section, annee]);
 
   function chargerTemplates() {
     fetch('/api/templates', { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } })
@@ -944,8 +956,15 @@ export default function Editeur() {
             <option value="">— Prof —</option>
             {profs.map(p => <option key={p.id} value={p.id}>{nomPropre(p.nom, p.prenom)}</option>)}
           </select>
-          <input type="number" value={ueNum} onChange={e => setUeNum(e.target.value)}
-            placeholder="N° UE" className="w-20 border border-gray-300 rounded px-2 py-1.5 h-9 text-sm" />
+          <select value={ueNum} onChange={e => setUeNum(e.target.value)}
+            className="border border-gray-300 rounded px-2 py-1.5 h-9 text-sm bg-white max-w-[260px]">
+            <option value="">— UE —</option>
+            {uesEd.map(u => (
+              <option key={u.ue_num} value={u.ue_num}>
+                UE {u.ue_num} — {(u.ue_nom || '').slice(0, 40)}
+              </option>
+            ))}
+          </select>
           <div className="flex rounded border border-gray-300 overflow-hidden h-9">
             {[
               { k: false, l: 'Visuel', t: 'Édition assistée' },
