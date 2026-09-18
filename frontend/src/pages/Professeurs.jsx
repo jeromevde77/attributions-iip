@@ -690,8 +690,12 @@ function DetailModal({ profId, onClose, onEdit, onFiche }) {
         body: JSON.stringify({ prof_id: profId, date_contrat: dateContrat, representant, annee: getAnnee() }),
       });
       if (!res.ok) throw new Error((await res.json()).error || 'Erreur serveur');
-      const { html, nom } = await res.json();
-      setAperçuContrat({ html, nom });
+      const { html, nom, ecartees_expert } = await res.json();
+      /* L'ENGAGEMENT D'EXPERT N'EST PAS CE CONTRAT-CI. Ses lignes en sont
+         écartées — elles relèvent d'un autre contrat de travail — et on le
+         DIT : une exclusion silencieuse ferait croire que ces périodes sont
+         couvertes par la pièce qu'on s'apprête à signer. */
+      setAperçuContrat({ html, nom, ecartees: ecartees_expert || [] });
       setShowContratModal(false);
     } catch (e) { alert('Erreur : ' + e.message); }
     finally { setGeneratingContrat(false); }
@@ -1129,7 +1133,11 @@ function DetailModal({ profId, onClose, onEdit, onFiche }) {
         <PreviewModal
           html={aperçuContrat.html}
           titre={`Contrat — ${detail.nom_prenom}`}
-          sousTitre={`CDD · ${getAnnee()}`}
+          sousTitre={aperçuContrat.ecartees?.length
+            ? `CDD · ${getAnnee()} — ${aperçuContrat.ecartees.length} ligne(s) d'expert écartée(s) : `
+              + `${aperçuContrat.ecartees.map(l => l.code_cours || l.section).join(', ')}`
+              + ' — elles relèvent d\'un contrat distinct, à établir'
+            : `CDD · ${getAnnee()}`}
           nomFichier={aperçuContrat.nom}
           onClose={() => setAperçuContrat(null)}
           actionExtra={
