@@ -1626,7 +1626,7 @@ export default function Listes({ integre = false }) {
         {rows !== null && estRapport && apercuHtml && (
           <div className="p-5 flex justify-center">
             <div className={`bg-white shadow-lg rounded-lg overflow-hidden border border-slate-200 ${orientation==='landscape' ? 'w-full max-w-[1100px]' : 'w-full max-w-[820px]'}`}>
-              <iframe title="aperçu" srcDoc={apercuHtml} className="w-full block" style={{ height: '78vh', border: 'none' }} />
+              <iframe aria-label="Aperçu" srcDoc={apercuHtml} className="w-full block" style={{ height: '78vh', border: 'none' }} />
             </div>
           </div>
         )}

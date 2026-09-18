@@ -415,7 +415,15 @@ export function envelopperDocument({ html, titre, orientation = 'portrait',
 ${styles}
 </style></head><body>
 <table class="feuille">
-<thead><tr><td>${entete === false ? '' : identiteDocument()}</td></tr></thead>
+${/* LA LIGNE D'IDENTITÉ RÉPÉTÉE EST SUPPRIMÉE, ET CE N'EST PAS UN OUBLI.
+      Elle existait pour qu'une page 2 détachée d'une pile dise encore d'où
+      elle vient. Mais LE PIED se répète déjà sur chaque page et porte DÉJÀ le
+      nom de l'établissement, sa FASE et son adresse : elle résolvait un
+      problème qui l'était. En page 1, elle redisait mot pour mot l'en-tête
+      juste en dessous — deux fois l'identité, deux filets de plus, et quatre
+      traits horizontaux avant la première ligne de contenu. Une pièce qui
+      commence par quatre filets n'a pas d'en-tête, elle a un empilement. */''}
+<thead><tr><td></td></tr></thead>
 <tfoot><tr><td>${piedHtml}</td></tr></tfoot>
 <tbody><tr><td>
 ${enteteHtml}

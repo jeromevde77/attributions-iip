@@ -781,7 +781,7 @@ function CarteCandidatPoste({ candidature: c, onChange, onEntretien }) {
                 <img src={visionneur.url} alt={visionneur.nom} className="max-h-full max-w-full object-contain rounded shadow-lg" />
               </div>
             ) : visionneur.mime === 'application/pdf' ? (
-              <iframe src={visionneur.url} title={visionneur.nom} className="w-full h-full border-none" />
+              <iframe src={visionneur.url} aria-label={visionneur.nom} className="w-full h-full border-none" />
             ) : (
               <div className="h-full flex flex-col items-center justify-center text-white gap-4">
                 <IconFileCv size={48} className="opacity-50" />
@@ -2021,7 +2021,7 @@ function FicheCandidat({ candidat, fonctions, grille, onClose, onSaved }) {
           </div>
         )}
         {visionneur.mime === 'application/pdf' && (
-          <iframe src={visionneur.url} title={visionneur.nom} className="w-full h-full border-none" />
+          <iframe src={visionneur.url} aria-label={visionneur.nom} className="w-full h-full border-none" />
         )}
       </div>
     </div>

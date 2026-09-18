@@ -1826,9 +1826,12 @@ r.post('/document-groupe', authRequired, (req, res) => {
   const cell = (c, v, tag = 'td') =>
     `<${tag}${c.num ? ' style="text-align:right"' : ''}>${esc(v)}</${tag}>`;
 
+  /* UN TITRE NE S'ÉCRIT QU'UNE FOIS. Ce corps posait son propre `h1` et son
+     sous-titre alors que l'enveloppe dessine déjà le cadre de titre : la pièce
+     annonçait deux fois ce qu'elle est, à deux tailles et à deux places, et
+     c'est autant de lignes avant la première donnée. Le titre part là où il
+     doit être — dans l'en-tête — et le corps commence par le contenu. */
   const corps = `
-    <h1>${esc(b.titre || 'Rapport')}</h1>
-    ${b.sous ? `<p class="sous">${esc(b.sous)}</p>` : ''}
     ${groupes.map(g => `
       <h3>${esc(g.titre || '')}${g.sous ? ` <span class="sous">— ${esc(g.sous)}</span>` : ''}</h3>
       <table>
@@ -1842,6 +1845,9 @@ r.post('/document-groupe', authRequired, (req, res) => {
     html: envelopperDocument({
       html: corps,
       titre: b.titre || 'Rapport',
+      // Le titre et sa précision passent par l'EN-TÊTE, comme pour toutes les
+      // autres pièces : le générateur n'a pas de raison d'avoir sa présentation.
+      entete: { titre: b.titre || 'Rapport', sous: b.sous || null },
       // L'écran choisit le sens quand il en propose le choix ; à défaut, un
       // tableau large se lit en paysage.
       orientation: b.orientation === 'paysage' || b.orientation === 'portrait'

@@ -529,7 +529,13 @@ function OngletRapports({ domaine }) {
                du document ne débordent pas sur l'application, et ceux de
                l'application ne viennent pas l'embellir — ce qu'on voit est
                donc bien ce qui s'imprime. */
-            <iframe title="Aperçu de la pièce" srcDoc={apercu.html}
+            /* `aria-label` ET NON `title` : le navigateur affiche tout `title`
+               en infobulle NATIVE — police du système, position au curseur,
+               rien de tout cela ne nous appartient, et elle venait se poser en
+               travers de l'aperçu qu'on essayait de lire. `aria-label` nomme
+               le cadre pour un lecteur d'écran, ce qui est le seul besoin
+               réel, et n'affiche rien. */
+            <iframe aria-label="Aperçu de la pièce" srcDoc={apercu.html}
               className="w-full bg-white rounded-carte shadow-pose border border-slate-200"
               style={{ height: 'calc(100vh - 14rem)', minHeight: '32rem' }} />
           )}

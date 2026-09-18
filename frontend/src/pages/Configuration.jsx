@@ -983,7 +983,7 @@ function ConfigContrat() {
       {/* Éditeur / Prévisualisation */}
       {preview ? (
         <div className="bg-white border border-gray-200 rounded-xl overflow-hidden" style={{ height: '70vh' }}>
-          <iframe srcDoc={template} className="w-full h-full border-0" title="Aperçu contrat" />
+          <iframe srcDoc={template} className="w-full h-full border-0" aria-label="Aperçu contrat" />
         </div>
       ) : (
         <textarea

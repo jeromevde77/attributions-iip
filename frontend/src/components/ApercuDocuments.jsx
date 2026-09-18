@@ -139,7 +139,7 @@ export default function ApercuDocuments({ onClose }) {
 
             <div className="flex-1 min-h-0 bg-slate-100">
               {html
-                ? <iframe title="Aperçu" srcDoc={html} className="w-full h-full border-0" />
+                ? <iframe aria-label="Aperçu" srcDoc={html} className="w-full h-full border-0" />
                 : (
                   <p className="p-6 text-[13px] text-slate-400">
                     {enCours ? 'Rendu en cours…'
