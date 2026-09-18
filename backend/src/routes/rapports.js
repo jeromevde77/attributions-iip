@@ -55,17 +55,30 @@ const STYLE_RAPPORT = `
         th { background: transparent; color:#64748b; font-size: 7.5pt;
              border-bottom: 0.8pt solid #cbd5e1; }
         td { font-variant-numeric: tabular-nums; }
-        tr.repere td { background: transparent; font-weight: 600; color:#1B2B4B;
-                       padding-top: 3mm; border-bottom: 0.6pt solid #cbd5e1; }
         tbody tr:last-child td { border-bottom: 0; }
         td.n, th.n { text-align: right; }
-        /* Le titre de groupe EST la section : en gras, sur sa ligne, et rien
-           d'autre. C'est un titre, pas une cellule de plus. */
-        tr.groupe td { font-weight: 700; color:#1B2B4B; padding-top: 4mm;
-                       font-size: 9.5pt; border-bottom: 0.5pt solid #cbd5e1; }
-        tr.groupe .fin { font-weight: 400; }
+        /* LA BANDE DE REGROUPEMENT PORTE SA COULEUR. Écrite en gras sur du
+           blanc, elle se confondait avec les lignes qu'elle annonce : on ne
+           voyait pas où un paquet commençait. Elle prend le marine de la
+           maison, et le BLOC prend la sienne — orange BA1/BE1, bleu clair BA2,
+           marine BA3. Un repère qu'il faut chercher n'est pas un repère.
+           Ces trois teintes ne disent JAMAIS un état : vert, ocre et brique
+           restent libres pour ce qui alerte. */
+        tr.groupe td { font-weight: 700; color:#ffffff; background:#2D4470;
+                       padding: 2mm; font-size: 9pt; border-bottom: 0; }
+        tr.groupe .fin { font-weight: 400; opacity:.8; }
+        tr.groupe.bloc1 td { background:#E8890C; }
+        tr.groupe.bloc2 td { background:#7FB3D5; color:#123047; }
+        tr.groupe.bloc3 td { background:#1B2B4B; }
+        /* LE SOUS-TOTAL ADDITIONNE, IL N'ALERTE PAS. Il se dessinait dans un
+           jaune-marron — or l'ocre veut dire « regarde ça » partout ailleurs
+           dans Lucie, et un sous-total ne demande rien. Bleu très pâle : il se
+           détache de la donnée sans prendre un sens qu'il n'a pas. */
+        tr.repere td { background:#EDF2F8; font-weight:600;
+                       border-bottom: 0.3pt solid #D6E0EC; }
         td.vide { color:#94a3b8; text-align:center; padding: 6mm 0; }
-        tfoot tr.repere td { border-top: 0.8pt solid #cbd5e1; border-bottom: 0; }`;
+        tfoot tr.repere td { background:#FAFAFB; border-top: 0.8pt solid #1B2B4B;
+                             border-bottom: 0; font-weight:700; }`;
 
 /*
  * ── DEUX FAMILLES DE PIÈCES, ET ELLES NE SE RESSEMBLENT PAS ────────────────
@@ -1463,20 +1476,62 @@ r.post('/mise-en-page', authRequired, (req, res) => {
   }).join('');
 
   const aDesNombres = numerique.some(Boolean);
-  const total = aDesNombres ? `<tfoot><tr>${colonnes.map((_, i) => {
+  const total = aDesNombres ? `<tfoot><tr class="repere">${colonnes.map((_, i) => {
     if (i === 0) return `<td><b>Ensemble — ${lignes.length} ligne(s)</b></td>`;
     if (!numerique[i]) return '<td></td>';
     const s2 = lignes.reduce((acc, l) => acc + (Number(Array.isArray(l) ? l[i] : 0) || 0), 0);
     return `<td class="n"><b>${esc(Math.round(s2 * 100) / 100)}</b></td>`;
   }).join('')}</tr></tfoot>` : '';
 
+  /* GROUPER PAR LA PREMIÈRE COLONNE, comme le fait déjà le rendu des rapports.
+     Une liste de deux cents lignes sans bande de regroupement se lit à la
+     règle : on suit du doigt pour savoir où une section finit. Le regroupement
+     ne se déclenche que s'il APPREND quelque chose — une valeur qui ne se
+     répète jamais ferait autant de bandes que de lignes, et deux valeurs pour
+     deux cents lignes n'en font que deux. */
+  const cle = l => String((Array.isArray(l) ? l[0] : '') ?? '—');
+  const distinctes = new Set(lignes.map(cle));
+  const groupable = lignes.length >= 4 && distinctes.size > 1
+    && distinctes.size <= Math.max(2, Math.floor(lignes.length / 2));
+
+  const sousTotal = (lot, titre) => `<tr class="repere">${colonnes.map((_, i) => {
+    if (i === 0) return `<td>${esc(titre)}</td>`;
+    if (!numerique[i]) return '<td></td>';
+    const s2 = lot.reduce((a, l) => a + (Number(Array.isArray(l) ? l[i] : 0) || 0), 0);
+    return `<td class="n">${esc(Math.round(s2 * 100) / 100)}</td>`;
+  }).join('')}</tr>`;
+
+  let corpsTable = '';
+  if (groupable) {
+    const paquets = new Map();
+    for (const l of lignes) {
+      const k = cle(l);
+      if (!paquets.has(k)) paquets.set(k, []);
+      paquets.get(k).push(l);
+    }
+    for (const [k, lot] of paquets) {
+      /* LE REPÈRE DE BLOC. Quand la clé de regroupement EST un bloc — BA1,
+         BE1, BA2, BA3 —, la bande prend sa couleur. Ailleurs elle garde le
+         marine : une couleur posée sur un groupement qui n'est pas un bloc
+         mentirait sur ce qu'elle désigne. */
+      const b = /\bB[AE]?\s*1\b/i.test(k) ? ' bloc1'
+        : /\bBA\s*2\b/i.test(k) ? ' bloc2'
+          : /\bBA\s*3\b/i.test(k) ? ' bloc3' : '';
+      corpsTable += `<tr class="groupe${b}"><td colspan="${colonnes.length}">${esc(k)}`
+        + `<span class="fin"> — ${lot.length} ligne(s)</span></td></tr>`;
+      corpsTable += lot.map(l => `<tr>${cellules(l)}</tr>`).join('');
+      if (aDesNombres && lot.length > 1) corpsTable += sousTotal(lot, `Sous-total ${k}`);
+    }
+  } else {
+    corpsTable = lignes.map(l => `<tr>${cellules(l)}</tr>`).join('');
+  }
+
   const corps = `
       <table>
         <thead><tr>${colonnes.map((c, i) =>
           `<th${numerique[i] ? ' class="n"' : ''}>${esc(c)}</th>`).join('')}</tr></thead>
-        <tbody>${lignes.length
-          ? lignes.map(l => `<tr>${cellules(l)}</tr>`).join('')
-          : `<tr><td colspan="${colonnes.length}" class="vide">Aucune donnée.</td></tr>`}</tbody>
+        <tbody>${corpsTable
+          || `<tr><td colspan="${colonnes.length}" class="vide">Aucune donnée.</td></tr>`}</tbody>
         ${total}
       </table>`;
 
