@@ -3659,8 +3659,15 @@ r.put('/:id/grille', authRequired, roleRequired('admin', 'editeur'), (req, res) 
   const delInsc = () => db.prepare(
     'DELETE FROM etudiant_inscription WHERE etudiant_id=? AND annee_scolaire=? AND ue_num=?'
   ).run(etudId, annee, ueN);
+  /* ON REMPLACE LA DÉCISION, ON N'EN POSE PAS UNE SECONDE À CÔTÉ.
+     Ce nettoyage ne visait que les dispenses COMPLÈTES : une valorisation
+     partielle — ou un REFUS, qui est enregistré comme partielle — survivait
+     donc à l'opération, et la ligne créée juste après venait s'ajouter à elle.
+     L'étudiante refusée par le Conseil se retrouvait avec deux décisions pour
+     la même unité, et le procès-verbal imprimait les deux : « Refus », puis
+     « Réussite ». Une pièce signée qui se contredit elle-même. */
   const delVa = () => db.prepare(
-    "DELETE FROM etudiant_valorisation WHERE etudiant_id=? AND annee_scolaire=? AND ue_num=? AND type='complete'"
+    'DELETE FROM etudiant_valorisation WHERE etudiant_id=? AND annee_scolaire=? AND ue_num=?'
   ).run(etudId, annee, ueN);
 
   // Effacer le seul résultat : l'inscription demeure, ses notes disparaissent.
@@ -3689,11 +3696,26 @@ r.put('/:id/grille', authRequired, roleRequired('admin', 'editeur'), (req, res) 
   }
 
   if (kind === 'va') {
+    /* UN REFUS NE SE RENVERSE PAS EN COCHANT UNE CASE DANS UN PARCOURS.
+       Cette porte-ci crée une dispense complète sans décision du Conseil, sans
+       séance et sans preuve : c'est une reprise d'encodage, pas une
+       délibération. Qu'elle puisse effacer un refus motivé — et faire sortir
+       l'attestation de réussite correspondante — n'était voulu par personne.
+       Elle refuse donc, et renvoie vers l'écran où la décision se corrige. */
+    const refusExistant = db.prepare(`SELECT id FROM etudiant_valorisation
+      WHERE etudiant_id=? AND annee_scolaire=? AND ue_num=? AND decision='refusee'`)
+      .get(etudId, annee, ueN);
+    if (refusExistant) {
+      return res.status(409).json({
+        error: "Le Conseil a refusé la valorisation de cette unité pour cet étudiant. "
+             + "Corrigez la décision dans l'écran Valorisation des acquis ; "
+             + "elle ne se renverse pas depuis le parcours." });
+    }
     delInsc(); delVa();
     db.prepare(`
       INSERT INTO etudiant_valorisation
-        (etudiant_id, annee_scolaire, ue_num, type, pourcentage)
-      VALUES (?,?,?,'complete',?)
+        (etudiant_id, annee_scolaire, ue_num, type, pourcentage, decision)
+      VALUES (?,?,?,'complete',?,'accordee')
     `).run(etudId, annee, ueN, points != null ? Number(points) : 10);
     // 10/20 : équivalent de la note de 50 % conseillée par la circulaire 9447
     // pour une valorisation, exprimée dans l'échelle sur 20 de l'établissement.

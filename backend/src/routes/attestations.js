@@ -1311,11 +1311,60 @@ r.post('/valorisation/ue/:ueNum/documents', authRequired, async (req, res) => {
   const ident = identiteEtablissement();
   const etab = db.prepare('SELECT * FROM etablissement LIMIT 1').get() || {};
 
-  const vas = db.prepare(`
+  /* UNE DÉCISION PAR ÉTUDIANT ET PAR UNITÉ — ET SI ELLES SE CONTREDISENT,
+   * RIEN NE S'IMPRIME.
+   *
+   * Rien n'empêchait un étudiant de porter PLUSIEURS valorisations pour la
+   * même unité et la même année, et le procès-verbal les imprimait toutes.
+   * Une étudiante refusée par le Conseil ressortait donc sur la pièce avec
+   * deux lignes — « Refus », puis « Réussite » —, et l'attestation de réussite
+   * partait avec. La seconde venait du parcours : y marquer une unité
+   * « valorisée » créait une dispense complète à 10/20, sans décision, sans
+   * séance et sans preuve, À CÔTÉ du refus au lieu de le remplacer.
+   *
+   * On ne choisit PAS entre les deux. Garder « la plus récente » aurait ici
+   * retenu la ligne fantôme, qui est la dernière écrite — et l'on aurait signé
+   * une réussite en croyant avoir corrigé le bug. Un document officiel qui
+   * repose sur un départage automatique entre deux décisions contraires est
+   * pire que pas de document : il est faux sans le dire. La contradiction
+   * rejoint donc la barrière des manques, elle nomme l'étudiant, et c'est une
+   * personne qui tranche dans l'écran des valorisations.
+   *
+   * Des lignes qui DISENT LA MÊME CHOSE ne sont pas une contradiction : on n'en
+   * garde qu'une, sans rien demander.
+   */
+  const toutes = db.prepare(`
     SELECT v.*, e.nom, e.prenom, e.titre, e.date_naissance, e.lieu_naissance
     FROM etudiant_valorisation v JOIN etudiant e ON e.id = v.etudiant_id
     WHERE v.ue_num = ? AND v.annee_scolaire = ?
-    ORDER BY e.nom, e.prenom`).all(ueNum, annee);
+    ORDER BY e.nom, e.prenom, v.id`).all(ueNum, annee);
+
+  const parEtudiant = new Map();
+  for (const v of toutes) {
+    if (!parEtudiant.has(v.etudiant_id)) parEtudiant.set(v.etudiant_id, []);
+    parEtudiant.get(v.etudiant_id).push(v);
+  }
+  const contradictions = [];
+  const vas = [];
+  for (const lot of parEtudiant.values()) {
+    // Ce qui fait la décision : accordée ou refusée, et ce qui est dispensé.
+    const empreinte = v => [v.decision || 'accordee', v.type,
+      v.pourcentage == null ? '' : Number(v.pourcentage),
+      v.cible || '', v.cible_detail || ''].join('|');
+    const distinctes = new Set(lot.map(empreinte));
+    if (distinctes.size > 1) {
+      const qui = `${(lot[0].nom || '').toUpperCase()} ${lot[0].prenom || ''}`.trim();
+      const dits = lot.map(v => v.decision === 'refusee' ? 'refus'
+        : v.type === 'complete' ? 'dispense complète' : 'dispense partielle');
+      contradictions.push(`${qui} porte ${lot.length} décisions contraires pour `
+        + `cette unité (${[...new Set(dits)].join(', ')}) : n'en garder qu'une `
+        + `dans l'écran Valorisation des acquis avant d'imprimer`);
+      continue;
+    }
+    vas.push(lot[0]);
+  }
+  vas.sort((a, b) => `${a.nom} ${a.prenom}`.localeCompare(`${b.nom} ${b.prenom}`, 'fr'));
+
   if (!vas.length) {
     return res.status(400).json({
       error: "Aucune valorisation enregistrée pour cette unité cette année." });
@@ -1332,7 +1381,9 @@ r.post('/valorisation/ue/:ueNum/documents', authRequired, async (req, res) => {
   // retrouve plus un an après. Le refus vient du serveur : un écran qui
   // vérifie de son côté ne protège que les chemins auxquels il a pensé.
   const etatSeance = lireSeanceValorisation(ueNum, annee);
-  const manques = manquesValorisation(etatSeance, vas, ue);
+  // La contradiction est un manque comme un autre : elle passe par la même
+  // barrière, et la pièce ne sort pas tant qu'une personne n'a pas tranché.
+  const manques = [...contradictions, ...manquesValorisation(etatSeance, vas, ue)];
   // L'ATTESTATION A SES PROPRES MENTIONS OBLIGATOIRES — domaine d'études,
   // ECTS, répartition par activité, liste des acquis. Elle les signalait déjà,
   // mais dans un coin de la réponse que personne ne lisait : elles rejoignent
