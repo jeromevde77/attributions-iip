@@ -1,8 +1,19 @@
 node_modules/
 dist/
 *.db
+# SQLite écrit DEUX fichiers à côté de la base quand le journal est en mode WAL,
+# et `*.db` ne les attrape pas : un `git add .` distrait poussait un journal de
+# plusieurs mégaoctets — c'est-à-dire des données réelles, dans un dépôt public.
+*.db-wal
+*.db-shm
 *.db.bak
 *.tar
 .env
 backend/data/*.xlsm
 backend/data/*.xlsx
+
+# Configuration de lancement locale (serveur de développement lancé à la main).
+# Elle décrit la machine de celui qui l'écrit, pas le projet. Le reste de
+# .claude/ n'est PAS ignoré : des réglages d'équipe pourraient un jour y vivre,
+# et les masquer d'avance les rendrait invisibles le jour où on en voudra.
+.claude/launch.json
