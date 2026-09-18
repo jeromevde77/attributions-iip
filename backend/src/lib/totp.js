@@ -134,13 +134,28 @@ export function verifierTotp(secretBase32, saisi, {
  * paramètre `issuer` : les applications anciennes ne lisent que le premier, les
  * récentes que le second, et celle qui n'en lit aucun range le compte sous un
  * nom qui ne dit rien le jour où l'on en a trois.
+ *
+ * SURTOUT PAS `URLSearchParams` ICI, ET C'EST TOUT LE PROPOS DE CE COMMENTAIRE.
+ *
+ * Il encode l'espace en « + », convention des FORMULAIRES HTML et non des URI.
+ * Le chemin portait donc « Lucie%20IIP » et le paramètre « Lucie+IIP » : deux
+ * noms pour un seul émetteur. Les applications indulgentes — Google, Microsoft —
+ * devinent et acceptent ; celles qui appliquent la spécification REFUSENT, car
+ * elle demande de rejeter l'URI quand le préfixe du label et `issuer` ne
+ * concordent pas. Le trousseau d'Apple refusait ainsi un QR que les autres
+ * lisaient, ce qui est la pire des pannes : elle ne se voit que chez certains.
+ *
+ * `encodeURIComponent` produit « %20 ». Les deux écritures concordent enfin.
  */
 export function uriOtpauth({ secret, compte, emetteur = 'Lucie IIP' }) {
   const e = encodeURIComponent(emetteur);
   const c = encodeURIComponent(compte);
-  const p = new URLSearchParams({
-    secret, issuer: emetteur, algorithm: 'SHA1',
-    digits: String(NB_CHIFFRES), period: String(PAS_SECONDES),
-  });
-  return `otpauth://totp/${e}:${c}?${p.toString()}`;
+  const parametres = [
+    `secret=${encodeURIComponent(secret)}`,
+    `issuer=${e}`,
+    `algorithm=SHA1`,
+    `digits=${NB_CHIFFRES}`,
+    `period=${PAS_SECONDES}`,
+  ].join('&');
+  return `otpauth://totp/${e}:${c}?${parametres}`;
 }
