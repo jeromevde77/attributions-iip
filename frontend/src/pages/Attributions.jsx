@@ -2215,8 +2215,14 @@ export default function Attributions() {
         </div>
       </VoletRail>
 
-      <div className="hidden md:block">
-        <main className="flex-1 min-w-0">
+      {/* UN SEUL <main> PAR PAGE. Celui-ci était un reste de l'ancienne mise en
+          page, quand le panneau de filtres était posé à côté du tableau : un
+          second <main>, en `flex-1` sans parent flex, dans un `hidden md:block`
+          que chacune des vues portait déjà. Il était invisible tant que les
+          deux <main> recevaient le même retrait — mais la règle de la page est
+          `main:not(:has(> .gouttiere-rail))`, et depuis que l'extérieur porte
+          la gouttière, seul l'intérieur prenait encore ses 2 rem : le tableau
+          se décalait du rail sans que rien ne le dise. */}
 
       {/* VUE PAR SECTION/UE/COURS — tableau unique continu */}
       {viewMode!=='flat' && <div className="hidden md:block">
@@ -2249,8 +2255,6 @@ export default function Attributions() {
           </table>
         )}
       </div>}
-        </main>
-      </div>
 
       {/* VUE MOBILE */}
       <div className="md:hidden">
