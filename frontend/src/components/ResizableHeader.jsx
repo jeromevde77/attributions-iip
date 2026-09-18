@@ -48,7 +48,12 @@ export default function ResizableHeader({
   return (
     <th
       ref={thRef}
-      style={{ width: col.width, minWidth: col.width, maxWidth: col.width, position: 'relative', textAlign: align }}
+      /* UNE COLONNE SOUPLE N'A PAS DE LARGEUR À ELLE : c'est le reste de la
+         table qui la lui donne. Fixée, elle poussait le tableau au-delà de
+         l'écran et forçait un défilement horizontal. */
+      style={col.flex
+        ? { position: 'relative', textAlign: align }
+        : { width: col.width, minWidth: col.width, maxWidth: col.width, position: 'relative', textAlign: align }}
       className={`text-[11px] font-semibold text-gray-600 uppercase tracking-wide px-1 ${isSortable ? 'cursor-pointer select-none hover:bg-gray-100' : ''}`}
       onClick={() => isSortable && onSort(col.key)}
       title={isSortable ? 'Cliquer pour trier · Glisser le bord pour redimensionner' : col.tooltip}

@@ -334,12 +334,18 @@ const DEFAULT_COLS = [
     options: [['','—'],['Q1','Q1'],['Q2','Q2'],['Q1/Q2','Q1/Q2']] },
   { key: 'code_cours',            label: 'Code',       width: 70,  rowClickable: true, coursOnly: true },
   { key: 'nom_cours',             label: 'Cours',      width: 200, rowClickable: true, coursOnly: true },
-  { key: 'activite_nom',          label: 'Activité',   width: 160,
+  /* ACTIVITÉ ET PROFESSEUR SONT LES DEUX COLONNES SOUPLES. Toutes les autres
+     portent un nombre, un badge ou une case : leur largeur est connue d'avance.
+     Ces deux-là portent du texte de longueur quelconque — c'est donc à elles de
+     prendre ce qui reste, et à elles de se rogner quand l'écran est étroit.
+     Fixées, la somme des colonnes dépassait la fenêtre et l'on faisait défiler
+     latéralement pour lire un nom de professeur. */
+  { key: 'activite_nom',          label: 'Activité',   width: 160, flex: true,
     render: v => v || <span className="text-gray-300 text-xs italic">—</span> },
   { key: 'type_cours',            label: 'Type',       width: 56, rowClickable: true, flatOnly: true,
     render: v => { const cls = {CT:'badge-ct',CG:'badge-cc',PP:'badge-pp',Z:'badge-z',B:'badge-b',F:'badge-f',T:'badge-t',P:'badge-p',O:'badge-o'}[v]; return cls ? <span className={`badge ${cls}`}>{v}</span> : (v || '—'); } },
   { key: 'code',                  label: 'Gr.',        width: 92, edit: 'text' },
-  { key: 'professeur_id',         label: 'Professeur', width: 236, edit: 'prof',
+  { key: 'professeur_id',         label: 'Professeur', width: 236, flex: true, edit: 'prof',
     render: (_, row) => row.professeur || <span className="italic text-orange-500">—</span> },
   { key: 'contrat',               label: 'Stat.',      width: 64, edit: 'statut',
     options: [['','—'],['CC','CC'],['EXP','EXP']] },
@@ -1365,7 +1371,7 @@ export default function Attributions() {
       return (
         <tr key={row.id} className={rowBg} title="Activités Z : périodes étudiant, sans enseignant ni coût">
           {colSet.map(c => {
-            const _textCols = ['nom_cours','ue_nom','activite_nom','professeur_id','section','code_cours']; const sty = { width:c.width, minWidth:c.width, maxWidth:c.width, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', textAlign: c.num ? 'right' : _textCols.includes(c.key) ? 'left' : 'center' };
+            const _textCols = ['nom_cours','ue_nom','activite_nom','professeur_id','section','code_cours']; const sty = { ...(c.flex ? {} : { width:c.width, minWidth:c.width, maxWidth:c.width }), overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', textAlign: c.num ? 'right' : _textCols.includes(c.key) ? 'left' : 'center' };
             let v = '';
             if (c.key === 'section') v = row.section;
             else if (c.key === 'ue_num') v = row.ue_num;
@@ -1382,7 +1388,7 @@ export default function Attributions() {
     return (
       <tr key={row.id} className={rowBg} style={aValider ? { boxShadow: 'inset 4px 0 0 #f59e0b' } : undefined}>
         {colSet.map(c => {
-          const _textCols = ['nom_cours','ue_nom','activite_nom','professeur_id','section','code_cours']; const sty = { width:c.width, minWidth:c.width, maxWidth:c.width, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', textAlign: c.num ? 'right' : _textCols.includes(c.key) ? 'left' : 'center' };
+          const _textCols = ['nom_cours','ue_nom','activite_nom','professeur_id','section','code_cours']; const sty = { ...(c.flex ? {} : { width:c.width, minWidth:c.width, maxWidth:c.width }), overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', textAlign: c.num ? 'right' : _textCols.includes(c.key) ? 'left' : 'center' };
           const click = c.rowClickable ? ()=>setEditRow(row) : undefined;
           const cClass = c.rowClickable ? 'cursor-pointer hover:bg-iip-gold/5' : '';
           if (c.key==='__select') return <td key={c.key} className="text-center" style={sty}><input type="checkbox" checked={selected.has(row.id)} onChange={()=>toggleSelect(row.id)} className="cursor-pointer"/></td>;
@@ -1857,8 +1863,8 @@ export default function Attributions() {
           }
         </button>
         {open && (
-          <div className="overflow-auto max-h-[40vh] bg-white fusion-cours">
-            <table className="grid-excel-soft" style={{tableLayout:'fixed'}}>
+          <div className="overflow-y-auto overflow-x-hidden max-h-[40vh] bg-white fusion-cours">
+            <table className="grid-excel-soft w-full" style={{tableLayout:'fixed'}}>
               {montrerHeader && (<thead><tr>
                 {COLS_COURS.map(c => c.key==='__select'
                   ? <th key={c.key} style={{width:c.width,minWidth:c.width,maxWidth:c.width}}>
@@ -1883,7 +1889,7 @@ export default function Attributions() {
                 <tr className="plafonds">
                   {COLS_COURS.map(c => (
                     <th key={c.key}
-                      style={{width:c.width,minWidth:c.width,maxWidth:c.width}}
+                      style={c.flex ? {} : {width:c.width,minWidth:c.width,maxWidth:c.width}}
                       className={c.num ? 'num' : ''}>
                       {c.key==='periodes_attribuees' && plafondPer != null
                         ? `/ ${affPlafond(plafondPer)}`
@@ -2115,7 +2121,7 @@ export default function Attributions() {
             n'était même pas doré, puisque ce nom-là vaut du marine. */}
         <button onClick={()=>toggle(key)} className={`w-full flex items-center gap-3 px-4 py-2.5 tab-repere hover:brightness-[.98] transition text-left border-0 ${open ? 'border-b border-slate-200' : ''}`}>
           <IconChevronRight size={14} className={`transition-transform opacity-50 ${open?'rotate-90':''}`} />
-          <span className="font-semibold text-[15px]">{sg.section}</span>
+          <span className="font-semibold text-sm">{sg.section}</span>
           <div className="flex items-center gap-3 text-sm text-gray-500 flex-shrink-0 ml-auto">
             <span>{sg.ues.length} UE</span>
             <span>{sg.rows.length} attr.</span>
@@ -2162,6 +2168,18 @@ export default function Attributions() {
        retrait, le même des deux côtés, et le 1 rem du haut qui aligne sa
        première ligne sur le haut du rail. */
     <div className="px-3 pt-4 pb-8">
+      {/* L'ÉCRAN N'AVAIT PAS DE TITRE — et c'est ce qui faisait paraître le
+          tableau mal aligné : il commençait plus bas que le rail sans que rien
+          n'occupe la différence. Tous les autres écrans en ont un ; celui-ci,
+          le plus consulté, n'en avait aucun. Il prend donc le format commun,
+          dix-sept pixels, sous-titre sur la même ligne. */}
+      <div className="hidden md:flex items-baseline gap-2.5 min-w-0 mb-2.5">
+        <h1 className="titre-ecran flex-shrink-0 mb-0">Attributions</h1>
+        <p className="text-[13px] text-slate-400 truncate">
+          <span className="mr-2 text-slate-300">·</span>
+          {data.length} attribution{data.length > 1 ? 's' : ''} · {getAnnee()}
+        </p>
+      </div>
       {/* (bandeau perte de charge déplacé en bas de page) */}
 
       {/* Barre mobile */}
