@@ -193,29 +193,53 @@ export function piedStyles(hauteur = HAUTEUR_PIED_MM, margeHaut = 18) {
  */
 export function stylesEntete() {
   return `
+  /* L'AXE DÉPLACÉ — variante A, choisie le 18 septembre 2026.
+   *
+   * Le dessin précédent empilait TROIS blocs sur le même axe centré, chacun
+   * dans sa boîte : bandeau entre deux filets, identité centrée, puis un
+   * rectangle complet autour du titre, et un filet doré qui flottait en
+   * dessous sans rien tenir. Quatre traits horizontaux avant la première ligne
+   * de contenu, et un titre ENFERMÉ — la convention du formulaire
+   * administratif, pas celle d'une pièce qu'on est content de sortir.
+   *
+   * ON QUITTE LE CENTRE. Ce qui change :
+   *   — le bandeau du régime perd ses filets et sa graisse, et passe à gauche :
+   *     c'est une mention de cadre, elle se lit, elle ne s'annonce pas ;
+   *   — l'identité s'aligne à gauche — le nom, l'adresse dessous — et les
+   *     RÉFÉRENCES OPPOSABLES (matricule, FASE) passent à droite, sur la même
+   *     ligne : c'est là qu'un contrôle les cherche, et elles n'encombrent plus
+   *     la lecture du nom ;
+   *   — un seul filet gris sépare l'identité de la pièce ;
+   *   — le rectangle de titre disparaît : le FILET DORÉ devient VERTICAL et
+   *     PORTE le titre à gauche. L'accent sert la structure au lieu de décorer.
+   * Un trait horizontal au lieu de quatre, et l'or a une raison d'être là. */
   .doc-entete { margin: 0 0 7mm; }
-  /* Le bandeau du régime, entre deux filets : il dit sous quelle autorité la
-     pièce est délivrée, et c'est la première chose qu'un contrôle cherche. */
-  .doc-cf { font-size: 7pt; letter-spacing: 1.1pt; text-align: center;
-            color: #1B2B4B; font-weight: 600;
-            border-top: 0.25mm solid #1B2B4B; border-bottom: 0.25mm solid #1B2B4B;
-            padding: 0.8mm 0; margin-bottom: 3mm; }
-  /* L'identité, centrée : le nom d'abord, puis ce qui la rend opposable. */
-  .doc-ident-c { text-align: center; font-size: 8pt; color: #6e6e73;
-                 line-height: 1.4; margin-bottom: 3.5mm; }
-  .doc-ident-c b { display: block; font-size: 10.5pt; color: #1B2B4B;
-                   letter-spacing: -.1pt; }
-  .doc-ident-c span { display: inline; }
-  .doc-ident-c span + span::before { content: ' · '; color: #a1a1a6; }
-  /* Le cadre de titre : ce que c'est, et sur quoi ça porte. */
-  .doc-cadre { border: 0.3mm solid #1B2B4B; border-radius: 1.5mm;
-               padding: 2mm 4mm; text-align: center; }
-  .doc-cadre-t { font-size: 11pt; font-weight: 700; color: #1B2B4B;
-                 letter-spacing: .2pt; text-transform: uppercase; }
-  .doc-cadre-s { font-size: 8.5pt; color: #6e6e73; margin-top: 0.6mm; }
+  /* Le régime sous lequel la pièce est délivrée : en tête et en capitales,
+     mais gris — il encadre le document sans en être le sujet. */
+  .doc-cf { font-size: 6.5pt; letter-spacing: 1.3pt; text-align: left;
+            color: #8A93A3; font-weight: 700; margin-bottom: 4mm; }
+  /* L'IDENTITÉ : le nom à gauche, ce qui la rend opposable à droite. */
+  .doc-ident-c { display: flex; align-items: flex-start;
+                 justify-content: space-between; gap: 10mm;
+                 padding-bottom: 3mm; margin-bottom: 0;
+                 border-bottom: 0.25mm solid #D8DCE4; }
+  .doc-ident-n { font-size: 13pt; font-weight: 700; color: #1B2B4B;
+                 letter-spacing: -.3pt; line-height: 1.1; }
+  .doc-ident-a { font-size: 7.5pt; color: #6e6e73; margin-top: 1mm; }
+  .doc-ident-r { text-align: right; font-size: 7pt; color: #8A93A3;
+                 line-height: 1.6; white-space: nowrap; }
+  .doc-ident-r b { color: #1B2B4B; font-weight: 600; }
+  /* LE TITRE N'EST PLUS DANS UNE CASE : L'OR LE PORTE. Barre verticale dorée
+     à gauche — l'accent devient l'attache du titre, au lieu d'un quatrième
+     trait posé en dessous sans fonction. */
+  .doc-cadre { margin-top: 6mm; padding: 0 0 0 4mm;
+               border-left: 1.2mm solid #C9A84C; text-align: left; }
+  .doc-cadre-t { font-size: 15pt; font-weight: 700; color: #1B2B4B;
+                 letter-spacing: -.4pt; line-height: 1.1; }
+  .doc-cadre-s { font-size: 8.5pt; color: #6e6e73; margin-top: 1.2mm; }
   .doc-cadre-l { font-size: 8pt; color: #6e6e73; margin-top: 0.4mm; }
-  .doc-filet-or { height: 0.6mm; background: #C9A84C; border-radius: 0.3mm;
-                  margin: 2.5mm 0 0; }`;
+  /* Conservé pour les pièces à forme imposée qui ferment encore d'un filet. */
+  .doc-filet-or { height: 0.6mm; background: #C9A84C; margin-top: 2.5mm; }`;
 }
 
 /**
@@ -243,6 +267,12 @@ export function enteteDocument({ titre, sous = null, mention = null,
     etab.matricule ? `Matricule ${esc(etab.matricule)}` : null,
     etab.fase ? `FASE ${esc(etab.fase)}` : null,
   ].filter(Boolean).join(' · ');
+  /* À DROITE, LES RÉFÉRENCES SE LISENT L'UNE SOUS L'AUTRE : c'est ainsi qu'on
+     les recopie sur un formulaire, pas en une ligne séparée de points. */
+  const refsLignes = [
+    etab.matricule ? `Matricule <b>${esc(etab.matricule)}</b>` : null,
+    etab.fase ? `FASE <b>${esc(etab.fase)}</b>` : null,
+  ].filter(Boolean).join('<br>');
 
   /* L'EN-TÊTE VALIDÉ — LE MÊME POUR LES QUARANTE ET UNE PIÈCES.
    *
@@ -261,16 +291,17 @@ export function enteteDocument({ titre, sous = null, mention = null,
   return `<div class="doc-entete">
     <div class="doc-cf">COMMUNAUTÉ FRANÇAISE DE BELGIQUE — ENSEIGNEMENT POUR ADULTES</div>
     <div class="doc-ident-c">
-      <b>${esc(etab.nom || 'Institut Ilya Prigogine')}</b>
-      ${etab.adresse ? `<span>${esc(etab.adresse)}</span>` : ''}
-      ${refs ? `<span>${refs}</span>` : ''}
+      <div>
+        <div class="doc-ident-n">${esc(etab.nom || 'Institut Ilya Prigogine')}</div>
+        ${etab.adresse ? `<div class="doc-ident-a">${esc(etab.adresse)}</div>` : ''}
+      </div>
+      ${refsLignes ? `<div class="doc-ident-r">${refsLignes}</div>` : ''}
     </div>
     <div class="doc-cadre">
       <div class="doc-cadre-t">${esc(titre)}</div>
       ${sous ? `<div class="doc-cadre-s">${esc(sous)}</div>` : ''}
       ${ligne ? `<div class="doc-cadre-l">${esc(ligne)}</div>` : ''}
     </div>
-    <div class="doc-filet-or"></div>
     ${mention ? `<div class="doc-titre-m">${esc(mention)}</div>` : ''}
   </div>`;
 }
