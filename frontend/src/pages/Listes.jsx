@@ -1318,7 +1318,13 @@ export default function Listes({ integre = false }) {
   }
 
   const apercuHtml = rapportHtml ? htmlAvecOrientation(rapportHtml.html || rapportHtml, rapportHtml.nom) : null;
-  const estRapport = def.rapport || def.grille;
+  /* UNE PIÈCE QUI COMPOSE SON PROPRE CORPS N'A PAS DE COLONNES À COCHER.
+     « Grille de cours » se déclare par `heuresContact`, et ni `rapport` ni
+     `grille` : elle tombait donc du côté des listes de données, où l'on met en
+     page des colonnes — elle n'en a aucune, et le serveur répondait « Aucune
+     colonne à mettre en page » sous une barre de boutons qui ne pouvaient pas
+     marcher. Un bouton qui ne peut rien faire est pire qu'un bouton absent. */
+  const estRapport = def.rapport || def.grille || def.heuresContact;
 
   const GROUPES_LABEL = { data: 'Listes de données', rapport: 'Rapports' };
   const ordreGroupes = ['data', 'rapport'];
@@ -1546,6 +1552,15 @@ export default function Listes({ integre = false }) {
                 }}
                 className="text-sm border border-iip-blue text-iip-blue hover:bg-slate-100 px-3 py-2 rounded-lg font-medium flex items-center gap-1.5">
                 <IconPrinter size={16} /> Imprimer / PDF
+              </button>
+            )}
+            {/* LES QUATRE SORTIES SONT LES MÊMES PARTOUT. Envoyer n'existait
+                que pour les listes de colonnes : une pièce composée partait
+                donc par un autre chemin, ou pas du tout. */}
+            {apercuHtml && (
+              <button onClick={() => setEnvoi([{ html: apercuHtml, nom_fichier: `${nomFichier}.pdf` }])}
+                className="text-sm border border-iip-turquoise text-iip-turquoise hover:bg-cyan-50 px-3 py-2 rounded-lg font-medium flex items-center gap-1.5">
+                <IconSend size={16} /> Envoyer
               </button>
             )}
             <button onClick={async () => {
