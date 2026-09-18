@@ -1918,8 +1918,31 @@ r.post('/import-dp', authRequired, roleRequired('admin', 'editeur'), async (req,
     const parsed = await parseDossierPedagogique(buffer);
     const { ue: ueData, cours: coursData, acquis: acquisData = [] } = parsed;
 
+    /* LE NOM DU FICHIER EST UNE SOURCE, PAS UNE DÉCORATION.
+     *
+     * L'école nomme ces pièces par leur code —
+     * « 824132U21V1 Formation complémentaire … .docx » — et l'écran affichait
+     * ce code, en gras, juste avant d'annoncer qu'il était introuvable. Le nom
+     * n'était simplement jamais envoyé au serveur : on jetait la réponse qu'on
+     * avait sous les yeux pour la chercher ailleurs.
+     *
+     * Le document reste la source de référence : on ne lit le nom que
+     * lorsqu'il n'a rien donné, et la réponse dit d'où vient le code, pour que
+     * personne ne découvre six mois plus tard qu'une unité a été créée sur la
+     * foi d'un nom de fichier.
+     */
+    let codeDepuisNom = false;
+    if (!ueData.ue_code_fwb) {
+      const nom = decodeURIComponent(String(req.query.fichier || ''));
+      const m = nom.match(/(\d{6}\s*U\s*\d+\s*[A-Z]\s*\d+)/i);
+      if (m) {
+        ueData.ue_code_fwb = m[1].replace(/\s+/g, '').toUpperCase();
+        codeDepuisNom = true;
+      }
+    }
+
     if (!ueData.ue_code_fwb) return res.status(422).json({
-      error: 'Code FWB introuvable dans le document',
+      error: 'Code FWB introuvable — ni dans le document, ni dans le nom du fichier',
       parsed,
     });
 
@@ -1943,6 +1966,7 @@ r.post('/import-dp', authRequired, roleRequired('admin', 'editeur'), async (req,
         ue_num: existing?.ue_num || '(nouveau)',
         annee,
         section,
+        code_depuis_nom: codeDepuisNom,
         parsed,
       });
     }
@@ -2035,6 +2059,7 @@ r.post('/import-dp', authRequired, roleRequired('admin', 'editeur'), async (req,
     } catch (e) { console.error('[import-dp] acquis :', e.message); }
 
     res.json({ ok: true, action, ue_num: ueNum, annee,
+               code_depuis_nom: codeDepuisNom,
                cours_crees: coursCrees, cours_existants: coursExistants,
                aa_crees: aaCrees, aa_mis_a_jour: aaExistants,
                parsed: { ue: ueData, cours: coursData, acquis: acquisData } });

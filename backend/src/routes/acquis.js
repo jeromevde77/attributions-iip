@@ -31,6 +31,7 @@ import { identiteEtablissement } from './config.js';
 // d'ajournement ou de refus, procès-verbal — partagent une seule mise en page.
 // Le contenu légal diffère ; la charte, non.
 import { envelopper, unitesReussies, pageAttestation, frDate } from './attestations.js';
+import { enteteDocument, stylesEntete } from '../lib/document.js';
 import { motifPropose } from '../lib/motifPropose.js';
 import { migrerReprise, simulerReprise, appliquerReprise, forcerCloture,
          MOTIF_REPRISE, MENTION_REPRISE } from '../lib/repriseHistorique.js';
@@ -1301,34 +1302,18 @@ export function documentMotivation(etudId, ueNum, annee, session = 1) {
 
   const corps = `
 <div class="attestation piece">
-  <div class="entete">
-    <div class="cf">COMMUNAUTÉ FRANÇAISE DE BELGIQUE</div>
-    <div class="epa">ENSEIGNEMENT POUR ADULTES</div>
-    <div class="annee">Année scolaire / académique ${esc2(String(annee).replace('-', '/'))}</div>
-  </div>
-
-  <div class="etab">
-    <div>
-      <div class="nom">${esc2(ident.nom || 'Institut Ilya Prigogine')}</div>
-      <div>${esc2(ident.adresse || '')}</div>
-    </div>
-    <div class="ident">
-      Matricule ${esc2(ident.matricule || etab.num_ecot || '……………')}<br>
-      FASE ${esc2(ident.fase || etab.num_fase || '……………')}
-    </div>
-  </div>
-
-  <!-- Le cartouche : cette pièce N'EST PAS une attestation de réussite, et
-       cela doit se voir avant même d'être lu. -->
-  <div class="decision ${estRefus ? 'refus' : 'ajourne'}">
-    <div class="quoi">MOTIVATION D'UNE DÉCISION ${estRefus ? 'DE REFUS' : "D'AJOURNEMENT"}</div>
-    <div class="sous">${estRefus
-      ? "Annexe 9 — circulaire « Sanction des études »"
-      : "Annexe 8 — circulaire « Sanction des études »"}</div>
-  </div>
-
-  <h2>${esc2((ue.ue_nom || `UE ${ueNum}`).toUpperCase())}</h2>
-  <div class="filet"></div>
+  ${enteteDocument({
+    titre: `Motivation d'une décision ${estRefus ? 'de refus' : "d'ajournement"}`,
+    sous: ue.ue_nom || `UE ${ueNum}`,
+    ligne: `Année ${String(annee).replace('-', '/')} · `
+         + (estRefus ? 'Annexe 9' : 'Annexe 8')
+         + " — circulaire « Sanction des études »",
+  })}
+  <!-- LE CARTOUCHE DE DÉCISION DISPARAÎT, ET C'EST VOULU. Il existait parce
+       que l'en-tête ne disait pas ce qu'était la pièce : il fallait un second
+       encadré pour annoncer « ceci n'est pas une attestation de réussite ».
+       Le cadre de titre le dit désormais, et l'annexe avec. Deux encadrés qui
+       disent la même chose, c'est un de trop. -->
 
   <div class="carac">
     <div class="large">Code approuvé par le Gouvernement :
@@ -5552,36 +5537,15 @@ r.get('/deliberation/ue/:ueNum/documents', authRequired, (req, res) => {
  * session, la date de la séance et l'année scolaire.
  */
 const STYLE_ENTETE_DELIB = `<style>
-  .delib-cf { text-align: center; padding: 3.5mm 6mm;
-    border-top: 0.3mm solid #C9A84C; border-bottom: 0.3mm solid #C9A84C; }
-  .delib-cf .cf { font-size: 8pt; letter-spacing: .7pt; color: #1B2B4B; font-weight: 600; }
-  .delib-cf .epa { font-size: 10.5pt; font-weight: 700; letter-spacing: .5pt;
-    color: #1B2B4B; margin-top: 1mm; }
-  .delib-cf .an { font-size: 8.5pt; margin-top: 1.2mm; color: #475569; }
-  /* PAS DE FILET SOUS L'IDENTITÉ : le cadre du titre, juste en dessous, sépare
-     déjà. Un trait de plus ne dit rien que le cadre ne dise. */
-  .delib-etab { display: flex; justify-content: space-between; gap: 6mm;
-    padding: 3mm 0 0; font-size: 8pt; color: #475569; }
-  .delib-etab .nom { font-weight: 600; color: #1B2B4B; font-size: 9pt; }
-  .delib-etab .ident { text-align: right; white-space: nowrap; }
-  /* LE TITRE DANS SON CADRE MARINE, comme les autres pièces de la maison. */
-  .delib-titre { border: 0.4mm solid #1B2B4B; border-radius: 1.5mm;
-    padding: 3mm 4mm; margin: 5mm 0 2mm; text-align: center; }
-  /* LA SECTION, EN TÊTE DU CADRE : c'est la première chose qu'on cherche sur
-     une pile de documents, avant même le nom de la pièce. */
-  /* LA SECTION SE DISTINGUE PAR SA COULEUR ET SA CASSE, pas par un trait :
-     un filet à l'intérieur d'un cadre, c'est un cadre coupé en deux. */
-  .delib-titre .sect { font-size: 8.5pt; font-weight: 700; letter-spacing: 1pt;
-    text-transform: uppercase; color: #8a6d2f; margin-bottom: 2mm; }
-  .delib-titre .quoi { font-size: 12pt; font-weight: 700; color: #1B2B4B;
-    letter-spacing: .3pt; }
-  .delib-titre .ue { font-size: 10pt; color: #1B2B4B; margin-top: 1mm; }
-  /* Le petit trait doré sous le cadre faisait un SIXIÈME filet avant la
-     première ligne de contenu. Il ne séparait rien : le cadre s'en charge. */
-  .delib-filet { display: none; }
+  /* L'EN-TÊTE VIENT DE L'ENVELOPPE COMMUNE. Ce bloc portait un second dessin
+     du même en-tête, sous des noms de classes à lui : bandeau, identité, cadre
+     de titre, filet. Il fallait donc corriger deux fois, et on ne l'a jamais
+     fait qu'une. Ne reste ici que ce qui appartient vraiment à la grille : la
+     session et la date de séance. */
+  ${stylesEntete()}
   /* LA SESSION ET SA DATE, en évidence : c'est ce qui manquait le plus. */
   .delib-seance { display: flex; justify-content: center; gap: 4mm; flex-wrap: wrap;
-    font-size: 8.5pt; color: #1B2B4B; margin-bottom: 4mm; }
+    font-size: 8.5pt; color: #1B2B4B; margin: 3mm 0 4mm; }
   .delib-seance span { background: #eff6ff; border: 0.3mm solid #c7d7f0;
     border-radius: 1.2mm; padding: 1mm 2.5mm; }
   .delib-seance b { font-weight: 700; }
@@ -5638,27 +5602,19 @@ function enteteDelib(ueNum, annee, session, quoi, { total = false } = {}) {
     : (session === 2 ? 'Seconde session' : 'Première session');
   const teinte = total ? 'delib-total' : (session === 2 ? 'delib-s2' : '');
 
-  return `<div class="delib-cf">
-    <div class="cf">COMMUNAUTÉ FRANÇAISE DE BELGIQUE</div>
-    <div class="epa">ENSEIGNEMENT POUR ADULTES</div>
-    <div class="an">Année scolaire ${e(String(annee).replace('-', '/'))}</div>
-  </div>
-  <div class="delib-etab">
-    <div>
-      <div class="nom">${e(ident.nom || 'INSTITUT ILYA PRIGOGINE')}</div>
-      <div>${e(ident.adresse || '')}</div>
-    </div>
-    <div class="ident">
-      ${ident.matricule ? `Matricule ${e(ident.matricule)}<br>` : ''}
-      ${ident.fase ? `FASE ${e(ident.fase)}` : ''}
-    </div>
-  </div>
-  <div class="delib-titre">
-    ${sectionLisible ? `<div class="sect">${e(sectionLisible)}</div>` : ''}
-    <div class="quoi">${e(String(quoi).toUpperCase())}</div>
-    <div class="ue">UE ${ueNum}${ue.ue_nom ? ` — ${e(ue.ue_nom)}` : ''}</div>
-  </div>
-  <div class="delib-filet"></div>
+  /* LA GRILLE EST UN DOCUMENT DU CONSEIL, PAS UNE PIÈCE D'ÉTUDIANT — mais elle
+     sort de la même école, et son en-tête n'a aucune raison d'être dessiné à
+     part. Elle portait son propre jeu de classes (`delib-cf`, `delib-etab`,
+     `delib-titre`, `delib-filet`) : le même dessin écrit une deuxième fois,
+     donc le même dessin à corriger deux fois. Ce qui lui reste en propre est
+     ce qui lui appartient vraiment : la session, la séance, les cotes de
+     travail. */
+  return `${enteteDocument({
+    titre: String(quoi),
+    sous: [sectionLisible, `UE ${ueNum}${ue.ue_nom ? ` — ${ue.ue_nom}` : ''}`]
+      .filter(Boolean).join(' · '),
+    ligne: `Année scolaire ${String(annee).replace('-', '/')}`,
+  })}
   <div class="delib-seance">
     <span class="${teinte}"><b>${e(quelle)}</b></span>
     ${dateFr ? `<span>Séance du <b>${e(dateFr)}</b>${
@@ -6844,29 +6800,14 @@ export function documentPV(ueNum, annee, session = 1) {
 
   const corps = `
 <div class="attestation piece">
-  <div class="entete">
-    <div class="cf">COMMUNAUTÉ FRANÇAISE DE BELGIQUE</div>
-    <div class="epa">ENSEIGNEMENT POUR ADULTES</div>
-    <div class="annee">Année scolaire / académique ${esc(String(annee).replace('-', '/'))}
-      · ${/sup|bach|bes|master/i.test(ue.ue_niveau || ue.ue_niv || sec?.niveau || '')
-        ? 'Enseignement supérieur' : 'Enseignement secondaire'}</div>
-  </div>
-
-  <div class="etab">
-    <div>
-      <div class="nom">${esc(ident.nom || etab.etab_nom || '')}</div>
-      <div>${esc(ident.adresse || etab.adresse || '')}</div>
-    </div>
-    <div class="ident">
-      Matricule ${esc(ident.matricule || etab.num_ecot || '……………')}<br>
-      FASE ${esc(ident.fase || etab.num_fase || '……………')}
-    </div>
-  </div>
-
-  <h1>PROCÈS-VERBAL DE DÉLIBÉRATION D'UNE UNITÉ D'ENSEIGNEMENT${
-    integree ? ' « ÉPREUVE INTÉGRÉE »' : ''}</h1>
-  <h2>${esc((ue.ue_nom || `UE ${ueNum}`).toUpperCase())}</h2>
-  <div class="filet"></div>
+  ${enteteDocument({
+    titre: "Procès-verbal de délibération d'une unité d'enseignement"
+         + (integree ? ' « épreuve intégrée »' : ''),
+    sous: ue.ue_nom || `UE ${ueNum}`,
+    ligne: `Année ${String(annee).replace('-', '/')} · `
+         + (/sup|bach|bes|master/i.test(ue.ue_niveau || ue.ue_niv || sec?.niveau || '')
+            ? 'Enseignement supérieur' : 'Enseignement secondaire'),
+  })}
 
   <div class="carac">
     <div class="large">Code approuvé par le Gouvernement :

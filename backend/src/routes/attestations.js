@@ -15,7 +15,7 @@
 
 import { Router } from 'express';
 import { LOGO_IIP_JPEG } from '../services/assets/logo_iip_jpeg.js';
-import { piedBalisage, piedStyles, reglesDePage,
+import { piedBalisage, piedStyles, reglesDePage, stylesEntete, enteteDocument,
   BANDE_PIED_MM, MARGE_SOUS_PIED_MM, piedGabaritPdf } from '../lib/document.js';
 import db from '../db/index.js';
 import { authRequired, getUserSections } from '../middleware/auth.js';
@@ -352,28 +352,25 @@ export function envelopper(corps, titre = 'Attestations de réussite') {
   /* Bandeau marine et filet doré, comme les autres documents de la maison. */
   /* Mention encadrée de deux filets dorés, plutôt qu'en réserve sur marine :
      c'est la présentation des attestations de réussite. */
-  /* Filets dorés FINS : à 0,9 mm ils faisaient bandeau et écrasaient le titre.
-     Un filet doit se voir sans peser. */
-  .entete { text-align: center; padding: 3.5mm 6mm;
-    border-top: 0.3mm solid #C9A84C; border-bottom: 0.3mm solid #C9A84C; }
-  .entete .cf { font-size: 8pt; letter-spacing: .7pt; color: #1B2B4B; font-weight: 600; }
-  .entete .epa { font-size: 10.5pt; font-weight: 700; letter-spacing: .5pt;
-    color: #1B2B4B; margin-top: 1mm; }
-  .entete .annee { font-size: 8.5pt; margin-top: 1.2mm; color: #475569; }
-
-  /* Pas de filet sous l'identité : le bandeau au-dessus est déjà tenu par deux
-     traits dorés, et le titre en dessous porte le sien. Trois filets pour
-     quatre centimètres de papier, c'est deux de trop. */
-  .etab { display: flex; justify-content: space-between; gap: 6mm;
-          padding: 3mm 0 0; font-size: 8pt; color: #475569; }
-  .etab .nom { font-weight: 600; color: #1B2B4B; font-size: 9pt; }
-  .etab .ident { text-align: right; white-space: nowrap; }
-
-  h1 { font-size: 10.5pt; text-align: center; margin: 5mm 0 1mm; font-weight: 600;
-       letter-spacing: .3pt; color: #1B2B4B; }
-  h2 { font-size: 12pt; text-align: center; margin: 0 0 1.5mm; font-weight: 700;
-       color: #1B2B4B; }
-  .filet { width: 40mm; height: 0.3mm; background: #C9A84C; margin: 0 auto 4mm; }
+  /* L'EN-TÊTE VIENT DE L'ENVELOPPE COMMUNE, IL N'EST PLUS REDESSINÉ ICI.
+   *
+   * Ces quelques lignes étaient la DIXIÈME enveloppe que l'audit demandait de
+   * supprimer, et la plus servie de toutes : attestations, diplômes, PV de
+   * valorisation, grilles de délibération, et TOUS les aperçus du centre
+   * d'éditions passent par cette enveloppe. L'en-tête validé était donc écrit
+   * pour les rapports seuls, et les pièces qu'on imprime le plus gardaient un
+   * bandeau doré, un titre en 10,5 pt et aucun cadre. Deux dessins pour une
+   * même pièce : c'est toujours celui qu'on n'a pas corrigé qui sort de
+   * l'imprimante.
+   *
+   * Sur une pièce nominative, l'en-tête se répète à CHAQUE page — une
+   * attestation par étudiant, cinq cents pages, cinq cents en-têtes : c'est le
+   * corps de la pièce qui l'appelle, pas l'enveloppe. Les mesures, elles, sont
+   * les mêmes qu'ailleurs, parce qu'elles viennent du même endroit. */
+  ${stylesEntete()}
+  /* L'en-tête d'une pièce nominative ferme plus serré : la page porte déjà un
+     cadre de titre, un tableau et un bloc de signatures. */
+  .attestation .doc-entete { margin-bottom: 4.5mm; }
 
   /* Caractéristiques de l'unité, en deux colonnes pour gagner de la hauteur. */
   .carac { display: grid; grid-template-columns: 1fr 1fr; gap: 1mm 6mm;
@@ -638,27 +635,12 @@ export function pageAttestationValorisation(e, u, annee, etab, va,
     : '<i style="color:#b45309">répartition par activité à compléter</i>';
 
   return `<div class="attestation">
-  <div class="entete">
-    <div class="cf">COMMUNAUTÉ FRANÇAISE DE BELGIQUE</div>
-    <div class="epa">ENSEIGNEMENT POUR ADULTES</div>
-    <div class="annee">Année ${u.superieur ? 'académique' : 'scolaire'}
-      ${esc(String(annee).replace('-', '/'))}</div>
-  </div>
-
-  <div class="etab">
-    <div>
-      <div class="nom">${esc(ident.nom || 'Institut Ilya Prigogine')}</div>
-      <div>${esc(ident.adresse || '')}</div>
-    </div>
-    <div class="ident">
-      Matricule ${esc(ident.matricule || etab.num_ecot || '……………')}<br>
-      FASE ${esc(ident.fase || etab.num_fase || '……………')}
-    </div>
-  </div>
-
-  <h1>ATTESTATION DE RÉUSSITE VALORISATION DE L'UNITÉ D'ENSEIGNEMENT</h1>
-  <h2>${esc((u.ue_nom || '').toUpperCase())}</h2>
-  <div class="filet"></div>
+  ${enteteDocument({
+    titre: "Attestation de réussite — valorisation de l'unité d'enseignement",
+    sous: u.ue_nom || null,
+    ligne: `Année ${u.superieur ? 'académique' : 'scolaire'} `
+         + `${String(annee).replace('-', '/')}`,
+  })}
 
   <div class="carac">
     <div>${esc(u.type_enseignement)}</div>
@@ -749,27 +731,12 @@ export function pageAttestation(e, u, annee, etab, dateDoc = null,
 
   return `
 <div class="attestation">
-  <div class="entete">
-    <div class="cf">COMMUNAUTÉ FRANÇAISE DE BELGIQUE</div>
-    <div class="epa">ENSEIGNEMENT POUR ADULTES</div>
-    <div class="annee">Année académique ${esc(annee.replace('-', '/'))}</div>
-  </div>
-
-  <div class="etab">
-    <div>
-      <div class="nom">${esc(ident.nom || 'Institut Ilya Prigogine')}</div>
-      <div>${esc(ident.adresse || '')}</div>
-    </div>
-    <div class="ident">
-      Matricule ${esc(etab.num_matricule || '2.132.070')}<br>
-      FASE ${esc(ident.fase || '292')}
-    </div>
-  </div>
-
-  <h1>ATTESTATION DE RÉUSSITE DE L'UNITÉ D'ENSEIGNEMENT${
-    u.epreuve_integree ? ' « ÉPREUVE INTÉGRÉE »' : ''}</h1>
-  <h2>${esc((u.ue_nom || '').toUpperCase())}</h2>
-  <div class="filet"></div>
+  ${enteteDocument({
+    titre: "Attestation de réussite de l'unité d'enseignement"
+         + (u.epreuve_integree ? ' « épreuve intégrée »' : ''),
+    sous: u.ue_nom || null,
+    ligne: `Année académique ${String(annee).replace('-', '/')}`,
+  })}
 
   <div class="carac">
     <!-- LA SECTION, EN TÊTE DES CARACTÉRISTIQUES.
@@ -1153,7 +1120,7 @@ function lireSeanceValorisation(ueNum, annee) {
  * pages n'y figure pas — il ne se connaît qu'une fois la pièce composée, et
  * demander de le deviner avant serait demander de l'inventer.
  */
-function manquesValorisation({ seance, membres, quorum }, vas, ue) {
+function manquesValorisation({ seance, membres, quorum }, vas, ue, annee = null) {
   const m = [];
   if (!seance) m.push("La séance de valorisation n'a pas encore été ouverte.");
   else {
@@ -1170,13 +1137,41 @@ function manquesValorisation({ seance, membres, quorum }, vas, ue) {
   // incomplète : elle la rend irrégulière.
   if (!ue?.ue_code_fwb) m.push("Numéro de code de l'unité approuvé par le Gouvernement.");
   if (ue?.ue_num != null) {
-    const cours = db.prepare(`SELECT cours_code, cours_nom, cours_per FROM cours
-      WHERE ue_num = ? AND annee_scolaire = ?`).all(ue.ue_num, ue.annee_scolaire);
+    /* LA BARRIÈRE ET LA PIÈCE DOIVENT CHERCHER AU MÊME ENDROIT.
+     *
+     * Ce contrôle exigeait des cours sur `ue.annee_scolaire` — l'année de la
+     * FICHE D'UNITÉ trouvée, qui n'est pas forcément celle de la séance : la
+     * recherche de l'unité accepte un millésime antérieur quand l'année
+     * demandée n'a pas encore sa fiche. On interrogeait donc une année, on
+     * parlait d'une autre, et le message disait « cette année » en désignant
+     * la mauvaise.
+     *
+     * Pire, `decrireUnite` cherche les cours avec un REPLI sur le millésime le
+     * plus récent, là où ce contrôle exigeait une correspondance exacte : la
+     * pièce affichait donc la répartition par activité pendant que la barrière
+     * jurait qu'il n'y en avait aucune, et refusait d'imprimer ce qu'elle
+     * savait pourtant produire. Deux règles pour une même question, c'en est
+     * une de trop.
+     *
+     * Même recherche des deux côtés : l'année de la séance d'abord, le
+     * millésime le plus récent à défaut.
+     */
+    const anneeRef = annee || ue.annee_scolaire;
+    const cours = db.prepare(`SELECT cours_code, cours_nom, cours_per, annee_scolaire FROM cours
+      WHERE ue_num = ? AND cours_code IS NOT NULL
+      ORDER BY (annee_scolaire = ?) DESC, annee_scolaire DESC, cours_code`)
+      .all(ue.ue_num, anneeRef);
     if (!cours.length) {
       m.push("Répartition par activité d'enseignement : aucun cours n'est encodé "
-        + 'pour cette unité cette année.');
+        + `pour l'unité ${ue.ue_num}, quelle que soit l'année.`);
     } else {
-      for (const c of cours.filter(c => !c.cours_per)) {
+      // Un même cours peut figurer sous plusieurs millésimes : on n'en garde
+      // qu'un, le plus proche de l'année demandée — c'est exactement ce que
+      // `decrireUnite` imprimera. Sans cela, on réclamerait deux fois les
+      // périodes du même cours, une fois par millésime.
+      const vus = new Set();
+      const retenus = cours.filter(c => !vus.has(c.cours_nom) && vus.add(c.cours_nom));
+      for (const c of retenus.filter(c => !c.cours_per)) {
         m.push(`Périodes du cours ${c.cours_code} — ${c.cours_nom}.`);
       }
     }
@@ -1231,7 +1226,7 @@ r.get('/valorisation/ue/:ueNum/seance', authRequired, (req, res) => {
     // absent ce jour-là, et le procès-verbal doit dire qui a présidé.
     president_propose: directeur ? nomPropreDepuisChaine(directeur) : null,
     nb: vas.length,
-    manques: manquesValorisation(etat, vas, ue),
+    manques: manquesValorisation(etat, vas, ue, annee),
   });
 });
 
@@ -1301,7 +1296,7 @@ r.put('/valorisation/ue/:ueNum/seance', authRequired, (req, res) => {
     SELECT v.*, e.nom, e.prenom, e.date_naissance, e.lieu_naissance
       FROM etudiant_valorisation v JOIN etudiant e ON e.id = v.etudiant_id
      WHERE v.ue_num = ? AND v.annee_scolaire = ?`).all(ueNum, annee);
-  res.json({ ok: true, ...etat, manques: manquesValorisation(etat, vas, ue) });
+  res.json({ ok: true, ...etat, manques: manquesValorisation(etat, vas, ue, annee) });
 });
 
 r.post('/valorisation/ue/:ueNum/documents', authRequired, async (req, res) => {
@@ -1311,11 +1306,60 @@ r.post('/valorisation/ue/:ueNum/documents', authRequired, async (req, res) => {
   const ident = identiteEtablissement();
   const etab = db.prepare('SELECT * FROM etablissement LIMIT 1').get() || {};
 
-  const vas = db.prepare(`
+  /* UNE DÉCISION PAR ÉTUDIANT ET PAR UNITÉ — ET SI ELLES SE CONTREDISENT,
+   * RIEN NE S'IMPRIME.
+   *
+   * Rien n'empêchait un étudiant de porter PLUSIEURS valorisations pour la
+   * même unité et la même année, et le procès-verbal les imprimait toutes.
+   * Une étudiante refusée par le Conseil ressortait donc sur la pièce avec
+   * deux lignes — « Refus », puis « Réussite » —, et l'attestation de réussite
+   * partait avec. La seconde venait du parcours : y marquer une unité
+   * « valorisée » créait une dispense complète à 10/20, sans décision, sans
+   * séance et sans preuve, À CÔTÉ du refus au lieu de le remplacer.
+   *
+   * On ne choisit PAS entre les deux. Garder « la plus récente » aurait ici
+   * retenu la ligne fantôme, qui est la dernière écrite — et l'on aurait signé
+   * une réussite en croyant avoir corrigé le bug. Un document officiel qui
+   * repose sur un départage automatique entre deux décisions contraires est
+   * pire que pas de document : il est faux sans le dire. La contradiction
+   * rejoint donc la barrière des manques, elle nomme l'étudiant, et c'est une
+   * personne qui tranche dans l'écran des valorisations.
+   *
+   * Des lignes qui DISENT LA MÊME CHOSE ne sont pas une contradiction : on n'en
+   * garde qu'une, sans rien demander.
+   */
+  const toutes = db.prepare(`
     SELECT v.*, e.nom, e.prenom, e.titre, e.date_naissance, e.lieu_naissance
     FROM etudiant_valorisation v JOIN etudiant e ON e.id = v.etudiant_id
     WHERE v.ue_num = ? AND v.annee_scolaire = ?
-    ORDER BY e.nom, e.prenom`).all(ueNum, annee);
+    ORDER BY e.nom, e.prenom, v.id`).all(ueNum, annee);
+
+  const parEtudiant = new Map();
+  for (const v of toutes) {
+    if (!parEtudiant.has(v.etudiant_id)) parEtudiant.set(v.etudiant_id, []);
+    parEtudiant.get(v.etudiant_id).push(v);
+  }
+  const contradictions = [];
+  const vas = [];
+  for (const lot of parEtudiant.values()) {
+    // Ce qui fait la décision : accordée ou refusée, et ce qui est dispensé.
+    const empreinte = v => [v.decision || 'accordee', v.type,
+      v.pourcentage == null ? '' : Number(v.pourcentage),
+      v.cible || '', v.cible_detail || ''].join('|');
+    const distinctes = new Set(lot.map(empreinte));
+    if (distinctes.size > 1) {
+      const qui = `${(lot[0].nom || '').toUpperCase()} ${lot[0].prenom || ''}`.trim();
+      const dits = lot.map(v => v.decision === 'refusee' ? 'refus'
+        : v.type === 'complete' ? 'dispense complète' : 'dispense partielle');
+      contradictions.push(`${qui} porte ${lot.length} décisions contraires pour `
+        + `cette unité (${[...new Set(dits)].join(', ')}) : n'en garder qu'une `
+        + `dans l'écran Valorisation des acquis avant d'imprimer`);
+      continue;
+    }
+    vas.push(lot[0]);
+  }
+  vas.sort((a, b) => `${a.nom} ${a.prenom}`.localeCompare(`${b.nom} ${b.prenom}`, 'fr'));
+
   if (!vas.length) {
     return res.status(400).json({
       error: "Aucune valorisation enregistrée pour cette unité cette année." });
@@ -1332,7 +1376,9 @@ r.post('/valorisation/ue/:ueNum/documents', authRequired, async (req, res) => {
   // retrouve plus un an après. Le refus vient du serveur : un écran qui
   // vérifie de son côté ne protège que les chemins auxquels il a pensé.
   const etatSeance = lireSeanceValorisation(ueNum, annee);
-  const manques = manquesValorisation(etatSeance, vas, ue);
+  // La contradiction est un manque comme un autre : elle passe par la même
+  // barrière, et la pièce ne sort pas tant qu'une personne n'a pas tranché.
+  const manques = [...contradictions, ...manquesValorisation(etatSeance, vas, ue, annee)];
   // L'ATTESTATION A SES PROPRES MENTIONS OBLIGATOIRES — domaine d'études,
   // ECTS, répartition par activité, liste des acquis. Elle les signalait déjà,
   // mais dans un coin de la réponse que personne ne lisait : elles rejoignent
@@ -1471,20 +1517,12 @@ r.post('/valorisation/ue/:ueNum/documents', authRequired, async (req, res) => {
   </tr>`).join('');
 
   const pv = `<div class="attestation">
-  <div class="entete">
-    <div class="cf">COMMUNAUTÉ FRANÇAISE DE BELGIQUE</div>
-    <div class="epa">ENSEIGNEMENT POUR ADULTES</div>
-    <div class="annee">Année scolaire / académique ${esc(String(annee).replace('-', '/'))}
-      · ${superieur ? 'Enseignement supérieur' : 'Enseignement secondaire'}</div>
-  </div>
-  <div class="etab">
-    <div><div class="nom">${esc(ident.nom || '')}</div><div>${esc(ident.adresse || '')}</div></div>
-    <div class="ident">Matricule ${esc(ident.matricule || '……')}<br>
-      FASE ${esc(ident.fase || '……')}</div>
-  </div>
-
-  <h1>PROCÈS-VERBAL DE DÉLIBÉRATION DE VALORISATION DES ACQUIS</h1>
-  <div class="filet"></div>
+  ${enteteDocument({
+    titre: 'Procès-verbal de délibération de valorisation des acquis',
+    sous: ue.ue_nom || `UE ${ueNum}`,
+    ligne: `Année ${String(annee).replace('-', '/')} · `
+         + `${superieur ? 'Enseignement supérieur' : 'Enseignement secondaire'}`,
+  })}
 
   <p class="corps">
     Nous, soussignés, Président-e et Membres du Conseil des études constitué en

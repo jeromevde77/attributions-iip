@@ -255,6 +255,8 @@ CREATE TABLE IF NOT EXISTS attribution (
     modification_attribution TEXT,
     commentaire     TEXT,
     commentaire_2   TEXT,
+    -- Statut (CC/EXP/PI) propre à CETTE attribution. Vide = celui du MDP.
+    statut_exception TEXT,
     charge_perdue_84plus REAL,
     periodes_transferees REAL,
 
@@ -447,7 +449,12 @@ SELECT
     p.nom            AS prof_nom,
     p.prenom         AS prof_prenom,
     p.nom || ' ' || p.prenom  AS professeur,
-    p.statut         AS contrat,
+    -- Le statut affiché : l'exception de CETTE ligne si elle existe, sinon
+    -- celui du membre du personnel. Les deux restent lisibles séparément, pour
+    -- que l'écran sache dire « hérité » ou « exception » sans le deviner.
+    COALESCE(a.statut_exception, p.statut) AS contrat,
+    p.statut         AS statut_mdp,
+    a.statut_exception,
     a.cours_ept_ad,
     a.modification_attribution,
     a.charge_perdue_84plus,

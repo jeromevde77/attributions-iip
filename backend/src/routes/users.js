@@ -29,7 +29,7 @@ function setSections(userId, sections) {
 r.get('/', authRequired, roleRequired('admin'), (req, res) => {
   const users = db.prepare(`
     SELECT id, email, nom_complet, role, actif, professeur_id, created_at, last_login_at,
-           acces_recrutement, permissions_json
+           acces_recrutement, permissions_json, mfa_actif, methode_auth
     FROM utilisateur ORDER BY nom_complet
   `).all();
   // Joindre les sections pour les coordinations

@@ -22,6 +22,13 @@ services:
       # des journaux s'en trouvaient décalés de deux heures.
       TZ: Europe/Brussels
       JWT_SECRET: ${JWT_SECRET_DEV:-lucie-dev-secret-change-me}
+      # LA CLÉ QUI CHIFFRE LES SECRETS DU SECOND FACTEUR (32 octets, base64).
+      # Sans elle, le backend REFUSE DE DÉMARRER — volontairement : il ne doit
+      # pas accepter des enrôlements qu'il ne saurait pas relire.
+      # Fabriquer :  node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
+      # ELLE NE SE CHANGE PAS : une nouvelle clé rend illisibles tous les
+      # secrets déjà enrôlés, et chacun doit reconfigurer son application.
+      MFA_KEY: ${MFA_KEY:?MFA_KEY manquant dans .env}
       PORT: 3000
     volumes:
       - data-dev:/app/data

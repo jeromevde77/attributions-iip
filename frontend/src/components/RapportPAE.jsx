@@ -550,7 +550,7 @@ function PreviewLite({ documents, onClose }) {
           <button onClick={onClose} className="text-white/80 hover:text-white"><IconX size={20} /></button>
         </div>
       </div>
-      <iframe id="apercu-pae" key={doc.section} title="Aperçu" srcDoc={doc.html}
+      <iframe id="apercu-pae" key={doc.section} aria-label="Aperçu" srcDoc={doc.html}
         className="flex-1 bg-white rounded-xl" />
       <div className="text-white/60 text-[11px] mt-1.5">
         Paysage A4 conseillé.{documents.length > 1

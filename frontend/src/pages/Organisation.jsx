@@ -16,6 +16,7 @@ import Rentree from './Rentree.jsx';
 import { authHeaders } from '../lib/api.js';
 
 const CalendrierSessions = lazy(() => import('../components/CalendrierSessions.jsx'));
+const GrilleOrganisation = lazy(() => import('./GrilleOrganisation.jsx'));
 
 /**
  * Axe ORGANISATION — « Qu'organise-t-on cette année ? »
@@ -53,6 +54,13 @@ export default function Organisation({ ongletInitial }) {
       onglets={[
         { key: 'attributions', label: 'Attributions', icone: IconLayoutGrid, sansMarge: true,
           rendu: <Attributions /> },
+        // LA COUCHE QUI MANQUAIT : ce qu'on FAIT de l'unité cette année. Elle
+        // se planifie AVANT d'attribuer, donc elle suit immédiatement les
+        // attributions dans l'ordre du rail, et non en fin de liste.
+        { key: 'grille', label: "Grille d'organisation", icone: IconCalendarStats,
+          sansMarge: true, railPropre: true,
+          rendu: <Suspense fallback={<div className="p-4 text-[13px] text-slate-400">Chargement…</div>}>
+                   <GrilleOrganisation /></Suspense> },
         // Les dates de session et de délibération, pour toute une section et
         // d'un seul écran — venues d'Étudiants, où elles n'avaient rien à faire.
         { key: 'calendrier', label: 'Calendrier des sessions', icone: IconCalendarStats,

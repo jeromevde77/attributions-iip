@@ -55,17 +55,30 @@ const STYLE_RAPPORT = `
         th { background: transparent; color:#64748b; font-size: 7.5pt;
              border-bottom: 0.8pt solid #cbd5e1; }
         td { font-variant-numeric: tabular-nums; }
-        tr.repere td { background: transparent; font-weight: 600; color:#1B2B4B;
-                       padding-top: 3mm; border-bottom: 0.6pt solid #cbd5e1; }
         tbody tr:last-child td { border-bottom: 0; }
         td.n, th.n { text-align: right; }
-        /* Le titre de groupe EST la section : en gras, sur sa ligne, et rien
-           d'autre. C'est un titre, pas une cellule de plus. */
-        tr.groupe td { font-weight: 700; color:#1B2B4B; padding-top: 4mm;
-                       font-size: 9.5pt; border-bottom: 0.5pt solid #cbd5e1; }
-        tr.groupe .fin { font-weight: 400; }
+        /* LA BANDE DE REGROUPEMENT PORTE SA COULEUR. Écrite en gras sur du
+           blanc, elle se confondait avec les lignes qu'elle annonce : on ne
+           voyait pas où un paquet commençait. Elle prend le marine de la
+           maison, et le BLOC prend la sienne — orange BA1/BE1, bleu clair BA2,
+           marine BA3. Un repère qu'il faut chercher n'est pas un repère.
+           Ces trois teintes ne disent JAMAIS un état : vert, ocre et brique
+           restent libres pour ce qui alerte. */
+        tr.groupe td { font-weight: 700; color:#ffffff; background:#2D4470;
+                       padding: 2mm; font-size: 9pt; border-bottom: 0; }
+        tr.groupe .fin { font-weight: 400; opacity:.8; }
+        tr.groupe.bloc1 td { background:#E8890C; }
+        tr.groupe.bloc2 td { background:#7FB3D5; color:#123047; }
+        tr.groupe.bloc3 td { background:#1B2B4B; }
+        /* LE SOUS-TOTAL ADDITIONNE, IL N'ALERTE PAS. Il se dessinait dans un
+           jaune-marron — or l'ocre veut dire « regarde ça » partout ailleurs
+           dans Lucie, et un sous-total ne demande rien. Bleu très pâle : il se
+           détache de la donnée sans prendre un sens qu'il n'a pas. */
+        tr.repere td { background:#EDF2F8; font-weight:600;
+                       border-bottom: 0.3pt solid #D6E0EC; }
         td.vide { color:#94a3b8; text-align:center; padding: 6mm 0; }
-        tfoot tr.repere td { border-top: 0.8pt solid #cbd5e1; border-bottom: 0; }`;
+        tfoot tr.repere td { background:#FAFAFB; border-top: 0.8pt solid #1B2B4B;
+                             border-bottom: 0; font-weight:700; }`;
 
 /*
  * ── DEUX FAMILLES DE PIÈCES, ET ELLES NE SE RESSEMBLENT PAS ────────────────
@@ -249,7 +262,12 @@ function documentGrilleSection(p) {
     const bloc = u.ue_niv || '—';
     if (bloc !== blocCourant) {
       blocCourant = bloc;
-      corps += `<tr class="bloc"><td colspan="8">${esc(bloc)}</td></tr>`;
+      /* Le repère ne se pose QUE si le regroupement est réellement un bloc :
+         posé sur autre chose, il mentirait sur ce qu'il désigne. */
+      const cb = /\bB[AE]?\s*1\b/i.test(bloc) ? ' bloc1'
+        : /\bBA\s*2\b/i.test(bloc) ? ' bloc2'
+          : /\bBA\s*3\b/i.test(bloc) ? ' bloc3' : '';
+      corps += `<tr class="bloc${cb}"><td colspan="8">${esc(bloc)}</td></tr>`;
     }
 
     corps += `<tr class="ue">
@@ -313,18 +331,30 @@ function documentGrilleSection(p) {
     styles: STYLE_RAPPORT + `
       table.grille td, table.grille th { padding: 1.1mm 2mm; font-size: 8pt; }
       table.grille .n { text-align: right; font-variant-numeric: tabular-nums; }
-      tr.bloc td { font-weight: 700; color: #1B2B4B; font-size: 9pt;
-                   padding-top: 4mm; border-bottom: 0.8pt solid #1B2B4B; }
+      /* LA BANDE DE BLOC PORTE SA COULEUR — orange BA1/BE1, bleu clair BA2,
+         marine BA3. Elle s'écrivait en marine sur du blanc, et le bloc se
+         répétait en 6,5 pt gris dans la colonne de gauche de CHAQUE unité :
+         deux façons de dire la même chose, dont aucune ne se voit en
+         balayant la page. La bande le dit une fois, en couleur ; le rappel
+         minuscule disparaît. */
+      tr.bloc td { font-weight: 700; color: #ffffff; font-size: 9pt;
+                   background: #2D4470; padding: 1.8mm 2mm; margin-top: 4mm;
+                   border-bottom: 0; letter-spacing: .3pt; }
+      tr.bloc.bloc1 td { background: #E8890C; }
+      tr.bloc.bloc2 td { background: #7FB3D5; color: #123047; }
+      tr.bloc.bloc3 td { background: #1B2B4B; }
       tr.ue td { padding-top: 2.5mm; border-bottom: 0.3pt solid #e2e8f0; }
-      tr.ue .ue-bloc { font-size: 6.5pt; color: #94a3b8; vertical-align: middle; }
+      tr.ue .ue-bloc { display: none; }
       td.code { font-family: ui-monospace, Menlo, Consolas, monospace;
                 font-size: 7.5pt; color: #64748b; }
       td.type { font-size: 7pt; color: #64748b; text-align: center; }
       td.etud { color: #64748b; }
       td.aut  { color: #B45309; }
       td.g    { font-weight: 700; color: #1B2B4B; }
-      tr.sous td { font-size: 7.5pt; color: #475569; font-style: italic;
-                   border-bottom: 0.6pt solid #cbd5e1; }
+      /* LE SOUS-TOTAL ADDITIONNE, IL N'ALERTE PAS — et il ne se cache pas non
+         plus : en italique gris, il se confondait avec les lignes de cours. */
+      tr.sous td { font-size: 7.5pt; color: #1B2B4B; font-weight: 600;
+                   background: #EDF2F8; border-bottom: 0.3pt solid #D6E0EC; }
       tfoot tr.total td { font-weight: 700; color: #1B2B4B; font-size: 9pt;
                           border-top: 1pt solid #1B2B4B; border-bottom: 0; }`,
   };
@@ -939,7 +969,7 @@ export const RAPPORTS = [
    * d'en dessous.
    */
   {
-    id: 'resultats-section', domaine: 'pilotage', params: ['annee', 'session'],
+    id: 'resultats-section', domaine: 'etudiants', params: ['annee', 'session'],
     libelle: 'Résultats de délibération par unité',
     aide: "Réussites, ajournements et refus POUR LA SESSION CHOISIE — non l'état de l'année.",
     colonnes: COLS([['section', 'Section', 24], ['ue_num', 'UE', 8],
@@ -971,7 +1001,7 @@ export const RAPPORTS = [
     },
   },
   {
-    id: 'dotation-emploi', domaine: 'pilotage', params: ['annee'],
+    id: 'dotation-emploi', domaine: 'gestion', params: ['annee'],
     libelle: "Emploi de la dotation par section",
     aide: "Ce qui est organisé, ce qui est attribué, et l'écart entre les deux.",
     colonnes: COLS([['section', 'Section', 28],
@@ -1087,7 +1117,7 @@ export const RAPPORTS = [
    * bandeau. Les chiffres, eux, sont les mêmes, au même calcul.
    */
   {
-    id: 'etp', domaine: 'pilotage', params: ['annee', 'portee', 'etudiants'],
+    id: 'etp', domaine: 'gestion', params: ['annee', 'portee', 'etudiants'],
     libelle: 'Charge en ETP',
     aide: "Tout l'établissement, une section, une unité ou un cours — la pièce s'adapte à la portée choisie.",
     // La portée descend jusqu'au cours : c'est le niveau où l'on voit enfin
@@ -1177,7 +1207,7 @@ export const RAPPORTS = [
 
   // ── RÉFÉRENTIELS ────────────────────────────────────────────────────────
   {
-    id: 'referentiel-ue', domaine: 'referentiels', params: ['annee'],
+    id: 'referentiel-ue', domaine: 'organisation', params: ['annee'],
     libelle: 'Unités d’enseignement du référentiel',
     aide: "Code approuvé, niveau, périodes, déterminante, épreuve intégrée.",
     colonnes: COLS([['section', 'Section', 26], ['ue_num', 'UE', 8],
@@ -1197,7 +1227,7 @@ export const RAPPORTS = [
        ce qui la rendait utile : le dossier pédagogique parle en PÉRIODES, un
        horaire et un contrat parlent en HEURES. Réduite aux seules périodes,
        elle obligeait à refaire la conversion à la main — cinquante fois. */
-    id: 'referentiel-cours', domaine: 'referentiels', params: ['annee', 'section'],
+    id: 'referentiel-cours', domaine: 'organisation', params: ['annee', 'section'],
     libelle: 'Grille de cours',
     aide: "Les cours de chaque unité, en périodes et en heures, avec les totaux par unité.",
     colonnes: COLS([['section', 'Section', 24], ['ue_num', 'UE', 8],
@@ -1225,7 +1255,7 @@ export const RAPPORTS = [
     /* LA MÊME MATIÈRE, VUE PAR UNITÉ — ce que pèse une UE, d'un coup d'œil.
        C'est ce qu'on regarde pour décider d'ouvrir une unité, pas le détail
        cours par cours. */
-    id: 'referentiel-poids-ue', domaine: 'referentiels', params: ['annee', 'section'],
+    id: 'referentiel-poids-ue', domaine: 'organisation', params: ['annee', 'section'],
     libelle: 'Poids des unités — périodes et heures',
     aide: "Une ligne par unité : nombre de cours, périodes, heures, autonomie et ECTS.",
     colonnes: COLS([['section', 'Section', 24], ['ue_num', 'UE', 8],
@@ -1244,7 +1274,7 @@ export const RAPPORTS = [
        ORDER BY u.section, u.ue_num`).all(p.annee, p.section, p.section),
   },
   {
-    id: 'grille-section', domaine: 'referentiels', params: ['annee', 'section'],
+    id: 'grille-section', domaine: 'organisation', params: ['annee', 'section'],
     libelle: 'Grille de section',
     aide: "La structure d'un cursus : blocs, unités, cours, avec périodes professeur, étudiant et autonomie.",
     colonnes: COLS([['ue_num', 'UE', 8], ['ue_nom', 'Unité', 44],
@@ -1260,7 +1290,7 @@ export const RAPPORTS = [
   {
     /* QUI DONNE QUOI DANS UNE UNITÉ — la liste « profs par UE » de l'ancien
        écran, celle qu'on imprime avant une réunion d'équipe d'unité. */
-    id: 'referentiel-profs-ue', domaine: 'referentiels', params: ['annee', 'section'],
+    id: 'referentiel-profs-ue', domaine: 'organisation', params: ['annee', 'section'],
     libelle: 'Enseignants par unité',
     aide: "Qui donne quel cours dans quelle unité, et pour combien de périodes.",
     colonnes: COLS([['section', 'Section', 22], ['ue_num', 'UE', 8],
@@ -1278,7 +1308,7 @@ export const RAPPORTS = [
       .all(p.annee, p.section, p.section),
   },
   {
-    id: 'referentiel-acquis', domaine: 'referentiels', params: [],
+    id: 'referentiel-acquis', domaine: 'organisation', params: [],
     libelle: 'Acquis d’apprentissage',
     aide: "Les acquis de chaque unité, tels qu'ils figurent aux attestations.",
     colonnes: COLS([['ue_num', 'UE', 8], ['aa_code', 'Acquis', 14],
@@ -1292,7 +1322,7 @@ export const RAPPORTS = [
   },
 
   {
-    id: 'referentiel-ue-sans-attribution', domaine: 'referentiels', params: ['annee', 'section'],
+    id: 'referentiel-ue-sans-attribution', domaine: 'organisation', params: ['annee', 'section'],
     libelle: 'Unités sans attribution',
     aide: "Ce qui est organisé mais que personne ne donne — à vérifier avant la rentrée.",
     colonnes: COLS([['section', 'Section', 26], ['ue_num', 'UE', 8],
@@ -1328,7 +1358,7 @@ export const RAPPORTS = [
     /* LES EFFECTIFS PAR UNITÉ — « étudiants par UE » de l'ancien écran. C'est
        le chiffre qu'on croise avec la charge pour décider d'un dédoublement,
        et celui que l'AEQES redemande section par section. */
-    id: 'organisation-effectifs', domaine: 'organisation', params: ['annee', 'section'],
+    id: 'organisation-effectifs', domaine: 'etudiants', params: ['annee', 'section'],
     libelle: 'Effectifs par unité',
     aide: "Inscrits par unité, avec la charge correspondante et le nombre d'étudiants par période.",
     colonnes: COLS([['section', 'Section', 24], ['ue_num', 'UE', 8],
@@ -1417,6 +1447,130 @@ r.post('/:id/apercu', authRequired, (req, res) => {
  * (lib/document.js) : A4, marges de 18 mm, en-tête de l'établissement, pied
  * numéroté. On n'en écrit pas une dixième.
  */
+/**
+ * METTRE EN PAGE UNE LISTE CONSTRUITE À L'ÉCRAN.
+ *
+ * L'écran « Listes » est un GÉNÉRATEUR : on y coche ses colonnes, on filtre, et
+ * la liste qui en sort n'est pas une pièce du catalogue — c'est une extraction
+ * à la demande. Elle n'avait donc, pour onze de ses seize types, aucune
+ * impression du tout : CSV et Excel, rien d'autre. Les cinq autres passaient
+ * par `window.open` et l'impression du navigateur — ni A4 imposé, ni en-tête,
+ * ni pied, ni numérotation ; le format rendu à la boîte d'impression de chacun,
+ * ce que le centre d'impression existe précisément pour supprimer.
+ *
+ * ON N'OUVRE PAS UNE DIXIÈME ENVELOPPE, ON OUVRE CELLE-CI. Cette route ne sait
+ * rien des listes : elle reçoit des colonnes et des lignes, et les habille avec
+ * `envelopperDocument` et `STYLE_RAPPORT` — la même enveloppe, le même pied, la
+ * même règle de paysage au-delà de six colonnes que les rapports du catalogue.
+ * Une liste imprimée depuis « Listes » et la même depuis « Éditions » sortent
+ * ainsi habillées pareil, ce qui est tout l'enjeu.
+ *
+ * Rien de ce qui arrive n'est du HTML : tout est échappé. Le corps de la pièce
+ * se construit ici, à partir de valeurs.
+ */
+r.post('/mise-en-page', authRequired, (req, res) => {
+  const b = req.body || {};
+  const titre = String(b.titre || 'Liste').slice(0, 200);
+  const colonnes = Array.isArray(b.colonnes) ? b.colonnes.slice(0, 40) : [];
+  const lignes = Array.isArray(b.lignes) ? b.lignes.slice(0, 5000) : [];
+  if (!colonnes.length) return res.status(400).json({ error: 'Aucune colonne à mettre en page.' });
+
+  const esc = v => String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;');
+  const estNombre = v => v !== null && v !== '' && !isNaN(Number(v));
+
+  // Une colonne dont TOUTES les valeurs sont des nombres s'aligne à droite et
+  // se totalise : c'est ce que fait déjà le rendu des rapports, et deux
+  // alignements pour une même colonne selon la porte d'entrée se verrait.
+  const numerique = colonnes.map((_, i) =>
+    lignes.length > 0 && lignes.every(l => {
+      const v = Array.isArray(l) ? l[i] : null;
+      return v === null || v === '' || estNombre(v);
+    }) && lignes.some(l => estNombre(Array.isArray(l) ? l[i] : null)));
+
+  const cellules = l => colonnes.map((_, i) => {
+    const v = Array.isArray(l) ? l[i] : '';
+    return `<td${numerique[i] ? ' class="n"' : ''}>${esc(v)}</td>`;
+  }).join('');
+
+  const aDesNombres = numerique.some(Boolean);
+  const total = aDesNombres ? `<tfoot><tr class="repere">${colonnes.map((_, i) => {
+    if (i === 0) return `<td><b>Ensemble — ${lignes.length} ligne(s)</b></td>`;
+    if (!numerique[i]) return '<td></td>';
+    const s2 = lignes.reduce((acc, l) => acc + (Number(Array.isArray(l) ? l[i] : 0) || 0), 0);
+    return `<td class="n"><b>${esc(Math.round(s2 * 100) / 100)}</b></td>`;
+  }).join('')}</tr></tfoot>` : '';
+
+  /* GROUPER PAR LA PREMIÈRE COLONNE, comme le fait déjà le rendu des rapports.
+     Une liste de deux cents lignes sans bande de regroupement se lit à la
+     règle : on suit du doigt pour savoir où une section finit. Le regroupement
+     ne se déclenche que s'il APPREND quelque chose — une valeur qui ne se
+     répète jamais ferait autant de bandes que de lignes, et deux valeurs pour
+     deux cents lignes n'en font que deux. */
+  const cle = l => String((Array.isArray(l) ? l[0] : '') ?? '—');
+  const distinctes = new Set(lignes.map(cle));
+  const groupable = lignes.length >= 4 && distinctes.size > 1
+    && distinctes.size <= Math.max(2, Math.floor(lignes.length / 2));
+
+  const sousTotal = (lot, titre) => `<tr class="repere">${colonnes.map((_, i) => {
+    if (i === 0) return `<td>${esc(titre)}</td>`;
+    if (!numerique[i]) return '<td></td>';
+    const s2 = lot.reduce((a, l) => a + (Number(Array.isArray(l) ? l[i] : 0) || 0), 0);
+    return `<td class="n">${esc(Math.round(s2 * 100) / 100)}</td>`;
+  }).join('')}</tr>`;
+
+  let corpsTable = '';
+  if (groupable) {
+    const paquets = new Map();
+    for (const l of lignes) {
+      const k = cle(l);
+      if (!paquets.has(k)) paquets.set(k, []);
+      paquets.get(k).push(l);
+    }
+    for (const [k, lot] of paquets) {
+      /* LE REPÈRE DE BLOC. Quand la clé de regroupement EST un bloc — BA1,
+         BE1, BA2, BA3 —, la bande prend sa couleur. Ailleurs elle garde le
+         marine : une couleur posée sur un groupement qui n'est pas un bloc
+         mentirait sur ce qu'elle désigne. */
+      const b = /\bB[AE]?\s*1\b/i.test(k) ? ' bloc1'
+        : /\bBA\s*2\b/i.test(k) ? ' bloc2'
+          : /\bBA\s*3\b/i.test(k) ? ' bloc3' : '';
+      corpsTable += `<tr class="groupe${b}"><td colspan="${colonnes.length}">${esc(k)}`
+        + `<span class="fin"> — ${lot.length} ligne(s)</span></td></tr>`;
+      corpsTable += lot.map(l => `<tr>${cellules(l)}</tr>`).join('');
+      if (aDesNombres && lot.length > 1) corpsTable += sousTotal(lot, `Sous-total ${k}`);
+    }
+  } else {
+    corpsTable = lignes.map(l => `<tr>${cellules(l)}</tr>`).join('');
+  }
+
+  const corps = `
+      <table>
+        <thead><tr>${colonnes.map((c, i) =>
+          `<th${numerique[i] ? ' class="n"' : ''}>${esc(c)}</th>`).join('')}</tr></thead>
+        <tbody>${corpsTable
+          || `<tr><td colspan="${colonnes.length}" class="vide">Aucune donnée.</td></tr>`}</tbody>
+        ${total}
+      </table>`;
+
+  res.json({
+    html: envelopperDocument({
+      html: corps,
+      titre,
+      entete: {
+        titre,
+        sous: [b.annee ? `Année ${b.annee}` : null, b.section || null,
+               `${lignes.length} ligne(s)`].filter(Boolean).join(' · '),
+        mention: b.mention ? String(b.mention).slice(0, 300) : null,
+      },
+      // La même règle que les rapports : douze colonnes sur une A4 portrait
+      // deviennent illisibles, et on les imprime pour les lire.
+      orientation: colonnes.length > 6 ? 'paysage' : 'portrait',
+      styles: STYLE_RAPPORT,
+    }),
+    titre,
+  });
+});
+
 r.post('/:id/document', authRequired, (req, res) => {
   const def = RAPPORTS.find(x => x.id === req.params.id);
   if (!def) return res.status(404).json({ error: 'rapport inconnu' });
@@ -1672,9 +1826,12 @@ r.post('/document-groupe', authRequired, (req, res) => {
   const cell = (c, v, tag = 'td') =>
     `<${tag}${c.num ? ' style="text-align:right"' : ''}>${esc(v)}</${tag}>`;
 
+  /* UN TITRE NE S'ÉCRIT QU'UNE FOIS. Ce corps posait son propre `h1` et son
+     sous-titre alors que l'enveloppe dessine déjà le cadre de titre : la pièce
+     annonçait deux fois ce qu'elle est, à deux tailles et à deux places, et
+     c'est autant de lignes avant la première donnée. Le titre part là où il
+     doit être — dans l'en-tête — et le corps commence par le contenu. */
   const corps = `
-    <h1>${esc(b.titre || 'Rapport')}</h1>
-    ${b.sous ? `<p class="sous">${esc(b.sous)}</p>` : ''}
     ${groupes.map(g => `
       <h3>${esc(g.titre || '')}${g.sous ? ` <span class="sous">— ${esc(g.sous)}</span>` : ''}</h3>
       <table>
@@ -1688,6 +1845,9 @@ r.post('/document-groupe', authRequired, (req, res) => {
     html: envelopperDocument({
       html: corps,
       titre: b.titre || 'Rapport',
+      // Le titre et sa précision passent par l'EN-TÊTE, comme pour toutes les
+      // autres pièces : le générateur n'a pas de raison d'avoir sa présentation.
+      entete: { titre: b.titre || 'Rapport', sous: b.sous || null },
       // L'écran choisit le sens quand il en propose le choix ; à défaut, un
       // tableau large se lit en paysage.
       orientation: b.orientation === 'paysage' || b.orientation === 'portrait'

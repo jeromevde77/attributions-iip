@@ -13,6 +13,8 @@ import { migrerEcheancier } from './db/migrations_echeancier.js';
 import { migrerReunions } from './db/migrations_reunions.js';
 import { migrerBesoinsOffres } from './db/migrations_besoins.js';
 import { migrerJournalPersonnel } from './db/migrations_journal.js';
+import mfaRoutes, { migrerMfa } from './routes/mfa.js';
+import { verifierCleMfa } from './lib/secret-box.js';
 import { demarrerMoteur } from './services/echeancier.js';
 import annuelRoutes from './routes/annuel.js';
 import echeancierRoutes from './routes/echeancier.js';
@@ -69,6 +71,7 @@ import contratsRoutes   from './routes/contrats.js';
 import proceduresRoutes from './routes/procedures.js';
 import disciplinaireRoutes from './routes/disciplinaire.js';
 import planificationRoutes from './routes/planification.js';
+import grilleRoutes, { migrerGrille } from './routes/grille.js';
 import parametresRoutes    from './routes/parametres.js';
 import prerequisRoutes     from './routes/prerequis.js';
 import planifIARoutes      from './routes/planification-ia.js';
@@ -83,6 +86,30 @@ import recrutementRoutes   from './routes/recrutement.js';
 import aaRoutes            from './routes/aa.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
+
+// ── LA CLÉ DU SECOND FACTEUR, AVANT TOUTE AUTRE CHOSE ───────────────────────
+//
+// Sans MFA_KEY, Lucie ne démarre pas. Un serveur qui démarrerait quand même
+// accepterait des enrôlements qu'il ne saurait pas relire : la panne ne se
+// verrait qu'à la première connexion de la première personne enrôlée, et elle
+// se verrait sous la forme de quelqu'un enfermé dehors.
+//
+// LE CONTRÔLE EST POSÉ ICI, AVANT LES MIGRATIONS, et cette place n'est pas un
+// détail : placé plus bas, il laissait d'abord tourner deux mille lignes de
+// CREATE TABLE et d'ALTER TABLE, puis annonçait l'erreur tout en bas d'un
+// journal que personne ne remonte. Ce qui empêche de démarrer doit se dire
+// avant que le démarrage ait commencé.
+//
+// L'ORDRE DE DÉPLOIEMENT COMPTE : déclarer la variable dans le .env du serveur
+// AVANT `docker compose pull && up -d`. Les compose la réclament en `${...:?}`,
+// si bien qu'une clé manquante fait échouer la commande plutôt que de laisser
+// le conteneur redémarrer en boucle.
+try {
+  verifierCleMfa();
+} catch (e) {
+  console.error('\n[FATAL] ' + e.message + '\n');
+  process.exit(1);
+}
 
 // ---------------------------------------------------------------------------
 // Migrations légères : CREATE TABLE IF NOT EXISTS + ADD COLUMN si absent.
@@ -174,6 +201,27 @@ try {
   if (!cols.find(c => c.name === 'titre_rtf')) {
     db.exec(`ALTER TABLE attribution ADD COLUMN titre_rtf TEXT;`);
     console.log('[migration] Colonne attribution.titre_rtf ajoutée');
+  }
+
+  /* LE STATUT EST CELUI DE LA PERSONNE ; L'EXCEPTION EST CELLE D'UNE LIGNE.
+     `professeur.statut` (CC / EXP / MDP) est le statut général, et il le
+     reste : la vue le lit, la fiche l'écrit, le classement s'y réfère. Mais un
+     même membre du personnel peut être CC sur une charge et EXP sur une autre
+     — « CC ou EXP », « PI ou CC » —, et cela n'avait nulle part où s'écrire :
+     on changeait donc son statut général pour une seule ligne, et toutes les
+     autres suivaient en silence.
+     Cette colonne reste VIDE dans le cas normal, et vide veut dire « celui du
+     MDP » : une valeur recopiée depuis la fiche cesserait de la suivre le jour
+     où elle change, et l'on aurait deux sources pour un même fait.
+     Le statut n'entre PAS dans la dotation (confirmé par Charles) ; il porte
+     sur le contrat de travail et le calcul de l'ancienneté. Rien ne lit encore
+     l'exception : l'y raccorder est une décision à prendre, pas un effet de
+     bord de cette colonne. */
+  migrerGrille(db);
+
+  if (!cols.find(c => c.name === 'statut_exception')) {
+    db.exec(`ALTER TABLE attribution ADD COLUMN statut_exception TEXT;`);
+    console.log('[migration] Colonne attribution.statut_exception ajoutée');
   }
 
   // Refonte dossier pédagogique (DP) :
@@ -794,6 +842,7 @@ try {
     ['planning.ev2_heures',              '0',                               'Heures comptées pour EV2',                             null, 'planification'],
     ['planning.vc_heures',               '1',                               'Heures comptées pour VC (visite des copies)',           null, 'planification'],
     ['planning.periode_minutes',         '50',                              'Durée d\'une période (minutes)',                        null, 'planification'],
+    ['planning.evaluation_periodes',     '3',                               'Périodes proposées pour l\'examen de fin d\'UE et la visite des copies', null, 'planification'],
     ['planning.min_semaines_ev1_ev2',    '1',                               'Semaines minimum libres entre EV1 et EV2',             null, 'planification'],
     // Procédures
     ['procedures.email_direction',       'direction@institut-prigogine.be', 'Email de la direction (procédures)',                   null, 'procedures'],
@@ -2684,6 +2733,7 @@ try { migrerReunions(db); } catch (e) { console.error('[migration] reunions :', 
 try { migrerSuggestions(db); } catch (e) { console.error('[migration] suggestions :', e.message); }
 try { migrerBesoinsOffres(db); } catch (e) { console.error('[migration] besoins :', e.message); }
 try { migrerJournalPersonnel(db); } catch (e) { console.error('[migration] journal :', e.message); }
+try { migrerMfa(db); } catch (e) { console.error('[migration] mfa :', e.message); }
 try { migrerClassement(db); } catch (e) { console.error('[migration] classement :', e.message); }
 try { migrerAncienneteService(db); } catch (e) { console.error('[migration] anciennete_service :', e.message); }
 try { migrerEtudiants(db); } catch (e) { console.error('[migration] etudiants :', e.message); }
@@ -2785,6 +2835,7 @@ app.use((req, res, next) => {
 });
 
 app.use('/api/auth',         authRoutes);
+app.use('/api/mfa',          mfaRoutes);
 app.use('/api/attributions', attrRoutes);
 app.use('/api/ref',          refRoutes);
 app.use('/api/pilotage',     pilotRoutes);
@@ -2838,6 +2889,7 @@ app.use('/api/contrats',    contratsRoutes);
 app.use('/api/procedures',    proceduresRoutes);
 app.use('/api/disciplinaire', disciplinaireRoutes);
 app.use('/api/planification', planificationRoutes);
+app.use('/api/grille', grilleRoutes);
 app.use('/api/parametres',   parametresRoutes);
 app.use('/api/prerequis',      prerequisRoutes);
 app.use('/api/planification-ia', planifIARoutes);

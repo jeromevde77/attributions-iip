@@ -23,6 +23,13 @@ services:
       NODE_ENV: production
       PORT: 3001
       JWT_SECRET: ${JWT_SECRET:-change-me-jwt-secret-please}
+      # LA CLÉ QUI CHIFFRE LES SECRETS DU SECOND FACTEUR (32 octets, base64).
+      # Sans elle, le backend REFUSE DE DÉMARRER — volontairement : il ne doit
+      # pas accepter des enrôlements qu'il ne saurait pas relire.
+      # Fabriquer :  node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
+      # ELLE NE SE CHANGE PAS : une nouvelle clé rend illisibles tous les
+      # secrets déjà enrôlés, et chacun doit reconfigurer son application.
+      MFA_KEY: ${MFA_KEY:?MFA_KEY manquant — 32 octets en base64}
       DB_PATH: /app/data/attributions.db
       CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:8080}
     volumes:

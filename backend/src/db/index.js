@@ -23,9 +23,37 @@ try {
     }
     return args;
   }
+  // `transaction` MANQUAIT À CETTE DOUBLURE, et une trentaine de fichiers
+  // l'appellent. Quand better-sqlite3 ne se compile pas — ce qui arrive dès
+  // qu'on change de version de Node —, le repli prenait la main et toutes ces
+  // routes tombaient sur « db.transaction is not a function ». Une doublure
+  // qui n'offre pas la même surface que l'objet qu'elle remplace n'est pas un
+  // repli : c'est une panne différée.
+  //
+  // SAVEPOINT plutôt que BEGIN, pour la même raison que better-sqlite3 le
+  // fait : une transaction appelée depuis une autre doit s'imbriquer au lieu
+  // d'échouer.
+  let profondeur = 0;
+  const transaction = (fn) => (...args) => {
+    const nom = `sp_${profondeur}`;
+    inner.exec(profondeur === 0 ? 'BEGIN' : `SAVEPOINT ${nom}`);
+    profondeur++;
+    try {
+      const r = fn(...args);
+      profondeur--;
+      inner.exec(profondeur === 0 ? 'COMMIT' : `RELEASE ${nom}`);
+      return r;
+    } catch (e) {
+      profondeur--;
+      try { inner.exec(profondeur === 0 ? 'ROLLBACK' : `ROLLBACK TO ${nom}`); } catch { /* déjà défaite */ }
+      throw e;
+    }
+  };
+
   db = {
     exec: (sql) => inner.exec(sql),
     pragma: (p) => inner.exec(`PRAGMA ${p}`),
+    transaction,
     prepare: (sql) => {
       const stmt = inner.prepare(sql);
       return {

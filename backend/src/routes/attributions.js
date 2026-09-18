@@ -1,6 +1,8 @@
 import { Router } from 'express';
 import db from '../db/index.js';
-import { authRequired, roleRequired, withSectionScope, canAccessSection } from '../middleware/auth.js';
+import { anneeDeTravail } from '../helpers/annee.js';
+import { authRequired, roleRequired, withSectionScope, canAccessSection,
+  getUserSections } from '../middleware/auth.js';
 import { saveSnapshot } from '../helpers/snapshot.js';
 import { copyFileSync, existsSync, mkdirSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
@@ -133,6 +135,39 @@ function analyseAutonomieUE(ue_num, section, annee, ueRow, numOrg = null) {
 
 
 // Liste avec filtres : ?section=...&prof_id=...&contrat=...&ue=...&q=...
+/**
+ * LE PÉRIMÈTRE SE POSE SUR CHAQUE PORTE, PAS SUR LA PORTE D'ENTRÉE.
+ *
+ * Le filtre par section existait — et il était juste —, mais il n'était posé
+ * que sur la liste principale. Les six écrans de contrôle et de rapport, eux,
+ * rendaient tout : `/by-cours`, `/controle`, `/conformite`,
+ * `/rapport-attributions`, `/ept`, et `/:id`, qui laissait lire n'importe
+ * quelle attribution par son identifiant. Un cadenas sur la porte et six
+ * fenêtres ouvertes au rez-de-chaussée.
+ *
+ * Ces deux aides tiennent la règle en un seul endroit : `sectionsDe` rend les
+ * sections autorisées (null = toutes), `sectionPermise` répond pour une
+ * section donnée. Un filtre réécrit onze fois finit par différer onze fois.
+ */
+function sectionsDe(req) {
+  return req.allowedSections !== undefined
+    ? req.allowedSections : getUserSections(req.user);
+}
+function sectionPermise(req, section) {
+  const autorisees = sectionsDe(req);
+  return autorisees === null || autorisees.includes(section);
+}
+/** La clause SQL du périmètre, ou null s'il n'y en a pas. */
+function clausePerimetre(req, alias = 'a') {
+  const autorisees = sectionsDe(req);
+  if (autorisees === null) return null;
+  if (!autorisees.length) return { sql: '1 = 0', params: [] };
+  return {
+    sql: `${alias}.section IN (${autorisees.map(() => '?').join(',')})`,
+    params: autorisees,
+  };
+}
+
 r.get('/', authRequired, withSectionScope, (req, res) => {
   const { section, prof_id, contrat, ue, ue_num, q, type_cours, annee } = req.query;
   const where = [];
@@ -230,11 +265,25 @@ r.get('/', authRequired, withSectionScope, (req, res) => {
 });
 
 // Conformité par cours (utile pour récap rapide)
-r.get('/conformite', authRequired, (req, res) => {
+r.get('/conformite', authRequired, withSectionScope, (req, res) => {
   const { section, only_non_conforme, annee } = req.query;
   const where = ['annee_scolaire = @annee'];
   const params = { annee: annee || '2025-2026' };
-  if (section) { where.push('section = @section'); params.section = section; }
+  if (section) {
+    if (!sectionPermise(req, section)) {
+      return res.status(403).json({ error: 'Section hors de votre périmètre.' });
+    }
+    where.push('section = @section'); params.section = section;
+  } else {
+    // SANS SECTION DEMANDÉE, LE PÉRIMÈTRE EN TIENT LIEU. Sinon « toutes les
+    // non-conformités » rendait celles de tout l'institut.
+    const autorisees = sectionsDe(req);
+    if (autorisees !== null) {
+      if (!autorisees.length) return res.json([]);
+      where.push(`section IN (${autorisees.map((_, i) => `@ps${i}`).join(',')})`);
+      autorisees.forEach((sx, i) => { params[`ps${i}`] = sx; });
+    }
+  }
   if (only_non_conforme === '1') where.push('conforme = 0');
   res.json(db.prepare(`
     SELECT * FROM v_cours_conformite
@@ -245,10 +294,16 @@ r.get('/conformite', authRequired, (req, res) => {
 
 // Toutes les attributions d'un cours (un cours = section + code_cours)
 // Utilisé par la modale d'édition multi-lignes
-r.get('/by-cours', authRequired, (req, res) => {
+r.get('/by-cours', authRequired, withSectionScope, (req, res) => {
   const { section, code_cours, annee } = req.query;
   if (!section || !code_cours) {
     return res.status(400).json({ error: 'section et code_cours requis' });
+  }
+  // La section est demandée en clair : il suffit de vérifier qu'elle est
+  // permise. Refuser plutôt que rendre une liste vide — une liste vide se lit
+  // comme « ce cours n'a aucune attribution », ce qui est faux.
+  if (!sectionPermise(req, section)) {
+    return res.status(403).json({ error: 'Section hors de votre périmètre.' });
   }
   const anneeVal = annee || '2025-2026';
   const rows = db.prepare(`
@@ -294,7 +349,10 @@ r.get('/by-cours', authRequired, (req, res) => {
 // ─── GET /attributions/annees-par-section ────────────────────────────────────
 // Retourne les années scolaires qui ont des attributions, par section.
 // IMPORTANT : doit être déclarée AVANT /:id sinon Express capture "annees-par-section" comme un id.
-r.get('/annees-par-section', authRequired, (req, res) => {
+r.get('/annees-par-section', authRequired, withSectionScope, (req, res) => {
+  // UN INVENTAIRE DES SECTIONS EST UNE INFORMATION SUR LES SECTIONS. Rendu
+  // entier, il apprend à une coordination TIM quelles sections existent et
+  // depuis quand elles attribuent — peu de chose, mais ce n'est pas à elle.
   const rows = db.prepare(`
     SELECT section, annee_scolaire, COUNT(*) as n
     FROM attribution
@@ -303,6 +361,7 @@ r.get('/annees-par-section', authRequired, (req, res) => {
   `).all();
   const map = {};
   for (const row of rows) {
+    if (!sectionPermise(req, row.section)) continue;
     if (!map[row.section]) map[row.section] = [];
     map[row.section].push({ annee: row.annee_scolaire, n: row.n });
   }
@@ -317,14 +376,20 @@ const _numToLettreRapport = n => {
   return String.fromCharCode(64 + Math.floor((n - 1) / 26)) + String.fromCharCode(65 + ((n - 1) % 26));
 };
 
-r.get('/rapport-attributions', authRequired, (req, res) => {
+r.get('/rapport-attributions', authRequired, withSectionScope, (req, res) => {
   const { section, annee } = req.query;
   if (!annee) return res.status(400).json({ error: 'annee requis' });
 
   // Si pas de section → toutes les sections ; sinon accepte une liste séparée par des virgules
-  const sections = section
+  const demandees = section
     ? String(section).split(',').map(s => s.trim()).filter(Boolean)
     : db.prepare(`SELECT DISTINCT section FROM attribution WHERE annee_scolaire = ? ORDER BY section`).all(annee).map(r => r.section);
+  // UN RAPPORT SANS SECTION DEMANDÉE PARCOURAIT TOUT L'INSTITUT. Il se taille
+  // au périmètre : une coordination obtient son rapport, pas celui des autres.
+  const sections = demandees.filter(sx => sectionPermise(req, sx));
+  if (!sections.length) {
+    return res.status(403).json({ error: 'Aucune de ces sections n’est dans votre périmètre.' });
+  }
 
   // Construire le résultat multi-sections
   const allUes = [];
@@ -467,9 +532,12 @@ r.get('/rapport-attributions', authRequired, (req, res) => {
 
 // GET /ept?section=&ue_num=&annee=
 // Récupère les lignes EPT d'une UE (org >= 2, coordination_encadrement IN 95..99)
-r.get('/ept', authRequired, (req, res) => {
+r.get('/ept', authRequired, withSectionScope, (req, res) => {
   const { section, ue_num, annee } = req.query;
   if (!section || !ue_num || !annee) return res.status(400).json({ error: 'section, ue_num et annee requis' });
+  if (!sectionPermise(req, section)) {
+    return res.status(403).json({ error: 'Section hors de votre périmètre.' });
+  }
 
   const lignes = db.prepare(`
     SELECT a.id, a.num_organisation, a.coordination_encadrement AS code_ept,
@@ -545,9 +613,12 @@ r.patch('/:id/desattribuer', authRequired, roleRequired('admin', 'editeur', 'coo
 });
 
 // GET /autonomie-ue?section=&annee= — analyse autonomie pour toutes les UEs d'une section
-r.get('/autonomie-ue', authRequired, (req, res) => {
+r.get('/autonomie-ue', authRequired, withSectionScope, (req, res) => {
   const { section, annee } = req.query;
   if (!section || !annee) return res.status(400).json({ error: 'section et annee requis' });
+  if (!sectionPermise(req, section)) {
+    return res.status(403).json({ error: 'Section hors de votre périmètre.' });
+  }
 
   const ues = db.prepare(`
     SELECT DISTINCT u.ue_num, u.ue_per_cours, u.ue_aut
@@ -580,9 +651,12 @@ r.get('/autonomie-ue', authRequired, (req, res) => {
 // GET /ue-mention?section=&annee= — UE déterminantes (ue_det='x') et épreuve intégrée
 // (is_epreuve_integree=1) d'une section du référentiel, avec leurs périodes (cours+autonomie),
 // pour piloter le calcul de mention des attestations/diplômes à partir des flags.
-r.get('/ue-mention', authRequired, (req, res) => {
+r.get('/ue-mention', authRequired, withSectionScope, (req, res) => {
   const { section, annee } = req.query;
   if (!section) return res.status(400).json({ error: 'section requis' });
+  if (!sectionPermise(req, section)) {
+    return res.status(403).json({ error: 'Section hors de votre périmètre.' });
+  }
   const q = (an) => db.prepare(
     `SELECT ue_num, ue_nom,
             COALESCE(ue_tot_prf, COALESCE(ue_per_cours,0)+COALESCE(ue_aut,0)) AS periodes,
@@ -606,9 +680,12 @@ r.get('/ue-mention', authRequired, (req, res) => {
 
 // GET /attributions/cours-manquants?annee=&ue_num=&section= — cours du DP sans ligne d'attribution
 // Permet de re-proposer les cours du référentiel qui n'ont aucune attribution (ex. ligne supprimée).
-r.get('/cours-manquants', authRequired, (req, res) => {
+r.get('/cours-manquants', authRequired, withSectionScope, (req, res) => {
   const { annee, ue_num, section } = req.query;
   if (!annee) return res.status(400).json({ error: 'annee requise' });
+  if (section && !sectionPermise(req, section)) {
+    return res.status(403).json({ error: 'Section hors de votre périmètre.' });
+  }
   let sql = `
     SELECT c.cours_code, c.cours_nom, c.ue_num, c.section, c.ct_pp, c.cours_per, c.quadrimestre_cours
     FROM cours c
@@ -626,9 +703,12 @@ r.get('/cours-manquants', authRequired, (req, res) => {
 });
 
 // GET /controle?section=&annee= — contrôle des multiples du DP par cours et de l'autonomie par UE
-r.get('/controle', authRequired, (req, res) => {
+r.get('/controle', authRequired, withSectionScope, (req, res) => {
   const { section, annee } = req.query;
   if (!section || !annee) return res.status(400).json({ error: 'section et annee requis' });
+  if (!sectionPermise(req, section)) {
+    return res.status(403).json({ error: 'Section hors de votre périmètre.' });
+  }
   const r2 = x => Math.round(x * 100) / 100;
 
   // Cours de la section (hors Z), avec DP (cours_per) et autonomie de base de l'UE (ue_autonomie)
@@ -719,9 +799,71 @@ r.get('/controle', authRequired, (req, res) => {
   res.json({ section, annee, ues: out });
 });
 
-r.get('/:id', authRequired, (req, res) => {
+/**
+ * LA CHARGE D'UN PROFESSEUR — COMPTER SANS ÉNUMÉRER.
+ *
+ * Une coordination limitée à TIM ne doit pas lire les attributions
+ * d'optométrie : quelle unité, quel cours, combien d'heures sur quoi ne la
+ * regardent pas. Mais quand elle compose un horaire, elle DOIT savoir que son
+ * professeur est déjà chargé ailleurs — lui cacher ce total ne protège rien et
+ * lui fait bâtir un horaire faux.
+ *
+ * D'où la règle : le DÉTAIL d'une autre section se cache, l'AGRÉGAT se montre.
+ * On rend donc la charge totale à l'institut, et les sections NOMMÉES SANS
+ * LEUR VOLUME — on apprend qu'il est le collègue de quelqu'un en opto, pas ce
+ * qu'il y fait.
+ *
+ * L'ETP est celui de Pilotage — CT/800 + PP/1000 —, repris et non réécrit :
+ * deux formules pour une même grandeur finiraient par donner deux chiffres, et
+ * c'est celui qu'on ne regarde pas qui serait le bon.
+ */
+r.get('/charge/:profId', authRequired, withSectionScope, (req, res) => {
+  const annee = req.query.annee || anneeDeTravail(req);
+  const profId = Number(req.params.profId);
+  try {
+    const lignes = db.prepare(`
+      SELECT section,
+             SUM(CASE WHEN type_cours = 'CT' THEN COALESCE(total_attribue_professeur, 0) ELSE 0 END) AS per_ct,
+             SUM(CASE WHEN type_cours = 'PP' THEN COALESCE(total_attribue_professeur, 0) ELSE 0 END) AS per_pp,
+             SUM(CASE WHEN type_cours NOT IN ('CT','PP') OR type_cours IS NULL
+                      THEN COALESCE(total_attribue_professeur, 0) ELSE 0 END) AS per_autre
+        FROM v_attribution_complete
+       WHERE professeur_id = ? AND annee_scolaire = ?
+       GROUP BY section
+    `).all(profId, annee);
+
+    const etp = lignes.reduce((t, l) =>
+      t + (l.per_ct || 0) / 800 + (l.per_pp || 0) / 1000 + (l.per_autre || 0) / 800, 0);
+
+    res.json({
+      professeur_id: profId,
+      annee,
+      // ARRONDI AU CENTIÈME : un ETP à sept décimales donne l'illusion d'une
+      // précision que la donnée n'a pas.
+      etp_total: Math.round(etp * 100) / 100,
+      sections: lignes.map(l => l.section).filter(Boolean).sort(),
+      // Ce que CETTE personne a le droit de détailler. L'écran s'en sert pour
+      // savoir quelles sections il peut ouvrir, et lesquelles restent une
+      // simple mention.
+      sections_detaillables: lignes.map(l => l.section).filter(
+        sx => sx && sectionPermise(req, sx)).sort(),
+    });
+  } catch (e) {
+    console.error('[attributions/charge]', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+r.get('/:id', authRequired, withSectionScope, (req, res) => {
   const row = db.prepare('SELECT * FROM v_attribution_complete WHERE id = ?').get(req.params.id);
   if (!row) return res.status(404).json({ error: 'Attribution introuvable' });
+  // LIRE PAR IDENTIFIANT CONTOURNAIT TOUT. La liste filtrait, celle-ci non :
+  // n'importe quelle attribution de n'importe quelle section se lisait en
+  // devinant un numéro. On rend 404 plutôt que 403 — dire « interdit »
+  // confirmerait que l'attribution existe, et le numéro renseigne déjà.
+  if (!sectionPermise(req, row.section)) {
+    return res.status(404).json({ error: 'Attribution introuvable' });
+  }
   res.json(row);
 });
 
@@ -833,7 +975,7 @@ r.patch('/:id', authRequired, roleRequired('admin', 'editeur', 'coordination'), 
     'type_cours_helb','code','nb_groupes','split_groupe','num_split','num_groupe',
     'activite_id', 'titre_rtf',
     'professeur_id','cours_ept_ad','coordination_encadrement',
-    'modification_attribution','commentaire','commentaire_2',
+    'modification_attribution','commentaire','commentaire_2','statut_exception',
     'per_etudiant_total_dp','periodes_attribuees','autonomie_attribuee','helb_nature'
   ];
   const updates = [];

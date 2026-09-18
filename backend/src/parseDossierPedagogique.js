@@ -29,11 +29,20 @@ function parseDP(xmlStr) {
     b.type === 'p' ? b.text : b.cells.join(' | ')
   ).join('\n');
 
-  // CODE FWB
+  /* CODE FWB — ET LA LETTRE N'EST PAS TOUJOURS « D ».
+   *
+   * Les deux expressions n'acceptaient que « …U21 D1 ». Or la Fédération
+   * numérote aussi en V — « 824132U21V1 », la formation complémentaire de
+   * l'ambulancier de transport non urgent. Le code était donc bien dans la
+   * pièce, parfaitement lisible, et l'import répondait « introuvable » : on
+   * ne cherchait pas la bonne forme. Une lettre oubliée dans une expression
+   * régulière rend un dossier entier inimportable, sans rien dire de plus
+   * précis que « introuvable ».
+   */
   let codeFwb = '';
-  const codeMatch = fullText.match(/CODE\s*:\s*([\d][\d\s]+U\d+\s*D\d+)/i)
-    || fullText.match(/([\d]{2}\s*[\d]{2}\s*[\d]{2}\s*U\d+\s*D\d+)/);
-  if (codeMatch) codeFwb = codeMatch[1].replace(/\s+/g, ' ').trim();
+  const codeMatch = fullText.match(/CODE\s*:\s*([\d][\d\s]+U\d+\s*[A-Z]\d+)/i)
+    || fullText.match(/([\d]{2}\s*[\d]{2}\s*[\d]{2}\s*U\d+\s*[A-Z]\d+)/i);
+  if (codeMatch) codeFwb = codeMatch[1].replace(/\s+/g, ' ').trim().toUpperCase();
 
   // INTITULE UE
   let ueNom = '';

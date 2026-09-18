@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import { nomPropre } from '../lib/nom.js';
 import {
   IconPrinter, IconUsers, IconSchool, IconChartBar, IconCalendarStats,
@@ -28,12 +28,30 @@ import { Fenetre, GroupeFenetre, PieceFenetre } from './ui.jsx';
  * pièces d'unité, et le restent.
  */
 
+const Listes = lazy(() => import('../pages/Listes.jsx'));
+
+/* LES DOMAINES D'ÉDITIONS SONT LES AXES DE LUCIE, ET RIEN D'AUTRE.
+   On rangeait ici en « Étudiants · Personnel · Pilotage · Organisation ·
+   Référentiels » pendant que l'application a « Étudiants · Personnel ·
+   Organisation · Gestion » : on apprenait un rangement pour travailler et un
+   autre pour imprimer, et quand on cherchait la dotation on essayait les deux.
+   « Pilotage » devient GESTION — même territoire, celui de ce qu'on engage.
+   « Référentiels » rentre dans ORGANISATION : une unité, un cours, une grille,
+   un acquis sont les objets de cet axe, pas un métier séparé.
+   Le générateur n'est pas un axe : ses listes se rangent dans les axes. */
+/* « CONSTRUIRE UNE LISTE » A DISPARU, ET C'EST LE BUT.
+   L'onglet proposait les seize listes prédéfinies, qui reparaissaient ensuite
+   dans Étudiants, Personnel, Organisation et Gestion : deux chemins pour une
+   même pièce, et l'on ne savait plus lequel faisait foi. Leur donner un axe
+   (2.12.27) n'a pas suffi tant que le second chemin restait ouvert. Chaque
+   liste vit maintenant dans SON axe, sous la bascule « Listes » — et c'est là
+   qu'on choisit ses colonnes, puisque c'est le même écran. Une place par
+   pièce. */
 const ONGLETS = [
   { cle: 'etudiants', label: 'Étudiants', icon: IconSchool },
   { cle: 'personnel', label: 'Personnel', icon: IconUsers },
-  { cle: 'pilotage', label: 'Pilotage', icon: IconChartBar },
-  { cle: 'organisation', label: 'Organisation', icon: IconCalendarStats },
-  { cle: 'referentiels', label: 'Référentiels', icon: IconBooks },
+  { cle: 'organisation', label: 'Organisation', icon: IconBooks },
+  { cle: 'gestion', label: 'Gestion', icon: IconChartBar },
 ];
 
 const PIECES = [
@@ -52,6 +70,15 @@ const PIECES = [
  * On voit d'abord ce qu'on emporte — cinquante lignes d'aperçu — avant de
  * télécharger : un tableur qu'on découvre après coup se refait deux fois.
  */
+/** Le générateur, servi dans une fenêtre — filtré sur un axe, ou complet. */
+function CadreListes({ domaine = null }) {
+  return (
+    <Suspense fallback={<div className="p-6 text-[13px] text-slate-400">Chargement…</div>}>
+      <Listes integre domaine={domaine} />
+    </Suspense>
+  );
+}
+
 function OngletRapports({ domaine }) {
   /* L'ANNÉE SE CHOISIT ICI. Le centre reprenait l'année de travail sans
      jamais la montrer : pour sortir la charge de l'an dernier — ce que
@@ -269,15 +296,41 @@ function OngletRapports({ domaine }) {
   return (
     <div className="flex min-h-0 flex-1">
       <div className="w-[340px] border-r border-slate-200 overflow-auto p-2 space-y-1">
-        {liste.map(r => (
-          <button key={r.id} onClick={() => voir(r)}
-            className={`w-full text-left px-2.5 py-2 rounded-lg border text-[13px]
-              ${choisi?.id === r.id ? 'border-iip-blue bg-iip-blue/5'
-                : 'border-transparent hover:bg-slate-50'}`}>
-            <span className="block text-slate-800">{r.libelle}</span>
-            <span className="block text-[11px] text-slate-500">{r.aide}</span>
-          </button>
-        ))}
+        {/* UNE LISTE SE PARCOURT, UNE FICHE SE LIT.
+            Chaque entrée portait son libellé ET une phrase entière d'aide, en
+            11 px, dans une colonne de 340 px : trois à quatre lignes de gris
+            par pièce, et le nom — la seule chose qu'on cherche — noyé dans son
+            propre commentaire. L'aide descend dans le panneau de droite, où
+            l'on en a besoin : au moment de régler l'année et la section, pas
+            au moment de parcourir.
+            Et la ligne dit enfin CE QUI VA SORTIR — une pièce mise en page ou
+            un tableau — et SUR QUOI elle porte. Les deux étaient calculés,
+            envoyés à l'écran, et affichés nulle part : on choisissait, et on
+            découvrait ensuite. */}
+        {liste.map(r => {
+          const portee = r.portees?.length
+            ? { etablissement: "tout l'établissement", section: 'par section',
+                ue: 'par unité', cours: 'par cours' }[r.portees[0]] || r.portees[0]
+            : null;
+          return (
+            <button key={r.id} onClick={() => voir(r)}
+              className={`w-full text-left px-2.5 py-1.5 rounded-lg border text-[13px]
+                flex items-center gap-2
+                ${choisi?.id === r.id ? 'border-iip-blue bg-iip-blue/5'
+                  : 'border-transparent hover:bg-slate-50'}`}>
+              <span className="flex-1 min-w-0 truncate">{r.libelle}</span>
+              <span className={`text-[10px] px-1.5 py-0.5 rounded-md flex-shrink-0
+                ${r.piece ? 'bg-[#00AACC]/12 text-[#046B80]' : 'bg-slate-100 text-slate-500'}`}>
+                {r.piece ? 'pièce' : 'tableau'}
+              </span>
+              {portee && (
+                <span className="text-[10px] text-slate-400 flex-shrink-0 hidden lg:inline">
+                  {portee}
+                </span>
+              )}
+            </button>
+          );
+        })}
         {catalogue && !liste.length && (
           <p className="p-4 text-[13px] text-slate-400">
             Aucun rapport dans ce domaine pour l’instant.
@@ -461,10 +514,19 @@ function OngletRapports({ domaine }) {
           </div>
         )}
 
+        {/* L'AIDE SE LIT ICI, au moment où l'on règle l'année et la section —
+            pas dans la liste, où elle noyait le nom des pièces. */}
+        {choisi?.aide && (
+          <div className="px-3 py-2 border-b border-slate-200 bg-[#FCFCFD]">
+            <div className="text-[13px] font-medium">{choisi.libelle}</div>
+            <div className="text-[12px] text-slate-500 mt-0.5">{choisi.aide}</div>
+          </div>
+        )}
+
         <div className="flex-1 overflow-auto min-h-0 bg-slate-100 p-3">
           {!choisi && (
             <p className="p-6 text-[13px] text-slate-400">
-              Choisissez un rapport à gauche.
+              Choisissez une pièce à gauche.
             </p>
           )}
           {choisi && !apercu && !erreur && (
@@ -477,7 +539,13 @@ function OngletRapports({ domaine }) {
                du document ne débordent pas sur l'application, et ceux de
                l'application ne viennent pas l'embellir — ce qu'on voit est
                donc bien ce qui s'imprime. */
-            <iframe title="Aperçu de la pièce" srcDoc={apercu.html}
+            /* `aria-label` ET NON `title` : le navigateur affiche tout `title`
+               en infobulle NATIVE — police du système, position au curseur,
+               rien de tout cela ne nous appartient, et elle venait se poser en
+               travers de l'aperçu qu'on essayait de lire. `aria-label` nomme
+               le cadre pour un lecteur d'écran, ce qui est le seul besoin
+               réel, et n'affiche rien. */
+            <iframe aria-label="Aperçu de la pièce" srcDoc={apercu.html}
               className="w-full bg-white rounded-carte shadow-pose border border-slate-200"
               style={{ height: 'calc(100vh - 14rem)', minHeight: '32rem' }} />
           )}
@@ -523,7 +591,13 @@ function OngletEtudiants({ perimetre = null }) {
   const [recherche, setRecherche] = useState('');
   const [liste, setListe] = useState(null);
   const [coches, setCoches] = useState(() => new Set());
-  const [choix, setChoix] = useState({ reussite: true, ajournement: true, refus: true });
+  /* RIEN N'EST COCHÉ AU DÉPART — NULLE PART.
+     Trois pièces l'étaient d'office : on ouvrait l'écran pour en sortir une, et
+     l'on en produisait trois sans l'avoir demandé. Une case pré-cochée sur un
+     écran qui IMPRIME et ENVOIE n'est pas une commodité, c'est un envoi de
+     travers en attente — et un courriel parti ne se rattrape pas.
+     Le choix se fait, il ne se subit pas : on coche ce qu'on veut. */
+  const [choix, setChoix] = useState({});
   const [separer, setSeparer] = useState(
     () => localStorage.getItem('impression.separer') === '1');
   // L'envoi ne se montre que s'il est allumé ET permis. La route refuse de
@@ -902,6 +976,14 @@ export default function CentreImpressionCentral({ ongletInitial = 'etudiants',
                                                   perimetre = null, pieces = null,
                                                   onClose }) {
   const [onglet, setOnglet] = useState(ongletInitial);
+  // Dans un axe qui porte deux familles : les pièces par personne, ou les
+  // rapports du catalogue. On entre par les pièces, qui sont le quotidien.
+  /* La famille par défaut : les pièces dans Étudiants — c'est son métier —,
+     les rapports partout ailleurs. Elle se remet à sa valeur d'origine quand
+     on change d'axe : « Listes » laissé actif en passant de Personnel à
+     Gestion ouvrait une colonne vide, et l'on croyait l'axe vide. */
+  const [famille, setFamille] = useState('pieces');
+  useEffect(() => { setFamille(onglet === 'etudiants' ? 'pieces' : 'rapports'); }, [onglet]);
 
   return (
     /* L'AVION, ET LE SOUS-TITRE AVEC LUI.
@@ -931,9 +1013,63 @@ export default function CentreImpressionCentral({ ongletInitial = 'etudiants',
         ))}
       </div>
 
-      {onglet === 'etudiants'
-        ? <OngletEtudiants perimetre={perimetre} />
-        : <OngletRapports domaine={onglet} />}
+      {/* UN AXE PEUT PORTER DEUX FAMILLES, ET L'ÉCRAN DOIT LES MONTRER TOUTES.
+          Étudiants a son écran propre — un périmètre, des pièces NOMINATIVES
+          qu'on produit par personne — et il ne rendait QUE cela. En y rangeant
+          les rapports qui comptent des étudiants (résultats de délibération,
+          effectifs par section), je les avais rendus INJOIGNABLES : rangés dans
+          un axe dont l'onglet n'affiche pas le catalogue.
+          Ranger sans vérifier que la pièce arrive quelque part, c'est déplacer
+          un dossier dans un tiroir qui n'existe pas. L'axe porte donc une
+          bascule quand il a les deux familles. */}
+      {onglet === 'etudiants' ? (
+        <>
+          <div className="px-1 pb-3">
+            <span className="seg-fam">
+              <button onClick={() => setFamille('pieces')}
+                className={famille === 'pieces' ? 'on' : ''}>
+                Pièces par étudiant
+              </button>
+              <button onClick={() => setFamille('rapports')}
+                className={famille === 'rapports' ? 'on' : ''}>
+                Rapports
+              </button>
+              <button onClick={() => setFamille('listes')}
+                className={famille === 'listes' ? 'on' : ''}>
+                Listes
+              </button>
+            </span>
+          </div>
+          {famille === 'pieces' ? <OngletEtudiants perimetre={perimetre} />
+            : famille === 'listes' ? <CadreListes domaine="etudiants" />
+            : <OngletRapports domaine="etudiants" />}
+        </>
+      ) : (
+        /* CHAQUE AXE PORTE SES DEUX FAMILLES, ET LE GÉNÉRATEUR N'EST PLUS UN
+           SECOND CATALOGUE. « Construire une liste » proposait les seize listes
+           prédéfinies, ET les mêmes reparaissaient dans Personnel, Organisation,
+           Gestion : deux chemins pour une même pièce, et plus moyen de dire
+           lequel fait foi. La liste vit maintenant dans SON axe — c'est ce que
+           disait la proposition validée — et l'onglet en tête redevient ce
+           qu'il est, l'OUTIL où l'on choisit ses colonnes. */
+        <>
+          <div className="px-1 pb-3">
+            <span className="seg-fam">
+              <button onClick={() => setFamille('rapports')}
+                className={famille === 'listes' ? '' : 'on'}>
+                Rapports
+              </button>
+              <button onClick={() => setFamille('listes')}
+                className={famille === 'listes' ? 'on' : ''}>
+                Listes
+              </button>
+            </span>
+          </div>
+          {famille === 'listes'
+            ? <CadreListes domaine={onglet} />
+            : <OngletRapports domaine={onglet} />}
+        </>
+      )}
     </Fenetre>
   );
 }

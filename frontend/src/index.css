@@ -54,7 +54,12 @@ table.grid-excel td.num { text-align: right; font-variant-numeric: tabular-nums;
 
 /* Variante épurée (flat) : pas de fond alterné, lignes horizontales courtes
    (marge aux bords), survol très discret. Design aéré. */
-table.grid-excel-soft { border-collapse: collapse; width: 100%; font-size: 0.875rem; }
+/* LA GRILLE EST ÉCRITE DANS L'ÉCHELLE DE LA MAISON, comme le reste.
+   Elle valait 0.875rem — 14 px — quand le corps de l'app en fait 13 : tout
+   l'écran le plus consulté était d'un cran au-dessus de tous les autres, et
+   c'est ce qui le faisait paraître d'une autre époque. Une échelle qui souffre
+   une exception n'est plus une échelle. */
+table.grid-excel-soft { border-collapse: collapse; width: 100%; font-size: 13px; }
 table.grid-excel-soft th, table.grid-excel-soft td {
   border: none;
   padding: 0.4rem 0.6rem;
@@ -72,10 +77,54 @@ table.grid-excel-soft tbody td:first-child,
 table.grid-excel-soft thead th:first-child { padding-left: 1rem; }
 table.grid-excel-soft tbody td:last-child,
 table.grid-excel-soft thead th:last-child { padding-right: 1rem; }
+/* UNE BASCULE DE FAMILLE, dans un axe qui en porte deux : les pièces qu'on
+   produit par personne, et les rapports du catalogue. Même dessin que les
+   segments de la maison — le choix ouvert en marine, le reste en gris. */
+.seg-fam { display:inline-flex; border:1px solid #D8DCE4; border-radius:8px;
+           overflow:hidden; }
+.seg-fam button { border:0; background:#fff; padding:0 12px; height:30px;
+                  font-size:12.5px; font-family:inherit; color:#6B7280;
+                  cursor:pointer; }
+.seg-fam button.on { background:#1B2B4B; color:#fff; font-weight:600; }
+
+/* LA BANDE DU COURS ET SON EN-TÊTE NE FONT QU'UN OBJET.
+   Le titre du cours et la ligne « VAL. CONTR. ACTIVITÉ… » étaient deux bandeaux
+   superposés, de deux fonds et de deux tailles, qui se disputaient la hauteur —
+   et l'en-tête, collé en haut de la zone qui défile, finissait par appartenir
+   au dernier cours dépassé plutôt qu'à celui qu'on regarde. Même fond, aucun
+   filet entre eux : on lit « voici ce cours, et voici ce que ses colonnes
+   disent » d'un seul mouvement. */
+.fusion-cours table.grid-excel-soft thead th {
+  background: #F4F6F8;
+  position: static;
+}
+/* La ligne des plafonds : une valeur, pas une étiquette — donc ni graisse ni
+   majuscules, et le gris de ce qui se consulte sans se modifier. */
+.fusion-cours table.grid-excel-soft thead tr.plafonds th {
+  font-weight: 400;
+  letter-spacing: 0;
+  color: #A8AEB9;
+  padding-top: 0;
+  padding-bottom: .35rem;
+  border-bottom: 1px solid #ECEEF0;
+}
+.fusion-cours table.grid-excel-soft thead tr:first-child th {
+  border-bottom: none;
+  padding-bottom: .15rem;
+}
+.fusion-cours table.grid-excel-soft thead tr:last-child th {
+  border-bottom: 1px solid #ECEEF0;
+}
+
+/* L'EN-TÊTE NOMME LES COLONNES : C'EST UNE ÉTIQUETTE, PAS DU TEXTE.
+   Il héritait des 14 px du corps — « VAL. CONTR. ACTIVITÉ » pesait donc plus
+   lourd que la donnée qu'il annonce. Onze pixels, l'étiquette de l'échelle. */
 table.grid-excel-soft thead th {
   background: #fcfcfd;
   color: #6b7280;
+  font-size: 11px;
   font-weight: 600;
+  letter-spacing: 0.04em;
   border-bottom: 1px solid #eceef0;
   position: sticky;
   top: 0;
@@ -83,19 +132,52 @@ table.grid-excel-soft thead th {
 table.grid-excel-soft tbody tr:hover { background: #fafbfc; }
 table.grid-excel-soft td.num { text-align: right; font-variant-numeric: tabular-nums; }
 
+/* UN CHAMP DE GRILLE NE SE DESSINE QU'AU MOMENT OÙ L'ON S'EN SERT.
+   Chaque cellule portait une boîte grise bordée : sur une grille de deux cents
+   lignes, cela fait huit cents rectangles dessinés en permanence pour dire une
+   chose qu'on ne se demande qu'au moment d'écrire — « ceci se modifie ». Le
+   cadre paraît au survol, se remplit à la saisie, et disparaît le reste du
+   temps. Le rayon vient de l'échelle (champ = 8) : il valait 5, qui n'y est
+   pas. */
 .input-cell {
   width: 100%;
-  background: #fafafa;
-  border: 1px solid #e2e2e2;
-  border-radius: 5px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 8px;
   outline: none;
   font-size: inherit;
   font-family: inherit;
   padding: 1px 4px;
   transition: background .12s, border-color .12s;
 }
-.input-cell:hover { border-color: #cfcfcf; }
+.input-cell:hover { background: #fafafa; border-color: #dcdfe4; }
 .input-cell:focus { background: #e0f4f9; border-color: #00AACC; outline: none; }
+
+/* UNE LISTE DÉROULANTE DANS UNE CELLULE N'EST PAS UN BOUTON.
+   Les « IIP », « R », « — » de la grille ne sont pas des badges : ce sont des
+   <select> que le navigateur habille de sa propre pastille bordée. D'où des
+   gros cabochons blancs au milieu de badges dessinés, qui eux respectent la
+   maison. On retire la décoration native ; la flèche paraît au survol, comme
+   le cadre des champs — huit flèches permanentes par ligne ne signalent plus
+   rien. */
+table.grid-excel-soft select {
+  appearance: none;
+  -webkit-appearance: none;
+  background-color: transparent;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  padding: 1px 4px;
+  transition: background-color .12s, border-color .12s;
+}
+table.grid-excel-soft select:hover {
+  background-color: #fafafa;
+  border-color: #dcdfe4;
+}
+table.grid-excel-soft select:focus {
+  background-color: #e0f4f9;
+  border-color: #00AACC;
+  outline: none;
+}
 
 /* Supprimer les flèches/spinners des input number et type="text" inputMode="decimal" */
 .no-spinner::-webkit-outer-spin-button,
@@ -129,7 +211,13 @@ table.grid-excel-soft td.num { text-align: right; font-variant-numeric: tabular-
 .badge-p     { background: #faf5ff; color: #6b21a8; border: 1px solid #d8b4fe; }
 .badge-o     { background: #fff7ed; color: #9a3412; border: 1px solid #fdba74; }
 .badge-cc    { background: #e0e7ff; color: #3730a3; }
-.badge-exp   { background: #f1f5f9; color: #475569; border: 1px solid #94a3b8; }
+/* CC ET EXP SONT DEUX STATUTS, PAS UN STATUT ET SON ABSENCE.
+   EXP se dessinait en gris bordé au milieu de badges teintés : il se lisait
+   comme « rien », alors que c'est une situation aussi nette que CC. Deux
+   teintes distinctes, du même dessin que les autres badges — et aucune des
+   trois couleurs d'ÉTAT (vert, ocre, brique), qui diraient « bon » ou
+   « mauvais » là où il n'y a qu'une différence de contrat. */
+.badge-exp   { background: color-mix(in srgb, #6D28D9 13%, #fff); color: #5B21B6; }
 .badge-incomplete { background: #fef9c3; color: #854d0e; }
 
 /* ═══════════════════════════════════════════════════════════════════════════

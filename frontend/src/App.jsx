@@ -21,12 +21,14 @@ import { Routes, Route, Navigate, NavLink, useNavigate } from 'react-router-dom'
 import { isAuthenticated, getUser, api, getAnnee, setAnnee } from './lib/api.js';
 import { useMode, basculerMode } from './lib/theme.js';
 import {
-  IconClipboardList, IconUsers, IconFileExport, IconChecklist,
+  IconClipboardList, IconBooks, IconUsers, IconFileExport, IconChecklist,
   IconChartBar, IconCalendarStats, IconEdit, IconSettings, IconLogout, IconMenu2, IconX,
   IconHome, IconBell, IconHelpCircle, IconGavel, IconSun, IconMoon,
+  IconShieldLock, IconShieldCheck,
 } from '@tabler/icons-react';
 
 import Login from './pages/Login.jsx';
+import MonCompte from './components/MonCompte.jsx';
 import Dashboard from './pages/Dashboard.jsx';
 import Attributions from './pages/Attributions.jsx';
 import Professeurs from './pages/Professeurs.jsx';
@@ -35,24 +37,17 @@ import Recrutement from './pages/Recrutement.jsx';
 import Accueil from './pages/Accueil.jsx';
 import { lazy, Suspense } from 'react';
 const Listes     = lazy(() => import('./pages/Listes.jsx'));
-const Editeur    = lazy(() => import('./pages/Editeur.jsx'));
 const Procedures = lazy(() => import('./pages/Procedures.jsx'));
-import Users from './pages/Users.jsx';
-import Annees from './pages/Annees.jsx';
 import Configuration from './pages/Configuration.jsx';
 import EA12List from './pages/EA12List.jsx';
 import EA12Editor from './pages/EA12Editor.jsx';
-import Referentiels from './pages/Referentiels.jsx';
 import Pilotage from './pages/Pilotage.jsx';
 import Planification from './pages/Planification.jsx';
 import Aide from './pages/Aide.jsx';
 import Attestation from './pages/Attestation.jsx';
 import Disciplinaire from './pages/Disciplinaire.jsx';
 import Echeancier from './pages/Echeancier.jsx';
-import Besoins from './pages/Besoins.jsx';
 import Organisation from './pages/Organisation.jsx';
-import DUE from './pages/DUE.jsx';
-import Classement from './pages/Classement.jsx';
 import { AxeAccueil, AxeEtudiants } from './pages/Axes.jsx';
 import { BoutonAide } from './pages/Aide.jsx';
 
@@ -172,6 +167,7 @@ function VoirCommePicker() {
 
 function ProtectedLayout({ children }) {
   const navigate = useNavigate();
+  const [compteOuvert, setCompteOuvert] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
 
   /*
@@ -327,7 +323,14 @@ function ProtectedLayout({ children }) {
     ['/accueil',       'Tableau de bord', IconHome,           null],
     ['/etudiants',     'Étudiants',       IconChecklist,      'etudiants'],
     ['/professeurs',   'Personnel',       IconUsers,          'personnel'],
-    ['/organisation',  'Organisation',    IconClipboardList,  'attributions'],
+    /* L'ICÔNE D'UN AXE EST LA MÊME DANS LA BARRE ET DANS SON RAIL, et elle
+       n'appartient qu'à lui. Organisation portait IconClipboardList ici et
+       IconBooks dans son rail : deux dessins pour un même territoire, et le
+       presse-papiers désignait DÉJÀ l'onglet « Inscriptions & PAE » de l'axe
+       Étudiants. Organisation est l'axe des unités, des cours et des
+       référentiels — des livres —, ce qui rend le presse-papiers au PAE, qui
+       est littéralement une liste à cocher. */
+    ['/organisation',  'Organisation',    IconBooks,          'attributions'],
     ['/gestion',       'Gestion',         IconChartBar,       'dotation'],
   ];
 
@@ -477,6 +480,16 @@ function ProtectedLayout({ children }) {
                                hidden sm:inline" title={u?.role}>
                 {ROLE_COURT[u?.role] || u?.role}
               </span>
+              {/* MON COMPTE — une icône, à côté de la porte de sortie.
+                  C'est le seul endroit fixe de l'application : un réglage qui
+                  vaut pour la personne et non pour l'écran n'a rien à faire
+                  dans un rail qui change à chaque clic. */}
+              <button onClick={() => setCompteOuvert(true)}
+                title="Mon compte — vérification en deux temps" aria-label="Mon compte"
+                className="w-8 h-8 grid place-items-center rounded-champ text-slate-400
+                           hover:text-iip-blue hover:bg-slate-100 transition-colors duration-150">
+                <IconShieldLock size={16} />
+              </button>
               <button onClick={() => { api.logout(); navigate('/login'); }}
                 title="Se déconnecter" aria-label="Se déconnecter"
                 className="w-8 h-8 grid place-items-center rounded-champ text-slate-400
@@ -505,6 +518,7 @@ function ProtectedLayout({ children }) {
         )}
       </header>
       <main className="flex-1">{children}</main>
+      {compteOuvert && <MonCompte onFermer={() => setCompteOuvert(false)} />}
       <BuildBadge />
     </div>
   );
@@ -539,18 +553,15 @@ export default function App() {
           </Suspense>
         </ProtectedLayout>
       } />
-      <Route path="/editeur" element={
-        <ProtectedLayout>
-          <Suspense fallback={<div className="p-8 text-gray-400">Chargement de l'éditeur…</div>}>
-            <Editeur />
-          </Suspense>
-        </ProtectedLayout>
-      } />
       <Route path="/ea12"          element={<ProtectedLayout><EA12List /></ProtectedLayout>} />
       <Route path="/ea12/:id"      element={<ProtectedLayout><EA12Editor /></ProtectedLayout>} />
       <Route path="/echeancier"     element={<ProtectedLayout><Echeancier /></ProtectedLayout>} /> {/* conservé : liens des rappels */}
-      <Route path="/besoins"        element={<ProtectedLayout><Besoins /></ProtectedLayout>} />
-      <Route path="/classement"     element={<ProtectedLayout><Classement /></ProtectedLayout>} />
+      {/* BESOINS ET CLASSEMENT SONT DES RUBRIQUES DE PERSONNEL, et ils s'y
+          montent désormais. Ces deux routes restent servies pour les liens
+          notés, et mènent à l'axe — qui les ouvre avec son rail, au lieu de
+          les ouvrir sans. */}
+      <Route path="/besoins"        element={<ProtectedLayout><Professeurs vue="besoins" /></ProtectedLayout>} />
+      <Route path="/classement"     element={<ProtectedLayout><Professeurs vue="classement" /></ProtectedLayout>} />
       {/* GESTION — ce qu'on engage. « /pilotage » reste servi pour les liens
           déjà notés ou mis en favori, et mène au tableau de bord. */}
       <Route path="/gestion"        element={<ProtectedLayout><Pilotage vue="gestion" /></ProtectedLayout>} />
@@ -559,11 +570,21 @@ export default function App() {
       <Route path="/aide"           element={<ProtectedLayout><Aide /></ProtectedLayout>} />
       <Route path="/attestation"   element={<ProtectedLayout><Attestation /></ProtectedLayout>} />
       <Route path="/disciplinaire" element={<ProtectedLayout><Disciplinaire /></ProtectedLayout>} />
-      <Route path="/utilisateurs" element={<ProtectedLayout><Users /></ProtectedLayout>} />
-      <Route path="/annees"         element={<ProtectedLayout><Annees /></ProtectedLayout>} />
+      {/* CES ÉCRANS ONT DÉJÀ LEUR PLACE — ON N'EN OUVRE PAS UNE SECONDE.
+          `Users`, `Annees`, `Referentiels` et `Editeur` sont DÉJÀ rendus comme
+          onglets de Configuration, et `DUE` comme onglet d'Organisation. Ces
+          routes-ci montaient les MÊMES composants tout seuls, hors de leur axe
+          — donc sans rail : on cliquait, la navigation disparaissait, et il ne
+          restait que la touche Précédent. Ce n'était pas un rail manquant,
+          c'était une seconde porte vers une pièce qui en avait déjà une.
+          Elles restent servies, pour les liens notés et les favoris, mais
+          elles mènent désormais à la place qui existe. */}
+      <Route path="/utilisateurs"   element={<Navigate to="/configuration?onglet=users" replace />} />
+      <Route path="/annees"         element={<Navigate to="/configuration?onglet=annees" replace />} />
+      <Route path="/referentiels"   element={<Navigate to="/configuration?onglet=referentiel-annee" replace />} />
+      <Route path="/editeur"        element={<Navigate to="/configuration?onglet=editeur" replace />} />
       <Route path="/configuration"  element={<ProtectedLayout><Configuration /></ProtectedLayout>} />
-      <Route path="/due"            element={<ProtectedLayout><DUE /></ProtectedLayout>} />
-      <Route path="/referentiels"   element={<ProtectedLayout><Referentiels /></ProtectedLayout>} />
+      <Route path="/due"            element={<ProtectedLayout><Organisation ongletInitial="due" /></ProtectedLayout>} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
     </ErrorBoundary>
