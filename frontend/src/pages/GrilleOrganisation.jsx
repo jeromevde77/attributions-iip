@@ -221,6 +221,7 @@ export default function GrilleOrganisation() {
 
       {fiche && (
         <FenetreCours etat={fiche} annee={annee} section={section}
+          periodeMinutes={data?.periode_minutes || 50}
           onFermer={() => setFiche(null)}
           onEnregistre={() => { setFiche(null); charger(); }} />
       )}
@@ -328,7 +329,8 @@ function LigneUE({ u, semaines, nbSem, ouverte, surOuvrir, surCours, vue }) {
  * Leur somme, avec l'autonomie posée, doit retomber sur un multiple des
  * périodes du dossier.
  */
-function FenetreCours({ etat, annee, section, onFermer, onEnregistre }) {
+function FenetreCours({ etat, annee, section, periodeMinutes = 50,
+                        onFermer, onEnregistre }) {
   const { ue, cours } = etat;
   const [lignes, setLignes] = useState(() => (cours.activites || []).map(a => ({
     activite_id: a.activite_id, periodes: a.periodes, vu_etudiant: a.vu_etudiant !== 0,
@@ -392,6 +394,21 @@ function FenetreCours({ etat, annee, section, onFermer, onEnregistre }) {
         <button onClick={onFermer} className="bouton ml-auto">Annuler</button>
       </>}>
       <div className="p-5 space-y-4 overflow-auto">
+
+        {/* LA JAUGE : LE COURS SE VOIT AVANT DE SE LIRE.
+            La barre du bandeau était d'une seule couleur et ne disait rien de
+            ce qu'on venait d'y poser. Elle se DÉCOUPE désormais : un segment
+            par activité, un pour l'autonomie, chacun large de ses périodes.
+            Ajouter une activité coupe la barre, changer un nombre déplace la
+            coupure — c'est le dessin qui répond à la saisie, et non un total
+            qu'il faut aller relire en bas de la fenêtre.
+
+            L'ÉCHELLE EST CELLE DU DOSSIER PÉDAGOGIQUE, pas celle du total :
+            mise à l'échelle du total, la barre serait toujours pleine et ne
+            dirait jamais qu'on déborde. Le repère du dossier reste donc fixe,
+            et ce qui le dépasse se voit sortir. */}
+        <JaugeCours dp={dp} lignes={lignes} auto={Number(auto) || 0}
+          dispo={dispo} minutes={periodeMinutes} />
 
         <table className="w-full text-[13px]">
           <thead>
@@ -472,5 +489,88 @@ function FenetreCours({ etat, annee, section, onFermer, onEnregistre }) {
         </p>
       </div>
     </Fenetre>
+  );
+}
+
+/**
+ * UNE PÉRIODE N'EST PAS UNE HEURE, ET PERSONNE NE FAIT LA DIVISION DE TÊTE.
+ *
+ * Cinquante minutes chez nous — mais c'est un réglage, servi par le serveur :
+ * l'écrire en dur ferait une seconde source. On affiche « 64 p · 53 h 20 »,
+ * parce que c'est en heures qu'on parle à un professeur et qu'on remplit un
+ * horaire, et en périodes que le dossier pédagogique compte.
+ */
+function enHeures(periodes, minutes) {
+  const m = Math.round((Number(periodes) || 0) * (Number(minutes) || 50));
+  const h = Math.floor(m / 60);
+  const r = m % 60;
+  return r ? `${h} h ${String(r).padStart(2, '0')}` : `${h} h`;
+}
+
+/** Les teintes des segments : la maison, déclinée — jamais un état. */
+const TEINTES = ['#1B2B4B', '#3B5488', '#00AACC', '#5B7FB8', '#7FB3D5', '#A9C6E0'];
+const TEINTE_AUTONOMIE = '#8B5CF6';
+
+function JaugeCours({ dp, lignes, auto, dispo, minutes }) {
+  const nom = id => dispo.find(a => a.id === Number(id))?.libelle || 'Activité';
+  const segments = [
+    ...lignes.map((l, i) => ({
+      cle: `a${i}`, libelle: l.activite_id ? nom(l.activite_id) : 'À choisir',
+      valeur: Number(l.periodes) || 0, teinte: TEINTES[i % TEINTES.length],
+    })),
+    ...(auto > 0 ? [{ cle: 'auto', libelle: 'Autonomie', valeur: auto,
+      teinte: TEINTE_AUTONOMIE }] : []),
+  ].filter(s => s.valeur > 0);
+
+  const total = segments.reduce((t, s) => t + s.valeur, 0);
+  // L'échelle : le dossier, ou le total quand il le dépasse — sinon ce qui
+  // déborde sortirait du cadre au lieu de se voir.
+  const echelle = Math.max(dp || 0, total, 1);
+  const pct = v => `${(v / echelle) * 100}%`;
+
+  return (
+    <div className="carte px-3 py-2.5">
+      <div className="flex items-baseline gap-2 text-[12.5px] mb-2">
+        <b>Périodes du cours</b>
+        <span className="text-slate-500 text-[11.5px]">
+          dossier pédagogique : <b className="text-slate-700">{dp || '—'}</b>
+          {dp ? ` p · ${enHeures(dp, minutes)}` : ''}
+        </span>
+        <span className="ml-auto text-[12.5px]">
+          <b className={total === dp ? 'text-[#15803D]'
+            : (total > (dp || 0) ? 'text-[#9D4A38]' : 'text-slate-700')}>{total}</b>
+          <span className="text-slate-500"> p · {enHeures(total, minutes)} organisés</span>
+        </span>
+      </div>
+
+      {/* LA BARRE. Vide, elle reste visible : un cours pas encore découpé doit
+          se distinguer d'un cours absent. */}
+      <div className="flex h-3 w-full rounded-full overflow-hidden bg-slate-200/70">
+        {segments.map(s => (
+          <div key={s.cle} style={{ width: pct(s.valeur), background: s.teinte }}
+            title={`${s.libelle} — ${s.valeur} p · ${enHeures(s.valeur, minutes)}`} />
+        ))}
+      </div>
+
+      {/* LE REPÈRE DU DOSSIER, quand on le dépasse : il dit OÙ était la cible. */}
+      {dp > 0 && total > dp && (
+        <div className="relative h-0">
+          <div className="absolute -top-3 w-px h-3 bg-[#9D4A38]"
+            style={{ left: pct(dp) }} title={`Dossier pédagogique : ${dp} périodes`} />
+        </div>
+      )}
+
+      {segments.length > 0 && (
+        <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-2 text-[11px] text-slate-500">
+          {segments.map(s => (
+            <span key={s.cle} className="inline-flex items-center gap-1">
+              <i className="inline-block w-2 h-2 rounded-full" style={{ background: s.teinte }} />
+              {s.libelle} <b className="text-slate-700">{s.valeur}</b> p
+              <span className="text-slate-400">· {enHeures(s.valeur, minutes)}</span>
+            </span>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }

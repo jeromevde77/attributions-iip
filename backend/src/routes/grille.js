@@ -256,7 +256,18 @@ r.get('/', authRequired, (req, res) => {
     };
   });
 
-  res.json({ annee, section, semaines, ues: sortie });
+  /* UNE PÉRIODE N'EST PAS UNE HEURE, ET LA DURÉE NE SE DEVINE PAS.
+     Cinquante minutes chez nous, mais c'est un RÉGLAGE (`planning.periode_minutes`,
+     Configuration → Planification) : l'écrire en dur ici en ferait une seconde
+     source, et le jour où il change c'est la grille qui aurait tort en silence.
+     Le planificateur le sert à l'écran, qui convertit sans rien décider. */
+  let periodeMinutes = 50;
+  try {
+    const p = db.prepare("SELECT valeur FROM parametre WHERE cle = 'planning.periode_minutes'").get();
+    if (p && Number(p.valeur) > 0) periodeMinutes = Number(p.valeur);
+  } catch { /* paramètre absent : la valeur de la maison */ }
+
+  res.json({ annee, section, semaines, periode_minutes: periodeMinutes, ues: sortie });
 });
 
 /**
