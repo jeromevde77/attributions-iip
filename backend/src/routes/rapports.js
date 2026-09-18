@@ -1417,6 +1417,88 @@ r.post('/:id/apercu', authRequired, (req, res) => {
  * (lib/document.js) : A4, marges de 18 mm, en-tête de l'établissement, pied
  * numéroté. On n'en écrit pas une dixième.
  */
+/**
+ * METTRE EN PAGE UNE LISTE CONSTRUITE À L'ÉCRAN.
+ *
+ * L'écran « Listes » est un GÉNÉRATEUR : on y coche ses colonnes, on filtre, et
+ * la liste qui en sort n'est pas une pièce du catalogue — c'est une extraction
+ * à la demande. Elle n'avait donc, pour onze de ses seize types, aucune
+ * impression du tout : CSV et Excel, rien d'autre. Les cinq autres passaient
+ * par `window.open` et l'impression du navigateur — ni A4 imposé, ni en-tête,
+ * ni pied, ni numérotation ; le format rendu à la boîte d'impression de chacun,
+ * ce que le centre d'impression existe précisément pour supprimer.
+ *
+ * ON N'OUVRE PAS UNE DIXIÈME ENVELOPPE, ON OUVRE CELLE-CI. Cette route ne sait
+ * rien des listes : elle reçoit des colonnes et des lignes, et les habille avec
+ * `envelopperDocument` et `STYLE_RAPPORT` — la même enveloppe, le même pied, la
+ * même règle de paysage au-delà de six colonnes que les rapports du catalogue.
+ * Une liste imprimée depuis « Listes » et la même depuis « Éditions » sortent
+ * ainsi habillées pareil, ce qui est tout l'enjeu.
+ *
+ * Rien de ce qui arrive n'est du HTML : tout est échappé. Le corps de la pièce
+ * se construit ici, à partir de valeurs.
+ */
+r.post('/mise-en-page', authRequired, (req, res) => {
+  const b = req.body || {};
+  const titre = String(b.titre || 'Liste').slice(0, 200);
+  const colonnes = Array.isArray(b.colonnes) ? b.colonnes.slice(0, 40) : [];
+  const lignes = Array.isArray(b.lignes) ? b.lignes.slice(0, 5000) : [];
+  if (!colonnes.length) return res.status(400).json({ error: 'Aucune colonne à mettre en page.' });
+
+  const esc = v => String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;');
+  const estNombre = v => v !== null && v !== '' && !isNaN(Number(v));
+
+  // Une colonne dont TOUTES les valeurs sont des nombres s'aligne à droite et
+  // se totalise : c'est ce que fait déjà le rendu des rapports, et deux
+  // alignements pour une même colonne selon la porte d'entrée se verrait.
+  const numerique = colonnes.map((_, i) =>
+    lignes.length > 0 && lignes.every(l => {
+      const v = Array.isArray(l) ? l[i] : null;
+      return v === null || v === '' || estNombre(v);
+    }) && lignes.some(l => estNombre(Array.isArray(l) ? l[i] : null)));
+
+  const cellules = l => colonnes.map((_, i) => {
+    const v = Array.isArray(l) ? l[i] : '';
+    return `<td${numerique[i] ? ' class="n"' : ''}>${esc(v)}</td>`;
+  }).join('');
+
+  const aDesNombres = numerique.some(Boolean);
+  const total = aDesNombres ? `<tfoot><tr>${colonnes.map((_, i) => {
+    if (i === 0) return `<td><b>Ensemble — ${lignes.length} ligne(s)</b></td>`;
+    if (!numerique[i]) return '<td></td>';
+    const s2 = lignes.reduce((acc, l) => acc + (Number(Array.isArray(l) ? l[i] : 0) || 0), 0);
+    return `<td class="n"><b>${esc(Math.round(s2 * 100) / 100)}</b></td>`;
+  }).join('')}</tr></tfoot>` : '';
+
+  const corps = `
+      <table>
+        <thead><tr>${colonnes.map((c, i) =>
+          `<th${numerique[i] ? ' class="n"' : ''}>${esc(c)}</th>`).join('')}</tr></thead>
+        <tbody>${lignes.length
+          ? lignes.map(l => `<tr>${cellules(l)}</tr>`).join('')
+          : `<tr><td colspan="${colonnes.length}" class="vide">Aucune donnée.</td></tr>`}</tbody>
+        ${total}
+      </table>`;
+
+  res.json({
+    html: envelopperDocument({
+      html: corps,
+      titre,
+      entete: {
+        titre,
+        sous: [b.annee ? `Année ${b.annee}` : null, b.section || null,
+               `${lignes.length} ligne(s)`].filter(Boolean).join(' · '),
+        mention: b.mention ? String(b.mention).slice(0, 300) : null,
+      },
+      // La même règle que les rapports : douze colonnes sur une A4 portrait
+      // deviennent illisibles, et on les imprime pour les lire.
+      orientation: colonnes.length > 6 ? 'paysage' : 'portrait',
+      styles: STYLE_RAPPORT,
+    }),
+    titre,
+  });
+});
+
 r.post('/:id/document', authRequired, (req, res) => {
   const def = RAPPORTS.find(x => x.id === req.params.id);
   if (!def) return res.status(404).json({ error: 'rapport inconnu' });

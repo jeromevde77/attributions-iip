@@ -369,6 +369,57 @@ const ENTITES = {
 };
 
 // ─── Exports ─────────────────────────────────────────────────────────────────
+/**
+ * IMPRIMER UNE LISTE, C'EST LA FAIRE HABILLER PAR LE SERVEUR.
+ *
+ * Onze des seize listes n'avaient AUCUNE impression — CSV et Excel, rien
+ * d'autre. Les cinq autres ouvraient un onglet et laissaient le navigateur
+ * imprimer : ni A4 imposé, ni en-tête IIP, ni pied, ni numérotation. On
+ * emportait donc en réunion une page dont le format dépendait de la boîte
+ * d'impression de celui qui avait cliqué.
+ *
+ * La liste part maintenant au serveur — les colonnes COCHÉES et les lignes
+ * affichées, telles qu'on les voit —, revient habillée de l'enveloppe commune,
+ * et sort en PDF A4 avec son pied sur chaque feuille. L'impression du
+ * navigateur reste le repli quand le serveur ne sait pas produire de PDF : le
+ * même repli que partout ailleurs.
+ */
+async function imprimerListe(rows, cols, titre, annee, mention) {
+  const entetes = cols.map(c => c.label);
+  const lignes = rows.map(r => cols.map(c => {
+    const v = r[c.key];
+    return v === null || v === undefined ? '' : v;
+  }));
+  const mise = await fetch('/api/rapports/mise-en-page', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json',
+      Authorization: `Bearer ${localStorage.getItem('token')}` },
+    body: JSON.stringify({ titre, annee, mention, colonnes: entetes, lignes }),
+  });
+  const j = await mise.json();
+  if (!mise.ok) throw new Error(j.error || 'Mise en page impossible');
+
+  const pdf = await fetch('/api/impression/pdf', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json',
+      Authorization: `Bearer ${localStorage.getItem('token')}` },
+    body: JSON.stringify({ html: j.html, nom: titre, pagination: 'si-plusieurs' }),
+  });
+  if (pdf.ok) {
+    const blob = await pdf.blob();
+    const url = URL.createObjectURL(blob);
+    window.open(url, '_blank');
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
+    return;
+  }
+  // REPLI ANNONCÉ, PAS SILENCIEUX : la pièce sort quand même, par le
+  // navigateur, et l'on sait pourquoi le format n'est plus garanti.
+  const w = window.open('', '_blank');
+  if (!w) throw new Error("Autorisez les pop-ups pour imprimer.");
+  w.document.write(j.html); w.document.close();
+  setTimeout(() => { w.focus(); w.print(); }, 350);
+}
+
 function exportCSV(rows, cols, nom) {
   const header = cols.map(c => `"${c.label}"`).join(';');
   const lines = rows.map(r => cols.map(c => `"${String(r[c.key] ?? '').replace(/"/g, '""')}"`).join(';')).join('\n');
@@ -1400,12 +1451,32 @@ export default function Listes() {
         {/* Exports */}
         {rows !== null && (estRapport ? (
           <>
+            {/* LE MÊME CHEMIN QUE LES AUTRES LISTES : le serveur produit le
+                PDF — A4, pied sur chaque feuille, numérotation au-delà d'une
+                page —, et l'impression du navigateur n'est plus que le repli.
+                Ces cinq-là composent leur propre corps ; il part donc tel
+                quel, déjà enveloppé, sans repasser par la mise en page. */}
             {apercuHtml && (
-              <button onClick={() => {
-                  const w = window.open('', '_blank');
-                  if (!w) { alert('Autorisez les pop-ups pour imprimer.'); return; }
-                  w.document.write(apercuHtml); w.document.close();
-                  setTimeout(() => { w.focus(); w.print(); }, 350);
+              <button onClick={async () => {
+                  try {
+                    const pdf = await fetch('/api/impression/pdf', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json',
+                        Authorization: `Bearer ${localStorage.getItem('token')}` },
+                      body: JSON.stringify({ html: apercuHtml, nom: def.label,
+                                             pagination: 'si-plusieurs' }),
+                    });
+                    if (pdf.ok) {
+                      const url = URL.createObjectURL(await pdf.blob());
+                      window.open(url, '_blank');
+                      setTimeout(() => URL.revokeObjectURL(url), 60000);
+                      return;
+                    }
+                    const w = window.open('', '_blank');
+                    if (!w) { setError('Autorisez les pop-ups pour imprimer.'); return; }
+                    w.document.write(apercuHtml); w.document.close();
+                    setTimeout(() => { w.focus(); w.print(); }, 350);
+                  } catch (e) { setError(e.message); }
                 }}
                 className="text-sm border border-iip-blue text-iip-blue hover:bg-slate-100 px-3 py-2 rounded-lg font-medium flex items-center gap-1.5">
                 <IconPrinter size={16} /> Imprimer / PDF
@@ -1421,6 +1492,17 @@ export default function Listes() {
           </>
         ) : (
           <>
+            {/* IMPRIMER EST LA PREMIÈRE ACTION, ici comme dans tous les rails :
+                on imprime tous les jours, on exporte quelques fois par an. */}
+            <button onClick={async () => {
+                try {
+                  await imprimerListe(rows, colsVisibles, def.label, annee, def.aide || null);
+                } catch (e) { setError(e.message); }
+              }}
+              disabled={rows.length === 0}
+              className="text-sm border border-iip-blue text-iip-blue hover:bg-slate-100 disabled:opacity-40 px-3 py-2 rounded-lg font-medium flex items-center gap-1.5">
+              <IconPrinter size={16} /> Imprimer / PDF
+            </button>
             <button onClick={() => exportCSV(rows, colsVisibles, nomFichier)} disabled={rows.length === 0}
               className="text-sm border border-slate-300 hover:bg-slate-100 disabled:opacity-40 px-3 py-2 rounded-lg text-slate-600 flex items-center gap-1.5">
               <IconDownload size={16} /> CSV
