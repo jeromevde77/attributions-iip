@@ -37,24 +37,17 @@ import Recrutement from './pages/Recrutement.jsx';
 import Accueil from './pages/Accueil.jsx';
 import { lazy, Suspense } from 'react';
 const Listes     = lazy(() => import('./pages/Listes.jsx'));
-const Editeur    = lazy(() => import('./pages/Editeur.jsx'));
 const Procedures = lazy(() => import('./pages/Procedures.jsx'));
-import Users from './pages/Users.jsx';
-import Annees from './pages/Annees.jsx';
 import Configuration from './pages/Configuration.jsx';
 import EA12List from './pages/EA12List.jsx';
 import EA12Editor from './pages/EA12Editor.jsx';
-import Referentiels from './pages/Referentiels.jsx';
 import Pilotage from './pages/Pilotage.jsx';
 import Planification from './pages/Planification.jsx';
 import Aide from './pages/Aide.jsx';
 import Attestation from './pages/Attestation.jsx';
 import Disciplinaire from './pages/Disciplinaire.jsx';
 import Echeancier from './pages/Echeancier.jsx';
-import Besoins from './pages/Besoins.jsx';
 import Organisation from './pages/Organisation.jsx';
-import DUE from './pages/DUE.jsx';
-import Classement from './pages/Classement.jsx';
 import { AxeAccueil, AxeEtudiants } from './pages/Axes.jsx';
 import { BoutonAide } from './pages/Aide.jsx';
 
@@ -560,18 +553,15 @@ export default function App() {
           </Suspense>
         </ProtectedLayout>
       } />
-      <Route path="/editeur" element={
-        <ProtectedLayout>
-          <Suspense fallback={<div className="p-8 text-gray-400">Chargement de l'éditeur…</div>}>
-            <Editeur />
-          </Suspense>
-        </ProtectedLayout>
-      } />
       <Route path="/ea12"          element={<ProtectedLayout><EA12List /></ProtectedLayout>} />
       <Route path="/ea12/:id"      element={<ProtectedLayout><EA12Editor /></ProtectedLayout>} />
       <Route path="/echeancier"     element={<ProtectedLayout><Echeancier /></ProtectedLayout>} /> {/* conservé : liens des rappels */}
-      <Route path="/besoins"        element={<ProtectedLayout><Besoins /></ProtectedLayout>} />
-      <Route path="/classement"     element={<ProtectedLayout><Classement /></ProtectedLayout>} />
+      {/* BESOINS ET CLASSEMENT SONT DES RUBRIQUES DE PERSONNEL, et ils s'y
+          montent désormais. Ces deux routes restent servies pour les liens
+          notés, et mènent à l'axe — qui les ouvre avec son rail, au lieu de
+          les ouvrir sans. */}
+      <Route path="/besoins"        element={<ProtectedLayout><Professeurs vue="besoins" /></ProtectedLayout>} />
+      <Route path="/classement"     element={<ProtectedLayout><Professeurs vue="classement" /></ProtectedLayout>} />
       {/* GESTION — ce qu'on engage. « /pilotage » reste servi pour les liens
           déjà notés ou mis en favori, et mène au tableau de bord. */}
       <Route path="/gestion"        element={<ProtectedLayout><Pilotage vue="gestion" /></ProtectedLayout>} />
@@ -580,11 +570,21 @@ export default function App() {
       <Route path="/aide"           element={<ProtectedLayout><Aide /></ProtectedLayout>} />
       <Route path="/attestation"   element={<ProtectedLayout><Attestation /></ProtectedLayout>} />
       <Route path="/disciplinaire" element={<ProtectedLayout><Disciplinaire /></ProtectedLayout>} />
-      <Route path="/utilisateurs" element={<ProtectedLayout><Users /></ProtectedLayout>} />
-      <Route path="/annees"         element={<ProtectedLayout><Annees /></ProtectedLayout>} />
+      {/* CES ÉCRANS ONT DÉJÀ LEUR PLACE — ON N'EN OUVRE PAS UNE SECONDE.
+          `Users`, `Annees`, `Referentiels` et `Editeur` sont DÉJÀ rendus comme
+          onglets de Configuration, et `DUE` comme onglet d'Organisation. Ces
+          routes-ci montaient les MÊMES composants tout seuls, hors de leur axe
+          — donc sans rail : on cliquait, la navigation disparaissait, et il ne
+          restait que la touche Précédent. Ce n'était pas un rail manquant,
+          c'était une seconde porte vers une pièce qui en avait déjà une.
+          Elles restent servies, pour les liens notés et les favoris, mais
+          elles mènent désormais à la place qui existe. */}
+      <Route path="/utilisateurs"   element={<Navigate to="/configuration?onglet=users" replace />} />
+      <Route path="/annees"         element={<Navigate to="/configuration?onglet=annees" replace />} />
+      <Route path="/referentiels"   element={<Navigate to="/configuration?onglet=referentiel-annee" replace />} />
+      <Route path="/editeur"        element={<Navigate to="/configuration?onglet=editeur" replace />} />
       <Route path="/configuration"  element={<ProtectedLayout><Configuration /></ProtectedLayout>} />
-      <Route path="/due"            element={<ProtectedLayout><DUE /></ProtectedLayout>} />
-      <Route path="/referentiels"   element={<ProtectedLayout><Referentiels /></ProtectedLayout>} />
+      <Route path="/due"            element={<ProtectedLayout><Organisation ongletInitial="due" /></ProtectedLayout>} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
     </ErrorBoundary>
