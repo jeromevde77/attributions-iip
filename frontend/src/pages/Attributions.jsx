@@ -2094,16 +2094,14 @@ export default function Attributions() {
 
   // ===================== RENDU =====================
   return (
-    /* LE TABLEAU S'ALIGNE SUR LE RAIL, ET LA MARCHE DISPARAÎT.
-       L'écran n'avait pas la classe `gouttiere-rail` : `main` lui donnait donc
-       2 rem de retrait sur les quatre côtés, auxquels s'ajoutait son propre
-       `md:p-4`. Trois rem à gauche, pour un rail qui en occupe trois et demi :
-       le tableau passait SOUS le rail, et l'on voyait une marche. En haut,
-       2 rem contre le 1 rem du rail — deux départs pour un même bord.
-       La gouttière vaut désormais EXACTEMENT la largeur du rail (elle la suit
-       quand il s'ouvre), le haut prend le 1 rem du rail, et l'écart se fait
-       par le retrait que l'écran se donne — le même des deux côtés. */
-    <div className="gouttiere-rail px-3 pt-4 pb-8">
+    /* LA GOUTTIÈRE EST POSÉE UNE FOIS, ET C'EST L'AXE QUI LA POSE.
+       Cet onglet est déclaré `sansMarge` dans Organisation : l'axe l'enveloppe
+       donc déjà d'un `gouttiere-rail`. En ajouter un second ici appliquait la
+       marge du rail DEUX FOIS — le tableau partait à deux largeurs de rail du
+       bord, et l'on ne voyait pas pourquoi. L'écran ne donne plus que son
+       retrait, le même des deux côtés, et le 1 rem du haut qui aligne sa
+       première ligne sur le haut du rail. */
+    <div className="px-3 pt-4 pb-8">
       {/* (bandeau perte de charge déplacé en bas de page) */}
 
       {/* Barre mobile */}
@@ -2218,11 +2216,9 @@ export default function Attributions() {
       {/* UN SEUL <main> PAR PAGE. Celui-ci était un reste de l'ancienne mise en
           page, quand le panneau de filtres était posé à côté du tableau : un
           second <main>, en `flex-1` sans parent flex, dans un `hidden md:block`
-          que chacune des vues portait déjà. Il était invisible tant que les
-          deux <main> recevaient le même retrait — mais la règle de la page est
-          `main:not(:has(> .gouttiere-rail))`, et depuis que l'extérieur porte
-          la gouttière, seul l'intérieur prenait encore ses 2 rem : le tableau
-          se décalait du rail sans que rien ne le dise. */}
+          que chacune des vues portait déjà. La feuille de style donne son
+          retrait à tout <main> qui ne gère pas sa propre gouttière : celui-ci
+          en prenait donc un second, par-dessus celui de la page. */}
 
       {/* VUE PAR SECTION/UE/COURS — tableau unique continu */}
       {viewMode!=='flat' && <div className="hidden md:block">
