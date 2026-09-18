@@ -532,7 +532,13 @@ function OngletEtudiants({ perimetre = null }) {
   const [recherche, setRecherche] = useState('');
   const [liste, setListe] = useState(null);
   const [coches, setCoches] = useState(() => new Set());
-  const [choix, setChoix] = useState({ reussite: true, ajournement: true, refus: true });
+  /* RIEN N'EST COCHÉ AU DÉPART — NULLE PART.
+     Trois pièces l'étaient d'office : on ouvrait l'écran pour en sortir une, et
+     l'on en produisait trois sans l'avoir demandé. Une case pré-cochée sur un
+     écran qui IMPRIME et ENVOIE n'est pas une commodité, c'est un envoi de
+     travers en attente — et un courriel parti ne se rattrape pas.
+     Le choix se fait, il ne se subit pas : on coche ce qu'on veut. */
+  const [choix, setChoix] = useState({});
   const [separer, setSeparer] = useState(
     () => localStorage.getItem('impression.separer') === '1');
   // L'envoi ne se montre que s'il est allumé ET permis. La route refuse de
