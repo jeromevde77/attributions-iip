@@ -262,7 +262,12 @@ function documentGrilleSection(p) {
     const bloc = u.ue_niv || '—';
     if (bloc !== blocCourant) {
       blocCourant = bloc;
-      corps += `<tr class="bloc"><td colspan="8">${esc(bloc)}</td></tr>`;
+      /* Le repère ne se pose QUE si le regroupement est réellement un bloc :
+         posé sur autre chose, il mentirait sur ce qu'il désigne. */
+      const cb = /\bB[AE]?\s*1\b/i.test(bloc) ? ' bloc1'
+        : /\bBA\s*2\b/i.test(bloc) ? ' bloc2'
+          : /\bBA\s*3\b/i.test(bloc) ? ' bloc3' : '';
+      corps += `<tr class="bloc${cb}"><td colspan="8">${esc(bloc)}</td></tr>`;
     }
 
     corps += `<tr class="ue">
@@ -326,18 +331,30 @@ function documentGrilleSection(p) {
     styles: STYLE_RAPPORT + `
       table.grille td, table.grille th { padding: 1.1mm 2mm; font-size: 8pt; }
       table.grille .n { text-align: right; font-variant-numeric: tabular-nums; }
-      tr.bloc td { font-weight: 700; color: #1B2B4B; font-size: 9pt;
-                   padding-top: 4mm; border-bottom: 0.8pt solid #1B2B4B; }
+      /* LA BANDE DE BLOC PORTE SA COULEUR — orange BA1/BE1, bleu clair BA2,
+         marine BA3. Elle s'écrivait en marine sur du blanc, et le bloc se
+         répétait en 6,5 pt gris dans la colonne de gauche de CHAQUE unité :
+         deux façons de dire la même chose, dont aucune ne se voit en
+         balayant la page. La bande le dit une fois, en couleur ; le rappel
+         minuscule disparaît. */
+      tr.bloc td { font-weight: 700; color: #ffffff; font-size: 9pt;
+                   background: #2D4470; padding: 1.8mm 2mm; margin-top: 4mm;
+                   border-bottom: 0; letter-spacing: .3pt; }
+      tr.bloc.bloc1 td { background: #E8890C; }
+      tr.bloc.bloc2 td { background: #7FB3D5; color: #123047; }
+      tr.bloc.bloc3 td { background: #1B2B4B; }
       tr.ue td { padding-top: 2.5mm; border-bottom: 0.3pt solid #e2e8f0; }
-      tr.ue .ue-bloc { font-size: 6.5pt; color: #94a3b8; vertical-align: middle; }
+      tr.ue .ue-bloc { display: none; }
       td.code { font-family: ui-monospace, Menlo, Consolas, monospace;
                 font-size: 7.5pt; color: #64748b; }
       td.type { font-size: 7pt; color: #64748b; text-align: center; }
       td.etud { color: #64748b; }
       td.aut  { color: #B45309; }
       td.g    { font-weight: 700; color: #1B2B4B; }
-      tr.sous td { font-size: 7.5pt; color: #475569; font-style: italic;
-                   border-bottom: 0.6pt solid #cbd5e1; }
+      /* LE SOUS-TOTAL ADDITIONNE, IL N'ALERTE PAS — et il ne se cache pas non
+         plus : en italique gris, il se confondait avec les lignes de cours. */
+      tr.sous td { font-size: 7.5pt; color: #1B2B4B; font-weight: 600;
+                   background: #EDF2F8; border-bottom: 0.3pt solid #D6E0EC; }
       tfoot tr.total td { font-weight: 700; color: #1B2B4B; font-size: 9pt;
                           border-top: 1pt solid #1B2B4B; border-bottom: 0; }`,
   };
