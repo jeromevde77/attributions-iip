@@ -1153,7 +1153,7 @@ function lireSeanceValorisation(ueNum, annee) {
  * pages n'y figure pas — il ne se connaît qu'une fois la pièce composée, et
  * demander de le deviner avant serait demander de l'inventer.
  */
-function manquesValorisation({ seance, membres, quorum }, vas, ue) {
+function manquesValorisation({ seance, membres, quorum }, vas, ue, annee = null) {
   const m = [];
   if (!seance) m.push("La séance de valorisation n'a pas encore été ouverte.");
   else {
@@ -1170,13 +1170,41 @@ function manquesValorisation({ seance, membres, quorum }, vas, ue) {
   // incomplète : elle la rend irrégulière.
   if (!ue?.ue_code_fwb) m.push("Numéro de code de l'unité approuvé par le Gouvernement.");
   if (ue?.ue_num != null) {
-    const cours = db.prepare(`SELECT cours_code, cours_nom, cours_per FROM cours
-      WHERE ue_num = ? AND annee_scolaire = ?`).all(ue.ue_num, ue.annee_scolaire);
+    /* LA BARRIÈRE ET LA PIÈCE DOIVENT CHERCHER AU MÊME ENDROIT.
+     *
+     * Ce contrôle exigeait des cours sur `ue.annee_scolaire` — l'année de la
+     * FICHE D'UNITÉ trouvée, qui n'est pas forcément celle de la séance : la
+     * recherche de l'unité accepte un millésime antérieur quand l'année
+     * demandée n'a pas encore sa fiche. On interrogeait donc une année, on
+     * parlait d'une autre, et le message disait « cette année » en désignant
+     * la mauvaise.
+     *
+     * Pire, `decrireUnite` cherche les cours avec un REPLI sur le millésime le
+     * plus récent, là où ce contrôle exigeait une correspondance exacte : la
+     * pièce affichait donc la répartition par activité pendant que la barrière
+     * jurait qu'il n'y en avait aucune, et refusait d'imprimer ce qu'elle
+     * savait pourtant produire. Deux règles pour une même question, c'en est
+     * une de trop.
+     *
+     * Même recherche des deux côtés : l'année de la séance d'abord, le
+     * millésime le plus récent à défaut.
+     */
+    const anneeRef = annee || ue.annee_scolaire;
+    const cours = db.prepare(`SELECT cours_code, cours_nom, cours_per, annee_scolaire FROM cours
+      WHERE ue_num = ? AND cours_code IS NOT NULL
+      ORDER BY (annee_scolaire = ?) DESC, annee_scolaire DESC, cours_code`)
+      .all(ue.ue_num, anneeRef);
     if (!cours.length) {
       m.push("Répartition par activité d'enseignement : aucun cours n'est encodé "
-        + 'pour cette unité cette année.');
+        + `pour l'unité ${ue.ue_num}, quelle que soit l'année.`);
     } else {
-      for (const c of cours.filter(c => !c.cours_per)) {
+      // Un même cours peut figurer sous plusieurs millésimes : on n'en garde
+      // qu'un, le plus proche de l'année demandée — c'est exactement ce que
+      // `decrireUnite` imprimera. Sans cela, on réclamerait deux fois les
+      // périodes du même cours, une fois par millésime.
+      const vus = new Set();
+      const retenus = cours.filter(c => !vus.has(c.cours_nom) && vus.add(c.cours_nom));
+      for (const c of retenus.filter(c => !c.cours_per)) {
         m.push(`Périodes du cours ${c.cours_code} — ${c.cours_nom}.`);
       }
     }
@@ -1231,7 +1259,7 @@ r.get('/valorisation/ue/:ueNum/seance', authRequired, (req, res) => {
     // absent ce jour-là, et le procès-verbal doit dire qui a présidé.
     president_propose: directeur ? nomPropreDepuisChaine(directeur) : null,
     nb: vas.length,
-    manques: manquesValorisation(etat, vas, ue),
+    manques: manquesValorisation(etat, vas, ue, annee),
   });
 });
 
@@ -1301,7 +1329,7 @@ r.put('/valorisation/ue/:ueNum/seance', authRequired, (req, res) => {
     SELECT v.*, e.nom, e.prenom, e.date_naissance, e.lieu_naissance
       FROM etudiant_valorisation v JOIN etudiant e ON e.id = v.etudiant_id
      WHERE v.ue_num = ? AND v.annee_scolaire = ?`).all(ueNum, annee);
-  res.json({ ok: true, ...etat, manques: manquesValorisation(etat, vas, ue) });
+  res.json({ ok: true, ...etat, manques: manquesValorisation(etat, vas, ue, annee) });
 });
 
 r.post('/valorisation/ue/:ueNum/documents', authRequired, async (req, res) => {
@@ -1383,7 +1411,7 @@ r.post('/valorisation/ue/:ueNum/documents', authRequired, async (req, res) => {
   const etatSeance = lireSeanceValorisation(ueNum, annee);
   // La contradiction est un manque comme un autre : elle passe par la même
   // barrière, et la pièce ne sort pas tant qu'une personne n'a pas tranché.
-  const manques = [...contradictions, ...manquesValorisation(etatSeance, vas, ue)];
+  const manques = [...contradictions, ...manquesValorisation(etatSeance, vas, ue, annee)];
   // L'ATTESTATION A SES PROPRES MENTIONS OBLIGATOIRES — domaine d'études,
   // ECTS, répartition par activité, liste des acquis. Elle les signalait déjà,
   // mais dans un coin de la réponse que personne ne lisait : elles rejoignent
