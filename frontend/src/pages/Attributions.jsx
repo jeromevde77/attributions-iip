@@ -334,12 +334,12 @@ const DEFAULT_COLS = [
     options: [['','—'],['Q1','Q1'],['Q2','Q2'],['Q1/Q2','Q1/Q2']] },
   { key: 'code_cours',            label: 'Code',       width: 70,  rowClickable: true, coursOnly: true },
   { key: 'nom_cours',             label: 'Cours',      width: 200, rowClickable: true, coursOnly: true },
-  { key: 'activite_nom',          label: 'Activité',   width: 120,
+  { key: 'activite_nom',          label: 'Activité',   width: 160,
     render: v => v || <span className="text-gray-300 text-xs italic">—</span> },
   { key: 'type_cours',            label: 'Type',       width: 56, rowClickable: true, flatOnly: true,
     render: v => { const cls = {CT:'badge-ct',CG:'badge-cc',PP:'badge-pp',Z:'badge-z',B:'badge-b',F:'badge-f',T:'badge-t',P:'badge-p',O:'badge-o'}[v]; return cls ? <span className={`badge ${cls}`}>{v}</span> : (v || '—'); } },
   { key: 'code',                  label: 'Gr.',        width: 92, edit: 'text' },
-  { key: 'professeur_id',         label: 'Professeur', width: 200, edit: 'prof',
+  { key: 'professeur_id',         label: 'Professeur', width: 236, edit: 'prof',
     render: (_, row) => row.professeur || <span className="italic text-orange-500">—</span> },
   { key: 'contrat',               label: 'Stat.',      width: 64, edit: 'statut',
     options: [['','—'],['CC','CC'],['EXP','EXP']] },
@@ -349,10 +349,16 @@ const DEFAULT_COLS = [
   { key: 'type_cours_helb',       label: 'HELB',       width: 60, edit: 'select', helbOnly: true,
     options: [['','—'],['MFP','MFP'],['MA','MA']],
     render: v => v ? <span className="bg-pink-100 text-pink-700 text-xs px-1.5 py-0.5 rounded font-semibold">{v}</span> : <span className="text-gray-300">—</span> },
-  { key: 'periodes_attribuees',   label: 'Per.',       width: 84, num: true, edit: 'number' },
-  { key: 'autonomie_attribuee',   label: 'Aut.',       width: 84, num: true, edit: 'number' },
-  { key: 'total_attribue_professeur', label: 'Total',  width: 64, num: true, calc: true, rowClickable: true },
-  { key: 'charge_en_heures',      label: 'Hrs',        width: 60, num: true, calc: true, rowClickable: true },
+  /* LE BLOC CHIFFRÉ PRENAIT 292 PX POUR QUATRE NOMBRES À DEUX CHIFFRES.
+     Deux d'entre eux ne se saisissent même pas — Total et Hrs se calculent —,
+     et les deux autres n'affichent qu'une valeur et son plafond (« 48/48 »).
+     Largeur ramenée à ce que le contenu demande : 68 px pour un champ et son
+     plafond, 52 et 48 pour un nombre lu. Les 76 px rendus vont au Professeur
+     et à l'Activité, qui sont tronqués. */
+  { key: 'periodes_attribuees',   label: 'Per.',       width: 68, num: true, edit: 'number' },
+  { key: 'autonomie_attribuee',   label: 'Aut.',       width: 68, num: true, edit: 'number' },
+  { key: 'total_attribue_professeur', label: 'Total',  width: 52, num: true, calc: true, rowClickable: true },
+  { key: 'charge_en_heures',      label: 'Hrs',        width: 48, num: true, calc: true, rowClickable: true },
   /* UNE NOTE SE POSE OÙ L'ON TRAVAILLE. Le champ `commentaire` existe depuis
      l'origine sur l'attribution, et il ne s'atteignait qu'en ouvrant la fiche
      complète : pour deux mots — « accord verbal du 3/9 », « à revoir avec la
@@ -1418,7 +1424,7 @@ export default function Attributions() {
           // Badge EXT/DOT sur la colonne professeur
           if (c.key === 'professeur_id') {
             const badge = extDot[row.id];
-            const select = <select key={`prof-${row.id}-${row.professeur_id??''}`} defaultValue={row.professeur_id??''} onClick={e=>e.stopPropagation()} className="bg-transparent border-0 outline-none w-full text-sm cursor-pointer focus:bg-yellow-50" onChange={e=>{const nid=e.target.value?Number(e.target.value):null;if(nid!==row.professeur_id)saveCell(row.id,'professeur_id',nid);}}><option value="">— Aucun —</option>{professeurs.map(p=><option key={p.id} value={p.id}>{p.nom_prenom}</option>)}</select>;
+            const select = <select key={`prof-${row.id}-${row.professeur_id??''}`} defaultValue={row.professeur_id??''} onClick={e=>e.stopPropagation()} className="w-full cursor-pointer" onChange={e=>{const nid=e.target.value?Number(e.target.value):null;if(nid!==row.professeur_id)saveCell(row.id,'professeur_id',nid);}}><option value="">— Aucun —</option>{professeurs.map(p=><option key={p.id} value={p.id}>{p.nom_prenom}</option>)}</select>;
             return <td key={c.key} className="relative" style={sty}>
               <div className="flex items-center gap-1">
                 {verrous[row.id] && <span title={`Nomination définitive — ${verrous[row.id].periodes_nommees||''} pér. ${verrous[row.id].type_charge||''} · code FWB ${verrous[row.id].code_fwb||''} (attribution verrouillée)`} className="shrink-0 text-iip-blue"><IconLock size={13}/></span>}
@@ -1450,7 +1456,7 @@ export default function Attributions() {
             );
             return <td key={c.key} style={sty}>
               <select key={`act-${row.id}-${row.activite_id??''}`} defaultValue={row.activite_id ?? ''} onClick={e=>e.stopPropagation()}
-                className="bg-transparent border-0 outline-none w-full text-sm cursor-pointer focus:bg-yellow-50"
+                className="w-full cursor-pointer"
                 onChange={e=>{
                   const nid = e.target.value ? Number(e.target.value) : null;
                   if (nid !== row.activite_id) {
@@ -1646,7 +1652,7 @@ export default function Attributions() {
               // Non applicable hors HELB : cellule grisée, non éditable
               return <td key={c.key} style={sty} className="bg-gray-100 text-gray-300 text-center" title="Réservé au contrat HELB">—</td>;
             }
-            return <td key={c.key} style={sty}><select defaultValue={v??''} onClick={e=>e.stopPropagation()} className="bg-transparent border-0 outline-none w-full text-sm cursor-pointer focus:bg-yellow-50" onChange={e=>{if(e.target.value!==(v??''))saveCell(row.id,c.key,e.target.value);}}>{c.options.map(([val,lbl])=><option key={val} value={val}>{lbl}</option>)}</select></td>;
+            return <td key={c.key} style={sty}><select defaultValue={v??''} onClick={e=>e.stopPropagation()} className="w-full cursor-pointer" onChange={e=>{if(e.target.value!==(v??''))saveCell(row.id,c.key,e.target.value);}}>{c.options.map(([val,lbl])=><option key={val} value={val}>{lbl}</option>)}</select></td>;
           }
           if (c.key === 'contrat_mdp') {
             const isHelbContrat = v === 'HELB';
@@ -1664,8 +1670,8 @@ export default function Attributions() {
               </button>
             </td>;
           }
-          if (c.edit==='select') return <td key={c.key} style={sty}><select defaultValue={v??''} onClick={e=>e.stopPropagation()} className="bg-transparent border-0 outline-none w-full text-sm cursor-pointer focus:bg-yellow-50" onChange={e=>{if(e.target.value!==(v??''))saveCell(row.id,c.key,e.target.value);}}>{c.options.map(([val,lbl])=><option key={val} value={val}>{lbl}</option>)}</select></td>;
-          if (c.edit==='prof') return <td key={c.key} style={sty}><div className="flex items-center gap-1">{verrous[row.id] && <span title={`Nomination définitive — ${verrous[row.id].periodes_nommees||''} pér. ${verrous[row.id].type_charge||''} · code FWB ${verrous[row.id].code_fwb||''} (attribution verrouillée)`} className="flex-shrink-0">🔒</span>}{!verrous[row.id] && alertesCours[row.id] && <span title={`⚠ ${alertesCours[row.id].definitif} est engagé(e) à titre définitif sur ce cours (${alertesCours[row.id].periodes_nommees||''} pér. ${alertesCours[row.id].type_charge||''}, FWB ${alertesCours[row.id].code_fwb||''})`} className="flex-shrink-0 cursor-help">🔓</span>}{row.remplace_attribution_id && <span title="Ligne de remplacement (titulaire en congé)" className="flex-shrink-0 text-[10px] text-iip-blue font-bold">R</span>}<select defaultValue={row.professeur_id??''} onClick={e=>e.stopPropagation()} className="bg-transparent border-0 outline-none w-full text-sm cursor-pointer focus:bg-yellow-50" onChange={e=>{const nid=e.target.value?Number(e.target.value):null;if(nid!==row.professeur_id)saveCell(row.id,'professeur_id',nid);}}><option value="">— Aucun —</option>{professeurs.map(p=><option key={p.id} value={p.id}>{p.nom_prenom}</option>)}</select><button onClick={e=>{e.stopPropagation(); toggleConge(row);}} title={row.en_conge ? 'En congé — cliquer pour réactiver' : 'Mettre en congé (crée une ligne de remplacement)'} className={`flex-shrink-0 text-[10px] font-bold px-1 py-0.5 rounded border ${row.en_conge ? 'bg-transparent text-amber-700 border-amber-500' : 'bg-gray-50 text-gray-400 border-gray-200 hover:border-amber-400 hover:text-amber-600'}`}>C</button></div>{!verrous[row.id] && alertesCours[row.id] && <div className="text-[10px] text-amber-600 leading-tight mt-0.5">⚠ définitif : {alertesCours[row.id].definitif}</div>}</td>;
+          if (c.edit==='select') return <td key={c.key} style={sty}><select defaultValue={v??''} onClick={e=>e.stopPropagation()} className="w-full cursor-pointer" onChange={e=>{if(e.target.value!==(v??''))saveCell(row.id,c.key,e.target.value);}}>{c.options.map(([val,lbl])=><option key={val} value={val}>{lbl}</option>)}</select></td>;
+          if (c.edit==='prof') return <td key={c.key} style={sty}><div className="flex items-center gap-1">{verrous[row.id] && <span title={`Nomination définitive — ${verrous[row.id].periodes_nommees||''} pér. ${verrous[row.id].type_charge||''} · code FWB ${verrous[row.id].code_fwb||''} (attribution verrouillée)`} className="flex-shrink-0">🔒</span>}{!verrous[row.id] && alertesCours[row.id] && <span title={`⚠ ${alertesCours[row.id].definitif} est engagé(e) à titre définitif sur ce cours (${alertesCours[row.id].periodes_nommees||''} pér. ${alertesCours[row.id].type_charge||''}, FWB ${alertesCours[row.id].code_fwb||''})`} className="flex-shrink-0 cursor-help">🔓</span>}{row.remplace_attribution_id && <span title="Ligne de remplacement (titulaire en congé)" className="flex-shrink-0 text-[10px] text-iip-blue font-bold">R</span>}<select defaultValue={row.professeur_id??''} onClick={e=>e.stopPropagation()} className="w-full cursor-pointer" onChange={e=>{const nid=e.target.value?Number(e.target.value):null;if(nid!==row.professeur_id)saveCell(row.id,'professeur_id',nid);}}><option value="">— Aucun —</option>{professeurs.map(p=><option key={p.id} value={p.id}>{p.nom_prenom}</option>)}</select><button onClick={e=>{e.stopPropagation(); toggleConge(row);}} title={row.en_conge ? 'En congé — cliquer pour réactiver' : 'Mettre en congé (crée une ligne de remplacement)'} className={`flex-shrink-0 text-[10px] font-bold px-1 py-0.5 rounded border ${row.en_conge ? 'bg-transparent text-amber-700 border-amber-500' : 'bg-gray-50 text-gray-400 border-gray-200 hover:border-amber-400 hover:text-amber-600'}`}>C</button></div>{!verrous[row.id] && alertesCours[row.id] && <div className="text-[10px] text-amber-600 leading-tight mt-0.5">⚠ définitif : {alertesCours[row.id].definitif}</div>}</td>;
           /* LE STATUT SE DEMANDE, IL NE SE DEVINE PAS.
              Une liste déroulante invisible posée sur le badge écrivait dans la
              fiche du MDP sans jamais le dire : on croyait corriger une ligne,
