@@ -1353,6 +1353,8 @@ export default function Attributions() {
 
   /* === Rendu d'une ligne de grille (cols paramétrable) === */
   function renderRow(row, cols) {
+    // La vue à plat mélange les cours : elle seule garde le plafond en cellule.
+    const vueAPlat = viewMode === 'flat';
     const colSet = cols || COLS;
     const isHelb = row.contrat_mdp === 'HELB';
     const isZ = row.is_z === true;
@@ -1482,9 +1484,17 @@ export default function Attributions() {
           const v = row[c.key]; const display = c.render ? c.render(v,row) : v;
           if (c.readonly) return <td key={c.key} style={sty} onClick={click} className={`${c.num?'num':''} bg-gray-100 text-gray-500 ${cClass}`} title={c.tooltip}>{v!=null?Number(v).toLocaleString('fr-BE',{maximumFractionDigits:2}):<span className="text-gray-300">—</span>}</td>;
           if (c.edit==='number') {
-            // Pour Per. et Aut. : afficher la valeur prévue en gris (attribué/prévu)
-            const prevuKey = c.key==='periodes_attribuees' ? 'cours_per_prevu'
-                           : c.key==='autonomie_attribuee' ? 'ue_autonomie_prevu' : null;
+            /* LE PLAFOND EST UNE PROPRIÉTÉ DU COURS, PAS DE CHAQUE LIGNE.
+               « /120 » et « /40 » viennent de la table cours (cours_per,
+               ue_autonomie) : ils sont IDENTIQUES sur toutes les attributions
+               d'un même cours. Un cours à quatorze attributions les écrivait
+               donc vingt-huit fois pour dire deux nombres — et comprimait le
+               champ de saisie à 2,75 rem pour leur faire place. Ils montent sur
+               la bande du cours, à l'aplomb de leur colonne. En vue À PLAT, où
+               les lignes de plusieurs cours se mélangent, aucune bande ne peut
+               les porter : ils restent alors dans la cellule. */
+            const prevuKey = (vueAPlat && c.key==='periodes_attribuees') ? 'cours_per_prevu'
+                           : (vueAPlat && c.key==='autonomie_attribuee') ? 'ue_autonomie_prevu' : null;
             const prevu = prevuKey ? row[prevuKey] : null;
             // Bascule heures : ces colonnes sont en périodes ; on convertit l'affichage/saisie
             const estPeriode = c.key==='periodes_attribuees' || c.key==='autonomie_attribuee';
@@ -1702,8 +1712,8 @@ export default function Attributions() {
                     title={exception
                       ? `Exception sur cette attribution — statut général du MDP : ${row.statut_mdp || 'non défini'}`
                       : 'Statut du membre du personnel — cliquer pour le modifier'}
-                    className={`relative inline-flex items-center justify-center min-w-[2.2rem] h-6 px-1.5
-                                rounded text-[10px] font-bold ${badgeCls}
+                    className={`relative inline-flex items-center justify-center min-w-[2rem] h-5 px-1
+                                rounded-md text-[10px] font-bold leading-none ${badgeCls}
                                 ${exception ? 'ring-1 ring-inset ring-[#B45309]' : ''}`}>
                     {displayVal}
                     {/* L'EXCEPTION SE VOIT. Un badge identique au statut général
@@ -1713,8 +1723,8 @@ export default function Attributions() {
                   </button>
                 ) : (
                   <button onClick={ouvrir} title="Aucun statut défini pour ce membre du personnel — cliquer pour le définir"
-                    className="inline-flex items-center justify-center min-w-[2.2rem] h-6 px-1.5 rounded
-                               text-[10px] font-bold bg-amber-100 text-amber-800
+                    className="inline-flex items-center justify-center min-w-[2rem] h-5 px-1 rounded-md
+                               text-[10px] font-bold leading-none bg-amber-100 text-amber-800
                                ring-1 ring-inset ring-[#B45309]/40">?</button>
                 )}
               </div>
@@ -1791,9 +1801,20 @@ export default function Attributions() {
     const open = openUEs.has(key);
     const st = groupStats(cg.rows);
     const isZCours = cg.type_cours === 'Z';
+    /* LES PLAFONDS SE LISENT UNE FOIS, ICI. Ils viennent de la table cours et
+       sont constants sur toutes les attributions : les lire sur la première
+       ligne suffit, et c'est le cours qui les porte, pas ses enfants. */
+    const prem = cg.rows[0] || {};
+    const plafondPer = prem.cours_per_prevu != null ? Number(prem.cours_per_prevu) : null;
+    const plafondAut = prem.ue_autonomie_prevu != null ? Number(prem.ue_autonomie_prevu) : null;
+    const enH = unite === 'heures';
+    const affPlafond = v => v == null ? null
+      : (enH ? perToH(v) : Number(v).toLocaleString('fr-BE', { maximumFractionDigits: 2 }));
     return (
       <div key={key} id={'cours-'+cg.code_cours} className="border-t border-gray-100">
-        <button onClick={()=>toggle(key)} className={`w-full flex items-center gap-2 pl-10 pr-4 py-2 hover:bg-gray-100/60 transition text-left text-sm ${isZCours ? 'opacity-70' : ''}`}>
+        {/* Ouverte, la bande prend le fond de son en-tête : les deux ne font
+            plus qu'un bloc, et c'est ce bloc qui dit « ce cours ». */}
+        <button onClick={()=>toggle(key)} className={`w-full flex items-center gap-2 pl-10 pr-4 py-2 transition text-left text-sm ${open ? 'bg-[#F4F6F8]' : 'hover:bg-gray-100/60'} ${isZCours ? 'opacity-70' : ''}`}>
           <IconChevronRight size={14} className={`text-gray-400 text-sm transition-transform ${open?'rotate-90':''}`} />
           <span className={`font-mono text-sm ${isZCours ? 'text-gray-400' : 'text-gray-500'}`}>{cg.code_cours}</span>
           <span className={`truncate ${isZCours ? 'text-gray-400 italic' : 'text-gray-700'}`}>{cg.nom_cours}</span>
@@ -1821,14 +1842,22 @@ export default function Attributions() {
                   return <span className="text-[11px] px-1.5 py-0.5 rounded bg-orange-50 text-orange-700 border border-orange-200" title={`Pas un multiple du DP (${cc.dp}). Attendu : ${cc.attendu}`}>×{cc.ratio} ⚠</span>;
                 })()}
                 <span className="text-sm text-gray-500">{cg.rows.length} attr.</span>
+                {/* « 159p sur 120 » dit d'un coup d'œil qu'on a dépassé — ce que
+                    « 159p » seul ne dit pas, et ce qu'aucune colonne ne montre. */}
                 <span className="text-sm font-semibold text-iip-gold">{st.tPer}p</span>
+                {plafondPer != null && (
+                  <span className="text-xs text-gray-400">sur {plafondPer}</span>
+                )}
                 {st.tAut>0 && <span className="text-sm text-gray-400">+{st.tAut}a</span>}
+                {st.tAut>0 && plafondAut != null && (
+                  <span className="text-xs text-gray-400">sur {plafondAut}</span>
+                )}
                 {st.nBad>0 ? <span className="text-sm text-amber-700 font-bold">✗</span> : st.nConf>0 ? <span className="text-sm text-green-600 font-bold">✓</span> : null}
               </>
           }
         </button>
         {open && (
-          <div className="overflow-auto max-h-[40vh] border-t border-gray-100 bg-white">
+          <div className="overflow-auto max-h-[40vh] bg-white fusion-cours">
             <table className="grid-excel-soft" style={{tableLayout:'fixed'}}>
               {montrerHeader && (<thead><tr>
                 {COLS_COURS.map(c => c.key==='__select'
@@ -1844,7 +1873,27 @@ export default function Attributions() {
                         : c.label
                     }</ResizableHeader>
                 )}
-              </tr></thead>)}
+              </tr>
+              {/* LA LIGNE DES PLAFONDS — sous son libellé, à l'aplomb de sa
+                  colonne. Posée ailleurs, un nombre gris ne dit pas ce qu'il
+                  borne ; ici, au moment où l'on tape, la limite est juste
+                  au-dessus du curseur. Elle ne paraît que s'il y a un plafond à
+                  montrer : une ligne vide n'apprend rien et coûte une hauteur. */}
+              {(plafondPer != null || plafondAut != null) && (
+                <tr className="plafonds">
+                  {COLS_COURS.map(c => (
+                    <th key={c.key}
+                      style={{width:c.width,minWidth:c.width,maxWidth:c.width}}
+                      className={c.num ? 'num' : ''}>
+                      {c.key==='periodes_attribuees' && plafondPer != null
+                        ? `/ ${affPlafond(plafondPer)}`
+                        : c.key==='autonomie_attribuee' && plafondAut != null
+                          ? `/ ${affPlafond(plafondAut)}` : ''}
+                    </th>
+                  ))}
+                </tr>
+              )}
+              </thead>)}
               <tbody>{renderActiviteGroups(cg, key)}</tbody>
             </table>
           </div>
@@ -2041,7 +2090,12 @@ export default function Attributions() {
                 </div>
               );
             })()}
-            {(() => { let vu = false; return ue.cours.map(cg => { const o = openUEs.has('cours:'+ueKey+'/'+cg.code_cours); const h = o && !vu; if (o) vu = true; return renderCours(ueKey, cg, h); }); })()}
+            {/* CHAQUE COURS PORTE SON EN-TÊTE. Un seul en-tête était dessiné,
+                celui du premier cours ouvert : les suivants montraient des
+                colonnes sans nom, et l'en-tête affiché appartenait à un autre
+                cours que celui qu'on lisait. Fusionné à sa bande, il devient ce
+                qu'il est — la légende de CE cours, avec ses plafonds. */}
+            {ue.cours.map(cg => renderCours(ueKey, cg, true))}
           </div>
         )}
       </div>
