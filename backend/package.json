@@ -9,7 +9,8 @@
     "dev": "node --watch src/server.js",
     "init-db": "node scripts/init-db.js",
     "import-excel": "node scripts/import-from-excel.js",
-    "seed-admin": "node scripts/seed-admin.js"
+    "seed-admin": "node scripts/seed-admin.js",
+    "mfa-reset": "node scripts/mfa-reset.js"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",

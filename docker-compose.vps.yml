@@ -36,15 +36,32 @@ services:
     container_name: attributions-backend-dev
     restart: unless-stopped
     environment:
-      NODE_ENV: development
-      TZ: Europe/Brussels
-      PORT: 3001
-      JWT_SECRET: ${JWT_SECRET_DEV:?JWT_SECRET_DEV manquant dans .env}
       # UN COURRIEL PARTI DE DEV DOIT RAMENER SUR DEV. Sans cette ligne, le
       # repli inscrit dans le code envoie le destinataire en PRODUCTION : un
       # essai qui fait atterrir quelqu'un sur les données réelles est pire
       # qu'un lien mort.
       LUCIE_URL: https://dev.lucie-iip.be
+      NODE_ENV: development
+      TZ: Europe/Brussels
+      PORT: 3001
+      JWT_SECRET: ${JWT_SECRET_DEV:?JWT_SECRET_DEV manquant dans .env}
+      # LA CLÉ QUI CHIFFRE LES SECRETS DU SECOND FACTEUR (32 octets, base64).
+      # Sans elle, le backend REFUSE DE DÉMARRER — volontairement : il ne doit
+      # pas accepter des enrôlements qu'il ne saurait pas relire.
+      # Fabriquer :  node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
+      #
+      # LA MÊME CLÉ POUR DEV ET POUR PROD, ET C'EST VOULU. La base de dev est
+      # une COPIE de celle de prod : on télécharge une sauvegarde de production
+      # et on la restaure sur dev (Configuration → Sauvegardes). Avec deux clés
+      # distinctes, chacune de ces restaurations rendrait illisibles TOUS les
+      # secrets déjà enrôlés — tout le monde enfermé dehors sur dev, sans que
+      # rien n'en dise la cause. Et séparer ne protégerait rien : dev porte déjà
+      # les données réelles et les empreintes de mots de passe, sur le même VPS,
+      # depuis le même .env.
+      #
+      # ELLE NE SE CHANGE PAS : une nouvelle clé rend illisibles tous les
+      # secrets déjà enrôlés, et chacun doit reconfigurer son application.
+      MFA_KEY: ${MFA_KEY:?MFA_KEY manquant dans .env}
     volumes:
       - ./dev/data:/app/data
       - ./dev/backups:/app/data/backups
@@ -68,14 +85,31 @@ services:
     container_name: attributions-backend
     restart: unless-stopped
     environment:
-      NODE_ENV: production
-      TZ: Europe/Brussels
-      PORT: 3001
-      JWT_SECRET: ${JWT_SECRET_PROD:?JWT_SECRET_PROD manquant dans .env}
       # Déclarée plutôt que laissée au repli du code : l'adresse qui part dans
       # des dizaines de courriels ne doit pas dépendre d'une valeur par défaut
       # qu'une version ultérieure pourrait changer.
       LUCIE_URL: https://www.lucie-iip.be
+      NODE_ENV: production
+      TZ: Europe/Brussels
+      PORT: 3001
+      JWT_SECRET: ${JWT_SECRET_PROD:?JWT_SECRET_PROD manquant dans .env}
+      # LA CLÉ QUI CHIFFRE LES SECRETS DU SECOND FACTEUR (32 octets, base64).
+      # Sans elle, le backend REFUSE DE DÉMARRER — volontairement : il ne doit
+      # pas accepter des enrôlements qu'il ne saurait pas relire.
+      # Fabriquer :  node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
+      #
+      # LA MÊME CLÉ POUR DEV ET POUR PROD, ET C'EST VOULU. La base de dev est
+      # une COPIE de celle de prod : on télécharge une sauvegarde de production
+      # et on la restaure sur dev (Configuration → Sauvegardes). Avec deux clés
+      # distinctes, chacune de ces restaurations rendrait illisibles TOUS les
+      # secrets déjà enrôlés — tout le monde enfermé dehors sur dev, sans que
+      # rien n'en dise la cause. Et séparer ne protégerait rien : dev porte déjà
+      # les données réelles et les empreintes de mots de passe, sur le même VPS,
+      # depuis le même .env.
+      #
+      # ELLE NE SE CHANGE PAS : une nouvelle clé rend illisibles tous les
+      # secrets déjà enrôlés, et chacun doit reconfigurer son application.
+      MFA_KEY: ${MFA_KEY:?MFA_KEY manquant dans .env}
     volumes:
       - ./prod/data:/app/data
       - ./prod/backups:/app/data/backups

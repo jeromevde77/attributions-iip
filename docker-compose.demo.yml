@@ -16,6 +16,9 @@ services:
       NODE_ENV: production
       PORT: 3001
       JWT_SECRET: demo-secret-not-sensitive
+      # La démo ne porte aucune donnée réelle : une clé fixe suffit, et elle
+      # est publique, comme le JWT_SECRET juste au-dessus.
+      MFA_KEY: ZGVtby1jbGUtcHVibGlxdWUtbm9uLXNlbnNpYmxlLi4=
       DB_PATH: /app/data/demo.db
       CORS_ORIGIN: "*"
       DEMO_MODE: "true"

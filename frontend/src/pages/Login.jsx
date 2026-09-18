@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate, Navigate } from 'react-router-dom';
 import { api, isAuthenticated } from '../lib/api.js';
 
@@ -100,7 +100,22 @@ export default function Login() {
   const [error, setError]       = useState('');
   const [loading, setLoading]   = useState(false);
   const [info, setInfo]         = useState({ etab_nom: '', version: '' });
+
+  // SECOND FACTEUR — DEUXIÈME ÉTAPE DU MÊME ÉCRAN, PAS UN ÉCRAN DE PLUS.
+  //
+  // Le jeton intermédiaire vit ICI, dans l'état du composant : cinq minutes,
+  // et il disparaît si l'on recharge la page. Le ranger dans le localStorage
+  // en aurait fait une session à moitié ouverte qui survit à la fermeture de
+  // l'onglet — soit exactement ce que le second facteur est censé empêcher.
+  const [tokenInter, setTokenInter] = useState('');
+  const [code, setCode]             = useState('');
+  const [parSecours, setParSecours] = useState(false);
+  const champCode = useRef(null);
   const nav = useNavigate();
+
+  // Le curseur va dans le champ du code dès qu'il paraît : l'utilisateur a son
+  // téléphone en main, il ne doit pas avoir à viser à la souris.
+  useEffect(() => { if (tokenInter) champCode.current?.focus(); }, [tokenInter, parSecours]);
 
   // Charger le nom de l'établissement et la version (route publique)
   useEffect(() => {
@@ -112,9 +127,34 @@ export default function Login() {
   async function submit(e) {
     e.preventDefault();
     setError(''); setLoading(true);
-    try { await api.login(email, password); nav('/'); }
+    try {
+      const r = await api.login(email, password);
+      if (r?.mfa_requis) { setTokenInter(r.token_intermediaire); setCode(''); return; }
+      nav('/');
+    }
     catch (e) { setError(e.message); }
     finally { setLoading(false); }
+  }
+
+  async function soumettreCode(e) {
+    e?.preventDefault();
+    setError(''); setLoading(true);
+    try {
+      await api.loginMfa(tokenInter, parSecours ? { code_recuperation: code } : { code });
+      nav('/');
+    } catch (e) {
+      setError(e.message);
+      setCode('');
+      // Les cinq minutes sont passées, ou la connexion a été interrompue :
+      // on ne laisse pas l'utilisateur retaper des codes dans le vide.
+      if (e.body?.recommencer) { setTokenInter(''); setPassword(''); }
+      champCode.current?.focus();
+    }
+    finally { setLoading(false); }
+  }
+
+  function revenir() {
+    setTokenInter(''); setCode(''); setParSecours(false); setError(''); setPassword('');
   }
 
   const inputStyle = {
@@ -191,7 +231,109 @@ export default function Login() {
           </div>
         </div>
 
-        {/* Formulaire */}
+        {/* Formulaire — un seul, deux étapes. L'étape du code REMPLACE celle
+            des identifiants au lieu de s'ajouter dessous : on ne laisse pas à
+            l'écran un mot de passe déjà accepté, ni deux boutons « valider »
+            dont un seul agit. */}
+        {tokenInter ? (
+        <form onSubmit={soumettreCode} style={{
+          width:'100%',
+          background:'rgba(255,255,255,.04)',
+          border:'1px solid rgba(0,170,204,.18)',
+          borderRadius:'16px',
+          padding:'32px 28px',
+          animation:'fadeUp .4s ease both',
+        }}>
+          <div style={{
+            fontSize:'13px', color:'rgba(255,255,255,.75)', marginBottom:'6px',
+            fontFamily:"'Segoe UI',sans-serif", fontWeight:600,
+          }}>Vérification en deux temps</div>
+          <div style={{
+            fontSize:'12px', color:'rgba(255,255,255,.45)', marginBottom:'20px',
+            fontFamily:"'Segoe UI',sans-serif", lineHeight:1.5,
+          }}>
+            {parSecours
+              ? "Saisissez l'un des codes de secours notés lors de la configuration. Chacun ne sert qu'une fois."
+              : "Ouvrez votre application d'authentification et recopiez le code à six chiffres."}
+          </div>
+
+          <div style={{marginBottom:'20px'}}>
+            <label style={labelStyle}>{parSecours ? 'Code de secours' : 'Code à six chiffres'}</label>
+            <input
+              ref={champCode}
+              value={code}
+              onChange={e => {
+                // Un code TOTP n'est que des chiffres. Filtrer à la saisie évite
+                // le refus poli du serveur pour une espace collée depuis un SMS.
+                const v = parSecours
+                  ? e.target.value.toUpperCase().slice(0, 9)
+                  : e.target.value.replace(/\D/g, '').slice(0, 6);
+                setCode(v);
+              }}
+              required
+              inputMode={parSecours ? 'text' : 'numeric'}
+              autoComplete={parSecours ? 'off' : 'one-time-code'}
+              placeholder={parSecours ? 'ABCD-EFGH' : '••••••'}
+              style={{
+                ...inputStyle,
+                textAlign:'center',
+                fontSize: parSecours ? '18px' : '26px',
+                letterSpacing: parSecours ? '3px' : '10px',
+                fontWeight:600,
+                fontVariantNumeric:'tabular-nums',
+              }}
+              onFocus={e=>e.target.style.borderColor='rgba(0,170,204,.7)'}
+              onBlur={e=>e.target.style.borderColor='rgba(0,170,204,.25)'}/>
+          </div>
+
+          {error && (
+            <div style={{
+              background:'rgba(220,60,60,.1)', border:'1px solid rgba(220,60,60,.3)',
+              borderRadius:'8px', padding:'12px 14px', marginBottom:'18px',
+              color:'#FF8888', fontSize:'13px', fontFamily:"'Segoe UI',sans-serif",
+              display:'flex', gap:'8px', alignItems:'flex-start',
+            }}>
+              <span style={{fontSize:'15px',marginTop:'1px'}}>⚠</span>
+              <div>
+                <div style={{fontWeight:600,marginBottom:'2px'}}>Vérification impossible</div>
+                <div style={{opacity:.8,fontSize:'12px'}}>{error}</div>
+              </div>
+            </div>
+          )}
+
+          <button type="submit"
+            disabled={loading || (parSecours ? code.length < 6 : code.length !== 6)}
+            style={{
+              width:'100%', padding:'12px',
+              background: (loading || (parSecours ? code.length < 6 : code.length !== 6))
+                ? 'rgba(0,170,204,.4)' : '#00AACC',
+              border:'none', borderRadius:'8px',
+              color:'white', fontSize:'14px', fontWeight:600,
+              letterSpacing:'.5px',
+              cursor: loading ? 'not-allowed' : 'pointer',
+              fontFamily:"'Segoe UI',sans-serif", transition:'background .2s',
+            }}>
+            {loading ? 'Vérification…' : 'Valider'}
+          </button>
+
+          <div style={{
+            display:'flex', justifyContent:'space-between', gap:'12px', marginTop:'16px',
+            fontSize:'12px', fontFamily:"'Segoe UI',sans-serif",
+          }}>
+            <button type="button" onClick={revenir}
+              style={{background:'none',border:'none',padding:0,cursor:'pointer',
+                      color:'rgba(255,255,255,.35)'}}>
+              ← Recommencer
+            </button>
+            <button type="button"
+              onClick={() => { setParSecours(!parSecours); setCode(''); setError(''); }}
+              style={{background:'none',border:'none',padding:0,cursor:'pointer',
+                      color:'rgba(0,170,204,.85)',textAlign:'right'}}>
+              {parSecours ? "J'ai mon application" : 'Téléphone perdu ? Code de secours'}
+            </button>
+          </div>
+        </form>
+        ) : (
         <form onSubmit={submit} style={{
           width:'100%',
           background:'rgba(255,255,255,.04)',
@@ -246,6 +388,7 @@ export default function Login() {
             {loading ? 'Connexion…' : 'Se connecter'}
           </button>
         </form>
+        )}
 
         <p style={{
           color:'rgba(255,255,255,.18)', fontSize:'11px',

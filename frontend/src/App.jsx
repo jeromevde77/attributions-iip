@@ -24,9 +24,11 @@ import {
   IconClipboardList, IconBooks, IconUsers, IconFileExport, IconChecklist,
   IconChartBar, IconCalendarStats, IconEdit, IconSettings, IconLogout, IconMenu2, IconX,
   IconHome, IconBell, IconHelpCircle, IconGavel, IconSun, IconMoon,
+  IconShieldLock, IconShieldCheck,
 } from '@tabler/icons-react';
 
 import Login from './pages/Login.jsx';
+import MonCompte from './components/MonCompte.jsx';
 import Dashboard from './pages/Dashboard.jsx';
 import Attributions from './pages/Attributions.jsx';
 import Professeurs from './pages/Professeurs.jsx';
@@ -172,6 +174,7 @@ function VoirCommePicker() {
 
 function ProtectedLayout({ children }) {
   const navigate = useNavigate();
+  const [compteOuvert, setCompteOuvert] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
 
   /*
@@ -484,6 +487,16 @@ function ProtectedLayout({ children }) {
                                hidden sm:inline" title={u?.role}>
                 {ROLE_COURT[u?.role] || u?.role}
               </span>
+              {/* MON COMPTE — une icône, à côté de la porte de sortie.
+                  C'est le seul endroit fixe de l'application : un réglage qui
+                  vaut pour la personne et non pour l'écran n'a rien à faire
+                  dans un rail qui change à chaque clic. */}
+              <button onClick={() => setCompteOuvert(true)}
+                title="Mon compte — vérification en deux temps" aria-label="Mon compte"
+                className="w-8 h-8 grid place-items-center rounded-champ text-slate-400
+                           hover:text-iip-blue hover:bg-slate-100 transition-colors duration-150">
+                <IconShieldLock size={16} />
+              </button>
               <button onClick={() => { api.logout(); navigate('/login'); }}
                 title="Se déconnecter" aria-label="Se déconnecter"
                 className="w-8 h-8 grid place-items-center rounded-champ text-slate-400
@@ -512,6 +525,7 @@ function ProtectedLayout({ children }) {
         )}
       </header>
       <main className="flex-1">{children}</main>
+      {compteOuvert && <MonCompte onFermer={() => setCompteOuvert(false)} />}
       <BuildBadge />
     </div>
   );

@@ -1,7 +1,14 @@
 import jwt from 'jsonwebtoken';
+import crypto from 'crypto';
 import db from '../db/index.js';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'change-me-in-prod';
+
+// La portée du jeton délivré ENTRE le mot de passe et le code à six chiffres.
+// Écrite une fois, lue à la fabrication comme au contrôle : deux littéraux
+// « mfa_pending » auraient fini par diverger d'une lettre, et le contrôle
+// n'aurait plus rien contrôlé.
+const SCOPE_MFA = 'mfa_pending';
 
 export function authRequired(req, res, next) {
   const auth = req.headers.authorization;
@@ -10,6 +17,22 @@ export function authRequired(req, res, next) {
   }
   try {
     req.user = jwt.verify(auth.slice(7), JWT_SECRET);
+
+    // LE JETON INTERMÉDIAIRE DU SECOND FACTEUR N'OUVRE AUCUNE ROUTE MÉTIER.
+    //
+    // C'est ICI que tient tout le dispositif, et nulle part ailleurs. Un jeton
+    // délivré après le mot de passe mais avant le code est un jeton à moitié
+    // authentifié : s'il passait cette porte, le second facteur ne serait
+    // qu'un écran de plus à fermer. Le contrôle est posé sur la porte commune
+    // plutôt que sur chaque route — trente-trois routes d'attribution nous ont
+    // appris ce que coûte un filtre qu'il faut penser à poser.
+    if (req.user.scope === SCOPE_MFA) {
+      return res.status(401).json({
+        error: 'Authentification incomplète : le code à six chiffres est attendu.',
+        mfa_requis: true,
+      });
+    }
+
     // Mode aperçu ("voir comme") : token en lecture seule
     if (req.user.preview && req.method !== 'GET') {
       return res.status(403).json({ error: 'Mode aperçu (voir comme) — lecture seule. Revenez à votre compte pour modifier.' });
@@ -166,7 +189,24 @@ const ROLES_CONNUS = ['admin', 'directeur', 'directeur_adjoint', 'secretariat',
 
 // Directeur et directeur adjoint ont les droits d'un administrateur : la
 // distinction sert à savoir qui a tranché, non à hiérarchiser.
-const NIVEAU_DIRECTION = ['admin', 'directeur', 'directeur_adjoint'];
+export const NIVEAU_DIRECTION = ['admin', 'directeur', 'directeur_adjoint'];
+
+/**
+ * Middleware : réservé au niveau direction.
+ *
+ * `roleRequired('admin')` aurait fermé la porte au directeur et à son adjoint,
+ * qui en ont pourtant les droits partout ailleurs — ils seraient passés par le
+ * repli de roleRequired, ce qui marche mais dit le contraire de ce qu'on veut
+ * exprimer. Quand une décision appartient à la DIRECTION et non à
+ * l'administrateur technique, c'est ce middleware-ci qui le dit.
+ */
+export function niveauDirection(req, res, next) {
+  if (!req.user) return res.status(401).json({ error: 'Non authentifié' });
+  if (!NIVEAU_DIRECTION.includes(req.user.role)) {
+    return res.status(403).json({ error: 'Réservé à la direction.' });
+  }
+  next();
+}
 
 export function normaliserRole(role) {
   return ROLES_CONNUS.includes(role) ? role : 'consultation';
@@ -181,6 +221,34 @@ export function signToken(user) {
     JWT_SECRET,
     { expiresIn: '30d' }
   );
+}
+
+/**
+ * LE JETON INTERMÉDIAIRE : cinq minutes, une seule portée, aucun droit.
+ *
+ * Il ne porte ni rôle, ni permissions, ni périmètre — uniquement de quoi
+ * savoir QUI est en train de finir de se connecter. Recopier le rôle « pour
+ * que le front l'affiche » aurait suffi à en faire un jeton utilisable : ce
+ * qu'un jeton porte finit toujours par être lu quelque part.
+ *
+ * Cinq minutes, parce que c'est le temps de prendre son téléphone, pas celui
+ * d'aller déjeuner en laissant la moitié d'une session ouverte.
+ */
+export function signPendingToken(user) {
+  // `jti` — un identifiant propre à CE laissez-passer. Il sert à compter les
+  // essais de code qui s'y rattachent : sans lui, deux jetons délivrés dans la
+  // même seconde au même compte se confondraient, et le compteur porterait sur
+  // les deux à la fois.
+  return jwt.sign({ id: user.id, email: user.email, scope: SCOPE_MFA, jti: crypto.randomUUID() },
+                  JWT_SECRET, { expiresIn: '5m' });
+}
+
+/** Relit un jeton intermédiaire. Rend null pour tout ce qui n'en est pas un. */
+export function verifyPendingToken(token) {
+  try {
+    const p = jwt.verify(String(token || ''), JWT_SECRET);
+    return p?.scope === SCOPE_MFA ? p : null;
+  } catch { return null; }
 }
 
 export function signPreviewToken(target, admin) {

@@ -66,12 +66,38 @@ function withAnnee(path, extra = {}) {
 
 export const api = {
   // auth
+  //
+  // LE JETON INTERMÉDIAIRE NE SE RANGE PAS AVEC LES AUTRES. Il ne vaut que
+  // cinq minutes et n'ouvre aucune route : le poser dans le localStorage à
+  // côté du vrai jeton en ferait une session à moitié ouverte qu'un
+  // rafraîchissement de page ressusciterait. Il reste dans l'état de l'écran
+  // de connexion, et il meurt avec lui.
   login(email, password) {
     return request('/auth/login', { method: 'POST', body: { email, password } })
+      .then(r => {
+        if (r.mfa_requis) return r;              // rien n'est enregistré : on n'est pas connecté
+        setToken(r.token); localStorage.setItem('user', JSON.stringify(r.user));
+        return r;
+      });
+  },
+  /** Seconde étape : `{ code }` ou `{ code_recuperation }`. */
+  loginMfa(token_intermediaire, preuve) {
+    return request('/auth/login/mfa', { method: 'POST', body: { token_intermediaire, ...preuve } })
       .then(r => { setToken(r.token); localStorage.setItem('user', JSON.stringify(r.user)); return r; });
   },
   logout() { clearToken(); window.location.href = '/login'; },
   me() { return request('/auth/me'); },
+
+  // ── Second facteur ────────────────────────────────────────────────────────
+  mfaEtat()            { return request('/mfa/etat'); },
+  mfaEnroler()         { return request('/mfa/enroler',    { method: 'POST' }); },
+  mfaActiver(code)     { return request('/mfa/activer',    { method: 'POST', body: { code } }); },
+  mfaDesactiver(password) { return request('/mfa/desactiver', { method: 'POST', body: { password } }); },
+  mfaCodes(code)       { return request('/mfa/codes',      { method: 'POST', body: { code } }); },
+  mfaEtatDe(id)        { return request(`/mfa/${id}/etat`); },
+  mfaReinitialiser(id, motif) {
+    return request(`/mfa/${id}/reinitialiser`, { method: 'POST', body: { motif } });
+  },
 
   // "Voir comme" (admin) : aperçu en lecture seule d'un autre profil
   profilsAcces() { return request('/auth/profils-acces'); },

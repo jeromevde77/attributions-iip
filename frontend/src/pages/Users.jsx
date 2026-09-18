@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { nomDepuisChaine } from '../lib/nom.js';
-import { getUser } from '../lib/api.js';
-import { IconPlus, IconKey, IconTrash, IconAlertTriangle } from '@tabler/icons-react';
+import { getUser, api } from '../lib/api.js';
+import { IconPlus, IconKey, IconTrash, IconAlertTriangle,
+         IconShieldCheck, IconShieldOff } from '@tabler/icons-react';
 import { MODULES_ACCES, PLAFOND_ROLE, droitEffectif, LIBELLE_DROIT, estDirection} from '../lib/modules.js';
 
 const ROLE_LABEL = {
@@ -76,6 +77,34 @@ export default function Users({ embedded = false }) {
     if (!pwd) return;
     await authFetch(`/api/users/${u.id}`, { method: 'PATCH', body: JSON.stringify({ password: pwd }) });
     alert('Mot de passe mis à jour.');
+  }
+
+  // RÉINITIALISER LE SECOND FACTEUR — réservé à la direction, jamais sur soi.
+  // Le motif est demandé et non facultatif : « pourquoi a-t-on rendu l'accès à
+  // ce compte ? » est exactement la question qu'on se pose un an après, et la
+  // réponse ne se reconstitue pas.
+  async function reinitMfa(u) {
+    if (u.id === me?.id) {
+      alert("Vous ne pouvez pas réinitialiser votre propre second facteur.\n\n"
+          + "Demandez-le à un autre membre de la direction, ou employez\n"
+          + "scripts/mfa-reset.js sur le serveur.");
+      return;
+    }
+    const motif = prompt(
+      `Réinitialiser la vérification en deux temps de ${u.email} ?\n\n`
+      + `Cette personne se reconnectera avec son seul mot de passe et devra\n`
+      + `reconfigurer son application. Elle en sera avisée par courriel.\n\n`
+      + `Motif (conservé au journal) :`);
+    if (motif === null) return;
+    if (!motif.trim()) { alert('Un motif est nécessaire.'); return; }
+    try {
+      const j = await api.mfaReinitialiser(u.id, motif.trim());
+      alert(j.avise
+        ? `Second facteur réinitialisé. ${u.email} en a été avisé par courriel.`
+        : `Second facteur réinitialisé, mais le courriel n'est pas parti`
+          + `${j.raison_avis ? ` (${j.raison_avis})` : ''}. PRÉVENEZ LA PERSONNE.`);
+      load();
+    } catch (e) { alert(e.message); }
   }
 
   async function changeRole(u, role) {
@@ -234,6 +263,8 @@ export default function Users({ embedded = false }) {
         }}
         onBasculerActif={toggleActif}
         onMotDePasse={resetPassword}
+        onReinitMfa={reinitMfa}
+        peutReinitMfa={estDirection(me)}
         onRetirer={deleteUser}
         onModifie={async (id, champs) => {
           try {
@@ -273,7 +304,8 @@ export default function Users({ embedded = false }) {
 // valeurs que le rôle autorise — et la modification rejoint la fiche de la
 // personne, puisque c'est la même donnée.
 function MatriceAcces({ users, sectionsDispo, profils, onModifie, onProfil,
-                       onBasculerActif, onMotDePasse, onRetirer, moiId }) {
+                       onBasculerActif, onMotDePasse, onReinitMfa, peutReinitMfa,
+                       onRetirer, moiId }) {
   // Un profil est appliqué si le rôle correspond ET que les cases sont
   // identiques : sans quoi la personne a dérivé, et on l'affiche comme telle.
   function profilCourant(u) {
@@ -406,6 +438,29 @@ function MatriceAcces({ users, sectionsDispo, profils, onModifie, onProfil,
         </button>
       </td>
 
+      {/* VÉRIFICATION EN DEUX TEMPS.
+          Un état, pas un bouton : c'est une information, et la seule action
+          possible ici — rendre l'accès à quelqu'un — se demande explicitement,
+          avec un motif. On n'active le second facteur de personne à sa place :
+          il faut le téléphone de l'intéressé. */}
+      <td className="border-b border-slate-100 px-2 py-1.5 text-center whitespace-nowrap">
+        {u.mfa_actif
+          ? <IconShieldCheck size={15} className="inline-block" style={{ color: '#4a7c59' }}
+              title="Vérification en deux temps active" />
+          : <IconShieldOff size={15} className="inline-block text-slate-300"
+              title="Mot de passe seul" />}
+        {/* `!!` ET NON `u.mfa_actif` SEUL : SQLite rend l'entier 0, et React
+            affiche 0 comme du texte — un « 0 » parasite paraissait dans chaque
+            ligne sans second facteur. Un `&&` ne se garde qu'avec un booléen. */}
+        {!!u.mfa_actif && peutReinitMfa && u.id !== moiId && (
+          <button onClick={() => onReinitMfa(u)}
+            title="Réinitialiser — la personne en sera avisée par courriel"
+            className="ml-1.5 text-[10px] text-iip-blue hover:underline align-middle">
+            débloquer
+          </button>
+        )}
+      </td>
+
       {MODULES_ACCES.map(m => {
         const droit = droitEffectif(u, m.key);
         const d = LIBELLE_DROIT[droit] || LIBELLE_DROIT.rien;
@@ -470,6 +525,10 @@ function MatriceAcces({ users, sectionsDispo, profils, onModifie, onProfil,
                 <th className="border-b border-slate-200 px-2 py-2 w-16">
                   <span className="text-[10px] uppercase tracking-wide text-slate-500">État</span>
                 </th>
+                <th className="border-b border-slate-200 px-2 py-2 w-24">
+                  <span className="text-[10px] uppercase tracking-wide text-slate-500"
+                    title="Vérification en deux temps">2 temps</span>
+                </th>
                 {MODULES_ACCES.map(m => (
                   <th key={m.key} className="border-b border-slate-200 px-1 py-2 w-20" title={m.desc}>
                     <div className="flex justify-center text-slate-400"><m.Icone size={14} stroke={1.6} /></div>
@@ -486,7 +545,7 @@ function MatriceAcces({ users, sectionsDispo, profils, onModifie, onProfil,
 
               {techniques.length > 0 && personnel.length > 0 && (
                 <tr>
-                  <td colSpan={5 + MODULES_ACCES.length}
+                  <td colSpan={6 + MODULES_ACCES.length}   /* +1 : colonne « 2 temps » */
                     className="bg-slate-100 border-y border-slate-300 px-3 py-1 text-[10px] uppercase tracking-wide text-slate-500 font-semibold">
                     Membres du personnel — leurs accès se règlent aussi depuis leur fiche
                   </td>
