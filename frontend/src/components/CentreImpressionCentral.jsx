@@ -1,9 +1,9 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import { nomPropre } from '../lib/nom.js';
 import {
   IconPrinter, IconUsers, IconSchool, IconChartBar, IconCalendarStats,
   IconBooks, IconAlertTriangle, IconChevronRight, IconChevronDown, IconSearch,
-  IconDownload, IconSend,
+  IconDownload, IconSend, IconFileExport,
 } from '@tabler/icons-react';
 import PreviewModal from './PreviewModal.jsx';
 import EnvoiMailModal from './EnvoiMailModal.jsx';
@@ -28,8 +28,17 @@ import { Fenetre, GroupeFenetre, PieceFenetre } from './ui.jsx';
  * pièces d'unité, et le restent.
  */
 
+const Listes = lazy(() => import('../pages/Listes.jsx'));
+
+/* LE GÉNÉRATEUR EST UN ONGLET D'ICI, PAS UN ÉCRAN À CÔTÉ.
+   Le catalogue offre des pièces écrites d'avance ; le générateur sert quand
+   aucune ne convient — on coche ses colonnes, on filtre. Ce sont deux réponses
+   à une même question, « qu'est-ce que j'emporte ? », et elles vivaient à deux
+   endroits dont le second n'était référencé NULLE PART : seize listes
+   injoignables autrement qu'en tapant leur adresse. */
 const ONGLETS = [
   { cle: 'etudiants', label: 'Étudiants', icon: IconSchool },
+  { cle: 'listes', label: 'Construire une liste', icon: IconFileExport },
   { cle: 'personnel', label: 'Personnel', icon: IconUsers },
   { cle: 'pilotage', label: 'Pilotage', icon: IconChartBar },
   { cle: 'organisation', label: 'Organisation', icon: IconCalendarStats },
@@ -931,9 +940,12 @@ export default function CentreImpressionCentral({ ongletInitial = 'etudiants',
         ))}
       </div>
 
-      {onglet === 'etudiants'
-        ? <OngletEtudiants perimetre={perimetre} />
-        : <OngletRapports domaine={onglet} />}
+      {onglet === 'etudiants' ? <OngletEtudiants perimetre={perimetre} />
+        : onglet === 'listes'
+          ? <Suspense fallback={<div className="p-6 text-[13px] text-slate-400">Chargement…</div>}>
+              <Listes integre />
+            </Suspense>
+          : <OngletRapports domaine={onglet} />}
     </Fenetre>
   );
 }
