@@ -5485,6 +5485,58 @@ export const TEXTE_EQUIVALENCE = "Les acquis d'apprentissage de cette unité "
   + 'un dossier pédagogique.';
 
 /**
+ * RETIRER TOUTE LA LIGNE D'UN ÉTUDIANT POUR UNE ANNÉE.
+ *
+ * On se trompe d'étudiant : un homonyme, une ligne cochée trop vite dans la
+ * matrice. Il fallait alors ouvrir la ligne, déplier, et supprimer les unités
+ * une à une — donc on ne le faisait pas, et le registre gardait des étudiants
+ * qui n'ont jamais rien demandé. Une erreur qu'on ne peut pas défaire d'un
+ * geste est une erreur qui reste.
+ *
+ * TOUT OU RIEN, et pour la même raison qu'ailleurs : si l'un des dossiers a
+ * été tranché par le Conseil, la ligne n'est plus une erreur de saisie. On
+ * refuse alors l'ENSEMBLE en nommant ce qui bloque, plutôt que d'effacer les
+ * deux dossiers vierges et de laisser le troisième seul — ce qui donnerait un
+ * registre à moitié corrigé dont personne ne comprendrait l'état.
+ */
+r.delete('/valorisations/etudiant/:id', authRequired, roleRequired(...PEUT_INSTRUIRE),
+  (req, res) => {
+    const eid = Number(req.params.id);
+    const annee = req.query.annee;
+    if (!annee) return res.status(400).json({ error: 'annee requise' });
+
+    const lignes = db.prepare(`SELECT * FROM etudiant_valorisation
+      WHERE etudiant_id = ? AND annee_scolaire = ?`).all(eid, annee);
+    if (!lignes.length) return res.json({ ok: true, supprimes: 0 });
+
+    const bloquants = lignes
+      .filter(v => v.valide_le || v.decision_le)
+      .map(v => `UE ${v.ue_num} : ${v.valide_le
+        ? `validée le ${v.valide_le}` : `décidée le ${v.decision_le}`}`);
+    if (bloquants.length) {
+      return res.status(409).json({
+        error: "Cette ligne porte des décisions déjà prises : elle ne se supprime pas. "
+          + 'Une décision se corrige ou se refuse — l’effacer emporterait le journal '
+          + 'qui la prouve.', bloquants });
+    }
+
+    let n = 0;
+    db.transaction(() => {
+      for (const v of lignes) {
+        for (const f of db.prepare(
+          'SELECT chemin FROM etudiant_valorisation_fichier WHERE valorisation_id = ?')
+          .all(v.id)) {
+          try { unlinkSync(f.chemin); } catch { /* déjà parti */ }
+        }
+        db.prepare('DELETE FROM etudiant_valorisation_fichier WHERE valorisation_id = ?').run(v.id);
+        db.prepare('DELETE FROM etudiant_valorisation WHERE id = ?').run(v.id);
+        n += 1;
+      }
+    })();
+    res.json({ ok: true, supprimes: n });
+  });
+
+/**
  * RETIRER UN DOSSIER — PARCE QU'ON SE TROMPE EN L'OUVRANT.
  *
  * Une case cochée de travers dans la matrice, un étudiant introduit à la place

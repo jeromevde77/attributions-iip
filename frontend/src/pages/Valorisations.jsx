@@ -102,6 +102,32 @@ export default function Valorisations() {
     await charger();
   }
 
+  /* RETIRER UNE LIGNE ENTIÈRE — ET DIRE CE QU'ON EFFACE AVANT DE L'EFFACER.
+     Le nombre d'unités figure dans la question : « retirer Untel » et « retirer
+     les quatre demandes d'Untel » n'engagent pas la même chose. */
+  async function supprimerLigne(e) {
+    const n = (e.vas || []).length;
+    if (n && !window.confirm(
+      `Retirer ${(e.nom || '').toUpperCase()} ${e.prenom} du registre ${annee} ?\n`
+      + `${n} demande(s) seront supprimées. Les décisions déjà prises, elles, `
+      + 'ne peuvent pas être effacées.')) return;
+    try {
+      const r = await fetch(
+        `/api/etudiants/valorisations/etudiant/${e.id}?annee=${encodeURIComponent(annee)}`,
+        { method: 'DELETE', headers: authHeaders() });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) {
+        setErreur([j.error, ...(j.bloquants || [])].filter(Boolean).join(' · '));
+        return;
+      }
+      setErreur(null);
+      // Un étudiant ajouté à l'écran mais sans aucune demande n'existe que là :
+      // il s'en va de la liste d'attente, sans rien à supprimer côté serveur.
+      setEnAttente(a => a.filter(x => x.id !== e.id));
+      await charger();
+    } catch (err) { setErreur(err.message); }
+  }
+
   const RAIL = [{
     label: 'Valorisation',
     items: [
@@ -174,6 +200,7 @@ export default function Valorisations() {
                 onSupprimer={supprimer}
                 onDocuments={ue => setDocuments(ue)}
                 onDossier={setDossier}
+                onSupprimerLigne={() => supprimerLigne(e)}
                 onChange={charger} onErreur={setErreur} />
             ))}
           </div>
@@ -242,7 +269,8 @@ function anneesProches() {
 /* ══ UN ÉTUDIANT ET SES UNITÉS ════════════════════════════════════════════ */
 
 function LigneEtudiant({ etudiant, annee, ouvert, onBasculer, onAjouterUE,
-                         onSupprimer, onDocuments, onDossier, onChange, onErreur }) {
+                         onSupprimer, onSupprimerLigne, onDocuments, onDossier,
+                         onChange, onErreur }) {
   const Fleche = ouvert ? IconChevronDown : IconChevronRight;
   return (
     <div className="carte overflow-hidden">
@@ -264,6 +292,16 @@ function LigneEtudiant({ etudiant, annee, ouvert, onBasculer, onAjouterUE,
         <button onClick={onAjouterUE} className="bouton text-[12px] px-2.5 py-1"
           title="Ajouter une ou plusieurs unités à valoriser">
           <IconPlus size={14} /> Unités
+        </button>
+        {/* ON SE TROMPE D'ÉTUDIANT — UN HOMONYME, UNE LIGNE COCHÉE TROP VITE.
+            Il fallait déplier et supprimer les unités une à une : donc on ne le
+            faisait pas, et le registre gardait des étudiants qui n'ont jamais
+            rien demandé. Une erreur qu'on ne peut pas défaire d'un geste est
+            une erreur qui reste. */}
+        <button onClick={onSupprimerLigne}
+          title="Retirer cet étudiant du registre pour cette année"
+          className="text-slate-300 hover:text-[#9D4A38]">
+          <IconTrash size={16} />
         </button>
       </div>
 
@@ -2424,6 +2462,7 @@ function MatriceIntroduction({ annee, onClose, onCree }) {
   const [erreur, setErreur] = useState(null);
   const [enCours, setEnCours] = useState(false);
   const [reception, setReception] = useState(aujourdHui());
+  const [filtre, setFiltre] = useState('');
 
   useEffect(() => {
     fetch('/api/ref/sections', { headers: authHeaders() })
@@ -2458,7 +2497,7 @@ function MatriceIntroduction({ annee, onClose, onCree }) {
     return () => clearTimeout(t);
   }, [chercheOuvert, annee, q]);
 
-  const lignes = useMemo(() => {
+  const toutes = useMemo(() => {
     const vus = new Map();
     for (const e of (m?.etudiants || [])) vus.set(e.id, e);
     for (const a of ajoutes) {
@@ -2469,11 +2508,45 @@ function MatriceIntroduction({ annee, onClose, onCree }) {
       || (a.prenom || '').localeCompare(b.prenom || ''));
   }, [m, ajoutes]);
 
+  /* RÉDUIRE LA LISTE, PAS LA SÉLECTION.
+   *
+   * Une section de TIM porte deux cents lignes : on cherche « abd », on pose
+   * la case, on cherche le suivant. Les cases déjà posées vivent dans `choix`,
+   * qui est indexé par étudiant et unité — filtrer ne les touche donc pas, et
+   * ce qu'on a coché sur une ligne masquée part bien à l'enregistrement. Un
+   * filtre qui ferait perdre la saisie serait pire que pas de filtre.
+   *
+   * On compare sans accents ni casse, et sur le DÉBUT du nom ou du prénom :
+   * « ben » doit trouver BENALI sans sortir aussi tous les LEBRUN. */
+  const sansAccent = t => String(t || '').normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '').toLowerCase();
+  const lignes = useMemo(() => {
+    const q0 = sansAccent(filtre).trim();
+    if (!q0) return toutes;
+    return toutes.filter(e =>
+      sansAccent(e.nom).startsWith(q0) || sansAccent(e.prenom).startsWith(q0));
+  }, [toutes, filtre]);
+
   /* UNE CASE TOURNE : rien → AD → VA → VAE → rien. Trois cases à cocher par
      cellule auraient fait un tableau illisible dès dix unités ; un menu
      déroulant demanderait deux clics pour chaque demande. */
   const SUITE = [null, 'admission', 'va', 'vae'];
   const COURT = { admission: 'AD', va: 'VA', vae: 'VAE' };
+  /* TROIS PORTES, TROIS COULEURS — ET ELLES NE DISENT QUE ÇA.
+   *
+   * Sur un tableau de douze colonnes et quarante lignes, « AD » et « VA » en
+   * gris se confondent : on lit le tableau case par case au lieu de le voir.
+   * La teinte porte la NATURE de la demande, jamais son état — l'état se lit
+   * dans le dossier, et mêler les deux rendrait les deux illisibles.
+   *
+   * Le fond reste pâle et la couleur va au texte et au filet : un aplat plein
+   * sur quarante cases ferait un damier, et la règle de la maison veut que la
+   * couleur se dépense là où elle distingue, pas partout. */
+  const TEINTE = {
+    admission: { t: '#15803D', f: '#15803D26', b: '#15803D66' },  // vert
+    va:        { t: '#2D4470', f: '#2D447020', b: '#2D447066' },  // bleu
+    vae:       { t: '#6D28D9', f: '#8B5CF624', b: '#8B5CF666' },  // violet
+  };
   function tourner(eid, ue) {
     const cle = `${eid}:${ue}`;
     setChoix(c => {
@@ -2548,12 +2621,36 @@ function MatriceIntroduction({ annee, onClose, onCree }) {
               className="controle text-[13px]" />
           </label>
           {section && (
-            <button onClick={() => setChercheOuvert(o => !o)} className="bouton text-[12px]">
-              <IconUserPlus size={14} /> Ajouter un étudiant
-            </button>
+            <>
+              <div className="relative">
+                <IconSearch size={14}
+                  className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input value={filtre} onChange={e => setFiltre(e.target.value)}
+                  placeholder="Début du nom ou du prénom…"
+                  className="controle pl-8 text-[13px] w-56" />
+              </div>
+              {filtre && (
+                <span className="text-[11px] text-slate-500">
+                  {lignes.length} sur {toutes.length}
+                  {choix.size ? ` · ${choix.size} demande(s) conservée(s)` : ''}
+                </span>
+              )}
+              <button onClick={() => setChercheOuvert(o => !o)} className="bouton text-[12px]">
+                <IconUserPlus size={14} /> Ajouter un étudiant
+              </button>
+            </>
           )}
-          <span className="ml-auto text-[11px] text-slate-500">
-            AD admission · VA acquis formels · VAE expérience
+          <span className="ml-auto flex items-center gap-2 text-[11px]">
+            {[['admission', 'admission'], ['va', 'acquis formels'],
+              ['vae', 'expérience']].map(([k, quoi]) => (
+              <span key={k} className="flex items-center gap-1">
+                <span className="inline-block px-1.5 py-0.5 rounded-champ font-medium"
+                  style={{ color: TEINTE[k].t, background: TEINTE[k].f }}>
+                  {COURT[k]}
+                </span>
+                <span className="text-slate-500">{quoi}</span>
+              </span>
+            ))}
           </span>
         </div>
 
@@ -2594,6 +2691,10 @@ function MatriceIntroduction({ annee, onClose, onCree }) {
             </div>
           ) : !m ? (
             <div className="p-6 text-[13px] text-slate-400">Chargement…</div>
+          ) : filtre && !lignes.length ? (
+            <div className="p-6 text-[13px] text-slate-400">
+              Personne ne commence par « {filtre} » dans cette section.
+            </div>
           ) : !m.unites.length ? (
             <div className="p-6 text-[13px] text-slate-400">
               Aucune unité valorisable au référentiel {annee} pour cette section.
@@ -2636,8 +2737,11 @@ function MatriceIntroduction({ annee, onClose, onCree }) {
                            elle en est, et le détail se règle dans le dossier. */
                         return (
                           <td key={u.ue_num} className="px-1 py-1 text-center align-middle">
-                            <span className="inline-block px-1.5 py-0.5 rounded-champ
-                                             bg-slate-100 text-[10px] text-slate-600"
+                            <span className="inline-block px-1.5 py-0.5 rounded-champ text-[10px]"
+                              style={existante.porte ? {
+                                color: TEINTE[existante.porte].t,
+                                background: TEINTE[existante.porte].f,
+                              } : { color: '#64748B', background: '#F1F5F9' }}
                               title={`${existante.porte ? COURT[existante.porte] + ' · ' : ''}${existante.etat}`}>
                               {existante.porte ? COURT[existante.porte] : '•'}
                             </span>
@@ -2647,9 +2751,12 @@ function MatriceIntroduction({ annee, onClose, onCree }) {
                       return (
                         <td key={u.ue_num} className="px-1 py-1 text-center align-middle">
                           <button onClick={() => tourner(e.id, u.ue_num)}
-                            className={`w-11 h-6 rounded-champ border text-[11px] font-medium
-                              ${pose ? 'border-iip-blue bg-iip-blue/10 text-iip-blue'
-                                : 'border-slate-200 text-slate-300 hover:border-slate-400'}`}>
+                            className="w-11 h-6 rounded-champ border text-[11px] font-medium
+                                       hover:border-slate-400"
+                            style={pose ? {
+                              color: TEINTE[pose].t, background: TEINTE[pose].f,
+                              borderColor: TEINTE[pose].b,
+                            } : { color: '#CBD5E1', borderColor: '#E2E8F0' }}>
                             {pose ? COURT[pose] : '—'}
                           </button>
                         </td>
