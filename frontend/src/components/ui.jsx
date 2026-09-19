@@ -890,10 +890,14 @@ export function Mention({ children, ton = 'neutre', className = '' }) {
  *   titre   : ce que la fenêtre EST (« Éditions — Étudiants »)
  *   sous    : une ligne de contexte, facultative
  *   large   : 'petite' | 'moyenne' | 'grande' | 'pleine'
+ *   hauteurFixe : occuper 88 vh même quand le contenu est court. À réserver
+ *     aux fenêtres dont le contenu change de hauteur sous l'utilisateur —
+ *     sinon, une fenêtre fait la hauteur de ce qu'elle dit.
  *   pied    : noeud rendu sous un filet, en bas (les actions)
  *   ton     : 'neutre' | 'alerte' — l'alerte teinte le bandeau, et elle seule
  */
 export function Fenetre({ icone: Ic, titre, sous, large = 'moyenne',
+                         hauteurFixe = false,
                           pied = null, ton = 'neutre', onFermer, children }) {
   const largeurs = {
     petite: 'w-[440px]', moyenne: 'w-[720px]',
@@ -925,14 +929,24 @@ export function Fenetre({ icone: Ic, titre, sous, large = 'moyenne',
           panneau, jamais sur son ancêtre. */}
       <div aria-hidden="true"
         className="absolute inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px]" />
-      {/* LES GRANDES FENÊTRES ONT UNE HAUTEUR FIXE : elles portent des onglets,
-          et une hauteur qui suit le contenu ferait sauter l'écran d'un onglet à
-          l'autre. Les petites gardent la hauteur de ce qu'elles disent — une
-          question courte dans une fenêtre haute serait perdue au milieu. */}
+      {/* UNE FENÊTRE FAIT LA HAUTEUR DE CE QU'ELLE DIT — JUSQU'À 88 vh.
+       *
+       * Les grandes étaient figées à 88 vh parce qu'elles portaient des
+       * onglets : une hauteur suivant le contenu faisait sauter l'écran d'un
+       * onglet à l'autre. Mais la fenêtre s'ancre désormais EN HAUT, à 6 vh —
+       * elle ne se recentre plus, donc son sommet ne bouge plus quand sa
+       * hauteur change, et la raison d'être de la hauteur fixe est tombée.
+       * Ce qu'il en restait se voyait : « Améliorations », trois champs et un
+       * bouton, occupait les neuf dixièmes de l'écran, dont les deux tiers de
+       * blanc sous le pied.
+       *
+       * Toutes plafonnent donc à 88 vh et s'arrêtent à leur contenu. Celles
+       * dont le contenu varie vraiment d'un onglet à l'autre demandent
+       * `hauteurFixe` — c'est alors un choix, écrit, et non le défaut subi par
+       * les autres. */}
       <div className={`relative bg-white rounded-fenetre shadow-dessus overflow-hidden
                        flex flex-col max-w-full
-                       ${large === 'petite' || large === 'moyenne'
-                         ? 'max-h-[88vh]' : 'h-[88vh]'}
+                       ${hauteurFixe ? 'h-[88vh]' : 'max-h-[88vh]'}
                        ${largeurs[large] || largeurs.moyenne}`}>
         <div className="flex items-center gap-3 px-5 py-3 text-white flex-shrink-0"
           style={{ background: ton === 'alerte' ? '#9d4a38' : '#1B2B4B' }}>

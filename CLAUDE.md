@@ -800,11 +800,18 @@ et 3 composants de tuile**. La stratégie tient en cinq chantiers, dans cet ordr
   onglets d'une fiche, d'une fenêtre, d'un écran : on tourne une page. Le
   désordre ne venait pas d'avoir deux formes, mais de n'avoir aucune règle :
   douze barres d'onglets, cinq couleurs de soulignement, quatre hauteurs.
-- **Une fenêtre ne bouge pas une fois ouverte.** Elle s'ancre en haut à une
-  distance fixe (6 vh) et les grandes ont une **hauteur fixe** (88 vh) : c'est
-  le contenu qui défile. Centrée verticalement, elle se recentrait à chaque
-  changement d'onglet — un onglet court la faisait monter, un long descendre,
-  et le bouton qu'on visait n'était plus là où on l'avait laissé.
+- **Une fenêtre ne bouge pas une fois ouverte, et elle fait la hauteur de ce
+  qu'elle dit.** Elle s'ancre en haut à une distance fixe (6 vh) : centrée
+  verticalement, elle se recentrait à chaque changement d'onglet — un onglet
+  court la faisait monter, un long descendre, et le bouton qu'on visait n'était
+  plus là où on l'avait laissé. Les grandes ont longtemps eu en plus une
+  **hauteur fixe** de 88 vh, pour la même raison ; mais l'ancrage en haut règle
+  déjà le problème — le sommet ne bouge plus quand la hauteur change. Ce qu'il
+  restait de la hauteur fixe se voyait : *Améliorations*, trois champs et un
+  bouton, occupait les neuf dixièmes de l'écran, dont les deux tiers de blanc
+  sous le pied. Toutes **plafonnent à 88 vh** et s'arrêtent à leur contenu ;
+  `hauteurFixe` reste disponible pour celles dont le contenu change vraiment de
+  hauteur sous l'utilisateur — c'est alors un choix écrit, non un défaut subi.
 - **L'ACTION D'UNE FENÊTRE NE DÉFILE JAMAIS AVEC SON CONTENU.** Elle vit dans
   le **pied** (`pied={…}` sur `Fenetre`), une bande fixe au bas du panneau.
   Posé au bas du contenu, un bouton descend avec lui : pour valider trois cases
