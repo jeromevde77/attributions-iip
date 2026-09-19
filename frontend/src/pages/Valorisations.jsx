@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   IconAlertTriangle, IconCertificate, IconChevronDown, IconChevronRight,
-  IconPlus, IconPrinter, IconSearch, IconTrash, IconUserPlus, IconX,
+  IconPlus, IconPrinter, IconSearch, IconTrash, IconUserPlus, IconUsersGroup, IconX,
 } from '@tabler/icons-react';
 import { authHeaders, getAnnee } from '../lib/api.js';
 import { Fenetre, RailLateral } from '../components/ui.jsx';
@@ -44,6 +44,7 @@ export default function Valorisations() {
   const [lignes, setLignes] = useState(null);
   const [deplie, setDeplie] = useState(() => new Set());
   const [ajout, setAjout] = useState(false);
+  const [serie, setSerie] = useState(false);
   const [ajoutUE, setAjoutUE] = useState(null);      // { etudiant_id, nom, prenom }
   const [documents, setDocuments] = useState(null);
   const [erreur, setErreur] = useState(null);
@@ -101,6 +102,8 @@ export default function Valorisations() {
   const RAIL = [{
     label: 'Valorisation',
     items: [
+      { key: 'serie', label: 'Valoriser en série', icon: IconUsersGroup,
+        onClick: () => setSerie(true) },
       { key: 'ajouter', label: 'Ajouter des étudiants', icon: IconUserPlus,
         onClick: () => setAjout(true) },
     ],
@@ -118,7 +121,14 @@ export default function Valorisations() {
             className="controle text-[13px]">
             {anneesProches().map(a => <option key={a} value={a}>{a}</option>)}
           </select>
-          <button onClick={() => setAjout(true)} className="controle controle-fort">
+          {/* L'ACTION PRINCIPALE DE L'ÉCRAN EST LA SÉANCE, PAS LE DOSSIER.
+              On encode une valorisation par unité devant un conseil des études,
+              pas un étudiant à la fois : c'est celle-là qui porte le ton fort,
+              et il n'y en a qu'une. */}
+          <button onClick={() => setSerie(true)} className="controle controle-fort">
+            <IconUsersGroup size={16} /> Valoriser en série
+          </button>
+          <button onClick={() => setAjout(true)} className="controle">
             <IconUserPlus size={16} /> Ajouter des étudiants
           </button>
           <span className="ml-auto text-[12px] text-slate-500">
@@ -161,6 +171,11 @@ export default function Valorisations() {
             setDeplie(s => new Set([...s, ...liste.map(x => x.id)]));
             setAjout(false);
           }} />
+      )}
+
+      {serie && (
+        <ValoriserEnSerie annee={annee} onClose={() => setSerie(false)}
+          onCree={async () => { setSerie(false); await charger(); }} />
       )}
 
       {ajoutUE && (
@@ -839,6 +854,495 @@ function ChoisirUnite({ annee, etudiant, onClose, onCree }) {
             </label>
           ))}
         </div>
+      </div>
+    </Fenetre>
+  );
+}
+
+/* ══ VALORISER PLUSIEURS ÉTUDIANTS À LA FOIS ══════════════════════════════ */
+
+/**
+ * UNE SÉANCE, UNE UNITÉ, UNE DÉCISION — ET AUTANT D'ÉTUDIANTS QU'ELLE EN
+ * CONCERNE.
+ *
+ * Le conseil des études d'une unité examine les demandes en série : même
+ * unité, même séance, même dispense, souvent le même constat d'équivalence —
+ * huit dossiers de reprise d'études qui portent le même diplôme antérieur.
+ * Lucie faisait naître huit valorisations « partielles et vides », qu'il
+ * fallait ensuite ouvrir et remplir huit fois. On écrivait donc huit fois ce
+ * que le Conseil a décidé une fois, avec huit occasions de se tromper d'une
+ * case.
+ *
+ * L'ordre de l'écran est celui de la séance :
+ *   1. l'UNITÉ — c'est elle qui convoque le conseil des études ;
+ *   2. les ÉTUDIANTS qu'elle concerne, cochés dans un tableau ;
+ *   3. la DÉCISION, saisie UNE FOIS et portée par tous.
+ *
+ * TOUS LES ACQUIS, C'EST L'UNITÉ ENTIÈRE. Cocher un à un les acquis d'une
+ * unité pour les avoir tous n'est pas une dispense partielle exhaustive :
+ * c'est une dispense d'unité, et le procès-verbal doit le dire ainsi — annexe
+ * 4 et attestation de réussite. Le choix « toute l'unité » écrit donc une
+ * valorisation COMPLÈTE, et non une partielle qui lui ressemblerait.
+ */
+function ValoriserEnSerie({ annee, onClose, onCree }) {
+  const [sections, setSections] = useState([]);
+  const [section, setSection] = useState('');
+  const [unites, setUnites] = useState([]);
+  const [ueNum, setUeNum] = useState('');
+  const [candidats, setCandidats] = useState(null);
+  const [coches, setCoches] = useState(() => new Set());
+  const [composantes, setComposantes] = useState(null);
+
+  // La décision, saisie une fois.
+  const [portee, setPortee] = useState('unite');   // unite | cours | acquis
+  const [decision, setDecision] = useState('accordee');
+  const [motif, setMotif] = useState('');
+  const [coursCoches, setCoursCoches] = useState(() => new Set());
+  const [aaCoches, setAaCoches] = useState(() => new Set());
+  const [pourcentage, setPourcentage] = useState('50');
+  const [dateCE, setDateCE] = useState('');
+  const [remarque, setRemarque] = useState('');
+
+  const [erreur, setErreur] = useState(null);
+  const [doublons, setDoublons] = useState(null);
+  const [enCours, setEnCours] = useState(false);
+
+  useEffect(() => {
+    fetch('/api/ref/sections', { headers: authHeaders() })
+      .then(r => (r.ok ? r.json() : [])).then(l => setSections(l || []))
+      .catch(() => setSections([]));
+  }, []);
+
+  /* L'UNITÉ SE CHOISIT, ELLE NE SE TAPE PAS — et quand la liste est vide, on
+     l'écrit plutôt que d'ouvrir un champ libre qui inviterait à taper un
+     numéro ne menant nulle part. */
+  useEffect(() => {
+    const p = new URLSearchParams({ annee });
+    if (section) p.set('section', section);
+    fetch(`/api/ref/ue?${p}`, { headers: authHeaders() })
+      .then(r => (r.ok ? r.json() : []))
+      .then(l => setUnites(Array.isArray(l) ? l : []))
+      .catch(() => setUnites([]));
+    setUeNum(''); setCandidats(null); setCoches(new Set());
+  }, [annee, section]);
+
+  useEffect(() => {
+    if (!ueNum) { setCandidats(null); setComposantes(null); return; }
+    setCandidats(null); setCoches(new Set());
+    setCoursCoches(new Set()); setAaCoches(new Set());
+    fetch(`/api/etudiants/valorisations/ue/${ueNum}/candidats?annee=${encodeURIComponent(annee)}`,
+      { headers: authHeaders() })
+      .then(r => (r.ok ? r.json() : { etudiants: [] }))
+      .then(j => setCandidats(j))
+      .catch(() => setCandidats({ etudiants: [] }));
+    fetch(`/api/etudiants/ue/${ueNum}/composantes?annee=${encodeURIComponent(annee)}`,
+      { headers: authHeaders() })
+      .then(r => (r.ok ? r.json() : null))
+      .then(j => setComposantes(j))
+      .catch(() => setComposantes(null));
+  }, [ueNum, annee]);
+
+  /* CELUI QUI PORTE DÉJÀ UNE DÉCISION NE SE COCHE PAS. Le lot est tout ou
+     rien : le laisser cocher ferait échouer les autres avec lui. */
+  const libres = useMemo(
+    () => (candidats?.etudiants || []).filter(e => !e.valorisation), [candidats]);
+
+  const basculer = id => setCoches(s => {
+    const n = new Set(s);
+    if (n.has(id)) n.delete(id); else n.add(id);
+    return n;
+  });
+  const toutCocher = () => setCoches(
+    coches.size === libres.length ? new Set() : new Set(libres.map(e => e.id)));
+
+  const aasParCours = useMemo(() => {
+    const m = new Map();
+    for (const a of (composantes?.aas || [])) {
+      const c = a.cours_code || '—';
+      if (!m.has(c)) m.set(c, []);
+      m.get(c).push(a);
+    }
+    return m;
+  }, [composantes]);
+
+  const basculerSet = (setter) => (v) => setter(s => {
+    const n = new Set(s);
+    if (n.has(v)) n.delete(v); else n.add(v);
+    return n;
+  });
+
+  // Ce qui manque pour que le bouton s'allume — dit AU MÊME ENDROIT que lui.
+  const manque =
+    !ueNum ? "Choisis l'unité"
+    : !coches.size ? 'Coche au moins un étudiant'
+    : decision === 'refusee' && !motif.trim() ? 'Un refus se motive'
+    : portee === 'cours' && !coursCoches.size ? 'Coche au moins un cours'
+    : portee === 'acquis' && !aaCoches.size ? 'Coche au moins un acquis'
+    : null;
+
+  async function enregistrer() {
+    if (manque) return;
+    setEnCours(true); setErreur(null); setDoublons(null);
+    try {
+      const refus = decision === 'refusee';
+      const corps = {
+        etudiant_ids: [...coches],
+        annee_scolaire: annee,
+        ue_num: Number(ueNum),
+        decision,
+        motif_refus: refus ? motif.trim() : null,
+        decision_ce_date: dateCE || null,
+        commentaire: remarque.trim() || null,
+      };
+      if (refus) {
+        // Un refus ne dispense rien : ni type partiel, ni cible, ni pourcentage.
+        corps.type = 'complete';
+      } else if (portee === 'unite') {
+        corps.type = 'complete';
+        corps.pourcentage = pourcentage === '' ? null : Number(pourcentage);
+      } else {
+        corps.type = 'partielle';
+        corps.cible = portee === 'cours' ? 'cours' : 'aa';
+        corps.cible_detail = portee === 'cours'
+          ? [...coursCoches].join(',') : [...aaCoches].join(',');
+        corps.pourcentage = pourcentage === '' ? null : Number(pourcentage);
+        if (portee === 'acquis') {
+          corps.equivalences = [...aaCoches].map(code => ({ aa_code: code }));
+        }
+      }
+      const rep = await fetch('/api/etudiants/valorisations/lot', {
+        method: 'POST', headers: authHeaders(), body: JSON.stringify(corps),
+      });
+      const j = await rep.json().catch(() => ({}));
+      if (!rep.ok) {
+        setErreur(j.error || 'Enregistrement refusé.');
+        if (Array.isArray(j.doublons)) setDoublons(j.doublons);
+        return;
+      }
+      await onCree?.();
+    } catch (e) { setErreur(e.message); }
+    finally { setEnCours(false); }
+  }
+
+  const uniteChoisie = unites.find(u => String(u.ue_num) === String(ueNum));
+
+  return (
+    <Fenetre icone={IconUsersGroup} large="grande" onFermer={onClose}
+      titre="Valoriser en série"
+      sous="Une unité, un conseil des études, la même décision pour plusieurs étudiants"
+      pied={<>
+        <button onClick={enregistrer} disabled={!!manque || enCours}
+          className="bouton bouton-fort disabled:opacity-40">
+          {enCours ? 'Enregistrement…'
+            : coches.size > 1
+              ? `Enregistrer pour ${coches.size} étudiants`
+              : 'Enregistrer la décision'}
+        </button>
+        {/* CE QUI DIT POURQUOI LE BOUTON EST GRIS VIT À CÔTÉ DU BOUTON. */}
+        <span className="text-[12px] text-slate-500">
+          {manque || `${coches.size} étudiant(s) · ${annee}`}
+        </span>
+        {erreur && (
+          <span className="flex items-start gap-1.5 text-[12px] text-rose-700">
+            <IconAlertTriangle size={14} className="mt-0.5 flex-none" />{erreur}
+          </span>
+        )}
+        <button onClick={onClose} className="bouton ml-auto">Fermer</button>
+      </>}>
+
+      <div className="flex-1 min-h-0 overflow-auto p-5 space-y-4">
+
+        {/* 1 — L'UNITÉ. C'est elle qui convoque le conseil des études. */}
+        <section className="carte p-3 space-y-2">
+          <div className="text-[11px] uppercase tracking-wide text-slate-500">
+            1 · L'unité
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <select value={section} onChange={e => setSection(e.target.value)}
+              className="controle text-[13px]">
+              <option value="">Toutes les sections</option>
+              {sections.map(s => (
+                <option key={s.code} value={s.code}>{s.libelle || s.code}</option>
+              ))}
+            </select>
+            {unites.length ? (
+              <select value={ueNum} onChange={e => setUeNum(e.target.value)}
+                className="controle text-[13px] min-w-[22rem]">
+                <option value="">Choisir une unité…</option>
+                {unites.map(u => (
+                  <option key={u.ue_num} value={u.ue_num}>
+                    {u.ue_num} — {u.ue_nom}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <span className="text-[12px] text-slate-500">
+                Aucune unité au référentiel {annee}
+                {section ? ' pour cette section' : ''}.
+              </span>
+            )}
+          </div>
+        </section>
+
+        {/* 2 — LES ÉTUDIANTS QUE CETTE UNITÉ CONCERNE. */}
+        {ueNum && (
+          <section className="carte p-0 overflow-hidden">
+            <div className="flex items-center gap-2 px-3 py-2 border-b border-slate-200">
+              <span className="text-[11px] uppercase tracking-wide text-slate-500">
+                2 · Les étudiants
+              </span>
+              <span className="ml-auto text-[12px] text-slate-500">
+                {coches.size ? `${coches.size} coché(s)` : 'Aucun coché'}
+              </span>
+              {libres.length > 0 && (
+                <button onClick={toutCocher} className="bouton text-[12px]">
+                  {coches.size === libres.length ? 'Tout décocher' : 'Tout cocher'}
+                </button>
+              )}
+            </div>
+
+            {!candidats ? (
+              <div className="p-5 text-[13px] text-slate-400">Chargement…</div>
+            ) : !candidats.etudiants.length ? (
+              <div className="p-5 text-[13px] text-slate-400">
+                Personne n'a cette unité à son programme en {annee}.
+              </div>
+            ) : (
+              <table className="w-full text-[13px]">
+                <thead className="tab-entete">
+                  <tr>
+                    <th className="w-8 px-3 py-1.5"></th>
+                    <th className="text-left px-2 py-1.5 font-medium">Étudiant</th>
+                    <th className="text-left px-2 py-1.5 font-medium">Section</th>
+                    <th className="text-left px-2 py-1.5 font-medium">Au programme</th>
+                    <th className="text-left px-2 py-1.5 font-medium">Déjà décidé</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {candidats.etudiants.map(e => {
+                    const pris = !!e.valorisation;
+                    return (
+                      <tr key={e.id}
+                        className={`border-b border-slate-100 ${pris ? 'opacity-50'
+                          : coches.has(e.id) ? 'bg-iip-blue/5' : ''}`}>
+                        <td className="px-3 py-1.5">
+                          <input type="checkbox" disabled={pris}
+                            checked={coches.has(e.id)}
+                            onChange={() => basculer(e.id)}
+                            className="w-4 h-4 accent-iip-blue disabled:opacity-40" />
+                        </td>
+                        <td className="px-2 py-1.5">
+                          <span className="font-medium">
+                            {(e.nom || '').toUpperCase()} {e.prenom}
+                          </span>
+                        </td>
+                        <td className="px-2 py-1.5 text-slate-500">{e.section || '—'}</td>
+                        <td className="px-2 py-1.5 text-slate-500">
+                          {e.au_programme ? 'oui' : '—'}
+                        </td>
+                        <td className="px-2 py-1.5">
+                          {pris ? (
+                            <span className="text-[12px] text-amber-700">
+                              {e.valorisation.decision === 'refusee' ? 'Refus'
+                                : e.valorisation.type === 'complete' ? 'Dispense totale'
+                                  : 'Dispense partielle'}
+                            </span>
+                          ) : <span className="text-slate-300">—</span>}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            )}
+          </section>
+        )}
+
+        {/* 3 — LA DÉCISION, SAISIE UNE FOIS. */}
+        {ueNum && (
+          <section className="carte p-3 space-y-3">
+            <div className="text-[11px] uppercase tracking-wide text-slate-500">
+              3 · La décision du conseil des études
+            </div>
+
+            <div className="flex flex-wrap gap-2">
+              {[
+                { v: 'accordee', l: 'Accordée' },
+                { v: 'refusee', l: 'Refusée' },
+              ].map(d => (
+                <label key={d.v}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-champ
+                    border cursor-pointer text-[13px]
+                    ${decision === d.v ? 'border-iip-blue bg-iip-blue/5'
+                      : 'border-slate-200'}`}>
+                  <input type="radio" checked={decision === d.v}
+                    onChange={() => setDecision(d.v)} className="accent-iip-blue" />
+                  {d.l}
+                </label>
+              ))}
+            </div>
+
+            {decision === 'refusee' ? (
+              /* UN REFUS SE MOTIVE (RDE art. 88 §3), et le même motif vaut pour
+                 tout le lot : c'est la même demande, examinée à la même séance. */
+              <label className="block">
+                <span className="text-[12px] text-slate-600">
+                  Motif du refus — il figurera sur le procès-verbal
+                </span>
+                <textarea value={motif} onChange={e => setMotif(e.target.value)}
+                  rows={3} className="controle w-full h-auto text-[13px] mt-1"
+                  placeholder="Ce qui fonde le refus, acquis par acquis si nécessaire…" />
+              </label>
+            ) : (
+              <>
+                <div className="flex flex-wrap gap-2">
+                  {[
+                    { v: 'unite', l: "Toute l'unité",
+                      a: 'Tous les acquis — dispense complète' },
+                    { v: 'cours', l: 'Des cours', a: "Les activités d'enseignement cochées" },
+                    { v: 'acquis', l: 'Des acquis au choix', a: 'Les acquis cochés' },
+                  ].map(p => (
+                    <label key={p.v} title={p.a}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-champ
+                        border cursor-pointer text-[13px]
+                        ${portee === p.v ? 'border-iip-blue bg-iip-blue/5'
+                          : 'border-slate-200'}`}>
+                      <input type="radio" checked={portee === p.v}
+                        onChange={() => setPortee(p.v)} className="accent-iip-blue" />
+                      {p.l}
+                    </label>
+                  ))}
+                </div>
+
+                {portee === 'unite' && (
+                  <p className="text-[12px] text-slate-500">
+                    L'unité entière et tous ses acquis : le procès-verbal sort en
+                    dispense complète, avec l'attestation de réussite.
+                  </p>
+                )}
+
+                {portee === 'cours' && (
+                  <div className="space-y-1">
+                    {!composantes ? (
+                      <div className="text-[12px] text-slate-400">Chargement des cours…</div>
+                    ) : !composantes.cours?.length ? (
+                      <div className="text-[12px] text-slate-500">
+                        Cette unité n'a aucun cours encodé pour {annee}.
+                      </div>
+                    ) : composantes.cours.map(c => (
+                      <label key={c.cours_code}
+                        className="flex items-center gap-2 px-2 py-1 rounded-champ
+                                   hover:bg-slate-50 cursor-pointer">
+                        <input type="checkbox" checked={coursCoches.has(c.cours_code)}
+                          onChange={() => basculerSet(setCoursCoches)(c.cours_code)}
+                          className="w-4 h-4 accent-iip-blue" />
+                        <span className="text-[13px]">{c.cours_nom || c.cours_code}</span>
+                        <span className="text-[11px] text-slate-400">{c.cours_code}</span>
+                      </label>
+                    ))}
+                  </div>
+                )}
+
+                {portee === 'acquis' && (
+                  <div className="space-y-2">
+                    {!composantes ? (
+                      <div className="text-[12px] text-slate-400">Chargement des acquis…</div>
+                    ) : !composantes.aas?.length ? (
+                      <div className="text-[12px] text-slate-500">
+                        Cette unité n'a aucun acquis encodé.
+                      </div>
+                    ) : [...aasParCours.entries()].map(([code, liste]) => (
+                      <div key={code}>
+                        <div className="tab-repere px-2 py-1 text-[12px] font-medium">
+                          {composantes.cours?.find(c => c.cours_code === code)?.cours_nom
+                            || code}
+                        </div>
+                        {liste.map(a => (
+                          <label key={a.aa_code}
+                            className="flex items-start gap-2 px-2 py-1 rounded-champ
+                                       hover:bg-slate-50 cursor-pointer">
+                            <input type="checkbox" checked={aaCoches.has(a.aa_code)}
+                              onChange={() => basculerSet(setAaCoches)(a.aa_code)}
+                              className="w-4 h-4 mt-0.5 accent-iip-blue" />
+                            <span className="text-[13px]">
+                              {a.description || a.aa_code}
+                              <span className="ml-1.5 text-[11px] text-slate-400">
+                                {a.aa_code}
+                              </span>
+                            </span>
+                          </label>
+                        ))}
+                      </div>
+                    ))}
+                    {/* Le constat d'équivalence est celui que le serveur propose :
+                        deux libellés, un affiché et un enregistré, finiraient par
+                        diverger. Il se corrige ensuite dossier par dossier. */}
+                    <p className="text-[12px] text-slate-500">
+                      Chaque acquis coché part avec le constat d'équivalence proposé ;
+                      il se corrige ensuite sur la ligne de l'étudiant.
+                    </p>
+                  </div>
+                )}
+
+                <div className="flex flex-wrap items-end gap-3">
+                  <label className="block">
+                    <span className="text-[12px] text-slate-600">Pourcentage</span>
+                    <input value={pourcentage} inputMode="numeric"
+                      onChange={e => setPourcentage(e.target.value.replace(/[^\d]/g, ''))}
+                      className="controle w-24 text-[13px] mt-1" />
+                  </label>
+                  <label className="block">
+                    <span className="text-[12px] text-slate-600">
+                      Date de décision du Conseil
+                    </span>
+                    <input type="date" value={dateCE}
+                      onChange={e => setDateCE(e.target.value)}
+                      className="controle text-[13px] mt-1" />
+                  </label>
+                </div>
+              </>
+            )}
+
+            <label className="block">
+              <span className="text-[12px] text-slate-600">
+                Remarque du Conseil — imprimée sur le procès-verbal
+              </span>
+              <textarea value={remarque} onChange={e => setRemarque(e.target.value)}
+                rows={2} className="controle w-full h-auto text-[13px] mt-1"
+                placeholder="Ex. : dispensé des heures de stage, mais doit présenter l'examen." />
+            </label>
+
+            {uniteChoisie && (
+              <p className="text-[11px] text-slate-400">
+                Unité {uniteChoisie.ue_num} — {uniteChoisie.ue_nom} · {annee}
+              </p>
+            )}
+          </section>
+        )}
+
+        {/* LE LOT EST TOUT OU RIEN, ET ON DIT QUI L'A ARRÊTÉ. */}
+        {doublons?.length > 0 && (
+          <section className="carte p-3">
+            <div className="flex items-center gap-1.5 text-[13px] text-amber-800">
+              <IconAlertTriangle size={15} />
+              Rien n'a été enregistré : ces étudiants portent déjà une décision
+              sur cette unité.
+            </div>
+            <ul className="mt-2 space-y-0.5">
+              {doublons.map(d => (
+                <li key={d.etudiant_id} className="text-[12px] text-slate-600">
+                  {(d.nom || '').toUpperCase()} {d.prenom} —{' '}
+                  {d.decision === 'refusee' ? 'refus'
+                    : d.type === 'complete' ? 'dispense totale' : 'dispense partielle'}
+                </li>
+              ))}
+            </ul>
+            <p className="mt-2 text-[12px] text-slate-500">
+              Décoche-les pour enregistrer les autres, ou corrige leur décision
+              sur leur ligne : une décision du Conseil ne s'écrase pas.
+            </p>
+          </section>
+        )}
       </div>
     </Fenetre>
   );

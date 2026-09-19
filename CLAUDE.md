@@ -391,6 +391,37 @@ bouton reste gris tant que le motif est vide. Sur le procès-verbal, la colonne
 garde-fou n'exige plus de pourcentage là où il n'y a rien à porter, et aucune
 attestation de réussite ne se tire d'un refus.
 
+**UNE SÉANCE DE VALORISATION SE TIENT PAR UNITÉ, PAS PAR DOSSIER.** Le conseil
+des études d'une unité examine les demandes en SÉRIE : même unité, même séance,
+même dispense, souvent le même constat d'équivalence — huit dossiers de reprise
+d'études qui portent le même diplôme antérieur. Lucie faisait naître huit
+valorisations « partielles et vides », qu'il fallait ensuite ouvrir et remplir
+huit fois : on écrivait huit fois ce que le Conseil a décidé une fois, avec huit
+occasions de se tromper d'une case. Depuis 2.12.36, *Valoriser en série* —
+l'action principale de l'écran, et il n'y en a qu'une : l'UNITÉ d'abord (elle
+convoque le conseil), puis les ÉTUDIANTS qu'elle concerne, cochés dans un
+tableau, puis LA DÉCISION saisie une fois et portée par tous. Les étudiants
+proposés ne se cherchent plus dans les 588 du fichier : ce sont ceux qui ont
+l'unité à leur programme.
+
+> **TOUS LES ACQUIS, C'EST L'UNITÉ ENTIÈRE.** Cocher un à un tous les acquis
+> d'une unité n'est pas une dispense partielle exhaustive : c'est une dispense
+> d'unité, et la pièce doit le dire ainsi — PV d'annexe 4 et attestation de
+> réussite. Le choix « toute l'unité » écrit donc une valorisation COMPLÈTE, et
+> non une partielle qui lui ressemblerait. Trois portées, et pas une de plus :
+> toute l'unité, des cours, des acquis au choix.
+
+> **LE LOT EST TOUT OU RIEN, ET UN DOUBLON L'ARRÊTE.** Une écriture partielle
+> serait pire que le refus : on ne saurait pas lesquels sont passés, on
+> recommencerait, et les premiers se retrouveraient en double — or deux
+> décisions contraires sur une même unité bloquent l'impression du PV, sans
+> qu'on sache pourquoi. Un étudiant qui porte déjà une décision sur cette unité
+> et cette année A ÉTÉ EXAMINÉ : l'écraser ferait disparaître une décision du
+> Conseil sans trace, l'ignorer laisserait croire qu'il a reçu celle du lot. Le
+> serveur rend la liste nommée, n'écrit rien, et le secrétariat décoche ou
+> corrige à la main. Ces étudiants sont d'ailleurs **décochables mais non
+> cochables** dans le tableau : le blocage se voit avant d'être subi.
+
 **Le registre des valorisations** (rail *Étudiants → Valorisation*) : elles ne se
 lisaient que fiche par fiche, donc elles ne se lisaient pas — personne n'ouvre
 588 dossiers pour savoir qui a demandé quoi. Une ligne par demande, filtrable par

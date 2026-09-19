@@ -4188,6 +4188,183 @@ function verifierValorisation(b) {
   return null;
 }
 
+/**
+ * LES ÉTUDIANTS QUE CETTE UNITÉ CONCERNE.
+ *
+ * Une séance de valorisation se tient PAR UNITÉ, devant le conseil des études
+ * de cette unité : on y examine dix dossiers qui posent la même question. Pour
+ * cocher dix étudiants, il fallait pourtant les chercher un à un dans les cinq
+ * cent quatre-vingt-huit du fichier — alors que ceux que la question concerne
+ * sont connus : ceux qui ont l'unité à leur programme.
+ *
+ * On rend aussi la valorisation DÉJÀ enregistrée quand il y en a une. Elle ne
+ * sert pas à décorer la ligne : c'est elle qui interdit le lot (voir plus bas).
+ *
+ * Route spécifique AVANT la paramétrique `/:id/valorisations` — l'ordre
+ * d'Express, et une leçon déjà payée.
+ */
+r.get('/valorisations/ue/:ueNum/candidats', authRequired, (req, res) => {
+  const ueNum = Number(req.params.ueNum);
+  const annee = req.query.annee;
+  if (!annee) return res.status(400).json({ error: 'annee requise' });
+
+  const unite = db.prepare(`
+    SELECT ue_num, ue_nom, section, ue_niv FROM ue
+    WHERE ue_num = ? AND annee_scolaire = ? LIMIT 1`).get(ueNum, annee)
+    || db.prepare('SELECT ue_num, ue_nom, section, ue_niv FROM ue WHERE ue_num = ? LIMIT 1')
+         .get(ueNum);
+  if (!unite) {
+    return res.status(404).json({ error: `L'unité ${ueNum} n'existe pas dans le référentiel.` });
+  }
+
+  // Ceux qui ont l'unité au programme cette année.
+  const inscrits = db.prepare(`
+    SELECT e.id, e.nom, e.prenom, e.id_ecampus, e.section_rattachement,
+           i.resultat
+    FROM etudiant_inscription i
+    JOIN etudiant e ON e.id = i.etudiant_id
+    WHERE i.ue_num = ? AND i.annee_scolaire = ?
+  `).all(ueNum, annee);
+
+  // Ceux qui portent déjà une décision sur cette unité — ils peuvent ne pas
+  // être inscrits (une valorisation précède souvent l'inscription).
+  const deja = db.prepare(`
+    SELECT v.id AS valorisation_id, v.etudiant_id, v.type, v.decision,
+           e.nom, e.prenom, e.id_ecampus, e.section_rattachement
+    FROM etudiant_valorisation v
+    JOIN etudiant e ON e.id = v.etudiant_id
+    WHERE v.ue_num = ? AND v.annee_scolaire = ?
+  `).all(ueNum, annee);
+
+  const par = new Map();
+  for (const i of inscrits) {
+    par.set(i.id, {
+      id: i.id, nom: i.nom, prenom: i.prenom, id_ecampus: i.id_ecampus,
+      section: i.section_rattachement, au_programme: true,
+      resultat: i.resultat || null, valorisation: null,
+    });
+  }
+  for (const d of deja) {
+    if (!par.has(d.etudiant_id)) {
+      par.set(d.etudiant_id, {
+        id: d.etudiant_id, nom: d.nom, prenom: d.prenom, id_ecampus: d.id_ecampus,
+        section: d.section_rattachement, au_programme: false,
+        resultat: null, valorisation: null,
+      });
+    }
+    par.get(d.etudiant_id).valorisation = {
+      id: d.valorisation_id, type: d.type, decision: d.decision };
+  }
+
+  const etudiants = [...par.values()].sort((a, b) =>
+    (a.nom || '').localeCompare(b.nom || '')
+    || (a.prenom || '').localeCompare(b.prenom || ''));
+  res.json({ unite, annee, etudiants });
+});
+
+/**
+ * UNE MÊME DÉCISION POUR PLUSIEURS ÉTUDIANTS, EN UNE FOIS.
+ *
+ * Le conseil des études d'une unité examine les demandes en série : même
+ * unité, même séance, même dispense, et souvent le même constat d'équivalence
+ * — huit dossiers de reprise d'études qui portent le même diplôme antérieur.
+ * Lucie obligeait à créer huit valorisations « partielles et vides », puis à
+ * ouvrir huit lignes et à y refaire huit fois la même saisie. On écrivait donc
+ * huit fois ce que le Conseil a décidé une fois, avec huit occasions de se
+ * tromper d'une case.
+ *
+ * LE LOT EST TOUT OU RIEN. Une écriture partielle serait pire que le refus :
+ * on ne saurait pas lesquels sont passés, on recommencerait, et les premiers
+ * se retrouveraient en double — deux décisions contraires sur une même unité
+ * bloquent l'impression du procès-verbal, et personne ne saurait pourquoi.
+ *
+ * UN DOUBLON ARRÊTE LE LOT. Un étudiant qui porte déjà une décision sur cette
+ * unité et cette année a été examiné : l'écraser ferait disparaître une
+ * décision du Conseil sans trace, et l'ignorer laisserait croire qu'il a reçu
+ * celle du lot. On rend la liste, on n'écrit rien, et le secrétariat décoche
+ * ou corrige à la main — c'est une décision, pas une collision de données.
+ */
+r.post('/valorisations/lot', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
+  const { etudiant_ids, annee_scolaire, ue_num, type, cible, cible_detail,
+          pourcentage, decision_ce_date, commentaire } = req.body;
+
+  const ids = [...new Set((Array.isArray(etudiant_ids) ? etudiant_ids : [])
+    .map(Number).filter(n => Number.isInteger(n) && n > 0))];
+  if (!ids.length) return res.status(400).json({ error: 'Aucun étudiant coché.' });
+
+  // LA MÊME RÈGLE QU'À L'UNITÉ. Un lot qui validerait moins qu'une saisie
+  // individuelle serait la porte dérobée qu'on a déjà refusée pour le PUT.
+  const souci = verifierValorisation(req.body);
+  if (souci) return res.status(400).json({ error: souci });
+  const decision = req.body.decision === 'refusee' ? 'refusee' : 'accordee';
+
+  const connue = db.prepare(
+    'SELECT 1 FROM ue WHERE ue_num = ? LIMIT 1').get(Number(ue_num));
+  if (!connue) {
+    return res.status(400).json({
+      error: `L'unité ${ue_num} n'existe pas dans le référentiel.` });
+  }
+
+  const marques = `(${ids.map(() => '?').join(',')})`;
+  const inconnus = ids.filter(id =>
+    !db.prepare('SELECT 1 FROM etudiant WHERE id = ? LIMIT 1').get(id));
+  if (inconnus.length) {
+    return res.status(400).json({
+      error: `Étudiant${inconnus.length > 1 ? 's' : ''} introuvable${inconnus.length > 1 ? 's' : ''} : ${inconnus.join(', ')}.` });
+  }
+
+  const doublons = db.prepare(`
+    SELECT v.etudiant_id, v.id AS valorisation_id, v.type, v.decision,
+           e.nom, e.prenom
+    FROM etudiant_valorisation v
+    JOIN etudiant e ON e.id = v.etudiant_id
+    WHERE v.ue_num = ? AND v.annee_scolaire = ?
+      AND v.etudiant_id IN ${marques}
+    ORDER BY e.nom, e.prenom
+  `).all(Number(ue_num), annee_scolaire, ...ids);
+  if (doublons.length) {
+    return res.status(409).json({
+      error: doublons.length > 1
+        ? `${doublons.length} étudiants portent déjà une décision sur l'unité ${ue_num} en ${annee_scolaire}. Rien n'a été enregistré.`
+        : `${(doublons[0].nom || '').toUpperCase()} ${doublons[0].prenom} porte déjà une décision sur l'unité ${ue_num} en ${annee_scolaire}. Rien n'a été enregistré.`,
+      doublons,
+    });
+  }
+
+  const refus = decision === 'refusee';
+  const equivalences = !refus && Array.isArray(req.body.equivalences)
+    ? req.body.equivalences : [];
+
+  const inserer = db.prepare(`
+    INSERT INTO etudiant_valorisation
+      (etudiant_id, annee_scolaire, ue_num, type, cible, cible_detail,
+       pourcentage, decision_ce_date, commentaire, decision, motif_refus)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?)
+  `);
+  const ecrire = db.transaction(() => {
+    const crees = [];
+    for (const id of ids) {
+      const info = inserer.run(
+        id, annee_scolaire, Number(ue_num), type,
+        !refus && type === 'partielle' ? cible : null,
+        !refus && type === 'partielle' ? (cible_detail || null) : null,
+        refus ? null
+          : pourcentage != null ? Number(pourcentage)
+            : (type !== 'admission' ? 50 : null),
+        decision_ce_date || null, commentaire || null,
+        decision, refus ? String(req.body.motif_refus).trim() : null);
+      if (equivalences.length) ecrireEquivalences(info.lastInsertRowid, equivalences);
+      crees.push({ etudiant_id: id, valorisation_id: info.lastInsertRowid });
+    }
+    return crees;
+  });
+
+  let crees;
+  try { crees = ecrire(); }
+  catch (e) { return res.status(500).json({ error: e.message }); }
+  res.json({ ok: true, crees: crees.length, valorisations: crees });
+});
+
 r.post('/:id/valorisations', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
   const { annee_scolaire, ue_num, type, cible, cible_detail, pourcentage,
           decision_ce_date, commentaire } = req.body;
