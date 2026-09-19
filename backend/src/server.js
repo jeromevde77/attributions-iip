@@ -1,4 +1,5 @@
 import 'dotenv/config';
+import { porterContexte } from './lib/contexteRequete.js';
 import { demoWriteGuard } from './middleware/demo.js';
 import express from 'express';
 import cors from 'cors';
@@ -2809,6 +2810,20 @@ app.use(cors({ origin: ORIGINES.length ? ORIGINES : true, credentials: true }));
 // corps déjà lu n'est pas relu par le parseur suivant.
 app.use('/api/envois', express.json({ limit: '60mb' }));
 app.use(express.json({ limit: '5mb' }));
+
+/* QUI EST EN TRAIN DE DEMANDER — POUR TOUTE LA DURÉE DE LA REQUÊTE.
+ *
+ * « Je veux des traces » : toute pièce sortie de Lucie doit pouvoir dire qui
+ * l'a produite et quand. Passer l'utilisateur en paramètre aurait demandé de
+ * modifier les quarante et une pièces et tous leurs appels — on en aurait
+ * oublié la moitié, et ce sont celles-là qui sortiraient sans trace. Le
+ * contexte est donc porté une fois, ici, et le pied de page le lit.
+ *
+ * Il est posé APRÈS le parseur de corps et AVANT les routes, mais il ne
+ * s'appuie pas sur `req.user` : l'authentification a lieu route par route,
+ * plus loin. Le middleware relit donc l'utilisateur au moment où la mention
+ * est fabriquée, pas ici. */
+app.use((req, res, next) => porterContexte(req, res, next));
 app.use(morgan('tiny'));
 
 app.get('/api/health', (req, res) => res.json({ ok: true, ts: new Date().toISOString() }));

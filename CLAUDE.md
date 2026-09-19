@@ -1028,6 +1028,43 @@ un, l'attribution peut en retenir un autre.
 
 ---
 
+### Les traces — trois règles générales, valables partout dans Lucie
+
+Posées par Charles le 19 septembre 2026, après qu'une attestation erronée eut
+circulé sans qu'on puisse dire qui l'avait sortie. « Je veux des traces. »
+
+- **LA DATE DU JOUR EST LE DÉFAUT.** Un champ de date vide impose un clic, un
+  calendrier et un repérage visuel pour écrire ce que Lucie sait déjà. Et comme
+  il coûte, il reste vide — si bien que les dates manquent précisément là où
+  elles prouvent quelque chose. On propose **aujourd'hui**, et l'on corrige
+  quand ce n'est pas le bon jour (`aujourdHui()` dans `pages/Valorisations.jsx`,
+  à généraliser). Le défaut doit être correct.
+- **CELUI QUI CLIQUE EST CELUI QUI SIGNE.** La personne qui accepte, valide ou
+  coche est **la personne connectée** — jamais un nom choisi dans une liste, ni
+  un champ libre. Un nom qu'on saisit est un nom qu'on peut mettre à la place
+  d'un autre. Son nom est enregistré avec l'heure, et il paraît à l'écran.
+- **TOUTE PIÈCE DIT QUI L'A PRODUITE.** *« Produit par Charles Sohet le
+  19/09/2026 à 11:42 »*, dans le pied commun. Écrite **une fois**, dans
+  `piedDocument()`, et non pièce par pièce : quarante et une pièces, ce sont
+  quarante et une occasions d'oublier — et ce serait celle qu'on a oubliée qui
+  circulerait sans qu'on sache d'où elle vient. Une pièce imprimée quitte
+  Lucie, et c'est **hors** de Lucie qu'on se demande qui l'a sortie ; un
+  registre interne ne suffit donc pas.
+
+> **COMMENT L'UTILISATEUR ARRIVE JUSQU'AU PIED DE PAGE.**
+> `lib/contexteRequete.js` porte la requête dans un `AsyncLocalStorage` ouvert
+> par un middleware global. Passer l'utilisateur en paramètre aurait demandé de
+> modifier les quarante et une pièces et tous leurs appels : on en aurait
+> oublié la moitié — c'est la leçon des trente-trois routes d'attribution dont
+> une seule filtrait. **Le contexte garde `req`, pas `req.user`** : le
+> middleware s'exécute AVANT l'authentification, qui a lieu route par route, et
+> copier la valeur y aurait figé un `null` pour toute la requête — toutes les
+> pièces seraient sorties sans nom, sans que rien ne le signale.
+> Ce n'est **pas** un mécanisme d'autorisation : aucun droit ne se décide
+> d'après ce contexte. Les droits se contrôlent sur la porte, avec `req.user`.
+
+---
+
 ### Écritures et garde-fous
 
 - **Rien ne s'écrit sans qu'on ait vu ce qui sera écrit** : tout import et tout

@@ -3,6 +3,7 @@
  * Les paramètres sont des clés-valeurs configurables depuis l'UI Configuration.
  */
 import { Router } from 'express';
+import { mentionProduction } from '../lib/contexteRequete.js';
 import db from '../db/index.js';
 import { authRequired, roleRequired } from '../middleware/auth.js';
 import { capacitePdf } from '../services/pdf.js';
@@ -38,7 +39,20 @@ export function piedDocument() {
     on('miseenpage.pied_email')    ? etab.email_contact : null,
     on('miseenpage.pied_site_web') ? etab.site_web : null,
   ].filter(Boolean).join(' • ');
-  return [ligne1, ligne2].filter(Boolean).join('<br>');
+  /* LA TRACE DE PRODUCTION — SUR TOUTES LES PIÈCES, SANS EXCEPTION.
+   *
+   * « Si je sors une attestation, on doit avoir un produit par… le… à… heure.
+   * Je veux des traces. » Elle est écrite ICI, dans le pied commun, et non
+   * pièce par pièce : quarante et une pièces, c'est quarante et une occasions
+   * d'oublier — et ce serait justement celle qu'on a oubliée qui circulerait
+   * sans qu'on sache d'où elle vient.
+   *
+   * Elle se lit sur le document lui-même, pas seulement dans un registre :
+   * une pièce imprimée quitte Lucie, et c'est hors de Lucie qu'on se demande
+   * qui l'a sortie. */
+  const trace = getParam('miseenpage.pied_production', '1') === '1'
+    ? mentionProduction() : null;
+  return [ligne1, ligne2, trace].filter(Boolean).join('<br>');
 }
 
 // Indique si le logo doit apparaître en en-tête

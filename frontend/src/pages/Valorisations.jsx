@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   IconAlertTriangle, IconCertificate, IconChevronDown, IconChevronRight,
-  IconListCheck, IconPlus, IconPrinter, IconSearch, IconTrash, IconUserPlus,
-  IconUsersGroup, IconX,
+  IconListCheck, IconPlus, IconPrinter, IconSearch, IconTable, IconTrash,
+  IconUserPlus, IconUsersGroup, IconX,
 } from '@tabler/icons-react';
 import { authHeaders, getAnnee } from '../lib/api.js';
 import { Fenetre, RailLateral } from '../components/ui.jsx';
@@ -47,6 +47,7 @@ export default function Valorisations() {
   const [ajout, setAjout] = useState(false);
   const [serie, setSerie] = useState(false);
   const [dossier, setDossier] = useState(null);   // vid du dossier ouvert
+  const [matrice, setMatrice] = useState(false);
   const [ajoutUE, setAjoutUE] = useState(null);      // { etudiant_id, nom, prenom }
   const [documents, setDocuments] = useState(null);
   const [erreur, setErreur] = useState(null);
@@ -104,6 +105,8 @@ export default function Valorisations() {
   const RAIL = [{
     label: 'Valorisation',
     items: [
+      { key: 'introduire', label: 'Introduire des demandes', icon: IconTable,
+        onClick: () => setMatrice(true) },
       { key: 'serie', label: 'Valoriser en série', icon: IconUsersGroup,
         onClick: () => setSerie(true) },
       { key: 'ajouter', label: 'Ajouter des étudiants', icon: IconUserPlus,
@@ -127,7 +130,12 @@ export default function Valorisations() {
               On encode une valorisation par unité devant un conseil des études,
               pas un étudiant à la fois : c'est celle-là qui porte le ton fort,
               et il n'y en a qu'une. */}
-          <button onClick={() => setSerie(true)} className="controle controle-fort">
+          {/* LA PORTE D'ENTRÉE EST L'ACTION PRINCIPALE : avant de valoriser,
+              il faut que les demandes soient entrées. */}
+          <button onClick={() => setMatrice(true)} className="controle controle-fort">
+            <IconTable size={16} /> Introduire des demandes
+          </button>
+          <button onClick={() => setSerie(true)} className="controle">
             <IconUsersGroup size={16} /> Valoriser en série
           </button>
           <button onClick={() => setAjout(true)} className="controle">
@@ -181,6 +189,11 @@ export default function Valorisations() {
           }} />
       )}
 
+      {matrice && (
+        <MatriceIntroduction annee={annee} onClose={() => setMatrice(false)}
+          onCree={charger} />
+      )}
+
       {serie && (
         <ValoriserEnSerie annee={annee} onClose={() => setSerie(false)}
           onCree={async () => { setSerie(false); await charger(); }} />
@@ -202,6 +215,21 @@ export default function Valorisations() {
       )}
     </div>
   );
+}
+
+/**
+ * LA DATE DU JOUR EST LE DÉFAUT, PARTOUT.
+ *
+ * Un champ de date vide impose un clic, un calendrier et un repérage visuel
+ * pour écrire ce que Lucie sait déjà : on est aujourd'hui. Et comme il coûte,
+ * il reste vide — si bien que les dates manquent précisément là où elles
+ * prouvent quelque chose. Le défaut doit être correct : on propose
+ * aujourd'hui, et l'on corrige quand ce n'est pas le bon jour.
+ */
+export function aujourdHui() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+    + `-${String(d.getDate()).padStart(2, '0')}`;
 }
 
 /** Les années autour de l'année courante — le registre ne remonte pas loin. */
@@ -933,7 +961,7 @@ function ValoriserEnSerie({ annee, onClose, onCree }) {
   const [coursCoches, setCoursCoches] = useState(() => new Set());
   const [aaCoches, setAaCoches] = useState(() => new Set());
   const [pourcentage, setPourcentage] = useState('50');
-  const [dateCE, setDateCE] = useState('');
+  const [dateCE, setDateCE] = useState(aujourdHui());
   const [remarque, setRemarque] = useState('');
 
   const [erreur, setErreur] = useState(null);
@@ -1629,6 +1657,9 @@ function FenetreDossier({ vid, onClose, onChange }) {
         {/* ÉTAPE 4 — L'AVIS DU CHARGÉ DE COURS. */}
         <EtapeAvis dossier={v} onEnregistrer={c => agir('avis', c)} enCours={enCours} />
 
+        {/* ÉTAPE 5 — LE TEST, QUAND LE CONSEIL NE PEUT PAS TRANCHER SUR PIÈCES. */}
+        <EtapeTest dossier={v} onEnregistrer={c => agir('test', c)} enCours={enCours} />
+
         {/* ÉTAPE 6 — LA DÉCISION DU CONSEIL. */}
         <EtapeDecision dossier={v} bases={ref?.bases || []}
           onEnregistrer={c => agir('decision', c)} enCours={enCours} />
@@ -1700,8 +1731,8 @@ function FenetreDossier({ vid, onClose, onChange }) {
 
 /** Étape 2 — la date d'introduction, et le délai qu'elle permet enfin de contrôler. */
 function EtapeDemande({ dossier, delai, onEnregistrer, enCours }) {
-  const [dd, setDd] = useState(dossier.date_demande || '');
-  const [dr, setDr] = useState(dossier.date_reception || '');
+  const [dd, setDd] = useState(dossier.date_demande || aujourdHui());
+  const [dr, setDr] = useState(dossier.date_reception || aujourdHui());
   const [mode, setMode] = useState(dossier.mode_introduction || '');
   return (
     <section className="carte p-3 space-y-2">
@@ -1851,7 +1882,7 @@ function EtapeDecision({ dossier, bases, onEnregistrer, enCours }) {
   const [decision, setDecision] = useState(dossier.decision || 'accordee');
   const [base, setBase] = useState(dossier.base_code || '');
   const [motif, setMotif] = useState(dossier.motif_refus || '');
-  const [dateCE, setDateCE] = useState(dossier.decision_ce_date || '');
+  const [dateCE, setDateCE] = useState(dossier.decision_ce_date || aujourdHui());
   const bloque = dossier.recevable !== 1 || !dossier.avis_le;
   const refus = decision === 'refusee';
 
@@ -1980,15 +2011,35 @@ function EtapeDecision({ dossier, bases, onEnregistrer, enCours }) {
                     Cette unité n'a aucun cours encodé pour {dossier.annee_scolaire}.
                   </div>
                 ) : composantes.cours.map(c => (
-                  <label key={c.cours_code}
-                    className="flex items-center gap-2 px-2 py-1 rounded-champ
-                               hover:bg-slate-50 cursor-pointer">
-                    <input type="checkbox" checked={coches.has(c.cours_code)}
-                      onChange={() => basculer(c.cours_code)}
-                      className="w-4 h-4 accent-iip-blue" />
-                    <span className="text-[13px]">{c.cours_nom || c.cours_code}</span>
-                    <span className="text-[11px] text-slate-400">{c.cours_code}</span>
-                  </label>
+                  /* DISPENSER UN COURS, C'EST DISPENSER SES ACQUIS — ALORS ON
+                     LES MONTRE. Cocher « Théorie des soins » sans voir ce
+                     qu'elle couvre, c'est décider à l'aveugle ; et le
+                     procès-verbal, lui, devra dire quels acquis restent à
+                     évaluer. Ils sont en lecture : ici on dispense le COURS,
+                     c'est l'autre cible qui dispense acquis par acquis. */
+                  <div key={c.cours_code} className="py-0.5">
+                    <label className="flex items-center gap-2 px-2 py-1 rounded-champ
+                                      hover:bg-slate-50 cursor-pointer">
+                      <input type="checkbox" checked={coches.has(c.cours_code)}
+                        onChange={() => basculer(c.cours_code)}
+                        className="w-4 h-4 accent-iip-blue" />
+                      <span className="text-[13px]">{c.cours_nom || c.cours_code}</span>
+                      <span className="text-[11px] text-slate-400">{c.cours_code}</span>
+                    </label>
+                    <ul className="ml-8 mb-1">
+                      {(aasParCours.get(c.cours_code) || []).map(a => (
+                        <li key={a.aa_code} className="text-[11px] text-slate-500">
+                          · {a.description || a.aa_code}
+                          <span className="ml-1 text-slate-400">{a.aa_code}</span>
+                        </li>
+                      ))}
+                      {!(aasParCours.get(c.cours_code) || []).length && (
+                        <li className="text-[11px] text-slate-400">
+                          Aucun acquis encodé pour ce cours.
+                        </li>
+                      )}
+                    </ul>
+                  </div>
                 ))
               ) : (
                 !composantes.aas?.length ? (
@@ -2098,6 +2149,7 @@ function CeQuiResteAFaire({ annee, onOuvrir }) {
     ['sans_base', 'Sans base VAF/VANFI', 'décision non encodable'],
     ['hors_delai', 'Introduites hors délai', 'RDE art. 28'],
     ['sans_preuve', 'Sans aucune preuve', 'archivage 4 ans'],
+    ['test_sans_copie', 'Test sans copie au dossier', 'conservation 4 ans'],
   ].filter(([k]) => (j.paquets[k] || []).length);
 
   if (!TUILES.length) return null;
@@ -2228,5 +2280,388 @@ function EtapeValidation({ dossier, peutValider, peutDevalider, manques,
         </>
       )}
     </section>
+  );
+}
+
+
+/**
+ * ÉTAPE 5 — LE TEST OU L'ÉPREUVE COMPLÉMENTAIRE.
+ *
+ * Quand le Conseil ne peut pas se prononcer sur pièces, il fixe un test
+ * (AGCF du 13.12.2024, art. 2 §3, art. 4 §2 et art. 6). Pour une ADMISSION, ce
+ * test porte sur les capacités préalables requises : à l'IIP, le français et
+ * les mathématiques. Ces deux résultats vivaient dans la tête de celui qui
+ * avait corrigé, ou sur une feuille dans une farde — donc nulle part le jour
+ * où l'on demande sur quoi l'admission s'est fondée.
+ *
+ * La section ne s'ouvre pas d'elle-même sur les dossiers qui n'ont pas de
+ * test : un dossier réglé sur pièces n'a pas à porter deux cases vides.
+ */
+function EtapeTest({ dossier, onEnregistrer, enCours }) {
+  const admission = dossier.porte === 'admission' || dossier.type === 'admission';
+  const dejaFait = dossier.test_note_francais != null || dossier.test_note_maths != null;
+  const [ouvert, setOuvert] = useState(dejaFait);
+  const [fr, setFr] = useState(dossier.test_note_francais ?? '');
+  const [ma, setMa] = useState(dossier.test_note_maths ?? '');
+  const [date, setDate] = useState(dossier.test_date || aujourdHui());
+
+  if (!ouvert) {
+    return (
+      <section className="carte p-3">
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-[11px] uppercase tracking-wide text-slate-500">
+            5 — Le test ou l'épreuve complémentaire
+          </span>
+          <span className="text-[12px] text-slate-500">
+            Le Conseil se prononce sur pièces — pas de test.
+          </span>
+          <button onClick={() => setOuvert(true)} className="bouton text-[12px] ml-auto">
+            Un test a été organisé
+          </button>
+        </div>
+      </section>
+    );
+  }
+
+  return (
+    <section className="carte p-3 space-y-2">
+      <div className="flex items-center gap-2 flex-wrap">
+        <span className="text-[11px] uppercase tracking-wide text-slate-500">
+          5 — Le test ou l'épreuve complémentaire
+        </span>
+        {dejaFait && dossier.test_par && (
+          <span className="text-[12px] text-emerald-800">
+            ✓ {dossier.test_par}{dossier.test_date ? ` · ${dossier.test_date}` : ''}
+          </span>
+        )}
+      </div>
+
+      {admission ? (
+        <p className="text-[12px] text-slate-500">
+          Admission : le test porte sur les capacités préalables requises.
+        </p>
+      ) : (
+        <p className="text-[12px] text-slate-500">
+          Le résultat fonde la décision : la base devient <b>VANFI E</b>
+          {' '}— acquis non formels ou informels, décision après épreuve.
+        </p>
+      )}
+
+      <div className="flex flex-wrap items-end gap-3">
+        <label className="block">
+          <span className="text-[12px] text-slate-600">Français</span>
+          <div className="flex items-baseline gap-1">
+            <input value={fr} inputMode="decimal"
+              onChange={e => setFr(e.target.value.replace(/[^\d.,]/g, ''))}
+              className="controle w-20 text-[13px] mt-1" />
+            <span className="text-[12px] text-slate-400">/20</span>
+          </div>
+        </label>
+        <label className="block">
+          <span className="text-[12px] text-slate-600">Mathématiques</span>
+          <div className="flex items-baseline gap-1">
+            <input value={ma} inputMode="decimal"
+              onChange={e => setMa(e.target.value.replace(/[^\d.,]/g, ''))}
+              className="controle w-20 text-[13px] mt-1" />
+            <span className="text-[12px] text-slate-400">/20</span>
+          </div>
+        </label>
+        <label className="block">
+          <span className="text-[12px] text-slate-600">Date du test</span>
+          <input type="date" value={date} onChange={e => setDate(e.target.value)}
+            className="controle text-[13px] mt-1" />
+        </label>
+        <button
+          onClick={() => onEnregistrer({ test_note_francais: fr, test_note_maths: ma,
+                                         test_date: date })}
+          disabled={enCours} className="bouton disabled:opacity-40">
+          Enregistrer le test
+        </button>
+      </div>
+
+      {/* LA COPIE SE DÉPOSE, ET CE N'EST PAS UNE POLITESSE. Quatre ans de
+          conservation, présentable à l'inspection — si elle n'est pas déposée
+          le jour même, elle ne le sera jamais. */}
+      <p className="text-[12px] text-[#B45309]">
+        La copie du test doit être déposée au dossier de l'étudiant, en pièce
+        « Copie du test ou de l'épreuve d'admission » : elle se conserve quatre ans
+        et se présente aux services d'inspection (AGCF du 13.12.2024, art. 5 al. 2).
+        {dossier.nb_preuves_test ? ' ✓ Une copie est déjà au dossier.' : ''}
+      </p>
+    </section>
+  );
+}
+
+/* ══ LA MATRICE D'INTRODUCTION ════════════════════════════════════════════ */
+
+/**
+ * LA PORTE D'ENTRÉE DE TOUTE LA MACHINE.
+ *
+ * Les demandes arrivent en septembre par dizaines, et elles arrivaient dans une
+ * boîte courriel. Pour les faire entrer dans Lucie il fallait ouvrir un dossier
+ * à la fois, chercher l'étudiant parmi cinq cent quatre-vingt-huit, choisir
+ * l'unité, remplir une décision qui n'était pas encore prise. Personne ne le
+ * faisait — donc rien n'était encodé, donc rien n'était contrôlable.
+ *
+ * Une section, une année : les ÉTUDIANTS en lignes, les UNITÉS en colonnes, et
+ * dans chaque case un mot — AD, VA ou VAE. C'est tout ce qu'on sait quand la
+ * demande arrive, et c'est tout ce qu'on demande ici. Le détail — finalité,
+ * activités visées, base légale, preuves — se traite ensuite, dossier par
+ * dossier. Réclamer tout dès la porte, c'est ne rien encoder du tout.
+ *
+ * Les unités qu'on ne peut JAMAIS valoriser n'ont pas de colonne : une colonne
+ * qu'on ne peut pas remplir n'a rien à faire dans un tableau.
+ */
+function MatriceIntroduction({ annee, onClose, onCree }) {
+  const [sections, setSections] = useState([]);
+  const [section, setSection] = useState('');
+  const [m, setM] = useState(null);
+  const [choix, setChoix] = useState(() => new Map());   // "eid:ue" → porte
+  const [ajoutes, setAjoutes] = useState([]);
+  const [chercheOuvert, setChercheOuvert] = useState(false);
+  const [q, setQ] = useState('');
+  const [resultats, setResultats] = useState(null);
+  const [erreur, setErreur] = useState(null);
+  const [enCours, setEnCours] = useState(false);
+  const [reception, setReception] = useState(aujourdHui());
+
+  useEffect(() => {
+    fetch('/api/ref/sections', { headers: authHeaders() })
+      .then(r => (r.ok ? r.json() : [])).then(l => setSections(l || []))
+      .catch(() => setSections([]));
+  }, []);
+
+  const charger = useCallback(async () => {
+    if (!section) { setM(null); return; }
+    setM(null);
+    try {
+      const r = await fetch(
+        `/api/etudiants/valorisations/matrice?annee=${encodeURIComponent(annee)}`
+        + `&section=${encodeURIComponent(section)}`, { headers: authHeaders() });
+      setM(r.ok ? await r.json() : null);
+    } catch { setM(null); }
+    setChoix(new Map());
+  }, [annee, section]);
+  useEffect(() => { charger(); }, [charger]);
+
+  useEffect(() => {
+    if (!chercheOuvert) return;
+    const p = new URLSearchParams({ annee });
+    if (q.trim()) p.set('q', q.trim());
+    setResultats(null);
+    const t = setTimeout(() => {
+      fetch(`/api/etudiants?${p}`, { headers: authHeaders() })
+        .then(r => (r.ok ? r.json() : []))
+        .then(l => setResultats(Array.isArray(l) ? l : (l?.etudiants || [])))
+        .catch(() => setResultats([]));
+    }, 220);
+    return () => clearTimeout(t);
+  }, [chercheOuvert, annee, q]);
+
+  const lignes = useMemo(() => {
+    const vus = new Map();
+    for (const e of (m?.etudiants || [])) vus.set(e.id, e);
+    for (const a of ajoutes) {
+      if (!vus.has(a.id)) vus.set(a.id, { ...a, inscrit: false, cellules: {}, ajoute: true });
+    }
+    return [...vus.values()].sort((a, b) =>
+      (a.nom || '').localeCompare(b.nom || '')
+      || (a.prenom || '').localeCompare(b.prenom || ''));
+  }, [m, ajoutes]);
+
+  /* UNE CASE TOURNE : rien → AD → VA → VAE → rien. Trois cases à cocher par
+     cellule auraient fait un tableau illisible dès dix unités ; un menu
+     déroulant demanderait deux clics pour chaque demande. */
+  const SUITE = [null, 'admission', 'va', 'vae'];
+  const COURT = { admission: 'AD', va: 'VA', vae: 'VAE' };
+  function tourner(eid, ue) {
+    const cle = `${eid}:${ue}`;
+    setChoix(c => {
+      const n = new Map(c);
+      const i = SUITE.indexOf(n.get(cle) || null);
+      const suivant = SUITE[(i + 1) % SUITE.length];
+      if (suivant) n.set(cle, suivant); else n.delete(cle);
+      return n;
+    });
+  }
+
+  async function enregistrer() {
+    if (!choix.size) return;
+    setEnCours(true); setErreur(null);
+    try {
+      const cellules = [...choix.entries()].map(([cle, porte]) => {
+        const [eid, ue] = cle.split(':');
+        return { etudiant_id: Number(eid), ue_num: Number(ue), porte };
+      });
+      const r = await fetch('/api/etudiants/valorisations/matrice', {
+        method: 'POST', headers: authHeaders(),
+        body: JSON.stringify({ annee, cellules, date_reception: reception || null }),
+      });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) { setErreur(j.error || 'Refusé.'); return; }
+      // ON DIT CE QUI N'EST PAS PASSÉ, plutôt que de laisser croire à un succès
+      // entier : une unité exclue refusée se voit ici, pas au moment d'imprimer.
+      if (j.refus?.length) {
+        setErreur(j.refus.map(x => x.pourquoi).join(' · '));
+      }
+      await charger(); await onCree?.();
+    } catch (e) { setErreur(e.message); }
+    finally { setEnCours(false); }
+  }
+
+  return (
+    <Fenetre icone={IconTable} large="grande" onFermer={onClose}
+      titre="Introduire des demandes"
+      sous="Une section, une année — qui demande quoi, et par quelle porte"
+      pied={<>
+        <button onClick={enregistrer} disabled={!choix.size || enCours}
+          className="bouton bouton-fort disabled:opacity-40">
+          {enCours ? 'Ouverture…'
+            : choix.size > 1 ? `Ouvrir ${choix.size} dossiers` : 'Ouvrir le dossier'}
+        </button>
+        <span className="text-[12px] text-slate-500">
+          {!section ? 'Choisis une section'
+            : !choix.size ? 'Clique une case pour poser AD, VA ou VAE'
+              : `${choix.size} demande(s)`}
+        </span>
+        {erreur && (
+          <span className="flex items-start gap-1.5 text-[12px] text-rose-700">
+            <IconAlertTriangle size={14} className="mt-0.5 flex-none" />{erreur}
+          </span>
+        )}
+        <button onClick={onClose} className="bouton ml-auto">Fermer</button>
+      </>}>
+
+      <div className="flex-1 min-h-0 flex flex-col">
+        <div className="flex-none flex flex-wrap items-center gap-2 px-5 py-3
+                        border-b border-slate-200">
+          <select value={section} onChange={e => setSection(e.target.value)}
+            className="controle text-[13px]">
+            <option value="">Choisir une section…</option>
+            {sections.map(s => (
+              <option key={s.code} value={s.code}>{s.libelle || s.code}</option>
+            ))}
+          </select>
+          <label className="flex items-center gap-1.5">
+            <span className="text-[12px] text-slate-600">Reçues le</span>
+            <input type="date" value={reception} onChange={e => setReception(e.target.value)}
+              className="controle text-[13px]" />
+          </label>
+          {section && (
+            <button onClick={() => setChercheOuvert(o => !o)} className="bouton text-[12px]">
+              <IconUserPlus size={14} /> Ajouter un étudiant
+            </button>
+          )}
+          <span className="ml-auto text-[11px] text-slate-500">
+            AD admission · VA acquis formels · VAE expérience
+          </span>
+        </div>
+
+        {chercheOuvert && (
+          <div className="flex-none border-b border-slate-200 bg-slate-50/60 p-3 space-y-2">
+            <div className="relative inline-block">
+              <IconSearch size={14}
+                className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+              <input value={q} onChange={e => setQ(e.target.value)}
+                placeholder="Un nom…" className="controle pl-8 text-[13px]" />
+            </div>
+            <div className="max-h-40 overflow-auto rounded-champ bg-white border border-slate-200">
+              {!resultats ? (
+                <div className="p-2 text-[12px] text-slate-400">Chargement…</div>
+              ) : !resultats.length ? (
+                <div className="p-2 text-[12px] text-slate-400">Personne ne correspond.</div>
+              ) : resultats.map(e => {
+                const dedans = lignes.some(l => l.id === e.id);
+                return (
+                  <button key={e.id} disabled={dedans}
+                    onClick={() => { setAjoutes(a => [...a, { id: e.id, nom: e.nom, prenom: e.prenom }]);
+                                     setQ(''); }}
+                    className={`block w-full text-left px-3 py-1.5 border-b border-slate-50
+                      text-[13px] ${dedans ? 'opacity-45' : 'hover:bg-slate-50'}`}>
+                    {(e.nom || '').toUpperCase()} {e.prenom}
+                    {dedans && <span className="ml-2 text-[11px] text-slate-400">déjà là</span>}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        <div className="flex-1 overflow-auto min-h-0">
+          {!section ? (
+            <div className="p-6 text-[13px] text-slate-400">
+              Choisis une section : ses unités deviennent les colonnes, ses étudiants les lignes.
+            </div>
+          ) : !m ? (
+            <div className="p-6 text-[13px] text-slate-400">Chargement…</div>
+          ) : !m.unites.length ? (
+            <div className="p-6 text-[13px] text-slate-400">
+              Aucune unité valorisable au référentiel {annee} pour cette section.
+            </div>
+          ) : (
+            <table className="text-[12px] border-collapse">
+              <thead className="tab-entete sticky top-0 z-10">
+                <tr>
+                  <th className="text-left px-3 py-2 font-medium sticky left-0 bg-inherit
+                                 min-w-[14rem]">Étudiant</th>
+                  {m.unites.map(u => (
+                    /* LE NUMÉRO EN GRAND, LE NOM DESSOUS ET TRONQUÉ : à douze
+                       unités, un intitulé complet en colonne rend le tableau
+                       illisible, et c'est le numéro qu'on épelle en séance. */
+                    <th key={u.ue_num} className="px-2 py-2 font-medium align-bottom
+                                                  min-w-[4.5rem] max-w-[7rem]">
+                      <div className="text-[13px]">{u.ue_num}</div>
+                      <div className="text-[10px] text-slate-500 font-normal truncate"
+                        title={u.ue_nom}>{u.ue_nom}</div>
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {lignes.map(e => (
+                  <tr key={e.id} className="border-b border-slate-100">
+                    <td className="px-3 py-1 sticky left-0 bg-white">
+                      <span className="text-[13px] font-medium">
+                        {(e.nom || '').toUpperCase()} {e.prenom}
+                      </span>
+                      {!e.inscrit && (
+                        <span className="ml-1.5 text-[10px] text-slate-400">hors inscription</span>
+                      )}
+                    </td>
+                    {m.unites.map(u => {
+                      const existante = e.cellules?.[u.ue_num];
+                      const pose = choix.get(`${e.id}:${u.ue_num}`);
+                      if (existante) {
+                        /* UNE CASE DÉJÀ OUVERTE NE SE REJOUE PAS : on montre où
+                           elle en est, et le détail se règle dans le dossier. */
+                        return (
+                          <td key={u.ue_num} className="px-1 py-1 text-center align-middle">
+                            <span className="inline-block px-1.5 py-0.5 rounded-champ
+                                             bg-slate-100 text-[10px] text-slate-600"
+                              title={`${existante.porte ? COURT[existante.porte] + ' · ' : ''}${existante.etat}`}>
+                              {existante.porte ? COURT[existante.porte] : '•'}
+                            </span>
+                          </td>
+                        );
+                      }
+                      return (
+                        <td key={u.ue_num} className="px-1 py-1 text-center align-middle">
+                          <button onClick={() => tourner(e.id, u.ue_num)}
+                            className={`w-11 h-6 rounded-champ border text-[11px] font-medium
+                              ${pose ? 'border-iip-blue bg-iip-blue/10 text-iip-blue'
+                                : 'border-slate-200 text-slate-300 hover:border-slate-400'}`}>
+                            {pose ? COURT[pose] : '—'}
+                          </button>
+                        </td>
+                      );
+                    })}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+      </div>
+    </Fenetre>
   );
 }

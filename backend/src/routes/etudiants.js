@@ -316,6 +316,17 @@ export function migrerEtudiants(dbx) {
        * complète, activités visées, base exacte — se décide plus tard, dans le
        * dossier. Demander tout dès la porte, c'est ne rien encoder du tout. */
       ajouter('porte', 'TEXT');              // admission | va | vae
+      /* ÉTAPE 5 — LE TEST OU L'ÉPREUVE COMPLÉMENTAIRE.
+       *
+       * Quand le Conseil ne peut pas se prononcer sur pièces, il fixe un test.
+       * Pour une ADMISSION, ce test porte sur les capacités préalables
+       * requises, et à l'IIP cela veut dire deux résultats qui se disent :
+       * le FRANÇAIS et les MATHÉMATIQUES. Ils vivaient dans la tête de qui
+       * avait corrigé, ou sur une feuille — donc nulle part. */
+      ajouter('test_note_francais', 'REAL');
+      ajouter('test_note_maths', 'REAL');
+      ajouter('test_date', 'TEXT');
+      ajouter('test_par', 'TEXT');
       // ÉTAPE 3 — la recevabilité. NULL tant que le contrôle n'a pas eu lieu :
       // « pas encore contrôlé » et « recevable » sont deux états différents, et
       // les confondre revient à déclarer recevable ce que personne n'a regardé.
@@ -4083,6 +4094,13 @@ export const NATURES_PREUVE = [
   { cle: 'CT', label: 'Contrat de travail' },
   { cle: 'CV', label: 'Curriculum vitae' },
   { cle: 'DEM', label: 'Demande de valorisation' },
+  /* LA COPIE DU TEST EST UNE PIÈCE DU DOSSIER, PAS UN BROUILLON.
+   * « Les copies d'épreuves ou tests ayant servi à la décision suivent la même
+   * règle » que les PV : conservation quatre ans, présentables à tout moment
+   * aux services d'inspection (AGCF du 13.12.2024, art. 5 al. 2). Sans une
+   * nature qui la nomme, elle se dépose en « Autre pièce » et on ne la
+   * retrouve plus. */
+  { cle: 'TEST', label: "Copie du test ou de l'épreuve d'admission" },
   { cle: 'AUT', label: 'Autre pièce' },
 ];
 
@@ -4580,7 +4598,9 @@ function lireDossierComplet(vid) {
            (SELECT COUNT(*) FROM etudiant_valorisation_aa a
              WHERE a.valorisation_id = v.id) AS nb_equivalences,
            (SELECT COUNT(*) FROM etudiant_valorisation_fichier f
-             WHERE f.valorisation_id = v.id) AS nb_preuves
+             WHERE f.valorisation_id = v.id) AS nb_preuves,
+           (SELECT COUNT(*) FROM etudiant_valorisation_fichier f
+             WHERE f.valorisation_id = v.id AND f.nature = 'TEST') AS nb_preuves_test
     FROM etudiant_valorisation v
     JOIN etudiant e ON e.id = v.etudiant_id
     WHERE v.id = ?`).get(Number(vid));
@@ -4792,6 +4812,58 @@ r.put('/valorisations/:vid/decision', authRequired, roleRequired(...PEUT_INSTRUI
       refus ? String(req.body.motif_refus).trim().slice(0, 180)
             : `${type} · base ${req.body.base_code}`);
     res.json({ ok: true, etat: rafraichirEtat(vid) });
+  });
+
+/**
+ * ÉTAPE 5 — LE TEST OU L'ÉPREUVE COMPLÉMENTAIRE.
+ *
+ * Quand le Conseil ne peut pas se prononcer sur pièces — acquis non formels,
+ * dossier jugé insuffisant —, il fixe un test (AGCF du 13.12.2024, art. 2 §3,
+ * art. 4 §2 et art. 6). Pour une ADMISSION, ce test porte sur les capacités
+ * préalables requises, et à l'IIP cela veut dire deux résultats qui se disent :
+ * le FRANÇAIS et les MATHÉMATIQUES.
+ *
+ * Ils vivaient dans la tête de celui qui avait corrigé, ou sur une feuille
+ * dans une farde — donc nulle part le jour où l'on demande sur quoi
+ * l'admission s'est fondée. Ils entrent ici, avec la date, et la copie se
+ * dépose en pièce du dossier : « les copies d'épreuves ou tests ayant servi à
+ * la décision » se conservent quatre ans et se présentent à l'inspection
+ * (art. 5 al. 2).
+ */
+r.put('/valorisations/:vid/test', authRequired, roleRequired(...PEUT_INSTRUIRE, 'professeur'),
+  (req, res) => {
+    const vid = Number(req.params.vid);
+    const v = lireDossierComplet(vid);
+    if (!v) return res.status(404).json({ error: 'Dossier introuvable.' });
+    if (refuseSiValide(v, res)) return;
+
+    const lire = x => {
+      if (x === '' || x == null) return null;
+      const n = Number(String(x).replace(',', '.'));
+      return Number.isFinite(n) ? n : NaN;
+    };
+    const fr = lire(req.body.test_note_francais);
+    const ma = lire(req.body.test_note_maths);
+    // UNE NOTE QUI N'EN EST PAS NE S'ENREGISTRE PAS. Un « /20 » collé dans la
+    // case, et l'on stockerait NaN : la pièce dirait alors que le test a eu
+    // lieu sans pouvoir en donner le résultat.
+    for (const [nom, val] of [['français', fr], ['mathématiques', ma]]) {
+      if (Number.isNaN(val)) {
+        return res.status(400).json({ error: `La note de ${nom} n'est pas un nombre.` });
+      }
+      if (val != null && (val < 0 || val > 20)) {
+        return res.status(400).json({ error: `La note de ${nom} doit être comprise entre 0 et 20.` });
+      }
+    }
+
+    db.prepare(`UPDATE etudiant_valorisation
+      SET test_note_francais = ?, test_note_maths = ?, test_date = ?, test_par = ?
+      WHERE id = ?`).run(fr, ma, req.body.test_date || null,
+                         req.user?.nom || req.user?.email || null, vid);
+    journaliser(vid, 'test', req,
+      `français ${fr ?? '—'}/20 · mathématiques ${ma ?? '—'}/20`
+      + (req.body.test_date ? ` · ${req.body.test_date}` : ''));
+    res.json({ ok: true, copie_archivee: Number(v.nb_preuves_test || 0) > 0 });
   });
 
 /**
@@ -5093,7 +5165,9 @@ r.get('/valorisations/en-retard', authRequired, (req, res) => {
   const lignes = db.prepare(`
     SELECT v.*, e.nom, e.prenom,
            (SELECT COUNT(*) FROM etudiant_valorisation_fichier f
-             WHERE f.valorisation_id = v.id) AS nb_preuves
+             WHERE f.valorisation_id = v.id) AS nb_preuves,
+           (SELECT COUNT(*) FROM etudiant_valorisation_fichier f
+             WHERE f.valorisation_id = v.id AND f.nature = 'TEST') AS nb_copies_test
     FROM etudiant_valorisation v
     JOIN etudiant e ON e.id = v.etudiant_id
     WHERE v.annee_scolaire = ?
@@ -5102,7 +5176,7 @@ r.get('/valorisations/en-retard', authRequired, (req, res) => {
 
   const paquets = {
     recevabilite: [], avis: [], decision: [], notification: [], eprom: [],
-    hors_delai: [], sans_preuve: [], sans_base: [],
+    hors_delai: [], sans_preuve: [], sans_base: [], test_sans_copie: [],
   };
   for (const v of lignes) {
     const etat = etatDeduit(v);
@@ -5116,6 +5190,13 @@ r.get('/valorisations/en-retard', authRequired, (req, res) => {
     if (v.decision_le && v.decision !== 'refusee'
         && !CODES_BASE.includes(String(v.base_code || ''))) paquets.sans_base.push(court);
     if (!v.nb_preuves) paquets.sans_preuve.push(court);
+    /* UN TEST PASSÉ DONT LA COPIE N'EST PAS AU DOSSIER.
+     * On ne bloque pas — le test a bien eu lieu, la note est là. Mais la copie
+     * se conserve quatre ans et se présente à l'inspection : si elle n'est pas
+     * déposée le jour même, elle ne le sera jamais. C'est donc un rappel, et
+     * il est en bloc plutôt que dossier par dossier. */
+    if ((v.test_note_francais != null || v.test_note_maths != null)
+        && !Number(v.nb_copies_test || 0)) paquets.test_sans_copie.push(court);
     const d = controleDelai({ ueNum: v.ue_num, annee: v.annee_scolaire,
                               date_demande: v.date_demande,
                               date_reception: v.date_reception });
@@ -5403,8 +5484,36 @@ export const TEXTE_EQUIVALENCE = "Les acquis d'apprentissage de cette unité "
   + "sont équivalents aux acquis vus dans le cadre du cours démontré ou dans "
   + 'un dossier pédagogique.';
 
-r.delete('/valorisations/:vid', authRequired, roleRequired('admin'), (req, res) => {
+/**
+ * RETIRER UN DOSSIER — PARCE QU'ON SE TROMPE EN L'OUVRANT.
+ *
+ * Une case cochée de travers dans la matrice, un étudiant introduit à la place
+ * d'un homonyme : l'erreur d'INTRODUCTION est fréquente, et il faut pouvoir la
+ * défaire. Elle l'était réservée à l'administrateur, si bien que la
+ * coordination qui venait de se tromper devait demander à quelqu'un d'autre —
+ * donc elle laissait la ligne en place, et le registre se remplissait de
+ * dossiers fantômes.
+ *
+ * MAIS UNE DÉCISION PRISE NE DISPARAÎT PAS. Dès qu'un Conseil a tranché, ou
+ * qu'une validation a été posée, la ligne n'est plus une erreur de saisie :
+ * c'est un acte, et un acte se corrige ou se refuse, il ne s'efface pas. Sinon
+ * il suffirait de supprimer pour faire disparaître une décision gênante — et
+ * le journal partirait avec, puisqu'il pend à la ligne.
+ */
+r.delete('/valorisations/:vid', authRequired, roleRequired(...PEUT_INSTRUIRE), (req, res) => {
   const vid = Number(req.params.vid);
+  const v = db.prepare('SELECT * FROM etudiant_valorisation WHERE id = ?').get(vid);
+  if (!v) return res.status(404).json({ error: 'Dossier introuvable.' });
+  if (v.valide_le) {
+    return res.status(409).json({ error: `Ce dossier a été validé le ${v.valide_le}`
+      + `${v.valide_par ? ` par ${v.valide_par}` : ''} : il ne se supprime pas. `
+      + 'La direction peut retirer la validation, puis le Conseil corrigera sa décision.' });
+  }
+  if (v.decision_le) {
+    return res.status(409).json({ error: 'Le Conseil des études a tranché ce dossier le '
+      + `${v.decision_le} : une décision prise ne s'efface pas, elle se corrige ou se `
+      + 'refuse. Supprimer effacerait aussi le journal, qui est ce qui la prouve.' });
+  }
   // Les pièces partent avec la décision qu'elles fondaient. La ligne de la
   // base s'en va par la clé étrangère ; le fichier sur le disque, lui, ne
   // s'efface pas tout seul et resterait là sans que rien ne le nomme.
