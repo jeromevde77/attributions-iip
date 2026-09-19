@@ -893,6 +893,18 @@ function ValoriserEnSerie({ annee, onClose, onCree }) {
   const [coches, setCoches] = useState(() => new Set());
   const [composantes, setComposantes] = useState(null);
 
+  /* UNE VALORISATION PRÉCÈDE SOUVENT L'INSCRIPTION. On demande la dispense
+     d'une unité qu'on n'a pas encore à son programme — c'est même le cas
+     ordinaire d'une reprise d'études. La liste de ceux que l'unité concerne
+     est donc un POINT DE DÉPART, jamais une clôture : on va chercher les
+     autres dans le fichier, plusieurs à la fois. */
+  const [ajoutes, setAjoutes] = useState([]);
+  const [chercheOuvert, setChercheOuvert] = useState(false);
+  const [q, setQ] = useState('');
+  const [sectionRech, setSectionRech] = useState('');
+  const [resultats, setResultats] = useState(null);
+  const [prisDansRecherche, setPrisDansRecherche] = useState(() => new Set());
+
   // La décision, saisie une fois.
   const [portee, setPortee] = useState('unite');   // unite | cours | acquis
   const [decision, setDecision] = useState('accordee');
@@ -928,7 +940,7 @@ function ValoriserEnSerie({ annee, onClose, onCree }) {
 
   useEffect(() => {
     if (!ueNum) { setCandidats(null); setComposantes(null); return; }
-    setCandidats(null); setCoches(new Set());
+    setCandidats(null); setCoches(new Set()); setAjoutes([]);
     setCoursCoches(new Set()); setAaCoches(new Set());
     fetch(`/api/etudiants/valorisations/ue/${ueNum}/candidats?annee=${encodeURIComponent(annee)}`,
       { headers: authHeaders() })
@@ -942,10 +954,59 @@ function ValoriserEnSerie({ annee, onClose, onCree }) {
       .catch(() => setComposantes(null));
   }, [ueNum, annee]);
 
+  /* LA LISTE EST CELLE DE L'UNITÉ, PLUS CEUX QU'ON EST ALLÉ CHERCHER. Un
+     étudiant ajouté à la main qui se trouve déjà dans la liste n'y entre pas
+     deux fois : c'est le même dossier. */
+  const tousCandidats = useMemo(() => {
+    const vus = new Map();
+    for (const e of (candidats?.etudiants || [])) vus.set(e.id, e);
+    for (const a of ajoutes) {
+      if (!vus.has(a.id)) vus.set(a.id, { ...a, au_programme: false, valorisation: null, ajoute: true });
+    }
+    return [...vus.values()].sort((a, b) =>
+      (a.nom || '').localeCompare(b.nom || '')
+      || (a.prenom || '').localeCompare(b.prenom || ''));
+  }, [candidats, ajoutes]);
+
   /* CELUI QUI PORTE DÉJÀ UNE DÉCISION NE SE COCHE PAS. Le lot est tout ou
      rien : le laisser cocher ferait échouer les autres avec lui. */
   const libres = useMemo(
-    () => (candidats?.etudiants || []).filter(e => !e.valorisation), [candidats]);
+    () => tousCandidats.filter(e => !e.valorisation), [tousCandidats]);
+
+  /* LA RECHERCHE DANS LE FICHIER — même filtre section, même saisie de nom que
+     partout ailleurs. Elle ne s'ouvre qu'à la demande : l'écran n'est pas un
+     annuaire, c'est une séance. */
+  useEffect(() => {
+    if (!chercheOuvert) return;
+    const p = new URLSearchParams({ annee });
+    if (sectionRech) p.set('section', sectionRech);
+    if (q.trim()) p.set('q', q.trim());
+    setResultats(null);
+    const t = setTimeout(() => {
+      fetch(`/api/etudiants?${p}`, { headers: authHeaders() })
+        .then(r => (r.ok ? r.json() : []))
+        .then(l => setResultats(Array.isArray(l) ? l : (l?.etudiants || [])))
+        .catch(() => setResultats([]));
+    }, 220);
+    return () => clearTimeout(t);
+  }, [chercheOuvert, annee, sectionRech, q]);
+
+  const dejaListe = useMemo(
+    () => new Set(tousCandidats.map(e => e.id)), [tousCandidats]);
+
+  function ajouterLesPris() {
+    const pris = (resultats || []).filter(e => prisDansRecherche.has(e.id));
+    if (!pris.length) return;
+    setAjoutes(a => [...a, ...pris.map(e => ({
+      id: e.id, nom: e.nom, prenom: e.prenom,
+      section: e.section_rattachement || e.section || null,
+    }))]);
+    /* ON LES COCHE : on est allé les chercher exprès. Les proposer décochés
+       obligerait à refaire le même geste deux fois. */
+    setCoches(s0 => new Set([...s0, ...pris.map(e => e.id)]));
+    setPrisDansRecherche(new Set());
+    setQ('');
+  }
 
   const basculer = id => setCoches(s => {
     const n = new Set(s);
@@ -1099,13 +1160,18 @@ function ValoriserEnSerie({ annee, onClose, onCree }) {
                   {coches.size === libres.length ? 'Tout décocher' : 'Tout cocher'}
                 </button>
               )}
+              <button onClick={() => setChercheOuvert(o => !o)}
+                className="bouton text-[12px]">
+                <IconUserPlus size={14} /> Ajouter depuis le fichier
+              </button>
             </div>
 
             {!candidats ? (
               <div className="p-5 text-[13px] text-slate-400">Chargement…</div>
-            ) : !candidats.etudiants.length ? (
+            ) : !tousCandidats.length ? (
               <div className="p-5 text-[13px] text-slate-400">
-                Personne n'a cette unité à son programme en {annee}.
+                Personne n'a cette unité à son programme en {annee} —
+                va chercher les étudiants dans le fichier ci-dessous.
               </div>
             ) : (
               <table className="w-full text-[13px]">
@@ -1114,12 +1180,12 @@ function ValoriserEnSerie({ annee, onClose, onCree }) {
                     <th className="w-8 px-3 py-1.5"></th>
                     <th className="text-left px-2 py-1.5 font-medium">Étudiant</th>
                     <th className="text-left px-2 py-1.5 font-medium">Section</th>
-                    <th className="text-left px-2 py-1.5 font-medium">Au programme</th>
+                    <th className="text-left px-2 py-1.5 font-medium">Origine</th>
                     <th className="text-left px-2 py-1.5 font-medium">Déjà décidé</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {candidats.etudiants.map(e => {
+                  {tousCandidats.map(e => {
                     const pris = !!e.valorisation;
                     return (
                       <tr key={e.id}
@@ -1138,7 +1204,7 @@ function ValoriserEnSerie({ annee, onClose, onCree }) {
                         </td>
                         <td className="px-2 py-1.5 text-slate-500">{e.section || '—'}</td>
                         <td className="px-2 py-1.5 text-slate-500">
-                          {e.au_programme ? 'oui' : '—'}
+                          {e.au_programme ? 'au programme' : 'ajouté'}
                         </td>
                         <td className="px-2 py-1.5">
                           {pris ? (
@@ -1154,6 +1220,82 @@ function ValoriserEnSerie({ annee, onClose, onCree }) {
                   })}
                 </tbody>
               </table>
+            )}
+
+            {/* CHERCHER DANS LE FICHIER, SANS OUVRIR UNE SECONDE FENÊTRE.
+                Une fenêtre ouverte depuis une fenêtre se retrouve enfermée
+                dans le voile de la première — et surtout, on perdrait de vue
+                le tableau qu'on est en train de composer. Le panneau se
+                déplie ICI, sous la liste qu'il alimente. */}
+            {chercheOuvert && (
+              <div className="border-t border-slate-200 bg-slate-50/60 p-3 space-y-2">
+                <div className="flex flex-wrap items-center gap-2">
+                  <select value={sectionRech} onChange={e => setSectionRech(e.target.value)}
+                    className="controle text-[13px]">
+                    <option value="">Toutes les sections</option>
+                    {sections.map(sec => (
+                      <option key={sec.code} value={sec.code}>{sec.libelle || sec.code}</option>
+                    ))}
+                  </select>
+                  <div className="relative">
+                    <IconSearch size={14}
+                      className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <input value={q} onChange={e => setQ(e.target.value)}
+                      placeholder="Un nom…" className="controle pl-8 text-[13px]" />
+                  </div>
+                  <button onClick={ajouterLesPris}
+                    disabled={!prisDansRecherche.size}
+                    className="bouton disabled:opacity-40 text-[12px]">
+                    {prisDansRecherche.size > 1
+                      ? `Ajouter ${prisDansRecherche.size} étudiants`
+                      : 'Ajouter'}
+                  </button>
+                  <button onClick={() => { setChercheOuvert(false); setQ(''); }}
+                    className="bouton ml-auto text-[12px]">Fermer</button>
+                </div>
+
+                <div className="max-h-56 overflow-auto rounded-champ bg-white
+                                border border-slate-200">
+                  {!resultats ? (
+                    <div className="p-3 text-[12px] text-slate-400">Chargement…</div>
+                  ) : !resultats.length ? (
+                    <div className="p-3 text-[12px] text-slate-400">
+                      Personne ne correspond à ce filtre.
+                    </div>
+                  ) : resultats.map(e => {
+                    /* DÉJÀ DANS LE TABLEAU : on le montre, grisé, plutôt que de
+                       le faire disparaître — sinon on le cherche trois fois en
+                       croyant s'être trompé de nom. */
+                    const dedans = dejaListe.has(e.id);
+                    return (
+                      <label key={e.id}
+                        className={`flex items-center gap-2 px-3 py-1.5 border-b
+                          border-slate-50 ${dedans ? 'opacity-45'
+                            : 'cursor-pointer hover:bg-slate-50'}`}>
+                        <input type="checkbox" disabled={dedans}
+                          checked={prisDansRecherche.has(e.id)}
+                          onChange={() => setPrisDansRecherche(s0 => {
+                            const n = new Set(s0);
+                            if (n.has(e.id)) n.delete(e.id); else n.add(e.id);
+                            return n;
+                          })}
+                          className="w-4 h-4 accent-iip-blue disabled:opacity-40" />
+                        <span className="flex-1 min-w-0">
+                          <span className="text-[13px] font-medium">
+                            {(e.nom || '').toUpperCase()} {e.prenom}
+                          </span>
+                          <span className="block text-[11px] text-slate-500 truncate">
+                            {e.section_rattachement || e.section || '—'}
+                          </span>
+                        </span>
+                        {dedans && (
+                          <span className="text-[11px] text-slate-400">déjà dans la liste</span>
+                        )}
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
             )}
           </section>
         )}
