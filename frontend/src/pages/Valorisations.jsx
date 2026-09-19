@@ -1811,15 +1811,81 @@ function FenetreDossier({ vid, onClose, onChange }) {
   );
 }
 
-/** Étape 2 — la date d'introduction, et le délai qu'elle permet enfin de contrôler. */
+/**
+ * Étape 2 — CE QUI EST DEMANDÉ, et quand la demande est arrivée.
+ *
+ * La nature — AD, VA ou VAE — se posait à la matrice et ne se changeait plus
+ * nulle part : un étudiant introduit en VA alors qu'il apporte une expérience
+ * professionnelle y restait pour toujours. Et la finalité demandée ne se
+ * touchait qu'à l'étape de décision, donc après la recevabilité et l'avis : on
+ * ne pouvait pas enregistrer la demande telle qu'elle est arrivée.
+ *
+ * Ce qui est DEMANDÉ ici et ce que le Conseil ACCORDE à l'étape 6 restent deux
+ * choses distinctes. Rien n'oblige les deux à coïncider — c'est même tout
+ * l'objet d'un accord partiel.
+ */
 function EtapeDemande({ dossier, delai, onEnregistrer, enCours }) {
   const [dd, setDd] = useState(dossier.date_demande || aujourdHui());
   const [dr, setDr] = useState(dossier.date_reception || aujourdHui());
   const [mode, setMode] = useState(dossier.mode_introduction || '');
+  const [porte, setPorte] = useState(dossier.porte || 'va');
+  const [type, setType] = useState(dossier.type || 'partielle');
+
+  // L'admission emporte sa finalité : c'est la seule des trois portes qui la
+  // dise. Laisser les deux diverger donnerait un dossier qui demande une
+  // admission et accorde une dispense.
+  const admission = porte === 'admission';
+
+  const TEINTE_PORTE = {
+    admission: { t: '#15803D', f: '#15803D26', b: '#15803D66' },
+    va:        { t: '#2D4470', f: '#2D447020', b: '#2D447066' },
+    vae:       { t: '#6D28D9', f: '#8B5CF624', b: '#8B5CF666' },
+  };
+
   return (
     <section className="carte p-3 space-y-2">
       <div className="text-[11px] uppercase tracking-wide text-slate-500">
-        2 — L'introduction de la demande
+        2 — La demande : ce qui est demandé, et quand
+      </div>
+
+      {/* LA NATURE DE LA DEMANDE — les mêmes trois portes que la matrice, et
+          les mêmes couleurs : on ne réapprend pas un code d'un écran à l'autre. */}
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="text-[12px] text-slate-600 w-28">Nature</span>
+        {[['admission', 'AD — admission'], ['va', 'VA — acquis formels'],
+          ['vae', "VAE — expérience"]].map(([v, l]) => (
+          <label key={v}
+            className="px-3 py-1.5 rounded-champ border cursor-pointer text-[13px]"
+            style={porte === v
+              ? { color: TEINTE_PORTE[v].t, background: TEINTE_PORTE[v].f,
+                  borderColor: TEINTE_PORTE[v].b }
+              : { borderColor: '#E2E8F0' }}>
+            <input type="radio" checked={porte === v}
+              onChange={() => { setPorte(v); if (v === 'admission') setType('admission');
+                                else if (type === 'admission') setType('partielle'); }}
+              className="mr-1.5 accent-iip-blue" />{l}
+          </label>
+        ))}
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="text-[12px] text-slate-600 w-28">Ce qui est demandé</span>
+        {admission ? (
+          <span className="text-[12px] text-slate-500">
+            L'admission dans la section — l'étudiant suivra l'unité et en présentera
+            les évaluations (AGCF art. 2).
+          </span>
+        ) : (
+          [['partielle', "Dispense partielle"], ['complete', 'Dispense complète']]
+            .map(([v, l]) => (
+              <label key={v}
+                className={`px-3 py-1.5 rounded-champ border cursor-pointer text-[13px]
+                  ${type === v ? 'border-iip-blue bg-iip-blue/5' : 'border-slate-200'}`}>
+                <input type="radio" checked={type === v} onChange={() => setType(v)}
+                  className="mr-1.5 accent-iip-blue" />{l}
+              </label>
+            ))
+        )}
       </div>
       <div className="flex flex-wrap items-end gap-3">
         <label className="block">
@@ -1843,8 +1909,10 @@ function EtapeDemande({ dossier, delai, onEnregistrer, enCours }) {
           </select>
         </label>
         <button onClick={() => onEnregistrer({ date_demande: dd, date_reception: dr,
-                                               mode_introduction: mode })}
-          disabled={enCours} className="bouton disabled:opacity-40">Enregistrer</button>
+                                               mode_introduction: mode, porte, type })}
+          disabled={enCours} className="bouton disabled:opacity-40">
+          Enregistrer la demande
+        </button>
       </div>
       {/* LA DATE D'ENVOI PRIME SUR CELLE DU FORMULAIRE — sans quoi il suffirait
           d'antidater le formulaire pour rentrer dans les délais. */}
