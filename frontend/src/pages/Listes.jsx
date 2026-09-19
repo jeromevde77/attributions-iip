@@ -386,7 +386,13 @@ const ENTITES = {
  * même repli que partout ailleurs.
  */
 async function mettreEnPage(rows, cols, titre, annee, mention) {
-  const entetes = cols.map(c => c.label);
+  /* ON ENVOIE LA CLÉ AVEC LE LIBELLÉ.
+   *
+   * Seuls les libellés partaient — « UE », « Périodes » —, si bien que le
+   * serveur ne pouvait plus distinguer un NUMÉRO d'une QUANTITÉ et totalisait
+   * les deux : le pied d'une liste annonçait la somme des numéros d'unité. La
+   * clé, elle, dit ce qu'est la colonne ; elle voyage désormais avec. */
+  const entetes = cols.map(c => ({ label: c.label, cle: c.key }));
   const lignes = rows.map(r => cols.map(c => {
     const v = r[c.key];
     return v === null || v === undefined ? '' : v;

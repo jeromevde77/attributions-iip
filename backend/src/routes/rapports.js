@@ -1486,7 +1486,14 @@ r.post('/:id/apercu', authRequired, (req, res) => {
 r.post('/mise-en-page', authRequired, (req, res) => {
   const b = req.body || {};
   const titre = String(b.titre || 'Liste').slice(0, 200);
-  const colonnes = Array.isArray(b.colonnes) ? b.colonnes.slice(0, 40) : [];
+  /* LES COLONNES ARRIVENT SOUS DEUX FORMES, ET LES DEUX DOIVENT MARCHER.
+   * L'écran des listes envoie désormais { label, cle } ; d'autres appelants —
+   * et les versions déjà déployées — n'envoient qu'une chaîne. On normalise
+   * ici plutôt que d'imposer une migration simultanée de tout ce qui appelle. */
+  const colonnes = (Array.isArray(b.colonnes) ? b.colonnes.slice(0, 40) : [])
+    .map(c => (c && typeof c === 'object')
+      ? { label: String(c.label ?? c.entete ?? c.cle ?? ''), cle: String(c.cle ?? '') }
+      : { label: String(c ?? ''), cle: '' });
   const lignes = Array.isArray(b.lignes) ? b.lignes.slice(0, 5000) : [];
   if (!colonnes.length) return res.status(400).json({ error: 'Aucune colonne à mettre en page.' });
 
@@ -1522,8 +1529,18 @@ r.post('/mise-en-page', authRequired, (req, res) => {
    * colonnes écartées reçoivent un tiret : la ligne dit alors « ici, il n'y a
    * rien à totaliser », ce qui est une information. */
   const IDENTIFIANT = /(^|_)(num|numero|code|id|annee|annee_scolaire|quadri|quadrimestre|niv|niveau|rang|matricule|fase|ordre)$/i;
-  const cleColonne = i => String(colonnes[i]?.[0] ?? colonnes[i]?.cle ?? colonnes[i] ?? '');
-  const sommable = colonnes.map((_, i) => numerique[i] && !IDENTIFIANT.test(cleColonne(i)));
+  /* ET UNE SÉCURITÉ SUR LE LIBELLÉ, pour les appelants qui n'envoient que lui.
+   * Le contrôle par la clé est le bon — il est stable et il ne dépend pas de
+   * la langue. Mais une liste mise en page par un écran plus ancien n'a que
+   * des intitulés, et c'est justement là qu'on a vu « Ensemble 14899 » sous une
+   * colonne de numéros d'unité. Mieux vaut ne pas totaliser une colonne qui
+   * l'aurait mérité que d'afficher un nombre qui ne veut rien dire : une somme
+   * fausse, on la lit. */
+  const LIBELLE_IDENTIFIANT =
+    /^(n°|no|num|numéro|code|identifiant|id|ue|unité|année|annee|quadri(mestre)?|niveau|niv|bloc|rang|matricule|fase|ordre|section|session)\b/i;
+  const sommable = colonnes.map((c, i) => numerique[i]
+    && !IDENTIFIANT.test(c.cle || '')
+    && !LIBELLE_IDENTIFIANT.test(c.label || ''));
 
   const aDesNombres = sommable.some(Boolean);
   const total = aDesNombres ? `<tfoot><tr class="repere">${colonnes.map((_, i) => {
@@ -1579,7 +1596,7 @@ r.post('/mise-en-page', authRequired, (req, res) => {
   const corps = `
       <table>
         <thead><tr>${colonnes.map((c, i) =>
-          `<th${numerique[i] ? ' class="n"' : ''}>${esc(c)}</th>`).join('')}</tr></thead>
+          `<th${numerique[i] ? ' class="n"' : ''}>${esc(c.label)}</th>`).join('')}</tr></thead>
         <tbody>${corpsTable
           || `<tr><td colspan="${colonnes.length}" class="vide">Aucune donnée.</td></tr>`}</tbody>
         ${total}
