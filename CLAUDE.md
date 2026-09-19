@@ -860,13 +860,26 @@ et 3 composants de tuile**. La stratégie tient en cinq chantiers, dans cet ordr
   une entrée de menu n'a pas d'état, elle a une position. Elle porte donc un
   **filet fin de deux pixels, posé à côté, plus court que la tuile et terminé en
   arc aux deux bouts**, et seulement quand un sous-menu est ouvert dessous.
-- **Le même ordre dans tous les rails, et il ne se discute pas** : SORTIR
-  d'abord — « Imprimer ou envoyer », l'avion plutôt que l'imprimante depuis que
-  le centre fait les deux, et le libellé suit le dessin —, puis les outils de
-  l'écran, puis *Proposer une amélioration*, puis **DÉTRUIRE, toujours en
-  dernier**. Le tri se fait sur un drapeau `destructif`, pas sur la place où
-  chaque écran a rangé son entrée : une règle qui n'est juste que si l'on y
-  pense est une règle fausse.
+- **L'ORDRE DU RAIL EST CELUI DU TRAVAIL, PAS CELUI DE LA MÉCANIQUE.** En tête,
+  ce qui vaut partout : SORTIR — « Imprimer ou envoyer », l'avion plutôt que
+  l'imprimante depuis que le centre fait les deux —, l'import, *Proposer une
+  amélioration*. Puis la suite des gestes de l'axe. Et **DÉTRUIRE, toujours en
+  dernier** : le tri se fait sur un drapeau `destructif`, pas sur la place où
+  chaque écran a rangé son entrée.
+  On a d'abord rangé les rubriques de l'axe d'un côté et les outils de l'écran
+  de l'autre, en deux blocs. C'était propre pour le code et **faux pour
+  l'usage** : sur Étudiants, « Composer les PAE de l'année suivante »
+  appartient au PAE, « Diplômes et titres » suit la délibération. Les séparer
+  par NATURE coupait une suite de gestes en deux listes qu'il fallait recoller
+  de tête. Un axe déclare donc `ordreRail` — des **groupes de clés mêlant
+  rubriques et outils**, séparés à l'écran par un filet. Étudiants, arrêté le
+  19 septembre 2026 : *créer un étudiant · PAE · composer le PAE suivant ·
+  valorisation · délibération · diplômes* — puis *procédures* — puis la
+  corbeille. Ce qui n'est pas listé garde sa place : un écran qui ajoute un
+  outil demain ne disparaît pas du rail parce que personne n'a pensé à le
+  lister. Sans `ordreRail`, on retombe sur les rubriques puis le tiroir.
+- **UN FILET ENTRE LES GROUPES, ET AUCUN À LA FIN.** Une barre posée après le
+  dernier groupe ne sépare de rien et ferme la liste sur du vide.
 - **Les rubriques « à venir » ont quitté les rails.** Une place réservée
   annonçant un écran qui n'existe pas est une promesse faite à qui n'a rien
   demandé, et son icône occupait une place dans le rail replié de ceux qui

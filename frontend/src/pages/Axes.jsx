@@ -79,6 +79,23 @@ export function AxeEtudiants() {
     <Axe
       titre="Étudiants" icone={IconChecklist} impression="etudiants" echanges
       question="« Où en est cet étudiant ? »"
+      /* L'ORDRE DU RAIL EST CELUI DU PARCOURS, ET IL MÊLE LES DEUX NATURES.
+       *
+       * Les rubriques de l'axe et les outils de l'écran étaient rangés en deux
+       * blocs — propre pour le code, faux pour l'usage : « Composer les PAE de
+       * l'année suivante » appartient au PAE, « Diplômes et titres » suit la
+       * délibération. Les séparer par nature coupait une suite de gestes en
+       * deux listes qu'il fallait recoller de tête.
+       *
+       * Quatre groupes, séparés par un filet : on entre (créer, PAE, composer
+       * le PAE suivant), on instruit (valorisation, délibération), on délivre
+       * (diplômes) — puis l'exception (procédures), puis ce qui efface. */
+      ordreRail={[
+        ['nouvel-etudiant', 'pae', 'passage', 'valorisation', 'deliberation',
+         'diplomation'],
+        ['procedures'],
+        ['purge'],
+      ]}
       /* L'ORDRE EST CELUI DU PARCOURS, PAS CELUI DE LA CONSTRUCTION.
          On entre dans l'école, on demande une valorisation, on compose son
          programme, on délibère, on délivre le titre — et les procédures sont

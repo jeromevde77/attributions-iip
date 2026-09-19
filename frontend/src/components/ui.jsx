@@ -526,7 +526,16 @@ export function RailDessine({ icon: HeaderIcon, titre, sousTitre, extra, surAccu
       <div className={`flex-1 min-h-0 overflow-y-auto overflow-x-hidden rail-defile px-2
         ${epingle ? 'mt-1.5' : ''}`}>
         {sections.map((sec, si) => (
-          <div key={si} className="mb-3">
+          <div key={si} className={sec.filet ? 'mb-3' : 'mb-3'}>
+            {/* UN FILET ENTRE LES GROUPES, ET AUCUN À LA FIN.
+                Les groupes du rail disent des moments du travail — ce qui fait
+                entrer, le parcours, l'exception, ce qui efface. Un filet les
+                sépare ; une barre posée après le dernier ne sépare de rien et
+                ferme la liste sur du vide. */}
+            {sec.filet && (
+              <div className={`${epingle ? 'mx-2' : 'w-5 mx-auto'} mt-1 mb-2.5 border-t`}
+                style={{ borderColor: 'var(--menu-filet)' }} />
+            )}
             {sec.label && (
               <div className={`px-1.5 mt-2 mb-1 text-[10px] font-semibold uppercase
                 tracking-wider ${reveal}`} style={{ color: 'var(--menu-texte-doux)' }}>
@@ -672,8 +681,6 @@ export function RailDessine({ icon: HeaderIcon, titre, sousTitre, extra, surAccu
                           </button>
                         );
                       })}
-                      <div className={`${epingle ? 'mx-2' : 'w-5 mx-auto'} mt-1 mb-2 border-t`}
-                        style={{ borderColor: 'var(--menu-sous-filet)' }} />
                   </TiroirRail>
                 )}
                 </Fragment>

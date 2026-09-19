@@ -24,6 +24,11 @@ import { RailDessine, FournisseurRail } from './ui.jsx';
  * prétendre exister.
  */
 export default function Axe({ titre, question, icone, onglets, ongletInitial,
+                              /* Des GROUPES de clés, mêlant rubriques de l'axe
+                                 et outils de l'écran, dans l'ordre du travail.
+                                 Voir plus bas : sans lui, on retombe sur les
+                                 rubriques puis le tiroir. */
+                              ordreRail = null,
                               impression = 'etudiants', echanges = false }) {
   // LES RUBRIQUES « À VENIR » NE SONT PLUS DANS LE MENU.
   // Une place réservée annonçant un écran qui n'existe pas est une promesse
@@ -115,15 +120,9 @@ export default function Axe({ titre, question, icone, onglets, ongletInitial,
    * Tranché par Charles le 19 septembre 2026, contre deux autres options :
    * ne remonter que la valorisation, et laisser l'ordre en place en
    * descendant seulement les diplômes et la corbeille. */
-  const rubriques = {
-    label: 'Dans cet axe',
-    items: visibles.map((o, i) => ({
+  const entreeRubrique = o => ({
       key: o.key,
       label: o.label + (o.futur ? ' — à venir' : ''),
-      /* Le tiroir se rattache à la DERNIÈRE rubrique : il se déplie donc sous
-         la liste entière, et non au milieu. `it.sous` est rendu après son
-         entrée — c'est le seul point d'accroche, et il suffit. */
-      sous: (i === visibles.length - 1 && sousOutils.length) ? sousOutils : undefined,
       // SANS ICÔNE, LE RAIL REPLIÉ N'A RIEN À MONTRER : le libellé y est
       // masqué, et une rubrique sans icône devient une ligne vide qu'on ne
       // peut ni lire ni viser. L'axe en fournit une par défaut, pour qu'un
@@ -131,8 +130,65 @@ export default function Axe({ titre, question, icone, onglets, ongletInitial,
       icon: o.icone || icone,
       actif: actif === o.key,
       onClick: () => setActif(o.key),
-    })),
-  };
+  });
+
+  /* L'ORDRE DU RAIL EST CELUI DU TRAVAIL, PAS CELUI DE LA MÉCANIQUE.
+   *
+   * On a d'abord rangé les rubriques de l'axe d'un côté et les outils de
+   * l'écran de l'autre, en deux blocs. C'était propre pour le code et faux
+   * pour l'usage : sur Étudiants, « Composer les PAE de l'année suivante »
+   * appartient au PAE et « Diplômes et titres » suit la délibération. Les
+   * séparer par nature revenait à couper une suite de gestes en deux listes
+   * qu'il faut ensuite recoller de tête.
+   *
+   * Un axe peut donc déclarer `ordreRail` : des GROUPES de clés, mêlant
+   * rubriques et outils, séparés à l'écran par un filet. Ce qui n'y figure pas
+   * garde sa place naturelle — un écran qui ajoute un outil demain ne
+   * disparaît pas du rail parce que personne n'a pensé à le lister.
+   *
+   * Sans `ordreRail`, on retombe sur le comportement précédent : les rubriques,
+   * puis le tiroir des outils. Les autres axes n'ont rien à changer. */
+  const parCle = new Map();
+  for (const o of visibles) parCle.set(o.key, entreeRubrique(o));
+  for (const it of sousOutils) if (!parCle.has(it.key)) parCle.set(it.key, it);
+
+  const groupes = [];
+  if (Array.isArray(ordreRail) && ordreRail.length) {
+    const places = new Set();
+    for (const g of ordreRail) {
+      const items = g.map(k => parCle.get(k)).filter(Boolean);
+      for (const k of g) places.add(k);
+      if (items.length) groupes.push(items);
+    }
+    // LE RESTE N'EST PAS PERDU : ce qui n'a pas été listé rejoint le premier
+    // groupe, rubriques d'abord — et les destructifs ferment la marche, comme
+    // partout ailleurs dans Lucie.
+    const restants = [...parCle.entries()].filter(([k]) => !places.has(k)).map(([, v]) => v);
+    if (restants.length) {
+      const doux = restants.filter(i => !i.destructif);
+      const durs = restants.filter(i => i.destructif);
+      if (doux.length) (groupes[0] || groupes[groupes.push([]) - 1]).push(...doux);
+      if (durs.length) groupes.push(durs);
+    }
+  }
+
+  const rubriques = groupes.length
+    ? null
+    : {
+        label: 'Dans cet axe',
+        items: visibles.map((o, i) => ({
+          ...entreeRubrique(o),
+          sous: (i === visibles.length - 1 && sousOutils.length) ? sousOutils : undefined,
+        })),
+      };
+
+  /* Les groupes deviennent des sections du rail, sans intitulé : un titre par
+     groupe ne survivrait pas au rail replié, où le libellé est masqué — et un
+     filet dit déjà ce qu'il faut. Le dernier ne porte pas de filet après lui :
+     une barre en fin de liste ne sépare de rien. */
+  const sectionsRail = groupes.length
+    ? groupes.map((items, i) => ({ items, filet: i > 0 }))
+    : [rubriques];
 
   return (
     <div className="relative bg-slate-50" style={{ minHeight: 'calc(100vh - 64px)' }}>
@@ -141,7 +197,7 @@ export default function Axe({ titre, question, icone, onglets, ongletInitial,
            laquelle on y entre, et celle qu'on cherche quand on s'est perdu
            trois écrans plus loin. */
         surAccueil={() => setActif(visibles[0]?.key)}
-        sections={[rubriques]}
+        sections={sectionsRail}
         volet={voletTitre === null ? null : { titre: voletTitre }}
         surNoeudVolet={setNoeudVolet}
         actions={outilsCommuns} impression={impression} />
