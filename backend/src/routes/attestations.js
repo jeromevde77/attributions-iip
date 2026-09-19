@@ -14,6 +14,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { Router } from 'express';
+import { manquesDossier, uniteValorisable } from '../lib/valorisation.js';
 import { LOGO_IIP_JPEG } from '../services/assets/logo_iip_jpeg.js';
 import { piedBalisage, piedStyles, reglesDePage, stylesEntete, enteteDocument,
   BANDE_PIED_MM, MARGE_SOUS_PIED_MM, piedGabaritPdf } from '../lib/document.js';
@@ -1196,6 +1197,31 @@ function manquesValorisation({ seance, membres, quorum }, vas, ue, annee = null)
     if (v.decision === 'refusee' && !String(v.motif_refus || '').trim()) {
       m.push(`${qui} : motif du refus.`);
     }
+
+    /* LE CIRCUIT DOIT AVOIR ÉTÉ PARCOURU — ET C'EST ICI QUE ÇA SE VÉRIFIE.
+     *
+     * En septembre 2026, une attestation de réussite « Valorisation » erronée
+     * est sortie de Lucie. En amont, la procédure avait été contournée : pas
+     * d'avis écrit du chargé de cours, pas de base légale, pas de motivation.
+     * La signature de la direction et le cachet de l'établissement ont
+     * pourtant été apposés — parce que la barrière ne regardait QUE la séance
+     * et les mentions de la pièce, jamais l'instruction du dossier.
+     *
+     * Une pièce signée n'est pas un formulaire bien rempli : c'est la trace
+     * d'une procédure. Le serveur refuse donc de produire tant que le dossier
+     * n'a pas été instruit, et il NOMME l'étudiant et ce qui manque — un refus
+     * muet se contourne, un refus nommé se corrige. */
+    for (const souci of manquesDossier(v)) {
+      m.push(`${qui} : ${souci}`);
+    }
+
+    /* ET CE QUI NE PEUT JAMAIS ÊTRE VALORISÉ NE SE VALORISE PAS DAVANTAGE AU
+     * MOMENT D'IMPRIMER. Le contrôle existe à l'enregistrement ; il est répété
+     * ici parce qu'une décision peut avoir été encodée avant que l'exclusion
+     * ne soit posée sur l'unité — et c'est justement ce passé-là qu'on
+     * cherche à rattraper. */
+    const val = uniteValorisable(v.ue_num ?? ue?.ue_num, annee || ue?.annee_scolaire);
+    if (!val.ok) m.push(`${qui} : ${val.motif}`);
   }
   return m;
 }
@@ -1209,7 +1235,9 @@ r.get('/valorisation/ue/:ueNum/seance', authRequired, (req, res) => {
   const ue = db.prepare(`SELECT * FROM ue WHERE ue_num = ?
     ORDER BY (annee_scolaire = ?) DESC, annee_scolaire DESC LIMIT 1`).get(ueNum, annee) || {};
   const vas = db.prepare(`
-    SELECT v.*, e.nom, e.prenom, e.date_naissance, e.lieu_naissance
+    SELECT v.*, e.nom, e.prenom, e.date_naissance, e.lieu_naissance,
+           (SELECT COUNT(*) FROM etudiant_valorisation_aa a
+             WHERE a.valorisation_id = v.id) AS nb_equivalences
       FROM etudiant_valorisation v JOIN etudiant e ON e.id = v.etudiant_id
      WHERE v.ue_num = ? AND v.annee_scolaire = ?
      ORDER BY e.nom, e.prenom`).all(ueNum, annee);
@@ -1293,7 +1321,9 @@ r.put('/valorisation/ue/:ueNum/seance', authRequired, (req, res) => {
   const ue = db.prepare(`SELECT * FROM ue WHERE ue_num = ?
     ORDER BY (annee_scolaire = ?) DESC, annee_scolaire DESC LIMIT 1`).get(ueNum, annee) || {};
   const vas = db.prepare(`
-    SELECT v.*, e.nom, e.prenom, e.date_naissance, e.lieu_naissance
+    SELECT v.*, e.nom, e.prenom, e.date_naissance, e.lieu_naissance,
+           (SELECT COUNT(*) FROM etudiant_valorisation_aa a
+             WHERE a.valorisation_id = v.id) AS nb_equivalences
       FROM etudiant_valorisation v JOIN etudiant e ON e.id = v.etudiant_id
      WHERE v.ue_num = ? AND v.annee_scolaire = ?`).all(ueNum, annee);
   res.json({ ok: true, ...etat, manques: manquesValorisation(etat, vas, ue, annee) });

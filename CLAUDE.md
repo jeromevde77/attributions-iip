@@ -422,6 +422,67 @@ l'unité à leur programme.
 > corrige à la main. Ces étudiants sont d'ailleurs **décochables mais non
 > cochables** dans le tableau : le blocage se voit avant d'être subi.
 
+**UNE VALORISATION EST UN CIRCUIT, PAS UNE DÉCISION — ET C'EST UNE FAUTE RÉELLE
+QUI L'A APPRIS.** En septembre 2026, une attestation de réussite
+« Valorisation » erronée est sortie de Lucie. En amont, la procédure avait été
+contournée par la coordination : pas d'avis écrit du chargé de cours, pas de
+base légale, pas de motivation. **La signature de la direction et le cachet de
+l'établissement ont pourtant été apposés** — parce que rien, dans le logiciel,
+ne savait ce qui aurait dû précéder. Lucie enregistrait UNE DÉCISION ; la
+procédure de l'IIP décrit DIX ÉTAPES, avec des délais, des rôles et des motifs
+de nature différente. Depuis 2.12.38, `lib/valorisation.js` porte le circuit, et
+la règle tient en une phrase :
+
+> **AUCUNE PIÈCE PORTANT UNE SIGNATURE NE SE PRODUIT SI LE CIRCUIT N'A PAS ÉTÉ
+> PARCOURU — ET CHAQUE ÉTAPE PORTE LE NOM DE CELUI QUI L'A FAITE.**
+
+Ce que le serveur refuse désormais, et qu'il refusait pas :
+
+- **Ce qui ne peut jamais être valorisé.** L'épreuve intégrée (AGCF art. 4 §3,
+  1°) se reconnaît seule ; les trois autres exclusions — UE sans prestations
+  d'étudiants, UE qu'une réglementation impose de suivre, et à l'IIP la
+  méthodologie de la recherche — se cochent sur l'unité (`ue.valorisation_exclue`
+  + motif), parce que les écrire en dur ferait mentir Lucie dès la première
+  section qui change. Le motif coché s'imprime tel quel dans le refus.
+- **Une dispense partielle ne peut pas couvrir TOUTES les activités de l'UE**
+  (RGE art. 29 §2) : c'est une dispense complète déguisée — mêmes effets, sans
+  l'attestation, sans le PV d'unité, et l'étudiant reste compté comme régulier.
+- **La base de la décision est obligatoire** dès qu'on accorde : VAF V1-V4 ou
+  VANFI D/E. C'est elle qui part dans eProm, et **« une décision non encodée est
+  une décision non conforme »** (AGCF art. 5 al. 3) — positives ET négatives.
+- **Les 50 % ne se saisissent pas** (RDE art. 29 §3 et 30). C'était un champ
+  libre pré-rempli : un chiffre modifiable finit par être modifié, et il part
+  sur une pièce signée. Le verrou protège l'avenir ; un contrôle à la LECTURE
+  signale les lignes déjà écrites hors norme — la barrière rattrape le passé.
+- **L'ordre des étapes.** La recevabilité avant l'avis, l'avis avant la
+  décision. Un avis sans texte n'est pas un avis : les décisions de VA ne sont
+  **pas susceptibles de recours** (RDE art. 30 et 87 §2), la motivation est
+  tout ce qui reste.
+- **Un refus de forme n'est pas un refus pédagogique.** L'irrecevabilité
+  (hors délai, dossier incomplet, pièces non officielles) a sa colonne et son
+  motif propres — les confondre produisait des refus dont on ne savait plus, un
+  an après, s'ils portaient sur le fond ou sur la procédure. Et toute demande
+  s'encode, **recevable ou non**.
+- **Le délai (RDE art. 28) se calcule** : ouverture de l'UE si elle est encodée,
+  sinon le quinzième jour suivant le premier jour de l'année. La date d'ENVOI
+  prime sur celle du formulaire — sans quoi il suffirait d'antidater.
+
+> **L'ÉTAT SE DÉDUIT, IL NE SE DÉCLARE PAS.** Un état qu'on peut poser à la main
+> est un état qu'on peut poser à tort, et c'est la faute même qu'on cherche à
+> empêcher. Il se lit des traces, dans l'ordre inverse du circuit.
+
+> **LE JOURNAL EST EN AJOUT SEUL** (`valorisation_journal`). Aucune route ne le
+> modifie ni ne l'efface, administrateur compris : une trace qu'on peut corriger
+> ne prouve rien. Une procédure contournée ne se voit JAMAIS dans l'état final —
+> le dossier ressemble à un dossier normal ; c'est la suite des gestes, qui et
+> quand, qui la révèle.
+
+> **ET LE TABLEAU DE CE QUI RESTE À FAIRE** (en tête de l'écran) : recevabilités
+> non contrôlées, avis en attente, décisions non notifiées, décisions non
+> encodées dans eProm, demandes hors délai, dossiers sans preuve. Un retard ne
+> se voit pas dossier par dossier ; sans ce bloc, la non-conformité se découvre
+> à l'inspection, et il est alors trop tard.
+
 **Le registre des valorisations** (rail *Étudiants → Valorisation*) : elles ne se
 lisaient que fiche par fiche, donc elles ne se lisaient pas — personne n'ouvre
 588 dossiers pour savoir qui a demandé quoi. Une ligne par demande, filtrable par

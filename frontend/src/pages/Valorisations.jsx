@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   IconAlertTriangle, IconCertificate, IconChevronDown, IconChevronRight,
-  IconPlus, IconPrinter, IconSearch, IconTrash, IconUserPlus, IconUsersGroup, IconX,
+  IconListCheck, IconPlus, IconPrinter, IconSearch, IconTrash, IconUserPlus,
+  IconUsersGroup, IconX,
 } from '@tabler/icons-react';
 import { authHeaders, getAnnee } from '../lib/api.js';
 import { Fenetre, RailLateral } from '../components/ui.jsx';
@@ -45,6 +46,7 @@ export default function Valorisations() {
   const [deplie, setDeplie] = useState(() => new Set());
   const [ajout, setAjout] = useState(false);
   const [serie, setSerie] = useState(false);
+  const [dossier, setDossier] = useState(null);   // vid du dossier ouvert
   const [ajoutUE, setAjoutUE] = useState(null);      // { etudiant_id, nom, prenom }
   const [documents, setDocuments] = useState(null);
   const [erreur, setErreur] = useState(null);
@@ -138,6 +140,11 @@ export default function Valorisations() {
 
         {erreur && <div className="text-[12px] text-rose-700">{erreur}</div>}
 
+        {/* CE QUI RESTE À FAIRE, AVANT LA LISTE. Un retard ne se voit pas
+            dossier par dossier : sans ce bloc, la non-conformité se découvre à
+            l'inspection, et il est alors trop tard pour la corriger. */}
+        <CeQuiResteAFaire annee={annee} onOuvrir={setDossier} />
+
         {!lignes ? (
           <div className="py-8 text-center text-[13px] text-slate-400">Chargement…</div>
         ) : !tous.length ? (
@@ -158,6 +165,7 @@ export default function Valorisations() {
                 onAjouterUE={() => setAjoutUE(e)}
                 onSupprimer={supprimer}
                 onDocuments={ue => setDocuments(ue)}
+                onDossier={setDossier}
                 onChange={charger} onErreur={setErreur} />
             ))}
           </div>
@@ -183,6 +191,11 @@ export default function Valorisations() {
           onCree={async () => { setAjoutUE(null); await charger(); }} />
       )}
 
+      {dossier && (
+        <FenetreDossier vid={dossier} onClose={() => setDossier(null)}
+          onChange={charger} />
+      )}
+
       {documents && (
         <SeanceValorisation ueNum={documents.ue_num} ueNom={documents.ue_nom}
           annee={annee} onClose={() => setDocuments(null)} />
@@ -201,7 +214,7 @@ function anneesProches() {
 /* ══ UN ÉTUDIANT ET SES UNITÉS ════════════════════════════════════════════ */
 
 function LigneEtudiant({ etudiant, annee, ouvert, onBasculer, onAjouterUE,
-                         onSupprimer, onDocuments, onChange, onErreur }) {
+                         onSupprimer, onDocuments, onDossier, onChange, onErreur }) {
   const Fleche = ouvert ? IconChevronDown : IconChevronRight;
   return (
     <div className="carte overflow-hidden">
@@ -236,6 +249,7 @@ function LigneEtudiant({ etudiant, annee, ouvert, onBasculer, onAjouterUE,
             <UniteValorisee key={v.id} va={v} annee={annee}
               onSupprimer={() => onSupprimer(v.id)}
               onDocuments={() => onDocuments(v)}
+              onDossier={() => onDossier(v.id)}
               onChange={onChange} onErreur={onErreur} />
           ))}
         </div>
@@ -246,7 +260,7 @@ function LigneEtudiant({ etudiant, annee, ouvert, onBasculer, onAjouterUE,
 
 /* ══ UNE UNITÉ, SA DÉCISION, SES LIGNES ═══════════════════════════════════ */
 
-function UniteValorisee({ va, annee, onSupprimer, onDocuments, onChange, onErreur }) {
+function UniteValorisee({ va, annee, onSupprimer, onDocuments, onDossier, onChange, onErreur }) {
   const [ouvert, setOuvert] = useState(false);
   const [comp, setComp] = useState(null);
   const [form, setForm] = useState(null);
@@ -364,6 +378,13 @@ function UniteValorisee({ va, annee, onSupprimer, onDocuments, onChange, onErreu
         <span className={`text-[11px] ${refuse ? 'text-[#9D4A38] font-semibold' : 'text-slate-500'}`}>
           {refuse ? 'Refusée' : va.type === 'complete' ? 'Totale' : 'Partielle'}
         </span>
+        {/* LE DOSSIER AVANT LA PIÈCE. On ouvrait directement sur l'impression,
+            comme si produire était l'objet du travail ; c'est l'INSTRUCTION qui
+            l'est, et la pièce n'en est que la conséquence. */}
+        <button onClick={onDossier} title="Le dossier et son circuit"
+          className="bouton text-[12px] px-2 py-1">
+          <IconListCheck size={13} /> Dossier
+        </button>
         <button onClick={onDocuments} title="Procès-verbal et attestations"
           className="bouton bouton-sortir text-[12px] px-2 py-1">
           <IconPrinter size={13} />
@@ -1487,5 +1508,496 @@ function ValoriserEnSerie({ annee, onClose, onCree }) {
         )}
       </div>
     </Fenetre>
+  );
+}
+
+/* ══ LE DOSSIER ET SON CIRCUIT ════════════════════════════════════════════ */
+
+/**
+ * LE CIRCUIT DE LA PROCÉDURE, DANS L'ORDRE, AVEC QUI A FAIT QUOI.
+ *
+ * Lucie enregistrait une DÉCISION ; la procédure de l'IIP décrit un DOSSIER qui
+ * traverse dix étapes. La différence n'est pas théorique : en septembre 2026,
+ * une attestation erronée est sortie d'un dossier que personne n'avait
+ * instruit — sans avis du chargé de cours, sans base légale, sans motivation —
+ * et elle est partie avec la signature de la direction et le cachet de
+ * l'établissement.
+ *
+ * Cette fenêtre montre donc ce que l'écran cachait : où en est le dossier, ce
+ * qui manque pour l'étape suivante, si la demande est hors délai, et le
+ * JOURNAL — la suite des gestes, avec le nom de chacun. Une procédure
+ * contournée ne se voit jamais dans l'état final : le dossier ressemble à un
+ * dossier normal. C'est l'ordre des gestes qui la révèle.
+ *
+ * Les contrôles ne sont pas ici : ils sont sur le serveur, et cette fenêtre ne
+ * fait que les afficher. Un bouton grisé empêche de cliquer, il n'empêche pas
+ * d'appeler la route.
+ */
+function FenetreDossier({ vid, onClose, onChange }) {
+  const [d, setD] = useState(null);
+  const [ref, setRef] = useState(null);
+  const [erreur, setErreur] = useState(null);
+  const [enCours, setEnCours] = useState(false);
+
+  const charger = useCallback(async () => {
+    try {
+      const r = await fetch(`/api/etudiants/valorisations/${vid}/dossier`,
+        { headers: authHeaders() });
+      setD(r.ok ? await r.json() : null);
+    } catch { setD(null); }
+  }, [vid]);
+  useEffect(() => { charger(); }, [charger]);
+  useEffect(() => {
+    fetch('/api/etudiants/valorisations/referentiel', { headers: authHeaders() })
+      .then(r => (r.ok ? r.json() : null)).then(setRef).catch(() => {});
+  }, []);
+
+  async function agir(chemin, corps) {
+    setEnCours(true); setErreur(null);
+    try {
+      const r = await fetch(`/api/etudiants/valorisations/${vid}/${chemin}`, {
+        method: 'PUT', headers: authHeaders(), body: JSON.stringify(corps || {}),
+      });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) { setErreur(j.error || 'Refusé.'); return false; }
+      await charger(); await onChange?.();
+      return true;
+    } catch (e) { setErreur(e.message); return false; }
+    finally { setEnCours(false); }
+  }
+
+  if (!d) {
+    return (
+      <Fenetre icone={IconCertificate} large="grande" onFermer={onClose}
+        titre="Dossier de valorisation" sous="Chargement…">
+        <div className="p-6 text-[13px] text-slate-400">Chargement…</div>
+      </Fenetre>
+    );
+  }
+
+  const v = d.dossier;
+  const qui = `${(v.nom || '').toUpperCase()} ${v.prenom || ''}`.trim();
+
+  return (
+    <Fenetre icone={IconCertificate} large="grande" onFermer={onClose}
+      titre={`Dossier — ${qui}`}
+      sous={`Unité ${v.ue_num}${d.unite?.ue_nom ? ` · ${d.unite.ue_nom}` : ''} · ${v.annee_scolaire}`}
+      pied={<>
+        <span className="text-[12px] text-slate-600">
+          État : <b>{(ref?.etats || []).find(e => e.val === v.etat)?.label || v.etat}</b>
+        </span>
+        {erreur && (
+          <span className="flex items-start gap-1.5 text-[12px] text-rose-700">
+            <IconAlertTriangle size={14} className="mt-0.5 flex-none" />{erreur}
+          </span>
+        )}
+        <button onClick={onClose} className="bouton ml-auto">Fermer</button>
+      </>}>
+
+      <div className="flex-1 min-h-0 overflow-auto p-5 space-y-3">
+
+        {/* CE QUI EMPÊCHE LA PIÈCE DE SORTIR — EN TÊTE, PAS EN BAS.
+            Le découvrir au moment d'imprimer, c'est le découvrir devant
+            quelqu'un qui attend son attestation. */}
+        {!d.piece.ok && (
+          <section className="carte p-3 border-l-[3px] border-l-amber-600">
+            <div className="text-[13px] font-medium text-slate-800">
+              Ce dossier ne peut pas produire d'attestation en l'état
+            </div>
+            <ul className="mt-1.5 space-y-0.5">
+              {d.piece.manques.map((m, i) => (
+                <li key={i} className="text-[12px] text-slate-600">· {m}</li>
+              ))}
+            </ul>
+          </section>
+        )}
+
+        {!d.unite_valorisable && (
+          <section className="carte p-3 border-l-[3px] border-l-rose-700">
+            <div className="text-[13px] text-rose-800">{d.unite_motif}</div>
+          </section>
+        )}
+
+        {/* ÉTAPE 2 — L'INTRODUCTION ET LE DÉLAI. */}
+        <EtapeDemande dossier={v} delai={d.delai} onEnregistrer={c => agir('demande', c)}
+          enCours={enCours} />
+
+        {/* ÉTAPE 3 — LA RECEVABILITÉ. */}
+        <EtapeRecevabilite dossier={v} onEnregistrer={c => agir('recevabilite', c)}
+          enCours={enCours} />
+
+        {/* ÉTAPE 4 — L'AVIS DU CHARGÉ DE COURS. */}
+        <EtapeAvis dossier={v} onEnregistrer={c => agir('avis', c)} enCours={enCours} />
+
+        {/* ÉTAPE 6 — LA DÉCISION DU CONSEIL. */}
+        <EtapeDecision dossier={v} bases={ref?.bases || []}
+          onEnregistrer={c => agir('decision', c)} enCours={enCours} />
+
+        {/* ÉTAPES 7, 8, 10 — LES GESTES ADMINISTRATIFS. */}
+        <section className="carte p-3 space-y-2">
+          <div className="text-[11px] uppercase tracking-wide text-slate-500">
+            7 · 8 · 10 — Notification, encodage, archivage
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {[
+              ['notification', 'Notifier à l’étudiant', v.notifie_le, v.notifie_par],
+              ['eprom', 'Encodé dans eProm', v.eprom_le, v.eprom_par],
+              ['archivage', 'Archivé (4 ans)', v.archive_le, null],
+            ].map(([chemin, label, fait, par]) => (
+              <button key={chemin} disabled={enCours || !!fait || !v.decision_le}
+                onClick={() => agir(chemin, { pae_maj: chemin === 'notification' })}
+                className={`bouton disabled:opacity-40 text-[12px]
+                  ${fait ? 'border-emerald-600 text-emerald-800' : ''}`}>
+                {fait ? `✓ ${label}` : label}
+                {fait && par ? ` · ${par}` : ''}
+              </button>
+            ))}
+          </div>
+          <p className="text-[11px] text-slate-500">
+            L'encodage eProm vaut pour les décisions positives <b>comme</b> négatives :
+            une décision non encodée est une décision non conforme
+            (AGCF du 13.12.2024, art. 5 al. 3).
+          </p>
+        </section>
+
+        {/* LE JOURNAL — CE QUI RÉVÈLE UNE PROCÉDURE CONTOURNÉE. */}
+        <section className="carte p-0 overflow-hidden">
+          <div className="tab-entete px-3 py-1.5 text-[11px] uppercase tracking-wide">
+            Journal du dossier — en ajout seul, rien ne s'y efface
+          </div>
+          {!d.journal.length ? (
+            <div className="p-3 text-[12px] text-slate-400">
+              Aucun geste enregistré : ce dossier est antérieur au suivi du circuit.
+            </div>
+          ) : (
+            <table className="w-full text-[12px]">
+              <tbody>
+                {d.journal.map(l => (
+                  <tr key={l.id} className="border-b border-slate-100">
+                    <td className="px-3 py-1 text-slate-500 whitespace-nowrap">{l.horodatage}</td>
+                    <td className="px-2 py-1 font-medium">{l.etape}</td>
+                    <td className="px-2 py-1">{l.acteur_nom || '—'}
+                      {l.acteur_role ? <span className="text-slate-400"> ({l.acteur_role})</span> : null}
+                    </td>
+                    <td className="px-2 py-1 text-slate-600">{l.detail || ''}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </section>
+      </div>
+    </Fenetre>
+  );
+}
+
+/** Étape 2 — la date d'introduction, et le délai qu'elle permet enfin de contrôler. */
+function EtapeDemande({ dossier, delai, onEnregistrer, enCours }) {
+  const [dd, setDd] = useState(dossier.date_demande || '');
+  const [dr, setDr] = useState(dossier.date_reception || '');
+  const [mode, setMode] = useState(dossier.mode_introduction || '');
+  return (
+    <section className="carte p-3 space-y-2">
+      <div className="text-[11px] uppercase tracking-wide text-slate-500">
+        2 — L'introduction de la demande
+      </div>
+      <div className="flex flex-wrap items-end gap-3">
+        <label className="block">
+          <span className="text-[12px] text-slate-600">Date du formulaire</span>
+          <input type="date" value={dd} onChange={e => setDd(e.target.value)}
+            className="controle text-[13px] mt-1" />
+        </label>
+        <label className="block">
+          <span className="text-[12px] text-slate-600">Date d'envoi ou de dépôt</span>
+          <input type="date" value={dr} onChange={e => setDr(e.target.value)}
+            className="controle text-[13px] mt-1" />
+        </label>
+        <label className="block">
+          <span className="text-[12px] text-slate-600">Mode</span>
+          <select value={mode} onChange={e => setMode(e.target.value)}
+            className="controle text-[13px] mt-1">
+            <option value="">—</option>
+            <option value="courriel">Courriel</option>
+            <option value="papier">Papier</option>
+            <option value="rendez-vous">Rendez-vous (diplôme étranger)</option>
+          </select>
+        </label>
+        <button onClick={() => onEnregistrer({ date_demande: dd, date_reception: dr,
+                                               mode_introduction: mode })}
+          disabled={enCours} className="bouton disabled:opacity-40">Enregistrer</button>
+      </div>
+      {/* LA DATE D'ENVOI PRIME SUR CELLE DU FORMULAIRE — sans quoi il suffirait
+          d'antidater le formulaire pour rentrer dans les délais. */}
+      <p className={`text-[12px] ${delai?.hors_delai ? 'text-rose-700' : 'text-slate-500'}`}>
+        {delai?.hors_delai
+          ? `⚠ Demande HORS DÉLAI : ${delai.explication}`
+          : delai?.explication || ''}
+      </p>
+    </section>
+  );
+}
+
+/** Étape 3 — la recevabilité. Un refus de forme n'est pas un refus pédagogique. */
+function EtapeRecevabilite({ dossier, onEnregistrer, enCours }) {
+  const [motif, setMotif] = useState(dossier.motif_irrecevabilite || '');
+  const fait = dossier.recevable != null;
+  return (
+    <section className="carte p-3 space-y-2">
+      <div className="flex items-center gap-2">
+        <span className="text-[11px] uppercase tracking-wide text-slate-500">
+          3 — La recevabilité (coordination, 5 jours ouvrables)
+        </span>
+        {fait && (
+          <span className={`text-[12px] ${dossier.recevable ? 'text-emerald-800' : 'text-rose-700'}`}>
+            ✓ {dossier.recevable ? 'Recevable' : 'Irrecevable'}
+            {dossier.recevabilite_par ? ` · ${dossier.recevabilite_par}` : ''}
+            {dossier.recevabilite_le ? ` · ${dossier.recevabilite_le}` : ''}
+          </span>
+        )}
+      </div>
+      {!fait && (
+        <>
+          <p className="text-[12px] text-slate-500">
+            Délai respecté, formulaire complet et signé, pièces officielles numérotées
+            et surlignées, originaux présentés. Une demande hors délai ou un dossier
+            incomplet est déclaré irrecevable : c'est un refus <b>de forme</b>, distinct
+            d'un refus pédagogique, et il se motive.
+          </p>
+          <div className="flex flex-wrap items-end gap-2">
+            <button onClick={() => onEnregistrer({ recevable: true })} disabled={enCours}
+              className="bouton disabled:opacity-40">Déclarer recevable</button>
+            <label className="flex-1 min-w-[16rem]">
+              <span className="text-[12px] text-slate-600">Motif de forme</span>
+              <input value={motif} onChange={e => setMotif(e.target.value)}
+                placeholder="Hors délai · formulaire incomplet · pièces non officielles…"
+                className="controle w-full text-[13px] mt-1" />
+            </label>
+            <button onClick={() => onEnregistrer({ recevable: false, motif_irrecevabilite: motif })}
+              disabled={enCours || !motif.trim()}
+              className="bouton bouton-detruire disabled:opacity-40">Irrecevable</button>
+          </div>
+        </>
+      )}
+      {fait && !dossier.recevable && (
+        <p className="text-[12px] text-slate-600">Motif : {dossier.motif_irrecevabilite}</p>
+      )}
+    </section>
+  );
+}
+
+/** Étape 4 — l'avis écrit du chargé de cours. C'est la pièce qui manquait. */
+function EtapeAvis({ dossier, onEnregistrer, enCours }) {
+  const [sens, setSens] = useState(dossier.avis_sens || '');
+  const [texte, setTexte] = useState(dossier.avis_texte || '');
+  const bloque = dossier.recevable !== 1;
+  return (
+    <section className="carte p-3 space-y-2">
+      <div className="flex items-center gap-2">
+        <span className="text-[11px] uppercase tracking-wide text-slate-500">
+          4 — L'avis du chargé de cours (10 jours ouvrables)
+        </span>
+        {dossier.avis_le && (
+          <span className="text-[12px] text-emerald-800">
+            ✓ {dossier.avis_sens}
+            {dossier.avis_par ? ` · ${dossier.avis_par}` : ''} · {dossier.avis_le}
+          </span>
+        )}
+      </div>
+      {bloque ? (
+        <p className="text-[12px] text-slate-500">
+          {dossier.recevable === 0
+            ? "Le dossier est irrecevable : il ne se transmet pas au chargé de cours."
+            : "La recevabilité doit être contrôlée d'abord (étape 3)."}
+        </p>
+      ) : (
+        <>
+          <div className="flex flex-wrap gap-2">
+            {[['favorable', 'Favorable'], ['partiel', 'Partiel'], ['defavorable', 'Défavorable']]
+              .map(([v, l]) => (
+                <label key={v}
+                  className={`px-3 py-1.5 rounded-champ border cursor-pointer text-[13px]
+                    ${sens === v ? 'border-iip-blue bg-iip-blue/5' : 'border-slate-200'}`}>
+                  <input type="radio" checked={sens === v} onChange={() => setSens(v)}
+                    className="mr-1.5 accent-iip-blue" />{l}
+                </label>
+              ))}
+          </div>
+          {/* UN AVIS SANS TEXTE N'EST PAS UN AVIS. Les décisions de VA ne sont
+              pas susceptibles de recours : la motivation est tout ce qui reste. */}
+          <textarea value={texte} onChange={e => setTexte(e.target.value)} rows={3}
+            className="controle w-full h-auto text-[13px]"
+            placeholder="Comparaison des preuves au dossier pédagogique : contenus, volume horaire, crédits, résultats obtenus…" />
+          <button onClick={() => onEnregistrer({ avis_sens: sens, avis_texte: texte })}
+            disabled={enCours || !sens || !texte.trim()}
+            className="bouton disabled:opacity-40">
+            {dossier.avis_le ? "Corriger l'avis" : "Enregistrer l'avis"}
+          </button>
+        </>
+      )}
+    </section>
+  );
+}
+
+/** Étape 6 — la décision du Conseil, avec sa base. Les 50 % ne se saisissent pas. */
+function EtapeDecision({ dossier, bases, onEnregistrer, enCours }) {
+  const [type, setType] = useState(dossier.type || 'complete');
+  const [decision, setDecision] = useState(dossier.decision || 'accordee');
+  const [base, setBase] = useState(dossier.base_code || '');
+  const [motif, setMotif] = useState(dossier.motif_refus || '');
+  const [dateCE, setDateCE] = useState(dossier.decision_ce_date || '');
+  const bloque = dossier.recevable !== 1 || !dossier.avis_le;
+  const refus = decision === 'refusee';
+
+  return (
+    <section className="carte p-3 space-y-2">
+      <div className="flex items-center gap-2">
+        <span className="text-[11px] uppercase tracking-wide text-slate-500">
+          6 — La décision du Conseil des études
+        </span>
+        {dossier.decision_le && (
+          <span className="text-[12px] text-emerald-800">
+            ✓ {dossier.decision === 'refusee' ? 'Refus' : `Accord · ${dossier.base_code || '?'}`}
+            {dossier.decision_par ? ` · ${dossier.decision_par}` : ''} · {dossier.decision_le}
+          </span>
+        )}
+      </div>
+      {bloque ? (
+        <p className="text-[12px] text-slate-500">
+          {dossier.recevable !== 1
+            ? 'La recevabilité doit être contrôlée (étape 3).'
+            : "L'avis écrit du chargé de cours manque (étape 4) : c'est lui qui fonde la décision."}
+        </p>
+      ) : (
+        <>
+          <div className="flex flex-wrap gap-2">
+            {[['accordee', 'Accord'], ['refusee', 'Refus']].map(([v, l]) => (
+              <label key={v}
+                className={`px-3 py-1.5 rounded-champ border cursor-pointer text-[13px]
+                  ${decision === v ? 'border-iip-blue bg-iip-blue/5' : 'border-slate-200'}`}>
+                <input type="radio" checked={decision === v} onChange={() => setDecision(v)}
+                  className="mr-1.5 accent-iip-blue" />{l}
+              </label>
+            ))}
+          </div>
+
+          {refus ? (
+            <textarea value={motif} onChange={e => setMotif(e.target.value)} rows={3}
+              className="controle w-full h-auto text-[13px]"
+              placeholder="Ce qui fonde le refus : contenu non comparable, volume horaire insuffisant, formation de plus de 5 ans, pièce non officielle…" />
+          ) : (
+            <div className="flex flex-wrap items-end gap-3">
+              <label className="block">
+                <span className="text-[12px] text-slate-600">Finalité</span>
+                <select value={type} onChange={e => setType(e.target.value)}
+                  className="controle text-[13px] mt-1">
+                  <option value="admission">Admission (art. 2)</option>
+                  <option value="partielle">Dispense partielle (art. 3)</option>
+                  <option value="complete">Dispense complète (art. 4)</option>
+                </select>
+              </label>
+              {/* LA BASE N'EST PAS DÉCORATIVE : c'est elle qui part dans eProm,
+                  et sans elle la décision n'est pas conforme. */}
+              <label className="block">
+                <span className="text-[12px] text-slate-600">Base de la décision</span>
+                <select value={base} onChange={e => setBase(e.target.value)}
+                  className="controle text-[13px] mt-1 min-w-[22rem]">
+                  <option value="">Choisir…</option>
+                  {bases.map(b => (
+                    <option key={b.code} value={b.code}>
+                      {b.famille} {b.code} — {b.libelle}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+          )}
+
+          <div className="flex flex-wrap items-end gap-3">
+            <label className="block">
+              <span className="text-[12px] text-slate-600">Date de la décision</span>
+              <input type="date" value={dateCE} onChange={e => setDateCE(e.target.value)}
+                className="controle text-[13px] mt-1" />
+            </label>
+            {!refus && type !== 'admission' && (
+              <p className="text-[12px] text-slate-500 pb-2">
+                Réussite fixée à <b>50 %</b> — elle ne se saisit pas (RDE art. 29 §3 et 30).
+              </p>
+            )}
+          </div>
+
+          <button
+            onClick={() => onEnregistrer({ type, decision, base_code: base,
+                                           motif_refus: motif, decision_ce_date: dateCE })}
+            disabled={enCours || (refus ? !motif.trim() : !base)}
+            className="bouton bouton-fort disabled:opacity-40">
+            {dossier.decision_le ? 'Corriger la décision' : 'Enregistrer la décision'}
+          </button>
+          {!refus && !base && (
+            <span className="ml-2 text-[12px] text-slate-500">
+              La base est obligatoire : elle est encodée dans eProm.
+            </span>
+          )}
+        </>
+      )}
+    </section>
+  );
+}
+
+/* ══ CE QUI RESTE À FAIRE ═════════════════════════════════════════════════ */
+
+/**
+ * UN RETARD NE SE VOIT PAS DOSSIER PAR DOSSIER, IL SE VOIT EN BLOC.
+ *
+ * Sans cet écran, la non-conformité se découvre à l'inspection : c'est trop
+ * tard, et l'établissement n'a rien à opposer. Les paquets sont ceux des
+ * délais de la procédure — et « encodage eProm » y figure parce qu'une
+ * décision non encodée est une décision non conforme, positive comme négative.
+ */
+function CeQuiResteAFaire({ annee, onOuvrir }) {
+  const [j, setJ] = useState(null);
+  useEffect(() => {
+    fetch(`/api/etudiants/valorisations/en-retard?annee=${encodeURIComponent(annee)}`,
+      { headers: authHeaders() })
+      .then(r => (r.ok ? r.json() : null)).then(setJ).catch(() => setJ(null));
+  }, [annee]);
+
+  if (!j) return null;
+  const TUILES = [
+    ['recevabilite', 'Recevabilité à contrôler', '5 jours ouvrables'],
+    ['avis', 'Avis du chargé de cours', '10 jours ouvrables'],
+    ['decision', 'Décision du Conseil', "avant le premier dixième de l'UE"],
+    ['notification', 'À notifier', '2 jours ouvrables'],
+    ['eprom', 'À encoder dans eProm', '5 jours ouvrables — obligatoire'],
+    ['sans_base', 'Sans base VAF/VANFI', 'décision non encodable'],
+    ['hors_delai', 'Introduites hors délai', 'RDE art. 28'],
+    ['sans_preuve', 'Sans aucune preuve', 'archivage 4 ans'],
+  ].filter(([k]) => (j.paquets[k] || []).length);
+
+  if (!TUILES.length) return null;
+  return (
+    <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+      {TUILES.map(([k, titre, aide]) => {
+        const liste = j.paquets[k];
+        return (
+          <div key={k} className="bg-white border border-slate-200 rounded-carte
+                                  border-l-[3px] border-l-amber-600 p-2.5">
+            <div className="text-[17px] font-semibold text-iip-blue">{liste.length}</div>
+            <div className="text-[12px] text-slate-700">{titre}</div>
+            <div className="text-[11px] text-slate-400">{aide}</div>
+            <div className="mt-1 space-y-0.5">
+              {liste.slice(0, 4).map(x => (
+                <button key={x.id} onClick={() => onOuvrir(x.id)}
+                  className="block text-left text-[11px] text-slate-600 hover:text-iip-blue">
+                  {(x.nom || '').toUpperCase()} {x.prenom} · UE {x.ue_num}
+                </button>
+              ))}
+              {liste.length > 4 && (
+                <div className="text-[11px] text-slate-400">et {liste.length - 4} autre(s)…</div>
+              )}
+            </div>
+          </div>
+        );
+      })}
+    </div>
   );
 }
