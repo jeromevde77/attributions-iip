@@ -570,7 +570,11 @@ export function RailDessine({ icon: HeaderIcon, titre, sousTitre, extra, surAccu
                       Un FILET FIN, posé à côté, plus court que la tuile et
                       terminé en arc aux deux bouts : il marque sans peser, et
                       la tuile garde son dessin d'origine. */}
-                  {it.actif && it.sous?.length > 0 && (
+                  {/* Le filet dit « un tiroir est ouvert dessous ». Il ne
+                      dépend plus de « cette rubrique-ci est active » : le
+                      tiroir se rattache désormais à la DERNIÈRE rubrique, qui
+                      n'est presque jamais celle qu'on regarde. */}
+                  {it.sous?.length > 0 && (
                     <span aria-hidden="true"
                       className="absolute left-0.5 top-1/2 -translate-y-1/2
                                  w-[2px] h-4 rounded-full"

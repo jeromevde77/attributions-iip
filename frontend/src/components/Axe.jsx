@@ -98,12 +98,32 @@ export default function Axe({ titre, question, icone, onglets, ongletInitial,
     return [...tous.filter(i => !i.destructif), ...tous.filter(i => i.destructif)];
   })();
 
+  /* LES RUBRIQUES DE L'AXE PASSENT DEVANT LES OUTILS DE L'ÉCRAN.
+   *
+   * Le tiroir d'outils se dépliait SOUS la rubrique ouverte — ce qui disait
+   * bien la parenté, mais repoussait toutes les rubriques suivantes derrière
+   * une demi-douzaine d'icônes d'écran. Sur l'axe Étudiants, « Valorisation »,
+   * « Délibération » et « Procédures » se retrouvaient ainsi APRÈS « Diplômes
+   * et titres » et la corbeille : le parcours de l'étudiant, qui est l'ordre
+   * même du rail, était coupé en deux par les outils d'un seul écran.
+   *
+   * L'axe se lit donc d'abord en entier — c'est lui qui dit où l'on peut
+   * aller —, et les outils de l'écran ouvert se déplient EN DESSOUS, entre
+   * leurs deux filets teintés. La parenté reste lisible par le filet et par le
+   * mouvement ; ce qui change, c'est qu'elle ne coupe plus la liste.
+   *
+   * Tranché par Charles le 19 septembre 2026, contre deux autres options :
+   * ne remonter que la valorisation, et laisser l'ordre en place en
+   * descendant seulement les diplômes et la corbeille. */
   const rubriques = {
     label: 'Dans cet axe',
-    items: visibles.map(o => ({
+    items: visibles.map((o, i) => ({
       key: o.key,
       label: o.label + (o.futur ? ' — à venir' : ''),
-      sous: actif === o.key ? sousOutils : undefined,
+      /* Le tiroir se rattache à la DERNIÈRE rubrique : il se déplie donc sous
+         la liste entière, et non au milieu. `it.sous` est rendu après son
+         entrée — c'est le seul point d'accroche, et il suffit. */
+      sous: (i === visibles.length - 1 && sousOutils.length) ? sousOutils : undefined,
       // SANS ICÔNE, LE RAIL REPLIÉ N'A RIEN À MONTRER : le libellé y est
       // masqué, et une rubrique sans icône devient une ligne vide qu'on ne
       // peut ni lire ni viser. L'axe en fournit une par défaut, pour qu'un

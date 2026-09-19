@@ -823,12 +823,19 @@ et 3 composants de tuile**. La stratégie tient en cinq chantiers, dans cet ordr
   haut était écrite « 64 px » à la main ; elle ne les fait pas toujours, et le
   rail passait dessous. La barre publie sa hauteur (`--barre-h`), le rail la
   lit. Même principe pour `--rail-largeur`, que le filet du haut consomme.
-- **Le rail s'ouvre en son milieu.** Les outils de l'écran ouvert étaient une
-  section ajoutée SOUS les rubriques : le rail semblait se réécrire tout seul à
-  chaque clic, et rien ne disait que ces icônes-là appartenaient à l'écran
-  plutôt qu'à l'axe. Ils se déplient désormais **sous leur rubrique**, entre
-  deux filets teintés (`--menu-sous`, déclaré dans les deux modes) ; ce
-  qui suit glisse vers le bas. Le tiroir se monte **fermé** et s'ouvre à l'image
+- **Le rail se lit d'abord en entier, puis il s'ouvre.** Les outils de l'écran
+  ouvert étaient une section ajoutée SOUS les rubriques, sans rien qui dise
+  qu'ils appartenaient à l'écran plutôt qu'à l'axe. On les a d'abord dépliés
+  **sous la rubrique ouverte** — la parenté se lisait, mais toutes les
+  rubriques suivantes passaient derrière une demi-douzaine d'icônes d'écran :
+  sur l'axe Étudiants, *Valorisation*, *Délibération* et *Procédures* se
+  retrouvaient APRÈS *Diplômes et titres* et la corbeille, et le parcours de
+  l'étudiant — qui est l'ordre même du rail — était coupé en deux par les
+  outils d'un seul écran. Tranché le 19 septembre 2026 : **les rubriques de
+  l'axe passent devant**, et le tiroir se déplie sous la liste complète, entre
+  ses deux filets teintés (`--menu-sous`, déclaré dans les deux modes). La
+  parenté se lit encore par le filet et par le mouvement ; ce qu'elle ne fait
+  plus, c'est couper la liste. Le tiroir se monte **fermé** et s'ouvre à l'image
   suivante — c'est le mouvement qui dit la parenté, pas la présence ; monté à sa
   hauteur finale, il surgissait d'un bloc. La hauteur passe de `0fr` à `1fr` :
   la seule transition qui n'oblige pas à mesurer le contenu, donc la seule qui
