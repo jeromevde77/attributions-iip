@@ -521,7 +521,9 @@ export default function CalendrierSessions({ sansTitre = false } = {}) {
           section ouverte. Une icône se mérite. Le choix redescend dans la barre
           de filtres de l'écran, avec la recherche et les autres réglages, là où
           l'œil le cherche. */}
-      <div className="gouttiere-rail p-5 pt-4">
+      {/* Plus de gouttière ici : le centre de planification la pose pour les
+          trois faces. Deux gouttières superposées décalaient l'écran. */}
+      <div className="p-5 pt-4">
         {/* Un titre ne s'écrit qu'une fois : sous les onglets de planification,
             l'onglet nomme déjà la face qu'on regarde. */}
         {!sansTitre && (

@@ -18,7 +18,6 @@ const SuiviEquipe = lazy(() => import('./SuiviEquipe.jsx'));
 const Listes = lazy(() => import('./Listes.jsx'));
 const Procedures = lazy(() => import('./Procedures.jsx'));
 const Valorisations = lazy(() => import('./Valorisations.jsx'));
-const CalendrierSessions = lazy(() => import('../components/CalendrierSessions.jsx'));
 
 const Attente = () => <div className="p-6 text-sm text-slate-400">Chargement…</div>;
 

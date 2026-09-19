@@ -38,7 +38,15 @@ export default function CentrePlanification({ annee, ongletInitial = 'ue' }) {
     ONGLETS.some(o => o.cle === ongletInitial) ? ongletInitial : 'ue');
 
   return (
-    <div className="flex flex-col min-h-0">
+    /* LA GOUTTIÈRE DU RAIL EST POSÉE ICI, UNE FOIS POUR LES TROIS FACES.
+     *
+     * Chaque écran la posait — ou ne la posait pas : la grille et les dates
+     * n'en avaient aucune, et c'est l'axe qui la fournissait avant qu'elles ne
+     * soient déclarées « rail propre ». Réunies sous des onglets, l'anomalie
+     * s'est vue d'un coup : la barre d'onglets commençait sous le rail. Une
+     * règle qui n'est juste que si chaque écran y pense est une règle fausse —
+     * le centre la pose, et les trois en héritent. */
+    <div className="gouttiere-rail flex flex-col min-h-0">
       {/* LA BARRE D'ONGLETS NE DÉFILE PAS AVEC LE CONTENU : on change de face
           en gardant le repère, comme sur une fiche. */}
       <div className="flex-none flex items-center gap-1 px-4 pt-3
