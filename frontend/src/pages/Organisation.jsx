@@ -3,20 +3,18 @@ import GardeAnnee from '../components/GardeAnnee.jsx';
 import { useSearchParams } from 'react-router-dom';
 import Axe from '../components/Axe.jsx';
 import {
-  IconLayoutGrid, IconCalendar, IconSchool, IconSitemap, IconFileDescription,
+  IconLayoutGrid, IconSchool, IconSitemap, IconFileDescription,
   IconClock, IconCalendarStats, IconBuilding, IconBooks,
 } from '@tabler/icons-react';
 import Attributions from './Attributions.jsx';
 import Planification from './Planification.jsx';
 import HoraireComparateur from './HoraireComparateur.jsx';
 import DUE from './DUE.jsx';
-import DatesUE from '../components/DatesUE.jsx';
 import StructureSection from './StructureSection.jsx';
 import Rentree from './Rentree.jsx';
 import { authHeaders } from '../lib/api.js';
 
-const CalendrierSessions = lazy(() => import('../components/CalendrierSessions.jsx'));
-const GrilleOrganisation = lazy(() => import('./GrilleOrganisation.jsx'));
+const CentrePlanification = lazy(() => import('./CentrePlanification.jsx'));
 
 /**
  * Axe ORGANISATION — « Qu'organise-t-on cette année ? »
@@ -54,23 +52,22 @@ export default function Organisation({ ongletInitial }) {
       onglets={[
         { key: 'attributions', label: 'Attributions', icone: IconLayoutGrid, sansMarge: true,
           rendu: <Attributions /> },
-        // LA COUCHE QUI MANQUAIT : ce qu'on FAIT de l'unité cette année. Elle
-        // se planifie AVANT d'attribuer, donc elle suit immédiatement les
-        // attributions dans l'ordre du rail, et non en fin de liste.
-        { key: 'grille', label: "Grille d'organisation", icone: IconCalendarStats,
+        /* PLANIFIER, C'EST UN SEUL TERRITOIRE — DONC UNE SEULE PORTE.
+         *
+         * Trois entrées du rail répondaient à la même question — QUAND les
+         * choses se passent : la grille d'organisation, les dates d'ouverture
+         * et de fermeture des unités, le calendrier des sessions. On en
+         * ouvrait une, puis l'autre, pour reconstituer de tête une chronologie
+         * que personne ne voyait d'un bloc — et trois icônes voisines qui
+         * disent « le temps » ne signalent plus rien. Une icône se mérite.
+         *
+         * La planification suit immédiatement les attributions : elle se fait
+         * AVANT d'attribuer, et c'est l'ordre du travail de rentrée. */
+        { key: 'planifier', label: 'Planification', icone: IconCalendarStats,
           sansMarge: true, railPropre: true,
           rendu: <Suspense fallback={<div className="p-4 text-[13px] text-slate-400">Chargement…</div>}>
-                   <GrilleOrganisation /></Suspense> },
-        // Les dates de session et de délibération, pour toute une section et
-        // d'un seul écran — venues d'Étudiants, où elles n'avaient rien à faire.
-        { key: 'calendrier', label: 'Calendrier des sessions', icone: IconCalendarStats,
-          sansMarge: true, railPropre: true,
-          rendu: <Suspense fallback={<div className="p-4 text-sm text-slate-400">Chargement…</div>}>
-                   <CalendrierSessions /></Suspense> },
-        { key: 'organisations', label: "Organisations d'UE", icone: IconCalendar,
-          rendu: annee
-            ? <DatesUE annee={annee} />
-            : <div className="text-sm text-slate-400 p-4">Chargement de l'année active…</div> },
+                   <CentrePlanification annee={annee}
+                     ongletInitial={params.get('sous') || 'ue'} /></Suspense> },
         { key: 'rentree', label: 'Rentrée', icone: IconSchool, sansMarge: true,
           rendu: annee
             ? <Rentree annee={annee} />

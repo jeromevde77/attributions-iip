@@ -14,6 +14,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { Router } from 'express';
+import { manquesDossier, uniteValorisable } from '../lib/valorisation.js';
 import { LOGO_IIP_JPEG } from '../services/assets/logo_iip_jpeg.js';
 import { piedBalisage, piedStyles, reglesDePage, stylesEntete, enteteDocument,
   BANDE_PIED_MM, MARGE_SOUS_PIED_MM, piedGabaritPdf } from '../lib/document.js';
@@ -28,7 +29,7 @@ import { identiteEtablissement } from './config.js';
 // direction. Recomposer la liste ici en aurait fait une seconde source — et
 // deux sources pour un même fait, c'est une source de moins.
 import { membresDuConseil, etatQuorum, CATEGORIES_MEMBRE,
-  nomPropreDepuisChaine } from './acquis.js';
+  nomPropreDepuisChaine, memePersonne } from './acquis.js';
 
 const r = Router();
 
@@ -1196,6 +1197,31 @@ function manquesValorisation({ seance, membres, quorum }, vas, ue, annee = null)
     if (v.decision === 'refusee' && !String(v.motif_refus || '').trim()) {
       m.push(`${qui} : motif du refus.`);
     }
+
+    /* LE CIRCUIT DOIT AVOIR ÉTÉ PARCOURU — ET C'EST ICI QUE ÇA SE VÉRIFIE.
+     *
+     * En septembre 2026, une attestation de réussite « Valorisation » erronée
+     * est sortie de Lucie. En amont, la procédure avait été contournée : pas
+     * d'avis écrit du chargé de cours, pas de base légale, pas de motivation.
+     * La signature de la direction et le cachet de l'établissement ont
+     * pourtant été apposés — parce que la barrière ne regardait QUE la séance
+     * et les mentions de la pièce, jamais l'instruction du dossier.
+     *
+     * Une pièce signée n'est pas un formulaire bien rempli : c'est la trace
+     * d'une procédure. Le serveur refuse donc de produire tant que le dossier
+     * n'a pas été instruit, et il NOMME l'étudiant et ce qui manque — un refus
+     * muet se contourne, un refus nommé se corrige. */
+    for (const souci of manquesDossier(v)) {
+      m.push(`${qui} : ${souci}`);
+    }
+
+    /* ET CE QUI NE PEUT JAMAIS ÊTRE VALORISÉ NE SE VALORISE PAS DAVANTAGE AU
+     * MOMENT D'IMPRIMER. Le contrôle existe à l'enregistrement ; il est répété
+     * ici parce qu'une décision peut avoir été encodée avant que l'exclusion
+     * ne soit posée sur l'unité — et c'est justement ce passé-là qu'on
+     * cherche à rattraper. */
+    const val = uniteValorisable(v.ue_num ?? ue?.ue_num, annee || ue?.annee_scolaire);
+    if (!val.ok) m.push(`${qui} : ${val.motif}`);
   }
   return m;
 }
@@ -1209,7 +1235,9 @@ r.get('/valorisation/ue/:ueNum/seance', authRequired, (req, res) => {
   const ue = db.prepare(`SELECT * FROM ue WHERE ue_num = ?
     ORDER BY (annee_scolaire = ?) DESC, annee_scolaire DESC LIMIT 1`).get(ueNum, annee) || {};
   const vas = db.prepare(`
-    SELECT v.*, e.nom, e.prenom, e.date_naissance, e.lieu_naissance
+    SELECT v.*, e.nom, e.prenom, e.date_naissance, e.lieu_naissance,
+           (SELECT COUNT(*) FROM etudiant_valorisation_aa a
+             WHERE a.valorisation_id = v.id) AS nb_equivalences
       FROM etudiant_valorisation v JOIN etudiant e ON e.id = v.etudiant_id
      WHERE v.ue_num = ? AND v.annee_scolaire = ?
      ORDER BY e.nom, e.prenom`).all(ueNum, annee);
@@ -1293,7 +1321,9 @@ r.put('/valorisation/ue/:ueNum/seance', authRequired, (req, res) => {
   const ue = db.prepare(`SELECT * FROM ue WHERE ue_num = ?
     ORDER BY (annee_scolaire = ?) DESC, annee_scolaire DESC LIMIT 1`).get(ueNum, annee) || {};
   const vas = db.prepare(`
-    SELECT v.*, e.nom, e.prenom, e.date_naissance, e.lieu_naissance
+    SELECT v.*, e.nom, e.prenom, e.date_naissance, e.lieu_naissance,
+           (SELECT COUNT(*) FROM etudiant_valorisation_aa a
+             WHERE a.valorisation_id = v.id) AS nb_equivalences
       FROM etudiant_valorisation v JOIN etudiant e ON e.id = v.etudiant_id
      WHERE v.ue_num = ? AND v.annee_scolaire = ?`).all(ueNum, annee);
   res.json({ ok: true, ...etat, manques: manquesValorisation(etat, vas, ue, annee) });
@@ -1621,9 +1651,18 @@ r.post('/valorisation/ue/:ueNum/documents', authRequired, async (req, res) => {
     <div class="lieu">Fait en un exemplaire à ${esc(ident.ville || 'Anderlecht')},
       le ${frDate(new Date().toISOString())}</div>
     <div class="legende">
-      <div class="qualite">Pour le Conseil des études,<br>${
-        esc(seance.president_titre || 'le Directeur')}</div>
-      <div class="nom">${esc(seance.president_nom)}</div>
+      <!-- LE PRÉSIDENT EST SOUVENT LE DIRECTEUR — ET ALORS IL NE SIGNE QU'UNE
+           FOIS. Le PV de délibération le savait depuis longtemps ; celui-ci
+           l'ignorait, et la pièce sortait avec le même nom sur deux lignes,
+           sous deux qualités différentes. -->
+      ${memePersonne(seance.president_nom, identiteEtablissement()?.directeur)
+        ? `<div class="qualite">Pour le Conseil des études,<br>le Directeur</div>
+           <div class="nom">${esc(seance.president_nom)}</div>`
+        : `<div class="qualite">Pour le Conseil des études,<br>${
+             esc(seance.president_titre || 'le Président')}</div>
+           <div class="nom">${esc(seance.president_nom)}</div>
+           <div class="qualite" style="margin-top:3mm">Le Directeur,</div>
+           <div class="nom">${esc(identiteEtablissement()?.directeur || '……………………')}</div>`}
     </div>
   </div>
 </div>`;

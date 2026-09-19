@@ -44,7 +44,7 @@ const epaisseur = perSem => {
   return Math.max(4, Math.min(22, Math.round(perSem * 2.5)));
 };
 
-export default function GrilleOrganisation() {
+export default function GrilleOrganisation({ sansTitre = false } = {}) {
   const annee = getAnnee();
   const [sections, setSections] = useState([]);
   const [section, setSection] = useState('');
@@ -102,7 +102,10 @@ export default function GrilleOrganisation() {
 
   return (
     <div className="px-3 pt-4 pb-8">
-      <div className="hidden md:flex items-baseline gap-2.5 min-w-0 mb-2.5">
+      {/* UN TITRE NE S'ÉCRIT QU'UNE FOIS PAR ÉCRAN. Monté sous les onglets du
+          centre de planification, celui-ci répétait ce que l'onglet dit déjà :
+          l'écran s'annonçait deux fois, à deux endroits, sous deux noms. */}
+      <div className={`${sansTitre ? 'hidden' : 'hidden md:flex'} items-baseline gap-2.5 min-w-0 mb-2.5`}>
         <h1 className="titre-ecran flex-shrink-0 mb-0">Grille d'organisation</h1>
         <p className="text-[13px] text-slate-400 truncate">
           <span className="mr-2 text-slate-300">·</span>

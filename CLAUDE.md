@@ -391,6 +391,139 @@ bouton reste gris tant que le motif est vide. Sur le procès-verbal, la colonne
 garde-fou n'exige plus de pourcentage là où il n'y a rien à porter, et aucune
 attestation de réussite ne se tire d'un refus.
 
+**UNE SÉANCE DE VALORISATION SE TIENT PAR UNITÉ, PAS PAR DOSSIER.** Le conseil
+des études d'une unité examine les demandes en SÉRIE : même unité, même séance,
+même dispense, souvent le même constat d'équivalence — huit dossiers de reprise
+d'études qui portent le même diplôme antérieur. Lucie faisait naître huit
+valorisations « partielles et vides », qu'il fallait ensuite ouvrir et remplir
+huit fois : on écrivait huit fois ce que le Conseil a décidé une fois, avec huit
+occasions de se tromper d'une case. Depuis 2.12.36, *Valoriser en série* —
+l'action principale de l'écran, et il n'y en a qu'une : l'UNITÉ d'abord (elle
+convoque le conseil), puis les ÉTUDIANTS qu'elle concerne, cochés dans un
+tableau, puis LA DÉCISION saisie une fois et portée par tous. Les étudiants
+proposés ne se cherchent plus dans les 588 du fichier : ce sont ceux qui ont
+l'unité à leur programme.
+
+> **TOUS LES ACQUIS, C'EST L'UNITÉ ENTIÈRE.** Cocher un à un tous les acquis
+> d'une unité n'est pas une dispense partielle exhaustive : c'est une dispense
+> d'unité, et la pièce doit le dire ainsi — PV d'annexe 4 et attestation de
+> réussite. Le choix « toute l'unité » écrit donc une valorisation COMPLÈTE, et
+> non une partielle qui lui ressemblerait. Trois portées, et pas une de plus :
+> toute l'unité, des cours, des acquis au choix.
+
+> **LE LOT EST TOUT OU RIEN, ET UN DOUBLON L'ARRÊTE.** Une écriture partielle
+> serait pire que le refus : on ne saurait pas lesquels sont passés, on
+> recommencerait, et les premiers se retrouveraient en double — or deux
+> décisions contraires sur une même unité bloquent l'impression du PV, sans
+> qu'on sache pourquoi. Un étudiant qui porte déjà une décision sur cette unité
+> et cette année A ÉTÉ EXAMINÉ : l'écraser ferait disparaître une décision du
+> Conseil sans trace, l'ignorer laisserait croire qu'il a reçu celle du lot. Le
+> serveur rend la liste nommée, n'écrit rien, et le secrétariat décoche ou
+> corrige à la main. Ces étudiants sont d'ailleurs **décochables mais non
+> cochables** dans le tableau : le blocage se voit avant d'être subi.
+
+**UNE VALORISATION EST UN CIRCUIT, PAS UNE DÉCISION — ET C'EST UNE FAUTE RÉELLE
+QUI L'A APPRIS.** En septembre 2026, une attestation de réussite
+« Valorisation » erronée est sortie de Lucie. En amont, la procédure avait été
+contournée par la coordination : pas d'avis écrit du chargé de cours, pas de
+base légale, pas de motivation. **La signature de la direction et le cachet de
+l'établissement ont pourtant été apposés** — parce que rien, dans le logiciel,
+ne savait ce qui aurait dû précéder. Lucie enregistrait UNE DÉCISION ; la
+procédure de l'IIP décrit DIX ÉTAPES, avec des délais, des rôles et des motifs
+de nature différente. Depuis 2.12.38, `lib/valorisation.js` porte le circuit, et
+la règle tient en une phrase :
+
+> **AUCUNE PIÈCE PORTANT UNE SIGNATURE NE SE PRODUIT SI LE CIRCUIT N'A PAS ÉTÉ
+> PARCOURU — ET CHAQUE ÉTAPE PORTE LE NOM DE CELUI QUI L'A FAITE.**
+
+Ce que le serveur refuse désormais, et qu'il refusait pas :
+
+- **Ce qui ne peut jamais être valorisé.** L'épreuve intégrée (AGCF art. 4 §3,
+  1°) se reconnaît seule ; les trois autres exclusions — UE sans prestations
+  d'étudiants, UE qu'une réglementation impose de suivre, et à l'IIP la
+  méthodologie de la recherche — se cochent sur l'unité (`ue.valorisation_exclue`
+  + motif), parce que les écrire en dur ferait mentir Lucie dès la première
+  section qui change. Le motif coché s'imprime tel quel dans le refus.
+- **Une dispense partielle ne peut pas couvrir TOUTES les activités de l'UE**
+  (RGE art. 29 §2) : c'est une dispense complète déguisée — mêmes effets, sans
+  l'attestation, sans le PV d'unité, et l'étudiant reste compté comme régulier.
+- **La base de la décision est obligatoire** dès qu'on accorde : VAF V1-V4 ou
+  VANFI D/E. C'est elle qui part dans eProm, et **« une décision non encodée est
+  une décision non conforme »** (AGCF art. 5 al. 3) — positives ET négatives.
+- **Les 50 % ne se saisissent pas** (RDE art. 29 §3 et 30). C'était un champ
+  libre pré-rempli : un chiffre modifiable finit par être modifié, et il part
+  sur une pièce signée. Le verrou protège l'avenir ; un contrôle à la LECTURE
+  signale les lignes déjà écrites hors norme — la barrière rattrape le passé.
+- **L'ordre des étapes.** La recevabilité avant l'avis, l'avis avant la
+  décision. Un avis sans texte n'est pas un avis : les décisions de VA ne sont
+  **pas susceptibles de recours** (RDE art. 30 et 87 §2), la motivation est
+  tout ce qui reste.
+- **Un refus de forme n'est pas un refus pédagogique.** L'irrecevabilité
+  (hors délai, dossier incomplet, pièces non officielles) a sa colonne et son
+  motif propres — les confondre produisait des refus dont on ne savait plus, un
+  an après, s'ils portaient sur le fond ou sur la procédure. Et toute demande
+  s'encode, **recevable ou non**.
+- **Le délai (RDE art. 28) se calcule** : ouverture de l'UE si elle est encodée,
+  sinon le quinzième jour suivant le premier jour de l'année. La date d'ENVOI
+  prime sur celle du formulaire — sans quoi il suffirait d'antidater.
+
+> **L'ÉTAT SE DÉDUIT, IL NE SE DÉCLARE PAS.** Un état qu'on peut poser à la main
+> est un état qu'on peut poser à tort, et c'est la faute même qu'on cherche à
+> empêcher. Il se lit des traces, dans l'ordre inverse du circuit.
+
+> **LE JOURNAL EST EN AJOUT SEUL** (`valorisation_journal`). Aucune route ne le
+> modifie ni ne l'efface, administrateur compris : une trace qu'on peut corriger
+> ne prouve rien. Une procédure contournée ne se voit JAMAIS dans l'état final —
+> le dossier ressemble à un dossier normal ; c'est la suite des gestes, qui et
+> quand, qui la révèle.
+
+> **ET LE TABLEAU DE CE QUI RESTE À FAIRE** (en tête de l'écran) : recevabilités
+> non contrôlées, avis en attente, décisions non notifiées, décisions non
+> encodées dans eProm, demandes hors délai, dossiers sans preuve. Un retard ne
+> se voit pas dossier par dossier ; sans ce bloc, la non-conformité se découvre
+> à l'inspection, et il est alors trop tard.
+
+**LA COORDINATION INSTRUIT, LA DIRECTION VALIDE — DEUX GESTES, DEUX MAINS.**
+Le circuit de 2.12.38 vérifiait que le dossier était instruit ; il ne disait pas
+QUI avait regardé le tout avant que la pièce parte. Or c'est le geste qui manque
+quand une signature se retrouve sur une décision que son titulaire n'a pas vue.
+Depuis 2.12.39, une **étape 6 bis** : la validation.
+
+- **Instruire** (introduction, recevabilité, avis, décision) : coordination,
+  secrétariat, direction — `PEUT_INSTRUIRE`. C'est une **exception explicite** à
+  la doctrine générale de Lucie (« un coordinateur n'écrit jamais directement,
+  ses modifications passent par une demande »), parce qu'à l'IIP ce sont les
+  coordinations qui instruisent les VA. L'exception est écrite dans
+  `lib/valorisation.js`, pas cachée dans une route.
+- **Valider** : `PEUT_VALIDER` = direction et direction adjointe, **et personne
+  d'autre**. Charles a tranché le 19 septembre 2026 contre deux autres options —
+  « chacun valide, y compris son propre travail », écarté parce qu'il ne protège
+  que de l'oubli ; « quatre yeux » (valider oui, mais jamais son propre
+  dossier), écarté parce que moins lisible.
+- **Dévalider** : direction seule, **motif écrit obligatoire** — une pièce a pu
+  partir sur la foi de cette validation. Le journal garde les deux gestes.
+
+> **UN DOSSIER VALIDÉ EST GELÉ.** Recevabilité, avis et décision ne se modifient
+> plus. Sans ce gel, la validation ne garantirait rien : on validerait un
+> dossier propre puis on corrigerait derrière, et la pièce déjà partie
+> reposerait sur autre chose que ce qui a été validé.
+
+> **ON NE VALIDE PAS CE QUI N'EST PAS INSTRUIT.** Une case cochable sur un
+> dossier incomplet donnerait une fausse garantie : le serveur refuse et nomme
+> ce qui manque.
+
+> **LE LOT NE DILUE PAS LA RESPONSABILITÉ.** Valider ou corriger en série écrit
+> **une ligne de journal par dossier**, avec le nom de celui qui a posé le
+> geste : un an après, on lit « validé par Untel le 20 septembre » sur CE
+> dossier-là, et non un geste collectif dont plus personne ne répond. Tout ou
+> rien, comme la création en lot, et les dossiers qui bloquent sont nommés.
+
+> **ON NE RÉCLAME PAS CE QU'ON NE DONNE PAS À SAISIR.** La fenêtre proposait
+> « dispense partielle » sans aucun moyen de désigner les activités ou les
+> acquis : le serveur refusait — à juste titre — et l'écran ne laissait aucune
+> issue. Un message qui réclame ce qu'aucun champ ne permet d'entrer est un
+> cul-de-sac, pas un garde-fou.
+
 **Le registre des valorisations** (rail *Étudiants → Valorisation*) : elles ne se
 lisaient que fiche par fiche, donc elles ne se lisaient pas — personne n'ouvre
 588 dossiers pour savoir qui a demandé quoi. Une ligne par demande, filtrable par
@@ -667,11 +800,18 @@ et 3 composants de tuile**. La stratégie tient en cinq chantiers, dans cet ordr
   onglets d'une fiche, d'une fenêtre, d'un écran : on tourne une page. Le
   désordre ne venait pas d'avoir deux formes, mais de n'avoir aucune règle :
   douze barres d'onglets, cinq couleurs de soulignement, quatre hauteurs.
-- **Une fenêtre ne bouge pas une fois ouverte.** Elle s'ancre en haut à une
-  distance fixe (6 vh) et les grandes ont une **hauteur fixe** (88 vh) : c'est
-  le contenu qui défile. Centrée verticalement, elle se recentrait à chaque
-  changement d'onglet — un onglet court la faisait monter, un long descendre,
-  et le bouton qu'on visait n'était plus là où on l'avait laissé.
+- **Une fenêtre ne bouge pas une fois ouverte, et elle fait la hauteur de ce
+  qu'elle dit.** Elle s'ancre en haut à une distance fixe (6 vh) : centrée
+  verticalement, elle se recentrait à chaque changement d'onglet — un onglet
+  court la faisait monter, un long descendre, et le bouton qu'on visait n'était
+  plus là où on l'avait laissé. Les grandes ont longtemps eu en plus une
+  **hauteur fixe** de 88 vh, pour la même raison ; mais l'ancrage en haut règle
+  déjà le problème — le sommet ne bouge plus quand la hauteur change. Ce qu'il
+  restait de la hauteur fixe se voyait : *Améliorations*, trois champs et un
+  bouton, occupait les neuf dixièmes de l'écran, dont les deux tiers de blanc
+  sous le pied. Toutes **plafonnent à 88 vh** et s'arrêtent à leur contenu ;
+  `hauteurFixe` reste disponible pour celles dont le contenu change vraiment de
+  hauteur sous l'utilisateur — c'est alors un choix écrit, non un défaut subi.
 - **L'ACTION D'UNE FENÊTRE NE DÉFILE JAMAIS AVEC SON CONTENU.** Elle vit dans
   le **pied** (`pied={…}` sur `Fenetre`), une bande fixe au bas du panneau.
   Posé au bas du contenu, un bouton descend avec lui : pour valider trois cases
@@ -690,12 +830,19 @@ et 3 composants de tuile**. La stratégie tient en cinq chantiers, dans cet ordr
   haut était écrite « 64 px » à la main ; elle ne les fait pas toujours, et le
   rail passait dessous. La barre publie sa hauteur (`--barre-h`), le rail la
   lit. Même principe pour `--rail-largeur`, que le filet du haut consomme.
-- **Le rail s'ouvre en son milieu.** Les outils de l'écran ouvert étaient une
-  section ajoutée SOUS les rubriques : le rail semblait se réécrire tout seul à
-  chaque clic, et rien ne disait que ces icônes-là appartenaient à l'écran
-  plutôt qu'à l'axe. Ils se déplient désormais **sous leur rubrique**, entre
-  deux filets teintés (`--menu-sous`, déclaré dans les deux modes) ; ce
-  qui suit glisse vers le bas. Le tiroir se monte **fermé** et s'ouvre à l'image
+- **Le rail se lit d'abord en entier, puis il s'ouvre.** Les outils de l'écran
+  ouvert étaient une section ajoutée SOUS les rubriques, sans rien qui dise
+  qu'ils appartenaient à l'écran plutôt qu'à l'axe. On les a d'abord dépliés
+  **sous la rubrique ouverte** — la parenté se lisait, mais toutes les
+  rubriques suivantes passaient derrière une demi-douzaine d'icônes d'écran :
+  sur l'axe Étudiants, *Valorisation*, *Délibération* et *Procédures* se
+  retrouvaient APRÈS *Diplômes et titres* et la corbeille, et le parcours de
+  l'étudiant — qui est l'ordre même du rail — était coupé en deux par les
+  outils d'un seul écran. Tranché le 19 septembre 2026 : **les rubriques de
+  l'axe passent devant**, et le tiroir se déplie sous la liste complète, entre
+  ses deux filets teintés (`--menu-sous`, déclaré dans les deux modes). La
+  parenté se lit encore par le filet et par le mouvement ; ce qu'elle ne fait
+  plus, c'est couper la liste. Le tiroir se monte **fermé** et s'ouvre à l'image
   suivante — c'est le mouvement qui dit la parenté, pas la présence ; monté à sa
   hauteur finale, il surgissait d'un bloc. La hauteur passe de `0fr` à `1fr` :
   la seule transition qui n'oblige pas à mesurer le contenu, donc la seule qui
@@ -713,13 +860,26 @@ et 3 composants de tuile**. La stratégie tient en cinq chantiers, dans cet ordr
   une entrée de menu n'a pas d'état, elle a une position. Elle porte donc un
   **filet fin de deux pixels, posé à côté, plus court que la tuile et terminé en
   arc aux deux bouts**, et seulement quand un sous-menu est ouvert dessous.
-- **Le même ordre dans tous les rails, et il ne se discute pas** : SORTIR
-  d'abord — « Imprimer ou envoyer », l'avion plutôt que l'imprimante depuis que
-  le centre fait les deux, et le libellé suit le dessin —, puis les outils de
-  l'écran, puis *Proposer une amélioration*, puis **DÉTRUIRE, toujours en
-  dernier**. Le tri se fait sur un drapeau `destructif`, pas sur la place où
-  chaque écran a rangé son entrée : une règle qui n'est juste que si l'on y
-  pense est une règle fausse.
+- **L'ORDRE DU RAIL EST CELUI DU TRAVAIL, PAS CELUI DE LA MÉCANIQUE.** En tête,
+  ce qui vaut partout : SORTIR — « Imprimer ou envoyer », l'avion plutôt que
+  l'imprimante depuis que le centre fait les deux —, l'import, *Proposer une
+  amélioration*. Puis la suite des gestes de l'axe. Et **DÉTRUIRE, toujours en
+  dernier** : le tri se fait sur un drapeau `destructif`, pas sur la place où
+  chaque écran a rangé son entrée.
+  On a d'abord rangé les rubriques de l'axe d'un côté et les outils de l'écran
+  de l'autre, en deux blocs. C'était propre pour le code et **faux pour
+  l'usage** : sur Étudiants, « Composer les PAE de l'année suivante »
+  appartient au PAE, « Diplômes et titres » suit la délibération. Les séparer
+  par NATURE coupait une suite de gestes en deux listes qu'il fallait recoller
+  de tête. Un axe déclare donc `ordreRail` — des **groupes de clés mêlant
+  rubriques et outils**, séparés à l'écran par un filet. Étudiants, arrêté le
+  19 septembre 2026 : *créer un étudiant · PAE · composer le PAE suivant ·
+  valorisation · délibération · diplômes* — puis *procédures* — puis la
+  corbeille. Ce qui n'est pas listé garde sa place : un écran qui ajoute un
+  outil demain ne disparaît pas du rail parce que personne n'a pensé à le
+  lister. Sans `ordreRail`, on retombe sur les rubriques puis le tiroir.
+- **UN FILET ENTRE LES GROUPES, ET AUCUN À LA FIN.** Une barre posée après le
+  dernier groupe ne sépare de rien et ferme la liste sur du vide.
 - **Les rubriques « à venir » ont quitté les rails.** Une place réservée
   annonçant un écran qui n'existe pas est une promesse faite à qui n'a rien
   demandé, et son icône occupait une place dans le rail replié de ceux qui
@@ -892,6 +1052,43 @@ somme retombe sur les périodes du cours, et c'est le COURS qui figure au contra
 de travail, sur l'attestation et sur le procès-verbal. C'est un choix
 pédagogique, il peut différer d'un professeur à l'autre — la grille en propose
 un, l'attribution peut en retenir un autre.
+
+---
+
+### Les traces — trois règles générales, valables partout dans Lucie
+
+Posées par Charles le 19 septembre 2026, après qu'une attestation erronée eut
+circulé sans qu'on puisse dire qui l'avait sortie. « Je veux des traces. »
+
+- **LA DATE DU JOUR EST LE DÉFAUT.** Un champ de date vide impose un clic, un
+  calendrier et un repérage visuel pour écrire ce que Lucie sait déjà. Et comme
+  il coûte, il reste vide — si bien que les dates manquent précisément là où
+  elles prouvent quelque chose. On propose **aujourd'hui**, et l'on corrige
+  quand ce n'est pas le bon jour (`aujourdHui()` dans `pages/Valorisations.jsx`,
+  à généraliser). Le défaut doit être correct.
+- **CELUI QUI CLIQUE EST CELUI QUI SIGNE.** La personne qui accepte, valide ou
+  coche est **la personne connectée** — jamais un nom choisi dans une liste, ni
+  un champ libre. Un nom qu'on saisit est un nom qu'on peut mettre à la place
+  d'un autre. Son nom est enregistré avec l'heure, et il paraît à l'écran.
+- **TOUTE PIÈCE DIT QUI L'A PRODUITE.** *« Produit par Charles Sohet le
+  19/09/2026 à 11:42 »*, dans le pied commun. Écrite **une fois**, dans
+  `piedDocument()`, et non pièce par pièce : quarante et une pièces, ce sont
+  quarante et une occasions d'oublier — et ce serait celle qu'on a oubliée qui
+  circulerait sans qu'on sache d'où elle vient. Une pièce imprimée quitte
+  Lucie, et c'est **hors** de Lucie qu'on se demande qui l'a sortie ; un
+  registre interne ne suffit donc pas.
+
+> **COMMENT L'UTILISATEUR ARRIVE JUSQU'AU PIED DE PAGE.**
+> `lib/contexteRequete.js` porte la requête dans un `AsyncLocalStorage` ouvert
+> par un middleware global. Passer l'utilisateur en paramètre aurait demandé de
+> modifier les quarante et une pièces et tous leurs appels : on en aurait
+> oublié la moitié — c'est la leçon des trente-trois routes d'attribution dont
+> une seule filtrait. **Le contexte garde `req`, pas `req.user`** : le
+> middleware s'exécute AVANT l'authentification, qui a lieu route par route, et
+> copier la valeur y aurait figé un `null` pour toute la requête — toutes les
+> pièces seraient sorties sans nom, sans que rien ne le signale.
+> Ce n'est **pas** un mécanisme d'autorisation : aucun droit ne se décide
+> d'après ce contexte. Les droits se contrôlent sur la porte, avec `req.user`.
 
 ---
 

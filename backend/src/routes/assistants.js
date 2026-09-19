@@ -99,7 +99,7 @@ const ASSISTANTS = {
         cle: 'organisations',
         titre: 'Créer les organisations d\u2019UE',
         aide: 'Ce qui est organisé cette année, toutes sections confondues, avec leurs dates.',
-        cible: '/organisation?onglet=organisations',
+        cible: '/organisation?onglet=planifier&sous=dates',
         verifier: ({ annee }) => {
           const n = compte('SELECT COUNT(*) AS n FROM organisation_ue WHERE annee_scolaire = ?', annee);
           const datees = compte(
@@ -195,7 +195,7 @@ const ASSISTANTS = {
         cle: 'organisations',
         titre: 'Créer les organisations d\u2019UE de l\u2019année',
         aide: "Ce que la section organise cette année-ci, avec les dates qui déclenchent les comptages réglementaires.",
-        cible: '/organisation?onglet=organisations',
+        cible: '/organisation?onglet=planifier&sous=dates',
         verifier: ({ section, annee }) => {
           const n = compte(
             'SELECT COUNT(*) AS n FROM organisation_ue WHERE section = ? AND annee_scolaire = ?',
