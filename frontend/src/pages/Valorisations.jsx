@@ -95,11 +95,34 @@ export default function Valorisations() {
       .sort((a, b) => `${a.nom} ${a.prenom}`.localeCompare(`${b.nom} ${b.prenom}`, 'fr'));
   }, [parEtudiant, enAttente]);
 
-  async function supprimer(vid) {
-    if (!confirm('Supprimer cette valorisation ? Ses preuves partent avec elle.')) return;
-    await fetch(`/api/etudiants/valorisations/${vid}`,
-      { method: 'DELETE', headers: authHeaders() });
-    await charger();
+  /* UN REFUS QU'ON N'AFFICHE PAS RESSEMBLE À UNE PANNE.
+   *
+   * On cliquait « OK », le serveur refusait en 409 — à juste titre —, et
+   * l'écran ne disait rien : la ligne restait là, sans un mot, et l'on
+   * recommençait en croyant que le bouton était cassé. La réponse du serveur
+   * est portée à l'écran, et quand elle réclame un motif, on le demande au
+   * lieu de laisser deviner. */
+  async function supprimer(vid, motif = null) {
+    if (!motif && !confirm('Supprimer cette valorisation ? Ses preuves partent avec elle.')) return;
+    try {
+      const r = await fetch(`/api/etudiants/valorisations/${vid}`, {
+        method: 'DELETE', headers: authHeaders(),
+        body: JSON.stringify({ motif: motif || undefined }),
+      });
+      if (!r.ok) {
+        const j = await r.json().catch(() => ({}));
+        // Le serveur demande un motif : on le demande à son tour, une fois.
+        if (j.motif_requis && !j.reserve_direction && !motif) {
+          const m = window.prompt(`${j.error}\n\nMotif de la suppression :`, '');
+          if (m && m.trim()) return supprimer(vid, m.trim());
+          return;
+        }
+        setErreur(j.error || 'Suppression refusée.');
+        return;
+      }
+      setErreur(null);
+      await charger();
+    } catch (e) { setErreur(e.message); }
   }
 
   /* RETIRER UNE LIGNE ENTIÈRE — ET DIRE CE QU'ON EFFACE AVANT DE L'EFFACER.
@@ -112,10 +135,19 @@ export default function Valorisations() {
       + `${n} demande(s) seront supprimées. Les décisions déjà prises, elles, `
       + 'ne peuvent pas être effacées.')) return;
     try {
-      const r = await fetch(
+      const envoyer = motif => fetch(
         `/api/etudiants/valorisations/etudiant/${e.id}?annee=${encodeURIComponent(annee)}`,
-        { method: 'DELETE', headers: authHeaders() });
-      const j = await r.json().catch(() => ({}));
+        { method: 'DELETE', headers: authHeaders(),
+          body: JSON.stringify({ motif: motif || undefined }) });
+      let r = await envoyer(null);
+      let j = await r.json().catch(() => ({}));
+      if (!r.ok && j.motif_requis && !j.reserve_direction) {
+        const m = window.prompt(
+          `${j.error}\n${(j.bloquants || []).join('\n')}\n\nMotif de la suppression :`, '');
+        if (!m || !m.trim()) return;
+        r = await envoyer(m.trim());
+        j = await r.json().catch(() => ({}));
+      }
       if (!r.ok) {
         setErreur([j.error, ...(j.bloquants || [])].filter(Boolean).join(' · '));
         return;

@@ -5509,15 +5509,37 @@ r.delete('/valorisations/etudiant/:id', authRequired, roleRequired(...PEUT_INSTR
       WHERE etudiant_id = ? AND annee_scolaire = ?`).all(eid, annee);
     if (!lignes.length) return res.json({ ok: true, supprimes: 0 });
 
-    const bloquants = lignes
-      .filter(v => v.valide_le || v.decision_le)
-      .map(v => `UE ${v.ue_num} : ${v.valide_le
-        ? `validée le ${v.valide_le}` : `décidée le ${v.decision_le}`}`);
-    if (bloquants.length) {
+    // Une validation se retire d'abord : c'est un acte à part, et il se motive.
+    const validees = lignes.filter(v => v.valide_le)
+      .map(v => `UE ${v.ue_num} : validée le ${v.valide_le}`);
+    if (validees.length) {
       return res.status(409).json({
-        error: "Cette ligne porte des décisions déjà prises : elle ne se supprime pas. "
-          + 'Une décision se corrige ou se refuse — l’effacer emporterait le journal '
-          + 'qui la prouve.', bloquants });
+        error: 'Cette ligne porte des dossiers VALIDÉS : la direction doit d’abord '
+          + 'retirer la validation, dossier par dossier.', bloquants: validees });
+    }
+
+    /* DES DÉCISIONS PRISES : DIRECTION SEULE, ET AVEC UN MOTIF.
+     * Même régime qu'à l'unité — on ne refuse pas de réparer, on demande qui
+     * répare et pourquoi. */
+    const decidees = lignes.filter(v => v.decision_le)
+      .map(v => `UE ${v.ue_num} : décidée le ${v.decision_le}`);
+    if (decidees.length) {
+      if (!PEUT_DEVALIDER.includes(req.user?.role)) {
+        return res.status(409).json({
+          error: 'Cette ligne porte des décisions du Conseil : seule la direction '
+            + 'peut la supprimer, et elle motive sa décision.',
+          bloquants: decidees, motif_requis: true, reserve_direction: true });
+      }
+      const motif = String(req.body?.motif || req.query?.motif || '').trim();
+      if (!motif) {
+        return res.status(409).json({
+          error: 'Cette ligne porte des décisions du Conseil : sa suppression se '
+            + 'motive — les journaux partent avec elle.',
+          bloquants: decidees, motif_requis: true });
+      }
+      console.warn(`[valorisation] suppression d'une ligne décidée — étudiant ${eid}, `
+        + `${annee}, ${decidees.length} décision(s), par `
+        + `${req.user?.nom || req.user?.email || '?'} (${req.user?.role}) : ${motif}`);
     }
 
     let n = 0;
@@ -5561,10 +5583,37 @@ r.delete('/valorisations/:vid', authRequired, roleRequired(...PEUT_INSTRUIRE), (
       + `${v.valide_par ? ` par ${v.valide_par}` : ''} : il ne se supprime pas. `
       + 'La direction peut retirer la validation, puis le Conseil corrigera sa décision.' });
   }
+  /* UNE DÉCISION PRISE NE S'EFFACE PAS D'UN CLIC — MAIS ELLE DOIT POUVOIR
+   * S'EFFACER.
+   *
+   * Premier essai : refus pur et simple dès qu'un Conseil avait tranché. C'est
+   * intenable — un dossier d'essai, une erreur d'unité découverte après coup,
+   * et la ligne restait pour toujours, sans que personne puisse rien y faire.
+   * Une règle qui empêche de réparer se contourne autrement, et c'est pire.
+   *
+   * La suppression reste donc possible, mais elle change de main et de forme :
+   * la DIRECTION seule, et avec un MOTIF ÉCRIT. C'est le même régime que le
+   * retrait d'une validation et que la réouverture d'une séance close. La
+   * coordination, elle, ne défait pas ce que le Conseil a posé. */
   if (v.decision_le) {
-    return res.status(409).json({ error: 'Le Conseil des études a tranché ce dossier le '
-      + `${v.decision_le} : une décision prise ne s'efface pas, elle se corrige ou se `
-      + 'refuse. Supprimer effacerait aussi le journal, qui est ce qui la prouve.' });
+    if (!PEUT_DEVALIDER.includes(req.user?.role)) {
+      return res.status(409).json({
+        error: `Le Conseil des études a tranché ce dossier le ${v.decision_le} : `
+          + 'seule la direction peut le supprimer, et elle motive sa décision.',
+        motif_requis: true, reserve_direction: true });
+    }
+    const motif = String(req.body?.motif || req.query?.motif || '').trim();
+    if (!motif) {
+      return res.status(409).json({
+        error: `Ce dossier porte une décision du ${v.decision_le} : sa suppression `
+          + 'se motive — le journal part avec lui.', motif_requis: true });
+    }
+    // LA TRACE PART AVEC LA LIGNE, ALORS ON L'ÉCRIT AILLEURS AVANT. Le journal
+    // du dossier disparaît par la clé étrangère ; le journal du serveur, lui,
+    // garde qui a supprimé quoi et pourquoi.
+    console.warn(`[valorisation] suppression d'un dossier décidé — `
+      + `id ${vid}, étudiant ${v.etudiant_id}, UE ${v.ue_num}, `
+      + `par ${req.user?.nom || req.user?.email || '?'} (${req.user?.role}) : ${motif}`);
   }
   // Les pièces partent avec la décision qu'elles fondaient. La ligne de la
   // base s'en va par la clé étrangère ; le fichier sur le disque, lui, ne

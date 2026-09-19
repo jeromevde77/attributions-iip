@@ -29,7 +29,7 @@ import { identiteEtablissement } from './config.js';
 // direction. Recomposer la liste ici en aurait fait une seconde source — et
 // deux sources pour un même fait, c'est une source de moins.
 import { membresDuConseil, etatQuorum, CATEGORIES_MEMBRE,
-  nomPropreDepuisChaine } from './acquis.js';
+  nomPropreDepuisChaine, memePersonne } from './acquis.js';
 
 const r = Router();
 
@@ -1651,9 +1651,18 @@ r.post('/valorisation/ue/:ueNum/documents', authRequired, async (req, res) => {
     <div class="lieu">Fait en un exemplaire à ${esc(ident.ville || 'Anderlecht')},
       le ${frDate(new Date().toISOString())}</div>
     <div class="legende">
-      <div class="qualite">Pour le Conseil des études,<br>${
-        esc(seance.president_titre || 'le Directeur')}</div>
-      <div class="nom">${esc(seance.president_nom)}</div>
+      <!-- LE PRÉSIDENT EST SOUVENT LE DIRECTEUR — ET ALORS IL NE SIGNE QU'UNE
+           FOIS. Le PV de délibération le savait depuis longtemps ; celui-ci
+           l'ignorait, et la pièce sortait avec le même nom sur deux lignes,
+           sous deux qualités différentes. -->
+      ${memePersonne(seance.president_nom, identiteEtablissement()?.directeur)
+        ? `<div class="qualite">Pour le Conseil des études,<br>le Directeur</div>
+           <div class="nom">${esc(seance.president_nom)}</div>`
+        : `<div class="qualite">Pour le Conseil des études,<br>${
+             esc(seance.president_titre || 'le Président')}</div>
+           <div class="nom">${esc(seance.president_nom)}</div>
+           <div class="qualite" style="margin-top:3mm">Le Directeur,</div>
+           <div class="nom">${esc(identiteEtablissement()?.directeur || '……………………')}</div>`}
     </div>
   </div>
 </div>`;

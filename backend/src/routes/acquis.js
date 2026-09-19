@@ -1500,7 +1500,14 @@ export function documentMotivation(etudId, ueNum, annee, session = 1) {
       local ${visite.local ? `<b>${esc2(visite.local)}</b>` : '…………'}</div>`}
   </div>
 
-  <div class="cloture${president.signature ? '' : ' sans-paraphe'}">
+  <!-- UN PROCÈS-VERBAL SE SIGNE À LA MAIN.
+       Le fac-similé de la direction s'apposait ici dès que le président était
+       le titulaire déclaré. Or un PV est signé EN SÉANCE, par les membres
+       présents et par la direction : une signature pré-imprimée sur une pièce
+       que personne n'a encore signée fait croire que la séance a eu lieu comme
+       elle est décrite. L'image reste sur les ATTESTATIONS, qui partent par
+       voie numérique à l'étudiant et qu'aucune main ne signera. -->
+  <div class="cloture sans-paraphe">
     <div class="sceau"></div>
     <div class="paraphe"></div>
     <div class="lieu">Fait à ${esc2(ident.ville || 'Anderlecht')},
@@ -2458,7 +2465,39 @@ export function presidenceConseil() {
  * différentes. Une pièce qui fait signer deux fois la même personne se lit mal
  * et se conteste facilement.
  */
-function memePersonne(a, b) {
+/**
+ * SÉPARER UN NOM LIBRE EN NOM DE FAMILLE ET PRÉNOM — OU S'ABSTENIR.
+ *
+ * Le responsable de section est un champ libre : « VERHOEVEN Anne », « Anne
+ * Verhoeven », « A. Verhoeven », « Coordination TIM ». Deux formes se
+ * reconnaissent sans risque — celle où le nom de famille est EN CAPITALES, et
+ * celle à deux mots, où l'usage de la maison met le nom d'abord. Pour tout le
+ * reste on ne devine pas : un prénom inventé sur une pièce signée se défend
+ * plus mal qu'un prénom absent.
+ */
+export function separerNomPrenom(brut) {
+  const t = String(brut ?? '').trim().replace(/\s+/g, ' ');
+  if (!t) return { nom: null, prenom: null };
+  const mots = t.split(' ');
+  if (mots.length === 1) return { nom: nomPropreDepuisChaine(t), prenom: null };
+
+  // Forme « VERHOEVEN Anne » : les mots en capitales font le nom de famille.
+  const capitales = mots.filter(m => m.length > 1 && m === m.toUpperCase()
+    && /[A-ZÀ-Ý]/.test(m));
+  if (capitales.length && capitales.length < mots.length) {
+    const reste = mots.filter(m => !capitales.includes(m));
+    return { nom: nomPropreDepuisChaine(capitales.join(' ')),
+             prenom: nomPropreDepuisChaine(reste.join(' ')) };
+  }
+  if (mots.length === 2) {
+    return { nom: nomPropreDepuisChaine(mots[0]),
+             prenom: nomPropreDepuisChaine(mots[1]) };
+  }
+  // Trois mots ou plus sans capitales : on ne sait pas où couper.
+  return { nom: nomPropreDepuisChaine(t), prenom: null };
+}
+
+export function memePersonne(a, b) {
   const cle = x => String(x ?? '').toLowerCase()
     .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
     .replace(/[^a-z]+/g, ' ').trim().split(' ').sort().join(' ');
@@ -4897,13 +4936,28 @@ export function membresDuConseil(ueNum, annee) {
     // sans restreindre aux réunions de suivi. Le statut dépend donc de la
     // fonction réellement occupée, que Lucie ne peut pas deviner : d'où un
     // réglage, dont le défaut suit le texte le plus étroit.
+    /* LA COORDINATION EST UNE PERSONNE, PAS UNE FONCTION ANONYME.
+     *
+     * Le PV imprimait « Coordination TIM » dans la colonne NOM et laissait la
+     * colonne PRÉNOM vide : à côté de professeurs nommés et prénommés, un
+     * membre du Conseil n'était désigné que par son service. Or c'est une
+     * personne qui siège, qui vote et qui signe — et c'est elle qu'on doit
+     * pouvoir retrouver un an après.
+     *
+     * Le responsable est un TEXTE LIBRE sur la section : on le sépare en nom
+     * et prénom au mieux, et l'on s'abstient plutôt que de deviner quand la
+     * forme ne le permet pas. Un prénom inventé sur une pièce officielle se
+     * défend plus mal qu'un prénom absent. */
+    const nomCoord = sec?.responsable ? nomPropreDepuisChaine(sec.responsable) : null;
+    const partsCoord = separerNomPrenom(sec?.responsable);
     membres.push({
       cle: 'coordination',
-      nom: sec?.responsable ? nomPropreDepuisChaine(sec.responsable)
-                            : `Coordination ${ue.section}`,
+      nom: nomCoord || `Coordination ${ue.section}`,
+      nom_famille: partsCoord.nom || null,
+      prenom: partsCoord.prenom || null,
       // L'intitulé exact voulu par la direction : la coordination n'est pas
       // seulement pédagogique, elle est aussi le référent social.
-      qualite: 'La coordination de section et référent social et pédagogique',
+      qualite: 'Coordination de section — référent social et pédagogique',
       role: 'coordination',
       voix: coordinationDelibere() ? 'deliberative' : 'consultative',
     });

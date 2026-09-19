@@ -51,11 +51,19 @@ const STYLE_RAPPORT = `
         h3 .sous { display:inline; font-size:9pt; margin:0; }
         table { margin: 0 0 2mm; }
         th, td { border: 0; padding: 1.6mm 2mm; font-size: 8.5pt;
-                 border-bottom: 0.3pt solid #e2e8f0; }
+                 border-bottom: 0.25mm solid #C4CDD9; }
         th { background: transparent; color:#64748b; font-size: 7.5pt;
-             border-bottom: 0.8pt solid #cbd5e1; }
+             border-bottom: 0.4mm solid #94A3B8; }
         td { font-variant-numeric: tabular-nums; }
-        tbody tr:last-child td { border-bottom: 0; }
+        /* UNE LIGNE QUI NE SE VOIT PAS NE SÉPARE RIEN.
+           Le filet valait 0,3 pt en #e2e8f0 — un gris presque blanc, d'une
+           épaisseur sous le seuil de rendu de la plupart des imprimantes. Sur
+           une liste de personnel à huit colonnes, l'œil perdait sa ligne en
+           cours de route et lisait le prénom d'un autre. On passe en 0,25 mm
+           (soit ~0,7 pt) et en gris franc : c'est un filet, pas un quadrillage,
+           mais il existe sur le papier autant qu'à l'écran.
+           La DERNIÈRE ligne garde le sien : elle le perdait, si bien qu'un
+           tableau se terminait en l'air, sans bord bas. */
         td.n, th.n { text-align: right; }
         /* LA BANDE DE REGROUPEMENT PORTE SA COULEUR. Écrite en gras sur du
            blanc, elle se confondait avec les lignes qu'elle annonce : on ne
@@ -64,8 +72,15 @@ const STYLE_RAPPORT = `
            marine BA3. Un repère qu'il faut chercher n'est pas un repère.
            Ces trois teintes ne disent JAMAIS un état : vert, ocre et brique
            restent libres pour ce qui alerte. */
+        /* LE TEXTE NE COLLE PAS AU BORD DE SA BANDE. Il commençait à 2 mm du
+           bord gauche du tableau, donc à ras du rectangle coloré : une section
+           écrite « ATNUP » semblait poussée hors de sa bande. Un retrait franc
+           l'aligne sur la respiration du document, et la bande prend le rayon
+           de la maison — tout ce qui est encadré dans Lucie a les angles
+           arrondis, une bande à angles vifs au milieu jure avec le reste. */
         tr.groupe td { font-weight: 700; color:#ffffff; background:#2D4470;
-                       padding: 2mm; font-size: 9pt; border-bottom: 0; }
+                       padding: 2mm 2mm 2mm 4mm; font-size: 9pt; border-bottom: 0;
+                       border-radius: 1.5mm; }
         tr.groupe .fin { font-weight: 400; opacity:.8; }
         tr.groupe.bloc1 td { background:#E8890C; }
         tr.groupe.bloc2 td { background:#7FB3D5; color:#123047; }
@@ -338,12 +353,12 @@ function documentGrilleSection(p) {
          balayant la page. La bande le dit une fois, en couleur ; le rappel
          minuscule disparaît. */
       tr.bloc td { font-weight: 700; color: #ffffff; font-size: 9pt;
-                   background: #2D4470; padding: 1.8mm 2mm; margin-top: 4mm;
-                   border-bottom: 0; letter-spacing: .3pt; }
+                   background: #2D4470; padding: 1.8mm 2mm 1.8mm 4mm;
+                   border-bottom: 0; letter-spacing: .3pt; border-radius: 1.5mm; }
       tr.bloc.bloc1 td { background: #E8890C; }
       tr.bloc.bloc2 td { background: #7FB3D5; color: #123047; }
       tr.bloc.bloc3 td { background: #1B2B4B; }
-      tr.ue td { padding-top: 2.5mm; border-bottom: 0.3pt solid #e2e8f0; }
+      tr.ue td { padding-top: 2.5mm; border-bottom: 0.25mm solid #C4CDD9; }
       tr.ue .ue-bloc { display: none; }
       td.code { font-family: ui-monospace, Menlo, Consolas, monospace;
                 font-size: 7.5pt; color: #64748b; }
@@ -1492,10 +1507,28 @@ r.post('/mise-en-page', authRequired, (req, res) => {
     return `<td${numerique[i] ? ' class="n"' : ''}>${esc(v)}</td>`;
   }).join('');
 
-  const aDesNombres = numerique.some(Boolean);
+  /* ON N'ADDITIONNE PAS CE QUI NE S'ADDITIONNE PAS.
+   *
+   * Le pied sommait TOUTE colonne dont les valeurs étaient des nombres — donc
+   * les numéros d'unité, les codes, les millésimes, les quadrimestres. Sur la
+   * grille de cours, la dernière ligne annonçait fièrement la somme des
+   * numéros d'UE : un chiffre à quatre chiffres qui ne veut rien dire, posé en
+   * gras sous une colonne qui, elle, en veut un. Une somme fausse est pire
+   * qu'une case vide, parce qu'on la lit.
+   *
+   * Un nombre n'est pas forcément une quantité : un identifiant, un code, une
+   * année, un rang se comptent mais ne s'ajoutent pas. On les reconnaît à leur
+   * clé — c'est le seul critère stable, les valeurs se ressemblant toutes. Les
+   * colonnes écartées reçoivent un tiret : la ligne dit alors « ici, il n'y a
+   * rien à totaliser », ce qui est une information. */
+  const IDENTIFIANT = /(^|_)(num|numero|code|id|annee|annee_scolaire|quadri|quadrimestre|niv|niveau|rang|matricule|fase|ordre)$/i;
+  const cleColonne = i => String(colonnes[i]?.[0] ?? colonnes[i]?.cle ?? colonnes[i] ?? '');
+  const sommable = colonnes.map((_, i) => numerique[i] && !IDENTIFIANT.test(cleColonne(i)));
+
+  const aDesNombres = sommable.some(Boolean);
   const total = aDesNombres ? `<tfoot><tr class="repere">${colonnes.map((_, i) => {
     if (i === 0) return `<td><b>Ensemble — ${lignes.length} ligne(s)</b></td>`;
-    if (!numerique[i]) return '<td></td>';
+    if (!sommable[i]) return numerique[i] ? '<td class="n">—</td>' : '<td></td>';
     const s2 = lignes.reduce((acc, l) => acc + (Number(Array.isArray(l) ? l[i] : 0) || 0), 0);
     return `<td class="n"><b>${esc(Math.round(s2 * 100) / 100)}</b></td>`;
   }).join('')}</tr></tfoot>` : '';
@@ -1632,6 +1665,22 @@ r.post('/:id/document', authRequired, (req, res) => {
     const cellules = (l, groupable) => visibles(groupable).map(c =>
       `<td${nombre(c) ? ' class="n"' : ''}>${esc(l[c.cle])}</td>`).join('');
 
+    /* ON N'ADDITIONNE PAS CE QUI NE S'ADDITIONNE PAS.
+     *
+     * Le pied totalisait toute colonne dont les valeurs sont des nombres —
+     * donc les numéros d'unité, les codes, les millésimes, les quadrimestres.
+     * Sur la grille de cours, la dernière ligne annonçait la somme des numéros
+     * d'UE : un chiffre à quatre chiffres qui ne veut rien dire, en gras, sous
+     * une colonne qui, elle, en veut un. Une somme fausse est pire qu'une case
+     * vide, parce qu'on la lit.
+     *
+     * Un nombre n'est pas forcément une quantité : un identifiant, un code, une
+     * année, un rang se comptent mais ne s'ajoutent pas. On les reconnaît à
+     * leur CLÉ — seul critère stable, les valeurs se ressemblant toutes. La
+     * colonne écartée reçoit un tiret plutôt qu'un blanc : elle dit alors qu'il
+     * n'y a rien à totaliser là, ce qui est une information. */
+    const IDENTIFIANT = /(^|_)(num|numero|code|id|annee|quadri|quadrimestre|niv|niveau|rang|matricule|fase|ordre)$/i;
+    const cumulable = c => nombre(c) && !IDENTIFIANT.test(String(c.cle || ''));
     const somme = (liste, c) => liste.reduce((t, l) =>
       t + (typeof l[c.cle] === 'number' ? l[c.cle] : 0), 0);
     /* Le libellé du total occupe les colonnes de texte, et les sommes se
@@ -1643,11 +1692,14 @@ r.post('/:id/document', authRequired, (req, res) => {
       const avant = premierNombre < 0 ? cols.length : premierNombre;
       return `<tr class="repere">
         <td${avant > 1 ? ` colspan="${avant}"` : ''}>${esc(libelle)}</td>
-        ${cols.slice(avant).map(c => `<td class="n">${nombre(c)
-          ? Math.round(somme(liste, c) * 100) / 100 : ''}</td>`).join('')}
+        ${cols.slice(avant).map(c => `<td class="n">${cumulable(c)
+          ? Math.round(somme(liste, c) * 100) / 100
+          : nombre(c) ? '—' : ''}</td>`).join('')}
       </tr>`;
     };
-    const aDesNombres = colonnes.some((c, i) => i > 0 && nombre(c));
+    // Un rapport dont AUCUNE colonne ne s'additionne n'a pas de ligne de total :
+    // une ligne « Ensemble » suivie de tirets n'apprend rien à personne.
+    const aDesNombres = colonnes.some((c, i) => i > 0 && cumulable(c));
 
     let corpsTable = '';
     if (groupable) {
