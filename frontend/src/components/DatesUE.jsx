@@ -14,7 +14,7 @@ import PlanificateurUE from './PlanificateurUE.jsx';
  * rentrée. Elles conditionnent tout l'échéancier (comptage au 1/10, conseil
  * des études, publication des résultats et fenêtres de recours).
  */
-export default function DatesUE({ annee }) {
+export default function DatesUE({ annee, sansTitre = false }) {
   const [data, setData] = useState(null);
   const [chargement, setChargement] = useState(true);
   const [section, setSection] = useState('');
@@ -199,9 +199,11 @@ export default function DatesUE({ annee }) {
     <div className="p-6 space-y-4">
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
-          <h2 className="titre-ecran mb-0">
-                        Dates des unités d'enseignement
-          </h2>
+          {/* Un titre ne s'écrit qu'une fois : sous les onglets de
+              planification, c'est l'onglet qui nomme la face regardée. */}
+          {!sansTitre && (
+            <h2 className="titre-ecran mb-0">Dates des unités d'enseignement</h2>
+          )}
           <p className="text-sm text-slate-500 mt-1">
             Paramétrage annuel — ces dates déclenchent le comptage au 1/10, le conseil
             des études, la publication des résultats et les fenêtres de recours.

@@ -404,7 +404,7 @@ function BlocSession({
   );
 }
 
-export default function CalendrierSessions() {
+export default function CalendrierSessions({ sansTitre = false } = {}) {
   const annee = getAnnee();
   const [sections, setSections] = useState([]);
   const [section, setSection] = useState(null);
@@ -522,8 +522,12 @@ export default function CalendrierSessions() {
           de filtres de l'écran, avec la recherche et les autres réglages, là où
           l'œil le cherche. */}
       <div className="gouttiere-rail p-5 pt-4">
-        <PageHeader titre="Calendrier des sessions"
-          sous={`Épreuves, visite des copies et délibérations — ${section || '…'} · ${annee}`} />
+        {/* Un titre ne s'écrit qu'une fois : sous les onglets de planification,
+            l'onglet nomme déjà la face qu'on regarde. */}
+        {!sansTitre && (
+          <PageHeader titre="Calendrier des sessions"
+            sous={`Épreuves, visite des copies et délibérations — ${section || '…'} · ${annee}`} />
+        )}
 
         <div className="flex flex-wrap items-center gap-2 mb-3">
           <label className="text-[11px] text-slate-500 flex items-center gap-1.5">
