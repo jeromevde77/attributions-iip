@@ -19,7 +19,7 @@ import {
   BASES, CODES_BASE, FINALITES, ETATS, etatDeduit, uniteValorisable,
   controleDelai, manquesDossier, pieceProduisible, journaliser, journalDe,
   rafraichirEtat, pourcentageDe, POURCENTAGE_DISPENSE,
-  PEUT_VALIDER, PEUT_DEVALIDER, PEUT_INSTRUIRE,
+  PEUT_VALIDER, PEUT_DEVALIDER, PEUT_INSTRUIRE, PORTES, CODES_PORTE,
 } from '../lib/valorisation.js';
 import { calculerDI, calculerDIS } from './droitInscription.js';
 
@@ -307,6 +307,15 @@ export function migrerEtudiants(dbx) {
       ajouter('date_demande', 'TEXT');       // date portée sur le formulaire
       ajouter('date_reception', 'TEXT');     // date d'envoi/dépôt — la plus tardive fait foi
       ajouter('mode_introduction', 'TEXT');  // courriel | papier | rendez-vous
+      /* LA PORTE D'ENTRÉE — ET ELLE RESTE SIMPLE.
+       *
+       * Ce qu'on sait au moment où la demande arrive tient en un mot :
+       * ADMISSION (capacités préalables requises), VA (acquis formels — un
+       * titre, une attestation d'enseignement) ou VAE (acquis de l'expérience
+       * professionnelle ou personnelle). Tout le reste — dispense partielle ou
+       * complète, activités visées, base exacte — se décide plus tard, dans le
+       * dossier. Demander tout dès la porte, c'est ne rien encoder du tout. */
+      ajouter('porte', 'TEXT');              // admission | va | vae
       // ÉTAPE 3 — la recevabilité. NULL tant que le contrôle n'a pas eu lieu :
       // « pas encore contrôlé » et « recevable » sont deux états différents, et
       // les confondre revient à déclarer recevable ce que personne n'a regardé.
@@ -4372,6 +4381,157 @@ function verifierDecisionCE(b) {
   }
   return null;
 }
+
+/**
+ * LA MATRICE D'INTRODUCTION — LA PORTE D'ENTRÉE DE TOUTE LA MACHINE.
+ *
+ * Les demandes arrivent en septembre par dizaines, et elles arrivaient dans une
+ * boîte courriel. Pour les faire entrer dans Lucie, il fallait ouvrir un
+ * dossier à la fois, chercher l'étudiant parmi 588, choisir l'unité, remplir
+ * une décision qui n'était pas encore prise. Personne ne le faisait — donc
+ * rien n'était encodé, donc rien n'était contrôlable.
+ *
+ * Une section, une année : les ÉTUDIANTS en lignes, les UNITÉS en colonnes, et
+ * dans chaque case un mot — AD, VA ou VAE. C'est tout ce qu'on sait quand la
+ * demande arrive, et c'est tout ce qu'on demande. Le détail se traite ensuite,
+ * dossier par dossier.
+ *
+ * Les cases DÉJÀ ouvertes sont rendues avec leur état : la matrice montre où en
+ * est la section d'un coup d'œil, et elle ne se relit pas comme un formulaire
+ * vide qu'on croirait devoir remplir deux fois.
+ */
+r.get('/valorisations/matrice', authRequired, (req, res) => {
+  const { annee, section } = req.query;
+  if (!annee || !section) {
+    return res.status(400).json({ error: 'annee et section requises' });
+  }
+
+  /* LES UNITÉS DE LA SECTION — et pas celles qu'on ne peut jamais valoriser.
+   * Afficher une colonne « épreuve intégrée » serait inviter à cocher ce que
+   * le serveur refusera : une colonne qu'on ne peut pas remplir n'a rien à
+   * faire dans un tableau. */
+  const colonnes = new Set(
+    db.prepare('PRAGMA table_info(ue)').all().map(c => c.name));
+  const ei = colonnes.has('is_epreuve_integree') ? 'COALESCE(is_epreuve_integree,0)' : '0';
+  const ex = colonnes.has('valorisation_exclue') ? 'COALESCE(valorisation_exclue,0)' : '0';
+  const unites = db.prepare(`
+    SELECT ue_num, ue_nom, ue_niv, ${ei} AS epreuve_integree, ${ex} AS exclue
+    FROM ue WHERE annee_scolaire = ? AND section = ?
+    ORDER BY CASE UPPER(COALESCE(ue_niv,''))
+      WHEN 'BA1' THEN 1 WHEN 'BA2' THEN 2 WHEN 'BA3' THEN 3 ELSE 4 END, ue_num
+  `).all(annee, section).filter(u => !u.epreuve_integree && !u.exclue);
+
+  const nums = unites.map(u => u.ue_num);
+  const marques = nums.length ? `(${nums.map(() => '?').join(',')})` : '(NULL)';
+
+  // Les étudiants inscrits à au moins une unité de la section cette année.
+  const inscrits = nums.length ? db.prepare(`
+    SELECT DISTINCT e.id, e.nom, e.prenom, e.id_ecampus, e.section_rattachement
+    FROM etudiant_inscription i JOIN etudiant e ON e.id = i.etudiant_id
+    WHERE i.annee_scolaire = ? AND i.ue_num IN ${marques}
+    ORDER BY e.nom, e.prenom
+  `).all(annee, ...nums) : [];
+
+  // Et ceux qui portent déjà une demande sur une de ces unités, même sans
+  // inscription : une valorisation précède souvent l'inscription.
+  const dejaLa = nums.length ? db.prepare(`
+    SELECT v.id, v.etudiant_id, v.ue_num, v.porte, v.type, v.decision,
+           v.recevable, v.avis_le, v.decision_le, v.valide_le,
+           e.nom, e.prenom, e.id_ecampus, e.section_rattachement
+    FROM etudiant_valorisation v JOIN etudiant e ON e.id = v.etudiant_id
+    WHERE v.annee_scolaire = ? AND v.ue_num IN ${marques}
+  `).all(annee, ...nums) : [];
+
+  const par = new Map();
+  for (const e of inscrits) {
+    par.set(e.id, { id: e.id, nom: e.nom, prenom: e.prenom,
+      id_ecampus: e.id_ecampus, section: e.section_rattachement,
+      inscrit: true, cellules: {} });
+  }
+  for (const d of dejaLa) {
+    if (!par.has(d.etudiant_id)) {
+      par.set(d.etudiant_id, { id: d.etudiant_id, nom: d.nom, prenom: d.prenom,
+        id_ecampus: d.id_ecampus, section: d.section_rattachement,
+        inscrit: false, cellules: {} });
+    }
+    par.get(d.etudiant_id).cellules[d.ue_num] = {
+      id: d.id, porte: d.porte || null, etat: etatDeduit(d),
+      decision: d.decision_le ? d.decision : null,
+    };
+  }
+
+  res.json({
+    annee, section, portes: PORTES, unites,
+    etudiants: [...par.values()].sort((a, b) =>
+      (a.nom || '').localeCompare(b.nom || '')
+      || (a.prenom || '').localeCompare(b.prenom || '')),
+  });
+});
+
+/**
+ * OUVRIR LES DOSSIERS COCHÉS DANS LA MATRICE.
+ *
+ * Une case cochée n'est pas une décision : c'est une DEMANDE REÇUE. Le dossier
+ * naît donc sans décision — `decision_le` reste vide, et c'est lui que tout le
+ * circuit regarde. Rien ne sortira de ce dossier tant qu'il n'aura pas été
+ * instruit puis validé.
+ *
+ * On ne rouvre pas une case déjà ouverte : elle est rendue telle quelle par la
+ * matrice, avec son état. Les cases déjà là sont simplement IGNORÉES — à la
+ * différence de la création en lot, où un doublon arrête tout, parce qu'ici le
+ * tableau montre l'existant et qu'un enregistrement se rejoue sans dommage.
+ */
+r.post('/valorisations/matrice', authRequired, roleRequired(...PEUT_INSTRUIRE),
+  (req, res) => {
+    const { annee, cellules } = req.body;
+    if (!annee) return res.status(400).json({ error: 'annee requise' });
+    const liste = (Array.isArray(cellules) ? cellules : []).filter(c =>
+      Number.isInteger(Number(c?.etudiant_id)) && Number.isInteger(Number(c?.ue_num))
+      && CODES_PORTE.includes(String(c?.porte)));
+    if (!liste.length) return res.status(400).json({ error: 'Aucune case cochée.' });
+
+    const refus = [];
+    const aCreer = [];
+    for (const c of liste) {
+      const eid = Number(c.etudiant_id);
+      const ue = Number(c.ue_num);
+      // CE QUI NE PEUT JAMAIS ÊTRE VALORISÉ NE S'OUVRE MÊME PAS EN DOSSIER.
+      const val = uniteValorisable(ue, annee);
+      if (!val.ok) { refus.push({ etudiant_id: eid, ue_num: ue, pourquoi: val.motif }); continue; }
+      const deja = db.prepare(`SELECT id FROM etudiant_valorisation
+        WHERE etudiant_id = ? AND ue_num = ? AND annee_scolaire = ? LIMIT 1`)
+        .get(eid, ue, annee);
+      if (deja) continue;   // déjà ouverte : la matrice la montre, on n'y touche pas
+      aCreer.push({ eid, ue, porte: String(c.porte) });
+    }
+
+    const inserer = db.prepare(`
+      INSERT INTO etudiant_valorisation
+        (etudiant_id, annee_scolaire, ue_num, type, porte, decision,
+         date_reception, mode_introduction)
+      VALUES (?,?,?,?,?,?,?,?)`);
+    const crees = [];
+    db.transaction(() => {
+      for (const c of aCreer) {
+        /* UNE ADMISSION EST UNE FINALITÉ ; VA ET VAE N'EN SONT PAS.
+         * La porte « admission » fixe donc le type dès l'entrée — c'est la
+         * seule des trois qui le dise. Les deux autres ouvrent un dossier dont
+         * la finalité (partielle ou complète) se tranchera en séance : la
+         * poser ici reviendrait à décider à la place du Conseil. */
+        const type = c.porte === 'admission' ? 'admission' : 'partielle';
+        const info = inserer.run(c.eid, annee, c.ue, type, c.porte, 'accordee',
+          req.body.date_reception || null, req.body.mode_introduction || null);
+        crees.push({ etudiant_id: c.eid, ue_num: c.ue, id: info.lastInsertRowid });
+      }
+    })();
+    for (const c of crees) {
+      journaliser(c.id, 'introduction', req,
+        `demande reçue · ${liste.find(x => Number(x.etudiant_id) === c.etudiant_id
+          && Number(x.ue_num) === c.ue_num)?.porte || ''}`);
+      rafraichirEtat(c.id);
+    }
+    res.json({ ok: true, crees: crees.length, refus });
+  });
 
 /**
  * LES ÉTUDIANTS QUE CETTE UNITÉ CONCERNE.

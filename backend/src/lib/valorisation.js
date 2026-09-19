@@ -45,6 +45,32 @@ export const BASES = [
 ];
 export const CODES_BASE = BASES.map(b => b.code);
 
+/**
+ * LES TROIS PORTES D'ENTRÉE — CE QU'ON SAIT QUAND LA DEMANDE ARRIVE.
+ *
+ * Et rien de plus. Une demande se reçoit en septembre par dizaines ; si la
+ * saisie exige dès la porte la finalité exacte, les activités visées et la
+ * base légale, elle ne se fait pas — et les demandes vivent alors dans une
+ * boîte courriel, ce qui est la situation qu'on corrige. Un mot suffit à
+ * ouvrir le dossier ; le dossier, lui, demandera le reste.
+ *
+ * ADMISSION vise les capacités préalables requises (AGCF art. 2) : l'étudiant
+ * suivra l'unité et en présentera les évaluations. VA et VAE visent une
+ * dispense, et se distinguent par la NATURE des acquis — formels pour la
+ * première (un titre, une attestation d'enseignement), issus de l'expérience
+ * pour la seconde. Cette distinction n'est pas cosmétique : elle prédit la
+ * famille de base (VAF ou VANFI) et donc ce que le Conseil devra vérifier.
+ */
+export const PORTES = [
+  { val: 'admission', court: 'AD', label: 'Admission',
+    aide: 'Capacités préalables requises — AGCF art. 2' },
+  { val: 'va', court: 'VA', label: 'Valorisation des acquis',
+    aide: "Acquis formels : titre ou attestation d'enseignement — base VAF attendue" },
+  { val: 'vae', court: 'VAE', label: "Valorisation des acquis de l'expérience",
+    aide: 'Expérience professionnelle ou personnelle — base VANFI attendue' },
+];
+export const CODES_PORTE = PORTES.map(p => p.val);
+
 /** Les trois finalités de l'AGCF, dans les mots de l'arrêté. */
 export const FINALITES = [
   { val: 'admission', label: 'Admission',
