@@ -20,6 +20,7 @@ import {
   controleDelai, manquesDossier, pieceProduisible, journaliser, journalDe,
   rafraichirEtat, pourcentageDe, POURCENTAGE_DISPENSE,
   PEUT_VALIDER, PEUT_DEVALIDER, PEUT_INSTRUIRE, PORTES, CODES_PORTE,
+  estAdmissionDeSection, unitesDeBase,
 } from '../lib/valorisation.js';
 import { calculerDI, calculerDIS } from './droitInscription.js';
 
@@ -316,6 +317,24 @@ export function migrerEtudiants(dbx) {
        * complète, activités visées, base exacte — se décide plus tard, dans le
        * dossier. Demander tout dès la porte, c'est ne rien encoder du tout. */
       ajouter('porte', 'TEXT');              // admission | va | vae
+      /* L'ADMISSION SE DÉCIDE PAR SECTION, PAS PAR UNITÉ.
+       *
+       * C'était une erreur de modèle : l'écran proposait AD case par case,
+       * comme une VA. Or on n'est pas admis « à l'UE 95 » — on est admis DANS
+       * LA SECTION, après vérification des capacités préalables requises
+       * (AGCF art. 2), et cette admission se reporte ensuite sur les unités de
+       * base, celles qui n'ont pas d'autre prérequis que le titre d'accès.
+       *
+       * Une seule ligne porte donc la décision, et elle est rattachée à la
+       * SECTION. Les unités de base s'en déduisent à la lecture plutôt que
+       * d'être recopiées : recopier, c'est figer un programme qui bouge, et
+       * c'est multiplier par dix les lignes d'une décision unique.
+       *
+       * `ue_num` vaut alors 0 — la colonne est NOT NULL depuis l'origine et la
+       * reconstruire sur des données de production ne se justifie pas pour
+       * cela. Zéro n'est le numéro d'aucune unité : aucune requête existante
+       * ne le rencontre, et le sens est écrit ici plutôt que deviné. */
+      ajouter('section', 'TEXT');
       /* ÉTAPE 5 — LE TEST OU L'ÉPREUVE COMPLÉMENTAIRE.
        *
        * Quand le Conseil ne peut pas se prononcer sur pièces, il fixe un test.
@@ -4337,14 +4356,21 @@ function verifierValorisation(b) {
   if (!['complete','partielle','admission'].includes(type)) return 'type invalide';
   const decision = b.decision === 'refusee' ? 'refusee' : 'accordee';
 
-  /* CE QUI NE PEUT JAMAIS ÊTRE VALORISÉ SE REFUSE ICI, ET NON À L'ÉCRAN.
-   *
-   * L'épreuve intégrée doit toujours être présentée ; s'y ajoutent les unités
-   * sans prestations d'étudiants, celles qu'une réglementation impose de
-   * suivre, et à l'IIP la méthodologie de la recherche. Rien ne l'empêchait :
-   * on pouvait dispenser l'épreuve intégrée, et la pièce sortait. */
-  const valorisable = uniteValorisable(ue_num, annee_scolaire);
-  if (!valorisable.ok) return valorisable.motif;
+  /* UNE ADMISSION NE PORTE PAS SUR UNE UNITÉ — elle porte sur la section, et
+   * sa ligne n'a donc pas d'unité à vérifier. Lui appliquer les contrôles
+   * d'unité aurait réclamé un code FWB et des périodes à une décision qui n'en
+   * a pas. */
+  if (!estAdmissionDeSection({ type, porte: b.porte, ue_num })) {
+    /* CE QUI NE PEUT JAMAIS ÊTRE VALORISÉ SE REFUSE ICI, ET NON À L'ÉCRAN.
+     *
+     * L'épreuve intégrée doit toujours être présentée ; s'y ajoutent les
+     * unités sans prestations d'étudiants, celles qu'une réglementation impose
+     * de suivre, et à l'IIP la méthodologie de la recherche. Rien ne
+     * l'empêchait : on pouvait dispenser l'épreuve intégrée, et la pièce
+     * sortait. */
+    const valorisable = uniteValorisable(ue_num, annee_scolaire);
+    if (!valorisable.ok) return valorisable.motif;
+  }
 
   // UN REFUS SE MOTIVE. C'est une décision défavorable (RDE art. 88 §3), et
   // « refusé » sans motif ne se défend pas devant un recours. En revanche il
@@ -4450,6 +4476,17 @@ r.get('/valorisations/matrice', authRequired, (req, res) => {
     ORDER BY e.nom, e.prenom
   `).all(annee, ...nums) : [];
 
+  /* LES ADMISSIONS DE LA SECTION — une ligne par étudiant, pas par unité.
+   * Elles ne vivent pas dans la grille : la colonne d'admission est à part,
+   * parce que la décision l'est aussi. */
+  const admissions = db.prepare(`
+    SELECT v.id, v.etudiant_id, v.porte, v.decision, v.recevable, v.avis_le,
+           v.decision_le, v.valide_le,
+           e.nom, e.prenom, e.id_ecampus, e.section_rattachement
+    FROM etudiant_valorisation v JOIN etudiant e ON e.id = v.etudiant_id
+    WHERE v.annee_scolaire = ? AND v.ue_num = 0 AND v.section = ?
+  `).all(annee, section);
+
   // Et ceux qui portent déjà une demande sur une de ces unités, même sans
   // inscription : une valorisation précède souvent l'inscription.
   const dejaLa = nums.length ? db.prepare(`
@@ -4478,8 +4515,21 @@ r.get('/valorisations/matrice', authRequired, (req, res) => {
     };
   }
 
+  for (const a of admissions) {
+    if (!par.has(a.etudiant_id)) {
+      par.set(a.etudiant_id, { id: a.etudiant_id, nom: a.nom, prenom: a.prenom,
+        id_ecampus: a.id_ecampus, section: a.section_rattachement,
+        inscrit: false, cellules: {} });
+    }
+    par.get(a.etudiant_id).admission = { id: a.id, etat: etatDeduit(a) };
+  }
+
   res.json({
     annee, section, portes: PORTES, unites,
+    /* LES UNITÉS QUE L'ADMISSION OUVRE — déduites, jamais recopiées. Elles
+     * s'affichent à l'écran pour qu'on sache ce qu'on décide, et elles se
+     * relisent au fil des années sans qu'une liste figée se démente. */
+    unites_de_base: unitesDeBase(section, annee),
     etudiants: [...par.values()].sort((a, b) =>
       (a.nom || '').localeCompare(b.nom || '')
       || (a.prenom || '').localeCompare(b.prenom || '')),
@@ -4513,6 +4563,25 @@ r.post('/valorisations/matrice', authRequired, roleRequired(...PEUT_INSTRUIRE),
     for (const c of liste) {
       const eid = Number(c.etudiant_id);
       const ue = Number(c.ue_num);
+
+      /* L'ADMISSION SE DÉCIDE PAR SECTION : une seule ligne, `ue_num = 0`.
+       * La matrice l'envoie avec la section plutôt qu'avec une unité — on
+       * n'est pas admis « à l'UE 95 », on est admis dans le cursus, et
+       * l'admission se reporte ensuite sur les unités de base. */
+      if (c.porte === 'admission') {
+        const sec = String(c.section || req.body.section || '').trim();
+        if (!sec) {
+          refus.push({ etudiant_id: eid, pourquoi: "Une admission se rattache à une section." });
+          continue;
+        }
+        const dejaAd = db.prepare(`SELECT id FROM etudiant_valorisation
+          WHERE etudiant_id = ? AND annee_scolaire = ? AND ue_num = 0
+            AND section = ? LIMIT 1`).get(eid, annee, sec);
+        if (dejaAd) continue;
+        aCreer.push({ eid, ue: 0, porte: 'admission', section: sec });
+        continue;
+      }
+
       // CE QUI NE PEUT JAMAIS ÊTRE VALORISÉ NE S'OUVRE MÊME PAS EN DOSSIER.
       const val = uniteValorisable(ue, annee);
       if (!val.ok) { refus.push({ etudiant_id: eid, ue_num: ue, pourquoi: val.motif }); continue; }
@@ -4520,14 +4589,14 @@ r.post('/valorisations/matrice', authRequired, roleRequired(...PEUT_INSTRUIRE),
         WHERE etudiant_id = ? AND ue_num = ? AND annee_scolaire = ? LIMIT 1`)
         .get(eid, ue, annee);
       if (deja) continue;   // déjà ouverte : la matrice la montre, on n'y touche pas
-      aCreer.push({ eid, ue, porte: String(c.porte) });
+      aCreer.push({ eid, ue, porte: String(c.porte), section: null });
     }
 
     const inserer = db.prepare(`
       INSERT INTO etudiant_valorisation
         (etudiant_id, annee_scolaire, ue_num, type, porte, decision,
-         date_reception, mode_introduction)
-      VALUES (?,?,?,?,?,?,?,?)`);
+         date_reception, mode_introduction, section)
+      VALUES (?,?,?,?,?,?,?,?,?)`);
     const crees = [];
     db.transaction(() => {
       for (const c of aCreer) {
@@ -4538,7 +4607,8 @@ r.post('/valorisations/matrice', authRequired, roleRequired(...PEUT_INSTRUIRE),
          * poser ici reviendrait à décider à la place du Conseil. */
         const type = c.porte === 'admission' ? 'admission' : 'partielle';
         const info = inserer.run(c.eid, annee, c.ue, type, c.porte, 'accordee',
-          req.body.date_reception || null, req.body.mode_introduction || null);
+          req.body.date_reception || null, req.body.mode_introduction || null,
+          c.section || null);
         crees.push({ etudiant_id: c.eid, ue_num: c.ue, id: info.lastInsertRowid });
       }
     })();
@@ -4631,13 +4701,20 @@ r.get('/valorisations/:vid/dossier', authRequired, (req, res) => {
   const v = lireDossierComplet(vid);
   if (!v) return res.status(404).json({ error: 'Dossier introuvable.' });
 
-  const valorisable = uniteValorisable(v.ue_num, v.annee_scolaire);
+  const admission = estAdmissionDeSection(v);
+  const valorisable = admission
+    ? { ok: true, unite: null, motif: null }
+    : uniteValorisable(v.ue_num, v.annee_scolaire);
   res.json({
     dossier: { ...v, etat: etatDeduit(v) },
+    admission_de_section: admission,
+    // Ce que l'admission ouvre, calculé à la lecture : c'est le programme du
+    // jour qui fait foi, pas une liste recopiée le jour de la décision.
+    unites_de_base: admission ? unitesDeBase(v.section, v.annee_scolaire) : [],
     unite: valorisable.unite,
     unite_valorisable: valorisable.ok,
     unite_motif: valorisable.motif,
-    delai: controleDelai({ ueNum: v.ue_num, annee: v.annee_scolaire,
+    delai: controleDelai({ ueNum: admission ? null : v.ue_num, annee: v.annee_scolaire,
                            date_demande: v.date_demande,
                            date_reception: v.date_reception }),
     manques: manquesDossier(v),

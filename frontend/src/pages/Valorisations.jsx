@@ -1346,7 +1346,19 @@ function ValoriserEnSerie({ annee, onClose, onCree }) {
                 dans le voile de la première — et surtout, on perdrait de vue
                 le tableau qu'on est en train de composer. Le panneau se
                 déplie ICI, sous la liste qu'il alimente. */}
-            {chercheOuvert && (
+            {m?.unites_de_base?.length > 0 && (
+          /* CE QUE L'ADMISSION OUVRE, ÉCRIT NOIR SUR BLANC. Elle se reporte sur
+             les unités SANS PRÉREQUIS : les nommer évite d'avoir à le croire
+             sur parole, et de découvrir en janvier qu'on n'y avait pas pensé. */
+          <div className="flex-none px-5 py-2 border-b border-slate-200 text-[11px]
+                          text-slate-500">
+            <b style={{ color: TEINTE.admission.t }}>AD</b> ouvre les unités de base
+            de la section (sans prérequis) :{' '}
+            {m.unites_de_base.map(u => u.ue_num).join(' · ')}
+          </div>
+        )}
+
+        {chercheOuvert && (
               <div className="border-t border-slate-200 bg-slate-50/60 p-3 space-y-2">
                 <div className="flex flex-wrap items-center gap-2">
                   <select value={sectionRech} onChange={e => setSectionRech(e.target.value)}
@@ -2495,6 +2507,7 @@ function MatriceIntroduction({ annee, onClose, onCree }) {
   const [enCours, setEnCours] = useState(false);
   const [reception, setReception] = useState(aujourdHui());
   const [filtre, setFiltre] = useState('');
+  const [adCoches, setAdCoches] = useState(() => new Set());   // étudiants admis
 
   useEffect(() => {
     fetch('/api/ref/sections', { headers: authHeaders() })
@@ -2511,7 +2524,7 @@ function MatriceIntroduction({ annee, onClose, onCree }) {
         + `&section=${encodeURIComponent(section)}`, { headers: authHeaders() });
       setM(r.ok ? await r.json() : null);
     } catch { setM(null); }
-    setChoix(new Map());
+    setChoix(new Map()); setAdCoches(new Set());
   }, [annee, section]);
   useEffect(() => { charger(); }, [charger]);
 
@@ -2562,7 +2575,14 @@ function MatriceIntroduction({ annee, onClose, onCree }) {
   /* UNE CASE TOURNE : rien → AD → VA → VAE → rien. Trois cases à cocher par
      cellule auraient fait un tableau illisible dès dix unités ; un menu
      déroulant demanderait deux clics pour chaque demande. */
-  const SUITE = [null, 'admission', 'va', 'vae'];
+  /* L'ADMISSION N'EST PAS UNE CASE DE LA GRILLE.
+   *
+   * Elle se décide PAR SECTION — on n'est pas admis « à l'UE 95 », on est
+   * admis dans le cursus après vérification des capacités préalables requises,
+   * et cela se reporte ensuite sur les unités de base. La proposer case par
+   * case, comme une VA, c'était faire croire qu'on l'accorde unité par unité.
+   * Elle a donc sa colonne, une seule, à gauche du tableau. */
+  const SUITE = [null, 'va', 'vae'];
   const COURT = { admission: 'AD', va: 'VA', vae: 'VAE' };
   /* TROIS PORTES, TROIS COULEURS — ET ELLES NE DISENT QUE ÇA.
    *
@@ -2591,13 +2611,17 @@ function MatriceIntroduction({ annee, onClose, onCree }) {
   }
 
   async function enregistrer() {
-    if (!choix.size) return;
+    if (!choix.size && !adCoches.size) return;
     setEnCours(true); setErreur(null);
     try {
       const cellules = [...choix.entries()].map(([cle, porte]) => {
         const [eid, ue] = cle.split(':');
         return { etudiant_id: Number(eid), ue_num: Number(ue), porte };
       });
+      // L'admission part avec la SECTION, sans unité : c'est là qu'elle porte.
+      for (const eid of adCoches) {
+        cellules.push({ etudiant_id: eid, ue_num: 0, porte: 'admission', section });
+      }
       const r = await fetch('/api/etudiants/valorisations/matrice', {
         method: 'POST', headers: authHeaders(),
         body: JSON.stringify({ annee, cellules, date_reception: reception || null }),
@@ -2619,15 +2643,17 @@ function MatriceIntroduction({ annee, onClose, onCree }) {
       titre="Introduire des demandes"
       sous="Une section, une année — qui demande quoi, et par quelle porte"
       pied={<>
-        <button onClick={enregistrer} disabled={!choix.size || enCours}
+        <button onClick={enregistrer} disabled={(!choix.size && !adCoches.size) || enCours}
           className="bouton bouton-fort disabled:opacity-40">
           {enCours ? 'Ouverture…'
-            : choix.size > 1 ? `Ouvrir ${choix.size} dossiers` : 'Ouvrir le dossier'}
+            : (choix.size + adCoches.size) > 1
+              ? `Ouvrir ${choix.size + adCoches.size} dossiers` : 'Ouvrir le dossier'}
         </button>
         <span className="text-[12px] text-slate-500">
           {!section ? 'Choisis une section'
-            : !choix.size ? 'Clique une case pour poser AD, VA ou VAE'
-              : `${choix.size} demande(s)`}
+            : !choix.size && !adCoches.size
+              ? 'Coche une admission, ou clique une case pour poser VA ou VAE'
+              : `${choix.size + adCoches.size} demande(s)`}
         </span>
         {erreur && (
           <span className="flex items-start gap-1.5 text-[12px] text-rose-700">
@@ -2673,7 +2699,7 @@ function MatriceIntroduction({ annee, onClose, onCree }) {
             </>
           )}
           <span className="ml-auto flex items-center gap-2 text-[11px]">
-            {[['admission', 'admission'], ['va', 'acquis formels'],
+            {[['admission', 'admission dans la section'], ['va', 'acquis formels'],
               ['vae', 'expérience']].map(([k, quoi]) => (
               <span key={k} className="flex items-center gap-1">
                 <span className="inline-block px-1.5 py-0.5 rounded-champ font-medium"
@@ -2737,6 +2763,13 @@ function MatriceIntroduction({ annee, onClose, onCree }) {
                 <tr>
                   <th className="text-left px-3 py-2 font-medium sticky left-0 bg-inherit
                                  min-w-[14rem]">Étudiant</th>
+                  {/* UNE COLONNE, PAS UNE CASE PAR UNITÉ : l'admission vaut
+                      pour la section entière. */}
+                  <th className="px-2 py-2 font-medium align-bottom min-w-[5rem]"
+                    title="Admission dans la section — se reporte sur les unités de base">
+                    <div className="text-[13px]" style={{ color: TEINTE.admission.t }}>AD</div>
+                    <div className="text-[10px] text-slate-500 font-normal">section</div>
+                  </th>
                   {m.unites.map(u => (
                     /* LE NUMÉRO EN GRAND, LE NOM DESSOUS ET TRONQUÉ : à douze
                        unités, un intitulé complet en colonne rend le tableau
@@ -2759,6 +2792,28 @@ function MatriceIntroduction({ annee, onClose, onCree }) {
                       </span>
                       {!e.inscrit && (
                         <span className="ml-1.5 text-[10px] text-slate-400">hors inscription</span>
+                      )}
+                    </td>
+                    <td className="px-1 py-1 text-center align-middle">
+                      {e.admission ? (
+                        <span className="inline-block px-1.5 py-0.5 rounded-champ text-[10px]"
+                          style={{ color: TEINTE.admission.t, background: TEINTE.admission.f }}
+                          title={`Admission · ${e.admission.etat}`}>AD</span>
+                      ) : (
+                        <button
+                          onClick={() => setAdCoches(s0 => {
+                            const n = new Set(s0);
+                            if (n.has(e.id)) n.delete(e.id); else n.add(e.id);
+                            return n;
+                          })}
+                          className="w-11 h-6 rounded-champ border text-[11px] font-medium
+                                     hover:border-slate-400"
+                          style={adCoches.has(e.id) ? {
+                            color: TEINTE.admission.t, background: TEINTE.admission.f,
+                            borderColor: TEINTE.admission.b,
+                          } : { color: '#CBD5E1', borderColor: '#E2E8F0' }}>
+                          {adCoches.has(e.id) ? 'AD' : '—'}
+                        </button>
                       )}
                     </td>
                     {m.unites.map(u => {

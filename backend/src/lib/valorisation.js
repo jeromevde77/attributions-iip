@@ -140,6 +140,55 @@ export function etatDeduit(v) {
  * partie pratique peut être valorisée, le rapport est toujours rendu et
  * présenté. C'est un avertissement, pas un blocage — le Conseil décide.
  */
+/**
+ * UNE ADMISSION NE PORTE PAS SUR UNE UNITÉ.
+ *
+ * Elle porte sur la SECTION : on vérifie les capacités préalables requises et
+ * l'on ouvre l'accès au cursus, pas à l'UE 95. Sa ligne porte donc `ue_num = 0`
+ * et une `section`. Tous les contrôles qui parlent d'unité doivent le savoir,
+ * sans quoi ils réclameraient un code FWB et des périodes à une décision qui
+ * n'en a pas.
+ */
+export function estAdmissionDeSection(v) {
+  return !!v && (v.type === 'admission' || v.porte === 'admission')
+    && (!v.ue_num || Number(v.ue_num) === 0);
+}
+
+/**
+ * LES UNITÉS DE BASE D'UNE SECTION — CELLES QUE L'ADMISSION OUVRE.
+ *
+ * Ce sont les unités sans prérequis : on y entre avec le titre d'accès (CESS,
+ * CE1D…) et rien d'autre. Elles se déduisent du référentiel plutôt que de se
+ * recopier dans la décision — recopier fige un programme qui bouge, et l'on
+ * relirait dans dix ans une liste qui ne correspond plus à rien.
+ */
+export function unitesDeBase(section, annee) {
+  try {
+    /* L'ÉPREUVE INTÉGRÉE N'EST JAMAIS UNE UNITÉ DE BASE.
+     *
+     * Elle se présente à la fin du cursus, par construction : quand ses
+     * prérequis ne sont pas déclarés au référentiel — ce qui arrive —, la
+     * requête la ferait pourtant remonter, et l'admission paraîtrait ouvrir
+     * l'épreuve finale. On l'écarte par ce qu'elle EST, non par ce que le
+     * référentiel a pensé à écrire. */
+    const colonnes = new Set(
+      db.prepare('PRAGMA table_info(ue)').all().map(c => c.name));
+    const pasEI = colonnes.has('is_epreuve_integree')
+      ? 'AND COALESCE(u.is_epreuve_integree, 0) = 0' : '';
+    return db.prepare(`
+      SELECT u.ue_num, u.ue_nom, u.ue_niv FROM ue u
+      WHERE u.annee_scolaire = ? AND u.section = ?
+        ${pasEI}
+        AND NOT EXISTS (SELECT 1 FROM ue_prerequis p WHERE p.ue_num = u.ue_num
+                          AND (p.section IS NULL OR p.section = u.section)
+                          AND (p.annee_scolaire IS NULL OR p.annee_scolaire = u.annee_scolaire))
+        AND COALESCE(TRIM(u.ue_prerequise), '') = ''
+      ORDER BY CASE UPPER(COALESCE(u.ue_niv,''))
+        WHEN 'BA1' THEN 1 WHEN 'BA2' THEN 2 WHEN 'BA3' THEN 3 ELSE 4 END, u.ue_num
+    `).all(annee, section);
+  } catch { return []; }
+}
+
 export function uniteValorisable(ueNum, annee) {
   /* LA COLONNE PEUT NE PAS ÊTRE LÀ, ET UN GARDE-FOU QUI TOMBE NE GARDE RIEN.
    *
@@ -252,6 +301,9 @@ export function controleDelai({ ueNum, annee, date_demande, date_reception }) {
 export function manquesDossier(v) {
   const m = [];
   if (!v) return ['Dossier introuvable.'];
+  if (estAdmissionDeSection(v) && !String(v.section || '').trim()) {
+    m.push("L'admission n'est rattachée à aucune section.");
+  }
 
   if (!v.date_demande && !v.date_reception) {
     m.push("La date d'introduction de la demande n'est pas renseignée.");
