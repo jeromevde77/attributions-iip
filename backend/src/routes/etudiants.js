@@ -4742,15 +4742,66 @@ r.put('/valorisations/:vid/demande', authRequired, roleRequired(...PEUT_INSTRUIR
     if (!v) return res.status(404).json({ error: 'Dossier introuvable.' });
     if (refuseSiValide(v, res)) return;
     const { date_demande, date_reception, mode_introduction } = req.body;
+
+    /* UNE DEMANDE SE CORRIGE TANT QU'ELLE N'A PAS ÉTÉ TRANCHÉE.
+     *
+     * La nature de la demande — AD, VA ou VAE — se posait à la matrice et ne
+     * se changeait plus nulle part : un étudiant introduit en VA alors qu'il
+     * apporte une expérience professionnelle restait en VA pour toujours. Et
+     * ce qu'il DEMANDE — une dispense partielle plutôt que complète — ne se
+     * touchait qu'à l'étape de décision, donc après la recevabilité et l'avis.
+     * On ne pouvait donc pas enregistrer la demande telle qu'elle est arrivée.
+     *
+     * Ce sont deux choses distinctes, et elles le restent : ici on écrit CE
+     * QUI EST DEMANDÉ ; à l'étape 6, le Conseil écrit CE QU'IL ACCORDE. Rien
+     * n'oblige les deux à coïncider — c'est même tout l'objet d'un accord
+     * partiel.
+     *
+     * Tant que le dossier n'est pas validé : `refuseSiValide` ci-dessus. Une
+     * demande corrigée après la signature réécrirait l'histoire. */
+    const porte = CODES_PORTE.includes(String(req.body.porte))
+      ? String(req.body.porte) : v.porte;
+    const type = ['complete', 'partielle', 'admission'].includes(String(req.body.type))
+      ? String(req.body.type) : v.type;
+
+    /* UNE ADMISSION N'EST PAS UNE DISPENSE, ET RÉCIPROQUEMENT.
+     * La porte « admission » emporte la finalité — c'est la seule des trois
+     * qui la dise. Laisser les deux diverger produirait un dossier qui demande
+     * une admission et accorde une dispense. */
+    const typeFinal = porte === 'admission' ? 'admission'
+      : (type === 'admission' ? 'partielle' : type);
+
+    /* CE QUI N'EST PAS ENVOYÉ N'EST PAS EFFACÉ.
+     *
+     * La route écrivait les trois dates à chaque appel : corriger la seule
+     * NATURE de la demande remettait donc date et mode à zéro, en silence — on
+     * changeait « VA » en « VAE » et l'on perdait la date d'introduction, donc
+     * le contrôle du délai avec elle. Une mise à jour partielle qui efface ce
+     * qu'elle ne connaît pas n'est pas une mise à jour, c'est un écrasement.
+     *
+     * On distingue donc « absent du corps » (on garde) de « envoyé vide » (on
+     * efface) — c'est la différence entre ne rien dire et dire « rien ». */
+    const garder = (nom, valeur) => (nom in req.body ? (valeur || null) : v[nom]);
     db.prepare(`UPDATE etudiant_valorisation
-      SET date_demande = ?, date_reception = ?, mode_introduction = ? WHERE id = ?`)
-      .run(date_demande || null, date_reception || null, mode_introduction || null, vid);
+      SET date_demande = ?, date_reception = ?, mode_introduction = ?,
+          porte = ?, type = ? WHERE id = ?`)
+      .run(garder('date_demande', date_demande),
+           garder('date_reception', date_reception),
+           garder('mode_introduction', mode_introduction),
+           porte || null, typeFinal, vid);
     journaliser(vid, 'introduction', req,
       `demande du ${date_demande || '?'} · reçue le ${date_reception || '?'}`
-      + (mode_introduction ? ` · ${mode_introduction}` : ''));
+      + (mode_introduction ? ` · ${mode_introduction}` : '')
+      + (porte !== v.porte || typeFinal !== v.type
+        ? ` · demande : ${porte || '?'} / ${typeFinal}` : ''));
     rafraichirEtat(vid);
-    const delai = controleDelai({ ueNum: v.ue_num, annee: v.annee_scolaire,
-                                  date_demande, date_reception });
+    const delai = controleDelai({
+      ueNum: estAdmissionDeSection({ type: typeFinal, porte, ue_num: v.ue_num })
+        ? null : v.ue_num,
+      annee: v.annee_scolaire,
+      date_demande: garder('date_demande', date_demande),
+      date_reception: garder('date_reception', date_reception),
+    });
     res.json({ ok: true, delai });
   });
 
