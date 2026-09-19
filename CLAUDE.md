@@ -483,6 +483,47 @@ Ce que le serveur refuse désormais, et qu'il refusait pas :
 > se voit pas dossier par dossier ; sans ce bloc, la non-conformité se découvre
 > à l'inspection, et il est alors trop tard.
 
+**LA COORDINATION INSTRUIT, LA DIRECTION VALIDE — DEUX GESTES, DEUX MAINS.**
+Le circuit de 2.12.38 vérifiait que le dossier était instruit ; il ne disait pas
+QUI avait regardé le tout avant que la pièce parte. Or c'est le geste qui manque
+quand une signature se retrouve sur une décision que son titulaire n'a pas vue.
+Depuis 2.12.39, une **étape 6 bis** : la validation.
+
+- **Instruire** (introduction, recevabilité, avis, décision) : coordination,
+  secrétariat, direction — `PEUT_INSTRUIRE`. C'est une **exception explicite** à
+  la doctrine générale de Lucie (« un coordinateur n'écrit jamais directement,
+  ses modifications passent par une demande »), parce qu'à l'IIP ce sont les
+  coordinations qui instruisent les VA. L'exception est écrite dans
+  `lib/valorisation.js`, pas cachée dans une route.
+- **Valider** : `PEUT_VALIDER` = direction et direction adjointe, **et personne
+  d'autre**. Charles a tranché le 19 septembre 2026 contre deux autres options —
+  « chacun valide, y compris son propre travail », écarté parce qu'il ne protège
+  que de l'oubli ; « quatre yeux » (valider oui, mais jamais son propre
+  dossier), écarté parce que moins lisible.
+- **Dévalider** : direction seule, **motif écrit obligatoire** — une pièce a pu
+  partir sur la foi de cette validation. Le journal garde les deux gestes.
+
+> **UN DOSSIER VALIDÉ EST GELÉ.** Recevabilité, avis et décision ne se modifient
+> plus. Sans ce gel, la validation ne garantirait rien : on validerait un
+> dossier propre puis on corrigerait derrière, et la pièce déjà partie
+> reposerait sur autre chose que ce qui a été validé.
+
+> **ON NE VALIDE PAS CE QUI N'EST PAS INSTRUIT.** Une case cochable sur un
+> dossier incomplet donnerait une fausse garantie : le serveur refuse et nomme
+> ce qui manque.
+
+> **LE LOT NE DILUE PAS LA RESPONSABILITÉ.** Valider ou corriger en série écrit
+> **une ligne de journal par dossier**, avec le nom de celui qui a posé le
+> geste : un an après, on lit « validé par Untel le 20 septembre » sur CE
+> dossier-là, et non un geste collectif dont plus personne ne répond. Tout ou
+> rien, comme la création en lot, et les dossiers qui bloquent sont nommés.
+
+> **ON NE RÉCLAME PAS CE QU'ON NE DONNE PAS À SAISIR.** La fenêtre proposait
+> « dispense partielle » sans aucun moyen de désigner les activités ou les
+> acquis : le serveur refusait — à juste titre — et l'écran ne laissait aucune
+> issue. Un message qui réclame ce qu'aucun champ ne permet d'entrer est un
+> cul-de-sac, pas un garde-fou.
+
 **Le registre des valorisations** (rail *Étudiants → Valorisation*) : elles ne se
 lisaient que fiche par fiche, donc elles ne se lisaient pas — personne n'ouvre
 588 dossiers pour savoir qui a demandé quoi. Une ligne par demande, filtrable par

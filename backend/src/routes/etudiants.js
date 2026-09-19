@@ -19,6 +19,7 @@ import {
   BASES, CODES_BASE, FINALITES, ETATS, etatDeduit, uniteValorisable,
   controleDelai, manquesDossier, pieceProduisible, journaliser, journalDe,
   rafraichirEtat, pourcentageDe, POURCENTAGE_DISPENSE,
+  PEUT_VALIDER, PEUT_DEVALIDER, PEUT_INSTRUIRE,
 } from '../lib/valorisation.js';
 import { calculerDI, calculerDIS } from './droitInscription.js';
 
@@ -333,6 +334,21 @@ export function migrerEtudiants(dbx) {
       // non conforme » (AGCF 13.12.2024, art. 5 al. 3), positives ET négatives.
       ajouter('eprom_le', 'TEXT');
       ajouter('eprom_par', 'TEXT');
+      /* ÉTAPE 6 BIS — LA VALIDATION PAR LA DIRECTION OU SON DÉLÉGUÉ.
+       *
+       * C'est le geste qui ENGAGE LA SIGNATURE, et il manquait entièrement.
+       * Tout le circuit peut être parcouru correctement et la pièce rester
+       * fausse si personne, en fin d'étude, n'a regardé le dossier et dit :
+       * celui-ci part. On enregistre donc QUI a validé, avec quel profil et
+       * quand — et une fois validé, le dossier ne se modifie plus. Une pièce
+       * signée ne doit pas pouvoir reposer sur un dossier retouché après coup.
+       *
+       * `valide_par_id` autant que `valide_par` : un nom se change dans la
+       * fiche d'un compte, un identifiant non. */
+      ajouter('valide_le', 'TEXT');
+      ajouter('valide_par', 'TEXT');
+      ajouter('valide_par_id', 'INTEGER');
+      ajouter('valide_role', 'TEXT');
       // ÉTAPE 10 — l'archivage, quatre ans (AGCF art. 5 al. 2).
       ajouter('archive_le', 'TEXT');
       // L'ÉTAT COURANT, DÉDUIT MAIS ÉCRIT. Il se recalcule des colonnes
@@ -4389,10 +4405,17 @@ r.get('/valorisations/referentiel', authRequired, (req, res) => {
              pourcentage_dispense: POURCENTAGE_DISPENSE });
 });
 
-/** Un dossier, son état, ce qui lui manque, et son journal. */
-r.get('/valorisations/:vid/dossier', authRequired, (req, res) => {
-  const vid = Number(req.params.vid);
-  const v = db.prepare(`
+/**
+ * LE DOSSIER TEL QUE LES CONTRÔLES DOIVENT LE VOIR.
+ *
+ * `manquesDossier` a besoin du nombre d'équivalences pour juger si un accord
+ * partiel est motivé. Une requête qui l'oublie rend un dossier « complet »
+ * alors qu'il ne l'est pas — et c'est le genre d'écart qui ne se voit qu'au
+ * moment où la pièce fausse est déjà partie. Une seule lecture, employée par
+ * toutes les routes du circuit.
+ */
+function lireDossierComplet(vid) {
+  return db.prepare(`
     SELECT v.*, e.nom, e.prenom, e.id_ecampus,
            (SELECT COUNT(*) FROM etudiant_valorisation_aa a
              WHERE a.valorisation_id = v.id) AS nb_equivalences,
@@ -4400,7 +4423,32 @@ r.get('/valorisations/:vid/dossier', authRequired, (req, res) => {
              WHERE f.valorisation_id = v.id) AS nb_preuves
     FROM etudiant_valorisation v
     JOIN etudiant e ON e.id = v.etudiant_id
-    WHERE v.id = ?`).get(vid);
+    WHERE v.id = ?`).get(Number(vid));
+}
+
+/**
+ * UN DOSSIER VALIDÉ NE SE MODIFIE PLUS.
+ *
+ * Sans ce gel, la validation ne garantirait rien : on validerait un dossier
+ * propre, puis on corrigerait la décision derrière, et la pièce déjà partie
+ * reposerait sur autre chose que ce qui a été validé. Pour corriger, on
+ * dévalide — et dévalider est un acte de direction qui se motive.
+ */
+function refuseSiValide(v, res) {
+  if (v?.valide_le) {
+    res.status(409).json({ error: `Ce dossier a été validé le ${v.valide_le}`
+      + `${v.valide_par ? ` par ${v.valide_par}` : ''} : il ne se modifie plus. `
+      + 'Pour le corriger, la direction doit d’abord retirer la validation, et '
+      + 'elle motive ce retrait.' });
+    return true;
+  }
+  return false;
+}
+
+/** Un dossier, son état, ce qui lui manque, et son journal. */
+r.get('/valorisations/:vid/dossier', authRequired, (req, res) => {
+  const vid = Number(req.params.vid);
+  const v = lireDossierComplet(vid);
   if (!v) return res.status(404).json({ error: 'Dossier introuvable.' });
 
   const valorisable = uniteValorisable(v.ue_num, v.annee_scolaire);
@@ -4416,6 +4464,8 @@ r.get('/valorisations/:vid/dossier', authRequired, (req, res) => {
     // CE QUI PROTÈGE LA SIGNATURE : l'écran le montre AVANT qu'on demande la
     // pièce, plutôt que de faire découvrir le refus au moment de l'imprimer.
     piece: pieceProduisible(v),
+    peut_valider: PEUT_VALIDER.includes(req.user?.role),
+    peut_devalider: PEUT_DEVALIDER.includes(req.user?.role),
     journal: journalDe(vid),
   });
 });
@@ -4428,11 +4478,12 @@ r.get('/valorisations/:vid/dossier', authRequired, (req, res) => {
  * postérieure à celle portée sur le formulaire, c'est L'ENVOI qui fait foi —
  * sans quoi il suffirait d'antidater le formulaire.
  */
-r.put('/valorisations/:vid/demande', authRequired, roleRequired('admin', 'editeur'),
+r.put('/valorisations/:vid/demande', authRequired, roleRequired(...PEUT_INSTRUIRE),
   (req, res) => {
     const vid = Number(req.params.vid);
     const v = db.prepare('SELECT * FROM etudiant_valorisation WHERE id = ?').get(vid);
     if (!v) return res.status(404).json({ error: 'Dossier introuvable.' });
+    if (refuseSiValide(v, res)) return;
     const { date_demande, date_reception, mode_introduction } = req.body;
     db.prepare(`UPDATE etudiant_valorisation
       SET date_demande = ?, date_reception = ?, mode_introduction = ? WHERE id = ?`)
@@ -4457,11 +4508,12 @@ r.put('/valorisations/:vid/demande', authRequired, roleRequired('admin', 'editeu
  * « Toute demande est encodée dans Lucie, recevable ou non » : une irrecevable
  * reste un dossier, avec sa trace et son document de refus.
  */
-r.put('/valorisations/:vid/recevabilite', authRequired, roleRequired('admin', 'editeur'),
+r.put('/valorisations/:vid/recevabilite', authRequired, roleRequired(...PEUT_INSTRUIRE),
   (req, res) => {
     const vid = Number(req.params.vid);
     const v = db.prepare('SELECT * FROM etudiant_valorisation WHERE id = ?').get(vid);
     if (!v) return res.status(404).json({ error: 'Dossier introuvable.' });
+    if (refuseSiValide(v, res)) return;
     if (v.decision_le) {
       return res.status(409).json({ error: "La décision du Conseil est déjà "
         + 'enregistrée : la recevabilité ne se rejuge pas après coup.' });
@@ -4492,11 +4544,12 @@ r.put('/valorisations/:vid/recevabilite', authRequired, roleRequired('admin', 'e
  * VA ne sont pas susceptibles de recours (RDE art. 30 et 87 §2) et que c'est
  * tout ce qui restera pour les défendre.
  */
-r.put('/valorisations/:vid/avis', authRequired, roleRequired('admin', 'editeur', 'professeur'),
+r.put('/valorisations/:vid/avis', authRequired, roleRequired(...PEUT_INSTRUIRE, 'professeur'),
   (req, res) => {
     const vid = Number(req.params.vid);
     const v = db.prepare('SELECT * FROM etudiant_valorisation WHERE id = ?').get(vid);
     if (!v) return res.status(404).json({ error: 'Dossier introuvable.' });
+    if (refuseSiValide(v, res)) return;
     if (v.recevable == null) {
       return res.status(409).json({ error: "La recevabilité n'a pas été contrôlée : "
         + "l'analyse pédagogique vient APRÈS (étape 4 de la procédure)." });
@@ -4532,12 +4585,13 @@ r.put('/valorisations/:vid/avis', authRequired, roleRequired('admin', 'editeur',
  * réussite d'une dispense est fixée à 50 % (RDE art. 29 §3 et 30) ; un chiffre
  * modifiable finit par être modifié, et il part sur une pièce signée.
  */
-r.put('/valorisations/:vid/decision', authRequired, roleRequired('admin', 'editeur'),
+r.put('/valorisations/:vid/decision', authRequired, roleRequired(...PEUT_INSTRUIRE),
   (req, res) => {
     const vid = Number(req.params.vid);
     const v = db.prepare('SELECT * FROM etudiant_valorisation WHERE id = ?').get(vid);
     if (!v) return res.status(404).json({ error: 'Dossier introuvable.' });
 
+    if (refuseSiValide(v, res)) return;
     if (v.recevable == null) {
       return res.status(409).json({ error: "La recevabilité n'a pas été contrôlée "
         + '(étape 3) : le Conseil ne peut pas décider d’un dossier non instruit.' });
@@ -4579,6 +4633,251 @@ r.put('/valorisations/:vid/decision', authRequired, roleRequired('admin', 'edite
             : `${type} · base ${req.body.base_code}`);
     res.json({ ok: true, etat: rafraichirEtat(vid) });
   });
+
+/**
+ * ÉTAPE 6 BIS — LA VALIDATION PAR LA DIRECTION OU SON DÉLÉGUÉ.
+ *
+ * C'EST LE GESTE QUI ENGAGE LA SIGNATURE, ET IL N'EXISTAIT PAS.
+ *
+ * Tout le circuit peut être parcouru dans l'ordre et la pièce rester fausse si
+ * personne, en fin d'étude, n'a regardé le dossier entier et dit « celui-ci
+ * part ». C'est exactement ce qui a manqué : la coordination avait instruit à
+ * sa façon, et la signature de la direction s'est retrouvée sur le résultat
+ * sans que la direction ait rien vu.
+ *
+ * Trois conséquences, et elles tiennent ensemble :
+ *   — la validation est RÉSERVÉE (direction, adjoint, coordination) ;
+ *   — elle exige un dossier SANS MANQUE : on ne valide pas ce qui n'est pas
+ *     instruit, sinon la case ne vaudrait rien ;
+ *   — elle GÈLE le dossier : recevabilité, avis et décision ne se modifient
+ *     plus. Une pièce signée ne doit pas pouvoir reposer sur un dossier
+ *     retouché après coup. Pour corriger, il faut dévalider, et dévalider est
+ *     un acte de direction qui se motive.
+ */
+r.put('/valorisations/:vid/validation', authRequired, (req, res) => {
+  if (!PEUT_VALIDER.includes(req.user?.role)) {
+    return res.status(403).json({ error: 'La validation appartient à la direction '
+      + "et à la direction adjointe : la coordination instruit le dossier, elle ne "
+      + 'valide pas son propre travail.' });
+  }
+  const vid = Number(req.params.vid);
+  const v = lireDossierComplet(vid);
+  if (!v) return res.status(404).json({ error: 'Dossier introuvable.' });
+  if (v.valide_le) {
+    return res.status(409).json({ error: `Déjà validé le ${v.valide_le}`
+      + `${v.valide_par ? ` par ${v.valide_par}` : ''}.` });
+  }
+  // ON NE VALIDE PAS CE QUI N'EST PAS INSTRUIT : une case qu'on peut cocher
+  // sur un dossier incomplet ne vaut rien, et donnerait une fausse garantie.
+  const manques = manquesDossier(v).filter(m => !m.startsWith('Le dossier n’a pas été validé'));
+  if (manques.length) {
+    return res.status(409).json({
+      error: 'Ce dossier ne peut pas être validé en l’état.', manques });
+  }
+  db.prepare(`UPDATE etudiant_valorisation
+    SET valide_le = datetime('now'), valide_par = ?, valide_par_id = ?, valide_role = ?
+    WHERE id = ?`).run(req.user?.nom || req.user?.email || null,
+                       req.user?.id ?? null, req.user?.role || null, vid);
+  journaliser(vid, 'validation', req, req.body?.detail || null);
+  res.json({ ok: true, etat: rafraichirEtat(vid) });
+});
+
+/** Retirer une validation : direction seule, motif écrit, trace conservée. */
+r.delete('/valorisations/:vid/validation', authRequired, (req, res) => {
+  if (!PEUT_DEVALIDER.includes(req.user?.role)) {
+    return res.status(403).json({ error: 'Retirer une validation est réservé à la '
+      + 'direction : la coordination peut valider, elle ne défait pas.' });
+  }
+  const vid = Number(req.params.vid);
+  const motif = String(req.body?.motif || '').trim();
+  if (!motif) {
+    return res.status(400).json({ error: 'Retirer une validation se motive : une '
+      + 'pièce a pu partir sur la foi de cette validation.' });
+  }
+  db.prepare(`UPDATE etudiant_valorisation
+    SET valide_le = NULL, valide_par = NULL, valide_par_id = NULL, valide_role = NULL
+    WHERE id = ?`).run(vid);
+  // LA TRACE RESTE, ELLE. Le journal est en ajout seul : on y lit encore la
+  // validation retirée, qui l'avait posée, et pourquoi elle a été défaite.
+  journaliser(vid, 'validation_retiree', req, motif);
+  res.json({ ok: true, etat: rafraichirEtat(vid) });
+});
+
+/**
+ * LA SÉANCE DU CONSEIL DES ÉTUDES — LES DOSSIERS D'UNE UNITÉ, UN À UN.
+ *
+ * Une séance ne se tient pas dossier par dossier au hasard du fichier : elle
+ * porte sur UNE unité, et on passe ses demandes l'une après l'autre. Cette
+ * route rend la file, dans l'ordre, avec pour chacune son état et ce qui lui
+ * manque — de quoi avancer sans rouvrir dix écrans, et surtout de quoi voir
+ * d'un coup ce qui n'est pas prêt à être validé.
+ */
+r.get('/valorisations/ue/:ueNum/seance-dossiers', authRequired, (req, res) => {
+  const ueNum = Number(req.params.ueNum);
+  const annee = req.query.annee;
+  if (!annee) return res.status(400).json({ error: 'annee requise' });
+  const lignes = db.prepare(`
+    SELECT v.*, e.nom, e.prenom,
+           (SELECT COUNT(*) FROM etudiant_valorisation_aa a
+             WHERE a.valorisation_id = v.id) AS nb_equivalences,
+           (SELECT COUNT(*) FROM etudiant_valorisation_fichier f
+             WHERE f.valorisation_id = v.id) AS nb_preuves
+    FROM etudiant_valorisation v
+    JOIN etudiant e ON e.id = v.etudiant_id
+    WHERE v.ue_num = ? AND v.annee_scolaire = ?
+    ORDER BY e.nom, e.prenom
+  `).all(ueNum, annee);
+
+  const valorisable = uniteValorisable(ueNum, annee);
+  res.json({
+    ue_num: ueNum, annee, unite: valorisable.unite,
+    peut_valider: PEUT_VALIDER.includes(req.user?.role),
+    peut_devalider: PEUT_DEVALIDER.includes(req.user?.role),
+    dossiers: lignes.map(v => {
+      const manques = manquesDossier(v);
+      return {
+        id: v.id, etudiant_id: v.etudiant_id, nom: v.nom, prenom: v.prenom,
+        etat: etatDeduit(v), type: v.type, decision: v.decision,
+        base_code: v.base_code, avis_sens: v.avis_sens,
+        valide_le: v.valide_le, valide_par: v.valide_par, valide_role: v.valide_role,
+        nb_preuves: v.nb_preuves,
+        manques,
+        // « prêt » veut dire : tout est là SAUF la validation elle-même.
+        pret_a_valider: !v.valide_le
+          && !manques.filter(m => !m.startsWith('Le dossier n’a pas été validé')).length,
+      };
+    }),
+  });
+});
+
+/**
+ * CORRIGER OU VALIDER EN SÉRIE — SANS PERDRE LA TRACE DE CHAQUE DOSSIER.
+ *
+ * En séance, la même correction vaut souvent pour huit dossiers : la même base
+ * légale, la même date de Conseil. Les reprendre un à un, c'est huit occasions
+ * de se tromper d'une case — et c'est ce qui fait qu'on ne les reprend pas.
+ *
+ * MAIS LE LOT NE DILUE PAS LA RESPONSABILITÉ : chaque dossier reçoit sa propre
+ * ligne de journal, avec le nom de celui qui a posé le geste. On lit donc, un
+ * an après, « validé par Untel le 20 septembre » sur CE dossier-là, et non un
+ * geste collectif dont plus personne ne répond.
+ *
+ * TOUT OU RIEN, comme la création en lot : une écriture partielle laisserait
+ * ignorer lesquels sont passés. Les dossiers qui bloquent sont NOMMÉS, et on
+ * les décoche.
+ */
+r.post('/valorisations/lot/validation', authRequired, (req, res) => {
+  if (!PEUT_VALIDER.includes(req.user?.role)) {
+    return res.status(403).json({ error: 'La validation appartient à la direction '
+      + "et à la direction adjointe : la coordination instruit le dossier, elle ne "
+      + 'valide pas son propre travail.' });
+  }
+  const ids = [...new Set((Array.isArray(req.body?.ids) ? req.body.ids : [])
+    .map(Number).filter(n => Number.isInteger(n) && n > 0))];
+  if (!ids.length) return res.status(400).json({ error: 'Aucun dossier coché.' });
+
+  const bloquants = [];
+  const prets = [];
+  for (const id of ids) {
+    const v = lireDossierComplet(id);
+    if (!v) { bloquants.push({ id, qui: `#${id}`, pourquoi: 'Dossier introuvable.' }); continue; }
+    const qui = `${(v.nom || '').toUpperCase()} ${v.prenom || ''}`.trim();
+    if (v.valide_le) {
+      bloquants.push({ id, qui, pourquoi: `déjà validé le ${v.valide_le}` });
+      continue;
+    }
+    const manques = manquesDossier(v)
+      .filter(m => !m.startsWith('Le dossier n’a pas été validé'));
+    if (manques.length) { bloquants.push({ id, qui, pourquoi: manques[0] }); continue; }
+    prets.push(id);
+  }
+  if (bloquants.length) {
+    return res.status(409).json({
+      error: `${bloquants.length} dossier(s) ne peuvent pas être validés : rien n'a `
+        + 'été enregistré.', bloquants });
+  }
+
+  const maj = db.prepare(`UPDATE etudiant_valorisation
+    SET valide_le = datetime('now'), valide_par = ?, valide_par_id = ?, valide_role = ?
+    WHERE id = ?`);
+  const nom = req.user?.nom || req.user?.email || null;
+  db.transaction(() => {
+    for (const id of prets) maj.run(nom, req.user?.id ?? null, req.user?.role || null, id);
+  })();
+  // Le journal, LIGNE PAR LIGNE : un geste en série reste une suite de gestes
+  // individuels, et c'est ainsi qu'il se relit.
+  for (const id of prets) {
+    journaliser(id, 'validation', req, `validation en série (${prets.length} dossiers)`);
+    rafraichirEtat(id);
+  }
+  res.json({ ok: true, valides: prets.length });
+});
+
+/** Corriger en série : la même décision appliquée à plusieurs dossiers. */
+r.post('/valorisations/lot/decision', authRequired, roleRequired(...PEUT_INSTRUIRE), (req, res) => {
+  const ids = [...new Set((Array.isArray(req.body?.ids) ? req.body.ids : [])
+    .map(Number).filter(n => Number.isInteger(n) && n > 0))];
+  if (!ids.length) return res.status(400).json({ error: 'Aucun dossier coché.' });
+
+  const bloquants = [];
+  const cibles = [];
+  for (const id of ids) {
+    const v = lireDossierComplet(id);
+    if (!v) { bloquants.push({ id, qui: `#${id}`, pourquoi: 'Dossier introuvable.' }); continue; }
+    const qui = `${(v.nom || '').toUpperCase()} ${v.prenom || ''}`.trim();
+    // UN DOSSIER VALIDÉ NE SE CORRIGE PAS : il se dévalide d'abord, et cela
+    // se motive. Sans quoi la validation ne garantirait rien.
+    if (v.valide_le) { bloquants.push({ id, qui, pourquoi: 'déjà validé — le dévalider d’abord' }); continue; }
+    if (v.recevable !== 1) { bloquants.push({ id, qui, pourquoi: 'recevabilité non contrôlée' }); continue; }
+    if (!v.avis_le) { bloquants.push({ id, qui, pourquoi: 'avis du chargé de cours manquant' }); continue; }
+    cibles.push(v);
+  }
+  if (bloquants.length) {
+    return res.status(409).json({
+      error: `${bloquants.length} dossier(s) bloquent : rien n'a été enregistré.`,
+      bloquants });
+  }
+
+  const type = req.body.type;
+  const decision = req.body.decision === 'refusee' ? 'refusee' : 'accordee';
+  const refus = decision === 'refusee';
+  for (const v of cibles) {
+    const corps = { ...req.body, type, decision,
+                    annee_scolaire: v.annee_scolaire, ue_num: v.ue_num };
+    const souci = verifierValorisation(corps) || verifierDecisionCE(corps);
+    if (souci) return res.status(400).json({ error: souci });
+  }
+
+  const maj = db.prepare(`UPDATE etudiant_valorisation
+    SET type = ?, decision = ?, base_code = ?, motif_refus = ?,
+        cible = ?, cible_detail = ?, pourcentage = ?,
+        decision_ce_date = ?, commentaire = ?,
+        decision_par = ?, decision_le = datetime('now')
+    WHERE id = ?`);
+  const nom = req.user?.nom || req.user?.email || null;
+  db.transaction(() => {
+    for (const v of cibles) {
+      maj.run(type, decision, refus ? null : String(req.body.base_code),
+        refus ? String(req.body.motif_refus).trim() : null,
+        !refus && type === 'partielle' ? (req.body.cible || v.cible) : null,
+        !refus && type === 'partielle' ? (req.body.cible_detail ?? v.cible_detail) : null,
+        pourcentageDe({ decision, type }),
+        req.body.decision_ce_date || v.decision_ce_date || null,
+        req.body.commentaire ?? v.commentaire ?? null,
+        nom, v.id);
+      if (!refus && Array.isArray(req.body.equivalences)) {
+        ecrireEquivalences(v.id, req.body.equivalences);
+      }
+    }
+  })();
+  for (const v of cibles) {
+    journaliser(v.id, refus ? 'decision_refus' : 'decision_accord', req,
+      `en série (${cibles.length} dossiers) · ${refus ? 'refus'
+        : `${type} · base ${req.body.base_code}`}`);
+    rafraichirEtat(v.id);
+  }
+  res.json({ ok: true, corriges: cibles.length });
+});
 
 /**
  * ÉTAPE 7 — LA NOTIFICATION ET LA MISE À JOUR DU PAE (2 jours ouvrables).
@@ -4746,7 +5045,7 @@ r.get('/valorisations/ue/:ueNum/candidats', authRequired, (req, res) => {
  * celle du lot. On rend la liste, on n'écrit rien, et le secrétariat décoche
  * ou corrige à la main — c'est une décision, pas une collision de données.
  */
-r.post('/valorisations/lot', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
+r.post('/valorisations/lot', authRequired, roleRequired(...PEUT_INSTRUIRE), (req, res) => {
   const { etudiant_ids, annee_scolaire, ue_num, type, cible, cible_detail,
           pourcentage, decision_ce_date, commentaire } = req.body;
 
@@ -4828,7 +5127,7 @@ r.post('/valorisations/lot', authRequired, roleRequired('admin', 'editeur'), (re
   res.json({ ok: true, crees: crees.length, valorisations: crees });
 });
 
-r.post('/:id/valorisations', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
+r.post('/:id/valorisations', authRequired, roleRequired(...PEUT_INSTRUIRE), (req, res) => {
   const { annee_scolaire, ue_num, type, cible, cible_detail, pourcentage,
           decision_ce_date, commentaire } = req.body;
   const souci = verifierValorisation(req.body);

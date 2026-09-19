@@ -1552,11 +1552,11 @@ function FenetreDossier({ vid, onClose, onChange }) {
       .then(r => (r.ok ? r.json() : null)).then(setRef).catch(() => {});
   }, []);
 
-  async function agir(chemin, corps) {
+  async function agir(chemin, corps, methode = 'PUT') {
     setEnCours(true); setErreur(null);
     try {
       const r = await fetch(`/api/etudiants/valorisations/${vid}/${chemin}`, {
-        method: 'PUT', headers: authHeaders(), body: JSON.stringify(corps || {}),
+        method: methode, headers: authHeaders(), body: JSON.stringify(corps || {}),
       });
       const j = await r.json().catch(() => ({}));
       if (!r.ok) { setErreur(j.error || 'Refusé.'); return false; }
@@ -1632,6 +1632,13 @@ function FenetreDossier({ vid, onClose, onChange }) {
         {/* ÉTAPE 6 — LA DÉCISION DU CONSEIL. */}
         <EtapeDecision dossier={v} bases={ref?.bases || []}
           onEnregistrer={c => agir('decision', c)} enCours={enCours} />
+
+        {/* ÉTAPE 6 BIS — LA VALIDATION. C'EST ELLE QUI ENGAGE LA SIGNATURE. */}
+        <EtapeValidation dossier={v} peutValider={d.peut_valider}
+          peutDevalider={d.peut_devalider} manques={d.manques}
+          onValider={() => agir('validation', {})}
+          onRetirer={motif => agir('validation', { motif }, 'DELETE')}
+          enCours={enCours} />
 
         {/* ÉTAPES 7, 8, 10 — LES GESTES ADMINISTRATIFS. */}
         <section className="carte p-3 space-y-2">
@@ -1848,6 +1855,45 @@ function EtapeDecision({ dossier, bases, onEnregistrer, enCours }) {
   const bloque = dossier.recevable !== 1 || !dossier.avis_le;
   const refus = decision === 'refusee';
 
+  /* ON NE RÉCLAME PAS CE QU'ON NE DONNE PAS À SAISIR.
+   *
+   * La fenêtre proposait « dispense partielle » sans aucun moyen de désigner
+   * les activités ou les acquis dispensés : le serveur refusait — à juste
+   * titre, c'est la loi — et l'écran ne laissait aucune issue. Un message qui
+   * réclame ce qu'aucun champ ne permet d'entrer est un cul-de-sac, pas un
+   * garde-fou. Les composantes de l'UNITÉ font foi ici aussi, jamais le
+   * programme de l'étudiant. */
+  const [composantes, setComposantes] = useState(null);
+  const [cible, setCible] = useState(dossier.cible || 'cours');
+  const [coches, setCoches] = useState(() => new Set(
+    String(dossier.cible_detail || '').split(',').map(x => x.trim()).filter(Boolean)));
+
+  useEffect(() => {
+    if (type !== 'partielle' || composantes) return;
+    fetch(`/api/etudiants/ue/${dossier.ue_num}/composantes?annee=${encodeURIComponent(dossier.annee_scolaire)}`,
+      { headers: authHeaders() })
+      .then(r => (r.ok ? r.json() : null)).then(setComposantes).catch(() => {});
+  }, [type, composantes, dossier.ue_num, dossier.annee_scolaire]);
+
+  // Changer de cible vide la sélection : des codes de cours laissés dans une
+  // liste d'acquis produiraient une dispense qui ne désigne rien.
+  const changerCible = c => { setCible(c); setCoches(new Set()); };
+  const basculer = v => setCoches(s0 => {
+    const n = new Set(s0);
+    if (n.has(v)) n.delete(v); else n.add(v);
+    return n;
+  });
+
+  const aasParCours = useMemo(() => {
+    const m = new Map();
+    for (const a of (composantes?.aas || [])) {
+      const c = a.cours_code || '—';
+      if (!m.has(c)) m.set(c, []);
+      m.get(c).push(a);
+    }
+    return m;
+  }, [composantes]);
+
   return (
     <section className="carte p-3 space-y-2">
       <div className="flex items-center gap-2">
@@ -1912,6 +1958,74 @@ function EtapeDecision({ dossier, bases, onEnregistrer, enCours }) {
             </div>
           )}
 
+          {/* CE QUI EST DISPENSÉ — obligatoire dès que la dispense est partielle. */}
+          {!refus && type === 'partielle' && (
+            <div className="space-y-2 border-l-2 border-slate-200 pl-3">
+              <div className="flex flex-wrap gap-2">
+                {[['cours', "Des activités d'enseignement"], ['aa', 'Des acquis']].map(([v, l]) => (
+                  <label key={v}
+                    className={`px-3 py-1.5 rounded-champ border cursor-pointer text-[13px]
+                      ${cible === v ? 'border-iip-blue bg-iip-blue/5' : 'border-slate-200'}`}>
+                    <input type="radio" checked={cible === v} onChange={() => changerCible(v)}
+                      className="mr-1.5 accent-iip-blue" />{l}
+                  </label>
+                ))}
+              </div>
+
+              {!composantes ? (
+                <div className="text-[12px] text-slate-400">Chargement des composantes de l'unité…</div>
+              ) : cible === 'cours' ? (
+                !composantes.cours?.length ? (
+                  <div className="text-[12px] text-slate-500">
+                    Cette unité n'a aucun cours encodé pour {dossier.annee_scolaire}.
+                  </div>
+                ) : composantes.cours.map(c => (
+                  <label key={c.cours_code}
+                    className="flex items-center gap-2 px-2 py-1 rounded-champ
+                               hover:bg-slate-50 cursor-pointer">
+                    <input type="checkbox" checked={coches.has(c.cours_code)}
+                      onChange={() => basculer(c.cours_code)}
+                      className="w-4 h-4 accent-iip-blue" />
+                    <span className="text-[13px]">{c.cours_nom || c.cours_code}</span>
+                    <span className="text-[11px] text-slate-400">{c.cours_code}</span>
+                  </label>
+                ))
+              ) : (
+                !composantes.aas?.length ? (
+                  <div className="text-[12px] text-slate-500">Cette unité n'a aucun acquis encodé.</div>
+                ) : [...aasParCours.entries()].map(([code, liste]) => (
+                  <div key={code}>
+                    <div className="tab-repere px-2 py-1 text-[12px] font-medium">
+                      {composantes.cours?.find(c => c.cours_code === code)?.cours_nom || code}
+                    </div>
+                    {liste.map(a => (
+                      <label key={a.aa_code}
+                        className="flex items-start gap-2 px-2 py-1 rounded-champ
+                                   hover:bg-slate-50 cursor-pointer">
+                        <input type="checkbox" checked={coches.has(a.aa_code)}
+                          onChange={() => basculer(a.aa_code)}
+                          className="w-4 h-4 mt-0.5 accent-iip-blue" />
+                        <span className="text-[13px]">
+                          {a.description || a.aa_code}
+                          <span className="ml-1.5 text-[11px] text-slate-400">{a.aa_code}</span>
+                        </span>
+                      </label>
+                    ))}
+                  </div>
+                ))
+              )}
+              {/* UNE PARTIELLE NE PEUT PAS TOUT COUVRIR (RDE art. 29 §2) : on le
+                  dit ici plutôt que de le faire découvrir au refus du serveur. */}
+              {cible === 'cours' && composantes?.cours?.length > 0
+                && composantes.cours.every(c => coches.has(c.cours_code)) && (
+                <p className="text-[12px] text-[#9D4A38]">
+                  Toutes les activités sont cochées : une dispense partielle ne peut pas
+                  couvrir l'unité entière (RDE art. 29 §2). C'est alors une dispense complète.
+                </p>
+              )}
+            </div>
+          )}
+
           <div className="flex flex-wrap items-end gap-3">
             <label className="block">
               <span className="text-[12px] text-slate-600">Date de la décision</span>
@@ -1926,15 +2040,28 @@ function EtapeDecision({ dossier, bases, onEnregistrer, enCours }) {
           </div>
 
           <button
-            onClick={() => onEnregistrer({ type, decision, base_code: base,
-                                           motif_refus: motif, decision_ce_date: dateCE })}
-            disabled={enCours || (refus ? !motif.trim() : !base)}
+            onClick={() => onEnregistrer({
+              type, decision, base_code: base, motif_refus: motif,
+              decision_ce_date: dateCE,
+              ...(type === 'partielle'
+                ? { cible, cible_detail: [...coches].join(','),
+                    ...(cible === 'aa'
+                      ? { equivalences: [...coches].map(code => ({ aa_code: code })) } : {}) }
+                : {}),
+            })}
+            disabled={enCours || (refus ? !motif.trim()
+              : !base || (type === 'partielle' && !coches.size))}
             className="bouton bouton-fort disabled:opacity-40">
             {dossier.decision_le ? 'Corriger la décision' : 'Enregistrer la décision'}
           </button>
           {!refus && !base && (
             <span className="ml-2 text-[12px] text-slate-500">
               La base est obligatoire : elle est encodée dans eProm.
+            </span>
+          )}
+          {!refus && base && type === 'partielle' && !coches.size && (
+            <span className="ml-2 text-[12px] text-slate-500">
+              Coche ce qui est dispensé : des activités d'enseignement, ou des acquis.
             </span>
           )}
         </>
@@ -1999,5 +2126,107 @@ function CeQuiResteAFaire({ annee, onOuvrir }) {
         );
       })}
     </div>
+  );
+}
+
+
+/**
+ * ÉTAPE 6 BIS — LA VALIDATION PAR LA DIRECTION OU SON DÉLÉGUÉ.
+ *
+ * LA COORDINATION INSTRUIT, LA DIRECTION VALIDE. Deux gestes, deux mains :
+ * si celui qui instruit valide aussi, la case ne garantit rien de plus
+ * qu'avant — c'est la même personne qui décide et qui se relit, et c'est
+ * exactement ce qui s'est produit en septembre 2026.
+ *
+ * Une fois validé, le dossier est GELÉ : plus de correction de la
+ * recevabilité, de l'avis ni de la décision. Une pièce signée ne doit pas
+ * pouvoir reposer sur un dossier retouché après coup. Pour corriger, la
+ * direction retire la validation, et elle motive ce retrait — le journal
+ * garde les deux gestes.
+ */
+function EtapeValidation({ dossier, peutValider, peutDevalider, manques,
+                           onValider, onRetirer, enCours }) {
+  const [motif, setMotif] = useState('');
+  const [retrait, setRetrait] = useState(false);
+  // « Ce qui manque » moins la validation elle-même : sinon elle se
+  // reprocherait à elle-même de ne pas avoir eu lieu.
+  const bloquants = (manques || []).filter(m => !m.startsWith('Le dossier n’a pas été validé'));
+  const valide = !!dossier.valide_le;
+
+  return (
+    <section className={`carte p-3 space-y-2
+      ${valide ? 'border-l-[3px] border-l-emerald-700' : ''}`}>
+      <div className="flex items-center gap-2 flex-wrap">
+        <span className="text-[11px] uppercase tracking-wide text-slate-500">
+          6 bis — La validation par la direction
+        </span>
+        {valide && (
+          <span className="text-[12px] text-emerald-800">
+            ✓ Validé par <b>{dossier.valide_par || '—'}</b>
+            {dossier.valide_role ? ` (${dossier.valide_role})` : ''} · {dossier.valide_le}
+          </span>
+        )}
+      </div>
+
+      {valide ? (
+        <>
+          <p className="text-[12px] text-slate-500">
+            Le dossier est gelé : recevabilité, avis et décision ne se modifient plus.
+          </p>
+          {peutDevalider && (
+            retrait ? (
+              <div className="flex flex-wrap items-end gap-2">
+                <label className="flex-1 min-w-[18rem]">
+                  <span className="text-[12px] text-slate-600">
+                    Motif du retrait — une pièce a pu partir sur la foi de cette validation
+                  </span>
+                  <input value={motif} onChange={e => setMotif(e.target.value)}
+                    className="controle w-full text-[13px] mt-1" />
+                </label>
+                <button onClick={() => onRetirer(motif)} disabled={enCours || !motif.trim()}
+                  className="bouton bouton-detruire disabled:opacity-40">
+                  Retirer la validation
+                </button>
+                <button onClick={() => setRetrait(false)} className="bouton">Annuler</button>
+              </div>
+            ) : (
+              <button onClick={() => setRetrait(true)} className="bouton text-[12px]">
+                Retirer la validation
+              </button>
+            )
+          )}
+        </>
+      ) : !peutValider ? (
+        /* ON DIT QUI PEUT, PLUTÔT QUE DE CACHER LE BOUTON. Un bouton absent
+           laisse croire à une panne ; une phrase dit à qui s'adresser. */
+        <p className="text-[12px] text-slate-500">
+          En attente de validation par la direction ou la direction adjointe —
+          c'est ce geste qui engage la signature.
+        </p>
+      ) : bloquants.length ? (
+        <>
+          <p className="text-[12px] text-slate-600">
+            Ce dossier ne peut pas encore être validé :
+          </p>
+          <ul className="space-y-0.5">
+            {bloquants.map((m, i) => (
+              <li key={i} className="text-[12px] text-slate-600">· {m}</li>
+            ))}
+          </ul>
+        </>
+      ) : (
+        <>
+          <p className="text-[12px] text-slate-600">
+            Le dossier est complet. En validant, vous engagez la signature de
+            l'établissement sur les pièces qui en sortiront — votre nom et
+            l'heure sont conservés au journal.
+          </p>
+          <button onClick={onValider} disabled={enCours}
+            className="bouton bouton-fort disabled:opacity-40">
+            Valider ce dossier
+          </button>
+        </>
+      )}
+    </section>
   );
 }

@@ -67,7 +67,8 @@ export const ETATS = [
   { val: 'irrecevable',  label: 'Irrecevable',   aide: 'Refus de forme — hors délai ou dossier incomplet' },
   { val: 'recevable',    label: 'Recevable',     aide: "En attente de l'avis du chargé de cours" },
   { val: 'avis_rendu',   label: 'Avis rendu',    aide: 'En attente de la décision du Conseil des études' },
-  { val: 'decidee',      label: 'Décidée',       aide: "Décision prise — à notifier à l'étudiant" },
+  { val: 'decidee',      label: 'Décidée',       aide: 'Décision prise — à valider par la direction' },
+  { val: 'validee',      label: 'Validée',       aide: "Validée — à notifier à l'étudiant" },
   { val: 'notifiee',     label: 'Notifiée',      aide: 'À encoder dans eProm' },
   { val: 'encodee',      label: 'Encodée',       aide: 'Encodée dans eProm — à archiver' },
   { val: 'archivee',     label: 'Archivée',      aide: 'PV et pièces conservés (4 ans)' },
@@ -86,6 +87,7 @@ export function etatDeduit(v) {
   if (v.archive_le) return 'archivee';
   if (v.eprom_le) return 'encodee';
   if (v.notifie_le) return 'notifiee';
+  if (v.valide_le) return 'validee';
   if (v.decision_le) return 'decidee';
   if (v.recevable === 0) return 'irrecevable';
   if (v.avis_le) return 'avis_rendu';
@@ -275,6 +277,16 @@ export function manquesDossier(v) {
   } else {
     m.push("La décision du Conseil des études n'est pas enregistrée (étape 6).");
   }
+
+  /* ET LA VALIDATION, QUI EST LE DERNIER VERROU.
+   *
+   * Tout peut avoir été fait dans l'ordre et la pièce rester fausse si
+   * personne, en fin d'étude, n'a regardé le dossier et dit « celui-ci part ».
+   * C'est ce regard-là qui manquait, et c'est lui qui engage la signature. */
+  if (v.decision_le && !v.valide_le) {
+    m.push('Le dossier n’a pas été validé par la direction ou son délégué '
+      + "(étape 6 bis) : c'est cette validation qui engage la signature.");
+  }
   return m;
 }
 
@@ -361,6 +373,53 @@ export function rafraichirEtat(vid) {
  * Un refus ne porte aucun pourcentage, et l'admission n'en porte pas non plus —
  * elle n'est pas une réussite, l'étudiant présentera les évaluations de l'UE.
  */
+/**
+ * LA COORDINATION INSTRUIT, LA DIRECTION VALIDE.
+ *
+ * Deux gestes, deux mains — et c'est tout l'objet de la correction. En
+ * septembre 2026, la coordination avait instruit à sa façon et la signature de
+ * la direction s'est retrouvée sur le résultat sans que la direction ait rien
+ * vu. Si celui qui instruit valide aussi, la case ne garantit rien de plus
+ * qu'avant : c'est la même personne qui décide et qui se relit.
+ *
+ * INSTRUIRE (recevabilité, avis, décision) : coordination, secrétariat,
+ * direction. C'est le travail, et il se fait là où sont les dossiers.
+ *
+ * VALIDER : la direction et son adjoint, et personne d'autre. C'est ce geste
+ * qui engage la signature, donc il appartient à qui signe. `admin` y figure
+ * comme compte technique, non comme pouvoir.
+ *
+ * Choisi par Charles Sohet le 19 septembre 2026, contre deux autres options —
+ * « chacun valide son propre travail », écarté parce qu'il ne protège que de
+ * l'oubli, et « quatre yeux » (valider oui, mais jamais son propre dossier),
+ * écarté parce que moins lisible.
+ */
+export const PEUT_VALIDER = ['admin', 'directeur', 'directeur_adjoint'];
+
+/**
+ * DÉVALIDER EST UN ACTE DE DIRECTION, ET IL SE MOTIVE.
+ *
+ * Retirer une validation, c'est rouvrir un dossier dont une pièce a pu déjà
+ * partir. Même doctrine que la réouverture d'une séance close : direction
+ * seule, motif écrit, conservé au journal.
+ */
+export const PEUT_DEVALIDER = ['admin', 'directeur', 'directeur_adjoint'];
+
+/**
+ * QUI INSTRUIT LE DOSSIER.
+ *
+ * `roleRequired` renvoie la coordination vers une demande de validation dès
+ * qu'une route exige `editeur` ou `admin` : c'est la doctrine générale de
+ * Lucie — un coordinateur n'écrit jamais directement. Le circuit de la
+ * valorisation fait EXCEPTION, et sciemment : à l'IIP, ce sont les
+ * coordinations qui instruisent les demandes de VA. Elles sont donc nommées
+ * explicitement, ce qui les fait passer par la première condition de
+ * `roleRequired` au lieu du repli. L'exception est ici, écrite, plutôt que
+ * cachée dans une route.
+ */
+export const PEUT_INSTRUIRE = ['admin', 'directeur', 'directeur_adjoint',
+                               'editeur', 'secretariat', 'coordination'];
+
 export const POURCENTAGE_DISPENSE = 50;
 export function pourcentageDe({ decision, type }) {
   if (decision === 'refusee') return null;
