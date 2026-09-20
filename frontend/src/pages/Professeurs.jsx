@@ -481,9 +481,31 @@ function AccesLuciePanel({ profId, detail }) {
         <button onClick={nouveauMdp} disabled={busy} className="flex items-center gap-1.5 text-sm border border-gray-300 text-gray-700 px-3 py-2 rounded-lg hover:bg-gray-50 disabled:opacity-40">
           <IconKey size={14} /> Nouveau mot de passe
         </button>
-        <button onClick={() => { if (confirm('Désactiver ce compte ?')) af(`/api/users/${account.id}`, { method: 'PATCH', body: JSON.stringify({ actif: 0 }) }).then(charger).catch(e => setErr(e.message)); }}
-          className="flex items-center gap-1.5 text-sm border border-red-300 text-red-600 px-3 py-2 rounded-lg hover:bg-red-50">
-          <IconX size={14} /> {account.actif ? 'Désactiver' : 'Réactiver'}
+        {/* LE BOUTON DISAIT « RÉACTIVER » ET DÉSACTIVAIT.
+            Seul le LIBELLÉ regardait l'état du compte : la question posée et
+            la valeur écrite étaient figées — `confirm('Désactiver ce compte ?')`
+            puis `actif: 0`, quoi qu'il arrive. Sur un compte déjà désactivé, on
+            lisait « Réactiver », on s'entendait demander si l'on voulait
+            désactiver, on confirmait, et rien ne changeait. Le seul chemin de
+            retour ne ramenait nulle part.
+
+            Trois choses dépendent de l'état, et non une seule : ce qu'on écrit,
+            ce qu'on demande, et la couleur — rendre un accès n'est pas une
+            action destructrice, elle n'a pas à être en rouge. */}
+        <button onClick={() => {
+            const rendre = !account.actif;
+            const question = rendre
+              ? `Réactiver le compte de ${account.email} ?\n\nCette personne pourra de nouveau se connecter.`
+              : `Désactiver le compte de ${account.email} ?\n\nElle ne pourra plus se connecter. Le compte reste listé et se réactive ici même.`;
+            if (!confirm(question)) return;
+            af(`/api/users/${account.id}`, { method: 'PATCH', body: JSON.stringify({ actif: rendre ? 1 : 0 }) })
+              .then(charger).catch(e => setErr(e.message));
+          }}
+          className={`flex items-center gap-1.5 text-sm px-3 py-2 rounded-lg border ${account.actif
+            ? 'border-red-300 text-red-600 hover:bg-red-50'
+            : 'border-emerald-300 text-emerald-700 hover:bg-emerald-50'}`}>
+          {account.actif ? <IconX size={14} /> : <IconKey size={14} />}
+          {account.actif ? 'Désactiver' : 'Réactiver'}
         </button>
       </div>
     </>
