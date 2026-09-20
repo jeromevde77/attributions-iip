@@ -215,6 +215,27 @@ function ProtectedLayout({ children }) {
   const [env, setEnv] = useState(null);
   const [versionIsNew, setVersionIsNew] = useState(false);
   const [nbNotifs, setNbNotifs] = useState(0);
+  /* LA VERSION DU SERVEUR, DEMANDÉE UNE FOIS AU CHARGEMENT.
+     Ce badge est compilé dans l'image du frontend : il n'a jamais parlé que de
+     nginx. Les deux moitiés se déploient séparément et se sont déjà retrouvées
+     sur deux versions différentes dans la même journée — on cherchait alors un
+     bug dans du code qui ne tournait pas. `/api/version` est publique, comme
+     `/api/health` : la version du frontend est déjà dans le bundle. */
+  const [verServeur, setVerServeur] = useState(null);
+  useEffect(() => {
+    fetch('/api/version')
+      .then(r => (r.ok ? r.json() : null))
+      .then(j => setVerServeur(j?.version || null))
+      .catch(() => setVerServeur(null));
+  }, []);
+  /* ON NE COMPARE QUE DES NUMÉROS DE VERSION, ET SEULEMENT QUAND ON EN A DEUX.
+     Le serveur répond « dev » en local et l'écran « 2.12.61 » : ce n'est pas
+     un écart de déploiement, c'est un poste de travail. Un signal qui crie
+     tous les jours en développement est un signal qu'on apprend à ignorer —
+     et il se tairait le jour où il compte. */
+  const verServeurNum = verServeur ? String(verServeur).split(/[+-]/)[0] : null;
+  const versionDecalee = !!verServeurNum && verServeurNum.includes('.')
+    && verServeurNum !== versionNum;
 
   // Polling notifications non lues (toutes les 60s)
   useEffect(() => {
@@ -456,11 +477,27 @@ function ProtectedLayout({ children }) {
             )}
             <span
               /* SUR UNE BARRE MARINE, UNE PASTILLE MARINE DISPARAÎT : le badge
-                 prend la surface des menus, comme l'onglet actif. */
+                 prend la surface des menus, comme l'onglet actif.
+                 ET IL DIT MAINTENANT LES DEUX MOITIÉS. Ce badge est compilé
+                 dans l'image du frontend : il n'a jamais parlé que de nginx.
+                 Le backend se déploie séparément, et les deux se sont déjà
+                 retrouvés sur deux versions différentes dans la même journée —
+                 `docker compose up -d` répond « Running » sans avoir remplacé
+                 le conteneur. On cherchait alors un bug dans du code qui ne
+                 tournait pas, et RIEN à l'écran ne le disait. */
               className={`relative pastille-version font-semibold
-                text-[11px] hidden md:inline-flex ${versionIsNew ? 'version-badge-new' : ''}`}
-              title={versionIsNew ? 'Nouvelle version déployée\u00a0!' : `Version ${versionNum}`}>
+                text-[11px] hidden md:inline-flex ${versionIsNew ? 'version-badge-new' : ''}
+                ${versionDecalee ? 'ring-1 ring-[#B45309]' : ''}`}
+              title={versionDecalee
+                ? `ÉCART DE DÉPLOIEMENT — écran ${versionNum}, serveur `
+                  + `${verServeurNum}. Une moitié n'a pas été remplacée : `
+                  + 'docker compose up -d --force-recreate.'
+                : versionIsNew ? 'Nouvelle version déployée\u00a0!'
+                  : `Version ${versionNum}`}>
               v{versionNum}
+              {versionDecalee && (
+                <span className="ml-1 text-[#B45309]">≠ {verServeurNum}</span>
+              )}
               {versionIsNew && (
                 <span className="absolute -top-1 -right-1 flex h-2.5 w-2.5">
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-iip-turquoise opacity-75"></span>

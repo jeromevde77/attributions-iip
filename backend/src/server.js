@@ -2828,12 +2828,40 @@ app.use(morgan('tiny'));
 
 app.get('/api/health', (req, res) => res.json({ ok: true, ts: new Date().toISOString() }));
 
+/* LA VERSION DU SERVEUR, DISPONIBLE SANS OUVRIR DE SESSION.
+ *
+ * Le badge de Lucie est compilé DANS l'image du frontend : il dit ce que sert
+ * nginx, et rien d'autre. Le backend, lui, n'avait aucun moyen de se nommer —
+ * `/api/info` annonçait « 1.0.0 », écrit en dur, depuis toujours. Or les deux
+ * moitiés se déploient séparément et se sont déjà retrouvées sur deux versions
+ * différentes plusieurs fois dans la même journée : `docker compose up -d`
+ * répond « Running » sans avoir remplacé le conteneur, et le décalage ne se
+ * voit nulle part — on cherche un bug dans du code qui n'est pas celui qui
+ * tourne.
+ *
+ * Sans authentification, comme `/api/health` : la version du frontend est déjà
+ * publique (elle est dans le bundle), la cacher ici ne protégerait rien et
+ * rendrait le contrôle impossible depuis le VPS, qui est justement l'endroit
+ * d'où l'on a besoin de le faire.
+ */
+const DEMARRE_LE = new Date().toISOString();
+const VERSION_SERVEUR = process.env.BUILD_VERSION || 'dev';
+const SHA_SERVEUR = (process.env.GIT_SHA || '').slice(0, 8) || null;
+
+app.get('/api/version', (req, res) => res.json({
+  version: VERSION_SERVEUR,
+  sha: SHA_SERVEUR,
+  environnement: process.env.NODE_ENV === 'development' ? 'dev' : 'prod',
+  demarre_le: DEMARRE_LE,
+}));
+
 // Route publique : infos de base pour la page de connexion
 app.get('/api/info', (req, res) => {
   const etab = db.prepare('SELECT etab_nom FROM etablissement WHERE id = 1').get();
   res.json({
     etab_nom: etab?.etab_nom || '',
-    version: '1.0.0',
+    // « 1.0.0 » était écrit en dur et n'a jamais rien voulu dire.
+    version: VERSION_SERVEUR,
     environnement: process.env.NODE_ENV === 'development' ? 'dev' : 'prod',
   });
 });

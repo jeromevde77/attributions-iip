@@ -156,6 +156,28 @@ NAS Synology.
 - **Ne jamais écrire un jeton en clair** dans un document, un commit ou une
   conversation. Un jeton l'a été ; il doit être révoqué.
 
+> **LE BADGE NE PARLAIT QUE DE LA MOITIÉ, ET ON A CHERCHÉ TROIS FOIS DANS DU
+> CODE QUI NE TOURNAIT PAS.** Le numéro de version affiché est compilé DANS
+> l'image du frontend (`BUILD_VERSION`, passé en build-arg par l'action) : il
+> dit ce que sert nginx, et rien d'autre. Le backend, lui, n'avait AUCUN moyen
+> de se nommer — le fichier `VERSION` est à la racine du dépôt, le contexte de
+> construction de son image est `./backend`, il n'y entrait donc jamais, et
+> `/api/info` annonçait « 1.0.0 » écrit en dur depuis toujours. Or les deux
+> moitiés se déploient séparément et se sont retrouvées sur deux versions
+> différentes plusieurs fois dans la même journée, `docker compose up -d`
+> répondant « Running » sans avoir remplacé le conteneur.
+>
+> Depuis 2.12.61 : `BUILD_VERSION` et `GIT_SHA` sont passés aussi à l'image du
+> backend, **`GET /api/version` les rend sans authentification** (comme
+> `/api/health` — la version du frontend est déjà publique dans le bundle, et
+> le contrôle doit pouvoir se faire depuis le VPS, qui n'a pas de session), et
+> **le badge affiche l'écart** : `v2.12.61 ≠ 2.12.57`, cerclé d'ocre, avec au
+> survol la commande qui le répare. Un écart de déploiement ne se cherche plus,
+> il se voit.
+>
+> **Et `docker compose up -d` ne suffit pas** : c'est
+> `docker compose up -d --force-recreate` qui garantit le remplacement.
+
 ### Restaurer des données réelles en dev
 
 Configuration → Sauvegardes → *Télécharger* en **prod**
