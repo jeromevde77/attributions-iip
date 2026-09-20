@@ -524,6 +524,47 @@ Depuis 2.12.39, une **étape 6 bis** : la validation.
 > issue. Un message qui réclame ce qu'aucun champ ne permet d'entrer est un
 > cul-de-sac, pas un garde-fou.
 
+**UN CONSTAT SANS PORTE EST UN CONSTAT QU'ON RELIT CHAQUE MATIN.** Le tableau
+de ce qui reste à faire nommait le retard — « 17 recevabilités à contrôler » —
+sans donner nulle part où le traiter : il fallait déplier dix-sept lignes et
+ouvrir dix-sept fenêtres pour poser dix-sept fois le même geste. Depuis
+2.12.52, *Analyser en série* : une ligne par demande, à plat sur toute l'année,
+filtrable par nom, section, unité et état, avec l'état et ce qui manque sur la
+même ligne. On choisit d'abord LE GESTE — il commande ce qui est cochable :
+une case cochable sur un dossier que le serveur refusera est une fausse
+promesse, et le refus arrive alors après coup.
+
+> **LA VUE EST À PLAT, L'ÉCRITURE EST BORNÉE.** Décider et valider sont des
+> gestes de SÉANCE, et une séance de valorisation se tient PAR UNITÉ : cocher
+> en travers de trois unités puis appliquer une décision unique attribuerait à
+> trois conseils une délibération qu'un seul a tenue — et le procès-verbal le
+> dirait ainsi, sans que rien ne le démente. `memeSeance()` refuse le lot qui
+> traverse, et l'admission (`ue_num = 0`) ne mêle pas non plus deux sections.
+> L'écran le dit AVANT le clic : composer un lot entier pour apprendre ensuite
+> qu'il ne passe pas est une leçon qu'on ne donne qu'une fois.
+
+> **LA RECEVABILITÉ, ELLE, TRAVERSE LES UNITÉS — ET C'EST VOULU.** C'est un
+> contrôle de FORME (délai, pièces officielles, dossier complet) posé par le
+> secrétariat : aucun conseil des études n'est convoqué. La borner à une unité
+> aurait été une contrainte sans raison derrière, et ce sont celles-là qu'on
+> finit par contourner. Quinze dossiers reçus le même jour se pointent
+> ensemble. L'irrecevabilité se motive même en série, du même motif pour tout
+> le lot : si le motif diffère d'un dossier à l'autre, ce ne sont plus des
+> dossiers d'un même lot.
+
+> **LE TABLEAU NE PROPOSE PAS LA DISPENSE PARTIELLE**, et c'est la règle « on ne
+> réclame pas ce qu'on ne donne pas à saisir » appliquée d'avance : une
+> partielle demande de désigner les cours ou les acquis dispensés, et ce
+> tableau n'a pas où les cocher. Totale ou refusée ici ; la partielle se pose
+> dans *Valoriser en série*, qui porte les listes.
+
+> **UN MÊME NUMÉRO D'UNITÉ EXISTE SOUS PLUSIEURS SECTIONS, ET CE POINT A ÉTÉ
+> CODÉ FAUX UNE FOIS DE PLUS.** La vue à plat joignait `ue` : trois lignes de
+> référentiel pour l'UE 95 « Restart » rendaient trois lignes pour un seul
+> dossier — le même étudiant coché trois fois, envoyé trois fois, journalisé
+> trois fois. C'est la leçon de 2.11.1, repayée. **Sous-requête avec LIMIT 1,
+> jamais de jointure sur `ue`** quand on compte ou qu'on liste des dossiers.
+
 **Le registre des valorisations** (rail *Étudiants → Valorisation*) : elles ne se
 lisaient que fiche par fiche, donc elles ne se lisaient pas — personne n'ouvre
 588 dossiers pour savoir qui a demandé quoi. Une ligne par demande, filtrable par
@@ -925,6 +966,11 @@ et 3 composants de tuile**. La stratégie tient en cinq chantiers, dans cet ordr
   choisie. **Et pas de repli en saisie libre quand la liste est vide** : on
   écrit qu'il n'y a rien à choisir, un champ ouvert ne ferait qu'inviter à
   taper un numéro qui ne mène nulle part.
+- **AD VERT, VA BLEU, VAE VIOLET — ÉCRIT UNE FOIS.** `TEINTE_PORTE`, exporté
+  par `pages/Valorisations.jsx`. La table vivait en double (matrice
+  d'introduction et étape de la demande) : deux copies d'une même convention
+  finissent par différer, et c'est l'écran qu'on regarde le moins qui garde
+  l'ancienne teinte.
 - **Une entrée de rail sans icône est invisible** une fois le rail replié.
 - **Un titre ne s'écrit qu'une fois** par écran.
 - Un libellé ne promet que ce que la modale fait réellement.

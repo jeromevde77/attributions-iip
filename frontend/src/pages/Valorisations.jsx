@@ -34,6 +34,22 @@ import SeanceValorisation from '../components/SeanceValorisation.jsx';
  * qu'il AURA, pas une à laquelle il est déjà inscrit.
  */
 
+/**
+ * AD VERT, VA BLEU, VAE VIOLET — ÉCRIT UNE FOIS.
+ *
+ * La table vivait en double, dans la matrice d'introduction et dans l'étape de
+ * la demande : deux copies d'une même convention finissent par différer, et
+ * c'est l'écran qu'on regarde le moins qui garde l'ancienne teinte. Trois
+ * jetons par porte : `t` le texte et le filet de rail, `f` le fond pâle,
+ * `b` le contour. Le fond reste pâle — un aplat plein sur quarante lignes
+ * ferait un damier, et la couleur se dépense là où elle distingue.
+ */
+export const TEINTE_PORTE = {
+  admission: { t: '#15803D', f: '#15803D26', b: '#15803D66' },  // vert
+  va:        { t: '#2D4470', f: '#2D447020', b: '#2D447066' },  // bleu
+  vae:       { t: '#6D28D9', f: '#8B5CF624', b: '#8B5CF666' },  // violet
+};
+
 const DECISIONS = [
   { val: 'totale', label: 'Totale', aide: "L'unité entière et tous ses acquis" },
   { val: 'partielle', label: 'Partielle', aide: 'Des cours, des acquis, ou les deux' },
@@ -48,6 +64,7 @@ export default function Valorisations() {
   const [serie, setSerie] = useState(false);
   const [dossier, setDossier] = useState(null);   // vid du dossier ouvert
   const [matrice, setMatrice] = useState(false);
+  const [analyse, setAnalyse] = useState(false);
   const [ajoutUE, setAjoutUE] = useState(null);      // { etudiant_id, nom, prenom }
   const [documents, setDocuments] = useState(null);
   const [erreur, setErreur] = useState(null);
@@ -167,6 +184,8 @@ export default function Valorisations() {
         onClick: () => setMatrice(true) },
       { key: 'serie', label: 'Valoriser en série', icon: IconUsersGroup,
         onClick: () => setSerie(true) },
+      { key: 'analyse', label: 'Analyser les demandes en série', icon: IconListCheck,
+        onClick: () => setAnalyse(true) },
       { key: 'ajouter', label: 'Ajouter des étudiants', icon: IconUserPlus,
         onClick: () => setAjout(true) },
     ],
@@ -192,6 +211,9 @@ export default function Valorisations() {
               il faut que les demandes soient entrées. */}
           <button onClick={() => setMatrice(true)} className="controle controle-fort">
             <IconTable size={16} /> Introduire des demandes
+          </button>
+          <button onClick={() => setAnalyse(true)} className="controle">
+            <IconListCheck size={16} /> Analyser en série
           </button>
           <button onClick={() => setSerie(true)} className="controle">
             <IconUsersGroup size={16} /> Valoriser en série
@@ -251,6 +273,11 @@ export default function Valorisations() {
       {matrice && (
         <MatriceIntroduction annee={annee} onClose={() => setMatrice(false)}
           onCree={charger} />
+      )}
+
+      {analyse && (
+        <AnalyserEnSerie annee={annee} onClose={() => setAnalyse(false)}
+          onChange={charger} />
       )}
 
       {serie && (
@@ -1836,12 +1863,6 @@ function EtapeDemande({ dossier, delai, onEnregistrer, enCours }) {
   // admission et accorde une dispense.
   const admission = porte === 'admission';
 
-  const TEINTE_PORTE = {
-    admission: { t: '#15803D', f: '#15803D26', b: '#15803D66' },
-    va:        { t: '#2D4470', f: '#2D447020', b: '#2D447066' },
-    vae:       { t: '#6D28D9', f: '#8B5CF624', b: '#8B5CF666' },
-  };
-
   return (
     <section className="carte p-3 space-y-2">
       <div className="text-[11px] uppercase tracking-wide text-slate-500">
@@ -2281,6 +2302,450 @@ function EtapeDecision({ dossier, bases, onEnregistrer, enCours }) {
  * délais de la procédure — et « encodage eProm » y figure parce qu'une
  * décision non encodée est une décision non conforme, positive comme négative.
  */
+/**
+ * ANALYSER LES DEMANDES EN SÉRIE — LE TABLEAU, ET CE QU'ON Y POSE.
+ *
+ * Le tableau de ce qui reste à faire nommait le retard — « 17 recevabilités à
+ * contrôler » — sans donner nulle part où le traiter : il fallait déplier
+ * dix-sept lignes et ouvrir dix-sept fenêtres pour poser dix-sept fois le même
+ * geste. Un constat sans porte est un constat qu'on relit chaque matin.
+ *
+ * UNE LIGNE PAR DEMANDE, À PLAT, TOUTE L'ANNÉE. C'est ainsi qu'on lit : on
+ * cherche « ce qui attend un avis », pas « les dossiers de Untel ». Les
+ * filtres réduisent, les cases cochent, et les trois gestes du bas écrivent.
+ *
+ * MAIS L'ÉCRITURE, ELLE, SE BORNE :
+ *   · LA RECEVABILITÉ traverse les unités. C'est un contrôle de FORME — délai,
+ *     pièces officielles, dossier complet — et aucun conseil des études n'est
+ *     convoqué. La borner à une unité serait une contrainte sans raison
+ *     derrière, et ce sont celles-là qu'on finit par contourner.
+ *   · LA DÉCISION ET LA VALIDATION ne mêlent pas deux conseils des études :
+ *     une séance de valorisation se tient PAR UNITÉ. Le serveur refuse un lot
+ *     qui traverse ; l'écran le dit avant qu'on clique, plutôt que de laisser
+ *     découvrir le refus après coup.
+ *
+ * ET LA DÉCISION N'EST PAS COMPLÈTE ICI, VOLONTAIREMENT : totale ou refusée,
+ * et rien d'autre. Une dispense PARTIELLE demande de désigner les cours ou les
+ * acquis dispensés ; ce tableau n'a pas où les cocher, donc il ne la propose
+ * pas — on ne réclame pas ce qu'on ne donne pas à saisir. Elle se pose dans
+ * *Valoriser en série*, qui porte les listes de cours et d'acquis.
+ */
+function AnalyserEnSerie({ annee, onClose, onChange }) {
+  const [donnees, setDonnees] = useState(null);
+  const [bases, setBases] = useState([]);
+  const [coches, setCoches] = useState(() => new Set());
+  const [erreur, setErreur] = useState(null);
+  const [bloquants, setBloquants] = useState(null);
+  const [enCours, setEnCours] = useState(false);
+
+  // Les filtres — ils réduisent la vue, ils ne décident de rien.
+  const [q, setQ] = useState('');
+  const [fSection, setFSection] = useState('');
+  const [fUe, setFUe] = useState('');
+  const [fEtat, setFEtat] = useState('');
+
+  // Le geste qu'on s'apprête à poser.
+  const [geste, setGeste] = useState('recevabilite');   // recevabilite | decision | validation
+  const [recevable, setRecevable] = useState(true);
+  const [motifForme, setMotifForme] = useState('');
+  const [decision, setDecision] = useState('accordee');
+  const [base, setBase] = useState('');
+  const [motifRefus, setMotifRefus] = useState('');
+  const [dateCE, setDateCE] = useState(aujourdHui());
+
+  const charger = useCallback(async () => {
+    try {
+      const rep = await fetch(
+        `/api/etudiants/valorisations/analyse?annee=${encodeURIComponent(annee)}`,
+        { headers: authHeaders() });
+      const j = await rep.json().catch(() => ({}));
+      if (!rep.ok) { setErreur(j.error || 'Lecture refusée.'); return; }
+      setDonnees(j);
+      // Un dossier qui n'est plus dans la liste ne reste pas coché.
+      const vivants = new Set((j.dossiers || []).map(d => d.id));
+      setCoches(c => new Set([...c].filter(id => vivants.has(id))));
+    } catch (e) { setErreur(e.message); }
+  }, [annee]);
+
+  useEffect(() => { charger(); }, [charger]);
+  useEffect(() => {
+    fetch('/api/etudiants/valorisations/referentiel', { headers: authHeaders() })
+      .then(r => (r.ok ? r.json() : null))
+      .then(j => setBases(j?.bases || []))
+      .catch(() => setBases([]));
+  }, []);
+
+  const tous = donnees?.dossiers || [];
+
+  const sections = useMemo(
+    () => [...new Set(tous.map(d => d.section).filter(Boolean))].sort(), [tous]);
+  const unites = useMemo(() => {
+    const m = new Map();
+    for (const d of tous) if (!m.has(d.ue_num)) m.set(d.ue_num, d.ue_nom || '');
+    return [...m.entries()].sort((a, b) => a[0] - b[0]);
+  }, [tous]);
+
+  const vues = useMemo(() => {
+    const t = q.trim().toLowerCase();
+    return tous.filter(d => {
+      if (fSection && d.section !== fSection) return false;
+      if (fUe !== '' && String(d.ue_num) !== String(fUe)) return false;
+      if (fEtat && d.etat !== fEtat) return false;
+      if (!t) return true;
+      return `${d.nom} ${d.prenom}`.toLowerCase().includes(t)
+        || String(d.id_ecampus || '').toLowerCase().includes(t);
+    });
+  }, [tous, q, fSection, fUe, fEtat]);
+
+  /* CE QUE LE GESTE CHOISI PEUT RECEVOIR. On ne coche pas ce qui ne peut pas
+     l'accepter : une case cochable sur un dossier que le serveur refusera
+     donne une fausse promesse, et le refus arrive après coup. */
+  function eligible(d) {
+    if (geste === 'recevabilite') return !d.valide_le && !d.decision_le;
+    if (geste === 'decision') return !d.valide_le && d.recevable === 1 && !!d.avis_le;
+    return d.pret_a_valider;
+  }
+  function pourquoiPas(d) {
+    if (geste === 'recevabilite') {
+      if (d.valide_le) return 'validé — le dévalider d’abord';
+      if (d.decision_le) return 'décision déjà prise';
+    } else if (geste === 'decision') {
+      if (d.valide_le) return 'validé — le dévalider d’abord';
+      if (d.recevable !== 1) return 'recevabilité non contrôlée';
+      if (!d.avis_le) return 'avis du chargé de cours manquant';
+    } else {
+      if (d.valide_le) return `validé le ${(d.valide_le || '').slice(0, 10)}`;
+      return d.manques?.[0] || 'dossier incomplet';
+    }
+    return null;
+  }
+
+  const cochables = vues.filter(eligible);
+  const retenus = tous.filter(d => coches.has(d.id));
+
+  /* LE BORNAGE SE VOIT AVANT LE CLIC. Le serveur refuse un lot qui mêle deux
+     unités sur la décision et la validation ; le dire ici évite de composer un
+     lot entier pour apprendre ensuite qu'il ne passe pas. */
+  const unitesRetenues = [...new Set(retenus.map(d => d.ue_num))];
+  const melangeSeance = geste !== 'recevabilite' && unitesRetenues.length > 1;
+
+  const manque = !retenus.length ? 'Coche au moins un dossier.'
+    : melangeSeance
+      ? `Le lot mêle ${unitesRetenues.length} unités : une séance du conseil `
+        + 'des études se tient par unité.'
+      : geste === 'recevabilite' && !recevable && !motifForme.trim()
+        ? 'Une irrecevabilité se motive — c’est un refus de forme, notifié à l’étudiant.'
+        : geste === 'decision' && decision === 'accordee' && !base
+          ? 'La base légale de la décision est obligatoire : elle part dans eProm.'
+          : geste === 'decision' && decision === 'refusee' && !motifRefus.trim()
+            ? 'Un refus se motive (RDE art. 88 §3).'
+            : null;
+
+  function basculer(id) {
+    setCoches(c => { const n = new Set(c); n.has(id) ? n.delete(id) : n.add(id); return n; });
+  }
+  function toutCocher() {
+    const ids = cochables.map(d => d.id);
+    setCoches(c => (ids.every(i => c.has(i)) ? new Set() : new Set(ids)));
+  }
+
+  async function poser() {
+    if (manque) return;
+    setEnCours(true); setErreur(null); setBloquants(null);
+    const ids = retenus.map(d => d.id);
+    const route = geste === 'recevabilite' ? 'recevabilite'
+      : geste === 'decision' ? 'decision' : 'validation';
+    const corps = geste === 'recevabilite'
+      ? { ids, recevable, motif_irrecevabilite: recevable ? undefined : motifForme.trim() }
+      : geste === 'decision'
+        ? { ids, type: decision === 'refusee' ? 'partielle' : 'totale', decision,
+            base_code: decision === 'refusee' ? undefined : base,
+            motif_refus: decision === 'refusee' ? motifRefus.trim() : undefined,
+            decision_ce_date: dateCE || undefined }
+        : { ids };
+    try {
+      const rep = await fetch(`/api/etudiants/valorisations/lot/${route}`, {
+        method: 'POST',
+        headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+        body: JSON.stringify(corps),
+      });
+      const j = await rep.json().catch(() => ({}));
+      if (!rep.ok) {
+        setErreur(j.error || 'Enregistrement refusé.');
+        if (Array.isArray(j.bloquants)) setBloquants(j.bloquants);
+        return;
+      }
+      setCoches(new Set());
+      setMotifForme(''); setMotifRefus('');
+      await charger();
+      await onChange?.();
+    } catch (e) { setErreur(e.message); }
+    finally { setEnCours(false); }
+  }
+
+  const GESTES = [
+    { cle: 'recevabilite', label: 'Recevabilité',
+      aide: 'Contrôle de forme — traverse les unités' },
+    { cle: 'decision', label: 'Décision du Conseil',
+      aide: 'Une séance, une unité' },
+    { cle: 'validation', label: 'Validation direction',
+      aide: 'Réservée à la direction et à la direction adjointe' },
+  ];
+
+  return (
+    <Fenetre icone={IconListCheck} large="grande" onFermer={onClose}
+      titre="Analyser les demandes en série"
+      sous="Une ligne par demande — on filtre, on coche, on pose le geste"
+      pied={<>
+        <button onClick={poser} disabled={!!manque || enCours
+            || (geste === 'validation' && !donnees?.peut_valider)}
+          className="bouton bouton-fort disabled:opacity-40">
+          {enCours ? 'Enregistrement…'
+            : geste === 'recevabilite'
+              ? `${recevable ? 'Déclarer recevable' : 'Déclarer irrecevable'}`
+                + (retenus.length > 1 ? ` (${retenus.length})` : '')
+              : geste === 'decision'
+                ? `Enregistrer la décision${retenus.length > 1 ? ` (${retenus.length})` : ''}`
+                : `Valider${retenus.length > 1 ? ` (${retenus.length})` : ''}`}
+        </button>
+        {/* CE QUI DIT POURQUOI LE BOUTON EST GRIS VIT À CÔTÉ DU BOUTON. */}
+        <span className="text-[12px] text-slate-500">
+          {geste === 'validation' && !donnees?.peut_valider
+            ? 'La validation appartient à la direction : la coordination instruit, elle ne valide pas.'
+            : manque || `${retenus.length} dossier(s) coché(s) · ${annee}`}
+        </span>
+        <button onClick={onClose} className="bouton ml-auto">Fermer</button>
+      </>}>
+
+      <div className="flex-1 min-h-0 overflow-auto p-5 space-y-3">
+
+        {erreur && (
+          <div className="carte p-3 text-[12px] text-rose-700 space-y-1">
+            <div className="flex items-start gap-1.5">
+              <IconAlertTriangle size={14} className="mt-0.5 flex-none" />{erreur}
+            </div>
+            {/* LES DOSSIERS QUI BLOQUENT SONT NOMMÉS : on les décoche, on ne
+                devine pas lesquels. */}
+            {bloquants?.map(b => (
+              <div key={b.id} className="pl-5 text-slate-600">
+                {b.qui} — {b.pourquoi}
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* 1 — LE GESTE. Il commande ce qui est cochable : on choisit d'abord
+            ce qu'on vient faire, et la liste s'ouvre en conséquence. */}
+        <section className="carte p-3 space-y-2">
+          <div className="text-[11px] uppercase tracking-wide text-slate-500">
+            1 · Le geste
+          </div>
+          <div className="flex flex-wrap gap-1.5">
+            {GESTES.map(g => (
+              <button key={g.cle} title={g.aide}
+                onClick={() => { setGeste(g.cle); setCoches(new Set()); setErreur(null); setBloquants(null); }}
+                className={`controle text-[13px] ${geste === g.cle
+                  ? 'border-slate-800 text-slate-900 font-medium' : ''}`}>
+                {g.label}
+              </button>
+            ))}
+            <span className="self-center text-[12px] text-slate-500">
+              {GESTES.find(g => g.cle === geste)?.aide}
+            </span>
+          </div>
+
+          {geste === 'recevabilite' && (
+            <div className="flex flex-wrap items-center gap-2 pt-1">
+              <label className="flex items-center gap-1.5 text-[13px]">
+                <input type="radio" checked={recevable}
+                  onChange={() => setRecevable(true)} /> Recevable
+              </label>
+              <label className="flex items-center gap-1.5 text-[13px]">
+                <input type="radio" checked={!recevable}
+                  onChange={() => setRecevable(false)} /> Irrecevable
+              </label>
+              {!recevable && (
+                <input value={motifForme} onChange={e => setMotifForme(e.target.value)}
+                  placeholder="Motif de forme — hors délai, pièces non officielles…"
+                  className="controle text-[13px] flex-1 min-w-[20rem]" />
+              )}
+            </div>
+          )}
+
+          {geste === 'decision' && (
+            <div className="space-y-2 pt-1">
+              <div className="flex flex-wrap items-center gap-2">
+                <label className="flex items-center gap-1.5 text-[13px]">
+                  <input type="radio" checked={decision === 'accordee'}
+                    onChange={() => setDecision('accordee')} /> Dispense totale
+                </label>
+                <label className="flex items-center gap-1.5 text-[13px]">
+                  <input type="radio" checked={decision === 'refusee'}
+                    onChange={() => setDecision('refusee')} /> Refusée
+                </label>
+                <span className="text-[12px] text-slate-500">
+                  Séance du
+                </span>
+                <input type="date" value={dateCE} onChange={e => setDateCE(e.target.value)}
+                  className="controle text-[13px]" />
+              </div>
+              {decision === 'accordee' ? (
+                <div className="flex flex-wrap items-center gap-2">
+                  <select value={base} onChange={e => setBase(e.target.value)}
+                    className="controle text-[13px] min-w-[28rem]">
+                    <option value="">Base légale de la décision…</option>
+                    {bases.map(b => (
+                      <option key={b.code} value={b.code}>{b.code} — {b.label}</option>
+                    ))}
+                  </select>
+                  <span className="text-[12px] text-slate-500">
+                    Elle part dans eProm : une décision non encodée est une
+                    décision non conforme.
+                  </span>
+                </div>
+              ) : (
+                <input value={motifRefus} onChange={e => setMotifRefus(e.target.value)}
+                  placeholder="Motivation du refus — elle est tout ce qui reste, la décision n’est pas susceptible de recours"
+                  className="controle text-[13px] w-full" />
+              )}
+              <div className="text-[12px] text-slate-500">
+                Une dispense <strong>partielle</strong> se pose dans
+                {' '}<em>Valoriser en série</em> : elle demande de désigner les
+                cours ou les acquis dispensés, et ce tableau n'a pas où les
+                cocher.
+              </div>
+            </div>
+          )}
+        </section>
+
+        {/* 2 — LES FILTRES ET LA LISTE. */}
+        <section className="carte p-0 overflow-hidden">
+          <div className="flex flex-wrap items-center gap-2 px-3 py-2
+                          border-b border-slate-200">
+            <span className="text-[11px] uppercase tracking-wide text-slate-500">
+              2 · Les demandes
+            </span>
+            <div className="relative">
+              <IconSearch size={14} className="absolute left-2 top-1/2 -translate-y-1/2
+                                               text-slate-400 pointer-events-none" />
+              <input value={q} onChange={e => setQ(e.target.value)}
+                placeholder="Nom ou prénom…"
+                className="controle text-[13px] pl-7 w-52" />
+            </div>
+            <select value={fSection} onChange={e => setFSection(e.target.value)}
+              className="controle text-[13px]">
+              <option value="">Toutes les sections</option>
+              {sections.map(s => <option key={s} value={s}>{s}</option>)}
+            </select>
+            <select value={fUe} onChange={e => setFUe(e.target.value)}
+              className="controle text-[13px] max-w-[20rem]">
+              <option value="">Toutes les unités</option>
+              {unites.map(([n, nom]) => (
+                <option key={n} value={n}>
+                  {n === 0 ? 'Admission de section' : `${n} — ${nom}`}
+                </option>
+              ))}
+            </select>
+            <select value={fEtat} onChange={e => setFEtat(e.target.value)}
+              className="controle text-[13px]">
+              <option value="">Tous les états</option>
+              {(donnees?.etats || []).map(e => (
+                <option key={e.val || e} value={e.val || e}>{e.label || e}</option>
+              ))}
+            </select>
+            <span className="ml-auto text-[12px] text-slate-500">
+              {vues.length} affichée(s) · {cochables.length} cochable(s)
+            </span>
+            {cochables.length > 0 && (
+              <button onClick={toutCocher} className="bouton text-[12px]">
+                {cochables.every(d => coches.has(d.id)) ? 'Tout décocher' : 'Tout cocher'}
+              </button>
+            )}
+          </div>
+
+          {!donnees ? (
+            <div className="p-5 text-[13px] text-slate-400">Chargement…</div>
+          ) : !vues.length ? (
+            <div className="p-5 text-[13px] text-slate-400">
+              Aucune demande ne répond à ces filtres en {annee}.
+            </div>
+          ) : (
+            <table className="w-full text-[13px]">
+              <thead className="tab-entete">
+                <tr>
+                  <th className="w-8 px-3 py-1.5"></th>
+                  <th className="text-left px-2 py-1.5 font-medium">Étudiant</th>
+                  <th className="text-left px-2 py-1.5 font-medium">Unité</th>
+                  <th className="text-left px-2 py-1.5 font-medium">Nature</th>
+                  <th className="text-left px-2 py-1.5 font-medium">État</th>
+                  <th className="text-left px-2 py-1.5 font-medium">Preuves</th>
+                  <th className="text-left px-2 py-1.5 font-medium">Ce qui manque</th>
+                </tr>
+              </thead>
+              <tbody>
+                {vues.map(d => {
+                  const ok = eligible(d);
+                  const teinte = TEINTE_PORTE[d.porte] || TEINTE_PORTE.va;
+                  const empeche = pourquoiPas(d);
+                  return (
+                    <tr key={d.id}
+                      className={`border-t border-slate-100 ${ok ? '' : 'opacity-60'}`}>
+                      <td className="px-3 py-1.5 align-top">
+                        <input type="checkbox" checked={coches.has(d.id)}
+                          disabled={!ok} onChange={() => basculer(d.id)} />
+                      </td>
+                      <td className="px-2 py-1.5 align-top">
+                        <span className="font-medium">{(d.nom || '').toUpperCase()}</span>
+                        {' '}{d.prenom}
+                        {d.section && (
+                          <span className="text-[11px] text-slate-500"> · {d.section}</span>
+                        )}
+                      </td>
+                      <td className="px-2 py-1.5 align-top">
+                        {d.ue_num === 0 ? 'Admission de section'
+                          : <>{d.ue_num}<span className="text-slate-500"> — {d.ue_nom}</span></>}
+                      </td>
+                      <td className="px-2 py-1.5 align-top">
+                        <span className="px-1.5 py-0.5 rounded-champ border text-[11px]"
+                          style={{ color: teinte.t, background: teinte.f,
+                                   borderColor: teinte.b }}>
+                          {d.porte === 'admission' ? 'AD' : d.porte === 'vae' ? 'VAE' : 'VA'}
+                        </span>
+                        {d.type && (
+                          <span className="ml-1 text-[11px] text-slate-500">
+                            {d.type === 'totale' ? 'Totale'
+                              : d.type === 'partielle' ? 'Partielle' : ''}
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-2 py-1.5 align-top">
+                        {(donnees.etats || []).find(e => (e.val || e) === d.etat)?.label
+                          || d.etat}
+                        {d.valide_le && (
+                          <div className="text-[11px] text-emerald-700">
+                            validé{d.valide_par ? ` par ${d.valide_par}` : ''}
+                          </div>
+                        )}
+                      </td>
+                      <td className={`px-2 py-1.5 align-top ${d.nb_preuves ? ''
+                        : 'text-amber-700'}`}>
+                        {d.nb_preuves || 'aucune'}
+                      </td>
+                      <td className="px-2 py-1.5 align-top text-[12px] text-slate-500">
+                        {empeche || d.manques?.[0] || '—'}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          )}
+        </section>
+      </div>
+    </Fenetre>
+  );
+}
+
 function CeQuiResteAFaire({ annee, onOuvrir }) {
   const [j, setJ] = useState(null);
   useEffect(() => {
@@ -2662,11 +3127,7 @@ function MatriceIntroduction({ annee, onClose, onCree }) {
    * Le fond reste pâle et la couleur va au texte et au filet : un aplat plein
    * sur quarante cases ferait un damier, et la règle de la maison veut que la
    * couleur se dépense là où elle distingue, pas partout. */
-  const TEINTE = {
-    admission: { t: '#15803D', f: '#15803D26', b: '#15803D66' },  // vert
-    va:        { t: '#2D4470', f: '#2D447020', b: '#2D447066' },  // bleu
-    vae:       { t: '#6D28D9', f: '#8B5CF624', b: '#8B5CF666' },  // violet
-  };
+  const TEINTE = TEINTE_PORTE;
   function tourner(eid, ue) {
     const cle = `${eid}:${ue}`;
     setChoix(c => {

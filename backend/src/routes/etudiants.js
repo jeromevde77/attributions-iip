@@ -5138,6 +5138,7 @@ r.post('/valorisations/lot/validation', authRequired, (req, res) => {
 
   const bloquants = [];
   const prets = [];
+  const dossiers = [];
   for (const id of ids) {
     const v = lireDossierComplet(id);
     if (!v) { bloquants.push({ id, qui: `#${id}`, pourquoi: 'Dossier introuvable.' }); continue; }
@@ -5150,12 +5151,14 @@ r.post('/valorisations/lot/validation', authRequired, (req, res) => {
       .filter(m => !m.startsWith('Le dossier n’a pas été validé'));
     if (manques.length) { bloquants.push({ id, qui, pourquoi: manques[0] }); continue; }
     prets.push(id);
+    dossiers.push(v);
   }
   if (bloquants.length) {
     return res.status(409).json({
       error: `${bloquants.length} dossier(s) ne peuvent pas être validés : rien n'a `
         + 'été enregistré.', bloquants });
   }
+  if (memeSeance(dossiers, res)) return;
 
   const maj = db.prepare(`UPDATE etudiant_valorisation
     SET valide_le = datetime('now'), valide_par = ?, valide_par_id = ?, valide_role = ?
@@ -5197,6 +5200,7 @@ r.post('/valorisations/lot/decision', authRequired, roleRequired(...PEUT_INSTRUI
       error: `${bloquants.length} dossier(s) bloquent : rien n'a été enregistré.`,
       bloquants });
   }
+  if (memeSeance(cibles, res)) return;
 
   const type = req.body.type;
   const decision = req.body.decision === 'refusee' ? 'refusee' : 'accordee';
@@ -5238,6 +5242,189 @@ r.post('/valorisations/lot/decision', authRequired, roleRequired(...PEUT_INSTRUI
   }
   res.json({ ok: true, corriges: cibles.length });
 });
+
+/**
+ * ANALYSER LES DEMANDES EN SÉRIE — LA VUE À PLAT DE TOUTE L'ANNÉE.
+ *
+ * Les dossiers se lisaient par étudiant, pliés les uns sous les autres : pour
+ * savoir lesquels attendent une recevabilité, il fallait déplier dix-sept
+ * lignes et ouvrir dix-sept fenêtres. Le tableau de ce qui reste à faire
+ * NOMMAIT le retard — « 17 recevabilités à contrôler » — sans donner nulle part
+ * où le traiter : un constat sans porte est un constat qu'on relit chaque
+ * matin. Une ligne par demande, l'état et ce qui manque sur la même ligne,
+ * filtrable, cochable.
+ *
+ * ELLE NE DÉCIDE RIEN : elle montre et elle coche. Tout ce qui s'écrit passe
+ * par les routes de lot ci-dessus, avec leurs barrières et leur journal — une
+ * seconde porte d'écriture finirait par accepter ce que la première refuse.
+ */
+r.get('/valorisations/analyse', authRequired, (req, res) => {
+  const annee = req.query.annee;
+  if (!annee) return res.status(400).json({ error: 'annee requise' });
+
+  const lignes = db.prepare(`
+    SELECT v.*, e.nom, e.prenom, e.id_ecampus, e.section_rattachement,
+           /* UNE SOUS-REQUÊTE, PAS UNE JOINTURE — ET CE POINT A ÉTÉ CODÉ FAUX.
+            * Un même numéro d'unité existe sous PLUSIEURS sections : c'est le
+            * cas UE 95 « Restart », déjà payé une fois. Une jointure rendait
+            * donc trois lignes pour un dossier, et le tableau affichait trois
+            * fois le même étudiant — qu'on aurait coché trois fois, envoyé
+            * trois fois, et journalisé trois fois. Un LIMIT 1 sur le nom
+            * suffit : la section réelle du dossier se déduit plus bas. */
+           (SELECT u.ue_nom FROM ue u WHERE u.ue_num = v.ue_num
+             AND u.annee_scolaire = v.annee_scolaire LIMIT 1) AS ue_nom,
+           (SELECT u.section FROM ue u WHERE u.ue_num = v.ue_num
+             AND u.annee_scolaire = v.annee_scolaire LIMIT 1) AS ue_section,
+           (SELECT COUNT(*) FROM etudiant_valorisation_aa a
+             WHERE a.valorisation_id = v.id) AS nb_equivalences,
+           (SELECT COUNT(*) FROM etudiant_valorisation_fichier f
+             WHERE f.valorisation_id = v.id) AS nb_preuves
+    FROM etudiant_valorisation v
+    JOIN etudiant e ON e.id = v.etudiant_id
+    WHERE v.annee_scolaire = ?
+    ORDER BY v.ue_num, e.nom, e.prenom
+  `).all(annee);
+
+  /* LE PÉRIMÈTRE SE POSE ICI AUSSI. Une coordination limitée à TIM n'a pas à
+   * lire les demandes d'optométrie — la règle des trente-trois routes
+   * d'attribution vaut pour celle-ci, qui est précisément une route qui rend
+   * TOUT. La section d'une demande est celle de l'unité ; à défaut (admission,
+   * unité hors référentiel), celle de l'étudiant. */
+  const permises = getUserSections(req.user);   // null = toutes
+  const dossiers = [];
+  for (const v of lignes) {
+    const section = v.section || v.ue_section || v.section_rattachement || null;
+    if (permises && section && !permises.includes(section)) continue;
+    const manques = manquesDossier(v);
+    dossiers.push({
+      id: v.id, etudiant_id: v.etudiant_id,
+      nom: v.nom, prenom: v.prenom, id_ecampus: v.id_ecampus,
+      section, ue_num: v.ue_num, ue_nom: v.ue_nom,
+      porte: v.porte, type: v.type, etat: etatDeduit(v),
+      decision: v.decision, base_code: v.base_code,
+      recevable: v.recevable, recevabilite_le: v.recevabilite_le,
+      motif_irrecevabilite: v.motif_irrecevabilite,
+      avis_le: v.avis_le, avis_sens: v.avis_sens,
+      decision_le: v.decision_le, decision_ce_date: v.decision_ce_date,
+      valide_le: v.valide_le, valide_par: v.valide_par,
+      notifie_le: v.notifie_le, eprom_le: v.eprom_le,
+      nb_preuves: v.nb_preuves, nb_equivalences: v.nb_equivalences,
+      manques,
+      pret_a_valider: !v.valide_le && !manques
+        .filter(m => !m.startsWith('Le dossier n’a pas été validé')).length,
+    });
+  }
+
+  res.json({
+    annee,
+    peut_instruire: PEUT_INSTRUIRE.includes(req.user?.role),
+    peut_valider: PEUT_VALIDER.includes(req.user?.role),
+    etats: ETATS,
+    dossiers,
+  });
+});
+
+/**
+ * UNE SÉANCE NE MÊLE PAS DEUX CONSEILS DES ÉTUDES.
+ *
+ * Décider et valider sont des gestes de SÉANCE, et une séance de valorisation
+ * se tient par unité : c'est le conseil des études de CETTE unité qui examine
+ * les demandes qui la concernent. Cocher en travers de trois unités dans un
+ * tableau à plat, puis appliquer une décision unique, attribuerait à trois
+ * conseils une délibération qu'un seul a tenue — et le procès-verbal le dirait
+ * ainsi, sans que rien ne le démente.
+ *
+ * La vue reste à plat, parce que c'est ainsi qu'on lit ; c'est l'ÉCRITURE qui
+ * se borne. L'admission (`ue_num = 0`) se range avec les autres : elle se
+ * décide par section, donc un lot d'admissions ne mêle pas non plus deux
+ * sections.
+ */
+function memeSeance(cibles, res) {
+  const unites = [...new Set(cibles.map(v => v.ue_num))];
+  if (unites.length > 1) {
+    res.status(409).json({
+      error: 'Le lot mêle ' + unites.length + ' unités (' + unites.join(', ')
+        + ') : une séance du conseil des études se tient par unité. '
+        + "Rien n'a été enregistré — traite une unité à la fois.",
+    });
+    return true;
+  }
+  const sections = [...new Set(cibles.filter(v => v.ue_num === 0)
+    .map(v => v.section || ''))];
+  if (sections.length > 1) {
+    res.status(409).json({
+      error: "Le lot mêle plusieurs sections d'admission : l'admission se "
+        + "décide par section. Rien n'a été enregistré.",
+    });
+    return true;
+  }
+  return false;
+}
+
+/**
+ * LA RECEVABILITÉ EN SÉRIE — ET ELLE, ELLE N'EST PAS BORNÉE À UNE UNITÉ.
+ *
+ * C'est un contrôle de FORME — délai, pièces officielles, dossier complet —,
+ * posé par le secrétariat ou la coordination. Aucun conseil des études n'est
+ * convoqué : le borner à une unité serait une contrainte sans raison derrière,
+ * et ce sont celles-là qu'on finit par contourner. Quinze dossiers reçus le
+ * même jour se pointent donc ensemble, quelles que soient leurs unités.
+ *
+ * L'IRRECEVABILITÉ, ELLE, SE MOTIVE — même en série, et c'est le même motif
+ * pour tout le lot : si le motif diffère d'un dossier à l'autre, ce n'est plus
+ * un lot, ce sont des dossiers.
+ */
+r.post('/valorisations/lot/recevabilite', authRequired,
+  roleRequired(...PEUT_INSTRUIRE), (req, res) => {
+    const ids = [...new Set((Array.isArray(req.body?.ids) ? req.body.ids : [])
+      .map(Number).filter(n => Number.isInteger(n) && n > 0))];
+    if (!ids.length) return res.status(400).json({ error: 'Aucun dossier coché.' });
+
+    const recevable = req.body.recevable ? 1 : 0;
+    const motif = String(req.body.motif_irrecevabilite || '').trim();
+    if (!recevable && !motif) {
+      return res.status(400).json({ error: "Une irrecevabilité se motive : c'est "
+        + 'un refus de forme, et il est notifié à l’étudiant.' });
+    }
+
+    const bloquants = [];
+    const cibles = [];
+    for (const id of ids) {
+      const v = lireDossierComplet(id);
+      if (!v) { bloquants.push({ id, qui: `#${id}`, pourquoi: 'Dossier introuvable.' }); continue; }
+      const qui = `${(v.nom || '').toUpperCase()} ${v.prenom || ''}`.trim();
+      if (v.valide_le) {
+        bloquants.push({ id, qui, pourquoi: `déjà validé le ${v.valide_le} — le dévalider d’abord` });
+        continue;
+      }
+      if (v.decision_le) {
+        bloquants.push({ id, qui, pourquoi: 'décision déjà enregistrée — la recevabilité ne se rejuge pas après coup' });
+        continue;
+      }
+      cibles.push(v);
+    }
+    if (bloquants.length) {
+      return res.status(409).json({
+        error: `${bloquants.length} dossier(s) bloquent : rien n'a été enregistré.`,
+        bloquants });
+    }
+
+    const qui = req.user?.nom || req.user?.email || null;
+    const maj = db.prepare(`UPDATE etudiant_valorisation
+      SET recevable = ?, motif_irrecevabilite = ?, recevabilite_par = ?,
+          recevabilite_le = datetime('now') WHERE id = ?`);
+    db.transaction(() => {
+      for (const v of cibles) maj.run(recevable, recevable ? null : motif, qui, v.id);
+    })();
+    // UNE LIGNE DE JOURNAL PAR DOSSIER : un geste en série reste une suite de
+    // gestes individuels, et c'est ainsi qu'il se relit un an après.
+    for (const v of cibles) {
+      journaliser(v.id, recevable ? 'recevable' : 'irrecevable', req,
+        `en série (${cibles.length} dossiers)${recevable ? '' : ` · ${motif}`}`);
+      rafraichirEtat(v.id);
+    }
+    res.json({ ok: true, traites: cibles.length, recevable: !!recevable });
+  });
 
 /**
  * ÉTAPE 7 — LA NOTIFICATION ET LA MISE À JOUR DU PAE (2 jours ouvrables).
