@@ -13,10 +13,47 @@
 // le premier palier.
 // ─────────────────────────────────────────────────────────────────────────────
 import db from '../db/index.js';
+import { getParam } from '../routes/parametres.js';
 
-/** Cinq essais, puis la porte se ferme — de plus en plus longtemps. */
-export const ESSAIS_AVANT_BLOCAGE = 5;
-export const PALIERS_MINUTES = [15, 60, 24 * 60];
+/*
+ * LE RÉGLAGE VIT À L'ÉCRAN, PAS DANS LE CODE.
+ *
+ * Ces trois valeurs étaient écrites ici : les changer demandait un commit, une
+ * construction et un déploiement, et personne d'autre que le développeur ne
+ * pouvait en discuter. C'est exactement ce que le catalogue des réglages codés
+ * en dur reproche : invisible, donc indiscutable.
+ *
+ * LE DÉFAUT RESTE LE BLOCAGE. Un réglage absent de la base, une table illisible,
+ * une valeur effacée par mégarde : dans tous ces cas la porte se ferme quand
+ * même. Un garde-fou dont la panne ouvre la porte n'est pas un garde-fou.
+ */
+export const ESSAIS_DEFAUT = 5;
+export const PALIERS_DEFAUT = [15, 60, 24 * 60];
+
+/** Le plafond est-il en service ? Actif par défaut, et à la moindre incertitude. */
+export function blocageActif() {
+  return getParam('securite.blocage_actif', '1') !== '0';
+}
+
+export function essaisAvantBlocage() {
+  const n = parseInt(getParam('securite.blocage_essais', String(ESSAIS_DEFAUT)), 10);
+  // Zéro ou un nombre négatif fermerait la porte au premier essai, y compris
+  // au titulaire : une valeur absurde retombe sur le défaut plutôt que de
+  // produire une panne qu'on mettrait des heures à comprendre.
+  return Number.isFinite(n) && n >= 1 && n <= 50 ? n : ESSAIS_DEFAUT;
+}
+
+/** « 15,60,1440 » → [15, 60, 1440]. Les valeurs illisibles sont ignorées. */
+export function paliersMinutes() {
+  const brut = String(getParam('securite.blocage_paliers', PALIERS_DEFAUT.join(',')));
+  const liste = brut.split(',').map(x => parseInt(String(x).trim(), 10))
+    .filter(n => Number.isFinite(n) && n >= 1 && n <= 60 * 24 * 30);
+  return liste.length ? liste : PALIERS_DEFAUT;
+}
+
+// Conservés pour ce qui les lit encore ; la vérité est dans les fonctions.
+export const ESSAIS_AVANT_BLOCAGE = ESSAIS_DEFAUT;
+export const PALIERS_MINUTES = PALIERS_DEFAUT;
 
 /**
  * Au bout de vingt-quatre heures sans un seul échec, on repart de zéro.
@@ -38,6 +75,17 @@ export function migrerTentatives(dbx) {
       dernier_echec  TEXT,
       bloque_jusqu   TEXT
     );`);
+    // LES TROIS RÉGLAGES, AMORCÉS À LEUR DÉFAUT. `INSERT OR IGNORE` : une
+    // valeur déjà posée par la direction ne se fait pas écraser au
+    // redémarrage — sinon le réglage tiendrait jusqu'au prochain déploiement.
+    const p = dbx.prepare(
+      'INSERT OR IGNORE INTO parametre (cle, valeur, label, groupe) VALUES (?,?,?,?)');
+    p.run('securite.blocage_actif', '1',
+      'Bloquer un compte après des mots de passe erronés (0 = jamais)', 'securite');
+    p.run('securite.blocage_essais', String(ESSAIS_DEFAUT),
+      'Nombre de mots de passe erronés avant blocage', 'securite');
+    p.run('securite.blocage_paliers', PALIERS_DEFAUT.join(','),
+      'Durées de blocage successives, en minutes (15,60,1440)', 'securite');
     console.log('[migration] connexion_blocage : plafond des tentatives de connexion');
   } catch (e) { console.error('[migration] connexion_blocage :', e.message); }
 }
@@ -51,6 +99,11 @@ function ligne(utilisateurId) {
  * @returns {{ bloque: boolean, minutes: number }} — minutes restantes, arrondies au-dessus.
  */
 export function etatBlocage(utilisateurId) {
+  // HORS SERVICE : on ne consulte même pas la table. Un blocage posé AVANT que
+  // la direction ne désactive le plafond retiendrait sinon quelqu'un dehors
+  // pendant vingt-quatre heures, alors que le réglage vient d'être levé —
+  // c'est précisément pour cela qu'on le lève.
+  if (!blocageActif()) return { bloque: false, minutes: 0 };
   const l = ligne(utilisateurId);
   if (!l?.bloque_jusqu) return { bloque: false, minutes: 0 };
   const reste = db.prepare(
@@ -64,6 +117,9 @@ export function etatBlocage(utilisateurId) {
  * du moment plutôt que celle d'avant.
  */
 export function noterEchec(utilisateurId) {
+  if (!blocageActif()) return { bloque: false, minutes: 0, restants: null };
+  const ESSAIS_AVANT_BLOCAGE = essaisAvantBlocage();
+  const PALIERS_MINUTES = paliersMinutes();
   const l = ligne(utilisateurId);
 
   // Loin du dernier échec : la série précédente ne compte plus, ni son palier.
