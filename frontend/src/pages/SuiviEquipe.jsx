@@ -750,7 +750,7 @@ function ListeTaches({ taches, personnes, presents = [], obligations = [], api, 
               onChange={e => majTache(t, { echeance_id: e.target.value ? Number(e.target.value) : null })}
               className="bg-white border border-slate-300 rounded-champ px-1.5 h-8 text-[12px]
                          max-w-[12rem] text-slate-600">
-              <option value="">— sans obligation —</option>
+              <option value="">— ne sert aucune obligation —</option>
               {obligations.map(o => (
                 <option key={o.id} value={o.id}>
                   {o.libelle}{o.base_legale ? ` · ${o.base_legale}` : ''}
@@ -814,7 +814,7 @@ function ListeTaches({ taches, personnes, presents = [], obligations = [], api, 
               }}
               className="bg-white border border-slate-300 rounded-champ px-1.5 h-8 text-[12px]
                          max-w-[12rem] text-slate-600">
-              <option value="">— sans obligation —</option>
+              <option value="">— ne sert aucune obligation —</option>
               {obligations.map(o => (
                 <option key={o.id} value={o.id}>
                   {o.libelle}{o.base_legale ? ` · ${o.base_legale}` : ''}

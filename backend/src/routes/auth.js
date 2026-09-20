@@ -5,6 +5,7 @@ import db from '../db/index.js';
 import { signToken, authRequired, roleRequired, peutValiderAttributions, signPreviewToken,
          signPendingToken, verifyPendingToken } from '../middleware/auth.js';
 import { dechiffrer } from '../lib/secret-box.js';
+import { prenomSeul } from '../lib/nom.js';
 import { verifierTotp } from '../lib/totp.js';
 import { consommerCodeRecuperation, journaliser } from './mfa.js';
 
@@ -78,7 +79,13 @@ function oublierEssais(jeton) {
 
 /** La charge utile « user » de la réponse, écrite une seule fois. */
 function profilPublic(user) {
+  /* LE PRÉNOM SE CALCULE ICI, PAS À L'ÉCRAN. L'accueil le devinait en prenant
+   * le premier mot de l'identité — ce qui donne le NOM de famille dès qu'elle
+   * s'écrit « DAELEMAN Florian », c'est-à-dire chez nous, toujours. La règle
+   * existe déjà dans `lib/nom.js` ; une seconde, côté écran, aurait fini par
+   * dire autre chose. */
   return { id: user.id, email: user.email, role: user.role, nom: user.nom_complet,
+    prenom: prenomSeul(user.nom_complet) || null,
     acces_recrutement: user.acces_recrutement ? 1 : 0, peut_valider: peutValiderAttributions(user) };
 }
 

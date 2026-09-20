@@ -5,7 +5,7 @@ import {
   IconUserPlus, IconUsersGroup, IconX,
 } from '@tabler/icons-react';
 import { authHeaders, getAnnee } from '../lib/api.js';
-import { Fenetre, RailLateral } from '../components/ui.jsx';
+import { BulleAide, Fenetre, RailLateral } from '../components/ui.jsx';
 import SeanceValorisation from '../components/SeanceValorisation.jsx';
 
 /**
@@ -2348,10 +2348,22 @@ function AnalyserEnSerie({ annee, onClose, onChange }) {
   const [geste, setGeste] = useState('recevabilite');   // recevabilite | decision | validation
   const [recevable, setRecevable] = useState(true);
   const [motifForme, setMotifForme] = useState('');
-  const [decision, setDecision] = useState('accordee');
+  // `branche` a remplacé le couple decision+portee : une seule question.
   const [base, setBase] = useState('');
   const [motifRefus, setMotifRefus] = useState('');
   const [dateCE, setDateCE] = useState(aujourdHui());
+  /* UNE SEULE QUESTION AU NIVEAU DE LA DÉCISION : totale, partielle, refusée.
+     C'est la branche ; `portee` n'en est plus que le détail, et seulement
+     quand elle vaut « partielle » — un ou des cours, ou un ou des acquis. */
+  const [branche, setBranche] = useState('totale');
+  const [portee, setPortee] = useState('cours');
+  const [coursCoches, setCoursCoches] = useState(() => new Set());
+  const [aaCoches, setAaCoches] = useState(() => new Set());
+  const [composantes, setComposantes] = useState(null);
+  /* LA MÊME RAISON POUR TOUT LE LOT. La remarque du Conseil — « dispensé des
+     heures de stage, mais doit présenter l'examen » — se saisissait dossier par
+     dossier alors que le Conseil l'a formulée une fois. */
+  const [remarque, setRemarque] = useState('');
 
   const charger = useCallback(async () => {
     try {
@@ -2429,17 +2441,69 @@ function AnalyserEnSerie({ annee, onClose, onChange }) {
   const unitesRetenues = [...new Set(retenus.map(d => d.ue_num))];
   const melangeSeance = geste !== 'recevabilite' && unitesRetenues.length > 1;
 
+  /* L'UNITÉ DU LOT — connue dès que les dossiers cochés n'en portent qu'une,
+     ce que le bornage garantit. C'est elle qui donne les cours et les acquis
+     à cocher : on ne désigne pas des activités dans le vide. */
+  const ueDuLot = unitesRetenues.length === 1 ? unitesRetenues[0] : null;
+
+  useEffect(() => {
+    if (!ueDuLot || geste !== 'decision') { setComposantes(null); return; }
+    let vivant = true;
+    fetch(`/api/etudiants/ue/${ueDuLot}/composantes?annee=${encodeURIComponent(annee)}`,
+      { headers: authHeaders() })
+      .then(r => (r.ok ? r.json() : null))
+      .then(j => { if (vivant) setComposantes(j); })
+      .catch(() => { if (vivant) setComposantes(null); });
+    return () => { vivant = false; };
+  }, [ueDuLot, geste, annee]);
+
+  // Changer d'unité ou de geste invalide ce qui avait été coché pour la précédente.
+  useEffect(() => { setCoursCoches(new Set()); setAaCoches(new Set()); }, [ueDuLot]);
+
+  const aasParCoursLot = useMemo(() => {
+    const m = new Map();
+    for (const a of (composantes?.aas || [])) {
+      const c = a.cours_code || '—';
+      if (!m.has(c)) m.set(c, []);
+      m.get(c).push(a);
+    }
+    return m;
+  }, [composantes]);
+
+  const basculerDans = (setter) => (v) => setter(s => {
+    const n = new Set(s);
+    if (n.has(v)) n.delete(v); else n.add(v);
+    return n;
+  });
+
   const manque = !retenus.length ? 'Coche au moins un dossier.'
     : melangeSeance
       ? `Le lot mêle ${unitesRetenues.length} unités : une séance du conseil `
         + 'des études se tient par unité.'
       : geste === 'recevabilite' && !recevable && !motifForme.trim()
         ? 'Une irrecevabilité se motive — c’est un refus de forme, notifié à l’étudiant.'
-        : geste === 'decision' && decision === 'accordee' && !base
+        : geste === 'decision' && branche !== 'refusee' && !base
           ? 'La base légale de la décision est obligatoire : elle part dans eProm.'
-          : geste === 'decision' && decision === 'refusee' && !motifRefus.trim()
+          : geste === 'decision' && branche === 'refusee' && !motifRefus.trim()
             ? 'Un refus se motive (RDE art. 88 §3).'
-            : null;
+            : geste === 'decision' && branche === 'partielle'
+              && portee === 'cours' && !coursCoches.size
+              ? 'Une dispense partielle par cours désigne au moins un cours.'
+              : geste === 'decision' && branche === 'partielle'
+                && portee === 'acquis' && !aaCoches.size
+                ? 'Une dispense partielle par acquis désigne au moins un acquis.'
+                : null;
+
+  /* CHANGER DE BRANCHE EFFACE CE QUE LA PRÉCÉDENTE AVAIT LAISSÉ. Passer de
+     partielle à totale en gardant des cours cochés enverrait une dispense
+     complète traînant la cible d'une partielle — et le serveur, lui, les
+     ignorerait sans le dire. */
+  function poserBranche(v) {
+    setBranche(v);
+    setErreur(null); setBloquants(null);
+    if (v !== 'partielle') { setCoursCoches(new Set()); setAaCoches(new Set()); }
+    if (v !== 'refusee') setMotifRefus('');
+  }
 
   function basculer(id) {
     setCoches(c => { const n = new Set(c); n.has(id) ? n.delete(id) : n.add(id); return n; });
@@ -2447,6 +2511,47 @@ function AnalyserEnSerie({ annee, onClose, onChange }) {
   function toutCocher() {
     const ids = cochables.map(d => d.id);
     setCoches(c => (ids.every(i => c.has(i)) ? new Set() : new Set(ids)));
+  }
+
+  /* LE TYPE EST « complete », PAS « totale » — ET CE POINT A ÉTÉ LIVRÉ FAUX.
+   *
+   * La première version de cette fenêtre envoyait `type: 'totale'`, le mot de
+   * l'écran. Le serveur, lui, ne connaît que `complete`, `partielle` et
+   * `admission` — c'est écrit dans la contrainte de la table ET dans le
+   * contrôle. Toute dispense totale posée en série était donc refusée en bloc.
+   * Les essais n'avaient rien vu : ils appelaient la ROUTE avec la bonne
+   * valeur, jamais l'écran. On vérifie ce que l'utilisateur fait, pas ce qu'on
+   * a écrit.
+   *
+   * Un refus ne dispense rien : ni portée, ni cible, ni pourcentage — il porte
+   * `complete` comme *Valoriser en série*, et c'est `decision` qui dit le
+   * refus.
+   */
+  function corpsDecision(ids) {
+    const refus = branche === 'refusee';
+    const corps = {
+      ids, decision: refus ? 'refusee' : 'accordee',
+      decision_ce_date: dateCE || undefined,
+      commentaire: remarque.trim() || undefined,
+    };
+    if (refus) {
+      corps.type = 'complete';
+      corps.motif_refus = motifRefus.trim();
+      return corps;
+    }
+    corps.base_code = base;
+    if (branche === 'totale') {
+      corps.type = 'complete';
+    } else {
+      corps.type = 'partielle';
+      corps.cible = portee === 'cours' ? 'cours' : 'aa';
+      corps.cible_detail = portee === 'cours'
+        ? [...coursCoches].join(',') : [...aaCoches].join(',');
+      if (portee === 'acquis') {
+        corps.equivalences = [...aaCoches].map(code => ({ aa_code: code }));
+      }
+    }
+    return corps;
   }
 
   async function poser() {
@@ -2458,10 +2563,7 @@ function AnalyserEnSerie({ annee, onClose, onChange }) {
     const corps = geste === 'recevabilite'
       ? { ids, recevable, motif_irrecevabilite: recevable ? undefined : motifForme.trim() }
       : geste === 'decision'
-        ? { ids, type: decision === 'refusee' ? 'partielle' : 'totale', decision,
-            base_code: decision === 'refusee' ? undefined : base,
-            motif_refus: decision === 'refusee' ? motifRefus.trim() : undefined,
-            decision_ce_date: dateCE || undefined }
+        ? corpsDecision(ids)
         : { ids };
     try {
       const rep = await fetch(`/api/etudiants/valorisations/lot/${route}`, {
@@ -2505,7 +2607,13 @@ function AnalyserEnSerie({ annee, onClose, onChange }) {
               ? `${recevable ? 'Déclarer recevable' : 'Déclarer irrecevable'}`
                 + (retenus.length > 1 ? ` (${retenus.length})` : '')
               : geste === 'decision'
-                ? `Enregistrer la décision${retenus.length > 1 ? ` (${retenus.length})` : ''}`
+                /* LE BOUTON DIT CE QU'IL POSE. « Enregistrer la décision » ne
+                   distingue pas une dispense totale d'un refus — deux gestes
+                   dont l'un ferme un dossier et l'autre ouvre une attestation. */
+                ? `${branche === 'refusee' ? 'Refuser'
+                    : branche === 'partielle' ? 'Accorder la dispense partielle'
+                    : 'Accorder la dispense totale'}`
+                  + (retenus.length > 1 ? ` (${retenus.length})` : '')
                 : `Valider${retenus.length > 1 ? ` (${retenus.length})` : ''}`}
         </button>
         {/* CE QUI DIT POURQUOI LE BOUTON EST GRIS VIT À CÔTÉ DU BOUTON. */}
@@ -2574,46 +2682,183 @@ function AnalyserEnSerie({ annee, onClose, onChange }) {
 
           {geste === 'decision' && (
             <div className="space-y-2 pt-1">
-              <div className="flex flex-wrap items-center gap-2">
-                <label className="flex items-center gap-1.5 text-[13px]">
-                  <input type="radio" checked={decision === 'accordee'}
-                    onChange={() => setDecision('accordee')} /> Dispense totale
-                </label>
-                <label className="flex items-center gap-1.5 text-[13px]">
-                  <input type="radio" checked={decision === 'refusee'}
-                    onChange={() => setDecision('refusee')} /> Refusée
-                </label>
-                <span className="text-[12px] text-slate-500">
-                  Séance du
-                </span>
+              {/* TROIS BRANCHES, ET C'EST LE VOCABULAIRE DE LA MAISON.
+                  L'écran posait d'abord « accordée / refusée », puis une portée
+                  par-dessus : deux questions là où le Conseil n'en tranche
+                  qu'une. Charles l'a dit dans ses mots — « dispense totale,
+                  c'est VA/VAE totale ; sinon c'est une dispense partielle, et
+                  là ce sera un ou des cours, ou un ou des AA ». C'est aussi la
+                  constante DECISIONS du fichier, qui disait déjà totale ·
+                  partielle · refusée. On ne garde qu'un niveau. */}
+              <div className="flex flex-wrap items-center gap-3">
+                {[['totale', 'Dispense totale', "L'unité entière et tous ses acquis"],
+                  ['partielle', 'Dispense partielle', 'Des cours ou des acquis'],
+                  ['refusee', 'Refusée', 'Rien de dispensé — motif obligatoire']]
+                  .map(([v, l, aide]) => (
+                  <label key={v} title={aide}
+                    className="flex items-center gap-1.5 text-[13px]">
+                    <input type="radio" checked={branche === v}
+                      onChange={() => poserBranche(v)} /> {l}
+                  </label>
+                ))}
+                <span className="text-[12px] text-slate-500">Séance du</span>
                 <input type="date" value={dateCE} onChange={e => setDateCE(e.target.value)}
                   className="controle text-[13px]" />
               </div>
-              {decision === 'accordee' ? (
-                <div className="flex flex-wrap items-center gap-2">
-                  <select value={base} onChange={e => setBase(e.target.value)}
-                    className="controle text-[13px] min-w-[28rem]">
-                    <option value="">Base légale de la décision…</option>
-                    {bases.map(b => (
-                      <option key={b.code} value={b.code}>{b.code} — {b.label}</option>
-                    ))}
-                  </select>
-                  <span className="text-[12px] text-slate-500">
+              {branche !== 'refusee' ? (
+                <div className="space-y-1.5">
+                  <div className="flex flex-wrap items-center gap-2">
+                    {/* LE CODE NE DIT RIEN, LE LIBELLÉ DIT TOUT — et il
+                        manquait : la liste s'écrivait « V1 — », « V2 — »,
+                        parce que le champ s'appelle `libelle` et non `label`.
+                        Six lignes à choisir sans savoir ce qu'elles sont, sur
+                        une valeur qui part dans eProm. */}
+                    <select value={base} onChange={e => setBase(e.target.value)}
+                      className="controle text-[13px] min-w-[30rem]">
+                      <option value="">Sur quoi la dispense se fonde-t-elle ?…</option>
+                      {bases.map(b => (
+                        <option key={b.code} value={b.code}>
+                          {b.famille} {b.code} — {b.libelle}
+                        </option>
+                      ))}
+                    </select>
+                    <BulleAide titre="La base légale de la décision">
+                      C'est le fondement juridique de la dispense : ce qui, dans
+                      le dossier de l'étudiant, autorise le Conseil à la lui
+                      accorder. Elle part telle quelle dans eProm, et c'est elle
+                      que le vérificateur lit pour savoir pourquoi la dispense
+                      tient. Une décision accordée sans base n'est pas encodable,
+                      donc pas conforme — et c'est exactement ce qui s'est
+                      produit en septembre 2026.
+                      {'\n\n'}Deux familles, et elles ne se choisissent pas au
+                      hasard : VAF pour des acquis FORMELS — un titre, une
+                      attestation d'enseignement —, VANFI pour des acquis tirés
+                      de l'EXPÉRIENCE. Une demande VA attend une VAF, une demande
+                      VAE attend une VANFI.
+                    </BulleAide>
+                  </div>
+                  {/* CE QUE LA BASE CHOISIE VEUT DIRE, SOUS LA LISTE. Une liste
+                      déroulante se referme : ce qu'on vient de choisir doit
+                      rester lisible au moment où l'on clique sur Enregistrer. */}
+                  {base && (
+                    <div className="text-[12px] text-slate-600">
+                      {(() => {
+                        const b = bases.find(x => x.code === base);
+                        if (!b) return null;
+                        return <>
+                          <strong>{b.famille} {b.code}</strong> — {b.libelle}
+                        </>;
+                      })()}
+                    </div>
+                  )}
+                  <div className="text-[12px] text-slate-500">
                     Elle part dans eProm : une décision non encodée est une
                     décision non conforme.
-                  </span>
+                  </div>
                 </div>
               ) : (
                 <input value={motifRefus} onChange={e => setMotifRefus(e.target.value)}
                   placeholder="Motivation du refus — elle est tout ce qui reste, la décision n’est pas susceptible de recours"
                   className="controle text-[13px] w-full" />
               )}
-              <div className="text-[12px] text-slate-500">
-                Une dispense <strong>partielle</strong> se pose dans
-                {' '}<em>Valoriser en série</em> : elle demande de désigner les
-                cours ou les acquis dispensés, et ce tableau n'a pas où les
-                cocher.
-              </div>
+              {/* CE QUE LA PARTIELLE DISPENSE — et elle seule le demande.
+                  La totale n'a rien à cocher : c'est l'unité entière, c'est ce
+                  que le mot veut dire. Le Conseil arrête une fois ce qu'il
+                  dispense ; le porter dossier par dossier, c'est autant
+                  d'occasions de se tromper d'une case. */}
+              {branche === 'totale' && (
+                <div className="text-[12px] text-slate-500">
+                  L'unité entière et tous ses acquis — rien à cocher.
+                  L'attestation « Valorisation » devient possible, et
+                  l'étudiant cesse d'y être compté comme élève régulier.
+                </div>
+              )}
+              {branche === 'partielle' && (
+                <div className="space-y-2">
+                  <div className="flex flex-wrap items-center gap-3">
+                    <span className="text-[12px] text-slate-500">Ce qui est dispensé</span>
+                    {[['cours', 'Un ou des cours'],
+                      ['acquis', 'Un ou des acquis']].map(([v, l]) => (
+                      <label key={v} className="flex items-center gap-1.5 text-[13px]">
+                        <input type="radio" checked={portee === v}
+                          onChange={() => setPortee(v)} /> {l}
+                      </label>
+                    ))}
+                  </div>
+
+                  {!ueDuLot ? (
+                    <div className="text-[12px] text-slate-500">
+                      Coche d'abord les dossiers : les cours et les acquis
+                      viennent de leur unité.
+                    </div>
+                  ) : !composantes ? (
+                    <div className="text-[12px] text-slate-400">Chargement…</div>
+                  ) : portee === 'cours' ? (
+                    !composantes.cours?.length ? (
+                      <div className="text-[12px] text-slate-500">
+                        L'unité {ueDuLot} n'a aucun cours encodé pour {annee}.
+                      </div>
+                    ) : (
+                      <div className="carte-plate p-1 max-h-48 overflow-auto">
+                        {composantes.cours.map(c => (
+                          <label key={c.cours_code}
+                            className="flex items-center gap-2 px-2 py-1 rounded-champ
+                                       hover:bg-slate-50 cursor-pointer">
+                            <input type="checkbox" checked={coursCoches.has(c.cours_code)}
+                              onChange={() => basculerDans(setCoursCoches)(c.cours_code)} />
+                            <span className="text-[13px]">{c.cours_nom || c.cours_code}</span>
+                            <span className="text-[11px] text-slate-400">{c.cours_code}</span>
+                          </label>
+                        ))}
+                      </div>
+                    )
+                  ) : (
+                    !composantes.aas?.length ? (
+                      <div className="text-[12px] text-slate-500">
+                        L'unité {ueDuLot} n'a aucun acquis encodé.
+                      </div>
+                    ) : (
+                      <div className="carte-plate p-1 max-h-48 overflow-auto">
+                        {[...aasParCoursLot.entries()].map(([code, liste]) => (
+                          <div key={code}>
+                            <div className="tab-repere px-2 py-1 text-[12px] font-medium">
+                              {composantes.cours?.find(c => c.cours_code === code)?.cours_nom
+                                || code}
+                            </div>
+                            {liste.map(a => (
+                              <label key={a.aa_code}
+                                className="flex items-start gap-2 px-2 py-1 rounded-champ
+                                           hover:bg-slate-50 cursor-pointer">
+                                <input type="checkbox" checked={aaCoches.has(a.aa_code)}
+                                  onChange={() => basculerDans(setAaCoches)(a.aa_code)}
+                                  className="mt-0.5" />
+                                <span className="text-[13px]">{a.aa_code}</span>
+                                <span className="text-[12px] text-slate-500">
+                                  {a.description}
+                                </span>
+                              </label>
+                            ))}
+                          </div>
+                        ))}
+                      </div>
+                    )
+                  )}
+
+                  <div className="text-[12px] text-slate-500">
+                    Une dispense partielle ne peut pas couvrir toutes les
+                    activités de l'unité : ce serait une dispense complète
+                    déguisée, et le serveur la refuse.
+                  </div>
+                </div>
+              )}
+
+              {/* LA MÊME RAISON POUR TOUT LE LOT. C'est là qu'on écrit
+                  « dispensé des heures de stage, mais doit présenter
+                  l'examen » — une condition que le PV tait n'a jamais été
+                  posée. */}
+              <input value={remarque} onChange={e => setRemarque(e.target.value)}
+                placeholder="Remarque du Conseil, appliquée à tout le lot (facultative) — elle s'imprime sur le PV"
+                className="controle text-[13px] w-full" />
             </div>
           )}
         </section>

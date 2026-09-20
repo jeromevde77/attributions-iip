@@ -57,10 +57,21 @@ function timeAgo(iso) {
   return d.toLocaleDateString('fr-BE', { day: '2-digit', month: 'long' });
 }
 
-// Extraire le prénom depuis nom_complet
-function prenom(nomComplet) {
-  if (!nomComplet) return '';
-  return nomComplet.trim().split(/\s+/)[0];
+/**
+ * LE PRÉNOM VIENT DU SERVEUR — ON NE LE DEVINE PLUS.
+ *
+ * Cette fonction prenait le PREMIER MOT de l'identité. Chez nous, elle s'écrit
+ * « DAELEMAN Florian » : on saluait donc les gens par leur nom de famille.
+ * La règle juste existe depuis longtemps dans `lib/nom.js` côté serveur — ce
+ * sont les CAPITALES qui désignent le patronyme, jamais la position — et
+ * `profilPublic()` livre désormais `prenom` avec la session.
+ *
+ * On garde un repli, mais un repli HONNÊTE : si le serveur n'a pas su couper
+ * (un compte dont le nom tient en un seul mot), on prend l'adresse plutôt que
+ * de tutoyer quelqu'un par son patronyme.
+ */
+function salutation(u) {
+  return u?.prenom || u?.email?.split('@')[0] || 'vous';
 }
 
 /**
@@ -409,7 +420,7 @@ export default function Accueil() {
             que la première icône du rail, et ne répondait donc à rien. Une
             seule échelle, et rien en dehors. */}
         <PageHeader
-          titre={`Bonjour, ${prenom(u?.nom) || u?.email?.split('@')[0] || 'vous'} !`}
+          titre={`Bonjour, ${salutation(u)} !`}
           /* CE QU'ON REGARDE SE DIT EN HAUT DE L'ÉCRAN. Le filtre vivant
              désormais dans une fenêtre, rien ne dirait plus qu'on ne voit
              qu'une partie des événements — et c'est ainsi qu'on croit un

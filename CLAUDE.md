@@ -558,6 +558,38 @@ promesse, et le refus arrive alors après coup.
 > tableau n'a pas où les cocher. Totale ou refusée ici ; la partielle se pose
 > dans *Valoriser en série*, qui porte les listes.
 
+> **LE MOT DE L'ÉCRAN N'EST PAS LA VALEUR DU SERVEUR — ET CE POINT A ÉTÉ LIVRÉ
+> EN PRODUCTION.** La fenêtre d'analyse envoyait `type: 'totale'`, parce que
+> c'est le mot qu'on lit à l'écran ; le serveur ne connaît que `complete`,
+> `partielle` et `admission` — dans la contrainte de la table ET dans
+> `verifierValorisation`. Toute dispense totale posée en série était refusée en
+> bloc. **Les essais n'avaient rien vu : ils appelaient la ROUTE avec la bonne
+> valeur, jamais l'écran.** Un test qui contourne l'interface teste le serveur,
+> pas la fonction — et c'est la fonction que l'utilisateur emploie. Corrigé en
+> 2.12.53.
+
+> **LA PORTÉE BASCULE LE TYPE, ET ELLE S'APPLIQUE À TOUT LE LOT.** Depuis
+> 2.12.53, *Analyser en série* porte les trois portées — toute l'unité, des
+> cours, des acquis — avec les listes à cocher chargées depuis l'unité du lot
+> (que le bornage à une séance rend toujours connue). On bascule donc
+> complète ↔ partielle en série, et la **remarque du Conseil** se saisit une
+> fois pour tous : c'est là qu'on écrit « dispensé des heures de stage, mais
+> doit présenter l'examen », et le Conseil l'a formulée une fois, pas huit.
+> Revenir à « toute l'unité » **efface la cible** — sans quoi une dispense
+> complète traînerait la liste de cours de la partielle qu'elle remplace.
+
+> **UNE SEULE QUESTION AU NIVEAU DE LA DÉCISION : TOTALE · PARTIELLE ·
+> REFUSÉE.** *Analyser en série* posait d'abord « accordée / refusée », puis une
+> portée par-dessus — deux questions là où le Conseil n'en tranche qu'une.
+> Charles l'a dit dans ses mots le 20 septembre : *« dispense totale, c'est
+> VA/VAE totale ; sinon c'est une dispense partielle, et là ce sera un ou des
+> cours, ou un ou des AA »*. C'est aussi ce que disait déjà la constante
+> `DECISIONS` du fichier — **le vocabulaire existait, l'écran en avait inventé
+> un second.** La totale n'a rien à cocher, c'est ce que le mot veut dire ; la
+> partielle seule ouvre ses cours ou ses acquis. Et **changer de branche efface
+> ce que la précédente avait laissé**, sans quoi une totale partirait en
+> traînant la cible d'une partielle.
+
 > **UN MÊME NUMÉRO D'UNITÉ EXISTE SOUS PLUSIEURS SECTIONS, ET CE POINT A ÉTÉ
 > CODÉ FAUX UNE FOIS DE PLUS.** La vue à plat joignait `ue` : trois lignes de
 > référentiel pour l'UE 95 « Restart » rendaient trois lignes pour un seul
@@ -971,6 +1003,29 @@ et 3 composants de tuile**. La stratégie tient en cinq chantiers, dans cet ordr
   d'introduction et étape de la demande) : deux copies d'une même convention
   finissent par différer, et c'est l'écran qu'on regarde le moins qui garde
   l'ancienne teinte.
+- **UNE BULLE QU'IL FAUT CHERCHER N'EST PAS UN LIBELLÉ.** Le menu qui rattache
+  une tâche à une obligation de l'échéancier s'intitulait « — sans obligation — » :
+  rien ne disait de quoi il parlait, et la seule explication vivait dans un
+  `title` au survol. Renommé « — ne sert aucune obligation — » : le libellé
+  porte la question, pas seulement la réponse par défaut.
+- **LE BLOC DU RAIL SE LIT D'UN SEUL TENANT.** La rubrique qui a ouvert un
+  tiroir et les icônes de ce tiroir forment **un objet**, pas deux choses posées
+  l'une sous l'autre : le filet de deux pixels vit désormais sur le CONTENEUR et
+  s'étire de la rubrique jusqu'au bas du tiroir, et l'icône qui a ouvert prend
+  l'accent. Posé dans le bouton, il s'arrêtait à ses quarante pixels et rien ne
+  disait que les icônes du dessous lui appartenaient.
+- **UN CHAMP RÉGLEMENTAIRE SE REMPLIT AU JUGÉ SI RIEN NE DIT CE QU'IL EST.**
+  « Base légale de la décision » ne parle qu'à celui qui l'a écrit, et une
+  valeur fausse part alors sur une pièce signée. D'où `BulleAide` (`ui.jsx`) :
+  un point d'interrogation discret, la phrase au clic, **ancrée sur le champ**
+  et non dans une fenêtre — un voile ferait perdre de vue ce qu'on remplissait.
+  Elle dit ce que la chose EST et ce qu'elle engage, jamais comment cliquer.
+- **UN CODE SANS LIBELLÉ EST UNE LISTE QU'ON REMPLIT À L'AVEUGLE.** La liste des
+  bases s'affichait « V1 — », « V2 — » : le champ s'appelle `libelle`, l'écran
+  lisait `label`. Six lignes à choisir sans savoir ce qu'elles sont, sur une
+  valeur qui part dans eProm. **Même faute que `totale`/`complete`, même
+  famille : le nom qu'on croit plutôt que celui qui existe.** Vérifier la forme
+  réelle de l'objet, pas celle qu'on suppose.
 - **Une entrée de rail sans icône est invisible** une fois le rail replié.
 - **Un titre ne s'écrit qu'une fois** par écran.
 - Un libellé ne promet que ce que la modale fait réellement.
@@ -1112,6 +1167,16 @@ circulé sans qu'on puisse dire qui l'avait sortie. « Je veux des traces. »
   elles prouvent quelque chose. On propose **aujourd'hui**, et l'on corrige
   quand ce n'est pas le bon jour (`aujourdHui()` dans `pages/Valorisations.jsx`,
   à généraliser). Le défaut doit être correct.
+- **LE NOM SE MET EN CAPITALES, LE PRÉNOM SE CAPITALISE — DEUX RÈGLES, DEUX
+  FONCTIONS.** `lib/nom.js` les porte, sorties de `routes/acquis.js` où elles
+  étaient enfermées : ce sont des règles d'écriture pures, et l'accueil en avait
+  réinventé une troisième — le premier mot de l'identité —, qui salue les gens
+  par leur nom de famille dès qu'elle s'écrit « DAELEMAN Florian ». Le serveur
+  livre désormais `prenom` avec la session (`profilPublic`), l'écran ne devine
+  plus. **Et `separerNomPrenom` rendait un prénom EN CAPITALES** — « DUPONT
+  Marie » donnait `prenom: "MARIE"` — parce que les deux morceaux passaient par
+  `nomPropreDepuisChaine`, qui suppose une identité entière. Ce champ part sur
+  le bloc de signatures du procès-verbal.
 - **CELUI QUI CLIQUE EST CELUI QUI SIGNE.** La personne qui accepte, valide ou
   coche est **la personne connectée** — jamais un nom choisi dans une liste, ni
   un champ libre. Un nom qu'on saisit est un nom qu'on peut mettre à la place
