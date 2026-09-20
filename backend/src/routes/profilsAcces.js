@@ -88,6 +88,46 @@ r.get('/plafonds', authRequired, (req, res) => {
   res.json({ roles: ROLES, modules: MODULES, niveaux: NIVEAUX, plafonds: par });
 });
 
+/*
+ * CE QUE LE MODE CONSTAT A VU.
+ *
+ * Un registre que personne ne peut lire n'existe pas : le mode constat n'a de
+ * sens que si l'on vient regarder ce qu'il a noté avant de fermer. Chaque
+ * ligne est un refus qui AURAIT eu lieu — à lire comme une question : « cette
+ * personne devrait-elle y avoir accès ? » Si oui, c'est le plafond ou la carte
+ * des modules qu'il faut corriger, pas le constat qu'il faut ignorer.
+ */
+r.get('/constat', authRequired, roleRequired('admin', 'directeur', 'directeur_adjoint'),
+  (req, res) => {
+    let lignes = [];
+    try {
+      lignes = db.prepare(`
+        SELECT email, role, module, action, methode, chemin, occurrences,
+               premiere_le, derniere_le
+        FROM permission_constat
+        ORDER BY occurrences DESC, derniere_le DESC
+        LIMIT 500`).all();
+    } catch { /* la table n'existe pas encore : registre vide */ }
+    res.json({
+      mode: process.env.PERMISSIONS_MODE === 'strict' ? 'strict' : 'constat',
+      lignes,
+      // Le résumé répond à la seule question qui décide : qui perdrait quoi ?
+      par_personne: Object.values(lignes.reduce((acc, l) => {
+        const c = acc[l.email] || (acc[l.email] = {
+          email: l.email, role: l.role, modules: new Set(), total: 0 });
+        c.modules.add(l.module); c.total += l.occurrences;
+        return acc;
+      }, {})).map(c => ({ ...c, modules: [...c.modules] })),
+    });
+  });
+
+/** Repartir de zéro, après avoir corrigé un plafond ou la carte. */
+r.delete('/constat', authRequired, roleRequired('admin', 'directeur', 'directeur_adjoint'),
+  (req, res) => {
+    try { db.prepare('DELETE FROM permission_constat').run(); } catch { /* rien à vider */ }
+    res.json({ ok: true });
+  });
+
 r.put('/plafonds', authRequired, roleRequired('admin', 'directeur', 'directeur_adjoint'),
   (req, res) => {
     const { role, module, niveau } = req.body || {};

@@ -10,6 +10,30 @@ const JWT_SECRET = process.env.JWT_SECRET || 'change-me-in-prod';
 // n'aurait plus rien contrôlé.
 const SCOPE_MFA = 'mfa_pending';
 
+/**
+ * QUI EST-CE, SANS RIEN REFUSER.
+ *
+ * `authRequired` est posé PAR ROUTE, pas au montage : un middleware monté en
+ * amont — le garde des modules — s'exécute donc avant lui et ne trouve aucun
+ * `req.user`. Il laisserait tout passer, en croyant n'avoir affaire qu'à des
+ * anonymes dont ce n'est pas son affaire.
+ *
+ * Décoder le jeton une seconde fois dans le garde aurait fait deux sources
+ * pour un même fait, et le jour où l'une change, l'autre continue d'ouvrir.
+ * Le décodage vit donc ici, et seulement ici.
+ *
+ * Un jeton intermédiaire de second facteur ne vaut PAS une identité : il rend
+ * null, comme l'absence de jeton.
+ */
+export function utilisateurDuJeton(req) {
+  const auth = req.headers.authorization;
+  if (!auth || !auth.startsWith('Bearer ')) return null;
+  try {
+    const p = jwt.verify(auth.slice(7), JWT_SECRET);
+    return p?.scope === SCOPE_MFA ? null : p;
+  } catch { return null; }
+}
+
 export function authRequired(req, res, next) {
   const auth = req.headers.authorization;
   if (!auth || !auth.startsWith('Bearer ')) {
