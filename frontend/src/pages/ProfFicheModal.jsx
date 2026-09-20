@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { Fenetre } from '../components/ui.jsx';
 import { api, getAnnee } from '../lib/api.js';
 import { eidStatus, eidReadAll, eidToProf, eidChamps } from '../lib/eid.js';
 import NominationsPanel from '../components/NominationsPanel.jsx';
@@ -403,26 +404,47 @@ export default function ProfFicheModal({ prof, onClose, onSaved }) {
 
   if (loading) {
     return (
-      <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] flex items-center justify-center p-4 z-40">
-        <div className="bg-white rounded-xl shadow-2xl px-8 py-6 text-gray-400">Chargement…</div>
-      </div>
+      <Fenetre titre="Fiche du personnel" sous="Chargement…" large="grande"
+        onFermer={onClose}>
+        <div className="py-10 text-center text-[13px] text-slate-400">Chargement…</div>
+      </Fenetre>
     );
   }
 
   const charByCat = (cat) => charges.map((c, i) => ({ c, i })).filter(x => x.c.categorie === cat);
 
   return (
-    <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] flex items-center justify-center p-4 z-40"
-      onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="bg-white rounded-xl shadow-2xl max-w-3xl w-full border-t-4 border-iip-gold overflow-hidden flex flex-col max-h-[92vh]">
-        <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100 flex-shrink-0">
-          <h2 className="font-title text-lg text-iip-gold">
-            {isNew ? 'Nouveau membre du personnel' : `Fiche — ${prof.nom_prenom || prof.nom + ' ' + prof.prenom}`}
-          </h2>
-          <button onClick={onClose} className="text-gray-400 hover:text-red-500 text-2xl leading-none">×</button>
-        </div>
-
-        <form onSubmit={handleSubmit} autoComplete="off" className="p-5 space-y-3 overflow-auto">
+    /* LA FENÊTRE DE LA MAISON, ET PAS UNE SOIXANTE-DOUZIÈME.
+     * Celle-ci posait son propre « fixed inset-0 » avec son propre en-tête :
+     * titre marine sur fond blanc, filet doré en haut, croix en caractère « × ».
+     * Rien du bandeau marine que portent toutes les autres — on changeait de
+     * maison en ouvrant une fiche de personnel. (Et le « doré » n'en était pas :
+     * `iip-gold` vaut #1B2B4B, le nom ment.)
+     *
+     * LES ACTIONS QUITTENT LE FORMULAIRE POUR LE PIED. Elles vivaient au bas
+     * d'un formulaire de neuf sections, tenues par un `sticky bottom-0` —
+     * lequel ne s'accroche qu'au conteneur qui défile réellement, règle déjà
+     * payée ailleurs. Le pied de `Fenetre` est une bande fixe : « Enregistrer »
+     * ne descend plus avec les champs. */
+    <Fenetre
+      titre={isNew ? 'Nouveau membre du personnel'
+        : `Fiche — ${prof.nom_prenom || `${prof.nom} ${prof.prenom}`}`}
+      sous={isNew ? 'Identité, statut, coordonnées — rien n’est enregistré avant validation'
+        : 'Identité, statut, charges et disponibilités'}
+      large="grande" onFermer={onClose}
+      pied={<>
+        <button type="submit" form="fiche-personnel" disabled={saving}
+          className="bouton bouton-fort disabled:opacity-40">
+          {saving ? 'Sauvegarde…' : isNew ? 'Créer la fiche' : 'Enregistrer'}
+        </button>
+        <span className="text-[12px] text-slate-500">
+          {isNew ? 'La fiche est créée à la validation, pas avant.'
+            : 'Les modifications ne sont enregistrées qu’à la validation.'}
+        </span>
+        <button type="button" onClick={onClose} className="bouton ml-auto">Annuler</button>
+      </>}>
+      <form id="fiche-personnel" onSubmit={handleSubmit} autoComplete="off"
+        className="space-y-3">
 
           {/* Import optionnel depuis la carte eID belge */}
           <div className="border border-iip-gold/30 bg-iip-gold/5 rounded-lg p-3 flex items-start gap-3">
@@ -747,23 +769,7 @@ export default function ProfFicheModal({ prof, onClose, onSaved }) {
             </Section>
           )}
 
-          {/* Actions */}
-          <div className="flex justify-end gap-2 pt-2 border-t border-gray-100 sticky bottom-0 bg-white">
-            <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800">Annuler</button>
-            {/* Bouton fiche PDF masqué en prod (nécessite LibreOffice — à activer quand finalisé) */}
-            {false && !isNew && (
-              <button type="button" onClick={genererFichePdf} disabled={saving || genPdf}
-                className="bg-iip-mauve hover:opacity-90 disabled:opacity-40 text-white text-sm px-4 py-2 rounded font-medium">
-                {genPdf ? 'Génération…' : <span className="inline-flex items-center gap-1.5"><IconFileText size={15}/>Générer la fiche (PDF)</span>}
-              </button>
-            )}
-            <button type="submit" disabled={saving}
-              className="bg-iip-gold hover:bg-iip-amber disabled:opacity-40 text-white text-sm px-5 py-2 rounded font-medium">
-              {saving ? 'Sauvegarde…' : isNew ? 'Créer la fiche' : 'Enregistrer'}
-            </button>
-          </div>
         </form>
-      </div>
-    </div>
+    </Fenetre>
   );
 }
