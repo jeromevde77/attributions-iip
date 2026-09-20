@@ -389,39 +389,92 @@ function MatriceAcces({ users, sectionsDispo, profils, onModifie, onProfil,
 
       {/* Périmètre, modifiable en regard du nom */}
       <td className="border-b border-slate-100 px-2 py-1.5 relative">
+        {/* CE QUI EST ÉCRIT LÀ DOIT ÊTRE VRAI. « toutes » s'affichait dès qu'il
+            n'y avait aucune section — donc aussi pour qui n'a aucun accès, les
+            deux états étant alors confondus. Un périmètre vide se dit
+            maintenant, et en ocre : c'est une anomalie tant que personne ne
+            l'a voulue, pas un réglage neutre. */}
         <button onClick={() => setPerimetreOuvert(perimetreOuvert === u.id ? null : u.id)}
           className="text-[11px] text-left hover:text-iip-blue underline decoration-dotted">
-          {u.sections?.length
-            ? u.sections.join(', ')
-            : <span className="text-slate-400">toutes</span>}
+          {u.perimetre_toutes
+            ? <span className="text-slate-400">toutes</span>
+            : u.sections?.length
+              ? u.sections.join(', ')
+              : <span className="text-amber-700">aucun accès</span>}
         </button>
 
         {perimetreOuvert === u.id && (
-          <div className="absolute z-30 left-2 top-9 bg-white border border-slate-300 rounded-lg shadow-lg p-2 w-56">
-            <div className="text-[10px] uppercase tracking-wide text-slate-500 mb-1.5">Sections</div>
-            <label className="flex items-center gap-1.5 text-[12px] mb-1.5">
-              <input type="checkbox" checked={!u.sections?.length}
-                onChange={() => onModifie(u.id, { sections: [] })} />
-              Toutes les sections
-            </label>
-            <div className="flex flex-wrap gap-1">
-              {(sectionsDispo || []).map(s => {
-                const dedans = (u.sections || []).includes(s.code);
+          /* TROIS ÉTATS, ET ILS SE CHOISISSENT. La case « Toutes les sections »
+             était cochée quand la liste était vide, et la décocher renvoyait
+             `sections: []` — le même état : elle se recochait aussitôt. « Aucun
+             accès » était donc INEXPRIMABLE à l'écran, alors même que c'est le
+             défaut du modèle. Trois boutons, dont un seul est actif. */
+          <div className="absolute z-30 left-2 top-9 bg-white border border-slate-300 rounded-lg shadow-lg p-2.5 w-64">
+            <div className="text-[10px] uppercase tracking-wide text-slate-500 mb-1.5">Périmètre</div>
+
+            {[['toutes', 'Toutes les sections', 'y compris celles à venir'],
+              ['choix',  'Ces sections',        'celles cochées ci-dessous'],
+              ['aucune', 'Aucun accès',         'ne voit rien tant que rien n’est donné']]
+              .map(([cle, titre, aide]) => {
+                const actif = u.perimetre_toutes ? cle === 'toutes'
+                  : (u.sections || []).length ? cle === 'choix' : cle === 'aucune';
                 return (
-                  <button key={s.code}
-                    onClick={() => onModifie(u.id, {
-                      sections: dedans
-                        ? (u.sections || []).filter(x => x !== s.code)
-                        : [...(u.sections || []), s.code],
-                    })}
-                    className={`text-[11px] px-1.5 py-0.5 rounded-champ border ${
-                      dedans ? 'bg-iip-blue text-white border-iip-blue'
-                             : 'border-slate-200 text-slate-400 hover:border-iip-blue'}`}>
-                    {s.code}
+                  <button key={cle}
+                    onClick={() => {
+                      if (cle === 'toutes') onModifie(u.id, { perimetre_toutes: 1, sections: [] });
+                      if (cle === 'aucune') onModifie(u.id, { perimetre_toutes: 0, sections: [] });
+                      // « Ces sections » sans en avoir coché une ne veut encore
+                      // rien dire : on ouvre la liste, on n'enregistre rien.
+                      if (cle === 'choix')  onModifie(u.id, { perimetre_toutes: 0 });
+                    }}
+                    className={`w-full text-left mb-1 px-2 py-1 rounded-champ border text-[12px] ${
+                      actif ? 'border-iip-blue bg-slate-50 text-iip-blue'
+                            : 'border-slate-200 text-slate-600 hover:border-slate-300'}`}>
+                    {titre}
+                    <span className="block text-[10px] text-slate-400 leading-tight">{aide}</span>
                   </button>
                 );
               })}
-            </div>
+
+            {!u.perimetre_toutes && (
+              <div className="mt-1.5 pt-1.5 border-t border-slate-100">
+                <div className="flex flex-wrap gap-1">
+                  {(sectionsDispo || []).map(sec => {
+                    const dedans = (u.sections || []).includes(sec.code);
+                    return (
+                      <button key={sec.code}
+                        onClick={() => onModifie(u.id, {
+                          perimetre_toutes: 0,
+                          sections: dedans
+                            ? (u.sections || []).filter(x => x !== sec.code)
+                            : [...(u.sections || []), sec.code],
+                        })}
+                        className={`text-[11px] px-1.5 py-0.5 rounded-champ border ${
+                          dedans ? 'bg-iip-blue text-white border-iip-blue'
+                                 : 'border-slate-200 text-slate-400 hover:border-iip-blue'}`}>
+                        {sec.code}
+                      </button>
+                    );
+                  })}
+                </div>
+                {!(u.sections || []).length && (
+                  <div className="mt-1.5 text-[10px] text-amber-700 leading-tight">
+                    Aucune section : ce compte ne voit rien.
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Le cloisonnement ne vaut que pour la coordination : ailleurs, le
+                serveur purge le périmètre et rouvre tout. L'écran le DIT,
+                plutôt que de laisser cocher des sections sans effet. */}
+            {u.role !== 'coordination' && (
+              <div className="mt-1.5 text-[10px] text-slate-500 leading-tight">
+                Seule une coordination se cloisonne ; les autres rôles voient
+                tout l’Institut.
+              </div>
+            )}
+
             <button onClick={() => setPerimetreOuvert(null)}
               className="mt-2 w-full text-[11px] py-1 rounded border border-slate-300 text-slate-600">
               Fermer
