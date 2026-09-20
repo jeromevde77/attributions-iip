@@ -2364,6 +2364,13 @@ function AnalyserEnSerie({ annee, onClose, onChange }) {
      heures de stage, mais doit présenter l'examen » — se saisissait dossier par
      dossier alors que le Conseil l'a formulée une fois. */
   const [remarque, setRemarque] = useState('');
+  // L'avis en série : un sens, un texte, un auteur nommé.
+  const [avisSens, setAvisSens] = useState('favorable');
+  const [avisTexte, setAvisTexte] = useState('');
+  const [avisPar, setAvisPar] = useState('');
+  // Les dates de la demande, posées pour toute la liasse.
+  const [dateDemande, setDateDemande] = useState(aujourdHui());
+  const [dateReception, setDateReception] = useState('');
 
   const charger = useCallback(async () => {
     try {
@@ -2412,15 +2419,27 @@ function AnalyserEnSerie({ annee, onClose, onChange }) {
   /* CE QUE LE GESTE CHOISI PEUT RECEVOIR. On ne coche pas ce qui ne peut pas
      l'accepter : une case cochable sur un dossier que le serveur refusera
      donne une fausse promesse, et le refus arrive après coup. */
+  /* UN DOSSIER DÉCIDÉ HORS CIRCUIT SE RÉGULARISE. Sa décision existe mais
+     n'a jamais été instruite : le serveur laisse poser ce qui manque, et
+     l'écran doit donc le rendre cochable — sans quoi on retombe dans le
+     blocage où les trois gestes se refusaient l'un l'autre. */
   function eligible(d) {
-    if (geste === 'recevabilite') return !d.valide_le && !d.decision_le;
+    if (geste === 'demande') return !d.valide_le;
+    if (geste === 'recevabilite') return !d.valide_le && (!d.decision_le || d.hors_circuit);
+    if (geste === 'avis') return !d.valide_le && d.recevable === 1;
     if (geste === 'decision') return !d.valide_le && d.recevable === 1 && !!d.avis_le;
     return d.pret_a_valider;
   }
   function pourquoiPas(d) {
-    if (geste === 'recevabilite') {
+    if (geste === 'demande') {
       if (d.valide_le) return 'validé — le dévalider d’abord';
-      if (d.decision_le) return 'décision déjà prise';
+    } else if (geste === 'recevabilite') {
+      if (d.valide_le) return 'validé — le dévalider d’abord';
+      if (d.decision_le && !d.hors_circuit) return 'décision déjà instruite';
+    } else if (geste === 'avis') {
+      if (d.valide_le) return 'validé — le dévalider d’abord';
+      if (d.recevable == null) return 'recevabilité non contrôlée — l’analyse vient après';
+      if (d.recevable === 0) return 'irrecevable — ne se transmet pas au chargé de cours';
     } else if (geste === 'decision') {
       if (d.valide_le) return 'validé — le dévalider d’abord';
       if (d.recevable !== 1) return 'recevabilité non contrôlée';
@@ -2482,7 +2501,13 @@ function AnalyserEnSerie({ annee, onClose, onChange }) {
         + 'des études se tient par unité.'
       : geste === 'recevabilite' && !recevable && !motifForme.trim()
         ? 'Une irrecevabilité se motive — c’est un refus de forme, notifié à l’étudiant.'
-        : geste === 'decision' && branche !== 'refusee' && !base
+        : geste === 'demande' && !dateDemande && !dateReception
+          ? 'Pose au moins une des deux dates.'
+          : geste === 'avis' && !avisTexte.trim()
+            ? 'Un avis se motive par écrit : il fonde la décision, et il n’y a pas de recours ensuite.'
+            : geste === 'avis' && !avisPar.trim()
+              ? 'Nomme le chargé de cours qui rend l’avis : c’est lui qui en répond.'
+              : geste === 'decision' && branche !== 'refusee' && !base
           ? 'La base légale de la décision est obligatoire : elle part dans eProm.'
           : geste === 'decision' && branche === 'refusee' && !motifRefus.trim()
             ? 'Un refus se motive (RDE art. 88 §3).'
@@ -2558,13 +2583,20 @@ function AnalyserEnSerie({ annee, onClose, onChange }) {
     if (manque) return;
     setEnCours(true); setErreur(null); setBloquants(null);
     const ids = retenus.map(d => d.id);
-    const route = geste === 'recevabilite' ? 'recevabilite'
-      : geste === 'decision' ? 'decision' : 'validation';
-    const corps = geste === 'recevabilite'
-      ? { ids, recevable, motif_irrecevabilite: recevable ? undefined : motifForme.trim() }
-      : geste === 'decision'
-        ? corpsDecision(ids)
-        : { ids };
+    // La clé du geste EST le nom de la route : une table de correspondance de
+    // plus finirait par mentir le jour où l'on ajoute une étape.
+    const route = geste;
+    const corps = geste === 'demande'
+      ? { ids, date_demande: dateDemande || undefined,
+          date_reception: dateReception || undefined }
+      : geste === 'recevabilite'
+        ? { ids, recevable, motif_irrecevabilite: recevable ? undefined : motifForme.trim() }
+        : geste === 'avis'
+          ? { ids, avis_sens: avisSens, avis_texte: avisTexte.trim(),
+              avis_par: avisPar.trim() }
+          : geste === 'decision'
+            ? corpsDecision(ids)
+            : { ids };
     try {
       const rep = await fetch(`/api/etudiants/valorisations/lot/${route}`, {
         method: 'POST',
@@ -2585,9 +2617,16 @@ function AnalyserEnSerie({ annee, onClose, onChange }) {
     finally { setEnCours(false); }
   }
 
+  /* LES GESTES DANS L'ORDRE DU CIRCUIT. On les lit de gauche à droite comme on
+     les pose : les dates, la recevabilité, l'avis, la décision, la validation.
+     Un ordre qui ne suit pas la procédure oblige à la reconstituer de tête. */
   const GESTES = [
+    { cle: 'demande', label: 'Dates de la demande',
+      aide: 'Une liasse reçue le même jour — la date décide du délai' },
     { cle: 'recevabilite', label: 'Recevabilité',
       aide: 'Contrôle de forme — traverse les unités' },
+    { cle: 'avis', label: 'Avis du chargé de cours',
+      aide: 'Un avis, un auteur nommé, une cohorte homogène' },
     { cle: 'decision', label: 'Décision du Conseil',
       aide: 'Une séance, une unité' },
     { cle: 'validation', label: 'Validation direction',
@@ -2603,6 +2642,10 @@ function AnalyserEnSerie({ annee, onClose, onChange }) {
             || (geste === 'validation' && !donnees?.peut_valider)}
           className="bouton bouton-fort disabled:opacity-40">
           {enCours ? 'Enregistrement…'
+            : geste === 'demande'
+              ? `Poser les dates${retenus.length > 1 ? ` (${retenus.length})` : ''}`
+            : geste === 'avis'
+              ? `Enregistrer l'avis${retenus.length > 1 ? ` (${retenus.length})` : ''}`
             : geste === 'recevabilite'
               ? `${recevable ? 'Déclarer recevable' : 'Déclarer irrecevable'}`
                 + (retenus.length > 1 ? ` (${retenus.length})` : '')
@@ -2661,6 +2704,72 @@ function AnalyserEnSerie({ annee, onClose, onChange }) {
               {GESTES.find(g => g.cle === geste)?.aide}
             </span>
           </div>
+
+          {geste === 'demande' && (
+            <div className="flex flex-wrap items-center gap-3 pt-1">
+              <label className="flex items-center gap-1.5 text-[13px]">
+                Date de la demande
+                <input type="date" value={dateDemande}
+                  onChange={e => setDateDemande(e.target.value)}
+                  className="controle text-[13px]" />
+              </label>
+              <label className="flex items-center gap-1.5 text-[13px]">
+                Date de réception
+                <input type="date" value={dateReception}
+                  onChange={e => setDateReception(e.target.value)}
+                  className="controle text-[13px]" />
+              </label>
+              <BulleAide titre="Pourquoi deux dates">
+                Celle du formulaire, et celle à laquelle l'Institut l'a reçu.
+                C'est la PLUS TARDIVE des deux qui compte pour le délai — sans
+                quoi il suffirait d'antidater un formulaire pour rentrer dans
+                les temps.
+                {'\n\n'}Le délai lui-même (RDE art. 28) : avant le premier jour
+                de cours de l'unité si sa date d'ouverture est encodée, sinon au
+                plus tard le quinzième jour suivant le début de l'année.
+              </BulleAide>
+            </div>
+          )}
+
+          {geste === 'avis' && (
+            <div className="space-y-2 pt-1">
+              <div className="flex flex-wrap items-center gap-3">
+                <span className="text-[12px] text-slate-500">Sens de l'avis</span>
+                {[['favorable', 'Favorable'], ['partiel', 'Partiel'],
+                  ['defavorable', 'Défavorable']].map(([v, l]) => (
+                  <label key={v} className="flex items-center gap-1.5 text-[13px]">
+                    <input type="radio" checked={avisSens === v}
+                      onChange={() => setAvisSens(v)} /> {l}
+                  </label>
+                ))}
+                {/* QUI REND L'AVIS N'EST PAS QUI LE SAISIT. */}
+                <input value={avisPar} onChange={e => setAvisPar(e.target.value)}
+                  placeholder="Chargé de cours qui rend l'avis — NOM Prénom"
+                  className="controle text-[13px] min-w-[18rem]" />
+              </div>
+              <textarea value={avisTexte} onChange={e => setAvisTexte(e.target.value)}
+                rows={3}
+                placeholder="Le constat pédagogique : ce qui a été comparé au dossier pédagogique, et ce qu'on en conclut"
+                className="controle text-[13px] w-full h-auto py-1.5" />
+              <div className="flex items-start gap-2">
+                <div className="text-[12px] text-slate-500 flex-1">
+                  Cet avis sera écrit <strong>à l'identique sur tous les dossiers
+                  cochés</strong>, au nom de la personne nommée ci-dessus.
+                </div>
+                <BulleAide titre="Un avis rendu en série">
+                  Il n'a de sens que sur une cohorte homogène : même unité, même
+                  diplôme antérieur, même analyse. Huit étudiants d'une reprise
+                  d'études qui présentent le même titre reçoivent le même
+                  constat — le Conseil ne l'a formulé qu'une fois.
+                  {'\n\n'}Si l'analyse diffère d'un étudiant à l'autre, ce n'est
+                  plus un lot : il faut ouvrir les dossiers un à un.
+                  {'\n\n'}L'avis est ce qui fonde la décision, et les décisions
+                  de valorisation ne sont pas susceptibles de recours : la
+                  motivation est tout ce qui restera pour la défendre.
+                </BulleAide>
+              </div>
+            </div>
+          )}
 
           {geste === 'recevabilite' && (
             <div className="flex flex-wrap items-center gap-2 pt-1">

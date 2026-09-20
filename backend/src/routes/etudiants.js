@@ -20,7 +20,7 @@ import {
   controleDelai, manquesDossier, pieceProduisible, journaliser, journalDe,
   rafraichirEtat, pourcentageDe, POURCENTAGE_DISPENSE,
   PEUT_VALIDER, PEUT_DEVALIDER, PEUT_INSTRUIRE, PORTES, CODES_PORTE,
-  estAdmissionDeSection, unitesDeBase,
+  estAdmissionDeSection, unitesDeBase, decideHorsCircuit,
 } from '../lib/valorisation.js';
 import { calculerDI, calculerDIS } from './droitInscription.js';
 
@@ -4822,7 +4822,12 @@ r.put('/valorisations/:vid/recevabilite', authRequired, roleRequired(...PEUT_INS
     const v = db.prepare('SELECT * FROM etudiant_valorisation WHERE id = ?').get(vid);
     if (!v) return res.status(404).json({ error: 'Dossier introuvable.' });
     if (refuseSiValide(v, res)) return;
-    if (v.decision_le) {
+    /* LA RECEVABILITÉ SE POSE ENCORE SUR UN DOSSIER DÉCIDÉ HORS CIRCUIT.
+     * Refuser parce qu'« une décision est déjà là » suppose qu'elle a été
+     * instruite ; sur un dossier antérieur au circuit, elle ne l'a pas été, et
+     * le refus enfermait le dossier sans issue. Un dossier RÉELLEMENT instruit,
+     * lui, reste protégé : sa recevabilité ne se rejuge pas. */
+    if (v.decision_le && !decideHorsCircuit(v)) {
       return res.status(409).json({ error: "La décision du Conseil est déjà "
         + 'enregistrée : la recevabilité ne se rejuge pas après coup.' });
     }
@@ -5244,6 +5249,146 @@ r.post('/valorisations/lot/decision', authRequired, roleRequired(...PEUT_INSTRUI
 });
 
 /**
+ * L'AVIS DU CHARGÉ DE COURS EN SÉRIE — UN AVIS, UN AUTEUR, UNE COHORTE.
+ *
+ * Il ne l'était pas, et c'est ce qui bloquait le rattrapage : dix-sept
+ * dossiers ATNUP à ouvrir un par un pour écrire dix-sept fois le même constat,
+ * avant de pouvoir seulement cocher la décision.
+ *
+ * La réserve posée en le construisant tient toujours : **un avis rendu en lot
+ * porte le même texte pour tous**, et cela n'a de sens que sur une cohorte
+ * homogène — même unité, même diplôme antérieur, même analyse. Le chargé de
+ * cours est NOMMÉ une fois pour le lot : c'est lui qui répond de l'avis, pas
+ * celui qui le saisit. Chaque dossier garde sa propre ligne de journal, avec
+ * l'un et l'autre.
+ *
+ * L'ordre du circuit ne fléchit pas : la recevabilité vient avant, et un
+ * dossier irrecevable ne se transmet pas au chargé de cours.
+ */
+r.post('/valorisations/lot/avis', authRequired, roleRequired(...PEUT_INSTRUIRE, 'professeur'),
+  (req, res) => {
+    const ids = [...new Set((Array.isArray(req.body?.ids) ? req.body.ids : [])
+      .map(Number).filter(n => Number.isInteger(n) && n > 0))];
+    if (!ids.length) return res.status(400).json({ error: 'Aucun dossier coché.' });
+
+    const sens = String(req.body.avis_sens || '');
+    if (!['favorable','partiel','defavorable'].includes(sens)) {
+      return res.status(400).json({ error: "Le sens de l'avis est requis : favorable, "
+        + 'partiel ou défavorable.' });
+    }
+    const texte = String(req.body.avis_texte || '').trim();
+    if (!texte) {
+      return res.status(400).json({ error: "Un avis se motive par écrit : c'est lui "
+        + 'qui fonde la décision du Conseil, et il n’y a pas de recours ensuite.' });
+    }
+    /* QUI REND L'AVIS N'EST PAS QUI LE SAISIT. Le secrétariat peut consigner
+     * l'avis du chargé de cours ; c'est le nom du chargé de cours qui doit
+     * figurer au dossier, sans quoi la pièce attribue l'analyse pédagogique à
+     * celui qui a tenu le clavier. */
+    const auteur = String(req.body.avis_par || '').trim();
+    if (!auteur) {
+      return res.status(400).json({ error: "Le chargé de cours qui rend l'avis doit "
+        + 'être nommé : c’est lui qui en répond.' });
+    }
+
+    const bloquants = [];
+    const cibles = [];
+    for (const id of ids) {
+      const v = lireDossierComplet(id);
+      if (!v) { bloquants.push({ id, qui: `#${id}`, pourquoi: 'Dossier introuvable.' }); continue; }
+      const qui = `${(v.nom || '').toUpperCase()} ${v.prenom || ''}`.trim();
+      if (v.valide_le) {
+        bloquants.push({ id, qui, pourquoi: `déjà validé le ${v.valide_le} — le dévalider d’abord` });
+        continue;
+      }
+      if (v.recevable == null) {
+        bloquants.push({ id, qui, pourquoi: "recevabilité non contrôlée — l'analyse vient après" });
+        continue;
+      }
+      if (v.recevable === 0) {
+        bloquants.push({ id, qui, pourquoi: 'irrecevable — ne se transmet pas au chargé de cours' });
+        continue;
+      }
+      cibles.push(v);
+    }
+    if (bloquants.length) {
+      return res.status(409).json({
+        error: `${bloquants.length} dossier(s) bloquent : rien n'a été enregistré.`,
+        bloquants });
+    }
+
+    const maj = db.prepare(`UPDATE etudiant_valorisation
+      SET avis_sens = ?, avis_texte = ?, avis_par = ?, avis_le = datetime('now')
+      WHERE id = ?`);
+    db.transaction(() => {
+      for (const v of cibles) maj.run(sens, texte, auteur, v.id);
+    })();
+    for (const v of cibles) {
+      journaliser(v.id, 'avis', req,
+        `en série (${cibles.length} dossiers) · ${auteur} · ${sens} — ${texte.slice(0, 140)}`);
+      rafraichirEtat(v.id);
+    }
+    res.json({ ok: true, traites: cibles.length });
+  });
+
+/**
+ * LA DATE DE LA DEMANDE, POSÉE EN LOT.
+ *
+ * Une cohorte dépose ses demandes le même jour — c'est le cas ordinaire d'une
+ * reprise d'études : le secrétariat reçoit une liasse. La saisir dossier par
+ * dossier, c'est dix-sept fois la même date, avec dix-sept occasions de se
+ * tromper d'un jour — et c'est cette date qui décide du délai (RDE art. 28).
+ *
+ * ELLE NE TOUCHE À RIEN D'AUTRE. Ni la nature, ni la portée, ni la décision :
+ * une route qui corrige la date ne doit pas pouvoir réécrire le reste au
+ * passage.
+ */
+r.post('/valorisations/lot/demande', authRequired, roleRequired(...PEUT_INSTRUIRE),
+  (req, res) => {
+    const ids = [...new Set((Array.isArray(req.body?.ids) ? req.body.ids : [])
+      .map(Number).filter(n => Number.isInteger(n) && n > 0))];
+    if (!ids.length) return res.status(400).json({ error: 'Aucun dossier coché.' });
+    const dateDemande = String(req.body.date_demande || '').trim();
+    const dateReception = String(req.body.date_reception || '').trim();
+    if (!dateDemande && !dateReception) {
+      return res.status(400).json({ error: 'Aucune date à poser.' });
+    }
+
+    const bloquants = [];
+    const cibles = [];
+    for (const id of ids) {
+      const v = lireDossierComplet(id);
+      if (!v) { bloquants.push({ id, qui: `#${id}`, pourquoi: 'Dossier introuvable.' }); continue; }
+      const qui = `${(v.nom || '').toUpperCase()} ${v.prenom || ''}`.trim();
+      if (v.valide_le) {
+        bloquants.push({ id, qui, pourquoi: `déjà validé le ${v.valide_le} — le dévalider d’abord` });
+        continue;
+      }
+      cibles.push(v);
+    }
+    if (bloquants.length) {
+      return res.status(409).json({
+        error: `${bloquants.length} dossier(s) bloquent : rien n'a été enregistré.`,
+        bloquants });
+    }
+
+    const maj = db.prepare(`UPDATE etudiant_valorisation
+      SET date_demande = COALESCE(?, date_demande),
+          date_reception = COALESCE(?, date_reception)
+      WHERE id = ?`);
+    db.transaction(() => {
+      for (const v of cibles) maj.run(dateDemande || null, dateReception || null, v.id);
+    })();
+    for (const v of cibles) {
+      journaliser(v.id, 'demande', req, `dates posées en série (${cibles.length} dossiers)`
+        + `${dateDemande ? ` · demande ${dateDemande}` : ''}`
+        + `${dateReception ? ` · réception ${dateReception}` : ''}`);
+      rafraichirEtat(v.id);
+    }
+    res.json({ ok: true, traites: cibles.length });
+  });
+
+/**
  * ANALYSER LES DEMANDES EN SÉRIE — LA VUE À PLAT DE TOUTE L'ANNÉE.
  *
  * Les dossiers se lisaient par étudiant, pliés les uns sous les autres : pour
@@ -5309,6 +5454,10 @@ r.get('/valorisations/analyse', authRequired, (req, res) => {
       valide_le: v.valide_le, valide_par: v.valide_par,
       notifie_le: v.notifie_le, eprom_le: v.eprom_le,
       nb_preuves: v.nb_preuves, nb_equivalences: v.nb_equivalences,
+      /* CE DOSSIER A-T-IL ÉTÉ DÉCIDÉ SANS AVOIR ÉTÉ INSTRUIT ? L'écran en a
+       * besoin pour expliquer pourquoi il propose une régularisation plutôt
+       * qu'un blocage. */
+      hors_circuit: decideHorsCircuit(v),
       manques,
       pret_a_valider: !v.valide_le && !manques
         .filter(m => !m.startsWith('Le dossier n’a pas été validé')).length,
@@ -5397,7 +5546,7 @@ r.post('/valorisations/lot/recevabilite', authRequired,
         bloquants.push({ id, qui, pourquoi: `déjà validé le ${v.valide_le} — le dévalider d’abord` });
         continue;
       }
-      if (v.decision_le) {
+      if (v.decision_le && !decideHorsCircuit(v)) {
         bloquants.push({ id, qui, pourquoi: 'décision déjà enregistrée — la recevabilité ne se rejuge pas après coup' });
         continue;
       }

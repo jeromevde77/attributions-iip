@@ -578,6 +578,32 @@ promesse, et le refus arrive alors après coup.
 > Revenir à « toute l'unité » **efface la cible** — sans quoi une dispense
 > complète traînerait la liste de cours de la partielle qu'elle remplace.
 
+> **LE CIRCUIT SUPPOSAIT QU'ON AVANCE DEPUIS RIEN — ET IL ENFERMAIT TOUT LE
+> PASSÉ.** Sur un dossier antérieur à 2.12.38, une décision existe mais les
+> étapes qui auraient dû la précéder, non. Les trois gestes se bloquaient alors
+> l'un l'autre : la recevabilité refusée parce qu'une décision est déjà là, la
+> décision refusée parce que la recevabilité manque, la validation refusée
+> parce que le dossier est incomplet. **Aucune issue, dans aucun sens** — et
+> c'était précisément la passe de rattrapage annoncée au secrétariat. Constaté
+> le 20 septembre sur les dix-sept dossiers ATNUP de l'UE 225, encodés en
+> dispense globale.
+>
+> `decideHorsCircuit(v)` le **déduit** — décision posée sans recevabilité ET
+> sans avis —, comme l'état se déduit : ce n'est pas une case qu'on coche, donc
+> on ne peut pas s'en servir pour rouvrir un dossier réellement instruit, qui
+> reste protégé. Sur ces dossiers-là seulement, recevabilité et avis se posent
+> encore, et la décision se corrige. Depuis 2.12.57.
+
+> **L'AVIS ET LES DATES SE POSENT AUSSI EN SÉRIE.** Sans eux, le rattrapage
+> imposait d'ouvrir dix-sept dossiers un par un AVANT de pouvoir seulement
+> cocher la décision — le lot ne servait à rien. Deux réserves tenues : un avis
+> rendu en lot porte le **même texte pour tous** et n'a de sens que sur une
+> cohorte homogène (même unité, même diplôme antérieur) ; et **le chargé de
+> cours qui rend l'avis est NOMMÉ**, distinct de celui qui le saisit — sans
+> quoi la pièce attribue l'analyse pédagogique à qui a tenu le clavier. Les
+> cinq gestes de l'écran suivent désormais l'ordre du circuit : dates ·
+> recevabilité · avis · décision · validation.
+
 > **UNE SEULE QUESTION AU NIVEAU DE LA DÉCISION : TOTALE · PARTIELLE ·
 > REFUSÉE.** *Analyser en série* posait d'abord « accordée / refusée », puis une
 > portée par-dessus — deux questions là où le Conseil n'en tranche qu'une.
@@ -1008,12 +1034,19 @@ et 3 composants de tuile**. La stratégie tient en cinq chantiers, dans cet ordr
   rien ne disait de quoi il parlait, et la seule explication vivait dans un
   `title` au survol. Renommé « — ne sert aucune obligation — » : le libellé
   porte la question, pas seulement la réponse par défaut.
-- **LE BLOC DU RAIL SE LIT D'UN SEUL TENANT.** La rubrique qui a ouvert un
-  tiroir et les icônes de ce tiroir forment **un objet**, pas deux choses posées
-  l'une sous l'autre : le filet de deux pixels vit désormais sur le CONTENEUR et
-  s'étire de la rubrique jusqu'au bas du tiroir, et l'icône qui a ouvert prend
-  l'accent. Posé dans le bouton, il s'arrêtait à ses quarante pixels et rien ne
-  disait que les icônes du dessous lui appartenaient.
+- **LE TIROIR PORTE SON PROPRE REPÈRE — IL N'APPARTIENT À AUCUNE RUBRIQUE.**
+  Premier essai (2.12.54) : étirer le filet de la rubrique jusqu'au bas du
+  tiroir, pour en faire un bloc. **La prémisse était fausse.** Le tiroir ne se
+  rattache pas à l'icône qu'on a cliquée, mais à la DERNIÈRE rubrique de l'axe,
+  parce que l'axe se lit d'abord en entier — la décision du 19 septembre, que
+  j'avais oubliée en codant. Le repère désignait donc une icône qui ne possède
+  rien, et, allongé, il balayait tout le rail. **Tant qu'il faisait seize
+  pixels, l'erreur ne se voyait pas ; c'est l'allongement qui l'a révélée.**
+  Depuis 2.12.56, le filet vit sur le TIROIR et longe sa seule hauteur : les
+  outils de l'écran forment un bloc à eux. L'accent retourne à la rubrique
+  ACTIVE, et à elle seule.
+  > **UN REPÈRE DISCRET PEUT CACHER UNE ERREUR DE MODÈLE.** Avant de rendre un
+  > signal plus visible, vérifier que ce qu'il désigne est bien ce qu'on croit.
 - **UN CHAMP RÉGLEMENTAIRE SE REMPLIT AU JUGÉ SI RIEN NE DIT CE QU'IL EST.**
   « Base légale de la décision » ne parle qu'à celui qui l'a écrit, et une
   valeur fausse part alors sur une pièce signée. D'où `BulleAide` (`ui.jsx`) :
