@@ -2352,6 +2352,18 @@ function AnalyserEnSerie({ annee, onClose, onChange }) {
   const [base, setBase] = useState('');
   const [motifRefus, setMotifRefus] = useState('');
   const [dateCE, setDateCE] = useState(aujourdHui());
+  /* LA PORTÉE — c'est elle qui bascule le type. « unite » écrit une dispense
+     COMPLÈTE, « cours » et « acquis » une PARTIELLE avec sa cible. Basculer de
+     l'une à l'autre en série était impossible : l'écran ne proposait que totale
+     ou refusée, faute de pouvoir désigner les activités. */
+  const [portee, setPortee] = useState('unite');
+  const [coursCoches, setCoursCoches] = useState(() => new Set());
+  const [aaCoches, setAaCoches] = useState(() => new Set());
+  const [composantes, setComposantes] = useState(null);
+  /* LA MÊME RAISON POUR TOUT LE LOT. La remarque du Conseil — « dispensé des
+     heures de stage, mais doit présenter l'examen » — se saisissait dossier par
+     dossier alors que le Conseil l'a formulée une fois. */
+  const [remarque, setRemarque] = useState('');
 
   const charger = useCallback(async () => {
     try {
@@ -2429,6 +2441,41 @@ function AnalyserEnSerie({ annee, onClose, onChange }) {
   const unitesRetenues = [...new Set(retenus.map(d => d.ue_num))];
   const melangeSeance = geste !== 'recevabilite' && unitesRetenues.length > 1;
 
+  /* L'UNITÉ DU LOT — connue dès que les dossiers cochés n'en portent qu'une,
+     ce que le bornage garantit. C'est elle qui donne les cours et les acquis
+     à cocher : on ne désigne pas des activités dans le vide. */
+  const ueDuLot = unitesRetenues.length === 1 ? unitesRetenues[0] : null;
+
+  useEffect(() => {
+    if (!ueDuLot || geste !== 'decision') { setComposantes(null); return; }
+    let vivant = true;
+    fetch(`/api/etudiants/ue/${ueDuLot}/composantes?annee=${encodeURIComponent(annee)}`,
+      { headers: authHeaders() })
+      .then(r => (r.ok ? r.json() : null))
+      .then(j => { if (vivant) setComposantes(j); })
+      .catch(() => { if (vivant) setComposantes(null); });
+    return () => { vivant = false; };
+  }, [ueDuLot, geste, annee]);
+
+  // Changer d'unité ou de geste invalide ce qui avait été coché pour la précédente.
+  useEffect(() => { setCoursCoches(new Set()); setAaCoches(new Set()); }, [ueDuLot]);
+
+  const aasParCoursLot = useMemo(() => {
+    const m = new Map();
+    for (const a of (composantes?.aas || [])) {
+      const c = a.cours_code || '—';
+      if (!m.has(c)) m.set(c, []);
+      m.get(c).push(a);
+    }
+    return m;
+  }, [composantes]);
+
+  const basculerDans = (setter) => (v) => setter(s => {
+    const n = new Set(s);
+    if (n.has(v)) n.delete(v); else n.add(v);
+    return n;
+  });
+
   const manque = !retenus.length ? 'Coche au moins un dossier.'
     : melangeSeance
       ? `Le lot mêle ${unitesRetenues.length} unités : une séance du conseil `
@@ -2439,7 +2486,13 @@ function AnalyserEnSerie({ annee, onClose, onChange }) {
           ? 'La base légale de la décision est obligatoire : elle part dans eProm.'
           : geste === 'decision' && decision === 'refusee' && !motifRefus.trim()
             ? 'Un refus se motive (RDE art. 88 §3).'
-            : null;
+            : geste === 'decision' && decision === 'accordee'
+              && portee === 'cours' && !coursCoches.size
+              ? 'Une dispense partielle par cours désigne au moins un cours.'
+              : geste === 'decision' && decision === 'accordee'
+                && portee === 'acquis' && !aaCoches.size
+                ? 'Une dispense partielle par acquis désigne au moins un acquis.'
+                : null;
 
   function basculer(id) {
     setCoches(c => { const n = new Set(c); n.has(id) ? n.delete(id) : n.add(id); return n; });
@@ -2447,6 +2500,47 @@ function AnalyserEnSerie({ annee, onClose, onChange }) {
   function toutCocher() {
     const ids = cochables.map(d => d.id);
     setCoches(c => (ids.every(i => c.has(i)) ? new Set() : new Set(ids)));
+  }
+
+  /* LE TYPE EST « complete », PAS « totale » — ET CE POINT A ÉTÉ LIVRÉ FAUX.
+   *
+   * La première version de cette fenêtre envoyait `type: 'totale'`, le mot de
+   * l'écran. Le serveur, lui, ne connaît que `complete`, `partielle` et
+   * `admission` — c'est écrit dans la contrainte de la table ET dans le
+   * contrôle. Toute dispense totale posée en série était donc refusée en bloc.
+   * Les essais n'avaient rien vu : ils appelaient la ROUTE avec la bonne
+   * valeur, jamais l'écran. On vérifie ce que l'utilisateur fait, pas ce qu'on
+   * a écrit.
+   *
+   * Un refus ne dispense rien : ni portée, ni cible, ni pourcentage — il porte
+   * `complete` comme *Valoriser en série*, et c'est `decision` qui dit le
+   * refus.
+   */
+  function corpsDecision(ids) {
+    const refus = decision === 'refusee';
+    const corps = {
+      ids, decision,
+      decision_ce_date: dateCE || undefined,
+      commentaire: remarque.trim() || undefined,
+    };
+    if (refus) {
+      corps.type = 'complete';
+      corps.motif_refus = motifRefus.trim();
+      return corps;
+    }
+    corps.base_code = base;
+    if (portee === 'unite') {
+      corps.type = 'complete';
+    } else {
+      corps.type = 'partielle';
+      corps.cible = portee === 'cours' ? 'cours' : 'aa';
+      corps.cible_detail = portee === 'cours'
+        ? [...coursCoches].join(',') : [...aaCoches].join(',');
+      if (portee === 'acquis') {
+        corps.equivalences = [...aaCoches].map(code => ({ aa_code: code }));
+      }
+    }
+    return corps;
   }
 
   async function poser() {
@@ -2458,10 +2552,7 @@ function AnalyserEnSerie({ annee, onClose, onChange }) {
     const corps = geste === 'recevabilite'
       ? { ids, recevable, motif_irrecevabilite: recevable ? undefined : motifForme.trim() }
       : geste === 'decision'
-        ? { ids, type: decision === 'refusee' ? 'partielle' : 'totale', decision,
-            base_code: decision === 'refusee' ? undefined : base,
-            motif_refus: decision === 'refusee' ? motifRefus.trim() : undefined,
-            decision_ce_date: dateCE || undefined }
+        ? corpsDecision(ids)
         : { ids };
     try {
       const rep = await fetch(`/api/etudiants/valorisations/lot/${route}`, {
@@ -2577,7 +2668,7 @@ function AnalyserEnSerie({ annee, onClose, onChange }) {
               <div className="flex flex-wrap items-center gap-2">
                 <label className="flex items-center gap-1.5 text-[13px]">
                   <input type="radio" checked={decision === 'accordee'}
-                    onChange={() => setDecision('accordee')} /> Dispense totale
+                    onChange={() => setDecision('accordee')} /> Dispense accordée
                 </label>
                 <label className="flex items-center gap-1.5 text-[13px]">
                   <input type="radio" checked={decision === 'refusee'}
@@ -2608,12 +2699,103 @@ function AnalyserEnSerie({ annee, onClose, onChange }) {
                   placeholder="Motivation du refus — elle est tout ce qui reste, la décision n’est pas susceptible de recours"
                   className="controle text-[13px] w-full" />
               )}
-              <div className="text-[12px] text-slate-500">
-                Une dispense <strong>partielle</strong> se pose dans
-                {' '}<em>Valoriser en série</em> : elle demande de désigner les
-                cours ou les acquis dispensés, et ce tableau n'a pas où les
-                cocher.
-              </div>
+              {/* LA PORTÉE BASCULE LE TYPE, ET ELLE S'APPLIQUE À TOUT LE LOT.
+                  Le Conseil arrête une fois ce qu'il dispense ; le porter
+                  dossier par dossier, c'est autant d'occasions de se tromper
+                  d'une case. */}
+              {decision === 'accordee' && (
+                <div className="space-y-2">
+                  <div className="flex flex-wrap items-center gap-3">
+                    <span className="text-[12px] text-slate-500">Ce qui est dispensé</span>
+                    {[['unite', "Toute l'unité"], ['cours', 'Des cours'],
+                      ['acquis', 'Des acquis']].map(([v, l]) => (
+                      <label key={v} className="flex items-center gap-1.5 text-[13px]">
+                        <input type="radio" checked={portee === v}
+                          onChange={() => setPortee(v)} /> {l}
+                      </label>
+                    ))}
+                  </div>
+
+                  {portee === 'unite' ? (
+                    <div className="text-[12px] text-slate-500">
+                      Dispense complète : l'unité entière et tous ses acquis.
+                      L'attestation « Valorisation » devient possible.
+                    </div>
+                  ) : !ueDuLot ? (
+                    <div className="text-[12px] text-slate-500">
+                      Coche d'abord les dossiers : les cours et les acquis
+                      viennent de leur unité.
+                    </div>
+                  ) : !composantes ? (
+                    <div className="text-[12px] text-slate-400">Chargement…</div>
+                  ) : portee === 'cours' ? (
+                    !composantes.cours?.length ? (
+                      <div className="text-[12px] text-slate-500">
+                        L'unité {ueDuLot} n'a aucun cours encodé pour {annee}.
+                      </div>
+                    ) : (
+                      <div className="carte-plate p-1 max-h-48 overflow-auto">
+                        {composantes.cours.map(c => (
+                          <label key={c.cours_code}
+                            className="flex items-center gap-2 px-2 py-1 rounded-champ
+                                       hover:bg-slate-50 cursor-pointer">
+                            <input type="checkbox" checked={coursCoches.has(c.cours_code)}
+                              onChange={() => basculerDans(setCoursCoches)(c.cours_code)} />
+                            <span className="text-[13px]">{c.cours_nom || c.cours_code}</span>
+                            <span className="text-[11px] text-slate-400">{c.cours_code}</span>
+                          </label>
+                        ))}
+                      </div>
+                    )
+                  ) : (
+                    !composantes.aas?.length ? (
+                      <div className="text-[12px] text-slate-500">
+                        L'unité {ueDuLot} n'a aucun acquis encodé.
+                      </div>
+                    ) : (
+                      <div className="carte-plate p-1 max-h-48 overflow-auto">
+                        {[...aasParCoursLot.entries()].map(([code, liste]) => (
+                          <div key={code}>
+                            <div className="tab-repere px-2 py-1 text-[12px] font-medium">
+                              {composantes.cours?.find(c => c.cours_code === code)?.cours_nom
+                                || code}
+                            </div>
+                            {liste.map(a => (
+                              <label key={a.aa_code}
+                                className="flex items-start gap-2 px-2 py-1 rounded-champ
+                                           hover:bg-slate-50 cursor-pointer">
+                                <input type="checkbox" checked={aaCoches.has(a.aa_code)}
+                                  onChange={() => basculerDans(setAaCoches)(a.aa_code)}
+                                  className="mt-0.5" />
+                                <span className="text-[13px]">{a.aa_code}</span>
+                                <span className="text-[12px] text-slate-500">
+                                  {a.description}
+                                </span>
+                              </label>
+                            ))}
+                          </div>
+                        ))}
+                      </div>
+                    )
+                  )}
+
+                  {portee !== 'unite' && (
+                    <div className="text-[12px] text-slate-500">
+                      Une dispense partielle ne peut pas couvrir toutes les
+                      activités de l'unité : ce serait une dispense complète
+                      déguisée, et le serveur la refuse.
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* LA MÊME RAISON POUR TOUT LE LOT. C'est là qu'on écrit
+                  « dispensé des heures de stage, mais doit présenter
+                  l'examen » — une condition que le PV tait n'a jamais été
+                  posée. */}
+              <input value={remarque} onChange={e => setRemarque(e.target.value)}
+                placeholder="Remarque du Conseil, appliquée à tout le lot (facultative) — elle s'imprime sur le PV"
+                className="controle text-[13px] w-full" />
             </div>
           )}
         </section>

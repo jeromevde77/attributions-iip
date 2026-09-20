@@ -558,6 +558,26 @@ promesse, et le refus arrive alors après coup.
 > tableau n'a pas où les cocher. Totale ou refusée ici ; la partielle se pose
 > dans *Valoriser en série*, qui porte les listes.
 
+> **LE MOT DE L'ÉCRAN N'EST PAS LA VALEUR DU SERVEUR — ET CE POINT A ÉTÉ LIVRÉ
+> EN PRODUCTION.** La fenêtre d'analyse envoyait `type: 'totale'`, parce que
+> c'est le mot qu'on lit à l'écran ; le serveur ne connaît que `complete`,
+> `partielle` et `admission` — dans la contrainte de la table ET dans
+> `verifierValorisation`. Toute dispense totale posée en série était refusée en
+> bloc. **Les essais n'avaient rien vu : ils appelaient la ROUTE avec la bonne
+> valeur, jamais l'écran.** Un test qui contourne l'interface teste le serveur,
+> pas la fonction — et c'est la fonction que l'utilisateur emploie. Corrigé en
+> 2.12.53.
+
+> **LA PORTÉE BASCULE LE TYPE, ET ELLE S'APPLIQUE À TOUT LE LOT.** Depuis
+> 2.12.53, *Analyser en série* porte les trois portées — toute l'unité, des
+> cours, des acquis — avec les listes à cocher chargées depuis l'unité du lot
+> (que le bornage à une séance rend toujours connue). On bascule donc
+> complète ↔ partielle en série, et la **remarque du Conseil** se saisit une
+> fois pour tous : c'est là qu'on écrit « dispensé des heures de stage, mais
+> doit présenter l'examen », et le Conseil l'a formulée une fois, pas huit.
+> Revenir à « toute l'unité » **efface la cible** — sans quoi une dispense
+> complète traînerait la liste de cours de la partielle qu'elle remplace.
+
 > **UN MÊME NUMÉRO D'UNITÉ EXISTE SOUS PLUSIEURS SECTIONS, ET CE POINT A ÉTÉ
 > CODÉ FAUX UNE FOIS DE PLUS.** La vue à plat joignait `ue` : trois lignes de
 > référentiel pour l'UE 95 « Restart » rendaient trois lignes pour un seul
@@ -971,6 +991,11 @@ et 3 composants de tuile**. La stratégie tient en cinq chantiers, dans cet ordr
   d'introduction et étape de la demande) : deux copies d'une même convention
   finissent par différer, et c'est l'écran qu'on regarde le moins qui garde
   l'ancienne teinte.
+- **UNE BULLE QU'IL FAUT CHERCHER N'EST PAS UN LIBELLÉ.** Le menu qui rattache
+  une tâche à une obligation de l'échéancier s'intitulait « — sans obligation — » :
+  rien ne disait de quoi il parlait, et la seule explication vivait dans un
+  `title` au survol. Renommé « — ne sert aucune obligation — » : le libellé
+  porte la question, pas seulement la réponse par défaut.
 - **Une entrée de rail sans icône est invisible** une fois le rail replié.
 - **Un titre ne s'écrit qu'une fois** par écran.
 - Un libellé ne promet que ce que la modale fait réellement.
