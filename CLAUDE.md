@@ -1161,6 +1161,21 @@ et 3 composants de tuile**. La stratégie tient en cinq chantiers, dans cet ordr
   valeur qui part dans eProm. **Même faute que `totale`/`complete`, même
   famille : le nom qu'on croit plutôt que celui qui existe.** Vérifier la forme
   réelle de l'objet, pas celle qu'on suppose.
+- **FILTRER N'EST PAS NAVIGUER — ET LE RAIL DE L'ÉCHÉANCIER ÉTAIT DEVENU UN
+  PANNEAU DE FILTRES.** Il portait les zones, trois statuts et jusqu'à HUIT
+  responsables : onze entrées, dont sept partageant `IconChevronRight` faute
+  d'avoir un dessin à elles. Rail replié — c'est-à-dire presque toujours — cela
+  donnait une colonne de flèches identiques ne menant nulle part de
+  reconnaissable. *« Trop d'icônes, personne ne trouve »* (Charles, 20
+  septembre), et c'est exact : **une icône répétée sept fois n'est plus une
+  icône, c'est du bruit.** Le rail dit OÙ L'ON EST ; réduire une liste est un
+  geste de l'écran, qui se fait dans sa barre d'outils, avec des menus qui
+  portent des MOTS. Trois listes déroulantes ont remplacé les onze entrées —
+  et la liste des responsables a cessé d'être tronquée à huit, limite que
+  seule la place dans le rail imposait : le neuvième était invisible sans que
+  rien ne le dise.
+  > **COROLLAIRE DE « UNE ICÔNE SE MÉRITE » : si une entrée doit emprunter le
+  > chevron générique, c'est qu'elle n'a rien à faire dans le rail.**
 - **Une entrée de rail sans icône est invisible** une fois le rail replié.
 - **Un titre ne s'écrit qu'une fois** par écran.
 - Un libellé ne promet que ce que la modale fait réellement.

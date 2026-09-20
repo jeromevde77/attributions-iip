@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
-  IconCalendarStats, IconAlertTriangle, IconClock, IconCheck, IconRefresh,
-  IconScale, IconChevronRight, IconFilter, IconX, IconBooks, IconPlayerPlay,
+  IconCalendarStats, IconCheck, IconRefresh,
+  IconScale, IconFilter, IconX, IconBooks, IconPlayerPlay,
 } from '@tabler/icons-react';
 import { PageHeader, Tabs, Btn, KpiCard, RailLateral } from '../components/ui.jsx';
 import { authHeaders } from '../lib/api.js';
@@ -133,33 +133,25 @@ export default function Echeancier() {
     return [...g.entries()].sort((a, b) => a[0].localeCompare(b[0]));
   }, [lignes]);
 
-  const sections = [
-    { label: 'Zones', items: [
-      { key: 'z-all', label: `Toutes (${c.total ?? 0})`, icon: IconCalendarStats,
-        actif: !filtres.zone, onClick: () => setFiltres(f => ({ ...f, zone: '' })) },
-      ...(data?.zones || []).filter(z => z.zone).map(z => ({
-        key: 'z-' + z.zone, label: `${ZONES[z.zone] || z.zone} (${z.n})`,
-        icon: IconChevronRight, actif: filtres.zone === z.zone,
-        onClick: () => setFiltres(f => ({ ...f, zone: z.zone })),
-      })),
-    ]},
-    { label: 'Statut', items: [
-      { key: 's-retard', label: `En retard (${c.en_retard ?? 0})`, icon: IconAlertTriangle,
-        actif: filtres.statut === 'en_retard',
-        onClick: () => setFiltres(f => ({ ...f, statut: f.statut === 'en_retard' ? '' : 'en_retard' })) },
-      { key: 's-afaire', label: 'À faire', icon: IconClock,
-        actif: filtres.statut === 'a_faire',
-        onClick: () => setFiltres(f => ({ ...f, statut: f.statut === 'a_faire' ? '' : 'a_faire' })) },
-      { key: 's-fait', label: `Faites (${c.faites ?? 0})`, icon: IconCheck,
-        actif: filtres.statut === 'fait',
-        onClick: () => setFiltres(f => ({ ...f, statut: f.statut === 'fait' ? '' : 'fait' })) },
-    ]},
-    { label: 'Responsable', items: (data?.responsables || []).slice(0, 8).map(rp => ({
-      key: 'r-' + rp.nom, label: `${rp.nom} (${rp.n})`, icon: IconChevronRight,
-      actif: filtres.responsable === rp.nom,
-      onClick: () => setFiltres(f => ({ ...f, responsable: f.responsable === rp.nom ? '' : rp.nom })),
-    }))},
-  ];
+  /* LE RAIL N'EST PAS UN PANNEAU DE FILTRES — ET C'EST CE QU'IL ÉTAIT DEVENU.
+   *
+   * Il portait les zones, les trois statuts et jusqu'à HUIT responsables : onze
+   * entrées, dont sept partageant `IconChevronRight` faute d'avoir un dessin à
+   * elles. Rail replié — c'est-à-dire presque toujours —, cela donnait une
+   * colonne de flèches identiques qui ne menaient nulle part de reconnaissable.
+   * « Trop d'icônes, personne ne trouve », et c'est exact : une icône répétée
+   * sept fois n'est plus une icône, c'est du bruit.
+   *
+   * La règle de la maison le disait déjà — « une icône se mérite ; ce qui ne
+   * tient pas dans une colonne d'icônes va dans une fenêtre, pas dans le
+   * menu ». Et surtout : FILTRER N'EST PAS NAVIGUER. Le rail dit où l'on est ;
+   * réduire une liste est un geste de l'écran, qui se fait dans sa barre
+   * d'outils, avec des menus qui portent des MOTS.
+   *
+   * Le rail ne garde donc que ce qu'il sait nommer d'un dessin : rien ici. Les
+   * trois filtres sont passés en listes déroulantes au-dessus de la liste.
+   */
+  const sections = [];
 
   return (
     <div className="relative bg-slate-50" style={{ minHeight: 'calc(100vh - 64px)' }}>
@@ -199,6 +191,51 @@ export default function Echeancier() {
           { key: 'mien',        label: 'Mes tâches' },
           { key: 'referentiel', label: 'Référentiel' },
         ]} />
+
+        {/* LES FILTRES, EN MOTS, LÀ OÙ L'ON REGARDE LA LISTE.
+            Ils vivaient dans le rail sous forme d'icônes — onze entrées dont
+            sept flèches identiques. Trois menus qui se lisent valent mieux que
+            onze dessins qu'il faut survoler un à un pour savoir ce qu'ils
+            sont. Le compte reste affiché : c'est lui qui dit s'il vaut la
+            peine d'ouvrir le filtre. */}
+        <div className="flex flex-wrap items-center gap-2">
+          <select value={filtres.zone}
+            onChange={e => setFiltres(f => ({ ...f, zone: e.target.value }))}
+            className="controle text-[13px]">
+            <option value="">Toutes les zones ({c.total ?? 0})</option>
+            {(data?.zones || []).filter(z => z.zone).map(z => (
+              <option key={z.zone} value={z.zone}>
+                {ZONES[z.zone] || z.zone} ({z.n})
+              </option>
+            ))}
+          </select>
+          <select value={filtres.statut}
+            onChange={e => setFiltres(f => ({ ...f, statut: e.target.value }))}
+            className="controle text-[13px]">
+            <option value="">Tous les statuts</option>
+            <option value="en_retard">En retard ({c.en_retard ?? 0})</option>
+            <option value="a_faire">À faire</option>
+            <option value="fait">Faites ({c.faites ?? 0})</option>
+          </select>
+          <select value={filtres.responsable}
+            onChange={e => setFiltres(f => ({ ...f, responsable: e.target.value }))}
+            className="controle text-[13px] max-w-[16rem]">
+            {/* LA LISTE N'EST PLUS TRONQUÉE À HUIT. Le rail ne pouvait pas en
+                porter davantage ; un menu, si — et le neuvième responsable
+                était invisible sans que rien ne le dise. */}
+            <option value="">Tous les responsables</option>
+            {(data?.responsables || []).map(rp => (
+              <option key={rp.nom} value={rp.nom}>{rp.nom} ({rp.n})</option>
+            ))}
+          </select>
+          {(filtres.zone || filtres.statut || filtres.responsable) && (
+            <button className="bouton text-[12px] px-2.5 py-1"
+              onClick={() => setFiltres(f => ({
+                ...f, zone: '', statut: '', responsable: '' }))}>
+              Tout afficher
+            </button>
+          )}
+        </div>
 
         {chargement && <div className="text-slate-400 text-sm py-8 text-center">Chargement…</div>}
 
