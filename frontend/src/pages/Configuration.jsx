@@ -2,7 +2,7 @@ import { useEffect, useState, lazy, Suspense } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { api, getAnnee, setAnnee as setAnneeActive } from '../lib/api.js';
 import { chargerCouleurs } from '../lib/couleurs.js';
-import { IconAdjustments, IconAward, IconBooks, IconBuilding, IconCalendar, IconCalendarEvent, IconChartBar, IconCheck, IconChevronRight, IconDownload, IconFileText, IconHistory, IconLink, IconScale, IconSettings, IconSparkles, IconUserShield, IconUsers, IconX, IconGavel, IconPlus, IconTrash, IconGripVertical, IconEdit, IconMail, IconPalette, IconArchive, IconAlertTriangle } from '@tabler/icons-react';
+import { IconAdjustments, IconAward, IconBooks, IconBuilding, IconCalendar, IconCalendarEvent, IconChartBar, IconCheck, IconChevronRight, IconDownload, IconFileText, IconHistory, IconLink, IconScale, IconSettings, IconSparkles, IconUserShield, IconUsers, IconX, IconGavel, IconPlus, IconTrash, IconGripVertical, IconEdit, IconMail, IconPalette, IconArchive, IconAlertTriangle, IconShieldLock } from '@tabler/icons-react';
 import { PageHeader, RailLateral } from '../components/ui.jsx';
 import ApercuDocuments from '../components/ApercuDocuments.jsx';
 const Editeur = lazy(() => import('./Editeur.jsx'));
@@ -516,6 +516,8 @@ const GROUPE_LABELS = {
   session:       { icon: IconCalendar, label: 'Calendrier des sessions', desc: 'Dernier jour admin + délais rétroactifs (EV1, VC, EV2, délibé, recours) pour calculer la dernière semaine de cours' },
   procedures:    { icon: IconScale, label: 'Procédures',    desc: 'Délais légaux, email de direction utilisé dans les PV' },
   etablissement: { icon: IconBuilding, label: 'Établissement', desc: 'Nom et informations de l\'établissement' },
+  securite:      { icon: IconShieldLock, label: 'Sécurité des connexions',
+                   desc: 'Blocage d\'un compte après des mots de passe erronés. Désactiver rouvre la porte aux essais en série : à ne faire que le temps de régler un incident.' },
 };
 
 const PARAM_TYPES = {
@@ -533,6 +535,9 @@ const PARAM_TYPES = {
   'procedures.delai_decision_jours':{ type: 'number', step: '1', min: '1', max: '30' },
   'procedures.delai_ext_cal_jours':{ type: 'number', step: '1', min: '1', max: '30' },
   'procedures.delai_ext_ouv_jours':{ type: 'number', step: '1', min: '1', max: '10' },
+  'securite.blocage_actif':        { type: 'number', step: '1', min: '0', max: '1' },
+  'securite.blocage_essais':       { type: 'number', step: '1', min: '1', max: '50' },
+  'securite.blocage_paliers':      { type: 'text' },
   'etab.nom':                      { type: 'text' },
 };
 
