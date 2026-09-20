@@ -337,16 +337,40 @@ function LigneEtudiant({ etudiant, annee, ouvert, onBasculer, onAjouterUE,
         <button onClick={onBasculer} className="text-slate-400 hover:text-iip-blue">
           <Fleche size={17} />
         </button>
+        {/* LE NOM NE SUFFIT PAS — ET « 1 unité(s) » NE DIT RIEN.
+            La ligne repliée annonçait un compte : elle disait qu'il y avait
+            quelque chose, jamais QUOI ni OÙ ÇA EN EST. Il fallait déplier, puis
+            ouvrir l'unité, pour apprendre qu'un dossier attendait un avis
+            depuis six semaines — autant dire qu'on ne l'apprenait pas. Chaque
+            unité demandée se nomme donc ici, avec sa frise de circuit. */}
         <span className="flex-1 min-w-0">
           <span className="font-semibold text-iip-blue text-[14px]">
             {(etudiant.nom || '').toUpperCase()} {etudiant.prenom}
           </span>
           <span className="text-[11px] text-slate-400 ml-2">
             {etudiant.section || 'section à déduire'}
-            {etudiant.vas.length
-              ? ` · ${etudiant.vas.length} unité(s)`
-              : ' · aucune unité demandée'}
           </span>
+          {!etudiant.vas.length ? (
+            <span className="block text-[11px] text-slate-400 mt-0.5">
+              aucune unité demandée
+            </span>
+          ) : (
+            <span className="block mt-1 space-y-0.5">
+              {etudiant.vas.map(v => (
+                <span key={v.id} className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                  {/* LA PORTE GARDE SA TEINTE : AD vert, VA bleu, VAE violet. */}
+                  <span className="text-[12px] font-medium"
+                    style={{ color: TEINTE_PORTE[v.porte]?.t || '#2D4470' }}>
+                    {v.ue_num === 0 ? 'Admission' : `UE ${v.ue_num}`}
+                  </span>
+                  <span className="text-[12px] text-slate-500 truncate max-w-[22rem]">
+                    {v.ue_nom || ''}
+                  </span>
+                  <FriseCircuit dossier={v} compact />
+                </span>
+              ))}
+            </span>
+          )}
         </span>
         <button onClick={onAjouterUE} className="bouton text-[12px] px-2.5 py-1"
           title="Ajouter une ou plusieurs unités à valoriser">
@@ -2370,6 +2394,71 @@ const ETAPES = [
     aide: 'Réservée à la direction et à la direction adjointe',
     franchie: d => !!d.valide_le },
 ];
+
+/* ══ LA FRISE DU CIRCUIT — UN DOSSIER, CINQ ÉTAPES ════════════════════════
+ *
+ * « Où en est-on ? » est la question qu'on pose devant le registre, et le
+ * registre n'y répondait pas : il montrait un nom, une section et « 1 unité(s) ».
+ * Pour l'apprendre il fallait déplier, puis ouvrir — donc on ne l'apprenait pas,
+ * et l'on découvrait à l'inspection qu'un dossier dormait depuis six semaines.
+ *
+ * Cinq segments, un par étape, dans l'ordre du circuit. La couleur ne dit
+ * qu'une chose et ne la dit qu'une fois :
+ *   vert   — l'étape est franchie ;
+ *   brique — elle s'est fermée sur un refus (irrecevable, décision refusée) ;
+ *   gris   — elle attend.
+ * L'étape COURANTE — la première qui attend — porte un liseré : sans lui, une
+ * suite de gris ne dit pas laquelle est le tour de qui.
+ *
+ * ELLE SE LIT DES TRACES, elle ne se déclare pas — même règle que l'état.
+ * `ETAPES` est la seule table, partagée avec « Analyser en série » : deux
+ * frises pour un même circuit finiraient par compter différemment.
+ */
+const VERT = '#15803D', BRIQUE = '#9D4A38', GRIS = '#CBD5E1';
+
+function etatEtape(d, cle) {
+  if (cle === 'recevabilite' && d.recevable === 0) return 'refus';
+  if (cle === 'decision' && d.decision_le && d.decision === 'refusee') return 'refus';
+  return ETAPES.find(e => e.cle === cle)?.franchie(d) ? 'fait' : 'attente';
+}
+
+export function FriseCircuit({ dossier, compact = false }) {
+  const etats = ETAPES.map(e => ({ ...e, etat: etatEtape(dossier, e.cle) }));
+  /* LE TOUR DE QUI : la première étape qui attend. Une fois le circuit
+     parcouru — ou fermé par un refus — il n'y en a plus, et c'est juste :
+     personne n'attend plus rien. */
+  const arret = etats.findIndex(e => e.etat === 'refus');
+  const courante = arret >= 0 ? -1 : etats.findIndex(e => e.etat === 'attente');
+  const libelle = arret >= 0
+    ? (arret === 1 ? 'Irrecevable — refus de forme' : 'Refusée par le Conseil')
+    : courante < 0 ? 'Circuit parcouru'
+      : `En attente : ${etats[courante].court.toLowerCase()}`;
+
+  return (
+    <span className="inline-flex items-center gap-1.5 align-middle"
+      title={etats.map((e, i) => `${i + 1}. ${e.court} — ${
+        { fait: 'fait', refus: 'refus', attente: 'en attente' }[e.etat]}`).join('\n')}>
+      <span className="inline-flex items-center gap-[2px]" aria-hidden="true">
+        {etats.map((e, i) => (
+          <span key={e.cle}
+            className={`rounded-full ${compact ? 'h-[5px] w-4' : 'h-[6px] w-5'}`}
+            style={{
+              background: e.etat === 'fait' ? VERT
+                : e.etat === 'refus' ? BRIQUE : GRIS,
+              /* Le liseré désigne le tour de qui. Il ne s'ajoute qu'à UNE
+                 étape : deux repères ne repèrent plus rien. */
+              boxShadow: i === courante ? `0 0 0 1.5px ${VERT}55` : 'none',
+            }} />
+        ))}
+      </span>
+      <span className={`${compact ? 'text-[10px]' : 'text-[11px]'} ${
+        arret >= 0 ? 'text-[#9D4A38]'
+          : courante < 0 ? 'text-[#15803D]' : 'text-slate-500'}`}>
+        {libelle}
+      </span>
+    </span>
+  );
+}
 
 function AnalyserEnSerie({ annee, onClose, onChange }) {
   const [donnees, setDonnees] = useState(null);
