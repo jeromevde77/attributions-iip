@@ -578,6 +578,18 @@ promesse, et le refus arrive alors après coup.
 > Revenir à « toute l'unité » **efface la cible** — sans quoi une dispense
 > complète traînerait la liste de cours de la partielle qu'elle remplace.
 
+> **UNE SEULE QUESTION AU NIVEAU DE LA DÉCISION : TOTALE · PARTIELLE ·
+> REFUSÉE.** *Analyser en série* posait d'abord « accordée / refusée », puis une
+> portée par-dessus — deux questions là où le Conseil n'en tranche qu'une.
+> Charles l'a dit dans ses mots le 20 septembre : *« dispense totale, c'est
+> VA/VAE totale ; sinon c'est une dispense partielle, et là ce sera un ou des
+> cours, ou un ou des AA »*. C'est aussi ce que disait déjà la constante
+> `DECISIONS` du fichier — **le vocabulaire existait, l'écran en avait inventé
+> un second.** La totale n'a rien à cocher, c'est ce que le mot veut dire ; la
+> partielle seule ouvre ses cours ou ses acquis. Et **changer de branche efface
+> ce que la précédente avait laissé**, sans quoi une totale partirait en
+> traînant la cible d'une partielle.
+
 > **UN MÊME NUMÉRO D'UNITÉ EXISTE SOUS PLUSIEURS SECTIONS, ET CE POINT A ÉTÉ
 > CODÉ FAUX UNE FOIS DE PLUS.** La vue à plat joignait `ue` : trois lignes de
 > référentiel pour l'UE 95 « Restart » rendaient trois lignes pour un seul

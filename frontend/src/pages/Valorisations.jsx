@@ -2348,15 +2348,15 @@ function AnalyserEnSerie({ annee, onClose, onChange }) {
   const [geste, setGeste] = useState('recevabilite');   // recevabilite | decision | validation
   const [recevable, setRecevable] = useState(true);
   const [motifForme, setMotifForme] = useState('');
-  const [decision, setDecision] = useState('accordee');
+  // `branche` a remplacé le couple decision+portee : une seule question.
   const [base, setBase] = useState('');
   const [motifRefus, setMotifRefus] = useState('');
   const [dateCE, setDateCE] = useState(aujourdHui());
-  /* LA PORTÉE — c'est elle qui bascule le type. « unite » écrit une dispense
-     COMPLÈTE, « cours » et « acquis » une PARTIELLE avec sa cible. Basculer de
-     l'une à l'autre en série était impossible : l'écran ne proposait que totale
-     ou refusée, faute de pouvoir désigner les activités. */
-  const [portee, setPortee] = useState('unite');
+  /* UNE SEULE QUESTION AU NIVEAU DE LA DÉCISION : totale, partielle, refusée.
+     C'est la branche ; `portee` n'en est plus que le détail, et seulement
+     quand elle vaut « partielle » — un ou des cours, ou un ou des acquis. */
+  const [branche, setBranche] = useState('totale');
+  const [portee, setPortee] = useState('cours');
   const [coursCoches, setCoursCoches] = useState(() => new Set());
   const [aaCoches, setAaCoches] = useState(() => new Set());
   const [composantes, setComposantes] = useState(null);
@@ -2482,17 +2482,28 @@ function AnalyserEnSerie({ annee, onClose, onChange }) {
         + 'des études se tient par unité.'
       : geste === 'recevabilite' && !recevable && !motifForme.trim()
         ? 'Une irrecevabilité se motive — c’est un refus de forme, notifié à l’étudiant.'
-        : geste === 'decision' && decision === 'accordee' && !base
+        : geste === 'decision' && branche !== 'refusee' && !base
           ? 'La base légale de la décision est obligatoire : elle part dans eProm.'
-          : geste === 'decision' && decision === 'refusee' && !motifRefus.trim()
+          : geste === 'decision' && branche === 'refusee' && !motifRefus.trim()
             ? 'Un refus se motive (RDE art. 88 §3).'
-            : geste === 'decision' && decision === 'accordee'
+            : geste === 'decision' && branche === 'partielle'
               && portee === 'cours' && !coursCoches.size
               ? 'Une dispense partielle par cours désigne au moins un cours.'
-              : geste === 'decision' && decision === 'accordee'
+              : geste === 'decision' && branche === 'partielle'
                 && portee === 'acquis' && !aaCoches.size
                 ? 'Une dispense partielle par acquis désigne au moins un acquis.'
                 : null;
+
+  /* CHANGER DE BRANCHE EFFACE CE QUE LA PRÉCÉDENTE AVAIT LAISSÉ. Passer de
+     partielle à totale en gardant des cours cochés enverrait une dispense
+     complète traînant la cible d'une partielle — et le serveur, lui, les
+     ignorerait sans le dire. */
+  function poserBranche(v) {
+    setBranche(v);
+    setErreur(null); setBloquants(null);
+    if (v !== 'partielle') { setCoursCoches(new Set()); setAaCoches(new Set()); }
+    if (v !== 'refusee') setMotifRefus('');
+  }
 
   function basculer(id) {
     setCoches(c => { const n = new Set(c); n.has(id) ? n.delete(id) : n.add(id); return n; });
@@ -2517,9 +2528,9 @@ function AnalyserEnSerie({ annee, onClose, onChange }) {
    * refus.
    */
   function corpsDecision(ids) {
-    const refus = decision === 'refusee';
+    const refus = branche === 'refusee';
     const corps = {
-      ids, decision,
+      ids, decision: refus ? 'refusee' : 'accordee',
       decision_ce_date: dateCE || undefined,
       commentaire: remarque.trim() || undefined,
     };
@@ -2529,7 +2540,7 @@ function AnalyserEnSerie({ annee, onClose, onChange }) {
       return corps;
     }
     corps.base_code = base;
-    if (portee === 'unite') {
+    if (branche === 'totale') {
       corps.type = 'complete';
     } else {
       corps.type = 'partielle';
@@ -2596,7 +2607,13 @@ function AnalyserEnSerie({ annee, onClose, onChange }) {
               ? `${recevable ? 'Déclarer recevable' : 'Déclarer irrecevable'}`
                 + (retenus.length > 1 ? ` (${retenus.length})` : '')
               : geste === 'decision'
-                ? `Enregistrer la décision${retenus.length > 1 ? ` (${retenus.length})` : ''}`
+                /* LE BOUTON DIT CE QU'IL POSE. « Enregistrer la décision » ne
+                   distingue pas une dispense totale d'un refus — deux gestes
+                   dont l'un ferme un dossier et l'autre ouvre une attestation. */
+                ? `${branche === 'refusee' ? 'Refuser'
+                    : branche === 'partielle' ? 'Accorder la dispense partielle'
+                    : 'Accorder la dispense totale'}`
+                  + (retenus.length > 1 ? ` (${retenus.length})` : '')
                 : `Valider${retenus.length > 1 ? ` (${retenus.length})` : ''}`}
         </button>
         {/* CE QUI DIT POURQUOI LE BOUTON EST GRIS VIT À CÔTÉ DU BOUTON. */}
@@ -2665,22 +2682,30 @@ function AnalyserEnSerie({ annee, onClose, onChange }) {
 
           {geste === 'decision' && (
             <div className="space-y-2 pt-1">
-              <div className="flex flex-wrap items-center gap-2">
-                <label className="flex items-center gap-1.5 text-[13px]">
-                  <input type="radio" checked={decision === 'accordee'}
-                    onChange={() => setDecision('accordee')} /> Dispense accordée
-                </label>
-                <label className="flex items-center gap-1.5 text-[13px]">
-                  <input type="radio" checked={decision === 'refusee'}
-                    onChange={() => setDecision('refusee')} /> Refusée
-                </label>
-                <span className="text-[12px] text-slate-500">
-                  Séance du
-                </span>
+              {/* TROIS BRANCHES, ET C'EST LE VOCABULAIRE DE LA MAISON.
+                  L'écran posait d'abord « accordée / refusée », puis une portée
+                  par-dessus : deux questions là où le Conseil n'en tranche
+                  qu'une. Charles l'a dit dans ses mots — « dispense totale,
+                  c'est VA/VAE totale ; sinon c'est une dispense partielle, et
+                  là ce sera un ou des cours, ou un ou des AA ». C'est aussi la
+                  constante DECISIONS du fichier, qui disait déjà totale ·
+                  partielle · refusée. On ne garde qu'un niveau. */}
+              <div className="flex flex-wrap items-center gap-3">
+                {[['totale', 'Dispense totale', "L'unité entière et tous ses acquis"],
+                  ['partielle', 'Dispense partielle', 'Des cours ou des acquis'],
+                  ['refusee', 'Refusée', 'Rien de dispensé — motif obligatoire']]
+                  .map(([v, l, aide]) => (
+                  <label key={v} title={aide}
+                    className="flex items-center gap-1.5 text-[13px]">
+                    <input type="radio" checked={branche === v}
+                      onChange={() => poserBranche(v)} /> {l}
+                  </label>
+                ))}
+                <span className="text-[12px] text-slate-500">Séance du</span>
                 <input type="date" value={dateCE} onChange={e => setDateCE(e.target.value)}
                   className="controle text-[13px]" />
               </div>
-              {decision === 'accordee' ? (
+              {branche !== 'refusee' ? (
                 <div className="space-y-1.5">
                   <div className="flex flex-wrap items-center gap-2">
                     {/* LE CODE NE DIT RIEN, LE LIBELLÉ DIT TOUT — et il
@@ -2736,16 +2761,24 @@ function AnalyserEnSerie({ annee, onClose, onChange }) {
                   placeholder="Motivation du refus — elle est tout ce qui reste, la décision n’est pas susceptible de recours"
                   className="controle text-[13px] w-full" />
               )}
-              {/* LA PORTÉE BASCULE LE TYPE, ET ELLE S'APPLIQUE À TOUT LE LOT.
-                  Le Conseil arrête une fois ce qu'il dispense ; le porter
-                  dossier par dossier, c'est autant d'occasions de se tromper
-                  d'une case. */}
-              {decision === 'accordee' && (
+              {/* CE QUE LA PARTIELLE DISPENSE — et elle seule le demande.
+                  La totale n'a rien à cocher : c'est l'unité entière, c'est ce
+                  que le mot veut dire. Le Conseil arrête une fois ce qu'il
+                  dispense ; le porter dossier par dossier, c'est autant
+                  d'occasions de se tromper d'une case. */}
+              {branche === 'totale' && (
+                <div className="text-[12px] text-slate-500">
+                  L'unité entière et tous ses acquis — rien à cocher.
+                  L'attestation « Valorisation » devient possible, et
+                  l'étudiant cesse d'y être compté comme élève régulier.
+                </div>
+              )}
+              {branche === 'partielle' && (
                 <div className="space-y-2">
                   <div className="flex flex-wrap items-center gap-3">
                     <span className="text-[12px] text-slate-500">Ce qui est dispensé</span>
-                    {[['unite', "Toute l'unité"], ['cours', 'Des cours'],
-                      ['acquis', 'Des acquis']].map(([v, l]) => (
+                    {[['cours', 'Un ou des cours'],
+                      ['acquis', 'Un ou des acquis']].map(([v, l]) => (
                       <label key={v} className="flex items-center gap-1.5 text-[13px]">
                         <input type="radio" checked={portee === v}
                           onChange={() => setPortee(v)} /> {l}
@@ -2753,12 +2786,7 @@ function AnalyserEnSerie({ annee, onClose, onChange }) {
                     ))}
                   </div>
 
-                  {portee === 'unite' ? (
-                    <div className="text-[12px] text-slate-500">
-                      Dispense complète : l'unité entière et tous ses acquis.
-                      L'attestation « Valorisation » devient possible.
-                    </div>
-                  ) : !ueDuLot ? (
+                  {!ueDuLot ? (
                     <div className="text-[12px] text-slate-500">
                       Coche d'abord les dossiers : les cours et les acquis
                       viennent de leur unité.
@@ -2816,13 +2844,11 @@ function AnalyserEnSerie({ annee, onClose, onChange }) {
                     )
                   )}
 
-                  {portee !== 'unite' && (
-                    <div className="text-[12px] text-slate-500">
-                      Une dispense partielle ne peut pas couvrir toutes les
-                      activités de l'unité : ce serait une dispense complète
-                      déguisée, et le serveur la refuse.
-                    </div>
-                  )}
+                  <div className="text-[12px] text-slate-500">
+                    Une dispense partielle ne peut pas couvrir toutes les
+                    activités de l'unité : ce serait une dispense complète
+                    déguisée, et le serveur la refuse.
+                  </div>
                 </div>
               )}
 
