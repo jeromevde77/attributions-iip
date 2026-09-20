@@ -335,10 +335,23 @@ function MatriceAcces({ users, sectionsDispo, profils, onModifie, onProfil,
   const [perimetreOuvert, setPerimetreOuvert] = useState(null);
 
   usePlafonds();
-  const actifs = (users || []).filter(u => u.actif);
-  const techniques = actifs.filter(u => !u.professeur_id);
-  const personnel = actifs.filter(u => u.professeur_id);
-  if (!actifs.length) return null;
+  /* UN COMPTE DÉSACTIVÉ RESTE VISIBLE, SINON IL EST PERDU.
+   *
+   * L'écran ne rendait que les comptes actifs : désactiver faisait DISPARAÎTRE
+   * la ligne, et avec elle le seul bouton capable de la ramener. Pour un
+   * membre du personnel, sa fiche restait une porte de secours ; pour un compte
+   * sans fiche — administrateur technique, prestataire —, il n'y en avait
+   * aucune : le compte devenait irrécupérable autrement qu'en base.
+   *
+   * Un clic de trop, et l'on cherche ce qu'on a cassé. Les inactifs restent
+   * donc là, en gris, après les autres.
+   */
+  const tous = (users || []);
+  const actifs = tous.filter(u => u.actif);
+  const parEtat = (a, b) => (b.actif ? 1 : 0) - (a.actif ? 1 : 0);
+  const techniques = tous.filter(u => !u.professeur_id).sort(parEtat);
+  const personnel = tous.filter(u => u.professeur_id).sort(parEtat);
+  if (!tous.length) return null;
 
   // Le rôle fixe le plafond ; on ne propose que ce qu'il autorise.
   function cycle(u, module) {
@@ -383,7 +396,7 @@ function MatriceAcces({ users, sectionsDispo, profils, onModifie, onProfil,
   const reglableIci = u => !u.professeur_id;
 
   const Ligne = ({ u }) => (
-    <tr className="hover:bg-slate-50/60">
+    <tr className={`hover:bg-slate-50/60 ${u.actif ? '' : 'opacity-55'}`}>
       <td className="sticky left-0 bg-white border-r border-b border-slate-100 px-3 py-1.5">
         <div className="text-[13px] text-slate-800 truncate max-w-[180px]">
           {nomDepuisChaine(u.nom_complet) || u.email}
@@ -506,10 +519,17 @@ function MatriceAcces({ users, sectionsDispo, profils, onModifie, onProfil,
       </td>
 
       <td className="border-b border-slate-100 px-2 py-1.5 text-center">
-        <button onClick={() => onBasculerActif(u)} disabled={u.id === moiId}
+        {/* ACTIVER OU DÉSACTIVER EST UN RÉGLAGE, donc cela se fait sur la
+            fiche. Ici c'était un bouton sans confirmation qui, d'un clic,
+            retirait l'accès à quelqu'un ET faisait disparaître sa ligne. */}
+        <button onClick={() => reglableIci(u) && onBasculerActif(u)}
+          disabled={u.id === moiId || !reglableIci(u)}
           className={`text-[10px] px-1.5 py-0.5 rounded ${u.actif
-            ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-500'}`}
-          title={u.id === moiId ? 'Votre propre compte' : 'Activer ou désactiver'}>
+            ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-500'}
+            ${!reglableIci(u) ? 'cursor-default' : ''}`}
+          title={u.id === moiId ? 'Votre propre compte'
+            : reglableIci(u) ? 'Activer ou désactiver'
+            : 'Se règle sur la fiche de la personne, onglet « Accès Lucie »'}>
           {u.actif ? 'actif' : 'inactif'}
         </button>
       </td>
@@ -579,6 +599,11 @@ function MatriceAcces({ users, sectionsDispo, profils, onModifie, onProfil,
         <div className="px-4 py-2.5 bg-slate-50 border-b border-slate-200">
           <span className="text-[13px] font-semibold text-iip-blue">
             Accès — {actifs.length} compte(s) actif(s)
+            {tous.length > actifs.length && (
+              <span className="font-normal text-slate-500">
+                {' '}· {tous.length - actifs.length} désactivé(s)
+              </span>
+            )}
           </span>
           <span className="text-[11px] text-slate-500 ml-2">
             en lecture — pour modifier, ouvrez la fiche de la personne
