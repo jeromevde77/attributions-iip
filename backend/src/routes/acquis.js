@@ -23,6 +23,7 @@
 
 import { Router } from 'express';
 import db from '../db/index.js';
+import { nomPropre, nomPropreDepuisChaine, separerNomPrenom } from '../lib/nom.js';
 import { anneeDeTravail, anneeActiveEnBase } from '../helpers/annee.js';
 import { authRequired, roleRequired, getUserSections } from '../middleware/auth.js';
 import { SIGNATURE_SOHET, SCEAU_IIP } from '../services/assets/signature_sohet.js';
@@ -2475,28 +2476,6 @@ export function presidenceConseil() {
  * reste on ne devine pas : un prénom inventé sur une pièce signée se défend
  * plus mal qu'un prénom absent.
  */
-export function separerNomPrenom(brut) {
-  const t = String(brut ?? '').trim().replace(/\s+/g, ' ');
-  if (!t) return { nom: null, prenom: null };
-  const mots = t.split(' ');
-  if (mots.length === 1) return { nom: nomPropreDepuisChaine(t), prenom: null };
-
-  // Forme « VERHOEVEN Anne » : les mots en capitales font le nom de famille.
-  const capitales = mots.filter(m => m.length > 1 && m === m.toUpperCase()
-    && /[A-ZÀ-Ý]/.test(m));
-  if (capitales.length && capitales.length < mots.length) {
-    const reste = mots.filter(m => !capitales.includes(m));
-    return { nom: nomPropreDepuisChaine(capitales.join(' ')),
-             prenom: nomPropreDepuisChaine(reste.join(' ')) };
-  }
-  if (mots.length === 2) {
-    return { nom: nomPropreDepuisChaine(mots[0]),
-             prenom: nomPropreDepuisChaine(mots[1]) };
-  }
-  // Trois mots ou plus sans capitales : on ne sait pas où couper.
-  return { nom: nomPropreDepuisChaine(t), prenom: null };
-}
-
 export function memePersonne(a, b) {
   const cle = x => String(x ?? '').toLowerCase()
     .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
@@ -4698,61 +4677,10 @@ r.get('/deliberation/ue/:ueNum', authRequired, (req, res) => {
  * la section au titre du suivi pédagogique, et la direction ou son
  * représentant. On ne coche que la présence : la composition, elle, se déduit.
  */
-/**
- * NOM, PRÉNOM — ÉCRITS PAREIL POUR TOUT LE MONDE.
- *
- * Les professeurs venaient de la base, « NOM Prénom » ; la direction, d'un
- * champ de configuration où elle s'écrit « Charles SOHET ». Le même conseil
- * portait donc deux conventions à la fois — ordre inversé, casse différente —
- * et cela se voyait sur chaque procès-verbal.
- *
- * Une seule règle désormais : le NOM en capitales — particules comprises, car
- * « DE WILDE » et « VAN DEN BERGHE » s'écrivent ainsi sur les listes —, le
- * prénom capitalisé, le nom d'abord.
- */
-function capitaliser(mot) {
-  const m = String(mot || '').trim();
-  if (!m) return '';
-  // « Jean-Pierre », « M'Barek » : chaque segment prend sa majuscule.
-  return m.toLowerCase().replace(/(^|[-'’\s])([\p{L}])/gu,
-    (_, sep, c) => sep + c.toLocaleUpperCase('fr'));
-}
+export { nomPropre, nomPropreDepuisChaine, separerNomPrenom };
 
-export function nomPropre(nom, prenom) {
-  const N = String(nom || '').trim().toLocaleUpperCase('fr').split(/\s+/)
-    .filter(Boolean).join(' ');
-  const P = String(prenom || '').trim().split(/\s+/).filter(Boolean)
-    .map(capitaliser).join(' ');
-  // PRÉNOM D'ABORD, NOM EN CAPITALES. C'est l'usage administratif, et il a une
-  // vertu pratique : dans une liste, l'oeil trouve le nom de famille sans le
-  // chercher, parce qu'il est le seul en capitales.
-  return [P, N].filter(Boolean).join(' ');
-}
-
-/**
- * Une identité donnée en une seule chaîne — « Charles SOHET », « SOHET
- * Charles », « charles sohet » — ramenée à la même forme que les autres.
- * Ce qui est TOUT EN CAPITALES est le nom ; à défaut, le dernier mot l'est,
- * car c'est ainsi qu'on écrit une signature.
- */
-export function nomPropreDepuisChaine(texte) {
-  const mots = String(texte || '').trim().split(/\s+/).filter(Boolean);
-  if (!mots.length) return '';
-  const capitales = mots.filter(m => m.length > 1 && m === m.toLocaleUpperCase('fr')
-    && /\p{L}/u.test(m));
-  if (capitales.length && capitales.length < mots.length) {
-    return nomPropre(capitales.join(' '),
-      mots.filter(m => !capitales.includes(m)).join(' '));
-  }
-  if (mots.length === 1) return nomPropre(mots[0], '');
-  // Rien en capitales : une particule marque alors le début du nom —
-  // « marie-claire de wilde » n'a pas pour nom « wilde ».
-  const PART = new Set(['de', 'du', 'des', 'le', 'la', 'van', 'von', 'den', 'der',
-    'di', 'da', 'el', 'ben', 'al', 'vander', 'vande']);
-  const i = mots.findIndex((m, k) => k < mots.length - 1 && PART.has(m.toLowerCase()));
-  if (i > 0) return nomPropre(mots.slice(i).join(' '), mots.slice(0, i).join(' '));
-  return nomPropre(mots[mots.length - 1], mots.slice(0, -1).join(' '));
-}
+/* NOM, PRÉNOM — la règle vit dans `lib/nom.js`, importée ci-dessus et
+ * réexportée ici pour les appelants historiques. */
 
 /**
  * QUI PORTE CE COURS.

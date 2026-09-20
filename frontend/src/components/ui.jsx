@@ -545,7 +545,20 @@ export function RailDessine({ icon: HeaderIcon, titre, sousTitre, extra, surAccu
             {sec.items.map(it => {
               const Ic = it.icon;
               return (
-                <Fragment key={it.key}>
+                /* LE FILET COUVRE LE BLOC, PAS SEULEMENT LA RUBRIQUE.
+                   Il vivait DANS le bouton, donc il s'arrêtait à ses quarante
+                   pixels : la rubrique et son tiroir se lisaient comme deux
+                   choses posées l'une sous l'autre, et rien ne disait que les
+                   icônes du dessous lui appartenaient. Le conteneur porte
+                   désormais le repère, et il s'étire sur tout ce qui est
+                   ouvert. */
+                <div key={it.key} className="relative">
+                {it.sous?.length > 0 && (
+                  <span aria-hidden="true"
+                    className="absolute left-0.5 top-2 bottom-2 w-[2px] rounded-full
+                               transition-all duration-200 ease-ios"
+                    style={{ background: 'var(--menu-accent)' }} />
+                )}
                 <button key={it.key} onClick={it.onClick} aria-label={it.label}
                   onMouseEnter={e => !epingle && surviser(e, it.label)}
                   onMouseLeave={() => setSurvol(null)}
@@ -579,16 +592,6 @@ export function RailDessine({ icon: HeaderIcon, titre, sousTitre, extra, surAccu
                       Un FILET FIN, posé à côté, plus court que la tuile et
                       terminé en arc aux deux bouts : il marque sans peser, et
                       la tuile garde son dessin d'origine. */}
-                  {/* Le filet dit « un tiroir est ouvert dessous ». Il ne
-                      dépend plus de « cette rubrique-ci est active » : le
-                      tiroir se rattache désormais à la DERNIÈRE rubrique, qui
-                      n'est presque jamais celle qu'on regarde. */}
-                  {it.sous?.length > 0 && (
-                    <span aria-hidden="true"
-                      className="absolute left-0.5 top-1/2 -translate-y-1/2
-                                 w-[2px] h-4 rounded-full"
-                      style={{ background: 'var(--menu-accent)' }} />
-                  )}
                   {Ic ? (
                     /* L'ACCENT EST SUR L'ICÔNE, non sur toute la pastille : un
                        aplat turquoise pleine largeur criait plus fort que le
@@ -599,8 +602,13 @@ export function RailDessine({ icon: HeaderIcon, titre, sousTitre, extra, surAccu
                        pour des entrées qui n'avaient rien de plus à signaler
                        que les autres. Elle ne teinte que le TRAIT de l'icône,
                        et seulement quand quelque chose le mérite. */
+                    /* CELLE QUI A OUVERT LE TIROIR PREND L'ACCENT, comme
+                       l'active : c'est elle qu'on a cliquée, et le bloc qu'on
+                       lit dessous est le sien. Sans cela, l'œil ne savait pas
+                       d'où venaient ces icônes-là. */
                     <Ic size={19} stroke={1.8} className="flex-shrink-0"
-                      style={it.actif ? { color: 'var(--menu-accent)' }
+                      style={(it.actif || it.sous?.length > 0)
+                        ? { color: 'var(--menu-accent)' }
                         : { color: it.couleur || 'var(--menu-icone)' }} />
                   ) : (
                     /* FILET DE SÉCURITÉ : une entrée sans icône donnerait, rail
@@ -683,7 +691,7 @@ export function RailDessine({ icon: HeaderIcon, titre, sousTitre, extra, surAccu
                       })}
                   </TiroirRail>
                 )}
-                </Fragment>
+                </div>
               );
             })}
           </div>
@@ -903,6 +911,60 @@ export function Mention({ children, ton = 'neutre', className = '' }) {
  *   pied    : noeud rendu sous un filet, en bas (les actions)
  *   ton     : 'neutre' | 'alerte' — l'alerte teinte le bandeau, et elle seule
  */
+/**
+ * LA BULLE D'AIDE — DIRE CE QUE C'EST, LÀ OÙ ON LE DEMANDE.
+ *
+ * Un champ réglementaire porte un nom que seul celui qui l'a écrit comprend :
+ * « base légale de la décision », « finalité », « porte d'entrée ». On le
+ * remplit donc au jugé, et c'est ainsi qu'une valeur fausse part sur une pièce
+ * signée. Un texte d'aide posé en permanence sous chaque champ, lui, encombre
+ * l'écran au point qu'on ne lit plus rien.
+ *
+ * D'où la bulle : un point d'interrogation discret, la phrase au clic. Elle
+ * s'ancre SUR le champ plutôt que dans une fenêtre — un voile ferait perdre de
+ * vue ce qu'on était en train de remplir, et c'est la même raison qui a fait
+ * choisir une bulle pour les notes d'attribution.
+ *
+ * Elle ne dit pas comment cliquer : elle dit ce que la chose EST, et ce qu'elle
+ * engage. Expliquer le travail, pas l'informatique.
+ */
+export function BulleAide({ titre, children }) {
+  const [ouvert, setOuvert] = useState(false);
+  return (
+    <span className="relative inline-flex">
+      <button type="button" onClick={() => setOuvert(o => !o)}
+        aria-label={titre ? `Aide : ${titre}` : 'Aide'}
+        aria-expanded={ouvert}
+        className="w-5 h-5 rounded-full border border-slate-300 text-slate-500
+                   text-[11px] font-semibold leading-none flex items-center
+                   justify-center hover:bg-slate-50 transition-colors">
+        ?
+      </button>
+      {ouvert && (
+        <>
+          {/* FERMER EN CLIQUANT À CÔTÉ : une bulle qui ne se ferme que par son
+              propre bouton reste ouverte sur l'écran de celui qui a cliqué
+              ailleurs. */}
+          <span className="fixed inset-0 z-40" onClick={() => setOuvert(false)}
+            aria-hidden="true" />
+          <span className="absolute z-50 left-0 top-7 w-[26rem] max-w-[80vw]
+                           carte p-3 shadow-flottant bg-white text-left"
+            role="dialog">
+            {titre && (
+              <span className="block text-[13px] font-semibold text-iip-blue mb-1">
+                {titre}
+              </span>
+            )}
+            <span className="block text-[12px] text-slate-600 whitespace-pre-line">
+              {children}
+            </span>
+          </span>
+        </>
+      )}
+    </span>
+  );
+}
+
 export function Fenetre({ icone: Ic, titre, sous, large = 'moyenne',
                          hauteurFixe = false,
                           pied = null, ton = 'neutre', onFermer, children }) {

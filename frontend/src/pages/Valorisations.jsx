@@ -5,7 +5,7 @@ import {
   IconUserPlus, IconUsersGroup, IconX,
 } from '@tabler/icons-react';
 import { authHeaders, getAnnee } from '../lib/api.js';
-import { Fenetre, RailLateral } from '../components/ui.jsx';
+import { BulleAide, Fenetre, RailLateral } from '../components/ui.jsx';
 import SeanceValorisation from '../components/SeanceValorisation.jsx';
 
 /**
@@ -2681,18 +2681,55 @@ function AnalyserEnSerie({ annee, onClose, onChange }) {
                   className="controle text-[13px]" />
               </div>
               {decision === 'accordee' ? (
-                <div className="flex flex-wrap items-center gap-2">
-                  <select value={base} onChange={e => setBase(e.target.value)}
-                    className="controle text-[13px] min-w-[28rem]">
-                    <option value="">Base légale de la décision…</option>
-                    {bases.map(b => (
-                      <option key={b.code} value={b.code}>{b.code} — {b.label}</option>
-                    ))}
-                  </select>
-                  <span className="text-[12px] text-slate-500">
+                <div className="space-y-1.5">
+                  <div className="flex flex-wrap items-center gap-2">
+                    {/* LE CODE NE DIT RIEN, LE LIBELLÉ DIT TOUT — et il
+                        manquait : la liste s'écrivait « V1 — », « V2 — »,
+                        parce que le champ s'appelle `libelle` et non `label`.
+                        Six lignes à choisir sans savoir ce qu'elles sont, sur
+                        une valeur qui part dans eProm. */}
+                    <select value={base} onChange={e => setBase(e.target.value)}
+                      className="controle text-[13px] min-w-[30rem]">
+                      <option value="">Sur quoi la dispense se fonde-t-elle ?…</option>
+                      {bases.map(b => (
+                        <option key={b.code} value={b.code}>
+                          {b.famille} {b.code} — {b.libelle}
+                        </option>
+                      ))}
+                    </select>
+                    <BulleAide titre="La base légale de la décision">
+                      C'est le fondement juridique de la dispense : ce qui, dans
+                      le dossier de l'étudiant, autorise le Conseil à la lui
+                      accorder. Elle part telle quelle dans eProm, et c'est elle
+                      que le vérificateur lit pour savoir pourquoi la dispense
+                      tient. Une décision accordée sans base n'est pas encodable,
+                      donc pas conforme — et c'est exactement ce qui s'est
+                      produit en septembre 2026.
+                      {'\n\n'}Deux familles, et elles ne se choisissent pas au
+                      hasard : VAF pour des acquis FORMELS — un titre, une
+                      attestation d'enseignement —, VANFI pour des acquis tirés
+                      de l'EXPÉRIENCE. Une demande VA attend une VAF, une demande
+                      VAE attend une VANFI.
+                    </BulleAide>
+                  </div>
+                  {/* CE QUE LA BASE CHOISIE VEUT DIRE, SOUS LA LISTE. Une liste
+                      déroulante se referme : ce qu'on vient de choisir doit
+                      rester lisible au moment où l'on clique sur Enregistrer. */}
+                  {base && (
+                    <div className="text-[12px] text-slate-600">
+                      {(() => {
+                        const b = bases.find(x => x.code === base);
+                        if (!b) return null;
+                        return <>
+                          <strong>{b.famille} {b.code}</strong> — {b.libelle}
+                        </>;
+                      })()}
+                    </div>
+                  )}
+                  <div className="text-[12px] text-slate-500">
                     Elle part dans eProm : une décision non encodée est une
                     décision non conforme.
-                  </span>
+                  </div>
                 </div>
               ) : (
                 <input value={motifRefus} onChange={e => setMotifRefus(e.target.value)}
