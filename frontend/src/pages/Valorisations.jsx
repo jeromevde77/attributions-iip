@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  IconAlertTriangle, IconCertificate, IconChevronDown, IconChevronRight,
+  IconAlertTriangle, IconCertificate, IconCheck, IconChevronDown, IconChevronRight,
   IconListCheck, IconPlus, IconPrinter, IconSearch, IconTable, IconTrash,
   IconUserPlus, IconUsersGroup, IconX,
 } from '@tabler/icons-react';
@@ -337,16 +337,40 @@ function LigneEtudiant({ etudiant, annee, ouvert, onBasculer, onAjouterUE,
         <button onClick={onBasculer} className="text-slate-400 hover:text-iip-blue">
           <Fleche size={17} />
         </button>
+        {/* LE NOM NE SUFFIT PAS — ET « 1 unité(s) » NE DIT RIEN.
+            La ligne repliée annonçait un compte : elle disait qu'il y avait
+            quelque chose, jamais QUOI ni OÙ ÇA EN EST. Il fallait déplier, puis
+            ouvrir l'unité, pour apprendre qu'un dossier attendait un avis
+            depuis six semaines — autant dire qu'on ne l'apprenait pas. Chaque
+            unité demandée se nomme donc ici, avec sa frise de circuit. */}
         <span className="flex-1 min-w-0">
           <span className="font-semibold text-iip-blue text-[14px]">
             {(etudiant.nom || '').toUpperCase()} {etudiant.prenom}
           </span>
           <span className="text-[11px] text-slate-400 ml-2">
             {etudiant.section || 'section à déduire'}
-            {etudiant.vas.length
-              ? ` · ${etudiant.vas.length} unité(s)`
-              : ' · aucune unité demandée'}
           </span>
+          {!etudiant.vas.length ? (
+            <span className="block text-[11px] text-slate-400 mt-0.5">
+              aucune unité demandée
+            </span>
+          ) : (
+            <span className="block mt-1 space-y-0.5">
+              {etudiant.vas.map(v => (
+                <span key={v.id} className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                  {/* LA PORTE GARDE SA TEINTE : AD vert, VA bleu, VAE violet. */}
+                  <span className="text-[12px] font-medium"
+                    style={{ color: TEINTE_PORTE[v.porte]?.t || '#2D4470' }}>
+                    {v.ue_num === 0 ? 'Admission' : `UE ${v.ue_num}`}
+                  </span>
+                  <span className="text-[12px] text-slate-500 truncate max-w-[22rem]">
+                    {v.ue_nom || ''}
+                  </span>
+                  <FriseCircuit dossier={v} compact />
+                </span>
+              ))}
+            </span>
+          )}
         </span>
         <button onClick={onAjouterUE} className="bouton text-[12px] px-2.5 py-1"
           title="Ajouter une ou plusieurs unités à valoriser">
@@ -807,7 +831,7 @@ function ChoisirEtudiants({ annee, onClose, onChoisis }) {
             <IconSearch size={14}
               className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
             <input value={q} onChange={e => setQ(e.target.value)}
-              placeholder="Un nom…" className="controle pl-8 text-[13px]" />
+              placeholder="Un nom…" className="controle controle-icone text-[13px]" />
           </div>
           <span className="ml-auto text-[12px] text-slate-500">
             {coches.size ? `${coches.size} coché(s)` : 'Aucun coché'}
@@ -958,7 +982,7 @@ function ChoisirUnite({ annee, etudiant, onClose, onCree }) {
             <IconSearch size={14}
               className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
             <input value={q} onChange={e => setQ(e.target.value)}
-              placeholder="Un numéro, un intitulé…" className="controle pl-8 text-[13px]" />
+              placeholder="Un numéro, un intitulé…" className="controle controle-icone text-[13px]" />
           </div>
           {coches.size > 0 && (
             <button onClick={() => setCoches(new Set())}
@@ -1257,7 +1281,13 @@ function ValoriserEnSerie({ annee, onClose, onCree }) {
         <button onClick={onClose} className="bouton ml-auto">Fermer</button>
       </>}>
 
-      <div className="flex-1 min-h-0 overflow-auto p-5 space-y-4">
+      {/* PAS DE SECOND ASCENSEUR NI DE SECONDE MARGE : la fenêtre porte
+          déjà son défilement et son padding. Ce conteneur en ajoutait un
+          « flex-1 min-h-0 overflow-auto p-5 » — mais son parent n'est pas
+          une boîte flex, si bien que flex-1 ne faisait rien, les marges se
+          cumulaient à 36 px et deux ascenseurs se chevauchaient au pied de
+          la fenêtre. */}
+      <div className="space-y-4">
 
         {/* 1 — L'UNITÉ. C'est elle qui convoque le conseil des études. */}
         <section className="carte p-3 space-y-2">
@@ -1399,7 +1429,7 @@ function ValoriserEnSerie({ annee, onClose, onCree }) {
                     <IconSearch size={14}
                       className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
                     <input value={q} onChange={e => setQ(e.target.value)}
-                      placeholder="Un nom…" className="controle pl-8 text-[13px]" />
+                      placeholder="Un nom…" className="controle controle-icone text-[13px]" />
                   </div>
                   <button onClick={ajouterLesPris}
                     disabled={!prisDansRecherche.size}
@@ -1731,7 +1761,13 @@ function FenetreDossier({ vid, onClose, onChange }) {
         <button onClick={onClose} className="bouton ml-auto">Fermer</button>
       </>}>
 
-      <div className="flex-1 min-h-0 overflow-auto p-5 space-y-3">
+      {/* PAS DE SECOND ASCENSEUR NI DE SECONDE MARGE : la fenêtre porte
+          déjà son défilement et son padding. Ce conteneur en ajoutait un
+          « flex-1 min-h-0 overflow-auto p-5 » — mais son parent n'est pas
+          une boîte flex, si bien que flex-1 ne faisait rien, les marges se
+          cumulaient à 36 px et deux ascenseurs se chevauchaient au pied de
+          la fenêtre. */}
+      <div className="space-y-3">
 
         {/* CE QUI EMPÊCHE LA PIÈCE DE SORTIR — EN TÊTE, PAS EN BAS.
             Le découvrir au moment d'imprimer, c'est le découvrir devant
@@ -2330,6 +2366,100 @@ function EtapeDecision({ dossier, bases, onEnregistrer, enCours }) {
  * pas — on ne réclame pas ce qu'on ne donne pas à saisir. Elle se pose dans
  * *Valoriser en série*, qui porte les listes de cours et d'acquis.
  */
+/* LES CINQ ÉTAPES DU CIRCUIT, DANS L'ORDRE OÙ ELLES SE POSENT.
+ *
+ * Hors du composant, parce que l'AVANCEMENT se calcule contre cette liste bien
+ * avant que les boutons ne soient rendus : une table déclarée au milieu du
+ * corps ne sert qu'à l'affichage, et l'on finit par en écrire une seconde pour
+ * le calcul — deux sources pour un même ordre.
+ *
+ * `franchie` dit si UN dossier a passé l'étape. Elle se LIT DES TRACES, comme
+ * l'état : une étape qu'on déclarerait franchie serait une étape qu'on peut
+ * déclarer franchie à tort, et c'est la faute même que le circuit empêche.
+ */
+const ETAPES = [
+  { cle: 'demande', label: 'Dates de la demande', court: 'Demande',
+    aide: 'Une liasse reçue le même jour — la date décide du délai',
+    franchie: d => !!(d.date_demande || d.date_reception) },
+  { cle: 'recevabilite', label: 'Recevabilité', court: 'Recevabilité',
+    aide: 'Contrôle de forme — traverse les unités',
+    franchie: d => d.recevable != null },
+  { cle: 'avis', label: 'Avis du chargé de cours', court: 'Avis',
+    aide: 'Un avis, un auteur nommé, une cohorte homogène',
+    franchie: d => !!d.avis_le },
+  { cle: 'decision', label: 'Décision du Conseil', court: 'Décision',
+    aide: 'Une séance, une unité',
+    franchie: d => !!d.decision_le },
+  { cle: 'validation', label: 'Validation direction', court: 'Validation',
+    aide: 'Réservée à la direction et à la direction adjointe',
+    franchie: d => !!d.valide_le },
+];
+
+/* ══ LA FRISE DU CIRCUIT — UN DOSSIER, CINQ ÉTAPES ════════════════════════
+ *
+ * « Où en est-on ? » est la question qu'on pose devant le registre, et le
+ * registre n'y répondait pas : il montrait un nom, une section et « 1 unité(s) ».
+ * Pour l'apprendre il fallait déplier, puis ouvrir — donc on ne l'apprenait pas,
+ * et l'on découvrait à l'inspection qu'un dossier dormait depuis six semaines.
+ *
+ * Cinq segments, un par étape, dans l'ordre du circuit. La couleur ne dit
+ * qu'une chose et ne la dit qu'une fois :
+ *   vert   — l'étape est franchie ;
+ *   brique — elle s'est fermée sur un refus (irrecevable, décision refusée) ;
+ *   gris   — elle attend.
+ * L'étape COURANTE — la première qui attend — porte un liseré : sans lui, une
+ * suite de gris ne dit pas laquelle est le tour de qui.
+ *
+ * ELLE SE LIT DES TRACES, elle ne se déclare pas — même règle que l'état.
+ * `ETAPES` est la seule table, partagée avec « Analyser en série » : deux
+ * frises pour un même circuit finiraient par compter différemment.
+ */
+const VERT = '#15803D', BRIQUE = '#9D4A38', GRIS = '#CBD5E1';
+
+function etatEtape(d, cle) {
+  if (cle === 'recevabilite' && d.recevable === 0) return 'refus';
+  if (cle === 'decision' && d.decision_le && d.decision === 'refusee') return 'refus';
+  return ETAPES.find(e => e.cle === cle)?.franchie(d) ? 'fait' : 'attente';
+}
+
+export function FriseCircuit({ dossier, compact = false }) {
+  const etats = ETAPES.map(e => ({ ...e, etat: etatEtape(dossier, e.cle) }));
+  /* LE TOUR DE QUI : la première étape qui attend. Une fois le circuit
+     parcouru — ou fermé par un refus — il n'y en a plus, et c'est juste :
+     personne n'attend plus rien. */
+  const arret = etats.findIndex(e => e.etat === 'refus');
+  const courante = arret >= 0 ? -1 : etats.findIndex(e => e.etat === 'attente');
+  const libelle = arret >= 0
+    ? (arret === 1 ? 'Irrecevable — refus de forme' : 'Refusée par le Conseil')
+    : courante < 0 ? 'Circuit parcouru'
+      : `En attente : ${etats[courante].court.toLowerCase()}`;
+
+  return (
+    <span className="inline-flex items-center gap-1.5 align-middle"
+      title={etats.map((e, i) => `${i + 1}. ${e.court} — ${
+        { fait: 'fait', refus: 'refus', attente: 'en attente' }[e.etat]}`).join('\n')}>
+      <span className="inline-flex items-center gap-[2px]" aria-hidden="true">
+        {etats.map((e, i) => (
+          <span key={e.cle}
+            className={`rounded-full ${compact ? 'h-[5px] w-4' : 'h-[6px] w-5'}`}
+            style={{
+              background: e.etat === 'fait' ? VERT
+                : e.etat === 'refus' ? BRIQUE : GRIS,
+              /* Le liseré désigne le tour de qui. Il ne s'ajoute qu'à UNE
+                 étape : deux repères ne repèrent plus rien. */
+              boxShadow: i === courante ? `0 0 0 1.5px ${VERT}55` : 'none',
+            }} />
+        ))}
+      </span>
+      <span className={`${compact ? 'text-[10px]' : 'text-[11px]'} ${
+        arret >= 0 ? 'text-[#9D4A38]'
+          : courante < 0 ? 'text-[#15803D]' : 'text-slate-500'}`}>
+        {libelle}
+      </span>
+    </span>
+  );
+}
+
 function AnalyserEnSerie({ annee, onClose, onChange }) {
   const [donnees, setDonnees] = useState(null);
   const [bases, setBases] = useState([]);
@@ -2454,6 +2584,34 @@ function AnalyserEnSerie({ annee, onClose, onChange }) {
   const cochables = vues.filter(eligible);
   const retenus = tous.filter(d => coches.has(d.id));
 
+  /* OÙ EN EST-ON DANS LE CIRCUIT — la question que l'écran ne répondait pas.
+   *
+   * Les cinq gestes s'alignaient comme cinq boutons indifférents : rien ne
+   * disait lequel avait déjà été posé, lequel venait ensuite, ni qu'ils
+   * formaient une PROCÉDURE. On reprenait donc de mémoire, chaque matin, ce
+   * qu'on avait fait la veille — et c'est ainsi qu'une étape se saute.
+   *
+   * L'avancement se lit sur les dossiers CONCERNÉS : ceux qu'on a cochés s'il
+   * y en a, sinon ceux que les filtres laissent voir. Une frise calculée sur
+   * les 588 dossiers de l'année ne dirait rien de la liasse qu'on a en main.
+   *
+   * Trois états par étape, et ils se DÉDUISENT : franchie par tous, en cours
+   * (certains l'ont passée, d'autres pas), à venir. Aucun n'interdit le clic —
+   * on revient en arrière pour corriger, c'est précisément ce que la
+   * régularisation demande ; ce qui bloque, c'est le serveur, et il le dit
+   * dossier par dossier. */
+  const reference = retenus.length ? retenus : vues;
+  const avancement = ETAPES.map(e => {
+    if (!reference.length) return { ...e, etat: 'vide', nb: 0, sur: 0 };
+    const nb = reference.filter(e.franchie).length;
+    return { ...e, nb, sur: reference.length,
+      etat: nb === reference.length ? 'franchie' : nb ? 'partielle' : 'avenir' };
+  });
+  /* LA PROCHAINE ÉTAPE À POSER : la première que tous n'ont pas franchie.
+     C'est elle qu'on met en avant quand on ouvre la fenêtre, et c'est vers
+     elle qu'on avance après avoir posé un geste. */
+  const prochaine = avancement.find(a => a.etat !== 'franchie')?.cle || null;
+
   /* LE BORNAGE SE VOIT AVANT LE CLIC. Le serveur refuse un lot qui mêle deux
      unités sur la décision et la validation ; le dire ici évite de composer un
      lot entier pour apprendre ensuite qu'il ne passe pas. */
@@ -2478,6 +2636,23 @@ function AnalyserEnSerie({ annee, onClose, onChange }) {
 
   // Changer d'unité ou de geste invalide ce qui avait été coché pour la précédente.
   useEffect(() => { setCoursCoches(new Set()); setAaCoches(new Set()); }, [ueDuLot]);
+
+  /* CHANGER D'ÉTAPE ÉLAGUE LA SÉLECTION, IL NE L'EFFACE PAS.
+   *
+   * Elle s'effaçait : on cochait dix-sept dossiers pour poser les dates, puis
+   * il fallait les recocher pour la recevabilité, et encore pour l'avis — cinq
+   * fois la même liasse, alors que c'est précisément ce que le lot devait
+   * épargner. Mais la garder telle quelle rendrait cochés des dossiers que la
+   * nouvelle étape refuse, ce qui est la fausse promesse qu'on s'interdit. On
+   * garde donc ce qui reste ÉLIGIBLE, et le compteur du pied dit combien. */
+  useEffect(() => {
+    setCoches(c => {
+      if (!c.size) return c;
+      const gardes = tous.filter(d => c.has(d.id) && eligible(d)).map(d => d.id);
+      return gardes.length === c.size ? c : new Set(gardes);
+    });
+    /* eslint-disable-next-line react-hooks/exhaustive-deps */
+  }, [geste, donnees]);
 
   const aasParCoursLot = useMemo(() => {
     const m = new Map();
@@ -2609,29 +2784,19 @@ function AnalyserEnSerie({ annee, onClose, onChange }) {
         if (Array.isArray(j.bloquants)) setBloquants(j.bloquants);
         return;
       }
-      setCoches(new Set());
+      /* ON AVANCE DANS LE CIRCUIT, ON NE REVIENT PAS À LA CASE DÉPART.
+       * La sélection reste : c'est la même liasse qui passe l'étape suivante, et
+       * la recomposer cinq fois était le travail que le lot devait supprimer.
+       * L'élagage ci-dessus retirera ceux que l'étape suivante refuse. */
+      const rang = ETAPES.findIndex(e => e.cle === geste);
       setMotifForme(''); setMotifRefus('');
+      if (rang >= 0 && rang < ETAPES.length - 1) setGeste(ETAPES[rang + 1].cle);
+      else setCoches(new Set());   // la validation close le circuit
       await charger();
       await onChange?.();
     } catch (e) { setErreur(e.message); }
     finally { setEnCours(false); }
   }
-
-  /* LES GESTES DANS L'ORDRE DU CIRCUIT. On les lit de gauche à droite comme on
-     les pose : les dates, la recevabilité, l'avis, la décision, la validation.
-     Un ordre qui ne suit pas la procédure oblige à la reconstituer de tête. */
-  const GESTES = [
-    { cle: 'demande', label: 'Dates de la demande',
-      aide: 'Une liasse reçue le même jour — la date décide du délai' },
-    { cle: 'recevabilite', label: 'Recevabilité',
-      aide: 'Contrôle de forme — traverse les unités' },
-    { cle: 'avis', label: 'Avis du chargé de cours',
-      aide: 'Un avis, un auteur nommé, une cohorte homogène' },
-    { cle: 'decision', label: 'Décision du Conseil',
-      aide: 'Une séance, une unité' },
-    { cle: 'validation', label: 'Validation direction',
-      aide: 'Réservée à la direction et à la direction adjointe' },
-  ];
 
   return (
     <Fenetre icone={IconListCheck} large="grande" onFermer={onClose}
@@ -2668,7 +2833,13 @@ function AnalyserEnSerie({ annee, onClose, onChange }) {
         <button onClick={onClose} className="bouton ml-auto">Fermer</button>
       </>}>
 
-      <div className="flex-1 min-h-0 overflow-auto p-5 space-y-3">
+      {/* PAS DE SECOND ASCENSEUR NI DE SECONDE MARGE : la fenêtre porte
+          déjà son défilement et son padding. Ce conteneur en ajoutait un
+          « flex-1 min-h-0 overflow-auto p-5 » — mais son parent n'est pas
+          une boîte flex, si bien que flex-1 ne faisait rien, les marges se
+          cumulaient à 36 px et deux ascenseurs se chevauchaient au pied de
+          la fenêtre. */}
+      <div className="space-y-3">
 
         {erreur && (
           <div className="carte p-3 text-[12px] text-rose-700 space-y-1">
@@ -2685,24 +2856,74 @@ function AnalyserEnSerie({ annee, onClose, onChange }) {
           </div>
         )}
 
-        {/* 1 — LE GESTE. Il commande ce qui est cochable : on choisit d'abord
-            ce qu'on vient faire, et la liste s'ouvre en conséquence. */}
+        {/* 1 — LE GESTE, ET OÙ L'ON EN EST.
+            Cinq boutons indifférents ne disent pas qu'ils forment une
+            procédure : on doit VOIR qu'on avance. L'étape franchie s'efface et
+            porte sa coche — elle reste cliquable, car on revient en arrière
+            pour corriger —, l'étape courante est mise en valeur, et la suivante
+            attend. La flèche entre deux étapes dit le sens de lecture. */}
         <section className="carte p-3 space-y-2">
-          <div className="text-[11px] uppercase tracking-wide text-slate-500">
-            1 · Le geste
+          <div className="flex items-center gap-2">
+            <div className="text-[11px] uppercase tracking-wide text-slate-500">
+              1 · L'étape du circuit
+            </div>
+            {reference.length > 0 && (
+              <div className="text-[11px] text-slate-400">
+                sur {retenus.length ? `les ${reference.length} dossier(s) cochés`
+                  : `les ${reference.length} dossier(s) visibles`}
+              </div>
+            )}
           </div>
-          <div className="flex flex-wrap gap-1.5">
-            {GESTES.map(g => (
-              <button key={g.cle} title={g.aide}
-                onClick={() => { setGeste(g.cle); setCoches(new Set()); setErreur(null); setBloquants(null); }}
-                className={`controle text-[13px] ${geste === g.cle
-                  ? 'border-slate-800 text-slate-900 font-medium' : ''}`}>
-                {g.label}
-              </button>
+          <div className="flex flex-wrap items-center gap-1">
+            {avancement.map((a, i) => (
+              <Fragment key={a.cle}>
+                {i > 0 && (
+                  <IconChevronRight size={14} aria-hidden="true"
+                    className="flex-none text-slate-300" />
+                )}
+                <button title={a.aide}
+                  onClick={() => { setGeste(a.cle); setErreur(null); setBloquants(null); }}
+                  className={`controle text-[13px] flex items-center gap-1.5 ${
+                    geste === a.cle
+                      ? 'border-slate-800 text-slate-900 font-semibold shadow-pose'
+                      : a.etat === 'franchie'
+                        ? 'text-slate-400 border-transparent'
+                        : 'text-slate-600'}`}>
+                  {/* LE NUMÉRO DIT L'ORDRE, LA COCHE DIT QUE C'EST FAIT. */}
+                  {a.etat === 'franchie'
+                    ? <IconCheck size={14} className="flex-none text-emerald-600" />
+                    : <span className={`flex-none w-4 h-4 grid place-items-center rounded-full
+                        text-[10px] font-semibold ${geste === a.cle
+                          ? 'bg-slate-800 text-white' : 'bg-slate-200 text-slate-600'}`}>
+                        {i + 1}
+                      </span>}
+                  {a.court}
+                  {a.etat === 'partielle' && (
+                    <span className="text-[11px] font-normal text-amber-700">
+                      {a.nb}/{a.sur}
+                    </span>
+                  )}
+                </button>
+              </Fragment>
             ))}
-            <span className="self-center text-[12px] text-slate-500">
-              {GESTES.find(g => g.cle === geste)?.aide}
+          </div>
+          <div className="flex flex-wrap items-baseline gap-2 text-[12px]">
+            <span className="text-slate-600">
+              {ETAPES.find(g => g.cle === geste)?.aide}
             </span>
+            {/* CE QUI RESTE À POSER, DIT SANS DÉTOUR. Sans cette phrase, la
+                frise montre l'état mais ne dit pas quoi faire ensuite. */}
+            {prochaine && prochaine !== geste && (
+              <button className="text-[12px] underline text-slate-500"
+                onClick={() => { setGeste(prochaine); setErreur(null); setBloquants(null); }}>
+                Prochaine étape à poser : {ETAPES.find(g => g.cle === prochaine)?.court}
+              </button>
+            )}
+            {!prochaine && reference.length > 0 && (
+              <span className="text-[12px] text-emerald-700">
+                Circuit parcouru pour ces dossiers.
+              </span>
+            )}
           </div>
 
           {geste === 'demande' && (
@@ -2984,7 +3205,7 @@ function AnalyserEnSerie({ annee, onClose, onChange }) {
                                                text-slate-400 pointer-events-none" />
               <input value={q} onChange={e => setQ(e.target.value)}
                 placeholder="Nom ou prénom…"
-                className="controle text-[13px] pl-7 w-52" />
+                className="controle controle-icone text-[13px] w-52" />
             </div>
             <select value={fSection} onChange={e => setFSection(e.target.value)}
               className="controle text-[13px]">
@@ -3568,7 +3789,7 @@ function MatriceIntroduction({ annee, onClose, onCree }) {
                   className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
                 <input value={filtre} onChange={e => setFiltre(e.target.value)}
                   placeholder="Début du nom ou du prénom…"
-                  className="controle pl-8 text-[13px] w-56" />
+                  className="controle controle-icone text-[13px] w-56" />
               </div>
               {filtre && (
                 <span className="text-[11px] text-slate-500">
@@ -3601,7 +3822,7 @@ function MatriceIntroduction({ annee, onClose, onCree }) {
               <IconSearch size={14}
                 className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
               <input value={q} onChange={e => setQ(e.target.value)}
-                placeholder="Un nom…" className="controle pl-8 text-[13px]" />
+                placeholder="Un nom…" className="controle controle-icone text-[13px]" />
             </div>
             <div className="max-h-40 overflow-auto rounded-champ bg-white border border-slate-200">
               {!resultats ? (

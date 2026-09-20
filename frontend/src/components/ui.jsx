@@ -1045,8 +1045,17 @@ export function Fenetre({ icone: Ic, titre, sous, large = 'moyenne',
         <div className="min-h-0 overflow-y-auto px-5 py-4">{children}</div>
 
         {pied && (
+          /* LE PIED NE SE CHEVAUCHE PAS.
+           * Le bouton et la phrase qui dit pourquoi il est gris vivent côte à
+           * côte ; la phrase est longue, et rien ne lui disait de se réduire —
+           * un enfant de boîte flex ne descend pas sous la largeur de son
+           * contenu sans `min-w-0`. Sur une fenêtre étroite, le texte passait
+           * donc SOUS le bouton. Les boutons ne se compriment jamais
+           * (`.bouton` est en `nowrap`), c'est au texte de céder. */
           <div className="flex-shrink-0 px-5 py-3 border-t border-slate-200
-                          flex items-center gap-2 flex-wrap">{pied}</div>
+                          flex items-center gap-x-3 gap-y-2 flex-wrap
+                          [&>button]:flex-none [&>span]:min-w-0
+                          [&>span]:flex-1 [&>span]:basis-48">{pied}</div>
         )}
       </div>
     </div>

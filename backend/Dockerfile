@@ -27,6 +27,20 @@ COPY package.json ./
 RUN npm install --omit=dev --no-audit --no-fund
 COPY . .
 RUN mkdir -p /app/data
+
+# LE SERVEUR DOIT POUVOIR DIRE QUELLE VERSION IL EST.
+#
+# Il ne le pouvait pas : le fichier VERSION vit à la racine du dépôt, et le
+# contexte de construction de cette image est ./backend — il n'y entrait donc
+# jamais. Conséquence pratique, payée plusieurs fois : le badge de l'interface
+# vient du frontend et de lui seul, si bien qu'un backend resté en arrière
+# était STRICTEMENT invisible. On a corrigé trois fois « la version ne monte
+# pas » en regardant la moitié qui savait répondre.
+ARG BUILD_VERSION=dev
+ARG GIT_SHA=
+ENV BUILD_VERSION=${BUILD_VERSION}
+ENV GIT_SHA=${GIT_SHA}
+
 ENV NODE_ENV=production
 ENV PORT=3001
 EXPOSE 3001

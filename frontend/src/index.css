@@ -730,6 +730,22 @@ main:not(:has(> .gouttiere-rail)) {
   transition: border-color 150ms cubic-bezier(.32,.72,0,1),
               background-color 150ms cubic-bezier(.32,.72,0,1);
 }
+/* UN CHAMP QUI PORTE UNE ICÔNE LUI FAIT DE LA PLACE — ET IL NE POUVAIT PAS.
+ *
+ * On posait `pl-7` ou `pl-8` de Tailwind sur le champ, et il ne se passait
+ * RIEN : `.controle` déclare `padding-inline`, la propriété raccourcie, qui
+ * écrase les deux côtés — et comme elle vit dans le CSS applicatif, elle passe
+ * après les utilitaires. La loupe se retrouvait donc posée sur la première
+ * lettre du texte d'invite, à HUIT endroits, dans quatre fichiers, sans que
+ * personne l'ait jamais écrit à l'envers : chacun avait ajouté le padding
+ * qu'il fallait, et chacun avait été ignoré.
+ *
+ * Une classe, donc, plutôt qu'un utilitaire qui ne peut pas gagner. Deux rem :
+ * l'icône la plus large commence à 10 px et en fait 16, il reste six pixels
+ * avant la première lettre.
+ */
+.controle-icone { padding-inline-start: 2rem; }
+
 button.controle:hover:not(:disabled) { background: var(--menu-survol); }
 .controle:disabled { opacity: .4; }
 

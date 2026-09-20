@@ -550,7 +550,7 @@ export default function CalendrierSessions({ sansTitre = false } = {}) {
             <IconSearch size={13} className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400" />
             <input value={recherche} onChange={e => setRecherche(e.target.value)}
               placeholder="Unité ou cours…"
-              className="controle pl-7 pr-2 text-[13px] bg-white border border-slate-300 rounded-champ w-56" />
+              className="controle controle-icone pr-2 text-[13px] bg-white border border-slate-300 rounded-champ w-56" />
           </div>
           <button onClick={() => setDeplie(toutDeplie ? new Set() : new Set(ues.map(u => u.ue_num)))}
             className="bouton controle px-3 inline-flex items-center gap-1.5">

@@ -4208,10 +4208,21 @@ r.get('/valorisations/registre', authRequired, (req, res) => {
   if (decision) { ou.push('COALESCE(v.decision, \'accordee\') = ?'); par.push(decision); }
   const where = ou.length ? `WHERE ${ou.join(' AND ')}` : '';
   try {
+    /* LE REGISTRE PORTE LES TRACES DU CIRCUIT, PAS SEULEMENT LA DÉCISION.
+     *
+     * Il rendait l'issue — accordée, refusée — et rien de ce qui y mène. Or la
+     * question qu'on pose devant cette liste n'est pas « qu'a-t-on décidé ? »
+     * (la plupart des dossiers n'en sont pas là) mais « OÙ EN EST-ON ? ». Sans
+     * les dates du circuit, l'écran ne pouvait pas y répondre, et il fallait
+     * ouvrir chaque dossier pour l'apprendre — c'est-à-dire ne pas l'apprendre.
+     *
+     * `v.*` plutôt qu'une liste de colonnes : l'ancienne énumération avait
+     * déjà oublié sept colonnes, et elle en oubliera d'autres à chaque étape
+     * ajoutée au circuit. Rien de sensible ne vit sur cette table.
+     */
     const lignes = db.prepare(`
-      SELECT v.id, v.etudiant_id, v.annee_scolaire, v.ue_num, v.type, v.cible,
-             v.cible_detail, v.pourcentage, v.decision_ce_date, v.commentaire,
-             COALESCE(v.decision, 'accordee') AS decision, v.motif_refus,
+      SELECT v.*,
+             COALESCE(v.decision, 'accordee') AS decision,
              e.nom, e.prenom,
              u.ue_nom, u.section,
              (SELECT COUNT(*) FROM etudiant_valorisation_fichier f
@@ -4222,7 +4233,12 @@ r.get('/valorisations/registre', authRequired, (req, res) => {
         ${where}
        ORDER BY e.nom, e.prenom, v.annee_scolaire DESC, v.ue_num
     `).all(...par);
-    res.json(lignes);
+    /* L'ÉTAT SE DÉDUIT ICI, PAS DANS L'ÉCRAN. Deux déductions pour un même
+     * fait finiraient par différer, et c'est celle qu'on regarde le moins qui
+     * afficherait l'ancienne règle. `etatDeduit` est la seule. */
+    res.json(lignes.map(v => ({
+      ...v, etat: etatDeduit(v), hors_circuit: decideHorsCircuit(v),
+    })));
   } catch (e) {
     console.error('[valorisations/registre]', e.message);
     res.status(500).json({ error: e.message });
@@ -5447,6 +5463,11 @@ r.get('/valorisations/analyse', authRequired, (req, res) => {
       section, ue_num: v.ue_num, ue_nom: v.ue_nom,
       porte: v.porte, type: v.type, etat: etatDeduit(v),
       decision: v.decision, base_code: v.base_code,
+      /* LES DATES DE LA DEMANDE PARTENT AVEC LE DOSSIER. L'écran en a besoin
+       * pour dire si la PREMIÈRE étape du circuit est franchie : sans elles, la
+       * frise d'avancement montrait « demande à poser » sur des dossiers qui
+       * la portaient depuis des semaines. */
+      date_demande: v.date_demande, date_reception: v.date_reception,
       recevable: v.recevable, recevabilite_le: v.recevabilite_le,
       motif_irrecevabilite: v.motif_irrecevabilite,
       avis_le: v.avis_le, avis_sens: v.avis_sens,

@@ -49,6 +49,9 @@ jobs:
           tags: |
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/attributions-backend:dev
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/attributions-backend:dev-${{ github.sha }}
+          build-args: |
+            BUILD_VERSION=${{ steps.version.outputs.value }}-dev
+            GIT_SHA=${{ github.sha }}
           cache-from: type=gha,scope=backend-dev
           cache-to: type=gha,scope=backend-dev,mode=max
 
