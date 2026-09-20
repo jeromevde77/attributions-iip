@@ -2775,6 +2775,10 @@ try { migrerBesoinsOffres(db); } catch (e) { console.error('[migration] besoins 
 try { migrerJournalPersonnel(db); } catch (e) { console.error('[migration] journal :', e.message); }
 try { migrerMfa(db); } catch (e) { console.error('[migration] mfa :', e.message); }
 try { migrerConstat(db); } catch (e) { console.error('[migration] constat :', e.message); }
+import { migrerMotDePasse } from './lib/motDePasse.js';
+import { migrerTentatives } from './lib/tentatives.js';
+try { migrerMotDePasse(db); } catch (e) { console.error('[migration] mot de passe :', e.message); }
+try { migrerTentatives(db); } catch (e) { console.error('[migration] tentatives :', e.message); }
 try { migrerClassement(db); } catch (e) { console.error('[migration] classement :', e.message); }
 try { migrerAncienneteService(db); } catch (e) { console.error('[migration] anciennete_service :', e.message); }
 try { migrerEtudiants(db); } catch (e) { console.error('[migration] etudiants :', e.message); }

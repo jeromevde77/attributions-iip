@@ -110,6 +110,11 @@ export default function Login() {
   const [tokenInter, setTokenInter] = useState('');
   const [code, setCode]             = useState('');
   const [parSecours, setParSecours] = useState(false);
+  // TROISIÈME FACE DE CET ÉCRAN, et non une page à part : on arrive ici parce
+  // qu'on vient d'échouer à se connecter, l'adresse est déjà tapée, et la faire
+  // retaper sur une autre page serait la seule chose qu'on aurait gagnée.
+  const [oubli, setOubli] = useState(false);
+  const [oubliMsg, setOubliMsg] = useState('');
   const champCode = useRef(null);
   const nav = useNavigate();
 
@@ -133,6 +138,19 @@ export default function Login() {
       nav('/');
     }
     catch (e) { setError(e.message); }
+    finally { setLoading(false); }
+  }
+
+  async function demanderLien(e) {
+    e.preventDefault();
+    setError(''); setLoading(true);
+    try {
+      const r = await api.motDePasseOublie(email);
+      // LE MESSAGE VIENT DU SERVEUR, et il est le même que l'adresse existe ou
+      // non : l'écrire ici en deux versions ferait de cet écran public un
+      // moyen de savoir qui a un compte à l'Institut.
+      setOubliMsg(r?.message || 'Si un compte existe pour cette adresse, un lien vient d\u2019y être envoyé.');
+    } catch (e2) { setError(e2.message); }
     finally { setLoading(false); }
   }
 
@@ -235,7 +253,78 @@ export default function Login() {
             des identifiants au lieu de s'ajouter dessous : on ne laisse pas à
             l'écran un mot de passe déjà accepté, ni deux boutons « valider »
             dont un seul agit. */}
-        {tokenInter ? (
+        {oubli ? (
+        <form onSubmit={demanderLien} style={{
+          width:'100%',
+          background:'rgba(255,255,255,.04)',
+          border:'1px solid rgba(0,170,204,.18)',
+          borderRadius:'16px',
+          padding:'32px 28px',
+          animation:'fadeUp .6s .15s ease both',
+        }}>
+          <div style={{
+            color:'white', fontSize:'15px', fontWeight:600, marginBottom:'6px',
+            fontFamily:"'Segoe UI',sans-serif",
+          }}>Mot de passe oublié</div>
+          <div style={{
+            fontSize:'12px', color:'rgba(255,255,255,.45)', marginBottom:'20px',
+            fontFamily:"'Segoe UI',sans-serif", lineHeight:1.5,
+          }}>
+            Indiquez votre adresse : un lien vous permettra d’en choisir un nouveau.
+            {' '}Il ne vous connecte pas — si la vérification en deux temps est active,
+            elle vous sera demandée comme d’habitude.
+          </div>
+
+          {oubliMsg ? (
+            <div style={{
+              background:'rgba(0,170,204,.10)', border:'1px solid rgba(0,170,204,.35)',
+              borderRadius:'8px', padding:'12px 14px', fontSize:'12.5px',
+              color:'rgba(255,255,255,.8)', lineHeight:1.55,
+              fontFamily:"'Segoe UI',sans-serif",
+            }}>
+              {oubliMsg}
+              <div style={{marginTop:'8px', color:'rgba(255,255,255,.45)', fontSize:'11.5px'}}>
+                Pensez à regarder les indésirables. Sans nouvelle, prévenez le secrétariat.
+              </div>
+            </div>
+          ) : (
+            <>
+              <div style={{marginBottom:'18px'}}>
+                <label style={{
+                  display:'block', color:'rgba(255,255,255,.45)', fontSize:'11px',
+                  letterSpacing:'1px', textTransform:'uppercase', marginBottom:'8px',
+                  fontFamily:"'Segoe UI',sans-serif",
+                }}>Adresse</label>
+                <input type="email" autoFocus required value={email}
+                  onChange={e => setEmail(e.target.value)} autoComplete="username"
+                  style={{
+                    width:'100%', padding:'12px 14px', background:'rgba(255,255,255,.06)',
+                    border:'1px solid rgba(255,255,255,.12)', borderRadius:'8px',
+                    color:'white', fontSize:'14px', fontFamily:"'Segoe UI',sans-serif",
+                    outline:'none', boxSizing:'border-box',
+                  }} />
+              </div>
+              <button type="submit" disabled={loading} style={{
+                width:'100%', padding:'13px', background:'#00AACC', border:'none',
+                borderRadius:'8px', color:'white', fontSize:'14px', fontWeight:600,
+                letterSpacing:'.5px', cursor: loading ? 'not-allowed' : 'pointer',
+                fontFamily:"'Segoe UI',sans-serif",
+              }}>
+                {loading ? 'Envoi…' : 'Recevoir le lien'}
+              </button>
+            </>
+          )}
+
+          <div style={{marginTop:'16px', fontSize:'12px', fontFamily:"'Segoe UI',sans-serif"}}>
+            <button type="button"
+              onClick={() => { setOubli(false); setOubliMsg(''); setError(''); }}
+              style={{background:'none',border:'none',padding:0,cursor:'pointer',
+                      color:'rgba(255,255,255,.35)'}}>
+              ← Revenir à la connexion
+            </button>
+          </div>
+        </form>
+        ) : tokenInter ? (
         <form onSubmit={soumettreCode} style={{
           width:'100%',
           background:'rgba(255,255,255,.04)',
@@ -387,6 +476,20 @@ export default function Login() {
           >
             {loading ? 'Connexion…' : 'Se connecter'}
           </button>
+
+          {/* LA PORTE EST LÀ OÙ L'ON BUTE. Celui qui a oublié son mot de passe
+              s'en aperçoit ICI, au moment du refus — pas trois écrans plus
+              loin. Sans ce lien, il appelle le secrétariat, qui appelle la
+              direction, qui ouvre une session de serveur. */}
+          <div style={{marginTop:'14px', textAlign:'center', fontSize:'12px',
+                       fontFamily:"'Segoe UI',sans-serif"}}>
+            <button type="button"
+              onClick={() => { setOubli(true); setOubliMsg(''); setError(''); }}
+              style={{background:'none',border:'none',padding:0,cursor:'pointer',
+                      color:'rgba(0,170,204,.85)'}}>
+              Mot de passe oublié ?
+            </button>
+          </div>
         </form>
         )}
 

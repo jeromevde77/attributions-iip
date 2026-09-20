@@ -85,6 +85,23 @@ export const api = {
     return request('/auth/login/mfa', { method: 'POST', body: { token_intermediaire, ...preuve } })
       .then(r => { setToken(r.token); localStorage.setItem('user', JSON.stringify(r.user)); return r; });
   },
+
+  // ── Le mot de passe ───────────────────────────────────────────────────────
+  // AUCUNE DE CES TROIS NE POSE DE JETON DE SESSION, et c'est voulu : le lien
+  // reçu par courriel permet de CHOISIR un mot de passe, il ne connecte pas.
+  // La personne se connecte ensuite normalement, second facteur compris.
+  motDePasseOublie(email) {
+    return request('/auth/mot-de-passe-oublie', { method: 'POST', body: { email } });
+  },
+  motDePasseJeton(jeton) {
+    return request(`/auth/mot-de-passe-jeton?jeton=${encodeURIComponent(jeton)}`);
+  },
+  motDePasseNouveau(jeton, nouveau) {
+    return request('/auth/mot-de-passe-nouveau', { method: 'POST', body: { jeton, nouveau } });
+  },
+  motDePasseChanger(ancien, nouveau) {
+    return request('/auth/mot-de-passe', { method: 'POST', body: { ancien, nouveau } });
+  },
   logout() { clearToken(); window.location.href = '/login'; },
   me() { return request('/auth/me'); },
 
