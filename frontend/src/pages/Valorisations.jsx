@@ -234,7 +234,16 @@ export default function Valorisations() {
     items: [
       { key: 'introduire', label: 'Introduire des demandes', icon: IconTable,
         onClick: () => setMatrice(true) },
-      { key: 'serie', label: 'Valoriser en série', icon: IconUsersGroup,
+      /* « VALORISER EN SÉRIE » NE DISAIT PAS CE QU'IL FAISAIT — et trois
+         entrées se ressemblaient au point qu'on ne pouvait plus les
+         distinguer : « Introduire des demandes », « Valoriser en série »,
+         « Analyser les demandes en série ». Même longueur, même structure.
+         Chacune fait pourtant autre chose : la matrice OUVRE des dossiers
+         vides (AD/VA/VAE), celle-ci les ouvre DÉJÀ PORTEURS du détail de la
+         dispense — mêmes cours, mêmes acquis, même remarque pour toute une
+         cohorte —, et la troisième INSTRUIT ce qui existe. Le libellé dit
+         désormais ce qui la distingue : la dispense identique. */
+      { key: 'serie', label: 'Créer avec la même dispense', icon: IconUsersGroup,
         onClick: () => setSerie(true) },
       { key: 'analyse', label: 'Analyser les demandes en série', icon: IconListCheck,
         onClick: () => setAnalyse(true) },
@@ -268,7 +277,7 @@ export default function Valorisations() {
             <IconListCheck size={16} /> Analyser en série
           </button>
           <button onClick={() => setSerie(true)} className="controle">
-            <IconUsersGroup size={16} /> Valoriser en série
+            <IconUsersGroup size={16} /> Créer avec la même dispense
           </button>
           <button onClick={() => setAjout(true)} className="controle">
             <IconUserPlus size={16} /> Ajouter des étudiants
@@ -1339,8 +1348,8 @@ function ValoriserEnSerie({ annee, onClose, onCree }) {
 
   return (
     <Fenetre icone={IconUsersGroup} large="grande" onFermer={onClose}
-      titre="Valoriser en série"
-      sous="Une unité, un conseil des études, la même décision pour plusieurs étudiants"
+      titre="Créer avec la même dispense"
+      sous="Ouvrir plusieurs dossiers portant déjà les mêmes cours ou acquis dispensés"
       pied={<>
         <button onClick={enregistrer} disabled={!!manque || enCours}
           className="bouton bouton-fort disabled:opacity-40">
@@ -2444,7 +2453,7 @@ function EtapeDecision({ dossier, bases, onEnregistrer, enCours }) {
  * et rien d'autre. Une dispense PARTIELLE demande de désigner les cours ou les
  * acquis dispensés ; ce tableau n'a pas où les cocher, donc il ne la propose
  * pas — on ne réclame pas ce qu'on ne donne pas à saisir. Elle se pose dans
- * *Valoriser en série*, qui porte les listes de cours et d'acquis.
+ * *Créer avec la même dispense*, qui porte les listes de cours et d'acquis.
  */
 /* LES CINQ ÉTAPES DU CIRCUIT, DANS L'ORDRE OÙ ELLES SE POSENT.
  *
@@ -2804,7 +2813,7 @@ function AnalyserEnSerie({ annee, onClose, onChange }) {
    * a écrit.
    *
    * Un refus ne dispense rien : ni portée, ni cible, ni pourcentage — il porte
-   * `complete` comme *Valoriser en série*, et c'est `decision` qui dit le
+   * `complete` comme *Créer avec la même dispense*, et c'est `decision` qui dit le
    * refus.
    */
   function corpsDecision(ids) {
