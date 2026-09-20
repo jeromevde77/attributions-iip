@@ -578,6 +578,32 @@ promesse, et le refus arrive alors après coup.
 > Revenir à « toute l'unité » **efface la cible** — sans quoi une dispense
 > complète traînerait la liste de cours de la partielle qu'elle remplace.
 
+> **LE CIRCUIT SUPPOSAIT QU'ON AVANCE DEPUIS RIEN — ET IL ENFERMAIT TOUT LE
+> PASSÉ.** Sur un dossier antérieur à 2.12.38, une décision existe mais les
+> étapes qui auraient dû la précéder, non. Les trois gestes se bloquaient alors
+> l'un l'autre : la recevabilité refusée parce qu'une décision est déjà là, la
+> décision refusée parce que la recevabilité manque, la validation refusée
+> parce que le dossier est incomplet. **Aucune issue, dans aucun sens** — et
+> c'était précisément la passe de rattrapage annoncée au secrétariat. Constaté
+> le 20 septembre sur les dix-sept dossiers ATNUP de l'UE 225, encodés en
+> dispense globale.
+>
+> `decideHorsCircuit(v)` le **déduit** — décision posée sans recevabilité ET
+> sans avis —, comme l'état se déduit : ce n'est pas une case qu'on coche, donc
+> on ne peut pas s'en servir pour rouvrir un dossier réellement instruit, qui
+> reste protégé. Sur ces dossiers-là seulement, recevabilité et avis se posent
+> encore, et la décision se corrige. Depuis 2.12.57.
+
+> **L'AVIS ET LES DATES SE POSENT AUSSI EN SÉRIE.** Sans eux, le rattrapage
+> imposait d'ouvrir dix-sept dossiers un par un AVANT de pouvoir seulement
+> cocher la décision — le lot ne servait à rien. Deux réserves tenues : un avis
+> rendu en lot porte le **même texte pour tous** et n'a de sens que sur une
+> cohorte homogène (même unité, même diplôme antérieur) ; et **le chargé de
+> cours qui rend l'avis est NOMMÉ**, distinct de celui qui le saisit — sans
+> quoi la pièce attribue l'analyse pédagogique à qui a tenu le clavier. Les
+> cinq gestes de l'écran suivent désormais l'ordre du circuit : dates ·
+> recevabilité · avis · décision · validation.
+
 > **UNE SEULE QUESTION AU NIVEAU DE LA DÉCISION : TOTALE · PARTIELLE ·
 > REFUSÉE.** *Analyser en série* posait d'abord « accordée / refusée », puis une
 > portée par-dessus — deux questions là où le Conseil n'en tranche qu'une.

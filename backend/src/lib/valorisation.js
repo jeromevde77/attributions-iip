@@ -472,6 +472,29 @@ export function rafraichirEtat(vid) {
  * l'oubli, et « quatre yeux » (valider oui, mais jamais son propre dossier),
  * écarté parce que moins lisible.
  */
+/**
+ * UN DOSSIER DÉCIDÉ HORS CIRCUIT — ET LE MOYEN DE LE RÉGULARISER.
+ *
+ * LE CIRCUIT SUPPOSAIT QU'ON AVANCE DEPUIS RIEN. Il ne prévoyait pas l'état de
+ * tous les dossiers antérieurs à 2.12.38 : une décision existe, mais les
+ * étapes qui auraient dû la précéder, non. Les trois gestes se bloquaient
+ * alors l'un l'autre — la recevabilité refusée parce qu'une décision est déjà
+ * là, la décision refusée parce que la recevabilité manque, la validation
+ * refusée parce que le dossier est incomplet. Aucune issue, dans aucun sens.
+ *
+ * C'est exactement la passe de rattrapage annoncée au secrétariat, et elle
+ * était impossible. Constaté le 20 septembre 2026 sur les dix-sept dossiers
+ * ATNUP de l'UE 225, encodés en dispense globale par le secrétariat.
+ *
+ * LA RECONNAISSANCE SE DÉDUIT, ELLE NE SE DÉCLARE PAS — comme l'état. Une
+ * décision posée SANS recevabilité ET SANS avis n'a jamais été instruite :
+ * c'est un fait lisible des traces, pas une case qu'on coche. On ne peut donc
+ * pas s'en servir pour rouvrir un dossier réellement instruit.
+ */
+export function decideHorsCircuit(v) {
+  return !!v?.decision_le && v.recevable == null && !v.avis_le;
+}
+
 export const PEUT_VALIDER = ['admin', 'directeur', 'directeur_adjoint'];
 
 /**
