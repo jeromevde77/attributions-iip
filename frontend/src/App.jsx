@@ -36,7 +36,6 @@ import DCPP from './pages/DCPP.jsx';
 import Recrutement from './pages/Recrutement.jsx';
 import Accueil from './pages/Accueil.jsx';
 import { lazy, Suspense } from 'react';
-const Listes     = lazy(() => import('./pages/Listes.jsx'));
 const Procedures = lazy(() => import('./pages/Procedures.jsx'));
 import Configuration from './pages/Configuration.jsx';
 import EA12List from './pages/EA12List.jsx';
@@ -599,13 +598,14 @@ export default function App() {
       <Route path="/communication" element={<Navigate to="/accueil" replace />} />
       <Route path="/recrutement"   element={<ProtectedLayout><AdminOrRH><Recrutement /></AdminOrRH></ProtectedLayout>} />
       <Route path="/dcpp/:profId" element={<ProtectedLayout><DCPP /></ProtectedLayout>} />
-      <Route path="/listes" element={
-        <ProtectedLayout>
-          <Suspense fallback={<div className="p-8 text-gray-400">Chargement…</div>}>
-            <Listes />
-          </Suspense>
-        </ProtectedLayout>
-      } />
+      {/* LA PAGE N'A PLUS DE PORTE, ET N'EN AVAIT PLUS DEPUIS L'AXE COMMUNICATION.
+          Le constructeur de listes vit dans le centre d'impression, sous la
+          bascule « Listes » : il s'ouvre depuis n'importe quel axe. La route
+          ne servait plus qu'aux signets — d'où une redirection, et non une
+          suppression : un signet qui tombe sur du vide fait croire à une
+          panne, et l'on cherche ce qu'on a cassé. Le COMPOSANT reste, il est
+          rendu par le centre d'impression. */}
+      <Route path="/listes" element={<Navigate to="/accueil" replace />} />
       <Route path="/procedures" element={
         <ProtectedLayout>
           <Suspense fallback={<div className="p-8 text-gray-400">Chargement…</div>}>

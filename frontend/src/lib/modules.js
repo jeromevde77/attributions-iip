@@ -22,7 +22,15 @@ export const MODULES_ACCES = [
   { key: 'personnel',    label: 'Personnel',     Icone: IconUsers,         desc: 'Voir et/ou modifier les fiches membres' },
   { key: 'organisation', label: 'Organisation',  Icone: IconFolders,       desc: "Dates d'UE, structure des sections, rentrée" },
   { key: 'planification',label: 'Horaires',      Icone: IconCalendar,      desc: 'Groupes, horaires et planification' },
-  { key: 'listes',       label: 'Listes',        Icone: IconFileText,      desc: 'Accès aux listes et documents' },
+  /* « Listes » ne désignait plus rien qu'on puisse montrer. L'axe Communication
+     a disparu et l'écran est devenu une bascule du centre d'impression : le
+     module gardait son objet — produire et envoyer des pièces — mais plus son
+     nom, et c'est dans l'écran des DROITS que le mot était faux, là où l'on
+     vient justement vérifier qui peut quoi.
+     LA CLÉ RESTE `listes` : elle porte les droits déjà enregistrés sur chaque
+     fiche, et la renommer les effacerait tous en silence. Seul le mot change. */
+  { key: 'listes',       label: 'Impression & envois', Icone: IconFileText,
+    desc: 'Produire une pièce et l’envoyer — bouton « Imprimer ou envoyer »' },
   { key: 'procedures',   label: 'Procédures',    Icone: IconGavel,         desc: 'Accès aux procédures' },
   // PILOTAGE SE LIT, DOTATION S'ENGAGE — et ce n'est pas le même cadenas.
   // Tant que la dotation vivait dans « pilotage », ouvrir le reporting à une
