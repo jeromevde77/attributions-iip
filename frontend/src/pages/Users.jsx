@@ -3,7 +3,7 @@ import { nomDepuisChaine } from '../lib/nom.js';
 import { getUser, api } from '../lib/api.js';
 import { IconPlus, IconKey, IconTrash, IconAlertTriangle,
          IconShieldCheck, IconShieldOff } from '@tabler/icons-react';
-import { MODULES_ACCES, PLAFOND_ROLE, droitEffectif, LIBELLE_DROIT, estDirection} from '../lib/modules.js';
+import { MODULES_ACCES, plafondDe, droitEffectif, LIBELLE_DROIT, estDirection, usePlafonds } from '../lib/modules.js';
 
 const ROLE_LABEL = {
   admin: 'Administrateur',
@@ -330,6 +330,7 @@ function MatriceAcces({ users, sectionsDispo, profils, onModifie, onProfil,
   const [enCours, setEnCours] = useState(null);       // "id|module" en cours d'écriture
   const [perimetreOuvert, setPerimetreOuvert] = useState(null);
 
+  usePlafonds();
   const actifs = (users || []).filter(u => u.actif);
   const techniques = actifs.filter(u => !u.professeur_id);
   const personnel = actifs.filter(u => u.professeur_id);
@@ -337,7 +338,7 @@ function MatriceAcces({ users, sectionsDispo, profils, onModifie, onProfil,
 
   // Le rôle fixe le plafond ; on ne propose que ce qu'il autorise.
   function cycle(u, module) {
-    const plafond = (PLAFOND_ROLE[u.role] || PLAFOND_ROLE.consultation)(module);
+    const plafond = plafondDe(u.role, module);
     if (plafond === 'rien') return null;
     const suite = plafond === 'lit' ? ['rien', 'lit'] : ['rien', 'lit', plafond];
     const actuel = droitEffectif(u, module);

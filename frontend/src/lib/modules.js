@@ -6,6 +6,9 @@
 // par diverger — un module ajouté d'un côté, oublié de l'autre.
 // ─────────────────────────────────────────────────────────────────────────────
 
+import { useState, useEffect } from 'react';
+import { authHeaders, isAuthenticated } from './api.js';
+
 // Icônes Tabler, monochromes : les émojis coloraient le tableau et juraient
 // avec le reste de l'application, tenue en aplats et en traits.
 import {
@@ -42,29 +45,97 @@ export const ROLES_LUCIE = [
   ['admin',             'Administrateur technique — compte sans fiche'],
 ];
 
-// Ce que chaque rôle permet AU MIEUX. Repris du serveur, qui reste seul juge :
-// l'écran s'en sert pour ne pas laisser cocher une case qui serait refusée.
-export const PLAFOND_ROLE = {
+// ─── LES PLAFONDS VIENNENT DU SERVEUR, ET DE NULLE PART AILLEURS ─────────────
+//
+// Ils vivaient ici, écrits en dur, pendant que le serveur les lisait en base
+// (`role_plafond`, réglable depuis Configuration → Rôles). Deux sources pour un
+// même fait, c'est une source de moins : la direction abaissait un plafond, la
+// base changeait, et cet écran continuait d'afficher l'amorce. Il ne se
+// trompait pas sur un détail — il affirmait des droits que le serveur
+// n'appliquait pas, ce qui est la pire façon de se tromper sur des droits.
+//
+// Le serveur reste seul juge. Ce cache ne sert qu'à ne pas laisser cocher une
+// case qui serait refusée, et à masquer ce qui est fermé.
+// ─────────────────────────────────────────────────────────────────────────────
+
+// REPLI, ET RIEN D'AUTRE. Ces valeurs ne servent que le temps que le serveur
+// réponde, ou s'il ne répond pas. Elles recopient l'amorce de
+// `middleware/permissions.js` ; le jour où elles en divergeraient, c'est le
+// serveur qui aurait raison, et c'est lui qui applique.
+const AMORCE = {
   directeur:         () => 'ecrit',
   directeur_adjoint: () => 'ecrit',
   admin:             () => 'ecrit',
   editeur:           () => 'ecrit',
-  // Le secrétariat encode les étudiants : c'est son métier, et cela n'engage
-  // que de la donnée administrative.
   secretariat:  m => (['etudiants', 'listes', 'procedures'].includes(m)
     ? 'ecrit' : 'lit'),
-  // LA COORDINATION CONSULTE, PROPOSE, MAIS N'ENGAGE PAS. C'est la règle de la
-  // maison, et elle se dit enfin : le reporting se lit, la dotation et la
-  // répartition ne s'ouvrent pas, le budget se prépare mais se fait valider.
   coordination: m => (['recrutement', 'repartition', 'dotation'].includes(m)
     ? 'rien' : m === 'pilotage' ? 'lit' : 'validation'),
   professeur:   m => (['attributions', 'personnel', 'planification'].includes(m) ? 'lit' : 'rien'),
   consultation: () => 'lit',
 };
 
+let cache = null;          // { role: { module: niveau } }, tel que le serveur le rend
+let enVol = null;          // la requête en cours, pour n'en lancer qu'une
+const abonnes = new Set();
+
+/** Ce que ce rôle permet AU MIEUX sur ce module, selon le serveur. */
+export function plafondDe(role, module) {
+  const n = cache?.[role]?.[module];
+  if (n) return n;
+  return (AMORCE[role] || AMORCE.consultation)(module);
+}
+
+/** Charge les plafonds une fois, et prévient ceux qui les attendent. */
+export function chargerPlafonds() {
+  if (cache) return Promise.resolve(cache);
+  if (enVol) return enVol;
+  // SANS JETON, ON NE DEMANDE RIEN. L'appel partait depuis l'écran de
+  // connexion et revenait 401 : un échec laisse le cache vide, donc l'amorce
+  // s'applique — en silence, et c'est précisément ce que ce cache corrige.
+  if (!isAuthenticated()) return Promise.resolve(null);
+  enVol = fetch('/api/profils-acces/plafonds', { headers: authHeaders() })
+    .then(r => (r.ok ? r.json() : null))
+    .then(d => {
+      if (d?.plafonds && Object.keys(d.plafonds).length) {
+        cache = d.plafonds;
+        abonnes.forEach(f => f());
+      }
+      return cache;
+    })
+    .catch(() => null)            // hors ligne : l'amorce tient lieu de repli
+    .finally(() => { enVol = null; });
+  return enVol;
+}
+
+/**
+ * À la déconnexion, et après toute modification des plafonds.
+ * Les droits du suivant ne sont pas ceux du précédent.
+ */
+export function oublierPlafonds() {
+  cache = null;
+  abonnes.forEach(f => f());
+}
+
+/**
+ * Le rendu lit `plafondDe` de façon SYNCHRONE — un menu se calcule avant que
+ * le serveur ait répondu. Sans abonnement, il resterait celui de l'amorce
+ * jusqu'au prochain clic : c'est-à-dire faux, et sans que rien ne le dise.
+ */
+export function usePlafonds() {
+  const [, redessiner] = useState(0);
+  useEffect(() => {
+    const f = () => redessiner(n => n + 1);
+    abonnes.add(f);
+    chargerPlafonds();
+    return () => { abonnes.delete(f); };
+  }, []);
+  return cache;
+}
+
 /** Ce qu'une personne peut réellement sur un module, cases et rôle combinés. */
 export function droitEffectif(user, module) {
-  const plafond = (PLAFOND_ROLE[user?.role] || PLAFOND_ROLE.consultation)(module);
+  const plafond = plafondDe(user?.role, module);
   if (plafond === 'rien') return 'rien';
 
   let perms = {};
@@ -79,7 +150,9 @@ export function droitEffectif(user, module) {
   // Sans cases enregistrées, le rôle fait foi : ne rien cocher ne ferme pas tout.
   if (!p) return plafond;
   if (p.lire === false && p.ecrire !== true) return 'rien';
-  if (p.ecrire === false) return plafond === 'lit' ? 'lit' : 'lit';
+  // Case d'écriture explicitement retirée : il reste la lecture, quel que soit
+  // le plafond — un plafond 'ecrit' ou 'validation' retombe à 'lit'.
+  if (p.ecrire === false) return 'lit';
   return plafond;
 }
 

@@ -7,7 +7,7 @@ import {
 } from '@tabler/icons-react';
 import Axe from '../components/Axe.jsx';
 import Accueil from './Accueil.jsx';
-import { droitEffectif } from '../lib/modules.js';
+import { droitEffectif, usePlafonds } from '../lib/modules.js';
 import { getUser } from '../lib/api.js';
 const Pilotage = lazy(() => import('./Pilotage.jsx'));
 import Etudiants from './Etudiants.jsx';
@@ -41,6 +41,7 @@ export function AxeAccueil() {
    * Le reporting n'apparaît donc que si le module « pilotage » est ouvert, et
    * il ne montre que ce qui se CONSULTE : ce qui engage est dans Gestion.
    */
+  usePlafonds();
   const voitReporting = droitEffectif(getUser(), 'pilotage') !== 'rien';
   return (
     <Axe

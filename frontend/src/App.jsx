@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, Component } from 'react';
-import { estDirection, droitEffectif } from './lib/modules.js';
+import { estDirection, droitEffectif, usePlafonds, oublierPlafonds } from './lib/modules.js';
 
 // Error boundary : affiche l'erreur au lieu d'une page blanche
 class ErrorBoundary extends Component {
@@ -180,6 +180,9 @@ function VoirCommePicker() {
 
 function ProtectedLayout({ children }) {
   const navigate = useNavigate();
+  // Les plafonds viennent du serveur : le rail se redessine quand ils arrivent,
+  // sans quoi il resterait celui de l'amorce jusqu'au prochain clic.
+  usePlafonds();
   const [compteOuvert, setCompteOuvert] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
 
@@ -547,7 +550,7 @@ function ProtectedLayout({ children }) {
                            hover:text-iip-blue hover:bg-slate-100 transition-colors duration-150">
                 <IconShieldLock size={16} />
               </button>
-              <button onClick={() => { api.logout(); navigate('/login'); }}
+              <button onClick={() => { oublierPlafonds(); api.logout(); navigate('/login'); }}
                 title="Se déconnecter" aria-label="Se déconnecter"
                 className="w-8 h-8 grid place-items-center rounded-champ text-slate-400
                            hover:text-iip-blue hover:bg-slate-100 transition-colors duration-150">

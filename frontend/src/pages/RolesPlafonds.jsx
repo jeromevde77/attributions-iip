@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { IconAlertTriangle, IconLock } from '@tabler/icons-react';
 import { authHeaders } from '../lib/api.js';
-import { MODULES_ACCES } from '../lib/modules.js';
+import { MODULES_ACCES, oublierPlafonds } from '../lib/modules.js';
 
 /**
  * Plafonds par rôle.
@@ -59,6 +59,7 @@ export default function RolesPlafonds() {
       const j = await rep.json();
       if (!rep.ok) { setMessage({ type: 'err', texte: j.error }); return; }
       if (j.avertissement) setMessage({ type: 'info', texte: j.avertissement });
+      oublierPlafonds();   // le rail et les onglets suivent, sans rechargement
       await charger();
     } finally { setEnCours(null); }
   }
