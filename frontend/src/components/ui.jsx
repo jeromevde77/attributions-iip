@@ -233,8 +233,17 @@ function TiroirRail({ children }) {
     return () => cancelAnimationFrame(t);
   }, []);
   return (
-    <div className="grid transition-[grid-template-rows] duration-300 ease-ios"
+    /* LES OUTILS DE L'ÉCRAN FORMENT UN BLOC, ET LE BLOC PORTE SON PROPRE
+     * REPÈRE. Un filet le longe sur toute sa hauteur : on lit d'un coup où
+     * commencent et où finissent les icônes qui appartiennent à l'écran
+     * ouvert, sans que ce repère désigne — à tort — la rubrique posée juste
+     * au-dessus. */
+    <div className="relative grid transition-[grid-template-rows] duration-300 ease-ios"
       style={{ gridTemplateRows: ouvert ? '1fr' : '0fr' }}>
+      <span aria-hidden="true"
+        className="absolute left-0.5 top-1 bottom-1 w-[2px] rounded-full
+                   pointer-events-none transition-opacity duration-300"
+        style={{ background: 'var(--menu-accent)', opacity: ouvert ? 1 : 0 }} />
       <div className="overflow-hidden">{children}</div>
     </div>
   );
@@ -545,20 +554,23 @@ export function RailDessine({ icon: HeaderIcon, titre, sousTitre, extra, surAccu
             {sec.items.map(it => {
               const Ic = it.icon;
               return (
-                /* LE FILET COUVRE LE BLOC, PAS SEULEMENT LA RUBRIQUE.
-                   Il vivait DANS le bouton, donc il s'arrêtait à ses quarante
-                   pixels : la rubrique et son tiroir se lisaient comme deux
-                   choses posées l'une sous l'autre, et rien ne disait que les
-                   icônes du dessous lui appartenaient. Le conteneur porte
-                   désormais le repère, et il s'étire sur tout ce qui est
-                   ouvert. */
+                /* LE FILET APPARTIENT AU TIROIR, PAS À LA RUBRIQUE AU-DESSUS.
+                 *
+                 * Première tentative : l'étirer de la rubrique jusqu'au bas du
+                 * tiroir, pour en faire un bloc. Elle reposait sur une prémisse
+                 * FAUSSE — le tiroir ne se rattache pas à l'icône qu'on a
+                 * cliquée, mais à la DERNIÈRE rubrique de l'axe, parce que
+                 * l'axe se lit d'abord en entier (tranché le 19 septembre).
+                 * Le repère désignait donc une icône qui ne possède rien, et,
+                 * allongé, il balayait tout le rail. Tant qu'il faisait seize
+                 * pixels, l'erreur ne se voyait pas ; c'est elle que
+                 * l'allongement a révélée.
+                 *
+                 * Les outils de l'écran forment bien un bloc — mais un bloc à
+                 * eux, et c'est le tiroir qui le porte. L'icône qu'on a
+                 * cliquée, elle, est la rubrique ACTIVE : elle a déjà sa
+                 * pastille et son accent. */
                 <div key={it.key} className="relative">
-                {it.sous?.length > 0 && (
-                  <span aria-hidden="true"
-                    className="absolute left-0.5 top-2 bottom-2 w-[2px] rounded-full
-                               transition-all duration-200 ease-ios"
-                    style={{ background: 'var(--menu-accent)' }} />
-                )}
                 <button key={it.key} onClick={it.onClick} aria-label={it.label}
                   onMouseEnter={e => !epingle && surviser(e, it.label)}
                   onMouseLeave={() => setSurvol(null)}
@@ -602,13 +614,11 @@ export function RailDessine({ icon: HeaderIcon, titre, sousTitre, extra, surAccu
                        pour des entrées qui n'avaient rien de plus à signaler
                        que les autres. Elle ne teinte que le TRAIT de l'icône,
                        et seulement quand quelque chose le mérite. */
-                    /* CELLE QUI A OUVERT LE TIROIR PREND L'ACCENT, comme
-                       l'active : c'est elle qu'on a cliquée, et le bloc qu'on
-                       lit dessous est le sien. Sans cela, l'œil ne savait pas
-                       d'où venaient ces icônes-là. */
+                    /* L'ACCENT VA À LA RUBRIQUE ACTIVE, ET À ELLE SEULE.
+                       Le donner aussi à celle qui « porte » le tiroir peignait
+                       une icône au hasard — la dernière de l'axe. */
                     <Ic size={19} stroke={1.8} className="flex-shrink-0"
-                      style={(it.actif || it.sous?.length > 0)
-                        ? { color: 'var(--menu-accent)' }
+                      style={it.actif ? { color: 'var(--menu-accent)' }
                         : { color: it.couleur || 'var(--menu-icone)' }} />
                   ) : (
                     /* FILET DE SÉCURITÉ : une entrée sans icône donnerait, rail

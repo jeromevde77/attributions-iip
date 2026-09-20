@@ -1008,12 +1008,19 @@ et 3 composants de tuile**. La stratégie tient en cinq chantiers, dans cet ordr
   rien ne disait de quoi il parlait, et la seule explication vivait dans un
   `title` au survol. Renommé « — ne sert aucune obligation — » : le libellé
   porte la question, pas seulement la réponse par défaut.
-- **LE BLOC DU RAIL SE LIT D'UN SEUL TENANT.** La rubrique qui a ouvert un
-  tiroir et les icônes de ce tiroir forment **un objet**, pas deux choses posées
-  l'une sous l'autre : le filet de deux pixels vit désormais sur le CONTENEUR et
-  s'étire de la rubrique jusqu'au bas du tiroir, et l'icône qui a ouvert prend
-  l'accent. Posé dans le bouton, il s'arrêtait à ses quarante pixels et rien ne
-  disait que les icônes du dessous lui appartenaient.
+- **LE TIROIR PORTE SON PROPRE REPÈRE — IL N'APPARTIENT À AUCUNE RUBRIQUE.**
+  Premier essai (2.12.54) : étirer le filet de la rubrique jusqu'au bas du
+  tiroir, pour en faire un bloc. **La prémisse était fausse.** Le tiroir ne se
+  rattache pas à l'icône qu'on a cliquée, mais à la DERNIÈRE rubrique de l'axe,
+  parce que l'axe se lit d'abord en entier — la décision du 19 septembre, que
+  j'avais oubliée en codant. Le repère désignait donc une icône qui ne possède
+  rien, et, allongé, il balayait tout le rail. **Tant qu'il faisait seize
+  pixels, l'erreur ne se voyait pas ; c'est l'allongement qui l'a révélée.**
+  Depuis 2.12.56, le filet vit sur le TIROIR et longe sa seule hauteur : les
+  outils de l'écran forment un bloc à eux. L'accent retourne à la rubrique
+  ACTIVE, et à elle seule.
+  > **UN REPÈRE DISCRET PEUT CACHER UNE ERREUR DE MODÈLE.** Avant de rendre un
+  > signal plus visible, vérifier que ce qu'il désigne est bien ce qu'on croit.
 - **UN CHAMP RÉGLEMENTAIRE SE REMPLIT AU JUGÉ SI RIEN NE DIT CE QU'IL EST.**
   « Base légale de la décision » ne parle qu'à celui qui l'a écrit, et une
   valeur fausse part alors sur une pièce signée. D'où `BulleAide` (`ui.jsx`) :
