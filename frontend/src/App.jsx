@@ -62,8 +62,21 @@ const buildLabel = buildDate.toLocaleString('fr-BE', {
   hour: '2-digit', minute: '2-digit'
 });
 // Version : BUILD_VER peut être "1.2.8+sha" (Vite local), un SHA brut (CI sans fix), ou "dev"
+/* LE NUMÉRO DE VERSION SE RÉDUIT D'UNE SEULE FAÇON — ET CE POINT A ÉTÉ LIVRÉ
+ * FAUX, SUR LE SIGNAL MÊME QUI DEVAIT DIRE LA VÉRITÉ.
+ *
+ * L'écran gardait « 2.12.62-dev » (coupé au seul « + ») pendant que le serveur
+ * était réduit à « 2.12.62 » (coupé au « + » ET au « - »). Deux traitements
+ * pour une même grandeur : le badge annonçait « 2.12.62-dev ≠ 2.12.62 » sur
+ * deux moitiés parfaitement à jour.
+ *
+ * UNE FAUSSE ALERTE SUR UN SIGNAL D'ALERTE EST PIRE QUE PAS DE SIGNAL : on
+ * apprend en trois jours à ne plus le lire, et il se tait le jour où il
+ * compte. Une seule fonction, employée des deux côtés. */
+const numeroSeul = v => String(v || '').split('+')[0].split('-')[0];
+
 const _isVersion = BUILD_VER.includes('.');
-const versionNum = _isVersion ? BUILD_VER.split('+')[0] : '3.0.0'; // fallback hardcodé
+const versionNum = _isVersion ? numeroSeul(BUILD_VER) : '3.0.0'; // fallback hardcodé
 const shaOnly = BUILD_VER.includes('+')
   ? BUILD_VER.split('+')[1]?.slice(0,7)
   : BUILD_VER === 'dev' ? '' : BUILD_VER.slice(0,7);
@@ -233,7 +246,7 @@ function ProtectedLayout({ children }) {
      un écart de déploiement, c'est un poste de travail. Un signal qui crie
      tous les jours en développement est un signal qu'on apprend à ignorer —
      et il se tairait le jour où il compte. */
-  const verServeurNum = verServeur ? String(verServeur).split(/[+-]/)[0] : null;
+  const verServeurNum = verServeur ? numeroSeul(verServeur) : null;
   const versionDecalee = !!verServeurNum && verServeurNum.includes('.')
     && verServeurNum !== versionNum;
 
