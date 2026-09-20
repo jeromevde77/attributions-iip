@@ -5447,6 +5447,11 @@ r.get('/valorisations/analyse', authRequired, (req, res) => {
       section, ue_num: v.ue_num, ue_nom: v.ue_nom,
       porte: v.porte, type: v.type, etat: etatDeduit(v),
       decision: v.decision, base_code: v.base_code,
+      /* LES DATES DE LA DEMANDE PARTENT AVEC LE DOSSIER. L'écran en a besoin
+       * pour dire si la PREMIÈRE étape du circuit est franchie : sans elles, la
+       * frise d'avancement montrait « demande à poser » sur des dossiers qui
+       * la portaient depuis des semaines. */
+      date_demande: v.date_demande, date_reception: v.date_reception,
       recevable: v.recevable, recevabilite_le: v.recevabilite_le,
       motif_irrecevabilite: v.motif_irrecevabilite,
       avis_le: v.avis_le, avis_sens: v.avis_sens,

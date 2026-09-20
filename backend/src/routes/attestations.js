@@ -1253,6 +1253,22 @@ r.get('/valorisation/ue/:ueNum/seance', authRequired, (req, res) => {
     // La présidence proposée, jamais imposée : le directeur peut avoir été
     // absent ce jour-là, et le procès-verbal doit dire qui a présidé.
     president_propose: directeur ? nomPropreDepuisChaine(directeur) : null,
+    /* LA DATE DE LA SÉANCE SE DÉDUIT DES DÉCISIONS ENCODÉES, PAS DU JOUR OÙ
+     * L'ON IMPRIME. Le procès-verbal atteste d'une séance TENUE : proposer la
+     * date du jour revient à faire dire à la pièce que le Conseil s'est réuni
+     * le jour où le secrétariat a cliqué sur « imprimer » — parfois des
+     * semaines après. La date de la décision est déjà encodée sur chaque
+     * valorisation (`decision_ce_date`) ; c'est elle qui fait foi.
+     *
+     * On ne propose que si les dossiers s'accordent sur UNE seule date : deux
+     * dates différentes sur une même unité veulent dire deux séances, et
+     * choisir l'une pour tous écrirait une date fausse pour les autres. Le
+     * champ reste alors vide, et le manque le signale. */
+    date_seance_proposee: (() => {
+      const dates = [...new Set(vas.map(v => (v.decision_ce_date || '').slice(0, 10))
+        .filter(Boolean))];
+      return dates.length === 1 ? dates[0] : null;
+    })(),
     nb: vas.length,
     manques: manquesValorisation(etat, vas, ue, annee),
   });

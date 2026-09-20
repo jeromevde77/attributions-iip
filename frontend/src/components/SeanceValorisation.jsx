@@ -46,7 +46,9 @@ export default function SeanceValorisation({ ueNum, ueNom, annee, onClose }) {
       // rien n'a encore été saisi pour cette séance.
       const s = j.seance || {};
       setEtat({ ...j, champs: {
-        date_seance: s.date_seance || '',
+        // La date de séance proposée vient des décisions déjà encodées, jamais
+        // du jour où l'on imprime : le PV atteste d'une séance tenue.
+        date_seance: s.date_seance || j.date_seance_proposee || '',
         communication_date: s.communication_date || '',
         president_nom: s.president_nom || j.president_propose || '',
         president_titre: s.president_titre || 'le Directeur',
@@ -176,7 +178,20 @@ export default function SeanceValorisation({ ueNum, ueNom, annee, onClose }) {
             <label className="text-xs"><span className="block font-semibold text-slate-500
               uppercase tracking-wide mb-1">Date de la séance</span>
               <input type="date" value={etat.champs.date_seance} className="controle w-full"
-                onChange={e => set('date_seance', e.target.value)} /></label>
+                onChange={e => set('date_seance', e.target.value)} />
+              {!etat.seance?.date_seance && etat.date_seance_proposee && (
+                <span className="block mt-1 font-normal normal-case tracking-normal
+                                 text-[11px] text-slate-500">
+                  Reprise de la décision encodée sur les dossiers de cette unité.
+                </span>
+              )}
+              {!etat.seance?.date_seance && !etat.date_seance_proposee && etat.nb > 0 && (
+                <span className="block mt-1 font-normal normal-case tracking-normal
+                                 text-[11px] text-amber-700">
+                  Les dossiers de cette unité ne portent pas tous la même date de
+                  décision : à saisir, une date pour deux séances serait fausse.
+                </span>
+              )}</label>
             <label className="text-xs"><span className="block font-semibold text-slate-500
               uppercase tracking-wide mb-1">Communication des résultats</span>
               <input type="date" value={etat.champs.communication_date} className="controle w-full"

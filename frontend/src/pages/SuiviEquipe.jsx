@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
-  IconCalendarEvent, IconChecklist, IconPlus, IconPrinter,
+  IconCalendarEvent, IconChecklist, IconPlus, IconPrinter, IconTimeline,
   IconCheck, IconChevronLeft, IconClock, IconUser, IconX, IconTrash,
 } from '@tabler/icons-react';
 import { authHeaders } from '../lib/api.js';
@@ -51,7 +51,20 @@ const enRetard = t => t.echeance && t.echeance < aujourdhui()
   && t.statut !== 'fait' && t.statut !== 'abandonnee';
 
 export default function SuiviEquipe() {
-  const [vue, setVue] = useState('reunions');   // reunions | taches
+  /* ON OUVRE SUR LA FRISE, PAS SUR LA LISTE DES RÉUNIONS — ET C'EST UN AVEU.
+   *
+   * La frise a été demandée, écrite, livrée… et son auteur ne l'a pas retrouvée
+   * deux jours plus tard. Elle était derrière une entrée de rail nommée
+   * « Tâches », portant `IconChecklist` — LA MÊME ICÔNE QUE LE TITRE DE L'ÉCRAN :
+   * rail replié, le libellé disparaît, et il restait deux cases à cocher
+   * identiques dont l'une ne menait nulle part de visible. Si le développeur ne
+   * la trouve pas, le secrétariat ne la trouvera jamais.
+   *
+   * La question de l'écran est « où en sommes-nous ? », et la réponse est le
+   * TEMPS : ce qui tombe cette semaine. La liste des réunions est la matière,
+   * pas la réponse. La frise passe donc devant, et l'icône du temps la
+   * désigne. */
+  const [vue, setVue] = useState('taches');   // taches | reunions
   const [reunions, setReunions] = useState([]);
   const [ouverte, setOuverte] = useState(null); // détail d'une réunion
   const [taches, setTaches] = useState([]);
@@ -116,11 +129,14 @@ export default function SuiviEquipe() {
         sousTitre={`${tachesOuvertes.length} tâche(s) ouverte(s)`}
         impression={null}
         sections={[
+          /* L'ICÔNE DU TEMPS POUR LA FRISE, JAMAIS CELLE DU TITRE DE L'ÉCRAN.
+             `IconChecklist` désigne déjà Suivi d'équipe lui-même : le rail
+             replié montrait deux fois le même dessin. */
           { label: 'Vue', items: [
+            { key: 'taches', label: 'Échéances et tâches', icon: IconTimeline,
+              actif: vue === 'taches', onClick: () => { setVue('taches'); setOuverte(null); } },
             { key: 'reunions', label: 'Réunions', icon: IconCalendarEvent,
               actif: vue === 'reunions', onClick: () => { setVue('reunions'); setOuverte(null); } },
-            { key: 'taches', label: 'Tâches', icon: IconChecklist,
-              actif: vue === 'taches', onClick: () => { setVue('taches'); setOuverte(null); } },
           ]},
           { label: 'Actions', items: [
             { key: 'nouvelle', label: 'Nouvelle réunion', icon: IconPlus,
@@ -861,7 +877,8 @@ function VueTaches({ taches, personnes, obligations, api, filtre, setFiltre,
 
   return (
     <>
-      <PageHeader titre="Tâches" sous="Ce que chacun a en charge"
+      <PageHeader titre="Échéances et tâches"
+        sous="Trente jours devant, sept derrière — puis ce que chacun a en charge"
         actions={
           <>
             <div className="segments">
