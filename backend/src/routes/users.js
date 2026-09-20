@@ -66,8 +66,8 @@ r.post('/', authRequired, roleRequired('admin'), (req, res) => {
       if (professeur_id) {
         db.prepare('UPDATE utilisateur SET professeur_id = ?, role = ?, actif = 1 WHERE id = ?')
           .run(professeur_id, roleNorm, existing.id);
-        if (role === 'coordination') setSections(existing.id, sections);
-        else ouvrirTout(existing.id);
+        if (Array.isArray(sections) && sections.length) setSections(existing.id, sections);
+        else ouvrirTout(existing.id);   // rien de demandé : ouvert, jamais aveugle
       }
       return res.status(200).json({ id: existing.id, linked: true });
     }
@@ -76,8 +76,8 @@ r.post('/', authRequired, roleRequired('admin'), (req, res) => {
       INSERT INTO utilisateur (email, password_hash, nom_complet, role, actif, professeur_id)
       VALUES (?, ?, ?, ?, 1, ?)
     `).run(email, hash, nom_complet || email, role, professeur_id || null);
-    if (role === 'coordination') setSections(result.lastInsertRowid, sections);
-    else ouvrirTout(result.lastInsertRowid);
+    if (Array.isArray(sections) && sections.length) setSections(result.lastInsertRowid, sections);
+    else ouvrirTout(result.lastInsertRowid);   // rien de demandé : ouvert, jamais aveugle
     res.status(201).json({ id: result.lastInsertRowid });
   } catch (e) {
     if (e.code === 'SQLITE_CONSTRAINT_UNIQUE') return res.status(409).json({ error: 'Email déjà utilisé' });
@@ -131,9 +131,18 @@ r.patch('/:id', authRequired, roleRequired('admin'), (req, res) => {
 
   // Mise à jour des sections (si fournies)
   if (sections !== undefined) {
-    const finalRole = role !== undefined ? role
-      : db.prepare('SELECT role FROM utilisateur WHERE id = ?').get(req.params.id)?.role;
-    if (finalRole === 'coordination') {
+    // LE PÉRIMÈTRE NE DÉPEND PLUS DU RÔLE, et il ne l'a jamais vraiment dû.
+    //
+    // Les sections n'étaient posées que pour une coordination ; pour tout autre
+    // rôle elles étaient PURGÉES sans un mot. La fiche envoyait pourtant un
+    // périmètre en toutes lettres — son propre commentaire disait « un
+    // secrétariat de section, cela existe » —, et le serveur le jetait. On
+    // cochait des sections, on enregistrait, l'écran confirmait, et rien
+    // n'était gardé.
+    //
+    // `getUserSections` n'a jamais regardé le rôle, sauf pour la direction.
+    // C'était donc la seule porte qui refusait ce que tout le reste acceptait.
+    {
       setSections(req.params.id, sections);
       // NOMMER DES SECTIONS VEUT DIRE « PAS TOUTES ». Sans cela, un compte qui
       // portait le drapeau continuerait de tout voir malgré la liste qu'on
@@ -145,10 +154,11 @@ r.patch('/:id', authRequired, roleRequired('admin'), (req, res) => {
         db.prepare('UPDATE utilisateur SET perimetre_toutes = 0 WHERE id = ?').run(req.params.id);
       }
     }
-    else ouvrirTout(req.params.id);   // plus coordination : tout l'Institut, pas rien
-  } else if (role !== undefined && role !== 'coordination') {
-    ouvrirTout(req.params.id);
   }
+  // CHANGER DE RÔLE NE TOUCHE PLUS AU PÉRIMÈTRE. La purge se justifiait tant
+  // que seule une coordination pouvait être cloisonnée ; elle effacerait
+  // maintenant un réglage que personne n'a demandé de défaire — et, le défaut
+  // étant fermé, elle l'effacerait dans le sens dangereux une fois sur deux.
 
   if (!updates.length && sections === undefined) return res.status(400).json({ error: 'Rien à modifier' });
   res.json({ ok: true });

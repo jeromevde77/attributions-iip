@@ -175,9 +175,13 @@ export default function Users({ embedded = false }) {
         <div className="flex-1 min-w-[320px]">
           {!embedded && <h1 className="titre-ecran">Accès à Lucie</h1>}
           <div className="px-3 py-2 rounded-lg bg-sky-50 border border-sky-200 text-[12px] text-sky-900">
-            Les accès d'un membre du personnel se règlent depuis sa fiche, onglet « Accès Lucie »,
-            ou directement dans le tableau ci-dessous. Le bouton ne sert qu'aux comptes sans
-            fiche : administrateur technique, prestataire extérieur.
+            <b>Cet écran montre les accès ; il ne les règle pas.</b> Les droits et le
+            périmètre d'un membre du personnel se règlent sur SA FICHE, onglet « Accès
+            Lucie » — un même droit modifiable à deux endroits, c'est deux endroits où
+            l'on ne sait plus lequel a écrit en dernier. Ce que chaque RÔLE autorise au
+            mieux se décide, lui, dans « Rôles et plafonds ».
+            Seuls les comptes sans fiche — administrateur technique, prestataire
+            extérieur — se règlent ici : ils n'ont pas d'autre écran.
           </div>
         </div>
         <button onClick={() => setShowForm(true)}
@@ -365,6 +369,19 @@ function MatriceAcces({ users, sectionsDispo, profils, onModifie, onProfil,
     } finally { setEnCours(null); }
   }
 
+  /* ON GÈRE SUR LA FICHE, ON REGARDE ICI.
+   *
+   * Les mêmes droits se réglaient à deux endroits, et rien ne disait lequel
+   * faisait foi : on corrigeait ici ce qu'on venait de poser là, sans jamais
+   * savoir laquelle des deux mains avait écrit en dernier. Ce tableau MONTRE
+   * désormais, et renvoie à la fiche pour modifier.
+   *
+   * L'exception est nécessaire, et elle est étroite : un compte SANS fiche —
+   * administrateur technique, prestataire extérieur — n'a pas d'autre écran.
+   * Le rendre lisible seulement l'aurait rendu irréglable.
+   */
+  const reglableIci = u => !u.professeur_id;
+
   const Ligne = ({ u }) => (
     <tr className="hover:bg-slate-50/60">
       <td className="sticky left-0 bg-white border-r border-b border-slate-100 px-3 py-1.5">
@@ -394,8 +411,13 @@ function MatriceAcces({ users, sectionsDispo, profils, onModifie, onProfil,
             deux états étant alors confondus. Un périmètre vide se dit
             maintenant, et en ocre : c'est une anomalie tant que personne ne
             l'a voulue, pas un réglage neutre. */}
-        <button onClick={() => setPerimetreOuvert(perimetreOuvert === u.id ? null : u.id)}
-          className="text-[11px] text-left hover:text-iip-blue underline decoration-dotted">
+        <button
+          onClick={() => reglableIci(u) && setPerimetreOuvert(perimetreOuvert === u.id ? null : u.id)}
+          title={reglableIci(u) ? undefined
+            : 'Se règle sur la fiche de la personne, onglet « Accès Lucie »'}
+          className={`text-[11px] text-left ${reglableIci(u)
+            ? 'hover:text-iip-blue underline decoration-dotted'
+            : 'cursor-default'}`}>
           {u.perimetre_toutes
             ? <span className="text-slate-400">toutes</span>
             : u.sections?.length
@@ -403,7 +425,7 @@ function MatriceAcces({ users, sectionsDispo, profils, onModifie, onProfil,
               : <span className="text-amber-700">aucun accès</span>}
         </button>
 
-        {perimetreOuvert === u.id && (
+        {perimetreOuvert === u.id && reglableIci(u) && (
           /* TROIS ÉTATS, ET ILS SE CHOISISSENT. La case « Toutes les sections »
              était cochée quand la liste était vide, et la décocher renvoyait
              `sections: []` — le même état : elle se recochait aussitôt. « Aucun
@@ -518,7 +540,7 @@ function MatriceAcces({ users, sectionsDispo, profils, onModifie, onProfil,
       {MODULES_ACCES.map(m => {
         const droit = droitEffectif(u, m.key);
         const d = LIBELLE_DROIT[droit] || LIBELLE_DROIT.rien;
-        const modifiable = !!cycle(u, m.key);
+        const modifiable = !!cycle(u, m.key) && reglableIci(u);
         const occupe = enCours === `${u.id}|${m.key}`;
         return (
           <td key={m.key} className="border-b border-slate-100 px-1 py-1.5 text-center">
@@ -559,7 +581,7 @@ function MatriceAcces({ users, sectionsDispo, profils, onModifie, onProfil,
             Accès — {actifs.length} compte(s) actif(s)
           </span>
           <span className="text-[11px] text-slate-500 ml-2">
-            cliquez une case pour changer le droit, ou le périmètre en regard du nom
+            en lecture — pour modifier, ouvrez la fiche de la personne
           </span>
         </div>
 
@@ -601,7 +623,7 @@ function MatriceAcces({ users, sectionsDispo, profils, onModifie, onProfil,
                 <tr>
                   <td colSpan={6 + MODULES_ACCES.length}   /* +1 : colonne « 2 temps » */
                     className="bg-slate-100 border-y border-slate-300 px-3 py-1 text-[10px] uppercase tracking-wide text-slate-500 font-semibold">
-                    Membres du personnel — leurs accès se règlent aussi depuis leur fiche
+                    Membres du personnel — leurs accès se règlent sur leur fiche
                   </td>
                 </tr>
               )}
