@@ -606,6 +606,19 @@ export default function App() {
           panne, et l'on cherche ce qu'on a cassé. Le COMPOSANT reste, il est
           rendu par le centre d'impression. */}
       <Route path="/listes" element={<Navigate to="/accueil" replace />} />
+      {/* CES ROUTES N'ONT PLUS DE PORTE, ET CE N'EST PAS UN OUBLI.
+          /procedures, /besoins, /classement, /disciplinaire, /planification :
+          aucun rail n'y mène, parce que leurs écrans sont devenus des ONGLETS.
+          Elles rendent pourtant le bon écran, avec le bon onglet déjà ouvert —
+          ce sont des raccourcis, pas des restes.
+
+          /procedures en particulier NE DOIT PAS DISPARAÎTRE : deux échéances
+          de l'échéancier y pointent par `lien_interne`, et elles portent une
+          base légale (D. 16/04/1991 art. 123ter §4). La supprimer casserait
+          des rappels d'obligations, silencieusement.
+
+          Écrit ici parce que « aucun lien n'y mène » se lit « code mort », et
+          qu'on l'a cru une fois. */}
       <Route path="/procedures" element={
         <ProtectedLayout>
           <Suspense fallback={<div className="p-8 text-gray-400">Chargement…</div>}>

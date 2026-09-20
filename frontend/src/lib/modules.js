@@ -36,7 +36,13 @@ export const MODULES_ACCES = [
   // Tant que la dotation vivait dans « pilotage », ouvrir le reporting à une
   // coordination lui ouvrait la dotation : la règle de la maison — elle
   // consulte, elle propose, elle n'engage pas — était inexprimable.
-  { key: 'pilotage',     label: 'Reporting',     Icone: IconChartBar,      desc: 'Synthèse, ETP, résultats — en lecture' },
+  /* « Reporting » n'existait nulle part dans l'interface : l'onglet s'appelle
+     « Chiffres de l'école ». Même défaut que « Listes » — un mot qui ne
+     désigne rien qu'on puisse montrer, dans l'écran où l'on vient justement
+     vérifier qui peut quoi. LA CLÉ RESTE `pilotage` : elle porte les plafonds
+     et les permissions déjà enregistrées. */
+  { key: 'pilotage',     label: 'Chiffres de l’école', Icone: IconChartBar,
+    desc: 'Synthèse, ETP, résultats — en lecture' },
   { key: 'dotation',     label: 'Dotation',      Icone: IconCoin,          desc: "Ce qui engage l'établissement — réservé" },
   { key: 'repartition',  label: 'Répartition',   Icone: IconCalendarStats, desc: 'Périodes entre années civiles — document 2' },
   { key: 'budget',       label: 'Budget',        Icone: IconCoin,          desc: 'Prévisions et dépenses de la section' },
