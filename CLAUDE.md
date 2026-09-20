@@ -623,6 +623,71 @@ promesse, et le refus arrive alors après coup.
 > trois fois. C'est la leçon de 2.11.1, repayée. **Sous-requête avec LIMIT 1,
 > jamais de jointure sur `ue`** quand on compte ou qu'on liste des dossiers.
 
+> **UNE DISPENSE PARTIELLE N'EST PAS UNE RÉUSSITE, ET SES 50 % NE SONT PAS UNE
+> NOTE D'UNITÉ.** Le procès-verbal portait « Réussite » et 50 % en face d'un
+> étudiant dont l'unité n'est PAS acquise : la pièce se lisait comme une
+> réussite d'unité à 50 %, faux deux fois — l'unité reste à présenter, et le
+> pourcentage ne porte que sur les activités dispensées. Un lecteur extérieur
+> n'avait rien pour le détromper. Depuis 2.12.59 : **« Réussite partielle —
+> dispense »**, et à la place de la note un **renvoi vers une remarque
+> numérotée** sous le tableau, qui dit ce qui est dispensé et à quoi le
+> pourcentage s'applique. **Les renvois se regroupent par DÉCISION identique,
+> pas par étudiant** : dix-sept dossiers portant la même dispense partagent la
+> remarque 1, et celui que le Conseil a tranché autrement porte la remarque 2 —
+> une remarque par étudiant en ferait dix-sept identiques, et le renvoi ne
+> distinguerait plus ce qui diffère, sa seule raison d'être. La **remarque du
+> Conseil** n'y entre pas : elle s'imprime déjà dans la colonne « Dispense(s) »,
+> et l'écrire deux fois sur la même pièce est le plus sûr moyen d'en avoir un
+> jour deux versions.
+
+> **LA DATE DU PROCÈS-VERBAL SE DÉDUIT DES DÉCISIONS ENCODÉES, PAS DU JOUR OÙ
+> L'ON IMPRIME.** Le PV atteste d'une séance TENUE ; proposer la date du jour
+> lui faisait dire que le Conseil s'est réuni le jour où le secrétariat a
+> cliqué sur « imprimer », parfois des semaines après. Elle se reprend de
+> `decision_ce_date`, et **seulement si les dossiers de l'unité s'accordent sur
+> UNE date** : deux dates veulent dire deux séances, et en choisir une écrirait
+> une date fausse pour les autres — le champ reste alors vide et l'écran le dit.
+
+> **CINQ BOUTONS NE FONT PAS UNE PROCÉDURE.** Les cinq gestes d'*Analyser en
+> série* s'alignaient comme cinq boutons indifférents : rien ne disait lequel
+> avait été posé, lequel venait ensuite, ni qu'ils formaient un circuit — on
+> reprenait de mémoire, chaque matin, ce qu'on avait fait la veille, et c'est
+> ainsi qu'une étape se saute. Depuis 2.12.58, une **frise numérotée** :
+> l'étape franchie s'efface et porte sa coche, l'étape courante est en relief,
+> les autres attendent, et **toutes restent cliquables** — on revient en arrière
+> pour corriger, c'est ce que la régularisation demande ; ce qui bloque est le
+> serveur, dossier par dossier. L'avancement **se lit des traces**, comme
+> l'état, et il se calcule sur les dossiers CONCERNÉS — cochés s'il y en a,
+> visibles sinon : une frise calculée sur les 588 dossiers de l'année ne dirait
+> rien de la liasse qu'on a en main. **Changer d'étape ÉLAGUE la sélection, il
+> ne l'efface plus** : elle s'effaçait, et il fallait recocher les dix-sept
+> dossiers à chaque étape — cinq fois la même liasse, ce que le lot devait
+> précisément épargner. On garde ce qui reste éligible, et l'on avance d'une
+> étape après chaque geste posé.
+
+> **UNE FONCTION QUE SON AUTEUR NE RETROUVE PAS N'EST PAS LIVRÉE.** La frise des
+> échéances vivait derrière une entrée de rail nommée « Tâches » portant
+> `IconChecklist` — **la même icône que le titre de l'écran** : rail replié, le
+> libellé disparaît, et il restait deux cases à cocher identiques dont l'une ne
+> menait nulle part de visible. Jérôme ne l'a pas retrouvée deux jours après
+> l'avoir demandée ; le secrétariat ne l'aurait jamais trouvée. Suivi d'équipe
+> ouvre donc sur **« Échéances et tâches »**, sous l'icône du temps : la
+> question de l'écran est « où en sommes-nous ? », la réponse est le TEMPS, et
+> la liste des réunions est la matière, pas la réponse. **Corollaire de la règle
+> « une entrée de rail sans icône est invisible » : une entrée qui porte l'icône
+> de l'écran l'est aussi.**
+
+> **LE PIED D'UNE FENÊTRE NE SE CHEVAUCHE PAS.** Le bouton et la phrase qui dit
+> pourquoi il est gris vivent côte à côte ; la phrase est longue, et rien ne lui
+> disait de se réduire — **un enfant de boîte flex ne descend pas sous la
+> largeur de son contenu sans `min-w-0`**. Le texte passait donc sous le bouton.
+> Les boutons ne se compriment jamais (`.bouton` est en `nowrap`) : c'est au
+> texte de céder. Réglé sur `Fenetre`, une fois, pour toutes les fenêtres.
+> Et trois fenêtres de valorisation portaient un **second ascenseur et une
+> seconde marge** — `flex-1 min-h-0 overflow-auto p-5` dans un parent qui n'est
+> pas une boîte flex : `flex-1` ne faisait rien, les marges se cumulaient à
+> 36 px, et deux ascenseurs se chevauchaient au pied de la fenêtre.
+
 **Le registre des valorisations** (rail *Étudiants → Valorisation*) : elles ne se
 lisaient que fiche par fiche, donc elles ne se lisaient pas — personne n'ouvre
 588 dossiers pour savoir qui a demandé quoi. Une ligne par demande, filtrable par

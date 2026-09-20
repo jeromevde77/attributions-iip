@@ -1551,15 +1551,82 @@ r.post('/valorisation/ue/:ueNum/documents', authRequired, async (req, res) => {
       + '</div>' + reste + suite;
   };
 
+  /* UNE DISPENSE PARTIELLE N'EST PAS UNE RÉUSSITE, ET SON POURCENTAGE N'EST PAS
+   * UNE NOTE D'UNITÉ.
+   *
+   * La colonne disait « Réussite » et portait 50 % en face d'un étudiant dont
+   * l'unité n'est PAS acquise : la pièce se lisait donc comme une réussite
+   * d'unité à 50 %, ce qui est faux deux fois — l'unité reste à présenter, et
+   * les 50 % ne portent que sur les activités dispensées. Un lecteur extérieur
+   * — inspection, autre établissement, l'étudiant lui-même — n'avait rien pour
+   * le détromper.
+   *
+   * Désormais : « Réussite partielle — dispense », et à la place de la note un
+   * RENVOI vers une remarque numérotée, sous le tableau, qui dit ce qui est
+   * dispensé et à quoi le pourcentage s'applique.
+   *
+   * LES RENVOIS SE REGROUPENT PAR DÉCISION IDENTIQUE, pas par étudiant. Huit
+   * dossiers de reprise d'études qui portent la même dispense partagent la
+   * remarque 1 ; celui dont le Conseil a décidé autrement porte la remarque 2.
+   * Une remarque par étudiant sur une cohorte de dix-sept en ferait dix-sept
+   * identiques, et le renvoi ne servirait plus à distinguer ce qui diffère —
+   * or c'est sa seule raison d'être.
+   */
+  const remarques = [];          // [{ n, html }] dans l'ordre d'apparition
+  const renvoiDe = new Map();    // valorisation_id → n° de remarque
+  for (const v of vas) {
+    if (v.decision === 'refusee' || v.type !== 'partielle') continue;
+    const eq = equivalences[v.id] || [];
+    const codes = v.cible === 'aa'
+      ? [...new Set([...String(v.cible_detail || '').split(',').filter(Boolean),
+                     ...eq.map(x => x.aa_code)])].sort()
+      : String(v.cible_detail || '').split(',').filter(Boolean).sort();
+    const pct = v.pourcentage != null ? Math.round(Number(v.pourcentage)) : null;
+    /* LA REMARQUE DU CONSEIL N'ENTRE PAS ICI : elle s'imprime déjà dans la
+     * colonne « Dispense(s) », et l'écrire deux fois sur la même pièce est le
+     * plus sûr moyen d'en avoir un jour deux versions. La remarque numérotée
+     * ne dit qu'une chose : ce qui est dispensé, et à quoi la note s'applique. */
+    const signature = JSON.stringify([v.cible || '', codes, pct]);
+    let trouve = remarques.find(r => r.signature === signature);
+    if (!trouve) {
+      const quoi = v.cible === 'aa'
+        ? `acquis d'apprentissage ${esc(codes.join(', '))} valorisé${codes.length > 1 ? 's' : ''}`
+        : codes.length
+          ? `activité${codes.length > 1 ? 's' : ''} d'enseignement ${esc(codes.join(', '))}`
+            + ` dispensée${codes.length > 1 ? 's' : ''}`
+          : 'dispense partielle';
+      trouve = {
+        signature, n: remarques.length + 1,
+        html: `<b>Dispense partielle</b> — ${quoi}`
+          + (pct != null
+            ? `, avec la note de ${pct} %. <b>Cette note porte sur les seules `
+              + `activités ou acquis dispensés, et non sur l'unité `
+              + `d'enseignement, qui n'est pas acquise.</b>`
+            : '.')
+      };
+      remarques.push(trouve);
+    }
+    renvoiDe.set(v.id, trouve.n);
+  }
+
+  /* CE QUE DIT LA COLONNE « RÉUSSITE / REFUS ». Trois cas, et non deux : un
+   * refus, une réussite d'unité (dispense complète), et une réussite PARTIELLE
+   * qui ne vaut pas l'unité. Les confondre était l'erreur. */
+  const issue = v => {
+    if (v.decision === 'refusee') return 'Refus';
+    if (v.pourcentage == null) return 'Refus';
+    return v.type === 'partielle' ? 'Réussite partielle<br>— dispense' : 'Réussite';
+  };
+
   const lignes = vas.map(v => `<tr>
     <td><b>${esc((v.nom || '').toUpperCase())} ${esc(v.prenom || '')}</b><br>
       <span class="ref">${esc(v.lieu_naissance || '')}${
         v.date_naissance ? `, ${frDate(v.date_naissance)}` : ''}</span></td>
-    <td class="c">${v.decision === 'refusee' ? 'Refus'
-      : v.pourcentage != null ? 'Réussite' : 'Refus'}</td>
+    <td class="c">${issue(v)}</td>
     <td>${dit(v)}</td>
-    <td class="c">${v.pourcentage != null
-      ? `${Math.round(Number(v.pourcentage))} %` : ''}</td>
+    <td class="c">${renvoiDe.has(v.id)
+      ? `<i>voir remarque ${renvoiDe.get(v.id)}</i>`
+      : v.pourcentage != null ? `${Math.round(Number(v.pourcentage))} %` : ''}</td>
   </tr>`).join('');
 
   const pv = `<div class="attestation">
@@ -1624,7 +1691,14 @@ r.post('/valorisation/ue/:ueNum/documents', authRequired, async (req, res) => {
     <tbody>${lignes}</tbody>
   </table>
   <p style="font-size:7.5pt;color:#64748b"><sup>1</sup> À ne compléter qu'en cas
-    de « Réussite ».</p>
+    de « Réussite ». En cas de dispense partielle, l'unité d'enseignement n'est
+    pas acquise : aucune note d'unité ne s'y attache, et la colonne renvoie à la
+    remarque qui précise ce qui est dispensé.</p>
+  ${remarques.length ? `
+  <div class="info" style="margin-top:3mm">
+    ${remarques.map(r => `<div class="ligne"><b>Remarque ${r.n}.</b> ${r.html}</div>`)
+      .join('')}
+  </div>` : ''}
   ${vas.some(v => v.type === 'partielle' && v.decision !== 'refusee') ? `
   <div class="info" style="margin-top:3mm">
     <div class="ligne">Le Conseil des études a évalué si l'étudiant ou
