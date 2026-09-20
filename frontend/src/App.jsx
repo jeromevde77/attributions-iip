@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, Component } from 'react';
-import { estDirection, droitEffectif } from './lib/modules.js';
+import { estDirection, droitEffectif, usePlafonds, oublierPlafonds } from './lib/modules.js';
 
 // Error boundary : affiche l'erreur au lieu d'une page blanche
 class ErrorBoundary extends Component {
@@ -36,14 +36,13 @@ import DCPP from './pages/DCPP.jsx';
 import Recrutement from './pages/Recrutement.jsx';
 import Accueil from './pages/Accueil.jsx';
 import { lazy, Suspense } from 'react';
-const Listes     = lazy(() => import('./pages/Listes.jsx'));
 const Procedures = lazy(() => import('./pages/Procedures.jsx'));
 import Configuration from './pages/Configuration.jsx';
 import EA12List from './pages/EA12List.jsx';
 import EA12Editor from './pages/EA12Editor.jsx';
 import Pilotage from './pages/Pilotage.jsx';
 import Planification from './pages/Planification.jsx';
-import Aide from './pages/Aide.jsx';
+const Documentation = lazy(() => import('./pages/Documentation.jsx'));
 import Attestation from './pages/Attestation.jsx';
 import Disciplinaire from './pages/Disciplinaire.jsx';
 import Echeancier from './pages/Echeancier.jsx';
@@ -180,6 +179,9 @@ function VoirCommePicker() {
 
 function ProtectedLayout({ children }) {
   const navigate = useNavigate();
+  // Les plafonds viennent du serveur : le rail se redessine quand ils arrivent,
+  // sans quoi il resterait celui de l'amorce jusqu'au prochain clic.
+  usePlafonds();
   const [compteOuvert, setCompteOuvert] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
 
@@ -372,7 +374,14 @@ function ProtectedLayout({ children }) {
     .filter(([, , , module]) => !module || droitEffectif(u, module) !== 'rien')
     .map(([to, lbl, Icon]) => [to, lbl, Icon]);
 
-  nav.push(['/aide', '', IconHelpCircle]);
+  /* L'AIDE DEVIENT LA DOCUMENTATION, ET C'EST UNE ABSORPTION, PAS UN AJOUT.
+   *
+   * Deux portes pour « savoir » en auraient fait une de trop : un enseignant
+   * aurait cherché la circulaire examens dans l'une et le mode d'emploi du PAE
+   * dans l'autre, sans pouvoir deviner laquelle. L'écran porte donc deux
+   * faces — les TEXTES qui s'imposent, et le MODE D'EMPLOI de l'outil — et il
+   * garde la place et l'icône que l'aide occupait déjà dans la barre. */
+  nav.push(['/documentation', '', IconHelpCircle]);
   if (estDirection(u)) nav.push(['/configuration', 'Config.', IconSettings]);
 
   return (
@@ -540,7 +549,7 @@ function ProtectedLayout({ children }) {
                            hover:text-iip-blue hover:bg-slate-100 transition-colors duration-150">
                 <IconShieldLock size={16} />
               </button>
-              <button onClick={() => { api.logout(); navigate('/login'); }}
+              <button onClick={() => { oublierPlafonds(); api.logout(); navigate('/login'); }}
                 title="Se déconnecter" aria-label="Se déconnecter"
                 className="w-8 h-8 grid place-items-center rounded-champ text-slate-400
                            hover:text-iip-blue hover:bg-slate-100 transition-colors duration-150">
@@ -589,13 +598,27 @@ export default function App() {
       <Route path="/communication" element={<Navigate to="/accueil" replace />} />
       <Route path="/recrutement"   element={<ProtectedLayout><AdminOrRH><Recrutement /></AdminOrRH></ProtectedLayout>} />
       <Route path="/dcpp/:profId" element={<ProtectedLayout><DCPP /></ProtectedLayout>} />
-      <Route path="/listes" element={
-        <ProtectedLayout>
-          <Suspense fallback={<div className="p-8 text-gray-400">Chargement…</div>}>
-            <Listes />
-          </Suspense>
-        </ProtectedLayout>
-      } />
+      {/* LA PAGE N'A PLUS DE PORTE, ET N'EN AVAIT PLUS DEPUIS L'AXE COMMUNICATION.
+          Le constructeur de listes vit dans le centre d'impression, sous la
+          bascule « Listes » : il s'ouvre depuis n'importe quel axe. La route
+          ne servait plus qu'aux signets — d'où une redirection, et non une
+          suppression : un signet qui tombe sur du vide fait croire à une
+          panne, et l'on cherche ce qu'on a cassé. Le COMPOSANT reste, il est
+          rendu par le centre d'impression. */}
+      <Route path="/listes" element={<Navigate to="/accueil" replace />} />
+      {/* CES ROUTES N'ONT PLUS DE PORTE, ET CE N'EST PAS UN OUBLI.
+          /procedures, /besoins, /classement, /disciplinaire, /planification :
+          aucun rail n'y mène, parce que leurs écrans sont devenus des ONGLETS.
+          Elles rendent pourtant le bon écran, avec le bon onglet déjà ouvert —
+          ce sont des raccourcis, pas des restes.
+
+          /procedures en particulier NE DOIT PAS DISPARAÎTRE : deux échéances
+          de l'échéancier y pointent par `lien_interne`, et elles portent une
+          base légale (D. 16/04/1991 art. 123ter §4). La supprimer casserait
+          des rappels d'obligations, silencieusement.
+
+          Écrit ici parce que « aucun lien n'y mène » se lit « code mort », et
+          qu'on l'a cru une fois. */}
       <Route path="/procedures" element={
         <ProtectedLayout>
           <Suspense fallback={<div className="p-8 text-gray-400">Chargement…</div>}>
@@ -617,7 +640,10 @@ export default function App() {
       <Route path="/gestion"        element={<ProtectedLayout><Pilotage vue="gestion" /></ProtectedLayout>} />
       <Route path="/pilotage"       element={<Navigate to="/accueil" replace />} />
       <Route path="/planification"  element={<ProtectedLayout><Organisation ongletInitial="planification" /></ProtectedLayout>} />
-      <Route path="/aide"           element={<ProtectedLayout><Aide /></ProtectedLayout>} />
+      <Route path="/documentation"  element={<ProtectedLayout><Suspense fallback={<div className="p-6 text-sm text-slate-400">Chargement…</div>}><Documentation /></Suspense></ProtectedLayout>} />
+      {/* L'ancienne adresse continue de mener quelque part : un lien noté dans
+          un courriel ou un signet ne doit pas tomber dans le vide. */}
+      <Route path="/aide"           element={<Navigate to="/documentation" replace />} />
       <Route path="/attestation"   element={<ProtectedLayout><Attestation /></ProtectedLayout>} />
       <Route path="/disciplinaire" element={<ProtectedLayout><Disciplinaire /></ProtectedLayout>} />
       {/* CES ÉCRANS ONT DÉJÀ LEUR PLACE — ON N'EN OUVRE PAS UNE SECONDE.

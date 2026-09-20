@@ -15,11 +15,14 @@ import { migrerReunions } from './db/migrations_reunions.js';
 import { migrerBesoinsOffres } from './db/migrations_besoins.js';
 import { migrerJournalPersonnel } from './db/migrations_journal.js';
 import mfaRoutes, { migrerMfa } from './routes/mfa.js';
+import { garderModule } from './middleware/garde.js';
+import { migrerConstat } from './middleware/garde.js';
 import { verifierCleMfa } from './lib/secret-box.js';
 import { demarrerMoteur } from './services/echeancier.js';
 import annuelRoutes from './routes/annuel.js';
 import echeancierRoutes from './routes/echeancier.js';
 import reunionsRoutes from './routes/reunions.js';
+import documentationRoutes, { migrerDocumentation } from './routes/documentation.js';
 import suggestionsRoutes, { migrerSuggestions } from './routes/suggestions.js';
 import dossierAdminRoutes from './routes/dossierAdmin.js';
 import listesRoutes from './routes/listes.js';
@@ -2711,6 +2714,41 @@ try {
   }
 } catch(e) { console.error('[migration] acces_recrutement :', e.message); }
 
+// ── PÉRIMÈTRE : « toutes les sections » doit pouvoir SE DIRE ─────────────────
+//
+// `utilisateur_section` ne porte que des lignes. « Toutes » ne s'y exprimait
+// donc que par l'ABSENCE de lignes — ce qui est aussi la façon d'écrire « je
+// n'ai pas encore rempli ». Deux états distincts confondus dans un seul, et
+// c'est le permissif qui l'emportait : un compte qu'on oubliait de rattacher
+// voyait tout l'Institut.
+//
+// Les énumérer toutes n'aurait rien réglé : le jour où AeSI ouvre, personne ne
+// l'a, et en silence — une règle qui n'est juste que si l'on y pense est une
+// règle fausse. D'où un drapeau explicite, qui vaut aussi pour les sections à
+// venir. Trois états, enfin lisibles :
+//
+//   perimetre_toutes = 1                  → toutes, y compris celles à venir
+//   perimetre_toutes = 0 et des lignes    → ces sections-là
+//   perimetre_toutes = 0 et aucune ligne  → AUCUN accès
+//
+// LA MIGRATION EST NEUTRE, ET C'EST DÉLIBÉRÉ. Tout compte qui n'a aucune ligne
+// se voit poser le drapeau à 1 : il gardait déjà accès à tout, rien ne change
+// pour lui. Fermer les accès est une DÉCISION, qui se prend à l'écran et se
+// voit ; ce ne peut pas être l'effet de bord d'une mise à jour, découvert un
+// lundi matin par le secrétariat.
+try {
+  const cols = db.prepare('PRAGMA table_info(utilisateur)').all().map(c => c.name);
+  if (!cols.includes('perimetre_toutes')) {
+    db.exec('ALTER TABLE utilisateur ADD COLUMN perimetre_toutes INTEGER NOT NULL DEFAULT 0');
+    const n = db.prepare(`
+      UPDATE utilisateur SET perimetre_toutes = 1
+      WHERE id NOT IN (SELECT utilisateur_id FROM utilisateur_section)
+    `).run();
+    console.log(`[migration] utilisateur.perimetre_toutes ajoutée — ${n.changes} compte(s) `
+              + `sans rattachement conservent « toutes les sections »`);
+  }
+} catch (e) { console.error('[migration] perimetre_toutes :', e.message); }
+
 // ── Validation des attributions : colonnes valide / valide_par / valide_le ────
 try {
   const cols = db.prepare('PRAGMA table_info(attribution)').all().map(c => c.name);
@@ -2731,10 +2769,12 @@ try {
 // ── Lucie V3++ : échéancier, dossier administratif, communication ──
 try { migrerEcheancier(db); } catch (e) { console.error('[migration] echeancier :', e.message); }
 try { migrerReunions(db); } catch (e) { console.error('[migration] reunions :', e.message); }
+try { migrerDocumentation(db); } catch (e) { console.error('[migration] documentation :', e.message); }
 try { migrerSuggestions(db); } catch (e) { console.error('[migration] suggestions :', e.message); }
 try { migrerBesoinsOffres(db); } catch (e) { console.error('[migration] besoins :', e.message); }
 try { migrerJournalPersonnel(db); } catch (e) { console.error('[migration] journal :', e.message); }
 try { migrerMfa(db); } catch (e) { console.error('[migration] mfa :', e.message); }
+try { migrerConstat(db); } catch (e) { console.error('[migration] constat :', e.message); }
 try { migrerClassement(db); } catch (e) { console.error('[migration] classement :', e.message); }
 try { migrerAncienneteService(db); } catch (e) { console.error('[migration] anciennete_service :', e.message); }
 try { migrerEtudiants(db); } catch (e) { console.error('[migration] etudiants :', e.message); }
@@ -2877,78 +2917,80 @@ app.use((req, res, next) => {
   next();
 });
 
-app.use('/api/auth',         authRoutes);
-app.use('/api/mfa',          mfaRoutes);
-app.use('/api/attributions', attrRoutes);
-app.use('/api/ref',          refRoutes);
-app.use('/api/pilotage',     pilotRoutes);
-app.use('/api/exports',      exportRoutes);
-app.use('/api/planning',     planningRoutes);
-app.use('/api/users',        usersRoutes);
-app.use('/api/admin',        adminRoutes);
-app.use('/api/annees',       anneesRoutes);
-app.use('/api/annuel',       annuelRoutes);
-app.use('/api/echeancier',   echeancierRoutes);
-app.use('/api/reunions',     reunionsRoutes);
-app.use('/api/suggestions',  suggestionsRoutes);
-app.use('/api/dossier',      dossierAdminRoutes);
-app.use('/api/listes',       listesRoutes);
-app.use('/api/besoins',      besoinsRoutes);
-app.use('/api/composition',  compositionRoutes);
-app.use('/api/classement',   classementRoutes);
-app.use('/api/anciennete-service', ancienneteServiceRoutes);
-app.use('/api/etudiants', etudiantsRoutes);
-app.use('/api/capitalisation', capitalisationRoutes);
-app.use('/api/assistants', assistantsRoutes);
-app.use('/api/rentree', rentreeRoutes);
-app.use('/api/acquis', acquisRoutes);
-app.use('/api/calendrier', calendrierRoutes);
-app.use('/api/import-suivi', importSuiviRoutes);
-app.use('/api/doublons-etudiants', doublonsEtudiantsRoutes);
-app.use('/api/horaire', horaireRoutes);
-app.use('/api/stats-deliberation', statsDeliberationRoutes);
-app.use('/api/due', dueRoutes);
-app.use('/api/diplomes', diplomesRoutes);
-app.use('/api/droit-inscription', droitInscriptionRoutes);
-app.use('/api/import-historique', importHistoriqueRoutes);
-app.use('/api/budget', budgetRoutes);
-app.use('/api/demandes', demandesRoutes);
-app.use('/api/sauvegardes', sauvegardesRoutes);
-app.use('/api/profils-acces', profilsAccesRoutes);
-app.use('/api/frais-scolarite', fraisScolariteRoutes);
-app.use('/api/repartition', repartitionRoutes);
-app.use('/api/amenagements', amenagementsRoutes);
-app.use('/api/stages', stagesRoutes);
-app.use('/api/attestations', attestationsRoutes);
-app.use('/api/annexe2', annexe2Routes);
-app.use('/api/impression', impressionRoutes);
-app.use('/api/envois',     (await import('./routes/envois.js')).default);
-app.use('/api/import-sur-mesure', importSurMesureRoutes);
-app.use('/api/historique',   historiqueRoutes);
-app.use('/api/etablissement', etablissementRoutes);
-app.use('/api/ea12',          ea12Routes);
-app.use('/api/templates',   templateRoutes);
-app.use('/api/contrats',    contratsRoutes);
-app.use('/api/procedures',    proceduresRoutes);
-app.use('/api/disciplinaire', disciplinaireRoutes);
-app.use('/api/planification', planificationRoutes);
-app.use('/api/grille', grilleRoutes);
-app.use('/api/parametres',   parametresRoutes);
-app.use('/api/prerequis',      prerequisRoutes);
-app.use('/api/planification-ia', planifIARoutes);
-app.use('/api/locaux', locauxRoutes);
-app.use('/api/apercu', apercuRoutes);
-app.use('/api/perimetre', perimetreRoutes);
-app.use('/api/rapports', rapportsRoutes);
-app.use('/api/nominations', nominationsRoutes);
-app.use('/api/sequence',        sequenceRoutes);
-app.use('/api/dcpp',            dcppRoutes);
-app.use('/api/recrutement',     recrutementRoutes);
-app.use('/api/aa',              aaRoutes);
-app.use('/api/config',          (await import('./routes/config.js')).default);
-app.use('/api/analyse-cv',      (await import('./routes/analyseCv.js')).default);
-app.use('/api/dossiers-rh',     (await import('./routes/dossiersRh.js')).default);
-
+app.use('/api/auth',         garderModule('auth'), authRoutes);
+app.use('/api/mfa',          garderModule('mfa'), mfaRoutes);
+app.use('/api/attributions', garderModule('attributions'), attrRoutes);
+app.use('/api/ref',          garderModule('ref'), refRoutes);
+app.use('/api/pilotage',     garderModule('pilotage'), pilotRoutes);
+app.use('/api/exports',      garderModule('exports'), exportRoutes);
+app.use('/api/planning',     garderModule('planning'), planningRoutes);
+app.use('/api/users',        garderModule('users'), usersRoutes);
+app.use('/api/admin',        garderModule('admin'), adminRoutes);
+app.use('/api/annees',       garderModule('annees'), anneesRoutes);
+app.use('/api/annuel',       garderModule('annuel'), annuelRoutes);
+app.use('/api/echeancier',   garderModule('echeancier'), echeancierRoutes);
+app.use('/api/reunions',     garderModule('reunions'), reunionsRoutes);
+/* LE CORPUS ET LA PRISE DE CONNAISSANCE. Route montée après sa migration : les
+   tables se créent au démarrage, comme partout ailleurs. */
+app.use('/api/documentation', garderModule('documentation'), documentationRoutes);
+app.use('/api/suggestions',  garderModule('suggestions'), suggestionsRoutes);
+app.use('/api/dossier',      garderModule('dossier'), dossierAdminRoutes);
+app.use('/api/listes',       garderModule('listes'), listesRoutes);
+app.use('/api/besoins',      garderModule('besoins'), besoinsRoutes);
+app.use('/api/composition',  garderModule('composition'), compositionRoutes);
+app.use('/api/classement',   garderModule('classement'), classementRoutes);
+app.use('/api/anciennete-service', garderModule('anciennete-service'), ancienneteServiceRoutes);
+app.use('/api/etudiants', garderModule('etudiants'), etudiantsRoutes);
+app.use('/api/capitalisation', garderModule('capitalisation'), capitalisationRoutes);
+app.use('/api/assistants', garderModule('assistants'), assistantsRoutes);
+app.use('/api/rentree', garderModule('rentree'), rentreeRoutes);
+app.use('/api/acquis', garderModule('acquis'), acquisRoutes);
+app.use('/api/calendrier', garderModule('calendrier'), calendrierRoutes);
+app.use('/api/import-suivi', garderModule('import-suivi'), importSuiviRoutes);
+app.use('/api/doublons-etudiants', garderModule('doublons-etudiants'), doublonsEtudiantsRoutes);
+app.use('/api/horaire', garderModule('horaire'), horaireRoutes);
+app.use('/api/stats-deliberation', garderModule('stats-deliberation'), statsDeliberationRoutes);
+app.use('/api/due', garderModule('due'), dueRoutes);
+app.use('/api/diplomes', garderModule('diplomes'), diplomesRoutes);
+app.use('/api/droit-inscription', garderModule('droit-inscription'), droitInscriptionRoutes);
+app.use('/api/import-historique', garderModule('import-historique'), importHistoriqueRoutes);
+app.use('/api/budget', garderModule('budget'), budgetRoutes);
+app.use('/api/demandes', garderModule('demandes'), demandesRoutes);
+app.use('/api/sauvegardes', garderModule('sauvegardes'), sauvegardesRoutes);
+app.use('/api/profils-acces', garderModule('profils-acces'), profilsAccesRoutes);
+app.use('/api/frais-scolarite', garderModule('frais-scolarite'), fraisScolariteRoutes);
+app.use('/api/repartition', garderModule('repartition'), repartitionRoutes);
+app.use('/api/amenagements', garderModule('amenagements'), amenagementsRoutes);
+app.use('/api/stages', garderModule('stages'), stagesRoutes);
+app.use('/api/attestations', garderModule('attestations'), attestationsRoutes);
+app.use('/api/annexe2', garderModule('annexe2'), annexe2Routes);
+app.use('/api/impression', garderModule('impression'), impressionRoutes);
+app.use('/api/envois',     garderModule('envois'), (await import('./routes/envois.js')).default);
+app.use('/api/import-sur-mesure', garderModule('import-sur-mesure'), importSurMesureRoutes);
+app.use('/api/historique',   garderModule('historique'), historiqueRoutes);
+app.use('/api/etablissement', garderModule('etablissement'), etablissementRoutes);
+app.use('/api/ea12',          garderModule('ea12'), ea12Routes);
+app.use('/api/templates',   garderModule('templates'), templateRoutes);
+app.use('/api/contrats',    garderModule('contrats'), contratsRoutes);
+app.use('/api/procedures',    garderModule('procedures'), proceduresRoutes);
+app.use('/api/disciplinaire', garderModule('disciplinaire'), disciplinaireRoutes);
+app.use('/api/planification', garderModule('planification'), planificationRoutes);
+app.use('/api/grille', garderModule('grille'), grilleRoutes);
+app.use('/api/parametres',   garderModule('parametres'), parametresRoutes);
+app.use('/api/prerequis',      garderModule('prerequis'), prerequisRoutes);
+app.use('/api/planification-ia', garderModule('planification-ia'), planifIARoutes);
+app.use('/api/locaux', garderModule('locaux'), locauxRoutes);
+app.use('/api/apercu', garderModule('apercu'), apercuRoutes);
+app.use('/api/perimetre', garderModule('perimetre'), perimetreRoutes);
+app.use('/api/rapports', garderModule('rapports'), rapportsRoutes);
+app.use('/api/nominations', garderModule('nominations'), nominationsRoutes);
+app.use('/api/sequence',        garderModule('sequence'), sequenceRoutes);
+app.use('/api/dcpp',            garderModule('dcpp'), dcppRoutes);
+app.use('/api/recrutement',     garderModule('recrutement'), recrutementRoutes);
+app.use('/api/aa',              garderModule('aa'), aaRoutes);
+app.use('/api/config',          garderModule('config'), (await import('./routes/config.js')).default);
+app.use('/api/analyse-cv',      garderModule('analyse-cv'), (await import('./routes/analyseCv.js')).default);
+app.use('/api/dossiers-rh',     garderModule('dossiers-rh'), (await import('./routes/dossiersRh.js')).default);
 // Route logo IIP
 import { createRequire as _cr } from 'module';
 import { fileURLToPath as _fup } from 'url';

@@ -416,6 +416,43 @@ export const api = {
   }
 };
 
+/**
+ * TÉLÉCHARGER UN FICHIER SERVI PAR L'API.
+ *
+ * Un `<a href="/api/...">` ne porte AUCUN en-tête : le navigateur part sans
+ * jeton, l'API répond 401, et le navigateur enregistre cette réponse sous le
+ * nom du fichier attendu. On croit tenir une sauvegarde ; on tient vingt-six
+ * octets de JSON — et rien ne le dit, puisque le fichier porte le bon nom et
+ * que le téléchargement a « réussi ».
+ *
+ * Le jeton ne peut pas voyager dans l'URL — il finirait dans les journaux du
+ * serveur et dans l'historique du navigateur. On passe donc par une requête
+ * en règle, et le contenu devient un lien local.
+ *
+ * @throws {Error} le message du serveur, pour qu'il s'affiche au lieu de se
+ *   télécharger.
+ */
+export async function telechargerFichier(url, nomPropose, options = {}) {
+  const rep = await fetch(url, { ...options, headers: authHeaders(options.headers) });
+  if (!rep.ok) {
+    let texte = `Téléchargement refusé (${rep.status}).`;
+    try { const j = await rep.json(); if (j?.error) texte = j.error; } catch { /* pas du JSON */ }
+    throw new Error(texte);
+  }
+  // Le nom que le serveur propose prime : c'est lui qui sait comment il a
+  // nommé le fichier sur son disque.
+  const dispo = rep.headers.get('content-disposition') || '';
+  const trouve = /filename\*?=(?:UTF-8'')?"?([^";]+)"?/i.exec(dispo);
+  const nom = (trouve && decodeURIComponent(trouve[1])) || nomPropose || 'fichier';
+
+  const lien = URL.createObjectURL(await rep.blob());
+  const a = document.createElement('a');
+  a.href = lien; a.download = nom;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(lien), 30000);
+  return nom;
+}
+
 export function getUser() {
   try { return JSON.parse(localStorage.getItem('user')); } catch { return null; }
 }

@@ -55,6 +55,27 @@ const ok = (cond, libelle, extra = '') => {
   if (!cond) ko++;
   console.log(`${cond ? '  ok  ' : ' ÉCHEC'} ${libelle}${extra ? '  — ' + extra : ''}`);
 };
+/**
+ * UN ESSAI QUI DÉPEND DE L'HORLOGE EST UN ESSAI QUI MENT UNE FOIS SUR TRENTE.
+ *
+ * La séquence « j'active, puis je vérifie que ce code ne resert pas » tenait
+ * sur `pasCourant()` appelé deux fois, à quelques requêtes d'intervalle. Quand
+ * le pas de trente secondes changeait entre les deux, le second appel rendait
+ * un code DIFFÉRENT — jamais employé, donc légitimement accepté —, et l'essai
+ * criait à la régression. Un essai qui échoue au hasard apprend une seule
+ * chose : à ne plus le lire.
+ *
+ * Deux corrections : on attend le pas suivant si la fenêtre est presque
+ * écoulée, et surtout on retient LE pas employé au lieu de le redemander.
+ */
+async function fenetreConfortable(secondesMini = 10) {
+  const reste = totp.PAS_SECONDES - Math.floor(Date.now() / 1000) % totp.PAS_SECONDES;
+  if (reste < secondesMini) {
+    console.log(`  (attente de ${reste + 1} s : la fenêtre TOTP se termine)`);
+    await new Promise(r => setTimeout(r, (reste + 1) * 1000));
+  }
+}
+
 async function appel(p, { method = 'GET', body, token } = {}) {
   const r = await fetch(U(p), { method, headers: {
     'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
@@ -73,6 +94,22 @@ console.log('\n── Enrôlement ──');
 r = await appel('/api/mfa/enroler', { method: 'POST', token: jeton });
 ok(r.statut === 200 && r.corps.uri?.startsWith('otpauth://totp/'), 'enrôlement : URI otpauth rendue');
 const secret = r.corps.secret;
+
+// LE PIÈGE QUI A COÛTÉ UN QR REFUSÉ PAR LE TROUSSEAU D'APPLE.
+// `URLSearchParams` encode l'espace en « + » : le label disait « Lucie IIP » et
+// l'issuer « Lucie+IIP ». La spécification demande de REFUSER quand les deux ne
+// concordent pas — Google devinait, Apple appliquait. Une panne qui ne se voit
+// que chez certains ne se voit pas du tout.
+{
+  const uri = r.corps.uri;
+  const u = new URL(uri);
+  const prefixe = decodeURIComponent(u.pathname).replace(/^\//, '').split(':')[0];
+  ok(!uri.includes('+'), "l'URI otpauth ne contient aucun « + » (espaces en %20)", uri);
+  ok(prefixe === u.searchParams.get('issuer'),
+     "le préfixe du label et `issuer` concordent — sinon les applications strictes refusent",
+     `${JSON.stringify(prefixe)} vs ${JSON.stringify(u.searchParams.get('issuer'))}`);
+  ok(u.searchParams.get('secret') === secret, "l'URI porte bien le secret rendu");
+}
 const enBase = db.prepare('SELECT totp_secret_chiffre, mfa_actif FROM utilisateur WHERE id = 1').get();
 ok(!enBase.totp_secret_chiffre.includes(secret), 'le secret est CHIFFRÉ en base (jamais en clair)');
 ok(dechiffrer(enBase.totp_secret_chiffre) === secret, 'et se relit correctement');
@@ -80,7 +117,9 @@ ok(enBase.mfa_actif === 0, "mfa_actif reste à 0 tant qu'aucun code n'a été pr
 
 r = await appel('/api/mfa/activer', { method: 'POST', token: jeton, body: { code: '000000' } });
 ok(r.statut === 401, 'activation avec un code faux : refusée');
-r = await appel('/api/mfa/activer', { method: 'POST', token: jeton, body: { code: totp.codeTotp(secret, totp.pasCourant()) } });
+await fenetreConfortable();
+const pasActivation = totp.pasCourant();      // retenu, et non redemandé plus bas
+r = await appel('/api/mfa/activer', { method: 'POST', token: jeton, body: { code: totp.codeTotp(secret, pasActivation) } });
 ok(r.statut === 200 && r.corps.codes?.length === 10, 'activation : 10 codes de récupération rendus');
 const codesSecours = r.corps.codes;
 const hach = db.prepare('SELECT code_hash FROM mfa_recuperation WHERE utilisateur_id = 1').all();
@@ -113,9 +152,10 @@ ok(r.statut === 401 && r.corps.recommencer, "un jeton de SESSION présenté ici 
 // L'activation vient de consommer le pas courant : le code de CE pas-ci est
 // donc déjà mort, ce qui est exactement voulu. On prend le pas suivant, qui
 // tombe dans la tolérance de +1.
-r = await appel('/api/auth/login/mfa', { method: 'POST', body: { token_intermediaire: intermediaire, code: totp.codeTotp(secret, totp.pasCourant()) } });
-ok(r.statut === 401 && /déjà servi/.test(r.corps.error || ''), "le code consommé par l'activation ne resert pas");
-const pas = totp.pasCourant() + 1;
+r = await appel('/api/auth/login/mfa', { method: 'POST', body: { token_intermediaire: intermediaire, code: totp.codeTotp(secret, pasActivation) } });
+ok(r.statut === 401 && /déjà servi/.test(r.corps.error || ''),
+   "le code consommé par l'activation ne resert pas", JSON.stringify(r.corps.error || ''));
+const pas = pasActivation + 1;
 r = await appel('/api/auth/login/mfa', { method: 'POST', body: { token_intermediaire: intermediaire, code: totp.codeTotp(secret, pas) } });
 ok(r.statut === 200 && !!r.corps.token, 'code juste (pas suivant, tolérance +1) : vrai jeton délivré', JSON.stringify(r.corps.error||''));
 const jetonMfa = r.corps.token;

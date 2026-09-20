@@ -1,7 +1,8 @@
 import { Router } from 'express';
 import db from '../db/index.js';
 import { anneeDeTravail } from '../helpers/annee.js';
-import { authRequired, roleRequired, getUserSections, exigerPerimetreProfesseur } from '../middleware/auth.js';
+import { authRequired, roleRequired, getUserSections, exigerPerimetreProfesseur,
+  clauseSections } from '../middleware/auth.js';
 import { parseDossierPedagogique } from '../parseDossierPedagogique.js';
 
 const r = Router();
@@ -804,10 +805,13 @@ r.get('/professeurs', authRequired, (req, res) => {
   // n'en a aucune ne reste visible que de la direction.
   const perim = getUserSections(req.user);
   if (perim) {
+    // Un périmètre VIDE produisait « IN () », que SQLite refuse : la route
+    // tombait en 500 au lieu de rendre une liste vide. `clauseSections` répond
+    // « 1 = 0 », qui est la traduction fidèle de « aucune section ».
+    const cl = clauseSections(perim, 'section');
     const dansPerim = new Set(db.prepare(`
-      SELECT DISTINCT professeur_id FROM attribution
-      WHERE section IN (${perim.map(() => '?').join(',')})
-    `).all(...perim).map(r0 => r0.professeur_id));
+      SELECT DISTINCT professeur_id FROM attribution WHERE ${cl.sql}
+    `).all(...cl.params).map(r0 => r0.professeur_id));
     lignes = lignes.filter(p => dansPerim.has(p.id));
   }
 

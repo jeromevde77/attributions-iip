@@ -17,6 +17,21 @@ function sectionsOf(userId) {
     .all(userId).map(r => r.section_code);
 }
 
+/**
+ * SEULE LA COORDINATION SE CLOISONNE — les autres rôles voient tout
+ * l'Institut : le secrétariat y travaille, la direction l'administre.
+ *
+ * La purge existait déjà (changer de rôle vide le périmètre, à juste titre),
+ * mais depuis que l'absence de rattachement vaut « aucun accès », purger sans
+ * rien dire d'autre fabrique un compte AVEUGLE : on passe quelqu'un de
+ * coordination à secrétariat, et il ne voit plus rien, sans que personne
+ * n'ait voulu le lui retirer. La purge pose donc le drapeau « toutes ».
+ */
+function ouvrirTout(userId) {
+  db.prepare('DELETE FROM utilisateur_section WHERE utilisateur_id = ?').run(userId);
+  db.prepare('UPDATE utilisateur SET perimetre_toutes = 1 WHERE id = ?').run(userId);
+}
+
 // Helper : remplace les sections d'un utilisateur
 function setSections(userId, sections) {
   db.prepare('DELETE FROM utilisateur_section WHERE utilisateur_id = ?').run(userId);
@@ -29,7 +44,7 @@ function setSections(userId, sections) {
 r.get('/', authRequired, roleRequired('admin'), (req, res) => {
   const users = db.prepare(`
     SELECT id, email, nom_complet, role, actif, professeur_id, created_at, last_login_at,
-           acces_recrutement, permissions_json, mfa_actif, methode_auth
+           acces_recrutement, permissions_json, mfa_actif, methode_auth, perimetre_toutes
     FROM utilisateur ORDER BY nom_complet
   `).all();
   // Joindre les sections pour les coordinations
@@ -51,7 +66,8 @@ r.post('/', authRequired, roleRequired('admin'), (req, res) => {
       if (professeur_id) {
         db.prepare('UPDATE utilisateur SET professeur_id = ?, role = ?, actif = 1 WHERE id = ?')
           .run(professeur_id, roleNorm, existing.id);
-        if (role === 'coordination') setSections(existing.id, sections);
+        if (Array.isArray(sections) && sections.length) setSections(existing.id, sections);
+        else ouvrirTout(existing.id);   // rien de demandé : ouvert, jamais aveugle
       }
       return res.status(200).json({ id: existing.id, linked: true });
     }
@@ -60,7 +76,8 @@ r.post('/', authRequired, roleRequired('admin'), (req, res) => {
       INSERT INTO utilisateur (email, password_hash, nom_complet, role, actif, professeur_id)
       VALUES (?, ?, ?, ?, 1, ?)
     `).run(email, hash, nom_complet || email, role, professeur_id || null);
-    if (role === 'coordination') setSections(result.lastInsertRowid, sections);
+    if (Array.isArray(sections) && sections.length) setSections(result.lastInsertRowid, sections);
+    else ouvrirTout(result.lastInsertRowid);   // rien de demandé : ouvert, jamais aveugle
     res.status(201).json({ id: result.lastInsertRowid });
   } catch (e) {
     if (e.code === 'SQLITE_CONSTRAINT_UNIQUE') return res.status(409).json({ error: 'Email déjà utilisé' });
@@ -69,7 +86,8 @@ r.post('/', authRequired, roleRequired('admin'), (req, res) => {
 });
 
 r.patch('/:id', authRequired, roleRequired('admin'), (req, res) => {
-  const { nom_complet, role, actif, password, sections, professeur_id, acces, permissions_json, acces_recrutement } = req.body || {};
+  const { nom_complet, role, actif, password, sections, professeur_id, acces,
+          permissions_json, acces_recrutement, perimetre_toutes } = req.body || {};
   const updates = [];
   const params = { id: req.params.id };
   if (nom_complet !== undefined) { updates.push('nom_complet = @nom_complet'); params.nom_complet = nom_complet; }
@@ -80,6 +98,13 @@ r.patch('/:id', authRequired, roleRequired('admin'), (req, res) => {
     updates.push('role = @role'); params.role = roleNorm;
   }
   if (actif !== undefined) { updates.push('actif = @actif'); params.actif = actif ? 1 : 0; }
+  // « Toutes les sections », explicitement — y compris celles à venir. C'est la
+  // seule façon de distinguer « tout » de « pas encore rempli », que l'absence
+  // de lignes confondait.
+  if (perimetre_toutes !== undefined) {
+    updates.push('perimetre_toutes = @perimetre_toutes');
+    params.perimetre_toutes = perimetre_toutes ? 1 : 0;
+  }
   if (password) {
     updates.push('password_hash = @hash');
     params.hash = bcrypt.hashSync(password, 10);
@@ -106,13 +131,34 @@ r.patch('/:id', authRequired, roleRequired('admin'), (req, res) => {
 
   // Mise à jour des sections (si fournies)
   if (sections !== undefined) {
-    const finalRole = role !== undefined ? role
-      : db.prepare('SELECT role FROM utilisateur WHERE id = ?').get(req.params.id)?.role;
-    if (finalRole === 'coordination') setSections(req.params.id, sections);
-    else setSections(req.params.id, []); // si plus coordination, on purge les sections
-  } else if (role !== undefined && role !== 'coordination') {
-    setSections(req.params.id, []); // changement de rôle hors coordination → purge
+    // LE PÉRIMÈTRE NE DÉPEND PLUS DU RÔLE, et il ne l'a jamais vraiment dû.
+    //
+    // Les sections n'étaient posées que pour une coordination ; pour tout autre
+    // rôle elles étaient PURGÉES sans un mot. La fiche envoyait pourtant un
+    // périmètre en toutes lettres — son propre commentaire disait « un
+    // secrétariat de section, cela existe » —, et le serveur le jetait. On
+    // cochait des sections, on enregistrait, l'écran confirmait, et rien
+    // n'était gardé.
+    //
+    // `getUserSections` n'a jamais regardé le rôle, sauf pour la direction.
+    // C'était donc la seule porte qui refusait ce que tout le reste acceptait.
+    {
+      setSections(req.params.id, sections);
+      // NOMMER DES SECTIONS VEUT DIRE « PAS TOUTES ». Sans cela, un compte qui
+      // portait le drapeau continuerait de tout voir malgré la liste qu'on
+      // vient de lui poser — l'écran dirait « TIM » et la personne lirait
+      // l'Institut. Un réglage qui ne règle rien est pire que pas de réglage.
+      // Le drapeau passé dans la même requête reste prioritaire : c'est un
+      // choix explicite, la déduction ne vaut que par défaut.
+      if (perimetre_toutes === undefined && Array.isArray(sections) && sections.length) {
+        db.prepare('UPDATE utilisateur SET perimetre_toutes = 0 WHERE id = ?').run(req.params.id);
+      }
+    }
   }
+  // CHANGER DE RÔLE NE TOUCHE PLUS AU PÉRIMÈTRE. La purge se justifiait tant
+  // que seule une coordination pouvait être cloisonnée ; elle effacerait
+  // maintenant un réglage que personne n'a demandé de défaire — et, le défaut
+  // étant fermé, elle l'effacerait dans le sens dangereux une fois sur deux.
 
   if (!updates.length && sections === undefined) return res.status(400).json({ error: 'Rien à modifier' });
   res.json({ ok: true });

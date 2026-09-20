@@ -291,12 +291,24 @@ r.post('/offre/:id/envoyer', authRequired, peutEcrire, async (req, res) => {
     return res.status(400).json({ error: 'aucune adresse e-mail valide' });
   }
 
-  const modeDev = !process.env.SMTP_HOST;
+  // CE QUI S'EST PASSÉ SE LIT DANS LE RÉSULTAT, IL NE SE DEVINE PAS.
+  //
+  // `modeDev` valait `!process.env.SMTP_HOST` : or la configuration SMTP vit en
+  // BASE (`lucie_config.smtp_config`, écran Configuration → Courriels), et le
+  // mode Graph n'a pas d'hôte du tout. Sur le VPS, où le relais est enregistré
+  // en base, cette ligne déclarait « mode dev » et avertissait qu'aucun
+  // courriel n'était parti — alors qu'il partait. `envoyerEmail` sait ce qu'il
+  // a fait et le dit : il rend { ok, simule }.
+  let envoi;
   try {
-    await envoyerEmail({ to: destinataires, subject: doc.sujet, html: doc.html });
+    envoi = await envoyerEmail({ to: destinataires, subject: doc.sujet, html: doc.html });
   } catch (e) {
     return res.status(502).json({ error: `envoi impossible : ${e.message}` });
   }
+  if (envoi && envoi.ok === false) {
+    return res.status(502).json({ error: `envoi impossible : ${envoi.erreur || 'cause inconnue'}` });
+  }
+  const modeDev = !!envoi?.simule;
 
   db.prepare('INSERT INTO offre_envoi (poste_id, destinataires, envoye_par) VALUES (?,?,?)')
     .run(Number(req.params.id), destinataires.join(', '),

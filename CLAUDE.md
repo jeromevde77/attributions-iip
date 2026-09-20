@@ -801,6 +801,61 @@ peut détailler. L'ETP est celui de Pilotage (CT/800 + PP/1000), repris et non
 réécrit : deux formules pour une même grandeur donneraient deux chiffres, et
 c'est celui qu'on ne regarde pas qui serait le bon.
 
+**LA DOCUMENTATION — LE CORPUS, ET LA PRISE DE CONNAISSANCE QUI L'OPPOSE.**
+Demandé par Charles le 20 septembre : *« Une circulaire examens doit être
+consultée par les MDP en début d'année. Ce sont les règles du jeu, donc elles
+doivent être maîtrisées. Le professeur DOIT cocher "je confirme avoir pris
+connaissance du document". »* Tranche 1 livrée en 2.12.70 : corpus en base
+(`corpus_document`, `corpus_version`, `corpus_destinataire`, `corpus_lecture`),
+écran `/documentation`, dépôt et publication réservés à la direction.
+
+> **DEUX TRACES, PAS UNE — ET C'EST TOUT CE QUI TIENT.** Ce qui s'oppose à
+> quelqu'un n'est pas qu'il ait coché : c'est que le document LUI AIT ÉTÉ
+> PRÉSENTÉ et qu'il en ait accusé réception. `ouvert_le` est posé **par la
+> route qui rend le contenu**, jamais par un clic de l'écran — un écran peut
+> prétendre avoir affiché ce qu'il n'a pas reçu. Et le serveur **refuse** la
+> confirmation tant que le texte n'a pas été servi. Cela ne prétend pas prouver
+> la LECTURE : coché sans lire, c'est le problème de celui qui a coché.
+
+> **UNE VERSION PUBLIÉE NE SE MODIFIE PLUS.** Aucune route ne l'altère ni ne
+> l'efface : une personne s'est engagée sur CE texte-là, et un texte
+> retouchable après coup ne prouve plus rien — même raison que le journal de
+> valorisation. Corriger une coquille se fait en publiant la suivante, ce qui
+> **remet le compteur de confirmations à zéro pour tous**. D'où deux garde-fous :
+> republier un texte IDENTIQUE est refusé (sans quoi un clic de trop remettrait
+> tout le personnel en devoir de reconfirmer un document inchangé, et le signal
+> deviendrait du bruit), et une nouvelle version **exige de dire ce qui
+> change** — chacun devra reconfirmer, il a le droit de savoir sur quoi.
+
+> **LE TEXTE S'IMPOSE PAR RÔLE, JAMAIS PAR PERSONNE.** Nommer les gens un à un,
+> c'est oublier celui qui arrive en octobre. Un document sans destinataire
+> reste consultable : il n'est simplement pas opposable — un mode d'emploi n'a
+> pas à être accusé réception. Et le registre **NOMME les non-confirmés** :
+> « 9 sur 12 » ne sert à rien, ce sont les trois autres qu'on ira voir.
+
+> **RETIRER N'EST PAS SUPPRIMER.** Un texte retiré cesse de s'imposer et sort
+> des listes, mais reste lisible : les confirmations posées dessus doivent
+> pouvoir se justifier.
+
+> **L'AIDE EST ABSORBÉE, ET C'EST ELLE QUI A PROUVÉ LE BESOIN.** Son contenu
+> vivait dans un TABLEAU JAVASCRIPT compilé dans l'application : le modifier
+> demandait un commit, une construction et un déploiement. Au 20 septembre elle
+> ne disait pas un mot de la valorisation, de la délibération, des diplômes, de
+> l'échéancier ni du suivi d'équipe — dernière mise à jour le 14, la semaine où
+> Lucie a le plus changé. **UN TEXTE QUI COÛTE UN DÉPLOIEMENT NE SE MET JAMAIS
+> À JOUR.** Deux portes pour « savoir » en auraient fait une de trop : un
+> enseignant aurait cherché la circulaire examens dans l'une et le mode d'emploi
+> du PAE dans l'autre. Un seul écran, deux faces, et il garde la place et
+> l'icône que l'aide occupait dans la barre ; `/aide` y redirige.
+
+**Reste au module :** le signal à l'Accueil (« la direction a publié un nouveau
+document ») ; le versement du mode d'emploi dans le corpus, pour qu'il cesse de
+dépendre d'un déploiement ; la péremption (tranche 2) ; le questionnaire
+(tranche 3). Et **le registre des références** — le menu d'obligation d'une
+tâche doit renvoyer vers un point du RDE, de la circulaire ou d'une procédure,
+et non vers une instance datée de l'échéancier : voir
+`Lucie_registre_references.md`.
+
 **Chantiers de conformité ouverts, dans l'ordre :** geler les décisions à la
 clôture et historiser par ajout ; figer et horodater le PV ; bloc de signatures
 nominatif ; date d'affichage et mode de publication en champs propres ; écrire

@@ -42,6 +42,19 @@ services:
       # qu'un lien mort.
       LUCIE_URL: https://dev.lucie-iip.be
       NODE_ENV: development
+      # LE CONTRÔLE DES MODULES : « constat » ou « strict ».
+      #
+      # constat (le défaut, quand la ligne est absente) — le garde LAISSE
+      #   PASSER et note ce qu'il aurait refusé, dans Configuration → Rôles et
+      #   plafonds → « Ce que le contrôle a vu ». C'est ce qu'on déploie
+      #   d'abord : fermer soixante-douze portes d'un coup, c'est découvrir le
+      #   lundi matin — par le secrétariat — ce qu'on a fermé.
+      # strict — les refus s'appliquent.
+      #
+      # DEV D'ABORD, ET PENDANT QUELQUES JOURS. La carte des modules est une
+      # interprétation : « /api/aa relève-t-il de l'organisation ou des
+      # étudiants ? » se tranche sur des refus observés, pas sur une intuition.
+      PERMISSIONS_MODE: strict
       TZ: Europe/Brussels
       PORT: 3001
       JWT_SECRET: ${JWT_SECRET_DEV:?JWT_SECRET_DEV manquant dans .env}

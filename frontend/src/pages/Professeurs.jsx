@@ -6,7 +6,7 @@ import ProfFicheModal from './ProfFicheModal.jsx';
 import PreviewModal from '../components/PreviewModal.jsx';
 import CoursEditModal from '../components/CoursEditModal.jsx';
 import { IconMail, IconMapPin, IconFileText, IconEdit, IconDownload, IconRefresh, IconX, IconPrinter, IconPlus, IconTrash, IconKey, IconLock, IconCheck, IconBriefcase, IconTargetArrow, IconChevronDown, IconChevronRight, IconUsers, IconSchool, IconUserPlus, IconBuilding, IconBuildingBank, IconFileDescription } from '@tabler/icons-react';
-import { MODULES_ACCES, ROLES_LUCIE, PLAFOND_ROLE, estDirection} from '../lib/modules.js';
+import { MODULES_ACCES, ROLES_LUCIE, estDirection } from '../lib/modules.js';
 import { RailLateral } from '../components/ui.jsx';
 /* LES RUBRIQUES DE L'AXE PERSONNEL SE RENDENT DANS L'AXE, PAS AILLEURS.
    « Besoins & offres » et « Classement & prioritaires » étaient des entrées de
@@ -139,179 +139,6 @@ function FonctionsPanel({ missions }) {
   );
 }
 
-// ─── Panneau de permissions granulaires ──────────────────────────────────────
-function PermissionsPanel({ userId, permissions, sectionsDispo, annee, onSaved, af }) {
-  const [perms, setPerms]           = useState(permissions);
-  const [expanded, setExpanded]     = useState({}); // { 'TIM': true, 'TIM-253': true }
-  const [uesParSection, setUesParSection] = useState({});
-  const [profsParSection, setProfsParSection] = useState({});
-  const [loading, setLoading]       = useState({});
-  const [saving, setSaving]         = useState(false);
-  const [saved, setSaved]           = useState(false);
-
-  // Helpers
-  const hasPerm = (type, id) => perms.find(p => p.ressource_type === type && p.ressource_id === String(id));
-  const niveauPerm = (type, id) => hasPerm(type, id)?.niveau || null;
-
-  const setPerm = (type, id, niveau) => {
-    const idStr = String(id);
-    if (niveau === null) {
-      setPerms(prev => prev.filter(p => !(p.ressource_type === type && p.ressource_id === idStr)));
-    } else {
-      setPerms(prev => {
-        const sans = prev.filter(p => !(p.ressource_type === type && p.ressource_id === idStr));
-        return [...sans, { ressource_type: type, ressource_id: idStr, niveau }];
-      });
-    }
-  };
-
-  // Charger les UE d'une section à la demande
-  const chargerUEs = async (section) => {
-    if (uesParSection[section]) return;
-    setLoading(l => ({ ...l, [section]: true }));
-    try {
-      const tok = localStorage.getItem('token');
-      const res = await fetch(`/api/ref/ue?section=${encodeURIComponent(section)}&annee=${encodeURIComponent(annee)}`,
-        { headers: { Authorization: `Bearer ${tok}` } });
-      const ues = await res.json();
-      setUesParSection(prev => ({ ...prev, [section]: Array.isArray(ues) ? ues : [] }));
-    } catch {}
-    finally { setLoading(l => ({ ...l, [section]: false })); }
-  };
-
-  // Charger les profs d'une section à la demande
-  const chargerProfs = async (section) => {
-    if (profsParSection[section]) return;
-    setLoading(l => ({ ...l, [`profs-${section}`]: true }));
-    try {
-      const tok = localStorage.getItem('token');
-      const res = await fetch(`/api/ref/professeurs?annee=${encodeURIComponent(annee)}`,
-        { headers: { Authorization: `Bearer ${tok}` } });
-      const tous = await res.json();
-      const filtres = (Array.isArray(tous) ? tous : []).filter(p =>
-        p.sections_annee && p.sections_annee.split(',').map(s => s.trim()).includes(section)
-      );
-      setProfsParSection(prev => ({ ...prev, [section]: filtres }));
-    } catch {}
-    finally { setLoading(l => ({ ...l, [`profs-${section}`]: false })); }
-  };
-
-  const toggleExpand = async (key, type, id) => {
-    const nv = !expanded[key];
-    setExpanded(e => ({ ...e, [key]: nv }));
-    if (nv) {
-      if (type === 'section-ues') await chargerUEs(id);
-      if (type === 'section-profs') await chargerProfs(id);
-    }
-  };
-
-  const sauvegarder = async () => {
-    setSaving(true);
-    try {
-      await af(`/api/users/${userId}/permissions`, { method: 'PUT', body: JSON.stringify({ permissions: perms }) });
-      onSaved(perms);
-      setSaved(true); setTimeout(() => setSaved(false), 2000);
-    } catch (e) { alert(e.message); } finally { setSaving(false); }
-  };
-
-  const NiveauToggle = ({ type, id }) => {
-    const n = niveauPerm(type, id);
-    return (
-      <div className="flex items-center gap-1 ml-auto flex-shrink-0">
-        <button onClick={() => setPerm(type, id, n === 'lecture' ? null : 'lecture')}
-          className={`text-[10px] px-1.5 py-0.5 rounded border transition ${
-            n === 'lecture' ? 'bg-iip-blue text-white border-iip-blue' : 'border-gray-300 text-gray-400 hover:border-iip-blue'
-          }`}>
-          Lecture
-        </button>
-        <button onClick={() => setPerm(type, id, n === 'modification' ? null : 'modification')}
-          className={`text-[10px] px-1.5 py-0.5 rounded border transition ${
-            n === 'modification' ? 'bg-iip-turquoise text-white border-iip-turquoise' : 'border-gray-300 text-gray-400 hover:border-iip-turquoise'
-          }`}>
-          Modif.
-        </button>
-      </div>
-    );
-  };
-
-  return (
-    <div className="mt-2 border border-gray-200 rounded-lg overflow-hidden text-xs">
-      {/* En-tête */}
-      <div className="px-3 py-2 bg-gray-50 border-b border-gray-200 flex items-center justify-between">
-        <span className="text-gray-500 font-medium">
-          Cliquez sur une section pour voir les UE et professeurs
-        </span>
-        <button onClick={sauvegarder} disabled={saving}
-          className="text-[10px] bg-iip-blue text-white px-2.5 py-1 rounded hover:opacity-90 disabled:opacity-50 flex items-center gap-1">
-          {saved ? '✓ Sauvegardé' : saving ? 'Sauvegarde…' : '✓ Sauvegarder'}
-        </button>
-      </div>
-
-      <div className="divide-y divide-gray-100">
-        {sectionsDispo.map(s => {
-          const secKey = `sec-${s.code}`;
-          const uesOpen = expanded[`${s.code}-ues`];
-          const profsOpen = expanded[`${s.code}-profs`];
-          const ues = uesParSection[s.code] || [];
-          const profs = profsParSection[s.code] || [];
-
-          return (
-            <div key={s.code}>
-              {/* Ligne section */}
-              <div className="flex items-center gap-2 px-3 py-2 hover:bg-gray-50">
-                <span className="font-semibold text-iip-blue w-20 flex-shrink-0">{s.code}</span>
-                {s.libelle && <span className="text-gray-500 truncate flex-1">{s.libelle}</span>}
-                <NiveauToggle type="section" id={s.code} />
-                <button onClick={() => toggleExpand(`${s.code}-ues`, 'section-ues', s.code)}
-                  className="text-gray-400 hover:text-iip-blue ml-1 flex-shrink-0" title="Voir les UE">
-                  {loading[s.code] ? '…' : uesOpen ? '▾ UE' : '▸ UE'}
-                </button>
-                <button onClick={() => toggleExpand(`${s.code}-profs`, 'section-profs', s.code)}
-                  className="text-gray-400 hover:text-iip-blue flex-shrink-0" title="Voir les profs">
-                  {loading[`profs-${s.code}`] ? '…' : profsOpen ? '▾ Profs' : '▸ Profs'}
-                </button>
-              </div>
-
-              {/* UE de la section */}
-              {uesOpen && ues.map(u => (
-                <div key={u.ue_num} className="flex items-center gap-2 px-3 py-1.5 bg-blue-50/40 border-t border-gray-100">
-                  <span className="w-4 flex-shrink-0" />
-                  <span className="text-[10px] text-gray-400 w-12 flex-shrink-0">UE {u.ue_num}</span>
-                  <span className="text-gray-600 truncate flex-1">{u.ue_nom}</span>
-                  <NiveauToggle type="ue" id={u.ue_num} />
-                </div>
-              ))}
-              {uesOpen && ues.length === 0 && !loading[s.code] && (
-                <div className="px-10 py-1.5 text-gray-400 bg-blue-50/40 border-t border-gray-100">Aucune UE trouvée.</div>
-              )}
-
-              {/* Professeurs de la section */}
-              {profsOpen && profs.map(p => (
-                <div key={p.id} className="flex items-center gap-2 px-3 py-1.5 bg-purple-50/30 border-t border-gray-100">
-                  <span className="w-4 flex-shrink-0" />
-                  <span className="text-gray-600 truncate flex-1">{nomPropre(p.nom, p.prenom)}</span>
-                  <NiveauToggle type="professeur" id={p.id} />
-                </div>
-              ))}
-              {profsOpen && profs.length === 0 && !loading[`profs-${s.code}`] && (
-                <div className="px-10 py-1.5 text-gray-400 bg-purple-50/30 border-t border-gray-100">Aucun professeur trouvé.</div>
-              )}
-            </div>
-          );
-        })}
-      </div>
-
-      {perms.length > 0 && (
-        <div className="px-3 py-2 bg-gray-50 border-t border-gray-200 text-gray-500">
-          {perms.length} permission{perms.length > 1 ? 's' : ''} définie{perms.length > 1 ? 's' : ''} ·{' '}
-          {perms.filter(p => p.niveau === 'modification').length} modification ·{' '}
-          {perms.filter(p => p.niveau === 'lecture').length} lecture seule
-        </div>
-      )}
-    </div>
-  );
-}
-
 // ─── Panneau « Accès Lucie » (admin) : lie un compte utilisateur à un·e membre ───
 
 // permissions_json stocke : { attributions: {lire, ecrire, voir_tout}, personnel: {lire, ecrire}, ..., recrutement: {lire, ecrire} }
@@ -359,9 +186,11 @@ function AccesLuciePanel({ profId, detail }) {
   }
   const [role, setRole]         = useState('editeur');
   const [sections, setSections] = useState([]);
+  // « Toutes les sections » doit POUVOIR SE DIRE : sans ce drapeau, une liste
+  // vide signifiait à la fois « tout » et « rien », et c'est « tout » qui
+  // l'emportait. Trois états, et l'on peut enfin choisir le troisième.
+  const [toutes, setToutes] = useState(1);
   const [perms, setPerms]       = useState(PERM_DEFAUT());
-  const [granulaires, setGranulaires] = useState([]);
-  const [showGranulaire, setShowGranulaire] = useState(false);
   const [pwd, setPwd]           = useState(null);
   const [busy, setBusy]         = useState(false);
   const [saved, setSaved]       = useState(false);
@@ -378,6 +207,7 @@ function AccesLuciePanel({ profId, detail }) {
       if (a) {
         setRole(a.role);
         setSections(a.sections || []);
+        setToutes(a.perimetre_toutes ? 1 : 0);
         // Lire permissions_json
         const pj = a.permissions_json ? (() => { try { return JSON.parse(a.permissions_json); } catch { return {}; } })() : {};
         const merged = { ...PERM_DEFAUT() };
@@ -387,9 +217,6 @@ function AccesLuciePanel({ profId, detail }) {
         // Compat ancienne colonne acces_recrutement
         if (a.acces_recrutement && !merged.recrutement.lire) merged.recrutement.lire = true;
         setPerms(merged);
-        af(`/api/users/${a.id}/permissions`)
-          .then(p => setGranulaires(Array.isArray(p) ? p : []))
-          .catch(() => {});
       }
     }).catch(e => { setErr(e.message); setAccount(null); });
   }
@@ -409,6 +236,7 @@ function AccesLuciePanel({ profId, detail }) {
         // Le périmètre vaut pour tous les rôles, non plus pour la seule
         // coordination : un secrétariat de section, cela existe.
         sections,
+        perimetre_toutes: toutes,
         permissions_json: JSON.stringify(perms),
       }) });
       setPwd(p); charger();
@@ -422,6 +250,7 @@ function AccesLuciePanel({ profId, detail }) {
         role, // Le périmètre vaut pour tous les rôles, non plus pour la seule
         // coordination : un secrétariat de section, cela existe.
         sections,
+        perimetre_toutes: toutes,
         permissions_json: JSON.stringify(perms),
         acces_recrutement: perms.recrutement?.lire ? 1 : 0, // compat
       }) });
@@ -485,6 +314,70 @@ function AccesLuciePanel({ profId, detail }) {
     );
   };
 
+  /* ÉCRIT UNE FOIS, EMPLOYÉ DEUX FOIS — à la création du compte comme à sa
+     modification. Posé dans le seul formulaire de création, le réglage
+     n'existait pas là où l'on va réellement : sur un compte qui existe. */
+  //
+  // L'ACCÈS AUX SECTIONS SE RÈGLE ICI, ET SEULEMENT ICI. La case « Toutes les
+  // sections » était cochée dès que la liste était vide : la décocher rendait
+  // la même chose, et « aucun accès » n'avait aucun moyen de s'exprimer —
+  // alors que c'est devenu le défaut du modèle.
+  const BlocPerimetre = (
+    <div className="border border-slate-200 rounded-lg p-2.5">
+      <div className="text-xs text-gray-500 font-medium mb-1.5">Périmètre</div>
+
+      {[[1, 'Toutes les sections', 'y compris celles à venir'],
+        [2, 'Ces sections',        'celles cochées ci-dessous'],
+        [0, 'Aucun accès',         'ne voit rien tant que rien n\u2019est donné']]
+        .map(([val, titre, aide]) => {
+          const actif = toutes ? val === 1 : (sections.length ? val === 2 : val === 0);
+          return (
+            <button key={val} type="button"
+              onClick={() => {
+                if (val === 1) { setToutes(1); setSections([]); }
+                if (val === 0) { setToutes(0); setSections([]); }
+                if (val === 2) setToutes(0);   // on ouvre la liste, on n'enregistre rien encore
+              }}
+              className={`w-full text-left mb-1 px-2 py-1 rounded-champ border text-[12px] ${
+                actif ? 'border-iip-blue bg-slate-50 text-iip-blue'
+                      : 'border-slate-200 text-slate-600 hover:border-slate-300'}`}>
+              {titre}
+              <span className="block text-[10px] text-slate-400 leading-tight">{aide}</span>
+            </button>
+          );
+        })}
+
+      {!toutes && (
+        <div className="mt-1.5 pt-1.5 border-t border-slate-100">
+          <div className="flex flex-wrap gap-1">
+            {sectionsDispo.map(s => (
+              <button key={s.code} type="button"
+                onClick={() => setSections(v => v.includes(s.code)
+                  ? v.filter(x => x !== s.code) : [...v, s.code])}
+                className={`text-[11px] px-2 py-0.5 rounded-champ border transition ${
+                  sections.includes(s.code)
+                    ? 'bg-iip-blue text-white border-iip-blue'
+                    : 'border-gray-200 text-gray-400 hover:border-iip-blue'}`}>
+                {s.code}
+              </button>
+            ))}
+          </div>
+          {!sections.length && (
+            <div className="mt-1.5 text-[10px] text-amber-700 leading-tight">
+              Aucune section : ce compte ne verra rien.
+            </div>
+          )}
+        </div>
+      )}
+
+      <p className="text-[11px] text-slate-500 mt-1.5">
+        Le périmètre vaut pour tous les modules à la fois, et pour TOUS LES
+        RÔLES — un secrétariat de section, cela existe. La direction n'est pas
+        cloisonnable&nbsp;: c'est elle qui répare les erreurs de paramétrage.
+      </p>
+    </div>
+  );
+
   const FormCreer = (
     <>
       <div className="text-xs text-gray-500">Aucun compte Lucie lié à ce membre.</div>
@@ -519,37 +412,7 @@ function AccesLuciePanel({ profId, detail }) {
         </div>
       )}
 
-      <div className="border border-slate-200 rounded-lg p-2.5">
-        <div className="flex items-center justify-between mb-1.5">
-          <span className="text-xs text-gray-500 font-medium">Périmètre</span>
-          <label className="flex items-center gap-1.5 text-[12px] text-slate-600">
-            <input type="checkbox" checked={sections.length === 0}
-              onChange={e => setSections(e.target.checked ? [] : sectionsDispo.map(s => s.code))} />
-            Toutes les sections
-          </label>
-        </div>
-        {sections.length > 0 && (
-          <div className="flex flex-wrap gap-1">
-            {sectionsDispo.map(s => (
-              <button key={s.code} type="button"
-                onClick={() => setSections(v => v.includes(s.code)
-                  ? v.filter(x => x !== s.code) : [...v, s.code])}
-                className={`text-[11px] px-2 py-0.5 rounded-champ border transition ${
-                  sections.includes(s.code)
-                    ? 'bg-iip-blue text-white border-iip-blue'
-                    : 'border-gray-200 text-gray-400 hover:border-iip-blue'}`}>
-                {s.code}
-              </button>
-            ))}
-          </div>
-        )}
-        <p className="text-[11px] text-slate-500 mt-1.5">
-          {sections.length === 0
-            ? "Cette personne voit toutes les sections."
-            : `Elle ne voit que : ${sections.join(', ') || '— aucune, l\u2019accès serait bloqué'}.`}
-          {' '}Le périmètre vaut pour tous les modules à la fois.
-        </p>
-      </div>
+      {BlocPerimetre}
 
       <div>
         <div className="text-xs text-gray-500 mb-2 font-medium">Permissions</div>
@@ -581,6 +444,8 @@ function AccesLuciePanel({ profId, detail }) {
 
 
 
+      {BlocPerimetre}
+
       {/* Permissions modules */}
       <div>
         <div className="text-xs text-gray-500 mb-2 font-medium">Permissions par module</div>
@@ -592,24 +457,21 @@ function AccesLuciePanel({ profId, detail }) {
         </div>
       </div>
 
-      {/* Permissions granulaires section/UE */}
-      <div>
-        <button onClick={() => setShowGranulaire(v => !v)}
-          className="w-full text-left text-xs font-medium text-gray-600 flex items-center justify-between py-1 border-t border-gray-100 pt-2">
-          <span>Restrictions granulaires (sections, UE, professeurs)</span>
-          <span className="text-gray-400">{showGranulaire ? '▲' : '▼'} {granulaires.length > 0 ? `${granulaires.length} règle${granulaires.length > 1 ? 's' : ''}` : ''}</span>
-        </button>
-        {showGranulaire && (
-          <PermissionsPanel
-            userId={account.id}
-            permissions={granulaires}
-            sectionsDispo={sectionsDispo}
-            annee={localStorage.getItem('annee_active') || '2026-2027'}
-            onSaved={nv => setGranulaires(nv)}
-            af={af}
-          />
-        )}
-      </div>
+      {/* « RESTRICTIONS GRANULAIRES » A ÉTÉ RETIRÉ, PARCE QU'IL NE RESTREIGNAIT
+          RIEN. Il écrivait dans `utilisateur_permission`, une table que quatre
+          requêtes touchent — toutes dans cet écran, pour l'afficher et
+          l'enregistrer. AUCUNE route métier ne la lit : ni getUserSections, ni
+          peut(), ni le garde des modules. On cochait, on sauvegardait, et rien
+          ne changeait.
+
+          Quinze lignes y dormaient en production : quelqu'un a cru régler
+          quelque chose. Pire, des cases grises s'y lisaient « aucun accès »
+          alors qu'elles voulaient dire « aucune restriction » — l'inverse, et
+          dans l'écran où l'on vient vérifier qui peut quoi.
+
+          Le périmètre par section se règle au-dessus, et celui-là est branché.
+          La TABLE est conservée : elle ne gêne pas, et la supprimer effacerait
+          les quinze lignes avant qu'on ait regardé ce que leur auteur voulait. */}
 
       <div className="flex items-center gap-2 pt-1 flex-wrap">
         <button onClick={sauvegarder} disabled={busy}
@@ -619,9 +481,31 @@ function AccesLuciePanel({ profId, detail }) {
         <button onClick={nouveauMdp} disabled={busy} className="flex items-center gap-1.5 text-sm border border-gray-300 text-gray-700 px-3 py-2 rounded-lg hover:bg-gray-50 disabled:opacity-40">
           <IconKey size={14} /> Nouveau mot de passe
         </button>
-        <button onClick={() => { if (confirm('Désactiver ce compte ?')) af(`/api/users/${account.id}`, { method: 'PATCH', body: JSON.stringify({ actif: 0 }) }).then(charger).catch(e => setErr(e.message)); }}
-          className="flex items-center gap-1.5 text-sm border border-red-300 text-red-600 px-3 py-2 rounded-lg hover:bg-red-50">
-          <IconX size={14} /> {account.actif ? 'Désactiver' : 'Réactiver'}
+        {/* LE BOUTON DISAIT « RÉACTIVER » ET DÉSACTIVAIT.
+            Seul le LIBELLÉ regardait l'état du compte : la question posée et
+            la valeur écrite étaient figées — `confirm('Désactiver ce compte ?')`
+            puis `actif: 0`, quoi qu'il arrive. Sur un compte déjà désactivé, on
+            lisait « Réactiver », on s'entendait demander si l'on voulait
+            désactiver, on confirmait, et rien ne changeait. Le seul chemin de
+            retour ne ramenait nulle part.
+
+            Trois choses dépendent de l'état, et non une seule : ce qu'on écrit,
+            ce qu'on demande, et la couleur — rendre un accès n'est pas une
+            action destructrice, elle n'a pas à être en rouge. */}
+        <button onClick={() => {
+            const rendre = !account.actif;
+            const question = rendre
+              ? `Réactiver le compte de ${account.email} ?\n\nCette personne pourra de nouveau se connecter.`
+              : `Désactiver le compte de ${account.email} ?\n\nElle ne pourra plus se connecter. Le compte reste listé et se réactive ici même.`;
+            if (!confirm(question)) return;
+            af(`/api/users/${account.id}`, { method: 'PATCH', body: JSON.stringify({ actif: rendre ? 1 : 0 }) })
+              .then(charger).catch(e => setErr(e.message));
+          }}
+          className={`flex items-center gap-1.5 text-sm px-3 py-2 rounded-lg border ${account.actif
+            ? 'border-red-300 text-red-600 hover:bg-red-50'
+            : 'border-emerald-300 text-emerald-700 hover:bg-emerald-50'}`}>
+          {account.actif ? <IconX size={14} /> : <IconKey size={14} />}
+          {account.actif ? 'Désactiver' : 'Réactiver'}
         </button>
       </div>
     </>
