@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import {
   IconDatabase, IconDownload, IconTrash, IconAlertTriangle, IconCheck, IconClock,
 } from '@tabler/icons-react';
-import { authHeaders } from '../lib/api.js';
+import { authHeaders, telechargerFichier } from '../lib/api.js';
 import { TableauEntete, Th, Badge } from '../components/ui.jsx';
 
 /**
@@ -67,11 +67,15 @@ export default function Sauvegardes() {
     await charger();
   }
 
-  function telecharger(s) {
-    const a = document.createElement('a');
-    a.href = `/api/sauvegardes/${s.id}/telecharger`;
-    a.download = s.fichier;
-    document.body.appendChild(a); a.click(); a.remove();
+  async function telecharger(s) {
+    setMessage(null);
+    try {
+      await telechargerFichier(`/api/sauvegardes/${s.id}/telecharger`, s.fichier);
+    } catch (e) {
+      // L'erreur s'AFFICHE, elle ne se télécharge pas : c'est très exactement
+      // ce qui se passait, et pourquoi la panne restait invisible.
+      setMessage({ type: 'err', texte: `Téléchargement impossible : ${e.message}` });
+    }
   }
 
   if (!data || !config) return <div className="p-5 text-sm text-slate-400">Chargement…</div>;
