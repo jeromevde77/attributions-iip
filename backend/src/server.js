@@ -2779,6 +2779,9 @@ import { migrerMotDePasse } from './lib/motDePasse.js';
 import { migrerTentatives } from './lib/tentatives.js';
 try { migrerMotDePasse(db); } catch (e) { console.error('[migration] mot de passe :', e.message); }
 try { migrerTentatives(db); } catch (e) { console.error('[migration] tentatives :', e.message); }
+import { planifierRetention, migrerRetention } from './lib/retention.js';
+try { migrerRetention(db); } catch (e) { console.error('[migration] retention :', e.message); }
+try { planifierRetention(); } catch (e) { console.error('[retention] planification :', e.message); }
 try { migrerClassement(db); } catch (e) { console.error('[migration] classement :', e.message); }
 try { migrerAncienneteService(db); } catch (e) { console.error('[migration] anciennete_service :', e.message); }
 try { migrerEtudiants(db); } catch (e) { console.error('[migration] etudiants :', e.message); }
@@ -2972,6 +2975,7 @@ app.use('/api/impression', garderModule('impression'), impressionRoutes);
 app.use('/api/envois',     garderModule('envois'), (await import('./routes/envois.js')).default);
 app.use('/api/import-sur-mesure', garderModule('import-sur-mesure'), importSurMesureRoutes);
 app.use('/api/historique',   garderModule('historique'), historiqueRoutes);
+app.use('/api/audit',        garderModule('audit'), (await import('./routes/audit.js')).default);
 app.use('/api/etablissement', garderModule('etablissement'), etablissementRoutes);
 app.use('/api/ea12',          garderModule('ea12'), ea12Routes);
 app.use('/api/templates',   garderModule('templates'), templateRoutes);

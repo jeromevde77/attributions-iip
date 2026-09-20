@@ -271,6 +271,26 @@ export function niveauDirection(req, res, next) {
   next();
 }
 
+/**
+ * Middleware : réservé à l'ADMINISTRATEUR, et à lui seul.
+ *
+ * `roleRequired('admin')` ferme bien la porte, mais il MENT sur la raison :
+ * pour une coordination il répond « cet écran ne sait pas encore transmettre
+ * vos modifications pour validation, signalez-le à la direction ». C'est vrai
+ * d'une écriture, faux d'une lecture — et la personne cherche alors ce qu'elle
+ * a voulu modifier, ou signale un défaut qui n'existe pas.
+ *
+ * Même raison d'être que `niveauDirection` : quand une porte appartient à
+ * quelqu'un de précis, c'est le middleware qui le dit.
+ */
+export function administrateurSeul(req, res, next) {
+  if (!req.user) return res.status(401).json({ error: 'Non authentifié' });
+  if (req.user.role !== 'admin') {
+    return res.status(403).json({ error: "Réservé à l'administrateur." });
+  }
+  next();
+}
+
 export function normaliserRole(role) {
   return ROLES_CONNUS.includes(role) ? role : 'consultation';
 }
