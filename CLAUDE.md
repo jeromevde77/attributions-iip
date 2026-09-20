@@ -979,6 +979,21 @@ et 3 composants de tuile**. La stratégie tient en cinq chantiers, dans cet ordr
   cellule de tableau n'a rien à faire à 36 px. C'est donc une **classe**, à
   poser sur les contrôles d'une barre d'outils. `.controle-fort` pour le
   principal, et il n'y en a qu'un.
+- **UN UTILITAIRE TAILWIND NE GAGNE PAS CONTRE `.controle` — ET HUIT CHAMPS LE
+  PAYAIENT EN SILENCE.** On posait `pl-7` ou `pl-8` sur un champ de recherche
+  pour laisser la place à la loupe, et il ne se passait RIEN : `.controle`
+  déclare `padding-inline`, la propriété RACCOURCIE, qui écrase les deux côtés,
+  et comme elle vit dans le CSS applicatif elle passe après les utilitaires. La
+  loupe se posait donc sur la première lettre du texte d'invite — à huit
+  endroits, dans quatre fichiers, sans que personne l'ait jamais écrit à
+  l'envers : chacun avait ajouté le padding qu'il fallait, et chacun avait été
+  ignoré. D'où **`.controle-icone`** (2 rem), à poser avec `.controle` dès qu'une
+  icône est posée en absolu dans le champ.
+  > **RÈGLE GÉNÉRALE : une propriété raccourcie dans une classe de la maison
+  > annule l'utilitaire correspondant.** Avant d'ajouter un utilitaire à un
+  > élément qui porte `.controle`, `.bouton` ou `.carte`, vérifier que la classe
+  > ne déclare pas déjà la propriété — sinon l'utilitaire ne fait rien, et rien
+  > ne le dit.
 - **Deux formes d'onglet, et une règle qui dit laquelle.** La **pastille**
   (fond clair, coins arrondis) dit *où l'on est* — barre du haut, rail : on
   change de territoire. Le **soulignement** (`.onglet-page` /

@@ -831,7 +831,7 @@ function ChoisirEtudiants({ annee, onClose, onChoisis }) {
             <IconSearch size={14}
               className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
             <input value={q} onChange={e => setQ(e.target.value)}
-              placeholder="Un nom…" className="controle pl-8 text-[13px]" />
+              placeholder="Un nom…" className="controle controle-icone text-[13px]" />
           </div>
           <span className="ml-auto text-[12px] text-slate-500">
             {coches.size ? `${coches.size} coché(s)` : 'Aucun coché'}
@@ -982,7 +982,7 @@ function ChoisirUnite({ annee, etudiant, onClose, onCree }) {
             <IconSearch size={14}
               className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
             <input value={q} onChange={e => setQ(e.target.value)}
-              placeholder="Un numéro, un intitulé…" className="controle pl-8 text-[13px]" />
+              placeholder="Un numéro, un intitulé…" className="controle controle-icone text-[13px]" />
           </div>
           {coches.size > 0 && (
             <button onClick={() => setCoches(new Set())}
@@ -1429,7 +1429,7 @@ function ValoriserEnSerie({ annee, onClose, onCree }) {
                     <IconSearch size={14}
                       className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
                     <input value={q} onChange={e => setQ(e.target.value)}
-                      placeholder="Un nom…" className="controle pl-8 text-[13px]" />
+                      placeholder="Un nom…" className="controle controle-icone text-[13px]" />
                   </div>
                   <button onClick={ajouterLesPris}
                     disabled={!prisDansRecherche.size}
@@ -3205,7 +3205,7 @@ function AnalyserEnSerie({ annee, onClose, onChange }) {
                                                text-slate-400 pointer-events-none" />
               <input value={q} onChange={e => setQ(e.target.value)}
                 placeholder="Nom ou prénom…"
-                className="controle text-[13px] pl-7 w-52" />
+                className="controle controle-icone text-[13px] w-52" />
             </div>
             <select value={fSection} onChange={e => setFSection(e.target.value)}
               className="controle text-[13px]">
@@ -3789,7 +3789,7 @@ function MatriceIntroduction({ annee, onClose, onCree }) {
                   className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
                 <input value={filtre} onChange={e => setFiltre(e.target.value)}
                   placeholder="Début du nom ou du prénom…"
-                  className="controle pl-8 text-[13px] w-56" />
+                  className="controle controle-icone text-[13px] w-56" />
               </div>
               {filtre && (
                 <span className="text-[11px] text-slate-500">
@@ -3822,7 +3822,7 @@ function MatriceIntroduction({ annee, onClose, onCree }) {
               <IconSearch size={14}
                 className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
               <input value={q} onChange={e => setQ(e.target.value)}
-                placeholder="Un nom…" className="controle pl-8 text-[13px]" />
+                placeholder="Un nom…" className="controle controle-icone text-[13px]" />
             </div>
             <div className="max-h-40 overflow-auto rounded-champ bg-white border border-slate-200">
               {!resultats ? (

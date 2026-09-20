@@ -125,7 +125,7 @@ export default function ConfierTache({ onClose, onCree }) {
               <IconSearch size={14}
                 className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
               <input value={recherche} onChange={e => setRecherche(e.target.value)}
-                placeholder="Un nom…" className="controle w-full pl-8 text-[13px]" />
+                placeholder="Un nom…" className="controle controle-icone w-full text-[13px]" />
             </div>
           </div>
 
