@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { IconAlertTriangle, IconLock } from '@tabler/icons-react';
+import { IconAlertTriangle, IconLock, IconEye, IconShieldCheck, IconTrash } from '@tabler/icons-react';
 import { authHeaders } from '../lib/api.js';
 import { MODULES_ACCES, oublierPlafonds } from '../lib/modules.js';
 
@@ -32,6 +32,131 @@ const LIBELLE_ROLE = {
 };
 
 const DIRECTION = ['admin', 'directeur', 'directeur_adjoint'];
+
+
+/**
+ * CE QUE LE MODE CONSTAT A VU.
+ *
+ * Le contrôle des modules se déploie d'abord SANS refuser : il laisse passer
+ * et note ce qu'il aurait bloqué. Sans cet écran, ce registre resterait une
+ * table que personne n'ouvre — et l'on fermerait à l'aveugle, ce que le mode
+ * constat existe précisément pour éviter.
+ *
+ * Chaque ligne est une QUESTION, pas un coupable : « cette personne
+ * devrait-elle y avoir accès ? » Si oui, c'est le plafond ci-dessus qu'il faut
+ * relever, ou la carte des modules qu'il faut corriger. Une liste vide ne veut
+ * pas dire que tout est réglé : elle veut dire que personne n'a encore touché
+ * à ce qui lui est fermé.
+ */
+function Constat() {
+  const [d, setD] = useState(null);
+  const [ouvert, setOuvert] = useState(false);
+
+  async function charger() {
+    const rep = await fetch('/api/profils-acces/constat', { headers: authHeaders() });
+    setD(rep.ok ? await rep.json() : { lignes: [], par_personne: [], mode: '?' });
+  }
+  useEffect(() => { charger(); }, []);
+
+  async function vider() {
+    if (!confirm('Vider le registre ?\n\nÀ faire après avoir corrigé un plafond, pour repartir '
+               + 'd’une page blanche et mesurer l’effet du changement.')) return;
+    await fetch('/api/profils-acces/constat', { method: 'DELETE', headers: authHeaders() });
+    charger();
+  }
+
+  if (!d) return null;
+  const strict = d.mode === 'strict';
+
+  return (
+    <div className="carte">
+      <div className="px-4 py-2.5 border-b border-slate-200 flex items-center gap-2">
+        {strict ? <IconShieldCheck size={15} className="text-slate-400" />
+                : <IconEye size={15} className="text-slate-400" />}
+        <span className="text-[15px]">Ce que le contrôle a vu</span>
+        <span className={`text-[10px] px-1.5 py-0.5 rounded border ${
+          strict ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                 : 'bg-amber-50 text-amber-800 border-amber-200'}`}>
+          {strict ? 'mode strict — les refus s’appliquent'
+                  : 'mode constat — rien n’est refusé'}
+        </span>
+        <div className="flex-1" />
+        {!!d.lignes.length && (
+          <button onClick={vider}
+            className="text-[11px] text-slate-500 hover:text-red-700 flex items-center gap-1">
+            <IconTrash size={13} /> Vider
+          </button>
+        )}
+      </div>
+
+      {!d.lignes.length ? (
+        <div className="px-4 py-3 text-[12px] text-slate-500">
+          Rien à signaler : personne n’a encore touché à ce qui lui est fermé.
+          {!strict && ' Laissez tourner quelques jours avant de passer en mode strict.'}
+        </div>
+      ) : (
+        <>
+          {/* QUI PERDRAIT QUOI — c’est la seule question qui décide. Le détail
+              sert à comprendre ; ce résumé sert à trancher. */}
+          <div className="px-4 py-3 border-b border-slate-100 space-y-1.5">
+            {d.par_personne.map(p => (
+              <div key={p.email} className="text-[12px] flex items-baseline gap-2 flex-wrap">
+                <span className="font-medium">{p.email}</span>
+                <span className="text-slate-400 text-[11px]">{p.role}</span>
+                <span className="text-slate-600">perdrait : {p.modules.join(', ')}</span>
+                <span className="text-slate-400 text-[11px]">({p.total} accès)</span>
+              </div>
+            ))}
+          </div>
+
+          <button onClick={() => setOuvert(!ouvert)}
+            className="w-full px-4 py-1.5 text-[11px] text-slate-500 hover:text-iip-blue text-left">
+            {ouvert ? '▾' : '▸'} Le détail, ligne à ligne ({d.lignes.length})
+          </button>
+
+          {ouvert && (
+            <table className="w-full text-[11px]">
+              <thead className="tab-entete">
+                <tr>
+                  <th className="text-left px-3 py-1.5">Personne</th>
+                  <th className="text-left px-2 py-1.5">Module</th>
+                  <th className="text-left px-2 py-1.5">Action</th>
+                  <th className="text-left px-2 py-1.5">Route</th>
+                  <th className="text-right px-3 py-1.5">Fois</th>
+                  <th className="text-left px-2 py-1.5">Dernière</th>
+                </tr>
+              </thead>
+              <tbody>
+                {d.lignes.map((l, i) => (
+                  <tr key={i} className="border-b border-slate-100">
+                    <td className="px-3 py-1">{l.email}</td>
+                    <td className="px-2 py-1">{l.module}</td>
+                    <td className="px-2 py-1">
+                      <span className={l.action === 'ecrire' ? 'text-amber-700' : 'text-slate-500'}>
+                        {l.action}
+                      </span>
+                    </td>
+                    <td className="px-2 py-1 text-slate-500">
+                      <span className="text-slate-400">{l.methode}</span> {l.chemin}
+                    </td>
+                    <td className="px-3 py-1 text-right">{l.occurrences}</td>
+                    <td className="px-2 py-1 text-slate-400">{(l.derniere_le || '').slice(0, 16)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </>
+      )}
+
+      <div className="px-4 py-2.5 text-[11px] text-slate-500 border-t border-slate-100">
+        Chaque ligne est une question, pas une faute : <b>cette personne devrait-elle y avoir
+        accès ?</b> Si oui, relevez son plafond ci-dessus. Si non, le contrôle fera son
+        office dès le passage en mode strict.
+      </div>
+    </div>
+  );
+}
 
 export default function RolesPlafonds() {
   const [data, setData] = useState(null);
@@ -163,6 +288,8 @@ export default function RolesPlafonds() {
           qu'appliquée en silence.
         </p>
       </div>
+
+      <Constat />
     </div>
   );
 }
