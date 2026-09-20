@@ -6,6 +6,9 @@ import {
   IconDownload, IconSend,
 } from '@tabler/icons-react';
 import PreviewModal from './PreviewModal.jsx';
+/* La séance de valorisation est chargée à la demande : Éditions s'ouvre
+   souvent pour un rapport, et cet écran porte le rendu du procès-verbal. */
+const SeanceValorisation = lazy(() => import('./SeanceValorisation.jsx'));
 import EnvoiMailModal from './EnvoiMailModal.jsx';
 import { useEnvoiMail } from '../lib/envoiMail.js';
 import { authHeaders, getAnnee } from '../lib/api.js';
@@ -62,6 +65,163 @@ const PIECES = [
   { cle: 'conseil', label: 'Composition du Conseil', nominatif: false },
   { cle: 'grille', label: 'Grille de délibération', nominatif: false },
 ];
+
+/* ══ LA VALORISATION DES ACQUIS, DEPUIS ÉDITIONS ══════════════════════════
+ *
+ * Les pièces de valorisation ne se sortaient QUE depuis la fiche d'un
+ * étudiant — onglet VA, bouton Documents. C'est-à-dire du cas par cas, sur une
+ * pièce qui concerne l'unité entière : pour un conseil de dix-sept dossiers, il
+ * fallait ouvrir une fiche au hasard pour atteindre le procès-verbal de tous
+ * les autres.
+ *
+ * Et ce n'était pas un oubli de déclaration : `lib/documents.js` déclare bien
+ * `valorisation_ue`, et `/api/impression/catalogue` le sert. AUCUN ÉCRAN NE
+ * LISAIT CE CATALOGUE — c'est le chantier 4 de la stratégie documents, jamais
+ * construit. Une pièce déclarée dans un catalogue que personne ne lit n'existe
+ * pas ; c'est la leçon du PV d'annexe 4 avant 2.11.7, et de `POST /etudiants`
+ * avant l'écran d'inscription.
+ *
+ * ON NE RECONSTRUIT PAS L'ÉCRAN DE SÉANCE. `SeanceValorisation` porte déjà la
+ * date, la présidence, les présences, le quorum, la barrière des manques et la
+ * production du PV avec ses attestations. Ce qui manquait n'était pas un
+ * écran : c'était UNE PORTE. Éditions en devient une — on choisit l'unité, et
+ * la séance s'ouvre.
+ */
+function OngletValorisation() {
+  const [annee, setAnnee] = useState(getAnnee());
+  const [annees, setAnnees] = useState([]);
+  const [arbre, setArbre] = useState(null);
+  const [section, setSection] = useState('');
+  const [dossiers, setDossiers] = useState(null);
+  const [ouverte, setOuverte] = useState(null);   // { ue_num, ue_nom }
+  const [erreur, setErreur] = useState(null);
+
+  useEffect(() => {
+    fetch('/api/annees', { headers: authHeaders() })
+      .then(r => r.json())
+      .then(l => setAnnees((Array.isArray(l) ? l : []).map(a => a.code).filter(Boolean)))
+      .catch(() => setAnnees([annee]));
+    // eslint-disable-next-line
+  }, []);
+
+  useEffect(() => {
+    fetch(`/api/perimetre/arborescence?annee=${encodeURIComponent(annee)}`,
+      { headers: authHeaders() })
+      .then(r => r.json()).then(setArbre).catch(e => setErreur(e.message));
+  }, [annee]);
+
+  /* LES UNITÉS PROPOSÉES SONT CELLES QUI ONT DES DEMANDES — PAS TOUT LE
+     RÉFÉRENTIEL. Trois cents unités dont six portent une valorisation, c'est
+     une liste dans laquelle on ne trouve pas : le registre dit lesquelles, et
+     avec combien de dossiers. */
+  useEffect(() => {
+    setDossiers(null);
+    fetch(`/api/etudiants/valorisations/registre?annee=${encodeURIComponent(annee)}`,
+      { headers: authHeaders() })
+      .then(r => (r.ok ? r.json() : []))
+      .then(l => setDossiers(Array.isArray(l) ? l : []))
+      .catch(() => setDossiers([]));
+  }, [annee]);
+
+  const nomUE = useMemo(() => {
+    const m = new Map();
+    for (const u of (arbre?.unites || [])) m.set(u.ue_num, u);
+    return m;
+  }, [arbre]);
+
+  const unites = useMemo(() => {
+    const m = new Map();
+    for (const d of (dossiers || [])) {
+      const sec = d.section || nomUE.get(d.ue_num)?.section || null;
+      if (section && sec !== section) continue;
+      const k = d.ue_num;
+      if (!m.has(k)) {
+        m.set(k, { ue_num: k, ue_nom: d.ue_nom || nomUE.get(k)?.ue_nom || '',
+                   section: sec, n: 0, refus: 0, partielles: 0, avalider: 0 });
+      }
+      const e = m.get(k);
+      e.n += 1;
+      if (d.decision === 'refusee') e.refus += 1;
+      else if (d.type === 'partielle') e.partielles += 1;
+      if (!d.valide_le) e.avalider += 1;
+    }
+    return [...m.values()].sort((a, b) => a.ue_num - b.ue_num);
+  }, [dossiers, section, nomUE]);
+
+  return (
+    <div className="p-4 space-y-3">
+      <div className="flex flex-wrap items-center gap-2">
+        <select value={annee} onChange={e => setAnnee(e.target.value)}
+          className="controle text-[13px]">
+          {(annees.length ? annees : [annee]).map(a => (
+            <option key={a} value={a}>{a}</option>
+          ))}
+        </select>
+        <select value={section} onChange={e => setSection(e.target.value)}
+          className="controle text-[13px]">
+          <option value="">Toutes les sections</option>
+          {(arbre?.sections || []).map(sx => <option key={sx} value={sx}>{sx}</option>)}
+        </select>
+        <span className="text-[12px] text-slate-500">
+          {unites.length} unité(s) portant des demandes
+        </span>
+      </div>
+
+      {erreur && (
+        <div className="px-3 py-2 rounded-lg bg-amber-50 text-amber-900 text-[13px]">
+          {erreur}
+        </div>
+      )}
+
+      {/* LA PIÈCE EST D'UNITÉ, ET L'ÉCRAN LE DIT AVANT LE CLIC.
+          Le procès-verbal porte TOUS les étudiants valorisés dans l'unité
+          cette année-là : le compte est sur la ligne, pour qu'on sache ce
+          qu'on s'apprête à produire. */}
+      {dossiers && !unites.length && (
+        <p className="text-[13px] text-slate-400">
+          Aucune demande de valorisation enregistrée pour cette année
+          {section ? ` en ${section}` : ''}. Les pièces se produisent depuis
+          l'unité qui a convoqué le conseil des études.
+        </p>
+      )}
+
+      <div className="space-y-1.5">
+        {unites.map(u => (
+          <div key={u.ue_num} className="carte px-3 py-2 flex items-center gap-3">
+            <span className="flex-1 min-w-0">
+              <span className="text-[13px] font-semibold text-iip-blue">
+                {u.ue_num === 0 ? 'Admission de section' : `UE ${u.ue_num}`}
+              </span>
+              <span className="text-[13px] text-slate-600 ml-2">{u.ue_nom}</span>
+              <span className="block text-[11px] text-slate-500">
+                {u.section || 'section à déduire'} · {u.n} dossier(s)
+                {u.partielles ? ` · ${u.partielles} partielle(s)` : ''}
+                {u.refus ? ` · ${u.refus} refus` : ''}
+                {/* CE QUI EMPÊCHERA LA PIÈCE DE SORTIR SE VOIT ICI, PAS AU
+                    MOMENT D'IMPRIMER — le découvrir devant quelqu'un qui
+                    attend son attestation est la mauvaise façon de l'apprendre. */}
+                {u.avalider
+                  ? <span className="text-[#B45309]"> · {u.avalider} non validé(s)</span>
+                  : null}
+              </span>
+            </span>
+            <button className="bouton-sortir controle px-3 text-[12px] flex-none"
+              onClick={() => setOuverte(u)}>
+              PV et attestations
+            </button>
+          </div>
+        ))}
+      </div>
+
+      {ouverte && (
+        <Suspense fallback={null}>
+          <SeanceValorisation ueNum={ouverte.ue_num} ueNom={ouverte.ue_nom}
+            annee={annee} onClose={() => setOuverte(null)} />
+        </Suspense>
+      )}
+    </div>
+  );
+}
 
 /**
  * LES RAPPORTS D'UN DOMAINE.
@@ -1030,6 +1190,16 @@ export default function CentreImpressionCentral({ ongletInitial = 'etudiants',
                 className={famille === 'pieces' ? 'on' : ''}>
                 Pièces par étudiant
               </button>
+              {/* LA VALORISATION EST UNE FAMILLE À PART, ET NON UNE PIÈCE
+                  « PAR ÉTUDIANT ». Le procès-verbal d'annexe 4 porte TOUS les
+                  étudiants valorisés dans l'unité : le ranger avec les pièces
+                  nominatives, dont l'écran demande d'abord « quels étudiants »,
+                  aurait fait poser la mauvaise question. Ici on choisit
+                  l'UNITÉ, parce que c'est elle qui convoque le conseil. */}
+              <button onClick={() => setFamille('valorisation')}
+                className={famille === 'valorisation' ? 'on' : ''}>
+                Valorisation des acquis
+              </button>
               <button onClick={() => setFamille('rapports')}
                 className={famille === 'rapports' ? 'on' : ''}>
                 Rapports
@@ -1041,6 +1211,7 @@ export default function CentreImpressionCentral({ ongletInitial = 'etudiants',
             </span>
           </div>
           {famille === 'pieces' ? <OngletEtudiants perimetre={perimetre} />
+            : famille === 'valorisation' ? <OngletValorisation />
             : famille === 'listes' ? <CadreListes domaine="etudiants" />
             : <OngletRapports domaine="etudiants" />}
         </>
