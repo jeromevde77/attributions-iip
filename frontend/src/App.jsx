@@ -43,7 +43,7 @@ import EA12List from './pages/EA12List.jsx';
 import EA12Editor from './pages/EA12Editor.jsx';
 import Pilotage from './pages/Pilotage.jsx';
 import Planification from './pages/Planification.jsx';
-import Aide from './pages/Aide.jsx';
+const Documentation = lazy(() => import('./pages/Documentation.jsx'));
 import Attestation from './pages/Attestation.jsx';
 import Disciplinaire from './pages/Disciplinaire.jsx';
 import Echeancier from './pages/Echeancier.jsx';
@@ -372,7 +372,14 @@ function ProtectedLayout({ children }) {
     .filter(([, , , module]) => !module || droitEffectif(u, module) !== 'rien')
     .map(([to, lbl, Icon]) => [to, lbl, Icon]);
 
-  nav.push(['/aide', '', IconHelpCircle]);
+  /* L'AIDE DEVIENT LA DOCUMENTATION, ET C'EST UNE ABSORPTION, PAS UN AJOUT.
+   *
+   * Deux portes pour « savoir » en auraient fait une de trop : un enseignant
+   * aurait cherché la circulaire examens dans l'une et le mode d'emploi du PAE
+   * dans l'autre, sans pouvoir deviner laquelle. L'écran porte donc deux
+   * faces — les TEXTES qui s'imposent, et le MODE D'EMPLOI de l'outil — et il
+   * garde la place et l'icône que l'aide occupait déjà dans la barre. */
+  nav.push(['/documentation', '', IconHelpCircle]);
   if (estDirection(u)) nav.push(['/configuration', 'Config.', IconSettings]);
 
   return (
@@ -617,7 +624,10 @@ export default function App() {
       <Route path="/gestion"        element={<ProtectedLayout><Pilotage vue="gestion" /></ProtectedLayout>} />
       <Route path="/pilotage"       element={<Navigate to="/accueil" replace />} />
       <Route path="/planification"  element={<ProtectedLayout><Organisation ongletInitial="planification" /></ProtectedLayout>} />
-      <Route path="/aide"           element={<ProtectedLayout><Aide /></ProtectedLayout>} />
+      <Route path="/documentation"  element={<ProtectedLayout><Suspense fallback={<div className="p-6 text-sm text-slate-400">Chargement…</div>}><Documentation /></Suspense></ProtectedLayout>} />
+      {/* L'ancienne adresse continue de mener quelque part : un lien noté dans
+          un courriel ou un signet ne doit pas tomber dans le vide. */}
+      <Route path="/aide"           element={<Navigate to="/documentation" replace />} />
       <Route path="/attestation"   element={<ProtectedLayout><Attestation /></ProtectedLayout>} />
       <Route path="/disciplinaire" element={<ProtectedLayout><Disciplinaire /></ProtectedLayout>} />
       {/* CES ÉCRANS ONT DÉJÀ LEUR PLACE — ON N'EN OUVRE PAS UNE SECONDE.
