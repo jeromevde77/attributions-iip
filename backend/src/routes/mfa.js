@@ -284,7 +284,7 @@ r.post('/:id/reinitialiser', authRequired, niveauDirection, async (req, res) => 
   // faite et journalisée. On dit simplement si l'avis est parti.
   let avise = false, raisonAvis = null;
   try {
-    await envoyerEmail({
+    const envoi = await envoyerEmail({
       to: u.email,
       subject: 'Lucie — votre second facteur a été réinitialisé',
       html: templateNotif({
@@ -298,7 +298,24 @@ r.post('/:id/reinitialiser', authRequired, niveauDirection, async (req, res) => 
         lien: '/login', lienTexte: 'Se connecter',
       }),
     });
-    avise = true;
+    // `avise` DIT QUE LA PERSONNE A REÇU QUELQUE CHOSE, et non que l'appel
+    // n'a pas levé d'exception. Sans serveur de courriel, `envoyerEmail`
+    // SIMULE : il journalise « [MAILER DEV] » et rend { ok: true, simule: true }.
+    // On posait `avise` sur la seule absence d'erreur, si bien que l'écran
+    // annonçait « la personne en a été avisée par courriel » alors que rien
+    // n'était parti — et cela sur une action de sécurité dont le message dit
+    // précisément « si vous n'avez rien demandé, prévenez la direction
+    // immédiatement ». Personne n'aurait rien eu à prévenir.
+    //
+    // L'écran savait déjà dire « PRÉVENEZ LA PERSONNE » quand l'avis n'est pas
+    // parti : ce chemin existait et n'était jamais emprunté.
+    avise = !!envoi?.ok && !envoi?.simule;
+    if (!avise) {
+      raisonAvis = envoi?.erreur
+        || (envoi?.simule
+              ? "aucun serveur de courriel n'est configuré"
+              : "l'envoi n'a pas abouti");
+    }
   } catch (e) { raisonAvis = e.message; }
 
   res.json({ ok: true, avise, raison_avis: raisonAvis });
