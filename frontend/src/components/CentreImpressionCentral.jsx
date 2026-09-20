@@ -381,6 +381,33 @@ function OngletRapports({ domaine }) {
     return true;
   }), [ues, section, portee.tc]);
 
+  /* LE TRONC COMMUN N'EXISTE PAS PARTOUT — ET LE MENU LE PROPOSAIT QUAND MÊME.
+   *
+   * « Tronc commun compris / seul / hors » s'affichait sur TIM, qui n'en a
+   * pas : trois choix dont deux rendent une liste vide, et le troisième ne
+   * change rien. Un filtre qui ne filtre rien n'est pas neutre — il fait
+   * douter (« ai-je oublié de cocher quelque chose ? ») et il occupe la place
+   * de ceux qui décident vraiment. C'est la même règle que les rubriques « à
+   * venir » retirées des rails : on ne montre pas une porte qui ne mène nulle
+   * part.
+   *
+   * Il ne paraît donc que si la section choisie porte RÉELLEMENT des unités de
+   * tronc commun — Optométrie aujourd'hui. Le jour où une autre section en
+   * aura, il paraîtra tout seul : la condition se lit des données, elle n'est
+   * pas une liste de sections écrite en dur, qui mentirait dès le premier
+   * changement de programme. */
+  const aTroncCommun = useMemo(() => (ues || []).some(u =>
+    (!section || u.section === section)
+    && String(u.ue_tc || '').trim().toLowerCase() === 'x'), [ues, section]);
+
+  /* ET UN FILTRE QUI DISPARAÎT NE DOIT PAS CONTINUER D'AGIR EN COULISSE.
+     On choisit « tronc commun seul » en optométrie, on bascule sur TIM : le
+     menu s'efface, mais `portee.tc` garderait sa valeur et la liste sortirait
+     vide sans que rien ne l'explique. */
+  useEffect(() => {
+    if (!aTroncCommun && portee.tc) setPortee(p => ({ ...p, tc: '' }));
+  }, [aTroncCommun, portee.tc]);
+
   // Une unité décochée par un changement de filtre ne doit pas rester dans la
   // sélection : la pièce porterait sur autre chose que ce qui est affiché.
   useEffect(() => {
@@ -528,7 +555,7 @@ function OngletRapports({ domaine }) {
                   {sections.map(s2 => <option key={s2} value={s2}>{s2}</option>)}
                 </select>
               )}
-              {portee.niveau !== 'etablissement' && (
+              {portee.niveau !== 'etablissement' && aTroncCommun && (
                 <select value={portee.tc}
                   onChange={e => setPortee(p => ({ ...p, tc: e.target.value }))}
                   className="px-2 py-1 text-[12px] border border-slate-300 rounded"

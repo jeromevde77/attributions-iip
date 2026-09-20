@@ -6064,9 +6064,17 @@ r.delete('/valorisations/:vid', authRequired, roleRequired(...PEUT_INSTRUIRE), (
   const v = db.prepare('SELECT * FROM etudiant_valorisation WHERE id = ?').get(vid);
   if (!v) return res.status(404).json({ error: 'Dossier introuvable.' });
   if (v.valide_le) {
-    return res.status(409).json({ error: `Ce dossier a été validé le ${v.valide_le}`
-      + `${v.valide_par ? ` par ${v.valide_par}` : ''} : il ne se supprime pas. `
-      + 'La direction peut retirer la validation, puis le Conseil corrigera sa décision.' });
+    /* L'ÉCRAN NE DOIT PAS DEVINER LE CAS EN LISANT LA PHRASE. Il cherchait
+     * « validé le » dans le message pour savoir s'il devait proposer le
+     * retrait de validation : un test sur du français, qui tombe à la première
+     * reformulation — la même famille de faute que `label` pour `libelle`. Le
+     * serveur nomme le cas ; l'écran le lit. */
+    return res.status(409).json({
+      error: `Ce dossier a été validé le ${v.valide_le}`
+        + `${v.valide_par ? ` par ${v.valide_par}` : ''} : il ne se supprime pas. `
+        + 'La direction peut retirer la validation, puis le Conseil corrigera sa décision.',
+      valide_le: v.valide_le, valide_par: v.valide_par || null,
+      devalidation_possible: true });
   }
   /* UNE DÉCISION PRISE NE S'EFFACE PAS D'UN CLIC — MAIS ELLE DOIT POUVOIR
    * S'EFFACER.

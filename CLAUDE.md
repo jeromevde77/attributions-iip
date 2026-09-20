@@ -419,7 +419,8 @@ même dispense, souvent le même constat d'équivalence — huit dossiers de rep
 d'études qui portent le même diplôme antérieur. Lucie faisait naître huit
 valorisations « partielles et vides », qu'il fallait ensuite ouvrir et remplir
 huit fois : on écrivait huit fois ce que le Conseil a décidé une fois, avec huit
-occasions de se tromper d'une case. Depuis 2.12.36, *Valoriser en série* —
+occasions de se tromper d'une case. Depuis 2.12.36, *Créer avec la même
+dispense* (nommé *Valoriser en série* jusqu'en 2.12.67) —
 l'action principale de l'écran, et il n'y en a qu'une : l'UNITÉ d'abord (elle
 convoque le conseil), puis les ÉTUDIANTS qu'elle concerne, cochés dans un
 tableau, puis LA DÉCISION saisie une fois et portée par tous. Les étudiants
@@ -578,7 +579,7 @@ promesse, et le refus arrive alors après coup.
 > réclame pas ce qu'on ne donne pas à saisir » appliquée d'avance : une
 > partielle demande de désigner les cours ou les acquis dispensés, et ce
 > tableau n'a pas où les cocher. Totale ou refusée ici ; la partielle se pose
-> dans *Valoriser en série*, qui porte les listes.
+> dans *Créer avec la même dispense*, qui porte les listes.
 
 > **LE MOT DE L'ÉCRAN N'EST PAS LA VALEUR DU SERVEUR — ET CE POINT A ÉTÉ LIVRÉ
 > EN PRODUCTION.** La fenêtre d'analyse envoyait `type: 'totale'`, parce que
@@ -1176,6 +1177,24 @@ et 3 composants de tuile**. La stratégie tient en cinq chantiers, dans cet ordr
   rien ne le dise.
   > **COROLLAIRE DE « UNE ICÔNE SE MÉRITE » : si une entrée doit emprunter le
   > chevron générique, c'est qu'elle n'a rien à faire dans le rail.**
+- **TROIS ENTRÉES QUI SE RESSEMBLENT NE SE DISTINGUENT PLUS.** Le rail de la
+  valorisation portait « Introduire des demandes », « Valoriser en série » et
+  « Analyser les demandes en série » : même longueur, même structure, deux fois
+  « en série ». Charles a demandé si le deuxième servait encore à quelque
+  chose — la vraie question était : lequel fait quoi ? Chacun fait pourtant
+  autre chose, et il a fallu lire le code pour le retrouver :
+  la **matrice** ouvre des dossiers VIDES (une case AD/VA/VAE par étudiant et
+  par unité) ; **Créer avec la même dispense** les ouvre DÉJÀ PORTEURS du
+  détail — mêmes cours, mêmes acquis, même remarque pour toute une cohorte ;
+  **Analyser en série** INSTRUIT ce qui existe. Renommé en 2.12.67 pour dire ce
+  qui le distingue, et non ce qu'il a en commun avec les deux autres.
+  > **DEUX RÉPONSES FAUSSES DONNÉES CE JOUR-LÀ, FAUTE D'AVOIR CHERCHÉ.** J'ai
+  > d'abord affirmé que sans ce bouton on ne pouvait pas créer dix-sept
+  > dossiers d'un coup — c'est la matrice qui le fait. Puis j'allais annoncer
+  > qu'il fabriquait les dossiers hors circuit : vérification faite, la route
+  > n'écrit PAS `decision_le`, elle ne contourne donc rien. **Avant de proposer
+  > de renommer ou de retirer un outil, lire ce qu'il fait** — un libellé ne
+  > dit pas une fonction, et un raisonnement sur un libellé ne vaut rien.
 - **Une entrée de rail sans icône est invisible** une fois le rail replié.
 - **Un titre ne s'écrit qu'une fois** par écran.
 - Un libellé ne promet que ce que la modale fait réellement.

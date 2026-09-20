@@ -4876,8 +4876,49 @@ export function membresDuConseil(ueNum, annee) {
      * et prénom au mieux, et l'on s'abstient plutôt que de deviner quand la
      * forme ne le permet pas. Un prénom inventé sur une pièce officielle se
      * défend plus mal qu'un prénom absent. */
-    const nomCoord = sec?.responsable ? nomPropreDepuisChaine(sec.responsable) : null;
-    const partsCoord = separerNomPrenom(sec?.responsable);
+    /* QUI COORDONNE SE LIT DES ATTRIBUTIONS — ET LUCIE LE SAVAIT DÉJÀ.
+     *
+     * Le nom venait de `section.responsable`, un champ de TEXTE LIBRE saisi à
+     * la main dans Référentiels. Laissé vide — ce qui est le cas —, le
+     * procès-verbal repliait sur « Coordination TIM » : un membre du Conseil
+     * désigné par son service à côté de professeurs nommés et prénommés, alors
+     * que c'est une personne qui siège, qui vote et qui signe.
+     *
+     * Or la coordination est ATTRIBUÉE comme le reste : une ligne
+     * d'attribution portant le code d'encadrement `COSEC` sur cette section,
+     * avec son professeur. C'est la source qui ENGAGE — c'est elle qui compte
+     * les périodes et qui part au contrat de travail —, et c'était celle qu'on
+     * ne lisait pas. Deux sources pour un même fait, et l'on avait retenu la
+     * plus faible.
+     *
+     * L'attribution prime donc, le champ libre reste en repli : une section
+     * dont la coordination n'est pas encore attribuée garde ce qu'on y a écrit
+     * plutôt que de perdre un nom déjà saisi.
+     */
+    let coordAttribue = null;
+    try {
+      coordAttribue = db.prepare(`
+        SELECT p.nom, p.prenom FROM attribution a
+          JOIN professeur p ON p.id = a.professeur_id
+         WHERE a.section = ? AND a.annee_scolaire = ?
+           AND a.coordination_encadrement = 'COSEC'
+           AND a.professeur_id IS NOT NULL
+         ORDER BY a.periodes_attribuees DESC, p.nom LIMIT 1
+      `).get(ue.section, annee) || null;
+    } catch (e) {
+      console.error('[conseil] coordination attribuée :', e.message);
+    }
+
+    const nomCoord = coordAttribue
+      ? nomPropre(coordAttribue.nom, coordAttribue.prenom)
+      : (sec?.responsable ? nomPropreDepuisChaine(sec.responsable) : null);
+    /* LES DEUX COLONNES DE L'ANNEXE 2 — et depuis l'attribution elles sont
+     * SÛRES : nom et prénom sont deux champs distincts en base. On ne découpe
+     * une chaîne au jugé que pour le repli en texte libre, où l'on s'abstient
+     * plutôt que d'inventer un prénom sur une pièce officielle. */
+    const partsCoord = coordAttribue
+      ? { nom: coordAttribue.nom || null, prenom: coordAttribue.prenom || null }
+      : separerNomPrenom(sec?.responsable);
     membres.push({
       cle: 'coordination',
       nom: nomCoord || `Coordination ${ue.section}`,

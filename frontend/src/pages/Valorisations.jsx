@@ -4,7 +4,7 @@ import {
   IconListCheck, IconPlus, IconPrinter, IconSearch, IconTable, IconTrash,
   IconUserPlus, IconUsersGroup, IconX,
 } from '@tabler/icons-react';
-import { authHeaders, getAnnee } from '../lib/api.js';
+import { authHeaders, getAnnee, getUser } from '../lib/api.js';
 import { BulleAide, Fenetre, RailLateral } from '../components/ui.jsx';
 import SeanceValorisation from '../components/SeanceValorisation.jsx';
 
@@ -44,6 +44,12 @@ import SeanceValorisation from '../components/SeanceValorisation.jsx';
  * `b` le contour. Le fond reste pâle — un aplat plein sur quarante lignes
  * ferait un damier, et la couleur se dépense là où elle distingue.
  */
+/* QUI DÉFAIT CE QUI A ÉTÉ VALIDÉ — la même liste que `lib/valorisation.js`
+   côté serveur. Elle n'est ici que pour CACHER un bouton inutile : le droit se
+   contrôle sur la route, jamais à l'écran — un bouton caché n'est pas une
+   protection. */
+const PEUT_DEVALIDER = ['admin', 'directeur', 'directeur_adjoint'];
+
 export const TEINTE_PORTE = {
   admission: { t: '#15803D', f: '#15803D26', b: '#15803D66' },  // vert
   va:        { t: '#2D4470', f: '#2D447020', b: '#2D447066' },  // bleu
@@ -112,6 +118,21 @@ export default function Valorisations() {
       .sort((a, b) => `${a.nom} ${a.prenom}`.localeCompare(`${b.nom} ${b.prenom}`, 'fr'));
   }, [parEtudiant, enAttente]);
 
+  /* UN REFUS S'AFFICHE LÀ OÙ L'ON A CLIQUÉ, PAS EN HAUT DE PAGE.
+   *
+   * Le message du serveur était porté par un bandeau posé AU-DESSUS du tableau
+   * de bord et de toute la liste. On clique sur une corbeille au bas de
+   * quarante lignes, le serveur refuse — à juste titre —, et l'explication
+   * s'affiche hors du champ de vision : la ligne reste là, sans un mot, et
+   * l'on recommence en croyant que le bouton est cassé.
+   *
+   * C'est la même faute que le bouton de pied qui défilait avec le contenu, et
+   * elle a la même réponse : CE QUI RÉPOND À UN GESTE VIT À CÔTÉ DU GESTE.
+   * Un refus est une réponse à une action délibérée : il s'affiche dans une
+   * fenêtre, qu'on ne peut pas manquer, et qui porte la sortie quand il y en
+   * a une. */
+  const [refus, setRefus] = useState(null);   // { vid, message, devalidable }
+
   /* UN REFUS QU'ON N'AFFICHE PAS RESSEMBLE À UNE PANNE.
    *
    * On cliquait « OK », le serveur refusait en 409 — à juste titre —, et
@@ -134,12 +155,43 @@ export default function Valorisations() {
           if (m && m.trim()) return supprimer(vid, m.trim());
           return;
         }
-        setErreur(j.error || 'Suppression refusée.');
+        /* LE DOSSIER EST VALIDÉ : ce n'est pas une impasse, c'est un ordre.
+         * La direction retire la validation, puis le Conseil corrige. La
+         * fenêtre porte donc ce chemin quand la personne a le droit de
+         * l'emprunter — on ne se contente pas de nommer la sortie. */
+        setRefus({
+          vid,
+          message: j.error || 'Suppression refusée.',
+          // Le SERVEUR nomme le cas — on ne devine pas en lisant sa phrase.
+          devalidable: !!j.devalidation_possible,
+        });
         return;
       }
       setErreur(null);
       await charger();
     } catch (e) { setErreur(e.message); }
+  }
+
+  /* RETIRER UNE VALIDATION — direction seule, motif écrit obligatoire.
+     Une pièce a pu partir sur la foi de cette validation : le motif n'est pas
+     une formalité, c'est ce qui explique un an après pourquoi elle a été
+     défaite. Le journal garde les deux gestes. */
+  async function devalider(vid) {
+    const motif = window.prompt(
+      'Retirer la validation de ce dossier.\n\n'
+      + 'Une pièce a pu partir sur la foi de cette validation : le motif reste '
+      + 'au journal.\n\nMotif :', '');
+    if (!motif || !motif.trim()) return;
+    try {
+      const r = await fetch(`/api/etudiants/valorisations/${vid}/validation`, {
+        method: 'DELETE', headers: authHeaders(),
+        body: JSON.stringify({ motif: motif.trim() }),
+      });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) { setRefus(f => ({ ...f, message: j.error || 'Refusé.' })); return; }
+      setRefus(null);
+      await charger();
+    } catch (e) { setRefus(f => ({ ...f, message: e.message })); }
   }
 
   /* RETIRER UNE LIGNE ENTIÈRE — ET DIRE CE QU'ON EFFACE AVANT DE L'EFFACER.
@@ -182,7 +234,16 @@ export default function Valorisations() {
     items: [
       { key: 'introduire', label: 'Introduire des demandes', icon: IconTable,
         onClick: () => setMatrice(true) },
-      { key: 'serie', label: 'Valoriser en série', icon: IconUsersGroup,
+      /* « VALORISER EN SÉRIE » NE DISAIT PAS CE QU'IL FAISAIT — et trois
+         entrées se ressemblaient au point qu'on ne pouvait plus les
+         distinguer : « Introduire des demandes », « Valoriser en série »,
+         « Analyser les demandes en série ». Même longueur, même structure.
+         Chacune fait pourtant autre chose : la matrice OUVRE des dossiers
+         vides (AD/VA/VAE), celle-ci les ouvre DÉJÀ PORTEURS du détail de la
+         dispense — mêmes cours, mêmes acquis, même remarque pour toute une
+         cohorte —, et la troisième INSTRUIT ce qui existe. Le libellé dit
+         désormais ce qui la distingue : la dispense identique. */
+      { key: 'serie', label: 'Créer avec la même dispense', icon: IconUsersGroup,
         onClick: () => setSerie(true) },
       { key: 'analyse', label: 'Analyser les demandes en série', icon: IconListCheck,
         onClick: () => setAnalyse(true) },
@@ -216,7 +277,7 @@ export default function Valorisations() {
             <IconListCheck size={16} /> Analyser en série
           </button>
           <button onClick={() => setSerie(true)} className="controle">
-            <IconUsersGroup size={16} /> Valoriser en série
+            <IconUsersGroup size={16} /> Créer avec la même dispense
           </button>
           <button onClick={() => setAjout(true)} className="controle">
             <IconUserPlus size={16} /> Ajouter des étudiants
@@ -227,6 +288,34 @@ export default function Valorisations() {
         </div>
 
         {erreur && <div className="text-[12px] text-rose-700">{erreur}</div>}
+
+      {/* LE REFUS, DANS UNE FENÊTRE — parce qu'il répond à un clic délibéré et
+          qu'il doit être lu. Il porte les mots du SERVEUR, pas une reformulation
+          de l'écran : deux libellés pour un même refus finissent par dire deux
+          choses différentes. */}
+      {refus && (
+        <Fenetre icone={IconAlertTriangle} large="petite" ton="alerte"
+          titre="Suppression refusée"
+          sous="Ce dossier est protégé par le circuit"
+          onFermer={() => setRefus(null)}
+          pied={<>
+            {refus.devalidable && PEUT_DEVALIDER.includes(getUser()?.role) && (
+              <button className="bouton bouton-detruire"
+                onClick={() => devalider(refus.vid)}>
+                Retirer la validation
+              </button>
+            )}
+            <span className="text-[12px] text-slate-500">
+              {refus.devalidable && !PEUT_DEVALIDER.includes(getUser()?.role)
+                ? 'Seule la direction peut retirer une validation.'
+                : 'Le journal garde le geste et son motif.'}
+            </span>
+            <button className="bouton ml-auto"
+              onClick={() => setRefus(null)}>Fermer</button>
+          </>}>
+          <p className="text-[13px] text-slate-700">{refus.message}</p>
+        </Fenetre>
+      )}
 
         {/* CE QUI RESTE À FAIRE, AVANT LA LISTE. Un retard ne se voit pas
             dossier par dossier : sans ce bloc, la non-conformité se découvre à
@@ -1259,8 +1348,8 @@ function ValoriserEnSerie({ annee, onClose, onCree }) {
 
   return (
     <Fenetre icone={IconUsersGroup} large="grande" onFermer={onClose}
-      titre="Valoriser en série"
-      sous="Une unité, un conseil des études, la même décision pour plusieurs étudiants"
+      titre="Créer avec la même dispense"
+      sous="Ouvrir plusieurs dossiers portant déjà les mêmes cours ou acquis dispensés"
       pied={<>
         <button onClick={enregistrer} disabled={!!manque || enCours}
           className="bouton bouton-fort disabled:opacity-40">
@@ -2364,7 +2453,7 @@ function EtapeDecision({ dossier, bases, onEnregistrer, enCours }) {
  * et rien d'autre. Une dispense PARTIELLE demande de désigner les cours ou les
  * acquis dispensés ; ce tableau n'a pas où les cocher, donc il ne la propose
  * pas — on ne réclame pas ce qu'on ne donne pas à saisir. Elle se pose dans
- * *Valoriser en série*, qui porte les listes de cours et d'acquis.
+ * *Créer avec la même dispense*, qui porte les listes de cours et d'acquis.
  */
 /* LES CINQ ÉTAPES DU CIRCUIT, DANS L'ORDRE OÙ ELLES SE POSENT.
  *
@@ -2724,7 +2813,7 @@ function AnalyserEnSerie({ annee, onClose, onChange }) {
    * a écrit.
    *
    * Un refus ne dispense rien : ni portée, ni cible, ni pourcentage — il porte
-   * `complete` comme *Valoriser en série*, et c'est `decision` qui dit le
+   * `complete` comme *Créer avec la même dispense*, et c'est `decision` qui dit le
    * refus.
    */
   function corpsDecision(ids) {
