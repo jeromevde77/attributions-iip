@@ -4,6 +4,7 @@ import { getUser, api } from '../lib/api.js';
 import { IconPlus, IconKey, IconTrash, IconAlertTriangle,
          IconShieldCheck, IconShieldOff } from '@tabler/icons-react';
 import { MODULES_ACCES, plafondDe, droitEffectif, LIBELLE_DROIT, estDirection, usePlafonds } from '../lib/modules.js';
+import { Fenetre, GroupeFenetre, BoutonFenetre } from '../components/ui.jsx';
 
 const ROLE_LABEL = {
   admin: 'Administrateur',
@@ -72,11 +73,22 @@ export default function Users({ embedded = false }) {
     load();
   }
 
-  async function resetPassword(u) {
-    const pwd = prompt(`Nouveau mot de passe pour ${u.email} :`);
-    if (!pwd) return;
-    await authFetch(`/api/users/${u.id}`, { method: 'PATCH', body: JSON.stringify({ password: pwd }) });
-    alert('Mot de passe mis à jour.');
+  /* ON ENVOIE UN LIEN, ON NE CHOISIT PLUS LE MOT DE PASSE DE QUELQU'UN.
+   *
+   * Ce bouton ouvrait un `prompt()` : on tapait un mot de passe pour un autre,
+   * en clair à l'écran, puis on le lui communiquait — donc on le connaissait.
+   * Et le navigateur SUPPRIME `prompt()` dès qu'une page en a montré
+   * plusieurs : le bouton devenait muet, sans rien dire à personne. */
+  const [lienMdp, setLienMdp] = useState(null);   // { u } puis le résultat
+
+  async function envoyerLienMdp(u) {
+    setLienMdp({ u, occupe: true });
+    try {
+      const r = await authFetch(`/api/users/${u.id}/lien-mot-de-passe`, { method: 'POST' });
+      setLienMdp({ u, ...r });
+    } catch (e) {
+      setLienMdp({ u, erreur: e.message });
+    }
   }
 
   // RÉINITIALISER LE SECOND FACTEUR — réservé à la direction, jamais sur soi.
@@ -266,7 +278,7 @@ export default function Users({ embedded = false }) {
           } catch (e) { alert(e.message); }
         }}
         onBasculerActif={toggleActif}
-        onMotDePasse={resetPassword}
+        onMotDePasse={envoyerLienMdp}
         onReinitMfa={reinitMfa}
         peutReinitMfa={estDirection(me)}
         onRetirer={deleteUser}
@@ -276,6 +288,55 @@ export default function Users({ embedded = false }) {
             load();
           } catch (e) { alert(e.message); }
         }} />
+
+      {/* LE RÉSULTAT SE LIT, il ne se devine pas : un `alert()` disait
+          « mot de passe mis à jour » même quand rien n'était parti. */}
+      {lienMdp && (
+        <Fenetre icone={IconKey} titre="Réinitialiser le mot de passe"
+          sous={lienMdp.u?.email} large="moyenne"
+          onFermer={() => setLienMdp(null)}
+          pied={<BoutonFenetre onClick={() => setLienMdp(null)}>Fermer</BoutonFenetre>}>
+
+          {lienMdp.occupe && <div className="text-[13px] text-slate-500">Envoi du lien…</div>}
+
+          {lienMdp.erreur && (
+            <GroupeFenetre titre="Échec" ton="alerte">
+              <div className="text-[13px] text-slate-700">{lienMdp.erreur}</div>
+            </GroupeFenetre>
+          )}
+
+          {lienMdp.envoye && (
+            <GroupeFenetre titre="Lien envoyé">
+              <div className="text-[13px] text-slate-700 leading-relaxed">
+                Un lien vient d’être envoyé à <b>{lienMdp.email}</b>. Il est valable{' '}
+                {lienMdp.minutes} minutes et ne sert qu’une fois.
+                <div className="mt-2 text-[12px] text-slate-500">
+                  Ce lien permet de CHOISIR un mot de passe ; il ne connecte pas. Si la
+                  vérification en deux temps est active sur ce compte, elle restera demandée.
+                </div>
+              </div>
+            </GroupeFenetre>
+          )}
+
+          {lienMdp.ok && !lienMdp.envoye && (
+            <GroupeFenetre titre="Le courriel n’est pas parti" ton="alerte">
+              <div className="text-[13px] text-slate-700 leading-relaxed mb-2">
+                {lienMdp.raison}. Transmettez ce lien à <b>{lienMdp.email}</b> par un autre
+                moyen — il expire dans {lienMdp.minutes} minutes, ne sert qu’une fois,
+                et ne connecte pas.
+              </div>
+              <div className="p-2 rounded-champ border border-slate-300 bg-white text-[11.5px]
+                              break-all select-all font-mono">
+                {lienMdp.lien}
+              </div>
+              <button onClick={() => navigator.clipboard?.writeText(lienMdp.lien)}
+                className="mt-2 text-[12px] text-iip-blue hover:underline">
+                Copier le lien
+              </button>
+            </GroupeFenetre>
+          )}
+        </Fenetre>
+      )}
 
       {editingSections && (
         <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] flex items-center justify-center p-4 z-30" onClick={() => setEditingSections(null)}>
@@ -578,7 +639,8 @@ function MatriceAcces({ users, sectionsDispo, profils, onModifie, onProfil,
       })}
 
       <td className="border-b border-l border-slate-100 px-2 py-1.5 whitespace-nowrap text-right">
-        <button onClick={() => onMotDePasse(u)} title="Réinitialiser le mot de passe"
+        <button onClick={() => onMotDePasse(u)}
+          title="Envoyer à cette personne un lien pour choisir son mot de passe"
           className="text-[11px] text-iip-blue hover:underline mr-2">MDP</button>
         {u.id !== moiId && (
           <button onClick={() => onRetirer(u)} title="Retirer l'accès"

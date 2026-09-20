@@ -8,6 +8,14 @@ import { dechiffrer } from '../lib/secret-box.js';
 import { prenomSeul } from '../lib/nom.js';
 import { verifierTotp } from '../lib/totp.js';
 import { consommerCodeRecuperation, journaliser } from './mfa.js';
+import { etatBlocage, noterEchec, oublierEchecs, direDelai,
+         ESSAIS_AVANT_BLOCAGE } from '../lib/tentatives.js';
+import { envoyerEmail, templateNotif } from '../services/mailer.js';
+import {
+  VALIDITE_MINUTES, DEMANDES_MAX_PAR_HEURE, LONGUEUR_MIN,
+  verifierNouveauMotDePasse, comptePeutMotDePasse, creerJeton, demandesRecentes,
+  lireJeton, poserMotDePasse,
+} from '../lib/motDePasse.js';
 
 const r = Router();
 
@@ -107,8 +115,42 @@ r.post('/login', (req, res) => {
     });
   }
 
+  // LE BLOCAGE SE CONTRÔLE AVANT DE COMPARER, sans quoi il ne bloque rien : une
+  // machine continuerait d'essayer et de LIRE la réponse, qui distingue encore
+  // le bon mot de passe du mauvais. Fermer la porte, c'est cesser de répondre
+  // à la question posée.
+  const etat = etatBlocage(user.id);
+  if (etat.bloque) {
+    return res.status(429).json({
+      error: `Trop de tentatives. Ce compte est bloqué pendant encore `
+           + `${direDelai(etat.minutes)}.`,
+      bloque: true, minutes: etat.minutes,
+    });
+  }
+
   const ok = bcrypt.compareSync(password, user.password_hash);
-  if (!ok) return res.status(401).json({ error: 'Identifiants invalides' });
+  if (!ok) {
+    const apres = noterEchec(user.id);
+    if (apres.bloque) {
+      journaliser({ utilisateur_id: user.id, acteur: null, evenement: 'connexion_bloquee',
+        detail: `${direDelai(apres.minutes)} — palier ${apres.palier}` });
+      return res.status(429).json({
+        error: `Trop de tentatives. Ce compte est bloqué pendant ${direDelai(apres.minutes)}.`,
+        bloque: true, minutes: apres.minutes,
+      });
+    }
+    // ON ANNONCE CE QUI RESTE, et ce n'est pas offrir un compteur à
+    // l'attaquant : il sait compter ses propres essais. C'est à la personne
+    // qui se trompe de touche que cela sert — sans quoi le blocage tombe sans
+    // prévenir, et elle croit à une panne.
+    return res.status(401).json({
+      error: 'Identifiants invalides',
+      essais_restants: apres.restants,
+    });
+  }
+
+  // Le mot de passe est bon : la série d'échecs n'a plus lieu d'être.
+  oublierEchecs(user.id);
 
   // SECOND FACTEUR ACTIF : LE MOT DE PASSE NE SUFFIT PLUS.
   //
@@ -203,6 +245,162 @@ r.post('/login/mfa', (req, res) => {
   // que s'il est enregistré, et une réponse partie n'attend personne.
   db.prepare('UPDATE utilisateur SET totp_dernier_pas = ? WHERE id = ?').run(v.pas, user.id);
   return delivrer();
+});
+
+
+// ═══════════════════════════════════════════════════════════════════════════
+// LE MOT DE PASSE — LE CHANGER, ET LE RETROUVER
+// ═══════════════════════════════════════════════════════════════════════════
+
+/**
+ * CHANGER SON PROPRE MOT DE PASSE. Cela n'existait pas : il fallait un
+ * administrateur, qui le choisissait et le communiquait — donc le connaissait.
+ *
+ * L'ANCIEN EST EXIGÉ, même en étant connecté. Une session ouverte sur un poste
+ * qu'on quitte deux minutes suffirait sinon à s'approprier le compte, et le
+ * titulaire ne s'en apercevrait qu'à sa prochaine connexion.
+ */
+r.post('/mot-de-passe', authRequired, (req, res) => {
+  const { ancien, nouveau } = req.body || {};
+  const user = db.prepare('SELECT * FROM utilisateur WHERE id = ?').get(req.user.id);
+  if (!comptePeutMotDePasse(user)) {
+    return res.status(403).json({ error: "Ce compte ne s'authentifie pas par mot de passe." });
+  }
+  if (!ancien || !bcrypt.compareSync(String(ancien), user.password_hash || '')) {
+    return res.status(401).json({ error: 'Mot de passe actuel incorrect.' });
+  }
+  const v = verifierNouveauMotDePasse(nouveau, user);
+  if (!v.ok) return res.status(400).json({ error: v.erreur });
+  if (bcrypt.compareSync(String(nouveau), user.password_hash || '')) {
+    return res.status(400).json({ error: "Le nouveau mot de passe est identique à l'ancien." });
+  }
+
+  poserMotDePasse(user.id, String(nouveau));
+  journaliser({ utilisateur_id: user.id, acteur: req.user, evenement: 'mot_de_passe_change' });
+  res.json({ ok: true });
+});
+
+/**
+ * « J'AI OUBLIÉ MON MOT DE PASSE. »
+ *
+ * LA RÉPONSE EST TOUJOURS LA MÊME, quoi qu'il arrive : adresse inconnue,
+ * compte désactivé, plafond atteint. Dire « ce compte n'existe pas » offrirait
+ * à un écran PUBLIC de quoi établir qui travaille à l'Institut, une adresse à
+ * la fois. Ce que l'on gagnerait en confort de diagnostic, on le donnerait à
+ * n'importe qui.
+ *
+ * Et le lien ne connecte PAS : il permet de choisir un mot de passe. Le second
+ * facteur reste exigé ensuite, comme à toute connexion.
+ */
+r.post('/mot-de-passe-oublie', async (req, res) => {
+  const email = String(req.body?.email || '').trim().toLowerCase();
+  const memeReponse = () => res.json({
+    ok: true,
+    message: 'Si un compte existe pour cette adresse, un lien vient d\u2019y être envoyé. '
+           + `Il est valable ${VALIDITE_MINUTES} minutes.`,
+  });
+  if (!email || !email.includes('@')) return memeReponse();
+
+  const user = db.prepare('SELECT * FROM utilisateur WHERE lower(email) = ?').get(email);
+  if (!comptePeutMotDePasse(user)) return memeReponse();
+  if (demandesRecentes(user.id) >= DEMANDES_MAX_PAR_HEURE) {
+    // Le plafond protège la BOÎTE de la personne, pas le compte : sans lui,
+    // un écran public permet d'envoyer cent courriels à qui l'on veut.
+    journaliser({ utilisateur_id: user.id, acteur: null,
+      evenement: 'mot_de_passe_oubli_plafond', detail: req.ip || null });
+    return memeReponse();
+  }
+
+  const jeton = creerJeton(user.id, req.ip || null);
+  const base = process.env.LUCIE_URL || 'https://www.lucie-iip.be';
+  const lien = `${base}/mot-de-passe?jeton=${encodeURIComponent(jeton)}`;
+
+  let envoi = null;
+  try {
+    envoi = await envoyerEmail({
+      to: user.email,
+      subject: 'Lucie — réinitialiser votre mot de passe',
+      html: templateNotif({
+        titre: 'Réinitialiser votre mot de passe',
+        corps: `<p>Une réinitialisation du mot de passe de votre compte Lucie `
+             + `(<strong>${user.email}</strong>) a été demandée.</p>`
+             + `<p>Ce lien est valable <strong>${VALIDITE_MINUTES} minutes</strong> et ne sert `
+             + `qu'une fois.</p>`
+             + `<p>Il vous permet de choisir un nouveau mot de passe ; il ne vous connecte pas. `
+             + `Si la vérification en deux temps est active sur votre compte, elle vous sera `
+             + `demandée comme d'habitude.</p>`
+             + `<p><strong>Si vous n'avez rien demandé, ignorez ce message</strong> : votre mot de `
+             + `passe actuel reste valable, et ce lien expirera seul.</p>`,
+        lien: `/mot-de-passe?jeton=${encodeURIComponent(jeton)}`,
+        lienTexte: 'Choisir un nouveau mot de passe',
+      }),
+    });
+  } catch (e) { envoi = { ok: false, simule: false, erreur: e.message }; }
+
+  // `envoye` se lit du RÉSULTAT, jamais de l'absence d'erreur : sans relais de
+  // courriel, `envoyerEmail` simule et rend { ok: true, simule: true }. La
+  // leçon de 2.12.73, et elle vaut ici plus qu'ailleurs — personne ne viendra
+  // dire que le message n'est pas arrivé, il attendra.
+  const parti = !!envoi?.ok && !envoi?.simule;
+  journaliser({
+    utilisateur_id: user.id, acteur: null,
+    evenement: parti ? 'mot_de_passe_oubli_envoye' : 'mot_de_passe_oubli_non_envoye',
+    detail: parti ? (req.ip || null)
+      : (envoi?.erreur || (envoi?.simule ? 'aucun serveur de courriel' : 'envoi refusé')),
+  });
+  if (!parti) console.error('[mot de passe oublié] lien NON envoyé à', user.email);
+  memeReponse();
+});
+
+/**
+ * Le lien est-il encore bon ? Demandé par l'écran AVANT de faire saisir quoi
+ * que ce soit : réclamer deux fois un mot de passe pour répondre ensuite « ce
+ * lien a expiré » est une politesse qu'on ne rattrape pas.
+ */
+r.get('/mot-de-passe-jeton', (req, res) => {
+  const t = lireJeton(String(req.query?.jeton || ''));
+  if (!t) return res.status(410).json({ valide: false, error: 'Ce lien a expiré ou a déjà servi.' });
+  res.json({ valide: true, email: t.user.email, longueur_min: LONGUEUR_MIN });
+});
+
+/**
+ * Poser le nouveau mot de passe. AUCUNE SESSION N'EST DÉLIVRÉE ICI : la
+ * personne se connecte ensuite normalement, et passe par le second facteur si
+ * son compte en porte un. C'est ce qui empêche la messagerie de devenir un
+ * chemin de contournement du second facteur.
+ */
+r.post('/mot-de-passe-nouveau', async (req, res) => {
+  const { jeton, nouveau } = req.body || {};
+  const t = lireJeton(String(jeton || ''));
+  if (!t) return res.status(410).json({ error: 'Ce lien a expiré ou a déjà servi.' });
+
+  const v = verifierNouveauMotDePasse(nouveau, t.user);
+  if (!v.ok) return res.status(400).json({ error: v.erreur });
+
+  poserMotDePasse(t.user.id, String(nouveau), t.ligne.id);
+  journaliser({ utilisateur_id: t.user.id, acteur: null,
+    evenement: 'mot_de_passe_reinitialise', detail: req.ip || null });
+
+  // ON PRÉVIENT LE TITULAIRE, et c'est le seul signal qu'il aura si quelqu'un
+  // d'autre est passé par sa boîte. L'échec de cet avis ne doit pas faire
+  // échouer le changement : il est déjà fait, et le refuser laisserait la
+  // personne dehors avec un lien désormais brûlé.
+  try {
+    await envoyerEmail({
+      to: t.user.email,
+      subject: 'Lucie — votre mot de passe a été modifié',
+      html: templateNotif({
+        titre: 'Mot de passe modifié',
+        corps: `<p>Le mot de passe de votre compte Lucie (<strong>${t.user.email}</strong>) `
+             + `vient d'être modifié.</p>`
+             + `<p><strong>Si vous n'êtes pas à l'origine de ce changement, prévenez la `
+             + `direction immédiatement.</strong></p>`,
+        lien: '/login', lienTexte: 'Se connecter',
+      }),
+    });
+  } catch { /* l'avis n'est pas la condition du changement */ }
+
+  res.json({ ok: true, mfa_actif: !!t.user.mfa_actif });
 });
 
 r.get('/me', authRequired, (req, res) => {

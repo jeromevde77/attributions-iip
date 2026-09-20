@@ -2,6 +2,9 @@ import { Router } from 'express';
 import bcrypt from 'bcryptjs';
 import db from '../db/index.js';
 import { authRequired, roleRequired } from '../middleware/auth.js';
+import { envoyerEmail, templateNotif } from '../services/mailer.js';
+import { creerJeton, comptePeutMotDePasse, VALIDITE_MINUTES } from '../lib/motDePasse.js';
+import { journaliser } from './mfa.js';
 import { ROLES } from '../middleware/permissions.js';
 
 const r = Router();
@@ -83,6 +86,70 @@ r.post('/', authRequired, roleRequired('admin'), (req, res) => {
     if (e.code === 'SQLITE_CONSTRAINT_UNIQUE') return res.status(409).json({ error: 'Email déjà utilisé' });
     throw e;
   }
+});
+
+/*
+ * LA DIRECTION ENVOIE UN LIEN, ELLE NE CHOISIT PLUS LE MOT DE PASSE.
+ *
+ * Le bouton « MDP » ouvrait un `prompt()` : on tapait un mot de passe pour
+ * quelqu'un d'autre, en clair à l'écran, et on le lui communiquait ensuite —
+ * donc on le connaissait. Un mot de passe qu'un tiers connaît n'en est plus
+ * un, et c'est ce que la réinitialisation en libre-service corrige.
+ *
+ * Accessoirement, `prompt()` ne s'affiche pas toujours : le navigateur le
+ * supprime dès qu'une page en a montré plusieurs, et le bouton devenait
+ * silencieux — un bouton qui ne fait rien, sans rien dire.
+ *
+ * LE LIEN EST RENDU EN CLAIR À L'APPELANT quand le courriel ne part pas. Ce
+ * n'est pas une faiblesse : il expire en une heure, ne sert qu'une fois, et ne
+ * CONNECTE PAS — le second facteur reste exigé. Sans ce repli, un relais mal
+ * configuré laisserait la direction sans aucun moyen de rendre un accès.
+ */
+r.post('/:id/lien-mot-de-passe', authRequired, roleRequired('admin'), async (req, res) => {
+  const u = db.prepare('SELECT * FROM utilisateur WHERE id = ?').get(Number(req.params.id));
+  if (!u) return res.status(404).json({ error: 'Compte introuvable' });
+  if (!comptePeutMotDePasse(u)) {
+    return res.status(400).json({
+      error: u.actif ? "Ce compte ne s'authentifie pas par mot de passe."
+                     : 'Ce compte est désactivé : réactivez-le d\u2019abord.',
+    });
+  }
+
+  const jeton = creerJeton(u.id, req.ip || null);
+  const base = process.env.LUCIE_URL || 'https://www.lucie-iip.be';
+  const lien = `${base}/mot-de-passe?jeton=${encodeURIComponent(jeton)}`;
+
+  let envoi = null;
+  try {
+    envoi = await envoyerEmail({
+      to: u.email,
+      subject: 'Lucie — réinitialiser votre mot de passe',
+      html: templateNotif({
+        titre: 'Réinitialiser votre mot de passe',
+        corps: `<p>${req.user.nom || req.user.email} vous invite à choisir un nouveau mot de `
+             + `passe pour votre compte Lucie (<strong>${u.email}</strong>).</p>`
+             + `<p>Ce lien est valable <strong>${VALIDITE_MINUTES} minutes</strong> et ne sert `
+             + `qu'une fois. Il vous permet de choisir un mot de passe ; il ne vous connecte pas.</p>`,
+        lien: `/mot-de-passe?jeton=${encodeURIComponent(jeton)}`,
+        lienTexte: 'Choisir un mot de passe',
+      }),
+    });
+  } catch (e) { envoi = { ok: false, simule: false, erreur: e.message }; }
+
+  // La leçon de 2.12.73 : `envoye` se lit du RÉSULTAT. Dire « envoyé » quand
+  // rien n'est parti laisse la personne attendre un courriel qui n'existe pas.
+  const parti = !!envoi?.ok && !envoi?.simule;
+  journaliser({ utilisateur_id: u.id, acteur: req.user,
+    evenement: parti ? 'mot_de_passe_lien_envoye' : 'mot_de_passe_lien_non_envoye',
+    detail: parti ? null : (envoi?.erreur || 'aucun serveur de courriel') });
+
+  res.json({
+    ok: true, email: u.email, envoye: parti, minutes: VALIDITE_MINUTES,
+    raison: parti ? null : (envoi?.erreur || "aucun serveur de courriel n'est configuré"),
+    // Transmis seulement si le courriel n'est PAS parti : sinon le lien
+    // n'aurait aucune raison de transiter par un second canal.
+    lien: parti ? null : lien,
+  });
 });
 
 r.patch('/:id', authRequired, roleRequired('admin'), (req, res) => {

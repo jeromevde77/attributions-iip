@@ -148,6 +148,27 @@ export default function MonCompte({ onFermer }) {
     if (r) { setMotDePasse(''); setPhase('repos'); await charger(); }
   }
 
+  // CHANGER SON MOT DE PASSE N'EXISTAIT NULLE PART. Le seul chemin passait par
+  // un administrateur, qui le choisissait et le communiquait — donc le
+  // connaissait. Un mot de passe que quelqu'un d'autre connaît n'en est plus un.
+  const [ancien, setAncien] = useState('');
+  const [nouveau, setNouveau] = useState('');
+  const [confirme, setConfirme] = useState('');
+  const [mdpFait, setMdpFait] = useState(false);
+  const LONGUEUR_MIN = 12;
+  const mdpPret = ancien && nouveau.length >= LONGUEUR_MIN && nouveau === confirme;
+
+  async function changerMotDePasse() {
+    setErreur(''); setOccupe(true);
+    try {
+      await api.motDePasseChanger(ancien, nouveau);
+      setAncien(''); setNouveau(''); setConfirme('');
+      setMdpFait(true); setPhase('repos');
+      setTimeout(() => setMdpFait(false), 6000);
+    } catch (e) { setErreur(e.message); }
+    finally { setOccupe(false); }
+  }
+
   const actif = !!etat?.mfa_actif;
 
   // Le pied porte l'action ET ce qui dit pourquoi elle est grise : une
@@ -178,6 +199,25 @@ export default function MonCompte({ onFermer }) {
         {code.length !== 6 && (
           <span className="text-[12px] text-slate-400">
             Saisissez le code affiché par votre application.
+          </span>
+        )}
+      </>
+    );
+    if (phase === 'mot_de_passe') return (
+      <>
+        <BoutonFenetre principal desactive={occupe || !mdpPret} onClick={changerMotDePasse}>
+          Changer le mot de passe
+        </BoutonFenetre>
+        <BoutonFenetre onClick={() => {
+          setPhase('repos'); setAncien(''); setNouveau(''); setConfirme(''); setErreur('');
+        }}>Annuler</BoutonFenetre>
+        {/* CE QUI MANQUE SE DIT À CÔTÉ DU BOUTON GRIS, jamais dans le contenu
+            qui défile : sinon on cherche pourquoi il ne se passe rien. */}
+        {!mdpPret && (
+          <span className="text-[12px] text-slate-400">
+            {!ancien ? 'Votre mot de passe actuel est exigé.'
+              : nouveau.length < LONGUEUR_MIN ? `Au moins ${LONGUEUR_MIN} caractères.`
+              : 'Les deux saisies diffèrent.'}
           </span>
         )}
       </>
@@ -256,7 +296,57 @@ export default function MonCompte({ onFermer }) {
               </>
             )}
           </div>
+
+          {/* ── Le mot de passe ───────────────────────────────────────── */}
+          <GroupeFenetre titre="Mot de passe">
+            {mdpFait ? (
+              <div className="px-3 py-2.5 rounded-carte border text-[13px]"
+                style={{ borderColor: '#b7d5c4', borderLeftWidth: 3, borderLeftColor: '#4a7c59',
+                         background: '#fff', color: '#2f5d43' }}>
+                Mot de passe modifié. Il sera demandé à votre prochaine connexion.
+              </div>
+            ) : (
+              <div className="flex items-start gap-3 px-3 py-2.5 rounded-carte border"
+                style={{ borderColor: '#e2e8f0', borderLeftWidth: 3, borderLeftColor: '#cbd5e1',
+                         background: '#fff' }}>
+                <div className="min-w-0 flex-1 text-[12.5px] text-slate-600 leading-relaxed">
+                  Choisissez-le vous-même : personne d'autre n'a à le connaître.
+                  Au moins {LONGUEUR_MIN} caractères.
+                </div>
+                <BoutonFenetre onClick={() => { setPhase('mot_de_passe'); setErreur(''); }}>
+                  Changer
+                </BoutonFenetre>
+              </div>
+            )}
+          </GroupeFenetre>
         </>
+      )}
+
+      {/* ── Changer le mot de passe ───────────────────────────────────── */}
+      {phase === 'mot_de_passe' && (
+        <GroupeFenetre titre="Changer le mot de passe">
+          <p className="text-[12.5px] text-slate-600 leading-relaxed mb-3">
+            {/* L'ANCIEN EST EXIGÉ MÊME ICI : une session laissée ouverte deux
+                minutes sur un poste partagé suffirait sinon à s'approprier le
+                compte, et le titulaire ne s'en apercevrait qu'après coup. */}
+            Votre mot de passe actuel est demandé, même connecté. Une phrase dont vous
+            vous souvenez vaut mieux qu'un mot compliqué.
+          </p>
+          <div className="space-y-2.5 max-w-[360px]">
+            <input type="password" autoFocus value={ancien} autoComplete="current-password"
+              onChange={e => { setAncien(e.target.value); setErreur(''); }}
+              placeholder="Mot de passe actuel"
+              className="controle w-full border border-slate-300 rounded-champ text-[13px]" />
+            <input type="password" value={nouveau} autoComplete="new-password"
+              onChange={e => { setNouveau(e.target.value); setErreur(''); }}
+              placeholder={`Nouveau mot de passe (${LONGUEUR_MIN} caractères au moins)`}
+              className="controle w-full border border-slate-300 rounded-champ text-[13px]" />
+            <input type="password" value={confirme} autoComplete="new-password"
+              onChange={e => { setConfirme(e.target.value); setErreur(''); }}
+              placeholder="Répéter le nouveau mot de passe"
+              className="controle w-full border border-slate-300 rounded-champ text-[13px]" />
+          </div>
+        </GroupeFenetre>
       )}
 
       {/* ── Enrôlement ─────────────────────────────────────────────────── */}

@@ -28,6 +28,7 @@ import {
 } from '@tabler/icons-react';
 
 import Login from './pages/Login.jsx';
+import MotDePasse from './pages/MotDePasse.jsx';
 import MonCompte from './components/MonCompte.jsx';
 import Dashboard from './pages/Dashboard.jsx';
 import Attributions from './pages/Attributions.jsx';
@@ -588,6 +589,9 @@ export default function App() {
     <ErrorBoundary>
       <Routes>
       <Route path="/login" element={<Login />} />
+      {/* HORS SESSION, ET C'EST TOUT LE PROPOS : on arrive ici parce qu'on ne
+          peut PAS se connecter. La page ne reçoit aucun jeton de session. */}
+      <Route path="/mot-de-passe" element={<MotDePasse />} />
       <Route path="/"             element={<Navigate to="/accueil" replace />} />
       <Route path="/attributions" element={<Navigate to="/organisation" replace />} />
       <Route path="/professeurs"  element={<ProtectedLayout><Professeurs /></ProtectedLayout>} />
