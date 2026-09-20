@@ -535,7 +535,18 @@ const PARAM_TYPES = {
   'procedures.delai_decision_jours':{ type: 'number', step: '1', min: '1', max: '30' },
   'procedures.delai_ext_cal_jours':{ type: 'number', step: '1', min: '1', max: '30' },
   'procedures.delai_ext_ouv_jours':{ type: 'number', step: '1', min: '1', max: '10' },
-  'securite.blocage_actif':        { type: 'number', step: '1', min: '0', max: '1' },
+  /* UN OUI/NON NE SE DEVINE PAS DE SA VALEUR, il se DÉCLARE.
+     Quatorze paramètres valent « 0 » ou « 1 » en base, et quatre ne sont pas
+     des booléens pour autant : `planning.ev2_heures` est un nombre d'heures qui
+     vaut zéro, `session.delib2_duree_cal` un nombre de jours qui vaut un. Les
+     transformer en cases à cocher aurait remplacé un réglage horaire par un
+     interrupteur — la même famille d'erreur que `totale`/`complete` : le type
+     qu'on croit plutôt que celui qui existe. */
+  'securite.blocage_actif':        { type: 'booleen' },
+  /* Les neuf `miseenpage.*` sont AUSSI des oui/non, et ils ont déjà leurs
+     cases — dans `ParametresEtablissement.jsx`, écran « Identité et sections ».
+     Les déclarer ici n'aurait rien donné : leur groupe n'est pas de cet écran,
+     et la ligne serait restée là à faire croire qu'elle sert. */
   'securite.blocage_essais':       { type: 'number', step: '1', min: '1', max: '50' },
   'securite.blocage_paliers':      { type: 'text' },
   'etab.nom':                      { type: 'text' },
@@ -622,6 +633,20 @@ function GestionParametres() {
                       <p className="text-xs text-gray-400 font-mono">{p.cle}</p>
                     </div>
                     <div className="flex items-center gap-2">
+                      {/* UN OUI/NON SE COCHE. Il se tapait « 0 » ou « 1 » dans un
+                          champ : il fallait savoir lequel veut dire oui, et rien
+                          ne l'écrivait nulle part. On pouvait aussi y saisir 7. */}
+                      {t.type === 'booleen' ? (
+                        <label className="flex items-center gap-2 cursor-pointer select-none">
+                          <span className={`text-[12px] ${val === '1' ? 'text-slate-700' : 'text-slate-400'}`}>
+                            {val === '1' ? 'Oui' : 'Non'}
+                          </span>
+                          <input type="checkbox" checked={val === '1'}
+                            onChange={e => handleChange(p.cle, e.target.checked ? '1' : '0')}
+                            className={`h-4 w-4 cursor-pointer
+                              ${modified ? 'ring-2 ring-iip-gold/40 rounded-champ' : ''}`} />
+                        </label>
+                      ) : (
                       <input
                         type={t.type || 'text'}
                         step={t.step} min={t.min} max={t.max}
@@ -632,6 +657,7 @@ function GestionParametres() {
                           ${t.type === 'number' ? 'w-24' : 'w-72'}
                           ${modified ? 'border-iip-gold ring-1 ring-iip-gold/30' : 'border-gray-300'}`}
                       />
+                      )}
                       {modified && (
                         <button onClick={() => setPending(prev => { const n = {...prev}; delete n[p.cle]; return n; })}
                           className="text-gray-300 hover:text-gray-500 text-xs"><IconX size={13} /></button>
