@@ -23,7 +23,7 @@
  */
 import { Router } from 'express';
 import db from '../db/index.js';
-import { authRequired, getUserSections } from '../middleware/auth.js';
+import { authRequired, getUserSections, clauseSections } from '../middleware/auth.js';
 import { anneeDeTravail } from '../helpers/annee.js';
 import { decisionDeSession } from './acquis.js';
 
@@ -91,11 +91,13 @@ r.post('/etudiants', authRequired, (req, res) => {
   // Le périmètre de l'utilisateur s'applique toujours, quoi qu'il demande.
   let liste = [...ues];
   if (perim) {
+    // « IN () » sur un périmètre vide : SQLite refuse la requête.
+    const cl = clauseSections(perim, 'section');
     const marques = liste.map(() => '?').join(',');
     const ok = new Set(db.prepare(`SELECT ue_num FROM ue
       WHERE annee_scolaire = ? AND ue_num IN (${marques})
-        AND (section IS NULL OR section IN (${perim.map(() => '?').join(',')}))`)
-      .all(annee, ...liste, ...perim).map(x => x.ue_num));
+        AND (section IS NULL OR ${cl.sql})`)
+      .all(annee, ...liste, ...cl.params).map(x => x.ue_num));
     liste = liste.filter(n => ok.has(n));
   }
   if (!liste.length) return res.json({ etudiants: [], unites: [], session, annee });

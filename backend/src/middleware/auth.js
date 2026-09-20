@@ -70,21 +70,30 @@ export function roleRequired(...roles) {
 }
 
 /**
- * Retourne la liste des codes de sections autorisés pour un utilisateur.
- * - admin : null (accès illimité)
- * - tous les autres rôles : filtré par utilisateur_section SI des sections
- *   y sont configurées, sinon null (accès à toutes les sections).
+ * Les codes de sections autorisés, ou `null` quand il n'y a aucune restriction.
  *
- * Cette règle est role-agnostique : qu'un utilisateur soit stocké comme
- * 'editeur' ou 'coordination' n'a pas d'importance — seule la présence
- * de lignes dans utilisateur_section détermine le périmètre.
+ * RIEN N'EST ACCORDÉ QUI N'AIT ÉTÉ ATTRIBUÉ.
+ *
+ * L'absence de rattachement rendait `null`, c'est-à-dire TOUTES les sections :
+ * un compte qu'on oubliait de rattacher — et aucun ne l'était — lisait tout
+ * l'Institut. Un défaut permissif ne se voit jamais, parce que rien ne
+ * manque : on n'a pas l'idée de vérifier des données qui s'affichent.
+ *
+ * « Toutes » se dit désormais, par `utilisateur.perimetre_toutes`, et couvre
+ * les sections à venir ; l'absence de tout est donc l'absence d'accès.
+ *
+ * La règle reste indifférente au rôle — sauf la direction, qui répare les
+ * erreurs de paramétrage et ne peut donc pas s'enfermer dehors.
  */
 export function getUserSections(user) {
   if (!user) return [];
   if (NIVEAU_DIRECTION.includes(user.role)) return null;   // direction : sans restriction
+  // Le jeton porte le rôle, pas le périmètre : on relit la ligne, sans quoi un
+  // périmètre modifié n'aurait d'effet qu'à la reconnexion — trente jours.
+  const u = db.prepare('SELECT perimetre_toutes FROM utilisateur WHERE id = ?').get(user.id);
+  if (u?.perimetre_toutes) return null;                    // « toutes », explicitement
   const rows = db.prepare('SELECT section_code FROM utilisateur_section WHERE utilisateur_id = ?').all(user.id);
-  if (rows.length === 0) return null; // pas de sections configurées → accès à tout
-  return rows.map(r => r.section_code); // sections configurées → filtrage appliqué
+  return rows.map(r => r.section_code);                    // [] = aucune section, donc rien
 }
 
 /**
@@ -94,6 +103,36 @@ export function getUserSections(user) {
 export function withSectionScope(req, res, next) {
   req.allowedSections = getUserSections(req.user);
   next();
+}
+
+/**
+ * LA CLAUSE DU PÉRIMÈTRE S'ÉCRIT UNE FOIS, ET C'EST TOUT LE PROPOS.
+ *
+ * Trois états, et le troisième n'existait pas avant qu'on ferme le défaut :
+ *   null  → aucune restriction : pas de clause du tout
+ *   [...] → ces sections-là
+ *   []    → AUCUNE section, donc aucune ligne
+ *
+ * Chaque appelant improvisait le sien, et les trois façons de se tromper se
+ * trouvaient toutes dans le dépôt :
+ *   `if (perim)` puis `IN (${perim.map(...)})` — une liste vide produit
+ *   « IN () », que SQLite refuse : la route tombe en 500.
+ *   `if (perim.length)` — la clause n'est pas posée, donc TOUT est rendu.
+ *   `sections?.length ? filtre : ''` — le même fail-open, écrit autrement.
+ *
+ * Les deux derniers sont les pires : ils ne se voient pas. Une liste complète
+ * se lit « cette personne a bien accès », et l'on décide là-dessus.
+ *
+ * @returns {{ sql: string, params: string[] }} — `sql` vaut '' quand il n'y a
+ *   rien à filtrer ; il s'ajoute sinon à un WHERE avec un AND.
+ */
+export function clauseSections(sections, colonne) {
+  if (sections === null || sections === undefined) return { sql: '', params: [] };
+  if (!sections.length) return { sql: '1 = 0', params: [] };
+  return {
+    sql: `${colonne} IN (${sections.map(() => '?').join(',')})`,
+    params: [...sections],
+  };
 }
 
 /**

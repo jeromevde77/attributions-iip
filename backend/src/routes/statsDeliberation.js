@@ -121,9 +121,15 @@ function decisions(annee, sections) {
   // LE FILTRE NE PEUT PLUS SE FAIRE EN SQL SEUL : pour une unité hors cursus,
   // la section n'est connue qu'une fois l'étudiant résolu. On ramène donc ces
   // lignes-là dans tous les cas, et on filtre après résolution.
-  const dansSections = sections?.length
-    ? ` AND (u.section IN (${sections.map(() => '?').join(',')})`
-      + ' OR COALESCE(u.hors_cursus, 0) = 1)' : '';
+  // UNE LISTE VIDE N'EST PAS « PAS DE FILTRE ». `sections?.length` traitait de
+  // la même façon `null` (aucune restriction) et `[]` (aucune section permise)
+  // : le second rendait donc TOUTES les délibérations de l'Institut. Un
+  // fail-open ne se voit pas — des chiffres complets se lisent « cette
+  // personne y a bien accès », et l'on décide là-dessus.
+  const dansSections = !sections ? ''
+    : !sections.length ? ' AND 1 = 0'
+    : ` AND (u.section IN (${sections.map(() => '?').join(',')})`
+      + ' OR COALESCE(u.hors_cursus, 0) = 1)';
   const args = sections?.length ? [annee, ...sections] : [annee];
   const sectionDe = resolveurSection(annee);
 
@@ -312,9 +318,15 @@ r.get('/distributions', authRequired, (req, res) => {
 
   // Même règle qu'ailleurs : une unité hors cursus revient dans tous les cas,
   // sa section n'étant connue qu'une fois l'étudiant résolu.
-  const dansSections = sections?.length
-    ? ` AND (u.section IN (${sections.map(() => '?').join(',')})`
-      + ' OR COALESCE(u.hors_cursus, 0) = 1)' : '';
+  // UNE LISTE VIDE N'EST PAS « PAS DE FILTRE ». `sections?.length` traitait de
+  // la même façon `null` (aucune restriction) et `[]` (aucune section permise)
+  // : le second rendait donc TOUTES les délibérations de l'Institut. Un
+  // fail-open ne se voit pas — des chiffres complets se lisent « cette
+  // personne y a bien accès », et l'on décide là-dessus.
+  const dansSections = !sections ? ''
+    : !sections.length ? ' AND 1 = 0'
+    : ` AND (u.section IN (${sections.map(() => '?').join(',')})`
+      + ' OR COALESCE(u.hors_cursus, 0) = 1)';
   const args = sections?.length ? [annee, ...sections] : [annee];
   const sectionDe = resolveurSection(annee);
   // Retenue = dans la catégorie demandée ET, s'il y a un périmètre, dedans.
@@ -465,8 +477,14 @@ r.get('/', authRequired, (req, res) => {
   // seuil, combien en dessous, et sa moyenne. C'est un indicateur d'évaluation,
   // pas de délibération, et le distinguer évite de faire dire à ces chiffres
   // ce qu'ils ne disent pas.
-  const dansSections = sections?.length
-    ? ` AND u.section IN (${sections.map(() => '?').join(',')})` : '';
+  // UNE LISTE VIDE N'EST PAS « PAS DE FILTRE ». `sections?.length` traitait de
+  // la même façon `null` (aucune restriction) et `[]` (aucune section permise)
+  // : le second rendait donc TOUTES les délibérations de l'Institut. Un
+  // fail-open ne se voit pas — des chiffres complets se lisent « cette
+  // personne y a bien accès », et l'on décide là-dessus.
+  const dansSections = !sections ? ''
+    : !sections.length ? ' AND 1 = 0'
+    : ` AND u.section IN (${sections.map(() => '?').join(',')})`;
   const argsC = sections?.length ? [annee, ...sections] : [annee];
   const parCours = db.prepare(`
     SELECT c.cours_code, c.cours_nom, c.ue_num, u.section,

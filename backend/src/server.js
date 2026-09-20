@@ -2712,6 +2712,41 @@ try {
   }
 } catch(e) { console.error('[migration] acces_recrutement :', e.message); }
 
+// ── PÉRIMÈTRE : « toutes les sections » doit pouvoir SE DIRE ─────────────────
+//
+// `utilisateur_section` ne porte que des lignes. « Toutes » ne s'y exprimait
+// donc que par l'ABSENCE de lignes — ce qui est aussi la façon d'écrire « je
+// n'ai pas encore rempli ». Deux états distincts confondus dans un seul, et
+// c'est le permissif qui l'emportait : un compte qu'on oubliait de rattacher
+// voyait tout l'Institut.
+//
+// Les énumérer toutes n'aurait rien réglé : le jour où AeSI ouvre, personne ne
+// l'a, et en silence — une règle qui n'est juste que si l'on y pense est une
+// règle fausse. D'où un drapeau explicite, qui vaut aussi pour les sections à
+// venir. Trois états, enfin lisibles :
+//
+//   perimetre_toutes = 1                  → toutes, y compris celles à venir
+//   perimetre_toutes = 0 et des lignes    → ces sections-là
+//   perimetre_toutes = 0 et aucune ligne  → AUCUN accès
+//
+// LA MIGRATION EST NEUTRE, ET C'EST DÉLIBÉRÉ. Tout compte qui n'a aucune ligne
+// se voit poser le drapeau à 1 : il gardait déjà accès à tout, rien ne change
+// pour lui. Fermer les accès est une DÉCISION, qui se prend à l'écran et se
+// voit ; ce ne peut pas être l'effet de bord d'une mise à jour, découvert un
+// lundi matin par le secrétariat.
+try {
+  const cols = db.prepare('PRAGMA table_info(utilisateur)').all().map(c => c.name);
+  if (!cols.includes('perimetre_toutes')) {
+    db.exec('ALTER TABLE utilisateur ADD COLUMN perimetre_toutes INTEGER NOT NULL DEFAULT 0');
+    const n = db.prepare(`
+      UPDATE utilisateur SET perimetre_toutes = 1
+      WHERE id NOT IN (SELECT utilisateur_id FROM utilisateur_section)
+    `).run();
+    console.log(`[migration] utilisateur.perimetre_toutes ajoutée — ${n.changes} compte(s) `
+              + `sans rattachement conservent « toutes les sections »`);
+  }
+} catch (e) { console.error('[migration] perimetre_toutes :', e.message); }
+
 // ── Validation des attributions : colonnes valide / valide_par / valide_le ────
 try {
   const cols = db.prepare('PRAGMA table_info(attribution)').all().map(c => c.name);
