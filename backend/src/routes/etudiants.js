@@ -2434,6 +2434,140 @@ r.get('/encodage-direct', authRequired, (req, res) => {
 // Composer un programme annuel étudiant par étudiant est intenable sur une
 // promotion entière : on inscrit ou on retire les mêmes unités pour tous les
 // étudiants retenus, en une fois.
+/* ══ COMPOSER LES PAE — LA GRILLE ═══════════════════════════════════════════
+ *
+ * Demandé par Charles le 21 septembre 2026 : « un outil qui doit permettre de
+ * rapidement voir, revoir, changer, modifier et créer un PAE pour un, des…
+ * étudiants » — automatique ou semi-automatique, un PAE de base en un coup,
+ * une UE choisie dans une liste retirée à tous.
+ *
+ * La grille : une ligne par étudiant de la section, une colonne par UE de sa
+ * COMPOSITION (ue_section ; à défaut, les UE rangées sous la section). Les
+ * étudiants sont ceux RATTACHÉS à la section (posé ou déduit — la déduction
+ * ignore les UE hors cursus) ET ceux inscrits cette année à l'une de ses UE :
+ * un BA1 tout juste importé, sans aucune UE, doit y figurer — c'est à lui
+ * qu'on donne un PAE de base.
+ */
+r.get('/pae-grille', authRequired, (req, res) => {
+  const { section, annee } = req.query;
+  if (!section || !annee) return res.status(400).json({ error: 'section et annee requises' });
+  if (!sectionAutoriseeReq(req, section)) return res.status(403).json({ error: 'Section hors de votre périmètre' });
+
+  let ues = db.prepare(`
+    SELECT us.ue_num,
+           (SELECT u.ue_nom FROM ue u WHERE u.ue_num = us.ue_num AND u.annee_scolaire = ? LIMIT 1) AS ue_nom,
+           (SELECT u.ue_niv FROM ue u WHERE u.ue_num = us.ue_num AND u.annee_scolaire = ? LIMIT 1) AS ue_niv,
+           (SELECT COALESCE(u.hors_cursus,0) FROM ue u WHERE u.ue_num = us.ue_num AND u.annee_scolaire = ? LIMIT 1) AS hors_cursus
+      FROM ue_section us WHERE us.annee_scolaire = ? AND us.section_code = ?`).all(annee, annee, annee, annee, section);
+  let source = 'composition';
+  if (!ues.length) {
+    source = 'referentiel';
+    ues = db.prepare(`SELECT ue_num, MAX(ue_nom) AS ue_nom, MAX(ue_niv) AS ue_niv,
+        MAX(COALESCE(hors_cursus,0)) AS hors_cursus
+      FROM ue WHERE annee_scolaire = ? AND section = ? GROUP BY ue_num`).all(annee, section);
+  }
+  const rang = n => ({ BA1: 1, BA2: 2, BA3: 3 }[String(n || '').toUpperCase()] || 4);
+  ues.sort((a, b) => rang(a.ue_niv) - rang(b.ue_niv) || a.ue_num - b.ue_num);
+  const nums = new Set(ues.map(u => u.ue_num));
+
+  // Les étudiants : rattachés à la section, ou inscrits à l'une de ses UE.
+  const candidats = new Map();
+  for (const e of db.prepare('SELECT id, nom, prenom, id_ecampus FROM etudiant WHERE actif = 1').all()) {
+    candidats.set(e.id, e);
+  }
+  const inscr = db.prepare(`SELECT etudiant_id, ue_num, resultat FROM etudiant_inscription
+    WHERE annee_scolaire = ?`).all(annee);
+  const va = db.prepare(`SELECT etudiant_id, ue_num, type, decision FROM etudiant_valorisation
+    WHERE annee_scolaire = ? AND decision_le IS NOT NULL`).all(annee);
+  const dansSection = new Set(inscr.filter(i => nums.has(i.ue_num)).map(i => i.etudiant_id));
+  const lignes = [];
+  for (const e of candidats.values()) {
+    const rat = sectionRattachement(e.id, annee);
+    if (!(rat.section === section || dansSection.has(e.id))) continue;
+    lignes.push({ id: e.id, nom: e.nom, prenom: e.prenom, id_ecampus: e.id_ecampus,
+      section_rattachement: rat.section, section_deduite: rat.deduite,
+      niveau: niveauEtudiant(e.id, annee).niveau || null, cases: {}, autres_ue: 0 });
+  }
+  const parId = new Map(lignes.map(l => [l.id, l]));
+  for (const i of inscr) {
+    const l = parId.get(i.etudiant_id);
+    if (!l) continue;
+    if (nums.has(i.ue_num)) l.cases[i.ue_num] = { inscrit: true, resultat: i.resultat || null };
+    else l.autres_ue++;
+  }
+  for (const v of va) {
+    const l = parId.get(v.etudiant_id);
+    if (l && nums.has(v.ue_num)) {
+      l.cases[v.ue_num] = { ...(l.cases[v.ue_num] || {}),
+        va: v.decision === 'refusee' ? 'refusee' : v.type };
+    }
+  }
+  lignes.sort((a, b) => (a.nom || '').localeCompare(b.nom || '', 'fr') || (a.prenom || '').localeCompare(b.prenom || '', 'fr'));
+  res.json({ section, annee, source, ues, etudiants: lignes });
+});
+
+/* ══ COMPOSER LES PAE — APPLIQUER LES CHANGEMENTS DE LA GRILLE ════════════
+ *
+ * La grille prépare des changements CASE PAR CASE — ajouter l'UE 9701 à
+ * trente étudiants, en retirer 9703 à deux autres, donner le PAE de base à
+ * dix : c'est une liste de couples (étudiant, UE), pas « une action pour
+ * tous ». Simulation d'abord, puis tout ou rien.
+ *
+ * DEUX PROTECTIONS au retrait, et la seconde manquait au lot : un RÉSULTAT
+ * encodé (effacer une décision du Conseil), et des NOTES déjà saisies sans
+ * résultat encore — retirer l'inscription les laisserait orphelines.
+ * Le périmètre s'applique aux unités, comme au lot.
+ */
+r.post('/pae-modifier', authRequired,
+       roleRequired('admin', 'directeur', 'directeur_adjoint', 'editeur', 'secretariat'), (req, res) => {
+  const { annee, ajouts = [], retraits = [], simulation = true } = req.body || {};
+  if (!annee) return res.status(400).json({ error: 'annee requise' });
+  const couples = l => (Array.isArray(l) ? l : []).map(x => [Number(x.etudiant_id), Number(x.ue_num)])
+    .filter(([e, u]) => Number.isInteger(e) && e > 0 && Number.isInteger(u) && u >= 0);
+  const A = couples(ajouts), R = couples(retraits);
+  if (!A.length && !R.length) return res.status(400).json({ error: 'Aucun changement.' });
+
+  const perim = getUserSections(req.user);
+  if (perim) {
+    const nums = [...new Set([...A, ...R].map(([, u]) => u))];
+    const hors = nums.filter(u => {
+      const s0 = db.prepare('SELECT section FROM ue WHERE ue_num = ? AND section IS NOT NULL LIMIT 1').get(u)?.section;
+      return s0 && !perim.includes(s0);
+    });
+    if (hors.length) return res.status(403).json({ error: `Unité(s) hors de votre périmètre : ${hors.join(', ')}` });
+  }
+
+  const dateJour = new Date().toISOString().slice(0, 10);
+  const lire = db.prepare('SELECT resultat FROM etudiant_inscription WHERE etudiant_id = ? AND annee_scolaire = ? AND ue_num = ?');
+  const notes = db.prepare('SELECT COUNT(*) AS n FROM etudiant_note_detail WHERE etudiant_id = ? AND annee_scolaire = ? AND ue_num = ?');
+  const ins = db.prepare(`INSERT INTO etudiant_inscription (etudiant_id, annee_scolaire, ue_num, date_inscription)
+    VALUES (?,?,?,?) ON CONFLICT(etudiant_id, annee_scolaire, ue_num) DO NOTHING`);
+  const del = db.prepare('DELETE FROM etudiant_inscription WHERE etudiant_id = ? AND annee_scolaire = ? AND ue_num = ?');
+  const nom = id => { const e = db.prepare('SELECT nom, prenom FROM etudiant WHERE id = ?').get(id); return e ? `${(e.nom || '').toUpperCase()} ${e.prenom || ''}`.trim() : `#${id}`; };
+
+  const rapport = { ajoutes: 0, deja: 0, retires: 0, absents: 0, proteges: [] };
+  try {
+    db.transaction(() => {
+      for (const [e, u] of A) {
+        if (lire.get(e, annee, u)) { rapport.deja++; continue; }
+        ins.run(e, annee, u, dateJour); rapport.ajoutes++;
+      }
+      for (const [e, u] of R) {
+        const x = lire.get(e, annee, u);
+        if (!x) { rapport.absents++; continue; }
+        if (x.resultat) { rapport.proteges.push({ etudiant: nom(e), ue_num: u, pourquoi: `résultat « ${x.resultat} » encodé` }); continue; }
+        let n = 0; try { n = notes.get(e, annee, u).n; } catch { n = 0; }
+        if (n) { rapport.proteges.push({ etudiant: nom(e), ue_num: u, pourquoi: `${n} note(s) déjà saisie(s)` }); continue; }
+        del.run(e, annee, u); rapport.retires++;
+      }
+      if (simulation) throw new Error('SIMULATION');
+    })();
+  } catch (e) {
+    if (e.message !== 'SIMULATION') { console.error('[pae-modifier]', e); return res.status(500).json({ error: e.message }); }
+  }
+  res.json({ ok: true, simulation: !!simulation, ...rapport });
+});
+
 r.post('/pae-lot', authRequired,
        roleRequired('admin', 'directeur', 'directeur_adjoint', 'editeur', 'secretariat'), (req, res) => {
   const { annee, etudiants, ues, action, simulation } = req.body || {};

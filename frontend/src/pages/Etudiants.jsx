@@ -17,6 +17,7 @@ import CentreImpressionCentral from '../components/CentreImpressionCentral.jsx';
 import { useEchangesDuRail, Fenetre } from '../components/ui.jsx';
 import CentrePAE from '../components/CentrePAE.jsx';
 import PassageAnnee from '../components/PassageAnnee.jsx';
+import ComposerPAE from '../components/ComposerPAE.jsx';
 import CentreEchanges from '../components/CentreEchanges.jsx';
 import CentreDiplomation from '../components/CentreDiplomation.jsx';
 import SeanceValorisation from '../components/SeanceValorisation.jsx';
@@ -2304,6 +2305,7 @@ export default function Etudiants() {
   const [centrePAE, setCentrePAE] = useState(false);
   // Le passage d'année : toute une section, sur ses résultats.
   const [passage, setPassage] = useState(false);
+  const [composer, setComposer] = useState(false);
   // Une seule porte pour les huit imports et les exports.
   const [echanges, setEchanges] = useState(false);
   // Les titres de fin de cycle, pour une section entière.
@@ -2715,11 +2717,14 @@ export default function Etudiants() {
     // écrit deux fois dans le même menu. L'onglet fait tout ce que faisait le
     // registre, et il encode en plus.
     { label: 'Fin de cycle', items: [
-      { key: 'passage', label: "Composer les PAE de l'année suivante",
+      { key: 'passage', label: 'Composer les PAE',
         /* PAS DEUX FOIS LE MÊME DESSIN DANS UN RAIL. « Passage de classe »
            portait l'icône de l'axe Étudiants : replié, on visait l'un pour
            l'autre. Un escalier dit ce que fait l'action — on monte d'un an. */
-        icon: IconStairsUp, onClick: () => setPassage(true) },
+        /* LE MÊME ESCALIER, UN OUTIL PLUS LARGE (21 septembre 2026) : la
+           grille de composition, dont le passage d'année n'est plus qu'un
+           des gestes. On garde l'icône — c'est celle que Charles cherche. */
+        icon: IconStairsUp, onClick: () => setComposer(true) },
       { key: 'diplomation', label: 'Diplômes et titres', icon: IconAward,
         onClick: () => setDiplomation(true) },
     ] },
@@ -2831,8 +2836,30 @@ export default function Etudiants() {
       {selEtudiants.size > 0 && (
         <div className="sticky top-2 z-10 flex items-center justify-between gap-3 flex-wrap
                         px-4 py-2 rounded-xl bg-iip-turquoise/10 border border-iip-turquoise/30">
-          <span className="text-[13px] font-semibold text-iip-blue">
+          {/* LE COMPTEUR DIT CE QU'ON VOIT, ET CE QU'ON NE VOIT PAS. La sélection
+              survit aux filtres — c'est voulu —, mais « 204 sélectionnés » au
+              milieu d'une liste filtrée à trente a été lu, à juste titre, comme
+              un nombre faux (Charles, 21 septembre). On dit combien sont
+              affichés parmi eux, et l'on permet de vider ou de ramener la
+              sélection à ce qui est à l'écran : c'est sur la sélection entière
+              qu'agissent Imprimer et Composer. */}
+          <span className="text-[13px] font-semibold text-iip-blue flex flex-wrap items-center gap-x-2">
             {selEtudiants.size} étudiant(s) sélectionné(s)
+            {(() => {
+              const visibles = filtres.filter(e => selEtudiants.has(e.id)).length;
+              if (visibles === selEtudiants.size) return null;
+              return (
+                <span className="font-normal text-[12px] text-[#B45309]">
+                  dont {visibles} affiché(s) — {selEtudiants.size - visibles} caché(s) par les filtres
+                  <button className="underline ml-2 text-iip-blue"
+                    onClick={() => setSelEtudiants(new Set(filtres.filter(e => selEtudiants.has(e.id)).map(e => e.id)))}>
+                    Ne garder que les affichés
+                  </button>
+                </span>
+              );
+            })()}
+            <button className="underline font-normal text-[12px] text-slate-500"
+              onClick={() => setSelEtudiants(new Set())}>Tout désélectionner</button>
           </span>
           <div className="flex gap-2">
             <button onClick={() => setCentreImpression(true)}
@@ -3106,6 +3133,10 @@ export default function Etudiants() {
         <CentreDiplomation annee={annee} onClose={() => setDiplomation(false)} />
       )}
 
+      {composer && (
+        <ComposerPAE onClose={() => setComposer(false)} onTermine={charger}
+          onPassage={() => { setComposer(false); setPassage(true); }} />
+      )}
       {passage && (
         <PassageAnnee annee={annee}
           onClose={() => setPassage(false)} onTermine={charger} />
