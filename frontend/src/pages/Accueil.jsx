@@ -7,8 +7,7 @@ import {
   // Les trois icônes de calendrier ont disparu avec les trois entrées de
   // période : un réglage n'est pas un territoire, il vit dans une fenêtre.
   IconUserPlus, IconClipboardList, IconSettings, IconRefresh, IconCake,
-  IconClipboardPlus, IconFilter, IconFileText} from '@tabler/icons-react';
-import ConfierTache from '../components/ConfierTache.jsx';
+  IconFilter, IconFileText} from '@tabler/icons-react';
 import { urgence } from '../lib/urgence.js';
 import { Fenetre } from '../components/ui.jsx';
 
@@ -85,6 +84,7 @@ function salutation(u) {
 function MesTaches({ signal = 0 }) {
   const [taches, setTaches] = useState([]);
   const [confiees, setConfiees] = useState([]);
+  const [informe, setInforme] = useState([]);
   const [prochaine, setProchaine] = useState(null);
 
   const lire = (chemin, pose) => fetch(chemin, { headers: authHeaders() })
@@ -97,6 +97,8 @@ function MesTaches({ signal = 0 }) {
     // les points à la séance suivante, et la direction répond de l'ensemble.
     lire('/api/reunions/taches?confie=1&ouvertes=1',
       l => setConfiees(Array.isArray(l) ? l : []));
+    lire('/api/reunions/taches?informe=1&ouvertes=1',
+      l => setInforme(Array.isArray(l) ? l : []));
     lire('/api/reunions/prochaine', setProchaine);
   };
   useEffect(() => { charger(); /* eslint-disable-next-line */ }, [signal]);
@@ -108,14 +110,14 @@ function MesTaches({ signal = 0 }) {
      visible tant que l'écran l'est : on l'acquitte en base, pas à l'écran,
      sans quoi il s'effacerait sous les yeux de qui le regarde. */
   useEffect(() => {
-    const neuves = taches.filter(t => t.nouveau).map(t => t.id);
+    const neuves = [...taches, ...informe].filter(t => t.nouveau).map(t => t.id);
     if (!neuves.length) return;
     fetch('/api/reunions/taches/vues', {
       method: 'POST',
       headers: { ...authHeaders(), 'Content-Type': 'application/json' },
       body: JSON.stringify({ ids: neuves }),
     }).catch(() => {});
-  }, [taches]);
+  }, [taches, informe]);
 
   async function cocher(t) {
     await fetch(`/api/reunions/taches/${t.id}`, {
@@ -127,7 +129,7 @@ function MesTaches({ signal = 0 }) {
   }
 
   const fr = d => (d ? String(d).slice(0, 10).split('-').reverse().join('/') : null);
-  if (!taches.length && !confiees.length && !prochaine) return null;
+  if (!taches.length && !confiees.length && !informe.length && !prochaine) return null;
 
   return (
     <div className="mb-5">
@@ -221,6 +223,42 @@ function MesTaches({ signal = 0 }) {
       {/* CE QUE J'AI CONFIÉ — chez l'organisateur de la séance et chez la
           direction. Sans cela, le suivi reposait sur la mémoire de celui qui
           présidait : au point suivant, on redemandait « où en est-on ? ». */}
+      {/* POUR INFORMATION — on m'a tenu au courant, je n'en réponds pas. Pas
+          de case à cocher : ce n'est pas à moi de dire que c'est fait. */}
+      {!!informe.length && (
+        <div className="mt-3">
+          <div className="flex items-baseline gap-2 mb-1.5">
+            <h2 className="text-[13px] font-semibold text-iip-blue">Pour information</h2>
+            <span className="text-[11px] text-slate-400">
+              {informe.length} tâche(s) confiée(s) à d’autres, dont on vous tient au courant
+            </span>
+          </div>
+          <div className="carte overflow-hidden">
+            {informe.map(t => {
+              const u = urgence(t.echeance);
+              return (
+                <div key={t.id} className={`px-3 py-2 flex items-center gap-3
+                                           border-t border-slate-100 first:border-t-0
+                                           ${u.rail} ${t.nouveau ? 'bg-iip-blue/5' : ''}`}>
+                  <span className="flex-1 min-w-0 text-[13px] text-slate-800 truncate">
+                    {t.nouveau ? <b className="text-iip-blue">Nouveau · </b> : null}{t.titre}
+                  </span>
+                  <span className="text-[11px] text-slate-500 truncate max-w-[14rem]">
+                    {(t.responsables || []).map(x => x.nom || x.role).filter(Boolean).join(', ')
+                      || t.responsable_nom || 'sans responsable'}
+                  </span>
+                  {t.echeance && (
+                    <span className={`text-[11px] font-semibold tabular-nums flex-none ${u.pastille}`}>
+                      {u.mention ? `${u.mention} · ` : 'pour le '}{fr(t.echeance)}
+                    </span>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       {!!confiees.length && (
         <div className="mt-3">
           <div className="flex items-baseline gap-2 mb-1.5">
@@ -326,7 +364,6 @@ export default function Accueil() {
   const [loading, setLoading] = useState(true);
   const [filtre, setFiltre]   = useState('tout'); // 'tout' | 'attribution' | 'recrutement' | 'systeme'
   const [jours, setJours]     = useState(30);
-  const [confier, setConfier] = useState(false);
   const [filtres, setFiltres] = useState(false);
   // Confier une tâche doit se voir tout de suite dans « Ce que j'ai confié » :
   // une action qu'on ne retrouve pas donne l'impression de n'avoir rien fait.
@@ -402,11 +439,8 @@ export default function Accueil() {
            Restent deux entrées — ce qu'on FAIT, et ce qu'on filtre. */
         sections={[
           { items: [
-            /* CONFIER SE FAIT D'ICI. Une consigne donnée dans un couloir
-               n'avait nulle part où aller : le seul écran qui créait des
-               tâches était celui d'une réunion. */
-            { key: 'confier', label: 'Confier une tâche', icon: IconClipboardPlus,
-              onClick: () => setConfier(true) },
+            /* CONFIER VIT DANS SUIVI D'ÉQUIPE (21 septembre 2026) — « une
+               icône de trop » ici : la tâche se donne là où elle se suit. */
             { key: 'filtres', label: 'Filtrer', icon: IconFilter,
               // L'accent ne signale QUE ce qui n'est pas le réglage par
               // défaut : une icône qui brille en permanence n'apprend rien.
@@ -466,11 +500,6 @@ export default function Accueil() {
             </div>
           </div>
         </Fenetre>
-      )}
-
-      {confier && (
-        <ConfierTache onClose={() => setConfier(false)}
-          onCree={() => setRafraichirTaches(n => n + 1)} />
       )}
 
       <div className="gouttiere-rail p-4 md:p-8">

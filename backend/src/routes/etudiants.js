@@ -5053,7 +5053,11 @@ r.put('/valorisations/:vid/avis', authRequired, roleRequired(...PEUT_INSTRUIRE, 
       return res.status(400).json({ error: "Un avis se motive par écrit : c'est lui "
         + 'qui fonde la décision du Conseil, et il n’y a pas de recours ensuite.' });
     }
-    const qui = req.user?.nom || req.user?.email || null;
+    // QUI REND L'AVIS N'EST PAS QUI LE SAISIT : le chargé de cours est nommé
+    // à l'écran ; à défaut, celui qui saisit. Le journal garde, lui, la main
+    // qui a tenu le clavier.
+    const qui = String(req.body.avis_par || '').trim()
+      || req.user?.nom || req.user?.email || null;
     db.prepare(`UPDATE etudiant_valorisation
       SET avis_sens = ?, avis_texte = ?, avis_par = ?, avis_le = datetime('now')
       WHERE id = ?`).run(sens, texte, qui, vid);

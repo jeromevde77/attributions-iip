@@ -224,6 +224,29 @@ function ecrireResponsables(tacheId, cles) {
     .run(premier.user_id, premier.professeur_id, premier.role, tacheId);
 }
 
+/**
+ * LES INFORMÉS — ceux qui doivent savoir que la tâche a été donnée, sans en
+ * répondre. Même écriture que l'équipage, « vu » compris ; celui qui est déjà
+ * responsable n'est pas en plus informé.
+ */
+function ecrireInformes(tacheId, cles) {
+  const vus = new Map();
+  for (const l of db.prepare('SELECT user_id, professeur_id, role, vu_le FROM tache_informe WHERE tache_id = ?').all(tacheId)) {
+    if (l.vu_le) vus.set(`${l.user_id || ''}|${l.professeur_id || ''}|${l.role || ''}`, l.vu_le);
+  }
+  const equipage = new Set(db.prepare('SELECT user_id, professeur_id, role FROM tache_personne WHERE tache_id = ?')
+    .all(tacheId).map(l => `${l.user_id || ''}|${l.professeur_id || ''}|${l.role || ''}`));
+  db.prepare('DELETE FROM tache_informe WHERE tache_id = ?').run(tacheId);
+  const poser = db.prepare(`INSERT INTO tache_informe (tache_id, user_id, professeur_id, role, vu_le)
+    VALUES (?,?,?,?,?)`);
+  for (const cle of [...new Set((cles || []).filter(Boolean))]) {
+    const c = depuisCle(cle);
+    const k = `${c.user_id || ''}|${c.professeur_id || ''}|${c.role || ''}`;
+    if (equipage.has(k)) continue;
+    poser.run(tacheId, c.user_id, c.professeur_id, c.role, vus.get(k) || null);
+  }
+}
+
 /** Les équipages des tâches rendues, en une seule requête plutôt qu'une par ligne. */
 function attacherResponsables(lignes) {
   if (!lignes.length) return lignes;
@@ -247,6 +270,23 @@ function attacherResponsables(lignes) {
     });
   }
   for (const l of lignes) l.responsables = par.get(l.id) || [];
+  const inf = db.prepare(`
+    SELECT ti.tache_id, ti.user_id, ti.professeur_id, ti.role,
+           COALESCE(u.nom_complet, pr.prenom || ' ' || pr.nom) AS nom
+      FROM tache_informe ti
+      LEFT JOIN utilisateur u  ON u.id  = ti.user_id
+      LEFT JOIN professeur  pr ON pr.id = ti.professeur_id
+     WHERE ti.tache_id IN (${ids.map(() => '?').join(',')})
+  `).all(...ids);
+  const parI = new Map();
+  for (const x of inf) {
+    if (!parI.has(x.tache_id)) parI.set(x.tache_id, []);
+    parI.get(x.tache_id).push({
+      cle: x.user_id ? `u:${x.user_id}` : x.professeur_id ? `p:${x.professeur_id}` : `r:${x.role}`,
+      nom: x.nom || null, role: x.role || null,
+    });
+  }
+  for (const l of lignes) l.informes = parI.get(l.id) || [];
   return lignes;
 }
 
@@ -254,7 +294,7 @@ const SELECT_TACHE = `
   SELECT t.*,
          COALESCE(u.nom_complet, pr.prenom || ' ' || pr.nom) AS responsable_nom,
          pt.intitule AS point_intitule,
-         r.titre AS reunion_titre, r.date_seance AS reunion_date,
+         r.titre AS reunion_titre, r.date_seance AS reunion_date, r.section AS reunion_section,
          COALESCE(e.libelle_override, et.libelle) AS obligation_libelle,
          et.base_legale AS obligation_base, e.date_due AS obligation_date
     FROM tache t
@@ -298,6 +338,15 @@ r.get('/taches', authRequired, (req, res) => {
                                            SELECT professeur_id FROM utilisateur WHERE id = ?)))))`;
     p.push(req.user.id, req.user.role, req.user.id,
       req.user.id, req.user.role, req.user.id);
+  }
+
+  // CE DONT ON M'A TENU AU COURANT — sans que j'en réponde.
+  if (req.query.informe === '1') {
+    sql += ` AND EXISTS (SELECT 1 FROM tache_informe ti WHERE ti.tache_id = t.id
+               AND (ti.user_id = ? OR ti.role = ?
+                    OR (ti.professeur_id IS NOT NULL AND ti.professeur_id = (
+                          SELECT professeur_id FROM utilisateur WHERE id = ?))))`;
+    p.push(req.user.id, req.user.role, req.user.id);
   }
 
   // CE QUE J'AI CONFIÉ ME REGARDE AUSSI.
@@ -348,7 +397,12 @@ function marquerNouvelles(lignes, user) {
        WHERE tache_id IN (${ids.map(() => '?').join(',')})
          AND (user_id = ? OR (professeur_id IS NOT NULL AND professeur_id = (
                SELECT professeur_id FROM utilisateur WHERE id = ?)))
-    `).all(...ids, user.id, user.id);
+      UNION ALL
+      SELECT tache_id, vu_le FROM tache_informe
+       WHERE tache_id IN (${ids.map(() => '?').join(',')})
+         AND (user_id = ? OR (professeur_id IS NOT NULL AND professeur_id = (
+               SELECT professeur_id FROM utilisateur WHERE id = ?)))
+    `).all(...ids, user.id, user.id, ...ids, user.id, user.id);
     const sansVue = new Set(vus.filter(v => !v.vu_le).map(v => v.tache_id));
     return lignes.map(l => ({ ...l, nouveau: sansVue.has(l.id) ? 1 : 0 }));
   } catch (e) {
@@ -369,14 +423,17 @@ r.post('/taches/vues', authRequired, (req, res) => {
   const ids = (req.body?.ids || []).map(Number).filter(Boolean);
   if (!ids.length) return res.json({ ok: true, marquees: 0 });
   try {
-    const info = db.prepare(`
-      UPDATE tache_personne SET vu_le = datetime('now')
-       WHERE vu_le IS NULL
-         AND tache_id IN (${ids.map(() => '?').join(',')})
-         AND (user_id = ? OR (professeur_id IS NOT NULL AND professeur_id = (
-               SELECT professeur_id FROM utilisateur WHERE id = ?)))
-    `).run(...ids, req.user.id, req.user.id);
-    res.json({ ok: true, marquees: info.changes });
+    let marquees = 0;
+    for (const table of ['tache_personne', 'tache_informe']) {
+      marquees += db.prepare(`
+        UPDATE ${table} SET vu_le = datetime('now')
+         WHERE vu_le IS NULL
+           AND tache_id IN (${ids.map(() => '?').join(',')})
+           AND (user_id = ? OR (professeur_id IS NOT NULL AND professeur_id = (
+                 SELECT professeur_id FROM utilisateur WHERE id = ?)))
+      `).run(...ids, req.user.id, req.user.id).changes;
+    }
+    res.json({ ok: true, marquees });
   } catch (e) {
     console.error('[taches/vues]', e.message);
     res.json({ ok: true, marquees: 0 });
@@ -410,6 +467,7 @@ r.post('/taches', authRequired, (req, res) => {
         : b.responsable_professeur_id ? `p:${b.responsable_professeur_id}`
         : `r:${b.responsable_role}`]);
   }
+  if (Array.isArray(b.informes)) ecrireInformes(info.lastInsertRowid, b.informes);
   res.json(attacherResponsables(
     [db.prepare(SELECT_TACHE + ' WHERE t.id = ?').get(info.lastInsertRowid)])[0]);
 });
@@ -449,6 +507,7 @@ r.put('/taches/:id', authRequired, (req, res) => {
   // L'ÉQUIPAGE NE SE MODIFIE QUE SI ON LE DIT. Cocher « fait » envoie un seul
   // champ : réécrire les responsables à cette occasion les effacerait.
   if (Array.isArray(b.responsables)) ecrireResponsables(Number(req.params.id), b.responsables);
+  if (Array.isArray(b.informes)) ecrireInformes(Number(req.params.id), b.informes);
 
   res.json(attacherResponsables(
     [db.prepare(SELECT_TACHE + ' WHERE t.id = ?').get(req.params.id)])[0]);

@@ -798,6 +798,19 @@ tâche confiée vendredi doit être encore signalée lundi, et « récente » ne
 pas cela. L'équipage se réécrivant en entier, `vu_le` est préservé : sans quoi
 ajouter quelqu'un rallumerait le signal chez tous les autres.
 
+**Confier, filtrer, tenir au courant** (2.12.110, Charles, 21 septembre 2026).
+*Confier une tâche* a quitté l'Accueil pour le rail de Suivi d'équipe — la
+tâche se donne là où elle se suit. Une tâche porte désormais des personnes
+**« au courant »** (`tache_informe`) : elles la voient à l'Accueil sous *Pour
+information*, signalée « nouveau » comme les autres, mais n'en répondent pas —
+les mettre dans l'équipage (`tache_personne`) les aurait rendues
+responsables, et la tâche serait tombée dans « les miennes ». Échéances et
+tâches se filtre (texte, personne, section) et se range (par personne, par
+échéance, par section, sans regroupement ; tri par échéance, priorité,
+intitulé, création). La section d'une tâche : celle de sa réunion, et celles
+de ses responsables. En VA, le chargé de cours qui rend l'avis **se choisit
+dans le personnel** ; le « + » ouvre la saisie libre pour qui n'y est pas.
+
 **LE PÉRIMÈTRE SE POSE SUR CHAQUE PORTE, PAS SUR LA PORTE D'ENTRÉE.** Le filtre
 par section existait et était juste (`withSectionScope` / `req.allowedSections`
 — chercher `perimetre(` ou `getUserSections` ne le trouve pas, et cette erreur

@@ -7,6 +7,7 @@ import {
 import { authHeaders, getAnnee, getUser } from '../lib/api.js';
 import { BulleAide, Fenetre, RailLateral } from '../components/ui.jsx';
 import SeanceValorisation from '../components/SeanceValorisation.jsx';
+import { nomListe, parNom } from '../lib/nom.js';
 
 /**
  * LA VALORISATION DES ACQUIS — UN ÉCRAN, PAS UNE FENÊTRE.
@@ -2131,10 +2132,53 @@ function EtapeRecevabilite({ dossier, onEnregistrer, enCours }) {
   );
 }
 
+/**
+ * LE CHARGÉ DE COURS SE CHOISIT, IL NE SE TAPE PAS (Charles, 21 septembre
+ * 2026). La liste est celle du personnel ; celui qui n'y figure pas — un
+ * expert extérieur, un remplaçant pas encore encodé — s'écrit à la main
+ * derrière le « + ». Un nom tapé est un nom qu'on orthographie de trois
+ * façons, et qu'on ne retrouve plus ensuite.
+ */
+function ChoixChargeDeCours({ valeur, onChange, className = '' }) {
+  const [personnes, setPersonnes] = useState(null);
+  const [libre, setLibre] = useState(false);
+  useEffect(() => {
+    fetch(`/api/reunions/personnes?annee=${encodeURIComponent(getAnnee())}`, { headers: authHeaders() })
+      .then(r => (r.ok ? r.json() : [])).then(l => setPersonnes(Array.isArray(l) ? l : []))
+      .catch(() => setPersonnes([]));
+  }, []);
+  const noms = useMemo(() => [...new Set((personnes || []).map(p => nomListe(p.nom)))]
+    .sort(parNom), [personnes]);
+  // Une valeur déjà écrite qui n'est pas dans la liste s'affiche en saisie libre.
+  const horsListe = !!valeur && personnes && !noms.includes(valeur);
+  if (libre || horsListe) {
+    return (
+      <span className={`inline-flex items-center gap-1 ${className}`}>
+        <input autoFocus={libre} value={valeur} onChange={e => onChange(e.target.value)}
+          placeholder="NOM Prénom" className="controle text-[13px] flex-1 min-w-[14rem]" />
+        <button type="button" className="bouton controle px-2 text-[12px]"
+          title="Revenir à la liste" onClick={() => { setLibre(false); onChange(''); }}>Liste</button>
+      </span>
+    );
+  }
+  return (
+    <span className={`inline-flex items-center gap-1 ${className}`}>
+      <select value={valeur} onChange={e => onChange(e.target.value)}
+        className="controle text-[13px] flex-1 min-w-[14rem]">
+        <option value="">{personnes ? '— chargé de cours qui rend l’avis —' : 'Chargement…'}</option>
+        {noms.map(n => <option key={n} value={n}>{n}</option>)}
+      </select>
+      <button type="button" className="bouton controle px-2.5" title="Il n’est pas dans la liste : l’écrire"
+        onClick={() => { setLibre(true); onChange(''); }}>+</button>
+    </span>
+  );
+}
+
 /** Étape 4 — l'avis écrit du chargé de cours. C'est la pièce qui manquait. */
 function EtapeAvis({ dossier, onEnregistrer, enCours }) {
   const [sens, setSens] = useState(dossier.avis_sens || '');
   const [texte, setTexte] = useState(dossier.avis_texte || '');
+  const [par, setPar] = useState(dossier.avis_par || '');
   const bloque = dossier.recevable !== 1;
   return (
     <section className="carte p-3 space-y-2">
@@ -2168,13 +2212,16 @@ function EtapeAvis({ dossier, onEnregistrer, enCours }) {
                 </label>
               ))}
           </div>
+          <div className="flex items-center gap-2 text-[12px] text-slate-500">
+            Rendu par <ChoixChargeDeCours valeur={par} onChange={setPar} />
+          </div>
           {/* UN AVIS SANS TEXTE N'EST PAS UN AVIS. Les décisions de VA ne sont
               pas susceptibles de recours : la motivation est tout ce qui reste. */}
           <textarea value={texte} onChange={e => setTexte(e.target.value)} rows={3}
             className="controle w-full h-auto text-[13px]"
             placeholder="Comparaison des preuves au dossier pédagogique : contenus, volume horaire, crédits, résultats obtenus…" />
-          <button onClick={() => onEnregistrer({ avis_sens: sens, avis_texte: texte })}
-            disabled={enCours || !sens || !texte.trim()}
+          <button onClick={() => onEnregistrer({ avis_sens: sens, avis_texte: texte, avis_par: par.trim() })}
+            disabled={enCours || !sens || !texte.trim() || !par.trim()}
             className="bouton disabled:opacity-40">
             {dossier.avis_le ? "Corriger l'avis" : "Enregistrer l'avis"}
           </button>
@@ -3065,9 +3112,7 @@ function AnalyserEnSerie({ annee, onClose, onChange }) {
                   </label>
                 ))}
                 {/* QUI REND L'AVIS N'EST PAS QUI LE SAISIT. */}
-                <input value={avisPar} onChange={e => setAvisPar(e.target.value)}
-                  placeholder="Chargé de cours qui rend l'avis — NOM Prénom"
-                  className="controle text-[13px] min-w-[18rem]" />
+                <ChoixChargeDeCours valeur={avisPar} onChange={setAvisPar} />
               </div>
               <textarea value={avisTexte} onChange={e => setAvisTexte(e.target.value)}
                 rows={3}
