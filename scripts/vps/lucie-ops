@@ -17,6 +17,11 @@ set -euo pipefail
 export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 
 LUCIE=/opt/lucie
+# LES IMAGES SONT PRIVÉES, ET L'IDENTIFIANT DU REGISTRE EST CELUI DE debian.
+# Lancé par sudo, ce script tourne en root, qui n'en a pas : le premier
+# maj-dev a répondu « unauthorized » (22 septembre 2026). On lit donc la
+# configuration Docker de debian, sans la copier.
+export DOCKER_CONFIG=/home/debian/.docker
 PROD_BACKEND=attributions-backend
 DEV_BACKEND=attributions-backend-dev
 
