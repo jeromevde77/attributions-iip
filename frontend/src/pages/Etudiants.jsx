@@ -2558,7 +2558,7 @@ export default function Etudiants() {
     const cle = {
       nom:     e => `${e.nom || ''} ${e.prenom || ''}`.trim().toLowerCase(),
       email:   e => (e.email_ecole || '').toLowerCase(),
-      section: e => (e.sections || '').toLowerCase(),
+      section: e => (e.section_rattachement || '').toLowerCase(),
       niveau:  e => ({ BA1: 1, BA2: 2, BA3: 3, MIXTE: 4 }[e.niveau] ?? 9),
       nb_ue:   e => Number(e.nb_ue || 0),
     }[tri.champ] || (e => e.nom || '');
@@ -2586,14 +2586,23 @@ export default function Etudiants() {
      recherche, les volets restent fermés, comme avant. */
   const [repliesRecherche, setRepliesRecherche] = useState({});
   useEffect(() => { setRepliesRecherche({}); }, [recherche]);
+  /* UN ÉTUDIANT, UNE SECTION : LA SIENNE — et non celles de ses UE.
+     La colonne et les volets lisaient la liste des sections de TOUTES ses
+     unités : un étudiant de TIM inscrit à l'UE hors cursus (rangée sous
+     Restart) et à une UE commune rangée sous Optique s'affichait
+     « RESTART, Optique, TIM » et paraissait dans trois volets. Charles l'a
+     lu, le 21 septembre, comme « Optique mis chez tout le monde » — la base
+     n'avait rien : aucun étudiant rattaché à Optique. C'est la leçon de
+     l'UE 95 (2.11.1), repayée à l'écran : la section d'une UE n'est pas un
+     rattachement. Le serveur calculait déjà la bonne réponse
+     (`section_rattachement` : posée, sinon déduite sans les unités hors
+     cursus) ; l'écran ne s'en servait pas. */
   const parSection = useMemo(() => {
     const par = new Map();
     for (const e of filtres) {
-      const secs = (e.sections || '').split(',').map(s => s.trim()).filter(Boolean);
-      for (const s of (secs.length ? secs : ['(sans section)'])) {
-        if (!par.has(s)) par.set(s, []);
-        par.get(s).push(e);
-      }
+      const s = e.section_rattachement || '(sans section)';
+      if (!par.has(s)) par.set(s, []);
+      par.get(s).push(e);
     }
     return [...par.entries()].sort((a, b) => a[0].localeCompare(b[0]));
   }, [filtres]);
@@ -2815,7 +2824,7 @@ export default function Etudiants() {
                 </th>
                 <ThTri champ="nom"     tri={tri} onTri={trierPar} className="text-left">Étudiant</ThTri>
                 <ThTri champ="email"   tri={tri} onTri={trierPar} className="text-left">Email</ThTri>
-                <ThTri champ="section" tri={tri} onTri={trierPar} className="text-left w-24">Sections</ThTri>
+                <ThTri champ="section" tri={tri} onTri={trierPar} className="text-left w-24">Section</ThTri>
                 <ThTri champ="niveau"  tri={tri} onTri={trierPar} className="text-left w-24">Niveau</ThTri>
                 <ThTri champ="nb_ue"   tri={tri} onTri={trierPar} className="text-right w-16">UE</ThTri>
                 <th className="px-4 py-2.5 w-10"></th>
@@ -2892,7 +2901,16 @@ export default function Etudiants() {
                     </div>
                   </td>
                   <td className="px-4 py-2.5 text-slate-500 text-[13px]">{e.email_ecole}</td>
-                  <td className="px-4 py-2.5 text-[12px] text-slate-500">{e.sections}</td>
+                  {/* Sa section ; « déduite » tant qu'elle n'est pas posée.
+                      Les sections de ses UE restent lisibles au survol : elles
+                      disent où il suit des cours, pas où il est rattaché. */}
+                  <td className="px-4 py-2.5 text-[12px] text-slate-500"
+                    title={e.sections ? `UE suivies dans : ${e.sections.split(',').join(', ')}` : undefined}>
+                    {e.section_rattachement || <span className="text-slate-300">—</span>}
+                    {e.section_rattachement && e.section_deduite && (
+                      <span className="text-[11px] text-slate-400"> (déduite)</span>
+                    )}
+                  </td>
                   <td className="px-4 py-2.5">
                     <BadgeNiveau niveau={e.niveau} libelle={e.niveau_libelle} />
                     {/* Le diplôme se dit là où on lit le niveau : c'est la même
