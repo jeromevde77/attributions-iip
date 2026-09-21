@@ -2572,6 +2572,16 @@ export default function Etudiants() {
   // parcourt section par section, et un étudiant inscrit dans plusieurs
   // sections apparaît sous chacune.
   const [sectionsDeployees, setSectionsDeployees] = useState({});
+  /* PENDANT UNE RECHERCHE, LES VOLETS S'OUVRENT.
+     Fermés par défaut, ils cachaient ce qu'on venait de trouver : « loho »
+     comptait trois étudiants en 2025-2026 et n'en montrait aucun, tandis qu'en
+     2024-2025 le volet Psychomotricité, déplié plus tôt, laissait voir
+     M. Lohohola Kalambay — on a cru à un étudiant absent d'une année. Une
+     recherche qui trouve puis cache n'est pas une recherche. Le repli fait à
+     la main pendant la recherche est respecté, et oublié à la suivante ; sans
+     recherche, les volets restent fermés, comme avant. */
+  const [repliesRecherche, setRepliesRecherche] = useState({});
+  useEffect(() => { setRepliesRecherche({}); }, [recherche]);
   const parSection = useMemo(() => {
     const par = new Map();
     for (const e of filtres) {
@@ -2813,7 +2823,13 @@ export default function Etudiants() {
                 // huit cents lignes avant d'atteindre celle qu'on cherchait.
                 // Replié, l'écran tient sur une vue : on ouvre la section
                 // voulue, et on y est.
-                const ouverte = sectionsDeployees[sec] === true;
+                const enRecherche = !!recherche.trim();
+                const ouverte = enRecherche
+                  ? repliesRecherche[sec] !== true
+                  : sectionsDeployees[sec] === true;
+                const basculer = () => (enRecherche
+                  ? setRepliesRecherche(d => ({ ...d, [sec]: ouverte }))
+                  : setSectionsDeployees(d => ({ ...d, [sec]: !ouverte })));
                 return (
                   <Fragment key={sec}>
                     {/* LE REGROUPEMENT EST UN EN-TÊTE, et il en prend le ton :
@@ -2823,7 +2839,7 @@ export default function Etudiants() {
                     {parSection.length > 1 && (
                       <tr className="tab-repere">
                         <td colSpan={7} className="px-4 py-2">
-                          <button onClick={() => setSectionsDeployees(d => ({ ...d, [sec]: !ouverte }))}
+                          <button onClick={basculer}
                             className="flex items-center gap-1.5 text-[13px] font-semibold">
                             <span className="w-3 inline-block opacity-50">{ouverte ? '−' : '+'}</span>
                             {sec}
