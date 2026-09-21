@@ -557,6 +557,28 @@ même ligne. On choisit d'abord LE GESTE — il commande ce qui est cochable :
 une case cochable sur un dossier que le serveur refusera est une fausse
 promesse, et le refus arrive alors après coup.
 
+> **UNE SÉANCE, C'EST UNE SECTION ET UNE DATE — PAS UNE UNITÉ** (2.12.93,
+> Charles, 21 septembre 2026). La borne ci-dessous disait « par unité », et
+> elle était fausse pour l'IIP : *« on reçoit un dossier pour un étudiant et
+> plusieurs UE ; on traite toutes les UE de tout le monde en même temps ; on
+> sort le PV quand tout est fait »*. `memeSeance()` borne désormais un lot de
+> décision ou de validation à **une section** (celle de l'unité ; celle de
+> l'étudiant pour une unité hors cursus) **et une date de séance**. Chaque
+> unité garde son PV d'annexe 4, daté de cette séance. Ce qu'elle protège
+> reste vrai : un lot n'attribue pas à une réunion ce qu'une autre a décidé.
+>
+> **DÉCIDER PAR ÉTUDIANT** (rail *Valorisation*, le tampon) : un étudiant, une
+> ligne par unité, **une décision par ligne** — totale, partielle avec SES
+> cours ou SES acquis, refusée avec son motif —, un seul enregistrement
+> (`POST /valorisations/lot/decisions`), puis la validation des dossiers prêts.
+> Mêmes contrôles qu'un à un (`verifierValorisation`, `verifierDecisionCE`),
+> une ligne de journal par dossier, tout ou rien. **Seules les lignes
+> modifiées partent** : un étudiant inscrit dans deux sections se décide en
+> deux fois, sans que la seconde renvoie la première. `decision` vaut
+> « accordee » PAR DÉFAUT en base : c'est `decision_le` qui dit qu'une
+> décision a été posée — lire `decision` seul présentait chaque unité à
+> décider comme « totale ».
+
 > **LA VUE EST À PLAT, L'ÉCRITURE EST BORNÉE.** Décider et valider sont des
 > gestes de SÉANCE, et une séance de valorisation se tient PAR UNITÉ : cocher
 > en travers de trois unités puis appliquer une décision unique attribuerait à

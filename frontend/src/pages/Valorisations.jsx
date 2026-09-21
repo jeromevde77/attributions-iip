@@ -2,7 +2,7 @@ import { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
 import {
   IconAlertTriangle, IconCertificate, IconCheck, IconChevronDown, IconChevronRight,
   IconListCheck, IconPlus, IconPrinter, IconSearch, IconTable, IconTrash,
-  IconUserPlus, IconUsersGroup, IconX,
+  IconRubberStamp, IconUserPlus, IconUsersGroup, IconX,
 } from '@tabler/icons-react';
 import { authHeaders, getAnnee, getUser } from '../lib/api.js';
 import { BulleAide, Fenetre, RailLateral } from '../components/ui.jsx';
@@ -71,6 +71,7 @@ export default function Valorisations() {
   const [dossier, setDossier] = useState(null);   // vid du dossier ouvert
   const [matrice, setMatrice] = useState(false);
   const [analyse, setAnalyse] = useState(false);
+  const [deciderEtudiant, setDeciderEtudiant] = useState(false);
   const [ajoutUE, setAjoutUE] = useState(null);      // { etudiant_id, nom, prenom }
   const [documents, setDocuments] = useState(null);
   const [erreur, setErreur] = useState(null);
@@ -247,6 +248,12 @@ export default function Valorisations() {
         onClick: () => setSerie(true) },
       { key: 'analyse', label: 'Analyser les demandes en série', icon: IconListCheck,
         onClick: () => setAnalyse(true) },
+      /* UN ÉTUDIANT, TOUTES SES UNITÉS : le dossier tel qu'il arrive. Le
+         TAMPON dit la décision puis l'acceptation, et n'appartient qu'à cette
+         entrée : la personne cochée est à « Présences », le marteau à
+         « Procédures », qui vit dans ce même rail. */
+      { key: 'par-etudiant', label: 'Décider par étudiant', icon: IconRubberStamp,
+        onClick: () => setDeciderEtudiant(true) },
       { key: 'ajouter', label: 'Ajouter des étudiants', icon: IconUserPlus,
         onClick: () => setAjout(true) },
     ],
@@ -366,6 +373,11 @@ export default function Valorisations() {
 
       {analyse && (
         <AnalyserEnSerie annee={annee} onClose={() => setAnalyse(false)}
+          onChange={charger} />
+      )}
+
+      {deciderEtudiant && (
+        <DeciderParEtudiant annee={annee} onClose={() => setDeciderEtudiant(false)}
           onChange={charger} />
       )}
 
@@ -4049,6 +4061,420 @@ function MatriceIntroduction({ annee, onClose, onCree }) {
           )}
         </div>
       </div>
+    </Fenetre>
+  );
+}
+
+/* ══ DÉCIDER PAR ÉTUDIANT ═════════════════════════════════════════════════
+ *
+ * Demandé par Charles le 21 septembre 2026 : « on reçoit parfois un dossier
+ * pour un étudiant et plusieurs UE. On traite toutes les UE de tout le monde en
+ * même temps. On sort le PV quand tout est fait. Il me faut la possibilité
+ * d'encoder et accepter les VA pour un étudiant. »
+ *
+ * UN ÉTUDIANT, UNE LIGNE PAR UNITÉ, UNE DÉCISION PAR LIGNE — totale, partielle
+ * avec SES cours ou SES acquis, refusée avec son motif — et un seul
+ * enregistrement, pour une séance datée. Puis, pour la direction, la
+ * validation des mêmes dossiers d'un clic.
+ *
+ * Ce qui ne se décide pas ici se VOIT ici, avec sa raison : un dossier non
+ * recevable, sans avis, déjà validé. Une case cochable sur un dossier que le
+ * serveur refusera est une fausse promesse.
+ */
+const MOTS_ETAT_BLOQUANT = d => (
+  d.ue_num === 0 || d.type === 'admission' ? 'Admission — se décide dans son dossier'
+    : d.valide_le ? `Validé le ${String(d.valide_le).slice(0, 10)} — ne se modifie plus`
+      : d.recevable == null ? 'Recevabilité à contrôler d’abord'
+        : d.recevable === 0 ? 'Irrecevable'
+          : !d.avis_le ? 'Avis du chargé de cours manquant'
+            : null);
+
+function choixInitial(d) {
+  // C'est `decision_le` qui dit qu'une décision a été POSÉE : la colonne
+  // `decision` vaut « accordee » par défaut en base, et la lire seule
+  // présentait comme « totale » chaque unité encore à décider.
+  if (!d.decision_le) return { branche: '', cible: 'cours', coches: [], motif: '' };
+  if (d.decision === 'refusee') return { branche: 'refusee', cible: 'cours', coches: [], motif: d.motif_refus || '' };
+  if (d.type === 'partielle') {
+    return { branche: 'partielle', cible: d.cible === 'aa' ? 'acquis' : 'cours',
+      coches: String(d.cible_detail || '').split(',').map(x => x.trim()).filter(Boolean),
+      motif: '' };
+  }
+  return { branche: 'totale', cible: 'cours', coches: [], motif: '' };
+}
+
+function DeciderParEtudiant({ annee, onClose, onChange }) {
+  const [dossiers, setDossiers] = useState(null);
+  const [peutValider, setPeutValider] = useState(false);
+  const [bases, setBases] = useState([]);
+  const [q, setQ] = useState('');
+  const [etudId, setEtudId] = useState(null);
+  const [choix, setChoix] = useState({});          // id → { branche, cible, coches[], motif, base }
+  const [composantes, setComposantes] = useState({}); // ue_num → { cours, aas }
+  const [dateCE, setDateCE] = useState(aujourdHui());
+  const [baseCommune, setBaseCommune] = useState('');
+  const [enCours, setEnCours] = useState(false);
+  const [erreur, setErreur] = useState(null);
+  const [bloquants, setBloquants] = useState(null);
+  const [fait, setFait] = useState(null);          // { ids, valides? }
+
+  const charger = useCallback(async () => {
+    const r = await fetch(`/api/etudiants/valorisations/analyse?annee=${encodeURIComponent(annee)}`,
+      { headers: authHeaders() });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) { setErreur(j.error || 'Lecture refusée.'); return; }
+    setDossiers(j.dossiers || []);
+    setPeutValider(!!j.peut_valider);
+  }, [annee]);
+  useEffect(() => { charger(); }, [charger]);
+  useEffect(() => {
+    fetch('/api/etudiants/valorisations/referentiel', { headers: authHeaders() })
+      .then(r => (r.ok ? r.json() : null)).then(j => setBases(j?.bases || [])).catch(() => {});
+  }, []);
+
+  // Les étudiants qui ont au moins un dossier, avec ce qui reste à décider.
+  const etudiants = useMemo(() => {
+    const m = new Map();
+    for (const d of dossiers || []) {
+      if (!m.has(d.etudiant_id)) {
+        m.set(d.etudiant_id, { id: d.etudiant_id, nom: d.nom, prenom: d.prenom,
+          id_ecampus: d.id_ecampus, section: d.section, n: 0, aDecider: 0 });
+      }
+      const e = m.get(d.etudiant_id);
+      e.n += 1;
+      if (!MOTS_ETAT_BLOQUANT(d) && !d.decision_le) e.aDecider += 1;
+    }
+    const t = q.trim().toLowerCase();
+    return [...m.values()]
+      .filter(e => !t || `${e.nom} ${e.prenom} ${e.id_ecampus || ''}`.toLowerCase().includes(t))
+      .sort((a, b) => (b.aDecider - a.aDecider) || `${a.nom}`.localeCompare(`${b.nom}`, 'fr'));
+  }, [dossiers, q]);
+
+  const lignes = useMemo(() => (dossiers || [])
+    .filter(d => d.etudiant_id === etudId)
+    .sort((a, b) => a.ue_num - b.ue_num), [dossiers, etudId]);
+
+  // Changer d'étudiant efface le message et le « c'est fait » ; RECHARGER après
+  // un enregistrement, non — sans quoi le bouton « Valider ces dossiers »
+  // disparaissait à l'instant même où il devenait utile.
+  useEffect(() => { setErreur(null); setBloquants(null); setFait(null); }, [etudId]);
+
+  // Choisir un étudiant repart de ce qui est déjà décidé pour lui.
+  useEffect(() => {
+    const init = {};
+    for (const d of lignes) init[d.id] = { ...choixInitial(d), base: d.base_code || '' };
+    setChoix(init);
+    const b = lignes.map(d => d.base_code).find(Boolean);
+    if (b) setBaseCommune(b);
+    const dt = lignes.map(d => d.decision_ce_date).find(Boolean);
+    if (dt) setDateCE(String(dt).slice(0, 10));
+  }, [lignes]);
+
+  // Les cours et acquis d'une unité, chargés à la demande (partielle seulement).
+  useEffect(() => {
+    for (const d of lignes) {
+      if (choix[d.id]?.branche !== 'partielle' || composantes[d.ue_num]) continue;
+      fetch(`/api/etudiants/ue/${d.ue_num}/composantes?annee=${encodeURIComponent(annee)}`,
+        { headers: authHeaders() })
+        .then(r => (r.ok ? r.json() : null))
+        .then(j => j && setComposantes(c => ({ ...c, [d.ue_num]: j })))
+        .catch(() => {});
+    }
+  }, [choix, lignes, composantes, annee]);
+
+  const poser = (id, patch) => setChoix(c => ({ ...c, [id]: { ...c[id], ...patch } }));
+  const decidables = lignes.filter(d => !MOTS_ETAT_BLOQUANT(d));
+  /* SEULES LES LIGNES MODIFIÉES PARTENT. Une unité déjà décidée, laissée
+     telle quelle, n'est pas réécrite : la renvoyer referait une ligne de
+     journal pour rien, et — pour un étudiant inscrit dans DEUX sections —
+     décider plus tard l'unité de l'autre section la mêlerait à celles-ci, et
+     le serveur refuserait le lot. */
+  const signature = c => JSON.stringify([c?.branche || '', c?.cible || '',
+    [...(c?.coches || [])].sort(), (c?.motif || '').trim(), c?.base || '']);
+  const modifiee = d => {
+    const c = choix[d.id];
+    if (!c?.branche) return false;
+    if (!d.decision_le) return true;
+    const avant = { ...choixInitial(d), base: d.base_code || '' };
+    return signature(c) !== signature(avant)
+      // La base commune ne compte que pour un ACCORD : un refus n'en a pas.
+      || (c.branche !== 'refusee' && !c.base && baseCommune
+          && baseCommune !== (d.base_code || ''))
+      || (d.decision_ce_date && String(d.decision_ce_date).slice(0, 10) !== dateCE);
+  };
+  const retenues = decidables.filter(modifiee);
+
+  /* TOUT COCHER — la demande de Charles, au sens le plus courant : tout
+     accorder entièrement. Ce qui est déjà réglé autrement (une partielle, un
+     refus) n'est pas écrasé : on ne défait pas d'un clic ce qu'on a désigné. */
+  const toutEnTotale = () => setChoix(c => {
+    const n = { ...c };
+    for (const d of decidables) if (!n[d.id]?.branche) n[d.id] = { ...n[d.id], branche: 'totale' };
+    return n;
+  });
+
+  const manqueLigne = d => {
+    const c = choix[d.id] || {};
+    if (c.branche === 'refusee' && !c.motif?.trim()) return `UE ${d.ue_num} : motif du refus manquant`;
+    if (c.branche === 'partielle' && !c.coches?.length) {
+      return `UE ${d.ue_num} : cochez les ${c.cible === 'acquis' ? 'acquis' : 'cours'} dispensés`;
+    }
+    if ((c.branche === 'totale' || c.branche === 'partielle') && !(c.base || baseCommune)) {
+      return `UE ${d.ue_num} : base de la décision manquante`;
+    }
+    return null;
+  };
+  const manque = !etudId ? 'Choisissez un étudiant.'
+    : !retenues.length ? (decidables.some(d => d.decision_le)
+      ? 'Rien n’a changé depuis le dernier enregistrement.'
+      : 'Posez au moins une décision.')
+      : !/^\d{4}-\d{2}-\d{2}$/.test(dateCE) ? 'Date de la séance manquante.'
+        : retenues.map(manqueLigne).find(Boolean) || null;
+
+  async function enregistrer() {
+    if (manque) return;
+    setEnCours(true); setErreur(null); setBloquants(null);
+    const corpsLignes = retenues.map(d => {
+      const c = choix[d.id];
+      if (c.branche === 'refusee') {
+        return { id: d.id, decision: 'refusee', motif_refus: c.motif.trim() };
+      }
+      const l = { id: d.id, decision: 'accordee', base_code: c.base || baseCommune };
+      if (c.branche === 'totale') return { ...l, type: 'complete' };
+      return { ...l, type: 'partielle',
+        cible: c.cible === 'acquis' ? 'aa' : 'cours',
+        cible_detail: c.coches.join(','),
+        ...(c.cible === 'acquis' ? { equivalences: c.coches.map(code => ({ aa_code: code })) } : {}) };
+    });
+    try {
+      const r = await fetch('/api/etudiants/valorisations/lot/decisions', {
+        method: 'POST', headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+        body: JSON.stringify({ decision_ce_date: dateCE, lignes: corpsLignes }),
+      });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) {
+        setErreur(j.error || 'Enregistrement refusé.');
+        if (Array.isArray(j.bloquants)) setBloquants(j.bloquants);
+        return;
+      }
+      setFait({ ids: j.ids || [] });
+      await charger(); await onChange?.();
+    } catch (e) { setErreur(e.message); }
+    finally { setEnCours(false); }
+  }
+
+  /* ACCEPTER — la validation, geste de la direction. Mêmes dossiers, même
+     séance ; le serveur refuse ce qui n'est pas complet et le nomme. */
+  /* CE QUI SE VALIDE : ce qu'on vient d'enregistrer, ou — en rouvrant la
+     fenêtre le lendemain — les dossiers de l'étudiant que le serveur dit
+     prêts. La validation ne se proposait qu'à la seconde qui suivait
+     l'enregistrement : le lendemain, on ne pouvait plus accepter. */
+  const aValider = fait?.ids?.length ? fait.ids
+    : lignes.filter(d => d.pret_a_valider).map(d => d.id);
+
+  async function valider() {
+    setEnCours(true); setErreur(null); setBloquants(null);
+    try {
+      const r = await fetch('/api/etudiants/valorisations/lot/validation', {
+        method: 'POST', headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids: aValider }),
+      });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) {
+        setErreur(j.error || 'Validation refusée.');
+        if (Array.isArray(j.bloquants)) setBloquants(j.bloquants);
+        return;
+      }
+      setFait({ ids: aValider, valides: j.valides });
+      await charger(); await onChange?.();
+    } catch (e) { setErreur(e.message); }
+    finally { setEnCours(false); }
+  }
+
+  const etud = etudiants.find(e => e.id === etudId)
+    || (dossiers || []).filter(d => d.etudiant_id === etudId)
+      .map(d => ({ nom: d.nom, prenom: d.prenom, id_ecampus: d.id_ecampus }))[0];
+
+  return (
+    <Fenetre icone={IconRubberStamp} large="grande" onFermer={onClose}
+      titre="Décider par étudiant"
+      sous={etud ? `${(etud.nom || '').toUpperCase()} ${etud.prenom || ''} — une décision par unité, une séance`
+        : 'Toutes les unités d’un même dossier, dans une même séance'}
+      pied={<>
+        {peutValider && !retenues.length && aValider.length > 0 && !fait?.valides ? (
+          <button className="bouton bouton-fort disabled:opacity-40" disabled={enCours}
+            onClick={valider}>
+            {enCours ? 'Validation…' : `Valider ${aValider.length} dossier(s)`}
+          </button>
+        ) : (
+          <button className="bouton bouton-fort disabled:opacity-40" disabled={!!manque || enCours}
+            onClick={enregistrer}>
+            {enCours ? 'Enregistrement…' : `Enregistrer ${retenues.length || ''} décision(s)`}
+          </button>
+        )}
+        <span className="text-[12px] text-slate-500 min-w-0">
+          {fait?.valides ? `${fait.valides} dossier(s) validé(s).`
+            : fait ? `${fait.ids.length} décision(s) enregistrée(s), séance du ${dateCE}.`
+              + (peutValider ? ' Vous pouvez les valider.' : ' La validation revient à la direction.')
+              : manque}
+        </span>
+        <button className="bouton ml-auto" onClick={onClose}>Fermer</button>
+      </>}>
+
+      {erreur && (
+        <div className="carte p-3 text-[12px] text-rose-700 mb-3">
+          <div className="flex items-start gap-1.5"><IconAlertTriangle size={14} className="mt-0.5 flex-none" />{erreur}</div>
+          {bloquants?.length > 0 && (
+            <ul className="mt-1.5 pl-5 list-disc text-slate-700">
+              {bloquants.map(b => <li key={b.id}><b>{b.qui}</b> — {b.pourquoi}</li>)}
+            </ul>
+          )}
+        </div>
+      )}
+
+      {!etudId ? (
+        <div className="space-y-2">
+          <div className="relative">
+            <IconSearch size={15} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+            <input value={q} onChange={e => setQ(e.target.value)} autoFocus
+              placeholder="Un nom, un prénom ou un matricule…"
+              className="controle controle-icone w-full text-[13px]" />
+          </div>
+          {!dossiers ? <div className="text-[13px] text-slate-400">Chargement…</div>
+            : !etudiants.length ? <div className="text-[13px] text-slate-500">Aucun étudiant n’a de demande de valorisation en {annee}.</div>
+              : (
+                <div className="carte divide-y divide-slate-100 max-h-[55vh] overflow-auto">
+                  {etudiants.map(e => (
+                    <button key={e.id} onClick={() => setEtudId(e.id)}
+                      className="w-full text-left px-3 py-2 flex items-center gap-3 hover:bg-slate-100">
+                      <span className="flex-1 min-w-0 text-[13px] truncate">
+                        <b>{(e.nom || '').toUpperCase()}</b> {e.prenom}
+                        <span className="text-slate-400"> · {e.id_ecampus}{e.section ? ` · ${e.section}` : ''}</span>
+                      </span>
+                      <span className="text-[11px] text-slate-500 tabular-nums flex-none">
+                        {e.n} unité(s){e.aDecider ? ` · ${e.aDecider} à décider` : ''}
+                      </span>
+                      <IconChevronRight size={14} className="text-slate-300 flex-none" />
+                    </button>
+                  ))}
+                </div>
+              )}
+        </div>
+      ) : (
+        <div className="space-y-3">
+          <div className="flex flex-wrap items-end gap-3">
+            <button className="bouton" onClick={() => setEtudId(null)}>← Autre étudiant</button>
+            <label className="text-[12px] text-slate-600">
+              <span className="block mb-0.5">Date de la séance du Conseil</span>
+              <input type="date" value={dateCE} onChange={e => setDateCE(e.target.value)}
+                className="controle text-[13px]" />
+            </label>
+            <label className="text-[12px] text-slate-600 min-w-0 flex-1">
+              <span className="block mb-0.5">Base de la décision (accords) <BulleAide titre="Base de la décision">La base légale qui part dans eProm : VAF V1 à V4 ou VANFI. Elle vaut pour toutes les unités accordées, sauf si une ligne en porte une autre.</BulleAide></span>
+              <select value={baseCommune} onChange={e => setBaseCommune(e.target.value)}
+                className="controle text-[13px] w-full">
+                <option value="">— choisir —</option>
+                {bases.map(b => <option key={b.code} value={b.code}>{b.code} — {b.libelle}</option>)}
+              </select>
+            </label>
+            <button className="bouton" disabled={!decidables.length} onClick={toutEnTotale}
+              title="Pose « totale » sur toutes les unités encore sans décision">
+              <IconCheck size={14} className="inline -mt-0.5 mr-1" />Tout accorder en totale
+            </button>
+          </div>
+
+          <table className="w-full text-[13px] border-collapse">
+            <thead>
+              <tr className="tab-entete text-left">
+                <th className="px-2 py-1.5 w-[34%]">Unité</th>
+                <th className="px-2 py-1.5">Décision du Conseil</th>
+              </tr>
+            </thead>
+            <tbody>
+              {lignes.map(d => {
+                const bloque = MOTS_ETAT_BLOQUANT(d);
+                const c = choix[d.id] || {};
+                const comp = composantes[d.ue_num];
+                const items = c.cible === 'acquis'
+                  ? (comp?.aas || []).map(a => [a.aa_code, `${a.aa_code} — ${a.description || ''}`])
+                  : (comp?.cours || []).map(k => [k.cours_code, `${k.cours_code} — ${k.cours_nom || ''}`]);
+                return (
+                  <tr key={d.id} className="border-t border-slate-200 align-top">
+                    <td className="px-2 py-2 bg-white">
+                      <div className="font-semibold">UE {d.ue_num}</div>
+                      <div className="text-[12px] text-slate-500">{d.ue_nom || ''}</div>
+                      {/* LA SECTION SE LIT SUR LA LIGNE : un lot ne mêle pas
+                          deux conseils, et c'est ici qu'on voit pourquoi. */}
+                      <div className="text-[11px] text-slate-400">{d.section || ''}
+                        {d.decision_le ? ` · décidée le ${String(d.decision_ce_date || d.decision_le).slice(0, 10)}` : ''}
+                        {modifiee(d) && d.decision_le ? ' · modifiée' : ''}</div>
+                    </td>
+                    <td className="px-2 py-2 bg-white">
+                      {bloque ? (
+                        <span className="text-[12px] text-slate-500">{bloque}</span>
+                      ) : (
+                        <div className="space-y-1.5">
+                          <div className="segments inline-flex">
+                            {[['', '—'], ['totale', 'Totale'], ['partielle', 'Partielle'], ['refusee', 'Refusée']]
+                              .map(([v, lib]) => (
+                                <button key={v || 'aucune'} type="button"
+                                  onClick={() => poser(d.id, { branche: v,
+                                    ...(v !== 'partielle' ? { coches: [] } : {}),
+                                    ...(v !== 'refusee' ? { motif: '' } : {}) })}
+                                  className={`px-2.5 py-1 text-[12px] ${c.branche === v
+                                    ? 'bg-iip-blue text-white font-semibold' : 'text-slate-600'}`}>
+                                  {lib}
+                                </button>
+                              ))}
+                          </div>
+                          {c.branche === 'refusee' && (
+                            <textarea rows={2} value={c.motif || ''} placeholder="Motif du refus — obligatoire"
+                              onChange={e => poser(d.id, { motif: e.target.value })}
+                              className="controle w-full h-auto py-1.5 text-[13px]" />
+                          )}
+                          {c.branche === 'partielle' && (
+                            <div className="rounded-champ border border-slate-200 p-2 space-y-1.5">
+                              <div className="flex gap-3 text-[12px]">
+                                {[['cours', 'Des cours'], ['acquis', 'Des acquis']].map(([v, lib]) => (
+                                  <label key={v} className="flex items-center gap-1">
+                                    <input type="radio" checked={c.cible === v}
+                                      onChange={() => poser(d.id, { cible: v, coches: [] })} />{lib}
+                                  </label>
+                                ))}
+                              </div>
+                              {!comp ? <div className="text-[12px] text-slate-400">Chargement de l’unité…</div>
+                                : !items.length ? <div className="text-[12px] text-slate-500">Aucun élément connu pour cette unité en {annee}.</div>
+                                  : items.map(([code, lib]) => (
+                                    <label key={code} className="flex items-start gap-1.5 text-[12px]">
+                                      <input type="checkbox" className="mt-0.5" checked={(c.coches || []).includes(code)}
+                                        onChange={() => poser(d.id, { coches: (c.coches || []).includes(code)
+                                          ? c.coches.filter(x => x !== code) : [...(c.coches || []), code] })} />
+                                      <span>{lib}</span>
+                                    </label>
+                                  ))}
+                            </div>
+                          )}
+                          {(c.branche === 'totale' || c.branche === 'partielle') && (
+                            <select value={c.base || ''} onChange={e => poser(d.id, { base: e.target.value })}
+                              className="controle text-[12px]">
+                              <option value="">Base : {baseCommune || 'celle du haut'}</option>
+                              {bases.map(b => <option key={b.code} value={b.code}>Base : {b.code} (propre à cette unité)</option>)}
+                            </select>
+                          )}
+                        </div>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+          <p className="text-[12px] text-slate-500">
+            Chaque unité garde son procès-verbal d’annexe 4, daté de cette séance. Une unité
+            sans décision (« — ») n’est pas touchée.
+          </p>
+        </div>
+      )}
     </Fenetre>
   );
 }
