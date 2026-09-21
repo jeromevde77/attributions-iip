@@ -3456,9 +3456,20 @@ r.post('/pae-promotion', authRequired,
   const retenus = Array.isArray(etudiants) && etudiants.length
     ? new Set(etudiants.map(Number)) : null;
 
+  /* SUIVRE UNE UE D'UNE SECTION N'EST PAS ÊTRE DE CETTE SECTION (21 septembre
+   * 2026). La promotion prenait tout inscrit à l'UNE des unités de la section,
+   * puis lui composait le programme COMPLET de cette section : un étudiant de
+   * TIM qui suivait une unité partagée d'Optométrie recevait tout le PAE
+   * d'Optométrie. Lancée pour les quatre sections, elle a inscrit en 2026-2027
+   * des centaines d'étudiants dans des sections qui ne sont pas les leurs.
+   * La section de l'étudiant (rattachement, déduction à défaut) décide. */
+  const autreSection = [];
+
   const prets = [], attente = [], rien = [];
   for (const e of gens) {
     if (retenus && !retenus.has(e.id)) continue;
+    const sa = sectionRattachement(e.id, annee_source).section;
+    if (sa !== section) { autreSection.push({ ...e, section: sa || null }); continue; }
     const adm = admissibilitePAE(e.id, annee_source);
     if (!adm.admissible) { attente.push({ ...e, attentes: adm.attentes }); continue; }
 
@@ -3515,7 +3526,8 @@ r.post('/pae-promotion', authRequired,
 
   res.json({
     section, annee_source, annee_cible, simulation: !!simulation,
-    promotion: gens.length,
+    promotion: gens.length - autreSection.length,
+    autre_section: autreSection,
     prets, attente, sans_programme: rien,
     total: {
       prets: prets.length, attente: attente.length, sans_programme: rien.length,
