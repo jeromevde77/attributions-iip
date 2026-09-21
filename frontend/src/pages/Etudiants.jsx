@@ -22,6 +22,7 @@ import CentreDiplomation from '../components/CentreDiplomation.jsx';
 import SeanceValorisation from '../components/SeanceValorisation.jsx';
 import ImportSurMesure from '../components/ImportSurMesure.jsx';
 import ImportSignaletique from '../components/ImportSignaletique.jsx';
+import RattacherPack from '../components/RattacherPack.jsx';
 import ImportSuivi from '../components/ImportSuivi.jsx';
 import Annexe2 from '../components/Annexe2.jsx';
 import MotivationDecision from '../components/MotivationDecision.jsx';
@@ -2303,6 +2304,7 @@ export default function Etudiants() {
   const [comparaison, setComparaison] = useState(false);
   const [importSurMesure, setImportSurMesure] = useState(false);
   const [importSignaletique, setImportSignaletique] = useState(false);
+  const [rattacherPack, setRattacherPack] = useState(false);
   const [importSuivi, setImportSuivi] = useState(false);
   const [tri, setTri] = useState({ champ: 'nom', sens: 1 });
 
@@ -2960,6 +2962,9 @@ export default function Etudiants() {
       {importSignaletique && (
         <ImportSignaletique onClose={() => setImportSignaletique(false)} onTermine={charger} />
       )}
+      {rattacherPack && (
+        <RattacherPack onClose={() => setRattacherPack(false)} onTermine={charger} />
+      )}
 
       {centrePAE && (
         <CentrePAE annee={annee} etudiants={[...selEtudiants]}
@@ -2988,6 +2993,12 @@ export default function Etudiants() {
               quoi: 'Ouvrir les dossiers d’une nouvelle promotion ; ceux qui existent déjà sont complétés, jamais dédoublés.',
               attend: 'l’export eCampus des étudiants (R_Etudiants_Excel, .xls)',
               onClick: () => setImportSignaletique(true) },
+            /* L'ÉTAPE SUIVANTE : une promotion importée sans section se range
+               d'après le rapport eCampus « Pack UF ». */
+            { cle: 'rattacher-pack', titre: 'Placer les étudiants dans leur section',
+              quoi: 'D’après le rapport eCampus « Pack UF » : chaque pack reçoit sa section, seuls les étudiants sans section sont placés.',
+              attend: 'le rapport Pack UF (Word, .docx)',
+              onClick: () => setRattacherPack(true) },
             { cle: 'liste', titre: 'Liste eCampus',
               quoi: 'Créer ou compléter les dossiers depuis la liste officielle.',
               attend: "l'export eCampus (.xlsx)",

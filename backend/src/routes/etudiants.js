@@ -24,6 +24,7 @@ import {
 } from '../lib/valorisation.js';
 import { calculerDI, calculerDIS } from './droitInscription.js';
 import { rapprocher, normDate } from './importHistorique.js';
+import { lirePackUF } from '../lib/packUF.js';
 
 const r = Router();
 
@@ -7214,6 +7215,99 @@ r.post('/import-signaletique', authRequired,
     ecartes: rapport.ecartes, conflits: rapport.conflits,
   });
 });
+
+// ── PLACER LES ÉTUDIANTS DANS LEUR SECTION — le rapport eCampus « Pack UF » ─
+//
+// Demandé par Charles le 21 septembre 2026 : « sais-tu te servir de mon
+// document Word pour placer les étudiants sans section dans une section ? ».
+// Le rapport dit, pour chaque matricule, de quel PACK il est ; un pack
+// appartient à une section. Trois temps, comme tout import :
+//   1. ANALYSE    (sans `correspondances`) : les packs lus, une section
+//                 proposée pour chacun — rien d'écrit ;
+//   2. SIMULATION : ce qui serait posé, étudiant par étudiant ;
+//   3. ÉCRITURE   : tout ou rien.
+// On ne pose une section QUE là où il n'y en a pas : un rattachement déjà
+// fait a été décidé par quelqu'un, et un rapport n'a pas autorité pour le
+// défaire. Les désaccords sont montrés, jamais corrigés d'office.
+const televersementPack = multer({ storage: multer.memoryStorage(), limits: { fileSize: 20 * 1024 * 1024 } });
+
+function sectionProposee(libelle, sections) {
+  const n = x => String(x || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+  const l = n(libelle);
+  // Le libellé du pack contient le nom de la section (« Bachelier 1 en
+  // Psychomotricité ») ; sinon son code (« AeSI 1e Gpe1 »). Imagerie médicale
+  // est TIM. Rien d'autre n'est deviné : « Opto-Ortho » reste à trancher.
+  const trouves = sections.filter(sc => {
+    const lib = n(sc.libelle), code = n(sc.code);
+    return (lib.length > 3 && l.includes(lib)) || (code.length > 1 && new RegExp(`\\b${code}\\b`).test(l))
+      || (code === 'tim' && l.includes('imagerie'));
+  });
+  return trouves.length === 1 ? trouves[0].code : null;
+}
+
+r.post('/rattacher-pack', authRequired,
+  roleRequired('admin', 'directeur', 'directeur_adjoint', 'editeur', 'secretariat'),
+  televersementPack.single('fichier'), async (req, res) => {
+    if (!req.file) return res.status(400).json({ error: 'Aucun fichier reçu.' });
+    let packs;
+    try { ({ packs } = await lirePackUF(req.file.buffer)); }
+    catch (e) { return res.status(e.status || 422).json({ error: e.message }); }
+
+    const sections = db.prepare('SELECT code, libelle FROM section ORDER BY libelle').all();
+    let correspondances = null;
+    try { correspondances = req.body?.correspondances ? JSON.parse(req.body.correspondances) : null; }
+    catch { return res.status(400).json({ error: 'Correspondances illisibles.' }); }
+    const simulation = req.body?.simulation !== 'false';
+
+    const resume = packs.map(p => ({
+      libelle: p.libelle, etudiants: p.etudiants.length, unites: p.unites,
+      section_proposee: sectionProposee(p.libelle, sections),
+    }));
+    if (!correspondances) return res.json({ etape: 'analyse', packs: resume });
+
+    for (const code of Object.values(correspondances).filter(Boolean)) {
+      if (!sections.some(sc => sc.code === code)) {
+        return res.status(400).json({ error: `Section inconnue : ${code}.` });
+      }
+    }
+
+    const rapport = { a_placer: [], deja_meme: 0, deja_autre: [], introuvables: [], sans_section_choisie: 0 };
+    const poser = db.prepare('UPDATE etudiant SET section_rattachement = ? WHERE id = ? AND section_rattachement IS NULL');
+    const ecrire = db.transaction(() => {
+      for (const p of packs) {
+        const cible = correspondances[p.libelle] || null;
+        for (const e of p.etudiants) {
+          if (!cible) { rapport.sans_section_choisie++; continue; }
+          const trouve = rapprocher({ id_ecampus: e.matricule });
+          if (!trouve) { rapport.introuvables.push({ matricule: e.matricule, nom: e.nom, pack: p.libelle }); continue; }
+          const actuel = db.prepare('SELECT id, nom, prenom, section_rattachement FROM etudiant WHERE id = ?').get(trouve.id);
+          const qui = `${(actuel.nom || '').toUpperCase()} ${actuel.prenom || ''}`.trim();
+          if (actuel.section_rattachement === cible) { rapport.deja_meme++; continue; }
+          if (actuel.section_rattachement) {
+            rapport.deja_autre.push({ qui, matricule: e.matricule, actuelle: actuel.section_rattachement, pack: p.libelle, proposee: cible });
+            continue;
+          }
+          rapport.a_placer.push({ qui, matricule: e.matricule, section: cible });
+          poser.run(cible, actuel.id);
+        }
+      }
+      if (simulation) throw new Error('SIMULATION');
+    });
+    try { ecrire(); } catch (e) {
+      if (e.message !== 'SIMULATION') {
+        console.error('[rattacher-pack]', e);
+        return res.status(500).json({ error: e.message });
+      }
+    }
+    const parSection = {};
+    for (const x of rapport.a_placer) parSection[x.section] = (parSection[x.section] || 0) + 1;
+    res.json({
+      etape: simulation ? 'simulation' : 'ecriture', packs: resume,
+      nb_a_placer: rapport.a_placer.length, par_section: parSection,
+      deja_meme: rapport.deja_meme, deja_autre: rapport.deja_autre,
+      introuvables: rapport.introuvables, sans_section_choisie: rapport.sans_section_choisie,
+    });
+  });
 
 // ── Import depuis le fichier eCampus Excel ───────────────────────────────────
 // Le frontend lit le fichier XLS/XLSX avec SheetJS et envoie les données en JSON.
