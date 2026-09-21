@@ -26,6 +26,12 @@ export default function ImportSignaletique({ onClose, onTermine }) {
   const [simuleSur, setSimuleSur] = useState(null); // clé fichier+section simulée
   const [enCours, setEnCours] = useState(false);
   const [erreur, setErreur] = useState(null);
+  /* LA SECTION PAR ÉTUDIANT — « on peut laisser le choix » (Charles).
+     `parLigne` : { indice: code | '' } ; absent = la section du haut. */
+  const [parLigne, setParLigne] = useState({});
+  const [coches, setCoches] = useState(() => new Set());
+  const [filtre, setFiltre] = useState('');
+  const [aAppliquer, setAAppliquer] = useState('');
   const entree = useRef(null);
 
   useEffect(() => {
@@ -34,7 +40,28 @@ export default function ImportSignaletique({ onClose, onTermine }) {
       .catch(() => {});
   }, []);
 
-  const cle = fichier ? `${fichier.nom}|${fichier.lignes.length}|${section}` : null;
+  // Changer une section, même d'une seule ligne, oblige à resimuler.
+  const cle = fichier ? `${fichier.nom}|${fichier.lignes.length}|${section}|${JSON.stringify(parLigne)}` : null;
+  const lignesVues = useMemo(() => (fichier?.lignes || []).map((l, i) => ({
+    i, nom: `${String(l.NomEtud || '').trim()} ${String(l['PréEtud'] || '').trim()}`.trim()
+      || String(l.Etudiant || '').trim(), mat: String(l.Id_Etud || '').trim(),
+  })).filter(x => !filtre.trim() || `${x.nom} ${x.mat}`.toLowerCase().includes(filtre.trim().toLowerCase())),
+  [fichier, filtre]);
+  const libSection = code => sections.find(s0 => s0.code === code)?.libelle || code;
+  const sectionDe = i => (i in parLigne ? parLigne[i] : section);
+  const compteParSection = useMemo(() => {
+    const m = new Map();
+    for (let i = 0; i < (fichier?.lignes.length || 0); i++) {
+      const c = sectionDe(i) || '';
+      m.set(c, (m.get(c) || 0) + 1);
+    }
+    return [...m.entries()].sort((a, b) => b[1] - a[1]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fichier, parLigne, section]);
+  const appliquer = () => {
+    setParLigne(p0 => { const n = { ...p0 }; for (const i of coches) n[i] = aAppliquer; return n; });
+    setCoches(new Set());
+  };
   const simule = !!cle && simuleSur === cle && rapport?.simulation;
   const fait = rapport && !rapport.simulation;
 
@@ -43,7 +70,19 @@ export default function ImportSignaletique({ onClose, onTermine }) {
     setErreur(null); setRapport(null); setSimuleSur(null);
     try {
       const XLSX = await import('xlsx');
-      const wb = XLSX.read(await f.arrayBuffer(), { type: 'array' });
+      const octets = await f.arrayBuffer();
+      /* UN CSV SE DÉCODE AVANT D'ÊTRE LU. Lu en octets, il est pris pour du
+         Windows-1252 : un fichier UTF-8 y perd ses accents, et l'en-tête
+         « PréEtud » devient « PrÃ©Etud » — la colonne des prénoms disparaît,
+         et chaque ligne est écartée « sans prénom ». On tente l'UTF-8 strict,
+         et l'on retombe sur le Windows-1252 d'un Excel ancien. */
+      const estCsv = /\.csv$/i.test(f.name);
+      let texte = null;
+      if (estCsv) {
+        try { texte = new TextDecoder('utf-8', { fatal: true }).decode(octets); }
+        catch { texte = new TextDecoder('windows-1252').decode(octets); }
+      }
+      const wb = estCsv ? XLSX.read(texte, { type: 'string' }) : XLSX.read(octets, { type: 'array' });
       const ws = wb.Sheets[wb.SheetNames[0]];
       // Tout en texte : un matricule « 26-00071 » ou un code postal lu comme
       // un nombre perdrait ses zéros ou son tiret.
@@ -54,6 +93,7 @@ export default function ImportSignaletique({ onClose, onTermine }) {
           + 'Pour un autre fichier, passez par l’importateur sur mesure.');
       }
       setFichier({ nom: f.name, lignes });
+      setParLigne({}); setCoches(new Set()); setFiltre('');
     } catch (e) { setFichier(null); setErreur(e.message); }
   }
 
@@ -62,7 +102,8 @@ export default function ImportSignaletique({ onClose, onTermine }) {
     try {
       const r = await fetch('/api/etudiants/import-signaletique', {
         method: 'POST', headers: { ...authHeaders(), 'Content-Type': 'application/json' },
-        body: JSON.stringify({ lignes: fichier.lignes, section: section || null, simulation }),
+        body: JSON.stringify({ lignes: fichier.lignes, section: section || null,
+                               sections_par_ligne: parLigne, simulation }),
       });
       const j = await r.json().catch(() => ({}));
       if (!r.ok) { setErreur(j.error || 'Refusé.'); return; }
@@ -118,7 +159,7 @@ export default function ImportSignaletique({ onClose, onTermine }) {
               onChange={e => { lire(e.target.files?.[0]); e.target.value = ''; }} />
           </div>
           <label className="text-[12px] text-slate-600">
-            <span className="block mb-0.5">Section de rattachement des nouveaux</span>
+            <span className="block mb-0.5">Section par défaut</span>
             <select value={section} onChange={e => setSection(e.target.value)} disabled={fait}
               className="controle text-[13px] min-w-[16rem]">
               <option value="">— aucune pour l’instant —</option>
@@ -132,18 +173,68 @@ export default function ImportSignaletique({ onClose, onTermine }) {
           )}
         </div>
 
-        {!section && fichier && (
-          <p className="text-[12px] text-slate-500">
-            Sans section, les nouveaux étudiants ne se rangent chez aucune coordination :
-            seuls ceux qui voient toutes les sections les verront, sous « (sans section) ».
-          </p>
+        {fichier && !fait && (
+          <div className="carte p-2.5 space-y-2">
+            <div className="flex flex-wrap items-center gap-2 text-[12px]">
+              <b className="text-[13px]">Section de chaque étudiant</b>
+              <span className="text-slate-500">
+                {compteParSection.map(([c, n]) => `${c ? libSection(c) : 'aucune'} : ${n}`).join(' · ')}
+              </span>
+            </div>
+            {/* UNE SÉLECTION, UNE SECTION : un fichier eCampus mêle souvent
+                plusieurs packs. On coche un groupe (le filtre aide), on lui
+                donne sa section. Ligne par ligne reste possible. */}
+            <div className="flex flex-wrap items-center gap-2">
+              <input value={filtre} onChange={e => setFiltre(e.target.value)}
+                placeholder="Filtrer — nom ou matricule" className="controle text-[13px] w-56" />
+              <button className="bouton" onClick={() => setCoches(c => {
+                const tous = lignesVues.every(x => c.has(x.i));
+                const n = new Set(c); for (const x of lignesVues) tous ? n.delete(x.i) : n.add(x.i); return n;
+              })}>{lignesVues.length && lignesVues.every(x => coches.has(x.i)) ? 'Tout décocher' : 'Tout cocher'} ({lignesVues.length})</button>
+              <select value={aAppliquer} onChange={e => setAAppliquer(e.target.value)} className="controle text-[13px]">
+                <option value="">aucune section</option>
+                {sections.map(s0 => <option key={s0.code} value={s0.code}>{s0.libelle || s0.code}</option>)}
+              </select>
+              <button className="bouton bouton-fort disabled:opacity-40" disabled={!coches.size} onClick={appliquer}>
+                Appliquer aux {coches.size} coché(s)
+              </button>
+            </div>
+            <div className="max-h-64 overflow-auto rounded-champ border border-slate-200">
+              <table className="w-full text-[12px]">
+                <tbody>
+                  {lignesVues.map(x => (
+                    <tr key={x.i} className="border-t border-slate-100 first:border-t-0 bg-white">
+                      <td className="px-2 py-1 w-6">
+                        <input type="checkbox" checked={coches.has(x.i)}
+                          onChange={() => setCoches(c => { const n = new Set(c); n.has(x.i) ? n.delete(x.i) : n.add(x.i); return n; })} />
+                      </td>
+                      <td className="px-2 py-1 text-slate-400 tabular-nums w-10">{x.i + 2}</td>
+                      <td className="px-2 py-1">{x.nom || <em className="text-slate-400">sans nom</em>}</td>
+                      <td className="px-2 py-1 text-slate-500 tabular-nums">{x.mat}</td>
+                      <td className="px-2 py-1 w-56">
+                        <select value={sectionDe(x.i) || ''} className="controle h-7 text-[12px] w-full"
+                          onChange={e => setParLigne(p0 => ({ ...p0, [x.i]: e.target.value }))}>
+                          <option value="">aucune</option>
+                          {sections.map(s0 => <option key={s0.code} value={s0.code}>{s0.libelle || s0.code}</option>)}
+                        </select>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <p className="text-[11px] text-slate-500">
+              Sans section, un étudiant ne se range chez aucune coordination : seuls ceux qui voient toutes
+              les sections le verront, sous « (sans section) », jusqu’à ce que ses inscriptions la donnent.
+            </p>
+          </div>
         )}
 
         <div className="carte p-3 text-[12px] text-slate-600 space-y-1">
           <div><b>Retrouvé</b> (numéro national, puis matricules, puis nom + prénom + date de
             naissance) : on complète les champs <b>vides</b> — rien n’est écrasé — et le
             matricule de l’année rejoint le dossier sans remplacer l’ancien.</div>
-          <div><b>Inconnu</b> : un dossier est créé, rattaché à la section choisie.</div>
+          <div><b>Inconnu</b> : un dossier est créé, rattaché à la section de sa ligne.</div>
           <div><b>Sans nom ni prénom</b> : la ligne est écartée.</div>
           <div className="text-slate-500">Les inscriptions aux UE et le PAE ne sont pas dans ce fichier :
             ils se font ensuite.</div>
