@@ -28,6 +28,16 @@ export default function PassageAnnee({ annee, onClose, onTermine }) {
   const [sections, setSections] = useState([]);
   const [section, setSection] = useState('');
   const [cible, setCible] = useState(anneeSuivante(annee));
+  /* L'ANNÉE SE CHOISIT, ELLE NE SE TAPE PAS (Charles, 21 septembre 2026) : les
+     années connues, plus l'année suivante calculée — qui peut ne pas être
+     encore créée au moment où l'on prépare la rentrée. */
+  const [annees, setAnnees] = useState([]);
+  useEffect(() => {
+    fetch('/api/annees', { headers: authHeaders() })
+      .then(r => (r.ok ? r.json() : [])).then(l => setAnnees((Array.isArray(l) ? l : []).map(a => a.code || a)))
+      .catch(() => {});
+  }, []);
+  const choixAnnees = [...new Set([...annees, anneeSuivante(annee)])].filter(Boolean).sort();
   const [rapport, setRapport] = useState(null);
   const [ecartes, setEcartes] = useState(new Set());   // prêts qu'on ne prend pas
   const [enCours, setEnCours] = useState(false);
@@ -128,9 +138,12 @@ export default function PassageAnnee({ annee, onClose, onTermine }) {
           <IconArrowRight size={16} className="text-slate-400 mb-2" />
           <label className="text-[12px] text-slate-600">
             <div className="font-semibold mb-0.5">Programme pour</div>
-            <input value={cible} onChange={e => { setCible(e.target.value); setRapport(null); }}
-              className="border border-slate-300 rounded-lg px-2 py-1.5 text-[13px] w-[110px]
-                         tabular-nums" />
+            <select value={cible} onChange={e => { setCible(e.target.value); setRapport(null); }}
+              className="border border-slate-300 rounded-lg px-2 py-1.5 text-[13px] tabular-nums">
+              {choixAnnees.map(a => (
+                <option key={a} value={a}>{a}{annees.includes(a) ? '' : ' (pas encore créée)'}</option>
+              ))}
+            </select>
           </label>
           <button onClick={lancer} disabled={enCours || !section || !cible}
             className="px-3 py-2 text-[13px] rounded-lg bg-iip-blue text-white font-semibold

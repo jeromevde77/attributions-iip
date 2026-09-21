@@ -1536,7 +1536,7 @@ function ArchivesProcedures({ onReprendreRecours, onReprendre }) {
   useEffect(() => {
     charger();
     // Charger les années disponibles
-    authFetch('/api/ref/annees').then(d => setAnnees(Array.isArray(d) ? d : [])).catch(() => {});
+    authFetch('/api/annees').then(d => setAnnees((Array.isArray(d) ? d : []).map(a => a.code || a))).catch(() => {});
   }, []);
 
   async function charger() {

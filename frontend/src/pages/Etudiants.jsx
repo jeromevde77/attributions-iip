@@ -2543,7 +2543,9 @@ export default function Etudiants() {
   }, [section, anneeCohorte, annee]);
 
   useEffect(() => {
-    fetch('/api/ref/annees', { headers: authHeaders() })
+    // /api/ref/annees n'a jamais existé : l'appel échouait en silence et la
+    // liste des années restait vide. Les années sont servies par /api/annees.
+    fetch('/api/annees', { headers: authHeaders() })
       .then(r => (r.ok ? r.json() : []))
       .then(l => setAnneesCohorte(
         (Array.isArray(l) ? l : []).map(a => a.code || a).filter(Boolean)))

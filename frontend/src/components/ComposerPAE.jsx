@@ -33,6 +33,7 @@ export default function ComposerPAE({ onClose, onTermine, onPassage }) {
   const [fNiveau, setFNiveau] = useState('');
   const [fSansUE, setFSansUE] = useState(false);
   const [q, setQ] = useState('');
+  const [annees, setAnnees] = useState([]);
   const [attente, setAttente] = useState(() => new Map());   // `${e}|${u}` → 'ajout' | 'retrait'
   const [coches, setCoches] = useState(() => new Set());
   const [niveauBase, setNiveauBase] = useState('BA1');
@@ -42,6 +43,9 @@ export default function ComposerPAE({ onClose, onTermine, onPassage }) {
   const [enCours, setEnCours] = useState(false);
 
   useEffect(() => {
+    fetch('/api/annees', { headers: authHeaders() })
+      .then(r => (r.ok ? r.json() : [])).then(l => setAnnees((Array.isArray(l) ? l : []).map(a => a.code || a).sort()))
+      .catch(() => {});
     fetch('/api/ref/sections', { headers: authHeaders() })
       .then(r => (r.ok ? r.json() : [])).then(l => {
         const liste = Array.isArray(l) ? l : [];
@@ -171,8 +175,10 @@ export default function ComposerPAE({ onClose, onTermine, onPassage }) {
             <option value="">— section —</option>
             {sections.map(s0 => <option key={s0.code} value={s0.code}>{s0.libelle || s0.code}</option>)}
           </select>
-          <input value={annee} onChange={e => setAnnee(e.target.value)} className="controle text-[13px] w-28"
-            title="Année du programme" />
+          <select value={annee} onChange={e => setAnnee(e.target.value)} className="controle text-[13px]"
+            title="Année du programme">
+            {[...new Set([...annees, annee])].filter(Boolean).sort().map(a => <option key={a} value={a}>{a}</option>)}
+          </select>
           <input value={q} onChange={e => setQ(e.target.value)} placeholder="Filtrer — nom ou matricule"
             className="controle text-[13px] w-56" />
           <select value={fNiveau} onChange={e => setFNiveau(e.target.value)} className="controle text-[13px]">
