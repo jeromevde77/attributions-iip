@@ -7099,10 +7099,18 @@ function lireLigneSignaletique(brut) {
 
 r.post('/import-signaletique', authRequired,
   roleRequired('admin', 'directeur', 'directeur_adjoint', 'editeur', 'secretariat'), (req, res) => {
-  const { lignes, section, simulation = true } = req.body || {};
+  /* LA SECTION SE CHOISIT PAR ÉTUDIANT. Un export eCampus mêle souvent
+   * plusieurs packs — le fichier BA1 du 21 septembre en portait cinq :
+   * Psychomotricité, AeSI (deux groupes), TIM, Opto-Ortho. Une section pour
+   * tout le lot aurait rattaché 300 personnes à la mauvaise. `section` est le
+   * défaut ; `sections_par_ligne` ({ indice: code | '' }) le remplace ligne
+   * par ligne, '' voulant dire « aucune ». */
+  const { lignes, section, sections_par_ligne = {}, simulation = true } = req.body || {};
   if (!Array.isArray(lignes) || !lignes.length) {
     return res.status(400).json({ error: 'Le fichier ne contient aucune ligne.' });
   }
+  const sectionDe = i => (Object.prototype.hasOwnProperty.call(sections_par_ligne, i)
+    ? (sections_par_ligne[i] || null) : (section || null));
   const entetes = Object.keys(lignes[0] || {});
   const manquantes = ['Id_Etud', 'NomEtud', 'PréEtud', 'N°National']
     .filter(c => !entetes.includes(c));
@@ -7110,9 +7118,10 @@ r.post('/import-signaletique', authRequired,
     return res.status(400).json({ error: 'Ce fichier n’est pas l’export eCampus des étudiants '
       + '(« R_Etudiants_Excel ») : colonnes introuvables — ' + manquantes.join(', ') + '.' });
   }
-  if (section) {
-    const ok = db.prepare('SELECT 1 FROM section WHERE code = ?').get(section);
-    if (!ok) return res.status(400).json({ error: `Section inconnue : ${section}.` });
+  const demandees = new Set([section, ...Object.values(sections_par_ligne)].filter(Boolean));
+  for (const code of demandees) {
+    const ok = db.prepare('SELECT 1 FROM section WHERE code = ?').get(code);
+    if (!ok) return res.status(400).json({ error: `Section inconnue : ${code}.` });
   }
 
   const rapport = { crees: [], completes: [], inchanges: 0, ecartes: [], conflits: [] };
@@ -7123,6 +7132,7 @@ r.post('/import-signaletique', authRequired,
     lignes.forEach((brut, i) => {
       const n = i + 2;                       // n° de ligne dans le tableur
       const p = lireLigneSignaletique(brut);
+      const sectionLigne = sectionDe(i);
       const qui = `${(p.nom || '').toUpperCase()} ${p.prenom || ''}`.trim() || p.id_ecampus || `ligne ${n}`;
       if (!p.nom || !p.prenom) {
         rapport.ecartes.push({ ligne: n, qui, motif: 'nom ou prénom absent' });
@@ -7147,7 +7157,7 @@ r.post('/import-signaletique', authRequired,
           if (p[c] && (actuel[c] == null || String(actuel[c]).trim() === '')) maj[c] = p[c];
         }
         if (rn && !actuel.rn_norm) maj.rn_norm = rn;
-        if (section && !actuel.section_rattachement) maj.section_rattachement = section;
+        if (sectionLigne && !actuel.section_rattachement) maj.section_rattachement = sectionLigne;
         if (Object.keys(maj).length) {
           db.prepare(`UPDATE etudiant SET ${Object.keys(maj).map(c => `${c} = ?`).join(', ')}
             WHERE id = ?`).run(...Object.values(maj), actuel.id);
@@ -7178,13 +7188,13 @@ r.post('/import-signaletique', authRequired,
         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,1)`).run(
           pris ? null : p.id_ecampus, p.nom, p.prenom, p.titre, p.lieu_naissance, p.date_naissance,
           p.adresse, p.cp, p.localite, p.email_perso, p.email_ecole, p.num_national, p.gsm,
-          rn || null, section || null);
+          rn || null, sectionLigne);
       const id = Number(info.lastInsertRowid);
       for (const m of matricules) {
         db.prepare(`INSERT OR IGNORE INTO etudiant_matricule (etudiant_id, id_ecampus, annee, source)
           VALUES (?,?,?,'signaletique')`).run(id, m, null);
       }
-      rapport.crees.push({ ligne: n, qui, id,
+      rapport.crees.push({ ligne: n, qui, id, section: sectionLigne,
         ...(p.date_brute && !p.date_naissance ? { note: `date « ${p.date_brute} » non lue` } : {}) });
     });
     if (simulation) throw new Error('SIMULATION');

@@ -436,6 +436,57 @@ function remplir(modele, valeurs) {
   return { html, manques: [...manques] };
 }
 
+/**
+ * LES SIGNATAIRES DU DIPLÔME — PAR SECTION.
+ *
+ * Demandé par Charles le 21 septembre 2026 : « le bloc de signature change
+ * d'une section à l'autre ». Une co-diplomation avec la HELB signe à quatre,
+ * un titre propre de l'IIP à deux ; le modèle, unique, les écrivait en dur.
+ * La liste vit dans `lucie_config.diplome_signatures` : { [section]: [{ qualite,
+ * nom }] }. Une qualité sur deux lignes s'écrit avec un retour à la ligne ; un
+ * nom peut être {{president_jury}} ou {{directeur}}, résolus comme ailleurs.
+ *
+ * Le bloc « Au nom du Gouvernement… le titulaire » n'en fait pas partie : il
+ * est le même pour toutes les sections, et il reste dans le modèle.
+ */
+async function signatairesDe(sectionCode) {
+  let config = {};
+  try {
+    const row = db.prepare("SELECT valeur FROM lucie_config WHERE cle = 'diplome_signatures'").get();
+    config = row?.valeur ? JSON.parse(row.valeur) : {};
+  } catch { config = {}; }
+  const liste = Array.isArray(config?.[sectionCode]) ? config[sectionCode]
+    .filter(x => String(x?.qualite || '').trim() || String(x?.nom || '').trim()) : null;
+  if (liste?.length) return { liste, propre: true };
+  const { SIGNATAIRES_DEFAUT } = await import('../services/diplome_template.js');
+  return { liste: SIGNATAIRES_DEFAUT, propre: false };
+}
+
+function blocSignatures(liste, jetons) {
+  const resoudre = v => String(v || '').replace(/\{\{\s*([a-z_]+)\s*\}\}/gi,
+    (_, k) => (jetons[k] != null && jetons[k] !== '' ? jetons[k] : `[${k} à compléter]`));
+  const e = v => esc(resoudre(v));
+  return liste.map(x => `<div class="sig-col">
+      <div class="role">${e(x.qualite).replace(/\n/g, '<br>')}</div>
+      <div class="nom">${e(x.nom)}</div>
+    </div>`).join('\n    ');
+}
+
+/* Poser le bloc dans le modèle. Le modèle d'origine porte {{signatures}} ; un
+ * modèle enregistré avant 2.12.100 ne le porte pas, il a ses quatre
+ * signataires en dur entre <div class="signatures"> et <div class="gouv"> — on
+ * les remplace, mais SEULEMENT pour une section qui a sa propre liste : sans
+ * elle, on ne touche pas à ce que la maison a écrit. */
+function poserSignatures(modele, bloc, propre) {
+  if (/\{\{\s*signatures\s*\}\}/.test(modele)) {
+    return { html: modele.replace(/\{\{\s*signatures\s*\}\}/g, bloc), pose: true };
+  }
+  if (!propre) return { html: modele, pose: true };
+  const re = /(<div class="signatures">)[\s\S]*?(<div class="gouv">)/;
+  if (re.test(modele)) return { html: modele.replace(re, `$1\n    ${bloc}\n    $2`), pose: true };
+  return { html: modele, pose: false };
+}
+
 /** Le modèle de diplôme retenu : celui de la maison, sinon celui d'origine. */
 async function modeleDiplome() {
   try {
@@ -575,8 +626,20 @@ r.post('/pieces', authRequired,
           WHERE ue_num IN (${dossier.requises.map(() => '?').join(',')})
           GROUP BY ue_num)`).get(...dossier.requises)?.t : null;
 
+    const sig = await signatairesDe(sec.code);
+    const jetonsSig = {
+      president_jury: presidence?.titulaire?.nom || ident.directeur,
+      directeur: ident.directeur,
+    };
+    const { html: modeleSigne, pose } = poserSignatures(modele, blocSignatures(sig.liste, jetonsSig), sig.propre);
+    if (!pose) {
+      manques.push(`Signataires de ${sec.libelle || sec.code} : le modèle de diplôme n’a ni `
+        + 'emplacement {{signatures}} ni bloc de signatures reconnaissable — la liste réglée '
+        + 'pour cette section n’a pas pu être posée.');
+    }
+
     for (const d of choisis) {
-      const { html, manques: m } = remplir(modele, {
+      const { html, manques: m } = remplir(modeleSigne, {
         nom_etudiant: d.nom, prenom_etudiant: d.prenom,
         genre: d.genre === 'F' ? 'F' : d.genre === 'H' ? 'H' : '',
         lieu_naissance: d.lieu_naissance, date_naissance: dateLongue(d.date_naissance),
@@ -992,3 +1055,6 @@ r.post('/pv-section', authRequired,
 });
 
 export default r;
+
+// Exportées pour être éprouvées isolément (et réutilisables par un aperçu).
+export { signatairesDe, blocSignatures, poserSignatures };

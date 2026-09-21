@@ -67,22 +67,7 @@ export function genererTemplateDiplome() {
   </div>
 
   <div class="signatures">
-    <div class="sig-col">
-      <div class="role">La Présidente du jury<br>d'épreuve intégrée,</div>
-      <div class="nom">{{president_jury}}</div>
-    </div>
-    <div class="sig-col">
-      <div class="role">La Directrice du département<br>santé de la HELB,</div>
-      <div class="nom">Catherine Romanus</div>
-    </div>
-    <div class="sig-col">
-      <div class="role">La Directrice-Présidente<br>de la HELB,</div>
-      <div class="nom">Annick Vandeuren</div>
-    </div>
-    <div class="sig-col">
-      <div class="role">Le Directeur<br>de l'Institut Ilya Prigogine,</div>
-      <div class="nom">{{directeur}}</div>
-    </div>
+    {{signatures}}
     <div class="gouv">Au nom du Gouvernement<br>de la Communauté française,<br>Pour le Ministre,</div>
     <div class="sig-col">
       <div class="role">{{article_titulaire}} titulaire,</div>
@@ -92,3 +77,15 @@ export function genererTemplateDiplome() {
 </div>
 </body></html>`;
 }
+
+/* LES SIGNATAIRES D'ORIGINE — ceux d'une co-diplomation avec la HELB.
+ * Ils étaient écrits dans le modèle, donc imposés à TOUTES les sections :
+ * un diplôme de Psychomotricité, titre propre de l'IIP, aurait porté deux
+ * signatures de la HELB. Ils restent le défaut d'une section qui n'a pas
+ * encore sa liste, pour que rien ne change sans qu'on l'ait décidé. */
+export const SIGNATAIRES_DEFAUT = [
+  { qualite: "La Présidente du jury\nd'épreuve intégrée,", nom: '{{president_jury}}' },
+  { qualite: 'La Directrice du département\nsanté de la HELB,', nom: 'Catherine Romanus' },
+  { qualite: 'La Directrice-Présidente\nde la HELB,', nom: 'Annick Vandeuren' },
+  { qualite: "Le Directeur\nde l'Institut Ilya Prigogine,", nom: '{{directeur}}' },
+];
