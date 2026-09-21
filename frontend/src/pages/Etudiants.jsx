@@ -2824,9 +2824,18 @@ export default function Etudiants() {
                 // Replié, l'écran tient sur une vue : on ouvre la section
                 // voulue, et on y est.
                 const enRecherche = !!recherche.trim();
-                const ouverte = enRecherche
-                  ? repliesRecherche[sec] !== true
-                  : sectionsDeployees[sec] === true;
+                /* UNE SEULE SECTION : TOUJOURS OUVERTE — et c'est un défaut
+                   qui a coupé une coordination de ses propres étudiants. Le
+                   volet n'a pas d'en-tête quand il est seul (il ne sépare
+                   rien), donc pas de « + » pour l'ouvrir ; fermé par défaut,
+                   il ne s'ouvrait JAMAIS. Loubna Rougui, limitée à
+                   Psychomotricité, voyait « Étudiants · 126 » au-dessus d'un
+                   tableau vide. Invisible depuis un compte qui voit toutes
+                   les sections : il y a alors toujours plusieurs volets. */
+                const ouverte = parSection.length === 1 ? true
+                  : enRecherche
+                    ? repliesRecherche[sec] !== true
+                    : sectionsDeployees[sec] === true;
                 const basculer = () => (enRecherche
                   ? setRepliesRecherche(d => ({ ...d, [sec]: ouverte }))
                   : setSectionsDeployees(d => ({ ...d, [sec]: !ouverte })));
