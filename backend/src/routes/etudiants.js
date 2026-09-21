@@ -5209,11 +5209,8 @@ r.post('/valorisations/lot/decision', authRequired, roleRequired(...PEUT_INSTRUI
     const v = lireDossierComplet(id);
     if (!v) { bloquants.push({ id, qui: `#${id}`, pourquoi: 'Dossier introuvable.' }); continue; }
     const qui = `${(v.nom || '').toUpperCase()} ${v.prenom || ''}`.trim();
-    // UN DOSSIER VALIDÉ NE SE CORRIGE PAS : il se dévalide d'abord, et cela
-    // se motive. Sans quoi la validation ne garantirait rien.
-    if (v.valide_le) { bloquants.push({ id, qui, pourquoi: 'déjà validé — le dévalider d’abord' }); continue; }
-    if (v.recevable !== 1) { bloquants.push({ id, qui, pourquoi: 'recevabilité non contrôlée' }); continue; }
-    if (!v.avis_le) { bloquants.push({ id, qui, pourquoi: 'avis du chargé de cours manquant' }); continue; }
+    const bloque = bloqueDecisionEnLot(v);
+    if (bloque) { bloquants.push({ id, qui, pourquoi: bloque }); continue; }
     cibles.push(v);
   }
   if (bloquants.length) {
@@ -5221,7 +5218,7 @@ r.post('/valorisations/lot/decision', authRequired, roleRequired(...PEUT_INSTRUI
       error: `${bloquants.length} dossier(s) bloquent : rien n'a été enregistré.`,
       bloquants });
   }
-  if (memeSeance(cibles, res)) return;
+  if (memeSeance(cibles, res, req.body.decision_ce_date || null)) return;
 
   const type = req.body.type;
   const decision = req.body.decision === 'refusee' ? 'refusee' : 'accordee';
@@ -5233,27 +5230,9 @@ r.post('/valorisations/lot/decision', authRequired, roleRequired(...PEUT_INSTRUI
     if (souci) return res.status(400).json({ error: souci });
   }
 
-  const maj = db.prepare(`UPDATE etudiant_valorisation
-    SET type = ?, decision = ?, base_code = ?, motif_refus = ?,
-        cible = ?, cible_detail = ?, pourcentage = ?,
-        decision_ce_date = ?, commentaire = ?,
-        decision_par = ?, decision_le = datetime('now')
-    WHERE id = ?`);
   const nom = req.user?.nom || req.user?.email || null;
   db.transaction(() => {
-    for (const v of cibles) {
-      maj.run(type, decision, refus ? null : String(req.body.base_code),
-        refus ? String(req.body.motif_refus).trim() : null,
-        !refus && type === 'partielle' ? (req.body.cible || v.cible) : null,
-        !refus && type === 'partielle' ? (req.body.cible_detail ?? v.cible_detail) : null,
-        pourcentageDe({ decision, type }),
-        req.body.decision_ce_date || v.decision_ce_date || null,
-        req.body.commentaire ?? v.commentaire ?? null,
-        nom, v.id);
-      if (!refus && Array.isArray(req.body.equivalences)) {
-        ecrireEquivalences(v.id, req.body.equivalences);
-      }
-    }
+    for (const v of cibles) ecrireDecision(v, { ...req.body, type, decision }, nom);
   })();
   for (const v of cibles) {
     journaliser(v.id, refus ? 'decision_refus' : 'decision_accord', req,
@@ -5262,6 +5241,90 @@ r.post('/valorisations/lot/decision', authRequired, roleRequired(...PEUT_INSTRUI
     rafraichirEtat(v.id);
   }
   res.json({ ok: true, corriges: cibles.length });
+});
+
+/**
+ * DÉCIDER PAR ÉTUDIANT — UNE DÉCISION PAR UNITÉ, ENREGISTRÉES ENSEMBLE.
+ *
+ * Demandé par Charles le 21 septembre 2026 : un dossier arrive pour UN
+ * étudiant et PLUSIEURS unités, le Conseil les examine dans la même séance.
+ * Le lot « même décision pour tous » ne convient pas : sur trois unités, l'une
+ * est accordée entièrement, l'autre en partie — cours ou acquis propres à CETTE
+ * unité —, la troisième refusée. Une ligne par dossier, donc, chacune avec sa
+ * décision, et un seul enregistrement.
+ *
+ * LES MÊMES CONTRÔLES QU'UN À UN, DOSSIER PAR DOSSIER : verifierValorisation
+ * et verifierDecisionCE, sans quoi on bâtirait une porte dérobée pour écrire
+ * ce que la porte d'entrée refuse. La date de séance est COMMUNE : c'est ce
+ * qui fait de ces décisions celles d'une même réunion, et `memeSeance` le
+ * vérifie avec la section.
+ *
+ * TOUT OU RIEN, et ce qui bloque est NOMMÉ, dossier et unité : un
+ * enregistrement partiel laisserait croire que tout est décidé.
+ */
+r.post('/valorisations/lot/decisions', authRequired, roleRequired(...PEUT_INSTRUIRE), (req, res) => {
+  const dateCE = String(req.body?.decision_ce_date || '').trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dateCE)) {
+    return res.status(400).json({ error: 'La date de la séance du Conseil est obligatoire : '
+      + 'c’est elle qui fait de ces décisions celles d’une même réunion.' });
+  }
+  const lignes = Array.isArray(req.body?.lignes) ? req.body.lignes : [];
+  const ids = lignes.map(l => Number(l?.id));
+  if (!lignes.length) return res.status(400).json({ error: 'Aucune décision à enregistrer.' });
+  if (ids.some(n => !Number.isInteger(n) || n <= 0) || new Set(ids).size !== ids.length) {
+    return res.status(400).json({ error: 'Chaque dossier ne porte qu’une décision.' });
+  }
+
+  const bloquants = [];
+  const cibles = [];
+  for (const l of lignes) {
+    const v = lireDossierComplet(l.id);
+    if (!v) { bloquants.push({ id: l.id, qui: `#${l.id}`, pourquoi: 'Dossier introuvable.' }); continue; }
+    const qui = `${(v.nom || '').toUpperCase()} ${v.prenom || ''} — UE ${v.ue_num}`.trim();
+    const bloque = bloqueDecisionEnLot(v)
+      // L'ADMISSION n'est pas une dispense d'unité : elle se décide par
+      // section, dans son dossier, et ne se range pas dans ce tableau.
+      || (v.ue_num === 0 || v.type === 'admission'
+        ? 'admission — elle se décide dans son propre dossier' : null);
+    if (bloque) { bloquants.push({ id: v.id, qui, pourquoi: bloque }); continue; }
+
+    const decision = l.decision === 'refusee' ? 'refusee' : 'accordee';
+    const type = decision === 'refusee' ? 'complete'
+      : (l.type === 'partielle' ? 'partielle' : 'complete');
+    const corps = {
+      decision, type,
+      base_code: l.base_code, motif_refus: l.motif_refus,
+      cible: l.cible, cible_detail: l.cible_detail,
+      equivalences: l.equivalences, commentaire: l.commentaire,
+      decision_ce_date: dateCE,
+      annee_scolaire: v.annee_scolaire, ue_num: v.ue_num,
+    };
+    const souci = verifierValorisation(corps) || verifierDecisionCE(corps);
+    if (souci) { bloquants.push({ id: v.id, qui, pourquoi: souci }); continue; }
+    cibles.push({ v, corps });
+  }
+  if (bloquants.length) {
+    return res.status(409).json({
+      error: `${bloquants.length} décision(s) ne peuvent pas être enregistrées : rien `
+        + "n'a été écrit.", bloquants });
+  }
+  if (memeSeance(cibles.map(c => c.v), res, dateCE)) return;
+
+  const nom = req.user?.nom || req.user?.email || null;
+  db.transaction(() => {
+    for (const { v, corps } of cibles) ecrireDecision(v, corps, nom);
+  })();
+  // UNE LIGNE DE JOURNAL PAR DOSSIER, avec ce qui a été décidé pour lui : le
+  // lot ne dilue pas la responsabilité, et ne confond pas les décisions.
+  for (const { v, corps } of cibles) {
+    const refus = corps.decision === 'refusee';
+    journaliser(v.id, refus ? 'decision_refus' : 'decision_accord', req,
+      `par étudiant (${cibles.length} dossiers, séance du ${dateCE}) · `
+      + (refus ? `refus — ${String(corps.motif_refus || '').trim().slice(0, 120)}`
+               : `${corps.type} · base ${corps.base_code}`));
+    rafraichirEtat(v.id);
+  }
+  res.json({ ok: true, decides: cibles.length, ids: cibles.map(c => c.v.id) });
 });
 
 /**
@@ -5463,6 +5526,10 @@ r.get('/valorisations/analyse', authRequired, (req, res) => {
       section, ue_num: v.ue_num, ue_nom: v.ue_nom,
       porte: v.porte, type: v.type, etat: etatDeduit(v),
       decision: v.decision, base_code: v.base_code,
+      // La cible d'une partielle déjà décidée : sans elle, le tableau par
+      // étudiant rouvrirait une dispense partielle vide, et l'enregistrer
+      // effacerait ce que le Conseil avait désigné.
+      cible: v.cible, cible_detail: v.cible_detail, motif_refus: v.motif_refus,
       /* LES DATES DE LA DEMANDE PARTENT AVEC LE DOSSIER. L'écran en a besoin
        * pour dire si la PREMIÈRE étape du circuit est franchie : sans elles, la
        * frise d'avancement montrait « demande à poser » sur des dossiers qui
@@ -5495,40 +5562,97 @@ r.get('/valorisations/analyse', authRequired, (req, res) => {
 });
 
 /**
- * UNE SÉANCE NE MÊLE PAS DEUX CONSEILS DES ÉTUDES.
+ * UNE SÉANCE NE MÊLE PAS DEUX CONSEILS — ET UNE SÉANCE, C'EST UNE SECTION ET
+ * UNE DATE, PAS UNE UNITÉ.
  *
- * Décider et valider sont des gestes de SÉANCE, et une séance de valorisation
- * se tient par unité : c'est le conseil des études de CETTE unité qui examine
- * les demandes qui la concernent. Cocher en travers de trois unités dans un
- * tableau à plat, puis appliquer une décision unique, attribuerait à trois
- * conseils une délibération qu'un seul a tenue — et le procès-verbal le dirait
- * ainsi, sans que rien ne le démente.
+ * La règle disait « une séance par unité », et elle était fausse pour l'IIP.
+ * Charles, le 21 septembre 2026 : « on reçoit parfois un dossier pour un
+ * étudiant et plusieurs UE. On traite toutes les UE de tout le monde en même
+ * temps. On sort le PV quand tout est fait. » Borner le lot à une unité
+ * obligeait donc à découper en autant de lots une réunion unique — et rendait
+ * impossible de décider, pour UN étudiant, toutes les unités de SON dossier.
  *
- * La vue reste à plat, parce que c'est ainsi qu'on lit ; c'est l'ÉCRITURE qui
- * se borne. L'admission (`ue_num = 0`) se range avec les autres : elle se
- * décide par section, donc un lot d'admissions ne mêle pas non plus deux
- * sections.
+ * Ce qui reste vrai, et que la borne protège : un lot ne doit pas attribuer à
+ * une réunion ce qu'une AUTRE a décidé. Une séance se reconnaît donc à sa
+ * SECTION (le conseil des études d'une section) et à sa DATE. Chaque unité
+ * garde son procès-verbal d'annexe 4, daté de cette séance.
+ *
+ * La section d'un dossier : celle de l'admission si c'en est une ; sinon celle
+ * de l'unité — sauf une unité HORS CURSUS, qui se range dans la section de
+ * l'étudiant (la leçon de l'UE 95 « Restart », 2.11.1).
+ *
+ * `dateCommune` : la date que le lot pose (décision). Sans elle (validation),
+ * on lit la date déjà encodée sur chaque dossier.
  */
-function memeSeance(cibles, res) {
-  const unites = [...new Set(cibles.map(v => v.ue_num))];
-  if (unites.length > 1) {
+function sectionDeSeance(v) {
+  if (v.ue_num === 0) return v.section || null;
+  const u = db.prepare(`SELECT section, COALESCE(hors_cursus, 0) AS hors FROM ue
+     WHERE ue_num = ? AND section IS NOT NULL
+     ORDER BY (annee_scolaire = ?) DESC, annee_scolaire DESC LIMIT 1`)
+    .get(v.ue_num, v.annee_scolaire);
+  if (u && !u.hors) return u.section;
+  return sectionRattachement(v.etudiant_id, v.annee_scolaire).section || u?.section || null;
+}
+
+function memeSeance(cibles, res, dateCommune = null) {
+  const sections = [...new Set(cibles.map(sectionDeSeance).map(s => s || '(sans section)'))];
+  if (sections.length > 1) {
     res.status(409).json({
-      error: 'Le lot mêle ' + unites.length + ' unités (' + unites.join(', ')
-        + ') : une séance du conseil des études se tient par unité. '
-        + "Rien n'a été enregistré — traite une unité à la fois.",
+      error: `Le lot mêle ${sections.length} sections (${sections.join(', ')}) : `
+        + 'une séance du conseil des études se tient par section. '
+        + "Rien n'a été enregistré — traitez une section à la fois.",
     });
     return true;
   }
-  const sections = [...new Set(cibles.filter(v => v.ue_num === 0)
-    .map(v => v.section || ''))];
-  if (sections.length > 1) {
+  const dates = [...new Set(cibles.map(v => dateCommune || v.decision_ce_date)
+    .filter(Boolean).map(d => String(d).slice(0, 10)))];
+  if (dates.length > 1) {
     res.status(409).json({
-      error: "Le lot mêle plusieurs sections d'admission : l'admission se "
-        + "décide par section. Rien n'a été enregistré.",
+      error: `Le lot mêle ${dates.length} dates de séance (${dates.join(', ')}) : `
+        + 'ce sont deux réunions du Conseil, pas une. '
+        + "Rien n'a été enregistré — traitez une séance à la fois.",
     });
     return true;
   }
   return false;
+}
+
+/**
+ * ÉCRIRE UNE DÉCISION — UNE FOIS, POUR TOUS LES LOTS.
+ *
+ * Le lot « même décision pour tous » et le lot « une décision par dossier »
+ * écrivent la même chose, avec les mêmes replis : deux requêtes UPDATE
+ * recopiées finiraient par différer d'une colonne, et c'est celle qu'on
+ * n'aurait pas regardée qui serait fausse. `b` porte ce que l'écran a envoyé
+ * pour CE dossier.
+ */
+function ecrireDecision(v, b, nom) {
+  const refus = b.decision === 'refusee';
+  db.prepare(`UPDATE etudiant_valorisation
+    SET type = ?, decision = ?, base_code = ?, motif_refus = ?,
+        cible = ?, cible_detail = ?, pourcentage = ?,
+        decision_ce_date = ?, commentaire = ?,
+        decision_par = ?, decision_le = datetime('now')
+    WHERE id = ?`).run(
+      b.type, b.decision, refus ? null : String(b.base_code),
+      refus ? String(b.motif_refus).trim() : null,
+      !refus && b.type === 'partielle' ? (b.cible || v.cible) : null,
+      !refus && b.type === 'partielle' ? (b.cible_detail ?? v.cible_detail) : null,
+      pourcentageDe({ decision: b.decision, type: b.type }),
+      b.decision_ce_date || v.decision_ce_date || null,
+      b.commentaire ?? v.commentaire ?? null,
+      nom, v.id);
+  if (!refus && Array.isArray(b.equivalences)) ecrireEquivalences(v.id, b.equivalences);
+}
+
+/** Ce qui empêche de décider un dossier en lot — la même liste pour les deux lots. */
+function bloqueDecisionEnLot(v) {
+  // UN DOSSIER VALIDÉ NE SE CORRIGE PAS : il se dévalide d'abord, et cela
+  // se motive. Sans quoi la validation ne garantirait rien.
+  if (v.valide_le) return 'déjà validé — le dévalider d’abord';
+  if (v.recevable !== 1) return 'recevabilité non contrôlée';
+  if (!v.avis_le) return 'avis du chargé de cours manquant';
+  return null;
 }
 
 /**

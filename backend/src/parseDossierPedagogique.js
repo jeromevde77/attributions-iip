@@ -192,7 +192,12 @@ function parseDP(xmlStr) {
 
 import { execFile } from 'child_process';
 
-function pdfEnTexte(buffer) {
+/* EXPORTÉE, ET NON RECOPIÉE : l'import des textes du corpus (décrets en PDF)
+ * passe par le même outil. `layout` reste vrai par défaut — c'est ce que le
+ * dossier pédagogique exige, pour ses tableaux. Un décret est de la PROSE : là,
+ * -layout fige la justification en blancs et coupe chaque phrase au bord de la
+ * colonne, et c'est sans lui qu'on retrouve des paragraphes. */
+export function pdfEnTexte(buffer, { layout = true } = {}) {
   return new Promise((resolve, reject) => {
     // -enc UTF-8 : les dossiers sont pleins d'accents et d'apostrophes typo.
     //
@@ -201,13 +206,20 @@ function pdfEnTexte(buffer) {
     // puis tous les classements, puis tous les codes U, puis tous les nombres.
     // Aucune ligne ne portait donc un cours complet, et « Total des périodes »
     // se voyait attribuer le premier nombre venu — 32 au lieu de 100.
-    const p = execFile('pdftotext', ['-layout', '-enc', 'UTF-8', '-', '-'],
+    const p = execFile('pdftotext',
+      [...(layout ? ['-layout'] : []), '-enc', 'UTF-8', '-', '-'],
       { maxBuffer: 20 * 1024 * 1024, encoding: 'utf8' },
       (err, stdout) => {
         if (err) {
-          return reject(new Error(
-            "Lecture du PDF impossible : l'outil pdftotext est absent du serveur "
-            + '(paquet poppler-utils).'));
+          /* DEUX PANNES, DEUX MESSAGES. L'outil absent est une affaire de
+           * serveur ; un fichier que l'outil ne sait pas lire (vide, abîmé,
+           * protégé) est une affaire de fichier. Tout ramener à « outil
+           * absent » envoyait chercher la panne au mauvais endroit. */
+          return reject(new Error(err.code === 'ENOENT'
+            ? "Lecture du PDF impossible : l'outil pdftotext est absent du serveur "
+              + '(paquet poppler-utils).'
+            : 'Ce PDF ne se laisse pas lire : fichier vide, abîmé ou protégé '
+              + 'par un mot de passe.'));
         }
         resolve(stdout);
       });

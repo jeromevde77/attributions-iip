@@ -557,6 +557,28 @@ même ligne. On choisit d'abord LE GESTE — il commande ce qui est cochable :
 une case cochable sur un dossier que le serveur refusera est une fausse
 promesse, et le refus arrive alors après coup.
 
+> **UNE SÉANCE, C'EST UNE SECTION ET UNE DATE — PAS UNE UNITÉ** (2.12.93,
+> Charles, 21 septembre 2026). La borne ci-dessous disait « par unité », et
+> elle était fausse pour l'IIP : *« on reçoit un dossier pour un étudiant et
+> plusieurs UE ; on traite toutes les UE de tout le monde en même temps ; on
+> sort le PV quand tout est fait »*. `memeSeance()` borne désormais un lot de
+> décision ou de validation à **une section** (celle de l'unité ; celle de
+> l'étudiant pour une unité hors cursus) **et une date de séance**. Chaque
+> unité garde son PV d'annexe 4, daté de cette séance. Ce qu'elle protège
+> reste vrai : un lot n'attribue pas à une réunion ce qu'une autre a décidé.
+>
+> **DÉCIDER PAR ÉTUDIANT** (rail *Valorisation*, le tampon) : un étudiant, une
+> ligne par unité, **une décision par ligne** — totale, partielle avec SES
+> cours ou SES acquis, refusée avec son motif —, un seul enregistrement
+> (`POST /valorisations/lot/decisions`), puis la validation des dossiers prêts.
+> Mêmes contrôles qu'un à un (`verifierValorisation`, `verifierDecisionCE`),
+> une ligne de journal par dossier, tout ou rien. **Seules les lignes
+> modifiées partent** : un étudiant inscrit dans deux sections se décide en
+> deux fois, sans que la seconde renvoie la première. `decision` vaut
+> « accordee » PAR DÉFAUT en base : c'est `decision_le` qui dit qu'une
+> décision a été posée — lire `decision` seul présentait chaque unité à
+> décider comme « totale ».
+
 > **LA VUE EST À PLAT, L'ÉCRITURE EST BORNÉE.** Décider et valider sont des
 > gestes de SÉANCE, et une séance de valorisation se tient PAR UNITÉ : cocher
 > en travers de trois unités puis appliquer une décision unique attribuerait à
@@ -820,12 +842,19 @@ connaissance du document". »* Tranche 1 livrée en 2.12.70 : corpus en base
 > **UNE VERSION PUBLIÉE NE SE MODIFIE PLUS.** Aucune route ne l'altère ni ne
 > l'efface : une personne s'est engagée sur CE texte-là, et un texte
 > retouchable après coup ne prouve plus rien — même raison que le journal de
-> valorisation. Corriger une coquille se fait en publiant la suivante, ce qui
-> **remet le compteur de confirmations à zéro pour tous**. D'où deux garde-fous :
-> republier un texte IDENTIQUE est refusé (sans quoi un clic de trop remettrait
-> tout le personnel en devoir de reconfirmer un document inchangé, et le signal
-> deviendrait du bruit), et une nouvelle version **exige de dire ce qui
-> change** — chacun devra reconfirmer, il a le droit de savoir sur quoi.
+> valorisation. Corriger se fait en publiant la suivante. Republier un texte
+> IDENTIQUE est refusé, et une nouvelle version **exige de dire ce qui change**.
+>
+> **LA RECONFIRMATION EST UNE CASE, PAS UNE FATALITÉ** (Charles, 21 septembre
+> 2026 — la règle disait jusque-là « toute version remet le compteur à zéro »).
+> Celui qui publie coche si le personnel doit relire ; le serveur **exige la
+> réponse** dès la version 2 (`reconfirmer`, booléen obligatoire) et la version
+> la garde. Une confirmation couvre les versions suivantes **tant qu'aucune ne
+> demande de relire** — cela se DÉDUIT (`etatLecture()` dans
+> `routes/documentation.js`, la seule fonction qui en décide, pour les cinq
+> routes qui posaient la question chacune à sa façon), on ne recopie aucune
+> confirmation. Le registre et la fenêtre de lecture disent QUELLE version a
+> été confirmée.
 
 > **LE TEXTE S'IMPOSE PAR RÔLE, JAMAIS PAR PERSONNE.** Nommer les gens un à un,
 > c'est oublier celui qui arrive en octobre. Un document sans destinataire
@@ -848,8 +877,55 @@ connaissance du document". »* Tranche 1 livrée en 2.12.70 : corpus en base
 > du PAE dans l'autre. Un seul écran, deux faces, et il garde la place et
 > l'icône que l'aide occupait dans la barre ; `/aide` y redirige.
 
-**Reste au module :** le signal à l'Accueil (« la direction a publié un nouveau
-document ») ; le versement du mode d'emploi dans le corpus, pour qu'il cesse de
+**LE TEXTE VIT DANS LUCIE, LE FICHIER N'EST QU'UNE PORTE D'ENTRÉE** (2.12.91).
+Demandé par Charles le 21 septembre : *« comme avec l'import DP — je dépose, tu
+analyses et tu intègres à Lucie avec mise en page, mais DANS Lucie. Après, je
+peux corriger année après année dans Lucie. »* On dépose un **Word ou un PDF**,
+le serveur l'analyse (`lib/texteCorpus.js`), l'éditeur montre le résultat, **rien
+ne s'écrit avant la publication**. Le fichier n'est pas conservé — le PDF d'un
+décret est en ligne, Charles ne veut pas qu'il alourdisse la base : un champ
+`source_url` y renvoie. Qui publie et corrige : admin (le compte de Charles),
+directeur, direction adjointe — « accès niveau 1 ».
+
+> **CE N'EST PAS UN SECOND ÉDITEUR.** La barre et les cellules de tableau sont
+> celles de Configuration → Éditeur (`Toolbar` exportée, mode `sobre`, qui
+> masque ce que le serveur retirerait : police, taille, retrait, saut de page,
+> logo, en-tête). Et UNE classe `.texte-corpus` sert à écrire ET à lire : ce que
+> la direction voit en écrivant est ce que le personnel lit.
+
+> **LE HTML SE FILTRE À L'ÉCRITURE**, par une liste fermée (`assainir()`) :
+> `<script>`, `onerror=`, `javascript:` et tout style qui positionne ne
+> passent pas. La base ne contient donc jamais que du texte sûr, et la lecture
+> peut l'afficher tel quel.
+
+> **WORD MET EN PAGE AVEC DES TABLEAUX D'UNE CASE** — bandeau de titre,
+> parties (« PHASE 1 — … »), encadrés (« ⚠ Attention »). Transposés tels quels,
+> vingt-quatre tableaux pour neuf vrais. L'analyse les reconnaît : titre,
+> partie, encadré. **Le rang d'un titre se lit du document, pas d'une règle
+> fixe** — « 1. » en h3 partout inversait la hiérarchie de la circulaire, où
+> les sections numérotées sont le sommet. On repère les sortes de titres
+> présentes, puis on les range dans un ordre fixe.
+
+> **LE PDF SE RECOMPOSE LIGNE PAR LIGNE** : pdftotext rend rarement une ligne
+> vide entre deux paragraphes. Titres de chapitre et d'article, puces, fin de
+> phrase suivie d'une majuscule — rien d'autre n'est deviné. Les tableaux d'un
+> PDF ne se reconstituent pas, et l'écran le dit.
+
+> **L'IMPORT MARCHAIT PAR LA ROUTE ET PAS PAR L'ÉCRAN** — la leçon de
+> `totale`/`complete`, repayée le jour même : `authHeaders()` impose
+> `application/json`, le fichier partait donc déclaré en JSON. Un envoi de
+> fichier retire cet en-tête et laisse le navigateur écrire la frontière du
+> multipart.
+
+**Le signal à l'Accueil** (2.12.90) : un bloc « À confirmer » en tête, au-dessus
+des tâches. La route `/moi/attente` existait depuis 2.12.70 et **aucun écran ne
+l'appelait** — une obligation dont personne n'est prévenu n'oblige personne.
+Un BLOC et non une entrée du fil : une notification se marque « lue » d'un clic,
+et « lue » n'est pas « confirmée ». Le bloc ne s'efface que quand le serveur ne
+le rend plus. Chaque ligne ouvre le texte lui-même (`/documentation?doc=<clé>`),
+pas la liste. Ocre, comme dans Documentation : un même état, une même couleur.
+
+**Reste au module :** le versement du mode d'emploi dans le corpus, pour qu'il cesse de
 dépendre d'un déploiement ; la péremption (tranche 2) ; le questionnaire
 (tranche 3). Et **le registre des références** — le menu d'obligation d'une
 tâche doit renvoyer vers un point du RDE, de la circulaire ou d'une procédure,

@@ -917,3 +917,40 @@ select[multiple], select[size]:not([size="1"]) {
   border-radius: 14px;
 }
 .carte-plate { background: var(--tab-repere); }
+
+/* ── LE TEXTE D'UN DOCUMENT DU CORPUS ─────────────────────────────────────────
+ * UNE classe, portée À LA FOIS par l'éditeur et par la fenêtre de lecture : ce
+ * que la direction voit en écrivant est ce que le personnel lit. Deux feuilles
+ * de style — l'une pour écrire, l'autre pour lire — finiraient par montrer deux
+ * documents, et c'est celui qu'on n'a pas relu qui serait confirmé.
+ * Échelle de la maison : 13 le corps, 15 et 17 pour les titres, rien au-delà. */
+.texte-corpus { font-size: 13px; line-height: 1.6; color: #1e293b; }
+.texte-corpus > * + * { margin-top: 0.6em; }
+.texte-corpus h1 { font-size: 17px; font-weight: 700; color: #1B2B4B; margin-top: 1.2em; }
+.texte-corpus h2 { font-size: 15px; font-weight: 700; color: #1B2B4B; margin-top: 1.1em;
+                   padding-bottom: 2px; border-bottom: 1px solid #D8DCE4; }
+.texte-corpus h3 { font-size: 13px; font-weight: 700; color: #1B2B4B; margin-top: 0.9em; }
+.texte-corpus h4 { font-size: 13px; font-weight: 600; color: #334155; }
+.texte-corpus ul { list-style: disc; padding-left: 1.4em; }
+.texte-corpus ol { list-style: decimal; padding-left: 1.4em; }
+.texte-corpus li + li { margin-top: 0.2em; }
+.texte-corpus li > p { margin: 0; }
+.texte-corpus a { color: #1B2B4B; text-decoration: underline; }
+/* L'ENCADRÉ — le bloc signalé du papier, à l'écran : rail marine, filet fin,
+ * fond légèrement détaché. Marine et non ocre : « Art. 82 » ou « ce document
+ * en un coup d'œil » ne sont pas des alertes, et le « ⚠ » du texte dit déjà
+ * lesquels en sont. Si tout est ocre, plus rien ne signale. */
+.texte-corpus blockquote { border: 1px solid #D8DCE4; border-left: 3px solid #1B2B4B;
+                           border-radius: 8px; background: #FAFAFB; padding: 0.5em 0.9em; }
+.texte-corpus blockquote > p:first-child strong { color: #1B2B4B; }
+.texte-corpus hr { border: 0; border-top: 1px solid #D8DCE4; margin: 1em 0; }
+/* Un tableau n'a que deux tons : l'en-tête, et la donnée blanche. */
+.texte-corpus table { border-collapse: collapse; width: 100%; margin: 0.6em 0; table-layout: auto; }
+.texte-corpus td, .texte-corpus th { border: 1px solid #D8DCE4; padding: 4px 8px;
+                                     vertical-align: top; background: #fff; }
+.texte-corpus th { background: #EEF1F6; font-weight: 600; text-align: left; }
+.texte-corpus td > p, .texte-corpus th > p { margin: 0; }
+/* Un tableau large défile dans son propre cadre, jamais la fenêtre entière. */
+.texte-corpus .tableWrapper, .texte-corpus-cadre { overflow-x: auto; }
+.texte-corpus .selectedCell { background: #EDF2F8; }
+.texte-corpus.ProseMirror { outline: none; min-height: 12rem; }

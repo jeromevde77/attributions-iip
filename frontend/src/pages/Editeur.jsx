@@ -33,8 +33,8 @@ const cellAttrs = {
     renderHTML: a => a.borderColor ? { style: `border-color:${a.borderColor}` } : {},
   },
 };
-const CustomTableCell   = TableCell.extend({   addAttributes() { return { ...this.parent?.(), ...cellAttrs }; } });
-const CustomTableHeader = TableHeader.extend({ addAttributes() { return { ...this.parent?.(), ...cellAttrs }; } });
+export const CustomTableCell   = TableCell.extend({   addAttributes() { return { ...this.parent?.(), ...cellAttrs }; } });
+export const CustomTableHeader = TableHeader.extend({ addAttributes() { return { ...this.parent?.(), ...cellAttrs }; } });
 
 // ── Police & taille de police (attributs sur textStyle, façon Word) ───────────
 const TextFormat = Extension.create({
@@ -483,7 +483,14 @@ function Regle({ fmt = 'A4P', margins, onMarginChange }) {
 }
 
 // ─── Toolbar ───────────────────────────────────────────────────────────────
-function Toolbar({ editor }) {
+/* LA BARRE EST EXPORTÉE, ET SERT AUSSI AUX TEXTES DU CORPUS (Documentation).
+ * Un second éditeur aurait été le dixième exemplaire d'une chose qui existe.
+ * `sobre` masque ce qui n'a de sens que pour un MODÈLE de pièce — logo,
+ * en-tête et pied répétés, saut de page — et ce que le serveur retirerait de
+ * toute façon d'un texte du corpus (police, taille, interligne, retrait,
+ * cases à cocher, code) : un bouton dont l'effet disparaît à l'enregistrement
+ * est un bouton qui ment. */
+export function Toolbar({ editor, sobre = false }) {
   // Force le re-rendu de la barre à chaque transaction (déplacement du curseur,
   // entrée/sortie de tableau…) pour que isActive() et les groupes conditionnels suivent.
   const [, forceUpdate] = useState(0);
@@ -513,7 +520,7 @@ function Toolbar({ editor }) {
         onChange={e=>{const v=e.target.value; v==='p'?editor.chain().focus().setParagraph().run():editor.chain().focus().toggleHeading({level:parseInt(v[1])}).run()}}
         className="h-7 border border-gray-300 rounded text-sm px-1 bg-white">
         <option value="p">Normal</option>
-        {[1,2,3,4,5,6].map(n=><option key={n} value={'h'+n}>Titre {n}</option>)}
+        {(sobre ? [1,2,3,4] : [1,2,3,4,5,6]).map(n=><option key={n} value={'h'+n}>Titre {n}</option>)}
       </select>
       <Sep/>
       <Btn onClick={() => editor.chain().focus().toggleBold().run()} active={editor.isActive('bold')} title="Gras"><b>G</b></Btn>
@@ -528,14 +535,15 @@ function Toolbar({ editor }) {
       <Sep/>
       <Btn onClick={() => editor.chain().focus().toggleBulletList().run()} active={editor.isActive('bulletList')} title="Liste à puces">•</Btn>
       <Btn onClick={() => editor.chain().focus().toggleOrderedList().run()} active={editor.isActive('orderedList')} title="Liste numérotée">1.</Btn>
-      <Btn onClick={() => editor.chain().focus().toggleTaskList().run()} active={editor.isActive('taskList')} title="Liste de tâches (cases à cocher)">☑</Btn>
+      {!sobre && <Btn onClick={() => editor.chain().focus().toggleTaskList().run()} active={editor.isActive('taskList')} title="Liste de tâches (cases à cocher)">☑</Btn>}
       <Sep/>
       <Btn onClick={() => editor.chain().focus().toggleSubscript().run()} active={editor.isActive('subscript')} title="Indice (X₂)">X₂</Btn>
       <Btn onClick={() => editor.chain().focus().toggleSuperscript().run()} active={editor.isActive('superscript')} title="Exposant (X²)">X²</Btn>
       <Btn onClick={() => { const url = window.prompt('URL du lien (vide pour retirer) :', editor.getAttributes('link').href || ''); if (url === null) return; const c = editor.chain().focus().extendMarkRange('link'); (url ? c.setLink({ href: url }) : c.unsetLink()).run(); }} active={editor.isActive('link')} title="Lien hypertexte">🔗</Btn>
       <Btn onClick={() => editor.chain().focus().toggleBlockquote().run()} active={editor.isActive('blockquote')} title="Citation">❝</Btn>
-      <Btn onClick={() => editor.chain().focus().toggleCodeBlock().run()} active={editor.isActive('codeBlock')} title="Bloc de code">&lt;/&gt;</Btn>
+      {!sobre && <Btn onClick={() => editor.chain().focus().toggleCodeBlock().run()} active={editor.isActive('codeBlock')} title="Bloc de code">&lt;/&gt;</Btn>}
       <Btn onClick={() => editor.chain().focus().setHorizontalRule().run()} title="Ligne horizontale">―</Btn>
+      {!sobre && <>
       <Sep/>
       <Btn onClick={() => editor.chain().focus().outdent().run()} title="Diminuer le retrait">⇤</Btn>
       <Btn onClick={() => editor.chain().focus().indent().run()} title="Augmenter le retrait">⇥</Btn>
@@ -545,6 +553,7 @@ function Toolbar({ editor }) {
         <option value="1">1.0</option><option value="1.15">1.15</option><option value="1.5">1.5</option><option value="2">2.0</option>
       </select>
       <Btn onClick={() => editor.chain().focus().setPageBreak().run()} title="Insérer un saut de page">⤓ Saut</Btn>
+      </>}
       <Sep/>
       <Btn onClick={() => editor.chain().focus().insertTable({ rows:3, cols:3, withHeaderRow:true }).run()} title="Insérer un tableau 3×3">⊞ Tableau</Btn>
       {editor.isActive('table') && <>
@@ -567,10 +576,12 @@ function Toolbar({ editor }) {
         <Btn onClick={() => editor.chain().focus().deleteRow().run()} title="Supprimer la ligne" danger>− Lig</Btn>
         <Btn onClick={() => editor.chain().focus().deleteTable().run()} title="Supprimer le tableau" danger>− Tableau</Btn>
       </>}
+      {!sobre && <>
       <Sep/>
       <Btn onClick={() => insertLogo('/api/logo-iip', 'Institut Ilya Prigogine')} title="Insérer le logo IIP couleurs">🖼 Logo</Btn>
       <Btn onClick={() => editor.chain().focus().insertContent({ type: 'enTeteBlock', content: [{ type: 'paragraph' }] }).run()} title="Insérer un en-tête (répété sur chaque page)">⬆ En-tête</Btn>
       <Btn onClick={() => editor.chain().focus().insertContent({ type: 'piedDePageBlock', content: [{ type: 'paragraph' }] }).run()} title="Insérer un bas de page (répété sur chaque page)">⬇ Pied</Btn>
+      </>}
       <Sep/>
       <label title="Couleur du texte" className="flex items-center gap-0.5 h-7 px-1.5 rounded hover:bg-gray-100 cursor-pointer text-sm">
         A <input type="color" className="w-5 h-5 cursor-pointer border-0 p-0 bg-transparent" defaultValue="#000000"
@@ -580,6 +591,7 @@ function Toolbar({ editor }) {
         🖍 <input type="color" className="w-5 h-5 cursor-pointer border-0 p-0 bg-transparent" defaultValue="#ffff00"
           onChange={e=>editor.chain().focus().toggleHighlight({ color: e.target.value }).run()} />
       </label>
+      {!sobre && <>
       <Sep/>
       <select title="Police" value="" onChange={e=>{ if(e.target.value) editor.chain().focus().setFontFamily(e.target.value).run(); }}
         className="h-7 border border-gray-300 rounded text-sm px-1 bg-white max-w-[6.5rem]">
@@ -598,6 +610,7 @@ function Toolbar({ editor }) {
           <option key={s} value={s}>{s.replace('pt','')}</option>
         ))}
       </select>
+      </>}
     </div>
   );
 }

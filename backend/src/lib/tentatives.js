@@ -86,6 +86,11 @@ export function migrerTentatives(dbx) {
       'Nombre de mots de passe erronés avant blocage', 'securite');
     p.run('securite.blocage_paliers', PALIERS_DEFAUT.join(','),
       'Durées de blocage successives, en minutes (15,60,1440)', 'securite');
+    // Rangé ici faute d'une migration « système » : la table `parametre` est
+    // commune, et ajouter un fichier pour trois lignes en ferait un de plus à
+    // chercher le jour où l'on se demande où vivent les réglages.
+    p.run('retention.snapshot_mois', '18',
+      'Historique des attributions : mois avant allègement du détail (0 = jamais)', 'systeme');
     console.log('[migration] connexion_blocage : plafond des tentatives de connexion');
   } catch (e) { console.error('[migration] connexion_blocage :', e.message); }
 }

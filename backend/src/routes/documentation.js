@@ -45,13 +45,32 @@
 // raison qui rend le journal de valorisation immodifiable, administrateur
 // compris.
 //
-// Corollaire : UNE NOUVELLE VERSION REMET LE COMPTEUR À ZÉRO pour tous. Accuser
-// réception de la version 1 ne couvre pas la version 2.
+// ── CE QUI DEMANDE UNE NOUVELLE CONFIRMATION, ET CE QUI N'EN DEMANDE PAS ────
+//
+// La règle d'origine disait : TOUTE nouvelle version remet le compteur à zéro.
+// Tranché autrement par Charles le 21 septembre 2026, au moment où les textes
+// deviennent modifiables dans Lucie « année après année » : corriger une date
+// ou une adresse ne doit pas remettre tout le personnel en devoir de relire.
+// Celui qui publie COCHE donc si les membres du personnel doivent relire et
+// confirmer à nouveau — et c'est un geste écrit dans la version
+// (`reconfirmer`), pas une impression.
+//
+// Ce qui ne change pas : rien ne se réécrit. Une correction, même mineure, est
+// une VERSION, avec son auteur, sa date et ce qui change. On peut donc toujours
+// dire quel texte exact quelqu'un a confirmé, et ce qui a changé depuis sans
+// qu'on le lui redemande. La confirmation d'une version couvre les suivantes
+// TANT QU'AUCUNE ne demande de reconfirmer — cela se DÉDUIT des versions, on
+// ne recopie aucune confirmation (voir `etatLecture`).
+//
+// Qui publie : administrateur (le directeur, Charles Sohet, a ce rôle),
+// directeur et direction adjointe — « accès niveau 1 », pour Charles.
 // ─────────────────────────────────────────────────────────────────────────────
 
 import express from 'express';
 import db from '../db/index.js';
+import multer from 'multer';
 import { authRequired, roleRequired } from '../middleware/auth.js';
+import { analyserFichier, assainir, estVide } from '../lib/texteCorpus.js';
 
 const r = express.Router();
 
@@ -120,7 +139,71 @@ export function migrerDocumentation(dbx) {
     CREATE INDEX IF NOT EXISTS idx_corpus_lecture_u ON corpus_lecture(utilisateur_id);
     `);
   } catch (e) { console.error('[migration] documentation :', e.message); }
+
+  /* 2.12.91 — LE TEXTE DEVIENT MIS EN FORME, ET LA RECONFIRMATION UN CHOIX.
+   * Additif et gardé : une colonne qui existe déjà ne se rajoute pas.
+   *   format       'texte' (les versions d'avant, du texte brut) ou 'html'
+   *   reconfirmer  1 = cette version demande une nouvelle confirmation. Vaut 1
+   *                par défaut : c'était la règle pour tout ce qui est déjà
+   *                publié, et le passé ne change pas de sens.
+   *   source_url   le texte officiel en ligne (un décret) — le PDF, lui, n'est
+   *                pas conservé. */
+  const colonnes = t => dbx.prepare(`PRAGMA table_info(${t})`).all().map(c => c.name);
+  try {
+    const v = colonnes('corpus_version');
+    if (!v.includes('format')) dbx.exec(`ALTER TABLE corpus_version ADD COLUMN format TEXT NOT NULL DEFAULT 'texte'`);
+    if (!v.includes('reconfirmer')) dbx.exec(`ALTER TABLE corpus_version ADD COLUMN reconfirmer INTEGER NOT NULL DEFAULT 1`);
+    if (!colonnes('corpus_document').includes('source_url')) {
+      dbx.exec(`ALTER TABLE corpus_document ADD COLUMN source_url TEXT`);
+    }
+  } catch (e) { console.error('[migration] documentation (mise en forme) :', e.message); }
 }
+
+/* LA VERSION QU'IL FAUT AVOIR CONFIRMÉE — la dernière qui l'a DEMANDÉ.
+ * Une version 3 publiée « sans reconfirmation » ne déplace pas la référence :
+ * avoir confirmé la version 2 suffit toujours. */
+function versionReference(documentId) {
+  return db.prepare(`SELECT * FROM corpus_version
+    WHERE document_id = ? AND (reconfirmer = 1 OR numero = 1)
+    ORDER BY numero DESC LIMIT 1`).get(documentId) || null;
+}
+
+/**
+ * OÙ EN EST CETTE PERSONNE AVEC CE TEXTE — la seule fonction qui en décide.
+ *
+ * Cinq routes posaient la question chacune à sa façon (« a-t-il confirmé la
+ * dernière version ? »). Avec la reconfirmation facultative, la bonne question
+ * devient « a-t-il confirmé une version postérieure ou égale à la référence ? »
+ * — et une question posée cinq fois finit par recevoir cinq réponses.
+ *
+ * `confirme_le` et `version_confirmee` disent QUELLE version a été confirmée :
+ * la personne a accepté un texte précis, pas « le document ».
+ */
+function etatLecture(documentId, utilisateurId) {
+  const ref = versionReference(documentId);
+  const derniere = derniereVersion(documentId);
+  if (!ref || !derniere || !utilisateurId) {
+    return { confirme_le: null, version_confirmee: null, ouvert_le: null, reference: ref?.numero || null };
+  }
+  const c = db.prepare(`SELECT v.numero, l.confirme_le FROM corpus_lecture l
+      JOIN corpus_version v ON v.id = l.version_id
+     WHERE v.document_id = ? AND l.utilisateur_id = ? AND l.confirme_le IS NOT NULL
+       AND v.numero >= ?
+     ORDER BY v.numero DESC LIMIT 1`).get(documentId, utilisateurId, ref.numero);
+  const o = db.prepare(`SELECT ouvert_le FROM corpus_lecture
+     WHERE version_id = ? AND utilisateur_id = ?`).get(derniere.id, utilisateurId);
+  return {
+    confirme_le: c?.confirme_le || null,
+    version_confirmee: c?.numero || null,
+    ouvert_le: o?.ouvert_le || null,
+    reference: ref.numero,
+  };
+}
+
+/** Le nom de celui qui publie ou retire — son NOM, pas son adresse. Le jeton
+ *  porte `nom` ; `nom_complet` n'y a jamais été, si bien que les versions
+ *  s'affichaient « publiée par jerome@… ». */
+const auteur = u => u?.nom || u?.nom_complet || u?.email || null;
 
 /** La dernière version publiée d'un document — celle qui fait foi. */
 function derniereVersion(documentId) {
@@ -138,6 +221,28 @@ function concerne(doc, user) {
   return roles.includes(user.role);
 }
 
+/* DÉCLARÉE AVANT `/:cle`, et ce n'est pas une coquetterie : les routes
+ * spécifiques passent devant les paramétriques. Aujourd'hui `/:cle` ne
+ * prend qu'un segment et ne l'avalerait pas — mais le jour où quelqu'un
+ * écrira `/moi`, c'est `/:cle` qui répondra « document introuvable ». */
+// ── CE QUI M'ATTEND — la lecture « par personne » du tableau de bord ────────
+r.get('/moi/attente', authRequired, (req, res) => {
+  const docs = db.prepare(`
+    SELECT d.id, d.cle, d.titre, d.nature FROM corpus_document d
+      JOIN corpus_destinataire t ON t.document_id = d.id AND t.role = ?
+     WHERE d.retire_le IS NULL ORDER BY d.titre`).all(req.user?.role || '');
+  const attente = [];
+  for (const d of docs) {
+    const v = derniereVersion(d.id);
+    if (!v) continue;
+    if (!etatLecture(d.id, req.user.id).confirme_le) {
+      attente.push({ cle: d.cle, titre: d.titre, nature: d.nature,
+                     numero: v.numero, publiee_le: v.publiee_le });
+    }
+  }
+  res.json({ attente });
+});
+
 // ── LE CORPUS, VU PAR CELUI QUI LE CONSULTE ─────────────────────────────────
 r.get('/', authRequired, (req, res) => {
   const tout = req.query.retires === '1';
@@ -149,12 +254,12 @@ r.get('/', authRequired, (req, res) => {
     const v = derniereVersion(d.id);
     // Un document sans version publiée est un brouillon : il ne se lit pas.
     if (!v && !PEUT_PUBLIER.includes(req.user?.role)) continue;
-    const lecture = v ? db.prepare(`SELECT ouvert_le, confirme_le FROM corpus_lecture
-      WHERE version_id = ? AND utilisateur_id = ?`).get(v.id, req.user?.id) : null;
+    const lecture = v ? etatLecture(d.id, req.user?.id) : null;
     const pourMoi = concerne(d, req.user);
     sortie.push({
       id: d.id, cle: d.cle, titre: d.titre, nature: d.nature,
       domaine: d.domaine, resume: d.resume, retire_le: d.retire_le,
+      source_url: d.source_url || null,
       version: v ? { id: v.id, numero: v.numero, publiee_le: v.publiee_le,
                      publiee_par: v.publiee_par,
                      resume_changement: v.resume_changement } : null,
@@ -192,17 +297,17 @@ r.get('/:cle', authRequired, (req, res) => {
       .run(v.id, req.user.id);
   }
 
-  const lecture = db.prepare(`SELECT ouvert_le, confirme_le FROM corpus_lecture
-    WHERE version_id = ? AND utilisateur_id = ?`).get(v.id, req.user?.id) || {};
+  const lecture = etatLecture(d.id, req.user?.id);
   const versions = db.prepare(`SELECT numero, publiee_le, publiee_par,
-    resume_changement FROM corpus_version WHERE document_id = ?
+    resume_changement, reconfirmer FROM corpus_version WHERE document_id = ?
     ORDER BY numero DESC`).all(d.id);
 
   res.json({
     ...d, version: v, versions,
     me_concerne: concerne(d, req.user),
-    ouvert_le: lecture.ouvert_le || null,
-    confirme_le: lecture.confirme_le || null,
+    ouvert_le: lecture.ouvert_le,
+    confirme_le: lecture.confirme_le,
+    version_confirmee: lecture.version_confirmee,
   });
 });
 
@@ -218,6 +323,12 @@ r.post('/:cle/confirmer', authRequired, (req, res) => {
   const v = derniereVersion(d.id);
   if (!v) return res.status(400).json({ error: 'Aucune version publiée.' });
 
+  /* DÉJÀ COUVERT ? Une confirmation posée sur une version antérieure vaut pour
+   * celle-ci si rien depuis n'a demandé de relire : on ne la réécrit pas, elle
+   * porte une date, et c'est cette date qui s'oppose. */
+  const etat = etatLecture(d.id, req.user.id);
+  if (etat.confirme_le) return res.json({ ok: true, confirme_le: etat.confirme_le });
+
   const l = db.prepare(`SELECT * FROM corpus_lecture
     WHERE version_id = ? AND utilisateur_id = ?`).get(v.id, req.user.id);
   if (!l?.ouvert_le) {
@@ -225,35 +336,11 @@ r.post('/:cle/confirmer', authRequired, (req, res) => {
       error: 'Le document doit vous avoir été présenté avant que vous puissiez '
            + 'en accuser réception. Ouvrez-le, puis confirmez.' });
   }
-  // On ne réécrit pas une confirmation déjà posée : elle porte une date, et
-  // c'est cette date qui s'oppose.
-  if (l.confirme_le) return res.json({ ok: true, confirme_le: l.confirme_le });
-
   db.prepare(`UPDATE corpus_lecture SET confirme_le = datetime('now')
     WHERE version_id = ? AND utilisateur_id = ?`).run(v.id, req.user.id);
   const apres = db.prepare(`SELECT confirme_le FROM corpus_lecture
     WHERE version_id = ? AND utilisateur_id = ?`).get(v.id, req.user.id);
   res.json({ ok: true, confirme_le: apres.confirme_le });
-});
-
-// ── CE QUI M'ATTEND — la lecture « par personne » du tableau de bord ────────
-r.get('/moi/attente', authRequired, (req, res) => {
-  const docs = db.prepare(`
-    SELECT d.id, d.cle, d.titre, d.nature FROM corpus_document d
-      JOIN corpus_destinataire t ON t.document_id = d.id AND t.role = ?
-     WHERE d.retire_le IS NULL ORDER BY d.titre`).all(req.user?.role || '');
-  const attente = [];
-  for (const d of docs) {
-    const v = derniereVersion(d.id);
-    if (!v) continue;
-    const l = db.prepare(`SELECT confirme_le FROM corpus_lecture
-      WHERE version_id = ? AND utilisateur_id = ?`).get(v.id, req.user.id);
-    if (!l?.confirme_le) {
-      attente.push({ cle: d.cle, titre: d.titre, nature: d.nature,
-                     numero: v.numero, publiee_le: v.publiee_le });
-    }
-  }
-  res.json({ attente });
 });
 
 /* LE REGISTRE — la lecture « par document », pour la direction.
@@ -273,15 +360,45 @@ r.get('/:cle/registre', authRequired, roleRequired(...PEUT_PUBLIER), (req, res) 
 
   const marques = roles.map(() => '?').join(',');
   const lignes = db.prepare(`
-    SELECT u.id, u.nom_complet, u.email, u.role,
-           l.ouvert_le, l.confirme_le
+    SELECT u.id, u.nom_complet, u.email, u.role
       FROM utilisateur u
-      LEFT JOIN corpus_lecture l ON l.utilisateur_id = u.id AND l.version_id = ?
      WHERE u.actif = 1 AND u.role IN (${marques})
-     ORDER BY (l.confirme_le IS NULL) DESC, u.nom_complet`).all(v.id, ...roles);
+     ORDER BY u.nom_complet`).all(...roles)
+    // La même règle que partout : etatLecture, et non une jointure sur la
+    // seule dernière version, qui ignorerait les versions sans reconfirmation.
+    .map(u => ({ ...u, ...etatLecture(d.id, u.id) }))
+    .sort((a, b) => (!!a.confirme_le - !!b.confirme_le));
 
   res.json({ document: d, version: v, roles, lignes });
 });
+
+/** Un lien vers le texte officiel — http(s) seulement, ou rien. `false` = refusé. */
+function lienSource(v) {
+  const s = String(v ?? '').trim();
+  if (!s) return null;
+  return /^https?:\/\/\S+$/i.test(s) ? s : false;
+}
+
+/* ANALYSER UN FICHIER — Word ou PDF — ET NE RIEN ÉCRIRE.
+ *
+ * Le même geste que l'import d'un dossier pédagogique : on dépose, Lucie
+ * analyse, on VOIT le résultat, et rien n'est enregistré avant la publication.
+ * Le fichier reste en mémoire le temps de l'analyse et n'est conservé nulle
+ * part — le PDF d'un décret est en ligne, Charles ne veut pas qu'il alourdisse
+ * la base. */
+const televersement = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 15 * 1024 * 1024 },
+});
+r.post('/importer', authRequired, roleRequired(...PEUT_PUBLIER),
+  televersement.single('fichier'), async (req, res) => {
+    if (!req.file) return res.status(400).json({ error: 'Aucun fichier reçu.' });
+    try {
+      res.json(await analyserFichier(req.file.buffer, req.file.originalname));
+    } catch (e) {
+      res.status(e.status || 422).json({ error: e.message || 'Analyse impossible.' });
+    }
+  });
 
 // ── DÉPOSER ET PUBLIER — direction seule ────────────────────────────────────
 r.post('/', authRequired, roleRequired(...PEUT_PUBLIER), (req, res) => {
@@ -300,9 +417,11 @@ r.post('/', authRequired, roleRequired(...PEUT_PUBLIER), (req, res) => {
   while (db.prepare('SELECT 1 FROM corpus_document WHERE cle = ?').get(cle)) {
     cle = `${base}-${n++}`;
   }
+  const source = lienSource(req.body?.source_url);
+  if (source === false) return res.status(400).json({ error: 'Le lien vers la source doit commencer par https:// ou http://.' });
   const info = db.prepare(`INSERT INTO corpus_document
-    (cle, titre, nature, domaine, resume) VALUES (?,?,?,?,?)`)
-    .run(cle, titre, nature, req.body?.domaine || null, req.body?.resume || null);
+    (cle, titre, nature, domaine, resume, source_url) VALUES (?,?,?,?,?,?)`)
+    .run(cle, titre, nature, req.body?.domaine || null, req.body?.resume || null, source);
   res.json({ ok: true, id: info.lastInsertRowid, cle });
 });
 
@@ -315,8 +434,16 @@ r.post('/', authRequired, roleRequired(...PEUT_PUBLIER), (req, res) => {
 r.post('/:cle/versions', authRequired, roleRequired(...PEUT_PUBLIER), (req, res) => {
   const d = db.prepare('SELECT * FROM corpus_document WHERE cle = ?').get(req.params.cle);
   if (!d) return res.status(404).json({ error: 'Document introuvable.' });
-  const contenu = String(req.body?.contenu || '').trim();
-  if (!contenu) return res.status(400).json({ error: 'Le texte est vide.' });
+  /* LE TEXTE MIS EN FORME PASSE PAR LA LISTE DE CE QUI EST PERMIS, ICI, AVANT
+   * D'ÊTRE ÉCRIT. Le texte brut d'avant (format 'texte') reste accepté : il
+   * s'affiche tel quel, sans rien interpréter. */
+  const format = req.body?.format === 'html' ? 'html' : 'texte';
+  const contenu = format === 'html'
+    ? assainir(req.body?.contenu)
+    : String(req.body?.contenu || '').trim();
+  if (!contenu || (format === 'html' && estVide(contenu))) {
+    return res.status(400).json({ error: 'Le texte est vide.' });
+  }
 
   const derniere = derniereVersion(d.id);
   /* ON NE PUBLIE PAS DEUX FOIS LE MÊME TEXTE. Sans ce contrôle, un clic de
@@ -331,17 +458,36 @@ r.post('/:cle/versions', authRequired, roleRequired(...PEUT_PUBLIER), (req, res)
   }
   if (derniere && !String(req.body?.resume_changement || '').trim()) {
     return res.status(400).json({
-      error: 'Dites ce qui change : chacun devra reconfirmer, et il a le droit '
-           + 'de savoir sur quoi.' });
+      error: 'Dites ce qui change : la version suivante reste au dossier, et '
+           + 'celui qui la lira a le droit de savoir ce qui la distingue.' });
+  }
+  /* LA CASE SE COCHE, ELLE NE SE DEVINE PAS. Sur une version 2 et au-delà, le
+   * serveur exige de savoir si le personnel doit relire : un champ absent
+   * voudrait dire qu'un écran a oublié de poser la question, et l'on ne
+   * tranche pas à sa place une obligation faite à quarante personnes. La
+   * version 1 demande toujours confirmation — c'est ce qu'être publié veut
+   * dire. */
+  if (derniere && typeof req.body?.reconfirmer !== 'boolean') {
+    return res.status(400).json({
+      error: 'Indiquez si les membres du personnel doivent relire et confirmer '
+           + 'à nouveau cette version.' });
+  }
+  const reconfirmer = derniere ? (req.body.reconfirmer ? 1 : 0) : 1;
+
+  if (req.body?.source_url !== undefined) {
+    const source = lienSource(req.body.source_url);
+    if (source === false) return res.status(400).json({ error: 'Le lien vers la source doit commencer par https:// ou http://.' });
+    db.prepare('UPDATE corpus_document SET source_url = ? WHERE id = ?').run(source, d.id);
   }
 
   const numero = (derniere?.numero || 0) + 1;
   const info = db.prepare(`INSERT INTO corpus_version
-    (document_id, numero, contenu, resume_changement, publiee_par, publiee_par_role)
-    VALUES (?,?,?,?,?,?)`).run(d.id, numero, contenu,
+    (document_id, numero, contenu, format, reconfirmer, resume_changement,
+     publiee_par, publiee_par_role)
+    VALUES (?,?,?,?,?,?,?,?)`).run(d.id, numero, contenu, format, reconfirmer,
       req.body?.resume_changement || null,
-      req.user?.nom_complet || req.user?.email || null, req.user?.role || null);
-  res.json({ ok: true, id: info.lastInsertRowid, numero });
+      auteur(req.user), req.user?.role || null);
+  res.json({ ok: true, id: info.lastInsertRowid, numero, reconfirmer: !!reconfirmer });
 });
 
 /** À QUI CE TEXTE S'IMPOSE — remplacé en bloc, comme une composition. */
@@ -365,7 +511,7 @@ r.post('/:cle/retirer', authRequired, roleRequired(...PEUT_PUBLIER), (req, res) 
   const d = db.prepare('SELECT * FROM corpus_document WHERE cle = ?').get(req.params.cle);
   if (!d) return res.status(404).json({ error: 'Document introuvable.' });
   db.prepare(`UPDATE corpus_document SET retire_le = datetime('now'), retire_par = ?
-    WHERE id = ?`).run(req.user?.nom_complet || req.user?.email || null, d.id);
+    WHERE id = ?`).run(auteur(req.user), d.id);
   res.json({ ok: true });
 });
 

@@ -7,7 +7,7 @@ import {
   // Les trois icônes de calendrier ont disparu avec les trois entrées de
   // période : un réglage n'est pas un territoire, il vit dans une fenêtre.
   IconUserPlus, IconClipboardList, IconSettings, IconRefresh, IconCake,
-  IconClipboardPlus, IconFilter} from '@tabler/icons-react';
+  IconClipboardPlus, IconFilter, IconFileText} from '@tabler/icons-react';
 import ConfierTache from '../components/ConfierTache.jsx';
 import { urgence } from '../lib/urgence.js';
 import { Fenetre } from '../components/ui.jsx';
@@ -258,6 +258,68 @@ function MesTaches({ signal = 0 }) {
   );
 }
 
+/* LES TEXTES QUI M'ATTENDENT — la face « par personne » du corpus.
+ *
+ * La route existait depuis 2.12.70 et aucun écran ne l'appelait : un texte
+ * imposé à un rôle ne se découvrait qu'en pensant à ouvrir Documentation,
+ * c'est-à-dire jamais. Une obligation dont personne n'est prévenu n'oblige
+ * personne — et c'est au moment du contrôle qu'on s'en aperçoit.
+ *
+ * UN BLOC, PAS UNE NOTIFICATION. Une entrée du fil se marque « lue » d'un clic,
+ * et « lue » n'est pas « confirmée » : on l'aurait fait disparaître sans avoir
+ * ouvert le texte. Le bloc, lui, ne s'efface que lorsque le serveur ne le rend
+ * plus — donc après confirmation. Il ne bloque rien : on travaille à côté.
+ *
+ * Rail OCRE, comme dans la liste de Documentation qui marque déjà ainsi « à
+ * confirmer » : un même état ne prend pas deux couleurs selon l'écran d'où on
+ * le regarde. Un premier jet l'avait mis en marine, faute d'avoir regardé.
+ */
+function TextesAConfirmer() {
+  const [attente, setAttente] = useState([]);
+  const navigate = useNavigate();
+  useEffect(() => {
+    fetch('/api/documentation/moi/attente', { headers: authHeaders() })
+      .then(r => (r.ok ? r.json() : null))
+      .then(j => setAttente(Array.isArray(j?.attente) ? j.attente : []))
+      .catch(() => {});
+  }, []);
+  if (!attente.length) return null;
+
+  const fr = d => (d ? String(d).slice(0, 10).split('-').reverse().join('/') : '');
+  return (
+    <div className="mb-5">
+      <div className="flex items-baseline gap-2 mb-1.5">
+        <h2 className="text-[13px] font-semibold text-iip-blue">À confirmer</h2>
+        <span className="text-[11px] text-slate-400">
+          {attente.length} texte{attente.length > 1 ? 's' : ''} publié
+          {attente.length > 1 ? 's' : ''} par la direction — prise de connaissance demandée
+        </span>
+      </div>
+      <div className="carte overflow-hidden">
+        {attente.map(d => (
+          <button key={d.cle}
+            onClick={() => navigate(`/documentation?doc=${encodeURIComponent(d.cle)}`)}
+            className="w-full text-left px-3 py-2 flex items-center gap-3
+                       border-t border-slate-100 first:border-t-0
+                       border-l-[3px] border-l-[#B45309] hover:bg-slate-100">
+            <IconFileText size={15} className="flex-none text-slate-400" />
+            <span className="flex-1 min-w-0 text-[13px] text-slate-800 truncate">
+              {d.titre}
+            </span>
+            {/* LE NUMÉRO DE VERSION DIT POURQUOI ON REVIENT. Une personne qui a
+                déjà confirmé la v1 et voit reparaître le texte doit comprendre
+                qu'il a changé, pas croire à une erreur. */}
+            <span className="text-[11px] text-slate-400 tabular-nums flex-none">
+              {d.numero > 1 ? `version ${d.numero} · ` : ''}publié le {fr(d.publiee_le)}
+            </span>
+            <IconChevronRight size={14} className="flex-none text-slate-300" />
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export default function Accueil() {
   const [items, setItems]     = useState([]);
   const [nbNonLus, setNbNonLus] = useState(0);
@@ -438,6 +500,7 @@ export default function Accueil() {
             procès-verbal, c'est-à-dire nulle part. Elle s'affiche ici, au-dessus
             du fil, et se coche d'ici — avec les tâches confiées à mon rôle, pas
             seulement à mon nom. */}
+        <TextesAConfirmer />
         <MesTaches signal={rafraichirTaches} />
 
         {/* En-tête du fil */}

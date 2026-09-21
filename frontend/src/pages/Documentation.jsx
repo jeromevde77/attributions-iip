@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   IconBook, IconFileText, IconCheck, IconAlertTriangle, IconPlus,
-  IconHistory, IconUsersGroup, IconHelpCircle, IconScale,
+  IconHistory, IconUsersGroup, IconHelpCircle, IconScale, IconExternalLink,
 } from '@tabler/icons-react';
+import { useSearchParams } from 'react-router-dom';
 import { authHeaders, getUser } from '../lib/api.js';
 import { PageHeader, RailLateral, Fenetre } from '../components/ui.jsx';
 import Aide from './Aide.jsx';
+import EditeurTexte from '../components/EditeurTexte.jsx';
 
 /**
  * DOCUMENTATION — le corpus, et la prise de connaissance qui l'oppose.
@@ -37,6 +39,18 @@ const NATURES_ORDRE = ['decret', 'circulaire', 'reglement', 'procedure', 'note',
    bouton caché n'est pas une protection. */
 const PEUT_PUBLIER = ['admin', 'directeur', 'directeur_adjoint'];
 
+/* LE TEXTE BRUT D'AVANT DEVIENT DES PARAGRAPHES quand on le reprend dans
+ * l'éditeur : les versions publiées avant 2.12.91 étaient du texte brut, et
+ * c'est de là qu'on repart pour la suivante. */
+const echapper = t => String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+function texteEnHtml(t) {
+  return String(t || '').split(/\n\s*\n/).map(b => b.trim()).filter(Boolean)
+    .map(b => `<p>${echapper(b).replace(/\n/g, '<br>')}</p>`).join('');
+}
+/** Un HTML sans aucun texte dedans est un texte vide. */
+const sansTexte = html => !String(html || '').replace(/<[^>]*>/g, '')
+  .replace(/&nbsp;/g, ' ').trim();
+
 function frDate(s) {
   if (!s) return '';
   const d = new Date(String(s).replace(' ', 'T'));
@@ -51,7 +65,18 @@ export default function Documentation() {
   const [natures, setNatures] = useState([]);
   const [fNature, setFNature] = useState('');
   const [erreur, setErreur] = useState(null);
-  const [ouvert, setOuvert] = useState(null);        // clé du document lu
+  /* LE DOCUMENT OUVERT VIT DANS L'ADRESSE (`?doc=<clé>`).
+     L'Accueil annonce « ce texte attend votre confirmation » : s'il menait à
+     la liste, il faudrait y retrouver à la main ce qu'on vient de nous
+     désigner. Le lien ouvre donc le texte lui-même — et le serveur pose
+     `ouvert_le` en le servant, comme pour un clic dans la liste. */
+  const [params, setParams] = useSearchParams();
+  const ouvert = params.get('doc');
+  const setOuvert = (cle) => setParams(p => {
+    const n = new URLSearchParams(p);
+    if (cle) n.set('doc', cle); else n.delete('doc');
+    return n;
+  });
   const [depot, setDepot] = useState(false);
   const [registre, setRegistre] = useState(null);
 
@@ -257,8 +282,10 @@ function LireTexte({ cle, publie, onClose, onChange }) {
     try {
       const r = await fetch(`/api/documentation/${encodeURIComponent(cle)}/versions`, {
         method: 'POST', headers: { ...authHeaders(), 'Content-Type': 'application/json' },
-        body: JSON.stringify({ contenu: nouvelle.contenu,
-                               resume_changement: nouvelle.resume }),
+        body: JSON.stringify({ contenu: nouvelle.contenu, format: 'html',
+                               resume_changement: nouvelle.resume,
+                               reconfirmer: nouvelle.reconfirmer,
+                               source_url: nouvelle.source }),
       });
       const j = await r.json();
       if (!r.ok) { setErreur(j.error || 'Refusé.'); return; }
@@ -290,7 +317,13 @@ function LireTexte({ cle, publie, onClose, onChange }) {
           </>
         ) : d?.confirme_le ? (
           <span className="text-[12px] text-emerald-700 flex items-center gap-1">
-            <IconCheck size={14} /> Vous avez confirmé le {frDate(d.confirme_le)}.
+            <IconCheck size={14} /> Vous avez confirmé le {frDate(d.confirme_le)}
+            {/* LA VERSION QU'ON A ACCEPTÉE EST DITE, quand ce n'est pas celle
+                qu'on lit : la direction a publié depuis une correction qui ne
+                demandait pas de relire, et la personne doit pouvoir le savoir. */}
+            {d.version_confirmee && d.version_confirmee !== d.version?.numero
+              ? ` (version ${d.version_confirmee} — les corrections suivantes ne demandaient pas de relire).`
+              : '.'}
           </span>
         ) : (
           <span className="text-[12px] text-slate-500">
@@ -313,11 +346,28 @@ function LireTexte({ cle, publie, onClose, onChange }) {
         </div>
       )}
 
-      {/* LE TEXTE, TEL QU'IL A ÉTÉ PUBLIÉ. `pre-wrap` : on respecte les retours
-          à la ligne de celui qui l'a écrit plutôt que de les recomposer. */}
-      <div className="carte p-4 text-[13px] leading-relaxed whitespace-pre-wrap">
-        {d?.version?.contenu || (erreur ? '' : 'Chargement…')}
-      </div>
+      {d?.source_url && (
+        <a href={d.source_url} target="_blank" rel="noopener noreferrer"
+          className="inline-flex items-center gap-1 text-[12px] text-iip-blue underline mb-2">
+          <IconExternalLink size={13} /> Texte officiel en ligne
+        </a>
+      )}
+
+      {/* LE TEXTE, TEL QU'IL A ÉTÉ PUBLIÉ.
+          Mis en forme (format 'html') : il a été filtré PAR LE SERVEUR à
+          l'écriture — seule une liste fermée de balises y est entrée —, on
+          peut donc l'afficher tel quel. Texte brut (les versions d'avant
+          2.12.91) : `pre-wrap`, on respecte les retours à la ligne. */}
+      {d?.version?.format === 'html' ? (
+        <div className="carte p-4 texte-corpus-cadre">
+          <div className="texte-corpus"
+            dangerouslySetInnerHTML={{ __html: d.version.contenu }} />
+        </div>
+      ) : (
+        <div className="carte p-4 text-[13px] leading-relaxed whitespace-pre-wrap">
+          {d?.version?.contenu || (erreur ? '' : 'Chargement…')}
+        </div>
+      )}
 
       {/* L'HISTORIQUE — parce qu'une personne s'est engagée sur UNE version, et
           qu'elle doit pouvoir retrouver celle qu'elle a acceptée. */}
@@ -331,6 +381,7 @@ function LireTexte({ cle, publie, onClose, onChange }) {
               Version {v.numero} du {frDate(v.publiee_le)}
               {v.publiee_par ? ` · ${v.publiee_par}` : ''}
               {v.resume_changement ? ` — ${v.resume_changement}` : ''}
+              {v.numero > 1 && !v.reconfirmer ? ' · sans nouvelle confirmation' : ''}
             </div>
           ))}
         </div>
@@ -340,27 +391,53 @@ function LireTexte({ cle, publie, onClose, onChange }) {
         <div className="mt-4">
           {!nouvelle ? (
             <button className="bouton text-[12px]"
-              onClick={() => setNouvelle({ contenu: d?.version?.contenu || '', resume: '' })}>
-              Publier une nouvelle version
+              onClick={() => setNouvelle({
+                contenu: d?.version?.format === 'html'
+                  ? d.version.contenu : texteEnHtml(d?.version?.contenu),
+                resume: '', reconfirmer: false, source: d?.source_url || '' })}>
+              Corriger — publier une nouvelle version
             </button>
           ) : (
             <div className="carte p-3 space-y-2">
               {/* UNE VERSION PUBLIÉE NE SE MODIFIE PLUS — on en publie une
-                  autre. Et comme chacun devra reconfirmer, il a le droit de
-                  savoir sur quoi : le résumé n'est pas une politesse. */}
+                  autre, qu'on part de la précédente pour corriger. Le résumé
+                  n'est pas une politesse : la version reste au dossier. */}
               <div className="text-[11px] uppercase tracking-wide text-slate-500">
-                Nouvelle version — chacun devra reconfirmer
+                Version {(d?.version?.numero || 0) + 1} — partie de la version {d?.version?.numero}
               </div>
-              <textarea rows={10} value={nouvelle.contenu}
-                onChange={e => setNouvelle(n => ({ ...n, contenu: e.target.value }))}
-                className="controle text-[13px] w-full h-auto py-2" />
+              <EditeurTexte valeur={nouvelle.contenu}
+                onChange={html => setNouvelle(n => ({ ...n, contenu: html }))} />
               <input value={nouvelle.resume}
                 onChange={e => setNouvelle(n => ({ ...n, resume: e.target.value }))}
                 placeholder="Ce qui change, en une phrase — obligatoire"
                 className="controle text-[13px] w-full" />
+              <input value={nouvelle.source}
+                onChange={e => setNouvelle(n => ({ ...n, source: e.target.value }))}
+                placeholder="Lien vers le texte officiel en ligne (facultatif) — https://…"
+                className="controle text-[13px] w-full" />
+              {/* LA CASE DE CHARLES (21 septembre 2026) : c'est celui qui
+                  publie qui dit si le personnel doit relire. Décochée par
+                  défaut — une date ou une adresse corrigée ne remet pas
+                  quarante personnes au travail —, mais le serveur exige qu'on
+                  ait répondu, et la version garde la réponse. */}
+              <label className="flex items-start gap-2 text-[13px] p-2 rounded-champ border border-slate-200 bg-white">
+                <input type="checkbox" checked={nouvelle.reconfirmer}
+                  onChange={e => setNouvelle(n => ({ ...n, reconfirmer: e.target.checked }))}
+                  className="w-4 h-4 mt-0.5" />
+                <span>
+                  <b>Les membres du personnel doivent relire et confirmer à nouveau</b>
+                  <span className="block text-[12px] text-slate-500">
+                    {nouvelle.reconfirmer
+                      ? 'Chaque destinataire verra ce texte réapparaître « à confirmer » sur son Accueil.'
+                      : 'Correction sans nouvelle confirmation : les confirmations déjà données restent valables. La version et ce qui change restent au dossier.'}
+                  </span>
+                </span>
+              </label>
               <div className="flex gap-2">
-                <button className="bouton bouton-fort" disabled={enCours} onClick={publier}>
-                  Publier
+                <button className="bouton bouton-fort disabled:opacity-40"
+                  disabled={enCours || sansTexte(nouvelle.contenu) || !nouvelle.resume.trim()}
+                  onClick={publier}>
+                  Publier la version {(d?.version?.numero || 0) + 1}
                 </button>
                 <button className="bouton" onClick={() => setNouvelle(null)}>Annuler</button>
               </div>
@@ -378,6 +455,7 @@ function DeposerTexte({ natures, onClose, onCree }) {
   const [titre, setTitre] = useState('');
   const [nature, setNature] = useState('procedure');
   const [contenu, setContenu] = useState('');
+  const [source, setSource] = useState('');
   const [roles, setRoles] = useState(() => new Set());
   const [erreur, setErreur] = useState(null);
   const [enCours, setEnCours] = useState(false);
@@ -393,7 +471,7 @@ function DeposerTexte({ natures, onClose, onCree }) {
   ];
 
   const manque = !titre.trim() ? 'Donne un titre au texte.'
-    : !contenu.trim() ? 'Le texte est vide : il n’y a rien à publier.'
+    : sansTexte(contenu) ? 'Importez un fichier ou écrivez le texte : il est vide.'
       : null;
 
   async function creer() {
@@ -402,14 +480,14 @@ function DeposerTexte({ natures, onClose, onCree }) {
     try {
       const r = await fetch('/api/documentation', {
         method: 'POST', headers: { ...authHeaders(), 'Content-Type': 'application/json' },
-        body: JSON.stringify({ titre: titre.trim(), nature }),
+        body: JSON.stringify({ titre: titre.trim(), nature, source_url: source.trim() }),
       });
       const j = await r.json();
       if (!r.ok) throw new Error(j.error || 'Refusé.');
 
       const v = await fetch(`/api/documentation/${j.cle}/versions`, {
         method: 'POST', headers: { ...authHeaders(), 'Content-Type': 'application/json' },
-        body: JSON.stringify({ contenu: contenu.trim() }),
+        body: JSON.stringify({ contenu, format: 'html' }),
       });
       const jv = await v.json();
       if (!v.ok) throw new Error(jv.error || 'La version n’a pas pu être publiée.');
@@ -457,9 +535,11 @@ function DeposerTexte({ natures, onClose, onCree }) {
           </select>
         </div>
 
-        <textarea rows={14} value={contenu} onChange={e => setContenu(e.target.value)}
-          placeholder="Le texte lui-même."
-          className="controle text-[13px] w-full h-auto py-2" />
+        <input value={source} onChange={e => setSource(e.target.value)}
+          placeholder="Lien vers le texte officiel en ligne (facultatif, utile pour un décret) — https://…"
+          className="controle text-[13px] w-full" />
+
+        <EditeurTexte valeur={contenu} onChange={setContenu} />
 
         <div className="carte p-3 space-y-2">
           <div className="text-[11px] uppercase tracking-wide text-slate-500">

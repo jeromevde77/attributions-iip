@@ -5,6 +5,7 @@ import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import db from '../db/index.js';
 import { authRequired, roleRequired } from '../middleware/auth.js';
+import { snapshotComplet } from '../lib/retention.js';
 import { peut } from '../middleware/permissions.js';
 
 const r = Router();
@@ -106,7 +107,20 @@ r.post('/rollback/:snapshotId', authRequired, roleRequired('admin'), (req, res) 
   const snap = db.prepare('SELECT * FROM attribution_snapshot WHERE id = ?').get(req.params.snapshotId);
   if (!snap) return res.status(404).json({ error: 'Snapshot introuvable' });
 
-  const data = JSON.parse(snap.snapshot);
+  // LE DÉTAIL D'UNE LIGNE COMPACTÉE VIT DANS `snapshot_zip`, et `snapshot` ne
+  // porte plus que les champs lisibles. Restaurer depuis lui réécrirait
+  // l'attribution avec CINQ VALEURS, effaçant en silence le professeur, les
+  // périodes et les groupes — une attribution vidée qui ressemble à une
+  // attribution. On passe donc toujours par `snapshotComplet`.
+  const complet = snapshotComplet(snap);
+  if (!complet) {
+    return res.status(410).json({
+      error: "Le détail de ce point d'historique n'est plus lisible : la trace du "
+           + "geste subsiste (qui, quand, quoi), mais la restauration n'est pas possible.",
+    });
+  }
+
+  const data = JSON.parse(complet);
   // Un snapshot de suppression contient l'intégralité de la ligne : il est
   // pris AVANT le DELETE. Seuls les snapshots dégradés (_deleted sans données)
   // sont irrécupérables.

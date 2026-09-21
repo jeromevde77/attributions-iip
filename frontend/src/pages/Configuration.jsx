@@ -1,7 +1,8 @@
 import { useEffect, useState, lazy, Suspense } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { api, getAnnee, setAnnee as setAnneeActive } from '../lib/api.js';
+import { api, getAnnee, setAnnee as setAnneeActive, getUser } from '../lib/api.js';
 import { chargerCouleurs } from '../lib/couleurs.js';
+import Audit from './Audit.jsx';
 import { IconAdjustments, IconAward, IconBooks, IconBuilding, IconCalendar, IconCalendarEvent, IconChartBar, IconCheck, IconChevronRight, IconDownload, IconFileText, IconHistory, IconLink, IconScale, IconSettings, IconSparkles, IconUserShield, IconUsers, IconX, IconGavel, IconPlus, IconTrash, IconGripVertical, IconEdit, IconMail, IconPalette, IconArchive, IconAlertTriangle, IconShieldLock } from '@tabler/icons-react';
 import { PageHeader, RailLateral } from '../components/ui.jsx';
 import ApercuDocuments from '../components/ApercuDocuments.jsx';
@@ -516,6 +517,8 @@ const GROUPE_LABELS = {
   session:       { icon: IconCalendar, label: 'Calendrier des sessions', desc: 'Dernier jour admin + délais rétroactifs (EV1, VC, EV2, délibé, recours) pour calculer la dernière semaine de cours' },
   procedures:    { icon: IconScale, label: 'Procédures',    desc: 'Délais légaux, email de direction utilisé dans les PV' },
   etablissement: { icon: IconBuilding, label: 'Établissement', desc: 'Nom et informations de l\'établissement' },
+  systeme:       { icon: IconHistory, label: 'Conservation des traces',
+                   desc: 'L\'historique des attributions garde un instantané complet de chaque modification : c\'est 96 % du poids du registre. Passé ce délai, seule la trace du geste est conservée — qui, quand, quoi — et la restauration d\'une ligne aussi ancienne n\'est plus possible.' },
   securite:      { icon: IconShieldLock, label: 'Sécurité des connexions',
                    desc: 'Blocage d\'un compte après des mots de passe erronés. Désactiver rouvre la porte aux essais en série : à ne faire que le temps de régler un incident.' },
 };
@@ -542,6 +545,7 @@ const PARAM_TYPES = {
      transformer en cases à cocher aurait remplacé un réglage horaire par un
      interrupteur — la même famille d'erreur que `totale`/`complete` : le type
      qu'on croit plutôt que celui qui existe. */
+  'retention.snapshot_mois':       { type: 'number', step: '1', min: '0', max: '240' },
   'securite.blocage_actif':        { type: 'booleen' },
   /* Les neuf `miseenpage.*` sont AUSSI des oui/non, et ils ont déjà leurs
      cases — dans `ParametresEtablissement.jsx`, écran « Identité et sections ».
@@ -1355,6 +1359,7 @@ export default function Configuration() {
     { label: 'Système', items: [
       { key: 'parametres', label: 'Paramètres', icon: IconAdjustments },
       { key: 'courriels', label: 'Courriels', icon: IconMail },
+      { key: 'audit', label: 'Qui a fait quoi', icon: IconUserShield },
       { key: 'systeme', label: 'Historique des modifications', icon: IconHistory },
       { key: 'sauvegardes', label: 'Sauvegardes de la base', icon: IconDownload },
       { key: 'statistiques', label: 'Statistiques', icon: IconChartBar },
@@ -1369,8 +1374,13 @@ export default function Configuration() {
         sousTitre="Administration"
         sections={CONF_GROUPES.map(g => ({
           label: g.label,
-          items: g.items.map(t => ({ key: t.key, label: t.label, icon: t.icon,
-            actif: tab === t.key, onClick: () => setTab(t.key) })),
+          // « QUI A FAIT QUOI » N'APPARAÎT QUE POUR L'ADMINISTRATEUR, et le
+          // serveur le refuse de toute façon : un onglet visible qui rend un
+          // 403 se lit « Lucie est cassée », pas « ce n'est pas pour vous ».
+          items: g.items
+            .filter(t => t.key !== 'audit' || getUser()?.role === 'admin')
+            .map(t => ({ key: t.key, label: t.label, icon: t.icon,
+              actif: tab === t.key, onClick: () => setTab(t.key) })),
         }))}
       />
       <div className="gouttiere-rail px-3 md:px-6 py-4 space-y-6">
@@ -1573,6 +1583,7 @@ docker start attributions-backend-dev`}</div>
 
       {/* ── Onglet Procédures ── */}
       {tab === 'procedures' && <OngletProcedures />}
+      {tab === 'audit' && <Audit />}
       {tab === 'statistiques' && <OngletStatistiques />}
 
         </div>
