@@ -1,12 +1,27 @@
 import { useEffect, useState } from 'react';
 import { estDirection } from '../lib/modules.js';
-import { IconDeviceFloppy, IconEye, IconRefresh, IconPhoto, IconX } from '@tabler/icons-react';
+import { IconDeviceFloppy, IconEye, IconRefresh, IconPhoto, IconX, IconArrowUp, IconArrowDown, IconPlus, IconSignature } from '@tabler/icons-react';
 
 const tok = () => localStorage.getItem('token');
 const af = (url, opts = {}) => fetch(url, {
   ...opts,
   headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${tok()}`, ...(opts.headers || {}) },
 }).then(async r => { const j = await r.json().catch(() => ({})); if (!r.ok) throw new Error(j.error || 'Erreur'); return j; });
+
+/* LES SIGNATAIRES D'ORIGINE — ceux d'une co-diplomation HELB. Recopie du
+ * défaut serveur (SIGNATAIRES_DEFAUT) pour l'aperçu et le point de départ
+ * d'une section nouvelle ; le serveur, lui, applique le sien. */
+const SIGNATAIRES_DEFAUT = [
+  { qualite: "La Présidente du jury\nd'épreuve intégrée,", nom: '{{president_jury}}' },
+  { qualite: 'La Directrice du département\nsanté de la HELB,', nom: 'Catherine Romanus' },
+  { qualite: 'La Directrice-Présidente\nde la HELB,', nom: 'Annick Vandeuren' },
+  { qualite: "Le Directeur\nde l'Institut Ilya Prigogine,", nom: '{{directeur}}' },
+];
+const echap = v => String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+const blocSignatures = liste => liste.map(x => `<div class="sig-col">
+      <div class="role">${echap(x.qualite).replace(/\n/g, '<br>')}</div>
+      <div class="nom">${echap(x.nom)}</div>
+    </div>`).join('');
 
 function remplaceVars(tpl, vars) {
   let h = tpl;
@@ -56,6 +71,11 @@ export default function DiplomeEditeur({ assets = {} }) {
   const [err, setErr] = useState('');
   const [busy, setBusy] = useState(false);
   const [logoHelb, setLogoHelb] = useState('');
+  const [signatures, setSignatures] = useState({});   // { section: [{ qualite, nom }] }
+  const [sections, setSections] = useState([]);
+  const [secSig, setSecSig] = useState('');
+  const [liste, setListe] = useState(null);          // liste en cours d'édition
+  const [sigOk, setSigOk] = useState(false);
 
   const me = JSON.parse(localStorage.getItem('user') || 'null');
   const peutEcrire = estDirection(me);
@@ -65,13 +85,51 @@ export default function DiplomeEditeur({ assets = {} }) {
       af('/api/config/diplome_template').then(d => d.valeur).catch(() => ''),
       af('/api/config/attestation_etab').then(d => { try { return JSON.parse(d.valeur); } catch { return {}; } }).catch(() => ({})),
       af('/api/config/diplome_logo_helb').then(d => d.valeur).catch(() => ''),
-    ]).then(([tpl, e, helb]) => { setHtml(tpl); setInitial(tpl); setEtab(e); setLogoHelb(helb || ''); }).finally(() => setLoading(false));
+      af('/api/config/diplome_signatures').then(d => { try { return JSON.parse(d.valeur) || {}; } catch { return {}; } }).catch(() => ({})),
+      af('/api/ref/sections').catch(() => []),
+    ]).then(([tpl, e, helb, sig, secs]) => {
+      setHtml(tpl); setInitial(tpl); setEtab(e); setLogoHelb(helb || '');
+      setSignatures(sig && typeof sig === 'object' ? sig : {});
+      setSections(Array.isArray(secs) ? secs : []);
+    }).finally(() => setLoading(false));
   }, []);
+
+  /* Choisir une section charge SA liste ; sans liste propre, on part des
+     signataires d'origine — c'est ce que son diplôme porte aujourd'hui. */
+  useEffect(() => {
+    if (!secSig) { setListe(null); return; }
+    const l = signatures[secSig];
+    setListe((Array.isArray(l) && l.length ? l : SIGNATAIRES_DEFAUT).map(x => ({ ...x })));
+  }, [secSig, signatures]);
+
+  const propre = !!(secSig && Array.isArray(signatures[secSig]) && signatures[secSig].length);
+  const listeModifiee = liste && JSON.stringify(liste) !== JSON.stringify(
+    (propre ? signatures[secSig] : SIGNATAIRES_DEFAUT));
+
+  const poser = (i, patch) => setListe(l => l.map((x, j) => (j === i ? { ...x, ...patch } : x)));
+  const deplacer = (i, d) => setListe(l => {
+    const n = [...l]; const j = i + d; if (j < 0 || j >= n.length) return l;
+    [n[i], n[j]] = [n[j], n[i]]; return n;
+  });
+
+  async function enregistrerSignatures(nouvelle) {
+    setErr('');
+    const suivant = { ...signatures };
+    if (nouvelle === null) delete suivant[secSig];
+    else suivant[secSig] = nouvelle.filter(x => x.qualite.trim() || x.nom.trim());
+    try {
+      await af('/api/config/diplome_signatures', { method: 'PUT', body: JSON.stringify({ valeur: JSON.stringify(suivant) }) });
+      setSignatures(suivant); setSigOk(true); setTimeout(() => setSigOk(false), 2500);
+    } catch (e) { setErr(e.message); }
+  }
 
   const dirty = html !== initial;
 
   const apercu = () => {
-    const rendu = remplaceVars(html, VARS_DEMO(etab, { ...assets, logo_helb: logoHelb }));
+    // L'aperçu signe avec la section choisie ci-dessous, sinon avec la liste d'origine.
+    const vars = VARS_DEMO(etab, { ...assets, logo_helb: logoHelb });
+    const avecSig = html.split('{{signatures}}').join(blocSignatures(liste || SIGNATAIRES_DEFAUT));
+    const rendu = remplaceVars(avecSig, vars);
     const w = window.open('', '_blank');
     if (!w) { alert('Autorisez les pop-ups pour voir l’aperçu.'); return; }
     w.document.open(); w.document.write(rendu); w.document.close();
@@ -146,6 +204,92 @@ export default function DiplomeEditeur({ assets = {} }) {
         </div>
       )}
 
+
+      {/* LES SIGNATAIRES, SECTION PAR SECTION.
+          Demandé par Charles le 21 septembre 2026 : le bloc de signature
+          change d'une section à l'autre — quatre signatures pour une
+          co-diplomation HELB, deux pour un titre propre de l'IIP. Le modèle
+          reste unique ; seul l'emplacement {{signatures}} change de contenu.
+          Le bloc « Au nom du Gouvernement… le titulaire » n'en fait pas
+          partie : il est le même pour toutes les sections. */}
+      <div className="bg-white border border-gray-200 rounded-lg p-3 space-y-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-sm font-semibold text-iip-blue flex items-center gap-1.5">
+            <IconSignature size={16}/> Signataires par section
+          </span>
+          <select value={secSig} onChange={e => setSecSig(e.target.value)}
+            className="controle text-[13px] min-w-[14rem]">
+            <option value="">— choisir une section —</option>
+            {sections.map(s0 => (
+              <option key={s0.code} value={s0.code}>
+                {s0.libelle || s0.code}{Array.isArray(signatures[s0.code]) && signatures[s0.code].length ? ' ✓' : ''}
+              </option>
+            ))}
+          </select>
+          {secSig && (
+            <span className="text-[12px] text-gray-500">
+              {propre ? 'Liste propre à cette section.'
+                : 'Pas encore de liste propre : son diplôme porte les signataires d’origine (co-diplomation HELB).'}
+            </span>
+          )}
+        </div>
+        {liste && (
+          <>
+            <div className="space-y-1.5">
+              {liste.map((x, i) => (
+                <div key={i} className="flex items-start gap-2">
+                  <span className="text-[11px] text-gray-400 w-4 pt-2 tabular-nums">{i + 1}</span>
+                  <textarea rows={2} value={x.qualite} disabled={!peutEcrire}
+                    onChange={e => poser(i, { qualite: e.target.value })}
+                    placeholder="Qualité — « Le Directeur » ↵ « de l'Institut Ilya Prigogine, »"
+                    className="controle h-auto py-1 text-[13px] flex-1" />
+                  <input value={x.nom} disabled={!peutEcrire}
+                    onChange={e => poser(i, { nom: e.target.value })}
+                    placeholder="Nom — ou {{directeur}}, {{president_jury}}"
+                    className="controle text-[13px] w-64" />
+                  {peutEcrire && (
+                    <span className="flex gap-0.5 pt-1">
+                      <button className="bouton px-1.5" title="Monter" onClick={() => deplacer(i, -1)}><IconArrowUp size={14}/></button>
+                      <button className="bouton px-1.5" title="Descendre" onClick={() => deplacer(i, 1)}><IconArrowDown size={14}/></button>
+                      <button className="bouton px-1.5" title="Retirer" onClick={() => setListe(l => l.filter((_, j) => j !== i))}><IconX size={14}/></button>
+                    </span>
+                  )}
+                </div>
+              ))}
+            </div>
+            <p className="text-[11px] text-gray-500">
+              De gauche à droite sur le diplôme, dans cet ordre. Une qualité sur deux lignes s’écrit avec un retour
+              à la ligne. <code>{'{{directeur}}'}</code> et <code>{'{{president_jury}}'}</code> se remplissent
+              d’eux-mêmes. « Au nom du Gouvernement… le titulaire » reste commun à toutes les sections.
+            </p>
+            {peutEcrire && (
+              <div className="flex flex-wrap items-center gap-2">
+                <button className="bouton" onClick={() => setListe(l => [...l, { qualite: '', nom: '' }])}>
+                  <IconPlus size={14} className="inline -mt-0.5 mr-1"/>Ajouter un signataire
+                </button>
+                <button className="bouton bouton-fort disabled:opacity-40" disabled={!listeModifiee && propre}
+                  onClick={() => enregistrerSignatures(liste)}>
+                  Enregistrer pour {sections.find(s0 => s0.code === secSig)?.libelle || secSig}
+                </button>
+                {propre && (
+                  <button className="bouton" onClick={() => { if (confirm('Revenir aux signataires d’origine pour cette section ?')) enregistrerSignatures(null); }}>
+                    Revenir à la liste d’origine
+                  </button>
+                )}
+                {sigOk && <span className="text-[12px] text-green-700">Signataires enregistrés.</span>}
+              </div>
+            )}
+            {!html.includes('{{signatures}}') && (
+              <p className="text-[12px] text-amber-800 bg-amber-50 border border-amber-200 rounded px-2 py-1">
+                Votre modèle n’a pas d’emplacement <code>{'{{signatures}}'}</code> : Lucie remplacera son bloc de
+                signatures actuel par la liste de la section. Pour le rendre explicite, remplacez dans le modèle les
+                colonnes de signataires par <code>{'{{signatures}}'}</code>, ou restaurez le modèle par défaut.
+              </p>
+            )}
+          </>
+        )}
+      </div>
+
       <textarea
         value={html}
         onChange={e => setHtml(e.target.value)}
@@ -157,7 +301,7 @@ export default function DiplomeEditeur({ assets = {} }) {
       <details className="text-xs text-gray-500">
         <summary className="cursor-pointer text-iip-blue">Champs disponibles</summary>
         <div className="mt-1 grid grid-cols-2 md:grid-cols-3 2xl:grid-cols-4 gap-x-4 gap-y-0.5 font-mono">
-          {['{{nom_etudiant}}','{{prenom_etudiant}}','{{genre}}','{{lieu_naissance}}','{{date_naissance}}','{{registre_national}}','{{intitule_section}}','{{grade_academique}}','{{code_section}}','{{date_approbation}}','{{total_ects}}','{{duree_annees}}','{{domaine}}','{{mention}}','{{annee}}','{{date_deliberation}}','{{president_jury}}','{{directeur}}','{{ville_etab}}','{{nom_etab}}','{{adresse_etab}}','{{matricule_etab}}','{{fase_etab}}','{{logo_iip}}','{{logo_helb}}','{{sceau}}','{{signature_directeur}}'].map(v => <span key={v}>{v}</span>)}
+          {['{{nom_etudiant}}','{{prenom_etudiant}}','{{genre}}','{{lieu_naissance}}','{{date_naissance}}','{{registre_national}}','{{intitule_section}}','{{grade_academique}}','{{code_section}}','{{date_approbation}}','{{total_ects}}','{{duree_annees}}','{{domaine}}','{{mention}}','{{annee}}','{{date_deliberation}}','{{president_jury}}','{{directeur}}','{{ville_etab}}','{{nom_etab}}','{{adresse_etab}}','{{matricule_etab}}','{{fase_etab}}','{{logo_iip}}','{{logo_helb}}','{{sceau}}','{{signature_directeur}}','{{signatures}}'].map(v => <span key={v}>{v}</span>)}
         </div>
       </details>
     </div>
