@@ -23,6 +23,7 @@ import {
   estAdmissionDeSection, unitesDeBase, decideHorsCircuit,
 } from '../lib/valorisation.js';
 import { calculerDI, calculerDIS } from './droitInscription.js';
+import { rapprocher, normDate } from './importHistorique.js';
 
 const r = Router();
 
@@ -7034,6 +7035,174 @@ r.post('/', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
   }
 
   res.json({ ok: true, id });
+});
+
+// ── IMPORTER DE NOUVEAUX ÉTUDIANTS — la signalétique eCampus ─────────────────
+//
+// Demandé par Charles le 21 septembre 2026, un fichier en main : l'export
+// eCampus « R_Etudiants_Excel » d'une promotion de BA1 — identités, pas
+// d'unités. Aucune porte ne le prenait : « Liste eCampus » exige Code_UE, et
+// l'importateur sur mesure « complète les dossiers existants » — la création y
+// était une case facultative que personne ne pouvait deviner.
+//
+// Cette porte-ci connaît le fichier : ses colonnes s'associent d'elles-mêmes.
+// Pour chaque ligne :
+//   RETROUVÉ  → on COMPLÈTE les champs vides, rien n'est écrasé (ce qu'un
+//               secrétariat a corrigé à la main vaut mieux qu'un export), et
+//               le matricule de l'année REJOINT le dossier sans remplacer
+//               l'ancien, qui figure sur des pièces déjà délivrées ;
+//   INCONNU   → on CRÉE, rattaché à la section choisie ;
+//   SANS NOM  → on ÉCARTE, et on le dit.
+// La recherche est celle de l'import d'historique (`rapprocher`) : numéro
+// national, puis TOUS les matricules connus (celui de l'année et le NoInit),
+// puis nom + prénom + date de naissance. Une deuxième recherche aurait fini
+// par différer de la première — et c'est la plus laxiste qui créerait le
+// doublon.
+//
+// Simulation d'abord ; l'écriture est tout ou rien.
+const COLONNES_SIGNALETIQUE = {
+  id_ecampus: 'Id_Etud', no_init: 'NoInit', titre: 'TitreMrMme',
+  nom: 'NomEtud', prenom: 'PréEtud', complet: 'Etudiant',
+  lieu_naissance: 'LieuNais', date_naissance: 'StrDatNais',
+  adresse: 'AdrN°Bte', cp: 'CP', localite: 'Localité',
+  email_perso: 'Email Perso', email_ecole: 'EmailEcole',
+  num_national: 'N°National', gsm: 'GSMEtud', tel: 'TélEtud',
+};
+const CHAMPS_COMPLETABLES = ['titre', 'lieu_naissance', 'date_naissance', 'adresse', 'cp',
+  'localite', 'email_perso', 'email_ecole', 'num_national', 'gsm'];
+
+function lireLigneSignaletique(brut) {
+  const v = cle => String(brut?.[COLONNES_SIGNALETIQUE[cle]] ?? '').trim();
+  let nom = v('nom'), prenom = v('prenom');
+  // Nom et prénom séparés manquants, « Etudiant » les porte collés : on ne
+  // devine pas où couper — le NOM en capitales vient d'abord, c'est la règle
+  // d'eCampus (« ABDO Rama »).
+  if ((!nom || !prenom) && v('complet')) {
+    const m = /^([A-ZÀ-ÖØ-Þ' -]+)\s+(.+)$/.exec(v('complet'));
+    if (m) { nom = nom || m[1].trim(); prenom = prenom || m[2].trim(); }
+  }
+  const dn = normDate(v('date_naissance'));
+  const cp = v('cp');
+  // « 1348 Louvain-la-Neuve » : le code postal a sa propre colonne.
+  const localite = v('localite').replace(new RegExp(`^${cp}\\s+`), '').trim();
+  return {
+    id_ecampus: v('id_ecampus') || null, no_init: v('no_init') || null,
+    nom, prenom, titre: v('titre') || null,
+    lieu_naissance: v('lieu_naissance') || null,
+    date_naissance: /^\d{4}-\d{2}-\d{2}$/.test(dn) ? dn : null,
+    date_brute: v('date_naissance') || null,
+    adresse: v('adresse') || null, cp: cp || null, localite: localite || null,
+    email_perso: v('email_perso') || null, email_ecole: v('email_ecole') || null,
+    num_national: v('num_national') || null, gsm: v('gsm') || v('tel') || null,
+  };
+}
+
+r.post('/import-signaletique', authRequired,
+  roleRequired('admin', 'directeur', 'directeur_adjoint', 'editeur', 'secretariat'), (req, res) => {
+  const { lignes, section, simulation = true } = req.body || {};
+  if (!Array.isArray(lignes) || !lignes.length) {
+    return res.status(400).json({ error: 'Le fichier ne contient aucune ligne.' });
+  }
+  const entetes = Object.keys(lignes[0] || {});
+  const manquantes = ['Id_Etud', 'NomEtud', 'PréEtud', 'N°National']
+    .filter(c => !entetes.includes(c));
+  if (manquantes.length === 4 || !entetes.includes('Id_Etud')) {
+    return res.status(400).json({ error: 'Ce fichier n’est pas l’export eCampus des étudiants '
+      + '(« R_Etudiants_Excel ») : colonnes introuvables — ' + manquantes.join(', ') + '.' });
+  }
+  if (section) {
+    const ok = db.prepare('SELECT 1 FROM section WHERE code = ?').get(section);
+    if (!ok) return res.status(400).json({ error: `Section inconnue : ${section}.` });
+  }
+
+  const rapport = { crees: [], completes: [], inchanges: 0, ecartes: [], conflits: [] };
+  const vusRN = new Map();
+  const normRN = x => String(x || '').replace(/\D/g, '');
+
+  const ecrire = db.transaction(() => {
+    lignes.forEach((brut, i) => {
+      const n = i + 2;                       // n° de ligne dans le tableur
+      const p = lireLigneSignaletique(brut);
+      const qui = `${(p.nom || '').toUpperCase()} ${p.prenom || ''}`.trim() || p.id_ecampus || `ligne ${n}`;
+      if (!p.nom || !p.prenom) {
+        rapport.ecartes.push({ ligne: n, qui, motif: 'nom ou prénom absent' });
+        return;
+      }
+      const rn = normRN(p.num_national);
+      if (rn && vusRN.has(rn)) {
+        rapport.ecartes.push({ ligne: n, qui,
+          motif: `même numéro national que la ligne ${vusRN.get(rn)} du fichier` });
+        return;
+      }
+      if (rn) vusRN.set(rn, n);
+
+      const trouve = rapprocher(p)
+        || (p.no_init ? rapprocher({ id_ecampus: p.no_init }) : null);
+      const matricules = [p.id_ecampus, p.no_init].filter(Boolean);
+
+      if (trouve) {
+        const actuel = db.prepare('SELECT * FROM etudiant WHERE id = ?').get(trouve.id);
+        const maj = {};
+        for (const c of CHAMPS_COMPLETABLES) {
+          if (p[c] && (actuel[c] == null || String(actuel[c]).trim() === '')) maj[c] = p[c];
+        }
+        if (rn && !actuel.rn_norm) maj.rn_norm = rn;
+        if (section && !actuel.section_rattachement) maj.section_rattachement = section;
+        if (Object.keys(maj).length) {
+          db.prepare(`UPDATE etudiant SET ${Object.keys(maj).map(c => `${c} = ?`).join(', ')}
+            WHERE id = ?`).run(...Object.values(maj), actuel.id);
+          rapport.completes.push({ ligne: n, qui, id: actuel.id, par: trouve.methode,
+            champs: Object.keys(maj).filter(c => c !== 'rn_norm') });
+        } else rapport.inchanges++;
+        for (const m of matricules) {
+          const autre = db.prepare('SELECT etudiant_id FROM etudiant_matricule WHERE id_ecampus = ?').get(m);
+          if (autre && autre.etudiant_id !== actuel.id) {
+            rapport.conflits.push({ ligne: n, qui, motif: `le matricule ${m} appartient déjà à un autre dossier` });
+            continue;
+          }
+          db.prepare(`INSERT OR IGNORE INTO etudiant_matricule (etudiant_id, id_ecampus, annee, source)
+            VALUES (?,?,?,'signaletique')`).run(actuel.id, m, null);
+        }
+        return;
+      }
+
+      // Le matricule est unique en base : s'il est déjà pris, le dossier naît
+      // sans lui et on le dit — plutôt que d'échouer ou de voler celui d'autrui.
+      const pris = p.id_ecampus && (
+        db.prepare('SELECT 1 FROM etudiant WHERE id_ecampus = ?').get(p.id_ecampus)
+        || db.prepare('SELECT 1 FROM etudiant_matricule WHERE id_ecampus = ?').get(p.id_ecampus));
+      if (pris) rapport.conflits.push({ ligne: n, qui, motif: `matricule ${p.id_ecampus} déjà attribué — dossier créé sans lui` });
+      const info = db.prepare(`INSERT INTO etudiant
+        (id_ecampus, nom, prenom, titre, lieu_naissance, date_naissance, adresse, cp, localite,
+         email_perso, email_ecole, num_national, gsm, rn_norm, section_rattachement, actif)
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,1)`).run(
+          pris ? null : p.id_ecampus, p.nom, p.prenom, p.titre, p.lieu_naissance, p.date_naissance,
+          p.adresse, p.cp, p.localite, p.email_perso, p.email_ecole, p.num_national, p.gsm,
+          rn || null, section || null);
+      const id = Number(info.lastInsertRowid);
+      for (const m of matricules) {
+        db.prepare(`INSERT OR IGNORE INTO etudiant_matricule (etudiant_id, id_ecampus, annee, source)
+          VALUES (?,?,?,'signaletique')`).run(id, m, null);
+      }
+      rapport.crees.push({ ligne: n, qui, id,
+        ...(p.date_brute && !p.date_naissance ? { note: `date « ${p.date_brute} » non lue` } : {}) });
+    });
+    if (simulation) throw new Error('SIMULATION');
+  });
+
+  try { ecrire(); } catch (e) {
+    if (e.message !== 'SIMULATION') {
+      console.error('[import-signaletique]', e);
+      return res.status(500).json({ error: e.message });
+    }
+  }
+  res.json({
+    simulation: !!simulation, lignes: lignes.length, section: section || null,
+    nb_crees: rapport.crees.length, nb_completes: rapport.completes.length,
+    nb_inchanges: rapport.inchanges, nb_ecartes: rapport.ecartes.length,
+    crees: rapport.crees, completes: rapport.completes,
+    ecartes: rapport.ecartes, conflits: rapport.conflits,
+  });
 });
 
 // ── Import depuis le fichier eCampus Excel ───────────────────────────────────

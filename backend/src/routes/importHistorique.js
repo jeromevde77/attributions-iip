@@ -61,7 +61,7 @@ const normTxt = s => String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g
 // Les dates du classeur sont en toutes lettres : « 21 décembre 2001 »
 const MOIS = ['janvier','février','mars','avril','mai','juin','juillet','août',
               'septembre','octobre','novembre','décembre'];
-function normDate(s) {
+export function normDate(s) {
   const t = String(s || '').trim();
   if (!t) return '';
   const iso = /^(\d{4})-(\d{2})-(\d{2})/.exec(t);
@@ -78,7 +78,7 @@ function normDate(s) {
  * Retrouve un étudiant existant, du plus fiable au moins fiable.
  * Renvoie { id, methode } ou null.
  */
-function rapprocher(p) {
+export function rapprocher(p) {
   const rn = normRN(p.num_national);
   if (rn) {
     const e = db.prepare('SELECT id FROM etudiant WHERE rn_norm = ? LIMIT 1').get(rn);
