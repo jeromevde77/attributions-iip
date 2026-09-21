@@ -848,8 +848,15 @@ connaissance du document". »* Tranche 1 livrée en 2.12.70 : corpus en base
 > du PAE dans l'autre. Un seul écran, deux faces, et il garde la place et
 > l'icône que l'aide occupait dans la barre ; `/aide` y redirige.
 
-**Reste au module :** le signal à l'Accueil (« la direction a publié un nouveau
-document ») ; le versement du mode d'emploi dans le corpus, pour qu'il cesse de
+**Le signal à l'Accueil** (2.12.90) : un bloc « À confirmer » en tête, au-dessus
+des tâches. La route `/moi/attente` existait depuis 2.12.70 et **aucun écran ne
+l'appelait** — une obligation dont personne n'est prévenu n'oblige personne.
+Un BLOC et non une entrée du fil : une notification se marque « lue » d'un clic,
+et « lue » n'est pas « confirmée ». Le bloc ne s'efface que quand le serveur ne
+le rend plus. Chaque ligne ouvre le texte lui-même (`/documentation?doc=<clé>`),
+pas la liste. Ocre, comme dans Documentation : un même état, une même couleur.
+
+**Reste au module :** le versement du mode d'emploi dans le corpus, pour qu'il cesse de
 dépendre d'un déploiement ; la péremption (tranche 2) ; le questionnaire
 (tranche 3). Et **le registre des références** — le menu d'obligation d'une
 tâche doit renvoyer vers un point du RDE, de la circulaire ou d'une procédure,

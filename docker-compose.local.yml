@@ -1,0 +1,66 @@
+# ⚠️ APERÇU SUR POSTE DE TRAVAIL — CE FICHIER NE DÉCRIT AUCUNE INSTALLATION EN
+# SERVICE. Les copies de référence du VPS sont `docker-compose.vps.yml` et
+# `Caddyfile.vps` ; celles du NAS sont marquées héritage. Rien ici ne doit être
+# tenu à jour avec le serveur : ce compose sert à REGARDER le code de la copie
+# de travail, et à rien d'autre.
+#
+# Ce qui le distingue des autres :
+#  - il CONSTRUIT les images depuis ./backend et ./frontend, au lieu de tirer
+#    les images :dev déjà publiées — sinon on regarderait le dernier build de
+#    GitHub Actions et non ce qu'on vient d'écrire ;
+#  - HTTP simple sur un port local, ni TLS ni Caddy ;
+#  - aucun chemin du NAS (`/volume1/...`), qui n'existe pas sur un Mac ;
+#  - NODE_ENV=development, donc la restauration de sauvegarde est permise —
+#    c'est bien le garde-fou côté serveur qui l'autorise ici, et lui seul.
+#
+# Les secrets viennent de .env.local (non versionné) et sont JETABLES.
+# Démarrage :  docker compose -f docker-compose.local.yml --env-file .env.local up -d --build
+
+services:
+
+  backend:
+    build:
+      context: ./backend
+      args:
+        BUILD_VERSION: ${BUILD_VERSION:-local}
+    container_name: lucie-backend-local
+    environment:
+      NODE_ENV: development
+      TZ: Europe/Brussels
+      JWT_SECRET: ${JWT_SECRET_LOCAL:?JWT_SECRET_LOCAL manquant dans .env.local}
+      MFA_KEY: ${MFA_KEY:?MFA_KEY manquant dans .env.local}
+      PORT: 3001
+    volumes:
+      - data-local:/app/data
+      # La sauvegarde se range HORS du dossier de la base : une copie posée à
+      # côté de ce qu'elle protège disparaît avec lui. Même règle qu'en service.
+      - backups-local:/app/data/backups
+    networks:
+      lucie-local:
+        aliases:
+          - backend
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        BUILD_VERSION: ${BUILD_VERSION:-local}
+    container_name: lucie-frontend-local
+    ports:
+      # Port volontairement inhabituel : ni 80, ni 3000, ni 5173, pour ne pas
+      # entrer en conflit avec ce qui tourne déjà sur le poste.
+      - "10900:80"
+    depends_on:
+      - backend
+    networks:
+      - lucie-local
+
+volumes:
+  data-local:
+    name: lucie-data-local
+  backups-local:
+    name: lucie-backups-local
+
+networks:
+  lucie-local:
+    name: lucie-local

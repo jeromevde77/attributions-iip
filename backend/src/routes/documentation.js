@@ -138,6 +138,30 @@ function concerne(doc, user) {
   return roles.includes(user.role);
 }
 
+/* DÉCLARÉE AVANT `/:cle`, et ce n'est pas une coquetterie : les routes
+ * spécifiques passent devant les paramétriques. Aujourd'hui `/:cle` ne
+ * prend qu'un segment et ne l'avalerait pas — mais le jour où quelqu'un
+ * écrira `/moi`, c'est `/:cle` qui répondra « document introuvable ». */
+// ── CE QUI M'ATTEND — la lecture « par personne » du tableau de bord ────────
+r.get('/moi/attente', authRequired, (req, res) => {
+  const docs = db.prepare(`
+    SELECT d.id, d.cle, d.titre, d.nature FROM corpus_document d
+      JOIN corpus_destinataire t ON t.document_id = d.id AND t.role = ?
+     WHERE d.retire_le IS NULL ORDER BY d.titre`).all(req.user?.role || '');
+  const attente = [];
+  for (const d of docs) {
+    const v = derniereVersion(d.id);
+    if (!v) continue;
+    const l = db.prepare(`SELECT confirme_le FROM corpus_lecture
+      WHERE version_id = ? AND utilisateur_id = ?`).get(v.id, req.user.id);
+    if (!l?.confirme_le) {
+      attente.push({ cle: d.cle, titre: d.titre, nature: d.nature,
+                     numero: v.numero, publiee_le: v.publiee_le });
+    }
+  }
+  res.json({ attente });
+});
+
 // ── LE CORPUS, VU PAR CELUI QUI LE CONSULTE ─────────────────────────────────
 r.get('/', authRequired, (req, res) => {
   const tout = req.query.retires === '1';
@@ -234,26 +258,6 @@ r.post('/:cle/confirmer', authRequired, (req, res) => {
   const apres = db.prepare(`SELECT confirme_le FROM corpus_lecture
     WHERE version_id = ? AND utilisateur_id = ?`).get(v.id, req.user.id);
   res.json({ ok: true, confirme_le: apres.confirme_le });
-});
-
-// ── CE QUI M'ATTEND — la lecture « par personne » du tableau de bord ────────
-r.get('/moi/attente', authRequired, (req, res) => {
-  const docs = db.prepare(`
-    SELECT d.id, d.cle, d.titre, d.nature FROM corpus_document d
-      JOIN corpus_destinataire t ON t.document_id = d.id AND t.role = ?
-     WHERE d.retire_le IS NULL ORDER BY d.titre`).all(req.user?.role || '');
-  const attente = [];
-  for (const d of docs) {
-    const v = derniereVersion(d.id);
-    if (!v) continue;
-    const l = db.prepare(`SELECT confirme_le FROM corpus_lecture
-      WHERE version_id = ? AND utilisateur_id = ?`).get(v.id, req.user.id);
-    if (!l?.confirme_le) {
-      attente.push({ cle: d.cle, titre: d.titre, nature: d.nature,
-                     numero: v.numero, publiee_le: v.publiee_le });
-    }
-  }
-  res.json({ attente });
 });
 
 /* LE REGISTRE — la lecture « par document », pour la direction.

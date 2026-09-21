@@ -3,6 +3,7 @@ import {
   IconBook, IconFileText, IconCheck, IconAlertTriangle, IconPlus,
   IconHistory, IconUsersGroup, IconHelpCircle, IconScale,
 } from '@tabler/icons-react';
+import { useSearchParams } from 'react-router-dom';
 import { authHeaders, getUser } from '../lib/api.js';
 import { PageHeader, RailLateral, Fenetre } from '../components/ui.jsx';
 import Aide from './Aide.jsx';
@@ -51,7 +52,18 @@ export default function Documentation() {
   const [natures, setNatures] = useState([]);
   const [fNature, setFNature] = useState('');
   const [erreur, setErreur] = useState(null);
-  const [ouvert, setOuvert] = useState(null);        // clé du document lu
+  /* LE DOCUMENT OUVERT VIT DANS L'ADRESSE (`?doc=<clé>`).
+     L'Accueil annonce « ce texte attend votre confirmation » : s'il menait à
+     la liste, il faudrait y retrouver à la main ce qu'on vient de nous
+     désigner. Le lien ouvre donc le texte lui-même — et le serveur pose
+     `ouvert_le` en le servant, comme pour un clic dans la liste. */
+  const [params, setParams] = useSearchParams();
+  const ouvert = params.get('doc');
+  const setOuvert = (cle) => setParams(p => {
+    const n = new URLSearchParams(p);
+    if (cle) n.set('doc', cle); else n.delete('doc');
+    return n;
+  });
   const [depot, setDepot] = useState(false);
   const [registre, setRegistre] = useState(null);
 
