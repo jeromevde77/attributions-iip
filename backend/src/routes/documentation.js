@@ -304,6 +304,11 @@ r.get('/:cle', authRequired, (req, res) => {
 
   res.json({
     ...d, version: v, versions,
+    /* À QUI IL S'IMPOSE — rendu avec le texte : sans cela, la fenêtre de
+     * lecture ne pouvait ni le montrer ni le corriger, et les destinataires
+     * choisis au dépôt devenaient définitifs par oubli, non par décision. */
+    destinataires: db.prepare('SELECT role FROM corpus_destinataire WHERE document_id = ?')
+      .all(d.id).map(l => l.role),
     me_concerne: concerne(d, req.user),
     ouvert_le: lecture.ouvert_le,
     confirme_le: lecture.confirme_le,

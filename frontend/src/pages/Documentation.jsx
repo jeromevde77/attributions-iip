@@ -51,6 +51,33 @@ function texteEnHtml(t) {
 const sansTexte = html => !String(html || '').replace(/<[^>]*>/g, '')
   .replace(/&nbsp;/g, ' ').trim();
 
+/* LES RÔLES À QUI UN TEXTE PEUT S'IMPOSER — une liste, pour le dépôt ET pour
+ * la correction. Elle ne vivait que dans le formulaire de dépôt : la fenêtre
+ * du texte publié n'avait donc rien pour les modifier. */
+const ROLES = [
+  ['professeur', 'Enseignants'], ['secretariat', 'Secrétariat'],
+  ['coordination', 'Coordinations'], ['directeur_adjoint', 'Direction adjointe'],
+  ['editeur', 'Éditeurs'],
+];
+
+function CasesRoles({ roles, onBasculer }) {
+  return (
+    <div className="flex flex-wrap gap-2">
+      {ROLES.map(([cle, lib]) => (
+        <label key={cle}
+          className={`flex items-center gap-1.5 px-2.5 py-1 rounded-champ border
+            cursor-pointer text-[12px] ${roles.has(cle)
+              ? 'border-iip-blue bg-iip-blue/5' : 'border-slate-200 text-slate-600'}`}>
+          <input type="checkbox" checked={roles.has(cle)}
+            onChange={() => onBasculer(cle)} className="w-3.5 h-3.5" />
+          {lib}
+        </label>
+      ))}
+    </div>
+  );
+}
+const basculerDans = (set, cle) => { const n = new Set(set); n.has(cle) ? n.delete(cle) : n.add(cle); return n; };
+
 function frDate(s) {
   if (!s) return '';
   const d = new Date(String(s).replace(' ', 'T'));
@@ -253,6 +280,7 @@ function LireTexte({ cle, publie, onClose, onChange }) {
   const [enCours, setEnCours] = useState(false);
   const [coche, setCoche] = useState(false);
   const [nouvelle, setNouvelle] = useState(null);   // { contenu, resume }
+  const [roles, setRoles] = useState(null);         // Set en cours de modification
 
   const charger = useCallback(async () => {
     try {
@@ -293,6 +321,26 @@ function LireTexte({ cle, publie, onClose, onChange }) {
     } catch (e) { setErreur(e.message); }
     finally { setEnCours(false); }
   }
+
+  /* MODIFIER À QUI LE TEXTE S'IMPOSE, APRÈS PUBLICATION.
+     Ajouter un rôle rend le texte opposable à ces personnes, qui le verront
+     « à confirmer » sur leur Accueil ; en retirer un cesse de le leur
+     imposer — leurs confirmations déjà posées restent au registre. Le texte,
+     lui, ne change pas : ce n'est pas une nouvelle version. */
+  async function enregistrerRoles() {
+    setEnCours(true); setErreur(null);
+    try {
+      const r = await fetch(`/api/documentation/${encodeURIComponent(cle)}/destinataires`, {
+        method: 'PUT', headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+        body: JSON.stringify({ roles: [...roles] }),
+      });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) { setErreur(j.error || 'Refusé.'); return; }
+      setRoles(null); await charger(); await onChange?.();
+    } catch (e) { setErreur(e.message); }
+    finally { setEnCours(false); }
+  }
+  const libelleRoles = l => (l || []).map(c => ROLES.find(r => r[0] === c)?.[1] || c).join(', ');
 
   const doitConfirmer = d?.me_concerne && !d?.confirme_le;
 
@@ -387,6 +435,39 @@ function LireTexte({ cle, publie, onClose, onChange }) {
         </div>
       )}
 
+      {publie && d && (
+        <div className="mt-4 carte p-3 space-y-2">
+          <div className="flex items-baseline gap-2">
+            <span className="text-[11px] uppercase tracking-wide text-slate-500">À qui ce texte s’impose</span>
+            {!roles && (
+              <button className="text-[12px] text-iip-blue underline ml-auto"
+                onClick={() => setRoles(new Set(d.destinataires || []))}>Modifier</button>
+            )}
+          </div>
+          {!roles ? (
+            <div className="text-[13px]">
+              {d.destinataires?.length ? libelleRoles(d.destinataires)
+                : <span className="text-slate-500">Personne : consultable, mais pas opposable.</span>}
+            </div>
+          ) : (
+            <>
+              <CasesRoles roles={roles} onBasculer={c => setRoles(s0 => basculerDans(s0, c))} />
+              <p className="text-[12px] text-slate-500">
+                Un rôle ajouté verra ce texte « à confirmer » sur son Accueil. Un rôle
+                retiré n’y est plus tenu ; les confirmations déjà données restent au
+                registre. Le texte ne change pas.
+              </p>
+              <div className="flex gap-2">
+                <button className="bouton bouton-fort" disabled={enCours} onClick={enregistrerRoles}>
+                  Enregistrer les destinataires
+                </button>
+                <button className="bouton" onClick={() => setRoles(null)}>Annuler</button>
+              </div>
+            </>
+          )}
+        </div>
+      )}
+
       {publie && (
         <div className="mt-4">
           {!nouvelle ? (
@@ -464,11 +545,6 @@ function DeposerTexte({ natures, onClose, onCree }) {
      à un, c'est oublier celui qui arrive en octobre. Un texte sans destinataire
      reste consultable : il n'est simplement pas opposable, et c'est un choix —
      un mode d'emploi n'a pas à être accusé réception. */
-  const ROLES = [
-    ['professeur', 'Enseignants'], ['secretariat', 'Secrétariat'],
-    ['coordination', 'Coordinations'], ['directeur_adjoint', 'Direction adjointe'],
-    ['editeur', 'Éditeurs'],
-  ];
 
   const manque = !titre.trim() ? 'Donne un titre au texte.'
     : sansTexte(contenu) ? 'Importez un fichier ou écrivez le texte : il est vide.'
@@ -545,20 +621,7 @@ function DeposerTexte({ natures, onClose, onCree }) {
           <div className="text-[11px] uppercase tracking-wide text-slate-500">
             À qui ce texte s’impose
           </div>
-          <div className="flex flex-wrap gap-2">
-            {ROLES.map(([cle, lib]) => (
-              <label key={cle}
-                className={`flex items-center gap-1.5 px-2.5 py-1 rounded-champ border
-                  cursor-pointer text-[12px] ${roles.has(cle)
-                    ? 'border-iip-blue bg-iip-blue/5' : 'border-slate-200 text-slate-600'}`}>
-                <input type="checkbox" checked={roles.has(cle)}
-                  onChange={() => setRoles(s => {
-                    const n = new Set(s); n.has(cle) ? n.delete(cle) : n.add(cle); return n;
-                  })} className="w-3.5 h-3.5" />
-                {lib}
-              </label>
-            ))}
-          </div>
+          <CasesRoles roles={roles} onBasculer={cle => setRoles(s0 => basculerDans(s0, cle))} />
           <p className="text-[12px] text-slate-500">
             Par RÔLE, jamais par personne : nommer les gens un à un, c’est
             oublier celui qui arrive en octobre.
