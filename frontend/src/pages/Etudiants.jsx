@@ -2263,6 +2263,13 @@ export default function Etudiants() {
   const [etudiants, setEtudiants] = useState([]);
   const [recherche, setRecherche] = useState('');
   const [section, setSection] = useState('');
+  /* LES FILTRES DE LA LISTE — demandés par Charles le 21 septembre 2026 :
+     « section, BA1, sans section, sans UE… ». Ils portent sur la liste déjà
+     chargée : le serveur rend pour chaque étudiant sa section (posée ou
+     déduite), son niveau et son nombre d'UE — il n'y a rien à redemander. */
+  const [fNiveau, setFNiveau] = useState('');     // '' | BA1 | BA2 | BA3 | MIXTE | aucun
+  const [fUE, setFUE] = useState('');             // '' | sans | avec
+  const [fRatt, setFRatt] = useState('');         // '' | posee | deduite | aucune
   const [sections, setSections] = useState([]);
   const [selId, setSelId] = useState(null);
   // LA COHORTE QU'ON PARCOURT. La section existait déjà comme filtre de la
@@ -2485,7 +2492,11 @@ export default function Etudiants() {
     setChargement(true);
     try {
       const params = new URLSearchParams();
-      if (section) params.set('section', section);
+      /* LA SECTION NE PART PLUS AU SERVEUR. Il filtrait sur la section des
+         UNITÉS : choisir « Optique » ramenait les étudiants de TIM inscrits à
+         une UE commune rangée sous Optique — et l'écran les affichait sous
+         TIM. Le filtre porte désormais sur la section de l'ÉTUDIANT, comme la
+         colonne et les volets ; le périmètre, lui, reste posé par le serveur. */
       if (anneeCohorte) params.set('annee', anneeCohorte);
       if (statut) params.set('statut', statut);
       if (ueCohorte) params.set('ue_num', ueCohorte);
@@ -2547,18 +2558,25 @@ export default function Etudiants() {
 
   const filtres = useMemo(() => {
     const q = recherche.toLowerCase();
-    const base = recherche
+    const base = (recherche
       ? etudiants.filter(e =>
           e.nom?.toLowerCase().includes(q) || e.prenom?.toLowerCase().includes(q) ||
           e.id_ecampus?.toLowerCase().includes(q))
-      : [...etudiants];
+      : [...etudiants])
+      .filter(e => !section || (section === '__aucune__'
+        ? !e.section_rattachement : e.section_rattachement === section))
+      .filter(e => !fNiveau || (fNiveau === 'aucun' ? !e.niveau : e.niveau === fNiveau))
+      .filter(e => !fUE || (fUE === 'sans' ? !Number(e.nb_ue) : Number(e.nb_ue) > 0))
+      .filter(e => !fRatt || (fRatt === 'aucune' ? !e.section_rattachement
+        : fRatt === 'deduite' ? (e.section_rattachement && e.section_deduite)
+          : (e.section_rattachement && !e.section_deduite)));
 
     // Tri par colonne. Les valeurs absentes se rangent toujours en fin de
     // liste, quel que soit le sens : elles n'apprennent rien.
     const cle = {
       nom:     e => `${e.nom || ''} ${e.prenom || ''}`.trim().toLowerCase(),
       email:   e => (e.email_ecole || '').toLowerCase(),
-      section: e => (e.sections || '').toLowerCase(),
+      section: e => (e.section_rattachement || '').toLowerCase(),
       niveau:  e => ({ BA1: 1, BA2: 2, BA3: 3, MIXTE: 4 }[e.niveau] ?? 9),
       nb_ue:   e => Number(e.nb_ue || 0),
     }[tri.champ] || (e => e.nom || '');
@@ -2570,7 +2588,7 @@ export default function Etudiants() {
       if (typeof va === 'number' && typeof vb === 'number') return (va - vb) * tri.sens;
       return String(va).localeCompare(String(vb), 'fr') * tri.sens;
     });
-  }, [etudiants, recherche, tri]);
+  }, [etudiants, recherche, tri, section, fNiveau, fUE, fRatt]);
 
   // Volets par section, comme dans la répartition des périodes : la liste se
   // parcourt section par section, et un étudiant inscrit dans plusieurs
@@ -2586,14 +2604,23 @@ export default function Etudiants() {
      recherche, les volets restent fermés, comme avant. */
   const [repliesRecherche, setRepliesRecherche] = useState({});
   useEffect(() => { setRepliesRecherche({}); }, [recherche]);
+  /* UN ÉTUDIANT, UNE SECTION : LA SIENNE — et non celles de ses UE.
+     La colonne et les volets lisaient la liste des sections de TOUTES ses
+     unités : un étudiant de TIM inscrit à l'UE hors cursus (rangée sous
+     Restart) et à une UE commune rangée sous Optique s'affichait
+     « RESTART, Optique, TIM » et paraissait dans trois volets. Charles l'a
+     lu, le 21 septembre, comme « Optique mis chez tout le monde » — la base
+     n'avait rien : aucun étudiant rattaché à Optique. C'est la leçon de
+     l'UE 95 (2.11.1), repayée à l'écran : la section d'une UE n'est pas un
+     rattachement. Le serveur calculait déjà la bonne réponse
+     (`section_rattachement` : posée, sinon déduite sans les unités hors
+     cursus) ; l'écran ne s'en servait pas. */
   const parSection = useMemo(() => {
     const par = new Map();
     for (const e of filtres) {
-      const secs = (e.sections || '').split(',').map(s => s.trim()).filter(Boolean);
-      for (const s of (secs.length ? secs : ['(sans section)'])) {
-        if (!par.has(s)) par.set(s, []);
-        par.get(s).push(e);
-      }
+      const s = e.section_rattachement || '(sans section)';
+      if (!par.has(s)) par.set(s, []);
+      par.get(s).push(e);
     }
     return [...par.entries()].sort((a, b) => a[0].localeCompare(b[0]));
   }, [filtres]);
@@ -2740,10 +2767,41 @@ export default function Etudiants() {
             className="w-full border border-slate-300 rounded-lg pl-9 pr-3 py-2 text-sm" />
         </div>
         <select value={section} onChange={e => setSection(e.target.value)}
+          title="La section de l'étudiant — posée, ou déduite de ses UE"
           className="border border-slate-300 rounded-lg px-3 py-2 text-sm">
           <option value="">Toutes les sections</option>
           {sections.map(s => <option key={s.code} value={s.code}>{s.libelle}</option>)}
+          <option value="__aucune__">Sans section</option>
         </select>
+        <select value={fNiveau} onChange={e => setFNiveau(e.target.value)}
+          className="border border-slate-300 rounded-lg px-3 py-2 text-sm">
+          <option value="">Tous les niveaux</option>
+          <option value="BA1">BA1</option>
+          <option value="BA2">BA2</option>
+          <option value="BA3">BA3</option>
+          <option value="MIXTE">Parcours mixte</option>
+          <option value="aucun">Sans niveau</option>
+        </select>
+        <select value={fUE} onChange={e => setFUE(e.target.value)}
+          className="border border-slate-300 rounded-lg px-3 py-2 text-sm">
+          <option value="">Avec ou sans UE</option>
+          <option value="sans">Sans aucune UE</option>
+          <option value="avec">Avec des UE</option>
+        </select>
+        <select value={fRatt} onChange={e => setFRatt(e.target.value)}
+          title="Posée dans le dossier, ou déduite par Lucie de ses UE"
+          className="border border-slate-300 rounded-lg px-3 py-2 text-sm">
+          <option value="">Section posée ou déduite</option>
+          <option value="posee">Section posée</option>
+          <option value="deduite">Section déduite seulement</option>
+          <option value="aucune">Aucune section</option>
+        </select>
+        {(section || fNiveau || fUE || fRatt) && (
+          <button className="text-[12px] text-iip-blue underline self-center"
+            onClick={() => { setSection(''); setFNiveau(''); setFUE(''); setFRatt(''); }}>
+            Tout effacer
+          </button>
+        )}
         <div className="segments">
           {[
             { k: 'en_cours', l: 'En cours',
@@ -2815,7 +2873,7 @@ export default function Etudiants() {
                 </th>
                 <ThTri champ="nom"     tri={tri} onTri={trierPar} className="text-left">Étudiant</ThTri>
                 <ThTri champ="email"   tri={tri} onTri={trierPar} className="text-left">Email</ThTri>
-                <ThTri champ="section" tri={tri} onTri={trierPar} className="text-left w-24">Sections</ThTri>
+                <ThTri champ="section" tri={tri} onTri={trierPar} className="text-left w-24">Section</ThTri>
                 <ThTri champ="niveau"  tri={tri} onTri={trierPar} className="text-left w-24">Niveau</ThTri>
                 <ThTri champ="nb_ue"   tri={tri} onTri={trierPar} className="text-right w-16">UE</ThTri>
                 <th className="px-4 py-2.5 w-10"></th>
@@ -2892,7 +2950,16 @@ export default function Etudiants() {
                     </div>
                   </td>
                   <td className="px-4 py-2.5 text-slate-500 text-[13px]">{e.email_ecole}</td>
-                  <td className="px-4 py-2.5 text-[12px] text-slate-500">{e.sections}</td>
+                  {/* Sa section ; « déduite » tant qu'elle n'est pas posée.
+                      Les sections de ses UE restent lisibles au survol : elles
+                      disent où il suit des cours, pas où il est rattaché. */}
+                  <td className="px-4 py-2.5 text-[12px] text-slate-500"
+                    title={e.sections ? `UE suivies dans : ${e.sections.split(',').join(', ')}` : undefined}>
+                    {e.section_rattachement || <span className="text-slate-300">—</span>}
+                    {e.section_rattachement && e.section_deduite && (
+                      <span className="text-[11px] text-slate-400"> (déduite)</span>
+                    )}
+                  </td>
                   <td className="px-4 py-2.5">
                     <BadgeNiveau niveau={e.niveau} libelle={e.niveau_libelle} />
                     {/* Le diplôme se dit là où on lit le niveau : c'est la même
