@@ -6,7 +6,18 @@
 import { Router } from 'express';
 import db from '../db/index.js';
 import { anneeDeTravail, anneeActiveEnBase } from '../helpers/annee.js';
-import { authRequired } from '../middleware/auth.js';
+import { authRequired, roleRequired } from '../middleware/auth.js';
+import { PEUT_INSTRUIRE, PEUT_VALIDER } from '../lib/valorisation.js';
+
+/* QUI INSTRUIT UNE PROCÉDURE (Charles, 21 septembre 2026 : « c'est un travail
+ * d'équipe, la coordination coordonne les moyens »). Recours et fraude
+ * s'instruisent comme une valorisation : coordination, secrétariat, direction
+ * — la même liste, écrite une fois dans lib/valorisation.js. Aucune de ces
+ * routes ne contrôlait le rôle : tout compte connecté écrivait, et effaçait.
+ * EFFACER UNE ARCHIVE reste à la direction : une décision notifiée qu'on peut
+ * faire disparaître ne prouve plus rien. */
+const instruire = roleRequired(...PEUT_INSTRUIRE);
+const direction = roleRequired(...PEUT_VALIDER);
 import { getParam, getParamNum, piedDocument } from './parametres.js';
 import multer from 'multer';
 import { mkdirSync, existsSync } from 'fs';
@@ -179,7 +190,7 @@ function piedEtablissement() {
 }
 
 // ─── POST /procedures/pv-recours ──────────────────────────────────────────────
-r.post('/pv-recours', authRequired, (req, res) => {
+r.post('/pv-recours', authRequired, instruire, (req, res) => {
   const {
     etudiant, ue_num, membres_presents,
     date_publi, date_recours, date_seance, date_envoi,
@@ -361,7 +372,7 @@ r.post('/pv-recours', authRequired, (req, res) => {
 });
 
 // ─── POST /procedures/pv-fraude ───────────────────────────────────────────────
-r.post('/pv-fraude', authRequired, (req, res) => {
+r.post('/pv-fraude', authRequired, instruire, (req, res) => {
   const {
     etudiant, ue_num, ue_nom, membres_presents,
     date_examen, date_faits, date_notification, date_audition,
@@ -480,7 +491,7 @@ r.get('/archives/:id', authRequired, (req, res) => {
 
 // ─── PATCH /procedures/archives/:id ──────────────────────────────────────────
 // Modifier statut ou notes ; la suppression physique nécessite statut='a_supprimer' + confirm
-r.patch('/archives/:id', authRequired, (req, res) => {
+r.patch('/archives/:id', authRequired, instruire, (req, res) => {
   const { statut } = req.body;
   const proc = db.prepare('SELECT id FROM procedure_archive WHERE id = ?').get(req.params.id);
   if (!proc) return res.status(404).json({ error: 'Procédure introuvable' });
@@ -493,7 +504,7 @@ r.patch('/archives/:id', authRequired, (req, res) => {
 
 // ─── DELETE /procedures/archives/:id ─────────────────────────────────────────
 // Suppression physique définitive — nécessite confirmation explicite (body: { confirme: true })
-r.delete('/archives/:id', authRequired, (req, res) => {
+r.delete('/archives/:id', authRequired, direction, (req, res) => {
   if (!req.body?.confirme) return res.status(400).json({ error: 'Suppression physique : envoyer { confirme: true }' });
   const proc = db.prepare('SELECT id, etudiant, type FROM procedure_archive WHERE id = ?').get(req.params.id);
   if (!proc) return res.status(404).json({ error: 'Procédure introuvable' });
@@ -503,7 +514,7 @@ r.delete('/archives/:id', authRequired, (req, res) => {
 
 // ─── POST /procedures/archives/:id/regenerer ─────────────────────────────────
 // Re-génère le HTML depuis le payload sauvegardé (sans créer une nouvelle ligne en DB)
-r.post('/archives/:id/regenerer', authRequired, (req, res) => {
+r.post('/archives/:id/regenerer', authRequired, instruire, (req, res) => {
   const proc = db.prepare('SELECT * FROM procedure_archive WHERE id = ?').get(req.params.id);
   if (!proc) return res.status(404).json({ error: 'Procédure introuvable' });
   let payload;
@@ -526,7 +537,7 @@ r.post('/archives/:id/regenerer', authRequired, (req, res) => {
 
 // ── Créer ou mettre à jour un brouillon ─────────────────────────────────────
 // POST : crée un brouillon (statut='brouillon'), retourne l'id
-r.post('/draft', authRequired, (req, res) => {
+r.post('/draft', authRequired, instruire, (req, res) => {
   const { type = 'recours', annee, etudiant, ue_num, ue_nom, section, payload } = req.body;
   const proc = db.prepare(`
     INSERT INTO procedure_archive
@@ -538,7 +549,7 @@ r.post('/draft', authRequired, (req, res) => {
 });
 
 // PATCH /draft/:id : mettre à jour le payload du brouillon
-r.patch('/draft/:id', authRequired, (req, res) => {
+r.patch('/draft/:id', authRequired, instruire, (req, res) => {
   const proc = db.prepare('SELECT id, statut FROM procedure_archive WHERE id = ?').get(req.params.id);
   if (!proc) return res.status(404).json({ error: 'Brouillon introuvable' });
   const { etudiant, ue_num, ue_nom, section, annee, payload } = req.body;
@@ -567,7 +578,7 @@ r.get('/drafts', authRequired, (req, res) => {
 });
 
 // ── Upload courrier étudiant ─────────────────────────────────────────────────
-r.post('/archives/:id/upload', authRequired, upload.single('fichier'), (req, res) => {
+r.post('/archives/:id/upload', authRequired, instruire, upload.single('fichier'), (req, res) => {
   const proc = db.prepare('SELECT id FROM procedure_archive WHERE id = ?').get(req.params.id);
   if (!proc) return res.status(404).json({ error: 'Procédure introuvable' });
   if (!req.file) return res.status(400).json({ error: 'Aucun fichier reçu' });
@@ -578,7 +589,7 @@ r.post('/archives/:id/upload', authRequired, upload.single('fichier'), (req, res
 });
 
 // ── Persister profs présents ────────────────────────────────────────────────
-r.patch('/archives/:id/profs', authRequired, (req, res) => {
+r.patch('/archives/:id/profs', authRequired, instruire, (req, res) => {
   const proc = db.prepare('SELECT id FROM procedure_archive WHERE id = ?').get(req.params.id);
   if (!proc) return res.status(404).json({ error: 'Procédure introuvable' });
   const { profs_presents } = req.body; // array d'IDs
@@ -588,7 +599,7 @@ r.patch('/archives/:id/profs', authRequired, (req, res) => {
 });
 
 // ── Tracer le PDF généré (appelé côté client après impression) ──────────────
-r.post('/archives/:id/trace-pdf', authRequired, (req, res) => {
+r.post('/archives/:id/trace-pdf', authRequired, instruire, (req, res) => {
   const proc = db.prepare('SELECT id, etudiant FROM procedure_archive WHERE id = ?').get(req.params.id);
   if (!proc) return res.status(404).json({ error: 'Procédure introuvable' });
   const genere_par = req.user?.email || req.user?.nom || 'inconnu';
@@ -604,7 +615,7 @@ r.post('/archives/:id/trace-pdf', authRequired, (req, res) => {
 // ─── POST /procedures/html-to-pdf ─────────────────────────────────────────────
 // Convertit un HTML déjà généré (PV recours/fraude, avec son <tfoot>) en PDF fiable
 // via Chrome headless — même moteur que celui utilisé pour les contrats.
-r.post('/html-to-pdf', authRequired, async (req, res) => {
+r.post('/html-to-pdf', authRequired, instruire, async (req, res) => {
   try {
     const { html, nom } = req.body || {};
     if (!html) return res.status(400).json({ error: 'html requis' });

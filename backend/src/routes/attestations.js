@@ -19,7 +19,8 @@ import { LOGO_IIP_JPEG } from '../services/assets/logo_iip_jpeg.js';
 import { piedBalisage, piedStyles, reglesDePage, stylesEntete, enteteDocument,
   BANDE_PIED_MM, MARGE_SOUS_PIED_MM, piedGabaritPdf } from '../lib/document.js';
 import db from '../db/index.js';
-import { authRequired, getUserSections } from '../middleware/auth.js';
+import { authRequired, getUserSections, roleRequired } from '../middleware/auth.js';
+import { PEUT_INSTRUIRE } from '../lib/valorisation.js';
 import { capacitePdf, rendrePdf, compterPages } from '../services/pdf.js';
 import { SIGNATURE_SOHET, SCEAU_IIP } from '../services/assets/signature_sohet.js';
 import { piedDocument } from './parametres.js';
@@ -1280,7 +1281,24 @@ r.get('/valorisation/ue/:ueNum/seance', authRequired, (req, res) => {
  * Les présences sont remplacées en bloc : ce que l'écran envoie est l'état de
  * la séance, pas un correctif. Une séance close ne se modifie plus.
  */
-r.put('/valorisation/ue/:ueNum/seance', authRequired, (req, res) => {
+
+/* LA SÉANCE DE VALORISATION SE TIENT PAR CEUX QUI INSTRUISENT (21 septembre
+ * 2026). Ces deux portes n'avaient AUCUN contrôle de rôle : tout compte
+ * connecté pouvait modifier la séance et produire le PV d'annexe 4 et les
+ * attestations — des pièces signées. À l'IIP, c'est un travail d'équipe : la
+ * coordination instruit avec le secrétariat et la direction (PEUT_INSTRUIRE),
+ * et dans le périmètre de ses sections. */
+function unitePermise(req, res) {
+  const permises = getUserSections(req.user);
+  if (!permises) return true;
+  const sections = db.prepare('SELECT DISTINCT section FROM ue WHERE ue_num = ? AND section IS NOT NULL')
+    .all(Number(req.params.ueNum)).map(x => x.section);
+  if (sections.some(x => permises.includes(x))) return true;
+  res.status(403).json({ error: 'Cette unité est hors de votre périmètre.' });
+  return false;
+}
+r.put('/valorisation/ue/:ueNum/seance', authRequired, roleRequired(...PEUT_INSTRUIRE), (req, res) => {
+  if (!unitePermise(req, res)) return;
   const ueNum = Number(req.params.ueNum);
   const annee = req.body?.annee;
   if (!annee) return res.status(400).json({ error: 'annee requise' });
@@ -1345,7 +1363,8 @@ r.put('/valorisation/ue/:ueNum/seance', authRequired, (req, res) => {
   res.json({ ok: true, ...etat, manques: manquesValorisation(etat, vas, ue, annee) });
 });
 
-r.post('/valorisation/ue/:ueNum/documents', authRequired, async (req, res) => {
+r.post('/valorisation/ue/:ueNum/documents', authRequired, roleRequired(...PEUT_INSTRUIRE), async (req, res) => {
+  if (!unitePermise(req, res)) return;
   const ueNum = Number(req.params.ueNum);
   const annee = req.body?.annee;
   if (!annee) return res.status(400).json({ error: 'annee requise' });

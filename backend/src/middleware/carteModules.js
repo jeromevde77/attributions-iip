@@ -108,7 +108,10 @@ export const CARTE = {
   nominations:             'personnel',
   ea12:                    'personnel',
   dcpp:                    'personnel',
-  disciplinaire:           'personnel',
+  // UN DOSSIER DISCIPLINAIRE EST UNE PROCÉDURE D'ÉTUDIANT, PAS UNE AFFAIRE
+  // DE PERSONNEL (21 septembre 2026). Rangé sous « personnel », il était
+  // fermé en écriture au secrétariat et ouvert en LECTURE aux enseignants.
+  disciplinaire:           'procedures',
   grille:                  'personnel',      // grille d'entretien
   assistants:              'personnel',
   'analyse-cv':            'recrutement',   // lecture d'un CV de candidat

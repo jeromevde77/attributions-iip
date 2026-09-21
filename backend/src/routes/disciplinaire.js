@@ -3,7 +3,8 @@ import multer from 'multer';
 import { existsSync, mkdirSync, unlinkSync } from 'fs';
 import { join } from 'path';
 import db from '../db/index.js';
-import { authRequired, exigerPerimetreProfesseur } from '../middleware/auth.js';
+import { authRequired, roleRequired, getUserSections } from '../middleware/auth.js';
+import { PEUT_INSTRUIRE, PEUT_VALIDER } from '../lib/valorisation.js';
 
 const r = Router();
 const DATA_DIR = process.env.DATA_DIR || '/app/data';
@@ -16,17 +17,25 @@ db.exec(`CREATE TABLE IF NOT EXISTS procedure_fichier (
 );
 CREATE INDEX IF NOT EXISTS idx_pf_proc ON procedure_fichier(procedure_id);`);
 
-function peutEcrire(user) {
-  if (!user) return false;
-  if (user.role === 'admin') return true;
-  try {
-    const row = db.prepare('SELECT permissions_json FROM utilisateur WHERE id = ?').get(user.id);
-    const pj = row && row.permissions_json ? JSON.parse(row.permissions_json) : {};
-    return !!(pj.listes && pj.listes.ecrire);
-  } catch { return false; }
+/* LES MÊMES MAINS QUE LE RECOURS ET LA FRAUDE (21 septembre 2026).
+ * L'écriture dépendait d'une case « Listes » : un directeur qui ne l'avait pas
+ * était refusé, un compte qui l'avait écrivait quel que soit son rôle. Et la
+ * lecture d'un dossier passait par exigerPerimetreProfesseur, qui lisait
+ * l'identifiant du DOSSIER comme celui d'un PROFESSEUR — un contrôle qui ne
+ * contrôlait rien. Instruire : coordination, secrétariat, direction. Effacer
+ * un dossier : direction seule. Lire : dans ses sections. */
+const ecritureRequise = roleRequired(...PEUT_INSTRUIRE);
+const direction = roleRequired(...PEUT_VALIDER);
+
+function sectionPermise(req, section) {
+  const permises = getUserSections(req.user);
+  return !permises || !section || permises.includes(section);
 }
-const ecritureRequise = (req, res, next) =>
-  peutEcrire(req.user) ? next() : res.status(403).json({ error: 'Écriture réservée (permission Listes requise)' });
+function dossierPermis(req, res, id) {
+  const c = db.prepare("SELECT id, section FROM procedure_archive WHERE id=? AND type='disciplinaire'").get(id);
+  if (!c || !sectionPermise(req, c.section)) { res.status(404).json({ error: 'Introuvable' }); return null; }
+  return c;
+}
 
 const storage = multer.diskStorage({
   destination(req, file, cb) {
@@ -41,7 +50,9 @@ const upload = multer({ storage, limits: { fileSize: 25 * 1024 * 1024 } });
 // Upsert d'un dossier (auto-save)
 r.post('/save', authRequired, ecritureRequise, (req, res) => {
   const { id, annee, etudiant, section, payload, statut } = req.body;
+  if (!sectionPermise(req, section)) return res.status(403).json({ error: 'Section hors de votre périmètre.' });
   if (id) {
+    if (!dossierPermis(req, res, id)) return;
     const ex = db.prepare("SELECT id FROM procedure_archive WHERE id = ? AND type = 'disciplinaire'").get(id);
     if (!ex) return res.status(404).json({ error: 'Dossier introuvable' });
     db.prepare(`UPDATE procedure_archive SET etudiant=?, section=?, annee_scolaire=?, payload_json=?, statut=COALESCE(?,statut), modifie_le=datetime('now') WHERE id=?`)
@@ -55,17 +66,20 @@ r.post('/save', authRequired, ecritureRequise, (req, res) => {
 });
 
 r.get('/cases', authRequired, (req, res) => {
-  res.json(db.prepare("SELECT id, etudiant, section, annee_scolaire, statut, cree_le, modifie_le FROM procedure_archive WHERE type='disciplinaire' ORDER BY modifie_le DESC").all());
+  res.json(db.prepare("SELECT id, etudiant, section, annee_scolaire, statut, cree_le, modifie_le FROM procedure_archive WHERE type='disciplinaire' ORDER BY modifie_le DESC").all()
+    .filter(c => sectionPermise(req, c.section)));
 });
 
-r.get('/cases/:id', authRequired, exigerPerimetreProfesseur, (req, res) => {
+r.get('/cases/:id', authRequired, (req, res) => {
+  if (!dossierPermis(req, res, req.params.id)) return;
   const c = db.prepare("SELECT * FROM procedure_archive WHERE id=? AND type='disciplinaire'").get(req.params.id);
   if (!c) return res.status(404).json({ error: 'Introuvable' });
   const fichiers = db.prepare('SELECT id, categorie, nom, taille, cree_le FROM procedure_fichier WHERE procedure_id=? ORDER BY cree_le DESC').all(c.id);
   res.json({ ...c, payload: c.payload_json ? JSON.parse(c.payload_json) : {}, fichiers });
 });
 
-r.delete('/cases/:id', authRequired, exigerPerimetreProfesseur, ecritureRequise, (req, res) => {
+r.delete('/cases/:id', authRequired, direction, (req, res) => {
+  if (!dossierPermis(req, res, req.params.id)) return;
   const c = db.prepare("SELECT id FROM procedure_archive WHERE id=? AND type='disciplinaire'").get(req.params.id);
   if (!c) return res.status(404).json({ error: 'Introuvable' });
   for (const f of db.prepare('SELECT chemin FROM procedure_fichier WHERE procedure_id=?').all(c.id)) { try { unlinkSync(f.chemin); } catch {} }
@@ -74,7 +88,7 @@ r.delete('/cases/:id', authRequired, exigerPerimetreProfesseur, ecritureRequise,
   res.json({ ok: true });
 });
 
-r.post('/cases/:id/fichiers', authRequired, exigerPerimetreProfesseur, ecritureRequise, upload.single('fichier'), (req, res) => {
+r.post('/cases/:id/fichiers', authRequired, ecritureRequise, (req, res, next) => (dossierPermis(req, res, req.params.id) ? next() : null), upload.single('fichier'), (req, res) => {
   const c = db.prepare("SELECT id FROM procedure_archive WHERE id=? AND type='disciplinaire'").get(req.params.id);
   if (!c) return res.status(404).json({ error: 'Dossier introuvable' });
   if (!req.file) return res.status(400).json({ error: 'Aucun fichier' });
@@ -86,12 +100,14 @@ r.post('/cases/:id/fichiers', authRequired, exigerPerimetreProfesseur, ecritureR
 r.get('/fichiers/:fid/download', authRequired, (req, res) => {
   const f = db.prepare('SELECT * FROM procedure_fichier WHERE id=?').get(req.params.fid);
   if (!f || !existsSync(f.chemin)) return res.status(404).json({ error: 'Fichier introuvable' });
+  if (!dossierPermis(req, res, f.procedure_id)) return;
   res.download(f.chemin, f.nom);
 });
 
 r.delete('/fichiers/:fid', authRequired, ecritureRequise, (req, res) => {
   const f = db.prepare('SELECT * FROM procedure_fichier WHERE id=?').get(req.params.fid);
   if (!f) return res.status(404).json({ error: 'Introuvable' });
+  if (!dossierPermis(req, res, f.procedure_id)) return;
   try { unlinkSync(f.chemin); } catch {}
   db.prepare('DELETE FROM procedure_fichier WHERE id=?').run(f.id);
   res.json({ ok: true });
