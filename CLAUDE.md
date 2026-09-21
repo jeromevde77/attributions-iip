@@ -140,6 +140,15 @@ NAS Synology.
 > La restauration de sauvegarde reste gardée par `NODE_ENV`, non par l'adresse :
 > le déménagement ne l'affaiblit pas.
 
+- **Trois comptes sur le VPS** (21 septembre 2026) : `debian` (compte d'origine
+  OVH, sudo sans mot de passe), `jeromevde` (Jérôme, mot de passe, groupes
+  `sudo` et `docker`), et **`lucie-ops`** — Claude, **sans shell**, clé liée au
+  script `/usr/local/sbin/lucie-ops` : `version`, `sauvegarde`, `maj-dev`,
+  `maj-prod` (qui sauvegarde d'abord), `lecture "<SELECT…>"`. Depuis le Mac :
+  `ssh lucie-vps <verbe>`. Toute écriture en base reste un geste de Jérôme.
+  Détail et révocation : `scripts/vps/INSTALLATION.md` ; journal :
+  `sudo journalctl -t lucie-ops`. La connexion par mot de passe reste ouverte
+  (choix de Jérôme) : ne pas poser `PasswordAuthentication no`.
 - Base : `/app/data/attributions.db` dans le conteneur. **SQLite3 n'est pas
   installé** → interroger via `node -e "const Database = require('better-sqlite3') …"`.
 - La **base de dev est séparée** (volume `attributions-data-dev`) : aucun risque
