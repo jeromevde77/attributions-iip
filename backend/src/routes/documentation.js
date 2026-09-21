@@ -377,12 +377,22 @@ r.get('/:cle/registre', authRequired, roleRequired(...PEUT_PUBLIER), (req, res) 
   res.json({ document: d, version: v, roles, lignes });
 });
 
-/** Un lien vers le texte officiel — http(s) seulement, ou rien. `false` = refusé. */
+/** Un lien vers le texte officiel — http(s) seulement, ou rien. `false` = refusé.
+ *
+ * « www.gallilex.cfwb.be/… » est évidemment une adresse : la refuser parce
+ * qu'elle ne commence pas par https:// bloquait une publication pour un champ
+ * FACULTATIF (constaté par Charles le 21 septembre, en publiant la procédure
+ * VA). Une adresse sans protocole reçoit https:// ; ce qui n'a pas la forme
+ * d'une adresse reste refusé — un « javascript: » ne doit pas devenir un lien. */
 function lienSource(v) {
   const s = String(v ?? '').trim();
   if (!s) return null;
-  return /^https?:\/\/\S+$/i.test(s) ? s : false;
+  if (/^https?:\/\/\S+$/i.test(s)) return s;
+  if (/^(www\.)?[a-z0-9-]+(\.[a-z0-9-]+)*\.[a-z]{2,}(\/\S*)?$/i.test(s)) return `https://${s}`;
+  return false;
 }
+const refusLien = v => `« ${String(v).trim().slice(0, 80)} » n’est pas une adresse web. `
+  + 'Ce champ est facultatif : videz-le, ou indiquez une adresse (https://…).';
 
 /* ANALYSER UN FICHIER — Word ou PDF — ET NE RIEN ÉCRIRE.
  *
@@ -423,7 +433,7 @@ r.post('/', authRequired, roleRequired(...PEUT_PUBLIER), (req, res) => {
     cle = `${base}-${n++}`;
   }
   const source = lienSource(req.body?.source_url);
-  if (source === false) return res.status(400).json({ error: 'Le lien vers la source doit commencer par https:// ou http://.' });
+  if (source === false) return res.status(400).json({ error: refusLien(req.body.source_url) });
   const info = db.prepare(`INSERT INTO corpus_document
     (cle, titre, nature, domaine, resume, source_url) VALUES (?,?,?,?,?,?)`)
     .run(cle, titre, nature, req.body?.domaine || null, req.body?.resume || null, source);
@@ -481,7 +491,7 @@ r.post('/:cle/versions', authRequired, roleRequired(...PEUT_PUBLIER), (req, res)
 
   if (req.body?.source_url !== undefined) {
     const source = lienSource(req.body.source_url);
-    if (source === false) return res.status(400).json({ error: 'Le lien vers la source doit commencer par https:// ou http://.' });
+    if (source === false) return res.status(400).json({ error: refusLien(req.body.source_url) });
     db.prepare('UPDATE corpus_document SET source_url = ? WHERE id = ?').run(source, d.id);
   }
 

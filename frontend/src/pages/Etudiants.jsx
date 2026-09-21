@@ -21,6 +21,7 @@ import CentreEchanges from '../components/CentreEchanges.jsx';
 import CentreDiplomation from '../components/CentreDiplomation.jsx';
 import SeanceValorisation from '../components/SeanceValorisation.jsx';
 import ImportSurMesure from '../components/ImportSurMesure.jsx';
+import ImportSignaletique from '../components/ImportSignaletique.jsx';
 import ImportSuivi from '../components/ImportSuivi.jsx';
 import Annexe2 from '../components/Annexe2.jsx';
 import MotivationDecision from '../components/MotivationDecision.jsx';
@@ -2301,6 +2302,7 @@ export default function Etudiants() {
   const [diplomation, setDiplomation] = useState(false);
   const [comparaison, setComparaison] = useState(false);
   const [importSurMesure, setImportSurMesure] = useState(false);
+  const [importSignaletique, setImportSignaletique] = useState(false);
   const [importSuivi, setImportSuivi] = useState(false);
   const [tri, setTri] = useState({ champ: 'nom', sens: 1 });
 
@@ -2955,6 +2957,9 @@ export default function Etudiants() {
       {importSurMesure && (
         <ImportSurMesure onClose={() => setImportSurMesure(false)} onTermine={charger} annee={annee} />
       )}
+      {importSignaletique && (
+        <ImportSignaletique onClose={() => setImportSignaletique(false)} onTermine={charger} />
+      )}
 
       {centrePAE && (
         <CentrePAE annee={annee} etudiants={[...selEtudiants]}
@@ -2976,6 +2981,13 @@ export default function Etudiants() {
               } },
           ]}
           entrees={[
+            /* EN TÊTE : c'est l'import d'une rentrée, et il n'avait pas de
+               porte — la création était une case cachée de l'importateur sur
+               mesure, qui annonce COMPLÉTER. Le nom est celui de Charles. */
+            { cle: 'creer-externe', titre: 'Créer des étudiants sur base d’une base de données externe',
+              quoi: 'Ouvrir les dossiers d’une nouvelle promotion ; ceux qui existent déjà sont complétés, jamais dédoublés.',
+              attend: 'l’export eCampus des étudiants (R_Etudiants_Excel, .xls)',
+              onClick: () => setImportSignaletique(true) },
             { cle: 'liste', titre: 'Liste eCampus',
               quoi: 'Créer ou compléter les dossiers depuis la liste officielle.',
               attend: "l'export eCampus (.xlsx)",

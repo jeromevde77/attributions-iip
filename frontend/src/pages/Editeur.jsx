@@ -512,7 +512,11 @@ export function Toolbar({ editor, sobre = false }) {
   }
   if (!editor) return null;
   return (
-    <div className="flex flex-wrap items-center gap-0.5 px-2 py-1.5 h-9 border-b border-gray-200 bg-gray-50 sticky top-0 z-10">
+    /* LA BARRE PREND LA HAUTEUR DE CE QU'ELLE PORTE. Elle était fixée à
+       36 px et passe sur deux lignes dès qu'un tableau est sélectionné (ou
+       qu'on est dans une fenêtre) : la seconde ligne débordait, et le texte
+       défilait DERRIÈRE « Fusionner / Scinder ». min-h, pas h. */
+    <div className="flex flex-wrap items-center gap-0.5 px-2 py-1.5 min-h-9 border-b border-gray-200 bg-gray-50 sticky top-0 z-10">
       <Btn onClick={() => editor.chain().focus().undo().run()} disabled={!editor?.can()?.undo?.()} title="Annuler">↩</Btn>
       <Btn onClick={() => editor.chain().focus().redo().run()} disabled={!editor?.can()?.redo?.()} title="Rétablir">↪</Btn>
       <Sep/>
