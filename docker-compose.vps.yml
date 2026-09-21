@@ -103,6 +103,9 @@ services:
       # qu'une version ultérieure pourrait changer.
       LUCIE_URL: https://www.lucie-iip.be
       NODE_ENV: production
+      # Constaté le 21 septembre 2026 sur le serveur : la production est en
+      # strict. Cette copie ne le disait pas, et l'on a cru le contraire.
+      PERMISSIONS_MODE: strict
       TZ: Europe/Brussels
       PORT: 3001
       JWT_SECRET: ${JWT_SECRET_PROD:?JWT_SECRET_PROD manquant dans .env}
