@@ -1542,13 +1542,30 @@ export function sectionRattachement(etudId, annee = null) {
   // compter dans la déduction, c'est laisser un héritage d'import trancher un
   // rattachement — et, sur un étudiant qui ne porte qu'une ou deux unités, le
   // trancher faux.
-  const lignes = db.prepare(`
+  const lire = an => db.prepare(`
     SELECT (SELECT section FROM ue u WHERE u.ue_num = i.ue_num AND u.section IS NOT NULL
               AND COALESCE(u.hors_cursus, 0) = 0
              ORDER BY u.annee_scolaire DESC LIMIT 1) AS section
     FROM etudiant_inscription i
-    WHERE i.etudiant_id = ?${annee ? ' AND i.annee_scolaire = ?' : ''}
-  `).all(...(annee ? [etudId, annee] : [etudId])).map(x => x.section).filter(Boolean);
+    WHERE i.etudiant_id = ?${an ? ' AND i.annee_scolaire = ?' : ''}
+  `).all(...(an ? [etudId, an] : [etudId])).map(x => x.section).filter(Boolean);
+  let lignes = lire(annee);
+
+  /* UNE ANNÉE SANS INSCRIPTION N'EST PAS UN ÉTUDIANT SANS SECTION (21
+   * septembre 2026). En passant sur 2026-2027, TOUS les étudiants de 25-26
+   * sont apparus « sans section » : leur PAE de l'année suivante n'était pas
+   * encore composé, la déduction ne regardait que l'année choisie, et elle ne
+   * trouvait rien. Rien n'était perdu en base — mais une liste où six cents
+   * personnes n'ont plus de section se lit comme une catastrophe, et un
+   * filtre par section les rendait introuvables. À défaut d'inscription dans
+   * l'année, on reprend la dernière année où il en a. */
+  if (!lignes.length && annee) {
+    const derniere = db.prepare(`SELECT MAX(annee_scolaire) AS a FROM etudiant_inscription
+      WHERE etudiant_id = ? AND annee_scolaire <= ?`).get(etudId, annee)?.a
+      || db.prepare('SELECT MAX(annee_scolaire) AS a FROM etudiant_inscription WHERE etudiant_id = ?')
+        .get(etudId)?.a;
+    if (derniere) lignes = lire(derniere);
+  }
 
   if (!lignes.length) return { section: null, deduite: true };
   const compte = {};
@@ -3439,9 +3456,20 @@ r.post('/pae-promotion', authRequired,
   const retenus = Array.isArray(etudiants) && etudiants.length
     ? new Set(etudiants.map(Number)) : null;
 
+  /* SUIVRE UNE UE D'UNE SECTION N'EST PAS ÊTRE DE CETTE SECTION (21 septembre
+   * 2026). La promotion prenait tout inscrit à l'UNE des unités de la section,
+   * puis lui composait le programme COMPLET de cette section : un étudiant de
+   * TIM qui suivait une unité partagée d'Optométrie recevait tout le PAE
+   * d'Optométrie. Lancée pour les quatre sections, elle a inscrit en 2026-2027
+   * des centaines d'étudiants dans des sections qui ne sont pas les leurs.
+   * La section de l'étudiant (rattachement, déduction à défaut) décide. */
+  const autreSection = [];
+
   const prets = [], attente = [], rien = [];
   for (const e of gens) {
     if (retenus && !retenus.has(e.id)) continue;
+    const sa = sectionRattachement(e.id, annee_source).section;
+    if (sa !== section) { autreSection.push({ ...e, section: sa || null }); continue; }
     const adm = admissibilitePAE(e.id, annee_source);
     if (!adm.admissible) { attente.push({ ...e, attentes: adm.attentes }); continue; }
 
@@ -3498,7 +3526,8 @@ r.post('/pae-promotion', authRequired,
 
   res.json({
     section, annee_source, annee_cible, simulation: !!simulation,
-    promotion: gens.length,
+    promotion: gens.length - autreSection.length,
+    autre_section: autreSection,
     prets, attente, sans_programme: rien,
     total: {
       prets: prets.length, attente: attente.length, sans_programme: rien.length,
