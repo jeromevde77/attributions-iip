@@ -2,12 +2,14 @@ import { useEffect, useMemo, useState } from 'react';
 import {
   IconCalendarEvent, IconChecklist, IconPlus, IconPrinter, IconTimeline,
   IconCheck, IconChevronLeft, IconClock, IconUser, IconX, IconTrash,
+  IconClipboardPlus, IconEye, IconSearch,
 } from '@tabler/icons-react';
 import { authHeaders } from '../lib/api.js';
 import FriseEcheances from '../components/FriseEcheances.jsx';
 import { PageHeader, RailLateral } from '../components/ui.jsx';
 import { nomDepuisChaine, nomListe, parNom } from '../lib/nom.js';
 import PreviewModal from '../components/PreviewModal.jsx';
+import ConfierTache from '../components/ConfierTache.jsx';
 
 /**
  * SUIVI D'ÉQUIPE — la réunion, et ce qu'elle laisse derrière elle.
@@ -74,6 +76,7 @@ export default function SuiviEquipe() {
   const [perimetre, setPerimetre] = useState({ sections: [], ues: [] });
   const [apercu, setApercu] = useState(null);
   const [filtreStatut, setFiltreStatut] = useState('ouvertes');
+  const [confier, setConfier] = useState(false);
 
   const api = async (chemin, options = {}) => {
     const rep = await fetch('/api/reunions' + chemin, {
@@ -139,6 +142,10 @@ export default function SuiviEquipe() {
               actif: vue === 'reunions', onClick: () => { setVue('reunions'); setOuverte(null); } },
           ]},
           { label: 'Actions', items: [
+            /* CONFIER SE FAIT ICI, OÙ LA TÂCHE SE SUIT (21 septembre 2026) —
+               l'entrée de l'Accueil était « une icône de trop ». */
+            { key: 'confier', label: 'Confier une tâche', icon: IconClipboardPlus,
+              onClick: () => setConfier(true) },
             { key: 'nouvelle', label: 'Nouvelle réunion', icon: IconPlus,
               onClick: () => nouvelleReunion() },
             { key: 'feuille', label: 'Feuille des tâches', icon: IconPrinter,
@@ -215,6 +222,10 @@ export default function SuiviEquipe() {
             onImprimer={() => imprimer('/taches/document')} />
         )}
       </div>
+
+      {confier && (
+        <ConfierTache onClose={() => setConfier(false)} onCree={() => chargerTaches()} />
+      )}
 
       {apercu && (
         <PreviewModal html={apercu.html} titre={apercu.titre} nomFichier={apercu.nom}
@@ -606,30 +617,35 @@ function clesDeTache(t) {
  * tableau de bord. Chaque nom retenu devient une pastille ; la première est
  * celle qui répond de l'action.
  */
-function ChoixResponsables({ personnes, presents = [], tache, onChange }) {
-  const cles = clesDeTache(tache);
+function ChoixResponsables({ personnes, presents = [], tache, onChange, informes = false }) {
+  const cles = informes ? (tache.informes || []).map(x => x.cle).filter(Boolean) : clesDeTache(tache);
+  const exclus = informes ? clesDeTache(tache) : [];
   const nomDeCle = cle => {
     if (cle.startsWith('r:')) return ROLES_CIBLES.find(r => r[0] === cle.slice(2))?.[1] || cle.slice(2);
     const p = personnes.find(x => x.cle === cle);
     return p ? nomListe(p.nom)
-      : nomListe(tache.responsables?.find(x => x.cle === cle)?.nom || '') || '—';
+      : nomListe([...(tache.responsables || []), ...(tache.informes || [])]
+          .find(x => x.cle === cle)?.nom || '') || '—';
   };
   const dansLaSalle = presents
     .map(p => personnes.find(x => x.cle === p.cle) || p)
-    .filter(p => p?.cle && !cles.includes(p.cle))
+    .filter(p => p?.cle && !cles.includes(p.cle) && !exclus.includes(p.cle))
     .sort((a, b) => parNom(a.nom, b.nom));
   const restants = personnes
-    .filter(p => !cles.includes(p.cle) && !dansLaSalle.some(d => d.cle === p.cle))
+    .filter(p => !cles.includes(p.cle) && !exclus.includes(p.cle)
+      && !dansLaSalle.some(d => d.cle === p.cle))
     .sort((a, b) => parNom(a.nom, b.nom));
 
   return (
     <div className={`flex flex-wrap items-center gap-1 min-w-[10rem] max-w-[18rem]
-      ${cles.length ? '' : 'rounded-champ ring-1 ring-amber-300 px-1 py-0.5'}`}>
+      ${cles.length || informes ? '' : 'rounded-champ ring-1 ring-amber-300 px-1 py-0.5'}`}>
       {cles.map((cle, i) => (
-        <span key={cle} title={i === 0 ? "Répond de l'action" : undefined}
+        <span key={cle} title={informes ? 'Au courant, sans en répondre'
+                              : i === 0 ? "Répond de l'action" : undefined}
           className={`inline-flex items-center gap-1 rounded-champ px-1.5 h-6 text-[11px]
-            ${i === 0 ? 'bg-iip-blue/10 text-iip-blue font-semibold'
+            ${!informes && i === 0 ? 'bg-iip-blue/10 text-iip-blue font-semibold'
                       : 'bg-slate-100 text-slate-600'}`}>
+          {informes && <IconEye size={11} className="text-slate-400" />}
           {nomDeCle(cle)}
           <button onClick={() => onChange(cles.filter(c => c !== cle))}
             className="text-slate-400 hover:text-slate-700" title="Retirer">
@@ -640,7 +656,7 @@ function ChoixResponsables({ personnes, presents = [], tache, onChange }) {
       <select value="" onChange={e => e.target.value && onChange([...cles, e.target.value])}
         className="bg-white border border-slate-300 rounded-champ px-1 h-6 text-[11px]
                    text-slate-500 max-w-[8rem]">
-        <option value="">{cles.length ? '+ aussi…' : '— qui ? —'}</option>
+        <option value="">{informes ? '+ au courant…' : cles.length ? '+ aussi…' : '— qui ? —'}</option>
         {!!dansLaSalle.length && (
           <optgroup label="Présents à la séance">
             {dansLaSalle.map(p => (
@@ -740,7 +756,7 @@ function ListeTaches({ taches, personnes, presents = [], obligations = [], api, 
     <div className="carte overflow-hidden">
       {taches.map(t => (
         <div key={t.id}
-          className="px-3 py-2 flex items-center gap-3 border-t border-slate-100 first:border-t-0">
+          className="px-3 py-2 flex flex-wrap items-center gap-3 border-t border-slate-100 first:border-t-0">
           {/* COCHER, C'EST LE GESTE DE LA RÉUNION — il doit être le plus court. */}
           <button onClick={() => majTache(t, { statut: t.statut === 'fait' ? 'a_faire' : 'fait' })}
             title={t.statut === 'fait' ? 'Rouvrir la tâche' : 'Marquer comme faite'}
@@ -777,6 +793,10 @@ function ListeTaches({ taches, personnes, presents = [], obligations = [], api, 
 
           <ChoixResponsables personnes={personnes} presents={presents} tache={t}
             onChange={cles => majTache(t, { responsables: cles })} />
+
+          {/* AU COURANT — voient la tâche, n'en répondent pas. */}
+          <ChoixResponsables personnes={personnes} tache={t} informes
+            onChange={cles => majTache(t, { informes: cles })} />
 
           {/* POUR QUAND — la deuxième moitié de toute décision. « Qui fait
               quoi » sans « pour quand » n'est pas une action, c'est une
@@ -845,35 +865,111 @@ function ListeTaches({ taches, personnes, presents = [], obligations = [], api, 
   );
 }
 
-/** La même matière, vue par personne : c'est ainsi qu'on la lit en séance. */
+/**
+ * LA MÊME MATIÈRE, FILTRÉE ET RANGÉE COMME ON LA CHERCHE (21 septembre 2026).
+ * « Par date, par personne, par section » : trois questions, trois rangements.
+ * Le filtre réduit, le regroupement range, le tri ordonne dans le groupe — et
+ * aucun des trois n'efface les autres.
+ */
+const REGROUPER = [
+  ['personne', 'Par personne'], ['echeance', 'Par échéance'],
+  ['section', 'Par section'], ['aucun', 'Sans regroupement'],
+];
+const TRIER = [
+  ['echeance', 'Échéance'], ['priorite', 'Priorité'],
+  ['titre', 'Intitulé'], ['creation', 'Date de création'],
+];
+
+function lundi(d) {
+  const x = new Date(d + 'T12:00:00'); const j = (x.getDay() + 6) % 7;
+  x.setDate(x.getDate() - j); return x.toISOString().slice(0, 10);
+}
+function tranche(t) {
+  if (!t.echeance) return [9, 'Sans échéance'];
+  if (enRetard(t)) return [0, 'En retard'];
+  const auj = aujourdhui(), l0 = lundi(auj);
+  const l1 = new Date(l0 + 'T12:00:00'); l1.setDate(l1.getDate() + 7);
+  const l2 = new Date(l0 + 'T12:00:00'); l2.setDate(l2.getDate() + 14);
+  if (t.echeance < l1.toISOString().slice(0, 10)) return [1, 'Cette semaine'];
+  if (t.echeance < l2.toISOString().slice(0, 10)) return [2, 'La semaine prochaine'];
+  if (t.echeance.slice(0, 7) === auj.slice(0, 7)) return [3, 'Plus tard ce mois-ci'];
+  return [4, 'Plus tard'];
+}
+
 function VueTaches({ taches, personnes, obligations, api, filtre, setFiltre,
                     onRecharger, onImprimer }) {
-  const visibles = taches.filter(t => filtre === 'toutes'
-    || (filtre === 'ouvertes' && (t.statut === 'a_faire' || t.statut === 'en_cours'))
-    || (filtre === 'retard' && enRetard(t)));
+  const [recherche, setRecherche] = useState('');
+  const [qui, setQui] = useState('');
+  const [section, setSection] = useState('');
+  const [regrouper, setRegrouper] = useState('personne');
+  const [trier, setTrier] = useState('echeance');
+  const libRole = r => ROLES_CIBLES.find(x => x[0] === r)?.[1] || r;
+
+  // LA SECTION D'UNE TÂCHE : celle de la réunion qui l'a décidée, et celles
+  // de ses responsables — une consigne de couloir n'a pas de réunion.
+  const sectionsDe = t => {
+    const out = new Set();
+    if (t.reunion_section) out.add(t.reunion_section);
+    for (const cle of clesDeTache(t)) {
+      for (const sct of personnes.find(p => p.cle === cle)?.sections || []) out.add(sct);
+    }
+    return [...out];
+  };
+  const toutesSections = useMemo(() => [...new Set([
+    ...taches.map(t => t.reunion_section).filter(Boolean),
+    ...personnes.flatMap(p => p.sections || []),
+  ])].sort(), [taches, personnes]);
+
+  const visibles = taches.filter(t => {
+    if (!(filtre === 'toutes'
+      || (filtre === 'ouvertes' && (t.statut === 'a_faire' || t.statut === 'en_cours'))
+      || (filtre === 'retard' && enRetard(t)))) return false;
+    if (recherche.trim() && !(t.titre || '').toLowerCase().includes(recherche.trim().toLowerCase())) return false;
+    if (qui && !clesDeTache(t).includes(qui) && !(t.informes || []).some(x => x.cle === qui)) return false;
+    if (section && !sectionsDe(t).includes(section)) return false;
+    return true;
+  });
+
+  const compare = (a, b) => {
+    if (trier === 'priorite') return (b.priorite ?? 1) - (a.priorite ?? 1) || (a.echeance || '9').localeCompare(b.echeance || '9');
+    if (trier === 'titre') return (a.titre || '').localeCompare(b.titre || '', 'fr');
+    if (trier === 'creation') return String(b.cree_le || '').localeCompare(String(a.cree_le || '')) || b.id - a.id;
+    return (a.echeance || '9').localeCompare(b.echeance || '9') || (b.priorite ?? 1) - (a.priorite ?? 1);
+  };
 
   // UNE ACTION PORTÉE À DEUX FIGURE CHEZ LES DEUX. La ranger chez le seul
   // premier nommé revient à dire au second qu'elle ne le concerne pas — c'est
   // exactement ce qu'on lui reprochera en séance.
   const groupes = useMemo(() => {
-    const libRole = r => ROLES_CIBLES.find(x => x[0] === r)?.[1] || r;
     const m = new Map();
+    const poser = (cle, t, rang = 0) => {
+      if (!m.has(cle)) m.set(cle, { rang, liste: [] });
+      m.get(cle).liste.push(t);
+    };
     for (const t of visibles) {
-      const cibles = t.responsables?.length
-        ? t.responsables.map(x => x.nom || libRole(x.role) || 'Sans responsable')
-        : [t.responsable_nom || (t.responsable_role ? libRole(t.responsable_role)
-            : 'Sans responsable')];
-      for (const cle of [...new Set(cibles)]) {
-        if (!m.has(cle)) m.set(cle, []);
-        m.get(cle).push(t);
+      if (regrouper === 'aucun') poser('', t);
+      else if (regrouper === 'echeance') { const [r, lib] = tranche(t); poser(lib, t, r); }
+      else if (regrouper === 'section') {
+        const l = sectionsDe(t);
+        (l.length ? l : ['Sans section']).forEach(x => poser(x, t, x === 'Sans section' ? 1 : 0));
+      } else {
+        const cibles = t.responsables?.length
+          ? t.responsables.map(x => x.nom || libRole(x.role) || 'Sans responsable')
+          : [t.responsable_nom || (t.responsable_role ? libRole(t.responsable_role)
+              : 'Sans responsable')];
+        for (const c of [...new Set(cibles)]) poser(c, t);
       }
     }
-    // Trié par NOM DE FAMILLE, comme la liste s'affiche : trier sur le prénom
-    // donnait un ordre que personne ne pouvait suivre des yeux.
-    return [...m.entries()].sort((a, b) => parNom(a[0], b[0]));
-  }, [visibles]);
+    const l = [...m.entries()].map(([nom, g]) => [nom, g.liste.sort(compare), g.rang]);
+    // Par NOM DE FAMILLE pour les personnes ; dans l'ordre du temps pour les
+    // échéances ; par nom pour les sections.
+    return l.sort((a, b) => a[2] - b[2] || (regrouper === 'personne' ? parNom(a[0], b[0])
+      : a[0].localeCompare(b[0], 'fr')));
+    // eslint-disable-next-line
+  }, [visibles, regrouper, trier, personnes]);
 
   const nbRetard = taches.filter(enRetard).length;
+  const filtresActifs = recherche || qui || section;
 
   return (
     <>
@@ -898,34 +994,66 @@ function VueTaches({ taches, personnes, obligations, api, filtre, setFiltre,
           </>
         } />
 
-      {/* LA FRISE AVANT LES LISTES.
-          Groupée par personne, la matière répond à « qu'a Untel en charge ? »
-          et cache précisément l'autre question — « qu'est-ce qui tombe la
-          semaine prochaine ? » —, celle d'une réunion de service, et la seule
-          qui fasse déplacer une date avant qu'il ne soit trop tard. Les trois
-          échéances du 12 sont réparties entre trois groupes, et personne ne les
-          voit tomber ensemble.
-          Elle porte TOUTES les tâches, pas seulement celles du filtre : une
-          frise qui suivrait « Ouvertes » perdrait ce qui vient d'être clos, et
-          on ne verrait plus que le mois est chargé. */}
       <FriseEcheances taches={taches} />
+
+      {/* FILTRER ET RANGER — des MOTS dans la barre de l'écran, pas des icônes
+          dans le rail. */}
+      <div className="flex flex-wrap items-center gap-2 mb-3">
+        <div className="relative">
+          <IconSearch size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+          <input value={recherche} onChange={e => setRecherche(e.target.value)}
+            placeholder="Chercher une tâche…" className="controle controle-icone text-[13px] w-56" />
+        </div>
+        <select value={qui} onChange={e => setQui(e.target.value)} className="controle text-[13px] max-w-[14rem]">
+          <option value="">Toutes les personnes</option>
+          {[...personnes].sort((a, b) => parNom(a.nom, b.nom)).map(p => (
+            <option key={p.cle} value={p.cle}>{nomListe(p.nom)}</option>
+          ))}
+          <optgroup label="Un service">
+            {ROLES_CIBLES.map(([c, lib]) => <option key={c} value={`r:${c}`}>{lib}</option>)}
+          </optgroup>
+        </select>
+        <select value={section} onChange={e => setSection(e.target.value)} className="controle text-[13px]">
+          <option value="">Toutes les sections</option>
+          {toutesSections.map(x => <option key={x} value={x}>{x}</option>)}
+        </select>
+        <select value={regrouper} onChange={e => setRegrouper(e.target.value)} className="controle text-[13px]">
+          {REGROUPER.map(([c, lib]) => <option key={c} value={c}>{lib}</option>)}
+        </select>
+        <label className="text-[12px] text-slate-500 flex items-center gap-1.5">
+          Trier par
+          <select value={trier} onChange={e => setTrier(e.target.value)} className="controle text-[13px]">
+            {TRIER.map(([c, lib]) => <option key={c} value={c}>{lib}</option>)}
+          </select>
+        </label>
+        {filtresActifs && (
+          <button className="bouton controle px-2.5 text-[12px] flex items-center gap-1"
+            onClick={() => { setRecherche(''); setQui(''); setSection(''); }}>
+            <IconX size={13} /> Effacer les filtres
+          </button>
+        )}
+        <span className="text-[12px] text-slate-500 ml-auto">{visibles.length} tâche(s)</span>
+      </div>
 
       {!groupes.length && (
         <p className="text-[13px] text-slate-400">Rien à ce filtre.</p>
       )}
 
       {groupes.map(([nom, liste]) => (
-        <div key={nom} className="mb-3">
-          <h2 className="text-[13px] font-semibold text-iip-blue mb-1.5 flex items-center gap-2">
-            <IconUser size={15} className="text-slate-400" />
-            {nomListe(nom)}
-            <span className="font-normal text-slate-400">— {liste.length} tâche(s)</span>
-            {liste.some(enRetard) && (
-              <span className="text-[11px] font-semibold text-amber-700 flex items-center gap-1">
-                <IconClock size={13} /> {liste.filter(enRetard).length} en retard
-              </span>
-            )}
-          </h2>
+        <div key={nom || 'tout'} className="mb-3">
+          {regrouper !== 'aucun' && (
+            <h2 className="text-[13px] font-semibold text-iip-blue mb-1.5 flex items-center gap-2">
+              {regrouper === 'personne' && <IconUser size={15} className="text-slate-400" />}
+              {regrouper === 'echeance' && <IconClock size={15} className="text-slate-400" />}
+              {regrouper === 'personne' ? nomListe(nom) : nom}
+              <span className="font-normal text-slate-400">— {liste.length} tâche(s)</span>
+              {regrouper !== 'echeance' && liste.some(enRetard) && (
+                <span className="text-[11px] font-semibold text-amber-700 flex items-center gap-1">
+                  <IconClock size={13} /> {liste.filter(enRetard).length} en retard
+                </span>
+              )}
+            </h2>
+          )}
           <ListeTaches taches={liste} personnes={personnes} obligations={obligations}
             api={api} onRecharger={onRecharger} compact />
         </div>

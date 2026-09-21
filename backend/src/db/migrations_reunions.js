@@ -138,6 +138,23 @@ export function migrerReunions(db) {
     CREATE INDEX IF NOT EXISTS idx_tache_personne ON tache_personne(tache_id, rang);
   `);
 
+  // ÊTRE AU COURANT N'EST PAS EN RÉPONDRE (Charles, 21 septembre 2026).
+  // « Je confie à Florian, et Natacha doit savoir que c'est confié. » Poser
+  // Natacha dans l'équipage la rendrait responsable : la tâche paraîtrait
+  // chez elle comme SA tâche, et dans « les miennes » de l'échéancier. Une
+  // table à part, donc — un informé voit la tâche, il n'en répond pas.
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS tache_informe (
+      id            INTEGER PRIMARY KEY AUTOINCREMENT,
+      tache_id      INTEGER NOT NULL REFERENCES tache(id) ON DELETE CASCADE,
+      user_id       INTEGER REFERENCES utilisateur(id),
+      professeur_id INTEGER REFERENCES professeur(id),
+      role          TEXT,
+      vu_le         TEXT
+    );
+    CREATE INDEX IF NOT EXISTS idx_tache_informe ON tache_informe(tache_id);
+  `);
+
   // UNE TÂCHE QUI ARRIVE DOIT SE VOIR ARRIVER.
   //
   // Confiée un vendredi soir, elle se noyait le lundi parmi les six autres :

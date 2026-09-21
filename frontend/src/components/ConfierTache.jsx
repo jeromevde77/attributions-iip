@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { IconClipboardPlus, IconSearch, IconX } from '@tabler/icons-react';
+import { IconClipboardPlus, IconEye, IconSearch, IconX } from '@tabler/icons-react';
 import { authHeaders, getAnnee } from '../lib/api.js';
 import { Fenetre } from './ui.jsx';
 
@@ -28,6 +28,9 @@ export default function ConfierTache({ onClose, onCree }) {
   const [recherche, setRecherche] = useState('');
   const [section, setSection] = useState('');
   const [choisies, setChoisies] = useState(() => new Set());
+  // AU COURANT, SANS EN RÉPONDRE (21 septembre 2026). Une même personne ne
+  // peut pas être les deux : cocher l'un retire l'autre.
+  const [informes, setInformes] = useState(() => new Set());
   const [form, setForm] = useState({
     titre: '', detail: '', echeance: '', priorite: 1,
   });
@@ -55,11 +58,22 @@ export default function ConfierTache({ onClose, onCree }) {
   }, [personnes, recherche, section]);
 
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
-  const basculer = cle => setChoisies(s => {
-    const n = new Set(s);
-    if (n.has(cle)) n.delete(cle); else n.add(cle);
-    return n;
-  });
+  const basculer = cle => {
+    setChoisies(s => {
+      const n = new Set(s);
+      if (n.has(cle)) n.delete(cle); else n.add(cle);
+      return n;
+    });
+    setInformes(s => { const n = new Set(s); n.delete(cle); return n; });
+  };
+  const basculerInforme = cle => {
+    setInformes(s => {
+      const n = new Set(s);
+      if (n.has(cle)) n.delete(cle); else n.add(cle);
+      return n;
+    });
+    setChoisies(s => { const n = new Set(s); n.delete(cle); return n; });
+  };
 
   async function confier() {
     if (!form.titre.trim() || !choisies.size) return;
@@ -76,6 +90,7 @@ export default function ConfierTache({ onClose, onCree }) {
           // qui répond de la tâche — c'est la convention de la table, on la
           // suit plutôt que d'en inventer une seconde.
           responsables: [...choisies],
+          informes: [...informes],
           // Pas de réunion : c'est tout l'objet de cet écran.
           reunion_id: null,
         }),
@@ -116,6 +131,9 @@ export default function ConfierTache({ onClose, onCree }) {
         <div className="w-[340px] border-r border-slate-200 flex flex-col min-h-0">
           <div className="flex-none p-3 space-y-2 border-b border-slate-100">
             <div className="text-[13px] font-semibold text-iip-blue">À qui</div>
+            <div className="text-[11px] text-slate-500">
+              Cochez qui fait la tâche ; « au courant » pour qui doit seulement savoir qu’elle est donnée.
+            </div>
             <select value={section} onChange={e => setSection(e.target.value)}
               className="controle w-full text-[13px]">
               <option value="">Toutes les sections</option>
@@ -151,6 +169,14 @@ export default function ConfierTache({ onClose, onCree }) {
                       || p.role || p.statut || 'sans section'}
                   </span>
                 </span>
+                <button type="button"
+                  onClick={e => { e.preventDefault(); basculerInforme(p.cle); }}
+                  title="Tenir au courant, sans le rendre responsable"
+                  className={`flex-none inline-flex items-center gap-1 rounded-champ px-1.5 h-6 text-[11px] border
+                    ${informes.has(p.cle) ? 'bg-slate-700 text-white border-slate-700'
+                      : 'border-slate-200 text-slate-400 hover:text-slate-700'}`}>
+                  <IconEye size={12} /> au courant
+                </button>
               </label>
             ))}
           </div>
@@ -159,11 +185,12 @@ export default function ConfierTache({ onClose, onCree }) {
                           text-[12px] text-slate-600 flex items-center gap-2">
             <span className="flex-1">
               {choisies.size
-                ? `${choisies.size} personne(s) — la première répond de la tâche`
-                : 'Personne sélectionnée'}
+                ? `${choisies.size} responsable(s) — la première répond de la tâche`
+                : 'Aucun responsable'}
+              {informes.size ? ` · ${informes.size} au courant` : ''}
             </span>
-            {choisies.size > 0 && (
-              <button onClick={() => setChoisies(new Set())}
+            {(choisies.size > 0 || informes.size > 0) && (
+              <button onClick={() => { setChoisies(new Set()); setInformes(new Set()); }}
                 className="text-slate-400 hover:text-iip-blue" title="Tout décocher">
                 <IconX size={14} />
               </button>
