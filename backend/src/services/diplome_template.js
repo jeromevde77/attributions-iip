@@ -36,7 +36,7 @@ export function genererTemplateDiplome() {
 </style></head><body>
 <div class="page">
   <div class="head">
-    <img src="{{logo_helb}}" class="logo-img" alt="HELB — Institut Ilya Prigogine" />
+    {{logos}}
     <div class="cf">
       Communauté française de Belgique<br>
       <strong>Enseignement pour adultes</strong><br>

@@ -9,6 +9,11 @@ dist/
 *.db.bak
 *.tar
 .env
+# `.env` n'attrape PAS `.env.local` ni `.env.<quoi que ce soit>` : ce sont des
+# motifs distincts pour git. Un fichier de secrets locaux se retrouvait donc
+# candidat au commit, et c'est exactement ce qu'un `git add .` distrait pousse.
+.env.*
+!.env.example
 backend/data/*.xlsm
 backend/data/*.xlsx
 
