@@ -487,6 +487,30 @@ function poserSignatures(modele, bloc, propre) {
   return { html: modele, pose: false };
 }
 
+/* LES LOGOS DU DIPLÔME — ET IL N'Y EN AVAIT AUCUN.
+ * Le modèle ne prévoyait qu'un emplacement, celui de la HELB, et la route le
+ * remplissait d'une valeur VIDE écrite en dur (`logo_helb: ''`) — le logo
+ * importé dans l'éditeur n'était jamais lu. Celui de l'IIP n'avait pas même de
+ * place. Constaté par Charles le 21 septembre 2026.
+ * Désormais : l'IIP toujours ; la HELB pour une section cochée « co-diplomation »
+ * (lucie_config.diplome_cologo_helb : { section: bool }) — absente, la case
+ * vaut oui, pour que rien ne change sans décision. */
+async function logosDe(sectionCode) {
+  const { LOGO_IIP_B64 } = await import('../services/assets/logo_iip.js');
+  let helb = '', coche = {};
+  try { helb = db.prepare("SELECT valeur FROM lucie_config WHERE cle = 'diplome_logo_helb'").get()?.valeur || ''; } catch { /* rien */ }
+  try { coche = JSON.parse(db.prepare("SELECT valeur FROM lucie_config WHERE cle = 'diplome_cologo_helb'").get()?.valeur || '{}') || {}; } catch { coche = {}; }
+  const avecHelb = !!helb && coche[sectionCode] !== false;
+  return `<img src="${LOGO_IIP_B64}" class="logo-img" alt="Institut Ilya Prigogine" />`
+    + (avecHelb ? `<img src="${helb}" class="logo-img" alt="HELB" style="margin-left:6mm" />` : '');
+}
+/* Un modèle enregistré avant 2.12.108 n'a que l'image HELB : on la remplace
+ * par le bloc des logos, sans quoi l'IIP n'y paraîtrait toujours pas. */
+function poserLogos(modele, logos) {
+  if (/\{\{\s*logos\s*\}\}/.test(modele)) return modele.replace(/\{\{\s*logos\s*\}\}/g, logos);
+  return modele.replace(/<img[^>]*\{\{\s*logo_helb\s*\}\}[^>]*>/, logos);
+}
+
 /** Le modèle de diplôme retenu : celui de la maison, sinon celui d'origine. */
 async function modeleDiplome() {
   try {
@@ -631,7 +655,8 @@ r.post('/pieces', authRequired,
       president_jury: presidence?.titulaire?.nom || ident.directeur,
       directeur: ident.directeur,
     };
-    const { html: modeleSigne, pose } = poserSignatures(modele, blocSignatures(sig.liste, jetonsSig), sig.propre);
+    const { html: modeleSigneSansLogo, pose } = poserSignatures(modele, blocSignatures(sig.liste, jetonsSig), sig.propre);
+    const modeleSigne = poserLogos(modeleSigneSansLogo, await logosDe(sec.code));
     if (!pose) {
       manques.push(`Signataires de ${sec.libelle || sec.code} : le modèle de diplôme n’a ni `
         + 'emplacement {{signatures}} ni bloc de signatures reconnaissable — la liste réglée '
@@ -652,7 +677,9 @@ r.post('/pieces', authRequired,
         president_jury: presidence?.titulaire?.nom || ident.directeur,
         titulaire_nom: presidence?.titulaire?.nom || '',
         article_titulaire: 'Le', date_approbation: sec.date_approbation,
-        logo_helb: '',
+        // Posés par poserLogos() ; ces jetons restent pour un modèle qui les
+        // citerait ailleurs, et ne doivent jamais partir vides.
+        logo_helb: ' ', logo_iip: ' ',
       });
       pages.push({ t: `Diplôme — ${d.nom} ${d.prenom}`, h: html, entier: true });
       if (m.length) manques.push(`Diplôme de ${d.nom} ${d.prenom} : ${m.join(', ')}`);

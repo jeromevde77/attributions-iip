@@ -76,6 +76,7 @@ export default function DiplomeEditeur({ assets = {} }) {
   const [secSig, setSecSig] = useState('');
   const [liste, setListe] = useState(null);          // liste en cours d'édition
   const [sigOk, setSigOk] = useState(false);
+  const [cologo, setCologo] = useState({});           // { section: bool } — logo HELB
 
   const me = JSON.parse(localStorage.getItem('user') || 'null');
   const peutEcrire = estDirection(me);
@@ -87,7 +88,9 @@ export default function DiplomeEditeur({ assets = {} }) {
       af('/api/config/diplome_logo_helb').then(d => d.valeur).catch(() => ''),
       af('/api/config/diplome_signatures').then(d => { try { return JSON.parse(d.valeur) || {}; } catch { return {}; } }).catch(() => ({})),
       af('/api/ref/sections').catch(() => []),
-    ]).then(([tpl, e, helb, sig, secs]) => {
+      af('/api/config/diplome_cologo_helb').then(d => { try { return JSON.parse(d.valeur) || {}; } catch { return {}; } }).catch(() => ({})),
+    ]).then(([tpl, e, helb, sig, secs, co]) => {
+      setCologo(co && typeof co === 'object' ? co : {});
       setHtml(tpl); setInitial(tpl); setEtab(e); setLogoHelb(helb || '');
       setSignatures(sig && typeof sig === 'object' ? sig : {});
       setSections(Array.isArray(secs) ? secs : []);
@@ -128,7 +131,11 @@ export default function DiplomeEditeur({ assets = {} }) {
   const apercu = () => {
     // L'aperçu signe avec la section choisie ci-dessous, sinon avec la liste d'origine.
     const vars = VARS_DEMO(etab, { ...assets, logo_helb: logoHelb });
-    const avecSig = html.split('{{signatures}}').join(blocSignatures(liste || SIGNATAIRES_DEFAUT));
+    const avecHelb = !!logoHelb && (!secSig || cologo[secSig] !== false);
+    const logos = `<img src="${assets.logo_iip || ''}" class="logo-img" alt="Institut Ilya Prigogine" />`
+      + (avecHelb ? `<img src="${logoHelb}" class="logo-img" alt="HELB" style="margin-left:6mm" />` : '');
+    const avecSig = html.split('{{signatures}}').join(blocSignatures(liste || SIGNATAIRES_DEFAUT))
+      .split('{{logos}}').join(logos);
     const rendu = remplaceVars(avecSig, vars);
     const w = window.open('', '_blank');
     if (!w) { alert('Autorisez les pop-ups pour voir l’aperçu.'); return; }
@@ -271,6 +278,20 @@ export default function DiplomeEditeur({ assets = {} }) {
                   onClick={() => enregistrerSignatures(liste)}>
                   Enregistrer pour {sections.find(s0 => s0.code === secSig)?.libelle || secSig}
                 </button>
+                {/* LE LOGO HELB, PAR SECTION : une co-diplomation le porte, un
+                    titre propre de l'IIP non. Coché par défaut, pour que rien
+                    ne change sans décision. Celui de l'IIP est toujours là. */}
+                <label className="flex items-center gap-1.5 text-[12px] text-gray-700">
+                  <input type="checkbox" checked={cologo[secSig] !== false}
+                    onChange={async e => {
+                      const suivant = { ...cologo, [secSig]: e.target.checked };
+                      try {
+                        await af('/api/config/diplome_cologo_helb', { method: 'PUT', body: JSON.stringify({ valeur: JSON.stringify(suivant) }) });
+                        setCologo(suivant);
+                      } catch (er) { setErr(er.message); }
+                    }} />
+                  Logo HELB (co-diplomation) sur ce diplôme
+                </label>
                 {propre && (
                   <button className="bouton" onClick={() => { if (confirm('Revenir aux signataires d’origine pour cette section ?')) enregistrerSignatures(null); }}>
                     Revenir à la liste d’origine
@@ -301,7 +322,7 @@ export default function DiplomeEditeur({ assets = {} }) {
       <details className="text-xs text-gray-500">
         <summary className="cursor-pointer text-iip-blue">Champs disponibles</summary>
         <div className="mt-1 grid grid-cols-2 md:grid-cols-3 2xl:grid-cols-4 gap-x-4 gap-y-0.5 font-mono">
-          {['{{nom_etudiant}}','{{prenom_etudiant}}','{{genre}}','{{lieu_naissance}}','{{date_naissance}}','{{registre_national}}','{{intitule_section}}','{{grade_academique}}','{{code_section}}','{{date_approbation}}','{{total_ects}}','{{duree_annees}}','{{domaine}}','{{mention}}','{{annee}}','{{date_deliberation}}','{{president_jury}}','{{directeur}}','{{ville_etab}}','{{nom_etab}}','{{adresse_etab}}','{{matricule_etab}}','{{fase_etab}}','{{logo_iip}}','{{logo_helb}}','{{sceau}}','{{signature_directeur}}','{{signatures}}'].map(v => <span key={v}>{v}</span>)}
+          {['{{nom_etudiant}}','{{prenom_etudiant}}','{{genre}}','{{lieu_naissance}}','{{date_naissance}}','{{registre_national}}','{{intitule_section}}','{{grade_academique}}','{{code_section}}','{{date_approbation}}','{{total_ects}}','{{duree_annees}}','{{domaine}}','{{mention}}','{{annee}}','{{date_deliberation}}','{{president_jury}}','{{directeur}}','{{ville_etab}}','{{nom_etab}}','{{adresse_etab}}','{{matricule_etab}}','{{fase_etab}}','{{logo_iip}}','{{logo_helb}}','{{sceau}}','{{signature_directeur}}','{{signatures}}','{{logos}}'].map(v => <span key={v}>{v}</span>)}
         </div>
       </details>
     </div>

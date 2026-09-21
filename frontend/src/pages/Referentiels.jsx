@@ -462,7 +462,26 @@ function UEModal({ ue, sections, onClose, onSaved }) {
     const n = String(newNum).trim();
     if (!n || n === String(ue.ue_num)) { setRenaming(false); return; }
     setSaving(true);
-    try { await api.renameUENum(ue.ue_num, n); onSaved(); }
+    /* ON MONTRE AVANT D'ÉCRIRE. Le numéro change PARTOUT, toutes années et
+       données d'étudiants comprises (cours 900.x → 334.x, acquis AA900.x →
+       AA334.x, notes, délibérations, valorisations…) : la simulation dit
+       combien de lignes, table par table, et c'est seulement après accord
+       qu'on écrit. */
+    try {
+      const sim = await api.renameUENum(ue.ue_num, n, true);
+      const detail = sim.lignes.slice(0, 14).map(l => `  • ${l.table} (${l.colonne}) : ${l.n}`).join('\n');
+      const cours = sim.cours.map(([a, b]) => `${a} → ${b}`).join(', ');
+      const ok = window.confirm(
+        `Renuméroter l'UE ${ue.ue_num} en ${n}, sur TOUTES les années ?\n\n`
+        + `${sim.total} ligne(s) changeront :\n${detail}${sim.lignes.length > 14 ? '\n  • …' : ''}\n\n`
+        + (cours ? `Cours : ${cours}\n` : '')
+        + (sim.aa.length ? `Acquis : ${sim.aa.length} (AA${ue.ue_num}.x → AA${n}.x)\n` : '')
+        + (sim.hors_modele.length ? `\nCodes de cours hors modèle, NON renommés : ${sim.hors_modele.join(', ')}\n` : '')
+        + `\nLes pièces déjà délivrées portent l'ancien numéro.`);
+      if (!ok) { setSaving(false); return; }
+      await api.renameUENum(ue.ue_num, n, false);
+      onSaved();
+    }
     catch (e) { alert('Erreur : ' + e.message); setSaving(false); }
   }
 

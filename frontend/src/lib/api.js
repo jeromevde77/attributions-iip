@@ -149,7 +149,7 @@ export const api = {
   createCours(data) { return request('/ref/cours', { method: 'POST', body: { annee_scolaire: getAnnee(), ...data } }); },
   updateCours(code, data) { return request(`/ref/cours/${encodeURIComponent(code)}`, { method: 'PATCH', body: { annee_scolaire: getAnnee(), ...data } }); },
   renameCoursCode(code, nouveau_code) { return request(`/ref/cours/${encodeURIComponent(code)}/rename`, { method: 'PATCH', body: { annee_scolaire: getAnnee(), nouveau_code } }); },
-  renameUENum(num, nouveau_num) { return request(`/ref/ue/${encodeURIComponent(num)}/rename`, { method: 'PATCH', body: { annee_scolaire: getAnnee(), nouveau_num } }); },
+  renameUENum(num, nouveau_num, simulation = false) { return request(`/ref/ue/${encodeURIComponent(num)}/rename`, { method: 'PATCH', body: { annee_scolaire: getAnnee(), nouveau_num, simulation } }); },
   dedoublerUE(ue_num) { return request(`/ref/ue/${encodeURIComponent(ue_num)}/dedoubler`, { method: 'PATCH', body: { annee_scolaire: getAnnee() } }); },
   organiserGroupesUE(ue_num, body) {
     return request(`/ref/ue/${encodeURIComponent(ue_num)}/organiser-groupes`, {

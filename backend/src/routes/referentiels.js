@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import db from '../db/index.js';
+import { renommerUE } from '../lib/renommerUE.js';
 import { anneeDeTravail } from '../helpers/annee.js';
 import { authRequired, roleRequired, getUserSections, exigerPerimetreProfesseur,
   clauseSections } from '../middleware/auth.js';
@@ -307,26 +308,39 @@ r.patch('/ue/:num', authRequired, roleRequired('admin', 'editeur'), (req, res) =
   res.json({ ok: true });
 });
 
-// Forçage du N° UE (admin) : renomme ue_num en vérifiant l'unicité et en
-// propageant dans toutes les tables (ue, cours, attribution, ue_section).
+// FORÇAGE DU N° D'UNE UE (admin) — PARTOUT, TOUTES ANNÉES, COURS ET ACQUIS
+// COMPRIS. Il ne changeait que ue_num dans quatre tables et pour une année :
+// les cours restaient « 900.1 » sous l'UE 334 et les notes, délibérations,
+// horaires, pondérations et valorisations restaient accrochés à 900. Le moteur
+// (lib/renommerUE.js) inspecte la base plutôt que de suivre une liste.
+// `simulation: true` montre ce qui changerait, table par table, sans écrire.
 r.patch('/ue/:num/rename', authRequired, roleRequired('admin'), (req, res) => {
-  const annee = req.body.annee_scolaire || req.query.annee || '2025-2026';
-  const ancien = req.params.num;
+  const ancien = String(req.params.num).trim();
   const nouveau = String(req.body.nouveau_num || '').trim();
+  const simulation = req.body.simulation === true;
   if (!nouveau) return res.status(400).json({ error: 'Nouveau numéro requis' });
-  if (nouveau === ancien) return res.json({ ok: true });
-  const exists = db.prepare('SELECT 1 FROM ue WHERE ue_num = ? AND annee_scolaire = ?').get(nouveau, annee);
-  if (exists) return res.status(409).json({ error: `L'UE ${nouveau} existe déjà pour ${annee}.` });
-  const src = db.prepare('SELECT 1 FROM ue WHERE ue_num = ? AND annee_scolaire = ?').get(ancien, annee);
+  if (!/^\d+$/.test(nouveau)) return res.status(400).json({ error: 'Un numéro d’UE ne porte que des chiffres.' });
+  if (nouveau === ancien) return res.json({ ok: true, lignes: [] });
+  const src = db.prepare('SELECT 1 FROM ue WHERE CAST(ue_num AS TEXT) = ? LIMIT 1').get(ancien);
   if (!src) return res.status(404).json({ error: 'UE introuvable' });
-  const tx = db.transaction(() => {
-    db.prepare('UPDATE ue SET ue_num = ? WHERE ue_num = ? AND annee_scolaire = ?').run(nouveau, ancien, annee);
-    db.prepare('UPDATE cours SET ue_num = ? WHERE ue_num = ? AND annee_scolaire = ?').run(nouveau, ancien, annee);
-    db.prepare('UPDATE attribution SET ue_num = ? WHERE ue_num = ? AND annee_scolaire = ?').run(nouveau, ancien, annee);
-    db.prepare('UPDATE ue_section SET ue_num = ? WHERE ue_num = ? AND annee_scolaire = ?').run(nouveau, ancien, annee);
-  });
-  tx();
-  res.json({ ok: true, ancien, nouveau });
+  let bilan;
+  try {
+    db.transaction(() => {
+      bilan = renommerUE(db, ancien, nouveau);
+      if (simulation) throw new Error('SIMULATION');
+    })();
+  } catch (e) {
+    if (e.message !== 'SIMULATION') {
+      if (!e.status) console.error('[rename UE]', e);
+      return res.status(e.status || 500).json({ error: e.message });
+    }
+  }
+  if (!simulation) {
+    console.log(`[rename UE] ${ancien} → ${nouveau} par ${req.user?.nom || req.user?.email} : `
+      + bilan.lignes.map(l => `${l.table}.${l.colonne}=${l.n}`).join(' '));
+  }
+  res.json({ ok: true, simulation, ancien, nouveau, ...bilan,
+             total: bilan.lignes.reduce((t, l) => t + l.n, 0) });
 });
 
 // Dédouble tous les cours d'une UE en un clic (demande Nicolas).

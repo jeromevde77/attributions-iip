@@ -3,7 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import { api, getAnnee, setAnnee as setAnneeActive, getUser } from '../lib/api.js';
 import { chargerCouleurs } from '../lib/couleurs.js';
 import Audit from './Audit.jsx';
-import { IconAdjustments, IconAward, IconBooks, IconBuilding, IconCalendar, IconCalendarEvent, IconChartBar, IconCheck, IconChevronRight, IconDownload, IconFileText, IconHistory, IconLink, IconScale, IconSettings, IconSparkles, IconUserShield, IconUsers, IconX, IconGavel, IconPlus, IconTrash, IconGripVertical, IconEdit, IconMail, IconPalette, IconArchive, IconAlertTriangle, IconShieldLock } from '@tabler/icons-react';
+import { IconAdjustments, IconAward, IconBooks, IconBuilding, IconCalendar, IconCalendarEvent, IconChartBar, IconCheck, IconChevronRight, IconDownload, IconFileText, IconHistory, IconLink, IconScale, IconSettings, IconSparkles, IconUserShield, IconUsers, IconX, IconGavel, IconPlus, IconTrash, IconGripVertical, IconEdit, IconMail, IconPalette, IconArchive, IconAlertTriangle, IconShieldLock, IconDatabase } from '@tabler/icons-react';
 import { PageHeader, RailLateral } from '../components/ui.jsx';
 import ApercuDocuments from '../components/ApercuDocuments.jsx';
 const Editeur = lazy(() => import('./Editeur.jsx'));
@@ -1313,7 +1313,7 @@ export default function Configuration() {
      * au plus technique : qui nous sommes, ce qu'on enseigne, comment on
      * délibère, ce qu'on produit, qui entre, et enfin la machine.
      */
-    { label: 'Établissement', items: [
+    { label: 'Établissement', icon: IconBuilding, items: [
       { key: 'etablissement', label: 'Identité et sections', icon: IconBuilding },
       { key: 'annees', label: 'Années scolaires', icon: IconCalendar },
       { key: 'reprise', label: "Clôturer une année reprise", icon: IconArchive },
@@ -1330,11 +1330,11 @@ export default function Configuration() {
      * Qu'elle change d'une année à l'autre n'est pas une raison de les
      * éclater : c'est une raison de nommer l'année, et de la nommer une
      * seule fois. */
-    { label: 'Référentiel', items: [
+    { label: 'Référentiel', icon: IconBooks, items: [
       { key: 'referentiel-annee', label: "Référentiel de l'année", icon: IconBooks },
       { key: 'procedures', label: 'Procédures et délais', icon: IconGavel },
     ]},
-    { label: 'Documents', items: [
+    { label: 'Documents', icon: IconFileText, items: [
       { key: 'editeur', label: 'Éditeur de modèles', icon: IconEdit },
       { key: 'apercu', label: 'Aperçu des pièces', icon: IconFileText },
       { key: 'couleurs', label: 'Couleurs de Lucie', icon: IconPalette },
@@ -1342,12 +1342,12 @@ export default function Configuration() {
       { key: 'attestation', label: 'Attestation', icon: IconAward },
       { key: 'recrutement', label: 'Recrutement', icon: IconSettings },
     ]},
-    { label: 'Accès', items: [
+    { label: 'Accès', icon: IconUserShield, items: [
       { key: 'users', label: 'Utilisateurs', icon: IconUserShield },
       { key: 'roles', label: 'Rôles et plafonds', icon: IconUserShield },
       { key: 'personnel', label: 'Personnel', icon: IconUsers },
     ]},
-    { label: 'Données', items: [
+    { label: 'Données', icon: IconDatabase, items: [
       { key: 'dates-ue', label: "Dates des UE", icon: IconCalendarEvent },
       { key: 'doublons', label: 'Dossiers dédoublés', icon: IconUsers },
       { key: 'demandes', label: 'Demandes à valider', icon: IconCheck },
@@ -1356,7 +1356,7 @@ export default function Configuration() {
     // états d'attributions avant modification ; « Sauvegardes » conserve la
     // base entière. Presque le même mot pour deux gestes qui ne se
     // remplacent pas — on les nomme donc pour ce qu'ils sont.
-    { label: 'Système', items: [
+    { label: 'Système', icon: IconAdjustments, items: [
       { key: 'parametres', label: 'Paramètres', icon: IconAdjustments },
       { key: 'courriels', label: 'Courriels', icon: IconMail },
       { key: 'audit', label: 'Qui a fait quoi', icon: IconUserShield },
@@ -1366,26 +1366,44 @@ export default function Configuration() {
       { key: 'changelog', label: 'Nouveautés', icon: IconSparkles },
     ]},
   ];
+  // « QUI A FAIT QUOI » N'APPARAÎT QUE POUR L'ADMINISTRATEUR, et le serveur le
+  // refuse de toute façon : un onglet visible qui rend un 403 se lit « Lucie
+  // est cassée », pas « ce n'est pas pour vous ».
+  const groupesVisibles = CONF_GROUPES.map(g => ({ ...g,
+    items: g.items.filter(t => t.key !== 'audit' || getUser()?.role === 'admin') }));
+  const groupeActif = groupesVisibles.find(g => g.items.some(t => t.key === tab)) || groupesVisibles[0];
   return (
     <div className="relative bg-slate-50" style={{ minHeight: 'calc(100vh - 64px)' }}>
+      {/* VINGT-DEUX ICÔNES, ET PLUS PERSONNE NE TROUVAIT RIEN (Charles, 21
+          septembre 2026). Le rail dit OÙ L'ON EST : six familles, une icône
+          chacune. Ce qu'une famille contient se choisit dans ses FEUILLES,
+          en tête de l'écran, avec des mots — comme en Planification. */}
       <RailLateral
         icon={IconSettings}
         titre="Configuration"
         sousTitre="Administration"
-        sections={CONF_GROUPES.map(g => ({
-          label: g.label,
-          // « QUI A FAIT QUOI » N'APPARAÎT QUE POUR L'ADMINISTRATEUR, et le
-          // serveur le refuse de toute façon : un onglet visible qui rend un
-          // 403 se lit « Lucie est cassée », pas « ce n'est pas pour vous ».
-          items: g.items
-            .filter(t => t.key !== 'audit' || getUser()?.role === 'admin')
-            .map(t => ({ key: t.key, label: t.label, icon: t.icon,
-              actif: tab === t.key, onClick: () => setTab(t.key) })),
-        }))}
+        sections={[{ label: 'Configuration', items: groupesVisibles.map(g => ({
+          key: g.label, label: g.label, icon: g.icon,
+          actif: g === groupeActif,
+          onClick: () => { if (g !== groupeActif) setTab(g.items[0].key); },
+        })) }]}
       />
       <div className="gouttiere-rail px-3 md:px-6 py-4 space-y-6">
         <PageHeader icon={IconSettings} titre="Configuration"
           sous="Référentiels, années, établissement, personnel et paramètres système" />
+        {groupeActif.items.length > 1 && (
+          <div className="flex flex-wrap items-center gap-1 border-b border-slate-200 -mt-2">
+            {groupeActif.items.map(t => {
+              const Icone = t.icon;
+              return (
+                <button key={t.key} onClick={() => setTab(t.key)}
+                  className={`onglet-page ${tab === t.key ? 'onglet-page-actif' : ''} flex items-center gap-1.5`}>
+                  <Icone size={15} />{t.label}
+                </button>
+              );
+            })}
+          </div>
+        )}
 
       {/* ── Onglet Référentiel de l'année ── */}
       {tab === 'referentiel-annee' && <ReferentielDeLAnnee />}
