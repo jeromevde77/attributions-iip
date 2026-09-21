@@ -542,23 +542,43 @@ r.get('/', authRequired, (req, res) => {
 
   // Tous les étudiants actifs, avec leurs inscriptions toutes années confondues.
   // La section affichée vient des UE de leurs inscriptions (dernière année connue).
+  /* UN ÉTUDIANT SANS INSCRIPTION EXISTE AUSSI — ET IL ÉTAIT INVISIBLE.
+   *
+   * La liste partait des inscriptions (JOIN) : un étudiant sans aucune UE n'y
+   * figurait pas. Or c'est exactement l'état d'un BA1 qu'on vient d'importer
+   * depuis la signalétique eCampus, avant que son PAE ne soit composé — et
+   * c'est l'état d'un dossier créé à la main. L'import disait « 2 créés » et
+   * la liste en montrait 0 : Charles en a conclu, le 21 septembre, que Lucie
+   * ne permettait pas d'importer des étudiants nouveaux. Elle le permettait ;
+   * elle les cachait.
+   *
+   * LEFT JOIN, donc, et pour un étudiant sans unité la section est celle de
+   * son RATTACHEMENT — c'est elle qui le range et qui décide du périmètre. Sans
+   * rattachement, il paraît sous « (sans section) », et seulement pour qui voit
+   * toutes les sections : on ne montre pas à une coordination un étudiant dont
+   * rien ne dit qu'il est le sien. Les filtres par unité ou par année, eux,
+   * portent sur des inscriptions : ils l'écartent, et c'est juste. */
   let sql = `
     SELECT e.id, e.nom, e.prenom, e.email_ecole, e.id_ecampus,
-           GROUP_CONCAT(DISTINCT u.section) AS sections,
+           COALESCE(GROUP_CONCAT(DISTINCT u.section), e.section_rattachement) AS sections,
            COUNT(DISTINCT i.ue_num) AS nb_ue,
            MAX(i.annee_scolaire) AS derniere_annee
     FROM etudiant e
-    JOIN etudiant_inscription i ON i.etudiant_id = e.id
+    LEFT JOIN etudiant_inscription i ON i.etudiant_id = e.id
     LEFT JOIN ${UE_REF} u ON u.ue_num = i.ue_num
     WHERE e.actif = 1
   `;
   const params = [];
 
-  if (section) { sql += ` AND u.section = ?`; params.push(section); }
-  else if (autorisees) {
+  if (section) {
+    sql += ` AND (u.section = ? OR (i.ue_num IS NULL AND e.section_rattachement = ?))`;
+    params.push(section, section);
+  } else if (autorisees) {
     // Hors filtre explicite, la liste se borne au périmètre de la personne.
-    sql += ` AND u.section IN (${autorisees.map(() => '?').join(',') || "''"})`;
-    params.push(...autorisees);
+    const marques = autorisees.map(() => '?').join(',') || "''";
+    sql += ` AND (u.section IN (${marques})
+                  OR (i.ue_num IS NULL AND e.section_rattachement IN (${marques})))`;
+    params.push(...autorisees, ...autorisees);
   }
   if (ueNum) { sql += ` AND i.ue_num = ?`; params.push(Number(ueNum)); }
   if (anneeFiltre) { sql += ` AND i.annee_scolaire = ?`; params.push(anneeFiltre); }
