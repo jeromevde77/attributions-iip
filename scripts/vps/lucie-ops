@@ -1,0 +1,105 @@
+#!/bin/bash
+# ─────────────────────────────────────────────────────────────────────────────
+#  /usr/local/sbin/lucie-ops — LES SEULS GESTES PERMIS AU COMPTE « lucie-ops »
+#
+#  COPIE DE RÉFÉRENCE : ce fichier est installé tel quel sur le VPS (voir
+#  scripts/vps/INSTALLATION.md). Le modifier ici sans le réinstaller, c'est
+#  décrire un serveur qui n'existe pas.
+#
+#  Le compte lucie-ops n'a PAS de shell : sa clé SSH est liée à ce script
+#  (command= dans authorized_keys), et sudo ne l'autorise qu'à lancer CE
+#  fichier. Mettre quelqu'un dans le groupe docker lui donnerait les droits
+#  root ; ici, il n'a que cinq verbes. Tout le reste est refusé.
+#
+#  Chaque appel est journalisé (journalctl -t lucie-ops), avec son résultat.
+# ─────────────────────────────────────────────────────────────────────────────
+set -euo pipefail
+export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+
+LUCIE=/opt/lucie
+# LES IMAGES SONT PRIVÉES, ET L'IDENTIFIANT DU REGISTRE EST CELUI DE debian.
+# Lancé par sudo, ce script tourne en root, qui n'en a pas : le premier
+# maj-dev a répondu « unauthorized » (22 septembre 2026). On lit donc la
+# configuration Docker de debian, sans la copier.
+export DOCKER_CONFIG=/home/debian/.docker
+PROD_BACKEND=attributions-backend
+DEV_BACKEND=attributions-backend-dev
+
+# Appel par SSH : la commande demandée arrive dans SSH_ORIGINAL_COMMAND.
+# Appel local (test par debian) : les arguments.
+if [ -n "${SSH_ORIGINAL_COMMAND:-}" ]; then
+  VERBE="${SSH_ORIGINAL_COMMAND%% *}"
+  if [ "$VERBE" = "$SSH_ORIGINAL_COMMAND" ]; then RESTE=""; else RESTE="${SSH_ORIGINAL_COMMAND#* }"; fi
+else
+  VERBE="${1:-}"; shift || true; RESTE="$*"
+fi
+
+journal() { logger -t lucie-ops -- "par=${SUDO_USER:-$USER} verbe=$VERBE $*"; }
+refus()   { journal "REFUS $*"; echo "✗ $*" >&2; exit 2; }
+
+# UNE SAUVEGARDE COHÉRENTE, PAS UNE COPIE DE FICHIER. La base est en mode WAL :
+# un simple cp peut prendre le fichier principal sans les dernières écritures
+# encore dans le journal. L'API de sauvegarde de SQLite, elle, rend un état
+# complet. Elle écrit dans /app/data/backups, monté sur prod/backups.
+sauvegarder() {
+  local nom="avant_${1}_$(date +%Y%m%d_%H%M%S).db"
+  docker exec "$PROD_BACKEND" node -e "
+    const D=require('better-sqlite3');
+    const db=new D('/app/data/attributions.db',{readonly:true});
+    db.backup('/app/data/backups/$nom').then(()=>console.log('ok')).catch(e=>{console.error(e.message);process.exit(1);});
+  " >/dev/null
+  local f="$LUCIE/prod/backups/$nom"
+  [ -s "$f" ] || refus "sauvegarde introuvable ou vide : $f"
+  echo "✓ Sauvegarde : $f ($(du -h "$f" | cut -f1))"
+  journal "sauvegarde=$f"
+}
+
+version() {
+  for u in www dev; do
+    printf '%-4s ' "$u"; curl -s --max-time 10 "https://$u.lucie-iip.be/api/version" || echo "injoignable"; echo
+  done
+}
+
+case "$VERBE" in
+  version)
+    journal "ok"; version ;;
+
+  sauvegarde)
+    sauvegarder manuel ;;
+
+  maj-dev)
+    cd "$LUCIE"
+    docker compose pull backend-dev frontend-dev
+    docker compose up -d --force-recreate backend-dev frontend-dev
+    journal "ok"; sleep 8; version ;;
+
+  maj-prod)
+    # LA SAUVEGARDE N'EST PAS UNE OPTION : elle fait partie du geste. Si elle
+    # échoue, rien n'est mis à jour.
+    sauvegarder merge
+    cd "$LUCIE"
+    docker compose pull backend frontend
+    docker compose up -d --force-recreate backend frontend
+    journal "ok"; sleep 8; version ;;
+
+  lecture)
+    # LECTURE SEULE, ET PAR DEUX VERROUS : la requête doit commencer par
+    # SELECT, WITH ou PRAGMA, et la base est ouverte en readonly — une
+    # écriture glissée malgré le premier verrou serait refusée par SQLite.
+    [ -n "$RESTE" ] || refus "lecture : requête SQL manquante"
+    [ "${#RESTE}" -le 4000 ] || refus "lecture : requête trop longue"
+    shopt -s nocasematch
+    [[ "$RESTE" =~ ^[[:space:]]*(select|with|pragma)[[:space:]] ]] || refus "lecture : seules SELECT, WITH et PRAGMA sont permises"
+    shopt -u nocasematch
+    journal "sql=$(printf '%s' "$RESTE" | head -c 300)"
+    docker exec -e LUCIE_SQL="$RESTE" "$PROD_BACKEND" node -e "
+      const D=require('better-sqlite3');
+      const db=new D('/app/data/attributions.db',{readonly:true,fileMustExist:true});
+      const r=db.prepare(process.env.LUCIE_SQL).all();
+      console.log(JSON.stringify(r.slice(0,500),null,1));
+      if(r.length>500) console.log('… '+(r.length-500)+' ligne(s) non affichée(s)');
+    " ;;
+
+  *)
+    refus "verbe inconnu « $VERBE ». Permis : version, sauvegarde, maj-dev, maj-prod, lecture <SQL>" ;;
+esac
