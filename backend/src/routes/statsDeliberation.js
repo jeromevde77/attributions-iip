@@ -27,6 +27,7 @@ import { Router } from 'express';
 import db from '../db/index.js';
 import { authRequired, getUserSections } from '../middleware/auth.js';
 import { anneeDeTravail } from '../helpers/annee.js';
+import { niveauEtudiant, sectionRattachement } from './etudiants.js';
 
 const r = Router();
 
@@ -520,6 +521,105 @@ r.get('/', authRequired, (req, res) => {
     par_cours: parCours,
     // Ce qui n'est pas fini se compte à part : ce n'est pas un échec.
     dossiers_ouverts: total.s1.sans_decision,
+  });
+});
+
+/* ══ LA POPULATION RÉELLE, CONSTATÉE APRÈS LA RENTRÉE ═════════════════════════
+ *
+ * Demandé par Charles le 22 septembre 2026. `ue.nb_etudiants` est un chiffre
+ * SAISI pour planifier : un effectif prévu. Ce qu'on a réellement devant soi
+ * après la rentrée ne s'écrivait nulle part — or c'est lui qui décide d'un
+ * dédoublement, et lui que l'AEQES redemande.
+ *
+ * QUI COMPTE (tranché le 22/09) : l'étudiant dont le PAE de l'année est
+ * CONFIRMÉ. Un programme seulement proposé n'est pas une inscription ; on
+ * compte à part les programmes en attente, pour que l'écart se voie.
+ *
+ * TROIS LECTURES :
+ *  · par SECTION — des PERSONNES, rangées dans la section de l'étudiant
+ *    (rattachement, déduction à défaut), jamais dans celle d'une de ses UE ;
+ *  · par NIVEAU dans la section — le niveau de l'ÉTUDIANT. Un parcours mixte
+ *    compte à son niveau PRINCIPAL : celui où il a le plus d'unités, le plus
+ *    bas en cas d'égalité — c'est là qu'il doit encore des cours ;
+ *  · par UE — des places occupées, face à l'effectif prévu. Une unité hors
+ *    cursus est mixte : elle se lit « hors cursus », pas dans une section.
+ *    Pas de jointure sur `ue` : un même numéro existe sous plusieurs sections.
+ */
+const RANG_NIV = { BA1: 1, BA2: 2, BA3: 3 };
+function niveauPrincipal(n) {
+  if (!n?.niveau) return null;
+  if (n.niveau !== 'MIXTE') return n.niveau;
+  return Object.entries(n.detail || {})
+    .sort((a, b) => b[1] - a[1] || (RANG_NIV[a[0]] || 9) - (RANG_NIV[b[0]] || 9))[0]?.[0] || null;
+}
+
+r.get('/population', authRequired, (req, res) => {
+  const annee = req.query.annee || anneeDeTravail(req);
+  const perim = getUserSections(req.user);
+  const voit = (sct) => !perim || (sct && perim.includes(sct));
+
+  const confirmes = db.prepare(`
+    SELECT DISTINCT p.etudiant_id AS id FROM etudiant_pae p
+      JOIN etudiant e ON e.id = p.etudiant_id AND e.actif = 1
+     WHERE p.annee_scolaire = ? AND p.confirme_le IS NOT NULL`).all(annee).map(x => x.id);
+  const confSet = new Set(confirmes);
+  const enAttente = db.prepare(`
+    SELECT DISTINCT i.etudiant_id AS id FROM etudiant_inscription i
+      JOIN etudiant e ON e.id = i.etudiant_id AND e.actif = 1
+     WHERE i.annee_scolaire = ?`).all(annee).map(x => x.id).filter(id => !confSet.has(id));
+
+  const parSection = new Map();
+  const retenus = [];
+  let mixtes = 0;
+  for (const id of confirmes) {
+    const sct = sectionRattachement(id, annee).section || null;
+    if (!voit(sct)) continue;
+    const n = niveauEtudiant(id, annee);
+    if (n.niveau === 'MIXTE') mixtes++;
+    const niv = niveauPrincipal(n) || 'sans niveau';
+    const cle = sct || 'Sans section';
+    if (!parSection.has(cle)) parSection.set(cle, { section: cle, etudiants: 0, par_niveau: {} });
+    const g = parSection.get(cle);
+    g.etudiants++; g.par_niveau[niv] = (g.par_niveau[niv] || 0) + 1;
+    retenus.push(id);
+  }
+  let attente = 0;
+  for (const id of enAttente) if (voit(sectionRattachement(id, annee).section || null)) attente++;
+
+  const parUe = [];
+  // La colonne « hors cursus » date de 2.11.1 : on regarde plutôt que supposer.
+  const colsUe = db.prepare('PRAGMA table_info(ue)').all().map(c => c.name);
+  const aHC = colsUe.includes('hors_cursus');
+  const aPrevu = colsUe.includes('nb_etudiants');
+  if (retenus.length) {
+    const ids = retenus.map(() => '?').join(',');
+    const lignes = db.prepare(`
+      SELECT i.ue_num, COUNT(DISTINCT i.etudiant_id) AS reels,
+        (SELECT u.ue_nom FROM ue u WHERE u.ue_num = i.ue_num
+           ORDER BY (u.annee_scolaire = ?) DESC, u.annee_scolaire DESC LIMIT 1) AS ue_nom,
+        (SELECT u.section FROM ue u WHERE u.ue_num = i.ue_num
+           ORDER BY (u.annee_scolaire = ?) DESC, u.annee_scolaire DESC LIMIT 1) AS section,
+        ${aHC ? '(SELECT MAX(COALESCE(u.hors_cursus, 0)) FROM ue u WHERE u.ue_num = i.ue_num)' : '0'} AS hors_cursus,
+        ${aPrevu ? '(SELECT MAX(u.nb_etudiants) FROM ue u WHERE u.ue_num = i.ue_num AND u.annee_scolaire = ?)' : 'NULL'} AS prevus
+        FROM etudiant_inscription i
+       WHERE i.annee_scolaire = ? AND i.etudiant_id IN (${ids})
+       GROUP BY i.ue_num ORDER BY i.ue_num`).all(...(aPrevu ? [annee, annee, annee, annee] : [annee, annee, annee]), ...retenus);
+    for (const l of lignes) {
+      // Un prévu à zéro n'est pas un prévu : c'est une case jamais remplie.
+      const prevus = l.prevus > 0 ? l.prevus : null;
+      parUe.push({ ...l, prevus, section: l.hors_cursus ? 'hors cursus' : (l.section || '—'),
+        ecart: prevus != null ? l.reels - prevus : null });
+    }
+  }
+
+  const sections = [...parSection.values()].sort((a, b) => a.section.localeCompare(b.section, 'fr'));
+  res.json({
+    annee,
+    total: retenus.length, en_attente: attente, parcours_mixtes: mixtes,
+    niveaux: [...new Set(sections.flatMap(g => Object.keys(g.par_niveau)))]
+      .sort((a, b) => (RANG_NIV[a] || 9) - (RANG_NIV[b] || 9) || a.localeCompare(b)),
+    par_section: sections,
+    par_ue: parUe.sort((a, b) => String(a.section).localeCompare(String(b.section), 'fr') || a.ue_num - b.ue_num),
   });
 });
 
