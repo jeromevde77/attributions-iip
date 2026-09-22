@@ -8,6 +8,7 @@ import { existsSync, mkdirSync, unlinkSync } from 'fs';
 import { join } from 'path';
 import { LOGO_IIP_JPEG } from '../services/assets/logo_iip_jpeg.js';
 import { piedBalisage, piedStyles, reglesDePage, envelopperDocument } from '../lib/document.js';
+import { htmlListeCoordonnees } from '../services/liste_coordonnees.js';
 
 import db from '../db/index.js';
 import { piedDocument } from './parametres.js';
@@ -655,6 +656,53 @@ r.get('/', authRequired, (req, res) => {
       section_deduite: rat.deduite,
     };
   }));
+});
+
+/* ── Coordonnées d'une sélection ──────────────────────────────────────────
+ * L'écran coche, la pièce se lit : emails, GSM et adresse des étudiants
+ * retenus. Le périmètre s'applique comme sur la liste — on n'imprime pas
+ * ceux qu'on ne peut pas voir. */
+r.post('/coordonnees', authRequired, (req, res) => {
+  const ids = Array.isArray(req.body?.ids)
+    ? req.body.ids.map(Number).filter(Number.isInteger) : [];
+  if (!ids.length) return res.status(400).json({ error: 'ids requis' });
+
+  const marques = ids.map(() => '?').join(',');
+  let lignes = db.prepare(`
+    SELECT e.id, e.nom, e.prenom, e.email_ecole, e.email_perso, e.gsm,
+           e.adresse, e.cp, e.localite,
+           COALESCE(GROUP_CONCAT(DISTINCT u.section), e.section_rattachement) AS sections
+    FROM etudiant e
+    LEFT JOIN etudiant_inscription i ON i.etudiant_id = e.id
+    LEFT JOIN ${UE_REF} u ON u.ue_num = i.ue_num
+    WHERE e.id IN (${marques}) AND e.actif = 1
+    GROUP BY e.id ORDER BY e.nom, e.prenom
+  `).all(...ids);
+
+  const autorisees = perimetre(req);
+  if (autorisees) {
+    lignes = lignes.filter((l) =>
+      String(l.sections || '').split(',').some((s) => autorisees.includes(s.trim())));
+  }
+
+  const html = htmlListeCoordonnees({
+    titre: 'Coordonnées des étudiants',
+    sousTitre: `${lignes.length} étudiant(s)`,
+    colonnes: [
+      { cle: 'nom', label: 'Nom' },
+      { cle: 'prenom', label: 'Prénom' },
+      { cle: 'sections', label: 'Section' },
+      { cle: 'email_ecole', label: 'E-mail école' },
+      { cle: 'email_perso', label: 'E-mail privé' },
+      { cle: 'gsm', label: 'GSM' },
+      { cle: '_adresse', label: 'Adresse' },
+    ],
+    lignes: lignes.map((l) => ({
+      ...l,
+      _adresse: [l.adresse, [l.cp, l.localite].filter(Boolean).join(' ')].filter(Boolean).join(', '),
+    })),
+  });
+  res.json({ html, nom: `Coordonnees_etudiants_${lignes.length}` });
 });
 
 // ── Rapport croisé : étudiants × UE d'une section, pour une année ────────────

@@ -5,6 +5,7 @@ import { anneeDeTravail } from '../helpers/annee.js';
 import { authRequired, roleRequired, getUserSections, exigerPerimetreProfesseur,
   clauseSections } from '../middleware/auth.js';
 import { parseDossierPedagogique } from '../parseDossierPedagogique.js';
+import { htmlListeCoordonnees } from '../services/liste_coordonnees.js';
 
 const r = Router();
 
@@ -830,6 +831,52 @@ r.get('/professeurs', authRequired, (req, res) => {
   }
 
   res.json(lignes);
+});
+
+/* ── Coordonnées d'une sélection ──────────────────────────────────────────
+ * La pièce imprimable des membres du personnel cochés sur l'écran Personnel :
+ * emails, GSM et adresse. Même périmètre que la liste ci-dessus. */
+r.post('/professeurs/coordonnees', authRequired, (req, res) => {
+  const ids = Array.isArray(req.body?.ids)
+    ? req.body.ids.map(Number).filter(Number.isInteger) : [];
+  if (!ids.length) return res.status(400).json({ error: 'ids requis' });
+
+  const marques = ids.map(() => '?').join(',');
+  let lignes = db.prepare(`
+    SELECT p.id, p.nom, p.prenom, p.statut, p.adresse_mail, p.mail_prive,
+           p.tel_gsm, p.adresse_rue, p.code_postal, p.commune
+    FROM professeur p
+    WHERE p.id IN (${marques})
+    ORDER BY p.nom, p.prenom
+  `).all(...ids);
+
+  const perim = getUserSections(req.user);
+  if (perim) {
+    const cl = clauseSections(perim, 'section');
+    const dansPerim = new Set(db.prepare(`
+      SELECT DISTINCT professeur_id FROM attribution WHERE ${cl.sql}
+    `).all(...cl.params).map((r0) => r0.professeur_id));
+    lignes = lignes.filter((p) => dansPerim.has(p.id));
+  }
+
+  const html = htmlListeCoordonnees({
+    titre: 'Coordonnées du personnel',
+    sousTitre: `${lignes.length} membre(s) du personnel`,
+    colonnes: [
+      { cle: 'nom', label: 'Nom' },
+      { cle: 'prenom', label: 'Prénom' },
+      { cle: 'adresse_mail', label: 'E-mail IIP' },
+      { cle: 'mail_prive', label: 'E-mail privé' },
+      { cle: 'tel_gsm', label: 'Tél. / GSM' },
+      { cle: '_adresse', label: 'Adresse' },
+    ],
+    lignes: lignes.map((p) => ({
+      ...p,
+      _adresse: [p.adresse_rue, [p.code_postal, p.commune].filter(Boolean).join(' ')]
+        .filter(Boolean).join(', '),
+    })),
+  });
+  res.json({ html, nom: `Coordonnees_personnel_${lignes.length}` });
 });
 
 r.get('/professeurs/:id', authRequired, exigerPerimetreProfesseur, (req, res) => {
