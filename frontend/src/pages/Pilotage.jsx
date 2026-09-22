@@ -1,8 +1,9 @@
 import { useState, useEffect, useMemo, useRef, Fragment } from 'react';
 import { api, getAnnee, getUser, authHeaders } from '../lib/api.js';
-import { IconChartBar, IconHome, IconUsers, IconSettings, IconChevronRight, IconChevronDown, IconPrinter, IconRotateClockwise, IconCheck, IconX, IconTrash, IconCash, IconCalendar, IconArrowsLeftRight, IconScale } from '@tabler/icons-react';
+import { IconChartBar, IconHome, IconUsers, IconSettings, IconChevronRight, IconChevronDown, IconPrinter, IconRotateClockwise, IconCheck, IconX, IconTrash, IconCash, IconCalendar, IconArrowsLeftRight, IconScale, IconUsersGroup } from '@tabler/icons-react';
 import { PageHeader, Tabs, RailLateral } from '../components/ui.jsx';
 import Distributions from '../components/Distributions.jsx';
+import Population from '../components/Population.jsx';
 import CentreImpressionCentral from '../components/CentreImpressionCentral.jsx';
 import Budget from './Budget.jsx';
 import RepartitionPeriodes from './RepartitionPeriodes.jsx';
@@ -1598,6 +1599,10 @@ export default function Pilotage({ vue = 'tout' }) {
                extrêmes » répondent à la même question, posée deux fois. */
             { key: 'distributions', label: 'Distributions', icon: IconChartBar,
               actif: tab === 'distributions', onClick: () => setTab('distributions') },
+            /* LA POPULATION RÉELLE (22 septembre 2026) : ce qu'on a devant soi
+               après la rentrée, face à l'effectif prévu. */
+            { key: 'population', label: 'Population réelle', icon: IconUsersGroup,
+              actif: tab === 'population', onClick: () => setTab('population') },
           ]),
           ...(vue === 'reporting' ? [] : [
             { key: 'config', label: 'Configuration', icon: IconSettings, actif: tab === 'config', onClick: () => setTab('config') },
@@ -1611,7 +1616,7 @@ export default function Pilotage({ vue = 'tout' }) {
             pluriannuelle » coiffait aussi les résultats de délibération et les
             distributions de cotes : on annonçait de l'argent et des périodes
             au-dessus de chiffres d'étudiants. */}
-        {['deliberation', 'distributions'].includes(tab) ? (
+        {['deliberation', 'distributions', 'population'].includes(tab) ? (
           <PageHeader icon={IconChartBar} titre="Statistiques étudiantes"
             sous="Décisions du Conseil, cotes et effectifs — par section et par unité" />
         ) : (
@@ -1623,6 +1628,8 @@ export default function Pilotage({ vue = 'tout' }) {
           <RepartitionPeriodes />
         ) : tab === 'distributions' ? (
           <Distributions />
+        ) : tab === 'population' ? (
+          <Population annee={anneeActive} />
         ) : tab === 'budget' ? (
           <Budget />
         ) : loading ? (
