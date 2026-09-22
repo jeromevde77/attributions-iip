@@ -42,7 +42,7 @@ function chargerDonneesContrat(prof_id, annee) {
             JOIN professeur p2 ON p2.id = a2.professeur_id
             WHERE a2.code_cours = a.code_cours AND a2.section = a.section
             AND a2.annee_scolaire = a.annee_scolaire AND a2.en_conge = 1
-            LIMIT 1) AS titulaire_en_conge
+            LIMIT 1) AS titulaire_en_conge,
            COALESCE(a.statut_exception, p.statut) AS statut_ligne
     FROM attribution a
     JOIN professeur p ON p.id = a.professeur_id
