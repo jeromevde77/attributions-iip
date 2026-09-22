@@ -2020,7 +2020,24 @@ r.post('/import-dp', authRequired, roleRequired('admin', 'editeur'), async (req,
 
     // Chercher UE existante par code FWB (comparaison normalisée)
     const allUes = db.prepare('SELECT ue_num, ue_code_fwb, section FROM ue WHERE annee_scolaire = ?').all(annee);
-    const existing = allUes.find(u => u.ue_code_fwb && u.ue_code_fwb.replace(/\s+/g, '') === normFwb);
+
+    /* L'UE CIBLE PEUT SE DÉSIGNER À LA MAIN (?ue_num=).
+     *
+     * Une unité créée avant que la section n'ait reçu ses codes FWB ne porte
+     * rien que le rapprochement puisse lire : l'import ne la retrouvait pas et
+     * la recréait en doublon. Quand l'écran désigne l'unité, c'est elle qu'on
+     * met à jour — et comme la mise à jour lui pose le code FWB du dossier,
+     * le prochain import la retrouvera tout seul. */
+    const ueForcee = parseInt(req.query.ue_num, 10);
+    let existing;
+    if (Number.isInteger(ueForcee)) {
+      existing = allUes.find(u => u.ue_num === ueForcee);
+      if (!existing) return res.status(422).json({
+        error: `UE ${ueForcee} introuvable pour ${annee} — le rattachement manuel vise une unité de l'année d'import`,
+      });
+    } else {
+      existing = allUes.find(u => u.ue_code_fwb && u.ue_code_fwb.replace(/\s+/g, '') === normFwb);
+    }
 
     const section = req.query.section || existing?.section || null;
 

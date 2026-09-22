@@ -26,6 +26,27 @@ function DPImportModal({ annee, sections, onClose, onSaved }) {
   const [resultats, setResultats] = useState(null);  // idem, après écriture
   const [error, setError]       = useState('');
 
+  /* LE RATTACHEMENT MANUEL. Une unité créée avant que la section n'ait ses
+     codes FWB n'est pas retrouvée par l'analyse : le dossier paraît « nouveau »
+     et l'import ferait un doublon. Sur chaque dossier non reconnu, on désigne
+     donc l'unité existante à mettre à jour — elle recevra le code FWB du
+     dossier, et les imports suivants la retrouveront seuls. */
+  const [ues, setUes]       = useState([]);   // UE existantes de l'année, pour le sélecteur
+  const [cibles, setCibles] = useState({});   // nom de fichier → ue_num désigné
+  useEffect(() => {
+    api.refStructure().then(d => {
+      const vues = new Map();
+      for (const sg of (Array.isArray(d) ? d : [])) {
+        for (const ue of (sg.ues || [])) {
+          if (!vues.has(ue.ue_num)) vues.set(ue.ue_num, {
+            ue_num: ue.ue_num, ue_nom: ue.ue_nom || '', section: sg.section || '?',
+          });
+        }
+      }
+      setUes([...vues.values()].sort((a, b) => a.ue_num - b.ue_num));
+    }).catch(() => {});
+  }, []);
+
   async function envoyer(fichier, apercu) {
     const buf = await fichier.arrayBuffer();
     // LE NOM DU FICHIER PART AVEC LUI. L'école nomme ces pièces par leur code
@@ -33,6 +54,7 @@ function DPImportModal({ annee, sections, onClose, onSaved }) {
     // avait aucune raison de le lui cacher.
     const res = await fetch(`/api/ref/import-dp?annee=${annee}&section=${section}`
       + `&fichier=${encodeURIComponent(fichier.name || '')}`
+      + (cibles[fichier.name] ? `&ue_num=${cibles[fichier.name]}` : '')
       + (apercu ? '&preview=1' : ''), {
       method: 'POST',
       headers: { 'Content-Type': 'application/octet-stream',
@@ -70,8 +92,13 @@ function DPImportModal({ annee, sections, onClose, onSaved }) {
   };
 
   const liste = resultats || analyses;
-  const aCreer = (analyses || []).filter(a => a.ok && a.data.action === 'created');
+  // Un dossier rattaché à la main ne crée rien : il ne bloque plus l'import.
+  const aCreer = (analyses || []).filter(a => a.ok && a.data.action === 'created' && !cibles[a.fichier]);
   const bloquant = !section && aCreer.length > 0;
+
+  // Le sélecteur de rattachement, groupé par section — c'est là qu'on cherche.
+  const parSection = [...new Set(ues.map(u => u.section))].sort()
+    .map(s => [s, ues.filter(u => u.section === s)]);
 
   return (
     <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] flex items-center justify-center p-4 z-50"
@@ -108,7 +135,7 @@ function DPImportModal({ annee, sections, onClose, onSaved }) {
                 <input type="file" accept=".pdf,.docx" multiple className="sr-only"
                   onChange={e => {
                     setFichiers(Array.from(e.target.files || []));
-                    setAnalyses(null); setError('');
+                    setAnalyses(null); setError(''); setCibles({});
                   }} />
               </label>
             </div>
@@ -151,9 +178,11 @@ function DPImportModal({ annee, sections, onClose, onSaved }) {
                     {x.ok ? (
                       <>
                         <div className="flex items-start gap-2">
-                          <span className={`flex-shrink-0 font-semibold ${x.data.action === 'created'
+                          <span className={`flex-shrink-0 font-semibold ${x.data.action === 'created' && !cibles[x.fichier]
                             ? 'text-iip-turquoise' : 'text-iip-blue'}`}>
-                            {x.data.action === 'created' ? '✚' : '↻'} UE {x.data.ue_num}
+                            {x.data.action === 'created'
+                              ? (cibles[x.fichier] ? `↻ UE ${cibles[x.fichier]}` : `✚ UE ${x.data.ue_num}`)
+                              : `↻ UE ${x.data.ue_num}`}
                           </span>
                           <span className="flex-1 text-gray-700">{x.data.parsed?.ue?.ue_nom || x.fichier}</span>
                           <span className="text-gray-400 flex-shrink-0">
@@ -176,6 +205,29 @@ function DPImportModal({ annee, sections, onClose, onSaved }) {
                             Code FWB repris du <b>nom du fichier</b> — le document ne le porte pas.
                           </div>
                         )}
+                        {/* LE RATTACHEMENT MANUEL : ce dossier n'a été reconnu
+                            par aucun code FWB — soit l'unité n'existe pas, soit
+                            elle existe sans code. On la désigne ici plutôt que
+                            de la laisser se créer en doublon. */}
+                        {!resultats && x.data.action === 'created' && (
+                          <div className="pl-6 mt-1.5 flex items-center gap-1.5">
+                            <IconLink size={12} className="text-gray-400 flex-shrink-0" />
+                            <select value={cibles[x.fichier] || ''}
+                              onChange={e => setCibles(c => ({ ...c, [x.fichier]: e.target.value }))}
+                              className="flex-1 border border-gray-300 rounded px-2 py-1 text-xs bg-white focus:outline-none focus:border-iip-blue">
+                              <option value="">Créer une nouvelle UE</option>
+                              {parSection.map(([s, us]) => (
+                                <optgroup key={s} label={s}>
+                                  {us.map(u => (
+                                    <option key={u.ue_num} value={u.ue_num}>
+                                      UE {u.ue_num} — {u.ue_nom}
+                                    </option>
+                                  ))}
+                                </optgroup>
+                              ))}
+                            </select>
+                          </div>
+                        )}
                       </>
                     ) : (
                       <div className="flex items-start gap-2 text-red-700">
@@ -192,8 +244,8 @@ function DPImportModal({ annee, sections, onClose, onSaved }) {
                   {bloquant && (
                     <div className="bg-amber-50 border border-amber-200 rounded p-2 text-xs text-amber-700 flex items-start gap-1.5">
                       <IconAlertTriangle size={14} className="flex-shrink-0 mt-0.5" />
-                      {aCreer.length} unité(s) sont inconnues et seraient créées : choisissez d'abord
-                      une section cible.
+                      {aCreer.length} unité(s) sont inconnues et seraient créées : choisissez une
+                      section cible, ou rattachez chaque dossier à une unité existante.
                     </div>
                   )}
                   <button onClick={confirmer}
