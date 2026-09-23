@@ -600,7 +600,7 @@ export function calculerEtp(annee) {
       v.ue_num, u.ue_nom, u.ue_niv, u.ects, u.ue_tc,
       SUM(CASE WHEN v.type_cours='CT' THEN v.total_attribue_professeur ELSE 0 END) AS per_ct,
       SUM(CASE WHEN v.type_cours='PP' THEN v.total_attribue_professeur ELSE 0 END) AS per_pp,
-      SUM(CASE WHEN v.type_cours NOT IN ('CT','PP') THEN v.total_attribue_professeur ELSE 0 END) AS per_autre
+      SUM(CASE WHEN v.type_cours IS NULL OR v.type_cours NOT IN ('CT','PP') THEN v.total_attribue_professeur ELSE 0 END) AS per_autre
     FROM v_attribution_complete v
     LEFT JOIN ue u ON u.ue_num = v.ue_num AND u.annee_scolaire = v.annee_scolaire
     WHERE v.annee_scolaire = ? AND COALESCE(NULLIF(v.contrat_mdp,''),'IIP') <> 'HELB'
@@ -614,7 +614,7 @@ export function calculerEtp(annee) {
     SELECT COALESCE(NULLIF(v.section,''), u.section) AS section, v.ue_num,
       SUM(CASE WHEN v.type_cours='CT' THEN v.total_attribue_professeur ELSE 0 END) AS per_ct,
       SUM(CASE WHEN v.type_cours='PP' THEN v.total_attribue_professeur ELSE 0 END) AS per_pp,
-      SUM(CASE WHEN v.type_cours NOT IN ('CT','PP') THEN v.total_attribue_professeur ELSE 0 END) AS per_autre
+      SUM(CASE WHEN v.type_cours IS NULL OR v.type_cours NOT IN ('CT','PP') THEN v.total_attribue_professeur ELSE 0 END) AS per_autre
     FROM v_attribution_complete v
     LEFT JOIN ue u ON u.ue_num = v.ue_num AND u.annee_scolaire = v.annee_scolaire
     WHERE v.annee_scolaire = ? AND v.contrat_mdp='HELB'
