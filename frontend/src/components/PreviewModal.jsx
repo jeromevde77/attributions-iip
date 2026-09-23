@@ -93,9 +93,9 @@ export default function PreviewModal({ html, titre = 'Document', sousTitre, nomF
               className="bouton-sortir controle px-3 flex items-center gap-1.5 disabled:opacity-40">
               <IconPrinter size={15} /> Imprimer / PDF
             </button>
-            {destinataire && envoiMail?.actif && (
+            {envoiMail?.actif && (
               <button onClick={() => setEnvoi(true)} disabled={!pret}
-                title="Envoyer ce document par courriel, en PDF joint"
+                title="Envoyer ce document par courriel — PDF joint ou dans le corps du message"
                 className="bouton controle px-3 flex items-center gap-1.5 disabled:opacity-40">
                 <IconMail size={15} /> Envoyer
               </button>
@@ -118,9 +118,10 @@ export default function PreviewModal({ html, titre = 'Document', sousTitre, nomF
           className="flex-1 w-full border-0 bg-gray-100"
         />
       </div>
-      {envoi && destinataire && (
+      {envoi && (
         <EnvoiMailModal
-          pieces={[{ html, nom_fichier: nomFichier || titre, destinataire }]}
+          pieces={[{ html, nom_fichier: nomFichier || titre,
+                     destinataire: destinataire || { nom: titre || nomFichier || 'Document' } }]}
           typeDoc={typeDoc || 'apercu'}
           sujet={sujetMail || [sousTitre, titre].filter(Boolean).join(' — ') || 'Votre document'}
           onClose={() => setEnvoi(false)} />

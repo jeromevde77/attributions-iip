@@ -295,7 +295,7 @@ r.get('/adresses', authRequired, actifRequis, (req, res) => {
  * un rate doivent rendre neuf « envoyé » et un « échec » nommé.
  */
 r.post('/', authRequired, roleRequired(...PEUT_ENVOYER), actifRequis, async (req, res) => {
-  const { sujet, message, type_doc, pieces } = req.body || {};
+  const { sujet, message, type_doc, pieces, mode } = req.body || {};
   if (!sujet?.trim()) return res.status(400).json({ error: 'sujet requis' });
   if (!Array.isArray(pieces) || !pieces.length) {
     return res.status(400).json({ error: 'aucune pièce à envoyer' });
@@ -303,12 +303,19 @@ r.post('/', authRequired, roleRequired(...PEUT_ENVOYER), actifRequis, async (req
   if (pieces.length > 200) {
     return res.status(400).json({ error: 'au plus 200 envois par lot' });
   }
-  const cap = await capacitePdf();
-  if (!cap.disponible) {
-    return res.status(503).json({
-      error: "Ce serveur ne sait pas produire de PDF : l'envoi par courriel "
-           + 'exige une pièce jointe PDF.', detail: cap.raison,
-    });
+  /* DEUX FAÇONS DE PARTIR (Jérôme, 29 septembre 2026) : la pièce jointe PDF,
+     ou LE DOCUMENT DANS LE CORPS DU COURRIEL — mis en page, léger, sans
+     Chromium. Le corps n'exige donc pas la capacité PDF : c'est même son
+     intérêt sur un serveur qui ne sait pas en produire. */
+  const enCorps = mode === 'corps';
+  if (!enCorps) {
+    const cap = await capacitePdf();
+    if (!cap.disponible) {
+      return res.status(503).json({
+        error: "Ce serveur ne sait pas produire de PDF : choisissez l'envoi "
+             + 'dans le corps du courriel, ou installez le rendu PDF.', detail: cap.raison,
+      });
+    }
   }
 
   ensureTable();
@@ -340,6 +347,17 @@ r.post('/', authRequired, roleRequired(...PEUT_ENVOYER), actifRequis, async (req
       resultats.push({ ...base, statut: 'echec', erreur: 'document absent' });
       journal.run(lot, type_doc || null, base.destinataire_type, base.destinataire_id,
         base.nom, email, sujet, null, null, 'echec', 'document absent', par);
+      continue;
+    }
+    if (enCorps) {
+      const emailHtml = corpsAvecDocument(message, par, p.html);
+      const envoi = await envoyerEmail({ to: email, subject: sujet, html: emailHtml });
+      const statut = !envoi.ok ? 'echec' : envoi.simule ? 'simule' : 'envoye';
+      const redir = lireConfigSmtp().redirection;
+      const note = envoi.erreur || (redir ? `redirigé vers ${redir}` : null);
+      resultats.push({ ...base, statut, erreur: envoi.erreur || null, redirige: redir || null });
+      journal.run(lot, type_doc || null, base.destinataire_type, base.destinataire_id,
+        base.nom, email, sujet, null, Buffer.byteLength(emailHtml), statut, note, par);
       continue;
     }
     let pdf;
@@ -414,6 +432,32 @@ function corpsCourriel(message, signataire) {
     Le document est joint à ce courriel au format PDF.
   </p>
 </body></html>`;
+}
+
+/**
+ * EN CORPS DE COURRIEL : le document lui-même, précédé du mot
+ * d'accompagnement. Le HTML du document part tel quel, ses styles avec lui —
+ * c'est la mise en page de la pièce, sans pièce jointe.
+ */
+function corpsAvecDocument(message, signataire, htmlDoc) {
+  const esc = s2 => String(s2 ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  const texte = /<[a-z][\s\S]*>/i.test(message || '')
+    ? message
+    : esc(message || '').replace(/\n/g, '<br>');
+  const mot = texte.trim()
+    ? `<div style="font-family:Arial,sans-serif;color:#222;max-width:760px;margin:0 auto 16px;`
+      + `padding:14px 20px;line-height:1.6;border-bottom:2px solid #1B2B4B">`
+      + texte
+      + (signataire ? `<p style="margin-top:14px;color:#475569">${esc(signataire)}</p>` : '')
+      + '</div>'
+    : '';
+  const doc = String(htmlDoc || '');
+  const i = doc.search(/<body[^>]*>/i);
+  if (i >= 0) {
+    const fin = doc.indexOf('>', i) + 1;
+    return doc.slice(0, fin) + mot + doc.slice(fin);
+  }
+  return `<!DOCTYPE html><html><head><meta charset="utf-8"></head><body>${mot}${doc}</body></html>`;
 }
 
 export default r;
