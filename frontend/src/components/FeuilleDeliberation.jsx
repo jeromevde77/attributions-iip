@@ -93,6 +93,9 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose }) {
   // null = toute l'unité, N = l'organisation N, 0 = les non répartis.
   const [org, setOrg] = useState(null);
   const [repartir, setRepartir] = useState(false);   // la fenêtre de répartition
+  /* SCINDER PAR GROUPE, si on le souhaite — un filtre d'affichage : la séance,
+     la clôture et le PV restent par organisation. */
+  const [groupe, setGroupe] = useState(null);        // null = tous
 
   async function charger() {
     setErreur(null);
@@ -125,6 +128,9 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose }) {
   // appartiennent, et celles de juin ne valent pas pour septembre.
   useEffect(() => { charger(); chargerSeance(); setIdx(0);
     /* eslint-disable-next-line */ }, [ueNum, annee, choixSession, org]);
+  // Changer de groupe repart d'une revue neuve : l'ordre figé de l'ancien
+  // groupe ne vaut pas pour le nouveau.
+  useEffect(() => { setOrdre(null); setIdx(0); /* eslint-disable-next-line */ }, [groupe]);
   // LA SESSION N'EST CONNUE QU'APRÈS LE CHARGEMENT : c'est le serveur qui la
   // déduit. Interroger la reprise en même temps que le reste, c'était
   // l'interroger toujours pour la première session — et taire la bannière sur
@@ -190,10 +196,13 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose }) {
   const liste = useMemo(() => {
     if (!data) return [];
     const q = recherche.trim().toLowerCase();
-    const base = q
-      ? data.etudiants.filter(e =>
-          `${e.nom} ${e.prenom} ${e.id_ecampus || ''}`.toLowerCase().includes(q))
+    const parGroupe = groupe
+      ? data.etudiants.filter(e => (e.groupes || []).includes(groupe))
       : data.etudiants;
+    const base = q
+      ? parGroupe.filter(e =>
+          `${e.nom} ${e.prenom} ${e.id_ecampus || ''}`.toLowerCase().includes(q))
+      : parGroupe;
     if (ordre) {
       // L'ordre définit AUSSI le périmètre de la revue : ceux qui ont été
       // délibérés d'office n'y sont plus. Les repasser en revue ne leur
@@ -206,11 +215,13 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose }) {
       const d = rang(b) - rang(a);
       return d || `${a.nom} ${a.prenom}`.localeCompare(`${b.nom} ${b.prenom}`);
     });
-  }, [data, recherche, ordre]);
+  }, [data, recherche, ordre, groupe]);
 
   /** Figer l'ordre au moment où la revue commence. */
   function figerOrdre(source) {
-    const l = [...(source || data?.etudiants || [])].sort((a, b) => {
+    const depart = source || data?.etudiants || [];
+    const filtre = groupe ? depart.filter(e => (e.groupes || []).includes(groupe)) : depart;
+    const l = [...filtre].sort((a, b) => {
       const d = rang(b) - rang(a);
       return d || `${a.nom} ${a.prenom}`.localeCompare(`${b.nom} ${b.prenom}`);
     });
@@ -555,6 +566,24 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose }) {
                 </div>
               );
             })()}
+            {/* SCINDER PAR GROUPE — facultatif. Les groupes viennent de la
+                répartition étudiants × cours ; le filtre ne touche ni la
+                séance, ni la clôture, ni le PV. */}
+            {(data.groupes?.length > 0) && (
+              <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
+                <span className="text-[10px] uppercase tracking-wide text-slate-400">Groupe</span>
+                {[null, ...data.groupes].map(g => (
+                  <button key={String(g)} onClick={() => setGroupe(g)}
+                    className={`px-2 py-0.5 rounded-full text-[11px] font-semibold border transition
+                      ${groupe === g
+                        ? 'bg-iip-turquoise text-white border-iip-turquoise'
+                        : 'bg-white text-iip-turquoise-dark border-slate-300 hover:border-iip-turquoise'}`}>
+                    {g === null ? 'Tous'
+                      : `${g} (${data.etudiants.filter(e => (e.groupes || []).includes(g)).length})`}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
           <div className="flex items-center gap-2">

@@ -4675,11 +4675,29 @@ r.get('/deliberation/ue/:ueNum', authRequired, (req, res) => {
   const nomUE = Object.fromEntries(db.prepare(
     'SELECT ue_num, MAX(ue_nom) AS n FROM ue GROUP BY ue_num').all().map(r => [r.ue_num, r.n]));
 
+  /* LES GROUPES DE L'UNITÉ — pour SCINDER la revue quand on le souhaite
+   * (Jérôme, 29 septembre 2026 : « on peut, ce n'est pas obligatoire »).
+   * C'est un filtre d'affichage : la séance, la clôture et le PV restent
+   * par organisation. */
+  const grpParEtud = {};
+  let groupesUE = [];
+  try {
+    const grpRows = db.prepare(`
+      SELECT DISTINCT g.etudiant_id, g.groupe_code
+      FROM etudiant_cours_groupe g
+      JOIN cours c ON c.cours_code = g.cours_code AND c.annee_scolaire = g.annee_scolaire
+      WHERE g.annee_scolaire = ? AND c.ue_num = ? AND g.groupe_code IS NOT NULL
+    `).all(annee, ueNum);
+    for (const g0 of grpRows) (grpParEtud[g0.etudiant_id] ||= new Set()).add(g0.groupe_code);
+    groupesUE = [...new Set(grpRows.map(g0 => g0.groupe_code))].sort();
+  } catch { /* pas encore de répartition par cours : pas de filtre */ }
+
   const lignes = etudiants.map(e => {
     const d = delibererUE(e.id, ueNum, annee, session);
     const ailleurs = (dejaFaveur[e.id] || []).sort((a, b) => a - b)
       .map(n => ({ ue_num: n, ue_nom: nomUE[n] || null }));
     return { ...e, ...d,
+      groupes: [...(grpParEtud[e.id] || [])].sort(),
       parcours: parcoursDeLAnnee(e.id, annee),
       ue: { ...d.ue, ...aideDecision(d, moyennes[e.id] ?? null, ailleurs) } };
   });
@@ -4692,6 +4710,7 @@ r.get('/deliberation/ue/:ueNum', authRequired, (req, res) => {
     ue_num: ueNum, ue_nom: ue.ue_nom || `UE ${ueNum}`, section: ue.section || null,
     annee, session, etat_sessions: etat,
     organisation: orgParam, organisations, par_organisation: parOrganisation,
+    groupes: groupesUE,
     seuil: SEUIL_UE, epreuve_integree: estEpreuveIntegree(ueNum, annee),
     colonnes_acquis: modele.acquis.map(a => ({ aa_code: a.aa_code, description: a.description })),
     colonnes_cours: modele.cours.map(c => ({
