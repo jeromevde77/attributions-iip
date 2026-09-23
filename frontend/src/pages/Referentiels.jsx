@@ -8,6 +8,11 @@ import ImportUEAssistant from '../components/ImportUEAssistant.jsx';
 import { IconX, IconPencil, IconTrash, IconPlus, IconCheck, IconLink, IconChevronRight, IconTarget, IconUpload, IconFileText, IconAlertTriangle } from '@tabler/icons-react';
 import AcquisUE from '../components/AcquisUE.jsx';
 
+// Même normalisation que le serveur : accents, casse et ponctuation ne font
+// pas deux cours différents.
+const normNomCours = (s) => String(s || '').normalize('NFD')
+  .replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+
 // ─── Import des dossiers pédagogiques FWB ────────────────────────────────────
 //
 // Une section, c'est une quinzaine de dossiers. Les importer un par un — choisir
@@ -33,6 +38,45 @@ function DPImportModal({ annee, sections, onClose, onSaved }) {
      dossier, et les imports suivants la retrouveront seuls. */
   const [ues, setUes]       = useState([]);   // UE existantes de l'année, pour le sélecteur
   const [cibles, setCibles] = useState({});   // nom de fichier → ue_num désigné
+  /* LA FEUILLE DE CORRESPONDANCE DES COURS. Le rapprochement par nom exact
+     doublait les cours dès que le dossier épelait autrement que la base. Pour
+     chaque dossier visant une UE existante : la liste de ses cours et, cours
+     du dossier par cours du dossier, la décision — rattacher ou créer. */
+  const [mappes, setMappes] = useState({});   // fichier → { cours: [], choix: [code|''] }
+
+  // La correspondance proposée arrive avec l'analyse (dossiers reconnus).
+  useEffect(() => {
+    if (!analyses) { setMappes({}); return; }
+    setMappes(m => {
+      const n = { ...m };
+      for (const a of analyses) {
+        if (a.ok && a.data.action === 'updated' && !n[a.fichier]) {
+          n[a.fichier] = {
+            cours: a.data.cours_ue || [],
+            choix: (a.data.correspondance || []).map(c => c.propose || ''),
+          };
+        }
+      }
+      return n;
+    });
+  }, [analyses]);
+
+  // Changer l'unité cible recharge ses cours et repropose la correspondance.
+  async function changerCible(fichier, val, parsedCours) {
+    setCibles(c => ({ ...c, [fichier]: val }));
+    if (!val) { setMappes(m => ({ ...m, [fichier]: null })); return; }
+    try {
+      const rep = await fetch(`/api/ref/cours?ue_num=${val}&annee=${encodeURIComponent(annee)}`,
+        { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } });
+      const l = await rep.json();
+      if (!rep.ok || !Array.isArray(l)) throw new Error();
+      const parNom = new Map(l.map(k => [normNomCours(k.cours_nom), k.cours_code]));
+      setMappes(m => ({ ...m, [fichier]: {
+        cours: l,
+        choix: (parsedCours || []).map(c => parNom.get(normNomCours(c.nom)) || ''),
+      } }));
+    } catch { setMappes(m => ({ ...m, [fichier]: null })); }
+  }
   useEffect(() => {
     api.refStructure().then(d => {
       const vues = new Map();
@@ -52,9 +96,13 @@ function DPImportModal({ annee, sections, onClose, onSaved }) {
     // LE NOM DU FICHIER PART AVEC LUI. L'école nomme ces pièces par leur code
     // FWB ; le serveur s'en sert quand le document ne le porte pas, et il n'y
     // avait aucune raison de le lui cacher.
+    // La feuille de correspondance part avec l'import : un élément par cours
+    // du dossier, dans l'ordre du parsing (code = rattacher, '' = créer).
+    const carte = mappes[fichier.name];
     const res = await fetch(`/api/ref/import-dp?annee=${annee}&section=${section}`
       + `&fichier=${encodeURIComponent(fichier.name || '')}`
       + (cibles[fichier.name] ? `&ue_num=${cibles[fichier.name]}` : '')
+      + (!apercu && carte?.choix ? `&cours_map=${encodeURIComponent(JSON.stringify(carte.choix))}` : '')
       + (apercu ? '&preview=1' : ''), {
       method: 'POST',
       headers: { 'Content-Type': 'application/octet-stream',
@@ -195,6 +243,8 @@ function DPImportModal({ annee, sections, onClose, onSaved }) {
                             ? ` · ${x.data.parsed.ue.ue_per_etudiants} pér.` : ''}
                           {resultats && x.data.cours_crees?.length
                             ? ` · ${x.data.cours_crees.length} cours créé(s)` : ''}
+                          {resultats && x.data.cours_lies?.length
+                            ? ` · ${x.data.cours_lies.length} cours rattaché(s)` : ''}
                         </div>
                         {/* D'OÙ VIENT LE CODE. Repris du nom du fichier, il
                             n'a pas été lu dans la pièce : ça se dit au moment
@@ -217,7 +267,7 @@ function DPImportModal({ annee, sections, onClose, onSaved }) {
                             <select
                               value={cibles[x.fichier]
                                 ?? (x.data.action === 'updated' ? String(x.data.ue_num) : '')}
-                              onChange={e => setCibles(c => ({ ...c, [x.fichier]: e.target.value }))}
+                              onChange={e => changerCible(x.fichier, e.target.value, x.data.parsed?.cours)}
                               className="flex-1 border border-gray-300 rounded px-2 py-1 text-xs bg-white focus:outline-none focus:border-iip-blue">
                               {x.data.action === 'created' && (
                                 <option value="">Créer une nouvelle UE</option>
@@ -241,6 +291,48 @@ function DPImportModal({ annee, sections, onClose, onSaved }) {
                             l'UE {x.data.ue_num} si c'est un doublon.
                           </div>
                         )}
+                        {/* LA FEUILLE DE CORRESPONDANCE DES COURS : cours du
+                            dossier par cours du dossier, rattacher à l'existant
+                            ou créer — rien ne double plus en silence. */}
+                        {!resultats && (() => {
+                          const carte = mappes[x.fichier];
+                          const cibleEff = cibles[x.fichier]
+                            ?? (x.data.action === 'updated' ? String(x.data.ue_num) : '');
+                          const coursDP = x.data.parsed?.cours || [];
+                          if (!cibleEff || !carte || !coursDP.length) return null;
+                          const nbLies = carte.choix.filter(Boolean).length;
+                          return (
+                            <div className="pl-6 mt-1.5 ml-0.5 border-l-2 border-iip-turquoise/25 space-y-1 py-1">
+                              <div className="text-[10px] uppercase tracking-wide text-gray-400">
+                                Correspondance des cours — {nbLies} rattaché(s), {coursDP.length - nbLies} à créer
+                              </div>
+                              {coursDP.map((c, ci) => (
+                                <div key={ci} className="flex items-center gap-1.5 pl-1">
+                                  <span className="flex-1 text-gray-600 truncate" title={c.nom}>
+                                    {c.nom}{c.periodes ? ` · ${c.periodes} pér.` : ''}
+                                  </span>
+                                  <select value={carte.choix[ci] ?? ''}
+                                    onChange={e => setMappes(m => {
+                                      const c0 = m[x.fichier];
+                                      if (!c0) return m;
+                                      const choix = [...c0.choix];
+                                      choix[ci] = e.target.value;
+                                      return { ...m, [x.fichier]: { ...c0, choix } };
+                                    })}
+                                    className={`w-56 border rounded px-1.5 py-0.5 text-[11px] bg-white
+                                      ${carte.choix[ci] ? 'border-green-400 text-green-800' : 'border-amber-300 text-[#B45309]'}`}>
+                                    <option value="">➕ Créer ce cours</option>
+                                    {carte.cours.map(k => (
+                                      <option key={k.cours_code} value={k.cours_code}>
+                                        {k.cours_code} — {k.cours_nom}
+                                      </option>
+                                    ))}
+                                  </select>
+                                </div>
+                              ))}
+                            </div>
+                          );
+                        })()}
                       </>
                     ) : (
                       <div className="flex items-start gap-2 text-red-700">
