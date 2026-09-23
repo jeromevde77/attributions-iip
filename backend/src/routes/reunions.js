@@ -483,12 +483,19 @@ r.put('/taches/:id', authRequired, (req, res) => {
   const devientFaite = b.statut === 'fait' && t.statut !== 'fait';
   const redevientOuverte = b.statut && b.statut !== 'fait' && t.statut === 'fait';
 
+  /* « PAS ENCORE FAIT » : le responsable le signale d'un clic quand la date
+   * approche ; daté, signé, visible dans le suivi de celui qui a confié.
+   * Marquer la tâche faite efface le signal — il a cessé d'être vrai. */
+  let pasFaitLe = t.pas_fait_le, pasFaitPar = t.pas_fait_par;
+  if (b.pas_fait === true) { pasFaitLe = new Date().toISOString().slice(0, 10); pasFaitPar = qui(req); }
+  if (b.pas_fait === false || devientFaite) { pasFaitLe = null; pasFaitPar = null; }
+
   db.prepare(`
     UPDATE tache SET titre=?, detail=?, responsable_user_id=?,
       responsable_professeur_id=?, responsable_role=?,
       echeance=?, statut=?, priorite=?, commentaire=?, reunion_id=?,
       revue_reunion_id=?, echeance_id=?, point_id=?,
-      fait_le=?, fait_par=?, maj_le=datetime('now')
+      fait_le=?, fait_par=?, pas_fait_le=?, pas_fait_par=?, maj_le=datetime('now')
     WHERE id=?
   `).run(
     v('titre', t.titre), v('detail', t.detail),
@@ -502,6 +509,7 @@ r.put('/taches/:id', authRequired, (req, res) => {
     devientFaite ? new Date().toISOString().slice(0, 10)
       : redevientOuverte ? null : t.fait_le,
     devientFaite ? qui(req) : redevientOuverte ? null : t.fait_par,
+    pasFaitLe, pasFaitPar,
     req.params.id);
 
   // L'ÉQUIPAGE NE SE MODIFIE QUE SI ON LE DIT. Cocher « fait » envoie un seul

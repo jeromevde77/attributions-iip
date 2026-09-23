@@ -207,6 +207,12 @@ export function migrerReunions(db) {
     // toutes les décisions en bloc à la fin, et l'on ne sait plus laquelle
     // répondait à quelle discussion.
     ['tache', 'point_id', 'INTEGER REFERENCES reunion_point(id)'],
+    // « PAS ENCORE FAIT » N'EST PAS UN SILENCE (Jérôme, 30 septembre 2026).
+    // Quand l'échéance approche, le responsable peut le DIRE d'un clic : le
+    // signal est daté et signé, et celui qui a confié le voit dans son suivi —
+    // au lieu de découvrir le retard au point suivant.
+    ['tache', 'pas_fait_le', 'TEXT'],
+    ['tache', 'pas_fait_par', 'TEXT'],
   ]) {
     const colonnes = db.prepare(`PRAGMA table_info(${table})`).all().map(c => c.name);
     if (!colonnes.includes(colonne)) {

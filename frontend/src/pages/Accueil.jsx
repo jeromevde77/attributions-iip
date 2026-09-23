@@ -152,6 +152,17 @@ function MesTaches({ signal = 0 }) {
     charger();
   }
 
+  /* « PAS ENCORE FAIT » — dire le retard vaut mieux que le taire : le signal
+     est daté, signé, et celui qui a confié le voit dans son suivi. */
+  async function pointer(t, valeur) {
+    await fetch(`/api/reunions/taches/${t.id}`, {
+      method: 'PUT',
+      headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+      body: JSON.stringify({ pas_fait: valeur }),
+    });
+    charger();
+  }
+
   const fr = d => (d ? String(d).slice(0, 10).split('-').reverse().join('/') : null);
   if (!taches.length && !confiees.length && !informe.length && !prochaine) return null;
 
@@ -179,6 +190,23 @@ function MesTaches({ signal = 0 }) {
           )}
         </div>
       )}
+
+      {/* LE RAPPEL QUI NE SE RATE PAS : dès qu'une tâche presse ou est
+          dépassée, l'Accueil le dit en toutes lettres, en tête. */}
+      {(() => {
+        const urgentes = taches.filter(t => {
+          const n = urgence(t.echeance).niveau;
+          return n === 'presse' || n === 'depasse';
+        }).length;
+        return urgentes > 0 ? (
+          <div className="mb-2 px-3 py-2 rounded-carte bg-red-50 border border-red-200
+                          text-[13px] text-red-800 font-semibold flex items-center gap-2">
+            <span className="w-6 h-6 flex-none grid place-items-center rounded-lg bg-red-100 text-red-700 font-bold">!</span>
+            Urgent — vous avez {urgentes} tâche{urgentes > 1 ? 's' : ''} importante{urgentes > 1 ? 's' : ''} à
+            échéance immédiate ou dépassée.
+          </div>
+        ) : null;
+      })()}
 
       <div className="flex items-baseline gap-2 mb-1.5">
         <h2 className="text-[13px] font-semibold text-iip-blue">Ce qui m’attend</h2>
@@ -236,6 +264,25 @@ function MesTaches({ signal = 0 }) {
                   {u.mention ? `${u.mention} · ` : 'pour le '}{fr(t.echeance)}
                 </span>
               )}
+              {/* Le signal « pas encore fait » : proposé quand la date est
+                  proche ou dépassée ; une fois posé, il s'affiche et se retire
+                  d'un clic. */}
+              {t.pas_fait_le ? (
+                <button onClick={() => pointer(t, false)}
+                  title={`Signalé « pas encore fait » le ${fr(t.pas_fait_le)} — cliquer pour retirer`}
+                  className="flex-none text-[10px] font-bold px-2 py-0.5 rounded-full
+                             bg-amber-100 text-amber-800 border border-amber-300">
+                  pas encore fait
+                </button>
+              ) : (u.niveau && u.niveau !== 'calme') ? (
+                <button onClick={() => pointer(t, true)}
+                  title="Signaler que ce n'est pas encore fait — daté, signé, visible dans le suivi"
+                  className="flex-none text-[10px] font-semibold px-2 py-0.5 rounded-full
+                             border border-slate-300 text-slate-500 hover:border-amber-400
+                             hover:text-amber-800 hover:bg-amber-50 bg-white">
+                  pas encore fait ?
+                </button>
+              ) : null}
               <button onClick={() => cocher(t)} title="Marquer comme faite"
                 className="w-5 h-5 flex-none grid place-items-center rounded-champ border
                            border-slate-300 text-transparent hover:border-emerald-500
@@ -312,6 +359,13 @@ function MesTaches({ signal = 0 }) {
                   <span className="flex-1 min-w-0 text-[13px] text-slate-800 truncate">
                     {t.titre}
                   </span>
+                  {t.pas_fait_le && (
+                    <span title={`Signalé par ${t.pas_fait_par || 'le responsable'}`}
+                      className="flex-none text-[10px] font-bold px-2 py-0.5 rounded-full
+                                 bg-amber-100 text-amber-800 border border-amber-300">
+                      pas encore fait · {fr(t.pas_fait_le)}
+                    </span>
+                  )}
                   <span className="text-[11px] text-slate-500 truncate max-w-[12rem]">
                     {t.responsable_nom || t.responsable_role || 'sans responsable'}
                   </span>
