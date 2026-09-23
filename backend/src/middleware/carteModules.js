@@ -51,6 +51,7 @@ export const SANS_MODULE = {
   suggestions:     'proposer une amélioration, depuis n’importe quel écran',
   demandes:        'le circuit de validation lui-même : le demandeur y accède par nature',
   'mes-cours':     'ce que le professeur propose pour SES cours — chaque route vérifie l’appartenance',
+  'suivi-etudiant': 'le dossier confidentiel d’un étudiant — chaque route vérifie le lien (ses enseignants, sa coordination, la direction)',
   historique:      'journal transverse, filtré en son sein selon ce qu’on peut lire',
   audit:           'qui a fait quoi — déjà réservé à la direction par `niveauDirection`',
 };
