@@ -6565,6 +6565,18 @@ r.get('/deliberation/documents-lot', authRequired, (req, res) => {
 
   let unites = db.prepare(`SELECT ue_num, ue_nom, section FROM ue
     WHERE annee_scolaire = ? ORDER BY section, ue_num`).all(annee);
+  if (!unites.length) {
+    // Une année reconstruite n'a pas de référentiel — elle a des résultats :
+    // ses unités se relisent des inscriptions (même repli que l'arborescence).
+    unites = db.prepare(`
+      SELECT DISTINCT i.ue_num,
+        (SELECT ue_nom FROM ue x WHERE x.ue_num = i.ue_num AND x.ue_nom IS NOT NULL
+          ORDER BY x.annee_scolaire DESC LIMIT 1) AS ue_nom,
+        (SELECT section FROM ue x WHERE x.ue_num = i.ue_num AND x.section IS NOT NULL
+          ORDER BY x.annee_scolaire DESC LIMIT 1) AS section
+      FROM etudiant_inscription i WHERE i.annee_scolaire = ?
+      ORDER BY 3, 1`).all(annee);
+  }
   if (perim) unites = unites.filter(u => !u.section || perim.includes(u.section));
   if (section) unites = unites.filter(u => u.section === section);
 
