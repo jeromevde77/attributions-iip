@@ -4,7 +4,7 @@ import { readFileSync, createReadStream, writeFileSync, copyFileSync, existsSync
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import db from '../db/index.js';
-import { authRequired, roleRequired } from '../middleware/auth.js';
+import { authRequired, roleRequired, getUserSections } from '../middleware/auth.js';
 import { snapshotComplet } from '../lib/retention.js';
 import { peut } from '../middleware/permissions.js';
 
@@ -16,6 +16,16 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 // avec pour chacune l'état 'traitée' (cochée) par l'utilisateur courant.
 r.get('/activite', authRequired, (req, res) => {
   const { annee, jours = 7, limit = 200 } = req.query;
+
+  /* « JOURNAL TRANSVERSE, FILTRÉ EN SON SEIN SELON CE QU'ON PEUT LIRE » — la
+   * carte des modules l'exempte du garde SUR CETTE PROMESSE, qui n'était pas
+   * tenue : un compte « étudiants seulement » lisait les retraits
+   * d'attribution de tout l'établissement. Le fil ne porte que des
+   * événements d'attributions : sans lecture du module, il est vide ; avec,
+   * il se borne au périmètre de sections. */
+  if (!peut(req.user, 'attributions', 'lire')) {
+    return res.json({ jours: Number(jours), count: 0, non_traitees: 0, items: [] });
+  }
 
   const where = ["s.created_at >= datetime('now', ?)"];
   const params = [`-${Number(jours)} days`];
@@ -36,8 +46,11 @@ r.get('/activite', authRequired, (req, res) => {
     LIMIT ?
   `).all(req.user.id, ...params, Number(limit));
 
-  const nonTraitees = rows.filter(r => !r.traitee).length;
-  res.json({ jours: Number(jours), count: rows.length, non_traitees: nonTraitees, items: rows });
+  const perim = getUserSections(req.user);
+  const visibles = perim ? rows.filter(x => x.section && perim.includes(x.section)) : rows;
+
+  const nonTraitees = visibles.filter(r => !r.traitee).length;
+  res.json({ jours: Number(jours), count: visibles.length, non_traitees: nonTraitees, items: visibles });
 });
 
 // Cocher / décocher une modification comme traitée (par l'utilisateur courant)
@@ -75,6 +88,9 @@ r.post('/config', authRequired, roleRequired('admin'), (req, res) => {
 // Historique global (50 derniers)
 r.get('/', authRequired, (req, res) => {
   const { annee, limit = 100 } = req.query;
+  if (!peut(req.user, 'attributions', 'lire')) {
+    return res.status(403).json({ error: "Vous n'avez pas accès à ce module (attributions)." });
+  }
   const rows = db.prepare(`
     SELECT s.id, s.attribution_id, s.action, s.utilisateur_nom, s.created_at,
            json_extract(s.snapshot, '$.section')       AS section,
@@ -86,18 +102,29 @@ r.get('/', authRequired, (req, res) => {
     ORDER BY s.created_at DESC
     LIMIT ?
   `).all(...(annee ? [annee, Number(limit)] : [Number(limit)]));
-  res.json(rows);
+  const perim = getUserSections(req.user);
+  res.json(perim ? rows.filter(x => x.section && perim.includes(x.section)) : rows);
 });
 
 // Historique d'une attribution spécifique
 r.get('/attribution/:id', authRequired, (req, res) => {
+  if (!peut(req.user, 'attributions', 'lire')) {
+    return res.status(403).json({ error: "Vous n'avez pas accès à ce module (attributions)." });
+  }
   const rows = db.prepare(`
     SELECT id, attribution_id, action, snapshot, utilisateur_nom, created_at
     FROM attribution_snapshot
     WHERE attribution_id = ?
     ORDER BY created_at DESC
   `).all(req.params.id);
-  res.json(rows.map(r => ({ ...r, snapshot: JSON.parse(r.snapshot) })));
+  const detail = rows.map(r0 => ({ ...r0, snapshot: JSON.parse(r0.snapshot) }));
+  // Le périmètre vaut aussi pour un dossier désigné par son id.
+  const perim = getUserSections(req.user);
+  if (perim && detail.length
+    && !detail.some(x => x.snapshot?.section && perim.includes(x.snapshot.section))) {
+    return res.status(403).json({ error: 'Cette attribution est hors de votre périmètre.' });
+  }
+  res.json(detail);
 });
 
 // ─── Rollback ─────────────────────────────────────────────────────────────────
@@ -416,7 +443,12 @@ r.get('/feed', authRequired, (req, res) => {
       ORDER BY s.created_at DESC LIMIT 100
     `).all(u.id, ...params);
 
-    for (const a of attrs) {
+    // La même règle que /activite : le module d'abord, le périmètre ensuite.
+    const perimFeed = getUserSections(u);
+    const attrsVisibles = !peut(u, 'attributions', 'lire') ? []
+      : perimFeed ? attrs.filter(a => a.section && perimFeed.includes(a.section)) : attrs;
+
+    for (const a of attrsVisibles) {
       items.push({
         id: `attr-${a.id}`,
         source_id: a.id,
@@ -499,7 +531,8 @@ r.get('/feed', authRequired, (req, res) => {
       const mmjj = d => String(d.getMonth() + 1).padStart(2, '0') + '-'
                       + String(d.getDate()).padStart(2, '0');
 
-      const fetes = db.prepare(`
+      // Les anniversaires parlent du personnel : ils suivent son module.
+      const fetes = !peut(u, 'personnel', 'lire') ? [] : db.prepare(`
         SELECT id, nom, prenom, date_naissance,
                strftime('%m-%d', date_naissance) AS jour
         FROM professeur
