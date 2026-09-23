@@ -182,7 +182,7 @@ function DPImportModal({ annee, sections, onClose, onSaved }) {
                             ? 'text-iip-turquoise' : 'text-iip-blue'}`}>
                             {x.data.action === 'created'
                               ? (cibles[x.fichier] ? `↻ UE ${cibles[x.fichier]}` : `✚ UE ${x.data.ue_num}`)
-                              : `↻ UE ${x.data.ue_num}`}
+                              : `↻ UE ${cibles[x.fichier] || x.data.ue_num}`}
                           </span>
                           <span className="flex-1 text-gray-700">{x.data.parsed?.ue?.ue_nom || x.fichier}</span>
                           <span className="text-gray-400 flex-shrink-0">
@@ -205,17 +205,23 @@ function DPImportModal({ annee, sections, onClose, onSaved }) {
                             Code FWB repris du <b>nom du fichier</b> — le document ne le porte pas.
                           </div>
                         )}
-                        {/* LE RATTACHEMENT MANUEL : ce dossier n'a été reconnu
-                            par aucun code FWB — soit l'unité n'existe pas, soit
-                            elle existe sans code. On la désigne ici plutôt que
-                            de la laisser se créer en doublon. */}
-                        {!resultats && x.data.action === 'created' && (
+                        {/* LE RATTACHEMENT MANUEL — SUR CHAQUE DOSSIER, reconnu
+                            ou non. Un dossier « nouveau » se rattache pour ne
+                            pas créer de doublon ; un dossier « reconnu » peut
+                            l'être VERS LE DOUBLON précisément créé par un
+                            import passé — on redirige alors vers la bonne
+                            unité, sans réimporter quoi que ce soit d'autre. */}
+                        {!resultats && (
                           <div className="pl-6 mt-1.5 flex items-center gap-1.5">
                             <IconLink size={12} className="text-gray-400 flex-shrink-0" />
-                            <select value={cibles[x.fichier] || ''}
+                            <select
+                              value={cibles[x.fichier]
+                                ?? (x.data.action === 'updated' ? String(x.data.ue_num) : '')}
                               onChange={e => setCibles(c => ({ ...c, [x.fichier]: e.target.value }))}
                               className="flex-1 border border-gray-300 rounded px-2 py-1 text-xs bg-white focus:outline-none focus:border-iip-blue">
-                              <option value="">Créer une nouvelle UE</option>
+                              {x.data.action === 'created' && (
+                                <option value="">Créer une nouvelle UE</option>
+                              )}
                               {parSection.map(([s, us]) => (
                                 <optgroup key={s} label={s}>
                                   {us.map(u => (
@@ -226,6 +232,13 @@ function DPImportModal({ annee, sections, onClose, onSaved }) {
                                 </optgroup>
                               ))}
                             </select>
+                          </div>
+                        )}
+                        {!resultats && x.data.action === 'updated' && cibles[x.fichier]
+                          && cibles[x.fichier] !== String(x.data.ue_num) && (
+                          <div className="text-[11px] text-[#B45309] mt-0.5 pl-6">
+                            Redirigé vers l'UE {cibles[x.fichier]} — pensez à supprimer
+                            l'UE {x.data.ue_num} si c'est un doublon.
                           </div>
                         )}
                       </>
