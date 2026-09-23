@@ -1,0 +1,307 @@
+<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"></head><body>
+<title>Répartition des étudiants</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
+<style>
+  :root {
+    --ground: #F4F7FA; --card: #FFFFFF; --ink: #1B2B4B; --muted: #5B6B85;
+    --border: #DCE4EC; --accent: #00AACC; --accent-soft: #E1F5FA;
+    --marine: #1B2B4B; --marine-soft: #E1ECF5;
+    --warn: #B45309; --warn-soft: #FDF3E3; --ok: #15803D; --ok-soft: #E7F5EC;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground: #0F151E; --card: #171F2B; --ink: #E6ECF4; --muted: #93A1B5;
+      --border: #2A3547; --accent: #2BC5E4; --accent-soft: #10333D;
+      --marine-soft: #1E2B42; --warn-soft: #3A2A10; --ok-soft: #12301C;
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --ground: #0F151E; --card: #171F2B; --ink: #E6ECF4; --muted: #93A1B5;
+    --border: #2A3547; --accent: #2BC5E4; --accent-soft: #10333D;
+    --marine-soft: #1E2B42; --warn-soft: #3A2A10; --ok-soft: #12301C;
+    color-scheme: dark;
+  }
+  body {
+    background: var(--ground); color: var(--ink);
+    font-family: 'Inter', system-ui, Arial, sans-serif;
+    padding: 28px 16px 48px; margin: 0;
+  }
+  .page { max-width: 1080px; margin: 0 auto; }
+  .eyebrow { font-size: 11px; letter-spacing: .14em; text-transform: uppercase;
+    color: var(--accent); font-weight: 700; }
+  h1 { font-size: 27px; margin: 6px 0 10px; letter-spacing: -0.01em; text-wrap: balance; }
+  .these { color: var(--muted); font-size: 14.5px; line-height: 1.6; max-width: 62ch; margin: 0 0 26px; }
+  .these b { color: var(--ink); font-weight: 600; }
+
+  /* ── La maquette : un écran de Lucie, toujours clair, comme une capture ── */
+  .ecran {
+    background: #FFFFFF; color: #1B2B4B; border: 1px solid var(--border);
+    border-radius: 22px; padding: 18px 18px 14px; box-shadow: 0 12px 34px rgba(15,25,45,.10);
+    position: relative;
+  }
+  .ecran * { box-sizing: border-box; }
+  .onglets { display: flex; gap: 4px; border-bottom: 1px solid #E4EAF1;
+    padding-bottom: 0; margin-bottom: 14px; flex-wrap: wrap; }
+  .onglet { padding: 7px 13px 9px; font-size: 13px; color: #5B6B85; border: 0;
+    background: none; border-bottom: 2px solid transparent; }
+  .onglet.actif { color: #1B2B4B; font-weight: 600; border-bottom-color: #00AACC; }
+
+  .filtres { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+  .champ { border: 1px solid #CBD5E0; border-radius: 8px; padding: 6px 10px;
+    font-size: 13px; background: #fff; color: #1B2B4B; }
+  .badge-annee { font-size: 11.5px; font-weight: 700; color: #1B2B4B;
+    background: #E1ECF5; border-radius: 999px; padding: 4px 10px; }
+  .pousse { margin-left: auto; display: flex; gap: 8px; flex-wrap: wrap; }
+  .btn { border-radius: 8px; padding: 7px 12px; font-size: 12.5px; font-weight: 600; border: 1px solid transparent; }
+  .btn-marine { background: #1B2B4B; color: #fff; }
+  .btn-ligne { background: #fff; color: #1B2B4B; border-color: #CBD5E0; }
+  .btn-turquoise { background: #fff; color: #00849E; border-color: #00AACC; }
+
+  .ues { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
+  .ue-chip { border: 1px solid #CBD5E0; border-radius: 999px; padding: 6px 13px;
+    font-size: 12.5px; color: #5B6B85; background: #fff; }
+  .ue-chip.actif { border-color: #1B2B4B; background: #1B2B4B; color: #fff; font-weight: 600; }
+  .ue-chip small { opacity: .75; font-weight: 400; }
+
+  .cadre-table { overflow-x: auto; border: 1px solid #E4EAF1; border-radius: 14px; }
+  table.mock { border-collapse: collapse; width: 100%; min-width: 900px; font-size: 12.5px; }
+  .mock th, .mock td { border-bottom: 1px solid #EDF1F6; padding: 7px 10px; text-align: center; }
+  .mock thead th { background: #F7FAFC; }
+  .mock .th-cours { font-size: 12px; color: #1B2B4B; border-left: 2px solid #E4EAF1; }
+  .mock .th-cours small { display: block; color: #8593A8; font-weight: 400; font-size: 10.5px; }
+  .mock .th-groupe { font-size: 10.5px; font-weight: 600; color: #00849E;
+    border-left: 1px dashed #E4EAF1; min-width: 96px; }
+  .mock .th-groupe .prof { display: block; color: #8593A8; font-weight: 400; }
+  .mock .col-etu { text-align: left; min-width: 210px; position: sticky; left: 0; background: #fff; }
+  .mock thead .col-etu { background: #F7FAFC; }
+  .badge-org { font-size: 10px; font-weight: 700; border-radius: 999px; padding: 2px 8px; margin-left: 6px; }
+  .org1 { background: #E1F5FA; color: #00849E; }
+  .org2 { background: #E1ECF5; color: #1B2B4B; }
+  .org0 { background: #FDF3E3; color: #B45309; }
+  .case { display: inline-block; width: 15px; height: 15px; border-radius: 4px;
+    border: 1.5px solid #B9C5D3; vertical-align: middle; }
+  .case.x { background: #00AACC; border-color: #00AACC; position: relative; }
+  .case.x::after { content: "✓"; color: #fff; font-size: 10.5px; position: absolute; inset: 0; line-height: 15px; }
+  .case.auto { background: #E7F5EC; border-color: #9CC9AB; }
+  .case.auto::after { content: "✓"; color: #15803D; font-size: 10.5px; position: absolute; inset: 0; line-height: 15px; }
+  .case.auto { position: relative; }
+  tr.incomplet td { background: #FFFBF2; }
+  .note-ligne { font-size: 10px; color: #B45309; display: block; }
+  .mock tfoot td { background: #F7FAFC; font-weight: 700; color: #1B2B4B; font-size: 11.5px; border-top: 2px solid #E4EAF1; }
+  .mock tfoot .ok-eff { color: #15803D; } .mock tfoot .warn-eff { color: #B45309; }
+
+  .barre-sel { display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+    background: #E1F5FA; border: 1px solid #9ADFEE; border-radius: 10px;
+    padding: 7px 12px; margin: 12px 0 4px; font-size: 12.5px; color: #00849E; font-weight: 600; }
+  .barre-sel .btn { padding: 4px 10px; font-size: 11.5px; }
+
+  /* callouts */
+  .callout { position: absolute; width: 22px; height: 22px; border-radius: 999px;
+    background: var(--accent); color: #fff; font-size: 12px; font-weight: 700;
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 2px 8px rgba(0,0,0,.25); }
+
+  /* annotations */
+  .annos { display: grid; grid-template-columns: repeat(auto-fit, minmax(290px, 1fr));
+    gap: 14px 22px; margin: 26px 0 8px; }
+  .anno { display: flex; gap: 10px; font-size: 13.5px; line-height: 1.55; color: var(--muted); }
+  .anno b { color: var(--ink); }
+  .anno .n { flex: 0 0 22px; width: 22px; height: 22px; border-radius: 999px;
+    background: var(--accent); color: #fff; font-size: 12px; font-weight: 700;
+    display: flex; align-items: center; justify-content: center; margin-top: 1px; }
+
+  h2 { font-size: 16px; margin: 30px 0 10px; }
+  .flux { display: flex; gap: 10px; flex-wrap: wrap; align-items: stretch; }
+  .flux-item { flex: 1 1 240px; background: var(--card); border: 1px solid var(--border);
+    border-radius: 14px; padding: 13px 15px; font-size: 13px; color: var(--muted); line-height: 1.55; }
+  .flux-item b { color: var(--ink); display: block; margin-bottom: 3px; font-size: 12px;
+    text-transform: uppercase; letter-spacing: .07em; }
+  .flux-item code { font-size: 11.5px; color: var(--accent); background: var(--accent-soft);
+    padding: 1px 5px; border-radius: 4px; }
+  .questions { background: var(--card); border: 1px solid var(--border); border-left: 3px solid var(--warn);
+    border-radius: 14px; padding: 14px 18px; }
+  .questions ol { margin: 6px 0 0; padding-left: 20px; color: var(--muted); font-size: 13.5px; line-height: 1.65; }
+  .questions b { color: var(--ink); }
+</style>
+
+<div class="page">
+  <div class="eyebrow">Projet visuel · Lucie · axe Organisation</div>
+  <h1>Répartition des étudiants</h1>
+  <p class="these">Le tableau qui <b>croise les attributions et les PAE</b> — le lien entre
+    ce qu'on organise et qui le suit. On choisit la section, les UE apparaissent avec leurs
+    inscrits, et pour chaque cours on voit <b>les groupes tels que les attributions les
+    définissent</b> (organisation, lettre de groupe, professeur). Une case à l'intersection :
+    <b>cet étudiant a cours ici</b>.</p>
+
+  <div class="ecran">
+    <div class="callout" style="top:56px; left:-9px;">1</div>
+    <div class="callout" style="top:148px; right:-9px;">2</div>
+    <div class="callout" style="top:208px; left:-9px;">3</div>
+    <div class="callout" style="bottom:118px; right:-9px;">4</div>
+    <div class="callout" style="bottom:64px; left:-9px;">5</div>
+
+    <div class="onglets">
+      <span class="onglet">Grille de la section</span>
+      <span class="onglet">Attributions</span>
+      <span class="onglet actif">Répartition des étudiants</span>
+      <span class="onglet">Effectifs</span>
+    </div>
+
+    <div class="filtres">
+      <select class="champ"><option>Section : AESI — Soins infirmiers</option></select>
+      <span class="badge-annee">2026-2027</span>
+      <input class="champ" placeholder="Rechercher un étudiant…" size="18" />
+      <span class="pousse">
+        <span class="btn btn-turquoise">Proposer depuis la délibération</span>
+        <span class="btn btn-ligne">Vérifier</span>
+        <span class="btn btn-marine">Enregistrer (5 changements)</span>
+      </span>
+    </div>
+
+    <div class="ues">
+      <span class="ue-chip actif">UE 333 · Fondements infirmiers <small>— 12 inscrits · 2 org.</small></span>
+      <span class="ue-chip">UE 334 · Sciences biomédicales <small>— 12 inscrits</small></span>
+      <span class="ue-chip">UE 335 · AIP 1 <small>— 11 inscrits</small></span>
+      <span class="ue-chip">UE 341 · Démarche de soins <small>— 9 inscrits</small></span>
+    </div>
+
+    <div class="barre-sel">3 cochés →
+      <span class="btn btn-marine">Org 1 · Gr. A</span>
+      <span class="btn btn-marine">Org 1 · Gr. B</span>
+      <span class="btn btn-marine">Org 2</span>
+      <span style="font-weight:400">sur la colonne survolée</span>
+    </div>
+
+    <div class="cadre-table">
+      <table class="mock">
+        <thead>
+          <tr>
+            <th class="col-etu" rowspan="2" style="text-align:left">Étudiant
+              <small style="display:block;color:#8593A8;font-weight:400">badge = organisation de délibération</small></th>
+            <th class="th-cours" colspan="3">333.1 · Anatomie fonctionnelle <small>60 pér. · 3 groupes attribués</small></th>
+            <th class="th-cours" colspan="2">333.2 · Physiologie <small>45 pér. · 2 groupes</small></th>
+            <th class="th-cours">333.3 · AIP <small>30 pér. · sans groupe</small></th>
+          </tr>
+          <tr>
+            <th class="th-groupe">Org 1 · Gr. A<span class="prof">V. Duchène</span></th>
+            <th class="th-groupe">Org 1 · Gr. B<span class="prof">P. Marlier</span></th>
+            <th class="th-groupe">Org 2<span class="prof">C. Robert</span></th>
+            <th class="th-groupe">Org 1<span class="prof">V. Duchène</span></th>
+            <th class="th-groupe">Org 2<span class="prof">C. Robert</span></th>
+            <th class="th-groupe">Tous<span class="prof">M. Haddad</span></th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="col-etu"><input type="checkbox" checked> Bakala Inès<span class="badge-org org1">Org 1</span></td>
+            <td><span class="case x"></span></td><td><span class="case"></span></td><td><span class="case"></span></td>
+            <td><span class="case x"></span></td><td><span class="case"></span></td>
+            <td><span class="case auto" title="cours sans groupe : suivi par tous les inscrits"></span></td>
+          </tr>
+          <tr>
+            <td class="col-etu"><input type="checkbox" checked> Costa Rafael<span class="badge-org org1">Org 1</span></td>
+            <td><span class="case"></span></td><td><span class="case x"></span></td><td><span class="case"></span></td>
+            <td><span class="case x"></span></td><td><span class="case"></span></td>
+            <td><span class="case auto"></span></td>
+          </tr>
+          <tr class="incomplet">
+            <td class="col-etu"><input type="checkbox" checked> Delvaux Chloé<span class="badge-org org1">Org 1</span>
+              <span class="note-ligne">⚠ pas de groupe en Physiologie</span></td>
+            <td><span class="case x"></span></td><td><span class="case"></span></td><td><span class="case"></span></td>
+            <td><span class="case"></span></td><td><span class="case"></span></td>
+            <td><span class="case auto"></span></td>
+          </tr>
+          <tr>
+            <td class="col-etu"><input type="checkbox"> El Amrani Yasmine<span class="badge-org org2">Org 2</span></td>
+            <td><span class="case"></span></td><td><span class="case"></span></td><td><span class="case x"></span></td>
+            <td><span class="case"></span></td><td><span class="case x"></span></td>
+            <td><span class="case auto"></span></td>
+          </tr>
+          <tr>
+            <td class="col-etu"><input type="checkbox"> Gérard Noah<span class="badge-org org2">Org 2</span></td>
+            <td><span class="case"></span></td><td><span class="case"></span></td><td><span class="case x"></span></td>
+            <td><span class="case"></span></td><td><span class="case x"></span></td>
+            <td><span class="case auto"></span></td>
+          </tr>
+          <tr class="incomplet">
+            <td class="col-etu"><input type="checkbox"> Lambert Julie<span class="badge-org org0">non répartie</span>
+              <span class="note-ligne">⚠ à répartir — aucune organisation de délibération</span></td>
+            <td><span class="case"></span></td><td><span class="case"></span></td><td><span class="case"></span></td>
+            <td><span class="case"></span></td><td><span class="case"></span></td>
+            <td><span class="case auto"></span></td>
+          </tr>
+          <tr>
+            <td class="col-etu"><input type="checkbox"> Mahieu Théo<span class="badge-org org1">Org 1</span></td>
+            <td><span class="case"></span></td><td><span class="case x"></span></td><td><span class="case"></span></td>
+            <td><span class="case x"></span></td><td><span class="case"></span></td>
+            <td><span class="case auto"></span></td>
+          </tr>
+          <tr>
+            <td class="col-etu"><input type="checkbox"> Verstraete Emma<span class="badge-org org2">Org 2</span></td>
+            <td><span class="case"></span></td><td><span class="case"></span></td><td><span class="case x"></span></td>
+            <td><span class="case"></span></td><td><span class="case x"></span></td>
+            <td><span class="case auto"></span></td>
+          </tr>
+        </tbody>
+        <tfoot>
+          <tr>
+            <td class="col-etu" style="text-align:left">Effectif par groupe <small style="color:#8593A8;font-weight:400">· 12 inscrits à l'UE</small></td>
+            <td class="ok-eff">2</td><td class="ok-eff">2</td><td class="ok-eff">3</td>
+            <td class="ok-eff">3</td><td class="ok-eff">3</td>
+            <td class="warn-eff" title="2 lignes incomplètes">10 / 12</td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+  </div>
+
+  <div class="annos">
+    <div class="anno"><span class="n">1</span><span><b>La section d'abord.</b> Les UE viennent du
+      référentiel de l'année de travail, les inscrits du PAE. Une pastille par UE, avec ses
+      effectifs — on ouvre celle qu'on répartit.</span></div>
+    <div class="anno"><span class="n">2</span><span><b>Les colonnes sont les attributions.</b>
+      Chaque cours montre ses groupes tels qu'ils sont attribués : organisation, lettre de
+      groupe, professeur. Rien à re-saisir — si l'attribution change, la colonne suit. Un cours
+      sans groupe n'a qu'une colonne « Tous », cochée d'office (en vert pâle).</span></div>
+    <div class="anno"><span class="n">3</span><span><b>Les lignes sont le PAE.</b> Tous les
+      inscrits de l'UE, avec leur organisation de délibération en badge (celle de la
+      répartition déjà en place) — proposée, pas imposée : un cours peut dévier si la réalité
+      des horaires le demande.</span></div>
+    <div class="anno"><span class="n">4</span><span><b>La case dit « il a cours ici ».</b>
+      Une case par cours et par étudiant. Une ligne à qui il manque un groupe passe en ambre
+      et se nomme — on voit d'un regard qui reste à placer. « Proposer depuis la
+      délibération » pré-coche l'organisation de chacun ; on ne corrige que les exceptions.</span></div>
+    <div class="anno"><span class="n">5</span><span><b>L'équilibre se voit en pied.</b>
+      L'effectif de chaque groupe se met à jour à mesure qu'on coche ; le total rappelle les
+      inscrits. Cocher plusieurs étudiants puis « Org 1 · Gr. A » les place d'un geste.
+      <b>Rien ne s'écrit avant Enregistrer</b>, qui annonce le nombre de changements.</span></div>
+  </div>
+
+  <h2>Ce que l'écran lit, ce qu'il écrit</h2>
+  <div class="flux">
+    <div class="flux-item"><b>Il lit — les attributions</b>
+      <code>attribution</code> : cours, organisation, groupe (code), professeur, périodes.
+      Les colonnes en sont le reflet exact.</div>
+    <div class="flux-item"><b>Il lit — les PAE</b>
+      <code>etudiant_inscription</code> : les inscrits de chaque UE pour l'année, et leur
+      organisation de délibération (<code>num_organisation</code>).</div>
+    <div class="flux-item"><b>Il écrit — le lien, et rien d'autre</b>
+      Une table nouvelle : <code>etudiant_cours_groupe</code> — étudiant × cours × année →
+      groupe d'attribution. Les listes par cours, feuilles de présence et exports
+      la liront ; les attributions et les PAE ne bougent pas.</div>
+  </div>
+
+  <h2>À trancher avant que je construise</h2>
+  <div class="questions">
+    <ol>
+      <li><b>Cohérence délibération ↔ cours :</b> si un étudiant Org 1 est coché dans un groupe
+        Org 2 pour un cours, on <i>avertit</i> (ambre) ou on <i>interdit</i> ?</li>
+      <li><b>Cours sans groupe :</b> la colonne « Tous » se coche d'office pour chaque inscrit
+        (proposé ci-dessus) — d'accord, ou préférez-vous cocher aussi ces cours à la main ?</li>
+      <li><b>Capacité :</b> faut-il une taille maximale par groupe (alerte quand on la dépasse),
+        et d'où viendrait-elle — des attributions (<code>nb_groupes</code>), ou saisie ici ?</li>
+    </ol>
+  </div>
+</div>
+</body></html>
