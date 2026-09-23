@@ -52,6 +52,7 @@ export const SANS_MODULE = {
   demandes:        'le circuit de validation lui-même : le demandeur y accède par nature',
   'mes-cours':     'ce que le professeur propose pour SES cours — chaque route vérifie l’appartenance',
   'suivi-etudiant': 'le dossier confidentiel d’un étudiant — chaque route vérifie le lien (ses enseignants, sa coordination, la direction)',
+  due:             'le descriptif d’UE : ses TITULAIRES l’écrivent (rôle professeur sans module « etudiants ») — chaque route juge périmètre de section et attributions',
   historique:      'journal transverse, filtré en son sein selon ce qu’on peut lire',
   audit:           'qui a fait quoi — déjà réservé à la direction par `niveauDirection`',
 };
@@ -84,7 +85,6 @@ export const CARTE = {
   etudiants:               'etudiants',
   acquis:                  'etudiants',      // notes, délibération, valorisation
   capitalisation:          'etudiants',
-  due:                     'etudiants',
   diplomes:                'etudiants',
   attestations:            'etudiants',
   annexe2:                 'etudiants',

@@ -24,10 +24,11 @@
 
 import { Router } from 'express';
 import db from '../db/index.js';
-import { authRequired } from '../middleware/auth.js';
+import { authRequired, getUserSections } from '../middleware/auth.js';
 import { anneeDeTravail } from '../helpers/annee.js';
 import { envelopper } from './attestations.js';
 import { identiteEtablissement } from './config.js';
+import { getParam } from './parametres.js';
 
 const r = Router();
 
@@ -49,6 +50,7 @@ export function migrerDUE(dbx) {
       );
     `);
     console.log('[migration] due créée');
+    seedParametresDUE(dbx);
   } catch (e) { console.error('[migration] due :', e.message); }
 }
 
@@ -61,19 +63,26 @@ function droitsSurLUE(user, ueNum, annee) {
   if (direction) return { lire: true, ecrire: true, valider: true, titulaire: false };
 
   let titulaire = false;
+  const u = db.prepare('SELECT professeur_id FROM utilisateur WHERE id = ?').get(user.id);
+  if (u?.professeur_id) {
+    titulaire = !!db.prepare(`
+      SELECT 1 FROM attribution
+      WHERE professeur_id = ? AND ue_num = ? AND annee_scolaire = ? LIMIT 1
+    `).get(u.professeur_id, ueNum, annee);
+  }
   if (user?.role === 'professeur') {
-    const u = db.prepare('SELECT professeur_id FROM utilisateur WHERE id = ?').get(user.id);
-    if (u?.professeur_id) {
-      titulaire = !!db.prepare(`
-        SELECT 1 FROM attribution
-        WHERE professeur_id = ? AND ue_num = ? AND annee_scolaire = ? LIMIT 1
-      `).get(u.professeur_id, ueNum, annee);
-    }
     return { lire: titulaire, ecrire: titulaire, valider: false, titulaire };
   }
 
-  // Secrétariat, coordination, consultation : lecture seule.
-  return { lire: true, ecrire: false, valider: false, titulaire: false };
+  /* Les autres lisent selon leur périmètre : la gestion de la section OU une
+   * attribution dans l'unité — la même règle que la liste, sans quoi une URL
+   * connue montrerait ce que la liste cache. */
+  const perim = getUserSections(user);              // null = toutes
+  const ueRow = db.prepare('SELECT section FROM ue WHERE ue_num = ? AND annee_scolaire = ?')
+    .get(ueNum, annee);
+  const lire = titulaire || perim === null
+    || (ueRow?.section ? perim.includes(ueRow.section) : false);
+  return { lire, ecrire: titulaire, valider: false, titulaire };
 }
 
 // ── La part automatique ──────────────────────────────────────────────────────
@@ -173,6 +182,7 @@ function partieAutomatique(ueNum, annee) {
     ue: {
       ue_num: ue.ue_num, ue_nom: ue.ue_nom, ue_code_fwb: ue.ue_code_fwb,
       section: ue.section, ects: ue.ects, niveau: ue.ue_niveau, niv: ue.ue_niv,
+      tc: String(ue.ue_tc || '').trim().toLowerCase() === 'x',
       quadrimestre: ue.ue_quad, prerequise: ue.ue_prerequise,
       et_ref: ue.et_ref, periodes, heures: enHeures(periodes),
     },
@@ -204,24 +214,51 @@ function lireDUE(ueNum, annee) {
 r.get('/', authRequired, (req, res) => {
   const annee = anneeDeTravail(req);
   const direction = NIVEAU_DIRECTION.includes(req.user.role);
+  const filtreSection = String(req.query.section || '').trim() || null;
 
-  let ues;
-  if (req.user.role === 'professeur') {
-    const u = db.prepare('SELECT professeur_id FROM utilisateur WHERE id = ?').get(req.user.id);
-    if (!u?.professeur_id) return res.json({ annee, ues: [] });
-    ues = db.prepare(`
-      SELECT DISTINCT u.ue_num, u.ue_nom, u.section, u.ects, u.ue_quad
-      FROM ue u JOIN attribution a
-        ON a.ue_num = u.ue_num AND a.annee_scolaire = u.annee_scolaire
-      WHERE a.professeur_id = ? AND u.annee_scolaire = ?
-      ORDER BY u.ue_num
-    `).all(u.professeur_id, annee);
+  /* CHACUN VOIT LES DUE QUI LE REGARDENT (Jérôme, 29 septembre 2026) : celles
+   * des sections dont il a la GESTION (le périmètre de sa fiche), et celles
+   * des unités où il porte une ATTRIBUTION — quel que soit son rôle : une
+   * coordination qui enseigne hors de sa section voit aussi cette DUE-là.
+   * La direction voit tout. */
+  const parSection = new Map();
+  if (direction) {
+    for (const u of db.prepare(`
+      SELECT ue_num, ue_nom, section, ects, ue_quad, ue_tc FROM ue
+      WHERE annee_scolaire = ? ORDER BY ue_num`).all(annee)) {
+      parSection.set(u.ue_num, u);
+    }
   } else {
-    ues = db.prepare(`
-      SELECT ue_num, ue_nom, section, ects, ue_quad FROM ue
-      WHERE annee_scolaire = ? ORDER BY ue_num
-    `).all(annee);
+    const perim = getUserSections(req.user);          // null = toutes
+    if (perim === null) {
+      for (const u of db.prepare(`
+        SELECT ue_num, ue_nom, section, ects, ue_quad, ue_tc FROM ue
+        WHERE annee_scolaire = ? ORDER BY ue_num`).all(annee)) {
+        parSection.set(u.ue_num, u);
+      }
+    } else if (perim.length) {
+      const marks = perim.map(() => '?').join(',');
+      for (const u of db.prepare(`
+        SELECT ue_num, ue_nom, section, ects, ue_quad, ue_tc FROM ue
+        WHERE annee_scolaire = ? AND section IN (${marks}) ORDER BY ue_num`)
+        .all(annee, ...perim)) {
+        parSection.set(u.ue_num, u);
+      }
+    }
+    const profId = db.prepare('SELECT professeur_id FROM utilisateur WHERE id = ?')
+      .get(req.user.id)?.professeur_id || null;
+    if (profId) {
+      for (const u of db.prepare(`
+        SELECT DISTINCT u.ue_num, u.ue_nom, u.section, u.ects, u.ue_quad, u.ue_tc
+        FROM ue u JOIN attribution a
+          ON a.ue_num = u.ue_num AND a.annee_scolaire = u.annee_scolaire
+        WHERE a.professeur_id = ? AND u.annee_scolaire = ?`).all(profId, annee)) {
+        parSection.set(u.ue_num, u);
+      }
+    }
   }
+  let ues = [...parSection.values()].sort((a, b) => a.ue_num - b.ue_num);
+  if (filtreSection) ues = ues.filter(u => u.section === filtreSection);
 
   const etats = {};
   for (const d of db.prepare(
@@ -231,6 +268,7 @@ r.get('/', authRequired, (req, res) => {
 
   res.json({
     annee, peut_valider: direction,
+    sections: [...new Set([...parSection.values()].map(u => u.section).filter(Boolean))].sort(),
     ues: ues.map(u => ({
       ...u,
       statut: etats[u.ue_num]?.statut || 'preparation',
@@ -333,6 +371,35 @@ const NOTE_UE_DEFAUT =
   + "Si une seule note est inférieure à 10/20, l'unité est considérée comme non acquise (NA) "
   + "et ne génère aucune moyenne, sauf décision de délibération du Conseil des études.";
 
+/* LA FEUILLE DUE SE PARAMÈTRE, ELLE NE SE RECOMPILE PLUS (Jérôme, 29 septembre
+ * 2026 : « je voudrais pouvoir paramétrer la feuille DUE dans paramètres car
+ * ici elle est codée en dur »). Les trois textes fixes du document vivent dans
+ * la table parametre (Configuration → Paramètres, groupe « due ») ; les
+ * valeurs ci-dessous ne servent qu'à AMORCER et de repli. */
+const FINALITES_GENERALES_DEFAUT =
+  "Conformément à l'article 7 du décret de la Communauté française du 16 avril 1991 "
+  + "organisant l'enseignement pour adultes, cette unité d'enseignement doit concourir à "
+  + "l'épanouissement individuel en promouvant une meilleure insertion professionnelle, "
+  + "sociale, culturelle et scolaire, et répondre aux besoins et demandes en formation "
+  + "émanant des entreprises, des administrations, de l'enseignement et, d'une manière "
+  + "générale, des milieux socio-économiques et culturels.";
+const NOTE_SUPPORTS_DEFAUT =
+  "L'existence d'un support de cours obligatoire ne dispense pas l'étudiant de la prise "
+  + "de notes.";
+
+export function seedParametresDUE(dbx) {
+  try {
+    const ins = dbx.prepare(
+      'INSERT OR IGNORE INTO parametre (cle, valeur, label, groupe) VALUES (?,?,?,?)');
+    ins.run('due_finalites_generales', FINALITES_GENERALES_DEFAUT,
+      'DUE — texte des finalités générales', 'due');
+    ins.run('due_note_supports', NOTE_SUPPORTS_DEFAUT,
+      'DUE — mention sous les supports de cours', 'due');
+    ins.run('due_note_evaluation', NOTE_UE_DEFAUT,
+      "DUE — règle d'évaluation par défaut (modifiable par UE)", 'due');
+  } catch (e) { console.error('[migration] parametres DUE :', e.message); }
+}
+
 function bloc(titre, corps) {
   return `<div class="bloc"><div class="bloc-t">${esc(titre)}</div>
     <div class="bloc-c">${corps}</div></div>`;
@@ -371,6 +438,7 @@ export function documentDUE(ueNum, annee) {
     ["Bloc d'études", c.bloc ? `Bloc ${c.bloc}` : null],
     ['Situation dans la formation', u.quadrimestre],
     ['Unité prérequise', u.prerequise || 'Aucune'],
+    ['Tronc commun', u.tc ? 'Oui' : null],
     ['Volume horaire / an', u.periodes ? `${u.periodes} périodes — soit ${u.heures} h` : null],
     ['Crédits ECTS', u.ects],
     ["Langue d'enseignement", c.langue_ens || 'Français'],
@@ -436,12 +504,8 @@ export function documentDUE(ueNum, annee) {
 
     ${bloc("Titulaires des activités d'apprentissage", `<ul class="serre">${titulaires}</ul>`)}
 
-    ${bloc('Finalités générales', `<p>Conformément à l'article 7 du décret de la Communauté
-      française du 16 avril 1991 organisant l'enseignement pour adultes, cette unité
-      d'enseignement doit concourir à l'épanouissement individuel en promouvant une meilleure
-      insertion professionnelle, sociale, culturelle et scolaire, et répondre aux besoins et
-      demandes en formation émanant des entreprises, des administrations, de l'enseignement
-      et, d'une manière générale, des milieux socio-économiques et culturels.</p>`)}
+    ${bloc('Finalités générales',
+      para(getParam('due_finalites_generales', FINALITES_GENERALES_DEFAUT)))}
 
     ${bloc('Finalités particulières', para(rediges.finalites))}
 
@@ -458,13 +522,12 @@ export function documentDUE(ueNum, annee) {
 
     ${bloc('Supports de cours', `<table class="doc">
       <tr><th>Activité</th><th>Type de support</th><th class="n">Statut</th></tr>${supports}</table>
-      <p class="fin">L'existence d'un support de cours obligatoire ne dispense pas
-      l'étudiant de la prise de notes.</p>`)}
+      <p class="fin">${esc(getParam('due_note_supports', NOTE_SUPPORTS_DEFAUT))}</p>`)}
 
     ${bloc("Modalités d'évaluation", `<table class="doc">
       <tr><th>Activité</th>${EPREUVES.map(([, l]) => `<th class="n">${esc(l)}</th>`).join('')}</tr>
       ${evaluation}</table>
-      <p class="fin">${esc(c.note_ue || NOTE_UE_DEFAUT)}</p>`)}
+      <p class="fin">${esc(c.note_ue || getParam('due_note_evaluation', NOTE_UE_DEFAUT))}</p>`)}
 
     ${bloc("Critères d'évaluation", para(rediges.criteres))}
 
