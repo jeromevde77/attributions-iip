@@ -587,28 +587,38 @@ r.get('/efficience', authRequired, (req, res) => {
 export function calculerEtp(annee) {
 
   // IIP : périodes CT et PP par section/UE (autonomie incluse dans total_attribue_professeur)
+  //
+  // TOUTES LES ORGANISATIONS COMPTENT — ce qui va sans dire tant que chaque
+  // ligne porte sa section et son contrat. Or les lignes d'une organisation 2
+  // rouverte ou retouchée peuvent arriver avec section NULL ou contrat vide :
+  // groupées sous une section que le rapport ne peut pas choisir, ou exclues
+  // des DEUX requêtes (COALESCE ne rattrape pas ''), leurs périodes
+  // disparaissaient du rapport ETP sans un mot. D'où : la section retombe sur
+  // celle de l'UE, et tout contrat qui n'est pas explicitement HELB est IIP.
   const lignesIIP = db.prepare(`
-    SELECT v.section, v.ue_num, u.ue_nom, u.ue_niv, u.ects, u.ue_tc,
+    SELECT COALESCE(NULLIF(v.section,''), u.section) AS section,
+      v.ue_num, u.ue_nom, u.ue_niv, u.ects, u.ue_tc,
       SUM(CASE WHEN v.type_cours='CT' THEN v.total_attribue_professeur ELSE 0 END) AS per_ct,
       SUM(CASE WHEN v.type_cours='PP' THEN v.total_attribue_professeur ELSE 0 END) AS per_pp,
       SUM(CASE WHEN v.type_cours NOT IN ('CT','PP') THEN v.total_attribue_professeur ELSE 0 END) AS per_autre
     FROM v_attribution_complete v
     LEFT JOIN ue u ON u.ue_num = v.ue_num AND u.annee_scolaire = v.annee_scolaire
-    WHERE v.annee_scolaire = ? AND COALESCE(v.contrat_mdp,'IIP')='IIP'
-    GROUP BY v.section, v.ue_num, u.ue_nom, u.ue_niv, u.ects, u.ue_tc
-    ORDER BY v.section, v.ue_num
+    WHERE v.annee_scolaire = ? AND COALESCE(NULLIF(v.contrat_mdp,''),'IIP') <> 'HELB'
+    GROUP BY COALESCE(NULLIF(v.section,''), u.section), v.ue_num, u.ue_nom, u.ue_niv, u.ects, u.ue_tc
+    ORDER BY 1, v.ue_num
   `).all(annee);
 
   // HELB : MÊME logique que IIP — périodes CT/800 + PP/1000 (tout est déjà en périodes).
   // Le TH/TP (480/750) n'est qu'un affichage de saisie, pas une base de calcul ETP.
   const lignesHELB = db.prepare(`
-    SELECT v.section, v.ue_num,
+    SELECT COALESCE(NULLIF(v.section,''), u.section) AS section, v.ue_num,
       SUM(CASE WHEN v.type_cours='CT' THEN v.total_attribue_professeur ELSE 0 END) AS per_ct,
       SUM(CASE WHEN v.type_cours='PP' THEN v.total_attribue_professeur ELSE 0 END) AS per_pp,
       SUM(CASE WHEN v.type_cours NOT IN ('CT','PP') THEN v.total_attribue_professeur ELSE 0 END) AS per_autre
     FROM v_attribution_complete v
+    LEFT JOIN ue u ON u.ue_num = v.ue_num AND u.annee_scolaire = v.annee_scolaire
     WHERE v.annee_scolaire = ? AND v.contrat_mdp='HELB'
-    GROUP BY v.section, v.ue_num
+    GROUP BY COALESCE(NULLIF(v.section,''), u.section), v.ue_num
   `).all(annee);
   const helbUE = {};
   for (const l of lignesHELB) {
