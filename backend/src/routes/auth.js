@@ -409,7 +409,7 @@ r.get('/me', authRequired, (req, res) => {
   let frais = null;
   try {
     frais = db.prepare(
-      'SELECT role, permissions_json, nom_complet, email FROM utilisateur WHERE id = ?')
+      'SELECT role, permissions_json, nom_complet, email, professeur_id FROM utilisateur WHERE id = ?')
       .get(req.user.id) || null;
   } catch { frais = null; }
   res.json({ user: frais ? { ...req.user, ...frais } : req.user });

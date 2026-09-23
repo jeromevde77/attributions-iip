@@ -13,8 +13,18 @@ import db from '../db/index.js';
 //   admin              — compte technique, sans fiche : prestataire extérieur
 //   secretariat        — lit partout, ÉCRIT sur les étudiants, produit les documents
 //   coordination       — encode pour ses sections, sous validation d'un directeur
-//   professeur         — ses propres données et ses attributions, rien d'autre
+//   professeur         — ses attributions, ses groupes, ses propositions de
+//                        notes (« Mes cours ») : son périmètre n'est pas une
+//                        section, ce sont SES attributions et la répartition
+//                        qui lui donne ses étudiants
 //   consultation       — lecture seule
+//
+// À CES RÔLES DE LA MAISON s'ajoutent les RÔLES DÉFINIS (table role_defini),
+// créés par la direction depuis Configuration → Rôles — conseiller qualité,
+// conseiller inclusif, conseiller pédagogique et social, et ceux d'après. Un
+// rôle défini n'a AUCUN pouvoir spécial : il ne vaut que par ses plafonds de
+// modules, réglés écran par écran, et par le périmètre de sections posé sur
+// chaque fiche. Ce qui exige la direction reste à la direction.
 //
 // Le rôle pose un plancher et un plafond ; les cases affinent à l'intérieur.
 // Une case ne peut jamais accorder plus que le rôle ne le permet.
@@ -82,13 +92,50 @@ export function migrerPlafonds(dbx) {
       for (const m of MODULES) { ins.run(role, m, fn(m)); n++; }
     }
     console.log(`[migration] role_plafond : ${n} combinaison(s) vérifiée(s)`);
+
+    /* LES RÔLES DÉFINIS — la liste des rôles cesse d'être une constante du
+     * code. La direction en crée depuis Configuration → Rôles ; chacun ne
+     * vaut que par ses plafonds. Les trois conseillers demandés par Jérôme
+     * (29 septembre 2026) sont amorcés ici, TOUT À « rien » : c'est la
+     * direction qui ouvre, écran par écran — un rôle amorcé ouvert serait un
+     * défaut permissif de plus. */
+    dbx.exec(`
+    CREATE TABLE IF NOT EXISTS role_defini (
+      code    TEXT PRIMARY KEY,
+      libelle TEXT NOT NULL,
+      cree_le TEXT DEFAULT (datetime('now'))
+    );`);
+    const insR = dbx.prepare('INSERT OR IGNORE INTO role_defini (code, libelle) VALUES (?,?)');
+    for (const [code, libelle] of [
+      ['conseiller_qualite', 'Conseiller qualité'],
+      ['conseiller_inclusif', 'Conseiller inclusif'],
+      ['conseiller_pedagogique_social', 'Conseiller pédagogique et social'],
+    ]) {
+      insR.run(code, libelle);
+      for (const m of MODULES) ins.run(code, m, 'rien');
+    }
   } catch (e) { console.error('[migration] plafonds :', e.message); }
 }
 
 // Cache : la table est lue à chaque requête sinon, pour une donnée qui change
 // quelques fois par an. Il s'invalide dès qu'un plafond est modifié.
 let cachePlafonds = null;
-export function invaliderPlafonds() { cachePlafonds = null; }
+let cacheRoles = null;
+export function invaliderPlafonds() { cachePlafonds = null; cacheRoles = null; }
+
+/** Rôles de la maison + rôles définis par la direction. */
+export function rolesConnus() {
+  if (cacheRoles) return cacheRoles;
+  let definis = [];
+  try { definis = db.prepare('SELECT code, libelle FROM role_defini ORDER BY libelle').all(); }
+  catch { definis = []; }
+  cacheRoles = {
+    codes: [...ROLES, ...definis.map(d => d.code)],
+    libelles: Object.fromEntries(definis.map(d => [d.code, d.libelle])),
+    definis: definis.map(d => d.code),
+  };
+  return cacheRoles;
+}
 
 function plafonds() {
   if (cachePlafonds) return cachePlafonds;
@@ -106,8 +153,12 @@ function plafonds() {
 function plafondDe(role, module) {
   const table = plafonds();
   if (table && table[role] && table[role][module]) return table[role][module];
-  const fn = PLAFOND_INITIAL[role] || PLAFOND_INITIAL.consultation;
-  return fn(module);
+  /* Le repli ne vaut que pour les rôles de la maison. Un rôle défini sans
+   * ligne lisible — ou un rôle inconnu — ne reçoit RIEN : le repli
+   * « consultation » d'avant aurait ouvert toute la lecture à un rôle que
+   * personne n'a paramétré, le défaut permissif exactement. */
+  const fn = PLAFOND_INITIAL[role];
+  return fn ? fn(module) : 'rien';
 }
 
 function permissions(user) {

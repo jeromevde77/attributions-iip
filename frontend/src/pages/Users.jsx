@@ -8,9 +8,13 @@ import { Fenetre, GroupeFenetre, BoutonFenetre } from '../components/ui.jsx';
 
 const ROLE_LABEL = {
   admin: 'Administrateur',
+  directeur: 'Directeur',
+  directeur_adjoint: 'Directeur adjoint',
+  secretariat: 'Secrétariat',
   editeur: 'Éditeur',
   coordination: 'Coordination',
-  consultation: 'Consultation'
+  professeur: 'Professeur',
+  consultation: 'Consultation',
 };
 
 function authFetch(path, opts = {}) {
@@ -38,6 +42,9 @@ export default function Users({ embedded = false }) {
   const [form, setForm] = useState({ email: '', nom_complet: '', role: 'editeur', password: '', sections: [] });
   const [editingSections, setEditingSections] = useState(null); // {userId, sections} quand on édite le périmètre
   const [error, setError] = useState('');
+  // La liste des rôles vient du serveur : les rôles définis par la direction
+  // (conseillers…) doivent pouvoir s'assigner ici comme les rôles de la maison.
+  const [rolesDispo, setRolesDispo] = useState(null);   // [[code, libellé]]
 
   async function load() {
     setLoading(true);
@@ -48,6 +55,10 @@ export default function Users({ embedded = false }) {
         authFetch('/api/profils-acces'),
       ]);
       setUsers(u); setAllSections(s); setProfils(Array.isArray(p) ? p : []);
+      try {
+        const pl = await authFetch('/api/profils-acces/plafonds');
+        setRolesDispo((pl.roles || []).map(c => [c, pl.libelles?.[c] || ROLE_LABEL[c] || c]));
+      } catch { setRolesDispo(null); }
     }
     catch (e) { setError(e.message); }
     finally { setLoading(false); }
@@ -233,7 +244,7 @@ export default function Users({ embedded = false }) {
                 <label className="block text-xs text-gray-600 mb-0.5">Rôle</label>
                 <select value={form.role} onChange={e => setForm({...form, role: e.target.value})}
                         className="w-full border border-gray-300 rounded px-2 py-1.5 h-9 text-sm">
-                  {Object.entries(ROLE_LABEL).map(([k,l]) => <option key={k} value={k}>{l}</option>)}
+                  {(rolesDispo || Object.entries(ROLE_LABEL)).map(([k,l]) => <option key={k} value={k}>{l}</option>)}
                 </select>
               </div>
               {form.role === 'coordination' && (

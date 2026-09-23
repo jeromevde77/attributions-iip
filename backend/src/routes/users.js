@@ -5,7 +5,7 @@ import { authRequired, roleRequired } from '../middleware/auth.js';
 import { envoyerEmail, templateNotif } from '../services/mailer.js';
 import { creerJeton, comptePeutMotDePasse, VALIDITE_MINUTES } from '../lib/motDePasse.js';
 import { journaliser } from './mfa.js';
-import { ROLES } from '../middleware/permissions.js';
+import { rolesConnus } from '../middleware/permissions.js';
 
 const r = Router();
 
@@ -61,7 +61,7 @@ r.post('/', authRequired, roleRequired('admin'), (req, res) => {
   const { email, password, nom_complet, role, sections, professeur_id } = req.body || {};
   if (!email || !password) return res.status(400).json({ error: 'Email et mot de passe requis' });
   const roleNorm = role;
-  if (!ROLES.includes(role)) return res.status(400).json({ error: 'Rôle invalide' });
+  if (!rolesConnus().codes.includes(role)) return res.status(400).json({ error: 'Rôle invalide' });
   try {
     // Si un compte existe déjà avec cet email, le lier au prof plutôt que créer
     const existing = db.prepare('SELECT id FROM utilisateur WHERE email = ?').get(email);
@@ -161,7 +161,7 @@ r.patch('/:id', authRequired, roleRequired('admin'), (req, res) => {
   if (professeur_id !== undefined) { updates.push('professeur_id = @professeur_id'); params.professeur_id = professeur_id || null; }
   if (role !== undefined) {
     const roleNorm = role;
-    if (!ROLES.includes(roleNorm)) return res.status(400).json({ error: 'Rôle invalide' });
+    if (!rolesConnus().codes.includes(roleNorm)) return res.status(400).json({ error: 'Rôle invalide' });
     updates.push('role = @role'); params.role = roleNorm;
   }
   if (actif !== undefined) { updates.push('actif = @actif'); params.actif = actif ? 1 : 0; }

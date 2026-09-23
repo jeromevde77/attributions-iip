@@ -162,12 +162,41 @@ export default function RolesPlafonds() {
   const [data, setData] = useState(null);
   const [message, setMessage] = useState(null);
   const [enCours, setEnCours] = useState(null);
+  const [nouveau, setNouveau] = useState(null);   // { libelle, modele } en cours de création
 
   async function charger() {
     const rep = await fetch('/api/profils-acces/plafonds', { headers: authHeaders() });
     setData(rep.ok ? await rep.json() : null);
   }
   useEffect(() => { charger(); }, []);
+
+  /* Un rôle défini naît fermé (ou copie un rôle modèle) : la direction ouvre
+     ensuite, écran par écran, dans la grille ci-dessous. */
+  async function creerRole() {
+    setEnCours('nouveau');
+    try {
+      const rep = await fetch('/api/profils-acces/roles', {
+        method: 'POST', headers: authHeaders(),
+        body: JSON.stringify({ libelle: nouveau.libelle, modele: nouveau.modele || null }),
+      });
+      const j = await rep.json();
+      if (!rep.ok) { setMessage({ type: 'err', texte: j.error }); return; }
+      setNouveau(null);
+      oublierPlafonds();
+      await charger();
+    } finally { setEnCours(null); }
+  }
+
+  async function supprimerRole(code) {
+    const lib = data.libelles?.[code] || code;
+    if (!confirm(`Supprimer le rôle « ${lib} » ?\n\nRefusé si des comptes le portent encore.`)) return;
+    const rep = await fetch(`/api/profils-acces/roles/${encodeURIComponent(code)}`, {
+      method: 'DELETE', headers: authHeaders() });
+    const j = await rep.json();
+    if (!rep.ok) { setMessage({ type: 'err', texte: j.error }); return; }
+    oublierPlafonds();
+    await charger();
+  }
 
   async function basculer(role, module) {
     if (DIRECTION.includes(role)) return;
@@ -232,8 +261,15 @@ export default function RolesPlafonds() {
                 <tr key={role} className="border-b border-slate-100 hover:bg-slate-50/60">
                   <td className="px-3 py-2 sticky left-0 bg-white border-r border-slate-100">
                     <div className="text-[13px] text-slate-800 flex items-center gap-1.5">
-                      {LIBELLE_ROLE[role] || role}
+                      {data.libelles?.[role] || LIBELLE_ROLE[role] || role}
                       {fige && <IconLock size={12} className="text-slate-300" />}
+                      {data.personnalises?.includes(role) && (
+                        <button onClick={() => supprimerRole(role)}
+                          title="Supprimer ce rôle (refusé si des comptes le portent)"
+                          className="text-slate-300 hover:text-red-600">
+                          <IconTrash size={12} />
+                        </button>
+                      )}
                     </div>
                     <div className="text-[10px] text-slate-400">{role}</div>
                   </td>
@@ -261,6 +297,43 @@ export default function RolesPlafonds() {
           </tbody>
         </table>
       </div>
+
+      {!nouveau ? (
+        <button className="bouton text-[12px]"
+          onClick={() => setNouveau({ libelle: '', modele: '' })}>
+          + Nouveau rôle
+        </button>
+      ) : (
+        <div className="carte p-3 flex flex-wrap items-end gap-2">
+          <div>
+            <label className="block text-[11px] text-slate-500 mb-0.5">Libellé du rôle</label>
+            <input value={nouveau.libelle} autoFocus
+              onChange={e => setNouveau(n0 => ({ ...n0, libelle: e.target.value }))}
+              placeholder="ex : Conseiller numérique"
+              className="border border-slate-300 rounded px-2 py-1.5 h-9 text-sm min-w-[240px]" />
+          </div>
+          <div>
+            <label className="block text-[11px] text-slate-500 mb-0.5">Partir des plafonds de</label>
+            <select value={nouveau.modele}
+              onChange={e => setNouveau(n0 => ({ ...n0, modele: e.target.value }))}
+              className="border border-slate-300 rounded px-2 py-1.5 h-9 text-sm">
+              <option value="">— rien (tout fermé) —</option>
+              {data.roles.filter(r0 => !DIRECTION.includes(r0)).map(r0 => (
+                <option key={r0} value={r0}>{data.libelles?.[r0] || LIBELLE_ROLE[r0] || r0}</option>
+              ))}
+            </select>
+          </div>
+          <button className="bouton bouton-fort disabled:opacity-40"
+            disabled={enCours === 'nouveau' || !nouveau.libelle.trim()} onClick={creerRole}>
+            Créer
+          </button>
+          <button className="bouton" onClick={() => setNouveau(null)}>Annuler</button>
+          <p className="w-full text-[11px] text-slate-500 m-0">
+            Le rôle naît avec ces plafonds ; réglez-les ensuite écran par écran dans la grille.
+            Le périmètre de sections se pose sur la fiche de chaque personne.
+          </p>
+        </div>
+      )}
 
       <div className="flex flex-wrap gap-3 text-[11px] text-slate-600">
         {NIVEAUX.map(n => (

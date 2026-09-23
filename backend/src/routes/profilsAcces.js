@@ -12,7 +12,7 @@
 import { Router } from 'express';
 import db from '../db/index.js';
 import { authRequired, roleRequired } from '../middleware/auth.js';
-import { MODULES, ROLES, NIVEAUX, invaliderPlafonds } from '../middleware/permissions.js';
+import { MODULES, ROLES, NIVEAUX, invaliderPlafonds, rolesConnus } from '../middleware/permissions.js';
 
 const r = Router();
 
@@ -85,8 +85,67 @@ r.get('/plafonds', authRequired, (req, res) => {
   const lignes = db.prepare('SELECT role, module, niveau FROM role_plafond').all();
   const par = {};
   for (const l of lignes) (par[l.role] = par[l.role] || {})[l.module] = l.niveau;
-  res.json({ roles: ROLES, modules: MODULES, niveaux: NIVEAUX, plafonds: par });
+  const rc = rolesConnus();
+  res.json({ roles: rc.codes, libelles: rc.libelles, personnalises: rc.definis,
+             modules: MODULES, niveaux: NIVEAUX, plafonds: par });
 });
+
+/* CRÉER UN RÔLE — la liste cesse d'être une constante du code. Un rôle défini
+ * n'a aucun pouvoir spécial : il ne vaut que par ses plafonds, amorcés à
+ * « rien » (ou copiés d'un rôle modèle), que la direction règle écran par
+ * écran ci-dessus. Le périmètre de sections, lui, se pose sur chaque fiche. */
+r.post('/roles', authRequired, roleRequired('admin', 'directeur', 'directeur_adjoint'),
+  (req, res) => {
+    const libelle = String(req.body?.libelle || '').trim();
+    if (!libelle) return res.status(400).json({ error: 'Libellé obligatoire.' });
+    const code = libelle.normalize('NFD').replace(/[̀-ͯ]/g, '')
+      .toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '').slice(0, 40);
+    if (!code) return res.status(400).json({ error: 'Libellé illisible.' });
+    const rc = rolesConnus();
+    if (rc.codes.includes(code)) {
+      return res.status(409).json({ error: `Le rôle « ${code} » existe déjà.` });
+    }
+    const modele = req.body?.modele && rc.codes.includes(req.body.modele)
+      ? req.body.modele : null;
+    /* Un modèle DIRECTION ne se copie pas : on n'amorce pas un rôle défini
+     * avec l'écriture partout d'un directeur. */
+    const modeleSur = modele && !['admin', 'directeur', 'directeur_adjoint'].includes(modele)
+      ? modele : null;
+    const tx = db.transaction(() => {
+      db.prepare('INSERT INTO role_defini (code, libelle) VALUES (?,?)').run(code, libelle);
+      const ins = db.prepare('INSERT OR REPLACE INTO role_plafond (role, module, niveau) VALUES (?,?,?)');
+      for (const m of MODULES) {
+        const niveau = modeleSur
+          ? (db.prepare('SELECT niveau FROM role_plafond WHERE role = ? AND module = ?')
+              .get(modeleSur, m)?.niveau || 'rien')
+          : 'rien';
+        ins.run(code, m, niveau);
+      }
+    });
+    tx();
+    invaliderPlafonds();
+    res.status(201).json({ ok: true, code, libelle });
+  });
+
+/* SUPPRIMER UN RÔLE DÉFINI — jamais un rôle de la maison, et jamais un rôle
+ * porté : un compte dont le rôle disparaît deviendrait un compte sans droits
+ * sans que personne ne l'ait décidé pour LUI. On réaffecte d'abord. */
+r.delete('/roles/:code', authRequired, roleRequired('admin', 'directeur', 'directeur_adjoint'),
+  (req, res) => {
+    const code = req.params.code;
+    const d = db.prepare('SELECT code FROM role_defini WHERE code = ?').get(code);
+    if (!d) return res.status(404).json({ error: 'Seul un rôle défini se supprime.' });
+    const portes = db.prepare('SELECT COUNT(*) AS n FROM utilisateur WHERE role = ?').get(code).n;
+    if (portes > 0) {
+      return res.status(409).json({
+        error: `${portes} compte(s) portent encore ce rôle : réaffectez-les d'abord.`,
+      });
+    }
+    db.prepare('DELETE FROM role_plafond WHERE role = ?').run(code);
+    db.prepare('DELETE FROM role_defini WHERE code = ?').run(code);
+    invaliderPlafonds();
+    res.json({ ok: true });
+  });
 
 /*
  * CE QUE LE MODE CONSTAT A VU.
@@ -131,7 +190,7 @@ r.delete('/constat', authRequired, roleRequired('admin', 'directeur', 'directeur
 r.put('/plafonds', authRequired, roleRequired('admin', 'directeur', 'directeur_adjoint'),
   (req, res) => {
     const { role, module, niveau } = req.body || {};
-    if (!ROLES.includes(role)) return res.status(400).json({ error: 'rôle inconnu' });
+    if (!rolesConnus().codes.includes(role)) return res.status(400).json({ error: 'rôle inconnu' });
     if (!MODULES.includes(module)) return res.status(400).json({ error: 'module inconnu' });
     if (!NIVEAUX.includes(niveau)) return res.status(400).json({ error: 'niveau inconnu' });
 
