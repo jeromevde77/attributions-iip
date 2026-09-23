@@ -202,6 +202,20 @@ export default function RepartitionCours() {
           <option value="">— Choisir une section —</option>
           {sections.map(s => <option key={s.code} value={s.code}>{s.code} — {s.libelle}</option>)}
         </select>
+        {/* Une section porte vite vingt UE : un sélecteur, pas un mur de
+            pastilles (Charles, 25 septembre). */}
+        {ues && (
+          <select value={ueNum ?? ''}
+            onChange={e => e.target.value && ouvrirUE(Number(e.target.value))}
+            className="border border-gray-300 rounded-champ px-3 py-1.5 text-sm bg-white max-w-[440px]">
+            <option value="">— Choisir une UE ({ues.length}) —</option>
+            {ues.map(u => (
+              <option key={u.ue_num} value={u.ue_num}>
+                UE {u.ue_num} — {u.ue_nom || ''} ({u.inscrits} inscrit{u.inscrits > 1 ? 's' : ''})
+              </option>
+            ))}
+          </select>
+        )}
         <span className="text-[11.5px] font-bold text-iip-blue bg-iip-light rounded-full px-3 py-1">{annee}</span>
         {data && (
           <span className="ml-auto flex gap-2 flex-wrap">
@@ -223,19 +237,8 @@ export default function RepartitionCours() {
         <div className="bg-red-50 border border-red-200 rounded-champ px-3 py-2 text-sm text-red-700">{erreur}</div>
       )}
 
-      {ues && (
-        <div className="flex gap-2 flex-wrap">
-          {ues.map(u => (
-            <button key={u.ue_num} onClick={() => ouvrirUE(u.ue_num)}
-              className={`px-3 py-1.5 rounded-full text-[12.5px] border
-                ${ueNum === u.ue_num ? 'bg-iip-blue text-white border-iip-blue font-semibold'
-                  : 'bg-white text-slate-600 border-slate-300 hover:border-iip-blue'}`}>
-              UE {u.ue_num}{u.ue_nom ? ` · ${u.ue_nom}` : ''}
-              <span className="opacity-70"> — {u.inscrits} inscrit{u.inscrits > 1 ? 's' : ''}</span>
-            </button>
-          ))}
-          {!ues.length && <span className="text-sm text-slate-400">Aucune UE pour cette section en {annee}.</span>}
-        </div>
+      {ues && !ues.length && (
+        <p className="text-sm text-slate-400">Aucune UE pour cette section en {annee}.</p>
       )}
 
       {data && (<>
