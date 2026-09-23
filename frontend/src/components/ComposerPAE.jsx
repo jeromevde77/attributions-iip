@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { IconLayoutGrid, IconAlertTriangle } from '@tabler/icons-react';
 import { authHeaders, getAnnee } from '../lib/api.js';
+import ImportTableauPlat from './ImportTableauPlat.jsx';
 import { Fenetre } from './ui.jsx';
 
 /**
@@ -41,6 +42,16 @@ export default function ComposerPAE({ onClose, onTermine, onPassage }) {
   const [ueRetrait, setUeRetrait] = useState('');
   const [bilan, setBilan] = useState(null);                 // réponse de la simulation
   const [enCours, setEnCours] = useState(false);
+  /* L'HISTORIQUE S'ENCODE ICI AUSSI (25 septembre 2026). Deux modes : composer
+     le programme (les cases inscrit/retrait), ou encoder les résultats de
+     l'année choisie — en COCHE (réussi vert / refusé rouge) ou en NOTE
+     (>= 10 → réussi, sinon refusé). L'année du sélecteur fait foi : échoué en
+     2024-2025 puis réussi en 2025-2026, c'est deux passages dans la grille. */
+  const [mode, setMode] = useState('composer');   // 'composer' | 'resultats'
+  const [vueNote, setVueNote] = useState(false);
+  const [fPrimo, setFPrimo] = useState(false);    // nouveaux inscrits seulement
+  const [attRes, setAttRes] = useState(new Map()); // `${id}|${ue}` → { resultat, points }
+  const [importHisto, setImportHisto] = useState(false);
 
   useEffect(() => {
     fetch('/api/annees', { headers: authHeaders() })
@@ -61,15 +72,16 @@ export default function ComposerPAE({ onClose, onTermine, onPassage }) {
       { headers: authHeaders() });
     const j = await r.json().catch(() => ({}));
     if (!r.ok) { setErreur(j.error || 'Lecture refusée.'); setGrille(null); return; }
-    setGrille(j); setAttente(new Map()); setCoches(new Set()); setBilan(null);
+    setGrille(j); setAttente(new Map()); setAttRes(new Map()); setCoches(new Set()); setBilan(null);
   }, [section, annee]);
   useEffect(() => { charger(); }, [charger]);
 
   const lignes = useMemo(() => (grille?.etudiants || []).filter(e =>
     (!fNiveau || (fNiveau === 'aucun' ? !e.niveau : e.niveau === fNiveau))
     && (!fSansUE || !Object.values(e.cases).some(c => c.inscrit))
+    && (!fPrimo || e.primo)
     && (!q.trim() || `${e.nom} ${e.prenom} ${e.id_ecampus || ''}`.toLowerCase().includes(q.trim().toLowerCase()))),
-  [grille, fNiveau, fSansUE, q]);
+  [grille, fNiveau, fSansUE, fPrimo, q]);
 
   const ues = grille?.ues || [];
   const inscritsPar = useMemo(() => {
@@ -114,6 +126,60 @@ export default function ComposerPAE({ onClose, onTermine, onPassage }) {
     poser(choisis.flatMap(e => cibles.map(u => [e, u.ue_num])), 'ajout'); setBilan(null);
   };
 
+  // ── L'encodage des résultats de l'année choisie ────────────────────────────
+  const etatRes = (e, u) => {
+    const k = attRes.get(`${e.id}|${u}`);
+    if (k) return { ...k, attente: true };
+    const c = e.cases[u];
+    return { resultat: c?.resultat || null, points: c?.points ?? null, attente: false };
+  };
+  const poserRes = (e, u, valeur) => {
+    setAttRes(m0 => {
+      const m = new Map(m0); const k = `${e.id}|${u}`;
+      const c = e.cases[u];
+      const identique = valeur.resultat === (c?.resultat || null)
+        && (valeur.points ?? null) === (c?.points ?? null);
+      if (identique) m.delete(k); else m.set(k, valeur);
+      return m;
+    });
+  };
+  // La coche cycle : rien → réussi → refusé → effacé.
+  const cyclerRes = (e, u) => {
+    const x = etatRes(e, u.ue_num);
+    const suivant = x.resultat === null ? 'reussi' : x.resultat === 'reussi' ? 'refuse' : null;
+    poserRes(e, u.ue_num, { resultat: suivant, points: null });
+  };
+  // La note décide : >= 10 réussi, sinon refusé ; vidée, elle efface tout.
+  const noterRes = (e, u, brut) => {
+    const t = String(brut).replace(',', '.').trim();
+    if (t === '') { poserRes(e, u, { resultat: null, points: null }); return; }
+    const n = Number(t);
+    if (!Number.isFinite(n) || n < 0 || n > 20) return;
+    poserRes(e, u, { resultat: n >= 10 ? 'reussi' : 'refuse', points: n });
+  };
+
+  async function envoyerResultats() {
+    if (!attRes.size) return;
+    setEnCours(true); setErreur(null);
+    try {
+      const r = await fetch('/api/etudiants/pae-resultats', {
+        method: 'POST', headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          annee,
+          resultats: [...attRes].map(([k, v]) => {
+            const [etudiant_id, ue_num] = k.split('|').map(Number);
+            return { etudiant_id, ue_num, resultat: v.resultat, points: v.points };
+          }),
+        }),
+      });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) { setErreur(j.error || 'Refusé.'); return; }
+      await charger(); onTermine?.();
+      setBilan({ fait: true, resultats: true, ecrits: j.ecrits, effaces: j.effaces });
+    } catch (e) { setErreur(e.message); }
+    finally { setEnCours(false); }
+  }
+
   async function envoyer(simulation) {
     setEnCours(true); setErreur(null);
     const ajouts = [], retraits = [];
@@ -139,7 +205,15 @@ export default function ComposerPAE({ onClose, onTermine, onPassage }) {
       titre="Composer les PAE"
       sous="Une ligne par étudiant, une colonne par UE de la section — pour un, pour quelques-uns, pour tous"
       pied={<>
-        {attente.size > 0 && (
+        {mode === 'resultats' && attRes.size > 0 && (
+          <>
+            <button className="bouton bouton-fort" disabled={enCours} onClick={envoyerResultats}>
+              Enregistrer {attRes.size} résultat(s) — {annee}
+            </button>
+            <button className="bouton" onClick={() => setAttRes(new Map())}>Annuler</button>
+          </>
+        )}
+        {mode === 'composer' && attente.size > 0 && (
           <>
             {!bilan ? (
               <button className="bouton bouton-fort" disabled={enCours} onClick={() => envoyer(true)}>
@@ -156,7 +230,9 @@ export default function ComposerPAE({ onClose, onTermine, onPassage }) {
           </>
         )}
         <span className="text-[12px] text-slate-500 min-w-0">
-          {bilan?.fait ? `Enregistré : ${bilan.ajoutes} ajout(s), ${bilan.retires} retrait(s).`
+          {bilan?.fait && bilan.resultats
+            ? `Enregistré pour ${annee} : ${bilan.ecrits} résultat(s)${bilan.effaces ? `, ${bilan.effaces} effacé(s)` : ''}.`
+          : bilan?.fait ? `Enregistré : ${bilan.ajoutes} ajout(s), ${bilan.retires} retrait(s).`
             : attente.size ? `En attente : ${nbAjouts} ajout(s), ${nbRetraits} retrait(s) — rien n’est encore écrit.`
               : grille ? `${lignes.length} étudiant(s) affiché(s) sur ${grille.etudiants.length} · ${ues.length} UE`
                 : 'Choisissez une section.'}
@@ -190,9 +266,52 @@ export default function ComposerPAE({ onClose, onTermine, onPassage }) {
             <input type="checkbox" checked={fSansUE} onChange={e => setFSansUE(e.target.checked)} />
             Sans aucune UE de la section
           </label>
+          <label className="flex items-center gap-1.5 text-[13px] text-slate-600"
+            title="Aucune inscription ni valorisation dans une année antérieure">
+            <input type="checkbox" checked={fPrimo} onChange={e => setFPrimo(e.target.checked)} />
+            Nouveaux inscrits
+          </label>
+          <span className="ml-auto inline-flex rounded-champ border border-slate-300 overflow-hidden">
+            <button onClick={() => setMode('composer')}
+              className={`px-3 py-1.5 text-[12.5px] font-semibold ${mode === 'composer'
+                ? 'bg-iip-blue text-white' : 'bg-white text-slate-600'}`}>
+              Composer
+            </button>
+            <button onClick={() => setMode('resultats')}
+              title="Encoder les résultats de l'année choisie : réussi/refusé ou note"
+              className={`px-3 py-1.5 text-[12.5px] font-semibold border-l border-slate-300 ${mode === 'resultats'
+                ? 'bg-iip-blue text-white' : 'bg-white text-slate-600'}`}>
+              Encoder l'historique
+            </button>
+          </span>
         </div>
 
-        {grille && (
+        {grille && mode === 'resultats' && (
+          <div className="flex flex-wrap items-center gap-2 text-[13px] rounded-carte border border-slate-200 px-3 py-2">
+            <b className="text-iip-blue">Résultats de {annee}</b>
+            <span className="inline-flex rounded-champ border border-slate-300 overflow-hidden">
+              <button onClick={() => setVueNote(false)}
+                className={`px-2.5 py-1 text-[12px] font-semibold ${!vueNote ? 'bg-iip-turquoise text-white' : 'bg-white text-slate-600'}`}>
+                Coche
+              </button>
+              <button onClick={() => setVueNote(true)}
+                className={`px-2.5 py-1 text-[12px] font-semibold border-l border-slate-300 ${vueNote ? 'bg-iip-turquoise text-white' : 'bg-white text-slate-600'}`}>
+                Note
+              </button>
+            </span>
+            <span className="text-slate-500">
+              {vueNote
+                ? 'Une note ≥ 10 pose la réussite, < 10 le refus ; vidée, elle efface.'
+                : 'Un clic : réussi (vert) → refusé (rouge) → effacé. Sur une case vide, il inscrit aussi.'}
+            </span>
+            <button className="bouton ml-auto" onClick={() => setImportHisto(true)}
+              title="Reprendre un tableau Excel — une ligne par étudiant, unité et décision — pour cette année">
+              Importer un historique (Excel)…
+            </button>
+          </div>
+        )}
+
+        {grille && mode === 'composer' && (
           <div className="flex flex-wrap items-center gap-2 text-[13px] rounded-carte border border-slate-200 px-3 py-2">
             <b className="text-iip-blue">{choisis.length} étudiant(s) coché(s)</b>
             <span className="text-slate-300">|</span>
@@ -242,6 +361,12 @@ export default function ComposerPAE({ onClose, onTermine, onPassage }) {
             au référentiel.
           </p>
         )}
+        {grille?.source === 'referentiel-autre-annee' && (
+          <p className="text-[12px] text-[#B45309]">
+            Le référentiel ne couvre pas {annee} : les colonnes viennent des autres années — c’est
+            ce qui permet d’y encoder un historique.
+          </p>
+        )}
 
         {grille && (
           <div className="overflow-auto max-h-[62vh] rounded-carte border border-slate-200">
@@ -277,9 +402,52 @@ export default function ComposerPAE({ onClose, onTermine, onPassage }) {
                       <b>{(e.nom || '').toUpperCase()}</b> {e.prenom}
                       <span className="text-slate-400"> · {e.id_ecampus || '—'}</span>
                       {e.niveau && <span className="text-[10px] text-slate-500"> · {e.niveau}</span>}
+                      {e.primo && <span className="ml-1.5 text-[9.5px] font-bold px-1.5 py-0.5 rounded-full bg-iip-turquoise/10 text-iip-turquoise-dark align-middle"
+                        title="Nouvel inscrit : aucune trace dans une année antérieure">primo</span>}
                     </td>
                     {ues.map(u => {
                       const x = etat(e, u.ue_num);
+                      if (mode === 'resultats') {
+                        /* Les résultats de L'ANNÉE CHOISIE : coche qui cycle
+                           (réussi → refusé → effacé) ou note qui décide. Une
+                           VA ne se touche pas ici non plus. */
+                        if (x.va) {
+                          return (
+                            <td key={u.ue_num} className="text-center px-1 py-1 bg-white border-l border-slate-100">
+                              <span className="text-[10px] text-violet-700 font-semibold" title="Valorisation">VA</span>
+                            </td>
+                          );
+                        }
+                        const rx = etatRes(e, u.ue_num);
+                        if (vueNote) {
+                          return (
+                            <td key={u.ue_num} className="text-center px-0.5 py-0.5 bg-white border-l border-slate-100">
+                              <input value={rx.points ?? ''} inputMode="decimal"
+                                onChange={ev => noterRes(e, u.ue_num, ev.target.value)}
+                                placeholder={x.inscrit ? '·' : ''}
+                                className={`w-10 text-center text-[12px] border rounded px-0.5 py-0.5 tabular-nums
+                                  ${rx.resultat === 'reussi' ? 'border-emerald-400 text-emerald-700'
+                                    : rx.resultat === 'refuse' ? 'border-rose-400 text-rose-700'
+                                    : 'border-slate-200 text-slate-600'}
+                                  ${rx.attente ? 'ring-2 ring-iip-turquoise/30' : ''}`} />
+                            </td>
+                          );
+                        }
+                        return (
+                          <td key={u.ue_num} onClick={() => cyclerRes(e, u)}
+                            className="text-center px-1 py-1 bg-white border-l border-slate-100 cursor-pointer hover:bg-slate-50">
+                            {rx.resultat === 'reussi'
+                              ? <span title={`réussi${rx.points != null ? ` · ${rx.points}` : ''}`}
+                                  className={`inline-grid place-items-center w-3.5 h-3.5 rounded-[3px] bg-emerald-600 text-white text-[10px] leading-none ${rx.attente ? 'ring-2 ring-iip-turquoise/30' : ''}`}>✓</span>
+                              : rx.resultat === 'refuse'
+                                ? <span title={`refusé${rx.points != null ? ` · ${rx.points}` : ''}`}
+                                    className={`inline-grid place-items-center w-3.5 h-3.5 rounded-[3px] bg-rose-600 text-white text-[10px] leading-none ${rx.attente ? 'ring-2 ring-iip-turquoise/30' : ''}`}>✗</span>
+                                : x.inscrit
+                                  ? <span title="inscrit — sans résultat" className={`inline-block w-3.5 h-3.5 rounded-[3px] bg-[#1B2B4B]/30 ${rx.attente ? 'ring-2 ring-iip-turquoise/30' : ''}`} />
+                                  : <span className={`inline-block w-3.5 h-3.5 rounded-[3px] border border-dashed border-slate-300 ${rx.attente ? 'ring-2 ring-iip-turquoise/30' : ''}`} />}
+                          </td>
+                        );
+                      }
                       /* L'état se lit d'un coup d'œil : plein = inscrit, vert = réussi,
                          contour turquoise pointillé = ajout en attente, croix brique =
                          retrait en attente. Un clic bascule ; une VA ne se touche pas ici. */
@@ -308,6 +476,11 @@ export default function ComposerPAE({ onClose, onTermine, onPassage }) {
           </div>
         )}
       </div>
+
+      {importHisto && (
+        <ImportTableauPlat annee={annee} onClose={() => setImportHisto(false)}
+          onFini={() => { setImportHisto(false); charger(); }} />
+      )}
     </Fenetre>
   );
 }

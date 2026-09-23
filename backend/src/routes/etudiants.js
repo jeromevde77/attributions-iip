@@ -2810,6 +2810,22 @@ r.get('/pae-grille', authRequired, (req, res) => {
         MAX(COALESCE(hors_cursus,0)) AS hors_cursus
       FROM ue WHERE annee_scolaire = ? AND section = ? GROUP BY ue_num`).all(annee, section);
   }
+  if (!ues.length) {
+    /* L'HISTORIQUE SE COMPOSE AUSSI POUR LES ANNÉES QUE LE RÉFÉRENTIEL NE
+       COUVRE PAS. La section d'une UE ne dépend pas de l'année (règle déjà
+       posée pour les sections des étudiants) : à défaut de référentiel pour
+       l'année demandée, les colonnes viennent des autres années — sans quoi
+       « échoué en 2024-2025 » n'aurait nulle part où s'écrire. */
+    source = 'referentiel-autre-annee';
+    ues = db.prepare(`
+      SELECT DISTINCT u0.ue_num,
+        (SELECT ue_nom FROM ue x WHERE x.ue_num = u0.ue_num AND x.ue_nom IS NOT NULL
+          ORDER BY x.annee_scolaire DESC LIMIT 1) AS ue_nom,
+        (SELECT ue_niv FROM ue x WHERE x.ue_num = u0.ue_num AND x.ue_niv IS NOT NULL
+          ORDER BY x.annee_scolaire DESC LIMIT 1) AS ue_niv,
+        0 AS hors_cursus
+      FROM ue u0 WHERE u0.section = ?`).all(section);
+  }
   const rang = n => ({ BA1: 1, BA2: 2, BA3: 3 }[String(n || '').toUpperCase()] || 4);
   ues.sort((a, b) => rang(a.ue_niv) - rang(b.ue_niv) || a.ue_num - b.ue_num);
   const nums = new Set(ues.map(u => u.ue_num));
@@ -2819,8 +2835,17 @@ r.get('/pae-grille', authRequired, (req, res) => {
   for (const e of db.prepare('SELECT id, nom, prenom, id_ecampus FROM etudiant WHERE actif = 1').all()) {
     candidats.set(e.id, e);
   }
-  const inscr = db.prepare(`SELECT etudiant_id, ue_num, resultat FROM etudiant_inscription
+  const inscr = db.prepare(`SELECT etudiant_id, ue_num, resultat, points FROM etudiant_inscription
     WHERE annee_scolaire = ?`).all(annee);
+  // LES NOUVEAUX INSCRITS (primo) : aucune trace — inscription ou
+  // valorisation — dans une année antérieure. Le matricule Gips qui commence
+  // par « 26 » n'est qu'un indice d'une année ; l'historique, lui, fait foi.
+  const anciens = new Set([
+    ...db.prepare('SELECT DISTINCT etudiant_id FROM etudiant_inscription WHERE annee_scolaire < ?')
+      .all(annee).map(x => x.etudiant_id),
+    ...db.prepare('SELECT DISTINCT etudiant_id FROM etudiant_valorisation WHERE annee_scolaire < ?')
+      .all(annee).map(x => x.etudiant_id),
+  ]);
   const va = db.prepare(`SELECT etudiant_id, ue_num, type, decision FROM etudiant_valorisation
     WHERE annee_scolaire = ? AND decision_le IS NOT NULL`).all(annee);
   const dansSection = new Set(inscr.filter(i => nums.has(i.ue_num)).map(i => i.etudiant_id));
@@ -2830,14 +2855,17 @@ r.get('/pae-grille', authRequired, (req, res) => {
     if (!(rat.section === section || dansSection.has(e.id))) continue;
     lignes.push({ id: e.id, nom: e.nom, prenom: e.prenom, id_ecampus: e.id_ecampus,
       section_rattachement: rat.section, section_deduite: rat.deduite,
-      niveau: niveauEtudiant(e.id, annee).niveau || null, cases: {}, autres_ue: 0 });
+      niveau: niveauEtudiant(e.id, annee).niveau || null,
+      primo: !anciens.has(e.id), cases: {}, autres_ue: 0 });
   }
   const parId = new Map(lignes.map(l => [l.id, l]));
   for (const i of inscr) {
     const l = parId.get(i.etudiant_id);
     if (!l) continue;
-    if (nums.has(i.ue_num)) l.cases[i.ue_num] = { inscrit: true, resultat: i.resultat || null };
-    else l.autres_ue++;
+    if (nums.has(i.ue_num)) {
+      l.cases[i.ue_num] = { inscrit: true, resultat: i.resultat || null,
+        points: i.points ?? null };
+    } else l.autres_ue++;
   }
   for (const v of va) {
     const l = parId.get(v.etudiant_id);
@@ -2910,6 +2938,62 @@ r.post('/pae-modifier', authRequired,
     if (e.message !== 'SIMULATION') { console.error('[pae-modifier]', e); return res.status(500).json({ error: e.message }); }
   }
   res.json({ ok: true, simulation: !!simulation, ...rapport });
+});
+
+/* ── L'HISTORIQUE DE PAE, ENCODÉ À LA MAIN DEPUIS LA GRILLE ────────────────
+ * Composer les PAE porte deux vues d'encodage : la coche (réussi/refusé) et
+ * la note (>= 10 → réussi, sinon refusé). Chaque écriture vaut pour L'ANNÉE
+ * choisie dans la grille — un étudiant a pu échouer l'UE en 2024-2025 et la
+ * réussir en 2025-2026 : deux lignes, deux années. Poser un résultat sur une
+ * case vide crée l'inscription ; effacer le résultat garde l'inscription. */
+r.post('/pae-resultats', authRequired,
+       roleRequired('admin', 'directeur', 'directeur_adjoint', 'editeur', 'secretariat'), (req, res) => {
+  const { annee, resultats = [] } = req.body || {};
+  if (!annee) return res.status(400).json({ error: 'annee requise' });
+  const RES = ['reussi', 'refuse', null];
+  const lignes = (Array.isArray(resultats) ? resultats : [])
+    .map(x => ({
+      etudiant_id: Number(x?.etudiant_id), ue_num: Number(x?.ue_num),
+      resultat: RES.includes(x?.resultat ?? null) ? (x?.resultat ?? null) : undefined,
+      points: x?.points == null || x.points === '' ? null : Number(x.points),
+    }))
+    .filter(x => Number.isInteger(x.etudiant_id) && x.etudiant_id > 0
+      && Number.isInteger(x.ue_num) && x.resultat !== undefined
+      && (x.points === null || (Number.isFinite(x.points) && x.points >= 0 && x.points <= 20)));
+  if (!lignes.length) return res.status(400).json({ error: 'Aucun résultat à écrire.' });
+
+  // Même périmètre que la composition : les unités de ses sections.
+  const perim = getUserSections(req.user);
+  if (perim) {
+    const hors = [...new Set(lignes.map(x => x.ue_num))].filter(u =>
+      !sectionsDeUE(u).some(s => perim.includes(s)));
+    if (hors.length) {
+      return res.status(403).json({ error: `Unité(s) hors de votre périmètre : ${hors.join(', ')}` });
+    }
+  }
+
+  const dateJour = new Date().toISOString().slice(0, 10);
+  const poser = db.prepare(`
+    INSERT INTO etudiant_inscription
+      (etudiant_id, annee_scolaire, ue_num, resultat, points, date_inscription)
+    VALUES (?,?,?,?,?,?)
+    ON CONFLICT(etudiant_id, annee_scolaire, ue_num) DO UPDATE SET
+      resultat = excluded.resultat, points = excluded.points`);
+  const effacer = db.prepare(`
+    UPDATE etudiant_inscription SET resultat = NULL, points = NULL
+    WHERE etudiant_id = ? AND annee_scolaire = ? AND ue_num = ?`);
+  let ecrits = 0, effaces = 0;
+  db.transaction(() => {
+    for (const x of lignes) {
+      if (x.resultat === null && x.points === null) {
+        effaces += effacer.run(x.etudiant_id, annee, x.ue_num).changes;
+      } else {
+        poser.run(x.etudiant_id, annee, x.ue_num, x.resultat, x.points, dateJour);
+        ecrits++;
+      }
+    }
+  })();
+  res.json({ ok: true, ecrits, effaces });
 });
 
 r.post('/pae-lot', authRequired,
