@@ -213,6 +213,7 @@ function Su({ label, valeur }) {
 function Liste({ onOuvrir }) {
   const [etat, setEtat] = useState(null);
   const [erreur, setErreur] = useState(null);
+  const [fSection, setFSection] = useState('');
 
   useEffect(() => {
     api.dueListe().then(setEtat).catch(e => setErreur(e.message));
@@ -223,20 +224,35 @@ function Liste({ onOuvrir }) {
   if (!etat.ues.length) {
     return (
       <div className="p-8 text-center text-sm text-slate-500">
-        Aucune unité d'enseignement ne vous est attribuée en {etat.annee}.
+        Aucune unité d'enseignement dans votre périmètre en {etat.annee} — ni
+        gestion de section, ni attribution.
       </div>
     );
   }
 
+  const visibles = fSection ? etat.ues.filter(u => u.section === fSection) : etat.ues;
+
   return (
     <div className="p-4">
-      <p className="text-[12px] text-slate-500 mb-3">
-        {etat.peut_valider
-          ? "Toutes les unités de l'année. Une DUE validée passe en lecture seule pour ses titulaires."
-          : "Les unités dont vous êtes titulaire. Vous pouvez compléter leur descriptif tant qu'il n'est pas validé."}
-      </p>
+      <div className="flex items-center gap-3 flex-wrap mb-3">
+        <p className="text-[12px] text-slate-500 m-0 flex-1 min-w-[240px]">
+          {etat.peut_valider
+            ? "Toutes les unités de l'année. Une DUE validée passe en lecture seule pour ses titulaires."
+            : "Les unités de vos sections et celles où vous portez une attribution. Vous complétez le descriptif de vos unités tant qu'il n'est pas validé."}
+        </p>
+        {(etat.sections || []).length > 1 && (
+          <label className="flex items-center gap-2 text-[12px] text-slate-500">
+            Section
+            <select value={fSection} onChange={e => setFSection(e.target.value)}
+              className="border border-slate-300 rounded-lg px-2 py-1.5 text-[13px] bg-white">
+              <option value="">— Toutes —</option>
+              {etat.sections.map(sx => <option key={sx} value={sx}>{sx}</option>)}
+            </select>
+          </label>
+        )}
+      </div>
       <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
-        {etat.ues.map(u => (
+        {visibles.map(u => (
           <button key={u.ue_num} onClick={() => onOuvrir(u.ue_num)}
             className="text-left px-3 py-2.5 rounded-xl border border-slate-200 bg-white
                        hover:border-iip-blue/40 hover:shadow-sm transition">
@@ -244,6 +260,10 @@ function Liste({ onOuvrir }) {
               <div className="min-w-0">
                 <div className="text-[13px] font-semibold text-iip-blue truncate">
                   UE {u.ue_num} — {u.ue_nom}
+                  {String(u.ue_tc || '').trim().toLowerCase() === 'x' && (
+                    <span className="ml-1.5 align-middle text-[9px] font-bold px-1.5 py-0.5
+                                     rounded bg-iip-blue text-white">TC</span>
+                  )}
                 </div>
                 <div className="text-[11px] text-slate-500">
                   {u.section}{u.ects ? ` · ${u.ects} ECTS` : ''}{u.ue_quad ? ` · ${u.ue_quad}` : ''}
