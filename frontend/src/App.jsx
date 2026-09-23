@@ -446,8 +446,13 @@ function ProtectedLayout({ children }) {
     .map(([to, lbl, Icon]) => [to, lbl, Icon]);
 
   // LA PORTE DU PROFESSEUR : ses cours, ses étudiants, ses propositions de
-  // notes — en tête de son menu, c'est pour cela qu'il se connecte.
-  if (u?.role === 'professeur') nav.unshift(['/mes-cours', 'Mes cours', IconBooks]);
+  // notes — en tête de son menu, c'est pour cela qu'il se connecte. Visible
+  // aussi pour tout compte LIÉ à une fiche professeur, quel que soit son rôle
+  // (une direction qui enseigne, une coordination qui donne cours) : la porte
+  // ne montre de toute façon que les attributions de la fiche liée.
+  if (u?.role === 'professeur' || u?.professeur_id) {
+    nav.unshift(['/mes-cours', 'Mes cours', IconBooks]);
+  }
 
   /* L'AIDE DEVIENT LA DOCUMENTATION, ET C'EST UNE ABSORPTION, PAS UN AJOUT.
    *
