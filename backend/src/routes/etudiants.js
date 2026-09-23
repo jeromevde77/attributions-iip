@@ -5203,13 +5203,25 @@ r.get('/valorisations/matrice', authRequired, (req, res) => {
     par.get(a.etudiant_id).admission = { id: a.id, etat: etatDeduit(a) };
   }
 
+  // Primo et niveau, pour les filtres de l'écran — mêmes définitions que la
+  // liste des étudiants et la grille des PAE.
+  const anciensVa = new Set([
+    ...db.prepare('SELECT DISTINCT etudiant_id FROM etudiant_inscription WHERE annee_scolaire < ?')
+      .all(annee).map(x => x.etudiant_id),
+    ...db.prepare('SELECT DISTINCT etudiant_id FROM etudiant_valorisation WHERE annee_scolaire < ?')
+      .all(annee).map(x => x.etudiant_id),
+  ]);
+
   res.json({
     annee, section, portes: PORTES, unites,
     /* LES UNITÉS QUE L'ADMISSION OUVRE — déduites, jamais recopiées. Elles
      * s'affichent à l'écran pour qu'on sache ce qu'on décide, et elles se
      * relisent au fil des années sans qu'une liste figée se démente. */
     unites_de_base: unitesDeBase(section, annee),
-    etudiants: [...par.values()].sort((a, b) =>
+    etudiants: [...par.values()].map(e => ({
+      ...e, primo: !anciensVa.has(e.id),
+      niveau: niveauEtudiant(e.id, annee).niveau || null,
+    })).sort((a, b) =>
       (a.nom || '').localeCompare(b.nom || '')
       || (a.prenom || '').localeCompare(b.prenom || '')),
   });
