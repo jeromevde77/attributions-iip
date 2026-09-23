@@ -30,6 +30,11 @@ export default function MesCours() {
       .catch(e => setErreur(e.message));
   }, [annee]);
 
+  /* LA FEUILLE NOTE PAR ACQUIS, comme la feuille officielle : une colonne par
+     AA du cours. Sans AA rattachés, une seule colonne — la note de cours
+     (clé ''). */
+  const colonnes = (f) => (f?.acquis?.length ? f.acquis.map(a => a.aa_code) : ['']);
+
   async function ouvrir(code) {
     setOuvert(code); setFeuille(null); setNotes({}); setFait(null); setErreur(null);
     try {
@@ -38,17 +43,24 @@ export default function MesCours() {
       const j = await r.json();
       if (!r.ok) throw new Error(j.error || 'Erreur');
       setFeuille(j);
-      setNotes(Object.fromEntries(j.etudiants.map(e => [e.id, e.note ?? ''])));
+      const cols = colonnes(j);
+      setNotes(Object.fromEntries(j.etudiants.map(e => [e.id,
+        Object.fromEntries(cols.map(c => [c, (e.notes || {})[c] ?? '']))])));
     } catch (e) { setErreur(e.message); }
   }
 
   async function enregistrer() {
     setEnCours(true); setErreur(null); setFait(null);
     try {
+      const lignes = [];
+      for (const [id, par] of Object.entries(notes)) {
+        for (const [aa, n] of Object.entries(par)) {
+          lignes.push({ etudiant_id: Number(id), aa_code: aa, note: n });
+        }
+      }
       const r = await fetch(`/api/mes-cours/${encodeURIComponent(ouvert)}/notes`, {
         method: 'POST', headers: { 'Content-Type': 'application/json', ...authHeaders() },
-        body: JSON.stringify({ annee,
-          notes: Object.entries(notes).map(([id, n]) => ({ etudiant_id: Number(id), note: n })) }),
+        body: JSON.stringify({ annee, notes: lignes }),
       });
       const j = await r.json();
       if (!r.ok) throw new Error(j.error || 'Erreur');
@@ -114,21 +126,34 @@ export default function MesCours() {
           </div>
 
           <p className="text-[12px] text-slate-500 bg-iip-light/60 rounded-champ px-3 py-2 m-0">
+            {feuille?.acquis?.length
+              ? <>Une note <b>par acquis d'apprentissage</b>, sur 20 — comme la feuille
+                  officielle. </>
+              : <>Ce cours n'a pas d'acquis rattachés dans le référentiel : une note de
+                  cours, sur 20. </>}
             Vos notes sont des <b>propositions</b> : elles n'entrent pas au dossier de
             l'étudiant — la coordination les reprend dans l'encodage officiel. Une note
-            vidée retire la proposition. Notes sur 20, décimales admises.
+            vidée retire la proposition. Décimales admises.
           </p>
 
           {fait && <p className="text-[13px] text-emerald-700 m-0">✓ {fait}</p>}
           {!feuille && !erreur && <p className="text-sm text-slate-400">Chargement…</p>}
 
           {feuille && (
+            <div className="overflow-x-auto">
             <table className="w-full text-[13px]">
               <thead>
                 <tr className="text-[11px] uppercase text-slate-400 text-left border-b border-slate-200">
                   <th className="py-1.5">Étudiant</th>
                   {feuille.repartition && <th className="py-1.5">Groupe</th>}
-                  <th className="py-1.5 w-24">Note /20</th>
+                  {feuille.acquis?.length
+                    ? feuille.acquis.map(a => (
+                        <th key={a.aa_code} className="py-1.5 w-24 text-center"
+                          title={a.description || a.aa_code}>
+                          {a.aa_code}
+                        </th>
+                      ))
+                    : <th className="py-1.5 w-24">Note /20</th>}
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50">
@@ -139,20 +164,24 @@ export default function MesCours() {
                     {feuille.repartition && (
                       <td className="py-1.5 text-[12px] text-iip-turquoise-dark">{e.groupe}</td>
                     )}
-                    <td className="py-1.5">
-                      <input value={notes[e.id] ?? ''} inputMode="decimal"
-                        onChange={ev => setNotes(n => ({ ...n, [e.id]: ev.target.value }))}
-                        className="w-20 border border-slate-300 rounded-champ px-2 py-1 text-[13px] text-center tabular-nums" />
-                    </td>
+                    {colonnes(feuille).map(c => (
+                      <td key={c} className="py-1.5 text-center">
+                        <input value={notes[e.id]?.[c] ?? ''} inputMode="decimal"
+                          onChange={ev => setNotes(n => ({ ...n,
+                            [e.id]: { ...n[e.id], [c]: ev.target.value } }))}
+                          className="w-16 border border-slate-300 rounded-champ px-1.5 py-1 text-[13px] text-center tabular-nums" />
+                      </td>
+                    ))}
                   </tr>
                 ))}
                 {!feuille.etudiants.length && (
-                  <tr><td colSpan="3" className="py-4 text-center text-slate-400">
+                  <tr><td colSpan={2 + colonnes(feuille).length} className="py-4 text-center text-slate-400">
                     Aucun étudiant — la répartition de ce cours ne vous en attribue pas encore.
                   </td></tr>
                 )}
               </tbody>
             </table>
+            </div>
           )}
         </div>
       )}

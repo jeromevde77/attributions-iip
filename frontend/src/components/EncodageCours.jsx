@@ -187,8 +187,14 @@ export default function EncodageCours({ coursCode, annee, onClose, onEnregistre,
               <b>{propositions.length} note(s) proposée(s) par le professeur</b>
               <span className="text-slate-500"> (depuis « Mes cours » — à reprendre dans la feuille, acquis par acquis)</span> :
               <span className="block mt-0.5">
-                {propositions.map(p =>
-                  `${(p.nom || '').toUpperCase()} ${p.prenom || ''} : ${p.note}`).join(' · ')}
+                {Object.values(propositions.reduce((m, p) => {
+                  const k = p.etudiant_id;
+                  (m[k] ||= { nom: p.nom, prenom: p.prenom, parts: [] }).parts
+                    .push(`${p.aa_code ? p.aa_code + ' ' : ''}${p.note}`);
+                  return m;
+                }, {})).map(x =>
+                  `${(x.nom || '').toUpperCase()} ${x.prenom || ''} : ${x.parts.join(', ')}`)
+                  .join(' · ')}
               </span>
             </div>
           )}
