@@ -201,18 +201,22 @@ function MesTaches({ signal = 0 }) {
                plus aucun. Marine lumineux, parce que le marine est la couleur
                de la maison et que « nouveau » n'est ni une alerte ni un
                retard. */
-            <div key={t.id} className={`relative px-3 py-2 flex items-center gap-3
+            /* LE « NOUVEAU » EST DANS LA LIGNE, PAS AU-DESSUS. L'étiquette
+               flottante chevauchait la ligne du dessus dès que deux nouveautés
+               se suivaient, et le cerclage découpait la carte en bulles
+               (constaté par Jérôme, capture du 30 septembre). Un badge en
+               ligne et un fond légèrement teinté disent la même chose sans
+               rien casser. */
+            <div key={t.id} className={`px-3 py-2 flex items-center gap-3
                                        border-t border-slate-100 first:border-t-0
-                                       ${t.nouveau ? 'ring-1 ring-inset ring-iip-blue/70 '
-                                         + 'rounded-carte shadow-[0_0_0_3px_rgba(27,43,75,0.10)]' : ''}`}>
+                                       ${t.nouveau ? 'bg-iip-blue/5' : ''}`}>
+              <PastilleNotif genre={genreDe(u)} />
               {t.nouveau && (
-                <span className="absolute -top-1 left-8 px-1.5 text-[9px] font-semibold
-                                 uppercase tracking-wider rounded-full
-                                 bg-iip-blue text-white">
+                <span className="flex-none px-1.5 py-0.5 text-[9px] font-semibold uppercase
+                                 tracking-wider rounded-full bg-iip-blue text-white">
                   nouveau
                 </span>
               )}
-              <PastilleNotif genre={genreDe(u)} />
               <span className="flex-1 min-w-0 text-[13px] text-slate-800 truncate">
                 {t.titre}
               </span>
@@ -265,8 +269,14 @@ function MesTaches({ signal = 0 }) {
                                            border-t border-slate-100 first:border-t-0
                                            ${t.nouveau ? 'bg-iip-blue/5' : ''}`}>
                   <PastilleNotif genre={genreDe(u)} />
+                  {t.nouveau && (
+                    <span className="flex-none px-1.5 py-0.5 text-[9px] font-semibold uppercase
+                                     tracking-wider rounded-full bg-iip-blue text-white">
+                      nouveau
+                    </span>
+                  )}
                   <span className="flex-1 min-w-0 text-[13px] text-slate-800 truncate">
-                    {t.nouveau ? <b className="text-iip-blue">Nouveau · </b> : null}{t.titre}
+                    {t.titre}
                   </span>
                   <span className="text-[11px] text-slate-500 truncate max-w-[14rem]">
                     {(t.responsables || []).map(x => x.nom || x.role).filter(Boolean).join(', ')
