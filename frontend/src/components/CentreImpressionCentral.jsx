@@ -842,6 +842,9 @@ function OngletEtudiants({ perimetre = null }) {
         method: 'POST', headers: authHeaders(),
         body: JSON.stringify({
           annee, session, separer,
+          // La feuille de délibération ouvre le centre SUR UNE ORGANISATION :
+          // ses pièces — PV, grille, notifications — ne portent alors qu'elle.
+          org: perimetre?.org ?? undefined,
           ue_nums: (liste?.unites || []).map(u => u.ue_num),
           etudiants: [...coches],
           ...choix,
@@ -891,6 +894,7 @@ function OngletEtudiants({ perimetre = null }) {
         method: 'POST', headers: authHeaders(),
         body: JSON.stringify({
           annee, session, separer: true,
+          org: perimetre?.org ?? undefined,
           ue_nums: (liste?.unites || []).map(u => u.ue_num),
           etudiants: [...coches],
           ...choix,

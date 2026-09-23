@@ -220,8 +220,11 @@ r.put('/', authRequired, roleRequired('admin', 'directeur', 'directeur_adjoint',
 
   // ── 2. L'ÉCRITURE ────────────────────────────────────────────────────────
   const majSeance = (ue, ses, champs) => {
+    // La planification vise la ligne « unité entière » (num_organisation = 0),
+    // pas les séances d'organisation, qui ont chacune la leur.
     const avant = db.prepare(`SELECT ${CHAMPS_SEANCE.join(', ')}, cloturee
-      FROM deliberation_seance WHERE ue_num = ? AND annee_scolaire = ? AND session = ?`)
+      FROM deliberation_seance WHERE ue_num = ? AND annee_scolaire = ? AND session = ?
+        AND num_organisation = 0`)
       .get(ue, annee, ses);
     if (!avant) {
       const cols = Object.keys(champs);
@@ -235,7 +238,7 @@ r.put('/', authRequired, roleRequired('admin', 'directeur', 'directeur_adjoint',
     if (cols.length) {
       db.prepare(`UPDATE deliberation_seance SET ${cols.map(c => `${c} = ?`).join(', ')},
         maj_le = datetime('now'), maj_par = ?
-        WHERE ue_num = ? AND annee_scolaire = ? AND session = ?`)
+        WHERE ue_num = ? AND annee_scolaire = ? AND session = ? AND num_organisation = 0`)
         .run(...cols.map(c => champs[c]), req.user?.email || null, ue, annee, ses);
     }
     if (avant.cloturee) {

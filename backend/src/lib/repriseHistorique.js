@@ -208,7 +208,7 @@ export function appliquerReprise(annee, opts = {}) {
       INSERT INTO deliberation_seance
         (ue_num, annee_scolaire, session, cloturee, reprise, reprise_motif, maj_le, maj_par)
       VALUES (?,?,1,1,1,?,datetime('now'),?)
-      ON CONFLICT(ue_num, annee_scolaire, session) DO UPDATE SET
+      ON CONFLICT(ue_num, annee_scolaire, session, num_organisation) DO UPDATE SET
         cloturee = 1, reprise = 1,
         reprise_motif = COALESCE(deliberation_seance.reprise_motif, excluded.reprise_motif),
         maj_le = datetime('now'), maj_par = excluded.maj_par`);
@@ -259,7 +259,7 @@ export function forcerCloture(annee, cibles, opts = {}) {
     INSERT INTO deliberation_seance
       (ue_num, annee_scolaire, session, cloturee, reprise, reprise_motif, maj_le, maj_par)
     VALUES (?,?,?,1,1,?,datetime('now'),?)
-    ON CONFLICT(ue_num, annee_scolaire, session) DO UPDATE SET
+    ON CONFLICT(ue_num, annee_scolaire, session, num_organisation) DO UPDATE SET
       cloturee = 1, reprise = 1,
       reprise_motif = COALESCE(deliberation_seance.reprise_motif, excluded.reprise_motif),
       maj_le = datetime('now'), maj_par = excluded.maj_par`);

@@ -189,6 +189,54 @@ export function migrerSessions(dbx) {
   } catch (e) { console.error('[migration] seance.heure :', e.message); }
 
   try {
+    /* LA SÉANCE PAR ORGANISATION (23 septembre 2026). La délibération se
+     * tient par organisation : deux organisations, deux Conseils — chacun
+     * ses présences, sa date, son procès-verbal. La clé de la séance gagne
+     * donc num_organisation (0 = l'unité entière, la séance historique).
+     * Une contrainte UNIQUE ne s'altère pas en place : rebuild, comme la v2,
+     * en préservant les id — les présences pointent dessus. */
+    const infoOrg = dbx.prepare('PRAGMA table_info(deliberation_seance)').all();
+    if (infoOrg.length && !infoOrg.some(c => c.name === 'num_organisation')) {
+      const colsOrg = infoOrg.map(c => c.name).filter(n => n !== 'id');
+      const listeOrg = colsOrg.join(', ');
+      dbx.transaction(() => {
+        dbx.exec(`
+          CREATE TABLE deliberation_seance_v3 (
+            id             INTEGER PRIMARY KEY AUTOINCREMENT,
+            ue_num         INTEGER NOT NULL,
+            annee_scolaire TEXT    NOT NULL,
+            session        INTEGER NOT NULL DEFAULT 1,
+            num_organisation INTEGER NOT NULL DEFAULT 0,
+            date_seance    TEXT,
+            heure_seance   TEXT,
+            visite_date    TEXT,
+            visite_heure   TEXT,
+            visite_local   TEXT,
+            visite_mention TEXT,
+            session2_date  TEXT,
+            session2_heure TEXT,
+            session2_local TEXT,
+            session2_adresse TEXT,
+            president_role TEXT,
+            president_nom  TEXT,
+            president_titre TEXT,
+            reprise        INTEGER,
+            reprise_motif  TEXT,
+            cloturee       INTEGER NOT NULL DEFAULT 0,
+            maj_le         TEXT DEFAULT CURRENT_TIMESTAMP,
+            maj_par        TEXT,
+            UNIQUE(ue_num, annee_scolaire, session, num_organisation)
+          );`);
+        dbx.exec(`INSERT INTO deliberation_seance_v3 (id, ${listeOrg})
+                  SELECT id, ${listeOrg} FROM deliberation_seance;`);
+        dbx.exec(`DROP TABLE deliberation_seance;
+          ALTER TABLE deliberation_seance_v3 RENAME TO deliberation_seance;`);
+      })();
+      console.log('[migration] deliberation_seance : num_organisation ajoutée');
+    }
+  } catch (e) { console.error('[migration] seance.organisation :', e.message); }
+
+  try {
     // Le résultat de chaque session, conservé à côté du résultat final.
     dbx.exec(`
       CREATE TABLE IF NOT EXISTS deliberation_resultat (
@@ -1036,10 +1084,7 @@ r.put('/decision', authRequired,
   // session — et l'y ranger par erreur transforme des ajournements en refus
   // (art. 69 §2). Le client peut se tromper de session ; le serveur, non.
   if (ses === 2) {
-    const s1Close = !!(db.prepare(`
-      SELECT cloturee FROM deliberation_seance
-      WHERE ue_num = ? AND annee_scolaire = ? AND session = 1
-    `).get(Number(ue_num), annee_scolaire)?.cloturee);
+    const s1Close = sessionCloturee(Number(ue_num), annee_scolaire, 1);
     if (!s1Close) {
       return res.status(409).json({
         error: 'seconde session non ouverte',
@@ -2614,8 +2659,11 @@ r.put('/deliberation/ue/:ueNum/seance/administratif', authRequired,
     });
   }
 
+  // La correction vise LA séance de l'organisation demandée (0 = unité entière).
+  const orgAdm = Math.max(0, Number(req.body?.org) || 0);
   const avant = db.prepare(`SELECT * FROM deliberation_seance
-    WHERE ue_num = ? AND annee_scolaire = ? AND session = ?`).get(ueNum, annee, session);
+    WHERE ue_num = ? AND annee_scolaire = ? AND session = ? AND num_organisation = ?`)
+    .get(ueNum, annee, session, orgAdm);
   if (!avant) return res.status(404).json({ error: 'aucune séance à corriger' });
 
   const champs = {};
@@ -2635,8 +2683,8 @@ r.put('/deliberation/ue/:ueNum/seance/administratif', authRequired,
       const cols = Object.keys(champs);
       db.prepare(`UPDATE deliberation_seance
         SET ${cols.map(c => `${c} = ?`).join(', ')}, maj_le = datetime('now'), maj_par = ?
-        WHERE ue_num = ? AND annee_scolaire = ? AND session = ?`)
-        .run(...cols.map(c => champs[c]), req.user?.email || null, ueNum, annee, session);
+        WHERE id = ?`)
+        .run(...cols.map(c => champs[c]), req.user?.email || null, avant.id);
     }
     if (membres) {
       // Une correction de composition REMPLACE la liste : un membre retiré doit
@@ -2655,7 +2703,7 @@ r.put('/deliberation/ue/:ueNum/seance/administratif', authRequired,
       }
     }
     const apres = db.prepare(`SELECT * FROM deliberation_seance
-      WHERE ue_num = ? AND annee_scolaire = ? AND session = ?`).get(ueNum, annee, session);
+      WHERE id = ?`).get(avant.id);
     const presApres = db.prepare(`SELECT cle, nom, prenom, qualite, categorie, voix, present
       FROM deliberation_presence WHERE seance_id = ?`).all(avant.id);
     db.prepare(`INSERT INTO seance_correction
@@ -4420,6 +4468,21 @@ r.get('/ue/:ueNum/cours', authRequired, (req, res) => {
  * Tant que la séance de première session n'est pas close, on peut encore
  * revenir sur une décision : c'est toujours la première session.
  */
+/* UNE SESSION EST CLOSE QUAND TOUTES SES SÉANCES LE SONT. Une unité qui se
+ * délibère par organisation tient plusieurs séances pour la même session :
+ * la session ne compte close que lorsque chacune l'est. La ligne « unité
+ * entière » (num_organisation = 0) ne compte pas dès qu'il existe des
+ * séances d'organisation — c'est un reste de planification, pas un Conseil. */
+export function sessionCloturee(ueNum, annee, session) {
+  const rows = db.prepare(`
+    SELECT num_organisation AS org, cloturee FROM deliberation_seance
+    WHERE ue_num = ? AND annee_scolaire = ? AND session = ?
+  `).all(Number(ueNum), annee, Number(session));
+  const parOrg = rows.filter(r0 => r0.org > 0);
+  if (parOrg.length) return parOrg.every(r0 => r0.cloturee);
+  return !!rows[0]?.cloturee;
+}
+
 export function sessionDeLUE(ueNum, annee) {
   const inscrits = db.prepare(
     'SELECT COUNT(*) AS n FROM etudiant_inscription WHERE annee_scolaire = ? AND ue_num = ?')
@@ -4461,10 +4524,7 @@ export function sessionDeLUE(ueNum, annee) {
 
   // La séance de première session est-elle close ? C'est elle qui fait passer
   // l'unité en seconde session, non le simple encodage des décisions.
-  const s1Close = !!(db.prepare(`
-    SELECT cloturee FROM deliberation_seance
-    WHERE ue_num = ? AND annee_scolaire = ? AND session = 1
-  `).get(ueNum, annee)?.cloturee);
+  const s1Close = sessionCloturee(ueNum, annee, 1);
 
   const secondeOuverte = s1Faite && s1.ajournes > 0 && s1Close;
 
@@ -4855,20 +4915,24 @@ export function membresDeLaSeance(ueNum, annee, session = 1) {
   return membres;
 }
 
-export function membresDuConseil(ueNum, annee) {
+export function membresDuConseil(ueNum, annee, org = 0) {
   const membres = [];
 
+  // Par organisation, le Conseil est celui des professeurs QUI Y ENSEIGNENT :
+  // l'attribution porte le numéro d'organisation, c'est lui qui décide.
+  const orgSql = Number(org) > 0
+    ? ` AND COALESCE(a.num_organisation, 1) = ${Number(org)}` : '';
   for (const p of db.prepare(`
     SELECT DISTINCT p.id, p.nom, p.prenom
     FROM attribution a JOIN professeur p ON p.id = a.professeur_id
-    WHERE a.ue_num = ? AND a.annee_scolaire = ? AND a.professeur_id IS NOT NULL
+    WHERE a.ue_num = ? AND a.annee_scolaire = ? AND a.professeur_id IS NOT NULL${orgSql}
     ORDER BY p.nom, p.prenom
   `).all(ueNum, annee)) {
     // Les cours qu'il porte dans CETTE unité : c'est à ce titre qu'il siège.
     const cours = db.prepare(`
-      SELECT DISTINCT code_cours FROM attribution
-      WHERE professeur_id = ? AND ue_num = ? AND annee_scolaire = ?
-        AND code_cours IS NOT NULL ORDER BY code_cours
+      SELECT DISTINCT a.code_cours AS code_cours FROM attribution a
+      WHERE a.professeur_id = ? AND a.ue_num = ? AND a.annee_scolaire = ?
+        AND a.code_cours IS NOT NULL${orgSql} ORDER BY a.code_cours
     `).all(p.id, ueNum, annee).map(c => c.code_cours);
     membres.push({
       cle: `prof:${p.id}`, nom: nomPropre(p.nom, p.prenom),
@@ -5205,10 +5269,13 @@ r.get('/deliberation/ue/:ueNum/seance', authRequired, (req, res) => {
   // Chaque session a SA séance : ses présences, sa date, sa visite des copies.
   // Le procès-verbal de septembre ne peut pas porter le Conseil de juin.
   const session = Number(req.query.session) === 2 ? 2 : 1;
+  // Et chaque ORGANISATION a la sienne : deux organisations, deux Conseils.
+  const org = Math.max(0, Number(req.query.org) || 0);
 
   const seance = db.prepare(
-    'SELECT * FROM deliberation_seance WHERE ue_num = ? AND annee_scolaire = ? AND session = ?'
-  ).get(ueNum, annee, session) || null;
+    'SELECT * FROM deliberation_seance WHERE ue_num = ? AND annee_scolaire = ?'
+    + ' AND session = ? AND num_organisation = ?'
+  ).get(ueNum, annee, session, org) || null;
 
   const poses = seance ? Object.fromEntries(db.prepare(
     `SELECT cle, present, nom, prenom, qualite, categorie, voix
@@ -5217,7 +5284,7 @@ r.get('/deliberation/ue/:ueNum/seance', authRequired, (req, res) => {
 
   // Les membres se recalculent à chaque ouverture : une attribution a pu
   // changer depuis la dernière séance, et la liste doit le refléter.
-  const membres = membresDuConseil(ueNum, annee).map(m => ({
+  const membres = membresDuConseil(ueNum, annee, org).map(m => ({
     ...m,
     nom: poses[m.cle]?.nom || m.nom,
     present: poses[m.cle] ? !!poses[m.cle].present : true,
@@ -5252,7 +5319,8 @@ r.get('/deliberation/ue/:ueNum/seance', authRequired, (req, res) => {
   const quorum = etatQuorum(membres,
     Object.fromEntries(membres.map(m => [m.cle, m.present])));
 
-  res.json({ ue_num: ueNum, annee, session, seance, membres, session2, quorum,
+  res.json({ ue_num: ueNum, annee, session, organisation: org,
+             seance, membres, session2, quorum,
              // Les titres auxquels on siège, pour que l'écran n'invente pas sa
              // propre liste et que la voix suive le décret des deux côtés.
              categories: CATEGORIES_MEMBRE,
@@ -5269,12 +5337,17 @@ r.get('/deliberation/ue/:ueNum/seance', authRequired, (req, res) => {
  * « resté à la proposition » sont la même chose : c'est ce qui rend le compte
  * exact, et non approximatif.
  */
-export function motivationsProposees(ueNum, annee, session = 1) {
+export function motivationsProposees(ueNum, annee, session = 1, org = null) {
   const sortie = [];
+  // Par organisation, seuls SES étudiants entrent dans le compte : la clôture
+  // du Conseil de l'organisation 1 n'a pas à bloquer sur les dossiers de la 2.
+  const orgSql = org == null ? ''
+    : (Number(org) > 0 ? ` AND i.num_organisation = ${Number(org)}`
+      : ' AND i.num_organisation IS NULL');
   const gens = db.prepare(`
     SELECT e.id, e.nom, e.prenom FROM etudiant_inscription i
     JOIN etudiant e ON e.id = i.etudiant_id
-    WHERE i.annee_scolaire = ? AND i.ue_num = ?
+    WHERE i.annee_scolaire = ? AND i.ue_num = ?${orgSql}
     ORDER BY e.nom, e.prenom`).all(annee, Number(ueNum));
 
   for (const e of gens) {
@@ -5306,7 +5379,9 @@ export function motivationsProposees(ueNum, annee, session = 1) {
 r.get('/deliberation/ue/:ueNum/motivations-proposees', authRequired, (req, res) => {
   const annee = req.query.annee || anneeDeTravail(req);
   const session = Number(req.query.session) === 2 ? 2 : 1;
-  const l = motivationsProposees(Number(req.params.ueNum), annee, session);
+  const org = Math.max(0, Number(req.query.org) || 0);
+  const l = motivationsProposees(Number(req.params.ueNum), annee, session,
+    org > 0 ? org : null);
   res.json({ ue_num: Number(req.params.ueNum), annee, session,
              total: l.length, etudiants: l });
 });
@@ -5316,6 +5391,11 @@ r.put('/deliberation/ue/:ueNum/seance', authRequired,
   const ueNum = Number(req.params.ueNum);
   const annee = req.body?.annee || anneeDeTravail(req);
   const session = Number(req.body?.session) === 2 ? 2 : 1;
+  // LA SÉANCE DE L'ORGANISATION : 0 = l'unité entière (comportement
+  // historique), N = le Conseil de l'organisation N — présences, quorum,
+  // motivations et clôture ne portent alors que sur elle.
+  const org = Math.max(0, Number(req.body?.org) || 0);
+  const orgMot = org > 0 ? org : null;
   const { membres, date_seance, heure_seance, visite_date, visite_heure, visite_local,
           visite_mention, cloturee,
           session2_date, session2_heure, session2_local, session2_adresse,
@@ -5327,8 +5407,8 @@ r.put('/deliberation/ue/:ueNum/seance', authRequired,
   if ((date_seance || heure_seance) && !cloturee) {
     const close = !!(db.prepare(`
       SELECT cloturee FROM deliberation_seance
-      WHERE ue_num = ? AND annee_scolaire = ? AND session = ?
-    `).get(ueNum, annee, session)?.cloturee);
+      WHERE ue_num = ? AND annee_scolaire = ? AND session = ? AND num_organisation = ?
+    `).get(ueNum, annee, session, org)?.cloturee);
     if (close) {
       return res.status(409).json({
         error: 'séance close',
@@ -5346,7 +5426,7 @@ r.put('/deliberation/ue/:ueNum/seance', authRequired,
   // (RGE art. 25 §1). Une délibération close sous le quorum est une
   // délibération attaquable ; mieux vaut un refus ici qu'un recours en août.
   if (cloturee) {
-    const membres = membresDuConseil(ueNum, annee);
+    const membres = membresDuConseil(ueNum, annee, org);
     const posees = Array.isArray(membres) && Array.isArray(req.body?.membres)
       ? Object.fromEntries(req.body.membres.map(m => [m.cle, !!m.present]))
       : null;
@@ -5354,7 +5434,8 @@ r.put('/deliberation/ue/:ueNum/seance', authRequired,
     let presences = posees;
     if (!presences) {
       const s = db.prepare(`SELECT id FROM deliberation_seance
-        WHERE ue_num = ? AND annee_scolaire = ? AND session = ?`).get(ueNum, annee, session);
+        WHERE ue_num = ? AND annee_scolaire = ? AND session = ? AND num_organisation = ?`)
+        .get(ueNum, annee, session, org);
       presences = s ? Object.fromEntries(db.prepare(
         'SELECT cle, present FROM deliberation_presence WHERE seance_id = ?'
       ).all(s.id).map(l => [l.cle, !!l.present])) : {};
@@ -5366,7 +5447,8 @@ r.put('/deliberation/ue/:ueNum/seance', authRequired,
     const voixPosee = {};
     try {
       const sv = db.prepare(`SELECT id FROM deliberation_seance
-        WHERE ue_num = ? AND annee_scolaire = ? AND session = ?`).get(ueNum, annee, session);
+        WHERE ue_num = ? AND annee_scolaire = ? AND session = ? AND num_organisation = ?`)
+        .get(ueNum, annee, session, org);
       if (sv) {
         for (const l of db.prepare(
           'SELECT cle, voix, categorie FROM deliberation_presence WHERE seance_id = ?'
@@ -5420,7 +5502,7 @@ r.put('/deliberation/ue/:ueNum/seance', authRequired,
     // pas mieux qu'une case vide — c'est même exactement ce qu'un recours
     // attaque. La clôture est le moment où la décision s'arrête : c'est là
     // qu'on demande, une fois, en nommant les dossiers.
-    const restes = motivationsProposees(ueNum, annee, session);
+    const restes = motivationsProposees(ueNum, annee, session, orgMot);
     if (restes.length && !req.body?.motivations_proposees_acceptees) {
       return res.status(409).json({
         error: `${restes.length} étudiant(s) dont la motivation d'échec est `
@@ -5445,7 +5527,7 @@ r.put('/deliberation/ue/:ueNum/seance', authRequired,
           (etudiant_id, annee_scolaire, ue_num, aa_code, motif, portee, source, maj_le, maj_par)
         VALUES (?,?,?,?,?,'aa','propose',datetime('now'),?)
         ON CONFLICT(etudiant_id, annee_scolaire, ue_num, aa_code) DO NOTHING`);
-      for (const e of motivationsProposees(ueNum, annee, session)) {
+      for (const e of motivationsProposees(ueNum, annee, session, orgMot)) {
         for (const a of e.acquis) {
           if (a.motif_propose) {
             poser.run(e.etudiant_id, annee, ueNum, a.aa_code, a.motif_propose,
@@ -5456,13 +5538,13 @@ r.put('/deliberation/ue/:ueNum/seance', authRequired,
     }
     db.prepare(`
       INSERT INTO deliberation_seance
-        (ue_num, annee_scolaire, session, date_seance, heure_seance,
+        (ue_num, annee_scolaire, session, num_organisation, date_seance, heure_seance,
          visite_date, visite_heure, visite_local, visite_mention,
          session2_date, session2_heure, session2_local, session2_adresse,
          president_role, president_nom, president_titre,
          cloturee, maj_le, maj_par)
-      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?, datetime('now'), ?)
-      ON CONFLICT(ue_num, annee_scolaire, session) DO UPDATE SET
+      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?, datetime('now'), ?)
+      ON CONFLICT(ue_num, annee_scolaire, session, num_organisation) DO UPDATE SET
         date_seance      = COALESCE(excluded.date_seance,      deliberation_seance.date_seance),
         heure_seance     = COALESCE(excluded.heure_seance,     deliberation_seance.heure_seance),
         visite_date      = COALESCE(excluded.visite_date,      deliberation_seance.visite_date),
@@ -5479,7 +5561,7 @@ r.put('/deliberation/ue/:ueNum/seance', authRequired,
         president_titre  = COALESCE(excluded.president_titre,  deliberation_seance.president_titre),
         cloturee     = MAX(excluded.cloturee, deliberation_seance.cloturee),
         maj_le = datetime('now'), maj_par = excluded.maj_par
-    `).run(ueNum, annee, session, date_seance || null, heure_seance || null,
+    `).run(ueNum, annee, session, org, date_seance || null, heure_seance || null,
       visite_date || null, visite_heure || null, visite_local || null,
            // La mention vidée doit s'effacer : chaîne blanche => null, et la
            // colonne se remet à zéro plutôt que de garder l'ancien texte.
@@ -5508,8 +5590,9 @@ r.put('/deliberation/ue/:ueNum/seance', authRequired,
 
     if (Array.isArray(membres)) {
       const s = db.prepare(
-        'SELECT id FROM deliberation_seance WHERE ue_num = ? AND annee_scolaire = ? AND session = ?'
-      ).get(ueNum, annee, session);
+        'SELECT id FROM deliberation_seance WHERE ue_num = ? AND annee_scolaire = ?'
+        + ' AND session = ? AND num_organisation = ?'
+      ).get(ueNum, annee, session, org);
       const up = db.prepare(`
         INSERT INTO deliberation_presence
           (seance_id, cle, nom, prenom, qualite, categorie, voix, present)
@@ -5547,19 +5630,24 @@ r.put('/deliberation/ue/:ueNum/seance', authRequired,
 r.get('/deliberation/ue/:ueNum/documents', authRequired, (req, res) => {
   const ueNum = Number(req.params.ueNum);
   const annee = req.query.annee || anneeDeTravail(req);
+  const org = req.query.org != null && req.query.org !== ''
+    ? Math.max(0, Number(req.query.org) || 0) : null;
+  const orgSql = org == null ? ''
+    : (org > 0 ? ` AND i.num_organisation = ${org}` : ' AND i.num_organisation IS NULL');
 
   const etudiants = db.prepare(`
     SELECT e.id, e.nom, e.prenom, i.resultat, i.points
     FROM etudiant_inscription i JOIN etudiant e ON e.id = i.etudiant_id
-    WHERE i.annee_scolaire = ? AND i.ue_num = ?
+    WHERE i.annee_scolaire = ? AND i.ue_num = ?${orgSql}
     ORDER BY e.nom, e.prenom
   `).all(annee, ueNum);
 
   const par = r0 => etudiants.filter(e => e.resultat === r0);
   const seance = db.prepare(
     'SELECT cloturee, visite_date FROM deliberation_seance'
-    + ' WHERE ue_num = ? AND annee_scolaire = ? AND session = ?'
-  ).get(ueNum, annee, Number(req.query.session) === 2 ? 2 : sessionDeLUE(ueNum, annee).session) || {};
+    + ' WHERE ue_num = ? AND annee_scolaire = ? AND session = ? AND num_organisation = ?'
+  ).get(ueNum, annee, Number(req.query.session) === 2 ? 2 : sessionDeLUE(ueNum, annee).session,
+        org || 0) || {};
 
   // Les listes d'ajournés : une par cours, qu'il y ait des ajournés ou non.
   const nbCours = db.prepare(
@@ -5866,7 +5954,7 @@ const STYLE_DOSSIER = `<style>
  * il y en a une, celles de juin partout ailleurs. C'est cette page qu'on
  * archive, et c'est elle qu'on relit un an après.
  */
-export function pageGrilleDeliberation(ueNum, annee, session = 1, { total = false } = {}) {
+export function pageGrilleDeliberation(ueNum, annee, session = 1, { total = false, org = null } = {}) {
   const ident = identiteEtablissement();
   const esc0 = t => String(t ?? '').replace(/[&<>"]/g,
     x => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[x]));
@@ -5878,10 +5966,14 @@ export function pageGrilleDeliberation(ueNum, annee, session = 1, { total = fals
 
   const ue = db.prepare(`SELECT ue_nom, section FROM ue WHERE ue_num = ?
     ORDER BY (annee_scolaire = ?) DESC, annee_scolaire DESC LIMIT 1`).get(ueNum, annee) || {};
+  // La grille d'une organisation ne porte que SES étudiants.
+  const orgGrille = org == null ? ''
+    : (Number(org) > 0 ? ` AND i.num_organisation = ${Number(org)}`
+      : ' AND i.num_organisation IS NULL');
   let etudiants = db.prepare(`
     SELECT e.id, e.nom, e.prenom, e.id_ecampus
     FROM etudiant_inscription i JOIN etudiant e ON e.id = i.etudiant_id
-    WHERE i.annee_scolaire = ? AND i.ue_num = ? ORDER BY e.nom, e.prenom
+    WHERE i.annee_scolaire = ? AND i.ue_num = ?${orgGrille} ORDER BY e.nom, e.prenom
   `).all(annee, ueNum);
 
   // EN SECONDE SESSION, SEULS LES AJOURNÉS DE JUIN. La trace de la séance fait
@@ -6201,6 +6293,8 @@ export function pageMotivations(ueNum, annee, session = 1) {
  */
 function assemblerDocumentsUE(ueNum, annee, veut, opts = {}) {
   const session = opts.session === 2 ? 2 : 1;
+  // LES PIÈCES D'UNE ORGANISATION : ses étudiants, sa séance, son PV.
+  const org = opts.org == null ? null : Math.max(0, Number(opts.org) || 0);
   // LA TROISIÈME LECTURE : le résultat de l'unité APRÈS LES DEUX SESSIONS. Ni
   // juin ni septembre seuls, mais ce que l'étudiant a finalement obtenu — la
   // seule page qu'on relit un an après.
@@ -6210,9 +6304,10 @@ function assemblerDocumentsUE(ueNum, annee, veut, opts = {}) {
   try { ident = identiteEtablissement() || {}; } catch { ident = {}; }
 
   const etudiants = db.prepare(`
-    SELECT e.*, i.resultat AS resultat_dossier
+    SELECT e.*, i.resultat AS resultat_dossier, i.num_organisation
     FROM etudiant_inscription i JOIN etudiant e ON e.id = i.etudiant_id
-    WHERE i.annee_scolaire = ? AND i.ue_num = ?
+    WHERE i.annee_scolaire = ? AND i.ue_num = ?${org == null ? ''
+      : (org > 0 ? ` AND i.num_organisation = ${org}` : ' AND i.num_organisation IS NULL')}
     ORDER BY e.nom, e.prenom
   `).all(annee, ueNum)
     // La pièce porte la décision de LA SESSION qu'on imprime. Un étudiant que
@@ -6252,7 +6347,7 @@ function assemblerDocumentsUE(ueNum, annee, veut, opts = {}) {
   // LE PROCÈS-VERBAL EN TÊTE : c'est la pièce du Conseil, les notifications
   // sont ce qu'on en tire. Il suit la même charte, il s'imprime avec elles.
   if (veut.grille) {
-    const g = pageGrilleDeliberation(ueNum, annee, session, { total });
+    const g = pageGrilleDeliberation(ueNum, annee, session, { total, org });
     if (g.vide) manques.push('Grille : aucun étudiant inscrit à cette unité');
     else { styles.push(g.style || ''); pousser('grille', g.corps); nbG = 1; }
   }
@@ -6284,7 +6379,7 @@ function assemblerDocumentsUE(ueNum, annee, veut, opts = {}) {
   }
 
   if (veut.pv) {
-    const d = documentPV(ueNum, annee, session);
+    const d = documentPV(ueNum, annee, session, org);
     pousser('pv', d.corps);
     nbPV = 1;
     for (const m of (d.manques || [])) manques.push(`Procès-verbal : ${m}`);
@@ -6366,6 +6461,7 @@ r.post('/deliberation/ue/:ueNum/documents', authRequired, (req, res) => {
     session: Number(req.body?.session) === 2 ? 2 : 1,
     total: !!req.body?.total,
     date_document: req.body?.date_document || null,
+    org: req.body?.org != null && req.body.org !== '' ? Number(req.body.org) : null,
   });
 
   if (!a.pages.length) {
@@ -6529,6 +6625,7 @@ r.post('/deliberation/documents-lot', authRequired, (req, res) => {
       a = assemblerDocumentsUE(ueNum, annee, veut, {
         etudiants: Array.isArray(req.body?.etudiants) && req.body.etudiants.length
           ? req.body.etudiants.map(Number) : null,
+        org: req.body?.org != null && req.body.org !== '' ? Number(req.body.org) : null,
         // LA SESSION EST CELLE QU'ON DOCUMENTE, PAS CELLE OÙ L'UNITÉ EN EST.
         // Le lot prenait la session déduite de l'unité : dès que juin était
         // clos, il documentait septembre — et sortait les ajournés d'une
@@ -6653,8 +6750,12 @@ r.post('/deliberation/ue/:ueNum/rouvrir', authRequired,
     return res.status(403).json({ error: 'unité hors de votre périmètre' });
   }
 
+  // On rouvre LA séance de l'organisation demandée (0 = unité entière), pas
+  // toutes les séances de la session.
+  const orgR = Math.max(0, Number(req.body?.org) || 0);
   const seance = db.prepare(`SELECT id, cloturee FROM deliberation_seance
-    WHERE ue_num = ? AND annee_scolaire = ? AND session = ?`).get(ueNum, annee, session);
+    WHERE ue_num = ? AND annee_scolaire = ? AND session = ? AND num_organisation = ?`)
+    .get(ueNum, annee, session, orgR);
   if (!seance) return res.status(404).json({ error: 'aucune séance pour cette unité' });
   if (!seance.cloturee) return res.json({ ok: true, deja_ouverte: true });
 
@@ -6777,7 +6878,12 @@ r.delete('/deliberation/ue/:ueNum', authRequired,
  * Le procès-verbal, en fonction : le centre d'impression l'enchaîne avec les
  * attestations et les notifications, dans un seul document à imprimer.
  */
-export function documentPV(ueNum, annee, session = 1) {
+export function documentPV(ueNum, annee, session = 1, org = null) {
+  // LE PV D'UNE ORGANISATION relate SA séance et SES étudiants — deux
+  // organisations, deux procès-verbaux. org=null : l'unité entière.
+  const orgN = org == null ? null : Math.max(0, Number(org) || 0);
+  const orgSql = orgN == null ? ''
+    : (orgN > 0 ? ` AND i.num_organisation = ${orgN}` : ' AND i.num_organisation IS NULL');
 
   const ue = db.prepare(`
     SELECT ue_nom, section, ue_per_etudiants, ue_code_fwb, ue_niv, ue_niveau
@@ -6799,11 +6905,13 @@ export function documentPV(ueNum, annee, session = 1) {
   let ident = {};
   try { ident = identiteEtablissement() || {}; } catch { ident = {}; }
 
-  // La séance de CETTE session : présences, date, visite des copies. Le
-  // procès-verbal de septembre ne peut pas porter le Conseil de juin.
+  // La séance de CETTE session — et de CETTE organisation : présences, date,
+  // visite des copies. Le procès-verbal de septembre ne peut pas porter le
+  // Conseil de juin, ni celui de l'organisation 1 porter la séance de la 2.
   const seance = db.prepare(
-    'SELECT * FROM deliberation_seance WHERE ue_num = ? AND annee_scolaire = ? AND session = ?'
-  ).get(ueNum, annee, session) || {};
+    'SELECT * FROM deliberation_seance WHERE ue_num = ? AND annee_scolaire = ?'
+    + ' AND session = ? AND num_organisation = ?'
+  ).get(ueNum, annee, session, orgN || 0) || {};
   const presents = seance.id ? db.prepare(
     'SELECT nom, qualite FROM deliberation_presence WHERE seance_id = ? AND present = 1'
   ).all(seance.id) : [];
@@ -6818,7 +6926,7 @@ export function documentPV(ueNum, annee, session = 1) {
            ${aLieu ? 'e.lieu_naissance' : 'NULL AS lieu_naissance'},
            i.resultat AS resultat_dossier, i.points AS points_dossier
     FROM etudiant_inscription i JOIN etudiant e ON e.id = i.etudiant_id
-    WHERE i.annee_scolaire = ? AND i.ue_num = ?
+    WHERE i.annee_scolaire = ? AND i.ue_num = ?${orgSql}
     ORDER BY e.nom, e.prenom
   `).all(annee, ueNum)
     // LE PV RELATE UNE SÉANCE. Il listait tous les inscrits avec l'état de leur
@@ -6971,7 +7079,8 @@ export function documentPV(ueNum, annee, session = 1) {
 r.get('/deliberation/ue/:ueNum/pv', authRequired, (req, res) => {
   const d = documentPV(Number(req.params.ueNum),
     req.query.annee || anneeDeTravail(req),
-    req.query.session === '2' ? 2 : 1);
+    req.query.session === '2' ? 2 : 1,
+    req.query.org != null && req.query.org !== '' ? Number(req.query.org) : null);
   res.json(d);
 });
 
@@ -7424,7 +7533,7 @@ r.post('/deliberation/reprise-lot', authRequired,
               (ue_num, annee_scolaire, session, date_seance, heure_seance,
                visite_date, visite_heure, visite_local, cloturee, maj_le, maj_par)
             VALUES (?,?,?,?,?,?,?,?,0, datetime('now'), ?)
-            ON CONFLICT(ue_num, annee_scolaire, session) DO UPDATE SET
+            ON CONFLICT(ue_num, annee_scolaire, session, num_organisation) DO UPDATE SET
               date_seance  = excluded.date_seance,
               heure_seance = COALESCE(excluded.heure_seance, deliberation_seance.heure_seance),
               visite_date  = COALESCE(excluded.visite_date,  deliberation_seance.visite_date),

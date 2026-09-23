@@ -115,7 +115,7 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose }) {
     try {
       const rep = await fetch(
         `/api/acquis/deliberation/ue/${ueNum}/seance?annee=${encodeURIComponent(annee)}`
-        + `&session=${session}`,
+        + `&session=${session}&org=${org ?? 0}`,
         { headers: authHeaders() });
       const j = await rep.json();
       if (rep.ok) setSeance(j);
@@ -457,7 +457,7 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose }) {
     try {
       const rep = await fetch(`/api/acquis/deliberation/ue/${ueNum}/rouvrir`, {
         method: 'POST', headers: authHeaders(),
-        body: JSON.stringify({ annee, session, motif }),
+        body: JSON.stringify({ annee, session, org: org ?? 0, motif }),
       });
       const j = await rep.json();
       if (!rep.ok) { setErreur(j.detail || j.error); return; }
@@ -472,7 +472,7 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose }) {
     try {
       const rep = await fetch(`/api/acquis/deliberation/ue/${ueNum}/seance`, {
         method: 'PUT', headers: authHeaders(),
-        body: JSON.stringify({ annee, session, ...champs }),
+        body: JSON.stringify({ annee, session, org: org ?? 0, ...champs }),
       });
       const j = await rep.json();
       if (!rep.ok) {
@@ -614,7 +614,7 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose }) {
 
           {correction && (
             <CorrectionAdministrative ueNum={ueNum} annee={annee} session={session}
-              seance={seance} onFerme={() => setCorrection(false)}
+              org={org ?? 0} seance={seance} onFerme={() => setCorrection(false)}
               onFait={chargerAuto} onRouvrir={rouvrirSeance} enCours={enCours} />
           )}
 
@@ -821,7 +821,7 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose }) {
 
       {documents && (
         <CentreImpressionCentral ongletInitial="etudiants"
-          perimetre={{ ue_nums: [data.ue_num], session }}
+          perimetre={{ ue_nums: [data.ue_num], session, org: org ?? null }}
           onClose={() => setDocuments(false)} />
       )}
 
@@ -2956,7 +2956,7 @@ function Ligne({ label, type = 'text', valeur, onChange, disabled }) {
  * décisions, les notes et les résultats ne passent pas par ici. La séance
  * reste close, un motif écrit est exigé, et l'avant/après est conservé.
  */
-export function CorrectionAdministrative({ ueNum, annee, session, seance, onFerme, onFait,
+export function CorrectionAdministrative({ ueNum, annee, session, org = 0, seance, onFerme, onFait,
                                     onRouvrir, enCours: rouvertureEnCours }) {
   const s = seance?.seance || {};
   /* DEUX GESTES, UN SEUL ÉCRAN. Corriger et rouvrir répondent à la même
@@ -2997,7 +2997,7 @@ export function CorrectionAdministrative({ ueNum, annee, session, seance, onFerm
     try {
       const rep = await fetch(`/api/acquis/deliberation/ue/${ueNum}/seance/administratif`, {
         method: 'PUT', headers: authHeaders(),
-        body: JSON.stringify({ annee, session, motif, ...champs, membres }),
+        body: JSON.stringify({ annee, session, org: org ?? 0, motif, ...champs, membres }),
       });
       const j = await rep.json().catch(() => ({}));
       if (!rep.ok) throw new Error(j.detail || j.error || 'Correction refusée.');
