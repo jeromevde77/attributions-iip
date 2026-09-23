@@ -5115,11 +5115,29 @@ r.get('/valorisations/matrice', authRequired, (req, res) => {
     WHERE v.annee_scolaire = ? AND v.ue_num IN ${marques}
   `).all(annee, ...nums) : [];
 
+  /* UN ÉTUDIANT SANS INSCRIPTION EXISTE AUSSI — leçon du 21 septembre,
+   * jamais appliquée ici, où elle coûte double : la valorisation PRÉCÈDE
+   * souvent l'inscription, et c'est précisément le public de cette matrice.
+   * Les rattachés à la section paraissent donc même sans PAE composé —
+   * c'est ainsi que TOUS les étudiants d'une section se voient. */
+  const rattaches = db.prepare(`
+    SELECT id, nom, prenom, id_ecampus, section_rattachement
+    FROM etudiant WHERE actif = 1 AND section_rattachement = ?
+    ORDER BY nom, prenom
+  `).all(section);
+
   const par = new Map();
   for (const e of inscrits) {
     par.set(e.id, { id: e.id, nom: e.nom, prenom: e.prenom,
       id_ecampus: e.id_ecampus, section: e.section_rattachement,
       inscrit: true, cellules: {} });
+  }
+  for (const e of rattaches) {
+    if (!par.has(e.id)) {
+      par.set(e.id, { id: e.id, nom: e.nom, prenom: e.prenom,
+        id_ecampus: e.id_ecampus, section: e.section_rattachement,
+        inscrit: false, cellules: {} });
+    }
   }
   for (const d of dejaLa) {
     if (!par.has(d.etudiant_id)) {
@@ -6487,6 +6505,24 @@ r.get('/valorisations/ue/:ueNum/candidats', authRequired, (req, res) => {
       section: i.section_rattachement, au_programme: true,
       resultat: i.resultat || null, valorisation: null,
     });
+  }
+  /* UN ÉTUDIANT SANS INSCRIPTION EXISTE AUSSI (leçon du 21 septembre) : une
+   * valorisation précède souvent l'inscription. Les rattachés aux sections
+   * de l'unité sont donc candidats, même sans PAE composé. */
+  const secsUE = sectionsDeUE(ueNum);
+  const rattachesUE = secsUE.length ? db.prepare(`
+    SELECT id, nom, prenom, id_ecampus, section_rattachement
+    FROM etudiant WHERE actif = 1
+      AND section_rattachement IN (${secsUE.map(() => '?').join(',')})
+  `).all(...secsUE) : [];
+  for (const e of rattachesUE) {
+    if (!par.has(e.id)) {
+      par.set(e.id, {
+        id: e.id, nom: e.nom, prenom: e.prenom, id_ecampus: e.id_ecampus,
+        section: e.section_rattachement, au_programme: false,
+        resultat: null, valorisation: null,
+      });
+    }
   }
   for (const d of deja) {
     if (!par.has(d.etudiant_id)) {
