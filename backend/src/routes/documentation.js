@@ -505,6 +505,31 @@ r.post('/:cle/versions', authRequired, roleRequired(...PEUT_PUBLIER), (req, res)
   res.json({ ok: true, id: info.lastInsertRowid, numero, reconfirmer: !!reconfirmer });
 });
 
+/* RENOMMER N'EST PAS RÉÉCRIRE. Le titre et la nature sont des métadonnées :
+ * les changer ne touche ni les versions publiées ni les confirmations données
+ * — chacun s'est engagé sur un TEXTE, pas sur un intitulé. La clé, elle, ne
+ * bouge jamais : les liens la citent pour toujours. */
+r.patch('/:cle', authRequired, roleRequired(...PEUT_PUBLIER), (req, res) => {
+  const d = db.prepare('SELECT id FROM corpus_document WHERE cle = ?').get(req.params.cle);
+  if (!d) return res.status(404).json({ error: 'Document introuvable.' });
+  const sets = [], vals = [];
+  if (req.body?.titre !== undefined) {
+    const titre = String(req.body.titre).trim();
+    if (!titre) return res.status(400).json({ error: 'Le titre ne peut pas être vide.' });
+    sets.push('titre = ?'); vals.push(titre);
+  }
+  if (req.body?.nature !== undefined) {
+    const nature = String(req.body.nature).trim();
+    if (!NATURES.some(n => n.cle === nature)) {
+      return res.status(400).json({ error: 'Nature inconnue.' });
+    }
+    sets.push('nature = ?'); vals.push(nature);
+  }
+  if (!sets.length) return res.status(400).json({ error: 'Rien à modifier.' });
+  db.prepare(`UPDATE corpus_document SET ${sets.join(', ')} WHERE id = ?`).run(...vals, d.id);
+  res.json({ ok: true });
+});
+
 /** À QUI CE TEXTE S'IMPOSE — remplacé en bloc, comme une composition. */
 r.put('/:cle/destinataires', authRequired, roleRequired(...PEUT_PUBLIER), (req, res) => {
   const d = db.prepare('SELECT * FROM corpus_document WHERE cle = ?').get(req.params.cle);

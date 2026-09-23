@@ -249,7 +249,7 @@ export default function Documentation() {
       </div>
 
       {ouvert && (
-        <LireTexte cle={ouvert} publie={publie}
+        <LireTexte cle={ouvert} publie={publie} natures={natures}
           onClose={() => setOuvert(null)} onChange={charger} />
       )}
       {depot && <DeposerTexte natures={natures}
@@ -274,13 +274,14 @@ export default function Documentation() {
  * Cela ne prétend pas prouver la LECTURE, et Charles l'a dit lui-même : coché
  * sans lire, c'est le problème de celui qui a coché.
  */
-function LireTexte({ cle, publie, onClose, onChange }) {
+function LireTexte({ cle, publie, natures, onClose, onChange }) {
   const [d, setD] = useState(null);
   const [erreur, setErreur] = useState(null);
   const [enCours, setEnCours] = useState(false);
   const [coche, setCoche] = useState(false);
   const [nouvelle, setNouvelle] = useState(null);   // { contenu, resume }
   const [roles, setRoles] = useState(null);         // Set en cours de modification
+  const [renomme, setRenomme] = useState(null);     // { titre, nature } en cours d'édition
 
   const charger = useCallback(async () => {
     try {
@@ -300,6 +301,24 @@ function LireTexte({ cle, publie, onClose, onChange }) {
         { method: 'POST', headers: authHeaders() });
       const j = await r.json();
       if (!r.ok) { setErreur(j.error || 'Refusé.'); return; }
+      await charger(); await onChange?.();
+    } catch (e) { setErreur(e.message); }
+    finally { setEnCours(false); }
+  }
+
+  /* Renommer ne touche ni aux versions ni aux confirmations : le titre est
+     une métadonnée, la clé du document ne bouge pas. */
+  async function renommer() {
+    setEnCours(true); setErreur(null);
+    try {
+      const r = await fetch(`/api/documentation/${encodeURIComponent(cle)}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
+        body: JSON.stringify({ titre: renomme.titre, nature: renomme.nature }),
+      });
+      const j = await r.json();
+      if (!r.ok) { setErreur(j.error || 'Refusé.'); return; }
+      setRenomme(null);
       await charger(); await onChange?.();
     } catch (e) { setErreur(e.message); }
     finally { setEnCours(false); }
@@ -464,6 +483,41 @@ function LireTexte({ cle, publie, onClose, onChange }) {
                 <button className="bouton" onClick={() => setRoles(null)}>Annuler</button>
               </div>
             </>
+          )}
+        </div>
+      )}
+
+      {publie && d && (
+        <div className="mt-4">
+          {!renomme ? (
+            <button className="bouton text-[12px] mb-2"
+              onClick={() => setRenomme({ titre: d.titre || '', nature: d.nature || 'procedure' })}>
+              Renommer
+            </button>
+          ) : (
+            <div className="carte p-3 space-y-2 mb-2">
+              <div className="text-[11px] uppercase tracking-wide text-slate-500">
+                Renommer — le texte, les versions et les confirmations ne changent pas
+              </div>
+              <input value={renomme.titre}
+                onChange={e => setRenomme(r0 => ({ ...r0, titre: e.target.value }))}
+                placeholder="Titre du document"
+                className="controle text-[13px] w-full" />
+              <select value={renomme.nature}
+                onChange={e => setRenomme(r0 => ({ ...r0, nature: e.target.value }))}
+                className="controle text-[13px]">
+                {(natures || []).map(n => (
+                  <option key={n.cle} value={n.cle}>{n.libelle}</option>
+                ))}
+              </select>
+              <div className="flex gap-2">
+                <button className="bouton bouton-fort disabled:opacity-40"
+                  disabled={enCours || !renomme.titre.trim()} onClick={renommer}>
+                  Enregistrer
+                </button>
+                <button className="bouton" onClick={() => setRenomme(null)}>Annuler</button>
+              </div>
+            </div>
           )}
         </div>
       )}
