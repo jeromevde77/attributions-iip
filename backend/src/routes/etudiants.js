@@ -473,6 +473,81 @@ function sectionAutoriseeReq(req, section) {
   return p === null ? true : (section ? p.includes(section) : false);
 }
 
+/* LES DOSSIERS DE VALORISATION SE TIENNENT DANS SON PÉRIMÈTRE (23 septembre
+ * 2026). Le registre, la matrice, l'analyse, les dossiers individuels et
+ * leurs étapes s'ouvraient à tout compte connecté : une coordination voyait
+ * — et pouvait instruire — les demandes des autres sections. La règle est
+ * celle de la liste des étudiants : on ne montre pas ce qui n'est pas le
+ * sien, et elle vaut pour l'écriture. Même esprit que `unitePermise` posé en
+ * 2.12.113 sur la séance (attestations.js), jamais appliqué à ces routes. */
+function sectionsDeUE(ueNum) {
+  const n = Number(ueNum);
+  const directes = db.prepare(
+    'SELECT DISTINCT section FROM ue WHERE ue_num = ? AND section IS NOT NULL').all(n);
+  const liens = db.prepare(
+    'SELECT DISTINCT section_code AS section FROM ue_section WHERE ue_num = ?').all(n);
+  return [...new Set([...directes, ...liens].map(x => x.section).filter(Boolean))];
+}
+function unitePermise(req, res, ueNum) {
+  const permises = perimetre(req);
+  if (!permises) return true;
+  if (sectionsDeUE(ueNum).some(s => permises.includes(s))) return true;
+  res.status(403).json({ error: 'Cette unité est hors de votre périmètre.' });
+  return false;
+}
+// Une admission (ue_num = 0) porte sa section ; les autres la tiennent de l'UE.
+function sectionsValorisation(vid) {
+  const v = db.prepare('SELECT ue_num, section FROM etudiant_valorisation WHERE id = ?')
+    .get(Number(vid));
+  if (!v) return [];
+  return v.ue_num ? sectionsDeUE(v.ue_num) : (v.section ? [v.section] : []);
+}
+function valorisationsPermises(req, res, vids) {
+  const permises = perimetre(req);
+  if (!permises) return true;
+  for (const vid of vids) {
+    if (!sectionsValorisation(vid).some(s => permises.includes(s))) {
+      res.status(403).json({ error: 'Un des dossiers de valorisation est hors de votre périmètre.' });
+      return false;
+    }
+  }
+  return true;
+}
+function valorisationPermise(req, res, vid) {
+  return valorisationsPermises(req, res, [vid]);
+}
+// Pour les listes (registre, analyse, en-retard) : on écarte les lignes hors
+// périmètre au lieu de refuser la requête. Une admission (ue_num = 0) n'a pas
+// d'UE : sa section se relit sur le dossier lui-même.
+function filtrerValorisationsParPerimetre(req, lignes) {
+  const permises = perimetre(req);
+  if (!permises) return lignes;
+  const cache = new Map();
+  const secsDe = (ue) => {
+    if (!cache.has(ue)) cache.set(ue, sectionsDeUE(ue));
+    return cache.get(ue);
+  };
+  return lignes.filter(l => {
+    const secs = l.ue_num ? secsDe(l.ue_num)
+      : (l.section ? [l.section] : (l.id ? sectionsValorisation(l.id) : []));
+    return secs.some(s => permises.includes(s));
+  });
+}
+// Même règle que la fiche : un étudiant sans aucune section reste visible de
+// tous. Le rattachement compte aussi — un primo sans inscription a déjà une
+// section, et c'est elle qui décide.
+function etudiantPermis(req, res, etudId) {
+  const permises = perimetre(req);
+  if (!permises) return true;
+  const { sections } = sectionsDeLEtudiant(Number(etudId), null);
+  const rat = db.prepare('SELECT section_rattachement FROM etudiant WHERE id = ?')
+    .get(Number(etudId))?.section_rattachement;
+  const toutes = [...new Set([...sections, ...(rat ? [rat] : [])])];
+  if (!toutes.length || toutes.some(s => permises.includes(s))) return true;
+  res.status(403).json({ error: 'Cet étudiant est hors de votre périmètre.' });
+  return false;
+}
+
 function sectionsDeLEtudiant(etudId, forcee) {
   if (forcee) return { sections: [forcee], scores: [] };
   // La section d'une UE ne dépend pas de l'année : joindre sur l'année de
@@ -4276,6 +4351,7 @@ r.put('/:id/grille/detail', authRequired, roleRequired('admin', 'editeur'), (req
 
 // ── Valorisation des acquis (VA/VAE) — AGCF 13-12-2024 ──────────────────────
 r.get('/:id/valorisations', authRequired, (req, res) => {
+  if (!etudiantPermis(req, res, req.params.id)) return;
   const rows = db.prepare(`
     SELECT v.*, u.ue_nom, u.section
     FROM etudiant_valorisation v
@@ -4469,7 +4545,7 @@ r.get('/valorisations/registre', authRequired, (req, res) => {
     /* L'ÉTAT SE DÉDUIT ICI, PAS DANS L'ÉCRAN. Deux déductions pour un même
      * fait finiraient par différer, et c'est celle qu'on regarde le moins qui
      * afficherait l'ancienne règle. `etatDeduit` est la seule. */
-    res.json(lignes.map(v => ({
+    res.json(filtrerValorisationsParPerimetre(req, lignes).map(v => ({
       ...v, etat: etatDeduit(v), hors_circuit: decideHorsCircuit(v),
     })));
   } catch (e) {
@@ -4482,6 +4558,7 @@ r.get('/valorisations/fichiers/:fid', authRequired, (req, res) => {
   const f = db.prepare('SELECT * FROM etudiant_valorisation_fichier WHERE id = ?')
     .get(Number(req.params.fid));
   if (!f || !existsSync(f.chemin)) return res.status(404).json({ error: 'Pièce introuvable' });
+  if (!valorisationPermise(req, res, f.valorisation_id)) return;
   res.download(f.chemin, f.nom);
 });
 
@@ -4553,6 +4630,7 @@ r.post('/valorisations/:vid/fichiers', authRequired, roleRequired('admin', 'edit
  * empêcherait le cas normal.
  */
 r.get('/:id/valorisations/unites', authRequired, (req, res) => {
+  if (!etudiantPermis(req, res, req.params.id)) return;
   const etudId = Number(req.params.id);
   const annee = req.query.annee;
   if (!annee) return res.status(400).json({ error: 'annee requise' });
@@ -4698,6 +4776,9 @@ r.get('/valorisations/matrice', authRequired, (req, res) => {
   if (!annee || !section) {
     return res.status(400).json({ error: 'annee et section requises' });
   }
+  if (!sectionAutoriseeReq(req, section)) {
+    return res.status(403).json({ error: 'Section hors de votre périmètre' });
+  }
 
   /* LES UNITÉS DE LA SECTION — et pas celles qu'on ne peut jamais valoriser.
    * Afficher une colonne « épreuve intégrée » serait inviter à cocher ce que
@@ -4809,9 +4890,22 @@ r.post('/valorisations/matrice', authRequired, roleRequired(...PEUT_INSTRUIRE),
 
     const refus = [];
     const aCreer = [];
+    // L'écriture aussi se tient dans son périmètre : une case cochée sur une
+    // unité (ou une admission vers une section) d'autrui se refuse, ligne
+    // par ligne, comme les autres refus de la matrice.
+    const permisesMat = perimetre(req);
     for (const c of liste) {
       const eid = Number(c.etudiant_id);
       const ue = Number(c.ue_num);
+      if (permisesMat) {
+        const secs = c.porte === 'admission'
+          ? [String(c.section || req.body.section || '').trim()].filter(Boolean)
+          : sectionsDeUE(ue);
+        if (!secs.some(s => permisesMat.includes(s))) {
+          refus.push({ etudiant_id: eid, ue_num: ue, pourquoi: 'Hors de votre périmètre.' });
+          continue;
+        }
+      }
 
       /* L'ADMISSION SE DÉCIDE PAR SECTION : une seule ligne, `ue_num = 0`.
        * La matrice l'envoie avec la section plutôt qu'avec une unité — on
@@ -4949,6 +5043,7 @@ r.get('/valorisations/:vid/dossier', authRequired, (req, res) => {
   const vid = Number(req.params.vid);
   const v = lireDossierComplet(vid);
   if (!v) return res.status(404).json({ error: 'Dossier introuvable.' });
+  if (!valorisationPermise(req, res, vid)) return;
 
   const admission = estAdmissionDeSection(v);
   const valorisable = admission
@@ -4987,6 +5082,7 @@ r.get('/valorisations/:vid/dossier', authRequired, (req, res) => {
 r.put('/valorisations/:vid/demande', authRequired, roleRequired(...PEUT_INSTRUIRE),
   (req, res) => {
     const vid = Number(req.params.vid);
+    if (!valorisationPermise(req, res, vid)) return;
     const v = db.prepare('SELECT * FROM etudiant_valorisation WHERE id = ?').get(vid);
     if (!v) return res.status(404).json({ error: 'Dossier introuvable.' });
     if (refuseSiValide(v, res)) return;
@@ -5068,6 +5164,7 @@ r.put('/valorisations/:vid/demande', authRequired, roleRequired(...PEUT_INSTRUIR
 r.put('/valorisations/:vid/recevabilite', authRequired, roleRequired(...PEUT_INSTRUIRE),
   (req, res) => {
     const vid = Number(req.params.vid);
+    if (!valorisationPermise(req, res, vid)) return;
     const v = db.prepare('SELECT * FROM etudiant_valorisation WHERE id = ?').get(vid);
     if (!v) return res.status(404).json({ error: 'Dossier introuvable.' });
     if (refuseSiValide(v, res)) return;
@@ -5109,6 +5206,7 @@ r.put('/valorisations/:vid/recevabilite', authRequired, roleRequired(...PEUT_INS
 r.put('/valorisations/:vid/avis', authRequired, roleRequired(...PEUT_INSTRUIRE, 'professeur'),
   (req, res) => {
     const vid = Number(req.params.vid);
+    if (!valorisationPermise(req, res, vid)) return;
     const v = db.prepare('SELECT * FROM etudiant_valorisation WHERE id = ?').get(vid);
     if (!v) return res.status(404).json({ error: 'Dossier introuvable.' });
     if (refuseSiValide(v, res)) return;
@@ -5154,6 +5252,7 @@ r.put('/valorisations/:vid/avis', authRequired, roleRequired(...PEUT_INSTRUIRE, 
 r.put('/valorisations/:vid/decision', authRequired, roleRequired(...PEUT_INSTRUIRE),
   (req, res) => {
     const vid = Number(req.params.vid);
+    if (!valorisationPermise(req, res, vid)) return;
     const v = db.prepare('SELECT * FROM etudiant_valorisation WHERE id = ?').get(vid);
     if (!v) return res.status(404).json({ error: 'Dossier introuvable.' });
 
@@ -5219,6 +5318,7 @@ r.put('/valorisations/:vid/decision', authRequired, roleRequired(...PEUT_INSTRUI
 r.put('/valorisations/:vid/test', authRequired, roleRequired(...PEUT_INSTRUIRE, 'professeur'),
   (req, res) => {
     const vid = Number(req.params.vid);
+    if (!valorisationPermise(req, res, vid)) return;
     const v = lireDossierComplet(vid);
     if (!v) return res.status(404).json({ error: 'Dossier introuvable.' });
     if (refuseSiValide(v, res)) return;
@@ -5331,6 +5431,7 @@ r.delete('/valorisations/:vid/validation', authRequired, (req, res) => {
  * d'un coup ce qui n'est pas prêt à être validé.
  */
 r.get('/valorisations/ue/:ueNum/seance-dossiers', authRequired, (req, res) => {
+  if (!unitePermise(req, res, req.params.ueNum)) return;
   const ueNum = Number(req.params.ueNum);
   const annee = req.query.annee;
   if (!annee) return res.status(400).json({ error: 'annee requise' });
@@ -5393,6 +5494,7 @@ r.post('/valorisations/lot/validation', authRequired, (req, res) => {
   const ids = [...new Set((Array.isArray(req.body?.ids) ? req.body.ids : [])
     .map(Number).filter(n => Number.isInteger(n) && n > 0))];
   if (!ids.length) return res.status(400).json({ error: 'Aucun dossier coché.' });
+  if (!valorisationsPermises(req, res, ids)) return;
 
   const bloquants = [];
   const prets = [];
@@ -5439,6 +5541,7 @@ r.post('/valorisations/lot/decision', authRequired, roleRequired(...PEUT_INSTRUI
   const ids = [...new Set((Array.isArray(req.body?.ids) ? req.body.ids : [])
     .map(Number).filter(n => Number.isInteger(n) && n > 0))];
   if (!ids.length) return res.status(400).json({ error: 'Aucun dossier coché.' });
+  if (!valorisationsPermises(req, res, ids)) return;
 
   const bloquants = [];
   const cibles = [];
@@ -5508,6 +5611,7 @@ r.post('/valorisations/lot/decisions', authRequired, roleRequired(...PEUT_INSTRU
   const lignes = Array.isArray(req.body?.lignes) ? req.body.lignes : [];
   const ids = lignes.map(l => Number(l?.id));
   if (!lignes.length) return res.status(400).json({ error: 'Aucune décision à enregistrer.' });
+  if (!valorisationsPermises(req, res, ids.filter(n => Number.isInteger(n) && n > 0))) return;
   if (ids.some(n => !Number.isInteger(n) || n <= 0) || new Set(ids).size !== ids.length) {
     return res.status(400).json({ error: 'Chaque dossier ne porte qu’une décision.' });
   }
@@ -5586,6 +5690,7 @@ r.post('/valorisations/lot/avis', authRequired, roleRequired(...PEUT_INSTRUIRE, 
     const ids = [...new Set((Array.isArray(req.body?.ids) ? req.body.ids : [])
       .map(Number).filter(n => Number.isInteger(n) && n > 0))];
     if (!ids.length) return res.status(400).json({ error: 'Aucun dossier coché.' });
+    if (!valorisationsPermises(req, res, ids)) return;
 
     const sens = String(req.body.avis_sens || '');
     if (!['favorable','partiel','defavorable'].includes(sens)) {
@@ -5664,6 +5769,7 @@ r.post('/valorisations/lot/demande', authRequired, roleRequired(...PEUT_INSTRUIR
     const ids = [...new Set((Array.isArray(req.body?.ids) ? req.body.ids : [])
       .map(Number).filter(n => Number.isInteger(n) && n > 0))];
     if (!ids.length) return res.status(400).json({ error: 'Aucun dossier coché.' });
+    if (!valorisationsPermises(req, res, ids)) return;
     const dateDemande = String(req.body.date_demande || '').trim();
     const dateReception = String(req.body.date_reception || '').trim();
     if (!dateDemande && !dateReception) {
@@ -5910,6 +6016,7 @@ r.post('/valorisations/lot/recevabilite', authRequired,
     const ids = [...new Set((Array.isArray(req.body?.ids) ? req.body.ids : [])
       .map(Number).filter(n => Number.isInteger(n) && n > 0))];
     if (!ids.length) return res.status(400).json({ error: 'Aucun dossier coché.' });
+    if (!valorisationsPermises(req, res, ids)) return;
 
     const recevable = req.body.recevable ? 1 : 0;
     const motif = String(req.body.motif_irrecevabilite || '').trim();
@@ -6024,7 +6131,7 @@ r.get('/valorisations/en-retard', authRequired, (req, res) => {
     recevabilite: [], avis: [], decision: [], notification: [], eprom: [],
     hors_delai: [], sans_preuve: [], sans_base: [], test_sans_copie: [],
   };
-  for (const v of lignes) {
+  for (const v of filtrerValorisationsParPerimetre(req, lignes)) {
     const etat = etatDeduit(v);
     const court = { id: v.id, etudiant_id: v.etudiant_id, nom: v.nom,
                     prenom: v.prenom, ue_num: v.ue_num, etat };
@@ -6052,6 +6159,7 @@ r.get('/valorisations/en-retard', authRequired, (req, res) => {
 });
 
 r.get('/valorisations/ue/:ueNum/candidats', authRequired, (req, res) => {
+  if (!unitePermise(req, res, req.params.ueNum)) return;
   const ueNum = Number(req.params.ueNum);
   const annee = req.query.annee;
   if (!annee) return res.status(400).json({ error: 'annee requise' });
@@ -6152,6 +6260,7 @@ r.post('/valorisations/lot', authRequired, roleRequired(...PEUT_INSTRUIRE), (req
     return res.status(400).json({
       error: `L'unité ${ue_num} n'existe pas dans le référentiel.` });
   }
+  if (!unitePermise(req, res, Number(ue_num))) return;
 
   const marques = `(${ids.map(() => '?').join(',')})`;
   const inconnus = ids.filter(id =>
@@ -6215,6 +6324,7 @@ r.post('/valorisations/lot', authRequired, roleRequired(...PEUT_INSTRUIRE), (req
 });
 
 r.post('/:id/valorisations', authRequired, roleRequired(...PEUT_INSTRUIRE), (req, res) => {
+  if (!etudiantPermis(req, res, req.params.id)) return;
   const { annee_scolaire, ue_num, type, cible, cible_detail, pourcentage,
           decision_ce_date, commentaire } = req.body;
   const souci = verifierValorisation(req.body);
@@ -6229,6 +6339,7 @@ r.post('/:id/valorisations', authRequired, roleRequired(...PEUT_INSTRUIRE), (req
     return res.status(400).json({
       error: `L'unité ${ue_num} n'existe pas dans le référentiel.` });
   }
+  if (!unitePermise(req, res, Number(ue_num))) return;
 
   // UN REFUS NE PORTE NI DISPENSE NI POURCENTAGE. Le procès-verbal lit
   // l'absence de pourcentage comme un refus : lui en laisser un le ferait
@@ -6282,6 +6393,7 @@ r.put('/valorisations/:vid', authRequired, roleRequired('admin', 'editeur'), (re
   const vid = Number(req.params.vid);
   const avant = db.prepare('SELECT * FROM etudiant_valorisation WHERE id = ?').get(vid);
   if (!avant) return res.status(404).json({ error: 'Valorisation introuvable.' });
+  if (!valorisationPermise(req, res, vid)) return;
 
   const b = { ...req.body,
     annee_scolaire: req.body.annee_scolaire || avant.annee_scolaire,
@@ -6348,6 +6460,7 @@ export const TEXTE_EQUIVALENCE = "Les acquis d'apprentissage de cette unité "
 r.delete('/valorisations/etudiant/:id', authRequired, roleRequired(...PEUT_INSTRUIRE),
   (req, res) => {
     const eid = Number(req.params.id);
+    if (!etudiantPermis(req, res, eid)) return;
     const annee = req.query.annee;
     if (!annee) return res.status(400).json({ error: 'annee requise' });
 
@@ -6424,6 +6537,7 @@ r.delete('/valorisations/:vid', authRequired, roleRequired(...PEUT_INSTRUIRE), (
   const vid = Number(req.params.vid);
   const v = db.prepare('SELECT * FROM etudiant_valorisation WHERE id = ?').get(vid);
   if (!v) return res.status(404).json({ error: 'Dossier introuvable.' });
+  if (!valorisationPermise(req, res, vid)) return;
   if (v.valide_le) {
     /* L'ÉCRAN NE DOIT PAS DEVINER LE CAS EN LISANT LA PHRASE. Il cherchait
      * « validé le » dans le message pour savoir s'il devait proposer le
