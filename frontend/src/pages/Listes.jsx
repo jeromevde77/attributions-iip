@@ -292,6 +292,38 @@ const ENTITES = {
     filtres: ['section', 'ue_num'],
   },
 
+  /* LE PRINCIPE DE JÉRÔME (25 septembre 2026) : l'entité fait les lignes —
+     des étudiants —, les critères la réduisent (section, UE, cours, primo,
+     niveau), et L'ANNÉE FAIT LA LISTE : 2024-2025 et 2026-2027 ne montrent
+     pas les mêmes noms. Sur une liste par UE ou par cours, les DISPENSÉS
+     paraissent en dessous, avec leur provenance : report d'une année
+     antérieure (avec sa note), ou VA (10/20). */
+  etudiants: {
+    domaine: 'etudiants', label: 'Étudiants', groupe: 'data', icon: '🎓', tabler: 'IconSchool',
+    cols: [
+      { key: 'nom',         label: 'Nom',       defaut: true  },
+      { key: 'prenom',      label: 'Prénom',    defaut: true  },
+      { key: 'matricule',   label: 'Matricule', defaut: true  },
+      { key: 'section',     label: 'Section',   defaut: true  },
+      { key: 'statut',      label: 'Statut',    defaut: true  },
+      { key: 'niveau',      label: 'Niveau',    defaut: false },
+      { key: 'primo',       label: 'Primo',     defaut: false },
+      { key: 'email_ecole', label: 'E-mail',    defaut: false },
+      { key: 'resultat',    label: 'Résultat',  defaut: false },
+      { key: 'points',      label: 'Note',      defaut: false },
+      { key: 'groupe',      label: 'Groupe',    defaut: false },
+    ],
+    fetch: (annee, filtres) => {
+      let url = `/api/listes/etudiants?annee=${encodeURIComponent(annee)}`;
+      for (const k of ['section', 'ue_num', 'cours_code', 'niveau_etu']) {
+        if (filtres[k]) url += `&${k}=${encodeURIComponent(filtres[k])}`;
+      }
+      if (filtres.primo) url += '&primo=1';
+      return authFetch(url).then(d => d.lignes || []);
+    },
+    filtres: ['section', 'ue_num', 'cours_code', 'primo', 'niveau_etu'],
+  },
+
   etudiants_ue: {
     domaine: 'etudiants', label: 'Étudiants par UE', groupe: 'data', icon: '🎓', tabler: 'IconSchool',
     cols: [
@@ -523,6 +555,14 @@ export default function Listes({ integre = false, domaine = null }) {
     authFetch(`/api/ref/ue?${p.toString()}`)
       .then(d => setUeList(Array.isArray(d) ? d : [])).catch(() => setUeList([]));
   }, [filtres.section, entite, annee]);
+
+  // Les cours de l'unité choisie, pour le critère « par cours ».
+  const [coursList, setCoursList] = useState([]);
+  useEffect(() => {
+    if (!def?.filtres?.includes('cours_code') || !filtres.ue_num) { setCoursList([]); return; }
+    authFetch(`/api/ref/cours?ue_num=${encodeURIComponent(filtres.ue_num)}&annee=${encodeURIComponent(annee)}`)
+      .then(d => setCoursList(Array.isArray(d) ? d : [])).catch(() => setCoursList([]));
+  }, [filtres.ue_num, entite, annee]);
 
   const def = ENTITES[entite];
 
@@ -1494,6 +1534,45 @@ export default function Listes({ integre = false, domaine = null }) {
                     aucune unité pour cette année{filtres.section ? ' et cette section' : ''}
                   </span>
               }
+            </label>
+          )}
+          {def.filtres.includes('cours_code') && (
+            <label className="flex items-center gap-2">
+              <span className="text-xs text-slate-500">Cours</span>
+              {filtres.ue_num
+                ? <select value={filtres.cours_code || ''}
+                    onChange={e => setFiltres(f => ({ ...f, cours_code: e.target.value }))}
+                    className="border border-slate-300 rounded-lg px-2.5 py-1.5 h-9 text-sm bg-white">
+                    <option value="">— Toute l'unité —</option>
+                    {coursList.map(c => (
+                      <option key={c.cours_code} value={c.cours_code}>
+                        {c.cours_code} — {(c.cours_nom || '').slice(0, 40)}
+                      </option>
+                    ))}
+                  </select>
+                : <span className="text-[12px] text-slate-400 italic">choisissez d'abord une UE</span>}
+            </label>
+          )}
+          {def.filtres.includes('primo') && (
+            <label className="flex items-center gap-2 text-sm text-slate-600"
+              title="Aucune inscription ni valorisation avant l'année choisie">
+              <input type="checkbox" checked={!!filtres.primo}
+                onChange={e => setFiltres(f => ({ ...f, primo: e.target.checked }))} />
+              Primo-arrivés
+            </label>
+          )}
+          {def.filtres.includes('niveau_etu') && (
+            <label className="flex items-center gap-2">
+              <span className="text-xs text-slate-500">Niveau</span>
+              <select value={filtres.niveau_etu || ''}
+                onChange={e => setFiltres(f => ({ ...f, niveau_etu: e.target.value }))}
+                className="border border-slate-300 rounded-lg px-2.5 py-1.5 h-9 text-sm bg-white">
+                <option value="">— Tous —</option>
+                <option value="BA1">BA1</option><option value="BA2">BA2</option>
+                <option value="BA3">BA3 / diplômant</option>
+                <option value="MIXTE">Parcours mixte</option>
+                <option value="aucun">Sans niveau</option>
+              </select>
             </label>
           )}
           {def.filtres.includes('statut') && (
