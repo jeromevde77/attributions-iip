@@ -50,6 +50,7 @@ export const SANS_MODULE = {
   documentation:   'les textes qui s’imposent à tous',
   suggestions:     'proposer une amélioration, depuis n’importe quel écran',
   demandes:        'le circuit de validation lui-même : le demandeur y accède par nature',
+  'mes-cours':     'ce que le professeur propose pour SES cours — chaque route vérifie l’appartenance',
   historique:      'journal transverse, filtré en son sein selon ce qu’on peut lire',
   audit:           'qui a fait quoi — déjà réservé à la direction par `niveauDirection`',
 };
