@@ -2271,6 +2271,8 @@ export default function Etudiants() {
   const [fNiveau, setFNiveau] = useState('');     // '' | BA1 | BA2 | BA3 | MIXTE | aucun
   const [fUE, setFUE] = useState('');             // '' | sans | avec
   const [fRatt, setFRatt] = useState('');         // '' | posee | deduite | aucune
+  // Les nouveaux inscrits : aucune trace avant l'année de travail.
+  const [fPrimo, setFPrimo] = useState(false);
   const [sections, setSections] = useState([]);
   const [selId, setSelId] = useState(null);
   // LA COHORTE QU'ON PARCOURT. La section existait déjà comme filtre de la
@@ -2589,7 +2591,8 @@ export default function Etudiants() {
       .filter(e => !fUE || (fUE === 'sans' ? !Number(e.nb_ue) : Number(e.nb_ue) > 0))
       .filter(e => !fRatt || (fRatt === 'aucune' ? !e.section_rattachement
         : fRatt === 'deduite' ? (e.section_rattachement && e.section_deduite)
-          : (e.section_rattachement && !e.section_deduite)));
+          : (e.section_rattachement && !e.section_deduite)))
+      .filter(e => !fPrimo || e.primo);
 
     // Tri par colonne. Les valeurs absentes se rangent toujours en fin de
     // liste, quel que soit le sens : elles n'apprennent rien.
@@ -2608,7 +2611,7 @@ export default function Etudiants() {
       if (typeof va === 'number' && typeof vb === 'number') return (va - vb) * tri.sens;
       return String(va).localeCompare(String(vb), 'fr') * tri.sens;
     });
-  }, [etudiants, recherche, tri, section, fNiveau, fUE, fRatt]);
+  }, [etudiants, recherche, tri, section, fNiveau, fUE, fRatt, fPrimo]);
 
   // Volets par section, comme dans la répartition des périodes : la liste se
   // parcourt section par section, et un étudiant inscrit dans plusieurs
@@ -2819,9 +2822,14 @@ export default function Etudiants() {
           <option value="deduite">Section déduite seulement</option>
           <option value="aucune">Aucune section</option>
         </select>
-        {(section || fNiveau || fUE || fRatt) && (
+        <label className="flex items-center gap-1.5 text-sm text-slate-600 self-center"
+          title="Aucune inscription ni valorisation avant l'année de travail">
+          <input type="checkbox" checked={fPrimo} onChange={e => setFPrimo(e.target.checked)} />
+          Primo-arrivés
+        </label>
+        {(section || fNiveau || fUE || fRatt || fPrimo) && (
           <button className="text-[12px] text-iip-blue underline self-center"
-            onClick={() => { setSection(''); setFNiveau(''); setFUE(''); setFRatt(''); }}>
+            onClick={() => { setSection(''); setFNiveau(''); setFUE(''); setFRatt(''); setFPrimo(false); }}>
             Tout effacer
           </button>
         )}
@@ -2995,7 +3003,10 @@ export default function Etudiants() {
                         {(e.nom||'?')[0]}{(e.prenom||'?')[0]}
                       </div>
                       <div>
-                        <div className="font-medium text-slate-800">{nomPropre(e.nom, e.prenom)}</div>
+                        <div className="font-medium text-slate-800">{nomPropre(e.nom, e.prenom)}
+                          {e.primo && <span className="ml-1.5 text-[9.5px] font-bold px-1.5 py-0.5 rounded-full bg-iip-turquoise/10 text-iip-turquoise-dark align-middle"
+                            title="Primo-arrivé : aucune trace avant l'année de travail">primo</span>}
+                        </div>
                         <div className="text-[11px] text-slate-400">{e.id_ecampus}</div>
                       </div>
                     </div>
