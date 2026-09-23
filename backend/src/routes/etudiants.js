@@ -1785,6 +1785,36 @@ r.post('/rapport-pae/excel', authRequired, async (req, res) => {
   } catch (e) { console.error('[migration] organisation :', e.message); }
 })();
 
+/* LE RATTACHEMENT S'ÉCRIT EN CODE DE SECTION (25 septembre 2026). Les
+ * imports ont laissé des LIBELLÉS (« Optométrie », « AeSI ») là où tout le
+ * reste de Lucie compare des CODES (OPTO, AESI) : matrices, listes et
+ * contrôles de périmètre rataient ces étudiants en silence. À chaque
+ * démarrage, toute valeur qui correspond au code ou au libellé d'une section
+ * — accents, casse et ponctuation ignorés — est ramenée AU CODE. Idempotent :
+ * un import qui repose un libellé est repris au démarrage suivant. */
+(function canonicaliserRattachements() {
+  try {
+    const norm = s => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '')
+      .toUpperCase().replace(/[^A-Z0-9]+/g, '');
+    const parNorm = new Map();
+    for (const s of db.prepare('SELECT code, libelle FROM section').all()) {
+      parNorm.set(norm(s.code), s.code);
+      if (s.libelle) parNorm.set(norm(s.libelle), s.code);
+    }
+    const valeurs = db.prepare(`SELECT DISTINCT section_rattachement AS v FROM etudiant
+      WHERE section_rattachement IS NOT NULL AND section_rattachement <> ''`).all();
+    let n = 0;
+    for (const { v } of valeurs) {
+      const code = parNorm.get(norm(v));
+      if (code && code !== v) {
+        n += db.prepare('UPDATE etudiant SET section_rattachement = ? WHERE section_rattachement = ?')
+          .run(code, v).changes;
+      }
+    }
+    if (n) console.log(`[migration] rattachements canonicalisés vers le code de section : ${n} étudiant(s)`);
+  } catch (e) { console.error('[migration] rattachements :', e.message); }
+})();
+
 // LE LIEN ATTRIBUTIONS × PAE (24 septembre 2026). Qui a cours où : pour
 // chaque cours d'une unité, l'étudiant est placé dans un groupe tel que les
 // attributions le définissent (organisation + lettre). Une ligne par
