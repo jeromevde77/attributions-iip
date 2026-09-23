@@ -718,6 +718,16 @@ r.get('/', authRequired, (req, res) => {
     return true;                      // « tous », ou aucun filtre demandé
   });
 
+  // LES NOUVEAUX INSCRITS (primo) : aucune trace — inscription ou
+  // valorisation — avant l'année de travail. Même définition que la grille
+  // des PAE ; le matricule n'est qu'un indice, l'historique fait foi.
+  const anciensListe = new Set([
+    ...db.prepare('SELECT DISTINCT etudiant_id FROM etudiant_inscription WHERE annee_scolaire < ?')
+      .all(anneeActive).map(x => x.etudiant_id),
+    ...db.prepare('SELECT DISTINCT etudiant_id FROM etudiant_valorisation WHERE annee_scolaire < ?')
+      .all(anneeActive).map(x => x.etudiant_id),
+  ]);
+
   res.json(vus.map(r0 => {
     const n = niveauEtudiant(r0.id, anneeActive);
     const rat = sectionRattachement(r0.id, anneeActive);
@@ -727,6 +737,7 @@ r.get('/', authRequired, (req, res) => {
       diplome: !!d, diplome_annee: d?.annee || null, diplome_ue: d?.ue_num || null,
       // Tant que le programme n'est pas confirmé, il n'est qu'une proposition.
       pae_confirme: confirmes.has(r0.id),
+      primo: !anciensListe.has(r0.id),
       section_rattachement: rat.section,
       section_deduite: rat.deduite,
     };
