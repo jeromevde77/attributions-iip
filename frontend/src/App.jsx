@@ -332,6 +332,26 @@ function ProtectedLayout({ children }) {
     fetch('/api/info').then(r => r.json()).then(d => setEnv(d.environnement)).catch(() => {});
   }, []);
 
+  // LES DROITS DU JOUR, PAS CEUX DU JETON. Le jeton vit trente jours : un
+  // accès retiré ce matin doit disparaître du menu aujourd'hui. On relit le
+  // compte au chargement et l'on met la copie locale à jour — le serveur,
+  // lui, relit déjà la base à chaque requête.
+  const [, setDroitsFrais] = useState(0);
+  useEffect(() => {
+    api.me().then(d => {
+      if (!d?.user) return;
+      try {
+        const cur = JSON.parse(localStorage.getItem('user') || '{}');
+        const maj = { ...cur, role: d.user.role ?? cur.role,
+          permissions_json: d.user.permissions_json ?? null };
+        if (JSON.stringify(maj) !== JSON.stringify(cur)) {
+          localStorage.setItem('user', JSON.stringify(maj));
+          setDroitsFrais(x => x + 1);   // le menu relit l'utilisateur
+        }
+      } catch { /* copie locale illisible : le prochain login la refera */ }
+    }).catch(() => {});
+  }, []);
+
   // LE BATTEMENT DE CŒUR DU CHOIX D'ANNÉE : tant que l'application tourne,
   // l'horodatage reste frais et un rechargement conserve le choix ; une
   // fenêtre rouverte le trouve périmé et revient à l'année en cours.

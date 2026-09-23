@@ -119,25 +119,48 @@ function permissions(user) {
   } catch { return {}; }
 }
 
+/* LE JETON A TRENTE JOURS ; LES CASES CHANGENT AUJOURD'HUI. Le rôle et les
+ * permissions se relisent en base à chaque décision — exactement comme
+ * getUserSections le fait pour le périmètre, et pour la même raison : un
+ * accès retiré le matin doit s'appliquer à la requête suivante, pas à la
+ * reconnexion dans trente jours. C'est ce décalage qui laissait un compte
+ * « étudiants seulement » lire le personnel et l'organisation avec son
+ * ancien jeton. À défaut de ligne lisible, le jeton fait foi. */
+function fraicheur(user) {
+  try {
+    if (user?.id) {
+      const row = db.prepare(
+        'SELECT role, permissions_json FROM utilisateur WHERE id = ?').get(user.id);
+      if (row) {
+        let p = {};
+        try { p = row.permissions_json ? JSON.parse(row.permissions_json) : {}; } catch { p = {}; }
+        return { role: row.role || user.role, permissions: p };
+      }
+    }
+  } catch { /* base illisible : le jeton fait foi */ }
+  return { role: user?.role, permissions: permissions(user) };
+}
+
 /**
  * Que peut cet utilisateur sur ce module ?
  * @returns {false|'direct'|'demande'} pour une écriture, {boolean} pour une lecture
  */
 export function peut(user, module, action = 'lire') {
   if (!user) return false;
-  const niveau = plafondDe(user.role, module);
+  const frais = fraicheur(user);
+  const niveau = plafondDe(frais.role, module);
   if (niveau === 'rien') return false;
 
   if (action === 'lire') {
     // Sans cases enregistrées, le rôle fait foi : ne rien cocher ne doit pas
     // revenir à tout fermer, sous peine de bloquer les comptes existants.
-    const p = permissions(user)[module];
+    const p = frais.permissions[module];
     if (!p) return true;
     return p.lire !== false || p.ecrire === true;
   }
 
   if (niveau === 'lit') return false;
-  const p = permissions(user)[module];
+  const p = frais.permissions[module];
   if (p && p.ecrire === false) return false;      // case explicitement retirée
   return niveau === 'validation' ? 'demande' : 'direct';
 }
