@@ -33,6 +33,12 @@ export default function EnvoiMailModal({ pieces, typeDoc, sujet: sujetInitial = 
   const [enCours, setEnCours] = useState(false);
   const [resultat, setResultat] = useState(null);
   const [erreur, setErreur] = useState(null);
+  /* PDF joint, ou document DANS LE CORPS du courriel (mis en page, léger).
+     Par défaut : PDF quand le serveur sait en produire, corps sinon. */
+  const [mode, setMode] = useState(null);
+  useEffect(() => {
+    if (etat && mode === null) setMode(etat.pdf ? 'pdf' : 'corps');
+  }, [etat, mode]);
 
   // Les adresses connues, par type de personne, en un appel par type.
   useEffect(() => {
@@ -85,7 +91,7 @@ export default function EnvoiMailModal({ pieces, typeDoc, sujet: sujetInitial = 
       const rep = await fetch('/api/envois', {
         method: 'POST', headers: authHeaders(),
         body: JSON.stringify({
-          sujet, message, type_doc: typeDoc,
+          sujet, message, type_doc: typeDoc, mode: mode || 'pdf',
           pieces: retenues.map(l => ({
             destinataire_type: l.type, destinataire_id: l.id, nom: l.nom,
             email: l.email.trim(), html: pieces[l.idx].html, nom_fichier: l.nom_fichier,
@@ -101,7 +107,7 @@ export default function EnvoiMailModal({ pieces, typeDoc, sujet: sujetInitial = 
   }
 
   const pret = etat && lignes;
-  const bloque = etat && (!etat.actif || !etat.pdf);
+  const bloque = etat && (!etat.actif || (mode === 'pdf' && !etat.pdf));
 
   return (
     <div className="fixed inset-0 bg-black/60 z-[60] flex items-center justify-center p-3"
@@ -116,7 +122,8 @@ export default function EnvoiMailModal({ pieces, typeDoc, sujet: sujetInitial = 
             <div>
               <div className="font-bold text-sm">Envoyer par courriel</div>
               <div className="text-white/60 text-xs">
-                {pieces.length} document{pieces.length > 1 ? 's' : ''} · un courriel par personne, PDF joint
+                {pieces.length} document{pieces.length > 1 ? 's' : ''} · un courriel par personne
+                {mode === 'corps' ? ', document dans le corps du message' : ', PDF joint'}
               </div>
             </div>
           </div>
@@ -146,9 +153,10 @@ export default function EnvoiMailModal({ pieces, typeDoc, sujet: sujetInitial = 
             </div>
           )}
           {etat?.actif && !etat.pdf && (
-            <div className="flex items-start gap-2 text-[12px] text-red-800 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+            <div className="flex items-start gap-2 text-[12px] text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
               <IconAlertTriangle size={15} className="flex-shrink-0 mt-0.5" />
-              <span>Ce serveur ne sait pas produire de PDF ; l'envoi exige une pièce jointe PDF.
+              <span>Ce serveur ne sait pas produire de PDF : les documents partiront
+                <b> dans le corps du courriel</b>.
                 {etat.pdf_raison ? ` (${etat.pdf_raison})` : ''}</span>
             </div>
           )}
@@ -163,6 +171,19 @@ export default function EnvoiMailModal({ pieces, typeDoc, sujet: sujetInitial = 
                   className="mt-1 w-full border border-slate-300 rounded-lg px-3 py-1.5 text-sm"
                   placeholder="Objet du courriel" />
               </label>
+              <div className="flex items-center gap-4 text-[13px]">
+                <span className="text-[12px] font-semibold text-slate-600">Le document part</span>
+                <label className={`flex items-center gap-1.5 ${etat?.pdf ? 'cursor-pointer' : 'opacity-40'}`}>
+                  <input type="radio" name="mode-envoi" checked={mode === 'pdf'}
+                    disabled={!etat?.pdf} onChange={() => setMode('pdf')} />
+                  en PDF joint
+                </label>
+                <label className="flex items-center gap-1.5 cursor-pointer">
+                  <input type="radio" name="mode-envoi" checked={mode === 'corps'}
+                    onChange={() => setMode('corps')} />
+                  dans le corps du courriel (mis en page, sans pièce jointe)
+                </label>
+              </div>
               <label className="block">
                 <span className="text-[12px] font-semibold text-slate-600">Message</span>
                 <textarea value={message} onChange={e => setMessage(e.target.value)} rows={5}
