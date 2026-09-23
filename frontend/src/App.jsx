@@ -304,14 +304,24 @@ function ProtectedLayout({ children }) {
         }
 
         // L'ANNÉE EN COURS EST LE POINT DE DÉPART, TOUJOURS. Un choix d'une
-        // autre année ne vaut que pour la fenêtre où il a été fait : il vit en
-        // sessionStorage et meurt avec elle. À l'ouverture (connexion, nouvel
-        // onglet, retour le lendemain), on est dans l'année en cours — les
-        // autres années se visitent, elles ne s'habitent pas.
+        // autre année ne vaut que tant que l'application TOURNE : un
+        // rechargement le garde, une fenêtre rouverte le perd. Le
+        // sessionStorage seul ne suffit pas — les navigateurs le RESTAURENT
+        // avec l'onglet (« reprendre où j'en étais »), et l'on se retrouvait
+        // le lendemain à encoder dans la mauvaise année. Le choix porte donc
+        // un battement de cœur (annee_choisie_ts, rafraîchi toutes les 3 s) :
+        // plus vieux que 8 s à l'ouverture, ce n'est pas un rechargement,
+        // c'est une réouverture — retour à l'année en cours.
         let choixExplicite = null;
         try {
-          choixExplicite = sessionStorage.getItem('annee_choisie');
           localStorage.removeItem('annee_choisie');   // l'ancien choix persistant est retiré
+          choixExplicite = sessionStorage.getItem('annee_choisie');
+          const ts = Number(sessionStorage.getItem('annee_choisie_ts') || 0);
+          if (choixExplicite && (!ts || Date.now() - ts > 8000)) {
+            sessionStorage.removeItem('annee_choisie');
+            sessionStorage.removeItem('annee_choisie_ts');
+            choixExplicite = null;
+          }
         } catch { /* navigation privée */ }
         if (courante !== active && choixExplicite !== courante) {
           setAnnee(active); setAnneeActive(active);
@@ -320,6 +330,23 @@ function ProtectedLayout({ children }) {
       }
     }).catch(() => {});
     fetch('/api/info').then(r => r.json()).then(d => setEnv(d.environnement)).catch(() => {});
+  }, []);
+
+  // LE BATTEMENT DE CŒUR DU CHOIX D'ANNÉE : tant que l'application tourne,
+  // l'horodatage reste frais et un rechargement conserve le choix ; une
+  // fenêtre rouverte le trouve périmé et revient à l'année en cours.
+  useEffect(() => {
+    const battre = () => {
+      try {
+        if (sessionStorage.getItem('annee_choisie')) {
+          sessionStorage.setItem('annee_choisie_ts', String(Date.now()));
+        }
+      } catch { /* navigation privée */ }
+    };
+    battre();
+    const t = setInterval(battre, 3000);
+    window.addEventListener('pagehide', battre);
+    return () => { clearInterval(t); window.removeEventListener('pagehide', battre); };
   }, []);
 
   // LE MODE D'AFFICHAGE EST UN RÉGLAGE DE L'APPLICATION : il vit dans la barre
@@ -339,9 +366,15 @@ function ProtectedLayout({ children }) {
         + `Tous les écrans afficheront ${code} jusqu'à ce que vous reveniez à `
         + `${enCours} ou fermiez la fenêtre.\n\nContinuer ?`);
       if (!ok) return;
-      try { sessionStorage.setItem('annee_choisie', code); } catch { /* navigation privée */ }
+      try {
+        sessionStorage.setItem('annee_choisie', code);
+        sessionStorage.setItem('annee_choisie_ts', String(Date.now()));
+      } catch { /* navigation privée */ }
     } else {
-      try { sessionStorage.removeItem('annee_choisie'); } catch { /* navigation privée */ }
+      try {
+        sessionStorage.removeItem('annee_choisie');
+        sessionStorage.removeItem('annee_choisie_ts');
+      } catch { /* navigation privée */ }
     }
     setAnnee(code);
     setAnneeActive(code);
