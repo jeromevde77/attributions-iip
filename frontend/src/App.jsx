@@ -303,11 +303,16 @@ function ProtectedLayout({ children }) {
           return;
         }
 
-        // L'année mémorisée existe mais n'est plus l'année active, et
-        // l'utilisateur ne l'a pas choisie lui-même : on s'aligne sur le
-        // serveur. Sans cela, un navigateur restait indéfiniment sur l'année
-        // précédente après la bascule de rentrée, tous les écrans avec lui.
-        const choixExplicite = localStorage.getItem('annee_choisie');
+        // L'ANNÉE EN COURS EST LE POINT DE DÉPART, TOUJOURS. Un choix d'une
+        // autre année ne vaut que pour la fenêtre où il a été fait : il vit en
+        // sessionStorage et meurt avec elle. À l'ouverture (connexion, nouvel
+        // onglet, retour le lendemain), on est dans l'année en cours — les
+        // autres années se visitent, elles ne s'habitent pas.
+        let choixExplicite = null;
+        try {
+          choixExplicite = sessionStorage.getItem('annee_choisie');
+          localStorage.removeItem('annee_choisie');   // l'ancien choix persistant est retiré
+        } catch { /* navigation privée */ }
         if (courante !== active && choixExplicite !== courante) {
           setAnnee(active); setAnneeActive(active);
           window.location.reload();
@@ -324,11 +329,22 @@ function ProtectedLayout({ children }) {
   const mode = useMode();
 
   function changeAnnee(code) {
+    // QUITTER L'ANNÉE EN COURS EST UN ACTE VOLONTAIRE : il se confirme, et il
+    // ne tient que pour cette fenêtre — à la prochaine connexion ou ouverture,
+    // on est de retour dans l'année en cours.
+    const enCours = (annees.find(a => a.active) || {}).code;
+    if (enCours && code !== enCours) {
+      const ok = window.confirm(
+        `Vous quittez l'année en cours (${enCours}) pour consulter ${code}.\n\n`
+        + `Tous les écrans afficheront ${code} jusqu'à ce que vous reveniez à `
+        + `${enCours} ou fermiez la fenêtre.\n\nContinuer ?`);
+      if (!ok) return;
+      try { sessionStorage.setItem('annee_choisie', code); } catch { /* navigation privée */ }
+    } else {
+      try { sessionStorage.removeItem('annee_choisie'); } catch { /* navigation privée */ }
+    }
     setAnnee(code);
     setAnneeActive(code);
-    // Un choix délibéré : il tient jusqu'à ce que l'utilisateur en fasse un
-    // autre, même si l'année active du serveur change entre-temps.
-    localStorage.setItem('annee_choisie', code);
     window.location.reload(); // recharge toutes les données
   }
 

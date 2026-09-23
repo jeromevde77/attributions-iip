@@ -2,8 +2,11 @@ import { confirmerAnnee } from './annee.js';
 const BASE = '/api';
 
 function getToken() { return localStorage.getItem('token'); }
-function setToken(t) { localStorage.setItem('token', t); }
-function clearToken() { localStorage.removeItem('token'); localStorage.removeItem('user'); }
+// Se connecter, c'est arriver dans l'année en cours : le choix d'une autre
+// année ne survit ni à la connexion ni à la déconnexion (ni, parce qu'il vit
+// en sessionStorage, à la fermeture de la fenêtre).
+function setToken(t) { localStorage.setItem('token', t); try { sessionStorage.removeItem('annee_choisie'); } catch { /* navigation privée */ } }
+function clearToken() { localStorage.removeItem('token'); localStorage.removeItem('user'); try { sessionStorage.removeItem('annee_choisie'); } catch { /* navigation privée */ } }
 
 // Année scolaire active — persistée dans localStorage
 export function getAnnee() { return localStorage.getItem('annee_active') || '2026-2027'; }
