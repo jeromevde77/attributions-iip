@@ -4500,28 +4500,62 @@ r.get('/deliberation/ue/:ueNum', authRequired, (req, res) => {
   const etat = sessionDeLUE(ueNum, annee);
   const session = req.query.session ? (Number(req.query.session) === 2 ? 2 : 1) : etat.session;
 
+  /* LA DÉLIBÉRATION SE TIENT PAR ORGANISATION. Une unité comme la 333 AESI
+   * s'organise en plusieurs organisations : deux organisations, deux
+   * délibérations. `?org=N` restreint la feuille aux inscrits de
+   * l'organisation N (`org=0` : les non répartis) ; sans le paramètre,
+   * l'unité entière, comme avant. La répartition elle-même est un geste de
+   * coordination (POST /etudiants/repartition). */
+  const orgParam = req.query.org != null && req.query.org !== ''
+    ? Number(req.query.org) : null;
+  const orgSql = orgParam == null ? ''
+    : (Number.isInteger(orgParam) && orgParam > 0
+      ? ` AND i.num_organisation = ${orgParam}` : ' AND i.num_organisation IS NULL');
+
   // EN SECONDE SESSION, SEULS LES AJOURNÉS. Les autres ont fini : les faire
   // défiler à nouveau, c'est risquer de rouvrir ce qui était clos.
   const etudiants = session < 2
     ? db.prepare(`
-      SELECT e.id, e.nom, e.prenom, e.id_ecampus, i.resultat, i.points
+      SELECT e.id, e.nom, e.prenom, e.id_ecampus, i.resultat, i.points,
+             i.num_organisation
       FROM etudiant_inscription i JOIN etudiant e ON e.id = i.etudiant_id
-      WHERE i.annee_scolaire = ? AND i.ue_num = ?
+      WHERE i.annee_scolaire = ? AND i.ue_num = ?${orgSql}
       ORDER BY e.nom, e.prenom
     `).all(annee, ueNum)
     : db.prepare(`
       SELECT e.id, e.nom, e.prenom, e.id_ecampus,
              r2.resultat, r2.points,
-             r1.resultat AS resultat_s1, r1.points AS points_s1
+             r1.resultat AS resultat_s1, r1.points AS points_s1,
+             i.num_organisation
       FROM deliberation_resultat r1
       JOIN etudiant e ON e.id = r1.etudiant_id
+      LEFT JOIN etudiant_inscription i
+        ON i.etudiant_id = r1.etudiant_id AND i.ue_num = r1.ue_num
+       AND i.annee_scolaire = r1.annee_scolaire
       LEFT JOIN deliberation_resultat r2
         ON r2.etudiant_id = r1.etudiant_id AND r2.annee_scolaire = r1.annee_scolaire
        AND r2.ue_num = r1.ue_num AND r2.session = 2
       WHERE r1.annee_scolaire = ? AND r1.ue_num = ? AND r1.session = 1
-        AND r1.resultat = 'ajourne'
+        AND r1.resultat = 'ajourne'${orgSql}
       ORDER BY e.nom, e.prenom
     `).all(annee, ueNum);
+
+  // Les organisations de l'unité (attributions ∪ feuille UE_inscriptions) et
+  // la répartition actuelle des inscrits — pour que la feuille propose les
+  // onglets et dise combien restent à répartir.
+  const organisations = db.prepare(`
+    SELECT DISTINCT num_organisation AS num FROM attribution
+     WHERE ue_num = ? AND annee_scolaire = ? AND num_organisation IS NOT NULL
+    UNION
+    SELECT DISTINCT num_organisation FROM ue_inscription
+     WHERE ue_num = ? AND annee_scolaire = ? AND num_organisation IS NOT NULL
+    ORDER BY 1
+  `).all(ueNum, annee, ueNum, annee).map(r0 => r0.num);
+  const parOrganisation = db.prepare(`
+    SELECT COALESCE(num_organisation, 0) AS num, COUNT(*) AS nb
+    FROM etudiant_inscription WHERE ue_num = ? AND annee_scolaire = ?
+    GROUP BY COALESCE(num_organisation, 0)
+  `).all(ueNum, annee);
 
   // LA MOYENNE DE L'ANNÉE, pour tous ces étudiants d'un coup. Elle sert
   // l'aide à la décision : un étudiant qui tient une bonne moyenne générale
@@ -4582,6 +4616,7 @@ r.get('/deliberation/ue/:ueNum', authRequired, (req, res) => {
   res.json({
     ue_num: ueNum, ue_nom: ue.ue_nom || `UE ${ueNum}`, section: ue.section || null,
     annee, session, etat_sessions: etat,
+    organisation: orgParam, organisations, par_organisation: parOrganisation,
     seuil: SEUIL_UE, epreuve_integree: estEpreuveIntegree(ueNum, annee),
     colonnes_acquis: modele.acquis.map(a => ({ aa_code: a.aa_code, description: a.description })),
     colonnes_cours: modele.cours.map(c => ({

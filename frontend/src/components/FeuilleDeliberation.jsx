@@ -7,6 +7,7 @@ import {
 } from '@tabler/icons-react';
 import { authHeaders } from '../lib/api.js';
 import TableauBordEtudiant from './TableauBordEtudiant.jsx';
+import RepartitionOrganisation from './RepartitionOrganisation.jsx';
 import { MOTIFS_ECHEC, composerMotif, decomposerMotif, texteDuMotif } from './motifsEchec.js';
 // Le centre commun, ouvert sur l'unité et la session qu'on vient de délibérer.
 import CentreImpressionCentral from './CentreImpressionCentral.jsx';
@@ -88,12 +89,18 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose }) {
   // Le choix explicite l'emporte alors sur la déduction.
   const session = choixSession ?? data?.session ?? 1;
 
+  // LA DÉLIBÉRATION SE TIENT PAR ORGANISATION quand l'unité en a plusieurs :
+  // null = toute l'unité, N = l'organisation N, 0 = les non répartis.
+  const [org, setOrg] = useState(null);
+  const [repartir, setRepartir] = useState(false);   // la fenêtre de répartition
+
   async function charger() {
     setErreur(null);
     try {
       const rep = await fetch(
         `/api/acquis/deliberation/ue/${ueNum}?annee=${encodeURIComponent(annee)}`
-        + (choixSession ? `&session=${choixSession}` : ''),
+        + (choixSession ? `&session=${choixSession}` : '')
+        + (org != null ? `&org=${org}` : ''),
         { headers: authHeaders() });
       const j = await rep.json();
       if (!rep.ok) throw new Error(j.error);
@@ -116,8 +123,8 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose }) {
   }
   // La séance suit la session : présences, date et visite des copies lui
   // appartiennent, et celles de juin ne valent pas pour septembre.
-  useEffect(() => { charger(); chargerSeance();
-    /* eslint-disable-next-line */ }, [ueNum, annee, choixSession]);
+  useEffect(() => { charger(); chargerSeance(); setIdx(0);
+    /* eslint-disable-next-line */ }, [ueNum, annee, choixSession, org]);
   // LA SESSION N'EST CONNUE QU'APRÈS LE CHARGEMENT : c'est le serveur qui la
   // déduit. Interroger la reprise en même temps que le reste, c'était
   // l'interroger toujours pour la première session — et taire la bannière sur
@@ -519,6 +526,35 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose }) {
             <p className="text-[12px] text-slate-500">
               {data.section || '—'} · {annee} · {data.etudiants.length} étudiant(s)
             </p>
+            {/* PLUSIEURS ORGANISATIONS, PLUSIEURS DÉLIBÉRATIONS. Les onglets
+                restreignent la feuille à une organisation ; la répartition
+                elle-même est le geste de la coordination, juste à côté. */}
+            {(data.organisations?.length > 1) && (() => {
+              const nb = Object.fromEntries((data.par_organisation || []).map(x => [x.num, x.nb]));
+              const chip = (val, label, alerte) => (
+                <button key={String(val)} onClick={() => setOrg(val)}
+                  className={`px-2 py-0.5 rounded-full text-[11px] font-semibold border transition
+                    ${org === val
+                      ? 'bg-iip-blue text-white border-iip-blue'
+                      : alerte
+                        ? 'bg-amber-50 text-[#B45309] border-amber-300'
+                        : 'bg-white text-iip-blue border-slate-300 hover:border-iip-blue'}`}>
+                  {label}
+                </button>
+              );
+              return (
+                <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
+                  {chip(null, `Toute l'unité`)}
+                  {data.organisations.map(o => chip(o, `Organisation ${o} (${nb[o] || 0})`))}
+                  {(nb[0] || 0) > 0 && chip(0, `Non répartis (${nb[0]})`, true)}
+                  <button onClick={() => setRepartir(true)}
+                    className="px-2 py-0.5 rounded-full text-[11px] font-semibold border border-dashed
+                               border-iip-turquoise text-iip-turquoise hover:bg-iip-turquoise/10">
+                    Répartir…
+                  </button>
+                </div>
+              );
+            })()}
           </div>
 
           <div className="flex items-center gap-2">
@@ -775,6 +811,12 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose }) {
       {bord && (
         <TableauBordEtudiant etudId={bord.id} ueNum={data.ue_num} annee={annee}
           onClose={() => setBord(null)} onDecide={charger} />
+      )}
+
+      {repartir && (
+        <RepartitionOrganisation ueNum={data.ue_num} ueNom={data.ue_nom} annee={annee}
+          onClose={() => setRepartir(false)}
+          onSaved={() => { setRepartir(false); charger(); }} />
       )}
 
       {documents && (

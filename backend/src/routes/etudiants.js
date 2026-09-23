@@ -780,6 +780,61 @@ r.post('/coordonnees', authRequired, (req, res) => {
   res.json({ html, nom: `Coordonnees_etudiants_${lignes.length}` });
 });
 
+/* ── Répartition des inscrits dans les organisations d'une unité ──────────
+ * La délibération se tient par organisation : la coordination range chaque
+ * inscrit dans la sienne, à la main — c'est elle qui sait. GET rend l'état,
+ * POST écrit en bloc. Même périmètre que la feuille de délibération. */
+r.get('/repartition', authRequired, (req, res) => {
+  const ueNum = Number(req.query.ue_num);
+  const annee = req.query.annee || anneeDeTravail(req);
+  if (!ueNum) return res.status(400).json({ error: 'ue_num requis' });
+  if (!unitePermise(req, res, ueNum)) return;
+
+  const organisations = db.prepare(`
+    SELECT DISTINCT num_organisation AS num FROM attribution
+     WHERE ue_num = ? AND annee_scolaire = ? AND num_organisation IS NOT NULL
+    UNION
+    SELECT DISTINCT num_organisation FROM ue_inscription
+     WHERE ue_num = ? AND annee_scolaire = ? AND num_organisation IS NOT NULL
+    ORDER BY 1
+  `).all(ueNum, annee, ueNum, annee).map(r0 => r0.num);
+
+  const etudiants = db.prepare(`
+    SELECT e.id, e.nom, e.prenom, e.id_ecampus, i.num_organisation, i.groupe
+    FROM etudiant_inscription i JOIN etudiant e ON e.id = i.etudiant_id
+    WHERE i.ue_num = ? AND i.annee_scolaire = ?
+    ORDER BY e.nom, e.prenom
+  `).all(ueNum, annee);
+
+  res.json({ ue_num: ueNum, annee, organisations, etudiants });
+});
+
+r.post('/repartition', authRequired, roleRequired(...PEUT_INSTRUIRE), (req, res) => {
+  const ueNum = Number(req.body?.ue_num);
+  const annee = String(req.body?.annee || '').trim();
+  const affectations = Array.isArray(req.body?.affectations) ? req.body.affectations : [];
+  if (!ueNum || !annee) return res.status(400).json({ error: 'ue_num et annee requis' });
+  if (!affectations.length) return res.status(400).json({ error: 'Aucune affectation.' });
+  if (!unitePermise(req, res, ueNum)) return;
+
+  const maj = db.prepare(`
+    UPDATE etudiant_inscription SET num_organisation = ?
+    WHERE etudiant_id = ? AND ue_num = ? AND annee_scolaire = ?
+  `);
+  let modifies = 0;
+  db.transaction(() => {
+    for (const x of affectations) {
+      const eid = Number(x?.etudiant_id);
+      const org = x?.num_organisation == null || x.num_organisation === ''
+        ? null : Number(x.num_organisation);
+      if (!Number.isInteger(eid)) continue;
+      if (org !== null && (!Number.isInteger(org) || org < 1)) continue;
+      modifies += maj.run(org, eid, ueNum, annee).changes;
+    }
+  })();
+  res.json({ ok: true, modifies });
+});
+
 // ── Rapport croisé : étudiants × UE d'une section, pour une année ────────────
 r.get('/rapport', authRequired, (req, res) => {
   const { section, annee } = req.query;
@@ -1605,6 +1660,20 @@ r.post('/rapport-pae/excel', authRequired, async (req, res) => {
       db.exec('ALTER TABLE etudiant_inscription ADD COLUMN points_s2 REAL');
     }
   } catch (e) { console.error('[migration] sessions :', e.message); }
+})();
+
+// L'ORGANISATION DE L'ÉTUDIANT DANS L'UNITÉ (23 septembre 2026). Une unité
+// comme la 333 AESI se donne en plusieurs organisations, et LA DÉLIBÉRATION
+// SE TIENT PAR ORGANISATION : chaque inscrit doit donc porter la sienne.
+// Rien ne se déduit — la répartition est un geste de la coordination.
+(function migrerOrganisation() {
+  try {
+    const cols = db.prepare('PRAGMA table_info(etudiant_inscription)').all().map(c => c.name);
+    if (!cols.includes('num_organisation')) {
+      db.exec('ALTER TABLE etudiant_inscription ADD COLUMN num_organisation INTEGER');
+      console.log('[migration] etudiant_inscription.num_organisation ajoutée');
+    }
+  } catch (e) { console.error('[migration] organisation :', e.message); }
 })();
 
 /** La décision qui fait foi, déduite des deux sessions. */
