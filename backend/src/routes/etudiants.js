@@ -5122,7 +5122,9 @@ r.get('/valorisations/matrice', authRequired, (req, res) => {
    * c'est ainsi que TOUS les étudiants d'une section se voient. */
   const rattaches = db.prepare(`
     SELECT id, nom, prenom, id_ecampus, section_rattachement
-    FROM etudiant WHERE actif = 1 AND section_rattachement = ?
+    FROM etudiant
+    WHERE actif = 1
+      AND UPPER(TRIM(COALESCE(section_rattachement,''))) = UPPER(TRIM(?))
     ORDER BY nom, prenom
   `).all(section);
 
@@ -6513,7 +6515,8 @@ r.get('/valorisations/ue/:ueNum/candidats', authRequired, (req, res) => {
   const rattachesUE = secsUE.length ? db.prepare(`
     SELECT id, nom, prenom, id_ecampus, section_rattachement
     FROM etudiant WHERE actif = 1
-      AND section_rattachement IN (${secsUE.map(() => '?').join(',')})
+      AND UPPER(TRIM(COALESCE(section_rattachement,'')))
+          IN (${secsUE.map(() => 'UPPER(TRIM(?))').join(',')})
   `).all(...secsUE) : [];
   for (const e of rattachesUE) {
     if (!par.has(e.id)) {
