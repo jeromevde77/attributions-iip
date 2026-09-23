@@ -2184,6 +2184,20 @@ r.get('/deliberation/plan', authRequired, (req, res) => {
     }
   }
 
+  // Les unités à plusieurs organisations : la répartition des étudiants se
+  // propose depuis le plan, pas seulement depuis la feuille — c'est là qu'on
+  // prépare sa délibération.
+  const orgsParUe = {};
+  for (const r0 of db.prepare(`
+    SELECT ue_num, COUNT(*) AS n FROM (
+      SELECT DISTINCT ue_num, num_organisation FROM attribution
+       WHERE annee_scolaire = ? AND num_organisation IS NOT NULL
+      UNION
+      SELECT DISTINCT ue_num, num_organisation FROM ue_inscription
+       WHERE annee_scolaire = ? AND num_organisation IS NOT NULL
+    ) GROUP BY ue_num
+  `).all(annee, annee)) orgsParUe[r0.ue_num] = r0.n;
+
   const sections = {};
   for (const u of Object.values(parUe)) {
     const r0 = refDe[u.ue_num] || {};
@@ -2205,6 +2219,7 @@ r.get('/deliberation/plan', authRequired, (req, res) => {
       s2_decides: ses.s2.decides,
       seconde_possible: ses.seconde_possible,
       seconde_attend: ses.seconde_attend,
+      nb_organisations: orgsParUe[u.ue_num] || 1,
     });
   }
 
