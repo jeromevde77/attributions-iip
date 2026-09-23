@@ -7,7 +7,7 @@ import {
   // Les trois icônes de calendrier ont disparu avec les trois entrées de
   // période : un réglage n'est pas un territoire, il vit dans une fenêtre.
   IconUserPlus, IconClipboardList, IconSettings, IconRefresh, IconCake,
-  IconFilter, IconFileText} from '@tabler/icons-react';
+  IconFilter, IconFileText, IconInfoCircle, IconClock, IconExclamationCircle} from '@tabler/icons-react';
 import { urgence } from '../lib/urgence.js';
 import { Fenetre } from '../components/ui.jsx';
 
@@ -44,6 +44,30 @@ const TYPE_CONFIG = {
 function getConfig(type, action) {
   return TYPE_CONFIG[type]?.[action] || { label: 'Info', color: '#6b7280', bg: '#f3f4f6', icon: IconBell };
 }
+
+/* LA PASTILLE DE NOTIFICATION — demandée par Jérôme (29 septembre 2026) : un
+   petit logo à gauche sur fond de couleur, et la couleur DIT le genre. Bleu :
+   information. Ambre, avec une horloge : un délai approche. Brique, avec un
+   point d'exclamation : urgent ou dépassé. Une seule palette pour tous les
+   rectangles de l'Accueil — trois genres, et rien entre eux. */
+const GENRES_NOTIF = {
+  info:   { bg: '#E0F2FE', fg: '#0369A1', Icone: IconInfoCircle },
+  delai:  { bg: '#FEF3C7', fg: '#B45309', Icone: IconClock },
+  urgent: { bg: '#FEE2E2', fg: '#B91C1C', Icone: IconExclamationCircle },
+};
+function PastilleNotif({ genre }) {
+  const g = GENRES_NOTIF[genre] || GENRES_NOTIF.info;
+  return (
+    <span className="w-7 h-7 flex-none grid place-items-center rounded-lg"
+      style={{ background: g.bg, color: g.fg }}>
+      <g.Icone size={16} stroke={2} />
+    </span>
+  );
+}
+/** Le genre d'une échéance : urgent quand elle presse ou est dépassée,
+    délai quand elle approche, information sinon. */
+const genreDe = (u) => (u?.niveau === 'depasse' || u?.niveau === 'presse') ? 'urgent'
+  : (u?.niveau === 'approche' ? 'delai' : 'info');
 
 function timeAgo(iso) {
   if (!iso) return '';
@@ -179,7 +203,6 @@ function MesTaches({ signal = 0 }) {
                retard. */
             <div key={t.id} className={`relative px-3 py-2 flex items-center gap-3
                                        border-t border-slate-100 first:border-t-0
-                                       ${u.rail}
                                        ${t.nouveau ? 'ring-1 ring-inset ring-iip-blue/70 '
                                          + 'rounded-carte shadow-[0_0_0_3px_rgba(27,43,75,0.10)]' : ''}`}>
               {t.nouveau && (
@@ -189,12 +212,7 @@ function MesTaches({ signal = 0 }) {
                   nouveau
                 </span>
               )}
-              <button onClick={() => cocher(t)} title="Marquer comme faite"
-                className="w-5 h-5 flex-none grid place-items-center rounded-champ border
-                           border-slate-300 text-transparent hover:border-emerald-500
-                           hover:text-emerald-600">
-                <IconCheck size={13} />
-              </button>
+              <PastilleNotif genre={genreDe(u)} />
               <span className="flex-1 min-w-0 text-[13px] text-slate-800 truncate">
                 {t.titre}
               </span>
@@ -214,6 +232,12 @@ function MesTaches({ signal = 0 }) {
                   {u.mention ? `${u.mention} · ` : 'pour le '}{fr(t.echeance)}
                 </span>
               )}
+              <button onClick={() => cocher(t)} title="Marquer comme faite"
+                className="w-5 h-5 flex-none grid place-items-center rounded-champ border
+                           border-slate-300 text-transparent hover:border-emerald-500
+                           hover:text-emerald-600 bg-white">
+                <IconCheck size={13} />
+              </button>
             </div>
           );
         })}
@@ -239,7 +263,8 @@ function MesTaches({ signal = 0 }) {
               return (
                 <div key={t.id} className={`px-3 py-2 flex items-center gap-3
                                            border-t border-slate-100 first:border-t-0
-                                           ${u.rail} ${t.nouveau ? 'bg-iip-blue/5' : ''}`}>
+                                           ${t.nouveau ? 'bg-iip-blue/5' : ''}`}>
+                  <PastilleNotif genre={genreDe(u)} />
                   <span className="flex-1 min-w-0 text-[13px] text-slate-800 truncate">
                     {t.nouveau ? <b className="text-iip-blue">Nouveau · </b> : null}{t.titre}
                   </span>
@@ -272,8 +297,8 @@ function MesTaches({ signal = 0 }) {
               const u = urgence(t.echeance);
               return (
                 <div key={t.id} className={`px-3 py-2 flex items-center gap-3
-                                           border-t border-slate-100 first:border-t-0
-                                           ${u.rail}`}>
+                                           border-t border-slate-100 first:border-t-0`}>
+                  <PastilleNotif genre={genreDe(u)} />
                   <span className="flex-1 min-w-0 text-[13px] text-slate-800 truncate">
                     {t.titre}
                   </span>
@@ -337,10 +362,11 @@ function TextesAConfirmer() {
         {attente.map(d => (
           <button key={d.cle}
             onClick={() => navigate(`/documentation?doc=${encodeURIComponent(d.cle)}`)}
-            className="w-full text-left px-3 py-2 flex items-center gap-3
-                       border-t border-slate-100 first:border-t-0
-                       border-l-[3px] border-l-[#B45309] hover:bg-slate-100">
-            <IconFileText size={15} className="flex-none text-slate-400" />
+            className="group w-full text-left px-3 py-2 flex items-center gap-3
+                       border-t border-slate-100 first:border-t-0 hover:bg-slate-100">
+            {/* Un texte imposé avec signature : le genre est « délai » tant
+                qu'il attend — il ne devient jamais bleu tout seul. */}
+            <PastilleNotif genre="delai" />
             <span className="flex-1 min-w-0 text-[13px] text-slate-800 truncate">
               {d.titre}
             </span>
@@ -350,7 +376,15 @@ function TextesAConfirmer() {
             <span className="text-[11px] text-slate-400 tabular-nums flex-none">
               {d.numero > 1 ? `version ${d.numero} · ` : ''}publié le {fr(d.publiee_le)}
             </span>
-            <IconChevronRight size={14} className="flex-none text-slate-300" />
+            {/* LA CASE OUVRE LE DOCUMENT, elle ne confirme pas : l'accusé de
+                réception ne se coche qu'une fois le texte servi, dans le
+                document lui-même — la règle d'opposabilité ne plie pas. */}
+            <span title="Ouvrir le document — la confirmation se coche une fois le texte affiché"
+              className="w-5 h-5 flex-none grid place-items-center rounded-champ border
+                         border-slate-300 text-transparent group-hover:border-iip-blue
+                         group-hover:text-iip-blue/40 bg-white">
+              <IconCheck size={13} />
+            </span>
           </button>
         ))}
       </div>
