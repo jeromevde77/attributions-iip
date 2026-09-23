@@ -26,6 +26,9 @@ export default function CoursFormModal({ cours, ueNum, section, onClose, onSaved
     quadrimestre_cours: cours?.quadrimestre_cours  || '',
     heures:             cours?.heures              || '',
     cours_autonomie:    cours?.cours_autonomie     || '',
+    // Plafond « suggéré » par groupe : la répartition des étudiants alerte
+    // quand un groupe le dépasse, elle ne bloque pas.
+    plafond_groupe:     cours?.plafond_groupe      || '',
     dedouble:           cours?.dedouble            || 'N',
     is_stage:           cours?.is_stage            ? 1 : 0,
   });
@@ -203,6 +206,13 @@ export default function CoursFormModal({ cours, ueNum, section, onClose, onSaved
                 <div className={isZ ? lblZ : lbl}>Périodes Prof.</div>
                 <input type="number" min="0" value={form.cours_per} onChange={e => set('cours_per', e.target.value)}
                   disabled={isZ} placeholder="0"
+                  className={isZ ? inpZ : 'w-full border border-gray-300 rounded px-3 py-1.5 text-sm'} />
+              </label>
+              <label className="block">
+                <div className={isZ ? lblZ : lbl}>Plafond / groupe <span className="font-normal text-gray-400">(suggéré)</span></div>
+                <input type="number" min="1" value={form.plafond_groupe} onChange={e => set('plafond_groupe', e.target.value)}
+                  disabled={isZ} placeholder="—"
+                  title="La répartition des étudiants alerte quand un groupe dépasse ce plafond ; elle ne bloque pas."
                   className={isZ ? inpZ : 'w-full border border-gray-300 rounded px-3 py-1.5 text-sm'} />
               </label>
               <label className="block">

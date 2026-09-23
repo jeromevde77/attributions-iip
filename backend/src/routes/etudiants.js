@@ -835,6 +835,115 @@ r.post('/repartition', authRequired, roleRequired(...PEUT_INSTRUIRE), (req, res)
   res.json({ ok: true, modifies });
 });
 
+/* ── Répartition des étudiants dans les groupes de cours ──────────────────
+ * Le croisement attributions × PAE : les colonnes viennent des attributions
+ * (organisation, lettre de groupe, professeurs), les lignes du PAE. Trois
+ * routes : les UE d'une section, le détail d'une UE, l'écriture en bloc. */
+r.get('/repartition-cours', authRequired, (req, res) => {
+  const section = String(req.query.section || '').trim();
+  const annee = req.query.annee || anneeDeTravail(req);
+  if (!section) return res.status(400).json({ error: 'section requise' });
+  if (!sectionAutoriseeReq(req, section)) {
+    return res.status(403).json({ error: 'Section hors de votre périmètre' });
+  }
+  const ues = db.prepare(`
+    SELECT u.ue_num, MAX(u.ue_nom) AS ue_nom,
+           (SELECT COUNT(*) FROM etudiant_inscription i
+             WHERE i.ue_num = u.ue_num AND i.annee_scolaire = ?) AS inscrits
+    FROM ue u
+    WHERE u.annee_scolaire = ? AND (u.section = ? OR u.ue_num IN
+      (SELECT ue_num FROM ue_section WHERE annee_scolaire = ? AND section_code = ?))
+    GROUP BY u.ue_num ORDER BY u.ue_num
+  `).all(annee, annee, section, annee, section);
+  res.json({ section, annee, ues });
+});
+
+r.get('/repartition-cours/ue', authRequired, (req, res) => {
+  const ueNum = Number(req.query.ue_num);
+  const annee = req.query.annee || anneeDeTravail(req);
+  if (!ueNum) return res.status(400).json({ error: 'ue_num requis' });
+  if (!unitePermise(req, res, ueNum)) return;
+
+  // Les cours et leurs groupes, tels que les attributions les définissent.
+  const coursRows = db.prepare(`
+    SELECT cours_code, cours_nom, cours_per, plafond_groupe FROM cours
+    WHERE ue_num = ? AND annee_scolaire = ? ORDER BY cours_code
+  `).all(ueNum, annee);
+  const attr = db.prepare(`
+    SELECT a.code_cours, COALESCE(a.num_organisation, 1) AS org,
+           a.code AS groupe, p.nom, p.prenom
+    FROM attribution a LEFT JOIN professeur p ON p.id = a.professeur_id
+    WHERE a.ue_num = ? AND a.annee_scolaire = ? AND a.code_cours IS NOT NULL
+  `).all(ueNum, annee);
+  const parCours = {};
+  for (const a of attr) {
+    const clef = `${a.org}|${a.groupe || ''}`;
+    const c = (parCours[a.code_cours] = parCours[a.code_cours] || new Map());
+    const g = c.get(clef)
+      || { num_organisation: a.org, groupe: a.groupe || null, professeurs: new Set() };
+    if (a.nom) g.professeurs.add(`${a.prenom ? a.prenom[0] + '. ' : ''}${a.nom}`);
+    c.set(clef, g);
+  }
+  const cours = coursRows.map(c => {
+    const groupes = [...(parCours[c.cours_code]?.values() || [])]
+      .map(g => ({ ...g, professeurs: [...g.professeurs].join(', ') }))
+      .sort((x, y) => x.num_organisation - y.num_organisation
+        || String(x.groupe || '').localeCompare(String(y.groupe || '')));
+    // Un seul groupe (ou aucun) : « Tous » — chaque inscrit y est d'office.
+    return { ...c, groupes, sans_groupe: groupes.length <= 1 };
+  });
+
+  const etudiants = db.prepare(`
+    SELECT e.id, e.nom, e.prenom, i.num_organisation
+    FROM etudiant_inscription i JOIN etudiant e ON e.id = i.etudiant_id
+    WHERE i.ue_num = ? AND i.annee_scolaire = ? ORDER BY e.nom, e.prenom
+  `).all(ueNum, annee);
+  const affectations = coursRows.length ? db.prepare(`
+    SELECT etudiant_id, cours_code, num_organisation, groupe_code
+    FROM etudiant_cours_groupe
+    WHERE annee_scolaire = ? AND cours_code IN (${coursRows.map(() => '?').join(',')})
+  `).all(annee, ...coursRows.map(c => c.cours_code)) : [];
+
+  res.json({ ue_num: ueNum, annee, cours, etudiants, affectations });
+});
+
+r.post('/repartition-cours', authRequired, roleRequired(...PEUT_INSTRUIRE), (req, res) => {
+  const ueNum = Number(req.body?.ue_num);
+  const annee = String(req.body?.annee || '').trim();
+  const affectations = Array.isArray(req.body?.affectations) ? req.body.affectations : [];
+  if (!ueNum || !annee) return res.status(400).json({ error: 'ue_num et annee requis' });
+  if (!affectations.length) return res.status(400).json({ error: 'Aucun changement.' });
+  if (!unitePermise(req, res, ueNum)) return;
+
+  const codesUE = new Set(db.prepare(
+    'SELECT cours_code FROM cours WHERE ue_num = ? AND annee_scolaire = ?')
+    .all(ueNum, annee).map(c => c.cours_code));
+  const poser = db.prepare(`
+    INSERT INTO etudiant_cours_groupe
+      (etudiant_id, annee_scolaire, cours_code, num_organisation, groupe_code, maj_le, maj_par)
+    VALUES (?,?,?,?,?,datetime('now'),?)
+    ON CONFLICT(etudiant_id, annee_scolaire, cours_code) DO UPDATE SET
+      num_organisation = excluded.num_organisation, groupe_code = excluded.groupe_code,
+      maj_le = datetime('now'), maj_par = excluded.maj_par`);
+  const oter = db.prepare(
+    'DELETE FROM etudiant_cours_groupe WHERE etudiant_id = ? AND annee_scolaire = ? AND cours_code = ?');
+  let changements = 0;
+  db.transaction(() => {
+    for (const x of affectations) {
+      const eid = Number(x?.etudiant_id);
+      const code = String(x?.cours_code || '');
+      if (!Number.isInteger(eid) || !codesUE.has(code)) continue;
+      if (x.retirer) { changements += oter.run(eid, annee, code).changes; continue; }
+      poser.run(eid, annee, code,
+        x.num_organisation == null ? null : Number(x.num_organisation),
+        x.groupe_code == null || x.groupe_code === '' ? null : String(x.groupe_code),
+        req.user?.email || null);
+      changements++;
+    }
+  })();
+  res.json({ ok: true, changements });
+});
+
 // ── Rapport croisé : étudiants × UE d'une section, pour une année ────────────
 r.get('/rapport', authRequired, (req, res) => {
   const { section, annee } = req.query;
@@ -1674,6 +1783,32 @@ r.post('/rapport-pae/excel', authRequired, async (req, res) => {
       console.log('[migration] etudiant_inscription.num_organisation ajoutée');
     }
   } catch (e) { console.error('[migration] organisation :', e.message); }
+})();
+
+// LE LIEN ATTRIBUTIONS × PAE (24 septembre 2026). Qui a cours où : pour
+// chaque cours d'une unité, l'étudiant est placé dans un groupe tel que les
+// attributions le définissent (organisation + lettre). Une ligne par
+// étudiant × cours × année — un cours sans groupe ne s'écrit pas, tous les
+// inscrits y sont d'office. Le plafond « suggéré » d'un groupe se règle sur
+// le cours, au référentiel : il alerte, il ne bloque pas.
+(function migrerRepartitionCours() {
+  try {
+    db.exec(`CREATE TABLE IF NOT EXISTS etudiant_cours_groupe (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      etudiant_id INTEGER NOT NULL,
+      annee_scolaire TEXT NOT NULL,
+      cours_code TEXT NOT NULL,
+      num_organisation INTEGER,
+      groupe_code TEXT,
+      maj_le TEXT, maj_par TEXT,
+      UNIQUE(etudiant_id, annee_scolaire, cours_code)
+    )`);
+    const cols = db.prepare('PRAGMA table_info(cours)').all().map(c => c.name);
+    if (cols.length && !cols.includes('plafond_groupe')) {
+      db.exec('ALTER TABLE cours ADD COLUMN plafond_groupe INTEGER');
+      console.log('[migration] cours.plafond_groupe ajoutée');
+    }
+  } catch (e) { console.error('[migration] repartition cours :', e.message); }
 })();
 
 /** La décision qui fait foi, déduite des deux sessions. */

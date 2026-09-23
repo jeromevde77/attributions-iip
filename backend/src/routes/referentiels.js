@@ -539,7 +539,10 @@ r.patch('/cours/:code', authRequired, roleRequired('admin', 'editeur'), (req, re
   const annee = req.body.annee_scolaire || req.query.annee || '2025-2026';
   const allowed = ['cours_nom','ue_num','section','ct_pp','cours_per','quadrimestre_cours','ue_niveau',
                    'cours_num','cours_total','ue_autonomie','ue_per_total','enc_cours','heures',
-                   'cours_autonomie','dedouble','per_etudiant','is_stage','cours_ev1','cours_vc1','cours_complement'];
+                   'cours_autonomie','dedouble','per_etudiant','is_stage','cours_ev1','cours_vc1','cours_complement',
+                   // Plafond « suggéré » par groupe : la répartition des étudiants
+                   // alerte quand un groupe le dépasse, elle ne bloque pas.
+                   'plafond_groupe'];
   // Validation autonomie si on modifie l'autonomie / le dédoublement
   if (('cours_autonomie' in req.body) || ('dedouble' in req.body)) {
     const cur = db.prepare('SELECT ue_num, cours_autonomie, dedouble FROM cours WHERE cours_code = ? AND annee_scolaire = ?').get(req.params.code, annee);

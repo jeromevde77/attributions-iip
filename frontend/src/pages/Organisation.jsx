@@ -4,7 +4,7 @@ import { useSearchParams } from 'react-router-dom';
 import Axe from '../components/Axe.jsx';
 import {
   IconLayoutGrid, IconSchool, IconSitemap, IconFileDescription,
-  IconClock, IconCalendarStats, IconBuilding, IconBooks,
+  IconClock, IconCalendarStats, IconBuilding, IconBooks, IconUsersGroup,
 } from '@tabler/icons-react';
 import Attributions from './Attributions.jsx';
 import Planification from './Planification.jsx';
@@ -15,6 +15,7 @@ import Rentree from './Rentree.jsx';
 import { authHeaders } from '../lib/api.js';
 
 const CentrePlanification = lazy(() => import('./CentrePlanification.jsx'));
+const RepartitionCours = lazy(() => import('./RepartitionCours.jsx'));
 
 /**
  * Axe ORGANISATION — « Qu'organise-t-on cette année ? »
@@ -72,6 +73,14 @@ export default function Organisation({ ongletInitial }) {
           rendu: annee
             ? <Rentree annee={annee} />
             : <div className="text-sm text-slate-400 p-4">Chargement de l'année active…</div> },
+        /* LE LIEN ATTRIBUTIONS × PAE. Après la rentrée, les étudiants sont là
+           et les attributions posées : on les croise — pour chaque cours, qui
+           a cours dans quel groupe. Demandé par Charles (24 septembre 2026) :
+           « c'est le tableau qui va croiser les attributions et les PAE. » */
+        { key: 'repartition', label: 'Répartition des étudiants', icone: IconUsersGroup,
+          sansMarge: true,
+          rendu: <Suspense fallback={<div className="p-4 text-[13px] text-slate-400">Chargement…</div>}>
+                   <RepartitionCours /></Suspense> },
         { key: 'structure', label: 'Schéma de capitalisation', icone: IconSitemap, sansMarge: true,
           rendu: annee
             ? <StructureSection annee={annee} />
