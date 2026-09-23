@@ -3,7 +3,7 @@ import { nomPropre } from '../lib/nom.js';
 import { RailLateral } from '../components/ui.jsx';
 import NouvelEtudiant from '../components/NouvelEtudiant.jsx';
 import {
-  IconAlertTriangle, IconAward, IconCertificate, IconStairsUp, IconUserPlus, IconCheck, IconChecklist, IconChevronLeft, IconChevronRight, IconClock, IconFileText, IconFolder, IconPlus, IconPrinter, IconSearch, IconTable, IconTrash, IconUpload, IconUser, IconWritingSign, IconWritingSignOff, IconX,
+  IconAddressBook, IconAlertTriangle, IconAward, IconCertificate, IconStairsUp, IconUserPlus, IconCheck, IconChecklist, IconChevronLeft, IconChevronRight, IconClock, IconFileText, IconFolder, IconPlus, IconPrinter, IconSearch, IconTable, IconTrash, IconUpload, IconUser, IconWritingSign, IconWritingSignOff, IconX,
 } from '@tabler/icons-react';
 import { authHeaders, getAnnee } from '../lib/api.js';
 import PreviewModal from '../components/PreviewModal.jsx';
@@ -2294,6 +2294,8 @@ export default function Etudiants() {
   const [importing, setImporting] = useState(false);
   const [msgImport, setMsgImport] = useState(null);
   const [rapport, setRapport] = useState(null);
+  // La liste imprimable des coordonnées des étudiants cochés.
+  const [coordonnees, setCoordonnees] = useState(null);
   const [importPAE, setImportPAE] = useState(false);
   const [purge, setPurge] = useState(false);
   const [nouvel, setNouvel] = useState(false);
@@ -2334,6 +2336,20 @@ export default function Etudiants() {
       { headers: authHeaders() });
     const j = await rep.json();
     if (rep.ok) setRapport(j);
+    else alert(j.error || 'Erreur');
+  }
+
+  // La pièce se construit côté serveur : lui seul porte GSM et adresses, la
+  // liste de l'écran n'en sait rien — et le périmètre s'y applique.
+  async function imprimerCoordonnees() {
+    if (!selEtudiants.size) return;
+    const rep = await fetch('/api/etudiants/coordonnees', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
+      body: JSON.stringify({ ids: [...selEtudiants] }),
+    });
+    const j = await rep.json();
+    if (rep.ok) setCoordonnees(j);
     else alert(j.error || 'Erreur');
   }
 
@@ -2869,6 +2885,12 @@ export default function Etudiants() {
                          font-semibold rounded-lg">
               <IconPrinter size={14} /> Imprimer
             </button>
+            <button onClick={imprimerCoordonnees}
+              title="La liste imprimable des emails, GSM et adresses des étudiants cochés"
+              className="flex items-center gap-1.5 px-3 py-1.5 text-sm border border-iip-blue
+                         text-iip-blue font-semibold rounded-lg">
+              <IconAddressBook size={14} /> Coordonnées
+            </button>
             <button onClick={() => setCentrePAE(true)}
               title="Inscrire ou retirer des unités pour tous les étudiants retenus"
               className="flex items-center gap-1.5 px-3 py-1.5 text-sm border border-iip-blue
@@ -3184,6 +3206,9 @@ export default function Etudiants() {
       {rapport && <PreviewModal html={rapport.html} titre="Parcours des étudiants"
         nomFichier={rapport.nom} astuceImpression="Paysage A4 conseillé"
         onClose={() => setRapport(null)} />}
+
+      {coordonnees && <PreviewModal html={coordonnees.html} titre="Coordonnées des étudiants"
+        nomFichier={coordonnees.nom} onClose={() => setCoordonnees(null)} />}
     </div>
     </div>
   );

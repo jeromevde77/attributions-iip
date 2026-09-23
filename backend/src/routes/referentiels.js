@@ -5,6 +5,7 @@ import { anneeDeTravail } from '../helpers/annee.js';
 import { authRequired, roleRequired, getUserSections, exigerPerimetreProfesseur,
   clauseSections } from '../middleware/auth.js';
 import { parseDossierPedagogique } from '../parseDossierPedagogique.js';
+import { htmlListeCoordonnees } from '../services/liste_coordonnees.js';
 
 const r = Router();
 
@@ -538,7 +539,10 @@ r.patch('/cours/:code', authRequired, roleRequired('admin', 'editeur'), (req, re
   const annee = req.body.annee_scolaire || req.query.annee || '2025-2026';
   const allowed = ['cours_nom','ue_num','section','ct_pp','cours_per','quadrimestre_cours','ue_niveau',
                    'cours_num','cours_total','ue_autonomie','ue_per_total','enc_cours','heures',
-                   'cours_autonomie','dedouble','per_etudiant','is_stage','cours_ev1','cours_vc1','cours_complement'];
+                   'cours_autonomie','dedouble','per_etudiant','is_stage','cours_ev1','cours_vc1','cours_complement',
+                   // Plafond « suggéré » par groupe : la répartition des étudiants
+                   // alerte quand un groupe le dépasse, elle ne bloque pas.
+                   'plafond_groupe'];
   // Validation autonomie si on modifie l'autonomie / le dédoublement
   if (('cours_autonomie' in req.body) || ('dedouble' in req.body)) {
     const cur = db.prepare('SELECT ue_num, cours_autonomie, dedouble FROM cours WHERE cours_code = ? AND annee_scolaire = ?').get(req.params.code, annee);
@@ -830,6 +834,57 @@ r.get('/professeurs', authRequired, (req, res) => {
   }
 
   res.json(lignes);
+});
+
+// Nom de cours normalisé pour le rapprochement des dossiers pédagogiques :
+// accents, casse et ponctuation ne font pas deux cours différents.
+const normNomCours = (s) => String(s || '').normalize('NFD')
+  .replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+
+/* ── Coordonnées d'une sélection ──────────────────────────────────────────
+ * La pièce imprimable des membres du personnel cochés sur l'écran Personnel :
+ * emails, GSM et adresse. Même périmètre que la liste ci-dessus. */
+r.post('/professeurs/coordonnees', authRequired, (req, res) => {
+  const ids = Array.isArray(req.body?.ids)
+    ? req.body.ids.map(Number).filter(Number.isInteger) : [];
+  if (!ids.length) return res.status(400).json({ error: 'ids requis' });
+
+  const marques = ids.map(() => '?').join(',');
+  let lignes = db.prepare(`
+    SELECT p.id, p.nom, p.prenom, p.statut, p.adresse_mail, p.mail_prive,
+           p.tel_gsm, p.adresse_rue, p.code_postal, p.commune
+    FROM professeur p
+    WHERE p.id IN (${marques})
+    ORDER BY p.nom, p.prenom
+  `).all(...ids);
+
+  const perim = getUserSections(req.user);
+  if (perim) {
+    const cl = clauseSections(perim, 'section');
+    const dansPerim = new Set(db.prepare(`
+      SELECT DISTINCT professeur_id FROM attribution WHERE ${cl.sql}
+    `).all(...cl.params).map((r0) => r0.professeur_id));
+    lignes = lignes.filter((p) => dansPerim.has(p.id));
+  }
+
+  const html = htmlListeCoordonnees({
+    titre: 'Coordonnées du personnel',
+    sousTitre: `${lignes.length} membre(s) du personnel`,
+    colonnes: [
+      { cle: 'nom', label: 'Nom' },
+      { cle: 'prenom', label: 'Prénom' },
+      { cle: 'adresse_mail', label: 'E-mail IIP' },
+      { cle: 'mail_prive', label: 'E-mail privé' },
+      { cle: 'tel_gsm', label: 'Tél. / GSM' },
+      { cle: '_adresse', label: 'Adresse' },
+    ],
+    lignes: lignes.map((p) => ({
+      ...p,
+      _adresse: [p.adresse_rue, [p.code_postal, p.commune].filter(Boolean).join(' ')]
+        .filter(Boolean).join(', '),
+    })),
+  });
+  res.json({ html, nom: `Coordonnees_personnel_${lignes.length}` });
 });
 
 r.get('/professeurs/:id', authRequired, exigerPerimetreProfesseur, (req, res) => {
@@ -1973,18 +2028,50 @@ r.post('/import-dp', authRequired, roleRequired('admin', 'editeur'), async (req,
 
     // Chercher UE existante par code FWB (comparaison normalisée)
     const allUes = db.prepare('SELECT ue_num, ue_code_fwb, section FROM ue WHERE annee_scolaire = ?').all(annee);
-    const existing = allUes.find(u => u.ue_code_fwb && u.ue_code_fwb.replace(/\s+/g, '') === normFwb);
+
+    /* L'UE CIBLE PEUT SE DÉSIGNER À LA MAIN (?ue_num=).
+     *
+     * Une unité créée avant que la section n'ait reçu ses codes FWB ne porte
+     * rien que le rapprochement puisse lire : l'import ne la retrouvait pas et
+     * la recréait en doublon. Quand l'écran désigne l'unité, c'est elle qu'on
+     * met à jour — et comme la mise à jour lui pose le code FWB du dossier,
+     * le prochain import la retrouvera tout seul. */
+    const ueForcee = parseInt(req.query.ue_num, 10);
+    let existing;
+    if (Number.isInteger(ueForcee)) {
+      existing = allUes.find(u => u.ue_num === ueForcee);
+      if (!existing) return res.status(422).json({
+        error: `UE ${ueForcee} introuvable pour ${annee} — le rattachement manuel vise une unité de l'année d'import`,
+      });
+    } else {
+      existing = allUes.find(u => u.ue_code_fwb && u.ue_code_fwb.replace(/\s+/g, '') === normFwb);
+    }
 
     const section = req.query.section || existing?.section || null;
 
     // MODE PREVIEW : retourne le résultat du parsing + action prévue sans écrire
     if (req.query.preview === '1') {
+      /* LA FEUILLE DE CORRESPONDANCE DES COURS. Le rapprochement par nom
+         exact doublait les cours dès que le dossier épelait autrement que la
+         base (accents, abréviations). L'analyse rend donc les cours existants
+         de l'unité cible et, pour chaque cours du dossier, la correspondance
+         proposée (noms normalisés) — l'écran laisse corriger avant d'écrire. */
+      const coursUE = existing ? db.prepare(
+        `SELECT cours_code, cours_nom, cours_per FROM cours
+         WHERE ue_num = ? AND annee_scolaire = ? ORDER BY cours_code`)
+        .all(existing.ue_num, annee) : [];
+      const parNom = new Map(coursUE.map(c => [normNomCours(c.cours_nom), c.cours_code]));
       return res.json({
         action: existing ? 'updated' : 'created',
         ue_num: existing?.ue_num || '(nouveau)',
         annee,
         section,
         code_depuis_nom: codeDepuisNom,
+        cours_ue: coursUE,
+        correspondance: coursData.map(c => ({
+          nom: c.nom, periodes: c.periodes ?? null,
+          propose: parNom.get(normNomCours(c.nom)) || '',
+        })),
         parsed,
       });
     }
@@ -2030,16 +2117,44 @@ r.post('/import-dp', authRequired, roleRequired('admin', 'editeur'), async (req,
       action = 'created';
     }
 
-    // Cours : créer ceux qui n'existent pas déjà (par nom exact sur cette UE)
+    // Cours : rattacher selon la feuille de correspondance de l'écran, sinon
+    // rapprocher par nom normalisé, sinon créer.
     const existingCours = db.prepare('SELECT cours_code, cours_nom FROM cours WHERE ue_num = ? AND annee_scolaire = ?')
       .all(ueNum, annee);
-    const existingNoms = new Set(existingCours.map(c => c.cours_nom.trim().toLowerCase()));
+    const parNomExistant = new Map(existingCours.map(c => [normNomCours(c.cours_nom), c.cours_code]));
+
+    /* LA CARTE DE L'ÉCRAN (?cours_map=) : un élément par cours du dossier,
+       dans l'ordre du parsing — un code = rattacher à ce cours existant (qui
+       reçoit classement et périodes du dossier), '' = créer, absent =
+       rapprochement par nom. */
+    let coursMap = null;
+    try {
+      const brut = req.query.cours_map ? JSON.parse(String(req.query.cours_map)) : null;
+      if (Array.isArray(brut)) coursMap = brut;
+    } catch { /* carte illisible : rapprochement par nom */ }
 
     const coursSection = section || existing?.section;
-    const coursCrees = [], coursExistants = [];
+    const coursCrees = [], coursExistants = [], coursLies = [];
 
-    for (const c of coursData) {
-      if (existingNoms.has(c.nom.trim().toLowerCase())) {
+    const lier = db.prepare(`UPDATE cours SET ct_pp = COALESCE(@ct_pp, ct_pp),
+      cours_per = COALESCE(@cours_per, cours_per)
+      WHERE cours_code = @code AND annee_scolaire = @annee`);
+
+    for (const [ci, c] of coursData.entries()) {
+      const decision = coursMap ? (coursMap[ci] == null ? null : String(coursMap[ci])) : null;
+      if (decision) {
+        // Rattachement désigné à l'écran : rien ne se crée, le cours existant
+        // reçoit les valeurs du dossier.
+        if (!existingCours.some(c2 => c2.cours_code === decision)) {
+          coursExistants.push(`${c.nom} (cours ${decision} introuvable — ignoré)`);
+          continue;
+        }
+        lier.run({ ct_pp: c.classement || null, cours_per: c.periodes || null,
+                   code: decision, annee });
+        coursLies.push({ code: decision, nom: c.nom });
+        continue;
+      }
+      if (decision === null && parNomExistant.has(normNomCours(c.nom))) {
         coursExistants.push(c.nom); continue;
       }
       // Générer un code cours : ue_num.N
@@ -2079,6 +2194,7 @@ r.post('/import-dp', authRequired, roleRequired('admin', 'editeur'), async (req,
     res.json({ ok: true, action, ue_num: ueNum, annee,
                code_depuis_nom: codeDepuisNom,
                cours_crees: coursCrees, cours_existants: coursExistants,
+               cours_lies: coursLies,
                aa_crees: aaCrees, aa_mis_a_jour: aaExistants,
                parsed: { ue: ueData, cours: coursData, acquis: acquisData } });
   } catch (err) {

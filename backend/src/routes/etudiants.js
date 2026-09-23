@@ -8,6 +8,7 @@ import { existsSync, mkdirSync, unlinkSync } from 'fs';
 import { join } from 'path';
 import { LOGO_IIP_JPEG } from '../services/assets/logo_iip_jpeg.js';
 import { piedBalisage, piedStyles, reglesDePage, envelopperDocument } from '../lib/document.js';
+import { htmlListeCoordonnees } from '../services/liste_coordonnees.js';
 
 import db from '../db/index.js';
 import { piedDocument } from './parametres.js';
@@ -472,6 +473,81 @@ function sectionAutoriseeReq(req, section) {
   return p === null ? true : (section ? p.includes(section) : false);
 }
 
+/* LES DOSSIERS DE VALORISATION SE TIENNENT DANS SON PÉRIMÈTRE (23 septembre
+ * 2026). Le registre, la matrice, l'analyse, les dossiers individuels et
+ * leurs étapes s'ouvraient à tout compte connecté : une coordination voyait
+ * — et pouvait instruire — les demandes des autres sections. La règle est
+ * celle de la liste des étudiants : on ne montre pas ce qui n'est pas le
+ * sien, et elle vaut pour l'écriture. Même esprit que `unitePermise` posé en
+ * 2.12.113 sur la séance (attestations.js), jamais appliqué à ces routes. */
+function sectionsDeUE(ueNum) {
+  const n = Number(ueNum);
+  const directes = db.prepare(
+    'SELECT DISTINCT section FROM ue WHERE ue_num = ? AND section IS NOT NULL').all(n);
+  const liens = db.prepare(
+    'SELECT DISTINCT section_code AS section FROM ue_section WHERE ue_num = ?').all(n);
+  return [...new Set([...directes, ...liens].map(x => x.section).filter(Boolean))];
+}
+function unitePermise(req, res, ueNum) {
+  const permises = perimetre(req);
+  if (!permises) return true;
+  if (sectionsDeUE(ueNum).some(s => permises.includes(s))) return true;
+  res.status(403).json({ error: 'Cette unité est hors de votre périmètre.' });
+  return false;
+}
+// Une admission (ue_num = 0) porte sa section ; les autres la tiennent de l'UE.
+function sectionsValorisation(vid) {
+  const v = db.prepare('SELECT ue_num, section FROM etudiant_valorisation WHERE id = ?')
+    .get(Number(vid));
+  if (!v) return [];
+  return v.ue_num ? sectionsDeUE(v.ue_num) : (v.section ? [v.section] : []);
+}
+function valorisationsPermises(req, res, vids) {
+  const permises = perimetre(req);
+  if (!permises) return true;
+  for (const vid of vids) {
+    if (!sectionsValorisation(vid).some(s => permises.includes(s))) {
+      res.status(403).json({ error: 'Un des dossiers de valorisation est hors de votre périmètre.' });
+      return false;
+    }
+  }
+  return true;
+}
+function valorisationPermise(req, res, vid) {
+  return valorisationsPermises(req, res, [vid]);
+}
+// Pour les listes (registre, analyse, en-retard) : on écarte les lignes hors
+// périmètre au lieu de refuser la requête. Une admission (ue_num = 0) n'a pas
+// d'UE : sa section se relit sur le dossier lui-même.
+function filtrerValorisationsParPerimetre(req, lignes) {
+  const permises = perimetre(req);
+  if (!permises) return lignes;
+  const cache = new Map();
+  const secsDe = (ue) => {
+    if (!cache.has(ue)) cache.set(ue, sectionsDeUE(ue));
+    return cache.get(ue);
+  };
+  return lignes.filter(l => {
+    const secs = l.ue_num ? secsDe(l.ue_num)
+      : (l.section ? [l.section] : (l.id ? sectionsValorisation(l.id) : []));
+    return secs.some(s => permises.includes(s));
+  });
+}
+// Même règle que la fiche : un étudiant sans aucune section reste visible de
+// tous. Le rattachement compte aussi — un primo sans inscription a déjà une
+// section, et c'est elle qui décide.
+function etudiantPermis(req, res, etudId) {
+  const permises = perimetre(req);
+  if (!permises) return true;
+  const { sections } = sectionsDeLEtudiant(Number(etudId), null);
+  const rat = db.prepare('SELECT section_rattachement FROM etudiant WHERE id = ?')
+    .get(Number(etudId))?.section_rattachement;
+  const toutes = [...new Set([...sections, ...(rat ? [rat] : [])])];
+  if (!toutes.length || toutes.some(s => permises.includes(s))) return true;
+  res.status(403).json({ error: 'Cet étudiant est hors de votre périmètre.' });
+  return false;
+}
+
 function sectionsDeLEtudiant(etudId, forcee) {
   if (forcee) return { sections: [forcee], scores: [] };
   // La section d'une UE ne dépend pas de l'année : joindre sur l'année de
@@ -655,6 +731,217 @@ r.get('/', authRequired, (req, res) => {
       section_deduite: rat.deduite,
     };
   }));
+});
+
+/* ── Coordonnées d'une sélection ──────────────────────────────────────────
+ * L'écran coche, la pièce se lit : emails, GSM et adresse des étudiants
+ * retenus. Le périmètre s'applique comme sur la liste — on n'imprime pas
+ * ceux qu'on ne peut pas voir. */
+r.post('/coordonnees', authRequired, (req, res) => {
+  const ids = Array.isArray(req.body?.ids)
+    ? req.body.ids.map(Number).filter(Number.isInteger) : [];
+  if (!ids.length) return res.status(400).json({ error: 'ids requis' });
+
+  const marques = ids.map(() => '?').join(',');
+  let lignes = db.prepare(`
+    SELECT e.id, e.nom, e.prenom, e.email_ecole, e.email_perso, e.gsm,
+           e.adresse, e.cp, e.localite,
+           COALESCE(GROUP_CONCAT(DISTINCT u.section), e.section_rattachement) AS sections
+    FROM etudiant e
+    LEFT JOIN etudiant_inscription i ON i.etudiant_id = e.id
+    LEFT JOIN ${UE_REF} u ON u.ue_num = i.ue_num
+    WHERE e.id IN (${marques}) AND e.actif = 1
+    GROUP BY e.id ORDER BY e.nom, e.prenom
+  `).all(...ids);
+
+  const autorisees = perimetre(req);
+  if (autorisees) {
+    lignes = lignes.filter((l) =>
+      String(l.sections || '').split(',').some((s) => autorisees.includes(s.trim())));
+  }
+
+  const html = htmlListeCoordonnees({
+    titre: 'Coordonnées des étudiants',
+    sousTitre: `${lignes.length} étudiant(s)`,
+    colonnes: [
+      { cle: 'nom', label: 'Nom' },
+      { cle: 'prenom', label: 'Prénom' },
+      { cle: 'sections', label: 'Section' },
+      { cle: 'email_ecole', label: 'E-mail école' },
+      { cle: 'email_perso', label: 'E-mail privé' },
+      { cle: 'gsm', label: 'GSM' },
+      { cle: '_adresse', label: 'Adresse' },
+    ],
+    lignes: lignes.map((l) => ({
+      ...l,
+      _adresse: [l.adresse, [l.cp, l.localite].filter(Boolean).join(' ')].filter(Boolean).join(', '),
+    })),
+  });
+  res.json({ html, nom: `Coordonnees_etudiants_${lignes.length}` });
+});
+
+/* ── Répartition des inscrits dans les organisations d'une unité ──────────
+ * La délibération se tient par organisation : la coordination range chaque
+ * inscrit dans la sienne, à la main — c'est elle qui sait. GET rend l'état,
+ * POST écrit en bloc. Même périmètre que la feuille de délibération. */
+r.get('/repartition', authRequired, (req, res) => {
+  const ueNum = Number(req.query.ue_num);
+  const annee = req.query.annee || anneeDeTravail(req);
+  if (!ueNum) return res.status(400).json({ error: 'ue_num requis' });
+  if (!unitePermise(req, res, ueNum)) return;
+
+  const organisations = db.prepare(`
+    SELECT DISTINCT num_organisation AS num FROM attribution
+     WHERE ue_num = ? AND annee_scolaire = ? AND num_organisation IS NOT NULL
+    UNION
+    SELECT DISTINCT num_organisation FROM ue_inscription
+     WHERE ue_num = ? AND annee_scolaire = ? AND num_organisation IS NOT NULL
+    ORDER BY 1
+  `).all(ueNum, annee, ueNum, annee).map(r0 => r0.num);
+
+  const etudiants = db.prepare(`
+    SELECT e.id, e.nom, e.prenom, e.id_ecampus, i.num_organisation, i.groupe
+    FROM etudiant_inscription i JOIN etudiant e ON e.id = i.etudiant_id
+    WHERE i.ue_num = ? AND i.annee_scolaire = ?
+    ORDER BY e.nom, e.prenom
+  `).all(ueNum, annee);
+
+  res.json({ ue_num: ueNum, annee, organisations, etudiants });
+});
+
+r.post('/repartition', authRequired, roleRequired(...PEUT_INSTRUIRE), (req, res) => {
+  const ueNum = Number(req.body?.ue_num);
+  const annee = String(req.body?.annee || '').trim();
+  const affectations = Array.isArray(req.body?.affectations) ? req.body.affectations : [];
+  if (!ueNum || !annee) return res.status(400).json({ error: 'ue_num et annee requis' });
+  if (!affectations.length) return res.status(400).json({ error: 'Aucune affectation.' });
+  if (!unitePermise(req, res, ueNum)) return;
+
+  const maj = db.prepare(`
+    UPDATE etudiant_inscription SET num_organisation = ?
+    WHERE etudiant_id = ? AND ue_num = ? AND annee_scolaire = ?
+  `);
+  let modifies = 0;
+  db.transaction(() => {
+    for (const x of affectations) {
+      const eid = Number(x?.etudiant_id);
+      const org = x?.num_organisation == null || x.num_organisation === ''
+        ? null : Number(x.num_organisation);
+      if (!Number.isInteger(eid)) continue;
+      if (org !== null && (!Number.isInteger(org) || org < 1)) continue;
+      modifies += maj.run(org, eid, ueNum, annee).changes;
+    }
+  })();
+  res.json({ ok: true, modifies });
+});
+
+/* ── Répartition des étudiants dans les groupes de cours ──────────────────
+ * Le croisement attributions × PAE : les colonnes viennent des attributions
+ * (organisation, lettre de groupe, professeurs), les lignes du PAE. Trois
+ * routes : les UE d'une section, le détail d'une UE, l'écriture en bloc. */
+r.get('/repartition-cours', authRequired, (req, res) => {
+  const section = String(req.query.section || '').trim();
+  const annee = req.query.annee || anneeDeTravail(req);
+  if (!section) return res.status(400).json({ error: 'section requise' });
+  if (!sectionAutoriseeReq(req, section)) {
+    return res.status(403).json({ error: 'Section hors de votre périmètre' });
+  }
+  const ues = db.prepare(`
+    SELECT u.ue_num, MAX(u.ue_nom) AS ue_nom,
+           (SELECT COUNT(*) FROM etudiant_inscription i
+             WHERE i.ue_num = u.ue_num AND i.annee_scolaire = ?) AS inscrits
+    FROM ue u
+    WHERE u.annee_scolaire = ? AND (u.section = ? OR u.ue_num IN
+      (SELECT ue_num FROM ue_section WHERE annee_scolaire = ? AND section_code = ?))
+    GROUP BY u.ue_num ORDER BY u.ue_num
+  `).all(annee, annee, section, annee, section);
+  res.json({ section, annee, ues });
+});
+
+r.get('/repartition-cours/ue', authRequired, (req, res) => {
+  const ueNum = Number(req.query.ue_num);
+  const annee = req.query.annee || anneeDeTravail(req);
+  if (!ueNum) return res.status(400).json({ error: 'ue_num requis' });
+  if (!unitePermise(req, res, ueNum)) return;
+
+  // Les cours et leurs groupes, tels que les attributions les définissent.
+  const coursRows = db.prepare(`
+    SELECT cours_code, cours_nom, cours_per, plafond_groupe FROM cours
+    WHERE ue_num = ? AND annee_scolaire = ? ORDER BY cours_code
+  `).all(ueNum, annee);
+  const attr = db.prepare(`
+    SELECT a.code_cours, COALESCE(a.num_organisation, 1) AS org,
+           a.code AS groupe, p.nom, p.prenom
+    FROM attribution a LEFT JOIN professeur p ON p.id = a.professeur_id
+    WHERE a.ue_num = ? AND a.annee_scolaire = ? AND a.code_cours IS NOT NULL
+  `).all(ueNum, annee);
+  const parCours = {};
+  for (const a of attr) {
+    const clef = `${a.org}|${a.groupe || ''}`;
+    const c = (parCours[a.code_cours] = parCours[a.code_cours] || new Map());
+    const g = c.get(clef)
+      || { num_organisation: a.org, groupe: a.groupe || null, professeurs: new Set() };
+    if (a.nom) g.professeurs.add(`${a.prenom ? a.prenom[0] + '. ' : ''}${a.nom}`);
+    c.set(clef, g);
+  }
+  const cours = coursRows.map(c => {
+    const groupes = [...(parCours[c.cours_code]?.values() || [])]
+      .map(g => ({ ...g, professeurs: [...g.professeurs].join(', ') }))
+      .sort((x, y) => x.num_organisation - y.num_organisation
+        || String(x.groupe || '').localeCompare(String(y.groupe || '')));
+    // Un seul groupe (ou aucun) : « Tous » — chaque inscrit y est d'office.
+    return { ...c, groupes, sans_groupe: groupes.length <= 1 };
+  });
+
+  const etudiants = db.prepare(`
+    SELECT e.id, e.nom, e.prenom, i.num_organisation
+    FROM etudiant_inscription i JOIN etudiant e ON e.id = i.etudiant_id
+    WHERE i.ue_num = ? AND i.annee_scolaire = ? ORDER BY e.nom, e.prenom
+  `).all(ueNum, annee);
+  const affectations = coursRows.length ? db.prepare(`
+    SELECT etudiant_id, cours_code, num_organisation, groupe_code
+    FROM etudiant_cours_groupe
+    WHERE annee_scolaire = ? AND cours_code IN (${coursRows.map(() => '?').join(',')})
+  `).all(annee, ...coursRows.map(c => c.cours_code)) : [];
+
+  res.json({ ue_num: ueNum, annee, cours, etudiants, affectations });
+});
+
+r.post('/repartition-cours', authRequired, roleRequired(...PEUT_INSTRUIRE), (req, res) => {
+  const ueNum = Number(req.body?.ue_num);
+  const annee = String(req.body?.annee || '').trim();
+  const affectations = Array.isArray(req.body?.affectations) ? req.body.affectations : [];
+  if (!ueNum || !annee) return res.status(400).json({ error: 'ue_num et annee requis' });
+  if (!affectations.length) return res.status(400).json({ error: 'Aucun changement.' });
+  if (!unitePermise(req, res, ueNum)) return;
+
+  const codesUE = new Set(db.prepare(
+    'SELECT cours_code FROM cours WHERE ue_num = ? AND annee_scolaire = ?')
+    .all(ueNum, annee).map(c => c.cours_code));
+  const poser = db.prepare(`
+    INSERT INTO etudiant_cours_groupe
+      (etudiant_id, annee_scolaire, cours_code, num_organisation, groupe_code, maj_le, maj_par)
+    VALUES (?,?,?,?,?,datetime('now'),?)
+    ON CONFLICT(etudiant_id, annee_scolaire, cours_code) DO UPDATE SET
+      num_organisation = excluded.num_organisation, groupe_code = excluded.groupe_code,
+      maj_le = datetime('now'), maj_par = excluded.maj_par`);
+  const oter = db.prepare(
+    'DELETE FROM etudiant_cours_groupe WHERE etudiant_id = ? AND annee_scolaire = ? AND cours_code = ?');
+  let changements = 0;
+  db.transaction(() => {
+    for (const x of affectations) {
+      const eid = Number(x?.etudiant_id);
+      const code = String(x?.cours_code || '');
+      if (!Number.isInteger(eid) || !codesUE.has(code)) continue;
+      if (x.retirer) { changements += oter.run(eid, annee, code).changes; continue; }
+      poser.run(eid, annee, code,
+        x.num_organisation == null ? null : Number(x.num_organisation),
+        x.groupe_code == null || x.groupe_code === '' ? null : String(x.groupe_code),
+        req.user?.email || null);
+      changements++;
+    }
+  })();
+  res.json({ ok: true, changements });
 });
 
 // ── Rapport croisé : étudiants × UE d'une section, pour une année ────────────
@@ -1482,6 +1769,46 @@ r.post('/rapport-pae/excel', authRequired, async (req, res) => {
       db.exec('ALTER TABLE etudiant_inscription ADD COLUMN points_s2 REAL');
     }
   } catch (e) { console.error('[migration] sessions :', e.message); }
+})();
+
+// L'ORGANISATION DE L'ÉTUDIANT DANS L'UNITÉ (23 septembre 2026). Une unité
+// comme la 333 AESI se donne en plusieurs organisations, et LA DÉLIBÉRATION
+// SE TIENT PAR ORGANISATION : chaque inscrit doit donc porter la sienne.
+// Rien ne se déduit — la répartition est un geste de la coordination.
+(function migrerOrganisation() {
+  try {
+    const cols = db.prepare('PRAGMA table_info(etudiant_inscription)').all().map(c => c.name);
+    if (!cols.includes('num_organisation')) {
+      db.exec('ALTER TABLE etudiant_inscription ADD COLUMN num_organisation INTEGER');
+      console.log('[migration] etudiant_inscription.num_organisation ajoutée');
+    }
+  } catch (e) { console.error('[migration] organisation :', e.message); }
+})();
+
+// LE LIEN ATTRIBUTIONS × PAE (24 septembre 2026). Qui a cours où : pour
+// chaque cours d'une unité, l'étudiant est placé dans un groupe tel que les
+// attributions le définissent (organisation + lettre). Une ligne par
+// étudiant × cours × année — un cours sans groupe ne s'écrit pas, tous les
+// inscrits y sont d'office. Le plafond « suggéré » d'un groupe se règle sur
+// le cours, au référentiel : il alerte, il ne bloque pas.
+(function migrerRepartitionCours() {
+  try {
+    db.exec(`CREATE TABLE IF NOT EXISTS etudiant_cours_groupe (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      etudiant_id INTEGER NOT NULL,
+      annee_scolaire TEXT NOT NULL,
+      cours_code TEXT NOT NULL,
+      num_organisation INTEGER,
+      groupe_code TEXT,
+      maj_le TEXT, maj_par TEXT,
+      UNIQUE(etudiant_id, annee_scolaire, cours_code)
+    )`);
+    const cols = db.prepare('PRAGMA table_info(cours)').all().map(c => c.name);
+    if (cols.length && !cols.includes('plafond_groupe')) {
+      db.exec('ALTER TABLE cours ADD COLUMN plafond_groupe INTEGER');
+      console.log('[migration] cours.plafond_groupe ajoutée');
+    }
+  } catch (e) { console.error('[migration] repartition cours :', e.message); }
 })();
 
 /** La décision qui fait foi, déduite des deux sessions. */
@@ -2483,6 +2810,22 @@ r.get('/pae-grille', authRequired, (req, res) => {
         MAX(COALESCE(hors_cursus,0)) AS hors_cursus
       FROM ue WHERE annee_scolaire = ? AND section = ? GROUP BY ue_num`).all(annee, section);
   }
+  if (!ues.length) {
+    /* L'HISTORIQUE SE COMPOSE AUSSI POUR LES ANNÉES QUE LE RÉFÉRENTIEL NE
+       COUVRE PAS. La section d'une UE ne dépend pas de l'année (règle déjà
+       posée pour les sections des étudiants) : à défaut de référentiel pour
+       l'année demandée, les colonnes viennent des autres années — sans quoi
+       « échoué en 2024-2025 » n'aurait nulle part où s'écrire. */
+    source = 'referentiel-autre-annee';
+    ues = db.prepare(`
+      SELECT DISTINCT u0.ue_num,
+        (SELECT ue_nom FROM ue x WHERE x.ue_num = u0.ue_num AND x.ue_nom IS NOT NULL
+          ORDER BY x.annee_scolaire DESC LIMIT 1) AS ue_nom,
+        (SELECT ue_niv FROM ue x WHERE x.ue_num = u0.ue_num AND x.ue_niv IS NOT NULL
+          ORDER BY x.annee_scolaire DESC LIMIT 1) AS ue_niv,
+        0 AS hors_cursus
+      FROM ue u0 WHERE u0.section = ?`).all(section);
+  }
   const rang = n => ({ BA1: 1, BA2: 2, BA3: 3 }[String(n || '').toUpperCase()] || 4);
   ues.sort((a, b) => rang(a.ue_niv) - rang(b.ue_niv) || a.ue_num - b.ue_num);
   const nums = new Set(ues.map(u => u.ue_num));
@@ -2492,8 +2835,17 @@ r.get('/pae-grille', authRequired, (req, res) => {
   for (const e of db.prepare('SELECT id, nom, prenom, id_ecampus FROM etudiant WHERE actif = 1').all()) {
     candidats.set(e.id, e);
   }
-  const inscr = db.prepare(`SELECT etudiant_id, ue_num, resultat FROM etudiant_inscription
+  const inscr = db.prepare(`SELECT etudiant_id, ue_num, resultat, points FROM etudiant_inscription
     WHERE annee_scolaire = ?`).all(annee);
+  // LES NOUVEAUX INSCRITS (primo) : aucune trace — inscription ou
+  // valorisation — dans une année antérieure. Le matricule Gips qui commence
+  // par « 26 » n'est qu'un indice d'une année ; l'historique, lui, fait foi.
+  const anciens = new Set([
+    ...db.prepare('SELECT DISTINCT etudiant_id FROM etudiant_inscription WHERE annee_scolaire < ?')
+      .all(annee).map(x => x.etudiant_id),
+    ...db.prepare('SELECT DISTINCT etudiant_id FROM etudiant_valorisation WHERE annee_scolaire < ?')
+      .all(annee).map(x => x.etudiant_id),
+  ]);
   const va = db.prepare(`SELECT etudiant_id, ue_num, type, decision FROM etudiant_valorisation
     WHERE annee_scolaire = ? AND decision_le IS NOT NULL`).all(annee);
   const dansSection = new Set(inscr.filter(i => nums.has(i.ue_num)).map(i => i.etudiant_id));
@@ -2503,14 +2855,17 @@ r.get('/pae-grille', authRequired, (req, res) => {
     if (!(rat.section === section || dansSection.has(e.id))) continue;
     lignes.push({ id: e.id, nom: e.nom, prenom: e.prenom, id_ecampus: e.id_ecampus,
       section_rattachement: rat.section, section_deduite: rat.deduite,
-      niveau: niveauEtudiant(e.id, annee).niveau || null, cases: {}, autres_ue: 0 });
+      niveau: niveauEtudiant(e.id, annee).niveau || null,
+      primo: !anciens.has(e.id), cases: {}, autres_ue: 0 });
   }
   const parId = new Map(lignes.map(l => [l.id, l]));
   for (const i of inscr) {
     const l = parId.get(i.etudiant_id);
     if (!l) continue;
-    if (nums.has(i.ue_num)) l.cases[i.ue_num] = { inscrit: true, resultat: i.resultat || null };
-    else l.autres_ue++;
+    if (nums.has(i.ue_num)) {
+      l.cases[i.ue_num] = { inscrit: true, resultat: i.resultat || null,
+        points: i.points ?? null };
+    } else l.autres_ue++;
   }
   for (const v of va) {
     const l = parId.get(v.etudiant_id);
@@ -2583,6 +2938,62 @@ r.post('/pae-modifier', authRequired,
     if (e.message !== 'SIMULATION') { console.error('[pae-modifier]', e); return res.status(500).json({ error: e.message }); }
   }
   res.json({ ok: true, simulation: !!simulation, ...rapport });
+});
+
+/* ── L'HISTORIQUE DE PAE, ENCODÉ À LA MAIN DEPUIS LA GRILLE ────────────────
+ * Composer les PAE porte deux vues d'encodage : la coche (réussi/refusé) et
+ * la note (>= 10 → réussi, sinon refusé). Chaque écriture vaut pour L'ANNÉE
+ * choisie dans la grille — un étudiant a pu échouer l'UE en 2024-2025 et la
+ * réussir en 2025-2026 : deux lignes, deux années. Poser un résultat sur une
+ * case vide crée l'inscription ; effacer le résultat garde l'inscription. */
+r.post('/pae-resultats', authRequired,
+       roleRequired('admin', 'directeur', 'directeur_adjoint', 'editeur', 'secretariat'), (req, res) => {
+  const { annee, resultats = [] } = req.body || {};
+  if (!annee) return res.status(400).json({ error: 'annee requise' });
+  const RES = ['reussi', 'refuse', null];
+  const lignes = (Array.isArray(resultats) ? resultats : [])
+    .map(x => ({
+      etudiant_id: Number(x?.etudiant_id), ue_num: Number(x?.ue_num),
+      resultat: RES.includes(x?.resultat ?? null) ? (x?.resultat ?? null) : undefined,
+      points: x?.points == null || x.points === '' ? null : Number(x.points),
+    }))
+    .filter(x => Number.isInteger(x.etudiant_id) && x.etudiant_id > 0
+      && Number.isInteger(x.ue_num) && x.resultat !== undefined
+      && (x.points === null || (Number.isFinite(x.points) && x.points >= 0 && x.points <= 20)));
+  if (!lignes.length) return res.status(400).json({ error: 'Aucun résultat à écrire.' });
+
+  // Même périmètre que la composition : les unités de ses sections.
+  const perim = getUserSections(req.user);
+  if (perim) {
+    const hors = [...new Set(lignes.map(x => x.ue_num))].filter(u =>
+      !sectionsDeUE(u).some(s => perim.includes(s)));
+    if (hors.length) {
+      return res.status(403).json({ error: `Unité(s) hors de votre périmètre : ${hors.join(', ')}` });
+    }
+  }
+
+  const dateJour = new Date().toISOString().slice(0, 10);
+  const poser = db.prepare(`
+    INSERT INTO etudiant_inscription
+      (etudiant_id, annee_scolaire, ue_num, resultat, points, date_inscription)
+    VALUES (?,?,?,?,?,?)
+    ON CONFLICT(etudiant_id, annee_scolaire, ue_num) DO UPDATE SET
+      resultat = excluded.resultat, points = excluded.points`);
+  const effacer = db.prepare(`
+    UPDATE etudiant_inscription SET resultat = NULL, points = NULL
+    WHERE etudiant_id = ? AND annee_scolaire = ? AND ue_num = ?`);
+  let ecrits = 0, effaces = 0;
+  db.transaction(() => {
+    for (const x of lignes) {
+      if (x.resultat === null && x.points === null) {
+        effaces += effacer.run(x.etudiant_id, annee, x.ue_num).changes;
+      } else {
+        poser.run(x.etudiant_id, annee, x.ue_num, x.resultat, x.points, dateJour);
+        ecrits++;
+      }
+    }
+  })();
+  res.json({ ok: true, ecrits, effaces });
 });
 
 r.post('/pae-lot', authRequired,
@@ -4228,6 +4639,7 @@ r.put('/:id/grille/detail', authRequired, roleRequired('admin', 'editeur'), (req
 
 // ── Valorisation des acquis (VA/VAE) — AGCF 13-12-2024 ──────────────────────
 r.get('/:id/valorisations', authRequired, (req, res) => {
+  if (!etudiantPermis(req, res, req.params.id)) return;
   const rows = db.prepare(`
     SELECT v.*, u.ue_nom, u.section
     FROM etudiant_valorisation v
@@ -4421,7 +4833,7 @@ r.get('/valorisations/registre', authRequired, (req, res) => {
     /* L'ÉTAT SE DÉDUIT ICI, PAS DANS L'ÉCRAN. Deux déductions pour un même
      * fait finiraient par différer, et c'est celle qu'on regarde le moins qui
      * afficherait l'ancienne règle. `etatDeduit` est la seule. */
-    res.json(lignes.map(v => ({
+    res.json(filtrerValorisationsParPerimetre(req, lignes).map(v => ({
       ...v, etat: etatDeduit(v), hors_circuit: decideHorsCircuit(v),
     })));
   } catch (e) {
@@ -4434,6 +4846,7 @@ r.get('/valorisations/fichiers/:fid', authRequired, (req, res) => {
   const f = db.prepare('SELECT * FROM etudiant_valorisation_fichier WHERE id = ?')
     .get(Number(req.params.fid));
   if (!f || !existsSync(f.chemin)) return res.status(404).json({ error: 'Pièce introuvable' });
+  if (!valorisationPermise(req, res, f.valorisation_id)) return;
   res.download(f.chemin, f.nom);
 });
 
@@ -4505,6 +4918,7 @@ r.post('/valorisations/:vid/fichiers', authRequired, roleRequired('admin', 'edit
  * empêcherait le cas normal.
  */
 r.get('/:id/valorisations/unites', authRequired, (req, res) => {
+  if (!etudiantPermis(req, res, req.params.id)) return;
   const etudId = Number(req.params.id);
   const annee = req.query.annee;
   if (!annee) return res.status(400).json({ error: 'annee requise' });
@@ -4650,6 +5064,9 @@ r.get('/valorisations/matrice', authRequired, (req, res) => {
   if (!annee || !section) {
     return res.status(400).json({ error: 'annee et section requises' });
   }
+  if (!sectionAutoriseeReq(req, section)) {
+    return res.status(403).json({ error: 'Section hors de votre périmètre' });
+  }
 
   /* LES UNITÉS DE LA SECTION — et pas celles qu'on ne peut jamais valoriser.
    * Afficher une colonne « épreuve intégrée » serait inviter à cocher ce que
@@ -4761,9 +5178,22 @@ r.post('/valorisations/matrice', authRequired, roleRequired(...PEUT_INSTRUIRE),
 
     const refus = [];
     const aCreer = [];
+    // L'écriture aussi se tient dans son périmètre : une case cochée sur une
+    // unité (ou une admission vers une section) d'autrui se refuse, ligne
+    // par ligne, comme les autres refus de la matrice.
+    const permisesMat = perimetre(req);
     for (const c of liste) {
       const eid = Number(c.etudiant_id);
       const ue = Number(c.ue_num);
+      if (permisesMat) {
+        const secs = c.porte === 'admission'
+          ? [String(c.section || req.body.section || '').trim()].filter(Boolean)
+          : sectionsDeUE(ue);
+        if (!secs.some(s => permisesMat.includes(s))) {
+          refus.push({ etudiant_id: eid, ue_num: ue, pourquoi: 'Hors de votre périmètre.' });
+          continue;
+        }
+      }
 
       /* L'ADMISSION SE DÉCIDE PAR SECTION : une seule ligne, `ue_num = 0`.
        * La matrice l'envoie avec la section plutôt qu'avec une unité — on
@@ -4901,6 +5331,7 @@ r.get('/valorisations/:vid/dossier', authRequired, (req, res) => {
   const vid = Number(req.params.vid);
   const v = lireDossierComplet(vid);
   if (!v) return res.status(404).json({ error: 'Dossier introuvable.' });
+  if (!valorisationPermise(req, res, vid)) return;
 
   const admission = estAdmissionDeSection(v);
   const valorisable = admission
@@ -4939,6 +5370,7 @@ r.get('/valorisations/:vid/dossier', authRequired, (req, res) => {
 r.put('/valorisations/:vid/demande', authRequired, roleRequired(...PEUT_INSTRUIRE),
   (req, res) => {
     const vid = Number(req.params.vid);
+    if (!valorisationPermise(req, res, vid)) return;
     const v = db.prepare('SELECT * FROM etudiant_valorisation WHERE id = ?').get(vid);
     if (!v) return res.status(404).json({ error: 'Dossier introuvable.' });
     if (refuseSiValide(v, res)) return;
@@ -5020,6 +5452,7 @@ r.put('/valorisations/:vid/demande', authRequired, roleRequired(...PEUT_INSTRUIR
 r.put('/valorisations/:vid/recevabilite', authRequired, roleRequired(...PEUT_INSTRUIRE),
   (req, res) => {
     const vid = Number(req.params.vid);
+    if (!valorisationPermise(req, res, vid)) return;
     const v = db.prepare('SELECT * FROM etudiant_valorisation WHERE id = ?').get(vid);
     if (!v) return res.status(404).json({ error: 'Dossier introuvable.' });
     if (refuseSiValide(v, res)) return;
@@ -5061,6 +5494,7 @@ r.put('/valorisations/:vid/recevabilite', authRequired, roleRequired(...PEUT_INS
 r.put('/valorisations/:vid/avis', authRequired, roleRequired(...PEUT_INSTRUIRE, 'professeur'),
   (req, res) => {
     const vid = Number(req.params.vid);
+    if (!valorisationPermise(req, res, vid)) return;
     const v = db.prepare('SELECT * FROM etudiant_valorisation WHERE id = ?').get(vid);
     if (!v) return res.status(404).json({ error: 'Dossier introuvable.' });
     if (refuseSiValide(v, res)) return;
@@ -5106,6 +5540,7 @@ r.put('/valorisations/:vid/avis', authRequired, roleRequired(...PEUT_INSTRUIRE, 
 r.put('/valorisations/:vid/decision', authRequired, roleRequired(...PEUT_INSTRUIRE),
   (req, res) => {
     const vid = Number(req.params.vid);
+    if (!valorisationPermise(req, res, vid)) return;
     const v = db.prepare('SELECT * FROM etudiant_valorisation WHERE id = ?').get(vid);
     if (!v) return res.status(404).json({ error: 'Dossier introuvable.' });
 
@@ -5171,6 +5606,7 @@ r.put('/valorisations/:vid/decision', authRequired, roleRequired(...PEUT_INSTRUI
 r.put('/valorisations/:vid/test', authRequired, roleRequired(...PEUT_INSTRUIRE, 'professeur'),
   (req, res) => {
     const vid = Number(req.params.vid);
+    if (!valorisationPermise(req, res, vid)) return;
     const v = lireDossierComplet(vid);
     if (!v) return res.status(404).json({ error: 'Dossier introuvable.' });
     if (refuseSiValide(v, res)) return;
@@ -5283,6 +5719,7 @@ r.delete('/valorisations/:vid/validation', authRequired, (req, res) => {
  * d'un coup ce qui n'est pas prêt à être validé.
  */
 r.get('/valorisations/ue/:ueNum/seance-dossiers', authRequired, (req, res) => {
+  if (!unitePermise(req, res, req.params.ueNum)) return;
   const ueNum = Number(req.params.ueNum);
   const annee = req.query.annee;
   if (!annee) return res.status(400).json({ error: 'annee requise' });
@@ -5345,6 +5782,7 @@ r.post('/valorisations/lot/validation', authRequired, (req, res) => {
   const ids = [...new Set((Array.isArray(req.body?.ids) ? req.body.ids : [])
     .map(Number).filter(n => Number.isInteger(n) && n > 0))];
   if (!ids.length) return res.status(400).json({ error: 'Aucun dossier coché.' });
+  if (!valorisationsPermises(req, res, ids)) return;
 
   const bloquants = [];
   const prets = [];
@@ -5391,6 +5829,7 @@ r.post('/valorisations/lot/decision', authRequired, roleRequired(...PEUT_INSTRUI
   const ids = [...new Set((Array.isArray(req.body?.ids) ? req.body.ids : [])
     .map(Number).filter(n => Number.isInteger(n) && n > 0))];
   if (!ids.length) return res.status(400).json({ error: 'Aucun dossier coché.' });
+  if (!valorisationsPermises(req, res, ids)) return;
 
   const bloquants = [];
   const cibles = [];
@@ -5460,6 +5899,7 @@ r.post('/valorisations/lot/decisions', authRequired, roleRequired(...PEUT_INSTRU
   const lignes = Array.isArray(req.body?.lignes) ? req.body.lignes : [];
   const ids = lignes.map(l => Number(l?.id));
   if (!lignes.length) return res.status(400).json({ error: 'Aucune décision à enregistrer.' });
+  if (!valorisationsPermises(req, res, ids.filter(n => Number.isInteger(n) && n > 0))) return;
   if (ids.some(n => !Number.isInteger(n) || n <= 0) || new Set(ids).size !== ids.length) {
     return res.status(400).json({ error: 'Chaque dossier ne porte qu’une décision.' });
   }
@@ -5538,6 +5978,7 @@ r.post('/valorisations/lot/avis', authRequired, roleRequired(...PEUT_INSTRUIRE, 
     const ids = [...new Set((Array.isArray(req.body?.ids) ? req.body.ids : [])
       .map(Number).filter(n => Number.isInteger(n) && n > 0))];
     if (!ids.length) return res.status(400).json({ error: 'Aucun dossier coché.' });
+    if (!valorisationsPermises(req, res, ids)) return;
 
     const sens = String(req.body.avis_sens || '');
     if (!['favorable','partiel','defavorable'].includes(sens)) {
@@ -5616,6 +6057,7 @@ r.post('/valorisations/lot/demande', authRequired, roleRequired(...PEUT_INSTRUIR
     const ids = [...new Set((Array.isArray(req.body?.ids) ? req.body.ids : [])
       .map(Number).filter(n => Number.isInteger(n) && n > 0))];
     if (!ids.length) return res.status(400).json({ error: 'Aucun dossier coché.' });
+    if (!valorisationsPermises(req, res, ids)) return;
     const dateDemande = String(req.body.date_demande || '').trim();
     const dateReception = String(req.body.date_reception || '').trim();
     if (!dateDemande && !dateReception) {
@@ -5862,6 +6304,7 @@ r.post('/valorisations/lot/recevabilite', authRequired,
     const ids = [...new Set((Array.isArray(req.body?.ids) ? req.body.ids : [])
       .map(Number).filter(n => Number.isInteger(n) && n > 0))];
     if (!ids.length) return res.status(400).json({ error: 'Aucun dossier coché.' });
+    if (!valorisationsPermises(req, res, ids)) return;
 
     const recevable = req.body.recevable ? 1 : 0;
     const motif = String(req.body.motif_irrecevabilite || '').trim();
@@ -5976,7 +6419,7 @@ r.get('/valorisations/en-retard', authRequired, (req, res) => {
     recevabilite: [], avis: [], decision: [], notification: [], eprom: [],
     hors_delai: [], sans_preuve: [], sans_base: [], test_sans_copie: [],
   };
-  for (const v of lignes) {
+  for (const v of filtrerValorisationsParPerimetre(req, lignes)) {
     const etat = etatDeduit(v);
     const court = { id: v.id, etudiant_id: v.etudiant_id, nom: v.nom,
                     prenom: v.prenom, ue_num: v.ue_num, etat };
@@ -6004,6 +6447,7 @@ r.get('/valorisations/en-retard', authRequired, (req, res) => {
 });
 
 r.get('/valorisations/ue/:ueNum/candidats', authRequired, (req, res) => {
+  if (!unitePermise(req, res, req.params.ueNum)) return;
   const ueNum = Number(req.params.ueNum);
   const annee = req.query.annee;
   if (!annee) return res.status(400).json({ error: 'annee requise' });
@@ -6104,6 +6548,7 @@ r.post('/valorisations/lot', authRequired, roleRequired(...PEUT_INSTRUIRE), (req
     return res.status(400).json({
       error: `L'unité ${ue_num} n'existe pas dans le référentiel.` });
   }
+  if (!unitePermise(req, res, Number(ue_num))) return;
 
   const marques = `(${ids.map(() => '?').join(',')})`;
   const inconnus = ids.filter(id =>
@@ -6167,6 +6612,7 @@ r.post('/valorisations/lot', authRequired, roleRequired(...PEUT_INSTRUIRE), (req
 });
 
 r.post('/:id/valorisations', authRequired, roleRequired(...PEUT_INSTRUIRE), (req, res) => {
+  if (!etudiantPermis(req, res, req.params.id)) return;
   const { annee_scolaire, ue_num, type, cible, cible_detail, pourcentage,
           decision_ce_date, commentaire } = req.body;
   const souci = verifierValorisation(req.body);
@@ -6181,6 +6627,7 @@ r.post('/:id/valorisations', authRequired, roleRequired(...PEUT_INSTRUIRE), (req
     return res.status(400).json({
       error: `L'unité ${ue_num} n'existe pas dans le référentiel.` });
   }
+  if (!unitePermise(req, res, Number(ue_num))) return;
 
   // UN REFUS NE PORTE NI DISPENSE NI POURCENTAGE. Le procès-verbal lit
   // l'absence de pourcentage comme un refus : lui en laisser un le ferait
@@ -6234,6 +6681,7 @@ r.put('/valorisations/:vid', authRequired, roleRequired('admin', 'editeur'), (re
   const vid = Number(req.params.vid);
   const avant = db.prepare('SELECT * FROM etudiant_valorisation WHERE id = ?').get(vid);
   if (!avant) return res.status(404).json({ error: 'Valorisation introuvable.' });
+  if (!valorisationPermise(req, res, vid)) return;
 
   const b = { ...req.body,
     annee_scolaire: req.body.annee_scolaire || avant.annee_scolaire,
@@ -6300,6 +6748,7 @@ export const TEXTE_EQUIVALENCE = "Les acquis d'apprentissage de cette unité "
 r.delete('/valorisations/etudiant/:id', authRequired, roleRequired(...PEUT_INSTRUIRE),
   (req, res) => {
     const eid = Number(req.params.id);
+    if (!etudiantPermis(req, res, eid)) return;
     const annee = req.query.annee;
     if (!annee) return res.status(400).json({ error: 'annee requise' });
 
@@ -6376,6 +6825,7 @@ r.delete('/valorisations/:vid', authRequired, roleRequired(...PEUT_INSTRUIRE), (
   const vid = Number(req.params.vid);
   const v = db.prepare('SELECT * FROM etudiant_valorisation WHERE id = ?').get(vid);
   if (!v) return res.status(404).json({ error: 'Dossier introuvable.' });
+  if (!valorisationPermise(req, res, vid)) return;
   if (v.valide_le) {
     /* L'ÉCRAN NE DOIT PAS DEVINER LE CAS EN LISANT LA PHRASE. Il cherchait
      * « validé le » dans le message pour savoir s'il devait proposer le

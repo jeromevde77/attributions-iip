@@ -404,7 +404,15 @@ r.post('/mot-de-passe-nouveau', async (req, res) => {
 });
 
 r.get('/me', authRequired, (req, res) => {
-  res.json({ user: req.user });
+  // Le jeton a trente jours : le rôle et les cases d'accès se relisent en
+  // base, pour que l'écran reflète les droits du moment sans reconnexion.
+  let frais = null;
+  try {
+    frais = db.prepare(
+      'SELECT role, permissions_json, nom_complet, email FROM utilisateur WHERE id = ?')
+      .get(req.user.id) || null;
+  } catch { frais = null; }
+  res.json({ user: frais ? { ...req.user, ...frais } : req.user });
 });
 
 // Liste des comptes ayant un accès Lucie (admin uniquement) — pour le mode "voir comme"

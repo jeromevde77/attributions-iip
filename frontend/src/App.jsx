@@ -303,11 +303,26 @@ function ProtectedLayout({ children }) {
           return;
         }
 
-        // L'année mémorisée existe mais n'est plus l'année active, et
-        // l'utilisateur ne l'a pas choisie lui-même : on s'aligne sur le
-        // serveur. Sans cela, un navigateur restait indéfiniment sur l'année
-        // précédente après la bascule de rentrée, tous les écrans avec lui.
-        const choixExplicite = localStorage.getItem('annee_choisie');
+        // L'ANNÉE EN COURS EST LE POINT DE DÉPART, TOUJOURS. Un choix d'une
+        // autre année ne vaut que tant que l'application TOURNE : un
+        // rechargement le garde, une fenêtre rouverte le perd. Le
+        // sessionStorage seul ne suffit pas — les navigateurs le RESTAURENT
+        // avec l'onglet (« reprendre où j'en étais »), et l'on se retrouvait
+        // le lendemain à encoder dans la mauvaise année. Le choix porte donc
+        // un battement de cœur (annee_choisie_ts, rafraîchi toutes les 3 s) :
+        // plus vieux que 8 s à l'ouverture, ce n'est pas un rechargement,
+        // c'est une réouverture — retour à l'année en cours.
+        let choixExplicite = null;
+        try {
+          localStorage.removeItem('annee_choisie');   // l'ancien choix persistant est retiré
+          choixExplicite = sessionStorage.getItem('annee_choisie');
+          const ts = Number(sessionStorage.getItem('annee_choisie_ts') || 0);
+          if (choixExplicite && (!ts || Date.now() - ts > 8000)) {
+            sessionStorage.removeItem('annee_choisie');
+            sessionStorage.removeItem('annee_choisie_ts');
+            choixExplicite = null;
+          }
+        } catch { /* navigation privée */ }
         if (courante !== active && choixExplicite !== courante) {
           setAnnee(active); setAnneeActive(active);
           window.location.reload();
@@ -317,6 +332,43 @@ function ProtectedLayout({ children }) {
     fetch('/api/info').then(r => r.json()).then(d => setEnv(d.environnement)).catch(() => {});
   }, []);
 
+  // LES DROITS DU JOUR, PAS CEUX DU JETON. Le jeton vit trente jours : un
+  // accès retiré ce matin doit disparaître du menu aujourd'hui. On relit le
+  // compte au chargement et l'on met la copie locale à jour — le serveur,
+  // lui, relit déjà la base à chaque requête.
+  const [, setDroitsFrais] = useState(0);
+  useEffect(() => {
+    api.me().then(d => {
+      if (!d?.user) return;
+      try {
+        const cur = JSON.parse(localStorage.getItem('user') || '{}');
+        const maj = { ...cur, role: d.user.role ?? cur.role,
+          permissions_json: d.user.permissions_json ?? null };
+        if (JSON.stringify(maj) !== JSON.stringify(cur)) {
+          localStorage.setItem('user', JSON.stringify(maj));
+          setDroitsFrais(x => x + 1);   // le menu relit l'utilisateur
+        }
+      } catch { /* copie locale illisible : le prochain login la refera */ }
+    }).catch(() => {});
+  }, []);
+
+  // LE BATTEMENT DE CŒUR DU CHOIX D'ANNÉE : tant que l'application tourne,
+  // l'horodatage reste frais et un rechargement conserve le choix ; une
+  // fenêtre rouverte le trouve périmé et revient à l'année en cours.
+  useEffect(() => {
+    const battre = () => {
+      try {
+        if (sessionStorage.getItem('annee_choisie')) {
+          sessionStorage.setItem('annee_choisie_ts', String(Date.now()));
+        }
+      } catch { /* navigation privée */ }
+    };
+    battre();
+    const t = setInterval(battre, 3000);
+    window.addEventListener('pagehide', battre);
+    return () => { clearInterval(t); window.removeEventListener('pagehide', battre); };
+  }, []);
+
   // LE MODE D'AFFICHAGE EST UN RÉGLAGE DE L'APPLICATION : il vit dans la barre
   // du haut, seul point fixe de l'écran. Déclaré ici, AVANT tout retour
   // conditionnel — un crochet placé après « if (!isAuthenticated()) return »
@@ -324,11 +376,28 @@ function ProtectedLayout({ children }) {
   const mode = useMode();
 
   function changeAnnee(code) {
+    // QUITTER L'ANNÉE EN COURS EST UN ACTE VOLONTAIRE : il se confirme, et il
+    // ne tient que pour cette fenêtre — à la prochaine connexion ou ouverture,
+    // on est de retour dans l'année en cours.
+    const enCours = (annees.find(a => a.active) || {}).code;
+    if (enCours && code !== enCours) {
+      const ok = window.confirm(
+        `Vous quittez l'année en cours (${enCours}) pour consulter ${code}.\n\n`
+        + `Tous les écrans afficheront ${code} jusqu'à ce que vous reveniez à `
+        + `${enCours} ou fermiez la fenêtre.\n\nContinuer ?`);
+      if (!ok) return;
+      try {
+        sessionStorage.setItem('annee_choisie', code);
+        sessionStorage.setItem('annee_choisie_ts', String(Date.now()));
+      } catch { /* navigation privée */ }
+    } else {
+      try {
+        sessionStorage.removeItem('annee_choisie');
+        sessionStorage.removeItem('annee_choisie_ts');
+      } catch { /* navigation privée */ }
+    }
     setAnnee(code);
     setAnneeActive(code);
-    // Un choix délibéré : il tient jusqu'à ce que l'utilisateur en fasse un
-    // autre, même si l'année active du serveur change entre-temps.
-    localStorage.setItem('annee_choisie', code);
     window.location.reload(); // recharge toutes les données
   }
 

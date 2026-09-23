@@ -238,7 +238,7 @@ r.post('/', authRequired, roleRequired('admin', 'directeur', 'directeur_adjoint'
        session2_date, session2_heure, session2_local, session2_adresse,
        president_role, president_nom, president_titre, cloturee, maj_le, maj_par)
     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?, datetime('now'), ?)
-    ON CONFLICT(ue_num, annee_scolaire, session) DO UPDATE SET
+    ON CONFLICT(ue_num, annee_scolaire, session, num_organisation) DO UPDATE SET
       date_seance      = COALESCE(excluded.date_seance,      deliberation_seance.date_seance),
       heure_seance     = COALESCE(excluded.heure_seance,     deliberation_seance.heure_seance),
       visite_date      = COALESCE(excluded.visite_date,      deliberation_seance.visite_date),

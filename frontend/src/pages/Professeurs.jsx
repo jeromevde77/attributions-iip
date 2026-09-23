@@ -5,7 +5,7 @@ import { api, getAnnee, getUser, nomDoc } from '../lib/api.js';
 import ProfFicheModal from './ProfFicheModal.jsx';
 import PreviewModal from '../components/PreviewModal.jsx';
 import CoursEditModal from '../components/CoursEditModal.jsx';
-import { IconMail, IconMapPin, IconFileText, IconEdit, IconDownload, IconRefresh, IconX, IconPrinter, IconPlus, IconTrash, IconKey, IconLock, IconCheck, IconBriefcase, IconTargetArrow, IconChevronDown, IconChevronRight, IconUsers, IconSchool, IconUserPlus, IconBuilding, IconBuildingBank, IconFileDescription } from '@tabler/icons-react';
+import { IconAddressBook, IconMail, IconMapPin, IconFileText, IconEdit, IconDownload, IconRefresh, IconX, IconPrinter, IconPlus, IconTrash, IconKey, IconLock, IconCheck, IconBriefcase, IconTargetArrow, IconChevronDown, IconChevronRight, IconUsers, IconSchool, IconUserPlus, IconBuilding, IconBuildingBank, IconFileDescription } from '@tabler/icons-react';
 import { MODULES_ACCES, ROLES_LUCIE, estDirection } from '../lib/modules.js';
 import { RailLateral } from '../components/ui.jsx';
 /* LES RUBRIQUES DE L'AXE PERSONNEL SE RENDENT DANS L'AXE, PAS AILLEURS.
@@ -2022,6 +2022,22 @@ export default function Professeurs({ vue: vueInitiale = 'membres' }) {
     finally { setContratsZipEnCours(false); }
   }
 
+  // La liste imprimable des coordonnées des membres cochés : la pièce vient du
+  // serveur — la liste de l'écran ne porte ni GSM ni adresse, et c'est voulu.
+  async function imprimerCoordonnees() {
+    if (selection.size === 0) return;
+    try {
+      const rep = await fetch('/api/ref/professeurs/coordonnees', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('token')}` },
+        body: JSON.stringify({ ids: [...selection] }),
+      });
+      const j = await rep.json();
+      if (!rep.ok) throw new Error(j.error || 'Erreur');
+      setFicheHtml({ html: j.html, nom: j.nom, titre: 'Coordonnées du personnel' });
+    } catch (e) { alert('Erreur : ' + e.message); }
+  }
+
   async function imprimerAttributions() {
     if (selection.size === 0) return;
     setPrinting(true);
@@ -2390,6 +2406,12 @@ export default function Professeurs({ vue: vueInitiale = 'membres' }) {
                   </>
                 )}
               </div>
+
+              {/* Coordonnées — la liste imprimable des emails, GSM et adresses */}
+              <button onClick={imprimerCoordonnees}
+                className="bg-iip-blue hover:opacity-90 text-white text-sm px-3 py-1.5 h-9 rounded font-medium inline-flex items-center gap-1.5">
+                <IconAddressBook size={15}/> Coordonnées ({selection.size})
+              </button>
             </div>
           )}
         </div>

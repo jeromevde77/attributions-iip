@@ -4,6 +4,7 @@ import { IconChevronRight, IconArrowLeft, IconBolt, IconAlertTriangle,
 import { authHeaders, getAnnee, getUser } from '../lib/api.js';
 import { estDirection } from '../lib/modules.js';
 import FeuilleDeliberation from '../components/FeuilleDeliberation.jsx';
+import RepartitionOrganisation from '../components/RepartitionOrganisation.jsx';
 import EncodageCours from '../components/EncodageCours.jsx';
 import EncodageUE from '../components/EncodageUE.jsx';
 import ImportNotesUE from '../components/ImportNotesUE.jsx';
@@ -37,6 +38,8 @@ export default function Deliberation() {
   const [erreur, setErreur] = useState(null);
   const [section, setSection] = useState(null);
   const [ueNum, setUeNum] = useState(null);
+  // La répartition des étudiants dans les organisations d'une unité, depuis le plan.
+  const [repartirUE, setRepartirUE] = useState(null);
   const [rapide, setRapide] = useState(false);
   // Les COURS d'une unité, dépliés à la demande : c'est par eux que les
   // professeurs encodent, acquis par acquis.
@@ -429,6 +432,17 @@ export default function Deliberation() {
     : 'border-iip-blue text-iip-blue'}`}>
                       Délibérer {u.session === 2 ? 'S2' : 'S1'}
                     </button>
+                    {/* PLUSIEURS ORGANISATIONS, PLUSIEURS DÉLIBÉRATIONS : la
+                        répartition des étudiants se prépare d'ici, avant
+                        d'ouvrir la feuille. */}
+                    {u.nb_organisations > 1 && (
+                      <button onClick={() => setRepartirUE(u)}
+                        title={`${u.nb_organisations} organisations — répartir les étudiants entre elles avant de délibérer`}
+                        className="px-2 py-1 text-[12px] rounded-lg border border-iip-turquoise
+                                   text-iip-turquoise font-semibold flex-none">
+                        Répartir ({u.nb_organisations} org.)
+                      </button>
+                    )}
                     <button onClick={() => ouvrirCours(u.ue_num)}
                       className="px-2 py-1 text-[12px] rounded-lg border border-slate-300
                                  text-slate-600 flex-none">
@@ -531,6 +545,12 @@ export default function Deliberation() {
       {ueNum && (
         <FeuilleDeliberation ueNum={ueNum} annee={annee}
           onClose={() => { setUeNum(null); charger(); }} />
+      )}
+
+      {repartirUE && (
+        <RepartitionOrganisation ueNum={repartirUE.ue_num} ueNom={repartirUE.ue_nom}
+          annee={annee} onClose={() => setRepartirUE(null)}
+          onSaved={() => { setRepartirUE(null); charger(); }} />
       )}
 
       {importSuivi && (
