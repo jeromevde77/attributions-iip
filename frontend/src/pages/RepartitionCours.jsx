@@ -135,7 +135,9 @@ export default function RepartitionCours() {
       && !confirmerOrg(horsOrg.map(e => `${e.nom} ${e.prenom}`).join(', '),
         horsOrg[0].num_organisation, g.num_organisation)) return;
     for (const e of cibles) poser(e, c, g);
-    setCoches(new Set());
+    // LA SÉLECTION RESTE : c'est elle qui permet d'enchaîner — les mêmes dix
+    // noms, un clic sur 333.1·A, puis 333.2·B, puis 333.3·C (Charles,
+    // 25 septembre). On la vide soi-même quand on passe au groupe suivant.
   }
 
   // « Proposer depuis la délibération » : quand UN seul groupe du cours porte
@@ -246,8 +248,11 @@ export default function RepartitionCours() {
           <input value={q} onChange={e => setQ(e.target.value)} placeholder="Rechercher un étudiant…"
             className="border border-gray-300 rounded-champ px-3 py-1.5 text-sm w-56" />
           {coches.size > 0 && (
-            <span className="text-[12.5px] font-semibold text-iip-blue bg-iip-turquoise/10 border border-iip-turquoise/40 rounded-champ px-3 py-1.5">
-              {coches.size} coché(s) — cliquez « ⊕ » dans l'en-tête d'un groupe pour les y placer
+            <span className="text-[12.5px] font-semibold text-iip-blue bg-iip-turquoise/10 border border-iip-turquoise/40 rounded-champ px-3 py-1.5 inline-flex items-center gap-2">
+              {coches.size} coché(s) — cliquez l'en-tête d'un groupe pour les y placer
+              <i className="not-italic font-normal text-slate-500">(la sélection reste : enchaînez 333.1·A, 333.2·B…)</i>
+              <button onClick={() => setCoches(new Set())}
+                className="underline font-normal text-slate-500">Tout décocher</button>
             </span>
           )}
         </div>
@@ -280,13 +285,19 @@ export default function RepartitionCours() {
                     Tous{c.groupes[0]?.professeurs ? <span className="block font-normal text-slate-400">{c.groupes[0].professeurs}</span> : null}
                   </th>
                 ) : c.groupes.map(g => (
+                  /* L'EN-TÊTE ENTIER PLACE LES COCHÉS : on sélectionne dix
+                     noms, on clique 333.1·A, puis 333.2·B — la sélection
+                     reste, le geste s'enchaîne. */
                   <th key={c.cours_code + cleGroupe(g)}
-                    className="px-2 py-1 bg-slate-50 border-b border-l border-dashed border-slate-200 text-[10.5px] text-iip-turquoise-dark min-w-[92px]">
+                    onClick={() => coches.size && placerCoches(c, g)}
+                    title={coches.size
+                      ? `Placer les ${coches.size} coché(s) dans ${etiquette(g)} — ${c.cours_nom}`
+                      : ''}
+                    className={`px-2 py-1 bg-slate-50 border-b border-l border-dashed border-slate-200 text-[10.5px] text-iip-turquoise-dark min-w-[92px]
+                      ${coches.size ? 'cursor-pointer hover:bg-iip-turquoise/15 select-none' : ''}`}>
                     {etiquette(g)}
                     {coches.size > 0 && (
-                      <button onClick={() => placerCoches(c, g)}
-                        title={`Placer les ${coches.size} coché(s) dans ce groupe`}
-                        className="ml-1 text-iip-blue font-bold">⊕</button>
+                      <span className="block text-[9.5px] font-bold text-iip-blue">⊕ placer {coches.size}</span>
                     )}
                     <span className="block font-normal text-slate-400">{g.professeurs || '—'}</span>
                   </th>
