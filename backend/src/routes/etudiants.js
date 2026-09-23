@@ -5159,15 +5159,22 @@ r.get('/valorisations/matrice', authRequired, (req, res) => {
   /* UN ÉTUDIANT SANS INSCRIPTION EXISTE AUSSI — leçon du 21 septembre,
    * jamais appliquée ici, où elle coûte double : la valorisation PRÉCÈDE
    * souvent l'inscription, et c'est précisément le public de cette matrice.
-   * Les rattachés à la section paraissent donc même sans PAE composé —
-   * c'est ainsi que TOUS les étudiants d'une section se voient. */
-  const rattaches = db.prepare(`
-    SELECT id, nom, prenom, id_ecampus, section_rattachement
-    FROM etudiant
-    WHERE actif = 1
-      AND UPPER(TRIM(COALESCE(section_rattachement,''))) = UPPER(TRIM(?))
-    ORDER BY nom, prenom
-  `).all(section);
+   * ET LA SECTION SE DÉDUIT AUSSI : un BA2 dont le PAE 2026-2027 n'est pas
+   * composé et dont le dossier ne porte pas de rattachement appartient
+   * pourtant à sa section — ses inscriptions passées le disent. Même règle
+   * que la liste des étudiants : rattachement posé, sinon déduit. */
+  const normSec = s => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .toUpperCase().replace(/[^A-Z0-9]+/g, '');
+  const cibleSec = normSec(section);
+  const rattaches = [];
+  for (const e of db.prepare(
+    'SELECT id, nom, prenom, id_ecampus FROM etudiant WHERE actif = 1 ORDER BY nom, prenom').all()) {
+    // Le dédoublonnage avec les inscrits se fait au remplissage, plus bas.
+    const rat = sectionRattachement(e.id, annee);
+    if (rat.section && normSec(rat.section) === cibleSec) {
+      rattaches.push({ ...e, section_rattachement: rat.section });
+    }
+  }
 
   const par = new Map();
   for (const e of inscrits) {
@@ -6564,13 +6571,20 @@ r.get('/valorisations/ue/:ueNum/candidats', authRequired, (req, res) => {
   /* UN ÉTUDIANT SANS INSCRIPTION EXISTE AUSSI (leçon du 21 septembre) : une
    * valorisation précède souvent l'inscription. Les rattachés aux sections
    * de l'unité sont donc candidats, même sans PAE composé. */
-  const secsUE = sectionsDeUE(ueNum);
-  const rattachesUE = secsUE.length ? db.prepare(`
-    SELECT id, nom, prenom, id_ecampus, section_rattachement
-    FROM etudiant WHERE actif = 1
-      AND UPPER(TRIM(COALESCE(section_rattachement,'')))
-          IN (${secsUE.map(() => 'UPPER(TRIM(?))').join(',')})
-  `).all(...secsUE) : [];
+  // Rattachement posé OU DÉDUIT — même règle que la liste et la matrice.
+  const normSecC = s => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .toUpperCase().replace(/[^A-Z0-9]+/g, '');
+  const secsUE = new Set(sectionsDeUE(ueNum).map(normSecC));
+  const rattachesUE = [];
+  if (secsUE.size) {
+    for (const e of db.prepare(
+      'SELECT id, nom, prenom, id_ecampus FROM etudiant WHERE actif = 1').all()) {
+      const rat = sectionRattachement(e.id, annee);
+      if (rat.section && secsUE.has(normSecC(rat.section))) {
+        rattachesUE.push({ ...e, section_rattachement: rat.section });
+      }
+    }
+  }
   for (const e of rattachesUE) {
     if (!par.has(e.id)) {
       par.set(e.id, {
