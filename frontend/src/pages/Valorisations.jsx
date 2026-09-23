@@ -3761,6 +3761,9 @@ function MatriceIntroduction({ annee, onClose, onCree }) {
   const [enCours, setEnCours] = useState(false);
   const [reception, setReception] = useState(aujourdHui());
   const [filtre, setFiltre] = useState('');
+  // Primo et niveau : les mêmes filtres que la liste des étudiants.
+  const [fPrimo, setFPrimo] = useState(false);
+  const [fNiveau, setFNiveau] = useState('');
   const [adCoches, setAdCoches] = useState(() => new Set());   // étudiants admis
 
   useEffect(() => {
@@ -3821,10 +3824,11 @@ function MatriceIntroduction({ annee, onClose, onCree }) {
     .replace(/[\u0300-\u036f]/g, '').toLowerCase();
   const lignes = useMemo(() => {
     const q0 = sansAccent(filtre).trim();
-    if (!q0) return toutes;
     return toutes.filter(e =>
-      sansAccent(e.nom).startsWith(q0) || sansAccent(e.prenom).startsWith(q0));
-  }, [toutes, filtre]);
+      (!q0 || sansAccent(e.nom).startsWith(q0) || sansAccent(e.prenom).startsWith(q0))
+      && (!fPrimo || e.primo)
+      && (!fNiveau || (fNiveau === 'aucun' ? !e.niveau : e.niveau === fNiveau)));
+  }, [toutes, filtre, fPrimo, fNiveau]);
 
   /* UNE CASE TOURNE : rien → AD → VA → VAE → rien. Trois cases à cocher par
      cellule auraient fait un tableau illisible dès dix unités ; un menu
@@ -3937,7 +3941,21 @@ function MatriceIntroduction({ annee, onClose, onCree }) {
                   placeholder="Début du nom ou du prénom…"
                   className="controle controle-icone text-[13px] w-56" />
               </div>
-              {filtre && (
+              <select value={fNiveau} onChange={e => setFNiveau(e.target.value)}
+                className="controle text-[13px]">
+                <option value="">Tous les niveaux</option>
+                <option value="BA1">BA1</option><option value="BA2">BA2</option>
+                <option value="BA3">BA3 / diplômant</option>
+                <option value="MIXTE">Parcours mixte</option>
+                <option value="aucun">Sans niveau</option>
+              </select>
+              <label className="flex items-center gap-1.5 text-[13px] text-slate-600"
+                title="Aucune inscription ni valorisation avant l'année de travail">
+                <input type="checkbox" checked={fPrimo}
+                  onChange={e => setFPrimo(e.target.checked)} />
+                Primo-arrivés
+              </label>
+              {(filtre || fPrimo || fNiveau) && (
                 <span className="text-[11px] text-slate-500">
                   {lignes.length} sur {toutes.length}
                   {choix.size ? ` · ${choix.size} demande(s) conservée(s)` : ''}
@@ -4040,6 +4058,13 @@ function MatriceIntroduction({ annee, onClose, onCree }) {
                       <span className="text-[13px] font-medium">
                         {(e.nom || '').toUpperCase()} {e.prenom}
                       </span>
+                      {e.primo && (
+                        <span className="ml-1.5 text-[9.5px] font-bold px-1.5 py-0.5 rounded-full bg-iip-turquoise/10 text-iip-turquoise-dark"
+                          title="Primo-arrivé : aucune trace avant l'année de travail">primo</span>
+                      )}
+                      {e.niveau && (
+                        <span className="ml-1 text-[10px] text-slate-400">{e.niveau}</span>
+                      )}
                       {!e.inscrit && (
                         <span className="ml-1.5 text-[10px] text-slate-400">hors inscription</span>
                       )}
