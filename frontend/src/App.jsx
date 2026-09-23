@@ -44,6 +44,7 @@ import EA12Editor from './pages/EA12Editor.jsx';
 import Pilotage from './pages/Pilotage.jsx';
 import Planification from './pages/Planification.jsx';
 const Documentation = lazy(() => import('./pages/Documentation.jsx'));
+const MesCours = lazy(() => import('./pages/MesCours.jsx'));
 import Attestation from './pages/Attestation.jsx';
 import Disciplinaire from './pages/Disciplinaire.jsx';
 import Echeancier from './pages/Echeancier.jsx';
@@ -444,6 +445,10 @@ function ProtectedLayout({ children }) {
     .filter(([, , , module]) => !module || droitEffectif(u, module) !== 'rien')
     .map(([to, lbl, Icon]) => [to, lbl, Icon]);
 
+  // LA PORTE DU PROFESSEUR : ses cours, ses étudiants, ses propositions de
+  // notes — en tête de son menu, c'est pour cela qu'il se connecte.
+  if (u?.role === 'professeur') nav.unshift(['/mes-cours', 'Mes cours', IconBooks]);
+
   /* L'AIDE DEVIENT LA DOCUMENTATION, ET C'EST UNE ABSORPTION, PAS UN AJOUT.
    *
    * Deux portes pour « savoir » en auraient fait une de trop : un enseignant
@@ -711,6 +716,7 @@ export default function App() {
       {/* GESTION — ce qu'on engage. « /pilotage » reste servi pour les liens
           déjà notés ou mis en favori, et mène au tableau de bord. */}
       <Route path="/gestion"        element={<ProtectedLayout><Pilotage vue="gestion" /></ProtectedLayout>} />
+      <Route path="/mes-cours"      element={<ProtectedLayout><Suspense fallback={<div className="p-6 text-sm text-slate-400">Chargement…</div>}><MesCours /></Suspense></ProtectedLayout>} />
       <Route path="/pilotage"       element={<Navigate to="/accueil" replace />} />
       <Route path="/planification"  element={<ProtectedLayout><Organisation ongletInitial="planification" /></ProtectedLayout>} />
       <Route path="/documentation"  element={<ProtectedLayout><Suspense fallback={<div className="p-6 text-sm text-slate-400">Chargement…</div>}><Documentation /></Suspense></ProtectedLayout>} />

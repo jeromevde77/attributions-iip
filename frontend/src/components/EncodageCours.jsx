@@ -65,6 +65,18 @@ export default function EncodageCours({ coursCode, annee, onClose, onEnregistre,
   }
   useEffect(() => { charger(); /* eslint-disable-next-line */ }, [coursCode, annee, session]);
 
+  /* LES NOTES PROPOSÉES PAR LE PROFESSEUR (« Mes cours ») : une référence
+     sous les yeux de qui encode — la feuille note par acquis, la proposition
+     est une note de cours, on ne remplit donc rien à sa place. */
+  const [propositions, setPropositions] = useState([]);
+  useEffect(() => {
+    fetch(`/api/mes-cours/${encodeURIComponent(coursCode)}/propositions?annee=${encodeURIComponent(annee)}`,
+      { headers: authHeaders() })
+      .then(r => (r.ok ? r.json() : { propositions: [] }))
+      .then(j => setPropositions(j.propositions || []))
+      .catch(() => setPropositions([]));
+  }, [coursCode, annee]);
+
   // Chaque note part SEULE, dès la sortie du champ : une saisie de délibération
   // s'interrompt — un appel, une question — et un enregistrement global perdrait
   // tout ce qui n'a pas été validé.
@@ -168,6 +180,17 @@ export default function EncodageCours({ coursCode, annee, onClose, onEnregistre,
           {erreur && (
             <div className="px-3 py-2 rounded-lg bg-red-50 border border-red-200
                             text-[13px] text-red-800">{erreur}</div>
+          )}
+
+          {propositions.length > 0 && (
+            <div className="px-3 py-2 rounded-lg bg-iip-turquoise/10 border border-iip-turquoise/40 text-[12.5px] text-iip-blue">
+              <b>{propositions.length} note(s) proposée(s) par le professeur</b>
+              <span className="text-slate-500"> (depuis « Mes cours » — à reprendre dans la feuille, acquis par acquis)</span> :
+              <span className="block mt-0.5">
+                {propositions.map(p =>
+                  `${(p.nom || '').toUpperCase()} ${p.prenom || ''} : ${p.note}`).join(' · ')}
+              </span>
+            </div>
           )}
 
           {!data ? (
