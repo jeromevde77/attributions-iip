@@ -423,6 +423,9 @@ export default function Attributions() {
   const [secDel, setSecDel] = useState(null); // { section, lignes, count } | null
   const [groupesUE, setGroupesUE] = useState(null); // { portee, section, ues } | null
   const [rapportSectionChoix, setRapportSectionChoix] = useState(null); // section pour laquelle on demande le filtre TC
+  // Le tronc commun se filtre aussi à l'ÉCRAN, pas seulement au rapport —
+  // demandé pour l'Optométrie, utile partout où ue_tc est posé.
+  const [tcVue, setTcVue] = useState('');   // '' | 'tc' | 'hors'
   const [secDelText, setSecDelText] = useState('');
   const [secDelBusy, setSecDelBusy] = useState(false);
   const [bulkPreview, setBulkPreview] = useState(null);
@@ -788,16 +791,20 @@ export default function Attributions() {
     setSortBy(s => s.key !== key ? { key, dir:'asc' } : s.dir === 'asc' ? { key, dir:'desc' } : { key:null, dir:'asc' });
   }
   const sortedData = useMemo(() => {
-    if (!sortBy.key) return data;
+    // Le filtre tronc commun s'applique ici : toutes les vues (section,
+    // complète, coordination) et leurs compteurs suivent.
+    const base = tcVue === 'tc' ? data.filter(r => r.ue_tc === 'x')
+      : tcVue === 'hors' ? data.filter(r => r.ue_tc !== 'x') : data;
+    if (!sortBy.key) return base;
     const k = sortBy.key;
-    return [...data].sort((a,b) => {
+    return [...base].sort((a,b) => {
       const va=a[k], vb=b[k];
       if (va==null&&vb==null) return 0; if (va==null) return 1; if (vb==null) return -1;
       const na=Number(va), nb=Number(vb);
       const cmp = (!isNaN(na)&&!isNaN(nb)&&va!==''&&vb!=='') ? na-nb : String(va).localeCompare(String(vb),'fr',{numeric:true,sensitivity:'base'});
       return sortBy.dir==='asc' ? cmp : -cmp;
     });
-  }, [data, sortBy]);
+  }, [data, sortBy, tcVue]);
 
   /* --- Groupement Section → UE (par organisation) → Cours --- */
   const sectionGroups = useMemo(() => {
@@ -1341,6 +1348,7 @@ export default function Attributions() {
   function resetFilters() {
     const empty = {section:'',prof_id:'',contrat:'',type_cours:'',ue_num:'',q:''};
     setFilters(empty);
+    setTcVue('');
     load(empty);
   }
 
@@ -2250,6 +2258,14 @@ export default function Attributions() {
                     <label className="block flex-1"><span className="block text-xs text-gray-600 mb-0.5">Type</span>
                       <select value={filters.type_cours} onChange={e=>{const f={...filters,type_cours:e.target.value};setFilters(f);load(f);}} className="w-full border border-gray-300 rounded px-2 py-1.5 h-9 text-sm"><option value="">—</option><option value="CT">CT</option><option value="PP">PP</option></select></label>
                   </div>
+                  <label className="block"><span className="block text-xs text-gray-600 mb-0.5">Tronc commun</span>
+                    <select value={tcVue} onChange={e=>setTcVue(e.target.value)}
+                      title="Les unités marquées « tronc commun » (ue_tc) au référentiel"
+                      className="w-full border border-gray-300 rounded px-2 py-1.5 h-9 text-sm">
+                      <option value="">— L'ensemble —</option>
+                      <option value="tc">Tronc commun uniquement</option>
+                      <option value="hors">Hors tronc commun</option>
+                    </select></label>
                   <label className="block"><span className="block text-xs text-gray-600 mb-0.5">Recherche libre</span>
                     <input value={filters.q} onChange={e=>setFilters({...filters,q:e.target.value})} onKeyDown={e=>e.key==='Enter'&&applyFilters()} placeholder="UE, cours, professeur..." className="w-full border border-gray-300 rounded px-2 py-1.5 h-9 text-sm"/></label>
                   <div className="flex gap-2 pt-1">
