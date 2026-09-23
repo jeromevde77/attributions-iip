@@ -1,6 +1,7 @@
 import { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
 import { nomPropre } from '../lib/nom.js';
 import { RailLateral } from '../components/ui.jsx';
+import SuiviEtudiant from '../components/SuiviEtudiant.jsx';
 import NouvelEtudiant from '../components/NouvelEtudiant.jsx';
 import {
   IconAddressBook, IconAlertTriangle, IconAward, IconCertificate, IconStairsUp, IconUserPlus, IconCheck, IconChecklist, IconChevronLeft, IconChevronRight, IconClock, IconFileText, IconFolder, IconPlus, IconPrinter, IconSearch, IconTable, IconTrash, IconUpload, IconUser, IconWritingSign, IconWritingSignOff, IconX,
@@ -1819,6 +1820,7 @@ function FicheEtudiant({ id, annee, onClose, position, onPrec, onSuiv,
             ['finances', 'Finances'],
             ['stages', 'Stages'],
             ['amenagements', 'Aménagements'],
+            ['suivi', 'Suivi'],
             ['dossier', 'Dossier']].map(([k, l]) => (
             <button key={k}
             onClick={() => { setOnglet(k); if (k === 'parcours' && !pae) chargerPAE(); }}
@@ -1880,6 +1882,11 @@ function FicheEtudiant({ id, annee, onClose, position, onPrec, onSuiv,
         <div className="p-6">
           {/* Inscriptions + résultats */}
           {onglet === 'va' && <Valorisations etudId={id} annee={annee} />}
+
+          {/* LE SUIVI CONFIDENTIEL — la porte est jugée par le serveur, pas
+              par l'onglet : à qui n'est ni enseignant de l'étudiant, ni sa
+              coordination, ni la direction, l'écran dit que c'est fermé. */}
+          {onglet === 'suivi' && <SuiviEtudiant etudId={id} />}
 
           {/* FINANCES : tout ce qui touche à l'argent au même endroit — droit
               d'inscription, exonérations, frais de scolarité et leurs
