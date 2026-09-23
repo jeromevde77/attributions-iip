@@ -1,0 +1,567 @@
+<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"></head><body>
+<title>Guide illustré de Lucie</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
+<style>
+  :root {
+    --ground: #F4F7FA; --card: #FFFFFF; --ink: #1B2B4B; --muted: #5B6B85;
+    --border: #DCE4EC; --accent: #00AACC; --accent-soft: #E1F5FA;
+    --warn: #B45309; --ok: #15803D;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground: #0F151E; --card: #171F2B; --ink: #E6ECF4; --muted: #93A1B5;
+      --border: #2A3547; --accent: #2BC5E4; --accent-soft: #10333D; color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --ground: #0F151E; --card: #171F2B; --ink: #E6ECF4; --muted: #93A1B5;
+    --border: #2A3547; --accent: #2BC5E4; --accent-soft: #10333D; color-scheme: dark;
+  }
+  body { background: var(--ground); color: var(--ink);
+    font-family: 'Inter', system-ui, Arial, sans-serif; margin: 0; padding: 28px 16px 60px; }
+  .page { max-width: 1060px; margin: 0 auto; }
+  .eyebrow { font-size: 11px; letter-spacing: .14em; text-transform: uppercase;
+    color: var(--accent); font-weight: 700; }
+  h1 { font-size: 27px; margin: 6px 0 8px; letter-spacing: -.01em; }
+  .intro { color: var(--muted); font-size: 14px; line-height: 1.6; max-width: 66ch; }
+  .sommaire { display: flex; flex-wrap: wrap; gap: 8px; margin: 18px 0 34px; }
+  .sommaire a { font-size: 12.5px; font-weight: 600; color: var(--ink); text-decoration: none;
+    border: 1px solid var(--border); background: var(--card); border-radius: 999px; padding: 6px 13px; }
+  .sommaire a:hover { border-color: var(--accent); color: var(--accent); }
+
+  .ecran-sec { margin-bottom: 52px; }
+  .ecran-sec h2 { font-size: 19px; margin: 0 0 2px; display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+  .num-ecran { color: var(--accent); }
+  .ou { font-size: 13px; color: var(--muted); margin: 0 0 14px; }
+  .ou b { color: var(--ink); }
+
+  /* L'écran reconstitué — toujours clair, comme une capture de Lucie */
+  .ecran { background: #FFFFFF; color: #1B2B4B; border: 1px solid var(--border);
+    border-radius: 20px; padding: 16px 16px 12px; box-shadow: 0 10px 28px rgba(15,25,45,.10);
+    position: relative; font-size: 12.5px; }
+  .ecran .defile { overflow-x: auto; }
+  .callout { position: absolute; width: 22px; height: 22px; border-radius: 999px;
+    background: var(--accent); color: #fff; font-size: 12px; font-weight: 700;
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 2px 8px rgba(0,0,0,.25); z-index: 5; }
+
+  /* briques Lucie */
+  .m-ligne { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
+  .m-select, .m-input { border: 1px solid #CBD5E0; border-radius: 8px; padding: 6px 10px;
+    font-size: 12.5px; background: #fff; color: #1B2B4B; }
+  .m-btn { border-radius: 8px; padding: 6px 12px; font-size: 12px; font-weight: 600; white-space: nowrap; }
+  .b-marine { background: #1B2B4B; color: #fff; }
+  .b-ligne { background: #fff; color: #1B2B4B; border: 1px solid #CBD5E0; }
+  .b-turq { background: #fff; color: #00849E; border: 1px solid #00AACC; }
+  .b-vert { background: #15803D; color: #fff; }
+  .b-ambre { background: #FDF3E3; color: #B45309; border: 1px solid #E8C48A; }
+  .m-annee { font-size: 11px; font-weight: 700; background: #E1ECF5; color: #1B2B4B;
+    border-radius: 999px; padding: 4px 10px; }
+  .m-chip { border: 1px solid #CBD5E0; border-radius: 999px; padding: 5px 12px; font-size: 12px; color: #5B6B85; background: #fff; }
+  .m-chip.on { background: #1B2B4B; border-color: #1B2B4B; color: #fff; font-weight: 600; }
+  .m-badge { font-size: 10px; font-weight: 700; border-radius: 999px; padding: 2px 8px; }
+  .g-turq { background: #E1F5FA; color: #00849E; }
+  .g-marine { background: #E1ECF5; color: #1B2B4B; }
+  .g-ambre { background: #FDF3E3; color: #B45309; }
+  .g-violet { background: #EFE7FB; color: #6D28D9; }
+  .g-vert { background: #E7F5EC; color: #15803D; }
+  .m-barre { display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+    background: #E1F5FA; border: 1px solid #9ADFEE; border-radius: 10px;
+    padding: 7px 12px; margin-bottom: 10px; color: #00849E; font-weight: 600; font-size: 12px; }
+  table.m { border-collapse: collapse; width: 100%; min-width: 640px; }
+  .m th { background: #F7FAFC; font-size: 10.5px; text-transform: uppercase; letter-spacing: .04em;
+    color: #5B6B85; text-align: left; padding: 7px 10px; border-bottom: 1px solid #E4EAF1; }
+  .m td { padding: 7px 10px; border-bottom: 1px solid #EDF1F6; }
+  .m .c { text-align: center; }
+  .k { display: inline-block; width: 14px; height: 14px; border-radius: 3px;
+    border: 1.5px solid #B9C5D3; vertical-align: middle; position: relative; }
+  .k.plein { background: #1B2B4B; border-color: #1B2B4B; }
+  .k.vert { background: #059669; border-color: #059669; }
+  .k.rouge { background: #E11D48; border-color: #E11D48; }
+  .k.att { border: 2px dashed #1a9aa0; background: rgba(26,154,160,.15); }
+  .k.doux { background: #E7F5EC; border-color: #9CC9AB; }
+  .k.vert::after, .k.doux::after { content: "✓"; color: #fff; font-size: 9.5px;
+    position: absolute; inset: 0; line-height: 14px; text-align: center; }
+  .k.doux::after { color: #15803D; }
+  .k.rouge::after { content: "✗"; color: #fff; font-size: 9.5px; position: absolute; inset: 0;
+    line-height: 14px; text-align: center; }
+  .note-a { font-size: 10px; color: #B45309; }
+  .m-onglets { display: flex; gap: 2px; border-bottom: 1px solid #E4EAF1; margin-bottom: 12px; flex-wrap: wrap; }
+  .m-onglet { padding: 6px 12px 8px; font-size: 12.5px; color: #5B6B85; border-bottom: 2px solid transparent; }
+  .m-onglet.on { color: #1B2B4B; font-weight: 600; border-bottom-color: #00AACC; }
+  .m-orgchip { padding: 2px 9px; border-radius: 999px; font-size: 10.5px; font-weight: 700;
+    border: 1px solid #CBD5E0; color: #1B2B4B; background: #fff; }
+  .m-orgchip.on { background: #1B2B4B; color: #fff; border-color: #1B2B4B; }
+  .m-orgchip.alerte { background: #FDF3E3; color: #B45309; border-color: #E8C48A; }
+  .m-etape { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; margin-bottom: 12px; }
+  .m-etape span { font-size: 11px; font-weight: 600; color: #5B6B85; padding: 4px 10px;
+    border-radius: 999px; border: 1px solid #E4EAF1; background: #F7FAFC; }
+  .m-etape span.on { background: #1B2B4B; color: #fff; border-color: #1B2B4B; }
+  .m-etape i { color: #B9C5D3; font-style: normal; }
+  .m-rail { position: absolute; left: -14px; top: 90px; display: flex; flex-direction: column; gap: 8px; }
+  .m-rail span { width: 30px; height: 30px; border-radius: 999px; background: #1B2B4B; color: #fff;
+    display: flex; align-items: center; justify-content: center; font-size: 13px;
+    box-shadow: 0 3px 8px rgba(15,25,45,.25); }
+
+  .annos { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 13px 22px; margin-top: 22px; }
+  .anno { display: flex; gap: 10px; font-size: 13.5px; line-height: 1.55; color: var(--muted); }
+  .anno b { color: var(--ink); }
+  .anno .n { flex: 0 0 22px; width: 22px; height: 22px; border-radius: 999px;
+    background: var(--accent); color: #fff; font-size: 12px; font-weight: 700;
+    display: flex; align-items: center; justify-content: center; margin-top: 1px; }
+  .fin { background: var(--card); border: 1px solid var(--border); border-left: 3px solid var(--accent);
+    border-radius: 14px; padding: 14px 18px; font-size: 13.5px; line-height: 1.6; color: var(--muted); }
+  .fin b { color: var(--ink); }
+</style>
+
+<div class="page">
+  <div class="eyebrow">Lucie · Institut Ilya Prigogine · v2.12.128</div>
+  <h1>Le guide illustré de Lucie</h1>
+  <p class="intro">Un écran par page : l'écran tel qu'il se présente, des pastilles numérotées,
+    et l'explication de chaque zone — <b>où l'on est, ce qu'on y fait, ce qui s'écrit</b>.
+    Les données sont des exemples. Huit écrans du quotidien pour commencer ;
+    les autres s'ajoutent au fil de l'eau.</p>
+  <nav class="sommaire">
+    <a href="#etudiants">1 · Étudiants — la liste</a>
+    <a href="#composer">2 · Composer les PAE</a>
+    <a href="#plan">3 · Délibération — le plan</a>
+    <a href="#feuille">4 · La feuille de délibération</a>
+    <a href="#repartition">5 · Répartition des étudiants</a>
+    <a href="#importdp">6 · Import des dossiers pédagogiques</a>
+    <a href="#personnel">7 · Personnel — la liste</a>
+    <a href="#vamatrice">8 · VA/VAE — la matrice</a>
+  </nav>
+
+  <!-- ══ 1 · ÉTUDIANTS ══════════════════════════════════════════════════ -->
+  <section class="ecran-sec" id="etudiants">
+    <h2><span class="num-ecran">1 ·</span> Étudiants — la liste</h2>
+    <p class="ou">Où : axe <b>Étudiants</b>. C'est la porte d'entrée des dossiers : chercher,
+      filtrer, sélectionner — et agir sur la sélection.</p>
+    <div class="ecran">
+      <div class="callout" style="top:52px; left:-9px;">1</div>
+      <div class="callout" style="top:96px; right:-9px;">2</div>
+      <div class="callout" style="top:150px; left:-9px;">3</div>
+      <div class="callout" style="top:150px; right:-9px;">4</div>
+      <div class="m-rail" title="Le rail de l'axe"><span>🖨</span><span>➕</span><span>🎓</span><span>⇄</span></div>
+      <div class="m-ligne">
+        <select class="m-select"><option>Section : AESI</option></select>
+        <input class="m-input" placeholder="Rechercher — nom, matricule" size="20">
+        <select class="m-select"><option>Toutes les UE</option></select>
+        <span class="m-annee">2026-2027</span>
+      </div>
+      <div class="m-barre">3 étudiant(s) sélectionné(s)
+        <span style="font-weight:400;color:#B45309">dont 2 affichés — 1 caché par les filtres</span>
+        <span style="margin-left:auto;display:flex;gap:6px;flex-wrap:wrap">
+          <span class="m-btn b-marine">🖨 Imprimer</span>
+          <span class="m-btn b-turq">Coordonnées</span>
+          <span class="m-btn b-turq">Composer les PAE</span>
+          <span class="m-btn b-ligne">Vider</span>
+        </span>
+      </div>
+      <div class="defile"><table class="m">
+        <tr><th style="width:26px"><span class="k plein" style="border-radius:3px"></span></th>
+          <th>Étudiant</th><th>Email</th><th>Section</th><th class="c">UE</th></tr>
+        <tr><td class="c"><span class="k vert"></span></td><td><b>Bakala</b> Inès</td>
+          <td style="color:#5B6B85">i.bakala@etu…</td><td><span class="m-badge g-turq">AESI</span></td><td class="c">7</td></tr>
+        <tr><td class="c"><span class="k vert"></span></td><td><b>Costa</b> Rafael</td>
+          <td style="color:#5B6B85">r.costa@etu…</td><td><span class="m-badge g-turq">AESI</span></td><td class="c">7</td></tr>
+        <tr><td class="c"><span class="k"></span></td><td><b>Lambert</b> Julie
+          <span class="m-badge g-ambre">sans section</span></td>
+          <td style="color:#5B6B85">j.lambert@etu…</td><td>—</td><td class="c">0</td></tr>
+      </table></div>
+    </div>
+    <div class="annos">
+      <div class="anno"><span class="n">1</span><span><b>Le rail, à gauche.</b> Les portes de
+        l'axe : le centre d'impression (la bulle du haut), inscrire un étudiant, la fin de cycle
+        (Composer les PAE, diplômes), importer/exporter. Une porte par geste.</span></div>
+      <div class="anno"><span class="n">2</span><span><b>Les filtres construisent la liste</b> —
+        section, recherche, unité. La <b>sélection survit aux filtres</b> : c'est voulu, et le
+        compteur dit combien de cochés sont affichés ou cachés.</span></div>
+      <div class="anno"><span class="n">3</span><span><b>La barre turquoise</b> apparaît dès
+        qu'on coche : c'est sur la <b>sélection entière</b> qu'agissent Imprimer (le centre
+        d'impression), <b>Coordonnées</b> (la liste imprimable : e-mails, GSM, adresse) et
+        Composer les PAE.</span></div>
+      <div class="anno"><span class="n">4</span><span><b>Une ligne = un dossier.</b> Le clic
+        ouvre la fiche (parcours, notes, VA, pièces). Un étudiant sans section se signale — il
+        n'est visible que de la direction tant qu'il n'est pas rattaché.</span></div>
+    </div>
+  </section>
+
+  <!-- ══ 2 · COMPOSER LES PAE ═══════════════════════════════════════════ -->
+  <section class="ecran-sec" id="composer">
+    <h2><span class="num-ecran">2 ·</span> Composer les PAE <span class="m-badge g-turq">2.12.127</span></h2>
+    <p class="ou">Où : <b>Étudiants → rail → Fin de cycle → Composer les PAE</b> (l'escalier).
+      Une ligne par étudiant, une colonne par UE — composer le programme, ou encoder l'historique.</p>
+    <div class="ecran">
+      <div class="callout" style="top:50px; left:-9px;">1</div>
+      <div class="callout" style="top:50px; right:-9px;">2</div>
+      <div class="callout" style="top:100px; left:-9px;">3</div>
+      <div class="callout" style="bottom:120px; right:-9px;">4</div>
+      <div class="callout" style="bottom:56px; left:-9px;">5</div>
+      <div class="m-ligne">
+        <select class="m-select"><option>AESI</option></select>
+        <select class="m-select"><option>2024-2025</option></select>
+        <select class="m-select"><option>Tous les niveaux</option></select>
+        <label style="font-size:12px;color:#5B6B85"><input type="checkbox" checked> Nouveaux inscrits</label>
+        <span style="margin-left:auto;display:inline-flex;border:1px solid #CBD5E0;border-radius:8px;overflow:hidden">
+          <span class="m-btn" style="border-radius:0;background:#fff;color:#5B6B85">Composer</span>
+          <span class="m-btn b-marine" style="border-radius:0">Encoder l'historique</span>
+        </span>
+      </div>
+      <div class="m-ligne" style="border:1px solid #E4EAF1;border-radius:12px;padding:8px 12px">
+        <b style="color:#1B2B4B;font-size:12.5px">Résultats de 2024-2025</b>
+        <span style="display:inline-flex;border:1px solid #CBD5E0;border-radius:8px;overflow:hidden">
+          <span class="m-btn" style="border-radius:0;background:#00AACC;color:#fff;padding:4px 10px">Coche</span>
+          <span class="m-btn" style="border-radius:0;background:#fff;color:#5B6B85;padding:4px 10px">Note</span>
+        </span>
+        <span style="color:#5B6B85;font-size:12px">Un clic : réussi → refusé → effacé. Sur une case vide, il inscrit aussi.</span>
+        <span class="m-btn b-ligne" style="margin-left:auto">Importer un historique (Excel)…</span>
+      </div>
+      <div class="defile"><table class="m">
+        <tr><th>Étudiant</th><th class="c">331</th><th class="c">332</th><th class="c">333</th><th class="c">334</th></tr>
+        <tr><td><b>BAKALA</b> Inès <span class="m-badge g-turq">primo</span></td>
+          <td class="c"><span class="k vert"></span></td><td class="c"><span class="k vert"></span></td>
+          <td class="c"><span class="k rouge"></span></td><td class="c"><span class="k" style="border-style:dashed"></span></td></tr>
+        <tr><td><b>COSTA</b> Rafael</td>
+          <td class="c"><span class="k vert"></span></td><td class="c"><span class="m-badge g-violet">VA</span></td>
+          <td class="c"><span class="k plein" style="opacity:.35"></span></td><td class="c"><span class="k" style="border-style:dashed"></span></td></tr>
+        <tr><td><b>GÉRARD</b> Noah</td>
+          <td class="c"><span class="k att"></span></td><td class="c"><span class="k att"></span></td>
+          <td class="c"><span class="k att"></span></td><td class="c"><span class="k att"></span></td></tr>
+      </table></div>
+      <div class="m-ligne" style="margin-top:10px">
+        <span class="m-btn b-marine">Enregistrer 6 résultat(s) — 2024-2025</span>
+        <span class="m-btn b-ligne">Annuler</span>
+        <span style="color:#5B6B85;font-size:11.5px">Rien n'est encore écrit.</span>
+      </div>
+    </div>
+    <div class="annos">
+      <div class="anno"><span class="n">1</span><span><b>L'année du sélecteur fait foi.</b> Tout
+        ce qu'on coche ou note s'écrit pour CETTE année. Échoué en 2024-2025 puis réussi en
+        2025-2026 : deux passages, un par année. Si le référentiel ne couvre pas l'année, les
+        colonnes viennent des autres années.</span></div>
+      <div class="anno"><span class="n">2</span><span><b>Deux modes.</b> « Composer » inscrit et
+        retire des UE (avec Vérifier avant d'écrire) ; « Encoder l'historique » pose les
+        résultats. Le filtre <b>Nouveaux inscrits</b> isole les primo — aucune trace dans une
+        année antérieure — pour leur donner le <b>PAE de base BA1</b> d'un geste.</span></div>
+      <div class="anno"><span class="n">3</span><span><b>Coche ou Note, deux vues du même
+        fait.</b> La coche cycle réussi (vert ✓) → refusé (rouge ✗) → effacé. La note décide :
+        ≥ 10 pose le vert, &lt; 10 le rouge, vidée elle efface — et la coche suit dans l'autre
+        vue. « Importer un historique » ouvre le tableau plat Excel sur l'année choisie.</span></div>
+      <div class="anno"><span class="n">4</span><span><b>Les états d'une case</b> : vert = réussi,
+        rouge = refusé, plein pâle = inscrit sans résultat, pointillé = non inscrit,
+        contour turquoise = changement en attente, <b>VA</b> = valorisation (ne se touche pas ici).</span></div>
+      <div class="anno"><span class="n">5</span><span><b>Rien ne s'écrit avant Enregistrer</b>,
+        qui annonce le compte et l'année. En mode Composer, « Vérifier » simule d'abord et
+        montre ce qui serait refusé (résultat encodé, notes déjà saisies).</span></div>
+    </div>
+  </section>
+
+  <!-- ══ 3 · DÉLIBÉRATION — LE PLAN ═════════════════════════════════════ -->
+  <section class="ecran-sec" id="plan">
+    <h2><span class="num-ecran">3 ·</span> Délibération — le plan <span class="m-badge g-turq">2.12.125</span></h2>
+    <p class="ou">Où : axe <b>Délibération</b>. Une ligne par UE de la section : où elle en est,
+      et les gestes pour avancer.</p>
+    <div class="ecran">
+      <div class="callout" style="top:64px; left:-9px;">1</div>
+      <div class="callout" style="top:64px; right:-9px;">2</div>
+      <div class="callout" style="top:116px; right:-9px;">3</div>
+      <div class="defile"><table class="m" style="min-width:760px">
+        <tr><th>Unité</th><th>État</th><th style="text-align:right">Gestes</th></tr>
+        <tr>
+          <td><b>UE 333</b> · Fondements infirmiers <span style="color:#8593A8">— 12 inscrits</span></td>
+          <td><span style="color:#5B6B85;font-size:11.5px">8 / 12 décidés</span></td>
+          <td style="text-align:right;white-space:nowrap">
+            <span class="m-btn b-ligne" style="border-color:#1B2B4B;color:#1B2B4B">Délibérer S1</span>
+            <span class="m-btn b-turq">Répartir (2 org.)</span>
+            <span class="m-btn b-ligne">Encoder par cours</span>
+            <span class="m-btn b-ligne">Corriger</span>
+          </td>
+        </tr>
+        <tr>
+          <td><b>UE 334</b> · Sciences biomédicales <span style="color:#8593A8">— 12 inscrits</span></td>
+          <td><span style="color:#15803D;font-size:11.5px">S1 close · 3 ajourné(s)</span></td>
+          <td style="text-align:right;white-space:nowrap">
+            <span class="m-btn b-ambre">Délibérer S2</span>
+            <span class="m-btn b-ligne">Encoder par cours</span>
+          </td>
+        </tr>
+      </table></div>
+    </div>
+    <div class="annos">
+      <div class="anno"><span class="n">1</span><span><b>La session ne se choisit pas, elle se
+        déduit.</b> Le bouton dit celle qui reste à faire : S1 tant que tout le monde n'est pas
+        décidé ; S2 dès que la première est close et laisse des ajournés (le bouton passe en
+        ambre).</span></div>
+      <div class="anno"><span class="n">2</span><span><b>« Répartir (N org.) »</b> n'apparaît que
+        sur les unités à plusieurs organisations : on y range les étudiants (Org 1 / Org 2)
+        <b>avant</b> de délibérer — car la délibération se tient par organisation.</span></div>
+      <div class="anno"><span class="n">3</span><span><b>Trois façons d'encoder</b> les notes :
+        la feuille (Délibérer), cours par cours, ou toute l'UE dans une grille. « Corriger »
+        rouvre une note et sa décision après coup, en le journalisant.</span></div>
+    </div>
+  </section>
+
+  <!-- ══ 4 · LA FEUILLE DE DÉLIBÉRATION ═════════════════════════════════ -->
+  <section class="ecran-sec" id="feuille">
+    <h2><span class="num-ecran">4 ·</span> La feuille de délibération <span class="m-badge g-turq">2.12.120 + 122</span></h2>
+    <p class="ou">Où : Délibération → <b>« Délibérer S1 »</b> sur une UE. La séance du Conseil,
+      de l'appel des présences à la clôture.</p>
+    <div class="ecran">
+      <div class="callout" style="top:46px; left:-9px;">1</div>
+      <div class="callout" style="top:98px; left:-9px;">2</div>
+      <div class="callout" style="top:150px; right:-9px;">3</div>
+      <div class="callout" style="bottom:64px; left:-9px;">4</div>
+      <div class="m-ligne">
+        <b style="font-size:13.5px">UE 333 · Fondements infirmiers</b>
+        <span style="color:#5B6B85;font-size:11.5px">AESI · 2026-2027 · 12 étudiant(s)</span>
+        <span style="margin-left:auto;display:flex;gap:6px">
+          <span class="m-btn b-ligne">Vue tableau</span>
+          <span class="m-btn b-marine">Documents…</span>
+        </span>
+      </div>
+      <div class="m-ligne">
+        <span class="m-orgchip">Toute l'unité</span>
+        <span class="m-orgchip on">Organisation 1 (6)</span>
+        <span class="m-orgchip">Organisation 2 (5)</span>
+        <span class="m-orgchip alerte">Non répartis (1)</span>
+        <span class="m-orgchip" style="border-style:dashed;color:#00849E;border-color:#00AACC">Répartir…</span>
+      </div>
+      <div class="m-etape">
+        <span class="on">Présences</span><i>→</i><span>Réussites de plein droit</span><i>→</i>
+        <span>Fiches, un étudiant à la fois</span><i>→</i><span>Clôture</span>
+      </div>
+      <div class="defile"><table class="m">
+        <tr><th>Membre du Conseil — Organisation 1</th><th>Qualité</th><th class="c">Présent</th></tr>
+        <tr><td>V. DUCHÈNE</td><td style="color:#5B6B85">Professeur · 333.1, 333.2</td><td class="c"><span class="k vert"></span></td></tr>
+        <tr><td>Coordination AESI</td><td style="color:#5B6B85">Coordination</td><td class="c"><span class="k vert"></span></td></tr>
+        <tr><td>C. SOHET</td><td style="color:#5B6B85">Direction — préside</td><td class="c"><span class="k vert"></span></td></tr>
+      </table></div>
+      <div class="m-ligne" style="margin-top:10px">
+        <span class="m-btn b-marine">Clôturer la séance — Organisation 1</span>
+        <span style="color:#5B6B85;font-size:11.5px">Quorum : 3 / 3 voix délibératives ✓</span>
+      </div>
+    </div>
+    <div class="annos">
+      <div class="anno"><span class="n">1</span><span><b>Plusieurs organisations, plusieurs
+        Conseils.</b> Les onglets restreignent TOUT à l'organisation choisie : ses étudiants,
+        ses présences, sa clôture, ses pièces. « Non répartis » en orange tant qu'il reste
+        quelqu'un à ranger — « Répartir… » ouvre la fenêtre.</span></div>
+      <div class="anno"><span class="n">2</span><span><b>La séance suit ses étapes.</b> Les
+        présences d'abord — le Conseil proposé est celui des professeurs <b>de cette
+        organisation</b> ; puis les réussites de plein droit, puis les fiches (la matrice
+        acquis × cours de chaque étudiant : le calcul propose, le Conseil décide).</span></div>
+      <div class="anno"><span class="n">3</span><span><b>« Documents… »</b> ouvre le centre
+        d'impression sur l'unité et la session en cours : PV, grille, notifications — restreints
+        à l'organisation affichée.</span></div>
+      <div class="anno"><span class="n">4</span><span><b>La clôture constate.</b> Le quorum des
+        deux tiers (RGE art. 25) se vérifie ici, sur les voix délibératives de CE Conseil ; les
+        motivations restées telles que proposées se confirment une fois, en les nommant. Clore
+        l'organisation 1 <b>laisse la 2 ouverte</b> — et la session de l'unité n'est close que
+        quand toutes le sont.</span></div>
+    </div>
+  </section>
+
+  <!-- ══ 5 · RÉPARTITION DES ÉTUDIANTS ══════════════════════════════════ -->
+  <section class="ecran-sec" id="repartition">
+    <h2><span class="num-ecran">5 ·</span> Répartition des étudiants <span class="m-badge g-turq">2.12.126</span></h2>
+    <p class="ou">Où : <b>Organisation → Répartition des étudiants</b>. Le croisement
+      attributions × PAE : pour chaque cours, qui a cours dans quel groupe.</p>
+    <div class="ecran">
+      <div class="callout" style="top:48px; left:-9px;">1</div>
+      <div class="callout" style="top:104px; right:-9px;">2</div>
+      <div class="callout" style="top:160px; left:-9px;">3</div>
+      <div class="callout" style="bottom:56px; right:-9px;">4</div>
+      <div class="m-ligne">
+        <select class="m-select"><option>Section : AESI</option></select>
+        <span class="m-annee">2026-2027</span>
+        <span style="margin-left:auto;display:flex;gap:6px;flex-wrap:wrap">
+          <span class="m-btn b-turq">Proposer depuis la délibération</span>
+          <span class="m-btn b-marine">Enregistrer (5 changements)</span>
+        </span>
+      </div>
+      <div class="m-ligne">
+        <span class="m-chip on">UE 333 · Fondements — 12 inscrits · 2 org.</span>
+        <span class="m-chip">UE 334 — 12 inscrits</span>
+      </div>
+      <div class="defile"><table class="m" style="min-width:720px">
+        <tr><th rowspan="2" style="vertical-align:bottom">Étudiant</th>
+          <th colspan="3" class="c" style="border-left:2px solid #E4EAF1">333.1 · Anatomie — 3 groupes · plafond 4</th>
+          <th class="c" style="border-left:2px solid #E4EAF1">333.3 · AIP — sans groupe</th></tr>
+        <tr><th class="c" style="color:#00849E">Org 1·A<br><span style="font-weight:400;color:#8593A8">V. Duchène</span></th>
+          <th class="c" style="color:#00849E">Org 1·B<br><span style="font-weight:400;color:#8593A8">P. Marlier</span></th>
+          <th class="c" style="color:#00849E">Org 2<br><span style="font-weight:400;color:#8593A8">C. Robert</span></th>
+          <th class="c" style="color:#15803D">Tous<br><span style="font-weight:400;color:#8593A8">M. Haddad</span></th></tr>
+        <tr><td>Bakala Inès <span class="m-badge g-turq">Org 1</span></td>
+          <td class="c"><span class="k" style="background:#00AACC;border-color:#00AACC"></span></td>
+          <td class="c"><span class="k"></span></td><td class="c"><span class="k"></span></td>
+          <td class="c"><span class="k doux"></span></td></tr>
+        <tr style="background:#FFFBF2"><td>Delvaux Chloé <span class="m-badge g-turq">Org 1</span>
+          <span class="note-a"><br>⚠ 1 cours sans groupe</span></td>
+          <td class="c"><span class="k"></span></td><td class="c"><span class="k"></span></td>
+          <td class="c"><span class="k"></span></td><td class="c"><span class="k doux"></span></td></tr>
+        <tr><td><b>Effectif par groupe</b></td><td class="c"><b>4</b></td>
+          <td class="c" style="color:#B45309"><b>5 ⚠</b></td><td class="c"><b>3</b></td>
+          <td class="c"><b>12</b></td></tr>
+      </table></div>
+    </div>
+    <div class="annos">
+      <div class="anno"><span class="n">1</span><span><b>Section → UE → tableau.</b> Les
+        colonnes viennent des attributions (organisation, lettre, professeur) : rien à
+        re-saisir, si l'attribution change la colonne suit. Les lignes viennent du PAE.</span></div>
+      <div class="anno"><span class="n">2</span><span><b>La case dit « il a cours ici »</b> —
+        une par cours et par étudiant. Cocher hors de l'organisation de délibération demande
+        <b>confirmation</b> ; un cours « sans groupe » est coché « Tous » d'office.</span></div>
+      <div class="anno"><span class="n">3</span><span><b>« Proposer depuis la délibération »</b>
+        pré-range chacun dans son organisation quand un seul groupe la porte ; on ne corrige
+        que les exceptions. Les lignes incomplètes passent en ambre et se nomment.</span></div>
+      <div class="anno"><span class="n">4</span><span><b>Le plafond est suggéré.</b> Réglé sur
+        la fiche du cours au Référentiel (« Plafond / groupe »), il met l'effectif en orange ⚠
+        quand un groupe le dépasse — sans bloquer. Rien ne s'écrit avant Enregistrer.</span></div>
+    </div>
+  </section>
+
+  <!-- ══ 6 · IMPORT DES DOSSIERS PÉDAGOGIQUES ═══════════════════════════ -->
+  <section class="ecran-sec" id="importdp">
+    <h2><span class="num-ecran">6 ·</span> Import des dossiers pédagogiques <span class="m-badge g-turq">2.12.117 + 121 + 123</span></h2>
+    <p class="ou">Où : <b>Référentiels → Import des dossiers pédagogiques FWB</b>. Les PDF de la
+      Fédération (ou .docx), déposés en lot.</p>
+    <div class="ecran">
+      <div class="callout" style="top:46px; left:-9px;">1</div>
+      <div class="callout" style="top:104px; right:-9px;">2</div>
+      <div class="callout" style="bottom:110px; left:-9px;">3</div>
+      <div class="callout" style="bottom:48px; right:-9px;">4</div>
+      <div class="m-ligne" style="border:2px dashed #9ADFEE;border-radius:12px;padding:10px 14px;color:#00849E">
+        📄 3 dossier(s) sélectionné(s) — 824132U21V1 Fondements…, 824140U21V2 Physiologie…, …
+      </div>
+      <div style="border:1px solid #9ADFEE;border-radius:12px;overflow:hidden">
+        <div style="background:#E1F5FA;padding:6px 12px;font-size:11px;font-weight:700;color:#00849E;text-transform:uppercase">Résultat de l'analyse — 3/3 lus</div>
+        <div style="padding:9px 12px;border-bottom:1px solid #EDF1F6">
+          <b style="color:#00849E">↻ UE 333</b> Fondements infirmiers
+          <span style="color:#8593A8"> · 3 cours · 8 acquis · 824132U21V1</span>
+          <div class="m-ligne" style="margin:6px 0 4px 14px">🔗
+            <select class="m-select" style="padding:3px 8px;font-size:11.5px"><option>UE 333 — Fondements infirmiers (AESI)</option></select>
+          </div>
+          <div style="margin-left:14px;border-left:2px solid #9ADFEE;padding:4px 0 2px 10px">
+            <div style="font-size:10px;color:#8593A8;text-transform:uppercase">Correspondance des cours — 2 rattachés, 1 à créer</div>
+            <div class="m-ligne" style="margin:4px 0 0"><span style="flex:1;color:#5B6B85">Anatomie fonctionnelle · 60 pér.</span>
+              <select class="m-select" style="padding:2px 7px;font-size:11px;border-color:#86D9A8;color:#15803D"><option>333.1 — Anatomie fonctionnelle</option></select></div>
+            <div class="m-ligne" style="margin:4px 0 0"><span style="flex:1;color:#5B6B85">Éducation à la santé · 30 pér.</span>
+              <select class="m-select" style="padding:2px 7px;font-size:11px;border-color:#E8C48A;color:#B45309"><option>➕ Créer ce cours</option></select></div>
+          </div>
+        </div>
+      </div>
+      <div class="m-ligne" style="margin-top:10px">
+        <span class="m-btn b-marine">Confirmer l'import de 3 dossier(s)</span>
+      </div>
+    </div>
+    <div class="annos">
+      <div class="anno"><span class="n">1</span><span><b>Tout se dépose ensemble</b>, puis
+        « Analyser » : rien n'est écrit tant que la liste complète n'a pas été montrée, dossier
+        par dossier.</span></div>
+      <div class="anno"><span class="n">2</span><span><b>Le sélecteur d'UE</b> sous chaque
+        dossier — reconnu (prérempli avec l'UE trouvée par code FWB) ou nouveau. On peut
+        <b>rediriger vers l'UE existante</b> : elle reçoit le code FWB et les prochains imports
+        la retrouvent seuls. Un rappel orange invite à supprimer le doublon éventuel.</span></div>
+      <div class="anno"><span class="n">3</span><span><b>La correspondance des cours.</b> Une
+        ligne par cours du dossier : vert = rattacher au cours existant (proposé automatiquement,
+        accents et casse ignorés — le cours reçoit classement et périodes), orange = créer.
+        Plus aucun cours doublé en silence.</span></div>
+      <div class="anno"><span class="n">4</span><span><b>Confirmer écrit</b>, et le compte rendu
+        dit ce qui a été fait : UE mises à jour ou créées, cours rattachés / créés, acquis.</span></div>
+    </div>
+  </section>
+
+  <!-- ══ 7 · PERSONNEL — LA LISTE ═══════════════════════════════════════ -->
+  <section class="ecran-sec" id="personnel">
+    <h2><span class="num-ecran">7 ·</span> Personnel — la liste <span class="m-badge g-turq">2.12.116</span></h2>
+    <p class="ou">Où : axe <b>Personnel</b>. Les membres, leurs charges — et les documents en lot
+      sur la sélection.</p>
+    <div class="ecran">
+      <div class="callout" style="top:48px; right:-9px;">1</div>
+      <div class="callout" style="top:104px; left:-9px;">2</div>
+      <div class="m-ligne">
+        <input class="m-input" placeholder="Rechercher" size="14">
+        <select class="m-select"><option>Contrat : tous</option></select>
+        <select class="m-select"><option>Section : toutes</option></select>
+        <span style="margin-left:auto;display:flex;gap:6px;flex-wrap:wrap">
+          <span class="m-btn b-vert">Contrats PDF (3)</span>
+          <span class="m-btn" style="background:#6D28D9;color:#fff">🖨 Imprimer (3) ▾</span>
+          <span class="m-btn b-vert">ZIP (3) ▾</span>
+          <span class="m-btn" style="background:#1B2B4B;color:#fff">Coordonnées (3)</span>
+        </span>
+      </div>
+      <div class="defile"><table class="m">
+        <tr><th style="width:26px"></th><th>Nom et prénom</th><th>Statut</th><th class="c">Total année</th><th class="c">Anc. PO</th></tr>
+        <tr><td class="c"><span class="k vert"></span></td><td><b>DUCHÈNE</b> Valérie</td>
+          <td><span class="m-badge g-marine">CC</span></td><td class="c">312</td><td class="c">6</td></tr>
+        <tr><td class="c"><span class="k vert"></span></td><td><b>MARLIER</b> Pierre</td>
+          <td><span class="m-badge g-marine">MDP</span></td><td class="c">540</td><td class="c">11</td></tr>
+        <tr><td class="c"><span class="k vert"></span></td><td><b>ROBERT</b> Claire</td>
+          <td><span class="m-badge g-ambre">EXP</span></td><td class="c">96</td><td class="c">—</td></tr>
+      </table></div>
+    </div>
+    <div class="annos">
+      <div class="anno"><span class="n">1</span><span><b>La sélection ouvre les lots.</b>
+        Contrats CDD en PDF (un par membre, en ZIP), fiches d'attributions imprimées (Global /
+        IIP / HELB), et <b>Coordonnées</b> — la liste imprimable : e-mails IIP et privé,
+        Tél./GSM, adresse. Une coordination n'y voit que ses sections.</span></div>
+      <div class="anno"><span class="n">2</span><span><b>Une ligne = un membre.</b> Le clic ouvre
+        le dossier : identité, coordonnées, charges, contrats, dossiers RH, accès Lucie. Les
+        lignes d'expert (EXP) relèvent d'un contrat distinct — les documents le disent quand
+        elles sont écartées.</span></div>
+    </div>
+  </section>
+
+  <!-- ══ 8 · VA/VAE — LA MATRICE ════════════════════════════════════════ -->
+  <section class="ecran-sec" id="vamatrice">
+    <h2><span class="num-ecran">8 ·</span> VA/VAE — la matrice <span class="m-badge g-turq">2.12.118</span></h2>
+    <p class="ou">Où : axe Étudiants → <b>Valorisation des acquis</b>, onglet matrice. Encoder les
+      demandes en bloc — par section, les étudiants en lignes, les UE en colonnes.</p>
+    <div class="ecran">
+      <div class="callout" style="top:48px; left:-9px;">1</div>
+      <div class="callout" style="top:104px; right:-9px;">2</div>
+      <div class="callout" style="bottom:52px; left:-9px;">3</div>
+      <div class="m-ligne">
+        <select class="m-select"><option>Section : AESI</option></select>
+        <span class="m-annee">2026-2027</span>
+        <span style="color:#5B6B85;font-size:11.5px">Les colonnes n'offrent que ce qui se valorise — pas d'épreuve intégrée.</span>
+      </div>
+      <div class="defile"><table class="m">
+        <tr><th>Étudiant</th><th class="c">331</th><th class="c">332</th><th class="c">333</th><th class="c">Admission</th></tr>
+        <tr><td><b>COSTA</b> Rafael</td><td class="c"><span class="k vert"></span></td>
+          <td class="c"><span class="k"></span></td><td class="c"><span class="m-badge g-violet">ouverte</span></td>
+          <td class="c"><span class="k"></span></td></tr>
+        <tr><td><b>EL AMRANI</b> Yasmine</td><td class="c"><span class="k"></span></td>
+          <td class="c"><span class="k vert"></span></td><td class="c"><span class="k"></span></td>
+          <td class="c"><span class="k vert"></span></td></tr>
+      </table></div>
+      <div class="m-ligne" style="margin-top:10px">
+        <span class="m-btn b-marine">Ouvrir 3 demande(s)</span>
+        <span style="color:#5B6B85;font-size:11.5px">Chaque dossier suit ensuite son circuit : recevabilité → avis → décision.</span>
+      </div>
+    </div>
+    <div class="annos">
+      <div class="anno"><span class="n">1</span><span><b>La matrice ouvre les dossiers</b> en
+        bloc : une case cochée = une demande reçue pour cette UE (ou une admission de section).
+        Un dossier déjà ouvert se montre, on n'y touche pas d'ici.</span></div>
+      <div class="anno"><span class="n">2</span><span><b>Le périmètre s'applique partout</b>
+        depuis la 2.12.118 : une coordination ne voit — et n'instruit — que ses sections, sur
+        la matrice comme sur le registre, l'analyse, les dossiers et leurs pièces. La direction
+        voit tout.</span></div>
+      <div class="anno"><span class="n">3</span><span><b>Le circuit continue ailleurs</b> : le
+        registre (où en est chaque dossier), l'analyse par UE/étudiant/section, la séance de
+        valorisation et ses pièces. La décision appartient au Conseil ; la validation, à la
+        direction.</span></div>
+    </div>
+  </section>
+
+  <div class="fin">
+    <b>La suite du guide :</b> les écrans s'ajoutent au fil de l'eau — Attributions (la grille),
+    la fiche étudiant, la fiche membre du personnel, le centre d'impression, le Référentiel,
+    Recrutement, les accès. Dites lesquels vous voulez en premier. À terme, ce guide peut vivre
+    <b>dans Lucie</b> (module Documentation), pour que chacun l'ait sous la main.
+  </div>
+</div>
+</body></html>
