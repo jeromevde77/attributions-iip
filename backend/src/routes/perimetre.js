@@ -37,6 +37,21 @@ r.get('/arborescence', authRequired, (req, res) => {
   let unites = db.prepare(`
     SELECT ue_num, ue_nom, section FROM ue
     WHERE annee_scolaire = ? ORDER BY section, ue_num`).all(annee);
+  if (!unites.length) {
+    /* UNE ANNÉE RECONSTRUITE N'A PAS DE RÉFÉRENTIEL — ELLE A DES RÉSULTATS.
+       2024-2025 vit par ses inscriptions importées : les unités et leurs
+       sections se relisent de là (nom et section : la version la plus
+       récente connue), sans quoi aucune pièce de ces années ne peut sortir
+       du centre d'impression. */
+    unites = db.prepare(`
+      SELECT DISTINCT i.ue_num,
+        (SELECT ue_nom FROM ue x WHERE x.ue_num = i.ue_num AND x.ue_nom IS NOT NULL
+          ORDER BY x.annee_scolaire DESC LIMIT 1) AS ue_nom,
+        (SELECT section FROM ue x WHERE x.ue_num = i.ue_num AND x.section IS NOT NULL
+          ORDER BY x.annee_scolaire DESC LIMIT 1) AS section
+      FROM etudiant_inscription i WHERE i.annee_scolaire = ?
+      ORDER BY 3, 1`).all(annee);
+  }
   if (perim) unites = unites.filter(u => !u.section || perim.includes(u.section));
 
   const cours = db.prepare(`
