@@ -5,6 +5,7 @@ import SuiviEtudiant from '../components/SuiviEtudiant.jsx';
 import NouvelEtudiant from '../components/NouvelEtudiant.jsx';
 import {
   IconAddressBook, IconAlertTriangle, IconArchive, IconDoorExit, IconSchool, IconArrowBackUp, IconAward, IconCertificate, IconStairsUp, IconUserPlus, IconCheck, IconChecklist, IconChevronLeft, IconChevronRight, IconClock, IconFileText, IconFolder, IconPlus, IconPrinter, IconSearch, IconTable, IconTrash, IconUpload, IconUser, IconWritingSign, IconWritingSignOff, IconX,
+  IconChecks,
 } from '@tabler/icons-react';
 import { authHeaders, getAnnee, getUser } from '../lib/api.js';
 import PreviewModal from '../components/PreviewModal.jsx';
@@ -2848,7 +2849,10 @@ export default function Etudiants() {
         /* LE MÊME ESCALIER, UN OUTIL PLUS LARGE (21 septembre 2026) : la
            grille de composition, dont le passage d'année n'est plus qu'un
            des gestes. On garde l'icône — c'est celle que Charles cherche. */
-        icon: IconStairsUp, onClick: () => setComposer(true) },
+        icon: IconStairsUp, onClick: () => setComposer('composer') },
+      // Composer ne suffit pas : un programme se VALIDE (24 septembre 2026).
+      { key: 'valider-pae', label: 'Valider les PAE', icon: IconChecks,
+        onClick: () => setComposer('valider') },
       { key: 'diplomation', label: 'Diplômes et titres', icon: IconAward,
         onClick: () => setDiplomation(true) },
     ] },
@@ -3331,7 +3335,8 @@ export default function Etudiants() {
       )}
 
       {composer && (
-        <ComposerPAE onClose={() => setComposer(false)} onTermine={charger}
+        <ComposerPAE modeInitial={composer === 'valider' ? 'valider' : 'composer'}
+          onClose={() => setComposer(false)} onTermine={charger}
           onPassage={() => { setComposer(false); setPassage(true); }} />
       )}
       {passage && (

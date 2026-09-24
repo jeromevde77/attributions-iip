@@ -31,7 +31,19 @@ const cleGroupe = (g) => `${g.num_organisation}|${g.groupe || ''}`;
 const sansAccent = t => String(t ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 const normNom = t => sansAccent(t).toUpperCase().replace(/[^A-Z]+/g, ' ').trim();
 const premierMot = t => normNom(t).split(' ')[0] || '';
-const numGroupe = t => { const m = /\d+/.exec(String(t ?? '')); return m ? Number(m[0]) : null; };
+/* LE RANG D'UN GROUPE, qu'il s'écrive en chiffre ou en lettre : les
+ * attributions de TIM nomment leurs groupes A, B, C, D… quand le classeur
+ * dit Groupe 1, 2, 3, 4 (Jérôme, 24 septembre 2026). 1 = A, 2 = B, etc. Une
+ * étiquette de plus d'une lettre (« Ts ») n'a pas de rang : elle ne se
+ * confond avec aucun groupe. */
+const rangGroupe = t => {
+  const m = /\d+/.exec(String(t ?? ''));
+  if (m) return Number(m[0]);
+  const mots = normNom(t).split(' ').filter(Boolean);
+  const der = mots[mots.length - 1] || '';
+  return der.length === 1 ? der.charCodeAt(0) - 64 : null;
+};
+const lettre = n => (n >= 1 && n <= 26 ? String.fromCharCode(64 + n) : '');
 
 async function lireClasseurGroupes(fichier) {
   const XLSX = await import('xlsx');
@@ -280,7 +292,7 @@ export default function RepartitionCours() {
     // Le cours qui se coupe en groupes, c'est une ACTIVITÉ : s'il y en a
     // plusieurs, on retient celle qui porte les numéros du classeur, et on
     // demande quand il reste un doute.
-    const numsClasseur = new Set(classeur.lignes.map(l => numGroupe(l.groupe)));
+    const numsClasseur = new Set(classeur.lignes.map(l => rangGroupe(l.groupe)));
     const blocs = {}, ambigus = {}, sansGroupes = [];
     for (const code of codesUE) {
       const cands = coursAvecGroupes.filter(c => c.cours_code === code);
@@ -288,7 +300,7 @@ export default function RepartitionCours() {
         if (classeur.lignes.some(l => !l.cours || l.cours.includes(code))) sansGroupes.push(code);
         continue;
       }
-      const couvre = c => [...numsClasseur].filter(n => c.groupes.some(g => numGroupe(g.groupe) === n)).length;
+      const couvre = c => [...numsClasseur].filter(n => c.groupes.some(g => rangGroupe(g.groupe) === n)).length;
       const tri = [...cands].sort((a, b) => couvre(b) - couvre(a));
       if (choixBloc[code]) blocs[code] = cands.find(c => c.cle === choixBloc[code]) || tri[0];
       else {
@@ -306,8 +318,8 @@ export default function RepartitionCours() {
       for (const code of codes) {
         const c = blocs[code];
         if (!c) continue;
-        const n = numGroupe(l.groupe);
-        const gs = c.groupes.filter(g => numGroupe(g.groupe) === n);
+        const n = rangGroupe(l.groupe);
+        const gs = c.groupes.filter(g => rangGroupe(g.groupe) === n);
         if (!gs.length) {
           const k = `${c.cle}|${l.groupe}`;
           (absents[k] ||= { c, groupe: l.groupe, noms: [] }).noms.push(`${l.nom} ${l.prenom}`);
@@ -419,7 +431,7 @@ export default function RepartitionCours() {
           {apercu.absents.map(a => (
             <div key={a.c.cle + a.groupe} className="text-amber-800">
               <IconAlertTriangle size={13} className="inline -mt-0.5 mr-1" />
-              <b>Groupe {a.groupe}</b> n'existe pas dans les attributions de {a.c.cours_code}
+              <b>Groupe {a.groupe}{/^\d+$/.test(a.groupe) && lettre(Number(a.groupe)) ? ` (${lettre(Number(a.groupe))})` : ''}</b> n'existe pas dans les attributions de {a.c.cours_code}
               {a.c.activite_libelle ? ` · ${a.c.activite_libelle}` : ''} ({a.noms.length} étudiant{a.noms.length > 1 ? 's' : ''} en attente).
               Ajoutez la ligne d'attribution de ce groupe, puis réimportez.
             </div>

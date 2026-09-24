@@ -3014,7 +3014,85 @@ r.get('/pae-grille', authRequired, (req, res) => {
     }
   }
   lignes.sort((a, b) => (a.nom || '').localeCompare(b.nom || '', 'fr') || (a.prenom || '').localeCompare(b.prenom || '', 'fr'));
+
+  // LA VALIDATION DU PAE (24 septembre 2026) : un programme composé n'est
+  // qu'une proposition tant que personne ne l'a validé. La grille dit lequel.
+  const valides = new Map(db.prepare(`SELECT etudiant_id, confirme_le, confirme_par FROM etudiant_pae
+    WHERE annee_scolaire = ? AND confirme_le IS NOT NULL`).all(annee).map(x => [x.etudiant_id, x]));
+  for (const l of lignes) {
+    const v = valides.get(l.id);
+    l.pae_confirme_le = v?.confirme_le || null;
+    l.pae_confirme_par = v?.confirme_par || null;
+  }
+
+  /* VALIDER EN SACHANT QUOI. Avec « controle », chaque programme non vide est
+   * relu par composerPAE — le calcul de la fiche — et la grille signale ce
+   * qui mérite un regard avant de signer : une UE inscrite que les prérequis
+   * ne proposent pas (sauf dérogation posée), une UE proposée qui manque. */
+  if (req.query.controle) {
+    const derog = new Set(db.prepare(`SELECT etudiant_id || '|' || ue_num AS k FROM etudiant_inscription
+      WHERE annee_scolaire = ? AND COALESCE(derogation, 0) = 1`).all(annee).map(x => x.k));
+    for (const l of lignes) {
+      l.controle = { hors_proposition: [], manquantes: [] };
+      if (!Object.values(l.cases).some(c => c.inscrit)) continue;
+      const c = composerPAE(l.id, annee, { section });
+      if (c.erreur) continue;
+      for (const u of c.pae) {
+        if (!nums.has(u.ue_num)) continue;
+        if (u.inscrite && !u.propose && !u.deja_reussie && !derog.has(`${l.id}|${u.ue_num}`)) {
+          l.controle.hors_proposition.push(u.ue_num);
+        }
+        if (u.propose && !u.inscrite) l.controle.manquantes.push(u.ue_num);
+      }
+    }
+  }
   res.json({ section, annee, source, ues, etudiants: lignes });
+});
+
+/* ══ VALIDER LES PAE D'UNE SECTION, EN LOT ════════════════════════════════
+ *
+ * « Tu les crées mais ils ne sont pas validés » (Jérôme, 24 septembre 2026).
+ * La promotion inscrit ; la validation se faisait dossier par dossier, depuis
+ * la fiche. Ici, les étudiants cochés dans la grille. Valider ne change AUCUNE
+ * inscription : cela signe le programme tel qu'il est. Un programme vide ne
+ * se valide pas — il n'y aurait rien à signer.
+ */
+r.post('/pae-valider-lot', authRequired,
+       roleRequired('admin', 'directeur', 'directeur_adjoint', 'editeur', 'secretariat'), (req, res) => {
+  const { section, annee, etudiants, retirer } = req.body || {};
+  if (!section || !annee || !Array.isArray(etudiants) || !etudiants.length) {
+    return res.status(400).json({ error: 'section, annee et étudiants requis' });
+  }
+  if (!sectionAutoriseeReq(req, section)) return res.status(403).json({ error: 'Section hors de votre périmètre' });
+  // Retirer une validation reste réservé, comme sur la fiche.
+  if (retirer && req.user?.role === 'secretariat') {
+    return res.status(403).json({ error: 'Retirer une validation est réservé à la direction et aux éditeurs.' });
+  }
+  const qui = req.user?.email || req.user?.nom_complet || null;
+  const nbInscr = db.prepare('SELECT COUNT(*) AS n FROM etudiant_inscription WHERE etudiant_id = ? AND annee_scolaire = ?');
+  const dansSection = db.prepare(`SELECT 1 FROM etudiant_inscription i WHERE i.etudiant_id = ? AND i.annee_scolaire = ?
+    AND EXISTS (SELECT 1 FROM ue u WHERE u.ue_num = i.ue_num AND u.section = ?) LIMIT 1`);
+  const signer = db.prepare(`
+    INSERT INTO etudiant_pae (etudiant_id, annee_scolaire, confirme_le, confirme_par)
+    VALUES (?,?, datetime('now'), ?)
+    ON CONFLICT(etudiant_id, annee_scolaire) DO UPDATE SET
+      confirme_le = datetime('now'), confirme_par = excluded.confirme_par`);
+  const oter = db.prepare('DELETE FROM etudiant_pae WHERE etudiant_id = ? AND annee_scolaire = ?');
+
+  let faits = 0;
+  const ignores = [];
+  db.transaction(() => {
+    for (const id of [...new Set(etudiants.map(Number).filter(Number.isInteger))]) {
+      // Le périmètre se vérifie par étudiant : la section annoncée ne suffit pas.
+      if (sectionRattachement(id, annee).section !== section && !dansSection.get(id, annee, section)) {
+        ignores.push({ id, raison: 'hors de la section' }); continue;
+      }
+      if (retirer) { faits += oter.run(id, annee).changes; continue; }
+      if (!nbInscr.get(id, annee).n) { ignores.push({ id, raison: 'programme vide' }); continue; }
+      signer.run(id, annee, qui); faits++;
+    }
+  })();
+  res.json({ ok: true, faits, ignores });
 });
 
 /* ══ COMPOSER LES PAE — APPLIQUER LES CHANGEMENTS DE LA GRILLE ════════════
