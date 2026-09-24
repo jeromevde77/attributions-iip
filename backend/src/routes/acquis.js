@@ -480,7 +480,7 @@ export function structureUE(ueNum, annee) {
   const pond = {};
   const parCours = {};
   for (const p of db.prepare(
-    'SELECT cours_code, aa_code, poids FROM aa_ponderation WHERE ue_num = ?').all(ueNum)) {
+    `SELECT cours_code, aa_code, poids FROM aa_ponderation WHERE ue_num = ? AND cours_code <> '__ue__'`).all(ueNum)) {
     pond[p.cours_code + '|' + p.aa_code] = Number(p.poids);
     (parCours[p.cours_code] = parCours[p.cours_code] || []).push(p.aa_code);
   }
@@ -1821,8 +1821,11 @@ r.get('/ue/:ueNum/liens', authRequired, (req, res) => {
     FROM aa WHERE ue_num = ? ORDER BY aa_num, aa_code
   `).all(ueNum);
 
-  const liens = db.prepare(
+  const tousLiens = db.prepare(
     'SELECT cours_code, aa_code, poids FROM aa_ponderation WHERE ue_num = ?').all(ueNum);
+  const liens = tousLiens.filter(l => l.cours_code !== CODE_EPREUVE_UE);
+  const poids_epreuve = Object.fromEntries(tousLiens
+    .filter(l => l.cours_code === CODE_EPREUVE_UE).map(l => [l.aa_code, Number(l.poids)]));
 
   const ue = db.prepare(`
     SELECT ue_nom, section FROM ue WHERE ue_num = ?
@@ -1836,7 +1839,7 @@ r.get('/ue/:ueNum/liens', authRequired, (req, res) => {
 
   res.json({
     ue_num: ueNum, ue_nom: ue.ue_nom || null, section: ue.section || null, annee,
-    cours, acquis, liens,
+    cours, acquis, liens, poids_epreuve, code_epreuve_ue: CODE_EPREUVE_UE,
     epreuve_integree: estEpreuveIntegree(ueNum, annee),
     sommes,
     acquis_sans_cours: acquis.filter(a => !lies.has(a.aa_code)).map(a => a.aa_code),
@@ -3027,9 +3030,27 @@ export function delibererUE(etudId, ueNum, annee, session = 1) {
   // foi : c'est elle, et non la colonne cours_code de l'acquis, qui permet
   // qu'un même acquis soit évalué dans plusieurs cours.
   const paires = [];
-  const pondRows = db.prepare(
+  const toutesPond = db.prepare(
     'SELECT cours_code, aa_code, poids FROM aa_ponderation WHERE ue_num = ?').all(ueNum);
-  if (pondRows.length) {
+  // Le bloc de l'épreuve intégrée (« __ue__ ») porte le poids d'un acquis
+  // POUR L'UNITÉ ; ce n'est pas un cours, il ne se mêle pas aux liens.
+  const pondEI = toutesPond.filter(p => p.cours_code === CODE_EPREUVE_UE);
+  const pondRows = toutesPond.filter(p => p.cours_code !== CODE_EPREUVE_UE);
+  if (integree) {
+    /* L'ÉPREUVE INTÉGRÉE N'A PAS DE COURS (Jérôme, 2 octobre 2026) : « il n'y a
+     * pas lieu de lier les AA aux cours ; il y a la liste des AA de l'UE, et il
+     * faut déterminer la pondération de chaque AA ». Tous les acquis de
+     * l'unité sont donc évalués — rattachés à un cours ou non —, chacun avec
+     * le poids posé pour l'unité ; à défaut, la somme de ses poids dans les
+     * cours (l'ancien réglage reste lu), et à défaut encore, un poids égal. */
+    const parAAei = Object.fromEntries(pondEI.map(p => [p.aa_code, Number(p.poids) || 0]));
+    const parAAcours = {};
+    for (const p of pondRows) parAAcours[p.aa_code] = (parAAcours[p.aa_code] || 0) + (Number(p.poids) || 0);
+    for (const a of db.prepare('SELECT aa_code FROM aa WHERE ue_num = ? ORDER BY aa_num, aa_code').all(ueNum)) {
+      const w = pondEI.length ? (parAAei[a.aa_code] ?? 0) : (parAAcours[a.aa_code] ?? 1);
+      paires.push({ cours_code: CODE_EPREUVE_UE, aa_code: a.aa_code, poids: w });
+    }
+  } else if (pondRows.length) {
     for (const p of pondRows) {
       paires.push({ cours_code: p.cours_code, aa_code: p.aa_code, poids: Number(p.poids) || 0 });
     }
@@ -3731,7 +3752,7 @@ r.post('/ue/:ueNum/notes/importer', authRequired,
   // Quels cours évaluent quel acquis — la pondération fait foi.
   const coursDeAA = {};
   for (const l of db.prepare(
-    'SELECT cours_code, aa_code FROM aa_ponderation WHERE ue_num = ?').all(ueNum)) {
+    "SELECT cours_code, aa_code FROM aa_ponderation WHERE ue_num = ? AND cours_code <> '__ue__'").all(ueNum)) {
     (coursDeAA[String(l.aa_code).trim().toUpperCase()] ||= []).push(l.cours_code);
   }
   const acquisConnus = new Set(db.prepare('SELECT aa_code FROM aa WHERE ue_num = ?')
@@ -3933,11 +3954,13 @@ r.get('/ue/:ueNum/feuille', authRequired,
 
   // Le lien acquis ↔ cours vient de la pondération : c'est la somme des acquis
   // qui fait le cours. À défaut, le rattachement du référentiel.
-  const pond = db.prepare(`
+  const pondTout = db.prepare(`
     SELECT p.cours_code, p.aa_code, p.poids, a.description
     FROM aa_ponderation p LEFT JOIN aa a ON a.aa_code = p.aa_code AND a.ue_num = p.ue_num
     WHERE p.ue_num = ? ORDER BY p.aa_code
   `).all(ueNum);
+  const pond = pondTout.filter(x => x.cours_code !== CODE_EPREUVE_UE);
+  const pondEIfeuille = pondTout.filter(x => x.cours_code === CODE_EPREUVE_UE);
   const parCours = {};
   for (const x of pond) (parCours[x.cours_code] ||= []).push(x);
 
@@ -3966,8 +3989,14 @@ r.get('/ue/:ueNum/feuille', authRequired,
   // Un seul bloc, donc, portant tous les acquis de l'unité, avec le poids de
   // chacun — la somme de ses poids dans les cours, exactement ce sur quoi le
   // calcul pèse. Et la note s'écrit sans cours : « s1|acquis ».
+  // Le poids d'un acquis dans l'épreuve intégrée : celui posé pour l'unité,
+  // sinon la somme de ses poids dans les cours.
   const poidsUE = {};
-  for (const x of pond) poidsUE[x.aa_code] = (poidsUE[x.aa_code] || 0) + Number(x.poids || 0);
+  if (pondEIfeuille.length) {
+    for (const x of pondEIfeuille) poidsUE[x.aa_code] = Number(x.poids || 0);
+  } else {
+    for (const x of pond) poidsUE[x.aa_code] = (poidsUE[x.aa_code] || 0) + Number(x.poids || 0);
+  }
   if (integree) {
     const acquisUE = db.prepare(`
       SELECT aa_code, description FROM aa WHERE ue_num = ? ORDER BY aa_num, aa_code
@@ -4871,7 +4900,7 @@ function libelleDeCode(ueNum, annee) {
   // mieux que la table des acquis, qui n'en porte qu'un.
   const parPond = new Map();
   for (const p of db.prepare(
-    'SELECT aa_code, cours_code FROM aa_ponderation WHERE ue_num = ?').all(ueNum)) {
+    "SELECT aa_code, cours_code FROM aa_ponderation WHERE ue_num = ? AND cours_code <> '__ue__'").all(ueNum)) {
     (parPond.get(p.aa_code) || parPond.set(p.aa_code, []).get(p.aa_code)).push(p.cours_code);
   }
 

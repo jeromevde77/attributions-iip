@@ -42,6 +42,8 @@ export default function SchemaLiensAA({ ueNum, annee, onClose, onEnregistre }) {
   // de liens concernée et à effacer les autres.
   const [survol, setSurvol] = useState(null);
   const [integree, setIntegree] = useState(false);
+  // Le poids de chaque acquis dans l'épreuve intégrée : `aa_code` → nombre.
+  const [poidsEI, setPoidsEI] = useState({});
   const svgRef = useRef(null);
 
   async function charger() {
@@ -53,6 +55,8 @@ export default function SchemaLiensAA({ ueNum, annee, onClose, onEnregistre }) {
       if (!rep.ok) throw new Error(j.error);
       setData(j);
       setIntegree(!!j.epreuve_integree);
+      setPoidsEI(Object.fromEntries((j.acquis || []).map(a =>
+        [a.aa_code, j.poids_epreuve?.[a.aa_code] ?? '']))); 
       setPoids(Object.fromEntries(j.liens.map(l => [`${l.cours_code}|${l.aa_code}`, Number(l.poids)])));
     } catch (e) { setErreur(e.message); }
   }
@@ -247,6 +251,31 @@ export default function SchemaLiensAA({ ueNum, annee, onClose, onEnregistre }) {
     finally { setEnCours(false); }
   }
 
+  /* LES POIDS DE L'ÉPREUVE INTÉGRÉE. Même règle que pour un cours — dix
+     points à répartir entre les acquis de l'unité (ou cent), ou « poids
+     égaux » — et même route : ils s'enregistrent sous le bloc de l'unité. */
+  const sommeEI = Object.values(poidsEI).reduce((t, v) => t + (Number(String(v).replace(',', '.')) || 0), 0);
+  async function enregistrerEI(parite = false) {
+    setEnCours(true); setErreur(null); setMessage(null);
+    try {
+      const rep = await fetch('/api/acquis/ponderations', {
+        method: 'PUT', headers: { 'Content-Type': 'application/json', ...authHeaders() },
+        body: JSON.stringify({
+          ue_num: ueNum, cours_code: data.code_epreuve_ue || '__ue__', parite,
+          ponderations: data.acquis.map(a => ({ aa_code: a.aa_code,
+            poids: parite ? 1 : Number(String(poidsEI[a.aa_code] ?? '').replace(',', '.')) || 0 })),
+        }),
+      });
+      const j = await rep.json();
+      if (!rep.ok) { setErreur(j.error); return; }
+      setMessage(parite ? "Poids égaux enregistrés : chaque acquis pèse autant dans l'épreuve."
+                        : "Pondération de l'épreuve intégrée enregistrée.");
+      await charger();
+      onEnregistre && onEnregistre();
+    } catch (e) { setErreur(e.message); }
+    finally { setEnCours(false); }
+  }
+
   const orphelins = (data?.acquis || []).filter(a =>
     !(data?.cours || []).some(c => Number(poids[`${c.cours_code}|${a.aa_code}`]) > 0));
 
@@ -261,9 +290,11 @@ export default function SchemaLiensAA({ ueNum, annee, onClose, onEnregistre }) {
               UE {ueNum}{data?.ue_nom ? ` · ${data.ue_nom}` : ''} — cours et acquis
             </h3>
             <p className="text-[12px] text-slate-500">
-              Tirez une flèche d'un <b>acquis</b> vers le <b>cours</b> qu'il alimente :
-              c'est la somme des acquis qui fait le cours. Répartissez ensuite
-              <b>dix points</b> entre les acquis de chaque cours.
+              {integree
+                ? <>Épreuve intégrée : pas de liens aux cours — le <b>poids de chaque acquis</b> dans l'unité.</>
+                : <>Tirez une flèche d'un <b>acquis</b> vers le <b>cours</b> qu'il alimente :
+                    c'est la somme des acquis qui fait le cours. Répartissez ensuite
+                    <b> dix points</b> entre les acquis de chaque cours.</>}
             </p>
           </div>
           <button onClick={onClose} className="text-slate-400 hover:text-slate-600">
@@ -288,13 +319,66 @@ export default function SchemaLiensAA({ ueNum, annee, onClose, onEnregistre }) {
               <span className="block text-[12px] text-slate-600">
                 Les professeurs de l'unité organisent une épreuve commune. On
                 n'encode alors plus une note par cours, mais <b>une note par acquis
-                pour l'unité</b> ; chaque cours reçoit la note de l'unité.
+                pour l'unité</b>, et chaque acquis porte <b>son poids dans l'unité</b> —
+                sans lien aux cours.
               </span>
             </span>
           </label>
 
           {!data ? (
             <div className="py-8 text-center text-slate-400 text-sm">Chargement…</div>
+          ) : integree ? (
+            /* L'ÉPREUVE INTÉGRÉE N'A PAS DE COURS : pas de liens à tracer. La
+               liste des acquis de l'unité, et le poids de chacun. */
+            !data.acquis.length ? (
+              <Bandeau ton="alerte">Aucun acquis d'apprentissage au référentiel de cette unité.</Bandeau>
+            ) : (
+              <div className="border border-violet-200 rounded-xl bg-white overflow-hidden">
+                <div className="px-3 py-2 bg-violet-50 border-b border-violet-200 text-[12px] text-violet-900">
+                  Épreuve commune : les acquis ne sont <b>pas rattachés aux cours</b>. Répartissez
+                  <b> dix points</b> entre les acquis de l'unité (ou cent) — seul le rapport entre les
+                  poids compte. Chaque acquis doit atteindre le seuil, quel que soit son poids.
+                </div>
+                <table className="w-full text-[13px]">
+                  <tbody>
+                    {data.acquis.map(a => {
+                      const v = Number(String(poidsEI[a.aa_code] ?? '').replace(',', '.')) || 0;
+                      return (
+                        <tr key={a.aa_code} className="border-t border-slate-100 first:border-t-0">
+                          <td className="px-3 py-1.5 w-24 font-semibold text-iip-blue whitespace-nowrap">{a.aa_code}</td>
+                          <td className="px-2 py-1.5 text-slate-700">{a.description}</td>
+                          <td className="px-3 py-1.5 w-28">
+                            <input value={poidsEI[a.aa_code] ?? ''} inputMode="decimal"
+                              onChange={e => setPoidsEI(x => ({ ...x, [a.aa_code]: e.target.value }))}
+                              className="w-20 border border-slate-300 rounded px-2 py-1 text-center tabular-nums" />
+                          </td>
+                          <td className="px-3 py-1.5 w-16 text-right text-[11px] text-slate-400 tabular-nums">
+                            {sommeEI > 0 ? `${Math.round(v / sommeEI * 100)} %` : ''}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+                <div className="px-3 py-2 border-t border-slate-100 flex items-center gap-2 flex-wrap">
+                  <span className={`text-[12px] font-semibold tabular-nums ${
+                    Math.abs(sommeEI - 10) < 0.001 || Math.abs(sommeEI - 100) < 0.01
+                      ? 'text-emerald-700' : 'text-amber-700'}`}>
+                    Total : {Math.round(sommeEI * 100) / 100} / 10
+                  </span>
+                  <span className="flex-1" />
+                  <button onClick={() => enregistrerEI(true)} disabled={enCours}
+                    title="Tous les acquis pèsent autant dans l'épreuve"
+                    className="flex items-center gap-1 px-3 py-1.5 text-[12px] border border-slate-300 rounded-lg">
+                    <IconEqual size={14} /> Poids égaux
+                  </button>
+                  <button onClick={() => enregistrerEI(false)} disabled={enCours}
+                    className="flex items-center gap-1 px-3 py-1.5 text-[12px] font-semibold text-white bg-iip-blue rounded-lg disabled:opacity-40">
+                    <IconDeviceFloppy size={14} /> Enregistrer la pondération
+                  </button>
+                </div>
+              </div>
+            )
           ) : !data.cours.length || !data.acquis.length ? (
             <Bandeau ton="alerte">
               {!data.cours.length
