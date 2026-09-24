@@ -3835,7 +3835,24 @@ export function composerPAE(profId, annee, options = {}) {
  * décision au dossier qui fait foi — et « ajourné » y signifie précisément
  * que quelque chose reste à trancher.
  */
-export function admissibilitePAE(etudId, annee) {
+export function admissibilitePAE(etudId, annee, section = null) {
+  /* CE QUI N'A RIEN À VOIR AVEC LA SECTION NE RETIENT PAS L'ÉTUDIANT (24
+   * septembre 2026). Les deux Akabi ont réussi tout leur BA1 de TIM — et
+   * restaient « en attente » à cause d'une inscription à RESTART (UE 95) et
+   * au stage d'opticien (UE 185), sans décision au dossier. Une unité en
+   * suspens ne compte que si elle pèse sur le programme de la section : si
+   * elle en fait partie, ou si elle est le prérequis d'une de ses unités. Les
+   * autres restent signalées, mais ne bloquent plus. */
+  let pertinentes = null;
+  if (section) {
+    const ues = db.prepare('SELECT DISTINCT ue_num FROM ue WHERE section = ?')
+      .all(section).map(x => x.ue_num);
+    pertinentes = new Set(ues);
+    if (ues.length) {
+      for (const p of db.prepare(`SELECT DISTINCT prerequis_num FROM ue_prerequis
+        WHERE ue_num IN (${ues.map(() => '?').join(',')})`).all(...ues)) pertinentes.add(p.prerequis_num);
+    }
+  }
   const unites = db.prepare(`
     SELECT i.ue_num, i.resultat,
            (SELECT ue_nom FROM ue u WHERE u.ue_num = i.ue_num
@@ -3844,7 +3861,7 @@ export function admissibilitePAE(etudId, annee) {
     WHERE i.etudiant_id = ? AND i.annee_scolaire = ?
     ORDER BY i.ue_num`).all(etudId, annee);
 
-  const attentes = [];
+  const attentes = [], horsSection = [];
   for (const u of unites) {
     const dec = s => db.prepare(`SELECT resultat FROM deliberation_resultat
       WHERE etudiant_id = ? AND annee_scolaire = ? AND ue_num = ? AND session = ?`)
@@ -3886,7 +3903,12 @@ export function admissibilitePAE(etudId, annee) {
     }
   }
 
-  return { admissible: attentes.length === 0, unites: unites.length, attentes };
+  // Le tri se fait après coup : la raison reste la même, seul son poids change.
+  const bloquantes = pertinentes ? attentes.filter(u => pertinentes.has(u.ue_num)) : attentes;
+  if (pertinentes) for (const u of attentes) if (!pertinentes.has(u.ue_num)) horsSection.push(u);
+
+  return { admissible: bloquantes.length === 0, unites: unites.length,
+           attentes: bloquantes, hors_section: horsSection };
 }
 
 r.get('/:id/pae', authRequired, (req, res) => {
@@ -4020,7 +4042,7 @@ r.post('/pae-promotion', authRequired,
     if (retenus && !retenus.has(e.id)) continue;
     const sa = sectionRattachement(e.id, annee_source).section;
     if (sa !== section) { autreSection.push({ ...e, section: sa || null }); continue; }
-    const adm = admissibilitePAE(e.id, annee_source);
+    const adm = admissibilitePAE(e.id, annee_source, section);
     if (!adm.admissible) { attente.push({ ...e, attentes: adm.attentes }); continue; }
 
     const c = composerPAE(e.id, annee_cible, { section });
