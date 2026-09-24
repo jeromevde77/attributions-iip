@@ -947,8 +947,10 @@ r.get('/repartition-cours/ue', authRequired, (req, res) => {
     });
   });
 
+  // Les adresses servent à rapprocher un classeur de groupes : le mail
+  // départage deux homonymes, là où le nom seul hésiterait.
   const etudiants = db.prepare(`
-    SELECT e.id, e.nom, e.prenom, i.num_organisation
+    SELECT e.id, e.nom, e.prenom, e.email_ecole, e.email_perso, i.num_organisation
     FROM etudiant_inscription i JOIN etudiant e ON e.id = i.etudiant_id
     WHERE i.ue_num = ? AND i.annee_scolaire = ? ORDER BY e.nom, e.prenom
   `).all(ueNum, annee);
