@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { IconTargetArrow, IconLink, IconUnlink, IconAlertTriangle, IconPencil,
-         IconArrowUp, IconArrowDown, IconListNumbers, IconCheck, IconX } from '@tabler/icons-react';
+         IconArrowUp, IconArrowDown, IconListNumbers, IconCheck, IconX, IconTrash } from '@tabler/icons-react';
 import { authHeaders, getUser } from '../lib/api.js';
 
 /**
@@ -51,6 +51,24 @@ export default function AcquisUE({ ueNum, annee, estAdmin }) {
     [ordre[i], ordre[j]] = [ordre[j], ordre[i]];
     const r = await envoyer(`/api/aa/ue/${ueNum}/renumeroter`, { ordre, recoder: false }, 'POST');
     if (r) await charger();
+  }
+
+  /* SUPPRIMER UN ACQUIS — jamais à l'aveugle. Sans trace, il part tout de
+     suite ; s'il est déjà évalué, le serveur dit d'abord ce qui serait emporté
+     (notes, pondérations, motivations…), et l'on confirme en sachant quoi. */
+  async function supprimer(a) {
+    if (!window.confirm(`Supprimer l'acquis ${a.aa_code} ?\n\n« ${(a.description || '').slice(0, 140)} »`)) return;
+    const url = `/api/aa/${encodeURIComponent(a.aa_code)}`;
+    let rep = await fetch(url, { method: 'DELETE', headers: authHeaders() });
+    let j = await rep.json().catch(() => ({}));
+    if (rep.status === 409 && j.confirmation_requise) {
+      const detail = Object.entries(j.inventaire || {}).map(([k, n]) => `  · ${n} ${k}`).join('\n');
+      if (!window.confirm(`${a.aa_code} est déjà utilisé — seraient DÉFINITIVEMENT supprimés :\n${detail}\n\nSupprimer quand même ?`)) return;
+      rep = await fetch(`${url}?force=1`, { method: 'DELETE', headers: authHeaders() });
+      j = await rep.json().catch(() => ({}));
+    }
+    if (!rep.ok) { alert(j.error || `Refusé (${rep.status})`); return; }
+    await charger();
   }
 
   async function renumeroter() {
@@ -158,9 +176,15 @@ export default function AcquisUE({ ueNum, annee, estAdmin }) {
                 <div className="text-[13px] text-gray-800 leading-snug flex items-start gap-1.5">
                   <span className="flex-1">{a.description}</span>
                   {peutCorriger && (
-                    <button onClick={() => setEdition({ code: a.aa_code, nouveau_code: a.aa_code, description: a.description || '' })}
-                      title="Corriger le code ou le libellé" className="text-slate-300 hover:text-iip-blue flex-none">
-                      <IconPencil size={14} /></button>
+                    <>
+                      <button onClick={() => setEdition({ code: a.aa_code, nouveau_code: a.aa_code, description: a.description || '' })}
+                        title="Corriger le code ou le libellé" className="text-slate-300 hover:text-iip-blue flex-none">
+                        <IconPencil size={14} /></button>
+                      <button onClick={() => supprimer(a)}
+                        title="Supprimer cet acquis — s'il est déjà évalué, Lucie dit d'abord ce qui serait emporté"
+                        className="text-slate-300 hover:text-red-600 flex-none">
+                        <IconTrash size={14} /></button>
+                    </>
                   )}
                 </div>
               )}
