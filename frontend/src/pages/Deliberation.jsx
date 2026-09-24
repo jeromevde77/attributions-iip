@@ -51,6 +51,24 @@ export default function Deliberation() {
   // de son cours.
   const [encoderUE, setEncoderUE] = useState(null); // ue_num en saisie complète
   const [importer, setImporter] = useState(null);   // ue_num en import de notes
+
+  /* LA GRILLE À ENVOYER AUX PROFESSEURS : un classeur par unité, fait pour
+     revenir par « Importer » sans rien réassocier. */
+  async function exporterGrille(ueNum) {
+    try {
+      const rep = await fetch(`/api/acquis/ue/${ueNum}/grille.xlsx?annee=${encodeURIComponent(annee)}`,
+        { headers: authHeaders() });
+      if (!rep.ok) {
+        const j = await rep.json().catch(() => ({}));
+        alert(j.error || `Export impossible (${rep.status})`); return;
+      }
+      const url = URL.createObjectURL(await rep.blob());
+      const a = document.createElement('a');
+      a.href = url; a.download = `Grille_UE${ueNum}_${annee}.xlsx`;
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 2000);
+    } catch (e) { alert(e.message); }
+  }
   const [importSuivi, setImportSuivi] = useState(false); // le classeur de l'année
   const [annees, setAnnees] = useState(false);           // où sont les notes ?
   const [impression, setImpression] = useState(false);   // les pièces, plusieurs UE
@@ -448,9 +466,15 @@ export default function Deliberation() {
                                  text-slate-600 flex-none">
                       Encoder par cours
                     </button>
+                    <button onClick={() => exporterGrille(u.ue_num)}
+                      title="Le classeur Excel à envoyer aux professeurs : une ligne par étudiant, une colonne par acquis — il revient par « Importer » sans rien réassocier"
+                      className="px-2 py-1 text-[12px] rounded-lg border border-slate-300
+                                 text-slate-600 flex-none flex items-center gap-1">
+                      <IconFileSpreadsheet size={13} /> Grille Excel
+                    </button>
                     {peutToutEncoder && (
                       <button onClick={() => setImporter(u.ue_num)}
-                        title="Reprendre les notes depuis un classeur de suivi"
+                        title="Reprendre les notes depuis un classeur de suivi — dont la grille Excel remplie par les professeurs"
                         className="px-2 py-1 text-[12px] rounded-lg border border-slate-300
                                    text-slate-600 flex-none">
                         Importer
