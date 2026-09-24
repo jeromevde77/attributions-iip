@@ -697,14 +697,30 @@ r.get('/', authRequired, (req, res) => {
       for (const l of db.prepare(
         'SELECT ue_num FROM ue WHERE is_epreuve_integree = 1').all()) ei.add(l.ue_num);
     } catch { /* colonne absente */ }
+    /* TROISIÈME SOURCE : L'INTITULÉ. Une épreuve intégrée importée du dossier
+     * pédagogique sans que personne ait coché la marque restait invisible —
+     * et ses lauréats, jamais diplômés dans la liste. Une unité qui s'appelle
+     * « Épreuve intégrée… » EST l'épreuve intégrée : le nom fait foi quand la
+     * marque manque. */
+    try {
+      for (const l of db.prepare(`SELECT DISTINCT ue_num FROM ue
+        WHERE ue_nom LIKE '%preuve int%gr%'`).all()) ei.add(l.ue_num);
+    } catch { /* colonne absente */ }
     if (ei.size) {
       const dans = [...ei].map(() => '?').join(',');
+      /* Deux traces de la réussite, lues toutes deux : le résultat recopié
+       * au dossier, et la décision de délibération elle-même — une reprise
+       * ou un import qui n'aurait écrit que l'une ne doit pas priver un
+       * lauréat de son diplôme. La plus récente l'emporte. */
       for (const l of db.prepare(`
-        SELECT etudiant_id, MAX(annee_scolaire) AS annee, ue_num
-        FROM etudiant_inscription
-        WHERE resultat IN ('reussi','valorise') AND ue_num IN (${dans})
-        GROUP BY etudiant_id
-      `).all(...ei)) diplomes.set(l.etudiant_id, { annee: l.annee, ue_num: l.ue_num });
+        SELECT etudiant_id, MAX(annee_scolaire) AS annee, ue_num FROM (
+          SELECT etudiant_id, annee_scolaire, ue_num FROM etudiant_inscription
+           WHERE resultat IN ('reussi','valorise') AND ue_num IN (${dans})
+          UNION ALL
+          SELECT etudiant_id, annee_scolaire, ue_num FROM deliberation_resultat
+           WHERE resultat IN ('reussi','valorise') AND ue_num IN (${dans})
+        ) GROUP BY etudiant_id
+      `).all(...ei, ...ei)) diplomes.set(l.etudiant_id, { annee: l.annee, ue_num: l.ue_num });
     }
   } catch (e) { console.error('[étudiants] diplômés :', e.message); }
 
