@@ -25,14 +25,46 @@ function tablesAvecAA() {
     .all().map(t => t.name)
     .filter(n => n !== 'aa' && db.prepare(`PRAGMA table_info(${n})`).all().some(c => c.name === 'aa_code'));
 }
+/* UNE NOTE NE CITE PAS L'ACQUIS SEUL. Son code est composé — « AA264.1 »,
+ * « 264.1|AA264.1 », « s1|264.1|AA264.1 », « s2|AA264.1 » pour une épreuve
+ * intégrée — et l'acquis en est TOUJOURS le dernier segment. Comparer le code
+ * entier ne trouvait que les notes les plus anciennes : les vraies notes
+ * encodées, préfixées de leur session et de leur cours, ne suivaient pas.
+ * La condition se pose donc sur la fin du code, sans LIKE — un « _ » dans un
+ * code en ferait un joker. */
+const FIN_AA = `(code = @aa OR (length(code) > length(@aa)
+  AND substr(code, length(code) - length(@aa)) = '|' || @aa))`;
+
 function recoder(ancien, nouveau) {
   db.prepare('UPDATE aa SET aa_code = ? WHERE aa_code = ?').run(nouveau, ancien);
   for (const t of tablesAvecAA()) {
     db.prepare(`UPDATE ${t} SET aa_code = ? WHERE aa_code = ?`).run(nouveau, ancien);
   }
   try {
-    db.prepare("UPDATE etudiant_note_detail SET code = ? WHERE code = ? AND type = 'aa'").run(nouveau, ancien);
+    db.prepare(`UPDATE etudiant_note_detail
+      SET code = substr(code, 1, length(code) - length(@aa)) || @nouveau
+      WHERE type = 'aa' AND ${FIN_AA}`).run({ aa: ancien, nouveau });
   } catch { /* table absente */ }
+  try {
+    db.prepare(`UPDATE deliberation_ajustement SET code = ? WHERE portee = 'aa' AND code = ?`)
+      .run(nouveau, ancien);
+  } catch { /* table absente */ }
+}
+
+/** Ce qui cite un acquis, table par table — pour le dire AVANT de supprimer. */
+function inventaireAA(code) {
+  const inv = {};
+  const compter = (lib, sql, arg) => {
+    try { const n = db.prepare(sql).get(arg)?.n || 0; if (n) inv[lib] = (inv[lib] || 0) + n; }
+    catch { /* table absente */ }
+  };
+  compter('notes', `SELECT COUNT(*) AS n FROM etudiant_note_detail WHERE type = 'aa' AND ${FIN_AA}`, { aa: code });
+  compter('ajustements de délibération', "SELECT COUNT(*) AS n FROM deliberation_ajustement WHERE portee = 'aa' AND code = ?", code);
+  const LIB = { aa_ponderation: 'pondérations', decision_motivation: 'motivations',
+    note_proposee: 'propositions des professeurs', etudiant_valorisation_aa: 'valorisations',
+    etudiant_report_note: 'reports' };
+  for (const t of tablesAvecAA()) compter(LIB[t] || t, `SELECT COUNT(*) AS n FROM ${t} WHERE aa_code = ?`, code);
+  return inv;
 }
 const estDirection = u => NIVEAU_DIRECTION.includes(u?.role);
 
@@ -184,9 +216,28 @@ r.post('/ue/:ueNum/renumeroter', (req, res) => {
 });
 
 // ── Supprimer un AA ──────────────────────────────────────────────────────────
-r.delete('/:code', roleRequired('admin'), (req, res) => {
-  db.prepare('DELETE FROM aa WHERE aa_code = ?').run(req.params.code);
-  res.json({ ok: true });
+// La suppression effaçait la seule ligne du référentiel : notes, pondérations,
+// motivations restaient accrochées à un acquis disparu — des notes qu'aucune
+// feuille ne montre plus, mais qu'un calcul peut encore lire. Elle se fait
+// désormais en deux temps : l'inventaire de ce qui serait emporté (409), puis,
+// confirmé (?force=1), la suppression de tout, en transaction.
+r.delete('/:code', (req, res) => {
+  if (!estDirection(req.user)) return res.status(403).json({ error: 'Supprimer un acquis est réservé à la direction' });
+  const code = req.params.code;
+  const aa = db.prepare('SELECT * FROM aa WHERE aa_code = ?').get(code);
+  if (!aa) return res.status(404).json({ error: 'AA introuvable' });
+  const inventaire = inventaireAA(code);
+  const total = Object.values(inventaire).reduce((a, b) => a + b, 0);
+  if (total > 0 && req.query.force !== '1') {
+    return res.status(409).json({ confirmation_requise: true, aa_code: code, inventaire, total });
+  }
+  db.transaction(() => {
+    try { db.prepare(`DELETE FROM etudiant_note_detail WHERE type = 'aa' AND ${FIN_AA}`).run({ aa: code }); } catch { /* */ }
+    try { db.prepare("DELETE FROM deliberation_ajustement WHERE portee = 'aa' AND code = ?").run(code); } catch { /* */ }
+    for (const t of tablesAvecAA()) db.prepare(`DELETE FROM ${t} WHERE aa_code = ?`).run(code);
+    db.prepare('DELETE FROM aa WHERE aa_code = ?').run(code);
+  })();
+  res.json({ ok: true, supprime: code, emportes: total });
 });
 
 export default r;
