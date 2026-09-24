@@ -4276,6 +4276,63 @@ r.get('/:id/capitalisation', authRequired, (req, res) => {
 // ── Purge d'une année pour un étudiant ──────────────────────────────────────
 // Deux portées : « resultats » vide les notes en gardant les inscriptions,
 // « tout » supprime les inscriptions de l'année et ce qui s'y rattache.
+/* SUPPRIMER UN ÉTUDIANT — directement, mais jamais à l'aveugle (Jérôme,
+ * 30 septembre 2026 : « je ne sais pas facilement supprimer les étudiants »).
+ *
+ * La suppression est DESTRUCTRICE : elle emporte inscriptions, notes,
+ * décisions, valorisations, suivi. La route répond donc en deux temps :
+ *   1. sans ?force=1 et si le dossier porte des données → 409 avec
+ *      L'INVENTAIRE de ce qui serait emporté — l'écran le montre, la
+ *      personne confirme en sachant quoi ;
+ *   2. avec ?force=1 (direction uniquement) ou dossier vide (direction et
+ *      secrétariat) → suppression en transaction, table par table.
+ * Une fiche portant des DÉCISIONS de délibération se supprime, mais c'est un
+ * geste de direction : effacer un dossier notifié n'est pas de l'entretien. */
+r.delete('/:id', authRequired, roleRequired('admin', 'directeur', 'directeur_adjoint', 'secretariat'), (req, res) => {
+  const id = Number(req.params.id);
+  const e = db.prepare('SELECT id, nom, prenom FROM etudiant WHERE id = ?').get(id);
+  if (!e) return res.status(404).json({ error: 'Étudiant introuvable.' });
+
+  const compte = (table, colonne = 'etudiant_id') => {
+    try { return db.prepare(`SELECT COUNT(*) AS n FROM ${table} WHERE ${colonne} = ?`).get(id).n; }
+    catch { return 0; }
+  };
+  const inventaire = {
+    inscriptions: compte('etudiant_inscription'),
+    notes: compte('etudiant_note_detail'),
+    decisions: compte('deliberation_resultat'),
+    valorisations: compte('etudiant_valorisation'),
+    suivi: compte('etudiant_suivi'),
+    groupes: compte('etudiant_cours_groupe'),
+  };
+  const total = Object.values(inventaire).reduce((a, b) => a + b, 0);
+  const direction = ['admin', 'directeur', 'directeur_adjoint'].includes(req.user.role);
+
+  if (total > 0 && req.query.force !== '1') {
+    return res.status(409).json({
+      confirmation_requise: true, etudiant: `${e.prenom} ${e.nom}`, inventaire, total,
+      force_permis: direction,
+    });
+  }
+  if (total > 0 && !direction) {
+    return res.status(403).json({
+      error: 'Ce dossier porte des données : seule la direction peut le supprimer. '
+           + 'Le secrétariat supprime les fiches vides (doublons, erreurs de saisie).',
+      inventaire,
+    });
+  }
+
+  db.transaction(() => {
+    for (const t of ['etudiant_inscription', 'etudiant_note_detail', 'deliberation_resultat',
+                     'etudiant_valorisation', 'etudiant_suivi', 'etudiant_cours_groupe',
+                     'note_proposee', 'etudiant_report_note']) {
+      try { db.prepare(`DELETE FROM ${t} WHERE etudiant_id = ?`).run(id); } catch { /* table absente */ }
+    }
+    db.prepare('DELETE FROM etudiant WHERE id = ?').run(id);
+  })();
+  res.json({ ok: true, supprime: `${e.prenom} ${e.nom}`, donnees_emportees: total });
+});
+
 r.delete('/:id/annee/:annee', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
   const etudId = Number(req.params.id);
   const annee = req.params.annee;
