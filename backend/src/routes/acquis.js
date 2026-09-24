@@ -4713,10 +4713,15 @@ r.get('/deliberation/ue/:ueNum', authRequired, (req, res) => {
   const grpParEtud = {};
   let groupesUE = [];
   try {
+    // Un groupe d'ACTIVITÉ se nomme avec elle — « Laboratoire 3 » —, sans
+    // quoi le labo 3 et un groupe 3 d'un autre cours se confondraient.
     const grpRows = db.prepare(`
-      SELECT DISTINCT g.etudiant_id, g.groupe_code
+      SELECT DISTINCT g.etudiant_id,
+             CASE WHEN COALESCE(g.activite_id, 0) > 0 AND t.libelle IS NOT NULL
+                  THEN t.libelle || ' ' || g.groupe_code ELSE g.groupe_code END AS groupe_code
       FROM etudiant_cours_groupe g
       JOIN cours c ON c.cours_code = g.cours_code AND c.annee_scolaire = g.annee_scolaire
+      LEFT JOIN activite_type t ON t.id = g.activite_id
       WHERE g.annee_scolaire = ? AND c.ue_num = ? AND g.groupe_code IS NOT NULL
     `).all(annee, ueNum);
     for (const g0 of grpRows) (grpParEtud[g0.etudiant_id] ||= new Set()).add(g0.groupe_code);

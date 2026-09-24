@@ -911,26 +911,40 @@ r.get('/repartition-cours/ue', authRequired, (req, res) => {
   `).all(ueNum, annee);
   const attr = db.prepare(`
     SELECT a.code_cours, COALESCE(a.num_organisation, 1) AS org,
-           a.code AS groupe, p.nom, p.prenom
+           a.code AS groupe, p.nom, p.prenom,
+           COALESCE(a.activite_id, 0) AS activite_id,
+           t.libelle AS activite_libelle, COALESCE(t.ordre, 999) AS activite_ordre
     FROM attribution a LEFT JOIN professeur p ON p.id = a.professeur_id
+    LEFT JOIN activite_type t ON t.id = a.activite_id
     WHERE a.ue_num = ? AND a.annee_scolaire = ? AND a.code_cours IS NOT NULL
   `).all(ueNum, annee);
+  // Cours → activité → groupe. Ce sont les ACTIVITÉS qui se coupent en
+  // groupes : chacune forme son propre bloc de colonnes.
   const parCours = {};
   for (const a of attr) {
+    const acts = (parCours[a.code_cours] ||= new Map());
+    const bloc = acts.get(a.activite_id) || { activite_id: a.activite_id,
+      activite_libelle: a.activite_libelle || null, activite_ordre: a.activite_ordre, groupes: new Map() };
     const clef = `${a.org}|${a.groupe || ''}`;
-    const c = (parCours[a.code_cours] = parCours[a.code_cours] || new Map());
-    const g = c.get(clef)
+    const g = bloc.groupes.get(clef)
       || { num_organisation: a.org, groupe: a.groupe || null, professeurs: new Set() };
     if (a.nom) g.professeurs.add(`${a.prenom ? a.prenom[0] + '. ' : ''}${a.nom}`);
-    c.set(clef, g);
+    bloc.groupes.set(clef, g);
+    acts.set(a.activite_id, bloc);
   }
-  const cours = coursRows.map(c => {
-    const groupes = [...(parCours[c.cours_code]?.values() || [])]
-      .map(g => ({ ...g, professeurs: [...g.professeurs].join(', ') }))
-      .sort((x, y) => x.num_organisation - y.num_organisation
-        || String(x.groupe || '').localeCompare(String(y.groupe || '')));
-    // Un seul groupe (ou aucun) : « Tous » — chaque inscrit y est d'office.
-    return { ...c, groupes, sans_groupe: groupes.length <= 1 };
+  const cours = coursRows.flatMap(c => {
+    const blocs = [...(parCours[c.cours_code]?.values() || [])]
+      .sort((x, y) => x.activite_ordre - y.activite_ordre || x.activite_id - y.activite_id);
+    if (!blocs.length) blocs.push({ activite_id: 0, activite_libelle: null, groupes: new Map() });
+    return blocs.map(b => {
+      const groupes = [...b.groupes.values()]
+        .map(g => ({ ...g, professeurs: [...g.professeurs].join(', ') }))
+        .sort((x, y) => x.num_organisation - y.num_organisation
+          || String(x.groupe || '').localeCompare(String(y.groupe || ''), 'fr', { numeric: true }));
+      // Un seul groupe (ou aucun) : « Tous » — chaque inscrit y est d'office.
+      return { ...c, activite_id: b.activite_id, activite_libelle: b.activite_libelle,
+        cle: `${c.cours_code}#${b.activite_id}`, groupes, sans_groupe: groupes.length <= 1 };
+    });
   });
 
   const etudiants = db.prepare(`
@@ -939,7 +953,7 @@ r.get('/repartition-cours/ue', authRequired, (req, res) => {
     WHERE i.ue_num = ? AND i.annee_scolaire = ? ORDER BY e.nom, e.prenom
   `).all(ueNum, annee);
   const affectations = coursRows.length ? db.prepare(`
-    SELECT etudiant_id, cours_code, num_organisation, groupe_code
+    SELECT etudiant_id, cours_code, activite_id, num_organisation, groupe_code
     FROM etudiant_cours_groupe
     WHERE annee_scolaire = ? AND cours_code IN (${coursRows.map(() => '?').join(',')})
   `).all(annee, ...coursRows.map(c => c.cours_code)) : [];
@@ -960,21 +974,22 @@ r.post('/repartition-cours', authRequired, roleRequired(...PEUT_INSTRUIRE), (req
     .all(ueNum, annee).map(c => c.cours_code));
   const poser = db.prepare(`
     INSERT INTO etudiant_cours_groupe
-      (etudiant_id, annee_scolaire, cours_code, num_organisation, groupe_code, maj_le, maj_par)
-    VALUES (?,?,?,?,?,datetime('now'),?)
-    ON CONFLICT(etudiant_id, annee_scolaire, cours_code) DO UPDATE SET
+      (etudiant_id, annee_scolaire, cours_code, activite_id, num_organisation, groupe_code, maj_le, maj_par)
+    VALUES (?,?,?,?,?,?,datetime('now'),?)
+    ON CONFLICT(etudiant_id, annee_scolaire, cours_code, activite_id) DO UPDATE SET
       num_organisation = excluded.num_organisation, groupe_code = excluded.groupe_code,
       maj_le = datetime('now'), maj_par = excluded.maj_par`);
   const oter = db.prepare(
-    'DELETE FROM etudiant_cours_groupe WHERE etudiant_id = ? AND annee_scolaire = ? AND cours_code = ?');
+    'DELETE FROM etudiant_cours_groupe WHERE etudiant_id = ? AND annee_scolaire = ? AND cours_code = ? AND activite_id = ?');
   let changements = 0;
   db.transaction(() => {
     for (const x of affectations) {
       const eid = Number(x?.etudiant_id);
       const code = String(x?.cours_code || '');
       if (!Number.isInteger(eid) || !codesUE.has(code)) continue;
-      if (x.retirer) { changements += oter.run(eid, annee, code).changes; continue; }
-      poser.run(eid, annee, code,
+      const act = Number(x?.activite_id) || 0;
+      if (x.retirer) { changements += oter.run(eid, annee, code, act).changes; continue; }
+      poser.run(eid, annee, code, act,
         x.num_organisation == null ? null : Number(x.num_organisation),
         x.groupe_code == null || x.groupe_code === '' ? null : String(x.groupe_code),
         req.user?.email || null);
@@ -1890,11 +1905,41 @@ r.post('/rapport-pae/excel', authRequired, async (req, res) => {
       etudiant_id INTEGER NOT NULL,
       annee_scolaire TEXT NOT NULL,
       cours_code TEXT NOT NULL,
+      activite_id INTEGER NOT NULL DEFAULT 0,
       num_organisation INTEGER,
       groupe_code TEXT,
       maj_le TEXT, maj_par TEXT,
-      UNIQUE(etudiant_id, annee_scolaire, cours_code)
+      UNIQUE(etudiant_id, annee_scolaire, cours_code, activite_id)
     )`);
+    /* L'ACTIVITÉ ENTRE DANS LA CLÉ (Jérôme, 2 octobre 2026). En TIM, ce ne
+     * sont pas les cours qui se coupent en groupes, ce sont leurs ACTIVITÉS :
+     * la théorie du 250.1 réunit tout le monde, son laboratoire se fait en
+     * huit groupes. Un étudiant n'avait qu'UN groupe par cours : on ne
+     * pouvait pas dire « théorie avec tous, labo 3 ». `activite_id` = 0 pour
+     * le cours entier — ce qui existait avant garde exactement son sens. */
+    const colsG = db.prepare('PRAGMA table_info(etudiant_cours_groupe)').all().map(c => c.name);
+    if (colsG.length && !colsG.includes('activite_id')) {
+      db.exec(`
+        ALTER TABLE etudiant_cours_groupe RENAME TO etudiant_cours_groupe_v1;
+        CREATE TABLE etudiant_cours_groupe (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          etudiant_id INTEGER NOT NULL,
+          annee_scolaire TEXT NOT NULL,
+          cours_code TEXT NOT NULL,
+          activite_id INTEGER NOT NULL DEFAULT 0,
+          num_organisation INTEGER,
+          groupe_code TEXT,
+          maj_le TEXT, maj_par TEXT,
+          UNIQUE(etudiant_id, annee_scolaire, cours_code, activite_id)
+        );
+        INSERT INTO etudiant_cours_groupe (etudiant_id, annee_scolaire, cours_code, activite_id,
+          num_organisation, groupe_code, maj_le, maj_par)
+          SELECT etudiant_id, annee_scolaire, cours_code, 0, num_organisation, groupe_code, maj_le, maj_par
+          FROM etudiant_cours_groupe_v1;
+        DROP TABLE etudiant_cours_groupe_v1;
+      `);
+      console.log('[migration] etudiant_cours_groupe : groupes par activité');
+    }
     const cols = db.prepare('PRAGMA table_info(cours)').all().map(c => c.name);
     if (cols.length && !cols.includes('plafond_groupe')) {
       db.exec('ALTER TABLE cours ADD COLUMN plafond_groupe INTEGER');
