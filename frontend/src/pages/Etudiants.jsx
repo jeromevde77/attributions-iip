@@ -2280,6 +2280,9 @@ export default function Etudiants() {
   const [fRatt, setFRatt] = useState('');         // '' | posee | deduite | aucune
   // Les nouveaux inscrits : aucune trace avant l'année de travail.
   const [fPrimo, setFPrimo] = useState(false);
+  // « Doublons » : ne garder que les étudiants dont le nom+prénom (accents et
+  // casse ignorés) existe sur PLUSIEURS fiches — les dossiers coupés en deux.
+  const [fDoublons, setFDoublons] = useState(false);
   const [sections, setSections] = useState([]);
   const [selId, setSelId] = useState(null);
   // LA COHORTE QU'ON PARCOURT. La section existait déjà comme filtre de la
@@ -2587,7 +2590,7 @@ export default function Etudiants() {
 
   const filtres = useMemo(() => {
     const q = recherche.toLowerCase();
-    const base = (recherche
+    let base = (recherche
       ? etudiants.filter(e =>
           e.nom?.toLowerCase().includes(q) || e.prenom?.toLowerCase().includes(q) ||
           e.id_ecampus?.toLowerCase().includes(q))
@@ -2600,6 +2603,16 @@ export default function Etudiants() {
         : fRatt === 'deduite' ? (e.section_rattachement && e.section_deduite)
           : (e.section_rattachement && !e.section_deduite)))
       .filter(e => !fPrimo || e.primo);
+    if (fDoublons) {
+      const cleDe = e => `${e.nom || ''}|${e.prenom || ''}`.normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9|]/g, '');
+      const freq = new Map();
+      for (const e of etudiants) {
+        const k = cleDe(e);
+        if (k.length > 3) freq.set(k, (freq.get(k) || 0) + 1);
+      }
+      base = base.filter(e => (freq.get(cleDe(e)) || 0) >= 2);
+    }
 
     // Tri par colonne. Les valeurs absentes se rangent toujours en fin de
     // liste, quel que soit le sens : elles n'apprennent rien.
@@ -2618,7 +2631,7 @@ export default function Etudiants() {
       if (typeof va === 'number' && typeof vb === 'number') return (va - vb) * tri.sens;
       return String(va).localeCompare(String(vb), 'fr') * tri.sens;
     });
-  }, [etudiants, recherche, tri, section, fNiveau, fUE, fRatt, fPrimo]);
+  }, [etudiants, recherche, tri, section, fNiveau, fUE, fRatt, fPrimo, fDoublons]);
 
   // Volets par section, comme dans la répartition des périodes : la liste se
   // parcourt section par section, et un étudiant inscrit dans plusieurs
@@ -2673,6 +2686,36 @@ export default function Etudiants() {
      dossier porte des données, il rend L'INVENTAIRE (inscriptions, notes,
      décisions…) et l'on confirme en sachant quoi — la direction seule peut
      forcer. Une fiche vide (doublon, erreur de saisie) part sans détour. */
+  /* FUSIONNER DEUX FICHES COCHÉES — le moteur est celui de la fusion des
+     doublons (tout se déplace, décisions de délibération comprises ; les
+     anciens matricules restent cherchables). On propose de conserver la fiche
+     au matricule le plus récent ; Annuler inverse le sens. */
+  async function fusionnerSelection() {
+    const ids = [...selEtudiants];
+    if (ids.length !== 2) { alert('Cochez exactement deux fiches à fusionner.'); return; }
+    const fiches = ids.map(id => filtres.find(e => e.id === id)
+      || etudiants.find(e => e.id === id)).filter(Boolean);
+    if (fiches.length !== 2) return;
+    const lib = e => `${(e.nom || '').toUpperCase()} ${e.prenom || ''} (${e.id_ecampus || 'sans matricule'})`;
+    // Le plus récent d'abord : matricule décroissant, à défaut l'id le plus haut.
+    fiches.sort((a, b) => String(b.id_ecampus || '').localeCompare(String(a.id_ecampus || ''))
+      || b.id - a.id);
+    let [garder, absorber] = fiches;
+    if (!window.confirm(`Fusionner ces deux fiches ?\n\n→ CONSERVER : ${lib(garder)}\n→ Y VERSER puis supprimer : ${lib(absorber)}\n\nTout est déplacé : inscriptions, notes, décisions, valorisations, suivi. Les anciens matricules restent cherchables.\n\nAnnuler = inverser le sens.`)) {
+      [garder, absorber] = [absorber, garder];
+      if (!window.confirm(`Sens inversé.\n\n→ CONSERVER : ${lib(garder)}\n→ Y VERSER puis supprimer : ${lib(absorber)}\n\nConfirmer la fusion ?`)) return;
+    }
+    const rep = await fetch('/api/doublons-etudiants/fusionner', {
+      method: 'POST', headers: { 'Content-Type': 'application/json', ...authHeaders() },
+      body: JSON.stringify({ garder: garder.id, absorber: absorber.id }),
+    });
+    const j = await rep.json().catch(() => ({}));
+    if (!rep.ok) { alert(j.error || `Fusion refusée (${rep.status})`); return; }
+    alert(`Fusion faite : ${lib(garder)} porte désormais tout le parcours.`);
+    setSelEtudiants(new Set());
+    await charger();
+  }
+
   async function supprimerSelection() {
     const ids = [...selEtudiants];
     if (!ids.length) return;
@@ -2863,9 +2906,14 @@ export default function Etudiants() {
           <input type="checkbox" checked={fPrimo} onChange={e => setFPrimo(e.target.checked)} />
           Primo-arrivés
         </label>
-        {(section || fNiveau || fUE || fRatt || fPrimo) && (
+        <label className="flex items-center gap-1.5 text-sm text-slate-600 self-center"
+          title="Ne montrer que les étudiants dont le nom et le prénom existent sur plusieurs fiches">
+          <input type="checkbox" checked={fDoublons} onChange={e => setFDoublons(e.target.checked)} />
+          Doublons
+        </label>
+        {(section || fNiveau || fUE || fRatt || fPrimo || fDoublons) && (
           <button className="text-[12px] text-iip-blue underline self-center"
-            onClick={() => { setSection(''); setFNiveau(''); setFUE(''); setFRatt(''); setFPrimo(false); }}>
+            onClick={() => { setSection(''); setFNiveau(''); setFUE(''); setFRatt(''); setFPrimo(false); setFDoublons(false); }}>
             Tout effacer
           </button>
         )}
@@ -2941,6 +2989,15 @@ export default function Etudiants() {
                          text-iip-blue font-semibold rounded-lg">
               <IconChecklist size={14} /> Composer les PAE
             </button>
+            {selEtudiants.size === 2
+              && ['admin', 'directeur', 'directeur_adjoint'].includes(getUser()?.role) && (
+              <button onClick={fusionnerSelection}
+                title="Réunir deux fiches du même étudiant : tout le parcours passe sur la fiche conservée, l'autre disparaît"
+                className="flex items-center gap-1.5 px-3 py-1.5 text-sm border border-iip-blue
+                           text-iip-blue font-semibold rounded-lg">
+                <IconUserPlus size={14} /> Fusionner
+              </button>
+            )}
             {['admin', 'directeur', 'directeur_adjoint', 'secretariat'].includes(getUser()?.role) && (
               <button onClick={supprimerSelection}
                 title="Supprimer les étudiants cochés — les dossiers non vides demandent confirmation, avec l'inventaire de ce qui serait emporté"
