@@ -22,6 +22,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { Router } from 'express';
+import ExcelJS from 'exceljs';
 import db from '../db/index.js';
 import { nomPropre, nomPropreDepuisChaine, separerNomPrenom } from '../lib/nom.js';
 import { anneeDeTravail, anneeActiveEnBase } from '../helpers/annee.js';
@@ -3911,6 +3912,170 @@ r.post('/ue/:ueNum/notes/importer', authRequired,
  * Elle est réservée à ceux qui ont déjà tous les droits sur toutes les grilles.
  * Un professeur n'y a pas accès : sa feuille à lui est celle de son cours.
  */
+/**
+ * LA GRILLE À ENVOYER AUX PROFESSEURS (Jérôme, 1er octobre 2026 : « je ne
+ * sais pas exporter ma grille pour que les profs encodent l'UE 264 »).
+ *
+ * L'import savait lire n'importe quel classeur — mais rien ne permettait d'en
+ * SORTIR un. Chacun refaisait donc sa grille à la main, avec d'autres codes,
+ * d'autres colonnes, et l'import devait deviner.
+ *
+ * Ce classeur est fait pour revenir : onglet nommé du numéro de l'unité,
+ * ligne d'en-tête « Matricule · Nom · Prénom · AA… » exactement comme l'import
+ * la cherche, une colonne par couple cours-acquis dans l'ordre de la
+ * pondération — la proposition automatique de l'import retombe donc juste,
+ * sans rien réassocier. Au-dessus, ce que le professeur doit savoir : le cours,
+ * qui l'enseigne, l'intitulé de l'acquis. Chaque case n'accepte qu'une note de
+ * 0 à 20. Les notes déjà encodées sont reprises : la grille se complète, elle
+ * ne recommence pas.
+ */
+r.get('/ue/:ueNum/grille.xlsx', authRequired,
+      roleRequired('admin', 'directeur', 'directeur_adjoint', 'editeur', 'coordination'),
+      async (req, res) => {
+  const ueNum = Number(req.params.ueNum);
+  const annee = req.query.annee || anneeDeTravail(req);
+  const session = req.query.session === '2' ? 2 : 1;
+
+  const ue = db.prepare('SELECT ue_num, ue_nom, section FROM ue WHERE ue_num = ? AND annee_scolaire = ?')
+    .get(ueNum, annee);
+  if (!ue) return res.status(404).json({ error: `L'unité ${ueNum} n'existe pas en ${annee}` });
+  const perim = getUserSections(req.user);
+  if (perim && ue.section && !perim.includes(ue.section)) {
+    return res.status(403).json({ error: 'unité hors de votre périmètre' });
+  }
+
+  // Les couples cours-acquis, dans l'ordre même où l'import les attend.
+  const pond = db.prepare(`
+    SELECT p.cours_code, p.aa_code, a.description
+    FROM aa_ponderation p LEFT JOIN aa a ON a.aa_code = p.aa_code AND a.ue_num = p.ue_num
+    WHERE p.ue_num = ? ORDER BY p.aa_code`).all(ueNum);
+  const parCours = {};
+  for (const x of pond) (parCours[x.cours_code] ||= []).push(x);
+  const profs = profsParCours(ueNum, annee);
+  const integree = estEpreuveIntegree(ueNum, annee);
+  let blocs;
+  if (integree) {
+    blocs = [{ cours_code: CODE_EPREUVE_UE, cours_nom: 'Épreuve intégrée — unité entière',
+      professeurs: [...new Set(Object.values(profs).filter(Boolean)
+        .flatMap(x => String(x).split(',').map(t => t.trim())).filter(Boolean))].join(', '),
+      acquis: db.prepare('SELECT aa_code, description FROM aa WHERE ue_num = ? ORDER BY aa_num, aa_code')
+        .all(ueNum) }];
+  } else {
+    blocs = db.prepare(`SELECT cours_code, cours_nom FROM cours
+      WHERE ue_num = ? AND annee_scolaire = ? ORDER BY cours_num, cours_code`).all(ueNum, annee)
+      .map(c => ({ ...c, professeurs: profs[c.cours_code] || '',
+        acquis: parCours[c.cours_code] || db.prepare(`SELECT aa_code, description FROM aa
+          WHERE ue_num = ? AND cours_code = ? ORDER BY aa_num, aa_code`).all(ueNum, c.cours_code) }))
+      .filter(c => c.acquis.length);
+  }
+  const colonnes = blocs.flatMap(b => b.acquis.map(a => ({ bloc: b, aa: a })));
+  if (!colonnes.length) {
+    return res.status(409).json({ error: "Cette unité n'a pas d'acquis rattachés à ses cours : "
+      + 'complétez la pondération dans le référentiel avant d’exporter la grille.' });
+  }
+
+  // Les étudiants : tous les inscrits en première session ; en seconde, les
+  // seuls ajournés de juin — les autres n'ont rien à présenter.
+  let etudiants = db.prepare(`
+    SELECT e.id, e.nom, e.prenom, e.id_ecampus
+    FROM etudiant_inscription i JOIN etudiant e ON e.id = i.etudiant_id
+    WHERE i.annee_scolaire = ? AND i.ue_num = ? ORDER BY e.nom, e.prenom`).all(annee, ueNum);
+  if (session === 2) {
+    const aj = new Set(db.prepare(`SELECT etudiant_id FROM deliberation_resultat
+      WHERE annee_scolaire = ? AND ue_num = ? AND session = 1 AND resultat = 'ajourne'`)
+      .all(annee, ueNum).map(l => l.etudiant_id));
+    etudiants = etudiants.filter(e => aj.has(e.id));
+  }
+
+  // Les notes déjà là, pour que la grille se complète au lieu de recommencer.
+  const deja = {};
+  for (const n of db.prepare(`SELECT etudiant_id, cours_code, code, points FROM etudiant_note_detail
+      WHERE annee_scolaire = ? AND ue_num = ? AND type = 'aa'`).all(annee, ueNum)) {
+    deja[`${n.etudiant_id}|${n.cours_code || CODE_EPREUVE_UE}|${n.code}`] = n.points;
+    deja[`${n.etudiant_id}|*|${n.code}`] ??= n.points;
+  }
+
+  const wb = new ExcelJS.Workbook();
+  wb.creator = 'Lucie';
+  const ws = wb.addWorksheet(String(ueNum), { views: [{ state: 'frozen', xSplit: 3, ySplit: 4 }] });
+  const MARINE = 'FF1B2B4B', TURQ = 'FF00AACC', CLAIR = 'FFE1F5FA';
+  const n = 3 + colonnes.length;
+
+  // Ligne 1 — le titre (sans le mot « matricule » : l'import y verrait l'en-tête).
+  ws.mergeCells(1, 1, 1, n);
+  ws.getCell(1, 1).value = `UE ${ueNum} — ${ue.ue_nom || ''} · ${annee} · session ${session} · notes sur 20`;
+  ws.getCell(1, 1).font = { bold: true, size: 13, color: { argb: 'FFFFFFFF' } };
+  ws.getCell(1, 1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: MARINE } };
+  ws.getRow(1).height = 24;
+
+  // Ligne 2 — le cours et qui l'enseigne ; ligne 3 — l'intitulé de l'acquis.
+  ws.getCell(2, 1).value = 'Cours';
+  ws.getCell(3, 1).value = 'Acquis évalué';
+  let c0 = 4;
+  for (const b of blocs) {
+    const nb = b.acquis.length;
+    if (nb > 1) ws.mergeCells(2, c0, 2, c0 + nb - 1);
+    const cel = ws.getCell(2, c0);
+    cel.value = (b.cours_code === CODE_EPREUVE_UE ? '' : `${b.cours_code} · `) + (b.cours_nom || '')
+      + (b.professeurs ? ` — ${b.professeurs}` : '');
+    cel.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+    cel.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: TURQ } };
+    cel.alignment = { wrapText: true, vertical: 'middle', horizontal: 'center' };
+    b.acquis.forEach((a, k) => {
+      const d = ws.getCell(3, c0 + k);
+      d.value = a.description || '';
+      d.alignment = { wrapText: true, vertical: 'top' };
+      d.font = { size: 9, italic: true, color: { argb: 'FF44536E' } };
+      d.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: CLAIR } };
+    });
+    c0 += nb;
+  }
+  ws.getRow(2).height = 32;
+  ws.getRow(3).height = 60;
+
+  // Ligne 4 — L'EN-TÊTE QUE L'IMPORT CHERCHE.
+  const entete = ['Matricule', 'Nom', 'Prénom', ...colonnes.map(x => x.aa.aa_code)];
+  entete.forEach((v, i) => {
+    const cel = ws.getCell(4, i + 1);
+    cel.value = v;
+    cel.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+    cel.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: MARINE } };
+    cel.alignment = { horizontal: 'center' };
+  });
+
+  // Les étudiants, une ligne chacun ; les notes déjà encodées reprises.
+  etudiants.forEach((e, k) => {
+    const r0 = 5 + k;
+    ws.getCell(r0, 1).value = e.id_ecampus || '';
+    ws.getCell(r0, 2).value = e.nom || '';
+    ws.getCell(r0, 3).value = e.prenom || '';
+    colonnes.forEach((x, j) => {
+      const cel = ws.getCell(r0, 4 + j);
+      // Une note posée sans cours se reprend quand l'acquis n'a qu'une
+      // colonne — ailleurs, on ne devine pas sous quel cours la ranger.
+      const unique = colonnes.filter(y => y.aa.aa_code === x.aa.aa_code).length === 1;
+      const v = deja[`${e.id}|${x.bloc.cours_code}|${x.aa.aa_code}`]
+        ?? ((integree || unique) ? deja[`${e.id}|*|${x.aa.aa_code}`] : undefined);
+      if (v != null) cel.value = Number(v);
+      cel.alignment = { horizontal: 'center' };
+      cel.dataValidation = { type: 'decimal', operator: 'between', allowBlank: true,
+        formulae: [0, 20], showErrorMessage: true,
+        errorTitle: 'Note invalide', error: 'Une note sur 20 : entre 0 et 20, décimales admises.' };
+    });
+    if (k % 2) for (let c = 1; c <= n; c++) {
+      ws.getCell(r0, c).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF7FAFC' } };
+    }
+  });
+  ws.getColumn(1).width = 13; ws.getColumn(2).width = 22; ws.getColumn(3).width = 18;
+  for (let c = 4; c <= n; c++) ws.getColumn(c).width = 16;
+
+  const fichier = `Grille_UE${ueNum}_${annee}_S${session}.xlsx`;
+  res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+  res.setHeader('Content-Disposition', `attachment; filename="${fichier}"`);
+  await wb.xlsx.write(res);
+  res.end();
+});
+
 r.get('/ue/:ueNum/feuille', authRequired,
       roleRequired('admin', 'directeur', 'directeur_adjoint', 'editeur'), (req, res) => {
   const ueNum = Number(req.params.ueNum);
