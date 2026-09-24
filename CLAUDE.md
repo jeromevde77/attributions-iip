@@ -1547,7 +1547,9 @@ circulé sans qu'on puisse dire qui l'avait sortie. « Je veux des traces. »
 
 ## 8. Réflexe de démarrage de session
 
-1. Lire ce fichier.
+1. Lire ce fichier, puis **la passation la plus récente**
+   (`docs/contexte/passation-AAAA-MM-JJ.md`, la dernière par date) : c'est elle
+   qui dit ce qui a été livré depuis et ce qui reste ouvert.
 2. Vérifier l'écart `develop` / `main` et les questions ouvertes non tranchées
    (`docs/contexte/`).
 3. Poser d'abord les questions **bloquantes** — celles qui coûtent une minute à
