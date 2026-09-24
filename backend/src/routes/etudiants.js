@@ -638,6 +638,7 @@ r.get('/', authRequired, (req, res) => {
    * portent sur des inscriptions : ils l'écartent, et c'est juste. */
   let sql = `
     SELECT e.id, e.nom, e.prenom, e.email_ecole, e.id_ecampus,
+           e.sortie_statut, e.sortie_le, e.sortie_motif,
            COALESCE(GROUP_CONCAT(DISTINCT u.section), e.section_rattachement) AS sections,
            COUNT(DISTINCT i.ue_num) AS nb_ue,
            MAX(i.annee_scolaire) AS derniere_annee
@@ -712,10 +713,19 @@ r.get('/', authRequired, (req, res) => {
     'SELECT etudiant_id FROM etudiant_pae WHERE annee_scolaire = ? AND confirme_le IS NOT NULL'
   ).all(anneeActive).map(x => x.etudiant_id));
 
+  /* LES SEGMENTS. L'archive l'emporte sur tout : ce qu'on a rangé à la cave
+   * ne revient dans aucune liste de travail, diplômé ou non. Puis le
+   * diplôme — déduit de l'épreuve intégrée OU posé à la main —, puis la
+   * sortie. « En cours », c'est ce qui reste. */
+  const segment = r0 => {
+    if (r0.sortie_statut === 'archive') return 'archives';
+    if (diplomes.has(r0.id) || r0.sortie_statut === 'diplome') return 'diplomes';
+    if (r0.sortie_statut === 'sorti') return 'sortis';
+    return 'en_cours';
+  };
   const vus = rows.filter(r0 => {
-    if (statut === 'diplomes') return diplomes.has(r0.id);
-    if (statut === 'en_cours') return !diplomes.has(r0.id);
-    return true;                      // « tous », ou aucun filtre demandé
+    if (!statut || statut === 'tous') return true;
+    return segment(r0) === statut;
   });
 
   // LES NOUVEAUX INSCRITS (primo) : aucune trace — inscription ou
@@ -734,7 +744,10 @@ r.get('/', authRequired, (req, res) => {
     const d = diplomes.get(r0.id) || null;
     return {
       ...r0, niveau: n.niveau, niveau_libelle: n.libelle,
-      diplome: !!d, diplome_annee: d?.annee || null, diplome_ue: d?.ue_num || null,
+      diplome: !!d || r0.sortie_statut === 'diplome',
+      diplome_declare: !d && r0.sortie_statut === 'diplome',
+      diplome_annee: d?.annee || null, diplome_ue: d?.ue_num || null,
+      segment: segment(r0),
       // Tant que le programme n'est pas confirmé, il n'est qu'une proposition.
       pae_confirme: confirmes.has(r0.id),
       primo: !anciensListe.has(r0.id),
@@ -1786,6 +1799,28 @@ r.post('/rapport-pae/excel', authRequired, async (req, res) => {
 // comme la 333 AESI se donne en plusieurs organisations, et LA DÉLIBÉRATION
 // SE TIENT PAR ORGANISATION : chaque inscrit doit donc porter la sienne.
 // Rien ne se déduit — la répartition est un geste de la coordination.
+/* LE STATUT DE SORTIE — POSÉ, NON DÉDUIT (Jérôme, 1er octobre 2026).
+ *
+ * « Diplômé » se déduisait seul de l'épreuve intégrée réussie ; rien ne
+ * permettait de dire qu'un étudiant était parti, ni de ranger à la cave ceux
+ * qu'on ne suit plus. Trois statuts, posés par la coordination, le
+ * secrétariat ou la direction — et tous RÉVERSIBLES :
+ *   · diplome  — diplômé, quand l'épreuve intégrée n'est pas (ou pas encore)
+ *                encodée dans Lucie : années reconstruites, diplômes anciens ;
+ *   · sorti    — a quitté le cursus (abandon, réorientation, exclusion) ;
+ *   · archive  — à la cave : hors des listes de travail, rien n'est effacé.
+ * Le dossier reste entier et actif : ses attestations se rééditent, ses
+ * résultats comptent dans l'historique. Seule la liste de travail change. */
+(function migrerStatutSortie() {
+  try {
+    const cols = db.prepare('PRAGMA table_info(etudiant)').all().map(c => c.name);
+    for (const [c, d] of [['sortie_statut', 'TEXT'], ['sortie_le', 'TEXT'],
+                          ['sortie_par', 'TEXT'], ['sortie_motif', 'TEXT']]) {
+      if (!cols.includes(c)) db.exec(`ALTER TABLE etudiant ADD COLUMN ${c} ${d}`);
+    }
+  } catch (e) { console.error('[migration] statut de sortie :', e.message); }
+})();
+
 (function migrerOrganisation() {
   try {
     const cols = db.prepare('PRAGMA table_info(etudiant_inscription)').all().map(c => c.name);
@@ -4276,6 +4311,42 @@ r.get('/:id/capitalisation', authRequired, (req, res) => {
 // ── Purge d'une année pour un étudiant ──────────────────────────────────────
 // Deux portées : « resultats » vide les notes en gardant les inscriptions,
 // « tout » supprime les inscriptions de l'année et ce qui s'y rattache.
+/* POSER UN STATUT DE SORTIE SUR UN LOT — diplômé, sorti, archivé, ou
+ * `null` pour réintégrer. Chaque étudiant est jugé contre le périmètre de
+ * celui qui agit : une coordination n'archive pas la section d'une autre.
+ * Le geste est signé et daté sur la fiche. */
+r.post('/statut', authRequired, roleRequired(...PEUT_INSTRUIRE), (req, res) => {
+  const ids = (Array.isArray(req.body?.ids) ? req.body.ids : []).map(Number).filter(Boolean);
+  const statut = req.body?.statut ?? null;
+  const motif = String(req.body?.motif || '').trim() || null;
+  if (!ids.length) return res.status(400).json({ error: 'Aucun étudiant.' });
+  if (statut !== null && !['diplome', 'sorti', 'archive'].includes(statut)) {
+    return res.status(400).json({ error: 'Statut inconnu.' });
+  }
+  const permises = perimetre(req);
+  const dansPerimetre = id => {
+    if (!permises) return true;
+    const { sections } = sectionsDeLEtudiant(id, null);
+    const rat = db.prepare('SELECT section_rattachement FROM etudiant WHERE id = ?').get(id)?.section_rattachement;
+    const toutes = [...new Set([...sections, ...(rat ? [rat] : [])])];
+    return !toutes.length || toutes.some(x => permises.includes(x));
+  };
+  const par = req.user?.nom || req.user?.email || null;
+  const poser = db.prepare(`UPDATE etudiant SET sortie_statut = ?, sortie_le = ?,
+    sortie_par = ?, sortie_motif = ? WHERE id = ?`);
+  let faits = 0; const refuses = [];
+  db.transaction(() => {
+    for (const id of ids) {
+      if (!db.prepare('SELECT 1 FROM etudiant WHERE id = ?').get(id)) continue;
+      if (!dansPerimetre(id)) { refuses.push(id); continue; }
+      poser.run(statut, statut ? new Date().toISOString().slice(0, 10) : null,
+        statut ? par : null, statut ? motif : null, id);
+      faits++;
+    }
+  })();
+  res.json({ ok: true, faits, refuses });
+});
+
 /* SUPPRIMER UN ÉTUDIANT — directement, mais jamais à l'aveugle (Jérôme,
  * 30 septembre 2026 : « je ne sais pas facilement supprimer les étudiants »).
  *
