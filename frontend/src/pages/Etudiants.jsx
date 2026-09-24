@@ -4,7 +4,7 @@ import { RailLateral } from '../components/ui.jsx';
 import SuiviEtudiant from '../components/SuiviEtudiant.jsx';
 import NouvelEtudiant from '../components/NouvelEtudiant.jsx';
 import {
-  IconAddressBook, IconAlertTriangle, IconAward, IconCertificate, IconStairsUp, IconUserPlus, IconCheck, IconChecklist, IconChevronLeft, IconChevronRight, IconClock, IconFileText, IconFolder, IconPlus, IconPrinter, IconSearch, IconTable, IconTrash, IconUpload, IconUser, IconWritingSign, IconWritingSignOff, IconX,
+  IconAddressBook, IconAlertTriangle, IconArchive, IconDoorExit, IconSchool, IconArrowBackUp, IconAward, IconCertificate, IconStairsUp, IconUserPlus, IconCheck, IconChecklist, IconChevronLeft, IconChevronRight, IconClock, IconFileText, IconFolder, IconPlus, IconPrinter, IconSearch, IconTable, IconTrash, IconUpload, IconUser, IconWritingSign, IconWritingSignOff, IconX,
 } from '@tabler/icons-react';
 import { authHeaders, getAnnee, getUser } from '../lib/api.js';
 import PreviewModal from '../components/PreviewModal.jsx';
@@ -2716,6 +2716,30 @@ export default function Etudiants() {
     await charger();
   }
 
+  /* LE STATUT D'UN LOT — diplômé, sorti, archivé, ou réintégré (null).
+     Rien n'est effacé : le dossier reste entier, seule la liste de travail
+     change. Le serveur juge chaque étudiant contre le périmètre de qui agit. */
+  async function statuerSelection(statutCible) {
+    const ids = [...selEtudiants];
+    if (!ids.length) return;
+    const LIB = { diplome: 'marquer diplômé(s)', sorti: 'sortir du cursus',
+                  archive: 'archiver', null: 'réintégrer dans les étudiants en cours' };
+    let motif = null;
+    if (statutCible === 'sorti') {
+      motif = window.prompt(`Sortir ${ids.length} étudiant(s) du cursus.\n\nMotif (facultatif) : abandon, réorientation…`, '');
+      if (motif === null) return;
+    } else if (!window.confirm(`${ids.length} étudiant(s) : ${LIB[statutCible]} ?\n\nRien n'est effacé — le geste est réversible.`)) return;
+    const rep = await fetch('/api/etudiants/statut', {
+      method: 'POST', headers: { 'Content-Type': 'application/json', ...authHeaders() },
+      body: JSON.stringify({ ids, statut: statutCible, motif }),
+    });
+    const j = await rep.json().catch(() => ({}));
+    if (!rep.ok) { alert(j.error || `Refusé (${rep.status})`); return; }
+    if (j.refuses?.length) alert(`${j.faits} traité(s). ${j.refuses.length} hors de votre périmètre, laissé(s) tels quels.`);
+    setSelEtudiants(new Set());
+    await charger();
+  }
+
   async function supprimerSelection() {
     const ids = [...selEtudiants];
     if (!ids.length) return;
@@ -2922,8 +2946,12 @@ export default function Etudiants() {
             { k: 'en_cours', l: 'En cours',
               t: 'Les étudiants dont le parcours n’est pas achevé' },
             { k: 'diplomes', l: 'Diplômés',
-              t: 'Ceux qui ont réussi leur épreuve intégrée : le diplôme est acquis' },
-            { k: 'tous', l: 'Tous', t: 'Les uns et les autres' },
+              t: 'Épreuve intégrée réussie, ou diplôme déclaré à la main' },
+            { k: 'sortis', l: 'Sortis',
+              t: 'Ont quitté le cursus : abandon, réorientation, exclusion' },
+            { k: 'archives', l: 'Archivés',
+              t: 'Rangés à la cave : hors des listes de travail, rien n’est effacé' },
+            { k: 'tous', l: 'Tous', t: 'Tout le monde, quel que soit son statut' },
           ].map(x => (
             <button key={x.k} onClick={() => setStatut(x.k)} title={x.t}
               className={`px-3 py-2 text-[13px] ${statut === x.k
@@ -2989,6 +3017,25 @@ export default function Etudiants() {
                          text-iip-blue font-semibold rounded-lg">
               <IconChecklist size={14} /> Composer les PAE
             </button>
+            {['admin', 'directeur', 'directeur_adjoint', 'editeur', 'secretariat', 'coordination']
+              .includes(getUser()?.role) && (
+              <MenuActions libelle="Statut" Icone={IconArchive} titre="Changer le statut des étudiants cochés"
+                items={[
+                  { libelle: 'Marquer diplômé', Icone: IconSchool,
+                    aide: 'Quand l’épreuve intégrée n’est pas encodée dans Lucie',
+                    onClick: () => statuerSelection('diplome') },
+                  { libelle: 'Sortir du cursus', Icone: IconDoorExit,
+                    aide: 'Abandon, réorientation, exclusion — avec un motif',
+                    onClick: () => statuerSelection('sorti') },
+                  { libelle: 'Archiver', Icone: IconArchive,
+                    aide: 'À la cave : hors des listes de travail, rien n’est effacé',
+                    onClick: () => statuerSelection('archive') },
+                  { separateur: true },
+                  { libelle: 'Réintégrer (en cours)', Icone: IconArrowBackUp,
+                    aide: 'Annule le statut posé — l’étudiant revient dans « En cours »',
+                    onClick: () => statuerSelection(null) },
+                ]} />
+            )}
             {selEtudiants.size === 2
               && ['admin', 'directeur', 'directeur_adjoint'].includes(getUser()?.role) && (
               <button onClick={fusionnerSelection}
@@ -3127,8 +3174,22 @@ export default function Etudiants() {
                     <BadgeNiveau niveau={e.niveau} libelle={e.niveau_libelle} />
                     {/* Le diplôme se dit là où on lit le niveau : c'est la même
                         question — où en est cette personne. */}
+                    {e.sortie_statut === 'archive' && (
+                      <span title={`Archivé le ${e.sortie_le || '?'} — hors des listes de travail`}
+                        className="ml-1.5 text-[10px] font-semibold uppercase tracking-wide
+                                   text-slate-600 bg-slate-100 border border-slate-300
+                                   rounded px-1.5 py-px">archivé</span>
+                    )}
+                    {e.sortie_statut === 'sorti' && (
+                      <span title={`Sorti le ${e.sortie_le || '?'}${e.sortie_motif ? ` — ${e.sortie_motif}` : ''}`}
+                        className="ml-1.5 text-[10px] font-semibold uppercase tracking-wide
+                                   text-amber-800 bg-amber-50 border border-amber-200
+                                   rounded px-1.5 py-px">sorti</span>
+                    )}
                     {e.diplome && (
-                      <span title={`Épreuve intégrée réussie${
+                      <span title={e.diplome_declare
+                        ? `Diplôme déclaré le ${e.sortie_le || '?'} (épreuve intégrée non encodée)`
+                        : `Épreuve intégrée réussie${
                         e.diplome_annee ? ` en ${e.diplome_annee}` : ''}${
                         e.diplome_ue ? ` (UE ${e.diplome_ue})` : ''} — diplôme acquis`}
                         className="ml-1.5 text-[10px] font-semibold uppercase tracking-wide
