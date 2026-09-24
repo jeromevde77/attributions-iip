@@ -16,6 +16,8 @@ import { Router } from 'express';
 import db from '../db/index.js';
 import { authRequired, roleRequired } from '../middleware/auth.js';
 import { envelopperDocument } from '../lib/document.js';
+import { envoyerEmail, mailerConfigure } from '../services/mailer.js';
+import { rendrePdf } from '../services/pdf.js';
 
 const r = Router();
 
@@ -839,75 +841,65 @@ r.post('/:id/document', authRequired, (req, res) => {
     ? t.responsables.map(x => x.nom || LIB_ROLE[x.role] || x.role).filter(Boolean).join(', ')
     : (t.responsable_nom || t.responsable_role)) || '—';
 
+  /* LE PV, REFAIT POUR SE LIRE (Jérôme, 24 septembre 2026 : « la mise en page
+   * ne va pas »). Le titre s'imprimait deux fois — l'enveloppe le pose déjà —,
+   * l'ordre du jour se lisait en liste avant de se relire en détail, et des
+   * rubriques vides annonçaient « aucune autre décision ». Le PV tient
+   * désormais en trois temps : un cartouche (quand, où, qui), les points
+   * numérotés avec ce qui s'y est décidé, la suite. Rien de vide n'est écrit. */
+  const court = d => (d ? String(d).slice(0, 10).split('-').reverse().slice(0, 2).join('/') : '');
   const ligneTache = t => `<tr>
-    <td>${esc(t.titre)}${t.detail ? `<br><span class="fin">${esc(t.detail)}</span>` : ''}</td>
-    <td>${esc(quiFait(t))}${t.obligation_libelle
-      ? `<br><span class="fin">pour : ${esc(t.obligation_libelle)}${
-          t.obligation_base ? ` — ${esc(t.obligation_base)}` : ''}</span>` : ''}</td>
-    <td>${fr(t.echeance)}</td>
-    <td>${esc(LIB_STATUT[t.statut] || t.statut)}</td>
+    <td class="fl">→</td>
+    <td>${esc(t.titre)}${t.detail ? `<span class="fin"> — ${esc(t.detail)}</span>` : ''}${
+      t.obligation_libelle ? `<br><span class="fin">pour : ${esc(t.obligation_libelle)}</span>` : ''}</td>
+    <td class="qui">${esc(quiFait(t))}</td>
+    <td class="date">${t.echeance ? `pour le ${court(t.echeance)}` : ''}</td>
+    <td class="etat">${t.statut && t.statut !== 'a_faire' ? esc(LIB_STATUT[t.statut] || t.statut) : ''}</td>
   </tr>`;
+  const decisions = liste => (liste.length
+    ? `<table class="dec"><tbody>${liste.map(ligneTache).join('')}</tbody></table>` : '');
+  const paragraphes = texte => String(texte || '').split('\n').filter(l => l.trim())
+    .map(l => `<p>${esc(l)}</p>`).join('');
+
+  const cartouche = [
+    ['Date', `${fr(reunion.date_seance)}${reunion.heure_seance ? ` à ${esc(reunion.heure_seance)}` : ''}`],
+    reunion.lieu ? ['Lieu', esc(reunion.lieu)] : null,
+    reunion.organisateur_nom ? ['Organisée par', esc(reunion.organisateur_nom)] : null,
+    reunion.section ? ['Section', esc(reunion.section)] : null,
+    ['Présents', presents.length ? presents.join(', ') : '—'],
+    excuses.length ? ['Excusés', excuses.join(', ')] : null,
+    absents.length ? ['Absents', absents.join(', ')] : null,
+  ].filter(Boolean);
+
+  const hors = taches.filter(t => !points.length || !t.point_id);
 
   const corps = `
-    <h1>${esc(reunion.titre)}</h1>
-    <p class="sous">${fr(reunion.date_seance)}${reunion.heure_seance
-      ? ` à ${esc(reunion.heure_seance)}` : ''}${reunion.lieu ? ` · ${esc(reunion.lieu)}` : ''}</p>
+    <table class="cartouche"><tbody>${cartouche.map(([k, v]) =>
+      `<tr><th>${k}</th><td>${v}</td></tr>`).join('')}</tbody></table>
 
-    ${reunion.organisateur_nom ? `<p class="fin">Organisée par ${
-      esc(reunion.organisateur_nom)}${reunion.section ? ` · ${esc(reunion.section)}` : ''}</p>` : ''}
+    ${points.map((p, i) => {
+      const siennes = taches.filter(t => t.point_id === p.id);
+      const cache = p.confidentiel && !integral;
+      return `<div class="point">
+        <h3>${i + 1}. ${esc(p.intitule) || 'Point sans intitulé'}${
+          p.confidentiel && integral ? ' <span class="confid">confidentiel</span>' : ''}</h3>
+        ${cache ? '<p class="fin">Point traité à huis clos — les échanges ne sont pas reproduits.</p>'
+          : paragraphes(p.notes)}
+        ${decisions(siennes)}
+      </div>`;
+    }).join('')}
 
-    <h3>Présences</h3>
-    <p>${presents.length ? `<b>Présents :</b> ${presents.join(', ')}` : 'Aucun présent noté.'}
-      ${excuses.length ? `<br><b>Excusés :</b> ${excuses.join(', ')}` : ''}
-      ${absents.length ? `<br><b>Absents :</b> ${absents.join(', ')}` : ''}</p>
+    ${hors.length ? `<div class="point"><h3>${points.length ? 'Autres décisions' : 'Décisions'}</h3>${decisions(hors)}</div>` : ''}
 
-    ${points.length ? `<h3>Ordre du jour</h3><ol>${
-      points.map(p => `<li>${esc(p.intitule)}</li>`).join('')}</ol>` : ''}
+    ${reunion.notes ? `<div class="point"><h3>Notes</h3>${paragraphes(reunion.notes)}</div>` : ''}
 
-    ${/* LE PROCÈS-VERBAL SUIT LA SÉANCE, POINT PAR POINT. Un pavé de notes
-          suivi d'un tableau d'actions oblige le lecteur à refaire lui-même le
-          rapprochement : sous chaque point, ce qui s'y est dit et ce qui en a
-          été décidé. */
-      points.map((p, i) => {
-        const siennes = taches.filter(t => t.point_id === p.id);
-        const cache = p.confidentiel && !integral;
-        if (!p.notes && !siennes.length && !cache) return '';
-        return `<h3>${i + 1}. ${esc(p.intitule) || 'Point sans intitulé'}${
-            p.confidentiel && integral ? ' <span class="confid">confidentiel</span>' : ''}</h3>
-          ${cache
-            ? '<p class="fin">Point traité à huis clos — les échanges ne sont pas reproduits.</p>'
-            : String(p.notes || '').split('\n').filter(l => l.trim())
-              .map(l => `<p>${esc(l)}</p>`).join('')}
-          ${siennes.length ? `<table>
-            <thead><tr><th>Décidé</th><th>Qui</th><th>Pour le</th><th>État</th></tr></thead>
-            <tbody>${siennes.map(ligneTache).join('')}</tbody></table>` : ''}`;
-      }).join('')}
+    ${integral && reunion.notes_confidentielles ? `<div class="point"><h3>Notes confidentielles
+        <span class="confid">confidentiel</span></h3>${paragraphes(reunion.notes_confidentielles)}</div>` : ''}
 
-    ${reunion.notes ? `<h3>Notes de séance</h3>${
-      String(reunion.notes).split('\n').filter(l => l.trim())
-        .map(l => `<p>${esc(l)}</p>`).join('')}` : ''}
-
-    ${integral && reunion.notes_confidentielles ? `<h3>Notes confidentielles
-        <span class="confid">confidentiel</span></h3>${
-      String(reunion.notes_confidentielles).split('\n').filter(l => l.trim())
-        .map(l => `<p>${esc(l)}</p>`).join('')}` : ''}
-
-    ${reunion.prochaine_date ? `<h3>Prochaine séance</h3><p>${fr(reunion.prochaine_date)}${
+    ${reunion.prochaine_date ? `<p class="suite"><b>Prochaine séance :</b> ${fr(reunion.prochaine_date)}${
       reunion.prochaine_heure ? ` à ${esc(reunion.prochaine_heure)}` : ''}${
       reunion.prochain_lieu ? ` · ${esc(reunion.prochain_lieu)}` : ''}${
-      reunion.prochaine_qui ? `<br><span class="fin">Attendus : ${
-        esc(reunion.prochaine_qui)}</span>` : ''}</p>` : ''}
-
-    ${/* Ce qui a été décidé hors d'un point — et le récapitulatif quand la
-          séance n'a pas été tenue par points. */''}
-    <h3>${points.length ? 'Autres décisions' : 'Ce qui a été décidé — et par qui'}</h3>
-    ${(() => {
-      const hors = taches.filter(t => !points.length || !t.point_id);
-      return hors.length ? `<table>
-        <thead><tr><th>Tâche</th><th>Qui</th><th>Pour le</th><th>État</th></tr></thead>
-        <tbody>${hors.map(ligneTache).join('')}</tbody></table>`
-        : '<p class="fin">Aucune autre décision.</p>';
-    })()}`;
+      reunion.prochaine_qui ? ` — ${esc(reunion.prochaine_qui)}` : ''}</p>` : ''}`;
 
   res.json({
     html: envelopperDocument({
@@ -981,6 +973,263 @@ const LIB_STATUT = {
   a_faire: 'à faire', en_cours: 'en cours', fait: 'fait', abandonnee: 'abandonnée',
 };
 
+// ─── LE RAPPORT DU MOIS ─────────────────────────────────────────────────────
+//
+// « Chaque mois, je veux un rapport de ce qui a été fait » (Jérôme, 24
+// septembre 2026) — et de TOUT Lucie, pas seulement des réunions. Le rapport
+// se lit en une minute : un « en bref » chiffré, puis chaque domaine où il
+// s'est passé quelque chose. Un domaine muet ne s'imprime pas.
+//
+// RIEN DE CONFIDENTIEL N'Y ENTRE : des réunions, les intitulés des points,
+// jamais les notes ; du dossier de suivi des étudiants, un nombre, jamais le
+// texte.
+
+const NOMS_MOIS = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet',
+  'août', 'septembre', 'octobre', 'novembre', 'décembre'];
+const moisLibelle = mois => `${NOMS_MOIS[Number(mois.slice(5, 7)) - 1]} ${mois.slice(0, 4)}`;
+const moisSuivant = mois => {
+  const [a, m] = mois.split('-').map(Number);
+  return m === 12 ? `${a + 1}-01` : `${a}-${String(m + 1).padStart(2, '0')}`;
+};
+
+export function construireRapportMensuel(mois) {
+  const debut = `${mois}-01`, fin = `${moisSuivant(mois)}-01`;
+  const dans = col => `substr(${col}, 1, 10) >= '${debut}' AND substr(${col}, 1, 10) < '${fin}'`;
+  const esc = v => String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;');
+  const fr = d => (d ? String(d).slice(0, 10).split('-').reverse().join('/') : '—');
+  // Une table absente (base plus ancienne) ne fait pas tomber le rapport.
+  const tous = (sql, ...a) => { try { return db.prepare(sql).all(...a); } catch { return []; } };
+  const un = (sql, ...a) => { try { return db.prepare(sql).get(...a) || {}; } catch { return {}; } };
+  const aujourdhui = new Date().toISOString().slice(0, 10);
+  const borne = fin <= aujourdhui ? fin : aujourdhui;   // « en retard » à la fin du mois, ou aujourd'hui
+
+  // ── Réunions ──
+  const reunions = tous(`SELECT r.id, r.titre, r.date_seance, r.section FROM reunion r
+    WHERE ${dans('r.date_seance')} ORDER BY r.date_seance, r.id`);
+  for (const r0 of reunions) {
+    r0.presents = tous('SELECT nom FROM reunion_participant WHERE reunion_id = ? AND present = 1 ORDER BY nom', r0.id).map(x => x.nom);
+    r0.points = tous('SELECT intitule FROM reunion_point WHERE reunion_id = ? ORDER BY ordre, id', r0.id).map(x => x.intitule).filter(Boolean);
+    const t = un(`SELECT COUNT(*) n, SUM(statut = 'fait') f FROM tache WHERE reunion_id = ?`, r0.id);
+    r0.decisions = t.n || 0; r0.faites = t.f || 0;
+  }
+
+  // ── Tâches ──
+  const faites = attacherResponsables(tous(SELECT_TACHE + ` WHERE t.statut = 'fait' AND ${dans('t.fait_le')} ORDER BY t.fait_le`));
+  const creees = un(`SELECT COUNT(*) n FROM tache WHERE ${dans('cree_le')}`).n || 0;
+  const retard = attacherResponsables(tous(SELECT_TACHE + ` WHERE t.statut IN ('a_faire','en_cours')
+    AND t.echeance IS NOT NULL AND t.echeance < ? ORDER BY t.echeance`, borne));
+  const signalees = un(`SELECT COUNT(*) n FROM tache WHERE ${dans('pas_fait_le')}`).n || 0;
+  const quiFait = t => (t.responsables?.length
+    ? t.responsables.map(x => x.nom || LIB_ROLE[x.role] || x.role).filter(Boolean).join(', ')
+    : (t.responsable_nom || LIB_ROLE[t.responsable_role] || t.responsable_role)) || 'Sans responsable';
+  const parPersonne = liste => {
+    const m = new Map();
+    for (const t of liste) { const k = quiFait(t); (m.get(k) || m.set(k, []).get(k)).push(t); }
+    return [...m].sort((a, b) => b[1].length - a[1].length);
+  };
+
+  // ── Obligations de l'échéancier ──
+  const oblFaites = tous(`SELECT COALESCE(e.libelle_override, et.libelle) AS lib, e.date_due, e.fait_le
+    FROM echeance e LEFT JOIN echeance_type et ON et.id = e.type_id
+    WHERE e.fait_le IS NOT NULL AND ${dans('e.fait_le')} ORDER BY e.fait_le`);
+  const oblManquees = tous(`SELECT COALESCE(e.libelle_override, et.libelle) AS lib, e.date_due
+    FROM echeance e LEFT JOIN echeance_type et ON et.id = e.type_id
+    WHERE e.fait_le IS NULL AND ${dans('e.date_due')} AND e.date_due < ? ORDER BY e.date_due`, borne);
+
+  // ── Étudiants ──
+  const nouveaux = un(`SELECT COUNT(*) n FROM etudiant WHERE ${dans('cree_le')}`).n || 0;
+  const inscriptions = tous(`SELECT COALESCE((SELECT section FROM ue u WHERE u.ue_num = i.ue_num
+      ORDER BY u.annee_scolaire DESC LIMIT 1), '—') AS section, COUNT(*) n, COUNT(DISTINCT i.etudiant_id) e
+    FROM etudiant_inscription i WHERE ${dans('COALESCE(i.cree_le, i.date_inscription)')}
+    GROUP BY 1 ORDER BY 2 DESC`);
+  const paeValides = un(`SELECT COUNT(*) n FROM etudiant_pae WHERE ${dans('confirme_le')}`).n || 0;
+  const sorties = tous(`SELECT sortie_statut AS statut, COUNT(*) n FROM etudiant
+    WHERE sortie_le IS NOT NULL AND ${dans('sortie_le')} GROUP BY 1`);
+  const suivi = un(`SELECT COUNT(*) n, COUNT(DISTINCT etudiant_id) e FROM etudiant_suivi WHERE ${dans('cree_le')}`);
+
+  // ── Délibérations ──
+  const delib = tous(`SELECT d.ue_num,
+      (SELECT ue_nom FROM ue u WHERE u.ue_num = d.ue_num ORDER BY u.annee_scolaire DESC LIMIT 1) AS ue_nom,
+      COUNT(*) n, SUM(d.resultat = 'reussi') r, SUM(d.resultat = 'ajourne') a, SUM(d.resultat = 'refuse') f
+    FROM deliberation_resultat d WHERE ${dans('d.decide_le')} GROUP BY d.ue_num ORDER BY d.ue_num`);
+  const seances = un(`SELECT COUNT(*) n FROM deliberation_seance WHERE ${dans('date_seance')}`).n || 0;
+
+  // ── Valorisations ──
+  const va = tous(`SELECT COALESCE(decision, 'sans décision') AS decision, COUNT(*) n FROM etudiant_valorisation
+    WHERE decision_le IS NOT NULL AND ${dans('decision_le')} GROUP BY 1`);
+  const vaDemandes = un(`SELECT COUNT(*) n FROM etudiant_valorisation WHERE ${dans('COALESCE(date_reception, cree_le)')}`).n || 0;
+
+  // ── Personnel et organisation ──
+  const attrCreees = un(`SELECT COUNT(*) n FROM attribution WHERE ${dans('created_at')}`).n || 0;
+  const attrModifiees = un(`SELECT COUNT(*) n FROM attribution WHERE ${dans('updated_at')}
+    AND NOT (${dans('created_at')})`).n || 0;
+  const absences = un(`SELECT COUNT(*) n FROM absence_personnel WHERE ${dans('cree_le')}`).n || 0;
+  const entretiens = un(`SELECT COUNT(*) n FROM entretien_personnel WHERE date_tenue IS NOT NULL AND ${dans('date_tenue')}`).n || 0;
+  const candidatures = un(`SELECT COUNT(*) n FROM recrutement_candidature WHERE ${dans('cree_le')}`).n || 0;
+
+  // ── Communication et enseignants ──
+  const comms = un(`SELECT COUNT(*) n FROM communication WHERE envoye_le IS NOT NULL AND ${dans('envoye_le')}`).n || 0;
+  const mails = un(`SELECT COUNT(*) n FROM envoi_mail WHERE ${dans('envoye_le')}`).n || 0;
+  const notesProp = un(`SELECT COUNT(*) n, COUNT(DISTINCT professeur_id) p FROM note_proposee WHERE ${dans('propose_le')}`);
+
+  // ── Mise en page ──
+  const bref = [
+    ['Réunions tenues', reunions.length],
+    ['Tâches faites', faites.length],
+    ['Tâches en retard', retard.length],
+    ['PAE validés', paeValides],
+    ['Décisions de délibération', delib.reduce((n, d) => n + d.n, 0)],
+    ['Inscriptions enregistrées', inscriptions.reduce((n, i) => n + i.n, 0)],
+  ];
+  const section = (titre, contenu) => (contenu ? `<div class="bloc"><h3>${titre}</h3>${contenu}</div>` : '');
+  const liste = items => (items.length ? `<ul>${items.map(x => `<li>${x}</li>`).join('')}</ul>` : '');
+  const chiffres = paires => {
+    const l = paires.filter(([, v]) => v);
+    return l.length ? `<p>${l.map(([k, v]) => `<b>${v}</b> ${k}`).join(' · ')}</p>` : '';
+  };
+
+  const corps = `
+    <table class="bref"><tr>${bref.map(([k, v]) =>
+      `<td><div class="n">${v}</div><div class="k">${k}</div></td>`).join('')}</tr></table>
+
+    ${section(`Réunions (${reunions.length})`, reunions.length ? `<table class="lst"><tbody>${reunions.map(r0 => `<tr>
+        <td class="d">${fr(r0.date_seance)}</td>
+        <td><b>${esc(r0.titre)}</b>${r0.section ? ` · ${esc(r0.section)}` : ''}
+          ${r0.presents.length ? `<br><span class="fin">Présents : ${r0.presents.map(esc).join(', ')}</span>` : ''}
+          ${r0.points.length ? `<br><span class="fin">Points : ${r0.points.map(esc).join(' · ')}</span>` : ''}</td>
+        <td class="c">${r0.decisions ? `${r0.decisions} décision(s)<br><span class="fin">${r0.faites} faite(s)</span>` : ''}</td>
+      </tr>`).join('')}</tbody></table>` : '')}
+
+    ${section(`Ce qui a été fait (${faites.length} tâche${faites.length > 1 ? 's' : ''})`,
+      faites.length ? parPersonne(faites).map(([qui, l]) => `<p class="qui"><b>${esc(qui)}</b> — ${l.length}</p>${
+        liste(l.map(t => `${esc(t.titre)} <span class="fin">· ${fr(t.fait_le)}${t.reunion_titre ? ` · ${esc(t.reunion_titre)}` : ''}</span>`))}`).join('')
+        + (creees || signalees ? `<p class="fin">${creees} tâche(s) créée(s) dans le mois${signalees ? ` · ${signalees} signalée(s) « pas encore fait »` : ''}.</p>` : '')
+      : '')}
+
+    ${section(`En retard (${retard.length})`,
+      retard.length ? parPersonne(retard).map(([qui, l]) => `<p class="qui"><b>${esc(qui)}</b> — ${l.length}</p>${
+        liste(l.map(t => `${esc(t.titre)} <span class="fin">· prévue le ${fr(t.echeance)}</span>`))}`).join('') : '')}
+
+    ${section('Obligations de l’échéancier', (oblFaites.length || oblManquees.length) ? `
+      ${oblFaites.length ? `<p><b>Remplies :</b></p>${liste(oblFaites.map(o => `${esc(o.lib)} <span class="fin">· ${fr(o.fait_le)}</span>`))}` : ''}
+      ${oblManquees.length ? `<p><b>Échues sans être remplies :</b></p>${liste(oblManquees.map(o => `${esc(o.lib)} <span class="fin">· due le ${fr(o.date_due)}</span>`))}` : ''}` : '')}
+
+    ${section('Étudiants', (nouveaux || inscriptions.length || paeValides || sorties.length || suivi.n) ? `
+      ${chiffres([['nouvelle(s) fiche(s)', nouveaux], ['PAE validé(s)', paeValides],
+        ['note(s) au dossier de suivi', suivi.n]])}
+      ${inscriptions.length ? `<p>Inscriptions enregistrées : ${inscriptions.map(i =>
+        `${esc(i.section)} <b>${i.n}</b> <span class="fin">(${i.e} étudiant${i.e > 1 ? 's' : ''})</span>`).join(' · ')}</p>` : ''}
+      ${sorties.length ? `<p>Sorties : ${sorties.map(x => `<b>${x.n}</b> ${esc({ diplome: 'diplômé(s)', sorti: 'sorti(s)', archive: 'archivé(s)' }[x.statut] || x.statut)}`).join(' · ')}</p>` : ''}` : '')}
+
+    ${section('Délibérations', delib.length || seances ? `
+      ${chiffres([['séance(s) de délibération', seances]])}
+      ${delib.length ? `<table class="lst"><tbody>${delib.map(d => `<tr>
+        <td class="d">UE ${d.ue_num}</td><td>${esc(d.ue_nom || '')}</td>
+        <td class="c">${d.r || 0} réussi · ${d.a || 0} ajourné · ${d.f || 0} refusé</td></tr>`).join('')}</tbody></table>` : ''}` : '')}
+
+    ${section('Valorisation des acquis', va.length || vaDemandes ? `
+      ${chiffres([['demande(s) reçue(s)', vaDemandes]])}
+      ${va.length ? `<p>Décisions : ${va.map(x => `<b>${x.n}</b> ${esc(x.decision)}`).join(' · ')}</p>` : ''}` : '')}
+
+    ${section('Personnel et organisation', chiffres([
+      ['attribution(s) créée(s)', attrCreees], ['attribution(s) modifiée(s)', attrModifiees],
+      ['absence(s) déclarée(s)', absences], ['entretien(s) tenu(s)', entretiens],
+      ['candidature(s) reçue(s)', candidatures]]))}
+
+    ${section('Communication et enseignants', chiffres([
+      ['communication(s) diffusée(s)', comms], ['document(s) envoyé(s) par courriel', mails],
+      [`note(s) proposée(s) par ${notesProp.p || 0} enseignant(s)`, notesProp.n]]))}
+
+    <p class="fin pied">Rapport établi le ${fr(aujourdhui)} à partir des données de Lucie. Les notes confidentielles
+      des réunions et le contenu des dossiers de suivi n’y figurent pas.</p>`;
+
+  const titre = `Rapport d’activité — ${moisLibelle(mois)}`;
+  return {
+    titre,
+    nom: `Rapport_activite_${mois}.html`,
+    html: envelopperDocument({ html: corps, titre, styles: STYLE_PV + `
+      table.bref { width: 100%; margin: 0 0 6mm; border-collapse: separate; border-spacing: 1.5mm 0; }
+      table.bref td { border: 0.4pt solid #cbd5e1; border-radius: 1.5mm; padding: 2.5mm 2mm; text-align: center; width: 16.6%; }
+      table.bref .n { font-size: 16pt; font-weight: 700; color: #1B2B4B; line-height: 1.1; }
+      table.bref .k { font-size: 7.5pt; color: #64748b; margin-top: .8mm; }
+      .bloc { margin: 0 0 5mm; }
+      .bloc h3 { border-bottom: 0.8pt solid #cbd5e1; padding-bottom: 1mm; margin-bottom: 2mm; }
+      p.qui { margin: 2mm 0 .5mm; }
+      ul { margin: 0 0 1.5mm 5mm; } li { font-size: 9pt; }
+      table.lst { width: 100%; } table.lst td { font-size: 9pt; vertical-align: top; }
+      table.lst td.d { width: 20mm; color: #475569; white-space: nowrap; }
+      table.lst td.c { width: 45mm; text-align: right; color: #334155; }
+      .pied { margin-top: 6mm; }` }),
+  };
+}
+
+const moisValide = m => /^\d{4}-(0[1-9]|1[0-2])$/.test(String(m || ''));
+
+r.post('/rapport-mensuel', authRequired,
+  roleRequired('admin', 'directeur', 'directeur_adjoint'), (req, res) => {
+    const mois = req.body?.mois;
+    if (!moisValide(mois)) return res.status(400).json({ error: 'mois attendu au format AAAA-MM' });
+    res.json(construireRapportMensuel(mois));
+  });
+
+/**
+ * LE 1er DU MOIS, LE RAPPORT DU MOIS ÉCOULÉ PART À LA DIRECTION.
+ *
+ * Une fois par mois, et une seule : l'envoi est noté (rapport_mensuel_envoi),
+ * si bien qu'un redémarrage du serveur ne le renvoie pas. Sans expéditeur
+ * configuré, rien ne part — le rapport reste à produire d'un bouton.
+ */
+export async function envoyerRapportMensuelSiDu(maintenant = new Date()) {
+    db.exec(`CREATE TABLE IF NOT EXISTS rapport_mensuel_envoi (
+      mois TEXT PRIMARY KEY, envoye_le TEXT DEFAULT (datetime('now')),
+      destinataires TEXT, statut TEXT)`);
+    try {
+      if (!mailerConfigure()) return { statut: 'sans_expediteur' };
+      const d = maintenant;
+      // LA PREMIÈRE SEMAINE SEULEMENT : le 1er, ou dès que le serveur revient
+      // s'il était arrêté ce jour-là. Mis en service un 24, il n'envoie pas
+      // aussitôt le rapport d'un mois déjà loin.
+      if (d.getUTCDate() > 7) return { statut: 'hors_periode' };
+      const prec = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() - 1, 1));
+      const mois = `${prec.getUTCFullYear()}-${String(prec.getUTCMonth() + 1).padStart(2, '0')}`;
+      if (db.prepare('SELECT 1 FROM rapport_mensuel_envoi WHERE mois = ?').get(mois)) return { statut: 'deja', mois };
+      const dest = db.prepare(`SELECT email FROM utilisateur WHERE actif = 1 AND email LIKE '%@%'
+        AND role IN ('admin','directeur','directeur_adjoint')`).all().map(x => x.email);
+      if (!dest.length) return { statut: 'sans_destinataire', mois };
+      // On réserve le mois AVANT d'envoyer : deux passes simultanées ne
+      // doivent pas produire deux courriels.
+      db.prepare('INSERT INTO rapport_mensuel_envoi (mois, destinataires, statut) VALUES (?,?,?)')
+        .run(mois, dest.join(', '), 'en_cours');
+      const rap = construireRapportMensuel(mois);
+      let pieces = [];
+      try {
+        const pdf = await rendrePdf(rap.html, { pagination: 'si-plusieurs' });
+        pieces = [{ filename: `Rapport_activite_${mois}.pdf`, content: pdf, contentType: 'application/pdf' }];
+      } catch {
+        pieces = [{ filename: rap.nom, content: Buffer.from(rap.html, 'utf8'), contentType: 'text/html' }];
+      }
+      const env = await envoyerEmail({
+        to: dest, subject: `Lucie — ${rap.titre}`,
+        html: `<p>Bonjour,</p><p>Vous trouverez en pièce jointe le rapport d’activité de ${moisLibelle(mois)} :
+          réunions, tâches faites et en retard, étudiants, délibérations, valorisations, personnel.</p>
+          <p>Il se reproduit à tout moment dans Lucie : Suivi d’équipe → Rapport du mois.</p>`,
+        attachments: pieces,
+      });
+      db.prepare('UPDATE rapport_mensuel_envoi SET statut = ?, envoye_le = datetime(\'now\') WHERE mois = ?')
+        .run(env.ok ? (env.simule ? 'simule' : 'envoye') : `erreur : ${env.erreur || ''}`, mois);
+      // Un échec se retente à la passe suivante.
+      if (!env.ok) db.prepare('DELETE FROM rapport_mensuel_envoi WHERE mois = ?').run(mois);
+      console.log(`[rapport mensuel] ${mois} → ${dest.length} destinataire(s) : ${env.ok ? 'envoyé' : env.erreur}`);
+      return { statut: env.ok ? 'envoye' : 'erreur', mois, destinataires: dest, erreur: env.erreur };
+    } catch (e) { console.error('[rapport mensuel] :', e.message); return { statut: 'erreur', erreur: e.message }; }
+}
+
+export function planifierRapportMensuel() {
+  const passe = () => { envoyerRapportMensuelSiDu(); };
+  setTimeout(passe, 60_000).unref?.();
+  setInterval(passe, 6 * 3600 * 1000).unref?.();
+}
+
 // Un service porte une action comme une personne : sur le papier, il doit se
 // lire en toutes lettres et non par sa clé technique.
 const LIB_ROLE = {
@@ -995,7 +1244,8 @@ const STYLE_PV = `
   h1 { font-size: 14pt; letter-spacing: -.2pt; }
   .sous { color:#64748b; font-size:9pt; margin:0 0 6mm; }
   .fin  { color:#94a3b8; font-size:8pt; }
-  h3 { font-size: 10pt; margin: 6mm 0 1mm; letter-spacing: -.1pt; }
+  h3 { font-size: 10.5pt; margin: 0 0 1.2mm; letter-spacing: -.1pt; }
+  p { margin: 0 0 1.2mm; font-size: 9.5pt; line-height: 1.4; }
   ol, ul { margin: 1mm 0 2mm 5mm; padding: 0; }
   li { margin: .8mm 0; font-size: 9pt; }
   table { margin: 0 0 2mm; }
@@ -1003,6 +1253,21 @@ const STYLE_PV = `
            border-bottom: 0.3pt solid #e2e8f0; }
   th { background: transparent; color:#64748b; font-size: 7.5pt;
        border-bottom: 0.8pt solid #cbd5e1; }
-  tbody tr:last-child td { border-bottom: 0; }`;
+  tbody tr:last-child td { border-bottom: 0; }
+  /* Le cartouche : quand, où, qui — en deux colonnes, sans cadre. */
+  table.cartouche { width: 100%; margin: 0 0 5mm; border-top: 0.8pt solid #cbd5e1;
+                    border-bottom: 0.8pt solid #cbd5e1; }
+  table.cartouche th { width: 28mm; text-align: left; color:#64748b; font-size: 8pt;
+                       font-weight: 600; border-bottom: 0; padding: 1.2mm 2mm 1.2mm 0; vertical-align: top; }
+  table.cartouche td { font-size: 9pt; border-bottom: 0; padding: 1.2mm 0; }
+  .point { margin: 0 0 4.5mm; page-break-inside: avoid; }
+  /* Les décisions : une ligne chacune, sans en-tête de tableau. */
+  table.dec { width: 100%; margin: 1mm 0 0; }
+  table.dec td { font-size: 9pt; padding: 1mm 1.5mm; border-bottom: 0.3pt solid #eef2f6; vertical-align: top; }
+  table.dec td.fl { width: 4mm; color: #1a9aa0; font-weight: 700; padding-left: 0; }
+  table.dec td.qui { width: 38mm; color: #334155; }
+  table.dec td.date { width: 22mm; color: #475569; white-space: nowrap; }
+  table.dec td.etat { width: 16mm; color: #64748b; font-size: 8pt; white-space: nowrap; }
+  .suite { margin-top: 5mm; padding-top: 2mm; border-top: 0.8pt solid #cbd5e1; font-size: 9.5pt; }`;
 
 export default r;
