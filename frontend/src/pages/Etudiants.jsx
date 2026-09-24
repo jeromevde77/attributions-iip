@@ -6,7 +6,7 @@ import NouvelEtudiant from '../components/NouvelEtudiant.jsx';
 import {
   IconAddressBook, IconAlertTriangle, IconAward, IconCertificate, IconStairsUp, IconUserPlus, IconCheck, IconChecklist, IconChevronLeft, IconChevronRight, IconClock, IconFileText, IconFolder, IconPlus, IconPrinter, IconSearch, IconTable, IconTrash, IconUpload, IconUser, IconWritingSign, IconWritingSignOff, IconX,
 } from '@tabler/icons-react';
-import { authHeaders, getAnnee } from '../lib/api.js';
+import { authHeaders, getAnnee, getUser } from '../lib/api.js';
 import PreviewModal from '../components/PreviewModal.jsx';
 import SchemaCapitalisationVue from '../components/SchemaCapitalisation.jsx';
 import Amenagements from '../components/Amenagements.jsx';
@@ -2669,6 +2669,35 @@ export default function Etudiants() {
     return n;
   }), []);
 
+  /* SUPPRIMER LES ÉTUDIANTS COCHÉS. Le serveur répond en deux temps : si un
+     dossier porte des données, il rend L'INVENTAIRE (inscriptions, notes,
+     décisions…) et l'on confirme en sachant quoi — la direction seule peut
+     forcer. Une fiche vide (doublon, erreur de saisie) part sans détour. */
+  async function supprimerSelection() {
+    const ids = [...selEtudiants];
+    if (!ids.length) return;
+    if (!window.confirm(`Supprimer ${ids.length} étudiant(s) ?\n\nLes fiches vides seront supprimées directement ; pour celles qui portent des données, un récapitulatif sera demandé une par une.`)) return;
+    let faits = 0, refus = [];
+    for (const id of ids) {
+      let rep = await fetch(`/api/etudiants/${id}`, { method: 'DELETE', headers: authHeaders() });
+      let j = await rep.json().catch(() => ({}));
+      if (rep.status === 409 && j.confirmation_requise) {
+        const inv = j.inventaire || {};
+        const detail = Object.entries(inv).filter(([, n]) => n > 0)
+          .map(([k, n]) => `  · ${n} ${k}`).join('\n');
+        if (!j.force_permis) { refus.push(`${j.etudiant} — dossier non vide (direction requise)`); continue; }
+        if (!window.confirm(`${j.etudiant} porte des données qui seraient DÉFINITIVEMENT supprimées :\n${detail}\n\nSupprimer quand même ?`)) continue;
+        rep = await fetch(`/api/etudiants/${id}?force=1`, { method: 'DELETE', headers: authHeaders() });
+        j = await rep.json().catch(() => ({}));
+      }
+      if (rep.ok) faits++;
+      else refus.push(j.error || `étudiant ${id} : erreur ${rep.status}`);
+    }
+    if (refus.length) alert(`${faits} supprimé(s).\nNon supprimé(s) :\n- ` + refus.join('\n- '));
+    setSelEtudiants(new Set());
+    await charger();
+  }
+
   // « Tout cocher » ne porte que sur ce qui est AFFICHÉ : après un filtre, il
   // doit cocher le résultat du filtre, non la base entière.
   // Mémoïsé : cette boucle tournait à chaque rendu, donc à chaque case cochée.
@@ -2912,6 +2941,14 @@ export default function Etudiants() {
                          text-iip-blue font-semibold rounded-lg">
               <IconChecklist size={14} /> Composer les PAE
             </button>
+            {['admin', 'directeur', 'directeur_adjoint', 'secretariat'].includes(getUser()?.role) && (
+              <button onClick={supprimerSelection}
+                title="Supprimer les étudiants cochés — les dossiers non vides demandent confirmation, avec l'inventaire de ce qui serait emporté"
+                className="flex items-center gap-1.5 px-3 py-1.5 text-sm border border-red-300
+                           text-red-700 font-semibold rounded-lg hover:bg-red-50">
+                <IconTrash size={14} /> Supprimer
+              </button>
+            )}
             <button onClick={() => setSelEtudiants(new Set())}
               className="px-3 py-1.5 text-sm border border-slate-300 text-slate-600 rounded-lg">
               Vider
