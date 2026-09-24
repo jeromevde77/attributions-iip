@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
-import { IconTargetArrow, IconLink, IconUnlink, IconAlertTriangle } from '@tabler/icons-react';
-import { authHeaders } from '../lib/api.js';
+import { IconTargetArrow, IconLink, IconUnlink, IconAlertTriangle, IconPencil,
+         IconArrowUp, IconArrowDown, IconListNumbers, IconCheck, IconX } from '@tabler/icons-react';
+import { authHeaders, getUser } from '../lib/api.js';
 
 /**
  * Acquis d'apprentissage d'une UE.
@@ -14,6 +15,53 @@ export default function AcquisUE({ ueNum, annee, estAdmin }) {
   const [data, setData] = useState(null);
   const [erreur, setErreur] = useState(null);
   const [enCours, setEnCours] = useState(null);
+  const [edition, setEdition] = useState(null);   // { code, nouveau_code, description }
+  // Le référentiel se corrige par la direction : un import maladroit du
+  // dossier pédagogique doit pouvoir se réparer dans la maison.
+  const peutCorriger = estAdmin || ['admin', 'directeur', 'directeur_adjoint'].includes(getUser()?.role);
+
+  async function envoyer(url, corps, method = 'PATCH') {
+    setErreur(null);
+    const rep = await fetch(url, { method, headers: { 'Content-Type': 'application/json', ...authHeaders() },
+      body: JSON.stringify(corps) });
+    const j = await rep.json().catch(() => ({}));
+    if (!rep.ok) { alert(j.error || `Refusé (${rep.status})`); return null; }
+    return j;
+  }
+
+  async function enregistrerEdition() {
+    const { code, nouveau_code, description } = edition;
+    const corps = {};
+    if (nouveau_code.trim() && nouveau_code.trim() !== code) corps.nouveau_code = nouveau_code.trim();
+    const avant = data.acquis.find(a => a.aa_code === code)?.description || '';
+    if (description.trim() && description.trim() !== avant) corps.description = description.trim();
+    if (!Object.keys(corps).length) { setEdition(null); return; }
+    if (corps.nouveau_code && !window.confirm(`Renommer ${code} en ${corps.nouveau_code} ?\n\nLe nouveau code sera repris partout : pondérations, notes, motivations, propositions des professeurs.`)) return;
+    const j = await envoyer(`/api/aa/${encodeURIComponent(code)}`, corps);
+    if (j) { setEdition(null); await charger(); }
+  }
+
+  /* L'ORDRE, PUIS LA NUMÉROTATION. Déplacer un acquis réordonne sans toucher
+     aux codes ; « Renuméroter » réécrit ensuite les codes AA{ue}.1…n dans cet
+     ordre, partout où ils sont cités. */
+  async function deplacer(i, sens) {
+    const ordre = data.acquis.map(a => a.aa_code);
+    const j = i + sens;
+    if (j < 0 || j >= ordre.length) return;
+    [ordre[i], ordre[j]] = [ordre[j], ordre[i]];
+    const r = await envoyer(`/api/aa/ue/${ueNum}/renumeroter`, { ordre, recoder: false }, 'POST');
+    if (r) await charger();
+  }
+
+  async function renumeroter() {
+    const ordre = data.acquis.map(a => a.aa_code);
+    const cibles = ordre.map((_, i) => `AA${ueNum}.${i + 1}`);
+    const changes = ordre.map((c, i) => (c !== cibles[i] ? `${c} → ${cibles[i]}` : null)).filter(Boolean);
+    if (!changes.length) { alert('La numérotation est déjà propre.'); return; }
+    if (!window.confirm(`Renuméroter les acquis de l'UE ${ueNum} dans l'ordre affiché ?\n\n${changes.join('\n')}\n\nLes codes sont réécrits partout : pondérations, notes, motivations, propositions.`)) return;
+    const r = await envoyer(`/api/aa/ue/${ueNum}/renumeroter`, { ordre, recoder: true }, 'POST');
+    if (r) await charger();
+  }
 
   async function charger() {
     try {
@@ -56,6 +104,14 @@ export default function AcquisUE({ ueNum, annee, estAdmin }) {
       <div className="flex items-center gap-2 text-xs text-gray-500">
         <IconTargetArrow size={15} className="text-iip-turquoise" />
         <span>{data.acquis.length} acquis</span>
+        {peutCorriger && (
+          <button onClick={renumeroter}
+            title={`Réécrire les codes AA${ueNum}.1, AA${ueNum}.2… dans l'ordre affiché — partout où ils sont cités`}
+            className="ml-auto flex items-center gap-1 text-[12px] text-iip-blue border border-slate-300
+                       rounded px-2 py-0.5 hover:border-iip-blue bg-white">
+            <IconListNumbers size={13} /> Renuméroter
+          </button>
+        )}
         {data.non_rattaches > 0 && (
           <span className="flex items-center gap-1 text-amber-700 font-medium">
             <IconAlertTriangle size={13} /> {data.non_rattaches} non rattaché(s) à un cours
@@ -64,13 +120,50 @@ export default function AcquisUE({ ueNum, annee, estAdmin }) {
       </div>
 
       <div className="border border-gray-200 rounded-lg divide-y divide-gray-100">
-        {data.acquis.map(a => (
+        {data.acquis.map((a, i) => (
           <div key={a.aa_code} className="px-3 py-2.5 flex items-start gap-3 hover:bg-gray-50/60">
-            <span className="text-[11px] font-bold text-iip-blue bg-iip-blue/8 px-1.5 py-0.5 rounded flex-none mt-0.5">
-              {a.aa_code}
-            </span>
+            {peutCorriger && (
+              <div className="flex flex-col flex-none -my-0.5">
+                <button onClick={() => deplacer(i, -1)} disabled={i === 0} title="Monter"
+                  className="text-slate-400 hover:text-iip-blue disabled:opacity-20"><IconArrowUp size={13} /></button>
+                <button onClick={() => deplacer(i, 1)} disabled={i === data.acquis.length - 1} title="Descendre"
+                  className="text-slate-400 hover:text-iip-blue disabled:opacity-20"><IconArrowDown size={13} /></button>
+              </div>
+            )}
+            {edition?.code === a.aa_code ? (
+              <input value={edition.nouveau_code} autoFocus
+                onChange={e => setEdition(x => ({ ...x, nouveau_code: e.target.value }))}
+                className="text-[11px] font-bold text-iip-blue border border-iip-blue rounded px-1.5 py-0.5 w-24 flex-none" />
+            ) : (
+              <span className="text-[11px] font-bold text-iip-blue bg-iip-blue/8 px-1.5 py-0.5 rounded flex-none mt-0.5">
+                {a.aa_code}
+              </span>
+            )}
             <div className="flex-1 min-w-0">
-              <div className="text-[13px] text-gray-800 leading-snug">{a.description}</div>
+              {edition?.code === a.aa_code ? (
+                <div className="space-y-1.5">
+                  <textarea value={edition.description} rows={2}
+                    onChange={e => setEdition(x => ({ ...x, description: e.target.value }))}
+                    className="w-full text-[13px] border border-slate-300 rounded px-2 py-1" />
+                  <div className="flex gap-1.5">
+                    <button onClick={enregistrerEdition}
+                      className="flex items-center gap-1 text-[12px] font-semibold text-white bg-iip-blue rounded px-2 py-0.5">
+                      <IconCheck size={13} /> Enregistrer</button>
+                    <button onClick={() => setEdition(null)}
+                      className="flex items-center gap-1 text-[12px] text-slate-600 border border-slate-300 rounded px-2 py-0.5">
+                      <IconX size={13} /> Annuler</button>
+                  </div>
+                </div>
+              ) : (
+                <div className="text-[13px] text-gray-800 leading-snug flex items-start gap-1.5">
+                  <span className="flex-1">{a.description}</span>
+                  {peutCorriger && (
+                    <button onClick={() => setEdition({ code: a.aa_code, nouveau_code: a.aa_code, description: a.description || '' })}
+                      title="Corriger le code ou le libellé" className="text-slate-300 hover:text-iip-blue flex-none">
+                      <IconPencil size={14} /></button>
+                  )}
+                </div>
+              )}
               <div className="flex items-center gap-2 mt-1.5">
                 {a.cours_code
                   ? <IconLink size={13} className="text-emerald-600 flex-none" />
@@ -99,10 +192,10 @@ export default function AcquisUE({ ueNum, annee, estAdmin }) {
           fois les cours créés.
         </p>
       )}
-      {!estAdmin && (
+      {!peutCorriger && (
         <p className="text-[11px] text-gray-400">
-          Le libellé des acquis provient du dossier pédagogique et n'est modifiable
-          que par l'administrateur ; le rattachement à un cours reste ouvert.
+          Le code et le libellé des acquis proviennent du dossier pédagogique et ne sont
+          modifiables que par la direction ; le rattachement à un cours reste ouvert.
         </p>
       )}
     </div>

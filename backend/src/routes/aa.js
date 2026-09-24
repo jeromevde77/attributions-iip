@@ -5,10 +5,36 @@
 import { Router } from 'express';
 import db from '../db/index.js';
 import { anneeDeTravail } from '../helpers/annee.js';
-import { authRequired, roleRequired } from '../middleware/auth.js';
+import { authRequired, roleRequired, NIVEAU_DIRECTION } from '../middleware/auth.js';
 
 const r = Router();
 r.use(authRequired);
+
+/* RENOMMER UN ACQUIS, C'EST LE RENOMMER PARTOUT.
+ *
+ * Le code d'un acquis est la clé de tout ce qui l'évalue : pondérations,
+ * notes, motivations, propositions des professeurs, valorisations, reports.
+ * Changer la seule ligne du référentiel orphelinerait ces traces — une note
+ * posée sur « AA264.1a » ne se retrouverait plus sous « AA264.2 ».
+ *
+ * On parcourt donc les tables qui portent une colonne `aa_code`, telles que la
+ * base les déclare (une table ajoutée demain suivra sans qu'on y pense), plus
+ * les notes détaillées, où le code vit dans `code` pour le type « aa ». */
+function tablesAvecAA() {
+  return db.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%'")
+    .all().map(t => t.name)
+    .filter(n => n !== 'aa' && db.prepare(`PRAGMA table_info(${n})`).all().some(c => c.name === 'aa_code'));
+}
+function recoder(ancien, nouveau) {
+  db.prepare('UPDATE aa SET aa_code = ? WHERE aa_code = ?').run(nouveau, ancien);
+  for (const t of tablesAvecAA()) {
+    db.prepare(`UPDATE ${t} SET aa_code = ? WHERE aa_code = ?`).run(nouveau, ancien);
+  }
+  try {
+    db.prepare("UPDATE etudiant_note_detail SET code = ? WHERE code = ? AND type = 'aa'").run(nouveau, ancien);
+  } catch { /* table absente */ }
+}
+const estDirection = u => NIVEAU_DIRECTION.includes(u?.role);
 
 // ── Liste des AA d'une UE ────────────────────────────────────────────────────
 // GET /api/aa?ue_num=246
@@ -84,19 +110,77 @@ r.patch('/:code', roleRequired('admin', 'editeur'), (req, res) => {
     champs.push('cours_code = ?');
     vals.push(req.body.cours_code || null);
   }
+  // LE RÉFÉRENTIEL LÉGAL SE CORRIGE PAR LA DIRECTION. Réservé au seul compte
+  // administrateur technique, un import maladroit du dossier pédagogique ne
+  // pouvait être réparé par personne de la maison.
   if ('description' in req.body) {
-    if (req.user.role !== 'admin') {
-      return res.status(403).json({ error: "Le libellé d'un acquis provient du dossier pédagogique : modification réservée à l'administrateur" });
+    if (!estDirection(req.user)) {
+      return res.status(403).json({ error: "Le libellé d'un acquis provient du dossier pédagogique : modification réservée à la direction" });
     }
     if (!req.body.description) return res.status(400).json({ error: 'description vide' });
     champs.push('description = ?');
     vals.push(req.body.description);
   }
-  if (!champs.length) return res.status(400).json({ error: 'rien à modifier' });
+  if ('aa_num' in req.body) {
+    if (!estDirection(req.user)) return res.status(403).json({ error: 'Renuméroter un acquis est réservé à la direction' });
+    champs.push('aa_num = ?');
+    vals.push(req.body.aa_num === '' || req.body.aa_num == null ? null : Number(req.body.aa_num));
+  }
+  const nouveau = String(req.body.nouveau_code || '').trim();
+  if (nouveau && nouveau !== req.params.code) {
+    if (!estDirection(req.user)) return res.status(403).json({ error: 'Renommer un acquis est réservé à la direction' });
+    if (db.prepare('SELECT 1 FROM aa WHERE aa_code = ?').get(nouveau)) {
+      return res.status(409).json({ error: `Le code ${nouveau} existe déjà.` });
+    }
+  }
+  if (!champs.length && !(nouveau && nouveau !== req.params.code)) {
+    return res.status(400).json({ error: 'rien à modifier' });
+  }
 
-  vals.push(req.params.code);
-  db.prepare(`UPDATE aa SET ${champs.join(', ')} WHERE aa_code = ?`).run(...vals);
-  res.json(db.prepare('SELECT * FROM aa WHERE aa_code = ?').get(req.params.code));
+  let code = req.params.code;
+  db.transaction(() => {
+    if (champs.length) {
+      db.prepare(`UPDATE aa SET ${champs.join(', ')} WHERE aa_code = ?`).run(...vals, code);
+    }
+    if (nouveau && nouveau !== code) { recoder(code, nouveau); code = nouveau; }
+  })();
+  res.json(db.prepare('SELECT * FROM aa WHERE aa_code = ?').get(code));
+});
+
+// ── Renuméroter les acquis d'une UE ──────────────────────────────────────────
+// POST /api/aa/ue/264/renumeroter { ordre: ['AA264.3', 'AA264.1', …], recoder: true }
+// Pose aa_num = 1…n dans l'ordre donné ; avec `recoder`, les codes deviennent
+// AA264.1…n — en deux temps, par des codes provisoires, pour qu'un échange
+// (AA264.1 ↔ AA264.2) ne se heurte pas à lui-même.
+r.post('/ue/:ueNum/renumeroter', (req, res) => {
+  if (!estDirection(req.user)) return res.status(403).json({ error: 'Réservé à la direction' });
+  const ueNum = Number(req.params.ueNum);
+  const actuels = db.prepare('SELECT aa_code FROM aa WHERE ue_num = ? ORDER BY aa_num, aa_code')
+    .all(ueNum).map(a => a.aa_code);
+  const ordre = Array.isArray(req.body?.ordre) && req.body.ordre.length ? req.body.ordre : actuels;
+  if (ordre.length !== actuels.length || ordre.some(c => !actuels.includes(c))) {
+    return res.status(400).json({ error: "L'ordre doit reprendre exactement les acquis de l'unité." });
+  }
+  const cibles = ordre.map((_, i) => `AA${ueNum}.${i + 1}`);
+  if (req.body?.recoder) {
+    const etrangers = db.prepare(`SELECT aa_code FROM aa WHERE aa_code IN (${cibles.map(() => '?').join(',')})
+      AND ue_num <> ?`).all(...cibles, ueNum);
+    if (etrangers.length) {
+      return res.status(409).json({ error: `Code déjà pris par une autre unité : ${etrangers.map(x => x.aa_code).join(', ')}` });
+    }
+  }
+  const renommes = [];
+  db.transaction(() => {
+    ordre.forEach((c, i) => db.prepare('UPDATE aa SET aa_num = ? WHERE aa_code = ?').run(i + 1, c));
+    if (req.body?.recoder) {
+      ordre.forEach((c, i) => { if (c !== cibles[i]) recoder(c, `__renum__${ueNum}__${i}`); });
+      ordre.forEach((c, i) => {
+        if (c !== cibles[i]) { recoder(`__renum__${ueNum}__${i}`, cibles[i]); renommes.push(`${c} → ${cibles[i]}`); }
+      });
+    }
+  })();
+  res.json({ ok: true, renommes,
+    acquis: db.prepare('SELECT aa_code, aa_num, description FROM aa WHERE ue_num = ? ORDER BY aa_num').all(ueNum) });
 });
 
 // ── Supprimer un AA ──────────────────────────────────────────────────────────
