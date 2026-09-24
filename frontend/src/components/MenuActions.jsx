@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { IconChevronDown } from '@tabler/icons-react';
 
 /**
@@ -9,21 +10,47 @@ import { IconChevronDown } from '@tabler/icons-react';
  * entrées, avec des séparateurs et des descriptions — le libellé seul ne dit
  * pas la différence entre « importer une liste » et « compléter les dossiers ».
  */
-export default function MenuActions({ libelle, Icone, ton = 'neutre', items, titre }) {
+export default function MenuActions({ libelle, Icone, ton = 'neutre', items, titre, compact = false }) {
   const [ouvert, setOuvert] = useState(false);
+  const [pos, setPos] = useState(null);
   const ref = useRef(null);
+  const panneau = useRef(null);
 
   useEffect(() => {
     if (!ouvert) return;
-    const dehors = e => { if (ref.current && !ref.current.contains(e.target)) setOuvert(false); };
+    const dehors = e => {
+      if (ref.current?.contains(e.target) || panneau.current?.contains(e.target)) return;
+      setOuvert(false);
+    };
     const echap = e => { if (e.key === 'Escape') setOuvert(false); };
+    const fermer = () => setOuvert(false);
     document.addEventListener('mousedown', dehors);
     document.addEventListener('keydown', echap);
+    if (compact) {
+      window.addEventListener('scroll', fermer, true);
+      window.addEventListener('resize', fermer);
+    }
     return () => {
       document.removeEventListener('mousedown', dehors);
       document.removeEventListener('keydown', echap);
+      window.removeEventListener('scroll', fermer, true);
+      window.removeEventListener('resize', fermer);
     };
-  }, [ouvert]);
+  }, [ouvert, compact]);
+
+  // Compact = posé dans une ligne de liste, dont la carte coupe ce qui déborde
+  // (overflow-hidden). Le panneau sort alors de la carte (portail, position
+  // fixe) et s'ouvre vers le haut s'il manque de place en dessous.
+  function basculer() {
+    if (!ouvert && compact && ref.current) {
+      const b = ref.current.getBoundingClientRect();
+      const dessous = window.innerHeight - b.bottom;
+      setPos(dessous < 380 && b.top > dessous
+        ? { right: window.innerWidth - b.right, bottom: window.innerHeight - b.top + 4 }
+        : { right: window.innerWidth - b.right, top: b.bottom + 4 });
+    }
+    setOuvert(o => !o);
+  }
 
   const tons = {
     neutre: 'border-slate-300 text-slate-600 hover:bg-slate-50',
@@ -36,18 +63,20 @@ export default function MenuActions({ libelle, Icone, ton = 'neutre', items, tit
 
   return (
     <div className="relative" ref={ref}>
-      <button onClick={() => setOuvert(o => !o)} title={titre}
-        className={`flex items-center gap-2 px-3 py-2 text-sm border rounded-lg
-                    font-medium ${tons[ton] || tons.neutre}`}>
-        {Icone && <Icone size={15} />} {libelle}
+      <button onClick={basculer} title={titre}
+        className={`flex items-center border rounded-lg font-medium ${compact
+          ? 'gap-1 px-2 py-1 text-[12px]' : 'gap-2 px-3 py-2 text-sm'} ${tons[ton] || tons.neutre}`}>
+        {Icone && <Icone size={compact ? 13 : 15} />} {libelle}
         <IconChevronDown size={13} className={`transition-transform ${ouvert ? 'rotate-180' : ''}`} />
       </button>
 
       {/* Le panneau est ancré à DROITE : aligné à gauche du bouton, il sortait
           de la fenêtre quand le bouton était lui-même à droite. */}
-      {ouvert && (
-        <div className="absolute right-0 mt-1 w-72 max-w-[calc(100vw-2rem)] bg-white border border-slate-200
-                        rounded-xl shadow-lg z-40 py-1.5">
+      {ouvert && enveloppe(
+        <div ref={panneau} style={compact && pos ? pos : undefined}
+          className={`${compact && pos ? 'fixed max-h-[calc(100vh-1rem)] overflow-y-auto z-50'
+            : 'absolute right-0 mt-1 z-40'} w-72 max-w-[calc(100vw-2rem)] bg-white border border-slate-200
+                        rounded-xl shadow-lg py-1.5`}>
           {visibles.map((it, i) => (
             it.separateur ? (
               <div key={`s${i}`} className="my-1.5 border-t border-slate-100">
@@ -96,4 +125,6 @@ export default function MenuActions({ libelle, Icone, ton = 'neutre', items, tit
       )}
     </div>
   );
+
+  function enveloppe(el) { return compact && pos ? createPortal(el, document.body) : el; }
 }
