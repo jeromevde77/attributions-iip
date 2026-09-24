@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { IconLayoutGrid, IconAlertTriangle } from '@tabler/icons-react';
+import { IconLayoutGrid, IconAlertTriangle, IconChecks } from '@tabler/icons-react';
 import { authHeaders, getAnnee } from '../lib/api.js';
 import ImportTableauPlat from './ImportTableauPlat.jsx';
 import { Fenetre } from './ui.jsx';
@@ -25,7 +25,7 @@ import { Fenetre } from './ui.jsx';
  * ce qui sera refusé (un résultat encodé, des notes déjà saisies) ;
  * « Enregistrer » écrit, tout ou rien.
  */
-export default function ComposerPAE({ onClose, onTermine, onPassage }) {
+export default function ComposerPAE({ onClose, onTermine, onPassage, modeInitial = 'composer' }) {
   const [sections, setSections] = useState([]);
   const [section, setSection] = useState('');
   const [annee, setAnnee] = useState(getAnnee() || '');
@@ -47,7 +47,12 @@ export default function ComposerPAE({ onClose, onTermine, onPassage }) {
      l'année choisie — en COCHE (réussi vert / refusé rouge) ou en NOTE
      (>= 10 → réussi, sinon refusé). L'année du sélecteur fait foi : échoué en
      2024-2025 puis réussi en 2025-2026, c'est deux passages dans la grille. */
-  const [mode, setMode] = useState('composer');   // 'composer' | 'resultats'
+  const [mode, setMode] = useState(modeInitial);   // 'composer' | 'resultats' | 'valider'
+  /* VALIDER LES PAE (Jérôme, 24 septembre 2026 : « tu les crées mais ils ne
+     sont pas validés »). La promotion inscrit ; valider, c'est signer le
+     programme tel qu'il est — par section, pour les étudiants cochés. */
+  const [fStatut, setFStatut] = useState('a_valider'); // 'a_valider' | 'valides' | 'tous'
+  const [valide, setValide] = useState(null);           // compte rendu de la dernière validation
   const [vueNote, setVueNote] = useState(false);
   const [fPrimo, setFPrimo] = useState(false);    // nouveaux inscrits seulement
   const [attRes, setAttRes] = useState(new Map()); // `${id}|${ue}` → { resultat, points }
@@ -65,23 +70,28 @@ export default function ComposerPAE({ onClose, onTermine, onPassage }) {
       }).catch(() => {});
   }, []);
 
+  const controle = mode === 'valider';
   const charger = useCallback(async () => {
     if (!section || !annee) { setGrille(null); return; }
     setErreur(null);
-    const r = await fetch(`/api/etudiants/pae-grille?section=${encodeURIComponent(section)}&annee=${encodeURIComponent(annee)}`,
+    // Le contrôle relit chaque programme : on ne le paie qu'en mode Valider.
+    const r = await fetch(`/api/etudiants/pae-grille?section=${encodeURIComponent(section)}&annee=${encodeURIComponent(annee)}${controle ? '&controle=1' : ''}`,
       { headers: authHeaders() });
     const j = await r.json().catch(() => ({}));
     if (!r.ok) { setErreur(j.error || 'Lecture refusée.'); setGrille(null); return; }
     setGrille(j); setAttente(new Map()); setAttRes(new Map()); setCoches(new Set()); setBilan(null);
-  }, [section, annee]);
+  }, [section, annee, controle]);
   useEffect(() => { charger(); }, [charger]);
 
   const lignes = useMemo(() => (grille?.etudiants || []).filter(e =>
     (!fNiveau || (fNiveau === 'aucun' ? !e.niveau : e.niveau === fNiveau))
     && (!fSansUE || !Object.values(e.cases).some(c => c.inscrit))
     && (!fPrimo || e.primo)
+    && (mode !== 'valider' || fStatut === 'tous'
+      || (fStatut === 'valides' ? !!e.pae_confirme_le
+        : !e.pae_confirme_le && Object.values(e.cases).some(c => c.inscrit)))
     && (!q.trim() || `${e.nom} ${e.prenom} ${e.id_ecampus || ''}`.toLowerCase().includes(q.trim().toLowerCase()))),
-  [grille, fNiveau, fSansUE, fPrimo, q]);
+  [grille, fNiveau, fSansUE, fPrimo, q, mode, fStatut]);
 
   const ues = grille?.ues || [];
   const inscritsPar = useMemo(() => {
@@ -180,6 +190,31 @@ export default function ComposerPAE({ onClose, onTermine, onPassage }) {
     finally { setEnCours(false); }
   }
 
+  // UNE SEULE ALERTE : une UE inscrite que les prérequis n'ouvrent pas. Une UE
+  // ouverte mais non prise n'en est pas une — en enseignement pour adultes,
+  // beaucoup suivent moins que ce qui leur est ouvert, et c'est voulu. Elle s'affiche, elle ne retient pas la validation.
+  const alertes = e => e.controle?.hors_proposition?.length || 0;
+  const possibles = e => e.controle?.manquantes?.length || 0;
+  const vide = e => !Object.values(e.cases).some(c => c.inscrit);
+
+  async function valider(retirer = false) {
+    const ids = choisis.map(e => e.id);
+    if (!ids.length) return;
+    if (retirer && !window.confirm(`Retirer la validation de ${ids.length} PAE ? Les inscriptions ne changent pas.`)) return;
+    setEnCours(true); setErreur(null); setValide(null);
+    try {
+      const r = await fetch('/api/etudiants/pae-valider-lot', {
+        method: 'POST', headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+        body: JSON.stringify({ section, annee, etudiants: ids, retirer }),
+      });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) { setErreur(j.error || 'Refusé.'); return; }
+      await charger(); onTermine?.();
+      setValide({ retirer, faits: j.faits, ignores: j.ignores || [] });
+    } catch (e) { setErreur(e.message); }
+    finally { setEnCours(false); }
+  }
+
   async function envoyer(simulation) {
     setEnCours(true); setErreur(null);
     const ajouts = [], retraits = [];
@@ -202,8 +237,10 @@ export default function ComposerPAE({ onClose, onTermine, onPassage }) {
 
   return (
     <Fenetre icone={IconLayoutGrid} large="grande" onFermer={onClose}
-      titre="Composer les PAE"
-      sous="Une ligne par étudiant, une colonne par UE de la section — pour un, pour quelques-uns, pour tous"
+      titre={mode === 'valider' ? 'Valider les PAE' : 'Composer les PAE'}
+      sous={mode === 'valider'
+        ? 'Par section : chaque programme, ses alertes, et sa validation — pour un, pour quelques-uns, pour tous'
+        : 'Une ligne par étudiant, une colonne par UE de la section — pour un, pour quelques-uns, pour tous'}
       pied={<>
         {mode === 'resultats' && attRes.size > 0 && (
           <>
@@ -229,8 +266,22 @@ export default function ComposerPAE({ onClose, onTermine, onPassage }) {
             </button>
           </>
         )}
+        {mode === 'valider' && (
+          <>
+            <button className="bouton bouton-fort" disabled={enCours || !choisis.length} onClick={() => valider(false)}>
+              <IconChecks size={14} /> Valider {choisis.length || ''} PAE
+            </button>
+            <button className="bouton" disabled={enCours || !choisis.some(e => e.pae_confirme_le)}
+              onClick={() => valider(true)}>
+              Retirer la validation
+            </button>
+          </>
+        )}
         <span className="text-[12px] text-slate-500 min-w-0">
-          {bilan?.fait && bilan.resultats
+          {mode === 'valider' && valide
+            ? `${valide.retirer ? 'Validation retirée' : 'Validé'} : ${valide.faits} PAE${valide.ignores.length
+              ? ` · ${valide.ignores.length} ignoré(s) (${[...new Set(valide.ignores.map(x => x.raison))].join(', ')})` : ''}.`
+          : bilan?.fait && bilan.resultats
             ? `Enregistré pour ${annee} : ${bilan.ecrits} résultat(s)${bilan.effaces ? `, ${bilan.effaces} effacé(s)` : ''}.`
           : bilan?.fait ? `Enregistré : ${bilan.ajoutes} ajout(s), ${bilan.retires} retrait(s).`
             : attente.size ? `En attente : ${nbAjouts} ajout(s), ${nbRetraits} retrait(s) — rien n’est encore écrit.`
@@ -283,6 +334,12 @@ export default function ComposerPAE({ onClose, onTermine, onPassage }) {
                 ? 'bg-iip-blue text-white' : 'bg-white text-slate-600'}`}>
               Encoder l'historique
             </button>
+            <button onClick={() => { setMode('valider'); setCoches(new Set()); }}
+              title="Relire et valider les programmes composés"
+              className={`px-3 py-1.5 text-[12.5px] font-semibold border-l border-slate-300 ${mode === 'valider'
+                ? 'bg-iip-blue text-white' : 'bg-white text-slate-600'}`}>
+              Valider
+            </button>
           </span>
         </div>
 
@@ -308,6 +365,34 @@ export default function ComposerPAE({ onClose, onTermine, onPassage }) {
               title="Reprendre un tableau Excel — une ligne par étudiant, unité et décision — pour cette année">
               Importer un historique (Excel)…
             </button>
+          </div>
+        )}
+
+        {grille && mode === 'valider' && (
+          <div className="flex flex-wrap items-center gap-2 text-[13px] rounded-carte border border-slate-200 px-3 py-2">
+            <span className="inline-flex rounded-champ border border-slate-300 overflow-hidden">
+              {[['a_valider', 'À valider'], ['valides', 'Validés'], ['tous', 'Tous']].map(([v, l], i) => (
+                <button key={v} onClick={() => { setFStatut(v); setCoches(new Set()); }}
+                  className={`px-2.5 py-1 text-[12px] font-semibold ${i ? 'border-l border-slate-300' : ''} ${fStatut === v
+                    ? 'bg-iip-turquoise text-white' : 'bg-white text-slate-600'}`}>
+                  {l} ({(grille.etudiants || []).filter(e => v === 'tous' || (v === 'valides'
+                    ? !!e.pae_confirme_le : !e.pae_confirme_le && !vide(e))).length})
+                </button>
+              ))}
+            </span>
+            <b className="text-iip-blue">{choisis.length} coché(s)</b>
+            <button className="bouton" onClick={() => setCoches(new Set(lignes
+              .filter(e => !e.pae_confirme_le && !vide(e) && !alertes(e)).map(e => e.id)))}
+              title="Les programmes que rien ne signale : ils peuvent se valider tels quels">
+              Cocher les PAE sans alerte
+            </button>
+            <span className="text-slate-500">
+              Valider signe le programme tel qu'il est : aucune inscription ne change.
+              <span className="inline-block w-3 h-3 rounded-[3px] bg-[#1B2B4B] ring-2 ring-amber-400 align-middle mx-1" />
+              inscrite sans les prérequis ·
+              <span className="inline-block w-3 h-3 rounded-[3px] border-2 border-dashed border-slate-400 align-middle mx-1" />
+              ouverte, non prise
+            </span>
           </div>
         )}
 
@@ -404,9 +489,52 @@ export default function ComposerPAE({ onClose, onTermine, onPassage }) {
                       {e.niveau && <span className="text-[10px] text-slate-500"> · {e.niveau}</span>}
                       {e.primo && <span className="ml-1.5 text-[9.5px] font-bold px-1.5 py-0.5 rounded-full bg-iip-turquoise/10 text-iip-turquoise-dark align-middle"
                         title="Nouvel inscrit : aucune trace dans une année antérieure">primo</span>}
+                      {mode === 'valider' && (e.pae_confirme_le ? (
+                        <span className="ml-1.5 text-[9.5px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 align-middle"
+                          title={`Validé le ${e.pae_confirme_le}${e.pae_confirme_par ? ` par ${e.pae_confirme_par}` : ''}`}>
+                          validé {e.pae_confirme_le.slice(8, 10)}/{e.pae_confirme_le.slice(5, 7)}
+                        </span>
+                      ) : vide(e) ? (
+                        <span className="ml-1.5 text-[9.5px] font-bold px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-500 align-middle">
+                          aucune UE
+                        </span>
+                      ) : (
+                        <span className="ml-1.5 text-[9.5px] font-bold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-800 align-middle">
+                          à valider
+                        </span>
+                      ))}
+                      {mode === 'valider' && alertes(e) > 0 && (
+                        <span className="ml-1 text-[9.5px] font-bold px-1.5 py-0.5 rounded-full bg-amber-50 border border-amber-300 text-amber-800 align-middle"
+                          title={`Inscrit sans les prérequis : UE ${e.controle.hors_proposition.join(', ')}`}>
+                          <IconAlertTriangle size={10} className="inline -mt-0.5" /> {alertes(e)} sans prérequis
+                        </span>
+                      )}
+                      {mode === 'valider' && possibles(e) > 0 && (
+                        <span className="ml-1 text-[9.5px] px-1.5 py-0.5 rounded-full bg-slate-50 border border-slate-200 text-slate-500 align-middle"
+                          title={`Ouvertes par les prérequis, non prises : UE ${e.controle.manquantes.join(', ')}`}>
+                          +{possibles(e)} possible{possibles(e) > 1 ? 's' : ''}
+                        </span>
+                      )}
                     </td>
                     {ues.map(u => {
                       const x = etat(e, u.ue_num);
+                      if (mode === 'valider') {
+                        // Lecture seule : on signe ce qui est, on ne le change pas ici.
+                        const hors = e.controle?.hors_proposition?.includes(u.ue_num);
+                        const manque = e.controle?.manquantes?.includes(u.ue_num);
+                        return (
+                          <td key={u.ue_num} className="text-center px-1 py-1 bg-white border-l border-slate-100">
+                            {x.va ? <span className="text-[10px] text-violet-700 font-semibold" title="Valorisation">VA</span>
+                              : x.inscrit
+                                ? <span title={hors ? 'Inscrit sans les prérequis (aucune dérogation posée)' : (x.resultat || 'inscrit')}
+                                    className={`inline-block w-3.5 h-3.5 rounded-[3px] ${x.resultat === 'reussi' ? 'bg-emerald-600' : 'bg-[#1B2B4B]'} ${hors ? 'ring-2 ring-amber-400' : ''}`} />
+                                : manque
+                                  ? <span title="Ouverte par les prérequis, non prise"
+                                      className="inline-block w-3.5 h-3.5 rounded-[3px] border-2 border-dashed border-slate-400" />
+                                  : <span className="inline-block w-3.5 h-3.5 rounded-[3px] border border-slate-200" />}
+                          </td>
+                        );
+                      }
                       if (mode === 'resultats') {
                         /* Les résultats de L'ANNÉE CHOISIE : coche qui cycle
                            (réussi → refusé → effacé) ou note qui décide. Une
