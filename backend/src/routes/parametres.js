@@ -52,7 +52,14 @@ export function piedDocument() {
    * qui l'a sortie. */
   const trace = getParam('miseenpage.pied_production', '1') === '1'
     ? mentionProduction() : null;
-  return [ligne1, ligne2, trace].filter(Boolean).join('<br>');
+  /* À DROITE, PAS EN DESSOUS (Jérôme, 30 septembre 2026) : en troisième
+   * ligne, la trace grossissait le pied de chaque document. Elle flotte
+   * désormais à droite de la première ligne, en plus petit — même
+   * information, même présence sur toutes les pièces, zéro hauteur en plus. */
+  const traceHtml = trace
+    ? `<span style="float:right;font-size:5.5pt;color:#9aa3b2;margin-left:4mm;line-height:1.4">${trace}</span>`
+    : '';
+  return traceHtml + [ligne1, ligne2].filter(Boolean).join('<br>');
 }
 
 // Indique si le logo doit apparaître en en-tête
