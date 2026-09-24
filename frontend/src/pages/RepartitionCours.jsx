@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { IconUsersGroup, IconAlertTriangle, IconWand } from '@tabler/icons-react';
+import { IconUsersGroup, IconAlertTriangle, IconWand, IconFileSpreadsheet, IconX } from '@tabler/icons-react';
 import { api, authHeaders, getAnnee } from '../lib/api.js';
 
 /**
@@ -22,6 +22,56 @@ import { api, authHeaders, getAnnee } from '../lib/api.js';
 const cle = (eid, code) => `${eid}|${code}`;
 const cleGroupe = (g) => `${g.num_organisation}|${g.groupe || ''}`;
 
+/* UN CLASSEUR DE GROUPES (Jérôme, 24 septembre 2026) : les groupes de labo se
+ * composent dans Excel — « Groupe 1 — 17 étudiants », puis Nom, Prénom, Mail,
+ * Cours suivis. On le relit tel quel : un titre « Groupe N » ouvre un groupe,
+ * la ligne d'en-têtes dit où sont les colonnes, chaque ligne suivante est un
+ * étudiant. Une feuille « Tous les groupes » suffit si elle existe ; sinon on
+ * lit toutes les feuilles, sans compter deux fois le même étudiant. */
+const sansAccent = t => String(t ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+const normNom = t => sansAccent(t).toUpperCase().replace(/[^A-Z]+/g, ' ').trim();
+const premierMot = t => normNom(t).split(' ')[0] || '';
+const numGroupe = t => { const m = /\d+/.exec(String(t ?? '')); return m ? Number(m[0]) : null; };
+
+async function lireClasseurGroupes(fichier) {
+  const XLSX = await import('xlsx');
+  const wb = XLSX.read(await fichier.arrayBuffer(), { type: 'array' });
+  const tous = wb.SheetNames.find(n => /tous/i.test(n));
+  const lignes = [], vus = new Set();
+  for (const nom of (tous ? [tous] : wb.SheetNames)) {
+    const M = XLSX.utils.sheet_to_json(wb.Sheets[nom], { header: 1, defval: null });
+    let groupe = null, col = null;
+    for (const r of M) {
+      const c0 = String(r[0] ?? '').trim();
+      const titre = /^groupe\s+(\w+)/i.exec(c0);
+      if (titre) { groupe = titre[1]; col = null; continue; }
+      const entetes = r.map(v => normNom(v));
+      if (entetes.includes('NOM') && entetes.some(v => v.startsWith('PRENOM'))) {
+        col = {
+          nom: entetes.indexOf('NOM'),
+          prenom: entetes.findIndex(v => v.startsWith('PRENOM')),
+          mail: entetes.findIndex(v => v === 'MAIL' || v.startsWith('E MAIL') || v === 'EMAIL'),
+          cours: entetes.findIndex(v => v.startsWith('COURS')),
+        };
+        continue;
+      }
+      if (!groupe || !col || !r[col.nom]) continue;
+      const mail = col.mail >= 0 ? String(r[col.mail] ?? '').trim().toLowerCase() : '';
+      const ligne = {
+        nom: String(r[col.nom]).trim(), prenom: String(r[col.prenom] ?? '').trim(), mail, groupe,
+        // « 255.1 + 250.1 » : les cours que l'étudiant suit dans ce groupe.
+        // Sans colonne, le groupe vaut pour tous les cours de l'unité.
+        cours: col.cours >= 0 && r[col.cours]
+          ? String(r[col.cours]).split(/[+,;/]/).map(x => x.trim()).filter(Boolean) : null,
+      };
+      const k = mail || `${normNom(ligne.nom)}|${normNom(ligne.prenom)}`;
+      if (vus.has(k)) continue;
+      vus.add(k); lignes.push(ligne);
+    }
+  }
+  return lignes;
+}
+
 export default function RepartitionCours() {
   const annee = getAnnee();
   const [sections, setSections] = useState([]);
@@ -34,6 +84,10 @@ export default function RepartitionCours() {
   const [q, setQ] = useState('');
   const [erreur, setErreur] = useState(null);
   const [saving, setSaving] = useState(false);
+  // Le classeur reste chargé d'une UE à l'autre : un même fichier couvre
+  // souvent deux unités (250 et 255), qu'on applique l'une après l'autre.
+  const [classeur, setClasseur] = useState(null);   // { nom, lignes }
+  const [choixBloc, setChoixBloc] = useState({});   // cours_code → cle du bloc retenu
 
   useEffect(() => {
     api.sections().then(l => setSections(Array.isArray(l) ? l : [])).catch(() => {});
@@ -195,6 +249,92 @@ export default function RepartitionCours() {
 
   const etiquette = (g) => `Org ${g.num_organisation}${g.groupe ? ` · Gr. ${g.groupe}` : ''}`;
 
+  async function chargerClasseur(f) {
+    if (!f) return;
+    setErreur(null);
+    try {
+      const lignes = await lireClasseurGroupes(f);
+      if (!lignes.length) throw new Error("Aucun groupe reconnu : le classeur doit porter des titres « Groupe 1 », « Groupe 2 »… suivis d'une ligne Nom / Prénom.");
+      setClasseur({ nom: f.name, lignes }); setChoixBloc({});
+    } catch (e) { setErreur(e.message); }
+  }
+
+  /* CE QUE LE CLASSEUR FERAIT ICI — calculé, montré, et rien n'est posé tant
+   * qu'on n'a pas cliqué « Placer ». Même alors, rien ne s'écrit avant
+   * « Enregistrer » : l'import remplit la grille, il ne la court-circuite pas. */
+  const apercu = useMemo(() => {
+    if (!classeur || !data) return null;
+    const inscrits = data.etudiants || [];
+    const parMail = new Map();
+    for (const e of inscrits) for (const m of [e.email_ecole, e.email_perso]) {
+      if (m) parMail.set(String(m).trim().toLowerCase(), e);
+    }
+    const trouver = l => {
+      if (l.mail && parMail.has(l.mail)) return parMail.get(l.mail);
+      const memes = inscrits.filter(e => normNom(e.nom) === normNom(l.nom)
+        && premierMot(e.prenom) === premierMot(l.prenom));
+      return memes.length === 1 ? memes[0] : null;
+    };
+
+    const codesUE = [...new Set((data.cours || []).map(c => c.cours_code))];
+    // Le cours qui se coupe en groupes, c'est une ACTIVITÉ : s'il y en a
+    // plusieurs, on retient celle qui porte les numéros du classeur, et on
+    // demande quand il reste un doute.
+    const numsClasseur = new Set(classeur.lignes.map(l => numGroupe(l.groupe)));
+    const blocs = {}, ambigus = {}, sansGroupes = [];
+    for (const code of codesUE) {
+      const cands = coursAvecGroupes.filter(c => c.cours_code === code);
+      if (!cands.length) {
+        if (classeur.lignes.some(l => !l.cours || l.cours.includes(code))) sansGroupes.push(code);
+        continue;
+      }
+      const couvre = c => [...numsClasseur].filter(n => c.groupes.some(g => numGroupe(g.groupe) === n)).length;
+      const tri = [...cands].sort((a, b) => couvre(b) - couvre(a));
+      if (choixBloc[code]) blocs[code] = cands.find(c => c.cle === choixBloc[code]) || tri[0];
+      else {
+        blocs[code] = tri[0];
+        if (tri.length > 1 && couvre(tri[0]) === couvre(tri[1])) ambigus[code] = cands;
+      }
+    }
+
+    const poses = [], deja = [], introuvables = [], absents = {};
+    for (const l of classeur.lignes) {
+      const codes = (l.cours || codesUE).filter(c => codesUE.includes(c));
+      if (!codes.length) continue;                 // ce groupe ne concerne pas cette UE
+      const e = trouver(l);
+      if (!e) { introuvables.push(l); continue; }
+      for (const code of codes) {
+        const c = blocs[code];
+        if (!c) continue;
+        const n = numGroupe(l.groupe);
+        const gs = c.groupes.filter(g => numGroupe(g.groupe) === n);
+        if (!gs.length) {
+          const k = `${c.cle}|${l.groupe}`;
+          (absents[k] ||= { c, groupe: l.groupe, noms: [] }).noms.push(`${l.nom} ${l.prenom}`);
+          continue;
+        }
+        const g = gs.find(x => x.num_organisation === e.num_organisation) || gs[0];
+        const a = affect.get(cle(e.id, c.cle));
+        if (a && a.org === g.num_organisation && (a.groupe || null) === (g.groupe || null)) deja.push({ e, c, g });
+        else poses.push({ e, c, g });
+      }
+    }
+    const lusIci = new Set(classeur.lignes.map(trouver).filter(Boolean).map(e => e.id));
+    const horsClasseur = inscrits.filter(e => !lusIci.has(e.id));
+    return { poses, deja, introuvables, absents: Object.values(absents), ambigus, sansGroupes, horsClasseur };
+  }, [classeur, data, coursAvecGroupes, affect, choixBloc]);
+
+  function appliquerClasseur() {
+    if (!apercu?.poses.length) return;
+    setAttente(prev => {
+      const n = new Map(prev);
+      for (const { e, c, g } of apercu.poses) {
+        n.set(cle(e.id, c.cle), { org: g.num_organisation, groupe: g.groupe || null });
+      }
+      return n;
+    });
+  }
+
   return (
     <div className="p-4 space-y-3">
       <div className="flex items-center gap-2 flex-wrap">
@@ -222,6 +362,12 @@ export default function RepartitionCours() {
         <span className="text-[11.5px] font-bold text-iip-blue bg-iip-light rounded-full px-3 py-1">{annee}</span>
         {data && (
           <span className="ml-auto flex gap-2 flex-wrap">
+            <label title="Un classeur Excel : « Groupe 1 », « Groupe 2 »… puis Nom, Prénom, Mail, Cours suivis"
+              className="px-3 py-1.5 text-[12.5px] font-semibold rounded-champ border border-slate-300 text-slate-600 inline-flex items-center gap-1.5 cursor-pointer hover:bg-slate-50">
+              <IconFileSpreadsheet size={14} /> Importer des groupes
+              <input type="file" accept=".xlsx,.xls" className="hidden"
+                onChange={e => { chargerClasseur(e.target.files?.[0]); e.target.value = ''; }} />
+            </label>
             <button onClick={proposer}
               className="px-3 py-1.5 text-[12.5px] font-semibold rounded-champ border border-iip-turquoise text-iip-turquoise inline-flex items-center gap-1.5">
               <IconWand size={14} /> Proposer depuis la délibération
@@ -238,6 +384,76 @@ export default function RepartitionCours() {
 
       {erreur && (
         <div className="bg-red-50 border border-red-200 rounded-champ px-3 py-2 text-sm text-red-700">{erreur}</div>
+      )}
+
+      {apercu && (
+        <div className="border border-iip-turquoise/40 bg-iip-turquoise/5 rounded-carte px-3 py-2.5 text-[12.5px] space-y-1.5">
+          <div className="flex items-center gap-2 flex-wrap">
+            <IconFileSpreadsheet size={15} className="text-iip-turquoise" />
+            <b className="text-iip-blue">{classeur.nom}</b>
+            <span className="text-slate-500">
+              {classeur.lignes.length} étudiants lus · {new Set(classeur.lignes.map(l => l.groupe)).size} groupes · appliqué à l'UE {ueNum}
+            </span>
+            <button onClick={appliquerClasseur} disabled={!apercu.poses.length}
+              className="ml-auto px-3 py-1 text-[12px] font-semibold rounded-champ bg-iip-turquoise text-white disabled:opacity-40">
+              Placer {apercu.poses.length} affectation{apercu.poses.length > 1 ? 's' : ''} dans la grille
+            </button>
+            <button onClick={() => setClasseur(null)} title="Fermer le classeur" className="text-slate-400 hover:text-slate-600">
+              <IconX size={15} />
+            </button>
+          </div>
+          {Object.entries(apercu.ambigus).map(([code, cands]) => (
+            <div key={code} className="flex items-center gap-2 text-amber-800">
+              <IconAlertTriangle size={14} />
+              {code} se coupe en groupes dans plusieurs activités : lesquelles reçoivent ce classeur ?
+              <select value={choixBloc[code] || ''} onChange={e => setChoixBloc(p => ({ ...p, [code]: e.target.value }))}
+                className="border border-amber-300 rounded px-2 py-0.5 bg-white">
+                <option value="">— {cands[0].activite_libelle || 'sans activité'} (par défaut) —</option>
+                {cands.map(c => <option key={c.cle} value={c.cle}>{c.activite_libelle || 'sans activité'}</option>)}
+              </select>
+            </div>
+          ))}
+          {apercu.deja.length > 0 && (
+            <div className="text-slate-500">{apercu.deja.length} affectation(s) déjà en place, inchangées.</div>
+          )}
+          {apercu.absents.map(a => (
+            <div key={a.c.cle + a.groupe} className="text-amber-800">
+              <IconAlertTriangle size={13} className="inline -mt-0.5 mr-1" />
+              <b>Groupe {a.groupe}</b> n'existe pas dans les attributions de {a.c.cours_code}
+              {a.c.activite_libelle ? ` · ${a.c.activite_libelle}` : ''} ({a.noms.length} étudiant{a.noms.length > 1 ? 's' : ''} en attente).
+              Ajoutez la ligne d'attribution de ce groupe, puis réimportez.
+            </div>
+          ))}
+          {apercu.sansGroupes.length > 0 && (
+            <div className="text-amber-800">
+              <IconAlertTriangle size={13} className="inline -mt-0.5 mr-1" />
+              {apercu.sansGroupes.join(', ')} : aucune activité coupée en groupes dans les attributions — rien à placer.
+            </div>
+          )}
+          {apercu.introuvables.length > 0 && (
+            <details className="text-red-700">
+              <summary className="cursor-pointer">
+                <b>{apercu.introuvables.length}</b> étudiant(s) du classeur ne sont pas inscrits à l'UE {ueNum} en {annee}
+                {' '}(PAE à compléter, ou nom/mail différent dans Lucie)
+              </summary>
+              <div className="mt-1 columns-2 md:columns-3 text-[12px]">
+                {apercu.introuvables.map((l, i) => (
+                  <div key={i}>{l.nom} {l.prenom} <span className="text-slate-400">· gr. {l.groupe}</span></div>
+                ))}
+              </div>
+            </details>
+          )}
+          {apercu.horsClasseur.length > 0 && (
+            <details className="text-slate-600">
+              <summary className="cursor-pointer">
+                {apercu.horsClasseur.length} inscrit(s) de l'UE {ueNum} absent(s) du classeur
+              </summary>
+              <div className="mt-1 columns-2 md:columns-3 text-[12px]">
+                {apercu.horsClasseur.map(e => <div key={e.id}>{e.nom} {e.prenom}</div>)}
+              </div>
+            </details>
+          )}
+        </div>
       )}
 
       {ues && !ues.length && (
