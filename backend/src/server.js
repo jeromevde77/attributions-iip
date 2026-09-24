@@ -21,7 +21,7 @@ import { verifierCleMfa } from './lib/secret-box.js';
 import { demarrerMoteur } from './services/echeancier.js';
 import annuelRoutes from './routes/annuel.js';
 import echeancierRoutes from './routes/echeancier.js';
-import reunionsRoutes from './routes/reunions.js';
+import reunionsRoutes, { planifierRapportMensuel } from './routes/reunions.js';
 import documentationRoutes, { migrerDocumentation } from './routes/documentation.js';
 import suggestionsRoutes, { migrerSuggestions } from './routes/suggestions.js';
 import dossierAdminRoutes from './routes/dossierAdmin.js';
@@ -3028,6 +3028,8 @@ app.use((err, req, res, next) => {
 
 // ── Moteur de l'échéancier : premier passage 20 s après le démarrage, puis /6 h
 try { demarrerMoteur(db); } catch (e) { console.error('[echeancier] démarrage :', e.message); }
+// Le rapport d'activité du mois écoulé, à la direction, le 1er du mois.
+try { planifierRapportMensuel(); } catch (e) { console.error('[rapport mensuel] planification :', e.message); }
 
 const PORT = process.env.PORT || 3001;
 // ── Sauvegardes : réveil au quart d'heure, une par jour à l'heure convenue

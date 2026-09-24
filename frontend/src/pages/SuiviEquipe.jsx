@@ -2,11 +2,11 @@ import { useEffect, useMemo, useState } from 'react';
 import {
   IconCalendarEvent, IconChecklist, IconPlus, IconPrinter, IconTimeline,
   IconCheck, IconChevronLeft, IconClock, IconUser, IconX, IconTrash,
-  IconClipboardPlus, IconEye, IconSearch, IconLock,
+  IconClipboardPlus, IconEye, IconSearch, IconLock, IconReport,
 } from '@tabler/icons-react';
-import { authHeaders } from '../lib/api.js';
+import { authHeaders, getUser } from '../lib/api.js';
 import FriseEcheances from '../components/FriseEcheances.jsx';
-import { PageHeader, RailLateral } from '../components/ui.jsx';
+import { Fenetre, PageHeader, RailLateral } from '../components/ui.jsx';
 import { nomDepuisChaine, nomListe, parNom } from '../lib/nom.js';
 import PreviewModal from '../components/PreviewModal.jsx';
 import ConfierTache from '../components/ConfierTache.jsx';
@@ -77,6 +77,16 @@ export default function SuiviEquipe() {
   const [apercu, setApercu] = useState(null);
   const [filtreStatut, setFiltreStatut] = useState('ouvertes');
   const [confier, setConfier] = useState(false);
+  /* LE RAPPORT DU MOIS (24 septembre 2026) : la direction le reçoit par
+     courriel le 1er ; ici, elle le produit quand elle veut, pour le mois
+     qu'elle veut. Au début du mois, c'est le mois écoulé qu'on cherche. */
+  const direction = ['admin', 'directeur', 'directeur_adjoint'].includes(getUser()?.role);
+  const [rapportMois, setRapportMois] = useState(null);
+  const moisParDefaut = () => {
+    const d = new Date();
+    if (d.getDate() <= 10) d.setMonth(d.getMonth() - 1);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+  };
 
   const api = async (chemin, options = {}) => {
     const rep = await fetch('/api/reunions' + chemin, {
@@ -151,6 +161,8 @@ export default function SuiviEquipe() {
             { key: 'feuille', label: 'Feuille des tâches', icon: IconPrinter,
               couleur: 'var(--menu-accent)',
               onClick: () => imprimer('/taches/document') },
+            ...(direction ? [{ key: 'rapport-mois', label: 'Rapport du mois', icon: IconReport,
+              onClick: () => setRapportMois(moisParDefaut()) }] : []),
           ]},
         ]}
       />
@@ -239,6 +251,29 @@ export default function SuiviEquipe() {
         )}
       </div>
 
+      {rapportMois && (
+        <Fenetre icone={IconReport} large="petite" titre="Rapport du mois"
+          sous="Réunions, tâches, étudiants, délibérations, valorisations, personnel"
+          onFermer={() => setRapportMois(null)}
+          pied={<>
+            <button className="bouton bouton-fort ml-auto"
+              onClick={() => { const m = rapportMois; setRapportMois(null); imprimer('/rapport-mensuel', { mois: m }); }}>
+              Produire le rapport
+            </button>
+            <button className="bouton" onClick={() => setRapportMois(null)}>Fermer</button>
+          </>}>
+          <label className="text-[13px] text-slate-600 flex items-center gap-2">
+            Mois
+            <input type="month" value={rapportMois} onChange={e => setRapportMois(e.target.value)}
+              className="controle text-[13px]" />
+          </label>
+          <p className="text-[12px] text-slate-500 mt-2">
+            Il part aussi, chaque 1er du mois, par courriel à la direction pour le mois écoulé
+            (si l'envoi de courriels est configuré).
+          </p>
+        </Fenetre>
+      )}
+
       {confier && (
         <ConfierTache onClose={() => setConfier(false)} onCree={() => chargerTaches()} />
       )}
@@ -255,6 +290,12 @@ export default function SuiviEquipe() {
 
 function DetailReunion({ reunion, personnes, obligations, types = [], perimetre,
                         api, onRetour, onRecharger, onImprimer }) {
+  /* LA SÉANCE, EN UNE PAGE QUI SE LIT (Jérôme, 24 septembre 2026 : « c'est
+   * trop compliqué, la mise en page ne va pas »). Dix cartes empilées, six
+   * champs par décision, le suivi des séances précédentes au milieu : on ne
+   * savait plus où écrire. L'ordre est désormais celui de la réunion — qui est
+   * là, ce qui restait ouvert, les points et leurs décisions, la suite — et
+   * tout ce qui sert rarement se replie. */
   const [champs, setChamps] = useState({
     titre: reunion.titre, genre: reunion.genre || 'secretariat',
     date_seance: reunion.date_seance,
@@ -273,6 +314,7 @@ function DetailReunion({ reunion, personnes, obligations, types = [], perimetre,
   const [participants, setParticipants] = useState(reunion.participants || []);
   const [points, setPoints] = useState(reunion.points || []);
   const [enregistre, setEnregistre] = useState(false);
+  const [plus, setPlus] = useState(false);
 
   const poser = (k, v) => { setChamps(c => ({ ...c, [k]: v })); setEnregistre(false); };
   const poserPoint = (i, k, v) => {
@@ -287,9 +329,9 @@ function DetailReunion({ reunion, personnes, obligations, types = [], perimetre,
     nom: p.nom,
   })).filter(p => p.cle);
 
-  async function enregistrer(listePoints = points) {
+  async function enregistrer(listePoints = points, listeParticipants = participants) {
     await api(`/${reunion.id}`, { method: 'PUT',
-      body: JSON.stringify({ ...champs, participants, ues, points: listePoints }) });
+      body: JSON.stringify({ ...champs, participants: listeParticipants, ues, points: listePoints }) });
     setEnregistre(true);
     onRecharger();
   }
@@ -310,23 +352,38 @@ function DetailReunion({ reunion, personnes, obligations, types = [], perimetre,
     setPoints(l => l.map((p, i) => (p.id ? p : { ...p, id: reunion.points?.[i]?.id })));
   }, [reunion]);
 
+  // LES PRÉSENCES SE COCHENT D'UN CLIC : présent → excusé → absent → présent.
+  function basculerPresence(i) {
+    const l = participants.map((x, k) => {
+      if (k !== i) return x;
+      if (x.present) return { ...x, present: 0, excuse: 1 };
+      if (x.excuse) return { ...x, present: 0, excuse: 0 };
+      return { ...x, present: 1, excuse: 0 };
+    });
+    setParticipants(l); enregistrer(points, l);
+  }
+  function retirerParticipant(i) {
+    const l = participants.filter((_, k) => k !== i);
+    setParticipants(l); enregistrer(points, l);
+  }
+
+  const horsPoints = (reunion.taches || []).filter(t => !t.point_id);
+  const champ = 'bg-white border border-slate-200 hover:border-slate-300 focus:border-iip-blue rounded-champ px-2 h-8 text-[13px]';
+  const lignes = t => Math.min(12, Math.max(2, String(t || '').split('\n').length + 1));
+
   return (
-    <>
+    <div className="max-w-[1100px]">
       <div className="flex items-center gap-2 mb-2">
         <button onClick={onRetour} className="bouton controle px-2.5 flex items-center gap-1.5">
           <IconChevronLeft size={16} /> Réunions
         </button>
         <div className="flex-1" />
-        <button onClick={enregistrer} className="bouton-fort controle px-3">
-          {enregistre ? 'Enregistré' : 'Enregistrer'}
-        </button>
-        <button onClick={() => onImprimer()} className="bouton-sortir controle px-3
-          flex items-center gap-1.5"
+        <span className="text-[11.5px] text-slate-400">{enregistre ? 'Enregistré' : ''}</span>
+        <button onClick={() => enregistrer()} className="bouton-fort controle px-3">Enregistrer</button>
+        <button onClick={() => onImprimer()} className="bouton-sortir controle px-3 flex items-center gap-1.5"
           title="Le PV à diffuser : les notes confidentielles n'y figurent pas">
           <IconPrinter size={16} /> Procès-verbal
         </button>
-        {/* LE PV INTÉGRAL, pour qui lit le confidentiel — marqué comme tel,
-            il ne se diffuse pas. */}
         {reunion.peut_confidentiel && (
           <button onClick={() => onImprimer('integrale')} className="bouton controle px-3
             flex items-center gap-1.5 text-[color:var(--brique)]"
@@ -336,299 +393,205 @@ function DetailReunion({ reunion, personnes, obligations, types = [], perimetre,
         )}
       </div>
 
-      {/* L'IDENTITÉ DE LA SÉANCE SUR UNE LIGNE — ce qui s'explique à gauche,
-          ce qui se remplit à droite, comme à la délibération. */}
-      <div className="carte px-3 py-2.5 flex flex-wrap items-end gap-x-4 gap-y-2 mb-3">
-        <label className="text-[11px] text-slate-500">
-          Type de réunion
-          <select value={champs.genre}
+      {/* ── LA SÉANCE : quoi, quand, où, qui ── */}
+      <div className="carte px-3 py-2.5 mb-2">
+        <input value={champs.titre} onChange={e => poser('titre', e.target.value)} onBlur={() => enregistrer()}
+          className="w-full bg-transparent border-0 border-b border-transparent hover:border-slate-200
+                     focus:border-iip-blue focus:outline-none px-0 h-8 text-[17px] font-semibold text-iip-blue" />
+        <div className="flex flex-wrap items-center gap-1.5 mt-1">
+          <select value={champs.genre} title="Type de réunion"
             onChange={e => {
               const t = types.find(x => x.cle === e.target.value);
               poser('genre', e.target.value);
-              // Changer de type renomme la séance tant qu'on n'a pas écrit un
-              // intitulé à soi : « Réunion » ne dit rien, « COPIL » si.
-              if (t && (!champs.titre || types.some(x => x.libelle === champs.titre))) {
-                poser('titre', t.libelle);
-              }
+              if (t && (!champs.titre || types.some(x => x.libelle === champs.titre))) poser('titre', t.libelle);
             }}
-            className="block mt-0.5 bg-white border border-slate-300 rounded-champ
-                       px-2 h-9 text-[13px] max-w-[16rem]">
+            className={`${champ} max-w-[14rem]`}>
             {types.map(t => <option key={t.cle} value={t.cle}>{t.libelle}</option>)}
           </select>
-        </label>
-        <label className="flex-1 min-w-[200px] text-[11px] text-slate-500">
-          Intitulé
-          <input value={champs.titre} onChange={e => poser('titre', e.target.value)}
-            className="block w-full mt-0.5 bg-white border border-slate-300 rounded-champ
-                       px-2 h-9 text-[13px]" />
-        </label>
-        <label className="text-[11px] text-slate-500">
-          Date
-          <input type="date" value={champs.date_seance}
-            onChange={e => poser('date_seance', e.target.value)}
-            className="block mt-0.5 bg-white border border-slate-300 rounded-champ px-2 h-9 text-[13px]" />
-        </label>
-        <label className="text-[11px] text-slate-500">
-          Heure
-          <input type="time" value={champs.heure_seance}
-            onChange={e => poser('heure_seance', e.target.value)}
-            className="block mt-0.5 bg-white border border-slate-300 rounded-champ px-2 h-9 text-[13px]" />
-        </label>
-        <label className="text-[11px] text-slate-500">
-          Lieu
-          <input value={champs.lieu} onChange={e => poser('lieu', e.target.value)}
-            placeholder="Secrétariat"
-            className="block mt-0.5 bg-white border border-slate-300 rounded-champ px-2 h-9 text-[13px]" />
-        </label>
-        {/* QUI CONVOQUE SUIT. C'est lui qui rouvrira les points à la séance
-            suivante : les actions décidées ici apparaissent aussi sur SON
-            tableau de bord, en plus de celui de leur responsable. */}
-        <label className="text-[11px] text-slate-500">
-          Organisée par
-          <select
-            value={champs.organisateur_user_id ? `u:${champs.organisateur_user_id}`
-              : champs.organisateur_professeur_id ? `p:${champs.organisateur_professeur_id}` : ''}
-            onChange={e => {
-              const [g, v2] = e.target.value.split(':');
-              poser('organisateur_user_id', g === 'u' ? Number(v2) : null);
-              poser('organisateur_professeur_id', g === 'p' ? Number(v2) : null);
-            }}
-            className="block mt-0.5 bg-white border border-slate-300 rounded-champ
-                       px-2 h-9 text-[13px] max-w-[14rem]">
-            <option value="">—</option>
-            {[...personnes].sort((a, b) => parNom(a.nom, b.nom)).map(p2 => (
-              <option key={p2.cle} value={p2.cle}>{nomListe(p2.nom)}</option>
-            ))}
-          </select>
-        </label>
-      </div>
-
-      {/* SUR QUOI PORTE CETTE SÉANCE. Une coordination de section ne parle pas
-          de tout l'institut, et une équipe d'unité encore moins. Écrire « UE
-          281 » dans le titre ne permet ni de retrouver, ni de regrouper. */}
-      <div className="carte px-3 py-2.5 flex flex-wrap items-end gap-x-4 gap-y-2 mb-3">
-        <label className="text-[11px] text-slate-500">
-          Section
-          <select value={champs.section}
-            onChange={e => { poser('section', e.target.value); setUes([]); }}
-            className="block mt-0.5 bg-white border border-slate-300 rounded-champ
-                       px-2 h-9 text-[13px] max-w-[14rem]">
-            <option value="">Toutes — portée générale</option>
-            {(perimetre?.sections || []).map(s2 => <option key={s2} value={s2}>{s2}</option>)}
-          </select>
-        </label>
-        <label className="flex-1 min-w-[260px] text-[11px] text-slate-500">
-          Unités concernées <span className="text-slate-400">— facultatif, plusieurs possibles</span>
-          <select multiple value={ues.map(String)} size={3}
-            onChange={e => setUes([...e.target.selectedOptions].map(o => Number(o.value)))}
-            className="block w-full mt-0.5 bg-white border border-slate-300 rounded-champ
-                       px-2 py-1 text-[13px]">
-            {(perimetre?.ues || [])
-              .filter(u => !champs.section || u.section === champs.section)
-              .map(u => (
-                <option key={u.ue_num} value={u.ue_num}>
-                  UE {u.ue_num} — {u.ue_nom}
-                </option>
-              ))}
-          </select>
-        </label>
-      </div>
-
-      {/* LES PRÉSENTS, sur deux colonnes : un service de cinq personnes ne
-          mérite pas cinq lignes pleine largeur. */}
-      <div className="carte p-3 mb-3">
-        <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-1.5">
-          Présents
+          <input type="date" value={champs.date_seance} title="Date"
+            onChange={e => poser('date_seance', e.target.value)} onBlur={() => enregistrer()} className={champ} />
+          <input type="time" value={champs.heure_seance} title="Heure"
+            onChange={e => poser('heure_seance', e.target.value)} onBlur={() => enregistrer()} className={`${champ} w-[6.5rem]`} />
+          <input value={champs.lieu} placeholder="Lieu" title="Lieu"
+            onChange={e => poser('lieu', e.target.value)} onBlur={() => enregistrer()} className={`${champ} w-44`} />
+          <button onClick={() => setPlus(v => !v)}
+            className="text-[12px] text-slate-500 hover:text-iip-blue px-1.5 h-8">
+            {plus ? '▾' : '▸'} Organisateur, section, unités
+          </button>
         </div>
-        <div className="grid sm:grid-cols-3 gap-x-4">
-          {/* PAR NOM DE FAMILLE, comme partout ailleurs : une liste rangée par
-              prénom n'est rangée pour personne. */}
-          {participants
-            .map((p, i) => ({ p, i }))
-            .sort((a, b) => parNom(a.p.nom, b.p.nom))
-            .map(({ p, i }) => (
-            <label key={p.id || p.cle || p.nom} className="flex items-center gap-2 py-0.5 text-[13px]">
-              <input type="checkbox" checked={!!p.present}
-                onChange={e => setParticipants(l => l.map((x, k) =>
-                  k === i ? { ...x, present: e.target.checked ? 1 : 0 } : x))} />
-              <span className={p.present ? '' : 'text-slate-400'}>{nomListe(p.nom)}</span>
+        {plus && (
+          <div className="flex flex-wrap items-start gap-2 mt-2 pt-2 border-t border-slate-100">
+            <label className="text-[11px] text-slate-500">
+              Organisée par
+              <select
+                value={champs.organisateur_user_id ? `u:${champs.organisateur_user_id}`
+                  : champs.organisateur_professeur_id ? `p:${champs.organisateur_professeur_id}` : ''}
+                onChange={e => {
+                  const [g, v2] = e.target.value.split(':');
+                  poser('organisateur_user_id', g === 'u' ? Number(v2) : null);
+                  poser('organisateur_professeur_id', g === 'p' ? Number(v2) : null);
+                }}
+                className={`block mt-0.5 ${champ} max-w-[14rem]`}>
+                <option value="">—</option>
+                {[...personnes].sort((a, b) => parNom(a.nom, b.nom)).map(p2 => (
+                  <option key={p2.cle} value={p2.cle}>{nomListe(p2.nom)}</option>
+                ))}
+              </select>
             </label>
+            <label className="text-[11px] text-slate-500">
+              Section
+              <select value={champs.section} onChange={e => { poser('section', e.target.value); setUes([]); }}
+                className={`block mt-0.5 ${champ} max-w-[14rem]`}>
+                <option value="">Toutes — portée générale</option>
+                {(perimetre?.sections || []).map(s2 => <option key={s2} value={s2}>{s2}</option>)}
+              </select>
+            </label>
+            <label className="flex-1 min-w-[260px] text-[11px] text-slate-500">
+              Unités concernées <span className="text-slate-400">— facultatif</span>
+              <select multiple value={ues.map(String)} size={3}
+                onChange={e => setUes([...e.target.selectedOptions].map(o => Number(o.value)))}
+                className="block w-full mt-0.5 bg-white border border-slate-200 rounded-champ px-2 py-1 text-[13px]">
+                {(perimetre?.ues || []).filter(u => !champs.section || u.section === champs.section)
+                  .map(u => <option key={u.ue_num} value={u.ue_num}>UE {u.ue_num} — {u.ue_nom}</option>)}
+              </select>
+            </label>
+          </div>
+        )}
+
+        {/* LES PRÉSENCES, EN PASTILLES : un clic change l'état. */}
+        <div className="flex flex-wrap items-center gap-1 mt-2 pt-2 border-t border-slate-100">
+          <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 mr-1">Présences</span>
+          {participants.map((p, i) => ({ p, i })).sort((a, b) => parNom(a.p.nom, b.p.nom)).map(({ p, i }) => (
+            <span key={p.id || p.cle || p.nom}
+              className={`group inline-flex items-center gap-1 rounded-full pl-2 pr-1 h-6 text-[12px] border
+                ${p.present ? 'bg-iip-blue/10 border-iip-blue/20 text-iip-blue'
+                  : p.excuse ? 'bg-amber-50 border-amber-200 text-amber-800'
+                  : 'bg-slate-50 border-slate-200 text-slate-400 line-through'}`}>
+              <button onClick={() => basculerPresence(i)} title="Clic : présent → excusé → absent">
+                {nomListe(p.nom)}{!p.present && p.excuse ? ' · excusé' : ''}
+              </button>
+              <button onClick={() => retirerParticipant(i)} title="Retirer de la liste"
+                className="opacity-0 group-hover:opacity-100 text-slate-400 hover:text-slate-700">
+                <IconX size={11} />
+              </button>
+            </span>
           ))}
           <AjoutParticipant personnes={personnes} deja={participants}
-            onAjout={p => setParticipants(l => [...l, p])} />
+            onAjout={p => { const l = [...participants, p]; setParticipants(l); enregistrer(points, l); }} />
         </div>
       </div>
 
-      {/* L'ORDRE DU JOUR, POINT PAR POINT.
-          Un pavé de texte pour les points et un autre pour les notes obligeait
-          à refaire soi-même le rapprochement trois semaines plus tard : quelle
-          remarque allait avec quel point, et quelle décision répondait à quoi.
-          Chaque point porte donc son intitulé, ce qui s'y est dit, et les
-          actions qui en sortent — et le procès-verbal s'écrit tout seul, dans
-          l'ordre de la séance. */}
-      <h2 className="text-[13px] font-semibold text-iip-blue mb-1.5">Ordre du jour</h2>
-      {!points.length && (
-        <p className="text-[13px] text-slate-400 mb-2">
-          Aucun point. Le premier se crée d'un bouton : l'intitulé se pose avant la séance,
-          les notes et les décisions se remplissent pendant.
-        </p>
+      {/* ── CE QUI RESTAIT OUVERT — replié : on l'ouvre en début de séance ── */}
+      {!!reunion.reste?.length && (
+        <details className="carte px-3 py-2 mb-2">
+          <summary className="cursor-pointer text-[13px] font-semibold text-iip-blue">
+            Suivi des séances précédentes <span className="font-normal text-slate-400">
+              — {reunion.reste.length} tâche(s) encore ouverte(s)</span>
+          </summary>
+          <div className="mt-1">
+            <ListeTaches taches={reunion.reste} personnes={personnes} presents={presents}
+              obligations={obligations} api={api} onRecharger={onRecharger} compact simple />
+          </div>
+        </details>
       )}
+
+      {/* ── L'ORDRE DU JOUR : chaque point, ce qui s'y dit, ce qui s'y décide ── */}
       {points.map((p, i) => (
-        <div key={p.id || `neuf-${i}`} className="carte p-3 mb-2">
-          <div className="flex items-center gap-2 mb-1.5">
-            <span className="text-[13px] font-semibold text-slate-400 tabular-nums w-5 flex-none">
-              {i + 1}.
-            </span>
+        <div key={p.id || `neuf-${i}`}
+          className={`carte px-3 py-2 mb-2 ${p.confidentiel ? 'border-red-200' : ''}`}>
+          <div className="flex items-center gap-2">
+            <span className="text-[13px] font-semibold text-slate-400 tabular-nums w-5 flex-none">{i + 1}.</span>
             <input value={p.intitule || ''} autoFocus={!p.intitule}
-              onChange={e => poserPoint(i, 'intitule', e.target.value)}
-              onBlur={() => enregistrer()}
-              placeholder="Intitulé du point — « Rentrée AeSI »"
-              className="flex-1 min-w-0 bg-white border border-slate-300 rounded-champ
-                         px-2 h-9 text-[13px] font-semibold" />
-            <button
-              onClick={() => { const l = points.filter((_, j) => j !== i);
-                               setPoints(l); enregistrer(l); }}
+              onChange={e => poserPoint(i, 'intitule', e.target.value)} onBlur={() => enregistrer()}
+              placeholder="Intitulé du point"
+              className="flex-1 min-w-0 bg-transparent border-0 border-b border-transparent hover:border-slate-200
+                         focus:border-iip-blue focus:outline-none px-0 h-7 text-[14px] font-semibold text-slate-800" />
+            {reunion.peut_confidentiel && !p.masque && (
+              <button title={p.confidentiel ? 'Point confidentiel — cliquer pour le rendre ordinaire'
+                : 'Rendre ce point confidentiel (absent du PV diffusé)'}
+                onClick={() => { const l = points.map((x, j) => (j === i ? { ...x, confidentiel: !x.confidentiel } : x));
+                                 setPoints(l); enregistrer(l); }}
+                className={`flex-none p-1 rounded ${p.confidentiel ? 'text-[color:var(--brique)]' : 'text-slate-300 hover:text-slate-500'}`}>
+                <IconLock size={15} />
+              </button>
+            )}
+            <button onClick={() => { const l = points.filter((_, j) => j !== i); setPoints(l); enregistrer(l); }}
               title="Retirer ce point — les actions décidées dessous sont conservées"
-              className="bouton controle px-2 text-slate-400 hover:text-[color:var(--brique)]">
+              className="flex-none p-1 rounded text-slate-300 hover:text-[color:var(--brique)]">
               <IconTrash size={15} />
             </button>
           </div>
           {p.masque ? (
-            <p className="flex items-center gap-1.5 text-[12px] text-slate-500 bg-slate-50
-                          border border-slate-200 rounded-champ px-2 py-1.5 mb-2">
-              <IconLock size={14} className="flex-none" />
-              Point confidentiel — les notes sont réservées à la direction, à l'organisateur
-              et aux participants de la séance.
+            <p className="flex items-center gap-1.5 text-[12px] text-slate-500 pl-7 py-1">
+              <IconLock size={13} className="flex-none" />
+              Point confidentiel — notes réservées à la direction, à l'organisateur et aux participants.
             </p>
           ) : (
-            <>
-              <textarea value={p.notes || ''} rows={3}
-                onChange={e => poserPoint(i, 'notes', e.target.value)}
-                onBlur={() => enregistrer()}
-                placeholder="Ce qui s'est dit, ce qui a été tranché."
-                className={`w-full border rounded-champ px-2 py-1.5 text-[13px] mb-1
-                  ${p.confidentiel ? 'bg-red-50/40 border-red-200' : 'bg-white border-slate-300'}`} />
-              {reunion.peut_confidentiel && (
-                <label className="flex items-center gap-1.5 text-[12px] text-slate-500 mb-2 cursor-pointer w-fit"
-                  title="Les notes de ce point ne seront lues que par la direction, l'organisateur et les participants — et n'apparaîtront pas dans le PV diffusé">
-                  <input type="checkbox" checked={!!p.confidentiel}
-                    onChange={e => {
-                      const l = points.map((x, j) => (j === i ? { ...x, confidentiel: e.target.checked } : x));
-                      setPoints(l); enregistrer(l);
-                    }} />
-                  <IconLock size={13} className={p.confidentiel ? 'text-[color:var(--brique)]' : ''} />
-                  Notes confidentielles
-                </label>
-              )}
-            </>
+            <textarea value={p.notes || ''} rows={lignes(p.notes)}
+              onChange={e => poserPoint(i, 'notes', e.target.value)} onBlur={() => enregistrer()}
+              placeholder="Ce qui s'est dit, ce qui a été tranché."
+              className={`block w-[calc(100%-1.75rem)] ml-7 mt-1 border rounded-champ px-2 py-1 text-[13px] resize-y
+                ${p.confidentiel ? 'bg-red-50/40 border-red-200' : 'bg-white border-slate-200'}`} />
           )}
-          {p.id ? (
-            <ListeTaches taches={(reunion.taches || []).filter(t => t.point_id === p.id)}
-              personnes={personnes} presents={presents} obligations={obligations} api={api}
-              onRecharger={onRecharger} reunionId={reunion.id} pointId={p.id} avecAjout />
-          ) : (
-            <p className="text-[11px] text-slate-400">
-              Enregistrez le point pour pouvoir y décider des actions.
-            </p>
-          )}
+          <div className="ml-7 mt-1">
+            {p.id ? (
+              <ListeTaches taches={(reunion.taches || []).filter(t => t.point_id === p.id)}
+                personnes={personnes} presents={presents} obligations={obligations} api={api}
+                onRecharger={onRecharger} reunionId={reunion.id} pointId={p.id} avecAjout simple />
+            ) : (
+              <p className="text-[11px] text-slate-400">Enregistrement du point…</p>
+            )}
+          </div>
         </div>
       ))}
-      <button onClick={ajouterPoint}
-        className="bouton controle px-3 flex items-center gap-1.5 mb-3">
+      <button onClick={ajouterPoint} className="bouton controle px-3 flex items-center gap-1.5 mb-3">
         <IconPlus size={15} /> Ajouter un point
       </button>
 
-      {/* CE QUI RESTE OUVERT D'AVANT — le premier point de toute réunion de
-          suivi, et celui qu'on oublie de préparer. */}
-      {!!reunion.reste?.length && (
-        <div className="mb-3">
-          <h2 className="text-[13px] font-semibold text-iip-blue mb-1.5">
-            Ce qui restait ouvert <span className="font-normal text-slate-400">
-              — {reunion.reste.length} tâche(s) des séances précédentes</span>
-          </h2>
-          <ListeTaches taches={reunion.reste} personnes={personnes} presents={presents}
-            obligations={obligations} api={api} onRecharger={onRecharger} compact />
-        </div>
-      )}
-
-      {/* LA PROCHAINE SÉANCE SE FIXE MAINTENANT, quand tout le monde est là —
-          pas trois semaines plus tard par courriels croisés. Quand, où, et qui
-          est attendu : ces trois lignes s'affichent ensuite sur le tableau de
-          bord de chacun des présents. */}
-      <div className="carte px-3 py-2.5 flex flex-wrap items-end gap-x-4 gap-y-2 mb-3">
-        <div className="flex-none text-[11px] font-semibold uppercase tracking-wider
-                        text-slate-500 w-full sm:w-auto sm:mr-2">
-          Prochaine séance
-        </div>
-        <label className="text-[11px] text-slate-500">
-          Date
-          <input type="date" value={champs.prochaine_date}
-            onChange={e => poser('prochaine_date', e.target.value)}
-            className="block mt-0.5 bg-white border border-slate-300 rounded-champ
-                       px-2 h-9 text-[13px]" />
-        </label>
-        <label className="text-[11px] text-slate-500">
-          Heure
-          <input type="time" value={champs.prochaine_heure}
-            onChange={e => poser('prochaine_heure', e.target.value)}
-            className="block mt-0.5 bg-white border border-slate-300 rounded-champ
-                       px-2 h-9 text-[13px]" />
-        </label>
-        <label className="text-[11px] text-slate-500">
-          Lieu
-          <input value={champs.prochain_lieu} placeholder={champs.lieu || 'Secrétariat'}
-            onChange={e => poser('prochain_lieu', e.target.value)}
-            className="block mt-0.5 bg-white border border-slate-300 rounded-champ
-                       px-2 h-9 text-[13px]" />
-        </label>
-        <label className="flex-1 min-w-[220px] text-[11px] text-slate-500">
-          Qui est attendu
-          <input value={champs.prochaine_qui}
-            placeholder="Les mêmes, ou : Florian, Natacha, la coordination TIM"
-            onChange={e => poser('prochaine_qui', e.target.value)}
-            className="block w-full mt-0.5 bg-white border border-slate-300 rounded-champ
-                       px-2 h-9 text-[13px]" />
-        </label>
+      {/* ── LA SUITE ── */}
+      <div className="carte px-3 py-2 mb-2 flex flex-wrap items-center gap-1.5">
+        <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 mr-1">Prochaine séance</span>
+        <input type="date" value={champs.prochaine_date} onChange={e => poser('prochaine_date', e.target.value)}
+          onBlur={() => enregistrer()} className={champ} />
+        <input type="time" value={champs.prochaine_heure} onChange={e => poser('prochaine_heure', e.target.value)}
+          onBlur={() => enregistrer()} className={`${champ} w-[6.5rem]`} />
+        <input value={champs.prochain_lieu} placeholder={champs.lieu || 'Lieu'}
+          onChange={e => poser('prochain_lieu', e.target.value)} onBlur={() => enregistrer()} className={`${champ} w-40`} />
+        <input value={champs.prochaine_qui} placeholder="Qui est attendu — « les mêmes »"
+          onChange={e => poser('prochaine_qui', e.target.value)} onBlur={() => enregistrer()}
+          className={`${champ} flex-1 min-w-[12rem]`} />
       </div>
 
-      {/* CE QUI SE DÉCIDE HORS D'UN POINT — les divers, et tout ce qui a été
-          noté avant que la séance ne soit tenue par points. */}
-      <h2 className="text-[13px] font-semibold text-iip-blue mb-1.5">
-        {points.length ? 'Divers — décidé hors des points' : 'Décidé au cours de cette séance'}
-      </h2>
-      <ListeTaches taches={(reunion.taches || []).filter(t => !t.point_id)}
-        personnes={personnes} presents={presents}
-        obligations={obligations} api={api}
-        onRecharger={onRecharger} reunionId={reunion.id} avecAjout />
-
-      <div className="carte p-3 mt-3">
-        <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-1">
-          Notes générales <span className="normal-case font-normal text-slate-400">
-            — ce qui ne tient à aucun point</span>
+      {/* ── CE QUI SERT RAREMENT, REPLIÉ ── */}
+      <details className="carte px-3 py-2 mb-2" open={horsPoints.length > 0}>
+        <summary className="cursor-pointer text-[12.5px] text-slate-600">
+          Décisions hors des points {horsPoints.length ? `(${horsPoints.length})` : ''}
+        </summary>
+        <div className="mt-1">
+          <ListeTaches taches={horsPoints} personnes={personnes} presents={presents}
+            obligations={obligations} api={api} onRecharger={onRecharger} reunionId={reunion.id} avecAjout simple />
         </div>
-        <textarea value={champs.notes} rows={3}
+      </details>
+      <details className="carte px-3 py-2 mb-2" open={!!champs.notes}>
+        <summary className="cursor-pointer text-[12.5px] text-slate-600">Notes générales</summary>
+        <textarea value={champs.notes} rows={lignes(champs.notes)}
           onChange={e => poser('notes', e.target.value)} onBlur={() => enregistrer()}
-          placeholder="Rarement nécessaire : ce qui s'est dit se note sous son point."
-          className="w-full bg-white border border-slate-300 rounded-champ px-2 py-1.5 text-[13px]" />
-      </div>
-
-      {/* LE HUIS CLOS DE LA SÉANCE. Présent seulement pour qui peut le lire —
-          le serveur ne l'envoie à personne d'autre. Jamais dans le PV diffusé. */}
+          placeholder="Ce qui ne tient à aucun point."
+          className="w-full mt-1 bg-white border border-slate-200 rounded-champ px-2 py-1 text-[13px]" />
+      </details>
       {reunion.peut_confidentiel && (
-        <div className="carte p-3 mt-3 border-red-200 bg-red-50/30">
-          <div className="text-[11px] font-semibold uppercase tracking-wider text-[color:var(--brique)]
-                          mb-1 flex items-center gap-1.5">
-            <IconLock size={13} /> Notes confidentielles
-            <span className="normal-case font-normal text-slate-500">
-              — direction, organisateur et participants uniquement ; absentes du PV diffusé</span>
-          </div>
-          <textarea value={champs.notes_confidentielles} rows={4}
+        <details className="carte px-3 py-2 mb-2 border-red-200" open={!!champs.notes_confidentielles}>
+          <summary className="cursor-pointer text-[12.5px] text-[color:var(--brique)]">
+            <IconLock size={12} className="inline -mt-0.5" /> Notes confidentielles
+            <span className="text-slate-400"> — absentes du PV diffusé</span>
+          </summary>
+          <textarea value={champs.notes_confidentielles} rows={lignes(champs.notes_confidentielles)}
             onChange={e => poser('notes_confidentielles', e.target.value)} onBlur={() => enregistrer()}
             placeholder="Ce qui ne sort pas de la salle."
-            className="w-full bg-white border border-red-200 rounded-champ px-2 py-1.5 text-[13px]" />
-        </div>
+            className="w-full mt-1 bg-white border border-red-200 rounded-champ px-2 py-1 text-[13px]" />
+        </details>
       )}
-    </>
+    </div>
   );
 }
 
@@ -648,9 +611,9 @@ function AjoutParticipant({ personnes, deja, onAjout }) {
       if (p) onAjout({ user_id: p.user_id || null, professeur_id: p.professeur_id || null,
                        nom: p.nom, present: 1 });
     }}
-      className="mt-0.5 bg-white border border-slate-300 rounded-champ px-2 h-8 text-[12px]
+      className="bg-white border border-dashed border-slate-300 rounded-full px-2 h-6 text-[12px]
                  text-slate-500">
-      <option value="">+ Ajouter quelqu'un…</option>
+      <option value="">+ quelqu'un…</option>
       {[...restants].sort((a, b) => parNom(a.nom, b.nom))
         .map(p => <option key={p.cle} value={p.cle}>{nomListe(p.nom)}</option>)}
     </select>
@@ -684,7 +647,7 @@ function clesDeTache(t) {
  * tableau de bord. Chaque nom retenu devient une pastille ; la première est
  * celle qui répond de l'action.
  */
-function ChoixResponsables({ personnes, presents = [], tache, onChange, informes = false }) {
+function ChoixResponsables({ personnes, presents = [], tache, onChange, informes = false, discret = false }) {
   const cles = informes ? (tache.informes || []).map(x => x.cle).filter(Boolean) : clesDeTache(tache);
   const exclus = informes ? clesDeTache(tache) : [];
   const nomDeCle = cle => {
@@ -721,8 +684,8 @@ function ChoixResponsables({ personnes, presents = [], tache, onChange, informes
         </span>
       ))}
       <select value="" onChange={e => e.target.value && onChange([...cles, e.target.value])}
-        className="bg-white border border-slate-300 rounded-champ px-1 h-6 text-[11px]
-                   text-slate-500 max-w-[8rem]">
+        className={`bg-white border border-slate-300 rounded-champ px-1 h-6 text-[11px]
+                   text-slate-500 max-w-[8rem] ${discret && cles.length ? 'opacity-0 group-hover:opacity-100 focus:opacity-100' : ''}`}>
         <option value="">{informes ? '+ au courant…' : cles.length ? '+ aussi…' : '— qui ? —'}</option>
         {!!dansLaSalle.length && (
           <optgroup label="Présents à la séance">
@@ -793,9 +756,15 @@ function TitreModifiable({ tache, compact, onValider }) {
 }
 
 function ListeTaches({ taches, personnes, presents = [], obligations = [], api, onRecharger,
-                       reunionId, pointId, avecAjout, compact }) {
+                       reunionId, pointId, avecAjout, compact, simple }) {
   const [nouvelle, setNouvelle] = useState({
     titre: '', responsables: [], echeance: '', echeance_id: '' });
+  /* LE MODE SIMPLE, CELUI DE LA SÉANCE (24 septembre 2026 : « c'est trop
+     compliqué »). Six champs par décision, c'était six décisions à prendre en
+     pleine réunion. La ligne dit quoi · qui · pour quand ; l'obligation, les
+     « au courant » et l'état se déplient sous « ⋯ », pour qui en a besoin. */
+  const [deplies, setDeplies] = useState(() => new Set());
+  const deplier = id => setDeplies(s0 => { const n = new Set(s0); n.has(id) ? n.delete(id) : n.add(id); return n; });
 
   async function ajouter() {
     if (!nouvelle.titre.trim()) return;
@@ -817,6 +786,77 @@ function ListeTaches({ taches, personnes, presents = [], obligations = [], api, 
   async function majTache(t, champs) {
     await api(`/taches/${t.id}`, { method: 'PUT', body: JSON.stringify(champs) });
     onRecharger();
+  }
+
+  if (simple) {
+    return (
+      <div>
+        {taches.map(t => (
+          <div key={t.id} className="group border-t border-slate-100 first:border-t-0">
+            <div className="py-1 flex items-center gap-2">
+              <button onClick={() => majTache(t, { statut: t.statut === 'fait' ? 'a_faire' : 'fait' })}
+                title={t.statut === 'fait' ? 'Rouvrir la tâche' : 'Marquer comme faite'}
+                className={`w-[18px] h-[18px] flex-none grid place-items-center rounded-champ border
+                  ${t.statut === 'fait' ? 'bg-emerald-600 border-emerald-600 text-white'
+                    : 'border-slate-300 text-transparent hover:border-emerald-500'}`}>
+                <IconCheck size={12} />
+              </button>
+              <TitreModifiable tache={t} compact={compact} onValider={titre => majTache(t, { titre })} />
+              {t.statut === 'en_cours' && <span className="text-[10.5px] text-sky-700 flex-none">en cours</span>}
+              <ChoixResponsables personnes={personnes} presents={presents} tache={t} discret
+                onChange={cles => majTache(t, { responsables: cles })} />
+              <input type="date" value={t.echeance || ''} title="Pour quand"
+                onChange={e => majTache(t, { echeance: e.target.value || null })}
+                className={`bg-white border rounded-champ px-1 h-7 text-[12px] w-[8.2rem] flex-none
+                  ${enRetard(t) ? 'border-amber-500 text-amber-800' : t.echeance ? 'border-slate-200' : 'border-amber-300'}`} />
+              <button onClick={() => deplier(t.id)} title="Obligation, personnes au courant, état"
+                className={`flex-none px-1.5 h-7 rounded-champ text-[13px] leading-none
+                  ${deplies.has(t.id) ? 'bg-slate-200 text-slate-700' : 'text-slate-400 hover:bg-slate-100'}`}>⋯</button>
+            </div>
+            {deplies.has(t.id) && (
+              <div className="pl-7 pb-1.5 flex flex-wrap items-center gap-2">
+                <select value={t.statut} onChange={e => majTache(t, { statut: e.target.value })}
+                  className="bg-white border border-slate-300 rounded-champ px-1.5 h-7 text-[12px]">
+                  {STATUTS.map(([cle, lib]) => <option key={cle} value={cle}>{lib}</option>)}
+                </select>
+                <ChoixResponsables personnes={personnes} tache={t} informes
+                  onChange={cles => majTache(t, { informes: cles })} />
+                {!!obligations.length && (
+                  <select value={t.echeance_id || ''} title="Obligation servie par cette action"
+                    onChange={e => majTache(t, { echeance_id: e.target.value ? Number(e.target.value) : null })}
+                    className="bg-white border border-slate-300 rounded-champ px-1.5 h-7 text-[12px] max-w-[16rem] text-slate-600">
+                    <option value="">— ne sert aucune obligation —</option>
+                    {obligations.map(o => (
+                      <option key={o.id} value={o.id}>{o.libelle}{o.base_legale ? ` · ${o.base_legale}` : ''}</option>
+                    ))}
+                  </select>
+                )}
+              </div>
+            )}
+          </div>
+        ))}
+        {avecAjout && (
+          <div className="py-1 flex items-center gap-2 border-t border-slate-100">
+            <IconPlus size={14} className="text-slate-400 flex-none" />
+            <input value={nouvelle.titre}
+              onChange={e => setNouvelle(n => ({ ...n, titre: e.target.value }))}
+              onKeyDown={e => e.key === 'Enter' && ajouter()}
+              placeholder="Une décision : ce qu'il y a à faire…"
+              className="flex-1 min-w-0 bg-transparent border border-transparent hover:border-slate-200
+                         focus:border-slate-300 focus:bg-white rounded-champ px-1.5 h-7 text-[13px]" />
+            {nouvelle.titre.trim() && (<>
+              <ChoixResponsables personnes={personnes} presents={presents}
+                tache={{ responsables: nouvelle.responsables.map(c => ({ cle: c })) }}
+                onChange={cles => setNouvelle(n => ({ ...n, responsables: cles }))} />
+              <input type="date" value={nouvelle.echeance} title="Pour quand"
+                onChange={e => setNouvelle(n => ({ ...n, echeance: e.target.value }))}
+                className="bg-white border border-slate-300 rounded-champ px-1 h-7 text-[12px] w-[8.2rem] flex-none" />
+              <button onClick={ajouter} className="bouton px-2.5 h-7 text-[12px] flex-none">Ajouter</button>
+            </>)}
+          </div>
+        )}
+      </div>
+    );
   }
 
   return (
