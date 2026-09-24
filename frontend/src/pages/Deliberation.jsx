@@ -52,21 +52,33 @@ export default function Deliberation() {
   const [encoderUE, setEncoderUE] = useState(null); // ue_num en saisie complète
   const [importer, setImporter] = useState(null);   // ue_num en import de notes
 
-  /* LA GRILLE À ENVOYER AUX PROFESSEURS : un classeur par unité, fait pour
-     revenir par « Importer » sans rien réassocier. */
+  /* LE CLASSEUR DU PROFESSEUR, ATTEIGNABLE DEPUIS LE PLAN. Il existait — le
+     bouton « Exporter » en bas de « Encoder toute l'UE » —, mais personne ne
+     le trouvait là. Ce raccourci produit EXACTEMENT le même fichier (même
+     moteur, lib/classeurNotes.js, clés techniques en ligne masquée) : il
+     revient par « Importer » de cette même fenêtre d'encodage. */
   async function exporterGrille(ueNum) {
     try {
-      const rep = await fetch(`/api/acquis/ue/${ueNum}/grille.xlsx?annee=${encodeURIComponent(annee)}`,
+      const rep = await fetch(`/api/acquis/ue/${ueNum}/feuille?annee=${encodeURIComponent(annee)}&session=1`,
         { headers: authHeaders() });
-      if (!rep.ok) {
-        const j = await rep.json().catch(() => ({}));
-        alert(j.error || `Export impossible (${rep.status})`); return;
+      const d = await rep.json();
+      if (!rep.ok) { alert(d.error || `Export impossible (${rep.status})`); return; }
+      const colonnes = (d.cours || []).filter(c => c.acquis?.length)
+        .flatMap(c => c.acquis.map(a => ({
+          cours_code: c.cours_code, cours_nom: c.cours_nom,
+          aa_code: a.aa_code, description: a.description, poids: a.poids })));
+      if (!colonnes.length) {
+        alert("Cette unité n'a pas d'acquis rattachés à ses cours : complétez la pondération dans le référentiel.");
+        return;
       }
-      const url = URL.createObjectURL(await rep.blob());
-      const a = document.createElement('a');
-      a.href = url; a.download = `Grille_UE${ueNum}_${annee}.xlsx`;
-      document.body.appendChild(a); a.click(); a.remove();
-      setTimeout(() => URL.revokeObjectURL(url), 2000);
+      const { telechargerClasseur } = await import('../lib/classeurNotes.js');
+      await telechargerClasseur({
+        colonnes, etudiants: d.etudiants || [],
+        note: (id, c) => d.notes?.[id]?.[`${c.cours_code}|${c.aa_code}`] ?? null,
+        mention: (id, cc) => d.mentions?.[id]?.[cc] || null,
+        ue_num: ueNum, ue_nom: d.ue?.ue_nom, annee, session: 1,
+        titre: `UE ${ueNum}${d.ue?.ue_nom ? ` — ${d.ue.ue_nom}` : ''}`,
+      }, `Notes_UE${ueNum}_S1_${String(annee).replace('-', '')}.xlsx`);
     } catch (e) { alert(e.message); }
   }
   const [importSuivi, setImportSuivi] = useState(false); // le classeur de l'année
@@ -466,15 +478,17 @@ export default function Deliberation() {
                                  text-slate-600 flex-none">
                       Encoder par cours
                     </button>
+                    {peutToutEncoder && (
                     <button onClick={() => exporterGrille(u.ue_num)}
-                      title="Le classeur Excel à envoyer aux professeurs : une ligne par étudiant, une colonne par acquis — il revient par « Importer » sans rien réassocier"
+                      title="Le classeur à envoyer aux professeurs — le même que « Exporter » dans « Encoder toute l'UE » ; rempli, il revient par « Importer » de cette fenêtre"
                       className="px-2 py-1 text-[12px] rounded-lg border border-slate-300
                                  text-slate-600 flex-none flex items-center gap-1">
                       <IconFileSpreadsheet size={13} /> Grille Excel
                     </button>
+                    )}
                     {peutToutEncoder && (
                       <button onClick={() => setImporter(u.ue_num)}
-                        title="Reprendre les notes depuis un classeur de suivi — dont la grille Excel remplie par les professeurs"
+                        title="Reprendre les notes depuis un classeur de suivi"
                         className="px-2 py-1 text-[12px] rounded-lg border border-slate-300
                                    text-slate-600 flex-none">
                         Importer
