@@ -150,15 +150,21 @@ export function fusionner(garder, absorber, { simulation = false } = {}) {
                   fusionnees: 0, matricules: 0 };
   const faire = () => {
     // Le matricule du dossier absorbé doit rester cherchable : c'est lui qui
-    // figure sur les documents de l'année passée.
-    for (const m of db.prepare(`
-      SELECT id_ecampus FROM etudiant_matricule WHERE etudiant_id = ?
-      UNION SELECT id_ecampus FROM etudiant WHERE id = ? AND id_ecampus IS NOT NULL
-    `).all(s, s)) {
-      if (!m.id_ecampus) continue;
-      db.prepare(`INSERT OR IGNORE INTO etudiant_matricule (etudiant_id, id_ecampus, source)
-                  VALUES (?,?,'fusion')`).run(g, m.id_ecampus);
-      bilan.matricules++;
+    // figure sur les documents de l'année passée. LA TABLE EST UNIQUE SUR LE
+    // MATRICULE : insérer à neuf était ignoré tant que l'ancienne ligne
+    // existait, puis le DELETE final l'emportait — le matricule disparaissait,
+    // à l'inverse de la promesse. On REBRANCHE donc les lignes existantes sur
+    // le dossier conservé, puis on y ajoute le matricule propre de la fiche
+    // absorbée.
+    bilan.matricules += db.prepare(
+      'UPDATE OR IGNORE etudiant_matricule SET etudiant_id = ? WHERE etudiant_id = ?')
+      .run(g, s).changes;
+    const matriculeAbsorbe = db.prepare(
+      'SELECT id_ecampus FROM etudiant WHERE id = ?').get(s)?.id_ecampus;
+    if (matriculeAbsorbe) {
+      bilan.matricules += db.prepare(`INSERT OR IGNORE INTO etudiant_matricule
+        (etudiant_id, id_ecampus, source) VALUES (?,?,'fusion')`)
+        .run(g, matriculeAbsorbe).changes;
     }
 
     // Les inscriptions d'abord, parce qu'elles se complètent au lieu de se
