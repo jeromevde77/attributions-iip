@@ -148,6 +148,7 @@ export const TYPES_REUNION = [
   { cle: 'coord_section',    libelle: 'Coordination de section',  portee: 'section' },
   { cle: 'coord_stage',      libelle: 'Coordination de stage',    portee: 'section' },
   { cle: 'copil',            libelle: 'COPIL' },
+  { cle: 'conseil_administration', libelle: "Conseil d'administration" },
   { cle: 'bilat_coord',      libelle: 'Bilatérale direction — coordination', portee: 'section' },
   { cle: 'bilat_direction',  libelle: 'Bilatérale de direction' },
   { cle: 'conseil_etudes',   libelle: "Conseil des études (hors délibération)", portee: 'ue' },
@@ -532,6 +533,28 @@ r.delete('/taches/:id', authRequired,
 
 // ─── LES RÉUNIONS ───────────────────────────────────────────────────────────
 
+/**
+ * QUI LIT LE CONFIDENTIEL D'UNE SÉANCE — la règle, écrite une fois.
+ *
+ * La direction ; l'organisateur ; les participants convoqués, par leur compte
+ * ou par leur fiche du personnel. Personne d'autre : un compte qui ouvre le
+ * suivi d'équipe voit la séance, ses points et ses décisions, mais pas ce qui
+ * s'y est dit à huis clos. C'est le SERVEUR qui retire le texte — l'écran ne
+ * reçoit jamais ce qu'il ne doit pas montrer.
+ */
+function peutConfidentiel(user, reunion) {
+  if (!user || !reunion) return false;
+  if (['admin', 'directeur', 'directeur_adjoint'].includes(user.role)) return true;
+  if (reunion.organisateur_user_id && reunion.organisateur_user_id === user.id) return true;
+  const profId = db.prepare('SELECT professeur_id FROM utilisateur WHERE id = ?')
+    .get(user.id)?.professeur_id || null;
+  if (profId && reunion.organisateur_professeur_id === profId) return true;
+  return !!db.prepare(`
+    SELECT 1 FROM reunion_participant
+     WHERE reunion_id = ? AND (user_id = ? OR (? IS NOT NULL AND professeur_id = ?))
+     LIMIT 1`).get(reunion.id, user.id, profId, profId);
+}
+
 r.get('/', authRequired, (req, res) => {
   const annee = anneeDeTravail(req);
   const lignes = db.prepare(`
@@ -548,6 +571,12 @@ r.get('/', authRequired, (req, res) => {
     WHERE r.annee_scolaire = ?
     ORDER BY r.date_seance DESC, r.id DESC
   `).all(annee);
+  // La liste n'a pas besoin du texte : elle dit seulement qu'il existe.
+  for (const l of lignes) {
+    l.a_du_confidentiel = !!(l.notes_confidentielles && l.notes_confidentielles.trim())
+      || !!db.prepare('SELECT 1 FROM reunion_point WHERE reunion_id = ? AND confidentiel = 1 LIMIT 1').get(l.id);
+    delete l.notes_confidentielles;
+  }
   res.json(lignes);
 });
 
@@ -601,6 +630,13 @@ r.get('/:id', authRequired, (req, res) => {
     'SELECT * FROM reunion_participant WHERE reunion_id = ? ORDER BY nom').all(reunion.id);
   reunion.points = db.prepare(
     'SELECT * FROM reunion_point WHERE reunion_id = ? ORDER BY ordre, id').all(reunion.id);
+  reunion.peut_confidentiel = peutConfidentiel(req.user, reunion);
+  if (!reunion.peut_confidentiel) {
+    reunion.notes_confidentielles = null;
+    for (const p of reunion.points) {
+      if (p.confidentiel) { p.notes = null; p.masque = true; }
+    }
+  }
   const taches = attacherResponsables(
     db.prepare(SELECT_TACHE + ' WHERE t.reunion_id = ? ORDER BY t.id').all(reunion.id));
   // CE QUI RESTE OUVERT DES SÉANCES PRÉCÉDENTES, c'est le premier point de
@@ -618,16 +654,17 @@ r.post('/', authRequired, (req, res) => {
   const b = req.body || {};
   const info = db.prepare(`
     INSERT INTO reunion (annee_scolaire, titre, genre, date_seance, heure_seance,
-                         lieu, ordre_du_jour, notes, statut,
+                         lieu, ordre_du_jour, notes, notes_confidentielles, statut,
                          organisateur_user_id, organisateur_professeur_id, section,
                          prochaine_date, prochaine_heure, prochain_lieu, prochaine_qui,
                          cree_par)
-    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
   `).run(anneeDeTravail(req), (b.titre || 'Réunion').trim(),
     b.genre || 'secretariat',
     b.date_seance || new Date().toISOString().slice(0, 10),
     b.heure_seance || null, b.lieu || null,
-    b.ordre_du_jour || null, b.notes || null, b.statut || 'preparee',
+    b.ordre_du_jour || null, b.notes || null, b.notes_confidentielles || null,
+    b.statut || 'preparee',
     // À DÉFAUT, CELUI QUI CRÉE LA SÉANCE L'ORGANISE. C'est vrai neuf fois sur
     // dix, et cela évite une réunion sans personne pour en suivre les suites.
     b.organisateur_user_id ?? req.user.id, b.organisateur_professeur_id || null,
@@ -648,8 +685,9 @@ r.post('/', authRequired, (req, res) => {
         p.nom, p.present ? 1 : 0, p.excuse ? 1 : 0);
   }
   (b.points || []).forEach((pt, i) => {
-    db.prepare('INSERT INTO reunion_point (reunion_id, ordre, intitule, notes) VALUES (?,?,?,?)')
-      .run(info.lastInsertRowid, i, String(pt.intitule || '').trim(), pt.notes || null);
+    db.prepare('INSERT INTO reunion_point (reunion_id, ordre, intitule, notes, confidentiel) VALUES (?,?,?,?,?)')
+      .run(info.lastInsertRowid, i, String(pt.intitule || '').trim(), pt.notes || null,
+        pt.confidentiel ? 1 : 0);
   });
   res.json({ id: info.lastInsertRowid });
 });
@@ -659,14 +697,19 @@ r.put('/:id', authRequired, (req, res) => {
   if (!reunion) return res.status(404).json({ error: 'réunion inconnue' });
   const b = req.body || {};
   const v = (k) => (b[k] === undefined ? reunion[k] : b[k]);
+  // UN ÉCRAN QUI N'A PAS REÇU LE CONFIDENTIEL NE PEUT PAS L'EFFACER. Il
+  // renverrait un champ vide ; on garde donc ce qui est en base.
+  const peut = peutConfidentiel(req.user, reunion);
+  const confid = peut && b.notes_confidentielles !== undefined
+    ? (b.notes_confidentielles || null) : reunion.notes_confidentielles;
   db.prepare(`
     UPDATE reunion SET titre=?, genre=?, date_seance=?, heure_seance=?, lieu=?,
-      ordre_du_jour=?, notes=?, statut=?,
+      ordre_du_jour=?, notes=?, notes_confidentielles=?, statut=?,
       organisateur_user_id=?, organisateur_professeur_id=?, section=?,
       prochaine_date=?, prochaine_heure=?, prochain_lieu=?, prochaine_qui=?
     WHERE id=?
   `).run(v('titre'), v('genre'), v('date_seance'), v('heure_seance'), v('lieu'),
-    v('ordre_du_jour'), v('notes'), v('statut'),
+    v('ordre_du_jour'), v('notes'), confid, v('statut'),
     v('organisateur_user_id'), v('organisateur_professeur_id'), v('section'),
     v('prochaine_date'), v('prochaine_heure'), v('prochain_lieu'), v('prochaine_qui'),
     req.params.id);
@@ -702,16 +745,32 @@ r.put('/:id', authRequired, (req, res) => {
     b.points.forEach((pt, i) => {
       const intitule = String(pt.intitule || '').trim();
       if (pt.id) {
-        db.prepare('UPDATE reunion_point SET ordre=?, intitule=?, notes=? WHERE id=? AND reunion_id=?')
-          .run(i, intitule, pt.notes || null, pt.id, req.params.id);
+        const avant = db.prepare('SELECT confidentiel, notes FROM reunion_point WHERE id = ? AND reunion_id = ?')
+          .get(pt.id, req.params.id);
+        // Point confidentiel et lecteur non habilité : l'intitulé et l'ordre
+        // bougent, les notes et le drapeau restent ce qu'ils sont en base.
+        const garderSecret = avant?.confidentiel && !peut;
+        db.prepare('UPDATE reunion_point SET ordre=?, intitule=?, notes=?, confidentiel=? WHERE id=? AND reunion_id=?')
+          .run(i, intitule,
+            garderSecret ? avant.notes : (pt.notes || null),
+            garderSecret ? 1 : (peut ? (pt.confidentiel ? 1 : 0) : (avant?.confidentiel || 0)),
+            pt.id, req.params.id);
         gardes.push(pt.id);
       } else if (intitule || pt.notes) {
         const r2 = db.prepare(
-          'INSERT INTO reunion_point (reunion_id, ordre, intitule, notes) VALUES (?,?,?,?)')
-          .run(req.params.id, i, intitule, pt.notes || null);
+          'INSERT INTO reunion_point (reunion_id, ordre, intitule, notes, confidentiel) VALUES (?,?,?,?,?)')
+          .run(req.params.id, i, intitule, pt.notes || null, peut && pt.confidentiel ? 1 : 0);
         gardes.push(r2.lastInsertRowid);
       }
     });
+    // Un point confidentiel ne se retire pas à l'aveugle : qui ne le lit pas
+    // ne le supprime pas.
+    if (!peut) {
+      for (const x of db.prepare('SELECT id FROM reunion_point WHERE reunion_id = ? AND confidentiel = 1')
+        .all(req.params.id)) {
+        if (!gardes.includes(x.id)) gardes.push(x.id);
+      }
+    }
     const partis = db.prepare(
       `SELECT id FROM reunion_point WHERE reunion_id = ?
         ${gardes.length ? `AND id NOT IN (${gardes.map(() => '?').join(',')})` : ''}`)
@@ -739,6 +798,13 @@ r.delete('/:id', authRequired,
 r.post('/:id/document', authRequired, (req, res) => {
   const reunion = db.prepare('SELECT * FROM reunion WHERE id = ?').get(req.params.id);
   if (!reunion) return res.status(404).json({ error: 'réunion inconnue' });
+  /* DEUX PV, ET UN SEUL CIRCULE. Le PV ordinaire ne reproduit jamais le
+   * confidentiel — c'est celui qu'on diffuse. Le PV INTÉGRAL le reprend,
+   * marqué comme tel, et ne se produit que pour qui peut le lire. */
+  const integral = req.body?.version === 'integrale';
+  if (integral && !peutConfidentiel(req.user, reunion)) {
+    return res.status(403).json({ error: 'Le PV intégral est réservé à la direction, à l’organisateur et aux participants de la séance.' });
+  }
   const esc = v => String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;');
   const fr = d => (d ? String(d).slice(0, 10).split('-').reverse().join('/') : '—');
 
@@ -797,10 +863,14 @@ r.post('/:id/document', authRequired, (req, res) => {
           été décidé. */
       points.map((p, i) => {
         const siennes = taches.filter(t => t.point_id === p.id);
-        if (!p.notes && !siennes.length) return '';
-        return `<h3>${i + 1}. ${esc(p.intitule) || 'Point sans intitulé'}</h3>
-          ${String(p.notes || '').split('\n').filter(l => l.trim())
-            .map(l => `<p>${esc(l)}</p>`).join('')}
+        const cache = p.confidentiel && !integral;
+        if (!p.notes && !siennes.length && !cache) return '';
+        return `<h3>${i + 1}. ${esc(p.intitule) || 'Point sans intitulé'}${
+            p.confidentiel && integral ? ' <span class="confid">confidentiel</span>' : ''}</h3>
+          ${cache
+            ? '<p class="fin">Point traité à huis clos — les échanges ne sont pas reproduits.</p>'
+            : String(p.notes || '').split('\n').filter(l => l.trim())
+              .map(l => `<p>${esc(l)}</p>`).join('')}
           ${siennes.length ? `<table>
             <thead><tr><th>Décidé</th><th>Qui</th><th>Pour le</th><th>État</th></tr></thead>
             <tbody>${siennes.map(ligneTache).join('')}</tbody></table>` : ''}`;
@@ -808,6 +878,11 @@ r.post('/:id/document', authRequired, (req, res) => {
 
     ${reunion.notes ? `<h3>Notes de séance</h3>${
       String(reunion.notes).split('\n').filter(l => l.trim())
+        .map(l => `<p>${esc(l)}</p>`).join('')}` : ''}
+
+    ${integral && reunion.notes_confidentielles ? `<h3>Notes confidentielles
+        <span class="confid">confidentiel</span></h3>${
+      String(reunion.notes_confidentielles).split('\n').filter(l => l.trim())
         .map(l => `<p>${esc(l)}</p>`).join('')}` : ''}
 
     ${reunion.prochaine_date ? `<h3>Prochaine séance</h3><p>${fr(reunion.prochaine_date)}${
@@ -830,10 +905,13 @@ r.post('/:id/document', authRequired, (req, res) => {
   res.json({
     html: envelopperDocument({
       html: corps,
-      titre: `${reunion.titre} — ${fr(reunion.date_seance)}`,
-      styles: STYLE_PV,
+      titre: `${reunion.titre} — ${fr(reunion.date_seance)}${integral ? ' — PV intégral (confidentiel)' : ''}`,
+      styles: STYLE_PV + (integral ? `
+        .confid { display:inline-block; font-size:7.5pt; font-weight:700; color:#B91C1C;
+          border:0.3mm solid #B91C1C; border-radius:1mm; padding:0 1.5mm; margin-left:2mm;
+          text-transform:uppercase; vertical-align:middle; }` : ''),
     }),
-    nom: `Reunion_${String(reunion.date_seance).replace(/\W/g, '')}.html`,
+    nom: `Reunion_${String(reunion.date_seance).replace(/\W/g, '')}${integral ? '_integral' : ''}.html`,
     titre: reunion.titre,
   });
 });

@@ -207,6 +207,12 @@ export function migrerReunions(db) {
     // toutes les décisions en bloc à la fin, et l'on ne sait plus laquelle
     // répondait à quelle discussion.
     ['tache', 'point_id', 'INTEGER REFERENCES reunion_point(id)'],
+    // CE QUI SE DIT À HUIS CLOS (Jérôme, 1er octobre 2026). Une séance porte
+    // des notes générales confidentielles, et chaque point peut l'être aussi :
+    // le serveur ne les rend qu'à la direction, à l'organisateur et aux
+    // participants convoqués — et le PV ordinaire ne les reproduit jamais.
+    ['reunion', 'notes_confidentielles', 'TEXT'],
+    ['reunion_point', 'confidentiel', 'INTEGER NOT NULL DEFAULT 0'],
     // « PAS ENCORE FAIT » N'EST PAS UN SILENCE (Jérôme, 30 septembre 2026).
     // Quand l'échéance approche, le responsable peut le DIRE d'un clic : le
     // signal est daté et signé, et celui qui a confié le voit dans son suivi —

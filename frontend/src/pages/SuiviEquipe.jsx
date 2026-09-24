@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import {
   IconCalendarEvent, IconChecklist, IconPlus, IconPrinter, IconTimeline,
   IconCheck, IconChevronLeft, IconClock, IconUser, IconX, IconTrash,
-  IconClipboardPlus, IconEye, IconSearch,
+  IconClipboardPlus, IconEye, IconSearch, IconLock,
 } from '@tabler/icons-react';
 import { authHeaders } from '../lib/api.js';
 import FriseEcheances from '../components/FriseEcheances.jsx';
@@ -161,7 +161,7 @@ export default function SuiviEquipe() {
             types={types} perimetre={perimetre} api={api}
             onRetour={() => { setOuverte(null); chargerReunions(); chargerTaches(); }}
             onRecharger={() => { ouvrir(ouverte.id); chargerTaches(); }}
-            onImprimer={() => imprimer(`/${ouverte.id}/document`)} />
+            onImprimer={version => imprimer(`/${ouverte.id}/document`, version ? { version } : {})} />
         ) : vue === 'reunions' ? (
           <>
             <PageHeader titre="Réunions" sous="Ordre du jour, décisions, et ce qui en découle"
@@ -205,6 +205,12 @@ export default function SuiviEquipe() {
                       </span>
                     )}
                   </span>
+                  {r.a_du_confidentiel && (
+                    <span title="Cette séance porte des notes confidentielles"
+                      className="text-[color:var(--brique)] flex-none">
+                      <IconLock size={14} />
+                    </span>
+                  )}
                   {r.nb_ouvertes > 0 && (
                     <span className="text-[11px] font-semibold text-amber-700">
                       {r.nb_ouvertes} ouverte(s)
@@ -244,6 +250,7 @@ function DetailReunion({ reunion, personnes, obligations, types = [], perimetre,
     date_seance: reunion.date_seance,
     heure_seance: reunion.heure_seance || '', lieu: reunion.lieu || '',
     ordre_du_jour: reunion.ordre_du_jour || '', notes: reunion.notes || '',
+    notes_confidentielles: reunion.notes_confidentielles || '',
     section: reunion.section || '',
     organisateur_user_id: reunion.organisateur_user_id || null,
     organisateur_professeur_id: reunion.organisateur_professeur_id || null,
@@ -303,10 +310,20 @@ function DetailReunion({ reunion, personnes, obligations, types = [], perimetre,
         <button onClick={enregistrer} className="bouton-fort controle px-3">
           {enregistre ? 'Enregistré' : 'Enregistrer'}
         </button>
-        <button onClick={onImprimer} className="bouton-sortir controle px-3
-          flex items-center gap-1.5">
+        <button onClick={() => onImprimer()} className="bouton-sortir controle px-3
+          flex items-center gap-1.5"
+          title="Le PV à diffuser : les notes confidentielles n'y figurent pas">
           <IconPrinter size={16} /> Procès-verbal
         </button>
+        {/* LE PV INTÉGRAL, pour qui lit le confidentiel — marqué comme tel,
+            il ne se diffuse pas. */}
+        {reunion.peut_confidentiel && (
+          <button onClick={() => onImprimer('integrale')} className="bouton controle px-3
+            flex items-center gap-1.5 text-[color:var(--brique)]"
+            title="PV intégral, notes confidentielles comprises — à ne pas diffuser">
+            <IconLock size={16} /> PV intégral
+          </button>
+        )}
       </div>
 
       {/* L'IDENTITÉ DE LA SÉANCE SUR UNE LIGNE — ce qui s'explique à gauche,
@@ -466,12 +483,35 @@ function DetailReunion({ reunion, personnes, obligations, types = [], perimetre,
               <IconTrash size={15} />
             </button>
           </div>
-          <textarea value={p.notes || ''} rows={3}
-            onChange={e => poserPoint(i, 'notes', e.target.value)}
-            onBlur={() => enregistrer()}
-            placeholder="Ce qui s'est dit, ce qui a été tranché."
-            className="w-full bg-white border border-slate-300 rounded-champ
-                       px-2 py-1.5 text-[13px] mb-2" />
+          {p.masque ? (
+            <p className="flex items-center gap-1.5 text-[12px] text-slate-500 bg-slate-50
+                          border border-slate-200 rounded-champ px-2 py-1.5 mb-2">
+              <IconLock size={14} className="flex-none" />
+              Point confidentiel — les notes sont réservées à la direction, à l'organisateur
+              et aux participants de la séance.
+            </p>
+          ) : (
+            <>
+              <textarea value={p.notes || ''} rows={3}
+                onChange={e => poserPoint(i, 'notes', e.target.value)}
+                onBlur={() => enregistrer()}
+                placeholder="Ce qui s'est dit, ce qui a été tranché."
+                className={`w-full border rounded-champ px-2 py-1.5 text-[13px] mb-1
+                  ${p.confidentiel ? 'bg-red-50/40 border-red-200' : 'bg-white border-slate-300'}`} />
+              {reunion.peut_confidentiel && (
+                <label className="flex items-center gap-1.5 text-[12px] text-slate-500 mb-2 cursor-pointer w-fit"
+                  title="Les notes de ce point ne seront lues que par la direction, l'organisateur et les participants — et n'apparaîtront pas dans le PV diffusé">
+                  <input type="checkbox" checked={!!p.confidentiel}
+                    onChange={e => {
+                      const l = points.map((x, j) => (j === i ? { ...x, confidentiel: e.target.checked } : x));
+                      setPoints(l); enregistrer(l);
+                    }} />
+                  <IconLock size={13} className={p.confidentiel ? 'text-[color:var(--brique)]' : ''} />
+                  Notes confidentielles
+                </label>
+              )}
+            </>
+          )}
           {p.id ? (
             <ListeTaches taches={(reunion.taches || []).filter(t => t.point_id === p.id)}
               personnes={personnes} presents={presents} obligations={obligations} api={api}
@@ -561,6 +601,23 @@ function DetailReunion({ reunion, personnes, obligations, types = [], perimetre,
           placeholder="Rarement nécessaire : ce qui s'est dit se note sous son point."
           className="w-full bg-white border border-slate-300 rounded-champ px-2 py-1.5 text-[13px]" />
       </div>
+
+      {/* LE HUIS CLOS DE LA SÉANCE. Présent seulement pour qui peut le lire —
+          le serveur ne l'envoie à personne d'autre. Jamais dans le PV diffusé. */}
+      {reunion.peut_confidentiel && (
+        <div className="carte p-3 mt-3 border-red-200 bg-red-50/30">
+          <div className="text-[11px] font-semibold uppercase tracking-wider text-[color:var(--brique)]
+                          mb-1 flex items-center gap-1.5">
+            <IconLock size={13} /> Notes confidentielles
+            <span className="normal-case font-normal text-slate-500">
+              — direction, organisateur et participants uniquement ; absentes du PV diffusé</span>
+          </div>
+          <textarea value={champs.notes_confidentielles} rows={4}
+            onChange={e => poser('notes_confidentielles', e.target.value)} onBlur={() => enregistrer()}
+            placeholder="Ce qui ne sort pas de la salle."
+            className="w-full bg-white border border-red-200 rounded-champ px-2 py-1.5 text-[13px]" />
+        </div>
+      )}
     </>
   );
 }
