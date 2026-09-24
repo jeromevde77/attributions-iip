@@ -57,9 +57,12 @@ for (const e of etudiants) {
       + ` ${String(l.niv || '?').padEnd(4)} résultat=${l.resultat ?? '—'}${l.delib ? `  délib: ${l.delib}` : ''}`);
   }
 
-  const adm = admissibilitePAE(e.id, anneePrec);
+  const adm = admissibilitePAE(e.id, anneePrec, rat.section);
   console.log(`\n— Admissible à la promotion depuis ${anneePrec} : ${adm.admissible ? 'OUI' : 'NON'}`);
   for (const x of adm.attentes) console.log(`  bloque : UE ${x.ue_num} ${x.ue_nom || ''} — ${x.raison}`);
+  for (const x of adm.hors_section || []) {
+    console.log(`  hors section (ne bloque pas) : UE ${x.ue_num} ${x.ue_nom || ''} — ${x.raison}`);
+  }
 
   const c = composerPAE(e.id, annee, rat.section ? { section: rat.section } : {});
   if (c.erreur) { console.log(`\nComposition impossible : ${c.erreur}`); continue; }
