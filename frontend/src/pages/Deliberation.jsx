@@ -59,10 +59,23 @@ export default function Deliberation() {
      revient par « Importer » de cette même fenêtre d'encodage. */
   async function exporterGrille(ueNum) {
     try {
-      const rep = await fetch(`/api/acquis/ue/${ueNum}/feuille?annee=${encodeURIComponent(annee)}&session=1`,
-        { headers: authHeaders() });
-      const d = await rep.json();
-      if (!rep.ok) { alert(d.error || `Export impossible (${rep.status})`); return; }
+      const lire = async session => {
+        const rep = await fetch(`/api/acquis/ue/${ueNum}/feuille?annee=${encodeURIComponent(annee)}&session=${session}`,
+          { headers: authHeaders() });
+        const j = await rep.json().catch(() => null);
+        if (!rep.ok) {
+          throw new Error(j?.error || (rep.status === 404
+            ? `La grille de l'UE ${ueNum} est introuvable. Rechargez la page (Ctrl+Maj+R) : l'écran est peut-être d'une version antérieure.`
+            : `Export impossible (${rep.status})`));
+        }
+        return j;
+      };
+      // LA MÊME SESSION QUE LA FENÊTRE D'ENCODAGE : une unité passée en
+      // seconde session exporte les seuls ajournés, et leurs seuls cours à
+      // représenter — exactement ce que « Encoder toute l'UE » ouvrirait.
+      let d = await lire(1);
+      let session = 1;
+      if (d.etat_session?.session === 2 || d.notes_s2 > 0) { d = await lire(2); session = 2; }
       const colonnes = (d.cours || []).filter(c => c.acquis?.length)
         .flatMap(c => c.acquis.map(a => ({
           cours_code: c.cours_code, cours_nom: c.cours_nom,
@@ -76,9 +89,10 @@ export default function Deliberation() {
         colonnes, etudiants: d.etudiants || [],
         note: (id, c) => d.notes?.[id]?.[`${c.cours_code}|${c.aa_code}`] ?? null,
         mention: (id, cc) => d.mentions?.[id]?.[cc] || null,
-        ue_num: ueNum, ue_nom: d.ue?.ue_nom, annee, session: 1,
+        ferme: (id, cc) => !!d.a_representer && !(d.a_representer[id] || []).includes(cc),
+        ue_num: ueNum, ue_nom: d.ue?.ue_nom, annee, session,
         titre: `UE ${ueNum}${d.ue?.ue_nom ? ` — ${d.ue.ue_nom}` : ''}`,
-      }, `Notes_UE${ueNum}_S1_${String(annee).replace('-', '')}.xlsx`);
+      }, `Notes_UE${ueNum}_S${session}_${String(annee).replace('-', '')}.xlsx`);
     } catch (e) { alert(e.message); }
   }
   const [importSuivi, setImportSuivi] = useState(false); // le classeur de l'année
