@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import { IconChevronRight, IconArrowLeft, IconBolt, IconAlertTriangle,
-  IconRotate, IconPrinter, IconFileSpreadsheet } from '@tabler/icons-react';
+  IconRotate, IconPrinter, IconFileSpreadsheet, IconPencil, IconTable, IconList,
+  IconUpload, IconEdit, IconAdjustments } from '@tabler/icons-react';
+import MenuActions from '../components/MenuActions.jsx';
 import { authHeaders, getAnnee, getUser } from '../lib/api.js';
 import { estDirection } from '../lib/modules.js';
 import FeuilleDeliberation from '../components/FeuilleDeliberation.jsx';
@@ -487,59 +489,50 @@ export default function Deliberation() {
                         Répartir ({u.nb_organisations} org.)
                       </button>
                     )}
-                    <button onClick={() => ouvrirCours(u.ue_num)}
-                      className="px-2 py-1 text-[12px] rounded-lg border border-slate-300
-                                 text-slate-600 flex-none">
-                      Encoder par cours
-                    </button>
-                    {peutToutEncoder && (
-                    <button onClick={() => exporterGrille(u.ue_num)}
-                      title="Le classeur à envoyer aux professeurs — le même que « Exporter » dans « Encoder toute l'UE » ; rempli, il revient par « Importer » de cette fenêtre"
-                      className="px-2 py-1 text-[12px] rounded-lg border border-slate-300
-                                 text-slate-600 flex-none flex items-center gap-1">
-                      <IconFileSpreadsheet size={13} /> Grille Excel
-                    </button>
-                    )}
-                    {peutToutEncoder && (
-                      <button onClick={() => setImporter(u.ue_num)}
-                        title="Reprendre les notes depuis un classeur de suivi"
-                        className="px-2 py-1 text-[12px] rounded-lg border border-slate-300
-                                   text-slate-600 flex-none">
-                        Importer
-                      </button>
-                    )}
-                    {peutToutEncoder && u.decides > 0 && (
-                      <button onClick={() => setCorriger(u.ue_num)}
-                        title="Toute l'unité sur une feuille : reprendre une note et sa décision"
-                        className="px-2 py-1 text-[12px] rounded-lg border border-slate-300
-                                   text-slate-600 flex-none">
-                        Corriger
-                      </button>
-                    )}
-                    {peutToutEncoder && (
-                      <button onClick={() => setEncoderUE(u.ue_num)}
-                        title="Tous les cours de l'unité dans une seule grille"
-                        className="px-2 py-1 text-[12px] rounded-lg border border-slate-300
-                                   text-slate-600 flex-none">
-                        Encoder toute l'UE
-                      </button>
-                    )}
-                    {u.decides > 0 && (
-                      <button onClick={() => setAnnuler(u)}
-                        title="Annuler la délibération de cette unité — les notes encodées sont conservées"
-                        className="px-2 py-1 text-[12px] rounded-lg border border-slate-300
-                                   text-slate-500 flex-none flex items-center gap-1
-                                   hover:border-red-400 hover:text-red-700">
-                        <IconRotate size={13} />
-                      </button>
-                    )}
+                    {/* UNE LIGNE, TROIS GESTES. Neuf boutons s'alignaient sur
+                        chaque unité (Jérôme : « ça commence à devenir peu
+                        clair ») : on ne voyait plus lequel était le geste du
+                        jour. Restent visibles délibérer, répartir quand il y a
+                        lieu, et les documents ; tout ce qui touche aux notes
+                        se range derrière « Notes », par famille. */}
+                    <div className="flex-none">
+                      <MenuActions compact libelle="Notes" Icone={IconPencil}
+                        titre="Encoder, importer, corriger les notes de cette unité"
+                        items={[
+                          { separateur: true, titre: 'Encoder' },
+                          { si: peutToutEncoder, libelle: "Toute l'unité", Icone: IconTable,
+                            aide: 'Tous les cours dans une seule grille',
+                            onClick: () => setEncoderUE(u.ue_num) },
+                          { libelle: 'Par cours', Icone: IconList,
+                            aide: 'Choisir un cours de la liste qui se déplie',
+                            onClick: () => ouvrirCours(u.ue_num) },
+                          { si: peutToutEncoder, separateur: true, titre: 'Classeur des professeurs' },
+                          { si: peutToutEncoder, libelle: 'Exporter la grille Excel', Icone: IconFileSpreadsheet,
+                            aide: "À envoyer aux professeurs ; rempli, il revient par « Toute l'unité » → Importer",
+                            onClick: () => exporterGrille(u.ue_num) },
+                          { si: peutToutEncoder, libelle: 'Importer un classeur de suivi', Icone: IconUpload,
+                            aide: 'Reprendre des notes depuis un autre classeur',
+                            onClick: () => setImporter(u.ue_num) },
+                          { si: peutToutEncoder && u.decides > 0, separateur: true, titre: 'Après délibération' },
+                          { si: peutToutEncoder && u.decides > 0, libelle: 'Corriger une note', Icone: IconEdit,
+                            aide: "Toute l'unité sur une feuille : reprendre une note et sa décision",
+                            onClick: () => setCorriger(u.ue_num) },
+                          { si: u.decides > 0, libelle: 'Annuler la délibération', Icone: IconRotate, danger: true,
+                            aide: 'Les notes encodées sont conservées',
+                            onClick: () => setAnnuler(u) },
+                          { separateur: true, titre: 'Réglages' },
+                          { libelle: 'Paramétrer cours et acquis', Icone: IconAdjustments,
+                            aide: "Liens acquis ↔ cours, pondérations, épreuve intégrée",
+                            onClick: () => setParametrer(u.ue_num) },
+                        ]} />
+                    </div>
                     {/* Les documents de la séance : le secrétariat sort les
                         trois piles d'ici, non dossier par dossier. */}
                     <button onClick={() => setDocs(u)}
                       title="Attestations de réussite, notifications d'ajournement et de refus"
                       className="px-2 py-1 text-[12px] rounded-lg border border-iip-blue
                                  text-iip-blue font-semibold flex-none flex items-center gap-1">
-                      <IconPrinter size={13} />
+                      <IconPrinter size={13} /> Documents
                     </button>
                     <IconChevronRight size={16} className="text-slate-300 flex-none" />
                   </div>
