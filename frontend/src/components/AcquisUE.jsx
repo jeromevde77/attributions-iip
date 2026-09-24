@@ -188,6 +188,7 @@ export default function AcquisUE({ ueNum, annee, estAdmin }) {
                   )}
                 </div>
               )}
+              {data.epreuve_integree ? null : (
               <div className="flex items-center gap-2 mt-1.5">
                 {a.cours_code
                   ? <IconLink size={13} className="text-emerald-600 flex-none" />
@@ -205,12 +206,20 @@ export default function AcquisUE({ ueNum, annee, estAdmin }) {
                   ))}
                 </select>
               </div>
+              )}
             </div>
           </div>
         ))}
       </div>
 
-      {!data.cours.length && (
+      {data.epreuve_integree && (
+        <p className="text-[11px] text-violet-800 bg-violet-50 border border-violet-200 rounded px-2 py-1.5">
+          Épreuve intégrée : les acquis ne se rattachent pas aux cours. Leur <b>pondération
+          dans l'unité</b> se règle dans Délibération → « Paramétrer ».
+        </p>
+      )}
+
+      {!data.cours.length && !data.epreuve_integree && (
         <p className="text-[11px] text-amber-700">
           Aucun cours n'est encodé pour cette UE : le rattachement sera possible une
           fois les cours créés.

@@ -6,6 +6,7 @@ import { Router } from 'express';
 import db from '../db/index.js';
 import { anneeDeTravail } from '../helpers/annee.js';
 import { authRequired, roleRequired, NIVEAU_DIRECTION } from '../middleware/auth.js';
+import { estEpreuveIntegree } from './acquis.js';
 
 const r = Router();
 r.use(authRequired);
@@ -100,9 +101,12 @@ r.get('/ue/:ueNum', (req, res) => {
      ORDER BY cours_code
   `).all(ueNum, annee);
 
+  // En épreuve intégrée, les acquis ne se rattachent pas aux cours : l'écran
+  // ne doit ni le proposer, ni signaler des « non rattachés ».
+  const integree = estEpreuveIntegree(ueNum, annee);
   res.json({
-    ue_num: ueNum, annee, acquis, cours,
-    non_rattaches: acquis.filter(a => !a.cours_code).length,
+    ue_num: ueNum, annee, acquis, cours, epreuve_integree: integree,
+    non_rattaches: integree ? 0 : acquis.filter(a => !a.cours_code).length,
   });
 });
 
