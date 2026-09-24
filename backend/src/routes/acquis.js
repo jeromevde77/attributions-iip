@@ -4169,10 +4169,12 @@ r.get('/ue/:ueNum/feuille', authRequired,
     // sert pour n'ouvrir que les colonnes qui attendent une note.
     a_representer: session === 2
       ? (integree
-        // Une épreuve intégrée se représente entière : il n'y a pas de cours à
-        // rouvrir un par un.
-        ? Object.fromEntries(Object.entries(aRepresenter)
-          .map(([id, l]) => [id, l.length ? [CODE_EPREUVE_UE] : []]))
+        // Une épreuve intégrée se représente ENTIÈRE, pour tout ajourné. On
+        // l'ouvrait seulement si un COURS était en défaut — or l'épreuve ne
+        // cote plus les cours : la liste restait vide, et toutes les cases de
+        // septembre sortaient fermées. Être ici, c'est être ajourné : le bloc
+        // de l'unité s'ouvre.
+        ? Object.fromEntries(Object.keys(aRepresenter).map(id => [id, [CODE_EPREUVE_UE]]))
         : aRepresenter)
       : null,
     epreuve_integree: integree,

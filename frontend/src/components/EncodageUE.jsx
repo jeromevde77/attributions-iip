@@ -316,9 +316,13 @@ export default function EncodageUE({ ueNum, annee, onClose, onEnregistre, onPara
                       <div className="font-semibold text-iip-blue truncate max-w-[220px]">
                         {c.cours_nom || c.cours_code}
                       </div>
-                      <div className="text-[10px] text-slate-500 font-normal">
-                        {c.cours_code}{c.cours_per ? ` · ${c.cours_per} pér.` : ''}
-                      </div>
+                      {/* Le code technique de l'épreuve intégrée (« __ue__ ») n'est
+                          pas un cours : il ne s'affiche pas. */}
+                      {!c.integree && (
+                        <div className="text-[10px] text-slate-500 font-normal">
+                          {c.cours_code}{c.cours_per ? ` · ${c.cours_per} pér.` : ''}
+                        </div>
+                      )}
                       {/* Qui porte le cours : le professeur se reconnaît dans
                           sa colonne, et le Conseil sait à qui s'adresser. */}
                       {c.professeurs && (
