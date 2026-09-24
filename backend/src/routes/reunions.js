@@ -571,8 +571,15 @@ r.get('/', authRequired, (req, res) => {
     WHERE r.annee_scolaire = ?
     ORDER BY r.date_seance DESC, r.id DESC
   `).all(annee);
+  // QUI ÉTAIT LÀ (Jérôme, 24 septembre 2026) : l'organisateur seul ne dit pas
+  // de quelle séance il s'agit — le nom des présents, si.
+  const lirePresents = db.prepare(`SELECT nom, present, excuse FROM reunion_participant
+    WHERE reunion_id = ? ORDER BY nom`);
   // La liste n'a pas besoin du texte : elle dit seulement qu'il existe.
   for (const l of lignes) {
+    const gens = lirePresents.all(l.id);
+    l.presents = gens.filter(g => g.present).map(g => g.nom);
+    l.excuses = gens.filter(g => !g.present && g.excuse).map(g => g.nom);
     l.a_du_confidentiel = !!(l.notes_confidentielles && l.notes_confidentielles.trim())
       || !!db.prepare('SELECT 1 FROM reunion_point WHERE reunion_id = ? AND confidentiel = 1 LIMIT 1').get(l.id);
     delete l.notes_confidentielles;

@@ -199,9 +199,19 @@ export default function SuiviEquipe() {
                     </span>
                     {(r.organisateur_nom || r.section || r.ues_libelle) && (
                       <span className="block text-[11px] text-slate-400 truncate">
-                        {[r.organisateur_nom && nomDepuisChaine(r.organisateur_nom),
+                        {[r.organisateur_nom && `Organisée par ${nomDepuisChaine(r.organisateur_nom)}`,
                           r.section, r.ues_libelle && `UE ${r.ues_libelle}`]
                           .filter(Boolean).join(' · ')}
+                      </span>
+                    )}
+                    {/* QUI ÉTAIT LÀ : c'est ce qui distingue deux séances du même type. */}
+                    {!!(r.presents?.length || r.excuses?.length) && (
+                      <span className="block text-[11.5px] text-slate-600 truncate"
+                        title={[`Présents : ${(r.presents || []).map(nomDepuisChaine).join(', ') || '—'}`,
+                          r.excuses?.length ? `Excusés : ${r.excuses.map(nomDepuisChaine).join(', ')}` : '']
+                          .filter(Boolean).join('\n')}>
+                        {r.presents?.length ? r.presents.map(nomDepuisChaine).join(', ') : 'Aucun présent noté'}
+                        {r.excuses?.length ? <span className="text-slate-400"> · excusé(s) : {r.excuses.map(nomDepuisChaine).join(', ')}</span> : null}
                       </span>
                     )}
                   </span>
