@@ -78,11 +78,17 @@ r.get('/etudiants', authRequired, (req, res) => {
       .get(cours_code, annee);
     if (c?.ue_num) ueNum = c.ue_num;
     groupeDuCours = db.prepare(`
-      SELECT etudiant_id, num_organisation, groupe_code FROM etudiant_cours_groupe
-      WHERE annee_scolaire = ? AND cours_code = ?`).all(annee, cours_code);
+      SELECT g.etudiant_id, g.num_organisation, g.groupe_code, t.libelle AS activite
+      FROM etudiant_cours_groupe g LEFT JOIN activite_type t ON t.id = g.activite_id
+      WHERE g.annee_scolaire = ? AND g.cours_code = ?
+      ORDER BY COALESCE(t.ordre, 0)`).all(annee, cours_code);
   }
-  const grpPar = new Map((groupeDuCours || []).map(g =>
-    [g.etudiant_id, `Org ${g.num_organisation ?? '?'}${g.groupe_code ? ` · Gr. ${g.groupe_code}` : ''}`]));
+  // Un étudiant peut avoir un groupe PAR ACTIVITÉ du cours : on les dit tous.
+  const grpPar = new Map();
+  for (const g of (groupeDuCours || [])) {
+    const lib = `${g.activite ? `${g.activite} · ` : ''}Org ${g.num_organisation ?? '?'}${g.groupe_code ? ` · Gr. ${g.groupe_code}` : ''}`;
+    grpPar.set(g.etudiant_id, grpPar.has(g.etudiant_id) ? `${grpPar.get(g.etudiant_id)} + ${lib}` : lib);
+  }
 
   const norm = s => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '')
     .toUpperCase().replace(/[^A-Z0-9]+/g, '');

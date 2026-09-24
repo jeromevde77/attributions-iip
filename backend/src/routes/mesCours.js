@@ -103,6 +103,8 @@ function attributionsDe(profId, annee) {
   return db.prepare(`
     SELECT DISTINCT a.code_cours, a.ue_num,
            COALESCE(a.num_organisation, 1) AS org, a.code AS groupe,
+           COALESCE(a.activite_id, 0) AS activite_id,
+           (SELECT t.libelle FROM activite_type t WHERE t.id = a.activite_id) AS activite_libelle,
            (SELECT c.cours_nom FROM cours c WHERE c.cours_code = a.code_cours
              ORDER BY (c.annee_scolaire = ?) DESC LIMIT 1) AS cours_nom,
            (SELECT x.ue_nom FROM ue x WHERE x.ue_num = a.ue_num AND x.ue_nom IS NOT NULL
@@ -120,32 +122,51 @@ function etudiantsDuCours(profId, coursCode, annee) {
   if (!miennes.length) return null;   // pas son cours
   const ueNum = miennes[0].ue_num;
 
+  /* PAR ACTIVITÉ. Un professeur porte une ou plusieurs lignes d'attribution
+   * — « labo, groupe 3 », « théorie » — et chacune désigne ses étudiants :
+   * ceux que la répartition a placés dans CE groupe de CETTE activité ; et
+   * si l'activité n'est pas répartie (la théorie, suivie par tous), tous les
+   * inscrits de l'unité. On réunit, sans doublon. */
   const repartis = db.prepare(`
-    SELECT g.etudiant_id, g.num_organisation, g.groupe_code,
+    SELECT g.etudiant_id, g.num_organisation, g.groupe_code, COALESCE(g.activite_id, 0) AS activite_id,
            e.nom, e.prenom, e.id_ecampus
     FROM etudiant_cours_groupe g JOIN etudiant e ON e.id = g.etudiant_id
     WHERE g.annee_scolaire = ? AND g.cours_code = ? AND e.actif = 1
     ORDER BY e.nom, e.prenom
   `).all(annee, coursCode);
+  const inscrits = () => db.prepare(`
+    SELECT e.id, e.nom, e.prenom, e.id_ecampus
+    FROM etudiant_inscription i JOIN etudiant e ON e.id = i.etudiant_id
+    WHERE i.annee_scolaire = ? AND i.ue_num = ? AND e.actif = 1
+    ORDER BY e.nom, e.prenom
+  `).all(annee, ueNum);
 
-  let etudiants;
-  if (repartis.length) {
-    const mienne = (org, grp) => miennes.some(a =>
-      a.org === (org ?? 1) && String(a.groupe || '') === String(grp || ''));
-    etudiants = repartis
-      .filter(x => mienne(x.num_organisation, x.groupe_code))
-      .map(x => ({ id: x.etudiant_id, nom: x.nom, prenom: x.prenom,
-        id_ecampus: x.id_ecampus,
-        groupe: `Org ${x.num_organisation ?? 1}${x.groupe_code ? ` · Gr. ${x.groupe_code}` : ''}` }));
-  } else {
-    etudiants = db.prepare(`
-      SELECT e.id, e.nom, e.prenom, e.id_ecampus
-      FROM etudiant_inscription i JOIN etudiant e ON e.id = i.etudiant_id
-      WHERE i.annee_scolaire = ? AND i.ue_num = ? AND e.actif = 1
-      ORDER BY e.nom, e.prenom
-    `).all(annee, ueNum).map(x => ({ ...x, groupe: '' }));
+  const parId = new Map();
+  let repartition = false;
+  for (const a of miennes) {
+    const deLActivite = repartis.filter(x => x.activite_id === a.activite_id);
+    const prefixe = a.activite_libelle ? `${a.activite_libelle} · ` : '';
+    let lot;
+    if (deLActivite.length) {
+      repartition = true;
+      lot = deLActivite
+        .filter(x => (x.num_organisation ?? 1) === a.org && String(x.groupe_code || '') === String(a.groupe || ''))
+        .map(x => ({ id: x.etudiant_id, nom: x.nom, prenom: x.prenom, id_ecampus: x.id_ecampus,
+          groupe: `${prefixe}Org ${x.num_organisation ?? 1}${x.groupe_code ? ` · Gr. ${x.groupe_code}` : ''}` }));
+    } else {
+      lot = inscrits().map(x => ({ ...x, groupe: a.activite_libelle ? `${a.activite_libelle} · tous` : '' }));
+    }
+    for (const e of lot) {
+      const deja = parId.get(e.id);
+      if (!deja) parId.set(e.id, e);
+      else if (e.groupe && !deja.groupe.split(' + ').includes(e.groupe)) {
+        deja.groupe = deja.groupe ? `${deja.groupe} + ${e.groupe}` : e.groupe;
+      }
+    }
   }
-  return { miennes, ueNum, etudiants, repartition: repartis.length > 0 };
+  const etudiants = [...parId.values()].sort((x, y) =>
+    `${x.nom} ${x.prenom}`.localeCompare(`${y.nom} ${y.prenom}`, 'fr'));
+  return { miennes, ueNum, etudiants, repartition };
 }
 
 // ── Mes cours de l'année ─────────────────────────────────────────────────────
@@ -162,7 +183,7 @@ r.get('/', authRequired, (req, res) => {
       cours_code: a.code_cours, cours_nom: a.cours_nom, ue_num: a.ue_num,
       ue_nom: a.ue_nom, groupes: [],
     };
-    c.groupes.push(`Org ${a.org}${a.groupe ? ` · Gr. ${a.groupe}` : ''}`);
+    c.groupes.push(`${a.activite_libelle ? `${a.activite_libelle} · ` : ''}Org ${a.org}${a.groupe ? ` · Gr. ${a.groupe}` : ''}`);
     parCours.set(a.code_cours, c);
   }
   const cours = [...parCours.values()].map(c => {

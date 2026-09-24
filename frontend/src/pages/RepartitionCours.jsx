@@ -67,7 +67,7 @@ export default function RepartitionCours() {
   const affect = useMemo(() => {
     const m = new Map();
     for (const a of (data?.affectations || [])) {
-      m.set(cle(a.etudiant_id, a.cours_code),
+      m.set(cle(a.etudiant_id, `${a.cours_code}#${a.activite_id || 0}`),
         { org: a.num_organisation, groupe: a.groupe_code || null });
     }
     for (const [k, v] of attente) {
@@ -88,7 +88,7 @@ export default function RepartitionCours() {
     () => (data?.cours || []).filter(c => !c.sans_groupe), [data]);
 
   const manquants = (e) => coursAvecGroupes
-    .filter(c => !affect.has(cle(e.id, c.cours_code))).length;
+    .filter(c => !affect.has(cle(e.id, c.cle))).length;
 
   function confirmerOrg(noms, orgEtu, orgGroupe) {
     return window.confirm(
@@ -98,14 +98,15 @@ export default function RepartitionCours() {
   }
 
   function poser(e, c, g) {
-    const k = cle(e.id, c.cours_code);
+    const k = cle(e.id, c.cle);
     const actuel = affect.get(k);
     setAttente(prev => {
       const n = new Map(prev);
       if (actuel && actuel.org === g.num_organisation && (actuel.groupe || null) === (g.groupe || null)) {
         // Recocher sa propre case la retire.
         const serveur = (data?.affectations || []).some(a =>
-          a.etudiant_id === e.id && a.cours_code === c.cours_code);
+          a.etudiant_id === e.id && a.cours_code === c.cours_code
+          && (a.activite_id || 0) === (c.activite_id || 0));
         if (serveur) n.set(k, { retirer: true }); else n.delete(k);
       } else {
         n.set(k, { org: g.num_organisation, groupe: g.groupe || null });
@@ -115,7 +116,7 @@ export default function RepartitionCours() {
   }
 
   function cliquerCase(e, c, g) {
-    const k = cle(e.id, c.cours_code);
+    const k = cle(e.id, c.cle);
     const actuel = affect.get(k);
     const dejaLa = actuel && actuel.org === g.num_organisation
       && (actuel.groupe || null) === (g.groupe || null);
@@ -149,7 +150,7 @@ export default function RepartitionCours() {
       for (const e of (data?.etudiants || [])) {
         if (e.num_organisation == null) continue;
         for (const c of coursAvecGroupes) {
-          const k = cle(e.id, c.cours_code);
+          const k = cle(e.id, c.cle);
           if (affect.has(k) || n.has(k)) continue;
           const candidats = c.groupes.filter(g => g.num_organisation === e.num_organisation);
           if (candidats.length === 1) {
@@ -171,11 +172,11 @@ export default function RepartitionCours() {
         body: JSON.stringify({
           ue_num: ueNum, annee,
           affectations: [...attente].map(([k, v]) => {
-            const [eid, ...code] = k.split('|');
-            return v.retirer
-              ? { etudiant_id: Number(eid), cours_code: code.join('|'), retirer: true }
-              : { etudiant_id: Number(eid), cours_code: code.join('|'),
-                  num_organisation: v.org, groupe_code: v.groupe };
+            const [eid, ...reste] = k.split('|');
+            const [code, act] = reste.join('|').split('#');
+            const base = { etudiant_id: Number(eid), cours_code: code, activite_id: Number(act) || 0 };
+            return v.retirer ? { ...base, retirer: true }
+              : { ...base, num_organisation: v.org, groupe_code: v.groupe };
           }),
         }),
       });
@@ -188,7 +189,7 @@ export default function RepartitionCours() {
 
   // Effectifs par groupe, sur l'état affiché.
   const effectif = (c, g) => (data?.etudiants || []).filter(e => {
-    const a = affect.get(cle(e.id, c.cours_code));
+    const a = affect.get(cle(e.id, c.cle));
     return a && a.org === g.num_organisation && (a.groupe || null) === (g.groupe || null);
   }).length;
 
@@ -268,9 +269,16 @@ export default function RepartitionCours() {
                   Étudiant
                 </th>
                 {(data.cours || []).map(c => (
-                  <th key={c.cours_code} colSpan={c.sans_groupe ? 1 : c.groupes.length}
+                  <th key={c.cle} colSpan={c.sans_groupe ? 1 : c.groupes.length}
                     className="px-2 py-1.5 bg-slate-50 border-b border-l-2 border-slate-200 text-iip-blue">
                     {c.cours_code} · {c.cours_nom}
+                    {/* CE SONT LES ACTIVITÉS QUI SE COUPENT EN GROUPES : la
+                        théorie avec tous, le laboratoire en huit groupes. */}
+                    {c.activite_libelle && (
+                      <span className="ml-1.5 text-[10.5px] font-bold px-1.5 py-0.5 rounded bg-violet-100 text-violet-800">
+                        {c.activite_libelle}
+                      </span>
+                    )}
                     <span className="block text-[10px] font-normal text-slate-400">
                       {c.cours_per ? `${c.cours_per} pér.` : ''}
                       {c.sans_groupe ? ' · sans groupe'
@@ -281,17 +289,17 @@ export default function RepartitionCours() {
               </tr>
               <tr>
                 {(data.cours || []).map(c => c.sans_groupe ? (
-                  <th key={c.cours_code} className="px-2 py-1 bg-slate-50 border-b border-l border-dashed border-slate-200 text-[10.5px] text-emerald-700">
+                  <th key={c.cle} className="px-2 py-1 bg-slate-50 border-b border-l border-dashed border-slate-200 text-[10.5px] text-emerald-700">
                     Tous{c.groupes[0]?.professeurs ? <span className="block font-normal text-slate-400">{c.groupes[0].professeurs}</span> : null}
                   </th>
                 ) : c.groupes.map(g => (
                   /* L'EN-TÊTE ENTIER PLACE LES COCHÉS : on sélectionne dix
                      noms, on clique 333.1·A, puis 333.2·B — la sélection
                      reste, le geste s'enchaîne. */
-                  <th key={c.cours_code + cleGroupe(g)}
+                  <th key={c.cle + cleGroupe(g)}
                     onClick={() => coches.size && placerCoches(c, g)}
                     title={coches.size
-                      ? `Placer les ${coches.size} coché(s) dans ${etiquette(g)} — ${c.cours_nom}`
+                      ? `Placer les ${coches.size} coché(s) dans ${etiquette(g)} — ${c.cours_nom}${c.activite_libelle ? ` · ${c.activite_libelle}` : ''}`
                       : ''}
                     className={`px-2 py-1 bg-slate-50 border-b border-l border-dashed border-slate-200 text-[10.5px] text-iip-turquoise-dark min-w-[92px]
                       ${coches.size ? 'cursor-pointer hover:bg-iip-turquoise/15 select-none' : ''}`}>
@@ -325,18 +333,18 @@ export default function RepartitionCours() {
                       )}
                     </td>
                     {(data.cours || []).map(c => c.sans_groupe ? (
-                      <td key={c.cours_code} className="text-center border-l border-dashed border-slate-100">
+                      <td key={c.cle} className="text-center border-l border-dashed border-slate-100">
                         <span title="Cours sans groupe : suivi par tous les inscrits"
                           className="inline-block w-[15px] h-[15px] rounded bg-emerald-100 text-emerald-700 text-[10px] leading-[15px]">✓</span>
                       </td>
                     ) : c.groupes.map(g => {
-                      const a = affect.get(cle(e.id, c.cours_code));
+                      const a = affect.get(cle(e.id, c.cle));
                       const ici = a && a.org === g.num_organisation && (a.groupe || null) === (g.groupe || null);
-                      const enAttente = attente.has(cle(e.id, c.cours_code));
+                      const enAttente = attente.has(cle(e.id, c.cle));
                       return (
-                        <td key={c.cours_code + cleGroupe(g)} className="text-center border-l border-dashed border-slate-100">
+                        <td key={c.cle + cleGroupe(g)} className="text-center border-l border-dashed border-slate-100">
                           <button onClick={() => cliquerCase(e, c, g)}
-                            title={`${e.nom} ${e.prenom} — ${c.cours_nom} — ${etiquette(g)}`}
+                            title={`${e.nom} ${e.prenom} — ${c.cours_nom}${c.activite_libelle ? ` · ${c.activite_libelle}` : ''} — ${etiquette(g)}`}
                             className={`inline-block w-[15px] h-[15px] rounded border align-middle
                               ${ici ? 'bg-iip-turquoise border-iip-turquoise text-white text-[10px] leading-[13px]'
                                 : 'bg-white border-slate-300 hover:border-iip-turquoise'}
@@ -360,12 +368,12 @@ export default function RepartitionCours() {
                   <span className="font-normal text-slate-400"> · {data.etudiants.length} inscrit{data.etudiants.length > 1 ? 's' : ''}</span>
                 </td>
                 {(data.cours || []).map(c => c.sans_groupe ? (
-                  <td key={c.cours_code} className="text-center border-l border-dashed border-slate-200">{data.etudiants.length}</td>
+                  <td key={c.cle} className="text-center border-l border-dashed border-slate-200">{data.etudiants.length}</td>
                 ) : c.groupes.map(g => {
                   const n = effectif(c, g);
                   const trop = c.plafond_groupe && n > c.plafond_groupe;
                   return (
-                    <td key={c.cours_code + cleGroupe(g)}
+                    <td key={c.cle + cleGroupe(g)}
                       title={trop ? `Au-dessus du plafond suggéré (${c.plafond_groupe})` : ''}
                       className={`text-center border-l border-dashed border-slate-200 ${trop ? 'text-[#B45309]' : ''}`}>
                       {n}{trop ? ' ⚠' : ''}
@@ -378,7 +386,8 @@ export default function RepartitionCours() {
         </div>
 
         <p className="text-[11.5px] text-slate-400">
-          Une case par cours et par étudiant — recocher la même case la retire. Cocher hors de
+          Une case par cours — ou par activité du cours (théorie, laboratoire…) quand ce sont
+          elles qui se coupent en groupes — et par étudiant ; recocher la même case la retire. Cocher hors de
           l'organisation de délibération demande confirmation. Rien ne s'écrit avant « Enregistrer ».
         </p>
       </>)}
