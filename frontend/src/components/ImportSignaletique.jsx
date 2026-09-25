@@ -48,6 +48,25 @@ export default function ImportSignaletique({ onClose, onTermine }) {
   })).filter(x => !filtre.trim() || `${x.nom} ${x.mat}`.toLowerCase().includes(filtre.trim().toLowerCase())),
   [fichier, filtre]);
   const libSection = code => sections.find(s0 => s0.code === code)?.libelle || code;
+  // Le nom d'un onglet → la section : « Opto » → Optométrie, « Psychomot » →
+  // Psychomotricité. Une seule correspondance, sinon rien : deviner entre
+  // deux sections rattacherait toute une promotion à la mauvaise.
+  const plat = t => String(t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase().replace(/[^a-z0-9]/g, '');
+  function sectionDuNom(nomF) {
+    const n = plat(nomF);
+    if (!n) return null;
+    const exacts = sections.filter(s0 => plat(s0.code) === n || plat(s0.libelle) === n);
+    if (exacts.length === 1) return exacts[0].code;
+    const proches = sections.filter(s0 => [plat(s0.code), plat(s0.libelle)]
+      .some(x => x && (x.startsWith(n) || n.startsWith(x))));
+    return proches.length === 1 ? proches[0].code : null;
+  }
+  const poserFeuille = (fe, code) => setParLigne(p0 => {
+    const n = { ...p0 };
+    for (let i = fe.debut; i < fe.debut + fe.n; i++) n[i] = code;
+    return n;
+  });
   const sectionDe = i => (i in parLigne ? parLigne[i] : section);
   const compteParSection = useMemo(() => {
     const m = new Map();
@@ -83,17 +102,34 @@ export default function ImportSignaletique({ onClose, onTermine }) {
         catch { texte = new TextDecoder('windows-1252').decode(octets); }
       }
       const wb = estCsv ? XLSX.read(texte, { type: 'string' }) : XLSX.read(octets, { type: 'array' });
-      const ws = wb.Sheets[wb.SheetNames[0]];
-      // Tout en texte : un matricule « 26-00071 » ou un code postal lu comme
-      // un nombre perdrait ses zéros ou son tiret.
-      const lignes = XLSX.utils.sheet_to_json(ws, { defval: '', raw: false });
-      if (!lignes.length) throw new Error('Le fichier ne contient aucune ligne.');
-      if (!('Id_Etud' in lignes[0])) {
-        throw new Error('Ce n’est pas l’export eCampus des étudiants : la colonne Id_Etud manque. '
-          + 'Pour un autre fichier, passez par l’importateur sur mesure.');
+      /* TOUS LES ONGLETS, UN PAR SECTION (Charles, 25 septembre 2026 : « les
+         nouveaux inscrits de cette année », un onglet TIM, Psychomot, Opto,
+         AeSI, ATNUP). Seul le premier était lu : les quatre autres sections
+         restaient dehors sans que rien ne le dise. Chaque onglet qui porte
+         Id_Etud est lu, et reçoit d'office la section dont il porte le nom —
+         seulement si un seul nom correspond ; sinon, la section du haut. */
+      const feuilles = [];
+      const lignes = [];
+      for (const nomF of wb.SheetNames) {
+        // Tout en texte : un matricule « 26-00071 » ou un code postal lu comme
+        // un nombre perdrait ses zéros ou son tiret.
+        const ls = XLSX.utils.sheet_to_json(wb.Sheets[nomF], { defval: '', raw: false });
+        if (!ls.length || !('Id_Etud' in ls[0])) continue;
+        const utiles = ls.filter(l => String(l.Id_Etud || '').trim() || String(l.NomEtud || '').trim());
+        feuilles.push({ nom: nomF, debut: lignes.length, n: utiles.length, section: sectionDuNom(nomF) });
+        lignes.push(...utiles);
       }
-      setFichier({ nom: f.name, lignes });
-      setParLigne({}); setCoches(new Set()); setFiltre('');
+      if (!feuilles.length) {
+        throw new Error('Ce n’est pas l’export eCampus des étudiants : aucun onglet ne porte la colonne '
+          + 'Id_Etud. Pour un autre fichier, passez par l’importateur sur mesure.');
+      }
+      if (!lignes.length) throw new Error('Le fichier ne contient aucune ligne.');
+      const pre = {};
+      if (feuilles.length > 1) {
+        for (const fe of feuilles) for (let i = fe.debut; i < fe.debut + fe.n; i++) pre[i] = fe.section || '';
+      }
+      setFichier({ nom: f.name, lignes, feuilles });
+      setParLigne(pre); setCoches(new Set()); setFiltre('');
     } catch (e) { setFichier(null); setErreur(e.message); }
   }
 
@@ -172,6 +208,31 @@ export default function ImportSignaletique({ onClose, onTermine }) {
             </span>
           )}
         </div>
+
+        {fichier && !fait && fichier.feuilles?.length > 1 && (
+          <div className="carte p-2.5 space-y-1.5">
+            <b className="text-[13px]">{fichier.feuilles.length} onglets lus — une section par onglet</b>
+            <p className="text-[12px] text-slate-500">
+              Chaque onglet a reçu la section dont il porte le nom. Vérifiez-la ; la liste plus bas permet
+              encore d’en changer étudiant par étudiant.
+            </p>
+            <div className="grid gap-1.5 sm:grid-cols-2">
+              {fichier.feuilles.map(fe => {
+                const code = parLigne[fe.debut] ?? '';
+                return (
+                  <label key={fe.nom} className="flex items-center gap-2 text-[13px]">
+                    <span className="w-40 truncate"><b>{fe.nom}</b> <span className="text-slate-400">· {fe.n}</span></span>
+                    <select value={code} onChange={e => poserFeuille(fe, e.target.value)}
+                      className={`controle text-[13px] flex-1 ${code ? '' : 'border-[#B0701A]'}`}>
+                      <option value="">— aucune section —</option>
+                      {sections.map(s0 => <option key={s0.code} value={s0.code}>{s0.libelle || s0.code}</option>)}
+                    </select>
+                  </label>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         {fichier && !fait && (
           <div className="carte p-2.5 space-y-2">
