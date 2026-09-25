@@ -24,7 +24,10 @@ export const COULEURS_CAP = {
  * Le schéma emploie donc les trois teintes de la maison, et chacune garde le
  * sens qu'elle a partout :
  *   · MARINE — l'unité, sa structure, ce qui est accessible ;
- *   · TURQUOISE — ce qui est acquis, la seule bonne nouvelle du schéma ;
+ *   · VERT — ce qui est acquis, la seule bonne nouvelle du schéma. C'était un
+ *     turquoise, trop proche du marine de l'accessible : « il faut la mettre
+ *     en vert, ce n'est pas clair » (Charles, 25 septembre 2026). Le vert est
+ *     celui qui dit « réussi » partout ailleurs dans Lucie ;
  *   · GRIS — ce qui n'est pas encore ouvert, et qui doit s'effacer ;
  *   · DORÉ — l'épreuve intégrée, et elle seule (règle du dépôt).
  *
@@ -32,7 +35,7 @@ export const COULEURS_CAP = {
  * couleur de plus : même marine, contour plus clair. Une nuance de statut ne
  * mérite pas une teinte, elle mérite un détail.
  */
-  acquise:      { fill: '#E0F5F8', stroke: '#0093B0', text: '#00596B', label: 'Acquise' },
+  acquise:      { fill: '#E4F1EA', stroke: '#3E7D5E', text: '#1F5A3D', label: 'Acquise' },
   accessible:   { fill: '#EEF1F6', stroke: '#1B2B4B', text: '#1B2B4B', label: 'Accessible' },
   sous_reserve: { fill: '#F5F7FA', stroke: '#8894AC', text: '#475A80', label: 'Sous réserve' },
   bloquee:      { fill: '#F8FAFC', stroke: '#D8DEE7', text: '#9AA3B2', label: 'Pas encore accessible' },
@@ -427,6 +430,19 @@ export default function SchemaCapitalisation({
                     <text x={p.x + 6} y={p.y + 12} fontSize="10" fontWeight="700" fill={co.text}>
                       {n.ue_num}
                     </text>
+                    {/* LA NOTE ET L'ANNÉE DE LA RÉUSSITE, sur la ligne du numéro :
+                        « 14 · 24-25 », ou « VA · 25-26 ». Décalées quand la
+                        pastille « D » occupe l'angle. */}
+                    {n.statut === 'acquise' && n.reussite && (
+                      <text x={p.x + layout.L - (n.determinante ? 11 : 5)} y={p.y + 11.5}
+                        textAnchor="end" fontSize="8" fontWeight="700" fill={co.text}>
+                        {n.reussite.va ? 'VA' : n.reussite.note != null
+                          ? String(Math.round(n.reussite.note * 10) / 10).replace('.', ',') : '✓'}
+                        <tspan fontWeight="400" opacity="0.8">
+                          {' · '}{String(n.reussite.annee || '').replace(/^20(\d\d)-20(\d\d)$/, '$1-$2')}
+                        </tspan>
+                      </text>
+                    )}
                     <text x={p.x + 6} y={p.y + 22} fontSize="7" fill={co.text} opacity="0.85">
                       {nom}
                     </text>
@@ -434,8 +450,11 @@ export default function SchemaCapitalisation({
                         resserrées. Elle se décale quand la pastille « D »
                         occupe déjà l'angle. */}
                     {n.inscrite && (
+                      // Sur une UE acquise, l'angle porte la note : la pastille
+                      // d'inscription descend dans le coin bas.
                       <circle cx={p.x + layout.L - (n.determinante ? 15 : 6)}
-                        cy={p.y + 6} r="2.6" fill={co.stroke} />
+                        cy={n.statut === 'acquise' && n.reussite ? p.y + layout.H - 6 : p.y + 6}
+                        r="2.6" fill={co.stroke} />
                     )}
                     {modeLien && onLien && (
                       <circle cx={p.x + layout.L} cy={p.y + layout.H / 2} r="5.5"

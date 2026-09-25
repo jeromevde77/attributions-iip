@@ -4600,6 +4600,19 @@ r.get('/:id/capitalisation', authRequired, (req, res) => {
   const inscrites = new Set(
     db.prepare('SELECT ue_num FROM etudiant_inscription WHERE etudiant_id = ? AND annee_scolaire = ?')
       .all(etudId, annee).map(r0 => r0.ue_num));
+  /* LA NOTE ET L'ANNÉE D'UNE UE ACQUISE (Charles, 25 septembre 2026 : « dans
+     l'UE réussie, la note et l'année »). La réussite la plus récente fait foi ;
+     une valorisation se dit « VA », avec son année. */
+  const reussite = {};
+  for (const r0 of db.prepare(`SELECT ue_num, annee_scolaire, points FROM etudiant_inscription
+      WHERE etudiant_id = ? AND resultat = 'reussi' ORDER BY annee_scolaire`).all(etudId)) {
+    reussite[r0.ue_num] = { annee: r0.annee_scolaire, note: r0.points ?? null, va: false };
+  }
+  for (const v of db.prepare(`SELECT ue_num, annee_scolaire FROM etudiant_valorisation
+      WHERE etudiant_id = ? AND type = 'complete' AND COALESCE(decision, 'accordee') <> 'refusee'
+      ORDER BY annee_scolaire`).all(etudId)) {
+    if (!reussite[v.ue_num]) reussite[v.ue_num] = { annee: v.annee_scolaire, note: null, va: true };
+  }
   const ph = sections.map(() => '?').join(',');
   const organisees = new Set(
     db.prepare(`SELECT DISTINCT ue_num FROM organisation_ue WHERE annee_scolaire = ? AND section IN (${ph})`)
@@ -4637,6 +4650,7 @@ r.get('/:id/capitalisation', authRequired, (req, res) => {
         : 'bloquee',
       inscrite: inscrites.has(n),
       organisee: organisees.has(n),
+      reussite: acquis.has(n) ? (reussite[n] || null) : null,
       prereq_manquants: (prereqDe[n] || []).filter(p => !acquis.has(p)),
     }),
   });
