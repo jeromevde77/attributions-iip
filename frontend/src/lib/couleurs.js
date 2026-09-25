@@ -21,7 +21,7 @@ import { authHeaders } from './api.js';
 
 export const DEFAUT = {
   iip: '#1B2B4B', helb: '#DB2777', ct: '#1D4ED8', pp: '#047857',
-  reussi: '#047857', attente: '#B45309', refuse: '#9D4A38', faveur: '#7C3AED',
+  reussi: '#3E7D5E', faveur: '#6B46C1', disponible: '#2F6FB0', attente: '#B45309', refuse: '#9D4A38',
 };
 
 function poser(jeu) {

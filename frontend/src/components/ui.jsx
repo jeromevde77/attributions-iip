@@ -3,7 +3,7 @@ import { createContext, Fragment, lazy, Suspense, useContext, useEffect, useStat
 const CentreImpressionCentral = lazy(() => import('./CentreImpressionCentral.jsx'));
 const Ameliorations = lazy(() => import('./Ameliorations.jsx'));
 import { createPortal } from 'react-dom';
-import { IconPin, IconPinnedOff, IconSun, IconMoon, IconSend, IconBulb, IconX } from '@tabler/icons-react';
+import { IconPin, IconPinnedOff, IconSun, IconMoon, IconSend, IconBulb, IconX, IconGift } from '@tabler/icons-react';
 import { useRailEpingle, basculerEpingle, LARGEUR_RAIL } from '../lib/railEpingle.js';
 import { useMode, basculerMode } from '../lib/theme.js';
 
@@ -888,6 +888,68 @@ export function Badge({ children, ton = 'neutre', className = '', ...props }) {
   return (
     <span className={`text-[10px] px-1.5 py-0.5 rounded ${TEINTES_BADGE[ton] || TEINTES_BADGE.neutre}
                       ${className}`} {...props}>
+      {children}
+    </span>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// LE BLOC D'ÉTAT — tuile, encadré, pastille : un seul dessin (index.css,
+// `.bloc-etat`), sept états (lib/etats.js). Étude du 25 septembre 2026.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Le cadeau de la faveur : violet, partout où une unité a été octroyée. */
+export function IconeFaveur({ size = 13, className = '' }) {
+  return <IconGift size={size} stroke={2} className={`inline shrink-0 ${className}`}
+    style={{ color: 'var(--c-faveur)' }} aria-label="faveur" />;
+}
+
+/**
+ * LA TUILE. Chiffre (ou intitulé) d'abord, libellé dessous, précision en gris.
+ * `etat` : reussi | faveur | disponible | indisponible | surveiller | corriger
+ * | neutre | fort. Cliquable si `onClick` : elle devient alors un bouton.
+ */
+export function TuileEtat({ etat = 'neutre', valeur, unite, libelle, precision, icone: Icone,
+                            onClick, actif = false, sousReserve = false, className = '', title }) {
+  const Balise = onClick ? 'button' : 'div';
+  return (
+    <Balise type={onClick ? 'button' : undefined} onClick={onClick} title={title}
+      data-etat={etat}
+      className={`bloc-etat ${sousReserve ? 'sous-reserve' : ''} relative text-left px-3 py-2 min-w-0
+        ${onClick ? 'cursor-pointer hover:brightness-[.98] transition' : ''}
+        ${actif ? 'ring-2 ring-offset-1 ring-[#1B2B4B]/30' : ''} ${className}`}>
+      {Icone && <Icone size={15} stroke={1.8} className="absolute right-2.5 top-2.5 text-slate-400" />}
+      <div className="text-[17px] font-bold tabular-nums leading-tight">
+        {valeur}
+        {unite && <span className="text-[11px] font-normal text-slate-500 ml-1">{unite}</span>}
+        {etat === 'faveur' && <IconeFaveur className="ml-1.5 align-[-1px]" />}
+      </div>
+      {libelle && <div className="text-[11px] text-slate-600">{libelle}</div>}
+      {precision && <div className="text-[10px] text-slate-400">{precision}</div>}
+    </Balise>
+  );
+}
+
+/** L'ENCADRÉ : une phrase qui porte un état — avertissement, erreur, confirmation. */
+export function Encadre({ etat = 'surveiller', titre, children, icone: Icone, className = '' }) {
+  return (
+    <div data-etat={etat} className={`bloc-etat px-3 py-2 text-[12px] ${className}`}>
+      {(titre || Icone) && (
+        <div className="flex items-center gap-1.5 font-semibold text-[13px]">
+          {Icone && <Icone size={15} stroke={1.8} className="text-slate-500" />}
+          {titre}
+        </div>
+      )}
+      {children && <div className={titre ? 'mt-0.5 text-slate-700' : 'text-slate-700'}>{children}</div>}
+    </div>
+  );
+}
+
+/** LA PASTILLE : le même état, en ligne, dans une cellule ou après un nom. */
+export function PastilleEtat({ etat = 'neutre', children, className = '', title }) {
+  return (
+    <span data-etat={etat} title={title} className={`pastille-etat ${className}`}>
+      {etat === 'faveur' && <IconGift size={11} stroke={2} />}
       {children}
     </span>
   );

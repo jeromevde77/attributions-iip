@@ -4604,14 +4604,48 @@ r.get('/:id/capitalisation', authRequired, (req, res) => {
      l'UE réussie, la note et l'année »). La réussite la plus récente fait foi ;
      une valorisation se dit « VA », avec son année. */
   const reussite = {};
-  for (const r0 of db.prepare(`SELECT ue_num, annee_scolaire, points FROM etudiant_inscription
+  /* LA FAVEUR ET LA SECONDE SESSION SE VOIENT (Charles, 25 septembre 2026 :
+     « si faveur c'est violet », avec le cadeau de la délibération). La faveur
+     se lit là où le Conseil la pose — un ajustement de délibération — ou là où
+     l'import de l'historique l'a reprise, cours par cours. */
+  const avecFaveur = new Set();
+  const cleFaveur = (ue, an) => `${ue}|${an}`;
+  try {
+    for (const f of db.prepare(`SELECT DISTINCT ue_num, annee_scolaire FROM deliberation_ajustement
+        WHERE etudiant_id = ? AND action = 'faveur'`).all(etudId)) avecFaveur.add(cleFaveur(f.ue_num, f.annee_scolaire));
+  } catch { /* table absente */ }
+  try {
+    for (const f of db.prepare(`SELECT DISTINCT ue_num, annee_scolaire FROM etudiant_resultat_cours
+        WHERE etudiant_id = ? AND faveur = 1 AND ue_num IS NOT NULL`).all(etudId)) avecFaveur.add(cleFaveur(f.ue_num, f.annee_scolaire));
+  } catch { /* table absente */ }
+  let colS2 = false;
+  try { colS2 = db.prepare('PRAGMA table_info(etudiant_inscription)').all().some(c => c.name === 'resultat_s2'); } catch { /* */ }
+  for (const r0 of db.prepare(`SELECT ue_num, annee_scolaire, points, ${colS2 ? 'resultat_s2' : 'NULL'} AS s2
+      FROM etudiant_inscription
       WHERE etudiant_id = ? AND resultat = 'reussi' ORDER BY annee_scolaire`).all(etudId)) {
-    reussite[r0.ue_num] = { annee: r0.annee_scolaire, note: r0.points ?? null, va: false };
+    reussite[r0.ue_num] = { annee: r0.annee_scolaire, note: r0.points ?? null, va: false,
+      faveur: avecFaveur.has(cleFaveur(r0.ue_num, r0.annee_scolaire)), s2: !!r0.s2 };
   }
   for (const v of db.prepare(`SELECT ue_num, annee_scolaire FROM etudiant_valorisation
       WHERE etudiant_id = ? AND type = 'complete' AND COALESCE(decision, 'accordee') <> 'refusee'
       ORDER BY annee_scolaire`).all(etudId)) {
     if (!reussite[v.ue_num]) reussite[v.ue_num] = { annee: v.annee_scolaire, note: null, va: true };
+  }
+  /* AJOURNÉE, EN ATTENTE DE LA SECONDE SESSION : ni acquise, ni fermée — un
+     geste est attendu, d'où l'ocre (« à surveiller »). C'est la DERNIÈRE
+     inscription de l'unité qui le dit : une ajournée de 2024-2025 reprise et
+     réussie depuis n'attend plus rien. Et seulement l'année consultée ou la
+     précédente : l'historique importé porte des centaines d'« ajourné » de
+     2024-2025 dont la seconde session n'a jamais été reprise — les montrer
+     « en attente » ferait attendre ce qui est clos depuis un an. */
+  const enAttente = new Set();
+  const mA = /^(\d{4})-(\d{4})$/.exec(String(annee));
+  const anneePrec = mA ? `${+mA[1] - 1}-${+mA[2] - 1}` : null;
+  for (const r0 of db.prepare(`SELECT i.ue_num, i.resultat, i.annee_scolaire FROM etudiant_inscription i
+      WHERE i.etudiant_id = ? AND i.annee_scolaire = (SELECT MAX(j.annee_scolaire) FROM etudiant_inscription j
+        WHERE j.etudiant_id = i.etudiant_id AND j.ue_num = i.ue_num)`).all(etudId)) {
+    if (r0.resultat === 'ajourne' && !acquis.has(r0.ue_num)
+        && (r0.annee_scolaire === annee || r0.annee_scolaire === anneePrec)) enAttente.add(r0.ue_num);
   }
   const ph = sections.map(() => '?').join(',');
   const organisees = new Set(
@@ -4645,6 +4679,7 @@ r.get('/:id/capitalisation', authRequired, (req, res) => {
     sections, annee,
     etat: n => ({
       statut: acquis.has(n) ? 'acquise'
+        : enAttente.has(n) ? 'en_attente'
         : sousReserve.has(n) ? 'sous_reserve'
         : proposees.has(n) ? 'accessible'
         : 'bloquee',

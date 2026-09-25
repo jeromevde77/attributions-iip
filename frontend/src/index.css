@@ -918,6 +918,58 @@ select[multiple], select[size]:not([size="1"]) {
 }
 .carte-plate { background: var(--tab-repere); }
 
+/* ── LE BLOC D'ÉTAT — une seule forme pour tout ce qui porte un état ─────────
+ * Étude du 25 septembre 2026, validée par Charles : « partout les tuiles
+ * doivent être pareil ». Liseré gauche droit et épais qui PORTE l'état, fond
+ * pâle de la même teinte, contour fin. Une UE du parcours, une tuile de
+ * chiffre, une pastille, un encadré : le même dessin, seules les mesures
+ * changent.
+ *
+ * SEPT ÉTATS, ET PAS UN DE PLUS. Le liseré vient des couleurs réglées
+ * (`--c-*`, lib/couleurs.js) ; le fond et le contour s'en DÉDUISENT par
+ * color-mix, pour qu'un réglage ne puisse pas produire un fond qui contredit
+ * son liseré. « Pas maintenant » et « neutre » sont des gris de la charte.
+ * Le texte reste marine : la couleur ne va qu'au liseré, au fond et au filet.
+ */
+.bloc-etat {
+  --e: #D8DCE4;
+  background: color-mix(in srgb, var(--e) 11%, #fff);
+  border: 1px solid color-mix(in srgb, var(--e) 30%, #fff);
+  border-left: 4px solid var(--e);
+  border-radius: 0 10px 10px 0;
+  color: #1B2B4B;
+}
+.bloc-etat[data-etat="reussi"]     { --e: var(--c-reussi); }
+.bloc-etat[data-etat="faveur"]     { --e: var(--c-faveur); }
+.bloc-etat[data-etat="disponible"] { --e: var(--c-disponible); }
+.bloc-etat[data-etat="surveiller"] { --e: var(--c-attente); }
+.bloc-etat[data-etat="corriger"]   { --e: var(--c-refuse); }
+.bloc-etat[data-etat="indisponible"] { --e: #C3CAD6; background: #F4F5F7; border-color: #E3E6EB;
+                                       border-left-color: #C3CAD6; color: #7A879E; }
+/* Neutre : un chiffre sans état. Le blanc est celui de la tuile. */
+.bloc-etat:not([data-etat]), .bloc-etat[data-etat="neutre"] { background: #fff; border-color: #D8DCE4; }
+/* Fort : le chiffre qui compte, sans état — liseré marine, fond blanc. */
+.bloc-etat[data-etat="fort"] { --e: var(--c-iip, #1B2B4B); background: #fff; border-color: #D8DCE4; }
+/* Une réserve est une nuance, pas un état : le trait, pas la couleur. */
+.bloc-etat.sous-reserve { border-style: dashed; border-left-style: solid; }
+
+/* La pastille : le même état, en ligne. Fond pâle, texte de l'état assombri. */
+.pastille-etat {
+  --e: #7A879E;
+  display: inline-flex; align-items: center; gap: 3px;
+  font-size: 10px; font-weight: 600; line-height: 1.5;
+  padding: 0 6px; border-radius: 4px; white-space: nowrap;
+  background: color-mix(in srgb, var(--e) 13%, #fff);
+  color: color-mix(in srgb, var(--e) 78%, #1B2B4B);
+}
+.pastille-etat[data-etat="reussi"]     { --e: var(--c-reussi); }
+.pastille-etat[data-etat="faveur"]     { --e: var(--c-faveur); }
+.pastille-etat[data-etat="disponible"] { --e: var(--c-disponible); }
+.pastille-etat[data-etat="surveiller"] { --e: var(--c-attente); }
+.pastille-etat[data-etat="corriger"]   { --e: var(--c-refuse); }
+.pastille-etat[data-etat="indisponible"], .pastille-etat[data-etat="neutre"] {
+  background: #EEF0F3; color: #4B5568; }
+
 /* ── LE TEXTE D'UN DOCUMENT DU CORPUS ─────────────────────────────────────────
  * UNE classe, portée À LA FOIS par l'éditeur et par la fenêtre de lecture : ce
  * que la direction voit en écrivant est ce que le personnel lit. Deux feuilles

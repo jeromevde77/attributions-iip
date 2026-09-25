@@ -1056,14 +1056,40 @@ et 3 composants de tuile**. La stratégie tient en cinq chantiers, dans cet ordr
 - **Réserve :** le **diplôme** (paysage, sans marge ni pied) et le **corps de
   courriel** restent hors standard. L'unité vaut pour les pièces administratives.
 
-### Tuiles d'indicateur
+### Tuiles d'indicateur — et tout ce qui porte un état
 
-- Fond **blanc**, **filet gauche 3 px** teinté selon l'état. Pas de fond coloré,
-  pas d'ombre, pas de dégradé.
-- Trois tons **désaturés** seulement (vert, ocre, brique) ; neutre par défaut —
-  si tout est coloré, plus rien ne signale.
-- **Chiffre d'abord, libellé dessous.**
-- Icône en aplat, **grise** — jamais dans la couleur d'état.
+> **UNE SEULE TUILE POUR TOUT LUCIE** (étude du 25 septembre 2026, validée par
+> Charles : « partout les tuiles doivent être pareil »). L'inventaire comptait
+> ~15 façons de dessiner une tuile, ~20 dictionnaires de couleurs d'état
+> locaux, 9 copies d'une palette de blocs contraire à `lib/blocs.js`, 5 verts
+> pour « réussi » et 7 sens pour le violet.
+
+- **La forme** : `.bloc-etat` (`index.css`) — liseré gauche **4 px** droit qui
+  porte l'état, **fond pâle** de la même teinte (11 %), **contour fin** (30 %),
+  coins droits côté liseré et 10 px de l'autre. Texte marine, jamais dans la
+  couleur de l'état ; icône grise, sauf le cadeau de la faveur.
+- **Sept états, et pas un de plus** (`lib/etats.js`) : `reussi` vert
+  `#3E7D5E` · `faveur` **violet `#6B46C1` + icône cadeau** · `disponible` bleu
+  `#2F6FB0` · `indisponible` gris `#F4F5F7` · `surveiller` ocre `#B45309`
+  (ajourné, échéance proche) · `corriger` brique `#9D4A38` (refus, erreur) ·
+  `neutre` fond blanc (et `fort`, liseré marine). Seul le liseré se règle
+  (`--c-*`, Configuration) ; fond et contour s'en DÉDUISENT par `color-mix`.
+- **Composants** (`ui.jsx`) : `TuileEtat`, `Encadre`, `PastilleEtat`,
+  `IconeFaveur`. Pour un SVG : `teintes(etat)`, lu dans `style`, jamais dans
+  un attribut `fill=` où `var()` ne s'évalue pas.
+- **Le violet ne dit que la faveur.** VA, VAE, BA4, HELB, autonomie et EXP en
+  sortent : une VA réussie est verte avec la mention grise « VA ».
+- **Les nuances s'écrivent, elles ne se colorent pas** : S2, VA, à reprendre,
+  D, sous réserve (trait pointillé) sont des mentions grises.
+- **L'état dépend de ce que l'écran regarde** : en délibération une UE refusée
+  est « à corriger » ; dans le parcours, la même UE est « disponible », mention
+  « à reprendre ».
+- **Chiffre d'abord, libellé dessous**, précision en gris.
+- Les couleurs de bloc et l'or de l'épreuve intégrée sont des **repères** :
+  colonnes et en-têtes, jamais une tuile.
+- **Migration par lots** (voir l'étude) : fondation (2.12.191) · schéma du
+  parcours (2.12.191) · délibération et PAE · tuiles d'indicateur · pastilles,
+  encadrés, palettes de bloc · pièces imprimées · réglage des couleurs.
 
 ### Navigation
 
@@ -1123,8 +1149,9 @@ et 3 composants de tuile**. La stratégie tient en cinq chantiers, dans cet ordr
 - **Un seul objet pour signaler : le bloc signalé.** Tuile d'indicateur à
   l'écran, encadré de caractéristiques sur un document : c'est le même geste, il
   se dessine une fois. Cinq pièces, jamais une de plus — un **rail à gauche**
-  qui porte l'état *et lui seul* (la couleur ne va ni au fond, ni au texte, ni à
-  l'icône), un **fond** selon la règle du blanc ci-dessus, un **filet de
+  qui porte l'état, un **fond pâle de la même teinte** (blanc quand il n'y a pas
+  d'état ; la couleur ne va jamais au texte ni à l'icône — tranché le 25
+  septembre 2026, la règle disait « ni au fond »), un **filet de
   contour** fin qui ferme la forme et remplace l'ombre, un **rayon** pris sur
   l'échelle, et un **contenu toujours dans le même ordre** : valeur ou intitulé,
   libellé dessous, précision en gris. Seules les **mesures** changent de support
@@ -1132,9 +1159,9 @@ et 3 composants de tuile**. La stratégie tient en cinq chantiers, dans cet ordr
 
   | | Écran | Papier |
   |---|---|---|
-  | Rail | 3 px | 1,6 mm |
-  | Rayon | 14 px (`carte`) | 1,5 mm |
-  | Fond | blanc (tuile, champ) | `#FAFAFB` — le blanc est déjà celui de la feuille |
+  | Rail | 4 px | 1,6 mm |
+  | Rayon | 10 px côté droit, droit côté liseré | 1,5 mm |
+  | Fond | pâle de l'état ; blanc si neutre | pâle de l'état ; `#FAFAFB` si neutre |
   | Contour | 1 px `#D8DCE4` | 0,3 mm, même gris |
   | Corps | 13 px | 9 pt |
   | Rail teinté | marine, vert, ocre, brique | marine à l'intérieur, **or** sur la pièce extérieure |

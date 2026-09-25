@@ -18,8 +18,7 @@
 // n'a pas à être décidée dans le code.
 //
 // Ce qui N'EST PAS ici : les tons de l'habillage (gris, filets, fonds), qui
-// relèvent de la charte et ne se discutent pas écran par écran ; et les trois
-// tons d'état des tuiles, qui sont déjà normés.
+// relèvent de la charte et ne se discutent pas écran par écran.
 // ─────────────────────────────────────────────────────────────────────────────
 
 import db from '../db/index.js';
@@ -31,13 +30,17 @@ export const COULEURS_DEFAUT = {
   // Les deux natures de cours, qui se comparent sans cesse dans les charges.
   ct:   { libelle: 'Cours théorique (CT)',  valeur: '#1D4ED8' },
   pp:   { libelle: 'Pratique professionnelle (PP)', valeur: '#047857' },
-  // Les trois états, tels que la charte les fixe : vert ce qui est acquis,
-  // ocre ce qui appelle l'attention, brique ce qui est refusé.
-  reussi:  { libelle: 'Réussi',   valeur: '#047857' },
-  attente: { libelle: 'À surveiller', valeur: '#B45309' },
-  refuse:  { libelle: 'Refusé',   valeur: '#9D4A38' },
-  // L'octroi du Conseil, qui a sa couleur propre depuis toujours.
-  faveur:  { libelle: 'Unité octroyée (faveur)', valeur: '#7C3AED' },
+  // LES ÉTATS — une seule grammaire pour tout Lucie (étude du 25 septembre
+  // 2026, validée par Charles). Chaque état n'a qu'UNE valeur réglée : le
+  // liseré. Le fond pâle et le contour s'en DÉDUISENT (11 % et 30 % de la
+  // teinte sur du blanc), sans quoi trois réglages par état finiraient par se
+  // contredire. « Pas maintenant » et « neutre » sont des gris de la charte :
+  // ils ne se règlent pas.
+  reussi:     { libelle: 'Réussi',                 valeur: '#3E7D5E' },
+  faveur:     { libelle: 'Réussi par faveur',      valeur: '#6B46C1' },
+  disponible: { libelle: 'Disponible, ouvert',     valeur: '#2F6FB0' },
+  attente:    { libelle: 'À surveiller (ajourné, échéance proche)', valeur: '#B45309' },
+  refuse:     { libelle: 'À corriger (refus, erreur)', valeur: '#9D4A38' },
 };
 
 /** Les couleurs en vigueur : les défauts, écrasés par ce qui a été réglé. */
