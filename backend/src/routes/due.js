@@ -146,7 +146,7 @@ function partieAutomatique(ueNum, annee) {
   `).all(ueNum, annee);
 
   const acquis = db.prepare(
-    'SELECT aa_code, aa_num, description FROM aa WHERE ue_num = ? ORDER BY aa_num, aa_code')
+    'SELECT aa_code, aa_num, description, chapeau FROM aa WHERE ue_num = ? ORDER BY aa_num, aa_code')
     .all(ueNum);
 
   // Le rattachement acquis ↔ cours vient de la pondération : c'est la somme
@@ -461,9 +461,25 @@ export function documentDUE(ueNum, annee) {
         <td>${esc((x.acquis || []).join(', '))}</td></tr>`).join('')
     : '<tr><td colspan="5" class="vide">aucun cours rattaché</td></tr>';
 
-  const listeAA = auto.acquis.length ? auto.acquis.map(a => `
-    <li><b>${esc(a.aa_code)}</b> — ${esc(a.description || 'libellé à encoder dans le référentiel')}</li>`).join('')
+  const ligneAA = a => `
+    <li><b>${esc(a.aa_code)}</b> — ${esc(a.description || 'libellé à encoder dans le référentiel')}</li>`;
+  // LES CHAPEAUX DU DOSSIER, quand il y en a : chacun ouvre sa liste. Un
+  // premier groupe sans chapeau reçoit la phrase d'usage — jamais les deux,
+  // qui se répéteraient.
+  const PHRASE_USAGE = "Pour atteindre le seuil de réussite, l'étudiant sera capable de :";
+  const avecChapeaux = auto.acquis.some(a => a.chapeau);
+  const groupesAA = [];
+  for (const a of auto.acquis) {
+    if (a.chapeau || !groupesAA.length) groupesAA.push({ chapeau: a.chapeau || null, aa: [] });
+    groupesAA[groupesAA.length - 1].aa.push(a);
+  }
+  const listeAA = auto.acquis.length ? auto.acquis.map(ligneAA).join('')
     : '<li class="vide">aucun acquis encodé pour cette unité</li>';
+  const blocAA = avecChapeaux
+    ? groupesAA.map(g => `<p>${esc(g.chapeau || PHRASE_USAGE)}</p>
+      <ul class="serre">${g.aa.map(ligneAA).join('')}</ul>`).join('')
+    : `<p>Pour atteindre le seuil de réussite, l'étudiant sera
+      capable de :</p><ul class="serre">${listeAA}</ul>`;
 
   const methodes = METHODES
     .filter(([k]) => c.methodes?.[k])
@@ -509,8 +525,7 @@ export function documentDUE(ueNum, annee) {
 
     ${bloc('Finalités particulières', para(rediges.finalites))}
 
-    ${bloc("Acquis d'apprentissage", `<p>Pour atteindre le seuil de réussite, l'étudiant sera
-      capable de :</p><ul class="serre">${listeAA}</ul>`)}
+    ${bloc("Acquis d'apprentissage", blocAA)}
 
     ${bloc("Activités d'apprentissage de l'unité", `<table class="doc">
       <tr><th>Code</th><th>Intitulé</th><th class="n">Périodes</th><th class="n">Heures</th>

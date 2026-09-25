@@ -151,6 +151,9 @@ r.get('/', authRequired, (req, res) => {
     FROM cours
     WHERE ue_num IN (${listeUe.join(',')}) AND cours_code IS NOT NULL
       AND annee_scolaire = ?
+      -- Les activités Z ne se décomptent pas de la dotation : aucun
+      -- enseignant, aucune charge (Charles, 25 septembre 2026).
+      AND (ct_pp IS NULL OR ct_pp <> 'Z')
   `).all(annee);
 
   // Repli sur l'année précédente pour les UE dont le référentiel n'a pas
@@ -164,6 +167,7 @@ r.get('/', authRequired, (req, res) => {
     FROM cours
     WHERE ue_num IN (${listeUe.join(',')}) AND cours_code IS NOT NULL
       AND annee_scolaire = ?
+      AND (ct_pp IS NULL OR ct_pp <> 'Z')
   `).all(anneePrec);
 
   const coursDe = (ueNum, sectionUe) => {

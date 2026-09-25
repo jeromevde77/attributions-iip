@@ -600,6 +600,25 @@ const STYLE_SECTION = `<style>
 </style>`;
 
 /**
+ * RÉUNIR DES DIPLÔMES EN UN DOCUMENT.
+ *
+ * Chaque diplôme est une page HTML COMPLÈTE, composée depuis le modèle réglé
+ * en configuration — qu'on ne connaît donc pas d'avance. On garde l'en-tête du
+ * premier (ils sortent tous du même modèle), on met les corps bout à bout, et
+ * un saut de page les sépare : jamais après le dernier, qui ferait sortir une
+ * feuille blanche sur le papier à diplôme.
+ */
+export function reunirDiplomes(htmls) {
+  if (!htmls.length) return null;
+  if (htmls.length === 1) return htmls[0];
+  const tete = (htmls[0].match(/<head[^>]*>([\s\S]*?)<\/head>/i) || [])[1] || '';
+  const corps = htmls.map(h => (h.match(/<body[^>]*>([\s\S]*?)<\/body>/i) || [, h])[1]);
+  return `<!DOCTYPE html><html lang="fr"><head>${tete}
+<style>.saut-diplome{break-after:page;page-break-after:always;height:0;}</style>
+</head><body>${corps.join('<div class="saut-diplome"></div>')}</body></html>`;
+}
+
+/**
  * LES PIÈCES, EN LOT.
  *
  * Rien n'est produit pour un dossier que la sélection n'a pas retenu : c'est la
@@ -694,12 +713,29 @@ r.post('/pieces', authRequired,
     }
   }
 
+  // UNE PIÈCE PAR PERSONNE, pour l'envoi : on n'adresse pas à quelqu'un un
+  // fichier qui porte vingt noms. L'attestation de chacun est enveloppée seule.
+  const parEtudiant = veut.includes('attestation')
+    ? choisis.map(d => ({
+      id: d.id, nom: d.nom, prenom: d.prenom,
+      attestation: envelopper(STYLE_SECTION + attestationSection(d, ctx),
+        `Attestation de réussite de section — ${d.nom} ${d.prenom}`),
+    }))
+    : [];
+  const diplomes = pages.filter(p => p.entier).map(p => p.h);
+
   res.json({
     section: sec.code, annee: an, date_deliberation: dateDelib,
     pieces: pages.map(p => p.t),
+    // TOUS LES DIPLÔMES EN UN SEUL DOCUMENT. Une fenêtre par diplôme, c'était
+    // une seule fenêtre : le navigateur bloque les suivantes, et les autres
+    // titres ne sortaient jamais. Le lot garde la page du modèle (A4 paysage,
+    // sans marge) et saute une page entre deux diplômes.
+    diplomes_lot: diplomes.length ? reunirDiplomes(diplomes) : null,
+    par_etudiant: parEtudiant,
     // Le diplôme porte sa propre page complète (paysage, sans marge ni pied) :
     // il ne s'enveloppe pas comme les autres et ne se mêle pas à elles.
-    diplomes: pages.filter(p => p.entier).map(p => p.h),
+    diplomes,
     html: pages.some(p => !p.entier)
       ? envelopper([...styles].join('') + pages.filter(p => !p.entier)
         .map(p => p.h).join(''), `Titres — ${sec.libelle || sec.code}`)

@@ -453,12 +453,13 @@ export function structureUE(ueNum, annee) {
     || anneeActiveEnBase();
 
   let cours = db.prepare(`
-    SELECT cours_code, cours_nom, cours_per FROM cours
+    SELECT cours_code, cours_nom, cours_per, ct_pp, non_evalue FROM cours
     WHERE ue_num = ? AND annee_scolaire = ? ORDER BY cours_code
   `).all(ueNum, anneeRef);
   if (!cours.length) {
     cours = db.prepare(`
-      SELECT cours_code, MIN(cours_nom) AS cours_nom, MAX(cours_per) AS cours_per
+      SELECT cours_code, MIN(cours_nom) AS cours_nom, MAX(cours_per) AS cours_per,
+             MAX(ct_pp) AS ct_pp, MAX(non_evalue) AS non_evalue
       FROM cours WHERE ue_num = ? GROUP BY cours_code ORDER BY cours_code
     `).all(ueNum);
   }
@@ -489,7 +490,13 @@ export function structureUE(ueNum, annee) {
   // d'autonomie exclue : poids = périodes du cours ÷ périodes de l'UE.
   // Il n'est jamais saisi. Les décimales sont conservées pour le calcul ;
   // seul l'affichage arrondit à l'unité.
-  const totalPeriodes = cours.reduce((s, x) => s + Number(x.cours_per || 0), 0);
+  // LES ACTIVITÉS Z NE PÈSENT PAS (Charles, 25 septembre 2026). Le
+  // développement professionnel — AESI surtout — est du travail de
+  // l'étudiant, sans enseignant : ses périodes ne font pas le poids d'un cours.
+  // Un cours déclaré NON ÉVALUÉ ne pèse pas davantage : rien n'y est noté.
+  const perPoids = x => (x.ct_pp === 'Z' || x.non_evalue ? 0 : Number(x.cours_per || 0));
+  const evalues = cours.filter(x => !x.non_evalue);
+  const totalPeriodes = cours.reduce((s, x) => s + perPoids(x), 0);
   // À POIDS ÉGAUX SI LA MAISON L'A DIT. Sans ce court-circuit, le réglage
   // n'aurait aucun effet visible : les périodes existent presque toujours, et
   // c'est elles qui pesaient, quoi qu'on ait choisi.
@@ -498,9 +505,9 @@ export function structureUE(ueNum, annee) {
   })();
   const poidsCours = {};
   for (const x of cours) {
-    poidsCours[x.cours_code] = egalitaire
-      ? (cours.length ? 100 / cours.length : null)
-      : (totalPeriodes ? (Number(x.cours_per || 0) / totalPeriodes) * 100 : null);
+    poidsCours[x.cours_code] = x.non_evalue ? 0 : egalitaire
+      ? (evalues.length ? 100 / evalues.length : null)
+      : (totalPeriodes ? (perPoids(x) / totalPeriodes) * 100 : null);
   }
 
   // La pondération EXPLICITE l'emporte, quand elle existe. Les classeurs de
@@ -551,7 +558,9 @@ export function structureUE(ueNum, annee) {
         ? Math.round(poidsCours[c.cours_code]) : null,
       aas: siens,
       somme_poids: Math.round(somme * 100) / 100,
-      complet: siens.length > 0 && Math.abs(somme - 100) < 0.01,
+      non_evalue: !!c.non_evalue,
+      // Rien à évaluer, donc rien à compléter.
+      complet: !!c.non_evalue || (siens.length > 0 && Math.abs(somme - 100) < 0.01),
     };
   });
 }
@@ -1806,15 +1815,17 @@ r.get('/ue/:ueNum/liens', authRequired, (req, res) => {
   const annee = req.query.annee || anneeDeTravail(req);
 
   let cours = db.prepare(`
-    SELECT cours_code, cours_nom, cours_per FROM cours
+    SELECT cours_code, cours_nom, cours_per, ct_pp, non_evalue FROM cours
     WHERE ue_num = ? AND annee_scolaire = ? ORDER BY cours_code
   `).all(ueNum, annee);
   if (!cours.length) {
     cours = db.prepare(`
-      SELECT cours_code, MIN(cours_nom) AS cours_nom, MAX(cours_per) AS cours_per
+      SELECT cours_code, MIN(cours_nom) AS cours_nom, MAX(cours_per) AS cours_per,
+             MAX(ct_pp) AS ct_pp, MAX(non_evalue) AS non_evalue
       FROM cours WHERE ue_num = ? GROUP BY cours_code ORDER BY cours_code
     `).all(ueNum);
   }
+  cours = cours.map(c => ({ ...c, non_evalue: !!c.non_evalue }));
 
   const acquis = db.prepare(`
     SELECT aa_code, aa_num, description, cours_code AS cours_referentiel
@@ -1844,11 +1855,12 @@ r.get('/ue/:ueNum/liens', authRequired, (req, res) => {
     sommes,
     acquis_sans_cours: acquis.filter(a => !lies.has(a.aa_code)).map(a => a.aa_code),
     cours_incomplets: cours
-      .filter(c => { const s = sommes[c.cours_code]; return s != null && Math.abs(s - 10) > 0.001 && Math.abs(s - 100) > 0.01; })
+      .filter(c => { const s = sommes[c.cours_code]; return !c.non_evalue && s != null && Math.abs(s - 10) > 0.001 && Math.abs(s - 100) > 0.01; })
       .map(c => c.cours_code),
     pret: cours.length > 0 && acquis.length > 0
       && acquis.every(a => lies.has(a.aa_code))
       && cours.every(c => {
+        if (c.non_evalue) return true;            // rien n'y est évalué
         const s = sommes[c.cours_code];
         return s != null && (Math.abs(s - 10) < 0.001 || Math.abs(s - 100) < 0.01);
       }),
@@ -1868,10 +1880,51 @@ r.get('/ue/:ueNum/structure', authRequired, (req, res) => {
 });
 
 // ── Enregistrer les pondérations d'un cours ─────────────────────────────────
+/**
+ * UN COURS NON ÉVALUÉ. Des périodes Z, un accompagnement : le cours existe au
+ * dossier pédagogique, mais aucun acquis n'y est noté. On le DIT, par année —
+ * on ne le déduit pas du classement.
+ *
+ * Le cocher alors que des acquis y sont reliés défait ces liens : c'est un
+ * geste qui se confirme. Le serveur rend d'abord le nombre (409), puis agit
+ * sur `delier: true`, en une transaction.
+ */
+r.put('/ue/:ueNum/cours/:code/evaluation', authRequired, roleRequired('admin', 'editeur'),
+      (req, res) => {
+  const ueNum = Number(req.params.ueNum);
+  const code = req.params.code;
+  const annee = req.body?.annee || anneeDeTravail(req);
+  const non = req.body?.non_evalue ? 1 : 0;
+  const cours = db.prepare('SELECT 1 FROM cours WHERE cours_code = ? AND ue_num = ? AND annee_scolaire = ?')
+    .get(code, ueNum, annee);
+  if (!cours) return res.status(404).json({ error: `Cours ${code} introuvable en ${annee}.` });
+  const liens = db.prepare('SELECT COUNT(*) AS n FROM aa_ponderation WHERE cours_code = ?').get(code).n;
+  if (non && liens && !req.body?.delier) {
+    return res.status(409).json({ confirmation_requise: true, liens,
+      error: `${liens} acquis sont reliés à ce cours : ils en seront détachés.` });
+  }
+  db.transaction(() => {
+    if (non && liens) db.prepare('DELETE FROM aa_ponderation WHERE cours_code = ?').run(code);
+    db.prepare('UPDATE cours SET non_evalue = ? WHERE cours_code = ? AND annee_scolaire = ?')
+      .run(non, code, annee);
+  })();
+  res.json({ ok: true, cours_code: code, annee, non_evalue: !!non, delies: non ? liens : 0 });
+});
+
 r.put('/ponderations', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
   const { ue_num, cours_code, ponderations } = req.body;
   if (!ue_num || !cours_code || !Array.isArray(ponderations)) {
     return res.status(400).json({ error: 'ue_num, cours_code et ponderations requis' });
+  }
+  // On ne pèse pas d'acquis dans un cours déclaré non évalué : ce serait une
+  // note attendue là où personne n'en donnera.
+  if (ponderations.some(p => Number(p.poids) > 0)) {
+    const an = req.body.annee || anneeDeTravail(req);
+    const ne = db.prepare('SELECT non_evalue FROM cours WHERE cours_code = ? AND annee_scolaire = ?')
+      .get(cours_code, an)?.non_evalue;
+    if (ne) {
+      return res.status(409).json({ error: `Le cours ${cours_code} est déclaré « pas évalué » : décochez-le d'abord pour y relier des acquis.` });
+    }
   }
   // Un poids ABSENT ou NUL délie l'acquis du cours : c'est par cette table que
   // le lien existe, et sans effacement on ne pouvait jamais le défaire.

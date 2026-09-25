@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { IconTargetArrow, IconLink, IconUnlink, IconAlertTriangle, IconPencil,
          IconArrowUp, IconArrowDown, IconListNumbers, IconCheck, IconX, IconTrash } from '@tabler/icons-react';
 import { authHeaders, getUser } from '../lib/api.js';
+import { chargerChapeaux } from '../lib/chapeaux.js';
 
 /**
  * Acquis d'apprentissage d'une UE.
@@ -15,7 +16,7 @@ export default function AcquisUE({ ueNum, annee, estAdmin }) {
   const [data, setData] = useState(null);
   const [erreur, setErreur] = useState(null);
   const [enCours, setEnCours] = useState(null);
-  const [edition, setEdition] = useState(null);   // { code, nouveau_code, description }
+  const [edition, setEdition] = useState(null);   // { code, nouveau_code, description, chapeau }
   // Le référentiel se corrige par la direction : un import maladroit du
   // dossier pédagogique doit pouvoir se réparer dans la maison.
   const peutCorriger = estAdmin || ['admin', 'directeur', 'directeur_adjoint'].includes(getUser()?.role);
@@ -30,15 +31,18 @@ export default function AcquisUE({ ueNum, annee, estAdmin }) {
   }
 
   async function enregistrerEdition() {
-    const { code, nouveau_code, description } = edition;
+    const { code, nouveau_code, description, chapeau } = edition;
     const corps = {};
     if (nouveau_code.trim() && nouveau_code.trim() !== code) corps.nouveau_code = nouveau_code.trim();
-    const avant = data.acquis.find(a => a.aa_code === code)?.description || '';
+    const ligne = data.acquis.find(a => a.aa_code === code) || {};
+    const avant = ligne.description || '';
     if (description.trim() && description.trim() !== avant) corps.description = description.trim();
+    // Un chapeau vidé s'efface : l'acquis rejoint le groupe qui le précède.
+    if ((chapeau || '').trim() !== (ligne.chapeau || '').trim()) corps.chapeau = (chapeau || '').trim();
     if (!Object.keys(corps).length) { setEdition(null); return; }
     if (corps.nouveau_code && !window.confirm(`Renommer ${code} en ${corps.nouveau_code} ?\n\nLe nouveau code sera repris partout : pondérations, notes, motivations, propositions des professeurs.`)) return;
     const j = await envoyer(`/api/aa/${encodeURIComponent(code)}`, corps);
-    if (j) { setEdition(null); await charger(); }
+    if (j) { setEdition(null); chargerChapeaux(ueNum, true); await charger(); }
   }
 
   /* L'ORDRE, PUIS LA NUMÉROTATION. Déplacer un acquis réordonne sans toucher
@@ -138,7 +142,16 @@ export default function AcquisUE({ ueNum, annee, estAdmin }) {
       </div>
 
       <div className="border border-gray-200 rounded-lg divide-y divide-gray-100">
-        {data.acquis.map((a, i) => (
+        {data.acquis.map((a, i) => [
+          /* LE CHAPEAU OUVRE SON GROUPE : il se lit au-dessus du premier
+             acquis qu'il introduit, et vaut pour les suivants jusqu'au
+             prochain — comme dans le dossier pédagogique. */
+          a.chapeau && edition?.code !== a.aa_code && (
+            <div key={`${a.aa_code}|ch`}
+              className="px-3 pt-2.5 pb-1 text-[12px] italic text-slate-600 leading-snug tab-repere">
+              {a.chapeau}
+            </div>
+          ),
           <div key={a.aa_code} className="px-3 py-2.5 flex items-start gap-3 hover:bg-gray-50/60">
             {peutCorriger && (
               <div className="flex flex-col flex-none -my-0.5">
@@ -160,6 +173,14 @@ export default function AcquisUE({ ueNum, annee, estAdmin }) {
             <div className="flex-1 min-w-0">
               {edition?.code === a.aa_code ? (
                 <div className="space-y-1.5">
+                  <label className="block text-[11px] text-slate-500">
+                    Chapeau — le contexte qui ouvre un groupe à partir de cet acquis
+                    (facultatif ; vide, l'acquis suit le groupe précédent)
+                    <textarea value={edition.chapeau} rows={2}
+                      placeholder="ex. : Face à une situation clinique simulée, en disposant de la documentation, de :"
+                      onChange={e => setEdition(x => ({ ...x, chapeau: e.target.value }))}
+                      className="mt-0.5 w-full text-[12px] italic border border-slate-300 rounded px-2 py-1" />
+                  </label>
                   <textarea value={edition.description} rows={2}
                     onChange={e => setEdition(x => ({ ...x, description: e.target.value }))}
                     className="w-full text-[13px] border border-slate-300 rounded px-2 py-1" />
@@ -177,8 +198,9 @@ export default function AcquisUE({ ueNum, annee, estAdmin }) {
                   <span className="flex-1">{a.description}</span>
                   {peutCorriger && (
                     <>
-                      <button onClick={() => setEdition({ code: a.aa_code, nouveau_code: a.aa_code, description: a.description || '' })}
-                        title="Corriger le code ou le libellé" className="text-slate-300 hover:text-iip-blue flex-none">
+                      <button onClick={() => setEdition({ code: a.aa_code, nouveau_code: a.aa_code, description: a.description || '',
+                                                      chapeau: a.chapeau || '' })}
+                        title="Corriger le code, le libellé ou le chapeau" className="text-slate-300 hover:text-iip-blue flex-none">
                         <IconPencil size={14} /></button>
                       <button onClick={() => supprimer(a)}
                         title="Supprimer cet acquis — s'il est déjà évalué, Lucie dit d'abord ce qui serait emporté"
@@ -208,8 +230,8 @@ export default function AcquisUE({ ueNum, annee, estAdmin }) {
               </div>
               )}
             </div>
-          </div>
-        ))}
+          </div>,
+        ])}
       </div>
 
       {data.epreuve_integree && (

@@ -238,14 +238,16 @@ r.get('/structure', authRequired, (req, res) => {
     if (secs.length === 0) secs = [canon(ue.section) || '(sans section)'];
     const coursUe = coursParUe[ue.ue_num] || [];
     // Totaux CALCULÉS à partir des cours (× dédoublement pour cours et autonomie).
-    let calcPerCours = 0, calcAutonomie = 0;
+    let calcPerCours = 0, calcAutonomie = 0, calcZ = 0;
     for (const c of coursUe) {
+      // Une activité Z n'est pas une charge : ses périodes vont au total Z.
+      if (c.ct_pp === 'Z') { calcZ += Number(c.per_etudiant ?? c.cours_per) || 0; continue; }
       const fac = c.dedouble === 'O' ? 2 : 1;
       calcPerCours += (Number(c.cours_per) || 0) * fac;
       calcAutonomie += (Number(c.cours_autonomie) || 0) * fac;
     }
     const calcTotProf = calcPerCours + calcAutonomie;        // périodes attribuables (charge prof)
-    const perZ = Number(ue.ue_per_z) || 0;                   // activités Z (périodes étudiant, hors charge)
+    const perZ = Number(ue.ue_per_z) || calcZ;               // activités Z (périodes étudiant, hors charge)
     const ueData = {
       ...ue,
       nb_attributions: ueAttrMap[ue.ue_num] || 0,
@@ -1807,7 +1809,8 @@ r.get('/grille-section', authRequired, (req, res) => {
       autonomie_complement: complement,
       autonomie_utilisee: utilise,
       autonomie_restante: enveloppe - utilise,
-      somme_dp: cours.reduce((s, c) => s + (Number(c.cours_per) || 0), 0),
+      somme_dp: cours.filter(c => c.ct_pp !== 'Z')
+        .reduce((s, c) => s + (Number(c.cours_per) || 0), 0),
       cours,
     });
   }
@@ -2137,8 +2140,16 @@ r.post('/import-dp', authRequired, roleRequired('admin', 'editeur'), async (req,
     const coursCrees = [], coursExistants = [], coursLies = [];
 
     const lier = db.prepare(`UPDATE cours SET ct_pp = COALESCE(@ct_pp, ct_pp),
-      cours_per = COALESCE(@cours_per, cours_per)
+      cours_per = COALESCE(@cours_per, cours_per),
+      per_etudiant = COALESCE(@per_etudiant, per_etudiant)
       WHERE cours_code = @code AND annee_scolaire = @annee`);
+    /* UNE ACTIVITÉ Z N'A PAS DE PÉRIODES DE COURS. Ce sont des périodes
+       ÉTUDIANT (7.3 du dossier), sans enseignant : écrites en cours_per,
+       elles entraient dans la charge, la dotation, la grille et le poids du
+       cours dans l'unité. Elles vont en per_etudiant, comme à la saisie. */
+    const perDe = c => (String(c.classement).toUpperCase() === 'Z'
+      ? { cours_per: null, per_etudiant: c.periodes || null }
+      : { cours_per: c.periodes || null, per_etudiant: null });
 
     for (const [ci, c] of coursData.entries()) {
       const decision = coursMap ? (coursMap[ci] == null ? null : String(coursMap[ci])) : null;
@@ -2149,8 +2160,7 @@ r.post('/import-dp', authRequired, roleRequired('admin', 'editeur'), async (req,
           coursExistants.push(`${c.nom} (cours ${decision} introuvable — ignoré)`);
           continue;
         }
-        lier.run({ ct_pp: c.classement || null, cours_per: c.periodes || null,
-                   code: decision, annee });
+        lier.run({ ct_pp: c.classement || null, ...perDe(c), code: decision, annee });
         coursLies.push({ code: decision, nom: c.nom });
         continue;
       }
@@ -2166,9 +2176,9 @@ r.post('/import-dp', authRequired, roleRequired('admin', 'editeur'), async (req,
       while (db.prepare('SELECT 1 FROM cours WHERE cours_code = ? AND annee_scolaire = ?').get(code, annee)) {
         idx++; code = `${ueNum}.${idx}`;
       }
-      db.prepare(`INSERT INTO cours (cours_code, ue_num, annee_scolaire, cours_nom, ct_pp, cours_per, section)
-        VALUES (@code, @ue_num, @annee, @nom, @ct_pp, @cours_per, @section)`)
-        .run({ code, ue_num: ueNum, annee, nom: c.nom, ct_pp: c.classement || null, cours_per: c.periodes || null, section: coursSection || null });
+      db.prepare(`INSERT INTO cours (cours_code, ue_num, annee_scolaire, cours_nom, ct_pp, cours_per, per_etudiant, section)
+        VALUES (@code, @ue_num, @annee, @nom, @ct_pp, @cours_per, @per_etudiant, @section)`)
+        .run({ code, ue_num: ueNum, annee, nom: c.nom, ct_pp: c.classement || null, ...perDe(c), section: coursSection || null });
       coursCrees.push({ code, nom: c.nom });
     }
 
@@ -2180,14 +2190,18 @@ r.post('/import-dp', authRequired, roleRequired('admin', 'editeur'), async (req,
       const dejaLa = db.prepare('SELECT aa_code, cours_code FROM aa WHERE ue_num = ?').all(ueNum);
       const parCode = new Map(dejaLa.map(a => [a.aa_code, a]));
       const insAA = db.prepare(`
-        INSERT INTO aa (aa_code, aa_num, ue_num, cours_code, description)
-        VALUES (?,?,?,?,?)
-        ON CONFLICT(aa_code) DO UPDATE SET description = excluded.description
+        INSERT INTO aa (aa_code, aa_num, ue_num, cours_code, description, chapeau)
+        VALUES (?,?,?,?,?,?)
+        ON CONFLICT(aa_code) DO UPDATE SET description = excluded.description,
+          -- Le chapeau lu dans le dossier fait foi ; s'il n'en lit aucun, celui
+          -- qu'on a écrit à la main dans Lucie reste en place.
+          chapeau = COALESCE(excluded.chapeau, aa.chapeau)
       `);
       for (const a of acquisData) {
         const code = `AA${ueNum}.${a.num}`;
         if (parCode.has(code)) aaExistants++; else aaCrees++;
-        insAA.run(code, a.num, ueNum, parCode.get(code)?.cours_code || null, a.description);
+        insAA.run(code, a.num, ueNum, parCode.get(code)?.cours_code || null, a.description,
+          a.chapeau || null);
       }
     } catch (e) { console.error('[import-dp] acquis :', e.message); }
 

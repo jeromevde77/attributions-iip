@@ -1457,6 +1457,17 @@ période » comme une anomalie propre — il rattrape ce qui a pu être écrit a
 > ouvert » mais sur **« y a-t-il une ligne ? »** : un cours qui garde les
 > siennes n'est pas touché, et ce qu'on a sciemment retiré ne ressuscite pas.
 
+**LES ACTIVITÉS Z NE SE PLANIFIENT PAS ET NE COMPTENT PAS** (Charles, 25
+septembre 2026 — « les activités de développement professionnel en AESI,
+périodes Z, ne comptent pas »). Ce sont des périodes ÉTUDIANT (7.3 du
+dossier), du travail en autonomie, sans enseignant. Elles sortent donc de la
+grille d'organisation, du document 2 et de la dotation, de la charge, des
+totaux du référentiel et du poids d'un cours dans son unité. Elles se rangent
+en `cours.per_etudiant`, jamais en `cours_per` — l'import du dossier les y
+mettait, et c'est ainsi qu'elles s'étaient mises à compter. **Reste à trancher :**
+figurent-elles dans le total des périodes porté par les pièces de l'étudiant
+(attestation, DUE, PV de valorisation) ?
+
 **LA FRISE PORTE DEUX GRANDEURS.** La **longueur** d'une barre est sa durée sur
 l'année ; son **épaisseur**, son intensité — 5 px pour 2 h par semaine. Une
 unité étalée sur deux quadrimestres est longue et fine, la même massée sur six

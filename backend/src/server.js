@@ -2053,6 +2053,33 @@ try {
   try { db.exec('PRAGMA foreign_keys = ON;'); } catch {}
 }
 
+// Hors du grand bloc de migrations : une erreur plus haut l'interromprait,
+// et la DUE, qui lit la colonne, tomberait avec lui.
+try {
+  /* LE CHAPEAU D'UN GROUPE D'ACQUIS (2.12.174). La phrase qui introduit les
+   * acquis dans le dossier pédagogique — la situation, les moyens, les
+   * conditions — est le contexte sans lequel l'acquis ne se lit pas. Elle est
+   * portée par le PREMIER acquis du groupe qu'elle ouvre : un groupe n'existe
+   * pas autrement que par sa phrase, et une table de groupes ferait deux
+   * sources pour un même ordre. Additive, vide partout. */
+  if (!db.prepare('PRAGMA table_info(aa)').all().some(c => c.name === 'chapeau')) {
+    db.exec('ALTER TABLE aa ADD COLUMN chapeau TEXT');
+    console.log('[migration] Table aa : colonne chapeau ajoutée');
+  }
+} catch (e) { console.error('[migration] aa.chapeau :', e.message); }
+
+/* UNE ACTIVITÉ D'ENSEIGNEMENT PEUT NE PAS ÊTRE ÉVALUÉE (2.12.176, Charles).
+ * Des périodes Z, un accompagnement : le cours existe au dossier, mais aucun
+ * acquis ne s'y évalue. Sans le dire, il restait « non paramétré » à jamais et
+ * bloquait l'état « prêt » de toute l'unité. Case explicite, par année :
+ * jamais déduite du classement — on ne tranche pas à la place de la direction. */
+try {
+  if (!db.prepare('PRAGMA table_info(cours)').all().some(c => c.name === 'non_evalue')) {
+    db.exec('ALTER TABLE cours ADD COLUMN non_evalue INTEGER NOT NULL DEFAULT 0');
+    console.log('[migration] Table cours : colonne non_evalue ajoutée');
+  }
+} catch (e) { console.error('[migration] cours.non_evalue :', e.message); }
+
 // ─── Seeding des templates de documents — INDÉPENDANT de la migration ───────
 // Bloc séparé : même si la migration principale échoue, les templates système
 // (Synthèse, Contrat CDD, PV Recours, PV Fraude) sont toujours seedés.

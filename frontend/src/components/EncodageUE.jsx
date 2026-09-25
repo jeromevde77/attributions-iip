@@ -235,7 +235,7 @@ export default function EncodageUE({ ueNum, annee, onClose, onEnregistre, onPara
               codes ; le professeur qui corrige a l'énoncé sur sa copie, pas à
               l'écran, et rien n'est plus facile que de coter la mauvaise
               colonne quand on ne les distingue que par un numéro. */}
-          <PanneauAcquis colonnes={(data?.cours || [])
+          <PanneauAcquis ueNum={ueNum} colonnes={(data?.cours || [])
             .filter(c => c.acquis?.length)
             .flatMap(c => c.acquis.map(a => ({
               cours_code: c.cours_code, cours_nom: c.cours_nom,

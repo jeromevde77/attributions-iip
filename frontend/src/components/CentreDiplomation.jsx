@@ -2,9 +2,21 @@ import { useEffect, useState } from 'react';
 import { nomPropre } from '../lib/nom.js';
 import {
   IconX, IconAward, IconAlertTriangle, IconClock, IconSquare, IconSquareCheck,
-  IconPrinter, IconCertificate,
+  IconSquareMinus, IconCertificate, IconEye, IconFileTypePdf, IconMail,
 } from '@tabler/icons-react';
 import { authHeaders } from '../lib/api.js';
+import { useEnvoiMail } from '../lib/envoiMail.js';
+import PreviewModal from './PreviewModal.jsx';
+import EnvoiMailModal from './EnvoiMailModal.jsx';
+
+// La date de délibération, telle qu'elle s'écrit au bas de la liste des
+// diplômés (la route l'imprime telle quelle, contrairement au PV).
+const dateLongue = iso => {
+  if (!iso) return '';
+  const d = new Date(`${iso}T12:00:00`);
+  return Number.isNaN(d.getTime()) ? iso
+    : d.toLocaleDateString('fr-BE', { day: 'numeric', month: 'long', year: 'numeric' });
+};
 
 /**
  * LA DIPLOMATION D'UNE SECTION.
@@ -30,9 +42,20 @@ export default function CentreDiplomation({ annee, onClose }) {
   const [d, setD] = useState(null);
   const [retenus, setRetenus] = useState(new Set());
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
-  const [veut, setVeut] = useState({ diplome: true, attestation: true, liste: false });
+  const [veut, setVeut] = useState({ diplome: true, attestation: true, liste: false, pv: false });
   const [enCours, setEnCours] = useState(false);
   const [erreur, setErreur] = useState(null);
+  // Ce qui a été produit, en attente d'être vu, imprimé, tiré en PDF ou envoyé.
+  const [produits, setProduits] = useState(null);
+  const [manques, setManques] = useState([]);
+  const [apercu, setApercu] = useState(null);
+  const [envoi, setEnvoi] = useState(null);
+  const [pdfEnCours, setPdfEnCours] = useState(null);
+  const envoiMail = useEnvoiMail();
+
+  // UNE PIÈCE PRODUITE NE SURVIT PAS À UN CHANGEMENT DE SÉLECTION. Sinon on
+  // imprimerait, sous le nom de la sélection affichée, les titres d'une autre.
+  useEffect(() => { setProduits(null); setManques([]); }, [retenus, veut, date, section]);
 
   useEffect(() => {
     fetch('/api/ref/sections', { headers: authHeaders() })
@@ -60,38 +83,100 @@ export default function CentreDiplomation({ annee, onClose }) {
     const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n;
   });
 
+  /**
+   * PRODUIRE, PUIS CHOISIR CE QU'ON EN FAIT.
+   *
+   * Les pièces s'ouvraient chacune dans une fenêtre, après l'aller-retour au
+   * serveur : le navigateur ne reconnaît plus alors le clic de l'utilisateur,
+   * et il bloquait tout — « la fenêtre d'impression a été bloquée ». On
+   * produit donc d'abord ; chaque pièce attend ensuite son geste — aperçu et
+   * impression, PDF, envoi —, et c'est CE clic qui ouvre ce qui doit l'être.
+   */
   const produire = async () => {
-    const pieces = Object.entries(veut).filter(([, v]) => v).map(([k]) => k);
-    if (!retenus.size || !pieces.length) return;
-    setEnCours(true); setErreur(null);
+    const titres = veut.diplome || veut.attestation;
+    if (!retenus.size || !(titres || veut.liste || veut.pv)) return;
+    setEnCours(true); setErreur(null); setProduits(null); setManques([]);
+    const ids = [...retenus];
+    const poster = (url, corps) => fetch(url, {
+      method: 'POST', headers: authHeaders(), body: JSON.stringify(corps),
+    }).then(async r => { const j = await r.json(); if (!r.ok) throw new Error(j.error); return j; });
     try {
-      const rep = await fetch('/api/diplomes/pieces', {
-        method: 'POST', headers: authHeaders(),
-        body: JSON.stringify({ section, annee, etudiants: [...retenus],
-          pieces, date_deliberation: date }),
+      const [t, l, pv] = await Promise.all([
+        titres ? poster('/api/diplomes/pieces', {
+          section, annee, etudiants: ids, date_deliberation: date,
+          pieces: ['diplome', 'attestation'].filter(k => veut[k]),
+        }) : null,
+        veut.liste ? poster('/api/diplomes/document', {
+          section, annee, etudiants: ids, date: dateLongue(date),
+        }) : null,
+        veut.pv ? poster('/api/diplomes/pv-section', {
+          section, annee, etudiants: ids, date,
+        }) : null,
+      ]);
+      const an = String(annee).replace(/\W/g, '');
+      const out = [];
+      if (t?.diplomes_lot) out.push({
+        cle: 'diplome', titre: 'Diplômes', nb: t.diplomes.length,
+        detail: 'A4 paysage, sans marge — sur le papier à diplôme',
+        html: t.diplomes_lot, nom: `Diplomes_${section}_${an}`, paysage: true,
       });
-      const j = await rep.json();
-      if (!rep.ok) { setErreur(j.error); return; }
-      // LE DIPLÔME NE SE MÊLE PAS AUX AUTRES PIÈCES : il se compose en paysage,
-      // sans marge ni pied, et un saut de page ne suffirait pas à le séparer
-      // proprement des pièces portrait. Une fenêtre par nature de document.
-      for (const html of [...(j.diplomes || []), ...(j.html ? [j.html] : [])]) {
-        const w = window.open('', '_blank');
-        if (!w) {
-          setErreur('La fenêtre d’impression a été bloquée par le navigateur.');
-          return;
-        }
-        w.document.write(html); w.document.close();
-      }
-      if (j.manques?.length) {
-        setErreur(`${j.manques.length} pièce(s) comportent un champ à compléter : `
-          + j.manques.slice(0, 3).join(' · '));
-      }
+      if (t?.html) out.push({
+        cle: 'attestation', titre: 'Attestations de réussite de section',
+        nb: t.par_etudiant?.length || 0, detail: 'une page par étudiant',
+        html: t.html, nom: `Attestations_section_${section}_${an}`,
+        envoi: (t.par_etudiant || []).map(e => ({
+          html: e.attestation,
+          nom_fichier: `Attestation_section_${e.nom}_${e.prenom}_${an}`,
+          destinataire: { type: 'etudiant', id: e.id, nom: nomPropre(e.nom, e.prenom) },
+        })),
+      });
+      if (l?.html) out.push({
+        cle: 'liste', titre: 'Liste des étudiants diplômés', nb: l.nb,
+        detail: 'formulaire de la Fédération', html: l.html,
+        nom: `Liste_diplomes_${section}_${an}`,
+      });
+      if (pv?.html) out.push({
+        cle: 'pv', titre: `Procès-verbal de délibération de section (annexe ${pv.annexe})`,
+        nb: pv.nb, detail: 'fait en deux exemplaires', html: pv.html,
+        nom: `PV_section_${section}_${an}`,
+      });
+      setProduits(out);
+      setManques([...(t?.manques || []), ...(l?.manques || []), ...(pv?.manques || [])]);
     } catch (e) { setErreur(e.message); } finally { setEnCours(false); }
   };
 
+  // Le PDF se rend au serveur : format imposé, et le pied sur chaque feuille
+  // pour les pièces administratives. Le diplôme garde SA page — il ne porte ni
+  // pied ni marge, c'est son modèle qui décide.
+  async function enPdf(p) {
+    setPdfEnCours(p.cle); setErreur(null);
+    try {
+      const rep = await fetch('/api/impression/pdf', {
+        method: 'POST', headers: authHeaders(),
+        body: JSON.stringify(p.paysage
+          ? { html: p.html, nom: p.nom, pied: false, orientation: 'paysage', page_css: true }
+          : { html: p.html, nom: p.nom, pagination: 'si-plusieurs' }),
+      });
+      if (!rep.ok) {
+        const j = await rep.json().catch(() => ({}));
+        throw new Error(j.error || 'Le rendu PDF a échoué.');
+      }
+      const url = URL.createObjectURL(await rep.blob());
+      const a = document.createElement('a');
+      a.href = url; a.download = `${p.nom}.pdf`;
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 30000);
+    } catch (e) { setErreur(e.message); } finally { setPdfEnCours(null); }
+  }
+
   const liste = d?.diplomables || [];
   const nb = retenus.size;
+  const tous = liste.length > 0 && liste.every(x => retenus.has(x.id));
+  const aucun = nb === 0;
+  const cocherTout = () => setRetenus(new Set(liste.map(x => x.id)));
+  const decocherTout = () => setRetenus(new Set());
+  const cetteAnnee = () => setRetenus(new Set(d?.proposes || []));
+  const nbPieces = ['diplome', 'attestation', 'liste', 'pv'].filter(k => veut[k]).length;
 
   return (
     <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] flex items-start justify-center z-[60] p-4">
@@ -137,7 +222,7 @@ export default function CentreDiplomation({ annee, onClose }) {
             <div className="font-semibold mb-0.5">Pièces</div>
             <div className="flex gap-1">
               {[['diplome', 'Diplôme'], ['attestation', 'Attestation de section'],
-                ['liste', 'Liste']].map(([k, l]) => (
+                ['liste', 'Liste des diplômés'], ['pv', 'PV de section']].map(([k, l]) => (
                 <button key={k} onClick={() => setVeut(v => ({ ...v, [k]: !v[k] }))}
                   className={`px-2 py-1.5 text-[12px] rounded-lg border font-medium
                     ${veut[k] ? 'bg-iip-blue border-iip-blue text-white'
@@ -154,6 +239,54 @@ export default function CentreDiplomation({ annee, onClose }) {
             <div className="px-3 py-2 rounded-xl bg-rose-50 border border-rose-200
                             text-rose-900">{erreur}</div>
           )}
+          {!!produits?.length && (
+            <div className="border border-slate-200 rounded-xl overflow-hidden">
+              <div className="px-3 py-2 tab-entete text-[12px] font-semibold text-iip-blue">
+                Pièces prêtes — {nb} étudiant(s)
+              </div>
+              <div className="divide-y divide-slate-100">
+                {produits.map(p => (
+                  <div key={p.cle} className="px-3 py-2 flex items-center gap-3 flex-wrap">
+                    <div className="flex-1 min-w-0">
+                      <div className="font-semibold text-slate-800">
+                        {p.titre} <span className="text-slate-400 font-normal">· {p.nb}</span>
+                      </div>
+                      <div className="text-[11px] text-slate-500">{p.detail}</div>
+                    </div>
+                    <button onClick={() => setApercu(p)}
+                      className="bouton controle px-3 flex items-center gap-1.5">
+                      <IconEye size={15} /> Aperçu et impression
+                    </button>
+                    <button onClick={() => enPdf(p)} disabled={!!pdfEnCours}
+                      className="bouton-sortir controle px-3 flex items-center gap-1.5
+                                 disabled:opacity-40">
+                      <IconFileTypePdf size={15} />
+                      {pdfEnCours === p.cle ? 'Rendu…' : 'PDF'}
+                    </button>
+                    {p.envoi && envoiMail?.actif && (
+                      <button onClick={() => setEnvoi(p)} disabled={!p.envoi.length}
+                        title="Chaque étudiant reçoit SA pièce, à son adresse de l'école"
+                        className="bouton controle px-3 flex items-center gap-1.5
+                                   disabled:opacity-40">
+                        <IconMail size={15} /> Envoyer aux étudiants
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+              {!!manques.length && (
+                <div className="px-3 py-2 border-t border-amber-200 bg-amber-50
+                                text-[12px] text-amber-900 flex items-start gap-2">
+                  <IconAlertTriangle size={14} className="mt-px flex-none" />
+                  <span>
+                    <b>{manques.length} champ(s) à compléter</b> avant signature :{' '}
+                    {manques.slice(0, 4).join(' · ')}{manques.length > 4 ? ' …' : ''}
+                  </span>
+                </div>
+              )}
+            </div>
+          )}
+
           {enCours && <p className="text-slate-400 italic py-6 text-center">Calcul…</p>}
           {!section && !enCours && (
             <p className="text-slate-400 italic py-8 text-center">
@@ -189,6 +322,29 @@ export default function CentreDiplomation({ annee, onClose }) {
                 </p>
               ) : (
                 <div className="border border-slate-200 rounded-xl overflow-hidden">
+                  <div className="px-3 py-1.5 tab-entete flex items-center gap-2.5
+                                  text-[12px] text-slate-600">
+                    <button onClick={tous ? decocherTout : cocherTout}
+                      title={tous ? 'Tout décocher' : 'Tout cocher'}
+                      className="text-iip-blue">
+                      {tous ? <IconSquareCheck size={16} />
+                        : aucun ? <IconSquare size={16} className="text-slate-400" />
+                          : <IconSquareMinus size={16} />}
+                    </button>
+                    <span className="font-semibold">{nb} / {liste.length}</span>
+                    <span className="text-slate-300">·</span>
+                    <button onClick={cocherTout} disabled={tous}
+                      className="hover:text-iip-blue disabled:opacity-40">Tout cocher</button>
+                    <button onClick={decocherTout} disabled={aucun}
+                      className="hover:text-iip-blue disabled:opacity-40">Aucun</button>
+                    {!!d?.proposes?.length && d.proposes.length !== liste.length && (
+                      <button onClick={cetteAnnee}
+                        title="Ceux qui ont terminé cette année — la sélection proposée à l'ouverture"
+                        className="hover:text-iip-blue">
+                        Terminé en {annee} ({d.proposes.length})
+                      </button>
+                    )}
+                  </div>
                   <div className="divide-y divide-slate-100 max-h-[380px] overflow-y-auto">
                     {liste.map(x => {
                       const pris = retenus.has(x.id);
@@ -279,7 +435,7 @@ export default function CentreDiplomation({ annee, onClose }) {
                 </span>
               )}
             </p>
-            <button onClick={produire} disabled={enCours || !nb}
+            <button onClick={produire} disabled={enCours || !nb || !nbPieces}
               className="px-4 py-2 text-[13px] rounded-lg bg-iip-blue text-white
                          font-semibold flex items-center gap-1.5 disabled:opacity-40">
               <IconCertificate size={15} /> Produire les pièces
@@ -287,6 +443,20 @@ export default function CentreDiplomation({ annee, onClose }) {
           </div>
         )}
       </div>
+
+      {apercu && (
+        <PreviewModal html={apercu.html} titre={apercu.titre}
+          sousTitre={`${section} · ${annee} · ${apercu.nb} pièce(s)`}
+          nomFichier={apercu.nom} envoiPossible={false}
+          astuceImpression={apercu.paysage
+            ? "⊞ « Paysage », marges « Aucune », sur le papier à diplôme" : null}
+          onClose={() => setApercu(null)} />
+      )}
+      {envoi && (
+        <EnvoiMailModal pieces={envoi.envoi} typeDoc="attestation_section"
+          sujet={`${envoi.titre} — ${section} ${String(annee).replace('-', '/')}`}
+          onClose={() => setEnvoi(null)} />
+      )}
     </div>
   );
 }

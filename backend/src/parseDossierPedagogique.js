@@ -111,28 +111,48 @@ function parseDP(xmlStr) {
   //   puis un acquis par paragraphe (les puces Word ne laissent pas de trace
   //   dans le texte extrait, chaque puce devient donc une ligne),
   //   puis « Pour la détermination du degré de maîtrise… » qui clôt la liste.
+  // LE CHAPEAU. Les dossiers ne listent pas toujours les acquis à plat : une
+  // phrase les introduit — « …l'étudiant sera capable, face à une situation
+  // …, en disposant de …, de : » —, et certains en ont plusieurs, chacune au
+  // dessus de son groupe. Cette phrase EST le contexte de l'acquis : sans
+  // elle, « de rédiger un rapport » ne dit ni dans quelle situation ni avec
+  // quels moyens. On la jetait ; elle est désormais gardée, portée par le
+  // PREMIER acquis du groupe qu'elle introduit (`chapeau`).
+  const estChapeau = l => /:\s*$/.test(l) && !/^[-•–]|^\d+[.)]\s/.test(l)
+    && (/sera capable|seuil de r[ée]ussite/i.test(l)
+      || /(?:\bde|\bd['’]|\bà|\bpour)\s*:\s*$/i.test(l)
+      || /^(face|en |dans |à partir|au départ|au d[ée]part|pour |sur base|lors )/i.test(l));
   const decouperAcquis = (bloc) => {
     if (!bloc) return [];
     const lignes = bloc.split('\n').map(l => l.trim()).filter(Boolean);
     const out = [];
     let commence = false;
+    let amorce = [];          // les lignes de l'introduction, avant le premier « : »
+    let chapeau = null;       // en attente d'être posé sur l'acquis suivant
     for (const l of lignes) {
       // Fin de la liste : critères de maîtrise, ou section suivante
       if (/degr[ée] de ma[îi]trise|pour la d[ée]termination/i.test(l)) break;
       // Amorce : une ligne d'introduction se terminant par « : »
       if (!commence) {
-        if (/:\s*$/.test(l)) { commence = true; continue; }
+        if (/:\s*$/.test(l)) {
+          commence = true;
+          chapeau = [...amorce, l].join(' ').replace(/\s+/g, ' ').trim();
+          continue;
+        }
         // Certains dossiers listent directement, sans phrase d'introduction
         if (/^[-•–]|^\d+[.)]\s/.test(l)) commence = true;
-        else continue;
+        else { amorce.push(l); continue; }
       }
+      // Un second chapeau, au milieu de la liste, ouvre un nouveau groupe.
+      if (estChapeau(l)) { chapeau = l; continue; }
       // Nettoyer les marqueurs de liste résiduels
       const t = l.replace(/^[-•–]\s*/, '').replace(/^\d+[.)]\s*/, '').trim();
       // Écarter les fragments trop courts (titres, numéros de page)
       if (t.length < 15) continue;
-      out.push(t);
+      out.push({ description: t, chapeau });
+      chapeau = null;
     }
-    return out.map((description, i) => ({ num: i + 1, description }));
+    return out.map((a, i) => ({ num: i + 1, ...a }));
   };
   const acquis = decouperAcquis(detAcquis);
 

@@ -270,7 +270,7 @@ export default function FeuilleCorrection({ ueNum, annee, onClose, onModifie }) 
         )}
 
         <div className="flex-1 flex overflow-hidden">
-          <PanneauAcquis colonnes={cours.flatMap(c => c.acquis.map(a => ({
+          <PanneauAcquis ueNum={ueNum} colonnes={cours.flatMap(c => c.acquis.map(a => ({
             cours_code: c.cours_code, cours_nom: c.cours_nom,
             professeurs: c.professeurs, aa_code: a.aa_code,
             description: a.description, poids: a.poids })))} />

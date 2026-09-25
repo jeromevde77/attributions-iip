@@ -17,6 +17,10 @@ import { useEnvoiMail } from '../lib/envoiMail.js';
  */
 export default function PreviewModal({ html, titre = 'Document', sousTitre, nomFichier, onClose, actionExtra,
                                        destinataire = null, typeDoc = null, sujetMail = null,
+                                       // Faux quand le document porte PLUSIEURS personnes : un
+                                       // envoi force un document par personne, et c'est alors
+                                       // l'écran appelant qui propose l'envoi, pièce par pièce.
+                                       envoiPossible = true,
                                        astuceImpression = "⊞ Choisir « Paysage » à l'impression" }) {
   const iframeRef = useRef(null);
   const [pret, setPret] = useState(false);
@@ -93,7 +97,7 @@ export default function PreviewModal({ html, titre = 'Document', sousTitre, nomF
               className="bouton-sortir controle px-3 flex items-center gap-1.5 disabled:opacity-40">
               <IconPrinter size={15} /> Imprimer / PDF
             </button>
-            {envoiMail?.actif && (
+            {envoiPossible && envoiMail?.actif && (
               <button onClick={() => setEnvoi(true)} disabled={!pret}
                 title="Envoyer ce document par courriel — PDF joint ou dans le corps du message"
                 className="bouton controle px-3 flex items-center gap-1.5 disabled:opacity-40">

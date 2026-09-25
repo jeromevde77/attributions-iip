@@ -1280,8 +1280,10 @@ export const RAPPORTS = [
     lignes: (p) => db.prepare(`
       SELECT u.section, u.ue_num, u.ue_nom, u.ects, u.ue_aut AS autonomie,
              COUNT(c.cours_code) AS nb_cours,
-             SUM(c.cours_per) AS periodes,
-             ROUND(SUM(COALESCE(c.heures, c.cours_per * 50.0 / 60.0)), 1) AS heures
+             -- Les activités Z ne comptent pas : aucun enseignant, aucune charge.
+             SUM(CASE WHEN c.ct_pp = 'Z' THEN 0 ELSE c.cours_per END) AS periodes,
+             ROUND(SUM(CASE WHEN c.ct_pp = 'Z' THEN 0
+               ELSE COALESCE(c.heures, c.cours_per * 50.0 / 60.0) END), 1) AS heures
         FROM ue u
         LEFT JOIN cours c ON c.ue_num = u.ue_num AND c.annee_scolaire = u.annee_scolaire
        WHERE u.annee_scolaire = ? AND (? IS NULL OR u.section = ?)

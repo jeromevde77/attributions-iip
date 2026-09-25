@@ -172,7 +172,7 @@ export default function EncodageCours({ coursCode, annee, onClose, onEnregistre,
         {/* L'ÉNONCÉ DES ACQUIS À CÔTÉ DE LA GRILLE : elle ne montre que des
             codes, et l'énoncé ne vivait que dans une infobulle qu'il fallait
             survoler colonne par colonne — ce que personne ne fait. */}
-        <PanneauAcquis colonnes={(data?.acquis || []).map(a => ({
+        <PanneauAcquis ueNum={data?.cours?.ue_num} colonnes={(data?.acquis || []).map(a => ({
           cours_code: data?.cours?.cours_code, cours_nom: data?.cours?.cours_nom,
           professeurs: data?.cours?.professeurs, aa_code: a.aa_code,
           description: a.description, poids: a.poids }))} />
