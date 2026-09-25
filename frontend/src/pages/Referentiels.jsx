@@ -5,7 +5,8 @@ import CoursFormModal from '../components/CoursFormModal.jsx';
 import GrilleSectionModal from '../components/GrilleSectionModal.jsx';
 import CompositionSection from '../components/CompositionSection.jsx';
 import ImportUEAssistant from '../components/ImportUEAssistant.jsx';
-import { IconX, IconPencil, IconTrash, IconPlus, IconCheck, IconLink, IconChevronRight, IconTarget, IconUpload, IconFileText, IconAlertTriangle } from '@tabler/icons-react';
+import { IconX, IconPencil, IconTrash, IconPlus, IconCheck, IconLink, IconChevronRight, IconTarget, IconUpload, IconFileText, IconAlertTriangle, IconBooks } from '@tabler/icons-react';
+import { Fenetre, GroupeFenetre } from '../components/ui.jsx';
 import AcquisUE from '../components/AcquisUE.jsx';
 
 // Même normalisation que le serveur : accents, casse et ponctuation ne font
@@ -662,173 +663,174 @@ function UEModal({ ue, sections, onClose, onSaved }) {
     finally { setSaving(false); }
   }
 
-  const lbl = 'text-xs font-medium text-gray-500 mb-0.5 uppercase tracking-wide';
-  const inp = 'w-full border border-gray-300 rounded px-3 py-1.5 text-sm focus:outline-none focus:border-iip-blue';
-  const sep = 'text-[10px] font-semibold uppercase tracking-widest text-gray-400 border-b border-gray-100 pb-1 mb-2 mt-1';
+  /* LA FICHE D'UNE UE SE LIT D'UN COUP D'ŒIL (Charles, 25 septembre 2026).
+     Elle vivait dans un cadre de 512 px dessiné à la main : les sections dans
+     une boîte à ascenseur de trois lignes, les acquis sous deux écrans de
+     défilement, et le bouton Enregistrer au bas d'un contenu qui défile. Elle
+     prend la Fenetre commune, en pleine largeur : la fiche à gauche, les
+     acquis à droite, l'action dans le pied. */
+  const lbl = 'block text-[11px] font-semibold text-slate-500 uppercase tracking-wide mb-1';
+  const inp = 'controle w-full';
+  const coche = 'flex items-start gap-2 cursor-pointer text-[13px] text-slate-700';
+  const aside = 'text-slate-400';
 
-  return (
-    <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] flex items-start justify-center p-4 z-50 overflow-y-auto"
-      onClick={e => e.target === e.currentTarget && onClose()}>
-      {/* La hauteur se prend sur la FENÊTRE, marges comprises : « 90vh » plus
-          le rembourrage du cadre dépassait de l'écran, et la fiche d'une UE
-          est longue. On ancre en haut plutôt qu'au centre — une fenêtre
-          centrée qui grandit sort par les deux bords à la fois. */}
-      <div className="bg-white rounded-xl shadow-2xl max-w-lg w-full border-t-4 border-iip-blue
-                      max-h-[calc(100vh-2rem)] overflow-hidden flex flex-col">
-        <div className="flex items-center justify-between px-5 py-3 border-b flex-shrink-0">
-          <h2 className="font-title text-lg text-iip-blue">{isNew ? 'Nouvelle UE' : `Modifier UE ${ue.ue_num}`}</h2>
-          <button onClick={onClose} className="text-gray-400 hover:text-red-500"><IconX size={20} /></button>
+  const fiche = (
+    <form id="fiche-ue" onSubmit={submit}>
+      <GroupeFenetre titre="Identification officielle">
+        <div className="grid grid-cols-[1.3fr_1.6fr_1fr_1fr_0.8fr] gap-3">
+          <label className="block"><span className={lbl}>N° UE *</span>
+            <div className="flex gap-1.5">
+              <input type="number" value={form.ue_num} onChange={e => set('ue_num', e.target.value)}
+                disabled={!isNew} className={inp + ' min-w-0'} />
+              {!isNew && isAdmin && !renaming && (
+                <button type="button" onClick={() => { setRenaming(true); setNewNum(ue.ue_num); }}
+                  className="controle flex-none" title="Forcer le numéro" aria-label="Forcer le numéro">
+                  <IconPencil size={14} />
+                </button>
+              )}
+            </div>
+          </label>
+          <label className="block"><span className={lbl}>Code FWB</span>
+            <input value={form.ue_code_fwb} onChange={e => set('ue_code_fwb', e.target.value)} className={inp} />
+          </label>
+          <label className="block"><span className={lbl}>Niveau</span>
+            <select value={form.ue_niveau} onChange={e => set('ue_niveau', e.target.value)} className={inp}>
+              <option value="">—</option><option value="SUP">SUP</option><option value="DS">DS</option>
+            </select>
+          </label>
+          <label className="block"><span className={lbl}>Bloc</span>
+            <input value={form.ue_niv} onChange={e => set('ue_niv', e.target.value)} placeholder="BA1" className={inp} />
+          </label>
+          <label className="block"><span className={lbl}>ECTS</span>
+            <input type="number" value={form.ects} onChange={e => set('ects', e.target.value)} className={inp} />
+          </label>
         </div>
 
-        {/* LA FENÊTRE DÉBORDAIT EN HAUT ET EN BAS.
-            Le cadre est bien plafonné à 90 % de la hauteur, mais le formulaire
-            n'était pas contraint : sans « flex-1 min-h-0 », un enfant de
-            colonne flex garde sa hauteur naturelle et pousse le cadre au-delà
-            de l'écran — on ne voyait plus ni le titre ni les boutons, et la
-            fiche d'une UE est longue. Il défile maintenant à l'intérieur. */}
-        <form onSubmit={submit} className="flex-1 min-h-0 overflow-y-auto p-5 space-y-4">
-
-          {/* ── 1. IDENTIFICATION OFFICIELLE (FWB) ── */}
-          <div className={sep}>Identification officielle</div>
-          <div className="grid grid-cols-2 gap-3">
-            <label className="block"><div className={lbl}>N° UE *</div>
-              <div className="flex gap-1 items-center">
-                <input type="number" value={form.ue_num} onChange={e => set('ue_num', e.target.value)} disabled={!isNew}
-                  className={inp + ' disabled:bg-gray-100'} />
-                {!isNew && isAdmin && !renaming && (
-                  <button type="button" onClick={() => { setRenaming(true); setNewNum(ue.ue_num); }}
-                    className="text-xs text-iip-blue border border-iip-blue/30 rounded px-2 py-1.5 h-9 hover:bg-iip-blue/5" title="Forcer le N°">
-                    <IconPencil size={14} />
-                  </button>
-                )}
-              </div>
-            </label>
-            <label className="block"><div className={lbl}>Code FWB</div>
-              <input value={form.ue_code_fwb} onChange={e => set('ue_code_fwb', e.target.value)} className={inp} />
-            </label>
-          </div>
-          <div className="grid grid-cols-3 gap-3">
-            <label className="block"><div className={lbl}>Niveau</div>
-              <select value={form.ue_niveau} onChange={e => set('ue_niveau', e.target.value)} className={inp + ' bg-white'}>
-                <option value="">—</option><option value="SUP">SUP</option><option value="DS">DS</option>
-              </select></label>
-            <label className="block"><div className={lbl}>Bloc</div>
-              <input value={form.ue_niv} onChange={e => set('ue_niv', e.target.value)} placeholder="BA1" className={inp} />
-            </label>
-            <label className="block"><div className={lbl}>ECTS</div>
-              <input type="number" value={form.ects} onChange={e => set('ects', e.target.value)} className={inp} />
-            </label>
-          </div>
-          <label className="block"><div className={lbl}>Section(s) *</div>
-            <div className="border border-gray-300 rounded px-2 py-1.5 max-h-24 overflow-auto bg-white grid grid-cols-3 gap-x-2">
-              {sections.map(s => (
-                <label key={s.code} className="flex items-center gap-1.5 py-0.5 text-sm cursor-pointer hover:bg-gray-50 rounded px-1">
-                  <input type="checkbox" checked={selSections.has(s.code)} onChange={() => toggleSection(s.code)} />
-                  <span>{s.code}</span>
-                </label>
-              ))}
+        {renaming && (
+          <div className="mt-2 rounded-carte border border-slate-200 p-3 space-y-2">
+            <p className="text-[12px] text-slate-600">
+              Forcer le numéro met à jour l'unité, ses cours, ses attributions et ses rattachements,
+              sur toutes les années. Lucie vérifie qu'il est libre et montre ce qui changera avant d'écrire.
+            </p>
+            <div className="flex gap-2">
+              <input type="number" value={newNum} onChange={e => setNewNum(e.target.value)}
+                placeholder="Nouveau numéro" className="controle flex-1" />
+              <button type="button" onClick={forcerNum} disabled={saving} className="bouton bouton-fort">Forcer</button>
+              <button type="button" onClick={() => setRenaming(false)} className="bouton">Annuler</button>
             </div>
-          </label>
-
-          {renaming && (
-            <div className="bg-iip-blue/5 border border-iip-blue/20 rounded p-3 space-y-2">
-              <div className="text-xs text-gray-700">⚠️ Forcer le N° d'UE met à jour l'UE, ses cours, attributions et rattachements. Lucie vérifie l'unicité.</div>
-              <div className="flex gap-2">
-                <input type="number" value={newNum} onChange={e => setNewNum(e.target.value)} placeholder="Nouveau N°"
-                  className="flex-1 border border-gray-300 rounded px-3 py-1.5 h-9 text-sm" />
-                <button type="button" onClick={forcerNum} disabled={saving}
-                  className="bg-iip-blue text-white text-sm px-3 py-1.5 h-9 rounded disabled:opacity-40">Forcer</button>
-                <button type="button" onClick={() => setRenaming(false)} className="text-sm text-gray-500 px-2">Annuler</button>
-              </div>
-            </div>
-          )}
-
-          {/* ── 2. CONTENU PÉDAGOGIQUE ── */}
-          <div className={sep}>Contenu pédagogique</div>
-          <label className="block"><div className={lbl}>Nom de l'UE *</div>
-            <input value={form.ue_nom} onChange={e => set('ue_nom', e.target.value)} className={inp} />
-          </label>
-          <div className="grid grid-cols-3 gap-3">
-            <label className="block"><div className={lbl}>Quadrimestre</div>
-              <select value={form.ue_quad} onChange={e => set('ue_quad', e.target.value)} className={inp + ' bg-white'}>
-                <option value="">—</option><option value="Q1">Q1</option><option value="Q2">Q2</option><option value="Q1/Q2">Q1/Q2</option>
-              </select></label>
-            <label className="block"><div className={lbl}>Tronc commun</div>
-              <select value={form.ue_tc} onChange={e => set('ue_tc', e.target.value)} className={inp + ' bg-white'}>
-                <option value="">Non</option><option value="x">Oui</option>
-              </select></label>
-            <label className="block"><div className={lbl}>Réf.</div>
-              <select value={form.et_ref} onChange={e => set('et_ref', e.target.value)} className={inp + ' bg-white'}>
-                <option value="">—</option><option value="IIP">IIP</option><option value="HELB">HELB</option>
-              </select></label>
           </div>
-          <label className="block"><div className={lbl}>Prérequis</div>
+        )}
+
+        <div className="mt-3">
+          <span className={lbl}>Section(s) *</span>
+          {/* Toutes les sections d'un coup : une boîte à ascenseur de trois
+              lignes cachait les coches déjà posées. */}
+          <div className="grid grid-cols-4 gap-x-3 gap-y-1">
+            {sections.map(s => (
+              <label key={s.code} className="flex items-center gap-2 py-0.5 cursor-pointer text-[13px] text-slate-700 min-w-0">
+                <input type="checkbox" checked={selSections.has(s.code)}
+                  onChange={() => toggleSection(s.code)} className="w-4 h-4 accent-iip-blue" />
+                <span className="truncate" title={s.libelle || s.code}>{s.code}</span>
+              </label>
+            ))}
+          </div>
+        </div>
+      </GroupeFenetre>
+
+      <GroupeFenetre titre="Contenu pédagogique">
+        <label className="block"><span className={lbl}>Nom de l'UE *</span>
+          <input value={form.ue_nom} onChange={e => set('ue_nom', e.target.value)} className={inp} />
+        </label>
+        <div className="grid grid-cols-[1fr_1fr_1fr_1.6fr] gap-3 pt-1.5">
+          <label className="block"><span className={lbl}>Quadrimestre</span>
+            <select value={form.ue_quad} onChange={e => set('ue_quad', e.target.value)} className={inp}>
+              <option value="">—</option><option value="Q1">Q1</option><option value="Q2">Q2</option><option value="Q1/Q2">Q1/Q2</option>
+            </select>
+          </label>
+          <label className="block"><span className={lbl}>Tronc commun</span>
+            <select value={form.ue_tc} onChange={e => set('ue_tc', e.target.value)} className={inp}>
+              <option value="">Non</option><option value="x">Oui</option>
+            </select>
+          </label>
+          <label className="block"><span className={lbl}>Réf.</span>
+            <select value={form.et_ref} onChange={e => set('et_ref', e.target.value)} className={inp}>
+              <option value="">—</option><option value="IIP">IIP</option><option value="HELB">HELB</option>
+            </select>
+          </label>
+          <label className="block"><span className={lbl}>Prérequis</span>
             <input value={form.ue_prerequise} onChange={e => set('ue_prerequise', e.target.value)} className={inp} />
           </label>
+        </div>
+      </GroupeFenetre>
 
-          {/* ── 3. CHARGE ── */}
-          <div className={sep}>Charge</div>
-          <div className="grid grid-cols-4 gap-3">
-            <label className="block"><div className={lbl}>Autonomie</div>
-              <input type="number" value={form.ue_aut} onChange={e => set('ue_aut', e.target.value)} className={inp} />
-            </label>
-            <label className="block"><div className={lbl}>Pér. étud.</div>
-              <input type="number" value={form.ue_per_etudiants} onChange={e => set('ue_per_etudiants', e.target.value)} className={inp} />
-            </label>
-            <label className="block"><div className={lbl}>Nb étud.</div>
-              <input type="number" value={form.nb_etudiants} onChange={e => set('nb_etudiants', e.target.value)} placeholder="Effectif" className={inp} />
-            </label>
-            <label className="block"><div className={lbl}>Pér. Z (7.3)</div>
-              <input type="number" value={form.ue_per_z} onChange={e => set('ue_per_z', e.target.value)} placeholder="Auto." className={inp} />
-            </label>
-          </div>
+      <GroupeFenetre titre="Charge">
+        <div className="grid grid-cols-4 gap-3">
+          <label className="block"><span className={lbl}>Autonomie</span>
+            <input type="number" value={form.ue_aut} onChange={e => set('ue_aut', e.target.value)} className={inp} />
+          </label>
+          <label className="block"><span className={lbl}>Pér. étud.</span>
+            <input type="number" value={form.ue_per_etudiants} onChange={e => set('ue_per_etudiants', e.target.value)} className={inp} />
+          </label>
+          <label className="block"><span className={lbl}>Nb étud.</span>
+            <input type="number" value={form.nb_etudiants} onChange={e => set('nb_etudiants', e.target.value)} placeholder="Effectif" className={inp} />
+          </label>
+          <label className="block"><span className={lbl}>Pér. Z (7.3)</span>
+            <input type="number" value={form.ue_per_z} onChange={e => set('ue_per_z', e.target.value)} placeholder="Auto." className={inp} />
+          </label>
+        </div>
+      </GroupeFenetre>
 
-          {/* ── 4. DÉTAILS ── */}
-          <div className={sep}>Détails</div>
-          <label className="flex items-center gap-2 cursor-pointer py-1">
-            <input type="checkbox" checked={form.ue_det === 'x'}
-              onChange={e => set('ue_det', e.target.checked ? 'x' : '')}
-              className="w-4 h-4 accent-iip-blue" />
-            <span className="text-sm text-gray-700">UE déterminante <span className="text-gray-400">(comptée dans le calcul de mention du diplôme)</span></span>
-          </label>
-          <label className="flex items-center gap-2 cursor-pointer py-1">
-            <input type="checkbox" checked={form.is_epreuve_integree === 1}
-              onChange={e => set('is_epreuve_integree', e.target.checked ? 1 : 0)}
-              className="w-4 h-4 accent-iip-blue" />
-            <span className="text-sm text-gray-700">Épreuve intégrée de fin de section <span className="text-gray-400">(comptée dans le total de la mention)</span></span>
-          </label>
-          {/* LA SECTION D'UNE UNITÉ HORS CURSUS EST UN HÉRITAGE D'IMPORT.
-              Une unité qui s'ajoute au programme d'étudiants de plusieurs
-              sections ne rattache personne à la sienne : ses dossiers se
-              comptent dans la section DE L'ÉTUDIANT. */}
-          <label className="flex items-center gap-2 cursor-pointer py-1">
-            <input type="checkbox" checked={form.hors_cursus === 1}
-              onChange={e => set('hors_cursus', e.target.checked ? 1 : 0)}
-              className="w-4 h-4 accent-iip-blue" />
-            <span className="text-sm text-gray-700">Unité hors cursus <span className="text-gray-400">(ouverte à plusieurs sections : les statistiques la comptent dans la section de l’étudiant, pas dans celle-ci)</span></span>
-          </label>
+      <GroupeFenetre titre="Détails">
+        <label className={coche}>
+          <input type="checkbox" checked={form.ue_det === 'x'}
+            onChange={e => set('ue_det', e.target.checked ? 'x' : '')}
+            className="w-4 h-4 mt-0.5 flex-none accent-iip-blue" />
+          <span>UE déterminante <span className={aside}>(comptée dans le calcul de mention du diplôme)</span></span>
+        </label>
+        <label className={coche}>
+          <input type="checkbox" checked={form.is_epreuve_integree === 1}
+            onChange={e => set('is_epreuve_integree', e.target.checked ? 1 : 0)}
+            className="w-4 h-4 mt-0.5 flex-none accent-iip-blue" />
+          <span>Épreuve intégrée de fin de section <span className={aside}>(comptée dans le total de la mention)</span></span>
+        </label>
+        {/* LA SECTION D'UNE UNITÉ HORS CURSUS EST UN HÉRITAGE D'IMPORT.
+            Une unité qui s'ajoute au programme d'étudiants de plusieurs
+            sections ne rattache personne à la sienne : ses dossiers se
+            comptent dans la section DE L'ÉTUDIANT. */}
+        <label className={coche}>
+          <input type="checkbox" checked={form.hors_cursus === 1}
+            onChange={e => set('hors_cursus', e.target.checked ? 1 : 0)}
+            className="w-4 h-4 mt-0.5 flex-none accent-iip-blue" />
+          <span>Unité hors cursus <span className={aside}>(ouverte à plusieurs sections : les statistiques la comptent dans la section de l’étudiant, pas dans celle-ci)</span></span>
+        </label>
+      </GroupeFenetre>
+    </form>
+  );
 
-          {!isNew && form.ue_num && (
-            <div className="pt-3 mt-1 border-t">
-              <div className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-2">
-                Acquis d'apprentissage
-              </div>
+  const avecAcquis = !isNew && form.ue_num;
+
+  return (
+    <Fenetre icone={IconBooks} large="pleine" onFermer={onClose}
+      titre={isNew ? 'Nouvelle UE' : `Modifier l'UE ${ue.ue_num}`}
+      sous={isNew ? 'Son identification, son contenu et sa charge' : form.ue_nom}
+      pied={<>
+        <button type="submit" form="fiche-ue" disabled={saving}
+          className="bouton bouton-fort disabled:opacity-40">
+          {saving ? 'Enregistrement…' : isNew ? "Créer l'UE" : 'Enregistrer'}
+        </button>
+        <button type="button" onClick={onClose} className="bouton ml-auto">Annuler</button>
+      </>}>
+      {avecAcquis ? (
+        <div className="grid grid-cols-[3fr_2fr] gap-6 items-start">
+          {fiche}
+          <div className="border-l border-slate-200 pl-6 min-w-0">
+            <GroupeFenetre titre="Acquis d'apprentissage">
               <AcquisUE ueNum={form.ue_num} annee={ue?.annee_scolaire} estAdmin={isAdmin} />
-            </div>
-          )}
-
-          {/* Les boutons restent au bord : sur une fiche longue, « Enregistrer »
-              se trouvait tout en bas d'un défilement de deux écrans. */}
-          <div className="sticky bottom-0 -mx-5 -mb-5 px-5 py-3 bg-white border-t
-                          flex justify-end gap-2">
-            <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-gray-600">Annuler</button>
-            <button type="submit" disabled={saving} className="bg-iip-blue hover:bg-iip-blue-dark disabled:opacity-40 text-white text-sm px-5 py-2 rounded font-medium">
-              {saving ? '…' : isNew ? 'Créer' : 'Enregistrer'}
-            </button>
+            </GroupeFenetre>
           </div>
-        </form>
-      </div>
-    </div>
+        </div>
+      ) : fiche}
+    </Fenetre>
   );
 }
 
