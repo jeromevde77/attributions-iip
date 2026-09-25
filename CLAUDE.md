@@ -149,6 +149,15 @@ NAS Synology.
   Détail et révocation : `scripts/vps/INSTALLATION.md` ; journal :
   `sudo journalctl -t lucie-ops`. La connexion par mot de passe reste ouverte
   (choix de Jérôme) : ne pas poser `PasswordAuthentication no`.
+- **JAMAIS `maj-dev` ET `maj-prod` ENSEMBLE** (Charles, 25 septembre 2026). Une
+  mise à jour à la fois : la lancer, vérifier avec `version` que ses deux
+  moitiés répondent, puis seulement l'autre, dans un appel séparé. Enchaînées,
+  elles ont laissé deux fois Docker sur un conflit de nom de conteneur ; la
+  seconde fois, le backend de PRODUCTION a disparu, `maj-prod` ne pouvait plus
+  se relancer (il sauvegarde d'abord, par ce même conteneur) et Lucie est
+  restée en page blanche. `lucie-ops` ne sait pas réparer ce cas : le secours
+  est un geste humain, sur le compte `jeromevde` —
+  `cd /opt/lucie && sudo docker compose up -d --force-recreate backend frontend`.
 - Base : `/app/data/attributions.db` dans le conteneur. **SQLite3 n'est pas
   installé** → interroger via `node -e "const Database = require('better-sqlite3') …"`.
 - La **base de dev est séparée** (volume `attributions-data-dev`) : aucun risque
