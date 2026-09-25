@@ -952,9 +952,27 @@ r.get('/professeurs/:id', authRequired, exigerPerimetreProfesseur, (req, res) =>
     };
   }
 
+  /* LE HELB NE SE COMPTE PAS EN PÉRIODES IIP (25 septembre 2026). La boucle
+     prenait toutes les lignes : un membre à 98 périodes IIP et 98 heures HELB
+     s'affichait « 216 périodes IIP », et son ETP IIP comptait le HELB sur 800.
+     Les lignes HELB se comptent en HEURES, à leur propre diviseur (fiche
+     globale, lib/helb.js côté écran). */
+  // La nature d'une ligne HELB : celle de la ligne, sinon celle de l'activité.
+  const natureActivite = new Map(db.prepare(`
+    SELECT a.id, at.helb_nature FROM attribution a
+    LEFT JOIN activite_type at ON at.id = a.activite_id
+    WHERE a.professeur_id = ? AND a.annee_scolaire = ?`).all(req.params.id, annee)
+    .map(x => [x.id, x.helb_nature || null]));
+  for (const a of attrs) {
+    a.heures = a.charge_en_heures ?? null;
+    a.helb_nature_ligne = a.helb_nature ?? null;
+    a.helb_nature = natureActivite.get(a.id) ?? null;
+  }
+
   let tot_per_annee = 0, tot_aut_annee = 0;
   let etp_ct = 0, etp_pp = 0;
   for (const a of attrs) {
+    if ((a.contrat_mdp || 'IIP') === 'HELB') continue;
     tot_per_annee += a.periodes_attribuees || 0;
     tot_aut_annee += a.autonomie_attribuee || 0;
     const total = (a.periodes_attribuees || 0) + (a.autonomie_attribuee || 0);

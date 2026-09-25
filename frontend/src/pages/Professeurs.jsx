@@ -1,4 +1,5 @@
 import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
+import { calculHELB, estHELB } from '../lib/helb.js';
 import { nomPropre, nomDepuisChaine } from '../lib/nom.js';
 import { useNavigate } from 'react-router-dom';
 import { api, getAnnee, getUser, nomDoc } from '../lib/api.js';
@@ -665,11 +666,14 @@ function DetailModal({ profId, onClose, onEdit, onFiche }) {
   // L'ETP vient du serveur, qui l'a calculé sur l'année demandée. Le refaire
   // ici donnait un second chiffre, divergent dès que la liste d'attributions
   // n'était pas celle des totaux — et nul quand elle revenait vide.
+  // La charge HELB : la même règle que la fiche globale imprimée (lib/helb.js).
+  const chargeHELB = (detail.attributions || []).filter(estHELB)
+    .reduce((s, a) => s + calculHELB(detail.statut_helb || null, a).charge, 0);
   const etpTotal = (() => {
     if (detail.etp_annee != null) {
-      return Math.round(((detail.etp_annee || 0) + (detail.charge_helb ?? 0)) * 10000) / 10000;
+      return Math.round(((detail.etp_annee || 0) + chargeHELB) * 10000) / 10000;
     }
-    const attrs = (detail.attributions || []).filter(a => (a.contrat_mdp || 'IIP') !== 'HELB');
+    const attrs = (detail.attributions || []).filter(a => !estHELB(a));
     let ct = 0, pp = 0;
     for (const a of attrs) {
       // Deux routes alimentent cette fiche et ne nomment pas ces champs de la
@@ -680,7 +684,7 @@ function DetailModal({ profId, onClose, onEdit, onFiche }) {
       const total = Number(per) + Number(aut);
       if (a.type_cours === 'PP') pp += total; else ct += total;   // type inconnu → CT, comme au serveur
     }
-    return Math.round((ct / 800 + pp / 1000 + (detail.charge_helb ?? 0)) * 10000) / 10000;
+    return Math.round((ct / 800 + pp / 1000 + chargeHELB) * 10000) / 10000;
   })();
 
   const badge = tc => tc === 'CT'
@@ -881,17 +885,19 @@ function DetailModal({ profId, onClose, onEdit, onFiche }) {
                       const grouped = [];
                       const map = {};
                       for (const a of (detail.attributions || [])) {
-                        const key = `${a.section}||${a.ue_num}||${a.code_cours || ''}`;
+                        const key = `${a.section}||${a.ue_num}||${a.code_cours || ''}||${estHELB(a) ? 'HELB' : 'IIP'}`;
                         if (!map[key]) {
                           map[key] = {
                             ...a,
                             periodes_total: (a.periodes_attribuees || 0) + (a.autonomie_attribuee || 0),
+                            heures_helb: estHELB(a) ? Number(a.heures || 0) : 0,
                             nb_groupes: 1,
                             ids: [a.id],
                           };
                           grouped.push(map[key]);
                         } else {
                           map[key].periodes_total += (a.periodes_attribuees || 0) + (a.autonomie_attribuee || 0);
+                          if (estHELB(a)) map[key].heures_helb += Number(a.heures || 0);
                           map[key].nb_groupes += 1;
                           map[key].ids.push(a.id);
                         }
@@ -900,6 +906,7 @@ function DetailModal({ profId, onClose, onEdit, onFiche }) {
                         <table className="w-full text-sm">
                           <thead>
                             <tr className="border-b border-gray-200">
+                              <th className="text-left pb-2 text-xs text-gray-400 font-medium">Contrat</th>
                               <th className="text-left pb-2 text-xs text-gray-400 font-medium">Section</th>
                               <th className="text-left pb-2 text-xs text-gray-400 font-medium">UE</th>
                               <th className="text-left pb-2 text-xs text-gray-400 font-medium">Cours</th>
@@ -914,6 +921,11 @@ function DetailModal({ profId, onClose, onEdit, onFiche }) {
                           <tbody className="divide-y divide-gray-50">
                             {grouped.map((a, idx) => (
                               <tr key={idx} className="hover:bg-gray-50/80 group">
+                                <td className="py-2">
+                                  <span className={`inline-flex items-center justify-center px-1.5 h-5 rounded text-[10px] font-bold ${estHELB(a) ? 'badge-helb' : 'badge-iip'}`}>
+                                    {estHELB(a) ? 'HELB' : 'IIP'}
+                                  </span>
+                                </td>
                                 <td className="py-2 text-xs font-medium text-gray-600">{a.section}</td>
                                 <td className="py-2 font-mono text-xs text-gray-400">{a.ue_num}</td>
                                 <td className="py-2 text-xs max-w-[220px] truncate" title={a.nom_cours}>
@@ -928,7 +940,11 @@ function DetailModal({ profId, onClose, onEdit, onFiche }) {
                                     : a.code || '—'}
                                 </td>
                                 <td className="py-2 text-right font-bold text-sm">{a.periodes_total}</td>
-                                <td className="py-2 text-right text-xs text-gray-500">{enHeures(a.periodes_total)} h</td>
+                                {/* Le HELB se compte en heures réelles, pas en périodes converties. */}
+                                <td className={`py-2 text-right text-xs ${estHELB(a) ? 'text-purple-700 font-semibold' : 'text-gray-500'}`}
+                                  title={estHELB(a) ? 'Heures HELB attribuées' : 'Périodes de 50 minutes, converties en heures'}>
+                                  {estHELB(a) ? Math.round(a.heures_helb * 10) / 10 : enHeures(a.periodes_total)} h
+                                </td>
                                 <td className="py-2 opacity-0 group-hover:opacity-100 transition-opacity">
                                   <div className="flex items-center gap-0.5">
                                     {a.code_cours && (
@@ -1396,19 +1412,7 @@ export default function Professeurs({ vue: vueInitiale = 'membres' }) {
 
   // Fiche HELB : heures par activité, Cours/TP, charge selon diviseurs (statut × nature)
   // Helper partagé : diviseur HELB selon statut + nature, et nature lisible d'une ligne
-  function helbCalc(statut, a) {
-    const natLigne = a.helb_nature_ligne;
-    const nature = natLigne === 'TP' ? 'TP'
-                 : natLigne === 'CT' ? 'COURS'
-                 : (a.helb_nature || (a.type_cours === 'PP' ? 'TP' : 'COURS'));
-    let div;
-    if (statut === 'COORD') div = 1400;
-    else if (statut === 'MFP') div = 750;
-    else div = nature === 'TP' ? 750 : 480; // MA, PI, ou défaut
-    const h = a.heures || 0;
-    const charge = div ? h / div : 0;
-    return { nature, natureLbl: nature === 'TP' ? 'Trav. P. (TP)' : 'Théorie (TH)', div, h, charge };
-  }
+  const helbCalc = calculHELB;
 
   function genererFicheHELB(prof, attributions, annee, returnOnly = false) {
     const fmtH = n => n != null ? (Math.round(n * 10) / 10) : 0;
