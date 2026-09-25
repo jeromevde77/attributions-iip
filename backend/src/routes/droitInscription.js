@@ -138,7 +138,7 @@ export function calculerDI(etudId, annee) {
 
   // Les UE valorisées en dispense complète ne donnent lieu à aucun droit
   const vaCompletes = new Set(
-    db.prepare("SELECT ue_num FROM etudiant_valorisation WHERE etudiant_id = ? AND type = 'complete'")
+    db.prepare("SELECT ue_num FROM etudiant_valorisation WHERE etudiant_id = ? AND type = 'complete' AND COALESCE(decision, 'accordee') <> 'refusee'")
       .all(etudId).map(v => v.ue_num));
 
   const detail = lignes.map(l => {

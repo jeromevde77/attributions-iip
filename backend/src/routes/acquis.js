@@ -2285,6 +2285,9 @@ r.get('/parcours-bilan/:etudId', authRequired, (req, res) => {
   const valorisations = db.prepare(`
     SELECT ue_num, annee_scolaire, pourcentage
     FROM etudiant_valorisation WHERE etudiant_id = ?
+      -- Seule une dispense COMPLÈTE acquiert l'UE, et jamais un refus : une
+      -- partielle laisse l'UE à présenter.
+      AND type = 'complete' AND COALESCE(decision, 'accordee') <> 'refusee'
   `).all(etudId).map(v => ({ ...v, ects: refDe(v.ue_num, v.annee_scolaire).ects ?? null }));
 
   const cetteAnnee = inscriptions.filter(i => i.annee_scolaire === annee);

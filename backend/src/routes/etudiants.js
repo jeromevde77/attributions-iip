@@ -1060,7 +1060,7 @@ r.get('/rapport', authRequired, (req, res) => {
     SELECT v.etudiant_id, v.ue_num, v.pourcentage, e.nom, e.prenom, e.id_ecampus
     FROM etudiant_valorisation v
     JOIN etudiant e ON e.id = v.etudiant_id
-    WHERE v.annee_scolaire = ? AND v.type = 'complete'
+    WHERE v.annee_scolaire = ? AND v.type = 'complete' AND COALESCE(v.decision, 'accordee') <> 'refusee'
   `).all(annee).filter(v => ueNums.has(v.ue_num));
 
   // Regrouper par étudiant
@@ -1357,7 +1357,7 @@ r.get('/rapport-pae', authRequired, (req, res) => {
   `).all();
   const vas = db.prepare(`
     SELECT etudiant_id, ue_num, annee_scolaire FROM etudiant_valorisation
-    WHERE etudiant_id IN (${ids}) AND ue_num IN (${listeUe}) AND type = 'complete'
+    WHERE etudiant_id IN (${ids}) AND ue_num IN (${listeUe}) AND type = 'complete' AND COALESCE(decision, 'accordee') <> 'refusee'
   `).all();
   let resCours = [];
   try {
@@ -1480,7 +1480,7 @@ r.get('/synthese', authRequired, (req, res) => {
   try {
     vas = db.prepare(`
       SELECT etudiant_id, annee_scolaire FROM etudiant_valorisation
-      WHERE etudiant_id IN (${ids}) AND ue_num IN (${listeUe}) AND type = 'complete'
+      WHERE etudiant_id IN (${ids}) AND ue_num IN (${listeUe}) AND type = 'complete' AND COALESCE(decision, 'accordee') <> 'refusee'
     `).all();
   } catch { /* table absente */ }
 
@@ -2375,7 +2375,7 @@ r.get('/:id/fiche-parcours', authRequired, (req, res) => {
   }
   for (const v of db.prepare(`
     SELECT ue_num, pourcentage, annee_scolaire FROM etudiant_valorisation
-    WHERE etudiant_id = ? AND type = 'complete'
+    WHERE etudiant_id = ? AND type = 'complete' AND COALESCE(decision, 'accordee') <> 'refusee'
   `).all(etudId)) {
     if (!acquis.has(v.ue_num)) {
       acquis.set(v.ue_num, { points: v.pourcentage, annee: v.annee_scolaire, mode: 'va' });
@@ -2463,7 +2463,7 @@ export function documentParcours(etudId, annee) {
   }
   for (const v of db.prepare(`
     SELECT ue_num, pourcentage, annee_scolaire FROM etudiant_valorisation
-    WHERE etudiant_id = ? AND type = 'complete'`).all(etudId)) {
+    WHERE etudiant_id = ? AND type = 'complete' AND COALESCE(decision, 'accordee') <> 'refusee'`).all(etudId)) {
     if (!acquis.has(v.ue_num)) {
       acquis.set(v.ue_num, { points: v.pourcentage, annee: v.annee_scolaire, mode: 'va' });
     }
@@ -2850,7 +2850,7 @@ r.get('/matrice', authRequired, (req, res) => {
   `).all();
   const vas = db.prepare(`
     SELECT etudiant_id, ue_num, annee_scolaire FROM etudiant_valorisation
-    WHERE etudiant_id IN (${ids}) AND ue_num IN (${listeUe}) AND type = 'complete'
+    WHERE etudiant_id IN (${ids}) AND ue_num IN (${listeUe}) AND type = 'complete' AND COALESCE(decision, 'accordee') <> 'refusee'
   `).all();
 
   const parEtud = {};
@@ -2946,7 +2946,7 @@ r.get('/encodage-direct', authRequired, (req, res) => {
   // disaient pas la même chose du même étudiant.
   for (const v of db.prepare(`
     SELECT etudiant_id, ue_num, pourcentage FROM etudiant_valorisation
-    WHERE annee_scolaire = ? AND type = 'complete'
+    WHERE annee_scolaire = ? AND type = 'complete' AND COALESCE(decision, 'accordee') <> 'refusee'
       AND ue_num IN (${ues.map(() => '?').join(',')})
   `).all(annee, ...ues.map(u => u.ue_num))) {
     const cle = `${v.etudiant_id}|${v.ue_num}`;
@@ -3825,7 +3825,7 @@ export function composerPAE(profId, annee, options = {}) {
   const vaCompletes = new Set(
     db.prepare(`
       SELECT DISTINCT ue_num FROM etudiant_valorisation
-      WHERE etudiant_id = ? AND type = 'complete'
+      WHERE etudiant_id = ? AND type = 'complete' AND COALESCE(decision, 'accordee') <> 'refusee'
     `).all(profId).map(r => r.ue_num)
   );
 
@@ -4373,7 +4373,7 @@ r.post('/:id/pae-auto', authRequired, roleRequired('admin', 'editeur'), (req, re
   // Acquis : réussites encodées + VA complètes
   const acquis = new Set([
     ...db.prepare("SELECT DISTINCT ue_num FROM etudiant_inscription WHERE etudiant_id = ? AND resultat = 'reussi'").all(etudId).map(r => r.ue_num),
-    ...db.prepare("SELECT DISTINCT ue_num FROM etudiant_valorisation WHERE etudiant_id = ? AND type = 'complete'").all(etudId).map(r => r.ue_num),
+    ...db.prepare("SELECT DISTINCT ue_num FROM etudiant_valorisation WHERE etudiant_id = ? AND type = 'complete' AND COALESCE(decision, 'accordee') <> 'refusee'").all(etudId).map(r => r.ue_num),
   ]);
 
   // Sections de l'étudiant
@@ -4595,7 +4595,7 @@ r.get('/:id/capitalisation', authRequired, (req, res) => {
 
   const acquis = new Set([
     ...db.prepare("SELECT DISTINCT ue_num FROM etudiant_inscription WHERE etudiant_id = ? AND resultat = 'reussi'").all(etudId).map(r0 => r0.ue_num),
-    ...db.prepare("SELECT DISTINCT ue_num FROM etudiant_valorisation WHERE etudiant_id = ? AND type = 'complete'").all(etudId).map(r0 => r0.ue_num),
+    ...db.prepare("SELECT DISTINCT ue_num FROM etudiant_valorisation WHERE etudiant_id = ? AND type = 'complete' AND COALESCE(decision, 'accordee') <> 'refusee'").all(etudId).map(r0 => r0.ue_num),
   ]);
   const inscrites = new Set(
     db.prepare('SELECT ue_num FROM etudiant_inscription WHERE etudiant_id = ? AND annee_scolaire = ?')
@@ -4857,7 +4857,7 @@ r.get('/:id/grille', authRequired, (req, res) => {
   const inscriptions = db.prepare(
     'SELECT * FROM etudiant_inscription WHERE etudiant_id = ?').all(etudId);
   const vas = db.prepare(
-    "SELECT * FROM etudiant_valorisation WHERE etudiant_id = ? AND type = 'complete'").all(etudId);
+    "SELECT * FROM etudiant_valorisation WHERE etudiant_id = ? AND type = 'complete' AND COALESCE(decision, 'accordee') <> 'refusee'").all(etudId);
 
   const cellules = {};
   for (const i of inscriptions) {
@@ -4937,7 +4937,9 @@ r.put('/:id/grille', authRequired, roleRequired('admin', 'editeur'), (req, res) 
   if (!annee || !ue_num || !kind) {
     return res.status(400).json({ error: 'annee, ue_num et kind requis' });
   }
-  const KINDS = ['inscrit', 'reussi', 'ajourne', 'absent', 'va',
+  // « refuse » manquait : l'écran proposait « Refusé », le serveur répondait
+  // « kind invalide » — la troisième décision de la circulaire ne s'encodait pas.
+  const KINDS = ['inscrit', 'reussi', 'ajourne', 'refuse', 'absent', 'va',
                  'effacer_resultat', 'effacer'];
   if (!KINDS.includes(kind)) return res.status(400).json({ error: 'kind invalide' });
 
@@ -7547,7 +7549,7 @@ r.get('/:id/fiche-inscription', authRequired, (req, res) => {
     SELECT v.annee_scolaire, v.ue_num, v.pourcentage AS points, u.ue_nom, 'va' AS kind
     FROM etudiant_valorisation v
     LEFT JOIN ${UE_REF} u ON u.ue_num = v.ue_num
-    WHERE v.etudiant_id = ? AND v.type = 'complete'
+    WHERE v.etudiant_id = ? AND v.type = 'complete' AND COALESCE(v.decision, 'accordee') <> 'refusee'
   `).all(etudId);
   const acquisRows = [...reussites, ...vasAcq].sort((a, b) =>
     String(a.annee_scolaire || '').localeCompare(String(b.annee_scolaire || '')) || a.ue_num - b.ue_num);
