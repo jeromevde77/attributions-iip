@@ -166,6 +166,9 @@ export function migrerEtudiants(dbx) {
     addCol('etudiant_inscription', "di_specifique REAL");
     addCol('etudiant_inscription', "ects REAL");
     addCol('etudiant_inscription', "derogation INTEGER NOT NULL DEFAULT 0");
+    // Qui a forcé une réinscription (UE déjà réussie) ou une dérogation, et quand.
+    addCol('etudiant_inscription', "derogation_par TEXT");
+    addCol('etudiant_inscription', "derogation_le TEXT");
     console.log('[migration] etudiant_piece + colonnes fiche inscription');
 
     // Correspondance entre les codes d'UE d'eCampus (TINFO, PDPS, 901…) et les
@@ -471,6 +474,31 @@ function perimetre(req) {
 function sectionAutoriseeReq(req, section) {
   const p = perimetre(req);
   return p === null ? true : (section ? p.includes(section) : false);
+}
+
+/* UNE UE DÉJÀ RÉUSSIE NE REVIENT PAS AU PROGRAMME SANS QU'ON L'AIT VOULU
+ * (Charles, 25 septembre 2026). La réinscription existe — pour améliorer une
+ * note, par exemple —, mais elle se FORCE, par la direction ou la
+ * coordination, et ce geste porte un nom et une date. Le 21 septembre, la
+ * promotion lancée pour les quatre sections avait réinscrit 52 étudiants dans
+ * 301 unités qu'ils avaient déjà réussies, et « Valider les PAE » les laissait
+ * passer sans un mot : ce qui n'a pas été forcé est une erreur, pas un choix.
+ * Réussie = résultat « reussi » une année ANTÉRIEURE, ou dispense complète
+ * accordée (la même définition que composerPAE). */
+export const PEUT_FORCER_REINSCRIPTION = ['admin', 'directeur', 'directeur_adjoint',
+                                          'coordination', 'editeur'];
+const SQL_DEJA_REUSSIE = `(
+  EXISTS (SELECT 1 FROM etudiant_inscription p
+          WHERE p.etudiant_id = i.etudiant_id AND p.ue_num = i.ue_num
+            AND p.annee_scolaire < i.annee_scolaire AND p.resultat = 'reussi')
+  OR EXISTS (SELECT 1 FROM etudiant_valorisation v
+          WHERE v.etudiant_id = i.etudiant_id AND v.ue_num = i.ue_num
+            AND v.annee_scolaire < i.annee_scolaire AND v.type = 'complete'
+            AND COALESCE(v.decision, 'accordee') <> 'refusee'))`;
+function reprisesNonForcees(etudId, annee) {
+  return db.prepare(`SELECT i.ue_num FROM etudiant_inscription i
+    WHERE i.etudiant_id = ? AND i.annee_scolaire = ? AND COALESCE(i.derogation, 0) = 0
+      AND ${SQL_DEJA_REUSSIE} ORDER BY i.ue_num`).all(etudId, annee).map(x => x.ue_num);
 }
 
 /* LES DOSSIERS DE VALORISATION SE TIENNENT DANS SON PÉRIMÈTRE (23 septembre
@@ -2061,6 +2089,27 @@ r.post('/:id/pae/confirmer', authRequired,
     VALUES (?,?,?,?)
     ON CONFLICT(etudiant_id, annee_scolaire, ue_num) DO NOTHING`);
 
+  // La même règle que la validation en lot : on ne signe pas un programme qui
+  // réinscrit une UE déjà réussie sans que la réinscription ait été forcée.
+  const reussiesAvant = new Set(db.prepare(`SELECT DISTINCT ue_num FROM etudiant_inscription
+    WHERE etudiant_id = ? AND annee_scolaire < ? AND resultat = 'reussi'`).all(etudId, annee)
+    .map(x => x.ue_num));
+  const forcees = new Set(db.prepare(`SELECT ue_num FROM etudiant_inscription
+    WHERE etudiant_id = ? AND annee_scolaire = ? AND COALESCE(derogation, 0) = 1`).all(etudId, annee)
+    .map(x => x.ue_num));
+  const bloquantes = [...new Set([
+    ...reprisesNonForcees(etudId, annee),
+    ...(Array.isArray(ues) ? ues : []).map(Number).filter(n => reussiesAvant.has(n) && !forcees.has(n)),
+  ])].sort((a, b) => a - b);
+  if (bloquantes.length) {
+    return res.status(409).json({
+      error: `Ce programme réinscrit ${bloquantes.length > 1 ? 'des UE déjà réussies' : 'une UE déjà réussie'} `
+           + `(${bloquantes.join(', ')}) sans que la réinscription ait été forcée par la direction `
+           + 'ou la coordination. Retirez-les, ou faites forcer la réinscription.',
+      deja_reussies: bloquantes,
+    });
+  }
+
   let ajoutees = 0;
   db.transaction(() => {
     // Les unités transmises sont celles que l'écran affiche APRÈS ajustement :
@@ -2116,17 +2165,17 @@ r.post('/import-suivi', authRequired,
   // alors que vos fichiers les portent. Sans elles, la note d'unité se calcule
   // à la moyenne simple, ce qui est faux dès qu'un acquis pèse 60 %.
   const insPondCours = db.prepare(`
-    INSERT INTO cours_ponderation (ue_num, cours_code, poids, maj_le)
-    VALUES (?,?,?, datetime('now'))
-    ON CONFLICT(ue_num, cours_code) DO UPDATE SET
+    INSERT INTO cours_ponderation (annee_scolaire, ue_num, cours_code, poids, maj_le)
+    VALUES (?,?,?,?, datetime('now'))
+    ON CONFLICT(annee_scolaire, ue_num, cours_code) DO UPDATE SET
       poids = excluded.poids, maj_le = excluded.maj_le`);
 
   const insPond = db.prepare(`
-    INSERT INTO aa_ponderation (ue_num, cours_code, aa_code, poids, maj_le)
-    VALUES (?,?,?,?, datetime('now'))
-    -- La contrainte de la table porte sur (cours_code, aa_code), SANS ue_num :
-    -- l'avoir supposée à trois colonnes faisait échouer tout l'import.
-    ON CONFLICT(cours_code, aa_code) DO UPDATE SET
+    INSERT INTO aa_ponderation (annee_scolaire, ue_num, cours_code, aa_code, poids, maj_le)
+    VALUES (?,?,?,?,?, datetime('now'))
+    -- La contrainte porte sur (annee_scolaire, cours_code, aa_code), SANS
+    -- ue_num : l'avoir supposée autrement faisait échouer tout l'import.
+    ON CONFLICT(annee_scolaire, cours_code, aa_code) DO UPDATE SET
       poids = excluded.poids, maj_le = excluded.maj_le`);
 
   const rapport = { retrouves: 0, resultats: 0, notes: 0, motivations: 0,
@@ -2232,13 +2281,13 @@ r.post('/import-suivi', authRequired,
         ponderationsFaites.add(ueNum);
         for (const [cc, p] of Object.entries(l.repartition.cours || {})) {
           if (p == null || p === 0) continue;
-          if (!simulation) insPondCours.run(ueNum, cc, p);
+          if (!simulation) insPondCours.run(annee, ueNum, cc, p);
           rapport.ponderations++;
         }
         for (const [aa, parCours] of Object.entries(l.repartition.acquis || {})) {
           for (const [cc, p] of Object.entries(parCours)) {
             if (p == null || p === 0) continue;
-            if (!simulation) insPond.run(ueNum, cc, aa, p);
+            if (!simulation) insPond.run(annee, ueNum, cc, aa, p);
             rapport.ponderations++;
           }
         }
@@ -2256,7 +2305,7 @@ r.post('/import-suivi', authRequired,
             'SELECT cours_code FROM aa WHERE ue_num = ? AND aa_code = ? LIMIT 1'
           ).get(ueNum, aa)?.cours_code;
           if (!cc) { rapport.aa_sans_cours.add(aa); continue; }
-          if (!simulation) insPond.run(ueNum, cc, aa, p.poids_aa);
+          if (!simulation) insPond.run(annee, ueNum, cc, aa, p.poids_aa);
           rapport.ponderations++;
         }
       }
@@ -3033,8 +3082,11 @@ r.get('/pae-grille', authRequired, (req, res) => {
     const derog = new Set(db.prepare(`SELECT etudiant_id || '|' || ue_num AS k FROM etudiant_inscription
       WHERE annee_scolaire = ? AND COALESCE(derogation, 0) = 1`).all(annee).map(x => x.k));
     for (const l of lignes) {
-      l.controle = { hors_proposition: [], manquantes: [] };
+      l.controle = { hors_proposition: [], manquantes: [], deja_reussies: [] };
       if (!Object.values(l.cases).some(c => c.inscrit)) continue;
+      // Une UE déjà réussie, réinscrite sans que personne l'ait forcé : c'est
+      // une erreur à retirer, et la validation la refuse.
+      l.controle.deja_reussies = reprisesNonForcees(l.id, annee);
       const c = composerPAE(l.id, annee, { section });
       if (c.erreur) continue;
       for (const u of c.pae) {
@@ -3089,10 +3141,100 @@ r.post('/pae-valider-lot', authRequired,
       }
       if (retirer) { faits += oter.run(id, annee).changes; continue; }
       if (!nbInscr.get(id, annee).n) { ignores.push({ id, raison: 'programme vide' }); continue; }
+      const reprises = reprisesNonForcees(id, annee);
+      if (reprises.length) {
+        ignores.push({ id, raison: `UE déjà réussie${reprises.length > 1 ? 's' : ''}, `
+          + `réinscrite${reprises.length > 1 ? 's' : ''} sans être forcée${reprises.length > 1 ? 's' : ''} : `
+          + reprises.join(', ') });
+        continue;
+      }
       signer.run(id, annee, qui); faits++;
     }
   })();
   res.json({ ok: true, faits, ignores });
+});
+
+/* ══ FORCER LA RÉINSCRIPTION À UNE UE DÉJÀ RÉUSSIE ═════════════════════════
+ *
+ * Le seul geste qui rend légitime une UE réussie au programme d'une année
+ * suivante. Réservé à la direction et à la coordination, dans leur périmètre.
+ * CELUI QUI CLIQUE EST CELUI QUI FORCE : son nom et l'heure s'écrivent sur
+ * l'inscription. « retirer » défait le forçage, sans toucher à l'inscription.
+ */
+r.post('/pae-forcer-reinscription', authRequired,
+       roleRequired(...PEUT_FORCER_REINSCRIPTION), (req, res) => {
+  const { etudiant_id, annee, ue_num, retirer } = req.body || {};
+  const id = Number(etudiant_id), ue = Number(ue_num);
+  if (!id || !annee || !ue) return res.status(400).json({ error: 'étudiant, année et UE requis' });
+  const perim = perimetre(req);
+  if (perim && !perim.includes(sectionRattachement(id, annee).section)
+      && !sectionsDeUE(ue).some(s0 => perim.includes(s0))) {
+    return res.status(403).json({ error: 'Cet étudiant est hors de votre périmètre.' });
+  }
+  const insc = db.prepare(`SELECT i.id, ${SQL_DEJA_REUSSIE} AS reussie FROM etudiant_inscription i
+    WHERE i.etudiant_id = ? AND i.annee_scolaire = ? AND i.ue_num = ?`).get(id, annee, ue);
+  if (!insc) return res.status(404).json({ error: `L'UE ${ue} n'est pas au programme ${annee} de cet étudiant.` });
+  if (!insc.reussie) {
+    return res.status(409).json({ error: `L'UE ${ue} n'a pas été réussie une année antérieure : rien à forcer.` });
+  }
+  const qui = req.user?.nom || req.user?.email || null;
+  if (retirer) {
+    db.prepare(`UPDATE etudiant_inscription SET derogation = 0, derogation_par = NULL, derogation_le = NULL
+      WHERE id = ?`).run(insc.id);
+  } else {
+    db.prepare(`UPDATE etudiant_inscription SET derogation = 1, derogation_par = ?, derogation_le = datetime('now')
+      WHERE id = ?`).run(qui, insc.id);
+  }
+  res.json({ ok: true, force: !retirer, par: retirer ? null : qui });
+});
+
+/* ══ RETIRER LES UE DÉJÀ RÉUSSIES QUE PERSONNE N'A FORCÉES ═════════════════
+ *
+ * Le nettoyage des réinscriptions fautives. Simulation par défaut : la liste
+ * nominative d'abord, l'écriture ensuite. Ne retire JAMAIS une inscription qui
+ * porte un résultat, des points, des notes d'acquis, ou un forçage. Un PAE
+ * déjà validé qui perd des unités perd aussi sa validation : la signature
+ * portait sur un autre programme que celui qui reste.
+ */
+r.post('/pae-nettoyer-reussies', authRequired,
+       roleRequired(...PEUT_FORCER_REINSCRIPTION), (req, res) => {
+  const { annee, section, simulation = true } = req.body || {};
+  if (!annee || !section) return res.status(400).json({ error: 'année et section requises' });
+  if (!sectionAutoriseeReq(req, section)) return res.status(403).json({ error: 'Section hors de votre périmètre' });
+
+  const lignes = db.prepare(`
+    SELECT i.id, i.etudiant_id, i.ue_num, e.nom, e.prenom
+    FROM etudiant_inscription i JOIN etudiant e ON e.id = i.etudiant_id
+    WHERE i.annee_scolaire = ? AND COALESCE(i.derogation, 0) = 0
+      AND i.resultat IS NULL AND i.points IS NULL
+      AND NOT EXISTS (SELECT 1 FROM etudiant_note_detail n
+        WHERE n.etudiant_id = i.etudiant_id AND n.annee_scolaire = i.annee_scolaire AND n.ue_num = i.ue_num)
+      AND ${SQL_DEJA_REUSSIE}
+    ORDER BY e.nom, e.prenom, i.ue_num`).all(annee)
+    .filter(l => sectionRattachement(l.etudiant_id, annee).section === section);
+
+  const parEtudiant = new Map();
+  for (const l of lignes) {
+    if (!parEtudiant.has(l.etudiant_id)) {
+      parEtudiant.set(l.etudiant_id, { id: l.etudiant_id, nom: l.nom, prenom: l.prenom, ues: [] });
+    }
+    parEtudiant.get(l.etudiant_id).ues.push(l.ue_num);
+  }
+  const valide = db.prepare('SELECT confirme_le FROM etudiant_pae WHERE etudiant_id = ? AND annee_scolaire = ?');
+  const etudiants = [...parEtudiant.values()].map(x => ({ ...x, pae_valide: !!valide.get(x.id, annee)?.confirme_le }));
+
+  let retirees = 0, validations_retirees = 0;
+  if (!simulation && lignes.length) {
+    const del = db.prepare('DELETE FROM etudiant_inscription WHERE id = ? AND resultat IS NULL AND points IS NULL');
+    const oter = db.prepare('DELETE FROM etudiant_pae WHERE etudiant_id = ? AND annee_scolaire = ?');
+    db.transaction(() => {
+      for (const l of lignes) retirees += del.run(l.id).changes;
+      for (const x of etudiants) if (x.pae_valide) validations_retirees += oter.run(x.id, annee).changes;
+    })();
+  }
+  res.json({ ok: true, simulation: !!simulation, annee, section,
+    etudiants, total: { etudiants: etudiants.length, inscriptions: lignes.length },
+    retirees, validations_retirees });
 });
 
 /* ══ COMPOSER LES PAE — APPLIQUER LES CHANGEMENTS DE LA GRILLE ════════════

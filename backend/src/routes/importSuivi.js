@@ -185,11 +185,11 @@ r.post('/', authRequired, roleRequired('admin', 'directeur', 'directeur_adjoint'
 
   // ── Les écritures ────────────────────────────────────────────────────────
   const posePoidsCours = db.prepare(`
-    INSERT INTO cours_ponderation (ue_num, cours_code, poids) VALUES (?,?,?)
-    ON CONFLICT(ue_num, cours_code) DO UPDATE SET poids = excluded.poids`);
+    INSERT INTO cours_ponderation (annee_scolaire, ue_num, cours_code, poids) VALUES (?,?,?,?)
+    ON CONFLICT(annee_scolaire, ue_num, cours_code) DO UPDATE SET poids = excluded.poids`);
   const posePoidsAA = db.prepare(`
-    INSERT INTO aa_ponderation (ue_num, cours_code, aa_code, poids) VALUES (?,?,?,?)
-    ON CONFLICT(cours_code, aa_code) DO UPDATE SET poids = excluded.poids,
+    INSERT INTO aa_ponderation (annee_scolaire, ue_num, cours_code, aa_code, poids) VALUES (?,?,?,?,?)
+    ON CONFLICT(annee_scolaire, cours_code, aa_code) DO UPDATE SET poids = excluded.poids,
       ue_num = excluded.ue_num`);
   // L'ACQUIS EXISTE AVANT D'ÊTRE PONDÉRÉ.
   //
@@ -370,13 +370,13 @@ r.post('/', authRequired, roleRequired('admin', 'directeur', 'directeur_adjoint'
         }
 
         for (const c of (u.cours || [])) {
-          if (!simulation) posePoidsCours.run(ueNum, c.cours_code, c.poids_cours / 10);
+          if (!simulation) posePoidsCours.run(an, ueNum, c.cours_code, c.poids_cours / 10);
           fiche.ponderations++;
         }
         for (const p of (u.ponderations || [])) {
           if (!simulation) {
             creerAA.run(p.aa_code, ueNum, p.cours_code);
-            posePoidsAA.run(ueNum, p.cours_code, p.aa_code, p.poids_aa);
+            posePoidsAA.run(an, ueNum, p.cours_code, p.aa_code, p.poids_aa);
           }
           fiche.ponderations++;
         }
