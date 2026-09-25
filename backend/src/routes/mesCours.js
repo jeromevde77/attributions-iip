@@ -73,14 +73,14 @@ const r = Router();
 /* Les acquis évalués par CE cours — la pondération seule en tient le compte,
  * comme pour la DUE. Sans lignes de pondération : repli sur le rattachement
  * direct aa.cours_code, puis, à défaut, la note de cours. */
-function acquisDuCours(coursCode, ueNum) {
+function acquisDuCours(coursCode, ueNum, annee) {
   try {
     const lies = db.prepare(`
       SELECT p.aa_code, COALESCE(a.description, '') AS description,
              COALESCE(a.aa_num, 999) AS aa_num
       FROM aa_ponderation p LEFT JOIN aa a ON a.aa_code = p.aa_code
-      WHERE p.ue_num = ? AND p.cours_code = ?
-      ORDER BY aa_num, p.aa_code`).all(ueNum, coursCode);
+      WHERE p.ue_num = ? AND p.annee_scolaire = ? AND p.cours_code = ?
+      ORDER BY aa_num, p.aa_code`).all(ueNum, annee, coursCode);
     if (lies.length) return lies.map(x => ({ aa_code: x.aa_code, description: x.description }));
     return db.prepare(`
       SELECT aa_code, COALESCE(description, '') AS description
@@ -202,7 +202,7 @@ r.get('/:coursCode/etudiants', authRequired, (req, res) => {
   const d = etudiantsDuCours(profId, req.params.coursCode, annee);
   if (!d) return res.status(403).json({ error: "Ce cours n'est pas dans vos attributions." });
 
-  const acquis = acquisDuCours(req.params.coursCode, d.ueNum);
+  const acquis = acquisDuCours(req.params.coursCode, d.ueNum, annee);
   const props = {};
   for (const x of db.prepare(`
     SELECT etudiant_id, aa_code, note FROM note_proposee
@@ -231,7 +231,7 @@ r.post('/:coursCode/notes', authRequired, (req, res) => {
 
   const permis = new Set(d.etudiants.map(e => e.id));
   // Les acquis admis pour ce cours — plus la clé '' (note de cours).
-  const aaPermis = new Set(['', ...acquisDuCours(req.params.coursCode, d.ueNum).map(a => a.aa_code)]);
+  const aaPermis = new Set(['', ...acquisDuCours(req.params.coursCode, d.ueNum, annee).map(a => a.aa_code)]);
   const notes = (Array.isArray(req.body?.notes) ? req.body.notes : [])
     .map(x => ({ etudiant_id: Number(x?.etudiant_id),
       aa_code: String(x?.aa_code ?? ''),

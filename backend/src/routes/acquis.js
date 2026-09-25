@@ -432,11 +432,86 @@ export function migrerAA(dbx) {
     }
     console.log('[migration] aa_ponderation créée');
   } catch (e) { console.error('[migration] aa :', e.message); }
+  migrerPonderationsParAnnee(dbx);
 
   // La session comme dimension : après migrerEtudiants, qui crée
   // etudiant_inscription — c'est de là que les décisions déjà prises sont
   // reprises en première session.
   migrerSessions(dbx);
+}
+
+/* LES POIDS PRENNENT UNE ANNÉE (Charles, 25 septembre 2026).
+ *
+ * aa_ponderation et cours_ponderation n'avaient pas d'année : un poids réglé
+ * pour 2026-2027 aurait réécrit, en silence, les notes de 2024-2025 et de
+ * 2025-2026 déjà délibérées. Chaque année porte désormais les siens.
+ *
+ * La reprise conserve EXACTEMENT le calcul des années passées : les lignes
+ * existantes sont recopiées dans chaque année antérieure à 2026-2027 connue
+ * de la base. Les poids des ACQUIS dans leur cours sont aussi recopiés en
+ * 2026-2027 et au-delà (ce sont les dix points de chaque cours, rien ne les
+ * remplace) ; les poids des COURS ne le sont pas : à partir de 2026-2027, les
+ * périodes du dossier pédagogique font foi, et un poids saisi y est une
+ * exception qu'on pose UE par UE.
+ *
+ * SQLite ne sait pas défaire une contrainte d'unicité : la table se
+ * reconstruit, dans une transaction, et seulement si la colonne manque. */
+export const ANNEE_PERIODES = '2026-2027';
+function migrerPonderationsParAnnee(dbx) {
+  const aCol = t => dbx.prepare(`PRAGMA table_info(${t})`).all().some(c => c.name === 'annee_scolaire');
+  if (aCol('aa_ponderation') && aCol('cours_ponderation')) return;
+  const annees = [...new Set([
+    ...dbx.prepare('SELECT code FROM annee_scolaire').all().map(x => x.code),
+    ...dbx.prepare('SELECT DISTINCT annee_scolaire AS code FROM cours').all().map(x => x.code),
+  ].filter(Boolean))].sort();
+  // Le renommage de SQLite relit toutes les vues ; une vue déjà cassée
+  // ailleurs ne doit pas bloquer la migration. On le rend local à la table.
+  dbx.exec('PRAGMA legacy_alter_table = ON');
+  try {
+    dbx.transaction(() => {
+      if (!aCol('aa_ponderation')) {
+        const avant = dbx.prepare('SELECT COUNT(*) AS n FROM aa_ponderation').get().n;
+        dbx.exec(`CREATE TABLE aa_ponderation_v2 (
+          id             INTEGER PRIMARY KEY AUTOINCREMENT,
+          annee_scolaire TEXT NOT NULL,
+          ue_num         INTEGER NOT NULL,
+          cours_code     TEXT NOT NULL,
+          aa_code        TEXT NOT NULL,
+          poids          REAL NOT NULL DEFAULT 0,
+          maj_le         TEXT DEFAULT (datetime('now')),
+          UNIQUE(annee_scolaire, cours_code, aa_code))`);
+        const copie = dbx.prepare(`INSERT INTO aa_ponderation_v2
+          (annee_scolaire, ue_num, cours_code, aa_code, poids, maj_le)
+          SELECT ?, ue_num, cours_code, aa_code, poids, maj_le FROM aa_ponderation`);
+        for (const a of annees) copie.run(a);
+        dbx.exec(`DROP TABLE aa_ponderation;
+          ALTER TABLE aa_ponderation_v2 RENAME TO aa_ponderation;
+          CREATE INDEX IF NOT EXISTS idx_aa_pond_ue ON aa_ponderation(ue_num, annee_scolaire);`);
+        console.log(`[migration] aa_ponderation par année : ${avant} poids × ${annees.length} année(s) (${annees.join(', ')})`);
+      }
+      if (!aCol('cours_ponderation')) {
+        const avant = dbx.prepare('SELECT COUNT(*) AS n FROM cours_ponderation').get().n;
+        dbx.exec(`CREATE TABLE cours_ponderation_v2 (
+          id             INTEGER PRIMARY KEY AUTOINCREMENT,
+          annee_scolaire TEXT NOT NULL,
+          ue_num         INTEGER NOT NULL,
+          cours_code     TEXT NOT NULL,
+          poids          REAL NOT NULL DEFAULT 0,
+          maj_le         TEXT DEFAULT (datetime('now')),
+          UNIQUE(annee_scolaire, ue_num, cours_code))`);
+        const copie = dbx.prepare(`INSERT INTO cours_ponderation_v2
+          (annee_scolaire, ue_num, cours_code, poids, maj_le)
+          SELECT ?, ue_num, cours_code, poids, maj_le FROM cours_ponderation`);
+        const passees = annees.filter(a => a < ANNEE_PERIODES);
+        for (const a of passees) copie.run(a);
+        dbx.exec(`DROP TABLE cours_ponderation;
+          ALTER TABLE cours_ponderation_v2 RENAME TO cours_ponderation;
+          CREATE INDEX IF NOT EXISTS idx_cours_pond_ue ON cours_ponderation(ue_num, annee_scolaire);`);
+        console.log(`[migration] cours_ponderation par année : ${avant} poids × ${passees.length} année(s) (${passees.join(', ')})`);
+      }
+    })();
+  } catch (e) { console.error('[migration] pondérations par année :', e.message); }
+  finally { dbx.exec('PRAGMA legacy_alter_table = OFF'); }
 }
 
 // Le poids d'un cours dans son UE est un pourcentage explicite : les poids
@@ -481,7 +556,8 @@ export function structureUE(ueNum, annee) {
   const pond = {};
   const parCours = {};
   for (const p of db.prepare(
-    `SELECT cours_code, aa_code, poids FROM aa_ponderation WHERE ue_num = ? AND cours_code <> '__ue__'`).all(ueNum)) {
+    `SELECT cours_code, aa_code, poids FROM aa_ponderation
+     WHERE ue_num = ? AND annee_scolaire = ? AND cours_code <> '__ue__'`).all(ueNum, anneeRef)) {
     pond[p.cours_code + '|' + p.aa_code] = Number(p.poids);
     (parCours[p.cours_code] = parCours[p.cours_code] || []).push(p.aa_code);
   }
@@ -517,7 +593,7 @@ export function structureUE(ueNum, annee) {
   // dossier pédagogique font foi, et cette table reste vide.
   try {
     for (const p of db.prepare(
-      'SELECT cours_code, poids FROM cours_ponderation WHERE ue_num = ?').all(ueNum)) {
+      'SELECT cours_code, poids FROM cours_ponderation WHERE ue_num = ? AND annee_scolaire = ?').all(ueNum, anneeRef)) {
       if (p.poids != null) poidsCours[p.cours_code] = Number(p.poids);
     }
   } catch { /* table absente : on s'en tient aux périodes */ }
@@ -1833,7 +1909,7 @@ r.get('/ue/:ueNum/liens', authRequired, (req, res) => {
   `).all(ueNum);
 
   const tousLiens = db.prepare(
-    'SELECT cours_code, aa_code, poids FROM aa_ponderation WHERE ue_num = ?').all(ueNum);
+    'SELECT cours_code, aa_code, poids FROM aa_ponderation WHERE ue_num = ? AND annee_scolaire = ?').all(ueNum, annee);
   const liens = tousLiens.filter(l => l.cours_code !== CODE_EPREUVE_UE);
   const poids_epreuve = Object.fromEntries(tousLiens
     .filter(l => l.cours_code === CODE_EPREUVE_UE).map(l => [l.aa_code, Number(l.poids)]));
@@ -1898,13 +1974,13 @@ r.put('/ue/:ueNum/cours/:code/evaluation', authRequired, roleRequired('admin', '
   const cours = db.prepare('SELECT 1 FROM cours WHERE cours_code = ? AND ue_num = ? AND annee_scolaire = ?')
     .get(code, ueNum, annee);
   if (!cours) return res.status(404).json({ error: `Cours ${code} introuvable en ${annee}.` });
-  const liens = db.prepare('SELECT COUNT(*) AS n FROM aa_ponderation WHERE cours_code = ?').get(code).n;
+  const liens = db.prepare('SELECT COUNT(*) AS n FROM aa_ponderation WHERE cours_code = ? AND annee_scolaire = ?').get(code, annee).n;
   if (non && liens && !req.body?.delier) {
     return res.status(409).json({ confirmation_requise: true, liens,
       error: `${liens} acquis sont reliés à ce cours : ils en seront détachés.` });
   }
   db.transaction(() => {
-    if (non && liens) db.prepare('DELETE FROM aa_ponderation WHERE cours_code = ?').run(code);
+    if (non && liens) db.prepare('DELETE FROM aa_ponderation WHERE cours_code = ? AND annee_scolaire = ?').run(code, annee);
     db.prepare('UPDATE cours SET non_evalue = ? WHERE cours_code = ? AND annee_scolaire = ?')
       .run(non, code, annee);
   })();
@@ -1916,12 +1992,12 @@ r.put('/ponderations', authRequired, roleRequired('admin', 'editeur'), (req, res
   if (!ue_num || !cours_code || !Array.isArray(ponderations)) {
     return res.status(400).json({ error: 'ue_num, cours_code et ponderations requis' });
   }
+  const annee = req.body.annee || anneeDeTravail(req);
   // On ne pèse pas d'acquis dans un cours déclaré non évalué : ce serait une
   // note attendue là où personne n'en donnera.
   if (ponderations.some(p => Number(p.poids) > 0)) {
-    const an = req.body.annee || anneeDeTravail(req);
     const ne = db.prepare('SELECT non_evalue FROM cours WHERE cours_code = ? AND annee_scolaire = ?')
-      .get(cours_code, an)?.non_evalue;
+      .get(cours_code, annee)?.non_evalue;
     if (ne) {
       return res.status(409).json({ error: `Le cours ${cours_code} est déclaré « pas évalué » : décochez-le d'abord pour y relier des acquis.` });
     }
@@ -1936,16 +2012,20 @@ r.put('/ponderations', authRequired, roleRequired('admin', 'editeur'), (req, res
   // RAPPORT entre les poids entre dans le calcul, un poids de 1 partout dit
   // exactement cela, et la somme n'a alors pas à valoir dix.
   if (req.body.parite) {
-    const del = db.prepare('DELETE FROM aa_ponderation WHERE cours_code = ? AND aa_code = ?');
+    if (annee >= ANNEE_PERIODES) {
+      return res.status(400).json({ error: `À partir de ${ANNEE_PERIODES}, les dix points d'un cours `
+        + 'se répartissent en nombres entiers : la parité (un point chacun) ne s’applique plus.' });
+    }
+    const del = db.prepare('DELETE FROM aa_ponderation WHERE annee_scolaire = ? AND cours_code = ? AND aa_code = ?');
     const up = db.prepare(`
-      INSERT INTO aa_ponderation (ue_num, cours_code, aa_code, poids, maj_le)
-      VALUES (?,?,?,1, datetime('now'))
-      ON CONFLICT(cours_code, aa_code) DO UPDATE SET
+      INSERT INTO aa_ponderation (annee_scolaire, ue_num, cours_code, aa_code, poids, maj_le)
+      VALUES (?,?,?,?,1, datetime('now'))
+      ON CONFLICT(annee_scolaire, cours_code, aa_code) DO UPDATE SET
         poids = 1, ue_num = excluded.ue_num, maj_le = datetime('now')`);
     db.transaction(() => {
       for (const p of ponderations) {
-        if (Number(p.poids) > 0) up.run(Number(ue_num), cours_code, p.aa_code);
-        else del.run(cours_code, p.aa_code);
+        if (Number(p.poids) > 0) up.run(annee, Number(ue_num), cours_code, p.aa_code);
+        else del.run(annee, cours_code, p.aa_code);
       }
     })();
     return res.json({ ok: true, cours_code, parite: true, nb: gardes.length });
@@ -1957,6 +2037,18 @@ r.put('/ponderations', authRequired, roleRequired('admin', 'editeur'), (req, res
   // et reste valide tel quel.
   const sur10 = Math.abs(somme - 10) < 0.001;
   const sur100 = Math.abs(somme - 100) < 0.01;
+  /* À PARTIR DE 2026-2027 : DIX POINTS, EN ENTIERS (Charles, 25 septembre
+     2026). Le barème sur 100 et le demi-point ne valent que pour les années
+     reprises des classeurs, dont les délibérations sont déjà tenues. */
+  if (annee >= ANNEE_PERIODES && gardes.length) {
+    if (!sur10) {
+      return res.status(400).json({ error: `Les points de ce cours totalisent ${Math.round(somme * 100) / 100} : `
+        + 'ils doivent faire exactement 10, répartis entre ses acquis.' });
+    }
+    if (gardes.some(p => !Number.isInteger(Number(p.poids)))) {
+      return res.status(400).json({ error: 'Les points se posent en nombres entiers (1, 2, 3 …).' });
+    }
+  }
   if (gardes.length && !sur10 && !sur100) {
     return res.status(400).json({
       error: `La somme des pondérations de ce cours vaut ${Math.round(somme * 100) / 100}.`
@@ -1974,16 +2066,16 @@ r.put('/ponderations', authRequired, roleRequired('admin', 'editeur'), (req, res
   }
 
   const up = db.prepare(`
-    INSERT INTO aa_ponderation (ue_num, cours_code, aa_code, poids, maj_le)
-    VALUES (?,?,?,?, datetime('now'))
-    ON CONFLICT(cours_code, aa_code) DO UPDATE SET
+    INSERT INTO aa_ponderation (annee_scolaire, ue_num, cours_code, aa_code, poids, maj_le)
+    VALUES (?,?,?,?,?, datetime('now'))
+    ON CONFLICT(annee_scolaire, cours_code, aa_code) DO UPDATE SET
       poids = excluded.poids, ue_num = excluded.ue_num, maj_le = datetime('now')
   `);
-  const del = db.prepare('DELETE FROM aa_ponderation WHERE cours_code = ? AND aa_code = ?');
+  const del = db.prepare('DELETE FROM aa_ponderation WHERE annee_scolaire = ? AND cours_code = ? AND aa_code = ?');
   db.transaction(() => {
     for (const p of ponderations) {
-      if (Number(p.poids) > 0) up.run(Number(ue_num), cours_code, p.aa_code, Number(p.poids));
-      else del.run(cours_code, p.aa_code);
+      if (Number(p.poids) > 0) up.run(annee, Number(ue_num), cours_code, p.aa_code, Number(p.poids));
+      else del.run(annee, cours_code, p.aa_code);
     }
   })();
   res.json({ ok: true, cours_code, somme: Math.round(somme * 100) / 100,
@@ -1994,25 +2086,30 @@ r.put('/ponderations', authRequired, roleRequired('admin', 'editeur'), (req, res
 r.post('/ponderations/repartir', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
   const { ue_num, cours_code } = req.body;
   if (!ue_num || !cours_code) return res.status(400).json({ error: 'ue_num et cours_code requis' });
+  const annee = req.body.annee || anneeDeTravail(req);
 
   const aas = db.prepare(
     'SELECT aa_code FROM aa WHERE ue_num = ? AND cours_code = ? ORDER BY aa_num'
   ).all(Number(ue_num), cours_code);
   if (!aas.length) return res.status(400).json({ error: 'Aucun AA rattaché à ce cours' });
 
-  // Réparti à parts égales ; le reliquat va au premier pour que le total fasse 100
-  const base = Math.floor((100 / aas.length) * 100) / 100;
+  // Réparti à parts égales ; le reliquat va aux premiers pour que le total
+  // tombe juste — sur 10 en entiers à partir de 2026-2027, sur 100 avant.
+  const total = annee >= ANNEE_PERIODES ? 10 : 100;
+  const pas = annee >= ANNEE_PERIODES ? 1 : 0.01;
+  const base = Math.floor((total / aas.length) / pas) * pas;
   const poids = aas.map(() => base);
-  poids[0] = Math.round((100 - base * (aas.length - 1)) * 100) / 100;
+  let reste = Math.round((total - base * aas.length) / pas);
+  for (let i = 0; reste > 0; i = (i + 1) % aas.length, reste--) poids[i] = Math.round((poids[i] + pas) * 100) / 100;
 
   const up = db.prepare(`
-    INSERT INTO aa_ponderation (ue_num, cours_code, aa_code, poids, maj_le)
-    VALUES (?,?,?,?, datetime('now'))
-    ON CONFLICT(cours_code, aa_code) DO UPDATE SET
+    INSERT INTO aa_ponderation (annee_scolaire, ue_num, cours_code, aa_code, poids, maj_le)
+    VALUES (?,?,?,?,?, datetime('now'))
+    ON CONFLICT(annee_scolaire, cours_code, aa_code) DO UPDATE SET
       poids = excluded.poids, maj_le = datetime('now')
   `);
   db.transaction(() => {
-    aas.forEach((a, i) => up.run(Number(ue_num), cours_code, a.aa_code, poids[i]));
+    aas.forEach((a, i) => up.run(annee, Number(ue_num), cours_code, a.aa_code, poids[i]));
   })();
   res.json({ ok: true, reparti: aas.length });
 });
@@ -3084,7 +3181,8 @@ export function delibererUE(etudId, ueNum, annee, session = 1) {
   // qu'un même acquis soit évalué dans plusieurs cours.
   const paires = [];
   const toutesPond = db.prepare(
-    'SELECT cours_code, aa_code, poids FROM aa_ponderation WHERE ue_num = ?').all(ueNum);
+    'SELECT cours_code, aa_code, poids FROM aa_ponderation WHERE ue_num = ? AND annee_scolaire = ?')
+    .all(ueNum, annee || anneeActiveEnBase());
   // Le bloc de l'épreuve intégrée (« __ue__ ») porte le poids d'un acquis
   // POUR L'UNITÉ ; ce n'est pas un cours, il ne se mêle pas aux liens.
   const pondEI = toutesPond.filter(p => p.cours_code === CODE_EPREUVE_UE);
@@ -3706,8 +3804,8 @@ r.get('/cours/:coursCode/feuille', authRequired, (req, res) => {
     SELECT p.aa_code, p.poids, a.description
     FROM aa_ponderation p
     LEFT JOIN aa a ON a.aa_code = p.aa_code AND a.ue_num = p.ue_num
-    WHERE p.ue_num = ? AND p.cours_code = ? ORDER BY p.aa_code
-  `).all(co.ue_num, coursCode);
+    WHERE p.ue_num = ? AND p.annee_scolaire = ? AND p.cours_code = ? ORDER BY p.aa_code
+  `).all(co.ue_num, annee, coursCode);
   if (!acquis.length) {
     acquis = db.prepare(`
       SELECT aa_code, NULL AS poids, description FROM aa
@@ -3805,7 +3903,7 @@ r.post('/ue/:ueNum/notes/importer', authRequired,
   // Quels cours évaluent quel acquis — la pondération fait foi.
   const coursDeAA = {};
   for (const l of db.prepare(
-    "SELECT cours_code, aa_code FROM aa_ponderation WHERE ue_num = ? AND cours_code <> '__ue__'").all(ueNum)) {
+    "SELECT cours_code, aa_code FROM aa_ponderation WHERE ue_num = ? AND annee_scolaire = ? AND cours_code <> '__ue__'").all(ueNum, an)) {
     (coursDeAA[String(l.aa_code).trim().toUpperCase()] ||= []).push(l.cours_code);
   }
   const acquisConnus = new Set(db.prepare('SELECT aa_code FROM aa WHERE ue_num = ?')
@@ -4010,8 +4108,8 @@ r.get('/ue/:ueNum/feuille', authRequired,
   const pondTout = db.prepare(`
     SELECT p.cours_code, p.aa_code, p.poids, a.description
     FROM aa_ponderation p LEFT JOIN aa a ON a.aa_code = p.aa_code AND a.ue_num = p.ue_num
-    WHERE p.ue_num = ? ORDER BY p.aa_code
-  `).all(ueNum);
+    WHERE p.ue_num = ? AND p.annee_scolaire = ? ORDER BY p.aa_code
+  `).all(ueNum, annee);
   const pond = pondTout.filter(x => x.cours_code !== CODE_EPREUVE_UE);
   const pondEIfeuille = pondTout.filter(x => x.cours_code === CODE_EPREUVE_UE);
   const parCours = {};
@@ -4299,8 +4397,8 @@ r.post('/cours/:coursCode/acquis/importer', authRequired,
     'SELECT aa_code, description, aa_num FROM aa WHERE ue_num = ?').all(co.ue_num)
     .map(a => [String(a.aa_code).trim().toUpperCase(), a]));
   const liens = Object.fromEntries(db.prepare(
-    'SELECT aa_code, poids FROM aa_ponderation WHERE ue_num = ? AND cours_code = ?')
-    .all(co.ue_num, coursCode).map(l => [String(l.aa_code).trim().toUpperCase(), l.poids]));
+    'SELECT aa_code, poids FROM aa_ponderation WHERE ue_num = ? AND annee_scolaire = ? AND cours_code = ?')
+    .all(co.ue_num, an, coursCode).map(l => [String(l.aa_code).trim().toUpperCase(), l.poids]));
 
   const rapport = [];
   const vus = new Set();
@@ -4351,11 +4449,11 @@ r.post('/cours/:coursCode/acquis/importer', authRequired,
     }
 
     db.prepare(`
-      INSERT INTO aa_ponderation (ue_num, cours_code, aa_code, poids, maj_le)
-      VALUES (?,?,?,?, datetime('now'))
-      ON CONFLICT(cours_code, aa_code) DO UPDATE SET
+      INSERT INTO aa_ponderation (annee_scolaire, ue_num, cours_code, aa_code, poids, maj_le)
+      VALUES (?,?,?,?,?, datetime('now'))
+      ON CONFLICT(annee_scolaire, cours_code, aa_code) DO UPDATE SET
         poids = excluded.poids, ue_num = excluded.ue_num, maj_le = datetime('now')
-    `).run(co.ue_num, coursCode, existants[cle].aa_code, poids);
+    `).run(an, co.ue_num, coursCode, existants[cle].aa_code, poids);
   }
 
   // « Remplacer » délie ce que le fichier ne mentionne pas — sans jamais
@@ -4365,11 +4463,11 @@ r.post('/cours/:coursCode/acquis/importer', authRequired,
     delies = Object.keys(liens).filter(c => !vus.has(c));
     if (!simulation) {
       const del = db.prepare(
-        'DELETE FROM aa_ponderation WHERE cours_code = ? AND aa_code = ?');
+        'DELETE FROM aa_ponderation WHERE annee_scolaire = ? AND cours_code = ? AND aa_code = ?');
       for (const c of delies) {
         const vrai = Object.values(existants).find(a =>
           String(a.aa_code).toUpperCase() === c);
-        del.run(coursCode, vrai ? vrai.aa_code : c);
+        del.run(an, coursCode, vrai ? vrai.aa_code : c);
       }
     }
   }
@@ -4466,8 +4564,8 @@ r.put('/cours/:coursCode/epreuve', authRequired,
 
   // Les acquis que CE cours évalue.
   let acquis = db.prepare(
-    'SELECT aa_code FROM aa_ponderation WHERE ue_num = ? AND cours_code = ?'
-  ).all(co.ue_num, coursCode).map(a => a.aa_code);
+    'SELECT aa_code FROM aa_ponderation WHERE ue_num = ? AND annee_scolaire = ? AND cours_code = ?'
+  ).all(co.ue_num, annee_scolaire, coursCode).map(a => a.aa_code);
   if (!acquis.length) {
     acquis = db.prepare('SELECT aa_code FROM aa WHERE ue_num = ? AND cours_code = ?')
       .all(co.ue_num, coursCode).map(a => a.aa_code);
@@ -4958,7 +5056,7 @@ function libelleDeCode(ueNum, annee) {
   // mieux que la table des acquis, qui n'en porte qu'un.
   const parPond = new Map();
   for (const p of db.prepare(
-    "SELECT aa_code, cours_code FROM aa_ponderation WHERE ue_num = ? AND cours_code <> '__ue__'").all(ueNum)) {
+    "SELECT aa_code, cours_code FROM aa_ponderation WHERE ue_num = ? AND annee_scolaire = ? AND cours_code <> '__ue__'").all(ueNum, annee)) {
     (parPond.get(p.aa_code) || parPond.set(p.aa_code, []).get(p.aa_code)).push(p.cours_code);
   }
 

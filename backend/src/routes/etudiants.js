@@ -2165,17 +2165,17 @@ r.post('/import-suivi', authRequired,
   // alors que vos fichiers les portent. Sans elles, la note d'unité se calcule
   // à la moyenne simple, ce qui est faux dès qu'un acquis pèse 60 %.
   const insPondCours = db.prepare(`
-    INSERT INTO cours_ponderation (ue_num, cours_code, poids, maj_le)
-    VALUES (?,?,?, datetime('now'))
-    ON CONFLICT(ue_num, cours_code) DO UPDATE SET
+    INSERT INTO cours_ponderation (annee_scolaire, ue_num, cours_code, poids, maj_le)
+    VALUES (?,?,?,?, datetime('now'))
+    ON CONFLICT(annee_scolaire, ue_num, cours_code) DO UPDATE SET
       poids = excluded.poids, maj_le = excluded.maj_le`);
 
   const insPond = db.prepare(`
-    INSERT INTO aa_ponderation (ue_num, cours_code, aa_code, poids, maj_le)
-    VALUES (?,?,?,?, datetime('now'))
-    -- La contrainte de la table porte sur (cours_code, aa_code), SANS ue_num :
-    -- l'avoir supposée à trois colonnes faisait échouer tout l'import.
-    ON CONFLICT(cours_code, aa_code) DO UPDATE SET
+    INSERT INTO aa_ponderation (annee_scolaire, ue_num, cours_code, aa_code, poids, maj_le)
+    VALUES (?,?,?,?,?, datetime('now'))
+    -- La contrainte porte sur (annee_scolaire, cours_code, aa_code), SANS
+    -- ue_num : l'avoir supposée autrement faisait échouer tout l'import.
+    ON CONFLICT(annee_scolaire, cours_code, aa_code) DO UPDATE SET
       poids = excluded.poids, maj_le = excluded.maj_le`);
 
   const rapport = { retrouves: 0, resultats: 0, notes: 0, motivations: 0,
@@ -2281,13 +2281,13 @@ r.post('/import-suivi', authRequired,
         ponderationsFaites.add(ueNum);
         for (const [cc, p] of Object.entries(l.repartition.cours || {})) {
           if (p == null || p === 0) continue;
-          if (!simulation) insPondCours.run(ueNum, cc, p);
+          if (!simulation) insPondCours.run(annee, ueNum, cc, p);
           rapport.ponderations++;
         }
         for (const [aa, parCours] of Object.entries(l.repartition.acquis || {})) {
           for (const [cc, p] of Object.entries(parCours)) {
             if (p == null || p === 0) continue;
-            if (!simulation) insPond.run(ueNum, cc, aa, p);
+            if (!simulation) insPond.run(annee, ueNum, cc, aa, p);
             rapport.ponderations++;
           }
         }
@@ -2305,7 +2305,7 @@ r.post('/import-suivi', authRequired,
             'SELECT cours_code FROM aa WHERE ue_num = ? AND aa_code = ? LIMIT 1'
           ).get(ueNum, aa)?.cours_code;
           if (!cc) { rapport.aa_sans_cours.add(aa); continue; }
-          if (!simulation) insPond.run(ueNum, cc, aa, p.poids_aa);
+          if (!simulation) insPond.run(annee, ueNum, cc, aa, p.poids_aa);
           rapport.ponderations++;
         }
       }

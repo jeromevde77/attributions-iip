@@ -41,6 +41,14 @@ r.post('/', authRequired, roleRequired('admin'), (req, res) => {
         FROM cours WHERE annee_scolaire = ?
       `).run(code, source);
 
+      // Les dix points de chaque cours suivent l'année ; le poids des COURS,
+      // non : à partir de 2026-2027 les périodes du dossier pédagogique font
+      // foi, et une exception saisie se repose en connaissance de cause.
+      db.prepare(`
+        INSERT OR IGNORE INTO aa_ponderation (annee_scolaire, ue_num, cours_code, aa_code, poids)
+        SELECT ?, ue_num, cours_code, aa_code, poids FROM aa_ponderation WHERE annee_scolaire = ?
+      `).run(code, source);
+
       // Copier les attributions de l'année source vers la nouvelle année
       const copied = db.prepare(`
         INSERT INTO attribution (
@@ -196,12 +204,19 @@ r.post('/import-ues', authRequired, roleRequired('admin', 'editeur'), (req, res)
     FROM attribution WHERE ue_num = @ue AND annee_scolaire = @source
   `);
 
+  const copyPond = db.prepare(`
+    INSERT OR IGNORE INTO aa_ponderation (annee_scolaire, ue_num, cours_code, aa_code, poids)
+    SELECT @cible, ue_num, cours_code, aa_code, poids FROM aa_ponderation
+    WHERE ue_num = @ue AND annee_scolaire = @source
+  `);
+
   let nUe = 0, nCours = 0, nAttr = 0;
   const tx = db.transaction(() => {
     for (const ue of ue_nums) {
       const params = { ue, source, cible };
       nUe += copyUE.run(params).changes;
       nCours += copyCours.run(params).changes;
+      copyPond.run(params);
       if (avec_attributions) nAttr += copyAttr.run(params).changes;
     }
   });

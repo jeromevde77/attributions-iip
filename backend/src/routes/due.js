@@ -152,7 +152,7 @@ function partieAutomatique(ueNum, annee) {
   // Le rattachement acquis ↔ cours vient de la pondération : c'est la somme
   // des acquis qui fait le cours, et cette table seule en tient le compte.
   const liens = db.prepare(
-    'SELECT cours_code, aa_code, poids FROM aa_ponderation WHERE ue_num = ?').all(ueNum);
+    'SELECT cours_code, aa_code, poids FROM aa_ponderation WHERE ue_num = ? AND annee_scolaire = ?').all(ueNum, annee);
   const parCours = {};
   for (const l of liens) (parCours[l.cours_code] = parCours[l.cours_code] || []).push(l.aa_code);
 
