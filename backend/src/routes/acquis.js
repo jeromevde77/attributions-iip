@@ -2014,7 +2014,7 @@ r.put('/ponderations', authRequired, roleRequired('admin', 'editeur'), (req, res
   if (req.body.parite) {
     if (annee >= ANNEE_PERIODES) {
       return res.status(400).json({ error: `À partir de ${ANNEE_PERIODES}, les dix points d'un cours `
-        + 'se répartissent en nombres entiers : la parité (un point chacun) ne s’applique plus.' });
+        + 'se répartissent par pas de 0,5 : la parité (un point chacun) ne s’applique plus.' });
     }
     const del = db.prepare('DELETE FROM aa_ponderation WHERE annee_scolaire = ? AND cours_code = ? AND aa_code = ?');
     const up = db.prepare(`
@@ -2037,16 +2037,17 @@ r.put('/ponderations', authRequired, roleRequired('admin', 'editeur'), (req, res
   // et reste valide tel quel.
   const sur10 = Math.abs(somme - 10) < 0.001;
   const sur100 = Math.abs(somme - 100) < 0.01;
-  /* À PARTIR DE 2026-2027 : DIX POINTS, EN ENTIERS (Charles, 25 septembre
-     2026). Le barème sur 100 et le demi-point ne valent que pour les années
-     reprises des classeurs, dont les délibérations sont déjà tenues. */
+  /* À PARTIR DE 2026-2027 : DIX POINTS, PAR PAS DE 0,5 (Charles, 25
+     septembre 2026 — « pas de décimale sauf ,5 »). Le barème sur 100 et les
+     décimales libres ne valent que pour les années reprises des classeurs,
+     dont les délibérations sont déjà tenues. */
   if (annee >= ANNEE_PERIODES && gardes.length) {
     if (!sur10) {
       return res.status(400).json({ error: `Les points de ce cours totalisent ${Math.round(somme * 100) / 100} : `
         + 'ils doivent faire exactement 10, répartis entre ses acquis.' });
     }
-    if (gardes.some(p => !Number.isInteger(Number(p.poids)))) {
-      return res.status(400).json({ error: 'Les points se posent en nombres entiers (1, 2, 3 …).' });
+    if (gardes.some(p => !Number.isInteger(Number(p.poids) * 2))) {
+      return res.status(400).json({ error: 'Les points se posent par pas de 0,5 (1 · 1,5 · 2 …).' });
     }
   }
   if (gardes.length && !sur10 && !sur100) {
@@ -2094,9 +2095,9 @@ r.post('/ponderations/repartir', authRequired, roleRequired('admin', 'editeur'),
   if (!aas.length) return res.status(400).json({ error: 'Aucun AA rattaché à ce cours' });
 
   // Réparti à parts égales ; le reliquat va aux premiers pour que le total
-  // tombe juste — sur 10 en entiers à partir de 2026-2027, sur 100 avant.
+  // tombe juste — sur 10 par pas de 0,5 à partir de 2026-2027, sur 100 avant.
   const total = annee >= ANNEE_PERIODES ? 10 : 100;
-  const pas = annee >= ANNEE_PERIODES ? 1 : 0.01;
+  const pas = annee >= ANNEE_PERIODES ? 0.5 : 0.01;
   const base = Math.floor((total / aas.length) / pas) * pas;
   const poids = aas.map(() => base);
   let reste = Math.round((total - base * aas.length) / pas);

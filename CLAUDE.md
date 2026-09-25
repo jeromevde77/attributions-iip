@@ -248,8 +248,8 @@ générale de tout le parcours garde ses décimales.
 **Bascule par millésime :** 2024-25 et 2025-26 → pondération **du classeur**
 (`cours_ponderation`, `aa_ponderation`) ; à partir de 2026-27 → **périodes** du
 dossier pédagogique pour le poids des COURS (un poids saisi reste permis, UE
-par UE, comme exception), et **10 points entiers par cours** répartis entre
-ses acquis (Charles, 25 septembre 2026).
+par UE, comme exception), et **10 points par cours**, par pas de 0,5, répartis
+entre ses acquis (Charles, 25 septembre 2026).
 
 > **LES POIDS ONT UNE ANNÉE** (2.12.179). Les deux tables n'en avaient pas :
 > régler 2026-2027 aurait réécrit les notes de 2024-2025 et 2025-2026. Toute
