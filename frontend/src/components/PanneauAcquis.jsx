@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { IconChevronRight, IconListDetails } from '@tabler/icons-react';
+import { useChapeaux } from '../lib/chapeaux.js';
 
 /**
  * LES ACQUIS, ÉNONCÉS EN TOUTES LETTRES, À CÔTÉ DE LA GRILLE.
@@ -12,8 +13,11 @@ import { IconChevronRight, IconListDetails } from '@tabler/icons-react';
  *
  * Le panneau se replie : sur un petit écran, la grille reprend toute la place.
  */
-export default function PanneauAcquis({ colonnes, titre = 'Acquis d’apprentissage' }) {
+export default function PanneauAcquis({ colonnes, ueNum, titre = 'Acquis d’apprentissage' }) {
   const [ouvert, setOuvert] = useState(true);
+  // Le contexte de l'acquis se lit AVANT lui, comme dans le dossier : il ne
+  // se répète pas d'un acquis à l'autre tant que le groupe ne change pas.
+  const chapeaux = useChapeaux(ueNum);
   if (!colonnes?.length) return null;
 
   // Regroupés par cours : c'est ainsi que la grille les présente, et un même
@@ -63,7 +67,15 @@ export default function PanneauAcquis({ colonnes, titre = 'Acquis d’apprentiss
               <div className="text-[10px] text-iip-blue/70 italic">{g.professeurs}</div>
             )}
             <ul className="mt-1.5 space-y-1.5">
-              {g.acquis.map(a => (
+              {g.acquis.map((a, k) => {
+                const ch = chapeaux[a.aa_code];
+                const nouveau = ch && ch !== chapeaux[g.acquis[k - 1]?.aa_code];
+                return [nouveau && (
+                  <li key={`${g.cours_code}|${a.aa_code}|ch`}
+                    className="text-[11px] italic text-slate-500 leading-snug pt-0.5">
+                    {ch}
+                  </li>
+                ),
                 <li key={`${g.cours_code}|${a.aa_code}`} className="flex gap-1.5">
                   <span className="flex-none mt-px inline-block min-w-[34px] text-center
                                    px-1 py-px rounded bg-white border border-slate-300
@@ -77,8 +89,8 @@ export default function PanneauAcquis({ colonnes, titre = 'Acquis d’apprentiss
                       <span className="text-slate-400"> · {a.poids} %</span>
                     )}
                   </span>
-                </li>
-              ))}
+                </li>];
+              })}
             </ul>
           </div>
         ))}

@@ -157,6 +157,15 @@ r.patch('/:code', roleRequired('admin', 'editeur'), (req, res) => {
     champs.push('description = ?');
     vals.push(req.body.description);
   }
+  // LE CHAPEAU vient du dossier pédagogique, comme le libellé : même main.
+  // Vide, il s'efface — l'acquis rejoint alors le groupe qui le précède.
+  if ('chapeau' in req.body) {
+    if (!estDirection(req.user)) {
+      return res.status(403).json({ error: "Le chapeau d'un groupe d'acquis provient du dossier pédagogique : modification réservée à la direction" });
+    }
+    champs.push('chapeau = ?');
+    vals.push(String(req.body.chapeau || '').trim() || null);
+  }
   if ('aa_num' in req.body) {
     if (!estDirection(req.user)) return res.status(403).json({ error: 'Renuméroter un acquis est réservé à la direction' });
     champs.push('aa_num = ?');

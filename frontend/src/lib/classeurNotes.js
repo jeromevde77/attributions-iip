@@ -37,6 +37,9 @@ export async function construireClasseur({
   ue_num, ue_nom, annee, session, titre,
 }) {
   const XLSX = await import('xlsx');
+  // Le contexte de chaque acquis — le chapeau de son groupe (lib/chapeaux.js).
+  const { chargerChapeaux } = await import('./chapeaux.js');
+  const chapeaux = await chargerChapeaux(ue_num);
 
   // ── La feuille des notes ──────────────────────────────────────────────────
   //
@@ -84,13 +87,17 @@ export async function construireClasseur({
     { s: { r: 2, c: 0 }, e: { r: 2 + etudiants.length, c: IDENT.length + colonnes.length } }) };
 
   // ── La feuille des acquis : le référentiel, en clair ──────────────────────
-  const ref = [['Cours', 'Code du cours', 'Acquis', 'Énoncé de l’acquis', 'Poids']];
+  // Le CONTEXTE précède l'énoncé : c'est dans cet ordre que le dossier les
+  // donne, et c'est ainsi qu'ils se lisent — « face à…, de : » puis l'acquis.
+  const ref = [['Cours', 'Code du cours', 'Acquis', 'Contexte (chapeau du dossier)',
+    'Énoncé de l’acquis', 'Poids']];
   for (const c of colonnes) {
-    ref.push([c.cours_nom || '', c.cours_code, c.aa_code, c.description || '',
-      c.poids ?? '']);
+    ref.push([c.cours_nom || '', c.cours_code, c.aa_code, chapeaux[c.aa_code] || '',
+      c.description || '', c.poids ?? '']);
   }
   const wsRef = XLSX.utils.aoa_to_sheet(ref);
-  wsRef['!cols'] = [{ wch: 30 }, { wch: 14 }, { wch: 12 }, { wch: 90 }, { wch: 8 }];
+  wsRef['!cols'] = [{ wch: 30 }, { wch: 14 }, { wch: 12 }, { wch: 60 }, { wch: 90 },
+    { wch: 8 }];
 
   // ── Le mode d'emploi, court ───────────────────────────────────────────────
   const aide = [
@@ -114,7 +121,8 @@ export async function construireClasseur({
         + 'rattache chaque ligne au bon dossier.'],
     ['•', 'Vous pouvez trier, filtrer, colorier : rien de tout cela ne gêne la relecture.'],
     [],
-    ['L’onglet « Acquis » donne l’énoncé complet de chaque acquis.'],
+    ['L’onglet « Acquis » donne l’énoncé complet de chaque acquis, précédé du contexte '
+     + 'dans lequel le dossier pédagogique le pose.'],
   ];
   const wsAide = XLSX.utils.aoa_to_sheet(aide);
   wsAide['!cols'] = [{ wch: 6 }, { wch: 100 }];

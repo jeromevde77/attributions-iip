@@ -2180,14 +2180,18 @@ r.post('/import-dp', authRequired, roleRequired('admin', 'editeur'), async (req,
       const dejaLa = db.prepare('SELECT aa_code, cours_code FROM aa WHERE ue_num = ?').all(ueNum);
       const parCode = new Map(dejaLa.map(a => [a.aa_code, a]));
       const insAA = db.prepare(`
-        INSERT INTO aa (aa_code, aa_num, ue_num, cours_code, description)
-        VALUES (?,?,?,?,?)
-        ON CONFLICT(aa_code) DO UPDATE SET description = excluded.description
+        INSERT INTO aa (aa_code, aa_num, ue_num, cours_code, description, chapeau)
+        VALUES (?,?,?,?,?,?)
+        ON CONFLICT(aa_code) DO UPDATE SET description = excluded.description,
+          -- Le chapeau lu dans le dossier fait foi ; s'il n'en lit aucun, celui
+          -- qu'on a écrit à la main dans Lucie reste en place.
+          chapeau = COALESCE(excluded.chapeau, aa.chapeau)
       `);
       for (const a of acquisData) {
         const code = `AA${ueNum}.${a.num}`;
         if (parCode.has(code)) aaExistants++; else aaCrees++;
-        insAA.run(code, a.num, ueNum, parCode.get(code)?.cours_code || null, a.description);
+        insAA.run(code, a.num, ueNum, parCode.get(code)?.cours_code || null, a.description,
+          a.chapeau || null);
       }
     } catch (e) { console.error('[import-dp] acquis :', e.message); }
 
