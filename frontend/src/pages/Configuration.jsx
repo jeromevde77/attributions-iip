@@ -519,11 +519,23 @@ const GROUPE_LABELS = {
   etablissement: { icon: IconBuilding, label: 'Établissement', desc: 'Nom et informations de l\'établissement' },
   systeme:       { icon: IconHistory, label: 'Conservation des traces',
                    desc: 'L\'historique des attributions garde un instantané complet de chaque modification : c\'est 96 % du poids du registre. Passé ce délai, seule la trace du geste est conservée — qui, quand, quoi — et la restauration d\'une ligne aussi ancienne n\'est plus possible.' },
+  /* DEUX GROUPES QUI N'APPARAISSAIENT NULLE PART. Les textes de la DUE
+     (2.12.148) étaient en base, réglables… par personne : leur groupe
+     n'était pas déclaré ici, l'écran ne les montrait pas. */
+  due:           { icon: IconFileText, label: 'Descriptifs d\'UE (DUE)',
+                   desc: 'Les textes fixes du descriptif : finalités générales du décret, mention sous les supports, règle d\'évaluation par défaut.' },
+  envois:        { icon: IconMail, label: 'Envois par courriel',
+                   desc: 'Le texte qui accompagne un document envoyé, et la signature du courriel. Le registre des envois garde toujours le nom de la personne qui a envoyé.' },
   securite:      { icon: IconShieldLock, label: 'Sécurité des connexions',
                    desc: 'Blocage d\'un compte après des mots de passe erronés. Désactiver rouvre la porte aux essais en série : à ne faire que le temps de régler un incident.' },
 };
 
 const PARAM_TYPES = {
+  // Les paragraphes se lisent et s'écrivent dans une zone de texte.
+  'envoi_message':                 { type: 'texte' },
+  'due_finalites_generales':       { type: 'texte' },
+  'due_note_supports':             { type: 'texte' },
+  'due_note_evaluation':           { type: 'texte' },
   'planning.q1_debut':             { type: 'date' },
   'planning.q1_fin':               { type: 'date' },
   'planning.q2_debut':             { type: 'date' },
@@ -640,7 +652,12 @@ function GestionParametres() {
                       {/* UN OUI/NON SE COCHE. Il se tapait « 0 » ou « 1 » dans un
                           champ : il fallait savoir lequel veut dire oui, et rien
                           ne l'écrivait nulle part. On pouvait aussi y saisir 7. */}
-                      {t.type === 'booleen' ? (
+                      {t.type === 'texte' ? (
+                        <textarea value={val} rows={6}
+                          onChange={e => handleChange(p.cle, e.target.value)}
+                          className={`border rounded-champ px-3 py-2 text-[13px] w-[34rem] max-w-full leading-relaxed
+                            ${modified ? 'border-iip-gold ring-1 ring-iip-gold/30' : 'border-gray-300'}`} />
+                      ) : t.type === 'booleen' ? (
                         <label className="flex items-center gap-2 cursor-pointer select-none">
                           <span className={`text-[12px] ${val === '1' ? 'text-slate-700' : 'text-slate-400'}`}>
                             {val === '1' ? 'Oui' : 'Non'}

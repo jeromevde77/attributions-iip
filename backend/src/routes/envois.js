@@ -14,6 +14,8 @@ import express from 'express';
 import db from '../db/index.js';
 import { authRequired, roleRequired } from '../middleware/auth.js';
 import { capacitePdf, rendrePdf } from '../services/pdf.js';
+import { preparerPourCourriel } from '../lib/courrielPiece.js';
+import { getParam } from './parametres.js';
 import { envoyerEmail, mailerConfigure, lireConfigSmtp, ecrireConfigSmtp, verifierSmtp } from '../services/mailer.js';
 
 const r = express.Router();
@@ -60,11 +62,26 @@ const PEUT_ENVOYER = ['admin', 'directeur', 'directeur_adjoint', 'secretariat'];
  */
 export const MESSAGE_ACCOMPAGNEMENT =
   'Madame, Monsieur,\n\n'
-  + 'Vous trouverez en pièce jointe le document vous concernant, '
-  + "émis par l'Institut Ilya Prigogine.\n\n"
+  + "Vous trouverez le document vous concernant, émis par l'Institut Ilya Prigogine.\n\n"
   + 'Ce courriel est envoyé automatiquement : merci de ne pas y répondre. '
   + "Pour toute question, adressez-vous au secrétariat de l'établissement.\n\n"
   + 'Cordialement,';
+
+/* LE MOT D'ACCOMPAGNEMENT ET SA SIGNATURE SE RÈGLENT À L'ÉCRAN (Charles, 25
+ * septembre 2026 : « où puis-je changer le texte ? Je souhaiterais signer :
+ * Le service administratif »). Ils étaient écrits dans le code : les changer
+ * demandait un déploiement. Configuration → Paramètres, groupe « Envois ».
+ * La SIGNATURE du courriel n'efface pas QUI a envoyé : le registre des envois
+ * garde le nom de la personne connectée. */
+try {
+  const ins = db.prepare('INSERT OR IGNORE INTO parametre (cle, valeur, label, groupe) VALUES (?,?,?,?)');
+  ins.run('envoi_message', MESSAGE_ACCOMPAGNEMENT, "Envois — texte d'accompagnement du courriel", 'envois');
+  ins.run('envoi_signature', 'Le service administratif',
+    'Envois — signature du courriel (vide : le nom de la personne qui envoie)', 'envois');
+} catch (e) { console.error('[migration] paramètres des envois :', e.message); }
+
+const messageAccompagnement = () => getParam('envoi_message', MESSAGE_ACCOMPAGNEMENT) || MESSAGE_ACCOMPAGNEMENT;
+const signatureCourriel = (qui) => (getParam('envoi_signature', '') || '').trim() || qui;
 
 /**
  * L'interrupteur : Configuration → Courriels, clé `envoi_mail_actif` de
@@ -95,7 +112,7 @@ r.get('/etat', authRequired, async (req, res) => {
              redirection: lireConfigSmtp().redirection || null,
              // Le mot d'accompagnement vient du serveur : un second exemplaire
              // dans l'écran finirait par ne plus dire la même chose.
-             message_defaut: MESSAGE_ACCOMPAGNEMENT,
+             message_defaut: messageAccompagnement(),
              // L'écran cache le bouton à qui n'a pas le droit ; la route le
              // refuse quand même — un bouton caché n'est pas une protection.
              peut_envoyer: PEUT_ENVOYER.includes(req.user?.role) });
@@ -321,7 +338,9 @@ r.post('/', authRequired, roleRequired(...PEUT_ENVOYER), actifRequis, async (req
   ensureTable();
   const lot = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
   const par = req.user?.nom || req.user?.email || null;
-  const corpsHtml = corpsCourriel(message, par);
+  // Le courriel est signé par le service ; le registre, lui, garde `par`.
+  const signe = signatureCourriel(par);
+  const corpsHtml = corpsCourriel(message, signe);
   const journal = db.prepare(`
     INSERT INTO envoi_mail (lot, type_doc, destinataire_type, destinataire_id,
       destinataire_nom, email, sujet, nom_fichier, taille, statut, erreur, envoye_par)
@@ -350,8 +369,12 @@ r.post('/', authRequired, roleRequired(...PEUT_ENVOYER), actifRequis, async (req
       continue;
     }
     if (enCorps) {
-      const emailHtml = corpsAvecDocument(message, par, p.html);
-      const envoi = await envoyerEmail({ to: email, subject: sujet, html: emailHtml });
+      // Le bloc de signature se reconstruit pour la messagerie : sans cela,
+      // ni le sceau ni la signature ne s'affichent (lib/courrielPiece.js).
+      const { html: docCourriel, pieces } = preparerPourCourriel(p.html);
+      const emailHtml = corpsAvecDocument(message, signe, docCourriel);
+      const envoi = await envoyerEmail({ to: email, subject: sujet, html: emailHtml,
+        attachments: pieces.length ? pieces : undefined });
       const statut = !envoi.ok ? 'echec' : envoi.simule ? 'simule' : 'envoye';
       const redir = lireConfigSmtp().redirection;
       const note = envoi.erreur || (redir ? `redirigé vers ${redir}` : null);

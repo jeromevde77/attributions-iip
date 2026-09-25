@@ -161,6 +161,9 @@ async function envoyerParGraph(g, { to, subject, html, attachments }) {
       name: a.filename,
       contentType: a.contentType || 'application/octet-stream',
       contentBytes: Buffer.from(a.content).toString('base64'),
+      // Une image incorporée (sceau, signature) s'affiche dans le corps, elle
+      // ne s'ajoute pas à la liste des pièces jointes.
+      ...(a.cid ? { isInline: true, contentId: a.cid } : {}),
     })),
   };
   const rep = await fetch(`https://graph.microsoft.com/v1.0/users/${encodeURIComponent(g.expediteur)}/sendMail`, {
