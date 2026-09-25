@@ -29,6 +29,7 @@ import { anneeDeTravail } from '../helpers/annee.js';
 import { envelopper } from './attestations.js';
 import { identiteEtablissement } from './config.js';
 import { getParam } from './parametres.js';
+import { introductionAcquis } from './aa.js';
 
 const r = Router();
 
@@ -148,6 +149,7 @@ function partieAutomatique(ueNum, annee) {
   const acquis = db.prepare(
     'SELECT aa_code, aa_num, description, chapeau FROM aa WHERE ue_num = ? ORDER BY aa_num, aa_code')
     .all(ueNum);
+  const introduction_acquis = introductionAcquis(ueNum).texte;
 
   // Le rattachement acquis ↔ cours vient de la pondération : c'est la somme
   // des acquis qui fait le cours, et cette table seule en tient le compte.
@@ -191,6 +193,7 @@ function partieAutomatique(ueNum, annee) {
       acquis: parCours[c.cours_code] || [],
     })),
     acquis,
+    introduction_acquis,
     enseignants,
     etablissement: identiteEtablissement(),
   };
@@ -463,23 +466,20 @@ export function documentDUE(ueNum, annee) {
 
   const ligneAA = a => `
     <li><b>${esc(a.aa_code)}</b> — ${esc(a.description || 'libellé à encoder dans le référentiel')}</li>`;
-  // LES CHAPEAUX DU DOSSIER, quand il y en a : chacun ouvre sa liste. Un
-  // premier groupe sans chapeau reçoit la phrase d'usage — jamais les deux,
-  // qui se répéteraient.
-  const PHRASE_USAGE = "Pour atteindre le seuil de réussite, l'étudiant sera capable de :";
-  const avecChapeaux = auto.acquis.some(a => a.chapeau);
+  // LES CHAPEAUX DU DOSSIER, quand il y en a : chacun ouvre sa liste.
+  // TROIS NIVEAUX, COMME LE DOSSIER : la phrase de l'unité une fois, puis
+  // chaque groupe sous son chapeau (routes/aa.js, introductionAcquis).
   const groupesAA = [];
   for (const a of auto.acquis) {
     if (a.chapeau || !groupesAA.length) groupesAA.push({ chapeau: a.chapeau || null, aa: [] });
     groupesAA[groupesAA.length - 1].aa.push(a);
   }
-  const listeAA = auto.acquis.length ? auto.acquis.map(ligneAA).join('')
-    : '<li class="vide">aucun acquis encodé pour cette unité</li>';
-  const blocAA = avecChapeaux
-    ? groupesAA.map(g => `<p>${esc(g.chapeau || PHRASE_USAGE)}</p>
+  const blocAA = auto.acquis.length
+    ? `<p>${esc(auto.introduction_acquis)}</p>` + groupesAA.map(g => `${g.chapeau
+        ? `<p class="chapeau">${esc(g.chapeau).replace(/\n/g, '<br>')}</p>` : ''}
       <ul class="serre">${g.aa.map(ligneAA).join('')}</ul>`).join('')
-    : `<p>Pour atteindre le seuil de réussite, l'étudiant sera
-      capable de :</p><ul class="serre">${listeAA}</ul>`;
+    : `<p>${esc(auto.introduction_acquis)}</p><ul class="serre">
+      <li class="vide">aucun acquis encodé pour cette unité</li></ul>`;
 
   const methodes = METHODES
     .filter(([k]) => c.methodes?.[k])
@@ -569,6 +569,7 @@ const STYLE_DUE = `<style>
   .bloc-c p { margin: 0 0 1.5mm; }
   table.doc.ident th { width: 52mm; text-align:left; }
   .serre { margin:0; padding-left:5mm; }
+  .chapeau { font-style: italic; margin: 1.5mm 0 0.8mm; }
   .serre li { margin-bottom:0.8mm; }
   .puce { display:inline-block; border:0.25mm solid #C9A227; border-radius:2mm;
           padding:0.5mm 2mm; margin:0.5mm 0.5mm 0 0; font-size:8pt; }

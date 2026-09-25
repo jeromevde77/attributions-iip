@@ -69,6 +69,48 @@ function inventaireAA(code) {
 }
 const estDirection = u => NIVEAU_DIRECTION.includes(u?.role);
 
+/* LA PHRASE QUI INTRODUIT LES ACQUIS (Charles, 25 septembre 2026 — « des
+ * phrases introductives, pas seulement à l'AA mais globale, comme dans le
+ * dossier pédagogique »). Le dossier énonce ses acquis sur trois niveaux :
+ * une phrase pour toute l'unité (« Pour atteindre le seuil de réussite,
+ * l'étudiant sera capable : »), des chapeaux qui ouvrent chacun un groupe
+ * (« face à des situations appliquées à l'imagerie médicale, »), puis les
+ * acquis. Lucie ne connaissait que les deux derniers : la première ne tenait
+ * sur aucun acquis, puisqu'elle les introduit tous.
+ *
+ * Elle vit à l'UNITÉ, sans année, comme les acquis. Tant qu'elle n'est pas
+ * saisie, Lucie PROPOSE celle du dossier pédagogique importé — sans l'écrire :
+ * une proposition qui s'enregistre toute seule ne se distingue plus d'un
+ * choix. */
+try {
+  db.exec(`CREATE TABLE IF NOT EXISTS ue_acquis_intro (
+    ue_num  INTEGER PRIMARY KEY,
+    texte   TEXT NOT NULL,
+    maj_le  TEXT DEFAULT (datetime('now')),
+    maj_par TEXT)`);
+} catch (e) { console.error('[migration] ue_acquis_intro :', e.message); }
+
+export const PHRASE_USAGE_ACQUIS = "Pour atteindre le seuil de réussite, l'étudiant sera capable :";
+
+/** La phrase du dossier pédagogique : la première ligne de la section des
+ *  acquis qui se termine par deux-points. */
+function introductionDuDP(ueNum) {
+  const det = db.prepare(`SELECT ue_det FROM ue WHERE ue_num = ? AND ue_det IS NOT NULL
+    ORDER BY annee_scolaire DESC LIMIT 1`).get(ueNum)?.ue_det;
+  if (!det) return null;
+  const m = String(det).match(/##\s*acquis d.apprentissage\s*\n([\s\S]*?)(\n##|$)/i);
+  if (!m) return null;
+  const ligne = m[1].split('\n').map(l => l.trim()).find(Boolean);
+  return ligne && /:\s*$/.test(ligne) && ligne.length <= 200 ? ligne : null;
+}
+
+/** La phrase retenue pour l'unité, et d'où elle vient. */
+export function introductionAcquis(ueNum) {
+  const x = db.prepare('SELECT texte FROM ue_acquis_intro WHERE ue_num = ?').get(Number(ueNum));
+  if (x?.texte) return { texte: x.texte, proposee: false };
+  return { texte: introductionDuDP(Number(ueNum)) || PHRASE_USAGE_ACQUIS, proposee: true };
+}
+
 // ── Liste des AA d'une UE ────────────────────────────────────────────────────
 // GET /api/aa?ue_num=246
 r.get('/', (req, res) => {
@@ -104,10 +146,42 @@ r.get('/ue/:ueNum', (req, res) => {
   // En épreuve intégrée, les acquis ne se rattachent pas aux cours : l'écran
   // ne doit ni le proposer, ni signaler des « non rattachés ».
   const integree = estEpreuveIntegree(ueNum, annee);
+  const intro = introductionAcquis(ueNum);
   res.json({
     ue_num: ueNum, annee, acquis, cours, epreuve_integree: integree,
     non_rattaches: integree ? 0 : acquis.filter(a => !a.cours_code).length,
+    introduction: intro.texte, introduction_proposee: intro.proposee,
   });
+});
+
+/* LA MISE EN FORME DES ACQUIS, EN UN SEUL GESTE : la phrase de l'unité,
+ * l'ordre des acquis et leurs chapeaux. L'écran la compose par glisser-
+ * déposer ; l'enregistrer morceau par morceau laisserait, au premier refus,
+ * un ordre nouveau sous des chapeaux anciens. Tout ou rien. Les codes ne
+ * changent pas ici (« Renuméroter » le fait, et le dit). Réservé à la
+ * direction, comme tout ce qui touche au référentiel du dossier. */
+r.put('/ue/:ueNum/presentation', (req, res) => {
+  if (!estDirection(req.user)) return res.status(403).json({ error: 'Réservé à la direction' });
+  const ueNum = Number(req.params.ueNum);
+  const { introduction, ordre, chapeaux } = req.body || {};
+  const actuels = db.prepare('SELECT aa_code FROM aa WHERE ue_num = ?').all(ueNum).map(a => a.aa_code);
+  if (!Array.isArray(ordre) || ordre.length !== actuels.length
+      || new Set(ordre).size !== ordre.length || ordre.some(c => !actuels.includes(c))) {
+    return res.status(400).json({ error: "L'ordre doit reprendre exactement les acquis de l'unité." });
+  }
+  const intro = String(introduction ?? '').trim();
+  if (!intro) return res.status(400).json({ error: "La phrase qui introduit les acquis ne peut pas être vide." });
+  const ch = chapeaux && typeof chapeaux === 'object' ? chapeaux : {};
+  const qui = req.user?.nom || req.user?.email || null;
+  db.transaction(() => {
+    const num = db.prepare('UPDATE aa SET aa_num = ?, chapeau = ? WHERE aa_code = ? AND ue_num = ?');
+    ordre.forEach((c, i) => num.run(i + 1, String(ch[c] ?? '').trim() || null, c, ueNum));
+    db.prepare(`INSERT INTO ue_acquis_intro (ue_num, texte, maj_le, maj_par) VALUES (?,?,datetime('now'),?)
+      ON CONFLICT(ue_num) DO UPDATE SET texte = excluded.texte, maj_le = excluded.maj_le, maj_par = excluded.maj_par`)
+      .run(ueNum, intro, qui);
+  })();
+  res.json({ ok: true, ...introductionAcquis(ueNum),
+    acquis: db.prepare('SELECT aa_code, aa_num, description, chapeau FROM aa WHERE ue_num = ? ORDER BY aa_num').all(ueNum) });
 });
 
 // ── Détail d'un AA ───────────────────────────────────────────────────────────

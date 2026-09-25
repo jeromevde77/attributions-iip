@@ -496,14 +496,20 @@ function Fiche({ ueNum, onRetour }) {
       <Bloc titre="Acquis d'apprentissage"
         aide="Encodés dans le référentiel des acquis ; rattachés aux cours par la pondération.">
         {d.acquis.length ? (
-          <ul className="text-[13px] text-slate-700 space-y-1">
+          /* Comme le dossier : la phrase de l'unité, puis chaque groupe sous
+             son chapeau. */
+          <div className="text-[13px] text-slate-700 space-y-1">
+            {d.introduction_acquis && <p className="font-semibold text-slate-800">{d.introduction_acquis}</p>}
             {d.acquis.map(a => (
-              <li key={a.aa_code}>
-                <b className="text-iip-blue">{a.aa_code}</b> — {a.description
-                  || <i className="text-amber-700">libellé absent du référentiel</i>}
-              </li>
+              <div key={a.aa_code}>
+                {a.chapeau && <p className="italic text-slate-600 mt-1.5 whitespace-pre-line">{a.chapeau}</p>}
+                <p className="pl-4">
+                  <b className="text-iip-blue">{a.aa_code}</b> — {a.description
+                    || <i className="text-amber-700">libellé absent du référentiel</i>}
+                </p>
+              </div>
             ))}
-          </ul>
+          </div>
         ) : (
           <div className="text-[12px] text-amber-800">
             Aucun acquis encodé pour cette unité.
