@@ -453,12 +453,13 @@ export function structureUE(ueNum, annee) {
     || anneeActiveEnBase();
 
   let cours = db.prepare(`
-    SELECT cours_code, cours_nom, cours_per FROM cours
+    SELECT cours_code, cours_nom, cours_per, ct_pp FROM cours
     WHERE ue_num = ? AND annee_scolaire = ? ORDER BY cours_code
   `).all(ueNum, anneeRef);
   if (!cours.length) {
     cours = db.prepare(`
-      SELECT cours_code, MIN(cours_nom) AS cours_nom, MAX(cours_per) AS cours_per
+      SELECT cours_code, MIN(cours_nom) AS cours_nom, MAX(cours_per) AS cours_per,
+             MAX(ct_pp) AS ct_pp
       FROM cours WHERE ue_num = ? GROUP BY cours_code ORDER BY cours_code
     `).all(ueNum);
   }
@@ -489,7 +490,11 @@ export function structureUE(ueNum, annee) {
   // d'autonomie exclue : poids = périodes du cours ÷ périodes de l'UE.
   // Il n'est jamais saisi. Les décimales sont conservées pour le calcul ;
   // seul l'affichage arrondit à l'unité.
-  const totalPeriodes = cours.reduce((s, x) => s + Number(x.cours_per || 0), 0);
+  // LES ACTIVITÉS Z NE PÈSENT PAS (Charles, 25 septembre 2026). Le
+  // développement professionnel — AESI surtout — est du travail de
+  // l'étudiant, sans enseignant : ses périodes ne font pas le poids d'un cours.
+  const perPoids = x => (x.ct_pp === 'Z' ? 0 : Number(x.cours_per || 0));
+  const totalPeriodes = cours.reduce((s, x) => s + perPoids(x), 0);
   // À POIDS ÉGAUX SI LA MAISON L'A DIT. Sans ce court-circuit, le réglage
   // n'aurait aucun effet visible : les périodes existent presque toujours, et
   // c'est elles qui pesaient, quoi qu'on ait choisi.
@@ -500,7 +505,7 @@ export function structureUE(ueNum, annee) {
   for (const x of cours) {
     poidsCours[x.cours_code] = egalitaire
       ? (cours.length ? 100 / cours.length : null)
-      : (totalPeriodes ? (Number(x.cours_per || 0) / totalPeriodes) * 100 : null);
+      : (totalPeriodes ? (perPoids(x) / totalPeriodes) * 100 : null);
   }
 
   // La pondération EXPLICITE l'emporte, quand elle existe. Les classeurs de

@@ -176,6 +176,9 @@ function controlerUE(annee, section, ueNum) {
   const cours = db.prepare(`
     SELECT cours_code, cours_nom, cours_per, ue_autonomie
     FROM cours WHERE ue_num = ? AND annee_scolaire = ? AND cours_code IS NOT NULL
+      -- Les activités Z ne se planifient pas : travail de l'étudiant, sans
+      -- enseignant (Charles, 25 septembre 2026).
+      AND (ct_pp IS NULL OR ct_pp <> 'Z')
     ORDER BY cours_code`).all(ueNum, annee);
 
   const o = organisationDe(annee, section, ueNum);
@@ -307,6 +310,7 @@ r.get('/', authRequired, (req, res) => {
     const cours = db.prepare(`
       SELECT cours_code, cours_nom, cours_per, ue_autonomie, ct_pp
       FROM cours WHERE ue_num = ? AND annee_scolaire = ? AND cours_code IS NOT NULL
+        AND (ct_pp IS NULL OR ct_pp <> 'Z')          -- Z : ni planifié, ni compté
       ORDER BY cours_code`).all(u.ue_num, annee).map(c => {
       const gc = o ? db.prepare(`SELECT * FROM grille_cours
         WHERE organisation_id = ? AND cours_code = ?`).get(o.id, c.cours_code) : null;

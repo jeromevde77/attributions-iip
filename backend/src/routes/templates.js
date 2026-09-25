@@ -79,6 +79,7 @@ function genererResumeSection(section, annee) {
     // Calcul totaux prof (avec dédoublement)
     let totalProfUe = 0;
     for (const c of cours) {
+      if (c.ct_pp === 'Z') continue;          // Z : périodes étudiant, aucune charge
       const fac = c.dedouble === 'O' ? 2 : 1;
       totalProfUe += (Number(c.cours_per) || 0) * fac;
       totalProfUe += (Number(c.cours_autonomie) || 0) * fac;
