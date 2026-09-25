@@ -1944,7 +1944,13 @@ r.get('/ue/:ueNum/liens', authRequired, (req, res) => {
 });
 
 r.get('/ue/:ueNum/structure', authRequired, (req, res) => {
-  const cours = structureUE(Number(req.params.ueNum), req.query.annee);
+  // L'ANNÉE DE TRAVAIL, pas l'année active en base : les poids sont annuels
+  // depuis 2.12.179, et l'écran doit montrer ceux de l'année qu'on règle.
+  const annee = req.query.annee || anneeDeTravail(req);
+  const cours = structureUE(Number(req.params.ueNum), annee);
+  const saisis = db.prepare(
+    'SELECT COUNT(*) AS n FROM cours_ponderation WHERE ue_num = ? AND annee_scolaire = ?')
+    .get(Number(req.params.ueNum), annee).n;
   const sommeCours = cours.reduce((s, c) => s + (c.poids_cours || 0), 0);   // 100 si les périodes sont renseignées
   res.json({
     ue_num: Number(req.params.ueNum),
@@ -1952,7 +1958,86 @@ r.get('/ue/:ueNum/structure', authRequired, (req, res) => {
     somme_poids_cours: Math.round(sommeCours * 100) / 100,
     poids_cours_complet: cours.length > 0 && Math.abs(sommeCours - 100) < 0.01,
     pret: cours.length > 0 && cours.every(c => c.complet) && Math.abs(sommeCours - 100) < 0.01,
+    annee,
+    // D'où vient le poids des cours cette année : des périodes du dossier
+    // pédagogique, ou d'une exception saisie pour cette UE.
+    base_poids_cours: saisis ? 'saisi' : 'periodes',
   });
+});
+
+/* LE POIDS DES COURS, UE PAR UE ET ANNÉE PAR ANNÉE (Charles, 25 septembre
+ * 2026). La règle est celle des PÉRIODES du dossier pédagogique ; un poids
+ * saisi est une EXCEPTION, posée pour une UE et une année, et qu'on peut
+ * retirer — on revient alors aux périodes. Les poids saisis se donnent en
+ * pour cent, entiers, et totalisent 100. */
+r.put('/ue/:ueNum/poids-cours', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
+  const ueNum = Number(req.params.ueNum);
+  const annee = req.body?.annee || anneeDeTravail(req);
+  const { mode, poids } = req.body || {};
+  if (mode === 'periodes') {
+    const n = db.prepare('DELETE FROM cours_ponderation WHERE ue_num = ? AND annee_scolaire = ?')
+      .run(ueNum, annee).changes;
+    return res.json({ ok: true, mode, retires: n });
+  }
+  if (mode !== 'saisi' || !poids || typeof poids !== 'object') {
+    return res.status(400).json({ error: 'mode « periodes » ou « saisi » (avec les poids) attendu' });
+  }
+  const cours = db.prepare(`SELECT cours_code FROM cours WHERE ue_num = ? AND annee_scolaire = ?
+    AND COALESCE(non_evalue, 0) = 0 AND COALESCE(ct_pp, '') <> 'Z'`).all(ueNum, annee).map(c => c.cours_code);
+  const valeurs = cours.map(c => Number(poids[c]));
+  if (valeurs.some(v => !Number.isInteger(v) || v < 0)) {
+    return res.status(400).json({ error: 'Chaque cours évalué reçoit un poids entier, en pour cent.' });
+  }
+  const somme = valeurs.reduce((s, v) => s + v, 0);
+  if (somme !== 100) {
+    return res.status(400).json({ error: `Les poids des cours totalisent ${somme} % : ils doivent faire 100 %.` });
+  }
+  const up = db.prepare(`INSERT INTO cours_ponderation (annee_scolaire, ue_num, cours_code, poids, maj_le)
+    VALUES (?,?,?,?, datetime('now'))
+    ON CONFLICT(annee_scolaire, ue_num, cours_code) DO UPDATE SET poids = excluded.poids, maj_le = excluded.maj_le`);
+  db.transaction(() => {
+    db.prepare('DELETE FROM cours_ponderation WHERE ue_num = ? AND annee_scolaire = ?').run(ueNum, annee);
+    cours.forEach((c, i) => up.run(annee, ueNum, c, valeurs[i]));
+  })();
+  res.json({ ok: true, mode, poids: Object.fromEntries(cours.map((c, i) => [c, valeurs[i]])) });
+});
+
+/* REPRENDRE L'ANNÉE PRÉCÉDENTE. Les points des acquis d'une année se
+ * recopient sur l'année réglée, pour les cours qui existent dans les deux —
+ * c'est ainsi qu'une année s'ouvre. Un poids de cours SAISI ne se reprend que
+ * s'il a été posé à partir de 2026-2027 : avant, c'étaient ceux des
+ * classeurs, et les périodes du dossier font foi. Simulation d'abord ; la
+ * reprise remplace ce que l'année réglée portait pour cette UE. */
+r.post('/ue/:ueNum/reprendre', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
+  const ueNum = Number(req.params.ueNum);
+  const annee = req.body?.annee || anneeDeTravail(req);
+  const source = req.body?.source;
+  const simulation = req.body?.simulation !== false;
+  if (!source || source >= annee) return res.status(400).json({ error: 'année source antérieure requise' });
+  const coursCible = new Set(db.prepare('SELECT cours_code FROM cours WHERE ue_num = ? AND annee_scolaire = ?')
+    .all(ueNum, annee).map(c => c.cours_code));
+  const aa = db.prepare('SELECT cours_code, aa_code, poids FROM aa_ponderation WHERE ue_num = ? AND annee_scolaire = ?')
+    .all(ueNum, source).filter(p => coursCible.has(p.cours_code) || p.cours_code === '__ue__');
+  const cp = source >= ANNEE_PERIODES
+    ? db.prepare('SELECT cours_code, poids FROM cours_ponderation WHERE ue_num = ? AND annee_scolaire = ?')
+      .all(ueNum, source).filter(p => coursCible.has(p.cours_code)) : [];
+  const actuels = db.prepare('SELECT COUNT(*) AS n FROM aa_ponderation WHERE ue_num = ? AND annee_scolaire = ?')
+    .get(ueNum, annee).n;
+  if (!simulation) {
+    db.transaction(() => {
+      db.prepare('DELETE FROM aa_ponderation WHERE ue_num = ? AND annee_scolaire = ?').run(ueNum, annee);
+      const ins = db.prepare(`INSERT INTO aa_ponderation (annee_scolaire, ue_num, cours_code, aa_code, poids)
+        VALUES (?,?,?,?,?)`);
+      for (const p of aa) ins.run(annee, ueNum, p.cours_code, p.aa_code, p.poids);
+      if (cp.length) {
+        db.prepare('DELETE FROM cours_ponderation WHERE ue_num = ? AND annee_scolaire = ?').run(ueNum, annee);
+        const insC = db.prepare(`INSERT INTO cours_ponderation (annee_scolaire, ue_num, cours_code, poids)
+          VALUES (?,?,?,?)`);
+        for (const p of cp) insC.run(annee, ueNum, p.cours_code, p.poids);
+      }
+    })();
+  }
+  res.json({ ok: true, simulation, source, annee, points: aa.length, poids_cours: cp.length, remplaces: actuels });
 });
 
 // ── Enregistrer les pondérations d'un cours ─────────────────────────────────

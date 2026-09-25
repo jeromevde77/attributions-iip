@@ -443,7 +443,6 @@ import DoublonsEtudiants from '../components/DoublonsEtudiants.jsx';
 import Annees from './Annees.jsx';
 import DatesUE from '../components/DatesUE.jsx';
 import Referentiels from './Referentiels.jsx';
-import PonderationsAA from './PonderationsAA.jsx';
 import SchemaCapitalisation from '../components/SchemaCapitalisation.jsx';
 import Demandes from './Demandes.jsx';
 import Sauvegardes from './Sauvegardes.jsx';
@@ -1435,7 +1434,20 @@ export default function Configuration() {
       {/* ── Le référentiel de l'année, ses quatre faces ── */}
       {tab === 'referentiel-annee' && <Referentiels embedded />}
       {tab === 'ref-prerequis' && <GestionPrerequis />}
-      {tab === 'ref-ponderations' && <PonderationsAA />}
+      {/* LES PONDÉRATIONS ONT DÉMÉNAGÉ (2.12.187) : elles sont annuelles, elles
+          vivent dans Organisation. L'entrée reste un temps, pour qui la cherche
+          ici, et y renvoie. */}
+      {tab === 'ref-ponderations' && (
+        <div className="p-5 space-y-3 max-w-2xl">
+          <h2 className="text-[17px] font-semibold text-iip-blue">Les pondérations ont déménagé</h2>
+          <p className="text-[13px] text-slate-600">
+            Les poids des cours et des acquis se règlent désormais par année, dans
+            <b> Organisation → Pondérations</b> : la part de chaque cours dans l'UE, les liens entre acquis
+            et cours, et les dix points de chaque cours.
+          </p>
+          <a href="/organisation?onglet=ponderations" className="bouton bouton-fort inline-flex">Ouvrir Organisation → Pondérations</a>
+        </div>
+      )}
       {tab === 'ref-deliberation' && <ReglesDeliberation />}
 
       {/* ── Onglet Années ── */}

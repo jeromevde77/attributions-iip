@@ -151,13 +151,21 @@ NAS Synology.
   (choix de Jérôme) : ne pas poser `PasswordAuthentication no`.
 - **JAMAIS `maj-dev` ET `maj-prod` ENSEMBLE** (Charles, 25 septembre 2026). Une
   mise à jour à la fois : la lancer, vérifier avec `version` que ses deux
-  moitiés répondent, puis seulement l'autre, dans un appel séparé. Enchaînées,
-  elles ont laissé deux fois Docker sur un conflit de nom de conteneur ; la
-  seconde fois, le backend de PRODUCTION a disparu, `maj-prod` ne pouvait plus
-  se relancer (il sauvegarde d'abord, par ce même conteneur) et Lucie est
-  restée en page blanche. `lucie-ops` ne sait pas réparer ce cas : le secours
-  est un geste humain, sur le compte `jeromevde` —
-  `cd /opt/lucie && sudo docker compose up -d --force-recreate backend frontend`.
+  moitiés répondent, puis seulement l'autre, dans un appel séparé.
+- **`maj-prod` ÉCHOUE SUR UN CONFLIT DE NOM, ET LA CAUSE N'EST PAS CONNUE.** Le
+  25 septembre, trois fois : « The container name /attributions-backend is
+  already in use ». Le backend de production disparaît, Lucie passe en page
+  blanche, et `maj-prod` ne peut plus se relancer (il sauvegarde d'abord, par
+  ce même conteneur). La troisième fois, la dev avait été mise à jour SEULE et
+  vérifiée avant : la simultanéité n'y est donc pour rien. À diagnostiquer sur
+  le VPS (`sudo journalctl -u docker`). **En attendant, Claude ne lance plus
+  `maj-prod`** : la mise en production se fait à la main, en `jeromevde` —
+  `sudo docker ps -a --filter name=attributions-backend`, `sudo docker rm -f`
+  des restes, puis `cd /opt/lucie && sudo docker compose up -d backend frontend`.
+  Après un redémarrage forcé, vérifier le NOM du conteneur
+  (`sudo docker ps --format '{{.Names}}'`) : resté provisoire
+  (`3b187e036e7d_attributions-backend`), il bloque lectures, sauvegardes et
+  `maj-prod` — `sudo docker rename <nom> attributions-backend`.
 - Base : `/app/data/attributions.db` dans le conteneur. **SQLite3 n'est pas
   installé** → interroger via `node -e "const Database = require('better-sqlite3') …"`.
 - La **base de dev est séparée** (volume `attributions-data-dev`) : aucun risque

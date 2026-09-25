@@ -4,7 +4,7 @@ import { useSearchParams } from 'react-router-dom';
 import Axe from '../components/Axe.jsx';
 import {
   IconLayoutGrid, IconSchool, IconSitemap, IconFileDescription,
-  IconClock, IconCalendarStats, IconBuilding, IconBooks, IconUsersGroup,
+  IconClock, IconCalendarStats, IconBuilding, IconBooks, IconUsersGroup, IconPercentage,
 } from '@tabler/icons-react';
 import Attributions from './Attributions.jsx';
 import Planification from './Planification.jsx';
@@ -16,6 +16,7 @@ import { authHeaders } from '../lib/api.js';
 
 const CentrePlanification = lazy(() => import('./CentrePlanification.jsx'));
 const RepartitionCours = lazy(() => import('./RepartitionCours.jsx'));
+const PonderationsUE = lazy(() => import('./PonderationsUE.jsx'));
 
 /**
  * Axe ORGANISATION — « Qu'organise-t-on cette année ? »
@@ -85,6 +86,13 @@ export default function Organisation({ ongletInitial }) {
           rendu: annee
             ? <StructureSection annee={annee} />
             : <div className="text-sm text-slate-400 p-4">Chargement de l'année active…</div> },
+        /* LES PONDÉRATIONS SONT UN CHOIX ANNUEL (Charles, 25 septembre 2026) :
+           elles quittent Configuration pour l'axe de ce qu'on organise cette
+           année. Part des cours dans l'UE, liens acquis → cours, dix points
+           par cours. */
+        { key: 'ponderations', label: 'Pondérations', icone: IconPercentage, sansMarge: true,
+          rendu: <Suspense fallback={<div className="p-4 text-[13px] text-slate-400">Chargement…</div>}>
+                   <PonderationsUE /></Suspense> },
         // Le descriptif d'unité était un Word recopié d'année en année. Il
         // trouve ici sa place : c'est bien de l'organisation de l'enseignement
         // qu'il parle, et les titulaires y accèdent pour leurs propres unités.
