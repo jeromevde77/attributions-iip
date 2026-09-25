@@ -137,7 +137,7 @@ r.post('/pdf', authRequired, async (req, res) => {
       capacite_absente: 'pdf', detail: cap.raison,
     });
   }
-  const { html, nom, pagination, pied = true } = req.body || {};
+  const { html, nom, pagination, pied = true, orientation, page_css } = req.body || {};
   if (!html) return res.status(400).json({ error: 'document requis' });
 
   try {
@@ -148,9 +148,14 @@ r.post('/pdf', authRequired, async (req, res) => {
     const gabarit = pied
       ? (avecNum => piedGabaritPdf(LOGO_IIP_JPEG, piedDocument(), avecNum))
       : null;
+    // Une pièce qui porte sa propre page (le diplôme) n'a ni pied ni marge :
+    // c'est son @page qui décide, pas le centre.
+    const pageCss = !!page_css && !pied;
     const pdf = await rendrePdf(html, {
-      pagination: pagination || 'si-plusieurs',
+      pagination: pageCss ? 'jamais' : (pagination || 'si-plusieurs'),
       pied: gabarit,
+      orientation: orientation === 'paysage' ? 'paysage' : 'portrait',
+      pageCss,
       ...(pied ? { marges: { top: '12mm', right: '15mm',
                              bottom: `${BANDE_PIED_MM}mm`, left: '15mm' } } : {}),
     });

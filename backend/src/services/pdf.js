@@ -99,6 +99,10 @@ export async function rendrePdf(html, options = {}) {
     // Gabarit de pied de page, à répéter sur CHAQUE feuille. C'est ce que le
     // HTML seul ne sait pas faire — voir piedGabaritPdf() dans lib/document.
     pied = null,
+    // LA PAGE DU DOCUMENT FAIT FOI : le diplôme déclare son propre format
+    // (A4 paysage, sans marge) dans son @page. Sans cela, on imposait A4
+    // portrait et 12 mm de marge à une pièce faite pour du papier pré-imprimé.
+    pageCss = false,
   } = options;
 
   const nav = await obtenirNavigateur();
@@ -121,7 +125,8 @@ export async function rendrePdf(html, options = {}) {
       format: 'A4',
       landscape: orientation === 'paysage',
       printBackground: true,
-      margin: marges,
+      margin: pageCss ? { top: '0', right: '0', bottom: '0', left: '0' } : marges,
+      preferCSSPageSize: !!pageCss,
       // Ce qui supprime le titre, le lieu d'impression et la numérotation que
       // le navigateur ajoute de lui-même à l'impression.
       displayHeaderFooter: false,
