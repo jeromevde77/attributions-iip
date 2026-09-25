@@ -14,7 +14,8 @@ import express from 'express';
 import db from '../db/index.js';
 import { authRequired, roleRequired } from '../middleware/auth.js';
 import { capacitePdf, rendrePdf } from '../services/pdf.js';
-import { preparerPourCourriel } from '../lib/courrielPiece.js';
+import { preparerPourCourriel, variableImage } from '../lib/courrielPiece.js';
+import { signatureFiligranee, nouvelleReference } from '../services/filigrane.js';
 import { getParam } from './parametres.js';
 import { envoyerEmail, mailerConfigure, lireConfigSmtp, ecrireConfigSmtp, verifierSmtp } from '../services/mailer.js';
 
@@ -341,11 +342,17 @@ r.post('/', authRequired, roleRequired(...PEUT_ENVOYER), actifRequis, async (req
   // Le courriel est signé par le service ; le registre, lui, garde `par`.
   const signe = signatureCourriel(par);
   const corpsHtml = corpsCourriel(message, signe);
-  const journal = db.prepare(`
+  // La référence de chaque envoi : portée par le filigrane de la signature,
+  // elle se retrouve ici — c'est ce qui permettra de vérifier une pièce.
+  try { db.exec('ALTER TABLE envoi_mail ADD COLUMN reference TEXT'); } catch { /* déjà là */ }
+  const journalAvecRef = db.prepare(`
     INSERT INTO envoi_mail (lot, type_doc, destinataire_type, destinataire_id,
-      destinataire_nom, email, sujet, nom_fichier, taille, statut, erreur, envoye_par)
-    VALUES (?,?,?,?,?,?,?,?,?,?,?,?)
+      destinataire_nom, email, sujet, nom_fichier, taille, statut, erreur, envoye_par, reference)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)
   `);
+  let refCourante = null;
+  const journal = { run: (...a) => journalAvecRef.run(...a, refCourante) };
+  const jour = new Date().toLocaleDateString('fr-BE', { day: '2-digit', month: '2-digit', year: 'numeric' });
 
   const resultats = [];
   for (const p of pieces) {
@@ -368,10 +375,24 @@ r.post('/', authRequired, roleRequired(...PEUT_ENVOYER), actifRequis, async (req
         base.nom, email, sujet, null, null, 'echec', 'document absent', par);
       continue;
     }
+    /* LE FAC-SIMILÉ DE CET ENVOI, ET DE LUI SEUL (services/filigrane.js) : la
+       signature traversée par la pièce, le destinataire, la date et la
+       référence. Il remplace la signature nue dans le courriel ET dans le
+       PDF ; faute de pouvoir le dessiner, aucun fac-similé ne part. */
+    refCourante = nouvelleReference();
+    const aParaphe = /class="cloture(?![^"]*sans-paraphe)[^"]*"/.test(p.html || '')
+      && /class="paraphe"/.test(p.html || '');
+    const nue = aParaphe ? variableImage(p.html, 'paraphe') : null;
+    const filigrane = nue ? await signatureFiligranee(nue, {
+      piece: sujet, destinataire: base.nom, date: jour, reference: refCourante }) : null;
+    const htmlSigne = !aParaphe ? p.html
+      : String(p.html).replace(/--paraphe\s*:\s*url\([^)]*\)/g, filigrane
+        ? `--paraphe:url("data:image/png;base64,${filigrane.toString('base64')}")` : '--paraphe:none');
     if (enCorps) {
       // Le bloc de signature se reconstruit pour la messagerie : sans cela,
       // ni le sceau ni la signature ne s'affichent (lib/courrielPiece.js).
-      const { html: docCourriel, pieces } = preparerPourCourriel(p.html);
+      const { html: docCourriel, pieces } = preparerPourCourriel(htmlSigne,
+        { paraphe: filigrane, reference: refCourante });
       const emailHtml = corpsAvecDocument(message, signe, docCourriel);
       const envoi = await envoyerEmail({ to: email, subject: sujet, html: emailHtml,
         attachments: pieces.length ? pieces : undefined });
@@ -385,7 +406,7 @@ r.post('/', authRequired, roleRequired(...PEUT_ENVOYER), actifRequis, async (req
     }
     let pdf;
     try {
-      pdf = await rendrePdf(p.html, { pagination: 'si-plusieurs' });
+      pdf = await rendrePdf(htmlSigne, { pagination: 'si-plusieurs' });
     } catch (e) {
       const err = `rendu PDF : ${String(e.message).slice(0, 200)}`;
       resultats.push({ ...base, statut: 'echec', erreur: err });

@@ -3082,7 +3082,8 @@ r.get('/pae-grille', authRequired, (req, res) => {
     const derog = new Set(db.prepare(`SELECT etudiant_id || '|' || ue_num AS k FROM etudiant_inscription
       WHERE annee_scolaire = ? AND COALESCE(derogation, 0) = 1`).all(annee).map(x => x.k));
     for (const l of lignes) {
-      l.controle = { hors_proposition: [], manquantes: [], deja_reussies: [] };
+      l.controle = { hors_proposition: [], manquantes: [], deja_reussies: [],
+                     cadenas: [], en_attente: [] };
       if (!Object.values(l.cases).some(c => c.inscrit)) continue;
       // Une UE déjà réussie, réinscrite sans que personne l'ait forcé : c'est
       // une erreur à retirer, et la validation la refuse.
@@ -3091,9 +3092,13 @@ r.get('/pae-grille', authRequired, (req, res) => {
       if (c.erreur) continue;
       for (const u of c.pae) {
         if (!nums.has(u.ue_num)) continue;
-        if (u.inscrite && !u.propose && !u.deja_reussie && !derog.has(`${l.id}|${u.ue_num}`)) {
+        if (u.inscrite && u.en_attente) {
+          // Réinscrite alors que sa seconde session n'est pas délibérée.
+          l.controle.en_attente.push(u.ue_num);
+        } else if (u.inscrite && !u.propose && !u.deja_reussie && !derog.has(`${l.id}|${u.ue_num}`)) {
           l.controle.hors_proposition.push(u.ue_num);
         }
+        if (u.inscrite && u.cadenas?.length) l.controle.cadenas.push({ ue: u.ue_num, si: u.cadenas });
         if (u.propose && !u.inscrite) l.controle.manquantes.push(u.ue_num);
       }
     }
@@ -3830,6 +3835,27 @@ export function composerPAE(profId, annee, options = {}) {
   //  secrétariat encode explicitement l'historique.)
   const reussies = new Set([...reussiesExplicites, ...vaCompletes]);
 
+  /* LE CADENAS (Charles, 25 septembre 2026 — « la 262 est conditionnée à la
+   * réussite de la 261 : on la propose, mais avec un cadenas ; elle ne pourra
+   * être suivie QUE si la 261 est réussie »).
+   *
+   * Un prérequis est EN ATTENTE quand l'étudiant l'a suivi l'année précédente
+   * et que rien n'est encore tranché : pas de résultat, ou « ajourné » — la
+   * seconde session décidera. Cela se DÉDUIT des traces, comme l'état d'une
+   * valorisation : aucune case à cocher, donc aucun cadenas oublié ou posé à
+   * tort. Réussi, le cadenas tombe de lui-même ; refusé, l'UE qu'il fermait
+   * est signalée. Le prérequis en attente ne se repropose pas : son sort se
+   * joue dans l'année où il a été suivi. */
+  const anneeAvant = (() => {
+    const m = /^(\d{4})-(\d{4})$/.exec(String(annee || ''));
+    return m ? `${Number(m[1]) - 1}-${Number(m[2]) - 1}` : null;
+  })();
+  const enAttente = new Set(anneeAvant ? db.prepare(`
+      SELECT ue_num FROM etudiant_inscription
+      WHERE etudiant_id = ? AND annee_scolaire = ?
+        AND (resultat IS NULL OR resultat = 'ajourne')`).all(profId, anneeAvant)
+    .map(r => r.ue_num).filter(u => !reussies.has(u)) : []);
+
   // Sections de l'étudiant (dominantes) — override possible via ?section=
   const { sections: sectionsEtudiant, scores: sectionsScores } =
     sectionsDeLEtudiant(profId, options.section);
@@ -3958,6 +3984,9 @@ export function composerPAE(profId, annee, options = {}) {
       ...ue,
       prerequis,
       prerequis_ok,
+      // Les prérequis dont le résultat de l'an dernier n'est pas encore tombé.
+      cadenas: prereqManquants.map(p => p.ue_num_requis).filter(n => enAttente.has(n)),
+      en_attente: enAttente.has(ue.ue_num),
       epreuve_integree: !!estEpreuve[ue.ue_num],
       epreuve_etat: epreuveEtat,
       epreuve_restantes: epreuveRestantes,
@@ -3992,7 +4021,7 @@ export function composerPAE(profId, annee, options = {}) {
   while (!stableProp) {
     stableProp = true;
     for (const u of pae) {
-      if (u.deja_reussie || proposees.has(u.ue_num)) continue;
+      if (u.deja_reussie || proposees.has(u.ue_num) || u.en_attente) continue;
       // L'épreuve intégrée ne suit pas le jeu des prérequis : elle relève de
       // sa propre règle, déjà tranchée plus haut.
       if (u.epreuve_integree) {
@@ -4000,13 +4029,15 @@ export function composerPAE(profId, annee, options = {}) {
         continue;
       }
       const manquants = u.prereq_manquants || [];
-      const ok = manquants.every(p => proposees.has(p) && nivParUe[p] === nivParUe[u.ue_num]);
+      const ok = manquants.every(p => (proposees.has(p) && nivParUe[p] === nivParUe[u.ue_num])
+        || enAttente.has(p));
       if (ok) { proposees.add(u.ue_num); stableProp = false; }
     }
   }
   for (const u of pae) {
     u.propose = proposees.has(u.ue_num);
-    u.propose_sous_reserve = u.propose && (u.prereq_manquants || []).length > 0;
+    u.propose_sous_reserve = u.propose && (u.prereq_manquants || []).some(p => !enAttente.has(p));
+    if (!u.propose) u.cadenas = [];
   }
 
   // Niveau de rattachement de chaque UE, tel que défini pour la section

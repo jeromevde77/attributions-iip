@@ -29,7 +29,7 @@ function versPiece(dataUri, cid, nom) {
 }
 
 /** Le dernier `--nom:url("…")` déclaré dans le document : c'est lui qui s'applique. */
-function variableImage(html, nom) {
+export function variableImage(html, nom) {
   const re = new RegExp(`--${nom}\\s*:\\s*url\\(["']?([^"')]+)["']?\\)`, 'g');
   let m, dernier = null;
   while ((m = re.exec(html))) dernier = m[1];
@@ -69,12 +69,15 @@ function legendeEnLigne(html) {
 
 /**
  * @param {string} html  la pièce, telle qu'elle s'imprime
+ * @param {{ paraphe?: Buffer|null, reference?: string }} [opts]
+ *   paraphe : le fac-similé FILIGRANÉ de cet envoi (services/filigrane.js) ;
+ *   `null` : aucun fac-similé (trait de signature) — jamais la signature nue.
  * @returns {{ html: string, pieces: Array<{filename, content, contentType, cid}> }}
  */
-export function preparerPourCourriel(html) {
+export function preparerPourCourriel(html, opts = {}) {
   let doc = String(html || '');
   const sceau = variableImage(doc, 'sceau');
-  const paraphe = variableImage(doc, 'paraphe');
+  const paraphe = opts.paraphe ? 'filigrane' : null;
   let avecSceau = false, avecParaphe = false;
 
   const re = /<div class="cloture([^"]*)">/g;
@@ -94,8 +97,10 @@ export function preparerPourCourriel(html) {
       ? `<img src="cid:${CID_SCEAU}" alt="Sceau de l'établissement" width="84" height="84" style="display:block;border:0">`
       : '';
     const imgParaphe = !sansParaphe && paraphe
-      ? `<img src="cid:${CID_PARAPHE}" alt="Signature" width="174" style="display:block;border:0;margin:0 auto;height:auto">`
-      : '<div style="height:56px;border-bottom:1px solid #94a3b8;width:174px;margin:0 auto"></div>';
+      // 30 % plus petite que sur papier (Charles, 25 septembre 2026) : à
+      // l'écran, la signature à sa taille d'impression écrasait le bloc.
+      ? `<img src="cid:${CID_PARAPHE}" alt="Signature" width="122" style="display:block;border:0;margin:0 auto;height:auto">`
+      : '<div style="height:40px;border-bottom:1px solid #94a3b8;width:122px;margin:0 auto"></div>';
     avecSceau ||= !!imgSceau;
     avecParaphe ||= !sansParaphe && !!paraphe;
 
@@ -109,7 +114,9 @@ export function preparerPourCourriel(html) {
     <td width="36%" valign="bottom" align="center" style="padding:0">
       ${imgParaphe}
       <div style="border-top:1px solid #94a3b8;margin-top:2px;padding-top:4px;text-align:center">
-        ${legendeEnLigne(legende).trim()}</div>
+        ${legendeEnLigne(legende).trim()}
+        ${opts.reference ? `<div style="${POLICE};font-size:10px;color:#94a3b8;margin-top:4px">${
+          sansParaphe || !paraphe ? 'Original signé' : 'Fac-similé propre à cet envoi'} — réf. ${opts.reference}</div>` : ''}</div>
     </td>
   </tr>
 </table>`;
@@ -121,7 +128,8 @@ export function preparerPourCourriel(html) {
 
   const pieces = [
     avecSceau && versPiece(sceau, CID_SCEAU, 'sceau.png'),
-    avecParaphe && versPiece(paraphe, CID_PARAPHE, 'signature.png'),
+    avecParaphe && opts.paraphe && { filename: 'signature.png', content: opts.paraphe,
+      contentType: 'image/png', cid: CID_PARAPHE },
   ].filter(Boolean);
   return { html: doc, pieces };
 }
