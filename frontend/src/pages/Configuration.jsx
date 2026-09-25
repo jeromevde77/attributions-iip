@@ -3,7 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import { api, getAnnee, setAnnee as setAnneeActive, getUser } from '../lib/api.js';
 import { chargerCouleurs } from '../lib/couleurs.js';
 import Audit from './Audit.jsx';
-import { IconAdjustments, IconAward, IconBooks, IconBuilding, IconCalendar, IconCalendarEvent, IconChartBar, IconCheck, IconChevronRight, IconDownload, IconFileText, IconHistory, IconLink, IconScale, IconSettings, IconSparkles, IconUserShield, IconUsers, IconX, IconGavel, IconPlus, IconTrash, IconGripVertical, IconEdit, IconMail, IconPalette, IconArchive, IconAlertTriangle, IconShieldLock, IconDatabase } from '@tabler/icons-react';
+import { IconAdjustments, IconAward, IconBooks, IconBuilding, IconCalendar, IconCalendarEvent, IconChartBar, IconCheck, IconChevronRight, IconDownload, IconFileText, IconHistory, IconLink, IconScale, IconSettings, IconSparkles, IconUserShield, IconUsers, IconX, IconGavel, IconPlus, IconTrash, IconGripVertical, IconEdit, IconMail, IconPalette, IconArchive, IconAlertTriangle, IconShieldLock, IconDatabase, IconHierarchy, IconArrowsSplit } from '@tabler/icons-react';
 import { PageHeader, RailLateral } from '../components/ui.jsx';
 import ApercuDocuments from '../components/ApercuDocuments.jsx';
 const Editeur = lazy(() => import('./Editeur.jsx'));
@@ -1044,7 +1044,6 @@ function ConfigAttestation() {
   const [sections, setSections]   = useState([]);
   const [ueSections, setUeSections] = useState([]); // valeurs distinctes de ue.section (liste fermée)
   const [saved, setSaved]         = useState('');
-  const [onglet, setOnglet]       = useState('etab');
 
   useEffect(() => {
     af('/api/config/attestation_etab').then(d => { try { setEtab(JSON.parse(d.valeur)); } catch { setEtab({}); } });
@@ -1075,19 +1074,14 @@ function ConfigAttestation() {
 
   return (
     <div className="max-w-none space-y-4">
-      <h2 className="text-lg font-bold text-iip-blue">Configuration des attestations</h2>
-
-      <div className="flex gap-1 border-b border-gray-200 mb-4">
-        {ONGLETS_LOC.map(o => (
-          <button key={o.key} onClick={() => setOnglet(o.key)}
-            className={`onglet-page ${onglet === o.key ? 'onglet-page-actif' : ''}`}>
-            {o.label}
-          </button>
-        ))}
-      </div>
+      {/* UNE SECONDE RANGÉE D'ONGLETS SOUS CELLE DES DOCUMENTS, POUR DEUX
+          BLOCS (2.12.177). Ils tiennent l'un sous l'autre : on lit la page
+          d'un trait, et l'on ne se demande plus dans quel onglet on est. */}
+      <h2 className="text-[17px] font-semibold text-iip-blue">Configuration des attestations</h2>
 
       {/* ── Établissement ── */}
-      {onglet === 'etab' && (
+      <h3 className="text-[15px] font-semibold text-iip-blue">{ONGLETS_LOC[0].label}</h3>
+      {(
         <div className="space-y-3">
           <div className="grid grid-cols-2 gap-3">
             {[
@@ -1115,7 +1109,8 @@ function ConfigAttestation() {
       )}
 
       {/* ── Sections & Diplômes ── */}
-      {onglet === 'sections' && (
+      <h3 className="text-[15px] font-semibold text-iip-blue pt-2">{ONGLETS_LOC[1].label}</h3>
+      {(
         <div className="space-y-3">
           <div className="text-xs text-gray-500 mb-2">Chaque section correspond à un diplôme délivrable. Renseignez le code Gouvernement exact.</div>
           {sections.map((s, i) => (
@@ -1330,8 +1325,18 @@ export default function Configuration() {
      * Qu'elle change d'une année à l'autre n'est pas une raison de les
      * éclater : c'est une raison de nommer l'année, et de la nommer une
      * seule fois. */
+    /* DEUX RANGÉES D'ONGLETS POUR UN SEUL OBJET (Charles, 25 septembre 2026 —
+     * « bof ces doubles menus »). Le référentiel était une feuille qui
+     * contenait quatre faces : deux soulignements l'un sous l'autre, et le
+     * titre « Référentiel de l'année » écrit deux fois. Les quatre faces
+     * montent d'un cran et deviennent LES feuilles de la famille, à côté des
+     * procédures ; l'année, qui vaut pour elles, se pose une fois au bout de
+     * la même rangée. */
     { label: 'Référentiel', icon: IconBooks, items: [
-      { key: 'referentiel-annee', label: "Référentiel de l'année", icon: IconBooks },
+      { key: 'referentiel-annee', label: 'Unités et cours', icon: IconBooks, annee: true },
+      { key: 'ref-prerequis', label: "Prérequis d'UE", icon: IconHierarchy, annee: true },
+      { key: 'ref-ponderations', label: 'Pondération des acquis', icon: IconArrowsSplit, annee: true },
+      { key: 'ref-deliberation', label: 'Règles de délibération', icon: IconScale, annee: true },
       { key: 'procedures', label: 'Procédures et délais', icon: IconGavel },
     ]},
     { label: 'Documents', icon: IconFileText, items: [
@@ -1402,11 +1407,19 @@ export default function Configuration() {
                 </button>
               );
             })}
+            {/* L'année vaut pour les quatre faces du référentiel : elle se
+                pose une fois, au bout de la rangée, et seulement là. */}
+            {groupeActif.items.find(t => t.key === tab)?.annee && (
+              <span className="ml-auto pb-1"><AnneeDuReferentiel onglet={tab} /></span>
+            )}
           </div>
         )}
 
-      {/* ── Onglet Référentiel de l'année ── */}
-      {tab === 'referentiel-annee' && <ReferentielDeLAnnee />}
+      {/* ── Le référentiel de l'année, ses quatre faces ── */}
+      {tab === 'referentiel-annee' && <Referentiels embedded />}
+      {tab === 'ref-prerequis' && <GestionPrerequis />}
+      {tab === 'ref-ponderations' && <PonderationsAA />}
+      {tab === 'ref-deliberation' && <ReglesDeliberation />}
 
       {/* ── Onglet Années ── */}
       {tab === 'annees' && <Annees embedded />}
@@ -2307,15 +2320,11 @@ function ReglageCouleurs() {
  * ce qu'on venait d'y régler — et surtout, rien ne disait qu'ils parlaient tous
  * de la MÊME ANNÉE.
  *
- * L'année se pose donc UNE FOIS, en tête, et vaut pour les quatre faces.
- * Qu'elle change d'une année à l'autre n'est pas une raison de les éclater :
- * c'est une raison de la nommer, et de ne la nommer qu'une fois.
- *
- * Le soulignement plutôt que la pastille : on ne change pas de territoire, on
- * tourne une page du même dossier — c'est la règle de la maison.
+ * L'année se pose donc UNE FOIS et vaut pour les quatre faces. Depuis 2.12.177
+ * les faces sont les feuilles mêmes de la famille « Référentiel » — une seule
+ * rangée d'onglets —, et ce sélecteur se pose au bout de cette rangée.
  */
-function ReferentielDeLAnnee() {
-  const [face, setFace] = useState('referentiel');
+function AnneeDuReferentiel({ onglet }) {
   const [annees, setAnnees] = useState([]);
   const annee = getAnnee();
 
@@ -2334,52 +2343,19 @@ function ReferentielDeLAnnee() {
   function changerAnnee(code) {
     if (!code || code === annee) return;
     setAnneeActive(code);
-    window.location.href = '/configuration?onglet=referentiel-annee';
+    window.location.href = `/configuration?onglet=${encodeURIComponent(onglet)}`;
   }
 
-  const FACES = [
-    ['referentiel', 'Unités et cours'],
-    ['prerequis', "Prérequis d'UE"],
-    ['ponderations', 'Pondération des acquis'],
-    ['deliberation', 'Règles de délibération'],
-  ];
-
   return (
-    <div className="space-y-4">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h2 className="text-[17px] font-semibold text-iip-blue">Référentiel de l'année</h2>
-          <p className="text-[13px] text-slate-500 mt-0.5">
-            Ce qu'on enseigne cette année-là, et les règles avec lesquelles le Conseil
-            le sanctionne.
-          </p>
-        </div>
-        <label className="text-[11px] text-slate-500">
-          Année de travail
-          <select value={annee} onChange={e => changerAnnee(e.target.value)}
-            className="block mt-0.5 bg-white border border-slate-300 rounded-champ
-                       px-2 h-9 text-[13px] min-w-[10rem]">
-            {(annees.length ? annees : [annee]).map(a => (
-              <option key={a} value={a}>{a}</option>
-            ))}
-          </select>
-        </label>
-      </div>
-
-      <div className="flex gap-1 border-b border-slate-200">
-        {FACES.map(([cle, lib]) => (
-          <button key={cle} onClick={() => setFace(cle)}
-            className={`onglet-page ${face === cle ? 'onglet-page-actif' : ''}`}>
-            {lib}
-          </button>
+    <label className="flex items-center gap-2 text-[11px] text-slate-500">
+      Année de travail
+      <select value={annee} onChange={e => changerAnnee(e.target.value)}
+        className="bg-white border border-slate-300 rounded-champ px-2 h-8 text-[13px] min-w-[8rem]">
+        {(annees.length ? annees : [annee]).map(a => (
+          <option key={a} value={a}>{a}</option>
         ))}
-      </div>
-
-      {face === 'referentiel' && <Referentiels embedded />}
-      {face === 'prerequis' && <GestionPrerequis />}
-      {face === 'ponderations' && <PonderationsAA />}
-      {face === 'deliberation' && <ReglesDeliberation />}
-    </div>
+      </select>
+    </label>
   );
 }
 
