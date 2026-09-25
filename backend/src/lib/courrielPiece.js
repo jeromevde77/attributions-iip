@@ -94,8 +94,10 @@ export function preparerPourCourriel(html) {
       ? `<img src="cid:${CID_SCEAU}" alt="Sceau de l'établissement" width="84" height="84" style="display:block;border:0">`
       : '';
     const imgParaphe = !sansParaphe && paraphe
-      ? `<img src="cid:${CID_PARAPHE}" alt="Signature" width="174" style="display:block;border:0;margin:0 auto;height:auto">`
-      : '<div style="height:56px;border-bottom:1px solid #94a3b8;width:174px;margin:0 auto"></div>';
+      // 30 % plus petite que sur papier (Charles, 25 septembre 2026) : à
+      // l'écran, la signature à sa taille d'impression écrasait le bloc.
+      ? `<img src="cid:${CID_PARAPHE}" alt="Signature" width="122" style="display:block;border:0;margin:0 auto;height:auto">`
+      : '<div style="height:40px;border-bottom:1px solid #94a3b8;width:122px;margin:0 auto"></div>';
     avecSceau ||= !!imgSceau;
     avecParaphe ||= !sansParaphe && !!paraphe;
 

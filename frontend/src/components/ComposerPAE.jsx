@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { IconLayoutGrid, IconAlertTriangle, IconChecks } from '@tabler/icons-react';
+import { IconLayoutGrid, IconAlertTriangle, IconChecks, IconLock } from '@tabler/icons-react';
 import { authHeaders, getAnnee, getUser } from '../lib/api.js';
 import ImportTableauPlat from './ImportTableauPlat.jsx';
 import { Fenetre } from './ui.jsx';
@@ -201,6 +201,12 @@ export default function ComposerPAE({ onClose, onTermine, onPassage, modeInitial
      le serveur refuse la validation tant qu'elle reste. La direction ou la
      coordination peut la forcer (clic sur la case), sinon elle se retire. */
   const reprises = e => e.controle?.deja_reussies?.length || 0;
+  /* LE CADENAS : une UE proposée sous condition d'un prérequis dont le
+     résultat de l'an dernier n'est pas tombé (la 262 attend la 261). C'est une
+     information, pas une faute. Réinscrire le prérequis lui-même, en revanche,
+     est une erreur : sa seconde session n'est pas délibérée. */
+  const cadenasDe = (e, ue) => (e.controle?.cadenas || []).find(c => c.ue === ue)?.si || null;
+  const enAttente = e => e.controle?.en_attente?.length || 0;
   const peutForcer = ['admin', 'directeur', 'directeur_adjoint', 'coordination', 'editeur']
     .includes(getUser?.()?.role);
   const nbReprises = (grille?.etudiants || []).reduce((n, e) => n + reprises(e), 0);
@@ -431,7 +437,7 @@ export default function ComposerPAE({ onClose, onTermine, onPassage, modeInitial
             </span>
             <b className="text-iip-blue">{choisis.length} coché(s)</b>
             <button className="bouton" onClick={() => setCoches(new Set(lignes
-              .filter(e => !e.pae_confirme_le && !vide(e) && !alertes(e) && !reprises(e)).map(e => e.id)))}
+              .filter(e => !e.pae_confirme_le && !vide(e) && !alertes(e) && !reprises(e) && !enAttente(e)).map(e => e.id)))}
               title="Les programmes que rien ne signale : ils peuvent se valider tels quels">
               Cocher les PAE sans alerte
             </button>
@@ -448,7 +454,9 @@ export default function ComposerPAE({ onClose, onTermine, onPassage, modeInitial
               <span className="inline-block w-3 h-3 rounded-[3px] border-2 border-dashed border-slate-400 align-middle mx-1" />
               ouverte, non prise ·
               <span className="inline-block w-3 h-3 rounded-[3px] bg-[#1B2B4B] ring-2 ring-[#9d4a38] align-middle mx-1" />
-              déjà réussie, non forcée{peutForcer ? ' (clic : forcer la réinscription)' : ''}
+              déjà réussie, non forcée{peutForcer ? ' (clic : forcer la réinscription)' : ''} ·
+              <span className="inline-grid place-items-center w-3 h-3 rounded-[3px] bg-[#1B2B4B] text-white align-middle mx-1"><IconLock size={8} stroke={2.5} /></span>
+              sous cadenas : suivie seulement si son prérequis est réussi
             </span>
           </div>
         )}
@@ -572,6 +580,12 @@ export default function ComposerPAE({ onClose, onTermine, onPassage, modeInitial
                           <IconAlertTriangle size={10} className="inline -mt-0.5" /> {reprises(e)} déjà réussie{reprises(e) > 1 ? 's' : ''}
                         </span>
                       )}
+                      {mode === 'valider' && enAttente(e) > 0 && (
+                        <span className="ml-1 text-[9.5px] font-bold px-1.5 py-0.5 rounded-full bg-white border border-[#9d4a38] text-[#9d4a38] align-middle"
+                          title={`Réinscrite alors que la seconde session n'est pas délibérée : UE ${e.controle.en_attente.join(', ')}. Son sort se joue dans l'année où elle a été suivie.`}>
+                          <IconAlertTriangle size={10} className="inline -mt-0.5" /> {enAttente(e)} en attente de session
+                        </span>
+                      )}
                       {mode === 'valider' && possibles(e) > 0 && (
                         <span className="ml-1 text-[9.5px] px-1.5 py-0.5 rounded-full bg-slate-50 border border-slate-200 text-slate-500 align-middle"
                           title={`Ouvertes par les prérequis, non prises : UE ${e.controle.manquantes.join(', ')}`}>
@@ -586,6 +600,20 @@ export default function ComposerPAE({ onClose, onTermine, onPassage, modeInitial
                         const hors = e.controle?.hors_proposition?.includes(u.ue_num);
                         const manque = e.controle?.manquantes?.includes(u.ue_num);
                         const reprise = e.controle?.deja_reussies?.includes(u.ue_num);
+                        const cadenas = x.inscrit ? cadenasDe(e, u.ue_num) : null;
+                        const attente = x.inscrit && e.controle?.en_attente?.includes(u.ue_num);
+                        if (cadenas || attente) {
+                          return (
+                            <td key={u.ue_num} className="text-center px-1 py-1 bg-white border-l border-slate-100">
+                              <span title={cadenas
+                                  ? `Sous cadenas : ne pourra être suivie que si l'UE ${cadenas.join(', ')} est réussie`
+                                  : 'Réinscrite alors que sa seconde session n’est pas délibérée'}
+                                className={`inline-grid place-items-center w-3.5 h-3.5 rounded-[3px] bg-[#1B2B4B] text-white ${attente ? 'ring-2 ring-[#9d4a38]' : ''}`}>
+                                {cadenas && <IconLock size={9} stroke={2.5} />}
+                              </span>
+                            </td>
+                          );
+                        }
                         if (x.inscrit && reprise) {
                           return (
                             <td key={u.ue_num} className="text-center px-1 py-1 bg-white border-l border-slate-100">
