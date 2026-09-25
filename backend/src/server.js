@@ -2068,6 +2068,18 @@ try {
   }
 } catch (e) { console.error('[migration] aa.chapeau :', e.message); }
 
+/* UNE ACTIVITÉ D'ENSEIGNEMENT PEUT NE PAS ÊTRE ÉVALUÉE (2.12.176, Charles).
+ * Des périodes Z, un accompagnement : le cours existe au dossier, mais aucun
+ * acquis ne s'y évalue. Sans le dire, il restait « non paramétré » à jamais et
+ * bloquait l'état « prêt » de toute l'unité. Case explicite, par année :
+ * jamais déduite du classement — on ne tranche pas à la place de la direction. */
+try {
+  if (!db.prepare('PRAGMA table_info(cours)').all().some(c => c.name === 'non_evalue')) {
+    db.exec('ALTER TABLE cours ADD COLUMN non_evalue INTEGER NOT NULL DEFAULT 0');
+    console.log('[migration] Table cours : colonne non_evalue ajoutée');
+  }
+} catch (e) { console.error('[migration] cours.non_evalue :', e.message); }
+
 // ─── Seeding des templates de documents — INDÉPENDANT de la migration ───────
 // Bloc séparé : même si la migration principale échoue, les templates système
 // (Synthèse, Contrat CDD, PV Recours, PV Fraude) sont toujours seedés.

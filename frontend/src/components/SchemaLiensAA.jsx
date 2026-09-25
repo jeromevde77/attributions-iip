@@ -31,6 +31,16 @@ const L = 200, H = 34, GY = 10, PAD = 12, TETE = 26;
 const X_AA = PAD, X_COURS = PAD + L + 200;
 const LARGEUR = X_COURS + L + PAD;
 
+/* UNE COULEUR PAR ACQUIS, ET LA FLÈCHE LA PORTE (Charles, 25 septembre 2026).
+ * Tout en bleu, huit acquis et quinze liens ne se suivaient qu'au survol : on
+ * perdait de vue d'où partait une courbe dès qu'elle en croisait une autre. La
+ * teinte de l'acquis court jusqu'au cours, et le poids qu'elle porte aussi.
+ * Des teintes espacées de l'angle d'or : deux voisins ne se ressemblent jamais,
+ * et une unité à quinze acquis n'épuise pas la palette. Assez sombres pour se
+ * lire en trait fin sur blanc. */
+const teinteAA = i => `hsl(${Math.round((i * 137.508 + 205) % 360)}, 68%, 40%)`;
+const fondAA = i => `hsl(${Math.round((i * 137.508 + 205) % 360)}, 70%, 96%)`;
+
 export default function SchemaLiensAA({ ueNum, annee, onClose, onEnregistre }) {
   const [data, setData] = useState(null);
   const [poids, setPoids] = useState({});      // `${cours}|${aa}` → entier
@@ -45,6 +55,10 @@ export default function SchemaLiensAA({ ueNum, annee, onClose, onEnregistre }) {
   // Le poids de chaque acquis dans l'épreuve intégrée : `aa_code` → nombre.
   const [poidsEI, setPoidsEI] = useState({});
   const svgRef = useRef(null);
+  // La teinte de chaque acquis, par son rang : stable tant que l'ordre l'est.
+  const couleur = useMemo(() => Object.fromEntries((data?.acquis || [])
+    .map((a, i) => [a.aa_code, { trait: teinteAA(i), fond: fondAA(i), rang: i }])), [data]);
+  const nonEvalue = c => !!(data?.cours || []).find(x => x.cours_code === c)?.non_evalue;
 
   async function charger() {
     setErreur(null);
@@ -90,6 +104,10 @@ export default function SchemaLiensAA({ ueNum, annee, onClose, onEnregistre }) {
     (data?.liens || []).map(l => [`${l.cours_code}|${l.aa_code}`, Number(l.poids)])), [data]);
 
   const etatCours = c => {
+    if (nonEvalue(c)) {
+      return { ok: true, modifie: false, non_evalue: true, libelle: 'non évalué',
+               ton: '#64748B', quoi: 'pas évalué — aucun acquis' };
+    }
     const l = liensDe(c);
     const s = Math.round(l.reduce((n, [, v]) => n + v, 0) * 100) / 100;
 
@@ -143,6 +161,7 @@ export default function SchemaLiensAA({ ueNum, annee, onClose, onEnregistre }) {
     const p = svgXY(e);
     let cible = null;
     for (const c of data.cours) {
+      if (c.non_evalue) continue;               // on ne relie rien à ce qui n'est pas évalué
       const q = layout.posC[c.cours_code];
       if (p.x >= q.x && p.x <= q.x + L && p.y >= q.y && p.y <= q.y + H) { cible = c.cours_code; break; }
     }
@@ -222,6 +241,34 @@ export default function SchemaLiensAA({ ueNum, annee, onClose, onEnregistre }) {
         faits++;
       }
       if (faits) setMessage(`${faits} cours enregistré(s).`);
+      await charger();
+      onEnregistre && onEnregistre();
+    } catch (e) { setErreur(e.message); }
+    finally { setEnCours(false); }
+  }
+
+  /**
+   * « PAS ÉVALUÉ » : le cours existe au dossier (des périodes Z, un
+   * accompagnement), mais aucun acquis ne s'y note. Le cocher alors que des
+   * liens existent les défait — le serveur le dit d'abord, on confirme.
+   */
+  async function basculerEvalue(coursCode, non) {
+    setEnCours(true); setErreur(null); setMessage(null);
+    try {
+      const url = `/api/acquis/ue/${ueNum}/cours/${encodeURIComponent(coursCode)}/evaluation`;
+      const envoyer = delier => fetch(url, { method: 'PUT', headers: authHeaders(),
+        body: JSON.stringify({ annee, non_evalue: non, delier }) });
+      let rep = await envoyer(false);
+      let j = await rep.json().catch(() => ({}));
+      if (rep.status === 409 && j.confirmation_requise) {
+        if (!window.confirm(`Cours ${coursCode} : ${j.liens} acquis y sont reliés.\n\n`
+          + 'Le déclarer « pas évalué » les en détache. Continuer ?')) return;
+        rep = await envoyer(true);
+        j = await rep.json().catch(() => ({}));
+      }
+      if (!rep.ok) { setErreur(j.error || `Refusé (${rep.status})`); return; }
+      setMessage(non ? `Cours ${coursCode} : pas évalué${j.delies ? ` — ${j.delies} lien(s) défait(s)` : ''}.`
+                     : `Cours ${coursCode} : de nouveau évalué — reliez-lui ses acquis.`);
       await charger();
       onEnregistre && onEnregistre();
     } catch (e) { setErreur(e.message); }
@@ -403,10 +450,14 @@ export default function SchemaLiensAA({ ueNum, annee, onClose, onEnregistre }) {
                   style={{ width: LARGEUR, maxWidth: 'none', height: 'auto', display: 'block',
                            touchAction: 'none' }}>
                   <defs>
-                    <marker id="fl-aa" markerWidth="7" markerHeight="7" refX="6" refY="2.5"
-                      orient="auto" markerUnits="strokeWidth">
-                      <path d="M0,0 L0,5 L6,2.5 z" fill="#0EA5E9" />
-                    </marker>
+                    {/* Une pointe par acquis : la flèche finit dans sa couleur. */}
+                    {data.acquis.map(a => (
+                      <marker key={a.aa_code} id={`fl-aa-${couleur[a.aa_code].rang}`}
+                        markerWidth="7" markerHeight="7" refX="6" refY="2.5"
+                        orient="auto" markerUnits="strokeWidth">
+                        <path d="M0,0 L0,5 L6,2.5 z" fill={couleur[a.aa_code].trait} />
+                      </marker>
+                    ))}
                   </defs>
 
                   <text x={X_AA} y={PAD + 12} fontSize="11" fontWeight="700" fill="#64748B">ACQUIS D'APPRENTISSAGE</text>
@@ -416,7 +467,8 @@ export default function SchemaLiensAA({ ueNum, annee, onClose, onEnregistre }) {
                   {data.cours.flatMap(c => data.acquis.map(a => {
                     const cle = `${c.cours_code}|${a.aa_code}`;
                     const v = Number(poids[cle]) || 0;
-                    if (!(v > 0)) return null;
+                    if (!(v > 0) || c.non_evalue) return null;
+                    const col = couleur[a.aa_code];
                     const p1 = layout.posA[a.aa_code], p2 = layout.posC[c.cours_code];
                     const x1 = p1.x + L, y1 = p1.y + H / 2, x2 = p2.x, y2 = p2.y + H / 2;
                     const mx = (x1 + x2) / 2;
@@ -442,18 +494,18 @@ export default function SchemaLiensAA({ ueNum, annee, onClose, onEnregistre }) {
                         <path d={`M${x1},${y1} C${mx},${y1} ${mx},${y2} ${x2 - 8},${y2}`}
                           fill="none" stroke="transparent" strokeWidth="14" />
                         <path d={`M${x1},${y1} C${mx},${y1} ${mx},${y2} ${x2 - 8},${y2}`}
-                          fill="none" stroke={concerne && survol ? '#0369A1' : '#0EA5E9'}
-                          strokeWidth={concerne && survol ? 2.6 : 1.6}
-                          markerEnd="url(#fl-aa)" />
+                          fill="none" stroke={col.trait}
+                          strokeWidth={concerne && survol ? 2.8 : 1.7}
+                          markerEnd={`url(#fl-aa-${col.rang})`} />
                         {/* Le poids, au milieu du lien : − retire un demi-point,
                             + en ajoute, et zéro défait le lien. */}
                         <g transform={`translate(${mx - 26}, ${(y1 + y2) / 2 - 11})`}>
-                          <rect width="52" height="22" rx="11" fill="#EFF6FF" stroke="#93C5FD" />
-                          <text x="10" y="15" fontSize="13" fill="#1D4ED8" style={{ cursor: 'pointer' }}
+                          <rect width="52" height="22" rx="11" fill={col.fond} stroke={col.trait} />
+                          <text x="10" y="15" fontSize="13" fill={col.trait} style={{ cursor: 'pointer' }}
                             onClick={() => majPoids(cle, -0.5)}>−</text>
-                          <text x="26" y="15" fontSize="12" fontWeight="700" fill="#1E3A8A"
+                          <text x="26" y="15" fontSize="12" fontWeight="700" fill={col.trait}
                             textAnchor="middle">{v}</text>
-                          <text x="38" y="15" fontSize="13" fill="#1D4ED8" style={{ cursor: 'pointer' }}
+                          <text x="38" y="15" fontSize="13" fill={col.trait} style={{ cursor: 'pointer' }}
                             onClick={() => majPoids(cle, 0.5)}>+</text>
                         </g>
                       </g>
@@ -464,7 +516,7 @@ export default function SchemaLiensAA({ ueNum, annee, onClose, onEnregistre }) {
                   {lien && (
                     <path d={`M${layout.posA[lien.aa].x + L},${layout.posA[lien.aa].y + H / 2}
                               L${lien.x},${lien.y}`}
-                      fill="none" stroke="#93C5FD" strokeWidth="2" strokeDasharray="4 3" />
+                      fill="none" stroke={couleur[lien.aa].trait} strokeWidth="2" strokeDasharray="4 3" />
                   )}
 
                   {/* Les COURS. On tire depuis leur bord droit. */}
@@ -479,10 +531,13 @@ export default function SchemaLiensAA({ ueNum, annee, onClose, onEnregistre }) {
                         onMouseEnter={() => setSurvol({ cours: c.cours_code })}
                         onMouseLeave={() => setSurvol(null)}>
                         <rect x={p.x} y={p.y} width={L} height={H} rx="8"
-                          fill="#F8FAFC"
-                          stroke={survol?.cours === c.cours_code ? '#0369A1' : '#1B2B4B'}
+                          fill={c.non_evalue ? '#F1F5F9' : (lien?.cible === c.cours_code ? '#EFF6FF' : '#F8FAFC')}
+                          stroke={c.non_evalue ? '#CBD5E1'
+                            : survol?.cours === c.cours_code ? '#0369A1' : '#1B2B4B'}
+                          strokeDasharray={c.non_evalue ? '4 3' : ''}
                           strokeWidth={survol?.cours === c.cours_code ? 2.2 : 1.2} />
-                        <text x={p.x + 8} y={p.y + 14} fontSize="11" fontWeight="700" fill="#1B2B4B">
+                        <text x={p.x + 8} y={p.y + 14} fontSize="11" fontWeight="700"
+                          fill={c.non_evalue ? '#94A3B8' : '#1B2B4B'}>
                           {c.cours_code}
                         </text>
                         <text x={p.x + 8} y={p.y + 26} fontSize="9" fill="#475569">
@@ -503,20 +558,22 @@ export default function SchemaLiensAA({ ueNum, annee, onClose, onEnregistre }) {
                       <g key={a.aa_code}
                         onMouseEnter={() => setSurvol({ aa: a.aa_code })}
                         onMouseLeave={() => setSurvol(null)}>
+                        {/* L'acquis porte SA couleur ; celui qu'aucun cours
+                            n'évalue garde le signal ocre, en pointillé. */}
                         <rect x={p.x} y={p.y} width={L} height={H} rx="8"
-                          fill={orphelin ? '#FFFBEB' : '#F0F9FF'}
-                          stroke={vise ? '#0369A1' : (orphelin ? '#F59E0B' : '#0EA5E9')}
-                          strokeWidth={vise ? 2.2 : 1.2}
+                          fill={orphelin ? '#FFFBEB' : couleur[a.aa_code].fond}
+                          stroke={orphelin ? '#F59E0B' : couleur[a.aa_code].trait}
+                          strokeWidth={vise ? 2.4 : 1.3}
                           strokeDasharray={orphelin ? '4 3' : ''} />
                         <text x={p.x + 8} y={p.y + 14} fontSize="11" fontWeight="700"
-                          fill={orphelin ? '#92400E' : '#075985'}>{a.aa_code}</text>
+                          fill={orphelin ? '#92400E' : couleur[a.aa_code].trait}>{a.aa_code}</text>
                         <text x={p.x + 8} y={p.y + 26} fontSize="9" fill="#475569">
                           {(a.description || '').slice(0, 30)}
                         </text>
                         {/* La poignée est sur l'ACQUIS : c'est lui qui alimente
                             un cours, et le geste doit dire ce sens-là. */}
                         <circle cx={p.x + L} cy={p.y + H / 2} r="6"
-                          fill="#0EA5E9" style={{ cursor: 'crosshair' }}
+                          fill={couleur[a.aa_code].trait} style={{ cursor: 'crosshair' }}
                           onPointerDown={e => {
                             e.preventDefault();
                             const q = svgXY(e);
@@ -536,9 +593,36 @@ export default function SchemaLiensAA({ ueNum, annee, onClose, onEnregistre }) {
                 {data.cours.map(c => {
                   const et = etatCours(c.cours_code);
                   const relie = data.acquis.some(a => Number(poids[`${c.cours_code}|${a.aa_code}`]) > 0);
-                  const ton = !et.ok ? 'border-red-300 bg-red-50 text-red-800'
+                  const ton = et.non_evalue ? 'border-slate-300 bg-slate-50 text-slate-600'
+                    : !et.ok ? 'border-red-300 bg-red-50 text-red-800'
                     : et.modifie ? 'border-amber-400 bg-amber-50 text-amber-900'
                     : 'border-emerald-400 bg-emerald-50 text-emerald-800';
+                  /* « PAS ÉVALUÉ » se coche sur le cours lui-même : des périodes
+                     Z, un accompagnement — le cours existe, rien n'y est noté. */
+                  const caseEval = (
+                    <label title="Ce cours n'est pas évalué : aucun acquis ne s'y note (périodes Z, accompagnement…)"
+                      className="px-2 text-[12px] font-semibold flex items-center gap-1 cursor-pointer
+                                 border-r border-current/20">
+                      <input type="checkbox" checked={!!et.non_evalue} disabled={enCours}
+                        onChange={e => basculerEvalue(c.cours_code, e.target.checked)}
+                        className="w-3.5 h-3.5 accent-slate-600" />
+                      pas évalué
+                    </label>
+                  );
+                  if (et.non_evalue) {
+                    return (
+                      <span key={c.cours_code}
+                        className={`inline-flex items-stretch rounded-lg overflow-hidden border ${ton}`}>
+                        <span className="px-2.5 py-1 border-r border-current/20">
+                          <span className="block text-[12px] font-bold font-mono leading-tight">
+                            {c.cours_code}
+                          </span>
+                          <span className="block text-[10px] opacity-80 leading-tight">{et.quoi}</span>
+                        </span>
+                        {caseEval}
+                      </span>
+                    );
+                  }
                   return (
                     <span key={c.cours_code}
                       className={`inline-flex items-stretch rounded-lg overflow-hidden border ${ton}`}>
@@ -548,6 +632,7 @@ export default function SchemaLiensAA({ ueNum, annee, onClose, onEnregistre }) {
                         </span>
                         <span className="block text-[10px] opacity-80 leading-tight">{et.quoi}</span>
                       </span>
+                      {caseEval}
                       <button onClick={() => enregistrer(c.cours_code, false)}
                         disabled={enCours || !et.ok || !et.modifie}
                         title={!et.ok ? et.quoi
@@ -582,8 +667,10 @@ export default function SchemaLiensAA({ ueNum, annee, onClose, onEnregistre }) {
               </div>
 
               <p className="text-[12px] text-slate-500">
-                Tirez depuis le point bleu d'un acquis jusqu'au cours qu'il
-                alimente. Le lien naît à 1 point ; ajustez-le avec − et +, et
+                Tirez depuis le point coloré d'un acquis jusqu'au cours qu'il
+                alimente : la flèche garde la couleur de l'acquis. Un cours où
+                rien n'est noté (périodes Z, accompagnement) se coche
+                <b> pas évalué</b> — il ne reçoit alors aucun lien. Le lien naît à 1 point ; ajustez-le avec − et +, et
                 ramenez-le à 0 pour le défaire. Chaque cours porte son état :
                 <b className="text-emerald-700"> vert</b> enregistré,
                 <b className="text-amber-700"> ambre</b> à enregistrer,
