@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import GroupesParBloc from '../components/GroupesParBloc.jsx';
 import { IconChevronRight, IconArrowLeft, IconBolt, IconAlertTriangle,
   IconRotate, IconPrinter, IconFileSpreadsheet, IconPencil, IconTable, IconList,
   IconUpload, IconEdit, IconAdjustments } from '@tabler/icons-react';
@@ -399,8 +400,11 @@ export default function Deliberation() {
                 </div>
               </div>
             )}
+            {/* PAR BLOC — BA1, BA2, BA3, puis l'épreuve intégrée (GroupesParBloc). */}
+            <div className="p-2.5">
+            <GroupesParBloc items={sec.ues}>{liste => (
             <div className="divide-y divide-slate-100">
-              {sec.ues.map(u => {
+              {liste.map(u => {
                 const reste = u.inscrits - u.decides;
                 return (
                   <div key={u.ue_num}>
@@ -577,6 +581,8 @@ export default function Deliberation() {
                   </div>
                 );
               })}
+            </div>
+            )}</GroupesParBloc>
             </div>
           </div>
 

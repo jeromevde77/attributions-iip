@@ -1,4 +1,6 @@
 import { useMemo, useRef, useState } from 'react';
+import { IconGift } from '@tabler/icons-react';
+import { teintes } from '../lib/etats.js';
 
 /**
  * Schéma de capitalisation — arbre des UE et de leurs prérequis.
@@ -12,32 +14,51 @@ import { useMemo, useRef, useState } from 'react';
  * backend ; la profondeur dans le graphe ordonne les lignes d'une colonne.
  */
 
-export const COULEURS_CAP = {
 /*
- * LES COULEURS DU SCHÉMA SONT CELLES DE LUCIE, ET PAS D'AUTRES.
- *
- * Le schéma avait sa propre palette : un bleu vif (#2563EB), un cyan, un vert
- * émeraude — trois teintes qu'on ne trouvait nulle part ailleurs dans
- * l'application. Un bleu de plus ne dit rien de plus : il dit seulement que ce
- * bloc-ci a été dessiné un autre jour.
- *
- * Le schéma emploie donc les trois teintes de la maison, et chacune garde le
- * sens qu'elle a partout :
- *   · MARINE — l'unité, sa structure, ce qui est accessible ;
- *   · TURQUOISE — ce qui est acquis, la seule bonne nouvelle du schéma ;
- *   · GRIS — ce qui n'est pas encore ouvert, et qui doit s'effacer ;
+ * LES COULEURS DU SCHÉMA SONT CELLES DE LUCIE, ET PAS D'AUTRES — celles du
+ * bloc d'état (lib/etats.js, étude du 25 septembre 2026) : liseré gauche qui
+ * porte l'état, fond pâle de la même teinte, contour fin.
+ *   · VERT — acquise ; VIOLET et cadeau — acquise par faveur ;
+ *   · BLEU — disponible (sous réserve : même bleu, trait pointillé — une
+ *     nuance ne mérite pas une teinte, elle mérite un détail) ;
+ *   · OCRE — ajournée, en attente de la seconde session : un geste est attendu ;
+ *   · GRIS — encore indisponible ;
  *   · DORÉ — l'épreuve intégrée, et elle seule (règle du dépôt).
- *
- * « Sous réserve » se distingue d'« accessible » par son TRAIT, pas par une
- * couleur de plus : même marine, contour plus clair. Une nuance de statut ne
- * mérite pas une teinte, elle mérite un détail.
  */
-  acquise:      { fill: '#E0F5F8', stroke: '#0093B0', text: '#00596B', label: 'Acquise' },
-  accessible:   { fill: '#EEF1F6', stroke: '#1B2B4B', text: '#1B2B4B', label: 'Accessible' },
-  sous_reserve: { fill: '#F5F7FA', stroke: '#8894AC', text: '#475A80', label: 'Sous réserve' },
-  bloquee:      { fill: '#F8FAFC', stroke: '#D8DEE7', text: '#9AA3B2', label: 'Pas encore accessible' },
-  structure:    { fill: '#F8FAFC', stroke: '#1B2B4B', text: '#1B2B4B', label: 'Unité d\u2019enseignement' },
+const CAP_ETAT = {
+  acquise: 'reussi', faveur: 'faveur', accessible: 'disponible', sous_reserve: 'disponible',
+  en_attente: 'surveiller', bloquee: 'indisponible',
 };
+const LIBELLE_CAP = {
+  acquise: 'Réussie', faveur: 'Réussie par faveur', accessible: 'Disponible',
+  sous_reserve: 'Disponible sous réserve', en_attente: 'Ajournée, en attente',
+  bloquee: 'Encore indisponible',
+};
+function couleursCap(statut) {
+  if (statut === 'structure') return { fond: '#F8FAFC', bord: '#1B2B4B', rail: null, texte: '#1B2B4B' };
+  return teintes(CAP_ETAT[statut] || 'indisponible');
+}
+export const COULEURS_CAP = Object.fromEntries(Object.keys(LIBELLE_CAP)
+  .map(k => [k, { ...couleursCap(k), label: LIBELLE_CAP[k] }]));
+
+/** Une case à gauche droite (le liseré), à droite arrondie. */
+function boite(x, y, w, h, r) {
+  return `M${x},${y} H${x + w - r} Q${x + w},${y} ${x + w},${y + r} V${y + h - r}`
+    + ` Q${x + w},${y + h} ${x + w - r},${y + h} H${x} Z`;
+}
+
+/** Le cadeau de la faveur, tracé dans le SVG (dessin de @tabler/icons, 24×24). */
+function Cadeau({ x, y, taille = 8 }) {
+  const k = taille / 24;
+  return (
+    <g transform={`translate(${x},${y}) scale(${k})`} fill="none" strokeWidth="2.4"
+      strokeLinecap="round" strokeLinejoin="round" style={{ stroke: 'var(--c-faveur)' }}>
+      <path d="M4 8h16a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1z" />
+      <path d="M12 8v13" /><path d="M19 12v7a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2v-7" />
+      <path d="M7.5 8a2.5 2.5 0 0 1 0-5A4.8 8 0 0 1 12 8a4.8 8 0 0 1 4.5-5 2.5 2.5 0 0 1 0 5" />
+    </g>
+  );
+}
 
 // L'épreuve intégrée est l'aboutissement du cursus : liseré doré, quelle que
 // soit la situation de l'étudiant (la couleur de fond continue d'indiquer
@@ -73,15 +94,39 @@ export default function SchemaCapitalisation({
     const L = 78, H = 26, GX = 38, GY = 6, PAD = 5, TETE = 28, PIED = 22;
     const couches = {};
     for (const n of data.nodes) (couches[n.couche] = couches[n.couche] || []).push(n);
-    const nums = Object.keys(couches).map(Number).sort((a, b) => a - b);
+    let nums = Object.keys(couches).map(Number).sort((a, b) => a - b);
+    /* L'ÉPREUVE INTÉGRÉE SOUS LE DERNIER BLOC (Charles, 25 septembre 2026 :
+       « pour gagner de la place en largeur, l'EI doit être en BA3, mais en
+       dessous de toutes les UE de BA3 »). Sa colonne propre disparaît ; ses
+       unités descendent au pied de la dernière colonne, sous leur intitulé. */
+    const groupeEI = (data.groupes || []).find(g => g.sous_titre);
+    const colEI = groupeEI ? groupeEI.debut : null;
+    let sousEI = [];
+    const autres = nums.filter(cn => cn !== colEI);
+    if (colEI != null && couches[colEI] && autres.length) {
+      sousEI = couches[colEI];
+      delete couches[colEI];
+      nums = autres;
+    }
+    const colPied = nums[nums.length - 1];
+    const ECART_EI = 16;   // la place de l'intitulé « Épreuve intégrée »
+    const MARGE_D = 22;
     const pos = {};
     const colonnesX = {};
-    let hauteurMax = 0;
+    let bas = 0, piedEI = null;
     nums.forEach((cn, ci) => {
       const x = PAD + ci * (L + GX);
       colonnesX[cn] = x;
       couches[cn].forEach((n, ri) => { pos[n.ue_num] = { x, y: PAD + TETE + ri * (H + GY) }; });
-      hauteurMax = Math.max(hauteurMax, couches[cn].length);
+      let yFin = PAD + TETE + couches[cn].length * (H + GY) - GY;
+      if (cn === colPied && sousEI.length) {
+        piedEI = { x, y: yFin + ECART_EI - 4 };
+        sousEI.forEach((n, ri) => {
+          pos[n.ue_num] = { x, y: yFin + ECART_EI + ri * (H + GY), pied: true };
+        });
+        yFin += ECART_EI + sousEI.length * (H + GY);
+      }
+      bas = Math.max(bas, yFin);
     });
     // Un titre par année d'études, centré sur ses sous-colonnes
     const groupes = (data.groupes && data.groupes.length)
@@ -92,7 +137,7 @@ export default function SchemaCapitalisation({
           debut: cn, fin: cn,
         }));
     const entetes = groupes
-      .filter(g => colonnesX[g.debut] !== undefined)
+      .filter(g => colonnesX[g.debut] !== undefined && !(sousEI.length && g.sous_titre))
       .map(g => {
         const xd = colonnesX[g.debut];
         const xf = colonnesX[g.fin] !== undefined ? colonnesX[g.fin] : xd;
@@ -105,10 +150,12 @@ export default function SchemaCapitalisation({
       });
 
     return {
-      pos, L, H, TETE, PAD, entetes, groupes, colonnesX,
-      largeur: PAD * 2 + nums.length * (L + GX) - GX,
+      pos, L, H, TETE, PAD, entetes, groupes, colonnesX, piedEI,
+      // MARGE_D : les flèches d'une même colonne contournent par la droite —
+      // sans cette marge, celles de la dernière colonne sortaient du cadre.
+      largeur: PAD * 2 + nums.length * (L + GX) - GX + MARGE_D,
       // PIED : la légende s'affiche SOUS le schéma et se faisait recouvrir.
-      hauteur: PAD * 2 + TETE + PIED + hauteurMax * (H + GY) - GY,
+      hauteur: bas + PAD + PIED,
     };
   }, [data]);
 
@@ -230,7 +277,9 @@ export default function SchemaCapitalisation({
           {titre}
           <span className="ml-2 font-normal text-slate-500">
             {mode === 'etudiant'
-              ? `${compte('acquise')} acquise(s) · ${compte('accessible') + compte('sous_reserve')} accessible(s) · ${compte('bloquee')} à venir`
+              ? `${compte('acquise')} réussie(s) · ${compte('accessible') + compte('sous_reserve')} disponible(s)`
+                + (compte('en_attente') ? ` · ${compte('en_attente')} en attente` : '')
+                + ` · ${compte('bloquee')} encore indisponible(s)`
               : `${data.nodes.length} UE · ${data.edges.length} lien(s) de prérequis`}
           </span>
         </span>
@@ -328,14 +377,25 @@ export default function SchemaCapitalisation({
                 </g>
               ))}
 
+              {layout.piedEI && (
+                <text x={layout.piedEI.x} y={layout.piedEI.y} fontSize="6.6" fontWeight="700"
+                  fill="#8A6D1F" letterSpacing="0.3">ÉPREUVE INTÉGRÉE</text>
+              )}
+
               {data.edges.map((eg, i) => {
                 const a = layout.pos[eg.from], b = layout.pos[eg.to];
                 if (!a || !b) return null;
                 const x1 = a.x + layout.L, y1 = a.y + layout.H / 2;
-                const x2 = b.x - 7,        y2 = b.y + layout.H / 2;
+                const y2 = b.y + layout.H / 2;
+                // MÊME COLONNE — l'épreuve intégrée sous le dernier bloc, ou deux
+                // UE d'une même sous-colonne : la flèche contourne par la droite.
+                const memeColonne = a.x === b.x;
+                const x2 = memeColonne ? b.x + layout.L + 5 : b.x - 7;
                 const dx = Math.max(24, (x2 - x1) / 2);
-                const enArriere = x2 < x1;   // prérequis placé après : incohérence
-                const d = `M${x1},${y1} C${x1 + dx},${y1} ${x2 - dx},${y2} ${x2},${y2}`;
+                const enArriere = !memeColonne && x2 < x1;   // prérequis placé après : incohérence
+                const d = memeColonne
+                  ? `M${x1},${y1} C${x1 + 20},${y1} ${x2 + 20},${y2} ${x2},${y2}`
+                  : `M${x1},${y1} C${x1 + dx},${y1} ${x2 - dx},${y2} ${x2},${y2}`;
 
                 // Trois lectures dans un seul trait : gris au sein d'une même
                 // année, bleu d'une année à l'autre, pointillé quand le
@@ -382,15 +442,22 @@ export default function SchemaCapitalisation({
               {data.nodes.map(n => {
                 const p = layout.pos[n.ue_num];
                 if (!p) return null;
-                const base = COULEURS_CAP[n.statut] || COULEURS_CAP.bloquee;
+                // Une acquise PAR FAVEUR prend le violet : c'est un octroi, il
+                // doit se voir de loin (Charles, 25 septembre 2026).
+                const statut = n.statut === 'acquise' && n.reussite?.faveur ? 'faveur' : n.statut;
+                const base = couleursCap(statut);
                 const ei = !!n.epreuve_integree;
-                const co = ei
-                  ? { fill: mode === 'structure' ? OR.fill : base.fill, stroke: OR.stroke, text: ei && mode === 'structure' ? OR.text : base.text }
-                  : base;
+                const co = ei && mode === 'structure'
+                  ? { fond: OR.fill, bord: OR.stroke, rail: OR.stroke, texte: OR.text }
+                  : ei ? { ...base, rail: OR.stroke } : base;
                 // Le libellé est coupé plus court : les boîtes ont rétréci et
                 // le texte débordait sur la voisine.
-                const nom = (n.ue_nom || '').length > 17
-                  ? (n.ue_nom || '').slice(0, 16) + '…' : (n.ue_nom || '');
+                // Sur une UE acquise, l'année occupe la fin de la seconde ligne :
+                // le nom s'y raccourcit d'autant, rien ne se chevauche.
+                const aNote = n.statut === 'acquise' && !!n.reussite;
+                const max = aNote ? 11 : 17;
+                const nom = (n.ue_nom || '').length > max
+                  ? (n.ue_nom || '').slice(0, max - 1) + '…' : (n.ue_nom || '');
                 const actif = selection === n.ue_num;
                 const enDeplacement = drag?.bouge && drag.ue_num === n.ue_num;
                 return (
@@ -402,10 +469,19 @@ export default function SchemaCapitalisation({
                     <title>{`UE ${n.ue_num} — ${n.ue_nom || ''}${n.ue_niv ? ' · ' + n.ue_niv : ''}${
                       n.prerequis?.length ? '\nPrérequis : ' + n.prerequis.join(', ') : ''}${
                       n.prereq_manquants?.length ? '\nManquants : ' + n.prereq_manquants.join(', ') : ''}`}</title>
-                    <rect x={p.x} y={p.y} width={layout.L} height={layout.H} rx="7"
-                      fill={co.fill} stroke={actif ? '#00AACC' : co.stroke}
-                      strokeWidth={actif ? 2.5 : (ei ? 2.2 : (n.inscrite ? 2 : 1.2))}
+                    <path d={boite(p.x, p.y, layout.L, layout.H, 6)}
+                      style={{ fill: co.fond, stroke: actif ? '#00AACC' : co.bord }}
+                      strokeWidth={actif ? 2.2 : 1}
                       strokeDasharray={n.statut === 'sous_reserve' ? '4 3' : undefined} />
+                    {co.rail && (
+                      <rect x={p.x} y={p.y} width="3.5" height={layout.H} style={{ fill: co.rail }} />
+                    )}
+                    {/* AU PROGRAMME DE L'ANNÉE : un cadre marine, comme dans la
+                        maquette du parcours — la pastille ronde se perdait. */}
+                    {n.inscrite && !actif && (
+                      <path d={boite(p.x - 1.2, p.y - 1.2, layout.L + 2.4, layout.H + 2.4, 7)}
+                        fill="none" stroke="#1B2B4B" strokeWidth="1.3" />
+                    )}
                     {/* UE DÉTERMINANTE : elle pèse double dans la mention du
                         diplôme. La pastille est CENTRÉE sur l'angle supérieur
                         droit, à cheval sur le bord — elle déborde autant
@@ -415,7 +491,7 @@ export default function SchemaCapitalisation({
                         {/* Proportionnée aux boîtes resserrées : à r=9 sur une
                             boîte de 26 de haut, la pastille la mangeait. */}
                         <circle cx={p.x + layout.L} cy={p.y} r={6.5}
-                          fill="#047857" stroke="#fff" strokeWidth={1.2} />
+                          fill="#1B2B4B" stroke="#fff" strokeWidth={1.2} />
                         <text x={p.x + layout.L} y={p.y + 2.5} textAnchor="middle"
                           fontSize={8} fontWeight="700" fill="#fff">D</text>
                       </g>
@@ -424,19 +500,34 @@ export default function SchemaCapitalisation({
                       <text x={p.x + layout.L - 5} y={p.y + layout.H - 5} textAnchor="end"
                         fontSize="8" fill={OR.stroke}>★</text>
                     )}
-                    <text x={p.x + 6} y={p.y + 12} fontSize="10" fontWeight="700" fill={co.text}>
+                    <text x={p.x + 7} y={p.y + 12} fontSize="10" fontWeight="700" style={{ fill: co.texte }}>
                       {n.ue_num}
                     </text>
-                    <text x={p.x + 6} y={p.y + 22} fontSize="7" fill={co.text} opacity="0.85">
+                    {statut === 'faveur' && (
+                      <Cadeau x={p.x + 8 + String(n.ue_num).length * 6.2} y={p.y + 4.2} taille={8.5} />
+                    )}
+                    {/* LA NOTE DANS UN CERCLE, sur la ligne du numéro ; L'ANNÉE EN
+                        ITALIQUE, au bout de la ligne du nom — deux lignes, deux
+                        places : rien ne se chevauche. Le cercle recule quand la
+                        pastille « D » tient l'angle. */}
+                    {aNote && (
+                      <g>
+                        <circle cx={p.x + layout.L - (n.determinante ? 15 : 8)} cy={p.y + 9} r="5.6"
+                          fill="#FFFFFF" strokeWidth="1" style={{ stroke: base.rail }} />
+                        <text x={p.x + layout.L - (n.determinante ? 15 : 8)} y={p.y + 11.4}
+                          textAnchor="middle" fontSize={n.reussite.va ? 5 : 6.5} fontWeight="700" fill="#1B2B4B">
+                          {n.reussite.va ? 'VA' : n.reussite.note != null
+                            ? String(Math.round(n.reussite.note)) : '✓'}
+                        </text>
+                        <text x={p.x + layout.L - 4} y={p.y + 22} textAnchor="end"
+                          fontSize="6.2" fontStyle="italic" fill="#7A879E">
+                          {String(n.reussite.annee || '').replace(/^20(\d\d)-20(\d\d)$/, '$1-$2')}
+                        </text>
+                      </g>
+                    )}
+                    <text x={p.x + 7} y={p.y + 22} fontSize="7" style={{ fill: co.texte }} opacity="0.85">
                       {nom}
                     </text>
-                    {/* La pastille de l'UE inscrite, replacée pour les boîtes
-                        resserrées. Elle se décale quand la pastille « D »
-                        occupe déjà l'angle. */}
-                    {n.inscrite && (
-                      <circle cx={p.x + layout.L - (n.determinante ? 15 : 6)}
-                        cy={p.y + 6} r="2.6" fill={co.stroke} />
-                    )}
                     {modeLien && onLien && (
                       <circle cx={p.x + layout.L} cy={p.y + layout.H / 2} r="5.5"
                         fill={lien?.cible === n.ue_num ? '#00AACC' : '#FFFFFF'}
@@ -517,19 +608,23 @@ export default function SchemaCapitalisation({
 
           {mode === 'etudiant' && (
             <div className="flex flex-wrap items-center gap-3 px-3 py-2 bg-slate-50 border-t border-slate-200 text-[11px] text-slate-500">
-              {['acquise', 'accessible', 'sous_reserve', 'bloquee'].map(k => (
+              {['acquise', 'faveur', 'accessible', 'sous_reserve', 'en_attente', 'bloquee'].map(k => (
                 <span key={k} className="flex items-center gap-1.5">
-                  <span className="inline-block w-3 h-3 rounded-sm border"
-                    style={{ background: COULEURS_CAP[k].fill, borderColor: COULEURS_CAP[k].stroke }} />
+                  <span className="inline-block w-3.5 h-3 rounded-r-sm"
+                    style={{ background: COULEURS_CAP[k].fond,
+                      border: `1px ${k === 'sous_reserve' ? 'dashed' : 'solid'} ${COULEURS_CAP[k].bord}`,
+                      borderLeft: `3px solid ${COULEURS_CAP[k].rail}` }} />
                   {COULEURS_CAP[k].label}
+                  {k === 'faveur' && <IconGift size={12} stroke={2} style={{ color: 'var(--c-faveur)' }} />}
                 </span>
               ))}
               <span className="flex items-center gap-1.5">
-                <span className="inline-block w-2 h-2 rounded-full bg-slate-500" /> inscrite cette année
+                <span className="inline-block w-3.5 h-3 rounded-sm border-[1.5px] border-[#1B2B4B]" /> au programme cette année
               </span>
               <span className="flex items-center gap-1.5">
-                <span className="inline-block w-3 h-3 rounded-sm border-2" style={{ borderColor: OR.stroke }} />
-                épreuve intégrée
+                <span className="inline-block w-3.5 h-3 rounded-r-sm border border-slate-200"
+                  style={{ borderLeft: `3px solid ${OR.stroke}` }} />
+                épreuve intégrée ★
               </span>
             </div>
           )}
