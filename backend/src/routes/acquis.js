@@ -2447,6 +2447,8 @@ r.get('/deliberation/plan', authRequired, (req, res) => {
     const ses = sessionDeLUE(u.ue_num, annee);
     (sections[sec] = sections[sec] || { section: sec, ues: [] }).ues.push({
       ...u, ue_nom: r0.ue_nom || null, ue_niv: r0.ue_niv || null,
+      // L'épreuve intégrée se range à part dans la liste, au liseré doré.
+      epreuve_integree: estEpreuveIntegree(u.ue_num, annee),
       session: ses.session,
       s1_complete: ses.s1.complete,
       s1_ajournes: ses.s1.ajournes,
