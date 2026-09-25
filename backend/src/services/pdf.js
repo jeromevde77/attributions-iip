@@ -91,6 +91,27 @@ export async function capacitePdf() {
  * @param {string} [options.pagination]  'jamais' (défaut), 'toujours', ou 'si-plusieurs'
  * @returns {Promise<Buffer>}
  */
+/**
+ * Rend un fragment HTML en IMAGE PNG, fond transparent — pour ce qui doit
+ * être dessiné plutôt que composé (le filigrane d'une signature, par
+ * exemple). Même navigateur que le PDF, même disponibilité.
+ *
+ * @param {string} html      document complet ; l'élément #cible est photographié
+ * @returns {Promise<Buffer>}
+ */
+export async function rendreImage(html) {
+  const nav = await obtenirNavigateur();
+  const page = await nav.newPage();
+  try {
+    await page.setContent(html, { waitUntil: 'load', timeout: 30000 });
+    const el = await page.$('#cible');
+    if (!el) throw new Error('élément #cible absent');
+    return Buffer.from(await el.screenshot({ omitBackground: true, type: 'png' }));
+  } finally {
+    await page.close().catch(() => {});
+  }
+}
+
 export async function rendrePdf(html, options = {}) {
   const {
     marges = { top: '12mm', right: '15mm', bottom: '12mm', left: '15mm' },
