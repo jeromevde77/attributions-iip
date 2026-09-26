@@ -507,7 +507,13 @@ table.grid-excel-soft select:focus {
  *
  * À droite il s'arrête avant le bord, comme la marge du contenu : un
  * soulignement, pas une bande qui coupe l'écran en deux. */
+/* LE FILET EST RETIRÉ (2.12.203, Charles, 26 septembre 2026 : « la barre fait
+ * en fait partie du fond, elle devrait être dans la même couleur »). Barre,
+ * rail et page lisent le même sol, réglable dans Thèmes et couleurs ; un trait
+ * entre la barre et la page coupait en deux ce qui est une seule surface.
+ * La règle est gardée ci-dessous, neutralisée, pour mémoire. */
 .barre-haut::after {
+  display: none;
   content: ""; position: absolute; bottom: 0; height: 1px;
   /* LE FILET COMMENCE OÙ COMMENCE LE TRAVAIL.
      Posé à une marge choisie — 1,25 rem —, il ne répondait à rien : ni au
