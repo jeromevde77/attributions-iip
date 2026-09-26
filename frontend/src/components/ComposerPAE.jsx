@@ -25,6 +25,21 @@ import { Fenetre } from './ui.jsx';
  * ce qui sera refusé (un résultat encodé, des notes déjà saisies) ;
  * « Enregistrer » écrit, tout ou rien.
  */
+/* LA CASE D'UNE UE DÉJÀ RÉUSSIE UNE AUTRE ANNÉE : verte et pâle, cochée, avec
+   l'année et la note au survol. Elle se distingue de la case pleine — réussie
+   CETTE année — et surtout de la case vide, qui veut dire « pas prise ». */
+function CaseAcquise({ a }) {
+  const quand = String(a.annee || '').replace(/^20(\d\d)-20(\d\d)$/, '$1-$2');
+  return (
+    <span title={`Déjà réussie en ${a.annee}${a.va ? ' (valorisation)' : a.note != null ? ` · ${a.note}/20` : ''}`}
+      className="inline-grid place-items-center w-3.5 h-3.5 rounded-[3px] text-[9px] font-bold leading-none"
+      style={{ background: 'color-mix(in srgb, var(--c-reussi) 16%, #fff)',
+               border: '1px solid color-mix(in srgb, var(--c-reussi) 45%, #fff)',
+               color: 'var(--c-reussi)' }}
+      aria-label={`réussie en ${quand}`}>✓</span>
+  );
+}
+
 export default function ComposerPAE({ onClose, onTermine, onPassage, modeInitial = 'composer' }) {
   const [sections, setSections] = useState([]);
   const [section, setSection] = useState('');
@@ -104,7 +119,7 @@ export default function ComposerPAE({ onClose, onTermine, onPassage, modeInitial
   const etat = (e, u) => {
     const c = e.cases[u];
     const k = attente.get(`${e.id}|${u}`);
-    return { inscrit: !!c?.inscrit, va: c?.va, resultat: c?.resultat, attente: k };
+    return { inscrit: !!c?.inscrit, va: c?.va, resultat: c?.resultat, attente: k, acquise: c?.acquise || null };
   };
   const poser = (paires, nature) => setAttente(m0 => {
     const m = new Map(m0);
@@ -119,6 +134,9 @@ export default function ComposerPAE({ onClose, onTermine, onPassage, modeInitial
   const basculerCase = (e, u) => {
     const x = etat(e, u.ue_num);
     if (x.va) return;
+    // Déjà réussie : un clic ne la remet pas au programme. La réinscription se
+    // FORCE, par la direction ou la coordination (mode Valider), et se trace.
+    if (x.acquise && !x.inscrit && !attente.has(`${e.id}|${u.ue_num}`)) return;
     setAttente(m0 => {
       const m = new Map(m0); const cle = `${e.id}|${u.ue_num}`;
       if (m.has(cle)) m.delete(cle); else m.set(cle, x.inscrit ? 'retrait' : 'ajout');
@@ -634,6 +652,7 @@ export default function ComposerPAE({ onClose, onTermine, onPassage, modeInitial
                                 : manque
                                   ? <span title="Ouverte par les prérequis, non prise"
                                       className="inline-block w-3.5 h-3.5 rounded-[3px] border-2 border-dashed border-slate-400" />
+                                  : x.acquise ? <CaseAcquise a={x.acquise} />
                                   : <span className="inline-block w-3.5 h-3.5 rounded-[3px] border border-slate-200" />}
                           </td>
                         );
@@ -675,6 +694,7 @@ export default function ComposerPAE({ onClose, onTermine, onPassage, modeInitial
                                     className={`inline-grid place-items-center w-3.5 h-3.5 rounded-[3px] bg-rose-600 text-white text-[10px] leading-none ${rx.attente ? 'ring-2 ring-iip-turquoise/30' : ''}`}>✗</span>
                                 : x.inscrit
                                   ? <span title="inscrit — sans résultat" className={`inline-block w-3.5 h-3.5 rounded-[3px] bg-[#1B2B4B]/30 ${rx.attente ? 'ring-2 ring-iip-turquoise/30' : ''}`} />
+                                  : x.acquise ? <CaseAcquise a={x.acquise} />
                                   : <span className={`inline-block w-3.5 h-3.5 rounded-[3px] border border-dashed border-slate-300 ${rx.attente ? 'ring-2 ring-iip-turquoise/30' : ''}`} />}
                           </td>
                         );
@@ -684,7 +704,7 @@ export default function ComposerPAE({ onClose, onTermine, onPassage, modeInitial
                          retrait en attente. Un clic bascule ; une VA ne se touche pas ici. */
                       return (
                         <td key={u.ue_num} onClick={() => basculerCase(e, u)}
-                          className={`text-center px-1 py-1 bg-white border-l border-slate-100 ${x.va ? '' : 'cursor-pointer hover:bg-slate-50'}`}>
+                          className={`text-center px-1 py-1 bg-white border-l border-slate-100 ${x.va || (x.acquise && !x.inscrit && !x.attente) ? '' : 'cursor-pointer hover:bg-slate-50'}`}>
                           {x.va ? <span className="text-[10px] text-violet-700 font-semibold" title="Valorisation">VA</span>
                             : x.attente === 'ajout'
                               ? <span title="Ajout en attente" className="inline-block w-3.5 h-3.5 rounded-[3px] border-2 border-dashed border-[#1a9aa0] bg-[#1a9aa0]/20" />
@@ -692,6 +712,7 @@ export default function ComposerPAE({ onClose, onTermine, onPassage, modeInitial
                                 ? <span title="Retrait en attente" className="inline-grid place-items-center w-3.5 h-3.5 rounded-[3px] bg-[#9D4A38] text-white text-[10px] leading-none">×</span>
                                 : x.inscrit
                                   ? <span title={x.resultat || 'inscrit'} className={`inline-block w-3.5 h-3.5 rounded-[3px] ${x.resultat === 'reussi' ? 'bg-emerald-600' : 'bg-[#1B2B4B]'}`} />
+                                  : x.acquise ? <CaseAcquise a={x.acquise} />
                                   : <span className="inline-block w-3.5 h-3.5 rounded-[3px] border border-slate-300" />}
                         </td>
                       );

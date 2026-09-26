@@ -3062,6 +3062,30 @@ r.get('/pae-grille', authRequired, (req, res) => {
         va: v.decision === 'refusee' ? 'refusee' : v.type };
     }
   }
+  /* CE QUI EST DÉJÀ RÉUSSI SE VOIT (Charles, 26 septembre 2026, à propos de
+     Kenza : « toutes les cases ne sont pas cochées puisque déjà réussi »). La
+     grille ne lisait que l'année composée : une UE réussie en 2024-2025 y
+     paraissait en case vide, exactement comme une UE jamais prise — une
+     étudiante qui a tout réussi sauf son épreuve intégrée ressemblait à une
+     étudiante sans programme. La réussite ANTÉRIEURE s'ajoute donc à la case,
+     avec son année et sa note ; elle n'inscrit rien. */
+  const acquisAvant = [
+    ...db.prepare(`SELECT etudiant_id, ue_num, annee_scolaire AS annee, points AS note, 0 AS va
+      FROM etudiant_inscription WHERE resultat = 'reussi' AND annee_scolaire < ?
+      ORDER BY annee_scolaire`).all(annee),
+    ...db.prepare(`SELECT etudiant_id, ue_num, annee_scolaire AS annee, NULL AS note, 1 AS va
+      FROM etudiant_valorisation WHERE type = 'complete' AND COALESCE(decision, 'accordee') <> 'refusee'
+        AND annee_scolaire < ? ORDER BY annee_scolaire`).all(annee),
+  ];
+  for (const a of acquisAvant) {
+    const l = parId.get(a.etudiant_id);
+    if (!l || !nums.has(a.ue_num)) continue;
+    const c = l.cases[a.ue_num] || {};
+    // La plus récente fait foi ; une réussite par délibération passe avant une VA.
+    if (!c.acquise || (!a.va && (c.acquise.va || a.annee >= c.acquise.annee))) {
+      l.cases[a.ue_num] = { ...c, acquise: { annee: a.annee, note: a.note ?? null, va: !!a.va } };
+    }
+  }
   lignes.sort((a, b) => (a.nom || '').localeCompare(b.nom || '', 'fr') || (a.prenom || '').localeCompare(b.prenom || '', 'fr'));
 
   // LA VALIDATION DU PAE (24 septembre 2026) : un programme composé n'est
@@ -4966,6 +4990,178 @@ r.get('/:id/grille', authRequired, (req, res) => {
 });
 
 // ── Écrire une cellule de la grille ──────────────────────────────────────────
+/* ── DÉPLACER DES CASES D'UNE ANNÉE À L'AUTRE, DANS LA FICHE ────────────────
+ *
+ * Demandé par Charles le 25-26 septembre 2026 : faire glisser, dans la grille
+ * du parcours, une case — et plusieurs à la fois — vers la bonne année. C'est
+ * la réparation d'un historique rangé dans la mauvaise colonne : on déplace
+ * l'INSCRIPTION et tout ce qui la suit (notes d'acquis, reports, résultats par
+ * cours, faveurs et ajournements, décisions par session, motivations).
+ *
+ * Tranché le 26 septembre :
+ *   · ARRIVÉE OCCUPÉE — si l'inscription d'arrivée est vide (ni résultat, ni
+ *     note, ni trace de délibération), la case déplacée la remplace ; sinon le
+ *     lot est refusé, et l'écran nomme la case.
+ *   · MOTIF POUR TOUS — un motif écrit, une fois pour le lot, et une ligne de
+ *     journal par case : qui, quand, de quelle année vers laquelle. Une
+ *     décision notifiée peut être déplacée ; elle ne l'est jamais en silence.
+ *   · DROITS — ceux de l'encodage de la grille.
+ *
+ * Ce qui ne se déplace PAS d'ici : une valorisation (elle a son circuit, son
+ * journal et sa séance — elle se corrige dans l'écran Valorisation), et un
+ * stage (un objet à part, avec son lieu et ses dates).
+ *
+ * TOUT OU RIEN, et simulation d'abord : « rien ne s'écrit sans qu'on ait vu ce
+ * qui sera écrit ».
+ */
+db.exec(`
+  CREATE TABLE IF NOT EXISTS etudiant_deplacement (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    etudiant_id  INTEGER NOT NULL,
+    ue_num       INTEGER NOT NULL,
+    de           TEXT NOT NULL,
+    vers         TEXT NOT NULL,
+    motif        TEXT NOT NULL,
+    seance_close INTEGER NOT NULL DEFAULT 0,
+    detail       TEXT,
+    acteur_id    INTEGER,
+    acteur_nom   TEXT,
+    horodatage   TEXT DEFAULT (datetime('now'))
+  );
+  CREATE INDEX IF NOT EXISTS idx_deplacement_etud ON etudiant_deplacement(etudiant_id);
+`);
+
+// Ce qui suit une inscription, avec les colonnes qui font l'unicité d'une ligne.
+const SUIT_INSCRIPTION = [
+  { t: 'etudiant_note_detail', compteur: 'notes' },
+  { t: 'etudiant_report_note', compteur: 'reports' },
+  { t: 'etudiant_resultat_cours', compteur: 'cours' },
+  { t: 'deliberation_ajustement', compteur: 'ajustements' },
+  { t: 'deliberation_resultat', compteur: 'decisions' },
+  { t: 'decision_motivation', compteur: 'motivations' },
+];
+const compterLignes = (t, etudId, annee, ue) => {
+  try {
+    return db.prepare(`SELECT COUNT(*) AS n FROM ${t}
+      WHERE etudiant_id = ? AND annee_scolaire = ? AND ue_num = ?`).get(etudId, annee, ue).n;
+  } catch { return 0; }   // table absente sur cette base
+};
+
+r.post('/:id/grille/deplacer', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
+  const etudId = Number(req.params.id);
+  const simulation = req.body?.simulation !== false;
+  const motif = String(req.body?.motif || '').trim();
+  const brut = Array.isArray(req.body?.mouvements) ? req.body.mouvements : [];
+  const e = db.prepare('SELECT id, nom, prenom FROM etudiant WHERE id = ?').get(etudId);
+  if (!e) return res.status(404).json({ error: 'étudiant introuvable' });
+
+  const ANNEE = /^\d{4}-\d{4}$/;
+  const mouvements = brut.map(m => ({ ue_num: Number(m?.ue_num), de: String(m?.de || ''), vers: String(m?.vers || '') }));
+  if (!mouvements.length) return res.status(400).json({ error: 'Aucune case à déplacer.' });
+  if (mouvements.some(m => !m.ue_num || !ANNEE.test(m.de) || !ANNEE.test(m.vers) || m.de === m.vers)) {
+    return res.status(400).json({ error: 'Chaque case demande une unité, une année de départ et une autre année d’arrivée.' });
+  }
+  // Une même unité ne bouge qu'une fois par lot : deux cases d'une même ligne
+  // qui s'échangent ou se poussent l'une l'autre ne se lisent pas sans ambiguïté.
+  const parUe = new Map();
+  for (const m of mouvements) {
+    if (parUe.has(m.ue_num)) {
+      return res.status(400).json({ error: `L'UE ${m.ue_num} figure deux fois dans le lot : déplacez ses cases une à une.` });
+    }
+    parUe.set(m.ue_num, m);
+  }
+
+  const blocages = [];
+  const plan = [];
+  for (const m of mouvements) {
+    const src = db.prepare(`SELECT id, resultat, points FROM etudiant_inscription
+      WHERE etudiant_id = ? AND annee_scolaire = ? AND ue_num = ?`).get(etudId, m.de, m.ue_num);
+    const vaSrc = db.prepare(`SELECT id FROM etudiant_valorisation
+      WHERE etudiant_id = ? AND annee_scolaire = ? AND ue_num = ?`).get(etudId, m.de, m.ue_num);
+    if (!src) {
+      blocages.push({ ...m, raison: vaSrc
+        ? 'C’est une valorisation : elle se corrige dans l’écran Valorisation, avec son circuit.'
+        : 'Aucune inscription dans l’année de départ.' });
+      continue;
+    }
+    const dst = db.prepare(`SELECT id, resultat, points FROM etudiant_inscription
+      WHERE etudiant_id = ? AND annee_scolaire = ? AND ue_num = ?`).get(etudId, m.vers, m.ue_num);
+    const vaDst = db.prepare(`SELECT id FROM etudiant_valorisation
+      WHERE etudiant_id = ? AND annee_scolaire = ? AND ue_num = ?`).get(etudId, m.vers, m.ue_num);
+    if (vaDst) { blocages.push({ ...m, raison: `Une valorisation existe déjà pour ${m.vers}.` }); continue; }
+    let remplace = false;
+    if (dst) {
+      const tracesDst = SUIT_INSCRIPTION.reduce((n, x) => n + compterLignes(x.t, etudId, m.vers, m.ue_num), 0);
+      const vide = !dst.resultat && dst.points == null && tracesDst === 0;
+      if (!vide) {
+        blocages.push({ ...m, raison: `L’année ${m.vers} porte déjà un résultat ou des notes pour cette UE.` });
+        continue;
+      }
+      remplace = true;   // inscription d'arrivée vide : la case déplacée la remplace
+    } else {
+      // Pas d'inscription à l'arrivée, mais des notes sans inscription : elles
+      // entreraient en collision avec celles qu'on déplace. On ne mélange pas.
+      const orphelines = SUIT_INSCRIPTION.reduce((n, x) => n + compterLignes(x.t, etudId, m.vers, m.ue_num), 0);
+      if (orphelines) {
+        blocages.push({ ...m, raison: `L’année ${m.vers} porte déjà des notes pour cette UE, sans inscription.` });
+        continue;
+      }
+    }
+    const traces = Object.fromEntries(SUIT_INSCRIPTION.map(x => [x.compteur, compterLignes(x.t, etudId, m.de, m.ue_num)]));
+    let seanceClose = false;
+    try {
+      seanceClose = !!db.prepare(`SELECT 1 FROM deliberation_seance
+        WHERE ue_num = ? AND annee_scolaire = ? AND cloturee = 1`).get(m.ue_num, m.de);
+    } catch { /* table absente */ }
+    let stage = 0;
+    try {
+      stage = db.prepare('SELECT COUNT(*) AS n FROM stage WHERE etudiant_id = ? AND annee_scolaire = ? AND ue_num = ?')
+        .get(etudId, m.de, m.ue_num).n;
+    } catch { /* table absente */ }
+    plan.push({ ...m, resultat: src.resultat || null, points: src.points ?? null,
+                remplace, seance_close: seanceClose, stage_reste: stage, traces });
+  }
+
+  const rapport = { simulation, etudiant: `${e.nom} ${e.prenom}`, plan, blocages,
+                    motif_requis: true };
+  if (blocages.length) return res.status(simulation ? 200 : 409).json({ ok: false, ...rapport });
+  if (simulation) return res.json({ ok: true, ...rapport });
+
+  if (motif.length < 5) {
+    return res.status(400).json({ error: 'Un motif écrit est obligatoire (ex. « import rangé dans la mauvaise année »).' });
+  }
+  const acteurNom = req.user?.nom || req.user?.email || null;
+  db.transaction(() => {
+    for (const m of plan) {
+      if (m.remplace) {
+        db.prepare('DELETE FROM etudiant_inscription WHERE etudiant_id = ? AND annee_scolaire = ? AND ue_num = ?')
+          .run(etudId, m.vers, m.ue_num);
+      }
+      db.prepare('UPDATE etudiant_inscription SET annee_scolaire = ? WHERE etudiant_id = ? AND annee_scolaire = ? AND ue_num = ?')
+        .run(m.vers, etudId, m.de, m.ue_num);
+      for (const x of SUIT_INSCRIPTION) {
+        try {
+          db.prepare(`UPDATE ${x.t} SET annee_scolaire = ? WHERE etudiant_id = ? AND annee_scolaire = ? AND ue_num = ?`)
+            .run(m.vers, etudId, m.de, m.ue_num);
+        } catch (err) { if (!/no such table/.test(err.message)) throw err; }
+      }
+      db.prepare(`INSERT INTO etudiant_deplacement
+        (etudiant_id, ue_num, de, vers, motif, seance_close, detail, acteur_id, acteur_nom)
+        VALUES (?,?,?,?,?,?,?,?,?)`)
+        .run(etudId, m.ue_num, m.de, m.vers, motif, m.seance_close ? 1 : 0,
+             JSON.stringify({ resultat: m.resultat, points: m.points, remplace: m.remplace, traces: m.traces }),
+             req.user?.id ?? null, acteurNom);
+    }
+  })();
+  res.json({ ok: true, ...rapport, simulation: false, deplaces: plan.length });
+});
+
+/** Le journal des déplacements d'une fiche — en lecture seule, comme tout journal. */
+r.get('/:id/grille/deplacements', authRequired, (req, res) => {
+  res.json(db.prepare(`SELECT ue_num, de, vers, motif, seance_close, acteur_nom, horodatage
+    FROM etudiant_deplacement WHERE etudiant_id = ? ORDER BY id DESC`).all(Number(req.params.id)));
+});
+
 r.put('/:id/grille', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
   const etudId = Number(req.params.id);
   const { annee, ue_num, kind, points, derogation } = req.body;

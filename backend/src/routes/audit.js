@@ -65,6 +65,18 @@ const SOURCES = [
           LEFT JOIN etudiant e ON e.id = v.etudiant_id`,
   },
   {
+    // Les cases de parcours déplacées d'une année à l'autre (2.12.192) : une
+    // décision notifiée peut changer d'année, jamais sans trace.
+    cle: 'parcours',
+    sql: `SELECT d.horodatage AS quand, d.acteur_id AS qui_id, d.acteur_nom AS qui_nom,
+                 'parcours' AS registre, 'déplacement' AS geste,
+                 COALESCE(e.nom||' '||e.prenom, 'étudiant #'||d.etudiant_id)||' · UE '||d.ue_num AS objet,
+                 NULL AS section, d.vers AS annee,
+                 d.de||' → '||d.vers||' · '||d.motif AS detail
+          FROM etudiant_deplacement d
+          LEFT JOIN etudiant e ON e.id = d.etudiant_id`,
+  },
+  {
     // Le compte CONCERNÉ n'est pas l'acteur : réinitialiser le second facteur
     // de quelqu'un, c'est un geste posé SUR lui, par un autre.
     cle: 'comptes',
