@@ -1,6 +1,6 @@
 import { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
 import { nomPropre } from '../lib/nom.js';
-import { COULEUR_BLOC, OR_EPREUVE } from '../lib/blocs.js';
+import { COULEUR_BLOC, OR_EPREUVE, couleurBloc } from '../lib/blocs.js';
 import { RailLateral } from '../components/ui.jsx';
 import SuiviEtudiant from '../components/SuiviEtudiant.jsx';
 import NouvelEtudiant from '../components/NouvelEtudiant.jsx';
@@ -17,7 +17,7 @@ import IdentiteEtudiant, { ComplementDossiers } from '../components/IdentiteEtud
 // LE CENTRE CENTRAL. Les boutons restent où on les cherche — là où l'on
 // travaille — mais mènent désormais au même endroit.
 import CentreImpressionCentral from '../components/CentreImpressionCentral.jsx';
-import { useEchangesDuRail, Fenetre, Encadre } from '../components/ui.jsx';
+import { useEchangesDuRail, Fenetre, Encadre, BulleAide } from '../components/ui.jsx';
 import PassageAnnee from '../components/PassageAnnee.jsx';
 import ComposerPAE from '../components/ComposerPAE.jsx';
 import CentreEchanges from '../components/CentreEchanges.jsx';
@@ -152,14 +152,17 @@ function SchemaCapitalisation({ etudId, annee }) {
 
 // ── Grille de parcours : UE × années ─────────────────────────────────────────
 const KINDS_CELLULE = [
-  { val: 'inscrit', label: 'Inscrit',  short: '·',  cls: 'bg-sky-50 text-sky-700 border-sky-200' },
-  { val: 'reussi',  label: 'Réussi',   short: '✓',  cls: 'bg-emerald-50 text-emerald-800 border-emerald-200' },
-  { val: 'va',      label: 'VA',       short: 'VA', cls: 'bg-violet-50 text-violet-700 border-violet-200' },
+  // LES ÉTATS DE LUCIE (2.12.211) : bleu inscrite, vert réussie — la VA
+  // aussi, avec sa mention —, ocre ajournée, brique refusée. Le violet ne dit
+  // que la faveur.
+  { val: 'inscrit', label: 'Inscrit',  short: '·',  cls: 'bg-[color-mix(in_srgb,var(--c-disponible)_11%,#fff)] border-[color-mix(in_srgb,var(--c-disponible)_32%,#fff)] text-[#2F6FB0]' },
+  { val: 'reussi',  label: 'Réussi',   short: '✓',  cls: 'bg-[color-mix(in_srgb,var(--c-reussi)_11%,#fff)] border-[color-mix(in_srgb,var(--c-reussi)_32%,#fff)] text-[#1B2B4B]' },
+  { val: 'va',      label: 'VA',       short: 'VA', cls: 'bg-[color-mix(in_srgb,var(--c-reussi)_11%,#fff)] border-[color-mix(in_srgb,var(--c-reussi)_32%,#fff)] text-[#1B2B4B]' },
   // La circulaire distingue l'AJOURNEMENT, qui ouvre une seconde session sur
   // des acquis précis, du REFUS, qui ne l'ouvre pas. Les confondre sous un même
   // libellé privait le Conseil des études d'une de ses trois décisions.
-  { val: 'ajourne', label: 'Ajourné',  short: 'Aj', cls: 'bg-amber-50 text-amber-800 border-amber-200' },
-  { val: 'refuse',  label: 'Refusé',   short: '✕',  cls: 'bg-red-50 text-red-700 border-red-200' },
+  { val: 'ajourne', label: 'Ajourné',  short: 'Aj', cls: 'bg-[color-mix(in_srgb,var(--c-attente)_11%,#fff)] border-[color-mix(in_srgb,var(--c-attente)_32%,#fff)] text-[#8A5A12]' },
+  { val: 'refuse',  label: 'Refusé',   short: '✕',  cls: 'bg-[color-mix(in_srgb,var(--c-refuse)_11%,#fff)] border-[color-mix(in_srgb,var(--c-refuse)_32%,#fff)] text-[#9D4A38]' },
   { val: 'absent',  label: 'Absent',   short: '–',  cls: 'bg-slate-50 text-slate-600 border-slate-200' },
 ];
 
@@ -361,51 +364,48 @@ function GrilleParcours({ etudId, peutEcrire, annee }) {
 
   return (
     <div>
-      <div className="flex items-start justify-between gap-3 mb-3">
-        <p className="text-[12px] text-slate-500 flex-1 max-w-none">
-        Cliquez sur une case pour encoder.
-        {peutEcrire && <> Glissez une case vers une autre année pour la déplacer ; <b>Ctrl/⌘-clic</b> en
-        sélectionne plusieurs, qui se déplacent ensemble.</>} Une UE dont les prérequis ne sont pas acquis est
-        verrouillée <span className="text-slate-400">🔒</span> — l'encoder demande une dérogation (tracée).
-        Un halo <span className="inline-block w-3 h-3 rounded-sm bg-violet-100 border border-violet-300 align-middle"></span> suggère
-        une UE probablement acquise (inférence prérequis) à confirmer.
-        </p>
-        <div className="flex-none flex gap-1.5">
+      {/* RÉDUITE (Charles, 26 septembre 2026 : « faut réduire… on ne voit plus le
+          schéma »). L'aide passe dans la bulle ; les deux outils deviennent de
+          petits boutons dans le titre. */}
+      <div className="flex items-center gap-2 mb-1.5">
+        <span className="text-[13px] font-semibold text-iip-blue">Notes par année</span>
+        <BulleAide titre="La grille des notes">
+          Cliquez sur une case pour encoder.
+          {peutEcrire && <> Glissez une case vers une autre année pour la déplacer ; Ctrl/⌘-clic en
+          sélectionne plusieurs, qui se déplacent ensemble.</>} Une UE dont les prérequis ne sont pas acquis
+          porte un cadenas 🔒 : l'encoder demande une dérogation, tracée. « à confirmer » signale une UE
+          probablement acquise d'après ses prérequis. Le point ● dit que des notes d'acquis sont encodées ;
+          le liseré de gauche, le bloc de l'unité.
+        </BulleAide>
+        <div className="ml-auto flex gap-1">
           {nbHistorique > 0 && (
-            <button onClick={() => setNbHistorique(0)}
-              title="Masquer les années antérieures vides"
-              className="px-2.5 py-1.5 text-[12px] border border-slate-300 rounded-lg hover:bg-slate-50">
-              » Masquer
-            </button>
+            <button onClick={() => setNbHistorique(0)} title="Masquer les années antérieures vides"
+              className="px-2 py-0.5 text-[11px] border border-slate-300 rounded-md hover:bg-slate-50">» masquer</button>
           )}
-          <button onClick={purgerAnnee}
-            title="Effacer les résultats ou les inscriptions d'une année"
-            className="px-2.5 py-1.5 text-[12px] border border-red-200 text-red-600 rounded-lg hover:bg-red-50">
-            Purger une année
-          </button>
           <button onClick={() => setNbHistorique(n => (n === 0 ? 5 : n + 3))}
             title="Afficher les années antérieures pour encoder l'historique"
-            className="px-2.5 py-1.5 text-[12px] border border-slate-300 rounded-lg hover:bg-slate-50">
-            « {nbHistorique === 0 ? 'Années antérieures' : 'Remonter encore'}
+            className="px-2 py-0.5 text-[11px] border border-slate-300 rounded-md hover:bg-slate-50">
+            « {nbHistorique === 0 ? 'années antérieures' : 'remonter encore'}
           </button>
+          <button onClick={purgerAnnee} title="Effacer les résultats ou les inscriptions d'une année"
+            className="px-2 py-0.5 text-[11px] border border-[#E3BFB5] text-[#9D4A38] rounded-md hover:bg-[#F7E9E5]">Purger…</button>
         </div>
       </div>
 
-      <div className="overflow-x-auto border border-slate-200 rounded-xl">
-        <table className="w-full text-sm border-collapse">
+      <div className="overflow-x-auto border border-slate-200 rounded-carte">
+        <table className="w-full text-[12px] border-collapse">
           <thead>
-            <tr className="bg-slate-50 text-[11px] uppercase tracking-wide text-slate-500">
-              <th className="px-3 py-2 text-left sticky left-0 bg-slate-50 z-10 min-w-[260px]">UE</th>
-              <th className="px-2 py-2 text-left w-14">Niv.</th>
+            <tr className="tab-entete">
+              <th className="px-2 py-1 text-left sticky left-0 bg-[var(--tab-repere)] z-10">UE</th>
               {anneesAffichees.map((a, i) => {
                 const derniere = i === anneesAffichees.length - 1;
                 return (
                   <th key={a}
-                    className={`px-2 py-2 text-center min-w-[92px] ${derniere
+                    title={a}
+                    className={`px-1 py-1 text-center w-[52px] ${derniere
                       ? 'sticky right-0 z-20 bg-iip-blue text-white shadow-[-6px_0_8px_-6px_rgba(0,0,0,0.18)]'
                       : ''}`}>
-                    {a}
-                    {derniere && <span className="block text-[8.5px] font-normal text-blue-200">à venir</span>}
+                    {a.replace(/^20(\d\d)-20(\d\d)$/, '$1-$2')}
                   </th>
                 );
               })}
@@ -415,11 +415,13 @@ function GrilleParcours({ etudId, peutEcrire, annee }) {
             {data.ues.map(u => {
               const verrou = !u.deverrouillee && !u.acquise;
               return (
-                <tr key={u.section + '-' + u.ue_num}
-                  className={`border-t border-slate-100 ${u.acquise ? 'bg-emerald-50/30' : ''}`}>
-                  <td className={`px-3 py-1.5 sticky left-0 bg-white z-10 ${u.acquise ? 'bg-emerald-50/60' : ''}`}>
-                    <span className="font-medium text-iip-blue">{u.ue_num}</span>
-                    <span className="text-slate-600 ml-1.5 text-[12px]">{u.ue_nom}</span>
+                <tr key={u.section + '-' + u.ue_num} className="border-t border-slate-100">
+                  {/* Le BLOC se lit au liseré, la colonne « Niv. » disparaît. */}
+                  <td className="px-2 py-0.5 sticky left-0 bg-white z-10 whitespace-nowrap max-w-[16rem] overflow-hidden text-ellipsis border-l-[3px]"
+                    style={{ borderLeftColor: couleurBloc(u.ue_niv) || '#D8DCE4' }}
+                    title={`UE ${u.ue_num} — ${u.ue_nom || ''}${u.ue_niv ? ' · ' + u.ue_niv : ''}`}>
+                    <span className="font-semibold text-iip-blue">{u.ue_num}</span>
+                    <span className="text-slate-600 ml-1.5">{u.ue_nom}</span>
                     {verrou && <span className="ml-1.5 text-[11px]"
                       title={'Exige : UE ' + ((u.prereq_chaine?.length ? u.prereq_chaine : u.prerequis) || []).join(', ')}>🔒</span>}
                     {u.suggeree && <span className="ml-1.5 text-[10px] px-1 py-0.5 rounded bg-violet-50 text-violet-600 border border-violet-200" title="Probablement acquise (inférence prérequis) — à confirmer">à confirmer</span>}
@@ -436,7 +438,6 @@ function GrilleParcours({ etudId, peutEcrire, annee }) {
                       </span>
                     )}
                   </td>
-                  <td className="px-2 py-1.5"><BadgeUeNiveau niveau={u.ue_niv} /></td>
                   {anneesAffichees.map((a, iCol) => {
                     const derniere = iCol === anneesAffichees.length - 1;
                     const cl = cell(a, u.ue_num);
@@ -445,7 +446,7 @@ function GrilleParcours({ etudId, peutEcrire, annee }) {
                       <td key={a}
                         onDragOver={glisse ? ev => { ev.preventDefault(); if (survol !== a) setSurvol(a); } : undefined}
                         onDrop={glisse ? ev => { ev.preventDefault(); deposer(a); } : undefined}
-                        className={`px-1.5 py-1.5 text-center ${derniere
+                        className={`px-0.5 py-0.5 text-center ${derniere
                           ? 'sticky right-0 z-10 bg-white shadow-[-6px_0_8px_-6px_rgba(0,0,0,0.10)]'
                           : ''} ${arrivees.has(`${a}|${u.ue_num}`) ? '!bg-[#EAF1FA]' : ''}`}>
                         <button
@@ -486,14 +487,14 @@ function GrilleParcours({ etudId, peutEcrire, annee }) {
                               setPopover({ annee: a, ue_num: u.ue_num, verrou: true });
                             }
                           }}
-                          className={`w-full min-h-[30px] text-[12px] font-medium rounded-lg border px-1 py-1 transition
+                          className={`w-11 h-[22px] text-[11px] font-semibold tabular-nums rounded-md border px-0.5 transition
                             ${kind ? kind.cls : 'border-transparent text-slate-300 hover:border-slate-200 hover:bg-slate-50'}
                             ${cl?.derogation ? 'ring-1 ring-amber-400' : ''}
                             ${choix.has(`${a}|${u.ue_num}`) ? 'ring-2 ring-[#2F6FB0] ring-offset-1' : ''}
                             ${peutEcrire && deplacable(cl) ? 'cursor-grab active:cursor-grabbing' : ''}`}
                           title={cl?.derogation ? 'Encodée avec dérogation' : ''}>
                           {kind
-                            ? (kind.val === 'reussi' ? (cl.points != null ? cl.points + '/20' : '✓')
+                            ? (kind.val === 'reussi' ? (cl.points != null ? String(Math.round(cl.points)) : '✓')
                                : kind.val === 'va' ? (cl.points != null ? 'VA ' + cl.points : 'VA')
                                : kind.short)
                             : '·'}
