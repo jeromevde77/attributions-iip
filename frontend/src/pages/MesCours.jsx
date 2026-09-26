@@ -14,7 +14,18 @@ import { authHeaders, getAnnee } from '../lib/api.js';
  * personne ne croie son travail terminé à sa place.
  */
 export default function MesCours() {
-  const annee = getAnnee();
+  /* L'ANNÉE SE CHOISIT ICI (Charles, 26 septembre 2026 : « on a importé 61
+     étudiants pour le stage B1 en 25-26, et ils sont 155 dans la liste de
+     Véronique »). La porte montrait l'année de travail — 2026-2027 — sans
+     rien pour en changer : les notes de l'année qui se termine étaient hors
+     d'atteinte. Ce choix ne touche pas l'année de travail du reste de Lucie. */
+  const [annee, setAnnee] = useState(getAnnee());
+  const [annees, setAnnees] = useState([]);
+  useEffect(() => {
+    fetch('/api/annees', { headers: authHeaders() }).then(r => (r.ok ? r.json() : []))
+      .then(l => setAnnees((Array.isArray(l) ? l : []).map(a => a.code || a).filter(Boolean).sort().reverse()))
+      .catch(() => {});
+  }, []);
   const [cours, setCours] = useState(null);
   const [ouvert, setOuvert] = useState(null);      // cours_code
   const [feuille, setFeuille] = useState(null);    // { etudiants, ... }
@@ -82,7 +93,11 @@ export default function MesCours() {
       <div className="flex items-center gap-2">
         <IconBooks size={20} className="text-iip-turquoise" />
         <h1 className="text-[17px] font-semibold text-iip-blue m-0">Mes cours</h1>
-        <span className="text-[11.5px] font-bold text-iip-blue bg-iip-light rounded-full px-3 py-1">{annee}</span>
+        <select value={annee} onChange={e => { setAnnee(e.target.value); setOuvert(null); setFeuille(null); }}
+          title="L'année des cours affichés — sans changer l'année de travail du reste de Lucie"
+          className="controle border border-slate-300 rounded-champ bg-white text-[13px] font-semibold">
+          {(annees.length ? annees : [annee]).map(a => <option key={a} value={a}>{a}</option>)}
+        </select>
       </div>
 
       {erreur && (

@@ -567,7 +567,12 @@ const PARAM_TYPES = {
   'etab.nom':                      { type: 'text' },
 };
 
-function GestionParametres() {
+/* LES PARAMÈTRES SE POSENT DANS L'ÉCRAN DE LEUR SUJET (2.12.200). L'onglet
+ * « Paramètres » alignait neuf groupes sans rapport entre eux — délais de
+ * procédure, texte des courriels, sécurité des connexions… — et chacun avait
+ * AUSSI un écran à lui ailleurs : deux endroits pour un même sujet. Le même
+ * composant, limité à `groupes`, se pose désormais dans chaque écran. */
+function GestionParametres({ groupes = null }) {
   const [grouped, setGrouped]   = useState({});
   const [pending, setPending]   = useState({});  // { cle: valeur }
   const [loading, setLoading]   = useState(true);
@@ -631,7 +636,7 @@ function GestionParametres() {
       )}
 
       <div className="grid gap-4 items-start xl:grid-cols-2 min-[1800px]:grid-cols-3">
-      {Object.entries(GROUPE_LABELS).map(([groupe, meta]) => {
+      {Object.entries(GROUPE_LABELS).filter(([g]) => !groupes || groupes.includes(g)).map(([groupe, meta]) => {
         const params = grouped[groupe] || [];
         if (!params.length) return null;
         const Icon = meta.icon;
@@ -697,10 +702,11 @@ function GestionParametres() {
       })}
       </div>
 
-      <div className="bg-iip-turquoise/5 border border-iip-turquoise/30 rounded-lg p-4 text-xs text-iip-blue">
-        <p className="font-medium mb-1">💡 Ces paramètres sont globaux</p>
-        <p>Ils s'appliquent à toutes les sections. Une configuration par section (ex. EV1 différent en AESI) peut être ajoutée sur demande.</p>
-      </div>
+      {!groupes && (
+        <p className="text-[12px] text-slate-500">
+          Ces réglages valent pour toutes les sections.
+        </p>
+      )}
     </div>
   );
 }
@@ -1330,69 +1336,60 @@ export default function Configuration() {
      * au plus technique : qui nous sommes, ce qu'on enseigne, comment on
      * délibère, ce qu'on produit, qui entre, et enfin la machine.
      */
+    /* RANGÉE LE 26 SEPTEMBRE 2026 (Charles : « tout est mélangé, trop de
+     * menus »). UNE RÈGLE : Configuration règle comment Lucie se comporte ;
+     * elle ne contient ni outils, ni registres, ni données de l'année. Chaque
+     * réglage vit à un seul endroit, à côté de ceux du même sujet. Ce qui n'est
+     * pas un réglage est regroupé sous « Outils », en attendant de rejoindre
+     * l'écran où l'on s'en sert. Plan complet : l'étude « Configuration
+     * rangée ». */
     { label: 'Établissement', icon: IconBuilding, items: [
-      { key: 'etablissement', label: 'Identité et sections', icon: IconBuilding },
-      { key: 'annees', label: 'Années scolaires', icon: IconCalendar },
-      { key: 'reprise', label: "Clôturer une année reprise", icon: IconArchive },
+      { key: 'etablissement', label: 'Identité', icon: IconBuilding },
+      { key: 'annees', label: 'Années et calendrier', icon: IconCalendar },
     ]},
-    /* QUATRE ONGLETS DÉCRIVAIENT LE MÊME OBJET.
-     *
-     * Référentiel, prérequis, pondération des acquis, règles de délibération :
-     * ce sont quatre FACES d'une seule chose — ce qu'on enseigne une année
-     * donnée et comment on le sanctionne. Les séparer obligeait à sortir d'un
-     * écran pour vérifier dans un autre ce qu'on venait d'y régler, et rien ne
-     * disait qu'ils parlaient tous de la MÊME ANNÉE.
-     *
-     * Ils tiennent donc en un onglet, avec l'année posée UNE FOIS en tête.
-     * Qu'elle change d'une année à l'autre n'est pas une raison de les
-     * éclater : c'est une raison de nommer l'année, et de la nommer une
-     * seule fois. */
-    /* DEUX RANGÉES D'ONGLETS POUR UN SEUL OBJET (Charles, 25 septembre 2026 —
-     * « bof ces doubles menus »). Le référentiel était une feuille qui
-     * contenait quatre faces : deux soulignements l'un sous l'autre, et le
-     * titre « Référentiel de l'année » écrit deux fois. Les quatre faces
-     * montent d'un cran et deviennent LES feuilles de la famille, à côté des
-     * procédures ; l'année, qui vaut pour elles, se pose une fois au bout de
-     * la même rangée. */
-    { label: 'Référentiel', icon: IconBooks, items: [
+    /* Ce qu'on enseigne et comment on le sanctionne. Les faces annuelles
+     * portent l'année au bout de la rangée, une seule fois. */
+    { label: 'Enseignement', icon: IconBooks, items: [
       { key: 'referentiel-annee', label: 'Unités et cours', icon: IconBooks, annee: true },
       { key: 'ref-prerequis', label: "Prérequis d'UE", icon: IconHierarchy, annee: true },
-      { key: 'ref-ponderations', label: 'Pondération des acquis', icon: IconArrowsSplit, annee: true },
       { key: 'ref-deliberation', label: 'Règles de délibération', icon: IconScale, annee: true },
       { key: 'procedures', label: 'Procédures et délais', icon: IconGavel },
+      { key: 'planification', label: 'Planification', icon: IconCalendarEvent },
     ]},
-    { label: 'Documents', icon: IconFileText, items: [
-      { key: 'editeur', label: 'Éditeur de modèles', icon: IconEdit },
+    // Les modèles de ce qui sort de Lucie — sur papier ou par courriel.
+    { label: 'Documents et envois', icon: IconFileText, items: [
+      { key: 'editeur', label: 'Modèles de pièces', icon: IconEdit },
       { key: 'apercu', label: 'Aperçu des pièces', icon: IconFileText },
       { key: 'contrat', label: 'Contrat', icon: IconFileText },
       { key: 'attestation', label: 'Attestation', icon: IconAward },
       { key: 'recrutement', label: 'Recrutement', icon: IconSettings },
+      { key: 'due', label: "Descriptifs d'UE", icon: IconFileText },
+      { key: 'courriels', label: 'Courriels', icon: IconMail },
     ]},
     { label: 'Accès', icon: IconUserShield, items: [
       { key: 'users', label: 'Utilisateurs', icon: IconUserShield },
       { key: 'roles', label: 'Rôles et plafonds', icon: IconUserShield },
       { key: 'personnel', label: 'Personnel', icon: IconUsers },
+      { key: 'securite', label: 'Sécurité des connexions', icon: IconUserShield },
     ]},
-    { label: 'Données', icon: IconDatabase, items: [
+    // La machine, et l'apparence de toute l'application (Charles : « je
+    // mettrais bien Apparence dans Système »).
+    { label: 'Système', icon: IconAdjustments, items: [
+      { key: 'couleurs', label: 'Thèmes et couleurs', icon: IconPalette },
+      { key: 'sauvegardes', label: 'Sauvegardes', icon: IconDownload },
+      { key: 'systeme', label: 'Traces et historique', icon: IconHistory },
+      { key: 'audit', label: 'Qui a fait quoi', icon: IconUserShield },
+      { key: 'changelog', label: 'Nouveautés', icon: IconSparkles },
+    ]},
+    /* CE QUI N'EST PAS UN RÉGLAGE. Des outils, une file de travail, des
+     * données de l'année : ils rejoindront l'écran où l'on s'en sert (lot 4
+     * du plan). Regroupés ici d'ici là, pour qu'on sache où ils sont. */
+    { label: 'Outils', icon: IconDatabase, items: [
       { key: 'dates-ue', label: "Dates des UE", icon: IconCalendarEvent },
       { key: 'doublons', label: 'Dossiers dédoublés', icon: IconUsers },
       { key: 'demandes', label: 'Demandes à valider', icon: IconCheck },
-    ]},
-    // DEUX NOMS POUR DEUX CHOSES. « Historique & Sauvegarde » conservait les
-    // états d'attributions avant modification ; « Sauvegardes » conserve la
-    // base entière. Presque le même mot pour deux gestes qui ne se
-    // remplacent pas — on les nomme donc pour ce qu'ils sont.
-    { label: 'Système', icon: IconAdjustments, items: [
-      { key: 'parametres', label: 'Paramètres', icon: IconAdjustments },
-      // Thèmes et couleurs : l'apparence de toute l'application, rangée avec
-      // la machine (Charles, 26 septembre 2026).
-      { key: 'couleurs', label: 'Thèmes et couleurs', icon: IconPalette },
-      { key: 'courriels', label: 'Courriels', icon: IconMail },
-      { key: 'audit', label: 'Qui a fait quoi', icon: IconUserShield },
-      { key: 'systeme', label: 'Historique des modifications', icon: IconHistory },
-      { key: 'sauvegardes', label: 'Sauvegardes de la base', icon: IconDownload },
-      { key: 'statistiques', label: 'Statistiques', icon: IconChartBar },
-      { key: 'changelog', label: 'Nouveautés', icon: IconSparkles },
+      { key: 'statistiques', label: 'Effectifs et postes PNCC', icon: IconChartBar },
+      { key: 'reprise', label: "Clôturer une année reprise", icon: IconArchive },
     ]},
   ];
   // « QUI A FAIT QUOI » N'APPARAÎT QUE POUR L'ADMINISTRATEUR, et le serveur le
@@ -1459,7 +1456,10 @@ export default function Configuration() {
       {tab === 'ref-deliberation' && <ReglesDeliberation />}
 
       {/* ── Onglet Années ── */}
-      {tab === 'annees' && <Annees embedded />}
+      {tab === 'annees' && <div className="space-y-4"><Annees embedded /><GestionParametres groupes={['session']} /></div>}
+      {tab === 'planification' && <GestionParametres groupes={['planification']} />}
+      {tab === 'due' && <GestionParametres groupes={['due']} />}
+      {tab === 'securite' && <GestionParametres groupes={['securite']} />}
 
       {/* ── Onglet Clôture d'une année reprise d'archives ── */}
       {tab === 'reprise' && <ClotureReprise />}
@@ -1521,7 +1521,7 @@ export default function Configuration() {
       {/* ── Onglet Courriels ── */}
       {tab === 'courriels' && (
         <Suspense fallback={<div className="p-8 text-center text-gray-400">Chargement…</div>}>
-          <ConfigCourriels />
+          <div className="space-y-4"><ConfigCourriels /><GestionParametres groupes={['envois']} /></div>
         </Suspense>
       )}
 
@@ -1530,6 +1530,7 @@ export default function Configuration() {
 
       {/* ── Onglet Système ── */}
       {tab === 'systeme' && (loading ? <div className="p-8 text-center text-gray-400">Chargement…</div> : <div className="max-w-none space-y-6">
+      <GestionParametres groupes={['systeme']} />
 
       {/* ── Historique des modifications ── */}
       <section className="bg-white rounded-lg border border-gray-200 overflow-hidden">
@@ -1650,7 +1651,7 @@ docker start attributions-backend-dev`}</div>
       </div>)}
 
       {/* ── Onglet Procédures ── */}
-      {tab === 'procedures' && <OngletProcedures />}
+      {tab === 'procedures' && <div className="space-y-4"><GestionParametres groupes={['procedures']} /><OngletProcedures /></div>}
       {tab === 'audit' && <Audit />}
       {tab === 'statistiques' && <OngletStatistiques />}
 
@@ -1837,11 +1838,22 @@ function OngletProcedures() {
   async function sauvegarder(newJustifs) {
     setSaving(true);
     try {
-      await fetch('/api/parametres/' + CLE, {
+      /* L'ENREGISTREMENT NE SE FAISAIT PAS, ET L'ÉCRAN DISAIT LE CONTRAIRE
+         (inventaire du 26 septembre 2026). Il appelait `PUT /parametres/:cle`,
+         que le serveur ne connaît pas — seuls `PATCH /:cle` (clé existante)
+         et `PUT /bulk` (ajoute ou remplace) existent —, et affichait
+         « Sauvegardé » sans lire la réponse. Aucune justification n'a jamais
+         été gardée en production. On passe par `bulk`, qui crée la clé la
+         première fois, et l'on n'annonce rien que le serveur n'a pas confirmé. */
+      const rep = await fetch('/api/parametres/bulk', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('token')}` },
-        body: JSON.stringify({ valeur: JSON.stringify(newJustifs) })
+        body: JSON.stringify({ [CLE]: JSON.stringify(newJustifs) })
       });
+      if (!rep.ok) {
+        const j = await rep.json().catch(() => ({}));
+        throw new Error(j.error || `le serveur a répondu ${rep.status}`);
+      }
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
     } catch(e) { alert('Erreur : ' + e.message); }
