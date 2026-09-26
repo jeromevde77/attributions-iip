@@ -137,7 +137,7 @@ const STATUTS_PIECE = [
 ];
 
 // ── Schéma de capitalisation de l'étudiant (vue partagée avec Organisation) ──
-function SchemaCapitalisation({ etudId, annee }) {
+function SchemaCapitalisation({ etudId, annee, onNoeud = null }) {
   const [data, setData] = useState(null);
   useEffect(() => {
     let vivant = true;
@@ -148,7 +148,7 @@ function SchemaCapitalisation({ etudId, annee }) {
     return () => { vivant = false; };
   }, [etudId, annee]);
   if (data && !data.nodes?.length) return null;
-  return <SchemaCapitalisationVue data={data} mode="etudiant" />;
+  return <SchemaCapitalisationVue data={data} mode="etudiant" onNoeud={onNoeud} />;
 }
 
 // ── Grille de parcours : UE × années ─────────────────────────────────────────
@@ -171,7 +171,7 @@ const KINDS_CELLULE = [
    « hors programme {annee} » en lisant une variable que personne ne lui
    passait : la ligne entière tombait en erreur dès qu'une unité de la section
    manquait au programme de l'année. */
-function GrilleParcours({ etudId, peutEcrire, annee }) {
+function GrilleParcours({ etudId, peutEcrire, annee, ueFocus = null }) {
   const [data, setData] = useState(null);
   const [popover, setPopover] = useState(null); // { annee, ue_num, verrou }
   const [pts, setPts] = useState('');
@@ -439,7 +439,8 @@ function GrilleParcours({ etudId, peutEcrire, annee }) {
               {liste.map(u => {
                 const verrou = !u.deverrouillee && !u.acquise;
                 return (
-                  <tr key={u.section + '-' + u.ue_num} className="border-t border-slate-100">
+                  <tr key={u.section + '-' + u.ue_num} data-ue={u.ue_num}
+                    className={`border-t border-slate-100 ${ueFocus === u.ue_num ? 'ligne-visee' : ''}`}>
                     {/* Le BLOC se lit au liseré, la colonne « Niv. » disparaît. */}
                     <td className="px-2 py-0.5 sticky left-0 bg-white z-10 whitespace-nowrap max-w-[16rem] overflow-hidden text-ellipsis border-l-[3px]"
                       style={{ borderLeftColor: couleurBloc(u.ue_niv) || '#D8DCE4' }}
@@ -1724,41 +1725,62 @@ function DossierApprenant({ etudId }) {
  * gardé d'une fiche à l'autre (préférence de ce navigateur seulement). La
  * zone prend la hauteur du tiroir quand il est plus haut que le schéma, pour
  * qu'il ne recouvre pas le programme dessous. */
-function TiroirNotes({ children }) {
-  const CLE = 'lucie.fiche.notes-ouvertes';
-  const [ouvert, setOuvert] = useState(() => { try { return localStorage.getItem(CLE) !== '0'; } catch { return true; } });
-  const [hauteur, setHauteur] = useState(0);
-  const panneau = useRef(null);
-  useEffect(() => { try { localStorage.setItem(CLE, ouvert ? '1' : '0'); } catch { /* navigation privée */ } }, [ouvert]);
+/**
+ * LE SCHÉMA SE RETOURNE, ET LES NOTES SONT AU DOS (Charles, 26 septembre 2026 :
+ * « le tiroir n'est pas une bonne idée ; comme les notes sont sur le schéma,
+ * cliquer une tuile fait se retourner le schéma pour faire apparaître les
+ * points »). Le tiroir couvrait le schéma qu'on regardait ; une carte
+ * retournée dit qu'il s'agit du MÊME objet, vu de l'autre côté. La ligne de
+ * l'UE cliquée est mise en évidence au verso, et amenée sous les yeux.
+ *
+ * Le retournement se fait en deux quarts de tour : la face s'efface sur la
+ * tranche, l'autre en sort. Deux faces empilées en 3D prendraient la hauteur
+ * de la plus haute — le schéma se retrouverait posé sur un grand vide.
+ */
+function SchemaRetournable({ recto, verso }) {
+  const [face, setFace] = useState('recto');       // recto | verso
+  const [angle, setAngle] = useState(0);           // 0 | 90 | -90
+  const [anime, setAnime] = useState(true);
+  const [ue, setUe] = useState(null);
+  const zone = useRef(null);
+  const retourner = (vers, ueVisee = null) => {
+    if (typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) {
+      setUe(ueVisee); setFace(vers); return;
+    }
+    setAnime(true); setAngle(90);
+    setTimeout(() => {
+      setUe(ueVisee); setFace(vers);
+      setAnime(false); setAngle(-90);
+      requestAnimationFrame(() => requestAnimationFrame(() => { setAnime(true); setAngle(0); }));
+    }, 180);
+  };
   useEffect(() => {
-    const el = panneau.current;
-    if (!el || typeof ResizeObserver === 'undefined') return;
-    const ro = new ResizeObserver(() => setHauteur(el.offsetHeight));
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, []);
+    if (face !== 'verso' || ue == null) return;
+    const t = setTimeout(() => {
+      zone.current?.querySelector(`[data-ue="${ue}"]`)?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    }, 400);
+    return () => clearTimeout(t);
+  }, [face, ue]);
   return (
-    /* LE TIROIR S'OUVRE SOUS LA BANDE DE TITRE DU SCHÉMA (2.12.218 — « ça passe
-       derrière ») : posé à la même hauteur, il coupait le titre en deux. */
-    <div className="relative pt-3 overflow-x-clip" style={{ minHeight: ouvert ? hauteur + 56 : undefined }}>
-      <div className="pr-9">{children.schema}</div>
-      {/* La languette, toujours là : elle ouvre et ferme. Tiroir fermé, c'est
-          une poignée qui dépasse du bord ; ouvert, elle DEVIENT le bord droit
-          du tiroir — toute sa hauteur, coins arrondis à droite — et le mot
-          change de sens (Charles, 26 septembre 2026). */}
-      <button type="button" onClick={() => setOuvert(o => !o)}
-        title={ouvert ? 'Refermer les notes' : 'Ouvrir les notes par année'}
-        style={ouvert && hauteur ? { height: hauteur } : undefined}
-        className={`absolute right-0 top-[3.25rem] z-20 w-7 bg-iip-blue text-white text-[11px] font-semibold py-3 flex flex-col items-center gap-1
-          ${ouvert ? 'rounded-r-carte justify-center' : 'rounded-l-champ shadow-pose'}`}>
-        <span className={`[writing-mode:vertical-rl] ${ouvert ? '' : 'rotate-180'}`}>Notes</span>
-        <span aria-hidden="true">{ouvert ? '›' : '‹'}</span>
-      </button>
-      {/* Le tiroir : il glisse de droite à gauche, jusqu'aux trois cinquièmes. */}
-      <div ref={panneau} aria-hidden={!ouvert}
-        className={`absolute right-7 top-[3.25rem] z-10 w-[min(92%,1400px)] bg-white border border-slate-200 border-r-0 rounded-l-carte shadow-flottant p-3
-          transition-transform duration-300 ease-ios origin-right ${ouvert ? 'translate-x-0' : 'translate-x-[calc(100%+1.75rem)] pointer-events-none'}`}>
-        {children.notes}
+    <div className="pt-3 [perspective:1600px]">
+      <div ref={zone} style={{ transform: `rotateY(${angle}deg)`, transition: anime ? 'transform 180ms cubic-bezier(.4,0,.2,1)' : 'none' }}>
+        {face === 'recto'
+          ? recto(n => retourner('verso', n))
+          : (
+            <div>
+              <div className="entete-plat">
+                <span className="flex-1 text-[13px] font-semibold text-iip-blue">
+                  Notes par année
+                  {ue != null && <span className="ml-2 font-normal text-slate-500">· UE {ue}</span>}
+                </span>
+                <button type="button" onClick={() => retourner('recto')}
+                  className="bouton bouton-compact inline-flex items-center gap-1">
+                  <IconChevronLeft size={13} /> Retourner au schéma
+                </button>
+              </div>
+              {verso(ue)}
+            </div>
+          )}
       </div>
     </div>
   );
@@ -2231,12 +2253,9 @@ function FicheEtudiant({ id, annee, onClose, position, onPrec, onSuiv,
                   le schéma à gauche, les notes par année à droite — la vue
                   d'ensemble et le détail d'un seul regard, sans faire défiler.
                   Sur un écran étroit, l'un revient sous l'autre. */}
-              <TiroirNotes>
-                {{
-                  schema: <SchemaCapitalisation etudId={id} annee={annee} />,
-                  notes: <GrilleParcours etudId={id} peutEcrire={true} annee={annee} />,
-                }}
-              </TiroirNotes>
+              <SchemaRetournable
+                recto={onNoeud => <SchemaCapitalisation etudId={id} annee={annee} onNoeud={onNoeud} />}
+                verso={ue => <GrilleParcours etudId={id} peutEcrire={true} annee={annee} ueFocus={ue} />} />
 
               <div className="border-t border-slate-200 mt-4 pt-4">
               {/* Ce qui suit est une PROPOSITION tant qu'elle n'est pas

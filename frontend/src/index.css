@@ -1107,3 +1107,8 @@ select[multiple], select[size]:not([size="1"]) {
   height: 2rem; margin-bottom: .375rem;
   border-bottom: 1px solid #D8DCE4;
 }
+
+/* La ligne de l'UE cliquée sur le schéma, au dos (notes par année). Les
+   cellules collantes portent leur propre fond blanc : on les teinte aussi. */
+tr.ligne-visee > td { background: color-mix(in srgb, var(--c-disponible) 11%, #fff) !important; }
+tr.ligne-visee > td:first-child { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--c-disponible) 30%, #fff); }
