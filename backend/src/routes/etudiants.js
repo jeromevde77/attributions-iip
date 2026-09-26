@@ -14,7 +14,7 @@ import db from '../db/index.js';
 import { piedDocument } from './parametres.js';
 import { anneeDeTravail } from '../helpers/annee.js';
 import { authRequired, roleRequired, getUserSections } from '../middleware/auth.js';
-import { construireGraphe, niveauxEffectifs } from './capitalisation.js';
+import { construireGraphe, niveauxEffectifs, rangNiveau } from './capitalisation.js';
 import { structureUE, calculerNoteUE, coursValidesAnterieurs } from './acquis.js';
 import {
   BASES, CODES_BASE, FINALITES, ETATS, etatDeduit, uniteValorisable,
@@ -799,6 +799,97 @@ r.get('/', authRequired, (req, res) => {
       section_deduite: rat.deduite,
     };
   }));
+});
+
+/* ── LA FRISE DU PARCOURS, DANS LA LISTE (2.12.193) ─────────────────────────
+ * Demandé par Charles le 26 septembre 2026 : sur chaque ligne de la liste, les
+ * UE de la section dans l'ordre du cursus, en vert celles réussies, en bleu
+ * celles inscrites, en gris ce qui n'est pas atteignable. Une route à part —
+ * la liste garde sa forme — qui rend, par section, l'ordre des UE une fois, et
+ * par étudiant une chaîne d'une lettre par UE :
+ *   r réussie · f réussie par faveur · i inscrite cette année · a ajournée, en
+ *   attente · o atteignable, non prise · n pas encore atteignable.
+ * Les états viennent de statutsCapitalisation, celle du schéma de la fiche.
+ */
+r.get('/frises', authRequired, (req, res) => {
+  const annee = req.query.annee || anneeDeTravail(req);
+  const autorisees = perimetre(req);
+  const mA = /^(\d{4})-(\d{4})$/.exec(String(annee));
+  const anneePrec = mA ? `${+mA[1] - 1}-${+mA[2] - 1}` : null;
+
+  const acquisDe = new Map(), faveurs = new Set(), inscritesDe = new Map(), attenteDe = new Map();
+  const ajouter = (m, id, v) => { if (!m.has(id)) m.set(id, new Set()); m.get(id).add(v); };
+  const reussiesAn = new Map();
+  for (const x of db.prepare(`SELECT etudiant_id, ue_num, annee_scolaire FROM etudiant_inscription
+      WHERE resultat = 'reussi' ORDER BY annee_scolaire`).all()) {
+    ajouter(acquisDe, x.etudiant_id, x.ue_num);
+    reussiesAn.set(`${x.etudiant_id}|${x.ue_num}`, x.annee_scolaire);
+  }
+  for (const x of db.prepare(`SELECT etudiant_id, ue_num FROM etudiant_valorisation
+      WHERE type = 'complete' AND COALESCE(decision, 'accordee') <> 'refusee'`).all()) ajouter(acquisDe, x.etudiant_id, x.ue_num);
+  try {
+    for (const f of db.prepare(`SELECT DISTINCT etudiant_id, ue_num, annee_scolaire FROM deliberation_ajustement
+        WHERE action = 'faveur'`).all()) faveurs.add(`${f.etudiant_id}|${f.ue_num}|${f.annee_scolaire}`);
+  } catch { /* table absente */ }
+  try {
+    for (const f of db.prepare(`SELECT DISTINCT etudiant_id, ue_num, annee_scolaire FROM etudiant_resultat_cours
+        WHERE faveur = 1 AND ue_num IS NOT NULL`).all()) faveurs.add(`${f.etudiant_id}|${f.ue_num}|${f.annee_scolaire}`);
+  } catch { /* table absente */ }
+  for (const x of db.prepare('SELECT etudiant_id, ue_num FROM etudiant_inscription WHERE annee_scolaire = ?').all(annee)) {
+    ajouter(inscritesDe, x.etudiant_id, x.ue_num);
+  }
+  for (const x of db.prepare(`SELECT i.etudiant_id, i.ue_num, i.resultat, i.annee_scolaire FROM etudiant_inscription i
+      WHERE i.annee_scolaire = (SELECT MAX(j.annee_scolaire) FROM etudiant_inscription j
+        WHERE j.etudiant_id = i.etudiant_id AND j.ue_num = i.ue_num)`).all()) {
+    if (x.resultat === 'ajourne' && (x.annee_scolaire === annee || x.annee_scolaire === anneePrec)) {
+      ajouter(attenteDe, x.etudiant_id, x.ue_num);
+    }
+  }
+
+  const graphes = {};
+  const graphe = sec => {
+    if (graphes[sec] !== undefined) return graphes[sec];
+    const base = construireGraphe({ sections: [sec], annee });
+    if (!base.nodes.length) return (graphes[sec] = null);
+    const organisees = new Set(db.prepare(`SELECT DISTINCT ue_num FROM organisation_ue
+      WHERE annee_scolaire = ? AND section = ?`).all(annee, sec).map(x => x.ue_num));
+    // L'ordre du cursus : par bloc, l'épreuve intégrée au bout, puis la place
+    // dans le schéma.
+    const nodes = [...base.nodes].sort((a, b) =>
+      (a.epreuve_integree - b.epreuve_integree) || (rangNiveau(a.ue_niv) - rangNiveau(b.ue_niv))
+      || (a.couche - b.couche) || (a.ordre - b.ordre) || (a.ue_num - b.ue_num));
+    return (graphes[sec] = {
+      nodes, organisees,
+      prereqDe: Object.fromEntries(base.nodes.map(n => [n.ue_num, n.prerequis])),
+      niv: niveauxEffectifs([sec], annee),
+    });
+  };
+
+  const sections = {}, etats = {};
+  for (const e of db.prepare('SELECT id FROM etudiant WHERE actif = 1').all()) {
+    const sec = sectionRattachement(e.id, annee).section;
+    if (!sec || (autorisees && !autorisees.includes(sec))) continue;
+    const g = graphe(sec);
+    if (!g) continue;
+    if (!sections[sec]) {
+      sections[sec] = g.nodes.map(n => ({ ue_num: n.ue_num, ue_nom: n.ue_nom, bloc: n.ue_niv || '',
+        ei: !!n.epreuve_integree }));
+    }
+    const acquis = acquisDe.get(e.id) || new Set();
+    const inscrites = inscritesDe.get(e.id) || new Set();
+    const statut = statutsCapitalisation({ nodes: g.nodes, prereqDe: g.prereqDe, niv: g.niv,
+      organisees: g.organisees, acquis, enAttente: new Set([...(attenteDe.get(e.id) || [])].filter(u => !acquis.has(u))) });
+    etats[e.id] = { s: sec, c: g.nodes.map(n => {
+      const u = n.ue_num;
+      const st = statut(u);
+      if (st === 'acquise') return faveurs.has(`${e.id}|${u}|${reussiesAn.get(`${e.id}|${u}`)}`) ? 'f' : 'r';
+      if (inscrites.has(u)) return 'i';
+      if (st === 'en_attente') return 'a';
+      if (st === 'accessible' || st === 'sous_reserve') return 'o';
+      return 'n';
+    }).join('') };
+  }
+  res.json({ annee, sections, etats });
 });
 
 /* ── Coordonnées d'une sélection ──────────────────────────────────────────
@@ -4607,6 +4698,36 @@ r.post('/import-resultats', authRequired, roleRequired('admin', 'editeur'), (req
 // Le graphe (nœuds, arêtes, colonnes) est construit par le module
 // capitalisation, qui fait autorité sur l'année d'études de chaque UE.
 // On n'y superpose ici que l'état de l'étudiant.
+/**
+ * L'ÉTAT D'UNE UE POUR UN ÉTUDIANT — une seule fonction, pour le schéma de la
+ * fiche ET la frise de la liste (2.12.193) : deux calculs d'une même chose
+ * finiraient par dire deux choses. Proposition par point fixe intra-niveau,
+ * même règle que le PAE.
+ */
+function statutsCapitalisation({ nodes, prereqDe, niv, organisees, acquis, enAttente }) {
+  const proposees = new Set();
+  const sousReserve = new Set();
+  let stable = false;
+  while (!stable) {
+    stable = true;
+    for (const n0 of nodes) {
+      const n = n0.ue_num;
+      if (acquis.has(n) || proposees.has(n) || !organisees.has(n)) continue;
+      const manquants = (prereqDe[n] || []).filter(p => !acquis.has(p));
+      if (manquants.every(p => proposees.has(p) && niv[p] === niv[n])) {
+        proposees.add(n);
+        if (manquants.length) sousReserve.add(n);
+        stable = false;
+      }
+    }
+  }
+  return n => (acquis.has(n) ? 'acquise'
+    : enAttente.has(n) ? 'en_attente'
+    : sousReserve.has(n) ? 'sous_reserve'
+    : proposees.has(n) ? 'accessible'
+    : 'bloquee');
+}
+
 r.get('/:id/capitalisation', authRequired, (req, res) => {
   const etudId = Number(req.params.id);
   const annee = req.query.annee;
@@ -4681,32 +4802,12 @@ r.get('/:id/capitalisation', authRequired, (req, res) => {
   const prereqDe = Object.fromEntries(base.nodes.map(n => [n.ue_num, n.prerequis]));
   const niv = niveauxEffectifs(sections, annee);
 
-  // Proposition : point fixe intra-niveau (même règle que le PAE)
-  const proposees = new Set();
-  const sousReserve = new Set();
-  let stable = false;
-  while (!stable) {
-    stable = true;
-    for (const n0 of base.nodes) {
-      const n = n0.ue_num;
-      if (acquis.has(n) || proposees.has(n) || !organisees.has(n)) continue;
-      const manquants = (prereqDe[n] || []).filter(p => !acquis.has(p));
-      if (manquants.every(p => proposees.has(p) && niv[p] === niv[n])) {
-        proposees.add(n);
-        if (manquants.length) sousReserve.add(n);
-        stable = false;
-      }
-    }
-  }
+  const statut = statutsCapitalisation({ nodes: base.nodes, prereqDe, niv, organisees, acquis, enAttente });
 
   const g = construireGraphe({
     sections, annee,
     etat: n => ({
-      statut: acquis.has(n) ? 'acquise'
-        : enAttente.has(n) ? 'en_attente'
-        : sousReserve.has(n) ? 'sous_reserve'
-        : proposees.has(n) ? 'accessible'
-        : 'bloquee',
+      statut: statut(n),
       inscrite: inscrites.has(n),
       organisee: organisees.has(n),
       reussite: acquis.has(n) ? (reussite[n] || null) : null,
