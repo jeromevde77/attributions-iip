@@ -68,7 +68,7 @@ export const OR = { fill: '#FBF3DC', stroke: '#C9A84C', text: '#7A5C12', label: 
 
 export default function SchemaCapitalisation({
   data, mode = 'etudiant', onNiveau = null, replie = false, titre = 'Schéma de capitalisation',
-  onLien = null, onSupprimerLien = null,
+  onLien = null, onSupprimerLien = null, onNoeud = null,
 }) {
   const [ouvert, setOuvert] = useState(!replie);
   const [selection, setSelection] = useState(null);   // UE cliquée (mode structure)
@@ -286,6 +286,7 @@ export default function SchemaCapitalisation({
               ? `${compte('acquise')} réussie(s) · ${compte('accessible') + compte('sous_reserve')} disponible(s)`
                 + (compte('en_attente') ? ` · ${compte('en_attente')} en attente` : '')
                 + ` · ${compte('bloquee')} encore indisponible(s)`
+                + (onNoeud ? ' · cliquer une unité pour voir ses notes' : '')
               : `${data.nodes.length} UE · ${data.edges.length} lien(s) de prérequis`}
           </span>
         </span>
@@ -483,9 +484,12 @@ export default function SchemaCapitalisation({
                 return (
                   <g key={n.ue_num}
                     onPointerDown={e => pointerDown(e, n)}
+                    /* Hors mode structure, cliquer une tuile retourne le schéma
+                       sur les notes (onNoeud) : c'est au dos qu'elles vivent. */
+                    onClick={!deplacable && onNoeud ? () => onNoeud(n.ue_num) : undefined}
                     transform={enDeplacement ? `translate(${drag.dx},${drag.dy})` : undefined}
                     opacity={enDeplacement ? 0.85 : 1}
-                    style={{ cursor: deplacable ? (enDeplacement ? 'grabbing' : 'grab') : 'default' }}>
+                    style={{ cursor: deplacable ? (enDeplacement ? 'grabbing' : 'grab') : onNoeud ? 'pointer' : 'default' }}>
                     <title>{`UE ${n.ue_num} — ${n.ue_nom || ''}${n.ue_niv ? ' · ' + n.ue_niv : ''}${
                       n.prerequis?.length ? '\nPrérequis : ' + n.prerequis.join(', ') : ''}${
                       n.prereq_manquants?.length ? '\nManquants : ' + n.prereq_manquants.join(', ') : ''}`}</title>
