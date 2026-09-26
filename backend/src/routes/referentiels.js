@@ -1765,6 +1765,29 @@ r.put('/personnel-mission', authRequired, roleRequired('admin', 'editeur'), (req
   res.json({ ok: true });
 });
 
+/* LES FONCTIONS D'UNE PERSONNE, POUR SA FICHE (2.12.206, Charles, 26
+ * septembre 2026 : « selon moi, ceci doit être dans la fiche du MDP »). Toutes
+ * les portées d'un coup — l'établissement, puis chaque section — avec les
+ * fonctions possibles et celles qui sont cochées pour l'année. L'écriture reste
+ * PUT /personnel-mission, la même que la matrice : un seul chemin d'écriture. */
+r.get('/personnel-fonctions/:profId', authRequired, (req, res) => {
+  const profId = Number(req.params.profId);
+  const annee = req.query.annee || anneeDeTravail(req);
+  const types = db.prepare('SELECT id, libelle, portee, ordre FROM fonction_type ORDER BY ordre, libelle').all();
+  const sections = db.prepare('SELECT code, libelle FROM section ORDER BY code').all();
+  const miennes = db.prepare(`SELECT fonction, section_code, etp_helb FROM personnel_mission
+    WHERE professeur_id = ? AND annee_scolaire = ?`).all(profId, annee);
+  const coche = (sec, f) => miennes.find(m => m.section_code === sec && m.fonction === f);
+  const portees = [
+    { code: '__ETAB__', libelle: "Tout l'établissement",
+      fonctions: types.filter(t => t.portee === 'etablissement').map(t => ({ ...t, actif: !!coche('__ETAB__', t.libelle) })) },
+    ...sections.map(sec => ({ code: sec.code, libelle: sec.libelle || sec.code,
+      fonctions: types.filter(t => t.portee === 'section').map(t => ({ ...t, actif: !!coche(sec.code, t.libelle),
+        etp_helb: coche(sec.code, t.libelle)?.etp_helb ?? null })) })),
+  ];
+  res.json({ annee, portees });
+});
+
 // ── Missions avec périodes pour une section ─────────────────────────────────
 // GET /personnel-missions?section=TIM&annee=2026-2027
 r.get('/personnel-missions', authRequired, (req, res) => {
