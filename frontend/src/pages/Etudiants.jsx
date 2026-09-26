@@ -5,7 +5,7 @@ import { RailLateral } from '../components/ui.jsx';
 import SuiviEtudiant from '../components/SuiviEtudiant.jsx';
 import NouvelEtudiant from '../components/NouvelEtudiant.jsx';
 import {
-  IconAddressBook, IconAlertTriangle, IconArchive, IconDoorExit, IconSchool, IconArrowBackUp, IconAward, IconCertificate, IconStairsUp, IconUserPlus, IconCheck, IconChecklist, IconChevronLeft, IconChevronRight, IconClock, IconFileText, IconFolder, IconPlus, IconPrinter, IconSearch, IconTable, IconTrash, IconUpload, IconUser, IconWritingSign, IconWritingSignOff, IconX,
+  IconAddressBook, IconAlertTriangle, IconArchive, IconDoorExit, IconSchool, IconArrowBackUp, IconAward, IconCertificate, IconStairsUp, IconUserPlus, IconCheck, IconChecklist, IconChevronLeft, IconChevronRight, IconClock, IconFileText, IconFolder, IconPlus, IconPrinter, IconSearch, IconTable, IconTrash, IconUpload, IconUser, IconSend, IconWritingSign, IconWritingSignOff, IconX,
   IconChecks,
 } from '@tabler/icons-react';
 import { authHeaders, getAnnee, getUser } from '../lib/api.js';
@@ -1741,6 +1741,7 @@ function FicheEtudiant({ id, annee, onClose, position, onPrec, onSuiv,
                          portee, onPortee, sections, ues, annees, onModifie }) {
   const [annexe2, setAnnexe2] = useState(false);
   const [motivation, setMotivation] = useState(false);
+  const [edition, setEdition] = useState(false);   // le centre d'édition, sur cet étudiant
   const [data, setData] = useState(null);
   const [pae, setPae] = useState(null);
   // « grille » n'existe plus depuis la fusion avec le PAE : la fiche s'ouvrait
@@ -1979,8 +1980,12 @@ function FicheEtudiant({ id, annee, onClose, position, onPrec, onSuiv,
             sections={sections} ues={ues} annees={annees} />
         )}
 
-        {/* Onglets */}
-        <div className="flex border-b border-slate-200 px-6">
+        {/* Onglets — et, au bout de la rangée, IMPRIMER OU ENVOYER (Charles, 26
+            septembre 2026 : « supprimer Documents et mettre le lien vers le
+            centre d'édition », « dans la rangée d'onglets »). Visible quel que
+            soit l'onglet : les pièces d'un étudiant ne dépendent pas de la face
+            qu'on regarde. */}
+        <div className="flex items-center border-b border-slate-200 px-6">
           {/* Le PARCOURS réunit ce que la grille et le PAE disaient de deux
               façons : le schéma, l'acquis, et le programme proposé. Les
               VALORISATIONS et le DROIT D'INSCRIPTION se rejoignent aussi —
@@ -1999,7 +2004,25 @@ function FicheEtudiant({ id, annee, onClose, position, onPrec, onSuiv,
               {l}
             </button>
           ))}
+          <button type="button" onClick={() => setEdition(true)}
+            title="Le centre d'édition, avec les pièces de cet étudiant en tête"
+            className="bouton bouton-sortir ml-auto my-1 inline-flex items-center gap-1.5">
+            <IconSend size={14} /> Imprimer ou envoyer
+          </button>
         </div>
+        {edition && (
+          <CentreImpressionCentral onClose={() => setEdition(false)}
+            pieces={[
+              { cle: 'attestations', icon: IconFileText, label: 'Attestations de réussite',
+                description: "Une par unité d'enseignement réussie", onClick: ouvrirAttestations },
+              { cle: 'parcours', icon: IconFileText, label: 'Parcours de formation',
+                description: 'Schéma de capitalisation et unités acquises — 1 page', onClick: ouvrirParcours },
+              { cle: 'motivation', icon: IconFileText, label: 'Motiver un refus ou un ajournement',
+                description: 'Annexes 8 et 9 — une justification par acquis', onClick: () => setMotivation(true) },
+              { cle: 'annexe2', icon: IconFileText, label: 'Progrès des études (annexe 2)',
+                description: "Office des Étrangers — réclame la nationalité", onClick: () => setAnnexe2(true) },
+            ]} />
+        )}
 
         {/* Les ACTIONS du programme, ancrées sous les onglets. Placées dans
             le contenu, elles ne pouvaient pas rester visibles : le défilement
@@ -2019,28 +2042,8 @@ function FicheEtudiant({ id, annee, onClose, position, onPrec, onSuiv,
                     <IconWritingSign size={14} />
                     {paeConfirme ? 'Programme confirmé' : 'Confirmer le programme'}
                   </button>
-                  {/* Quatre documents alignés derrière une seule entrée.
-                      Ils avaient disparu avec l'ancienne barre d'actions : les
-                      fonctions étaient restées, plus rien ne les appelait, et
-                      le parcours de formation n'était donc plus imprimable. */}
-                  <MenuActions libelle="Documents" Icone={IconFileText} ton="bleu"
-                    titre="Documents de cet étudiant"
-                    items={[
-                      { libelle: 'Attestations de réussite', Icone: IconFileText,
-                        aide: "Une par unité d'enseignement réussie",
-                        onClick: ouvrirAttestations },
-                      { libelle: 'Parcours de formation', Icone: IconFileText,
-                        aide: 'Schéma de capitalisation et unités acquises — 1 page',
-                        onClick: ouvrirParcours },
-                      { separateur: true, titre: 'Décisions' },
-                      { libelle: 'Motiver un refus / ajournement', Icone: IconFileText,
-                        aide: 'Annexes 8 et 9 — une justification par acquis',
-                        onClick: () => setMotivation(true) },
-                      { separateur: true, titre: 'Administrations' },
-                      { libelle: 'Progrès des études (annexe 2)', Icone: IconFileText,
-                        aide: "Office des Étrangers — réclame la nationalité",
-                        onClick: () => setAnnexe2(true) },
-                    ]} />
+                  {/* Le menu « Documents » a rejoint le centre d'édition : bouton
+                      « Imprimer ou envoyer », au bout de la rangée d'onglets. */}
 
                   <span className="text-[12px] text-slate-500 ml-1">
                     {paeConfirme
@@ -2148,7 +2151,7 @@ function FicheEtudiant({ id, annee, onClose, position, onPrec, onSuiv,
                   le schéma à gauche, les notes par année à droite — la vue
                   d'ensemble et le détail d'un seul regard, sans faire défiler.
                   Sur un écran étroit, l'un revient sous l'autre. */}
-              <div className="pt-5 grid gap-4 items-start 2xl:grid-cols-[minmax(0,5fr)_minmax(0,6fr)]">
+              <div className="pt-3 grid gap-4 items-start xl:grid-cols-[minmax(0,5fr)_minmax(0,6fr)]">
                 <div className="min-w-0">
                   <SchemaCapitalisation etudId={id} annee={annee} />
                 </div>

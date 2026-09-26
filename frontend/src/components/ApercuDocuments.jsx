@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { IconFileText, IconAlertTriangle, IconExternalLink } from '@tabler/icons-react';
 import { authHeaders, getAnnee } from '../lib/api.js';
+import ChoixUnite from './ChoixUnite.jsx';
 
 /**
  * APERÇU DES DOCUMENTS — voir une pièce sans la produire.
@@ -102,9 +103,9 @@ export default function ApercuDocuments({ onClose }) {
               )}
               {choisi?.mode === 'unite' && (
                 <>
-                  <input value={ueNum} onChange={e => setUeNum(e.target.value)}
-                    placeholder="N° d’unité" inputMode="numeric"
-                    className="w-28 px-2 py-1 text-[12px] border border-slate-300 rounded" />
+                  {/* L'UNITÉ SE CHOISIT, ELLE NE SE TAPE PAS (2.12.208). */}
+                  <ChoixUnite value={ueNum} annee={annee} onChange={v => setUeNum(v == null ? '' : String(v))}
+                    className="max-w-[22rem]" />
                   <select value={session} onChange={e => setSession(Number(e.target.value))}
                     className="px-2 py-1 text-[12px] border border-slate-300 rounded">
                     <option value={1}>1re session</option>

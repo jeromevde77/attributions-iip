@@ -3,6 +3,7 @@ import {
   IconPlus, IconTrash, IconAlertTriangle, IconBuilding, IconCheck,
 } from '@tabler/icons-react';
 import { authHeaders } from '../lib/api.js';
+import ChoixUnite from './ChoixUnite.jsx';
 import { Tableau, TableauEntete, Th, Td, Tr, Badge } from './ui.jsx';
 
 /**
@@ -192,8 +193,11 @@ export default function Stages({ etudId, annee, peutEcrire = true }) {
                   </Champ>
 
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                    <ChampTexte libelle="UE" valeur={s.ue_num} type="number"
-                      onValider={v => maj(s.id, { ue_num: v })} lecture={!peutEcrire} />
+                    {/* L'UNITÉ SE CHOISIT, ELLE NE SE TAPE PAS (2.12.208). */}
+                    <Champ libelle="UE">
+                      <ChoixUnite value={s.ue_num} annee={s.annee_scolaire} disabled={!peutEcrire}
+                        onChange={v => maj(s.id, { ue_num: v })} className="w-full" />
+                    </Champ>
                     <ChampTexte libelle="Début" valeur={s.date_debut} type="date"
                       onValider={v => maj(s.id, { date_debut: v })} lecture={!peutEcrire} />
                     <ChampTexte libelle="Fin" valeur={s.date_fin} type="date"

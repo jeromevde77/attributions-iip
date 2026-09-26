@@ -200,6 +200,14 @@ export default function MesCours() {
            PP et NP n'ont pas de valeur chiffrée et en sortent aussi. */
         const poidsDe = {};
         (feuille?.acquis || []).forEach(a => { poidsDe[a.aa_code] = Number(a.poids) > 0 ? Number(a.poids) : 1; });
+        /* LES POIDS SE VOIENT (Charles, 26 septembre 2026 : « il faut qu'on voie
+           les pondérations, sinon le prof va penser que c'est faux »). Dits en
+           POURCENTAGE de la note du cours : c'est vrai quelle que soit l'année
+           — points sur 10 depuis 2026-2027, % du classeur avant. Sans
+           pondération réglée, les poids sont égaux, et l'écran le DIT. */
+        const pondere = (feuille?.acquis || []).some(a => Number(a.poids) > 0);
+        const sommePoids = cols.reduce((t, k) => t + (poidsDe[k] ?? 1), 0) || 1;
+        const partDe = k => Math.round(((poidsDe[k] ?? 1) / sommePoids) * 100);
         const noteCours = id => {
           let s = 0, p = 0, mentions = 0;
           for (const k of cols) {
@@ -280,6 +288,7 @@ export default function MesCours() {
                           ? feuille.acquis.map((a, i) => (
                               <th key={a.aa_code} className="py-1.5 px-1 w-20 text-center" title={`${a.aa_code} — ${a.description || ''}`}>
                                 {nomAA(a, i)}
+                                <span className="block text-[10px] font-normal normal-case tracking-normal text-slate-500">{partDe(a.aa_code)} %</span>
                               </th>
                             ))
                           : <th className="py-1.5 px-1 w-20 text-center">Note /20</th>}
@@ -345,6 +354,12 @@ export default function MesCours() {
                     tapant des notes. */}
                 <div className="carte px-3 py-2.5 space-y-2.5 lg:sticky lg:top-3">
                   <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Ce que vous évaluez</div>
+                  {cols.length > 1 && !pondere && (
+                    <div data-etat="surveiller" className="bloc-etat px-2 py-1.5 text-[11.5px]">
+                      La pondération de ce cours n'est pas encore réglée : les acquis pèsent autant l'un que l'autre
+                      dans la note du cours. Elle se règle dans Organisation → Pondérations.
+                    </div>
+                  )}
                   {feuille.acquis?.length ? feuille.acquis.map((a, i) => {
                     const n = feuille.etudiants.filter(e => String(notes[e.id]?.[a.aa_code] ?? '').trim() !== '').length;
                     return (
@@ -352,7 +367,9 @@ export default function MesCours() {
                         <div className="text-[12.5px] font-semibold">{nomAA(a, i)} <span className="font-normal text-slate-400">· {a.aa_code}</span></div>
                         <div className="text-[12px] text-slate-600 leading-snug">{a.description || '—'}</div>
                         <div className="text-[11px] text-slate-400">
-                          {a.poids != null ? `${String(a.poids).replace('.', ',')} point${a.poids > 1 ? 's' : ''} dans ce cours · ` : ''}{n} note{n > 1 ? 's' : ''} sur {nEtu}
+                          <b className="text-slate-600">{partDe(a.aa_code)} % de la note du cours</b>
+                          {a.poids != null && Number(a.poids) > 0 ? ` (${String(a.poids).replace('.', ',')} sur ${String(Math.round(sommePoids * 10) / 10).replace('.', ',')})` : ''}
+                          {' · '}{n} note{n > 1 ? 's' : ''} sur {nEtu}
                         </div>
                       </div>
                     );

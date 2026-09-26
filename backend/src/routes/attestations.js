@@ -567,8 +567,15 @@ function envelopperBrut(corps, titre) {
 
   @media screen {
     html { background: #e5e5e5; }
+    /* LE PIED EN BAS DE LA FEUILLE, À L'ÉCRAN AUSSI (Charles, 26 septembre
+       2026 : « bas de page pas en bas »). Il était collé sous le dernier
+       paragraphe : la feuille est simulée — une A4 au minimum —, et le pied
+       repoussé au bas par « margin-top: auto ». Le PDF serveur, lui, pose déjà
+       son pied au bas de chaque feuille. */
     body { max-width: 210mm; margin: 16px auto; padding: 12mm 15mm; background: #fff;
-           box-shadow: 0 2px 14px rgba(0,0,0,.18); }
+           box-shadow: 0 2px 14px rgba(0,0,0,.18);
+           min-height: 297mm; display: flex; flex-direction: column; }
+    body > .pied-lucie { margin-top: auto; }
   }
 </style></head><body>
 ${corps}
