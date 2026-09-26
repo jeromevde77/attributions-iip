@@ -34,6 +34,7 @@ export default function MesCours() {
   const [fait, setFait] = useState(null);
   const [enCours, setEnCours] = useState(false);
   const [filtre, setFiltre] = useState('');
+  const [caseActive, setCaseActive] = useState(null);   // { id, k, r, ci } — la case que visent PP et NP
 
   useEffect(() => {
     fetch(`/api/mes-cours?annee=${encodeURIComponent(annee)}`, { headers: authHeaders() })
@@ -192,6 +193,36 @@ export default function MesCours() {
           if (cible) { ev.preventDefault(); cible.focus(); cible.select?.(); }
         };
         const nomAA = (a, i) => `AA ${i + 1}`;
+        /* LA NOTE DU COURS, CALCULÉE EN ENCODANT (Charles, 26 septembre 2026).
+           Moyenne des acquis pondérée par leur poids dans le cours — le niveau 1
+           du modèle de calcul : INDICATIVE, la note qui fait foi reste celle de
+           l'encodage officiel. Une case vide n'est pas évaluée et sort du calcul ;
+           PP et NP n'ont pas de valeur chiffrée et en sortent aussi. */
+        const poidsDe = {};
+        (feuille?.acquis || []).forEach(a => { poidsDe[a.aa_code] = Number(a.poids) > 0 ? Number(a.poids) : 1; });
+        const noteCours = id => {
+          let s = 0, p = 0, mentions = 0;
+          for (const k of cols) {
+            const t = String(notes[id]?.[k] ?? '').trim().toUpperCase();
+            if (!t) continue;
+            if (t === 'PP' || t === 'NP') { mentions++; continue; }
+            const n = Number(t.replace(',', '.'));
+            if (!Number.isFinite(n) || n < 0 || n > 20) return { erreur: true };
+            const w = cols.length > 1 ? (poidsDe[k] ?? 1) : 1;
+            s += n * w; p += w;
+          }
+          return p ? { note: s / p, partielle: mentions > 0 } : { note: null, mentions };
+        };
+        /* PP ET NP AU BOUTON (Charles : « pour PP/NP je veux un bouton ») : ils
+           se posent dans la case où l'on se trouve, et l'on passe à la ligne
+           suivante — comme si on avait tapé la valeur puis Entrée. */
+        const poserMention = m => {
+          if (!caseActive) return;
+          const { id, k, r, ci } = caseActive;
+          setNotes(n => ({ ...n, [id]: { ...n[id], [k]: m } }));
+          const suivante = document.querySelector(`[data-case="${r + 1}:${ci}"]`);
+          if (suivante) { suivante.focus(); suivante.select?.(); }
+        };
         return (
           <div className="space-y-3">
             {/* LE COURS DANS UNE TUILE (Charles, 26 septembre 2026). */}
@@ -227,6 +258,19 @@ export default function MesCours() {
             {feuille && (
               <div className="grid gap-3 items-start lg:grid-cols-[minmax(0,1fr)_320px]">
                 <div className="carte overflow-x-auto">
+                  <div className="flex items-center gap-2 px-3 py-1.5 border-b border-slate-100 text-[12px] text-slate-500">
+                    <span className="min-w-0 flex-1">
+                      {caseActive ? <>Dans la case active :</> : <>Cliquez une case, puis :</>}
+                    </span>
+                    <button type="button" disabled={!caseActive} onMouseDown={ev => ev.preventDefault()}
+                      onClick={() => poserMention('PP')} className="bouton h-7 px-2.5 disabled:opacity-40"
+                      title="Pas présenté">PP · pas présenté</button>
+                    <button type="button" disabled={!caseActive} onMouseDown={ev => ev.preventDefault()}
+                      onClick={() => poserMention('NP')} className="bouton h-7 px-2.5 disabled:opacity-40"
+                      title="Note de présence">NP · note de présence</button>
+                    <button type="button" disabled={!caseActive} onMouseDown={ev => ev.preventDefault()}
+                      onClick={() => poserMention('')} className="bouton h-7 px-2.5 disabled:opacity-40">Effacer</button>
+                  </div>
                   <table className="w-full text-[13px]">
                     <thead>
                       <tr className="tab-entete text-left">
@@ -239,6 +283,9 @@ export default function MesCours() {
                               </th>
                             ))
                           : <th className="py-1.5 px-1 w-20 text-center">Note /20</th>}
+                        {cols.length > 1 && (
+                          <th className="py-1.5 px-2 w-20 text-center" title="Moyenne des acquis pondérée par leur poids dans le cours — indicative">Cours</th>
+                        )}
                       </tr>
                     </thead>
                     <tbody>
@@ -257,7 +304,7 @@ export default function MesCours() {
                               <td key={k} className="py-0.5 px-1 text-center">
                                 <input value={v} data-case={`${r}:${ci}`} inputMode="text"
                                   onKeyDown={ev => deplacer(ev, r, ci)}
-                                  onFocus={ev => ev.target.select()}
+                                  onFocus={ev => { ev.target.select(); setCaseActive({ id: e.id, k, r, ci }); }}
                                   onChange={ev => setNotes(n => ({ ...n, [e.id]: { ...n[e.id], [k]: ev.target.value } }))}
                                   title={t === 'PP' ? 'Pas présenté' : t === 'NP' ? 'Note de présence' : undefined}
                                   className={`w-16 h-7 border rounded-champ px-1 text-[13px] text-center tabular-nums
@@ -267,10 +314,25 @@ export default function MesCours() {
                               </td>
                             );
                           })}
+                          {cols.length > 1 && (() => {
+                            const nc = noteCours(e.id);
+                            return (
+                              <td className="py-0.5 px-2 text-center tabular-nums font-semibold whitespace-nowrap">
+                                {nc.erreur ? <span className="text-slate-300">—</span>
+                                  : nc.note != null
+                                    ? <span title={nc.partielle ? 'Calculée sans les acquis marqués PP ou NP' : 'Indicative : moyenne pondérée des acquis'}
+                                        style={{ color: nc.note < 10 ? 'var(--c-refuse)' : 'var(--c-reussi)' }}>
+                                        {nc.note.toFixed(1).replace('.', ',')}{nc.partielle ? '*' : ''}
+                                      </span>
+                                    : nc.mentions ? <span className="text-slate-400 text-[12px]">—</span>
+                                    : <span className="text-slate-300">·</span>}
+                              </td>
+                            );
+                          })()}
                         </tr>
                       ))}
                       {!feuille.etudiants.length && (
-                        <tr><td colSpan={2 + cols.length} className="py-4 text-center text-slate-400">
+                        <tr><td colSpan={3 + cols.length} className="py-4 text-center text-slate-400">
                           Aucun étudiant — la répartition de ce cours ne vous en attribue pas encore.
                         </td></tr>
                       )}
@@ -298,6 +360,7 @@ export default function MesCours() {
                   <div className="text-[11px] text-slate-500 border-t border-slate-100 pt-2 leading-snug">
                     Une note sur 20 par acquis, décimales admises. <b>PP</b> : pas présenté. <b>NP</b> : note de présence.
                     Une case vide n'est pas évaluée — elle ne compte pas comme zéro.
+                    La colonne « Cours » est la moyenne pondérée des acquis, indicative ; * : sans les PP et NP.
                     Les flèches et Entrée passent d'une case à l'autre.
                   </div>
                 </div>

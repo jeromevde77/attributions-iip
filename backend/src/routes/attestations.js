@@ -13,6 +13,7 @@
 // produire une pièce incomplète en silence : il signale ce qui manque.
 // ─────────────────────────────────────────────────────────────────────────────
 
+import { filigraner } from '../lib/filigraneDocument.js';
 import { Router } from 'express';
 import { manquesDossier, uniteValorisable } from '../lib/valorisation.js';
 import { LOGO_IIP_JPEG } from '../services/assets/logo_iip_jpeg.js';
@@ -325,7 +326,12 @@ export function decrireUnite(ueNum, anneeRef, resultat = {}) {
  * pièce ou cinquante. Elle sert aussi aux pièces séparées d'une archive, pour
  * que chacune reste imprimable seule.
  */
-export function envelopper(corps, titre = 'Attestations de réussite') {
+export function envelopper(corps, titre = 'Attestations de réussite', opts = {}) {
+  // LE FILIGRANE (2.12.205) se pose ici, une fois pour toutes les pièces de
+  // cette enveloppe : attestations, motivations, PV et listes de diplomation.
+  return filigraner(envelopperBrut(corps, titre), { texte: titre, ref: opts.reference });
+}
+function envelopperBrut(corps, titre) {
   // Les images sont posées UNE fois par document, en variables CSS. Répétées
   // par page, un lot de cinq cents attestations pèserait plus de 300 Mo.
   return `<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8">
@@ -680,7 +686,7 @@ export function pageAttestationValorisation(e, u, annee, etab, va,
   <p class="corps">
     Le Conseil des études lui délivre la présente attestation pour laquelle
     ${genre === 'F' ? 'elle obtient' : 'il obtient'}
-    <b>${va?.pourcentage != null ? `${Math.round(Number(va.pourcentage))} %`
+    <b class="cote">${va?.pourcentage != null ? `${Math.round(Number(va.pourcentage))} %`
                                  : '………'}</b> du total des points.
   </p>
 
@@ -820,7 +826,7 @@ export function pageAttestation(e, u, annee, etab, dateDoc = null,
     ${u.epreuve_integree ? "Le Jury d'épreuve intégrée" : 'Le Conseil des études'} lui délivre
     la présente attestation, pour laquelle
     ${genre === 'F' ? 'elle obtient' : 'il obtient'}
-    <span class="pct">${u.pourcentage != null ? u.pourcentage + ' %' : '………'}</span>
+    <span class="pct cote">${u.pourcentage != null ? u.pourcentage + ' %' : '………'}</span>
     du total des points.
     ${Number(session) === 2 ? `
     <!-- MENTION AJOUTÉE AU MODÈLE, à la demande de l'établissement.

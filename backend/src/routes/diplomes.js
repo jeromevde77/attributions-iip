@@ -565,10 +565,10 @@ function attestationSection(d, ctx) {
           <td>${u.ue_num}</td><td>${esc(u.ue_nom || '')}
             <span class="ref">unité déterminante</span></td>
           <td class="n">${u.periodes || '—'}</td>
-          <td class="n">${cote(u.cote)}</td></tr>`).join('')}
+          <td class="n cote">${cote(u.cote)}</td></tr>`).join('')}
         ${d.epreuve ? `<tr class="ei">
           <td>${d.epreuve.ue_num}</td><td>Épreuve intégrée</td>
-          <td class="n">—</td><td class="n">${cote(d.epreuve.cote)}</td></tr>` : ''}
+          <td class="n">—</td><td class="n cote">${cote(d.epreuve.cote)}</td></tr>` : ''}
       </tbody>
     </table>
 
