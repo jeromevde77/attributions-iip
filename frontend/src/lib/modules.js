@@ -14,6 +14,7 @@ import { authHeaders, isAuthenticated } from './api.js';
 import {
   IconSchool, IconClipboardList, IconUsers, IconFolders, IconCalendar,
   IconMail, IconFileText, IconGavel, IconChartBar, IconCalendarStats, IconCoin, IconBriefcase,
+  IconAccessible,
 } from '@tabler/icons-react';
 
 export const MODULES_ACCES = [
@@ -47,6 +48,10 @@ export const MODULES_ACCES = [
   { key: 'repartition',  label: 'Répartition',   Icone: IconCalendarStats, desc: 'Périodes entre années civiles — document 2' },
   { key: 'budget',       label: 'Budget',        Icone: IconCoin,          desc: 'Prévisions et dépenses de la section' },
   { key: 'recrutement',  label: 'Recrutement',   Icone: IconBriefcase,     desc: 'Accès au module recrutement' },
+  // UN DROIT PAR ÉCRAN, ACCORDÉ À LA PERSONNE (2.12.207) : pour une
+  // coordination, « écrire » ne vaut que si cette case est cochée sur sa fiche.
+  { key: 'amenagements', label: 'Aménagements raisonnables', Icone: IconAccessible,
+    desc: 'Créer et modifier les aménagements (besoins spécifiques) — sur octroi pour la coordination' },
 ];
 
 export const ROLES_LUCIE = [

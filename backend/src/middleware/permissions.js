@@ -45,8 +45,19 @@ import db from '../db/index.js';
 export const MODULES = [
   'etudiants', 'attributions', 'personnel', 'organisation', 'planification',
   'listes', 'procedures', 'pilotage', 'dotation', 'repartition', 'budget',
-  'recrutement',
+  'recrutement', 'amenagements',
 ];
+
+/* LES DROITS PAR ÉCRAN, ACCORDÉS À UNE PERSONNE (2.12.207, Charles, 26
+ * septembre 2026 : « j'ai besoin de définir parfois les rôles sur des écrans ;
+ * par exemple, Audrey Perez doit pouvoir créer des aménagements raisonnables »).
+ * Pour ces modules, le rôle ne suffit pas à écrire : il faut que la case
+ * « écrire » soit COCHÉE sur la fiche de la personne (Accès Lucie). Le
+ * plafond du rôle reste la borne ; l'octroi, lui, est nominatif — sans quoi
+ * cocher le rôle ouvrirait l'écran à toutes les coordinations d'un coup.
+ * Les rôles qui écrivaient déjà sur ces écrans gardent leur droit. */
+export const MODULES_SUR_OCTROI = ['amenagements'];
+const ECRIVENT_D_OFFICE = ['admin', 'directeur', 'directeur_adjoint', 'editeur', 'secretariat'];
 
 // Ce que chaque rôle autorise AU MIEUX, avant affinage par les cases.
 //
@@ -62,12 +73,14 @@ const PLAFOND_INITIAL = {
   directeur:         () => 'ecrit',
   directeur_adjoint: () => 'ecrit',
   editeur:           () => 'ecrit',
-  secretariat:  m => (['etudiants', 'listes', 'procedures'].includes(m)
+  secretariat:  m => (['etudiants', 'listes', 'procedures', 'amenagements'].includes(m)
     ? 'ecrit' : 'lit'),
   // La coordination consulte le reporting, prépare un budget, et n'engage ni
   // la dotation ni la répartition des périodes.
   coordination: m => (['recrutement', 'repartition', 'dotation'].includes(m)
-    ? 'rien' : m === 'pilotage' ? 'lit' : 'validation'),
+    ? 'rien' : m === 'pilotage' ? 'lit'
+    : m === 'amenagements' ? 'ecrit'      // sur octroi nominatif — voir MODULES_SUR_OCTROI
+    : 'validation'),
   professeur:   m => (['attributions', 'personnel', 'planification'].includes(m) ? 'lit' : 'rien'),
   consultation: () => 'lit',
 };
@@ -213,6 +226,8 @@ export function peut(user, module, action = 'lire') {
   if (niveau === 'lit') return false;
   const p = frais.permissions[module];
   if (p && p.ecrire === false) return false;      // case explicitement retirée
+  if (MODULES_SUR_OCTROI.includes(module) && !ECRIVENT_D_OFFICE.includes(frais.role)
+      && p?.ecrire !== true) return false;        // pas d'octroi nominatif
   return niveau === 'validation' ? 'demande' : 'direct';
 }
 
