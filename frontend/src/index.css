@@ -848,6 +848,10 @@ select[multiple], select[size]:not([size="1"]) {
 }
 .bouton:hover:not(:disabled) { background: var(--menu-survol); }
 .bouton:disabled { opacity: .4; cursor: default; }
+/* LE BOUTON D'UNE BARRE SERRÉE (2.12.212). `h-8` posé sur un .bouton ne
+   faisait RIEN : la classe déclare sa hauteur et passe après les utilitaires.
+   Une variante de la maison, plutôt qu'un utilitaire qui n'agit pas. */
+.bouton.bouton-compact { height: 2rem; padding-inline: .7rem; font-size: 12.5px; }
 .bouton-fort     { background: #1B2B4B; color: #fff; border-color: transparent; }
 .bouton-fort:hover:not(:disabled)     { background: #163A6B; }
 .bouton-sortir   { background: #0093B0; color: #fff; border-color: transparent; }

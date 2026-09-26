@@ -1685,55 +1685,58 @@ function DossierApprenant({ etudId }) {
  * n'emmène pas ailleurs — on reste sur le dossier ouvert s'il en fait encore
  * partie, et sinon on prend le premier de la nouvelle liste.
  */
-function BarreParcours({ position, onPrec, onSuiv, portee, onPortee, sections, ues, annees }) {
+/* LA NAVIGATION DANS LA RANGÉE D'ONGLETS (2.12.212, Charles : « moche »).
+ * Cinq bandes s'empilaient au-dessus du parcours ; la navigation 7 / 934 en
+ * était une à elle seule. Elle se loge à gauche des onglets, et les filtres
+ * « Parcourir » dans un menu, au bout de la rangée. */
+function NavFiche({ position, onPrec, onSuiv }) {
   const { i = 0, n = 0 } = position || {};
-  const champ = `border border-slate-300 rounded-lg px-2 py-1 text-[12px] bg-white
-                 max-w-[190px]`;
   return (
-    <div className="px-6 py-2 bg-slate-50 border-b border-slate-200
-                    flex items-center justify-between gap-3 flex-wrap">
-      <div className="flex items-center gap-2">
-        <button onClick={onPrec} disabled={i <= 1} title="Dossier précédent (flèche gauche)"
-          className="p-1.5 rounded-lg border border-slate-300 bg-white text-slate-600
-                     disabled:opacity-30">
-          <IconChevronLeft size={16} />
-        </button>
-        <span className="text-[12px] text-slate-600 tabular-nums w-20 text-center">
-          {n ? `${i} / ${n}` : '—'}
-        </span>
-        <button onClick={onSuiv} disabled={!n || i >= n} title="Dossier suivant (flèche droite)"
-          className="p-1.5 rounded-lg border border-slate-300 bg-white text-slate-600
-                     disabled:opacity-30">
-          <IconChevronRight size={16} />
-        </button>
-      </div>
-
-      <div className="flex items-center gap-2 flex-wrap">
-        <span className="text-[11px] text-slate-500">Parcourir</span>
-        <select className={champ} value={portee.section}
-          onChange={e => onPortee({ ...portee, section: e.target.value, ue_num: '' })}>
-          <option value="">Toutes les sections</option>
-          {(sections || []).map(x => (
-            <option key={x.code} value={x.code}>{x.libelle || x.code}</option>
-          ))}
-        </select>
-        <select className={champ} value={portee.annee}
-          onChange={e => onPortee({ ...portee, annee: e.target.value })}>
-          <option value="">Toutes les années</option>
-          {(annees || []).map(a => <option key={a} value={a}>{a}</option>)}
-        </select>
-        <select className={champ} value={portee.ue_num}
-          onChange={e => onPortee({ ...portee, ue_num: e.target.value })}
-          disabled={!ues?.length}
-          title={ues?.length ? '' : 'Choisissez d’abord une section'}>
-          <option value="">Toutes les UE</option>
-          {(ues || []).map(u => (
-            <option key={u.ue_num} value={u.ue_num}>
-              {u.ue_num} — {u.ue_nom || ''}
-            </option>
-          ))}
-        </select>
-      </div>
+    <div className="flex items-center gap-1 mr-3 pr-3 border-r border-slate-200">
+      <button onClick={onPrec} disabled={i <= 1} title="Dossier précédent (flèche gauche)"
+        className="p-1 rounded-md border border-slate-300 bg-white text-slate-600 disabled:opacity-30">
+        <IconChevronLeft size={14} />
+      </button>
+      <span className="text-[12px] text-slate-600 tabular-nums min-w-[4.5rem] text-center">{n ? `${i} / ${n}` : '—'}</span>
+      <button onClick={onSuiv} disabled={!n || i >= n} title="Dossier suivant (flèche droite)"
+        className="p-1 rounded-md border border-slate-300 bg-white text-slate-600 disabled:opacity-30">
+        <IconChevronRight size={14} />
+      </button>
+    </div>
+  );
+}
+function MenuParcourir({ portee, onPortee, sections, ues, annees }) {
+  const [ouvert, setOuvert] = useState(false);
+  const actifs = [portee.section, portee.annee, portee.ue_num].filter(Boolean).length;
+  const champ = 'controle w-full border border-slate-300 rounded-champ bg-white text-[12px]';
+  return (
+    <div className="relative">
+      <button type="button" onClick={() => setOuvert(o => !o)}
+        title="Les dossiers que les flèches parcourent"
+        className={`bouton bouton-compact inline-flex items-center gap-1 ${actifs ? 'border-[#1B2B4B] text-iip-blue' : ''}`}>
+        Parcourir{actifs ? ` · ${actifs}` : ''} <IconChevronRight size={12} className={`transition ${ouvert ? 'rotate-90' : ''}`} />
+      </button>
+      {ouvert && (
+        <div className="absolute right-0 top-full mt-1 z-30 w-72 bg-white border border-slate-200 rounded-carte shadow-flottant p-3 space-y-2"
+          onMouseLeave={() => setOuvert(false)}>
+          <div className="text-[11px] text-slate-500">Les flèches ‹ › passent d'un dossier à l'autre parmi :</div>
+          <select className={champ} value={portee.section}
+            onChange={e => onPortee({ ...portee, section: e.target.value, ue_num: '' })}>
+            <option value="">Toutes les sections</option>
+            {(sections || []).map(x => <option key={x.code} value={x.code}>{x.libelle || x.code}</option>)}
+          </select>
+          <select className={champ} value={portee.annee} onChange={e => onPortee({ ...portee, annee: e.target.value })}>
+            <option value="">Toutes les années</option>
+            {(annees || []).map(a => <option key={a} value={a}>{a}</option>)}
+          </select>
+          <select className={champ} value={portee.ue_num} disabled={!ues?.length}
+            onChange={e => onPortee({ ...portee, ue_num: e.target.value })}
+            title={ues?.length ? '' : 'Choisissez d’abord une section'}>
+            <option value="">Toutes les UE</option>
+            {(ues || []).map(u => <option key={u.ue_num} value={u.ue_num}>{u.ue_num} — {u.ue_nom || ''}</option>)}
+          </select>
+        </div>
+      )}
     </div>
   );
 }
@@ -1975,18 +1978,14 @@ function FicheEtudiant({ id, annee, onClose, position, onPrec, onSuiv,
       large="ecran" onFermer={onClose}>
       <div className="-mx-5 -my-4">
 
-        {(onPrec || onSuiv) && (
-          <BarreParcours position={position} onPrec={onPrec} onSuiv={onSuiv}
-            portee={portee} onPortee={onPortee}
-            sections={sections} ues={ues} annees={annees} />
-        )}
 
         {/* Onglets — et, au bout de la rangée, IMPRIMER OU ENVOYER (Charles, 26
             septembre 2026 : « supprimer Documents et mettre le lien vers le
             centre d'édition », « dans la rangée d'onglets »). Visible quel que
             soit l'onglet : les pièces d'un étudiant ne dépendent pas de la face
             qu'on regarde. */}
-        <div className="flex items-center border-b border-slate-200 px-6">
+        <div className="flex items-center border-b border-slate-200 px-5">
+          {(onPrec || onSuiv) && <NavFiche position={position} onPrec={onPrec} onSuiv={onSuiv} />}
           {/* Le PARCOURS réunit ce que la grille et le PAE disaient de deux
               façons : le schéma, l'acquis, et le programme proposé. Les
               VALORISATIONS et le DROIT D'INSCRIPTION se rejoignent aussi —
@@ -2005,11 +2004,16 @@ function FicheEtudiant({ id, annee, onClose, position, onPrec, onSuiv,
               {l}
             </button>
           ))}
+          <div className="ml-auto flex items-center gap-2 my-1">
+          {(onPrec || onSuiv) && portee && (
+            <MenuParcourir portee={portee} onPortee={onPortee} sections={sections} ues={ues} annees={annees} />
+          )}
           <button type="button" onClick={() => setEdition(true)}
             title="Le centre d'édition, avec les pièces de cet étudiant en tête"
-            className="bouton bouton-sortir ml-auto my-1 inline-flex items-center gap-1.5">
+            className="bouton bouton-sortir bouton-compact inline-flex items-center gap-1.5">
             <IconSend size={14} /> Imprimer ou envoyer
           </button>
+          </div>
         </div>
         {edition && (
           <CentreImpressionCentral onClose={() => setEdition(false)}
@@ -2029,9 +2033,9 @@ function FicheEtudiant({ id, annee, onClose, position, onPrec, onSuiv,
             le contenu, elles ne pouvaient pas rester visibles : le défilement
             est porté par la fenêtre entière, non par l'onglet. */}
               {onglet === 'parcours' && pae && !pae.erreur && (
-                <div className="sticky top-0 z-30 bg-white/95 backdrop-blur border-b border-slate-200 px-6 py-2.5 flex gap-2 items-center flex-wrap">
+                <div className="sticky top-0 z-30 bg-white/95 backdrop-blur border-b border-slate-200 px-5 py-1.5 flex gap-2 items-center flex-wrap">
                   <button onClick={enregistrerPAE} disabled={enregistrement}
-                    className="bouton bouton-fort">
+                    className="bouton bouton-fort bouton-compact">
                     <IconCheck size={14} />
                     {enregistrement ? 'Enregistrement…' : 'Enregistrer le PAE'}
                   </button>
@@ -2039,7 +2043,7 @@ function FicheEtudiant({ id, annee, onClose, position, onPrec, onSuiv,
                     title={paeConfirme
                       ? 'Retirer la confirmation — les inscriptions sont conservées'
                       : "Confirmer le programme : l'étudiant passe en inscrit"}
-                    className="bouton">
+                    className="bouton bouton-compact">
                     <IconWritingSign size={14} />
                     {paeConfirme ? 'Programme confirmé' : 'Confirmer le programme'}
                   </button>
@@ -2054,7 +2058,7 @@ function FicheEtudiant({ id, annee, onClose, position, onPrec, onSuiv,
                 </div>
               )}
 
-        <div className="p-6">
+        <div className="px-5 py-3">
           {/* Inscriptions + résultats */}
           {onglet === 'va' && <Valorisations etudId={id} annee={annee} />}
 
