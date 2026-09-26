@@ -301,7 +301,8 @@ r.post('/:coursCode/notes', authRequired, (req, res) => {
   const permis = new Set(d.etudiants.map(e => e.id));
   // Les acquis admis pour ce cours — plus la clé '' (note de cours).
   const aaPermis = new Set(['', ...acquisDuCours(req.params.coursCode, d.ueNum, annee).map(a => a.aa_code)]);
-  const MENTIONS = ['PP', 'NP'];
+  // PP pas présenté · NP note de présence · CM certificat médical (2.12.215).
+  const MENTIONS = ['PP', 'NP', 'CM'];
   const notes = (Array.isArray(req.body?.notes) ? req.body.notes : [])
     .map(x => {
       const brut = String(x?.note ?? '').trim().toUpperCase();
@@ -310,7 +311,9 @@ r.post('/:coursCode/notes', authRequired, (req, res) => {
         note: mention || brut === '' ? null : Number(brut.replace(',', '.')) };
     })
     .filter(x => permis.has(x.etudiant_id) && aaPermis.has(x.aa_code)
-      && (x.mention || x.note === null || (Number.isFinite(x.note) && x.note >= 0 && x.note <= 20)));
+      // DES ENTIERS, DE 0 À 20 (Charles, 26 septembre 2026) : ni décimale, ni
+      // valeur hors de l'échelle ; le serveur le refuse comme l'écran.
+      && (x.mention || x.note === null || (Number.isInteger(x.note) && x.note >= 0 && x.note <= 20)));
   if (!notes.length) return res.status(400).json({ error: 'Aucune note valable.' });
 
   const poser = db.prepare(`

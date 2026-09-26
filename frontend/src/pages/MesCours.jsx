@@ -178,9 +178,15 @@ export default function MesCours() {
         const saisies = feuille ? feuille.etudiants.reduce((t, e) =>
           t + cols.filter(k => String(notes[e.id]?.[k] ?? '').trim() !== '').length, 0) : 0;
         const total = nEtu * cols.length;
+        /* DES ENTIERS DE 0 À 20, OU PP, NP, CM (Charles, 26 septembre 2026). */
+        const MENTIONS = ['PP', 'NP', 'CM'];
         const valeurOk = v => { const t = String(v ?? '').trim().toUpperCase();
-          if (!t || t === 'PP' || t === 'NP') return true;
-          const n = Number(t.replace(',', '.')); return Number.isFinite(n) && n >= 0 && n <= 20; };
+          if (!t || MENTIONS.includes(t)) return true;
+          return /^\d{1,2}$/.test(t) && Number(t) <= 20; };
+        // La frappe elle-même est filtrée : chiffres, ou les lettres d'une mention.
+        const saisieAdmise = v => { const t = String(v).toUpperCase();
+          return t === '' || /^\d{1,2}$/.test(t) && Number(t) <= 20
+            || MENTIONS.some(m => m.startsWith(t)); };
         const invalides = feuille ? feuille.etudiants.reduce((t, e) =>
           t + cols.filter(k => !valeurOk(notes[e.id]?.[k])).length, 0) : 0;
         /* LES FLÈCHES ET ENTRÉE, COMME DANS UN TABLEUR (Charles, 26 septembre
@@ -213,7 +219,7 @@ export default function MesCours() {
           for (const k of cols) {
             const t = String(notes[id]?.[k] ?? '').trim().toUpperCase();
             if (!t) continue;
-            if (t === 'PP' || t === 'NP') { mentions++; continue; }
+            if (MENTIONS.includes(t)) { mentions++; continue; }
             const n = Number(t.replace(',', '.'));
             if (!Number.isFinite(n) || n < 0 || n > 20) return { erreur: true };
             const w = cols.length > 1 ? (poidsDe[k] ?? 1) : 1;
@@ -277,6 +283,9 @@ export default function MesCours() {
                       onClick={() => poserMention('NP')} className="bouton h-7 px-2.5 disabled:opacity-40"
                       title="Note de présence">NP · note de présence</button>
                     <button type="button" disabled={!caseActive} onMouseDown={ev => ev.preventDefault()}
+                      onClick={() => poserMention('CM')} className="bouton h-7 px-2.5 disabled:opacity-40"
+                      title="Certificat médical">CM · certificat médical</button>
+                    <button type="button" disabled={!caseActive} onMouseDown={ev => ev.preventDefault()}
                       onClick={() => poserMention('')} className="bouton h-7 px-2.5 disabled:opacity-40">Effacer</button>
                   </div>
                   <table className="w-full text-[13px]">
@@ -310,16 +319,27 @@ export default function MesCours() {
                             const ok = valeurOk(v);
                             const t = String(v).trim().toUpperCase();
                             return (
-                              <td key={k} className="py-0.5 px-1 text-center">
-                                <input value={v} data-case={`${r}:${ci}`} inputMode="text"
+                              <td key={k} className="py-0.5 px-1 text-center whitespace-nowrap">
+                                <input value={v} data-case={`${r}:${ci}`} inputMode="numeric" maxLength={2}
                                   onKeyDown={ev => deplacer(ev, r, ci)}
                                   onFocus={ev => { ev.target.select(); setCaseActive({ id: e.id, k, r, ci }); }}
-                                  onChange={ev => setNotes(n => ({ ...n, [e.id]: { ...n[e.id], [k]: ev.target.value } }))}
-                                  title={t === 'PP' ? 'Pas présenté' : t === 'NP' ? 'Note de présence' : undefined}
-                                  className={`w-16 h-7 border rounded-champ px-1 text-[13px] text-center tabular-nums
-                                    ${!ok ? 'border-[#C2412D] bg-[#FBEDEA]'
-                                      : t === 'PP' || t === 'NP' ? 'border-slate-300 bg-slate-100 font-semibold text-slate-600'
-                                      : v !== '' ? 'border-[#C3D6EE] bg-[#EAF1FA]' : 'border-slate-300 bg-white'}`} />
+                                  onChange={ev => { const val = ev.target.value.toUpperCase();
+                                    if (saisieAdmise(val)) setNotes(n => ({ ...n, [e.id]: { ...n[e.id], [k]: val } })); }}
+                                  title={t === 'PP' ? 'Pas présenté' : t === 'NP' ? 'Note de présence' : t === 'CM' ? 'Certificat médical' : undefined}
+                                  placeholder="·"
+                                  /* SANS CASE (Charles, 26 septembre 2026 : « la case est-elle
+                                     utile ? c'est moche ») : la grille est une feuille, pas un
+                                     formulaire. Rien au repos, un filet au survol, le champ blanc
+                                     cerclé sous le curseur — c'est là qu'on écrit. */
+                                  className={`w-12 h-7 rounded-champ px-1 text-[13px] text-right tabular-nums outline-none
+                                    border border-transparent hover:border-slate-200 focus:border-iip-blue focus:bg-white
+                                    placeholder:text-slate-300
+                                    ${!ok ? 'text-[#9D4A38] bg-[#FBEDEA] font-semibold'
+                                      : MENTIONS.includes(t) ? 'font-semibold text-slate-500 text-center'
+                                      : 'bg-transparent text-iip-blue font-semibold'}`} />
+                                {/* « /20 » : l'échelle se lit à côté de chaque NOTE (Charles) —
+                                    pas à côté d'une case vide ni d'une mention. */}
+                                <span className={`ml-0.5 text-[10px] text-slate-400 ${ok && v !== '' && !MENTIONS.includes(t) ? '' : 'invisible'}`}>/20</span>
                               </td>
                             );
                           })}
@@ -329,7 +349,7 @@ export default function MesCours() {
                               <td className="py-0.5 px-2 text-center tabular-nums font-semibold whitespace-nowrap">
                                 {nc.erreur ? <span className="text-slate-300">—</span>
                                   : nc.note != null
-                                    ? <span title={nc.partielle ? 'Calculée sans les acquis marqués PP ou NP' : 'Indicative : moyenne pondérée des acquis'}
+                                    ? <span title={nc.partielle ? 'Calculée sans les acquis marqués PP, NP ou CM' : 'Indicative : moyenne pondérée des acquis'}
                                         style={{ color: nc.note < 10 ? 'var(--c-refuse)' : 'var(--c-reussi)' }}>
                                         {nc.note.toFixed(1).replace('.', ',')}{nc.partielle ? '*' : ''}
                                       </span>
@@ -375,9 +395,9 @@ export default function MesCours() {
                     );
                   }) : <div className="text-[12px] text-slate-600">Aucun acquis rattaché à ce cours : une note de cours, sur 20.</div>}
                   <div className="text-[11px] text-slate-500 border-t border-slate-100 pt-2 leading-snug">
-                    Une note sur 20 par acquis, décimales admises. <b>PP</b> : pas présenté. <b>NP</b> : note de présence.
+                    Une note entière sur 20 par acquis (0 à 20). <b>PP</b> : pas présenté. <b>NP</b> : note de présence. <b>CM</b> : certificat médical.
                     Une case vide n'est pas évaluée — elle ne compte pas comme zéro.
-                    La colonne « Cours » est la moyenne pondérée des acquis, indicative ; * : sans les PP et NP.
+                    La colonne « Cours » est la moyenne pondérée des acquis, indicative ; * : sans les PP, NP et CM.
                     Les flèches et Entrée passent d'une case à l'autre.
                   </div>
                 </div>
@@ -387,7 +407,7 @@ export default function MesCours() {
             {feuille && (
               <div className="flex items-center gap-3 justify-end border-t border-slate-200 pt-2">
                 <span className="text-[12px] text-slate-500 min-w-0 flex-1">
-                  {invalides ? <span style={{ color: '#C2412D' }}>{invalides} case{invalides > 1 ? 's' : ''} à corriger : une note entre 0 et 20, PP ou NP.</span>
+                  {invalides ? <span style={{ color: '#C2412D' }}>{invalides} case{invalides > 1 ? 's' : ''} à corriger : un nombre entier de 0 à 20, PP, NP ou CM.</span>
                     : 'Vos notes sont des propositions : la coordination les reprend dans l’encodage officiel.'}
                 </span>
                 <button onClick={enregistrer} disabled={enCours || !!invalides}

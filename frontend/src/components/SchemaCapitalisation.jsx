@@ -1,6 +1,7 @@
 import { useMemo, useRef, useState } from 'react';
 import { IconGift } from '@tabler/icons-react';
 import { teintes } from '../lib/etats.js';
+import { blocDe, couleurBloc } from '../lib/blocs.js';
 
 /**
  * Schéma de capitalisation — arbre des UE et de leurs prérequis.
@@ -270,10 +271,15 @@ export default function SchemaCapitalisation({
   ])].sort();
 
   return (
-    <div className="mb-4 border border-slate-200 rounded-xl overflow-hidden">
+    /* UNE CARTE, UNE BANDE DE TITRE — la même que celle des notes, à côté
+       (Charles, 26 septembre 2026 : « alignement »). La commande de taille
+       rejoint la bande : une rangée de moins, et les deux panneaux ont leur
+       contenu à la même hauteur. */
+    <div className="mb-4">
+      <div className="entete-plat">
       <button onClick={() => setOuvert(o => !o)}
-        className="w-full flex items-center justify-between px-3 py-2 bg-slate-50 hover:bg-slate-100 transition">
-        <span className="text-[12px] font-semibold text-iip-blue">
+        className="flex-1 min-w-0 flex items-center justify-between gap-2 text-left">
+        <span className="text-[13px] font-semibold text-iip-blue truncate">
           {titre}
           <span className="ml-2 font-normal text-slate-500">
             {mode === 'etudiant'
@@ -283,31 +289,25 @@ export default function SchemaCapitalisation({
               : `${data.nodes.length} UE · ${data.edges.length} lien(s) de prérequis`}
           </span>
         </span>
-        <span className="text-[11px] text-slate-400">{ouvert ? 'Masquer' : 'Afficher'}</span>
       </button>
 
-      {/* Le ZOOM est une commande à part : le bandeau replie/déplie le schéma,
-          et un bouton dans un bouton n'est pas cliquable. */}
       {ouvert && layout && (
-        <div className="flex items-center justify-end gap-1 px-3 py-1.5
-                        border-b border-slate-100 bg-white">
-          <span className="text-[11px] text-slate-400 mr-1">Taille</span>
+        <div className="flex items-center gap-1 flex-none">
           <button type="button" onClick={() => setZoom(z => Math.max(0.8, Math.round((z - 0.25) * 100) / 100))}
-            disabled={zoom <= 0.8}
-            className="w-6 h-6 rounded border border-slate-200 text-slate-600
-                       text-[13px] leading-none disabled:opacity-40"
+            disabled={zoom <= 0.8} className="w-6 h-6 rounded border border-slate-200 bg-white text-slate-600 text-[13px] leading-none disabled:opacity-40"
             title="Réduire">−</button>
           <button type="button" onClick={() => setZoom(1)}
-            className="px-2 h-6 rounded border border-slate-200 text-slate-600
-                       text-[11px] tabular-nums"
+            className="px-1.5 h-6 rounded border border-slate-200 bg-white text-slate-600 text-[11px] tabular-nums"
             title="Revenir à la taille normale">{Math.round(zoom * 100)} %</button>
           <button type="button" onClick={() => setZoom(z => Math.min(3, Math.round((z + 0.25) * 100) / 100))}
-            disabled={zoom >= 3}
-            className="w-6 h-6 rounded border border-slate-200 text-slate-600
-                       text-[13px] leading-none disabled:opacity-40"
+            disabled={zoom >= 3} className="w-6 h-6 rounded border border-slate-200 bg-white text-slate-600 text-[13px] leading-none disabled:opacity-40"
             title="Agrandir">+</button>
         </div>
       )}
+      <button type="button" onClick={() => setOuvert(o => !o)} className="text-[11px] text-slate-400 hover:text-iip-blue flex-none">
+        {ouvert ? 'Masquer' : 'Afficher'}
+      </button>
+      </div>
 
       {ouvert && layout && (
         <>
@@ -320,7 +320,7 @@ export default function SchemaCapitalisation({
           {/* overflow-x SEULEMENT : un ascenseur vertical interne piégeait la
               molette et empêchait la page de défiler. Le défilement horizontal,
               lui, ne capture pas la molette verticale. */}
-          <div className="bg-white" style={{ overflowX: 'auto' }}>
+          <div style={{ overflowX: 'auto' }}>
             <svg ref={svgRef}
               viewBox={`0 0 ${layout.largeur} ${layout.hauteur}`}
               preserveAspectRatio="xMidYMid meet"
@@ -348,6 +348,13 @@ export default function SchemaCapitalisation({
                   orient="auto" markerUnits="strokeWidth">
                   <path d="M0,0 L0,5 L6,2.5 z" fill="#94A3B8" />
                 </marker>
+                {/* Une pointe par couleur de bloc : elle prend la couleur de sa flèche. */}
+                {['BA1', 'BA2', 'BA3', 'INC'].map(b => (
+                  <marker key={b} id={`fl-${b}`} markerWidth="7" markerHeight="7" refX="6" refY="2.5"
+                    orient="auto" markerUnits="strokeWidth">
+                    <path d="M0,0 L0,5 L6,2.5 z" style={{ fill: b === 'INC' ? '#B45309' : couleurBloc(b) }} />
+                  </marker>
+                ))}
               </defs>
 
               {drag?.cible && drag.bouge && !drag.cible.sousTitre
@@ -399,14 +406,19 @@ export default function SchemaCapitalisation({
                   ? `M${x1},${y1} C${x1 + 20},${y1} ${x2 + 20},${y2} ${x2},${y2}`
                   : `M${x1},${y1} C${x1 + dx},${y1} ${x2 - dx},${y2} ${x2},${y2}`;
 
-                // Trois lectures dans un seul trait : gris au sein d'une même
-                // année, bleu d'une année à l'autre, pointillé quand le
-                // prérequis relève d'une règle interne et non du dossier
-                // pédagogique. L'ambre reste réservé aux incohérences.
-                const nDe = n => (data.nodes.find(x => x.ue_num === n)?.niveau || '').toUpperCase();
+                /* LA FLÈCHE PREND LA COULEUR DU BLOC OÙ ELLE ARRIVE (Charles,
+                   26 septembre 2026) : orange vers une UE de BA1, bleu clair vers
+                   BA2, marine vers BA3. Pointillé : règle interne, non du dossier
+                   pédagogique. L'ocre reste réservé à l'incohérence — un
+                   prérequis placé après l'UE qui en dépend.
+                   (Le code lisait `niveau`, que le nœud ne porte pas : le champ
+                   est `ue_niv`, et toutes les flèches sortaient en bleu.) */
+                const nDe = n => blocDe(data.nodes.find(x => x.ue_num === n)?.ue_niv);
                 const memeAnnee = nDe(eg.from) && nDe(eg.from) === nDe(eg.to);
                 const interne = eg.type === 'interne';
-                const couleur = enArriere ? '#F59E0B' : memeAnnee ? '#94A3B8' : '#3B82F6';
+                const bloc = nDe(eg.to);
+                const couleur = enArriere ? '#B45309' : (couleurBloc(bloc) || '#94A3B8');
+                const pointe = enArriere ? 'fl-INC' : (['BA1', 'BA2', 'BA3'].includes(bloc) ? `fl-${bloc}` : 'fl-cap');
                 const titre = (interne ? 'Prérequis interne — ' : 'Prérequis du dossier pédagogique — ')
                   + `l'UE ${eg.from} conditionne l'UE ${eg.to}`
                   + (memeAnnee ? ' (même année)' : '')
@@ -414,10 +426,10 @@ export default function SchemaCapitalisation({
 
                 return (
                   <g key={i}>
-                    <path d={d} fill="none" stroke={couleur}
+                    <path d={d} fill="none" style={{ stroke: couleur }}
                       strokeWidth={enArriere ? 1.8 : interne ? 1.6 : 1.4}
                       strokeDasharray={interne ? '5 4' : undefined}
-                      markerEnd="url(#fl-cap)">
+                      markerEnd={`url(#${pointe})`}>
                       <title>{titre}</title>
                     </path>
                     {modeLien && onSupprimerLien && (
@@ -447,7 +459,13 @@ export default function SchemaCapitalisation({
                 // Une acquise PAR FAVEUR prend le violet : c'est un octroi, il
                 // doit se voir de loin (Charles, 25 septembre 2026).
                 const statut = n.statut === 'acquise' && n.reussite?.faveur ? 'faveur' : n.statut;
-                const base = couleursCap(statut);
+                /* AU PROGRAMME DE L'ANNÉE : BLEU PLEIN, ÉCRITURE BLANCHE (Charles,
+                   26 septembre 2026 — « qu'elles ressortent ; pas le liseré noir,
+                   c'est moche »). Une UE déjà acquise reste verte. */
+                const auProgramme = n.inscrite && statut !== 'acquise' && statut !== 'faveur' && mode === 'etudiant';
+                const base = auProgramme
+                  ? { fond: 'var(--c-disponible)', bord: 'var(--c-disponible)', rail: 'color-mix(in srgb, var(--c-disponible) 70%, #000)', texte: '#FFFFFF' }
+                  : couleursCap(statut);
                 const ei = !!n.epreuve_integree;
                 const co = ei && mode === 'structure'
                   ? { fond: OR.fill, bord: OR.stroke, rail: OR.stroke, texte: OR.text }
@@ -480,10 +498,7 @@ export default function SchemaCapitalisation({
                     )}
                     {/* AU PROGRAMME DE L'ANNÉE : un cadre marine, comme dans la
                         maquette du parcours — la pastille ronde se perdait. */}
-                    {n.inscrite && !actif && (
-                      <path d={boite(p.x - 1.2, p.y - 1.2, layout.L + 2.4, layout.H + 2.4, 7)}
-                        fill="none" stroke="#1B2B4B" strokeWidth="1.3" />
-                    )}
+
                     {/* UE DÉTERMINANTE : elle pèse double dans la mention du
                         diplôme. La pastille est CENTRÉE sur l'angle supérieur
                         droit, à cheval sur le bord — elle déborde autant
@@ -571,7 +586,7 @@ export default function SchemaCapitalisation({
               <span className="text-[11px] text-slate-500 flex-1">
                 {modeLien
                   ? "Tirez depuis la pastille droite d'une UE vers celle qu'elle conditionne. Cliquez un trait pour le supprimer."
-                  : "Trait gris : même année. Bleu : d'une année à l'autre. Pointillé : règle interne, qui avertit sans interdire."}
+                  : "La flèche prend la couleur du bloc où elle arrive : orange BA1, bleu clair BA2, marine BA3. Pointillé : règle interne, qui avertit sans interdire. Ocre : prérequis placé après l'UE qui en dépend."}
               </span>
             </div>
           )}
@@ -609,7 +624,7 @@ export default function SchemaCapitalisation({
           )}
 
           {mode === 'etudiant' && (
-            <div className="flex flex-wrap items-center gap-3 px-3 py-2 bg-slate-50 border-t border-slate-200 text-[11px] text-slate-500">
+            <div className="flex flex-wrap items-center gap-3 px-1 pt-2 text-[11px] text-slate-500">
               {['acquise', 'faveur', 'accessible', 'sous_reserve', 'en_attente', 'bloquee'].map(k => (
                 <span key={k} className="flex items-center gap-1.5">
                   <span className="inline-block w-3.5 h-3 rounded-r-sm"
@@ -621,7 +636,7 @@ export default function SchemaCapitalisation({
                 </span>
               ))}
               <span className="flex items-center gap-1.5">
-                <span className="inline-block w-3.5 h-3 rounded-sm border-[1.5px] border-[#1B2B4B]" /> au programme cette année
+                <span className="inline-block w-3.5 h-3 rounded-sm" style={{ background: 'var(--c-disponible)' }} /> au programme cette année
               </span>
               <span className="flex items-center gap-1.5">
                 <span className="inline-block w-3.5 h-3 rounded-r-sm border border-slate-200"

@@ -146,6 +146,11 @@ table.grid-excel-soft thead th {
 }
 table.grid-excel-soft tbody tr:hover { background: #fafbfc; }
 table.grid-excel-soft td.num { text-align: right; font-variant-numeric: tabular-nums; }
+/* L'EN-TÊTE D'UNE COLONNE CHIFFRÉE S'ALIGNE COMME SES CHIFFRES (2.12.217,
+   Charles : « souci d'alignement dans attributions »). Seul td.num était à
+   droite : le plafond « / 12 », posé dans un th.num, partait à gauche sous un
+   libellé à droite. Pour toutes les grilles, sans qu'aucun écran y pense. */
+table.grid-excel th.num, table.grid-excel-soft th.num { text-align: right; font-variant-numeric: tabular-nums; }
 
 /* UN CHAMP DE GRILLE NE SE DESSINE QU'AU MOMENT OÙ L'ON S'EN SERT.
    Chaque cellule portait une boîte grise bordée : sur une grille de deux cents
@@ -848,6 +853,10 @@ select[multiple], select[size]:not([size="1"]) {
 }
 .bouton:hover:not(:disabled) { background: var(--menu-survol); }
 .bouton:disabled { opacity: .4; cursor: default; }
+/* LE BOUTON D'UNE BARRE SERRÉE (2.12.212). `h-8` posé sur un .bouton ne
+   faisait RIEN : la classe déclare sa hauteur et passe après les utilitaires.
+   Une variante de la maison, plutôt qu'un utilitaire qui n'agit pas. */
+.bouton.bouton-compact { height: 2rem; padding-inline: .7rem; font-size: 12.5px; }
 .bouton-fort     { background: #1B2B4B; color: #fff; border-color: transparent; }
 .bouton-fort:hover:not(:disabled)     { background: #163A6B; }
 .bouton-sortir   { background: #0093B0; color: #fff; border-color: transparent; }
@@ -1048,7 +1057,8 @@ select[multiple], select[size]:not([size="1"]) {
 .puce-ue[data-c="a"] { --e: var(--c-attente); }
 .puce-ue[data-c="o"] { background: #fff; border-color: #D8DCE4; color: #7A879E; }
 .puce-ue[data-c="n"] { background: var(--c-fond_indispo, #F4F5F7); border-color: #EBEDF1; border-left-color: #DDE1E7; color: #B6BDC9; }
-.puce-ue.ei { outline: 1px solid var(--c-epreuve, #C9A84C); outline-offset: 1px; }
+/* L'épreuve intégrée n'a plus de cadre dans la frise (2.12.216) : elle se lit
+   à sa place, au bout, séparée par l'espace qui sépare les blocs. */
 
 /* ── LE FOCUS D'UN CHAMP — un seul, et pas celui du navigateur ───────────────
  * Aucun style commun n'existait : chaque champ prenait le halo bleu du
@@ -1076,4 +1086,24 @@ select[multiple], select[size]:not([size="1"]) {
 .cadre-page > :is(.p-3, .p-4, .p-5, .p-6, .p-8, .px-3, .px-4, .px-5, .px-6, .px-8,
                   .md\:p-6, .md\:p-8, .md\:px-6, .md\:px-8) {
   padding-left: 0; padding-right: 0; padding-top: 0;
+}
+
+/* ── LA BANDE DE TITRE D'UN PANNEAU — une seule hauteur (2.12.213) ────────────
+ * Le schéma et les notes, côte à côte, avaient deux titres de dessins et de
+ * hauteurs différents : leurs contenus ne commençaient pas à la même ligne.
+ * Une bande commune : 40 px, le ton des en-têtes de tableau, un filet dessous. */
+.entete-panneau {
+  display: flex; align-items: center; gap: .5rem;
+  height: 2.5rem; padding-inline: .75rem;
+  background: var(--tab-repere); border-bottom: 1px solid var(--menu-bord);
+}
+
+/* À PLAT (2.12.214, Charles : « sans cadre, juste à plat »). Le titre d'un
+ * panneau posé sur la page, souligné d'un filet ; le contenu dessous, sans
+ * fond ni bordure. Même hauteur partout : deux panneaux côte à côte ont leurs
+ * titres, puis leurs premières lignes, alignés. */
+.entete-plat {
+  display: flex; align-items: center; gap: .5rem;
+  height: 2rem; margin-bottom: .375rem;
+  border-bottom: 1px solid #D8DCE4;
 }

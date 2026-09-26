@@ -1,6 +1,6 @@
-import { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { nomPropre } from '../lib/nom.js';
-import { COULEUR_BLOC, OR_EPREUVE } from '../lib/blocs.js';
+import { couleurBloc } from '../lib/blocs.js';
 import { RailLateral } from '../components/ui.jsx';
 import SuiviEtudiant from '../components/SuiviEtudiant.jsx';
 import NouvelEtudiant from '../components/NouvelEtudiant.jsx';
@@ -17,7 +17,7 @@ import IdentiteEtudiant, { ComplementDossiers } from '../components/IdentiteEtud
 // LE CENTRE CENTRAL. Les boutons restent où on les cherche — là où l'on
 // travaille — mais mènent désormais au même endroit.
 import CentreImpressionCentral from '../components/CentreImpressionCentral.jsx';
-import { useEchangesDuRail, Fenetre, Encadre } from '../components/ui.jsx';
+import { useEchangesDuRail, Fenetre, Encadre, BulleAide } from '../components/ui.jsx';
 import PassageAnnee from '../components/PassageAnnee.jsx';
 import ComposerPAE from '../components/ComposerPAE.jsx';
 import CentreEchanges from '../components/CentreEchanges.jsx';
@@ -113,10 +113,11 @@ function FriseParcours({ ues, codes }) {
     groupes[groupes.length - 1].l.push({ ...u, c: codes[i] || 'n' });
   });
   return (
-    <div className="flex items-center gap-1">
+    /* SANS BARRES NI CADRE (Charles, 26 septembre 2026) : un ESPACE entre deux
+       blocs dit le changement d'année ; le bloc se lit au survol. */
+    <div className="flex items-center gap-2.5">
       {groupes.map((g, gi) => (
-        <span key={gi} className="flex gap-[2px] pl-1 border-l-2"
-          style={{ borderLeftColor: g.b === 'EI' ? OR_EPREUVE : (COULEUR_BLOC[g.b] || '#D8DCE4') }}>
+        <span key={gi} className="flex gap-[2px]" title={g.b === 'EI' ? 'Épreuve intégrée' : g.b}>
           {g.l.map(u => (
             <span key={u.ue_num} data-c={u.c} className={`puce-ue ${u.ei ? 'ei' : ''}`}
               title={`UE ${u.ue_num} — ${u.ue_nom || ''} · ${SENS_PUCE[u.c] || ''}`}>
@@ -152,14 +153,17 @@ function SchemaCapitalisation({ etudId, annee }) {
 
 // ── Grille de parcours : UE × années ─────────────────────────────────────────
 const KINDS_CELLULE = [
-  { val: 'inscrit', label: 'Inscrit',  short: '·',  cls: 'bg-sky-50 text-sky-700 border-sky-200' },
-  { val: 'reussi',  label: 'Réussi',   short: '✓',  cls: 'bg-emerald-50 text-emerald-800 border-emerald-200' },
-  { val: 'va',      label: 'VA',       short: 'VA', cls: 'bg-violet-50 text-violet-700 border-violet-200' },
+  // LES ÉTATS DE LUCIE (2.12.211) : bleu inscrite, vert réussie — la VA
+  // aussi, avec sa mention —, ocre ajournée, brique refusée. Le violet ne dit
+  // que la faveur.
+  { val: 'inscrit', label: 'Inscrit',  short: '·',  cls: 'bg-[color-mix(in_srgb,var(--c-disponible)_11%,#fff)] border-[color-mix(in_srgb,var(--c-disponible)_32%,#fff)] text-[#2F6FB0]' },
+  { val: 'reussi',  label: 'Réussi',   short: '✓',  cls: 'bg-[color-mix(in_srgb,var(--c-reussi)_11%,#fff)] border-[color-mix(in_srgb,var(--c-reussi)_32%,#fff)] text-[#1B2B4B]' },
+  { val: 'va',      label: 'VA',       short: 'VA', cls: 'bg-[color-mix(in_srgb,var(--c-reussi)_11%,#fff)] border-[color-mix(in_srgb,var(--c-reussi)_32%,#fff)] text-[#1B2B4B]' },
   // La circulaire distingue l'AJOURNEMENT, qui ouvre une seconde session sur
   // des acquis précis, du REFUS, qui ne l'ouvre pas. Les confondre sous un même
   // libellé privait le Conseil des études d'une de ses trois décisions.
-  { val: 'ajourne', label: 'Ajourné',  short: 'Aj', cls: 'bg-amber-50 text-amber-800 border-amber-200' },
-  { val: 'refuse',  label: 'Refusé',   short: '✕',  cls: 'bg-red-50 text-red-700 border-red-200' },
+  { val: 'ajourne', label: 'Ajourné',  short: 'Aj', cls: 'bg-[color-mix(in_srgb,var(--c-attente)_11%,#fff)] border-[color-mix(in_srgb,var(--c-attente)_32%,#fff)] text-[#8A5A12]' },
+  { val: 'refuse',  label: 'Refusé',   short: '✕',  cls: 'bg-[color-mix(in_srgb,var(--c-refuse)_11%,#fff)] border-[color-mix(in_srgb,var(--c-refuse)_32%,#fff)] text-[#9D4A38]' },
   { val: 'absent',  label: 'Absent',   short: '–',  cls: 'bg-slate-50 text-slate-600 border-slate-200' },
 ];
 
@@ -340,6 +344,18 @@ function GrilleParcours({ etudId, peutEcrire, annee }) {
     return toutes;
   })();
   const aDetail = (annee, ueNum) => (data.detail || []).includes(annee + ':' + ueNum);
+  const moities = (() => {
+    const l = data.ues;
+    if (l.length < 8) return [l];
+    const blocs = l.map(u => (u.ue_niv || '').toUpperCase());
+    let coupe = Math.ceil(l.length / 2), meilleur = Infinity;
+    for (let k = 1; k < l.length; k++) {
+      if (blocs[k] !== blocs[k - 1] && Math.abs(k - l.length / 2) < meilleur) { meilleur = Math.abs(k - l.length / 2); coupe = k; }
+    }
+    // Pas de frontière de bloc raisonnable : on coupe au milieu.
+    if (meilleur > l.length / 4) coupe = Math.ceil(l.length / 2);
+    return [l.slice(0, coupe), l.slice(coupe)];
+  })();
   const idxAnnee = a => anneesAffichees.indexOf(a);
   const deplacable = cl => !!cl && cl.kind !== 'va';
   // Les cases qui arriveraient dans la colonne survolée, pour les montrer.
@@ -361,161 +377,174 @@ function GrilleParcours({ etudId, peutEcrire, annee }) {
 
   return (
     <div>
-      <div className="flex items-start justify-between gap-3 mb-3">
-        <p className="text-[12px] text-slate-500 flex-1 max-w-none">
-        Cliquez sur une case pour encoder.
-        {peutEcrire && <> Glissez une case vers une autre année pour la déplacer ; <b>Ctrl/⌘-clic</b> en
-        sélectionne plusieurs, qui se déplacent ensemble.</>} Une UE dont les prérequis ne sont pas acquis est
-        verrouillée <span className="text-slate-400">🔒</span> — l'encoder demande une dérogation (tracée).
-        Un halo <span className="inline-block w-3 h-3 rounded-sm bg-violet-100 border border-violet-300 align-middle"></span> suggère
-        une UE probablement acquise (inférence prérequis) à confirmer.
-        </p>
-        <div className="flex-none flex gap-1.5">
+      {/* RÉDUITE (Charles, 26 septembre 2026 : « faut réduire… on ne voit plus le
+          schéma »). L'aide passe dans la bulle ; les deux outils deviennent de
+          petits boutons dans le titre. */}
+      <div className="mb-4">
+      <div className="entete-plat">
+        <span className="text-[13px] font-semibold text-iip-blue">Notes par année</span>
+        <BulleAide titre="La grille des notes">
+          Cliquez sur une case pour encoder.
+          {peutEcrire && <> Glissez une case vers une autre année pour la déplacer ; Ctrl/⌘-clic en
+          sélectionne plusieurs, qui se déplacent ensemble.</>} Une UE dont les prérequis ne sont pas acquis
+          porte un cadenas 🔒 : l'encoder demande une dérogation, tracée. « à confirmer » signale une UE
+          probablement acquise d'après ses prérequis. Le point ● dit que des notes d'acquis sont encodées ;
+          le liseré de gauche, le bloc de l'unité.
+        </BulleAide>
+        <div className="ml-auto flex gap-1">
           {nbHistorique > 0 && (
-            <button onClick={() => setNbHistorique(0)}
-              title="Masquer les années antérieures vides"
-              className="px-2.5 py-1.5 text-[12px] border border-slate-300 rounded-lg hover:bg-slate-50">
-              » Masquer
-            </button>
+            <button onClick={() => setNbHistorique(0)} title="Masquer les années antérieures vides"
+              className="px-2 py-0.5 text-[11px] border border-slate-300 rounded-md hover:bg-slate-50">» masquer</button>
           )}
-          <button onClick={purgerAnnee}
-            title="Effacer les résultats ou les inscriptions d'une année"
-            className="px-2.5 py-1.5 text-[12px] border border-red-200 text-red-600 rounded-lg hover:bg-red-50">
-            Purger une année
-          </button>
           <button onClick={() => setNbHistorique(n => (n === 0 ? 5 : n + 3))}
             title="Afficher les années antérieures pour encoder l'historique"
-            className="px-2.5 py-1.5 text-[12px] border border-slate-300 rounded-lg hover:bg-slate-50">
-            « {nbHistorique === 0 ? 'Années antérieures' : 'Remonter encore'}
+            className="px-2 py-0.5 text-[11px] border border-slate-300 rounded-md hover:bg-slate-50">
+            « {nbHistorique === 0 ? 'années antérieures' : 'remonter encore'}
           </button>
+          <button onClick={purgerAnnee} title="Effacer les résultats ou les inscriptions d'une année"
+            className="px-2 py-0.5 text-[11px] border border-[#E3BFB5] text-[#9D4A38] rounded-md hover:bg-[#F7E9E5]">Purger…</button>
         </div>
       </div>
 
-      <div className="overflow-x-auto border border-slate-200 rounded-xl">
-        <table className="w-full text-sm border-collapse">
-          <thead>
-            <tr className="bg-slate-50 text-[11px] uppercase tracking-wide text-slate-500">
-              <th className="px-3 py-2 text-left sticky left-0 bg-slate-50 z-10 min-w-[260px]">UE</th>
-              <th className="px-2 py-2 text-left w-14">Niv.</th>
-              {anneesAffichees.map((a, i) => {
-                const derniere = i === anneesAffichees.length - 1;
+      {/* DEUX COLONNES (Charles, 26 septembre 2026 : « le tiroir est trop haut ;
+          en deux colonnes »). Les UE se partagent entre deux tableaux, coupés
+          entre deux BLOCS au plus près de la moitié ; chacun porte les mêmes
+          années. Une seule colonne sur un écran étroit. */}
+      <div className="grid gap-4 lg:grid-cols-2 items-start">
+      {moities.map((liste, iT) => (
+      <div key={iT} className="min-w-0">
+      <div className="overflow-x-auto">
+          <table className="w-full text-[12px] border-collapse">
+            <thead>
+              {/* LES ANNÉES SUR LA LIGNE DES BLOCS DU SCHÉMA (« les dates sur la
+                  même ligne ») : en-tête sans fond, de la hauteur des intitulés
+                  BA1, BA2… posés en tête du schéma. */}
+              <tr className="text-[10.5px] font-semibold text-slate-500">
+                <th className="px-2 py-1 text-left sticky left-0 bg-white z-10">UE</th>
+                {anneesAffichees.map((a, i) => {
+                  const derniere = i === anneesAffichees.length - 1;
+                  return (
+                    <th key={a}
+                      title={a}
+                      className={`px-1 py-1 text-center w-[52px] ${derniere
+                        ? 'sticky right-0 z-20 bg-iip-blue text-white shadow-[-6px_0_8px_-6px_rgba(0,0,0,0.18)]'
+                        : ''}`}>
+                      {a.replace(/^20(\d\d)-20(\d\d)$/, '$1-$2')}
+                    </th>
+                  );
+                })}
+              </tr>
+            </thead>
+            <tbody>
+              {liste.map(u => {
+                const verrou = !u.deverrouillee && !u.acquise;
                 return (
-                  <th key={a}
-                    className={`px-2 py-2 text-center min-w-[92px] ${derniere
-                      ? 'sticky right-0 z-20 bg-iip-blue text-white shadow-[-6px_0_8px_-6px_rgba(0,0,0,0.18)]'
-                      : ''}`}>
-                    {a}
-                    {derniere && <span className="block text-[8.5px] font-normal text-blue-200">à venir</span>}
-                  </th>
+                  <tr key={u.section + '-' + u.ue_num} className="border-t border-slate-100">
+                    {/* Le BLOC se lit au liseré, la colonne « Niv. » disparaît. */}
+                    <td className="px-2 py-0.5 sticky left-0 bg-white z-10 whitespace-nowrap max-w-[16rem] overflow-hidden text-ellipsis border-l-[3px]"
+                      style={{ borderLeftColor: couleurBloc(u.ue_niv) || '#D8DCE4' }}
+                      title={`UE ${u.ue_num} — ${u.ue_nom || ''}${u.ue_niv ? ' · ' + u.ue_niv : ''}`}>
+                      <span className="font-semibold text-iip-blue">{u.ue_num}</span>
+                      <span className="text-slate-600 ml-1.5 inline-block max-w-[13rem] truncate align-bottom">{u.ue_nom}</span>
+                      {verrou && <span className="ml-1.5 text-[11px]"
+                        title={'Exige : UE ' + ((u.prereq_chaine?.length ? u.prereq_chaine : u.prerequis) || []).join(', ')}>🔒</span>}
+                      {u.suggeree && <span className="ml-1.5 text-[10px] px-1 py-0.5 rounded bg-violet-50 text-violet-600 border border-violet-200" title="Probablement acquise (inférence prérequis) — à confirmer">à confirmer</span>}
+                      {u.hors_referentiel && (
+                        <span className="ml-1.5 text-[10px] px-1 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-200"
+                          title="Cette unité appartient à une autre section, ou sa section est inconnue">
+                          autre section
+                        </span>
+                      )}
+                      {u.hors_millesime && (
+                        <span className="ml-1.5 text-[10px] px-1 py-0.5 rounded bg-slate-100 text-slate-500"
+                          title="Unité de la section, absente du programme de l'année en cours">
+                          hors programme {annee}
+                        </span>
+                      )}
+                    </td>
+                    {anneesAffichees.map((a, iCol) => {
+                      const derniere = iCol === anneesAffichees.length - 1;
+                      const cl = cell(a, u.ue_num);
+                      const kind = cl && KINDS_CELLULE.find(k => k.val === cl.kind);
+                      return (
+                        <td key={a}
+                          onDragOver={glisse ? ev => { ev.preventDefault(); if (survol !== a) setSurvol(a); } : undefined}
+                          onDrop={glisse ? ev => { ev.preventDefault(); deposer(a); } : undefined}
+                          className={`px-0.5 py-0.5 text-center ${derniere
+                            ? 'sticky right-0 z-10 bg-white shadow-[-6px_0_8px_-6px_rgba(0,0,0,0.10)]'
+                            : ''} ${arrivees.has(`${a}|${u.ue_num}`) ? '!bg-[#EAF1FA]' : ''}`}>
+                          <button
+                            draggable={peutEcrire && deplacable(cl)}
+                            onDragStart={ev => {
+                              const cle = `${a}|${u.ue_num}`;
+                              const cases = choix.has(cle)
+                                ? [...choix].map(k => { const [an, ue] = k.split('|'); return { annee: an, ue_num: Number(ue) }; })
+                                : [{ annee: a, ue_num: u.ue_num }];
+                              ev.dataTransfer.effectAllowed = 'move';
+                              ev.dataTransfer.setData('text/plain', cle);
+                              setGlisse({ de: a, cases });
+                            }}
+                            onDragEnd={() => { setGlisse(null); setSurvol(null); }}
+                            onClick={ev => {
+                              if (!peutEcrire) return;
+                              if ((ev.metaKey || ev.ctrlKey || ev.shiftKey) && deplacable(cl)) {
+                                const cle = `${a}|${u.ue_num}`;
+                                setChoix(c0 => { const c = new Set(c0); c.has(cle) ? c.delete(cle) : c.add(cle); return c; });
+                                return;
+                              }
+                              if (choix.size) setChoix(new Set());
+                              if (!verrou || cl) { setPopover({ annee: a, ue_num: u.ue_num, verrou: false }); return; }
+                              // Prérequis manquants : sont-ils inscrits (ou mieux) la même année ?
+                              const acquisSet = new Set(data.ues.filter(x => x.acquise).map(x => x.ue_num));
+                              const nivMap = Object.fromEntries(data.ues.map(x => [x.ue_num, (x.ue_niv || '').toUpperCase()]));
+                              const manquants = u.prerequis.filter(p => !acquisSet.has(p));
+                              const memeAnnee = manquants.length > 0 && manquants.every(p =>
+                                cell(a, p) && nivMap[p] === (u.ue_niv || '').toUpperCase());
+                              if (memeAnnee) {
+                                // Inscription simultanée normale — sous réserve, pas de dérogation
+                                setPopover({ annee: a, ue_num: u.ue_num, verrou: false, sousReserve: manquants });
+                              } else if (window.confirm(
+                                  'UE verrouillée — exige la réussite de : UE '
+                                  + ((u.prereq_chaine?.length ? u.prereq_chaine : u.prerequis) || []).join(', ')
+                                  + '.\n\nL\'exigence est transitive : une UE prérequise a elle-même ses prérequis.'
+                                  + '\n\nEncoder quand même avec dérogation ?')) {
+                                setPopover({ annee: a, ue_num: u.ue_num, verrou: true });
+                              }
+                            }}
+                            className={`w-11 h-[22px] text-[11px] font-semibold tabular-nums rounded-md border px-0.5 transition
+                              ${kind ? kind.cls : 'border-transparent text-slate-300 hover:border-slate-200 hover:bg-slate-50'}
+                              ${cl?.derogation ? 'ring-1 ring-amber-400' : ''}
+                              ${choix.has(`${a}|${u.ue_num}`) ? 'ring-2 ring-[#2F6FB0] ring-offset-1' : ''}
+                              ${peutEcrire && deplacable(cl) ? 'cursor-grab active:cursor-grabbing' : ''}`}
+                            title={cl?.derogation ? 'Encodée avec dérogation' : ''}>
+                            {kind
+                              ? (kind.val === 'reussi' ? (cl.points != null ? String(Math.round(cl.points)) : '✓')
+                                 : kind.val === 'va' ? (cl.points != null ? 'VA ' + cl.points : 'VA')
+                                 : kind.short)
+                              : '·'}
+                            {aDetail(a, u.ue_num) && <span className="ml-0.5 align-super text-[8px]">●</span>}
+                            {(() => {
+                              if (!cl || cl.kind !== 'inscrit') return null;
+                              const acquisSet = new Set(data.ues.filter(x => x.acquise).map(x => x.ue_num));
+                              const nivMap = Object.fromEntries(data.ues.map(x => [x.ue_num, (x.ue_niv || '').toUpperCase()]));
+                              const manquants = u.prerequis.filter(p => !acquisSet.has(p));
+                              if (manquants.length && manquants.every(p => cell(a, p) && nivMap[p] === (u.ue_niv || '').toUpperCase()))
+                                return <span className="ml-0.5 text-[10px]" title={'Sous réserve — réussite UE ' + manquants.join(', ') + ' requise en cours d\'année'}>⏳</span>;
+                              return null;
+                            })()}
+                          </button>
+                        </td>
+                      );
+                    })}
+                  </tr>
                 );
               })}
-            </tr>
-          </thead>
-          <tbody>
-            {data.ues.map(u => {
-              const verrou = !u.deverrouillee && !u.acquise;
-              return (
-                <tr key={u.section + '-' + u.ue_num}
-                  className={`border-t border-slate-100 ${u.acquise ? 'bg-emerald-50/30' : ''}`}>
-                  <td className={`px-3 py-1.5 sticky left-0 bg-white z-10 ${u.acquise ? 'bg-emerald-50/60' : ''}`}>
-                    <span className="font-medium text-iip-blue">{u.ue_num}</span>
-                    <span className="text-slate-600 ml-1.5 text-[12px]">{u.ue_nom}</span>
-                    {verrou && <span className="ml-1.5 text-[11px]"
-                      title={'Exige : UE ' + ((u.prereq_chaine?.length ? u.prereq_chaine : u.prerequis) || []).join(', ')}>🔒</span>}
-                    {u.suggeree && <span className="ml-1.5 text-[10px] px-1 py-0.5 rounded bg-violet-50 text-violet-600 border border-violet-200" title="Probablement acquise (inférence prérequis) — à confirmer">à confirmer</span>}
-                    {u.hors_referentiel && (
-                      <span className="ml-1.5 text-[10px] px-1 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-200"
-                        title="Cette unité appartient à une autre section, ou sa section est inconnue">
-                        autre section
-                      </span>
-                    )}
-                    {u.hors_millesime && (
-                      <span className="ml-1.5 text-[10px] px-1 py-0.5 rounded bg-slate-100 text-slate-500"
-                        title="Unité de la section, absente du programme de l'année en cours">
-                        hors programme {annee}
-                      </span>
-                    )}
-                  </td>
-                  <td className="px-2 py-1.5"><BadgeUeNiveau niveau={u.ue_niv} /></td>
-                  {anneesAffichees.map((a, iCol) => {
-                    const derniere = iCol === anneesAffichees.length - 1;
-                    const cl = cell(a, u.ue_num);
-                    const kind = cl && KINDS_CELLULE.find(k => k.val === cl.kind);
-                    return (
-                      <td key={a}
-                        onDragOver={glisse ? ev => { ev.preventDefault(); if (survol !== a) setSurvol(a); } : undefined}
-                        onDrop={glisse ? ev => { ev.preventDefault(); deposer(a); } : undefined}
-                        className={`px-1.5 py-1.5 text-center ${derniere
-                          ? 'sticky right-0 z-10 bg-white shadow-[-6px_0_8px_-6px_rgba(0,0,0,0.10)]'
-                          : ''} ${arrivees.has(`${a}|${u.ue_num}`) ? '!bg-[#EAF1FA]' : ''}`}>
-                        <button
-                          draggable={peutEcrire && deplacable(cl)}
-                          onDragStart={ev => {
-                            const cle = `${a}|${u.ue_num}`;
-                            const cases = choix.has(cle)
-                              ? [...choix].map(k => { const [an, ue] = k.split('|'); return { annee: an, ue_num: Number(ue) }; })
-                              : [{ annee: a, ue_num: u.ue_num }];
-                            ev.dataTransfer.effectAllowed = 'move';
-                            ev.dataTransfer.setData('text/plain', cle);
-                            setGlisse({ de: a, cases });
-                          }}
-                          onDragEnd={() => { setGlisse(null); setSurvol(null); }}
-                          onClick={ev => {
-                            if (!peutEcrire) return;
-                            if ((ev.metaKey || ev.ctrlKey || ev.shiftKey) && deplacable(cl)) {
-                              const cle = `${a}|${u.ue_num}`;
-                              setChoix(c0 => { const c = new Set(c0); c.has(cle) ? c.delete(cle) : c.add(cle); return c; });
-                              return;
-                            }
-                            if (choix.size) setChoix(new Set());
-                            if (!verrou || cl) { setPopover({ annee: a, ue_num: u.ue_num, verrou: false }); return; }
-                            // Prérequis manquants : sont-ils inscrits (ou mieux) la même année ?
-                            const acquisSet = new Set(data.ues.filter(x => x.acquise).map(x => x.ue_num));
-                            const nivMap = Object.fromEntries(data.ues.map(x => [x.ue_num, (x.ue_niv || '').toUpperCase()]));
-                            const manquants = u.prerequis.filter(p => !acquisSet.has(p));
-                            const memeAnnee = manquants.length > 0 && manquants.every(p =>
-                              cell(a, p) && nivMap[p] === (u.ue_niv || '').toUpperCase());
-                            if (memeAnnee) {
-                              // Inscription simultanée normale — sous réserve, pas de dérogation
-                              setPopover({ annee: a, ue_num: u.ue_num, verrou: false, sousReserve: manquants });
-                            } else if (window.confirm(
-                                'UE verrouillée — exige la réussite de : UE '
-                                + ((u.prereq_chaine?.length ? u.prereq_chaine : u.prerequis) || []).join(', ')
-                                + '.\n\nL\'exigence est transitive : une UE prérequise a elle-même ses prérequis.'
-                                + '\n\nEncoder quand même avec dérogation ?')) {
-                              setPopover({ annee: a, ue_num: u.ue_num, verrou: true });
-                            }
-                          }}
-                          className={`w-full min-h-[30px] text-[12px] font-medium rounded-lg border px-1 py-1 transition
-                            ${kind ? kind.cls : 'border-transparent text-slate-300 hover:border-slate-200 hover:bg-slate-50'}
-                            ${cl?.derogation ? 'ring-1 ring-amber-400' : ''}
-                            ${choix.has(`${a}|${u.ue_num}`) ? 'ring-2 ring-[#2F6FB0] ring-offset-1' : ''}
-                            ${peutEcrire && deplacable(cl) ? 'cursor-grab active:cursor-grabbing' : ''}`}
-                          title={cl?.derogation ? 'Encodée avec dérogation' : ''}>
-                          {kind
-                            ? (kind.val === 'reussi' ? (cl.points != null ? cl.points + '/20' : '✓')
-                               : kind.val === 'va' ? (cl.points != null ? 'VA ' + cl.points : 'VA')
-                               : kind.short)
-                            : '·'}
-                          {aDetail(a, u.ue_num) && <span className="ml-0.5 align-super text-[8px]">●</span>}
-                          {(() => {
-                            if (!cl || cl.kind !== 'inscrit') return null;
-                            const acquisSet = new Set(data.ues.filter(x => x.acquise).map(x => x.ue_num));
-                            const nivMap = Object.fromEntries(data.ues.map(x => [x.ue_num, (x.ue_niv || '').toUpperCase()]));
-                            const manquants = u.prerequis.filter(p => !acquisSet.has(p));
-                            if (manquants.length && manquants.every(p => cell(a, p) && nivMap[p] === (u.ue_niv || '').toUpperCase()))
-                              return <span className="ml-0.5 text-[10px]" title={'Sous réserve — réussite UE ' + manquants.join(', ') + ' requise en cours d\'année'}>⏳</span>;
-                            return null;
-                          })()}
-                        </button>
-                      </td>
-                    );
-                  })}
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      ))}
+      </div>
       </div>
 
       {depl && (() => {
@@ -1684,55 +1713,105 @@ function DossierApprenant({ etudId }) {
  * n'emmène pas ailleurs — on reste sur le dossier ouvert s'il en fait encore
  * partie, et sinon on prend le premier de la nouvelle liste.
  */
-function BarreParcours({ position, onPrec, onSuiv, portee, onPortee, sections, ues, annees }) {
-  const { i = 0, n = 0 } = position || {};
-  const champ = `border border-slate-300 rounded-lg px-2 py-1 text-[12px] bg-white
-                 max-w-[190px]`;
+/* LA NAVIGATION DANS LA RANGÉE D'ONGLETS (2.12.212, Charles : « moche »).
+ * Cinq bandes s'empilaient au-dessus du parcours ; la navigation 7 / 934 en
+ * était une à elle seule. Elle se loge à gauche des onglets, et les filtres
+ * « Parcourir » dans un menu, au bout de la rangée. */
+/* LES NOTES DANS UN TIROIR (2.12.217, Charles, 26 septembre 2026 : « ta
+ * proposition 4 est excellente », « un tiroir qui s'ouvre de droite à
+ * gauche »). Le schéma a toute la largeur ; la grille des notes glisse depuis
+ * le bord droit, PAR-DESSUS, et se referme sur une languette. Son état est
+ * gardé d'une fiche à l'autre (préférence de ce navigateur seulement). La
+ * zone prend la hauteur du tiroir quand il est plus haut que le schéma, pour
+ * qu'il ne recouvre pas le programme dessous. */
+function TiroirNotes({ children }) {
+  const CLE = 'lucie.fiche.notes-ouvertes';
+  const [ouvert, setOuvert] = useState(() => { try { return localStorage.getItem(CLE) !== '0'; } catch { return true; } });
+  const [hauteur, setHauteur] = useState(0);
+  const panneau = useRef(null);
+  useEffect(() => { try { localStorage.setItem(CLE, ouvert ? '1' : '0'); } catch { /* navigation privée */ } }, [ouvert]);
+  useEffect(() => {
+    const el = panneau.current;
+    if (!el || typeof ResizeObserver === 'undefined') return;
+    const ro = new ResizeObserver(() => setHauteur(el.offsetHeight));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
   return (
-    <div className="px-6 py-2 bg-slate-50 border-b border-slate-200
-                    flex items-center justify-between gap-3 flex-wrap">
-      <div className="flex items-center gap-2">
-        <button onClick={onPrec} disabled={i <= 1} title="Dossier précédent (flèche gauche)"
-          className="p-1.5 rounded-lg border border-slate-300 bg-white text-slate-600
-                     disabled:opacity-30">
-          <IconChevronLeft size={16} />
-        </button>
-        <span className="text-[12px] text-slate-600 tabular-nums w-20 text-center">
-          {n ? `${i} / ${n}` : '—'}
-        </span>
-        <button onClick={onSuiv} disabled={!n || i >= n} title="Dossier suivant (flèche droite)"
-          className="p-1.5 rounded-lg border border-slate-300 bg-white text-slate-600
-                     disabled:opacity-30">
-          <IconChevronRight size={16} />
-        </button>
+    /* LE TIROIR S'OUVRE SOUS LA BANDE DE TITRE DU SCHÉMA (2.12.218 — « ça passe
+       derrière ») : posé à la même hauteur, il coupait le titre en deux. */
+    <div className="relative pt-3 overflow-x-clip" style={{ minHeight: ouvert ? hauteur + 56 : undefined }}>
+      <div className="pr-9">{children.schema}</div>
+      {/* La languette, toujours là : elle ouvre et ferme. Tiroir fermé, c'est
+          une poignée qui dépasse du bord ; ouvert, elle DEVIENT le bord droit
+          du tiroir — toute sa hauteur, coins arrondis à droite — et le mot
+          change de sens (Charles, 26 septembre 2026). */}
+      <button type="button" onClick={() => setOuvert(o => !o)}
+        title={ouvert ? 'Refermer les notes' : 'Ouvrir les notes par année'}
+        style={ouvert && hauteur ? { height: hauteur } : undefined}
+        className={`absolute right-0 top-[3.25rem] z-20 w-7 bg-iip-blue text-white text-[11px] font-semibold py-3 flex flex-col items-center gap-1
+          ${ouvert ? 'rounded-r-carte justify-center' : 'rounded-l-champ shadow-pose'}`}>
+        <span className={`[writing-mode:vertical-rl] ${ouvert ? '' : 'rotate-180'}`}>Notes</span>
+        <span aria-hidden="true">{ouvert ? '›' : '‹'}</span>
+      </button>
+      {/* Le tiroir : il glisse de droite à gauche, jusqu'aux trois cinquièmes. */}
+      <div ref={panneau} aria-hidden={!ouvert}
+        className={`absolute right-7 top-[3.25rem] z-10 w-[min(92%,1400px)] bg-white border border-slate-200 border-r-0 rounded-l-carte shadow-flottant p-3
+          transition-transform duration-300 ease-ios origin-right ${ouvert ? 'translate-x-0' : 'translate-x-[calc(100%+1.75rem)] pointer-events-none'}`}>
+        {children.notes}
       </div>
+    </div>
+  );
+}
 
-      <div className="flex items-center gap-2 flex-wrap">
-        <span className="text-[11px] text-slate-500">Parcourir</span>
-        <select className={champ} value={portee.section}
-          onChange={e => onPortee({ ...portee, section: e.target.value, ue_num: '' })}>
-          <option value="">Toutes les sections</option>
-          {(sections || []).map(x => (
-            <option key={x.code} value={x.code}>{x.libelle || x.code}</option>
-          ))}
-        </select>
-        <select className={champ} value={portee.annee}
-          onChange={e => onPortee({ ...portee, annee: e.target.value })}>
-          <option value="">Toutes les années</option>
-          {(annees || []).map(a => <option key={a} value={a}>{a}</option>)}
-        </select>
-        <select className={champ} value={portee.ue_num}
-          onChange={e => onPortee({ ...portee, ue_num: e.target.value })}
-          disabled={!ues?.length}
-          title={ues?.length ? '' : 'Choisissez d’abord une section'}>
-          <option value="">Toutes les UE</option>
-          {(ues || []).map(u => (
-            <option key={u.ue_num} value={u.ue_num}>
-              {u.ue_num} — {u.ue_nom || ''}
-            </option>
-          ))}
-        </select>
-      </div>
+function NavFiche({ position, onPrec, onSuiv }) {
+  const { i = 0, n = 0 } = position || {};
+  return (
+    <div className="flex items-center gap-1 mr-3 pr-3 border-r border-slate-200">
+      <button onClick={onPrec} disabled={i <= 1} title="Dossier précédent (flèche gauche)"
+        className="p-1 rounded-md border border-slate-300 bg-white text-slate-600 disabled:opacity-30">
+        <IconChevronLeft size={14} />
+      </button>
+      <span className="text-[12px] text-slate-600 tabular-nums min-w-[4.5rem] text-center">{n ? `${i} / ${n}` : '—'}</span>
+      <button onClick={onSuiv} disabled={!n || i >= n} title="Dossier suivant (flèche droite)"
+        className="p-1 rounded-md border border-slate-300 bg-white text-slate-600 disabled:opacity-30">
+        <IconChevronRight size={14} />
+      </button>
+    </div>
+  );
+}
+function MenuParcourir({ portee, onPortee, sections, ues, annees }) {
+  const [ouvert, setOuvert] = useState(false);
+  const actifs = [portee.section, portee.annee, portee.ue_num].filter(Boolean).length;
+  const champ = 'controle w-full border border-slate-300 rounded-champ bg-white text-[12px]';
+  return (
+    <div className="relative">
+      <button type="button" onClick={() => setOuvert(o => !o)}
+        title="Les dossiers que les flèches parcourent"
+        className={`bouton bouton-compact inline-flex items-center gap-1 ${actifs ? 'border-[#1B2B4B] text-iip-blue' : ''}`}>
+        Parcourir{actifs ? ` · ${actifs}` : ''} <IconChevronRight size={12} className={`transition ${ouvert ? 'rotate-90' : ''}`} />
+      </button>
+      {ouvert && (
+        <div className="absolute right-0 top-full mt-1 z-30 w-72 bg-white border border-slate-200 rounded-carte shadow-flottant p-3 space-y-2"
+          onMouseLeave={() => setOuvert(false)}>
+          <div className="text-[11px] text-slate-500">Les flèches ‹ › passent d'un dossier à l'autre parmi :</div>
+          <select className={champ} value={portee.section}
+            onChange={e => onPortee({ ...portee, section: e.target.value, ue_num: '' })}>
+            <option value="">Toutes les sections</option>
+            {(sections || []).map(x => <option key={x.code} value={x.code}>{x.libelle || x.code}</option>)}
+          </select>
+          <select className={champ} value={portee.annee} onChange={e => onPortee({ ...portee, annee: e.target.value })}>
+            <option value="">Toutes les années</option>
+            {(annees || []).map(a => <option key={a} value={a}>{a}</option>)}
+          </select>
+          <select className={champ} value={portee.ue_num} disabled={!ues?.length}
+            onChange={e => onPortee({ ...portee, ue_num: e.target.value })}
+            title={ues?.length ? '' : 'Choisissez d’abord une section'}>
+            <option value="">Toutes les UE</option>
+            {(ues || []).map(u => <option key={u.ue_num} value={u.ue_num}>{u.ue_num} — {u.ue_nom || ''}</option>)}
+          </select>
+        </div>
+      )}
     </div>
   );
 }
@@ -1974,18 +2053,14 @@ function FicheEtudiant({ id, annee, onClose, position, onPrec, onSuiv,
       large="ecran" onFermer={onClose}>
       <div className="-mx-5 -my-4">
 
-        {(onPrec || onSuiv) && (
-          <BarreParcours position={position} onPrec={onPrec} onSuiv={onSuiv}
-            portee={portee} onPortee={onPortee}
-            sections={sections} ues={ues} annees={annees} />
-        )}
 
         {/* Onglets — et, au bout de la rangée, IMPRIMER OU ENVOYER (Charles, 26
             septembre 2026 : « supprimer Documents et mettre le lien vers le
             centre d'édition », « dans la rangée d'onglets »). Visible quel que
             soit l'onglet : les pièces d'un étudiant ne dépendent pas de la face
             qu'on regarde. */}
-        <div className="flex items-center border-b border-slate-200 px-6">
+        <div className="flex items-center border-b border-slate-200 px-5">
+          {(onPrec || onSuiv) && <NavFiche position={position} onPrec={onPrec} onSuiv={onSuiv} />}
           {/* Le PARCOURS réunit ce que la grille et le PAE disaient de deux
               façons : le schéma, l'acquis, et le programme proposé. Les
               VALORISATIONS et le DROIT D'INSCRIPTION se rejoignent aussi —
@@ -2004,11 +2079,16 @@ function FicheEtudiant({ id, annee, onClose, position, onPrec, onSuiv,
               {l}
             </button>
           ))}
+          <div className="ml-auto flex items-center gap-2 my-1">
+          {(onPrec || onSuiv) && portee && (
+            <MenuParcourir portee={portee} onPortee={onPortee} sections={sections} ues={ues} annees={annees} />
+          )}
           <button type="button" onClick={() => setEdition(true)}
             title="Le centre d'édition, avec les pièces de cet étudiant en tête"
-            className="bouton bouton-sortir ml-auto my-1 inline-flex items-center gap-1.5">
+            className="bouton bouton-sortir bouton-compact inline-flex items-center gap-1.5">
             <IconSend size={14} /> Imprimer ou envoyer
           </button>
+          </div>
         </div>
         {edition && (
           <CentreImpressionCentral onClose={() => setEdition(false)}
@@ -2028,9 +2108,9 @@ function FicheEtudiant({ id, annee, onClose, position, onPrec, onSuiv,
             le contenu, elles ne pouvaient pas rester visibles : le défilement
             est porté par la fenêtre entière, non par l'onglet. */}
               {onglet === 'parcours' && pae && !pae.erreur && (
-                <div className="sticky top-0 z-30 bg-white/95 backdrop-blur border-b border-slate-200 px-6 py-2.5 flex gap-2 items-center flex-wrap">
+                <div className="sticky top-0 z-30 bg-white/95 backdrop-blur border-b border-slate-200 px-5 py-1.5 flex gap-2 items-center flex-wrap">
                   <button onClick={enregistrerPAE} disabled={enregistrement}
-                    className="bouton bouton-fort">
+                    className="bouton bouton-fort bouton-compact">
                     <IconCheck size={14} />
                     {enregistrement ? 'Enregistrement…' : 'Enregistrer le PAE'}
                   </button>
@@ -2038,7 +2118,7 @@ function FicheEtudiant({ id, annee, onClose, position, onPrec, onSuiv,
                     title={paeConfirme
                       ? 'Retirer la confirmation — les inscriptions sont conservées'
                       : "Confirmer le programme : l'étudiant passe en inscrit"}
-                    className="bouton">
+                    className="bouton bouton-compact">
                     <IconWritingSign size={14} />
                     {paeConfirme ? 'Programme confirmé' : 'Confirmer le programme'}
                   </button>
@@ -2053,7 +2133,7 @@ function FicheEtudiant({ id, annee, onClose, position, onPrec, onSuiv,
                 </div>
               )}
 
-        <div className="p-6">
+        <div className="px-5 py-3">
           {/* Inscriptions + résultats */}
           {onglet === 'va' && <Valorisations etudId={id} annee={annee} />}
 
@@ -2151,14 +2231,12 @@ function FicheEtudiant({ id, annee, onClose, position, onPrec, onSuiv,
                   le schéma à gauche, les notes par année à droite — la vue
                   d'ensemble et le détail d'un seul regard, sans faire défiler.
                   Sur un écran étroit, l'un revient sous l'autre. */}
-              <div className="pt-3 grid gap-4 items-start xl:grid-cols-[minmax(0,5fr)_minmax(0,6fr)]">
-                <div className="min-w-0">
-                  <SchemaCapitalisation etudId={id} annee={annee} />
-                </div>
-                <div className="min-w-0">
-                  <GrilleParcours etudId={id} peutEcrire={true} annee={annee} />
-                </div>
-              </div>
+              <TiroirNotes>
+                {{
+                  schema: <SchemaCapitalisation etudId={id} annee={annee} />,
+                  notes: <GrilleParcours etudId={id} peutEcrire={true} annee={annee} />,
+                }}
+              </TiroirNotes>
 
               <div className="border-t border-slate-200 mt-4 pt-4">
               {/* Ce qui suit est une PROPOSITION tant qu'elle n'est pas

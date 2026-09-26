@@ -93,8 +93,16 @@ function timeAgo(iso) {
  * (un compte dont le nom tient en un seul mot), on prend l'adresse plutôt que
  * de tutoyer quelqu'un par son patronyme.
  */
+/* « BONJOUR VÉRONIQUE ! » — LE PRÉNOM SEUL, CAPITALISÉ (Charles, 26 septembre
+ * 2026). Le serveur le calcule ; à défaut, on le lit du nom complet — les mots
+ * qui ne sont pas en capitales —, jamais de l'adresse, qui donnait
+ * « veronique.moiny ». */
 function salutation(u) {
-  return u?.prenom || u?.email?.split('@')[0] || 'vous';
+  if (u?.prenom) return u.prenom;
+  const mots = String(u?.nom || '').trim().split(/\s+/).filter(Boolean);
+  const prenom = mots.find(m => m !== m.toLocaleUpperCase('fr'));
+  if (prenom) return prenom.charAt(0).toLocaleUpperCase('fr') + prenom.slice(1).toLocaleLowerCase('fr');
+  return 'à vous';
 }
 
 /**
@@ -609,7 +617,7 @@ export default function Accueil() {
             que la première icône du rail, et ne répondait donc à rien. Une
             seule échelle, et rien en dehors. */}
         <PageHeader
-          titre={`Bonjour, ${salutation(u)} !`}
+          titre={`Bonjour ${salutation(u)} !`}
           /* CE QU'ON REGARDE SE DIT EN HAUT DE L'ÉCRAN. Le filtre vivant
              désormais dans une fenêtre, rien ne dirait plus qu'on ne voit
              qu'une partie des événements — et c'est ainsi qu'on croit un

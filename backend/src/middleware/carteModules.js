@@ -75,7 +75,13 @@ export const CARTE = {
   locaux:                  'planification',
   sequence:                'planification',
   calendrier:              'organisation',
-  annees:                  'organisation',
+  // LA LISTE DES ANNÉES N'APPARTIENT À AUCUN MODULE (2.12.216). Elle servait
+  // de porte à « Organisation » : un compte dont la case Organisation est
+  // décochée — une coordination qui ne fait qu'encoder — ne pouvait plus
+  // changer d'année, ni en haut de Lucie ni dans « Mes cours » (Véronique
+  // Moiny, 26 septembre 2026). Toutes les écritures de /api/annees restent
+  // réservées par rôle (admin, éditeur), route par route.
+  annees:                  null,
   annuel:                  'organisation',
   rentree:                 'organisation',
   aa:                      'organisation',   // acquis d'apprentissage : référentiel

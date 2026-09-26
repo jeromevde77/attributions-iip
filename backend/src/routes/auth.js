@@ -417,7 +417,12 @@ r.get('/me', authRequired, (req, res) => {
       'SELECT role, permissions_json, nom_complet, email, professeur_id FROM utilisateur WHERE id = ?')
       .get(req.user.id) || null;
   } catch { frais = null; }
-  res.json({ user: frais ? { ...req.user, ...frais } : req.user });
+  // LE PRÉNOM AUSSI (2.12.215) : un compte connecté avant que le prénom soit
+  // calculé à la connexion gardait « Bonjour, veronique.moiny ! » pendant les
+  // trente jours du jeton.
+  res.json({ user: frais
+    ? { ...req.user, ...frais, nom: frais.nom_complet || req.user.nom, prenom: prenomSeul(frais.nom_complet) || null }
+    : req.user });
 });
 
 // Liste des comptes ayant un accès Lucie (admin uniquement) — pour le mode "voir comme"
