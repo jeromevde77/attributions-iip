@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import db from '../db/index.js';
-import { authRequired, roleRequired } from '../middleware/auth.js';
+import { authRequired, roleRequired, getUserSections } from '../middleware/auth.js';
 import { anneeDeTravail } from '../helpers/annee.js';
 import { PEUT_INSTRUIRE } from '../lib/valorisation.js';
 
@@ -67,6 +67,12 @@ const r = Router();
       `);
       console.log('[migration] note_proposee : passage par acquis (aa_code)');
     }
+    /* PP ET NP (Charles, 26 septembre 2026) : « pas présenté » et « note de
+     * présence ». Ce ne sont pas des notes : la note reste vide et la MENTION
+     * dit pourquoi — une case vide, elle, veut dire « rien de proposé ». */
+    if (!db.prepare('PRAGMA table_info(note_proposee)').all().some(c => c.name === 'mention')) {
+      db.exec('ALTER TABLE note_proposee ADD COLUMN mention TEXT');
+    }
   } catch (e) { console.error('[migration] note_proposee :', e.message); }
 })();
 
@@ -77,11 +83,11 @@ function acquisDuCours(coursCode, ueNum, annee) {
   try {
     const lies = db.prepare(`
       SELECT p.aa_code, COALESCE(a.description, '') AS description,
-             COALESCE(a.aa_num, 999) AS aa_num
+             COALESCE(a.aa_num, 999) AS aa_num, p.poids
       FROM aa_ponderation p LEFT JOIN aa a ON a.aa_code = p.aa_code
       WHERE p.ue_num = ? AND p.annee_scolaire = ? AND p.cours_code = ?
       ORDER BY aa_num, p.aa_code`).all(ueNum, annee, coursCode);
-    if (lies.length) return lies.map(x => ({ aa_code: x.aa_code, description: x.description }));
+    if (lies.length) return lies.map(x => ({ aa_code: x.aa_code, description: x.description, poids: x.poids ?? null }));
     return db.prepare(`
       SELECT aa_code, COALESCE(description, '') AS description
       FROM aa WHERE ue_num = ? AND cours_code = ?
@@ -169,14 +175,71 @@ function etudiantsDuCours(profId, coursCode, annee) {
   return { miennes, ueNum, etudiants, repartition };
 }
 
+/* LA COORDINATION VOIT TOUS LES COURS DE SA SECTION (Charles, 26 septembre
+ * 2026 : « comme elle a un rôle de coordination, elle doit pouvoir encoder les
+ * notes dans Mes cours de tous les cours de TIM ; idem pour les autres
+ * coordinations dans leur section »). Ses propres attributions d'abord, puis
+ * les autres cours des sections de son périmètre — `getUserSections`, le même
+ * que partout : `null` veut dire toutes. Pour un cours qui n'est pas le sien,
+ * ses étudiants sont tous les inscrits de l'unité. Cela reste une PROPOSITION
+ * de notes (`note_proposee`), reprise ensuite dans l'encodage officiel. */
+function sectionsCoordination(req) {
+  if (req.user?.role !== 'coordination') return [];
+  const s = getUserSections(req.user);
+  return s === null ? null : s;        // null : toutes les sections
+}
+function coursDesSections(sections, annee) {
+  if (Array.isArray(sections) && !sections.length) return [];
+  const ph = Array.isArray(sections) ? sections.map(() => '?').join(',') : null;
+  // Un agrégat ne se passe pas à une sous-requête corrélée (SQLite refuse
+  // « misuse of aggregate ») : on regroupe d'abord, on nomme l'unité ensuite.
+  return db.prepare(`
+    SELECT g.*, (SELECT x.ue_nom FROM ue x WHERE x.ue_num = g.ue_num AND x.ue_nom IS NOT NULL
+                  ORDER BY x.annee_scolaire DESC LIMIT 1) AS ue_nom
+    FROM (
+      SELECT c.cours_code, MIN(c.cours_nom) AS cours_nom, MIN(c.ue_num) AS ue_num, MIN(c.section) AS section
+      FROM cours c
+      WHERE c.annee_scolaire = ? AND c.cours_code IS NOT NULL
+        ${ph ? `AND c.section IN (${ph})` : ''}
+      GROUP BY c.cours_code
+    ) g
+    ORDER BY g.ue_num, g.cours_code`).all(annee, ...(ph ? sections : []));
+}
+/** Qui peut ouvrir ce cours, et avec quels étudiants : ses attributions
+ *  d'abord ; à défaut, la coordination de la section. `null` : personne. */
+function accesCours(req, coursCode, annee) {
+  const profId = profDe(req);
+  const mien = profId ? etudiantsDuCours(profId, coursCode, annee) : null;
+  if (mien) return { ...mien, portee: 'attribution' };
+  const secs = sectionsCoordination(req);
+  if (secs !== null && !secs.length) return null;
+  const c = coursDesSections(secs, annee).find(x => x.cours_code === coursCode);
+  if (!c) return null;
+  const groupes = new Map();
+  for (const g of db.prepare(`SELECT etudiant_id, num_organisation, groupe_code FROM etudiant_cours_groupe
+      WHERE annee_scolaire = ? AND cours_code = ?`).all(annee, coursCode)) {
+    const l = `Org ${g.num_organisation ?? 1}${g.groupe_code ? ` · Gr. ${g.groupe_code}` : ''}`;
+    groupes.set(g.etudiant_id, groupes.has(g.etudiant_id) ? `${groupes.get(g.etudiant_id)} + ${l}` : l);
+  }
+  const etudiants = db.prepare(`
+    SELECT e.id, e.nom, e.prenom, e.id_ecampus
+    FROM etudiant_inscription i JOIN etudiant e ON e.id = i.etudiant_id
+    WHERE i.annee_scolaire = ? AND i.ue_num = ? AND e.actif = 1
+    ORDER BY e.nom, e.prenom`).all(annee, c.ue_num)
+    .map(e => ({ ...e, groupe: groupes.get(e.id) || '' }));
+  return { miennes: [], ueNum: c.ue_num, etudiants, repartition: groupes.size > 0, portee: 'coordination' };
+}
+
 // ── Mes cours de l'année ─────────────────────────────────────────────────────
 r.get('/', authRequired, (req, res) => {
   const annee = req.query.annee || anneeDeTravail(req);
   const profId = profDe(req);
-  if (!profId) {
+  const secs = sectionsCoordination(req);
+  const coordination = secs === null || secs.length > 0;
+  if (!profId && !coordination) {
     return res.status(403).json({ error: "Ce compte n'est lié à aucun dossier professeur." });
   }
-  const attrs = attributionsDe(profId, annee);
+  const attrs = profId ? attributionsDe(profId, annee) : [];
   const parCours = new Map();
   for (const a of attrs) {
     const c = parCours.get(a.code_cours) || {
@@ -188,31 +251,39 @@ r.get('/', authRequired, (req, res) => {
   }
   const cours = [...parCours.values()].map(c => {
     const d = etudiantsDuCours(profId, c.cours_code, annee);
-    return { ...c, nb_etudiants: d ? d.etudiants.length : 0,
+    return { ...c, a_moi: true, nb_etudiants: d ? d.etudiants.length : 0,
       repartition: d ? d.repartition : false };
   });
-  res.json({ annee, cours });
+  // Les autres cours de la section, pour la coordination.
+  let section = [];
+  if (coordination) {
+    const nbInscrits = new Map(db.prepare(`SELECT ue_num, COUNT(DISTINCT etudiant_id) AS n
+      FROM etudiant_inscription WHERE annee_scolaire = ? GROUP BY ue_num`).all(annee).map(x => [x.ue_num, x.n]));
+    section = coursDesSections(secs, annee)
+      .filter(c => !parCours.has(c.cours_code))
+      .map(c => ({ ...c, a_moi: false, groupes: [], nb_etudiants: nbInscrits.get(c.ue_num) || 0 }));
+  }
+  res.json({ annee, cours: [...cours, ...section],
+    sections_coordination: coordination ? (secs === null ? 'toutes' : secs) : null });
 });
 
 // ── La feuille d'un cours : mes étudiants et mes propositions ────────────────
 r.get('/:coursCode/etudiants', authRequired, (req, res) => {
   const annee = req.query.annee || anneeDeTravail(req);
-  const profId = profDe(req);
-  if (!profId) return res.status(403).json({ error: "Ce compte n'est lié à aucun dossier professeur." });
-  const d = etudiantsDuCours(profId, req.params.coursCode, annee);
-  if (!d) return res.status(403).json({ error: "Ce cours n'est pas dans vos attributions." });
+  const d = accesCours(req, req.params.coursCode, annee);
+  if (!d) return res.status(403).json({ error: "Ce cours n'est ni dans vos attributions, ni dans votre section." });
 
   const acquis = acquisDuCours(req.params.coursCode, d.ueNum, annee);
   const props = {};
   for (const x of db.prepare(`
-    SELECT etudiant_id, aa_code, note FROM note_proposee
+    SELECT etudiant_id, aa_code, note, mention FROM note_proposee
     WHERE annee_scolaire = ? AND cours_code = ?`).all(annee, req.params.coursCode)) {
-    (props[x.etudiant_id] ||= {})[x.aa_code || ''] = x.note;
+    (props[x.etudiant_id] ||= {})[x.aa_code || ''] = x.mention || x.note;
   }
 
   res.json({
     annee, cours_code: req.params.coursCode, ue_num: d.ueNum,
-    repartition: d.repartition,
+    repartition: d.repartition, portee: d.portee,
     // La feuille du professeur note PAR ACQUIS ; sans AA rattachés au cours,
     // elle retombe sur une note de cours (clé '').
     acquis,
@@ -224,34 +295,37 @@ r.get('/:coursCode/etudiants', authRequired, (req, res) => {
 // ── Proposer ses notes — rien n'entre au dossier ─────────────────────────────
 r.post('/:coursCode/notes', authRequired, (req, res) => {
   const annee = String(req.body?.annee || anneeDeTravail(req));
-  const profId = profDe(req);
-  if (!profId) return res.status(403).json({ error: "Ce compte n'est lié à aucun dossier professeur." });
-  const d = etudiantsDuCours(profId, req.params.coursCode, annee);
-  if (!d) return res.status(403).json({ error: "Ce cours n'est pas dans vos attributions." });
+  const d = accesCours(req, req.params.coursCode, annee);
+  if (!d) return res.status(403).json({ error: "Ce cours n'est ni dans vos attributions, ni dans votre section." });
 
   const permis = new Set(d.etudiants.map(e => e.id));
   // Les acquis admis pour ce cours — plus la clé '' (note de cours).
   const aaPermis = new Set(['', ...acquisDuCours(req.params.coursCode, d.ueNum, annee).map(a => a.aa_code)]);
+  const MENTIONS = ['PP', 'NP'];
   const notes = (Array.isArray(req.body?.notes) ? req.body.notes : [])
-    .map(x => ({ etudiant_id: Number(x?.etudiant_id),
-      aa_code: String(x?.aa_code ?? ''),
-      note: x?.note == null || x.note === '' ? null : Number(String(x.note).replace(',', '.')) }))
+    .map(x => {
+      const brut = String(x?.note ?? '').trim().toUpperCase();
+      const mention = MENTIONS.includes(brut) ? brut : null;
+      return { etudiant_id: Number(x?.etudiant_id), aa_code: String(x?.aa_code ?? ''), mention,
+        note: mention || brut === '' ? null : Number(brut.replace(',', '.')) };
+    })
     .filter(x => permis.has(x.etudiant_id) && aaPermis.has(x.aa_code)
-      && (x.note === null || (Number.isFinite(x.note) && x.note >= 0 && x.note <= 20)));
+      && (x.mention || x.note === null || (Number.isFinite(x.note) && x.note >= 0 && x.note <= 20)));
   if (!notes.length) return res.status(400).json({ error: 'Aucune note valable.' });
 
   const poser = db.prepare(`
-    INSERT INTO note_proposee (etudiant_id, annee_scolaire, cours_code, aa_code, note, propose_par, propose_le)
-    VALUES (?,?,?,?,?,?,datetime('now'))
+    INSERT INTO note_proposee (etudiant_id, annee_scolaire, cours_code, aa_code, note, mention, propose_par, propose_le)
+    VALUES (?,?,?,?,?,?,?,datetime('now'))
     ON CONFLICT(etudiant_id, annee_scolaire, cours_code, aa_code) DO UPDATE SET
-      note = excluded.note, propose_par = excluded.propose_par, propose_le = datetime('now')`);
+      note = excluded.note, mention = excluded.mention,
+      propose_par = excluded.propose_par, propose_le = datetime('now')`);
   const oter = db.prepare(
     'DELETE FROM note_proposee WHERE etudiant_id = ? AND annee_scolaire = ? AND cours_code = ? AND aa_code = ?');
   let n = 0;
   db.transaction(() => {
     for (const x of notes) {
-      if (x.note === null) { n += oter.run(x.etudiant_id, annee, req.params.coursCode, x.aa_code).changes; }
-      else { poser.run(x.etudiant_id, annee, req.params.coursCode, x.aa_code, x.note, req.user?.email || null); n++; }
+      if (x.note === null && !x.mention) { n += oter.run(x.etudiant_id, annee, req.params.coursCode, x.aa_code).changes; }
+      else { poser.run(x.etudiant_id, annee, req.params.coursCode, x.aa_code, x.note, x.mention, req.user?.email || null); n++; }
     }
   })();
   res.json({ ok: true, proposees: n });
@@ -261,7 +335,7 @@ r.post('/:coursCode/notes', authRequired, (req, res) => {
 r.get('/:coursCode/propositions', authRequired, roleRequired(...PEUT_INSTRUIRE), (req, res) => {
   const annee = req.query.annee || anneeDeTravail(req);
   const lignes = db.prepare(`
-    SELECT p.etudiant_id, p.aa_code, p.note, p.propose_par, p.propose_le, e.nom, e.prenom
+    SELECT p.etudiant_id, p.aa_code, p.note, p.mention, p.propose_par, p.propose_le, e.nom, e.prenom
     FROM note_proposee p JOIN etudiant e ON e.id = p.etudiant_id
     WHERE p.annee_scolaire = ? AND p.cours_code = ?
     ORDER BY e.nom, e.prenom, p.aa_code`).all(annee, req.params.coursCode);

@@ -69,7 +69,9 @@ export default function ParametresEtablissement() {
           Elle décrit comment le Conseil délibère sur ce référentiel : sa place
           est à côté des unités, des prérequis et de la pondération, non dans
           l'identité de l'établissement — qui parle d'adresse et de matricule. */}
-      <ReglesDeliberation />
+      {/* Les règles de délibération ne s'affichent plus ici : elles vivent dans
+          Enseignement → Règles de délibération, et deux écrans pour un même
+          réglage en font un de trop (2.12.200). */}
 
       {/* Identification de l'établissement */}
       <section className="bg-white rounded-lg border border-gray-200 p-4 space-y-3">

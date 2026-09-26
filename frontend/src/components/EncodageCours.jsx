@@ -190,7 +190,7 @@ export default function EncodageCours({ coursCode, annee, onClose, onEnregistre,
                 {Object.values(propositions.reduce((m, p) => {
                   const k = p.etudiant_id;
                   (m[k] ||= { nom: p.nom, prenom: p.prenom, parts: [] }).parts
-                    .push(`${p.aa_code ? p.aa_code + ' ' : ''}${p.note}`);
+                    .push(`${p.aa_code ? p.aa_code + ' ' : ''}${p.mention || p.note}`);
                   return m;
                 }, {})).map(x =>
                   `${(x.nom || '').toUpperCase()} ${x.prenom || ''} : ${x.parts.join(', ')}`)

@@ -507,7 +507,13 @@ table.grid-excel-soft select:focus {
  *
  * À droite il s'arrête avant le bord, comme la marge du contenu : un
  * soulignement, pas une bande qui coupe l'écran en deux. */
+/* LE FILET EST RETIRÉ (2.12.203, Charles, 26 septembre 2026 : « la barre fait
+ * en fait partie du fond, elle devrait être dans la même couleur »). Barre,
+ * rail et page lisent le même sol, réglable dans Thèmes et couleurs ; un trait
+ * entre la barre et la page coupait en deux ce qui est une seule surface.
+ * La règle est gardée ci-dessous, neutralisée, pour mémoire. */
 .barre-haut::after {
+  display: none;
   content: ""; position: absolute; bottom: 0; height: 1px;
   /* LE FILET COMMENCE OÙ COMMENCE LE TRAVAIL.
      Posé à une marge choisie — 1,25 rem —, il ne répondait à rien : ni au
@@ -1058,4 +1064,16 @@ select[multiple], select[size]:not([size="1"]) {
     border-color: #1B2B4B;
     box-shadow: inset 0 0 0 1px #1B2B4B;
   }
+}
+
+/* ── UNE SEULE MARGE, CELLE DU CADRE — L'ALIGNEMENT PARTOUT ──────────────────
+ * Charles, 26 septembre 2026 : « j'aimerais que l'alignement soit fait
+ * PARTOUT ! ». Un écran embarqué dans un cadre qui porte déjà la marge de page
+ * (Configuration, les axes) ajoutait la sienne (`p-5`, `p-6`, `md:p-8`…) : son
+ * contenu démarrait 20 à 32 px à droite du titre et des onglets du cadre. On
+ * ne corrige pas écran par écran : le cadre annule la marge latérale et haute
+ * de son enfant direct. Le défaut doit être correct. */
+.cadre-page > :is(.p-3, .p-4, .p-5, .p-6, .p-8, .px-3, .px-4, .px-5, .px-6, .px-8,
+                  .md\:p-6, .md\:p-8, .md\:px-6, .md\:px-8) {
+  padding-left: 0; padding-right: 0; padding-top: 0;
 }

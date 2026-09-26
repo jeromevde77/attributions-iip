@@ -154,7 +154,7 @@ export default function Echeancier() {
   const sections = [];
 
   return (
-    <div className="relative bg-slate-50" style={{ minHeight: 'calc(100vh - 64px)' }}>
+    <div className="relative" style={{ minHeight: 'calc(100vh - 64px)' }}>
       <RailLateral icon={IconCalendarStats} titre="Échéancier"
         sousTitre={data?.annee} sections={sections} />
 

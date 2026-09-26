@@ -95,7 +95,7 @@ function BuildBadge() {
      recouvrait le dernier bouton des tableaux et des fenêtres. L'heure sert aux
      captures d'écran ; le commit se lit au survol. */
   return (
-    <span className="hidden md:inline text-[11px] tabular-nums text-slate-400 select-none"
+    <span className="hidden md:block text-[9px] leading-none tabular-nums text-slate-400 select-none text-center mt-0.5"
       title={shaOnly ? `Construction ${shaOnly}` : undefined}>
       {dateStr} {timeStr}
     </span>
@@ -455,7 +455,9 @@ function ProtectedLayout({ children }) {
   // aussi pour tout compte LIÉ à une fiche professeur, quel que soit son rôle
   // (une direction qui enseigne, une coordination qui donne cours) : la porte
   // ne montre de toute façon que les attributions de la fiche liée.
-  if (u?.role === 'professeur' || u?.professeur_id) {
+  // Et pour la coordination, qui y trouve aussi tous les cours de sa section
+  // (Charles, 26 septembre 2026).
+  if (u?.role === 'professeur' || u?.role === 'coordination' || u?.professeur_id) {
     nav.unshift(['/mes-cours', 'Mes cours', IconBooks]);
   }
 
@@ -582,7 +584,9 @@ function ProtectedLayout({ children }) {
                 DÉMO
               </span>
             )}
-            <BuildBadge />
+            {/* SOUS LA VERSION, EN PETIT (Charles, 26 septembre 2026 : « prend
+                trop de place ») : la date et l'heure ne servent qu'aux captures. */}
+            <span className="inline-flex flex-col items-center">
             <span
               /* SUR UNE BARRE MARINE, UNE PASTILLE MARINE DISPARAÎT : le badge
                  prend la surface des menus, comme l'onglet actif.
@@ -612,6 +616,8 @@ function ProtectedLayout({ children }) {
                   <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-iip-turquoise"></span>
                 </span>
               )}
+            </span>
+            <BuildBadge />
             </span>
             {/* LE COMPTE TIENT SUR UNE LIGNE.
                 Nom complet, rôle et « Déconnexion » s'empilaient sur trois

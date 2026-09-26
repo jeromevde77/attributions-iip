@@ -191,7 +191,7 @@ export default function Axe({ titre, question, icone, onglets, ongletInitial,
     : [rubriques];
 
   return (
-    <div className="relative bg-slate-50" style={{ minHeight: 'calc(100vh - 64px)' }}>
+    <div className="relative" style={{ minHeight: 'calc(100vh - 64px)' }}>
       <RailDessine icon={icone} titre={titre} sousTitre={question}
         /* REVENIR À L'AXE, c'est revenir à sa PREMIÈRE rubrique : celle par
            laquelle on y entre, et celle qu'on cherche quand on s'est perdu
@@ -207,7 +207,7 @@ export default function Axe({ titre, question, icone, onglets, ongletInitial,
           contenu suit quand on épingle, sans qu'aucun écran ait à le savoir.
           Seuls les écrans qui posent DÉJÀ la leur le déclarent. */}
       <div className={courant?.railPropre
-        ? '' : (courant?.sansMarge ? 'gouttiere-rail' : 'gouttiere-rail p-4')}>
+        ? '' : (courant?.sansMarge ? 'gouttiere-rail' : 'gouttiere-rail cadre-page p-4')}>
         <FournisseurRail valeur={inscrire} panneau={panneau}
           echanges={setPortesEchanges}>
           {courant?.futur ? (

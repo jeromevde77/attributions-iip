@@ -1170,6 +1170,18 @@ et 3 composants de tuile**. La stratégie tient en cinq chantiers, dans cet ordr
   | Contour | 1 px `#D8DCE4` | 0,3 mm, même gris |
   | Corps | 13 px | 9 pt |
   | Rail teinté | marine, vert, ocre, brique | marine à l'intérieur, **or** sur la pièce extérieure |
+- **UNE SEULE MARGE, CELLE DU CADRE.** Un écran embarqué dans un cadre qui
+  porte déjà la marge de page (Configuration, les axes) ajoutait la sienne :
+  son contenu démarrait 20 à 32 px à droite du titre et des onglets. La classe
+  `.cadre-page` (index.css) annule la marge latérale et haute de son enfant
+  direct — posée sur le cadre de Configuration et sur celui d'`Axe` (2.12.204).
+  Un nouvel écran n'a rien à faire pour être aligné.
+- **UN ÉCRAN NE PEINT JAMAIS SON FOND.** Douze écrans (dont le gabarit `Axe`)
+  posaient `bg-slate-50` sur leur conteneur racine : avec les gris d'origine,
+  il se confondait avec le fond de la page ; dès qu'on règle le fond ou les
+  gris (Thèmes et couleurs), la barre, le rail et le contenu montraient trois
+  zones (Charles, 26 septembre 2026 : « tes zones ne sont pas logiques »). Il
+  n'y a qu'un sol, `--page-fond`, lu par `body` ; retiré partout en 2.12.202.
 - **Un tableau n'a que deux tons** (`.tab-entete`, `.tab-repere`). L'en-tête
   et la ligne de regroupement sont le **même objet** — l'un nomme les colonnes,
   l'autre nomme un paquet de lignes : même fond, celui du cadre de titre. La

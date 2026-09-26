@@ -261,7 +261,7 @@ export default function Valorisations() {
   }];
 
   return (
-    <div className="relative bg-slate-50" style={{ minHeight: 'calc(100vh - 64px)' }}>
+    <div className="relative" style={{ minHeight: 'calc(100vh - 64px)' }}>
       <RailLateral icon={IconCertificate} titre="Valorisation"
         sousTitre={`${tous.length} étudiant(s)`} sections={RAIL} impression="etudiants" />
 

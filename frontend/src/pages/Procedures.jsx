@@ -1837,7 +1837,7 @@ export default function Procedures() {
   );
 
   return (
-    <div className="relative bg-slate-50" style={{ minHeight: 'calc(100vh - 64px)' }}>
+    <div className="relative" style={{ minHeight: 'calc(100vh - 64px)' }}>
       {/* ── Rail latéral glissant (composant partagé) ── */}
       <RailLateral
         icon={IconChecklist}

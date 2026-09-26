@@ -1,9 +1,9 @@
 import { useEffect, useState, lazy, Suspense } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { api, getAnnee, setAnnee as setAnneeActive, getUser } from '../lib/api.js';
-import { chargerCouleurs } from '../lib/couleurs.js';
+import { chargerCouleurs, echelleGris, poser as poserCouleurs, poserGris } from '../lib/couleurs.js';
 import Audit from './Audit.jsx';
-import { IconAdjustments, IconAward, IconBooks, IconBuilding, IconCalendar, IconCalendarEvent, IconChartBar, IconCheck, IconChevronRight, IconDownload, IconFileText, IconHistory, IconLink, IconScale, IconSettings, IconSparkles, IconUserShield, IconUsers, IconX, IconGavel, IconPlus, IconTrash, IconGripVertical, IconEdit, IconMail, IconPalette, IconArchive, IconAlertTriangle, IconShieldLock, IconDatabase, IconHierarchy, IconArrowsSplit } from '@tabler/icons-react';
+import { IconAdjustments, IconAward, IconBooks, IconBuilding, IconCalendar, IconCalendarEvent, IconChartBar, IconCheck, IconChevronRight, IconDownload, IconFileText, IconHistory, IconLink, IconScale, IconSettings, IconSparkles, IconUserShield, IconUsers, IconX, IconGavel, IconPlus, IconTrash, IconGripVertical, IconEdit, IconMail, IconPalette, IconArchive, IconAlertTriangle, IconShieldLock, IconDatabase, IconHierarchy, IconArrowsSplit, IconTool } from '@tabler/icons-react';
 import { PageHeader, RailLateral, TuileEtat, PastilleEtat, Encadre } from '../components/ui.jsx';
 import ApercuDocuments from '../components/ApercuDocuments.jsx';
 const Editeur = lazy(() => import('./Editeur.jsx'));
@@ -567,7 +567,12 @@ const PARAM_TYPES = {
   'etab.nom':                      { type: 'text' },
 };
 
-function GestionParametres() {
+/* LES PARAMÈTRES SE POSENT DANS L'ÉCRAN DE LEUR SUJET (2.12.200). L'onglet
+ * « Paramètres » alignait neuf groupes sans rapport entre eux — délais de
+ * procédure, texte des courriels, sécurité des connexions… — et chacun avait
+ * AUSSI un écran à lui ailleurs : deux endroits pour un même sujet. Le même
+ * composant, limité à `groupes`, se pose désormais dans chaque écran. */
+function GestionParametres({ groupes = null }) {
   const [grouped, setGrouped]   = useState({});
   const [pending, setPending]   = useState({});  // { cle: valeur }
   const [loading, setLoading]   = useState(true);
@@ -631,7 +636,7 @@ function GestionParametres() {
       )}
 
       <div className="grid gap-4 items-start xl:grid-cols-2 min-[1800px]:grid-cols-3">
-      {Object.entries(GROUPE_LABELS).map(([groupe, meta]) => {
+      {Object.entries(GROUPE_LABELS).filter(([g]) => !groupes || groupes.includes(g)).map(([groupe, meta]) => {
         const params = grouped[groupe] || [];
         if (!params.length) return null;
         const Icon = meta.icon;
@@ -697,10 +702,11 @@ function GestionParametres() {
       })}
       </div>
 
-      <div className="bg-iip-turquoise/5 border border-iip-turquoise/30 rounded-lg p-4 text-xs text-iip-blue">
-        <p className="font-medium mb-1">💡 Ces paramètres sont globaux</p>
-        <p>Ils s'appliquent à toutes les sections. Une configuration par section (ex. EV1 différent en AESI) peut être ajoutée sur demande.</p>
-      </div>
+      {!groupes && (
+        <p className="text-[12px] text-slate-500">
+          Ces réglages valent pour toutes les sections.
+        </p>
+      )}
     </div>
   );
 }
@@ -1330,72 +1336,60 @@ export default function Configuration() {
      * au plus technique : qui nous sommes, ce qu'on enseigne, comment on
      * délibère, ce qu'on produit, qui entre, et enfin la machine.
      */
+    /* RANGÉE LE 26 SEPTEMBRE 2026 (Charles : « tout est mélangé, trop de
+     * menus »). UNE RÈGLE : Configuration règle comment Lucie se comporte ;
+     * elle ne contient ni outils, ni registres, ni données de l'année. Chaque
+     * réglage vit à un seul endroit, à côté de ceux du même sujet. Ce qui n'est
+     * pas un réglage est regroupé sous « Outils », en attendant de rejoindre
+     * l'écran où l'on s'en sert. Plan complet : l'étude « Configuration
+     * rangée ». */
     { label: 'Établissement', icon: IconBuilding, items: [
-      { key: 'etablissement', label: 'Identité et sections', icon: IconBuilding },
-      { key: 'annees', label: 'Années scolaires', icon: IconCalendar },
-      { key: 'reprise', label: "Clôturer une année reprise", icon: IconArchive },
+      { key: 'etablissement', label: 'Identité', icon: IconBuilding },
+      { key: 'annees', label: 'Années et calendrier', icon: IconCalendar },
     ]},
-    /* QUATRE ONGLETS DÉCRIVAIENT LE MÊME OBJET.
-     *
-     * Référentiel, prérequis, pondération des acquis, règles de délibération :
-     * ce sont quatre FACES d'une seule chose — ce qu'on enseigne une année
-     * donnée et comment on le sanctionne. Les séparer obligeait à sortir d'un
-     * écran pour vérifier dans un autre ce qu'on venait d'y régler, et rien ne
-     * disait qu'ils parlaient tous de la MÊME ANNÉE.
-     *
-     * Ils tiennent donc en un onglet, avec l'année posée UNE FOIS en tête.
-     * Qu'elle change d'une année à l'autre n'est pas une raison de les
-     * éclater : c'est une raison de nommer l'année, et de la nommer une
-     * seule fois. */
-    /* DEUX RANGÉES D'ONGLETS POUR UN SEUL OBJET (Charles, 25 septembre 2026 —
-     * « bof ces doubles menus »). Le référentiel était une feuille qui
-     * contenait quatre faces : deux soulignements l'un sous l'autre, et le
-     * titre « Référentiel de l'année » écrit deux fois. Les quatre faces
-     * montent d'un cran et deviennent LES feuilles de la famille, à côté des
-     * procédures ; l'année, qui vaut pour elles, se pose une fois au bout de
-     * la même rangée. */
-    { label: 'Référentiel', icon: IconBooks, items: [
+    /* Ce qu'on enseigne et comment on le sanctionne. Les faces annuelles
+     * portent l'année au bout de la rangée, une seule fois. */
+    { label: 'Enseignement', icon: IconBooks, items: [
       { key: 'referentiel-annee', label: 'Unités et cours', icon: IconBooks, annee: true },
       { key: 'ref-prerequis', label: "Prérequis d'UE", icon: IconHierarchy, annee: true },
-      { key: 'ref-ponderations', label: 'Pondération des acquis', icon: IconArrowsSplit, annee: true },
       { key: 'ref-deliberation', label: 'Règles de délibération', icon: IconScale, annee: true },
       { key: 'procedures', label: 'Procédures et délais', icon: IconGavel },
+      { key: 'planification', label: 'Planification', icon: IconCalendarEvent },
     ]},
-    { label: 'Documents', icon: IconFileText, items: [
-      { key: 'editeur', label: 'Éditeur de modèles', icon: IconEdit },
+    // Les modèles de ce qui sort de Lucie — sur papier ou par courriel.
+    { label: 'Documents et envois', icon: IconFileText, items: [
+      { key: 'editeur', label: 'Modèles de pièces', icon: IconEdit },
       { key: 'apercu', label: 'Aperçu des pièces', icon: IconFileText },
       { key: 'contrat', label: 'Contrat', icon: IconFileText },
       { key: 'attestation', label: 'Attestation', icon: IconAward },
       { key: 'recrutement', label: 'Recrutement', icon: IconSettings },
-    ]},
-    // THÈMES ET COULEURS ont leur famille : on y règle l'apparence de toute
-    // l'application, pas celle des seules pièces — ils vivaient sous
-    // « Documents », où personne ne les cherchait.
-    { label: 'Apparence', icon: IconPalette, items: [
-      { key: 'couleurs', label: 'Thèmes et couleurs', icon: IconPalette },
+      { key: 'due', label: "Descriptifs d'UE", icon: IconFileText },
+      { key: 'courriels', label: 'Courriels', icon: IconMail },
     ]},
     { label: 'Accès', icon: IconUserShield, items: [
       { key: 'users', label: 'Utilisateurs', icon: IconUserShield },
       { key: 'roles', label: 'Rôles et plafonds', icon: IconUserShield },
       { key: 'personnel', label: 'Personnel', icon: IconUsers },
+      { key: 'securite', label: 'Sécurité des connexions', icon: IconShieldLock },
     ]},
-    { label: 'Données', icon: IconDatabase, items: [
+    // La machine, et l'apparence de toute l'application (Charles : « je
+    // mettrais bien Apparence dans Système »).
+    { label: 'Système', icon: IconAdjustments, items: [
+      { key: 'couleurs', label: 'Thèmes et couleurs', icon: IconPalette },
+      { key: 'sauvegardes', label: 'Sauvegardes', icon: IconDownload },
+      { key: 'systeme', label: 'Traces et historique', icon: IconHistory },
+      { key: 'audit', label: 'Qui a fait quoi', icon: IconUserShield },
+      { key: 'changelog', label: 'Nouveautés', icon: IconSparkles },
+    ]},
+    /* CE QUI N'EST PAS UN RÉGLAGE. Des outils, une file de travail, des
+     * données de l'année : ils rejoindront l'écran où l'on s'en sert (lot 4
+     * du plan). Regroupés ici d'ici là, pour qu'on sache où ils sont. */
+    { label: 'Outils', icon: IconTool, items: [
       { key: 'dates-ue', label: "Dates des UE", icon: IconCalendarEvent },
       { key: 'doublons', label: 'Dossiers dédoublés', icon: IconUsers },
       { key: 'demandes', label: 'Demandes à valider', icon: IconCheck },
-    ]},
-    // DEUX NOMS POUR DEUX CHOSES. « Historique & Sauvegarde » conservait les
-    // états d'attributions avant modification ; « Sauvegardes » conserve la
-    // base entière. Presque le même mot pour deux gestes qui ne se
-    // remplacent pas — on les nomme donc pour ce qu'ils sont.
-    { label: 'Système', icon: IconAdjustments, items: [
-      { key: 'parametres', label: 'Paramètres', icon: IconAdjustments },
-      { key: 'courriels', label: 'Courriels', icon: IconMail },
-      { key: 'audit', label: 'Qui a fait quoi', icon: IconUserShield },
-      { key: 'systeme', label: 'Historique des modifications', icon: IconHistory },
-      { key: 'sauvegardes', label: 'Sauvegardes de la base', icon: IconDownload },
-      { key: 'statistiques', label: 'Statistiques', icon: IconChartBar },
-      { key: 'changelog', label: 'Nouveautés', icon: IconSparkles },
+      { key: 'statistiques', label: 'Effectifs et postes PNCC', icon: IconChartBar },
+      { key: 'reprise', label: "Clôturer une année reprise", icon: IconArchive },
     ]},
   ];
   // « QUI A FAIT QUOI » N'APPARAÎT QUE POUR L'ADMINISTRATEUR, et le serveur le
@@ -1405,7 +1399,7 @@ export default function Configuration() {
     items: g.items.filter(t => t.key !== 'audit' || getUser()?.role === 'admin') }));
   const groupeActif = groupesVisibles.find(g => g.items.some(t => t.key === tab)) || groupesVisibles[0];
   return (
-    <div className="relative bg-slate-50" style={{ minHeight: 'calc(100vh - 64px)' }}>
+    <div className="relative" style={{ minHeight: 'calc(100vh - 64px)' }}>
       {/* VINGT-DEUX ICÔNES, ET PLUS PERSONNE NE TROUVAIT RIEN (Charles, 21
           septembre 2026). Le rail dit OÙ L'ON EST : six familles, une icône
           chacune. Ce qu'une famille contient se choisit dans ses FEUILLES,
@@ -1420,9 +1414,14 @@ export default function Configuration() {
           onClick: () => { if (g !== groupeActif) setTab(g.items[0].key); },
         })) }]}
       />
-      <div className="gouttiere-rail px-3 md:px-6 py-4 space-y-6">
-        <PageHeader icon={IconSettings} titre="Configuration"
-          sous="Référentiels, années, établissement, personnel et paramètres système" />
+      {/* LE TITRE DIT LA FAMILLE (2.12.201) : « Configuration » seul ne disait
+          pas où l'on était, et le rangement nouveau ne se voyait pas. Un titre,
+          une ligne ; l'explication générale disparaît — elle ne disait rien de
+          l'écran ouvert, et prenait une rangée. */}
+      <div className="gouttiere-rail cadre-page px-3 md:px-6 py-3 space-y-4">
+        <PageHeader icon={groupeActif.icon || IconSettings} titre={`Configuration · ${groupeActif.label}`}
+          sous={groupeActif.label === 'Outils'
+            ? 'Ce ne sont pas des réglages : ils rejoindront l’écran où l’on s’en sert.' : undefined} />
         {groupeActif.items.length > 1 && (
           <div className="flex flex-wrap items-center gap-1 border-b border-slate-200 -mt-2">
             {groupeActif.items.map(t => {
@@ -1462,7 +1461,10 @@ export default function Configuration() {
       {tab === 'ref-deliberation' && <ReglesDeliberation />}
 
       {/* ── Onglet Années ── */}
-      {tab === 'annees' && <Annees embedded />}
+      {tab === 'annees' && <div className="space-y-4"><Annees embedded /><GestionParametres groupes={['session']} /></div>}
+      {tab === 'planification' && <GestionParametres groupes={['planification']} />}
+      {tab === 'due' && <GestionParametres groupes={['due']} />}
+      {tab === 'securite' && <GestionParametres groupes={['securite']} />}
 
       {/* ── Onglet Clôture d'une année reprise d'archives ── */}
       {tab === 'reprise' && <ClotureReprise />}
@@ -1524,7 +1526,7 @@ export default function Configuration() {
       {/* ── Onglet Courriels ── */}
       {tab === 'courriels' && (
         <Suspense fallback={<div className="p-8 text-center text-gray-400">Chargement…</div>}>
-          <ConfigCourriels />
+          <div className="space-y-4"><ConfigCourriels /><GestionParametres groupes={['envois']} /></div>
         </Suspense>
       )}
 
@@ -1533,6 +1535,7 @@ export default function Configuration() {
 
       {/* ── Onglet Système ── */}
       {tab === 'systeme' && (loading ? <div className="p-8 text-center text-gray-400">Chargement…</div> : <div className="max-w-none space-y-6">
+      <GestionParametres groupes={['systeme']} />
 
       {/* ── Historique des modifications ── */}
       <section className="bg-white rounded-lg border border-gray-200 overflow-hidden">
@@ -1653,7 +1656,7 @@ docker start attributions-backend-dev`}</div>
       </div>)}
 
       {/* ── Onglet Procédures ── */}
-      {tab === 'procedures' && <OngletProcedures />}
+      {tab === 'procedures' && <div className="space-y-4"><GestionParametres groupes={['procedures']} /><OngletProcedures /></div>}
       {tab === 'audit' && <Audit />}
       {tab === 'statistiques' && <OngletStatistiques />}
 
@@ -1840,11 +1843,22 @@ function OngletProcedures() {
   async function sauvegarder(newJustifs) {
     setSaving(true);
     try {
-      await fetch('/api/parametres/' + CLE, {
+      /* L'ENREGISTREMENT NE SE FAISAIT PAS, ET L'ÉCRAN DISAIT LE CONTRAIRE
+         (inventaire du 26 septembre 2026). Il appelait `PUT /parametres/:cle`,
+         que le serveur ne connaît pas — seuls `PATCH /:cle` (clé existante)
+         et `PUT /bulk` (ajoute ou remplace) existent —, et affichait
+         « Sauvegardé » sans lire la réponse. Aucune justification n'a jamais
+         été gardée en production. On passe par `bulk`, qui crée la clé la
+         première fois, et l'on n'annonce rien que le serveur n'a pas confirmé. */
+      const rep = await fetch('/api/parametres/bulk', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('token')}` },
-        body: JSON.stringify({ valeur: JSON.stringify(newJustifs) })
+        body: JSON.stringify({ [CLE]: JSON.stringify(newJustifs) })
       });
+      if (!rep.ok) {
+        const j = await rep.json().catch(() => ({}));
+        throw new Error(j.error || `le serveur a répondu ${rep.status}`);
+      }
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
     } catch(e) { alert('Erreur : ' + e.message); }
@@ -2322,27 +2336,38 @@ function ReglageCouleurs() {
   const v = cle => (valeurs[cle] || catalogue[cle]?.valeur || '#000000');
   function appliquerTheme(t) {
     const base = Object.fromEntries(Object.entries(catalogue).map(([k, d]) => [k, d.valeur]));
-    setValeurs({ ...base, ...t.valeurs }); setGris(t.gris); setEtat('Thème appliqué à l’aperçu — enregistrez pour le garder.');
+    changer(() => { setValeurs({ ...base, ...t.valeurs }); setGris(t.gris); });
   }
   const themeActif = THEMES.find(t => t.gris === gris && Object.entries(catalogue)
     .every(([k, d]) => v(k).toUpperCase() === (t.valeurs[k] || d.valeur).toUpperCase()))?.cle;
 
-  async function enregistrer() {
+  /* PAS DE BOUTON « ENREGISTRER » (Charles, 26 septembre 2026 : « si je
+     change, je dois voir tout de suite ce que cela donne, et c'est sauvé »).
+     Chaque changement se pose aussitôt sur TOUT l'écran — pas seulement
+     l'aperçu — et s'enregistre une demi-seconde après le dernier geste : un
+     curseur de couleur qu'on fait glisser n'envoie pas cinquante requêtes.
+     Pour qui ne peut pas régler, rien ne s'écrit et l'écran ne change pas :
+     seul l'aperçu montre. */
+  const [touche, setTouche] = useState(false);
+  useEffect(() => {
+    if (!touche || !peutRegler) return;
+    poserCouleurs(valeurs); poserGris(gris);
     setEtat('Enregistrement…');
-    try {
-      const rep = await fetch('/api/config/couleurs', {
-        method: 'PUT',
-        headers: { ...authHeaders(), 'Content-Type': 'application/json' },
-        body: JSON.stringify({ couleurs: valeurs, gris }),
-      });
-      const j = await rep.json();
-      if (!rep.ok) throw new Error(j.error || 'refusé');
-      setValeurs(j.couleurs);
-      // Reposées tout de suite : le changement se voit sans recharger.
-      await chargerCouleurs();
-      setEtat('Enregistré. Les écrans et les documents suivent.');
-    } catch (e) { setEtat('Erreur : ' + e.message); }
-  }
+    const t = setTimeout(async () => {
+      try {
+        const rep = await fetch('/api/config/couleurs', {
+          method: 'PUT',
+          headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+          body: JSON.stringify({ couleurs: valeurs, gris }),
+        });
+        const j = await rep.json();
+        if (!rep.ok) throw new Error(j.error || 'refusé');
+        setEtat('Enregistré — les écrans et les documents suivent.');
+      } catch (e) { setEtat('Non enregistré : ' + e.message); }
+    }, 500);
+    return () => clearTimeout(t);
+  }, [valeurs, gris, touche, peutRegler]);
+  const changer = f => { setTouche(true); f(); };
 
   // L'aperçu porte ses propres variables : il montre ce qui SERA, sans
   // toucher au reste de l'écran avant l'enregistrement.
@@ -2352,11 +2377,11 @@ function ReglageCouleurs() {
   return (
     <div className="space-y-4">
       <div>
-        <h2 className="text-[17px] font-semibold text-iip-blue">Thèmes et couleurs</h2>
+        {/* Le titre est déjà celui de l'onglet : un titre ne s'écrit qu'une fois. */}
         <p className="text-[13px] text-slate-500 max-w-3xl">
-          Un thème pose tout d’un coup ; chaque couleur se retouche ensuite. Le sens ne change
-          pas — le vert dit « réussi » partout — : on en choisit la nuance. Rien n’est modifié
-          avant « Enregistrer », et l’aperçu montre le résultat avant.
+          Un thème pose tout d’un coup ; chaque couleur se retouche ensuite, et s’applique
+          aussitôt à toute l’application. Le sens ne change pas — le vert dit « réussi »
+          partout — : on en choisit la nuance.
           {!peutRegler && <b> Réservé à la direction : vous pouvez regarder, pas enregistrer.</b>}
         </p>
       </div>
@@ -2388,16 +2413,25 @@ function ReglageCouleurs() {
           <div className="carte px-3 py-2 flex items-center gap-3">
             <span className="flex-1 text-[13px] text-slate-800">
               Les gris de l’interface
-              <span className="block text-[11px] text-slate-400">textes secondaires, filets, fonds de tableau</span>
+              <span className="block text-[11px] text-slate-400">textes secondaires, filets, fonds de tableau — deux jeux prêts, ou votre teinte</span>
+              <span className="flex gap-0.5 mt-1">
+                {Object.values(echelleGris(/^#/.test(gris) ? gris : (gris === 'neutre' ? '#6E727A' : '#64748B')) || {})
+                  .map((c, i) => <i key={i} className="w-4 h-2.5 rounded-[2px]" style={{ background: `rgb(${c})` }} />)}
+              </span>
             </span>
             <div className="segments h-8">
-              {[['ardoise', 'Ardoise (bleuté)'], ['neutre', 'Neutre']].map(([k, l]) => (
-                <button key={k} type="button" onClick={() => setGris(k)}
+              {[['ardoise', 'Ardoise'], ['neutre', 'Neutre']].map(([k, l]) => (
+                <button key={k} type="button" onClick={() => changer(() => setGris(k))}
                   className={`px-3 text-[12px] ${gris === k ? 'bg-iip-blue text-white font-semibold' : 'text-slate-600 hover:bg-slate-50'}`}>
                   {l}
                 </button>
               ))}
             </div>
+            {/* UNE TEINTE LIBRE : elle fait le gris moyen, l'échelle s'en déduit. */}
+            <input type="color" title="Choisir la teinte des gris"
+              value={/^#/.test(gris) ? gris : (gris === 'neutre' ? '#6E727A' : '#64748B')}
+              onChange={e => { const v = e.target.value; changer(() => setGris(v)); }}
+              className={`w-10 h-8 rounded-champ border bg-white p-0.5 ${/^#/.test(gris) ? 'border-iip-blue' : 'border-slate-300'}`} />
           </div>
           {GROUPES_COULEURS.map(([g, titre, sous]) => {
             const cles = Object.entries(catalogue).filter(([, d]) => (d.groupe || 'sens') === g);
@@ -2413,9 +2447,9 @@ function ReglageCouleurs() {
                     <span className="flex-1 text-[13px] text-slate-800">{d.libelle}</span>
                     <span className="text-[11px] tabular-nums text-slate-400 w-16 text-right">{v(cle).toUpperCase()}</span>
                     <input type="color" value={v(cle)}
-                      onChange={e => setValeurs(x => ({ ...x, [cle]: e.target.value }))}
+                      onChange={e => { const v = e.target.value; changer(() => setValeurs(x => ({ ...x, [cle]: v }))); }}
                       className="w-10 h-7 rounded-champ border border-slate-300 bg-white p-0.5" title={d.libelle} />
-                    <button onClick={() => setValeurs(x => ({ ...x, [cle]: d.valeur }))}
+                    <button onClick={() => changer(() => setValeurs(x => ({ ...x, [cle]: d.valeur })))}
                       className={`text-[11px] w-10 text-left ${v(cle).toUpperCase() !== d.valeur.toUpperCase()
                         ? 'text-slate-400 hover:text-iip-blue' : 'invisible'}`} title="Revenir à la couleur d’origine">
                       défaut
@@ -2428,7 +2462,8 @@ function ReglageCouleurs() {
         </div>
 
         {/* L'APERÇU — les vrais composants de Lucie, sous les couleurs choisies. */}
-        <div data-gris={gris} style={{ ...styleApercu, background: v('fond_page') }}
+        <div data-gris={/^#/.test(gris) ? undefined : gris}
+          style={{ ...styleApercu, ...(echelleGris(gris) || {}), background: v('fond_page') }}
           className="rounded-carte border border-slate-200 p-4 space-y-4 xl:sticky xl:top-4">
           <div className="text-[11px] uppercase tracking-wide text-slate-500 font-semibold">Aperçu</div>
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
@@ -2469,8 +2504,9 @@ function ReglageCouleurs() {
       </div>
 
       <div className="flex items-center gap-3">
-        <button onClick={enregistrer} disabled={!peutRegler} className="bouton-fort controle px-3 disabled:opacity-50">Enregistrer</button>
-        {etat && <span className="text-[12px] text-slate-500">{etat}</span>}
+        <span className="text-[12px] text-slate-500">
+          {etat || (peutRegler ? 'Chaque changement s’applique et s’enregistre aussitôt.' : 'Réservé à la direction : l’aperçu seul change.')}
+        </span>
       </div>
     </div>
   );

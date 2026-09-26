@@ -180,7 +180,7 @@ export default function Recrutement() {
 
   // Vue détail
   if (poste) return (
-    <div className="relative bg-slate-50" style={{ minHeight: 'calc(100vh - 64px)' }}>
+    <div className="relative" style={{ minHeight: 'calc(100vh - 64px)' }}>
       <RailLateral icon={IconBriefcase} titre="Recrutement" sousTitre={poste.nom_cours || poste.ue_nom}
         sections={[{ label: '', items: [
           { key: 'back', label: '← Retour à la liste', icon: IconArrowLeft,
@@ -195,7 +195,7 @@ export default function Recrutement() {
 
   // Vue liste
   return (
-    <div className="relative bg-slate-50" style={{ minHeight: 'calc(100vh - 64px)' }}>
+    <div className="relative" style={{ minHeight: 'calc(100vh - 64px)' }}>
       <RailLateral
         icon={IconBriefcase} titre="Recrutement"
         sousTitre={loading ? '…' : `${candidats.length} candidat${candidats.length > 1 ? 's' : ''}`}
