@@ -274,8 +274,8 @@ export default function SchemaCapitalisation({
        (Charles, 26 septembre 2026 : « alignement »). La commande de taille
        rejoint la bande : une rangée de moins, et les deux panneaux ont leur
        contenu à la même hauteur. */
-    <div className="mb-4 carte overflow-hidden">
-      <div className="entete-panneau">
+    <div className="mb-4">
+      <div className="entete-plat">
       <button onClick={() => setOuvert(o => !o)}
         className="flex-1 min-w-0 flex items-center justify-between gap-2 text-left">
         <span className="text-[13px] font-semibold text-iip-blue truncate">
@@ -319,7 +319,7 @@ export default function SchemaCapitalisation({
           {/* overflow-x SEULEMENT : un ascenseur vertical interne piégeait la
               molette et empêchait la page de défiler. Le défilement horizontal,
               lui, ne capture pas la molette verticale. */}
-          <div className="bg-white" style={{ overflowX: 'auto' }}>
+          <div style={{ overflowX: 'auto' }}>
             <svg ref={svgRef}
               viewBox={`0 0 ${layout.largeur} ${layout.hauteur}`}
               preserveAspectRatio="xMidYMid meet"
@@ -608,7 +608,7 @@ export default function SchemaCapitalisation({
           )}
 
           {mode === 'etudiant' && (
-            <div className="flex flex-wrap items-center gap-3 px-3 py-2 bg-slate-50 border-t border-slate-200 text-[11px] text-slate-500">
+            <div className="flex flex-wrap items-center gap-3 px-1 pt-2 text-[11px] text-slate-500">
               {['acquise', 'faveur', 'accessible', 'sous_reserve', 'en_attente', 'bloquee'].map(k => (
                 <span key={k} className="flex items-center gap-1.5">
                   <span className="inline-block w-3.5 h-3 rounded-r-sm"

@@ -367,8 +367,8 @@ function GrilleParcours({ etudId, peutEcrire, annee }) {
       {/* RÉDUITE (Charles, 26 septembre 2026 : « faut réduire… on ne voit plus le
           schéma »). L'aide passe dans la bulle ; les deux outils deviennent de
           petits boutons dans le titre. */}
-      <div className="carte overflow-hidden mb-4">
-      <div className="entete-panneau">
+      <div className="mb-4">
+      <div className="entete-plat">
         <span className="text-[13px] font-semibold text-iip-blue">Notes par année</span>
         <BulleAide titre="La grille des notes">
           Cliquez sur une case pour encoder.
@@ -396,8 +396,11 @@ function GrilleParcours({ etudId, peutEcrire, annee }) {
       <div className="overflow-x-auto">
         <table className="w-full text-[12px] border-collapse">
           <thead>
-            <tr className="tab-entete">
-              <th className="px-2 py-1 text-left sticky left-0 bg-[var(--tab-repere)] z-10">UE</th>
+            {/* LES ANNÉES SUR LA LIGNE DES BLOCS DU SCHÉMA (« les dates sur la
+                même ligne ») : en-tête sans fond, de la hauteur des intitulés
+                BA1, BA2… posés en tête du schéma. */}
+            <tr className="text-[10.5px] font-semibold text-slate-500">
+              <th className="px-2 py-1 text-left sticky left-0 bg-white z-10">UE</th>
               {anneesAffichees.map((a, i) => {
                 const derniere = i === anneesAffichees.length - 1;
                 return (

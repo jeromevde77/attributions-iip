@@ -1091,3 +1091,13 @@ select[multiple], select[size]:not([size="1"]) {
   height: 2.5rem; padding-inline: .75rem;
   background: var(--tab-repere); border-bottom: 1px solid var(--menu-bord);
 }
+
+/* À PLAT (2.12.214, Charles : « sans cadre, juste à plat »). Le titre d'un
+ * panneau posé sur la page, souligné d'un filet ; le contenu dessous, sans
+ * fond ni bordure. Même hauteur partout : deux panneaux côte à côte ont leurs
+ * titres, puis leurs premières lignes, alignés. */
+.entete-plat {
+  display: flex; align-items: center; gap: .5rem;
+  height: 2rem; margin-bottom: .375rem;
+  border-bottom: 1px solid #D8DCE4;
+}
