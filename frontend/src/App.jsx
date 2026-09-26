@@ -346,7 +346,10 @@ function ProtectedLayout({ children }) {
       try {
         const cur = JSON.parse(localStorage.getItem('user') || '{}');
         const maj = { ...cur, role: d.user.role ?? cur.role,
-          permissions_json: d.user.permissions_json ?? null };
+          permissions_json: d.user.permissions_json ?? null,
+          // Relu comme le rôle : un compte relié à sa fiche professeur après
+          // coup voit « Mes cours » sans avoir à se reconnecter.
+          professeur_id: d.user.professeur_id ?? null };
         if (JSON.stringify(maj) !== JSON.stringify(cur)) {
           localStorage.setItem('user', JSON.stringify(maj));
           setDroitsFrais(x => x + 1);   // le menu relit l'utilisateur
