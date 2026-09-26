@@ -2237,7 +2237,7 @@ export default function Professeurs({ vue: vueInitiale = 'membres' }) {
   }
 
   return (
-    <div className="relative bg-slate-50" style={{ minHeight: 'calc(100vh - 64px)' }}>
+    <div className="relative" style={{ minHeight: 'calc(100vh - 64px)' }}>
       <RailLateral impression="personnel"
         /* « NOUVEAU MEMBRE » ÉTAIT UN BLOC VERT PLEINE LARGEUR, hérité du rail
            qui s'élargissait au survol : replié, son libellé restait là,

@@ -1170,6 +1170,12 @@ et 3 composants de tuile**. La stratégie tient en cinq chantiers, dans cet ordr
   | Contour | 1 px `#D8DCE4` | 0,3 mm, même gris |
   | Corps | 13 px | 9 pt |
   | Rail teinté | marine, vert, ocre, brique | marine à l'intérieur, **or** sur la pièce extérieure |
+- **UN ÉCRAN NE PEINT JAMAIS SON FOND.** Douze écrans (dont le gabarit `Axe`)
+  posaient `bg-slate-50` sur leur conteneur racine : avec les gris d'origine,
+  il se confondait avec le fond de la page ; dès qu'on règle le fond ou les
+  gris (Thèmes et couleurs), la barre, le rail et le contenu montraient trois
+  zones (Charles, 26 septembre 2026 : « tes zones ne sont pas logiques »). Il
+  n'y a qu'un sol, `--page-fond`, lu par `body` ; retiré partout en 2.12.202.
 - **Un tableau n'a que deux tons** (`.tab-entete`, `.tab-repere`). L'en-tête
   et la ligne de regroupement sont le **même objet** — l'un nomme les colonnes,
   l'autre nomme un paquet de lignes : même fond, celui du cadre de titre. La

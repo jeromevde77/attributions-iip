@@ -191,7 +191,7 @@ export default function Axe({ titre, question, icone, onglets, ongletInitial,
     : [rubriques];
 
   return (
-    <div className="relative bg-slate-50" style={{ minHeight: 'calc(100vh - 64px)' }}>
+    <div className="relative" style={{ minHeight: 'calc(100vh - 64px)' }}>
       <RailDessine icon={icone} titre={titre} sousTitre={question}
         /* REVENIR À L'AXE, c'est revenir à sa PREMIÈRE rubrique : celle par
            laquelle on y entre, et celle qu'on cherche quand on s'est perdu

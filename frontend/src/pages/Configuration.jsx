@@ -1399,7 +1399,7 @@ export default function Configuration() {
     items: g.items.filter(t => t.key !== 'audit' || getUser()?.role === 'admin') }));
   const groupeActif = groupesVisibles.find(g => g.items.some(t => t.key === tab)) || groupesVisibles[0];
   return (
-    <div className="relative bg-slate-50" style={{ minHeight: 'calc(100vh - 64px)' }}>
+    <div className="relative" style={{ minHeight: 'calc(100vh - 64px)' }}>
       {/* VINGT-DEUX ICÔNES, ET PLUS PERSONNE NE TROUVAIT RIEN (Charles, 21
           septembre 2026). Le rail dit OÙ L'ON EST : six familles, une icône
           chacune. Ce qu'une famille contient se choisit dans ses FEUILLES,
@@ -2366,7 +2366,7 @@ function ReglageCouleurs() {
   return (
     <div className="space-y-4">
       <div>
-        <h2 className="text-[17px] font-semibold text-iip-blue">Thèmes et couleurs</h2>
+        {/* Le titre est déjà celui de l'onglet : un titre ne s'écrit qu'une fois. */}
         <p className="text-[13px] text-slate-500 max-w-3xl">
           Un thème pose tout d’un coup ; chaque couleur se retouche ensuite. Le sens ne change
           pas — le vert dit « réussi » partout — : on en choisit la nuance. Rien n’est modifié
