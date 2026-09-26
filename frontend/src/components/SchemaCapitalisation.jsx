@@ -459,7 +459,13 @@ export default function SchemaCapitalisation({
                 // Une acquise PAR FAVEUR prend le violet : c'est un octroi, il
                 // doit se voir de loin (Charles, 25 septembre 2026).
                 const statut = n.statut === 'acquise' && n.reussite?.faveur ? 'faveur' : n.statut;
-                const base = couleursCap(statut);
+                /* AU PROGRAMME DE L'ANNÉE : BLEU PLEIN, ÉCRITURE BLANCHE (Charles,
+                   26 septembre 2026 — « qu'elles ressortent ; pas le liseré noir,
+                   c'est moche »). Une UE déjà acquise reste verte. */
+                const auProgramme = n.inscrite && statut !== 'acquise' && statut !== 'faveur' && mode === 'etudiant';
+                const base = auProgramme
+                  ? { fond: 'var(--c-disponible)', bord: 'var(--c-disponible)', rail: 'color-mix(in srgb, var(--c-disponible) 70%, #000)', texte: '#FFFFFF' }
+                  : couleursCap(statut);
                 const ei = !!n.epreuve_integree;
                 const co = ei && mode === 'structure'
                   ? { fond: OR.fill, bord: OR.stroke, rail: OR.stroke, texte: OR.text }
@@ -492,10 +498,7 @@ export default function SchemaCapitalisation({
                     )}
                     {/* AU PROGRAMME DE L'ANNÉE : un cadre marine, comme dans la
                         maquette du parcours — la pastille ronde se perdait. */}
-                    {n.inscrite && !actif && (
-                      <path d={boite(p.x - 1.2, p.y - 1.2, layout.L + 2.4, layout.H + 2.4, 7)}
-                        fill="none" stroke="#1B2B4B" strokeWidth="1.3" />
-                    )}
+
                     {/* UE DÉTERMINANTE : elle pèse double dans la mention du
                         diplôme. La pastille est CENTRÉE sur l'angle supérieur
                         droit, à cheval sur le bord — elle déborde autant
@@ -633,7 +636,7 @@ export default function SchemaCapitalisation({
                 </span>
               ))}
               <span className="flex items-center gap-1.5">
-                <span className="inline-block w-3.5 h-3 rounded-sm border-[1.5px] border-[#1B2B4B]" /> au programme cette année
+                <span className="inline-block w-3.5 h-3 rounded-sm" style={{ background: 'var(--c-disponible)' }} /> au programme cette année
               </span>
               <span className="flex items-center gap-1.5">
                 <span className="inline-block w-3.5 h-3 rounded-r-sm border border-slate-200"

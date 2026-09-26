@@ -344,6 +344,18 @@ function GrilleParcours({ etudId, peutEcrire, annee }) {
     return toutes;
   })();
   const aDetail = (annee, ueNum) => (data.detail || []).includes(annee + ':' + ueNum);
+  const moities = (() => {
+    const l = data.ues;
+    if (l.length < 8) return [l];
+    const blocs = l.map(u => (u.ue_niv || '').toUpperCase());
+    let coupe = Math.ceil(l.length / 2), meilleur = Infinity;
+    for (let k = 1; k < l.length; k++) {
+      if (blocs[k] !== blocs[k - 1] && Math.abs(k - l.length / 2) < meilleur) { meilleur = Math.abs(k - l.length / 2); coupe = k; }
+    }
+    // Pas de frontière de bloc raisonnable : on coupe au milieu.
+    if (meilleur > l.length / 4) coupe = Math.ceil(l.length / 2);
+    return [l.slice(0, coupe), l.slice(coupe)];
+  })();
   const idxAnnee = a => anneesAffichees.indexOf(a);
   const deplacable = cl => !!cl && cl.kind !== 'va';
   // Les cases qui arriveraient dans la colonne survolée, pour les montrer.
@@ -394,134 +406,144 @@ function GrilleParcours({ etudId, peutEcrire, annee }) {
         </div>
       </div>
 
+      {/* DEUX COLONNES (Charles, 26 septembre 2026 : « le tiroir est trop haut ;
+          en deux colonnes »). Les UE se partagent entre deux tableaux, coupés
+          entre deux BLOCS au plus près de la moitié ; chacun porte les mêmes
+          années. Une seule colonne sur un écran étroit. */}
+      <div className="grid gap-4 lg:grid-cols-2 items-start">
+      {moities.map((liste, iT) => (
+      <div key={iT} className="min-w-0">
       <div className="overflow-x-auto">
-        <table className="w-full text-[12px] border-collapse">
-          <thead>
-            {/* LES ANNÉES SUR LA LIGNE DES BLOCS DU SCHÉMA (« les dates sur la
-                même ligne ») : en-tête sans fond, de la hauteur des intitulés
-                BA1, BA2… posés en tête du schéma. */}
-            <tr className="text-[10.5px] font-semibold text-slate-500">
-              <th className="px-2 py-1 text-left sticky left-0 bg-white z-10">UE</th>
-              {anneesAffichees.map((a, i) => {
-                const derniere = i === anneesAffichees.length - 1;
+          <table className="w-full text-[12px] border-collapse">
+            <thead>
+              {/* LES ANNÉES SUR LA LIGNE DES BLOCS DU SCHÉMA (« les dates sur la
+                  même ligne ») : en-tête sans fond, de la hauteur des intitulés
+                  BA1, BA2… posés en tête du schéma. */}
+              <tr className="text-[10.5px] font-semibold text-slate-500">
+                <th className="px-2 py-1 text-left sticky left-0 bg-white z-10">UE</th>
+                {anneesAffichees.map((a, i) => {
+                  const derniere = i === anneesAffichees.length - 1;
+                  return (
+                    <th key={a}
+                      title={a}
+                      className={`px-1 py-1 text-center w-[52px] ${derniere
+                        ? 'sticky right-0 z-20 bg-iip-blue text-white shadow-[-6px_0_8px_-6px_rgba(0,0,0,0.18)]'
+                        : ''}`}>
+                      {a.replace(/^20(\d\d)-20(\d\d)$/, '$1-$2')}
+                    </th>
+                  );
+                })}
+              </tr>
+            </thead>
+            <tbody>
+              {liste.map(u => {
+                const verrou = !u.deverrouillee && !u.acquise;
                 return (
-                  <th key={a}
-                    title={a}
-                    className={`px-1 py-1 text-center w-[52px] ${derniere
-                      ? 'sticky right-0 z-20 bg-iip-blue text-white shadow-[-6px_0_8px_-6px_rgba(0,0,0,0.18)]'
-                      : ''}`}>
-                    {a.replace(/^20(\d\d)-20(\d\d)$/, '$1-$2')}
-                  </th>
+                  <tr key={u.section + '-' + u.ue_num} className="border-t border-slate-100">
+                    {/* Le BLOC se lit au liseré, la colonne « Niv. » disparaît. */}
+                    <td className="px-2 py-0.5 sticky left-0 bg-white z-10 whitespace-nowrap max-w-[16rem] overflow-hidden text-ellipsis border-l-[3px]"
+                      style={{ borderLeftColor: couleurBloc(u.ue_niv) || '#D8DCE4' }}
+                      title={`UE ${u.ue_num} — ${u.ue_nom || ''}${u.ue_niv ? ' · ' + u.ue_niv : ''}`}>
+                      <span className="font-semibold text-iip-blue">{u.ue_num}</span>
+                      <span className="text-slate-600 ml-1.5 inline-block max-w-[13rem] truncate align-bottom">{u.ue_nom}</span>
+                      {verrou && <span className="ml-1.5 text-[11px]"
+                        title={'Exige : UE ' + ((u.prereq_chaine?.length ? u.prereq_chaine : u.prerequis) || []).join(', ')}>🔒</span>}
+                      {u.suggeree && <span className="ml-1.5 text-[10px] px-1 py-0.5 rounded bg-violet-50 text-violet-600 border border-violet-200" title="Probablement acquise (inférence prérequis) — à confirmer">à confirmer</span>}
+                      {u.hors_referentiel && (
+                        <span className="ml-1.5 text-[10px] px-1 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-200"
+                          title="Cette unité appartient à une autre section, ou sa section est inconnue">
+                          autre section
+                        </span>
+                      )}
+                      {u.hors_millesime && (
+                        <span className="ml-1.5 text-[10px] px-1 py-0.5 rounded bg-slate-100 text-slate-500"
+                          title="Unité de la section, absente du programme de l'année en cours">
+                          hors programme {annee}
+                        </span>
+                      )}
+                    </td>
+                    {anneesAffichees.map((a, iCol) => {
+                      const derniere = iCol === anneesAffichees.length - 1;
+                      const cl = cell(a, u.ue_num);
+                      const kind = cl && KINDS_CELLULE.find(k => k.val === cl.kind);
+                      return (
+                        <td key={a}
+                          onDragOver={glisse ? ev => { ev.preventDefault(); if (survol !== a) setSurvol(a); } : undefined}
+                          onDrop={glisse ? ev => { ev.preventDefault(); deposer(a); } : undefined}
+                          className={`px-0.5 py-0.5 text-center ${derniere
+                            ? 'sticky right-0 z-10 bg-white shadow-[-6px_0_8px_-6px_rgba(0,0,0,0.10)]'
+                            : ''} ${arrivees.has(`${a}|${u.ue_num}`) ? '!bg-[#EAF1FA]' : ''}`}>
+                          <button
+                            draggable={peutEcrire && deplacable(cl)}
+                            onDragStart={ev => {
+                              const cle = `${a}|${u.ue_num}`;
+                              const cases = choix.has(cle)
+                                ? [...choix].map(k => { const [an, ue] = k.split('|'); return { annee: an, ue_num: Number(ue) }; })
+                                : [{ annee: a, ue_num: u.ue_num }];
+                              ev.dataTransfer.effectAllowed = 'move';
+                              ev.dataTransfer.setData('text/plain', cle);
+                              setGlisse({ de: a, cases });
+                            }}
+                            onDragEnd={() => { setGlisse(null); setSurvol(null); }}
+                            onClick={ev => {
+                              if (!peutEcrire) return;
+                              if ((ev.metaKey || ev.ctrlKey || ev.shiftKey) && deplacable(cl)) {
+                                const cle = `${a}|${u.ue_num}`;
+                                setChoix(c0 => { const c = new Set(c0); c.has(cle) ? c.delete(cle) : c.add(cle); return c; });
+                                return;
+                              }
+                              if (choix.size) setChoix(new Set());
+                              if (!verrou || cl) { setPopover({ annee: a, ue_num: u.ue_num, verrou: false }); return; }
+                              // Prérequis manquants : sont-ils inscrits (ou mieux) la même année ?
+                              const acquisSet = new Set(data.ues.filter(x => x.acquise).map(x => x.ue_num));
+                              const nivMap = Object.fromEntries(data.ues.map(x => [x.ue_num, (x.ue_niv || '').toUpperCase()]));
+                              const manquants = u.prerequis.filter(p => !acquisSet.has(p));
+                              const memeAnnee = manquants.length > 0 && manquants.every(p =>
+                                cell(a, p) && nivMap[p] === (u.ue_niv || '').toUpperCase());
+                              if (memeAnnee) {
+                                // Inscription simultanée normale — sous réserve, pas de dérogation
+                                setPopover({ annee: a, ue_num: u.ue_num, verrou: false, sousReserve: manquants });
+                              } else if (window.confirm(
+                                  'UE verrouillée — exige la réussite de : UE '
+                                  + ((u.prereq_chaine?.length ? u.prereq_chaine : u.prerequis) || []).join(', ')
+                                  + '.\n\nL\'exigence est transitive : une UE prérequise a elle-même ses prérequis.'
+                                  + '\n\nEncoder quand même avec dérogation ?')) {
+                                setPopover({ annee: a, ue_num: u.ue_num, verrou: true });
+                              }
+                            }}
+                            className={`w-11 h-[22px] text-[11px] font-semibold tabular-nums rounded-md border px-0.5 transition
+                              ${kind ? kind.cls : 'border-transparent text-slate-300 hover:border-slate-200 hover:bg-slate-50'}
+                              ${cl?.derogation ? 'ring-1 ring-amber-400' : ''}
+                              ${choix.has(`${a}|${u.ue_num}`) ? 'ring-2 ring-[#2F6FB0] ring-offset-1' : ''}
+                              ${peutEcrire && deplacable(cl) ? 'cursor-grab active:cursor-grabbing' : ''}`}
+                            title={cl?.derogation ? 'Encodée avec dérogation' : ''}>
+                            {kind
+                              ? (kind.val === 'reussi' ? (cl.points != null ? String(Math.round(cl.points)) : '✓')
+                                 : kind.val === 'va' ? (cl.points != null ? 'VA ' + cl.points : 'VA')
+                                 : kind.short)
+                              : '·'}
+                            {aDetail(a, u.ue_num) && <span className="ml-0.5 align-super text-[8px]">●</span>}
+                            {(() => {
+                              if (!cl || cl.kind !== 'inscrit') return null;
+                              const acquisSet = new Set(data.ues.filter(x => x.acquise).map(x => x.ue_num));
+                              const nivMap = Object.fromEntries(data.ues.map(x => [x.ue_num, (x.ue_niv || '').toUpperCase()]));
+                              const manquants = u.prerequis.filter(p => !acquisSet.has(p));
+                              if (manquants.length && manquants.every(p => cell(a, p) && nivMap[p] === (u.ue_niv || '').toUpperCase()))
+                                return <span className="ml-0.5 text-[10px]" title={'Sous réserve — réussite UE ' + manquants.join(', ') + ' requise en cours d\'année'}>⏳</span>;
+                              return null;
+                            })()}
+                          </button>
+                        </td>
+                      );
+                    })}
+                  </tr>
                 );
               })}
-            </tr>
-          </thead>
-          <tbody>
-            {data.ues.map(u => {
-              const verrou = !u.deverrouillee && !u.acquise;
-              return (
-                <tr key={u.section + '-' + u.ue_num} className="border-t border-slate-100">
-                  {/* Le BLOC se lit au liseré, la colonne « Niv. » disparaît. */}
-                  <td className="px-2 py-0.5 sticky left-0 bg-white z-10 whitespace-nowrap max-w-[16rem] overflow-hidden text-ellipsis border-l-[3px]"
-                    style={{ borderLeftColor: couleurBloc(u.ue_niv) || '#D8DCE4' }}
-                    title={`UE ${u.ue_num} — ${u.ue_nom || ''}${u.ue_niv ? ' · ' + u.ue_niv : ''}`}>
-                    <span className="font-semibold text-iip-blue">{u.ue_num}</span>
-                    <span className="text-slate-600 ml-1.5 inline-block max-w-[13rem] truncate align-bottom">{u.ue_nom}</span>
-                    {verrou && <span className="ml-1.5 text-[11px]"
-                      title={'Exige : UE ' + ((u.prereq_chaine?.length ? u.prereq_chaine : u.prerequis) || []).join(', ')}>🔒</span>}
-                    {u.suggeree && <span className="ml-1.5 text-[10px] px-1 py-0.5 rounded bg-violet-50 text-violet-600 border border-violet-200" title="Probablement acquise (inférence prérequis) — à confirmer">à confirmer</span>}
-                    {u.hors_referentiel && (
-                      <span className="ml-1.5 text-[10px] px-1 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-200"
-                        title="Cette unité appartient à une autre section, ou sa section est inconnue">
-                        autre section
-                      </span>
-                    )}
-                    {u.hors_millesime && (
-                      <span className="ml-1.5 text-[10px] px-1 py-0.5 rounded bg-slate-100 text-slate-500"
-                        title="Unité de la section, absente du programme de l'année en cours">
-                        hors programme {annee}
-                      </span>
-                    )}
-                  </td>
-                  {anneesAffichees.map((a, iCol) => {
-                    const derniere = iCol === anneesAffichees.length - 1;
-                    const cl = cell(a, u.ue_num);
-                    const kind = cl && KINDS_CELLULE.find(k => k.val === cl.kind);
-                    return (
-                      <td key={a}
-                        onDragOver={glisse ? ev => { ev.preventDefault(); if (survol !== a) setSurvol(a); } : undefined}
-                        onDrop={glisse ? ev => { ev.preventDefault(); deposer(a); } : undefined}
-                        className={`px-0.5 py-0.5 text-center ${derniere
-                          ? 'sticky right-0 z-10 bg-white shadow-[-6px_0_8px_-6px_rgba(0,0,0,0.10)]'
-                          : ''} ${arrivees.has(`${a}|${u.ue_num}`) ? '!bg-[#EAF1FA]' : ''}`}>
-                        <button
-                          draggable={peutEcrire && deplacable(cl)}
-                          onDragStart={ev => {
-                            const cle = `${a}|${u.ue_num}`;
-                            const cases = choix.has(cle)
-                              ? [...choix].map(k => { const [an, ue] = k.split('|'); return { annee: an, ue_num: Number(ue) }; })
-                              : [{ annee: a, ue_num: u.ue_num }];
-                            ev.dataTransfer.effectAllowed = 'move';
-                            ev.dataTransfer.setData('text/plain', cle);
-                            setGlisse({ de: a, cases });
-                          }}
-                          onDragEnd={() => { setGlisse(null); setSurvol(null); }}
-                          onClick={ev => {
-                            if (!peutEcrire) return;
-                            if ((ev.metaKey || ev.ctrlKey || ev.shiftKey) && deplacable(cl)) {
-                              const cle = `${a}|${u.ue_num}`;
-                              setChoix(c0 => { const c = new Set(c0); c.has(cle) ? c.delete(cle) : c.add(cle); return c; });
-                              return;
-                            }
-                            if (choix.size) setChoix(new Set());
-                            if (!verrou || cl) { setPopover({ annee: a, ue_num: u.ue_num, verrou: false }); return; }
-                            // Prérequis manquants : sont-ils inscrits (ou mieux) la même année ?
-                            const acquisSet = new Set(data.ues.filter(x => x.acquise).map(x => x.ue_num));
-                            const nivMap = Object.fromEntries(data.ues.map(x => [x.ue_num, (x.ue_niv || '').toUpperCase()]));
-                            const manquants = u.prerequis.filter(p => !acquisSet.has(p));
-                            const memeAnnee = manquants.length > 0 && manquants.every(p =>
-                              cell(a, p) && nivMap[p] === (u.ue_niv || '').toUpperCase());
-                            if (memeAnnee) {
-                              // Inscription simultanée normale — sous réserve, pas de dérogation
-                              setPopover({ annee: a, ue_num: u.ue_num, verrou: false, sousReserve: manquants });
-                            } else if (window.confirm(
-                                'UE verrouillée — exige la réussite de : UE '
-                                + ((u.prereq_chaine?.length ? u.prereq_chaine : u.prerequis) || []).join(', ')
-                                + '.\n\nL\'exigence est transitive : une UE prérequise a elle-même ses prérequis.'
-                                + '\n\nEncoder quand même avec dérogation ?')) {
-                              setPopover({ annee: a, ue_num: u.ue_num, verrou: true });
-                            }
-                          }}
-                          className={`w-11 h-[22px] text-[11px] font-semibold tabular-nums rounded-md border px-0.5 transition
-                            ${kind ? kind.cls : 'border-transparent text-slate-300 hover:border-slate-200 hover:bg-slate-50'}
-                            ${cl?.derogation ? 'ring-1 ring-amber-400' : ''}
-                            ${choix.has(`${a}|${u.ue_num}`) ? 'ring-2 ring-[#2F6FB0] ring-offset-1' : ''}
-                            ${peutEcrire && deplacable(cl) ? 'cursor-grab active:cursor-grabbing' : ''}`}
-                          title={cl?.derogation ? 'Encodée avec dérogation' : ''}>
-                          {kind
-                            ? (kind.val === 'reussi' ? (cl.points != null ? String(Math.round(cl.points)) : '✓')
-                               : kind.val === 'va' ? (cl.points != null ? 'VA ' + cl.points : 'VA')
-                               : kind.short)
-                            : '·'}
-                          {aDetail(a, u.ue_num) && <span className="ml-0.5 align-super text-[8px]">●</span>}
-                          {(() => {
-                            if (!cl || cl.kind !== 'inscrit') return null;
-                            const acquisSet = new Set(data.ues.filter(x => x.acquise).map(x => x.ue_num));
-                            const nivMap = Object.fromEntries(data.ues.map(x => [x.ue_num, (x.ue_niv || '').toUpperCase()]));
-                            const manquants = u.prerequis.filter(p => !acquisSet.has(p));
-                            if (manquants.length && manquants.every(p => cell(a, p) && nivMap[p] === (u.ue_niv || '').toUpperCase()))
-                              return <span className="ml-0.5 text-[10px]" title={'Sous réserve — réussite UE ' + manquants.join(', ') + ' requise en cours d\'année'}>⏳</span>;
-                            return null;
-                          })()}
-                        </button>
-                      </td>
-                    );
-                  })}
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      ))}
       </div>
       </div>
 
@@ -1729,7 +1751,7 @@ function TiroirNotes({ children }) {
       </button>
       {/* Le tiroir : il glisse de droite à gauche, jusqu'aux trois cinquièmes. */}
       <div ref={panneau} aria-hidden={!ouvert}
-        className={`absolute right-7 top-[3.25rem] z-10 w-[min(60%,760px)] bg-white border border-slate-200 rounded-l-carte shadow-flottant p-3
+        className={`absolute right-7 top-[3.25rem] z-10 w-[min(92%,1400px)] bg-white border border-slate-200 rounded-l-carte shadow-flottant p-3
           transition-transform duration-300 ease-ios origin-right ${ouvert ? 'translate-x-0' : 'translate-x-[calc(100%+1.75rem)] pointer-events-none'}`}>
         {children.notes}
       </div>
