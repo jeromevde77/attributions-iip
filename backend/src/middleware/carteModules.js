@@ -88,7 +88,8 @@ export const CARTE = {
   diplomes:                'etudiants',
   attestations:            'etudiants',
   annexe2:                 'etudiants',
-  amenagements:            'etudiants',
+  // Un module à part depuis 2.12.207 : l'écriture s'y accorde à la personne.
+  amenagements:            'amenagements',
   stages:                  'etudiants',
   'droit-inscription':     'etudiants',
   'frais-scolarite':       'etudiants',

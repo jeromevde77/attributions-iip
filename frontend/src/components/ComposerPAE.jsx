@@ -32,10 +32,10 @@ function CaseAcquise({ a }) {
   const quand = String(a.annee || '').replace(/^20(\d\d)-20(\d\d)$/, '$1-$2');
   return (
     <span title={`Déjà réussie en ${a.annee}${a.va ? ' (valorisation)' : a.note != null ? ` · ${a.note}/20` : ''}`}
-      className="inline-grid place-items-center w-3.5 h-3.5 rounded-[3px] text-[9px] font-bold leading-none"
-      style={{ background: 'color-mix(in srgb, var(--c-reussi) 16%, #fff)',
-               border: '1px solid color-mix(in srgb, var(--c-reussi) 45%, #fff)',
-               color: 'var(--c-reussi)' }}
+      className="inline-grid place-items-center w-3.5 h-3.5 rounded-[3px] text-[9px] font-bold leading-none text-white"
+      // VERT FRANC, COCHE BLANCHE (Charles, 26 septembre 2026 : « si tu mets
+      // du bleu marine fort, il faut un vert fort, avec le V en blanc »).
+      style={{ background: 'var(--c-reussi)' }}
       aria-label={`réussie en ${quand}`}>✓</span>
   );
 }
@@ -657,7 +657,7 @@ export default function ComposerPAE({ onClose, onTermine, onPassage, modeInitial
                             {x.va ? <span className="text-[10px] text-violet-700 font-semibold" title="Valorisation">VA</span>
                               : x.inscrit
                                 ? <span title={hors ? 'Inscrit sans les prérequis (aucune dérogation posée)' : (x.resultat || 'inscrit')}
-                                    className={`inline-block w-3.5 h-3.5 rounded-[3px] ${x.resultat === 'reussi' ? 'bg-emerald-600' : 'bg-[#1B2B4B]'} ${hors ? 'ring-2 ring-amber-400' : ''}`} />
+                                    className={`inline-block w-3.5 h-3.5 rounded-[3px] ${x.resultat === 'reussi' ? 'bg-[var(--c-reussi)]' : 'bg-[#1B2B4B]'} ${hors ? 'ring-2 ring-amber-400' : ''}`} />
                                 : manque
                                   ? <span title="Ouverte par les prérequis, non prise"
                                       className="inline-block w-3.5 h-3.5 rounded-[3px] border-2 border-dashed border-slate-400" />
@@ -697,7 +697,7 @@ export default function ComposerPAE({ onClose, onTermine, onPassage, modeInitial
                             className="text-center px-1 py-1 bg-white border-l border-slate-100 cursor-pointer hover:bg-slate-50">
                             {rx.resultat === 'reussi'
                               ? <span title={`réussi${rx.points != null ? ` · ${rx.points}` : ''}`}
-                                  className={`inline-grid place-items-center w-3.5 h-3.5 rounded-[3px] bg-emerald-600 text-white text-[10px] leading-none ${rx.attente ? 'ring-2 ring-iip-turquoise/30' : ''}`}>✓</span>
+                                  className={`inline-grid place-items-center w-3.5 h-3.5 rounded-[3px] bg-[var(--c-reussi)] text-white text-[10px] leading-none ${rx.attente ? 'ring-2 ring-iip-turquoise/30' : ''}`}>✓</span>
                               : rx.resultat === 'refuse'
                                 ? <span title={`refusé${rx.points != null ? ` · ${rx.points}` : ''}`}
                                     className={`inline-grid place-items-center w-3.5 h-3.5 rounded-[3px] bg-rose-600 text-white text-[10px] leading-none ${rx.attente ? 'ring-2 ring-iip-turquoise/30' : ''}`}>✗</span>
@@ -720,7 +720,7 @@ export default function ComposerPAE({ onClose, onTermine, onPassage, modeInitial
                               : x.attente === 'retrait'
                                 ? <span title="Retrait en attente" className="inline-grid place-items-center w-3.5 h-3.5 rounded-[3px] bg-[#9D4A38] text-white text-[10px] leading-none">×</span>
                                 : x.inscrit
-                                  ? <span title={x.resultat || 'inscrit'} className={`inline-block w-3.5 h-3.5 rounded-[3px] ${x.resultat === 'reussi' ? 'bg-emerald-600' : 'bg-[#1B2B4B]'}`} />
+                                  ? <span title={x.resultat || 'inscrit'} className={`inline-block w-3.5 h-3.5 rounded-[3px] ${x.resultat === 'reussi' ? 'bg-[var(--c-reussi)]' : 'bg-[#1B2B4B]'}`} />
                                   : x.acquise ? <CaseAcquise a={x.acquise} />
                                   : <span className="inline-block w-3.5 h-3.5 rounded-[3px] border border-slate-300" />}
                         </td>
@@ -734,6 +734,48 @@ export default function ComposerPAE({ onClose, onTermine, onPassage, modeInitial
                 )}
               </tbody>
             </table>
+          </div>
+        )}
+        {/* LA LÉGENDE (Charles, 26 septembre 2026 : « il n'y a pas de légende,
+            on ne sait pas ce qui est quoi »). Elle suit le mode : chaque mode
+            dit ce que ses cases veulent dire. */}
+        {grille && (
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-2 text-[11px] text-slate-600">
+            <span className="inline-flex items-center gap-1.5">
+              <span className="inline-grid place-items-center w-3.5 h-3.5 rounded-[3px] text-[9px] font-bold text-white" style={{ background: 'var(--c-reussi)' }}>✓</span>
+              réussie (cette année ou avant — l'année au survol)
+            </span>
+            <span className="inline-flex items-center gap-1.5">
+              <span className="inline-block w-3.5 h-3.5 rounded-[3px] bg-[#1B2B4B]" />inscrite au programme de {annee}
+            </span>
+            {mode === 'composer' && <>
+              <span className="inline-flex items-center gap-1.5">
+                <span className="inline-block w-3.5 h-3.5 rounded-[3px] border-2 border-dashed border-[#1a9aa0] bg-[#1a9aa0]/20" />ajout en attente
+              </span>
+              <span className="inline-flex items-center gap-1.5">
+                <span className="inline-grid place-items-center w-3.5 h-3.5 rounded-[3px] bg-[#9D4A38] text-white text-[10px] leading-none">×</span>retrait en attente
+              </span>
+            </>}
+            {mode === 'valider' && <>
+              <span className="inline-flex items-center gap-1.5">
+                <span className="inline-block w-3.5 h-3.5 rounded-[3px] bg-[#1B2B4B] ring-2 ring-[#9d4a38]" />déjà réussie, réinscrite sans forçage
+              </span>
+              <span className="inline-flex items-center gap-1.5">
+                <span className="inline-block w-3.5 h-3.5 rounded-[3px] bg-[#1B2B4B] ring-2 ring-amber-400" />inscrite sans les prérequis
+              </span>
+              <span className="inline-flex items-center gap-1.5">
+                <span className="inline-block w-3.5 h-3.5 rounded-[3px] border-2 border-dashed border-slate-400" />ouverte par les prérequis, non prise
+              </span>
+            </>}
+            {mode === 'resultats' && (
+              <span className="inline-flex items-center gap-1.5">
+                <span className="inline-grid place-items-center w-3.5 h-3.5 rounded-[3px] bg-rose-600 text-white text-[10px] leading-none">✗</span>refusée
+              </span>
+            )}
+            <span className="inline-flex items-center gap-1.5">
+              <span className="inline-block w-3.5 h-3.5 rounded-[3px] border border-slate-300" />pas au programme
+            </span>
+            <span className="inline-flex items-center gap-1.5"><b className="text-[10px] text-violet-700">VA</b> valorisation</span>
           </div>
         )}
       </div>

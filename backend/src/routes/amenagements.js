@@ -27,6 +27,17 @@
 import { Router } from 'express';
 import db from '../db/index.js';
 import { authRequired, roleRequired } from '../middleware/auth.js';
+import { peut } from '../middleware/permissions.js';
+
+/* QUI ÉCRIT UN AMÉNAGEMENT : les rôles d'office, OU toute personne à qui
+ * l'écriture a été accordée sur sa fiche (Accès Lucie → Aménagements
+ * raisonnables). Voir MODULES_SUR_OCTROI dans middleware/permissions.js. */
+const ROLES_AMENAGEMENT = ['admin', 'directeur', 'directeur_adjoint', 'editeur', 'secretariat'];
+function peutAmenager(req, res, next) {
+  if (!req.user) return res.status(401).json({ error: 'Non authentifié' });
+  if (ROLES_AMENAGEMENT.includes(req.user.role) || peut(req.user, 'amenagements', 'ecrire') === 'direct') return next();
+  return res.status(403).json({ error: "Vous n'avez pas le droit de modifier les aménagements raisonnables." });
+}
 
 const r = Router();
 
@@ -192,8 +203,7 @@ r.get('/etudiant/:id', authRequired, (req, res) => {
 });
 
 // ── Création et mise à jour ─────────────────────────────────────────────────
-r.post('/dossier', authRequired, roleRequired('admin', 'directeur', 'directeur_adjoint',
-                                              'editeur', 'secretariat'), (req, res) => {
+r.post('/dossier', authRequired, peutAmenager, (req, res) => {
   const d = req.body || {};
   if (!d.etudiant_id || !d.annee_scolaire) {
     return res.status(400).json({ error: 'etudiant_id et annee_scolaire requis' });
@@ -237,8 +247,7 @@ r.get('/dossier/:id/ues-possibles', authRequired, (req, res) => {
 });
 
 // ── Les unités concernées par la demande (cadre A.2) ───────────────────────
-r.put('/dossier/:id/ues', authRequired, roleRequired('admin', 'directeur',
-      'directeur_adjoint', 'editeur', 'secretariat'), (req, res) => {
+r.put('/dossier/:id/ues', authRequired, peutAmenager, (req, res) => {
   const id = Number(req.params.id);
   const ues = Array.isArray(req.body?.ues) ? req.body.ues.map(Number).filter(Boolean) : [];
 
@@ -252,8 +261,7 @@ r.put('/dossier/:id/ues', authRequired, roleRequired('admin', 'directeur',
   res.json({ ok: true, ues });
 });
 
-r.put('/dossier/:id', authRequired, roleRequired('admin', 'directeur', 'directeur_adjoint',
-                                                 'editeur', 'secretariat'), (req, res) => {
+r.put('/dossier/:id', authRequired, peutAmenager, (req, res) => {
   const d = req.body || {};
   const champs = ['statut', 'date_demande', 'personne_reference', 'piece_type', 'piece_date',
                   'piece_auteur', 'piece_reference', 'cde_date', 'cde_motivation',
@@ -290,8 +298,7 @@ r.put('/dossier/:id', authRequired, roleRequired('admin', 'directeur', 'directeu
 });
 
 // ── Mesures ─────────────────────────────────────────────────────────────────
-r.post('/dossier/:id/mesure', authRequired, roleRequired('admin', 'directeur',
-       'directeur_adjoint', 'editeur', 'secretariat'), (req, res) => {
+r.post('/dossier/:id/mesure', authRequired, peutAmenager, (req, res) => {
   const m = req.body || {};
   if (!m.libelle) return res.status(400).json({ error: 'libelle requis' });
   const info = db.prepare(`
@@ -304,8 +311,7 @@ r.post('/dossier/:id/mesure', authRequired, roleRequired('admin', 'directeur',
   res.json({ ok: true, id: Number(info.lastInsertRowid) });
 });
 
-r.put('/mesure/:id', authRequired, roleRequired('admin', 'directeur', 'directeur_adjoint',
-                                                'editeur', 'secretariat'), (req, res) => {
+r.put('/mesure/:id', authRequired, peutAmenager, (req, res) => {
   const m = req.body || {};
   db.prepare(`
     UPDATE amenagement_mesure SET precisions = ?, portee = ?, ue_num = ?,
@@ -315,8 +321,7 @@ r.put('/mesure/:id', authRequired, roleRequired('admin', 'directeur', 'directeur
   res.json({ ok: true });
 });
 
-r.delete('/mesure/:id', authRequired, roleRequired('admin', 'directeur', 'directeur_adjoint',
-                                                   'editeur', 'secretariat'), (req, res) => {
+r.delete('/mesure/:id', authRequired, peutAmenager, (req, res) => {
   db.prepare('DELETE FROM amenagement_mesure WHERE id = ?').run(Number(req.params.id));
   res.json({ ok: true });
 });
