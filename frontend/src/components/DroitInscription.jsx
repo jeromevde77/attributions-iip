@@ -66,7 +66,7 @@ export default function DroitInscription({ etudId, annee, peutEcrire = true }) {
           </div>
 
           <div className="p-4">
-            <div className="flex flex-wrap items-end gap-x-8 gap-y-3">
+            <div className="flex flex-wrap items-start gap-x-8 gap-y-3">
               {[['Droit d\u2019inscription', f.droit, di.exonere && 'exonéré'],
                 ['Droit spécifique', f.droit_specifique,
                   !dis.soumis && (dis.exempte ? 'exempté' : 'non soumis')],

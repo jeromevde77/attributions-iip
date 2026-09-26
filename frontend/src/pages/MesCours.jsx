@@ -326,12 +326,20 @@ export default function MesCours() {
                                   onChange={ev => { const val = ev.target.value.toUpperCase();
                                     if (saisieAdmise(val)) setNotes(n => ({ ...n, [e.id]: { ...n[e.id], [k]: val } })); }}
                                   title={t === 'PP' ? 'Pas présenté' : t === 'NP' ? 'Note de présence' : t === 'CM' ? 'Certificat médical' : undefined}
-                                  className={`w-16 h-7 border rounded-champ px-1 text-[13px] text-center tabular-nums
-                                    ${!ok ? 'border-[#C2412D] bg-[#FBEDEA]'
-                                      : MENTIONS.includes(t) ? 'border-slate-300 bg-slate-100 font-semibold text-slate-600'
-                                      : v !== '' ? 'border-[#C3D6EE] bg-[#EAF1FA]' : 'border-slate-300 bg-white'}`} />
-                                {/* « /20 » : l'échelle se lit à côté de chaque note (Charles). */}
-                                <span className="ml-0.5 text-[10px] text-slate-400">/20</span>
+                                  placeholder="·"
+                                  /* SANS CASE (Charles, 26 septembre 2026 : « la case est-elle
+                                     utile ? c'est moche ») : la grille est une feuille, pas un
+                                     formulaire. Rien au repos, un filet au survol, le champ blanc
+                                     cerclé sous le curseur — c'est là qu'on écrit. */
+                                  className={`w-12 h-7 rounded-champ px-1 text-[13px] text-right tabular-nums outline-none
+                                    border border-transparent hover:border-slate-200 focus:border-iip-blue focus:bg-white
+                                    placeholder:text-slate-300
+                                    ${!ok ? 'text-[#9D4A38] bg-[#FBEDEA] font-semibold'
+                                      : MENTIONS.includes(t) ? 'font-semibold text-slate-500 text-center'
+                                      : 'bg-transparent text-iip-blue font-semibold'}`} />
+                                {/* « /20 » : l'échelle se lit à côté de chaque NOTE (Charles) —
+                                    pas à côté d'une case vide ni d'une mention. */}
+                                <span className={`ml-0.5 text-[10px] text-slate-400 ${ok && v !== '' && !MENTIONS.includes(t) ? '' : 'invisible'}`}>/20</span>
                               </td>
                             );
                           })}
