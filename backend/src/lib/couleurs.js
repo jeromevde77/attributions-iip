@@ -17,30 +17,38 @@
 // Configuration, parce qu'une couleur qui signifie quelque chose pour l'école
 // n'a pas à être décidée dans le code.
 //
-// Ce qui N'EST PAS ici : les tons de l'habillage (gris, filets, fonds), qui
-// relèvent de la charte et ne se discutent pas écran par écran.
+// Depuis 2.12.194 (Configuration → Thèmes et couleurs), les repères de bloc et
+// les deux fonds s'y ajoutent. Les filets et les gris du texte, eux, relèvent
+// de la charte et ne se règlent pas.
 // ─────────────────────────────────────────────────────────────────────────────
 
 import db from '../db/index.js';
 
 export const COULEURS_DEFAUT = {
-  // Les deux employeurs référents : c'est la distinction la plus lue de Lucie.
-  iip:  { libelle: "Institut (IIP)",    valeur: '#1B2B4B' },
-  helb: { libelle: "Haute École (HELB)", valeur: '#DB2777' },
-  // Les deux natures de cours, qui se comparent sans cesse dans les charges.
-  ct:   { libelle: 'Cours théorique (CT)',  valeur: '#1D4ED8' },
-  pp:   { libelle: 'Pratique professionnelle (PP)', valeur: '#047857' },
+  // LE SENS — les deux employeurs, les deux natures de cours.
+  iip:  { groupe: 'sens', libelle: "Institut (IIP)",    valeur: '#1B2B4B' },
+  helb: { groupe: 'sens', libelle: "Haute École (HELB)", valeur: '#DB2777' },
+  ct:   { groupe: 'sens', libelle: 'Cours théorique (CT)',  valeur: '#1D4ED8' },
+  pp:   { groupe: 'sens', libelle: 'Pratique professionnelle (PP)', valeur: '#047857' },
   // LES ÉTATS — une seule grammaire pour tout Lucie (étude du 25 septembre
-  // 2026, validée par Charles). Chaque état n'a qu'UNE valeur réglée : le
-  // liseré. Le fond pâle et le contour s'en DÉDUISENT (11 % et 30 % de la
-  // teinte sur du blanc), sans quoi trois réglages par état finiraient par se
-  // contredire. « Pas maintenant » et « neutre » sont des gris de la charte :
-  // ils ne se règlent pas.
-  reussi:     { libelle: 'Réussi',                 valeur: '#3E7D5E' },
-  faveur:     { libelle: 'Réussi par faveur',      valeur: '#6B46C1' },
-  disponible: { libelle: 'Disponible, ouvert',     valeur: '#2F6FB0' },
-  attente:    { libelle: 'À surveiller (ajourné, échéance proche)', valeur: '#B45309' },
-  refuse:     { libelle: 'À corriger (refus, erreur)', valeur: '#9D4A38' },
+  // 2026). Chaque état n'a qu'UNE valeur réglée : le liseré. Le fond pâle et
+  // le contour s'en DÉDUISENT, sans quoi trois réglages par état finiraient
+  // par se contredire.
+  reussi:     { groupe: 'etats', libelle: 'Réussi',                 valeur: '#3E7D5E' },
+  faveur:     { groupe: 'etats', libelle: 'Réussi par faveur',      valeur: '#6B46C1' },
+  disponible: { groupe: 'etats', libelle: 'Disponible, inscrit',    valeur: '#2F6FB0' },
+  attente:    { groupe: 'etats', libelle: 'À surveiller (ajourné, échéance proche)', valeur: '#B45309' },
+  refuse:     { groupe: 'etats', libelle: 'À corriger (refus, erreur)', valeur: '#9D4A38' },
+  // LES REPÈRES — les blocs et l'épreuve intégrée. Ils disent où l'on est,
+  // jamais un état.
+  ba1:     { groupe: 'blocs', libelle: 'Bloc 1 (BA1)', valeur: '#E8890C' },
+  ba2:     { groupe: 'blocs', libelle: 'Bloc 2 (BA2)', valeur: '#7FB3D5' },
+  ba3:     { groupe: 'blocs', libelle: 'Bloc 3 (BA3)', valeur: '#1B2B4B' },
+  epreuve: { groupe: 'blocs', libelle: 'Épreuve intégrée', valeur: '#C9A84C' },
+  // LES FONDS — le sol de la page (barre et rail compris, en mode clair : un
+  // seul sol) et le gris de ce qui n'est pas encore atteignable.
+  fond_page:    { groupe: 'fonds', libelle: 'Fond de la page', valeur: '#F8FAFC' },
+  fond_indispo: { groupe: 'fonds', libelle: 'Pas encore atteignable', valeur: '#F4F5F7' },
 };
 
 /** Les couleurs en vigueur : les défauts, écrasés par ce qui a été réglé. */

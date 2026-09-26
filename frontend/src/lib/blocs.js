@@ -7,8 +7,11 @@
  * `#F97316 / #60A5FA / #1E3A8A` —, et c'est l'écran qu'on regarde le moins
  * qui aurait gardé l'ancienne teinte.
  */
-export const COULEUR_BLOC = { BA1: '#E8890C', BA2: '#7FB3D5', BA3: '#1B2B4B', BA4: '#6E48A6', BA5: '#9D4A38' };
-export const OR_EPREUVE = '#C9A84C';
+// Réglables depuis Configuration → Thèmes et couleurs (2.12.194) : ce sont des
+// valeurs CSS, à lire dans un `style`, jamais dans un attribut SVG.
+export const COULEUR_BLOC = { BA1: 'var(--c-ba1, #E8890C)', BA2: 'var(--c-ba2, #7FB3D5)',
+  BA3: 'var(--c-ba3, #1B2B4B)', BA4: '#6E7FA0', BA5: '#9D4A38' };
+export const OR_EPREUVE = 'var(--c-epreuve, #C9A84C)';
 
 /** « ba2 », « BA 2 », « BA2 » → « BA2 » ; autre chose → null. */
 export function blocDe(niv) {

@@ -22,9 +22,17 @@ import { authHeaders } from './api.js';
 export const DEFAUT = {
   iip: '#1B2B4B', helb: '#DB2777', ct: '#1D4ED8', pp: '#047857',
   reussi: '#3E7D5E', faveur: '#6B46C1', disponible: '#2F6FB0', attente: '#B45309', refuse: '#9D4A38',
+  ba1: '#E8890C', ba2: '#7FB3D5', ba3: '#1B2B4B', epreuve: '#C9A84C',
+  fond_page: '#F8FAFC', fond_indispo: '#F4F5F7',
 };
 
-function poser(jeu) {
+/** Le jeu de gris : « ardoise » (d'origine) ou « neutre » — voir index.css. */
+export function poserGris(jeu) {
+  if (jeu === 'neutre') document.documentElement.dataset.gris = 'neutre';
+  else delete document.documentElement.dataset.gris;
+}
+
+export function poser(jeu) {
   const racine = document.documentElement;
   for (const [cle, valeur] of Object.entries(jeu || {})) {
     if (/^#[0-9a-fA-F]{6}$/.test(String(valeur))) {
@@ -41,6 +49,7 @@ export async function chargerCouleurs() {
     if (!rep.ok) return DEFAUT;
     const j = await rep.json();
     poser(j.couleurs);
+    poserGris(j.gris);
     return j.couleurs;
   } catch {
     // Hors ligne ou session expirée : les défauts tiennent l'écran debout.
