@@ -67,6 +67,12 @@ const r = Router();
       `);
       console.log('[migration] note_proposee : passage par acquis (aa_code)');
     }
+    /* PP ET NP (Charles, 26 septembre 2026) : « pas présenté » et « note de
+     * présence ». Ce ne sont pas des notes : la note reste vide et la MENTION
+     * dit pourquoi — une case vide, elle, veut dire « rien de proposé ». */
+    if (!db.prepare('PRAGMA table_info(note_proposee)').all().some(c => c.name === 'mention')) {
+      db.exec('ALTER TABLE note_proposee ADD COLUMN mention TEXT');
+    }
   } catch (e) { console.error('[migration] note_proposee :', e.message); }
 })();
 
@@ -77,11 +83,11 @@ function acquisDuCours(coursCode, ueNum, annee) {
   try {
     const lies = db.prepare(`
       SELECT p.aa_code, COALESCE(a.description, '') AS description,
-             COALESCE(a.aa_num, 999) AS aa_num
+             COALESCE(a.aa_num, 999) AS aa_num, p.poids
       FROM aa_ponderation p LEFT JOIN aa a ON a.aa_code = p.aa_code
       WHERE p.ue_num = ? AND p.annee_scolaire = ? AND p.cours_code = ?
       ORDER BY aa_num, p.aa_code`).all(ueNum, annee, coursCode);
-    if (lies.length) return lies.map(x => ({ aa_code: x.aa_code, description: x.description }));
+    if (lies.length) return lies.map(x => ({ aa_code: x.aa_code, description: x.description, poids: x.poids ?? null }));
     return db.prepare(`
       SELECT aa_code, COALESCE(description, '') AS description
       FROM aa WHERE ue_num = ? AND cours_code = ?
@@ -270,9 +276,9 @@ r.get('/:coursCode/etudiants', authRequired, (req, res) => {
   const acquis = acquisDuCours(req.params.coursCode, d.ueNum, annee);
   const props = {};
   for (const x of db.prepare(`
-    SELECT etudiant_id, aa_code, note FROM note_proposee
+    SELECT etudiant_id, aa_code, note, mention FROM note_proposee
     WHERE annee_scolaire = ? AND cours_code = ?`).all(annee, req.params.coursCode)) {
-    (props[x.etudiant_id] ||= {})[x.aa_code || ''] = x.note;
+    (props[x.etudiant_id] ||= {})[x.aa_code || ''] = x.mention || x.note;
   }
 
   res.json({
@@ -295,26 +301,31 @@ r.post('/:coursCode/notes', authRequired, (req, res) => {
   const permis = new Set(d.etudiants.map(e => e.id));
   // Les acquis admis pour ce cours — plus la clé '' (note de cours).
   const aaPermis = new Set(['', ...acquisDuCours(req.params.coursCode, d.ueNum, annee).map(a => a.aa_code)]);
+  const MENTIONS = ['PP', 'NP'];
   const notes = (Array.isArray(req.body?.notes) ? req.body.notes : [])
-    .map(x => ({ etudiant_id: Number(x?.etudiant_id),
-      aa_code: String(x?.aa_code ?? ''),
-      note: x?.note == null || x.note === '' ? null : Number(String(x.note).replace(',', '.')) }))
+    .map(x => {
+      const brut = String(x?.note ?? '').trim().toUpperCase();
+      const mention = MENTIONS.includes(brut) ? brut : null;
+      return { etudiant_id: Number(x?.etudiant_id), aa_code: String(x?.aa_code ?? ''), mention,
+        note: mention || brut === '' ? null : Number(brut.replace(',', '.')) };
+    })
     .filter(x => permis.has(x.etudiant_id) && aaPermis.has(x.aa_code)
-      && (x.note === null || (Number.isFinite(x.note) && x.note >= 0 && x.note <= 20)));
+      && (x.mention || x.note === null || (Number.isFinite(x.note) && x.note >= 0 && x.note <= 20)));
   if (!notes.length) return res.status(400).json({ error: 'Aucune note valable.' });
 
   const poser = db.prepare(`
-    INSERT INTO note_proposee (etudiant_id, annee_scolaire, cours_code, aa_code, note, propose_par, propose_le)
-    VALUES (?,?,?,?,?,?,datetime('now'))
+    INSERT INTO note_proposee (etudiant_id, annee_scolaire, cours_code, aa_code, note, mention, propose_par, propose_le)
+    VALUES (?,?,?,?,?,?,?,datetime('now'))
     ON CONFLICT(etudiant_id, annee_scolaire, cours_code, aa_code) DO UPDATE SET
-      note = excluded.note, propose_par = excluded.propose_par, propose_le = datetime('now')`);
+      note = excluded.note, mention = excluded.mention,
+      propose_par = excluded.propose_par, propose_le = datetime('now')`);
   const oter = db.prepare(
     'DELETE FROM note_proposee WHERE etudiant_id = ? AND annee_scolaire = ? AND cours_code = ? AND aa_code = ?');
   let n = 0;
   db.transaction(() => {
     for (const x of notes) {
-      if (x.note === null) { n += oter.run(x.etudiant_id, annee, req.params.coursCode, x.aa_code).changes; }
-      else { poser.run(x.etudiant_id, annee, req.params.coursCode, x.aa_code, x.note, req.user?.email || null); n++; }
+      if (x.note === null && !x.mention) { n += oter.run(x.etudiant_id, annee, req.params.coursCode, x.aa_code).changes; }
+      else { poser.run(x.etudiant_id, annee, req.params.coursCode, x.aa_code, x.note, x.mention, req.user?.email || null); n++; }
     }
   })();
   res.json({ ok: true, proposees: n });
@@ -324,7 +335,7 @@ r.post('/:coursCode/notes', authRequired, (req, res) => {
 r.get('/:coursCode/propositions', authRequired, roleRequired(...PEUT_INSTRUIRE), (req, res) => {
   const annee = req.query.annee || anneeDeTravail(req);
   const lignes = db.prepare(`
-    SELECT p.etudiant_id, p.aa_code, p.note, p.propose_par, p.propose_le, e.nom, e.prenom
+    SELECT p.etudiant_id, p.aa_code, p.note, p.mention, p.propose_par, p.propose_le, e.nom, e.prenom
     FROM note_proposee p JOIN etudiant e ON e.id = p.etudiant_id
     WHERE p.annee_scolaire = ? AND p.cours_code = ?
     ORDER BY e.nom, e.prenom, p.aa_code`).all(annee, req.params.coursCode);

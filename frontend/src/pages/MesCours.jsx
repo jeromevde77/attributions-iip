@@ -156,75 +156,154 @@ export default function MesCours() {
         );
       })()}
 
-      {ouvert && (
-        <div className="bg-white border border-slate-200 rounded-carte px-3 py-2.5 space-y-2">
-          <div className="flex items-center gap-2 flex-wrap">
-            <button onClick={() => { setOuvert(null); setFeuille(null); }}
-              className="text-[13px] text-iip-blue inline-flex items-center gap-1">
-              <IconChevronLeft size={15} /> Mes cours
-            </button>
-            <b className="text-[14.5px] text-iip-blue">{ouvert} · {c?.cours_nom || ''}</b>
-            {/* L'explication tient sur une ligne ; le détail, au survol. */}
-            <span className="text-[12px] text-slate-500"
-              title="Vos notes sont des propositions : elles n'entrent pas au dossier de l'étudiant — la coordination les reprend dans l'encodage officiel. Une note vidée retire la proposition. Décimales admises.">
-              · {feuille?.acquis?.length ? <>une note <b>par acquis</b>, sur 20</> : <>une note de cours, sur 20</>}
-              {' '}— <b>propositions</b>, reprises par la coordination <span className="text-slate-400">ⓘ</span>
-            </span>
-            <button onClick={enregistrer} disabled={enCours || !feuille}
-              className="ml-auto px-3 py-1 text-[13px] font-semibold rounded-champ bg-iip-blue text-white disabled:opacity-40">
-              {enCours ? 'Enregistrement…' : 'Proposer mes notes'}
-            </button>
-          </div>
-
-          {fait && <p className="text-[13px] text-emerald-700 m-0">✓ {fait}</p>}
-          {!feuille && !erreur && <p className="text-sm text-slate-400">Chargement…</p>}
-
-          {feuille && (
-            <div className="overflow-x-auto">
-            <table className="w-auto text-[13px]">
-              <thead>
-                <tr className="text-[11px] uppercase text-slate-400 text-left border-b border-slate-200">
-                  <th className="py-1 pr-8">Étudiant</th>
-                  {feuille.repartition && <th className="py-1 pr-4">Groupe</th>}
-                  {feuille.acquis?.length
-                    ? feuille.acquis.map(a => (
-                        <th key={a.aa_code} className="py-1 px-1 w-16 text-center"
-                          title={a.description || a.aa_code}>
-                          {a.aa_code}
-                        </th>
-                      ))
-                    : <th className="py-1 px-1 w-16 text-center">/20</th>}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-50">
-                {feuille.etudiants.map(e => (
-                  <tr key={e.id}>
-                    <td className="py-0.5 pr-8 whitespace-nowrap"><b>{(e.nom || '').toUpperCase()}</b> {e.prenom}
-                      <span className="text-slate-400 text-[11.5px]"> · {e.id_ecampus || '—'}</span></td>
-                    {feuille.repartition && (
-                      <td className="py-0.5 pr-4 text-[12px] text-iip-turquoise-dark whitespace-nowrap">{e.groupe}</td>
-                    )}
-                    {colonnes(feuille).map(c => (
-                      <td key={c} className="py-0.5 px-1 text-center">
-                        <input value={notes[e.id]?.[c] ?? ''} inputMode="decimal"
-                          onChange={ev => setNotes(n => ({ ...n,
-                            [e.id]: { ...n[e.id], [c]: ev.target.value } }))}
-                          className="w-14 h-7 border border-slate-300 rounded-champ px-1 text-[13px] text-center tabular-nums" />
-                      </td>
-                    ))}
-                  </tr>
-                ))}
-                {!feuille.etudiants.length && (
-                  <tr><td colSpan={2 + colonnes(feuille).length} className="py-4 text-center text-slate-400">
-                    Aucun étudiant — la répartition de ce cours ne vous en attribue pas encore.
-                  </td></tr>
-                )}
-              </tbody>
-            </table>
+      {ouvert && (() => {
+        const cols = colonnes(feuille);
+        const nEtu = feuille?.etudiants?.length || 0;
+        const saisies = feuille ? feuille.etudiants.reduce((t, e) =>
+          t + cols.filter(k => String(notes[e.id]?.[k] ?? '').trim() !== '').length, 0) : 0;
+        const total = nEtu * cols.length;
+        const valeurOk = v => { const t = String(v ?? '').trim().toUpperCase();
+          if (!t || t === 'PP' || t === 'NP') return true;
+          const n = Number(t.replace(',', '.')); return Number.isFinite(n) && n >= 0 && n <= 20; };
+        const invalides = feuille ? feuille.etudiants.reduce((t, e) =>
+          t + cols.filter(k => !valeurOk(notes[e.id]?.[k])).length, 0) : 0;
+        /* LES FLÈCHES ET ENTRÉE, COMME DANS UN TABLEUR (Charles, 26 septembre
+           2026 : « pour le moment ce sont des cases non liées »). Haut, bas et
+           Entrée changent de ligne ; gauche et droite changent d'acquis. */
+        const deplacer = (ev, r, k) => {
+          const d = { ArrowUp: [-1, 0], ArrowDown: [1, 0], Enter: [1, 0], ArrowLeft: [0, -1], ArrowRight: [0, 1] }[ev.key];
+          if (!d) return;
+          const cible = document.querySelector(`[data-case="${r + d[0]}:${k + d[1]}"]`);
+          if (cible) { ev.preventDefault(); cible.focus(); cible.select?.(); }
+        };
+        const nomAA = (a, i) => `AA ${i + 1}`;
+        return (
+          <div className="space-y-3">
+            {/* LE COURS DANS UNE TUILE (Charles, 26 septembre 2026). */}
+            <div data-etat="fort" className="bloc-etat px-4 py-2.5 flex flex-wrap items-center gap-x-6 gap-y-2">
+              <div className="min-w-0 flex-1">
+                <button onClick={() => { setOuvert(null); setFeuille(null); }}
+                  className="text-[12px] text-slate-500 hover:text-iip-blue inline-flex items-center gap-1">
+                  <IconChevronLeft size={14} /> Mes cours
+                  {c && <span className="text-slate-400">· UE {c.ue_num}{c.ue_nom ? ` — ${c.ue_nom}` : ''}</span>}
+                </button>
+                <div className="text-[15px] font-semibold leading-snug">{ouvert} · {c?.cours_nom || ''}</div>
+                <div className="text-[12px] text-slate-500">
+                  {feuille?.portee === 'coordination' ? 'Cours de votre section — en tant que coordination'
+                    : (c?.groupes || []).join(' + ')} · {annee}
+                </div>
+              </div>
+              <div className="text-right">
+                <div className="text-[17px] font-bold tabular-nums">{nEtu}</div>
+                <div className="text-[11px] text-slate-500">étudiant{nEtu > 1 ? 's' : ''}</div>
+              </div>
+              <div className="text-right">
+                <div className="text-[17px] font-bold tabular-nums">{saisies} / {total}</div>
+                <div className="text-[11px] text-slate-500">notes saisies</div>
+                <div className="h-1.5 w-32 bg-slate-100 rounded-full overflow-hidden mt-1">
+                  <div className="h-full" style={{ width: `${total ? (saisies / total) * 100 : 0}%`, background: 'var(--c-disponible)' }} />
+                </div>
+              </div>
             </div>
-          )}
-        </div>
-      )}
+
+            {fait && <p className="text-[13px] m-0" style={{ color: 'var(--c-reussi)' }}>✓ {fait}</p>}
+            {!feuille && !erreur && <p className="text-sm text-slate-400">Chargement…</p>}
+
+            {feuille && (
+              <div className="grid gap-3 items-start lg:grid-cols-[minmax(0,1fr)_320px]">
+                <div className="carte overflow-x-auto">
+                  <table className="w-full text-[13px]">
+                    <thead>
+                      <tr className="tab-entete text-left">
+                        <th className="py-1.5 px-3">Étudiant</th>
+                        {feuille.repartition && <th className="py-1.5 pr-4">Groupe</th>}
+                        {feuille.acquis?.length
+                          ? feuille.acquis.map((a, i) => (
+                              <th key={a.aa_code} className="py-1.5 px-1 w-20 text-center" title={`${a.aa_code} — ${a.description || ''}`}>
+                                {nomAA(a, i)}
+                              </th>
+                            ))
+                          : <th className="py-1.5 px-1 w-20 text-center">Note /20</th>}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {feuille.etudiants.map((e, r) => (
+                        <tr key={e.id} className="border-t border-slate-100 bg-white">
+                          <td className="py-0.5 px-3 whitespace-nowrap"><b>{(e.nom || '').toUpperCase()}</b> {e.prenom}
+                            <span className="text-slate-400 text-[11px]"> · {e.id_ecampus || '—'}</span></td>
+                          {feuille.repartition && (
+                            <td className="py-0.5 pr-4 text-[12px] text-slate-500 whitespace-nowrap">{e.groupe}</td>
+                          )}
+                          {cols.map((k, ci) => {
+                            const v = notes[e.id]?.[k] ?? '';
+                            const ok = valeurOk(v);
+                            const t = String(v).trim().toUpperCase();
+                            return (
+                              <td key={k} className="py-0.5 px-1 text-center">
+                                <input value={v} data-case={`${r}:${ci}`} inputMode="text"
+                                  onKeyDown={ev => deplacer(ev, r, ci)}
+                                  onFocus={ev => ev.target.select()}
+                                  onChange={ev => setNotes(n => ({ ...n, [e.id]: { ...n[e.id], [k]: ev.target.value } }))}
+                                  title={t === 'PP' ? 'Pas présenté' : t === 'NP' ? 'Note de présence' : undefined}
+                                  className={`w-16 h-7 border rounded-champ px-1 text-[13px] text-center tabular-nums
+                                    ${!ok ? 'border-[#C2412D] bg-[#FBEDEA]'
+                                      : t === 'PP' || t === 'NP' ? 'border-slate-300 bg-slate-100 font-semibold text-slate-600'
+                                      : v !== '' ? 'border-[#C3D6EE] bg-[#EAF1FA]' : 'border-slate-300 bg-white'}`} />
+                              </td>
+                            );
+                          })}
+                        </tr>
+                      ))}
+                      {!feuille.etudiants.length && (
+                        <tr><td colSpan={2 + cols.length} className="py-4 text-center text-slate-400">
+                          Aucun étudiant — la répartition de ce cours ne vous en attribue pas encore.
+                        </td></tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* CE QUE L'ON ÉVALUE, À CÔTÉ DE LA SAISIE : l'en-tête « AA 1 »
+                    ne dit rien seul, et la bulle au survol ne se lit pas en
+                    tapant des notes. */}
+                <div className="carte px-3 py-2.5 space-y-2.5 lg:sticky lg:top-3">
+                  <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Ce que vous évaluez</div>
+                  {feuille.acquis?.length ? feuille.acquis.map((a, i) => {
+                    const n = feuille.etudiants.filter(e => String(notes[e.id]?.[a.aa_code] ?? '').trim() !== '').length;
+                    return (
+                      <div key={a.aa_code} className="pl-2 border-l-[3px]" style={{ borderLeftColor: 'var(--c-disponible)' }}>
+                        <div className="text-[12.5px] font-semibold">{nomAA(a, i)} <span className="font-normal text-slate-400">· {a.aa_code}</span></div>
+                        <div className="text-[12px] text-slate-600 leading-snug">{a.description || '—'}</div>
+                        <div className="text-[11px] text-slate-400">
+                          {a.poids != null ? `${String(a.poids).replace('.', ',')} point${a.poids > 1 ? 's' : ''} dans ce cours · ` : ''}{n} note{n > 1 ? 's' : ''} sur {nEtu}
+                        </div>
+                      </div>
+                    );
+                  }) : <div className="text-[12px] text-slate-600">Aucun acquis rattaché à ce cours : une note de cours, sur 20.</div>}
+                  <div className="text-[11px] text-slate-500 border-t border-slate-100 pt-2 leading-snug">
+                    Une note sur 20 par acquis, décimales admises. <b>PP</b> : pas présenté. <b>NP</b> : note de présence.
+                    Une case vide n'est pas évaluée — elle ne compte pas comme zéro.
+                    Les flèches et Entrée passent d'une case à l'autre.
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {feuille && (
+              <div className="flex items-center gap-3 justify-end border-t border-slate-200 pt-2">
+                <span className="text-[12px] text-slate-500 min-w-0 flex-1">
+                  {invalides ? <span style={{ color: '#C2412D' }}>{invalides} case{invalides > 1 ? 's' : ''} à corriger : une note entre 0 et 20, PP ou NP.</span>
+                    : 'Vos notes sont des propositions : la coordination les reprend dans l’encodage officiel.'}
+                </span>
+                <button onClick={enregistrer} disabled={enCours || !!invalides}
+                  className="bouton-fort controle px-3 disabled:opacity-40">
+                  {enCours ? 'Enregistrement…' : 'Enregistrer mes propositions'}
+                </button>
+              </div>
+            )}
+          </div>
+        );
+      })()}
     </div>
   );
 }
