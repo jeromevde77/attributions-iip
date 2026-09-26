@@ -1716,18 +1716,20 @@ function TiroirNotes({ children }) {
     return () => ro.disconnect();
   }, []);
   return (
-    <div className="relative pt-3 overflow-x-clip" style={{ minHeight: ouvert ? hauteur + 12 : undefined }}>
+    /* LE TIROIR S'OUVRE SOUS LA BANDE DE TITRE DU SCHÉMA (2.12.218 — « ça passe
+       derrière ») : posé à la même hauteur, il coupait le titre en deux. */
+    <div className="relative pt-3 overflow-x-clip" style={{ minHeight: ouvert ? hauteur + 56 : undefined }}>
       <div className="pr-9">{children.schema}</div>
       {/* La languette, toujours là : elle ouvre et ferme. */}
       <button type="button" onClick={() => setOuvert(o => !o)}
         title={ouvert ? 'Refermer les notes' : 'Ouvrir les notes par année'}
-        className="absolute right-0 top-3 z-20 w-7 rounded-l-champ bg-iip-blue text-white text-[11px] font-semibold py-3 flex flex-col items-center gap-1 shadow-pose">
+        className="absolute right-0 top-[3.25rem] z-20 w-7 rounded-l-champ bg-iip-blue text-white text-[11px] font-semibold py-3 flex flex-col items-center gap-1 shadow-pose">
         <span className="[writing-mode:vertical-rl] rotate-180">Notes</span>
         <span aria-hidden="true">{ouvert ? '›' : '‹'}</span>
       </button>
       {/* Le tiroir : il glisse de droite à gauche, jusqu'aux trois cinquièmes. */}
       <div ref={panneau} aria-hidden={!ouvert}
-        className={`absolute right-7 top-3 z-10 w-[min(60%,760px)] bg-white border border-slate-200 rounded-l-carte shadow-flottant p-3
+        className={`absolute right-7 top-[3.25rem] z-10 w-[min(60%,760px)] bg-white border border-slate-200 rounded-l-carte shadow-flottant p-3
           transition-transform duration-300 ease-ios origin-right ${ouvert ? 'translate-x-0' : 'translate-x-[calc(100%+1.75rem)] pointer-events-none'}`}>
         {children.notes}
       </div>
