@@ -194,21 +194,16 @@ export default function Users({ embedded = false }) {
      et Référentiels le font déjà. */
   return (
     <div className={embedded ? 'space-y-4' : 'p-6 space-y-4'}>
-      <div className="flex items-start justify-between gap-4 flex-wrap">
-        <div className="flex-1 min-w-[320px]">
-          {!embedded && <h1 className="titre-ecran">Accès à Lucie</h1>}
-          <div className="px-3 py-2 rounded-lg bg-sky-50 border border-sky-200 text-[12px] text-sky-900">
-            <b>Cet écran montre les accès ; il ne les règle pas.</b> Les droits et le
-            périmètre d'un membre du personnel se règlent sur SA FICHE, onglet « Accès
-            Lucie » — un même droit modifiable à deux endroits, c'est deux endroits où
-            l'on ne sait plus lequel a écrit en dernier. Ce que chaque RÔLE autorise au
-            mieux se décide, lui, dans « Rôles et plafonds ».
-            Seuls les comptes sans fiche — administrateur technique, prestataire
-            extérieur — se règlent ici : ils n'ont pas d'autre écran.
-          </div>
-        </div>
-        <button onClick={() => setShowForm(true)}
-          className="flex-none bg-iip-gold hover:bg-iip-amber text-white text-sm px-4 py-2 rounded-lg font-medium inline-flex items-center gap-1.5">
+      {/* UNE LIGNE, PAS UN PARAGRAPHE (Charles, 26 septembre 2026 : « alignements…
+          design à revoir »). L'explication complète reste au survol. */}
+      <div className="flex items-center justify-between gap-4 flex-wrap">
+        {!embedded && <h1 className="titre-ecran">Accès à Lucie</h1>}
+        <p className="text-[12px] text-slate-500 min-w-0 flex-1 m-0"
+          title="Un même droit modifiable à deux endroits, c'est deux endroits où l'on ne sait plus lequel a écrit en dernier. Ce que chaque rôle autorise au mieux se décide dans « Rôles et plafonds ». Seuls les comptes sans fiche — administrateur technique, prestataire extérieur — se règlent ici.">
+          <b className="text-slate-700">En lecture.</b> Les droits d'une personne se règlent sur sa fiche,
+          onglet « Accès Lucie » ; les plafonds de chaque rôle, dans « Rôles et plafonds ».
+        </p>
+        <button onClick={() => setShowForm(true)} className="bouton-fort controle inline-flex items-center gap-1.5 px-3">
           <IconPlus size={16} /> Compte sans fiche
         </button>
       </div>
@@ -667,9 +662,9 @@ function MatriceAcces({ users, sectionsDispo, profils, onModifie, onProfil,
   );
 
   return (
-    <div className="px-4 pb-4">
-      <div className="border border-slate-200 rounded-xl overflow-visible">
-        <div className="px-4 py-2.5 bg-slate-50 border-b border-slate-200">
+    <div>
+      <div className="carte overflow-visible">
+        <div className="px-4 py-2 tab-repere">
           <span className="text-[13px] font-semibold text-iip-blue">
             Accès — {actifs.length} compte(s) actif(s)
             {tous.length > actifs.length && (
