@@ -1043,3 +1043,19 @@ select[multiple], select[size]:not([size="1"]) {
 .puce-ue[data-c="o"] { background: #fff; border-color: #D8DCE4; color: #7A879E; }
 .puce-ue[data-c="n"] { background: var(--c-fond_indispo, #F4F5F7); border-color: #EBEDF1; border-left-color: #DDE1E7; color: #B6BDC9; }
 .puce-ue.ei { outline: 1px solid var(--c-epreuve, #C9A84C); outline-offset: 1px; }
+
+/* ── LE FOCUS D'UN CHAMP — un seul, et pas celui du navigateur ───────────────
+ * Aucun style commun n'existait : chaque champ prenait le halo bleu du
+ * navigateur, épais et arrondi à sa façon, rogné dès que le champ vit dans un
+ * panneau (Charles, 26 septembre 2026 : « bug affichage » sur « Tronc
+ * commun »). Un filet marine et une ombre pâle, DANS la boîte : rien ne
+ * déborde, rien ne se coupe. En couche « base », pour qu'un `ring-*` posé
+ * exprès sur un champ garde la main. */
+@layer base {
+  input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="range"]):focus,
+  select:focus, textarea:focus {
+    outline: none;
+    border-color: #1B2B4B;
+    box-shadow: inset 0 0 0 1px #1B2B4B;
+  }
+}
