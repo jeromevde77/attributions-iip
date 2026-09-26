@@ -1006,3 +1006,25 @@ select[multiple], select[size]:not([size="1"]) {
 .texte-corpus .tableWrapper, .texte-corpus-cadre { overflow-x: auto; }
 .texte-corpus .selectedCell { background: #EDF2F8; }
 .texte-corpus.ProseMirror { outline: none; min-height: 12rem; }
+
+/* ── LA PUCE D'UE — la frise du parcours dans la liste des étudiants ─────────
+ * Le bloc d'état en réduction : liseré 2,5 px, fond pâle, contour fin. Une
+ * lettre par UE, rendue par /api/etudiants/frises (2.12.193). */
+.puce-ue {
+  --e: #D8DCE4;
+  display: inline-grid; place-items: center;
+  width: 27px; height: 17px; flex: none;
+  font-size: 9px; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1;
+  color: #1B2B4B;
+  background: color-mix(in srgb, var(--e) 13%, #fff);
+  border: 1px solid color-mix(in srgb, var(--e) 35%, #fff);
+  border-left: 2.5px solid var(--e);
+  border-radius: 0 4px 4px 0;
+}
+.puce-ue[data-c="r"] { --e: var(--c-reussi); }
+.puce-ue[data-c="f"] { --e: var(--c-faveur); }
+.puce-ue[data-c="i"] { --e: var(--c-disponible); }
+.puce-ue[data-c="a"] { --e: var(--c-attente); }
+.puce-ue[data-c="o"] { background: #fff; border-color: #D8DCE4; color: #7A879E; }
+.puce-ue[data-c="n"] { background: #F4F5F7; border-color: #EBEDF1; border-left-color: #DDE1E7; color: #B6BDC9; }
+.puce-ue.ei { outline: 1px solid #C9A84C; outline-offset: 1px; }

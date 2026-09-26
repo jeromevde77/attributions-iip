@@ -609,7 +609,11 @@ function GestionParametres() {
   const nbModifs = Object.keys(pending).length;
 
   return (
-    <div className="max-w-2xl space-y-6">
+    /* TOUTE LA LARGEUR (Charles, 26 septembre 2026 : « il faut utiliser toute
+       la largeur, ça permet de ne pas scroller »). La colonne unique de 42 rem
+       laissait la moitié droite de l'écran vide ; les groupes se rangent
+       désormais en deux ou trois colonnes selon la place. */
+    <div className="space-y-4">
       {/* Barre de sauvegarde sticky */}
       {(nbModifs > 0 || saved) && (
         <div className={`sticky top-0 z-10 flex items-center justify-between px-4 py-2.5 rounded-lg border text-sm
@@ -626,12 +630,13 @@ function GestionParametres() {
         </div>
       )}
 
+      <div className="grid gap-4 items-start xl:grid-cols-2 min-[1800px]:grid-cols-3">
       {Object.entries(GROUPE_LABELS).map(([groupe, meta]) => {
         const params = grouped[groupe] || [];
         if (!params.length) return null;
         const Icon = meta.icon;
         return (
-          <div key={groupe} className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+          <div key={groupe} className="carte overflow-hidden min-w-0">
             <div className="px-5 py-4 border-b border-gray-100">
               <h3 className="font-semibold text-gray-800 flex items-center gap-2">{Icon && <Icon size={17} className="text-iip-turquoise" />}{meta.label}</h3>
               <p className="text-xs text-gray-500 mt-0.5">{meta.desc}</p>
@@ -642,19 +647,19 @@ function GestionParametres() {
                 const val = getValue(p.cle, p.valeur);
                 const modified = pending[p.cle] !== undefined;
                 return (
-                  <div key={p.cle} className={`flex items-center gap-4 px-5 py-3 ${modified ? 'bg-iip-gold/5' : ''}`}>
-                    <div className="flex-1">
+                  <div key={p.cle} className={`flex items-center gap-x-4 gap-y-2 px-5 py-3 ${t.type === 'texte' ? 'flex-wrap' : ''} ${modified ? 'bg-iip-gold/5' : ''}`}>
+                    <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-gray-700">{p.label}</p>
                       <p className="text-xs text-gray-400 font-mono">{p.cle}</p>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className={`flex items-center gap-2 ${t.type === 'texte' ? 'basis-full' : ''}`}>
                       {/* UN OUI/NON SE COCHE. Il se tapait « 0 » ou « 1 » dans un
                           champ : il fallait savoir lequel veut dire oui, et rien
                           ne l'écrivait nulle part. On pouvait aussi y saisir 7. */}
                       {t.type === 'texte' ? (
                         <textarea value={val} rows={6}
                           onChange={e => handleChange(p.cle, e.target.value)}
-                          className={`border rounded-champ px-3 py-2 text-[13px] w-[34rem] max-w-full leading-relaxed
+                          className={`border rounded-champ px-3 py-2 text-[13px] w-full leading-relaxed bg-white
                             ${modified ? 'border-iip-gold ring-1 ring-iip-gold/30' : 'border-gray-300'}`} />
                       ) : t.type === 'booleen' ? (
                         <label className="flex items-center gap-2 cursor-pointer select-none">
@@ -674,7 +679,7 @@ function GestionParametres() {
                         onChange={e => handleChange(p.cle, e.target.value)}
                         style={{ MozAppearance: 'textfield', appearance: 'textfield' }}
                         className={`border rounded px-3 py-1.5 text-sm text-right
-                          ${t.type === 'number' ? 'w-24' : 'w-72'}
+                          ${t.type === 'number' ? 'w-24' : 'w-64 max-w-full'}
                           ${modified ? 'border-iip-gold ring-1 ring-iip-gold/30' : 'border-gray-300'}`}
                       />
                       )}
@@ -690,6 +695,7 @@ function GestionParametres() {
           </div>
         );
       })}
+      </div>
 
       <div className="bg-iip-turquoise/5 border border-iip-turquoise/30 rounded-lg p-4 text-xs text-iip-blue">
         <p className="font-medium mb-1">💡 Ces paramètres sont globaux</p>

@@ -162,6 +162,11 @@ NAS Synology.
   `maj-prod`** : la mise en production se fait à la main, en `jeromevde` —
   `sudo docker ps -a --filter name=attributions-backend`, `sudo docker rm -f`
   des restes, puis `cd /opt/lucie && sudo docker compose up -d backend frontend`.
+  **Pour un `pull` à la main, `sudo` ne suffit pas** : les images sont privées
+  et l'identifiant du registre est celui de `debian` — en root, le registre
+  répond « unauthorized » (25 septembre 2026). Écrire
+  `sudo DOCKER_CONFIG=/home/debian/.docker docker compose pull backend frontend`,
+  comme le fait `lucie-ops`.
   Après un redémarrage forcé, vérifier le NOM du conteneur
   (`sudo docker ps --format '{{.Names}}'`) : resté provisoire
   (`3b187e036e7d_attributions-backend`), il bloque lectures, sauvegardes et

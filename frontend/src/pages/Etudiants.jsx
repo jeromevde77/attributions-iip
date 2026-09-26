@@ -1,5 +1,6 @@
 import { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
 import { nomPropre } from '../lib/nom.js';
+import { COULEUR_BLOC, OR_EPREUVE } from '../lib/blocs.js';
 import { RailLateral } from '../components/ui.jsx';
 import SuiviEtudiant from '../components/SuiviEtudiant.jsx';
 import NouvelEtudiant from '../components/NouvelEtudiant.jsx';
@@ -16,7 +17,7 @@ import IdentiteEtudiant, { ComplementDossiers } from '../components/IdentiteEtud
 // LE CENTRE CENTRAL. Les boutons restent où on les cherche — là où l'on
 // travaille — mais mènent désormais au même endroit.
 import CentreImpressionCentral from '../components/CentreImpressionCentral.jsx';
-import { useEchangesDuRail, Fenetre } from '../components/ui.jsx';
+import { useEchangesDuRail, Fenetre, Encadre } from '../components/ui.jsx';
 import CentrePAE from '../components/CentrePAE.jsx';
 import PassageAnnee from '../components/PassageAnnee.jsx';
 import ComposerPAE from '../components/ComposerPAE.jsx';
@@ -99,6 +100,36 @@ function BadgeNiveau({ niveau, libelle, className = '' }) {
   );
 }
 
+/* LA FRISE DU PARCOURS, SUR LA LIGNE DE LA LISTE (Charles, 26 septembre
+   2026) : les UE de la section dans l'ordre du cursus, groupées par bloc,
+   l'épreuve intégrée au bout. Une lettre par UE (voir /api/etudiants/frises). */
+const SENS_PUCE = { r: 'réussie', f: 'réussie par faveur', i: 'inscrite cette année',
+  a: 'ajournée, en attente', o: 'atteignable, non prise', n: 'pas encore atteignable' };
+function FriseParcours({ ues, codes }) {
+  if (!ues?.length || !codes) return null;
+  const groupes = [];
+  ues.forEach((u, i) => {
+    const b = u.ei ? 'EI' : (u.bloc || '—');
+    if (!groupes.length || groupes[groupes.length - 1].b !== b) groupes.push({ b, l: [] });
+    groupes[groupes.length - 1].l.push({ ...u, c: codes[i] || 'n' });
+  });
+  return (
+    <div className="flex items-center gap-1">
+      {groupes.map((g, gi) => (
+        <span key={gi} className="flex gap-[2px] pl-1 border-l-2"
+          style={{ borderLeftColor: g.b === 'EI' ? OR_EPREUVE : (COULEUR_BLOC[g.b] || '#D8DCE4') }}>
+          {g.l.map(u => (
+            <span key={u.ue_num} data-c={u.c} className={`puce-ue ${u.ei ? 'ei' : ''}`}
+              title={`UE ${u.ue_num} — ${u.ue_nom || ''} · ${SENS_PUCE[u.c] || ''}`}>
+              {u.ue_num}
+            </span>
+          ))}
+        </span>
+      ))}
+    </div>
+  );
+}
+
 const STATUTS_PIECE = [
   { val: 'manquant', label: 'Manquant', cls: 'bg-red-50 text-red-700 border-red-200' },
   { val: 'recu',     label: 'Reçu',     cls: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
@@ -144,6 +175,15 @@ function GrilleParcours({ etudId, peutEcrire, annee }) {
   const [nbHistorique, setNbHistorique] = useState(0);   // nb d'années antérieures révélées
   const [detail, setDetail] = useState(null);       // composantes + notes de la cellule ouverte
   const [detailOuvert, setDetailOuvert] = useState(false);
+  /* GLISSER UNE CASE VERS UNE AUTRE ANNÉE (Charles, 26 septembre 2026 :
+     « c'est ici que je voulais faire glisser les notes, et en groupe aussi »).
+     Ctrl/⌘-clic compose un groupe ; on glisse n'importe laquelle de ses cases,
+     et toutes se décalent du même nombre d'années. Le serveur simule d'abord,
+     la fenêtre montre ce qui sera écrit, un motif est exigé. */
+  const [choix, setChoix] = useState(() => new Set());     // « annee|ue »
+  const [glisse, setGlisse] = useState(null);               // { de, cases: [{annee, ue_num}] }
+  const [survol, setSurvol] = useState(null);               // année visée
+  const [depl, setDepl] = useState(null);                   // { mouvements, rapport, motif, enCours, erreur }
 
 
 
@@ -248,6 +288,28 @@ function GrilleParcours({ etudId, peutEcrire, annee }) {
     await charger();
   }
 
+  async function simulerDeplacement(mouvements) {
+    const rep = await fetch(`/api/etudiants/${etudId}/grille/deplacer`, {
+      method: 'POST', headers: authHeaders(),
+      body: JSON.stringify({ mouvements, simulation: true }),
+    });
+    const j = await rep.json().catch(() => ({}));
+    if (!rep.ok) { alert(j.error || 'Déplacement refusé.'); return; }
+    setDepl({ mouvements, rapport: j, motif: '', enCours: false, erreur: null });
+  }
+
+  async function confirmerDeplacement() {
+    setDepl(d => ({ ...d, enCours: true, erreur: null }));
+    const rep = await fetch(`/api/etudiants/${etudId}/grille/deplacer`, {
+      method: 'POST', headers: authHeaders(),
+      body: JSON.stringify({ mouvements: depl.mouvements, motif: depl.motif, simulation: false }),
+    });
+    const j = await rep.json().catch(() => ({}));
+    if (!rep.ok) { setDepl(d => ({ ...d, enCours: false, erreur: j.error || 'Déplacement refusé.', rapport: j.plan ? j : d.rapport })); return; }
+    setDepl(null); setChoix(new Set());
+    await charger();
+  }
+
   if (!data) return <div className="py-6 text-sm text-slate-400">Chargement…</div>;
   if (!data.ues.length) return (
     <div className="text-center py-8 text-slate-400 text-sm border-2 border-dashed rounded-xl">
@@ -279,12 +341,32 @@ function GrilleParcours({ etudId, peutEcrire, annee }) {
     return toutes;
   })();
   const aDetail = (annee, ueNum) => (data.detail || []).includes(annee + ':' + ueNum);
+  const idxAnnee = a => anneesAffichees.indexOf(a);
+  const deplacable = cl => !!cl && cl.kind !== 'va';
+  // Les cases qui arriveraient dans la colonne survolée, pour les montrer.
+  const arrivees = (() => {
+    if (!glisse || !survol) return new Set();
+    const d = idxAnnee(survol) - idxAnnee(glisse.de);
+    if (!d) return new Set();
+    return new Set(glisse.cases.map(c => `${anneesAffichees[idxAnnee(c.annee) + d]}|${c.ue_num}`));
+  })();
+  function deposer(anneeCible) {
+    const g = glisse; setGlisse(null); setSurvol(null);
+    if (!g) return;
+    const d = idxAnnee(anneeCible) - idxAnnee(g.de);
+    if (!d) return;
+    const mouvements = g.cases.map(c => ({ ue_num: c.ue_num, de: c.annee, vers: anneesAffichees[idxAnnee(c.annee) + d] }));
+    if (mouvements.some(m => !m.vers)) { alert('Une des cases sortirait de la grille : révélez d’abord les années antérieures.'); return; }
+    simulerDeplacement(mouvements);
+  }
 
   return (
     <div>
       <div className="flex items-start justify-between gap-3 mb-3">
         <p className="text-[12px] text-slate-500 flex-1 max-w-none">
-        Cliquez sur une case pour encoder. Une UE dont les prérequis ne sont pas acquis est
+        Cliquez sur une case pour encoder.
+        {peutEcrire && <> Glissez une case vers une autre année pour la déplacer ; <b>Ctrl/⌘-clic</b> en
+        sélectionne plusieurs, qui se déplacent ensemble.</>} Une UE dont les prérequis ne sont pas acquis est
         verrouillée <span className="text-slate-400">🔒</span> — l'encoder demande une dérogation (tracée).
         Un halo <span className="inline-block w-3 h-3 rounded-sm bg-violet-100 border border-violet-300 align-middle"></span> suggère
         une UE probablement acquise (inférence prérequis) à confirmer.
@@ -362,12 +444,31 @@ function GrilleParcours({ etudId, peutEcrire, annee }) {
                     const kind = cl && KINDS_CELLULE.find(k => k.val === cl.kind);
                     return (
                       <td key={a}
+                        onDragOver={glisse ? ev => { ev.preventDefault(); if (survol !== a) setSurvol(a); } : undefined}
+                        onDrop={glisse ? ev => { ev.preventDefault(); deposer(a); } : undefined}
                         className={`px-1.5 py-1.5 text-center ${derniere
                           ? 'sticky right-0 z-10 bg-white shadow-[-6px_0_8px_-6px_rgba(0,0,0,0.10)]'
-                          : ''}`}>
+                          : ''} ${arrivees.has(`${a}|${u.ue_num}`) ? '!bg-[#EAF1FA]' : ''}`}>
                         <button
-                          onClick={() => {
+                          draggable={peutEcrire && deplacable(cl)}
+                          onDragStart={ev => {
+                            const cle = `${a}|${u.ue_num}`;
+                            const cases = choix.has(cle)
+                              ? [...choix].map(k => { const [an, ue] = k.split('|'); return { annee: an, ue_num: Number(ue) }; })
+                              : [{ annee: a, ue_num: u.ue_num }];
+                            ev.dataTransfer.effectAllowed = 'move';
+                            ev.dataTransfer.setData('text/plain', cle);
+                            setGlisse({ de: a, cases });
+                          }}
+                          onDragEnd={() => { setGlisse(null); setSurvol(null); }}
+                          onClick={ev => {
                             if (!peutEcrire) return;
+                            if ((ev.metaKey || ev.ctrlKey || ev.shiftKey) && deplacable(cl)) {
+                              const cle = `${a}|${u.ue_num}`;
+                              setChoix(c0 => { const c = new Set(c0); c.has(cle) ? c.delete(cle) : c.add(cle); return c; });
+                              return;
+                            }
+                            if (choix.size) setChoix(new Set());
                             if (!verrou || cl) { setPopover({ annee: a, ue_num: u.ue_num, verrou: false }); return; }
                             // Prérequis manquants : sont-ils inscrits (ou mieux) la même année ?
                             const acquisSet = new Set(data.ues.filter(x => x.acquise).map(x => x.ue_num));
@@ -388,7 +489,9 @@ function GrilleParcours({ etudId, peutEcrire, annee }) {
                           }}
                           className={`w-full min-h-[30px] text-[12px] font-medium rounded-lg border px-1 py-1 transition
                             ${kind ? kind.cls : 'border-transparent text-slate-300 hover:border-slate-200 hover:bg-slate-50'}
-                            ${cl?.derogation ? 'ring-1 ring-amber-400' : ''}`}
+                            ${cl?.derogation ? 'ring-1 ring-amber-400' : ''}
+                            ${choix.has(`${a}|${u.ue_num}`) ? 'ring-2 ring-[#2F6FB0] ring-offset-1' : ''}
+                            ${peutEcrire && deplacable(cl) ? 'cursor-grab active:cursor-grabbing' : ''}`}
                           title={cl?.derogation ? 'Encodée avec dérogation' : ''}>
                           {kind
                             ? (kind.val === 'reussi' ? (cl.points != null ? cl.points + '/20' : '✓')
@@ -415,6 +518,74 @@ function GrilleParcours({ etudId, peutEcrire, annee }) {
           </tbody>
         </table>
       </div>
+
+      {depl && (() => {
+        const rp = depl.rapport || {};
+        const bloque = (rp.blocages || []).length > 0;
+        const motifOk = depl.motif.trim().length >= 5;
+        const raison = bloque ? 'Des cases ne peuvent pas être déplacées : décochez-les ou corrigez d’abord.'
+          : !motifOk ? 'Écrivez le motif du déplacement.' : null;
+        const n = depl.mouvements.length;
+        return (
+          <Fenetre titre={`Déplacer ${n} case${n > 1 ? 's' : ''}`} sous={rp.etudiant}
+            onFermer={() => setDepl(null)}
+            pied={<>
+              {raison && <span className="text-[12px] text-slate-500 min-w-0 flex-1">{raison}</span>}
+              <button className="bouton" onClick={() => setDepl(null)}>Annuler</button>
+              <button className="bouton-fort" disabled={!!raison || depl.enCours} onClick={confirmerDeplacement}>
+                {depl.enCours ? 'Déplacement…' : 'Déplacer'}
+              </button>
+            </>}>
+            <div className="space-y-3">
+              {bloque && (
+                <Encadre etat="corriger" titre="Ce qui bloque">
+                  <ul className="list-disc pl-4">
+                    {rp.blocages.map((b, i) => <li key={i}>UE {b.ue_num} · {b.de} → {b.vers} : {b.raison}</li>)}
+                  </ul>
+                </Encadre>
+              )}
+              {(rp.plan || []).length > 0 && (
+                <table className="w-full text-[12px]">
+                  <thead><tr className="tab-entete text-left">
+                    <th className="px-2 py-1">UE</th><th className="px-2 py-1">De</th><th className="px-2 py-1">Vers</th>
+                    <th className="px-2 py-1">Résultat</th><th className="px-2 py-1">Ce qui suit</th>
+                  </tr></thead>
+                  <tbody>
+                    {rp.plan.map(m => {
+                      const t = m.traces || {};
+                      const suit = [t.notes && `${t.notes} note(s)`, t.cours && `${t.cours} résultat(s) de cours`,
+                        t.decisions && `${t.decisions} décision(s)`, t.ajustements && `${t.ajustements} faveur(s)/ajournement(s)`,
+                        t.motivations && `${t.motivations} motivation(s)`, t.reports && `${t.reports} report(s)`].filter(Boolean);
+                      return (
+                        <tr key={m.ue_num} className="border-t border-slate-100 align-top">
+                          <td className="px-2 py-1 font-semibold text-iip-blue">{m.ue_num}</td>
+                          <td className="px-2 py-1">{m.de}</td>
+                          <td className="px-2 py-1">{m.vers}{m.remplace && <span className="block text-[11px] text-slate-400">remplace une inscription vide</span>}</td>
+                          <td className="px-2 py-1">{m.resultat || 'inscrit'}{m.points != null ? ` · ${m.points}/20` : ''}</td>
+                          <td className="px-2 py-1 text-slate-600">
+                            {suit.length ? suit.join(' · ') : '—'}
+                            {m.seance_close && <span className="block text-[11px] text-[#B45309]">délibération close en {m.de} : décision déjà notifiée</span>}
+                            {m.stage_reste > 0 && <span className="block text-[11px] text-slate-400">le stage reste en {m.de}</span>}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              )}
+              <label className="block">
+                <span className="text-[12px] font-semibold text-iip-blue">Motif du déplacement</span>
+                <textarea value={depl.motif} rows={2} autoFocus
+                  onChange={ev => { const v = ev.target.value; setDepl(d => ({ ...d, motif: v })); }}
+                  placeholder="ex. import de l’historique rangé dans la mauvaise année"
+                  className="mt-1 w-full border border-slate-300 rounded-lg px-2 py-1.5 text-[13px]" />
+                <span className="text-[11px] text-slate-400">Il est conservé avec votre nom, l’heure, et chaque case déplacée.</span>
+              </label>
+              {depl.erreur && <Encadre etat="corriger">{depl.erreur}</Encadre>}
+            </div>
+          </Fenetre>
+        );
+      })()}
 
       {popover && (
         <div className="fixed inset-0 z-[60] bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] flex items-center justify-center p-4"
@@ -1800,7 +1971,7 @@ function FicheEtudiant({ id, annee, onClose, position, onPrec, onSuiv,
     <Fenetre icone={IconUser} titre={nomPropre(data.nom, data.prenom)}
       sous={`${data.email_ecole} · ${data.id_ecampus}`
             + (data.niveau?.libelle ? ' · ' + data.niveau.libelle : '')}
-      large="pleine" onFermer={onClose}>
+      large="ecran" onFermer={onClose}>
       <div className="-mx-5 -my-4">
 
         {(onPrec || onSuiv) && (
@@ -1974,11 +2145,18 @@ function FicheEtudiant({ id, annee, onClose, position, onPrec, onSuiv,
                   cadre du schéma s'arrêtait donc avant elle. Les deux blocs
                   doivent avoir exactement la même largeur pour se lire comme
                   un seul écran. */}
-              <div className="pt-5 pb-0">
-                <SchemaCapitalisation etudId={id} annee={annee} />
+              {/* CÔTE À CÔTE SUR UN ÉCRAN LARGE (Charles, 26 septembre 2026) :
+                  le schéma à gauche, les notes par année à droite — la vue
+                  d'ensemble et le détail d'un seul regard, sans faire défiler.
+                  Sur un écran étroit, l'un revient sous l'autre. */}
+              <div className="pt-5 grid gap-4 items-start 2xl:grid-cols-[minmax(0,5fr)_minmax(0,6fr)]">
+                <div className="min-w-0">
+                  <SchemaCapitalisation etudId={id} annee={annee} />
+                </div>
+                <div className="min-w-0">
+                  <GrilleParcours etudId={id} peutEcrire={true} annee={annee} />
+                </div>
               </div>
-
-              <GrilleParcours etudId={id} peutEcrire={true} annee={annee} />
 
               <div className="border-t border-slate-200 mt-4 pt-4">
               {/* Ce qui suit est une PROPOSITION tant qu'elle n'est pas
@@ -2558,6 +2736,14 @@ export default function Etudiants() {
 
   useEffect(() => { charger(); /* eslint-disable-next-line */ },
     [annee, section, anneeCohorte, ueCohorte, statut]);
+  const [frises, setFrises] = useState(null);
+  useEffect(() => {
+    if (!annee) return;
+    let vivant = true;
+    fetch(`/api/etudiants/frises?annee=${encodeURIComponent(annee)}`, { headers: authHeaders() })
+      .then(r => (r.ok ? r.json() : null)).then(j => { if (vivant) setFrises(j); }).catch(() => {});
+    return () => { vivant = false; };
+  }, [annee]);
 
   // Les UE proposées suivent la section et l'année choisies : proposer les
   // quatre-vingts unités de l'établissement ne servirait personne.
@@ -3083,11 +3269,11 @@ export default function Etudiants() {
                     onClick={e => e.stopPropagation()} />
                 </th>
                 <ThTri champ="nom"     tri={tri} onTri={trierPar} className="text-left">Étudiant</ThTri>
-                <ThTri champ="email"   tri={tri} onTri={trierPar} className="text-left">Email</ThTri>
+                <th className="px-2 py-2.5 text-left w-12 text-[11px] font-semibold" title="Programme validé">PAE</th>
+                <ThTri champ="niveau"  tri={tri} onTri={trierPar} className="text-left w-28">Niveau</ThTri>
                 <ThTri champ="section" tri={tri} onTri={trierPar} className="text-left w-24">Section</ThTri>
-                <ThTri champ="niveau"  tri={tri} onTri={trierPar} className="text-left w-24">Niveau</ThTri>
-                <ThTri champ="nb_ue"   tri={tri} onTri={trierPar} className="text-right w-16">UE</ThTri>
-                <th className="px-4 py-2.5 w-10"></th>
+                <th className="px-3 py-2.5 text-left text-[11px] font-semibold">Parcours <span className="font-normal text-slate-400">— dans l'ordre du cursus</span></th>
+                <th className="px-2 py-2.5 w-8"></th>
               </tr>
             </thead>
             <tbody>
@@ -3136,45 +3322,27 @@ export default function Etudiants() {
                 <tr key={e.id} onClick={() => setSelId(e.id)}
                   className={`border-b border-slate-100 last:border-0 cursor-pointer
                     ${selEtudiants.has(e.id) ? 'bg-iip-turquoise/5' : 'hover:bg-slate-50/60'}`}>
-                  <td className="px-3 py-2.5" onClick={ev => ev.stopPropagation()}>
+                  <td className="px-3 py-1" onClick={ev => ev.stopPropagation()}>
                     <input type="checkbox" checked={selEtudiants.has(e.id)}
                       onChange={() => basculerSelection(e.id)} />
                   </td>
-                  <td className="px-4 py-2.5">
-                    {/* Tant que le PAE n'est pas confirmé, l'étudiant n'est pas
-                        inscrit : son programme reste une proposition. */}
-                    {e.pae_confirme ? (
-                      <IconWritingSign size={14} className="inline mr-1.5 text-iip-turquoise"
-                        title="Programme confirmé — étudiant inscrit" />
-                    ) : (
-                      <IconWritingSignOff size={14} className="inline mr-1.5 text-slate-300"
-                        title="Programme non confirmé" />
-                    )}
-                    <div className="flex items-center gap-2">
-                      <div className="w-8 h-8 rounded-full bg-iip-blue/10 text-iip-blue flex items-center justify-center text-[11px] font-bold flex-none">
-                        {(e.nom||'?')[0]}{(e.prenom||'?')[0]}
-                      </div>
-                      <div>
-                        <div className="font-medium text-slate-800">{nomPropre(e.nom, e.prenom)}
-                          {e.primo && <span className="ml-1.5 text-[9.5px] font-bold px-1.5 py-0.5 rounded-full bg-iip-turquoise/10 text-iip-turquoise-dark align-middle"
-                            title="Primo-arrivé : aucune trace avant l'année de travail">primo</span>}
-                        </div>
-                        <div className="text-[11px] text-slate-400">{e.id_ecampus}</div>
-                      </div>
-                    </div>
+                  {/* UNE LIGNE DE 40 PX, COMME LES AUTRES TABLEAUX (Charles, 26
+                      septembre 2026) : nom et matricule sur une ligne, sans
+                      pastille d'initiales ; l'icône du PAE dans sa colonne ;
+                      l'e-mail reste dans la fiche et dans la recherche. */}
+                  <td className="px-3 py-1 h-10 whitespace-nowrap">
+                    <span className="font-semibold text-iip-blue">{nomPropre(e.nom, '')}</span>
+                    <span className="text-slate-700 ml-1">{nomPropre('', e.prenom)}</span>
+                    <span className="text-[11px] text-slate-400 ml-1.5 tabular-nums">{e.id_ecampus}</span>
+                    {e.primo && <span className="ml-1.5 text-[10px] font-semibold px-1.5 rounded bg-slate-100 text-slate-600"
+                      title="Primo-arrivé : aucune trace avant l'année de travail">primo</span>}
                   </td>
-                  <td className="px-4 py-2.5 text-slate-500 text-[13px]">{e.email_ecole}</td>
-                  {/* Sa section ; « déduite » tant qu'elle n'est pas posée.
-                      Les sections de ses UE restent lisibles au survol : elles
-                      disent où il suit des cours, pas où il est rattaché. */}
-                  <td className="px-4 py-2.5 text-[12px] text-slate-500"
-                    title={e.sections ? `UE suivies dans : ${e.sections.split(',').join(', ')}` : undefined}>
-                    {e.section_rattachement || <span className="text-slate-300">—</span>}
-                    {e.section_rattachement && e.section_deduite && (
-                      <span className="text-[11px] text-slate-400"> (déduite)</span>
-                    )}
+                  <td className="px-2 py-1">
+                    {e.pae_confirme
+                      ? <IconWritingSign size={15} className="text-[#3E7D5E]" title="Programme confirmé — étudiant inscrit" />
+                      : <IconWritingSignOff size={15} className="text-slate-300" title="Programme non confirmé" />}
                   </td>
-                  <td className="px-4 py-2.5">
+                  <td className="px-3 py-1 whitespace-nowrap">
                     <BadgeNiveau niveau={e.niveau} libelle={e.niveau_libelle} />
                     {/* Le diplôme se dit là où on lit le niveau : c'est la même
                         question — où en est cette personne. */}
@@ -3203,8 +3371,17 @@ export default function Etudiants() {
                       </span>
                     )}
                   </td>
-                  <td className="px-4 py-2.5 text-right font-medium text-iip-blue">{e.nb_ue}</td>
-                  <td className="px-4 py-2.5 text-slate-300"><IconChevronRight size={16} /></td>
+                  <td className="px-3 py-1 text-[12px] text-slate-500"
+                    title={e.sections ? `UE suivies dans : ${e.sections.split(',').join(', ')}` : undefined}>
+                    {e.section_rattachement || <span className="text-slate-300">—</span>}
+                    {e.section_rattachement && e.section_deduite && (
+                      <span className="text-[11px] text-slate-400"> (déduite)</span>
+                    )}
+                  </td>
+                  <td className="px-3 py-1">
+                    <FriseParcours ues={frises?.sections?.[frises?.etats?.[e.id]?.s]} codes={frises?.etats?.[e.id]?.c} />
+                  </td>
+                  <td className="px-2 py-1 text-slate-300"><IconChevronRight size={16} /></td>
                 </tr>
                     ))}
                   </Fragment>

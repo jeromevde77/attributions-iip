@@ -21,6 +21,7 @@ const REGISTRES = {
   comptes:      { label: 'Comptes',      teinte: '#2f6f7d' },
   dossiers:     { label: 'Dossiers',     teinte: '#4a7c59' },
   documents:    { label: 'Documents',    teinte: '#6b7280' },
+  parcours:     { label: 'Parcours',     teinte: '#2F6FB0' },
 };
 
 /* Les gestes portent le nom que leur registre leur donne — « create »,

@@ -1052,6 +1052,10 @@ export function Fenetre({ icone: Ic, titre, sous, large = 'moyenne',
   const largeurs = {
     petite: 'w-[440px]', moyenne: 'w-[720px]',
     grande: 'w-[1000px]', pleine: 'w-[1180px]',
+    // TOUTE LA LARGEUR (Charles, 26 septembre 2026 : « il faut utiliser toute
+    // la largeur, ça permet de ne pas scroller ») — la fiche étudiant, dont le
+    // parcours met le schéma et les notes côte à côte.
+    ecran: 'w-[min(1800px,97vw)]',
   };
   // LA TOUCHE ÉCHAP FERME. Elle le faisait dans certaines fenêtres et pas dans
   // d'autres, ce qui est pire que nulle part : on apprend un geste qui tombe
