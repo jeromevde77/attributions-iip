@@ -18,7 +18,6 @@ import IdentiteEtudiant, { ComplementDossiers } from '../components/IdentiteEtud
 // travaille — mais mènent désormais au même endroit.
 import CentreImpressionCentral from '../components/CentreImpressionCentral.jsx';
 import { useEchangesDuRail, Fenetre, Encadre } from '../components/ui.jsx';
-import CentrePAE from '../components/CentrePAE.jsx';
 import PassageAnnee from '../components/PassageAnnee.jsx';
 import ComposerPAE from '../components/ComposerPAE.jsx';
 import CentreEchanges from '../components/CentreEchanges.jsx';
@@ -2495,7 +2494,6 @@ export default function Etudiants() {
   const [importHisto, setImportHisto] = useState(false);
   const [complement, setComplement] = useState(false);
   const [centreImpression, setCentreImpression] = useState(false);
-  const [centrePAE, setCentrePAE] = useState(false);
   // Le passage d'année : toute une section, sur ses résultats.
   const [passage, setPassage] = useState(false);
   const [composer, setComposer] = useState(false);
@@ -3036,9 +3034,9 @@ export default function Etudiants() {
            grille de composition, dont le passage d'année n'est plus qu'un
            des gestes. On garde l'icône — c'est celle que Charles cherche. */
         icon: IconStairsUp, onClick: () => setComposer('composer') },
-      // Composer ne suffit pas : un programme se VALIDE (24 septembre 2026).
-      { key: 'valider-pae', label: 'Valider les PAE', icon: IconChecks,
-        onClick: () => setComposer('valider') },
+      // « Valider les PAE » n'a plus d'entrée à lui (Charles, 26 septembre
+      // 2026 : « il est dans la fenêtre PAE ») : Valider est un des modes de
+      // la fenêtre Composer les PAE.
       { key: 'diplomation', label: 'Diplômes et titres', icon: IconAward,
         onClick: () => setDiplomation(true) },
     ] },
@@ -3201,8 +3199,8 @@ export default function Etudiants() {
                          text-iip-blue font-semibold rounded-lg">
               <IconAddressBook size={14} /> Coordonnées
             </button>
-            <button onClick={() => setCentrePAE(true)}
-              title="Inscrire ou retirer des unités pour tous les étudiants retenus"
+            <button onClick={() => setComposer('selection')}
+              title="Ouvrir la composition des PAE avec les étudiants retenus déjà cochés"
               className="flex items-center gap-1.5 px-3 py-1.5 text-sm border border-iip-blue
                          text-iip-blue font-semibold rounded-lg">
               <IconChecklist size={14} /> Composer les PAE
@@ -3438,11 +3436,6 @@ export default function Etudiants() {
         <RattacherPack onClose={() => setRattacherPack(false)} onTermine={charger} />
       )}
 
-      {centrePAE && (
-        <CentrePAE annee={annee} etudiants={[...selEtudiants]}
-          onClose={() => setCentrePAE(false)} onTermine={charger} />
-      )}
-
       {echanges && (
         <CentreEchanges onClose={() => setEchanges(false)}
           sorties={[
@@ -3513,6 +3506,7 @@ export default function Etudiants() {
 
       {composer && (
         <ComposerPAE modeInitial={composer === 'valider' ? 'valider' : 'composer'}
+          preselection={composer === 'selection' ? [...selEtudiants] : null}
           onClose={() => setComposer(false)} onTermine={charger}
           onPassage={() => { setComposer(false); setPassage(true); }} />
       )}

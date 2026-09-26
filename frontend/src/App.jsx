@@ -90,13 +90,15 @@ function BuildBadge() {
   }, []);
   const timeStr = now.toLocaleTimeString('fr-BE', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
   const dateStr = now.toLocaleDateString('fr-BE', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  /* DANS LA BARRE, À CÔTÉ DE LA VERSION (Charles, 26 septembre 2026 : « ça
+     bloque parfois pour cliquer »). Posé en bas à droite, par-dessus tout, il
+     recouvrait le dernier bouton des tableaux et des fenêtres. L'heure sert aux
+     captures d'écran ; le commit se lit au survol. */
   return (
-    <div className="fixed bottom-2 right-2 z-50 text-right pointer-events-none select-none">
-      <div className="bg-white/90 border border-gray-200 rounded px-2 py-1 shadow-sm text-xs text-gray-400 leading-tight">
-        <div className="tabular-nums">{dateStr} {timeStr}</div>
-        <div className="font-mono text-[10px] text-gray-300">{shaOnly}</div>
-      </div>
-    </div>
+    <span className="hidden md:inline text-[11px] tabular-nums text-slate-400 select-none"
+      title={shaOnly ? `Construction ${shaOnly}` : undefined}>
+      {dateStr} {timeStr}
+    </span>
   );
 }
 
@@ -577,6 +579,7 @@ function ProtectedLayout({ children }) {
                 DÉMO
               </span>
             )}
+            <BuildBadge />
             <span
               /* SUR UNE BARRE MARINE, UNE PASTILLE MARINE DISPARAÎT : le badge
                  prend la surface des menus, comme l'onglet actif.
@@ -658,7 +661,6 @@ function ProtectedLayout({ children }) {
       </header>
       <main className="flex-1">{children}</main>
       {compteOuvert && <MonCompte onFermer={() => setCompteOuvert(false)} />}
-      <BuildBadge />
     </div>
   );
 }

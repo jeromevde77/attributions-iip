@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { IconLayoutGrid, IconAlertTriangle, IconChecks, IconLock } from '@tabler/icons-react';
 import { authHeaders, getAnnee, getUser } from '../lib/api.js';
 import ImportTableauPlat from './ImportTableauPlat.jsx';
@@ -40,7 +40,7 @@ function CaseAcquise({ a }) {
   );
 }
 
-export default function ComposerPAE({ onClose, onTermine, onPassage, modeInitial = 'composer' }) {
+export default function ComposerPAE({ onClose, onTermine, onPassage, modeInitial = 'composer', preselection = null }) {
   const [sections, setSections] = useState([]);
   const [section, setSection] = useState('');
   const [annee, setAnnee] = useState(getAnnee() || '');
@@ -52,6 +52,10 @@ export default function ComposerPAE({ onClose, onTermine, onPassage, modeInitial
   const [annees, setAnnees] = useState([]);
   const [attente, setAttente] = useState(() => new Map());   // `${e}|${u}` → 'ajout' | 'retrait'
   const [coches, setCoches] = useState(() => new Set());
+  // Les étudiants cochés dans la liste arrivent cochés ici — une seule fois, au
+  // premier chargement : la liste et la grille ne sont plus deux portes vers
+  // deux fenêtres différentes (Charles, 26 septembre 2026).
+  const preselRestante = useRef(preselection?.length ? new Set(preselection) : null);
   const [niveauBase, setNiveauBase] = useState('BA1');
   const [ueAjout, setUeAjout] = useState('');
   const [ueRetrait, setUeRetrait] = useState('');
@@ -94,7 +98,12 @@ export default function ComposerPAE({ onClose, onTermine, onPassage, modeInitial
       { headers: authHeaders() });
     const j = await r.json().catch(() => ({}));
     if (!r.ok) { setErreur(j.error || 'Lecture refusée.'); setGrille(null); return; }
-    setGrille(j); setAttente(new Map()); setAttRes(new Map()); setCoches(new Set()); setBilan(null);
+    setGrille(j); setAttente(new Map()); setAttRes(new Map()); setBilan(null);
+    if (preselRestante.current) {
+      const ids = new Set((j.etudiants || []).map(e => e.id).filter(id => preselRestante.current.has(id)));
+      setCoches(ids);
+      if (ids.size) preselRestante.current = null;
+    } else setCoches(new Set());
   }, [section, annee, controle]);
   useEffect(() => { charger(); }, [charger]);
 
