@@ -207,7 +207,7 @@ export default function Axe({ titre, question, icone, onglets, ongletInitial,
           contenu suit quand on épingle, sans qu'aucun écran ait à le savoir.
           Seuls les écrans qui posent DÉJÀ la leur le déclarent. */}
       <div className={courant?.railPropre
-        ? '' : (courant?.sansMarge ? 'gouttiere-rail' : 'gouttiere-rail p-4')}>
+        ? '' : (courant?.sansMarge ? 'gouttiere-rail' : 'gouttiere-rail cadre-page p-4')}>
         <FournisseurRail valeur={inscrire} panneau={panneau}
           echanges={setPortesEchanges}>
           {courant?.futur ? (

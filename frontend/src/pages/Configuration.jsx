@@ -1,7 +1,7 @@
 import { useEffect, useState, lazy, Suspense } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { api, getAnnee, setAnnee as setAnneeActive, getUser } from '../lib/api.js';
-import { chargerCouleurs, echelleGris } from '../lib/couleurs.js';
+import { chargerCouleurs, echelleGris, poser as poserCouleurs, poserGris } from '../lib/couleurs.js';
 import Audit from './Audit.jsx';
 import { IconAdjustments, IconAward, IconBooks, IconBuilding, IconCalendar, IconCalendarEvent, IconChartBar, IconCheck, IconChevronRight, IconDownload, IconFileText, IconHistory, IconLink, IconScale, IconSettings, IconSparkles, IconUserShield, IconUsers, IconX, IconGavel, IconPlus, IconTrash, IconGripVertical, IconEdit, IconMail, IconPalette, IconArchive, IconAlertTriangle, IconShieldLock, IconDatabase, IconHierarchy, IconArrowsSplit, IconTool } from '@tabler/icons-react';
 import { PageHeader, RailLateral, TuileEtat, PastilleEtat, Encadre } from '../components/ui.jsx';
@@ -1418,7 +1418,7 @@ export default function Configuration() {
           pas où l'on était, et le rangement nouveau ne se voyait pas. Un titre,
           une ligne ; l'explication générale disparaît — elle ne disait rien de
           l'écran ouvert, et prenait une rangée. */}
-      <div className="gouttiere-rail px-3 md:px-6 py-3 space-y-4">
+      <div className="gouttiere-rail cadre-page px-3 md:px-6 py-3 space-y-4">
         <PageHeader icon={groupeActif.icon || IconSettings} titre={`Configuration · ${groupeActif.label}`}
           sous={groupeActif.label === 'Outils'
             ? 'Ce ne sont pas des réglages : ils rejoindront l’écran où l’on s’en sert.' : undefined} />
@@ -2336,27 +2336,38 @@ function ReglageCouleurs() {
   const v = cle => (valeurs[cle] || catalogue[cle]?.valeur || '#000000');
   function appliquerTheme(t) {
     const base = Object.fromEntries(Object.entries(catalogue).map(([k, d]) => [k, d.valeur]));
-    setValeurs({ ...base, ...t.valeurs }); setGris(t.gris); setEtat('Thème appliqué à l’aperçu — enregistrez pour le garder.');
+    changer(() => { setValeurs({ ...base, ...t.valeurs }); setGris(t.gris); });
   }
   const themeActif = THEMES.find(t => t.gris === gris && Object.entries(catalogue)
     .every(([k, d]) => v(k).toUpperCase() === (t.valeurs[k] || d.valeur).toUpperCase()))?.cle;
 
-  async function enregistrer() {
+  /* PAS DE BOUTON « ENREGISTRER » (Charles, 26 septembre 2026 : « si je
+     change, je dois voir tout de suite ce que cela donne, et c'est sauvé »).
+     Chaque changement se pose aussitôt sur TOUT l'écran — pas seulement
+     l'aperçu — et s'enregistre une demi-seconde après le dernier geste : un
+     curseur de couleur qu'on fait glisser n'envoie pas cinquante requêtes.
+     Pour qui ne peut pas régler, rien ne s'écrit et l'écran ne change pas :
+     seul l'aperçu montre. */
+  const [touche, setTouche] = useState(false);
+  useEffect(() => {
+    if (!touche || !peutRegler) return;
+    poserCouleurs(valeurs); poserGris(gris);
     setEtat('Enregistrement…');
-    try {
-      const rep = await fetch('/api/config/couleurs', {
-        method: 'PUT',
-        headers: { ...authHeaders(), 'Content-Type': 'application/json' },
-        body: JSON.stringify({ couleurs: valeurs, gris }),
-      });
-      const j = await rep.json();
-      if (!rep.ok) throw new Error(j.error || 'refusé');
-      setValeurs(j.couleurs);
-      // Reposées tout de suite : le changement se voit sans recharger.
-      await chargerCouleurs();
-      setEtat('Enregistré. Les écrans et les documents suivent.');
-    } catch (e) { setEtat('Erreur : ' + e.message); }
-  }
+    const t = setTimeout(async () => {
+      try {
+        const rep = await fetch('/api/config/couleurs', {
+          method: 'PUT',
+          headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+          body: JSON.stringify({ couleurs: valeurs, gris }),
+        });
+        const j = await rep.json();
+        if (!rep.ok) throw new Error(j.error || 'refusé');
+        setEtat('Enregistré — les écrans et les documents suivent.');
+      } catch (e) { setEtat('Non enregistré : ' + e.message); }
+    }, 500);
+    return () => clearTimeout(t);
+  }, [valeurs, gris, touche, peutRegler]);
+  const changer = f => { setTouche(true); f(); };
 
   // L'aperçu porte ses propres variables : il montre ce qui SERA, sans
   // toucher au reste de l'écran avant l'enregistrement.
@@ -2368,9 +2379,9 @@ function ReglageCouleurs() {
       <div>
         {/* Le titre est déjà celui de l'onglet : un titre ne s'écrit qu'une fois. */}
         <p className="text-[13px] text-slate-500 max-w-3xl">
-          Un thème pose tout d’un coup ; chaque couleur se retouche ensuite. Le sens ne change
-          pas — le vert dit « réussi » partout — : on en choisit la nuance. Rien n’est modifié
-          avant « Enregistrer », et l’aperçu montre le résultat avant.
+          Un thème pose tout d’un coup ; chaque couleur se retouche ensuite, et s’applique
+          aussitôt à toute l’application. Le sens ne change pas — le vert dit « réussi »
+          partout — : on en choisit la nuance.
           {!peutRegler && <b> Réservé à la direction : vous pouvez regarder, pas enregistrer.</b>}
         </p>
       </div>
@@ -2410,7 +2421,7 @@ function ReglageCouleurs() {
             </span>
             <div className="segments h-8">
               {[['ardoise', 'Ardoise'], ['neutre', 'Neutre']].map(([k, l]) => (
-                <button key={k} type="button" onClick={() => setGris(k)}
+                <button key={k} type="button" onClick={() => changer(() => setGris(k))}
                   className={`px-3 text-[12px] ${gris === k ? 'bg-iip-blue text-white font-semibold' : 'text-slate-600 hover:bg-slate-50'}`}>
                   {l}
                 </button>
@@ -2419,7 +2430,7 @@ function ReglageCouleurs() {
             {/* UNE TEINTE LIBRE : elle fait le gris moyen, l'échelle s'en déduit. */}
             <input type="color" title="Choisir la teinte des gris"
               value={/^#/.test(gris) ? gris : (gris === 'neutre' ? '#6E727A' : '#64748B')}
-              onChange={e => setGris(e.target.value)}
+              onChange={e => { const v = e.target.value; changer(() => setGris(v)); }}
               className={`w-10 h-8 rounded-champ border bg-white p-0.5 ${/^#/.test(gris) ? 'border-iip-blue' : 'border-slate-300'}`} />
           </div>
           {GROUPES_COULEURS.map(([g, titre, sous]) => {
@@ -2436,9 +2447,9 @@ function ReglageCouleurs() {
                     <span className="flex-1 text-[13px] text-slate-800">{d.libelle}</span>
                     <span className="text-[11px] tabular-nums text-slate-400 w-16 text-right">{v(cle).toUpperCase()}</span>
                     <input type="color" value={v(cle)}
-                      onChange={e => setValeurs(x => ({ ...x, [cle]: e.target.value }))}
+                      onChange={e => { const v = e.target.value; changer(() => setValeurs(x => ({ ...x, [cle]: v }))); }}
                       className="w-10 h-7 rounded-champ border border-slate-300 bg-white p-0.5" title={d.libelle} />
-                    <button onClick={() => setValeurs(x => ({ ...x, [cle]: d.valeur }))}
+                    <button onClick={() => changer(() => setValeurs(x => ({ ...x, [cle]: d.valeur })))}
                       className={`text-[11px] w-10 text-left ${v(cle).toUpperCase() !== d.valeur.toUpperCase()
                         ? 'text-slate-400 hover:text-iip-blue' : 'invisible'}`} title="Revenir à la couleur d’origine">
                       défaut
@@ -2493,8 +2504,9 @@ function ReglageCouleurs() {
       </div>
 
       <div className="flex items-center gap-3">
-        <button onClick={enregistrer} disabled={!peutRegler} className="bouton-fort controle px-3 disabled:opacity-50">Enregistrer</button>
-        {etat && <span className="text-[12px] text-slate-500">{etat}</span>}
+        <span className="text-[12px] text-slate-500">
+          {etat || (peutRegler ? 'Chaque changement s’applique et s’enregistre aussitôt.' : 'Réservé à la direction : l’aperçu seul change.')}
+        </span>
       </div>
     </div>
   );
