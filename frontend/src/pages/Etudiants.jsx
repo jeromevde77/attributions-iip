@@ -367,7 +367,8 @@ function GrilleParcours({ etudId, peutEcrire, annee }) {
       {/* RÉDUITE (Charles, 26 septembre 2026 : « faut réduire… on ne voit plus le
           schéma »). L'aide passe dans la bulle ; les deux outils deviennent de
           petits boutons dans le titre. */}
-      <div className="flex items-center gap-2 mb-1.5">
+      <div className="carte overflow-hidden mb-4">
+      <div className="entete-panneau">
         <span className="text-[13px] font-semibold text-iip-blue">Notes par année</span>
         <BulleAide titre="La grille des notes">
           Cliquez sur une case pour encoder.
@@ -392,7 +393,7 @@ function GrilleParcours({ etudId, peutEcrire, annee }) {
         </div>
       </div>
 
-      <div className="overflow-x-auto border border-slate-200 rounded-carte">
+      <div className="overflow-x-auto">
         <table className="w-full text-[12px] border-collapse">
           <thead>
             <tr className="tab-entete">
@@ -421,7 +422,7 @@ function GrilleParcours({ etudId, peutEcrire, annee }) {
                     style={{ borderLeftColor: couleurBloc(u.ue_niv) || '#D8DCE4' }}
                     title={`UE ${u.ue_num} — ${u.ue_nom || ''}${u.ue_niv ? ' · ' + u.ue_niv : ''}`}>
                     <span className="font-semibold text-iip-blue">{u.ue_num}</span>
-                    <span className="text-slate-600 ml-1.5">{u.ue_nom}</span>
+                    <span className="text-slate-600 ml-1.5 inline-block max-w-[13rem] truncate align-bottom">{u.ue_nom}</span>
                     {verrou && <span className="ml-1.5 text-[11px]"
                       title={'Exige : UE ' + ((u.prereq_chaine?.length ? u.prereq_chaine : u.prerequis) || []).join(', ')}>🔒</span>}
                     {u.suggeree && <span className="ml-1.5 text-[10px] px-1 py-0.5 rounded bg-violet-50 text-violet-600 border border-violet-200" title="Probablement acquise (inférence prérequis) — à confirmer">à confirmer</span>}
@@ -517,6 +518,7 @@ function GrilleParcours({ etudId, peutEcrire, annee }) {
             })}
           </tbody>
         </table>
+      </div>
       </div>
 
       {depl && (() => {

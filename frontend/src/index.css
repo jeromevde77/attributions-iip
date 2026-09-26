@@ -1081,3 +1081,13 @@ select[multiple], select[size]:not([size="1"]) {
                   .md\:p-6, .md\:p-8, .md\:px-6, .md\:px-8) {
   padding-left: 0; padding-right: 0; padding-top: 0;
 }
+
+/* ── LA BANDE DE TITRE D'UN PANNEAU — une seule hauteur (2.12.213) ────────────
+ * Le schéma et les notes, côte à côte, avaient deux titres de dessins et de
+ * hauteurs différents : leurs contenus ne commençaient pas à la même ligne.
+ * Une bande commune : 40 px, le ton des en-têtes de tableau, un filet dessous. */
+.entete-panneau {
+  display: flex; align-items: center; gap: .5rem;
+  height: 2.5rem; padding-inline: .75rem;
+  background: var(--tab-repere); border-bottom: 1px solid var(--menu-bord);
+}

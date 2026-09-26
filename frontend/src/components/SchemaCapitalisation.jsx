@@ -270,10 +270,15 @@ export default function SchemaCapitalisation({
   ])].sort();
 
   return (
-    <div className="mb-4 border border-slate-200 rounded-xl overflow-hidden">
+    /* UNE CARTE, UNE BANDE DE TITRE — la même que celle des notes, à côté
+       (Charles, 26 septembre 2026 : « alignement »). La commande de taille
+       rejoint la bande : une rangée de moins, et les deux panneaux ont leur
+       contenu à la même hauteur. */
+    <div className="mb-4 carte overflow-hidden">
+      <div className="entete-panneau">
       <button onClick={() => setOuvert(o => !o)}
-        className="w-full flex items-center justify-between px-3 py-2 bg-slate-50 hover:bg-slate-100 transition">
-        <span className="text-[12px] font-semibold text-iip-blue">
+        className="flex-1 min-w-0 flex items-center justify-between gap-2 text-left">
+        <span className="text-[13px] font-semibold text-iip-blue truncate">
           {titre}
           <span className="ml-2 font-normal text-slate-500">
             {mode === 'etudiant'
@@ -283,31 +288,25 @@ export default function SchemaCapitalisation({
               : `${data.nodes.length} UE · ${data.edges.length} lien(s) de prérequis`}
           </span>
         </span>
-        <span className="text-[11px] text-slate-400">{ouvert ? 'Masquer' : 'Afficher'}</span>
       </button>
 
-      {/* Le ZOOM est une commande à part : le bandeau replie/déplie le schéma,
-          et un bouton dans un bouton n'est pas cliquable. */}
       {ouvert && layout && (
-        <div className="flex items-center justify-end gap-1 px-3 py-1.5
-                        border-b border-slate-100 bg-white">
-          <span className="text-[11px] text-slate-400 mr-1">Taille</span>
+        <div className="flex items-center gap-1 flex-none">
           <button type="button" onClick={() => setZoom(z => Math.max(0.8, Math.round((z - 0.25) * 100) / 100))}
-            disabled={zoom <= 0.8}
-            className="w-6 h-6 rounded border border-slate-200 text-slate-600
-                       text-[13px] leading-none disabled:opacity-40"
+            disabled={zoom <= 0.8} className="w-6 h-6 rounded border border-slate-200 bg-white text-slate-600 text-[13px] leading-none disabled:opacity-40"
             title="Réduire">−</button>
           <button type="button" onClick={() => setZoom(1)}
-            className="px-2 h-6 rounded border border-slate-200 text-slate-600
-                       text-[11px] tabular-nums"
+            className="px-1.5 h-6 rounded border border-slate-200 bg-white text-slate-600 text-[11px] tabular-nums"
             title="Revenir à la taille normale">{Math.round(zoom * 100)} %</button>
           <button type="button" onClick={() => setZoom(z => Math.min(3, Math.round((z + 0.25) * 100) / 100))}
-            disabled={zoom >= 3}
-            className="w-6 h-6 rounded border border-slate-200 text-slate-600
-                       text-[13px] leading-none disabled:opacity-40"
+            disabled={zoom >= 3} className="w-6 h-6 rounded border border-slate-200 bg-white text-slate-600 text-[13px] leading-none disabled:opacity-40"
             title="Agrandir">+</button>
         </div>
       )}
+      <button type="button" onClick={() => setOuvert(o => !o)} className="text-[11px] text-slate-400 hover:text-iip-blue flex-none">
+        {ouvert ? 'Masquer' : 'Afficher'}
+      </button>
+      </div>
 
       {ouvert && layout && (
         <>
