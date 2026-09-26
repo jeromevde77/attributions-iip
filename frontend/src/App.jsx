@@ -455,7 +455,9 @@ function ProtectedLayout({ children }) {
   // aussi pour tout compte LIÉ à une fiche professeur, quel que soit son rôle
   // (une direction qui enseigne, une coordination qui donne cours) : la porte
   // ne montre de toute façon que les attributions de la fiche liée.
-  if (u?.role === 'professeur' || u?.professeur_id) {
+  // Et pour la coordination, qui y trouve aussi tous les cours de sa section
+  // (Charles, 26 septembre 2026).
+  if (u?.role === 'professeur' || u?.role === 'coordination' || u?.professeur_id) {
     nav.unshift(['/mes-cours', 'Mes cours', IconBooks]);
   }
 

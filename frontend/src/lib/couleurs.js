@@ -26,10 +26,28 @@ export const DEFAUT = {
   fond_page: '#F8FAFC', fond_indispo: '#F4F5F7',
 };
 
-/** Le jeu de gris : « ardoise » (d'origine) ou « neutre » — voir index.css. */
+/* L'ÉCHELLE DES GRIS À PARTIR D'UNE TEINTE (2.12.198). La teinte choisie
+ * fait le 500 ; les clairs se mélangent au blanc, les foncés au noir, dans les
+ * proportions de l'échelle de Tailwind. Rendue en canaux RVB, comme les jeux
+ * « ardoise » et « neutre » d'index.css, pour que les opacités fonctionnent. */
+const MELANGE = { 50: ['b', .04], 100: ['b', .08], 200: ['b', .16], 300: ['b', .3], 400: ['b', .62],
+  500: ['b', 1], 600: ['n', .2], 700: ['n', .38], 800: ['n', .6], 900: ['n', .76], 950: ['n', .9] };
+export function echelleGris(hex) {
+  const m = /^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(String(hex || ''));
+  if (!m) return null;
+  const c = [1, 2, 3].map(i => parseInt(m[i], 16));
+  return Object.fromEntries(Object.entries(MELANGE).map(([n, [vers, k]]) => [
+    `--gris-${n}`, c.map(x => Math.round(vers === 'b' ? 255 - (255 - x) * k : x * (1 - k))).join(' ')]));
+}
+
+/** Les gris : « ardoise » (d'origine), « neutre », ou une teinte #RRGGBB. */
 export function poserGris(jeu) {
-  if (jeu === 'neutre') document.documentElement.dataset.gris = 'neutre';
-  else delete document.documentElement.dataset.gris;
+  const racine = document.documentElement;
+  const echelle = echelleGris(jeu);
+  for (const n of Object.keys(MELANGE)) racine.style.removeProperty(`--gris-${n}`);
+  if (echelle) { delete racine.dataset.gris; for (const [k, v] of Object.entries(echelle)) racine.style.setProperty(k, v); }
+  else if (jeu === 'neutre') racine.dataset.gris = 'neutre';
+  else delete racine.dataset.gris;
 }
 
 export function poser(jeu) {

@@ -44,10 +44,13 @@ r.get('/couleurs', authRequired, async (req, res) => {
 /* LE JEU DE GRIS (2.12.194) : « ardoise », le gris bleuté d'origine, ou
    « neutre ». Un choix fermé, pas une couleur libre. */
 const JEUX_GRIS = ['ardoise', 'neutre'];
+// Depuis 2.12.198, une teinte libre aussi (#RRGGBB) : l'échelle des gris se
+// calcule à l'écran à partir d'elle (Charles : « pouvoir déterminer la couleur »).
+const grisValide = v => JEUX_GRIS.includes(v) || /^#[0-9a-fA-F]{6}$/.test(String(v || ''));
 function themeGris() {
   try {
     const v = db.prepare("SELECT valeur FROM lucie_config WHERE cle = 'theme_gris'").get()?.valeur;
-    return JEUX_GRIS.includes(v) ? v : 'ardoise';
+    return grisValide(v) ? v : 'ardoise';
   } catch { return 'ardoise'; }
 }
 
@@ -65,10 +68,10 @@ r.put('/couleurs', authRequired,
                 ON CONFLICT(cle) DO UPDATE SET valeur = excluded.valeur`)
       .run('couleurs', JSON.stringify(propre),
         'Couleurs de signification : contrats, natures de cours, états');
-    if (JEUX_GRIS.includes(req.body?.gris)) {
+    if (grisValide(req.body?.gris)) {
       db.prepare(`INSERT INTO lucie_config (cle, valeur, description) VALUES (?,?,?)
                   ON CONFLICT(cle) DO UPDATE SET valeur = excluded.valeur`)
-        .run('theme_gris', req.body.gris, 'Jeu de gris de l’interface : ardoise ou neutre');
+        .run('theme_gris', req.body.gris, 'Gris de l’interface : ardoise, neutre ou une teinte #RRGGBB');
     }
     res.json({ couleurs: couleurs(), gris: themeGris() });
   });

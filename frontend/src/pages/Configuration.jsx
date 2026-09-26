@@ -1,7 +1,7 @@
 import { useEffect, useState, lazy, Suspense } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { api, getAnnee, setAnnee as setAnneeActive, getUser } from '../lib/api.js';
-import { chargerCouleurs } from '../lib/couleurs.js';
+import { chargerCouleurs, echelleGris } from '../lib/couleurs.js';
 import Audit from './Audit.jsx';
 import { IconAdjustments, IconAward, IconBooks, IconBuilding, IconCalendar, IconCalendarEvent, IconChartBar, IconCheck, IconChevronRight, IconDownload, IconFileText, IconHistory, IconLink, IconScale, IconSettings, IconSparkles, IconUserShield, IconUsers, IconX, IconGavel, IconPlus, IconTrash, IconGripVertical, IconEdit, IconMail, IconPalette, IconArchive, IconAlertTriangle, IconShieldLock, IconDatabase, IconHierarchy, IconArrowsSplit } from '@tabler/icons-react';
 import { PageHeader, RailLateral, TuileEtat, PastilleEtat, Encadre } from '../components/ui.jsx';
@@ -1368,12 +1368,6 @@ export default function Configuration() {
       { key: 'attestation', label: 'Attestation', icon: IconAward },
       { key: 'recrutement', label: 'Recrutement', icon: IconSettings },
     ]},
-    // THÈMES ET COULEURS ont leur famille : on y règle l'apparence de toute
-    // l'application, pas celle des seules pièces — ils vivaient sous
-    // « Documents », où personne ne les cherchait.
-    { label: 'Apparence', icon: IconPalette, items: [
-      { key: 'couleurs', label: 'Thèmes et couleurs', icon: IconPalette },
-    ]},
     { label: 'Accès', icon: IconUserShield, items: [
       { key: 'users', label: 'Utilisateurs', icon: IconUserShield },
       { key: 'roles', label: 'Rôles et plafonds', icon: IconUserShield },
@@ -1390,6 +1384,9 @@ export default function Configuration() {
     // remplacent pas — on les nomme donc pour ce qu'ils sont.
     { label: 'Système', icon: IconAdjustments, items: [
       { key: 'parametres', label: 'Paramètres', icon: IconAdjustments },
+      // Thèmes et couleurs : l'apparence de toute l'application, rangée avec
+      // la machine (Charles, 26 septembre 2026).
+      { key: 'couleurs', label: 'Thèmes et couleurs', icon: IconPalette },
       { key: 'courriels', label: 'Courriels', icon: IconMail },
       { key: 'audit', label: 'Qui a fait quoi', icon: IconUserShield },
       { key: 'systeme', label: 'Historique des modifications', icon: IconHistory },
@@ -2388,16 +2385,25 @@ function ReglageCouleurs() {
           <div className="carte px-3 py-2 flex items-center gap-3">
             <span className="flex-1 text-[13px] text-slate-800">
               Les gris de l’interface
-              <span className="block text-[11px] text-slate-400">textes secondaires, filets, fonds de tableau</span>
+              <span className="block text-[11px] text-slate-400">textes secondaires, filets, fonds de tableau — deux jeux prêts, ou votre teinte</span>
+              <span className="flex gap-0.5 mt-1">
+                {Object.values(echelleGris(/^#/.test(gris) ? gris : (gris === 'neutre' ? '#6E727A' : '#64748B')) || {})
+                  .map((c, i) => <i key={i} className="w-4 h-2.5 rounded-[2px]" style={{ background: `rgb(${c})` }} />)}
+              </span>
             </span>
             <div className="segments h-8">
-              {[['ardoise', 'Ardoise (bleuté)'], ['neutre', 'Neutre']].map(([k, l]) => (
+              {[['ardoise', 'Ardoise'], ['neutre', 'Neutre']].map(([k, l]) => (
                 <button key={k} type="button" onClick={() => setGris(k)}
                   className={`px-3 text-[12px] ${gris === k ? 'bg-iip-blue text-white font-semibold' : 'text-slate-600 hover:bg-slate-50'}`}>
                   {l}
                 </button>
               ))}
             </div>
+            {/* UNE TEINTE LIBRE : elle fait le gris moyen, l'échelle s'en déduit. */}
+            <input type="color" title="Choisir la teinte des gris"
+              value={/^#/.test(gris) ? gris : (gris === 'neutre' ? '#6E727A' : '#64748B')}
+              onChange={e => setGris(e.target.value)}
+              className={`w-10 h-8 rounded-champ border bg-white p-0.5 ${/^#/.test(gris) ? 'border-iip-blue' : 'border-slate-300'}`} />
           </div>
           {GROUPES_COULEURS.map(([g, titre, sous]) => {
             const cles = Object.entries(catalogue).filter(([, d]) => (d.groupe || 'sens') === g);
@@ -2428,7 +2434,8 @@ function ReglageCouleurs() {
         </div>
 
         {/* L'APERÇU — les vrais composants de Lucie, sous les couleurs choisies. */}
-        <div data-gris={gris} style={{ ...styleApercu, background: v('fond_page') }}
+        <div data-gris={/^#/.test(gris) ? undefined : gris}
+          style={{ ...styleApercu, ...(echelleGris(gris) || {}), background: v('fond_page') }}
           className="rounded-carte border border-slate-200 p-4 space-y-4 xl:sticky xl:top-4">
           <div className="text-[11px] uppercase tracking-wide text-slate-500 font-semibold">Aperçu</div>
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">

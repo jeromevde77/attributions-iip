@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import db from '../db/index.js';
-import { authRequired, roleRequired } from '../middleware/auth.js';
+import { authRequired, roleRequired, getUserSections } from '../middleware/auth.js';
 import { anneeDeTravail } from '../helpers/annee.js';
 import { PEUT_INSTRUIRE } from '../lib/valorisation.js';
 
@@ -169,14 +169,71 @@ function etudiantsDuCours(profId, coursCode, annee) {
   return { miennes, ueNum, etudiants, repartition };
 }
 
+/* LA COORDINATION VOIT TOUS LES COURS DE SA SECTION (Charles, 26 septembre
+ * 2026 : « comme elle a un rôle de coordination, elle doit pouvoir encoder les
+ * notes dans Mes cours de tous les cours de TIM ; idem pour les autres
+ * coordinations dans leur section »). Ses propres attributions d'abord, puis
+ * les autres cours des sections de son périmètre — `getUserSections`, le même
+ * que partout : `null` veut dire toutes. Pour un cours qui n'est pas le sien,
+ * ses étudiants sont tous les inscrits de l'unité. Cela reste une PROPOSITION
+ * de notes (`note_proposee`), reprise ensuite dans l'encodage officiel. */
+function sectionsCoordination(req) {
+  if (req.user?.role !== 'coordination') return [];
+  const s = getUserSections(req.user);
+  return s === null ? null : s;        // null : toutes les sections
+}
+function coursDesSections(sections, annee) {
+  if (Array.isArray(sections) && !sections.length) return [];
+  const ph = Array.isArray(sections) ? sections.map(() => '?').join(',') : null;
+  // Un agrégat ne se passe pas à une sous-requête corrélée (SQLite refuse
+  // « misuse of aggregate ») : on regroupe d'abord, on nomme l'unité ensuite.
+  return db.prepare(`
+    SELECT g.*, (SELECT x.ue_nom FROM ue x WHERE x.ue_num = g.ue_num AND x.ue_nom IS NOT NULL
+                  ORDER BY x.annee_scolaire DESC LIMIT 1) AS ue_nom
+    FROM (
+      SELECT c.cours_code, MIN(c.cours_nom) AS cours_nom, MIN(c.ue_num) AS ue_num, MIN(c.section) AS section
+      FROM cours c
+      WHERE c.annee_scolaire = ? AND c.cours_code IS NOT NULL
+        ${ph ? `AND c.section IN (${ph})` : ''}
+      GROUP BY c.cours_code
+    ) g
+    ORDER BY g.ue_num, g.cours_code`).all(annee, ...(ph ? sections : []));
+}
+/** Qui peut ouvrir ce cours, et avec quels étudiants : ses attributions
+ *  d'abord ; à défaut, la coordination de la section. `null` : personne. */
+function accesCours(req, coursCode, annee) {
+  const profId = profDe(req);
+  const mien = profId ? etudiantsDuCours(profId, coursCode, annee) : null;
+  if (mien) return { ...mien, portee: 'attribution' };
+  const secs = sectionsCoordination(req);
+  if (secs !== null && !secs.length) return null;
+  const c = coursDesSections(secs, annee).find(x => x.cours_code === coursCode);
+  if (!c) return null;
+  const groupes = new Map();
+  for (const g of db.prepare(`SELECT etudiant_id, num_organisation, groupe_code FROM etudiant_cours_groupe
+      WHERE annee_scolaire = ? AND cours_code = ?`).all(annee, coursCode)) {
+    const l = `Org ${g.num_organisation ?? 1}${g.groupe_code ? ` · Gr. ${g.groupe_code}` : ''}`;
+    groupes.set(g.etudiant_id, groupes.has(g.etudiant_id) ? `${groupes.get(g.etudiant_id)} + ${l}` : l);
+  }
+  const etudiants = db.prepare(`
+    SELECT e.id, e.nom, e.prenom, e.id_ecampus
+    FROM etudiant_inscription i JOIN etudiant e ON e.id = i.etudiant_id
+    WHERE i.annee_scolaire = ? AND i.ue_num = ? AND e.actif = 1
+    ORDER BY e.nom, e.prenom`).all(annee, c.ue_num)
+    .map(e => ({ ...e, groupe: groupes.get(e.id) || '' }));
+  return { miennes: [], ueNum: c.ue_num, etudiants, repartition: groupes.size > 0, portee: 'coordination' };
+}
+
 // ── Mes cours de l'année ─────────────────────────────────────────────────────
 r.get('/', authRequired, (req, res) => {
   const annee = req.query.annee || anneeDeTravail(req);
   const profId = profDe(req);
-  if (!profId) {
+  const secs = sectionsCoordination(req);
+  const coordination = secs === null || secs.length > 0;
+  if (!profId && !coordination) {
     return res.status(403).json({ error: "Ce compte n'est lié à aucun dossier professeur." });
   }
-  const attrs = attributionsDe(profId, annee);
+  const attrs = profId ? attributionsDe(profId, annee) : [];
   const parCours = new Map();
   for (const a of attrs) {
     const c = parCours.get(a.code_cours) || {
@@ -188,19 +245,27 @@ r.get('/', authRequired, (req, res) => {
   }
   const cours = [...parCours.values()].map(c => {
     const d = etudiantsDuCours(profId, c.cours_code, annee);
-    return { ...c, nb_etudiants: d ? d.etudiants.length : 0,
+    return { ...c, a_moi: true, nb_etudiants: d ? d.etudiants.length : 0,
       repartition: d ? d.repartition : false };
   });
-  res.json({ annee, cours });
+  // Les autres cours de la section, pour la coordination.
+  let section = [];
+  if (coordination) {
+    const nbInscrits = new Map(db.prepare(`SELECT ue_num, COUNT(DISTINCT etudiant_id) AS n
+      FROM etudiant_inscription WHERE annee_scolaire = ? GROUP BY ue_num`).all(annee).map(x => [x.ue_num, x.n]));
+    section = coursDesSections(secs, annee)
+      .filter(c => !parCours.has(c.cours_code))
+      .map(c => ({ ...c, a_moi: false, groupes: [], nb_etudiants: nbInscrits.get(c.ue_num) || 0 }));
+  }
+  res.json({ annee, cours: [...cours, ...section],
+    sections_coordination: coordination ? (secs === null ? 'toutes' : secs) : null });
 });
 
 // ── La feuille d'un cours : mes étudiants et mes propositions ────────────────
 r.get('/:coursCode/etudiants', authRequired, (req, res) => {
   const annee = req.query.annee || anneeDeTravail(req);
-  const profId = profDe(req);
-  if (!profId) return res.status(403).json({ error: "Ce compte n'est lié à aucun dossier professeur." });
-  const d = etudiantsDuCours(profId, req.params.coursCode, annee);
-  if (!d) return res.status(403).json({ error: "Ce cours n'est pas dans vos attributions." });
+  const d = accesCours(req, req.params.coursCode, annee);
+  if (!d) return res.status(403).json({ error: "Ce cours n'est ni dans vos attributions, ni dans votre section." });
 
   const acquis = acquisDuCours(req.params.coursCode, d.ueNum, annee);
   const props = {};
@@ -212,7 +277,7 @@ r.get('/:coursCode/etudiants', authRequired, (req, res) => {
 
   res.json({
     annee, cours_code: req.params.coursCode, ue_num: d.ueNum,
-    repartition: d.repartition,
+    repartition: d.repartition, portee: d.portee,
     // La feuille du professeur note PAR ACQUIS ; sans AA rattachés au cours,
     // elle retombe sur une note de cours (clé '').
     acquis,
@@ -224,10 +289,8 @@ r.get('/:coursCode/etudiants', authRequired, (req, res) => {
 // ── Proposer ses notes — rien n'entre au dossier ─────────────────────────────
 r.post('/:coursCode/notes', authRequired, (req, res) => {
   const annee = String(req.body?.annee || anneeDeTravail(req));
-  const profId = profDe(req);
-  if (!profId) return res.status(403).json({ error: "Ce compte n'est lié à aucun dossier professeur." });
-  const d = etudiantsDuCours(profId, req.params.coursCode, annee);
-  if (!d) return res.status(403).json({ error: "Ce cours n'est pas dans vos attributions." });
+  const d = accesCours(req, req.params.coursCode, annee);
+  if (!d) return res.status(403).json({ error: "Ce cours n'est ni dans vos attributions, ni dans votre section." });
 
   const permis = new Set(d.etudiants.map(e => e.id));
   // Les acquis admis pour ce cours — plus la clé '' (note de cours).

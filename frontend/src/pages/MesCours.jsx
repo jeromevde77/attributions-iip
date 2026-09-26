@@ -22,6 +22,7 @@ export default function MesCours() {
   const [erreur, setErreur] = useState(null);
   const [fait, setFait] = useState(null);
   const [enCours, setEnCours] = useState(false);
+  const [filtre, setFiltre] = useState('');
 
   useEffect(() => {
     fetch(`/api/mes-cours?annee=${encodeURIComponent(annee)}`, { headers: authHeaders() })
@@ -90,31 +91,70 @@ export default function MesCours() {
         </div>
       )}
 
-      {!ouvert && cours && (
-        <div className="grid gap-2 md:grid-cols-2 2xl:grid-cols-3">
-          {!cours.length && (
-            <p className="text-sm text-slate-400">Aucune attribution pour {annee}.</p>
-          )}
-          {cours.map(x => (
-            <button key={x.cours_code} onClick={() => ouvrir(x.cours_code)}
-              className="w-full text-left bg-white border border-slate-200 rounded-carte px-3 py-2 hover:border-iip-turquoise flex items-center gap-3">
-              <div className="min-w-0 flex-1">
-                <div className="font-semibold text-iip-blue text-[14px]">
-                  {x.cours_code} · {x.cours_nom || ''}</div>
-                <div className="text-[12px] text-slate-500">
-                  UE {x.ue_num}{x.ue_nom ? ` — ${x.ue_nom}` : ''} · {x.groupes.join(' + ')}
+      {!ouvert && cours && (() => {
+        /* DEUX LISTES : mes cours, puis ceux de ma section (coordination —
+           Charles, 26 septembre 2026). La seconde se lit par UNITÉ et se
+           filtre : une section, ce sont des dizaines de cours. */
+        const q = filtre.trim().toLowerCase();
+        const garde = x => !q || `${x.cours_code} ${x.cours_nom || ''} ${x.ue_num} ${x.ue_nom || ''}`.toLowerCase().includes(q);
+        const miens = cours.filter(x => x.a_moi !== false).filter(garde);
+        const section = cours.filter(x => x.a_moi === false).filter(garde);
+        const parUe = [];
+        for (const x of section) {
+          const g = parUe.find(y => y.ue_num === x.ue_num);
+          if (g) g.cours.push(x); else parUe.push({ ue_num: x.ue_num, ue_nom: x.ue_nom, cours: [x] });
+        }
+        const carte = x => (
+          <button key={x.cours_code} onClick={() => ouvrir(x.cours_code)}
+            className="w-full text-left bg-white border border-slate-200 rounded-carte px-3 py-2 hover:border-iip-turquoise flex items-center gap-3">
+            <div className="min-w-0 flex-1">
+              <div className="font-semibold text-iip-blue text-[13px]">{x.cours_code} · {x.cours_nom || ''}</div>
+              <div className="text-[12px] text-slate-500 truncate">
+                {x.a_moi === false ? (x.section || '') : <>UE {x.ue_num}{x.ue_nom ? ` — ${x.ue_nom}` : ''} · {x.groupes.join(' + ')}</>}
+              </div>
+            </div>
+            <span className="flex-none text-[12px] font-semibold text-iip-turquoise-dark text-right">
+              {x.nb_etudiants} étudiant{x.nb_etudiants > 1 ? 's' : ''}
+              {!x.repartition && x.nb_etudiants > 0 && (
+                <span className="block font-normal text-slate-400">toute l'unité</span>
+              )}
+            </span>
+          </button>
+        );
+        const aSection = cours.some(x => x.a_moi === false);
+        return (
+          <div className="space-y-3">
+            {aSection && (
+              <input value={filtre} onChange={e => setFiltre(e.target.value)}
+                placeholder="Chercher un cours ou une unité…"
+                className="controle w-72 max-w-full border border-slate-300 rounded-champ bg-white" />
+            )}
+            {(miens.length > 0 || !aSection) && (
+              <div className="space-y-1.5">
+                {aSection && <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Mes attributions</div>}
+                <div className="grid gap-2 md:grid-cols-2 2xl:grid-cols-3">
+                  {!cours.length && <p className="text-sm text-slate-400">Aucune attribution pour {annee}.</p>}
+                  {miens.map(carte)}
                 </div>
               </div>
-              <span className="flex-none text-[12px] font-semibold text-iip-turquoise-dark">
-                {x.nb_etudiants} étudiant{x.nb_etudiants > 1 ? 's' : ''}
-                {!x.repartition && x.nb_etudiants > 0 && (
-                  <span className="block font-normal text-slate-400">toute l'unité</span>
-                )}
-              </span>
-            </button>
-          ))}
-        </div>
-      )}
+            )}
+            {parUe.length > 0 && (
+              <div className="space-y-2">
+                <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                  Les cours de ma section <span className="normal-case font-normal">— en tant que coordination</span>
+                </div>
+                {parUe.map(g => (
+                  <div key={g.ue_num} className="space-y-1">
+                    <div className="text-[12px] font-semibold text-iip-blue">UE {g.ue_num}{g.ue_nom ? ` — ${g.ue_nom}` : ''}</div>
+                    <div className="grid gap-2 md:grid-cols-2 2xl:grid-cols-3">{g.cours.map(carte)}</div>
+                  </div>
+                ))}
+              </div>
+            )}
+            {q && !miens.length && !parUe.length && <p className="text-sm text-slate-400">Aucun cours ne correspond.</p>}
+          </div>
+        );
+      })()}
 
       {ouvert && (
         <div className="bg-white border border-slate-200 rounded-carte px-3 py-2.5 space-y-2">
