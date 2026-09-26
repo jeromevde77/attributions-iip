@@ -349,7 +349,8 @@ function ProtectedLayout({ children }) {
           permissions_json: d.user.permissions_json ?? null,
           // Relu comme le rôle : un compte relié à sa fiche professeur après
           // coup voit « Mes cours » sans avoir à se reconnecter.
-          professeur_id: d.user.professeur_id ?? null };
+          professeur_id: d.user.professeur_id ?? null,
+          prenom: d.user.prenom ?? cur.prenom ?? null, nom: d.user.nom ?? cur.nom };
         if (JSON.stringify(maj) !== JSON.stringify(cur)) {
           localStorage.setItem('user', JSON.stringify(maj));
           setDroitsFrais(x => x + 1);   // le menu relit l'utilisateur
