@@ -3,7 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import { api, getAnnee, setAnnee as setAnneeActive, getUser } from '../lib/api.js';
 import { chargerCouleurs, echelleGris } from '../lib/couleurs.js';
 import Audit from './Audit.jsx';
-import { IconAdjustments, IconAward, IconBooks, IconBuilding, IconCalendar, IconCalendarEvent, IconChartBar, IconCheck, IconChevronRight, IconDownload, IconFileText, IconHistory, IconLink, IconScale, IconSettings, IconSparkles, IconUserShield, IconUsers, IconX, IconGavel, IconPlus, IconTrash, IconGripVertical, IconEdit, IconMail, IconPalette, IconArchive, IconAlertTriangle, IconShieldLock, IconDatabase, IconHierarchy, IconArrowsSplit } from '@tabler/icons-react';
+import { IconAdjustments, IconAward, IconBooks, IconBuilding, IconCalendar, IconCalendarEvent, IconChartBar, IconCheck, IconChevronRight, IconDownload, IconFileText, IconHistory, IconLink, IconScale, IconSettings, IconSparkles, IconUserShield, IconUsers, IconX, IconGavel, IconPlus, IconTrash, IconGripVertical, IconEdit, IconMail, IconPalette, IconArchive, IconAlertTriangle, IconShieldLock, IconDatabase, IconHierarchy, IconArrowsSplit, IconTool } from '@tabler/icons-react';
 import { PageHeader, RailLateral, TuileEtat, PastilleEtat, Encadre } from '../components/ui.jsx';
 import ApercuDocuments from '../components/ApercuDocuments.jsx';
 const Editeur = lazy(() => import('./Editeur.jsx'));
@@ -1370,7 +1370,7 @@ export default function Configuration() {
       { key: 'users', label: 'Utilisateurs', icon: IconUserShield },
       { key: 'roles', label: 'Rôles et plafonds', icon: IconUserShield },
       { key: 'personnel', label: 'Personnel', icon: IconUsers },
-      { key: 'securite', label: 'Sécurité des connexions', icon: IconUserShield },
+      { key: 'securite', label: 'Sécurité des connexions', icon: IconShieldLock },
     ]},
     // La machine, et l'apparence de toute l'application (Charles : « je
     // mettrais bien Apparence dans Système »).
@@ -1384,7 +1384,7 @@ export default function Configuration() {
     /* CE QUI N'EST PAS UN RÉGLAGE. Des outils, une file de travail, des
      * données de l'année : ils rejoindront l'écran où l'on s'en sert (lot 4
      * du plan). Regroupés ici d'ici là, pour qu'on sache où ils sont. */
-    { label: 'Outils', icon: IconDatabase, items: [
+    { label: 'Outils', icon: IconTool, items: [
       { key: 'dates-ue', label: "Dates des UE", icon: IconCalendarEvent },
       { key: 'doublons', label: 'Dossiers dédoublés', icon: IconUsers },
       { key: 'demandes', label: 'Demandes à valider', icon: IconCheck },
@@ -1414,9 +1414,14 @@ export default function Configuration() {
           onClick: () => { if (g !== groupeActif) setTab(g.items[0].key); },
         })) }]}
       />
-      <div className="gouttiere-rail px-3 md:px-6 py-4 space-y-6">
-        <PageHeader icon={IconSettings} titre="Configuration"
-          sous="Référentiels, années, établissement, personnel et paramètres système" />
+      {/* LE TITRE DIT LA FAMILLE (2.12.201) : « Configuration » seul ne disait
+          pas où l'on était, et le rangement nouveau ne se voyait pas. Un titre,
+          une ligne ; l'explication générale disparaît — elle ne disait rien de
+          l'écran ouvert, et prenait une rangée. */}
+      <div className="gouttiere-rail px-3 md:px-6 py-3 space-y-4">
+        <PageHeader icon={groupeActif.icon || IconSettings} titre={`Configuration · ${groupeActif.label}`}
+          sous={groupeActif.label === 'Outils'
+            ? 'Ce ne sont pas des réglages : ils rejoindront l’écran où l’on s’en sert.' : undefined} />
         {groupeActif.items.length > 1 && (
           <div className="flex flex-wrap items-center gap-1 border-b border-slate-200 -mt-2">
             {groupeActif.items.map(t => {
