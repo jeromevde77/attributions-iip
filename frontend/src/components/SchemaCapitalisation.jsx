@@ -339,6 +339,8 @@ export default function SchemaCapitalisation({
                 width: layout.largeur * zoom * BASE,
                 height: 'auto',
                 display: 'block',
+                // Une UE qu'on glisse ne se fait plus rogner au bord du cadre.
+                overflow: 'visible',
                 touchAction: deplacable ? 'none' : 'auto',
               }}>
               <defs>

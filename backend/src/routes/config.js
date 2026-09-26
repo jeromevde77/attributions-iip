@@ -38,8 +38,18 @@ r.get('/contrat_template', authRequired, async (req, res) => {
  */
 r.get('/couleurs', authRequired, async (req, res) => {
   const { couleurs, COULEURS_DEFAUT } = await import('../lib/couleurs.js');
-  res.json({ couleurs: couleurs(), catalogue: COULEURS_DEFAUT });
+  res.json({ couleurs: couleurs(), catalogue: COULEURS_DEFAUT, gris: themeGris() });
 });
+
+/* LE JEU DE GRIS (2.12.194) : « ardoise », le gris bleuté d'origine, ou
+   « neutre ». Un choix fermé, pas une couleur libre. */
+const JEUX_GRIS = ['ardoise', 'neutre'];
+function themeGris() {
+  try {
+    const v = db.prepare("SELECT valeur FROM lucie_config WHERE cle = 'theme_gris'").get()?.valeur;
+    return JEUX_GRIS.includes(v) ? v : 'ardoise';
+  } catch { return 'ardoise'; }
+}
 
 r.put('/couleurs', authRequired,
   roleRequired('admin', 'directeur', 'directeur_adjoint'), async (req, res) => {
@@ -55,7 +65,12 @@ r.put('/couleurs', authRequired,
                 ON CONFLICT(cle) DO UPDATE SET valeur = excluded.valeur`)
       .run('couleurs', JSON.stringify(propre),
         'Couleurs de signification : contrats, natures de cours, états');
-    res.json({ couleurs: couleurs() });
+    if (JEUX_GRIS.includes(req.body?.gris)) {
+      db.prepare(`INSERT INTO lucie_config (cle, valeur, description) VALUES (?,?,?)
+                  ON CONFLICT(cle) DO UPDATE SET valeur = excluded.valeur`)
+        .run('theme_gris', req.body.gris, 'Jeu de gris de l’interface : ardoise ou neutre');
+    }
+    res.json({ couleurs: couleurs(), gris: themeGris() });
   });
 
 // ── Routes attestation (avant /:cle) ────────────────────────────────────────

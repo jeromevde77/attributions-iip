@@ -37,7 +37,7 @@ export const ETATS = {
  * s'évalue pas).
  */
 export function teintes(etat) {
-  if (etat === 'indisponible') return { rail: '#C3CAD6', fond: '#F4F5F7', bord: '#E3E6EB', texte: '#7A879E' };
+  if (etat === 'indisponible') return { rail: '#C3CAD6', fond: 'var(--c-fond_indispo, #F4F5F7)', bord: '#E3E6EB', texte: '#7A879E' };
   const d = ETATS[etat];
   if (!d?.jeton) return { rail: '#D8DCE4', fond: '#FFFFFF', bord: '#D8DCE4', texte: '#1B2B4B' };
   const e = `var(${d.jeton})`;

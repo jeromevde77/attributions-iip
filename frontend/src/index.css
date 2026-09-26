@@ -3,6 +3,21 @@
 @tailwind components;
 @tailwind utilities;
 
+/* LES GRIS — deux jeux, un seul réglage (Configuration → Thèmes et couleurs).
+ * « Ardoise » est le gris d'origine de Tailwind, bleuté ; « neutre » est un
+ * gris sans teinte, plus clair en fond. Canaux RVB, pour que les opacités de
+ * Tailwind (bg-slate-50/60) continuent de fonctionner. */
+:root, [data-gris="ardoise"] {
+  --gris-50: 248 250 252; --gris-100: 241 245 249; --gris-200: 226 232 240; --gris-300: 203 213 225;
+  --gris-400: 148 163 184; --gris-500: 100 116 139; --gris-600: 71 85 105; --gris-700: 51 65 85;
+  --gris-800: 30 41 59; --gris-900: 15 23 42; --gris-950: 2 6 23;
+}
+[data-gris="neutre"] {
+  --gris-50: 247 247 248; --gris-100: 242 242 244; --gris-200: 229 230 233; --gris-300: 209 211 216;
+  --gris-400: 156 160 168; --gris-500: 110 114 122; --gris-600: 82 86 94; --gris-700: 60 63 70;
+  --gris-800: 38 40 45; --gris-900: 22 23 26; --gris-950: 10 10 12;
+}
+
 :root {
   /* Échelle typo globale de l'appli — pour tout agrandir/réduire, change CETTE seule valeur. */
   --app-font-size: 14px;
@@ -424,8 +439,8 @@ table.grid-excel-soft select:focus {
    l'œil — la rubrique ouverte, une alerte. Tout le reste est gris.
    ───────────────────────────────────────────────────────────────────────── */
 :root, :root[data-mode="clair"] {
-  --menu-fond:        #F8FAFC;   /* le fond de la page : le rail s'y fond */
-  --page-fond:        #F8FAFC;   /* en clair, la page et les menus ont UN sol */
+  --menu-fond:        var(--c-fond_page, #F8FAFC);   /* le fond de la page : le rail s'y fond */
+  --page-fond:        var(--c-fond_page, #F8FAFC);   /* en clair, la page et les menus ont UN sol */
   --menu-bord:        rgba(27, 43, 75, 0.10);
   --menu-texte:       #1B2B4B;
   --menu-texte-doux:  rgba(27, 43, 75, 0.55);
@@ -442,9 +457,9 @@ table.grid-excel-soft select:focus {
   --menu-sous:        #3E7FB8;
   --menu-sous-filet:  rgba(62, 127, 184, 0.34);
   --menu-sous-actif:  rgba(62, 127, 184, 0.12);
-  --barre-fond:       #F8FAFC;   /* le fond de la page : la barre s'y fond aussi */
+  --barre-fond:       var(--c-fond_page, #F8FAFC);   /* le fond de la page : la barre s'y fond aussi */
   --champ-fond:       #FFFFFF;
-  --tab-repere:       #F8FAFC;   /* le fond de la page : le filet suffit à démarquer */
+  --tab-repere:       var(--c-fond_page, #F8FAFC);   /* le fond de la page : le filet suffit à démarquer */
 }
 :root[data-mode="sombre"] {
   --menu-fond:        #0F1A2E;   /* le marine des MENUS en mode sombre */
@@ -455,7 +470,7 @@ table.grid-excel-soft select:focus {
      contenu : une bande que rien ne justifiait, et une zone de plus à
      expliquer. La page garde donc son sol ; ce qui change de mode, ce sont les
      panneaux qui portent la navigation. */
-  --page-fond:        #F5F7FA;
+  --page-fond:        var(--c-fond_page, #F5F7FA);
   --menu-bord:        rgba(255, 255, 255, 0.10);
   --menu-texte:       #FFFFFF;
   --menu-texte-doux:  rgba(255, 255, 255, 0.45);
@@ -944,7 +959,7 @@ select[multiple], select[size]:not([size="1"]) {
 .bloc-etat[data-etat="disponible"] { --e: var(--c-disponible); }
 .bloc-etat[data-etat="surveiller"] { --e: var(--c-attente); }
 .bloc-etat[data-etat="corriger"]   { --e: var(--c-refuse); }
-.bloc-etat[data-etat="indisponible"] { --e: #C3CAD6; background: #F4F5F7; border-color: #E3E6EB;
+.bloc-etat[data-etat="indisponible"] { --e: #C3CAD6; background: var(--c-fond_indispo, #F4F5F7); border-color: #E3E6EB;
                                        border-left-color: #C3CAD6; color: #7A879E; }
 /* Neutre : un chiffre sans état. Le blanc est celui de la tuile. */
 .bloc-etat:not([data-etat]), .bloc-etat[data-etat="neutre"] { background: #fff; border-color: #D8DCE4; }
@@ -1026,5 +1041,21 @@ select[multiple], select[size]:not([size="1"]) {
 .puce-ue[data-c="i"] { --e: var(--c-disponible); }
 .puce-ue[data-c="a"] { --e: var(--c-attente); }
 .puce-ue[data-c="o"] { background: #fff; border-color: #D8DCE4; color: #7A879E; }
-.puce-ue[data-c="n"] { background: #F4F5F7; border-color: #EBEDF1; border-left-color: #DDE1E7; color: #B6BDC9; }
-.puce-ue.ei { outline: 1px solid #C9A84C; outline-offset: 1px; }
+.puce-ue[data-c="n"] { background: var(--c-fond_indispo, #F4F5F7); border-color: #EBEDF1; border-left-color: #DDE1E7; color: #B6BDC9; }
+.puce-ue.ei { outline: 1px solid var(--c-epreuve, #C9A84C); outline-offset: 1px; }
+
+/* ── LE FOCUS D'UN CHAMP — un seul, et pas celui du navigateur ───────────────
+ * Aucun style commun n'existait : chaque champ prenait le halo bleu du
+ * navigateur, épais et arrondi à sa façon, rogné dès que le champ vit dans un
+ * panneau (Charles, 26 septembre 2026 : « bug affichage » sur « Tronc
+ * commun »). Un filet marine et une ombre pâle, DANS la boîte : rien ne
+ * déborde, rien ne se coupe. En couche « base », pour qu'un `ring-*` posé
+ * exprès sur un champ garde la main. */
+@layer base {
+  input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="range"]):focus,
+  select:focus, textarea:focus {
+    outline: none;
+    border-color: #1B2B4B;
+    box-shadow: inset 0 0 0 1px #1B2B4B;
+  }
+}

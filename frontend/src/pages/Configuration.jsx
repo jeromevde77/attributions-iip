@@ -4,7 +4,7 @@ import { api, getAnnee, setAnnee as setAnneeActive, getUser } from '../lib/api.j
 import { chargerCouleurs } from '../lib/couleurs.js';
 import Audit from './Audit.jsx';
 import { IconAdjustments, IconAward, IconBooks, IconBuilding, IconCalendar, IconCalendarEvent, IconChartBar, IconCheck, IconChevronRight, IconDownload, IconFileText, IconHistory, IconLink, IconScale, IconSettings, IconSparkles, IconUserShield, IconUsers, IconX, IconGavel, IconPlus, IconTrash, IconGripVertical, IconEdit, IconMail, IconPalette, IconArchive, IconAlertTriangle, IconShieldLock, IconDatabase, IconHierarchy, IconArrowsSplit } from '@tabler/icons-react';
-import { PageHeader, RailLateral } from '../components/ui.jsx';
+import { PageHeader, RailLateral, TuileEtat, PastilleEtat, Encadre } from '../components/ui.jsx';
 import ApercuDocuments from '../components/ApercuDocuments.jsx';
 const Editeur = lazy(() => import('./Editeur.jsx'));
 const ConfigCourriels = lazy(() => import('../components/ConfigCourriels.jsx'));
@@ -1364,10 +1364,15 @@ export default function Configuration() {
     { label: 'Documents', icon: IconFileText, items: [
       { key: 'editeur', label: 'Éditeur de modèles', icon: IconEdit },
       { key: 'apercu', label: 'Aperçu des pièces', icon: IconFileText },
-      { key: 'couleurs', label: 'Couleurs de Lucie', icon: IconPalette },
       { key: 'contrat', label: 'Contrat', icon: IconFileText },
       { key: 'attestation', label: 'Attestation', icon: IconAward },
       { key: 'recrutement', label: 'Recrutement', icon: IconSettings },
+    ]},
+    // THÈMES ET COULEURS ont leur famille : on y règle l'apparence de toute
+    // l'application, pas celle des seules pièces — ils vivaient sous
+    // « Documents », où personne ne les cherchait.
+    { label: 'Apparence', icon: IconPalette, items: [
+      { key: 'couleurs', label: 'Thèmes et couleurs', icon: IconPalette },
     ]},
     { label: 'Accès', icon: IconUserShield, items: [
       { key: 'users', label: 'Utilisateurs', icon: IconUserShield },
@@ -2276,17 +2281,51 @@ function ConfigRecrutement() {
  * papier. Une couleur qui signifie quelque chose pour l'école n'a pas à être
  * décidée dans le code.
  */
+/* ── THÈMES ET COULEURS (2.12.194) ──────────────────────────────────────────
+ * Demandé par Charles le 25-26 septembre 2026 : « un menu pour changer à la
+ * carte les couleurs de Lucie », « moins de nuances », « trop de bleu, j'avais
+ * parlé de gris très clair », « les couleurs sont un peu tristes ».
+ * Un THÈME pose tout d'un coup ; chaque couleur se retouche ensuite. Rien ne
+ * s'écrit avant « Enregistrer », et l'aperçu montre avant.
+ * Le SENS des couleurs ne se règle pas — vert dit réussi, partout : on en
+ * choisit la nuance, pas la signification.
+ */
+const THEMES = [
+  { cle: 'origine', nom: "Lucie d'origine", texte: 'Gris ardoise, états sobres.', gris: 'ardoise', valeurs: {} },
+  { cle: 'clair', nom: 'Gris clair', texte: 'Gris neutre, sans bleu ; états sobres.', gris: 'neutre',
+    valeurs: { fond_page: '#F4F5F7', fond_indispo: '#ECEEF1' } },
+  { cle: 'vif', nom: 'Gris clair et vif', texte: 'Gris neutre ; états plus francs, plus gais.', gris: 'neutre',
+    valeurs: { fond_page: '#F4F5F7', fond_indispo: '#ECEEF1', reussi: '#2F9A5B', faveur: '#7C3AED',
+               disponible: '#3478D4', attente: '#D97706', refuse: '#C2412D' } },
+];
+const GROUPES_COULEURS = [
+  ['etats', 'Les états', 'Ce que dit une tuile, une case, une pastille.'],
+  ['blocs', 'Les repères', 'Les blocs d’études et l’épreuve intégrée : où l’on est, jamais un état.'],
+  ['fonds', 'Les fonds', 'Le sol de la page et le gris de ce qui n’est pas encore atteignable.'],
+  ['sens', 'Contrats et cours', 'Les deux employeurs et les deux natures de cours.'],
+];
+
 function ReglageCouleurs() {
   const [catalogue, setCatalogue] = useState({});
   const [valeurs, setValeurs] = useState({});
+  const [gris, setGris] = useState('ardoise');
   const [etat, setEtat] = useState('');
+  const peutRegler = ['admin', 'directeur', 'directeur_adjoint'].includes(getUser()?.role);
 
   useEffect(() => {
     fetch('/api/config/couleurs', { headers: authHeaders() })
       .then(r => r.json())
-      .then(j => { setCatalogue(j.catalogue || {}); setValeurs(j.couleurs || {}); })
+      .then(j => { setCatalogue(j.catalogue || {}); setValeurs(j.couleurs || {}); setGris(j.gris || 'ardoise'); })
       .catch(e => setEtat('Lecture impossible : ' + e.message));
   }, []);
+
+  const v = cle => (valeurs[cle] || catalogue[cle]?.valeur || '#000000');
+  function appliquerTheme(t) {
+    const base = Object.fromEntries(Object.entries(catalogue).map(([k, d]) => [k, d.valeur]));
+    setValeurs({ ...base, ...t.valeurs }); setGris(t.gris); setEtat('Thème appliqué à l’aperçu — enregistrez pour le garder.');
+  }
+  const themeActif = THEMES.find(t => t.gris === gris && Object.entries(catalogue)
+    .every(([k, d]) => v(k).toUpperCase() === (t.valeurs[k] || d.valeur).toUpperCase()))?.cle;
 
   async function enregistrer() {
     setEtat('Enregistrement…');
@@ -2294,52 +2333,143 @@ function ReglageCouleurs() {
       const rep = await fetch('/api/config/couleurs', {
         method: 'PUT',
         headers: { ...authHeaders(), 'Content-Type': 'application/json' },
-        body: JSON.stringify({ couleurs: valeurs }),
+        body: JSON.stringify({ couleurs: valeurs, gris }),
       });
       const j = await rep.json();
       if (!rep.ok) throw new Error(j.error || 'refusé');
       setValeurs(j.couleurs);
-      // Reposées tout de suite : le changement se voit sur l'écran qui le
-      // demande, sans recharger — sinon on doute de l'avoir enregistré.
+      // Reposées tout de suite : le changement se voit sans recharger.
       await chargerCouleurs();
       setEtat('Enregistré. Les écrans et les documents suivent.');
     } catch (e) { setEtat('Erreur : ' + e.message); }
   }
 
-  return (
-    <div className="max-w-3xl">
-      <h2 className="text-[17px] font-semibold text-iip-blue mb-1">Couleurs de Lucie</h2>
-      <p className="text-[13px] text-slate-500 mb-4">
-        Ces couleurs portent un sens : un contrat, une nature de cours, une décision.
-        Elles valent partout — badges, tableaux, tuiles et documents imprimés.
-        L'habillage de l'application (gris, filets, fonds) relève de la charte et ne se
-        règle pas ici.
-      </p>
+  // L'aperçu porte ses propres variables : il montre ce qui SERA, sans
+  // toucher au reste de l'écran avant l'enregistrement.
+  const styleApercu = Object.fromEntries(Object.keys(catalogue).map(k => [`--c-${k}`, v(k)]));
+  const puces = [['r', 246], ['f', 248], ['i', 255], ['a', 253], ['o', 259], ['n', 263]];
 
-      <div className="carte overflow-hidden mb-3">
-        {Object.entries(catalogue).map(([cle, d]) => (
-          <div key={cle} className="px-3 py-2 flex items-center gap-3
-                                    border-t border-slate-100 first:border-t-0">
-            <span className="flex-1 text-[13px] text-slate-800">{d.libelle}</span>
-            <span className="text-[11px] tabular-nums text-slate-400 w-20 text-right">
-              {(valeurs[cle] || d.valeur).toUpperCase()}
-            </span>
-            <input type="color" value={valeurs[cle] || d.valeur}
-              onChange={e => setValeurs(v => ({ ...v, [cle]: e.target.value }))}
-              className="w-10 h-8 rounded-champ border border-slate-300 bg-white p-0.5"
-              title={d.libelle} />
-            {(valeurs[cle] || d.valeur).toUpperCase() !== d.valeur.toUpperCase() && (
-              <button onClick={() => setValeurs(v => ({ ...v, [cle]: d.valeur }))}
-                className="text-[11px] text-slate-400 hover:text-iip-blue" title="Revenir au défaut">
-                défaut
-              </button>
-            )}
-          </div>
+  return (
+    <div className="space-y-4">
+      <div>
+        <h2 className="text-[17px] font-semibold text-iip-blue">Thèmes et couleurs</h2>
+        <p className="text-[13px] text-slate-500 max-w-3xl">
+          Un thème pose tout d’un coup ; chaque couleur se retouche ensuite. Le sens ne change
+          pas — le vert dit « réussi » partout — : on en choisit la nuance. Rien n’est modifié
+          avant « Enregistrer », et l’aperçu montre le résultat avant.
+          {!peutRegler && <b> Réservé à la direction : vous pouvez regarder, pas enregistrer.</b>}
+        </p>
+      </div>
+
+      <div className="grid gap-3 md:grid-cols-3">
+        {THEMES.map(t => (
+          <button key={t.cle} type="button" onClick={() => appliquerTheme(t)}
+            data-etat={themeActif === t.cle ? 'fort' : 'neutre'}
+            className="bloc-etat text-left px-3 py-2.5 hover:brightness-[.98]">
+            <div className="flex items-center gap-2">
+              <span className="font-semibold text-[13px]">{t.nom}</span>
+              {themeActif === t.cle && <span className="pastille-etat" data-etat="reussi">en cours</span>}
+            </div>
+            <div className="text-[12px] text-slate-500">{t.texte}</div>
+            <div className="flex gap-1 mt-2">
+              {['reussi', 'faveur', 'disponible', 'attente', 'refuse'].map(k => (
+                <span key={k} className="w-5 h-3 rounded-sm"
+                  style={{ background: t.valeurs[k] || catalogue[k]?.valeur }} />
+              ))}
+              <span className="w-5 h-3 rounded-sm border border-slate-300"
+                style={{ background: t.valeurs.fond_page || catalogue.fond_page?.valeur }} />
+            </div>
+          </button>
         ))}
       </div>
 
+      <div className="grid gap-4 items-start xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+        <div className="space-y-3">
+          <div className="carte px-3 py-2 flex items-center gap-3">
+            <span className="flex-1 text-[13px] text-slate-800">
+              Les gris de l’interface
+              <span className="block text-[11px] text-slate-400">textes secondaires, filets, fonds de tableau</span>
+            </span>
+            <div className="segments h-8">
+              {[['ardoise', 'Ardoise (bleuté)'], ['neutre', 'Neutre']].map(([k, l]) => (
+                <button key={k} type="button" onClick={() => setGris(k)}
+                  className={`px-3 text-[12px] ${gris === k ? 'bg-iip-blue text-white font-semibold' : 'text-slate-600 hover:bg-slate-50'}`}>
+                  {l}
+                </button>
+              ))}
+            </div>
+          </div>
+          {GROUPES_COULEURS.map(([g, titre, sous]) => {
+            const cles = Object.entries(catalogue).filter(([, d]) => (d.groupe || 'sens') === g);
+            if (!cles.length) return null;
+            return (
+              <div key={g} className="carte overflow-hidden">
+                <div className="px-3 py-2 border-b border-slate-100">
+                  <div className="text-[13px] font-semibold text-iip-blue">{titre}</div>
+                  <div className="text-[11px] text-slate-400">{sous}</div>
+                </div>
+                {cles.map(([cle, d]) => (
+                  <div key={cle} className="px-3 py-1.5 flex items-center gap-3 border-t border-slate-100 first:border-t-0">
+                    <span className="flex-1 text-[13px] text-slate-800">{d.libelle}</span>
+                    <span className="text-[11px] tabular-nums text-slate-400 w-16 text-right">{v(cle).toUpperCase()}</span>
+                    <input type="color" value={v(cle)}
+                      onChange={e => setValeurs(x => ({ ...x, [cle]: e.target.value }))}
+                      className="w-10 h-7 rounded-champ border border-slate-300 bg-white p-0.5" title={d.libelle} />
+                    <button onClick={() => setValeurs(x => ({ ...x, [cle]: d.valeur }))}
+                      className={`text-[11px] w-10 text-left ${v(cle).toUpperCase() !== d.valeur.toUpperCase()
+                        ? 'text-slate-400 hover:text-iip-blue' : 'invisible'}`} title="Revenir à la couleur d’origine">
+                      défaut
+                    </button>
+                  </div>
+                ))}
+              </div>
+            );
+          })}
+        </div>
+
+        {/* L'APERÇU — les vrais composants de Lucie, sous les couleurs choisies. */}
+        <div data-gris={gris} style={{ ...styleApercu, background: v('fond_page') }}
+          className="rounded-carte border border-slate-200 p-4 space-y-4 xl:sticky xl:top-4">
+          <div className="text-[11px] uppercase tracking-wide text-slate-500 font-semibold">Aperçu</div>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+            {[['reussi', '38', 'réussites'], ['faveur', '4', 'faveurs'], ['disponible', '66', 'inscrits'],
+              ['surveiller', '12', 'ajournés'], ['corriger', '3', 'refus'], ['indisponible', '8', 'pas encore']]
+              .map(([e, n, l]) => <TuileEtat key={e} etat={e} valeur={n} libelle={l} />)}
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <PastilleEtat etat="reussi">réussi</PastilleEtat>
+            <PastilleEtat etat="faveur">faveur</PastilleEtat>
+            <PastilleEtat etat="disponible">inscrit</PastilleEtat>
+            <PastilleEtat etat="surveiller">ajourné</PastilleEtat>
+            <PastilleEtat etat="corriger">refusé</PastilleEtat>
+          </div>
+          <div>
+            <div className="text-[11px] text-slate-500 mb-1">Frise du parcours</div>
+            <div className="flex gap-1">
+              {[['BA1', 'ba1', puces.slice(0, 2)], ['BA2', 'ba2', puces.slice(2, 4)], ['BA3', 'ba3', puces.slice(4)]].map(([b, k, l]) => (
+                <span key={b} className="flex gap-[2px] pl-1 border-l-2" style={{ borderLeftColor: v(k) }}>
+                  {l.map(([c, u]) => <span key={u} data-c={c} className="puce-ue">{u}</span>)}
+                </span>
+              ))}
+              <span className="flex gap-[2px] pl-1 border-l-2" style={{ borderLeftColor: v('epreuve') }}>
+                <span data-c="n" className="puce-ue ei">264</span>
+              </span>
+            </div>
+          </div>
+          <div className="carte overflow-hidden">
+            <div className="tab-entete px-3 py-1.5">Un tableau</div>
+            {['ABDELLAOUI Kenza', 'ABDO Rama'].map(n => (
+              <div key={n} className="px-3 py-2 border-t border-slate-100 text-[13px] flex justify-between bg-white">
+                <span className="text-slate-800">{n}</span><span className="text-slate-400">texte secondaire</span>
+              </div>
+            ))}
+          </div>
+          <Encadre etat="surveiller" titre="Un encadré">Trois recevabilités restent à contrôler.</Encadre>
+        </div>
+      </div>
+
       <div className="flex items-center gap-3">
-        <button onClick={enregistrer} className="bouton-fort controle px-3">Enregistrer</button>
+        <button onClick={enregistrer} disabled={!peutRegler} className="bouton-fort controle px-3 disabled:opacity-50">Enregistrer</button>
         {etat && <span className="text-[12px] text-slate-500">{etat}</span>}
       </div>
     </div>

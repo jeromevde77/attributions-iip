@@ -260,9 +260,14 @@ export default function PonderationsUE() {
                     ))}
                   </span>
                   <span className="text-slate-400">Pour {annee} seulement ; les autres années gardent les leurs.</span>
-                  {peutRegler && baseModifiee && (
-                    <button className="bouton bouton-fort ml-auto" onClick={enregistrerBase}
-                      disabled={base === 'saisi' && sommeSaisis !== 100}>
+                  {/* LE BOUTON GARDE SA PLACE (Charles, 26 septembre 2026 : « quand je
+                      clique, la fenêtre bouge ») : il paraissait au premier clic et
+                      poussait la rangée. Il est toujours là, invisible tant que rien
+                      n'a changé. */}
+                  {peutRegler && (
+                    <button className={`bouton bouton-fort ml-auto ${baseModifiee ? '' : 'invisible'}`}
+                      onClick={enregistrerBase} tabIndex={baseModifiee ? 0 : -1}
+                      disabled={!baseModifiee || (base === 'saisi' && sommeSaisis !== 100)}>
                       Enregistrer la base{base === 'saisi' ? ` (${sommeSaisis} %)` : ''}
                     </button>
                   )}

@@ -4,6 +4,16 @@ export default {
   theme: {
     extend: {
       colors: {
+        // LES GRIS SONT RÉGLABLES (2.12.194, Charles : « trop de bleu, j'avais
+        // parlé de gris très clair »). Les gris de Tailwind — slate et gray,
+        // cinq mille six cents classes — sont bleutés. On ne réécrit pas cinq
+        // mille classes : on redéfinit le défaut, et chaque nuance lit une
+        // variable (index.css) que Configuration → Thèmes et couleurs bascule
+        // entre « ardoise » (d'origine) et « neutre ».
+        slate: Object.fromEntries([50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 950]
+          .map(n => [n, `rgb(var(--gris-${n}) / <alpha-value>)`])),
+        gray: Object.fromEntries([50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 950]
+          .map(n => [n, `rgb(var(--gris-${n}) / <alpha-value>)`])),
         iip: {
           // Noms historiques (conservés pour compatibilité avec l'existant) :
           gold:   '#1B2B4B',   // = bleu marine (titres, header, boutons principaux)

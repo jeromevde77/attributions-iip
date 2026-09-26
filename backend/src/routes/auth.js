@@ -94,7 +94,12 @@ function profilPublic(user) {
    * dire autre chose. */
   return { id: user.id, email: user.email, role: user.role, nom: user.nom_complet,
     prenom: prenomSeul(user.nom_complet) || null,
-    acces_recrutement: user.acces_recrutement ? 1 : 0, peut_valider: peutValiderAttributions(user) };
+    acces_recrutement: user.acces_recrutement ? 1 : 0, peut_valider: peutValiderAttributions(user),
+    // LE LIEN À LA FICHE PROFESSEUR. Le menu montre « Mes cours » à tout compte
+    // relié à une fiche — une coordination qui enseigne — et ce champ ne
+    // partait jamais : seul le rôle « professeur » voyait la porte (Véronique
+    // Moiny, coordination, 26 septembre 2026).
+    professeur_id: user.professeur_id ?? null };
 }
 
 r.post('/login', (req, res) => {
