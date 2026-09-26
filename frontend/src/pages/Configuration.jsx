@@ -117,7 +117,8 @@ function GestionPersonnel() {
       <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
         <div>
           <h3 className="font-semibold text-gray-800 text-lg">Personnel &amp; fonctions</h3>
-          <p className="text-sm text-gray-500">Cochez les fonctions de chaque personne pour la portée sélectionnée{annee ? ` · ${annee}` : ''}</p>
+          <p className="text-sm text-gray-500">Vue d'ensemble des fonctions pour la portée sélectionnée{annee ? ` · ${annee}` : ''}.
+            Elles se règlent sur la fiche de chaque personne (Personnel → la personne → onglet <b>Fonctions</b>).</p>
         </div>
       </div>
 
@@ -174,7 +175,9 @@ function GestionPersonnel() {
                       const etpVal = etpHelb[key] || 0;
                       return (
                         <td key={f.id} className="px-2 py-2 text-center">
-                          <button type="button" onClick={() => toggle(p.id, f.libelle)} disabled={saving[key]}
+                          {/* EN LECTURE (2.12.206) : les fonctions se règlent sur la
+                              fiche de la personne, onglet « Fonctions ». */}
+                          <button type="button" disabled title="Se règle sur la fiche de la personne, onglet Fonctions"
                             className={`w-6 h-6 rounded-md border-2 transition inline-flex items-center justify-center ${on
                               ? 'bg-iip-mauve border-iip-mauve text-white'
                               : 'bg-white border-gray-300 hover:border-iip-mauve'} ${saving[key] ? 'opacity-50' : ''}`}>
@@ -185,7 +188,7 @@ function GestionPersonnel() {
                               <div className="text-xs text-gray-400 leading-none mb-0.5">ETP HELB</div>
                               <input
                                 type="number" min="0" max="1" step="0.1"
-                                defaultValue={etpVal || ''}
+                                defaultValue={etpVal || ''} disabled
                                 placeholder="0.0"
                                 title="ETP financé HELB (hors dotation IIP)"
                                 onBlur={e => {
