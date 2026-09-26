@@ -1,6 +1,6 @@
 import { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
 import { nomPropre } from '../lib/nom.js';
-import { COULEUR_BLOC, OR_EPREUVE, couleurBloc } from '../lib/blocs.js';
+import { couleurBloc } from '../lib/blocs.js';
 import { RailLateral } from '../components/ui.jsx';
 import SuiviEtudiant from '../components/SuiviEtudiant.jsx';
 import NouvelEtudiant from '../components/NouvelEtudiant.jsx';
@@ -113,10 +113,11 @@ function FriseParcours({ ues, codes }) {
     groupes[groupes.length - 1].l.push({ ...u, c: codes[i] || 'n' });
   });
   return (
-    <div className="flex items-center gap-1">
+    /* SANS BARRES NI CADRE (Charles, 26 septembre 2026) : un ESPACE entre deux
+       blocs dit le changement d'année ; le bloc se lit au survol. */
+    <div className="flex items-center gap-2.5">
       {groupes.map((g, gi) => (
-        <span key={gi} className="flex gap-[2px] pl-1 border-l-2"
-          style={{ borderLeftColor: g.b === 'EI' ? OR_EPREUVE : (COULEUR_BLOC[g.b] || '#D8DCE4') }}>
+        <span key={gi} className="flex gap-[2px]" title={g.b === 'EI' ? 'Épreuve intégrée' : g.b}>
           {g.l.map(u => (
             <span key={u.ue_num} data-c={u.c} className={`puce-ue ${u.ei ? 'ei' : ''}`}
               title={`UE ${u.ue_num} — ${u.ue_nom || ''} · ${SENS_PUCE[u.c] || ''}`}>

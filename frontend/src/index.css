@@ -1052,7 +1052,8 @@ select[multiple], select[size]:not([size="1"]) {
 .puce-ue[data-c="a"] { --e: var(--c-attente); }
 .puce-ue[data-c="o"] { background: #fff; border-color: #D8DCE4; color: #7A879E; }
 .puce-ue[data-c="n"] { background: var(--c-fond_indispo, #F4F5F7); border-color: #EBEDF1; border-left-color: #DDE1E7; color: #B6BDC9; }
-.puce-ue.ei { outline: 1px solid var(--c-epreuve, #C9A84C); outline-offset: 1px; }
+/* L'épreuve intégrée n'a plus de cadre dans la frise (2.12.216) : elle se lit
+   à sa place, au bout, séparée par l'espace qui sépare les blocs. */
 
 /* ── LE FOCUS D'UN CHAMP — un seul, et pas celui du navigateur ───────────────
  * Aucun style commun n'existait : chaque champ prenait le halo bleu du
