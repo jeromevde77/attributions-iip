@@ -1,6 +1,7 @@
 import { useMemo, useRef, useState } from 'react';
 import { IconGift } from '@tabler/icons-react';
 import { teintes } from '../lib/etats.js';
+import { blocDe, couleurBloc } from '../lib/blocs.js';
 
 /**
  * Schéma de capitalisation — arbre des UE et de leurs prérequis.
@@ -347,6 +348,13 @@ export default function SchemaCapitalisation({
                   orient="auto" markerUnits="strokeWidth">
                   <path d="M0,0 L0,5 L6,2.5 z" fill="#94A3B8" />
                 </marker>
+                {/* Une pointe par couleur de bloc : elle prend la couleur de sa flèche. */}
+                {['BA1', 'BA2', 'BA3', 'INC'].map(b => (
+                  <marker key={b} id={`fl-${b}`} markerWidth="7" markerHeight="7" refX="6" refY="2.5"
+                    orient="auto" markerUnits="strokeWidth">
+                    <path d="M0,0 L0,5 L6,2.5 z" style={{ fill: b === 'INC' ? '#B45309' : couleurBloc(b) }} />
+                  </marker>
+                ))}
               </defs>
 
               {drag?.cible && drag.bouge && !drag.cible.sousTitre
@@ -398,14 +406,19 @@ export default function SchemaCapitalisation({
                   ? `M${x1},${y1} C${x1 + 20},${y1} ${x2 + 20},${y2} ${x2},${y2}`
                   : `M${x1},${y1} C${x1 + dx},${y1} ${x2 - dx},${y2} ${x2},${y2}`;
 
-                // Trois lectures dans un seul trait : gris au sein d'une même
-                // année, bleu d'une année à l'autre, pointillé quand le
-                // prérequis relève d'une règle interne et non du dossier
-                // pédagogique. L'ambre reste réservé aux incohérences.
-                const nDe = n => (data.nodes.find(x => x.ue_num === n)?.niveau || '').toUpperCase();
+                /* LA FLÈCHE PREND LA COULEUR DU BLOC OÙ ELLE ARRIVE (Charles,
+                   26 septembre 2026) : orange vers une UE de BA1, bleu clair vers
+                   BA2, marine vers BA3. Pointillé : règle interne, non du dossier
+                   pédagogique. L'ocre reste réservé à l'incohérence — un
+                   prérequis placé après l'UE qui en dépend.
+                   (Le code lisait `niveau`, que le nœud ne porte pas : le champ
+                   est `ue_niv`, et toutes les flèches sortaient en bleu.) */
+                const nDe = n => blocDe(data.nodes.find(x => x.ue_num === n)?.ue_niv);
                 const memeAnnee = nDe(eg.from) && nDe(eg.from) === nDe(eg.to);
                 const interne = eg.type === 'interne';
-                const couleur = enArriere ? '#F59E0B' : memeAnnee ? '#94A3B8' : '#3B82F6';
+                const bloc = nDe(eg.to);
+                const couleur = enArriere ? '#B45309' : (couleurBloc(bloc) || '#94A3B8');
+                const pointe = enArriere ? 'fl-INC' : (['BA1', 'BA2', 'BA3'].includes(bloc) ? `fl-${bloc}` : 'fl-cap');
                 const titre = (interne ? 'Prérequis interne — ' : 'Prérequis du dossier pédagogique — ')
                   + `l'UE ${eg.from} conditionne l'UE ${eg.to}`
                   + (memeAnnee ? ' (même année)' : '')
@@ -413,10 +426,10 @@ export default function SchemaCapitalisation({
 
                 return (
                   <g key={i}>
-                    <path d={d} fill="none" stroke={couleur}
+                    <path d={d} fill="none" style={{ stroke: couleur }}
                       strokeWidth={enArriere ? 1.8 : interne ? 1.6 : 1.4}
                       strokeDasharray={interne ? '5 4' : undefined}
-                      markerEnd="url(#fl-cap)">
+                      markerEnd={`url(#${pointe})`}>
                       <title>{titre}</title>
                     </path>
                     {modeLien && onSupprimerLien && (
@@ -570,7 +583,7 @@ export default function SchemaCapitalisation({
               <span className="text-[11px] text-slate-500 flex-1">
                 {modeLien
                   ? "Tirez depuis la pastille droite d'une UE vers celle qu'elle conditionne. Cliquez un trait pour le supprimer."
-                  : "Trait gris : même année. Bleu : d'une année à l'autre. Pointillé : règle interne, qui avertit sans interdire."}
+                  : "La flèche prend la couleur du bloc où elle arrive : orange BA1, bleu clair BA2, marine BA3. Pointillé : règle interne, qui avertit sans interdire. Ocre : prérequis placé après l'UE qui en dépend."}
               </span>
             </div>
           )}

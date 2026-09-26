@@ -1,4 +1,4 @@
-import { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { nomPropre } from '../lib/nom.js';
 import { couleurBloc } from '../lib/blocs.js';
 import { RailLateral } from '../components/ui.jsx';
@@ -1695,6 +1695,46 @@ function DossierApprenant({ etudId }) {
  * Cinq bandes s'empilaient au-dessus du parcours ; la navigation 7 / 934 en
  * était une à elle seule. Elle se loge à gauche des onglets, et les filtres
  * « Parcourir » dans un menu, au bout de la rangée. */
+/* LES NOTES DANS UN TIROIR (2.12.217, Charles, 26 septembre 2026 : « ta
+ * proposition 4 est excellente », « un tiroir qui s'ouvre de droite à
+ * gauche »). Le schéma a toute la largeur ; la grille des notes glisse depuis
+ * le bord droit, PAR-DESSUS, et se referme sur une languette. Son état est
+ * gardé d'une fiche à l'autre (préférence de ce navigateur seulement). La
+ * zone prend la hauteur du tiroir quand il est plus haut que le schéma, pour
+ * qu'il ne recouvre pas le programme dessous. */
+function TiroirNotes({ children }) {
+  const CLE = 'lucie.fiche.notes-ouvertes';
+  const [ouvert, setOuvert] = useState(() => { try { return localStorage.getItem(CLE) !== '0'; } catch { return true; } });
+  const [hauteur, setHauteur] = useState(0);
+  const panneau = useRef(null);
+  useEffect(() => { try { localStorage.setItem(CLE, ouvert ? '1' : '0'); } catch { /* navigation privée */ } }, [ouvert]);
+  useEffect(() => {
+    const el = panneau.current;
+    if (!el || typeof ResizeObserver === 'undefined') return;
+    const ro = new ResizeObserver(() => setHauteur(el.offsetHeight));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+  return (
+    <div className="relative pt-3 overflow-x-clip" style={{ minHeight: ouvert ? hauteur + 12 : undefined }}>
+      <div className="pr-9">{children.schema}</div>
+      {/* La languette, toujours là : elle ouvre et ferme. */}
+      <button type="button" onClick={() => setOuvert(o => !o)}
+        title={ouvert ? 'Refermer les notes' : 'Ouvrir les notes par année'}
+        className="absolute right-0 top-3 z-20 w-7 rounded-l-champ bg-iip-blue text-white text-[11px] font-semibold py-3 flex flex-col items-center gap-1 shadow-pose">
+        <span className="[writing-mode:vertical-rl] rotate-180">Notes</span>
+        <span aria-hidden="true">{ouvert ? '›' : '‹'}</span>
+      </button>
+      {/* Le tiroir : il glisse de droite à gauche, jusqu'aux trois cinquièmes. */}
+      <div ref={panneau} aria-hidden={!ouvert}
+        className={`absolute right-7 top-3 z-10 w-[min(60%,760px)] bg-white border border-slate-200 rounded-l-carte shadow-flottant p-3
+          transition-transform duration-300 ease-ios origin-right ${ouvert ? 'translate-x-0' : 'translate-x-[calc(100%+1.75rem)] pointer-events-none'}`}>
+        {children.notes}
+      </div>
+    </div>
+  );
+}
+
 function NavFiche({ position, onPrec, onSuiv }) {
   const { i = 0, n = 0 } = position || {};
   return (
@@ -2162,14 +2202,12 @@ function FicheEtudiant({ id, annee, onClose, position, onPrec, onSuiv,
                   le schéma à gauche, les notes par année à droite — la vue
                   d'ensemble et le détail d'un seul regard, sans faire défiler.
                   Sur un écran étroit, l'un revient sous l'autre. */}
-              <div className="pt-3 grid gap-4 items-start xl:grid-cols-[minmax(0,5fr)_minmax(0,6fr)]">
-                <div className="min-w-0">
-                  <SchemaCapitalisation etudId={id} annee={annee} />
-                </div>
-                <div className="min-w-0">
-                  <GrilleParcours etudId={id} peutEcrire={true} annee={annee} />
-                </div>
-              </div>
+              <TiroirNotes>
+                {{
+                  schema: <SchemaCapitalisation etudId={id} annee={annee} />,
+                  notes: <GrilleParcours etudId={id} peutEcrire={true} annee={annee} />,
+                }}
+              </TiroirNotes>
 
               <div className="border-t border-slate-200 mt-4 pt-4">
               {/* Ce qui suit est une PROPOSITION tant qu'elle n'est pas

@@ -146,6 +146,11 @@ table.grid-excel-soft thead th {
 }
 table.grid-excel-soft tbody tr:hover { background: #fafbfc; }
 table.grid-excel-soft td.num { text-align: right; font-variant-numeric: tabular-nums; }
+/* L'EN-TÊTE D'UNE COLONNE CHIFFRÉE S'ALIGNE COMME SES CHIFFRES (2.12.217,
+   Charles : « souci d'alignement dans attributions »). Seul td.num était à
+   droite : le plafond « / 12 », posé dans un th.num, partait à gauche sous un
+   libellé à droite. Pour toutes les grilles, sans qu'aucun écran y pense. */
+table.grid-excel th.num, table.grid-excel-soft th.num { text-align: right; font-variant-numeric: tabular-nums; }
 
 /* UN CHAMP DE GRILLE NE SE DESSINE QU'AU MOMENT OÙ L'ON S'EN SERT.
    Chaque cellule portait une boîte grise bordée : sur une grille de deux cents
