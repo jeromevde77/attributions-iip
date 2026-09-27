@@ -39,14 +39,19 @@ function membre(profId) {
 }
 
 /** Les attributions de l'année, agrégées comme pour l'EA12. */
-function attributions(profId, annee) {
+function attributions(profId, annee, { expert = null } = {}) {
   let l = [];
+  // expert : true → les seules lignes d'expert (A1 ter, A27) ; false → les
+  // autres ; null → toutes. Le statut d'une ligne est celui de son exception,
+  // sinon celui du membre.
+  const filtre = expert == null ? '' : `AND UPPER(COALESCE((SELECT a.statut_exception FROM attribution a WHERE a.id = v.id),
+      (SELECT p.statut FROM professeur p WHERE p.id = v.professeur_id), '')) ${expert ? "= 'EXP'" : "<> 'EXP'"}`;
   try {
     l = db.prepare(`
       SELECT codification_unite, ue_num, MIN(ue_nom) AS ue_nom, nom_cours, type_cours, MIN(section) AS section,
              SUM(COALESCE(total_attribue_professeur, periodes_attribuees, 0)) AS periodes
-      FROM v_attribution_complete
-      WHERE professeur_id = ? AND annee_scolaire = ?
+      FROM v_attribution_complete v
+      WHERE professeur_id = ? AND annee_scolaire = ? ${filtre}
       GROUP BY codification_unite, nom_cours, type_cours
       ORDER BY codification_unite, nom_cours`).all(profId, annee);
   } catch { l = []; }
@@ -80,7 +85,7 @@ function donnees(cle, profId, annee, mois) {
   const m = profId ? membre(profId) : null;
   const d = { etab, membre: m, annee, mois: mois ? Number(mois) : null };
   if (!m) return d;
-  const attrs = attributions(profId, annee);
+  const attrs = attributions(profId, annee, { expert: (cle === 'A1ter' || cle === 'A27') ? true : null });
   const F = a => (a.section === 'AeSI' ? 'BAESI' : 'D');
   if (cle === 'A4') d.date_entree = m.date_engagement;
   if (cle === 'A1ter') {

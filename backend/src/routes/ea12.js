@@ -23,8 +23,13 @@ function construireData(ea12Row, donnees) {
   const lignes = db.prepare(`
     SELECT codification_unite, nom_cours, type_cours, niveau, MIN(section) AS section,
            SUM(COALESCE(total_attribue_professeur, periodes_attribuees, 0)) AS periodes
-    FROM v_attribution_complete
+    FROM v_attribution_complete v
     WHERE professeur_id = ? AND annee_scolaire = ?
+      /* LES PÉRIODES D'EXPERT NE VONT PAS SUR CET EA12 (Charles, 27 septembre
+         2026) : elles ont le leur (A1 ter) et leur contrat. Le statut d'une
+         ligne est celui de son exception, sinon celui du membre. */
+      AND UPPER(COALESCE((SELECT a.statut_exception FROM attribution a WHERE a.id = v.id),
+                         (SELECT p.statut FROM professeur p WHERE p.id = v.professeur_id), '')) <> 'EXP'
     GROUP BY codification_unite, nom_cours, type_cours
     ORDER BY codification_unite, nom_cours
   `).all(ea12Row.professeur_id, ea12Row.annee_scolaire);
