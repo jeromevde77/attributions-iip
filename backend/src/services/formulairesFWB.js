@@ -359,6 +359,8 @@ function remplirA1ter(x, d) {
   }
   // Toujours joint : le document des prestations mensuelles
   x = cocherLibelle(x, /^Document des prestations mensuelles/);
+  // Le contrat d'expert accompagne toujours ce Doc12 (Charles, 27/09/2026).
+  x = cocherLibelle(x, /^Copie du\/des contrat/);
   x = cocherLibelle(x, /^Expert/);
   return x;
 }
