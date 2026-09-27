@@ -5,6 +5,7 @@ import { authRequired, roleRequired } from '../middleware/auth.js';
 import { genererContrat } from '../services/contrat_fill.js';
 import { genererApercu } from '../services/contrat_preview.js';
 import { genererContratPdf } from '../services/contrat_pdf.js';
+import { genererContratExpert, niveauSection, TAUX_DEFAUT } from '../services/contrat_expert.js';
 
 const r = Router();
 
@@ -32,7 +33,7 @@ function chargerDonneesContrat(prof_id, annee) {
   if (!prof) return { prof: null };
   const etab  = db.prepare('SELECT * FROM etablissement LIMIT 1').get() || {};
   const toutes = db.prepare(`
-    SELECT a.section, a.code_cours,
+    SELECT a.section, a.code_cours, a.ue_num,
            a.periodes_attribuees AS periodes_attribuees,
            a.autonomie_attribuee AS autonomie_attribuee,
            u.ue_nom AS ue_nom, c.cours_nom AS cours_nom,
@@ -81,6 +82,56 @@ r.post('/apercu', authRequired, roleRequired('admin', 'editeur'), async (req, re
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
+});
+
+/* ── LE CONTRAT D'UN EXPERT (27 septembre 2026) ─────────────────────────────
+ * Les lignes que le contrat CC écarte sont précisément celles-ci : le même
+ * chargement, l'autre moitié. Un contrat par niveau — supérieur, secondaire —,
+ * parce que la période n'y est pas rétribuée au même taux. Il accompagne
+ * toujours l'EA12 de l'expert. */
+function lignesExpert(prof_id, annee) {
+  const d = chargerDonneesContrat(prof_id, annee);
+  if (!d.prof) return { ...d, parNiveau: {} };
+  const niv = db.prepare('SELECT code, niveau FROM section').all();
+  const nivDe = Object.fromEntries(niv.map(x => [x.code, niveauSection(x.niveau)]));
+  const dates = ue => {
+    try { return db.prepare(`SELECT MIN(date_debut) d, MAX(date_fin) f FROM organisation_ue
+      WHERE annee_scolaire = ? AND ue_num = ?`).get(d.anneeActive, ue) || {}; } catch { return {}; }
+  };
+  const parNiveau = {};
+  for (const l of d.ecartees) {
+    const n = nivDe[l.section] || 'superieur';
+    const o = dates(l.ue_num);
+    (parNiveau[n] ||= []).push({ ue_num: l.ue_num, ue_nom: l.ue_nom, section: l.section,
+      periodes: (l.periodes_attribuees || 0) + (l.autonomie_attribuee || 0), cla: l.ct_pp || l.type_cours,
+      debut: o.d || null, fin: o.f || null });
+  }
+  return { ...d, parNiveau };
+}
+function tauxExpert(niveau) {
+  try {
+    const v = db.prepare('SELECT valeur FROM lucie_config WHERE cle = ?').get(`taux_expert_${niveau}`)?.valeur;
+    if (v != null && v !== '' && !Number.isNaN(Number(String(v).replace(',', '.')))) return Number(String(v).replace(',', '.'));
+  } catch { /* */ }
+  return TAUX_DEFAUT[niveau];
+}
+r.get('/expert/:profId', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
+  const { prof, parNiveau } = lignesExpert(Number(req.params.profId), req.query.annee);
+  if (!prof) return res.status(404).json({ error: 'Professeur introuvable' });
+  res.json({ niveaux: Object.entries(parNiveau).map(([niveau, l]) => ({
+    niveau, periodes: l.reduce((n, x) => n + Math.round(Number(x.periodes) || 0), 0), unites: new Set(l.map(x => x.ue_num)).size,
+    taux: tauxExpert(niveau) })) });
+});
+r.post('/expert/apercu', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
+  const { prof_id, date_contrat, annee, representant, niveau = 'superieur' } = req.body || {};
+  const { anneeActive, prof, etab, parNiveau } = lignesExpert(Number(prof_id), annee);
+  if (!prof) return res.status(404).json({ error: 'Professeur introuvable' });
+  const lignes = parNiveau[niveau] || [];
+  if (!lignes.length) return res.status(400).json({ error: "Aucune prestation d'expert à ce niveau pour cette année." });
+  const templateHtml = (() => { try { return db.prepare("SELECT valeur FROM lucie_config WHERE cle = 'contrat_expert_template'").get()?.valeur || null; } catch { return null; } })();
+  const html = genererContratExpert({ etab, prof, lignes, annee: anneeActive, date_contrat: date_contrat || new Date().toISOString().slice(0, 10),
+    representant, niveau, taux: tauxExpert(niveau), templateHtml });
+  res.json({ html, nom: `Contrat_expert_${niveau}_${prof.nom}_${prof.prenom}_${anneeActive}` });
 });
 
 // ── POST /pdf — génère le PDF côté serveur (Chrome headless), pied de page fiable sur chaque page ──

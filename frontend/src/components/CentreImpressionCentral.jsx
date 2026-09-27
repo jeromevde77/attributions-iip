@@ -802,6 +802,28 @@ function OngletPersonnel({ onClose }) {
     } catch (e) { setErreur(e.message); } finally { setEnCours(null); }
   };
   const PREREMPLIES = ['A1ter', 'A4', 'A6', 'A14', 'A15', 'A27'];
+  /* LE CONTRAT D'EXPERT ACCOMPAGNE TOUJOURS L'EA12 (Charles, 27 septembre
+     2026) : un par niveau — supérieur, secondaire —, la période n'y étant pas
+     rétribuée au même taux. Il paraît dès que la personne porte des
+     prestations d'expert cette année. */
+  const [expert, setExpert] = useState(null);
+  const [contrat, setContrat] = useState(null);
+  useEffect(() => {
+    setExpert(null);
+    if (!choisi) return;
+    fetch(`/api/contrats/expert/${choisi.id}?annee=${encodeURIComponent(annee)}`, { headers: authHeaders() })
+      .then(r => (r.ok ? r.json() : { niveaux: [] })).then(j => setExpert(j.niveaux || [])).catch(() => setExpert([]));
+  }, [choisi, annee]);
+  const ouvrirContrat = async niveau => {
+    setErreur(null);
+    try {
+      const r = await fetch('/api/contrats/expert/apercu', { method: 'POST', headers: authHeaders(),
+        body: JSON.stringify({ prof_id: choisi.id, annee, niveau, date_contrat: new Date().toISOString().slice(0, 10) }) });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(j.error || `Erreur ${r.status}`);
+      setContrat({ html: j.html, titre: `Contrat d'expert — ${niveau === 'secondaire' ? 'secondaire' : 'supérieur'}`, nom: j.nom });
+    } catch (e) { setErreur(e.message); }
+  };
   const nom = p => nomPropre(p.nom_prenom || `${p.nom || ''} ${p.prenom || ''}`);
   const norm = x => String(x || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
   const liste = (profs || []).filter(p => !q || norm(nom(p)).includes(norm(q))).slice(0, 60);
@@ -863,6 +885,24 @@ function OngletPersonnel({ onClose }) {
                 )}
             </div>
 
+            {!!expert?.length && (
+              <div data-etat="fort" className="bloc-etat px-3 py-2.5 space-y-2">
+                <div>
+                  <div className="text-[13px] font-semibold">Contrat d'emploi d'un expert — à joindre à l'EA12</div>
+                  <div className="text-[12px] text-slate-500">Un contrat par niveau : la période n'y est pas rétribuée au même taux.</div>
+                </div>
+                <ul className="divide-y divide-slate-100 border-t border-slate-100">
+                  {expert.map(n => (
+                    <li key={n.niveau} className="flex items-center justify-between gap-3 py-1.5 text-[13px]">
+                      <span>{n.niveau === 'secondaire' ? 'Secondaire' : 'Supérieur'}
+                        <span className="text-slate-400 text-[12px]"> · {n.periodes} périodes, {n.unites} unité{n.unites > 1 ? 's' : ''} · {String(n.taux).replace('.', ',')} €/période</span></span>
+                      <button type="button" onClick={() => ouvrirContrat(n.niveau)} className="bouton bouton-sortir bouton-compact">Contrat</button>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
             {!!annexes.length && (
               <div data-etat="neutre" className="bloc-etat px-3 py-2.5 space-y-2">
                 <div className="flex items-center justify-between gap-3 flex-wrap">
@@ -894,6 +934,7 @@ function OngletPersonnel({ onClose }) {
           </div>
         )}
       </div>
+      {contrat && <PreviewModal html={contrat.html} titre={contrat.titre} nomFichier={contrat.nom} onClose={() => setContrat(null)} />}
     </div>
   );
 }
