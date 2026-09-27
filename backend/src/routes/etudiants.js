@@ -633,6 +633,50 @@ function sectionsDeLEtudiant(etudId, forcee) {
   return { sections: sections.length ? sections : [scores[0].section], scores };
 }
 
+/* UN CURSUS EN COURS, LES AUTRES ARCHIVÉS (Charles, 27 septembre 2026 : « si
+ * on passe d'un cursus à l'autre, on archive le précédent, sauf si ce sont des
+ * cursus compatibles — cela doit se voir »). Le cursus en cours : la section de
+ * rattachement, sinon celle des inscriptions de l'année, sinon la dominante.
+ * Les sections déclarées compatibles avec lui (Configuration → Enseignement →
+ * Cursus compatibles) restent ouvertes à côté ; toute autre section du passé
+ * est un cursus ARCHIVÉ : il ne nourrit plus ni le schéma ni la proposition de
+ * PAE, et il se nomme, avec ses années et ce qui y a été réussi. */
+export function cursusCompatibles() {
+  try {
+    const l = JSON.parse(db.prepare("SELECT valeur FROM lucie_config WHERE cle = 'cursus_compatibles'").get()?.valeur || '[]');
+    return Array.isArray(l) ? l.filter(p => Array.isArray(p) && p.length === 2) : [];
+  } catch { return []; }
+}
+export function cursusDe(etudId, annee) {
+  const { sections: toutes, scores } = sectionsDeLEtudiant(etudId, null);
+  const presentes = [...new Set([...(scores || []).map(x => x.section), ...toutes])];
+  if (!presentes.length) return { courant: null, actifs: [], archives: [] };
+  const rat = db.prepare('SELECT section_rattachement FROM etudiant WHERE id = ?').get(etudId)?.section_rattachement;
+  let courant = rat && presentes.includes(rat) ? rat : null;
+  if (!courant && annee) {
+    const n = {};
+    for (const x of db.prepare('SELECT ue_num FROM etudiant_inscription WHERE etudiant_id = ? AND annee_scolaire = ?').all(etudId, annee)) {
+      const su = db.prepare(`SELECT section FROM ue WHERE ue_num = ? AND section IS NOT NULL AND COALESCE(hors_cursus,0) = 0
+        ORDER BY (annee_scolaire = ?) DESC, annee_scolaire DESC LIMIT 1`).get(x.ue_num, annee)?.section;
+      if (su) n[su] = (n[su] || 0) + 1;
+    }
+    courant = Object.entries(n).sort((a, b) => b[1] - a[1])[0]?.[0] || null;
+  }
+  if (!courant) courant = rat || toutes[0];
+  const compat = new Set(cursusCompatibles().filter(p => p.includes(courant)).flat());
+  const actifs = presentes.filter(x => x === courant || compat.has(x));
+  if (!actifs.includes(courant)) actifs.unshift(courant);
+  const archives = presentes.filter(x => !actifs.includes(x)).map(section => {
+    const l = db.prepare(`SELECT i.ue_num, i.annee_scolaire, i.resultat FROM etudiant_inscription i
+      WHERE i.etudiant_id = ? AND i.ue_num IN (SELECT ue_num FROM ue WHERE section = ?)`).all(etudId, section);
+    const ans = [...new Set(l.map(x => x.annee_scolaire))].sort();
+    return { section, du: ans[0] || null, au: ans[ans.length - 1] || null,
+      reussies: new Set(l.filter(x => x.resultat === 'reussi').map(x => x.ue_num)).size,
+      encore_cette_annee: !!annee && ans.includes(annee) };
+  });
+  return { courant, actifs, archives };
+}
+
 // ── Liste des étudiants ───────────────────────────────────────────────────────
 r.get('/', authRequired, (req, res) => {
   // SECTION, UNITÉ ET ANNÉE RESTREIGNENT LA LISTE.
@@ -3325,13 +3369,18 @@ r.post('/doubles-programmes', authRequired,
     const hist = sectionsHistoriques(id, annee);
     let garde = null, raison = '', ambigu = false;
     if (e.section_rattachement && secs.includes(e.section_rattachement)) { garde = e.section_rattachement; raison = 'section de rattachement'; }
+    // Deux cursus déclarés compatibles se suivent ensemble : rien à réparer.
+    const compat = cursusCompatibles();
+    if (secs.every(a => secs.every(b => a === b || compat.some(p => p.includes(a) && p.includes(b))))) continue;
     const dansHist = secs.filter(x => hist.includes(x));
-    if (dansHist.length > 1) { ambigu = true; raison = `l'historique connaît ${dansHist.join(' et ')}`; }
-    else if (!garde && dansHist.length === 1) { garde = dansHist[0]; raison = 'section des années antérieures'; }
-    else if (!garde) { garde = ins[0].section; raison = 'section inscrite en premier'; }
-    if (garde && e.section_rattachement && dansHist.length === 1 && dansHist[0] !== garde) {
-      ambigu = true; raison = `rattaché à ${garde}, mais son historique est en ${dansHist[0]}`;
-    }
+    if (garde) {
+      // Rattaché ailleurs que son historique : c'est un CHANGEMENT DE CURSUS —
+      // l'ancien est archivé, ses inscriptions de cette année s'en vont.
+      const anciens = dansHist.filter(x => x !== garde);
+      if (anciens.length) raison = `changement de cursus — ${anciens.join(', ')} archivé`;
+    } else if (dansHist.length > 1) { ambigu = true; raison = `l'historique connaît ${dansHist.join(' et ')}, et aucun rattachement ne tranche`; }
+    else if (dansHist.length === 1) { garde = dansHist[0]; raison = 'section des années antérieures'; }
+    else { garde = ins[0].section; raison = 'section inscrite en premier'; }
     const retirer = [], proteges = [];
     for (const x of ins) {
       if (x.section === garde) continue;
@@ -4000,8 +4049,9 @@ export function composerPAE(profId, annee, options = {}) {
     .map(r => r.ue_num).filter(u => !reussies.has(u)) : []);
 
   // Sections de l'étudiant (dominantes) — override possible via ?section=
-  const { sections: sectionsEtudiant, scores: sectionsScores } =
-    sectionsDeLEtudiant(profId, options.section);
+  // Le cursus EN COURS et ses compatibles ; un cursus archivé ne propose plus rien.
+  const { scores: sectionsScores } = sectionsDeLEtudiant(profId, options.section);
+  const sectionsEtudiant = options.section ? [options.section] : cursusDe(profId, annee).actifs;
 
   // Carte des UE de la ou des sections : déterminantes et épreuve intégrée.
   // L'épreuve ne se présente qu'une fois tout le reste acquis — ou lorsqu'il
@@ -4808,8 +4858,10 @@ function statutsCapitalisation({ nodes, prereqDe, niv, organisees, acquis, enAtt
  * imprimée ignorait la faveur, l'attente de seconde session et le « sous
  * réserve ». Une fonction, deux lecteurs. */
 export function donneesCapitalisation(etudId, annee, sectionForcee = null) {
-  const { sections } = sectionsDeLEtudiant(etudId, sectionForcee);
-  if (!sections.length) return { nodes: [], edges: [], colonnes: [], sections: [] };
+  const cur = sectionForcee ? null : cursusDe(etudId, annee);
+  const sections = sectionForcee ? [sectionForcee] : cur.actifs;
+  const archives = cur ? cur.archives : [];
+  if (!sections.length) return { nodes: [], edges: [], colonnes: [], sections: [], archives };
 
   const acquis = new Set([
     ...db.prepare("SELECT DISTINCT ue_num FROM etudiant_inscription WHERE etudiant_id = ? AND resultat = 'reussi'").all(etudId).map(r0 => r0.ue_num),
@@ -4891,7 +4943,7 @@ export function donneesCapitalisation(etudId, annee, sectionForcee = null) {
     }),
   });
 
-  return { ...g, sections, annee };
+  return { ...g, sections, annee, archives };
 }
 
 r.get('/:id/capitalisation', authRequired, (req, res) => {

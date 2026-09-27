@@ -7,6 +7,7 @@ import { IconAdjustments, IconAward, IconBooks, IconBuilding, IconCalendar, Icon
 import { PageHeader, RailLateral, TuileEtat, PastilleEtat, Encadre } from '../components/ui.jsx';
 import ApercuDocuments from '../components/ApercuDocuments.jsx';
 const Editeur = lazy(() => import('./Editeur.jsx'));
+const CursusCompatibles = lazy(() => import('../components/CursusCompatibles.jsx'));
 const DoublesProgrammes = lazy(() => import('../components/DoublesProgrammes.jsx'));
 const ModeleDiplome = lazy(() => import('./Attestation.jsx').then(m => ({ default: m.ModeleDiplome })));
 const ConfigCourriels = lazy(() => import('../components/ConfigCourriels.jsx'));
@@ -1357,6 +1358,7 @@ export default function Configuration() {
     { label: 'Enseignement', icon: IconBooks, items: [
       { key: 'referentiel-annee', label: 'Unités et cours', icon: IconBooks, annee: true },
       { key: 'ref-prerequis', label: "Prérequis d'UE", icon: IconHierarchy, annee: true },
+      { key: 'cursus-compatibles', label: 'Cursus compatibles', icon: IconLink },
       { key: 'ref-deliberation', label: 'Règles de délibération', icon: IconScale, annee: true },
       { key: 'procedures', label: 'Procédures et délais', icon: IconGavel },
       { key: 'planification', label: 'Planification', icon: IconCalendarEvent },
@@ -1484,6 +1486,7 @@ export default function Configuration() {
           Le matricule change d'une année à l'autre : l'import d'une seconde
           année créait un dossier de plus par revenant. On répare ici. */}
       {tab === 'doublons' && <DoublonsEtudiants />}
+      {tab === 'cursus-compatibles' && <Suspense fallback={null}><CursusCompatibles /></Suspense>}
       {tab === 'doubles-programmes' && <Suspense fallback={null}><DoublesProgrammes /></Suspense>}
 
       {/* ── Onglet Dates des UE (paramétrage annuel) ── */}
