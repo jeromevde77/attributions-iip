@@ -767,6 +767,11 @@ function OngletPersonnel({ onClose, membreInitial = null, outilsMembre = null })
   const [choisi, setChoisi] = useState(null);
   const [ea12, setEa12] = useState(null);
   const [erreur, setErreur] = useState(null);
+  /* EN SÉRIE (Charles, 27 septembre 2026 : « cocher plusieurs MDP et sortir
+     les documents en série »). Deux cochés ou plus : le panneau de droite
+     devient celui de la série. */
+  const [coches, setCoches] = useState(() => new Set());
+  const basculer = id => setCoches(c => { const n = new Set(c); n.has(id) ? n.delete(id) : n.add(id); return n; });
   useEffect(() => {
     api.professeurs(false, annee).then(l => {
       const liste = Array.isArray(l) ? l : [];
@@ -864,17 +869,31 @@ function OngletPersonnel({ onClose, membreInitial = null, outilsMembre = null })
         <div className="border border-slate-200 rounded-carte max-h-[50vh] overflow-y-auto">
           {profs === null ? <p className="p-3 text-[12px] text-slate-400">Chargement…</p>
             : !liste.length ? <p className="p-3 text-[12px] text-slate-400">Personne ne correspond.</p>
-            : liste.map(p => (
-              <button key={p.id} type="button" onClick={() => setChoisi(p)}
-                className={`w-full text-left px-3 py-1.5 text-[13px] border-b border-slate-100 last:border-0
-                  ${choisi?.id === p.id ? 'bg-iip-blue text-white' : 'hover:bg-slate-50'}`}>
-                {nom(p)}{p.statut ? <span className={`ml-1.5 text-[11px] ${choisi?.id === p.id ? 'text-white/70' : 'text-slate-400'}`}>{p.statut}</span> : null}
-              </button>
-            ))}
+            : liste.map(p => {
+              const actif = coches.size < 2 && choisi?.id === p.id;
+              return (
+              <div key={p.id} className={`flex items-center border-b border-slate-100 last:border-0 ${actif ? 'bg-iip-blue text-white' : 'hover:bg-slate-50'}`}>
+                <input type="checkbox" checked={coches.has(p.id)} onChange={() => basculer(p.id)}
+                  aria-label={`Cocher ${nom(p)}`} className="ml-2.5 flex-none" />
+                <button type="button" onClick={() => setChoisi(p)} className="flex-1 min-w-0 text-left px-2 py-1.5 text-[13px]">
+                  {nom(p)}{p.statut ? <span className={`ml-1.5 text-[11px] ${actif ? 'text-white/70' : 'text-slate-400'}`}>{p.statut}</span> : null}
+                </button>
+              </div>
+            ); })}
+        </div>
+        <div className="flex items-center justify-between text-[12px] text-slate-500">
+          <span>{coches.size ? `${coches.size} coché${coches.size > 1 ? 's' : ''}` : 'Cochez pour produire en série'}</span>
+          <span className="flex gap-3">
+            {!!liste.length && <button type="button" className="underline hover:text-iip-blue"
+              onClick={() => setCoches(c => new Set([...c, ...liste.map(p => p.id)]))}>Cocher la liste</button>}
+            {!!coches.size && <button type="button" className="underline hover:text-iip-blue" onClick={() => setCoches(new Set())}>Décocher</button>}
+          </span>
         </div>
       </div>
       <div>
-        {!choisi ? (
+        {coches.size >= 2 ? (
+          <SeriePersonnel ids={[...coches]} profs={profs || []} annee={annee} annexes={annexes} nom={nom} />
+        ) : !choisi ? (
           <p className="text-[13px] text-slate-400 italic py-6">Choisissez un membre du personnel.</p>
         ) : (
           <div className="space-y-3">
@@ -986,6 +1005,111 @@ function OngletPersonnel({ onClose, membreInitial = null, outilsMembre = null })
       {contrat && <PreviewModal html={contrat.html} titre={contrat.titre} nomFichier={contrat.nom}
         destinataire={destinataire} typeDoc={contrat.typeDoc} sujetMail={`${contrat.titre} — Institut Ilya Prigogine`}
         onClose={() => setContrat(null)} />}
+    </div>
+  );
+}
+
+/* LA SÉRIE : les mêmes pièces, pour chaque membre coché, remplies de SES
+   données. Les contrats partent dans un seul document — chacun sur sa page,
+   et chacun seulement si le statut du membre l'appelle ; les Word (EA12,
+   annexes) dans une archive, un dossier par personne. */
+function SeriePersonnel({ ids, profs, annee, annexes, nom }) {
+  const MOIS = ['janvier','février','mars','avril','mai','juin','juillet','août','septembre','octobre','novembre','décembre'];
+  const [types, setTypes] = useState({ cc: true, expert: true });
+  const [cles, setCles] = useState(() => new Set(['A1bis']));
+  const [mois, setMois] = useState(() => new Date().getMonth() + 1);
+  const [enCours, setEnCours] = useState(null);
+  const [erreur, setErreur] = useState(null);
+  const [avis, setAvis] = useState(null);
+  const [contrat, setContrat] = useState(null);
+  const bascule = k => setCles(c => { const n = new Set(c); n.has(k) ? n.delete(k) : n.add(k); return n; });
+  const noms = ids.map(id => profs.find(p => p.id === id)).filter(Boolean).map(nom);
+  const pieces = [{ cle: 'A1bis', titre: 'EA12 — Doc12 supérieur (A1 bis)' },
+    ...annexes.filter(a => !a.ea12).map(a => ({ cle: a.cle, titre: a.titre, mois: a.mois }))];
+  const besoinMois = pieces.some(a => a.mois && cles.has(a.cle));
+  const contrats = async () => {
+    setEnCours('contrats'); setErreur(null); setAvis(null);
+    try {
+      const r = await fetch('/api/contrats/lot', { method: 'POST', headers: authHeaders(),
+        body: JSON.stringify({ professeurs: ids, annee, types: Object.keys(types).filter(k => types[k]),
+          date_contrat: new Date().toISOString().slice(0, 10) }) });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(j.error || `Erreur ${r.status}`);
+      if (j.ignores?.length) setAvis(`Sans contrat à produire : ${j.ignores.join(', ')}.`);
+      setContrat({ html: j.html, nom: j.nom, titre: `Contrats — ${j.nombre} pièce${j.nombre > 1 ? 's' : ''}` });
+    } catch (e) { setErreur(e.message); } finally { setEnCours(null); }
+  };
+  const archive = async () => {
+    setEnCours('zip'); setErreur(null); setAvis(null);
+    try {
+      const r = await fetch('/api/formulaires/lot', { method: 'POST', headers: authHeaders(),
+        body: JSON.stringify({ professeurs: ids, cles: [...cles], annee, mois }) });
+      if (!r.ok) { const j = await r.json().catch(() => ({})); throw new Error([j.error, ...(j.erreurs || [])].filter(Boolean).join(' — ') || `Erreur ${r.status}`); }
+      const e = r.headers.get('X-Lucie-Erreurs');
+      if (e) setAvis(`Non produit : ${decodeURIComponent(e)}`);
+      const url = URL.createObjectURL(await r.blob());
+      const lien = document.createElement('a'); lien.href = url; lien.download = `Pieces_personnel_${annee}.zip`; lien.click();
+      setTimeout(() => URL.revokeObjectURL(url), 2000);
+    } catch (e) { setErreur(e.message); } finally { setEnCours(null); }
+  };
+  return (
+    <div className="space-y-3">
+      <div className="text-[15px] font-semibold text-iip-blue md:-mt-[3.35rem] md:h-[2.6rem] md:mb-[0.75rem] flex items-center">En série — {ids.length} membres</div>
+      <div data-etat="disponible" className="bloc-etat px-3 py-2 text-[13px]">
+        <b>Chaque pièce est remplie des données de chaque membre.</b>{' '}
+        <span className="text-slate-500">{noms.slice(0, 6).join(', ')}{noms.length > 6 ? ` et ${noms.length - 6} autres` : ''}.</span>
+      </div>
+      {erreur && <div data-etat="corriger" className="bloc-etat px-3 py-2 text-[12px]">{erreur}</div>}
+      {avis && <div data-etat="surveiller" className="bloc-etat px-3 py-2 text-[12px]">{avis}</div>}
+
+      <div data-etat="neutre" className="bloc-etat px-3 py-2.5 space-y-2">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <div className="text-[13px] font-semibold">Contrats de travail</div>
+            <div className="text-[12px] text-slate-500">Selon le statut de chacun : classique sur ses périodes CC, d'expert par niveau. Un seul document, une pièce par page.</div>
+          </div>
+          <button type="button" onClick={contrats} disabled={enCours || (!types.cc && !types.expert)}
+            className="bouton bouton-sortir bouton-compact flex-none">{enCours === 'contrats' ? '…' : 'Contrats'}</button>
+        </div>
+        <div className="flex gap-4 text-[13px] border-t border-slate-100 pt-1.5">
+          {[['cc', 'Chargé de cours'], ['expert', 'Expert']].map(([k, l]) => (
+            <label key={k} className="inline-flex items-center gap-1.5">
+              <input type="checkbox" checked={types[k]} onChange={() => setTypes(t => ({ ...t, [k]: !t[k] }))} />{l}
+            </label>
+          ))}
+        </div>
+      </div>
+
+      <div data-etat="neutre" className="bloc-etat px-3 py-2.5 space-y-2">
+        <div className="flex items-center justify-between gap-3 flex-wrap">
+          <div>
+            <div className="text-[13px] font-semibold">EA12 et annexes de la circulaire 9760</div>
+            <div className="text-[12px] text-slate-500">Le Word officiel, rempli pour chacun ; une archive, un dossier par personne.</div>
+          </div>
+          <span className="flex items-center gap-2">
+            {besoinMois && (
+              <select value={mois} onChange={e => setMois(Number(e.target.value))} aria-label="Mois des relevés"
+                className="controle border border-slate-300 rounded-champ bg-white text-[12px]">
+                {MOIS.map((m, i) => <option key={m} value={i + 1}>{m}</option>)}
+              </select>
+            )}
+            <button type="button" onClick={archive} disabled={enCours || !cles.size}
+              className="bouton bouton-sortir bouton-compact flex-none">{enCours === 'zip' ? '…' : `Produire (${cles.size})`}</button>
+          </span>
+        </div>
+        <ul className="grid gap-x-4 sm:grid-cols-2 border-t border-slate-100">
+          {pieces.map(a => (
+            <li key={a.cle} className="py-1 border-b border-slate-100 text-[13px]">
+              <label className="flex items-center gap-2 min-w-0" title={a.titre}>
+                <input type="checkbox" checked={cles.has(a.cle)} onChange={() => bascule(a.cle)} className="flex-none" />
+                <span className="truncate">{a.titre}</span>
+              </label>
+            </li>
+          ))}
+        </ul>
+      </div>
+      {contrat && <PreviewModal html={contrat.html} titre={contrat.titre} nomFichier={contrat.nom}
+        typeDoc="contrat" onClose={() => setContrat(null)} />}
     </div>
   );
 }

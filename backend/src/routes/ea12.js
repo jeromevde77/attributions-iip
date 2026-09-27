@@ -15,6 +15,7 @@ function dateFr(iso) {
 }
 
 // Construit l'objet `data` attendu par le générateur à partir de la base.
+export function construireDataEA12(ea12Row, donnees) { return construireData(ea12Row, donnees); }
 function construireData(ea12Row, donnees) {
   const prof = db.prepare('SELECT * FROM professeur WHERE id = ?').get(ea12Row.professeur_id) || {};
   const etab = db.prepare('SELECT * FROM etablissement WHERE id = 1').get() || {};

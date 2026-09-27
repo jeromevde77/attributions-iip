@@ -139,6 +139,42 @@ r.get('/statut/:profId', authRequired, roleRequired('admin', 'editeur'), (req, r
   res.json({ statut, cc: { periodes: Math.round(cc) }, expert: { periodes: exp, niveaux } });
 });
 
+/* LES CONTRATS EN SÉRIE (Charles, 27 septembre 2026 : « cocher plusieurs
+   MDP et sortir les documents en série »). Pour chaque membre, les contrats
+   que son statut appelle — classique pour ses périodes CC, d'expert par
+   niveau pour les autres —, chacun sur sa page, dans un seul document. */
+r.post('/lot', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
+  const { professeurs = [], annee, types = ['cc', 'expert'], date_contrat, representant = 'Charles Sohet, Directeur' } = req.body || {};
+  if (!Array.isArray(professeurs) || !professeurs.length) return res.status(400).json({ error: 'Cochez au moins un membre du personnel.' });
+  const jour = date_contrat || new Date().toISOString().slice(0, 10);
+  const tplCC = (() => { try { return db.prepare("SELECT valeur FROM lucie_config WHERE cle = 'contrat_template'").get()?.valeur || null; } catch { return null; } })();
+  const tplExp = (() => { try { return db.prepare("SELECT valeur FROM lucie_config WHERE cle = 'contrat_expert_template'").get()?.valeur || null; } catch { return null; } })();
+  const pieces = [], ignores = [];
+  for (const id of professeurs.map(Number)) {
+    const { anneeActive, prof, etab, attributions, parNiveau } = lignesExpert(id, annee);
+    if (!prof) continue;
+    const nomP = `${prof.nom || ''} ${prof.prenom || ''}`.trim();
+    let n = 0;
+    if (types.includes('cc') && attributions.length) {
+      pieces.push(genererApercu({ etab, prof, attributions, annee: anneeActive, date_contrat: jour, representant, templateHtml: tplCC })); n++;
+    }
+    if (types.includes('expert')) {
+      for (const [niveau, lignes] of Object.entries(parNiveau)) {
+        pieces.push(genererContratExpert({ etab, prof, lignes, annee: anneeActive, date_contrat: jour, representant, niveau, taux: tauxExpert(niveau), templateHtml: tplExp })); n++;
+      }
+    }
+    if (!n) ignores.push(nomP);
+  }
+  if (!pieces.length) return res.status(400).json({ error: 'Aucun contrat à produire pour ces membres cette année.', ignores });
+  // Un seul document : la tête du premier, puis chaque corps sur sa page.
+  const corps = h => (/<body[^>]*>([\s\S]*)<\/body>/i.exec(h) || [])[1] || h;
+  const styles = [...new Set(pieces.map(h => (/<style[^>]*>([\s\S]*?)<\/style>/i.exec(h) || [])[1] || ''))].join('\n');
+  const html = `<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8"><title>Contrats</title><style>${styles}
+    .saut { break-before: page; page-break-before: always; }</style></head><body>`
+    + pieces.map((h, i) => `<div class="${i ? 'saut' : ''}">${corps(h)}</div>`).join('') + '</body></html>';
+  res.json({ html, nombre: pieces.length, ignores, nom: `Contrats_${annee || ''}` });
+});
+
 r.post('/expert/apercu', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
   const { prof_id, date_contrat, annee, representant, niveau = 'superieur' } = req.body || {};
   const { anneeActive, prof, etab, parNiveau } = lignesExpert(Number(prof_id), annee);
