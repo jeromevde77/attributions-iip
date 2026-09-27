@@ -836,6 +836,10 @@ r.get('/frises', authRequired, (req, res) => {
     for (const f of db.prepare(`SELECT DISTINCT etudiant_id, ue_num, annee_scolaire FROM etudiant_resultat_cours
         WHERE faveur = 1 AND ue_num IS NOT NULL`).all()) faveurs.add(`${f.etudiant_id}|${f.ue_num}|${f.annee_scolaire}`);
   } catch { /* table absente */ }
+  const avantDe = new Map();
+  for (const x of db.prepare('SELECT DISTINCT etudiant_id, ue_num FROM etudiant_inscription WHERE annee_scolaire < ?').all(annee)) {
+    ajouter(avantDe, x.etudiant_id, x.ue_num);
+  }
   for (const x of db.prepare('SELECT etudiant_id, ue_num FROM etudiant_inscription WHERE annee_scolaire = ?').all(annee)) {
     ajouter(inscritesDe, x.etudiant_id, x.ue_num);
   }
@@ -879,7 +883,8 @@ r.get('/frises', authRequired, (req, res) => {
     const acquis = acquisDe.get(e.id) || new Set();
     const inscrites = inscritesDe.get(e.id) || new Set();
     const statut = statutsCapitalisation({ nodes: g.nodes, prereqDe: g.prereqDe, niv: g.niv,
-      organisees: g.organisees, acquis, enAttente: new Set([...(attenteDe.get(e.id) || [])].filter(u => !acquis.has(u))) });
+      organisees: g.organisees, acquis, enAttente: new Set([...(attenteDe.get(e.id) || [])].filter(u => !acquis.has(u))),
+      plafond: plafondBlocDe([...(avantDe.get(e.id) || [])], acquis, g.niv) });
     etats[e.id] = { s: sec, c: g.nodes.map(n => {
       const u = n.ue_num;
       const st = statut(u);
@@ -4049,6 +4054,8 @@ export function composerPAE(profId, annee, options = {}) {
     }
   }
   for (const u of pae) {
+    u.hors_bloc = !u.deja_reussie && !u.inscrite && auDessus(u);
+    u.plafond_bloc = plafondBloc;
     u.propose = proposees.has(u.ue_num);
     u.propose_sous_reserve = u.propose && (u.prereq_manquants || []).some(p => !enAttente.has(p));
     if (!u.propose) u.cadenas = [];
@@ -4618,7 +4625,21 @@ r.post('/import-resultats', authRequired, roleRequired('admin', 'editeur'), (req
  * finiraient par dire deux choses. Proposition par point fixe intra-niveau,
  * même règle que le PAE.
  */
-function statutsCapitalisation({ nodes, prereqDe, niv, organisees, acquis, enAttente }) {
+/* LE PLAFOND DE BLOC, POUR LE SCHÉMA AUSSI (Charles, 27 septembre 2026 :
+   « pas possible, tu donnes accès à une UE de B2 »). La proposition de PAE
+   l'appliquait depuis le matin ; le schéma de la fiche et la frise de la liste
+   ne le connaissaient pas, et montraient « disponible » une unité de BA2 dont
+   le seul lien avec le BA1 est une recommandation. Une unité n'est accessible
+   que jusqu'au bloc QUI SUIT le plus haut bloc déjà suivi (années
+   antérieures) ou acquis — BA1 pour un primo-inscrit. */
+const rangBlocDe = v => { const m = /^B[AE](\d+)$/.exec(String(v || '').toUpperCase()); return m ? Number(m[1]) : 0; };
+function plafondBlocDe(suiviesAvant, acquis, niv) {
+  const r = [...suiviesAvant, ...acquis].map(n => rangBlocDe(niv[n])).filter(x => x > 0);
+  return (r.length ? Math.max(...r) : 0) + 1;
+}
+
+function statutsCapitalisation({ nodes, prereqDe, niv, organisees, acquis, enAttente, plafond = null }) {
+  const horsBloc = n => plafond != null && rangBlocDe(niv[n]) > plafond;
   const proposees = new Set();
   const sousReserve = new Set();
   let stable = false;
@@ -4626,7 +4647,7 @@ function statutsCapitalisation({ nodes, prereqDe, niv, organisees, acquis, enAtt
     stable = true;
     for (const n0 of nodes) {
       const n = n0.ue_num;
-      if (acquis.has(n) || proposees.has(n) || !organisees.has(n)) continue;
+      if (acquis.has(n) || proposees.has(n) || !organisees.has(n) || horsBloc(n)) continue;
       const manquants = (prereqDe[n] || []).filter(p => !acquis.has(p));
       if (manquants.every(p => proposees.has(p) && niv[p] === niv[n])) {
         proposees.add(n);
@@ -4715,7 +4736,10 @@ export function donneesCapitalisation(etudId, annee, sectionForcee = null) {
   const prereqDe = Object.fromEntries(base.nodes.map(n => [n.ue_num, n.prerequis]));
   const niv = niveauxEffectifs(sections, annee);
 
-  const statut = statutsCapitalisation({ nodes: base.nodes, prereqDe, niv, organisees, acquis, enAttente });
+  const suiviesAvant = db.prepare(`SELECT DISTINCT ue_num FROM etudiant_inscription
+    WHERE etudiant_id = ? AND annee_scolaire < ?`).all(etudId, annee).map(r0 => r0.ue_num);
+  const statut = statutsCapitalisation({ nodes: base.nodes, prereqDe, niv, organisees, acquis, enAttente,
+    plafond: plafondBlocDe(suiviesAvant, acquis, niv) });
 
   const g = construireGraphe({
     sections, annee,
