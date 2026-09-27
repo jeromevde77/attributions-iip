@@ -764,7 +764,9 @@ function OngletRapports({ domaine }) {
 function Avion({ titre, onClick, disabled = false, occupe = false }) {
   return (
     <button type="button" onClick={onClick} disabled={disabled || occupe} title={titre} aria-label={titre}
-      className="bouton bouton-sortir bouton-icone flex-none">
+      /* FOND BLANC, AVION MARINE (Charles, 27 septembre 2026 : « pas ce bleu,
+         on reste dans nos couleurs ») — le même carré que « Nouvel EA12 ». */
+      className="bouton bouton-icone flex-none text-iip-blue">
       {occupe ? <span className="text-[12px]">…</span> : <IconSend size={17} stroke={1.8} />}
     </button>
   );
