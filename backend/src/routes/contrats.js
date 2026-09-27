@@ -122,6 +122,23 @@ r.get('/expert/:profId', authRequired, roleRequired('admin', 'editeur'), (req, r
     niveau, periodes: l.reduce((n, x) => n + Math.round(Number(x.periodes) || 0), 0), unites: new Set(l.map(x => x.ue_num)).size,
     taux: tauxExpert(niveau) })) });
 });
+/* LE STATUT D'UN MEMBRE, POUR L'ANNÉE (27 septembre 2026) : chargé de cours,
+   expert, ou les deux. C'est lui qui dit quelles pièces lui reviennent — un
+   contrat et un EA12 classiques pour ses périodes CC, un contrat et un EA12
+   d'expert pour les autres — et il se lit sur ses LIGNES d'attribution (le
+   statut de la ligne, sinon celui du membre), non sur sa seule fiche. */
+r.get('/statut/:profId', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
+  const { prof, attributions, parNiveau } = lignesExpert(Number(req.params.profId), req.query.annee);
+  if (!prof) return res.status(404).json({ error: 'Professeur introuvable' });
+  const cc = attributions.reduce((n, l) => n + (l.periodes_attribuees || 0) + (l.autonomie_attribuee || 0), 0);
+  const niveaux = Object.entries(parNiveau).map(([niveau, l]) => ({
+    niveau, periodes: l.reduce((n, x) => n + Math.round(Number(x.periodes) || 0), 0),
+    unites: new Set(l.map(x => x.ue_num)).size, taux: tauxExpert(niveau) }));
+  const exp = niveaux.reduce((n, x) => n + x.periodes, 0);
+  const statut = cc > 0 && exp > 0 ? 'mixte' : exp > 0 ? 'expert' : cc > 0 ? 'cc' : 'aucun';
+  res.json({ statut, cc: { periodes: Math.round(cc) }, expert: { periodes: exp, niveaux } });
+});
+
 r.post('/expert/apercu', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
   const { prof_id, date_contrat, annee, representant, niveau = 'superieur' } = req.body || {};
   const { anneeActive, prof, etab, parNiveau } = lignesExpert(Number(prof_id), annee);

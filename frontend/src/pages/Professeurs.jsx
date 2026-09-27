@@ -6,7 +6,7 @@ import { api, getAnnee, getUser, nomDoc } from '../lib/api.js';
 import ProfFicheModal from './ProfFicheModal.jsx';
 import PreviewModal from '../components/PreviewModal.jsx';
 import CoursEditModal from '../components/CoursEditModal.jsx';
-import { IconAddressBook, IconMail, IconMapPin, IconFileText, IconEdit, IconDownload, IconRefresh, IconX, IconPrinter, IconPlus, IconTrash, IconKey, IconLock, IconCheck, IconBriefcase, IconTargetArrow, IconChevronDown, IconChevronRight, IconUsers, IconSchool, IconUserPlus, IconBuilding, IconBuildingBank, IconFileDescription } from '@tabler/icons-react';
+import { IconSend, IconAddressBook, IconMail, IconMapPin, IconFileText, IconEdit, IconDownload, IconRefresh, IconX, IconPrinter, IconPlus, IconTrash, IconKey, IconLock, IconCheck, IconBriefcase, IconTargetArrow, IconChevronDown, IconChevronRight, IconUsers, IconSchool, IconUserPlus, IconBuilding, IconBuildingBank, IconFileDescription } from '@tabler/icons-react';
 import { MODULES_ACCES, ROLES_LUCIE, estDirection } from '../lib/modules.js';
 import { RailLateral } from '../components/ui.jsx';
 /* LES RUBRIQUES DE L'AXE PERSONNEL SE RENDENT DANS L'AXE, PAS AILLEURS.
@@ -584,7 +584,7 @@ function AccesLuciePanel({ profId, detail }) {
   );
 }
 
-function DetailModal({ profId, onClose, onEdit, onFiche }) {
+function DetailModal({ profId, onClose, onEdit, onFiche, onEditions }) {
   const [detail, setDetail] = useState(null);
   const [onglet, setOnglet] = useState('attributions');
   const navigate = useNavigate();
@@ -772,7 +772,19 @@ function DetailModal({ profId, onClose, onEdit, onFiche }) {
               </div>
             </div>
           </div>
-          <button onClick={onClose} className="text-white/60 hover:text-white ml-4"><IconX size={20}/></button>
+          <div className="flex items-center gap-2 ml-4">
+            {/* L'AVION, VERS LES ÉDITIONS (Charles, 27 septembre 2026) : contrats,
+                fiches, EA12 et annexes s'impriment ou s'envoient depuis un seul
+                endroit, qui sait si ce membre est chargé de cours, expert, ou
+                les deux — et propose les pièces qui en découlent. */}
+            {onEditions && (
+              <button onClick={() => onEditions(profId)} title="Imprimer ou envoyer — contrats, fiches, EA12, annexes"
+                className="w-8 h-8 grid place-items-center rounded-champ text-white/80 hover:text-white hover:bg-white/10">
+                <IconSend size={18} />
+              </button>
+            )}
+            <button onClick={onClose} className="text-white/60 hover:text-white"><IconX size={20}/></button>
+          </div>
         </div>
 
         {/* ── Layout 2 colonnes ── */}
@@ -871,34 +883,8 @@ function DetailModal({ profId, onClose, onEdit, onFiche }) {
                 <IconEdit size={14}/> Modifier la fiche
               </button>
 
-              <div>
-                <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Documents</div>
-                <div className="grid grid-cols-4 gap-1.5">
-                  {peutGenererContrat(u) && (
-                    <button onClick={() => setShowContratModal(true)} title="Contrat de travail (CDD)"
-                      className="flex flex-col items-center gap-1 py-2 rounded-lg border border-gray-200 bg-white hover:border-green-400 hover:bg-green-50/50 transition">
-                      <IconFileText size={17} className="text-green-600"/>
-                      <span className="text-[10px] text-gray-500 leading-none">Contrat</span>
-                    </button>
-                  )}
-                  {[['Global', 'Fiche globale — IIP + HELB', null],
-                    ['IIP', 'Fiche IIP', 'IIP'],
-                    ['HELB', 'Fiche HELB', 'HELB']].map(([lbl, titre, filtre]) => (
-                    <button key={lbl} onClick={() => onFiche && onFiche(profId, filtre)} title={titre}
-                      className="flex flex-col items-center gap-1 py-2 rounded-lg border border-gray-200 bg-white hover:border-iip-turquoise hover:bg-iip-turquoise/5 transition">
-                      <IconPrinter size={17} className="text-iip-blue"/>
-                      <span className="text-[10px] text-gray-500 leading-none">{lbl}</span>
-                    </button>
-                  ))}
-                  {estDirection(u) && (
-                    <button onClick={nouvelEA12} title="Nouvel EA12 — fiche de nomination"
-                      className="flex flex-col items-center gap-1 py-2 rounded-lg border border-gray-200 bg-white hover:border-purple-400 hover:bg-purple-50/50 transition">
-                      <IconPlus size={17} className="text-purple-600"/>
-                      <span className="text-[10px] text-gray-500 leading-none">EA12</span>
-                    </button>
-                  )}
-                </div>
-              </div>
+              {/* Les documents ont quitté la fiche pour les Éditions (l'avion, en
+                  haut à droite) : une seule porte pour imprimer et envoyer. */}
             </div>
           </div>
 
@@ -1421,6 +1407,7 @@ function statutsDe(p) {
 }
 
 export default function Professeurs({ vue: vueInitiale = 'membres' }) {
+  const [editionsMembre, setEditionsMembre] = useState(null);
   const [centreImpression, setCentreImpression] = useState(false);
   const navigate = useNavigate();
   const [profs, setProfs] = useState([]);
@@ -2542,6 +2529,7 @@ export default function Professeurs({ vue: vueInitiale = 'membres' }) {
       {detailId && (
         <DetailModal profId={detailId} onClose={() => setDetailId(null)}
           onFiche={genererFicheAttributions}
+          onEditions={id => setEditionsMembre(id)}
           onEdit={p => { setDetailId(null); setEditProf(p); }} />
       )}
 
@@ -2550,6 +2538,11 @@ export default function Professeurs({ vue: vueInitiale = 'membres' }) {
       {editProf !== null && (
         <ProfFicheModal prof={editProf} onClose={() => setEditProf(null)}
           onSaved={() => { setEditProf(null); load(); }} />
+      )}
+      {editionsMembre && (
+        <CentreImpressionCentral ongletInitial="personnel" membreInitial={editionsMembre}
+          outilsMembre={{ fiche: (id, filtre) => { setEditionsMembre(null); genererFicheAttributions(id, filtre); } }}
+          onClose={() => setEditionsMembre(null)} />
       )}
       {ficheHtml && <PreviewModal html={ficheHtml.html||ficheHtml} titre={ficheHtml.titre || "Fiche d'attributions"} sousTitre={ficheHtml.sousTitre} nomFichier={ficheHtml.nom}
         destinataire={ficheHtml.destinataire || null} typeDoc="fiche_attributions"

@@ -759,7 +759,7 @@ function OngletRapports({ domaine }) {
  * choisit la personne ; ses EA12 de l'année s'ouvrent, ou un nouveau se crée,
  * dans l'éditeur qui produit le Word officiel.
  */
-function OngletPersonnel({ onClose }) {
+function OngletPersonnel({ onClose, membreInitial = null, outilsMembre = null }) {
   const navigate = useNavigate();
   const annee = getAnnee();
   const [profs, setProfs] = useState(null);
@@ -768,8 +768,13 @@ function OngletPersonnel({ onClose }) {
   const [ea12, setEa12] = useState(null);
   const [erreur, setErreur] = useState(null);
   useEffect(() => {
-    api.professeurs(false, annee).then(l => setProfs(Array.isArray(l) ? l : [])).catch(() => setProfs([]));
-  }, [annee]);
+    api.professeurs(false, annee).then(l => {
+      const liste = Array.isArray(l) ? l : [];
+      setProfs(liste);
+      // Ouvert depuis la fiche d'un membre : il est déjà choisi.
+      if (membreInitial) { const m = liste.find(x => x.id === Number(membreInitial)); if (m) setChoisi(m); }
+    }).catch(() => setProfs([]));
+  }, [annee, membreInitial]);
   useEffect(() => {
     if (!choisi) { setEa12(null); return; }
     setEa12(null); setErreur(null);
@@ -806,14 +811,28 @@ function OngletPersonnel({ onClose }) {
      2026) : un par niveau — supérieur, secondaire —, la période n'y étant pas
      rétribuée au même taux. Il paraît dès que la personne porte des
      prestations d'expert cette année. */
-  const [expert, setExpert] = useState(null);
+  const [statut, setStatut] = useState(null);   // { statut, cc: {periodes}, expert: {periodes, niveaux} }
   const [contrat, setContrat] = useState(null);
   useEffect(() => {
-    setExpert(null);
+    setStatut(null);
     if (!choisi) return;
-    fetch(`/api/contrats/expert/${choisi.id}?annee=${encodeURIComponent(annee)}`, { headers: authHeaders() })
-      .then(r => (r.ok ? r.json() : { niveaux: [] })).then(j => setExpert(j.niveaux || [])).catch(() => setExpert([]));
+    fetch(`/api/contrats/statut/${choisi.id}?annee=${encodeURIComponent(annee)}`, { headers: authHeaders() })
+      .then(r => (r.ok ? r.json() : null)).then(setStatut).catch(() => setStatut(null));
   }, [choisi, annee]);
+  const expert = statut?.expert?.niveaux || [];
+  const destinataire = choisi ? { type: 'professeur', id: choisi.id, nom: choisi.nom_prenom || '' } : null;
+  /* LE CONTRAT CLASSIQUE : ses lignes CC seulement — le serveur écarte les
+     lignes d'expert, qui ont leur contrat. */
+  const ouvrirContratCC = async () => {
+    setErreur(null);
+    try {
+      const r = await fetch('/api/contrats/apercu', { method: 'POST', headers: authHeaders(),
+        body: JSON.stringify({ prof_id: choisi.id, annee, date_contrat: new Date().toISOString().slice(0, 10), representant: 'Charles Sohet, Directeur' }) });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(j.error || `Erreur ${r.status}`);
+      setContrat({ html: j.html, titre: 'Contrat de travail — chargé de cours', nom: j.nom, typeDoc: 'contrat' });
+    } catch (e) { setErreur(e.message); }
+  };
   const ouvrirContrat = async niveau => {
     setErreur(null);
     try {
@@ -821,7 +840,7 @@ function OngletPersonnel({ onClose }) {
         body: JSON.stringify({ prof_id: choisi.id, annee, niveau, date_contrat: new Date().toISOString().slice(0, 10) }) });
       const j = await r.json().catch(() => ({}));
       if (!r.ok) throw new Error(j.error || `Erreur ${r.status}`);
-      setContrat({ html: j.html, titre: `Contrat d'expert — ${niveau === 'secondaire' ? 'secondaire' : 'supérieur'}`, nom: j.nom });
+      setContrat({ html: j.html, titre: `Contrat d'expert — ${niveau === 'secondaire' ? 'secondaire' : 'supérieur'}`, nom: j.nom, typeDoc: 'contrat_expert' });
     } catch (e) { setErreur(e.message); }
   };
   const nom = p => nomPropre(p.nom_prenom || `${p.nom || ''} ${p.prenom || ''}`);
@@ -859,44 +878,74 @@ function OngletPersonnel({ onClose }) {
           <p className="text-[13px] text-slate-400 italic py-6">Choisissez un membre du personnel.</p>
         ) : (
           <div className="space-y-3">
-            <div className="text-[15px] font-semibold text-iip-blue">{nom(choisi)}</div>
-            <div data-etat="neutre" className="bloc-etat px-3 py-2.5 space-y-2">
-              <div className="flex items-center justify-between gap-3 flex-wrap">
-                <div>
-                  <div className="text-[13px] font-semibold">EA12 — demande de mise en liquidation (Doc12)</div>
-                  <div className="text-[12px] text-slate-500">Le formulaire officiel de la FWB, rempli par Lucie, en Word · {annee}</div>
-                </div>
-                <button type="button" onClick={creer} className="bouton bouton-sortir bouton-compact">Nouvel EA12</button>
+            {/* SUR LA LIGNE DES FAMILLES (Charles, 27 septembre 2026) : le nom
+                remonte à hauteur de « Pièces par membre · Rapports · Listes » ;
+                il y avait là une bande vide, et le nom descendait d'autant. */}
+            <div className="text-[15px] font-semibold text-iip-blue md:-mt-[3.35rem] md:h-[2.6rem] md:mb-[0.75rem] flex items-center">{nom(choisi)}</div>
+            {/* LE STATUT D'ABORD (Charles, 27 septembre 2026) : il dit quelles pièces
+                reviennent à ce membre. Les périodes d'expert ne vont que sur l'EA12
+                et le contrat d'expert ; le reste, sur le contrat et l'EA12 classiques. */}
+            {statut && (
+              <div data-etat={statut.statut === 'aucun' ? 'neutre' : 'disponible'} className="bloc-etat px-3 py-2 text-[13px]">
+                {statut.statut === 'mixte' && <><b>Ce membre du personnel a deux statuts : expert et chargé de cours.</b> <span className="text-slate-500">{statut.cc.periodes} périodes CC · {statut.expert.periodes} périodes d'expert en {annee}</span></>}
+                {statut.statut === 'expert' && <><b>Ce membre du personnel est expert.</b> <span className="text-slate-500">{statut.expert.periodes} périodes en {annee}</span></>}
+                {statut.statut === 'cc' && <><b>Ce membre du personnel est chargé de cours.</b> <span className="text-slate-500">{statut.cc.periodes} périodes en {annee}</span></>}
+                {statut.statut === 'aucun' && <><b>Aucune attribution en {annee}.</b> <span className="text-slate-500">Rien à contractualiser pour cette année.</span></>}
               </div>
-              {erreur && <div className="text-[12px]" style={{ color: 'var(--c-refuse)' }}>{erreur}</div>}
-              {ea12 === null ? <p className="text-[12px] text-slate-400">Chargement…</p>
-                : !ea12.length ? <p className="text-[12px] text-slate-400">Aucun EA12 pour {annee}.</p>
-                : (
-                  <ul className="divide-y divide-slate-100 border-t border-slate-100">
-                    {ea12.map(e => (
-                      <li key={e.id} className="flex items-center justify-between gap-3 py-1.5 text-[13px]">
-                        <span>Document n° {e.num_doc ?? '—'}
-                          <span className="text-slate-400 text-[12px]"> · modifié le {String(e.modifie_le || e.cree_le || '').slice(0, 10).split('-').reverse().join('/')}
-                            {e.statut_doc === 'genere' ? ' · déjà produit' : ''}</span></span>
-                        <button type="button" onClick={() => ouvrir(e.id)} className="bouton bouton-compact">Ouvrir</button>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-            </div>
+            )}
+            {erreur && <div data-etat="corriger" className="bloc-etat px-3 py-2 text-[12px]">{erreur}</div>}
 
-            {!!expert?.length && (
-              <div data-etat="fort" className="bloc-etat px-3 py-2.5 space-y-2">
-                <div>
-                  <div className="text-[13px] font-semibold">Contrat d'emploi d'un expert — à joindre à l'EA12</div>
-                  <div className="text-[12px] text-slate-500">Un contrat par niveau : la période n'y est pas rétribuée au même taux.</div>
-                </div>
+            {statut && (statut.statut === 'cc' || statut.statut === 'mixte') && (
+              <div data-etat="neutre" className="bloc-etat px-3 py-2.5 space-y-2">
+                <div className="text-[13px] font-semibold">Chargé de cours</div>
+                <ul className="divide-y divide-slate-100 border-t border-slate-100">
+                  <li className="flex items-center justify-between gap-3 py-1.5 text-[13px]">
+                    <span>Contrat de travail <span className="text-slate-400 text-[12px]">· ses périodes CC, sans les périodes d'expert</span></span>
+                    <button type="button" onClick={ouvrirContratCC} className="bouton bouton-sortir bouton-compact">Contrat</button>
+                  </li>
+                  {outilsMembre?.fiche && (
+                    <li className="flex items-center justify-between gap-3 py-1.5 text-[13px]">
+                      <span>Fiche d'attributions</span>
+                      <span className="flex gap-1.5">
+                        {[['Globale', null], ['IIP', 'IIP'], ['HELB', 'HELB']].map(([l, f]) => (
+                          <button key={l} type="button" onClick={() => outilsMembre.fiche(choisi.id, f)} className="bouton bouton-compact">{l}</button>
+                        ))}
+                      </span>
+                    </li>
+                  )}
+                  <li className="py-1.5 text-[13px] space-y-1">
+                    <div className="flex items-center justify-between gap-3">
+                      <span>EA12 — Doc12 supérieur <span className="text-slate-400 text-[12px]">· le Word officiel, rempli par Lucie</span></span>
+                      <button type="button" onClick={creer} className="bouton bouton-sortir bouton-compact">Nouvel EA12</button>
+                    </div>
+                    {ea12 === null ? <p className="text-[12px] text-slate-400">Chargement…</p>
+                      : !ea12.length ? <p className="text-[12px] text-slate-400">Aucun EA12 pour {annee}.</p>
+                      : ea12.map(e => (
+                        <div key={e.id} className="flex items-center justify-between gap-3 pl-3 text-[12px] text-slate-600">
+                          <span>Document n° {e.num_doc ?? '—'} · modifié le {String(e.modifie_le || e.cree_le || '').slice(0, 10).split('-').reverse().join('/')}{e.statut_doc === 'genere' ? ' · déjà produit' : ''}</span>
+                          <button type="button" onClick={() => ouvrir(e.id)} className="bouton bouton-compact">Ouvrir</button>
+                        </div>
+                      ))}
+                  </li>
+                </ul>
+              </div>
+            )}
+
+            {!!expert.length && (
+              <div data-etat="neutre" className="bloc-etat px-3 py-2.5 space-y-2">
+                <div className="text-[13px] font-semibold">Expert</div>
                 <ul className="divide-y divide-slate-100 border-t border-slate-100">
                   {expert.map(n => (
                     <li key={n.niveau} className="flex items-center justify-between gap-3 py-1.5 text-[13px]">
-                      <span>{n.niveau === 'secondaire' ? 'Secondaire' : 'Supérieur'}
+                      <span>Contrat d'emploi d'un expert — {n.niveau === 'secondaire' ? 'secondaire' : 'supérieur'}
                         <span className="text-slate-400 text-[12px]"> · {n.periodes} périodes, {n.unites} unité{n.unites > 1 ? 's' : ''} · {String(n.taux).replace('.', ',')} €/période</span></span>
                       <button type="button" onClick={() => ouvrirContrat(n.niveau)} className="bouton bouton-sortir bouton-compact">Contrat</button>
+                    </li>
+                  ))}
+                  {annexes.filter(a => a.cle === 'A1ter' || a.cle === 'A27').map(a => (
+                    <li key={a.cle} className="flex items-center justify-between gap-3 py-1.5 text-[13px]">
+                      <span>{a.titre}{a.mois && <span className="text-slate-400 text-[12px]"> · mois de {['janvier','février','mars','avril','mai','juin','juillet','août','septembre','octobre','novembre','décembre'][mois - 1]}</span>}</span>
+                      <button type="button" onClick={() => telecharger(a)} disabled={enCours === a.cle} className="bouton bouton-compact">{enCours === a.cle ? '…' : 'Word'}</button>
                     </li>
                   ))}
                 </ul>
@@ -907,8 +956,8 @@ function OngletPersonnel({ onClose }) {
               <div data-etat="neutre" className="bloc-etat px-3 py-2.5 space-y-2">
                 <div className="flex items-center justify-between gap-3 flex-wrap">
                   <div>
-                    <div className="text-[13px] font-semibold">Annexes de la circulaire 9760 (rentrée EA 2026-2027)</div>
-                    <div className="text-[12px] text-slate-500">Le modèle Word officiel, établissement et identité remplis — à compléter et corriger dans Word.</div>
+                    <div className="text-[13px] font-semibold">Autres annexes de la circulaire 9760</div>
+                    <div className="text-[12px] text-slate-500">Le modèle Word officiel, établissement et identité remplis.</div>
                   </div>
                   <label className="text-[12px] text-slate-600 inline-flex items-center gap-1.5">Mois des relevés
                     <select value={mois} onChange={e => setMois(Number(e.target.value))} className="controle border border-slate-300 rounded-champ bg-white text-[12px]">
@@ -918,7 +967,7 @@ function OngletPersonnel({ onClose }) {
                   </label>
                 </div>
                 <ul className="grid gap-x-4 sm:grid-cols-2 border-t border-slate-100">
-                  {annexes.filter(a => !a.ea12).map(a => (
+                  {annexes.filter(a => !a.ea12 && a.cle !== 'A1ter' && a.cle !== 'A27').map(a => (
                     <li key={a.cle} className="flex items-center justify-between gap-2 py-1 border-b border-slate-100 text-[13px]">
                       <span className="min-w-0 truncate" title={a.titre}>
                         {a.titre}
@@ -934,7 +983,9 @@ function OngletPersonnel({ onClose }) {
           </div>
         )}
       </div>
-      {contrat && <PreviewModal html={contrat.html} titre={contrat.titre} nomFichier={contrat.nom} onClose={() => setContrat(null)} />}
+      {contrat && <PreviewModal html={contrat.html} titre={contrat.titre} nomFichier={contrat.nom}
+        destinataire={destinataire} typeDoc={contrat.typeDoc} sujetMail={`${contrat.titre} — Institut Ilya Prigogine`}
+        onClose={() => setContrat(null)} />}
     </div>
   );
 }
@@ -1353,6 +1404,7 @@ function PiecesDeLEcran({ pieces, onChoisir }) {
 
 export default function CentreImpressionCentral({ ongletInitial = 'etudiants',
                                                   perimetre = null, pieces = null,
+                                                  membreInitial = null, outilsMembre = null,
                                                   onClose }) {
   const [onglet, setOnglet] = useState(ongletInitial);
   // Dans un axe qui porte deux familles : les pièces par personne, ou les
@@ -1362,7 +1414,8 @@ export default function CentreImpressionCentral({ ongletInitial = 'etudiants',
      on change d'axe : « Listes » laissé actif en passant de Personnel à
      Gestion ouvrait une colonne vide, et l'on croyait l'axe vide. */
   const [famille, setFamille] = useState('pieces');
-  useEffect(() => { setFamille(onglet === 'etudiants' ? 'pieces' : 'rapports'); }, [onglet]);
+  // Personnel s'ouvre aussi sur ses pièces : contrats, fiches, EA12, annexes.
+  useEffect(() => { setFamille(onglet === 'etudiants' || onglet === 'personnel' ? 'pieces' : 'rapports'); }, [onglet]);
 
   return (
     /* L'AVION, ET LE SOUS-TITRE AVEC LUI.
@@ -1461,7 +1514,7 @@ export default function CentreImpressionCentral({ ongletInitial = 'etudiants',
               </button>
             </span>
           </div>
-          {onglet === 'personnel' && famille === 'pieces' ? <OngletPersonnel onClose={onClose} />
+          {onglet === 'personnel' && famille === 'pieces' ? <OngletPersonnel onClose={onClose} membreInitial={membreInitial} outilsMembre={outilsMembre} />
             : famille === 'listes'
             ? <CadreListes domaine={onglet} />
             : <OngletRapports domaine={onglet} />}
