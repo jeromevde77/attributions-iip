@@ -32,6 +32,7 @@ function peutGenererContrat(u) {
 
 import { DossierAdmin, Absences, Entretiens, Journal } from '../components/DossierPersonnel.jsx';
 import CalculateurAnciennete from '../components/CalculateurAnciennete.jsx';
+import { ouvrirApercu } from '../lib/apercu.js';
 
 const EMPTY = {
   nom: '', prenom: '', adresse_mail: '', mail_prive: '',
@@ -103,13 +104,17 @@ function ouvrirFeuilleImpression(data) {
       .vide { text-align: center; color: #999; font-style: italic; }
       @media print { .page { padding: 12mm; } }
     </style></head><body>${pages}
-    <script>window.onload = () => { window.print(); };<\/script>
     </body></html>`;
 
-  const w = window.open('', '_blank');
-  if (!w) { alert('Veuillez autoriser les pop-ups pour imprimer.'); return; }
-  w.document.write(html);
-  w.document.close();
+  const seul = (data.profs || []).length === 1 ? data.profs[0] : null;
+  ouvrirApercu({
+    html, titre: "Feuilles d'attributions", sousTitre: data.annee || undefined,
+    nomFichier: seul ? `Attributions_${seul.nom}_${seul.prenom}` : `Attributions_${data.annee || ''}`,
+    ...(seul?.id
+      ? { destinataire: { type: 'professeur', id: seul.id, nom: `${seul.nom} ${seul.prenom}` } }
+      : { envoiPossible: false }),
+    astuceImpression: 'A4 portrait',
+  });
 }
 
 

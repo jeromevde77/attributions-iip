@@ -6,6 +6,7 @@ import {
 } from '@tabler/icons-react';
 import { authHeaders } from '../lib/api.js';
 import { TuileEtat } from './ui.jsx';
+import { ouvrirApercu } from '../lib/apercu.js';
 
 /**
  * LE PASSAGE À L'ANNÉE SUIVANTE, POUR TOUTE UNE SECTION.
@@ -101,9 +102,10 @@ export default function PassageAnnee({ annee, onClose, onTermine }) {
       }
       if (j.manques?.length) setErreur(`${j.manques.length} parcours non produit(s) : `
         + j.manques.slice(0, 5).map(m => `${m.nom} (${m.raison})`).join(', ') + (j.manques.length > 5 ? '…' : ''));
-      const w = window.open('', '_blank');
-      if (!w) { setErreur('La fenêtre d’impression a été bloquée par le navigateur.'); return; }
-      w.document.write(j.html); w.document.close();
+      ouvrirApercu({
+        html: j.html, titre: 'Parcours des étudiants', sousTitre: cible,
+        nomFichier: `Parcours_${cible}`, envoiPossible: false, astuceImpression: 'A4 portrait',
+      });
     } catch (e) { setErreur(e.message); } finally { setEnCours(false); }
   };
 

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { estDirection } from '../lib/modules.js';
 import { IconDeviceFloppy, IconEye, IconRefresh, IconPhoto, IconX, IconArrowUp, IconArrowDown, IconPlus, IconSignature } from '@tabler/icons-react';
+import { ouvrirApercu } from '../lib/apercu.js';
 
 const tok = () => localStorage.getItem('token');
 const af = (url, opts = {}) => fetch(url, {
@@ -272,9 +273,8 @@ export default function DiplomeEditeur({ assets = {} }) {
     const avecSig = html.split('{{signatures}}').join(blocSignatures(liste || SIGNATAIRES_DEFAUT))
       .split('{{logos}}').join(logos);
     const rendu = remplaceVars(avecSig, vars);
-    const w = window.open('', '_blank');
-    if (!w) { alert('Autorisez les pop-ups pour voir l’aperçu.'); return; }
-    w.document.open(); w.document.write(rendu); w.document.close();
+    ouvrirApercu({ html: rendu, titre: 'Aperçu du modèle de diplôme', nomFichier: 'Diplome_apercu',
+                   envoiPossible: false });
   };
 
   const importerHelb = (file) => {

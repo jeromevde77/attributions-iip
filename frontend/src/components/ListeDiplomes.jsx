@@ -3,6 +3,7 @@ import {
   IconX, IconPrinter, IconAlertTriangle, IconCertificate,
 } from '@tabler/icons-react';
 import { authHeaders } from '../lib/api.js';
+import { ouvrirApercu } from '../lib/apercu.js';
 
 /**
  * LA LISTE DES ÉTUDIANTS DIPLÔMÉS.
@@ -84,9 +85,13 @@ export default function ListeDiplomes({ annee, onClose }) {
         setErreur(`Document produit, mais des dossiers sont incomplets : ${
           j.manques.slice(0, 4).join(' · ')}${j.manques.length > 4 ? ' …' : ''}`);
       }
-      const f = window.open('', '_blank');
-      if (!f) { setErreur("Le navigateur a bloqué la fenêtre d'impression."); return; }
-      f.document.write(j.html); f.document.close();
+      ouvrirApercu({
+        html: j.html,
+        titre: quoi === 'pv' ? 'Procès-verbal de délibération de section' : 'Liste des diplômés',
+        sousTitre: `${section} · ${annee}`,
+        nomFichier: `${quoi === 'pv' ? 'PV_section' : 'Diplomes'}_${section}_${annee}`,
+        envoiPossible: false, astuceImpression: 'A4 portrait',
+      });
     } catch (e) { setErreur(e.message); }
     finally { setEnCours(false); }
   }

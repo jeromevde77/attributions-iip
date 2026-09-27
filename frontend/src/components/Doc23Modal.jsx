@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { nomDoc } from '../lib/api.js';
+import { ouvrirApercu } from '../lib/apercu.js';
 
 // Catégorie EPROM selon ct_pp
 const CAT_EPROM = {
@@ -325,11 +326,10 @@ export default function Doc23Modal({ ue_num, section, ue_nom, annee, onClose }) 
 
   function ouvrir(html, nom) {
     const htmlAvecTitre = html.replace('<head>', `<head><title>${nom}</title>`);
-    const w = window.open('', '_blank', 'width=1200,height=900');
-    w.document.write(htmlAvecTitre);
-    w.document.close();
-    w.focus();
-    setTimeout(() => w.print(), 600);
+    ouvrirApercu({
+      html: htmlAvecTitre, titre: nom, sousTitre: `UE ${ue_num} · ${section} · ${annee}`,
+      nomFichier: nom, envoiPossible: false,
+    });
   }
 
   return (

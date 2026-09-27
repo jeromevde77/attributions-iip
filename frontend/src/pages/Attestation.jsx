@@ -6,6 +6,7 @@ const SCEAU_IIP = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAvgAAAL4CAYAAAA
 import PreviewModal from '../components/PreviewModal.jsx';
 import DiplomeEditeur from './DiplomeEditeur.jsx';
 import { IconPlus, IconTrash, IconEye, IconDownload, IconCopy } from '@tabler/icons-react';
+import { ouvrirApercu } from '../lib/apercu.js';
 
 /* ── Template HTML attestation provisoire ─────────────────────────────────── */
 export function genererTemplateAttestation() {
@@ -596,20 +597,11 @@ export default function Attestation() {
       const combined = '<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8"><title>' + docTitre + ' ' + annee + '</title><style>' + style +
         '\n@media print{ .page{ page-break-after: always; } .page:last-child{ page-break-after: auto; } }</style></head><body>' +
         bodies.join('\n') + '</body></html>';
-      // Un cadre caché fait imprimer à Safari le document parent : on obtenait
-      // une capture de l'écran plutôt que les attestations. Une fenêtre dédiée
-      // porte le document seul.
-      const w = window.open('', '_blank');
-      if (!w) {
-        alert("La fenêtre d'impression a été bloquée. Autorisez les fenêtres "
-            + "surgissantes pour ce site, puis réessayez.");
-        return;
-      }
-      w.document.open(); w.document.write(combined); w.document.close();
-      let lance = false;
-      const lancer = () => { if (lance) return; lance = true; w.focus(); w.print(); };
-      w.onload = lancer;
-      setTimeout(lancer, 400);
+      ouvrirApercu({
+        html: combined, titre: docTitre, sousTitre: `${valides.length} étudiant(s) · ${annee}`,
+        nomFichier: `${docTitre}_${annee.replace('/', '-')}`,
+        envoiPossible: false,
+      });
     } catch (e) { alert('Erreur génération : ' + e.message); }
     finally { setGenerating(false); }
   };

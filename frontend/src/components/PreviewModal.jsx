@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { IconPrinter, IconX, IconDownload, IconMail } from '@tabler/icons-react';
+import { IconSend, IconX, IconDownload, IconMail } from '@tabler/icons-react';
 import EnvoiMailModal from './EnvoiMailModal.jsx';
 import { useEnvoiMail } from '../lib/envoiMail.js';
 
@@ -95,7 +95,7 @@ export default function PreviewModal({ html, titre = 'Document', sousTitre, nomF
             </span>}
             <button onClick={imprimer} disabled={!pret}
               className="bouton-sortir controle px-3 flex items-center gap-1.5 disabled:opacity-40">
-              <IconPrinter size={15} /> Imprimer / PDF
+              <IconSend size={15} /> Imprimer / PDF
             </button>
             {envoiPossible && envoiMail?.actif && (
               <button onClick={() => setEnvoi(true)} disabled={!pret}

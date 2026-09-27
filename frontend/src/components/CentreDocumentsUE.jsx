@@ -3,6 +3,7 @@ import { IconPrinter, IconFileText, IconX, IconAlertTriangle, IconSend } from '@
 import { authHeaders } from '../lib/api.js';
 import { useEnvoiMail } from '../lib/envoiMail.js';
 import EnvoiMailModal from './EnvoiMailModal.jsx';
+import { ouvrirApercu } from '../lib/apercu.js';
 
 /**
  * LE CENTRE D'IMPRESSION D'UNE UNITÉ.
@@ -139,9 +140,10 @@ export default function CentreDocumentsUE({ ueNum, ueNom, annee, onClose }) {
         if (!j.manques?.length) onClose();
         return;
       }
-      const f = window.open('', '_blank');
-      if (!f) { setErreur('Le navigateur a bloqué la fenêtre d’impression.'); return; }
-      f.document.write(j.html); f.document.close();
+      ouvrirApercu({
+        html: j.html, titre: `Pièces de l’unité ${ueNum}`, sousTitre: ueNom || undefined,
+        nomFichier: (j.nom || 'documents').replace(/\.html$/, ''), envoiPossible: false,
+      });
       if (!j.manques?.length) onClose();
     } catch (e) { setErreur(e.message); }
     finally { setEnCours(false); }

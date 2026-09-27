@@ -12,6 +12,7 @@ import {
   IconFileExport,
 } from '@tabler/icons-react';
 import * as XLSX from 'xlsx';
+import { ouvrirApercu } from '../lib/apercu.js';
 
 // Table des composants d'icônes (référencés par nom dans ENTITES.tabler)
 const TABLER = {
@@ -458,10 +459,7 @@ async function imprimerListe(rows, cols, titre, annee, mention) {
   }
   // REPLI ANNONCÉ, PAS SILENCIEUX : la pièce sort quand même, par le
   // navigateur, et l'on sait pourquoi le format n'est plus garanti.
-  const w = window.open('', '_blank');
-  if (!w) throw new Error("Autorisez les pop-ups pour imprimer.");
-  w.document.write(html); w.document.close();
-  setTimeout(() => { w.focus(); w.print(); }, 350);
+  ouvrirApercu({ html, titre, sousTitre: annee, nomFichier: titre, envoiPossible: false });
 }
 
 function exportCSV(rows, cols, nom) {
@@ -1671,10 +1669,8 @@ export default function Listes({ integre = false, domaine = null }) {
                       setTimeout(() => URL.revokeObjectURL(url), 60000);
                       return;
                     }
-                    const w = window.open('', '_blank');
-                    if (!w) { setError('Autorisez les pop-ups pour imprimer.'); return; }
-                    w.document.write(apercuHtml); w.document.close();
-                    setTimeout(() => { w.focus(); w.print(); }, 350);
+                    ouvrirApercu({ html: apercuHtml, titre: def.label, nomFichier: def.label,
+                                   envoiPossible: false });
                   } catch (e) { setError(e.message); }
                 }}
                 className="text-sm border border-iip-blue text-iip-blue hover:bg-slate-100 px-3 py-2 rounded-lg font-medium flex items-center gap-1.5">
@@ -1992,10 +1988,8 @@ function HeuresContactView({ sections, annee }) {
 
     const html = `<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8"><title>Grille de cours — ${annee}</title><style>*{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact;print-color-adjust:exact}body{font-family:Arial,sans-serif;color:#1a1a2e;font-size:9pt;background:white}@media print{@page{size:A4 portrait;margin:12mm}tr{page-break-inside:avoid}thead{display:table-header-group}}</style></head><body><div style="padding:6mm"><div style="border-bottom:3px solid ${TURQ};padding-bottom:6px;margin-bottom:6mm;display:flex;justify-content:space-between;align-items:flex-end"><div><div style="font-size:7pt;letter-spacing:3px;text-transform:uppercase;color:${TURQ};font-weight:700">Institut Ilya Prigogine · Enseignement pour adultes</div><div style="font-size:16pt;color:${BLEU};font-weight:700;margin-top:2px">Grille de cours</div><div style="font-size:9pt;color:#555;margin-top:1px">Année académique ${annee}</div></div><div style="text-align:right;font-size:8pt;color:#999">Document horaire<br>${new Date().toLocaleDateString('fr-BE',{day:'2-digit',month:'long',year:'numeric'})}</div></div>${sectionHtml}<div style="background:${BLEU};color:white;padding:5px 10px;border-radius:3px;display:flex;justify-content:space-between;font-size:9.5pt"><span>Total général — ${sections.length} section${sections.length>1?'s':''}</span><span style="font-weight:700">${sections.reduce((a,s)=>a+s.total_heures,0)}h</span></div></div></body></html>`;
 
-    const w = window.open('', '_blank');
-    if (!w) { alert('Autorisez les pop-ups pour imprimer.'); return; }
-    w.document.write(html); w.document.close();
-    setTimeout(() => { w.focus(); w.print(); }, 400);
+    ouvrirApercu({ html, titre: 'Grille de cours', sousTitre: annee, nomFichier: `Grille_cours_${annee}`,
+                   envoiPossible: false, astuceImpression: 'A4 portrait' });
   };
 
   if (!sections || sections.length === 0)

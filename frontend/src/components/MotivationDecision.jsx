@@ -4,6 +4,7 @@ import {
 } from '@tabler/icons-react';
 import { authHeaders } from '../lib/api.js';
 import { MOTIFS_ECHEC, texteDuMotif, composerMotif, decomposerMotif } from './motifsEchec.js';
+import { ouvrirApercu } from '../lib/apercu.js';
 
 /**
  * Motivation d'une décision d'ajournement ou de refus.
@@ -73,16 +74,14 @@ export default function MotivationDecision({ etudId, annee, onClose }) {
         + `?annee=${encodeURIComponent(annee)}`, { headers: authHeaders() });
       const j = await rep.json();
       if (!rep.ok) { setMessage({ type: 'err', texte: j.error }); return; }
-      const w = window.open('', '_blank');
-      if (!w) {
-        setMessage({ type: 'err', texte: 'Fenêtre bloquée. Autorisez les fenêtres surgissantes.' });
-        return;
-      }
-      w.document.open(); w.document.write(j.html); w.document.close();
-      let lance = false;
-      const lancer = () => { if (lance) return; lance = true; w.focus(); w.print(); };
-      w.onload = lancer;
-      setTimeout(lancer, 500);
+      ouvrirApercu({
+        html: j.html,
+        titre: 'Motivation de la décision',
+        sousTitre: `UE ${ueNum} · ${annee}`,
+        nomFichier: `Motivation_UE${ueNum}_${annee}`,
+        destinataire: { type: 'etudiant', id: etudId },
+        typeDoc: 'motivation', astuceImpression: 'A4 portrait',
+      });
     } catch (e) {
       setMessage({ type: 'err', texte: e.message });
     } finally { setEnCours(false); }

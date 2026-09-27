@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { IconAlertTriangle, IconFileTypePdf, IconPrinter } from '@tabler/icons-react';
 import { authHeaders } from '../lib/api.js';
 import { Fenetre } from './ui.jsx';
+import { ouvrirApercu } from '../lib/apercu.js';
 
 /**
  * LA SÉANCE DE VALORISATION DES ACQUIS, ET LES PIÈCES QUI EN DÉCOULENT.
@@ -135,9 +136,11 @@ export default function SeanceValorisation({ ueNum, ueNom, annee, onClose }) {
       // à n'en ouvrir qu'un : le navigateur bloque les suivants, et
       // l'attestation ne sortait jamais. Le document porte le procès-verbal
       // puis chaque attestation, chacune sur sa page.
-      const f = window.open('', '_blank');
-      if (!f) { setErreur('Le navigateur a bloqué la fenêtre d’impression.'); return; }
-      f.document.write(j.html); f.document.close();
+      ouvrirApercu({
+        html: j.html, titre: `Valorisation — UE ${ueNum}`, sousTitre: annee,
+        nomFichier: (j.nom || `Valorisation_UE${ueNum}`).replace(/\.html$/, ''),
+        envoiPossible: false, astuceImpression: 'A4 portrait',
+      });
       setDoc({ html: j.html, nom: (j.nom || `Valorisation_UE${ueNum}`).replace(/\.html$/, '') });
       setInfo(`Procès-verbal (${j.pages || '?'} page(s))`
         + ` + ${(j.attestations || []).length} attestation(s) `
