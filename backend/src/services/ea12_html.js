@@ -96,6 +96,10 @@ export function buildEA12Html(data) {
   const css = `
     @page { size: A4 portrait; margin: 7mm; }
     * { box-sizing: border-box; }
+    /* LE BLEU EST OBLIGATOIRE (Charles, 27 septembre 2026) : le navigateur
+       retire les fonds à l'impression, et les bandeaux du formulaire FWB
+       sortaient blancs. On lui demande de les garder. */
+    *, *::before, *::after { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
     body { font-family: Arial, Helvetica, sans-serif; font-size: 7.5pt; margin: 0; padding: 0; color: #000; }
     @media screen { body { padding: 8mm; max-width: 210mm; margin: 0 auto; background: #eee; }
                     .page { background: #fff; padding: 8mm; margin-bottom: 8mm; box-shadow: 0 2px 8px rgba(0,0,0,.2); } }
