@@ -329,6 +329,14 @@ function Cell({ value, onChange, type = 'text', options, small, placeholder }) {
 }
 
 /* ── Composant principal ─────────────────────────────────────────────────────── */
+/* LE MODÈLE DE DIPLÔME A SA PORTE DANS CONFIGURATION (27 septembre 2026).
+   Il ne vivait qu'ici, à l'adresse /attestation, qu'aucun menu n'ouvrait :
+   Charles a demandé où le trouver. On y règle un MODÈLE, c'est donc la place
+   de Configuration. */
+export function ModeleDiplome() {
+  return <DiplomeEditeur assets={{ logo_iip: LOGO_IIP, sceau: SCEAU_IIP, signature: SIGNATURE_SOHET }} />;
+}
+
 export default function Attestation() {
   const tok = () => localStorage.getItem('token');
   const af  = (url) => fetch(url, { headers: { Authorization: `Bearer ${tok()}` } }).then(r => r.json());
