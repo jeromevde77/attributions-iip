@@ -1,8 +1,6 @@
 import { Router } from 'express';
 import db from '../db/index.js';
 import { authRequired, roleRequired } from '../middleware/auth.js';
-import { Packer } from 'docx';
-import { buildEA12bis } from '../services/ea12_build.js';
 import { buildEA12Html } from '../services/ea12_html.js';
 
 const r = Router();
@@ -144,7 +142,12 @@ r.get('/:id/document', authRequired, async (req, res) => {
   const donnees = JSON.parse(row.donnees_json || '{}');
   const data = construireData(row, donnees);
   try {
-    const buf = await Packer.toBuffer(buildEA12bis(data));
+    /* LE MODÈLE OFFICIEL, REMPLI — ET NON UN WORD RECONSTRUIT (Charles, 27
+       septembre 2026 : « il doit être la copie conforme, mais éditable »).
+       La reconstruction `buildEA12bis` imitait le formulaire ; celui-ci EST le
+       formulaire de la FWB, dans lequel Lucie écrit. */
+    const { remplirModeleOfficiel } = await import('../services/ea12_fill_officiel.js');
+    const buf = await remplirModeleOfficiel(data);
     // Marquer comme généré
     db.prepare("UPDATE ea12 SET statut_doc = 'genere', modifie_le = CURRENT_TIMESTAMP WHERE id = ?").run(req.params.id);
     const fname = `EA12_${data.prof_nom}_${data.prof_prenom}_${row.annee_scolaire}.docx`.replace(/\s+/g, '_');
