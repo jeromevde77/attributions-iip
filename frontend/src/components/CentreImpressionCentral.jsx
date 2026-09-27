@@ -7,6 +7,7 @@ import {
   IconDownload, IconSend,
 } from '@tabler/icons-react';
 import PreviewModal from './PreviewModal.jsx';
+import SaisieAnnexe from './SaisieAnnexe.jsx';
 /* La séance de valorisation est chargée à la demande : Éditions s'ouvre
    souvent pour un rapport, et cet écran porte le rendu du procès-verbal. */
 const SeanceValorisation = lazy(() => import('./SeanceValorisation.jsx'));
@@ -794,6 +795,7 @@ function OngletPersonnel({ onClose, membreInitial = null, outilsMembre = null })
   const [annexes, setAnnexes] = useState([]);
   const [mois, setMois] = useState(() => new Date().getMonth() + 1);
   const [enCours, setEnCours] = useState(null);
+  const [aCompleter, setACompleter] = useState(null);   // l'annexe ouverte dans la saisie
   useEffect(() => {
     fetch('/api/formulaires', { headers: authHeaders() }).then(r => (r.ok ? r.json() : [])).then(l => setAnnexes(Array.isArray(l) ? l : [])).catch(() => {});
   }, []);
@@ -964,7 +966,9 @@ function OngletPersonnel({ onClose, membreInitial = null, outilsMembre = null })
                   {annexes.filter(a => a.cle === 'A1ter' || a.cle === 'A27').map(a => (
                     <li key={a.cle} className="flex items-center justify-between gap-3 py-1.5 text-[13px]">
                       <span>{a.titre}{a.mois && <span className="text-slate-400 text-[12px]"> · mois de {['janvier','février','mars','avril','mai','juin','juillet','août','septembre','octobre','novembre','décembre'][mois - 1]}</span>}</span>
-                      <button type="button" onClick={() => telecharger(a)} disabled={enCours === a.cle} className="bouton bouton-compact">{enCours === a.cle ? '…' : 'Word'}</button>
+                      {a.saisie
+                        ? <button type="button" onClick={() => setACompleter(a)} className="bouton bouton-sortir bouton-compact">Compléter</button>
+                        : <button type="button" onClick={() => telecharger(a)} disabled={enCours === a.cle} className="bouton bouton-compact">{enCours === a.cle ? '…' : 'Word'}</button>}
                     </li>
                   ))}
                 </ul>
@@ -1002,6 +1006,8 @@ function OngletPersonnel({ onClose, membreInitial = null, outilsMembre = null })
           </div>
         )}
       </div>
+      {aCompleter && choisi && <SaisieAnnexe annexe={aCompleter} membre={{ id: choisi.id, nom: nom(choisi) }} annee={annee}
+        moisInitial={mois} onFermer={() => setACompleter(null)} />}
       {contrat && <PreviewModal html={contrat.html} titre={contrat.titre} nomFichier={contrat.nom}
         destinataire={destinataire} typeDoc={contrat.typeDoc} sujetMail={`${contrat.titre} — Institut Ilya Prigogine`}
         onClose={() => setContrat(null)} />}

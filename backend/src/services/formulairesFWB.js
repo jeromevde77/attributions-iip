@@ -326,10 +326,39 @@ function remplirA27(x, d) {
       });
     });
   });
+  // La signature du chef d'établissement : son nom et la date, saisis dans Lucie.
+  if (d.date_signature) x = ajouter(x, tout(x), /^\s*Date\s*:\s*$/, dateFr(d.date_signature));
+  if (d.signataire) x = ajouter(x, tout(x), /Signature du chef de l.établissement/, d.signataire);
   return x;
 }
 
+// « _ _ /_ _ /20_ _ » — la date des modèles de l'EA12.
+const DATE20 = '(_\\s*_\\s*\\/\\s*_\\s*_\\s*\\/\\s*20\\s*_\\s*_)';
+const apresLibelle = libelle => new RegExp(`${libelle}[^:]*:\\s*${DATE20}`);
+
 function remplirA1ter(x, d) {
+  // En-tête : l'année académique (deux fois deux chiffres) et le n° de document.
+  const t0 = tableauContenant(x, /Année académique/);
+  if (t0 >= 0) {
+    const an = /(\d{2})(\d{2})\D+\d{2}(\d{2})/.exec(String(d.annee || ''));
+    const r0 = tableaux(x)[t0].rows[0];
+    if (an && r0?.length >= 10) {
+      x = ecrireCellule(x, t0, 0, 3, an[2][0]); x = ecrireCellule(x, t0, 0, 4, an[2][1]);
+      x = ecrireCellule(x, t0, 0, 8, an[3][0]); x = ecrireCellule(x, t0, 0, 9, an[3][1]);
+    }
+    const rDoc = tableaux(x)[t0].rows.findIndex(r => r.length && /Document n°/.test(T(x.slice(r[0].s, r[0].e))));
+    if (rDoc >= 0 && d.num_doc) {
+      const n = String(d.num_doc).padStart(2, '0');
+      x = ecrireCellule(x, t0, rDoc, 1, n[0]); x = ecrireCellule(x, t0, rDoc, 2, n[1]);
+    }
+  }
+  if (d.dernier_doc12) x = remplacer(x, tout(x), apresLibelle('Dernier Doc12 transmis le'), ` ${dateFr(d.dernier_doc12)}`);
+  // Les cases que la saisie a tranchées.
+  if (d.cumul === 'aucun') x = cocherLibelle(x, /^Pas de cumul interne/);
+  if (d.cumul === 'A2') x = cocherLibelle(x, /^Cumul interne A2/);
+  if (d.tardive) x = cocherLibelle(x, /^En application de la Circulaire 6930/);
+  if (d.joint_diplome) x = cocherLibelle(x, /^Diplôme/);
+  if (d.joint_profil) x = cocherLibelle(x, /^Profil/);
   // Les attributions : U.E. | F | Dénomination | CLA | Sous-niveau | Occupation | Nb | DI
   const tA = tableauContenant(x, /Sous-niveau/);
   const attrs = (d.attributions || []).filter(a => a && (a.ue || a.denomination));
@@ -346,7 +375,16 @@ function remplirA1ter(x, d) {
       });
     });
   }
-  x = remplacer(x, tout(x), /Date de début des prestations[^:]*:\s*(_[\s_/]+_(?:\s*_)*)/, d.date_debut ? ` ${dateFr(d.date_debut)}` : null);
+  x = remplacer(x, tout(x), new RegExp(`Date de début des prestations[^:]*:\\s*(_\\s*_\\s*\\/\\s*_\\s*_\\s*\\/\\s*(?:20)?\\s*_\\s*_(?:\\s*_\\s*_)?)`), d.date_debut ? ` ${dateFr(d.date_debut)}` : null);
+  if (d.observations) {
+    const t9 = tableauContenant(x, /Situation ancienne-nouvelle/);
+    if (t9 >= 0) {
+      const cel = cellule(x, t9, 0, 0);
+      const ps = cel ? paragraphes(x, cel.s, cel.e) : [];
+      const vide = ps.find((p, i) => i > 0 && !p.texte.trim());
+      x = vide ? episser(x, vide, 0, 0, d.observations) : ajouter(x, cel, /Situation ancienne/, d.observations);
+    }
+  }
   // Page 2 : le total par classification
   const tT = tableauContenant(x, /Attributions actuelles/);
   if (tT >= 0 && attrs.length) {
@@ -356,6 +394,27 @@ function remplirA1ter(x, d) {
     x = ecrireCellule(x, tT, 2, 0, cles.map(k => k.split('|')[0]).join('\n'));
     x = ecrireCellule(x, tT, 2, 1, cles.map(k => k.split('|')[1]).join('\n'));
     x = ecrireCellule(x, tT, 2, 2, cles.map(k => String(tot[k])).join('\n'));
+  }
+  // Les attributions du Doc12 précédent : sa date, et ce qu'il portait.
+  if (tT >= 0) {
+    if (d.date_prec) x = remplacer(x, tout(x), apresLibelle('Attributions du EA12 précédent'), ` ${dateFr(d.date_prec)}`);
+    const prec = (d.prec || []).filter(z => z && (z.cla || z.periodes));
+    if (prec.length) {
+      x = ecrireCellule(x, tT, 2, 3, prec.map(z => z.cla || '').join('\n'));
+      x = ecrireCellule(x, tT, 2, 4, prec.map(z => z.sous_niveau || 'SU').join('\n'));
+      x = ecrireCellule(x, tT, 2, 5, prec.map(z => String(z.periodes ?? '')).join('\n'));
+    }
+  }
+  // Le bloc de signature du pouvoir organisateur (colonne de droite).
+  const tS = tableauContenant(x, /SIGNATURES OPTIONNELLES/);
+  if (tS >= 0 && (d.signataire_nom || d.date_signature)) {
+    const rS = tableaux(x)[tS].rows.findIndex(r => r.some(c => /NOM\s*:/.test(T(x.slice(c.s, c.e)))));
+    const col = rS >= 0 ? tableaux(x)[tS].rows[rS].length - 1 : -1;
+    const poser = (motif, v) => { if (!v || col < 0) return; const c = cellule(x, tS, rS, col); if (c) x = remplacer(x, c, motif, ` ${v}`); };
+    poser(/NOM\s*:\s*([….]{4,})/, d.signataire_nom);
+    poser(/Prénom\s*:\s*([….]{4,})/, d.signataire_prenom);
+    poser(/Qualité\s*:\s*([….]{4,})/, d.signataire_qualite);
+    poser(new RegExp(`Date\\s*:\\s*${DATE20}`), d.date_signature ? dateFr(d.date_signature) : null);
   }
   // Toujours joint : le document des prestations mensuelles
   x = cocherLibelle(x, /^Document des prestations mensuelles/);
