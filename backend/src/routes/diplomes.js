@@ -983,6 +983,7 @@ export function pvDeSection(sectionCode, annee, lignes, { session = 1, lieu = nu
     .cloture { display:grid; grid-template-columns:auto 1fr auto; gap:4mm;
                align-items:end; margin-top:6mm; font-size:9pt; break-inside:avoid; }
     .cloture .sceau, .cloture .paraphe { height:16mm; }
+    .cloture { --filigrane-h:16mm; }
     .cloture .legende { text-align:center; }
     .cloture .legende .nom { font-weight:700; color:#1B2B4B; }
   </style>`;

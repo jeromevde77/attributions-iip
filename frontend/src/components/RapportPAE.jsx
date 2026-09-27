@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { IconX, IconPrinter, IconTable, IconFileSpreadsheet } from '@tabler/icons-react';
+import { IconX, IconPrinter, IconSend, IconTable, IconFileSpreadsheet } from '@tabler/icons-react';
 import { authHeaders } from '../lib/api.js';
 
 /**
@@ -544,8 +544,8 @@ function PreviewLite({ documents, onClose }) {
               const f = document.getElementById('apercu-pae');
               f?.contentWindow?.focus(); f?.contentWindow?.print();
             }}
-            className="flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-lg bg-iip-turquoise text-white font-semibold">
-            <IconPrinter size={15} /> Imprimer / PDF
+            className="bouton bouton-sortir">
+            <IconSend size={15} /> Imprimer / PDF
           </button>
           <button onClick={onClose} className="text-white/80 hover:text-white"><IconX size={20} /></button>
         </div>
