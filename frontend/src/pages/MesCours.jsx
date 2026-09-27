@@ -386,8 +386,10 @@ export default function MesCours() {
                                 {nc.erreur ? <span className="text-slate-300">—</span>
                                   : nc.note != null
                                     ? <span title={nc.partielle ? 'Calculée sans les acquis marqués PP, NP ou CM' : 'Indicative : moyenne pondérée des acquis'}
-                                        style={{ color: nc.note < 10 ? 'var(--c-refuse)' : 'var(--c-reussi)' }}>
-                                        {nc.note.toFixed(1).replace('.', ',')}{nc.partielle ? '*' : ''}
+                                        style={{ color: Math.round(nc.note) < 10 ? 'var(--c-refuse)' : 'var(--c-reussi)' }}>
+                                        {/* PAS DE DÉCIMALE (Charles, 27 septembre 2026) : arrondi à
+                                            l'unité, comme toute note de Lucie — 9,6 fait 10. */}
+                                        {Math.round(nc.note)}{nc.partielle ? '*' : ''}
                                       </span>
                                     : nc.mentions ? <span className="text-slate-400 text-[12px]">—</span>
                                     : <span className="text-slate-300">·</span>}
