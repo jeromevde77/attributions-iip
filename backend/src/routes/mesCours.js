@@ -114,11 +114,17 @@ function attributionsDe(profId, annee) {
            (SELECT c.cours_nom FROM cours c WHERE c.cours_code = a.code_cours
              ORDER BY (c.annee_scolaire = ?) DESC LIMIT 1) AS cours_nom,
            (SELECT x.ue_nom FROM ue x WHERE x.ue_num = a.ue_num AND x.ue_nom IS NOT NULL
-             ORDER BY x.annee_scolaire DESC LIMIT 1) AS ue_nom
+             ORDER BY x.annee_scolaire DESC LIMIT 1) AS ue_nom,
+           a.section,
+           -- Le bloc de l'unité DANS la section de l'attribution : un même
+           -- numéro vit sous plusieurs sections (l'UE 95).
+           (SELECT x.ue_niv FROM ue x WHERE x.ue_num = a.ue_num AND x.ue_niv IS NOT NULL
+             AND (a.section IS NULL OR x.section = a.section)
+             ORDER BY (x.annee_scolaire = ?) DESC, x.annee_scolaire DESC LIMIT 1) AS ue_niv
     FROM attribution a
     WHERE a.professeur_id = ? AND a.annee_scolaire = ? AND a.code_cours IS NOT NULL
     ORDER BY a.ue_num, a.code_cours, org, groupe
-  `).all(annee, profId, annee);
+  `).all(annee, annee, profId, annee);
 }
 
 /* Les étudiants du professeur pour UN cours : ceux de ses groupes quand la
@@ -195,7 +201,10 @@ function coursDesSections(sections, annee) {
   // « misuse of aggregate ») : on regroupe d'abord, on nomme l'unité ensuite.
   return db.prepare(`
     SELECT g.*, (SELECT x.ue_nom FROM ue x WHERE x.ue_num = g.ue_num AND x.ue_nom IS NOT NULL
-                  ORDER BY x.annee_scolaire DESC LIMIT 1) AS ue_nom
+                  ORDER BY x.annee_scolaire DESC LIMIT 1) AS ue_nom,
+                (SELECT x.ue_niv FROM ue x WHERE x.ue_num = g.ue_num AND x.ue_niv IS NOT NULL
+                  AND (g.section IS NULL OR x.section = g.section)
+                  ORDER BY x.annee_scolaire DESC LIMIT 1) AS ue_niv
     FROM (
       SELECT c.cours_code, MIN(c.cours_nom) AS cours_nom, MIN(c.ue_num) AS ue_num, MIN(c.section) AS section
       FROM cours c
@@ -244,7 +253,7 @@ r.get('/', authRequired, (req, res) => {
   for (const a of attrs) {
     const c = parCours.get(a.code_cours) || {
       cours_code: a.code_cours, cours_nom: a.cours_nom, ue_num: a.ue_num,
-      ue_nom: a.ue_nom, groupes: [],
+      ue_nom: a.ue_nom, section: a.section || null, ue_niv: a.ue_niv || null, groupes: [],
     };
     c.groupes.push(`${a.activite_libelle ? `${a.activite_libelle} · ` : ''}Org ${a.org}${a.groupe ? ` · Gr. ${a.groupe}` : ''}`);
     parCours.set(a.code_cours, c);

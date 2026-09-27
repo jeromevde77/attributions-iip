@@ -1,3 +1,4 @@
+import { couleurBloc, rangBloc } from '../lib/blocs.js';
 import { useEffect, useState } from 'react';
 import { IconBooks, IconChevronLeft, IconAlertTriangle } from '@tabler/icons-react';
 import { authHeaders, getAnnee } from '../lib/api.js';
@@ -115,6 +116,20 @@ export default function MesCours() {
         const garde = x => !q || `${x.cours_code} ${x.cours_nom || ''} ${x.ue_num} ${x.ue_nom || ''}`.toLowerCase().includes(q);
         const miens = cours.filter(x => x.a_moi !== false).filter(garde);
         const section = cours.filter(x => x.a_moi === false).filter(garde);
+        /* PAR SECTION, PUIS PAR BLOC (Charles, 27 septembre 2026) : le titre
+           d'une section, ses cours de BA1, de BA2, de BA3 ; puis l'autre
+           section. Le bloc se lit au liseré, épais et droit — orange, bleu
+           clair, marine —, la couleur du bloc et rien d'autre. */
+        const tri = (a, b) => rangBloc(a.ue_niv) - rangBloc(b.ue_niv) || (a.ue_num - b.ue_num)
+          || String(a.cours_code).localeCompare(String(b.cours_code), 'fr', { numeric: true });
+        const parSection = [];
+        for (const x of [...miens].sort(tri)) {
+          const s0 = x.section || 'Sans section';
+          const g = parSection.find(y => y.section === s0);
+          if (g) g.cours.push(x); else parSection.push({ section: s0, cours: [x] });
+        }
+        parSection.sort((a, b) => a.section.localeCompare(b.section, 'fr'));
+        section.sort(tri);
         const parUe = [];
         for (const x of section) {
           const g = parUe.find(y => y.ue_num === x.ue_num);
@@ -122,7 +137,8 @@ export default function MesCours() {
         }
         const carte = x => (
           <button key={x.cours_code} onClick={() => ouvrir(x.cours_code)}
-            className="w-full text-left bg-white border border-slate-200 rounded-carte px-3 py-2 hover:border-iip-turquoise flex items-center gap-3">
+            style={{ borderLeftColor: couleurBloc(x.ue_niv) || '#D8DCE4' }}
+            className="w-full text-left bg-white border border-slate-200 border-l-[5px] rounded-l-none rounded-r-carte px-3 py-2 hover:border-iip-turquoise flex items-center gap-3">
             <div className="min-w-0 flex-1">
               <div className="font-semibold text-iip-blue text-[13px]">{x.cours_code} · {x.cours_nom || ''}</div>
               <div className="text-[12px] text-slate-500 truncate">
@@ -148,10 +164,13 @@ export default function MesCours() {
             {(miens.length > 0 || !aSection) && (
               <div className="space-y-1.5">
                 {aSection && <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Mes attributions</div>}
-                <div className="grid gap-2 md:grid-cols-2 2xl:grid-cols-3">
-                  {!cours.length && <p className="text-sm text-slate-400">Aucune attribution pour {annee}.</p>}
-                  {miens.map(carte)}
-                </div>
+                {!cours.length && <p className="text-sm text-slate-400">Aucune attribution pour {annee}.</p>}
+                {parSection.map(g => (
+                  <div key={g.section} className="space-y-1.5">
+                    {(parSection.length > 1 || aSection) && <div className="text-[13px] font-semibold text-iip-blue pt-1">{g.section}</div>}
+                    <div className="grid gap-2 md:grid-cols-2 2xl:grid-cols-3">{g.cours.map(carte)}</div>
+                  </div>
+                ))}
               </div>
             )}
             {parUe.length > 0 && (
