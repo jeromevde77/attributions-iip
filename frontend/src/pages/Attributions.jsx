@@ -1937,8 +1937,12 @@ export default function Attributions() {
               : 'border-2 border-iip-gold/60 rounded-sm shadow-sm mb-0.5')
           : (isHelb
               ? 'border-b border-gray-100 border-l-2 border-l-pink-400'
+              /* LE TRONC COMMUN SE MARQUE À GAUCHE, COMME LA HELB (Charles, 27
+                 septembre 2026 : « cette bordure au-dessus, c'est vieillot ») :
+                 un liseré turquoise, et le filet marine du dessus disparaît. */
+              : isTC ? 'border-b border-gray-100 border-l-2 border-l-[#0093B0]'
               : 'border-b border-gray-100')
-      } ${isTC ? 'border-t-2 border-t-blue-900 rounded-t-md' : ''}`}>
+      }`}>
         <div className={`w-full flex items-center pl-6 pr-3 py-1.5 transition relative ${activeUE === key ? (isHelb ? 'bg-pink-50 hover:bg-pink-100/70' : 'bg-iip-gold/5 hover:bg-iip-gold/10') : (isHelb ? 'hover:bg-pink-100/60' : 'hover:bg-gray-50')}`}>
           <div onClick={()=>{toggle(key); setActiveUE(key);}} role="button" className="grid items-center gap-2 flex-1 min-w-0 text-left cursor-pointer"
                   style={{ gridTemplateColumns: '16px 70px 200px 1fr auto' }}>
