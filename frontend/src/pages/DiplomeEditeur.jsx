@@ -279,10 +279,12 @@ export default function DiplomeEditeur({ assets = {} }) {
                   Enregistrer pour {sections.find(s0 => s0.code === secSig)?.libelle || secSig}
                 </button>
                 {/* LE LOGO HELB, PAR SECTION : une co-diplomation le porte, un
-                    titre propre de l'IIP non. Coché par défaut, pour que rien
-                    ne change sans décision. Celui de l'IIP est toujours là. */}
+                    titre propre de l'IIP non. Par défaut, TIM seule — la seule
+                    section co-diplômée avec la HELB (Charles, 27 septembre 2026 :
+                    « on le garde juste pour le TIM »). Même défaut que le serveur
+                    (routes/diplomes.js, logosDe). Celui de l'IIP est toujours là. */}
                 <label className="flex items-center gap-1.5 text-[12px] text-gray-700">
-                  <input type="checkbox" checked={cologo[secSig] !== false}
+                  <input type="checkbox" checked={cologo[secSig] ?? secSig === 'TIM'}
                     onChange={async e => {
                       const suivant = { ...cologo, [secSig]: e.target.checked };
                       try {

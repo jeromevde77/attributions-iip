@@ -494,13 +494,15 @@ function poserSignatures(modele, bloc, propre) {
  * place. Constaté par Charles le 21 septembre 2026.
  * Désormais : l'IIP toujours ; la HELB pour une section cochée « co-diplomation »
  * (lucie_config.diplome_cologo_helb : { section: bool }) — absente, la case
- * vaut oui, pour que rien ne change sans décision. */
+ * vaut oui pour TIM seulement, la seule section co-diplômée (27 septembre 2026). */
 async function logosDe(sectionCode) {
   const { LOGO_IIP_B64 } = await import('../services/assets/logo_iip.js');
   let helb = '', coche = {};
   try { helb = db.prepare("SELECT valeur FROM lucie_config WHERE cle = 'diplome_logo_helb'").get()?.valeur || ''; } catch { /* rien */ }
   try { coche = JSON.parse(db.prepare("SELECT valeur FROM lucie_config WHERE cle = 'diplome_cologo_helb'").get()?.valeur || '{}') || {}; } catch { coche = {}; }
-  const avecHelb = !!helb && coche[sectionCode] !== false;
+  // Défaut : TIM seule (Charles, 27 septembre 2026 : « on enlève le logo
+  // HELB, on le garde juste pour le TIM »). La case de l'éditeur l'emporte.
+  const avecHelb = !!helb && (coche[sectionCode] ?? sectionCode === 'TIM');
   return `<img src="${LOGO_IIP_B64}" class="logo-img" alt="Institut Ilya Prigogine" />`
     + (avecHelb ? `<img src="${helb}" class="logo-img" alt="HELB" style="margin-left:6mm" />` : '');
 }
