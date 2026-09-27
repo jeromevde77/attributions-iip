@@ -3036,10 +3036,13 @@ import { createRequire as _cr } from 'module';
 import { fileURLToPath as _fup } from 'url';
 import { dirname as _dn, join as _jn } from 'path';
 const _logoPath = _jn(_dn(_fup(import.meta.url)), 'src/services/assets/logo_iip.png');
-app.get('/api/logo-iip', (_req, res) => {
-  res.setHeader('Content-Type', 'image/png');
+/* Le logo sur FOND BLANC, celui de toutes les pièces : le PNG d'origine est
+   opaque, sur fond noir (27 septembre 2026). */
+app.get('/api/logo-iip', async (_req, res) => {
+  const { LOGO_IIP_JPEG } = await import('./services/assets/logo_iip_jpeg.js');
+  res.setHeader('Content-Type', 'image/jpeg');
   res.setHeader('Cache-Control', 'public, max-age=86400');
-  res.sendFile(_logoPath);
+  res.end(Buffer.from(LOGO_IIP_JPEG.split(',')[1], 'base64'));
 });
 const _logoBlanc = _jn(_dn(_fup(import.meta.url)), 'src/services/assets/logo_iip_blanc.png');
 app.get('/api/logo-iip-blanc', (_req, res) => {

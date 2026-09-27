@@ -62,6 +62,117 @@ const VARS_DEMO = (etab, assets) => ({
   '{{signature_directeur}}': assets.signature || '',
 });
 
+/**
+ * LES SIGNATAIRES, À LA SOURIS (Charles, 27 septembre 2026 : « je dois avoir un
+ * éditeur pour choisir qui signe ; des tuiles transparentes à droite du modèle,
+ * et on glisse autant que possible »).
+ *
+ * À gauche, le diplôme tel qu'il sortira, redessiné à chaque geste. À droite,
+ * les signataires connus en tuiles : on les glisse dans la rangée des
+ * signatures, dans l'ordre de gauche à droite ; on les réordonne en les
+ * glissant dans la rangée ; on en retire un par sa croix. Un clic sur une tuile
+ * posée en ouvre le libellé. Rien ne s'écrit avant « Enregistrer ».
+ */
+function EditeurSignataires({ liste, setListe, palette, peutEcrire, rendu }) {
+  const [survol, setSurvol] = useState(null);
+  const [edition, setEdition] = useState(null);
+  const lire = e => { try { return JSON.parse(e.dataTransfer.getData('text/plain')); } catch { return null; } };
+  const deposer = (e, index) => {
+    e.preventDefault(); setSurvol(null);
+    const d = lire(e); if (!d || !peutEcrire) return;
+    setListe(l => {
+      const n = [...l];
+      if (d.de === 'palette') n.splice(index, 0, { qualite: d.item.qualite, nom: d.item.nom });
+      else if (d.de === 'ligne') {
+        const [x] = n.splice(d.index, 1);
+        n.splice(d.index < index ? index - 1 : index, 0, x);
+      }
+      return n;
+    });
+  };
+  const Tuile = ({ x, onX, ...rest }) => (
+    <div {...rest} className={`relative select-none rounded-champ border border-dashed border-slate-300 bg-white/60 backdrop-blur-sm px-2.5 py-1.5 text-[11px] leading-snug text-iip-blue ${peutEcrire ? 'cursor-grab active:cursor-grabbing hover:border-iip-blue' : ''} ${rest.className || ''}`}>
+      <div className="whitespace-pre-line">{x.qualite || <i className="text-slate-400">qualité</i>}</div>
+      <div className="font-semibold mt-0.5">{x.nom || <i className="text-slate-400 font-normal">nom</i>}</div>
+      {onX && peutEcrire && (
+        <button type="button" onClick={e => { e.stopPropagation(); onX(); }} title="Retirer"
+          className="absolute -top-2 -right-2 w-5 h-5 grid place-items-center rounded-full bg-white border border-slate-300 text-slate-500 hover:text-[#9D4A38]">
+          <IconX size={11} />
+        </button>
+      )}
+    </div>
+  );
+  return (
+    <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_240px] items-start">
+      <div className="space-y-2 min-w-0">
+        {/* La rangée des signatures : là où l'on dépose, dans l'ordre du diplôme. */}
+        <div className="rounded-carte border border-slate-200 bg-slate-50/60 p-2">
+          <div className="text-[11px] text-slate-500 mb-1.5">Signataires du diplôme, de gauche à droite — glissez une tuile ici</div>
+          <div className="flex flex-wrap items-stretch gap-2 min-h-[3.5rem]"
+            onDragOver={e => { e.preventDefault(); if (survol == null) setSurvol(liste.length); }}
+            onDragLeave={() => setSurvol(null)}
+            onDrop={e => deposer(e, survol ?? liste.length)}>
+            {liste.map((x, i) => (
+              <div key={i} className="flex items-stretch gap-2"
+                onDragOver={e => { e.preventDefault(); e.stopPropagation(); setSurvol(i); }}
+                onDrop={e => { e.stopPropagation(); deposer(e, i); }}>
+                {survol === i && <div className="w-1 rounded-full bg-iip-blue" />}
+                <Tuile x={x} draggable={peutEcrire}
+                  onDragStart={e => e.dataTransfer.setData('text/plain', JSON.stringify({ de: 'ligne', index: i }))}
+                  onClick={() => peutEcrire && setEdition(edition === i ? null : i)}
+                  onX={() => { setListe(l => l.filter((_, j) => j !== i)); setEdition(null); }}
+                  className={edition === i ? 'ring-2 ring-iip-blue/30' : ''} />
+              </div>
+            ))}
+            {survol === liste.length && <div className="w-1 rounded-full bg-iip-blue" />}
+            {!liste.length && <span className="text-[12px] text-slate-400 self-center">Aucun signataire : glissez-en un depuis la droite.</span>}
+          </div>
+          {edition != null && liste[edition] && (
+            <div className="mt-2 flex flex-wrap items-start gap-2">
+              <textarea rows={2} value={liste[edition].qualite} autoFocus
+                onChange={e => setListe(l => l.map((x, j) => (j === edition ? { ...x, qualite: e.target.value } : x)))}
+                placeholder="Qualité — « Le Directeur » ↵ « de l'Institut Ilya Prigogine, »"
+                className="controle h-auto py-1 text-[13px] flex-1 min-w-[16rem]" />
+              <input value={liste[edition].nom}
+                onChange={e => setListe(l => l.map((x, j) => (j === edition ? { ...x, nom: e.target.value } : x)))}
+                placeholder="Nom — ou {{directeur}}, {{president_jury}}" className="controle text-[13px] w-64" />
+              <button type="button" className="bouton bouton-compact" onClick={() => setEdition(null)}>OK</button>
+            </div>
+          )}
+        </div>
+        {/* Le diplôme, redessiné à chaque geste. */}
+        <div className="rounded-carte border border-slate-200 bg-white overflow-hidden">
+          <div style={{ width: '100%', aspectRatio: '297 / 210', position: 'relative' }}>
+            <iframe title="Aperçu du diplôme" srcDoc={rendu} className="absolute inset-0 border-0"
+              style={{ width: '1123px', height: '794px', transform: 'scale(var(--k))', transformOrigin: '0 0' }}
+              ref={el => { if (!el) return; const f = () => el.style.setProperty('--k', String(el.parentElement.clientWidth / 1123)); f(); new ResizeObserver(f).observe(el.parentElement); }} />
+          </div>
+        </div>
+      </div>
+      {/* Les tuiles disponibles : on les glisse, elles restent ici. */}
+      <div className="space-y-2">
+        <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Signataires disponibles</div>
+        {palette.map((x, i) => (
+          <Tuile key={i} x={x} draggable={peutEcrire}
+            onDragStart={e => e.dataTransfer.setData('text/plain', JSON.stringify({ de: 'palette', item: x }))}
+            onDoubleClick={() => peutEcrire && setListe(l => [...l, { ...x }])}
+            title="Glissez vers la rangée des signatures (ou double-cliquez)" />
+        ))}
+        {peutEcrire && (
+          <Tuile x={{ qualite: 'Nouveau signataire', nom: '' }} draggable
+            onDragStart={e => e.dataTransfer.setData('text/plain', JSON.stringify({ de: 'palette', item: { qualite: '', nom: '' } }))}
+            onDoubleClick={() => setListe(l => [...l, { qualite: '', nom: '' }])}
+            className="border-iip-blue/40 text-slate-500" />
+        )}
+        <p className="text-[11px] text-slate-500">
+          <code>{'{{directeur}}'}</code> et <code>{'{{president_jury}}'}</code> se remplissent d'eux-mêmes.
+          « Au nom du Gouvernement… le titulaire » reste commun à toutes les sections.
+        </p>
+      </div>
+    </div>
+  );
+}
+
 export default function DiplomeEditeur({ assets = {} }) {
   const [html, setHtml] = useState('');
   const [initial, setInitial] = useState('');
@@ -127,6 +238,30 @@ export default function DiplomeEditeur({ assets = {} }) {
   }
 
   const dirty = html !== initial;
+
+  /* Le rendu du diplôme avec la liste en cours — la même règle que le
+     serveur (poserSignatures) : l'emplacement {{signatures}} s'il existe,
+     sinon les colonnes écrites en dur dans le bloc des signatures. */
+  const rendre = (l) => {
+    const vars = VARS_DEMO(etab, { ...assets, logo_helb: logoHelb });
+    const avecHelb = !!logoHelb && (!secSig || (cologo[secSig] ?? secSig === 'TIM'));
+    const logos = `<img src="${assets.logo_iip || ''}" class="logo-img" alt="Institut Ilya Prigogine" />`
+      + (avecHelb ? `<img src="${logoHelb}" class="logo-img" alt="HELB" style="margin-left:6mm" />` : '');
+    const bloc = blocSignatures(l || SIGNATAIRES_DEFAUT);
+    let h = html;
+    if (/\{\{\s*signatures\s*\}\}/.test(h)) h = h.split('{{signatures}}').join(bloc);
+    else h = h.replace(/(<div class="signatures">)[\s\S]*?(<div class="gouv">)/, `$1\n    ${bloc}\n    $2`);
+    return remplaceVars(h.split('{{logos}}').join(logos), vars);
+  };
+  // Les tuiles : les signataires d'origine, puis tous ceux déjà posés ailleurs.
+  const palette = (() => {
+    const vus = new Set(), out = [];
+    for (const x of [...SIGNATAIRES_DEFAUT, ...Object.values(signatures).flat()]) {
+      if (!x) continue;
+      const k = `${x.qualite}|${x.nom}`; if (vus.has(k)) continue; vus.add(k); out.push({ qualite: x.qualite || '', nom: x.nom || '' });
+    }
+    return out;
+  })();
 
   const apercu = () => {
     // L'aperçu signe avec la section choisie ci-dessous, sinon avec la liste d'origine.
@@ -242,38 +377,10 @@ export default function DiplomeEditeur({ assets = {} }) {
         </div>
         {liste && (
           <>
-            <div className="space-y-1.5">
-              {liste.map((x, i) => (
-                <div key={i} className="flex items-start gap-2">
-                  <span className="text-[11px] text-gray-400 w-4 pt-2 tabular-nums">{i + 1}</span>
-                  <textarea rows={2} value={x.qualite} disabled={!peutEcrire}
-                    onChange={e => poser(i, { qualite: e.target.value })}
-                    placeholder="Qualité — « Le Directeur » ↵ « de l'Institut Ilya Prigogine, »"
-                    className="controle h-auto py-1 text-[13px] flex-1" />
-                  <input value={x.nom} disabled={!peutEcrire}
-                    onChange={e => poser(i, { nom: e.target.value })}
-                    placeholder="Nom — ou {{directeur}}, {{president_jury}}"
-                    className="controle text-[13px] w-64" />
-                  {peutEcrire && (
-                    <span className="flex gap-0.5 pt-1">
-                      <button className="bouton px-1.5" title="Monter" onClick={() => deplacer(i, -1)}><IconArrowUp size={14}/></button>
-                      <button className="bouton px-1.5" title="Descendre" onClick={() => deplacer(i, 1)}><IconArrowDown size={14}/></button>
-                      <button className="bouton px-1.5" title="Retirer" onClick={() => setListe(l => l.filter((_, j) => j !== i))}><IconX size={14}/></button>
-                    </span>
-                  )}
-                </div>
-              ))}
-            </div>
-            <p className="text-[11px] text-gray-500">
-              De gauche à droite sur le diplôme, dans cet ordre. Une qualité sur deux lignes s’écrit avec un retour
-              à la ligne. <code>{'{{directeur}}'}</code> et <code>{'{{president_jury}}'}</code> se remplissent
-              d’eux-mêmes. « Au nom du Gouvernement… le titulaire » reste commun à toutes les sections.
-            </p>
+            <EditeurSignataires liste={liste} setListe={setListe} palette={palette}
+              peutEcrire={peutEcrire} rendu={rendre(liste)} />
             {peutEcrire && (
               <div className="flex flex-wrap items-center gap-2">
-                <button className="bouton" onClick={() => setListe(l => [...l, { qualite: '', nom: '' }])}>
-                  <IconPlus size={14} className="inline -mt-0.5 mr-1"/>Ajouter un signataire
-                </button>
                 <button className="bouton bouton-fort disabled:opacity-40" disabled={!listeModifiee && propre}
                   onClick={() => enregistrerSignatures(liste)}>
                   Enregistrer pour {sections.find(s0 => s0.code === secSig)?.libelle || secSig}
