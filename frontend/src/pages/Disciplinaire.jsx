@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
-import { IconGavel, IconScale, IconMail, IconClipboardText, IconGavel as IconDecision, IconPaperclip, IconTrash, IconDownload, IconPlus, IconChevronLeft, IconChevronRight } from '@tabler/icons-react';
+import { IconGavel, IconScale, IconMail, IconClipboardText, IconGavel as IconDecision, IconPaperclip, IconTrash, IconDownload, IconPlus, IconChevronLeft, IconChevronRight, IconLock
+} from '@tabler/icons-react';
 import PreviewModal from '../components/PreviewModal.jsx';
 
 function addJoursOuvrables(date, n) {
@@ -324,7 +325,7 @@ export default function Disciplinaire() {
     <div className="space-y-4">
       <div className="flex items-center gap-3 flex-wrap">
         <div className="ml-auto flex items-center gap-2">
-          {lectureSeule ? <span className="text-xs text-gray-500">🔒 Lecture seule</span> : enreg && <span className="text-xs text-green-600">✓ Enregistré</span>}
+          {lectureSeule ? <span className="text-xs text-gray-500"><IconLock size={13} stroke={1.8} className="inline -mt-0.5 text-slate-400" /> Lecture seule</span> : enreg && <span className="text-xs text-green-600">✓ Enregistré</span>}
           <select value={caseId || ''} onChange={e => ouvrirDossier(e.target.value)} className={champ + ' w-52'}>
             <option value="">— Dossiers —</option>
             {dossiers.map(d => <option key={d.id} value={d.id}>{d.etudiant || 'Sans nom'} · {new Date(d.modifie_le).toLocaleDateString('fr-BE')}</option>)}

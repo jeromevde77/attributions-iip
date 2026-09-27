@@ -6,7 +6,7 @@ import SuiviEtudiant from '../components/SuiviEtudiant.jsx';
 import NouvelEtudiant from '../components/NouvelEtudiant.jsx';
 import {
   IconAddressBook, IconAlertTriangle, IconArrowForwardUp, IconArchive, IconDoorExit, IconSchool, IconArrowBackUp, IconAward, IconCertificate, IconStairsUp, IconUserPlus, IconCheck, IconChecklist, IconChevronLeft, IconChevronRight, IconClock, IconFileText, IconFolder, IconPlus, IconPrinter, IconSearch, IconTable, IconTrash, IconUpload, IconUser, IconSend, IconWritingSign, IconWritingSignOff, IconX,
-  IconChecks,
+  IconChecks, IconLock
 } from '@tabler/icons-react';
 import { authHeaders, getAnnee, getUser } from '../lib/api.js';
 import PreviewModal from '../components/PreviewModal.jsx';
@@ -397,7 +397,7 @@ function GrilleParcours({ etudId, peutEcrire, annee, ueFocus = null }) {
           Cliquez sur une case pour encoder.
           {peutEcrire && <> Glissez une case vers une autre année pour la déplacer ; Ctrl/⌘-clic en
           sélectionne plusieurs, qui se déplacent ensemble.</>} Une UE dont les prérequis ne sont pas acquis
-          porte un cadenas 🔒 : l'encoder demande une dérogation, tracée. « à confirmer » signale une UE
+          porte un cadenas : l'encoder demande une dérogation, tracée. « à confirmer » signale une UE
           probablement acquise d'après ses prérequis. Le point ● dit que des notes d'acquis sont encodées ;
           le liseré de gauche, le bloc de l'unité.
         </BulleAide>
@@ -458,7 +458,7 @@ function GrilleParcours({ etudId, peutEcrire, annee, ueFocus = null }) {
                       <span className="font-semibold text-iip-blue">{u.ue_num}</span>
                       <span className="text-slate-600 ml-1.5 inline-block max-w-[13rem] truncate align-bottom">{u.ue_nom}</span>
                       {verrou && <span className="ml-1.5 text-[11px]"
-                        title={'Exige : UE ' + ((u.prereq_chaine?.length ? u.prereq_chaine : u.prerequis) || []).join(', ')}>🔒</span>}
+                        title={'Exige : UE ' + ((u.prereq_chaine?.length ? u.prereq_chaine : u.prerequis) || []).join(', ')}><IconLock size={13} stroke={1.8} className="inline -mt-0.5 text-slate-400" /></span>}
                       {u.suggeree && <span className="ml-1.5 text-[10px] px-1 py-0.5 rounded bg-violet-50 text-violet-600 border border-violet-200" title="Probablement acquise (inférence prérequis) — à confirmer">à confirmer</span>}
                       {u.hors_referentiel && (
                         <span className="ml-1.5 text-[10px] px-1 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-200"

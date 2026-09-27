@@ -18,6 +18,14 @@ export default function ReportsOffice({ annee, onClose }) {
   const [fait, setFait] = useState(null);
   const [enCours, setEnCours] = useState(false);
   const [erreur, setErreur] = useState(null);
+  /* DEUX FACES : ce qui reste à poser, et ce qui est déjà posé (Charles, 27
+     septembre 2026 : « je veux savoir les reports déjà portés »). */
+  const [face, setFace] = useState('poser');
+  const [poses, setPoses] = useState(null);
+  const [filtre, setFiltre] = useState('');
+  const chargerPoses = () => fetch(`/api/acquis/reports/poses?annee=${encodeURIComponent(annee)}`, { headers: authHeaders() })
+    .then(r => r.json()).then(j => setPoses(j.lignes || [])).catch(() => setPoses([]));
+  useEffect(() => { chargerPoses(); }, [annee]);
 
   async function appeler(simulation) {
     setEnCours(true); setErreur(null);
@@ -37,7 +45,7 @@ export default function ReportsOffice({ annee, onClose }) {
 
   const poser = async () => {
     const j = await appeler(false);
-    if (j) { setFait(j); setRapport(null); }
+    if (j) { setFait(j); setRapport(null); chargerPoses(); }
   };
 
   const lignes = rapport?.lignes || [];
@@ -63,6 +71,15 @@ export default function ReportsOffice({ annee, onClose }) {
         </>
       }>
       <div className="space-y-3 text-[13px]">
+        <div className="flex gap-1 border-b border-slate-200">
+          <button type="button" onClick={() => setFace('poser')} className={`onglet-page ${face === 'poser' ? 'onglet-page-actif' : ''}`}>
+            À poser{rapport ? ` (${lignes.length})` : ''}
+          </button>
+          <button type="button" onClick={() => setFace('poses')} className={`onglet-page ${face === 'poses' ? 'onglet-page-actif' : ''}`}>
+            Déjà posés{poses ? ` (${poses.length})` : ''}
+          </button>
+        </div>
+        {face === 'poses' ? <DejaPoses poses={poses} filtre={filtre} setFiltre={setFiltre} court={court} /> : <>
         {erreur && <div data-etat="corriger" className="bloc-etat px-3 py-2">{erreur}</div>}
         {fait && (
           <div data-etat="reussi" className="bloc-etat px-3 py-2">
@@ -108,7 +125,61 @@ export default function ReportsOffice({ annee, onClose }) {
             )}
           </>
         )}
+        </>}
       </div>
     </Fenetre>
+  );
+}
+
+function DejaPoses({ poses, filtre, setFiltre, court }) {
+  if (poses === null) return <p className="text-slate-400">Chargement…</p>;
+  const q = filtre.trim().toLowerCase();
+  const vus = poses.filter(l => !q || `${l.nom} ${l.prenom} ${l.section} ${l.ue_num} ${l.ue_nom || ''} ${l.cours_code} ${l.cours_nom || ''}`.toLowerCase().includes(q));
+  const etu = new Set(vus.map(l => l.etudiant_id)).size;
+  const retires = vus.filter(l => l.statut !== 'accorde').length;
+  const date = v => (v ? String(v).slice(0, 10).split('-').reverse().join('/') : '');
+  return (
+    <>
+      <div className="flex items-end gap-2 flex-wrap">
+        <div className="grid grid-cols-2 gap-2 max-w-md flex-1">
+          <TuileEtat etat="reussi" valeur={vus.length - retires} libelle="Cours reportés" />
+          <TuileEtat etat="neutre" valeur={etu} libelle="Étudiants" />
+        </div>
+        <input value={filtre} onChange={e => setFiltre(e.target.value)} placeholder="Nom, section, unité ou cours…"
+          className="controle w-64 max-w-full border border-slate-300 rounded-champ bg-white text-[13px]" />
+      </div>
+      {!vus.length ? <p className="text-slate-400">{poses.length ? 'Aucun report ne correspond.' : 'Aucun report posé pour cette année.'}</p> : (
+        <div className="border border-slate-200 rounded-carte overflow-hidden">
+          <table className="w-full text-[12px]">
+            <thead className="tab-entete">
+              <tr className="text-left text-[11px] text-slate-500">
+                <th className="px-3 py-1.5">Étudiant</th>
+                <th className="px-2 py-1.5">UE</th>
+                <th className="px-2 py-1.5">Cours</th>
+                <th className="px-2 py-1.5 text-right">Note</th>
+                <th className="px-2 py-1.5">Depuis</th>
+                <th className="px-3 py-1.5">Posé</th>
+              </tr>
+            </thead>
+            <tbody>
+              {vus.map(l => (
+                <tr key={`${l.etudiant_id}-${l.ue_num}-${l.cours_code}`} className={`border-t border-slate-100 bg-white ${l.statut !== 'accorde' ? 'text-slate-400' : ''}`}>
+                  <td className="px-3 py-1 whitespace-nowrap"><b>{(l.nom || '').toUpperCase()}</b> {l.prenom}
+                    {l.section && <span className="text-slate-400"> · {l.section}</span>}</td>
+                  <td className="px-2 py-1 tabular-nums" title={l.ue_nom || ''}>{l.ue_num}</td>
+                  <td className="px-2 py-1">{l.cours_code}{l.cours_nom ? <span className="text-slate-500"> — {l.cours_nom}</span> : null}</td>
+                  <td className="px-2 py-1 text-right tabular-nums font-semibold">{l.note != null ? `${Math.round(l.note)}/20` : '—'}</td>
+                  <td className="px-2 py-1 text-slate-500">{court(l.annee_origine)}</td>
+                  <td className="px-3 py-1 text-slate-500 whitespace-nowrap">
+                    {date(l.decide_le || l.cree_le)}{l.decide_par ? ` · ${String(l.decide_par).trim()}` : ''}
+                    {l.statut !== 'accorde' ? ' · refusé' : ''}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </>
   );
 }
