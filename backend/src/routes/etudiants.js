@@ -4015,12 +4015,27 @@ export function composerPAE(profId, annee, options = {}) {
   // à condition d'être du MÊME niveau (épreuve intégrée et ses déterminantes).
   const nivParUe = {};
   for (const u of pae) nivParUe[u.ue_num] = (u.ue_niv || '').toUpperCase();
+  /* LE PLAFOND DE BLOC (Charles, 27 septembre 2026 : « en TIM, tu proposes
+     les UE 252 et 253 aux primo-inscrits : il n'y a pas de prérequis, mais ce
+     sont des UE au programme de 2e »). L'absence de prérequis ne suffit pas :
+     on ne propose d'office que jusqu'au bloc QUI SUIT le plus haut bloc que
+     l'étudiant a déjà suivi — BA1 pour un primo-inscrit. Au-delà, l'unité
+     reste accessible et s'ajoute à la main. */
+  // Les années ANTÉRIEURES seulement : une inscription déjà posée cette année
+  // (peut-être à tort) ne doit pas relever son propre plafond.
+  const suiviesAvant = db.prepare(`SELECT DISTINCT ue_num FROM etudiant_inscription
+    WHERE etudiant_id = ? AND annee_scolaire < ?`).all(profId, annee).map(r0 => r0.ue_num);
+  const rangsSuivis = [...suiviesAvant, ...reussies]
+    .map(n => rangDe(nivCarte[n] || nivParUe[n])).filter(r => r > 0 && r < 9);
+  const plafondBloc = (rangsSuivis.length ? Math.max(...rangsSuivis) : 0) + 1;
+  const auDessus = u => { const r = rangDe(nivCarte[u.ue_num] || u.ue_niv); return r > 0 && r < 9 && r > plafondBloc; };
   const proposees = new Set();
   let stableProp = false;
   while (!stableProp) {
     stableProp = true;
     for (const u of pae) {
       if (u.deja_reussie || proposees.has(u.ue_num) || u.en_attente) continue;
+      if (auDessus(u)) continue;
       // L'épreuve intégrée ne suit pas le jeu des prérequis : elle relève de
       // sa propre règle, déjà tranchée plus haut.
       if (u.epreuve_integree) {
