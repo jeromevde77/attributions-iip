@@ -88,3 +88,16 @@ Relevé le 27 septembre 2026 sur le PDF transmis par Charles (371 pages). La cir
 | A28 | Dérogation expert (+100 périodes) | absent |
 | A29-A33 | Expérience utile, supérieur | absent |
 | A34 | Dépassement du tiers | absent |
+
+## Dans Lucie (2.12.238, 27 septembre 2026)
+- Les 39 annexes Word officielles vivent dans `backend/src/services/circulaire-9760/`.
+- `services/formulairesFWB.js` : l'identité (établissement, membre) s'écrit **par
+  libellé** dans toutes les annexes ; contenu propre pour A1 ter, A4, A6, A14, A15,
+  A27. `GET /api/formulaires/:cle?professeur_id&annee&mois`, module Personnel,
+  direction et secrétariat.
+- L'EA12 (A1 bis) passe au modèle du 27/03/2026 : case « Transitoire BAESI »
+  (rang 5 — les cases suivantes glissent d'un cran), matricule/NOM/prénom en
+  page 2 (tableaux 12-15), attributions au tableau 16.
+- Écran : Éditions → Personnel → Pièces par membre.
+- Piège rencontré : chercher `<w:tr` en arrière trouve aussi `<w:trPr>` — une
+  ligne copiée partait du milieu et le Word ne s'ouvrait plus (`debutLigne()`).

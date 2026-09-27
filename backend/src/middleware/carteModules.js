@@ -70,6 +70,7 @@ export const CARTE = {
      du personnel, l'annexe 2 de l'étudiant (Charles : « elles vont dans
      Éditions, EA12 pour Personnel, annexe 2 pour Étudiants »). */
   ea12:                    'personnel',
+  formulaires:             'personnel',   // les annexes Word de la circulaire 9760
   annexe2:                 'etudiants',
   attributions:            'attributions',
   ref:                     'organisation',   // référentiels : sections, UE, cours

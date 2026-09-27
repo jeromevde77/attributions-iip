@@ -778,6 +778,30 @@ function OngletPersonnel({ onClose }) {
       .then(l => setEa12(Array.isArray(l) ? l : []))
       .catch(e => { setEa12([]); setErreur(e.message); });
   }, [choisi, annee]);
+  /* LES ANNEXES DE LA CIRCULAIRE 9760 : les modèles Word de la FWB, remplis de
+     ce que Lucie sait (établissement, identité, et pour six d'entre elles le
+     contenu propre). Le reste se complète dans Word. */
+  const [annexes, setAnnexes] = useState([]);
+  const [mois, setMois] = useState(() => new Date().getMonth() + 1);
+  const [enCours, setEnCours] = useState(null);
+  useEffect(() => {
+    fetch('/api/formulaires', { headers: authHeaders() }).then(r => (r.ok ? r.json() : [])).then(l => setAnnexes(Array.isArray(l) ? l : [])).catch(() => {});
+  }, []);
+  const telecharger = async a => {
+    setEnCours(a.cle); setErreur(null);
+    try {
+      const q = new URLSearchParams({ professeur_id: choisi.id, annee, ...(a.mois ? { mois } : {}) });
+      const r = await fetch(`/api/formulaires/${a.cle}?${q}`, { headers: authHeaders() });
+      if (!r.ok) { const j = await r.json().catch(() => ({})); throw new Error(j.error || `Erreur ${r.status}`); }
+      const blob = await r.blob();
+      const cd = r.headers.get('Content-Disposition') || '';
+      const nomF = decodeURIComponent((/filename\*=UTF-8''([^;]+)/.exec(cd) || [])[1] || `${a.cle}.docx`);
+      const url = URL.createObjectURL(blob);
+      const lien = document.createElement('a'); lien.href = url; lien.download = nomF; lien.click();
+      setTimeout(() => URL.revokeObjectURL(url), 2000);
+    } catch (e) { setErreur(e.message); } finally { setEnCours(null); }
+  };
+  const PREREMPLIES = ['A1ter', 'A4', 'A6', 'A14', 'A15', 'A27'];
   const nom = p => nomPropre(p.nom_prenom || `${p.nom || ''} ${p.prenom || ''}`);
   const norm = x => String(x || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
   const liste = (profs || []).filter(p => !q || norm(nom(p)).includes(norm(q))).slice(0, 60);
@@ -838,6 +862,35 @@ function OngletPersonnel({ onClose }) {
                   </ul>
                 )}
             </div>
+
+            {!!annexes.length && (
+              <div data-etat="neutre" className="bloc-etat px-3 py-2.5 space-y-2">
+                <div className="flex items-center justify-between gap-3 flex-wrap">
+                  <div>
+                    <div className="text-[13px] font-semibold">Annexes de la circulaire 9760 (rentrée EA 2026-2027)</div>
+                    <div className="text-[12px] text-slate-500">Le modèle Word officiel, établissement et identité remplis — à compléter et corriger dans Word.</div>
+                  </div>
+                  <label className="text-[12px] text-slate-600 inline-flex items-center gap-1.5">Mois des relevés
+                    <select value={mois} onChange={e => setMois(Number(e.target.value))} className="controle border border-slate-300 rounded-champ bg-white text-[12px]">
+                      {['janvier','février','mars','avril','mai','juin','juillet','août','septembre','octobre','novembre','décembre'].map((m, i) =>
+                        <option key={m} value={i + 1}>{m}</option>)}
+                    </select>
+                  </label>
+                </div>
+                <ul className="grid gap-x-4 sm:grid-cols-2 border-t border-slate-100">
+                  {annexes.filter(a => !a.ea12).map(a => (
+                    <li key={a.cle} className="flex items-center justify-between gap-2 py-1 border-b border-slate-100 text-[13px]">
+                      <span className="min-w-0 truncate" title={a.titre}>
+                        {a.titre}
+                        {PREREMPLIES.includes(a.cle) && <span className="ml-1.5 text-[10px] text-slate-400">pré-rempli</span>}
+                      </span>
+                      <button type="button" onClick={() => telecharger(a)} disabled={enCours === a.cle}
+                        className="bouton bouton-compact flex-none">{enCours === a.cle ? '…' : 'Word'}</button>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
           </div>
         )}
       </div>
