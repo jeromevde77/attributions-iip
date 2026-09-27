@@ -190,7 +190,24 @@ export function calculerDates(regle, ctx = {}) {
       let compte = estJourOuvrable(d) ? 1 : 0;
       while (compte < n) { d = ajouterJours(d, 1); if (estJourOuvrable(d)) compte++; }
       const moisPrec = mo === 1 ? 12 : mo - 1;
-      out.push({ date_due: d, libelle: `relevé de ${NOM_MOIS[moisPrec - 1]}` });
+      const np = NOM_MOIS[moisPrec - 1];
+      out.push({ date_due: d, libelle: `relevé ${/^[aeiouéèâ]/i.test(np) ? 'd’' : 'de '}${np}` });
+    }
+    return out;
+  }
+
+  // ── mensuel_veille : la veille du 1er de chaque mois (septembre → août) ──
+  // « avant le 1er du mois » (A27, circ. 9760) : le relevé du mois M parvient
+  // au plus tard le dernier jour du mois M-1.
+  if (regle === 'mensuel_veille') {
+    const out = [];
+    for (let i = 0; i < 12; i++) {
+      const moisAbs = 8 + i;
+      const an = anneeDebut + Math.floor(moisAbs / 12);
+      const mo = (moisAbs % 12) + 1;
+      const premier = `${an}-${String(mo).padStart(2, '0')}-01`;
+      const nm = NOM_MOIS[mo - 1];
+      out.push({ date_due: ajouterJours(premier, -1), libelle: `prestations ${/^[aeiouéèâ]/i.test(nm) ? 'd’' : 'de '}${nm}` });
     }
     return out;
   }

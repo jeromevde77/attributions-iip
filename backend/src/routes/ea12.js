@@ -21,7 +21,7 @@ function construireData(ea12Row, donnees) {
 
   // Attributions du prof pour l'année, agrégées par (codification, cours, type)
   const lignes = db.prepare(`
-    SELECT codification_unite, nom_cours, type_cours, niveau,
+    SELECT codification_unite, nom_cours, type_cours, niveau, MIN(section) AS section,
            SUM(COALESCE(total_attribue_professeur, periodes_attribuees, 0)) AS periodes
     FROM v_attribution_complete
     WHERE professeur_id = ? AND annee_scolaire = ?
@@ -35,7 +35,10 @@ function construireData(ea12Row, donnees) {
     .filter(l => l.periodes && l.periodes > 0)
     .map(l => ({
       ue: l.codification_unite || '',
-      f: 'D',                            // dotation (défaut IIP)
+      /* SOURCE DE FINANCEMENT (circ. 9760, p.204 et 211-212) : D par défaut
+         (dotation) ; pour les UE du brevet d'assistant en soins infirmiers,
+         toujours « BAESI » — c'est la section AeSI, ouverte en 2026-2027. */
+      f: l.section === 'AeSI' ? 'BAESI' : 'D',
       denomination: l.nom_cours || '',
       cla: l.type_cours || '',
       periode_occ: '',
@@ -47,11 +50,22 @@ function construireData(ea12Row, donnees) {
   return {
     annee: ea12Row.annee_scolaire,
     doc_num: ea12Row.num_doc ? String(ea12Row.num_doc) : '',
-    dernier_doc12: dateFr(donnees.dernier_doc12) || '',
+    /* CHAQUE DOC12 PORTE LA DATE DU PRÉCÉDENT (circ. 9760). À défaut d'une
+       date saisie, celle du document précédent de la même personne et de la
+       même année, s'il existe. */
+    dernier_doc12: dateFr(donnees.dernier_doc12) || (() => {
+      const prec = db.prepare(`SELECT modifie_le FROM ea12 WHERE professeur_id = ? AND annee_scolaire = ?
+        AND num_doc < ? ORDER BY num_doc DESC LIMIT 1`).get(ea12Row.professeur_id, ea12Row.annee_scolaire, ea12Row.num_doc || 0);
+      return prec?.modifie_le ? dateFr(String(prec.modifie_le).slice(0, 10)) : '';
+    })(),
+    transitoire_baesi: !!donnees.transitoire_baesi,
     etab,
     matricule: prof.matricule || donnees.matricule || '',
     prof_nom: prof.nom || '',
-    prof_prenom: prof.prenom || '',
+    /* LE PREMIER PRÉNOM DE L'ÉTAT CIVIL SEULEMENT (circ. 9760) : « Marie
+       Anne Claire » s'écrit « Marie » ; un prénom composé à trait d'union
+       (« Jean-Éric ») reste entier. */
+    prof_prenom: String(prof.prenom || '').trim().split(/\s+/)[0] || '',
     titre1: donnees.titre1_override ?? prof.titre1 ?? '',
     titre2: donnees.titre2_override ?? prof.titre2 ?? '',
     derogation_titre: !!donnees.derogation_titre,

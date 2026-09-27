@@ -409,6 +409,26 @@ const ECHEANCE_TYPES = [
     responsable_defaut:'secretariat', rappels_defaut:'[15,5,1]',
     base_legale:'Circ. 9760 V.18' },
 
+  /* LES PIÈCES DE LA CIRCULAIRE 9760 QUE L'ÉCHÉANCIER NE PORTAIT PAS (27
+     septembre 2026, relevé de la circulaire). */
+  { code:'a27_expert_mensuel', libelle:"A27 — prestations mensuelles des experts",
+    description:"Le relevé des prestations de chaque expert (par UE : cours, classification, niveau, dates, périodes, source de financement), cacheté et signé par le chef d'établissement, parvient avant le 1er du mois ; un rectificatif suit le mois suivant si besoin.",
+    zone:'personnel', categorie:'paie', regle_date:'mensuel_veille',
+    responsable_defaut:'secretariat', rappels_defaut:'[7,3,1]',
+    base_legale:'Circ. 9760 V (A27)', lien_interne:'/professeurs' },
+
+  { code:'derogation_linguistique_a9', libelle:"A9 — demande de dérogation linguistique",
+    description:"Dans les 30 jours qui suivent l'entrée en fonction d'un membre du personnel qui ne possède pas la connaissance approfondie de la langue requise : fonction, charge, titres, langue du diplôme, rang de 1 à 5.",
+    zone:'personnel', categorie:'statutaire', regle_date:'rel:engagement+30j',
+    responsable_defaut:'secretariat', rappels_defaut:'[15,5,1]',
+    base_legale:'Circ. 9760 V (A9)' },
+
+  { code:'prestation_serment_a4', libelle:"A4 — prestation de serment",
+    description:"À la première entrée en fonction dans l'enseignement : la formule du serment, signée par le membre du personnel (signature obligatoire, hors GEDI).",
+    zone:'personnel', categorie:'statutaire', regle_date:'rel:engagement+0j',
+    responsable_defaut:'secretariat', rappels_defaut:'[3,1]',
+    base_legale:'Circ. 9760 V (A4)' },
+
   { code:'accident_travail_decl', libelle:"Déclaration d'accident du travail",
     description:"Déclaration d'accident du travail à transmettre à la Direction de gestion (annexes A12/A13).",
     zone:'personnel', categorie:'statutaire', regle_date:'rel:evenement+5jo',
