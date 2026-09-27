@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { IconX, IconAlertTriangle, IconFileText, IconPrinter } from '@tabler/icons-react';
 import { authHeaders } from '../lib/api.js';
+import { ouvrirApercu } from '../lib/apercu.js';
 
 /**
  * LE CENTRE D'IMPRESSION — plusieurs unités, un seul document.
@@ -161,9 +162,10 @@ export default function CentreImpression({ annee, section = null, onClose }) {
         setTimeout(() => URL.revokeObjectURL(url), 30000);
         return;
       }
-      const f = window.open('', '_blank');
-      if (!f) { setErreur('Le navigateur a bloqué la fenêtre d’impression.'); return; }
-      f.document.write(j.html); f.document.close();
+      ouvrirApercu({
+        html: j.html, titre: 'Pièces des unités', sousTitre: annee,
+        nomFichier: (j.nom || 'documents').replace(/\.html$/, ''), envoiPossible: false,
+      });
     } catch (e) { setErreur(e.message); }
     finally { setEnCours(false); }
   }

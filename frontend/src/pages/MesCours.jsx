@@ -1,6 +1,6 @@
 import { couleurBloc, rangBloc } from '../lib/blocs.js';
 import { useEffect, useState } from 'react';
-import { IconBooks, IconChevronLeft, IconAlertTriangle } from '@tabler/icons-react';
+import { IconBooks, IconChevronLeft, IconAlertTriangle, IconMessageCircle } from '@tabler/icons-react';
 import { authHeaders, getAnnee } from '../lib/api.js';
 
 /**
@@ -31,6 +31,7 @@ export default function MesCours() {
   const [ouvert, setOuvert] = useState(null);      // cours_code
   const [feuille, setFeuille] = useState(null);    // { etudiants, ... }
   const [notes, setNotes] = useState({});          // etudiant_id → saisie
+  const [justifs, setJustifs] = useState({});      // etudiant_id → { aa → justificatif d'échec }
   const [erreur, setErreur] = useState(null);
   const [fait, setFait] = useState(null);
   const [enCours, setEnCours] = useState(false);
@@ -50,7 +51,7 @@ export default function MesCours() {
   const colonnes = (f) => (f?.acquis?.length ? f.acquis.map(a => a.aa_code) : ['']);
 
   async function ouvrir(code) {
-    setOuvert(code); setFeuille(null); setNotes({}); setFait(null); setErreur(null);
+    setOuvert(code); setFeuille(null); setNotes({}); setJustifs({}); setFait(null); setErreur(null);
     try {
       const r = await fetch(`/api/mes-cours/${encodeURIComponent(code)}/etudiants?annee=${encodeURIComponent(annee)}`,
         { headers: authHeaders() });
@@ -60,6 +61,7 @@ export default function MesCours() {
       const cols = colonnes(j);
       setNotes(Object.fromEntries(j.etudiants.map(e => [e.id,
         Object.fromEntries(cols.map(c => [c, (e.notes || {})[c] ?? '']))])));
+      setJustifs(Object.fromEntries(j.etudiants.map(e => [e.id, { ...(e.justifications || {}) }])));
     } catch (e) { setErreur(e.message); }
   }
 
@@ -69,7 +71,7 @@ export default function MesCours() {
       const lignes = [];
       for (const [id, par] of Object.entries(notes)) {
         for (const [aa, n] of Object.entries(par)) {
-          lignes.push({ etudiant_id: Number(id), aa_code: aa, note: n });
+          lignes.push({ etudiant_id: Number(id), aa_code: aa, note: n, justification: justifs[id]?.[aa] || '' });
         }
       }
       const r = await fetch(`/api/mes-cours/${encodeURIComponent(ouvert)}/notes`, {
@@ -77,7 +79,7 @@ export default function MesCours() {
         body: JSON.stringify({ annee, notes: lignes }),
       });
       const j = await r.json();
-      if (!r.ok) throw new Error(j.error || 'Erreur');
+      if (!r.ok) throw new Error([j.error, (j.manquants || []).slice(0, 6).map(m => `${m.nom} (${m.aa_code})`).join(', ')].filter(Boolean).join(' — ') || 'Erreur');
       setFait(`${j.proposees} note(s) proposée(s) — la coordination les reprendra dans l'encodage officiel.`);
     } catch (e) { setErreur(e.message); }
     finally { setEnCours(false); }
@@ -208,6 +210,18 @@ export default function MesCours() {
             || MENTIONS.some(m => m.startsWith(t)); };
         const invalides = feuille ? feuille.etudiants.reduce((t, e) =>
           t + cols.filter(k => !valeurOk(notes[e.id]?.[k])).length, 0) : 0;
+        /* UN ÉCHEC SE JUSTIFIE, ACQUIS PAR ACQUIS (Charles, 27 septembre 2026 :
+           « il manque le justificatif d'échec lié à l'AA »). Une note entière
+           sous 10 sur un acquis demande sa raison ; elle part avec la note, et
+           devient la proposition de motivation de la délibération. */
+        const sousSeuil = v => /^\d{1,2}$/.test(String(v ?? '').trim()) && Number(v) < 10;
+        const manquants = feuille ? feuille.etudiants.flatMap((e, r) => e.report ? [] : cols
+          .map((k, ci) => ({ e, k, r, ci }))
+          .filter(x => x.k !== '' && sousSeuil(notes[e.id]?.[x.k]) && !String(justifs[e.id]?.[x.k] ?? '').trim())) : [];
+        const allerA = x => { const el = document.querySelector(`[data-case="${x.r}:${x.ci}"]`); if (el) el.focus(); };
+        const actifEtu = caseActive ? feuille?.etudiants.find(e => e.id === caseActive.id) : null;
+        const actifSous = caseActive && caseActive.k !== '' && sousSeuil(notes[caseActive.id]?.[caseActive.k]);
+        const actifAA = actifSous ? (feuille.acquis || []).findIndex(a => a.aa_code === caseActive.k) : -1;
         /* LES FLÈCHES ET ENTRÉE, COMME DANS UN TABLEUR (Charles, 26 septembre
            2026 : « pour le moment ce sont des cases non liées »). Haut, bas et
            Entrée changent de ligne ; gauche et droite changent d'acquis. */
@@ -318,8 +332,9 @@ export default function MesCours() {
                     {/* ENREGISTRER À CÔTÉ DES MENTIONS (Charles, 27 septembre 2026) : en
                         haut, là où l'on travaille, et non au bas d'une liste qu'il
                         faut dérouler. Un seul mot : c'est ce que fait le bouton. */}
-                    <button type="button" onClick={enregistrer} disabled={enCours || !!invalides}
+                    <button type="button" onClick={enregistrer} disabled={enCours || !!invalides || manquants.length > 0}
                       title={invalides ? `${invalides} case(s) à corriger : un nombre entier de 0 à 20, PP, NP ou CM`
+                        : manquants.length ? `${manquants.length} note(s) sous 10 sans justificatif`
                         : 'Vos notes sont des propositions : la coordination les reprend dans l’encodage officiel'}
                       className="bouton bouton-fort h-7 px-3 disabled:opacity-40">
                       {enCours ? 'Enregistrement…' : 'Enregistrer'}
@@ -395,6 +410,18 @@ export default function MesCours() {
                                 {/* « /20 » : l'échelle se lit à côté de chaque NOTE (Charles) —
                                     pas à côté d'une case vide ni d'une mention. */}
                                 <span className={`ml-0.5 text-[10px] text-slate-400 ${ok && v !== '' && !MENTIONS.includes(t) ? '' : 'invisible'}`}>/20</span>
+                                {k !== '' && (sousSeuil(v) ? (() => {
+                                  const j = String(justifs[e.id]?.[k] ?? '').trim();
+                                  return (
+                                    <button type="button" tabIndex={-1}
+                                      onClick={() => allerA({ r, ci })}
+                                      title={j ? `Justificatif : ${j}` : 'Note sous 10 : justificatif à écrire (panneau de droite)'}
+                                      aria-label={j ? 'Justificatif écrit' : 'Justificatif à écrire'}
+                                      className="ml-0.5 align-middle" style={{ color: j ? 'var(--iip-blue, #1B2B4B)' : '#B45309' }}>
+                                      <IconMessageCircle size={13} stroke={2} />
+                                    </button>
+                                  );
+                                })() : <span className="ml-0.5 inline-block w-[13px]" />)}
                               </td>
                             );
                           })}
@@ -430,6 +457,22 @@ export default function MesCours() {
                     ne dit rien seul, et la bulle au survol ne se lit pas en
                     tapant des notes. */}
                 <div className="carte px-3 py-2.5 space-y-2.5 lg:sticky lg:top-3">
+                  {actifSous && actifEtu && (
+                    <div data-etat={String(justifs[actifEtu.id]?.[caseActive.k] ?? '').trim() ? 'neutre' : 'surveiller'} className="bloc-etat px-2.5 py-2 space-y-1">
+                      <div className="text-[12.5px] font-semibold">Justificatif d'échec</div>
+                      <div className="text-[11.5px] text-slate-500">
+                        {(actifEtu.nom || '').toUpperCase()} {actifEtu.prenom} · {actifAA >= 0 ? nomAA(feuille.acquis[actifAA], actifAA) : caseActive.k} · {notes[actifEtu.id]?.[caseActive.k]}/20
+                      </div>
+                      <textarea rows={3} value={justifs[actifEtu.id]?.[caseActive.k] ?? ''}
+                        onChange={ev => { const val = ev.target.value;
+                          setJustifs(j => ({ ...j, [actifEtu.id]: { ...(j[actifEtu.id] || {}), [caseActive.k]: val } })); }}
+                        placeholder="Ce que l'étudiant n'a pas démontré pour cet acquis"
+                        className="w-full border border-slate-300 rounded-champ bg-white text-[12.5px] p-1.5" />
+                      <div className="text-[10.5px] text-slate-500 leading-snug">
+                        Il accompagne la note et sera proposé au Conseil des études comme motivation de l'échec ; le Conseil le garde ou le réécrit.
+                      </div>
+                    </div>
+                  )}
                   <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Ce que vous évaluez</div>
                   {cols.length > 1 && !pondere && (
                     <div data-etat="surveiller" className="bloc-etat px-2 py-1.5 text-[11.5px]">
@@ -465,6 +508,8 @@ export default function MesCours() {
               <div className="flex items-center gap-3 justify-end border-t border-slate-200 pt-2">
                 <span className="text-[12px] text-slate-500 min-w-0 flex-1">
                   {invalides ? <span style={{ color: '#C2412D' }}>{invalides} case{invalides > 1 ? 's' : ''} à corriger : un nombre entier de 0 à 20, PP, NP ou CM.</span>
+                    : manquants.length ? <span style={{ color: '#B45309' }}>{manquants.length} note{manquants.length > 1 ? 's' : ''} sous 10 sans justificatif.{' '}
+                        <button type="button" className="underline" onClick={() => allerA(manquants[0])}>Aller au premier</button></span>
                     : 'Vos notes sont des propositions : la coordination les reprend dans l’encodage officiel.'}
                 </span>
               </div>

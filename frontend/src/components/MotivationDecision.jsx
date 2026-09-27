@@ -4,6 +4,7 @@ import {
 } from '@tabler/icons-react';
 import { authHeaders } from '../lib/api.js';
 import { MOTIFS_ECHEC, texteDuMotif, composerMotif, decomposerMotif } from './motifsEchec.js';
+import { ouvrirApercu } from '../lib/apercu.js';
 
 /**
  * Motivation d'une décision d'ajournement ou de refus.
@@ -73,16 +74,14 @@ export default function MotivationDecision({ etudId, annee, onClose }) {
         + `?annee=${encodeURIComponent(annee)}`, { headers: authHeaders() });
       const j = await rep.json();
       if (!rep.ok) { setMessage({ type: 'err', texte: j.error }); return; }
-      const w = window.open('', '_blank');
-      if (!w) {
-        setMessage({ type: 'err', texte: 'Fenêtre bloquée. Autorisez les fenêtres surgissantes.' });
-        return;
-      }
-      w.document.open(); w.document.write(j.html); w.document.close();
-      let lance = false;
-      const lancer = () => { if (lance) return; lance = true; w.focus(); w.print(); };
-      w.onload = lancer;
-      setTimeout(lancer, 500);
+      ouvrirApercu({
+        html: j.html,
+        titre: 'Motivation de la décision',
+        sousTitre: `UE ${ueNum} · ${annee}`,
+        nomFichier: `Motivation_UE${ueNum}_${annee}`,
+        destinataire: { type: 'etudiant', id: etudId },
+        typeDoc: 'motivation', astuceImpression: 'A4 portrait',
+      });
     } catch (e) {
       setMessage({ type: 'err', texte: e.message });
     } finally { setEnCours(false); }
@@ -296,12 +295,12 @@ export default function MotivationDecision({ etudId, annee, onClose }) {
                       onClick={() => setMotifs(m => ({ ...m, [a.aa_code]: a.motif_propose }))}
                       title="Reprendre cet énoncé pour le compléter ou le corriger"
                       className="w-full text-left mb-1 px-2 py-1.5 rounded-lg border
-                                 border-dashed border-slate-300 bg-slate-50
+                                 border-dashed border-slate-300 bg-slate-50 whitespace-pre-line
                                  text-[12px] text-slate-400 italic hover:text-slate-600
                                  hover:border-slate-400">
                       {a.motif_propose}
                       <span className="block mt-0.5 not-italic text-[10px] text-slate-400">
-                        Proposé — rien n'est enregistré. Cliquez pour le reprendre.
+                        {a.motif_source === 'enseignant' ? 'Rédigé par l’enseignant avec sa note' : 'Proposé'} — rien n'est enregistré. Cliquez pour le reprendre.
                       </span>
                     </button>
                   )}

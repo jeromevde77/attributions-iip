@@ -3,6 +3,7 @@ import {
   IconAlertTriangle, IconPrinter, IconX, IconFileTypePdf,
 } from '@tabler/icons-react';
 import { authHeaders } from '../lib/api.js';
+import { ouvrirApercu } from '../lib/apercu.js';
 
 /**
  * Attestation du progrès des études — annexe 2 de l'arrêté du 28 mars 2022.
@@ -68,14 +69,11 @@ export default function Annexe2({ etudId, annee, onClose }) {
         return;
       }
 
-      // Fenêtre dédiée : Safari imprime le document parent depuis un cadre.
-      const w = window.open('', '_blank');
-      if (!w) { setErreur('Fenêtre bloquée. Autorisez les fenêtres surgissantes.'); return; }
-      w.document.open(); w.document.write(j.html); w.document.close();
-      let lance = false;
-      const lancer = () => { if (lance) return; lance = true; w.focus(); w.print(); };
-      w.onload = lancer;
-      setTimeout(lancer, 500);
+      ouvrirApercu({
+        html: j.html, titre: 'Attestation du progrès des études (annexe 2)', sousTitre: annee,
+        nomFichier: `Annexe2_${annee}`, destinataire: { type: 'etudiant', id: etudId },
+        typeDoc: 'annexe2', astuceImpression: 'A4 portrait',
+      });
     } finally { setEnCours(false); }
   }
 

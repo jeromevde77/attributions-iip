@@ -4,9 +4,10 @@ import { nomPropre } from '../lib/nom.js';
 import {
   IconPrinter, IconUsers, IconSchool, IconChartBar, IconCalendarStats,
   IconBooks, IconAlertTriangle, IconChevronRight, IconChevronDown, IconSearch,
-  IconDownload, IconSend,
+  IconDownload, IconSend, IconFilePlus,
 } from '@tabler/icons-react';
 import PreviewModal from './PreviewModal.jsx';
+import SaisieAnnexe from './SaisieAnnexe.jsx';
 /* La séance de valorisation est chargée à la demande : Éditions s'ouvre
    souvent pour un rapport, et cet écran porte le rendu du procès-verbal. */
 const SeanceValorisation = lazy(() => import('./SeanceValorisation.jsx'));
@@ -759,6 +760,16 @@ function OngletRapports({ domaine }) {
  * choisit la personne ; ses EA12 de l'année s'ouvrent, ou un nouveau se crée,
  * dans l'éditeur qui produit le Word officiel.
  */
+/* Un carré, une icône ; l'avion pour tout ce qui sort une pièce. */
+function Avion({ titre, onClick, disabled = false, occupe = false }) {
+  return (
+    <button type="button" onClick={onClick} disabled={disabled || occupe} title={titre} aria-label={titre}
+      className="bouton bouton-sortir bouton-icone flex-none">
+      {occupe ? <span className="text-[12px]">…</span> : <IconSend size={17} stroke={1.8} />}
+    </button>
+  );
+}
+
 function OngletPersonnel({ onClose, membreInitial = null, outilsMembre = null }) {
   const navigate = useNavigate();
   const annee = getAnnee();
@@ -794,6 +805,22 @@ function OngletPersonnel({ onClose, membreInitial = null, outilsMembre = null })
   const [annexes, setAnnexes] = useState([]);
   const [mois, setMois] = useState(() => new Date().getMonth() + 1);
   const [enCours, setEnCours] = useState(null);
+  const [aCompleter, setACompleter] = useState(null);   // l'annexe ouverte dans la saisie
+  /* LA FICHE : UN SEUL AVION. Si le membre porte des attributions IIP ET
+     HELB, Lucie demande laquelle ; sinon elle sort la seule qui existe. */
+  const [choixFiche, setChoixFiche] = useState(false);
+  useEffect(() => { setChoixFiche(false); }, [choisi]);
+  const imprimerFiche = async () => {
+    setErreur(null); setEnCours('fiche');
+    try {
+      const r = await fetch(`/api/ref/professeurs/${choisi.id}/fiche-attributions?annee=${encodeURIComponent(annee)}`, { headers: authHeaders() });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok || j.error) throw new Error(j.error || `Erreur ${r.status}`);
+      const types = new Set((j.attributions || []).map(a => a.contrat_mdp || 'IIP'));
+      if (types.has('IIP') && types.has('HELB')) setChoixFiche(true);
+      else outilsMembre.fiche(choisi.id, types.has('HELB') ? 'HELB' : 'IIP');
+    } catch (e) { setErreur(e.message); } finally { setEnCours(null); }
+  };
   useEffect(() => {
     fetch('/api/formulaires', { headers: authHeaders() }).then(r => (r.ok ? r.json() : [])).then(l => setAnnexes(Array.isArray(l) ? l : [])).catch(() => {});
   }, []);
@@ -892,7 +919,7 @@ function OngletPersonnel({ onClose, membreInitial = null, outilsMembre = null })
       </div>
       <div>
         {coches.size >= 2 ? (
-          <SeriePersonnel ids={[...coches]} profs={profs || []} annee={annee} annexes={annexes} nom={nom} />
+          <SeriePersonnel ids={[...coches]} profs={profs || []} annee={annee} annexes={annexes} nom={nom} outilsMembre={outilsMembre} />
         ) : !choisi ? (
           <p className="text-[13px] text-slate-400 italic py-6">Choisissez un membre du personnel.</p>
         ) : (
@@ -914,35 +941,47 @@ function OngletPersonnel({ onClose, membreInitial = null, outilsMembre = null })
             )}
             {erreur && <div data-etat="corriger" className="bloc-etat px-3 py-2 text-[12px]">{erreur}</div>}
 
+            {/* LA FICHE D'ATTRIBUTIONS VAUT POUR TOUT MEMBRE (Charles, 27 septembre
+                2026) — chargé de cours comme expert : c'est le relevé de ce qui
+                lui est confié, avant tout contrat. */}
+            {outilsMembre?.fiche && statut && statut.statut !== 'aucun' && (
+              <div data-etat="neutre" className="bloc-etat px-3 py-2.5">
+                <div className="flex items-center justify-between gap-3 text-[13px]">
+                  <span><span className="font-semibold">Fiche d'attributions</span> <span className="text-slate-400 text-[12px]">· ce qui lui est confié en {annee}</span></span>
+                  <Avion titre="Imprimer ou envoyer la fiche d'attributions" onClick={imprimerFiche} occupe={enCours === 'fiche'} />
+                </div>
+                {choixFiche && (
+                  <div className="mt-2 pt-2 border-t border-slate-100 flex items-center justify-between gap-3 flex-wrap text-[13px]">
+                    <span>Ce membre du personnel a deux types de fiches. Laquelle souhaitez-vous imprimer ?</span>
+                    <span className="flex gap-1.5">
+                      {[['IIP', 'IIP'], ['HELB', 'HELB'], ['Les deux (globale)', null]].map(([l, f]) => (
+                        <button key={l} type="button" onClick={() => { setChoixFiche(false); outilsMembre.fiche(choisi.id, f); }} className="bouton bouton-compact">{l}</button>
+                      ))}
+                    </span>
+                  </div>
+                )}
+              </div>
+            )}
+
             {statut && (statut.statut === 'cc' || statut.statut === 'mixte') && (
               <div data-etat="neutre" className="bloc-etat px-3 py-2.5 space-y-2">
                 <div className="text-[13px] font-semibold">Chargé de cours</div>
                 <ul className="divide-y divide-slate-100 border-t border-slate-100">
                   <li className="flex items-center justify-between gap-3 py-1.5 text-[13px]">
                     <span>Contrat de travail <span className="text-slate-400 text-[12px]">· ses périodes CC, sans les périodes d'expert</span></span>
-                    <button type="button" onClick={ouvrirContratCC} className="bouton bouton-sortir bouton-compact">Contrat</button>
+                    <Avion titre="Imprimer ou envoyer le contrat" onClick={ouvrirContratCC} />
                   </li>
-                  {outilsMembre?.fiche && (
-                    <li className="flex items-center justify-between gap-3 py-1.5 text-[13px]">
-                      <span>Fiche d'attributions</span>
-                      <span className="flex gap-1.5">
-                        {[['Globale', null], ['IIP', 'IIP'], ['HELB', 'HELB']].map(([l, f]) => (
-                          <button key={l} type="button" onClick={() => outilsMembre.fiche(choisi.id, f)} className="bouton bouton-compact">{l}</button>
-                        ))}
-                      </span>
-                    </li>
-                  )}
                   <li className="py-1.5 text-[13px] space-y-1">
                     <div className="flex items-center justify-between gap-3">
                       <span>EA12 — Doc12 supérieur <span className="text-slate-400 text-[12px]">· le Word officiel, rempli par Lucie</span></span>
-                      <button type="button" onClick={creer} className="bouton bouton-sortir bouton-compact">Nouvel EA12</button>
+                      <button type="button" onClick={creer} title="Nouvel EA12" aria-label="Nouvel EA12" className="bouton bouton-icone flex-none"><IconFilePlus size={17} stroke={1.8} /></button>
                     </div>
                     {ea12 === null ? <p className="text-[12px] text-slate-400">Chargement…</p>
                       : !ea12.length ? <p className="text-[12px] text-slate-400">Aucun EA12 pour {annee}.</p>
                       : ea12.map(e => (
                         <div key={e.id} className="flex items-center justify-between gap-3 pl-3 text-[12px] text-slate-600">
                           <span>Document n° {e.num_doc ?? '—'} · modifié le {String(e.modifie_le || e.cree_le || '').slice(0, 10).split('-').reverse().join('/')}{e.statut_doc === 'genere' ? ' · déjà produit' : ''}</span>
-                          <button type="button" onClick={() => ouvrir(e.id)} className="bouton bouton-compact">Ouvrir</button>
+                          <Avion titre="Ouvrir, compléter et produire cet EA12" onClick={() => ouvrir(e.id)} />
                         </div>
                       ))}
                   </li>
@@ -958,13 +997,15 @@ function OngletPersonnel({ onClose, membreInitial = null, outilsMembre = null })
                     <li key={n.niveau} className="flex items-center justify-between gap-3 py-1.5 text-[13px]">
                       <span>Contrat d'emploi d'un expert — {n.niveau === 'secondaire' ? 'secondaire' : 'supérieur'}
                         <span className="text-slate-400 text-[12px]"> · {n.periodes} périodes, {n.unites} unité{n.unites > 1 ? 's' : ''} · {String(n.taux).replace('.', ',')} €/période</span></span>
-                      <button type="button" onClick={() => ouvrirContrat(n.niveau)} className="bouton bouton-sortir bouton-compact">Contrat</button>
+                      <Avion titre="Imprimer ou envoyer le contrat d'expert" onClick={() => ouvrirContrat(n.niveau)} />
                     </li>
                   ))}
                   {annexes.filter(a => a.cle === 'A1ter' || a.cle === 'A27').map(a => (
                     <li key={a.cle} className="flex items-center justify-between gap-3 py-1.5 text-[13px]">
                       <span>{a.titre}{a.mois && <span className="text-slate-400 text-[12px]"> · mois de {['janvier','février','mars','avril','mai','juin','juillet','août','septembre','octobre','novembre','décembre'][mois - 1]}</span>}</span>
-                      <button type="button" onClick={() => telecharger(a)} disabled={enCours === a.cle} className="bouton bouton-compact">{enCours === a.cle ? '…' : 'Word'}</button>
+                      {a.saisie
+                        ? <Avion titre="Compléter dans Lucie, puis produire en Word ou PDF" onClick={() => setACompleter(a)} />
+                        : <Avion titre="Produire le Word officiel" onClick={() => telecharger(a)} occupe={enCours === a.cle} />}
                     </li>
                   ))}
                 </ul>
@@ -992,8 +1033,9 @@ function OngletPersonnel({ onClose, membreInitial = null, outilsMembre = null })
                         {a.titre}
                         {PREREMPLIES.includes(a.cle) && <span className="ml-1.5 text-[10px] text-slate-400">pré-rempli</span>}
                       </span>
-                      <button type="button" onClick={() => telecharger(a)} disabled={enCours === a.cle}
-                        className="bouton bouton-compact flex-none">{enCours === a.cle ? '…' : 'Word'}</button>
+                      {a.saisie
+                        ? <Avion titre="Compléter dans Lucie, puis produire en Word ou PDF" onClick={() => setACompleter(a)} />
+                        : <Avion titre="Produire le Word officiel" onClick={() => telecharger(a)} occupe={enCours === a.cle} />}
                     </li>
                   ))}
                 </ul>
@@ -1002,6 +1044,8 @@ function OngletPersonnel({ onClose, membreInitial = null, outilsMembre = null })
           </div>
         )}
       </div>
+      {aCompleter && choisi && <SaisieAnnexe annexe={aCompleter} membre={{ id: choisi.id, nom: nom(choisi) }} annee={annee}
+        moisInitial={mois} onFermer={() => setACompleter(null)} />}
       {contrat && <PreviewModal html={contrat.html} titre={contrat.titre} nomFichier={contrat.nom}
         destinataire={destinataire} typeDoc={contrat.typeDoc} sujetMail={`${contrat.titre} — Institut Ilya Prigogine`}
         onClose={() => setContrat(null)} />}
@@ -1013,7 +1057,7 @@ function OngletPersonnel({ onClose, membreInitial = null, outilsMembre = null })
    données. Les contrats partent dans un seul document — chacun sur sa page,
    et chacun seulement si le statut du membre l'appelle ; les Word (EA12,
    annexes) dans une archive, un dossier par personne. */
-function SeriePersonnel({ ids, profs, annee, annexes, nom }) {
+function SeriePersonnel({ ids, profs, annee, annexes, nom, outilsMembre = null }) {
   const MOIS = ['janvier','février','mars','avril','mai','juin','juillet','août','septembre','octobre','novembre','décembre'];
   const [types, setTypes] = useState({ cc: true, expert: true });
   const [cles, setCles] = useState(() => new Set(['A1bis']));
@@ -1022,6 +1066,7 @@ function SeriePersonnel({ ids, profs, annee, annexes, nom }) {
   const [erreur, setErreur] = useState(null);
   const [avis, setAvis] = useState(null);
   const [contrat, setContrat] = useState(null);
+  const [choixFiches, setChoixFiches] = useState(false);
   const bascule = k => setCles(c => { const n = new Set(c); n.has(k) ? n.delete(k) : n.add(k); return n; });
   const noms = ids.map(id => profs.find(p => p.id === id)).filter(Boolean).map(nom);
   const pieces = [{ cle: 'A1bis', titre: 'EA12 — Doc12 supérieur (A1 bis)' },
@@ -1062,14 +1107,35 @@ function SeriePersonnel({ ids, profs, annee, annexes, nom }) {
       {erreur && <div data-etat="corriger" className="bloc-etat px-3 py-2 text-[12px]">{erreur}</div>}
       {avis && <div data-etat="surveiller" className="bloc-etat px-3 py-2 text-[12px]">{avis}</div>}
 
+      {outilsMembre?.fichesLot && (
+        <div data-etat="neutre" className="bloc-etat px-3 py-2.5">
+          <div className="flex items-center justify-between gap-3 text-[13px]">
+            <div>
+              <div className="font-semibold">Fiches d'attributions</div>
+              <div className="text-[12px] text-slate-500">Une fiche par membre, chacune sur sa page.</div>
+            </div>
+            <Avion titre="Imprimer ou envoyer les fiches d'attributions" onClick={() => setChoixFiches(c => !c)} />
+          </div>
+          {choixFiches && (
+            <div className="mt-2 pt-2 border-t border-slate-100 flex items-center justify-between gap-3 flex-wrap text-[13px]">
+              <span>Quelles fiches imprimer ? Un membre sans attribution du type choisi n'a pas de fiche.</span>
+              <span className="flex gap-1.5">
+                {[['IIP', 'IIP'], ['HELB', 'HELB'], ['Globales', 'GLOBAL']].map(([l, t]) => (
+                  <button key={l} type="button" onClick={() => { setChoixFiches(false); outilsMembre.fichesLot(ids, t); }} className="bouton bouton-compact">{l}</button>
+                ))}
+              </span>
+            </div>
+          )}
+        </div>
+      )}
+
       <div data-etat="neutre" className="bloc-etat px-3 py-2.5 space-y-2">
         <div className="flex items-center justify-between gap-3">
           <div>
             <div className="text-[13px] font-semibold">Contrats de travail</div>
             <div className="text-[12px] text-slate-500">Selon le statut de chacun : classique sur ses périodes CC, d'expert par niveau. Un seul document, une pièce par page.</div>
           </div>
-          <button type="button" onClick={contrats} disabled={enCours || (!types.cc && !types.expert)}
-            className="bouton bouton-sortir bouton-compact flex-none">{enCours === 'contrats' ? '…' : 'Contrats'}</button>
+          <Avion titre="Imprimer ou envoyer les contrats" onClick={contrats} disabled={!!enCours || (!types.cc && !types.expert)} occupe={enCours === 'contrats'} />
         </div>
         <div className="flex gap-4 text-[13px] border-t border-slate-100 pt-1.5">
           {[['cc', 'Chargé de cours'], ['expert', 'Expert']].map(([k, l]) => (
@@ -1093,8 +1159,7 @@ function SeriePersonnel({ ids, profs, annee, annexes, nom }) {
                 {MOIS.map((m, i) => <option key={m} value={i + 1}>{m}</option>)}
               </select>
             )}
-            <button type="button" onClick={archive} disabled={enCours || !cles.size}
-              className="bouton bouton-sortir bouton-compact flex-none">{enCours === 'zip' ? '…' : `Produire (${cles.size})`}</button>
+            <Avion titre={`Produire les ${cles.size} pièce${cles.size > 1 ? 's' : ''} cochée${cles.size > 1 ? 's' : ''} (archive Word)`} onClick={archive} disabled={!!enCours || !cles.size} occupe={enCours === 'zip'} />
           </span>
         </div>
         <ul className="grid gap-x-4 sm:grid-cols-2 border-t border-slate-100">
@@ -1138,6 +1203,9 @@ function OngletEtudiants({ perimetre = null }) {
   const [ues, setUes] = useState(() => new Set(perimetre?.ue_nums || []));
   const [cours, setCours] = useState(() => new Set(perimetre?.cours_codes || []));
   const [deplie, setDeplie] = useState(() => new Set());
+  // LES SECTIONS SE REPLIENT (Charles, 27 septembre 2026 : « pour gagner en
+  // place ») : on ouvre celle où l'on travaille.
+  const [secOuvertes, setSecOuvertes] = useState(() => new Set());
   const [recherche, setRecherche] = useState('');
   const [liste, setListe] = useState(null);
   const [coches, setCoches] = useState(() => new Set());
@@ -1328,14 +1396,27 @@ function OngletEtudiants({ perimetre = null }) {
         <div className="flex-1 overflow-auto p-2 space-y-2">
           {(arbre?.sections || []).map(sec => (
             <div key={sec}>
-              <label className="flex items-center gap-2 px-1.5 py-1 rounded hover:bg-slate-50
-                                cursor-pointer">
-                <input type="checkbox" checked={sections.has(sec)}
-                  onChange={() => setSections(s => bascule(s, sec))}
-                  className="w-4 h-4 accent-iip-blue" />
-                <span className="text-[13px] font-medium text-slate-800">{sec}</span>
-              </label>
-              <div className="pl-4">
+              {(() => {
+                const us = (arbre?.unites || []).filter(u => u.section === sec);
+                const nCoches = us.filter(u => ues.has(u.ue_num)).length;
+                const ouverte = secOuvertes.has(sec);
+                return (
+                  <div className="flex items-center gap-1.5 px-1.5 py-1 rounded hover:bg-slate-50">
+                    <button type="button" onClick={() => setSecOuvertes(o => bascule(o, sec))}
+                      aria-label={ouverte ? `Replier ${sec}` : `Déplier ${sec}`} className="text-slate-400 hover:text-slate-700">
+                      {ouverte ? <IconChevronDown size={14} /> : <IconChevronRight size={14} />}
+                    </button>
+                    <input type="checkbox" checked={sections.has(sec)}
+                      onChange={() => setSections(s => bascule(s, sec))}
+                      aria-label={`Toute la section ${sec}`} className="w-4 h-4 accent-iip-blue" />
+                    <button type="button" onClick={() => setSecOuvertes(o => bascule(o, sec))}
+                      className="flex-1 min-w-0 text-left text-[13px] font-medium text-slate-800">
+                      {sec} <span className="text-[11px] font-normal text-slate-400">· {us.length} unité{us.length > 1 ? 's' : ''}{nCoches ? ` · ${nCoches} cochée${nCoches > 1 ? 's' : ''}` : ''}</span>
+                    </button>
+                  </div>
+                );
+              })()}
+              {secOuvertes.has(sec) && <div className="pl-4">
                 {(arbre?.unites || []).filter(u => u.section === sec).map(u => (
                   <div key={u.ue_num}>
                     <div className="flex items-center gap-1.5 px-1.5 py-0.5">
@@ -1373,7 +1454,7 @@ function OngletEtudiants({ perimetre = null }) {
                     )}
                   </div>
                 ))}
-              </div>
+              </div>}
             </div>
           ))}
           {!arbre && <div className="text-[12px] text-slate-400 p-2">Chargement…</div>}

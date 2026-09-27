@@ -7,6 +7,7 @@ import {
 } from '@tabler/icons-react';
 import { Btn, RailLateral, VoletRail } from '../components/ui.jsx';
 import { getAnnee } from '../lib/api.js';
+import { ouvrirApercu } from '../lib/apercu.js';
 
 // Champ texte simple (évite le ReferenceError: Champ non importé)
 function Champ({ label, value, onChange, placeholder, hint, className = '' }) {
@@ -928,9 +929,9 @@ Réponds en JSON strict sans backticks : {"questions":["question 1","question 2"
     ${grilleActive.map(axe => `<h2 style="background:${axe.couleur}">${axe.axe || axe.libelle}</h2><ul>${(axe.questions || []).map(q => `<li>${q.libelle || q}</li>`).join('')}</ul>`).join('')}
     ${qIA.length > 0 ? `<h2 style="background:#1B2B4B">Axe 5 — Questions spécifiques au cours</h2><ul>${qIA.map(q => `<li>${q}</li>`).join('')}</ul>` : ''}
     </body></html>`;
-    const w = window.open('', '_blank');
-    w.document.write(html); w.document.close();
-    setTimeout(() => { w.focus(); w.print(); }, 300);
+    ouvrirApercu({ html, titre: "Grille d'entretien", sousTitre: poste.nom_cours || poste.ue_nom,
+                   nomFichier: `Grille_entretien_UE${poste.ue_num}`, envoiPossible: false,
+                   astuceImpression: 'A4 portrait' });
   };
 
   return (
@@ -1493,10 +1494,9 @@ function genererComparatif(candidats, poste, grille) {
 
   </div></body></html>`;
 
-  const w = window.open('','_blank');
-  if (!w) { alert('Autorisez les pop-ups.'); return; }
-  w.document.write(html); w.document.close();
-  setTimeout(()=>{ w.focus(); w.print(); }, 500);
+  ouvrirApercu({ html, titre: 'Recrutement comparatif', sousTitre: nomPoste,
+                 nomFichier: `Recrutement_comparatif_${nomPoste}`, envoiPossible: false,
+                 astuceImpression: 'A4 portrait' });
 }
 
 /* ══════════════════════ PDF FICHE INDIVIDUELLE ══════════════════════ */
@@ -1633,10 +1633,9 @@ function genererFicheIndividuelle(candidat, grille) {
 
   </div></body></html>`;
 
-  const w = window.open('','_blank');
-  if (!w) { alert('Autorisez les pop-ups pour imprimer.'); return; }
-  w.document.write(html); w.document.close();
-  setTimeout(()=>{ w.focus(); w.print(); }, 500);
+  ouvrirApercu({ html, titre: 'Fiche candidat', sousTitre: nom,
+                 nomFichier: `Fiche_candidat_${nom}`, envoiPossible: false,
+                 astuceImpression: 'A4 portrait' });
 }
 
 /* ══════════════════════ VUE CANDIDATS GLOBALE ══════════════════════ */
@@ -1785,10 +1784,8 @@ function VueCandidatsGlobal({ candidats, fonctions, grille, onRecharger,
 ${tous.map(candidatHtml).join('')}
 </div></body></html>`;
 
-    const w = window.open('', '_blank');
-    if (!w) { alert('Autorisez les pop-ups pour imprimer.'); return; }
-    w.document.write(html); w.document.close();
-    setTimeout(() => { w.focus(); w.print(); }, 500);
+    ouvrirApercu({ html, titre: "Rapport d'entretiens", nomFichier: 'Rapport_entretiens',
+                   envoiPossible: false, astuceImpression: 'A4 portrait' });
   };
 
   // Synchroniser avec les actions du rail

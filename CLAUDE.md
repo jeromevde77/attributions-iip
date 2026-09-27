@@ -348,9 +348,17 @@ poids du cours, lignes 17+ poids des acquis.
   `source = 'reprise'`, marque la séance `reprise = 1`, et fait porter à la
   pièce remise à l'étudiant la mention qui le lui dit. Elle est **additive** :
   aucune décision changée, aucune faveur octroyée, aucune motivation écrasée.
-  Trois provenances désormais, et elles ne se valent pas : `conseil` (rédigée
-  en séance), `propose` (proposée par Lucie, acceptée en bloc à la clôture),
-  `reprise` (reconstituée après coup par l'administration).
+  Quatre provenances désormais, et elles ne se valent pas : `conseil` (rédigée
+  en séance), `enseignant` (écrite par l'enseignant avec sa note, acceptée en
+  bloc à la clôture), `propose` (proposée par Lucie, acceptée en bloc à la
+  clôture), `reprise` (reconstituée après coup par l'administration).
+- **Le justificatif d'échec se pose avec la note** (Charles, 27 septembre
+  2026). Dans *Mes cours*, une note entière sous 10 sur un acquis ne
+  s'enregistre pas sans son justificatif (`note_proposee.justification`, le
+  serveur refuse et nomme les manquants). Il devient la PROPOSITION de
+  motivation de la délibération — devant le motif du référentiel et l'énoncé
+  calculé, jamais devant ce que le Conseil a écrit — et la clôture le fait
+  confirmer comme les autres propositions.
 
 **La valorisation des acquis a sa séance.** Le procès-verbal d'annexe 4 et les
 attestations qui en découlent (annexe 15 pour le supérieur, 14 pour le

@@ -21,6 +21,18 @@ import db from '../db/index.js';
 /** Une heure : le temps de lire son courrier, pas celui d'un week-end. */
 export const VALIDITE_MINUTES = 60;
 
+/* LE LIEN ENVOYÉ PAR LA DIRECTION VAUT TROIS JOURS (Charles, 27 septembre
+   2026 : « 60 minutes, c'est court »). Une invitation arrive quand elle
+   arrive, et on ne la lit pas forcément dans l'heure : un nouveau venu qui
+   l'ouvre le lendemain trouvait un lien mort. Le lien que l'on demande
+   SOI-MÊME (« mot de passe oublié ») garde l'heure : on est devant sa boîte
+   au moment où on le demande. Les deux ne servent qu'une fois et ne
+   connectent pas. */
+export const VALIDITE_INVITATION_MINUTES = 72 * 60;
+
+/** « 60 minutes », « 72 heures » : la durée comme on la dit. */
+export const dureeLisible = min => (min >= 120 && min % 60 === 0 ? `${min / 60} heures` : `${min} minutes`);
+
 /**
  * Trois demandes par heure et par compte. Au-delà, on cesse d'envoyer sans
  * rien dire de plus : le but n'est pas de protéger le compte — le jeton
@@ -101,14 +113,14 @@ export function comptePeutMotDePasse(user) {
  * Les jetons antérieurs du compte sont annulés : deux liens valides pour un
  * même compte, c'est un lien de trop qui traîne dans une boîte.
  */
-export function creerJeton(utilisateurId, ip = null) {
+export function creerJeton(utilisateurId, ip = null, minutes = VALIDITE_MINUTES) {
   const jeton = crypto.randomBytes(32).toString('base64url');
   const tx = db.transaction(() => {
     db.prepare(`UPDATE mot_de_passe_jeton SET utilise_le = datetime('now')
                 WHERE utilisateur_id = ? AND utilise_le IS NULL`).run(utilisateurId);
     db.prepare(`INSERT INTO mot_de_passe_jeton (utilisateur_id, jeton_hash, expire_le, demande_par_ip)
                 VALUES (?, ?, datetime('now', ?), ?)`)
-      .run(utilisateurId, empreinte(jeton), `+${VALIDITE_MINUTES} minutes`, ip);
+      .run(utilisateurId, empreinte(jeton), `+${minutes} minutes`, ip);
   });
   tx();
   return jeton;

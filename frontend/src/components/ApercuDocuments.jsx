@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { IconFileText, IconAlertTriangle, IconExternalLink } from '@tabler/icons-react';
 import { authHeaders, getAnnee } from '../lib/api.js';
 import ChoixUnite from './ChoixUnite.jsx';
+import { ouvrirApercu } from '../lib/apercu.js';
 
 /**
  * APERÇU DES DOCUMENTS — voir une pièce sans la produire.
@@ -121,8 +122,7 @@ export default function ApercuDocuments({ onClose }) {
               <span className="flex-1" />
               {html && (
                 <button onClick={() => {
-                  const f = window.open('', '_blank');
-                  if (f) { f.document.write(html); f.document.close(); }
+                  ouvrirApercu({ html, titre: 'Aperçu du document', envoiPossible: false });
                 }}
                   className="px-2.5 py-1 text-[12px] rounded-lg border border-slate-300
                              text-slate-600 inline-flex items-center gap-1">

@@ -4,6 +4,7 @@ import {
   IconAlertTriangle, IconCheck, IconCircleCheck, IconPencil, IconEye, IconFileText,
 } from '@tabler/icons-react';
 import { api } from '../lib/api.js';
+import { ouvrirApercu } from '../lib/apercu.js';
 
 /**
  * LES DESCRIPTIFS D'UNITÉ D'ENSEIGNEMENT.
@@ -348,9 +349,10 @@ function Fiche({ ueNum, onRetour }) {
   async function imprimer() {
     try {
       const j = await api.dueDocument(ueNum);
-      const f = window.open('', '_blank');
-      if (!f) { setErreur("Le navigateur a bloqué la fenêtre d'impression."); return; }
-      f.document.write(j.html); f.document.close();
+      ouvrirApercu({
+        html: j.html, titre: `Descriptif de l'unité ${ueNum}`, nomFichier: `DUE_UE${ueNum}`,
+        envoiPossible: false, astuceImpression: 'A4 portrait',
+      });
     } catch (e) { setErreur(e.message); }
   }
 

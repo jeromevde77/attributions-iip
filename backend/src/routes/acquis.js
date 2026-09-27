@@ -1048,7 +1048,7 @@ r.get('/motivation/:etudId/:ueNum', authRequired, (req, res) => {
       motif: motifs[a.aa_code] || '',
       // L'énoncé que Lucie propose, tant que personne n'a rien écrit : l'écran
       // l'affiche en gris, et il n'est enregistré nulle part.
-      motif_propose: a.motif_propose || '',
+      motif_propose: a.motif_propose || '', motif_source: a.motif_source || null,
     };
   });
 
@@ -1605,8 +1605,8 @@ export function documentMotivation(etudId, ueNum, annee, session = 1) {
         <td>${l.description
           ? `${esc2(l.description)}<br><span class="ref">${esc2(l.code)}</span>`
           : `<span class="code">${esc2(l.code)}</span>`}</td>
-        <td>${l.motif ? esc2(l.motif)
-          : l.motif_propose ? esc2(l.motif_propose)
+        <td>${l.motif ? esc2(l.motif).replace(/\n/g, '<br>')
+          : l.motif_propose ? esc2(l.motif_propose).replace(/\n/g, '<br>')
           : '<span class="vide">motivation à compléter</span>'}</td>
       </tr>`).join('')}
     </tbody>
@@ -3400,6 +3400,45 @@ export function delibererUE(etudId, ueNum, annee, session = 1) {
       if (String(l.motif_defaut).trim()) motifDefaut[l.aa_code] = String(l.motif_defaut).trim();
     }
   } catch { /* colonne absente : l'énoncé calculé suffira */ }
+  /* LE JUSTIFICATIF DE L'ENSEIGNANT (Charles, 27 septembre 2026 : « il manque
+     le justificatif d'échec lié à l'AA »). Posé avec la note sous le seuil,
+     dans « Mes cours », il devient la PROPOSITION de motivation : il passe
+     devant le motif du référentiel et l'énoncé calculé, jamais devant ce que
+     le Conseil a rédigé. Deux cours évaluant un même acquis : les deux textes,
+     chacun nommé par son cours. */
+  const justifEns = {};
+  try {
+    const parAA = {};
+    for (const l of db.prepare(`
+      SELECT p.aa_code, p.cours_code, p.justification, (SELECT MIN(c.cours_nom) FROM cours c
+        WHERE c.cours_code = p.cours_code AND c.annee_scolaire = p.annee_scolaire) AS cours_nom
+      FROM note_proposee p
+      WHERE p.etudiant_id = ? AND p.annee_scolaire = ? AND p.aa_code <> ''
+        AND p.justification IS NOT NULL AND TRIM(p.justification) <> ''
+        AND p.cours_code IN (SELECT cours_code FROM cours WHERE ue_num = ? AND annee_scolaire = ?)`)
+      .all(Number(etudId), annee, Number(ueNum), annee)) {
+      (parAA[l.aa_code] ||= []).push(l);
+    }
+    /* LES JUSTIFICATIONS S'ADDITIONNENT, SANS SE RÉPÉTER (Charles, 27
+       septembre 2026). Deux professeurs qui ont retenu le même texte : il ne
+       s'écrit qu'une fois, sans nom de cours. Des textes différents : chacun
+       sur sa ligne, précédé des cours qui le portent. */
+    const cle = t => t.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
+      .replace(/\s+/g, ' ').replace(/[\s.;,:!]+$/, '').trim();
+    for (const [code, l] of Object.entries(parAA)) {
+      const groupes = new Map();
+      for (const x of l) {
+        const k = cle(x.justification);
+        const g = groupes.get(k) || { texte: x.justification.trim(), cours: [] };
+        const nomC = x.cours_nom || x.cours_code;
+        if (!g.cours.includes(nomC)) g.cours.push(nomC);
+        groupes.set(k, g);
+      }
+      const gs = [...groupes.values()];
+      justifEns[code] = gs.length === 1 ? gs[0].texte
+        : gs.map(g => `${g.cours.join(', ')} : ${g.texte}`).join('\n');
+    }
+  } catch { /* table ou colonne absente */ }
   const integree = estEpreuveIntegree(ueNum, annee);
   const regles = reglesDeliberation();
   // Ce que la base de délibération fait entrer dans la décision. L'unité y
@@ -3658,14 +3697,14 @@ export function delibererUE(etudId, ueNum, annee, session = 1) {
       // motif propre à cet acquis (référentiel), puis l'énoncé calculé. Le
       // défaut de l'acquis dit ce que CET acquis exige ; le calculé ne sait
       // dire que ce que la base sait. On préfère le premier quand il existe.
-      motif_propose: motifs[code] ? '' : (motifDefaut[code] || motifPropose({
+      motif_propose: motifs[code] ? '' : (justifEns[code] || motifDefaut[code] || motifPropose({
         note: affichee, na, faveur: forcee, non_evalue: !na && affichee == null,
         mention: (evals.find(x => x.mention) || {}).mention || null,
       }, SEUIL_AA)),
       // D'où vient la proposition — l'écran le dit, et la clôture aussi : une
       // formule écrite par l'école ne se confond pas avec une phrase calculée.
       motif_source: motifs[code] ? 'conseil'
-        : motifDefaut[code] ? 'defaut_aa' : 'calcule',
+        : justifEns[code] ? 'enseignant' : motifDefaut[code] ? 'defaut_aa' : 'calcule',
       // La faveur POSÉE SUR CET ACQUIS, distincte de celle qu'il hérite de
       // l'unité : c'est elle que le bouton retire, et elle seule.
       faveur_directe: aaFaveur(code),
@@ -5840,7 +5879,7 @@ export function motivationsProposees(ueNum, annee, session = 1, org = null) {
     const acquis = (d.acquis || [])
       .filter(a => enCause.has(a.aa_code) && a.motif_propose)
       .map(a => ({ aa_code: a.aa_code, description: a.description || null,
-                   motif_propose: a.motif_propose }));
+                   motif_propose: a.motif_propose, motif_source: a.motif_source || 'calcule' }));
     if (acquis.length) {
       sortie.push({ etudiant_id: e.id, nom: e.nom, prenom: e.prenom,
                     decision: dec, acquis });
@@ -5999,13 +6038,15 @@ r.put('/deliberation/ue/:ueNum/seance', authRequired,
       const poser = db.prepare(`
         INSERT INTO decision_motivation
           (etudiant_id, annee_scolaire, ue_num, aa_code, motif, portee, source, maj_le, maj_par)
-        VALUES (?,?,?,?,?,'aa','propose',datetime('now'),?)
+        VALUES (?,?,?,?,?,'aa',?,datetime('now'),?)
         ON CONFLICT(etudiant_id, annee_scolaire, ue_num, aa_code) DO NOTHING`);
       for (const e of motivationsProposees(ueNum, annee, session, orgMot)) {
         for (const a of e.acquis) {
           if (a.motif_propose) {
+            // Rédigé par l'enseignant, accepté par le Conseil : une quatrième
+            // provenance, qui ne se confond ni avec la séance ni avec Lucie.
             poser.run(e.etudiant_id, annee, ueNum, a.aa_code, a.motif_propose,
-              req.user?.email || null);
+              a.motif_source === 'enseignant' ? 'enseignant' : 'propose', req.user?.email || null);
           }
         }
       }

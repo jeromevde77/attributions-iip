@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { IconX, IconAlertTriangle, IconCheck } from '@tabler/icons-react';
 import { authHeaders, api } from '../lib/api.js';
 import { MOTIFS_ECHEC, texteDuMotif, composerMotif, decomposerMotif } from './motifsEchec.js';
+import { ouvrirApercu } from '../lib/apercu.js';
 
 /**
  * Tableau de bord de délibération — un étudiant, à propos d'une unité.
@@ -445,8 +446,10 @@ function Badge({ i, courante = false, passe = false }) {
   async function ouvrirDUE() {
     try {
       const j = await api.dueDocument(i.ue_num);
-      const f = window.open('', '_blank');
-      if (f) { f.document.write(j.html); f.document.close(); }
+      ouvrirApercu({
+        html: j.html, titre: `Descriptif de l'unité ${i.ue_num}`, sousTitre: i.ue_nom || undefined,
+        nomFichier: `DUE_UE${i.ue_num}`, envoiPossible: false, astuceImpression: 'A4 portrait',
+      });
     } catch { /* pas de descriptif accessible pour cette unité */ }
   }
   return (

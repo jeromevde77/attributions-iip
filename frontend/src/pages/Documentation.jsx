@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   IconBook, IconFileText, IconCheck, IconAlertTriangle, IconPlus,
-  IconHistory, IconUsersGroup, IconHelpCircle, IconScale, IconExternalLink,
+  IconHistory, IconUsersGroup, IconHelpCircle, IconScale, IconExternalLink, IconTrash,
 } from '@tabler/icons-react';
 import { useSearchParams } from 'react-router-dom';
 import { authHeaders, getUser } from '../lib/api.js';
@@ -106,6 +106,7 @@ export default function Documentation() {
   });
   const [depot, setDepot] = useState(false);
   const [registre, setRegistre] = useState(null);
+  const [retirerOuvert, setRetirerOuvert] = useState(false);
 
   const charger = useCallback(async () => {
     try {
@@ -241,6 +242,16 @@ export default function Documentation() {
                       <IconUsersGroup size={14} />
                     </button>
                   )}
+                  {/* RETIRER SE VOIT SUR LA LIGNE (Charles, 27 septembre 2026 : « je
+                      ne sais toujours pas supprimer »). Le bouton sous le texte
+                      ne se trouvait pas ; ici il ouvre le texte sur la confirmation. */}
+                  {publie && !d.retire_le && (
+                    <button className="bouton text-[12px] px-2.5 py-1 flex-none"
+                      title="Retirer ce texte" aria-label="Retirer ce texte"
+                      onClick={() => { setRetirerOuvert(true); setOuvert(d.cle); }}>
+                      <IconTrash size={14} />
+                    </button>
+                  )}
                 </div>
               ))}
             </div>
@@ -249,8 +260,8 @@ export default function Documentation() {
       </div>
 
       {ouvert && (
-        <LireTexte cle={ouvert} publie={publie} natures={natures}
-          onClose={() => setOuvert(null)} onChange={charger} />
+        <LireTexte cle={ouvert} publie={publie} natures={natures} retirer={retirerOuvert}
+          onClose={() => { setOuvert(null); setRetirerOuvert(false); }} onChange={charger} />
       )}
       {depot && <DeposerTexte natures={natures}
         onClose={() => setDepot(false)} onCree={charger} />}
@@ -274,7 +285,7 @@ export default function Documentation() {
  * Cela ne prétend pas prouver la LECTURE, et Charles l'a dit lui-même : coché
  * sans lire, c'est le problème de celui qui a coché.
  */
-function LireTexte({ cle, publie, natures, onClose, onChange }) {
+function LireTexte({ cle, publie, natures, onClose, onChange, retirer: retirerDemande = false }) {
   const [d, setD] = useState(null);
   const [erreur, setErreur] = useState(null);
   const [enCours, setEnCours] = useState(false);
@@ -302,6 +313,23 @@ function LireTexte({ cle, publie, natures, onClose, onChange }) {
       const j = await r.json();
       if (!r.ok) { setErreur(j.error || 'Refusé.'); return; }
       await charger(); await onChange?.();
+    } catch (e) { setErreur(e.message); }
+    finally { setEnCours(false); }
+  }
+
+  /* RETIRER N'EST PAS SUPPRIMER (et la route existait sans bouton — Charles,
+     27 septembre 2026 : « je ne sais pas supprimer un document »). Le texte
+     cesse de s'imposer et sort des listes ; il reste lisible, avec les
+     confirmations posées dessus. */
+  const [retrait, setRetrait] = useState(retirerDemande);
+  async function retirer() {
+    setEnCours(true); setErreur(null);
+    try {
+      const r = await fetch(`/api/documentation/${encodeURIComponent(cle)}/retirer`,
+        { method: 'POST', headers: authHeaders() });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) { setErreur(j.error || 'Refusé.'); return; }
+      setRetrait(false); await onChange?.(); onClose?.();
     } catch (e) { setErreur(e.message); }
     finally { setEnCours(false); }
   }
@@ -489,11 +517,25 @@ function LireTexte({ cle, publie, natures, onClose, onChange }) {
 
       {publie && d && (
         <div className="mt-4">
+          {retrait && (
+            <div data-etat="corriger" className="bloc-etat px-3 py-2.5 mb-2 flex items-center gap-3 flex-wrap text-[13px]">
+              <span className="flex-1 min-w-0">Retirer « {d.titre} » ? Il cesse de s'imposer et sort des listes. Il reste lisible, avec les confirmations déjà données.</span>
+              <button className="bouton bouton-detruire" disabled={enCours} onClick={retirer}>Retirer</button>
+              <button className="bouton" onClick={() => setRetrait(false)}>Annuler</button>
+            </div>
+          )}
           {!renomme ? (
-            <button className="bouton text-[12px] mb-2"
-              onClick={() => setRenomme({ titre: d.titre || '', nature: d.nature || 'procedure' })}>
-              Renommer
-            </button>
+            <div className="flex gap-2 mb-2">
+              <button className="bouton text-[12px]"
+                onClick={() => setRenomme({ titre: d.titre || '', nature: d.nature || 'procedure' })}>
+                Renommer
+              </button>
+              {!d.retire_le && !retrait && (
+                <button className="bouton text-[12px] ml-auto" onClick={() => setRetrait(true)}>
+                  Retirer ce texte
+                </button>
+              )}
+            </div>
           ) : (
             <div className="carte p-3 space-y-2 mb-2">
               <div className="text-[11px] uppercase tracking-wide text-slate-500">

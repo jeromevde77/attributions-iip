@@ -30,6 +30,7 @@ import {
 import Login from './pages/Login.jsx';
 import MotDePasse from './pages/MotDePasse.jsx';
 import MonCompte from './components/MonCompte.jsx';
+import ApercuGlobal from './components/ApercuGlobal.jsx';
 import Dashboard from './pages/Dashboard.jsx';
 import Attributions from './pages/Attributions.jsx';
 import Professeurs from './pages/Professeurs.jsx';
@@ -671,6 +672,7 @@ function ProtectedLayout({ children }) {
       </header>
       <main className="flex-1">{children}</main>
       {compteOuvert && <MonCompte onFermer={() => setCompteOuvert(false)} />}
+      <ApercuGlobal />
     </div>
   );
 }

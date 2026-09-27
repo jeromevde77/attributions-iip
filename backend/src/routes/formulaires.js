@@ -132,6 +132,164 @@ function donnees(cle, profId, annee, mois) {
   return d;
 }
 
+/* ── COMPLÉTER DANS LUCIE (Charles, 27 septembre 2026 : « cela ne me sert à
+   rien d'avoir un document Word à compléter dans Word… il faut que Lucie s'en
+   charge ! »). Ce que Lucie sait se propose ; ce qu'elle ne sait pas — les
+   dates prestées du mois, le n° du Doc12, le cumul — se saisit À L'ÉCRAN, et
+   s'enregistre : la pièce se reproduit à l'identique, et l'on retrouve un an
+   après qui l'a complétée et quand. Le Word ne sort qu'une fois complet.
+   Experts d'abord : A27 et A1 ter. ───────────────────────────────────────── */
+export const SAISISSABLES = ['A1ter', 'A27'];
+(function migrer() {
+  try {
+    db.exec(`CREATE TABLE IF NOT EXISTS annexe_saisie (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      cle TEXT NOT NULL, professeur_id INTEGER NOT NULL, annee_scolaire TEXT NOT NULL,
+      mois INTEGER NOT NULL DEFAULT 0,
+      donnees_json TEXT NOT NULL DEFAULT '{}',
+      modifie_par TEXT, modifie_le TEXT DEFAULT (datetime('now')),
+      UNIQUE (cle, professeur_id, annee_scolaire, mois))`);
+  } catch (e) { console.error('[migration] annexe_saisie :', e.message); }
+})();
+const moisCle = (cle, mois) => (ANNEXES.find(a => a.cle === cle)?.mois ? Number(mois) || 0 : 0);
+function saisieDe(cle, profId, annee, mois) {
+  try {
+    const row = db.prepare(`SELECT * FROM annexe_saisie WHERE cle = ? AND professeur_id = ? AND annee_scolaire = ? AND mois = ?`)
+      .get(cle, profId, annee, moisCle(cle, mois));
+    return row ? { ...row, donnees: JSON.parse(row.donnees_json || '{}') } : null;
+  } catch { return null; }
+}
+const iso = v => (v ? String(v).slice(0, 10) : '');
+/** Le signataire de l'établissement : le directeur de l'année. */
+function signataire(annee) {
+  try {
+    const d = db.prepare(`SELECT p.prenom, p.nom, m.fonction FROM personnel_mission m JOIN professeur p ON p.id = m.professeur_id
+      WHERE m.annee_scolaire = ? AND m.fonction LIKE 'Directeur%' AND m.fonction NOT LIKE '%adjoint%' LIMIT 1`).get(annee);
+    if (d) return { nom: String(d.nom || '').toUpperCase(), prenom: premierPrenom(d.prenom), qualite: 'Directeur' };
+  } catch { /* */ }
+  return { nom: '', prenom: '', qualite: 'Directeur' };
+}
+/** Les séances de l'horaire d'un cours pour le mois — quand l'horaire est importé. */
+function seancesDuMois(profId, annee, mois, coursCode) {
+  if (!mois || !coursCode) return null;
+  try {
+    const l = db.prepare(`SELECT date, minutes FROM horaire_seance WHERE professeur_id = ? AND annee_scolaire = ?
+      AND cours_code = ? AND CAST(substr(date, 6, 2) AS INTEGER) = ? ORDER BY date`).all(profId, annee, coursCode, Number(mois));
+    if (!l.length) return null;
+    const jours = [...new Set(l.map(z => z.date.slice(8, 10)))];
+    return { dates: `${jours.join(', ')}/${String(mois).padStart(2, '0')}`, periodes: Math.round(l.reduce((n, z) => n + (z.minutes || 0), 0) / 50) };
+  } catch { return null; }
+}
+/** Ce que Lucie propose pour une annexe saisissable. */
+function proposition(cle, profId, annee, mois) {
+  const d = donnees(cle, profId, annee, mois);
+  const sig = signataire(annee);
+  const aujourdhui = new Date().toISOString().slice(0, 10);
+  if (cle === 'A27') {
+    const codes = {};
+    for (const a of attributions(profId, annee, { expert: true })) codes[`${a.codification_unite || a.ue_num}|${a.nom_cours}`] = a;
+    return {
+      ues: (d.ues || []).map(u => ({ ...u, cours: u.cours.map(c => {
+        const a = Object.values(codes).find(z => z.nom_cours === c.denomination);
+        const s = seancesDuMois(profId, annee, mois, a?.code_cours);
+        return { ...c, dates: s?.dates || '', periodes: s?.periodes ?? '', depuis_horaire: !!s };
+      }) })),
+      date_signature: aujourdhui,
+      signataire: [sig.prenom, sig.nom].filter(Boolean).join(' '),
+    };
+  }
+  if (cle === 'A1ter') {
+    let num = 1, dernier = '', datePrec = '', prec = [];
+    try {
+      const e = db.prepare(`SELECT MAX(num_doc) m, MAX(modifie_le) d FROM ea12 WHERE professeur_id = ? AND annee_scolaire = ?`).get(profId, annee);
+      num = (e?.m || 0) + 1; dernier = iso(e?.d);
+    } catch { /* */ }
+    const avant = saisieDe('A1ter', profId, annee, 0);
+    if (avant?.donnees?.date_signature) {
+      dernier = avant.donnees.date_signature; datePrec = avant.donnees.date_signature;
+      const tot = {};
+      for (const a of avant.donnees.attributions || []) { const k = `${a.cla || ''}|${a.sous_niveau || 'SU'}`; tot[k] = (tot[k] || 0) + (Number(a.nb_periodes) || 0); }
+      prec = Object.entries(tot).map(([k, v]) => ({ cla: k.split('|')[0], sous_niveau: k.split('|')[1], periodes: v }));
+    }
+    let debut = '';
+    try {
+      const ues = [...new Set(attributions(profId, annee, { expert: true }).map(a => a.ue_num).filter(Boolean))];
+      if (ues.length) debut = iso(db.prepare(`SELECT MIN(date_debut) d FROM organisation_ue WHERE annee_scolaire = ?
+        AND ue_num IN (${ues.map(() => '?').join(',')})`).get(annee, ...ues)?.d);
+    } catch { /* */ }
+    return {
+      num_doc: num, dernier_doc12: dernier, date_debut: debut,
+      attributions: d.attributions || [],
+      cumul: 'aucun', tardive: false, joint_diplome: false, joint_profil: true, observations: '',
+      date_prec: datePrec, prec,
+      date_signature: aujourdhui,
+      signataire_nom: sig.nom, signataire_prenom: sig.prenom, signataire_qualite: sig.qualite,
+    };
+  }
+  return null;
+}
+/** Ce qui manque encore : le Word ne se produit pas à trous. */
+function manques(cle, v) {
+  const m = [];
+  if (cle === 'A27') {
+    if (!(v.ues || []).length) m.push("aucune prestation d'expert pour cette année");
+    for (const u of v.ues || []) for (const c of u.cours || [])
+      if (!String(c.dates || '').trim() || c.periodes === '' || c.periodes == null) m.push(`${c.denomination || 'un cours'} : dates et périodes du mois`);
+    if (!v.signataire) m.push('le signataire');
+  }
+  if (cle === 'A1ter') {
+    if (!v.num_doc) m.push('le n° du Doc12');
+    if (!v.date_debut) m.push('la date de début des prestations');
+    if (!(v.attributions || []).length) m.push("aucune attribution d'expert");
+    for (const a of v.attributions || []) if (!String(a.periode_occ || '').trim()) m.push(`${a.denomination || a.ue} : période d'occupation`);
+    if (!v.cumul) m.push('le cumul');
+  }
+  return m;
+}
+
+/** Les données d'une annexe : ce que Lucie sait, puis ce qui a été saisi. */
+function donneesCompletes(cle, profId, annee, mois) {
+  const d = donnees(cle, profId, annee, mois);
+  if (!SAISISSABLES.includes(cle) || !d.membre) return { d, manques: [] };
+  const s = saisieDe(cle, profId, annee, mois);
+  const valeurs = s ? { ...proposition(cle, profId, annee, mois), ...s.donnees } : proposition(cle, profId, annee, mois);
+  return { d: { ...d, ...valeurs }, manques: s ? manques(cle, valeurs) : ['la pièce n\'a pas encore été complétée dans Lucie'] };
+}
+
+/* WORD ET PDF. Le Word est la pièce qu'on dépose dans GEDI ; le PDF, celle
+   qu'on archive et qu'on envoie. Le PDF passe par LibreOffice : tant que
+   l'image du serveur ne le porte pas, on le dit, et le Word reste disponible. */
+async function enPdf(buf) {
+  const { docxToPdf } = await import('../services/docx-to-pdf.js');
+  return docxToPdf(buf);
+}
+
+r.get('/:cle/saisie', authRequired, PEUT, (req, res) => {
+  const { cle } = req.params;
+  if (!SAISISSABLES.includes(cle)) return res.status(404).json({ error: "Cette annexe ne se complète pas encore dans Lucie." });
+  const profId = Number(req.query.professeur_id), annee = req.query.annee, mois = req.query.mois;
+  if (!profId || !annee) return res.status(400).json({ error: 'professeur_id et annee requis' });
+  if (!membre(profId)) return res.status(404).json({ error: 'Membre introuvable' });
+  const propose = proposition(cle, profId, annee, mois);
+  const s = saisieDe(cle, profId, annee, mois);
+  const valeurs = s ? { ...propose, ...s.donnees } : propose;
+  res.json({ cle, propose, valeurs, enregistre: s ? { par: s.modifie_par, le: s.modifie_le } : null, manques: manques(cle, valeurs) });
+});
+r.put('/:cle/saisie', authRequired, PEUT, (req, res) => {
+  const { cle } = req.params;
+  if (!SAISISSABLES.includes(cle)) return res.status(404).json({ error: "Cette annexe ne se complète pas encore dans Lucie." });
+  const { professeur_id, annee, mois, valeurs } = req.body || {};
+  if (!professeur_id || !annee || !valeurs || typeof valeurs !== 'object') return res.status(400).json({ error: 'professeur_id, annee et valeurs requis' });
+  if (!membre(Number(professeur_id))) return res.status(404).json({ error: 'Membre introuvable' });
+  const par = req.user?.nom || req.user?.email || null;
+  db.prepare(`INSERT INTO annexe_saisie (cle, professeur_id, annee_scolaire, mois, donnees_json, modifie_par, modifie_le)
+      VALUES (?, ?, ?, ?, ?, ?, datetime('now'))
+    ON CONFLICT (cle, professeur_id, annee_scolaire, mois) DO UPDATE SET donnees_json = excluded.donnees_json,
+      modifie_par = excluded.modifie_par, modifie_le = excluded.modifie_le`)
+    .run(cle, Number(professeur_id), annee, moisCle(cle, mois), JSON.stringify(valeurs), par);
+  res.json({ ok: true, manques: manques(cle, valeurs) });
+});
+
 /* EN SÉRIE : plusieurs annexes pour plusieurs membres, dans une archive ZIP —
    un Word par personne et par annexe. L'EA12 (A1 bis) reprend le dernier de
    l'année, et n'en ouvre un (n° 01) que s'il n'y en a aucun. */
@@ -181,7 +339,9 @@ r.post('/lot', authRequired, PEUT, async (req, res) => {
         } else {
           const a = ANNEXES.find(z => z.cle === cle); if (!a) continue;
           if (a.mois && !mois) { erreurs.push(`${cle} : choisissez le mois`); continue; }
-          buf = await remplirAnnexe(cle, donnees(cle, id, annee, mois));
+          const { d, manques: mq } = donneesCompletes(cle, id, annee, mois);
+          if (mq.length) { sansObjet.push(`${m.nom} ${m.prenom} — ${cle} à compléter dans Lucie`); continue; }
+          buf = await remplirAnnexe(cle, d);
           nomF = `${cle}_${m.nom}_${m.prenom}_${annee}${a.mois ? '_' + String(mois).padStart(2, '0') : ''}.docx`;
         }
         zip.file(`${m.nom}_${m.prenom}/${nomF}`.replace(/\s+/g, '_'), buf); n++;
@@ -198,7 +358,7 @@ r.post('/lot', authRequired, PEUT, async (req, res) => {
 });
 
 r.get('/', authRequired, PEUT, (_req, res) => {
-  res.json(ANNEXES.map(({ cle, titre, usage, mois, ea12 }) => ({ cle, titre, usage, mois: !!mois, ea12: !!ea12 })));
+  res.json(ANNEXES.map(({ cle, titre, usage, mois, ea12 }) => ({ cle, titre, usage, mois: !!mois, ea12: !!ea12, saisie: SAISISSABLES.includes(cle) })));
 });
 
 r.get('/:cle', authRequired, PEUT, async (req, res) => {
@@ -209,12 +369,20 @@ r.get('/:cle', authRequired, PEUT, async (req, res) => {
   if (a.usage === 'membre' && !profId) return res.status(400).json({ error: 'Choisissez un membre du personnel.' });
   if (a.mois && !req.query.mois) return res.status(400).json({ error: 'Choisissez le mois.' });
   try {
-    const d = donnees(a.cle, profId, annee, req.query.mois);
+    const { d, manques: m } = donneesCompletes(a.cle, profId, annee, req.query.mois);
     if (a.usage === 'membre' && !d.membre) return res.status(404).json({ error: 'Membre du personnel introuvable.' });
-    const buf = await remplirAnnexe(a.cle, d);
+    // Une pièce complétable ne sort pas à trous : c'est la main qui la
+    // compléterait dans Word qu'on ne retrouve plus un an après.
+    if (m.length) return res.status(409).json({ error: `À compléter dans Lucie : ${m.join(' ; ')}.`, manques: m });
+    let buf = await remplirAnnexe(a.cle, d);
+    const pdf = req.query.format === 'pdf';
+    if (pdf) {
+      try { buf = await enPdf(buf); }
+      catch (e) { return res.status(501).json({ error: "Le PDF n'est pas encore disponible sur ce serveur (LibreOffice absent) : prenez le Word.", detail: e.message }); }
+    }
     const qui = d.membre ? `_${d.membre.nom}_${d.membre.prenom}` : '';
-    const nom = `${a.cle}${qui}_${annee}${d.mois ? '_' + String(d.mois).padStart(2, '0') : ''}.docx`.replace(/\s+/g, '_');
-    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+    const nom = `${a.cle}${qui}_${annee}${d.mois ? '_' + String(d.mois).padStart(2, '0') : ''}.${pdf ? 'pdf' : 'docx'}`.replace(/\s+/g, '_');
+    res.setHeader('Content-Type', pdf ? 'application/pdf' : 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
     res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(nom)}"; filename*=UTF-8''${encodeURIComponent(nom)}`);
     res.end(buf);
   } catch (e) {

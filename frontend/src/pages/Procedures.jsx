@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { getAnnee } from '../lib/api.js';
 import PreviewModal from '../components/PreviewModal.jsx';
+import { ouvrirApercu } from '../lib/apercu.js';
 import { PageHeader, RailLateral } from '../components/ui.jsx';
 import Disciplinaire from './Disciplinaire.jsx';
 import {
@@ -198,9 +199,6 @@ function genererDecision({ etudiant, ueNum, ueNom, profs, profsPresentsListe,
   .footer { border-top: 1px solid #ccc; margin-top: 20px; padding-top: 8px; font-size: 8pt; color: #888; text-align: center; }
   @media print { body { padding: 10mm 15mm; } button { display:none; } }
 </style></head><body>
-<div style="text-align:right;margin-bottom:10px;print:none">
-  <button onclick="window.print()" style="padding:6px 16px;background:#1F3864;color:#fff;border:none;border-radius:4px;cursor:pointer">🖨 Imprimer / PDF</button>
-</div>
 <div class="header">
   <div>
     <div class="logo-txt">Institut Ilya Prigogine</div>
@@ -952,9 +950,6 @@ function genererPVFraude({ etudiant, ueNum, ueNom, profs, profsPresents,
   .footer{border-top:1px solid #ccc;margin-top:20px;padding-top:8px;font-size:8pt;color:#888;text-align:center}
   @media print{body{padding:10mm 15mm}button{display:none}}
 </style></head><body>
-<div style="text-align:right;margin-bottom:10px">
-  <button onclick="window.print()" style="padding:6px 16px;background:#7B1C1C;color:#fff;border:none;border-radius:4px;cursor:pointer">🖨 Imprimer / PDF</button>
-</div>
 <div class="header">
   <div>
     <div class="logo-txt">Institut Ilya Prigogine</div>
@@ -1529,7 +1524,6 @@ function ArchivesProcedures({ onReprendreRecours, onReprendre }) {
   const [filtreQ, setFiltreQ]           = useState('');
   const [annees, setAnnees]             = useState([]);
   const [detail, setDetail]             = useState(null); // procédure ouverte
-  const [previewHtml, setPreviewHtml]   = useState(null);
   const [confirmSupp, setConfirmSupp]   = useState(null); // id à supprimer
   const [saving, setSaving]             = useState(false);
 
@@ -1592,7 +1586,12 @@ function ArchivesProcedures({ onReprendreRecours, onReprendre }) {
         body: proc.payload_json,
       });
       const d = await res.json();
-      if (d.html) setPreviewHtml(d.html);
+      if (d.html) ouvrirApercu({
+        html: d.html,
+        titre: proc.type === 'recours' ? 'PV de recours — Décision motivée' : 'PV de fraude',
+        nomFichier: `${proc.type === 'recours' ? 'PV_Recours' : 'PV_Fraude'}_${payload.etudiant || ''}`,
+        astuceImpression: 'A4 portrait',
+      });
     } catch (e) { alert('Erreur lors de la re-génération : ' + e.message); }
   }
 
@@ -1803,7 +1802,6 @@ function ArchivesProcedures({ onReprendreRecours, onReprendre }) {
       )}
 
       {/* Preview document */}
-      {previewHtml && <PreviewModal html={previewHtml} onClose={() => setPreviewHtml(null)} />}
     </div>
   );
 }

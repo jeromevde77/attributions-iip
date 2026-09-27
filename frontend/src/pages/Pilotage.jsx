@@ -12,6 +12,7 @@ import {
   Legend, CartesianGrid, ReferenceLine,
   ComposedChart, Line,
 } from 'recharts';
+import { ouvrirApercu } from '../lib/apercu.js';
 
 // ── Utilitaires ──────────────────────────────────────────────────────────────
 const fmt  = (v, d = 0) => (v == null ? '—' : Number(v).toLocaleString('fr-BE', { maximumFractionDigits: d }));
@@ -748,9 +749,9 @@ export default function Pilotage({ vue = 'tout' }) {
     });
     if (!rep.ok) return;
     const { html } = await rep.json();
-    const w = window.open('about:blank');
-    w.document.write(html);
-    w.document.close();
+    ouvrirApercu({ html, titre: 'Dotation par section et unité', sousTitre: `Année ${anneeActive}`,
+                   nomFichier: `Dotation_${anneeActive}`, envoiPossible: false,
+                   astuceImpression: paysage ? "⊞ Choisir « Paysage » à l'impression" : 'A4 portrait' });
   }
 
   const renderDotationTable = () => {
