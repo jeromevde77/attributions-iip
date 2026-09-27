@@ -2703,7 +2703,16 @@ r.post('/parcours-lot', authRequired, (req, res) => {
   }
   const pages = [], manques = [];
   for (const id of etudiants.map(Number)) {
-    const d = documentParcours(id, annee);
+    // UN DOSSIER QUI ÉCHOUE N'ARRÊTE PAS LE LOT (27 septembre 2026) : une
+    // exception levée sur un seul étudiant rendait la page d'erreur d'Express
+    // au lieu du JSON attendu, et l'écran n'affichait que « The string did not
+    // match the expected pattern ». Il est nommé dans les manques, avec la raison.
+    let d;
+    try { d = documentParcours(id, annee); }
+    catch (err) {
+      console.error('[parcours-lot]', id, err);
+      d = { erreur: `erreur interne : ${err.message}` };
+    }
     if (d.erreur) {
       const e0 = db.prepare('SELECT nom, prenom FROM etudiant WHERE id = ?').get(id);
       manques.push({ etudiant_id: id, nom: e0 ? `${e0.nom} ${e0.prenom}` : `#${id}`,
