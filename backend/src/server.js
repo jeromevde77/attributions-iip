@@ -3007,6 +3007,7 @@ app.use('/api/historique',   garderModule('historique'), historiqueRoutes);
 app.use('/api/audit',        garderModule('audit'), (await import('./routes/audit.js')).default);
 app.use('/api/etablissement', garderModule('etablissement'), etablissementRoutes);
 app.use('/api/ea12',          garderModule('ea12'), ea12Routes);
+app.use('/api/formulaires',   garderModule('formulaires'), (await import('./routes/formulaires.js')).default);
 app.use('/api/templates',   garderModule('templates'), templateRoutes);
 app.use('/api/contrats',    garderModule('contrats'), contratsRoutes);
 app.use('/api/procedures',    garderModule('procedures'), proceduresRoutes);

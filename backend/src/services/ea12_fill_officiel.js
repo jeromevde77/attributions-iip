@@ -29,16 +29,18 @@ const MODELE = path.join(import.meta.dirname, 'ea12-assets', 'A1_bis_EA12_SUP.do
 
 // ── Les cases, par RANG dans le document (0 = la première) ──────────────────
 const CASES = {
+  // Modèle « mise à jour 27/03/2026 » (circ. 9760) : la case « Transitoire
+  // BAESI » s'insère au rang 5, tout ce qui suit glisse d'un cran.
   wbe: 0, subventionne: 1, officiel: 2, libre: 3,
-  derogation: 4,
-  statut: { T: 5, TPr: 6, St: 7, D: 8, ACS: 9, APE: 10, PTP: 11 },
-  pas_cumul: 12, transmission_tardive: 13,
-  prest_sec: 14, prest_sup: 15, prest_exp: 16, prest_acs: 17, cumul_a2: 18,
-  jours: { 4: 19, 5: 20, 6: 21 },
-  mouvement: [22, 23, 24, 25, 26, 27, 28, 29, 30, 31], mouvement_autres: 32,
-  justifs: [33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45],
-  absence: [46, 47, 48],
-  oe: [[49, 50], [51, 52], [53, 54], [55, 56]],   // [D, T] par remplaçant
+  derogation: 4, baesi: 5,
+  statut: { T: 6, TPr: 7, St: 8, D: 9, ACS: 10, APE: 11, PTP: 12 },
+  pas_cumul: 13, transmission_tardive: 14,
+  prest_sec: 15, prest_sup: 16, prest_exp: 17, prest_acs: 18, cumul_a2: 19,
+  jours: { 4: 20, 5: 21, 6: 22 },
+  mouvement: [23, 24, 25, 26, 27, 28, 29, 30, 31, 32], mouvement_autres: 33,
+  justifs: [34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46],
+  absence: [47, 48, 49],
+  oe: [[50, 51], [52, 53], [54, 55], [56, 57]],   // [D, T] par remplaçant
 };
 const MOUVEMENTS = [
   'Entrée en fonction', 'Rentrée en fonction', 'Maintien d’attributions',
@@ -80,6 +82,19 @@ function tableaux(x) {
     }
   }
   return tabs;
+}
+/** Le début de la ligne `<w:tr>` qui contient `pos` — et non `<w:trPr>` ni
+ *  `<w:trHeight>`, qui commencent par les mêmes lettres : la ligne copiée
+ *  partait du milieu, et le document ne s'ouvrait plus. */
+function debutLigne(x, pos) {
+  let i = pos;
+  while (i > 0) {
+    i = x.lastIndexOf('<w:tr', i - 1);
+    if (i < 0) return -1;
+    const c = x[i + 5];
+    if (c === '>' || c === ' ') return i;
+  }
+  return -1;
 }
 const cellule = (x, t, r, c) => tableaux(x)[t]?.rows[r]?.[c] || null;
 
@@ -239,6 +254,7 @@ export async function remplirModeleOfficiel(d) {
   x = ajouter(x, C(5, 2, 1), /^\s*1\)\s*$/, d.titre1);
   x = ajouter(x, C(5, 2, 1), /^\s*2\)\s*$/, d.titre2);
   if (d.derogation_titre) x = cocher(x, CASES.derogation);
+  if (d.transitoire_baesi) x = cocher(x, CASES.baesi);
   if (CASES.statut[d.statut] != null) x = cocher(x, CASES.statut[d.statut]);
 
   // Cumul, transmission tardive, jours
@@ -294,23 +310,27 @@ export async function remplirModeleOfficiel(d) {
     }
   }
 
-  // Page 2 : ECOT, FASE
-  x = grille(x, 13, 0, 0, etab.num_ecot, 10);
-  x = grille(x, 14, 0, 0, etab.num_fase, 5);
+  // Page 2 (modèle du 27/03/2026) : matricule, NOM et prénom du membre du
+  // personnel, puis ECOT et FASE — la page 2 se lit seule à l'Administration.
+  x = grille(x, 13, 0, 0, d.matricule, 11);
+  x = remplacer(x, C(12, 0, 0), /NOM\s*:\s*([….]+)/, d.prof_nom ? ` ${d.prof_nom}` : null, { run: { sz: 20, bold: true } });
+  x = remplacer(x, C(12, 0, 0), /Prénom\s*:\s*([….]+)/, d.prof_prenom ? ` ${d.prof_prenom}` : null, { run: { sz: 20 } });
+  x = grille(x, 14, 0, 0, etab.num_ecot, 10);
+  x = grille(x, 15, 0, 0, etab.num_fase, 5);
 
   // Attributions : 18 lignes dans le modèle ; au-delà, on en ajoute sur le
   // même dessin — tronquer ferait partir un document faux sans le dire.
   const attrs = (d.attributions || []).filter(a => a && (a.ue || a.denomination || a.nb_periodes));
   if (attrs.length > 18) {
-    const tb = tableaux(x)[15];
+    const tb = tableaux(x)[16];
     const derniere = tb.rows[18];
-    const debutLigne = x.lastIndexOf('<w:tr', derniere[0].s);
+    const debutLigne = debutLigne(x, derniere[0].s);
     const finLigne = x.indexOf('</w:tr>', derniere.at(-1).e) + '</w:tr>'.length;
     const gabarit = x.slice(debutLigne, finLigne);
     x = x.slice(0, finLigne) + gabarit.repeat(attrs.length - 18) + x.slice(finLigne);
   }
   const COL = ['ue', 'f', 'denomination', 'cla', 'periode_occ', 'tctl', 'nb_periodes', 'titre', 'sit_adm', 'di', 'oe'];
-  attrs.forEach((a, i) => COL.forEach((k, c) => { x = ecrireCellule(x, 15, 1 + i, c, a[k]); }));
+  attrs.forEach((a, i) => COL.forEach((k, c) => { x = ecrireCellule(x, 16, 1 + i, c, a[k]); }));
 
   // Attributions actuelles : le total par classification et TC/TL.
   const tot = {};
@@ -320,15 +340,15 @@ export async function remplirModeleOfficiel(d) {
   }
   const cles = Object.keys(tot);
   if (cles.length) {
-    x = ecrireCellule(x, 16, 2, 0, cles.map(k => k.split('|')[0]).join('\n'));
-    x = ecrireCellule(x, 16, 2, 1, cles.map(k => k.split('|')[1]).join('\n'));
-    x = ecrireCellule(x, 16, 2, 2, cles.map(k => String(tot[k])).join('\n'));
+    x = ecrireCellule(x, 17, 2, 0, cles.map(k => k.split('|')[0]).join('\n'));
+    x = ecrireCellule(x, 17, 2, 1, cles.map(k => k.split('|')[1]).join('\n'));
+    x = ecrireCellule(x, 17, 2, 2, cles.map(k => String(tot[k])).join('\n'));
   }
 
   // Origine de l'événement : les MDP remplacés
   (d.oe_slots || []).slice(0, 4).forEach((o, i) => {
     if (!o) return;
-    const cel = () => cellule(x, 17, 1 + i, 1);
+    const cel = () => cellule(x, 18, 1 + i, 1);
     x = remplacer(x, cel(), /N° Mat\s*:\s*((?:_\s*){11})/, o.num_mat ? `${o.num_mat} ` : null);
     x = remplacer(x, cel(), /Nom, prénom\s*:\s*([….]+)/, o.nom_prenom ? ` ${o.nom_prenom}` : null);
     x = remplacer(x, cel(), /Motif de remplacement\s*:\s*([….]+)/, o.motif ? ` ${o.motif}` : null);
@@ -344,3 +364,7 @@ export async function remplirModeleOfficiel(d) {
 }
 
 export default remplirModeleOfficiel;
+
+// Les outils d'écriture servent aussi aux autres formulaires de la circulaire
+// 9760 (formulairesFWB.js) : une seule façon d'écrire dans un Word officiel.
+export { debutLigne, tableaux, cellule, paragraphes, episser, remplacer, ajouter, ecrireCellule, grille, cocher, esc };

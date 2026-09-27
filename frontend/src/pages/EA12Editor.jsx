@@ -197,12 +197,12 @@ export default function EA12Editor() {
           <p className="text-xs text-gray-500">Année {ea12.annee_scolaire} · Doc n° {ea12.num_doc}</p>
         </div>
         <div className="flex gap-2">
-          <button onClick={save} disabled={saving} className="px-4 py-2 text-sm border border-iip-gold text-iip-gold rounded-lg hover:bg-iip-gold/5 disabled:opacity-50">
+          <button onClick={save} disabled={saving} className="bouton">
             <IconDeviceFloppy size={15} className="inline align-[-2px] mr-1" />Enregistrer
           </button>
-          <button onClick={imprimer} disabled={saving} className="bouton">
-            <IconPrinter size={15} className="inline align-[-2px] mr-1" />Aperçu
-          </button>
+          {/* L'APERÇU A DISPARU (Charles, 27 septembre 2026 : « aucun intérêt ») :
+              c'était une imitation HTML du formulaire ; la pièce est le Word
+              officiel. Deux boutons, une seule classe, une seule taille. */}
           <button onClick={telechargerWord} disabled={saving} className="bouton bouton-sortir"
             title="Le formulaire officiel de la FWB, rempli par Lucie, corrigeable dans Word">
             {saving ? 'Génération…' : <><IconFileWord size={15} className="inline align-[-2px] mr-1" />Word officiel</>}
@@ -441,8 +441,7 @@ export default function EA12Editor() {
 
       {/* ─── Boutons bas ────────────────────────────────────────────────── */}
       <div className="flex justify-end gap-2">
-        <button onClick={save} disabled={saving} className="px-5 py-2 text-sm border border-iip-gold text-iip-gold rounded-lg hover:bg-iip-gold/5 disabled:opacity-50"><IconDeviceFloppy size={15} className="inline align-[-2px] mr-1" />Enregistrer</button>
-        <button onClick={imprimer} disabled={saving} className="bouton"><IconPrinter size={15} className="inline align-[-2px] mr-1" />Aperçu</button>
+        <button onClick={save} disabled={saving} className="bouton"><IconDeviceFloppy size={15} className="inline align-[-2px] mr-1" />Enregistrer</button>
         <button onClick={telechargerWord} disabled={saving} className="bouton bouton-sortir">{saving ? 'Génération…' : <><IconFileWord size={15} className="inline align-[-2px] mr-1" />Word officiel</>}</button>
       </div>
 
