@@ -3,6 +3,12 @@
 @tailwind components;
 @tailwind utilities;
 
+/* LES CASES À COCHER SONT MARINE (Charles, 27 septembre 2026 : « je n'aime pas
+ * ce bleu flash, on coche en bleu marine »). Posé une fois, pour tout Lucie :
+ * le bleu du navigateur n'est pas une couleur de la maison. */
+input[type="checkbox"], input[type="radio"] { accent-color: #1B2B4B; }
+
+
 /* LES GRIS — deux jeux, un seul réglage (Configuration → Thèmes et couleurs).
  * « Ardoise » est le gris d'origine de Tailwind, bleuté ; « neutre » est un
  * gris sans teinte, plus clair en fond. Canaux RVB, pour que les opacités de

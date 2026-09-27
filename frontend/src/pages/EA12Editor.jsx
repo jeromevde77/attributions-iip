@@ -426,7 +426,7 @@ export default function EA12Editor() {
                   {['D', 'T'].map(t => (
                     <label key={t} className="flex items-center gap-1.5 cursor-pointer text-sm select-none">
                       <input type="radio" name={`oe_type_${i}`} checked={slot.type === t} onChange={() => setOE(i, 'type', t)}
-                        className="w-4 h-4 accent-iip-mauve" />
+                        className="w-4 h-4 accent-iip-blue" />
                       <span className="font-medium">{t}</span>
                     </label>
                   ))}

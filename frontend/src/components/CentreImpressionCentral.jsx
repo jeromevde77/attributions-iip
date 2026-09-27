@@ -934,7 +934,7 @@ function OngletPersonnel({ onClose, membreInitial = null, outilsMembre = null })
                 reviennent à ce membre. Les périodes d'expert ne vont que sur l'EA12
                 et le contrat d'expert ; le reste, sur le contrat et l'EA12 classiques. */}
             {statut && (
-              <div data-etat={statut.statut === 'aucun' ? 'neutre' : 'disponible'} className="bloc-etat px-3 py-2 text-[13px]">
+              <div data-etat={statut.statut === 'aucun' ? 'neutre' : 'fort'} className="bloc-etat px-3 py-2 text-[13px]" style={statut.statut === 'aucun' ? undefined : { background: 'color-mix(in srgb, #1B2B4B 6%, #fff)' }}>
                 {statut.statut === 'mixte' && <><b>Ce membre du personnel a deux statuts : expert et chargé de cours.</b> <span className="text-slate-500">{statut.cc.periodes} périodes CC · {statut.expert.periodes} périodes d'expert en {annee}</span></>}
                 {statut.statut === 'expert' && <><b>Ce membre du personnel est expert.</b> <span className="text-slate-500">{statut.expert.periodes} périodes en {annee}</span></>}
                 {statut.statut === 'cc' && <><b>Ce membre du personnel est chargé de cours.</b> <span className="text-slate-500">{statut.cc.periodes} périodes en {annee}</span></>}
@@ -1102,7 +1102,7 @@ function SeriePersonnel({ ids, profs, annee, annexes, nom, outilsMembre = null }
   return (
     <div className="space-y-3">
       <div className="text-[15px] font-semibold text-iip-blue md:-mt-[3.35rem] md:h-[2.6rem] md:mb-[0.75rem] flex items-center">En série — {ids.length} membres</div>
-      <div data-etat="disponible" className="bloc-etat px-3 py-2 text-[13px]">
+      <div data-etat="fort" className="bloc-etat px-3 py-2 text-[13px]" style={{ background: 'color-mix(in srgb, #1B2B4B 6%, #fff)' }}>
         <b>Chaque pièce est remplie des données de chaque membre.</b>{' '}
         <span className="text-slate-500">{noms.slice(0, 6).join(', ')}{noms.length > 6 ? ` et ${noms.length - 6} autres` : ''}.</span>
       </div>

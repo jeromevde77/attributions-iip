@@ -1272,7 +1272,7 @@ function VueParallele({ postes, candidats, fonctions, annee, onRecharger }) {
 
         <label className="flex items-center gap-1.5 text-sm text-gray-600 cursor-pointer select-none">
           <input type="checkbox" checked={showTous} onChange={e => setShowTous(e.target.checked)}
-            className="w-4 h-4 accent-iip-turquoise" />
+            className="w-4 h-4 accent-iip-blue" />
           Afficher tous les cours
         </label>
 
