@@ -13,9 +13,10 @@ export const COULEUR_BLOC = { BA1: 'var(--c-ba1, #E8890C)', BA2: 'var(--c-ba2, #
   BA3: 'var(--c-ba3, #1B2B4B)', BA4: '#6E7FA0', BA5: '#9D4A38' };
 export const OR_EPREUVE = 'var(--c-epreuve, #C9A84C)';
 
-/** « ba2 », « BA 2 », « BA2 » → « BA2 » ; autre chose → null. */
+/** « ba2 », « BA 2 », « BA2 » → « BA2 » ; « BE1 » (même repère : CLAUDE.md,
+ *  « BA1/BE1 orange ») → « BA1 » ; autre chose → null. */
 export function blocDe(niv) {
-  const m = /^\s*BA\s*(\d+)\s*$/i.exec(String(niv || ''));
+  const m = /^\s*B[AE]\s*(\d+)\s*$/i.exec(String(niv || ''));
   return m ? `BA${m[1]}` : null;
 }
 export function couleurBloc(niv) {
