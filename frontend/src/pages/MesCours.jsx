@@ -195,7 +195,12 @@ export default function MesCours() {
         const deplacer = (ev, r, k) => {
           const d = { ArrowUp: [-1, 0], ArrowDown: [1, 0], Enter: [1, 0], ArrowLeft: [0, -1], ArrowRight: [0, 1] }[ev.key];
           if (!d) return;
-          const cible = document.querySelector(`[data-case="${r + d[0]}:${k + d[1]}"]`);
+          // Une ligne reportée n'a pas de case : on la saute.
+          let cible = null;
+          for (let pas = 1; pas < 200 && !cible; pas++) {
+            cible = document.querySelector(`[data-case="${r + d[0] * pas}:${k + d[1] * (d[0] ? 1 : pas)}"]`);
+            if (!d[0]) break;
+          }
           if (cible) { ev.preventDefault(); cible.focus(); cible.select?.(); }
         };
         const nomAA = (a, i) => `AA ${i + 1}`;
@@ -214,10 +219,13 @@ export default function MesCours() {
         const pondere = (feuille?.acquis || []).some(a => Number(a.poids) > 0);
         const sommePoids = cols.reduce((t, k) => t + (poidsDe[k] ?? 1), 0) || 1;
         const partDe = k => Math.round(((poidsDe[k] ?? 1) / sommePoids) * 100);
+        // Un cours REPORTÉ se lit dans ses notes d'origine, pas dans la saisie.
+        const reportDe = id => feuille?.etudiants?.find(x => x.id === id)?.report || null;
+        const valeurDe = (id, k) => { const rp = reportDe(id); return rp ? (rp.notes?.[k] ?? '') : (notes[id]?.[k] ?? ''); };
         const noteCours = id => {
           let s = 0, p = 0, mentions = 0;
           for (const k of cols) {
-            const t = String(notes[id]?.[k] ?? '').trim().toUpperCase();
+            const t = String(valeurDe(id, k)).trim().toUpperCase();
             if (!t) continue;
             if (MENTIONS.includes(t)) { mentions++; continue; }
             const n = Number(t.replace(',', '.'));
@@ -234,7 +242,8 @@ export default function MesCours() {
           if (!caseActive) return;
           const { id, k, r, ci } = caseActive;
           setNotes(n => ({ ...n, [id]: { ...n[id], [k]: m } }));
-          const suivante = document.querySelector(`[data-case="${r + 1}:${ci}"]`);
+          let suivante = null;
+          for (let pas = 1; pas < 200 && !suivante; pas++) suivante = document.querySelector(`[data-case="${r + pas}:${ci}"]`);
           if (suivante) { suivante.focus(); suivante.select?.(); }
         };
         return (
@@ -310,11 +319,29 @@ export default function MesCours() {
                       {feuille.etudiants.map((e, r) => (
                         <tr key={e.id} className="border-t border-slate-100 bg-white">
                           <td className="py-0.5 px-3 whitespace-nowrap"><b>{(e.nom || '').toUpperCase()}</b> {e.prenom}
-                            <span className="text-slate-400 text-[11px]"> · {e.id_ecampus || '—'}</span></td>
+                            <span className="text-slate-400 text-[11px]"> · {e.id_ecampus || '—'}</span>
+                            {e.report && <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded border border-slate-200 text-slate-500"
+                              title="Tous les acquis de ce cours ont été maîtrisés l'an passé : le cours est dispensé et ses notes sont reprises">
+                              reporté {String(e.report.annee_origine || '').replace(/^20(\d\d)-20(\d\d)$/, '$1-$2')}</span>}</td>
                           {feuille.repartition && (
                             <td className="py-0.5 pr-4 text-[12px] text-slate-500 whitespace-nowrap">{e.groupe}</td>
                           )}
                           {cols.map((k, ci) => {
+                            /* COURS REPORTÉ (27 septembre 2026) : tous ses acquis ont été
+                               maîtrisés l'an passé, la note est reprise d'office. Elle se lit,
+                               grise, et ne se saisit pas. */
+                            if (e.report) {
+                              const vr = e.report.notes?.[k];
+                              return (
+                                <td key={k} className="py-0.5 px-1 text-center whitespace-nowrap"
+                                  title={`Cours reporté de ${e.report.annee_origine || "l'an passé"} : note reprise d'office, elle ne se saisit pas`}>
+                                  <span className="inline-block w-12 text-right text-[13px] tabular-nums text-slate-500">
+                                    {vr != null ? Math.round(vr) : '·'}
+                                  </span>
+                                  <span className={`ml-0.5 text-[10px] text-slate-400 ${vr != null ? '' : 'invisible'}`}>/20</span>
+                                </td>
+                              );
+                            }
                             const v = notes[e.id]?.[k] ?? '';
                             const ok = valeurOk(v);
                             const t = String(v).trim().toUpperCase();

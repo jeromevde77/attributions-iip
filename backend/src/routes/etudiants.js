@@ -15,7 +15,7 @@ import { piedDocument } from './parametres.js';
 import { anneeDeTravail } from '../helpers/annee.js';
 import { authRequired, roleRequired, getUserSections } from '../middleware/auth.js';
 import { construireGraphe, niveauxEffectifs, rangNiveau } from './capitalisation.js';
-import { structureUE, calculerNoteUE, coursValidesAnterieurs } from './acquis.js';
+import { structureUE, calculerNoteUE, coursValidesAnterieurs, poserReportsDOffice } from './acquis.js';
 import {
   BASES, CODES_BASE, FINALITES, ETATS, etatDeduit, uniteValorisable,
   controleDelai, manquesDossier, pieceProduisible, journaliser, journalDe,
@@ -2218,7 +2218,8 @@ r.post('/:id/pae/confirmer', authRequired,
     `).run(etudId, annee, qui);
   })();
 
-  res.json({ ok: true, ajoutees, confirme: true });
+  const reports = reporterDOffice(Number(req.params.id), annee);
+  res.json({ ok: true, ajoutees, confirme: true, reports });
 });
 
 r.delete('/:id/pae/confirmer', authRequired,
@@ -4172,6 +4173,16 @@ r.get('/:id/pae', authRequired, (req, res) => {
 // ── Valider le PAE : synchroniser les inscriptions de l'année ────────────────
 // Reçoit la liste retenue par le secrétariat. Insère les manquantes, retire
 // celles décochées qui n'ont PAS de résultat encodé (jamais destructif).
+
+/* LE REPORT D'OFFICE SUIT LE PAE (27 septembre 2026) : dès que le programme
+   s'écrit, les cours dont tous les acquis ont été maîtrisés l'an passé sont
+   reportés. Une erreur ici ne défait pas le PAE : elle se journalise, et le
+   rattrapage (Délibération → Reports d'office) la reprendra. */
+function reporterDOffice(etudId, annee) {
+  try { return poserReportsDOffice(etudId, annee).poses.length; }
+  catch (e) { console.error('[report d\'office]', etudId, annee, e.message); return 0; }
+}
+
 r.post('/:id/pae-valider', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
   const etudId = Number(req.params.id);
   const { annee, ue_nums, derogations, forcer } = req.body;
@@ -4213,6 +4224,9 @@ r.post('/:id/pae-valider', authRequired, roleRequired('admin', 'editeur'), (req,
       if (ex.resultat != null && !forcer) { conservees++; continue; }
       if (del.run(etudId, annee, ex.ue_num).changes) {
         retirees++;
+        // Le report d'abord : tant qu'il est accordé, ses notes sont gardées.
+        db.prepare('DELETE FROM etudiant_report_note WHERE etudiant_id=? AND annee_scolaire=? AND ue_num=?')
+          .run(etudId, annee, ex.ue_num);
         db.prepare('DELETE FROM etudiant_note_detail WHERE etudiant_id=? AND annee_scolaire=? AND ue_num=?')
           .run(etudId, annee, ex.ue_num);
       }
@@ -4220,7 +4234,8 @@ r.post('/:id/pae-valider', authRequired, roleRequired('admin', 'editeur'), (req,
   });
   tx();
 
-  res.json({ ok: true, annee, ajoutees, retirees, conservees, total: retenues.size });
+  const reports = reporterDOffice(etudId, annee);
+  res.json({ ok: true, annee, ajoutees, retirees, conservees, total: retenues.size, reports });
 });
 
 // ── LES PROGRAMMES D'UNE PROMOTION, D'UN SEUL GESTE ─────────────────────────
@@ -4343,6 +4358,7 @@ r.post('/pae-promotion', authRequired,
         if (n) { ecrits++; inscriptions += n; }
       }
     })();
+    for (const l of prets) reporterDOffice(l.id, annee_cible);
   }
 
   res.json({
@@ -5294,7 +5310,7 @@ r.get('/:id/grille/detail', authRequired, (req, res) => {
 
   const reportsActifs = db.prepare(`
     SELECT cours_code, note, annee_origine FROM etudiant_report_note
-    WHERE etudiant_id = ? AND ue_num = ? AND annee_scolaire = ?
+    WHERE etudiant_id = ? AND ue_num = ? AND annee_scolaire = ? AND statut = 'accorde'
   `).all(etudId, ueN, annee);
   const reports = Object.fromEntries(reportsActifs.map(r0 => [r0.cours_code, r0.note]));
 
@@ -5336,6 +5352,17 @@ r.put('/:id/grille/detail', authRequired, roleRequired('admin', 'editeur'), (req
   }
   const ueN = Number(ue_num);
 
+  // UN COURS REPORTÉ NE SE RÉENCODE PAS : sa note est celle de l'année
+  // d'origine, gardée tant que le report tient. On le dit plutôt que d'écrire
+  // une seconde note que la délibération ignorerait en silence.
+  const rep = db.prepare(`SELECT annee_origine FROM etudiant_report_note
+    WHERE etudiant_id = ? AND annee_scolaire = ? AND ue_num = ? AND cours_code = ?
+      AND statut = 'accorde' LIMIT 1`).get(etudId, annee, ueN, cours_code);
+  if (rep) {
+    return res.status(409).json({ error: `Ce cours est reporté de ${rep.annee_origine || "l'année précédente"} : `
+      + 'ses notes y sont reprises et ne se réencodent pas. Retirez le report pour encoder une nouvelle note.' });
+  }
+
   // La clé unique historique porte sur (type, code) : un même AA présent dans
   // deux cours entrerait en collision. On la lève en préfixant le code par le
   // cours, tout en conservant cours_code dans sa colonne pour la lecture.
@@ -5367,7 +5394,7 @@ r.put('/:id/grille/detail', authRequired, roleRequired('admin', 'editeur'), (req
     SELECT code, cours_code, points, va, non_evalue FROM etudiant_note_detail
     WHERE etudiant_id=? AND annee_scolaire=? AND ue_num=? AND type='aa'
   `).all(etudId, annee, ueN)) {
-    const brut = String(l.code).includes('|') ? String(l.code).split('|')[1] : l.code;
+    const brut = String(l.code).split('|').pop();   // l'acquis est le DERNIER segment : « s1|67.4|AA67.2 »
     const cc = l.cours_code
       || structure.find(c => c.aas.some(a => a.aa_code === brut))?.cours_code;
     if (cc) notes[cc + '|' + brut] = { points: l.points, va: l.va, non_evalue: l.non_evalue };
@@ -5375,7 +5402,7 @@ r.put('/:id/grille/detail', authRequired, roleRequired('admin', 'editeur'), (req
 
   const reports = Object.fromEntries(db.prepare(`
     SELECT cours_code, note FROM etudiant_report_note
-    WHERE etudiant_id = ? AND ue_num = ? AND annee_scolaire = ?
+    WHERE etudiant_id = ? AND ue_num = ? AND annee_scolaire = ? AND statut = 'accorde'
   `).all(etudId, ueN, annee).map(r0 => [r0.cours_code, r0.note]));
 
   res.json({ ok: true, calcul: calculerNoteUE(ueN, annee, notes, reports) });

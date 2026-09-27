@@ -281,6 +281,22 @@ r.get('/:coursCode/etudiants', authRequired, (req, res) => {
     (props[x.etudiant_id] ||= {})[x.aa_code || ''] = x.mention || x.note;
   }
 
+  /* LES COURS REPORTÉS SE VOIENT, ET NE SE NOTENT PAS (27 septembre 2026) :
+     l'étudiant a maîtrisé tous les acquis de ce cours l'an passé ; ses notes
+     sont reprises d'office. Le professeur les lit, il ne les propose pas. */
+  const reportes = {};
+  try {
+    for (const x of db.prepare(`
+      SELECT r.etudiant_id, r.annee_origine, n.code, n.points
+      FROM etudiant_report_note r
+      LEFT JOIN etudiant_note_detail n ON n.etudiant_id = r.etudiant_id AND n.annee_scolaire = r.annee_scolaire
+        AND n.ue_num = r.ue_num AND n.cours_code = r.cours_code AND n.origine LIKE 'report:%'
+      WHERE r.annee_scolaire = ? AND r.cours_code = ? AND r.statut = 'accorde'`).all(annee, req.params.coursCode)) {
+      const o = (reportes[x.etudiant_id] ||= { annee_origine: x.annee_origine, notes: {} });
+      if (x.code) o.notes[String(x.code).split('|').pop()] = x.points;
+    }
+  } catch { /* tables absentes */ }
+
   res.json({
     annee, cours_code: req.params.coursCode, ue_num: d.ueNum,
     repartition: d.repartition, portee: d.portee,
@@ -288,7 +304,8 @@ r.get('/:coursCode/etudiants', authRequired, (req, res) => {
     // elle retombe sur une note de cours (clé '').
     acquis,
     etudiants: d.etudiants.map(e => ({ ...e,
-      notes: props[e.id] || {}, note: (props[e.id] || {})[''] ?? null })),
+      notes: props[e.id] || {}, note: (props[e.id] || {})[''] ?? null,
+      report: reportes[e.id] || null })),
   });
 });
 
