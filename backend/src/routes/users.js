@@ -57,30 +57,57 @@ r.get('/', authRequired, roleRequired('admin'), (req, res) => {
   res.json(users);
 });
 
+/*
+ * LE PÉRIMÈTRE DEMANDÉ À LA CRÉATION EST CELUI QUI S'ÉCRIT (27 septembre 2026).
+ * La fiche envoie `sections`, `perimetre_toutes` et `permissions_json` ; la
+ * route n'en lisait que les sections, et une liste VIDE ouvrait TOUTES les
+ * sections — on demandait « aucune », on obtenait l'Institut entier. Les cases
+ * de droits cochées, elles, se perdaient. Désormais :
+ *   · `perimetre_toutes` vrai          → toutes les sections ;
+ *   · des sections nommées             → celles-là, et pas toutes ;
+ *   · `perimetre_toutes` faux, sans liste → aucune, comme demandé ;
+ *   · rien de précisé (ancien écran)   → toutes, pour ne pas créer un compte
+ *     aveugle sans que personne l'ait voulu.
+ */
+function poserPerimetre(id, sections, toutes) {
+  if (toutes === true || toutes === 1) return ouvrirTout(id);
+  if (Array.isArray(sections) && sections.filter(Boolean).length) {
+    setSections(id, sections);
+    db.prepare('UPDATE utilisateur SET perimetre_toutes = 0 WHERE id = ?').run(id);
+    return;
+  }
+  if (toutes === false || toutes === 0) {
+    setSections(id, []);
+    db.prepare('UPDATE utilisateur SET perimetre_toutes = 0 WHERE id = ?').run(id);
+    return;
+  }
+  ouvrirTout(id);
+}
+const texteJson = v => (v == null ? null : typeof v === 'string' ? v : JSON.stringify(v));
+
 r.post('/', authRequired, roleRequired('admin'), (req, res) => {
-  const { email, password, nom_complet, role, sections, professeur_id } = req.body || {};
+  const { email, password, nom_complet, role, sections, professeur_id, perimetre_toutes, permissions_json } = req.body || {};
   if (!email || !password) return res.status(400).json({ error: 'Email et mot de passe requis' });
-  const roleNorm = role;
   if (!rolesConnus().codes.includes(role)) return res.status(400).json({ error: 'Rôle invalide' });
+  const perms = texteJson(permissions_json);
   try {
     // Si un compte existe déjà avec cet email, le lier au prof plutôt que créer
     const existing = db.prepare('SELECT id FROM utilisateur WHERE email = ?').get(email);
     if (existing) {
       if (professeur_id) {
         db.prepare('UPDATE utilisateur SET professeur_id = ?, role = ?, actif = 1 WHERE id = ?')
-          .run(professeur_id, roleNorm, existing.id);
-        if (Array.isArray(sections) && sections.length) setSections(existing.id, sections);
-        else ouvrirTout(existing.id);   // rien de demandé : ouvert, jamais aveugle
+          .run(professeur_id, role, existing.id);
+        if (perms != null) db.prepare('UPDATE utilisateur SET permissions_json = ? WHERE id = ?').run(perms, existing.id);
+        poserPerimetre(existing.id, sections, perimetre_toutes);
       }
       return res.status(200).json({ id: existing.id, linked: true });
     }
     const hash = bcrypt.hashSync(password, 10);
     const result = db.prepare(`
-      INSERT INTO utilisateur (email, password_hash, nom_complet, role, actif, professeur_id)
-      VALUES (?, ?, ?, ?, 1, ?)
-    `).run(email, hash, nom_complet || email, role, professeur_id || null);
-    if (Array.isArray(sections) && sections.length) setSections(result.lastInsertRowid, sections);
-    else ouvrirTout(result.lastInsertRowid);   // rien de demandé : ouvert, jamais aveugle
+      INSERT INTO utilisateur (email, password_hash, nom_complet, role, actif, professeur_id, permissions_json)
+      VALUES (?, ?, ?, ?, 1, ?, ?)
+    `).run(email, hash, nom_complet || email, role, professeur_id || null, perms);
+    poserPerimetre(result.lastInsertRowid, sections, perimetre_toutes);
     res.status(201).json({ id: result.lastInsertRowid });
   } catch (e) {
     if (e.code === 'SQLITE_CONSTRAINT_UNIQUE') return res.status(409).json({ error: 'Email déjà utilisé' });
