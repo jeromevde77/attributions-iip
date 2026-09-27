@@ -352,24 +352,31 @@ function documentGrilleSection(p) {
          deux façons de dire la même chose, dont aucune ne se voit en
          balayant la page. La bande le dit une fois, en couleur ; le rappel
          minuscule disparaît. */
-      tr.bloc td { font-weight: 700; color: #ffffff; font-size: 9pt;
-                   background: #2D4470; padding: 1.8mm 2mm 1.8mm 4mm;
-                   border-bottom: 0; letter-spacing: .3pt; border-radius: 1.5mm; }
-      tr.bloc.bloc1 td { background: #E8890C; }
-      tr.bloc.bloc2 td { background: #7FB3D5; color: #123047; }
-      tr.bloc.bloc3 td { background: #1B2B4B; }
-      tr.ue td { padding-top: 2.5mm; border-bottom: 0.25mm solid #C4CDD9; }
+      /* DEUX TONS, UNE POLICE (Charles, 27 septembre 2026 : « pas beau :
+         plein de couleurs, pas les mêmes polices, le rectangle orange ; BA
+         devrait être décalé à droite »). Le bloc se dit par un LISERÉ droit
+         à sa couleur — orange, bleu clair, marine — sur un fond pâle de la
+         même teinte, et « BA1 » respire à 5 mm du liseré. Le texte est
+         marine, le second plan gris, et rien d'autre : l'ocre de l'autonomie
+         disait « alerte » là où il n'y a qu'une grandeur. */
+      tr.bloc td { font-weight: 700; color: #1B2B4B; font-size: 9pt; letter-spacing: .4pt;
+                   padding: 1.6mm 2mm 1.6mm 5mm; border-bottom: 0;
+                   border-left: 1.6mm solid #9AA3B5; background: #F4F6F9; }
+      tr.bloc.bloc1 td { border-left-color: #E8890C; background: #FDF1E3; }
+      tr.bloc.bloc2 td { border-left-color: #7FB3D5; background: #EEF5FA; }
+      tr.bloc.bloc3 td { border-left-color: #1B2B4B; background: #E9ECF2; }
+      tr.ue td { padding-top: 2.5mm; border-bottom: 0.25mm solid #D8DCE4; color: #1B2B4B; }
+      tr.ue td .fin { color: #5B6478; font-weight: 400; }
       tr.ue .ue-bloc { display: none; }
-      td.code { font-family: ui-monospace, Menlo, Consolas, monospace;
-                font-size: 7.5pt; color: #64748b; }
-      td.type { font-size: 7pt; color: #64748b; text-align: center; }
-      td.etud { color: #64748b; }
-      td.aut  { color: #B45309; }
+      table.grille td { color: #1B2B4B; }
+      td.code { font-variant-numeric: tabular-nums; color: #5B6478; }
+      td.type { color: #5B6478; text-align: center; }
+      td.etud { color: #5B6478; }
+      td.aut  { color: #1B2B4B; }
       td.g    { font-weight: 700; color: #1B2B4B; }
-      /* LE SOUS-TOTAL ADDITIONNE, IL N'ALERTE PAS — et il ne se cache pas non
-         plus : en italique gris, il se confondait avec les lignes de cours. */
-      tr.sous td { font-size: 7.5pt; color: #1B2B4B; font-weight: 600;
-                   background: #EDF2F8; border-bottom: 0.3pt solid #D6E0EC; }
+      /* LE SOUS-TOTAL ADDITIONNE, IL N'ALERTE PAS. */
+      tr.sous td { color: #1B2B4B; font-weight: 600;
+                   background: #EDF2F8; border-bottom: 0.3pt solid #D8DCE4; }
       tfoot tr.total td { font-weight: 700; color: #1B2B4B; font-size: 9pt;
                           border-top: 1pt solid #1B2B4B; border-bottom: 0; }`,
   };
