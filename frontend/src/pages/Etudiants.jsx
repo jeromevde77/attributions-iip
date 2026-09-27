@@ -3401,7 +3401,6 @@ export default function Etudiants() {
                 <ThTri champ="nom"     tri={tri} onTri={trierPar} className="text-left">Étudiant</ThTri>
                 <th className="px-2 py-2.5 text-left w-12 text-[11px] font-semibold" title="Programme validé">PAE</th>
                 <ThTri champ="niveau"  tri={tri} onTri={trierPar} className="text-left w-28">Niveau</ThTri>
-                <ThTri champ="section" tri={tri} onTri={trierPar} className="text-left w-24">Section</ThTri>
                 <th className="px-3 py-2.5 text-left text-[11px] font-semibold">Parcours <span className="font-normal text-slate-400">— dans l'ordre du cursus</span></th>
                 <th className="px-2 py-2.5 w-8"></th>
               </tr>
@@ -3436,7 +3435,7 @@ export default function Etudiants() {
                         ne rien dire de plus. */}
                     {parSection.length > 1 && (
                       <tr className="tab-repere">
-                        <td colSpan={7} className="px-4 py-2">
+                        <td colSpan={6} className="px-4 py-2">
                           <button onClick={basculer}
                             className="flex items-center gap-1.5 text-[13px] font-semibold">
                             <span className="w-3 inline-block opacity-50">{ouverte ? '−' : '+'}</span>
@@ -3501,13 +3500,9 @@ export default function Etudiants() {
                       </span>
                     )}
                   </td>
-                  <td className="px-3 py-1 text-[12px] text-slate-500"
-                    title={e.sections ? `UE suivies dans : ${e.sections.split(',').join(', ')}` : undefined}>
-                    {e.section_rattachement || <span className="text-slate-300">—</span>}
-                    {e.section_rattachement && e.section_deduite && (
-                      <span className="text-[11px] text-slate-400"> (déduite)</span>
-                    )}
-                  </td>
+                  {/* LA COLONNE SECTION EST PARTIE (Charles, 27 septembre 2026 : « on
+                      est dans le filtre, perte de place ») : les lignes sont déjà
+                      rangées par section, sous son volet. */}
                   <td className="px-3 py-1">
                     <FriseParcours ues={frises?.sections?.[frises?.etats?.[e.id]?.s]} codes={frises?.etats?.[e.id]?.c} />
                   </td>

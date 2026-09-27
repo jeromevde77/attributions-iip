@@ -83,6 +83,50 @@ const shaOnly = BUILD_VER.includes('+')
   ? BUILD_VER.split('+')[1]?.slice(0,7)
   : BUILD_VER === 'dev' ? '' : BUILD_VER.slice(0,7);
 
+function BadgeVersion({ versionIsNew, versionDecalee, verServeurNum }) {
+  const [ouvert, setOuvert] = useState(false);
+  const ref = useRef(null);
+  useEffect(() => {
+    if (!ouvert) return undefined;
+    const f = e => { if (ref.current && !ref.current.contains(e.target)) setOuvert(false); };
+    document.addEventListener('mousedown', f);
+    return () => document.removeEventListener('mousedown', f);
+  }, [ouvert]);
+  return (
+    <span ref={ref} className="relative hidden md:inline-flex">
+      <button type="button" onClick={() => setOuvert(o => !o)}
+        /* SUR UNE BARRE MARINE, UNE PASTILLE MARINE DISPARAÎT : le badge prend
+           la surface des menus. ET IL DIT LES DEUX MOITIÉS : compilé dans
+           l'image du frontend, il ne parlait que de nginx ; le backend se
+           déploie à part, et l'écart doit se voir sans qu'on le cherche. */
+        className={`relative pastille-version font-semibold text-[11px] inline-flex ${versionIsNew ? 'version-badge-new' : ''}
+          ${versionDecalee ? 'ring-1 ring-[#B45309]' : ''}`}
+        title={versionDecalee ? 'Écart de déploiement — cliquer pour le détail' : 'Version — cliquer pour le détail'}>
+        v{versionNum}
+        {versionDecalee && <span className="ml-1 text-[#B45309]">≠ {verServeurNum}</span>}
+        {versionIsNew && (
+          <span className="absolute -top-1 -right-1 flex h-2.5 w-2.5">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-iip-turquoise opacity-75"></span>
+            <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-iip-turquoise"></span>
+          </span>
+        )}
+      </button>
+      {ouvert && (
+        <div className="absolute right-0 top-full mt-1.5 z-50 w-64 bg-white border border-slate-200 rounded-carte shadow-flottant p-3 text-[12px] text-slate-600 space-y-1">
+          <div className="flex justify-between"><span>Écran</span><b className="text-iip-blue tabular-nums">v{versionNum}</b></div>
+          <div className="flex justify-between"><span>Serveur</span><b className={`tabular-nums ${versionDecalee ? 'text-[#B45309]' : 'text-iip-blue'}`}>{verServeurNum ? `v${verServeurNum}` : '—'}</b></div>
+          {shaOnly && <div className="flex justify-between"><span>Construction</span><span className="tabular-nums">{shaOnly}</span></div>}
+          <div className="flex justify-between"><span>Construit le</span><span className="tabular-nums">{buildLabel}</span></div>
+          <div className="flex justify-between border-t border-slate-100 pt-1"><span>Maintenant</span><BuildBadge /></div>
+          {versionDecalee && (
+            <p className="text-[11px] text-[#B45309] pt-1 leading-snug">Une moitié n'a pas été remplacée : docker compose up -d --force-recreate.</p>
+          )}
+        </div>
+      )}
+    </span>
+  );
+}
+
 function BuildBadge() {
   const [now, setNow] = useState(new Date());
   useEffect(() => {
@@ -96,10 +140,7 @@ function BuildBadge() {
      recouvrait le dernier bouton des tableaux et des fenêtres. L'heure sert aux
      captures d'écran ; le commit se lit au survol. */
   return (
-    <span className="hidden md:block text-[9px] leading-none tabular-nums text-slate-400 select-none text-center mt-0.5"
-      title={shaOnly ? `Construction ${shaOnly}` : undefined}>
-      {dateStr} {timeStr}
-    </span>
+    <span className="tabular-nums select-none">{dateStr} {timeStr}</span>
   );
 }
 
@@ -586,41 +627,9 @@ function ProtectedLayout({ children }) {
                 DÉMO
               </span>
             )}
-            {/* SOUS LA VERSION, EN PETIT (Charles, 26 septembre 2026 : « prend
-                trop de place ») : la date et l'heure ne servent qu'aux captures. */}
-            <span className="inline-flex flex-col items-center">
-            <span
-              /* SUR UNE BARRE MARINE, UNE PASTILLE MARINE DISPARAÎT : le badge
-                 prend la surface des menus, comme l'onglet actif.
-                 ET IL DIT MAINTENANT LES DEUX MOITIÉS. Ce badge est compilé
-                 dans l'image du frontend : il n'a jamais parlé que de nginx.
-                 Le backend se déploie séparément, et les deux se sont déjà
-                 retrouvés sur deux versions différentes dans la même journée —
-                 `docker compose up -d` répond « Running » sans avoir remplacé
-                 le conteneur. On cherchait alors un bug dans du code qui ne
-                 tournait pas, et RIEN à l'écran ne le disait. */
-              className={`relative pastille-version font-semibold
-                text-[11px] hidden md:inline-flex ${versionIsNew ? 'version-badge-new' : ''}
-                ${versionDecalee ? 'ring-1 ring-[#B45309]' : ''}`}
-              title={versionDecalee
-                ? `ÉCART DE DÉPLOIEMENT — écran ${versionNum}, serveur `
-                  + `${verServeurNum}. Une moitié n'a pas été remplacée : `
-                  + 'docker compose up -d --force-recreate.'
-                : versionIsNew ? 'Nouvelle version déployée\u00a0!'
-                  : `Version ${versionNum}`}>
-              v{versionNum}
-              {versionDecalee && (
-                <span className="ml-1 text-[#B45309]">≠ {verServeurNum}</span>
-              )}
-              {versionIsNew && (
-                <span className="absolute -top-1 -right-1 flex h-2.5 w-2.5">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-iip-turquoise opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-iip-turquoise"></span>
-                </span>
-              )}
-            </span>
-            <BuildBadge />
-            </span>
+            {/* LE BADGE SEUL, L'INFO AU CLIC (Charles, 27 septembre 2026 : « moche ;
+                on cache la date, et si je clique sur le badge, l'info apparaît »). */}
+            <BadgeVersion versionIsNew={versionIsNew} versionDecalee={versionDecalee} verServeurNum={verServeurNum} />
             {/* LE COMPTE TIENT SUR UNE LIGNE.
                 Nom complet, rôle et « Déconnexion » s'empilaient sur trois
                 lignes et imposaient leur hauteur à toute la barre — donc au
