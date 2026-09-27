@@ -200,8 +200,8 @@ export default function Users({ embedded = false }) {
         {!embedded && <h1 className="titre-ecran">Accès à Lucie</h1>}
         <p className="text-[12px] text-slate-500 min-w-0 flex-1 m-0"
           title="Un même droit modifiable à deux endroits, c'est deux endroits où l'on ne sait plus lequel a écrit en dernier. Ce que chaque rôle autorise au mieux se décide dans « Rôles et plafonds ». Seuls les comptes sans fiche — administrateur technique, prestataire extérieur — se règlent ici.">
-          <b className="text-slate-700">En lecture.</b> Les droits d'une personne se règlent sur sa fiche,
-          onglet « Accès Lucie » ; les plafonds de chaque rôle, dans « Rôles et plafonds ».
+          <b className="text-slate-700">Qui a accès, et à quoi.</b> Le maximum de chaque rôle est la grille
+          au-dessus ; « réduit » marque une case que la fiche de la personne abaisse (onglet « Accès Lucie »).
         </p>
         <button onClick={() => setShowForm(true)} className="bouton-fort controle inline-flex items-center gap-1.5 px-3">
           <IconPlus size={16} /> Compte sans fiche
@@ -628,18 +628,27 @@ function MatriceAcces({ users, sectionsDispo, profils, onModifie, onProfil,
         const droit = droitEffectif(u, m.key);
         const d = LIBELLE_DROIT[droit] || LIBELLE_DROIT.rien;
         const modifiable = !!cycle(u, m.key) && reglableIci(u);
+        /* RÉDUIT PAR LA FICHE (27 septembre 2026) : la grille des rôles, au-dessus,
+           donne le maximum ; une case plus basse vient de la fiche de la
+           personne. Sans le dire, les deux tableaux semblaient se contredire. */
+        const RANG = { rien: 0, lit: 1, validation: 2, ecrit: 3 };
+        const max = plafondDe(u.role, m.key);
+        const reduit = (RANG[droit] ?? 0) < (RANG[max] ?? 0);
         const occupe = enCours === `${u.id}|${m.key}`;
         return (
           <td key={m.key} className="border-b border-slate-100 px-1 py-1.5 text-center">
             <button onClick={() => modifiable && basculer(u, m.key)}
               disabled={!modifiable || occupe}
-              title={modifiable
+              title={reduit
+                ? `${m.label} — le rôle permet « ${(LIBELLE_DROIT[max] || {}).texte || max} », la fiche réduit à « ${d.texte} »`
+                : modifiable
                 ? `${m.label} — cliquer pour changer`
-                : `${m.label} — le rôle ${u.role} ne le permet pas`}
+                : `${m.label} — ${droit === 'rien' ? `le rôle ${u.role} ne le permet pas` : `le maximum du rôle ${u.role}`}`}
               className={`text-[10px] px-1.5 py-0.5 rounded transition ${d.cls} ${
                 modifiable ? 'hover:ring-2 hover:ring-iip-turquoise/40 cursor-pointer' : 'cursor-default'}`}>
               {occupe ? '…' : d.texte}
             </button>
+            {reduit && <span aria-hidden="true" className="block text-[9px] leading-none text-slate-400 mt-0.5">réduit</span>}
           </td>
         );
       })}

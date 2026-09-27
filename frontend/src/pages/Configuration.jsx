@@ -1202,7 +1202,7 @@ export default function Configuration() {
   // L'onglet peut être imposé par l'URL (?onglet=...) — utilisé par les
   // assistants de mise en route pour envoyer vers le bon écran.
   const [paramsUrl] = useSearchParams();
-  const [tab, setTab] = useState(paramsUrl.get('onglet') || 'users');
+  const [tab, setTab] = useState(() => { const o = paramsUrl.get('onglet'); return !o || o === 'users' ? 'roles' : o; });
   const [historiqueActif, setHistoriqueActif] = useState(false);
   const [changelog, setChangelog] = useState({ byDay: {}, commits: [] });
   const [loading, setLoading] = useState(true);
@@ -1370,8 +1370,12 @@ export default function Configuration() {
       { key: 'courriels', label: 'Courriels', icon: IconMail },
     ]},
     { label: 'Accès', icon: IconUserShield, items: [
-      { key: 'users', label: 'Utilisateurs', icon: IconUserShield },
-      { key: 'roles', label: 'Rôles et plafonds', icon: IconUserShield },
+      /* UN SEUL ÉCRAN POUR LES DROITS (Charles, 27 septembre 2026 : « on garde
+         la grille des rôles, et en dessous les noms des membres qui ont un
+         accès, et lequel »). Le maximum de chaque rôle en haut, le résultat
+         pour chaque personne en dessous : deux écrans séparés faisaient croire
+         à deux réglages qui se contredisent. */
+      { key: 'roles', label: 'Rôles et accès', icon: IconUserShield },
       { key: 'personnel', label: 'Personnel', icon: IconUsers },
       { key: 'securite', label: 'Sécurité des connexions', icon: IconShieldLock },
     ]},
@@ -1494,8 +1498,12 @@ export default function Configuration() {
       {tab === 'sauvegardes' && <Sauvegardes />}
 
       {/* ── Onglet Utilisateurs ── */}
-      {tab === 'users' && <div className="max-w-none"><Users embedded /></div>}
-      {tab === 'roles' && <RolesPlafonds />}
+      {(tab === 'roles' || tab === 'users') && (
+        <div className="max-w-none space-y-6">
+          <RolesPlafonds />
+          <Users embedded />
+        </div>
+      )}
 
       {/* ── Onglet Nouveautés ── */}
       {tab === 'changelog' && (
