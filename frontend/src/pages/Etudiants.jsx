@@ -2140,7 +2140,11 @@ function FicheEtudiant({ id, annee, onClose, position, onPrec, onSuiv,
             le contenu, elles ne pouvaient pas rester visibles : le défilement
             est porté par la fenêtre entière, non par l'onglet. */}
               {onglet === 'parcours' && pae && !pae.erreur && (
-                <div className="sticky top-0 z-30 bg-white/95 backdrop-blur border-b border-slate-200 px-5 py-1.5 flex gap-2 items-center flex-wrap">
+                <div className="sticky -top-4 z-30 bg-white border-b border-slate-200 px-5 py-1.5 flex gap-2 items-center flex-wrap">
+                  {/* COLLÉE AU BORD, PAS SOUS LA MARGE (27 septembre 2026, « le menu passe
+                    derrière ») : la zone qui défile porte 1 rem de marge haute, et un
+                    élément collant s'arrête sous cette marge — le schéma se lisait
+                    dans la bande au-dessus de la barre. -top-4 la ramène au bord. */}
                   <button onClick={enregistrerPAE} disabled={enregistrement}
                     className="bouton bouton-fort bouton-compact">
                     <IconCheck size={14} />
