@@ -2253,7 +2253,21 @@ export default function Professeurs({ vue: vueInitiale = 'membres' }) {
             )}
           </div>
         </td>
-        <td className="num">{Number(p.total_per_annee ?? p.total_per_iip ?? 0).toLocaleString('fr-BE')}</td>
+        <td className="num">
+          {Number(p.total_per_annee ?? p.total_per_iip ?? 0).toLocaleString('fr-BE')}
+          {/* LE PLAFOND DE L'EXPERT (circ. 9760, p.222-226) : 260 périodes par an
+              sur 800, tous établissements compris ; 360 avec la dérogation A28.
+              Lucie ne connaît que les périodes de l'IIP — elle signale donc dès
+              que l'IIP seul approche du plafond. */}
+          {statutsDe(p).includes('EXP') && (() => {
+            const n = Number(p.total_per_annee ?? p.total_per_iip ?? 0);
+            if (n <= 240) return null;
+            const etat = n > 360 ? 'corriger' : n > 260 ? 'surveiller' : 'surveiller';
+            const txt = n > 360 ? 'au-delà de 360 : interdit' : n > 260 ? 'au-delà de 260 : dérogation A28' : 'proche de 260';
+            return <span data-etat={etat} className="pastille-etat ml-1.5 text-[10px] px-1.5 py-0.5"
+              title={`Expert : ${n} périodes à l'IIP cette année. Plafond de 260 périodes par an (tous établissements), 360 avec la dérogation A28.`}>{txt}</span>;
+          })()}
+        </td>
         <td className="num">{Number(p.total_hrs_helb || 0).toLocaleString('fr-BE')}</td>
         <td className="num">{p.anciennete_25_26_po || 0}</td>
         <td className="text-center">
