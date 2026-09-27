@@ -1220,7 +1220,9 @@ et 3 composants de tuile**. La stratégie tient en cinq chantiers, dans cet ordr
 - **Trois emplois de bouton, trois couleurs** (`.bouton`, `.bouton-fort`,
   `.bouton-sortir`, `.bouton-detruire`). Neutre : ça n'engage rien. Fort :
   l'action principale de l'écran, et il n'y en a **qu'une**. Sortir
-  (turquoise) : ce qui produit une pièce. Détruire (brique) : ce qui efface.
+  (fond blanc, filet et texte marine — le turquoise plein est abandonné le 27
+  septembre 2026, « on reste dans nos couleurs ») : ce qui produit une pièce,
+  avec l'avion. Détruire (brique) : ce qui efface.
   Dix fonds cohabitaient, dont `iip-gold` qui vaut du marine. **Un état ne se
   dit pas avec un bouton** : « réussi » en vert est une information, pas une
   action.

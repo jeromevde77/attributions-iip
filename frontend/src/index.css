@@ -866,8 +866,11 @@ select[multiple], select[size]:not([size="1"]) {
 .bouton.bouton-icone { width: 2.25rem; padding-inline: 0; justify-content: center; border-radius: 10px; }
 .bouton-fort     { background: #1B2B4B; color: #fff; border-color: transparent; }
 .bouton-fort:hover:not(:disabled)     { background: #163A6B; }
-.bouton-sortir   { background: #0093B0; color: #fff; border-color: transparent; }
-.bouton-sortir:hover:not(:disabled)   { background: #007e97; }
+/* SORTIR — FOND BLANC, MARINE (Charles, 27 septembre 2026 : « je n'aime pas
+   ce bleu turquoise, on reste dans nos couleurs »). Le filet marine le
+   distingue d'un bouton neutre sans lui donner un aplat. */
+.bouton-sortir   { background: #fff; color: #1B2B4B; border-color: #1B2B4B; }
+.bouton-sortir:hover:not(:disabled)   { background: #EEF1F6; }
 .bouton-detruire { background: #9d4a38; color: #fff; border-color: transparent; }
 .bouton-detruire:hover:not(:disabled) { background: #883f2f; }
 

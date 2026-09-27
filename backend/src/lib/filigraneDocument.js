@@ -30,31 +30,30 @@ function graine(texte) {
   return () => { h ^= h << 13; h ^= h >>> 17; h ^= h << 5; return ((h >>> 0) % 10000) / 10000; };
 }
 
-/** Les vagues croisées, en SVG, pour une surface de `l` × `h` unités. */
-function vagues(ref, l = 600, h = 120, lignes = 12) {
-  const r = graine(ref);
-  const p1 = r() * 6, p2 = r() * 6, f1 = 13 + r() * 5, f2 = 16 + r() * 6;
-  let d = '';
-  for (let k = 0; k < lignes; k++) {
-    const y0 = 8 + k * (h - 16) / (lignes - 1);
-    let a = '', b = '';
-    for (let x = 0; x <= l; x += 3) {
-      a += (a ? 'L' : 'M') + x + ' ' + (y0 + 4.5 * Math.sin(x / f1 + k * 0.7 + p1)).toFixed(1);
-      b += (b ? 'L' : 'M') + x + ' ' + (y0 + 4.5 * Math.sin(-x / f2 + k * 0.5 + p2)).toFixed(1);
-    }
-    d += `<path d="${a}"/><path d="${b}" opacity=".7"/>`;
-  }
-  return d;
-}
-
-/** Le fond du bloc de clôture : vagues sur toute la largeur, bande en bas. */
+/* QUATRE VAGUES, ET ELLES SONT LE CODE DU DOCUMENT (Charles, 27 septembre
+ * 2026 : « la vague doit être le code du document, en plus clair ; quatre
+ * vagues entrelacées qui passent pile au milieu de ma signature et du
+ * tampon »). Chaque vague est une ligne de micro-texte — la référence, la
+ * pièce, la personne, la date — qui épouse la courbe ; deux paires se
+ * croisent à la hauteur du tampon et du paraphe. Le dessin dépend encore de
+ * la référence : deux pièces ne portent jamais les mêmes vagues. La bande du
+ * bas disparaît, les vagues la portent. */
+let numeroFond = 0;
 export function fondCloture({ ref, texte }) {
-  const bande = `${texte} · RÉF. ${ref} · `.toUpperCase();
-  return `<svg class="filigrane-cloture" viewBox="0 0 600 120" preserveAspectRatio="none" aria-hidden="true">
-<g fill="none" stroke="#C9D0DB" stroke-width=".5">${vagues(ref)}</g>
-<text x="300" y="117" text-anchor="middle" font-size="5.2" letter-spacing=".5" fill="#A7B0BF"
-  font-family="Arial, Helvetica, sans-serif">${esc(bande.repeat(3)).slice(0, 260)}</text>
-</svg>`;
+  const r = graine(ref);
+  const p = r() * 6, f = 24 + r() * 6;
+  const code = esc(`RÉF. ${ref} · ${texte} · `.toUpperCase());
+  const id = `fv${(numeroFond++).toString(36)}`;
+  const V = [[1, 0, 12], [1, Math.PI, 12], [-1, 1.2, 8], [-1, 1.2 + Math.PI, 8]];
+  let defs = '', txt = '';
+  V.forEach(([sens, ph, amp], k) => {
+    let a = '';
+    for (let x = -20; x <= 620; x += 2) a += (a ? 'L' : 'M') + x + ' ' + (40 + amp * Math.sin(sens * x / f + ph + p)).toFixed(1);
+    defs += `<path id="${id}-${k}" d="${a}"/>`;
+    txt += `<text font-size="4.2" letter-spacing=".3" fill="${k < 2 ? '#C9D0DB' : '#D6DCE5'}"><textPath href="#${id}-${k}" startOffset="${k * 23}">${code.repeat(6)}</textPath></text>`;
+  });
+  return `<svg class="filigrane-cloture" viewBox="0 0 600 80" preserveAspectRatio="none" aria-hidden="true">
+<defs>${defs}</defs><g font-family="Arial, Helvetica, sans-serif" font-weight="700">${txt}</g></svg>`;
 }
 
 /** Le cartouche d'une cote : un petit guilloché, en image de fond. */
@@ -74,8 +73,10 @@ function fondCote(ref) {
 
 const STYLES = `<style>
   .cloture{position:relative;isolation:isolate}
-  .cloture>.filigrane-cloture{position:absolute;left:-2mm;right:-2mm;top:-3mm;bottom:-4mm;
-    width:calc(100% + 4mm);height:calc(100% + 7mm);z-index:-1;pointer-events:none}
+  /* Posées sur la LIGNE du tampon et du paraphe (hauteur --filigrane-h) :
+     les vagues la traversent en son milieu. */
+  .cloture>.filigrane-cloture{position:absolute;left:-2mm;top:0;
+    width:calc(100% + 4mm);height:var(--filigrane-h, 22mm);z-index:-1;pointer-events:none}
   .cote{display:inline-block;padding:0 1.6mm;border-radius:1mm;
     background-size:100% 100%;background-repeat:no-repeat}
 </style>`;
