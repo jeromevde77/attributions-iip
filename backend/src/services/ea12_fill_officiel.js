@@ -278,8 +278,21 @@ export async function remplirModeleOfficiel(d) {
     if (celDates()) x = remplacer(x, celDates(), /Date de fin[^_]*(_\s*_\s*\/\s*_\s*_\s*\/\s*20\s*_\s*_)/, d.date_fin_absence);
   }
 
-  // Observations
-  x = ecrireCellule(x, 11, 0, 0, d.observations);
+  // Observations : dans le cadre qui porte le libellé (T10), sous celui-ci.
+  // T11 est un cadre vide en tête de la page 2 — y écrire faisait passer
+  // l'observation sur l'autre page (constaté au rendu, 27 septembre 2026).
+  if (d.observations) {
+    const cel = cellule(x, 10, 0, 0);
+    const ps = cel ? paragraphes(x, cel.s, cel.e) : [];
+    const k = ps.findIndex(p => /Situation ancienne/.test(p.texte));
+    const cible = ps.slice(k + 1).find(p => !p.texte.trim());
+    if (cible) {
+      const lignes = String(d.observations).split('\n');
+      x = episser(x, cible, 0, 0, '\u0000');
+      x = x.replace(/<w:t xml:space="preserve">\u0000<\/w:t>/,
+        lignes.map((l, i) => `${i ? '<w:br/>' : ''}<w:t xml:space="preserve">${esc(l)}</w:t>`).join(''));
+    }
+  }
 
   // Page 2 : ECOT, FASE
   x = grille(x, 13, 0, 0, etab.num_ecot, 10);
