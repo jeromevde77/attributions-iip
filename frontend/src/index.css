@@ -1064,6 +1064,28 @@ select[multiple], select[size]:not([size="1"]) {
 .puce-ue[data-c="a"] { --e: var(--c-attente); }
 .puce-ue[data-c="o"] { background: #fff; border-color: #D8DCE4; color: #7A879E; }
 .puce-ue[data-c="n"] { background: var(--c-fond_indispo, #F4F5F7); border-color: #EBEDF1; border-left-color: #DDE1E7; color: #B6BDC9; }
+/* ── LA GÉLULE DE BLOC (Charles, 27 septembre 2026 : « cette mise en forme,
+ * je pensais l'utiliser pour les PAE ») — celle de la grille des
+ * attributions : un cadre, le LISERÉ À LA COULEUR DU BLOC, le bloc nommé en
+ * tête, puis ses unités côte à côte, séparées d'un filet. L'état de chaque
+ * unité se lit à sa teinte pâle ; le liseré ne dit que le bloc. */
+.gelule {
+  --b: #D8DCE4;
+  display: inline-flex; align-items: stretch; flex: none;
+  background: #fff; border: 1px solid #D8DCE4; border-left: 3px solid var(--b);
+  border-radius: 0 6px 6px 0; overflow: hidden;
+  font-size: 9.5px; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1;
+}
+.gelule > span { display: inline-grid; place-items: center; min-width: 24px; height: 18px; padding: 0 4px; color: #1B2B4B; }
+.gelule > span + span { border-left: 1px solid #E4E7EC; }
+.gelule > .gelule-bloc { color: #1B2B4B; font-weight: 700; padding: 0 5px; }
+.gelule > span[data-c="r"] { background: color-mix(in srgb, var(--c-reussi) 14%, #fff); }
+.gelule > span[data-c="f"] { background: color-mix(in srgb, var(--c-faveur) 14%, #fff); }
+.gelule > span[data-c="i"] { background: color-mix(in srgb, var(--c-disponible) 14%, #fff); }
+.gelule > span[data-c="a"] { background: color-mix(in srgb, var(--c-attente) 16%, #fff); }
+.gelule > span[data-c="o"] { color: #7A879E; }
+.gelule > span[data-c="n"] { background: var(--c-fond_indispo, #F4F5F7); color: #B6BDC9; }
+
 /* L'épreuve intégrée n'a plus de cadre dans la frise (2.12.216) : elle se lit
    à sa place, au bout, séparée par l'espace qui sépare les blocs. */
 

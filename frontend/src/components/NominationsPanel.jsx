@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { IconTrash } from '@tabler/icons-react';
+import { IconTrash, IconLock
+} from '@tabler/icons-react';
 import { getAnnee } from '../lib/api.js';
 
 const TOKEN = () => localStorage.getItem('token');
@@ -96,7 +97,7 @@ export default function NominationsPanel({ profId }) {
         <div className="space-y-1.5">
           {noms.map(n => (
             <div key={n.id} className="flex items-center gap-2 border border-gray-200 rounded-lg p-2.5 text-sm">
-              <span title="Nomination — attribution verrouillée">🔒</span>
+              <span title="Nomination — attribution verrouillée"><IconLock size={13} stroke={1.8} className="inline -mt-0.5 text-slate-400" /></span>
               <div className="flex-1 min-w-0">
                 <div className="font-medium text-gray-800 truncate">
                   {n.ue_num

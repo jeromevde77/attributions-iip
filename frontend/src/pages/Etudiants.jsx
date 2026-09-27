@@ -6,7 +6,7 @@ import SuiviEtudiant from '../components/SuiviEtudiant.jsx';
 import NouvelEtudiant from '../components/NouvelEtudiant.jsx';
 import {
   IconAddressBook, IconAlertTriangle, IconArrowForwardUp, IconArchive, IconDoorExit, IconSchool, IconArrowBackUp, IconAward, IconCertificate, IconStairsUp, IconUserPlus, IconCheck, IconChecklist, IconChevronLeft, IconChevronRight, IconClock, IconFileText, IconFolder, IconPlus, IconPrinter, IconSearch, IconTable, IconTrash, IconUpload, IconUser, IconSend, IconWritingSign, IconWritingSignOff, IconX,
-  IconChecks,
+  IconChecks, IconLock
 } from '@tabler/icons-react';
 import { authHeaders, getAnnee, getUser } from '../lib/api.js';
 import PreviewModal from '../components/PreviewModal.jsx';
@@ -114,13 +114,17 @@ function FriseParcours({ ues, codes }) {
     groupes[groupes.length - 1].l.push({ ...u, c: codes[i] || 'n' });
   });
   return (
-    /* SANS BARRES NI CADRE (Charles, 26 septembre 2026) : un ESPACE entre deux
-       blocs dit le changement d'année ; le bloc se lit au survol. */
-    <div className="flex items-center gap-2.5">
+    /* UNE GÉLULE PAR BLOC (Charles, 27 septembre 2026), celle de la grille
+       des attributions — elle remplace le « sans barres ni cadre » du 26 : le
+       cadre porte le bloc, son liseré la couleur du bloc, chaque unité sa
+       teinte d'état. L'épreuve intégrée a le liseré or, au bout. */
+    <div className="flex items-center gap-1.5">
       {groupes.map((g, gi) => (
-        <span key={gi} className="flex gap-[2px]" title={g.b === 'EI' ? 'Épreuve intégrée' : g.b}>
+        <span key={gi} className="gelule" title={g.b === 'EI' ? 'Épreuve intégrée' : g.b}
+          style={{ '--b': g.b === 'EI' ? '#C9A84C' : (couleurBloc(g.b) || '#D8DCE4') }}>
+          <span className="gelule-bloc">{g.b === '—' ? '·' : g.b}</span>
           {g.l.map(u => (
-            <span key={u.ue_num} data-c={u.c} className={`puce-ue ${u.ei ? 'ei' : ''}`}
+            <span key={u.ue_num} data-c={u.c}
               title={`UE ${u.ue_num} — ${u.ue_nom || ''} · ${SENS_PUCE[u.c] || ''}`}>
               {u.ue_num}
             </span>
@@ -397,7 +401,7 @@ function GrilleParcours({ etudId, peutEcrire, annee, ueFocus = null }) {
           Cliquez sur une case pour encoder.
           {peutEcrire && <> Glissez une case vers une autre année pour la déplacer ; Ctrl/⌘-clic en
           sélectionne plusieurs, qui se déplacent ensemble.</>} Une UE dont les prérequis ne sont pas acquis
-          porte un cadenas 🔒 : l'encoder demande une dérogation, tracée. « à confirmer » signale une UE
+          porte un cadenas : l'encoder demande une dérogation, tracée. « à confirmer » signale une UE
           probablement acquise d'après ses prérequis. Le point ● dit que des notes d'acquis sont encodées ;
           le liseré de gauche, le bloc de l'unité.
         </BulleAide>
@@ -458,7 +462,7 @@ function GrilleParcours({ etudId, peutEcrire, annee, ueFocus = null }) {
                       <span className="font-semibold text-iip-blue">{u.ue_num}</span>
                       <span className="text-slate-600 ml-1.5 inline-block max-w-[13rem] truncate align-bottom">{u.ue_nom}</span>
                       {verrou && <span className="ml-1.5 text-[11px]"
-                        title={'Exige : UE ' + ((u.prereq_chaine?.length ? u.prereq_chaine : u.prerequis) || []).join(', ')}>🔒</span>}
+                        title={'Exige : UE ' + ((u.prereq_chaine?.length ? u.prereq_chaine : u.prerequis) || []).join(', ')}><IconLock size={13} stroke={1.8} className="inline -mt-0.5 text-slate-400" /></span>}
                       {u.suggeree && <span className="ml-1.5 text-[10px] px-1 py-0.5 rounded bg-violet-50 text-violet-600 border border-violet-200" title="Probablement acquise (inférence prérequis) — à confirmer">à confirmer</span>}
                       {u.hors_referentiel && (
                         <span className="ml-1.5 text-[10px] px-1 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-200"
@@ -1899,7 +1903,12 @@ function FicheEtudiant({ id, annee, onClose, position, onPrec, onSuiv,
       const s = new Set(prev);
       if (s.has(u.ue_num)) { s.delete(u.ue_num); return s; }
       // Ajout d'une UE hors proposition dont les prérequis ne sont pas acquis
-      if (!u.propose && !u.accessible && !u.reinscriptible_ce) {
+      // Une unité d'un bloc que l'étudiant n'a pas encore atteint (27 septembre
+      // 2026 : « pas possible, tu donnes accès à une UE de B2 »).
+      if (u.hors_bloc && !window.confirm(`L'UE ${u.ue_num} est une unité de ${u.ue_niv || 'bloc supérieur'} : `
+        + `l'étudiant n'a pas encore suivi le BA${u.plafond_bloc}.\n\n`
+        + `L'ajouter quand même ? Ce choix sera tracé.`)) return s;
+      if (!u.hors_bloc && !u.propose && !u.accessible && !u.reinscriptible_ce) {
         const chaine = u.prereq_chaine?.length ? u.prereq_chaine : (u.prereq_manquants || []);
         const msg = chaine.length
           ? `Cette UE exige la réussite de : UE ${chaine.join(', ')}.\n\n`
@@ -2308,6 +2317,10 @@ function FicheEtudiant({ id, annee, onClose, position, onPrec, onSuiv,
                   u.reinscriptible_ce
                     ? <span className="text-[11px] text-amber-700 flex items-center gap-1"><IconAlertTriangle size={12} />
                         {u.va_complete ? 'Dispensée (VA complète)' : 'Réinscription — décision du Conseil des études'}</span>
+                    : u.hors_bloc
+                      ? <span className="text-[11px] text-slate-500 flex items-center gap-1"
+                          title="Unité d'un bloc que l'étudiant n'a pas encore atteint : elle ne se propose pas, et l'ajouter demande confirmation">
+                          {u.ue_niv || 'Bloc supérieur'} — le BA{u.plafond_bloc} n'est pas encore suivi</span>
                     : u.accessible
                       ? <span className="text-[11px] font-semibold text-emerald-700 flex items-center gap-1"><IconCheck size={12} /> Accessible</span>
                       : u.sous_reserve || u.propose_sous_reserve

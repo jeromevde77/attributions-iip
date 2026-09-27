@@ -768,7 +768,7 @@ function DetailModal({ profId, onClose, onEdit, onFiche, onEditions }) {
     ...(estDirection(u) ? [
       { key: 'fonctions', label: 'Fonctions' },
       { key: 'acces',    label: 'Accès Lucie' },
-      { key: 'dossiers', label: '🔒 Disciplinaire' },
+      { key: 'dossiers', label: 'Disciplinaire' },
     ] : []),
   ];
 
@@ -1236,7 +1236,7 @@ function DossiersRH({ profId, profNom }) {
       {/* En-tête confidentiel */}
       <div className="flex items-center justify-between">
         <div className="text-xs text-gray-400 flex items-center gap-1.5">
-          <span>🔒</span> Confidentiel — visible uniquement par les administrateurs
+          <IconLock size={13} stroke={1.8} className="inline -mt-0.5 text-slate-400" /> Confidentiel — visible uniquement par les administrateurs
         </div>
         <div className="flex gap-2">
           <button onClick={() => setNouveauType('fin_contrat')}

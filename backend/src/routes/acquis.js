@@ -1954,6 +1954,30 @@ r.get('/notes-anterieures/:etudId/:ueNum', authRequired, (req, res) => {
 });
 
 // ── Reports de note d'un étudiant pour une UE et une année ─────────────────
+/* LES REPORTS DÉJÀ POSÉS, D'UN COUP D'ŒIL (Charles, 27 septembre 2026 : « je
+   veux savoir les reports déjà portés »). Ils ne se lisaient qu'étudiant par
+   étudiant, dans la fiche ; la fenêtre « Reports de notes » ne montrait que
+   ce qui restait à poser. Une ligne par cours reporté, dans le périmètre de
+   sections du demandeur ; la section est celle de l'étudiant, sinon celle de
+   l'unité (sous-requête LIMIT 1 : un même numéro d'UE vit sous plusieurs
+   sections). */
+r.get('/reports/poses', authRequired, (req, res) => {
+  const annee = req.query.annee || anneeDeTravail(req);
+  const perim = getUserSections(req.user);
+  const lignes = db.prepare(`
+    SELECT r.etudiant_id, e.nom, e.prenom, r.ue_num, r.cours_code, r.note, r.annee_origine,
+           r.statut, r.decide_par, r.decide_le, r.cree_le,
+           COALESCE(NULLIF(e.section_rattachement, ''),
+             (SELECT u.section FROM ue u WHERE u.ue_num = r.ue_num AND u.annee_scolaire = r.annee_scolaire LIMIT 1)) AS section,
+           (SELECT u.ue_nom FROM ue u WHERE u.ue_num = r.ue_num AND u.annee_scolaire = r.annee_scolaire LIMIT 1) AS ue_nom,
+           (SELECT c.cours_nom FROM cours c WHERE c.cours_code = r.cours_code AND c.annee_scolaire = r.annee_scolaire LIMIT 1) AS cours_nom
+    FROM etudiant_report_note r JOIN etudiant e ON e.id = r.etudiant_id
+    WHERE r.annee_scolaire = ?
+    ORDER BY section, r.ue_num, e.nom, e.prenom, r.cours_code`).all(annee)
+    .filter(l => perim === null || perim.includes(l.section));
+  res.json({ annee, lignes });
+});
+
 r.get('/reports/:etudId/:ueNum', authRequired, (req, res) => {
   const { etudId, ueNum } = req.params;
   const annee = req.query.annee;

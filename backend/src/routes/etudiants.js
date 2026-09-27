@@ -836,6 +836,10 @@ r.get('/frises', authRequired, (req, res) => {
     for (const f of db.prepare(`SELECT DISTINCT etudiant_id, ue_num, annee_scolaire FROM etudiant_resultat_cours
         WHERE faveur = 1 AND ue_num IS NOT NULL`).all()) faveurs.add(`${f.etudiant_id}|${f.ue_num}|${f.annee_scolaire}`);
   } catch { /* table absente */ }
+  const avantDe = new Map();
+  for (const x of db.prepare('SELECT DISTINCT etudiant_id, ue_num FROM etudiant_inscription WHERE annee_scolaire < ?').all(annee)) {
+    ajouter(avantDe, x.etudiant_id, x.ue_num);
+  }
   for (const x of db.prepare('SELECT etudiant_id, ue_num FROM etudiant_inscription WHERE annee_scolaire = ?').all(annee)) {
     ajouter(inscritesDe, x.etudiant_id, x.ue_num);
   }
@@ -879,7 +883,8 @@ r.get('/frises', authRequired, (req, res) => {
     const acquis = acquisDe.get(e.id) || new Set();
     const inscrites = inscritesDe.get(e.id) || new Set();
     const statut = statutsCapitalisation({ nodes: g.nodes, prereqDe: g.prereqDe, niv: g.niv,
-      organisees: g.organisees, acquis, enAttente: new Set([...(attenteDe.get(e.id) || [])].filter(u => !acquis.has(u))) });
+      organisees: g.organisees, acquis, enAttente: new Set([...(attenteDe.get(e.id) || [])].filter(u => !acquis.has(u))),
+      plafond: plafondBlocDe([...(avantDe.get(e.id) || [])], acquis, g.niv) });
     etats[e.id] = { s: sec, c: g.nodes.map(n => {
       const u = n.ue_num;
       const st = statut(u);
@@ -3253,6 +3258,113 @@ r.post('/pae-nettoyer-reussies', authRequired,
  * résultat encore — retirer l'inscription les laisserait orphelines.
  * Le périmètre s'applique aux unités, comme au lot.
  */
+/* ── UN PROGRAMME, UNE SECTION (Charles, 27 septembre 2026 : « non, ce n'est
+ * pas possible »). Le 25 septembre, 123 étudiants d'ATNUP ont reçu en plus le
+ * BA1 de psychomotricité, et 84 d'AeSI dix unités d'optométrie, chacun à la
+ * seconde près : la route des programmes acceptait n'importe quelle unité pour
+ * n'importe quel étudiant, sans regarder sa section. Deux aides, écrites une
+ * fois : la section d'une unité (hors cursus compris), et la section d'un
+ * dossier — le rattachement posé, sinon l'historique des années antérieures,
+ * sinon ce qu'il porte déjà cette année. */
+function sectionDeLUE(u, annee) {
+  return db.prepare(`SELECT section, COALESCE(hors_cursus, 0) AS hc FROM ue
+    WHERE ue_num = ? AND section IS NOT NULL ORDER BY (annee_scolaire = ?) DESC, annee_scolaire DESC LIMIT 1`).get(u, annee) || null;
+}
+function sectionsHistoriques(etudId, annee) {
+  const n = {};
+  for (const x of db.prepare(`SELECT i.ue_num, i.annee_scolaire FROM etudiant_inscription i
+      WHERE i.etudiant_id = ? AND i.annee_scolaire < ?`).all(etudId, annee)) {
+    const su = sectionDeLUE(x.ue_num, x.annee_scolaire);
+    if (su && !su.hc) n[su.section] = (n[su.section] || 0) + 1;
+  }
+  return Object.entries(n).sort((a, b) => b[1] - a[1]).map(([sec]) => sec);
+}
+function sectionDuDossier(etudId, annee) {
+  const rat = db.prepare('SELECT section_rattachement FROM etudiant WHERE id = ?').get(etudId)?.section_rattachement;
+  if (rat) return rat;
+  const h = sectionsHistoriques(etudId, annee);
+  if (h.length) return h[0];
+  const cette = new Set();
+  for (const x of db.prepare('SELECT ue_num FROM etudiant_inscription WHERE etudiant_id = ? AND annee_scolaire = ?').all(etudId, annee)) {
+    const su = sectionDeLUE(x.ue_num, annee); if (su && !su.hc) cette.add(su.section);
+  }
+  return cette.size === 1 ? [...cette][0] : null;
+}
+
+/* LA RÉPARATION, SIMULATION D'ABORD. Les étudiants inscrits cette année dans
+ * deux sections : on garde la section du dossier (rattachement, sinon
+ * historique, sinon celle posée en premier), on retire les inscriptions de
+ * l'autre — jamais celles qui portent un résultat, une note ou un report. Un
+ * dossier dont l'historique connaît les DEUX sections n'est pas tranché : il
+ * est nommé, et se règle à la main. Écrire est un geste de direction. */
+r.post('/doubles-programmes', authRequired,
+       roleRequired('admin', 'directeur', 'directeur_adjoint', 'editeur', 'secretariat'), (req, res) => {
+  const { annee, simulation = true, exclus = [] } = req.body || {};
+  if (!annee) return res.status(400).json({ error: 'annee requise' });
+  const direction = ['admin', 'directeur', 'directeur_adjoint'].includes(req.user.role);
+  if (!simulation && !direction) return res.status(403).json({ error: 'La réparation est un geste de direction.' });
+  const exclusSet = new Set((Array.isArray(exclus) ? exclus : []).map(Number));
+  const perim = getUserSections(req.user);
+
+  const parEtu = new Map();
+  for (const x of db.prepare(`SELECT i.etudiant_id, i.ue_num, i.cree_le, i.resultat FROM etudiant_inscription i
+      WHERE i.annee_scolaire = ? ORDER BY i.cree_le`).all(annee)) {
+    const su = sectionDeLUE(x.ue_num, annee);
+    if (!su || su.hc) continue;
+    if (!parEtu.has(x.etudiant_id)) parEtu.set(x.etudiant_id, []);
+    parEtu.get(x.etudiant_id).push({ ...x, section: su.section });
+  }
+  const notes = db.prepare('SELECT COUNT(*) AS n FROM etudiant_note_detail WHERE etudiant_id = ? AND annee_scolaire = ? AND ue_num = ?');
+  const report = db.prepare('SELECT COUNT(*) AS n FROM etudiant_report_note WHERE etudiant_id = ? AND annee_scolaire = ? AND ue_num = ?');
+  const lignes = [];
+  for (const [id, ins] of parEtu) {
+    const secs = [...new Set(ins.map(x => x.section))];
+    if (secs.length < 2) continue;
+    if (perim && !secs.some(x => perim.includes(x))) continue;
+    const e = db.prepare('SELECT nom, prenom, id_ecampus, section_rattachement FROM etudiant WHERE id = ?').get(id);
+    const hist = sectionsHistoriques(id, annee);
+    let garde = null, raison = '', ambigu = false;
+    if (e.section_rattachement && secs.includes(e.section_rattachement)) { garde = e.section_rattachement; raison = 'section de rattachement'; }
+    const dansHist = secs.filter(x => hist.includes(x));
+    if (dansHist.length > 1) { ambigu = true; raison = `l'historique connaît ${dansHist.join(' et ')}`; }
+    else if (!garde && dansHist.length === 1) { garde = dansHist[0]; raison = 'section des années antérieures'; }
+    else if (!garde) { garde = ins[0].section; raison = 'section inscrite en premier'; }
+    if (garde && e.section_rattachement && dansHist.length === 1 && dansHist[0] !== garde) {
+      ambigu = true; raison = `rattaché à ${garde}, mais son historique est en ${dansHist[0]}`;
+    }
+    const retirer = [], proteges = [];
+    for (const x of ins) {
+      if (x.section === garde) continue;
+      let n = 0, rp = 0;
+      try { n = notes.get(id, annee, x.ue_num).n; } catch { /* */ }
+      try { rp = report.get(id, annee, x.ue_num).n; } catch { /* */ }
+      if (x.resultat) proteges.push({ ue_num: x.ue_num, section: x.section, pourquoi: `résultat « ${x.resultat} »` });
+      else if (n) proteges.push({ ue_num: x.ue_num, section: x.section, pourquoi: `${n} note(s)` });
+      else if (rp) proteges.push({ ue_num: x.ue_num, section: x.section, pourquoi: 'note reportée' });
+      else retirer.push({ ue_num: x.ue_num, section: x.section });
+    }
+    lignes.push({ etudiant_id: id, nom: e.nom, prenom: e.prenom, id_ecampus: e.id_ecampus,
+      sections: secs, garde: ambigu ? null : garde, raison, ambigu, retirer: ambigu ? [] : retirer,
+      proteges, autres: ambigu ? ins.filter(x => x.section !== secs[0]).map(x => x.ue_num) : [] });
+  }
+  lignes.sort((a, b) => (a.ambigu - b.ambigu) || String(a.nom).localeCompare(String(b.nom), 'fr'));
+
+  let retirees = 0;
+  if (!simulation) {
+    const del = db.prepare('DELETE FROM etudiant_inscription WHERE etudiant_id = ? AND annee_scolaire = ? AND ue_num = ? AND resultat IS NULL');
+    db.transaction(() => {
+      for (const l of lignes) {
+        if (l.ambigu || exclusSet.has(l.etudiant_id)) continue;
+        for (const x of l.retirer) retirees += del.run(l.etudiant_id, annee, x.ue_num).changes;
+      }
+    })();
+    console.log(`[doubles-programmes] ${retirees} inscription(s) retirée(s) par ${req.user?.email || '?'} (${annee})`);
+  }
+  res.json({ ok: true, simulation: !!simulation, annee, lignes,
+    a_retirer: lignes.filter(l => !l.ambigu && !exclusSet.has(l.etudiant_id)).reduce((n, l) => n + l.retirer.length, 0),
+    retirees });
+});
+
 r.post('/pae-modifier', authRequired,
        roleRequired('admin', 'directeur', 'directeur_adjoint', 'editeur', 'secretariat'), (req, res) => {
   const { annee, ajouts = [], retraits = [], simulation = true } = req.body || {};
@@ -3280,7 +3392,26 @@ r.post('/pae-modifier', authRequired,
   const del = db.prepare('DELETE FROM etudiant_inscription WHERE etudiant_id = ? AND annee_scolaire = ? AND ue_num = ?');
   const nom = id => { const e = db.prepare('SELECT nom, prenom FROM etudiant WHERE id = ?').get(id); return e ? `${(e.nom || '').toUpperCase()} ${e.prenom || ''}`.trim() : `#${id}`; };
 
-  const rapport = { ajoutes: 0, deja: 0, retires: 0, absents: 0, proteges: [] };
+  /* LE GARDE-FOU : une unité d'une autre section que celle du dossier (hors
+     cursus excepté) ne s'ajoute pas sans qu'on l'ait voulu. La simulation la
+     nomme ; l'écriture la refuse tant que ce n'est pas confirmé. */
+  const autreSection = [];
+  const secDossier = new Map();
+  for (const [e, u] of A) {
+    const su = sectionDeLUE(u, annee);
+    if (!su || su.hc) continue;
+    if (!secDossier.has(e)) secDossier.set(e, sectionDuDossier(e, annee));
+    const sd = secDossier.get(e);
+    if (sd && sd !== su.section) autreSection.push({ etudiant_id: e, etudiant: nom(e), ue_num: u, section_ue: su.section, section_dossier: sd });
+  }
+  if (autreSection.length && !simulation && !req.body?.autre_section_confirmee) {
+    const n = new Set(autreSection.map(x => x.etudiant_id)).size;
+    return res.status(409).json({
+      error: `${n} étudiant(s) recevraient des unités d'une autre section que la leur. Rien n'est écrit : confirmez-le si c'est voulu.`,
+      autre_section: autreSection.slice(0, 200) });
+  }
+
+  const rapport = { ajoutes: 0, deja: 0, retires: 0, absents: 0, proteges: [], autre_section: autreSection.slice(0, 200) };
   try {
     db.transaction(() => {
       for (const [e, u] of A) {
@@ -4049,6 +4180,8 @@ export function composerPAE(profId, annee, options = {}) {
     }
   }
   for (const u of pae) {
+    u.hors_bloc = !u.deja_reussie && !u.inscrite && auDessus(u);
+    u.plafond_bloc = plafondBloc;
     u.propose = proposees.has(u.ue_num);
     u.propose_sous_reserve = u.propose && (u.prereq_manquants || []).some(p => !enAttente.has(p));
     if (!u.propose) u.cadenas = [];
@@ -4618,7 +4751,21 @@ r.post('/import-resultats', authRequired, roleRequired('admin', 'editeur'), (req
  * finiraient par dire deux choses. Proposition par point fixe intra-niveau,
  * même règle que le PAE.
  */
-function statutsCapitalisation({ nodes, prereqDe, niv, organisees, acquis, enAttente }) {
+/* LE PLAFOND DE BLOC, POUR LE SCHÉMA AUSSI (Charles, 27 septembre 2026 :
+   « pas possible, tu donnes accès à une UE de B2 »). La proposition de PAE
+   l'appliquait depuis le matin ; le schéma de la fiche et la frise de la liste
+   ne le connaissaient pas, et montraient « disponible » une unité de BA2 dont
+   le seul lien avec le BA1 est une recommandation. Une unité n'est accessible
+   que jusqu'au bloc QUI SUIT le plus haut bloc déjà suivi (années
+   antérieures) ou acquis — BA1 pour un primo-inscrit. */
+const rangBlocDe = v => { const m = /^B[AE](\d+)$/.exec(String(v || '').toUpperCase()); return m ? Number(m[1]) : 0; };
+function plafondBlocDe(suiviesAvant, acquis, niv) {
+  const r = [...suiviesAvant, ...acquis].map(n => rangBlocDe(niv[n])).filter(x => x > 0);
+  return (r.length ? Math.max(...r) : 0) + 1;
+}
+
+function statutsCapitalisation({ nodes, prereqDe, niv, organisees, acquis, enAttente, plafond = null }) {
+  const horsBloc = n => plafond != null && rangBlocDe(niv[n]) > plafond;
   const proposees = new Set();
   const sousReserve = new Set();
   let stable = false;
@@ -4626,7 +4773,7 @@ function statutsCapitalisation({ nodes, prereqDe, niv, organisees, acquis, enAtt
     stable = true;
     for (const n0 of nodes) {
       const n = n0.ue_num;
-      if (acquis.has(n) || proposees.has(n) || !organisees.has(n)) continue;
+      if (acquis.has(n) || proposees.has(n) || !organisees.has(n) || horsBloc(n)) continue;
       const manquants = (prereqDe[n] || []).filter(p => !acquis.has(p));
       if (manquants.every(p => proposees.has(p) && niv[p] === niv[n])) {
         proposees.add(n);
@@ -4715,7 +4862,10 @@ export function donneesCapitalisation(etudId, annee, sectionForcee = null) {
   const prereqDe = Object.fromEntries(base.nodes.map(n => [n.ue_num, n.prerequis]));
   const niv = niveauxEffectifs(sections, annee);
 
-  const statut = statutsCapitalisation({ nodes: base.nodes, prereqDe, niv, organisees, acquis, enAttente });
+  const suiviesAvant = db.prepare(`SELECT DISTINCT ue_num FROM etudiant_inscription
+    WHERE etudiant_id = ? AND annee_scolaire < ?`).all(etudId, annee).map(r0 => r0.ue_num);
+  const statut = statutsCapitalisation({ nodes: base.nodes, prereqDe, niv, organisees, acquis, enAttente,
+    plafond: plafondBlocDe(suiviesAvant, acquis, niv) });
 
   const g = construireGraphe({
     sections, annee,

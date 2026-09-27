@@ -7,6 +7,7 @@ import { IconAdjustments, IconAward, IconBooks, IconBuilding, IconCalendar, Icon
 import { PageHeader, RailLateral, TuileEtat, PastilleEtat, Encadre } from '../components/ui.jsx';
 import ApercuDocuments from '../components/ApercuDocuments.jsx';
 const Editeur = lazy(() => import('./Editeur.jsx'));
+const DoublesProgrammes = lazy(() => import('../components/DoublesProgrammes.jsx'));
 const ModeleDiplome = lazy(() => import('./Attestation.jsx').then(m => ({ default: m.ModeleDiplome })));
 const ConfigCourriels = lazy(() => import('../components/ConfigCourriels.jsx'));
 
@@ -1396,6 +1397,7 @@ export default function Configuration() {
     { label: 'Outils', icon: IconTool, items: [
       { key: 'dates-ue', label: "Dates des UE", icon: IconCalendarEvent },
       { key: 'doublons', label: 'Dossiers dédoublés', icon: IconUsers },
+      { key: 'doubles-programmes', label: 'Programmes sur deux sections', icon: IconArrowsSplit },
       { key: 'demandes', label: 'Demandes à valider', icon: IconCheck },
       { key: 'statistiques', label: 'Effectifs et postes PNCC', icon: IconChartBar },
       { key: 'reprise', label: "Clôturer une année reprise", icon: IconArchive },
@@ -1482,6 +1484,7 @@ export default function Configuration() {
           Le matricule change d'une année à l'autre : l'import d'une seconde
           année créait un dossier de plus par revenant. On répare ici. */}
       {tab === 'doublons' && <DoublonsEtudiants />}
+      {tab === 'doubles-programmes' && <Suspense fallback={null}><DoublesProgrammes /></Suspense>}
 
       {/* ── Onglet Dates des UE (paramétrage annuel) ── */}
       {tab === 'dates-ue' && <DatesUE annee={anneeActive} />}

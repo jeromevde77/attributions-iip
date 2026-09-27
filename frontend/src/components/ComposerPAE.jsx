@@ -76,6 +76,8 @@ export default function ComposerPAE({ onClose, onTermine, onPassage, modeInitial
   const [fPrimo, setFPrimo] = useState(false);    // nouveaux inscrits seulement
   const [attRes, setAttRes] = useState(new Map()); // `${id}|${ue}` → { resultat, points }
   const [importHisto, setImportHisto] = useState(false);
+  // Des unités d'une AUTRE section que celle du dossier : il faut le vouloir.
+  const [autreConfirme, setAutreConfirme] = useState(false);
 
   useEffect(() => {
     fetch('/api/annees', { headers: authHeaders() })
@@ -305,11 +307,11 @@ export default function ComposerPAE({ onClose, onTermine, onPassage, modeInitial
     try {
       const r = await fetch('/api/etudiants/pae-modifier', {
         method: 'POST', headers: { ...authHeaders(), 'Content-Type': 'application/json' },
-        body: JSON.stringify({ annee, ajouts, retraits, simulation }),
+        body: JSON.stringify({ annee, ajouts, retraits, simulation, autre_section_confirmee: autreConfirme }),
       });
       const j = await r.json().catch(() => ({}));
-      if (!r.ok) { setErreur(j.error || 'Refusé.'); return; }
-      if (simulation) setBilan(j);
+      if (!r.ok) { setErreur(j.error || 'Refusé.'); if (j.autre_section) setBilan(b => ({ ...(b || { ajoutes: 0, retires: 0, proteges: [] }), autre_section: j.autre_section })); return; }
+      if (simulation) { setBilan(j); setAutreConfirme(false); }
       else { await charger(); onTermine?.(); setBilan({ ...j, fait: true }); }
     } catch (e) { setErreur(e.message); }
     finally { setEnCours(false); }
@@ -524,6 +526,21 @@ export default function ComposerPAE({ onClose, onTermine, onPassage, modeInitial
                 Non retirés, et c’est voulu : {bilan.proteges.map(p => `${p.etudiant} — UE ${p.ue_num} (${p.pourquoi})`).join(' · ')}
               </div>
             )}
+            {(bilan.autre_section || []).length > 0 && (() => {
+              const parEtu = {};
+              for (const x of bilan.autre_section) (parEtu[x.etudiant] ||= { dossier: x.section_dossier, ue: x.section_ue, n: 0 }).n++;
+              const noms = Object.entries(parEtu);
+              return (
+                <div data-etat="corriger" className="bloc-etat mt-2 px-2.5 py-2 space-y-1">
+                  <b>{noms.length} étudiant(s) recevraient des unités d'une autre section que la leur.</b>
+                  <div className="text-slate-600">{noms.slice(0, 12).map(([n, x]) => `${n} (${x.dossier} → ${x.ue})`).join(' · ')}{noms.length > 12 ? ` · et ${noms.length - 12} autres` : ''}</div>
+                  <label className="inline-flex items-center gap-1.5">
+                    <input type="checkbox" checked={autreConfirme} onChange={e => setAutreConfirme(e.target.checked)} />
+                    C'est voulu : ces étudiants suivent aussi cette section
+                  </label>
+                </div>
+              );
+            })()}
           </div>
         )}
 
