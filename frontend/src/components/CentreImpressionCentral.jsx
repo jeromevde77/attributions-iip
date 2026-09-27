@@ -1,4 +1,5 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { nomPropre } from '../lib/nom.js';
 import {
   IconPrinter, IconUsers, IconSchool, IconChartBar, IconCalendarStats,
@@ -11,7 +12,7 @@ import PreviewModal from './PreviewModal.jsx';
 const SeanceValorisation = lazy(() => import('./SeanceValorisation.jsx'));
 import EnvoiMailModal from './EnvoiMailModal.jsx';
 import { useEnvoiMail } from '../lib/envoiMail.js';
-import { authHeaders, getAnnee } from '../lib/api.js';
+import { api, authHeaders, getAnnee } from '../lib/api.js';
 import { Fenetre, GroupeFenetre, PieceFenetre } from './ui.jsx';
 
 /**
@@ -751,6 +752,99 @@ function OngletRapports({ domaine }) {
   );
 }
 
+
+/**
+ * LES PIÈCES PAR MEMBRE DU PERSONNEL — l'EA12 d'abord (Charles, 27 septembre
+ * 2026 : « EA12 et annexe 2 vont dans Éditions, EA12 pour Personnel »). On
+ * choisit la personne ; ses EA12 de l'année s'ouvrent, ou un nouveau se crée,
+ * dans l'éditeur qui produit le Word officiel.
+ */
+function OngletPersonnel({ onClose }) {
+  const navigate = useNavigate();
+  const annee = getAnnee();
+  const [profs, setProfs] = useState(null);
+  const [q, setQ] = useState('');
+  const [choisi, setChoisi] = useState(null);
+  const [ea12, setEa12] = useState(null);
+  const [erreur, setErreur] = useState(null);
+  useEffect(() => {
+    api.professeurs(false, annee).then(l => setProfs(Array.isArray(l) ? l : [])).catch(() => setProfs([]));
+  }, [annee]);
+  useEffect(() => {
+    if (!choisi) { setEa12(null); return; }
+    setEa12(null); setErreur(null);
+    fetch(`/api/ea12?professeur_id=${choisi.id}&annee=${encodeURIComponent(annee)}`, { headers: authHeaders() })
+      .then(async r => { const j = await r.json().catch(() => null); if (!r.ok) throw new Error(j?.error || `Erreur ${r.status}`); return j; })
+      .then(l => setEa12(Array.isArray(l) ? l : []))
+      .catch(e => { setEa12([]); setErreur(e.message); });
+  }, [choisi, annee]);
+  const nom = p => nomPropre(p.nom_prenom || `${p.nom || ''} ${p.prenom || ''}`);
+  const norm = x => String(x || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  const liste = (profs || []).filter(p => !q || norm(nom(p)).includes(norm(q))).slice(0, 60);
+  const ouvrir = id => { onClose?.(); navigate(`/ea12/${id}`); };
+  const creer = async () => {
+    try {
+      const { id } = await api.ea12Create({ professeur_id: choisi.id, annee_scolaire: annee, variante: 'bis', donnees: {} });
+      ouvrir(id);
+    } catch (e) { setErreur(e.message); }
+  };
+  return (
+    <div className="grid gap-4 md:grid-cols-[minmax(0,280px)_minmax(0,1fr)] items-start">
+      <div className="space-y-2">
+        <div className="relative">
+          <IconSearch size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+          <input value={q} onChange={e => setQ(e.target.value)} placeholder="Nom du membre"
+            className="controle controle-icone w-full border border-slate-300 rounded-champ bg-white text-[13px]" />
+        </div>
+        <div className="border border-slate-200 rounded-carte max-h-[50vh] overflow-y-auto">
+          {profs === null ? <p className="p-3 text-[12px] text-slate-400">Chargement…</p>
+            : !liste.length ? <p className="p-3 text-[12px] text-slate-400">Personne ne correspond.</p>
+            : liste.map(p => (
+              <button key={p.id} type="button" onClick={() => setChoisi(p)}
+                className={`w-full text-left px-3 py-1.5 text-[13px] border-b border-slate-100 last:border-0
+                  ${choisi?.id === p.id ? 'bg-iip-blue text-white' : 'hover:bg-slate-50'}`}>
+                {nom(p)}{p.statut ? <span className={`ml-1.5 text-[11px] ${choisi?.id === p.id ? 'text-white/70' : 'text-slate-400'}`}>{p.statut}</span> : null}
+              </button>
+            ))}
+        </div>
+      </div>
+      <div>
+        {!choisi ? (
+          <p className="text-[13px] text-slate-400 italic py-6">Choisissez un membre du personnel.</p>
+        ) : (
+          <div className="space-y-3">
+            <div className="text-[15px] font-semibold text-iip-blue">{nom(choisi)}</div>
+            <div data-etat="neutre" className="bloc-etat px-3 py-2.5 space-y-2">
+              <div className="flex items-center justify-between gap-3 flex-wrap">
+                <div>
+                  <div className="text-[13px] font-semibold">EA12 — demande de mise en liquidation (Doc12)</div>
+                  <div className="text-[12px] text-slate-500">Le formulaire officiel de la FWB, rempli par Lucie, en Word · {annee}</div>
+                </div>
+                <button type="button" onClick={creer} className="bouton bouton-sortir bouton-compact">Nouvel EA12</button>
+              </div>
+              {erreur && <div className="text-[12px]" style={{ color: 'var(--c-refuse)' }}>{erreur}</div>}
+              {ea12 === null ? <p className="text-[12px] text-slate-400">Chargement…</p>
+                : !ea12.length ? <p className="text-[12px] text-slate-400">Aucun EA12 pour {annee}.</p>
+                : (
+                  <ul className="divide-y divide-slate-100 border-t border-slate-100">
+                    {ea12.map(e => (
+                      <li key={e.id} className="flex items-center justify-between gap-3 py-1.5 text-[13px]">
+                        <span>Document n° {e.num_doc ?? '—'}
+                          <span className="text-slate-400 text-[12px]"> · modifié le {String(e.modifie_le || e.cree_le || '').slice(0, 10).split('-').reverse().join('/')}
+                            {e.statut_doc === 'genere' ? ' · déjà produit' : ''}</span></span>
+                        <button type="button" onClick={() => ouvrir(e.id)} className="bouton bouton-compact">Ouvrir</button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function OngletEtudiants({ perimetre = null }) {
   /* L'ANNÉE SE CHOISIT ICI AUSSI. L'onglet des rapports la montre depuis
      longtemps ; celui des étudiants reprenait l'année de travail sans jamais
@@ -1257,8 +1351,14 @@ export default function CentreImpressionCentral({ ongletInitial = 'etudiants',
         <>
           <div className="px-1 pb-3">
             <span className="seg-fam">
+              {onglet === 'personnel' && (
+                <button onClick={() => setFamille('pieces')}
+                  className={famille === 'pieces' ? 'on' : ''}>
+                  Pièces par membre
+                </button>
+              )}
               <button onClick={() => setFamille('rapports')}
-                className={famille === 'listes' ? '' : 'on'}>
+                className={famille === 'listes' || (onglet === 'personnel' && famille === 'pieces') ? '' : 'on'}>
                 Rapports
               </button>
               <button onClick={() => setFamille('listes')}
@@ -1267,7 +1367,8 @@ export default function CentreImpressionCentral({ ongletInitial = 'etudiants',
               </button>
             </span>
           </div>
-          {famille === 'listes'
+          {onglet === 'personnel' && famille === 'pieces' ? <OngletPersonnel onClose={onClose} />
+            : famille === 'listes'
             ? <CadreListes domaine={onglet} />
             : <OngletRapports domaine={onglet} />}
         </>

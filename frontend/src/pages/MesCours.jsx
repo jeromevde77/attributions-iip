@@ -296,6 +296,15 @@ export default function MesCours() {
                       title="Certificat médical">CM · certificat médical</button>
                     <button type="button" disabled={!caseActive} onMouseDown={ev => ev.preventDefault()}
                       onClick={() => poserMention('')} className="bouton h-7 px-2.5 disabled:opacity-40">Effacer</button>
+                    {/* ENREGISTRER À CÔTÉ DES MENTIONS (Charles, 27 septembre 2026) : en
+                        haut, là où l'on travaille, et non au bas d'une liste qu'il
+                        faut dérouler. Un seul mot : c'est ce que fait le bouton. */}
+                    <button type="button" onClick={enregistrer} disabled={enCours || !!invalides}
+                      title={invalides ? `${invalides} case(s) à corriger : un nombre entier de 0 à 20, PP, NP ou CM`
+                        : 'Vos notes sont des propositions : la coordination les reprend dans l’encodage officiel'}
+                      className="bouton bouton-fort h-7 px-3 disabled:opacity-40">
+                      {enCours ? 'Enregistrement…' : 'Enregistrer'}
+                    </button>
                   </div>
                   <table className="w-full text-[13px]">
                     <thead>
@@ -437,10 +446,6 @@ export default function MesCours() {
                   {invalides ? <span style={{ color: '#C2412D' }}>{invalides} case{invalides > 1 ? 's' : ''} à corriger : un nombre entier de 0 à 20, PP, NP ou CM.</span>
                     : 'Vos notes sont des propositions : la coordination les reprend dans l’encodage officiel.'}
                 </span>
-                <button onClick={enregistrer} disabled={enCours || !!invalides}
-                  className="bouton-fort controle px-3 disabled:opacity-40">
-                  {enCours ? 'Enregistrement…' : 'Enregistrer mes propositions'}
-                </button>
               </div>
             )}
           </div>

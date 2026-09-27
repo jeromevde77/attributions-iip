@@ -83,7 +83,11 @@ function construireData(ea12Row, donnees) {
 /* ---------- CRUD ---------- */
 
 // Lister les EA12 (option filtrage par prof ou année)
-r.get('/', authRequired, roleRequired('admin'), (req, res) => {
+/* QUI PRODUIT L'EA12 : la direction, la direction adjointe et le secrétariat
+   (`editeur` couvre le secrétariat, `admin` la direction — roleRequired). Les
+   routes du document n'exigeaient qu'une connexion : la pièce porte le
+   matricule et les titres d'un membre du personnel (27 septembre 2026). */
+r.get('/', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
   const { professeur_id, annee } = req.query;
   let sql = `SELECT e.*, p.nom AS prof_nom, p.prenom AS prof_prenom
              FROM ea12 e JOIN professeur p ON p.id = e.professeur_id WHERE 1=1`;
@@ -95,7 +99,7 @@ r.get('/', authRequired, roleRequired('admin'), (req, res) => {
 });
 
 // Lire un EA12
-r.get('/:id', authRequired, roleRequired('admin'), (req, res) => {
+r.get('/:id', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
   const row = db.prepare('SELECT * FROM ea12 WHERE id = ?').get(req.params.id);
   if (!row) return res.status(404).json({ error: 'EA12 introuvable' });
   row.donnees = JSON.parse(row.donnees_json || '{}');
@@ -136,7 +140,7 @@ r.delete('/:id', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
 /* ---------- Génération du document ---------- */
 
 // Générer le .docx d'un EA12 enregistré
-r.get('/:id/document', authRequired, async (req, res) => {
+r.get('/:id/document', authRequired, roleRequired('admin', 'editeur'), async (req, res) => {
   const row = db.prepare('SELECT * FROM ea12 WHERE id = ?').get(req.params.id);
   if (!row) return res.status(404).json({ error: 'EA12 introuvable' });
   const donnees = JSON.parse(row.donnees_json || '{}');
@@ -164,7 +168,7 @@ r.get('/:id/document', authRequired, async (req, res) => {
 });
 
 // Générer le PDF d'un EA12 (Word officiel converti via LibreOffice — fidélité FWB)
-r.get('/:id/document-pdf', authRequired, async (req, res) => {
+r.get('/:id/document-pdf', authRequired, roleRequired('admin', 'editeur'), async (req, res) => {
   const row = db.prepare('SELECT * FROM ea12 WHERE id = ?').get(req.params.id);
   if (!row) return res.status(404).json({ error: 'EA12 introuvable' });
   const donnees = JSON.parse(row.donnees_json || '{}');
@@ -205,7 +209,7 @@ r.get('/:id/document-pdf', authRequired, async (req, res) => {
 });
 
 // Aperçu des données qui seront utilisées (pour pré-remplir l'éditeur)
-r.get('/:id/apercu', authRequired, roleRequired('admin'), (req, res) => {
+r.get('/:id/apercu', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
   const row = db.prepare('SELECT * FROM ea12 WHERE id = ?').get(req.params.id);
   if (!row) return res.status(404).json({ error: 'EA12 introuvable' });
   const donnees = JSON.parse(row.donnees_json || '{}');
@@ -213,7 +217,7 @@ r.get('/:id/apercu', authRequired, roleRequired('admin'), (req, res) => {
 });
 
 // Génère le formulaire EA12 en HTML prêt pour window.print()
-r.get('/:id/imprimer', authRequired, async (req, res) => {
+r.get('/:id/imprimer', authRequired, roleRequired('admin', 'editeur'), async (req, res) => {
   const row = db.prepare('SELECT * FROM ea12 WHERE id = ?').get(req.params.id);
   if (!row) return res.status(404).json({ error: 'EA12 introuvable' });
   const donnees = JSON.parse(row.donnees_json || '{}');

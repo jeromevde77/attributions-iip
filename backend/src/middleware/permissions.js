@@ -72,9 +72,9 @@ const PLAFOND_INITIAL = {
   admin:             () => 'ecrit',
   directeur:         () => 'ecrit',
   directeur_adjoint: () => 'ecrit',
-  editeur:           () => 'ecrit',
+  editeur:           m => (['dotation', 'repartition', 'budget'].includes(m) ? 'rien' : 'ecrit'),
   secretariat:  m => (['etudiants', 'listes', 'procedures', 'amenagements'].includes(m)
-    ? 'ecrit' : 'lit'),
+    ? 'ecrit' : ['dotation', 'repartition', 'budget'].includes(m) ? 'rien' : 'lit'),
   // La coordination consulte le reporting, prépare un budget, et n'engage ni
   // la dotation ni la répartition des périodes.
   coordination: m => (['recrutement', 'repartition', 'dotation'].includes(m)
@@ -82,7 +82,7 @@ const PLAFOND_INITIAL = {
     : m === 'amenagements' ? 'ecrit'      // sur octroi nominatif — voir MODULES_SUR_OCTROI
     : 'validation'),
   professeur:   m => (['attributions', 'personnel', 'planification'].includes(m) ? 'lit' : 'rien'),
-  consultation: () => 'lit',
+  consultation: m => (['dotation', 'repartition', 'budget'].includes(m) ? 'rien' : 'lit'),
 };
 
 export const ROLES = Object.keys(PLAFOND_INITIAL);
@@ -126,6 +126,33 @@ export function migrerPlafonds(dbx) {
     ]) {
       insR.run(code, libelle);
       for (const m of MODULES) ins.run(code, m, 'rien');
+    }
+
+    /* DOTATION, RÉPARTITION, BUDGET — tranché par Charles le 27 septembre 2026.
+     * « Dotation, répartition, ça ne regarde que la direction et la direction
+     * adjointe. Le budget, en plus de la direction adjointe, les coordinations
+     * en écriture avec validation — chaque coordination voit son budget, pas
+     * celui des autres » (le filtre par section vit dans routes/budget.js).
+     * Une fois, marquée : réglé ensuite dans Configuration → Rôles et
+     * plafonds, le choix de la direction ne doit pas être réécrit à chaque
+     * démarrage. */
+    dbx.exec(`CREATE TABLE IF NOT EXISTS migration_faite (cle TEXT PRIMARY KEY, le TEXT DEFAULT (datetime('now')))`);
+    const marque = 'plafonds_2026_09_27_dotation_budget';
+    if (!dbx.prepare('SELECT 1 FROM migration_faite WHERE cle = ?').get(marque)) {
+      const direction = ['admin', 'directeur', 'directeur_adjoint'];
+      const poser = dbx.prepare(`INSERT INTO role_plafond (role, module, niveau) VALUES (?,?,?)
+        ON CONFLICT(role, module) DO UPDATE SET niveau = excluded.niveau, maj_le = datetime('now')`);
+      const roles = dbx.prepare('SELECT DISTINCT role FROM role_plafond').all().map(x => x.role);
+      dbx.transaction(() => {
+        for (const role of roles) {
+          const dir = direction.includes(role);
+          poser.run(role, 'dotation', dir ? 'ecrit' : 'rien');
+          poser.run(role, 'repartition', dir ? 'ecrit' : 'rien');
+          poser.run(role, 'budget', dir ? 'ecrit' : role === 'coordination' ? 'validation' : 'rien');
+        }
+        dbx.prepare('INSERT INTO migration_faite (cle) VALUES (?)').run(marque);
+      })();
+      console.log('[migration] plafonds : dotation, répartition et budget réservés (27/09/2026)');
     }
   } catch (e) { console.error('[migration] plafonds :', e.message); }
 }
