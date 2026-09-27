@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { IconDeviceFloppy, IconPrinter, IconFileWord, IconX } from '@tabler/icons-react';
+import { IconDeviceFloppy, IconPrinter, IconFileWord, IconX, IconArrowLeft, IconFileText } from '@tabler/icons-react';
+import { RailLateral } from '../components/ui.jsx';
 import { useParams, useNavigate } from 'react-router-dom';
 import { api } from '../lib/api.js';
 import PreviewModal from '../components/PreviewModal.jsx';
@@ -186,28 +187,25 @@ export default function EA12Editor() {
   const attrs   = d.attributions_override || [];
 
   return (
-    <div className="max-w-none mx-auto p-4 space-y-4 pb-12">
-      {/* ─── En-tête page ─────────────────────────────────────────────────── */}
-      <div className="flex items-start justify-between flex-wrap gap-2">
-        <div>
-          <button onClick={() => navigate(-1)} className="text-sm text-gray-500 hover:text-gray-700 mb-1">← Retour</button>
-          <h1 className="text-xl font-title text-iip-gold">
-            EA12 bis (Supérieur) — {apercu.prof_nom} {apercu.prof_prenom}
-          </h1>
-          <p className="text-xs text-gray-500">Année {ea12.annee_scolaire} · Doc n° {ea12.num_doc}</p>
-        </div>
-        <div className="flex gap-2">
-          <button onClick={save} disabled={saving} className="bouton">
-            <IconDeviceFloppy size={15} className="inline align-[-2px] mr-1" />Enregistrer
-          </button>
-          {/* L'APERÇU A DISPARU (Charles, 27 septembre 2026 : « aucun intérêt ») :
-              c'était une imitation HTML du formulaire ; la pièce est le Word
-              officiel. Deux boutons, une seule classe, une seule taille. */}
-          <button onClick={telechargerWord} disabled={saving} className="bouton bouton-sortir"
-            title="Le formulaire officiel de la FWB, rempli par Lucie, corrigeable dans Word">
-            {saving ? 'Génération…' : <><IconFileWord size={15} className="inline align-[-2px] mr-1" />Word officiel</>}
-          </button>
-        </div>
+    /* LES GESTES DANS LE RAIL (Charles, 27 septembre 2026 : « ceci doit être
+       dans le rail ; le rail n'est pas visible »). L'éditeur s'ouvrait en page
+       nue, ses boutons en haut à droite — deux dessins de bouton côte à côte,
+       et pas de rail. Il porte maintenant le rail commun : Retour,
+       Enregistrer, Word officiel — l'ordre du travail. */
+    <div className="relative" style={{ minHeight: 'calc(100vh - 64px)' }}>
+      <RailLateral icon={IconFileText} titre="EA12"
+        sousTitre={`${apercu.prof_nom || ''} ${apercu.prof_prenom || ''}`.trim()}
+        sections={[{ label: 'EA12', items: [
+          { key: 'retour', label: 'Retour', icon: IconArrowLeft, onClick: () => navigate(-1) },
+          { key: 'enregistrer', label: saving ? 'Enregistrement…' : 'Enregistrer', icon: IconDeviceFloppy, onClick: () => { if (!saving) save(); } },
+          { key: 'word', label: 'Word officiel', icon: IconFileWord, onClick: () => { if (!saving) telechargerWord(); } },
+        ] }]} />
+    <div className="gouttiere-rail max-w-none mx-auto p-4 space-y-4 pb-12">
+      <div>
+        <h1 className="text-[17px] font-semibold text-iip-blue">
+          EA12 bis (Supérieur) — {apercu.prof_nom} {apercu.prof_prenom}
+        </h1>
+        <p className="text-xs text-gray-500">Année {ea12.annee_scolaire} · Doc n° {ea12.num_doc}</p>
       </div>
       {msg && <div className={`text-sm px-3 py-1.5 rounded ${msg.startsWith('Erreur') ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-700'}`}>{msg}</div>}
 
@@ -439,15 +437,11 @@ export default function EA12Editor() {
         ))}
       </Section>
 
-      {/* ─── Boutons bas ────────────────────────────────────────────────── */}
-      <div className="flex justify-end gap-2">
-        <button onClick={save} disabled={saving} className="bouton"><IconDeviceFloppy size={15} className="inline align-[-2px] mr-1" />Enregistrer</button>
-        <button onClick={telechargerWord} disabled={saving} className="bouton bouton-sortir">{saving ? 'Génération…' : <><IconFileWord size={15} className="inline align-[-2px] mr-1" />Word officiel</>}</button>
-      </div>
 
       {previewHtml && (
         <PreviewModal html={previewHtml} titre={`EA12 — ${apercu.prof_nom} ${apercu.prof_prenom}`} onClose={() => setPreviewHtml(null)} />
       )}
+    </div>
     </div>
   );
 }
