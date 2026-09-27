@@ -137,7 +137,13 @@ const STATUTS_PIECE = [
 ];
 
 // ── Schéma de capitalisation de l'étudiant (vue partagée avec Organisation) ──
-function SchemaCapitalisation({ etudId, annee, onNoeud = null }) {
+/* `programme` : les UE COCHÉES dans le programme de l'année, sous le schéma
+   (Charles, 27 septembre 2026 : « les tuiles ne sont pas bleues quand elles
+   sont sélectionnées »). La sélection n'existe qu'à l'écran tant que le PAE
+   n'est pas confirmé ; le schéma ne lisait que les inscriptions enregistrées,
+   et une UE qu'on venait de cocher restait sans couleur. Il suit désormais la
+   sélection en direct — c'est elle qui dit ce que sera le programme. */
+function SchemaCapitalisation({ etudId, annee, onNoeud = null, programme = null }) {
   const [data, setData] = useState(null);
   useEffect(() => {
     let vivant = true;
@@ -147,8 +153,11 @@ function SchemaCapitalisation({ etudId, annee, onNoeud = null }) {
       .catch(() => { if (vivant) setData({ nodes: [], edges: [] }); });
     return () => { vivant = false; };
   }, [etudId, annee]);
+  const vue = useMemo(() => (data?.nodes && programme)
+    ? { ...data, nodes: data.nodes.map(n => ({ ...n, inscrite: programme.has(n.ue_num) })) }
+    : data, [data, programme]);
   if (data && !data.nodes?.length) return null;
-  return <SchemaCapitalisationVue data={data} mode="etudiant" onNoeud={onNoeud} />;
+  return <SchemaCapitalisationVue data={vue} mode="etudiant" onNoeud={onNoeud} />;
 }
 
 // ── Grille de parcours : UE × années ─────────────────────────────────────────
@@ -2254,7 +2263,7 @@ function FicheEtudiant({ id, annee, onClose, position, onPrec, onSuiv,
                   d'ensemble et le détail d'un seul regard, sans faire défiler.
                   Sur un écran étroit, l'un revient sous l'autre. */}
               <SchemaRetournable
-                recto={onNoeud => <SchemaCapitalisation etudId={id} annee={annee} onNoeud={onNoeud} />}
+                recto={onNoeud => <SchemaCapitalisation etudId={id} annee={annee} onNoeud={onNoeud} programme={selection} />}
                 verso={ue => <GrilleParcours etudId={id} peutEcrire={true} annee={annee} ueFocus={ue} />} />
 
               <div className="border-t border-slate-200 mt-4 pt-4">
