@@ -306,6 +306,23 @@ function LireTexte({ cle, publie, natures, onClose, onChange }) {
     finally { setEnCours(false); }
   }
 
+  /* RETIRER N'EST PAS SUPPRIMER (et la route existait sans bouton — Charles,
+     27 septembre 2026 : « je ne sais pas supprimer un document »). Le texte
+     cesse de s'imposer et sort des listes ; il reste lisible, avec les
+     confirmations posées dessus. */
+  const [retrait, setRetrait] = useState(false);
+  async function retirer() {
+    setEnCours(true); setErreur(null);
+    try {
+      const r = await fetch(`/api/documentation/${encodeURIComponent(cle)}/retirer`,
+        { method: 'POST', headers: authHeaders() });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) { setErreur(j.error || 'Refusé.'); return; }
+      setRetrait(false); await onChange?.(); onClose?.();
+    } catch (e) { setErreur(e.message); }
+    finally { setEnCours(false); }
+  }
+
   /* Renommer ne touche ni aux versions ni aux confirmations : le titre est
      une métadonnée, la clé du document ne bouge pas. */
   async function renommer() {
@@ -489,11 +506,25 @@ function LireTexte({ cle, publie, natures, onClose, onChange }) {
 
       {publie && d && (
         <div className="mt-4">
+          {retrait && (
+            <div data-etat="corriger" className="bloc-etat px-3 py-2.5 mb-2 flex items-center gap-3 flex-wrap text-[13px]">
+              <span className="flex-1 min-w-0">Retirer « {d.titre} » ? Il cesse de s'imposer et sort des listes. Il reste lisible, avec les confirmations déjà données.</span>
+              <button className="bouton bouton-detruire" disabled={enCours} onClick={retirer}>Retirer</button>
+              <button className="bouton" onClick={() => setRetrait(false)}>Annuler</button>
+            </div>
+          )}
           {!renomme ? (
-            <button className="bouton text-[12px] mb-2"
-              onClick={() => setRenomme({ titre: d.titre || '', nature: d.nature || 'procedure' })}>
-              Renommer
-            </button>
+            <div className="flex gap-2 mb-2">
+              <button className="bouton text-[12px]"
+                onClick={() => setRenomme({ titre: d.titre || '', nature: d.nature || 'procedure' })}>
+                Renommer
+              </button>
+              {!d.retire_le && !retrait && (
+                <button className="bouton text-[12px] ml-auto" onClick={() => setRetrait(true)}>
+                  Retirer ce texte
+                </button>
+              )}
+            </div>
           ) : (
             <div className="carte p-3 space-y-2 mb-2">
               <div className="text-[11px] uppercase tracking-wide text-slate-500">
