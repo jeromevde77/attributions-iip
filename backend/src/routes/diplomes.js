@@ -449,6 +449,21 @@ function remplir(modele, valeurs) {
  * Le bloc « Au nom du Gouvernement… le titulaire » n'en fait pas partie : il
  * est le même pour toutes les sections, et il reste dans le modèle.
  */
+/* LA CO-DIPLOMATION SE RÈGLE PAR SECTION, ET ELLE COMMANDE TOUT (Charles, 27
+ * septembre 2026 : « en fonction de la section, le contenu est différent ;
+ * TIM est HELB/IIP, le reste c'est IIP »). Un seul réglage — co-diplômée ou
+ * titre propre — décide du logo, des signataires par défaut et, si la section
+ * a le sien, du modèle. Absent, il vaut oui pour TIM seulement. */
+function coDiplomee(sectionCode) {
+  let coche = {};
+  try { coche = JSON.parse(db.prepare("SELECT valeur FROM lucie_config WHERE cle = 'diplome_cologo_helb'").get()?.valeur || '{}') || {}; } catch { coche = {}; }
+  return coche[sectionCode] ?? sectionCode === 'TIM';
+}
+export const SIGNATAIRES_IIP = [
+  { qualite: "La Présidente du jury\nd'épreuve intégrée,", nom: '{{president_jury}}' },
+  { qualite: "Le Directeur\nde l'Institut Ilya Prigogine,", nom: '{{directeur}}' },
+];
+
 async function signatairesDe(sectionCode) {
   let config = {};
   try {
@@ -459,7 +474,7 @@ async function signatairesDe(sectionCode) {
     .filter(x => String(x?.qualite || '').trim() || String(x?.nom || '').trim()) : null;
   if (liste?.length) return { liste, propre: true };
   const { SIGNATAIRES_DEFAUT } = await import('../services/diplome_template.js');
-  return { liste: SIGNATAIRES_DEFAUT, propre: false };
+  return { liste: coDiplomee(sectionCode) ? SIGNATAIRES_DEFAUT : SIGNATAIRES_IIP, propre: false };
 }
 
 function blocSignatures(liste, jetons) {
@@ -497,14 +512,13 @@ function poserSignatures(modele, bloc, propre) {
  * vaut oui pour TIM seulement, la seule section co-diplômée (27 septembre 2026). */
 async function logosDe(sectionCode) {
   const { LOGO_IIP_B64 } = await import('../services/assets/logo_iip.js');
-  let helb = '', coche = {};
-  try { helb = db.prepare("SELECT valeur FROM lucie_config WHERE cle = 'diplome_logo_helb'").get()?.valeur || ''; } catch { /* rien */ }
-  try { coche = JSON.parse(db.prepare("SELECT valeur FROM lucie_config WHERE cle = 'diplome_cologo_helb'").get()?.valeur || '{}') || {}; } catch { coche = {}; }
-  // Défaut : TIM seule (Charles, 27 septembre 2026 : « on enlève le logo
-  // HELB, on le garde juste pour le TIM »). La case de l'éditeur l'emporte.
-  const avecHelb = !!helb && (coche[sectionCode] ?? sectionCode === 'TIM');
-  return `<img src="${LOGO_IIP_B64}" class="logo-img" alt="Institut Ilya Prigogine" />`
-    + (avecHelb ? `<img src="${helb}" class="logo-img" alt="HELB" style="margin-left:6mm" />` : '');
+  let co = '';
+  try { co = db.prepare("SELECT valeur FROM lucie_config WHERE cle = 'diplome_logo_helb'").get()?.valeur || ''; } catch { /* rien */ }
+  /* L'IMAGE IMPORTÉE EST LE LOGO DE CO-DIPLOMATION, IIP ET HELB ENSEMBLE — elle
+     REMPLACE le logo de l'IIP, elle ne s'y ajoute pas : posée à côté, l'IIP
+     paraissait deux fois sur le diplôme de TIM. */
+  if (co && coDiplomee(sectionCode)) return `<img src="${co}" class="logo-img" alt="Institut Ilya Prigogine — HELB" />`;
+  return `<img src="${LOGO_IIP_B64}" class="logo-img" alt="Institut Ilya Prigogine" />`;
 }
 /* Un modèle enregistré avant 2.12.108 n'a que l'image HELB : on la remplace
  * par le bloc des logos, sans quoi l'IIP n'y paraîtrait toujours pas. */
@@ -514,7 +528,15 @@ function poserLogos(modele, logos) {
 }
 
 /** Le modèle de diplôme retenu : celui de la maison, sinon celui d'origine. */
-async function modeleDiplome() {
+async function modeleDiplome(sectionCode = null) {
+  /* UN MODÈLE PROPRE À UNE SECTION, QUAND SON TEXTE DIFFÈRE (27 septembre
+     2026) : type court ou long, jury, grade, visa… Sinon, le modèle commun. */
+  if (sectionCode) {
+    try {
+      const m = JSON.parse(db.prepare("SELECT valeur FROM lucie_config WHERE cle = 'diplome_templates_section'").get()?.valeur || '{}');
+      if (m?.[sectionCode]) return m[sectionCode];
+    } catch { /* illisible : le commun */ }
+  }
   try {
     const row = db.prepare(
       "SELECT valeur FROM lucie_config WHERE cle = 'diplome_template'").get();
@@ -665,7 +687,7 @@ r.post('/pieces', authRequired,
   const manques = [];
 
   if (veut.includes('diplome')) {
-    const modele = await modeleDiplome();
+    const modele = await modeleDiplome(sec.code);
     const ectsTotal = dossier.requises.length
       ? db.prepare(`SELECT SUM(n) AS t FROM (SELECT ue_num, MAX(ects) AS n FROM ue
           WHERE ue_num IN (${dossier.requises.map(() => '?').join(',')})
