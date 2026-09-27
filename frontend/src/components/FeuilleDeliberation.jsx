@@ -914,6 +914,7 @@ function MotivationsProposees({ liste, detail, onRelire, onConfirmer, enCours })
                       {a.aa_code}
                     </span>{' '}
                     <span className="text-slate-500 italic">{a.motif_propose}</span>
+                    {a.motif_source === 'enseignant' && <span className="ml-1 text-[10px] text-slate-400">· rédigé par l’enseignant</span>}
                   </li>
                 ))}
               </ul>

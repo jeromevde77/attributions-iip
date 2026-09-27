@@ -300,7 +300,7 @@ export default function MotivationDecision({ etudId, annee, onClose }) {
                                  hover:border-slate-400">
                       {a.motif_propose}
                       <span className="block mt-0.5 not-italic text-[10px] text-slate-400">
-                        Proposé — rien n'est enregistré. Cliquez pour le reprendre.
+                        {a.motif_source === 'enseignant' ? 'Rédigé par l’enseignant avec sa note' : 'Proposé'} — rien n'est enregistré. Cliquez pour le reprendre.
                       </span>
                     </button>
                   )}

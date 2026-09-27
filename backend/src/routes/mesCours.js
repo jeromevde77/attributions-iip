@@ -73,6 +73,10 @@ const r = Router();
     if (!db.prepare('PRAGMA table_info(note_proposee)').all().some(c => c.name === 'mention')) {
       db.exec('ALTER TABLE note_proposee ADD COLUMN mention TEXT');
     }
+    // Le justificatif d'un acquis sous le seuil (27 septembre 2026).
+    if (!db.prepare('PRAGMA table_info(note_proposee)').all().some(c => c.name === 'justification')) {
+      db.exec('ALTER TABLE note_proposee ADD COLUMN justification TEXT');
+    }
   } catch (e) { console.error('[migration] note_proposee :', e.message); }
 })();
 
@@ -283,11 +287,12 @@ r.get('/:coursCode/etudiants', authRequired, (req, res) => {
   if (!d) return res.status(403).json({ error: "Ce cours n'est ni dans vos attributions, ni dans votre section." });
 
   const acquis = acquisDuCours(req.params.coursCode, d.ueNum, annee);
-  const props = {};
+  const props = {}, justifs = {};
   for (const x of db.prepare(`
-    SELECT etudiant_id, aa_code, note, mention FROM note_proposee
+    SELECT etudiant_id, aa_code, note, mention, justification FROM note_proposee
     WHERE annee_scolaire = ? AND cours_code = ?`).all(annee, req.params.coursCode)) {
     (props[x.etudiant_id] ||= {})[x.aa_code || ''] = x.mention || x.note;
+    if (x.justification) (justifs[x.etudiant_id] ||= {})[x.aa_code || ''] = x.justification;
   }
 
   /* LES COURS REPORTÉS SE VOIENT, ET NE SE NOTENT PAS (27 septembre 2026) :
@@ -314,6 +319,7 @@ r.get('/:coursCode/etudiants', authRequired, (req, res) => {
     acquis,
     etudiants: d.etudiants.map(e => ({ ...e,
       notes: props[e.id] || {}, note: (props[e.id] || {})[''] ?? null,
+      justifications: justifs[e.id] || {},
       report: reportes[e.id] || null })),
   });
 });
@@ -334,19 +340,31 @@ r.post('/:coursCode/notes', authRequired, (req, res) => {
       const brut = String(x?.note ?? '').trim().toUpperCase();
       const mention = MENTIONS.includes(brut) ? brut : null;
       return { etudiant_id: Number(x?.etudiant_id), aa_code: String(x?.aa_code ?? ''), mention,
-        note: mention || brut === '' ? null : Number(brut.replace(',', '.')) };
+        note: mention || brut === '' ? null : Number(brut.replace(',', '.')),
+        justification: String(x?.justification ?? '').trim() || null };
     })
     .filter(x => permis.has(x.etudiant_id) && aaPermis.has(x.aa_code)
       // DES ENTIERS, DE 0 À 20 (Charles, 26 septembre 2026) : ni décimale, ni
       // valeur hors de l'échelle ; le serveur le refuse comme l'écran.
       && (x.mention || x.note === null || (Number.isInteger(x.note) && x.note >= 0 && x.note <= 20)));
   if (!notes.length) return res.status(400).json({ error: 'Aucune note valable.' });
+  /* UN ÉCHEC SE JUSTIFIE, ACQUIS PAR ACQUIS (RDE art. 88 §3) — et c'est au
+     moment de corriger que l'enseignant sait pourquoi. Une note sous 10 ne
+     s'enregistre pas sans son justificatif ; le refus nomme ce qui manque. */
+  const manquants = notes.filter(x => x.aa_code && x.note != null && x.note < 10 && !x.justification);
+  if (manquants.length) {
+    const noms = new Map(d.etudiants.map(e => [e.id, `${String(e.nom || '').toUpperCase()} ${e.prenom || ''}`.trim()]));
+    return res.status(400).json({
+      error: `${manquants.length} note(s) sous 10 sans justificatif : chaque acquis non maîtrisé se justifie.`,
+      manquants: manquants.map(x => ({ etudiant_id: x.etudiant_id, aa_code: x.aa_code, nom: noms.get(x.etudiant_id) || '' })),
+    });
+  }
 
   const poser = db.prepare(`
-    INSERT INTO note_proposee (etudiant_id, annee_scolaire, cours_code, aa_code, note, mention, propose_par, propose_le)
-    VALUES (?,?,?,?,?,?,?,datetime('now'))
+    INSERT INTO note_proposee (etudiant_id, annee_scolaire, cours_code, aa_code, note, mention, justification, propose_par, propose_le)
+    VALUES (?,?,?,?,?,?,?,?,datetime('now'))
     ON CONFLICT(etudiant_id, annee_scolaire, cours_code, aa_code) DO UPDATE SET
-      note = excluded.note, mention = excluded.mention,
+      note = excluded.note, mention = excluded.mention, justification = excluded.justification,
       propose_par = excluded.propose_par, propose_le = datetime('now')`);
   const oter = db.prepare(
     'DELETE FROM note_proposee WHERE etudiant_id = ? AND annee_scolaire = ? AND cours_code = ? AND aa_code = ?');
@@ -354,7 +372,8 @@ r.post('/:coursCode/notes', authRequired, (req, res) => {
   db.transaction(() => {
     for (const x of notes) {
       if (x.note === null && !x.mention) { n += oter.run(x.etudiant_id, annee, req.params.coursCode, x.aa_code).changes; }
-      else { poser.run(x.etudiant_id, annee, req.params.coursCode, x.aa_code, x.note, x.mention, req.user?.email || null); n++; }
+      else { poser.run(x.etudiant_id, annee, req.params.coursCode, x.aa_code, x.note, x.mention,
+        x.note != null && x.note < 10 ? x.justification : null, req.user?.email || null); n++; }
     }
   })();
   res.json({ ok: true, proposees: n });
@@ -364,7 +383,7 @@ r.post('/:coursCode/notes', authRequired, (req, res) => {
 r.get('/:coursCode/propositions', authRequired, roleRequired(...PEUT_INSTRUIRE), (req, res) => {
   const annee = req.query.annee || anneeDeTravail(req);
   const lignes = db.prepare(`
-    SELECT p.etudiant_id, p.aa_code, p.note, p.mention, p.propose_par, p.propose_le, e.nom, e.prenom
+    SELECT p.etudiant_id, p.aa_code, p.note, p.mention, p.justification, p.propose_par, p.propose_le, e.nom, e.prenom
     FROM note_proposee p JOIN etudiant e ON e.id = p.etudiant_id
     WHERE p.annee_scolaire = ? AND p.cours_code = ?
     ORDER BY e.nom, e.prenom, p.aa_code`).all(annee, req.params.coursCode);
