@@ -4,7 +4,7 @@ import { nomPropre } from '../lib/nom.js';
 import {
   IconPrinter, IconUsers, IconSchool, IconChartBar, IconCalendarStats,
   IconBooks, IconAlertTriangle, IconChevronRight, IconChevronDown, IconSearch,
-  IconDownload, IconSend,
+  IconDownload, IconSend, IconFilePlus,
 } from '@tabler/icons-react';
 import PreviewModal from './PreviewModal.jsx';
 import SaisieAnnexe from './SaisieAnnexe.jsx';
@@ -760,6 +760,16 @@ function OngletRapports({ domaine }) {
  * choisit la personne ; ses EA12 de l'année s'ouvrent, ou un nouveau se crée,
  * dans l'éditeur qui produit le Word officiel.
  */
+/* Un carré, une icône ; l'avion pour tout ce qui sort une pièce. */
+function Avion({ titre, onClick, disabled = false, occupe = false }) {
+  return (
+    <button type="button" onClick={onClick} disabled={disabled || occupe} title={titre} aria-label={titre}
+      className="bouton bouton-sortir bouton-icone flex-none">
+      {occupe ? <span className="text-[12px]">…</span> : <IconSend size={17} stroke={1.8} />}
+    </button>
+  );
+}
+
 function OngletPersonnel({ onClose, membreInitial = null, outilsMembre = null }) {
   const navigate = useNavigate();
   const annee = getAnnee();
@@ -796,6 +806,21 @@ function OngletPersonnel({ onClose, membreInitial = null, outilsMembre = null })
   const [mois, setMois] = useState(() => new Date().getMonth() + 1);
   const [enCours, setEnCours] = useState(null);
   const [aCompleter, setACompleter] = useState(null);   // l'annexe ouverte dans la saisie
+  /* LA FICHE : UN SEUL AVION. Si le membre porte des attributions IIP ET
+     HELB, Lucie demande laquelle ; sinon elle sort la seule qui existe. */
+  const [choixFiche, setChoixFiche] = useState(false);
+  useEffect(() => { setChoixFiche(false); }, [choisi]);
+  const imprimerFiche = async () => {
+    setErreur(null); setEnCours('fiche');
+    try {
+      const r = await fetch(`/api/ref/professeurs/${choisi.id}/fiche-attributions?annee=${encodeURIComponent(annee)}`, { headers: authHeaders() });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok || j.error) throw new Error(j.error || `Erreur ${r.status}`);
+      const types = new Set((j.attributions || []).map(a => a.contrat_mdp || 'IIP'));
+      if (types.has('IIP') && types.has('HELB')) setChoixFiche(true);
+      else outilsMembre.fiche(choisi.id, types.has('HELB') ? 'HELB' : 'IIP');
+    } catch (e) { setErreur(e.message); } finally { setEnCours(null); }
+  };
   useEffect(() => {
     fetch('/api/formulaires', { headers: authHeaders() }).then(r => (r.ok ? r.json() : [])).then(l => setAnnexes(Array.isArray(l) ? l : [])).catch(() => {});
   }, []);
@@ -923,12 +948,18 @@ function OngletPersonnel({ onClose, membreInitial = null, outilsMembre = null })
               <div data-etat="neutre" className="bloc-etat px-3 py-2.5">
                 <div className="flex items-center justify-between gap-3 text-[13px]">
                   <span><span className="font-semibold">Fiche d'attributions</span> <span className="text-slate-400 text-[12px]">· ce qui lui est confié en {annee}</span></span>
-                  <span className="flex gap-1.5">
-                    {[['Globale', null], ['IIP', 'IIP'], ['HELB', 'HELB']].map(([l, f]) => (
-                      <button key={l} type="button" onClick={() => outilsMembre.fiche(choisi.id, f)} className="bouton bouton-sortir bouton-compact">{l}</button>
-                    ))}
-                  </span>
+                  <Avion titre="Imprimer ou envoyer la fiche d'attributions" onClick={imprimerFiche} occupe={enCours === 'fiche'} />
                 </div>
+                {choixFiche && (
+                  <div className="mt-2 pt-2 border-t border-slate-100 flex items-center justify-between gap-3 flex-wrap text-[13px]">
+                    <span>Ce membre du personnel a deux types de fiches. Laquelle souhaitez-vous imprimer ?</span>
+                    <span className="flex gap-1.5">
+                      {[['IIP', 'IIP'], ['HELB', 'HELB'], ['Les deux (globale)', null]].map(([l, f]) => (
+                        <button key={l} type="button" onClick={() => { setChoixFiche(false); outilsMembre.fiche(choisi.id, f); }} className="bouton bouton-compact">{l}</button>
+                      ))}
+                    </span>
+                  </div>
+                )}
               </div>
             )}
 
@@ -938,19 +969,19 @@ function OngletPersonnel({ onClose, membreInitial = null, outilsMembre = null })
                 <ul className="divide-y divide-slate-100 border-t border-slate-100">
                   <li className="flex items-center justify-between gap-3 py-1.5 text-[13px]">
                     <span>Contrat de travail <span className="text-slate-400 text-[12px]">· ses périodes CC, sans les périodes d'expert</span></span>
-                    <button type="button" onClick={ouvrirContratCC} className="bouton bouton-sortir bouton-compact">Contrat</button>
+                    <Avion titre="Imprimer ou envoyer le contrat" onClick={ouvrirContratCC} />
                   </li>
                   <li className="py-1.5 text-[13px] space-y-1">
                     <div className="flex items-center justify-between gap-3">
                       <span>EA12 — Doc12 supérieur <span className="text-slate-400 text-[12px]">· le Word officiel, rempli par Lucie</span></span>
-                      <button type="button" onClick={creer} className="bouton bouton-sortir bouton-compact">Nouvel EA12</button>
+                      <button type="button" onClick={creer} title="Nouvel EA12" aria-label="Nouvel EA12" className="bouton bouton-icone flex-none"><IconFilePlus size={17} stroke={1.8} /></button>
                     </div>
                     {ea12 === null ? <p className="text-[12px] text-slate-400">Chargement…</p>
                       : !ea12.length ? <p className="text-[12px] text-slate-400">Aucun EA12 pour {annee}.</p>
                       : ea12.map(e => (
                         <div key={e.id} className="flex items-center justify-between gap-3 pl-3 text-[12px] text-slate-600">
                           <span>Document n° {e.num_doc ?? '—'} · modifié le {String(e.modifie_le || e.cree_le || '').slice(0, 10).split('-').reverse().join('/')}{e.statut_doc === 'genere' ? ' · déjà produit' : ''}</span>
-                          <button type="button" onClick={() => ouvrir(e.id)} className="bouton bouton-compact">Ouvrir</button>
+                          <Avion titre="Ouvrir, compléter et produire cet EA12" onClick={() => ouvrir(e.id)} />
                         </div>
                       ))}
                   </li>
@@ -966,15 +997,15 @@ function OngletPersonnel({ onClose, membreInitial = null, outilsMembre = null })
                     <li key={n.niveau} className="flex items-center justify-between gap-3 py-1.5 text-[13px]">
                       <span>Contrat d'emploi d'un expert — {n.niveau === 'secondaire' ? 'secondaire' : 'supérieur'}
                         <span className="text-slate-400 text-[12px]"> · {n.periodes} périodes, {n.unites} unité{n.unites > 1 ? 's' : ''} · {String(n.taux).replace('.', ',')} €/période</span></span>
-                      <button type="button" onClick={() => ouvrirContrat(n.niveau)} className="bouton bouton-sortir bouton-compact">Contrat</button>
+                      <Avion titre="Imprimer ou envoyer le contrat d'expert" onClick={() => ouvrirContrat(n.niveau)} />
                     </li>
                   ))}
                   {annexes.filter(a => a.cle === 'A1ter' || a.cle === 'A27').map(a => (
                     <li key={a.cle} className="flex items-center justify-between gap-3 py-1.5 text-[13px]">
                       <span>{a.titre}{a.mois && <span className="text-slate-400 text-[12px]"> · mois de {['janvier','février','mars','avril','mai','juin','juillet','août','septembre','octobre','novembre','décembre'][mois - 1]}</span>}</span>
                       {a.saisie
-                        ? <button type="button" onClick={() => setACompleter(a)} className="bouton bouton-sortir bouton-compact">Compléter</button>
-                        : <button type="button" onClick={() => telecharger(a)} disabled={enCours === a.cle} className="bouton bouton-compact">{enCours === a.cle ? '…' : 'Word'}</button>}
+                        ? <Avion titre="Compléter dans Lucie, puis produire en Word ou PDF" onClick={() => setACompleter(a)} />
+                        : <Avion titre="Produire le Word officiel" onClick={() => telecharger(a)} occupe={enCours === a.cle} />}
                     </li>
                   ))}
                 </ul>
@@ -1002,8 +1033,9 @@ function OngletPersonnel({ onClose, membreInitial = null, outilsMembre = null })
                         {a.titre}
                         {PREREMPLIES.includes(a.cle) && <span className="ml-1.5 text-[10px] text-slate-400">pré-rempli</span>}
                       </span>
-                      <button type="button" onClick={() => telecharger(a)} disabled={enCours === a.cle}
-                        className="bouton bouton-compact flex-none">{enCours === a.cle ? '…' : 'Word'}</button>
+                      {a.saisie
+                        ? <Avion titre="Compléter dans Lucie, puis produire en Word ou PDF" onClick={() => setACompleter(a)} />
+                        : <Avion titre="Produire le Word officiel" onClick={() => telecharger(a)} occupe={enCours === a.cle} />}
                     </li>
                   ))}
                 </ul>
@@ -1034,6 +1066,7 @@ function SeriePersonnel({ ids, profs, annee, annexes, nom, outilsMembre = null }
   const [erreur, setErreur] = useState(null);
   const [avis, setAvis] = useState(null);
   const [contrat, setContrat] = useState(null);
+  const [choixFiches, setChoixFiches] = useState(false);
   const bascule = k => setCles(c => { const n = new Set(c); n.has(k) ? n.delete(k) : n.add(k); return n; });
   const noms = ids.map(id => profs.find(p => p.id === id)).filter(Boolean).map(nom);
   const pieces = [{ cle: 'A1bis', titre: 'EA12 — Doc12 supérieur (A1 bis)' },
@@ -1081,12 +1114,18 @@ function SeriePersonnel({ ids, profs, annee, annexes, nom, outilsMembre = null }
               <div className="font-semibold">Fiches d'attributions</div>
               <div className="text-[12px] text-slate-500">Une fiche par membre, chacune sur sa page.</div>
             </div>
-            <span className="flex gap-1.5">
-              {[['Globale', 'GLOBAL'], ['IIP', 'IIP'], ['HELB', 'HELB']].map(([l, t]) => (
-                <button key={l} type="button" onClick={() => outilsMembre.fichesLot(ids, t)} className="bouton bouton-sortir bouton-compact">{l}</button>
-              ))}
-            </span>
+            <Avion titre="Imprimer ou envoyer les fiches d'attributions" onClick={() => setChoixFiches(c => !c)} />
           </div>
+          {choixFiches && (
+            <div className="mt-2 pt-2 border-t border-slate-100 flex items-center justify-between gap-3 flex-wrap text-[13px]">
+              <span>Quelles fiches imprimer ? Un membre sans attribution du type choisi n'a pas de fiche.</span>
+              <span className="flex gap-1.5">
+                {[['IIP', 'IIP'], ['HELB', 'HELB'], ['Globales', 'GLOBAL']].map(([l, t]) => (
+                  <button key={l} type="button" onClick={() => { setChoixFiches(false); outilsMembre.fichesLot(ids, t); }} className="bouton bouton-compact">{l}</button>
+                ))}
+              </span>
+            </div>
+          )}
         </div>
       )}
 
@@ -1096,8 +1135,7 @@ function SeriePersonnel({ ids, profs, annee, annexes, nom, outilsMembre = null }
             <div className="text-[13px] font-semibold">Contrats de travail</div>
             <div className="text-[12px] text-slate-500">Selon le statut de chacun : classique sur ses périodes CC, d'expert par niveau. Un seul document, une pièce par page.</div>
           </div>
-          <button type="button" onClick={contrats} disabled={enCours || (!types.cc && !types.expert)}
-            className="bouton bouton-sortir bouton-compact flex-none">{enCours === 'contrats' ? '…' : 'Contrats'}</button>
+          <Avion titre="Imprimer ou envoyer les contrats" onClick={contrats} disabled={!!enCours || (!types.cc && !types.expert)} occupe={enCours === 'contrats'} />
         </div>
         <div className="flex gap-4 text-[13px] border-t border-slate-100 pt-1.5">
           {[['cc', 'Chargé de cours'], ['expert', 'Expert']].map(([k, l]) => (
@@ -1121,8 +1159,7 @@ function SeriePersonnel({ ids, profs, annee, annexes, nom, outilsMembre = null }
                 {MOIS.map((m, i) => <option key={m} value={i + 1}>{m}</option>)}
               </select>
             )}
-            <button type="button" onClick={archive} disabled={enCours || !cles.size}
-              className="bouton bouton-sortir bouton-compact flex-none">{enCours === 'zip' ? '…' : `Produire (${cles.size})`}</button>
+            <Avion titre={`Produire les ${cles.size} pièce${cles.size > 1 ? 's' : ''} cochée${cles.size > 1 ? 's' : ''} (archive Word)`} onClick={archive} disabled={!!enCours || !cles.size} occupe={enCours === 'zip'} />
           </span>
         </div>
         <ul className="grid gap-x-4 sm:grid-cols-2 border-t border-slate-100">
