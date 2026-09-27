@@ -116,13 +116,13 @@ function FriseParcours({ ues, codes }) {
   return (
     /* UNE GÉLULE PAR BLOC (Charles, 27 septembre 2026), celle de la grille
        des attributions — elle remplace le « sans barres ni cadre » du 26 : le
-       cadre porte le bloc, son liseré la couleur du bloc, chaque unité sa
-       teinte d'état. L'épreuve intégrée a le liseré or, au bout. */
+       liseré porte la couleur du bloc, chaque unité sa teinte d'état ; le nom
+       du bloc ne s'écrit pas, la couleur le dit et on gagne la place (Charles,
+       27 septembre). L'épreuve intégrée a le liseré or, au bout. */
     <div className="flex items-center gap-1.5">
       {groupes.map((g, gi) => (
         <span key={gi} className="gelule" title={g.b === 'EI' ? 'Épreuve intégrée' : g.b}
           style={{ '--b': g.b === 'EI' ? '#C9A84C' : (couleurBloc(g.b) || '#D8DCE4') }}>
-          <span className="gelule-bloc">{g.b === '—' ? '·' : g.b}</span>
           {g.l.map(u => (
             <span key={u.ue_num} data-c={u.c}
               title={`UE ${u.ue_num} — ${u.ue_nom || ''} · ${SENS_PUCE[u.c] || ''}`}>
