@@ -1203,6 +1203,9 @@ function OngletEtudiants({ perimetre = null }) {
   const [ues, setUes] = useState(() => new Set(perimetre?.ue_nums || []));
   const [cours, setCours] = useState(() => new Set(perimetre?.cours_codes || []));
   const [deplie, setDeplie] = useState(() => new Set());
+  // LES SECTIONS SE REPLIENT (Charles, 27 septembre 2026 : « pour gagner en
+  // place ») : on ouvre celle où l'on travaille.
+  const [secOuvertes, setSecOuvertes] = useState(() => new Set());
   const [recherche, setRecherche] = useState('');
   const [liste, setListe] = useState(null);
   const [coches, setCoches] = useState(() => new Set());
@@ -1393,14 +1396,27 @@ function OngletEtudiants({ perimetre = null }) {
         <div className="flex-1 overflow-auto p-2 space-y-2">
           {(arbre?.sections || []).map(sec => (
             <div key={sec}>
-              <label className="flex items-center gap-2 px-1.5 py-1 rounded hover:bg-slate-50
-                                cursor-pointer">
-                <input type="checkbox" checked={sections.has(sec)}
-                  onChange={() => setSections(s => bascule(s, sec))}
-                  className="w-4 h-4 accent-iip-blue" />
-                <span className="text-[13px] font-medium text-slate-800">{sec}</span>
-              </label>
-              <div className="pl-4">
+              {(() => {
+                const us = (arbre?.unites || []).filter(u => u.section === sec);
+                const nCoches = us.filter(u => ues.has(u.ue_num)).length;
+                const ouverte = secOuvertes.has(sec);
+                return (
+                  <div className="flex items-center gap-1.5 px-1.5 py-1 rounded hover:bg-slate-50">
+                    <button type="button" onClick={() => setSecOuvertes(o => bascule(o, sec))}
+                      aria-label={ouverte ? `Replier ${sec}` : `Déplier ${sec}`} className="text-slate-400 hover:text-slate-700">
+                      {ouverte ? <IconChevronDown size={14} /> : <IconChevronRight size={14} />}
+                    </button>
+                    <input type="checkbox" checked={sections.has(sec)}
+                      onChange={() => setSections(s => bascule(s, sec))}
+                      aria-label={`Toute la section ${sec}`} className="w-4 h-4 accent-iip-blue" />
+                    <button type="button" onClick={() => setSecOuvertes(o => bascule(o, sec))}
+                      className="flex-1 min-w-0 text-left text-[13px] font-medium text-slate-800">
+                      {sec} <span className="text-[11px] font-normal text-slate-400">· {us.length} unité{us.length > 1 ? 's' : ''}{nCoches ? ` · ${nCoches} cochée${nCoches > 1 ? 's' : ''}` : ''}</span>
+                    </button>
+                  </div>
+                );
+              })()}
+              {secOuvertes.has(sec) && <div className="pl-4">
                 {(arbre?.unites || []).filter(u => u.section === sec).map(u => (
                   <div key={u.ue_num}>
                     <div className="flex items-center gap-1.5 px-1.5 py-0.5">
@@ -1438,7 +1454,7 @@ function OngletEtudiants({ perimetre = null }) {
                     )}
                   </div>
                 ))}
-              </div>
+              </div>}
             </div>
           ))}
           {!arbre && <div className="text-[12px] text-slate-400 p-2">Chargement…</div>}
