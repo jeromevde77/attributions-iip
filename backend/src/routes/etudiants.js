@@ -3729,6 +3729,19 @@ r.get('/purge/perimetre', authRequired, (req, res) => {
       WHERE section = ? AND annee_scolaire IN (?, ?)
       GROUP BY ue_num ORDER BY ue_num
     `).all(section, annee || anneeRef, anneeRef);
+    /* LES UNITÉS ORPHELINES (27 septembre 2026 : la 901, renumérotée 333) :
+       absentes du référentiel de l'année, elles portent encore des
+       inscriptions — et c'est précisément ce qu'on vient vider. Elles
+       s'affichent, marquées, sans quoi on ne peut pas les atteindre. */
+    const connues = new Set(ues.map(u => u.ue_num));
+    for (const o of db.prepare(`
+      SELECT i.ue_num, (SELECT MIN(u.ue_nom) FROM ue u WHERE u.ue_num = i.ue_num) AS ue_nom
+      FROM etudiant_inscription i
+      WHERE i.annee_scolaire = ? AND EXISTS (SELECT 1 FROM ue u WHERE u.ue_num = i.ue_num AND u.section = ?)
+      GROUP BY i.ue_num`).all(annee || anneeRef, section)) {
+      if (!connues.has(o.ue_num)) ues.push({ ue_num: o.ue_num, ue_nom: `${o.ue_nom || ''} — hors référentiel de l'année`.trim() });
+    }
+    ues.sort((a, b) => a.ue_num - b.ue_num);
     if (ues.length) {
       cours = db.prepare(`
         SELECT DISTINCT cours_code, MIN(cours_nom) AS cours_nom, ue_num FROM cours
