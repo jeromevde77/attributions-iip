@@ -1,290 +1,333 @@
 /**
- * ea12_fill_officiel.js — Remplit le MODÈLE OFFICIEL FWB (A1_bis_EA12_SUP.docx)
- * Remplit : entête, établissement, prof, cases à cocher, TABLEAU DES ATTRIBUTIONS.
+ * ea12_fill_officiel.js — l'EA12 (Annexe 1 bis PS, SUPÉRIEUR) : LE MODÈLE
+ * OFFICIEL DE LA FWB, REMPLI, ET RENDU EN WORD.
+ *
+ * Charles, 27 septembre 2026 : « il doit être la copie conforme, mais
+ * éditable ». Ni une imitation HTML, ni un Word reconstruit : le document
+ * `A1_bis_EA12_SUP.docx` lui-même, dans lequel Lucie écrit ce qu'elle sait —
+ * il est conforme parce que c'est lui, et éditable parce que c'est du Word.
+ *
+ * LE MODÈLE A ÉTÉ LU, PAS SUPPOSÉ (relevé du 27 septembre 2026) :
+ *   · 19 tableaux, repérés par leur rang dans le document (T0…T18) ;
+ *   · 57 cases à cocher Word (FORMCHECKBOX) dont les NOMS SE RÉPÈTENT
+ *     (CaseACocher77 sert neuf fois) : on ne peut les désigner que par leur
+ *     RANG, relevé case par case (CASES ci-dessous) ;
+ *   · aucun champ texte : les valeurs vont dans les cellules, à la place des
+ *     pointillés « …… », des dates « _ _ /_ _ /20_ _ » et des grilles de
+ *     chiffres (ECOT, FASE, matricule).
+ * La version précédente cherchait les cellules par leur libellé et se
+ * trompait de cible : le nom, le matricule, l'ECOT n'étaient jamais écrits.
+ *
+ * Tout se fait par ÉPISSURE DE TEXTE dans un paragraphe : les runs gardent
+ * leur mise en forme, seul leur texte change — la page reste celle de la FWB.
  */
-import fs   from 'fs';
+import fs from 'fs';
 import path from 'path';
 import JSZip from 'jszip';
 
 const MODELE = path.join(import.meta.dirname, 'ea12-assets', 'A1_bis_EA12_SUP.docx');
 
-function esc(s) {
-  return String(s ?? '')
-    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
-    .replace(/"/g,'&quot;').replace(/'/g,'&apos;');
-}
+// ── Les cases, par RANG dans le document (0 = la première) ──────────────────
+const CASES = {
+  wbe: 0, subventionne: 1, officiel: 2, libre: 3,
+  derogation: 4,
+  statut: { T: 5, TPr: 6, St: 7, D: 8, ACS: 9, APE: 10, PTP: 11 },
+  pas_cumul: 12, transmission_tardive: 13,
+  prest_sec: 14, prest_sup: 15, prest_exp: 16, prest_acs: 17, cumul_a2: 18,
+  jours: { 4: 19, 5: 20, 6: 21 },
+  mouvement: [22, 23, 24, 25, 26, 27, 28, 29, 30, 31], mouvement_autres: 32,
+  justifs: [33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45],
+  absence: [46, 47, 48],
+  oe: [[49, 50], [51, 52], [53, 54], [55, 56]],   // [D, T] par remplaçant
+};
+const MOUVEMENTS = [
+  'Entrée en fonction', 'Rentrée en fonction', 'Maintien d’attributions',
+  'Augmentation d’attributions', 'Prolongation d’attributions',
+  'Réduction d’attributions', 'Fin de fonctions (dernier jour presté)',
+  'Nomination ou engagement à titre définitif',
+  'Extension nomination/engagement à titre définitif',
+  'Passerelle / Changement d’affectation / Mutation',
+];
+const JUSTIFICATIONS = [
+  'Création d’emploi', 'Remplacement', 'Changement d’affectation',
+  'Modification d’organisation interne', 'Congé / Absence / Disponibilité',
+  'Perte partielle de charge', 'DPPR', 'Suppression d’emploi',
+  'Fin de remplacement', 'Démission', 'Mise à la retraite', 'Décès', 'Autres',
+];
+const TYPE_ABSENCE = ['Absence d’un jour', 'Début absence de plus d’1 jour', 'Reprise après absence de plus d’1 jour'];
+// L'apostrophe droite et la typographique se valent : l'éditeur a écrit les deux.
+const norm = s => String(s ?? '').replace(/[’']/g, '’').trim();
 
-/** Génère un run Arial avec le texte fourni */
-function runVal(valeur, { size = 18, bold = false, center = false } = {}) {
-  const rpr = `<w:rPr><w:rFonts w:ascii="Arial" w:hAnsi="Arial"/>${bold?'<w:b/>':''}<w:sz w:val="${size}"/><w:szCs w:val="${size}"/></w:rPr>`;
-  return `<w:r>${rpr}<w:t xml:space="preserve">${esc(valeur)}</w:t></w:r>`;
-}
+const esc = s => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+const unesc = s => String(s).replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&apos;/g, "'").replace(/&amp;/g, '&');
 
-/** Injecte `valeur` dans la cellule voisine à droite du libellé trouvé */
-function injecterCelluleVoisine(xml, libelle, valeur, opts = {}) {
-  if (!valeur) return xml;
-  const tcRe = /<w:tc>[\s\S]*?<\/w:tc>/g;
-  const cells = []; let m;
-  while ((m = tcRe.exec(xml)) !== null) cells.push({ text: m[0], start: m.index, end: m.index + m[0].length });
-  const idx = cells.findIndex(c => c.text.includes(libelle));
-  if (idx === -1 || idx + 1 >= cells.length) return xml;
-  const cible = cells[idx + 1];
-  let nc = cible.text.replace(/(<\/w:pPr>)/, `$1${runVal(valeur, opts)}`);
-  if (nc === cible.text) nc = cible.text.replace(/(<w:p\b[^>]*>)/, `$1${runVal(valeur, opts)}`);
-  return xml.slice(0, cible.start) + nc + xml.slice(cible.end);
-}
-
-/** Injecte `valeur` après les pointillés (___) du libellé */
-function injecterApresPointilles(xml, libelle, valeur, opts = {}) {
-  if (!valeur) return xml;
-  const idx = xml.indexOf(libelle);
-  if (idx === -1) return xml;
-  const after = xml.slice(idx);
-  const ptRe = /(<w:t[^>]*>)([^<]*_{3,})(<\/w:t>)/;
-  const pm = ptRe.exec(after);
-  if (!pm) return xml;
-  const prefix = pm[2].match(/^[^_]*/)[0];
-  const souligne = pm[2].slice(prefix.length);
-  const reste = souligne.slice(Math.min(esc(String(valeur)).length + 1, souligne.length));
-  const remplacement = `${pm[1]}${esc(prefix + String(valeur) + ' ')}${reste}${pm[3]}`;
-  const absStart = idx + pm.index;
-  return xml.slice(0, absStart) + remplacement + xml.slice(absStart + pm[0].length);
-}
-
-/** Injecte des chiffres dans les cases individuelles après le libellé */
-function injecterCasesChiffres(xml, libelleAvant, chiffres) {
-  const tcRe = /<w:tc>[\s\S]*?<\/w:tc>/g;
-  const cells = []; let m;
-  while ((m = tcRe.exec(xml)) !== null) cells.push({ text: m[0], start: m.index, end: m.index + m[0].length });
-  const libIdx = cells.findIndex(c => c.text.includes(libelleAvant));
-  if (libIdx === -1) return xml;
-  let out = xml, offset = 0, placed = 0;
-  for (let k = libIdx + 1; k < cells.length && placed < chiffres.length; k++) {
-    const c = cells[k];
-    if (/<w:t[^>]*>[^<\s]/.test(c.text)) continue;
-    const ch = chiffres[placed++];
-    let nc = c.text;
-    if (/<w:pPr>/.test(nc)) {
-      if (!/<w:jc\b/.test(nc)) nc = nc.replace(/<w:pPr>/, '<w:pPr><w:jc w:val="center"/>');
-      nc = nc.replace(/(<\/w:pPr>)/, `$1${runVal(ch, { size: 16, bold: true })}`);
-    } else {
-      nc = nc.replace(/(<w:p\b[^>]*>)/, `$1<w:pPr><w:jc w:val="center"/></w:pPr>${runVal(ch, { size: 16, bold: true })}`);
+// ── Lecture de la structure ────────────────────────────────────────────────
+/** Les tableaux dans l'ordre du document, avec la position de chaque cellule. */
+function tableaux(x) {
+  const tok = /<w:tbl>|<\/w:tbl>|<w:tr[ >]|<w:tc>|<\/w:tc>/g;
+  const pile = [], tabs = [], cellules = [];
+  let m;
+  while ((m = tok.exec(x))) {
+    const t = m[0];
+    if (t === '<w:tbl>') { tabs.push({ rows: [] }); pile.push(tabs.length - 1); }
+    else if (t === '</w:tbl>') pile.pop();
+    else if (t.startsWith('<w:tr')) tabs[pile[pile.length - 1]].rows.push([]);
+    else if (t === '<w:tc>') {
+      const c = { s: m.index, e: -1 };
+      tabs[pile[pile.length - 1]].rows.at(-1).push(c); cellules.push(c);
+    } else {                                   // </w:tc> ferme la dernière ouverte
+      for (let i = cellules.length - 1; i >= 0; i--) if (cellules[i].e < 0) { cellules[i].e = tok.lastIndex; break; }
     }
-    out = out.slice(0, c.start + offset) + nc + out.slice(c.end + offset);
-    offset += nc.length - c.text.length;
+  }
+  return tabs;
+}
+const cellule = (x, t, r, c) => tableaux(x)[t]?.rows[r]?.[c] || null;
+
+/** Les paragraphes d'une plage, avec leur texte et la position de chaque <w:t>. */
+function paragraphes(x, s, e) {
+  const out = [];
+  const re = /<w:p[ >][\s\S]*?<\/w:p>/g;
+  re.lastIndex = s;
+  let m;
+  while ((m = re.exec(x)) && m.index < e) {
+    // Un paragraphe qui contient un tableau imbriqué n'est pas une feuille : on saute.
+    const p = m[0];
+    const ts = [];
+    const rt = /<w:t(?: [^>]*)?>([^<]*)<\/w:t>/g;
+    let n, txt = '';
+    while ((n = rt.exec(p))) {
+      const brut = unesc(n[1]);
+      ts.push({ s: m.index + n.index, e: m.index + n.index + n[0].length, deb: txt.length, texte: brut, ouv: n[0].slice(0, n[0].indexOf('>') + 1) });
+      txt += brut;
+    }
+    out.push({ s: m.index, e: m.index + p.length, texte: txt, ts });
   }
   return out;
 }
 
-/** Coche les cases à cocher aux indices donnés */
-function cocherCases(xml, indices) {
-  const set = new Set(indices); let i = -1;
-  return xml.replace(/<w:checkBox>[\s\S]*?<\/w:checkBox>/g, mm => {
-    i++;
-    if (!set.has(i)) return mm;
-    return '<w:checkBox><w:sizeAuto/><w:default w:val="1"/><w:checked w:val="1"/></w:checkBox>';
-  });
-}
-
-/**
- * Remplit une cellule du tableau des attributions.
- * Remplace le contenu de la 1ère cellule vide d'une ligne par le texte.
- * On cible les w:tc dans la ligne et on injecte le run dans le paragraphe vide.
- */
-function remplirCellule(cellule, valeur, opts = {}) {
-  if (!valeur) return cellule;
-  // Injecter un run après les rPr du paragraphe
-  let nc = cellule.replace(/(<\/w:pPr>)/, `$1${runVal(valeur, opts)}`);
-  if (nc === cellule) {
-    // Pas de pPr : injecter directement après l'ouverture du paragraphe
-    nc = cellule.replace(/(<w:p\b[^>]*>)(?![\s\S]*<w:r\b)/, `$1${runVal(valeur, opts)}`);
+/** Remplace [a, b) du texte d'un paragraphe par `valeur`, en gardant les runs. */
+function episser(x, para, a, b, valeur, run = null) {
+  const touches = para.ts.filter(t => t.deb + t.texte.length > a && t.deb < b || (a === b && t.deb <= a && t.deb + t.texte.length >= a));
+  if (!touches.length) {
+    // Paragraphe sans texte : on pose un run avant la fin du paragraphe.
+    const rpr = (/<w:pPr>[\s\S]*?(<w:rPr>[\s\S]*?<\/w:rPr>)[\s\S]*?<\/w:pPr>/.exec(x.slice(para.s, para.e)) || [])[1] || '';
+    const fin = para.e - '</w:p>'.length;
+    return x.slice(0, fin) + `<w:r>${rpr}<w:t xml:space="preserve">${esc(valeur)}</w:t></w:r>` + x.slice(fin);
   }
-  return nc;
-}
-
-/**
- * Remplit les lignes du tableau des attributions (tableau 11 dans le XML).
- * Le tableau a 19 lignes : 1 header + 18 lignes vides.
- * Colonnes : UE | F | Dénomination | CLA | Pér. occupation | TC/TL | Nb périodes | Titre | Sit.adm. | DI | N° OE
- */
-function remplirTableauAttributions(xml, attributions) {
-  if (!attributions || !attributions.length) return xml;
-
-  // Trouver les tables dans le XML
-  const tableRe = /<w:tbl>[\s\S]*?<\/w:tbl>/g;
-  let tableIdx = 0;
-  xml = xml.replace(tableRe, (table) => {
-    tableIdx++;
-    // On cherche le tableau des attributions = celui qui contient U.E. et Dénomination
-    if (!table.includes('U.E.') || !table.includes('nomination')) return table;
-
-    // Trouver toutes les lignes (w:tr)
-    const rowRe = /<w:tr[ >][\s\S]*?<\/w:tr>/g;
-    const rows = [];
-    let rm;
-    while ((rm = rowRe.exec(table)) !== null) rows.push({ text: rm[0], start: rm.index, end: rm.index + rm[0].length });
-
-    // Remplir les lignes 1..N (en sautant la ligne 0 = header)
-    let newTable = table;
-    let offset = 0;
-
-    for (let r = 1; r < rows.length && r - 1 < attributions.length; r++) {
-      const attr = attributions[r - 1];
-      let row = rows[r].text;
-
-      // Trouver les cellules de cette ligne
-      const cellRe = /<w:tc>[\s\S]*?<\/w:tc>/g;
-      const cells = [];
-      let cm;
-      while ((cm = cellRe.exec(row)) !== null) cells.push({ text: cm[0], start: cm.index, end: cm.index + cm[0].length });
-
-      if (cells.length < 7) continue;
-
-      // Colonnes : 0=UE, 1=F, 2=Dénomination, 3=CLA, 4=Pér.occ., 5=TC/TL, 6=Nb pér, 7=Titre, 8=Sit.adm., 9=DI, 10=OE
-      const vals = [
-        { idx: 0, val: attr.ue,          opts: { size: 16, bold: true } },
-        { idx: 1, val: attr.f || 'D',    opts: { size: 16 } },
-        { idx: 2, val: attr.denomination,opts: { size: 16 } },
-        { idx: 3, val: attr.cla,         opts: { size: 16 } },
-        { idx: 4, val: attr.periode_occ, opts: { size: 16 } },
-        { idx: 5, val: attr.tctl || 'TC',opts: { size: 16 } },
-        { idx: 6, val: attr.nb_periodes, opts: { size: 16, bold: true } },
-        { idx: 7, val: attr.titre,        opts: { size: 14 } },
-        { idx: 8, val: attr.sit_adm,      opts: { size: 14 } },
-        { idx: 9, val: attr.di,           opts: { size: 14 } },
-        { idx: 10,val: attr.oe,           opts: { size: 14 } },
-      ];
-
-      // Appliquer les valeurs aux cellules
-      let newRow = row;
-      let cellOffset = 0;
-      for (const { idx, val, opts } of vals) {
-        if (idx >= cells.length || !val) continue;
-        const cell = cells[idx];
-        const newCell = remplirCellule(cell.text, val, opts);
-        if (newCell !== cell.text) {
-          newRow = newRow.slice(0, cell.start + cellOffset) + newCell + newRow.slice(cell.end + cellOffset);
-          cellOffset += newCell.length - cell.text.length;
-        }
-      }
-
-      // Remplacer la ligne dans le tableau
-      newTable = newTable.slice(0, rows[r].start + offset) + newRow + newTable.slice(rows[r].end + offset);
-      offset += newRow.length - rows[r].text.length;
+  let res = x;
+  for (let i = touches.length - 1; i >= 0; i--) {
+    const t = touches[i];
+    const la = Math.max(0, a - t.deb), lb = Math.min(t.texte.length, b - t.deb);
+    // `run` : la valeur prend sa propre mise en forme (un nom écrit à la taille
+    // des pointillés qu'il remplace devient illisible).
+    const neuf = (i === 0 ? t.texte.slice(0, la) + (run ? '' : valeur) : '') + (i === touches.length - 1 ? t.texte.slice(lb) : '');
+    res = res.slice(0, t.s) + `<w:t xml:space="preserve">${esc(neuf)}</w:t>` + res.slice(t.e);
+    if (run && i === 0) {
+      const finRun = res.indexOf('</w:r>', t.s) + '</w:r>'.length;
+      const rpr = `<w:rPr>${run.bold ? '<w:b/>' : ''}<w:sz w:val="${run.sz || 18}"/><w:szCs w:val="${run.sz || 18}"/></w:rPr>`;
+      res = res.slice(0, finRun) + `<w:r>${rpr}<w:t xml:space="preserve">${esc(valeur)}</w:t></w:r>` + res.slice(finRun);
     }
-    return newTable;
+  }
+  return res;
+}
+
+/** Dans la plage, le premier paragraphe dont le texte répond à `motif` ; on
+ *  remplace le groupe 1 (ou toute la correspondance) par `valeur`. */
+function remplacer(x, plage, motif, valeur, { apres = null, run = null } = {}) {
+  if (valeur == null || valeur === '') return x;
+  let ps = paragraphes(x, plage.s, plage.e);
+  if (apres) { const k = ps.findIndex(p => apres.test(p.texte)); if (k >= 0) ps = ps.slice(k); }
+  for (const p of ps) {
+    const m = motif.exec(p.texte);
+    if (!m) continue;
+    const g = m[1] != null ? m.index + m[0].indexOf(m[1]) : m.index;
+    const lg = m[1] != null ? m[1].length : m[0].length;
+    return episser(x, p, g, g + lg, String(valeur), run);
+  }
+  return x;
+}
+/** Ajoute `valeur` à la fin du premier paragraphe dont le texte répond à `motif`. */
+function ajouter(x, plage, motif, valeur) {
+  if (valeur == null || valeur === '') return x;
+  for (const p of paragraphes(x, plage.s, plage.e)) {
+    if (!motif.test(p.texte)) continue;
+    return episser(x, p, p.texte.length, p.texte.length, ' ' + valeur);
+  }
+  return x;
+}
+/** Écrit `valeur` dans une cellule vide (premier paragraphe). */
+function ecrireCellule(x, t, r, c, valeur) {
+  if (valeur == null || valeur === '') return x;
+  const cel = cellule(x, t, r, c);
+  if (!cel) return x;
+  const lignes = String(valeur).split('\n');
+  const p = paragraphes(x, cel.s, cel.e)[0];
+  if (!p) return x;
+  if (lignes.length === 1) return episser(x, p, 0, p.texte.length, lignes[0]);
+  // Plusieurs lignes : des sauts de ligne dans le même run.
+  let y = episser(x, p, 0, p.texte.length, '\u0000');
+  return y.replace(/<w:t xml:space="preserve">([^<]*)\u0000([^<]*)<\/w:t>/,
+    (_, av, ap) => lignes.map((l, i) => `${i ? '<w:br/>' : ''}<w:t xml:space="preserve">${i === 0 ? av : ''}${esc(l)}${i === lignes.length - 1 ? ap : ''}</w:t>`).join(''));
+}
+/** Une grille de chiffres : un caractère par case. */
+function grille(x, t, r, c0, valeur, n) {
+  const chars = String(valeur ?? '').replace(/\s/g, '').split('').slice(0, n);
+  let y = x;
+  chars.forEach((ch, i) => { y = ecrireCellule(y, t, r, c0 + i, ch); });
+  return y;
+}
+
+/** Coche la case de rang `k` (FORMCHECKBOX). */
+function cocher(x, k) {
+  let i = -1;
+  return x.replace(/<w:checkBox>([\s\S]*?)<\/w:checkBox>/g, (tout, corps) => {
+    i++;
+    if (i !== k) return tout;
+    const sans = corps.replace(/<w:checked[^>]*\/>/g, '').replace(/<w:default w:val="0"\/>/, '<w:default w:val="1"/>');
+    const avecDefaut = /<w:default /.test(sans) ? sans : sans + '<w:default w:val="1"/>';
+    return `<w:checkBox>${avecDefaut}<w:checked/></w:checkBox>`;
   });
-  return xml;
 }
 
-/** Remplit l'année académique (cases chiffres dans le header) */
-function remplirAnnee(xml, annee) {
-  // annee = "2025-2026" → on extrait "25" et "26"
-  if (!annee) return xml;
-  const m = annee.match(/(\d{4})[/-](\d{4})/);
-  if (!m) return xml;
-  const [, d1, d2] = m;
-  // Cases : 2 0 _ _ / / 2 0 _ _  (les 2 et 0 sont fixes, on injecte les 2 derniers chiffres)
-  return injecterCasesChiffres(xml, 'Année académique', [...d1.slice(2), ...d2.slice(2)]);
-}
+const DATE = /(_\s*_\s*\/\s*_\s*_\s*\/\s*20\s*_\s*_)/;
+const POINTS = /([….]{6,})/;
 
-// ─── Index des cases à cocher (cartographie du modèle A1_bis_EA12_SUP.docx) ──
-// 0=WBE, 1=FWB(sub), 2=Officiel, 3=Libre, 4=Dérogation titre
-// 5=T, 6=TPr, 7=St, 8=ACS, 10=APE, 11=PTP
-// 12=Pas cumul interne, 13=Circ.6930, 14=Secondaire, 15=Supérieur, 16=Expert, 17=ACS/APE
-// 18=Cumul interne A2, 19=Jours4, 20=Jours5, 21=Jours6
-// 22=Entrée, 23=Rentrée, 24=Maintien, 25=Augmentation, 26=Prolongation
-// 27=Réduction, 28=Fin fonctions, 29=Nomination, 30=Extension, 31=Passerelle
-// 32=Autres mvt, 33=Création, 34=Remplacement, 35=Chgt affectation, 36=Modif interne
-// 37=Congé, 38=Perte charge, 39=DPPR, 40=Suppression, 41=Fin remplacement
-// 42=Démission, 43=Retraite, 44=Décès, 45=Autres justif, 46-48=Absences, 49-56=Remplacements
+// ── Le remplissage ──────────────────────────────────────────────────────────
+export async function remplirModeleOfficiel(d) {
+  const zip = await JSZip.loadAsync(fs.readFileSync(MODELE));
+  let x = await zip.file('word/document.xml').async('string');
+  const etab = d.etab || {};
+  const C = (t, r, c) => cellule(x, t, r, c);
 
-export async function remplirModeleOfficiel(data) {
-  const buf = fs.readFileSync(MODELE);
-  const zip = await JSZip.loadAsync(buf);
-  let xml = await zip.file('word/document.xml').async('string');
-  const e = data.etab || {};
+  // En-tête : année, document n°, dernier Doc12
+  const an = /(\d{4})\D+(\d{4})/.exec(String(d.annee || ''));
+  if (an) {
+    x = ecrireCellule(x, 0, 0, 3, an[1][2]); x = ecrireCellule(x, 0, 0, 4, an[1][3]);
+    x = ecrireCellule(x, 0, 0, 8, an[2][2]); x = ecrireCellule(x, 0, 0, 9, an[2][3]);
+  }
+  if (d.doc_num) {
+    const ch = String(d.doc_num).split('');
+    ch.forEach((c, i) => { x = ecrireCellule(x, 0, 2, 1 + i, c); });
+  }
+  x = remplacer(x, { s: 0, e: C(1, 0, 0)?.s || x.length }, /Dernier Doc12[^_]*(_\s*_\s*\/\s*_\s*_\s*\/\s*20\s*_\s*_)/, d.dernier_doc12);
 
-  // ── Établissement ────────────────────────────────────────────────────────
-  xml = injecterCelluleVoisine(xml, 'Nom du PO', e.po_nom);
-  xml = injecterCelluleVoisine(xml, 'Nom de l\u2019\u00e9tablissement', e.etab_nom);
-  xml = injecterCelluleVoisine(xml, 'Adresse compl\u00e8te', e.adresse);
-  xml = injecterCelluleVoisine(xml, 'Nom\u00a0:', e.gest_nom);
-  xml = injecterCelluleVoisine(xml, 'Pr\u00e9nom\u00a0:', e.gest_prenom);
-  xml = injecterCelluleVoisine(xml, 'Qualit\u00e9\u00a0:', e.gest_qualite);
-  xml = injecterCelluleVoisine(xml, 'T\u00e9l. direct\u00a0:', e.gest_tel);
-  xml = injecterCelluleVoisine(xml, 'E-mail\u00a0:', e.gest_email);
+  // Établissement
+  const type = String(etab.type_po || '').toUpperCase();
+  if (type === 'WBE') x = cocher(x, CASES.wbe);
+  else if (type) {
+    x = cocher(x, CASES.subventionne);
+    x = cocher(x, String(etab.sous_type || '').toLowerCase() === 'officiel' ? CASES.officiel : CASES.libre);
+  }
+  x = grille(x, 3, 0, 0, etab.num_ecot, 10);
+  x = grille(x, 4, 0, 0, etab.num_fase, 5);
+  x = ecrireCellule(x, 2, 4, 1, etab.po_nom);
+  x = ecrireCellule(x, 2, 5, 1, etab.etab_nom);
+  x = ecrireCellule(x, 2, 6, 1, etab.adresse);
+  const local = v => String(v || '').replace(/@.*$/, '');
+  x = remplacer(x, C(2, 7, 1), /ec(\s+)@/, ` ${local(etab.email_ec)} `);
+  x = remplacer(x, C(2, 8, 1), /po(\s+)@/, ` ${local(etab.email_po)} `);
+  x = ajouter(x, C(2, 4, 3), /Nom\s*:/, etab.gest_nom);
+  x = ajouter(x, C(2, 5, 3), /Prénom\s*:/, etab.gest_prenom);
+  x = ajouter(x, C(2, 6, 3), /Qualité\s*:/, etab.gest_qualite);
+  x = ajouter(x, C(2, 7, 3), /Tél/, etab.gest_tel);
+  x = ajouter(x, C(2, 8, 3), /E-mail/, etab.gest_email);
 
-  // ── Année académique + N° document ───────────────────────────────────────
-  xml = remplirAnnee(xml, data.annee);
-  if (data.doc_num) xml = injecterCelluleVoisine(xml, 'Document n\u00b0', data.doc_num);
+  // Membre du personnel
+  x = grille(x, 6, 0, 0, d.matricule, 11);
+  x = remplacer(x, C(5, 1, 0), /NOM\s*:\s*([….]+)/, d.prof_nom ? ` ${d.prof_nom}` : null, { run: { sz: 20, bold: true } });
+  x = remplacer(x, C(5, 1, 0), /Prénom\s*:\s*([….]+)/, d.prof_prenom ? ` ${d.prof_prenom}` : null, { run: { sz: 20 } });
+  x = ajouter(x, C(5, 2, 1), /^\s*1\)\s*$/, d.titre1);
+  x = ajouter(x, C(5, 2, 1), /^\s*2\)\s*$/, d.titre2);
+  if (d.derogation_titre) x = cocher(x, CASES.derogation);
+  if (CASES.statut[d.statut] != null) x = cocher(x, CASES.statut[d.statut]);
 
-  // ── ECOT / FASE / Matricule ───────────────────────────────────────────────
-  if (e.num_ecot) xml = injecterCasesChiffres(xml, '(10 derniers chiffres)', e.num_ecot.replace(/\D/g, ''));
-  if (e.num_fase) xml = injecterCasesChiffres(xml, 'N\u00b0 FASE', e.num_fase.replace(/\D/g, ''));
-  if (data.matricule) xml = injecterCasesChiffres(xml, 'Matricule enseignant', String(data.matricule).replace(/\D/g, ''));
+  // Cumul, transmission tardive, jours
+  for (const k of ['pas_cumul', 'transmission_tardive', 'prest_sec', 'prest_sup', 'prest_exp', 'prest_acs', 'cumul_a2']) {
+    if (d[k]) x = cocher(x, CASES[k]);
+  }
+  if (CASES.jours[Number(d.jours)] != null) x = cocher(x, CASES.jours[Number(d.jours)]);
 
-  // ── Identification MDP ────────────────────────────────────────────────────
-  xml = injecterApresPointilles(xml, 'NOM\u00a0:', data.prof_nom, { bold: true, size: 18 });
-  xml = injecterApresPointilles(xml, 'Pr\u00e9nom\u00a0:', data.prof_prenom, { bold: true, size: 18 });
-  if (data.titre1) xml = injecterCelluleVoisine(xml, '1)', data.titre1);
-  if (data.titre2) xml = injecterCelluleVoisine(xml, '2)', data.titre2);
-
-  // ── Événement ────────────────────────────────────────────────────────────
-  if (data.date_evenement) xml = injecterCelluleVoisine(xml, 'Date de l\u2019\u00e9v\u00e9nement', data.date_evenement);
-  if (data.semaines) xml = injecterCelluleVoisine(xml, 'Semaines de fonctionnement', data.semaines);
-
-  // ── Cases à cocher ────────────────────────────────────────────────────────
-  const indices = [1, 3, 15]; // Fixes IIP : FWB + Libre + Supérieur
-
-  const statutMap = { T: 5, TPr: 6, St: 7, D: 8, ACS: 9, APE: 10, PTP: 11 };
-  if (data.statut && statutMap[data.statut] !== undefined) indices.push(statutMap[data.statut]);
-
-  if (data.pas_cumul) indices.push(12);
-  if (data.prest_sec) indices.push(14);
-  if (data.prest_exp) indices.push(16);
-
-  const joursMap = { 4: 19, 5: 20, 6: 21 };
-  if (data.jours && joursMap[Number(data.jours)]) indices.push(joursMap[Number(data.jours)]);
-
-  const justifMap = {
-    entree_en_fonction:       22,
-    rentree_en_fonction:      23,
-    maintien_attributions:    24,
-    augmentation_attributions:25,
-    prolongation_attributions:26,
-    reduction_attributions:   27,
-    fin_fonctions:            28,
-    nomination:               29,
-    extension:                30,
-    passerelle:               31,
-    autres_mouvement:         32,
-    creation_emploi:          33,
-    remplacement:             34,
-    changement_affectation:   35,  // ← corrigé (était manquant)
-    modification_interne:     36,
-    conge_absence:            37,
-    perte_charge:             38,
-    dppr:                     39,
-    suppression_emploi:       40,
-    fin_remplacement:         41,
-    demission:                42,
-    mise_retraite:            43,
-    deces:                    44,
-    autres_justif:            45,
-  };
-  if (data.justif && justifMap[data.justif] !== undefined) indices.push(justifMap[data.justif]);
-
-  xml = cocherCases(xml, [...new Set(indices)]);
-
-  // ── Tableau des attributions ───────────────────────────────────────────────
-  if (data.attributions && data.attributions.length) {
-    xml = remplirTableauAttributions(xml, data.attributions);
+  // Événement
+  x = remplacer(x, C(8, 1, 0), DATE, d.date_evenement);
+  x = ecrireSemaines();
+  function ecrireSemaines() {
+    if (!d.semaines) return x;
+    // La case des semaines est un cadre à droite du libellé : on écrit après.
+    return ajouter(x, C(8, 1, 1), /Semaines de fonctionnement/, String(d.semaines));
+  }
+  const iMv = MOUVEMENTS.findIndex(m => norm(m) === norm(d.type_evenement));
+  if (iMv >= 0) x = cocher(x, CASES.mouvement[iMv]);
+  else if (norm(d.type_evenement) === 'Autres') {
+    x = cocher(x, CASES.mouvement_autres);
+    x = remplacer(x, C(9, 1, 2), POINTS, d.type_evenement_autres, { apres: /Autres/ });
+  }
+  const justifs = (d.justifs || (d.justif ? [d.justif] : [])).map(norm);
+  JUSTIFICATIONS.forEach((j, i) => { if (justifs.includes(norm(j))) x = cocher(x, CASES.justifs[i]); });
+  if (justifs.includes('Autres')) {
+    const row = tableaux(x)[9]?.rows[1] || [];
+    x = remplacer(x, row[row.length - 1], POINTS, d.justif_autres, { apres: /Autres/ });
+  }
+  const iAbs = TYPE_ABSENCE.findIndex(a => norm(a) === norm(d.type_absence));
+  if (iAbs >= 0) {
+    x = cocher(x, CASES.absence[iAbs]);
+    const row = tableaux(x)[9]?.rows[2] || [];
+    const celMotif = row.find(c => /Motif de l/.test(paragraphes(x, c.s, c.e).map(p => p.texte).join('')));
+    if (celMotif) x = remplacer(x, celMotif, POINTS, d.motif_absence, { apres: /Motif de l/ });
+    const celDates = () => (tableaux(x)[9]?.rows[2] || []).find(c => /Date de début/.test(paragraphes(x, c.s, c.e).map(p => p.texte).join('')));
+    if (celDates()) x = remplacer(x, celDates(), /Date de début[^_]*(_\s*_\s*\/\s*_\s*_\s*\/\s*20\s*_\s*_)/, d.date_debut_absence);
+    if (celDates()) x = remplacer(x, celDates(), /Date de fin[^_]*(_\s*_\s*\/\s*_\s*_\s*\/\s*20\s*_\s*_)/, d.date_fin_absence);
   }
 
-  // ── Observations ─────────────────────────────────────────────────────────
-  if (data.observations) xml = injecterCelluleVoisine(xml, 'Situation ancienne-nouvelle', data.observations);
+  // Observations
+  x = ecrireCellule(x, 11, 0, 0, d.observations);
 
-  zip.file('word/document.xml', xml);
-  return await zip.generateAsync({ type: 'nodebuffer', compression: 'DEFLATE' });
+  // Page 2 : ECOT, FASE
+  x = grille(x, 13, 0, 0, etab.num_ecot, 10);
+  x = grille(x, 14, 0, 0, etab.num_fase, 5);
+
+  // Attributions : 18 lignes dans le modèle ; au-delà, on en ajoute sur le
+  // même dessin — tronquer ferait partir un document faux sans le dire.
+  const attrs = (d.attributions || []).filter(a => a && (a.ue || a.denomination || a.nb_periodes));
+  if (attrs.length > 18) {
+    const tb = tableaux(x)[15];
+    const derniere = tb.rows[18];
+    const debutLigne = x.lastIndexOf('<w:tr', derniere[0].s);
+    const finLigne = x.indexOf('</w:tr>', derniere.at(-1).e) + '</w:tr>'.length;
+    const gabarit = x.slice(debutLigne, finLigne);
+    x = x.slice(0, finLigne) + gabarit.repeat(attrs.length - 18) + x.slice(finLigne);
+  }
+  const COL = ['ue', 'f', 'denomination', 'cla', 'periode_occ', 'tctl', 'nb_periodes', 'titre', 'sit_adm', 'di', 'oe'];
+  attrs.forEach((a, i) => COL.forEach((k, c) => { x = ecrireCellule(x, 15, 1 + i, c, a[k]); }));
+
+  // Attributions actuelles : le total par classification et TC/TL.
+  const tot = {};
+  for (const a of attrs) {
+    const cle = `${a.cla || '—'}|${a.tctl || '—'}`;
+    tot[cle] = (tot[cle] || 0) + (Number(a.nb_periodes) || 0);
+  }
+  const cles = Object.keys(tot);
+  if (cles.length) {
+    x = ecrireCellule(x, 16, 2, 0, cles.map(k => k.split('|')[0]).join('\n'));
+    x = ecrireCellule(x, 16, 2, 1, cles.map(k => k.split('|')[1]).join('\n'));
+    x = ecrireCellule(x, 16, 2, 2, cles.map(k => String(tot[k])).join('\n'));
+  }
+
+  // Origine de l'événement : les MDP remplacés
+  (d.oe_slots || []).slice(0, 4).forEach((o, i) => {
+    if (!o) return;
+    const cel = () => cellule(x, 17, 1 + i, 1);
+    x = remplacer(x, cel(), /N° Mat\s*:\s*((?:_\s*){11})/, o.num_mat ? `${o.num_mat} ` : null);
+    x = remplacer(x, cel(), /Nom, prénom\s*:\s*([….]+)/, o.nom_prenom ? ` ${o.nom_prenom}` : null);
+    x = remplacer(x, cel(), /Motif de remplacement\s*:\s*([….]+)/, o.motif ? ` ${o.motif}` : null);
+    const dF = v => { const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(v || ''); return m ? `${m[3]}/${m[2]}/${m[1]}` : v; };
+    x = remplacer(x, cel(), /du\s*(_\s*_\s*\/\s*_\s*_\s*\/\s*20\s*_\s*_)/, dF(o.date_debut));
+    x = remplacer(x, cel(), /au\s*(_\s*_\s*\/\s*_\s*_\s*\/\s*20\s*_\s*_)/, dF(o.date_fin));
+    if (o.type === 'D') x = cocher(x, CASES.oe[i][0]);
+    if (o.type === 'T') x = cocher(x, CASES.oe[i][1]);
+  });
+
+  zip.file('word/document.xml', x);
+  return zip.generateAsync({ type: 'nodebuffer', compression: 'DEFLATE' });
 }
+
+export default remplirModeleOfficiel;

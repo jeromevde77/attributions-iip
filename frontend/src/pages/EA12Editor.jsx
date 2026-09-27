@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { IconDeviceFloppy, IconPrinter, IconX } from '@tabler/icons-react';
+import { IconDeviceFloppy, IconPrinter, IconFileWord, IconX } from '@tabler/icons-react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { api } from '../lib/api.js';
 import PreviewModal from '../components/PreviewModal.jsx';
@@ -153,6 +153,18 @@ export default function EA12Editor() {
     finally { setSaving(false); }
   }
 
+  /* LE WORD OFFICIEL, REMPLI (27 septembre 2026) : la copie conforme du
+     formulaire FWB, qu'on peut encore corriger dans Word avant de l'envoyer. */
+  async function telechargerWord() {
+    setSaving(true); setMsg('');
+    try {
+      await api.ea12Update(id, { donnees: d });
+      const nom = `EA12_${apercu?.prof_nom || ''}_${apercu?.prof_prenom || ''}_${ea12?.annee_scolaire || ''}.docx`.replace(/\s+/g, '_');
+      await api.ea12Document(id, nom);
+    } catch (e) { setMsg('Erreur : ' + e.message); }
+    finally { setSaving(false); }
+  }
+
   async function imprimer() {
     setSaving(true); setMsg('');
     try {
@@ -188,8 +200,12 @@ export default function EA12Editor() {
           <button onClick={save} disabled={saving} className="px-4 py-2 text-sm border border-iip-gold text-iip-gold rounded-lg hover:bg-iip-gold/5 disabled:opacity-50">
             <IconDeviceFloppy size={15} className="inline align-[-2px] mr-1" />Enregistrer
           </button>
-          <button onClick={imprimer} disabled={saving} className="px-4 py-2 text-sm bg-iip-mauve text-white rounded-lg hover:opacity-90 disabled:opacity-50">
-            {saving ? 'Génération…' : <><IconPrinter size={15} className="inline align-[-2px] mr-1" />Aperçu / PDF</>}
+          <button onClick={imprimer} disabled={saving} className="bouton">
+            <IconPrinter size={15} className="inline align-[-2px] mr-1" />Aperçu
+          </button>
+          <button onClick={telechargerWord} disabled={saving} className="bouton bouton-sortir"
+            title="Le formulaire officiel de la FWB, rempli par Lucie, corrigeable dans Word">
+            {saving ? 'Génération…' : <><IconFileWord size={15} className="inline align-[-2px] mr-1" />Word officiel</>}
           </button>
         </div>
       </div>
@@ -426,7 +442,8 @@ export default function EA12Editor() {
       {/* ─── Boutons bas ────────────────────────────────────────────────── */}
       <div className="flex justify-end gap-2">
         <button onClick={save} disabled={saving} className="px-5 py-2 text-sm border border-iip-gold text-iip-gold rounded-lg hover:bg-iip-gold/5 disabled:opacity-50"><IconDeviceFloppy size={15} className="inline align-[-2px] mr-1" />Enregistrer</button>
-        <button onClick={imprimer} disabled={saving} className="px-5 py-2 text-sm bg-iip-mauve text-white rounded-lg hover:opacity-90 disabled:opacity-50">{saving ? 'Génération…' : <><IconPrinter size={15} className="inline align-[-2px] mr-1" />Aperçu / PDF</>}</button>
+        <button onClick={imprimer} disabled={saving} className="bouton"><IconPrinter size={15} className="inline align-[-2px] mr-1" />Aperçu</button>
+        <button onClick={telechargerWord} disabled={saving} className="bouton bouton-sortir">{saving ? 'Génération…' : <><IconFileWord size={15} className="inline align-[-2px] mr-1" />Word officiel</>}</button>
       </div>
 
       {previewHtml && (
