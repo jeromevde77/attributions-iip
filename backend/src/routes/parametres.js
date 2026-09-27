@@ -52,14 +52,21 @@ export function piedDocument() {
    * qui l'a sortie. */
   const trace = getParam('miseenpage.pied_production', '1') === '1'
     ? mentionProduction() : null;
-  /* À DROITE, PAS EN DESSOUS (Jérôme, 30 septembre 2026) : en troisième
-   * ligne, la trace grossissait le pied de chaque document. Elle flotte
-   * désormais à droite de la première ligne, en plus petit — même
-   * information, même présence sur toutes les pièces, zéro hauteur en plus. */
+  /* LE BAS DE PAGE, TROIS PLACES (Charles, 27 septembre 2026) :
+   *   · « Produit par… » AU-DESSUS du filet doré, calé à droite sur lui ;
+   *   · sous le filet, l'identité, puis l'adresse — et le NUMÉRO DE PAGE sur
+   *     la même ligne que l'adresse, collé à droite ;
+   *   · tout en gris anthracite, trace et numéro compris.
+   * Le numéro n'existe que dans le PDF serveur (gabarit Chromium) : le HTML ne
+   * sait pas compter ses pages. On lui réserve sa place, `pied-page`, que
+   * piedGabaritPdf() remplit. */
+  const ANTHRACITE = '#3F4652';
   const traceHtml = trace
-    ? `<span style="float:right;font-size:5.5pt;color:#9aa3b2;margin-left:4mm;line-height:1.4">${trace}</span>`
+    ? `<div class="pied-trace" style="text-align:right;font-size:5.5pt;color:${ANTHRACITE};line-height:1.3;margin:-4.3mm 0 1.7mm">${trace}</div>`
     : '';
-  return traceHtml + [ligne1, ligne2].filter(Boolean).join('<br>');
+  const l1 = ligne1 ? `<div>${ligne1}</div>` : '';
+  const l2 = `<div style="position:relative">${ligne2 || '&nbsp;'}<span class="pied-page" style="position:absolute;right:0;top:0"></span></div>`;
+  return traceHtml + l1 + l2;
 }
 
 // Indique si le logo doit apparaître en en-tête

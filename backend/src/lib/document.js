@@ -132,7 +132,7 @@ export function piedStyles(hauteur = HAUTEUR_PIED_MM, margeHaut = 18) {
                            display: block; margin: 0 0 1.2mm; opacity: .9; }
   .pied-lucie .pied-filet { border-top: 0.5pt solid #C9A84C; padding-top: 1.5mm;
                             text-align: center; }
-  .pied-lucie .pied-txt { font-size: 6pt; color: #888; line-height: 1.3; }
+  .pied-lucie .pied-txt { font-size: 6pt; color: #3F4652; line-height: 1.3; }  /* anthracite */
   /* À l'écran, la position fixe collerait le pied au bas de la FENÊTRE, non de
      la page. On simule donc la feuille : hauteur d'une A4 et pied repoussé en
      bas par « margin-top: auto ». L'aperçu montre alors ce que donnera
@@ -488,10 +488,10 @@ export function piedGabaritPdf(logo, texte, numeroter = false) {
        + 'padding:0 15mm;margin:0;">'
        + (logo ? `<img src="${logo}" style="height:7mm;display:block;margin:0 0 1mm;opacity:.9">` : '')
        + '<div style="border-top:0.5pt solid #C9A84C;padding-top:1.2mm;text-align:center">'
-       + `<div style="font-size:6pt;color:#888;line-height:1.3">${T}</div>`
-       + (numeroter
-          ? '<div style="font-size:6pt;color:#aaa;margin-top:0.6mm">'
-            + '<span class="pageNumber"></span> / <span class="totalPages"></span></div>'
-          : '')
+       // Le numéro prend la place que piedDocument() lui réserve : à droite,
+       // sur la ligne de l'adresse, en anthracite comme le reste.
+       + `<div style="font-size:6pt;color:#3F4652;line-height:1.3">${numeroter
+            ? T.replace(/<span class="pied-page"([^>]*)><\/span>/, '<span class="pied-page"$1><span class="pageNumber"></span> / <span class="totalPages"></span></span>')
+            : T}</div>`
        + '</div></div>';
 }
