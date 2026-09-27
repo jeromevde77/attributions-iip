@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   IconBook, IconFileText, IconCheck, IconAlertTriangle, IconPlus,
-  IconHistory, IconUsersGroup, IconHelpCircle, IconScale, IconExternalLink,
+  IconHistory, IconUsersGroup, IconHelpCircle, IconScale, IconExternalLink, IconTrash,
 } from '@tabler/icons-react';
 import { useSearchParams } from 'react-router-dom';
 import { authHeaders, getUser } from '../lib/api.js';
@@ -106,6 +106,7 @@ export default function Documentation() {
   });
   const [depot, setDepot] = useState(false);
   const [registre, setRegistre] = useState(null);
+  const [retirerOuvert, setRetirerOuvert] = useState(false);
 
   const charger = useCallback(async () => {
     try {
@@ -241,6 +242,16 @@ export default function Documentation() {
                       <IconUsersGroup size={14} />
                     </button>
                   )}
+                  {/* RETIRER SE VOIT SUR LA LIGNE (Charles, 27 septembre 2026 : « je
+                      ne sais toujours pas supprimer »). Le bouton sous le texte
+                      ne se trouvait pas ; ici il ouvre le texte sur la confirmation. */}
+                  {publie && !d.retire_le && (
+                    <button className="bouton text-[12px] px-2.5 py-1 flex-none"
+                      title="Retirer ce texte" aria-label="Retirer ce texte"
+                      onClick={() => { setRetirerOuvert(true); setOuvert(d.cle); }}>
+                      <IconTrash size={14} />
+                    </button>
+                  )}
                 </div>
               ))}
             </div>
@@ -249,8 +260,8 @@ export default function Documentation() {
       </div>
 
       {ouvert && (
-        <LireTexte cle={ouvert} publie={publie} natures={natures}
-          onClose={() => setOuvert(null)} onChange={charger} />
+        <LireTexte cle={ouvert} publie={publie} natures={natures} retirer={retirerOuvert}
+          onClose={() => { setOuvert(null); setRetirerOuvert(false); }} onChange={charger} />
       )}
       {depot && <DeposerTexte natures={natures}
         onClose={() => setDepot(false)} onCree={charger} />}
@@ -274,7 +285,7 @@ export default function Documentation() {
  * Cela ne prétend pas prouver la LECTURE, et Charles l'a dit lui-même : coché
  * sans lire, c'est le problème de celui qui a coché.
  */
-function LireTexte({ cle, publie, natures, onClose, onChange }) {
+function LireTexte({ cle, publie, natures, onClose, onChange, retirer: retirerDemande = false }) {
   const [d, setD] = useState(null);
   const [erreur, setErreur] = useState(null);
   const [enCours, setEnCours] = useState(false);
@@ -310,7 +321,7 @@ function LireTexte({ cle, publie, natures, onClose, onChange }) {
      27 septembre 2026 : « je ne sais pas supprimer un document »). Le texte
      cesse de s'imposer et sort des listes ; il reste lisible, avec les
      confirmations posées dessus. */
-  const [retrait, setRetrait] = useState(false);
+  const [retrait, setRetrait] = useState(retirerDemande);
   async function retirer() {
     setEnCours(true); setErreur(null);
     try {
