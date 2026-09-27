@@ -3,7 +3,7 @@ import bcrypt from 'bcryptjs';
 import db from '../db/index.js';
 import { authRequired, roleRequired } from '../middleware/auth.js';
 import { envoyerEmail, templateNotif } from '../services/mailer.js';
-import { creerJeton, comptePeutMotDePasse, VALIDITE_MINUTES } from '../lib/motDePasse.js';
+import { creerJeton, comptePeutMotDePasse, VALIDITE_INVITATION_MINUTES, dureeLisible } from '../lib/motDePasse.js';
 import { journaliser } from './mfa.js';
 import { rolesConnus } from '../middleware/permissions.js';
 
@@ -128,7 +128,7 @@ r.post('/', authRequired, roleRequired('admin'), (req, res) => {
  * silencieux — un bouton qui ne fait rien, sans rien dire.
  *
  * LE LIEN EST RENDU EN CLAIR À L'APPELANT quand le courriel ne part pas. Ce
- * n'est pas une faiblesse : il expire en une heure, ne sert qu'une fois, et ne
+ * n'est pas une faiblesse : il expire en trois jours, ne sert qu'une fois, et ne
  * CONNECTE PAS — le second facteur reste exigé. Sans ce repli, un relais mal
  * configuré laisserait la direction sans aucun moyen de rendre un accès.
  */
@@ -142,7 +142,7 @@ r.post('/:id/lien-mot-de-passe', authRequired, roleRequired('admin'), async (req
     });
   }
 
-  const jeton = creerJeton(u.id, req.ip || null);
+  const jeton = creerJeton(u.id, req.ip || null, VALIDITE_INVITATION_MINUTES);
   const base = process.env.LUCIE_URL || 'https://www.lucie-iip.be';
   const lien = `${base}/mot-de-passe?jeton=${encodeURIComponent(jeton)}`;
 
@@ -155,7 +155,7 @@ r.post('/:id/lien-mot-de-passe', authRequired, roleRequired('admin'), async (req
         titre: 'Réinitialiser votre mot de passe',
         corps: `<p>${req.user.nom || req.user.email} vous invite à choisir un nouveau mot de `
              + `passe pour votre compte Lucie (<strong>${u.email}</strong>).</p>`
-             + `<p>Ce lien est valable <strong>${VALIDITE_MINUTES} minutes</strong> et ne sert `
+             + `<p>Ce lien est valable <strong>${dureeLisible(VALIDITE_INVITATION_MINUTES)}</strong> et ne sert `
              + `qu'une fois. Il vous permet de choisir un mot de passe ; il ne vous connecte pas.</p>`,
         lien: `/mot-de-passe?jeton=${encodeURIComponent(jeton)}`,
         lienTexte: 'Choisir un mot de passe',
@@ -171,7 +171,7 @@ r.post('/:id/lien-mot-de-passe', authRequired, roleRequired('admin'), async (req
     detail: parti ? null : (envoi?.erreur || 'aucun serveur de courriel') });
 
   res.json({
-    ok: true, email: u.email, envoye: parti, minutes: VALIDITE_MINUTES,
+    ok: true, email: u.email, envoye: parti, minutes: VALIDITE_INVITATION_MINUTES, duree: dureeLisible(VALIDITE_INVITATION_MINUTES),
     raison: parti ? null : (envoi?.erreur || "aucun serveur de courriel n'est configuré"),
     // Transmis seulement si le courriel n'est PAS parti : sinon le lien
     // n'aurait aucune raison de transiter par un second canal.

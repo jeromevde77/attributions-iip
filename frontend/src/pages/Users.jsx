@@ -315,7 +315,7 @@ export default function Users({ embedded = false }) {
             <GroupeFenetre titre="Lien envoyé">
               <div className="text-[13px] text-slate-700 leading-relaxed">
                 Un lien vient d’être envoyé à <b>{lienMdp.email}</b>. Il est valable{' '}
-                {lienMdp.minutes} minutes et ne sert qu’une fois.
+                {lienMdp.duree || `${lienMdp.minutes} minutes`} et ne sert qu’une fois.
                 <div className="mt-2 text-[12px] text-slate-500">
                   Ce lien permet de CHOISIR un mot de passe ; il ne connecte pas. Si la
                   vérification en deux temps est active sur ce compte, elle restera demandée.
@@ -328,7 +328,7 @@ export default function Users({ embedded = false }) {
             <GroupeFenetre titre="Le courriel n’est pas parti" ton="alerte">
               <div className="text-[13px] text-slate-700 leading-relaxed mb-2">
                 {lienMdp.raison}. Transmettez ce lien à <b>{lienMdp.email}</b> par un autre
-                moyen — il expire dans {lienMdp.minutes} minutes, ne sert qu’une fois,
+                moyen — il expire dans {lienMdp.duree || `${lienMdp.minutes} minutes`}, ne sert qu’une fois,
                 et ne connecte pas.
               </div>
               <div className="p-2 rounded-champ border border-slate-300 bg-white text-[11.5px]
