@@ -242,7 +242,15 @@ function AccesLuciePanel({ profId, detail }) {
   const [err, setErr]           = useState('');
 
   const norm = s => (s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
-  const emailSuggere = `${norm(detail.prenom)}.${norm(detail.nom)}@institut-prigogine.be`;
+  /* L'ADRESSE DU COMPTE VIENT DE LA FICHE (Charles, 27 septembre 2026). Elle
+     était FABRIQUÉE — prénom.nom@institut-prigogine.be — sans regarder la
+     fiche : pour Jérôme, « jerome.vanden-eynde@… », une boîte qui n'existe
+     pas, et l'invitation revenait refusée par Microsoft 365. La fiche fait
+     foi ; la suggestion ne sert que si elle est vide, et le champ se corrige. */
+  const emailSuggere = (detail.adresse_mail || '').trim().toLowerCase()
+    || `${norm(detail.prenom)}.${norm(detail.nom)}@institut-prigogine.be`;
+  const [emailCompte, setEmailCompte] = useState(emailSuggere);
+  useEffect(() => { setEmailCompte(emailSuggere); }, [emailSuggere]);
   const genPwd = () => { const c = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789'; return Array.from({ length: 12 }, () => c[Math.floor(Math.random() * c.length)]).join(''); };
 
   function charger() {
@@ -251,6 +259,7 @@ function AccesLuciePanel({ profId, detail }) {
       setAccount(a);
       if (a) {
         setRole(a.role);
+        setEmailCompte(a.email || '');
         setSections(a.sections || []);
         setToutes(a.perimetre_toutes ? 1 : 0);
         // Lire permissions_json
@@ -277,7 +286,7 @@ function AccesLuciePanel({ profId, detail }) {
     try {
       const p = genPwd();
       await af('/api/users', { method: 'POST', body: JSON.stringify({
-        email: emailSuggere, password: p, nom_complet: detail.nom_prenom, role, professeur_id: profId,
+        email: emailCompte.trim(), password: p, nom_complet: detail.nom_prenom, role, professeur_id: profId,
         // Le périmètre vaut pour tous les rôles, non plus pour la seule
         // coordination : un secrétariat de section, cela existe.
         sections,
@@ -292,6 +301,7 @@ function AccesLuciePanel({ profId, detail }) {
     setErr(''); setBusy(true);
     try {
       await af(`/api/users/${account.id}`, { method: 'PATCH', body: JSON.stringify({
+        ...(emailCompte.trim() && emailCompte.trim() !== account.email ? { email: emailCompte.trim() } : {}),
         role, // Le périmètre vaut pour tous les rôles, non plus pour la seule
         // coordination : un secrétariat de section, cela existe.
         sections,
@@ -428,8 +438,10 @@ function AccesLuciePanel({ profId, detail }) {
       <div className="text-xs text-gray-500">Aucun compte Lucie lié à ce membre.</div>
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <div className="text-xs text-gray-500 mb-1">E-mail (suggéré)</div>
-          <div className="text-sm border border-gray-200 rounded px-2 py-1.5 bg-gray-50 text-gray-600 truncate">{emailSuggere}</div>
+          <div className="text-xs text-gray-500 mb-1">E-mail de connexion</div>
+          <input type="email" value={emailCompte} onChange={e => setEmailCompte(e.target.value)} disabled={busy}
+            className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm bg-white" />
+          {!(detail.adresse_mail || '').trim() && <div className="text-[11px] text-amber-700 mt-1">La fiche ne porte pas d'adresse : celle-ci est déduite du nom, à vérifier.</div>}
         </div>
         <div>
           <div className="text-xs text-gray-500 mb-1">Rôle</div>
@@ -476,8 +488,12 @@ function AccesLuciePanel({ profId, detail }) {
     <>
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <div className="text-xs text-gray-500 mb-1">E-mail</div>
-          <div className="text-sm border border-gray-200 rounded px-2 py-1.5 bg-gray-50 text-gray-700 truncate">{account.email}</div>
+          <div className="text-xs text-gray-500 mb-1">E-mail de connexion</div>
+          <input type="email" value={emailCompte} onChange={e => setEmailCompte(e.target.value)} disabled={busy}
+            className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm bg-white" />
+          {(detail.adresse_mail || '').trim() && account.email !== (detail.adresse_mail || '').trim().toLowerCase() && (
+            <button type="button" onClick={() => setEmailCompte((detail.adresse_mail || '').trim().toLowerCase())}
+              className="text-[11px] text-amber-700 mt-1 underline text-left">La fiche porte {detail.adresse_mail} — reprendre cette adresse</button>)}
         </div>
         <div>
           <div className="text-xs text-gray-500 mb-1">Rôle</div>

@@ -181,9 +181,18 @@ r.post('/:id/lien-mot-de-passe', authRequired, roleRequired('admin'), async (req
 
 r.patch('/:id', authRequired, roleRequired('admin'), (req, res) => {
   const { nom_complet, role, actif, password, sections, professeur_id, acces,
-          permissions_json, acces_recrutement, perimetre_toutes } = req.body || {};
+          permissions_json, acces_recrutement, perimetre_toutes, email } = req.body || {};
   const updates = [];
   const params = { id: req.params.id };
+  // L'adresse du compte se corrige : c'est l'identifiant de connexion ET
+  // l'adresse où partent l'invitation et le lien de mot de passe.
+  if (email !== undefined) {
+    const e = String(email || '').trim().toLowerCase();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e)) return res.status(400).json({ error: 'Adresse e-mail invalide' });
+    const pris = db.prepare('SELECT id FROM utilisateur WHERE lower(email) = ? AND id != ?').get(e, Number(req.params.id));
+    if (pris) return res.status(409).json({ error: 'Cette adresse est déjà celle d\'un autre compte' });
+    updates.push('email = @email'); params.email = e;
+  }
   if (nom_complet !== undefined) { updates.push('nom_complet = @nom_complet'); params.nom_complet = nom_complet; }
   if (professeur_id !== undefined) { updates.push('professeur_id = @professeur_id'); params.professeur_id = professeur_id || null; }
   if (role !== undefined) {

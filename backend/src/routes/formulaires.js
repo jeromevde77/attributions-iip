@@ -132,6 +132,71 @@ function donnees(cle, profId, annee, mois) {
   return d;
 }
 
+/* EN SÉRIE : plusieurs annexes pour plusieurs membres, dans une archive ZIP —
+   un Word par personne et par annexe. L'EA12 (A1 bis) reprend le dernier de
+   l'année, et n'en ouvre un (n° 01) que s'il n'y en a aucun. */
+// Périodes CC et d'expert d'un membre pour l'année — le statut d'une ligne est
+// celui de son exception, sinon celui du membre (même règle que les contrats).
+function statutsLignes(id, annee) {
+  try {
+    return db.prepare(`SELECT
+        SUM(CASE WHEN UPPER(COALESCE(a.statut_exception, p.statut, '')) = 'EXP' THEN 0 ELSE 1 END) cc,
+        SUM(CASE WHEN UPPER(COALESCE(a.statut_exception, p.statut, '')) = 'EXP' THEN 1 ELSE 0 END) exp
+      FROM attribution a JOIN professeur p ON p.id = a.professeur_id
+      WHERE a.professeur_id = ? AND a.annee_scolaire = ? AND (a.type_cours IS NULL OR a.type_cours != 'Z')`).get(id, annee) || {};
+  } catch { return { cc: 1, exp: 1 }; }
+}
+r.post('/lot', authRequired, PEUT, async (req, res) => {
+  const { professeurs = [], cles = [], annee, mois } = req.body || {};
+  if (!professeurs.length || !cles.length) return res.status(400).json({ error: 'Cochez au moins un membre et une pièce.' });
+  const JSZip = (await import('jszip')).default;
+  const zip = new JSZip();
+  let n = 0; const erreurs = [], sansObjet = [];
+  for (const id of professeurs.map(Number)) {
+    for (const cle of cles) {
+      try {
+        let buf, nomF;
+        const m = membre(id); if (!m) continue;
+        /* CHACUN SES PIÈCES : l'EA12 bis porte les périodes CC, l'A1 ter et
+           l'A27 celles d'expert. Un Word vide d'attributions ne sert à rien —
+           on le dit plutôt que de le glisser dans l'archive. */
+        const st = statutsLignes(id, annee);
+        if (cle === 'A1bis' && !st.cc) { sansObjet.push(`${m.nom} ${m.prenom} : pas d'EA12 bis (aucune période CC)`); continue; }
+        if ((cle === 'A1ter' || cle === 'A27') && !st.exp) { sansObjet.push(`${m.nom} ${m.prenom} : pas de ${cle} (aucune période d'expert)`); continue; }
+        if (cle === 'A1bis') {
+          const { remplirModeleOfficiel } = await import('../services/ea12_fill_officiel.js');
+          const { construireDataEA12 } = await import('./ea12.js');
+          // Le dernier EA12 de l'année s'il existe ; sinon on en ouvre un,
+          // numéroté comme le ferait « Nouvel EA12 ». Relancer la série ne
+          // multiplie donc pas les numéros.
+          let row = db.prepare('SELECT * FROM ea12 WHERE professeur_id = ? AND annee_scolaire = ? ORDER BY num_doc DESC LIMIT 1').get(id, annee);
+          if (!row) {
+            const info = db.prepare(`INSERT INTO ea12 (professeur_id, annee_scolaire, variante, num_doc, donnees_json, cree_par)
+              VALUES (?, ?, 'bis', 1, '{}', ?)`).run(id, annee, req.user?.id || null);
+            row = db.prepare('SELECT * FROM ea12 WHERE id = ?').get(info.lastInsertRowid);
+          }
+          const num = row.num_doc;
+          buf = await remplirModeleOfficiel(construireDataEA12(row, JSON.parse(row.donnees_json || '{}')));
+          nomF = `EA12_${m.nom}_${m.prenom}_${annee}_n${String(num).padStart(2, '0')}.docx`;
+        } else {
+          const a = ANNEXES.find(z => z.cle === cle); if (!a) continue;
+          if (a.mois && !mois) { erreurs.push(`${cle} : choisissez le mois`); continue; }
+          buf = await remplirAnnexe(cle, donnees(cle, id, annee, mois));
+          nomF = `${cle}_${m.nom}_${m.prenom}_${annee}${a.mois ? '_' + String(mois).padStart(2, '0') : ''}.docx`;
+        }
+        zip.file(`${m.nom}_${m.prenom}/${nomF}`.replace(/\s+/g, '_'), buf); n++;
+      } catch (e) { const m = membre(id); erreurs.push(`${m ? `${m.nom} ${m.prenom}` : id} — ${cle} : ${e.message}`); }
+    }
+  }
+  if (!n) return res.status(400).json({ error: 'Aucune pièce produite.', erreurs: [...sansObjet, ...erreurs] });
+  const out = await zip.generateAsync({ type: 'nodebuffer', compression: 'DEFLATE' });
+  const nom = `Pieces_personnel_${annee}.zip`;
+  res.setHeader('Content-Type', 'application/zip');
+  res.setHeader('Content-Disposition', `attachment; filename="${nom}"`);
+  if (erreurs.length || sansObjet.length) res.setHeader('X-Lucie-Erreurs', encodeURIComponent([...sansObjet, ...erreurs].join(' | ')).slice(0, 1500));
+  res.end(out);
+});
+
 r.get('/', authRequired, PEUT, (_req, res) => {
   res.json(ANNEXES.map(({ cle, titre, usage, mois, ea12 }) => ({ cle, titre, usage, mois: !!mois, ea12: !!ea12 })));
 });
