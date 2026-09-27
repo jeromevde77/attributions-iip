@@ -5,6 +5,7 @@ import {
   IconSquareCheck, IconArrowRight,
 } from '@tabler/icons-react';
 import { authHeaders } from '../lib/api.js';
+import { TuileEtat } from './ui.jsx';
 
 /**
  * LE PASSAGE À L'ANNÉE SUIVANTE, POUR TOUTE UNE SECTION.
@@ -50,6 +51,14 @@ export default function PassageAnnee({ annee, onClose, onTermine }) {
       .catch(() => {});
   }, []);
 
+  /* Une réponse qui n'est pas du JSON (page d'erreur, coupure) se dit en clair :
+     Safari n'en rendait que « The string did not match the expected pattern ». */
+  async function lireJson(rep) {
+    const texte = await rep.text();
+    try { return JSON.parse(texte); }
+    catch { return { error: `Le serveur a répondu autre chose que prévu (code ${rep.status}). Réessayez ; si cela se répète, signalez-le avec l'heure.` }; }
+  }
+
   async function recenser(simulation = true, ids = null) {
     setEnCours(true); setErreur(null);
     try {
@@ -58,8 +67,8 @@ export default function PassageAnnee({ annee, onClose, onTermine }) {
         body: JSON.stringify({ section, annee_source: annee, annee_cible: cible,
           etudiants: ids, simulation }),
       });
-      const j = await rep.json();
-      if (!rep.ok) { setErreur(j.error); return null; }
+      const j = await lireJson(rep);
+      if (!rep.ok || j.error) { setErreur(j.error); return null; }
       return j;
     } catch (e) { setErreur(e.message); return null; }
     finally { setEnCours(false); }
@@ -85,8 +94,13 @@ export default function PassageAnnee({ annee, onClose, onTermine }) {
         method: 'POST', headers: authHeaders(),
         body: JSON.stringify({ annee: cible, etudiants: retenus }),
       });
-      const j = await rep.json();
-      if (!rep.ok) { setErreur(j.error); return; }
+      const j = await lireJson(rep);
+      if (!rep.ok || !j.html) {
+        setErreur([j.error || 'Aucun parcours produit.', ...(j.manques || []).slice(0, 5).map(m => `${m.nom} : ${m.raison}`)].join(' · '));
+        return;
+      }
+      if (j.manques?.length) setErreur(`${j.manques.length} parcours non produit(s) : `
+        + j.manques.slice(0, 5).map(m => `${m.nom} (${m.raison})`).join(', ') + (j.manques.length > 5 ? '…' : ''));
       const w = window.open('', '_blank');
       if (!w) { setErreur('La fenêtre d’impression a été bloquée par le navigateur.'); return; }
       w.document.write(j.html); w.document.close();
@@ -154,13 +168,11 @@ export default function PassageAnnee({ annee, onClose, onTermine }) {
 
         <div className="flex-1 overflow-y-auto px-5 py-3 space-y-4 text-[13px]">
           {erreur && (
-            <div className="px-3 py-2 rounded-xl bg-rose-50 border border-rose-200
-                            text-rose-900">{erreur}</div>
+            <div data-etat="corriger" className="bloc-etat px-3 py-2">{erreur}</div>
           )}
 
           {fait && (
-            <div className="px-3 py-2 rounded-xl bg-emerald-50 border border-emerald-300
-                            text-emerald-900">
+            <div data-etat="reussi" className="bloc-etat px-3 py-2">
               <b>{fait.total.inscriptions_creees} inscription(s)</b> créée(s) pour{' '}
               {fait.total.etudiants_ecrits} étudiant(s) en {fait.annee_cible}.
             </div>
@@ -175,18 +187,9 @@ export default function PassageAnnee({ annee, onClose, onTermine }) {
           {rapport && (
             <>
               <div className="grid grid-cols-3 gap-2">
-                {[['Prêts', rapport.total.prets,
-                   'bg-emerald-50 border-emerald-200', 'text-emerald-800', 'text-emerald-700'],
-                  ['En attente', rapport.total.attente,
-                   'bg-amber-50 border-amber-200', 'text-amber-800', 'text-amber-700'],
-                  ['Sans programme', rapport.total.sans_programme,
-                   'bg-slate-50 border-slate-200', 'text-slate-800', 'text-slate-600'],
-                ].map(([l, n, boite, gros, petit]) => (
-                  <div key={l} className={`px-3 py-2 rounded-xl border ${boite}`}>
-                    <div className={`text-[19px] font-bold tabular-nums ${gros}`}>{n}</div>
-                    <div className={`text-[11px] ${petit}`}>{l}</div>
-                  </div>
-                ))}
+                <TuileEtat etat="reussi" valeur={rapport.total.prets} libelle="Prêts" />
+                <TuileEtat etat="surveiller" valeur={rapport.total.attente} libelle="En attente" />
+                <TuileEtat etat="neutre" valeur={rapport.total.sans_programme} libelle="Sans programme" />
               </div>
 
               {!!rapport.prets.length && (
