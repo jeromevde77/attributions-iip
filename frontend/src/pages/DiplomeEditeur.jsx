@@ -198,9 +198,17 @@ export default function DiplomeEditeur({ assets = {} }) {
   const [liste, setListe] = useState(null);          // liste en cours d'édition
   const [sigOk, setSigOk] = useState(false);
   const [cologo, setCologo] = useState({});           // { section: bool } — co-diplomation HELB
-  // Les modèles PROPRES à une section, quand son texte diffère du commun.
-  const [tplSections, setTplSections] = useState({});
-  const [tplSectionsInit, setTplSectionsInit] = useState({});
+  // Les VRAIES données de la section choisie : l'aperçu ne montre plus TIM pour tout le monde.
+  const [donneesSec, setDonneesSec] = useState(null);
+  useEffect(() => {
+    if (!secSig) { setDonneesSec(null); return; }
+    af(`/api/diplomes/donnees-section?section=${encodeURIComponent(secSig)}`).then(setDonneesSec).catch(() => setDonneesSec(null));
+  }, [secSig]);
+  const varsSection = d => (d ? {
+    '{{intitule_section}}': d.intitule_section, '{{grade_academique}}': d.grade_academique,
+    '{{code_section}}': d.code_section, '{{domaine}}': d.domaine, '{{date_approbation}}': d.date_approbation,
+    '{{duree_annees}}': d.duree_annees, '{{total_ects}}': d.total_ects, '{{type_enseignement}}': d.type_enseignement,
+  } : { '{{type_enseignement}}': 'Enseignement supérieur de type court' });
   const coDiplomee = sec => !!sec && (cologo[sec] ?? sec === 'TIM');
   const signatairesDefaut = sec => (coDiplomee(sec) ? SIGNATAIRES_DEFAUT : SIGNATAIRES_IIP);
 
@@ -215,10 +223,7 @@ export default function DiplomeEditeur({ assets = {} }) {
       af('/api/config/diplome_signatures').then(d => { try { return JSON.parse(d.valeur) || {}; } catch { return {}; } }).catch(() => ({})),
       af('/api/ref/sections').catch(() => []),
       af('/api/config/diplome_cologo_helb').then(d => { try { return JSON.parse(d.valeur) || {}; } catch { return {}; } }).catch(() => ({})),
-      af('/api/config/diplome_templates_section').then(d => { try { return JSON.parse(d.valeur) || {}; } catch { return {}; } }).catch(() => ({})),
-    ]).then(([tpl, e, helb, sig, secs, co, ts]) => {
-      const t0 = ts && typeof ts === 'object' ? ts : {};
-      setTplSections(t0); setTplSectionsInit(t0);
+    ]).then(([tpl, e, helb, sig, secs, co]) => {
       setCologo(co && typeof co === 'object' ? co : {});
       setHtml(tpl); setInitial(tpl); setEtab(e); setLogoHelb(helb || '');
       setSignatures(sig && typeof sig === 'object' ? sig : {});
@@ -255,11 +260,12 @@ export default function DiplomeEditeur({ assets = {} }) {
     } catch (e) { setErr(e.message); }
   }
 
-  // Le modèle affiché : celui de la section s'il en a un, sinon le commun.
-  const modelePropre = !!(secSig && tplSections[secSig] != null);
-  const modele = modelePropre ? tplSections[secSig] : html;
-  const setModele = v => (modelePropre ? setTplSections(t => ({ ...t, [secSig]: v })) : setHtml(v));
-  const dirty = html !== initial || JSON.stringify(tplSections) !== JSON.stringify(tplSectionsInit);
+  /* UN SEUL MODÈLE, identique partout (Charles, 27 septembre 2026) : ce qui
+     change d'une section à l'autre — ses données, le logo de co-diplomation,
+     les signataires — passe par des champs, jamais par une copie du modèle. */
+  const modele = html;
+  const setModele = setHtml;
+  const dirty = html !== initial;
   /* LE LOGO SELON LA SECTION : l'image importée est le logo de CO-DIPLOMATION
      (IIP et HELB ensemble) — elle remplace celui de l'IIP, comme au serveur. */
   const logosDe = sec => (logoHelb && coDiplomee(sec)
@@ -270,7 +276,9 @@ export default function DiplomeEditeur({ assets = {} }) {
      serveur (poserSignatures) : l'emplacement {{signatures}} s'il existe,
      sinon les colonnes écrites en dur dans le bloc des signatures. */
   const rendre = (l) => {
-    const vars = VARS_DEMO(etab, { ...assets, logo_helb: logoHelb });
+    // Une donnée de section absente se VOIT dans l'aperçu : elle manquera aussi sur le diplôme.
+    const vs = Object.fromEntries(Object.entries(varsSection(donneesSec)).map(([k, v]) => [k, v || `[${k.slice(2, -2)} à compléter]`]));
+    const vars = { ...VARS_DEMO(etab, { ...assets, logo_helb: logoHelb }), ...vs };
     const bloc = blocSignatures(l || signatairesDefaut(secSig));
     let h = avecEmplacementLogos(modele);
     if (/\{\{\s*signatures\s*\}\}/.test(h)) h = h.split('{{signatures}}').join(bloc);
@@ -316,21 +324,10 @@ export default function DiplomeEditeur({ assets = {} }) {
   const enregistrer = async () => {
     setErr(''); setBusy(true);
     try {
-      if (html !== initial) {
-        await af('/api/config/diplome_template', { method: 'PUT', body: JSON.stringify({ valeur: html }) });
-        setInitial(html);
-      }
-      if (JSON.stringify(tplSections) !== JSON.stringify(tplSectionsInit)) {
-        await af('/api/config/diplome_templates_section', { method: 'PUT', body: JSON.stringify({ valeur: JSON.stringify(tplSections) }) });
-        setTplSectionsInit(tplSections);
-      }
+      await af('/api/config/diplome_template', { method: 'PUT', body: JSON.stringify({ valeur: html }) });
+      setInitial(html);
       setSaved(true); setTimeout(() => setSaved(false), 2500);
     } catch (e) { setErr(e.message); } finally { setBusy(false); }
-  };
-  const creerModelePropre = () => setTplSections(t => ({ ...t, [secSig]: html }));
-  const revenirAuCommun = () => {
-    if (!confirm('Supprimer le modèle propre à cette section ? Son diplôme reprendra le modèle commun (à l’enregistrement).')) return;
-    setTplSections(t => { const n = { ...t }; delete n[secSig]; return n; });
   };
 
   const restaurer = async () => {
@@ -345,7 +342,7 @@ export default function DiplomeEditeur({ assets = {} }) {
       <div className="flex items-center justify-between flex-wrap gap-2">
         <div>
           <h2 className="font-title text-lg text-iip-blue">Modèle de diplôme</h2>
-          <p className="text-xs text-gray-500">Un modèle commun, et un modèle propre à une section quand son texte diffère. Les champs <code>{'{{...}}'}</code> sont remplis avec les données de l'étudiant.</p>
+          <p className="text-xs text-gray-500">Une page identique pour toutes les sections. Ce qui change se remplit seul : les données de la section et de l'étudiant (champs <code>{'{{...}}'}</code>), le logo si co-diplomation, les signataires.</p>
         </div>
         <div className="flex items-center gap-2">
           <button onClick={apercu} className="flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50"><IconEye size={16}/> Aperçu</button>
@@ -364,10 +361,10 @@ export default function DiplomeEditeur({ assets = {} }) {
       <div className="flex flex-wrap items-center gap-3 bg-white border border-gray-200 rounded-lg px-3 py-2">
         <span className="text-sm font-semibold text-iip-blue">Section</span>
         <select value={secSig} onChange={e => setSecSig(e.target.value)} className="controle text-[13px] min-w-[14rem]">
-          <option value="">— modèle commun —</option>
+          <option value="">— choisir la section à prévisualiser —</option>
           {sections.map(s0 => (
             <option key={s0.code} value={s0.code}>
-              {s0.libelle || s0.code}{tplSections[s0.code] != null ? ' · modèle propre' : ''}
+              {s0.libelle || s0.code}
             </option>
           ))}
         </select>
@@ -384,12 +381,6 @@ export default function DiplomeEditeur({ assets = {} }) {
                 }} />
               Co-diplomation HELB <span className="text-gray-400">— logo IIP + HELB, signataires HELB par défaut</span>
             </label>
-            <span className="text-[12px] text-gray-500">
-              {modelePropre ? 'Modèle propre à cette section.' : 'Cette section suit le modèle commun.'}
-            </span>
-            {peutEcrire && (modelePropre
-              ? <button className="bouton" onClick={revenirAuCommun}>Revenir au modèle commun</button>
-              : <button className="bouton" onClick={creerModelePropre}>Créer un modèle propre à cette section</button>)}
           </>
         )}
       </div>
@@ -472,7 +463,7 @@ export default function DiplomeEditeur({ assets = {} }) {
       <details className="text-xs text-gray-500">
         <summary className="cursor-pointer text-iip-blue">Champs disponibles</summary>
         <div className="mt-1 grid grid-cols-2 md:grid-cols-3 2xl:grid-cols-4 gap-x-4 gap-y-0.5 font-mono">
-          {['{{nom_etudiant}}','{{prenom_etudiant}}','{{genre}}','{{lieu_naissance}}','{{date_naissance}}','{{registre_national}}','{{intitule_section}}','{{grade_academique}}','{{code_section}}','{{date_approbation}}','{{total_ects}}','{{duree_annees}}','{{domaine}}','{{mention}}','{{annee}}','{{date_deliberation}}','{{president_jury}}','{{directeur}}','{{ville_etab}}','{{nom_etab}}','{{adresse_etab}}','{{matricule_etab}}','{{fase_etab}}','{{logo_iip}}','{{logo_helb}}','{{sceau}}','{{signature_directeur}}','{{signatures}}','{{logos}}'].map(v => <span key={v}>{v}</span>)}
+          {['{{nom_etudiant}}','{{prenom_etudiant}}','{{genre}}','{{lieu_naissance}}','{{date_naissance}}','{{registre_national}}','{{intitule_section}}','{{grade_academique}}','{{type_enseignement}}','{{code_section}}','{{date_approbation}}','{{total_ects}}','{{duree_annees}}','{{domaine}}','{{mention}}','{{annee}}','{{date_deliberation}}','{{president_jury}}','{{directeur}}','{{ville_etab}}','{{nom_etab}}','{{adresse_etab}}','{{matricule_etab}}','{{fase_etab}}','{{logo_iip}}','{{logo_helb}}','{{sceau}}','{{signature_directeur}}','{{signatures}}','{{logos}}'].map(v => <span key={v}>{v}</span>)}
         </div>
       </details>
     </div>
