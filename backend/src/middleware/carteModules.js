@@ -64,6 +64,13 @@ export const SANS_MODULE = {
  * que le mode CONSTAT sert à vérifier avant de fermer quoi que ce soit.
  */
 export const CARTE = {
+  /* L'EA12 ET L'ANNEXE 2 AVAIENT UNE PORTE SANS CADENAS (27 septembre 2026) :
+     absentes de cette carte, tout compte connecté y passait — un professeur
+     pouvait télécharger l'EA12 d'un collègue, matricule compris. L'EA12 relève
+     du personnel, l'annexe 2 de l'étudiant (Charles : « elles vont dans
+     Éditions, EA12 pour Personnel, annexe 2 pour Étudiants »). */
+  ea12:                    'personnel',
+  annexe2:                 'etudiants',
   attributions:            'attributions',
   ref:                     'organisation',   // référentiels : sections, UE, cours
   pilotage:                'pilotage',
