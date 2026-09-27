@@ -725,20 +725,20 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose }) {
           {/* CE QUI A DÉJÀ ÉTÉ DÉLIBÉRÉ AILLEURS SE DIT ICI. Une unité reprise
               du classeur arrive décidée : sans cette bannière, rien ne le
               signale et on repasse trois cents fiches en revue pour rien. */}
+          {/* Une ligne, et seulement tant que la séance est ouverte : proposer de
+              reprendre des décisions sur une séance close, que le bandeau du
+              dessus dit figée, se contredisait (27 septembre 2026). */}
           {reprise && (reprise.concordants + reprise.divergents) > 0
+            && !seance?.seance?.cloturee
             && etape !== 'reprise' && etape !== 'cloture' && (
-            <div className="px-3 py-2 rounded-carte bg-sky-50 border border-sky-200
-                            text-[13px] text-sky-900 flex items-center gap-3">
-              <div className="flex-1">
-                <b>Cette unité arrive délibérée du classeur.</b>{' '}
-                {reprise.concordants + reprise.divergents} décision(s) de session {session} y
-                sont déjà encodées{reprise.sans_decision
-                  ? `, ${reprise.sans_decision} étudiant(s) restent sans décision` : ''}.
-                Vous pouvez les reprendre d'un coup plutôt que de passer chaque fiche en revue.
-              </div>
-              <button onClick={() => setEtape('reprise')}
-                className="px-2.5 py-1.5 rounded-lg border border-sky-400 text-sky-800
-                           font-semibold text-[12px] whitespace-nowrap">
+            <div data-etat="disponible" className="bloc-etat px-3 py-1 flex items-center gap-3 text-[12px]">
+              <span className="flex-1 min-w-0 truncate"
+                title="Vous pouvez reprendre ces décisions d'un coup plutôt que de passer chaque fiche en revue.">
+                <b>Délibérée dans le classeur</b> · {reprise.concordants + reprise.divergents} décision(s)
+                de session {session} déjà encodée(s){reprise.sans_decision
+                  ? ` · ${reprise.sans_decision} sans décision` : ''}
+              </span>
+              <button onClick={() => setEtape('reprise')} className="bouton bouton-compact flex-none">
                 Reprendre l'encodage
               </button>
             </div>
@@ -3265,23 +3265,19 @@ export const motifReouverture = motifChoisi;
 export const motifReouvertureComplet = motifComplet;
 
 export function BandeauReouverture({ session, onReprendre }) {
+  /* UNE LIGNE, PAS UN PANNEAU (Charles, 27 septembre 2026 : « beaucoup de
+     place perdue, il faut faire plus petit »). L'état se dit en quelques mots,
+     le bouton reste à droite, compact. */
   return (
-    <div className="px-3 py-2 rounded-xl bg-slate-100 border border-slate-300
-                    flex items-center justify-between gap-3">
-      <span className="text-[13px] text-slate-700">
-        <b>Séance close</b> — {session === 2 ? 'seconde' : 'première'} session.
-        Les décisions ne peuvent plus être modifiées.
+    <div data-etat="neutre" className="bloc-etat px-3 py-1 flex items-center justify-between gap-3 text-[12px]">
+      <span className="text-slate-700 min-w-0 truncate">
+        <b>Séance close</b> · {session === 2 ? 'seconde' : 'première'} session — décisions figées
       </span>
       {/* UN SEUL BOUTON, PARCE QU'ON NE SAIT PAS ENCORE LEQUEL DES DEUX.
           Corriger et rouvrir répondent à la même question, et laquelle
-          s'impose ne se voit qu'une fois les champs sous les yeux. Deux
-          boutons obligeaient à trancher AVANT de regarder, puis à tout
-          reprendre si l'on s'était trompé : un motif retapé, une fenêtre
-          refermée, trois minutes perdues. Les deux gestes sont maintenant
-          deux onglets d'un même écran, et le motif les traverse. */}
-      <button onClick={onReprendre}
-        className="flex-none px-2.5 py-1 text-[12px] rounded-lg border border-amber-500
-                   text-amber-900 font-semibold">
+          s'impose ne se voit qu'une fois les champs sous les yeux. Les deux
+          gestes sont deux onglets d'un même écran, et le motif les traverse. */}
+      <button onClick={onReprendre} className="bouton bouton-compact flex-none">
         Corriger ou rouvrir…
       </button>
     </div>
