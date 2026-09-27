@@ -1605,8 +1605,8 @@ export function documentMotivation(etudId, ueNum, annee, session = 1) {
         <td>${l.description
           ? `${esc2(l.description)}<br><span class="ref">${esc2(l.code)}</span>`
           : `<span class="code">${esc2(l.code)}</span>`}</td>
-        <td>${l.motif ? esc2(l.motif)
-          : l.motif_propose ? esc2(l.motif_propose)
+        <td>${l.motif ? esc2(l.motif).replace(/\n/g, '<br>')
+          : l.motif_propose ? esc2(l.motif_propose).replace(/\n/g, '<br>')
           : '<span class="vide">motivation à compléter</span>'}</td>
       </tr>`).join('')}
     </tbody>
@@ -3419,9 +3419,24 @@ export function delibererUE(etudId, ueNum, annee, session = 1) {
       .all(Number(etudId), annee, Number(ueNum), annee)) {
       (parAA[l.aa_code] ||= []).push(l);
     }
+    /* LES JUSTIFICATIONS S'ADDITIONNENT, SANS SE RÉPÉTER (Charles, 27
+       septembre 2026). Deux professeurs qui ont retenu le même texte : il ne
+       s'écrit qu'une fois, sans nom de cours. Des textes différents : chacun
+       sur sa ligne, précédé des cours qui le portent. */
+    const cle = t => t.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
+      .replace(/\s+/g, ' ').replace(/[\s.;,:!]+$/, '').trim();
     for (const [code, l] of Object.entries(parAA)) {
-      justifEns[code] = l.length === 1 ? l[0].justification.trim()
-        : l.map(x => `${x.cours_nom || x.cours_code} : ${x.justification.trim()}`).join(' ');
+      const groupes = new Map();
+      for (const x of l) {
+        const k = cle(x.justification);
+        const g = groupes.get(k) || { texte: x.justification.trim(), cours: [] };
+        const nomC = x.cours_nom || x.cours_code;
+        if (!g.cours.includes(nomC)) g.cours.push(nomC);
+        groupes.set(k, g);
+      }
+      const gs = [...groupes.values()];
+      justifEns[code] = gs.length === 1 ? gs[0].texte
+        : gs.map(g => `${g.cours.join(', ')} : ${g.texte}`).join('\n');
     }
   } catch { /* table ou colonne absente */ }
   const integree = estEpreuveIntegree(ueNum, annee);

@@ -295,7 +295,7 @@ export default function MotivationDecision({ etudId, annee, onClose }) {
                       onClick={() => setMotifs(m => ({ ...m, [a.aa_code]: a.motif_propose }))}
                       title="Reprendre cet énoncé pour le compléter ou le corriger"
                       className="w-full text-left mb-1 px-2 py-1.5 rounded-lg border
-                                 border-dashed border-slate-300 bg-slate-50
+                                 border-dashed border-slate-300 bg-slate-50 whitespace-pre-line
                                  text-[12px] text-slate-400 italic hover:text-slate-600
                                  hover:border-slate-400">
                       {a.motif_propose}
