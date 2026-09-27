@@ -894,7 +894,7 @@ function OngletPersonnel({ onClose, membreInitial = null, outilsMembre = null })
       </div>
       <div>
         {coches.size >= 2 ? (
-          <SeriePersonnel ids={[...coches]} profs={profs || []} annee={annee} annexes={annexes} nom={nom} />
+          <SeriePersonnel ids={[...coches]} profs={profs || []} annee={annee} annexes={annexes} nom={nom} outilsMembre={outilsMembre} />
         ) : !choisi ? (
           <p className="text-[13px] text-slate-400 italic py-6">Choisissez un membre du personnel.</p>
         ) : (
@@ -916,6 +916,22 @@ function OngletPersonnel({ onClose, membreInitial = null, outilsMembre = null })
             )}
             {erreur && <div data-etat="corriger" className="bloc-etat px-3 py-2 text-[12px]">{erreur}</div>}
 
+            {/* LA FICHE D'ATTRIBUTIONS VAUT POUR TOUT MEMBRE (Charles, 27 septembre
+                2026) — chargé de cours comme expert : c'est le relevé de ce qui
+                lui est confié, avant tout contrat. */}
+            {outilsMembre?.fiche && statut && statut.statut !== 'aucun' && (
+              <div data-etat="neutre" className="bloc-etat px-3 py-2.5">
+                <div className="flex items-center justify-between gap-3 text-[13px]">
+                  <span><span className="font-semibold">Fiche d'attributions</span> <span className="text-slate-400 text-[12px]">· ce qui lui est confié en {annee}</span></span>
+                  <span className="flex gap-1.5">
+                    {[['Globale', null], ['IIP', 'IIP'], ['HELB', 'HELB']].map(([l, f]) => (
+                      <button key={l} type="button" onClick={() => outilsMembre.fiche(choisi.id, f)} className="bouton bouton-sortir bouton-compact">{l}</button>
+                    ))}
+                  </span>
+                </div>
+              </div>
+            )}
+
             {statut && (statut.statut === 'cc' || statut.statut === 'mixte') && (
               <div data-etat="neutre" className="bloc-etat px-3 py-2.5 space-y-2">
                 <div className="text-[13px] font-semibold">Chargé de cours</div>
@@ -924,16 +940,6 @@ function OngletPersonnel({ onClose, membreInitial = null, outilsMembre = null })
                     <span>Contrat de travail <span className="text-slate-400 text-[12px]">· ses périodes CC, sans les périodes d'expert</span></span>
                     <button type="button" onClick={ouvrirContratCC} className="bouton bouton-sortir bouton-compact">Contrat</button>
                   </li>
-                  {outilsMembre?.fiche && (
-                    <li className="flex items-center justify-between gap-3 py-1.5 text-[13px]">
-                      <span>Fiche d'attributions</span>
-                      <span className="flex gap-1.5">
-                        {[['Globale', null], ['IIP', 'IIP'], ['HELB', 'HELB']].map(([l, f]) => (
-                          <button key={l} type="button" onClick={() => outilsMembre.fiche(choisi.id, f)} className="bouton bouton-compact">{l}</button>
-                        ))}
-                      </span>
-                    </li>
-                  )}
                   <li className="py-1.5 text-[13px] space-y-1">
                     <div className="flex items-center justify-between gap-3">
                       <span>EA12 — Doc12 supérieur <span className="text-slate-400 text-[12px]">· le Word officiel, rempli par Lucie</span></span>
@@ -1019,7 +1025,7 @@ function OngletPersonnel({ onClose, membreInitial = null, outilsMembre = null })
    données. Les contrats partent dans un seul document — chacun sur sa page,
    et chacun seulement si le statut du membre l'appelle ; les Word (EA12,
    annexes) dans une archive, un dossier par personne. */
-function SeriePersonnel({ ids, profs, annee, annexes, nom }) {
+function SeriePersonnel({ ids, profs, annee, annexes, nom, outilsMembre = null }) {
   const MOIS = ['janvier','février','mars','avril','mai','juin','juillet','août','septembre','octobre','novembre','décembre'];
   const [types, setTypes] = useState({ cc: true, expert: true });
   const [cles, setCles] = useState(() => new Set(['A1bis']));
@@ -1067,6 +1073,22 @@ function SeriePersonnel({ ids, profs, annee, annexes, nom }) {
       </div>
       {erreur && <div data-etat="corriger" className="bloc-etat px-3 py-2 text-[12px]">{erreur}</div>}
       {avis && <div data-etat="surveiller" className="bloc-etat px-3 py-2 text-[12px]">{avis}</div>}
+
+      {outilsMembre?.fichesLot && (
+        <div data-etat="neutre" className="bloc-etat px-3 py-2.5">
+          <div className="flex items-center justify-between gap-3 text-[13px]">
+            <div>
+              <div className="font-semibold">Fiches d'attributions</div>
+              <div className="text-[12px] text-slate-500">Une fiche par membre, chacune sur sa page.</div>
+            </div>
+            <span className="flex gap-1.5">
+              {[['Globale', 'GLOBAL'], ['IIP', 'IIP'], ['HELB', 'HELB']].map(([l, t]) => (
+                <button key={l} type="button" onClick={() => outilsMembre.fichesLot(ids, t)} className="bouton bouton-sortir bouton-compact">{l}</button>
+              ))}
+            </span>
+          </div>
+        </div>
+      )}
 
       <div data-etat="neutre" className="bloc-etat px-3 py-2.5 space-y-2">
         <div className="flex items-center justify-between gap-3">

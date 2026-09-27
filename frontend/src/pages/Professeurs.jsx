@@ -1979,13 +1979,14 @@ export default function Professeurs({ vue: vueInitiale = 'membres' }) {
   }
 
   // Impression groupée : toutes les fiches sélectionnées dans un seul document, type au choix
-  async function imprimerSelectionFiches(type) {
-    if (selection.size === 0) return;
+  async function imprimerSelectionFiches(type, ids = null) {
+    const lot = ids ? new Set(ids) : selection;
+    if (lot.size === 0) return;
     setPrinting(true);
     try {
       const annee = getAnnee() || '';
       const corps = [];
-      for (const profId of selection) {
+      for (const profId of lot) {
         let html;
         if (type === 'HELB') html = await genererFicheAttributions(profId, 'HELB', true);
         else if (type === 'GLOBAL') html = await genererFicheAttributions(profId, null, true);
@@ -2005,7 +2006,7 @@ export default function Professeurs({ vue: vueInitiale = 'membres' }) {
         @media print{@page{size:A4 landscape;margin:10mm}tr{page-break-inside:avoid}thead{display:table-header-group}}
         </style></head><body>${corps.join('')}</body></html>`;
       const label = type === 'GLOBAL' ? 'Globales' : type;
-      setFicheHtml({ html: doc, nom: `Fiches_${label}_${annee}_${selection.size}profs` });
+      setFicheHtml({ html: doc, nom: `Fiches_${label}_${annee}_${lot.size}profs` });
     } catch (e) { alert('Erreur : ' + e.message); }
     finally { setPrinting(false); setPrintSelMenu(false); }
   }
@@ -2557,7 +2558,8 @@ export default function Professeurs({ vue: vueInitiale = 'membres' }) {
       )}
       {editionsMembre && (
         <CentreImpressionCentral ongletInitial="personnel" membreInitial={editionsMembre}
-          outilsMembre={{ fiche: (id, filtre) => { setEditionsMembre(null); genererFicheAttributions(id, filtre); } }}
+          outilsMembre={{ fiche: (id, filtre) => { setEditionsMembre(null); genererFicheAttributions(id, filtre); },
+            fichesLot: (ids, type) => { setEditionsMembre(null); imprimerSelectionFiches(type, ids); } }}
           onClose={() => setEditionsMembre(null)} />
       )}
       {ficheHtml && <PreviewModal html={ficheHtml.html||ficheHtml} titre={ficheHtml.titre || "Fiche d'attributions"} sousTitre={ficheHtml.sousTitre} nomFichier={ficheHtml.nom}
