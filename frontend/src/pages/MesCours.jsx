@@ -2,6 +2,7 @@ import { couleurBloc, rangBloc } from '../lib/blocs.js';
 import { useEffect, useState } from 'react';
 import { IconBooks, IconChevronLeft, IconAlertTriangle, IconMessageCircle } from '@tabler/icons-react';
 import { authHeaders, getAnnee } from '../lib/api.js';
+import { MOTIFS_ECHEC } from '../components/motifsEchec.js';
 
 /**
  * MES COURS — la porte du professeur.
@@ -463,10 +464,41 @@ export default function MesCours() {
                       <div className="text-[11.5px] text-slate-500">
                         {(actifEtu.nom || '').toUpperCase()} {actifEtu.prenom} · {actifAA >= 0 ? nomAA(feuille.acquis[actifAA], actifAA) : caseActive.k} · {notes[actifEtu.id]?.[caseActive.k]}/20
                       </div>
+                      {/* LA LISTE DE LA MAISON D'ABORD (Charles, 27 septembre 2026 :
+                          « que le prof puisse piocher dans la liste qu'on a déjà ; s'il
+                          le souhaite, il écrit en manuel ») — le catalogue du Conseil,
+                          le même que celui des motivations. Un clic ajoute la phrase,
+                          un second la retire ; le champ reste libre. */}
+                      <details className="text-[11.5px]">
+                        <summary className="cursor-pointer text-iip-blue underline">Choisir dans la liste</summary>
+                        <div className="mt-1 max-h-64 overflow-y-auto space-y-1.5 pr-1">
+                          {MOTIFS_ECHEC.map(g => (
+                            <div key={g.cle}>
+                              <div className="text-[10px] uppercase tracking-wide font-semibold text-slate-500">{g.libelle}</div>
+                              {g.motifs.map(m => {
+                                const actuel = String(justifs[actifEtu.id]?.[caseActive.k] ?? '');
+                                const pris = actuel.includes(m.texte);
+                                return (
+                                  <button key={m.cle} type="button"
+                                    onClick={() => setJustifs(j => {
+                                      const t = String(j[actifEtu.id]?.[caseActive.k] ?? '');
+                                      const v = pris ? t.replace(m.texte, '').replace(/\s{2,}/g, ' ').trim()
+                                        : (t.trim() ? `${t.trim()} ${m.texte}` : m.texte);
+                                      return { ...j, [actifEtu.id]: { ...(j[actifEtu.id] || {}), [caseActive.k]: v } };
+                                    })}
+                                    className={`block w-full text-left px-1.5 py-1 rounded border mt-0.5 ${pris ? 'border-iip-blue bg-white text-slate-800' : 'border-transparent hover:border-slate-200 text-slate-600'}`}>
+                                    {pris ? '✓ ' : ''}{m.texte}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          ))}
+                        </div>
+                      </details>
                       <textarea rows={3} value={justifs[actifEtu.id]?.[caseActive.k] ?? ''}
                         onChange={ev => { const val = ev.target.value;
                           setJustifs(j => ({ ...j, [actifEtu.id]: { ...(j[actifEtu.id] || {}), [caseActive.k]: val } })); }}
-                        placeholder="Ce que l'étudiant n'a pas démontré pour cet acquis"
+                        placeholder="Choisissez dans la liste, ou écrivez ce que l'étudiant n'a pas démontré pour cet acquis"
                         className="w-full border border-slate-300 rounded-champ bg-white text-[12.5px] p-1.5" />
                       <div className="text-[10.5px] text-slate-500 leading-snug">
                         Il accompagne la note et sera proposé au Conseil des études comme motivation de l'échec ; le Conseil le garde ou le réécrit.
