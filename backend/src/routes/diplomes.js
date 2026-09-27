@@ -109,6 +109,41 @@ function epreuveIntegreeDe(unites) {
  * s'étale sur plusieurs millésimes, et l'étudiant qui a fini cette année a
  * réussi le gros de ses unités les années précédentes.
  */
+/* LES DONNÉES DE SECTION DU DIPLÔME — UNE FONCTION, DEUX LECTEURS (le diplôme
+ * produit et l'aperçu de l'éditeur). Elles vivaient à deux endroits : la table
+ * des sections (où le « grade » ne dit que « Bachelier ») et Configuration →
+ * Attestation → Sections & Diplômes, qui porte l'intitulé du titre, le code
+ * approuvé, les ECTS, la date d'approbation et la durée — et que le diplôme ne
+ * lisait pas. La fiche d'attestation fait foi ; la table sert de repli. La
+ * fiche se reconnaît par sa section Lucie, sinon par son code FWB. */
+const sansAccents = v => String(v || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase().trim();
+export function donneesSectionDiplome(code) {
+  const sec = db.prepare(`SELECT code, libelle, niveau, code_fwb, domaine, type_enseignement
+    FROM section WHERE code = ?`).get(code) || { code };
+  let fiches = [];
+  try { fiches = JSON.parse(db.prepare("SELECT valeur FROM lucie_config WHERE cle = 'attestation_sections'").get()?.valeur || '[]') || []; } catch { fiches = []; }
+  const f = fiches.find(x => x.ue_section && x.ue_section === sec.code)
+    || fiches.find(x => sec.code_fwb && x.code === sec.code_fwb)
+    || fiches.find(x => sansAccents(x.section).endsWith(sansAccents(sec.libelle || sec.code)))
+    || {};
+  return {
+    code: sec.code, libelle: sec.libelle,
+    intitule_section: f.section || sec.libelle,
+    grade_academique: f.grade_academique || f.diplome || sec.niveau || '',
+    code_section: f.code || sec.code_fwb || '',
+    domaine: f.domaine || sec.domaine || '',
+    date_approbation: f.date_approbation || '',
+    duree_annees: f.duree_annees || '',
+    total_ects: f.ects || '',
+    type_enseignement: sec.type_enseignement || '',
+    fiche_trouvee: !!f.code,
+  };
+}
+r.get('/donnees-section', authRequired, (req, res) => {
+  if (!req.query.section) return res.status(400).json({ error: 'section requise' });
+  res.json(donneesSectionDiplome(String(req.query.section)));
+});
+
 r.get('/candidats', authRequired, (req, res) => {
   const annee = req.query.annee || anneeDeTravail(req);
   const section = req.query.section;
@@ -449,6 +484,21 @@ function remplir(modele, valeurs) {
  * Le bloc « Au nom du Gouvernement… le titulaire » n'en fait pas partie : il
  * est le même pour toutes les sections, et il reste dans le modèle.
  */
+/* LA CO-DIPLOMATION SE RÈGLE PAR SECTION, ET ELLE COMMANDE TOUT (Charles, 27
+ * septembre 2026 : « en fonction de la section, le contenu est différent ;
+ * TIM est HELB/IIP, le reste c'est IIP »). Un seul réglage — co-diplômée ou
+ * titre propre — décide du logo, des signataires par défaut et, si la section
+ * a le sien, du modèle. Absent, il vaut oui pour TIM seulement. */
+function coDiplomee(sectionCode) {
+  let coche = {};
+  try { coche = JSON.parse(db.prepare("SELECT valeur FROM lucie_config WHERE cle = 'diplome_cologo_helb'").get()?.valeur || '{}') || {}; } catch { coche = {}; }
+  return coche[sectionCode] ?? sectionCode === 'TIM';
+}
+export const SIGNATAIRES_IIP = [
+  { qualite: "La Présidente du jury\nd'épreuve intégrée,", nom: '{{president_jury}}' },
+  { qualite: "Le Directeur\nde l'Institut Ilya Prigogine,", nom: '{{directeur}}' },
+];
+
 async function signatairesDe(sectionCode) {
   let config = {};
   try {
@@ -459,7 +509,7 @@ async function signatairesDe(sectionCode) {
     .filter(x => String(x?.qualite || '').trim() || String(x?.nom || '').trim()) : null;
   if (liste?.length) return { liste, propre: true };
   const { SIGNATAIRES_DEFAUT } = await import('../services/diplome_template.js');
-  return { liste: SIGNATAIRES_DEFAUT, propre: false };
+  return { liste: coDiplomee(sectionCode) ? SIGNATAIRES_DEFAUT : SIGNATAIRES_IIP, propre: false };
 }
 
 function blocSignatures(liste, jetons) {
@@ -497,14 +547,13 @@ function poserSignatures(modele, bloc, propre) {
  * vaut oui pour TIM seulement, la seule section co-diplômée (27 septembre 2026). */
 async function logosDe(sectionCode) {
   const { LOGO_IIP_B64 } = await import('../services/assets/logo_iip.js');
-  let helb = '', coche = {};
-  try { helb = db.prepare("SELECT valeur FROM lucie_config WHERE cle = 'diplome_logo_helb'").get()?.valeur || ''; } catch { /* rien */ }
-  try { coche = JSON.parse(db.prepare("SELECT valeur FROM lucie_config WHERE cle = 'diplome_cologo_helb'").get()?.valeur || '{}') || {}; } catch { coche = {}; }
-  // Défaut : TIM seule (Charles, 27 septembre 2026 : « on enlève le logo
-  // HELB, on le garde juste pour le TIM »). La case de l'éditeur l'emporte.
-  const avecHelb = !!helb && (coche[sectionCode] ?? sectionCode === 'TIM');
-  return `<img src="${LOGO_IIP_B64}" class="logo-img" alt="Institut Ilya Prigogine" />`
-    + (avecHelb ? `<img src="${helb}" class="logo-img" alt="HELB" style="margin-left:6mm" />` : '');
+  let co = '';
+  try { co = db.prepare("SELECT valeur FROM lucie_config WHERE cle = 'diplome_logo_helb'").get()?.valeur || ''; } catch { /* rien */ }
+  /* L'IMAGE IMPORTÉE EST LE LOGO DE CO-DIPLOMATION, IIP ET HELB ENSEMBLE — elle
+     REMPLACE le logo de l'IIP, elle ne s'y ajoute pas : posée à côté, l'IIP
+     paraissait deux fois sur le diplôme de TIM. */
+  if (co && coDiplomee(sectionCode)) return `<img src="${co}" class="logo-img" alt="Institut Ilya Prigogine — HELB" />`;
+  return `<img src="${LOGO_IIP_B64}" class="logo-img" alt="Institut Ilya Prigogine" />`;
 }
 /* Un modèle enregistré avant 2.12.108 n'a que l'image HELB : on la remplace
  * par le bloc des logos, sans quoi l'IIP n'y paraîtrait toujours pas. */
@@ -514,6 +563,11 @@ function poserLogos(modele, logos) {
 }
 
 /** Le modèle de diplôme retenu : celui de la maison, sinon celui d'origine. */
+/* UN SEUL MODÈLE (Charles, 27 septembre 2026 : « le diplôme de base est une
+   page au contenu identique partout ; ce qui change, ce sont les données de la
+   section et de l'étudiant, le logo si co-diplomation, les signatures »). Ce
+   qui diffère d'une section à l'autre passe par un champ, jamais par une copie
+   du modèle : deux modèles finissent par dire deux choses. */
 async function modeleDiplome() {
   try {
     const row = db.prepare(
@@ -672,6 +726,7 @@ r.post('/pieces', authRequired,
           GROUP BY ue_num)`).get(...dossier.requises)?.t : null;
 
     const sig = await signatairesDe(sec.code);
+    const ds = donneesSectionDiplome(sec.code);
     const jetonsSig = {
       president_jury: presidence?.titulaire?.nom || ident.directeur,
       directeur: ident.directeur,
@@ -690,14 +745,15 @@ r.post('/pieces', authRequired,
         genre: d.genre === 'F' ? 'F' : d.genre === 'H' ? 'H' : '',
         lieu_naissance: d.lieu_naissance, date_naissance: dateLongue(d.date_naissance),
         annee: an, mention: d.mention.mention,
-        intitule_section: sec.libelle, code_section: sec.code_fwb || sec.code,
-        domaine: sec.domaine, grade_academique: sec.niveau || sec.libelle,
-        total_ects: ectsTotal, duree_annees: sec.duree_annees || 3,
+        intitule_section: ds.intitule_section, code_section: ds.code_section,
+        domaine: ds.domaine, grade_academique: ds.grade_academique,
+        type_enseignement: ds.type_enseignement,
+        total_ects: ectsTotal || ds.total_ects, duree_annees: ds.duree_annees,
         date_deliberation: dateLongue(dateDelib),
         ville_etab: ident.ville, directeur: ident.directeur,
         president_jury: presidence?.titulaire?.nom || ident.directeur,
         titulaire_nom: presidence?.titulaire?.nom || '',
-        article_titulaire: 'Le', date_approbation: sec.date_approbation,
+        article_titulaire: 'Le', date_approbation: ds.date_approbation,
         // Posés par poserLogos() ; ces jetons restent pour un modèle qui les
         // citerait ailleurs, et ne doivent jamais partir vides.
         logo_helb: ' ', logo_iip: ' ',

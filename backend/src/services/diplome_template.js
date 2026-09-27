@@ -40,7 +40,7 @@ export function genererTemplateDiplome() {
     <div class="cf">
       Communauté française de Belgique<br>
       <strong>Enseignement pour adultes</strong><br>
-      Enseignement supérieur pour adultes de type court
+      {{type_enseignement}}
     </div>
   </div>
 
