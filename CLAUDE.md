@@ -94,6 +94,21 @@ indiscutables. Il en reste sans doute : les nommer plutôt que les découvrir.
   ni cours, ni acquis —, l'ancienne règle s'applique, faute de savoir ce qui
   était à représenter ; mieux vaut ne rien changer que modifier à l'aveugle
   une décision déjà notifiée.
+- **Le report de notes est D'OFFICE** (Charles, 27 septembre 2026). Une unité
+  refusée : chaque cours dont TOUS les acquis passent est dispensé l'année
+  suivante, et ses notes y sont COPIÉES (`etudiant_note_detail.origine =
+  'report:<année>'`, clé `s1|cours|AA`) — la délibération, Mes cours et les
+  pièces les lisent sans rien savoir du report. `poserReportsDOffice()`
+  (`routes/acquis.js`) tourne à chaque PAE enregistré ou confirmé et au passage
+  d'année ; *Étudiants → Reports de notes* rattrape ce qui a été composé avant,
+  simulation d'abord. Deux déclencheurs protègent ces notes tant que le report
+  est accordé (un import ou un encodage est ignoré) ; retirer le report les
+  efface. Un report refusé par le Conseil n'est jamais reposé.
+  **Aucun report n'avait jamais pu s'écrire, pour deux raisons cumulées** :
+  `PUT /reports` visait `ON CONFLICT` sur l'ancienne clé de la table (SQLite
+  refuse la requête), et `reportsEligibles` lisait l'acquis au 2ᵉ segment du
+  code (`split('|')[1]`) alors qu'il est le DERNIER — `s1|67.4|AA67.2`. Zéro
+  cours reportable, en silence, sur 146 cas.
 - La cote montrée à un **ajourné dont la moyenne d'unité dépasse dix** : elle
   vaut aujourd'hui cette moyenne, alors que l'unité n'est pas acquise. À
   trancher avec Charles.

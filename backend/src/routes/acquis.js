@@ -397,6 +397,53 @@ export function migrerAA(dbx) {
     }
 
     /*
+     * LE REPORT D'OFFICE ÉCRIT LES NOTES DANS L'ANNÉE, ET ELLES Y SONT GARDÉES
+     * (Charles, 27 septembre 2026 : « si dans un cours l'étudiant a réussi tous
+     * les AA, le cours est dispensé pour l'année suivante ; les notes sont
+     * placées dans le nouveau cours comme si l'étudiant avait eu les mêmes
+     * notes »). Copiées, et non superposées : la délibération, Mes cours et
+     * les pièces lisent la même table, et aucun écran ne peut les oublier.
+     *
+     * `origine` = « report:2025-2026 » dit d'où vient la note. Deux déclencheurs
+     * la protègent TANT QUE LE REPORT EST ACCORDÉ : un import ou un encodage
+     * qui la réécrirait est ignoré, une suppression aussi. Retirer le report
+     * (le supprimer, ou le passer en refusé) efface ses notes — c'est le
+     * report qui fait foi, la note n'en est que la conséquence.
+     */
+    const colsND = dbx.prepare('PRAGMA table_info(etudiant_note_detail)').all().map(c => c.name);
+    if (colsND.length && !colsND.includes('origine')) {
+      dbx.exec('ALTER TABLE etudiant_note_detail ADD COLUMN origine TEXT');
+    }
+    const reportActif = `EXISTS (SELECT 1 FROM etudiant_report_note r
+        WHERE r.etudiant_id = OLD.etudiant_id AND r.annee_scolaire = OLD.annee_scolaire
+          AND r.ue_num = OLD.ue_num AND r.cours_code = OLD.cours_code AND r.statut = 'accorde')`;
+    dbx.exec(`
+      CREATE TRIGGER IF NOT EXISTS garde_note_reportee_maj
+      BEFORE UPDATE ON etudiant_note_detail
+      WHEN OLD.origine LIKE 'report:%' AND NEW.origine IS OLD.origine AND ${reportActif}
+      BEGIN SELECT RAISE(IGNORE); END;
+      CREATE TRIGGER IF NOT EXISTS garde_note_reportee_supp
+      BEFORE DELETE ON etudiant_note_detail
+      WHEN OLD.origine LIKE 'report:%' AND ${reportActif}
+      BEGIN SELECT RAISE(IGNORE); END;
+      CREATE TRIGGER IF NOT EXISTS report_retire_supp
+      AFTER DELETE ON etudiant_report_note
+      BEGIN
+        DELETE FROM etudiant_note_detail
+        WHERE etudiant_id = OLD.etudiant_id AND annee_scolaire = OLD.annee_scolaire
+          AND ue_num = OLD.ue_num AND cours_code = OLD.cours_code AND origine LIKE 'report:%';
+      END;
+      CREATE TRIGGER IF NOT EXISTS report_retire_statut
+      AFTER UPDATE OF statut ON etudiant_report_note
+      WHEN NEW.statut <> 'accorde'
+      BEGIN
+        DELETE FROM etudiant_note_detail
+        WHERE etudiant_id = NEW.etudiant_id AND annee_scolaire = NEW.annee_scolaire
+          AND ue_num = NEW.ue_num AND cours_code = NEW.cours_code AND origine LIKE 'report:%';
+      END;
+    `);
+
+    /*
      * LA JUSTIFICATION PAR DÉFAUT D'UN ACQUIS.
      *
      * L'énoncé calculé dit ce que la base sait — l'épreuve n'a pas été
@@ -772,10 +819,14 @@ export function reportsEligibles(etudId, ueNum, anneeCible, regles = null) {
     const structure = structureUE(ueNum, an);
     const notes = {};
     for (const l of lg) {
-      const brut = String(l.code).includes('|') ? String(l.code).split('|')[1] : l.code;
+      const brut = String(l.code).split('|').pop();   // l'acquis est le DERNIER segment : « s1|67.4|AA67.2 »
       const cc = l.cours_code
         || structure.find(c => c.aas.some(a => a.aa_code === brut))?.cours_code;
-      if (cc) notes[cc + '|' + brut] = { points: l.points, non_evalue: l.non_evalue };
+      // La note la plus tardive fait foi : septembre sur juin, juin sur une
+      // note sans session. L'ordre des lignes n'en décidait pas avant.
+      const rg = String(l.code).startsWith('s2|') ? 2 : String(l.code).startsWith('s1|') ? 1 : 0;
+      const k = cc + '|' + brut;
+      if (cc && !(notes[k] && notes[k].rang > rg)) notes[k] = { points: l.points, non_evalue: l.non_evalue, rang: rg };
     }
 
     for (const co of structure) {
@@ -842,6 +893,78 @@ export function reportsEligibles(etudId, ueNum, anneeCible, regles = null) {
  */
 export function coursValidesAnterieurs(etudId, ueNum, anneeCible) {
   return reportsEligibles(etudId, ueNum, anneeCible).cours;
+}
+
+/**
+ * LE REPORT D'OFFICE — un cours dont TOUS les acquis passent est dispensé
+ * l'année suivante, et ses notes y sont reportées telles quelles.
+ *
+ * Tranché par Charles le 27 septembre 2026 : d'office, et non plus sur
+ * décision au cas par cas. La règle de maîtrise est celle de
+ * `reportsEligibles` (tous les acquis au seuil de la maison, pas de
+ * compensation), au grain du COURS quel que soit le réglage de seconde
+ * session — c'est le cours qui est dispensé.
+ *
+ * Ce qui est écrit : une ligne `etudiant_report_note` (statut « accorde »,
+ * décidée par « Lucie — d'office », avec l'année d'origine), et la note de
+ * chaque acquis dans l'année cible, sous `origine = 'report:<année>'`.
+ *
+ * Ce qui ne l'est PAS :
+ *   · un report que le Conseil a déjà refusé (statut « refuse ») — son refus
+ *     tient ;
+ *   · une note déjà encodée cette année pour cet acquis — on n'écrase pas une
+ *     épreuve réellement présentée ;
+ *   · un acquis que la structure de l'année cible ne connaît plus.
+ *
+ * @returns {{ poses: object[] }}  ce qui est (ou serait, en simulation) écrit
+ */
+export function poserReportsDOffice(etudId, anneeCible, { simulation = false, ues = null, par = "Lucie — d'office" } = {}) {
+  const R = { ...reglesDeliberation(), base_s2: 'cours' };
+  const inscr = db.prepare(`SELECT ue_num FROM etudiant_inscription
+    WHERE etudiant_id = ? AND annee_scolaire = ?`).all(etudId, anneeCible)
+    .map(x => x.ue_num).filter(u => !ues || ues.includes(u));
+  const existe = db.prepare(`SELECT statut FROM etudiant_report_note
+    WHERE etudiant_id = ? AND annee_scolaire = ? AND ue_num = ? AND cible = 'cours'
+      AND cours_code = ? AND aa_code IS NULL`);
+  const insReport = db.prepare(`INSERT INTO etudiant_report_note
+    (etudiant_id, annee_scolaire, ue_num, cible, cours_code, aa_code, note, annee_origine,
+     statut, decision_ce, decide_le, decide_par)
+    VALUES (?,?,?, 'cours', ?, NULL, ?, ?, 'accorde', 'report d''office : tous les acquis du cours maîtrisés', datetime('now'), ?)`);
+  const noteExiste = db.prepare(`SELECT 1 FROM etudiant_note_detail
+    WHERE etudiant_id = ? AND annee_scolaire = ? AND ue_num = ? AND type = 'aa'
+      AND (cours_code = ? OR cours_code IS NULL) AND (code = ? OR code LIKE '%|' || ?)
+      AND (origine IS NULL OR origine NOT LIKE 'report:%') LIMIT 1`);
+  const insNote = db.prepare(`INSERT INTO etudiant_note_detail
+    (etudiant_id, annee_scolaire, ue_num, type, code, cours_code, points, origine)
+    VALUES (?,?,?, 'aa', ?,?,?,?)
+    ON CONFLICT(etudiant_id, annee_scolaire, ue_num, type, code) DO NOTHING`);
+
+  const poses = [];
+  const ecrire = db.transaction(() => {
+    for (const ue of inscr) {
+      const cand = reportsEligibles(etudId, ue, anneeCible, R).cours;
+      if (!cand.length) continue;
+      const aasCible = new Map(structureUE(ue, anneeCible)
+        .flatMap(co => (co.aas || []).map(a => [co.cours_code + '|' + a.aa_code, true])));
+      for (const c of cand) {
+        const deja = existe.get(etudId, anneeCible, ue, c.cours_code);
+        if (deja) continue;                       // accordé ou refusé : la décision existe
+        const aas = (c.aas || []).filter(a => aasCible.has(c.cours_code + '|' + a.aa_code)
+          && !noteExiste.get(etudId, anneeCible, ue, c.cours_code, a.aa_code, a.aa_code));
+        if (!aas.length) continue;
+        poses.push({ etudiant_id: etudId, ue_num: ue, cours_code: c.cours_code, cours_nom: c.cours_nom,
+          note: c.note_affichee ?? c.note, annee_origine: c.annee_origine, aas });
+        if (simulation) continue;
+        insReport.run(etudId, anneeCible, ue, c.cours_code, c.note ?? 0, c.annee_origine, par);
+        for (const a of aas) {
+          insNote.run(etudId, anneeCible, ue, `s1|${c.cours_code}|${a.aa_code}`, c.cours_code,
+            a.note, `report:${c.annee_origine}`);
+        }
+      }
+    }
+  });
+  ecrire();
+  return { poses };
 }
 
 // ── Motivation d'une décision d'ajournement ou de refus ────────────────────
@@ -1728,7 +1851,7 @@ r.get('/cours-etudiant/:etudId', authRequired, (req, res) => {
     WHERE etudiant_id = ? AND type = 'aa' AND annee_scolaire < ?
     ORDER BY annee_scolaire
   `).all(etudId, annee)) {
-    const brut = String(l.code).includes('|') ? String(l.code).split('|')[1] : l.code;
+    const brut = String(l.code).split('|').pop();   // l'acquis est le DERNIER segment : « s1|67.4|AA67.2 »
     const cc = l.cours_code;
     if (cc) anterieures[l.ue_num + '|' + cc] = { points: l.points, annee: l.annee_scolaire };
     anterieures[l.ue_num + '||' + brut] = { points: l.points, annee: l.annee_scolaire };
@@ -1792,7 +1915,7 @@ r.get('/notes-anterieures/:etudId/:ueNum', authRequired, (req, res) => {
   const structure = structureUE(ueNum, an);
   const notes = {};
   for (const l of lignes) {
-    const brut = String(l.code).includes('|') ? String(l.code).split('|')[1] : l.code;
+    const brut = String(l.code).split('|').pop();   // l'acquis est le DERNIER segment : « s1|67.4|AA67.2 »
     const cc = l.cours_code
       || structure.find(c0 => c0.aas.some(a => a.aa_code === brut))?.cours_code;
     if (cc) notes[cc + '|' + brut] = { points: l.points, non_evalue: l.non_evalue };
@@ -1837,8 +1960,8 @@ r.get('/reports/:etudId/:ueNum', authRequired, (req, res) => {
   if (!annee) return res.status(400).json({ error: 'annee requise' });
 
   const actifs = db.prepare(`
-    SELECT cours_code, note, annee_origine, decision_ce FROM etudiant_report_note
-    WHERE etudiant_id = ? AND ue_num = ? AND annee_scolaire = ?
+    SELECT cours_code, note, annee_origine, decision_ce, decide_par FROM etudiant_report_note
+    WHERE etudiant_id = ? AND ue_num = ? AND annee_scolaire = ? AND statut = 'accorde'
   `).all(Number(etudId), Number(ueNum), annee);
 
   const dejaReportes = new Set(actifs.map(a => a.cours_code));
@@ -1853,16 +1976,55 @@ r.put('/reports', authRequired, roleRequired('admin', 'editeur'), (req, res) => 
   if (!etudiant_id || !annee_scolaire || !ue_num || !cours_code || note == null) {
     return res.status(400).json({ error: 'etudiant_id, annee_scolaire, ue_num, cours_code et note requis' });
   }
-  db.prepare(`
-    INSERT INTO etudiant_report_note
-      (etudiant_id, annee_scolaire, ue_num, cours_code, note, annee_origine, decision_ce)
-    VALUES (?,?,?,?,?,?,?)
-    ON CONFLICT(etudiant_id, annee_scolaire, ue_num, cours_code) DO UPDATE SET
-      note = excluded.note, annee_origine = excluded.annee_origine,
-      decision_ce = excluded.decision_ce
-  `).run(Number(etudiant_id), annee_scolaire, Number(ue_num), cours_code,
-         Number(note), annee_origine || null, decision_ce || null);
+  /* LA CLÉ NE CORRESPONDAIT PLUS À LA TABLE — ET AUCUN REPORT N'A JAMAIS PU
+     S'ENREGISTRER. `ON CONFLICT(etudiant_id, annee_scolaire, ue_num,
+     cours_code)` visait la clé d'avant la migration « grain AA » ; SQLite
+     refuse une cible qui ne répond à aucune contrainte, et chaque report
+     accordé depuis la fiche échouait (0 en production le 27 septembre 2026,
+     pour 146 cas éligibles). Et `aa_code` étant NULL pour un report de cours,
+     l'unicité ne joue pas : on cherche donc la ligne, puis on écrit. */
+  const cle = [Number(etudiant_id), annee_scolaire, Number(ue_num), cours_code];
+  const ligne = db.prepare(`SELECT id FROM etudiant_report_note
+    WHERE etudiant_id = ? AND annee_scolaire = ? AND ue_num = ? AND cible = 'cours'
+      AND cours_code = ? AND aa_code IS NULL`).get(...cle);
+  if (ligne) {
+    db.prepare(`UPDATE etudiant_report_note SET note = ?, annee_origine = ?, decision_ce = ?,
+      statut = 'accorde', decide_le = datetime('now'), decide_par = ? WHERE id = ?`)
+      .run(Number(note), annee_origine || null, decision_ce || null, req.user?.nom || req.user?.email || null, ligne.id);
+  } else {
+    db.prepare(`INSERT INTO etudiant_report_note
+      (etudiant_id, annee_scolaire, ue_num, cible, cours_code, aa_code, note, annee_origine,
+       statut, decision_ce, decide_le, decide_par)
+      VALUES (?,?,?, 'cours', ?, NULL, ?, ?, 'accorde', ?, datetime('now'), ?)`)
+      .run(...cle, Number(note), annee_origine || null, decision_ce || null, req.user?.nom || req.user?.email || null);
+  }
   res.json({ ok: true });
+});
+
+/* LE RATTRAPAGE : poser d'office les reports des PAE déjà composés. Rien ne
+   s'écrit sans avoir été vu — `simulation` (défaut) rend la liste, le second
+   appel l'écrit. Borné au périmètre de celui qui le demande. */
+r.post('/reports/office', authRequired, roleRequired('admin', 'directeur', 'directeur_adjoint', 'editeur'), (req, res) => {
+  const { annee, simulation = true } = req.body || {};
+  if (!annee) return res.status(400).json({ error: 'annee requise' });
+  const perim = getUserSections(req.user);
+  const ids = db.prepare(`SELECT DISTINCT i.etudiant_id id, e.nom, e.prenom, e.section_rattachement section
+    FROM etudiant_inscription i JOIN etudiant e ON e.id = i.etudiant_id
+    WHERE i.annee_scolaire = ?`).all(annee)
+    .filter(x => !perim || !x.section || perim.includes(x.section));
+  const lignes = [];
+  try {
+    for (const x of ids) {
+      const { poses } = poserReportsDOffice(x.id, annee, { simulation: !!simulation,
+        par: simulation ? undefined : `${req.user?.nom || req.user?.email || 'Lucie'} — d'office` });
+      for (const p of poses) lignes.push({ ...p, nom: x.nom, prenom: x.prenom, section: x.section });
+    }
+  } catch (e) {
+    console.error('[reports d\'office]', e);
+    return res.status(500).json({ error: `Les reports n'ont pas pu être posés : ${e.message}` });
+  }
+  res.json({ annee, simulation: !!simulation, lignes,
+    etudiants: new Set(lignes.map(l => l.etudiant_id)).size });
 });
 
 r.delete('/reports/:etudId/:ueNum/:coursCode', authRequired, roleRequired('admin', 'editeur'), (req, res) => {

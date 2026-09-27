@@ -92,7 +92,7 @@ export function AxeEtudiants() {
        * le PAE suivant), on instruit (valorisation, délibération), on délivre
        * (diplômes) — puis l'exception (procédures), puis ce qui efface. */
       ordreRail={[
-        ['nouvel-etudiant', 'pae', 'passage', 'valorisation', 'deliberation',
+        ['nouvel-etudiant', 'pae', 'passage', 'reports', 'valorisation', 'deliberation',
          'diplomation'],
         ['procedures'],
         ['purge'],

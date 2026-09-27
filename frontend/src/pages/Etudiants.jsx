@@ -5,12 +5,13 @@ import { RailLateral } from '../components/ui.jsx';
 import SuiviEtudiant from '../components/SuiviEtudiant.jsx';
 import NouvelEtudiant from '../components/NouvelEtudiant.jsx';
 import {
-  IconAddressBook, IconAlertTriangle, IconArchive, IconDoorExit, IconSchool, IconArrowBackUp, IconAward, IconCertificate, IconStairsUp, IconUserPlus, IconCheck, IconChecklist, IconChevronLeft, IconChevronRight, IconClock, IconFileText, IconFolder, IconPlus, IconPrinter, IconSearch, IconTable, IconTrash, IconUpload, IconUser, IconSend, IconWritingSign, IconWritingSignOff, IconX,
+  IconAddressBook, IconAlertTriangle, IconArrowForwardUp, IconArchive, IconDoorExit, IconSchool, IconArrowBackUp, IconAward, IconCertificate, IconStairsUp, IconUserPlus, IconCheck, IconChecklist, IconChevronLeft, IconChevronRight, IconClock, IconFileText, IconFolder, IconPlus, IconPrinter, IconSearch, IconTable, IconTrash, IconUpload, IconUser, IconSend, IconWritingSign, IconWritingSignOff, IconX,
   IconChecks,
 } from '@tabler/icons-react';
 import { authHeaders, getAnnee, getUser } from '../lib/api.js';
 import PreviewModal from '../components/PreviewModal.jsx';
 import SchemaCapitalisationVue from '../components/SchemaCapitalisation.jsx';
+import ReportsOffice from '../components/ReportsOffice.jsx';
 import Amenagements from '../components/Amenagements.jsx';
 import Stages from '../components/Stages.jsx';
 import IdentiteEtudiant, { ComplementDossiers } from '../components/IdentiteEtudiant.jsx';
@@ -2605,6 +2606,7 @@ export default function Etudiants() {
   const [centreImpression, setCentreImpression] = useState(false);
   // Le passage d'année : toute une section, sur ses résultats.
   const [passage, setPassage] = useState(false);
+  const [reportsOffice, setReportsOffice] = useState(false);
   const [composer, setComposer] = useState(false);
   // Une seule porte pour les huit imports et les exports.
   const [echanges, setEchanges] = useState(false);
@@ -3143,6 +3145,10 @@ export default function Etudiants() {
            grille de composition, dont le passage d'année n'est plus qu'un
            des gestes. On garde l'icône — c'est celle que Charles cherche. */
         icon: IconStairsUp, onClick: () => setComposer('composer') },
+      // LES REPORTS D'OFFICE (27 septembre 2026) : se posent seuls à chaque PAE
+      // enregistré ; cette entrée rattrape les PAE composés avant.
+      { key: 'reports', label: 'Reports de notes', icon: IconArrowForwardUp,
+        onClick: () => setReportsOffice(true) },
       // « Valider les PAE » n'a plus d'entrée à lui (Charles, 26 septembre
       // 2026 : « il est dans la fenêtre PAE ») : Valider est un des modes de
       // la fenêtre Composer les PAE.
@@ -3619,6 +3625,7 @@ export default function Etudiants() {
           onClose={() => setComposer(false)} onTermine={charger}
           onPassage={() => { setComposer(false); setPassage(true); }} />
       )}
+      {reportsOffice && <ReportsOffice annee={annee} onClose={() => { setReportsOffice(false); charger(); }} />}
       {passage && (
         <PassageAnnee annee={annee}
           onClose={() => setPassage(false)} onTermine={charger} />
