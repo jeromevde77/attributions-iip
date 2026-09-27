@@ -68,7 +68,7 @@ export function genererTemplate() {
   ol.annexes li { margin-bottom: 1.5mm; line-height: 1.4; font-size: 8.5pt; }
   .footer-iip { margin-top: 8mm; flex-shrink: 0; }
   .footer-iip .logo { height: 10mm; width: auto; opacity: 0.9; display: block; margin-bottom: 2.5mm; }
-  .footer-iip .txt { border-top: 0.5pt solid #C9A84C; padding-top: 2.5mm; font-size: 6pt; color: #888; text-align: center; line-height: 1.4; }
+  .footer-iip .txt { border-top: 0.5pt solid #C9A84C; padding-top: 2.5mm; font-size: 6pt; color: #3F4652; text-align: center; line-height: 1.4; }
 
   /* Impression : le tfoot (voir HTML plus bas) se répète nativement sur chaque page dans tous les navigateurs */
   @media print {

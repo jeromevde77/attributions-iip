@@ -77,7 +77,7 @@ export function genererTemplateExpert() {
   .note { font-size: 7.5pt; color: #666; font-style: italic; margin-top: 3mm; }
   .footer-iip { margin-top: 8mm; flex-shrink: 0; }
   .footer-iip .logo { height: 10mm; width: auto; opacity: 0.9; display: block; margin-bottom: 2.5mm; }
-  .footer-iip .txt { border-top: 0.5pt solid #C9A84C; padding-top: 2.5mm; font-size: 6pt; color: #888; text-align: center; line-height: 1.4; }
+  .footer-iip .txt { border-top: 0.5pt solid #C9A84C; padding-top: 2.5mm; font-size: 6pt; color: #3F4652; text-align: center; line-height: 1.4; }
   @media print {
     @page { size: A4 portrait; margin: 12mm 16mm; }
     body { margin: 0; }
