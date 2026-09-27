@@ -1,4 +1,5 @@
 import { useEffect, useState, useMemo } from 'react';
+import { couleurBloc } from '../lib/blocs.js';
 import { estDirection } from '../lib/modules.js';
 import { VoletRail, Fenetre } from '../components/ui.jsx';
 import { createPortal } from 'react-dom';
@@ -844,11 +845,14 @@ export default function Attributions() {
   function toggle(key) { setOpenUEs(s=>{const x=new Set(s); x.has(key)?x.delete(key):x.add(key); return x;}); }
 
   // Couleurs du badge quadrimestre (3 états + neutre)
+  /* LES PASTILLES D'UNE UE SONT DES MENTIONS, PAS DES ÉTATS (Charles, 27
+     septembre 2026 : « c'est le bordel »). Le quadrimestre se peignait en
+     jaune, bleu ou mauve et le numéro d'organisation en ocre — la couleur de
+     l'alerte — alors qu'aucun des deux ne signale rien : tout passe en gris,
+     et le quadrimestre non défini, lui seul, se voit en pointillé. */
   function quadriStyle(q) {
-    if (q === 'Q1')    return 'bg-iip-turquoise/10 text-iip-blue';
-    if (q === 'Q2')    return 'bg-amber-100 text-amber-800';
-    if (q === 'Q1/Q2') return 'bg-iip-mauve/15 text-iip-mauve';
-    return 'bg-gray-100 text-gray-400'; // non défini
+    return q ? 'bg-white border border-slate-200 text-slate-600'
+             : 'bg-white border border-dashed border-slate-300 text-slate-400';
   }
   async function changeQuadri(ue, sec, org, q) {
     setQuadriMenu(null);
@@ -1937,37 +1941,18 @@ export default function Attributions() {
       } ${isTC ? 'border-t-2 border-t-blue-900 rounded-t-md' : ''}`}>
         <div className={`w-full flex items-center pl-6 pr-3 py-1.5 transition relative ${activeUE === key ? (isHelb ? 'bg-pink-50 hover:bg-pink-100/70' : 'bg-iip-gold/5 hover:bg-iip-gold/10') : (isHelb ? 'hover:bg-pink-100/60' : 'hover:bg-gray-50')}`}>
           <div onClick={()=>{toggle(key); setActiveUE(key);}} role="button" className="grid items-center gap-2 flex-1 min-w-0 text-left cursor-pointer"
-                  style={{ gridTemplateColumns: '16px 70px 110px 1fr auto' }}>
+                  style={{ gridTemplateColumns: '16px 70px 200px 1fr auto' }}>
             <IconChevronRight size={14} className={`text-iip-gold text-sm transition-transform ${open?'rotate-90':''}`} />
             <span className="font-semibold text-iip-gold text-sm whitespace-nowrap">UE {ue.ue_num}</span>
-            <span className="flex items-center gap-1 flex-wrap">
-              {isTC && <span className="text-xs bg-iip-turquoise/5 text-iip-blue border border-iip-turquoise px-1.5 py-0.5 rounded font-bold" title="Unité du tronc commun">TC</span>}
-              {org > 1 && viewMode!=='coord' && (
-                <span className="relative inline-block" onClick={e=>e.stopPropagation()}>
-                  <button onClick={(e)=>{
-                      const r = e.currentTarget.getBoundingClientRect();
-                      setOrgMenuPos({ top: r.top - 4, left: r.left });
-                      setOrgMenu(orgMenu===key?null:key);
-                    }}
-                    title="Numéro d'organisation de cette UE (cliquer pour renuméroter)"
-                    className="text-xs bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded font-semibold cursor-pointer hover:ring-1 hover:ring-amber-300">
-                    Org. {org}
-                  </button>
-                  {orgMenu===key && createPortal(
-                    <div style={{ position:'fixed', top: orgMenuPos.top, left: orgMenuPos.left, transform:'translateY(-100%)' }}
-                      className="z-[9999] bg-white border border-gray-200 rounded-lg shadow-xl py-1 w-32">
-                      {[1,2,3,4].filter(n=>n!==org).map(n => (
-                        <button key={n} onClick={()=>renumeroterOrg(ue, sec, org, n)}
-                          className="w-full flex items-center gap-1.5 text-left px-3 py-1 text-sm hover:bg-amber-50">
-                          <IconChevronRight size={12} className="text-amber-500 flex-shrink-0"/> Orga {n}
-                        </button>
-                      ))}
-                    </div>, document.body
-                  )}
-                </span>
-              )}
-              {ue.bloc && <span className="text-xs bg-iip-gold/10 text-iip-gold px-1.5 py-0.5 rounded">{ue.bloc}</span>}
-              {isHelb && <span className="text-xs text-pink-600 font-bold px-1.5 py-0.5 rounded bg-pink-100">HELB</span>}
+            {/* DES CASES FIXES, TOUJOURS DANS LE MÊME ORDRE — bloc · quadrimestre ·
+                organisation · TC · HELB : d'une ligne à l'autre, une même pastille
+                tombe sous la même, et rien ne passe à la ligne. */}
+            <span className="flex items-center gap-1 flex-nowrap whitespace-nowrap overflow-hidden">
+              <span className="w-12 flex-none">
+                {ue.bloc && <span className="inline-block text-[11px] bg-white border border-slate-200 border-l-[3px] text-slate-600 px-1.5 py-0.5 rounded"
+                  style={{ borderLeftColor: couleurBloc(ue.bloc) || '#D8DCE4' }}>{ue.bloc}</span>}
+              </span>
+              <span className="w-14 flex-none">
               <span className="relative inline-block" onClick={e=>e.stopPropagation()}>
                 <button onClick={(e)=>{
                     const r = e.currentTarget.getBoundingClientRect();
@@ -1975,7 +1960,7 @@ export default function Attributions() {
                     setQuadriMenu(quadriMenu===key?null:key);
                   }}
                   title="Quadrimestre de cette organisation (cliquer pour modifier)"
-                  className={`text-xs px-1.5 py-0.5 rounded font-semibold cursor-pointer hover:ring-1 hover:ring-gray-300 ${quadriStyle(ue.quadri_org || ue.ue_quad)}`}>
+                  className={`text-[11px] px-1.5 py-0.5 rounded cursor-pointer hover:border-slate-400 ${quadriStyle(ue.quadri_org || ue.ue_quad)}`}>
                   {ue.quadri_org || ue.ue_quad || '— Q'}
                   {ue.quadri_org && ue.quadri_org !== ue.ue_quad && (
                     <span className="ml-0.5 text-[10px] opacity-60">*</span>
@@ -1991,6 +1976,35 @@ export default function Attributions() {
                   </div>, document.body
                 )}
               </span>
+              </span>
+              <span className="w-14 flex-none">
+              {org > 1 && viewMode!=='coord' && (
+                <span className="relative inline-block" onClick={e=>e.stopPropagation()}>
+                  <button onClick={(e)=>{
+                      const r = e.currentTarget.getBoundingClientRect();
+                      setOrgMenuPos({ top: r.top - 4, left: r.left });
+                      setOrgMenu(orgMenu===key?null:key);
+                    }}
+                    title="Numéro d'organisation de cette UE (cliquer pour renuméroter)"
+                    className="text-[11px] bg-white border border-slate-200 text-slate-600 px-1.5 py-0.5 rounded cursor-pointer hover:border-slate-400">
+                    Org. {org}
+                  </button>
+                  {orgMenu===key && createPortal(
+                    <div style={{ position:'fixed', top: orgMenuPos.top, left: orgMenuPos.left, transform:'translateY(-100%)' }}
+                      className="z-[9999] bg-white border border-gray-200 rounded-lg shadow-xl py-1 w-32">
+                      {[1,2,3,4].filter(n=>n!==org).map(n => (
+                        <button key={n} onClick={()=>renumeroterOrg(ue, sec, org, n)}
+                          className="w-full flex items-center gap-1.5 text-left px-3 py-1 text-sm hover:bg-amber-50">
+                          <IconChevronRight size={12} className="text-amber-500 flex-shrink-0"/> Orga {n}
+                        </button>
+                      ))}
+                    </div>, document.body
+                  )}
+                </span>
+              )}
+              </span>
+              {isTC && <span className="text-[11px] bg-white border border-slate-200 text-iip-blue px-1.5 py-0.5 rounded font-semibold" title="Unité du tronc commun">TC</span>}
+              {isHelb && <span className="text-[11px] bg-white border border-slate-200 text-slate-600 px-1.5 py-0.5 rounded font-semibold">HELB</span>}
             </span>
             <span className="flex items-center gap-2 min-w-0">
               <span className="text-sm text-gray-600 truncate" title={ue.ue_nom}>{ue.ue_nom || 'UE sans nom'}</span>

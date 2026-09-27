@@ -80,7 +80,7 @@ export default function AttributionCard({ row, selected, onToggleSelect, onChang
           <div className="flex-1 min-w-0" onClick={() => setOpen(true)}>
             <div className="flex items-center gap-1.5 text-xs text-gray-500 mb-1 flex-wrap">
               <span>UE {row.ue_num}</span>
-              {row.num_organisation > 1 && <span className="bg-amber-100 text-amber-800 px-1 rounded text-[10px] font-semibold">Org. {row.num_organisation}</span>}
+              {row.num_organisation > 1 && <span className="bg-white border border-slate-200 text-slate-600 px-1 rounded text-[10px]">Org. {row.num_organisation}</span>}
               {row.code_cours && <><span>·</span><span>{row.code_cours}</span></>}
               {row.bloc && <><span>·</span><span>{row.bloc}</span></>}
             </div>
