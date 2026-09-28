@@ -465,8 +465,12 @@ r.get('/referentiel', authRequired, (req, res) => {
   res.json({ profs, locaux });
 });
 
+/* Le nom du cours : celui de l'année de la séance, sinon le plus récent. PAS DE
+   COLONNE EXTÉRIEURE DANS UN ORDER BY de sous-requête : le SQLite du serveur
+   la refuse (« no such column »), celui du poste de développement l'accepte. */
 const SEANCE_SQL = `SELECT s.*, p.nom AS prof_nom, p.prenom AS prof_prenom, g.nom AS groupe_nom,
-    (SELECT cours_nom FROM cours c WHERE c.cours_code = s.cours_code ORDER BY (c.annee_scolaire = s.annee_scolaire) DESC LIMIT 1) AS cours_nom
+    COALESCE((SELECT cours_nom FROM cours c WHERE c.cours_code = s.cours_code AND c.annee_scolaire = s.annee_scolaire LIMIT 1),
+      (SELECT cours_nom FROM cours c WHERE c.cours_code = s.cours_code ORDER BY c.annee_scolaire DESC LIMIT 1)) AS cours_nom
   FROM horaire_seance s LEFT JOIN professeur p ON p.id = s.professeur_id LEFT JOIN groupe g ON g.id = s.groupe_id`;
 
 /** Les conflits d'un ensemble de séances d'un même jour. */
@@ -516,7 +520,8 @@ r.get('/semaine', authRequired, (req, res) => {
     const ues = unitesDeClasse(sec, bloc, an);
     const groupes = db.prepare(`SELECT g.id, g.ue_num, g.code_cours, g.nom, g.heures_attribuees, g.ue_quad, g.professeur_id,
         p.nom AS prof_nom, p.prenom AS prof_prenom,
-        (SELECT cours_nom FROM cours c WHERE c.cours_code = g.code_cours ORDER BY (c.annee_scolaire = g.annee_scolaire) DESC LIMIT 1) AS cours_nom
+        COALESCE((SELECT cours_nom FROM cours c WHERE c.cours_code = g.code_cours AND c.annee_scolaire = g.annee_scolaire LIMIT 1),
+          (SELECT cours_nom FROM cours c WHERE c.cours_code = g.code_cours ORDER BY c.annee_scolaire DESC LIMIT 1)) AS cours_nom
       FROM groupe g LEFT JOIN professeur p ON p.id = g.professeur_id
       WHERE g.annee_scolaire = ? AND g.section = ? ORDER BY g.code_cours, g.nom`).all(an, sec).filter(g => ues.has(g.ue_num));
     const pose = db.prepare(`SELECT COALESCE(SUM(minutes), 0) AS m FROM horaire_seance WHERE annee_scolaire = ? AND groupe_id = ? AND annule = 0`);
