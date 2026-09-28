@@ -103,6 +103,17 @@ function BadgeNiveau({ niveau, libelle, className = '' }) {
 /* LA FRISE DU PARCOURS, SUR LA LIGNE DE LA LISTE (Charles, 26 septembre
    2026) : les UE de la section dans l'ordre du cursus, groupées par bloc,
    l'épreuve intégrée au bout. Une lettre par UE (voir /api/etudiants/frises). */
+/* UNE DÉROGATION AU PAE SE MOTIVE (porte unique, 28 septembre 2026). Le
+   serveur nomme chaque unité refusée et la règle qu'elle enfreint ; un motif,
+   donné une fois, vaut pour chacune et se trace sur chacune. */
+function demanderMotifs(refus) {
+  const lignes = refus.map(x => `UE ${x.ue_num} — ${x.regles.map(r0 => r0.libelle + (r0.detail ? ` (${r0.detail})` : '')).join(' ; ')}`);
+  const m = window.prompt(`Ces unités contreviennent aux règles du PAE :\n\n${lignes.join('\n')}\n\n`
+    + 'Motif de la dérogation — il sera tracé sur chacune (Annuler pour ne rien écrire) :');
+  if (!m?.trim()) return null;
+  return Object.fromEntries(refus.map(x => [x.ue_num, m.trim()]));
+}
+
 const SENS_PUCE = { r: 'réussie', f: 'réussie par faveur', i: 'inscrite cette année',
   a: 'ajournée, en attente', o: 'atteignable, non prise', n: 'pas encore atteignable' };
 function FriseParcours({ ues, codes }) {
@@ -327,14 +338,28 @@ function GrilleParcours({ etudId, peutEcrire, annee, ueFocus = null }) {
 
   async function ecrire(kind, opts = {}) {
     if (!popover) return;
+    // Une dérogation se motive, et le motif se trace (porte unique du PAE).
+    let motif = opts.motif;
+    if (kind === 'inscrit' && popover.verrou && !motif) {
+      motif = window.prompt('Motif de la dérogation — il sera tracé au dossier :');
+      if (!motif?.trim()) return;
+    }
     const rep = await fetch(`/api/etudiants/${etudId}/grille`, {
       method: 'PUT', headers: authHeaders(),
       body: JSON.stringify({
         annee: popover.annee, ue_num: popover.ue_num, kind,
-        points: opts.points, derogation: popover.verrou ? 1 : 0,
+        points: opts.points, motif: motif || undefined,
       }),
     });
-    if (!rep.ok) { const j = await rep.json().catch(() => ({})); alert(j.error || 'Erreur'); return; }
+    if (!rep.ok) {
+      const j = await rep.json().catch(() => ({}));
+      if (rep.status === 409 && j.motif_requis && !motif) {
+        const m = window.prompt(`${j.error}\n\nMotif (il sera tracé au dossier) :`);
+        if (m?.trim()) return ecrire(kind, { ...opts, motif: m });
+        return;
+      }
+      alert(j.error || 'Erreur'); return;
+    }
     setPopover(null); setPts(''); setDetail(null); setDetailOuvert(false);
     await charger();
   }
@@ -1972,12 +1997,32 @@ function FicheEtudiant({ id, annee, onClose, position, onPrec, onSuiv,
         setPaeConfirme(false);
         return;
       }
-      const ues = (pae?.pae || []).filter(u => u.inscrit || u.propose).map(u => u.ue_num);
-      const rep = await fetch(`/api/etudiants/${id}/pae/confirmer`, {
+      /* ON CONFIRME CE QUE L'ÉCRAN MONTRE. La liste partait de `u.inscrit ||
+         u.propose` — le champ s'appelle `inscrite` : c'était donc la
+         proposition brute qui s'inscrivait, quoi qu'on ait coché ou décoché.
+         La confirmation n'ajoute que ; une inscription décochée doit d'abord
+         être retirée en enregistrant le PAE. */
+      const ues = [...(selection || [])];
+      const decochees = (pae?.pae || []).filter(u => u.inscrite && !(selection || new Set()).has(u.ue_num));
+      if (decochees.length) {
+        alert(`${decochees.length} inscription(s) décochée(s) (UE ${decochees.map(u => u.ue_num).join(', ')}) : `
+          + `enregistrez d'abord le PAE pour les retirer, puis confirmez.`);
+        return;
+      }
+      let rep = await fetch(`/api/etudiants/${id}/pae/confirmer`, {
         method: 'POST', headers: authHeaders(),
         body: JSON.stringify({ annee, ues }),
       });
-      const j = await rep.json();
+      let j = await rep.json();
+      if (rep.status === 409 && j.refus?.length) {
+        const motifs = demanderMotifs(j.refus);
+        if (!motifs) return;
+        rep = await fetch(`/api/etudiants/${id}/pae/confirmer`, {
+          method: 'POST', headers: authHeaders(),
+          body: JSON.stringify({ annee, ues, motifs }),
+        });
+        j = await rep.json();
+      }
       if (!rep.ok) { alert(j.error || 'La confirmation a échoué.'); return; }
       setPaeConfirme(true);
       await chargerPAE();
@@ -1990,14 +2035,23 @@ function FicheEtudiant({ id, annee, onClose, position, onPrec, onSuiv,
     setEnregistrement(true);
     try {
       const ue_nums = [...selection];
-      const derogations = pae.pae
-        .filter(u => selection.has(u.ue_num) && !u.propose && !u.accessible && !u.reinscriptible_ce)
-        .map(u => u.ue_num);
-      const rep = await fetch(`/api/etudiants/${id}/pae-valider`, {
+      // Le serveur juge chaque ajout (porte unique) ; s'il en refuse, on
+      // demande un motif — il sera tracé sur chacune des unités nommées.
+      let motifs = {};
+      let rep = await fetch(`/api/etudiants/${id}/pae-valider`, {
         method: 'POST', headers: authHeaders(),
-        body: JSON.stringify({ annee, ue_nums, derogations }),
+        body: JSON.stringify({ annee, ue_nums }),
       });
-      const j = await rep.json();
+      let j = await rep.json();
+      if (rep.status === 409 && j.refus?.length) {
+        motifs = demanderMotifs(j.refus);
+        if (!motifs) return;
+        rep = await fetch(`/api/etudiants/${id}/pae-valider`, {
+          method: 'POST', headers: authHeaders(),
+          body: JSON.stringify({ annee, ue_nums, motifs }),
+        });
+        j = await rep.json();
+      }
       if (!rep.ok) { alert(j.error || 'Erreur'); return; }
 
       // Les inscriptions portant un résultat ne sont jamais retirées d'office
@@ -2008,7 +2062,7 @@ function FicheEtudiant({ id, annee, onClose, position, onPrec, onSuiv,
         if (forcer) {
           const rep2 = await fetch(`/api/etudiants/${id}/pae-valider`, {
             method: 'POST', headers: authHeaders(),
-            body: JSON.stringify({ annee, ue_nums, derogations, forcer: true }),
+            body: JSON.stringify({ annee, ue_nums, motifs, forcer: true }),
           });
           const j2 = await rep2.json();
           if (rep2.ok) {
@@ -2102,7 +2156,14 @@ function FicheEtudiant({ id, annee, onClose, position, onPrec, onSuiv,
         // Une inscription existante n'est reconduite que si elle TIENT :
         // ni déjà acquise, ni bloquée par des prérequis manquants. Sans quoi
         // un programme calculé par erreur se perpétuerait d'année en année.
-        setSelection(new Set(j.pae.filter(u =>
+        /* UN PAE CONFIRMÉ SE MONTRE TEL QU'IL EST INSCRIT (Charles, 28 septembre
+           2026 : « les tuiles ne correspondent pas aux inscriptions »). La
+           sélection repartait de la PROPOSITION à chaque ouverture : le schéma
+           peignait en bleu ce que Lucie proposerait aujourd'hui, pas ce qui a
+           été confirmé. Non confirmé, il reste une proposition — et l'écart
+           avec ce qui est enregistré est nommé au-dessus de la liste. */
+        const inscritesAn = j.pae.filter(u => u.inscrite).map(u => u.ue_num);
+        setSelection(new Set(j.pae_confirme && inscritesAn.length ? inscritesAn : j.pae.filter(u =>
           !u.deja_reussie && (u.propose || (u.inscrite && (u.accessible || u.sous_reserve)))
         ).map(u => u.ue_num)));
       }
@@ -2398,14 +2459,31 @@ function FicheEtudiant({ id, annee, onClose, position, onPrec, onSuiv,
                     </div>
                   </div>
 
+                  {(() => {
+                    /* L'ÉCART ENTRE L'ÉCRAN ET LA BASE SE NOMME : ce qui est coché
+                       sans être inscrit, ce qui est inscrit sans être coché. */
+                    const ajouts = retenues.filter(u => !u.inscrite).map(u => u.ue_num);
+                    const retraits = pae.pae.filter(u => u.inscrite && !sel.has(u.ue_num)).map(u => u.ue_num);
+                    if (!ajouts.length && !retraits.length) return null;
+                    return (
+                      <div data-etat="surveiller" className="bloc-etat mb-3 px-3 py-2 text-[12px]">
+                        <b>Le schéma et la liste montrent le programme {paeConfirme ? 'modifié' : 'proposé'}, pas encore enregistré.</b>
+                        {ajouts.length > 0 && <div>Coché, pas encore inscrit : UE {ajouts.join(', ')}</div>}
+                        {retraits.length > 0 && <div>Inscrit, décoché : UE {retraits.join(', ')}</div>}
+                        <div className="text-slate-500">Inscriptions enregistrées : {pae.pae.filter(u => u.inscrite).map(u => u.ue_num).join(', ') || 'aucune'}.</div>
+                      </div>
+                    );
+                  })()}
+
                   {bloquees.length > 0 && (
                     <div className="mb-3 px-3 py-2.5 rounded-xl bg-red-50 border border-red-200">
                       <div className="flex items-start gap-2">
                         <IconAlertTriangle size={15} className="text-red-600 mt-0.5 flex-none" />
                         <div className="flex-1 text-[12px] text-red-900">
                           <b>{bloquees.length} inscription(s) impossible(s)</b> en {pae.annee} :
-                          les prérequis ne sont pas acquis. Elles ne sont pas reconduites ;
-                          enregistrer le PAE les retirera.
+                          les prérequis ne sont pas acquis. {paeConfirme
+                            ? 'Le PAE est confirmé avec elles : décochez-les puis enregistrez pour les retirer.'
+                            : 'Elles ne sont pas reconduites ; enregistrer le PAE les retirera.'}
                           <ul className="mt-1 space-y-0.5 text-[11px] text-red-800">
                             {bloquees.slice(0, 8).map(u => (
                               <li key={u.ue_num}>
@@ -2426,7 +2504,8 @@ function FicheEtudiant({ id, annee, onClose, position, onPrec, onSuiv,
                         <div className="flex-1 text-[12px] text-amber-900">
                           <b>{residuelles.length} UE déjà réussie(s)</b> portent encore une inscription
                           en {pae.annee} — vestige d'un programme calculé avant l'encodage des résultats.
-                          Elles ne sont plus proposées ; enregistrer le PAE les retirera.
+                          {paeConfirme ? 'Décochez-les puis enregistrez pour les retirer.'
+                            : 'Elles ne sont plus proposées ; enregistrer le PAE les retirera.'}
                           <div className="text-[11px] text-amber-700 mt-0.5">
                             UE {residuelles.map(u => u.ue_num).join(', ')}
                           </div>
