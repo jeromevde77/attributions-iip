@@ -1972,7 +1972,18 @@ function FicheEtudiant({ id, annee, onClose, position, onPrec, onSuiv,
         setPaeConfirme(false);
         return;
       }
-      const ues = (pae?.pae || []).filter(u => u.inscrit || u.propose).map(u => u.ue_num);
+      /* ON CONFIRME CE QUE L'ÉCRAN MONTRE. La liste partait de `u.inscrit ||
+         u.propose` — le champ s'appelle `inscrite` : c'était donc la
+         proposition brute qui s'inscrivait, quoi qu'on ait coché ou décoché.
+         La confirmation n'ajoute que ; une inscription décochée doit d'abord
+         être retirée en enregistrant le PAE. */
+      const ues = [...(selection || [])];
+      const decochees = (pae?.pae || []).filter(u => u.inscrite && !(selection || new Set()).has(u.ue_num));
+      if (decochees.length) {
+        alert(`${decochees.length} inscription(s) décochée(s) (UE ${decochees.map(u => u.ue_num).join(', ')}) : `
+          + `enregistrez d'abord le PAE pour les retirer, puis confirmez.`);
+        return;
+      }
       const rep = await fetch(`/api/etudiants/${id}/pae/confirmer`, {
         method: 'POST', headers: authHeaders(),
         body: JSON.stringify({ annee, ues }),
@@ -2102,7 +2113,14 @@ function FicheEtudiant({ id, annee, onClose, position, onPrec, onSuiv,
         // Une inscription existante n'est reconduite que si elle TIENT :
         // ni déjà acquise, ni bloquée par des prérequis manquants. Sans quoi
         // un programme calculé par erreur se perpétuerait d'année en année.
-        setSelection(new Set(j.pae.filter(u =>
+        /* UN PAE CONFIRMÉ SE MONTRE TEL QU'IL EST INSCRIT (Charles, 28 septembre
+           2026 : « les tuiles ne correspondent pas aux inscriptions »). La
+           sélection repartait de la PROPOSITION à chaque ouverture : le schéma
+           peignait en bleu ce que Lucie proposerait aujourd'hui, pas ce qui a
+           été confirmé. Non confirmé, il reste une proposition — et l'écart
+           avec ce qui est enregistré est nommé au-dessus de la liste. */
+        const inscritesAn = j.pae.filter(u => u.inscrite).map(u => u.ue_num);
+        setSelection(new Set(j.pae_confirme && inscritesAn.length ? inscritesAn : j.pae.filter(u =>
           !u.deja_reussie && (u.propose || (u.inscrite && (u.accessible || u.sous_reserve)))
         ).map(u => u.ue_num)));
       }
@@ -2398,14 +2416,31 @@ function FicheEtudiant({ id, annee, onClose, position, onPrec, onSuiv,
                     </div>
                   </div>
 
+                  {(() => {
+                    /* L'ÉCART ENTRE L'ÉCRAN ET LA BASE SE NOMME : ce qui est coché
+                       sans être inscrit, ce qui est inscrit sans être coché. */
+                    const ajouts = retenues.filter(u => !u.inscrite).map(u => u.ue_num);
+                    const retraits = pae.pae.filter(u => u.inscrite && !sel.has(u.ue_num)).map(u => u.ue_num);
+                    if (!ajouts.length && !retraits.length) return null;
+                    return (
+                      <div data-etat="surveiller" className="bloc-etat mb-3 px-3 py-2 text-[12px]">
+                        <b>Le schéma et la liste montrent le programme {paeConfirme ? 'modifié' : 'proposé'}, pas encore enregistré.</b>
+                        {ajouts.length > 0 && <div>Coché, pas encore inscrit : UE {ajouts.join(', ')}</div>}
+                        {retraits.length > 0 && <div>Inscrit, décoché : UE {retraits.join(', ')}</div>}
+                        <div className="text-slate-500">Inscriptions enregistrées : {pae.pae.filter(u => u.inscrite).map(u => u.ue_num).join(', ') || 'aucune'}.</div>
+                      </div>
+                    );
+                  })()}
+
                   {bloquees.length > 0 && (
                     <div className="mb-3 px-3 py-2.5 rounded-xl bg-red-50 border border-red-200">
                       <div className="flex items-start gap-2">
                         <IconAlertTriangle size={15} className="text-red-600 mt-0.5 flex-none" />
                         <div className="flex-1 text-[12px] text-red-900">
                           <b>{bloquees.length} inscription(s) impossible(s)</b> en {pae.annee} :
-                          les prérequis ne sont pas acquis. Elles ne sont pas reconduites ;
-                          enregistrer le PAE les retirera.
+                          les prérequis ne sont pas acquis. {paeConfirme
+                            ? 'Le PAE est confirmé avec elles : décochez-les puis enregistrez pour les retirer.'
+                            : 'Elles ne sont pas reconduites ; enregistrer le PAE les retirera.'}
                           <ul className="mt-1 space-y-0.5 text-[11px] text-red-800">
                             {bloquees.slice(0, 8).map(u => (
                               <li key={u.ue_num}>
@@ -2426,7 +2461,8 @@ function FicheEtudiant({ id, annee, onClose, position, onPrec, onSuiv,
                         <div className="flex-1 text-[12px] text-amber-900">
                           <b>{residuelles.length} UE déjà réussie(s)</b> portent encore une inscription
                           en {pae.annee} — vestige d'un programme calculé avant l'encodage des résultats.
-                          Elles ne sont plus proposées ; enregistrer le PAE les retirera.
+                          {paeConfirme ? 'Décochez-les puis enregistrez pour les retirer.'
+                            : 'Elles ne sont plus proposées ; enregistrer le PAE les retirera.'}
                           <div className="text-[11px] text-amber-700 mt-0.5">
                             UE {residuelles.map(u => u.ue_num).join(', ')}
                           </div>
