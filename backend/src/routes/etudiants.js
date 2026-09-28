@@ -3293,6 +3293,20 @@ r.get('/pae-grille', authRequired, (req, res) => {
       l.cases[a.ue_num] = { ...c, acquise: { annee: a.annee, note: a.note ?? null, va: !!a.va } };
     }
   }
+  /* L'ÉCHEC D'UNE ANNÉE ANTÉRIEURE SE VOIT AUSSI (Charles, 28 septembre 2026 :
+     le coin rouge de la case). La DERNIÈRE décision antérieure fait foi :
+     refusée ou ajournée, et pas réussie depuis. */
+  for (const x of db.prepare(`SELECT i.etudiant_id, i.ue_num, i.annee_scolaire AS annee, i.resultat
+      FROM etudiant_inscription i WHERE i.annee_scolaire < ? AND i.annee_scolaire = (
+        SELECT MAX(j.annee_scolaire) FROM etudiant_inscription j
+        WHERE j.etudiant_id = i.etudiant_id AND j.ue_num = i.ue_num AND j.annee_scolaire < ? AND j.resultat IS NOT NULL)
+      AND i.resultat IN ('refuse', 'ajourne')`).all(annee, annee)) {
+    const l = parId.get(x.etudiant_id);
+    if (!l || !nums.has(x.ue_num)) continue;
+    const c = l.cases[x.ue_num] || {};
+    if (c.acquise) continue;
+    l.cases[x.ue_num] = { ...c, echec: { annee: x.annee, resultat: x.resultat } };
+  }
   lignes.sort((a, b) => (a.nom || '').localeCompare(b.nom || '', 'fr') || (a.prenom || '').localeCompare(b.prenom || '', 'fr'));
 
   // LA VALIDATION DU PAE (24 septembre 2026) : un programme composé n'est

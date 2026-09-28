@@ -25,18 +25,59 @@ import { Fenetre } from './ui.jsx';
  * ce qui sera refusé (un résultat encodé, des notes déjà saisies) ;
  * « Enregistrer » écrit, tout ou rien.
  */
-/* LA CASE D'UNE UE DÉJÀ RÉUSSIE UNE AUTRE ANNÉE : verte et pâle, cochée, avec
-   l'année et la note au survol. Elle se distingue de la case pleine — réussie
-   CETTE année — et surtout de la case vide, qui veut dire « pas prise ». */
-function CaseAcquise({ a }) {
-  const quand = String(a.annee || '').replace(/^20(\d\d)-20(\d\d)$/, '$1-$2');
+/* LA CASE DE LA GRILLE — UN SEUL DESSIN POUR LES TROIS MODES (Charles,
+   28 septembre 2026). Ce qui est ou a été inscrit l'année composée se
+   distingue de ce qui vient d'avant :
+     ✓ vert seul          réussie une année antérieure
+     case verte ✓         inscrite et réussie cette année
+     case à bord bleu, i  inscrite cette année, sans résultat
+     case orange clair …  ajournée cette année — la seconde session décidera
+     case brique ×        refusée cette année
+     coin brique          échouée une année antérieure (refus ou ajournement
+                          non repris), et pas réussie depuis
+   En composition : + bleu pointillé = ajout en attente, − brique pointillé =
+   retrait en attente. `anneau` superpose un contrôle (mode Valider). */
+const T_CASE = 16;
+const COUL = { vert: '#3E7D5E', bleu: '#2F6FB0', brique: '#9D4A38', orange: '#F2C27E', brun: '#6B3B05' };
+const court = a => String(a || '').replace(/^20(\d\d)-20(\d\d)$/, '$1-$2');
+export function CasePAE({ x = {}, resultat, attente = null, anneau = null, titre = null, contenu = null }) {
+  const res = resultat !== undefined ? resultat : x.resultat;
+  const base = { width: T_CASE, height: T_CASE, borderRadius: 4, boxSizing: 'border-box', position: 'relative',
+    overflow: 'hidden', display: 'inline-grid', placeItems: 'center', fontSize: 11, lineHeight: 1, fontWeight: 600,
+    verticalAlign: 'middle' };
+  let style, glyphe = null, dit;
+  if (attente === 'ajout') {
+    style = { ...base, border: `1.5px dashed ${COUL.bleu}`, color: COUL.bleu }; glyphe = '+'; dit = 'ajout en attente';
+  } else if (attente === 'retrait') {
+    style = { ...base, border: `1.5px dashed ${COUL.brique}`, color: COUL.brique }; glyphe = '−'; dit = 'retrait en attente';
+  } else if (x.acquise && !x.inscrit) {
+    return (
+      <span title={titre || `Réussie en ${x.acquise.annee}${x.acquise.va ? ' (valorisation)' : x.acquise.note != null ? ` · ${x.acquise.note}/20` : ''}`}
+        aria-label={`réussie en ${court(x.acquise.annee)}`}
+        style={{ color: COUL.vert, fontSize: 15, fontWeight: 700, lineHeight: 1, display: 'inline-block', width: T_CASE, textAlign: 'center' }}>✓</span>
+    );
+  } else if (x.inscrit && res === 'reussi') {
+    style = { ...base, background: COUL.vert, color: '#fff' }; glyphe = '✓'; dit = 'réussie cette année';
+  } else if (x.inscrit && res === 'ajourne') {
+    style = { ...base, background: COUL.orange, color: COUL.brun }; glyphe = '…'; dit = 'ajournée cette année — seconde session en attente';
+  } else if (x.inscrit && res === 'refuse') {
+    style = { ...base, background: COUL.brique, color: '#fff' }; glyphe = '×'; dit = 'refusée cette année';
+  } else if (x.inscrit) {
+    style = { ...base, border: `1.5px solid ${COUL.bleu}`, background: '#fff', color: COUL.bleu,
+      fontFamily: 'Georgia, serif', fontStyle: 'italic', fontWeight: 700 };
+    glyphe = 'i'; dit = res === 'absent' ? 'inscrite cette année — absent' : 'inscrite cette année';
+  } else {
+    style = { ...base, border: '1.5px solid #CBD2DC', background: '#fff' }; dit = 'pas prise';
+  }
+  if (anneau) style = { ...style, boxShadow: `0 0 0 2px ${anneau}` , overflow: 'visible' };
+  const echec = x.echec && !x.acquise ? x.echec : null;
+  const dEchec = echec ? ` · ${echec.resultat === 'refuse' ? 'refusée' : 'ajournée'} en ${echec.annee}` : '';
   return (
-    <span title={`Déjà réussie en ${a.annee}${a.va ? ' (valorisation)' : a.note != null ? ` · ${a.note}/20` : ''}`}
-      className="inline-grid place-items-center w-3.5 h-3.5 rounded-[3px] text-[9px] font-bold leading-none text-white"
-      // VERT FRANC, COCHE BLANCHE (Charles, 26 septembre 2026 : « si tu mets
-      // du bleu marine fort, il faut un vert fort, avec le V en blanc »).
-      style={{ background: 'var(--c-reussi)' }}
-      aria-label={`réussie en ${quand}`}>✓</span>
+    <span title={titre || (dit + dEchec)} style={style}>
+      {contenu ?? glyphe}
+      {echec && <span aria-hidden="true" style={{ position: 'absolute', top: -1.5, left: -1.5, width: 0, height: 0,
+        borderTop: `9px solid ${COUL.brique}`, borderRight: '9px solid transparent', borderTopLeftRadius: 4 }} />}
+    </span>
   );
 }
 
@@ -131,7 +172,8 @@ export default function ComposerPAE({ onClose, onTermine, onPassage, modeInitial
   const etat = (e, u) => {
     const c = e.cases[u];
     const k = attente.get(`${e.id}|${u}`);
-    return { inscrit: !!c?.inscrit, va: c?.va, resultat: c?.resultat, attente: k, acquise: c?.acquise || null };
+    return { inscrit: !!c?.inscrit, va: c?.va, resultat: c?.resultat, attente: k, acquise: c?.acquise || null,
+      echec: c?.echec || null };
   };
   const poser = (paires, nature) => setAttente(m0 => {
     const m = new Map(m0);
@@ -437,11 +479,11 @@ export default function ComposerPAE({ onClose, onTermine, onPassage, modeInitial
             <b className="text-iip-blue">Résultats de {annee}</b>
             <span className="inline-flex rounded-champ border border-slate-300 overflow-hidden">
               <button onClick={() => setVueNote(false)}
-                className={`px-2.5 py-1 text-[12px] font-semibold ${!vueNote ? 'bg-iip-turquoise text-white' : 'bg-white text-slate-600'}`}>
+                className={`px-2.5 py-1 text-[12px] font-semibold ${!vueNote ? 'bg-[#1B2B4B] text-white' : 'bg-white text-slate-600'}`}>
                 Coche
               </button>
               <button onClick={() => setVueNote(true)}
-                className={`px-2.5 py-1 text-[12px] font-semibold border-l border-slate-300 ${vueNote ? 'bg-iip-turquoise text-white' : 'bg-white text-slate-600'}`}>
+                className={`px-2.5 py-1 text-[12px] font-semibold border-l border-slate-300 ${vueNote ? 'bg-[#1B2B4B] text-white' : 'bg-white text-slate-600'}`}>
                 Note
               </button>
             </span>
@@ -463,7 +505,7 @@ export default function ComposerPAE({ onClose, onTermine, onPassage, modeInitial
               {[['a_valider', 'À valider'], ['valides', 'Validés'], ['tous', 'Tous']].map(([v, l], i) => (
                 <button key={v} onClick={() => { setFStatut(v); setCoches(new Set()); }}
                   className={`px-2.5 py-1 text-[12px] font-semibold ${i ? 'border-l border-slate-300' : ''} ${fStatut === v
-                    ? 'bg-iip-turquoise text-white' : 'bg-white text-slate-600'}`}>
+                    ? 'bg-[#1B2B4B] text-white' : 'bg-white text-slate-600'}`}>
                   {l} ({(grille.etudiants || []).filter(e => v === 'tous' || (v === 'valides'
                     ? !!e.pae_confirme_le : !e.pae_confirme_le && !vide(e))).length})
                 </button>
@@ -615,7 +657,7 @@ export default function ComposerPAE({ onClose, onTermine, onPassage, modeInitial
                       <b>{(e.nom || '').toUpperCase()}</b> {e.prenom}
                       <span className="text-slate-400"> · {e.id_ecampus || '—'}</span>
                       {e.niveau && <span className="text-[10px] text-slate-500"> · {e.niveau}</span>}
-                      {e.primo && <span className="ml-1.5 text-[9.5px] font-bold px-1.5 py-0.5 rounded-full bg-iip-turquoise/10 text-iip-turquoise-dark align-middle"
+                      {e.primo && <span className="ml-1.5 text-[9.5px] font-bold px-1.5 py-0.5 rounded-full bg-[#2F6FB0]/10 text-[#2F6FB0] align-middle"
                         title="Nouvel inscrit : aucune trace dans une année antérieure">primo</span>}
                       {mode === 'valider' && (e.pae_confirme_le ? (
                         <span className="ml-1.5 text-[9.5px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 align-middle"
@@ -668,12 +710,11 @@ export default function ComposerPAE({ onClose, onTermine, onPassage, modeInitial
                         if (cadenas || attente) {
                           return (
                             <td key={u.ue_num} className="text-center px-1 py-1 bg-white border-l border-slate-100">
-                              <span title={cadenas
+                              <CasePAE x={x} anneau={attente ? '#9D4A38' : null}
+                                contenu={cadenas ? <IconLock size={10} stroke={2.5} /> : undefined}
+                                titre={cadenas
                                   ? `Sous cadenas : ne pourra être suivie que si l'UE ${cadenas.join(', ')} est réussie`
-                                  : 'Réinscrite alors que sa seconde session n’est pas délibérée'}
-                                className={`inline-grid place-items-center w-3.5 h-3.5 rounded-[3px] bg-[#1B2B4B] text-white ${attente ? 'ring-2 ring-[#9d4a38]' : ''}`}>
-                                {cadenas && <IconLock size={9} stroke={2.5} />}
-                              </span>
+                                  : 'Réinscrite alors que sa seconde session n’est pas délibérée'} />
                             </td>
                           );
                         }
@@ -684,21 +725,22 @@ export default function ComposerPAE({ onClose, onTermine, onPassage, modeInitial
                                 title={peutForcer
                                   ? 'Déjà réussie, réinscrite sans forçage — clic : forcer la réinscription'
                                   : 'Déjà réussie, réinscrite sans forçage — seules la direction et la coordination peuvent la forcer'}
-                                className="inline-block w-3.5 h-3.5 rounded-[3px] bg-[#1B2B4B] ring-2 ring-[#9d4a38] disabled:cursor-default" />
+                                className="disabled:cursor-default leading-none">
+                                <CasePAE x={x} anneau="#9D4A38" titre="" />
+                              </button>
                             </td>
                           );
                         }
                         return (
                           <td key={u.ue_num} className="text-center px-1 py-1 bg-white border-l border-slate-100">
-                            {x.va ? <span className="text-[10px] text-violet-700 font-semibold" title="Valorisation">VA</span>
+                            {x.va ? <span className="text-[10px] text-slate-600 font-semibold" title="Valorisation">VA</span>
                               : x.inscrit
-                                ? <span title={hors ? 'Inscrit sans les prérequis (aucune dérogation posée)' : (x.resultat || 'inscrit')}
-                                    className={`inline-block w-3.5 h-3.5 rounded-[3px] ${x.resultat === 'reussi' ? 'bg-[var(--c-reussi)]' : 'bg-[#1B2B4B]'} ${hors ? 'ring-2 ring-amber-400' : ''}`} />
+                                ? <CasePAE x={x} anneau={hors ? '#B45309' : null}
+                                    titre={hors ? 'Inscrite sans les prérequis (aucune dérogation posée)' : null} />
                                 : manque
                                   ? <span title="Ouverte par les prérequis, non prise"
                                       className="inline-block w-3.5 h-3.5 rounded-[3px] border-2 border-dashed border-slate-400" />
-                                  : x.acquise ? <CaseAcquise a={x.acquise} />
-                                  : <span className="inline-block w-3.5 h-3.5 rounded-[3px] border border-slate-200" />}
+                                  : <CasePAE x={x} />}
                           </td>
                         );
                       }
@@ -709,7 +751,7 @@ export default function ComposerPAE({ onClose, onTermine, onPassage, modeInitial
                         if (x.va) {
                           return (
                             <td key={u.ue_num} className="text-center px-1 py-1 bg-white border-l border-slate-100">
-                              <span className="text-[10px] text-violet-700 font-semibold" title="Valorisation">VA</span>
+                              <span className="text-[10px] text-slate-600 font-semibold" title="Valorisation">VA</span>
                             </td>
                           );
                         }
@@ -724,41 +766,27 @@ export default function ComposerPAE({ onClose, onTermine, onPassage, modeInitial
                                   ${rx.resultat === 'reussi' ? 'border-emerald-400 text-emerald-700'
                                     : rx.resultat === 'refuse' ? 'border-rose-400 text-rose-700'
                                     : 'border-slate-200 text-slate-600'}
-                                  ${rx.attente ? 'ring-2 ring-iip-turquoise/30' : ''}`} />
+                                  ${rx.attente ? 'ring-2 ring-[#2F6FB0]/40' : ''}`} />
                             </td>
                           );
                         }
                         return (
                           <td key={u.ue_num} onClick={() => cyclerRes(e, u)}
                             className="text-center px-1 py-1 bg-white border-l border-slate-100 cursor-pointer hover:bg-slate-50">
-                            {rx.resultat === 'reussi'
-                              ? <span title={`réussi${rx.points != null ? ` · ${rx.points}` : ''}`}
-                                  className={`inline-grid place-items-center w-3.5 h-3.5 rounded-[3px] bg-[var(--c-reussi)] text-white text-[10px] leading-none ${rx.attente ? 'ring-2 ring-iip-turquoise/30' : ''}`}>✓</span>
-                              : rx.resultat === 'refuse'
-                                ? <span title={`refusé${rx.points != null ? ` · ${rx.points}` : ''}`}
-                                    className={`inline-grid place-items-center w-3.5 h-3.5 rounded-[3px] bg-rose-600 text-white text-[10px] leading-none ${rx.attente ? 'ring-2 ring-iip-turquoise/30' : ''}`}>✗</span>
-                                : x.inscrit
-                                  ? <span title="inscrit — sans résultat" className={`inline-block w-3.5 h-3.5 rounded-[3px] bg-[#1B2B4B]/30 ${rx.attente ? 'ring-2 ring-iip-turquoise/30' : ''}`} />
-                                  : x.acquise ? <CaseAcquise a={x.acquise} />
-                                  : <span className={`inline-block w-3.5 h-3.5 rounded-[3px] border border-dashed border-slate-300 ${rx.attente ? 'ring-2 ring-iip-turquoise/30' : ''}`} />}
+                            <CasePAE x={{ ...x, inscrit: x.inscrit || !!rx.resultat }} resultat={rx.resultat}
+                              anneau={rx.attente ? 'rgba(47,111,176,0.45)' : null}
+                              titre={rx.resultat ? `${rx.resultat === 'reussi' ? 'réussi' : rx.resultat === 'refuse' ? 'refusé' : rx.resultat}${rx.points != null ? ` · ${rx.points}` : ''}${rx.attente ? ' — à enregistrer' : ''}` : null} />
                           </td>
                         );
                       }
                       /* L'état se lit d'un coup d'œil : plein = inscrit, vert = réussi,
-                         contour turquoise pointillé = ajout en attente, croix brique =
-                         retrait en attente. Un clic bascule ; une VA ne se touche pas ici. */
+                         + bleu pointillé = ajout en attente, − brique pointillé =
+                         retrait en attente (voir CasePAE). Un clic bascule ; une VA ne se touche pas ici. */
                       return (
                         <td key={u.ue_num} onClick={() => basculerCase(e, u)}
                           className={`text-center px-1 py-1 bg-white border-l border-slate-100 ${x.va || (x.acquise && !x.inscrit && !x.attente) ? '' : 'cursor-pointer hover:bg-slate-50'}`}>
-                          {x.va ? <span className="text-[10px] text-violet-700 font-semibold" title="Valorisation">VA</span>
-                            : x.attente === 'ajout'
-                              ? <span title="Ajout en attente" className="inline-block w-3.5 h-3.5 rounded-[3px] border-2 border-dashed border-[#1a9aa0] bg-[#1a9aa0]/20" />
-                              : x.attente === 'retrait'
-                                ? <span title="Retrait en attente" className="inline-grid place-items-center w-3.5 h-3.5 rounded-[3px] bg-[#9D4A38] text-white text-[10px] leading-none">×</span>
-                                : x.inscrit
-                                  ? <span title={x.resultat || 'inscrit'} className={`inline-block w-3.5 h-3.5 rounded-[3px] ${x.resultat === 'reussi' ? 'bg-[var(--c-reussi)]' : 'bg-[#1B2B4B]'}`} />
-                                  : x.acquise ? <CaseAcquise a={x.acquise} />
-                                  : <span className="inline-block w-3.5 h-3.5 rounded-[3px] border border-slate-300" />}
+                          {x.va ? <span className="text-[10px] text-slate-600 font-semibold" title="Valorisation">VA</span>
+                            : <CasePAE x={x} attente={x.attente} />}
                         </td>
                       );
                     })}
@@ -775,45 +803,31 @@ export default function ComposerPAE({ onClose, onTermine, onPassage, modeInitial
         {/* LA LÉGENDE (Charles, 26 septembre 2026 : « il n'y a pas de légende,
             on ne sait pas ce qui est quoi »). Elle suit le mode : chaque mode
             dit ce que ses cases veulent dire. */}
-        {grille && (
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-2 text-[11px] text-slate-600">
-            <span className="inline-flex items-center gap-1.5">
-              <span className="inline-grid place-items-center w-3.5 h-3.5 rounded-[3px] text-[9px] font-bold text-white" style={{ background: 'var(--c-reussi)' }}>✓</span>
-              réussie (cette année ou avant — l'année au survol)
-            </span>
-            <span className="inline-flex items-center gap-1.5">
-              <span className="inline-block w-3.5 h-3.5 rounded-[3px] bg-[#1B2B4B]" />inscrite au programme de {annee}
-            </span>
+        {grille && (() => {
+          const L = ({ c, t }) => <span className="inline-flex items-center gap-1.5">{c}{t}</span>;
+          return (
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 mt-2 text-[11px] text-slate-600">
+            <L c={<CasePAE x={{ acquise: { annee: '' } }} titre="" />} t="réussie une année antérieure" />
+            <L c={<CasePAE x={{ inscrit: true, resultat: 'reussi' }} titre="" />} t={`inscrite et réussie en ${annee}`} />
+            <L c={<CasePAE x={{ inscrit: true }} titre="" />} t={`inscrite en ${annee}`} />
+            <L c={<CasePAE x={{ inscrit: true, resultat: 'ajourne' }} titre="" />} t="ajournée — seconde session en attente" />
+            <L c={<CasePAE x={{ inscrit: true, resultat: 'refuse' }} titre="" />} t="refusée" />
+            <L c={<CasePAE x={{ echec: { annee: '', resultat: 'refuse' } }} titre="" />} t="coin : échouée une année antérieure" />
+            <L c={<CasePAE x={{}} titre="" />} t="pas au programme" />
             {mode === 'composer' && <>
-              <span className="inline-flex items-center gap-1.5">
-                <span className="inline-block w-3.5 h-3.5 rounded-[3px] border-2 border-dashed border-[#1a9aa0] bg-[#1a9aa0]/20" />ajout en attente
-              </span>
-              <span className="inline-flex items-center gap-1.5">
-                <span className="inline-grid place-items-center w-3.5 h-3.5 rounded-[3px] bg-[#9D4A38] text-white text-[10px] leading-none">×</span>retrait en attente
-              </span>
+              <L c={<CasePAE attente="ajout" titre="" />} t="ajout en attente" />
+              <L c={<CasePAE attente="retrait" titre="" />} t="retrait en attente" />
             </>}
             {mode === 'valider' && <>
-              <span className="inline-flex items-center gap-1.5">
-                <span className="inline-block w-3.5 h-3.5 rounded-[3px] bg-[#1B2B4B] ring-2 ring-[#9d4a38]" />déjà réussie, réinscrite sans forçage
-              </span>
-              <span className="inline-flex items-center gap-1.5">
-                <span className="inline-block w-3.5 h-3.5 rounded-[3px] bg-[#1B2B4B] ring-2 ring-amber-400" />inscrite sans les prérequis
-              </span>
-              <span className="inline-flex items-center gap-1.5">
-                <span className="inline-block w-3.5 h-3.5 rounded-[3px] border-2 border-dashed border-slate-400" />ouverte par les prérequis, non prise
-              </span>
+              <L c={<CasePAE x={{ inscrit: true }} anneau="#9D4A38" titre="" />} t="déjà réussie, réinscrite sans forçage" />
+              <L c={<CasePAE x={{ inscrit: true }} anneau="#B45309" titre="" />} t="inscrite sans les prérequis" />
+              <L c={<span className="inline-block w-4 h-4 rounded-[4px] border-2 border-dashed border-slate-400" />} t="ouverte par les prérequis, non prise" />
             </>}
-            {mode === 'resultats' && (
-              <span className="inline-flex items-center gap-1.5">
-                <span className="inline-grid place-items-center w-3.5 h-3.5 rounded-[3px] bg-rose-600 text-white text-[10px] leading-none">✗</span>refusée
-              </span>
-            )}
-            <span className="inline-flex items-center gap-1.5">
-              <span className="inline-block w-3.5 h-3.5 rounded-[3px] border border-slate-300" />pas au programme
-            </span>
-            <span className="inline-flex items-center gap-1.5"><b className="text-[10px] text-violet-700">VA</b> valorisation</span>
+            <L c={<b className="text-[10px] text-slate-600">VA</b>} t="valorisation" />
+            <span className="text-slate-400">L'année et la décision au survol de chaque case.</span>
           </div>
-        )}
+          );
+        })()}
       </div>
 
       {importHisto && (
