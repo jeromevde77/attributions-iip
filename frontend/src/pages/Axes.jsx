@@ -3,7 +3,7 @@ import {
   IconHome, IconChecklist, IconSend, IconLayoutDashboard, IconCalendarStats,
   IconChartBar,
   IconCertificate, IconClipboardList, IconScale, IconShieldExclamation, IconDoorEnter,
-  IconUserCheck, IconRoute, IconFileText, IconFolder, IconNotes,
+  IconUserCheck, IconRoute, IconFileText, IconFolder, IconNotes, IconAccessible,
 } from '@tabler/icons-react';
 import Axe from '../components/Axe.jsx';
 import Accueil from './Accueil.jsx';
@@ -18,6 +18,7 @@ const SuiviEquipe = lazy(() => import('./SuiviEquipe.jsx'));
 const Listes = lazy(() => import('./Listes.jsx'));
 const Procedures = lazy(() => import('./Procedures.jsx'));
 const Valorisations = lazy(() => import('./Valorisations.jsx'));
+const RegistreAmenagements = lazy(() => import('./RegistreAmenagements.jsx'));
 
 const Attente = () => <div className="p-6 text-sm text-slate-400">Chargement…</div>;
 
@@ -92,7 +93,7 @@ export function AxeEtudiants() {
        * le PAE suivant), on instruit (valorisation, délibération), on délivre
        * (diplômes) — puis l'exception (procédures), puis ce qui efface. */
       ordreRail={[
-        ['nouvel-etudiant', 'pae', 'passage', 'reports', 'valorisation', 'deliberation',
+        ['nouvel-etudiant', 'pae', 'passage', 'reports', 'valorisation', 'amenagements', 'deliberation',
          'diplomation'],
         ['procedures'],
         ['purge'],
@@ -110,6 +111,12 @@ export function AxeEtudiants() {
         { key: 'valorisation', label: 'Valorisation des acquis', icone: IconCertificate,
           sansMarge: true, railPropre: true,
           rendu: <Suspense fallback={<Attente />}><Valorisations /></Suspense> },
+        /* LES AMÉNAGEMENTS RAISONNABLES, EN DIRECT (Charles, 28 septembre 2026 :
+           « comme valorisation des acquis, afin que cela soit rapidement
+           joint »). Le registre de l'année ; chaque ligne ouvre la fiche sur
+           son onglet Aménagements. */
+        { key: 'amenagements', label: 'Aménagements raisonnables', icone: IconAccessible,
+          rendu: <Suspense fallback={<Attente />}><RegistreAmenagements /></Suspense> },
         { key: 'deliberation', label: 'Délibération', icone: IconScale, sansMarge: true,
           rendu: <Deliberation /> },
         /* LES PROCÉDURES SONT L'EXCEPTION, ET ELLES SE SIGNALENT.

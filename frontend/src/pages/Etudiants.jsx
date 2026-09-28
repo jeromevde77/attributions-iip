@@ -1938,8 +1938,8 @@ function MenuParcourir({ portee, onPortee, sections, ues, annees }) {
   );
 }
 
-function FicheEtudiant({ id, annee, onClose, position, onPrec, onSuiv,
-                         portee, onPortee, sections, ues, annees, onModifie }) {
+export function FicheEtudiant({ id, annee, onClose, position, onPrec, onSuiv,
+                         portee, onPortee, sections, ues, annees, onModifie, ongletInitial = 'parcours' }) {
   const [annexe2, setAnnexe2] = useState(false);
   const [motivation, setMotivation] = useState(false);
   const [edition, setEdition] = useState(false);   // le centre d'édition, sur cet étudiant
@@ -1947,7 +1947,7 @@ function FicheEtudiant({ id, annee, onClose, position, onPrec, onSuiv,
   const [pae, setPae] = useState(null);
   // « grille » n'existe plus depuis la fusion avec le PAE : la fiche s'ouvrait
   // sur un onglet sans contenu, et paraissait vide jusqu'à ce qu'on clique.
-  const [onglet, setOnglet] = useState('parcours');
+  const [onglet, setOnglet] = useState(ongletInitial);
   const [ficheInscription, setFicheInscription] = useState(null);
   const [selection, setSelection] = useState(null);      // Set des ue_num retenues
   const [catalogueOuvert, setCatalogueOuvert] = useState(false);
