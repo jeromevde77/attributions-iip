@@ -651,7 +651,7 @@ export default function ComposerPAE({ onClose, onTermine, onPassage, modeInitial
               <tbody>
                 {lignes.map(e => (
                   <tr key={e.id} className="border-t border-slate-100">
-                    <td className="sticky left-0 bg-white px-3 py-1 whitespace-nowrap">
+                    <td className="sticky left-0 z-[5] bg-white px-3 py-1 whitespace-nowrap">
                       <input type="checkbox" className="mr-2 align-middle" checked={coches.has(e.id)}
                         onChange={() => setCoches(c => { const n = new Set(c); n.has(e.id) ? n.delete(e.id) : n.add(e.id); return n; })} />
                       <b>{(e.nom || '').toUpperCase()}</b> {e.prenom}
