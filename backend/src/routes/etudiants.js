@@ -15,6 +15,7 @@ import { piedDocument } from './parametres.js';
 import { anneeDeTravail } from '../helpers/annee.js';
 import { authRequired, roleRequired, getUserSections } from '../middleware/auth.js';
 import { construireGraphe, niveauxEffectifs, rangNiveau } from './capitalisation.js';
+import { etatsPAE, plafondBloc } from '../lib/pae.js';
 import { structureUE, calculerNoteUE, coursValidesAnterieurs, poserReportsDOffice } from './acquis.js';
 import {
   BASES, CODES_BASE, FINALITES, ETATS, etatDeduit, uniteValorisable,
@@ -171,6 +172,29 @@ export function migrerEtudiants(dbx) {
     addCol('etudiant_inscription', "derogation_par TEXT");
     addCol('etudiant_inscription', "derogation_le TEXT");
     console.log('[migration] etudiant_piece + colonnes fiche inscription');
+
+    /* LE REGISTRE DES DÉROGATIONS AU PAE (28 septembre 2026). Chaque inscription
+       posée contre une règle du moteur — bloc non atteint, prérequis manquant,
+       unité déjà réussie, hors cursus, épreuve intégrée fermée, unité non
+       organisée — laisse ici une ligne : laquelle, par qui, d'où, pourquoi. Le
+       « ce choix sera tracé » de l'écran ne l'était pas. En ajout seul : une
+       dérogation se régularise (colonnes regularise_*), elle ne s'efface pas. */
+    dbx.exec(`
+    CREATE TABLE IF NOT EXISTS pae_derogation (
+      id             INTEGER PRIMARY KEY AUTOINCREMENT,
+      etudiant_id    INTEGER NOT NULL,
+      annee_scolaire TEXT NOT NULL,
+      ue_num         INTEGER NOT NULL,
+      regle          TEXT NOT NULL,
+      detail         TEXT,
+      motif          TEXT,
+      origine        TEXT,
+      par            TEXT,
+      le             TEXT DEFAULT (datetime('now')),
+      regularise_le  TEXT,
+      regularise_par TEXT
+    );
+    CREATE INDEX IF NOT EXISTS idx_pae_derogation_etud ON pae_derogation(etudiant_id, annee_scolaire);`);
 
     // Correspondance entre les codes d'UE d'eCampus (TINFO, PDPS, 901…) et les
     // numéros d'UE de Lucie. Établie une fois, elle vaut pour tous les imports
@@ -677,6 +701,186 @@ export function cursusDe(etudId, annee) {
   return { courant, actifs, archives };
 }
 
+/* LES FAITS DU MOTEUR PAE (lib/pae.js), rassemblés UNE fois pour tous les
+ * lecteurs : proposition, schéma, frise, PAE de base, contrôle des écritures.
+ * `cache` (facultatif) garde ce qui ne dépend que des sections et de l'année
+ * — la frise calcule six cents étudiants d'affilée. */
+export function faitsPAE(etudId, annee, sections, cache = null) {
+  const cle = `${annee}|${[...sections].sort().join(',')}`;
+  let sec = cache?.get(cle);
+  if (!sec) {
+    const ph = sections.map(() => '?').join(',');
+    const organisees = new Set(sections.length ? db.prepare(`SELECT DISTINCT ue_num FROM organisation_ue
+      WHERE annee_scolaire = ? AND section IN (${ph})`).all(annee, ...sections).map(x => x.ue_num) : []);
+    const nums = new Set([...organisees, ...(sections.length ? db.prepare(`SELECT DISTINCT ue_num FROM ue
+      WHERE annee_scolaire = ? AND section IN (${ph})`).all(annee, ...sections).map(x => x.ue_num) : [])]);
+    // L'épreuve intégrée : la ligne annuelle l'emporte quand elle existe ;
+    // sinon la case du référentiel, sinon l'intitulé.
+    const annuelle = new Map();
+    try {
+      for (const l of db.prepare('SELECT ue_num, actif FROM ue_epreuve_integree WHERE annee_scolaire = ?').all(annee)) annuelle.set(l.ue_num, !!l.actif);
+    } catch { /* table absente */ }
+    const parCase = new Set(db.prepare(`SELECT DISTINCT ue_num FROM ue WHERE COALESCE(is_epreuve_integree,0) = 1
+      OR ue_nom LIKE '%preuve int%gr%'`).all().map(x => x.ue_num));
+    const ues = [...nums].sort((a, b) => a - b).map(n => ({ ue_num: n, organisee: organisees.has(n),
+      epreuve: annuelle.has(n) ? annuelle.get(n) : parCase.has(n) }));
+    // Les prérequis de CETTE section et de CETTE année — les colonnes existaient,
+    // aucun calcul ne les lisait. Légal bloque, interne avertit.
+    const legal = {}, interne = {};
+    for (const p of db.prepare(`SELECT ue_num, prerequis_num, COALESCE(type,'legal') AS type, motif, section, annee_scolaire
+        FROM ue_prerequis`).all()) {
+      if (p.section && !sections.includes(p.section)) continue;
+      if (p.annee_scolaire && p.annee_scolaire !== annee) continue;
+      if (p.type === 'interne') (interne[p.ue_num] ||= []).push({ ue: p.prerequis_num, motif: p.motif });
+      else if (!(legal[p.ue_num] ||= []).includes(p.prerequis_num)) legal[p.ue_num].push(p.prerequis_num);
+    }
+    sec = { ues, legal, interne, niv: sections.length ? niveauxEffectifs(sections, annee) : {} };
+    cache?.set(cle, sec);
+  }
+  const acquis = new Set([
+    ...db.prepare("SELECT DISTINCT ue_num FROM etudiant_inscription WHERE etudiant_id = ? AND resultat = 'reussi'").all(etudId).map(x => x.ue_num),
+    ...db.prepare(`SELECT DISTINCT ue_num FROM etudiant_valorisation WHERE etudiant_id = ? AND type = 'complete'
+      AND COALESCE(decision, 'accordee') <> 'refusee'`).all(etudId).map(x => x.ue_num),
+  ]);
+  // En attente : AJOURNÉE à sa dernière inscription, l'année consultée ou la
+  // précédente. Sans note, ce n'est pas une attente : c'est non acquis.
+  const mA = /^(\d{4})-(\d{4})$/.exec(String(annee));
+  const anneePrec = mA ? `${+mA[1] - 1}-${+mA[2] - 1}` : null;
+  const enAttente = new Set(db.prepare(`SELECT i.ue_num, i.resultat, i.annee_scolaire FROM etudiant_inscription i
+      WHERE i.etudiant_id = ? AND i.annee_scolaire = (SELECT MAX(j.annee_scolaire) FROM etudiant_inscription j
+        WHERE j.etudiant_id = i.etudiant_id AND j.ue_num = i.ue_num)`).all(etudId)
+    .filter(x => x.resultat === 'ajourne' && !acquis.has(x.ue_num)
+      && (x.annee_scolaire === annee || x.annee_scolaire === anneePrec)).map(x => x.ue_num));
+  const suiviesAvant = db.prepare(`SELECT DISTINCT ue_num FROM etudiant_inscription
+    WHERE etudiant_id = ? AND annee_scolaire < ?`).all(etudId, annee).map(x => x.ue_num);
+  const plafond = plafondBloc(suiviesAvant, acquis, sec.niv);
+  const etats = etatsPAE({ ues: sec.ues, niv: sec.niv, legal: sec.legal, interne: sec.interne, acquis, enAttente, plafond });
+  return { ...sec, acquis, enAttente, suiviesAvant, plafond, etats };
+}
+
+/* ── LA PORTE UNIQUE DU PROGRAMME ANNUEL (28 septembre 2026) ─────────────────
+ *
+ * Vingt-deux routes écrivaient `etudiant_inscription`, et seule la promotion
+ * appliquait les règles : les autres inscrivaient ce qu'on leur envoyait. Une
+ * règle que seule une porte connaît n'est pas une règle. Toute écriture du
+ * programme d'une année passe désormais par ici.
+ *
+ * Une unité AJOUTÉE est jugée par le moteur (faitsPAE) contre le programme
+ * qui en résulte — sous réserve ou cadenas compris. Une unité déjà inscrite
+ * n'est pas rejugée : on n'invalide pas en silence ce qui a été posé hier.
+ *
+ * Deux modes, tranchés par Charles le 28 septembre :
+ *   · 'strict' (les écrans) : une unité qui viole une règle n'entre que si un
+ *     motif est donné pour elle ; sinon RIEN ne s'écrit et le refus nomme
+ *     chaque unité et chaque règle.
+ *   · 'signaler' (les imports : eCampus est l'inscription administrative) :
+ *     l'unité entre, la dérogation est tracée sous l'origine de l'import et
+ *     reste « à régulariser » ; `exclus` écarte ce qu'on a décoché à la
+ *     simulation.
+ * Chaque dérogation écrit une ligne dans pae_derogation. Une unité déjà
+ * réussie qu'on réinscrit porte en plus `derogation = 1` : c'est la
+ * réinscription forcée, qu'attendent la confirmation et le nettoyage.
+ * Un retrait épargne ce qui porte un résultat, une note ou un report, sauf
+ * `forcerRetrait`. Un programme qui change perd sa confirmation — sauf quand
+ * c'est la confirmation elle-même qui écrit.
+ */
+const LIBELLE_REGLE = {
+  hors_cursus: 'unité hors du cursus en cours',
+  non_organisee: "unité non organisée cette année",
+  deja_reussie: 'unité déjà réussie (réinscription : décision du Conseil des études)',
+  hors_bloc: "bloc non encore atteint",
+  prerequis: 'prérequis non acquis',
+  epreuve_fermee: 'épreuve intégrée : des unités antérieures restent à acquérir',
+};
+export function controlerAjouts(etudId, annee, ajouts, programmeFinal, faits = null) {
+  const sections = cursusDe(etudId, annee).actifs;
+  const f = faits || faitsPAE(etudId, annee, sections);
+  const horsCursusUE = db.prepare('SELECT MAX(COALESCE(hors_cursus,0)) AS h FROM ue WHERE ue_num = ?');
+  const forcee = db.prepare(`SELECT COALESCE(derogation,0) AS d FROM etudiant_inscription
+    WHERE etudiant_id = ? AND annee_scolaire = ? AND ue_num = ?`);
+  const nivDe = n => String(f.niv[n] || '').toUpperCase();
+  const ecarts = [];
+  for (const ue of ajouts) {
+    const e = f.etats.get(ue);
+    const regles = [];
+    if (!e) {
+      if (!horsCursusUE.get(ue)?.h) regles.push({ regle: 'hors_cursus', detail: sections.join(', ') || 'aucun cursus' });
+    } else {
+      if (!e.organisee) regles.push({ regle: 'non_organisee' });
+      if (e.deja_reussie && !forcee.get(etudId, annee, ue)?.d) regles.push({ regle: 'deja_reussie' });
+      if (!e.deja_reussie && e.hors_bloc) regles.push({ regle: 'hors_bloc', detail: `${nivDe(ue) || '?'} — plafond BA${f.plafond}` });
+      if (e.epreuve && e.epreuve_etat === 'fermee') {
+        regles.push({ regle: 'epreuve_fermee', detail: `restent ${e.epreuve_restantes.join(', ')}` });
+      } else if (!e.deja_reussie) {
+        const bloquants = e.prereq_manquants.filter(p => !f.enAttente.has(p)
+          && !(programmeFinal.has(p) && nivDe(p) === nivDe(ue)));
+        if (bloquants.length) regles.push({ regle: 'prerequis', detail: `exige ${bloquants.join(', ')}` });
+      }
+    }
+    if (regles.length) ecarts.push({ ue_num: ue, regles: regles.map(x => ({ ...x, libelle: LIBELLE_REGLE[x.regle] })) });
+  }
+  return ecarts;
+}
+
+export function ecrireProgramme({ etudId, annee, ajouter = [], retirer = [], origine, par = null,
+  motifs = {}, mode = 'strict', exclus = [], forcerRetrait = false, simulation = false, dateInscription = null }) {
+  const existantes = db.prepare(`SELECT ue_num, resultat FROM etudiant_inscription
+    WHERE etudiant_id = ? AND annee_scolaire = ?`).all(etudId, annee);
+  const dejaLa = new Set(existantes.map(x => x.ue_num));
+  const exclusSet = new Set(exclus.map(Number));
+  const aAjouter = [...new Set(ajouter.map(Number).filter(Boolean))].filter(u => !dejaLa.has(u) && !exclusSet.has(u));
+  const aRetirer = [...new Set(retirer.map(Number).filter(Boolean))].filter(u => dejaLa.has(u));
+  const final = new Set([...dejaLa, ...aAjouter].filter(u => !aRetirer.includes(u)));
+
+  const ecarts = controlerAjouts(etudId, annee, aAjouter, final);
+  const motifDe = u => String(motifs[u] ?? motifs[String(u)] ?? '').trim()
+    || (mode === 'signaler' ? `inscription reprise de l'import (${origine})` : '');
+  const refus = mode === 'strict' ? ecarts.filter(x => !motifDe(x.ue_num)) : [];
+
+  // Ce qui ne se retire pas sans « forcer » : résultat, note, report.
+  const aNote = db.prepare('SELECT 1 FROM etudiant_note_detail WHERE etudiant_id=? AND annee_scolaire=? AND ue_num=? LIMIT 1');
+  const aReport = db.prepare('SELECT 1 FROM etudiant_report_note WHERE etudiant_id=? AND annee_scolaire=? AND ue_num=? LIMIT 1');
+  const resultatDe = new Map(existantes.map(x => [x.ue_num, x.resultat]));
+  const conservees = [], retirables = [];
+  for (const u of aRetirer) {
+    const pourquoi = resultatDe.get(u) != null ? 'résultat' : aNote.get(etudId, annee, u) ? 'notes'
+      : aReport.get(etudId, annee, u) ? 'report' : null;
+    if (pourquoi && !forcerRetrait) conservees.push({ ue_num: u, pourquoi });
+    else retirables.push(u);
+  }
+  const bilan = { simulation, origine, ajoutees: aAjouter, retirees: retirables, conservees, ecarts,
+    refus, confirmation_retiree: false };
+  if (simulation || refus.length) return bilan;
+
+  const date = dateInscription || new Date().toISOString().slice(0, 10);
+  const ins = db.prepare(`INSERT INTO etudiant_inscription (etudiant_id, annee_scolaire, ue_num, date_inscription)
+    VALUES (?,?,?,?) ON CONFLICT(etudiant_id, annee_scolaire, ue_num) DO NOTHING`);
+  const forcer = db.prepare(`UPDATE etudiant_inscription SET derogation = 1, derogation_par = ?, derogation_le = datetime('now')
+    WHERE etudiant_id = ? AND annee_scolaire = ? AND ue_num = ?`);
+  const trace = db.prepare(`INSERT INTO pae_derogation (etudiant_id, annee_scolaire, ue_num, regle, detail, motif, origine, par)
+    VALUES (?,?,?,?,?,?,?,?)`);
+  const del = db.prepare('DELETE FROM etudiant_inscription WHERE etudiant_id = ? AND annee_scolaire = ? AND ue_num = ?');
+  db.transaction(() => {
+    for (const u of aAjouter) ins.run(etudId, annee, u, date);
+    for (const x of ecarts) {
+      for (const r0 of x.regles) trace.run(etudId, annee, x.ue_num, r0.regle, r0.detail || null, motifDe(x.ue_num), origine, par);
+      if (x.regles.some(r0 => r0.regle === 'deja_reussie')) forcer.run(par, etudId, annee, x.ue_num);
+    }
+    for (const u of retirables) {
+      // Le report d'abord : tant qu'il est accordé, ses notes sont gardées.
+      db.prepare('DELETE FROM etudiant_report_note WHERE etudiant_id=? AND annee_scolaire=? AND ue_num=?').run(etudId, annee, u);
+      db.prepare('DELETE FROM etudiant_note_detail WHERE etudiant_id=? AND annee_scolaire=? AND ue_num=?').run(etudId, annee, u);
+      del.run(etudId, annee, u);
+    }
+    if ((aAjouter.length || retirables.length) && origine !== 'confirmation') {
+      bilan.confirmation_retiree = db.prepare('DELETE FROM etudiant_pae WHERE etudiant_id = ? AND annee_scolaire = ?')
+        .run(etudId, annee).changes > 0;
+    }
+  })();
+  if (aAjouter.length || retirables.length) bilan.reports = reporterDOffice(etudId, annee);
+  return bilan;
+}
+
 // ── Liste des étudiants ───────────────────────────────────────────────────────
 r.get('/', authRequired, (req, res) => {
   // SECTION, UNITÉ ET ANNÉE RESTREIGNENT LA LISTE.
@@ -854,24 +1058,21 @@ r.get('/', authRequired, (req, res) => {
  * par étudiant une chaîne d'une lettre par UE :
  *   r réussie · f réussie par faveur · i inscrite cette année · a ajournée, en
  *   attente · o atteignable, non prise · n pas encore atteignable.
- * Les états viennent de statutsCapitalisation, celle du schéma de la fiche.
+ * Les états viennent du moteur du PAE (lib/pae.js), comme ceux de la fiche.
  */
 r.get('/frises', authRequired, (req, res) => {
   const annee = req.query.annee || anneeDeTravail(req);
   const autorisees = perimetre(req);
-  const mA = /^(\d{4})-(\d{4})$/.exec(String(annee));
-  const anneePrec = mA ? `${+mA[1] - 1}-${+mA[2] - 1}` : null;
 
-  const acquisDe = new Map(), faveurs = new Set(), inscritesDe = new Map(), attenteDe = new Map();
+  // Acquis, attente et plafond viennent du moteur (faitsPAE) ; ne se lisent ici
+  // en bloc que la faveur et l'année de réussite, qui ne changent pas l'état.
+  const faveurs = new Set(), inscritesDe = new Map();
   const ajouter = (m, id, v) => { if (!m.has(id)) m.set(id, new Set()); m.get(id).add(v); };
   const reussiesAn = new Map();
   for (const x of db.prepare(`SELECT etudiant_id, ue_num, annee_scolaire FROM etudiant_inscription
       WHERE resultat = 'reussi' ORDER BY annee_scolaire`).all()) {
-    ajouter(acquisDe, x.etudiant_id, x.ue_num);
     reussiesAn.set(`${x.etudiant_id}|${x.ue_num}`, x.annee_scolaire);
   }
-  for (const x of db.prepare(`SELECT etudiant_id, ue_num FROM etudiant_valorisation
-      WHERE type = 'complete' AND COALESCE(decision, 'accordee') <> 'refusee'`).all()) ajouter(acquisDe, x.etudiant_id, x.ue_num);
   try {
     for (const f of db.prepare(`SELECT DISTINCT etudiant_id, ue_num, annee_scolaire FROM deliberation_ajustement
         WHERE action = 'faveur'`).all()) faveurs.add(`${f.etudiant_id}|${f.ue_num}|${f.annee_scolaire}`);
@@ -880,19 +1081,8 @@ r.get('/frises', authRequired, (req, res) => {
     for (const f of db.prepare(`SELECT DISTINCT etudiant_id, ue_num, annee_scolaire FROM etudiant_resultat_cours
         WHERE faveur = 1 AND ue_num IS NOT NULL`).all()) faveurs.add(`${f.etudiant_id}|${f.ue_num}|${f.annee_scolaire}`);
   } catch { /* table absente */ }
-  const avantDe = new Map();
-  for (const x of db.prepare('SELECT DISTINCT etudiant_id, ue_num FROM etudiant_inscription WHERE annee_scolaire < ?').all(annee)) {
-    ajouter(avantDe, x.etudiant_id, x.ue_num);
-  }
   for (const x of db.prepare('SELECT etudiant_id, ue_num FROM etudiant_inscription WHERE annee_scolaire = ?').all(annee)) {
     ajouter(inscritesDe, x.etudiant_id, x.ue_num);
-  }
-  for (const x of db.prepare(`SELECT i.etudiant_id, i.ue_num, i.resultat, i.annee_scolaire FROM etudiant_inscription i
-      WHERE i.annee_scolaire = (SELECT MAX(j.annee_scolaire) FROM etudiant_inscription j
-        WHERE j.etudiant_id = i.etudiant_id AND j.ue_num = i.ue_num)`).all()) {
-    if (x.resultat === 'ajourne' && (x.annee_scolaire === annee || x.annee_scolaire === anneePrec)) {
-      ajouter(attenteDe, x.etudiant_id, x.ue_num);
-    }
   }
 
   const graphes = {};
@@ -900,21 +1090,16 @@ r.get('/frises', authRequired, (req, res) => {
     if (graphes[sec] !== undefined) return graphes[sec];
     const base = construireGraphe({ sections: [sec], annee });
     if (!base.nodes.length) return (graphes[sec] = null);
-    const organisees = new Set(db.prepare(`SELECT DISTINCT ue_num FROM organisation_ue
-      WHERE annee_scolaire = ? AND section = ?`).all(annee, sec).map(x => x.ue_num));
     // L'ordre du cursus : par bloc, l'épreuve intégrée au bout, puis la place
     // dans le schéma.
     const nodes = [...base.nodes].sort((a, b) =>
       (a.epreuve_integree - b.epreuve_integree) || (rangNiveau(a.ue_niv) - rangNiveau(b.ue_niv))
       || (a.couche - b.couche) || (a.ordre - b.ordre) || (a.ue_num - b.ue_num));
-    return (graphes[sec] = {
-      nodes, organisees,
-      prereqDe: Object.fromEntries(base.nodes.map(n => [n.ue_num, n.prerequis])),
-      niv: niveauxEffectifs([sec], annee),
-    });
+    return (graphes[sec] = { nodes });
   };
 
   const sections = {}, etats = {};
+  const cacheFaits = new Map();
   for (const e of db.prepare('SELECT id FROM etudiant WHERE actif = 1').all()) {
     const sec = sectionRattachement(e.id, annee).section;
     if (!sec || (autorisees && !autorisees.includes(sec))) continue;
@@ -924,14 +1109,14 @@ r.get('/frises', authRequired, (req, res) => {
       sections[sec] = g.nodes.map(n => ({ ue_num: n.ue_num, ue_nom: n.ue_nom, bloc: n.ue_niv || '',
         ei: !!n.epreuve_integree }));
     }
-    const acquis = acquisDe.get(e.id) || new Set();
     const inscrites = inscritesDe.get(e.id) || new Set();
-    const statut = statutsCapitalisation({ nodes: g.nodes, prereqDe: g.prereqDe, niv: g.niv,
-      organisees: g.organisees, acquis, enAttente: new Set([...(attenteDe.get(e.id) || [])].filter(u => !acquis.has(u))),
-      plafond: plafondBlocDe([...(avantDe.get(e.id) || [])], acquis, g.niv) });
+    // Le moteur du PAE (lib/pae.js), sur le cursus actif — le même calcul que
+    // la fiche et la proposition.
+    const actifs = cursusDe(e.id, annee).actifs;
+    const faits = faitsPAE(e.id, annee, actifs.length ? actifs : [sec], cacheFaits);
     etats[e.id] = { s: sec, c: g.nodes.map(n => {
       const u = n.ue_num;
-      const st = statut(u);
+      const st = faits.etats.get(u)?.statut || 'bloquee';
       if (st === 'acquise') return faveurs.has(`${e.id}|${u}|${reussiesAn.get(`${e.id}|${u}`)}`) ? 'f' : 'r';
       if (inscrites.has(u)) return 'i';
       if (st === 'en_attente') return 'a';
@@ -1417,16 +1602,32 @@ r.post('/import-liste', authRequired, roleRequired('admin', 'editeur'), (req, re
         e.lieu_naissance || null);
       nEtud++;
     }
-    for (const i of (inscriptions || [])) {
-      if (i.ue_num == null) { sansCode++; continue; }
-      const e = trouver.get(String(i.id_ecampus || '').trim());
-      if (!e) { sansCode++; continue; }
-      upInsc.run(e.id, annee, Number(i.ue_num), i.groupe || null, dateJour);
-      nInsc++;
-    }
   })();
 
-  res.json({ ok: true, annee, etudiants: nEtud, inscriptions: nInsc, ignorees: sansCode });
+  /* LES INSCRIPTIONS PASSENT PAR LA PORTE UNIQUE, EN MODE « SIGNALER »
+     (Charles, 28 septembre 2026 : choix B). eCampus est l'inscription
+     administrative : ce qu'il dit entre, et ce qui contrevient aux règles du
+     PAE se trace comme dérogation « à régulariser » au lieu de passer en
+     silence. */
+  const parEtud = new Map();
+  for (const i of (inscriptions || [])) {
+    if (i.ue_num == null) { sansCode++; continue; }
+    const e = trouver.get(String(i.id_ecampus || '').trim());
+    if (!e) { sansCode++; continue; }
+    if (!parEtud.has(e.id)) parEtud.set(e.id, []);
+    parEtud.get(e.id).push(i);
+  }
+  const qui = req.user?.email || req.user?.nom || null;
+  const aRegulariser = [];
+  for (const [id, lignes] of parEtud) {
+    const b = ecrireProgramme({ etudId: id, annee, ajouter: lignes.map(i => Number(i.ue_num)),
+      origine: 'import eCampus (liste)', par: qui, mode: 'signaler', dateInscription: dateJour });
+    for (const x of b.ecarts) aRegulariser.push({ etudiant_id: id, ue_num: x.ue_num, regles: x.regles.map(r0 => r0.libelle) });
+    for (const i of lignes) { upInsc.run(id, annee, Number(i.ue_num), i.groupe || null, dateJour); nInsc++; }
+  }
+
+  res.json({ ok: true, annee, etudiants: nEtud, inscriptions: nInsc, ignorees: sansCode,
+    a_regulariser: aRegulariser.length, a_regulariser_liste: aRegulariser.slice(0, 200) });
 });
 
 // ── Rapport de PAE : données pour l'aperçu et pour l'export Excel ──────────
@@ -2222,26 +2423,10 @@ r.post('/:id/pae/confirmer', authRequired,
   const e = db.prepare('SELECT id FROM etudiant WHERE id = ?').get(etudId);
   if (!e) return res.status(404).json({ error: 'étudiant introuvable' });
 
-  const dateJour = new Date().toISOString().slice(0, 10);
   const qui = req.user?.email || req.user?.nom_complet || null;
 
-  const ins = db.prepare(`
-    INSERT INTO etudiant_inscription (etudiant_id, annee_scolaire, ue_num, date_inscription)
-    VALUES (?,?,?,?)
-    ON CONFLICT(etudiant_id, annee_scolaire, ue_num) DO NOTHING`);
-
-  // La même règle que la validation en lot : on ne signe pas un programme qui
-  // réinscrit une UE déjà réussie sans que la réinscription ait été forcée.
-  const reussiesAvant = new Set(db.prepare(`SELECT DISTINCT ue_num FROM etudiant_inscription
-    WHERE etudiant_id = ? AND annee_scolaire < ? AND resultat = 'reussi'`).all(etudId, annee)
-    .map(x => x.ue_num));
-  const forcees = new Set(db.prepare(`SELECT ue_num FROM etudiant_inscription
-    WHERE etudiant_id = ? AND annee_scolaire = ? AND COALESCE(derogation, 0) = 1`).all(etudId, annee)
-    .map(x => x.ue_num));
-  const bloquantes = [...new Set([
-    ...reprisesNonForcees(etudId, annee),
-    ...(Array.isArray(ues) ? ues : []).map(Number).filter(n => reussiesAvant.has(n) && !forcees.has(n)),
-  ])].sort((a, b) => a - b);
+  // Une réinscription posée hier sans être forcée bloque toujours la signature.
+  const bloquantes = reprisesNonForcees(etudId, annee);
   if (bloquantes.length) {
     return res.status(409).json({
       error: `Ce programme réinscrit ${bloquantes.length > 1 ? 'des UE déjà réussies' : 'une UE déjà réussie'} `
@@ -2250,24 +2435,22 @@ r.post('/:id/pae/confirmer', authRequired,
       deja_reussies: bloquantes,
     });
   }
-
-  let ajoutees = 0;
-  db.transaction(() => {
-    // Les unités transmises sont celles que l'écran affiche APRÈS ajustement :
-    // on inscrit ce qui a été retenu, pas la proposition brute.
-    for (const n of (Array.isArray(ues) ? ues : []).map(Number).filter(Boolean)) {
-      const r0 = ins.run(etudId, annee, n, dateJour);
-      if (r0.changes) ajoutees++;
-    }
-    db.prepare(`
-      INSERT INTO etudiant_pae (etudiant_id, annee_scolaire, confirme_le, confirme_par)
-      VALUES (?,?, datetime('now'), ?)
-      ON CONFLICT(etudiant_id, annee_scolaire) DO UPDATE SET
-        confirme_le = datetime('now'), confirme_par = excluded.confirme_par
-    `).run(etudId, annee, qui);
-  })();
-
-  const reports = reporterDOffice(Number(req.params.id), annee);
+  // Les unités transmises sont celles que l'écran affiche : elles passent par
+  // la porte unique, qui les juge comme n'importe quel ajout.
+  const b = ecrireProgramme({ etudId, annee, ajouter: Array.isArray(ues) ? ues : [], origine: 'confirmation',
+    par: qui, motifs: req.body?.motifs || {} });
+  if (b.refus.length) {
+    return res.status(409).json({ error: `${b.refus.length} unité(s) contreviennent aux règles du PAE : un motif est demandé pour chacune.`,
+      refus: b.refus });
+  }
+  db.prepare(`
+    INSERT INTO etudiant_pae (etudiant_id, annee_scolaire, confirme_le, confirme_par)
+    VALUES (?,?, datetime('now'), ?)
+    ON CONFLICT(etudiant_id, annee_scolaire) DO UPDATE SET
+      confirme_le = datetime('now'), confirme_par = excluded.confirme_par
+  `).run(etudId, annee, qui);
+  const ajoutees = b.ajoutees.length;
+  const reports = b.reports ?? reporterDOffice(etudId, annee);
   res.json({ ok: true, ajoutees, confirme: true, reports });
 });
 
@@ -3433,12 +3616,6 @@ r.post('/pae-modifier', authRequired,
     if (hors.length) return res.status(403).json({ error: `Unité(s) hors de votre périmètre : ${hors.join(', ')}` });
   }
 
-  const dateJour = new Date().toISOString().slice(0, 10);
-  const lire = db.prepare('SELECT resultat FROM etudiant_inscription WHERE etudiant_id = ? AND annee_scolaire = ? AND ue_num = ?');
-  const notes = db.prepare('SELECT COUNT(*) AS n FROM etudiant_note_detail WHERE etudiant_id = ? AND annee_scolaire = ? AND ue_num = ?');
-  const ins = db.prepare(`INSERT INTO etudiant_inscription (etudiant_id, annee_scolaire, ue_num, date_inscription)
-    VALUES (?,?,?,?) ON CONFLICT(etudiant_id, annee_scolaire, ue_num) DO NOTHING`);
-  const del = db.prepare('DELETE FROM etudiant_inscription WHERE etudiant_id = ? AND annee_scolaire = ? AND ue_num = ?');
   const nom = id => { const e = db.prepare('SELECT nom, prenom FROM etudiant WHERE id = ?').get(id); return e ? `${(e.nom || '').toUpperCase()} ${e.prenom || ''}`.trim() : `#${id}`; };
 
   /* LE GARDE-FOU : une unité d'une autre section que celle du dossier (hors
@@ -3460,27 +3637,44 @@ r.post('/pae-modifier', authRequired,
       autre_section: autreSection.slice(0, 200) });
   }
 
-  const rapport = { ajoutes: 0, deja: 0, retires: 0, absents: 0, proteges: [], autre_section: autreSection.slice(0, 200) };
-  try {
-    db.transaction(() => {
-      for (const [e, u] of A) {
-        if (lire.get(e, annee, u)) { rapport.deja++; continue; }
-        ins.run(e, annee, u, dateJour); rapport.ajoutes++;
-      }
-      for (const [e, u] of R) {
-        const x = lire.get(e, annee, u);
-        if (!x) { rapport.absents++; continue; }
-        if (x.resultat) { rapport.proteges.push({ etudiant: nom(e), ue_num: u, pourquoi: `résultat « ${x.resultat} » encodé` }); continue; }
-        let n = 0; try { n = notes.get(e, annee, u).n; } catch { n = 0; }
-        if (n) { rapport.proteges.push({ etudiant: nom(e), ue_num: u, pourquoi: `${n} note(s) déjà saisie(s)` }); continue; }
-        del.run(e, annee, u); rapport.retires++;
-      }
-      if (simulation) throw new Error('SIMULATION');
-    })();
-  } catch (e) {
-    if (e.message !== 'SIMULATION') { console.error('[pae-modifier]', e); return res.status(500).json({ error: e.message }); }
+  /* PAR LA PORTE UNIQUE, ÉTUDIANT PAR ÉTUDIANT (28 septembre 2026). Le « PAE de
+     base » coche un bloc entier d'un clic : il reste, mais ses ajouts sont
+     jugés comme les autres. Une simulation d'ensemble d'abord — tout ou rien :
+     si une unité contrevient à une règle et qu'aucun motif n'est donné, rien
+     ne s'écrit, et les écarts sont nommés. Le motif, donné une fois, vaut pour
+     tous les écarts du lot et se trace sur chacun. */
+  const parEtud = new Map();
+  for (const [e, u] of A) { if (!parEtud.has(e)) parEtud.set(e, { a: [], r: [] }); parEtud.get(e).a.push(u); }
+  for (const [e, u] of R) { if (!parEtud.has(e)) parEtud.set(e, { a: [], r: [] }); parEtud.get(e).r.push(u); }
+  const motif = String(req.body?.motif || '').trim();
+  const qui = req.user?.email || req.user?.nom || null;
+  const rapport = { ajoutes: 0, deja: 0, retires: 0, absents: 0, proteges: [], ecarts: [], confirmations_retirees: 0,
+    autre_section: autreSection.slice(0, 200) };
+  const bilans = [];
+  for (const [e, { a, r: rr }] of parEtud) {
+    const motifs = motif ? Object.fromEntries(a.map(u => [u, motif])) : {};
+    const b = ecrireProgramme({ etudId: e, annee, ajouter: a, retirer: rr, origine: 'composition', par: qui, motifs, simulation: true });
+    const deja = new Set(db.prepare('SELECT ue_num FROM etudiant_inscription WHERE etudiant_id = ? AND annee_scolaire = ?').all(e, annee).map(x => x.ue_num));
+    rapport.deja += a.filter(u => deja.has(u)).length;
+    rapport.absents += rr.filter(u => !deja.has(u)).length;
+    for (const x of b.conservees) rapport.proteges.push({ etudiant: nom(e), ue_num: x.ue_num, pourquoi: `${x.pourquoi} déjà encodé(es)` });
+    for (const x of b.ecarts) rapport.ecarts.push({ etudiant_id: e, etudiant: nom(e), ue_num: x.ue_num, regles: x.regles });
+    bilans.push({ e, a, rr, motifs, b });
   }
-  res.json({ ok: true, simulation: !!simulation, ...rapport });
+  rapport.ecarts = rapport.ecarts.slice(0, 300);
+  const sansMotif = rapport.ecarts.length && !motif;
+  if (!simulation && sansMotif) {
+    return res.status(409).json({ error: `${rapport.ecarts.length} ajout(s) contreviennent aux règles du PAE. Rien n'est écrit : donnez un motif, ou retirez-les.`,
+      ...rapport });
+  }
+  for (const x of bilans) { rapport.ajoutes += x.b.ajoutees.length; rapport.retires += x.b.retirees.length; }
+  if (!simulation) {
+    for (const x of bilans) {
+      const b = ecrireProgramme({ etudId: x.e, annee, ajouter: x.a, retirer: x.rr, origine: 'composition', par: qui, motifs: x.motifs });
+      if (b.confirmation_retiree) rapport.confirmations_retirees++;
+    }
+  }
+  res.json({ ok: true, simulation: !!simulation, motif_requis: !!sansMotif, ...rapport });
 });
 
 /* ── L'HISTORIQUE DE PAE, ENCODÉ À LA MAIN DEPUIS LA GRILLE ────────────────
@@ -3539,101 +3733,8 @@ r.post('/pae-resultats', authRequired,
   res.json({ ok: true, ecrits, effaces });
 });
 
-r.post('/pae-lot', authRequired,
-       roleRequired('admin', 'directeur', 'directeur_adjoint', 'editeur', 'secretariat'), (req, res) => {
-  const { annee, etudiants, ues, action, simulation } = req.body || {};
-  if (!annee || !Array.isArray(etudiants) || !Array.isArray(ues)) {
-    return res.status(400).json({ error: 'annee, etudiants et ues requis' });
-  }
-  if (!['inscrire', 'retirer'].includes(action)) {
-    return res.status(400).json({ error: 'action inconnue' });
-  }
-  if (!etudiants.length || !ues.length) {
-    return res.status(400).json({ error: 'sélection vide' });
-  }
-
-  const perim = getUserSections(req.user);
-  const dateJour = new Date().toISOString().slice(0, 10);
-
-  // Le périmètre s'applique aux UNITÉS : une coordination ne compose pas les
-  // programmes d'une autre section.
-  const sectionsUe = {};
-  for (const u of db.prepare(`
-    SELECT ue_num, MIN(section) AS section FROM ue
-    WHERE ue_num IN (${ues.map(() => '?').join(',')}) AND section IS NOT NULL
-    GROUP BY ue_num`).all(...ues.map(Number))) {
-    sectionsUe[u.ue_num] = u.section;
-  }
-  const horsPerimetre = perim
-    ? ues.filter(n => sectionsUe[n] && !perim.includes(sectionsUe[n]))
-    : [];
-  if (horsPerimetre.length) {
-    return res.status(403).json({
-      error: `${horsPerimetre.length} unité(s) hors de votre périmètre : `
-           + horsPerimetre.join(', '),
-    });
-  }
-
-  const rapport = { inscrits: 0, deja: 0, retires: 0, absents: 0, proteges: [] };
-
-  const dejaLa = db.prepare(`
-    SELECT resultat FROM etudiant_inscription
-    WHERE etudiant_id = ? AND annee_scolaire = ? AND ue_num = ?`);
-
-  const ins = db.prepare(`
-    INSERT INTO etudiant_inscription (etudiant_id, annee_scolaire, ue_num, date_inscription)
-    VALUES (?,?,?,?)
-    ON CONFLICT(etudiant_id, annee_scolaire, ue_num) DO NOTHING`);
-
-  const del = db.prepare(`
-    DELETE FROM etudiant_inscription
-    WHERE etudiant_id = ? AND annee_scolaire = ? AND ue_num = ?`);
-
-  const noms = Object.fromEntries(db.prepare(`
-    SELECT id, nom, prenom FROM etudiant
-    WHERE id IN (${etudiants.map(() => '?').join(',')})`).all(...etudiants.map(Number))
-    .map(e => [e.id, `${e.nom} ${e.prenom}`]));
-
-  const appliquer = db.transaction(() => {
-    for (const etudId of etudiants.map(Number)) {
-      for (const ueNum of ues.map(Number)) {
-        const existant = dejaLa.get(etudId, annee, ueNum);
-
-        if (action === 'inscrire') {
-          if (existant) { rapport.deja++; continue; }
-          ins.run(etudId, annee, ueNum, dateJour);
-          rapport.inscrits++;
-        } else {
-          if (!existant) { rapport.absents++; continue; }
-          // Un résultat encodé ne se supprime pas à la légère : ce serait
-          // effacer une décision du Conseil des études.
-          if (existant.resultat) {
-            rapport.proteges.push({ etudiant: noms[etudId] || etudId, ue_num: ueNum,
-                                    resultat: existant.resultat });
-            continue;
-          }
-          del.run(etudId, annee, ueNum);
-          rapport.retires++;
-        }
-      }
-    }
-    if (simulation) throw new Error('SIMULATION');
-  });
-
-  try { appliquer(); } catch (e) {
-    if (e.message !== 'SIMULATION') {
-      console.error('[pae-lot]', e);
-      return res.status(500).json({ error: e.message });
-    }
-  }
-
-  res.json({
-    ok: true, simulation: !!simulation, action,
-    ...rapport,
-    proteges: rapport.proteges.slice(0, 40),
-    nb_proteges: rapport.proteges.length,
-  });
-});
+// POST /pae-lot : retiré le 28 septembre 2026 — aucun écran ne l'appelait,
+// et il écrivait le programme sans aucune règle. Porte unique : ecrireProgramme().
 
 r.post('/encodage-direct', authRequired,
        roleRequired('admin', 'directeur', 'directeur_adjoint', 'editeur', 'secretariat'), (req, res) => {
@@ -4027,66 +4128,18 @@ export function composerPAE(profId, annee, options = {}) {
   //  secrétariat encode explicitement l'historique.)
   const reussies = new Set([...reussiesExplicites, ...vaCompletes]);
 
-  /* LE CADENAS (Charles, 25 septembre 2026 — « la 262 est conditionnée à la
-   * réussite de la 261 : on la propose, mais avec un cadenas ; elle ne pourra
-   * être suivie QUE si la 261 est réussie »).
-   *
-   * Un prérequis est EN ATTENTE quand l'étudiant l'a suivi l'année précédente
-   * et que rien n'est encore tranché : pas de résultat, ou « ajourné » — la
-   * seconde session décidera. Cela se DÉDUIT des traces, comme l'état d'une
-   * valorisation : aucune case à cocher, donc aucun cadenas oublié ou posé à
-   * tort. Réussi, le cadenas tombe de lui-même ; refusé, l'UE qu'il fermait
-   * est signalée. Le prérequis en attente ne se repropose pas : son sort se
-   * joue dans l'année où il a été suivi. */
-  const anneeAvant = (() => {
-    const m = /^(\d{4})-(\d{4})$/.exec(String(annee || ''));
-    return m ? `${Number(m[1]) - 1}-${Number(m[2]) - 1}` : null;
-  })();
-  const enAttente = new Set(anneeAvant ? db.prepare(`
-      SELECT ue_num FROM etudiant_inscription
-      WHERE etudiant_id = ? AND annee_scolaire = ?
-        AND (resultat IS NULL OR resultat = 'ajourne')`).all(profId, anneeAvant)
-    .map(r => r.ue_num).filter(u => !reussies.has(u)) : []);
+  // Le cadenas et l'attente : voir lib/pae.js (seule règle).
 
   // Sections de l'étudiant (dominantes) — override possible via ?section=
   // Le cursus EN COURS et ses compatibles ; un cursus archivé ne propose plus rien.
   const { scores: sectionsScores } = sectionsDeLEtudiant(profId, options.section);
   const sectionsEtudiant = options.section ? [options.section] : cursusDe(profId, annee).actifs;
 
-  // Carte des UE de la ou des sections : déterminantes et épreuve intégrée.
-  // L'épreuve ne se présente qu'une fois tout le reste acquis — ou lorsqu'il
-  // ne subsiste que les déterminantes, présentées la même année.
-  const carteUE = sectionsEtudiant.length
-    ? db.prepare(`
-        SELECT DISTINCT ue_num, MAX(COALESCE(is_epreuve_integree, 0)) AS epreuve
-        FROM ue WHERE section IN (${sectionsEtudiant.map(() => '?').join(',')})
-        GROUP BY ue_num
-      `).all(...sectionsEtudiant)
-    : [];
-  const estEpreuve = {};
-  for (const u of carteUE) estEpreuve[u.ue_num] = !!u.epreuve;
-
-  // Année d'études de chaque UE, au sens de la section
-  const nivCarte = sectionsEtudiant.length ? niveauxEffectifs(sectionsEtudiant, annee) : {};
-  const rangDe = v => {
-    const m = /^BA(\d+)$/.exec(String(v || '').toUpperCase());
-    return m ? Number(m[1]) : 9;
-  };
-
-  // Graphe complet des prérequis, pour le contrôle transitif
-  // Deux natures : le prérequis LÉGAL bloque, l'INTERNE avertit seulement.
-  // Les mêler priverait un étudiant d'une UE qu'il a le droit de suivre.
-  const prereqTous = {}, prereqInternes = {};
-  for (const p of db.prepare(
-    "SELECT ue_num, prerequis_num, COALESCE(type,'legal') AS type, motif FROM ue_prerequis"
-  ).all()) {
-    if (p.type === 'interne') {
-      (prereqInternes[p.ue_num] = prereqInternes[p.ue_num] || []).push(
-        { ue: p.prerequis_num, motif: p.motif });
-    } else {
-      (prereqTous[p.ue_num] = prereqTous[p.ue_num] || []).push(p.prerequis_num);
-    }
-  }
+  /* L'ÉTAT DE CHAQUE UNITÉ VIENT DU MOTEUR (lib/pae.js, 28 septembre 2026).
+     Ce calcul-ci en était un des sept ; il n'en reste qu'un, que le schéma, la
+     frise et le contrôle des écritures lisent aussi. Ici ne reste que la mise
+     en forme de la liste. */
+  const faits = faitsPAE(profId, annee, sectionsEtudiant);
 
   // UEs organisées cette année dans ces sections — UNE ligne par UE
   // (une UE peut avoir plusieurs organisations : on ne la propose qu'une fois)
@@ -4113,141 +4166,40 @@ export function composerPAE(profId, annee, options = {}) {
     `).all(annee, annee, ...sectionsEtudiant);
   }
 
-  // Pour chaque UE organisée, vérifier les prérequis
+  const nomUe = db.prepare('SELECT ue_nom FROM ue WHERE ue_num = ? AND annee_scolaire = ? LIMIT 1');
   const pae = [];
   for (const ue of organisees) {
-    const prerequis = db.prepare(`
-      SELECT p.prerequis_num AS ue_num_requis, u.ue_nom
-      FROM ue_prerequis p
-      LEFT JOIN ue u ON u.ue_num = p.prerequis_num AND u.annee_scolaire = ?
-      WHERE p.ue_num = ?
-    `).all(annee, ue.ue_num);
-
-    const prerequis_ok = prerequis.every(p => reussies.has(p.ue_num_requis));
-    const deja_reussie = reussies.has(ue.ue_num);
-
-    // Chaîne COMPLÈTE des prérequis manquants. S'inscrire à la 256 suppose la
-    // 255, laquelle suppose la 254 : ne contrôler que le lien direct laissait
-    // passer une inscription impossible.
-    const chaineManquante = (() => {
-      const manquants = new Set(), vus = new Set(), pile = [ue.ue_num];
-      while (pile.length) {
-        const n = pile.pop();
-        if (vus.has(n)) continue;
-        vus.add(n);
-        for (const p of (prereqTous[n] || [])) {
-          if (reussies.has(p)) continue;
-          manquants.add(p); pile.push(p);
-        }
-      }
-      return [...manquants].sort((a, b) => a - b);
-    })();
-
-    // Sous réserve : les prérequis manquants sont organisés la même année
-    // ET du même niveau que l'UE (cas type : épreuve intégrée et ses
-    // déterminantes). Un prérequis manquant de niveau inférieur bloque.
-    const prereqManquants = prerequis.filter(p => !reussies.has(p.ue_num_requis));
-    const organiseesSet = new Set(organisees.map(o => o.ue_num));
-    const nivDeUe = (organisees.find(o => o.ue_num === ue.ue_num)?.ue_niv || ue.ue_niv || '').toUpperCase();
-    const nivMap = {};
-    for (const o of organisees) nivMap[o.ue_num] = (o.ue_niv || '').toUpperCase();
-    const sous_reserve = !prerequis_ok && prereqManquants.length > 0 &&
-      prereqManquants.every(p => organiseesSet.has(p.ue_num_requis) &&
-                                 nivMap[p.ue_num_requis] === nivDeUe);
-
-    // L'épreuve intégrée sanctionne la section : elle ne s'ouvre que si tout
-    // le reste est acquis, ou s'il ne reste que les UE déterminantes, elles
-    // aussi au programme de l'année. Toute autre inscription relève de la
-    // dérogation, ajoutée à la main.
-    let epreuveEtat = null, epreuveRestantes = null;
-    if (estEpreuve[ue.ue_num]) {
-      // L'épreuve ne s'ouvre que si TOUTES les UE des années inférieures sont
-      // acquises. À défaut, elle ne se propose pas — elle s'ajoute à la main,
-      // sur décision du Conseil des études.
-      const rangEpreuve = rangDe(nivCarte[ue.ue_num]);
-      epreuveRestantes = carteUE
-        .filter(x => x.ue_num !== ue.ue_num
-                  && rangDe(nivCarte[x.ue_num]) < rangEpreuve
-                  && !reussies.has(x.ue_num))
-        .map(x => x.ue_num).sort((a, b) => a - b);
-      epreuveEtat = epreuveRestantes.length ? 'fermee' : 'ouverte';
-    }
-
+    const e = faits.etats.get(ue.ue_num);
+    if (!e) continue;
     pae.push({
       ...ue,
-      prerequis,
-      prerequis_ok,
-      // Les prérequis dont le résultat de l'an dernier n'est pas encore tombé.
-      cadenas: prereqManquants.map(p => p.ue_num_requis).filter(n => enAttente.has(n)),
-      en_attente: enAttente.has(ue.ue_num),
-      epreuve_integree: !!estEpreuve[ue.ue_num],
-      epreuve_etat: epreuveEtat,
-      epreuve_restantes: epreuveRestantes,
-      deja_reussie,
+      prerequis: (faits.legal[ue.ue_num] || []).map(p => ({ ue_num_requis: p, ue_nom: nomUe.get(p, annee)?.ue_nom || null })),
+      prerequis_ok: !e.prereq_manquants.length,
+      // Les prérequis ajournés l'an dernier : la seconde session décidera.
+      cadenas: e.cadenas,
+      en_attente: e.en_attente,
+      epreuve_integree: e.epreuve,
+      epreuve_etat: e.epreuve_etat,
+      epreuve_restantes: e.epreuve_restantes,
+      deja_reussie: e.deja_reussie,
       va_complete: vaCompletes.has(ue.ue_num),
       deja_suivie: dejaSuivies.has(ue.ue_num),
       inscrite: dejaInscritesAnnee.has(ue.ue_num),
-      accessible: estEpreuve[ue.ue_num]
-        ? (epreuveEtat === 'ouverte' && !deja_reussie)
-        : (prerequis_ok && !deja_reussie),
-      sous_reserve: estEpreuve[ue.ue_num] ? false : (sous_reserve && !deja_reussie),
-      prereq_manquants: prereqManquants.map(p => p.ue_num_requis),
-      prereq_chaine: chaineManquante,
-      // Recommandations non satisfaites : l'UE reste accessible, mais l'écran
-      // le signale pour que la décision soit prise en connaissance de cause.
-      avertissements: (prereqInternes[ue.ue_num] || [])
-        .filter(x => !reussies.has(x.ue))
-        .map(x => ({ ue_num: x.ue, motif: x.motif })),
+      accessible: e.accessible,
+      sous_reserve: e.sous_reserve,
+      prereq_manquants: e.prereq_manquants,
+      prereq_chaine: e.prereq_chaine,
+      // Prérequis internes non satisfaits : l'UE reste accessible, l'écran le
+      // signale pour que la décision soit prise en connaissance de cause.
+      avertissements: e.avertissements.map(x => ({ ue_num: x.ue, motif: x.motif })),
       // Circulaire 9764 : la réinscription dans une UE déjà réussie est possible
       // avec décision favorable du Conseil des études (pièce au dossier).
-      reinscriptible_ce: prerequis_ok && deja_reussie,
+      reinscriptible_ce: !e.prereq_manquants.length && e.deja_reussie,
+      hors_bloc: e.hors_bloc && !dejaInscritesAnnee.has(ue.ue_num),
+      plafond_bloc: faits.plafond,
+      propose: e.propose,
+      propose_sous_reserve: e.propose_sous_reserve,
     });
-  }
-
-  // ── Proposition de PAE : point fixe intra-niveau (même règle que PAE auto) ──
-  // Les UE accessibles d'abord, puis celles débloquées par ces inscriptions
-  // à condition d'être du MÊME niveau (épreuve intégrée et ses déterminantes).
-  const nivParUe = {};
-  for (const u of pae) nivParUe[u.ue_num] = (u.ue_niv || '').toUpperCase();
-  /* LE PLAFOND DE BLOC (Charles, 27 septembre 2026 : « en TIM, tu proposes
-     les UE 252 et 253 aux primo-inscrits : il n'y a pas de prérequis, mais ce
-     sont des UE au programme de 2e »). L'absence de prérequis ne suffit pas :
-     on ne propose d'office que jusqu'au bloc QUI SUIT le plus haut bloc que
-     l'étudiant a déjà suivi — BA1 pour un primo-inscrit. Au-delà, l'unité
-     reste accessible et s'ajoute à la main. */
-  // Les années ANTÉRIEURES seulement : une inscription déjà posée cette année
-  // (peut-être à tort) ne doit pas relever son propre plafond.
-  const suiviesAvant = db.prepare(`SELECT DISTINCT ue_num FROM etudiant_inscription
-    WHERE etudiant_id = ? AND annee_scolaire < ?`).all(profId, annee).map(r0 => r0.ue_num);
-  const rangsSuivis = [...suiviesAvant, ...reussies]
-    .map(n => rangDe(nivCarte[n] || nivParUe[n])).filter(r => r > 0 && r < 9);
-  const plafondBloc = (rangsSuivis.length ? Math.max(...rangsSuivis) : 0) + 1;
-  const auDessus = u => { const r = rangDe(nivCarte[u.ue_num] || u.ue_niv); return r > 0 && r < 9 && r > plafondBloc; };
-  const proposees = new Set();
-  let stableProp = false;
-  while (!stableProp) {
-    stableProp = true;
-    for (const u of pae) {
-      if (u.deja_reussie || proposees.has(u.ue_num) || u.en_attente) continue;
-      if (auDessus(u)) continue;
-      // L'épreuve intégrée ne suit pas le jeu des prérequis : elle relève de
-      // sa propre règle, déjà tranchée plus haut.
-      if (u.epreuve_integree) {
-        if (u.epreuve_etat === 'ouverte') { proposees.add(u.ue_num); stableProp = false; }
-        continue;
-      }
-      const manquants = u.prereq_manquants || [];
-      const ok = manquants.every(p => (proposees.has(p) && nivParUe[p] === nivParUe[u.ue_num])
-        || enAttente.has(p));
-      if (ok) { proposees.add(u.ue_num); stableProp = false; }
-    }
-  }
-  for (const u of pae) {
-    u.hors_bloc = !u.deja_reussie && !u.inscrite && auDessus(u);
-    u.plafond_bloc = plafondBloc;
-    u.propose = proposees.has(u.ue_num);
-    u.propose_sous_reserve = u.propose && (u.prereq_manquants || []).some(p => !enAttente.has(p));
-    if (!u.propose) u.cadenas = [];
   }
 
   // Niveau de rattachement de chaque UE, tel que défini pour la section
@@ -4396,57 +4348,28 @@ function reporterDOffice(etudId, annee) {
 
 r.post('/:id/pae-valider', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
   const etudId = Number(req.params.id);
-  const { annee, ue_nums, derogations, forcer } = req.body;
+  const { annee, ue_nums, motifs, forcer, simulation } = req.body;
   if (!annee || !Array.isArray(ue_nums)) {
     return res.status(400).json({ error: 'annee et ue_nums requis' });
   }
   const e = db.prepare('SELECT id FROM etudiant WHERE id = ?').get(etudId);
   if (!e) return res.status(404).json({ error: 'étudiant introuvable' });
 
+  // La sélection de l'écran est le programme voulu : ce qui manque s'ajoute,
+  // ce qui n'y est plus se retire — par la porte unique, qui juge les ajouts.
   const retenues = new Set(ue_nums.map(Number));
-  const derog = new Set((derogations || []).map(Number));
-  const dateInsc = new Date().toISOString().slice(0, 10);
-
-  const existantes = db.prepare(
-    'SELECT ue_num, resultat FROM etudiant_inscription WHERE etudiant_id = ? AND annee_scolaire = ?'
-  ).all(etudId, annee);
-
-  const ins = db.prepare(`
-    INSERT OR IGNORE INTO etudiant_inscription
-      (etudiant_id, annee_scolaire, ue_num, date_inscription, derogation)
-    VALUES (?,?,?,?,?)
-  `);
-  // Par défaut, une inscription portant un résultat n'est jamais retirée
-  // silencieusement. Avec « forcer », elle l'est — et ses notes avec elle.
-  const del = forcer
-    ? db.prepare('DELETE FROM etudiant_inscription WHERE etudiant_id = ? AND annee_scolaire = ? AND ue_num = ?')
-    : db.prepare(`
-        DELETE FROM etudiant_inscription
-        WHERE etudiant_id = ? AND annee_scolaire = ? AND ue_num = ? AND resultat IS NULL
-      `);
-
-  let ajoutees = 0, retirees = 0, conservees = 0;
-  const tx = db.transaction(() => {
-    for (const ue of retenues) {
-      if (ins.run(etudId, annee, ue, dateInsc, derog.has(ue) ? 1 : 0).changes) ajoutees++;
-    }
-    for (const ex of existantes) {
-      if (retenues.has(ex.ue_num)) continue;
-      if (ex.resultat != null && !forcer) { conservees++; continue; }
-      if (del.run(etudId, annee, ex.ue_num).changes) {
-        retirees++;
-        // Le report d'abord : tant qu'il est accordé, ses notes sont gardées.
-        db.prepare('DELETE FROM etudiant_report_note WHERE etudiant_id=? AND annee_scolaire=? AND ue_num=?')
-          .run(etudId, annee, ex.ue_num);
-        db.prepare('DELETE FROM etudiant_note_detail WHERE etudiant_id=? AND annee_scolaire=? AND ue_num=?')
-          .run(etudId, annee, ex.ue_num);
-      }
-    }
-  });
-  tx();
-
-  const reports = reporterDOffice(etudId, annee);
-  res.json({ ok: true, annee, ajoutees, retirees, conservees, total: retenues.size, reports });
+  const existantes = db.prepare('SELECT ue_num FROM etudiant_inscription WHERE etudiant_id = ? AND annee_scolaire = ?')
+    .all(etudId, annee).map(x => x.ue_num);
+  const b = ecrireProgramme({ etudId, annee, ajouter: [...retenues], retirer: existantes.filter(u => !retenues.has(u)),
+    origine: 'pae', par: req.user?.email || req.user?.nom || null, motifs: motifs || {},
+    forcerRetrait: !!forcer, simulation: !!simulation });
+  if (b.refus.length) {
+    return res.status(409).json({ error: `${b.refus.length} unité(s) contreviennent aux règles du PAE : un motif est demandé pour chacune.`,
+      refus: b.refus });
+  }
+  res.json({ ok: true, annee, ajoutees: b.ajoutees.length, retirees: b.retirees.length,
+    conservees: b.conservees.length, derogations: b.ecarts.length, confirmation_retiree: b.confirmation_retiree,
+    total: retenues.size, reports: b.reports || 0 });
 });
 
 // ── LES PROGRAMMES D'UNE PROMOTION, D'UN SEUL GESTE ─────────────────────────
@@ -4556,24 +4479,20 @@ r.post('/pae-promotion', authRequired,
   }
 
   let ecrits = 0, inscriptions = 0;
+  const refuses = [];
   if (!simulation) {
-    const ins = db.prepare(`
-      INSERT OR IGNORE INTO etudiant_inscription
-        (etudiant_id, annee_scolaire, ue_num, date_inscription)
-      VALUES (?,?,?,?)`);
-    const jour = new Date().toISOString().slice(0, 10);
-    db.transaction(() => {
-      for (const l of prets) {
-        let n = 0;
-        for (const u of l.ues) n += ins.run(l.id, annee_cible, u.ue_num, jour).changes;
-        if (n) { ecrits++; inscriptions += n; }
-      }
-    })();
-    for (const l of prets) reporterDOffice(l.id, annee_cible);
+    // Par la porte unique, étudiant par étudiant : chacun est jugé sur SES
+    // faits, et un refus n'arrête pas les autres — il est nommé.
+    for (const l of prets) {
+      const b = ecrireProgramme({ etudId: l.id, annee: annee_cible, ajouter: l.ues.map(u => u.ue_num),
+        origine: 'promotion', par: req.user?.email || req.user?.nom || null });
+      if (b.refus.length) { refuses.push({ id: l.id, nom: l.nom, prenom: l.prenom, refus: b.refus }); continue; }
+      if (b.ajoutees.length) { ecrits++; inscriptions += b.ajoutees.length; }
+    }
   }
 
   res.json({
-    section, annee_source, annee_cible, simulation: !!simulation,
+    section, annee_source, annee_cible, simulation: !!simulation, refuses,
     promotion: gens.length - autreSection.length,
     autre_section: autreSection,
     prets, attente, sans_programme: rien,
@@ -4585,84 +4504,24 @@ r.post('/pae-promotion', authRequired,
   });
 });
 
-// ── PAE auto : inscrire d'un clic tout ce que l'étudiant peut avoir ──────────
-// Point fixe : accessibles directes, puis celles débloquées par ces
-// inscriptions (sous réserve — cas épreuve intégrée), jusqu'à stabilité.
+// ── PAE auto : inscrire d'un clic LA PROPOSITION ─────────────────────────────
+// C'était un second moteur (sans plafond de bloc, sans épreuve intégrée, sur
+// les cursus archivés) : un primo-inscrit y recevait du BA2. Il inscrit
+// désormais la proposition du moteur unique, par la porte unique.
 r.post('/:id/pae-auto', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
   const etudId = Number(req.params.id);
   const annee = req.body.annee;
   if (!annee) return res.status(400).json({ error: 'annee requise' });
-  const e = db.prepare('SELECT id FROM etudiant WHERE id = ?').get(etudId);
-  if (!e) return res.status(404).json({ error: 'étudiant introuvable' });
-
-  // Acquis : réussites encodées + VA complètes
-  const acquis = new Set([
-    ...db.prepare("SELECT DISTINCT ue_num FROM etudiant_inscription WHERE etudiant_id = ? AND resultat = 'reussi'").all(etudId).map(r => r.ue_num),
-    ...db.prepare("SELECT DISTINCT ue_num FROM etudiant_valorisation WHERE etudiant_id = ? AND type = 'complete' AND COALESCE(decision, 'accordee') <> 'refusee'").all(etudId).map(r => r.ue_num),
-  ]);
-
-  // Sections de l'étudiant
-  const { sections } = sectionsDeLEtudiant(etudId, req.body.section);
-  if (!sections.length) return res.status(400).json({ error: 'sections de l\'étudiant inconnues' });
-
-  // UE organisées cette année dans ces sections, non acquises
-  const ph = sections.map(() => '?').join(',');
-  const candidates = db.prepare(`
-    SELECT DISTINCT o.ue_num FROM organisation_ue o
-    WHERE o.annee_scolaire = ? AND o.section IN (${ph})
-  `).all(annee, ...sections).map(r => r.ue_num).filter(u => !acquis.has(u));
-
-  // Prérequis
-  const prereqs = db.prepare('SELECT ue_num, prerequis_num FROM ue_prerequis').all();
-  const prereqDe = {};
-  for (const p of prereqs) (prereqDe[p.ue_num] = prereqDe[p.ue_num] || []).push(p.prerequis_num);
-
-  // Niveaux (BA1/BA2/BA3) — le « sous réserve » ne vaut qu'ENTRE UE DU MÊME
-  // NIVEAU (épreuve intégrée et ses déterminantes). Une UE dont le prérequis
-  // manquant est d'un niveau inférieur n'est pas inscriptible : il faut
-  // d'abord réussir ce prérequis (cas UE de BA1 ratée → la suite attend).
-  const anneeRefNiv = anneeDeTravail(req) || annee;
-  const nivRows = db.prepare('SELECT DISTINCT ue_num, ue_niv FROM ue WHERE annee_scolaire = ?').all(anneeRefNiv);
-  const nivDe = {};
-  for (const n of nivRows) nivDe[n.ue_num] = (n.ue_niv || '').toUpperCase();
-
-  // Point fixe intra-niveau : la cascade inter-niveaux est bloquée
-  const inscrites = new Set();
-  const sousReserve = {};
-  let stable = false;
-  while (!stable) {
-    stable = true;
-    for (const ue of candidates) {
-      if (inscrites.has(ue)) continue;
-      const manquants = (prereqDe[ue] || []).filter(p => !acquis.has(p));
-      const ok = manquants.every(p => inscrites.has(p) && nivDe[p] === nivDe[ue]);
-      if (ok) {
-        inscrites.add(ue);
-        if (manquants.length) sousReserve[ue] = manquants;
-        stable = false;
-      }
-    }
-  }
-
-  // Insertion (sans écraser un éventuel résultat déjà encodé cette année)
-  const dateInsc = new Date().toISOString().slice(0, 10);
-  const ins = db.prepare(`
-    INSERT OR IGNORE INTO etudiant_inscription
-      (etudiant_id, annee_scolaire, ue_num, date_inscription)
-    VALUES (?,?,?,?)
-  `);
-  let creees = 0;
-  const tx = db.transaction(() => {
-    for (const ue of inscrites) {
-      if (ins.run(etudId, annee, ue, dateInsc).changes) creees++;
-    }
-  });
-  tx();
-
+  const c = composerPAE(etudId, annee, { section: req.body.section });
+  if (c.erreur) return res.status(c.code || 400).json({ error: c.erreur });
+  const propose = c.pae.filter(u => u.propose);
+  const b = ecrireProgramme({ etudId, annee, ajouter: propose.map(u => u.ue_num), origine: 'pae-auto',
+    par: req.user?.email || req.user?.nom || null });
+  if (b.refus.length) return res.status(409).json({ error: 'La proposition contrevient aux règles — à signaler.', refus: b.refus });
   res.json({
-    ok: true, annee, creees,
-    inscrites: [...inscrites].sort((a, b) => a - b),
-    sous_reserve: Object.fromEntries(Object.entries(sousReserve)),
+    ok: true, annee, creees: b.ajoutees.length,
+    inscrites: propose.map(u => u.ue_num).sort((x, y) => x - y),
+    sous_reserve: Object.fromEntries(propose.filter(u => u.propose_sous_reserve).map(u => [u.ue_num, u.prereq_manquants])),
   });
 });
 
@@ -4703,6 +4562,7 @@ r.post('/import-pae', authRequired, roleRequired('admin', 'editeur'), (req, res)
 
   const inconnus = new Set(), coursInconnus = new Set();
   let nRes = 0, nPae = 0, nCom = 0, nUE = 0;
+  const paeParEtud = new Map();
   const dateJour = new Date().toISOString().slice(0, 10);
 
   // Réussite d'une UE : tous ses cours connus doivent être réussis, valorisés
@@ -4751,7 +4611,8 @@ r.post('/import-pae', authRequired, roleRequired('admin', 'editeur'), (req, res)
         const cle = e.id + '|' + ue;
         if (vues.has(cle)) continue;            // une inscription par UE
         vues.add(cle);
-        if (insInsc.run(e.id, annee_pae, ue, dateJour).changes) nPae++;
+        if (!paeParEtud.has(e.id)) paeParEtud.set(e.id, []);
+        paeParEtud.get(e.id).push(ue);
       }
     }
 
@@ -4763,8 +4624,17 @@ r.post('/import-pae', authRequired, roleRequired('admin', 'editeur'), (req, res)
     }
   })();
 
+  // Le PAE de l'année suivante par la porte unique, en mode « signaler ».
+  const aRegulariser = [];
+  for (const [id, ues] of paeParEtud) {
+    const b = ecrireProgramme({ etudId: id, annee: annee_pae, ajouter: ues, origine: 'import du classeur de PAE',
+      par: req.user?.email || req.user?.nom || null, mode: 'signaler', dateInscription: dateJour });
+    nPae += b.ajoutees.length;
+    for (const x of b.ecarts) aRegulariser.push({ etudiant_id: id, ue_num: x.ue_num, regles: x.regles.map(r0 => r0.libelle) });
+  }
+
   res.json({
-    ok: true,
+    ok: true, a_regulariser: aRegulariser.length, a_regulariser_liste: aRegulariser.slice(0, 200),
     resultats_cours: nRes, ue_deduites: nUE, pae_creees: nPae, commentaires: nCom,
     matricules_inconnus: [...inconnus].slice(0, 25),
     cours_inconnus: [...coursInconnus].slice(0, 25),
@@ -4808,50 +4678,7 @@ r.post('/import-resultats', authRequired, roleRequired('admin', 'editeur'), (req
 // Le graphe (nœuds, arêtes, colonnes) est construit par le module
 // capitalisation, qui fait autorité sur l'année d'études de chaque UE.
 // On n'y superpose ici que l'état de l'étudiant.
-/**
- * L'ÉTAT D'UNE UE POUR UN ÉTUDIANT — une seule fonction, pour le schéma de la
- * fiche ET la frise de la liste (2.12.193) : deux calculs d'une même chose
- * finiraient par dire deux choses. Proposition par point fixe intra-niveau,
- * même règle que le PAE.
- */
-/* LE PLAFOND DE BLOC, POUR LE SCHÉMA AUSSI (Charles, 27 septembre 2026 :
-   « pas possible, tu donnes accès à une UE de B2 »). La proposition de PAE
-   l'appliquait depuis le matin ; le schéma de la fiche et la frise de la liste
-   ne le connaissaient pas, et montraient « disponible » une unité de BA2 dont
-   le seul lien avec le BA1 est une recommandation. Une unité n'est accessible
-   que jusqu'au bloc QUI SUIT le plus haut bloc déjà suivi (années
-   antérieures) ou acquis — BA1 pour un primo-inscrit. */
-const rangBlocDe = v => { const m = /^B[AE](\d+)$/.exec(String(v || '').toUpperCase()); return m ? Number(m[1]) : 0; };
-function plafondBlocDe(suiviesAvant, acquis, niv) {
-  const r = [...suiviesAvant, ...acquis].map(n => rangBlocDe(niv[n])).filter(x => x > 0);
-  return (r.length ? Math.max(...r) : 0) + 1;
-}
-
-function statutsCapitalisation({ nodes, prereqDe, niv, organisees, acquis, enAttente, plafond = null }) {
-  const horsBloc = n => plafond != null && rangBlocDe(niv[n]) > plafond;
-  const proposees = new Set();
-  const sousReserve = new Set();
-  let stable = false;
-  while (!stable) {
-    stable = true;
-    for (const n0 of nodes) {
-      const n = n0.ue_num;
-      if (acquis.has(n) || proposees.has(n) || !organisees.has(n) || horsBloc(n)) continue;
-      const manquants = (prereqDe[n] || []).filter(p => !acquis.has(p));
-      if (manquants.every(p => proposees.has(p) && niv[p] === niv[n])) {
-        proposees.add(n);
-        if (manquants.length) sousReserve.add(n);
-        stable = false;
-      }
-    }
-  }
-  return n => (acquis.has(n) ? 'acquise'
-    : enAttente.has(n) ? 'en_attente'
-    : sousReserve.has(n) ? 'sous_reserve'
-    : proposees.has(n) ? 'accessible'
-    : 'bloquee');
-}
-
+// L'état d'une UE pour un étudiant : lib/pae.js, seule règle (28 septembre 2026).
 /* LES ÉTATS DU SCHÉMA DE CAPITALISATION, pour l'écran ET pour la pièce
  * imprimée (2.12.220, Charles : « utiliser le même design que l'écran pour
  * l'impression du schéma »). Deux calculs donnaient deux schémas : la fiche
@@ -4901,45 +4728,22 @@ export function donneesCapitalisation(etudId, annee, sectionForcee = null) {
       ORDER BY annee_scolaire`).all(etudId)) {
     if (!reussite[v.ue_num]) reussite[v.ue_num] = { annee: v.annee_scolaire, note: null, va: true };
   }
-  /* AJOURNÉE, EN ATTENTE DE LA SECONDE SESSION : ni acquise, ni fermée — un
-     geste est attendu, d'où l'ocre (« à surveiller »). C'est la DERNIÈRE
-     inscription de l'unité qui le dit : une ajournée de 2024-2025 reprise et
-     réussie depuis n'attend plus rien. Et seulement l'année consultée ou la
-     précédente : l'historique importé porte des centaines d'« ajourné » de
-     2024-2025 dont la seconde session n'a jamais été reprise — les montrer
-     « en attente » ferait attendre ce qui est clos depuis un an. */
-  const enAttente = new Set();
-  const mA = /^(\d{4})-(\d{4})$/.exec(String(annee));
-  const anneePrec = mA ? `${+mA[1] - 1}-${+mA[2] - 1}` : null;
-  for (const r0 of db.prepare(`SELECT i.ue_num, i.resultat, i.annee_scolaire FROM etudiant_inscription i
-      WHERE i.etudiant_id = ? AND i.annee_scolaire = (SELECT MAX(j.annee_scolaire) FROM etudiant_inscription j
-        WHERE j.etudiant_id = i.etudiant_id AND j.ue_num = i.ue_num)`).all(etudId)) {
-    if (r0.resultat === 'ajourne' && !acquis.has(r0.ue_num)
-        && (r0.annee_scolaire === annee || r0.annee_scolaire === anneePrec)) enAttente.add(r0.ue_num);
-  }
-  const ph = sections.map(() => '?').join(',');
-  const organisees = new Set(
-    db.prepare(`SELECT DISTINCT ue_num FROM organisation_ue WHERE annee_scolaire = ? AND section IN (${ph})`)
-      .all(annee, ...sections).map(r0 => r0.ue_num));
-
-  // Graphe brut, pour disposer des prérequis et des niveaux effectifs
-  const base = construireGraphe({ sections, annee });
-  const prereqDe = Object.fromEntries(base.nodes.map(n => [n.ue_num, n.prerequis]));
-  const niv = niveauxEffectifs(sections, annee);
-
-  const suiviesAvant = db.prepare(`SELECT DISTINCT ue_num FROM etudiant_inscription
-    WHERE etudiant_id = ? AND annee_scolaire < ?`).all(etudId, annee).map(r0 => r0.ue_num);
-  const statut = statutsCapitalisation({ nodes: base.nodes, prereqDe, niv, organisees, acquis, enAttente,
-    plafond: plafondBlocDe(suiviesAvant, acquis, niv) });
+  /* L'ÉTAT DE CHAQUE UNITÉ VIENT DU MOTEUR (lib/pae.js) — le même que la
+     proposition du PAE : le schéma ne peut plus dire « indisponible » d'une
+     unité que la liste d'à côté propose avec un cadenas. */
+  const faits = faitsPAE(etudId, annee, sections);
+  const etatDe = n => faits.etats.get(n);
 
   const g = construireGraphe({
     sections, annee,
     etat: n => ({
-      statut: statut(n),
+      statut: etatDe(n)?.statut || 'bloquee',
       inscrite: inscrites.has(n),
-      organisee: organisees.has(n),
+      organisee: !!etatDe(n)?.organisee,
       reussite: acquis.has(n) ? (reussite[n] || null) : null,
-      prereq_manquants: (prereqDe[n] || []).filter(p => !acquis.has(p)),
+      prereq_manquants: etatDe(n)?.prereq_manquants || [],
+      cadenas: etatDe(n)?.cadenas || [],
+      hors_bloc: !!etatDe(n)?.hors_bloc,
     }),
   });
 
@@ -5402,7 +5206,7 @@ r.get('/:id/grille/deplacements', authRequired, (req, res) => {
 
 r.put('/:id/grille', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
   const etudId = Number(req.params.id);
-  const { annee, ue_num, kind, points, derogation } = req.body;
+  const { annee, ue_num, kind, points } = req.body;
   if (!annee || !ue_num || !kind) {
     return res.status(400).json({ error: 'annee, ue_num et kind requis' });
   }
@@ -5481,15 +5285,35 @@ r.put('/:id/grille', authRequired, roleRequired('admin', 'editeur'), (req, res) 
     return res.json({ ok: true });
   }
 
-  // inscrit / reussi / ajourne / absent → etudiant_inscription
+  /* UNE CASE « INSCRIT » POSÉE SUR L'ANNÉE EN COURS OU À VENIR CRÉE UNE LIGNE
+     DE PROGRAMME : elle passe par la porte unique, qui la juge (28 septembre
+     2026). La dérogation se motive et se trace dans pae_derogation — elle ne
+     pose plus `derogation = 1`, qui veut dire « réinscription forcée ».
+     L'historique (années passées, résultats) reste un encodage de faits. */
+  const existe = db.prepare('SELECT 1 FROM etudiant_inscription WHERE etudiant_id=? AND annee_scolaire=? AND ue_num=?')
+    .get(etudId, annee, ueN);
+  const anneeCourante = anneeDeTravail(req);
+  if (kind === 'inscrit' && !existe && (!anneeCourante || annee >= anneeCourante)) {
+    const motif = String(req.body?.motif || '').trim();
+    const b = ecrireProgramme({ etudId, annee, ajouter: [ueN], origine: 'grille de parcours',
+      par: req.user?.email || req.user?.nom || null, motifs: motif ? { [ueN]: motif } : {} });
+    if (b.refus.length) {
+      return res.status(409).json({ error: `UE ${ueN} : ${b.refus[0].regles.map(r0 => r0.libelle + (r0.detail ? ` (${r0.detail})` : '')).join(' ; ')}. `
+        + 'Un motif est demandé pour inscrire quand même.', refus: b.refus, motif_requis: true });
+    }
+    delVa();
+    return res.json({ ok: true, derogations: b.ecarts.length });
+  }
+  // inscrit / reussi / ajourne / absent → etudiant_inscription. La marque de
+  // réinscription forcée n'est pas touchée : ré-encoder un résultat l'effaçait.
   delVa();
   db.prepare(`
-    INSERT INTO etudiant_inscription (etudiant_id, annee_scolaire, ue_num, resultat, points, derogation)
-    VALUES (?,?,?,?,?,?)
+    INSERT INTO etudiant_inscription (etudiant_id, annee_scolaire, ue_num, resultat, points)
+    VALUES (?,?,?,?,?)
     ON CONFLICT(etudiant_id, annee_scolaire, ue_num) DO UPDATE SET
-      resultat = excluded.resultat, points = excluded.points, derogation = excluded.derogation
+      resultat = excluded.resultat, points = excluded.points
   `).run(etudId, annee, ueN, kind === 'inscrit' ? null : kind,
-         points != null ? Number(points) : null, derogation ? 1 : 0);
+         points != null ? Number(points) : null);
   res.json({ ok: true });
 });
 
@@ -8711,14 +8535,15 @@ r.post('/', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
   const id = Number(info.lastInsertRowid);
 
   // Inscriptions initiales
-  if (annee && Array.isArray(ue_nums)) {
-    const ins = db.prepare(
-      'INSERT OR IGNORE INTO etudiant_inscription (etudiant_id,annee_scolaire,ue_num) VALUES (?,?,?)'
-    );
-    for (const n of ue_nums) ins.run(id, annee, Number(n));
+  // Par la porte unique (mode « signaler ») : l'écran n'en envoie pas, mais
+  // la route les accepte — elles ne passent plus sans être jugées.
+  let aRegulariser = 0;
+  if (annee && Array.isArray(ue_nums) && ue_nums.length) {
+    aRegulariser = ecrireProgramme({ etudId: id, annee, ajouter: ue_nums, origine: 'création du dossier',
+      par: req.user?.email || req.user?.nom || null, mode: 'signaler' }).ecarts.length;
   }
 
-  res.json({ ok: true, id });
+  res.json({ ok: true, id, a_regulariser: aRegulariser });
 });
 
 // ── IMPORTER DE NOUVEAUX ÉTUDIANTS — la signalétique eCampus ─────────────────
@@ -9010,10 +8835,6 @@ r.post('/import-excel', authRequired, roleRequired('admin', 'editeur'), async (r
         nom=excluded.nom, prenom=excluded.prenom,
         email_ecole=excluded.email_ecole, email_perso=excluded.email_perso
     `);
-    const insInsc = db.prepare(`
-      INSERT OR IGNORE INTO etudiant_inscription (etudiant_id,annee_scolaire,ue_num,groupe)
-      SELECT id,?,?,? FROM etudiant WHERE id_ecampus=? LIMIT 1
-    `);
 
     let etudiants_crees=0, inscriptions_creees=0;
     const tx = db.transaction(() => {
@@ -9024,16 +8845,32 @@ r.post('/import-excel', authRequired, roleRequired('admin', 'editeur'), async (r
           e.localite||null, e.cp||null, e.titre||null);
         if (r.changes) etudiants_crees++;
       }
-      for (const i of inscriptionsData) {
-        if (!i.ue_num || isNaN(Number(i.ue_num))) continue;
-        const r = insInsc.run(annee, Number(i.ue_num), i.groupe||null, i.id_ecampus);
-        if (r.changes) inscriptions_creees++;
-      }
     });
     tx();
 
+    // Les inscriptions par la porte unique, en mode « signaler » (choix B).
+    const trouver = db.prepare('SELECT id FROM etudiant WHERE id_ecampus = ? LIMIT 1');
+    const parEtud = new Map();
+    for (const i of inscriptionsData) {
+      if (!i.ue_num || isNaN(Number(i.ue_num))) continue;
+      const e = trouver.get(i.id_ecampus);
+      if (!e) continue;
+      if (!parEtud.has(e.id)) parEtud.set(e.id, []);
+      parEtud.get(e.id).push(i);
+    }
+    const aRegulariser = [];
+    for (const [id, lignes] of parEtud) {
+      const b = ecrireProgramme({ etudId: id, annee, ajouter: lignes.map(i => Number(i.ue_num)),
+        origine: 'import eCampus (Excel)', par: req.user?.email || req.user?.nom || null, mode: 'signaler' });
+      inscriptions_creees += b.ajoutees.length;
+      for (const x of b.ecarts) aRegulariser.push({ etudiant_id: id, ue_num: x.ue_num, regles: x.regles.map(r0 => r0.libelle) });
+      for (const i of lignes) if (i.groupe) db.prepare(`UPDATE etudiant_inscription SET groupe = COALESCE(groupe, ?)
+        WHERE etudiant_id = ? AND annee_scolaire = ? AND ue_num = ?`).run(i.groupe, id, annee, Number(i.ue_num));
+    }
+
     res.json({ ok:true, etudiants: etudiantsData.length, etudiants_crees,
-               inscriptions: inscriptionsData.length, inscriptions_creees, annee });
+               inscriptions: inscriptionsData.length, inscriptions_creees, annee,
+               a_regulariser: aRegulariser.length, a_regulariser_liste: aRegulariser.slice(0, 200) });
   } catch(e) {
     console.error('Import étudiants:', e);
     res.status(500).json({ error: e.message });

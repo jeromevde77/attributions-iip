@@ -113,6 +113,25 @@ indiscutables. Il en reste sans doute : les nommer plutôt que les découvrir.
   vaut aujourd'hui cette moyenne, alors que l'unité n'est pas acquise. À
   trancher avec Charles.
 
+**LE PAE A UN MOTEUR ET UNE PORTE, ET PAS UN DE PLUS** (2.12.278, Charles,
+28 septembre 2026 : « tout le mécanisme PAE est multiple, il n'y a pas qu'une
+seule porte d'entrée, et donc cela crée des bugs »). L'inventaire comptait
+vingt-deux routes qui écrivaient `etudiant_inscription` — seule la promotion
+appliquait les règles — et sept calculs de « ce qui est accessible », qui ne
+lisaient ni le même niveau, ni les mêmes prérequis, ni la même attente. **Le
+moteur** : `lib/pae.js` (`etatsPAE`, fonction pure) nourri par `faitsPAE()`
+(`routes/etudiants.js`) ; proposition, schéma et frise le lisent. **La porte** :
+`ecrireProgramme()` — tout ajout y est jugé ; les écrans exigent un motif pour
+ce qui enfreint une règle (`strict`), les imports inscrivent et signalent
+(`signaler` : eCampus est l'inscription administrative) ; chaque dérogation
+s'écrit dans `pae_derogation`, en ajout seul. `derogation = 1` sur
+l'inscription ne veut plus dire qu'une chose : réinscription forcée. Règles
+tranchées : prérequis interne = avertissement ; sans note = non acquis (pas
+« en attente ») ; un programme modifié perd sa confirmation. **Ne jamais
+écrire `etudiant_inscription` pour composer un programme sans passer par
+`ecrireProgramme()`.** Les routes de résultats (suivi, historique, encodage)
+consignent des faits et n'y passent pas.
+
 **Deux sources pour un même fait, c'est une source de moins.** L'épreuve
 intégrée s'écrivait dans `ue.is_epreuve_integree` (case du référentiel) et se
 lisait dans `ue_epreuve_integree` (table annuelle) : la case ne faisait rien,

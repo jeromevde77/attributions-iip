@@ -78,6 +78,7 @@ export default function ComposerPAE({ onClose, onTermine, onPassage, modeInitial
   const [importHisto, setImportHisto] = useState(false);
   // Des unités d'une AUTRE section que celle du dossier : il faut le vouloir.
   const [autreConfirme, setAutreConfirme] = useState(false);
+  const [motifLot, setMotifLot] = useState('');   // motif des dérogations du lot
 
   useEffect(() => {
     fetch('/api/annees', { headers: authHeaders() })
@@ -137,7 +138,9 @@ export default function ComposerPAE({ onClose, onTermine, onPassage, modeInitial
     for (const [e, u] of paires) {
       const cle = `${e.id}|${u}`;
       const inscrit = !!e.cases[u]?.inscrit;
-      if (nature === 'ajout' && !inscrit) m.set(cle, 'ajout');
+      // Une unité réussie ou valorisée ne revient pas au programme d'un clic
+      // collectif : la réinscription se force, une à une.
+      if (nature === 'ajout' && !inscrit && !e.cases[u]?.acquise && !e.cases[u]?.va) m.set(cle, 'ajout');
       if (nature === 'retrait' && inscrit) m.set(cle, 'retrait');
     }
     return m;
@@ -307,10 +310,10 @@ export default function ComposerPAE({ onClose, onTermine, onPassage, modeInitial
     try {
       const r = await fetch('/api/etudiants/pae-modifier', {
         method: 'POST', headers: { ...authHeaders(), 'Content-Type': 'application/json' },
-        body: JSON.stringify({ annee, ajouts, retraits, simulation, autre_section_confirmee: autreConfirme }),
+        body: JSON.stringify({ annee, ajouts, retraits, simulation, autre_section_confirmee: autreConfirme, motif: motifLot.trim() || undefined }),
       });
       const j = await r.json().catch(() => ({}));
-      if (!r.ok) { setErreur(j.error || 'Refusé.'); if (j.autre_section) setBilan(b => ({ ...(b || { ajoutes: 0, retires: 0, proteges: [] }), autre_section: j.autre_section })); return; }
+      if (!r.ok) { setErreur(j.error || 'Refusé.'); if (j.ecarts) setBilan(b => ({ ...(b || { ajoutes: 0, retires: 0, proteges: [] }), ecarts: j.ecarts })); if (j.autre_section) setBilan(b => ({ ...(b || { ajoutes: 0, retires: 0, proteges: [] }), autre_section: j.autre_section })); return; }
       if (simulation) { setBilan(j); setAutreConfirme(false); }
       else { await charger(); onTermine?.(); setBilan({ ...j, fait: true }); }
     } catch (e) { setErreur(e.message); }
@@ -339,7 +342,9 @@ export default function ComposerPAE({ onClose, onTermine, onPassage, modeInitial
                 Vérifier {attente.size} changement(s)
               </button>
             ) : !bilan.fait ? (
-              <button className="bouton bouton-fort" disabled={enCours} onClick={() => envoyer(false)}>
+              <button className="bouton bouton-fort" disabled={enCours || ((bilan.ecarts || []).length > 0 && !motifLot.trim())}
+                title={(bilan.ecarts || []).length > 0 && !motifLot.trim() ? 'Des ajouts contreviennent aux règles du PAE : un motif est demandé' : undefined}
+                onClick={() => envoyer(false)}>
                 Enregistrer — {bilan.ajoutes} ajout(s), {bilan.retires} retrait(s)
               </button>
             ) : null}
@@ -524,6 +529,20 @@ export default function ComposerPAE({ onClose, onTermine, onPassage, modeInitial
             {bilan.proteges.length > 0 && (
               <div className="mt-1 text-slate-700">
                 Non retirés, et c’est voulu : {bilan.proteges.map(p => `${p.etudiant} — UE ${p.ue_num} (${p.pourquoi})`).join(' · ')}
+              </div>
+            )}
+            {(bilan.ecarts || []).length > 0 && (
+              <div data-etat="surveiller" className="bloc-etat mt-2 px-2.5 py-2 space-y-1">
+                <b>{bilan.ecarts.length} ajout(s) contreviennent aux règles du PAE.</b> Ils ne s'écrivent qu'avec un motif,
+                tracé sur chacun ; sinon, décochez-les.
+                <ul className="text-slate-600 text-[11.5px] max-h-40 overflow-auto">
+                  {bilan.ecarts.slice(0, 60).map((x, i) => (
+                    <li key={i}>{x.etudiant} — UE {x.ue_num} : {x.regles.map(r0 => r0.libelle + (r0.detail ? ` (${r0.detail})` : '')).join(' ; ')}</li>
+                  ))}
+                  {bilan.ecarts.length > 60 && <li>… et {bilan.ecarts.length - 60} autre(s)</li>}
+                </ul>
+                <input className="controle w-full" placeholder="Motif de la dérogation (ex. décision du Conseil des études du …)"
+                  value={motifLot} onChange={e => setMotifLot(e.target.value)} />
               </div>
             )}
             {(bilan.autre_section || []).length > 0 && (() => {

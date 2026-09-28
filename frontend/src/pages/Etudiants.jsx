@@ -103,6 +103,17 @@ function BadgeNiveau({ niveau, libelle, className = '' }) {
 /* LA FRISE DU PARCOURS, SUR LA LIGNE DE LA LISTE (Charles, 26 septembre
    2026) : les UE de la section dans l'ordre du cursus, groupées par bloc,
    l'épreuve intégrée au bout. Une lettre par UE (voir /api/etudiants/frises). */
+/* UNE DÉROGATION AU PAE SE MOTIVE (porte unique, 28 septembre 2026). Le
+   serveur nomme chaque unité refusée et la règle qu'elle enfreint ; un motif,
+   donné une fois, vaut pour chacune et se trace sur chacune. */
+function demanderMotifs(refus) {
+  const lignes = refus.map(x => `UE ${x.ue_num} — ${x.regles.map(r0 => r0.libelle + (r0.detail ? ` (${r0.detail})` : '')).join(' ; ')}`);
+  const m = window.prompt(`Ces unités contreviennent aux règles du PAE :\n\n${lignes.join('\n')}\n\n`
+    + 'Motif de la dérogation — il sera tracé sur chacune (Annuler pour ne rien écrire) :');
+  if (!m?.trim()) return null;
+  return Object.fromEntries(refus.map(x => [x.ue_num, m.trim()]));
+}
+
 const SENS_PUCE = { r: 'réussie', f: 'réussie par faveur', i: 'inscrite cette année',
   a: 'ajournée, en attente', o: 'atteignable, non prise', n: 'pas encore atteignable' };
 function FriseParcours({ ues, codes }) {
@@ -327,14 +338,28 @@ function GrilleParcours({ etudId, peutEcrire, annee, ueFocus = null }) {
 
   async function ecrire(kind, opts = {}) {
     if (!popover) return;
+    // Une dérogation se motive, et le motif se trace (porte unique du PAE).
+    let motif = opts.motif;
+    if (kind === 'inscrit' && popover.verrou && !motif) {
+      motif = window.prompt('Motif de la dérogation — il sera tracé au dossier :');
+      if (!motif?.trim()) return;
+    }
     const rep = await fetch(`/api/etudiants/${etudId}/grille`, {
       method: 'PUT', headers: authHeaders(),
       body: JSON.stringify({
         annee: popover.annee, ue_num: popover.ue_num, kind,
-        points: opts.points, derogation: popover.verrou ? 1 : 0,
+        points: opts.points, motif: motif || undefined,
       }),
     });
-    if (!rep.ok) { const j = await rep.json().catch(() => ({})); alert(j.error || 'Erreur'); return; }
+    if (!rep.ok) {
+      const j = await rep.json().catch(() => ({}));
+      if (rep.status === 409 && j.motif_requis && !motif) {
+        const m = window.prompt(`${j.error}\n\nMotif (il sera tracé au dossier) :`);
+        if (m?.trim()) return ecrire(kind, { ...opts, motif: m });
+        return;
+      }
+      alert(j.error || 'Erreur'); return;
+    }
     setPopover(null); setPts(''); setDetail(null); setDetailOuvert(false);
     await charger();
   }
@@ -1984,11 +2009,20 @@ function FicheEtudiant({ id, annee, onClose, position, onPrec, onSuiv,
           + `enregistrez d'abord le PAE pour les retirer, puis confirmez.`);
         return;
       }
-      const rep = await fetch(`/api/etudiants/${id}/pae/confirmer`, {
+      let rep = await fetch(`/api/etudiants/${id}/pae/confirmer`, {
         method: 'POST', headers: authHeaders(),
         body: JSON.stringify({ annee, ues }),
       });
-      const j = await rep.json();
+      let j = await rep.json();
+      if (rep.status === 409 && j.refus?.length) {
+        const motifs = demanderMotifs(j.refus);
+        if (!motifs) return;
+        rep = await fetch(`/api/etudiants/${id}/pae/confirmer`, {
+          method: 'POST', headers: authHeaders(),
+          body: JSON.stringify({ annee, ues, motifs }),
+        });
+        j = await rep.json();
+      }
       if (!rep.ok) { alert(j.error || 'La confirmation a échoué.'); return; }
       setPaeConfirme(true);
       await chargerPAE();
@@ -2001,14 +2035,23 @@ function FicheEtudiant({ id, annee, onClose, position, onPrec, onSuiv,
     setEnregistrement(true);
     try {
       const ue_nums = [...selection];
-      const derogations = pae.pae
-        .filter(u => selection.has(u.ue_num) && !u.propose && !u.accessible && !u.reinscriptible_ce)
-        .map(u => u.ue_num);
-      const rep = await fetch(`/api/etudiants/${id}/pae-valider`, {
+      // Le serveur juge chaque ajout (porte unique) ; s'il en refuse, on
+      // demande un motif — il sera tracé sur chacune des unités nommées.
+      let motifs = {};
+      let rep = await fetch(`/api/etudiants/${id}/pae-valider`, {
         method: 'POST', headers: authHeaders(),
-        body: JSON.stringify({ annee, ue_nums, derogations }),
+        body: JSON.stringify({ annee, ue_nums }),
       });
-      const j = await rep.json();
+      let j = await rep.json();
+      if (rep.status === 409 && j.refus?.length) {
+        motifs = demanderMotifs(j.refus);
+        if (!motifs) return;
+        rep = await fetch(`/api/etudiants/${id}/pae-valider`, {
+          method: 'POST', headers: authHeaders(),
+          body: JSON.stringify({ annee, ue_nums, motifs }),
+        });
+        j = await rep.json();
+      }
       if (!rep.ok) { alert(j.error || 'Erreur'); return; }
 
       // Les inscriptions portant un résultat ne sont jamais retirées d'office
@@ -2019,7 +2062,7 @@ function FicheEtudiant({ id, annee, onClose, position, onPrec, onSuiv,
         if (forcer) {
           const rep2 = await fetch(`/api/etudiants/${id}/pae-valider`, {
             method: 'POST', headers: authHeaders(),
-            body: JSON.stringify({ annee, ue_nums, derogations, forcer: true }),
+            body: JSON.stringify({ annee, ue_nums, motifs, forcer: true }),
           });
           const j2 = await rep2.json();
           if (rep2.ok) {
