@@ -694,7 +694,7 @@ function ModalIA({ annee, section, onApplied, onClose }) {
 
               <label className="flex items-center gap-3 cursor-pointer p-3 border border-gray-200 rounded-lg hover:bg-gray-50">
                 <input type="checkbox" checked={preserverManuel} onChange={e => setPreserver(e.target.checked)}
-                  className="w-4 h-4 accent-iip-mauve" />
+                  className="w-4 h-4 accent-iip-blue" />
                 <div>
                   <p className="text-sm font-medium text-gray-700">Préserver mes saisies manuelles</p>
                   <p className="text-xs text-gray-400">Les cellules que tu as saisies toi-même ne seront pas écrasées</p>
@@ -1044,7 +1044,7 @@ function StructureUE({ annee, section, groupes }) {
               const isChecked = prereqs.some(p => p.ue_num === selected && p.prerequis_num === u.ue_num);
               return (
                 <label key={u.ue_num} className="flex items-start gap-2 p-2 rounded-lg hover:bg-white cursor-pointer border border-transparent hover:border-gray-200 transition">
-                  <input type="checkbox" checked={isChecked} onChange={() => togglePrereq(selected, u.ue_num)} className="mt-0.5 accent-iip-mauve flex-shrink-0" />
+                  <input type="checkbox" checked={isChecked} onChange={() => togglePrereq(selected, u.ue_num)} className="mt-0.5 accent-iip-blue flex-shrink-0" />
                   <div>
                     <p className="text-xs font-medium text-gray-700">UE {u.ue_num}</p>
                     <p className="text-[10px] text-gray-400">{u.ue_nom?.slice(0, 35)}</p>

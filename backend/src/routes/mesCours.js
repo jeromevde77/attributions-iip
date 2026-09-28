@@ -77,6 +77,10 @@ const r = Router();
     if (!db.prepare('PRAGMA table_info(note_proposee)').all().some(c => c.name === 'justification')) {
       db.exec('ALTER TABLE note_proposee ADD COLUMN justification TEXT');
     }
+    // La reprise dans l'encodage officiel laisse sa trace sur la proposition.
+    for (const [c, t] of [['reprise_le', 'TEXT'], ['reprise_par', 'TEXT']]) {
+      if (!db.prepare('PRAGMA table_info(note_proposee)').all().some(x => x.name === c)) db.exec(`ALTER TABLE note_proposee ADD COLUMN ${c} ${t}`);
+    }
   } catch (e) { console.error('[migration] note_proposee :', e.message); }
 })();
 
@@ -388,6 +392,79 @@ r.get('/:coursCode/propositions', authRequired, roleRequired(...PEUT_INSTRUIRE),
     WHERE p.annee_scolaire = ? AND p.cours_code = ?
     ORDER BY e.nom, e.prenom, p.aa_code`).all(annee, req.params.coursCode);
   res.json({ annee, cours_code: req.params.coursCode, propositions: lignes });
+});
+
+/* ── REPRENDRE LES PROPOSITIONS DANS L'ENCODAGE OFFICIEL (Charles, 28
+ * septembre 2026 : « Madame Moiny a encodé ses points, je les vois en voir
+ * comme, mais ils ne sont pas dans Lucie »). Jusqu'ici, la coordination les
+ * RETAPAIT, case par case — 130 notes pour un cours. Simulation d'abord :
+ *   · une case officielle vide reçoit la proposition ;
+ *   · une case identique est seulement pointée ;
+ *   · une case qui DIFFÈRE n'est remplacée que si on l'a cochée ;
+ *   · une note de cours sans acquis, un CM, un cours reporté ne se reprennent
+ *     pas d'office : ils sont nommés.
+ * Chaque note reprise porte son origine (`proposition:<qui>`), et la
+ * proposition sa date de reprise et son auteur. */
+r.post('/:coursCode/reprendre', authRequired, roleRequired(...PEUT_INSTRUIRE), (req, res) => {
+  const coursCode = req.params.coursCode;
+  const annee = String(req.body?.annee || anneeDeTravail(req));
+  const session = Number(req.body?.session) === 2 ? 2 : 1;
+  const simulation = req.body?.simulation !== false;
+  const remplacer = new Set((Array.isArray(req.body?.remplacer) ? req.body.remplacer : []).map(x => `${x.etudiant_id}|${x.aa_code}`));
+  const ue = db.prepare('SELECT ue_num FROM cours WHERE cours_code = ? AND annee_scolaire = ? LIMIT 1').get(coursCode, annee)?.ue_num
+    ?? db.prepare('SELECT ue_num FROM cours WHERE cours_code = ? ORDER BY annee_scolaire DESC LIMIT 1').get(coursCode)?.ue_num;
+  if (ue == null) return res.status(404).json({ error: 'Cours inconnu.' });
+  const perim = getUserSections(req.user);
+  if (perim) {
+    const sec = db.prepare('SELECT section FROM ue WHERE ue_num = ? AND section IS NOT NULL LIMIT 1').get(ue)?.section;
+    if (sec && !perim.includes(sec)) return res.status(403).json({ error: 'Cours hors de votre périmètre.' });
+  }
+  const props = db.prepare(`SELECT p.*, e.nom, e.prenom FROM note_proposee p JOIN etudiant e ON e.id = p.etudiant_id
+    WHERE p.annee_scolaire = ? AND p.cours_code = ? ORDER BY e.nom, e.prenom, p.aa_code`).all(annee, coursCode);
+  const lire = db.prepare(`SELECT points, mention FROM etudiant_note_detail
+    WHERE etudiant_id = ? AND annee_scolaire = ? AND ue_num = ? AND type = 'aa' AND code = ?`);
+  const reporte = db.prepare(`SELECT 1 FROM etudiant_report_note WHERE etudiant_id = ? AND annee_scolaire = ?
+    AND cours_code = ? AND statut = 'accorde'`);
+  const ecrire = db.prepare(`INSERT INTO etudiant_note_detail (etudiant_id, annee_scolaire, ue_num, type, code, points, mention, origine, cours_code)
+    VALUES (?,?,?, 'aa', ?, ?, ?, ?, ?)
+    ON CONFLICT(etudiant_id, annee_scolaire, ue_num, type, code) DO UPDATE SET
+      points = excluded.points, mention = excluded.mention, origine = excluded.origine`);
+  const pointer = db.prepare(`UPDATE note_proposee SET reprise_le = datetime('now'), reprise_par = ? WHERE id = ?`);
+  const qui = req.user?.nom || req.user?.email || null;
+  const nomDe = p => `${String(p.nom || '').toUpperCase()} ${p.prenom || ''}`.trim();
+  const r0 = { a_poser: [], identiques: 0, differentes: [], ignorees: [], remplacees: 0 };
+  const faire = [];
+  for (const p of props) {
+    const base = { etudiant_id: p.etudiant_id, etudiant: nomDe(p), aa_code: p.aa_code };
+    if (!p.aa_code) { r0.ignorees.push({ ...base, raison: 'note de cours sans acquis : elle se reporte par acquis dans la feuille' }); continue; }
+    if (p.mention === 'CM') { r0.ignorees.push({ ...base, raison: 'certificat médical : à trancher par le Conseil' }); continue; }
+    if (p.mention && !['NP', 'PP'].includes(p.mention)) { r0.ignorees.push({ ...base, raison: `mention « ${p.mention} » : l'encodage officiel ne connaît que NP et PP` }); continue; }
+    try { if (reporte.get(p.etudiant_id, annee, coursCode)) { r0.ignorees.push({ ...base, raison: 'cours reporté : ses notes sont reprises d’office' }); continue; } } catch { /* */ }
+    const code = `s${session}|${coursCode}|${p.aa_code}`;
+    const val = p.mention ? 0 : p.note;
+    const off = lire.get(p.etudiant_id, annee, ue, code);
+    const pr = p.mention || (p.note != null ? Math.round(p.note) : null);
+    if (off) {
+      const o = off.mention || (off.points != null ? Math.round(off.points) : null);
+      if (String(o) === String(pr)) { r0.identiques++; faire.push(['pointer', p]); continue; }
+      const cle = `${p.etudiant_id}|${p.aa_code}`;
+      r0.differentes.push({ ...base, officiel: o, propose: pr, remplacer: remplacer.has(cle) });
+      if (remplacer.has(cle)) { faire.push(['ecrire', p, code, val]); r0.remplacees++; }
+      continue;
+    }
+    r0.a_poser.push({ ...base, propose: pr });
+    faire.push(['ecrire', p, code, val]);
+  }
+  if (!simulation) {
+    db.transaction(() => {
+      for (const [g, p, code, val] of faire) {
+        if (g === 'ecrire') ecrire.run(p.etudiant_id, annee, ue, code, val, p.mention || null, `proposition:${p.propose_par || ''}`, coursCode);
+        pointer.run(qui, p.id);
+      }
+    })();
+  }
+  res.json({ ok: true, simulation, cours_code: coursCode, ue_num: ue, annee, session,
+    propositions: props.length, ...r0, a_poser: r0.a_poser.length, a_poser_liste: r0.a_poser.slice(0, 300) });
 });
 
 export default r;

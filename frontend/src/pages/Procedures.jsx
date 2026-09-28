@@ -795,7 +795,7 @@ function OutilRecours({ initialPayload, onPayloadConsumed }) {
                         n.has(i) ? n.delete(i) : n.add(i);
                         return n;
                       });
-                    }} className="mt-0.5 flex-shrink-0 accent-iip-turquoise" />
+                    }} className="mt-0.5 flex-shrink-0 accent-iip-blue" />
                     <span className="text-xs text-gray-700 leading-relaxed">{j}</span>
                   </label>
                 );

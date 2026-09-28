@@ -161,8 +161,42 @@ function SchemaCapitalisation({ etudId, annee, onNoeud = null, programme = null 
   const vue = useMemo(() => (data?.nodes && programme)
     ? { ...data, nodes: data.nodes.map(n => ({ ...n, inscrite: programme.has(n.ue_num) })) }
     : data, [data, programme]);
-  if (data && !data.nodes?.length) return null;
-  return <SchemaCapitalisationVue data={vue} mode="etudiant" onNoeud={onNoeud} />;
+  /* LES CURSUS ARCHIVÉS SE VOIENT (Charles, 27 septembre 2026) : un changement
+     de cursus archive le précédent — il ne se mêle plus au schéma, mais il se
+     nomme, avec ses années et ce qui y a été réussi, et s'ouvre à la demande. */
+  const [archiveVue, setArchiveVue] = useState(null);   // { section, data }
+  const voirArchive = async section => {
+    if (archiveVue?.section === section) { setArchiveVue(null); return; }
+    const r = await fetch(`/api/etudiants/${etudId}/capitalisation?annee=${annee}&section=${encodeURIComponent(section)}`, { headers: authHeaders() });
+    const j = r.ok ? await r.json() : null;
+    setArchiveVue(j ? { section, data: j } : null);
+  };
+  const archives = data?.archives || [];
+  const court = a => String(a || '').replace(/^20(\d\d)-20(\d\d)$/, '$1-$2');
+  const bandeau = archives.length > 0 && (
+    <div className="mb-2 space-y-1">
+      {archives.map(a => (
+        <div key={a.section} data-etat="neutre" className="bloc-etat px-3 py-1.5 text-[12.5px] flex items-center gap-3 flex-wrap">
+          <span className="flex-1 min-w-0">
+            <b>Cursus antérieur archivé : {a.section}</b>
+            <span className="text-slate-500"> · {a.du === a.au ? court(a.du) : `${court(a.du)} → ${court(a.au)}`} · {a.reussies} unité{a.reussies > 1 ? 's' : ''} réussie{a.reussies > 1 ? 's' : ''}</span>
+            {a.encore_cette_annee && <span className="text-[#B45309]"> · encore des inscriptions cette année : à retirer, ou à déclarer compatible</span>}
+          </span>
+          <button type="button" className="bouton bouton-compact" onClick={() => voirArchive(a.section)}>
+            {archiveVue?.section === a.section ? 'Masquer' : 'Afficher'}
+          </button>
+        </div>
+      ))}
+      {archiveVue && (
+        <div className="opacity-70 border border-dashed border-slate-300 rounded-carte p-2">
+          <div className="text-[11px] text-slate-500 mb-1">Cursus archivé — {archiveVue.section}, en lecture seule</div>
+          <SchemaCapitalisationVue data={archiveVue.data} mode="etudiant" />
+        </div>
+      )}
+    </div>
+  );
+  if (data && !data.nodes?.length) return bandeau || null;
+  return <>{bandeau}<SchemaCapitalisationVue data={vue} mode="etudiant" onNoeud={onNoeud} /></>;
 }
 
 // ── Grille de parcours : UE × années ─────────────────────────────────────────
