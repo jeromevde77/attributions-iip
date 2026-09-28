@@ -27,7 +27,8 @@
 import { Router } from 'express';
 import multer from 'multer';
 import db from '../db/index.js';
-import { authRequired, roleRequired } from '../middleware/auth.js';
+import { authRequired, roleRequired, getUserSections } from '../middleware/auth.js';
+import { niveauxEffectifs } from './capitalisation.js';
 import { anneeDeTravail } from '../helpers/annee.js';
 import { motsDuPdf } from '../lib/motsDuPdf.js';
 import { lireHoraire, dureeMinutes } from '../lib/lireHoraireEDT.js';
@@ -62,6 +63,17 @@ export function migrerHoraire(base = db) {
     CREATE INDEX IF NOT EXISTS idx_hs_prof ON horaire_seance(professeur_id);
     CREATE INDEX IF NOT EXISTS idx_hs_date ON horaire_seance(date);
   `);
+  /* L'ÉDITEUR D'HORAIRE (28 septembre 2026) : la table avait été pensée pour
+     qu'un créateur d'horaire l'écrive un jour — « rien ne sera à jeter ». Il
+     lui manquait le groupe, la trace de qui a posé ou déplacé, l'annulation,
+     et la marque qui protège une séance retouchée dans Lucie d'un import. */
+  const cols = base.prepare('PRAGMA table_info(horaire_seance)').all().map(c => c.name);
+  for (const [nom, type] of [['groupe_id', 'INTEGER'], ['annule', 'INTEGER NOT NULL DEFAULT 0'],
+    ['commentaire', 'TEXT'], ['modifie_lucie', 'INTEGER NOT NULL DEFAULT 0'], ['cree_par', 'TEXT'],
+    ['cree_le', 'TEXT'], ['modifie_par', 'TEXT'], ['modifie_le', 'TEXT'], ['bloc', 'TEXT']]) {
+    if (!cols.includes(nom)) base.exec(`ALTER TABLE horaire_seance ADD COLUMN ${nom} ${type}`);
+  }
+  base.exec('CREATE INDEX IF NOT EXISTS idx_hs_groupe ON horaire_seance(groupe_id)');
 }
 
 /** L'index des professeurs, par nom+prénom normalisés — et par nom seul. */
@@ -367,6 +379,275 @@ r.get('/comparaison', authRequired, (req, res) => {
       sans_seance: sansSeance.length,
     },
   });
+});
+
+/* ══ L'ÉDITEUR D'HORAIRE — LA SEMAINE, LES TUILES, LE BAC ════════════════════
+ *
+ * Demandé par Charles le 28 septembre 2026 : « copier le fonctionnement
+ * d'Hyperplanning, mais en plus simple ; une grille qui montre la semaine, des
+ * tuiles déplaçables pour les blocs de 2 h ou 1 h, sur base des attributions
+ * et des groupes ». Deux usages sont à prévoir, sans savoir encore lequel
+ * l'emportera : Lucie comme outil d'horaire, ou Lucie à côté d'Hyperplanning.
+ * D'où la marque `modifie_lucie` : une séance posée ou retouchée ici n'est
+ * jamais écrasée par un import, qui signalera l'écart.
+ *
+ * LA CLASSE, c'est une section et un bloc (« Optométrie BA1 ») — ce que
+ * l'horaire d'Hyperplanning appelle « OPTO B1 ». Ses unités sont celles dont
+ * le niveau effectif, dans la section, est ce bloc.
+ *
+ * LE BAC dit ce qui reste à poser, groupe par groupe : les heures attribuées au
+ * groupe, moins celles déjà posées sur l'année. Quand la planification porte
+ * les heures prévues pour la semaine, il le dit aussi — c'est elle qui
+ * répartit l'année en semaines.
+ *
+ * UN CONFLIT SE NOMME, IL NE S'EMPÊCHE PAS : le même professeur, le même
+ * local, ou la même classe au même moment. Deux sous-groupes d'un même cours
+ * peuvent avoir cours ensemble — c'est ainsi qu'un labo se dédouble.
+ */
+const EDITEURS = ['admin', 'directeur', 'directeur_adjoint', 'editeur'];
+const qui = req => req.user?.email || req.user?.nom || null;
+const hm = t => { const [h, m] = String(t || '0:0').split(':').map(Number); return h * 60 + (m || 0); };
+const deHm = n => `${String(Math.floor(n / 60)).padStart(2, '0')}:${String(n % 60).padStart(2, '0')}`;
+const iso = d => d.toISOString().slice(0, 10);
+const ajouterJours = (dateIso, n) => { const d = new Date(dateIso + 'T12:00:00Z'); d.setUTCDate(d.getUTCDate() + n); return iso(d); };
+const lundiDe = dateIso => { const d = new Date(dateIso + 'T12:00:00Z'); const j = (d.getUTCDay() + 6) % 7; d.setUTCDate(d.getUTCDate() - j); return iso(d); };
+
+/* LES JOURS FÉRIÉS se calculent : dates fixes, et celles qui suivent Pâques.
+   Le 27 septembre est la fête de la Fédération Wallonie-Bruxelles. */
+function paques(an) {
+  const a = an % 19, b = Math.floor(an / 100), c = an % 100, d = Math.floor(b / 4), e = b % 4;
+  const f = Math.floor((b + 8) / 25), g = Math.floor((b - f + 1) / 3), h = (19 * a + b - d - g + 15) % 30;
+  const i = Math.floor(c / 4), k = c % 4, l = (32 + 2 * e + 2 * i - h - k) % 7, m = Math.floor((a + 11 * h + 22 * l) / 451);
+  const mois = Math.floor((h + l - 7 * m + 114) / 31), jour = ((h + l - 7 * m + 114) % 31) + 1;
+  return `${an}-${String(mois).padStart(2, '0')}-${String(jour).padStart(2, '0')}`;
+}
+export function joursFeries(an) {
+  const p = paques(an);
+  return new Map([
+    [`${an}-01-01`, 'Nouvel an'], [ajouterJours(p, 1), 'Lundi de Pâques'], [`${an}-05-01`, 'Fête du travail'],
+    [ajouterJours(p, 39), 'Ascension'], [ajouterJours(p, 50), 'Lundi de Pentecôte'], [`${an}-07-21`, 'Fête nationale'],
+    [`${an}-08-15`, 'Assomption'], [`${an}-09-27`, 'Fête de la Fédération Wallonie-Bruxelles'],
+    [`${an}-11-01`, 'Toussaint'], [`${an}-11-11`, 'Armistice'], [`${an}-12-25`, 'Noël'],
+  ]);
+}
+
+/** Les unités d'une classe (section + bloc), l'année donnée. */
+function unitesDeClasse(section, bloc, annee) {
+  const niv = niveauxEffectifs([section], annee);
+  return new Set(Object.entries(niv).filter(([, v]) => String(v).toUpperCase() === String(bloc).toUpperCase()).map(([k]) => Number(k)));
+}
+
+// Les classes : chaque section et chaque bloc où des groupes existent.
+r.get('/classes', authRequired, (req, res) => {
+  const an = req.query.annee || anneeDeTravail(req);
+  const perim = getUserSections(req.user);
+  const out = new Map();
+  const secs = db.prepare('SELECT DISTINCT section FROM groupe WHERE annee_scolaire = ? AND section IS NOT NULL').all(an).map(x => x.section);
+  for (const sec of secs) {
+    if (perim && !perim.includes(sec)) continue;
+    const niv = niveauxEffectifs([sec], an);
+    for (const g of db.prepare('SELECT DISTINCT ue_num FROM groupe WHERE annee_scolaire = ? AND section = ?').all(an, sec)) {
+      const b = String(niv[g.ue_num] || '').toUpperCase();
+      if (!b) continue;
+      out.set(`${sec}|${b}`, { cle: `${sec}|${b}`, section: sec, bloc: b, libelle: `${sec} ${b}` });
+    }
+  }
+  res.json([...out.values()].sort((a, b) => a.libelle.localeCompare(b.libelle, 'fr')));
+});
+
+// Les professeurs qui ont un groupe cette année, et les locaux.
+r.get('/referentiel', authRequired, (req, res) => {
+  const an = req.query.annee || anneeDeTravail(req);
+  const profs = db.prepare(`SELECT DISTINCT p.id, p.nom, p.prenom FROM professeur p
+    JOIN groupe g ON g.professeur_id = p.id AND g.annee_scolaire = ? ORDER BY p.nom, p.prenom`).all(an);
+  let locaux = [];
+  try { locaux = db.prepare('SELECT nom, type, places FROM local ORDER BY nom').all(); } catch { /* table absente */ }
+  res.json({ profs, locaux });
+});
+
+const SEANCE_SQL = `SELECT s.*, p.nom AS prof_nom, p.prenom AS prof_prenom, g.nom AS groupe_nom,
+    (SELECT cours_nom FROM cours c WHERE c.cours_code = s.cours_code ORDER BY (c.annee_scolaire = s.annee_scolaire) DESC LIMIT 1) AS cours_nom
+  FROM horaire_seance s LEFT JOIN professeur p ON p.id = s.professeur_id LEFT JOIN groupe g ON g.id = s.groupe_id`;
+
+/** Les conflits d'un ensemble de séances d'un même jour. */
+function conflitsDe(seances) {
+  const sansLocal = l => !l || /distanciel|à distance|en ligne/i.test(l);
+  const out = new Map();
+  const ajouter = (s, raison) => { if (!out.has(s.id)) out.set(s.id, new Set()); out.get(s.id).add(raison); };
+  const actives = seances.filter(s => !s.annule);
+  for (let i = 0; i < actives.length; i++) for (let j = i + 1; j < actives.length; j++) {
+    const a = actives[i], b = actives[j];
+    if (a.date !== b.date || !(hm(a.heure_debut) < hm(b.heure_fin) && hm(b.heure_debut) < hm(a.heure_fin))) continue;
+    if (a.professeur_id && a.professeur_id === b.professeur_id) { ajouter(a, 'professeur'); ajouter(b, 'professeur'); }
+    if (!sansLocal(a.local_texte) && a.local_texte === b.local_texte) { ajouter(a, 'local'); ajouter(b, 'local'); }
+    const memeClasse = a.section && a.section === b.section && a.bloc && a.bloc === b.bloc;
+    const sousGroupes = a.cours_code === b.cours_code && a.groupe_id !== b.groupe_id;
+    if (memeClasse && !sousGroupes) { ajouter(a, 'classe'); ajouter(b, 'classe'); }
+  }
+  return out;
+}
+
+// LA SEMAINE — une vue par classe, par professeur ou par local.
+r.get('/semaine', authRequired, (req, res) => {
+  const an = req.query.annee || anneeDeTravail(req);
+  const lundi = lundiDe(String(req.query.lundi || iso(new Date())));
+  const dimanche = ajouterJours(lundi, 6);
+  const vue = ['classe', 'professeur', 'local'].includes(req.query.vue) ? req.query.vue : 'classe';
+  const cle = String(req.query.cle || '');
+  let where = '', args = [];
+  if (vue === 'classe') { const [sec, bloc] = cle.split('|'); where = 's.section = ? AND s.bloc = ?'; args = [sec, bloc]; }
+  if (vue === 'professeur') { where = 's.professeur_id = ?'; args = [Number(cle)]; }
+  if (vue === 'local') { where = 's.local_texte = ?'; args = [cle]; }
+  const seances = cle ? db.prepare(`${SEANCE_SQL} WHERE s.annee_scolaire = ? AND s.date BETWEEN ? AND ? AND ${where}
+    ORDER BY s.date, s.heure_debut`).all(an, lundi, dimanche, ...args) : [];
+  // Les conflits se cherchent contre TOUTES les séances de la semaine, pas
+  // seulement celles de la vue : le professeur est peut-être pris ailleurs.
+  const toutes = db.prepare(`SELECT * FROM horaire_seance WHERE annee_scolaire = ? AND date BETWEEN ? AND ?`).all(an, lundi, dimanche);
+  const conf = conflitsDe(toutes);
+  for (const s of seances) s.conflits = [...(conf.get(s.id) || [])];
+  const feries = new Map([...joursFeries(Number(lundi.slice(0, 4))), ...joursFeries(Number(dimanche.slice(0, 4)))]);
+  const jours = [0, 1, 2, 3, 4, 5, 6].map(i => { const d = ajouterJours(lundi, i); return { date: d, ferie: feries.get(d) || null }; });
+  const semaine = db.prepare(`SELECT id, semaine_num, type, label FROM annee_calendrier WHERE annee_scolaire = ? AND date_debut <= ? AND date_fin >= ?`)
+    .get(an, ajouterJours(lundi, 4), lundi) || null;
+
+  let bac = [];
+  if (vue === 'classe' && cle) {
+    const [sec, bloc] = cle.split('|');
+    const ues = unitesDeClasse(sec, bloc, an);
+    const groupes = db.prepare(`SELECT g.id, g.ue_num, g.code_cours, g.nom, g.heures_attribuees, g.ue_quad, g.professeur_id,
+        p.nom AS prof_nom, p.prenom AS prof_prenom,
+        (SELECT cours_nom FROM cours c WHERE c.cours_code = g.code_cours ORDER BY (c.annee_scolaire = g.annee_scolaire) DESC LIMIT 1) AS cours_nom
+      FROM groupe g LEFT JOIN professeur p ON p.id = g.professeur_id
+      WHERE g.annee_scolaire = ? AND g.section = ? ORDER BY g.code_cours, g.nom`).all(an, sec).filter(g => ues.has(g.ue_num));
+    const pose = db.prepare(`SELECT COALESCE(SUM(minutes), 0) AS m FROM horaire_seance WHERE annee_scolaire = ? AND groupe_id = ? AND annule = 0`);
+    const poseSem = db.prepare(`SELECT COALESCE(SUM(minutes), 0) AS m FROM horaire_seance WHERE annee_scolaire = ? AND groupe_id = ? AND annule = 0 AND date BETWEEN ? AND ?`);
+    const prevu = semaine ? db.prepare('SELECT valeur FROM planification WHERE groupe_id = ? AND semaine_id = ?') : null;
+    bac = groupes.map(g => {
+      const posees = pose.get(an, g.id).m / 60;
+      const p = prevu ? parseFloat(prevu.get(g.id, semaine.id)?.valeur) : NaN;
+      return { ...g, heures_posees: Math.round(posees * 100) / 100,
+        reste: Math.round(((g.heures_attribuees || 0) - posees) * 100) / 100,
+        prevu_semaine: Number.isFinite(p) ? p : null,
+        pose_semaine: Math.round(poseSem.get(an, g.id, lundi, dimanche).m / 6) / 10 };
+    });
+  }
+  res.json({ annee: an, lundi, jours, semaine, seances, bac });
+});
+
+/** Ce que dit une séance posée : ses conflits, calculés contre sa journée. */
+function conflitsDeLaSeance(id) {
+  const s = db.prepare('SELECT * FROM horaire_seance WHERE id = ?').get(id);
+  if (!s) return [];
+  const jour = db.prepare('SELECT * FROM horaire_seance WHERE annee_scolaire = ? AND date = ?').all(s.annee_scolaire, s.date);
+  return [...(conflitsDe(jour).get(id) || [])];
+}
+function horaireValide(b) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(String(b.date || ''))) return 'date attendue (AAAA-MM-JJ)';
+  const d = hm(b.heure_debut), f = hm(b.heure_fin);
+  if (!(f > d)) return "l'heure de fin doit suivre l'heure de début";
+  if (d % 15 || f % 15) return 'les heures se posent au quart d’heure';
+  if (d < 7 * 60 || f > 22 * 60) return 'entre 7 h et 22 h';
+  return null;
+}
+function sectionPermise(req, section) {
+  const perim = getUserSections(req.user);
+  return !perim || perim.includes(section);
+}
+
+// POSER une séance, depuis le bac : un groupe, un jour, une heure.
+r.post('/seance', authRequired, roleRequired(...EDITEURS), (req, res) => {
+  const b = req.body || {};
+  const g = db.prepare('SELECT * FROM groupe WHERE id = ?').get(Number(b.groupe_id));
+  if (!g) return res.status(404).json({ error: 'Groupe inconnu.' });
+  if (!sectionPermise(req, g.section)) return res.status(403).json({ error: 'Section hors de votre périmètre.' });
+  const err = horaireValide(b);
+  if (err) return res.status(400).json({ error: err });
+  const niv = niveauxEffectifs([g.section], g.annee_scolaire);
+  const bloc = String(niv[g.ue_num] || '').toUpperCase() || null;
+  const info = db.prepare(`INSERT INTO horaire_seance (annee_scolaire, classe, section, bloc, date, heure_debut, heure_fin, minutes,
+      cours_code, ue_num, matiere, professeur_id, local_texte, groupe_id, source, modifie_lucie, cree_par, cree_le)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?, 'lucie', 1, ?, datetime('now'))`).run(
+    g.annee_scolaire, `${g.section} ${bloc || ''}`.trim(), g.section, bloc, b.date, b.heure_debut, b.heure_fin,
+    hm(b.heure_fin) - hm(b.heure_debut), g.code_cours, g.ue_num, null, g.professeur_id || null,
+    String(b.local_texte || '').trim() || null, g.id, qui(req));
+  res.json({ ok: true, id: info.lastInsertRowid, conflits: conflitsDeLaSeance(info.lastInsertRowid) });
+});
+
+// DÉPLACER, RALLONGER, CHANGER DE LOCAL, ANNULER.
+r.put('/seance/:id', authRequired, roleRequired(...EDITEURS), (req, res) => {
+  const s = db.prepare('SELECT * FROM horaire_seance WHERE id = ?').get(Number(req.params.id));
+  if (!s) return res.status(404).json({ error: 'Séance introuvable.' });
+  if (!sectionPermise(req, s.section)) return res.status(403).json({ error: 'Section hors de votre périmètre.' });
+  const b = { date: s.date, heure_debut: s.heure_debut, heure_fin: s.heure_fin, ...req.body };
+  const err = horaireValide(b);
+  if (err) return res.status(400).json({ error: err });
+  db.prepare(`UPDATE horaire_seance SET date = ?, heure_debut = ?, heure_fin = ?, minutes = ?,
+      local_texte = ?, annule = ?, commentaire = ?, modifie_lucie = 1, modifie_par = ?, modifie_le = datetime('now')
+    WHERE id = ?`).run(b.date, b.heure_debut, b.heure_fin, hm(b.heure_fin) - hm(b.heure_debut),
+    'local_texte' in req.body ? (String(req.body.local_texte || '').trim() || null) : s.local_texte,
+    'annule' in req.body ? (req.body.annule ? 1 : 0) : s.annule,
+    'commentaire' in req.body ? (String(req.body.commentaire || '').trim() || null) : s.commentaire,
+    qui(req), s.id);
+  res.json({ ok: true, conflits: conflitsDeLaSeance(s.id) });
+});
+
+r.delete('/seance/:id', authRequired, roleRequired(...EDITEURS), (req, res) => {
+  const s = db.prepare('SELECT * FROM horaire_seance WHERE id = ?').get(Number(req.params.id));
+  if (!s) return res.status(404).json({ error: 'Séance introuvable.' });
+  if (!sectionPermise(req, s.section)) return res.status(403).json({ error: 'Section hors de votre périmètre.' });
+  db.prepare('DELETE FROM horaire_seance WHERE id = ?').run(s.id);
+  res.json({ ok: true });
+});
+
+/* RECOPIER UNE SEMAINE — l'essentiel d'un horaire est une semaine type répétée.
+   Simulation d'abord. On ne pose rien un jour férié ni dans une semaine qui
+   n'est pas de cours ; une séance identique déjà là n'est pas doublée. */
+r.post('/recopier', authRequired, roleRequired(...EDITEURS), (req, res) => {
+  const an = req.body?.annee || anneeDeTravail(req);
+  const [sec, bloc] = String(req.body?.cle || '').split('|');
+  if (!sec || !bloc) return res.status(400).json({ error: 'classe requise' });
+  if (!sectionPermise(req, sec)) return res.status(403).json({ error: 'Section hors de votre périmètre.' });
+  const source = lundiDe(String(req.body?.lundi || ''));
+  const cibles = [...new Set((Array.isArray(req.body?.cibles) ? req.body.cibles : []).map(x => lundiDe(String(x))))].filter(x => x !== source);
+  const simulation = req.body?.simulation !== false;
+  const modele = db.prepare(`SELECT * FROM horaire_seance WHERE annee_scolaire = ? AND section = ? AND bloc = ? AND annule = 0
+    AND date BETWEEN ? AND ?`).all(an, sec, bloc, source, ajouterJours(source, 6));
+  if (!modele.length) return res.status(409).json({ error: 'La semaine modèle est vide.' });
+  const existe = db.prepare(`SELECT 1 FROM horaire_seance WHERE annee_scolaire = ? AND date = ? AND heure_debut = ?
+    AND COALESCE(groupe_id, 0) = COALESCE(?, 0) AND COALESCE(cours_code, '') = COALESCE(?, '') LIMIT 1`);
+  const semaineDe = db.prepare(`SELECT type, label FROM annee_calendrier WHERE annee_scolaire = ? AND date_debut <= ? AND date_fin >= ?`);
+  const ins = db.prepare(`INSERT INTO horaire_seance (annee_scolaire, classe, section, bloc, date, heure_debut, heure_fin, minutes,
+      cours_code, ue_num, matiere, professeur_id, local_texte, groupe_id, source, modifie_lucie, cree_par, cree_le)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?, 'lucie', 1, ?, datetime('now'))`);
+  const rapport = [];
+  const aEcrire = [];
+  for (const lundi of cibles) {
+    const sem = semaineDe.get(an, ajouterJours(lundi, 4), lundi);
+    if (sem && sem.type !== 'cours') { rapport.push({ lundi, creees: 0, ignorees: modele.length, raison: sem.label || sem.type }); continue; }
+    const feries = joursFeries(Number(lundi.slice(0, 4)));
+    let n = 0, ign = 0; const motifs = new Set();
+    for (const m of modele) {
+      const decal = Math.round((new Date(m.date + 'T12:00:00Z') - new Date(source + 'T12:00:00Z')) / 86400000);
+      const d = ajouterJours(lundi, decal);
+      if (feries.has(d)) { ign++; motifs.add(`${feries.get(d)} (${d})`); continue; }
+      if (existe.get(an, d, m.heure_debut, m.groupe_id, m.cours_code)) { ign++; motifs.add('déjà posée'); continue; }
+      aEcrire.push([m, d]); n++;
+    }
+    rapport.push({ lundi, creees: n, ignorees: ign, raison: [...motifs].join(', ') || null });
+  }
+  if (!simulation) {
+    db.transaction(() => {
+      for (const [m, d] of aEcrire) ins.run(an, m.classe, m.section, m.bloc, d, m.heure_debut, m.heure_fin, m.minutes,
+        m.cours_code, m.ue_num, m.matiere, m.professeur_id, m.local_texte, m.groupe_id, qui(req));
+    })();
+  }
+  res.json({ ok: true, simulation, modele: modele.length, rapport, total: aEcrire.length });
+});
+
+// Les semaines de l'année, pour choisir où recopier.
+r.get('/semaines', authRequired, (req, res) => {
+  const an = req.query.annee || anneeDeTravail(req);
+  res.json(db.prepare('SELECT id, semaine_num, date_debut, date_fin, type, label FROM annee_calendrier WHERE annee_scolaire = ? ORDER BY date_debut').all(an));
 });
 
 export default r;

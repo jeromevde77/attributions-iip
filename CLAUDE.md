@@ -132,6 +132,20 @@ tranchées : prérequis interne = avertissement ; sans note = non acquis (pas
 `ecrireProgramme()`.** Les routes de résultats (suivi, historique, encodage)
 consignent des faits et n'y passent pas.
 
+**L'HORAIRE SE COMPOSE DANS LUCIE** (2.12.287, Charles, 28 septembre 2026 :
+« copier Hyperplanning, en plus simple »). Organisation → *Horaire de la
+semaine* : trois lectures (classe = section + bloc, professeur, local), des
+tuiles au quart d'heure qu'on déplace et rallonge, le **bac** tiré des
+`groupe` (heures attribuées − heures posées ; la `planification` donne le
+prévu de la semaine quand elle existe), la recopie d'une semaine sur les
+suivantes (simulation, saute congés et fériés calculés, ne double rien). Un
+conflit — même professeur, même local, même classe, hors sous-groupes d'un
+même cours — **se nomme, il ne s'empêche pas**. Table `horaire_seance`, celle
+que le comparateur remplissait déjà : `source` et `modifie_lucie` préparent les
+deux usages (Lucie seule, ou à côté d'Hyperplanning) — une séance posée ou
+retouchée ici ne sera jamais écrasée par un import. **À venir :** l'import
+(Excel si Hyperplanning l'exporte, sinon la grille PDF), les salles partagées.
+
 **Deux sources pour un même fait, c'est une source de moins.** L'épreuve
 intégrée s'écrivait dans `ue.is_epreuve_integree` (case du référentiel) et se
 lisait dans `ue_epreuve_integree` (table annuelle) : la case ne faisait rien,
