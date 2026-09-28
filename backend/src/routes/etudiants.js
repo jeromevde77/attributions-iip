@@ -3543,6 +3543,82 @@ function sectionDuDossier(etudId, annee) {
  * l'autre — jamais celles qui portent un résultat, une note ou un report. Un
  * dossier dont l'historique connaît les DEUX sections n'est pas tranché : il
  * est nommé, et se règle à la main. Écrire est un geste de direction. */
+/* ── LES PROGRAMMES AU-DELÀ DU BLOC ATTEINT (Charles, 28 septembre 2026 :
+ * « tous les primos de psychomotricité ont toutes les UE de la section, pas
+ * possible »). 45 primo-inscrits portaient leurs BA2 et BA3 — 441 inscriptions
+ * vides, posées avant que le plafond de bloc existe. L'outil nomme, pour chaque
+ * étudiant, les unités d'un bloc qu'il n'a pas encore atteint (le moteur :
+ * faitsPAE, `hors_bloc`) et propose de les retirer par la porte unique.
+ *   · ce qui porte un résultat, une note ou un report reste ;
+ *   · une dérogation tracée (pae_derogation) ou une réinscription forcée reste :
+ *     quelqu'un l'a voulue ;
+ *   · un étudiant qui a une VALORISATION n'est pas tranché : une VA peut ouvrir
+ *     le bloc suivant, cela se regarde à la main.
+ * Simulation d'abord ; l'écriture est un geste de direction. */
+r.post('/hors-bloc', authRequired,
+       roleRequired('admin', 'directeur', 'directeur_adjoint', 'editeur', 'secretariat'), (req, res) => {
+  const { annee, simulation = true, exclus = [] } = req.body || {};
+  if (!annee) return res.status(400).json({ error: 'annee requise' });
+  const direction = ['admin', 'directeur', 'directeur_adjoint'].includes(req.user.role);
+  if (!simulation && !direction) return res.status(403).json({ error: 'La réparation est un geste de direction.' });
+  const exclusSet = new Set((Array.isArray(exclus) ? exclus : []).map(Number));
+  const perim = getUserSections(req.user);
+  const cache = new Map();
+  const derogee = db.prepare(`SELECT 1 FROM pae_derogation WHERE etudiant_id = ? AND annee_scolaire = ? AND ue_num = ? AND regle = 'hors_bloc' LIMIT 1`);
+  const forcee = db.prepare(`SELECT COALESCE(derogation,0) AS d FROM etudiant_inscription WHERE etudiant_id = ? AND annee_scolaire = ? AND ue_num = ?`);
+  const aVA = db.prepare('SELECT 1 FROM etudiant_valorisation WHERE etudiant_id = ? LIMIT 1');
+  const lignes = [];
+  for (const e of db.prepare(`SELECT DISTINCT e.id, e.nom, e.prenom, e.id_ecampus FROM etudiant e
+      JOIN etudiant_inscription i ON i.etudiant_id = e.id AND i.annee_scolaire = ? WHERE e.actif = 1
+      ORDER BY e.nom, e.prenom`).all(annee)) {
+    const cur = cursusDe(e.id, annee);
+    if (!cur.actifs.length) continue;
+    if (perim && !cur.actifs.some(x => perim.includes(x))) continue;
+    const f = faitsPAE(e.id, annee, cur.actifs, cache);
+    const inscrites = db.prepare('SELECT ue_num FROM etudiant_inscription WHERE etudiant_id = ? AND annee_scolaire = ?')
+      .all(e.id, annee).map(x => x.ue_num);
+    const hors = inscrites.filter(u => f.etats.get(u)?.hors_bloc);
+    if (!hors.length) continue;
+    const gardees = hors.filter(u => derogee.get(e.id, annee, u) || forcee.get(e.id, annee, u)?.d)
+      .map(u => ({ ue_num: u, pourquoi: 'dérogation tracée' }));
+    const candidates = hors.filter(u => !gardees.some(g => g.ue_num === u));
+    const sim = ecrireProgramme({ etudId: e.id, annee, retirer: candidates, origine: 'réparation hors bloc', simulation: true });
+    /* UN « PRIMO » SANS HISTORIQUE N'EST PAS TOUJOURS UN PRIMO. Rama Abdo
+       (25-00278) n'a aucune inscription antérieure dans Lucie alors que le
+       tableau du secrétariat porte ses résultats 2025-2026 ; Carole Djandja a
+       deux dossiers, et c'est le doublon sans matricule qui porte 2026-2027.
+       Retirer leurs unités aurait été faux. Sans historique, on ne tranche que
+       si le matricule est de l'année : plus ancien, l'historique manque ;
+       absent, c'est peut-être un doublon. */
+    const primo = !f.suiviesAvant.length;
+    const aa = String(annee).slice(2, 4);
+    const mat = /^(\d{2})-/.exec(String(e.id_ecampus || ''));
+    const raison = aVA.get(e.id) ? 'a une valorisation : elle peut ouvrir le bloc suivant — à trancher à la main'
+      : primo && !e.id_ecampus ? 'aucun historique et aucun matricule : doublon possible — à vérifier'
+      : primo && mat && mat[1] < aa ? `matricule ${e.id_ecampus} antérieur à l'année, mais aucun historique dans Lucie : l'historique manque — à vérifier`
+      : null;
+    const ambigu = !!raison;
+    lignes.push({ etudiant_id: e.id, nom: e.nom, prenom: e.prenom, id_ecampus: e.id_ecampus,
+      section: cur.courant, plafond: f.plafond, primo,
+      retirer: sim.retirees.map(u => ({ ue_num: u, niv: f.niv[u] || null })),
+      proteges: [...gardees, ...sim.conservees], ambigu, raison });
+  }
+  let retirees = 0, confirmations = 0;
+  if (!simulation) {
+    const qui = req.user?.email || req.user?.nom || null;
+    for (const l of lignes) {
+      if (l.ambigu || exclusSet.has(l.etudiant_id) || !l.retirer.length) continue;
+      const b = ecrireProgramme({ etudId: l.etudiant_id, annee, retirer: l.retirer.map(x => x.ue_num),
+        origine: 'réparation hors bloc', par: qui });
+      retirees += b.retirees.length;
+      if (b.confirmation_retiree) confirmations++;
+    }
+    console.log(`[hors-bloc] ${retirees} inscription(s) retirée(s) par ${qui || '?'} (${annee})`);
+  }
+  res.json({ ok: true, simulation: !!simulation, annee, lignes, retirees, confirmations_retirees: confirmations,
+    a_retirer: lignes.filter(l => !l.ambigu && !exclusSet.has(l.etudiant_id)).reduce((n, l) => n + l.retirer.length, 0) });
+});
+
 r.post('/doubles-programmes', authRequired,
        roleRequired('admin', 'directeur', 'directeur_adjoint', 'editeur', 'secretariat'), (req, res) => {
   const { annee, simulation = true, exclus = [] } = req.body || {};
