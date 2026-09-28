@@ -4,7 +4,7 @@ import { useSearchParams } from 'react-router-dom';
 import Axe from '../components/Axe.jsx';
 import {
   IconLayoutGrid, IconSchool, IconSitemap, IconFileDescription,
-  IconClock, IconCalendarStats, IconBuilding, IconBooks, IconUsersGroup, IconPercentage,
+  IconClock, IconCalendarStats, IconBuilding, IconBooks, IconUsersGroup, IconPercentage, IconCalendarWeek,
 } from '@tabler/icons-react';
 import Attributions from './Attributions.jsx';
 import Planification from './Planification.jsx';
@@ -17,6 +17,7 @@ import { authHeaders } from '../lib/api.js';
 const CentrePlanification = lazy(() => import('./CentrePlanification.jsx'));
 const RepartitionCours = lazy(() => import('./RepartitionCours.jsx'));
 const PonderationsUE = lazy(() => import('./PonderationsUE.jsx'));
+const HoraireSemaine = lazy(() => import('./HoraireSemaine.jsx'));
 
 /**
  * Axe ORGANISATION — « Qu'organise-t-on cette année ? »
@@ -98,6 +99,12 @@ export default function Organisation({ ongletInitial }) {
         // qu'il parle, et les titulaires y accèdent pour leurs propres unités.
         { key: 'due', label: "Descriptifs d'UE", icone: IconFileDescription, sansMarge: true,
           rendu: <DUE /> },
+        /* L'HORAIRE SE COMPOSE ICI (Charles, 28 septembre 2026) : la semaine,
+           par classe, professeur ou local ; des tuiles qu'on déplace ; le bac
+           de ce qui reste à poser, tiré des groupes des attributions. */
+        { key: 'horaire-semaine', label: 'Horaire de la semaine', icone: IconCalendarWeek,
+          rendu: <Suspense fallback={<div className="p-4 text-[13px] text-slate-400">Chargement…</div>}>
+                   <HoraireSemaine /></Suspense> },
         // L'HORAIRE VIENT D'AILLEURS, ET PERSONNE NE LE RELIT. Les
         // coordinations le bâtissent dans Hyperplanning à partir des
         // attributions ; que l'horaire dépense bien ce qui a été accordé, et
