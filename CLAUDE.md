@@ -146,6 +146,17 @@ deux usages (Lucie seule, ou à côté d'Hyperplanning) — une séance posée o
 retouchée ici ne sera jamais écrasée par un import. **À venir :** l'import
 (Excel si Hyperplanning l'exporte, sinon la grille PDF), les salles partagées.
 
+**ÉVALUATION UNIQUE ≠ ÉPREUVE INTÉGRÉE** (2.12.289, Charles, 28 septembre 2026,
+UE 261 : « une seule évaluation ; la note doit aller aux deux cours »). Une unité
+peut être réglée, pour une année, en **évaluation unique**
+(`ue_evaluation_unique`, case du schéma des liens) : les cours gardent acquis et
+poids, mais la note d'un acquis, encodée sur UN cours, se LIT pour tous les cours
+qui le portent (`etendreEvaluationUnique`, et `noteDe` dans `delibererUE`) —
+aucune note n'est recopiée. **Attention :** la case « Épreuve intégrée d'unité »
+du même schéma écrit `ue_epreuve_integree`, c'est-à-dire l'épreuve intégrée DU
+DÉCRET — celle qui ouvre au diplôme et que le moteur du PAE ne propose qu'une
+fois tout le reste acquis. Ne jamais la cocher pour dire « examen commun ».
+
 **Deux sources pour un même fait, c'est une source de moins.** L'épreuve
 intégrée s'écrivait dans `ue.is_epreuve_integree` (case du référentiel) et se
 lisait dans `ue_epreuve_integree` (table annuelle) : la case ne faisait rien,

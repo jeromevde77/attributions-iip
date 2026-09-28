@@ -692,8 +692,48 @@ export function structureUE(ueNum, annee) {
  * Note d'une UE pour un étudiant, calculée depuis ses notes d'AA.
  * notes : { 'cours_code|aa_code': { points, non_evalue } }
  */
-export function calculerNoteUE(ueNum, annee, notes, reports = {}) {
+/* L'ÉVALUATION UNIQUE DE L'UNITÉ (Charles, 28 septembre 2026, UE 261 : « cette
+ * UE fait l'objet d'une seule évaluation ; la note doit aller aux deux cours »).
+ * Ce n'est pas l'épreuve intégrée (un bloc sans cours) : les cours demeurent,
+ * portent leurs acquis et leurs poids, mais un acquis n'est évalué QU'UNE FOIS
+ * pour toute l'unité. La note est écrite une seule fois, sur n'importe lequel
+ * des cours — celui du professeur qui l'a encodée —, et elle se LIT pour
+ * chaque cours qui porte l'acquis. Aucune note n'est recopiée : deux copies
+ * d'une même note finiraient par différer. Réglage annuel, par unité. */
+let _evalUniqueMigree = false;
+function migrerEvaluationUnique() {
+  if (_evalUniqueMigree) return;
+  db.exec(`CREATE TABLE IF NOT EXISTS ue_evaluation_unique (
+    ue_num INTEGER NOT NULL, annee_scolaire TEXT NOT NULL, actif INTEGER NOT NULL DEFAULT 1,
+    maj_le TEXT DEFAULT CURRENT_TIMESTAMP, maj_par TEXT, PRIMARY KEY (ue_num, annee_scolaire))`);
+  _evalUniqueMigree = true;
+}
+export function estEvaluationUnique(ueNum, annee) {
+  try {
+    migrerEvaluationUnique();
+    return !!db.prepare('SELECT actif FROM ue_evaluation_unique WHERE ue_num = ? AND annee_scolaire = ?').get(Number(ueNum), annee)?.actif;
+  } catch { return false; }
+}
+/** Complète un dictionnaire « cours|acquis » : la note d'un acquis posée sur
+ *  un cours de l'unité vaut pour les autres cours qui le portent. */
+export function etendreEvaluationUnique(notes, structure, ueNum, annee) {
+  if (!estEvaluationUnique(ueNum, annee)) return notes;
+  const out = { ...notes };
+  const parAA = {};
+  for (const c of structure) for (const a of (c.aas || [])) {
+    const n = notes[`${c.cours_code}|${a.aa_code}`];
+    if (n != null && parAA[a.aa_code] == null) parAA[a.aa_code] = n;
+  }
+  for (const c of structure) for (const a of (c.aas || [])) {
+    const k = `${c.cours_code}|${a.aa_code}`;
+    if (out[k] == null && parAA[a.aa_code] != null) out[k] = parAA[a.aa_code];
+  }
+  return out;
+}
+
+export function calculerNoteUE(ueNum, annee, notesBrutes, reports = {}) {
   const structure = structureUE(ueNum, annee);
+  const notes = etendreEvaluationUnique(notesBrutes, structure, ueNum, annee);
   let numerateur = 0, maximum = 0;
   let evalues = 0, attendus = 0;
 
@@ -828,6 +868,7 @@ export function reportsEligibles(etudId, ueNum, anneeCible, regles = null) {
       const k = cc + '|' + brut;
       if (cc && !(notes[k] && notes[k].rang > rg)) notes[k] = { points: l.points, non_evalue: l.non_evalue, rang: rg };
     }
+    Object.assign(notes, etendreEvaluationUnique(notes, structure, ueNum, an));
 
     for (const co of structure) {
       // L'état acquis par acquis — il sert aux deux grains.
@@ -1920,6 +1961,7 @@ r.get('/notes-anterieures/:etudId/:ueNum', authRequired, (req, res) => {
       || structure.find(c0 => c0.aas.some(a => a.aa_code === brut))?.cours_code;
     if (cc) notes[cc + '|' + brut] = { points: l.points, non_evalue: l.non_evalue };
   }
+  Object.assign(notes, etendreEvaluationUnique(notes, structure, ueNum, an));
 
   // Tous les cours de l'UE, avec ou sans note : l'absence de note est une
   // information, elle dit qu'il n'y a rien à reporter.
@@ -2061,6 +2103,18 @@ r.delete('/reports/:etudId/:ueNum/:coursCode', authRequired, roleRequired('admin
   res.json({ ok: true });
 });
 
+// ── L'évaluation unique d'une unité, pour une année ─────────────────────────
+r.put('/ue/:ueNum/evaluation-unique', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
+  const ueNum = Number(req.params.ueNum);
+  const annee = req.body?.annee || anneeDeTravail(req);
+  migrerEvaluationUnique();
+  db.prepare(`INSERT INTO ue_evaluation_unique (ue_num, annee_scolaire, actif, maj_le, maj_par)
+    VALUES (?,?,?, datetime('now'), ?)
+    ON CONFLICT(ue_num, annee_scolaire) DO UPDATE SET actif = excluded.actif, maj_le = excluded.maj_le, maj_par = excluded.maj_par`)
+    .run(ueNum, annee, req.body?.actif ? 1 : 0, req.user?.email || req.user?.nom || null);
+  res.json({ ok: true, ue_num: ueNum, annee, evaluation_unique: !!req.body?.actif });
+});
+
 // ── Structure d'évaluation d'une UE ─────────────────────────────────────────
 /**
  * Les LIENS cours ↔ acquis d'une unité, pour les paramétrer.
@@ -2114,6 +2168,7 @@ r.get('/ue/:ueNum/liens', authRequired, (req, res) => {
     ue_num: ueNum, ue_nom: ue.ue_nom || null, section: ue.section || null, annee,
     cours, acquis, liens, poids_epreuve, code_epreuve_ue: CODE_EPREUVE_UE,
     epreuve_integree: estEpreuveIntegree(ueNum, annee),
+    evaluation_unique: estEvaluationUnique(ueNum, annee),
     sommes,
     acquis_sans_cours: acquis.filter(a => !lies.has(a.aa_code)).map(a => a.aa_code),
     cours_incomplets: cours
@@ -3624,12 +3679,20 @@ export function delibererUE(etudId, ueNum, annee, session = 1) {
       mentionDe[cle] = l.mention || null;
     }
   }
+  // Évaluation unique de l'unité : la note d'un acquis posée sur un cours vaut
+  // pour les autres cours qui le portent (voir etendreEvaluationUnique).
+  const unique = estEvaluationUnique(ueNum, annee);
+  const uniqueAA = {}, uniqueMention = {};
+  if (unique) for (const [k, v] of Object.entries(parCoursAA)) {
+    const aa = k.split('|').pop();
+    if (uniqueAA[aa] == null && v != null) { uniqueAA[aa] = v; uniqueMention[aa] = mentionDe[k] || null; }
+  }
   const noteDe = (cours, aa) => {
-    const v = parCoursAA[`${cours}|${aa}`];
+    const v = parCoursAA[`${cours}|${aa}`] ?? (unique ? uniqueAA[aa] : undefined);
     return v != null ? Number(v) : (parAA[aa] != null ? Number(parAA[aa]) : null);
   };
   // NP ou PP : la raison du zéro, qui suit la note jusqu'à la feuille.
-  const mentionAA = (cours, aa) => mentionDe[`${cours}|${aa}`] || mentionDe[aa] || null;
+  const mentionAA = (cours, aa) => mentionDe[`${cours}|${aa}`] || (unique && parCoursAA[`${cours}|${aa}`] == null ? uniqueMention[aa] : null) || mentionDe[aa] || null;
 
   // Les ajustements sont ceux de LA session délibérée : ce que le Conseil a
   // ajourné en juin ne pèse plus sur la décision de septembre, il en est la
