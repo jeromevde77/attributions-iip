@@ -3772,7 +3772,15 @@ export function delibererUE(etudId, ueNum, annee, session = 1) {
     return {
       aa_code: code, description: descr[code] || null,
       evaluations: evals, note_calculee: note, note: affichee,
-      na, faveur: forcee, motif: motifs[code] || '',
+      /* LE MOTIF DU CHARGÉ DE COURS EST LE MOTIF DÉLIBÉRÉ (Charles, 28
+         septembre 2026 : « ce n'est pas une proposition ; ce que le chargé de
+         cours dit, c'est ce qui est délibéré ; on change à la limite, mais
+         c'est sa responsabilité »). Posé avec la note sous le seuil dans Mes
+         cours, il EST la motivation de l'acquis en échec — le Conseil peut le
+         réécrire, et c'est alors le sien qui vaut. Il s'écrit au dossier à la
+         clôture, sous la provenance « enseignant ». */
+      na, faveur: forcee,
+      motif: motifs[code] || (justifEns[code] && (na || (affichee != null && affichee < SEUIL_AA)) ? justifEns[code] : ''),
       // LA MOTIVATION PROPOSÉE, à côté de celle du Conseil et jamais à sa
       // place. Un échec non motivé se perd au recours (RDE art. 88 §3), mais à
       // quatre-vingts dossiers dans une soirée la case reste vide et l'annexe
@@ -3784,14 +3792,16 @@ export function delibererUE(etudId, ueNum, annee, session = 1) {
       // motif propre à cet acquis (référentiel), puis l'énoncé calculé. Le
       // défaut de l'acquis dit ce que CET acquis exige ; le calculé ne sait
       // dire que ce que la base sait. On préfère le premier quand il existe.
-      motif_propose: motifs[code] ? '' : (justifEns[code] || motifDefaut[code] || motifPropose({
+      motif_propose: motifs[code] || (justifEns[code] && (na || (affichee != null && affichee < SEUIL_AA))) ? ''
+        : (motifDefaut[code] || motifPropose({
         note: affichee, na, faveur: forcee, non_evalue: !na && affichee == null,
         mention: (evals.find(x => x.mention) || {}).mention || null,
       }, SEUIL_AA)),
       // D'où vient la proposition — l'écran le dit, et la clôture aussi : une
       // formule écrite par l'école ne se confond pas avec une phrase calculée.
       motif_source: motifs[code] ? 'conseil'
-        : justifEns[code] ? 'enseignant' : motifDefaut[code] ? 'defaut_aa' : 'calcule',
+        : justifEns[code] && (na || (affichee != null && affichee < SEUIL_AA)) ? 'enseignant'
+        : motifDefaut[code] ? 'defaut_aa' : 'calcule',
       // La faveur POSÉE SUR CET ACQUIS, distincte de celle qu'il hérite de
       // l'unité : c'est elle que le bouton retire, et elle seule.
       faveur_directe: aaFaveur(code),
@@ -5937,6 +5947,27 @@ r.get('/deliberation/ue/:ueNum/seance', authRequired, (req, res) => {
  * « resté à la proposition » sont la même chose : c'est ce qui rend le compte
  * exact, et non approximatif.
  */
+/** Les motivations posées par les chargés de cours, pour les dossiers en échec
+ *  de la séance : ce sont elles que la clôture écrit au dossier. */
+export function motivationsEnseignants(ueNum, annee, session = 1, org = null) {
+  const orgSql = org == null ? ''
+    : (Number(org) > 0 ? ` AND i.num_organisation = ${Number(org)}` : ' AND i.num_organisation IS NULL');
+  const sortie = [];
+  for (const e of db.prepare(`SELECT e.id FROM etudiant_inscription i JOIN etudiant e ON e.id = i.etudiant_id
+      WHERE i.annee_scolaire = ? AND i.ue_num = ?${orgSql}`).all(annee, Number(ueNum))) {
+    const dec = db.prepare(`SELECT resultat FROM deliberation_resultat
+      WHERE etudiant_id = ? AND annee_scolaire = ? AND ue_num = ? AND session = ?`).get(e.id, annee, Number(ueNum), session)?.resultat
+      || db.prepare('SELECT resultat FROM etudiant_inscription WHERE etudiant_id = ? AND annee_scolaire = ? AND ue_num = ?')
+        .get(e.id, annee, Number(ueNum))?.resultat;
+    if (!['ajourne', 'refuse'].includes(dec)) continue;
+    const d = delibererUE(e.id, Number(ueNum), annee, session);
+    const acquis = (d.acquis || []).filter(a => a.motif_source === 'enseignant' && a.motif)
+      .map(a => ({ aa_code: a.aa_code, motif: a.motif }));
+    if (acquis.length) sortie.push({ etudiant_id: e.id, acquis });
+  }
+  return sortie;
+}
+
 export function motivationsProposees(ueNum, annee, session = 1, org = null) {
   const sortie = [];
   // Par organisation, seuls SES étudiants entrent dans le compte : la clôture
@@ -6121,6 +6152,19 @@ r.put('/deliberation/ue/:ueNum/seance', authRequired,
     // mais marquées comme telles. « source » distingue pour toujours ce que le
     // Conseil a rédigé de ce qui a été accepté en bloc : sans cette marque, un
     // an plus tard, plus rien ne les distingue.
+    /* LES MOTIFS DES CHARGÉS DE COURS S'ÉCRIVENT AU DOSSIER À LA CLÔTURE, sans
+       confirmation : ce sont eux qui ont été délibérés. Écrits, ils ne
+       bougent plus si la note est retouchée après coup dans Mes cours. */
+    if (cloturee) {
+      const poserEns = db.prepare(`
+        INSERT INTO decision_motivation
+          (etudiant_id, annee_scolaire, ue_num, aa_code, motif, portee, source, maj_le, maj_par)
+        VALUES (?,?,?,?,?,'aa','enseignant',datetime('now'),?)
+        ON CONFLICT(etudiant_id, annee_scolaire, ue_num, aa_code) DO NOTHING`);
+      for (const e of motivationsEnseignants(ueNum, annee, session, orgMot)) {
+        for (const a of e.acquis) poserEns.run(e.etudiant_id, annee, ueNum, a.aa_code, a.motif, req.user?.email || null);
+      }
+    }
     if (cloturee && req.body?.motivations_proposees_acceptees) {
       const poser = db.prepare(`
         INSERT INTO decision_motivation
