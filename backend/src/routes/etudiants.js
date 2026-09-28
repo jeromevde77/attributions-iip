@@ -4785,6 +4785,28 @@ export function donneesCapitalisation(etudId, annee, sectionForcee = null) {
   return { ...g, sections, annee, archives };
 }
 
+/* RETIRER LES INSCRIPTIONS D'UN CURSUS ARCHIVÉ (Charles, 28 septembre 2026 :
+ * « comment faire pour retirer ? »). Le bandeau le demandait sans offrir la
+ * porte : un constat sans porte est un constat qu'on relit chaque matin. Par
+ * la porte unique : ce qui porte un résultat, une note ou un report reste, et
+ * la réponse le nomme. Simulation d'abord. */
+r.post('/:id/cursus-archive/retirer', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
+  const etudId = Number(req.params.id);
+  const { annee, section, simulation = true } = req.body || {};
+  if (!annee || !section) return res.status(400).json({ error: 'annee et section requises' });
+  const cur = cursusDe(etudId, annee);
+  if (!cur.archives.some(a => a.section === section)) {
+    return res.status(409).json({ error: `${section} n'est pas un cursus archivé de cet étudiant.` });
+  }
+  const ues = db.prepare(`SELECT i.ue_num FROM etudiant_inscription i WHERE i.etudiant_id = ? AND i.annee_scolaire = ?
+    AND i.ue_num IN (SELECT ue_num FROM ue WHERE section = ? AND COALESCE(hors_cursus,0) = 0)`)
+    .all(etudId, annee, section).map(x => x.ue_num);
+  const b = ecrireProgramme({ etudId, annee, retirer: ues, origine: 'retrait du cursus archivé',
+    par: req.user?.email || req.user?.nom || null, simulation: simulation !== false });
+  res.json({ ok: true, simulation: simulation !== false, section, retirees: b.retirees, conservees: b.conservees,
+    confirmation_retiree: b.confirmation_retiree });
+});
+
 r.get('/:id/capitalisation', authRequired, (req, res) => {
   const etudId = Number(req.params.id);
   const annee = req.query.annee;
