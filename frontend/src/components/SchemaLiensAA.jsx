@@ -52,6 +52,7 @@ export default function SchemaLiensAA({ ueNum, annee, onClose, onEnregistre }) {
   // de liens concernée et à effacer les autres.
   const [survol, setSurvol] = useState(null);
   const [integree, setIntegree] = useState(false);
+  const [unique, setUnique] = useState(false);   // évaluation unique de l'unité
   // Le poids de chaque acquis dans l'épreuve intégrée : `aa_code` → nombre.
   const [poidsEI, setPoidsEI] = useState({});
   const svgRef = useRef(null);
@@ -69,6 +70,7 @@ export default function SchemaLiensAA({ ueNum, annee, onClose, onEnregistre }) {
       if (!rep.ok) throw new Error(j.error);
       setData(j);
       setIntegree(!!j.epreuve_integree);
+      setUnique(!!j.evaluation_unique);
       setPoidsEI(Object.fromEntries((j.acquis || []).map(a =>
         [a.aa_code, j.poids_epreuve?.[a.aa_code] ?? '']))); 
       setPoids(Object.fromEntries(j.liens.map(l => [`${l.cours_code}|${l.aa_code}`, Number(l.poids)])));
@@ -281,6 +283,25 @@ export default function SchemaLiensAA({ ueNum, annee, onClose, onEnregistre }) {
    * par acquis pour l'unité entière, et chaque cours reçoit la note de l'unité.
    * Les liens ci-dessous restent utiles — ils pèsent les acquis entre eux.
    */
+  /* L'ÉVALUATION UNIQUE (28 septembre 2026, UE 261) — ce n'est PAS l'épreuve
+     intégrée : les cours restent, avec leurs acquis et leurs poids, mais chaque
+     acquis n'est évalué qu'une fois pour l'unité, et sa note vaut pour tous les
+     cours qui le portent. */
+  async function basculerUnique(v) {
+    setEnCours(true); setErreur(null); setMessage(null);
+    try {
+      const rep = await fetch(`/api/acquis/ue/${ueNum}/evaluation-unique`, {
+        method: 'PUT', headers: authHeaders(), body: JSON.stringify({ annee, actif: v }) });
+      const j = await rep.json();
+      if (!rep.ok) { setErreur(j.error); return; }
+      setUnique(v);
+      setMessage(v ? `Évaluation unique en ${annee} : la note d'un acquis, encodée sur un seul cours, vaut pour tous les cours qui le portent.`
+                   : 'Évaluation par cours rétablie.');
+      onEnregistre && onEnregistre();
+    } catch (e) { setErreur(e.message); }
+    finally { setEnCours(false); }
+  }
+
   async function basculerIntegree(v) {
     setEnCours(true); setErreur(null); setMessage(null);
     try {
@@ -371,6 +392,23 @@ export default function SchemaLiensAA({ ueNum, annee, onClose, onEnregistre }) {
               </span>
             </span>
           </label>
+
+          {!integree && (
+            <label className={`flex items-start gap-2.5 px-3 py-2 rounded-xl border cursor-pointer
+              ${unique ? 'border-[#1B2B4B]/40' : 'bg-slate-50 border-slate-200'}`}
+              style={unique ? { background: 'color-mix(in srgb, #1B2B4B 6%, #fff)' } : undefined}>
+              <input type="checkbox" checked={unique} disabled={enCours}
+                onChange={e => basculerUnique(e.target.checked)} className="mt-0.5 w-4 h-4" />
+              <span className="text-[13px]">
+                <b className="text-slate-800">Évaluation unique de l'unité — {annee}</b>
+                <span className="block text-[12px] text-slate-600">
+                  Les cours gardent leurs acquis et leurs poids, mais <b>chaque acquis n'est évalué qu'une fois</b> :
+                  la note encodée sur un des cours <b>vaut pour tous les cours</b> qui portent cet acquis. Ce n'est pas
+                  l'épreuve intégrée ci-dessus, qui est l'épreuve du décret et pèse sur le PAE et le diplôme.
+                </span>
+              </span>
+            </label>
+          )}
 
           {!data ? (
             <div className="py-8 text-center text-slate-400 text-sm">Chargement…</div>
