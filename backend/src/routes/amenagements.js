@@ -26,7 +26,8 @@
 
 import { Router } from 'express';
 import db from '../db/index.js';
-import { authRequired, roleRequired } from '../middleware/auth.js';
+import { authRequired, roleRequired, getUserSections } from '../middleware/auth.js';
+import { sectionRattachement } from './etudiants.js';
 import { peut } from '../middleware/permissions.js';
 
 /* QUI ÉCRIT UN AMÉNAGEMENT : les rôles d'office, OU toute personne à qui
@@ -151,6 +152,44 @@ export function migrerAmenagements(dbx) {
 }
 
 r.get('/catalogue', authRequired, (req, res) => res.json(CATALOGUE));
+
+// ── LE REGISTRE DE L'ANNÉE (Charles, 28 septembre 2026 : « un lien direct
+// dans le rail, comme la valorisation, afin que ce soit rapidement joint »).
+// Les dossiers ne se lisaient que fiche par fiche, donc ils ne se lisaient pas.
+// Une ligne par dossier : l'étudiant, l'état, les dates de la procédure, les
+// MESURES retenues — et rien de la nature du handicap, ni de la pièce : le
+// secret professionnel s'applique (art. 5), seuls les aménagements circulent.
+// Le périmètre de section s'applique comme ailleurs.
+r.get('/registre', authRequired, (req, res) => {
+  if (!peut(req.user, 'amenagements', 'lire')) return res.status(403).json({ error: 'Accès refusé.' });
+  const annee = req.query.annee;
+  if (!annee) return res.status(400).json({ error: 'annee requise' });
+  const perim = getUserSections(req.user);
+  const dossiers = db.prepare(`SELECT d.id, d.etudiant_id, d.statut, d.date_demande, d.cde_date, d.notifie_le,
+      d.recours_le, d.delai_mise_oeuvre, e.nom, e.prenom, e.id_ecampus
+    FROM amenagement_dossier d JOIN etudiant e ON e.id = d.etudiant_id
+    WHERE d.annee_scolaire = ? ORDER BY e.nom, e.prenom`).all(annee);
+  const mesures = db.prepare(`SELECT libelle, nature, portee, ue_num, accorde FROM amenagement_mesure
+    WHERE dossier_id = ? ORDER BY nature, libelle`);
+  const ues = db.prepare('SELECT ue_num FROM amenagement_ue WHERE dossier_id = ? ORDER BY ue_num');
+  const lignes = [];
+  for (const d of dossiers) {
+    let section = null;
+    try { section = sectionRattachement(d.etudiant_id, annee).section || null; } catch { /* */ }
+    if (perim && section && !perim.includes(section)) continue;
+    const m = mesures.all(d.id);
+    const decide = ['accepte', 'partiel', 'refuse', 'recours'].includes(d.statut);
+    // CE QUI RESTE À FAIRE se lit sur la ligne : une demande sans décision, une
+    // décision non notifiée, un accord sans mesure — un retard ne se voit pas
+    // dossier par dossier.
+    const aFaire = !decide ? 'décision du Conseil à rendre'
+      : !d.notifie_le ? 'décision à notifier'
+      : ['accepte', 'partiel'].includes(d.statut) && !m.some(x => x.accorde) ? 'aucune mesure accordée encodée'
+      : null;
+    lignes.push({ ...d, section, mesures: m, ues: ues.all(d.id).map(x => x.ue_num), a_faire: aFaire });
+  }
+  res.json({ annee, lignes });
+});
 
 // ── Dossier d'un étudiant ───────────────────────────────────────────────────
 r.get('/etudiant/:id', authRequired, (req, res) => {

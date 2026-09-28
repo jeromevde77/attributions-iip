@@ -159,8 +159,30 @@ const STATUTS_PIECE = [
    n'est pas confirmé ; le schéma ne lisait que les inscriptions enregistrées,
    et une UE qu'on venait de cocher restait sans couleur. Il suit désormais la
    sélection en direct — c'est elle qui dit ce que sera le programme. */
-function SchemaCapitalisation({ etudId, annee, onNoeud = null, programme = null }) {
+function SchemaCapitalisation({ etudId, annee, onNoeud = null, programme = null, onModifie = null }) {
   const [data, setData] = useState(null);
+  const [recharge, setRecharge] = useState(0);
+  /* RETIRER CE QUI RESTE D'UN CURSUS ARCHIVÉ (28 septembre 2026) : le bandeau
+     le demandait sans en donner le moyen. Simulation, confirmation qui nomme,
+     puis retrait par la porte unique. */
+  const retirerArchive = async section => {
+    const appel = simulation => fetch(`/api/etudiants/${etudId}/cursus-archive/retirer`, {
+      method: 'POST', headers: authHeaders(), body: JSON.stringify({ annee, section, simulation }) })
+      .then(async r => ({ ok: r.ok, j: await r.json().catch(() => ({})) }));
+    const sim = await appel(true);
+    if (!sim.ok) { alert(sim.j.error || 'Refusé.'); return; }
+    const { retirees = [], conservees = [] } = sim.j;
+    if (!retirees.length) {
+      alert(conservees.length ? `Rien à retirer sans perte : UE ${conservees.map(x => `${x.ue_num} (${x.pourquoi})`).join(', ')}.` : 'Rien à retirer.');
+      return;
+    }
+    if (!window.confirm(`Retirer ${retirees.length} inscription(s) de ${section} en ${annee} : UE ${retirees.join(', ')} ?`
+      + (conservees.length ? `\n\nRestent, parce qu'elles portent un résultat, une note ou un report : UE ${conservees.map(x => x.ue_num).join(', ')}.` : '')
+      + '\n\nSi le programme était confirmé, la confirmation sera retirée.')) return;
+    const fait = await appel(false);
+    if (!fait.ok) { alert(fait.j.error || 'Refusé.'); return; }
+    setRecharge(n => n + 1); onModifie?.();
+  };
   useEffect(() => {
     let vivant = true;
     fetch(`/api/etudiants/${etudId}/capitalisation?annee=${annee}`, { headers: authHeaders() })
@@ -168,7 +190,7 @@ function SchemaCapitalisation({ etudId, annee, onNoeud = null, programme = null 
       .then(j => { if (vivant) setData(j || { nodes: [], edges: [] }); })
       .catch(() => { if (vivant) setData({ nodes: [], edges: [] }); });
     return () => { vivant = false; };
-  }, [etudId, annee]);
+  }, [etudId, annee, recharge]);
   const vue = useMemo(() => (data?.nodes && programme)
     ? { ...data, nodes: data.nodes.map(n => ({ ...n, inscrite: programme.has(n.ue_num) })) }
     : data, [data, programme]);
@@ -193,6 +215,11 @@ function SchemaCapitalisation({ etudId, annee, onNoeud = null, programme = null 
             <span className="text-slate-500"> · {a.du === a.au ? court(a.du) : `${court(a.du)} → ${court(a.au)}`} · {a.reussies} unité{a.reussies > 1 ? 's' : ''} réussie{a.reussies > 1 ? 's' : ''}</span>
             {a.encore_cette_annee && <span className="text-[#B45309]"> · encore des inscriptions cette année : à retirer, ou à déclarer compatible</span>}
           </span>
+          {a.encore_cette_annee && (
+            <button type="button" className="bouton bouton-compact" onClick={() => retirerArchive(a.section)}>
+              Retirer ces inscriptions
+            </button>
+          )}
           <button type="button" className="bouton bouton-compact" onClick={() => voirArchive(a.section)}>
             {archiveVue?.section === a.section ? 'Masquer' : 'Afficher'}
           </button>
@@ -1911,8 +1938,8 @@ function MenuParcourir({ portee, onPortee, sections, ues, annees }) {
   );
 }
 
-function FicheEtudiant({ id, annee, onClose, position, onPrec, onSuiv,
-                         portee, onPortee, sections, ues, annees, onModifie }) {
+export function FicheEtudiant({ id, annee, onClose, position, onPrec, onSuiv,
+                         portee, onPortee, sections, ues, annees, onModifie, ongletInitial = 'parcours' }) {
   const [annexe2, setAnnexe2] = useState(false);
   const [motivation, setMotivation] = useState(false);
   const [edition, setEdition] = useState(false);   // le centre d'édition, sur cet étudiant
@@ -1920,7 +1947,7 @@ function FicheEtudiant({ id, annee, onClose, position, onPrec, onSuiv,
   const [pae, setPae] = useState(null);
   // « grille » n'existe plus depuis la fusion avec le PAE : la fiche s'ouvrait
   // sur un onglet sans contenu, et paraissait vide jusqu'à ce qu'on clique.
-  const [onglet, setOnglet] = useState('parcours');
+  const [onglet, setOnglet] = useState(ongletInitial);
   const [ficheInscription, setFicheInscription] = useState(null);
   const [selection, setSelection] = useState(null);      // Set des ue_num retenues
   const [catalogueOuvert, setCatalogueOuvert] = useState(false);
@@ -2372,7 +2399,8 @@ function FicheEtudiant({ id, annee, onClose, position, onPrec, onSuiv,
                   d'ensemble et le détail d'un seul regard, sans faire défiler.
                   Sur un écran étroit, l'un revient sous l'autre. */}
               <SchemaRetournable
-                recto={onNoeud => <SchemaCapitalisation etudId={id} annee={annee} onNoeud={onNoeud} programme={selection} />}
+                recto={onNoeud => <SchemaCapitalisation etudId={id} annee={annee} onNoeud={onNoeud} programme={selection}
+                  onModifie={async () => { await chargerPAE(); await charger(); onModifie && onModifie(); }} />}
                 verso={ue => <GrilleParcours etudId={id} peutEcrire={true} annee={annee} ueFocus={ue} />} />
 
               <div className="border-t border-slate-200 mt-4 pt-4">
