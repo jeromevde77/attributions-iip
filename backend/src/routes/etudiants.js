@@ -673,10 +673,15 @@ export function cursusCompatibles() {
 }
 export function cursusDe(etudId, annee) {
   const { sections: toutes, scores } = sectionsDeLEtudiant(etudId, null);
-  const presentes = [...new Set([...(scores || []).map(x => x.section), ...toutes])];
-  if (!presentes.length) return { courant: null, actifs: [], archives: [] };
   const rat = db.prepare('SELECT section_rattachement FROM etudiant WHERE id = ?').get(etudId)?.section_rattachement;
-  let courant = rat && presentes.includes(rat) ? rat : null;
+  /* LE RATTACHEMENT DÉCLARÉ PRIME, MÊME SANS INSCRIPTION DANS LA SECTION
+     (28 septembre 2026, De Clercq : rattaché à TIM, inscrit par erreur à sept
+     unités de psychomotricité). Il n'était retenu que si l'étudiant avait déjà
+     une inscription dans sa section : sinon le cursus se déduisait des
+     inscriptions — c'est-à-dire de l'erreur même qu'il fallait corriger. */
+  const presentes = [...new Set([...(rat ? [rat] : []), ...(scores || []).map(x => x.section), ...toutes])];
+  if (!presentes.length) return { courant: null, actifs: [], archives: [] };
+  let courant = rat || null;
   if (!courant && annee) {
     const n = {};
     for (const x of db.prepare('SELECT ue_num FROM etudiant_inscription WHERE etudiant_id = ? AND annee_scolaire = ?').all(etudId, annee)) {
