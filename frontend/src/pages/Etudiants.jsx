@@ -80,7 +80,7 @@ function ThTri({ champ, tri, onTri, className = '', children }) {
       title="Trier sur cette colonne">
       <span className="inline-flex items-center gap-1">
         {children}
-        <span className={`text-[10px] leading-none ${actif ? 'text-iip-turquoise' : 'text-slate-300'}`}>
+        <span className={`text-[10px] leading-none ${actif ? 'text-[#1B2B4B]' : 'text-slate-300'}`}>
           {actif ? (tri.sens === 1 ? '▲' : '▼') : '▲'}
         </span>
       </span>
@@ -743,7 +743,7 @@ function GrilleParcours({ etudId, peutEcrire, annee, ueFocus = null }) {
             </div>
 
             <button onClick={() => detailOuvert ? setDetailOuvert(false) : chargerDetail()}
-              className="mt-3 w-full text-[12px] px-2 py-1.5 rounded-lg border border-iip-turquoise/40 text-iip-blue hover:bg-iip-turquoise/5">
+              className="mt-3 w-full text-[12px] px-2 py-1.5 rounded-lg border border-[#1B2B4B]/30 text-iip-blue hover:bg-[#1B2B4B]/5">
               {detailOuvert ? 'Masquer le détail' : 'Notes par cours & AA…'}
             </button>
 
@@ -3405,8 +3405,13 @@ export default function Etudiants() {
       {/* La sélection doit se voir : sinon on l'oublie, et on s'étonne
           d'imprimer douze pièces au lieu de toute la liste. */}
       {selEtudiants.size > 0 && (
-        <div className="sticky top-2 z-10 flex items-center justify-between gap-3 flex-wrap
-                        px-4 py-2 rounded-xl bg-iip-turquoise/10 border border-iip-turquoise/30">
+        /* UN FOND PLEIN (Charles, 28 septembre 2026 : « souci de transparence »).
+           La barre reste collée en haut quand la liste défile ; translucide, elle
+           laissait passer les lignes et son texte devenait illisible. Marine
+           pâle et opaque, comme les bandeaux depuis 2.12.274. */
+        <div className="sticky top-2 z-20 flex items-center justify-between gap-3 flex-wrap
+                        px-4 py-2 rounded-xl shadow-pose"
+          style={{ background: 'color-mix(in srgb, #1B2B4B 7%, #fff)', border: '1px solid color-mix(in srgb, #1B2B4B 22%, #fff)' }}>
           {/* LE COMPTEUR DIT CE QU'ON VOIT, ET CE QU'ON NE VOIT PAS. La sélection
               survit aux filtres — c'est voulu —, mais « 204 sélectionnés » au
               milieu d'une liste filtrée à trente a été lu, à juste titre, comme
@@ -3563,7 +3568,7 @@ export default function Etudiants() {
                     {ouverte && liste.map(e => (
                 <tr key={e.id} onClick={() => setSelId(e.id)}
                   className={`border-b border-slate-100 last:border-0 cursor-pointer
-                    ${selEtudiants.has(e.id) ? 'bg-iip-turquoise/5' : 'hover:bg-slate-50/60'}`}>
+                    ${selEtudiants.has(e.id) ? 'bg-[#1B2B4B]/[0.04]' : 'hover:bg-slate-50/60'}`}>
                   <td className="px-3 py-1" onClick={ev => ev.stopPropagation()}>
                     <input type="checkbox" checked={selEtudiants.has(e.id)}
                       onChange={() => basculerSelection(e.id)} />
