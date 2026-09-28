@@ -4318,6 +4318,22 @@ export function admissibilitePAE(etudId, annee, section = null) {
     // La session qui le concerne : la seconde s'il a été ajourné en juin.
     const ajourneS1 = s1 === 'ajourne' || (!s1 && u.resultat === 'ajourne');
     const session = ajourneS1 ? 2 : 1;
+    /* UNE SESSION SANS SÉANCE SE JUGE AU DOSSIER, COMME UNE ANNÉE REPRISE
+       (Charles, 28 septembre 2026 : « toutes les autres sont terminées »). La
+       règle ne regardait le dossier que si l'unité n'avait AUCUNE séance : la
+       246 en avait une en juin, et sa seconde session — importée avec ses 82
+       refus et 51 réussites — n'en avait pas. Lucie attendait donc une séance
+       de septembre qui n'existera jamais, et 117 étudiants de TIM restaient
+       bloqués. Une séance ouverte, elle, bloque toujours : c'est une
+       délibération en cours. */
+    const seanceSession = db.prepare(`SELECT 1 FROM deliberation_seance
+      WHERE ue_num = ? AND annee_scolaire = ? AND session = ?`).get(u.ue_num, annee, session);
+    if (!seanceSession) {
+      const auDossier = session === 2 ? (s2 || u.resultat) : (s1 || u.resultat);
+      if (['reussi', 'refuse', 'absent'].includes(auDossier)) continue;
+      attentes.push({ ...u, raison: `session ${session} sans séance, et aucune décision arrêtée au dossier` });
+      continue;
+    }
     if (!close(session)) {
       attentes.push({ ...u, raison: `séance de session ${session} non clôturée` });
       continue;
