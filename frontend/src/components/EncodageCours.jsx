@@ -5,6 +5,7 @@ import ImportAcquisCours from './ImportAcquisCours.jsx';
 import { naviguerGrille, caseGrille } from '../lib/grilleClavier.js';
 import PanneauAcquis from './PanneauAcquis.jsx';
 import ClasseurNotes from './ClasseurNotes.jsx';
+import { Fenetre } from './ui.jsx';
 
 /**
  * Saisie des notes D'UN COURS — l'écran du professeur.
@@ -76,6 +77,32 @@ export default function EncodageCours({ coursCode, annee, onClose, onEnregistre,
       .then(j => setPropositions(j.propositions || []))
       .catch(() => setPropositions([]));
   }, [coursCode, annee]);
+
+  /* REPRENDRE LES PROPOSITIONS (28 septembre 2026) : ce que le professeur a
+     proposé dans « Mes cours » entre dans l'encodage officiel en un geste,
+     après simulation. Une note qui diffère n'est remplacée que si on la coche. */
+  const [reprise, setReprise] = useState(null);      // réponse de la simulation
+  const [aRemplacer, setARemplacer] = useState(() => new Set());
+  const [repriseEnCours, setRepriseEnCours] = useState(false);
+  const [repriseFaite, setRepriseFaite] = useState(null);
+  const appelerReprise = async simulation => {
+    setRepriseEnCours(true); setErreur(null);
+    try {
+      const r = await fetch(`/api/mes-cours/${encodeURIComponent(coursCode)}/reprendre`, {
+        method: 'POST', headers: authHeaders(),
+        body: JSON.stringify({ annee, session, simulation,
+          remplacer: [...aRemplacer].map(k => { const [etudiant_id, aa_code] = k.split('|'); return { etudiant_id: Number(etudiant_id), aa_code }; }) }),
+      });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(j.error || `Erreur ${r.status}`);
+      return j;
+    } catch (e) { setErreur(e.message); return null; } finally { setRepriseEnCours(false); }
+  };
+  const ouvrirReprise = async () => { setARemplacer(new Set()); setRepriseFaite(null); const j = await appelerReprise(true); if (j) setReprise(j); };
+  const confirmerReprise = async () => {
+    const j = await appelerReprise(false);
+    if (j) { setRepriseFaite(j); setReprise(null); await charger(); onEnregistre && onEnregistre(); }
+  };
 
   // Chaque note part SEULE, dès la sortie du champ : une saisie de délibération
   // s'interrompt — un appel, une question — et un enregistrement global perdrait
@@ -184,8 +211,14 @@ export default function EncodageCours({ coursCode, annee, onClose, onEnregistre,
 
           {propositions.length > 0 && (
             <div className="px-3 py-2 rounded-lg bg-iip-turquoise/10 border border-iip-turquoise/40 text-[12.5px] text-iip-blue">
-              <b>{propositions.length} note(s) proposée(s) par le professeur</b>
-              <span className="text-slate-500"> (depuis « Mes cours » — à reprendre dans la feuille, acquis par acquis)</span> :
+              <div className="flex items-center gap-2 flex-wrap">
+                <b>{propositions.length} note(s) proposée(s) par le professeur</b>
+                <span className="text-slate-500">(depuis « Mes cours »)</span>
+                <button type="button" className="bouton bouton-fort bouton-compact ml-auto" disabled={repriseEnCours} onClick={ouvrirReprise}>
+                  {repriseEnCours ? '…' : 'Reprendre les propositions'}
+                </button>
+              </div>
+              {repriseFaite && <div className="text-[12px] text-emerald-800 mt-1">Reprises : {repriseFaite.a_poser} posée(s), {repriseFaite.remplacees} remplacée(s), {repriseFaite.identiques} déjà identique(s).</div>}
               <span className="block mt-0.5">
                 {Object.values(propositions.reduce((m, p) => {
                   const k = p.etudiant_id;
@@ -197,6 +230,48 @@ export default function EncodageCours({ coursCode, annee, onClose, onEnregistre,
                   .join(' · ')}
               </span>
             </div>
+          )}
+
+          {reprise && (
+            <Fenetre titre="Reprendre les propositions du professeur" large="grande" onFermer={() => setReprise(null)}
+              sous={`${coursCode} · session ${reprise.session} · ${reprise.annee} — rien n'est écrit avant de confirmer`}
+              pied={<>
+                <span className="flex-1 min-w-0 text-[12px] text-slate-500">
+                  {reprise.a_poser + aRemplacer.size} note(s) seront écrites ; {reprise.identiques} déjà identique(s) seront pointées.
+                </span>
+                <button className="bouton" onClick={() => setReprise(null)}>Annuler</button>
+                <button className="bouton bouton-fort" disabled={repriseEnCours || (!reprise.a_poser && !aRemplacer.size && !reprise.identiques)} onClick={confirmerReprise}>
+                  {repriseEnCours ? '…' : `Reprendre ${reprise.a_poser + aRemplacer.size} note(s)`}
+                </button>
+              </>}>
+              <div className="space-y-3 text-[13px]">
+                <div className="grid grid-cols-4 gap-2">
+                  <div data-etat="disponible" className="bloc-etat px-3 py-2"><div className="text-[17px] font-bold">{reprise.a_poser}</div><div className="text-[11px] text-slate-500">cases vides, à poser</div></div>
+                  <div data-etat="reussi" className="bloc-etat px-3 py-2"><div className="text-[17px] font-bold">{reprise.identiques}</div><div className="text-[11px] text-slate-500">déjà identiques</div></div>
+                  <div data-etat="surveiller" className="bloc-etat px-3 py-2"><div className="text-[17px] font-bold">{reprise.differentes.length}</div><div className="text-[11px] text-slate-500">différentes de l'officiel</div></div>
+                  <div data-etat="neutre" className="bloc-etat px-3 py-2"><div className="text-[17px] font-bold">{reprise.ignorees.length}</div><div className="text-[11px] text-slate-500">non reprises</div></div>
+                </div>
+                {!!reprise.differentes.length && (
+                  <div>
+                    <div className="text-[12px] font-semibold mb-1">Notes qui diffèrent — cochez celles à remplacer par la proposition</div>
+                    <table className="w-full text-[12px]">
+                      <thead className="tab-entete"><tr className="text-left text-[11px] text-slate-500"><th className="px-2 py-1 w-8"></th><th className="px-2 py-1">Étudiant</th><th className="px-2 py-1">Acquis</th><th className="px-2 py-1 text-right">Officiel</th><th className="px-2 py-1 text-right">Proposé</th></tr></thead>
+                      <tbody>{reprise.differentes.map(d => { const k = `${d.etudiant_id}|${d.aa_code}`; return (
+                        <tr key={k} className="border-t border-slate-100">
+                          <td className="px-2 py-1"><input type="checkbox" checked={aRemplacer.has(k)} onChange={() => setARemplacer(s0 => { const n = new Set(s0); n.has(k) ? n.delete(k) : n.add(k); return n; })} /></td>
+                          <td className="px-2 py-1">{d.etudiant}</td><td className="px-2 py-1">{d.aa_code}</td>
+                          <td className="px-2 py-1 text-right tabular-nums">{d.officiel}</td><td className="px-2 py-1 text-right tabular-nums font-semibold">{d.propose}</td>
+                        </tr>); })}</tbody>
+                    </table>
+                  </div>
+                )}
+                {!!reprise.ignorees.length && (
+                  <div className="text-[12px] text-slate-500">
+                    <b>Non reprises :</b> {reprise.ignorees.slice(0, 20).map(x => `${x.etudiant} ${x.aa_code || ''} (${x.raison})`).join(' · ')}{reprise.ignorees.length > 20 ? ` · et ${reprise.ignorees.length - 20} autres` : ''}
+                  </div>
+                )}
+              </div>
+            </Fenetre>
           )}
 
           {!data ? (
