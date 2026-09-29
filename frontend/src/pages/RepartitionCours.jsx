@@ -553,9 +553,9 @@ export default function RepartitionCours() {
                       {e.nom} {e.prenom}
                       {e.num_organisation != null
                         ? <span className="ml-1.5 text-[10px] font-bold px-2 py-0.5 rounded-full bg-iip-light text-iip-blue">Org {e.num_organisation}</span>
-                        : <span className="ml-1.5 text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500 text-[color:var(--c-attente)]">non réparti</span>}
+                        : <span className="ml-1.5 text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500 text-white">non réparti</span>}
                       {manque > 0 && (
-                        <span className="block text-[10px] text-[color:var(--c-attente)]">
+                        <span className="block text-[10px] text-iip-texte">
                           <IconAlertTriangle size={10} className="inline -mt-0.5" /> {manque} cours sans groupe
                         </span>
                       )}
@@ -603,7 +603,7 @@ export default function RepartitionCours() {
                   return (
                     <td key={c.cle + cleGroupe(g)}
                       title={trop ? `Au-dessus du plafond suggéré (${c.plafond_groupe})` : ''}
-                      className={`text-center border-l border-dashed border-slate-200 ${trop ? 'text-[color:var(--c-attente)]' : ''}`}>
+                      className={`text-center border-l border-dashed border-slate-200 ${trop ? 'text-iip-texte' : ''}`}>
                       {n}{trop ? ' ⚠' : ''}
                     </td>
                   );

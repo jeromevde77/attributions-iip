@@ -788,7 +788,7 @@ function DetailModal({ profId, onClose, onEdit, onFiche, onEditions }) {
               <div className="text-white/70 text-xs flex items-center gap-3">
                 {detail.adresse_mail && <span className="flex items-center gap-1"><IconMail size={11}/>{detail.adresse_mail}</span>}
                 {detail.commune && <span className="flex items-center gap-1"><IconMapPin size={11}/>{detail.code_postal} {detail.commune}</span>}
-                {detail.capaes === 'x' && <span className="bg-green-400/30 text-green-200 text-[10px] px-1.5 rounded">CAPAES</span>}
+                {detail.capaes === 'x' && <span className="bg-green-500 text-green-200 text-[10px] px-1.5 rounded">CAPAES</span>}
                 {detail.statut && <span className="bg-white/20 text-white/90 text-[10px] px-1.5 rounded">{detail.statut}</span>}
               </div>
             </div>

@@ -179,7 +179,7 @@ export default function FriseEcheances({ taches = [], onOuvrir }) {
                         flex flex-wrap gap-x-4">
           {sansEcheance.length > 0 && (
             <span>
-              <b className="text-[color:var(--c-attente)]">{sansEcheance.length}</b> sans échéance —
+              <b className="text-iip-texte">{sansEcheance.length}</b> sans échéance —
               {' '}elles ne tombent jamais, donc elles ne se font pas.
             </span>
           )}

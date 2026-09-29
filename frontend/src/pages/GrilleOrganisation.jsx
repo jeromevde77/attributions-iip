@@ -150,7 +150,7 @@ export default function GrilleOrganisation({ sansTitre = false } = {}) {
             {anomalies.map(u => (
               <div key={u.ue_num}
                 className="carte px-3 py-2 border-l-[3px] border-l-[color:var(--c-refuse)] text-[12px]">
-                <IconAlertTriangle size={13} className="inline align-[-2px] mr-1.5 text-[color:var(--c-refuse)]" />
+                <IconAlertTriangle size={13} className="inline align-[-2px] mr-1.5 text-iip-texte" />
                 <b>UE {u.ue_num}</b> — la règle des multiples n'est pas respectée.
                 {u.controle.anomalies.map(a => (
                   <div key={a.cours_code} className="text-slate-600 mt-0.5">
@@ -284,7 +284,7 @@ function LigneUE({ u, semaines, nbSem, coupure, ouverte, surOuvrir, surCours, vu
                   backgroundImage: `repeating-linear-gradient(45deg, ${teinte} 0 3px,`
                     + ` transparent 3px 6px)` }} />
               <span style={{ gridRow: 1, gridColumn: `${deb} / ${nbSem + 1}`, zIndex: 2 }}
-                className="text-[10px] text-[color:var(--c-attente)] pl-1 self-start">sans dates — à poser</span>
+                className="text-[10px] text-iip-texte pl-1 self-start">sans dates — à poser</span>
             </>
           )}
         </div>
@@ -485,12 +485,12 @@ function FenetreCours({ etat, annee, section, periodeMinutes = 50,
           {enCours ? 'Enregistrement…' : 'Enregistrer'}
         </button>
         {dp > 0 && total === 0
-          ? <span className="text-[12px] text-[color:var(--c-attente)]">
+          ? <span className="text-[12px] text-iip-texte">
               Sans activité, le cours revient à son contenu du dossier
               — <b>{dp} périodes</b>. On ne supprime pas un cours.
             </span>
           : dp > 0 && (manque
-          ? <span className="text-[12px] text-[color:var(--c-refuse)]">
+          ? <span className="text-[12px] text-iip-texte">
               Cours {total} pér. — il manque {manque} pour un multiple de {dp}.
               {Number(auto) > 0 && <span className="text-slate-500">
                 {' '}(autonomie {auto} comptée à part)</span>}
@@ -561,7 +561,7 @@ function FenetreCours({ etat, annee, section, periodeMinutes = 50,
                 </td>
                 <td className="text-center">
                   <button onClick={() => setLignes(ls => ls.filter((_, j) => j !== i))}
-                    className="text-slate-300 hover:text-[color:var(--c-refuse)]"><IconTrash size={14} /></button>
+                    className="text-slate-300 hover:text-iip-texte"><IconTrash size={14} /></button>
                 </td>
               </tr>
             ))}
@@ -615,7 +615,7 @@ function FenetreCours({ etat, annee, section, periodeMinutes = 50,
             value={auto} onChange={e => setAuto(Number(e.target.value))}
             className="w-full accent-[color:var(--c-faveur)] mt-1.5" />
           {restanteUE < 0 && (
-            <div className="text-[11.5px] text-[color:var(--c-refuse)] mt-1">
+            <div className="text-[11.5px] text-iip-texte mt-1">
               Vous placez plus d'autonomie que l'unité n'en porte.
             </div>
           )}
@@ -697,7 +697,7 @@ function JaugeCours({ dp, lignes, auto, dispo, minutes, idEval = null }) {
         </span>
         <span className="ml-auto text-[12.5px]">
           <b className={total === dp ? 'text-[color:var(--c-texte)]'
-            : (total > (dp || 0) ? 'text-[color:var(--c-refuse)]' : 'text-slate-700')}>{total}</b>
+            : (total > (dp || 0) ? 'text-iip-texte' : 'text-slate-700')}>{total}</b>
           <span className="text-slate-500"> p · {enHeures(total, minutes)} organisés</span>
         </span>
       </div>

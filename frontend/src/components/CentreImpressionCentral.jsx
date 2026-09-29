@@ -205,7 +205,7 @@ function OngletValorisation() {
                     MOMENT D'IMPRIMER — le découvrir devant quelqu'un qui
                     attend son attestation est la mauvaise façon de l'apprendre. */}
                 {u.avalider
-                  ? <span className="text-[color:var(--c-attente)]"> · {u.avalider} non validé(s)</span>
+                  ? <span className="text-iip-texte"> · {u.avalider} non validé(s)</span>
                   : null}
               </span>
             </span>

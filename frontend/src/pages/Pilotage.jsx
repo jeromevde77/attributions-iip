@@ -1066,7 +1066,7 @@ export default function Pilotage({ vue = 'tout' }) {
                   <div className="flex items-center gap-2">
                     <div className="flex rounded border border-gray-200 overflow-hidden text-[10px]">
                       <button onClick={() => setRapportPaysage(false)} className={`px-2 py-1 ${!rapportPaysage ? 'bg-iip-blue text-white' : 'bg-white text-gray-500'}`}>Portrait</button>
-                      <button onClick={() => setRapportPaysage(true)}  className={`px-2 py-1 ${rapportPaysage  ? 'bg-iip-blue text-white' : 'bg-white text-gray-500'}`}>Paysage</button>
+                      <button onClick={() => setRapportPaysage(true)}  className={`px-2 py-1 ${rapportPaysage ? 'bg-iip-blue text-white' : 'bg-white text-gray-500'}`}>Paysage</button>
                     </div>
                     <button onClick={() => imprimerDotation(rapportPaysage)}
                       className="inline-flex items-center gap-1 bg-iip-blue text-white text-[10px] px-2.5 py-1 rounded hover:opacity-90">
