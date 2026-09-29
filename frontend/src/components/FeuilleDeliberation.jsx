@@ -1955,11 +1955,44 @@ function MotifEnLigne({ a, onMotif, onReporter, seul, enCours }) {
   const depart = decomposerMotif(a.motif || '');
   const [cles, setCles] = useState(depart.cles);
   const [libre, setLibre] = useState(depart.libre);
-  useEffect(() => { const d = decomposerMotif(a.motif || ''); setCles(d.cles); setLibre(d.libre); }, [a.aa_code, a.motif]);
+  const [ecrire, setEcrire] = useState(false);
+  useEffect(() => { const d = decomposerMotif(a.motif || ''); setCles(d.cles); setLibre(d.libre); setEcrire(false); }, [a.aa_code, a.motif]);
   const poser = (c, l) => onMotif(a.aa_code, composerMotif(c, l));
   const ajouter = cle => { if (!cle || cles.includes(cle)) return; const c = [...cles, cle]; setCles(c); poser(c, libre); };
   const retirer = cle => { const c = cles.filter(x => x !== cle); setCles(c); poser(c, libre); };
-  const source = a.motif ? (a.motif_source === 'enseignant' ? 'enseignant' : a.motif_source === 'conseil' ? 'Conseil' : null) : null;
+
+  /* LE CHOIX SE VOIT : REPRENDRE CE QUI EST IMPORTÉ, OU ÉCRIRE (Charles, 29
+     septembre 2026). L'import — le justificatif de l'enseignant, posé avec sa
+     note dans Mes cours, ou le motif type du référentiel — ou la proposition
+     de Lucie se lisent EN ENTIER, avec leur provenance ; deux gestes : le
+     reprendre tel quel, ou écrire autre chose. Le motif de l'enseignant est le
+     motif délibéré : il n'a pas à être confirmé, seulement remplacé si le
+     Conseil en décide autrement. */
+  const texte = [...cles.map(texteDuMotif), libre].filter(Boolean).join(' ');
+  const PROV = { enseignant: 'importé · enseignant (Mes cours)', conseil: 'écrit par le Conseil',
+    defaut_aa: 'importé · motif type du référentiel', calcule: 'proposé par Lucie' };
+  const provenance = a.motif ? (PROV[a.motif_source] || 'enregistré') : null;
+  const proposition = !a.motif && a.motif_propose ? a.motif_propose : null;
+
+  if (!ecrire && (a.motif || proposition)) {
+    return (
+      <div className="space-y-0.5">
+        <div className={`text-[11.5px] leading-snug ${a.motif ? 'text-slate-800' : 'text-slate-500 italic'}`}>
+          {a.motif ? texte : proposition}
+        </div>
+        <div className="flex items-center gap-2 text-[10.5px]">
+          <span className="text-slate-400">{a.motif ? provenance : 'proposé par Lucie · pas encore retenu'}</span>
+          {!a.motif && (
+            <button type="button" disabled={enCours} onClick={() => onMotif(a.aa_code, proposition)}
+              className="text-iip-blue underline">reprendre</button>
+          )}
+          <button type="button" disabled={enCours} onClick={() => setEcrire(true)}
+            className="text-iip-blue underline">{a.motif ? 'écrire autre chose' : 'écrire'}</button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-1">
       {!!cles.length && (
@@ -1972,31 +2005,29 @@ function MotifEnLigne({ a, onMotif, onReporter, seul, enCours }) {
           ))}
         </div>
       )}
-      {!cles.length && libre && <div className="text-[11px] text-slate-700">{libre}</div>}
-      {!cles.length && !libre && a.motif_propose && (
-        <div className="text-[11px] text-slate-500 italic">{a.motif_propose} <span className="not-italic text-slate-400">· proposé par Lucie</span></div>
-      )}
       <div className="flex items-center gap-1">
         <select value="" disabled={enCours} onChange={ev => { ajouter(ev.target.value); ev.target.value = ''; }}
           className={`flex-1 min-w-0 border rounded-[6px] px-1.5 py-0.5 text-[11px] bg-white ${cles.length || libre ? 'border-slate-200 text-slate-500' : 'border-red-300 text-red-700'}`}>
-          <option value="">{cles.length ? '+ ajouter' : '— choisir la justification —'}</option>
+          <option value="">{cles.length ? '+ ajouter un énoncé' : '— choisir un énoncé —'}</option>
           {MOTIFS_ECHEC.map(g => (
             <optgroup key={g.groupe} label={g.groupe}>
               {g.motifs.filter(m => !cles.includes(m.cle)).map(m => <option key={m.cle} value={m.cle}>{m.texte}</option>)}
             </optgroup>
           ))}
         </select>
-        <input value={libre} disabled={enCours} onChange={ev => setLibre(ev.target.value)} onBlur={() => poser(cles, libre)}
-          placeholder="précision…" className="w-28 border border-slate-200 rounded-[6px] px-1.5 py-0.5 text-[11px]" />
         {!seul && (
           <button disabled={enCours || !cles.length} onClick={() => onReporter(cles)}
-            title="Reporter ces justifications sur tous les acquis à justifier — elles s'ajoutent aux leurs"
+            title="Reporter ces énoncés sur tous les acquis à justifier — ils s'ajoutent aux leurs"
             className="flex-none w-6 h-6 rounded-[6px] border border-slate-300 text-slate-500 flex items-center justify-center disabled:opacity-30">
             <IconBrush size={12} />
           </button>
         )}
-        {source && <span className="flex-none text-[10px] text-slate-400">{source}</span>}
       </div>
+      <textarea value={libre} disabled={enCours} rows={1} onChange={ev => setLibre(ev.target.value)} onBlur={() => poser(cles, libre)}
+        placeholder="ou écrire la justification…" className="w-full border border-slate-200 rounded-[6px] px-1.5 py-0.5 text-[11px] resize-y" />
+      {(a.motif || proposition) && (
+        <button type="button" onClick={() => setEcrire(false)} className="text-[10.5px] text-slate-400 underline">fermer</button>
+      )}
     </div>
   );
 }
