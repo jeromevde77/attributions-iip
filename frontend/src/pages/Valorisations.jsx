@@ -1505,17 +1505,9 @@ function ValoriserEnSerie({ annee, onClose, onCree }) {
                 dans le voile de la première — et surtout, on perdrait de vue
                 le tableau qu'on est en train de composer. Le panneau se
                 déplie ICI, sous la liste qu'il alimente. */}
-            {m?.unites_de_base?.length > 0 && (
-          /* CE QUE L'ADMISSION OUVRE, ÉCRIT NOIR SUR BLANC. Elle se reporte sur
-             les unités SANS PRÉREQUIS : les nommer évite d'avoir à le croire
-             sur parole, et de découvrir en janvier qu'on n'y avait pas pensé. */
-          <div className="flex-none px-5 py-2 border-b border-slate-200 text-[11px]
-                          text-slate-500">
-            <b style={{ color: TEINTE.admission.t }}>AD</b> ouvre les unités de base
-            de la section (sans prérequis) :{' '}
-            {m.unites_de_base.map(u => u.ue_num).join(' · ')}
-          </div>
-        )}
+            {/* Le rappel « AD ouvre les unités de base » vivait ici, copié de la
+                matrice : il y lisait `m` et `TEINTE`, qui n'existent pas dans
+                cette fenêtre — l'écran tombait (29 septembre 2026). Retiré. */}
 
         {chercheOuvert && (
               <div className="border-t border-slate-200 bg-slate-50/60 p-3 space-y-2">
@@ -3434,7 +3426,7 @@ function AnalyserEnSerie({ annee, onClose, onChange }) {
                         </span>
                         {d.type && (
                           <span className="ml-1 text-[11px] text-slate-500">
-                            {d.type === 'totale' ? 'Totale'
+                            {d.type === 'complete' || d.type === 'totale' ? 'Totale'
                               : d.type === 'partielle' ? 'Partielle' : ''}
                           </span>
                         )}
