@@ -870,6 +870,58 @@ export function pageAttestation(e, u, annee, etab, dateDoc = null,
 </div>`;
 }
 
+/** Les unités réussies d'un étudiant, pour une année, plusieurs, ou « toutes ».
+ *  Seule source : l'aperçu en un document et l'archive de PDF séparés la
+ *  lisent l'un comme l'autre. */
+function attestationsDe(etudId, annee, ueFiltre = '') {
+  const annees = annee === 'toutes'
+    ? db.prepare(`SELECT DISTINCT annee_scolaire AS a FROM etudiant_inscription
+        WHERE etudiant_id = ? AND resultat = 'reussi' ORDER BY annee_scolaire`).all(etudId).map(x => x.a)
+    : String(annee).split(',').filter(Boolean);
+  const filtre = String(ueFiltre || '').split(',').filter(Boolean).map(Number);
+  let unites = annees.flatMap(an => unitesReussies(etudId, an).map(u => ({ ...u, _annee: an })));
+  if (filtre.length) unites = unites.filter(u => filtre.includes(u.ue_num));
+  return { annees, unites };
+}
+
+/* UN PDF PAR ATTESTATION, DANS UNE ARCHIVE (Charles, 29 septembre 2026 : « il
+   fait un seul document et pas des documents différents dans des PDF
+   différents »). Une attestation est une pièce distincte, remise séparément :
+   chacune son fichier, nommé comme le veut le catalogue. Une archive plutôt
+   que seize téléchargements, que le navigateur bloque passé le deuxième. */
+r.get('/etudiant/:id/pdfs', authRequired, async (req, res) => {
+  const annee = req.query.annee;
+  if (!annee) return res.status(400).json({ error: 'annee requise' });
+  const cap = await capacitePdf();
+  if (!cap.disponible) return res.status(503).json({ error: "Ce serveur ne sait pas produire de PDF.", detail: cap.raison });
+  const e = db.prepare('SELECT * FROM etudiant WHERE id = ?').get(Number(req.params.id));
+  if (!e) return res.status(404).json({ error: 'étudiant introuvable' });
+  const { unites } = attestationsDe(e.id, annee, req.query.ue);
+  if (!unites.length) return res.status(404).json({ error: 'Aucune unité réussie pour cet étudiant.' });
+  const etab = db.prepare('SELECT * FROM etablissement LIMIT 1').get() || {};
+  const ident = identiteEtablissement();
+  const propre = t => String(t || '').normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^A-Za-z0-9-]+/g, '_').replace(/^_+|_+$/g, '');
+  try {
+    const JSZip = (await import('jszip')).default;
+    const zip = new JSZip();
+    for (const u of unites) {
+      const html = envelopper(pageAttestation(e, u, u._annee, etab, req.query.date_document, ident,
+        sessionDeReussite(e.id, u.ue_num, u._annee)), `Attestation — UE ${u.ue_num}`);
+      const pdf = await rendrePdf(html, { marges: { top: '12mm', right: '15mm', bottom: '22mm', left: '15mm' }, pagination: 'si-plusieurs' });
+      zip.file(`${propre(e.nom)}_${propre(e.prenom)}_UE${u.ue_num}_${u._annee}.pdf`, pdf);
+    }
+    const out = await zip.generateAsync({ type: 'nodebuffer' });
+    const nom = `Attestations_${propre(e.nom)}_${propre(e.prenom)}_${annee === 'toutes' ? 'toutes_annees' : propre(annee)}.zip`;
+    res.setHeader('Content-Type', 'application/zip');
+    res.setHeader('Content-Disposition', `attachment; filename="${nom}"`);
+    res.setHeader('Content-Length', out.length);
+    res.end(out);
+  } catch (err) {
+    console.error('[attestations/pdfs]', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 r.get('/etudiant/:id/document', authRequired, (req, res) => {
   const annee = req.query.annee;
   if (!annee) return res.status(400).json({ error: 'annee requise' });
@@ -881,13 +933,7 @@ r.get('/etudiant/:id/document', authRequired, (req, res) => {
      étudiant sur plusieurs années »). `annee=toutes` prend chaque année où il a
      réussi une unité, dans l'ordre ; chaque attestation reste sur sa page, et
      porte SON année. */
-  const annees = annee === 'toutes'
-    ? db.prepare(`SELECT DISTINCT annee_scolaire AS a FROM etudiant_inscription
-        WHERE etudiant_id = ? AND resultat = 'reussi' ORDER BY annee_scolaire`).all(e.id).map(x => x.a)
-    : String(annee).split(',').filter(Boolean);
-  const filtre = (req.query.ue || '').split(',').filter(Boolean).map(Number);
-  let unites = annees.flatMap(an => unitesReussies(e.id, an).map(u => ({ ...u, _annee: an })));
-  if (filtre.length) unites = unites.filter(u => filtre.includes(u.ue_num));
+  const { annees, unites } = attestationsDe(e.id, annee, req.query.ue);
   if (!unites.length) {
     return res.status(404).json({ error: annee === 'toutes'
       ? 'Aucune unité réussie pour cet étudiant, toutes années confondues.'
