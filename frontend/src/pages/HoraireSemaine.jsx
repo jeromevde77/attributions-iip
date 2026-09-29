@@ -15,7 +15,7 @@
  * le serveur le garde.
  */
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { IconChevronLeft, IconChevronRight, IconCopy, IconTrash } from '@tabler/icons-react';
+import { IconChevronLeft, IconChevronRight, IconCopy, IconTrash, IconUpload } from '@tabler/icons-react';
 import { authHeaders, getAnnee, getUser } from '../lib/api.js';
 import { Fenetre } from '../components/ui.jsx';
 
@@ -32,7 +32,7 @@ const ajouter = (dIso, n) => { const d = new Date(dIso + 'T12:00:00Z'); d.setUTC
 const lundiDe = dIso => { const d = new Date(dIso + 'T12:00:00Z'); d.setUTCDate(d.getUTCDate() - ((d.getUTCDay() + 6) % 7)); return iso(d); };
 const court = dIso => dIso.slice(8, 10) + '-' + dIso.slice(5, 7);
 const RAISONS = { professeur: 'le professeur est déjà pris', local: 'le local est déjà occupé', classe: 'la classe a déjà cours' };
-const nomProf = s => [s.prof_nom, s.prof_prenom].filter(Boolean).join(' ');
+const nomProf = s => [s.prof_nom, s.prof_prenom].filter(Boolean).join(' ') || s.professeur_texte || '';
 
 async function appel(url, opts = {}) {
   const r = await fetch(url, { ...opts, headers: authHeaders() });
@@ -54,6 +54,7 @@ export default function HoraireSemaine() {
   const [duree, setDuree] = useState(120);
   const [sel, setSel] = useState(null);             // séance ouverte dans la bulle
   const [recopie, setRecopie] = useState(null);     // fenêtre de recopie
+  const [importer, setImporter] = useState(false);  // import Hyperplanning (CSV)
   const [glisse, setGlisse] = useState(null);       // { id | groupe, d, debut, fin } pendant un geste
   const grille = useRef(null);
 
@@ -164,7 +165,12 @@ export default function HoraireSemaine() {
             {data?.semaine && data.semaine.type !== 'cours' ? ` · ${data.semaine.label || data.semaine.type}` : data?.semaine ? ` · semaine ${data.semaine.semaine_num}` : ''}</span>
         </div>
         {vue === 'classe' && peutEcrire && (
-          <button type="button" className="bouton ml-auto" disabled={!seances.length}
+          <button type="button" className="bouton ml-auto" onClick={() => setImporter(true)}>
+            <IconUpload size={15} /> Importer d'Hyperplanning…
+          </button>
+        )}
+        {vue === 'classe' && peutEcrire && (
+          <button type="button" className="bouton" disabled={!seances.length}
             onClick={() => setRecopie({ cibles: new Set(), rapport: null, enCours: false })}>
             <IconCopy size={15} /> Recopier cette semaine…
           </button>
@@ -212,7 +218,7 @@ export default function HoraireSemaine() {
                         background: s.annule ? 'repeating-linear-gradient(45deg,#F4F5F7 0 6px,#fff 6px 12px)' : `color-mix(in srgb, ${c} 15%, #fff)`,
                         outline: s.conflits?.length ? '2px solid #9D4A38' : 'none', outlineOffset: -2 }}>
                       <div className={`font-semibold truncate ${s.annule ? 'line-through text-slate-400' : 'text-[#1B2B4B]'}`}>{s.cours_code} {s.cours_nom || s.matiere || ''}</div>
-                      <div className="truncate text-slate-600">{s.annule ? 'Annulée' : nomProf(s)}{s.groupe_nom && s.groupe_nom !== 'A' ? ` · gr. ${s.groupe_nom}` : ''}</div>
+                      <div className="truncate text-slate-600">{s.annule ? 'Annulée' : nomProf(s)}{s.sous_groupe ? ` · gr. ${s.sous_groupe}` : s.groupe_nom && s.groupe_nom !== 'A' ? ` · gr. ${s.groupe_nom}` : ''}</div>
                       <div className="truncate text-slate-500">{s.local_texte || 'local à préciser'} · {lisible(deHm(debut))}–{lisible(deHm(fin))}</div>
                       {peutEcrire && <div onPointerDown={ev => { ev.stopPropagation(); commencer(ev, { type: 'rallonger', seance: s, d }); }}
                         className="absolute left-0 right-0 bottom-0 h-1.5 cursor-ns-resize" />}
@@ -317,6 +323,9 @@ export default function HoraireSemaine() {
         </Fenetre>
       )}
 
+      {importer && <ImportHyper annee={annee} cle={cle} libelle={libelleCle}
+        onFermer={() => setImporter(false)} onFini={() => { setImporter(false); charger(); }} />}
+
       {/* LA RECOPIE */}
       {recopie && <Recopie annee={annee} cle={cle} lundi={lundi} libelle={libelleCle} etat={recopie} setEtat={setRecopie}
         onFini={() => { setRecopie(null); charger(); }} />}
@@ -367,6 +376,62 @@ function Recopie({ annee, cle, lundi, libelle, etat, setEtat, onFini }) {
           })}
         </div>
         {etat.erreur && <div data-etat="corriger" className="bloc-etat px-2.5 py-1.5">{etat.erreur}</div>}
+      </div>
+    </Fenetre>
+  );
+}
+
+/* L'IMPORT DE L'EXPORT « LISTE » D'HYPERPLANNING (29 septembre 2026). Le
+   fichier CSV du service informatique ; la simulation dit ce qui entrera, ce
+   qui est écarté, ce qui ne se rattache à aucun cours ni à aucun professeur —
+   rien n'est écrit avant de confirmer. */
+function ImportHyper({ annee, cle, libelle, onFermer, onFini }) {
+  const [fichier, setFichier] = useState(null);
+  const [rapport, setRapport] = useState(null);
+  const [erreur, setErreur] = useState(null);
+  const [enCours, setEnCours] = useState(false);
+  const envoyer = async simulation => {
+    setEnCours(true); setErreur(null);
+    try {
+      const f = new FormData();
+      f.append('fichier', fichier); f.append('annee', annee); f.append('cle', cle); f.append('simulation', String(simulation));
+      const h = { ...authHeaders() }; delete h['Content-Type'];     // le navigateur écrit la frontière du multipart
+      const r = await fetch('/api/horaire/import-csv', { method: 'POST', headers: h, body: f });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(j.error || `Erreur ${r.status}`);
+      if (simulation) setRapport(j); else onFini();
+    } catch (e) { setErreur(e.message); } finally { setEnCours(false); }
+  };
+  const R = rapport;
+  return (
+    <Fenetre titre="Importer un horaire d'Hyperplanning" large="moyenne" onFermer={onFermer}
+      sous={`Dans la classe ${libelle || ''} — l'export « liste » en CSV ; rien n'est écrit avant de confirmer`}
+      pied={<>
+        <span className="flex-1 min-w-0 text-[12px] text-slate-500">
+          {R ? `${R.seances} séance(s) à importer${R.remplacees ? `, ${R.remplacees} séance(s) d'un import précédent remplacée(s)` : ''}.` : 'Choisissez le fichier, puis vérifiez.'}
+        </span>
+        <button className="bouton" onClick={onFermer}>Annuler</button>
+        {!R ? <button className="bouton bouton-fort" disabled={!fichier || enCours} onClick={() => envoyer(true)}>{enCours ? '…' : 'Vérifier'}</button>
+          : <button className="bouton bouton-fort" disabled={!R.seances || enCours} onClick={() => envoyer(false)}>{enCours ? '…' : `Importer ${R.seances} séance(s)`}</button>}
+      </>}>
+      <div className="space-y-3 text-[13px]">
+        <input type="file" accept=".csv,text/csv" onChange={e => { setFichier(e.target.files?.[0] || null); setRapport(null); }} />
+        {erreur && <div data-etat="corriger" className="bloc-etat px-3 py-2">{erreur}</div>}
+        {R && (
+          <div className="space-y-2">
+            <div data-etat="neutre" className="bloc-etat px-3 py-2">
+              Classe du fichier : <b>{R.classe_source}</b> → classe de Lucie : <b>{R.classe_lucie}</b>.
+              {' '}<b>{R.seances}</b> séance(s) du {R.du?.split('-').reverse().join('/')} au {R.au?.split('-').reverse().join('/')}, soit {R.heures} h, lues dans {R.lignes} ligne(s).
+            </div>
+            {R.conservees_retouchees > 0 && <div data-etat="surveiller" className="bloc-etat px-3 py-2">{R.conservees_retouchees} séance(s) d'un import précédent ont été retouchées dans Lucie : elles sont gardées telles quelles.</div>}
+            {R.deja_posees_dans_lucie > 0 && <div data-etat="surveiller" className="bloc-etat px-3 py-2">{R.deja_posees_dans_lucie} séance(s) ont déjà été posées à la main dans Lucie pour cette classe : l'import s'y ajoute, vérifiez les doublons.</div>}
+            {R.sans_cours.length > 0 && <div className="text-[12.5px]"><b>Sans cours reconnu</b> — importées avec leur libellé : {R.sans_cours.map(x => `${x.libelle} (${x.seances})`).join(' · ')}</div>}
+            {R.profs_inconnus.length > 0 && <div className="text-[12.5px]"><b>Professeur non reconnu</b> — nom gardé en texte ; corrigez son orthographe dans sa fiche : {R.profs_inconnus.map(x => `${x.nom} (${x.seances})`).join(' · ')}</div>}
+            {R.ignorees.length > 0 && <details className="text-[12.5px]"><summary className="cursor-pointer"><b>{R.ignorees.length} ligne(s) écartée(s)</b></summary>
+              <ul className="mt-1 text-slate-600">{R.ignorees.map((x, i) => <li key={i}>ligne {x.ligne} — {x.libelle} : {x.raison}</li>)}</ul></details>}
+            {R.incoherentes.length > 0 && <div data-etat="corriger" className="bloc-etat px-3 py-2 text-[12.5px]"><b>{R.incoherentes.length} ligne(s) incohérente(s)</b> — leurs semaines ne retombent pas sur leurs dates ; elles ne sont pas importées : {R.incoherentes.map(x => `ligne ${x.ligne}`).join(', ')}</div>}
+          </div>
+        )}
       </div>
     </Fenetre>
   );
