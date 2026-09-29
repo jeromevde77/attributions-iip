@@ -212,7 +212,7 @@ export default function WizardConfigCours({ cours: coursInit, ueNum, section, an
                   className="w-full border border-gray-300 rounded px-3 py-2 text-sm" placeholder="ex. 20" />
               </label>
               {format === 'mixte' && (
-                <div className={`text-xs rounded p-2 ${(Number(heuresTheorie)+Number(heuresTP)) === totalPer ? 'bg-green-500 text-white' : 'bg-amber-500 text-white'} border-l-4 border-l-green-500`}>
+                <div className={`text-xs rounded p-2 ${(Number(heuresTheorie)+Number(heuresTP)) === totalPer ? 'bg-green-500 text-white' : 'bg-amber-500 text-white'}`}>
                   Théorie {Number(heuresTheorie)||0} + TP {Number(heuresTP)||0} = {(Number(heuresTheorie)||0)+(Number(heuresTP)||0)} pér.
                   {(Number(heuresTheorie)+Number(heuresTP)) !== totalPer && ` (DP : ${totalPer} pér.)`}
                 </div>

@@ -436,7 +436,7 @@ export default function Disciplinaire() {
             </div>
             <button onClick={() => ouvrir('Décision disciplinaire', genDecision())} className={btnDoc}><IconDecision size={16} /> Générer la décision</button>
           </div>
-          <div className={`border rounded-xl p-4 ${conformiteOk ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'} border-l-4 border-l-green-500`}>
+          <div className={`border rounded-xl p-4 ${conformiteOk ? 'bg-green-50 border-green-200 border-l-4 border-l-green-500' : 'bg-red-50 border-red-200'}`}>
             <div className="font-semibold text-sm mb-2">{conformiteOk ? '✓ Conformité procédurale' : '⚠ Points à vérifier avant de notifier'}</div>
             {conformite.map((c, i) => <Check key={i} ok={c.ok} label={c.label} />)}
           </div>

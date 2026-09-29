@@ -2392,7 +2392,7 @@ function LigneMotif({ a, onMotif, onReporter, seul, enCours }) {
   };
 
   return (
-    <div className={`px-3 py-2 flex items-start gap-3 ${a.motif ? '' : 'bg-red-50/40'} border-l-4 border-l-red-500`}>
+    <div className={`px-3 py-2 flex items-start gap-3 ${a.motif ? '' : 'bg-red-50/40 border-l-4 border-l-red-500'}`}>
       <div className="w-40 flex-none">
         <div className="font-mono text-[12px] font-bold text-slate-700">{a.aa_code}</div>
         <div className="text-[11px] text-slate-500 truncate" title={a.description || ''}>
@@ -2992,7 +2992,7 @@ function VueLot({ liste, onAjourner, onOuvrir, enCours }) {
           const defauts = enDefaut(e);
           const pris = choisis.has(e.id);
           return (
-            <div key={e.id} className={`px-3 py-1.5 ${pris ? 'bg-amber-50/50' : ''} border-l-4 border-l-amber-500`}>
+            <div key={e.id} className={`px-3 py-1.5 ${pris ? 'bg-amber-50/50 border-l-4 border-l-amber-500' : ''}`}>
               <label className="flex items-center gap-3 cursor-pointer">
                 <input type="checkbox" checked={pris} onChange={() => bascule(e.id)}
                   className="w-4 h-4 accent-amber-600 flex-none" />

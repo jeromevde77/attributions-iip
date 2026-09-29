@@ -717,7 +717,7 @@ function ModalIA({ annee, section, onApplied, onClose }) {
                   <p className="text-2xl font-bold text-iip-gold">{nbCellules}</p>
                   <p className="text-xs text-gray-500">cellules à créer</p>
                 </div>
-                <div className={`rounded-lg p-3 ${preview.alertes.length ? 'bg-red-50' : 'bg-green-50'} border-l-4 border-l-red-500`}>
+                <div className={`rounded-lg p-3 ${preview.alertes.length ? 'bg-red-50 border-l-4 border-l-red-500' : 'bg-green-50'}`}>
                   <p className={`text-2xl font-bold ${preview.alertes.length ? 'text-red-600' : 'text-green-600'}`}>
                     {preview.alertes.length}
                   </p>

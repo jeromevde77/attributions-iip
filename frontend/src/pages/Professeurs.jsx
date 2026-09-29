@@ -1305,7 +1305,7 @@ function DossiersRH({ profId, profNom }) {
             return (
               <div key={d.id} className={`border-2 rounded-xl overflow-hidden ${isClos ? 'border-gray-200 opacity-75' : isFinContrat ? 'border-red-200' : 'border-orange-200'}`}>
                 {/* En-tête dossier */}
-                <div className={`flex items-center justify-between px-4 py-3 ${isFinContrat ? 'bg-red-50' : 'bg-orange-50'} border-l-4 border-l-red-500`}>
+                <div className={`flex items-center justify-between px-4 py-3 ${isFinContrat ? 'bg-red-50 border-l-4 border-l-red-500' : 'bg-orange-50'}`}>
                   <div className="flex items-center gap-3">
                     <span className="text-lg">{isFinContrat ? '📋' : '⚠️'}</span>
                     <div>

@@ -614,7 +614,7 @@ function OutilRecours({ initialPayload, onPayloadConsumed }) {
                 <p className="text-xs text-iip-blue mb-2">Cochez les membres <strong>présents</strong> à la délibération (CDE restreint = Président + min. 2 membres — Art. 89 §1) :</p>
                 <div className="space-y-1">
                   {profs.map(p => (
-                    <label key={p.id} className={`flex items-center gap-3 px-3 py-2 rounded-lg border cursor-pointer transition ${profsPresents.has(p.id) ? 'bg-green-50 border-green-400' : 'bg-white border-iip-turquoise/30 hover:bg-iip-turquoise/5'} border-l-4 border-l-green-500`}>
+                    <label key={p.id} className={`flex items-center gap-3 px-3 py-2 rounded-lg border cursor-pointer transition ${profsPresents.has(p.id) ? 'bg-green-50 border-green-400 border-l-4 border-l-green-500' : 'bg-white border-iip-turquoise/30 hover:bg-iip-turquoise/5'}`}>
                       <input type="checkbox" checked={profsPresents.has(p.id)} onChange={() => toggleProfPresent(p.id)} className="w-4 h-4 accent-green-600" />
                       <span className={`w-7 h-7 rounded-full text-white text-xs font-bold flex items-center justify-center flex-shrink-0 ${profsPresents.has(p.id) ? 'bg-green-600' : 'bg-iip-turquoise'}`}>
                         {(p.nom[0]||'?').toUpperCase()}
@@ -676,7 +676,7 @@ function OutilRecours({ initialPayload, onPayloadConsumed }) {
         <Q num="4" text="Mentionne des IRRÉGULARITÉS PRÉCISES (pas juste 'je ne suis pas d'accord') ?" value={q.irregulPrecises} onChange={v => set('irregulPrecises', v)} ref_={is2526 ? 'Art. 67 ROI/RGE' : 'Art. 88 §3'} />
 
         {conditionsRecevabilite.some(c => c.ok !== undefined) && (
-          <div className={`p-4 rounded-xl border-2 mt-4 ${recevable ? 'bg-green-50 border-green-500' : irrecevable ? 'bg-red-50 border-red-500' : 'bg-gray-50 border-gray-300'} border-l-4 border-l-green-500`}>
+          <div className={`p-4 rounded-xl border-2 mt-4 ${recevable ? 'bg-green-50 border-green-500' : irrecevable ? 'bg-red-50 border-red-500' : 'bg-gray-50 border-gray-300'}`}>
             {recevable && <>
               <p className="font-bold text-green-800 text-base inline-flex items-center gap-1.5"><IconCircleCheck size={20} /> RECEVABLE — Procéder à l'instruction</p>
               {limiteDecisionInterne && <p className="text-sm text-green-700 mt-1 inline-flex items-center gap-1"><IconClock size={14} /> Date limite décision interne : <strong>{fmt(limiteDecisionInterne)}</strong></p>}
@@ -719,7 +719,7 @@ function OutilRecours({ initialPayload, onPayloadConsumed }) {
         </div>
 
         {/* Synthèse */}
-        <div className={`p-4 rounded-lg border-2 mb-5 ${recevable ? 'border-green-500 bg-green-50' : 'border-red-500 bg-red-50'} border-l-4 border-l-green-500`}>
+        <div className={`p-4 rounded-lg border-2 mb-5 ${recevable ? 'border-green-500 bg-green-50 border-l-4 border-l-green-500' : 'border-red-500 bg-red-50'}`}>
           <p className="font-bold text-base inline-flex items-center gap-1.5">{recevable ? <><IconCircleCheck size={18} /> Recevable</> : <><IconBan size={18} /> Irrecevable</>}</p>
           {recevable && (() => {
             const irregs = [
@@ -1274,7 +1274,7 @@ function OutilFraude({ initialPayload, onPayloadConsumed }) {
               ['pendant',    "Pendant l'épreuve", is2526F ? 'Art. 54 ROI/RGE' : 'Art. 73 RDE/ROI'],
               ['correction', "À la correction / après l'épreuve", is2526F ? 'Art. 54 ROI/RGE' : 'Art. 74 RDE/ROI'],
             ].map(([val, label, ref]) => (
-              <label key={val} className={`flex items-start gap-2.5 p-3 rounded-lg border cursor-pointer transition ${momentFaits===val?'bg-red-50 border-red-500':'bg-white border-gray-300 hover:bg-gray-50'} border-l-4 border-l-red-500`}>
+              <label key={val} className={`flex items-start gap-2.5 p-3 rounded-lg border cursor-pointer transition ${momentFaits===val? 'bg-red-50 border-red-500 border-l-4 border-l-red-500' : 'bg-white border-gray-300 hover:bg-gray-50'}`}>
                 <input type="radio" name="momentFaits" value={val} checked={momentFaits===val} onChange={() => setMomentFaits(val)} className="accent-red-700 mt-0.5" />
                 <span><span className="text-sm font-medium block">{label}</span><Ref text={ref} /></span>
               </label>
@@ -1390,7 +1390,7 @@ function OutilFraude({ initialPayload, onPayloadConsumed }) {
               ['ajournement', `Ajournement pour les AA visés par l'épreuve (Art. 73 §1)`, session==='1'&&!recidive],
               ['refus',       `Refus pour l'UE ${ueNum} (Art. 73 §2 — 2e session ou récidive)`, session==='2'||recidive],
             ]).map(([val, label, recommande]) => (
-              <label key={val} className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition ${decision===val?'bg-green-50 border-green-500':'bg-white border-gray-300 hover:bg-gray-50'} border-l-4 border-l-green-500`}>
+              <label key={val} className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition ${decision===val? 'bg-green-50 border-green-500 border-l-4 border-l-green-500' : 'bg-white border-gray-300 hover:bg-gray-50'}`}>
                 <input type="radio" name="decision" value={val} checked={decision===val} onChange={() => setDecision(val)} className="accent-red-700" />
                 <span className="text-sm flex-1">{label}</span>
                 {recommande && <span className="text-xs bg-green-500 text-white border border-green-500 rounded-champ px-2 py-0.5">Recommandé</span>}
