@@ -59,6 +59,16 @@ r.get('/destinataires', authRequired, (req, res) => {
   if (doc.portee === 'etudiant') {
     if (!annee) return res.status(400).json({ error: 'année requise' });
 
+    // Une pièce d'aménagement ne concerne que les étudiants qui ont un dossier
+    // cette année : les proposer tous inviterait à produire des pièces vides.
+    if (doc.cle.startsWith('amenagement_')) {
+      const lignes = db.prepare(`SELECT d.id AS dossier_id, e.id AS etudiant_id, e.nom, e.prenom,
+          d.annee_scolaire FROM amenagement_dossier d JOIN etudiant e ON e.id = d.etudiant_id
+        WHERE d.annee_scolaire = ? ORDER BY e.nom, e.prenom`).all(annee);
+      return res.json({ destinataires: lignes, total: lignes.length,
+                        personnes: lignes.length, maille: 'etudiant' });
+    }
+
     // Pour l'attestation, la maille est le couple étudiant × unité réussie ;
     // pour les autres, c'est l'étudiant.
     const parUE = doc.cle === 'attestation_reussite' || doc.cle === 'motivation_decision';

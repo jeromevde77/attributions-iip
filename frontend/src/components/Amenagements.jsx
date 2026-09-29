@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react';
-import { IconAlertTriangle, IconPlus, IconTrash, IconShieldCheck } from '@tabler/icons-react';
+import { IconAlertTriangle, IconPlus, IconTrash, IconShieldCheck, IconSend, IconUsers } from '@tabler/icons-react';
 import { authHeaders } from '../lib/api.js';
+import { ouvrirApercu } from '../lib/apercu.js';
 import EtapesAmenagement from './EtapesAmenagement.jsx';
+import EnvoiMailModal from './EnvoiMailModal.jsx';
 import { Tableau, TableauEntete, Th, Td, Tr, Badge } from './ui.jsx';
 
 /**
@@ -31,6 +33,7 @@ export default function Amenagements({ etudId, annee }) {
   const [message, setMessage] = useState(null);
   const [ajout, setAjout] = useState(null);
   const [etape, setEtape] = useState('demande');
+  const [refus, setRefus] = useState(null);      // { mesure, motif }
 
   async function charger() {
     const rep = await fetch(`/api/amenagements/etudiant/${etudId}?annee=${annee}`,
@@ -63,6 +66,18 @@ export default function Amenagements({ etudId, annee }) {
       method: 'POST', headers: authHeaders(), body: JSON.stringify(m),
     });
     setAjout(null);
+    await charger();
+  }
+
+  async function majMesure(m, patch) {
+    const suite = { ...m, ...patch };
+    const rep = await fetch(`/api/amenagements/mesure/${m.id}`, {
+      method: 'PUT', headers: authHeaders(),
+      body: JSON.stringify({ precisions: suite.precisions, portee: suite.portee,
+        ue_num: suite.ue_num, accorde: !!suite.accorde, motif_refus: suite.motif_refus }),
+    });
+    const j = await rep.json().catch(() => ({}));
+    if (!rep.ok) setMessage({ type: 'err', texte: j.error || `erreur ${rep.status}` });
     await charger();
   }
 
@@ -126,7 +141,6 @@ export default function Amenagements({ etudId, annee }) {
       {!d ? (
         <div className="py-8 text-center text-[13px] text-slate-400 border-2 border-dashed rounded-xl">
           Aucun dossier pour {annee}.
-          {data.dossiers.length > 0 && ` ${data.dossiers.length} dossier(s) les années précédentes.`}
         </div>
       ) : (
         <>
@@ -313,7 +327,43 @@ export default function Amenagements({ etudId, annee }) {
                 personne de référence.
               </div>
             )}
+
+            {/* LE RECOURS SE SUIT JUSQU'À SON ISSUE. Il n'existait que comme
+                statut : on savait qu'un recours était pendant, jamais quand il
+                avait été introduit ni ce que la Commission avait décidé. Les
+                colonnes étaient en base depuis l'origine ; elles ont un écran. */}
+            {(['partiel', 'refuse', 'recours'].includes(d.statut) || d.recours_le) && (
+              <div className="pt-2 border-t border-slate-100 space-y-3">
+                <div className="text-[12px] font-semibold text-iip-blue">
+                  Recours devant la Commission de l'enseignement pour adultes inclusif
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  {champ('recours_le', 'Recours introduit le', 'date')}
+                  {champ('recours_decision_le', 'Décision de la Commission le', 'date')}
+                </div>
+                <label className="text-xs block">
+                  <span className="block font-semibold text-slate-500 uppercase tracking-wide mb-1">
+                    Issue du recours
+                  </span>
+                  <textarea defaultValue={d.recours_issue || ''} rows={2}
+                    placeholder="Ce que la Commission a décidé, et ce qui change pour le dossier"
+                    onBlur={e => e.target.value !== (d.recours_issue || '')
+                      && majDossier({ recours_issue: e.target.value })}
+                    className="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-sm" />
+                </label>
+                {d.recours_le && d.statut !== 'recours' && !d.recours_decision_le && (
+                  <div className="text-[12px] text-amber-800 flex items-center gap-1.5">
+                    <IconAlertTriangle size={14} />
+                    Un recours est introduit : le statut du dossier devrait être « En recours »
+                    tant que la Commission n'a pas statué.
+                  </div>
+                )}
+              </div>
+            )}
           </div>
+
+          {/* LES PIÈCES DU DOSSIER — et la communication aux chargés de cours. */}
+          <PiecesDossier d={d} etudId={etudId} onChange={charger} setMessage={setMessage} />
 
           {/* Mesures */}
           <div>
@@ -372,15 +422,24 @@ export default function Amenagements({ etudId, annee }) {
                   <Th>Aménagement</Th>
                   <Th largeur="w-24">Nature</Th>
                   <Th largeur="w-32">Portée</Th>
+                  <Th largeur="w-48">Décision</Th>
                   <Th largeur="w-20" />
                 </TableauEntete>
                 <tbody>
                   {d.mesures.map(m => (
                     <Tr key={m.id}>
                       <Td>
-                        {m.libelle}
+                        <span className={m.accorde ? '' : 'line-through text-slate-400'}>{m.libelle}</span>
                         {m.precisions && (
                           <span className="block text-[11px] text-slate-500">{m.precisions}</span>
+                        )}
+                        {/* UN REFUS SE MOTIVE, MESURE PAR MESURE (art. 6 § 2). */}
+                        {!m.accorde && (
+                          <textarea rows={2} defaultValue={m.motif_refus || ''}
+                            placeholder="Motif du refus — obligatoire"
+                            onBlur={e => e.target.value.trim() && e.target.value !== (m.motif_refus || '')
+                              && majMesure(m, { accorde: false, motif_refus: e.target.value })}
+                            className="mt-1 w-full border border-slate-300 rounded-lg px-2 py-1 text-[12px]" />
                         )}
                       </Td>
                       <Td>
@@ -389,6 +448,20 @@ export default function Amenagements({ etudId, annee }) {
                         </Badge>
                       </Td>
                       <Td ton="secondaire">{PORTEES[m.portee] || m.portee}</Td>
+                      <Td>
+                        <div className="flex gap-1">
+                          <button onClick={() => !m.accorde && majMesure(m, { accorde: true, motif_refus: null })}
+                            className={`px-2 py-0.5 text-[12px] rounded-md border ${m.accorde
+                              ? 'bg-iip-blue text-white border-iip-blue' : 'border-slate-300 text-slate-600'}`}>
+                            Accordée
+                          </button>
+                          <button onClick={() => m.accorde && setRefus({ mesure: m, motif: '' })}
+                            className={`px-2 py-0.5 text-[12px] rounded-md border ${!m.accorde
+                              ? 'bg-iip-blue text-white border-iip-blue' : 'border-slate-300 text-slate-600'}`}>
+                            Refusée
+                          </button>
+                        </div>
+                      </Td>
                       <Td align="droite">
                         <button onClick={() => supprimerMesure(m.id)}
                           className="text-slate-300 hover:text-red-500">
@@ -400,6 +473,33 @@ export default function Amenagements({ etudId, annee }) {
                 </tbody>
               </Tableau>
             )}
+
+            {/* Refuser une mesure : le motif d'abord, le refus ensuite — le
+                serveur n'accepte pas un refus sans motif. */}
+            {refus && (
+              <div className="mt-2 border border-slate-300 rounded-xl p-3 space-y-2">
+                <div className="text-[13px] text-iip-blue font-semibold">
+                  Refuser « {refus.mesure.libelle} »
+                </div>
+                <textarea rows={2} autoFocus value={refus.motif}
+                  onChange={e => setRefus(r => ({ ...r, motif: e.target.value }))}
+                  placeholder="Motif du refus — il figure sur la décision notifiée à l'étudiant"
+                  className="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-sm" />
+                <div className="flex items-center gap-2">
+                  <span className="text-[12px] text-slate-500 flex-1 min-w-0">
+                    {!refus.motif.trim() && 'Un refus se motive (art. 6 § 2).'}
+                  </span>
+                  <button onClick={() => setRefus(null)} className="bouton">Annuler</button>
+                  <button disabled={!refus.motif.trim()} className="bouton bouton-fort"
+                    onClick={async () => {
+                      await majMesure(refus.mesure, { accorde: false, motif_refus: refus.motif });
+                      setRefus(null);
+                    }}>
+                    Refuser la mesure
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
 
           <p className="text-[11px] text-slate-500">
@@ -409,6 +509,193 @@ export default function Amenagements({ etudId, annee }) {
           </p>
         </>
       )}
+
+      {/* LES ANNÉES PASSÉES SE RELISENT. L'onglet en donnait le nombre, et
+          rien d'autre : on savait qu'un dossier existait, jamais ce qu'il
+          avait décidé — or c'est la première question devant une nouvelle
+          demande. Lecture seule : un dossier clos ne se réécrit pas d'ici. */}
+      <DossiersAnterieurs dossiers={data.dossiers.filter(x => x.annee_scolaire !== annee)}
+        annee={annee} etudId={etudId} setMessage={setMessage} />
+    </div>
+  );
+}
+
+/** Produit une pièce du dossier et l'ouvre dans l'aperçu commun. */
+async function produirePiece(dossierId, type, etudId, setMessage) {
+  const rep = await fetch(`/api/amenagements/dossier/${dossierId}/piece/${type}`,
+    { headers: authHeaders() });
+  const j = await rep.json().catch(() => ({}));
+  if (!rep.ok) {
+    setMessage({ type: 'err', texte: j.error || `erreur ${rep.status}` });
+    return null;
+  }
+  if (type !== 'mesures') {
+    ouvrirApercu({
+      html: j.html, titre: j.titre, sousTitre: 'Aménagements raisonnables',
+      nomFichier: j.nom, typeDoc: `amenagement_${type}`, astuceImpression: 'A4 portrait',
+      // La décision et sa notification partent à l'étudiant qu'elles nomment ;
+      // le formulaire reste au dossier.
+      ...(type === 'formulaire' ? { envoiPossible: false }
+        : { destinataire: { type: 'etudiant', id: etudId } }),
+    });
+  }
+  return j;
+}
+
+const PIECES = [
+  ['formulaire', 'Demande (A et B)'],
+  ['decision', 'Décision'],
+  ['notification', 'Notification'],
+];
+
+/**
+ * Les pièces du dossier, et la communication des mesures aux chargés de cours.
+ *
+ * La fiche « mesures » part aux chargés de cours des unités concernées, un
+ * envoi par personne, par le centre d'envoi — qui tient son journal. Le
+ * dossier, lui, garde QUAND et À QUI : c'est la question qu'on posera le jour
+ * où un chargé de cours dira n'avoir rien reçu.
+ */
+function PiecesDossier({ d, etudId, onChange, setMessage }) {
+  const [envoi, setEnvoi] = useState(null);      // { pieces, sujet }
+  const [enCours, setEnCours] = useState(false);
+  const accorde = ['accepte', 'partiel', 'recours'].includes(d.statut)
+    && (d.mesures || []).some(m => m.accorde);
+
+  async function communiquer() {
+    setEnCours(true);
+    try {
+      const fiche = await produirePiece(d.id, 'mesures', etudId, setMessage);
+      if (!fiche) return;
+      const rep = await fetch(`/api/amenagements/dossier/${d.id}/charges-de-cours`,
+        { headers: authHeaders() });
+      const j = await rep.json();
+      if (!rep.ok) { setMessage({ type: 'err', texte: j.error }); return; }
+      if (!j.professeurs.length) {
+        setMessage({ type: 'err', texte: "Aucun chargé de cours n'est attribué, cette année, "
+          + 'aux unités concernées : les attributions sont à compléter avant de communiquer.' });
+        return;
+      }
+      setEnvoi({
+        sujet: 'Aménagements raisonnables — mesures à mettre en œuvre',
+        pieces: j.professeurs.map(p => ({
+          html: fiche.html, nom_fichier: fiche.nom,
+          destinataire: { type: 'professeur', id: p.id,
+            nom: `${p.nom} ${p.prenom || ''}`.trim(), email: p.adresse_mail || '' },
+        })),
+      });
+    } finally { setEnCours(false); }
+  }
+
+  async function consigner(resultat) {
+    const partis = (resultat?.resultats || [])
+      .filter(x => x.statut === 'envoye' || x.statut === 'simule').map(x => x.nom);
+    if (!partis.length) return;
+    await fetch(`/api/amenagements/dossier/${d.id}/communication`, {
+      method: 'POST', headers: authHeaders(), body: JSON.stringify({ destinataires: partis }),
+    });
+    onChange && onChange();
+  }
+
+  return (
+    <div className="border border-slate-200 rounded-xl p-4 space-y-3">
+      <div className="text-[13px] font-semibold text-iip-blue">Pièces du dossier</div>
+      <div className="flex flex-wrap gap-2">
+        {PIECES.map(([type, lib]) => (
+          <button key={type} className="bouton bouton-sortir flex items-center gap-1.5"
+            onClick={() => produirePiece(d.id, type, etudId, setMessage)}>
+            <IconSend size={14} /> {lib}
+          </button>
+        ))}
+        <button className="bouton bouton-sortir flex items-center gap-1.5" disabled={!accorde}
+          onClick={async () => {
+            const f = await produirePiece(d.id, 'mesures', etudId, setMessage);
+            if (f) ouvrirApercu({ html: f.html, titre: f.titre, sousTitre: 'Aménagements raisonnables',
+              nomFichier: f.nom, typeDoc: 'amenagement_mesures', envoiPossible: false });
+          }}>
+          <IconSend size={14} /> Fiche « mesures »
+        </button>
+        <button className="bouton bouton-fort flex items-center gap-1.5" disabled={!accorde || enCours}
+          onClick={communiquer}>
+          <IconUsers size={14} /> {enCours ? 'Préparation…' : 'Communiquer aux chargés de cours'}
+        </button>
+      </div>
+      <div className="text-[12px] text-slate-500">
+        {d.communique_le
+          ? <>Mesures communiquées le <b>{String(d.communique_le).slice(0, 10).split('-').reverse().join('/')}</b>
+              {d.communique_par && <> par <b>{d.communique_par}</b></>}
+              {d.communique_a && <> à {d.communique_a}</>}.</>
+          : accorde
+            ? 'Les mesures n\'ont pas encore été communiquées aux chargés de cours.'
+            : 'La fiche « mesures » et sa communication attendent une décision qui accorde au moins une mesure.'}
+      </div>
+      {envoi && (
+        <EnvoiMailModal pieces={envoi.pieces} typeDoc="amenagement_mesures" sujet={envoi.sujet}
+          onEnvoye={consigner} onClose={() => setEnvoi(null)} />
+      )}
+    </div>
+  );
+}
+
+const MODES_NOTIF = { recommande: 'lettre recommandée', courriel: 'courriel', main_propre: 'en mains propres' };
+const jourFr = x => (x ? String(x).slice(0, 10).split('-').reverse().join('/') : '—');
+
+/** Les dossiers des années précédentes, en lecture. */
+function DossiersAnterieurs({ dossiers, annee, etudId, setMessage }) {
+  if (!dossiers?.length) return null;
+  // On regarde parfois une année passée : un dossier plus récent n'est alors
+  // pas « précédent », et le titre ne doit pas le dire.
+  const toutesAvant = dossiers.every(x => String(x.annee_scolaire) < String(annee));
+  return (
+    <div className="space-y-2">
+      <div className="text-[13px] font-semibold text-iip-blue">
+        {toutesAvant ? 'Années précédentes' : 'Autres années'} ({dossiers.length})
+      </div>
+      {dossiers.map(x => (
+        <details key={x.id} className="border border-slate-200 rounded-xl">
+          <summary className="cursor-pointer px-4 py-2 flex items-center gap-3 flex-wrap text-[13px]">
+            <b>{x.annee_scolaire}</b>
+            <Badge ton={STATUTS[x.statut]?.ton || 'neutre'}>{STATUTS[x.statut]?.libelle || x.statut}</Badge>
+            <span className="text-slate-500 text-[12px]">
+              demande du {jourFr(x.date_demande)} · décision du {jourFr(x.cde_date)}
+              {' '}· {(x.mesures || []).filter(m => m.accorde).length} mesure(s) accordée(s)
+            </span>
+          </summary>
+          <div className="px-4 pb-3 space-y-2 text-[13px]">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-x-4 gap-y-1 text-[12px] text-slate-600">
+              <div>Personne de référence : <b>{x.personne_reference || '—'}</b></div>
+              <div>Notifiée le <b>{jourFr(x.notifie_le)}</b>{x.notifie_par && ` (${MODES_NOTIF[x.notifie_par] || x.notifie_par})`}</div>
+              <div>Délai de mise en œuvre : <b>{x.delai_mise_oeuvre || '—'}</b></div>
+              {x.recours_le && <div className="md:col-span-3">Recours introduit le <b>{jourFr(x.recours_le)}</b>
+                {x.recours_decision_le && <> · Commission le <b>{jourFr(x.recours_decision_le)}</b></>}
+                {x.recours_issue && <> — {x.recours_issue}</>}</div>}
+            </div>
+            {(x.mesures || []).length > 0 && (
+              <ul className="list-disc pl-5 text-[12px]">
+                {x.mesures.map(m => (
+                  <li key={m.id} className={m.accorde ? '' : 'text-slate-400'}>
+                    <span className={m.accorde ? '' : 'line-through'}>{m.libelle}</span>
+                    {m.precisions && <span className="text-slate-500"> — {m.precisions}</span>}
+                    {' '}<span className="text-slate-400">({PORTEES[m.portee] || m.portee})</span>
+                    {!m.accorde && m.motif_refus && <span className="text-slate-500"> · refusée : {m.motif_refus}</span>}
+                  </li>
+                ))}
+              </ul>
+            )}
+            {x.cde_motivation && (
+              <div className="text-[12px] text-slate-600"><b>Motivation :</b> {x.cde_motivation}</div>
+            )}
+            <div className="flex gap-2 pt-1">
+              {PIECES.map(([type, lib]) => (
+                <button key={type} className="bouton bouton-sortir flex items-center gap-1.5 text-[12px]"
+                  onClick={() => produirePiece(x.id, type, etudId, setMessage)}>
+                  <IconSend size={13} /> {lib}
+                </button>
+              ))}
+            </div>
+          </div>
+        </details>
+      ))}
     </div>
   );
 }

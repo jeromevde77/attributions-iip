@@ -20,7 +20,12 @@ import { useEnvoiMail } from '../lib/envoiMail.js';
  * @param {function} onClose
  */
 export default function EnvoiMailModal({ pieces, typeDoc, sujet: sujetInitial = '',
-                                         message: messageInitial = '', onClose }) {
+                                         message: messageInitial = '', onClose,
+                                         /* Facultatif : prévenu après un envoi,
+                                            avec le résultat du serveur — pour
+                                            consigner l'envoi là où il compte
+                                            (le dossier qui l'a demandé). */
+                                         onEnvoye = null }) {
   const etat = useEnvoiMail(true);                 // { actif, smtp, pdf } — relu à l'ouverture
   const [lignes, setLignes] = useState(null);      // une par pièce
   const [sujet, setSujet] = useState(sujetInitial);
@@ -101,6 +106,7 @@ export default function EnvoiMailModal({ pieces, typeDoc, sujet: sujetInitial = 
       const j = await rep.json();
       if (!rep.ok) { setErreur(j.error || `erreur ${rep.status}`); return; }
       setResultat(j);
+      if (onEnvoye) { try { onEnvoye(j); } catch { /* le journal des envois reste la trace */ } }
     } catch (e) {
       setErreur(e.message);
     } finally { setEnCours(false); }

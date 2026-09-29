@@ -1062,6 +1062,29 @@ tâche doit renvoyer vers un point du RDE, de la circulaire ou d'une procédure,
 et non vers une instance datée de l'échéancier : voir
 `Lucie_registre_references.md`.
 
+**LES AMÉNAGEMENTS RAISONNABLES SORTENT DE LUCIE, ET LES CHARGÉS DE COURS LES
+REÇOIVENT** (2.12.299, Charles, 29 septembre 2026 — les cinq « ce que Lucie ne
+fait pas encore » du mode d'emploi). Quatre pièces, composées par
+`lib/piecesAmenagement.js` dans l'enveloppe des pièces nominatives, déclarées au
+catalogue : le **formulaire** (cadres A et B), la **décision motivée**, la
+**notification** (lettre + décision, une seule enveloppe), la **fiche
+« mesures »**. Décision et notification ne sortent pas tant que manquent statut,
+date, motivation, une mesure accordée (si accordé) ou le motif d'un refus : le
+serveur nomme ce qui manque (409). **Une mesure se refuse une à une, et un refus
+se motive** (`accorde`, `motif_refus`, contrôlés au POST ET au PUT). Le
+**recours** a sa date, la date de décision de la Commission
+(`recours_decision_le`) et son issue. Les **années passées** se relisent sur
+l'onglet. **Secret professionnel (art. 5) : la fiche des chargés de cours et
+Mes cours ne portent QUE les mesures accordées** — ni la pièce, ni les soins
+demandés, ni la motivation, ni les conditions particulières. Mes cours les
+montre (mention « AR », survol) pour une décision rendue et les seules unités
+cochées au dossier (aucune = toutes) ; l'envoi part par le centre d'envoi, une
+pièce par chargé de cours attribué, et le dossier garde `communique_le`,
+`communique_par` (la personne connectée) et `communique_a`. **La mention des
+voies de recours n'est pas écrite en dur** : `amenagement_recours`,
+Configuration → Procédures — rédigée d'après le décret sans que le texte
+consolidé ait pu être relu, **À FAIRE RELIRE** avant la mise en production.
+
 **Chantiers de conformité ouverts, dans l'ordre :** geler les décisions à la
 clôture et historiser par ajout ; figer et horodater le PV ; bloc de signatures
 nominatif ; date d'affichage et mode de publication en champs propres ; écrire

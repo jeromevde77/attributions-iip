@@ -315,6 +315,25 @@ r.get('/:coursCode/etudiants', authRequired, (req, res) => {
     }
   } catch { /* tables absentes */ }
 
+  /* LES AMÉNAGEMENTS RAISONNABLES SE VOIENT LÀ OÙ L'ON ENSEIGNE (Charles,
+     29 septembre 2026). Seules les MESURES accordées, pour une décision
+     rendue, et pour cette unité — jamais la nature de la situation, la pièce
+     ni la motivation : le secret professionnel s'applique (décret du 30 juin
+     2016, art. 5). Aucune unité cochée au dossier veut dire toutes. */
+  const amenagements = {};
+  try {
+    for (const x of db.prepare(`
+      SELECT d.etudiant_id, m.libelle, m.precisions, m.portee
+      FROM amenagement_dossier d JOIN amenagement_mesure m ON m.dossier_id = d.id
+      WHERE d.annee_scolaire = ? AND d.statut IN ('accepte','partiel','recours') AND m.accorde = 1
+        AND (m.ue_num IS NULL OR m.ue_num = ?)
+        AND (NOT EXISTS (SELECT 1 FROM amenagement_ue u WHERE u.dossier_id = d.id)
+             OR EXISTS (SELECT 1 FROM amenagement_ue u WHERE u.dossier_id = d.id AND u.ue_num = ?))
+      ORDER BY m.libelle`).all(annee, d.ueNum, d.ueNum)) {
+      (amenagements[x.etudiant_id] ||= []).push({ libelle: x.libelle, precisions: x.precisions, portee: x.portee });
+    }
+  } catch { /* module absent */ }
+
   res.json({
     annee, cours_code: req.params.coursCode, ue_num: d.ueNum,
     repartition: d.repartition, portee: d.portee,
@@ -324,7 +343,8 @@ r.get('/:coursCode/etudiants', authRequired, (req, res) => {
     etudiants: d.etudiants.map(e => ({ ...e,
       notes: props[e.id] || {}, note: (props[e.id] || {})[''] ?? null,
       justifications: justifs[e.id] || {},
-      report: reportes[e.id] || null })),
+      report: reportes[e.id] || null,
+      amenagements: amenagements[e.id] || [] })),
   });
 });
 
