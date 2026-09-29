@@ -51,6 +51,8 @@ import fraisScolariteRoutes, { migrerFraisScolarite } from './routes/fraisScolar
 import { GRILLE_DEFAUT } from './routes/grilleEntretienDefaut.js';
 import repartitionRoutes, { migrerRepartition } from './routes/repartitionPeriodes.js';
 import amenagementsRoutes, { migrerAmenagements } from './routes/amenagements.js';
+import cepRoutes from './routes/cep.js';
+import { migrerCep } from './lib/cep.js';
 import stagesRoutes, { migrerStages } from './routes/stages.js';
 import attestationsRoutes, { migrerAttestations } from './routes/attestations.js';
 import dueRoutes, { migrerDUE } from './routes/due.js';
@@ -2828,6 +2830,7 @@ try { migrerProfilsAcces(db); } catch (e) { console.error('[migration] profils a
 try { migrerFraisScolarite(db); } catch (e) { console.error('[migration] frais scolarité :', e.message); }
 try { migrerRepartition(db); } catch (e) { console.error('[migration] répartition :', e.message); }
 try { migrerAmenagements(db); } catch (e) { console.error('[migration] aménagements :', e.message); }
+try { migrerCep(db); } catch (e) { console.error('[migration] congé-éducation :', e.message); }
 try { migrerStages(db); } catch (e) { console.error('[migration] stages :', e.message); }
 try { migrerAttestations(db); } catch (e) { console.error('[migration] attestations :', e.message); }
 try { migrerDUE(db); } catch (e) { console.error('[migration] due :', e.message); }
@@ -3000,6 +3003,7 @@ app.use('/api/profils-acces', garderModule('profils-acces'), profilsAccesRoutes)
 app.use('/api/frais-scolarite', garderModule('frais-scolarite'), fraisScolariteRoutes);
 app.use('/api/repartition', garderModule('repartition'), repartitionRoutes);
 app.use('/api/amenagements', garderModule('amenagements'), amenagementsRoutes);
+app.use('/api/cep', cepRoutes);
 app.use('/api/stages', garderModule('stages'), stagesRoutes);
 app.use('/api/attestations', garderModule('attestations'), attestationsRoutes);
 app.use('/api/annexe2', garderModule('annexe2'), annexe2Routes);

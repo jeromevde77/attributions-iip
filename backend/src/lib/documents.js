@@ -159,6 +159,32 @@ export const DOCUMENTS = [
     destinataires: 'professeur',
     roles: ['admin', 'directeur', 'directeur_adjoint', 'editeur', 'secretariat'],
   },
+  /* LE CONGÉ-ÉDUCATION PAYÉ (29 septembre 2026). Une page par unité, suivie de
+     son horaire détaillé ; l'assiduité ne sort pas tant qu'une séance passée
+     n'a pas ses présences. Composition : lib/piecesCep.js. Porte : la fiche de
+     l'étudiant, bloc « Congé-éducation payé ». */
+  {
+    cle: 'cep_inscription',
+    libelle: "Congé-éducation payé — attestation d'inscription régulière",
+    description: "À remettre à l'employeur au plus tard le 31 octobre, ou dans les 15 jours d'une inscription tardive.",
+    portee: 'etudiant', lot: false, groupe: 'Étudiants',
+    route: { methode: 'GET', chemin: '/api/cep/etudiant/:id/piece/inscription' },
+    parametres: ['annee'],
+    nomFichier: 'CEP_Inscription_{nom}_{prenom}_{annee}',
+    destinataires: 'etudiant',
+    roles: ['admin', 'directeur', 'directeur_adjoint', 'editeur', 'secretariat'],
+  },
+  {
+    cle: 'cep_assiduite',
+    libelle: "Congé-éducation payé — attestation d'assiduité",
+    description: "Par unité et par période de trois mois à compter du début de l'unité ; lue des présences encodées.",
+    portee: 'etudiant', lot: false, groupe: 'Étudiants',
+    route: { methode: 'GET', chemin: '/api/cep/etudiant/:id/piece/assiduite' },
+    parametres: ['annee'],
+    nomFichier: 'CEP_Assiduite_{nom}_{prenom}_{annee}',
+    destinataires: 'etudiant',
+    roles: ['admin', 'directeur', 'directeur_adjoint', 'editeur', 'secretariat'],
+  },
 ];
 
 /** Le catalogue taillé au périmètre de la personne. */

@@ -3,6 +3,7 @@ import db from '../db/index.js';
 import { authRequired, roleRequired, getUserSections } from '../middleware/auth.js';
 import { anneeDeTravail } from '../helpers/annee.js';
 import { PEUT_INSTRUIRE } from '../lib/valorisation.js';
+import { ecrirePresences, minutesDe, STATUTS_PRESENCE, MOTIFS_JUSTIFIES } from '../lib/cep.js';
 
 /**
  * MES COURS — la porte du professeur (25 septembre 2026).
@@ -485,6 +486,73 @@ r.post('/:coursCode/reprendre', authRequired, roleRequired(...PEUT_INSTRUIRE), (
   }
   res.json({ ok: true, simulation, cours_code: coursCode, ue_num: ue, annee, session,
     propositions: props.length, ...r0, a_poser: r0.a_poser.length, a_poser_liste: r0.a_poser.slice(0, 300) });
+});
+
+/* LES PRÉSENCES SE PRENNENT OÙ L'ON ENSEIGNE (Charles, 29 septembre 2026 :
+ * « idéalement depuis Mes cours, encodé par le prof »). Séance par séance, sur
+ * l'horaire de Lucie — c'est de là que partent les attestations d'assiduité du
+ * congé-éducation payé, et un total tapé à la main ne se vérifie pas. Le
+ * professeur voit les séances qu'il donne ; la coordination, toutes celles du
+ * cours. Une séance à venir ne s'encode pas : on n'atteste pas une présence qui
+ * n'a pas encore eu lieu. */
+function seancesDuCours(req, d, coursCode, annee) {
+  const toutes = db.prepare(`SELECT id, date, heure_debut, heure_fin, minutes, sous_groupe, matiere,
+      professeur_id, COALESCE(annule, 0) AS annule
+    FROM horaire_seance WHERE annee_scolaire = ? AND cours_code = ?
+    ORDER BY date, heure_debut`).all(annee, coursCode);
+  if (d.portee !== 'attribution') return toutes;
+  const profId = profDe(req);
+  const miennes = toutes.filter(x => x.professeur_id === profId);
+  if (miennes.length) return miennes;
+  // Un horaire importé sans professeur reconnu : toutes les séances du cours.
+  return toutes.some(x => x.professeur_id) ? [] : toutes;
+}
+
+r.get('/:coursCode/presences', authRequired, (req, res) => {
+  const annee = req.query.annee || anneeDeTravail(req);
+  const d = accesCours(req, req.params.coursCode, annee);
+  if (!d) return res.status(403).json({ error: "Ce cours n'est ni dans vos attributions, ni dans votre section." });
+  const seances = seancesDuCours(req, d, req.params.coursCode, annee);
+  const ids = seances.map(x => x.id);
+  const pres = {};
+  if (ids.length) {
+    for (const p of db.prepare(`SELECT seance_id, etudiant_id, statut, motif, encode_par, encode_le FROM presence
+        WHERE seance_id IN (${ids.map(() => '?').join(',')})`).all(...ids)) {
+      (pres[p.seance_id] ||= {})[p.etudiant_id] = { statut: p.statut, motif: p.motif, par: p.encode_par, le: p.encode_le };
+    }
+  }
+  let cep = new Set();
+  try { cep = new Set(db.prepare('SELECT etudiant_id FROM etudiant_cep WHERE annee_scolaire = ?').all(annee).map(x => x.etudiant_id)); }
+  catch { /* table absente */ }
+  res.json({
+    annee, cours_code: req.params.coursCode, statuts: STATUTS_PRESENCE, motifs: MOTIFS_JUSTIFIES,
+    aujourdhui: new Date().toISOString().slice(0, 10),
+    seances: seances.map(x => ({ ...x, min: minutesDe(x),
+      encodees: Object.keys(pres[x.id] || {}).length })),
+    etudiants: d.etudiants.map(e => ({ id: e.id, nom: e.nom, prenom: e.prenom, id_ecampus: e.id_ecampus,
+      groupe: e.groupe || '', cep: cep.has(e.id) })),
+    presences: pres,
+  });
+});
+
+r.post('/:coursCode/presences/:seanceId', authRequired, (req, res) => {
+  const annee = req.body?.annee || anneeDeTravail(req);
+  const d = accesCours(req, req.params.coursCode, annee);
+  if (!d) return res.status(403).json({ error: "Ce cours n'est ni dans vos attributions, ni dans votre section." });
+  const s = seancesDuCours(req, d, req.params.coursCode, annee).find(x => x.id === Number(req.params.seanceId));
+  if (!s) return res.status(404).json({ error: 'Cette séance ne fait pas partie de vos séances de ce cours.' });
+  if (s.annule) return res.status(409).json({ error: 'Séance annulée : il n\'y a pas de présence à prendre.' });
+  if (s.date > new Date().toISOString().slice(0, 10)) {
+    return res.status(409).json({ error: "Cette séance n'a pas encore eu lieu : ses présences se prennent le jour même ou après." });
+  }
+  const miens = new Set(d.etudiants.map(e => e.id));
+  const lignes = (req.body?.presences || []).map(p => ({ seance_id: s.id, etudiant_id: Number(p.etudiant_id),
+    statut: p.statut || null, motif: p.motif || null }));
+  const etrangers = lignes.filter(l => !miens.has(l.etudiant_id));
+  if (etrangers.length) return res.status(400).json({ error: `${etrangers.length} étudiant(s) hors de la liste de ce cours.` });
+  const out = ecrirePresences(lignes, req.user?.email || req.user?.nom || null);
+  if (out.erreur) return res.status(400).json({ error: out.erreur });
+  res.json({ ok: true, ...out });
 });
 
 export default r;

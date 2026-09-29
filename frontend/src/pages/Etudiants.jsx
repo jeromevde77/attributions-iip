@@ -1,3 +1,4 @@
+import OngletCep from '../components/OngletCep.jsx';
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { nomPropre } from '../lib/nom.js';
 import { couleurBloc } from '../lib/blocs.js';
@@ -2248,6 +2249,7 @@ export function FicheEtudiant({ id, annee, onClose, position, onPrec, onSuiv,
             ['finances', 'Finances'],
             ['stages', 'Stages'],
             ['amenagements', 'Aménagements'],
+            ['cep', 'Congé-éducation'],
             ['suivi', 'Suivi'],
             ['dossier', 'Dossier']].map(([k, l]) => (
             <button key={k}
@@ -2399,6 +2401,12 @@ export function FicheEtudiant({ id, annee, onClose, position, onPrec, onSuiv,
           {onglet === 'amenagements' && (
             <div className="p-5">
               <Amenagements etudId={id} annee={annee} />
+            </div>
+          )}
+
+          {onglet === 'cep' && (
+            <div className="p-5">
+              <OngletCep etudId={id} annee={annee} />
             </div>
           )}
 

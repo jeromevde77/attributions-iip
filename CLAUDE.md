@@ -1085,6 +1085,28 @@ voies de recours n'est pas écrite en dur** : `amenagement_recours`,
 Configuration → Procédures — rédigée d'après le décret sans que le texte
 consolidé ait pu être relu, **À FAIRE RELIRE** avant la mise en production.
 
+**LE CONGÉ-ÉDUCATION PAYÉ SE LIT DE L'HORAIRE ET DES PRÉSENCES** (2.12.303,
+Charles, 29 septembre 2026). Deux pièces par UNITÉ, chacune suivie de son
+horaire détaillé : l'**attestation d'inscription régulière** (à l'employeur au
+plus tard le 31 octobre, ou 15 jours après une inscription tardive) et
+l'**attestation d'assiduité**, par **période de trois mois à compter du début de
+l'UE** (enseignement modulaire), non par trimestre du calendrier. Cadre : loi de
+redressement du 22 janvier 1985, arrêté bruxellois du 29 juin 2023 ; plus de
+10 % d'absences injustifiées suspend le droit six mois. **La Région est celle
+du LIEU DE TRAVAIL** (case sur la fiche, onglet *Congé-éducation*) : la Flandre
+(Vlaams opleidingsverlof) n'utilise pas ces pièces, le serveur refuse. Les
+heures viennent de `horaire_seance` (en heures), hors stage (`cours.is_stage`),
+épreuve intégrée et développement professionnel ; dispense = valorisation
+accordée (complète, ou partielle par cours) et reports d'office ; inscription
+tardive = séances avant `date_inscription`. **Les présences se prennent dans
+Mes cours → Présences**, séance par séance (`presence`, journal en ajout seul
+`presence_journal`) ; une absence se justifie par un motif de la liste fermée
+(`MOTIFS_JUSTIFIES`), jamais un texte libre ; une séance à venir ne s'encode
+pas. **L'assiduité ne sort pas tant qu'une séance passée n'a pas ses
+présences** : une heure ni présente ni absente ne s'atteste pas. Code :
+`lib/cep.js`, `lib/piecesCep.js`, `routes/cep.js`. **À venir :** le QR code
+projeté en classe pour l'émargement ; le registre CEP dans le rail.
+
 **Chantiers de conformité ouverts, dans l'ordre :** geler les décisions à la
 clôture et historiser par ajout ; figer et horodater le PV ; bloc de signatures
 nominatif ; date d'affichage et mode de publication en champs propres ; écrire
