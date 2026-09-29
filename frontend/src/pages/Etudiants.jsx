@@ -2273,22 +2273,8 @@ export function FicheEtudiant({ id, annee, onClose, position, onPrec, onSuiv,
         </div>
         {edition && (
           <CentreImpressionCentral onClose={() => setEdition(false)}
-            pieces={[
-              { cle: 'attestations', icon: IconFileText, label: 'Attestations de réussite',
-                description: `Une par unité réussie en ${annee}`, onClick: () => ouvrirAttestations(false) },
-              { cle: 'attestations-toutes', icon: IconFileText, label: 'Attestations de réussite — toutes les années',
-                description: "Toutes les unités réussies du parcours, en un document, chacune avec son année", onClick: () => ouvrirAttestations(true) },
-              { cle: 'attestations-pdf', icon: IconFileText, label: 'Attestations de réussite — un PDF par unité',
-                description: "Toutes les années : une archive, un fichier PDF par attestation", onClick: telechargerAttestationsPdf },
-              { cle: 'parcours', icon: IconFileText, label: 'Parcours de formation',
-                description: 'Schéma de capitalisation et unités acquises — 1 page', onClick: ouvrirParcours },
-              { cle: 'motivation', icon: IconFileText, label: 'Motiver un refus ou un ajournement',
-                description: 'Annexes 8 et 9 — une justification par acquis', onClick: () => setMotivation(true) },
-              { cle: 'annexe1', icon: IconFileText, label: 'Visa ou titre de séjour étudiant (annexe 1)',
-                description: "Office des Étrangers — ressortissant d'un pays tiers", onClick: () => setAnnexe1(true) },
-              { cle: 'annexe2', icon: IconFileText, label: 'Progrès des études (annexe 2)',
-                description: "Office des Étrangers — réclame la nationalité", onClick: () => setAnnexe2(true) },
-            ]} />
+            etudiant={{ id, nom: data?.nom, prenom: data?.prenom, id_ecampus: data?.id_ecampus }}
+            anneeEtudiant={annee} />
         )}
 
         {/* Les ACTIONS du programme, ancrées sous les onglets. Placées dans
