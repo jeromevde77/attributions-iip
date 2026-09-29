@@ -229,7 +229,7 @@ export default function ImportSurMesure({ onClose, onTermine, annee = null }) {
               </p>
             </div>
 
-            <label className="block text-xs bg-amber-50 border border-amber-200 rounded-lg p-2.5">
+            <label className="block text-xs bg-amber-500 border border-amber-500 rounded-lg p-2.5">
               <span className="block font-semibold text-amber-900 mb-1">
                 Colonne qui identifie la ligne
               </span>

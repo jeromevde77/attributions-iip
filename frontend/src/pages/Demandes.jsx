@@ -66,8 +66,8 @@ export default function Demandes() {
 
       {message && (
         <div className={`px-4 py-2.5 rounded-lg text-sm flex items-center justify-between ${
-          message.type === 'ok' ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
-                                : 'bg-red-50 text-red-800 border border-red-200'}`}>
+          message.type === 'ok' ? 'bg-emerald-500 text-white border border-emerald-500'
+                                : 'bg-red-500 text-white border border-red-500'}`}>
           <span>{message.texte}</span>
           <button onClick={() => setMessage(null)} className="ml-3 opacity-60">✕</button>
         </div>
@@ -116,7 +116,7 @@ export default function Demandes() {
                   {d.statut === 'en_attente' ? (
                     <div className="flex gap-2">
                       <button onClick={() => decider(d.id, 'refuser')} disabled={enCours}
-                        className="flex items-center gap-1 text-[12px] px-2.5 py-1 rounded-lg border border-red-300 text-red-700 hover:bg-red-50 disabled:opacity-50">
+                        className="flex items-center gap-1 text-[12px] px-2.5 py-1 rounded-lg border border-red-500 text-white hover:bg-red-500 disabled:opacity-50">
                         <IconX size={13} /> Refuser
                       </button>
                       <button onClick={() => decider(d.id, 'valider')} disabled={enCours}

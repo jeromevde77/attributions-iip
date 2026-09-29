@@ -395,7 +395,7 @@ export default function RepartitionCours() {
       </div>
 
       {erreur && (
-        <div className="bg-red-50 border border-red-200 rounded-champ px-3 py-2 text-sm text-red-700">{erreur}</div>
+        <div className="bg-red-50 border border-red-200 rounded-champ px-3 py-2 text-sm text-red-700 border-l-4 border-l-red-500">{erreur}</div>
       )}
 
       {apercu && (
@@ -503,7 +503,7 @@ export default function RepartitionCours() {
                     {/* CE SONT LES ACTIVITÉS QUI SE COUPENT EN GROUPES : la
                         théorie avec tous, le laboratoire en huit groupes. */}
                     {c.activite_libelle && (
-                      <span className="ml-1.5 text-[10.5px] font-bold px-1.5 py-0.5 rounded bg-violet-100 text-violet-800">
+                      <span className="ml-1.5 text-[10.5px] font-bold px-1.5 py-0.5 rounded bg-violet-500 text-white">
                         {c.activite_libelle}
                       </span>
                     )}
@@ -553,9 +553,9 @@ export default function RepartitionCours() {
                       {e.nom} {e.prenom}
                       {e.num_organisation != null
                         ? <span className="ml-1.5 text-[10px] font-bold px-2 py-0.5 rounded-full bg-iip-light text-iip-blue">Org {e.num_organisation}</span>
-                        : <span className="ml-1.5 text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-[#B45309]">non réparti</span>}
+                        : <span className="ml-1.5 text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500 text-[color:var(--c-attente)]">non réparti</span>}
                       {manque > 0 && (
-                        <span className="block text-[10px] text-[#B45309]">
+                        <span className="block text-[10px] text-[color:var(--c-attente)]">
                           <IconAlertTriangle size={10} className="inline -mt-0.5" /> {manque} cours sans groupe
                         </span>
                       )}
@@ -563,7 +563,7 @@ export default function RepartitionCours() {
                     {(data.cours || []).map(c => c.sans_groupe ? (
                       <td key={c.cle} className="text-center border-l border-dashed border-slate-100">
                         <span title="Cours sans groupe : suivi par tous les inscrits"
-                          className="inline-block w-[15px] h-[15px] rounded bg-emerald-100 text-emerald-700 text-[10px] leading-[15px]">✓</span>
+                          className="inline-block w-[15px] h-[15px] rounded bg-emerald-500 text-white text-[10px] leading-[15px]">✓</span>
                       </td>
                     ) : c.groupes.map(g => {
                       const a = affect.get(cle(e.id, c.cle));
@@ -603,7 +603,7 @@ export default function RepartitionCours() {
                   return (
                     <td key={c.cle + cleGroupe(g)}
                       title={trop ? `Au-dessus du plafond suggéré (${c.plafond_groupe})` : ''}
-                      className={`text-center border-l border-dashed border-slate-200 ${trop ? 'text-[#B45309]' : ''}`}>
+                      className={`text-center border-l border-dashed border-slate-200 ${trop ? 'text-[color:var(--c-attente)]' : ''}`}>
                       {n}{trop ? ' ⚠' : ''}
                     </td>
                   );

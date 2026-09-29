@@ -14,22 +14,67 @@ export default {
           .map(n => [n, `rgb(var(--gris-${n}) / <alpha-value>)`])),
         gray: Object.fromEntries([50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 950]
           .map(n => [n, `rgb(var(--gris-${n}) / <alpha-value>)`])),
+        // LES FAMILLES DE TAILWIND LISENT LES RÉGLAGES (29 septembre 2026).
+        // Deux mille sept cents classes nommaient une couleur fixe ; chaque
+        // famille suit désormais l'échelle d'un réglage de Configuration →
+        // Thèmes et couleurs (lib/couleurs.js la calcule). Le mot garde son
+        // sens : emerald dit « réussi », amber « à surveiller », red « à
+        // corriger », violet « faveur », blue « en cours », teal « accent ».
+        ...Object.fromEntries([
+          ['emerald', 'reussi'], ['green', 'reussi'], ['lime', 'reussi'],
+          ['amber', 'attente'], ['orange', 'attente'], ['yellow', 'attente'],
+          ['red', 'refuse'], ['rose', 'refuse'],
+          ['violet', 'faveur'], ['purple', 'faveur'], ['fuchsia', 'faveur'],
+          ['blue', 'disponible'], ['sky', 'disponible'],
+          ['teal', 'accent'], ['cyan', 'accent'],
+          ['indigo', 'principal'], ['pink', 'helb'],
+        ].map(([famille, reglage]) => [famille, Object.fromEntries(
+          [50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 950]
+            .map(n => [n, `rgb(var(--e-${reglage}-${n}) / <alpha-value>)`]))])),
         iip: {
-          // Noms historiques (conservés pour compatibilité avec l'existant) :
-          gold:   '#1B2B4B',   // = bleu marine (titres, header, boutons principaux)
-          amber:  '#163A6B',   // = bleu marine foncé (hover)
-          mauve:  '#00AACC',   // = turquoise (badges, accents)
-          orange: '#C0392B',   // = rouge (boutons destructifs, déconnexion)
+          // Noms historiques (conservés pour compatibilité avec l'existant) —
+          // ils lisent eux aussi les réglages : « iip-gold » vaut le principal.
+          gold:   'rgb(var(--c-principal-rgb) / <alpha-value>)',
+          amber:  'rgb(var(--e-principal-700) / <alpha-value>)',
+          mauve:  'rgb(var(--c-accent-rgb) / <alpha-value>)',
+          orange: 'rgb(var(--c-refuse-rgb) / <alpha-value>)',
           // Noms clairs (à privilégier désormais) :
-          blue:      '#1B2B4B', // bleu marine principal
-          'blue-dark': '#163A6B',
-          'blue-soft': '#2E5C9E',
-          turquoise: '#00AACC', // accent
-          'turquoise-dark': '#0090ad',
-          light:     '#E1ECF5', // fond bleu très clair
-          danger:    '#C0392B'
+          blue:      'rgb(var(--c-principal-rgb) / <alpha-value>)',
+          'blue-dark': 'rgb(var(--e-principal-700) / <alpha-value>)',
+          'blue-soft': 'rgb(var(--e-principal-400) / <alpha-value>)',
+          turquoise: 'rgb(var(--c-accent-rgb) / <alpha-value>)',
+          'turquoise-dark': 'rgb(var(--e-accent-600) / <alpha-value>)',
+          light:     'rgb(var(--e-principal-50) / <alpha-value>)',
+          danger:    'rgb(var(--c-refuse-rgb) / <alpha-value>)',
+          texte:     'rgb(var(--c-texte-rgb) / <alpha-value>)',
+          donnees:   'rgb(var(--c-donnees-rgb) / <alpha-value>)',
         }
       },
+      // LE FOND EST BLANC (Charles, 29 septembre 2026 : « du blanc !!! je veux
+      // le fond en blanc »). Les deux gris les plus clairs, employés partout
+      // comme FOND de panneau, de ligne ou d'étiquette, deviennent blancs —
+      // pour le fond seulement : filets et textes gris ne changent pas.
+      backgroundColor: Object.fromEntries(['slate', 'gray'].map(famille => [famille,
+        Object.fromEntries([50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 950].map(n => [n, n <= 100
+          ? 'rgb(255 255 255 / <alpha-value>)'
+          : `rgb(var(--gris-${n}) / <alpha-value>)`]))])),
+      // LA COULEUR NE VA JAMAIS AU TEXTE (règle du modèle ; Charles, 29
+      // septembre 2026 : « reste à ce qui est dans la configuration »). Pour
+      // le TEXTE seulement, les familles d'état et d'accent donnent l'encre —
+      // la couleur reste au liseré, au fond pâle et au contour. Les nuances
+      // claires (50–300) restent pâles : ce sont celles qu'on écrit sur un
+      // fond sombre.
+      textColor: Object.fromEntries([
+        ['emerald', 'reussi'], ['green', 'reussi'], ['lime', 'reussi'],
+        ['amber', 'attente'], ['orange', 'attente'], ['yellow', 'attente'],
+        ['red', 'refuse'], ['rose', 'refuse'],
+        ['violet', 'faveur'], ['purple', 'faveur'], ['fuchsia', 'faveur'],
+        ['blue', 'disponible'], ['sky', 'disponible'],
+        ['teal', 'accent'], ['cyan', 'accent'], ['pink', 'helb'],
+      ].map(([famille, reglage]) => [famille, Object.fromEntries(
+        [50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 950].map(n => [n, n <= 300
+          ? `rgb(var(--e-${reglage}-${n}) / <alpha-value>)`
+          : 'rgb(var(--c-texte-rgb) / <alpha-value>)']))])),
       // ─── L'ÉCHELLE, ET RIEN EN DEHORS ───────────────────────────────────
       // Quatre rayons, trois élévations, une courbe. C'est cela — plus que les
       // couleurs — qui sépare un système d'un assemblage.

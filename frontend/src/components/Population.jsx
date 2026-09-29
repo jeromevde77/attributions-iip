@@ -46,8 +46,8 @@ export default function Population({ annee }) {
       </p>
 
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-w-2xl">
-        {tuile(data.total, 'étudiants au programme confirmé', '#1B2B4B')}
-        {tuile(data.en_attente, 'programmes encore à confirmer', data.en_attente ? '#B45309' : null)}
+        {tuile(data.total, 'étudiants au programme confirmé', 'var(--c-principal)')}
+        {tuile(data.en_attente, 'programmes encore à confirmer', data.en_attente ? 'var(--c-attente)' : null)}
         {tuile(data.parcours_mixtes, 'en parcours mixte', null)}
       </div>
 
@@ -107,7 +107,7 @@ export default function Population({ annee }) {
                   <td className="px-3 py-1.5 text-right tabular-nums font-semibold">{u.reels}</td>
                   <td className="px-3 py-1.5 text-right tabular-nums text-slate-500">{u.prevus ?? '—'}</td>
                   <td className="px-3 py-1.5 text-right tabular-nums"
-                    style={{ color: u.ecart == null || u.ecart === 0 ? undefined : u.ecart < 0 ? '#B45309' : '#1B2B4B' }}>
+                    style={{ color: u.ecart == null || u.ecart === 0 ? undefined : u.ecart < 0 ? 'var(--c-attente)' : 'var(--c-principal)' }}>
                     {u.ecart == null ? '—' : u.ecart > 0 ? `+${u.ecart}` : u.ecart}
                   </td>
                 </tr>
@@ -117,7 +117,7 @@ export default function Population({ annee }) {
           </table>
         </div>
         {ues.length > 0 && ues.filter(u => u.prevus != null).length < ues.length && (
-          <p className="text-[12px] text-[#B45309] mt-1.5">
+          <p className="text-[12px] text-[color:var(--c-attente)] mt-1.5">
             {ues.length - ues.filter(u => u.prevus != null).length} unité(s) sur {ues.length} n'ont pas d'effectif prévu :
             l'écart ne se calcule pas pour elles. Il se saisit dans la planification de l'unité.
           </p>

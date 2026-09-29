@@ -406,8 +406,8 @@ export default function EncodageCours({ coursCode, annee, onClose, onEnregistre,
                               {men ? (
                                 <span className={`inline-block w-16 py-1 rounded-lg text-[12px]
                                   font-bold ${men === 'NP'
-                                    ? 'bg-amber-100 text-amber-800 border border-amber-300'
-                                    : 'bg-red-100 text-red-800 border border-red-300'}`}>
+                                    ? 'bg-amber-500 text-white border border-amber-500'
+                                    : 'bg-red-500 text-white border border-red-500'}`}>
                                   {men}
                                 </span>
                               ) : (

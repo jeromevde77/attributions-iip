@@ -39,30 +39,26 @@ const sign = (v) => (v > 0 ? '+' : '');
  * fait. C'est pourquoi il sort du podium plutôt que d'en occuper le dernier
  * rang.
  */
-const OR_MEDAILLE     = '#C9A84C';
-const ARGENT_MEDAILLE = '#8C97A8';
-const BRONZE_MEDAILLE = '#A8763E';
-const BRIQUE          = '#9d4a38';
-
+/* LE PODIUM EST RETIRÉ (Charles, 29 septembre 2026 : « couleurs ! ») : or,
+   argent et bronze étaient trois teintes qu'aucun réglage ne porte — et l'or
+   est celui de l'épreuve intégrée, il ne dit que cela. Le taux se lit dans
+   les ÉTATS de la configuration, sur fond blanc, chiffre à l'encre :
+     95–100 % réussi (la dotation est employée, c'est le but) · 85–95 % en
+     cours · sous 85 % à surveiller (des périodes restent sur la table) ·
+     au-delà de 100 % à corriger (le dépassement, seul vrai problème). */
 export function tonDotation(p) {
-  if (p == null) return { teinte: '#94A3B8', fond: '#F8FAFC', bord: '#E2E8F0', rang: null };
-  if (p > 100)   return { teinte: BRIQUE, fond: '#F9EFEC', bord: '#E3C4BB', rang: 'dépassement' };
-  if (p >= 95)   return { teinte: OR_MEDAILLE, fond: '#FBF6E8', bord: '#E6D6A5', rang: 'or' };
-  if (p >= 85)   return { teinte: ARGENT_MEDAILLE, fond: '#F4F6F8', bord: '#D8DEE6', rang: 'argent' };
-  return { teinte: BRONZE_MEDAILLE, fond: '#F8F2EB', bord: '#DFC9AE', rang: 'bronze' };
+  const blanc = { fond: '#FFFFFF', bord: 'rgb(var(--gris-200))' };
+  if (p == null) return { teinte: 'rgb(var(--gris-300))', ...blanc, rang: null, etat: 'neutre' };
+  if (p > 100)   return { teinte: 'var(--c-refuse)', ...blanc, rang: 'dépassement', etat: 'corriger' };
+  if (p >= 95)   return { teinte: 'var(--c-reussi)', ...blanc, rang: 'or', etat: 'reussi' };
+  if (p >= 85)   return { teinte: 'var(--c-disponible)', ...blanc, rang: 'argent', etat: 'disponible' };
+  return { teinte: 'var(--c-attente)', ...blanc, rang: 'bronze', etat: 'surveiller' };
 }
+// Le chiffre reste à l'encre : la couleur va à la barre, jamais au texte.
 function trafficColor(p) {
-  const r = tonDotation(p).rang;
-  return r === 'or' ? 'medaille-or' : r === 'argent' ? 'medaille-argent'
-    : r === 'bronze' ? 'medaille-bronze'
-    : r === 'dépassement' ? 'medaille-depassement' : 'text-slate-400';
+  return tonDotation(p).rang === 'dépassement' ? 'text-iip-texte font-bold' : 'text-iip-texte';
 }
-function trafficBg(p) {
-  const r = tonDotation(p).rang;
-  return r === 'or' ? 'fond-or' : r === 'argent' ? 'fond-argent'
-    : r === 'bronze' ? 'fond-bronze'
-    : r === 'dépassement' ? 'fond-depassement' : '';
-}
+function trafficBg() { return ''; }
 
 // ── KPI card ─────────────────────────────────────────────────────────────────
 function Kpi({ label, value, sub, color = 'text-iip-gold' }) {
@@ -110,10 +106,10 @@ function ExtDotPanel({ annee }) {
           const depasse = v.dot > 0;
           if (v.illimite) {
             return (
-              <div key={pot} className="rounded-lg border border-teal-200 bg-teal-50 p-3">
+              <div key={pot} className="rounded-lg border border-teal-200 bg-teal-50 p-3 border-l-4 border-l-teal-500">
                 <div className="flex justify-between items-center mb-1">
                   <span className="font-bold text-sm">{pot}</span>
-                  <span className="text-[10px] bg-teal-200 text-teal-800 px-1.5 py-0.5 rounded font-bold">∞ Illimité</span>
+                  <span className="text-[10px] bg-teal-500 text-white px-1.5 py-0.5 rounded font-bold">∞ Illimité</span>
                 </div>
                 <div className="text-xs text-gray-600 mb-2">
                   Enveloppe <b>illimitée</b> · Consommé : <b>{v.consomme}</b> pér. B
@@ -123,10 +119,10 @@ function ExtDotPanel({ annee }) {
             );
           }
           return (
-            <div key={pot} className={`rounded-lg border p-3 ${depasse ? 'border-orange-300 bg-orange-50' : 'border-teal-200 bg-teal-50'}`}>
+            <div key={pot} className={`rounded-lg border p-3 ${depasse ? 'border-orange-300 bg-orange-50' : 'border-teal-200 bg-teal-50'} border-l-4 border-l-orange-500`}>
               <div className="flex justify-between items-center mb-1">
                 <span className="font-bold text-sm">{pot}</span>
-                {depasse && <span className="text-[10px] bg-orange-200 text-orange-800 px-1.5 py-0.5 rounded font-bold">⚠ DOT {v.dot} pér. B</span>}
+                {depasse && <span className="text-[10px] bg-orange-500 text-white px-1.5 py-0.5 rounded font-bold">⚠ DOT {v.dot} pér. B</span>}
               </div>
               <div className="text-xs text-gray-600 mb-2">
                 Plafond EXT : <b>{v.plafond}</b> pér. B · Consommé : <b>{v.consomme}</b> pér. B
@@ -153,7 +149,7 @@ function EnvCard({ env }) {
   const depasse = env.solde < 0;
   const dot = Math.abs(Math.min(0, env.solde));
   return (
-    <div className={`border rounded-lg px-3 py-2 flex items-center gap-3 ${depasse ? 'border-orange-200 bg-orange-50' : 'border-gray-200 bg-white'}`}>
+    <div className={`border rounded-lg px-3 py-2 flex items-center gap-3 ${depasse ? 'border-orange-200 bg-orange-50' : 'border-gray-200 bg-white'} border-l-4 border-l-orange-500`}>
       {/* Nom + code */}
       <div className="min-w-0 flex-1">
         <div className="text-xs font-semibold text-gray-700 truncate">{env.label}</div>
@@ -181,7 +177,7 @@ function EnvCard({ env }) {
       </div>
       {/* Badge dépassement */}
       {depasse && (
-        <span className="text-[10px] bg-orange-100 text-orange-700 border border-orange-200 px-1.5 py-0.5 rounded font-bold flex-shrink-0 whitespace-nowrap">
+        <span className="text-[10px] bg-orange-500 text-white border border-orange-500 px-1.5 py-0.5 rounded font-bold flex-shrink-0 whitespace-nowrap">
           ⚠ +{fmt(dot)}
         </span>
       )}
@@ -320,7 +316,7 @@ function DotationComparaison({ civil }) {
     });
   }
 
-  const NIV_PAL = ['#f97316','#60a5fa','#1e3a8a','#a855f7','#ec4899'];
+  const NIV_PAL = ['var(--c-attente)','var(--c-disponible)','var(--c-texte)','var(--c-faveur)','var(--c-helb)'];
   const niveaux = data ? [...new Set(data.sections.flatMap(s => s.ues.map(u => u.ue_niv).filter(Boolean)))]
     .sort((a,b) => parseInt(a.match(/\d+$/)?.[0]??99) - parseInt(b.match(/\d+$/)?.[0]??99)) : [];
   const nivColor = niv => NIV_PAL[niveaux.indexOf(niv) % NIV_PAL.length] || '#6b7280';
@@ -406,8 +402,8 @@ function DotationComparaison({ civil }) {
         <div className="bg-white rounded-xl border border-gray-200 overflow-x-auto">
           <table className="w-full text-sm border-collapse">
             <thead>
-              <tr className="text-white text-xs" style={{ background: '#1B2B4B' }}>
-                <Th col="nom" align="left" rowSpan={2} style={{position:'sticky',left:0,background:'#1B2B4B',zIndex:10,verticalAlign:'bottom',paddingBottom:'0.5rem'}}>Section / UE</Th>
+              <tr className="text-white text-xs" style={{ background: 'var(--c-principal)' }}>
+                <Th col="nom" align="left" rowSpan={2} style={{position:'sticky',left:0,background:'var(--c-principal)',zIndex:10,verticalAlign:'bottom',paddingBottom:'0.5rem'}}>Section / UE</Th>
                 <Th col="niv" align="center" rowSpan={2} style={{verticalAlign:'bottom',paddingBottom:'0.5rem'}}>Niv.</Th>
                 <Th col="quad" align="center" rowSpan={2} style={{verticalAlign:'bottom',paddingBottom:'0.5rem'}}>Quad.</Th>
                 <th className="px-2 py-1.5 h-9 text-center font-semibold" colSpan={3}
@@ -416,7 +412,7 @@ function DotationComparaison({ civil }) {
                   style={{borderLeft:'1px solid rgba(255,255,255,.18)'}}>{annee2}</th>
                 <Th col="delta" align="center" rowSpan={2} style={{borderLeft:'1px solid rgba(255,255,255,.18)',verticalAlign:'bottom',paddingBottom:'0.5rem'}}>Δ</Th>
               </tr>
-              <tr className="text-white/80 text-[10px]" style={{ background: '#1B2B4B' }}>
+              <tr className="text-white/80 text-[10px]" style={{ background: 'var(--c-principal)' }}>
                 <Th col="q1a" align="right" style={{borderLeft:'1px solid rgba(255,255,255,.12)',fontWeight:'normal'}}>Q1</Th>
                 <Th col="q2a" align="right" style={{fontWeight:'normal'}}>Q2</Th>
                 <Th col="ta" align="right" style={{fontWeight:'600'}}>Total</Th>
@@ -434,7 +430,7 @@ function DotationComparaison({ civil }) {
                     {/* Ligne section */}
                     <tr key={sec.section}
                       className={`cursor-pointer border-t-2 ${si % 2 === 0 ? 'bg-gray-50' : 'bg-white'} hover:bg-iip-gold/5`}
-                      style={{borderTopColor: '#1B2B4B'}}
+                      style={{borderTopColor: 'var(--c-principal)'}}
                       onClick={() => toggleSec(sec.section)}>
                       <td className="px-3 py-2 font-bold text-iip-gold sticky left-0 z-10 overflow-hidden text-ellipsis whitespace-nowrap"
                         style={{background: si % 2 === 0 ? '#f9fafb' : 'white', width:colW.nom, maxWidth:colW.nom}}>
@@ -871,11 +867,11 @@ export default function Pilotage({ vue = 'tout' }) {
                     <YAxis tick={{ fontSize: 11 }} tickFormatter={v => fmt(v / 1000, 1) + 'k'} />
                     <Tooltip content={<ChartTip />} />
                     <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 12 }} />
-                    <Bar dataKey="Dotation organique" fill="#1B2B4B" radius={[3, 3, 0, 0]} />
-                    <Bar dataKey="Usage organique"    fill="#00AACC" radius={[3, 3, 0, 0]} />
+                    <Bar dataKey="Dotation organique" fill="var(--c-principal)" radius={[3, 3, 0, 0]} />
+                    <Bar dataKey="Usage organique"    fill="rgb(var(--e-donnees-500))" radius={[3, 3, 0, 0]} />
                     {/* Les années où la direction a constaté un solde : ce
                         qu'elle déclare, à côté de ce que la base compte. */}
-                    <Bar dataKey="Usage constaté"     fill="#C9A84C" radius={[3, 3, 0, 0]} />
+                    <Bar dataKey="Usage constaté"     fill="rgb(var(--e-donnees-300))" radius={[3, 3, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               ) : (
@@ -964,12 +960,12 @@ export default function Pilotage({ vue = 'tout' }) {
 
                     <div className={`rounded-carte border px-3 py-2 ${
                       d.solde_apres_jan_juin < 0
-                        ? 'border-[#E8CFC7] bg-[#FBF1EE]' : 'border-emerald-200 bg-emerald-50'}`}>
+                        ? 'border-slate-200 border-l-4 border-l-[color:var(--c-refuse)]' : 'border-slate-200 border-l-4 border-l-[color:var(--c-reussi)]'}`}>
                       <div className="text-[10px] text-gray-600">
                         Reste pour la rentrée
                       </div>
                       <div className={`text-lg font-bold leading-tight ${
-                        d.solde_apres_jan_juin < 0 ? 'text-[#9d4a38]' : 'text-emerald-800'}`}>
+                        'text-iip-texte'}`}>
                         {fmt(d.solde_apres_jan_juin)}
                       </div>
                       <div className="text-[10px] text-gray-500">
@@ -987,7 +983,7 @@ export default function Pilotage({ vue = 'tout' }) {
                   deux mesure ce qui reste à encoder. Le fondre dans le solde
                   ferait disparaître cette information même. */}
               {d.solde_constate != null && (
-                <div className="px-4 py-3 border-b border-gray-100 bg-amber-50/60">
+                <div className="px-4 py-3 border-b border-gray-100 bg-amber-50/60 border-l-4 border-l-amber-500">
                   <div className="flex items-center gap-6 flex-wrap text-xs">
                     <div>
                       <div className="text-[10px] uppercase tracking-wider text-amber-700 mb-0.5">
@@ -1041,7 +1037,7 @@ export default function Pilotage({ vue = 'tout' }) {
                       const dep = e.solde < 0;
                       const dot = Math.abs(Math.min(0, e.solde));
                       return (
-                        <div key={e.code} className={`rounded-lg border px-3 py-2 text-xs ${dep ? 'border-orange-200 bg-orange-50' : 'border-gray-200'}`}>
+                        <div key={e.code} className={`rounded-lg border px-3 py-2 text-xs ${dep ? 'border-orange-200 bg-orange-50' : 'border-gray-200'} border-l-4 border-l-orange-500`}>
                           <div className="font-semibold text-iip-blue truncate">{e.label}</div>
                           <div className="text-[10px] text-gray-400 mb-1.5">{e.code}</div>
                           <div className="flex justify-between text-[10px] text-gray-500 mb-1">
@@ -1176,7 +1172,7 @@ export default function Pilotage({ vue = 'tout' }) {
                   <Legend iconSize={8} wrapperStyle={{ fontSize: 11 }} />
                   <Bar yAxisId="pep" dataKey="PEP"      fill="#6b7fff" radius={[3,3,0,0]} name="PEP (pér.-élèves)" />
                   <Line yAxisId="pep" dataKey="PEP réf." stroke="#ef4444" strokeWidth={2} dot={{ r: 3 }} strokeDasharray="4 2" name="PEP réf." />
-                  <Line yAxisId="dot" dataKey="Dotation" stroke="#d1a846" strokeWidth={2} dot={{ r: 3 }} name="Dotation org. (pér. B)" />
+                  <Line yAxisId="dot" dataKey="Dotation" stroke="var(--c-principal)" strokeWidth={2} dot={{ r: 3 }} name="Dotation org. (pér. B)" />
                 </ComposedChart>
               </ResponsiveContainer>
             </div>
@@ -1204,7 +1200,7 @@ export default function Pilotage({ vue = 'tout' }) {
                       <tr key={row.annee_civile} className={`border-t border-gray-100 ${row.annee_civile === selYear ? 'bg-iip-gold/5' : 'hover:bg-gray-50'}`}>
                         <td className={`px-3 py-2 font-semibold ${row.annee_civile === selYear ? 'text-iip-gold' : 'text-gray-700'}`}>
                           {row.annee_civile} {row.annee_civile === selYear ? '◄' : ''}
-                          {row.derogation && <span className="ml-1 text-[10px] bg-amber-100 text-amber-600 px-1 rounded">dérог.</span>}
+                          {row.derogation && <span className="ml-1 text-[10px] bg-amber-500 text-white px-1 rounded">dérог.</span>}
                           {row.partiel && <span className="ml-1 text-[10px] bg-iip-turquoise/10 text-iip-blue px-1 rounded">partiel</span>}
                         </td>
                         <td className="px-3 py-2 text-right text-gray-500 font-mono text-xs">{row.pep_annee_utilisee || '—'}</td>
@@ -1221,9 +1217,9 @@ export default function Pilotage({ vue = 'tout' }) {
                             : '—'}
                         </td>
                         <td className="px-3 py-2 text-center">
-                          {row.zone === 'NEUTRE' && <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-champ">Neutre ±8 %</span>}
+                          {row.zone === 'NEUTRE' && <span className="text-xs bg-green-500 text-white px-2 py-0.5 rounded-champ">Neutre ±8 %</span>}
                           {row.zone === 'HAUSSE' && <span className="text-xs bg-iip-turquoise/10 text-iip-blue px-2 py-0.5 rounded-champ">↑ Hausse &gt;+8 %</span>}
-                          {row.zone === 'BAISSE' && <span className="text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded-champ">↓ Baisse &lt;−8 %</span>}
+                          {row.zone === 'BAISSE' && <span className="text-xs bg-red-500 text-white px-2 py-0.5 rounded-champ">↓ Baisse &lt;−8 %</span>}
                           {row.zone == null && <span className="text-gray-300 text-xs">—</span>}
                         </td>
                         <td className="px-3 py-2 text-right">
@@ -1398,7 +1394,7 @@ export default function Pilotage({ vue = 'tout' }) {
                     ce dont on se souvient d'une année ; la consommation, on ne
                     l'a jamais soustraite. On saisit donc ce qu'on sait, et
                     Lucie en déduit le reste. */}
-                <td className="px-4 py-2"><input type="number" step="0.01" value={editDot.solde_constate ?? ''} onChange={e => setEditDot({ ...editDot, solde_constate: e.target.value })} placeholder="ex. 5" title="Périodes restées inutilisées, telles que la direction les constate" className="border border-amber-300 bg-amber-50 rounded px-2 py-1.5 h-9 text-sm w-28 text-right" /></td>
+                <td className="px-4 py-2"><input type="number" step="0.01" value={editDot.solde_constate ?? ''} onChange={e => setEditDot({ ...editDot, solde_constate: e.target.value })} placeholder="ex. 5" title="Périodes restées inutilisées, telles que la direction les constate" className="border border-amber-300 bg-amber-50 rounded px-2 py-1.5 h-9 text-sm w-28 text-right border-l-4 border-l-amber-500" /></td>
                 <td className="px-4 py-2"><input value={editDot.notes || ''} onChange={e => setEditDot({ ...editDot, notes: e.target.value })} className="border border-gray-300 rounded px-2 py-1.5 h-9 text-sm w-full" /></td>
                 <td className="px-4 py-2 flex gap-1 justify-end">
                   <button onClick={saveDotation} disabled={saving} className="bg-iip-gold text-white text-xs px-2 py-1 rounded"><IconCheck size={14} /></button>
@@ -1636,7 +1632,7 @@ export default function Pilotage({ vue = 'tout' }) {
         ) : loading ? (
           <div className="text-gray-400 py-12 text-center">Chargement…</div>
         ) : civil.length === 0 ? (
-          <div className="bg-amber-50 border border-amber-200 rounded-xl p-6 text-sm text-amber-700">
+          <div className="bg-amber-500 border border-amber-500 rounded-xl p-6 text-sm text-white">
             Aucune année civile configurée. Allez dans <strong>Configuration</strong> pour ajouter les premières années.
           </div>
         ) : (

@@ -147,8 +147,8 @@ export default function RepartitionPeriodes() {
 
       {message && (
         <div className={`px-4 py-2.5 rounded-lg text-sm flex items-center justify-between ${
-          message.type === 'ok' ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
-                                : 'bg-red-50 text-red-800 border border-red-200'}`}>
+          message.type === 'ok' ? 'bg-emerald-500 text-white border border-emerald-500'
+                                : 'bg-red-500 text-white border border-red-500'}`}>
           <span>{message.texte}</span>
           <button onClick={() => setMessage(null)} className="ml-3 opacity-60">✕</button>
         </div>
@@ -213,7 +213,7 @@ export default function RepartitionPeriodes() {
                 {civile.enveloppes.map(e => (
                   <div key={e.code}
                     className={`px-3 py-1.5 rounded-lg border text-[12px] ${e.depasse
-                      ? 'bg-red-50 border-red-300 text-red-800'
+                      ? 'bg-red-500 border-red-500 text-white'
                       : 'bg-slate-50 border-slate-200 text-slate-700'}`}>
                     <b>{e.label}</b> · {nb(e.consomme)} pér.
                     {e.illimite ? <span className="text-slate-400"> · sans plafond</span>
@@ -241,8 +241,8 @@ export default function RepartitionPeriodes() {
       {data?.controle && (
         <div className={`px-4 py-2.5 rounded-xl border text-[13px] flex items-center gap-3 flex-wrap ${
           data.controle.boucle
-            ? 'bg-emerald-50 border-emerald-200 text-emerald-900'
-            : 'bg-red-50 border-red-300 text-red-900'}`}>
+            ? 'bg-emerald-500 border-emerald-500 text-white'
+            : 'bg-red-500 border-red-500 text-white'}`}>
           {data.controle.boucle
             ? <IconCheck size={16} className="flex-none" />
             : <IconAlertTriangle size={16} className="flex-none" />}
@@ -260,7 +260,7 @@ export default function RepartitionPeriodes() {
       )}
 
       {data?.anomalies?.length > 0 && (
-        <div className="px-4 py-3 rounded-xl bg-amber-50 border border-amber-200">
+        <div className="px-4 py-3 rounded-xl bg-amber-50 border border-amber-200 border-l-4 border-l-amber-500">
           <div className="flex items-center gap-1.5 text-[13px] font-semibold text-amber-900 mb-1.5">
             <IconAlertTriangle size={15} /> {data.anomalies.length} contrôle(s) à examiner
           </div>
@@ -314,12 +314,12 @@ export default function RepartitionPeriodes() {
                             {s.ues} organisation(s) · {nb(s.attribue)} pér. attribuées
                           </span>
                           {!s.boucle && (
-                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-red-100 text-red-700 font-normal">
+                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-red-500 text-white font-normal">
                               écart de bouclage
                             </span>
                           )}
                           {s.hors_organique > 0 && (
-                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-violet-100 text-violet-700 font-normal">
+                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-violet-500 text-white font-normal">
                               dont {nb(s.hors_organique)} hors dotation
                             </span>
                           )}
@@ -402,7 +402,7 @@ function UeBloc({ u, val, editer, cle, modifs, onAppliquerDates }) {
             {fr(u.date_debut)} → {fr(u.date_fin)}
           </span>
           {u.pot && u.pot !== 'organique' && (
-            <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded bg-violet-100 text-violet-800"
+            <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded bg-violet-500 text-white"
               title="Cette UE est financée par une enveloppe fermée, non par la dotation organique.">
               {u.pot}
             </span>

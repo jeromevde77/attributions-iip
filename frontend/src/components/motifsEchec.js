@@ -20,7 +20,7 @@ export const MOTIFS_ECHEC = [
   {
     cle: 'theorie',
     libelle: 'Maîtrise des notions théoriques',
-    couleur: '#0369a1',
+    couleur: 'var(--c-texte)',
     motifs: [
       { cle: 'th_restitution', texte: "Les notions théoriques que mobilise cet acquis ne sont pas restituées avec exactitude." },
       { cle: 'th_lacunes', texte: "Des lacunes portant sur les fondements de cet acquis subsistent au terme de l'unité." },
@@ -32,7 +32,7 @@ export const MOTIFS_ECHEC = [
   {
     cle: 'integration',
     libelle: 'Intégration et mise en relation',
-    couleur: '#7c3aed',
+    couleur: 'var(--c-faveur)',
     motifs: [
       { cle: 'in_juxtapose', texte: "Les éléments de cet acquis sont juxtaposés sans être mis en relation." },
       { cle: 'in_lien', texte: "Le lien entre les notions de cet acquis et celles des autres acquis de l'unité n'est pas établi." },
@@ -43,7 +43,7 @@ export const MOTIFS_ECHEC = [
   {
     cle: 'transfert',
     libelle: 'Transfert en situation',
-    couleur: '#15803d',
+    couleur: 'var(--c-texte)',
     motifs: [
       { cle: 'tr_situation', texte: "Cet acquis n'est pas transféré à une situation professionnelle nouvelle : la restitution reste théorique." },
       { cle: 'tr_choix', texte: "Le choix de la démarche adaptée à la situation proposée n'est pas justifié." },
@@ -55,7 +55,7 @@ export const MOTIFS_ECHEC = [
   {
     cle: 'methode',
     libelle: 'Méthode et démarche',
-    couleur: '#b45309',
+    couleur: 'var(--c-attente)',
     motifs: [
       { cle: 'me_demarche', texte: "La démarche attendue par cet acquis n'est pas conduite jusqu'à son terme." },
       { cle: 'me_etapes', texte: "Les étapes de la démarche sont omises ou inversées." },
@@ -66,7 +66,7 @@ export const MOTIFS_ECHEC = [
   {
     cle: 'communication',
     libelle: 'Communication et argumentation',
-    couleur: '#be185d',
+    couleur: 'var(--c-helb)',
     motifs: [
       { cle: 'co_clarte', texte: "La communication des éléments de cet acquis manque de clarté : le propos n'est pas intelligible pour son destinataire." },
       { cle: 'co_argument', texte: "Les affirmations ne sont pas étayées : l'argumentation attendue par cet acquis fait défaut." },
@@ -77,7 +77,7 @@ export const MOTIFS_ECHEC = [
   {
     cle: 'posture',
     libelle: 'Posture professionnelle et réflexivité',
-    couleur: '#0891b2',
+    couleur: 'var(--c-accent)',
     motifs: [
       { cle: 'po_reflexif', texte: "Le retour réflexif attendu par cet acquis reste descriptif : les faits sont rapportés, non analysés." },
       { cle: 'po_limites', texte: "Les limites de sa propre pratique ne sont pas identifiées." },

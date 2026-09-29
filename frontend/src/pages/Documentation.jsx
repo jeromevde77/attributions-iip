@@ -174,8 +174,8 @@ export default function Documentation() {
                 parcourir la liste pour les retrouver : on ne le fait pas. */}
             {aLire > 0 && (
               <div className="carte p-3 flex items-start gap-2"
-                style={{ borderLeftWidth: 3, borderLeftColor: '#B45309' }}>
-                <IconAlertTriangle size={16} className="flex-none mt-0.5 text-[#B45309]" />
+                style={{ borderLeftWidth: 3, borderLeftColor: 'var(--c-attente)' }}>
+                <IconAlertTriangle size={16} className="flex-none mt-0.5 text-[color:var(--c-attente)]" />
                 <div className="text-[13px]">
                   <b>La direction a publié {aLire === 1 ? 'un document'
                     : `${aLire} documents`} : veuillez en prendre connaissance.</b>
@@ -210,7 +210,7 @@ export default function Documentation() {
               {vus.map(d => (
                 <div key={d.cle} className="carte px-3 py-2 flex items-center gap-3"
                   style={d.a_confirmer
-                    ? { borderLeftWidth: 3, borderLeftColor: '#B45309' } : undefined}>
+                    ? { borderLeftWidth: 3, borderLeftColor: 'var(--c-attente)' } : undefined}>
                   <span className="flex-1 min-w-0">
                     <span className="text-[13px] font-semibold text-iip-blue">{d.titre}</span>
                     <span className="block text-[11px] text-slate-500">
@@ -226,7 +226,7 @@ export default function Documentation() {
                       <IconCheck size={14} /> confirmé le {frDate(d.confirme_le)}
                     </span>
                   ) : d.a_confirmer ? (
-                    <span className="text-[11px] text-[#B45309] flex-none">à confirmer</span>
+                    <span className="text-[11px] text-[color:var(--c-attente)] flex-none">à confirmer</span>
                   ) : d.me_concerne ? null : (
                     <span className="text-[11px] text-slate-400 flex-none">pour information</span>
                   )}
@@ -436,7 +436,7 @@ function LireTexte({ cle, publie, natures, onClose, onChange, retirer: retirerDe
 
       {d?.version?.resume_changement && (
         <div className="carte p-3 mb-3 text-[13px]"
-          style={{ borderLeftWidth: 3, borderLeftColor: '#B45309' }}>
+          style={{ borderLeftWidth: 3, borderLeftColor: 'var(--c-attente)' }}>
           <b>Ce qui a changé dans cette version :</b> {d.version.resume_changement}
         </div>
       )}
@@ -777,7 +777,7 @@ function Registre({ cle, onClose }) {
         {(r?.lignes || []).map(l => (
           <div key={l.id} className="carte px-3 py-1.5 flex items-center gap-3 text-[13px]"
             style={l.confirme_le ? undefined
-              : { borderLeftWidth: 3, borderLeftColor: '#B45309' }}>
+              : { borderLeftWidth: 3, borderLeftColor: 'var(--c-attente)' }}>
             <span className="flex-1 min-w-0">
               {l.nom_complet || l.email}
               <span className="text-[11px] text-slate-400 ml-2">{l.role}</span>
@@ -788,7 +788,7 @@ function Registre({ cle, onClose }) {
               {l.ouvert_le ? `ouvert le ${frDate(l.ouvert_le)}` : 'jamais ouvert'}
             </span>
             <span className={`text-[11px] flex-none ${l.confirme_le
-              ? 'text-emerald-700' : 'text-[#B45309] font-semibold'}`}>
+              ? 'text-emerald-700' : 'text-[color:var(--c-attente)] font-semibold'}`}>
               {l.confirme_le ? `confirmé le ${frDate(l.confirme_le)}` : 'non confirmé'}
             </span>
           </div>

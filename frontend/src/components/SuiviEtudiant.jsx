@@ -12,9 +12,9 @@ import { authHeaders } from '../lib/api.js';
  * dit — il ne cache pas un onglet en espérant que personne ne trouve l'URL.
  */
 const TYPES = {
-  note:     { libelle: 'Note de suivi', cls: 'bg-sky-100 text-sky-800' },
-  rapport:  { libelle: 'Rapport',       cls: 'bg-violet-100 text-violet-800' },
-  document: { libelle: 'Document',      cls: 'bg-emerald-100 text-emerald-800' },
+  note:     { libelle: 'Note de suivi', cls: 'bg-sky-500 text-white' },
+  rapport:  { libelle: 'Rapport',       cls: 'bg-violet-500 text-white' },
+  document: { libelle: 'Document',      cls: 'bg-emerald-500 text-white' },
 };
 
 export default function SuiviEtudiant({ etudId }) {
@@ -93,7 +93,7 @@ export default function SuiviEtudiant({ etudId }) {
       </div>
 
       {erreur && (
-        <div className="text-[12px] text-red-700 bg-red-50 border border-red-200 rounded-carte px-3 py-2 flex items-start gap-1.5">
+        <div className="text-[12px] text-red-700 bg-red-50 border border-red-200 rounded-carte px-3 py-2 flex items-start gap-1.5 border-l-4 border-l-red-500">
           <IconAlertTriangle size={14} className="flex-none mt-0.5" />{erreur}
         </div>
       )}

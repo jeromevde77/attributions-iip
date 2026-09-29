@@ -122,8 +122,8 @@ export default function ListeDiplomes({ annee, onClose }) {
       </span>
       <span className={`flex-none text-[10px] px-2 py-0.5 rounded-champ font-semibold ${
         c.toutes_unites
-          ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-          : 'bg-amber-50 text-amber-800 border border-amber-200'}`}>
+          ? 'bg-emerald-500 text-white border border-emerald-500'
+          : 'bg-amber-500 text-white border border-amber-500'}`}>
         {c.toutes_unites ? 'complet' : 'épreuve intégrée'}
       </span>
     </label>
@@ -186,7 +186,7 @@ export default function ListeDiplomes({ annee, onClose }) {
               </p>
 
               <div className="border border-slate-200 rounded-lg overflow-hidden">
-                <div className="bg-emerald-50 px-3 py-1.5 text-[11px] font-semibold text-emerald-800">
+                <div className="bg-emerald-50 px-3 py-1.5 text-[11px] font-semibold text-emerald-800 border-l-4 border-l-emerald-500">
                   Diplômables ({cands.length})
                 </div>
                 {cands.map(c => <Ligne key={c.id} c={c} />)}

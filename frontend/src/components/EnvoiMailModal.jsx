@@ -122,7 +122,7 @@ export default function EnvoiMailModal({ pieces, typeDoc, sujet: sujetInitial = 
            style={{ maxHeight: '92vh' }}>
 
         {/* Barre marine */}
-        <div className="flex items-center justify-between px-4 py-2.5 bg-[#1B2B4B] flex-shrink-0">
+        <div className="flex items-center justify-between px-4 py-2.5 bg-[color:var(--c-principal)] flex-shrink-0">
           <div className="flex items-center gap-2 text-white">
             <IconMail size={18} />
             <div>
@@ -140,26 +140,26 @@ export default function EnvoiMailModal({ pieces, typeDoc, sujet: sujetInitial = 
 
         <div className="flex-1 overflow-y-auto p-4 space-y-4">
           {etat?.redirection && (
-            <div className="flex items-start gap-2 text-[12px] text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+            <div className="flex items-start gap-2 text-[12px] text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 border-l-4 border-l-amber-500">
               <IconAlertTriangle size={15} className="flex-shrink-0 mt-0.5" />
               <span>Redirection de test active : tous les courriels partiront vers <b>{etat.redirection}</b>, quel que soit le destinataire affiché.</span>
             </div>
           )}
           {etat?.actif && etat.pdf && !etat.smtp && (
-            <div className="flex items-start gap-2 text-[12px] text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+            <div className="flex items-start gap-2 text-[12px] text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 border-l-4 border-l-amber-500">
               <IconAlertTriangle size={15} className="flex-shrink-0 mt-0.5" />
               <span>Le serveur n'a pas de configuration SMTP : les envois seront <b>simulés</b> et
                 consignés dans le journal, mais aucun courriel ne partira.</span>
             </div>
           )}
           {etat && !etat.actif && (
-            <div className="flex items-start gap-2 text-[12px] text-red-800 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+            <div className="flex items-start gap-2 text-[12px] text-red-800 bg-red-50 border border-red-200 rounded-lg px-3 py-2 border-l-4 border-l-red-500">
               <IconAlertTriangle size={15} className="flex-shrink-0 mt-0.5" />
               <span>L'envoi de documents par courriel est <b>désactivé</b> (Configuration → Courriels).</span>
             </div>
           )}
           {etat?.actif && !etat.pdf && (
-            <div className="flex items-start gap-2 text-[12px] text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+            <div className="flex items-start gap-2 text-[12px] text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 border-l-4 border-l-amber-500">
               <IconAlertTriangle size={15} className="flex-shrink-0 mt-0.5" />
               <span>Ce serveur ne sait pas produire de PDF : les documents partiront
                 <b> dans le corps du courriel</b>.
@@ -256,7 +256,7 @@ export default function EnvoiMailModal({ pieces, typeDoc, sujet: sujetInitial = 
                   </div>
                 )}
               </div>
-              {erreur && <div className="text-[12px] text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{erreur}</div>}
+              {erreur && <div className="text-[12px] text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-2 border-l-4 border-l-red-500">{erreur}</div>}
             </>
           )}
         </div>
@@ -290,9 +290,9 @@ function Bilan({ resultat }) {
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap gap-2 text-[12px]">
-        {envoyes > 0 && <span className="px-2 py-1 rounded-md bg-emerald-50 text-emerald-800 border border-emerald-200 flex items-center gap-1"><IconCheck size={13} /> {envoyes} envoyé{envoyes > 1 ? 's' : ''}</span>}
-        {simules > 0 && <span className="px-2 py-1 rounded-md bg-amber-50 text-amber-800 border border-amber-200">{simules} simulé{simules > 1 ? 's' : ''} (SMTP absent)</span>}
-        {echecs > 0 && <span className="px-2 py-1 rounded-md bg-red-50 text-red-800 border border-red-200">{echecs} en échec</span>}
+        {envoyes > 0 && <span className="px-2 py-1 rounded-md bg-emerald-500 text-white border border-emerald-500 flex items-center gap-1"><IconCheck size={13} /> {envoyes} envoyé{envoyes > 1 ? 's' : ''}</span>}
+        {simules > 0 && <span className="px-2 py-1 rounded-md bg-amber-500 text-white border border-amber-500">{simules} simulé{simules > 1 ? 's' : ''} (SMTP absent)</span>}
+        {echecs > 0 && <span className="px-2 py-1 rounded-md bg-red-500 text-white border border-red-500">{echecs} en échec</span>}
       </div>
       <div className="border border-slate-200 rounded-lg overflow-hidden">
         <table className="w-full text-[13px]">

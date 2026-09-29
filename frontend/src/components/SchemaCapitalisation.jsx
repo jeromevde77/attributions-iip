@@ -36,7 +36,7 @@ const LIBELLE_CAP = {
   bloquee: 'Encore indisponible',
 };
 function couleursCap(statut) {
-  if (statut === 'structure') return { fond: '#F8FAFC', bord: '#1B2B4B', rail: null, texte: '#1B2B4B' };
+  if (statut === 'structure') return { fond: '#F8FAFC', bord: 'var(--c-principal)', rail: null, texte: 'var(--c-texte)' };
   return teintes(CAP_ETAT[statut] || 'indisponible');
 }
 export const COULEURS_CAP = Object.fromEntries(Object.keys(LIBELLE_CAP)
@@ -64,7 +64,7 @@ function Cadeau({ x, y, taille = 8 }) {
 // L'épreuve intégrée est l'aboutissement du cursus : liseré doré, quelle que
 // soit la situation de l'étudiant (la couleur de fond continue d'indiquer
 // l'état : acquise, accessible, bloquée…).
-export const OR = { fill: '#FBF3DC', stroke: '#C9A84C', text: '#7A5C12', label: 'Épreuve intégrée' };
+export const OR = { fill: '#FFFFFF', stroke: 'var(--c-epreuve)', text: 'var(--c-texte)', label: 'Épreuve intégrée' };
 
 export default function SchemaCapitalisation({
   data, mode = 'etudiant', onNiveau = null, replie = false, titre = 'Schéma de capitalisation',
@@ -353,7 +353,7 @@ export default function SchemaCapitalisation({
                 {['BA1', 'BA2', 'BA3', 'INC'].map(b => (
                   <marker key={b} id={`fl-${b}`} markerWidth="7" markerHeight="7" refX="6" refY="2.5"
                     orient="auto" markerUnits="strokeWidth">
-                    <path d="M0,0 L0,5 L6,2.5 z" style={{ fill: b === 'INC' ? '#B45309' : couleurBloc(b) }} />
+                    <path d="M0,0 L0,5 L6,2.5 z" style={{ fill: b === 'INC' ? 'var(--c-attente)' : couleurBloc(b) }} />
                   </marker>
                 ))}
               </defs>
@@ -418,7 +418,7 @@ export default function SchemaCapitalisation({
                 const memeAnnee = nDe(eg.from) && nDe(eg.from) === nDe(eg.to);
                 const interne = eg.type === 'interne';
                 const bloc = nDe(eg.to);
-                const couleur = enArriere ? '#B45309' : (couleurBloc(bloc) || '#94A3B8');
+                const couleur = enArriere ? 'var(--c-attente)' : (couleurBloc(bloc) || 'var(--c-disponible)');
                 const pointe = enArriere ? 'fl-INC' : (['BA1', 'BA2', 'BA3'].includes(bloc) ? `fl-${bloc}` : 'fl-cap');
                 const titre = (interne ? 'Prérequis interne — ' : 'Prérequis du dossier pédagogique — ')
                   + `l'UE ${eg.from} conditionne l'UE ${eg.to}`
@@ -494,7 +494,7 @@ export default function SchemaCapitalisation({
                       n.prerequis?.length ? '\nPrérequis : ' + n.prerequis.join(', ') : ''}${
                       n.prereq_manquants?.length ? '\nManquants : ' + n.prereq_manquants.join(', ') : ''}`}</title>
                     <path d={boite(p.x, p.y, layout.L, layout.H, 6)}
-                      style={{ fill: co.fond, stroke: actif ? '#00AACC' : co.bord }}
+                      style={{ fill: co.fond, stroke: actif ? 'var(--c-accent)' : co.bord }}
                       strokeWidth={actif ? 2.2 : 1}
                       strokeDasharray={n.statut === 'sous_reserve' ? '4 3' : undefined} />
                     {co.rail && (

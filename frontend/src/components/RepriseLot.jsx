@@ -231,7 +231,7 @@ export default function RepriseLot({ annee, section = null, onClose, onFini }) {
               </div>
 
               {/* ── La clôture, et ce qu'elle engage ──────────────────────── */}
-              <div className="px-3 py-3 rounded-xl border border-amber-200 bg-amber-50 space-y-2">
+              <div className="px-3 py-3 rounded-xl border border-amber-200 bg-amber-50 space-y-2 border-l-4 border-l-amber-500">
                 <label className="flex items-start gap-2 text-[13px] text-amber-900">
                   <input type="checkbox" checked={clore} className="mt-0.5"
                     onChange={e => { setClore(e.target.checked); if (!e.target.checked) setPresents(false); }} />

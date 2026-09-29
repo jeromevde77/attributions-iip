@@ -208,7 +208,7 @@ export default function Users({ embedded = false }) {
         </button>
       </div>
 
-      {error && <div className="bg-red-50 text-red-700 text-sm rounded p-3 mb-3">{error}</div>}
+      {error && <div className="bg-red-50 text-red-700 text-sm rounded p-3 mb-3 border-l-4 border-l-red-500">{error}</div>}
 
 
       {showForm && (
@@ -592,7 +592,7 @@ function MatriceAcces({ users, sectionsDispo, profils, onModifie, onProfil,
         <button onClick={() => reglableIci(u) && onBasculerActif(u)}
           disabled={u.id === moiId || !reglableIci(u)}
           className={`text-[10px] px-1.5 py-0.5 rounded ${u.actif
-            ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-500'}
+            ? 'bg-emerald-500 text-white' : 'bg-slate-100 text-slate-500'}
             ${!reglableIci(u) ? 'cursor-default' : ''}`}
           title={u.id === moiId ? 'Votre propre compte'
             : reglableIci(u) ? 'Activer ou désactiver'
@@ -608,7 +608,7 @@ function MatriceAcces({ users, sectionsDispo, profils, onModifie, onProfil,
           il faut le téléphone de l'intéressé. */}
       <td className="border-b border-slate-100 px-2 py-1.5 text-center whitespace-nowrap">
         {u.mfa_actif
-          ? <IconShieldCheck size={15} className="inline-block" style={{ color: '#4a7c59' }}
+          ? <IconShieldCheck size={15} className="inline-block" style={{ color: 'var(--c-texte)' }}
               title="Vérification en deux temps active" />
           : <IconShieldOff size={15} className="inline-block text-slate-300"
               title="Mot de passe seul" />}
@@ -736,9 +736,9 @@ function MatriceAcces({ users, sectionsDispo, profils, onModifie, onProfil,
         </div>
 
         <div className="px-4 py-2 border-t border-slate-200 bg-slate-50 flex flex-wrap gap-3 text-[11px] text-slate-600">
-          <span><span className="px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800">écrit</span> modifie directement</span>
-          <span><span className="px-1.5 py-0.5 rounded bg-amber-100 text-amber-800">validation</span> encode, la direction tranche</span>
-          <span><span className="px-1.5 py-0.5 rounded bg-sky-100 text-sky-800">lit</span> consultation seule</span>
+          <span><span className="px-1.5 py-0.5 rounded bg-emerald-500 text-white">écrit</span> modifie directement</span>
+          <span><span className="px-1.5 py-0.5 rounded bg-amber-500 text-white">validation</span> encode, la direction tranche</span>
+          <span><span className="px-1.5 py-0.5 rounded bg-sky-500 text-white">lit</span> consultation seule</span>
           <span className="text-slate-400">— aucun accès</span>
           <span className="flex-1 text-right italic">
             Une case grisée signale un droit que le rôle interdit : changez le rôle pour l'ouvrir.

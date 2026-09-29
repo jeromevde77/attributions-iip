@@ -119,14 +119,14 @@ export default function PurgeResultats({ anneeCourante, onClose, onPurge }) {
       large="grande" ton="alerte" onFermer={onClose}>
       <div className="space-y-4">
           {erreur && (
-            <div className="px-3 py-2 rounded-lg bg-red-50 border border-red-200 text-[13px] text-red-800">
+            <div className="px-3 py-2 rounded-lg bg-red-50 border border-red-200 text-[13px] text-red-800 border-l-4 border-l-red-500">
               {erreur}
             </div>
           )}
 
           {fait ? (
             <>
-              <div className="px-4 py-3 rounded-xl bg-emerald-50 border border-emerald-200 text-[13px] text-emerald-900">
+              <div className="px-4 py-3 rounded-xl bg-emerald-50 border border-emerald-200 text-[13px] text-emerald-900 border-l-4 border-l-emerald-500">
                 <div className="font-semibold mb-1">Purge effectuée</div>
                 <ul className="text-[12px] space-y-0.5">
                   {Object.entries(fait.supprime || {}).map(([k, v]) => (
@@ -274,7 +274,7 @@ export default function PurgeResultats({ anneeCourante, onClose, onPurge }) {
 
               {/* Simulation */}
               {simulation && (
-                <div className="px-4 py-3 rounded-xl bg-amber-50 border border-amber-200">
+                <div className="px-4 py-3 rounded-xl bg-amber-50 border border-amber-200 border-l-4 border-l-amber-500">
                   <div className="flex items-center gap-1.5 text-[13px] font-semibold text-amber-900 mb-1.5">
                     <IconAlertTriangle size={15} /> Ce qui sera supprimé
                   </div>

@@ -9,9 +9,9 @@
  */
 // Réglables depuis Configuration → Thèmes et couleurs (2.12.194) : ce sont des
 // valeurs CSS, à lire dans un `style`, jamais dans un attribut SVG.
-export const COULEUR_BLOC = { BA1: 'var(--c-ba1, #E8890C)', BA2: 'var(--c-ba2, #7FB3D5)',
-  BA3: 'var(--c-ba3, #1B2B4B)', BA4: '#6E7FA0', BA5: '#9D4A38' };
-export const OR_EPREUVE = 'var(--c-epreuve, #C9A84C)';
+export const COULEUR_BLOC = { BA1: 'var(--c-ba1, var(--c-attente))', BA2: 'var(--c-ba2, var(--c-disponible))',
+  BA3: 'var(--c-ba3, var(--c-principal))', BA4: 'var(--c-disponible)', BA5: 'var(--c-refuse)' };
+export const OR_EPREUVE = 'var(--c-epreuve, var(--c-attente))';
 
 /** « ba2 », « BA 2 », « BA2 » → « BA2 » ; « BE1 » (même repère : CLAUDE.md,
  *  « BA1/BE1 orange ») → « BA1 » ; autre chose → null. */
@@ -21,7 +21,7 @@ export function blocDe(niv) {
 }
 export function couleurBloc(niv) {
   const b = blocDe(niv);
-  return b ? (COULEUR_BLOC[b] || '#94A3B8') : null;
+  return b ? (COULEUR_BLOC[b] || 'var(--c-disponible)') : null;
 }
 /** Le rang d'un bloc, pour trier : BA1 avant BA2, l'inconnu en dernier. */
 export function rangBloc(niv) {

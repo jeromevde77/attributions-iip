@@ -143,7 +143,7 @@ export default function FriseEcheances({ taches = [], onOuvrir }) {
                       className={`h-4 rounded-champ border border-slate-200
                         border-l-[3px] bg-white hover:shadow-pose
                         ${fait ? 'opacity-80' : ''}`}
-                      style={{ borderLeftColor: fait ? '#15803D' : couleurRail(u) }} />
+                      style={{ borderLeftColor: fait ? 'var(--c-texte)' : couleurRail(u) }} />
                   );
                 })}
                 {j.taches.length > 8 && (
@@ -179,7 +179,7 @@ export default function FriseEcheances({ taches = [], onOuvrir }) {
                         flex flex-wrap gap-x-4">
           {sansEcheance.length > 0 && (
             <span>
-              <b className="text-[#B45309]">{sansEcheance.length}</b> sans échéance —
+              <b className="text-[color:var(--c-attente)]">{sansEcheance.length}</b> sans échéance —
               {' '}elles ne tombent jamais, donc elles ne se font pas.
             </span>
           )}
@@ -194,8 +194,8 @@ export default function FriseEcheances({ taches = [], onOuvrir }) {
 
 /** La teinte du rail, prise sur l'échelle d'urgence commune. */
 function couleurRail(u) {
-  if (u.niveau === 'depasse' || u.niveau === 'presse') return '#9D4A38';
-  if (u.niveau === 'approche') return '#B45309';
+  if (u.niveau === 'depasse' || u.niveau === 'presse') return 'var(--c-refuse)';
+  if (u.niveau === 'approche') return 'var(--c-attente)';
   return '#CBD5E1';
 }
 

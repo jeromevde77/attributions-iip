@@ -46,7 +46,7 @@ import ImportHistorique from '../components/ImportHistorique.jsx';
 // s'il ne lui reste que la BA3, « Parcours » s'il en mélange plusieurs.
 // Couleurs des années d'études, communes à Lucie (cf. exports Attributions) :
 // BA1 orange, BA2 bleu clair, BA3 bleu marine, puis violet et rose au-delà.
-const NIV_PALETTE = ['#F97316', '#60A5FA', '#1E3A8A', '#A855F7', '#EC4899'];
+const NIV_PALETTE = ['var(--c-attente)', 'var(--c-disponible)', 'var(--c-texte)', 'var(--c-faveur)', 'var(--c-helb)'];
 
 function couleurNiveau(niv) {
   const m = /^BA(\d+)$/i.exec(String(niv || '').trim());
@@ -92,9 +92,9 @@ function ThTri({ champ, tri, onTri, className = '', children }) {
 
 function BadgeNiveau({ niveau, libelle, className = '' }) {
   if (!libelle) return null;
-  const cls = niveau === 'MIXTE' ? 'bg-amber-50 text-amber-700 border-amber-200'
-    : niveau === 'BA3'          ? 'bg-violet-50 text-violet-700 border-violet-200'
-    : 'bg-sky-50 text-sky-700 border-sky-200';
+  const cls = niveau === 'MIXTE' ? 'bg-amber-500 text-white border-amber-500'
+    : niveau === 'BA3'          ? 'bg-violet-500 text-white border-violet-500'
+    : 'bg-sky-500 text-white border-sky-500';
   return (
     <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded border ${cls} ${className}`}>
       {libelle}
@@ -135,7 +135,7 @@ function FriseParcours({ ues, codes }) {
     <div className="flex items-center gap-1.5">
       {groupes.map((g, gi) => (
         <span key={gi} className="gelule" title={g.b === 'EI' ? 'Épreuve intégrée' : g.b}
-          style={{ '--b': g.b === 'EI' ? '#C9A84C' : (couleurBloc(g.b) || '#D8DCE4') }}>
+          style={{ '--b': g.b === 'EI' ? 'var(--c-epreuve)' : (couleurBloc(g.b) || '#D8DCE4') }}>
           {g.l.map(u => (
             <span key={u.ue_num} data-c={u.c}
               title={`UE ${u.ue_num} — ${u.ue_nom || ''} · ${SENS_PUCE[u.c] || ''}`}>
@@ -149,8 +149,8 @@ function FriseParcours({ ues, codes }) {
 }
 
 const STATUTS_PIECE = [
-  { val: 'manquant', label: 'Manquant', cls: 'bg-red-50 text-red-700 border-red-200' },
-  { val: 'recu',     label: 'Reçu',     cls: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
+  { val: 'manquant', label: 'Manquant', cls: 'bg-red-500 text-white border-red-500' },
+  { val: 'recu',     label: 'Reçu',     cls: 'bg-emerald-500 text-white border-emerald-500' },
   { val: 'na',       label: 'N/A',      cls: 'bg-slate-100 text-slate-500 border-slate-200' },
 ];
 
@@ -215,7 +215,7 @@ function SchemaCapitalisation({ etudId, annee, onNoeud = null, programme = null,
           <span className="flex-1 min-w-0">
             <b>Cursus antérieur archivé : {a.section}</b>
             <span className="text-slate-500"> · {a.du === a.au ? court(a.du) : `${court(a.du)} → ${court(a.au)}`} · {a.reussies} unité{a.reussies > 1 ? 's' : ''} réussie{a.reussies > 1 ? 's' : ''}</span>
-            {a.encore_cette_annee && <span className="text-[#B45309]"> · encore des inscriptions cette année : à retirer, ou à déclarer compatible</span>}
+            {a.encore_cette_annee && <span className="text-[color:var(--c-attente)]"> · encore des inscriptions cette année : à retirer, ou à déclarer compatible</span>}
           </span>
           {a.encore_cette_annee && (
             <button type="button" className="bouton bouton-compact" onClick={() => retirerArchive(a.section)}>
@@ -244,14 +244,14 @@ const KINDS_CELLULE = [
   // LES ÉTATS DE LUCIE (2.12.211) : bleu inscrite, vert réussie — la VA
   // aussi, avec sa mention —, ocre ajournée, brique refusée. Le violet ne dit
   // que la faveur.
-  { val: 'inscrit', label: 'Inscrit',  short: '·',  cls: 'bg-[color-mix(in_srgb,var(--c-disponible)_11%,#fff)] border-[color-mix(in_srgb,var(--c-disponible)_32%,#fff)] text-[#2F6FB0]' },
-  { val: 'reussi',  label: 'Réussi',   short: '✓',  cls: 'bg-[color-mix(in_srgb,var(--c-reussi)_11%,#fff)] border-[color-mix(in_srgb,var(--c-reussi)_32%,#fff)] text-[#1B2B4B]' },
-  { val: 'va',      label: 'VA',       short: 'VA', cls: 'bg-[color-mix(in_srgb,var(--c-reussi)_11%,#fff)] border-[color-mix(in_srgb,var(--c-reussi)_32%,#fff)] text-[#1B2B4B]' },
+  { val: 'inscrit', label: 'Inscrit',  short: '·',  cls: 'bg-[color-mix(in_srgb,var(--c-disponible)_11%,#fff)] border-[color-mix(in_srgb,var(--c-disponible)_32%,#fff)] text-[color:var(--c-disponible)]' },
+  { val: 'reussi',  label: 'Réussi',   short: '✓',  cls: 'bg-[color-mix(in_srgb,var(--c-reussi)_11%,#fff)] border-[color-mix(in_srgb,var(--c-reussi)_32%,#fff)] text-[color:var(--c-texte)]' },
+  { val: 'va',      label: 'VA',       short: 'VA', cls: 'bg-[color-mix(in_srgb,var(--c-reussi)_11%,#fff)] border-[color-mix(in_srgb,var(--c-reussi)_32%,#fff)] text-[color:var(--c-texte)]' },
   // La circulaire distingue l'AJOURNEMENT, qui ouvre une seconde session sur
   // des acquis précis, du REFUS, qui ne l'ouvre pas. Les confondre sous un même
   // libellé privait le Conseil des études d'une de ses trois décisions.
-  { val: 'ajourne', label: 'Ajourné',  short: 'Aj', cls: 'bg-[color-mix(in_srgb,var(--c-attente)_11%,#fff)] border-[color-mix(in_srgb,var(--c-attente)_32%,#fff)] text-[#8A5A12]' },
-  { val: 'refuse',  label: 'Refusé',   short: '✕',  cls: 'bg-[color-mix(in_srgb,var(--c-refuse)_11%,#fff)] border-[color-mix(in_srgb,var(--c-refuse)_32%,#fff)] text-[#9D4A38]' },
+  { val: 'ajourne', label: 'Ajourné',  short: 'Aj', cls: 'bg-[color-mix(in_srgb,var(--c-attente)_11%,#fff)] border-[color-mix(in_srgb,var(--c-attente)_32%,#fff)] text-[color:var(--c-texte)]' },
+  { val: 'refuse',  label: 'Refusé',   short: '✕',  cls: 'bg-[color-mix(in_srgb,var(--c-refuse)_11%,#fff)] border-[color-mix(in_srgb,var(--c-refuse)_32%,#fff)] text-[color:var(--c-refuse)]' },
   { val: 'absent',  label: 'Absent',   short: '–',  cls: 'bg-slate-50 text-slate-600 border-slate-200' },
 ];
 
@@ -504,7 +504,7 @@ function GrilleParcours({ etudId, peutEcrire, annee, ueFocus = null }) {
             « {nbHistorique === 0 ? 'années antérieures' : 'remonter encore'}
           </button>
           <button onClick={purgerAnnee} title="Effacer les résultats ou les inscriptions d'une année"
-            className="px-2 py-0.5 text-[11px] border border-[#E3BFB5] text-[#9D4A38] rounded-md hover:bg-[#F7E9E5]">Purger…</button>
+            className="px-2 py-0.5 text-[11px] border border-[color:var(--c-attente)] text-[color:var(--c-refuse)] rounded-md hover:bg-[#F7E9E5]">Purger…</button>
         </div>
       </div>
 
@@ -551,9 +551,9 @@ function GrilleParcours({ etudId, peutEcrire, annee, ueFocus = null }) {
                       <span className="text-slate-600 ml-1.5 inline-block max-w-[13rem] truncate align-bottom">{u.ue_nom}</span>
                       {verrou && <span className="ml-1.5 text-[11px]"
                         title={'Exige : UE ' + ((u.prereq_chaine?.length ? u.prereq_chaine : u.prerequis) || []).join(', ')}><IconLock size={13} stroke={1.8} className="inline -mt-0.5 text-slate-400" /></span>}
-                      {u.suggeree && <span className="ml-1.5 text-[10px] px-1 py-0.5 rounded bg-violet-50 text-violet-600 border border-violet-200" title="Probablement acquise (inférence prérequis) — à confirmer">à confirmer</span>}
+                      {u.suggeree && <span className="ml-1.5 text-[10px] px-1 py-0.5 rounded bg-violet-500 text-white border border-violet-500" title="Probablement acquise (inférence prérequis) — à confirmer">à confirmer</span>}
                       {u.hors_referentiel && (
-                        <span className="ml-1.5 text-[10px] px-1 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-200"
+                        <span className="ml-1.5 text-[10px] px-1 py-0.5 rounded bg-amber-500 text-white border border-amber-500"
                           title="Cette unité appartient à une autre section, ou sa section est inconnue">
                           autre section
                         </span>
@@ -617,7 +617,7 @@ function GrilleParcours({ etudId, peutEcrire, annee, ueFocus = null }) {
                             className={`w-11 h-[22px] text-[11px] font-semibold tabular-nums rounded-md border px-0.5 transition
                               ${kind ? kind.cls : 'border-transparent text-slate-300 hover:border-slate-200 hover:bg-slate-50'}
                               ${cl?.derogation ? 'ring-1 ring-amber-400' : ''}
-                              ${choix.has(`${a}|${u.ue_num}`) ? 'ring-2 ring-[#2F6FB0] ring-offset-1' : ''}
+                              ${choix.has(`${a}|${u.ue_num}`) ? 'ring-2 ring-[color:var(--c-disponible)] ring-offset-1' : ''}
                               ${peutEcrire && deplacable(cl) ? 'cursor-grab active:cursor-grabbing' : ''}`}
                             title={cl?.derogation ? 'Encodée avec dérogation' : ''}>
                             {kind
@@ -695,7 +695,7 @@ function GrilleParcours({ etudId, peutEcrire, annee, ueFocus = null }) {
                           <td className="px-2 py-1">{m.resultat || 'inscrit'}{m.points != null ? ` · ${m.points}/20` : ''}</td>
                           <td className="px-2 py-1 text-slate-600">
                             {suit.length ? suit.join(' · ') : '—'}
-                            {m.seance_close && <span className="block text-[11px] text-[#B45309]">délibération close en {m.de} : décision déjà notifiée</span>}
+                            {m.seance_close && <span className="block text-[11px] text-[color:var(--c-attente)]">délibération close en {m.de} : décision déjà notifiée</span>}
                             {m.stage_reste > 0 && <span className="block text-[11px] text-slate-400">le stage reste en {m.de}</span>}
                           </td>
                         </tr>
@@ -735,12 +735,12 @@ function GrilleParcours({ etudId, peutEcrire, annee, ueFocus = null }) {
               UE {popover.ue_num} — {popover.annee}
             </div>
             {popover.verrou && (
-              <div className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-2 py-1 mb-2">
+              <div className="text-[11px] text-white bg-amber-500 border border-amber-500 rounded-lg px-2 py-1 mb-2">
                 Dérogation — sera tracée comme telle
               </div>
             )}
             {popover.sousReserve && (
-              <div className="text-[11px] text-sky-700 bg-sky-50 border border-sky-200 rounded-lg px-2 py-1 mb-2">
+              <div className="text-[11px] text-white bg-sky-500 border border-sky-500 rounded-lg px-2 py-1 mb-2">
                 Inscription sous réserve — l'accès effectif dépend de la réussite de
                 l'UE {popover.sousReserve.join(', ')} en cours d'année (cas type : épreuve intégrée).
               </div>
@@ -766,13 +766,13 @@ function GrilleParcours({ etudId, peutEcrire, annee, ueFocus = null }) {
                     ecrire('effacer');
                 }}
                 title="Supprime l'inscription et tout ce qui s'y rattache"
-                className="text-[12px] px-2 py-1.5 rounded-lg border border-red-200 text-red-600 hover:bg-red-50">
+                className="text-[12px] px-2 py-1.5 rounded-lg border border-red-200 text-red-600 hover:bg-red-50 border-l-4 border-l-red-500">
                 Supprimer l'inscription
               </button>
             </div>
 
             <button onClick={() => detailOuvert ? setDetailOuvert(false) : chargerDetail()}
-              className="mt-3 w-full text-[12px] px-2 py-1.5 rounded-lg border border-[#1B2B4B]/30 text-iip-blue hover:bg-[#1B2B4B]/5">
+              className="mt-3 w-full text-[12px] px-2 py-1.5 rounded-lg border border-iip-blue/30 text-iip-blue hover:bg-iip-blue/5">
               {detailOuvert ? 'Masquer le détail' : 'Notes par cours & AA…'}
             </button>
 
@@ -828,7 +828,7 @@ function GrilleParcours({ etudId, peutEcrire, annee, ueFocus = null }) {
 
                 {/* Reports de note proposés : cours validés dans une UE échouée */}
                 {(detail.candidats_report || []).length > 0 && (
-                  <div className="mb-3 border border-sky-200 bg-sky-50 rounded-xl px-3 py-2.5">
+                  <div className="mb-3 border border-sky-200 bg-sky-50 rounded-xl px-3 py-2.5 border-l-4 border-l-sky-500">
                     <div className="text-[12px] font-semibold text-sky-900 mb-1.5">
                       Report de note possible
                     </div>
@@ -896,7 +896,7 @@ function GrilleParcours({ etudId, peutEcrire, annee, ueFocus = null }) {
                           {co.poids_cours_affiche != null ? co.poids_cours_affiche + ' %' : '— %'}
                         </span>
                         {!co.complet && (
-                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-200 flex-none"
+                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500 text-white border border-amber-500 flex-none"
                             title={`Somme des pondérations : ${co.somme_poids} au lieu de 100`}>
                             pondérations {co.somme_poids}
                           </span>
@@ -907,7 +907,7 @@ function GrilleParcours({ etudId, peutEcrire, annee, ueFocus = null }) {
                         (() => {
                           const rn = detail.reports.find(r0 => r0.cours_code === co.cours_code);
                           return (
-                            <div className="px-3 py-2 flex items-center gap-2 bg-sky-50/60">
+                            <div className="px-3 py-2 flex items-center gap-2 bg-sky-50/60 border-l-4 border-l-sky-500">
                               <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-sky-600 text-white flex-none">
                                 RN
                               </span>
@@ -1284,7 +1284,7 @@ function Valorisations({ etudId, annee }) {
                   « refusé » sans motif ne se défend pas devant un recours. */}
               <label className="block text-xs">
                 <span className="block font-semibold text-slate-500 uppercase tracking-wide mb-1">
-                  Motif du refus <span className="text-[#9D4A38]">— obligatoire</span>
+                  Motif du refus <span className="text-[color:var(--c-refuse)]">— obligatoire</span>
                 </span>
                 <textarea rows={3} value={form.motif_refus || ''}
                   placeholder="Ce que le Conseil a constaté : pièces insuffisantes, acquis non démontrés, formation sans rapport…"
@@ -1659,7 +1659,7 @@ function Valorisations({ etudId, annee }) {
                 <span className="font-medium text-iip-blue">{v.ue_num}</span>
                 <span className="text-slate-600 ml-1.5 text-[13px]">{v.ue_nom}</span>
                 {v.decision === 'refusee' && (
-                  <span className="ml-2 text-[11px] font-semibold text-[#9D4A38]">refusée</span>
+                  <span className="ml-2 text-[11px] font-semibold text-[color:var(--c-refuse)]">refusée</span>
                 )}
                 <div className="text-[11px] text-slate-400 mt-0.5">
                   {v.decision === 'refusee' ? 'Demande refusée' : (
@@ -1912,7 +1912,7 @@ function MenuParcourir({ portee, onPortee, sections, ues, annees }) {
     <div className="relative">
       <button type="button" onClick={() => setOuvert(o => !o)}
         title="Les dossiers que les flèches parcourent"
-        className={`bouton bouton-compact inline-flex items-center gap-1 ${actifs ? 'border-[#1B2B4B] text-iip-blue' : ''}`}>
+        className={`bouton bouton-compact inline-flex items-center gap-1 ${actifs ? 'border-[color:var(--c-principal)] text-iip-blue' : ''}`}>
         Parcourir{actifs ? ` · ${actifs}` : ''} <IconChevronRight size={12} className={`transition ${ouvert ? 'rotate-90' : ''}`} />
       </button>
       {ouvert && (
@@ -2428,8 +2428,8 @@ export function FicheEtudiant({ id, annee, onClose, position, onPrec, onSuiv,
                   maintenant que schéma et programme sont sur la même page. */}
               <div className={`mb-3 px-3 py-2 rounded-lg text-[13px] border ${
                 paeConfirme
-                  ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
-                  : 'bg-amber-50 border-amber-200 text-amber-900'}`}>
+                  ? 'bg-emerald-500 border-emerald-500 text-white'
+                  : 'bg-amber-500 border-amber-500 text-white'}`}>
                 <b>{paeConfirme ? 'Programme confirmé' : 'Programme proposé'}</b>
                 {' — '}
                 {paeConfirme
@@ -2442,7 +2442,7 @@ export function FicheEtudiant({ id, annee, onClose, position, onPrec, onSuiv,
               {!pae ? (
                 <div className="text-center py-8 text-slate-400 text-sm">Chargement du PAE…</div>
               ) : pae.erreur ? (
-                <div className="text-center py-8 text-red-600 text-sm border border-red-200 bg-red-50 rounded-xl">{pae.erreur}</div>
+                <div className="text-center py-8 text-white text-sm border border-red-500 bg-red-500 rounded-xl">{pae.erreur}</div>
               ) : (() => {
                 const sel = selection || new Set();
                 const retenues = pae.pae.filter(u => sel.has(u.ue_num));
@@ -2523,7 +2523,7 @@ export function FicheEtudiant({ id, annee, onClose, position, onPrec, onSuiv,
                   })()}
 
                   {bloquees.length > 0 && (
-                    <div className="mb-3 px-3 py-2.5 rounded-xl bg-red-50 border border-red-200">
+                    <div className="mb-3 px-3 py-2.5 rounded-xl bg-red-50 border border-red-200 border-l-4 border-l-red-500">
                       <div className="flex items-start gap-2">
                         <IconAlertTriangle size={15} className="text-red-600 mt-0.5 flex-none" />
                         <div className="flex-1 text-[12px] text-red-900">
@@ -2545,7 +2545,7 @@ export function FicheEtudiant({ id, annee, onClose, position, onPrec, onSuiv,
                   )}
 
                   {residuelles.length > 0 && (
-                    <div className="mb-3 px-3 py-2.5 rounded-xl bg-amber-50 border border-amber-200">
+                    <div className="mb-3 px-3 py-2.5 rounded-xl bg-amber-50 border border-amber-200 border-l-4 border-l-amber-500">
                       <div className="flex items-start gap-2">
                         <IconAlertTriangle size={15} className="text-amber-600 mt-0.5 flex-none" />
                         <div className="flex-1 text-[12px] text-amber-900">
@@ -2582,7 +2582,7 @@ export function FicheEtudiant({ id, annee, onClose, position, onPrec, onSuiv,
                             <td className="py-2">
                               <input type="checkbox" checked readOnly
                                 onClick={() => basculerUE(u)}
-                                className="cursor-pointer accent-[#00AACC]" />
+                                className="cursor-pointer accent-[color:var(--c-accent)]" />
                             </td>
                             <td className="py-2">
                               <span className="font-medium text-iip-blue">{u.ue_num}</span>
@@ -2614,7 +2614,7 @@ export function FicheEtudiant({ id, annee, onClose, position, onPrec, onSuiv,
                           {acquises.map(u => (
                             <button key={u.ue_num} onClick={() => basculerUE(u)}
                               title={`${u.ue_nom || ''} — cliquer pour réinscrire`}
-                              className="text-[11px] px-2 py-0.5 rounded-lg border border-emerald-300 bg-white text-emerald-800 hover:bg-emerald-100">
+                              className="text-[11px] px-2 py-0.5 rounded-lg border border-emerald-500 bg-white text-white hover:bg-emerald-500">
                               {u.ue_num}
                               {u.va_complete ? ' · VA' : ''}
                             </button>
@@ -2645,7 +2645,7 @@ export function FicheEtudiant({ id, annee, onClose, position, onPrec, onSuiv,
                                 <td className="py-1.5 w-8">
                                   <input type="checkbox" checked={false} readOnly
                                     onClick={() => basculerUE(u)}
-                                    className="cursor-pointer accent-[#00AACC]" />
+                                    className="cursor-pointer accent-[color:var(--c-accent)]" />
                                 </td>
                                 <td className="py-1.5">
                                   <span className="font-medium text-iip-blue">{u.ue_num}</span>
@@ -3297,7 +3297,7 @@ export default function Etudiants() {
     // avertissement, pas une décoration.
     ...(peutSupprimer ? [{ label: 'Supprimer', items: [
       { key: 'purge', label: 'Vider des résultats ou des inscriptions',
-        icon: IconTrash, couleur: '#9d4a38', destructif: true,
+        icon: IconTrash, couleur: 'var(--c-refuse)', destructif: true,
         onClick: () => setPurge(true) },
     ] }] : []),
     // INSCRIRE QUELQU'UN. La route serveur existait depuis l'origine, sans
@@ -3354,8 +3354,8 @@ export default function Etudiants() {
 
       {msgImport && (
         <div className={`px-4 py-2.5 rounded-lg text-sm flex items-center justify-between ${msgImport.type==='ok'
-          ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
-          : 'bg-red-50 text-red-800 border border-red-200'}`}>
+          ? 'bg-emerald-500 text-white border border-emerald-500'
+          : 'bg-red-500 text-white border border-red-500'}`}>
           <span>{msgImport.texte}</span>
           <button onClick={() => setMsgImport(null)} className="ml-3 opacity-60">✕</button>
         </div>
@@ -3458,7 +3458,7 @@ export default function Etudiants() {
            pâle et opaque, comme les bandeaux depuis 2.12.274. */
         <div className="sticky top-2 z-20 flex items-center justify-between gap-3 flex-wrap
                         px-4 py-2 rounded-xl shadow-pose"
-          style={{ background: 'color-mix(in srgb, #1B2B4B 7%, #fff)', border: '1px solid color-mix(in srgb, #1B2B4B 22%, #fff)' }}>
+          style={{ background: '#fff', border: '1px solid #fff' }}>
           {/* LE COMPTEUR DIT CE QU'ON VOIT, ET CE QU'ON NE VOIT PAS. La sélection
               survit aux filtres — c'est voulu —, mais « 204 sélectionnés » au
               milieu d'une liste filtrée à trente a été lu, à juste titre, comme
@@ -3472,7 +3472,7 @@ export default function Etudiants() {
               const visibles = filtres.filter(e => selEtudiants.has(e.id)).length;
               if (visibles === selEtudiants.size) return null;
               return (
-                <span className="font-normal text-[12px] text-[#B45309]">
+                <span className="font-normal text-[12px] text-[color:var(--c-attente)]">
                   dont {visibles} affiché(s) — {selEtudiants.size - visibles} caché(s) par les filtres
                   <button className="underline ml-2 text-iip-blue"
                     onClick={() => setSelEtudiants(new Set(filtres.filter(e => selEtudiants.has(e.id)).map(e => e.id)))}>
@@ -3615,7 +3615,7 @@ export default function Etudiants() {
                     {ouverte && liste.map(e => (
                 <tr key={e.id} onClick={() => setSelId(e.id)}
                   className={`border-b border-slate-100 last:border-0 cursor-pointer
-                    ${selEtudiants.has(e.id) ? 'bg-[#1B2B4B]/[0.04]' : 'hover:bg-slate-50/60'}`}>
+                    ${selEtudiants.has(e.id) ? 'bg-[color:var(--c-principal)]/[0.04]' : 'hover:bg-slate-50/60'}`}>
                   <td className="px-3 py-1" onClick={ev => ev.stopPropagation()}>
                     <input type="checkbox" checked={selEtudiants.has(e.id)}
                       onChange={() => basculerSelection(e.id)} />
@@ -3633,7 +3633,7 @@ export default function Etudiants() {
                   </td>
                   <td className="px-2 py-1">
                     {e.pae_confirme
-                      ? <IconWritingSign size={15} className="text-[#3E7D5E]" title="Programme confirmé — étudiant inscrit" />
+                      ? <IconWritingSign size={15} className="text-[color:var(--c-reussi)]" title="Programme confirmé — étudiant inscrit" />
                       : <IconWritingSignOff size={15} className="text-slate-300" title="Programme non confirmé" />}
                   </td>
                   <td className="px-3 py-1 whitespace-nowrap">

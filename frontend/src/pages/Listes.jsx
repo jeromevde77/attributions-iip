@@ -602,7 +602,7 @@ export default function Listes({ integre = false, domaine = null }) {
 
   function genererGrilleHtml(d) {
     if (d.error) { alert(d.error); return; }
-    const NIV_PAL = ['#f97316','#60a5fa','#1e3a8a','#a855f7','#ec4899'];
+    const NIV_PAL = ['var(--c-attente)','var(--c-disponible)','var(--c-texte)','var(--c-faveur)','var(--c-helb)'];
     const niveaux = [...new Set(d.ues.map(u => u.ue_niv).filter(Boolean))];
     const nivColor = niv => NIV_PAL[niveaux.indexOf(niv) % NIV_PAL.length] || '#6b7280';
     const S = 'padding:1px 5px;font-size:10px;';
@@ -814,7 +814,7 @@ export default function Listes({ integre = false, domaine = null }) {
     const sec = (d.sections || []).find(s => s.section === secCode);
     if (!sec) { alert('Aucune donnée ETP pour cette section. Choisissez une section.'); return; }
 
-    const BLEU = '#1B2B4B', BLEU2 = '#163A6B', TURQ = '#00AACC', CLAIR = '#E1ECF5', GRIS = '#F4F6FA', VIOLET = '#7c3aed';
+    const BLEU = 'var(--c-principal)', BLEU2 = 'var(--c-principal)', TURQ = 'var(--c-accent)', CLAIR = 'rgb(var(--e-disponible-100))', GRIS = '#F4F6FA', VIOLET = 'var(--c-faveur)';
     const fmt = n => Math.round(n || 0).toLocaleString('fr-BE').replace(/\u202f/g, ' ');
     const fmtEtp = n => (n || 0).toFixed(4).replace('.', ',');
     const fmtEtp2 = n => (n || 0).toFixed(2).replace('.', ',');
@@ -1094,7 +1094,7 @@ export default function Listes({ integre = false, domaine = null }) {
 
   function genererRapportHtml(d, filtres) {
     if (d.error) { alert(d.error); return; }
-    const NIV_PAL = ['#f97316','#60a5fa','#1e3a8a','#a855f7','#ec4899'];
+    const NIV_PAL = ['var(--c-attente)','var(--c-disponible)','var(--c-texte)','var(--c-faveur)','var(--c-helb)'];
     const niveaux = [...new Set(d.ues?.map(u => u.ue_niv).filter(Boolean))].sort((a,b)=>parseInt(a.match(/\d+$/)?.[0]??99)-parseInt(b.match(/\d+$/)?.[0]??99));
     const getNivCol = niv => NIV_PAL[niveaux.indexOf(niv) % NIV_PAL.length] || '#6b7280';
     const fmt = n => (n != null && n !== '') ? String(n) : '0';
@@ -1690,7 +1690,7 @@ export default function Listes({ integre = false, domaine = null }) {
                 const d = await def.fetch(annee, filtres);
                 def.grille ? genererGrilleExcel(d) : genererRapportExcel(d, filtres);
               }}
-              className="text-sm border border-emerald-500 text-emerald-700 hover:bg-emerald-50 px-3 py-2 rounded-lg font-medium flex items-center gap-1.5">
+              className="text-sm border border-emerald-500 text-emerald-700 hover:bg-emerald-50 px-3 py-2 rounded-lg font-medium flex items-center gap-1.5 border-l-4 border-l-emerald-500">
               <IconFileSpreadsheet size={16} /> Excel
             </button>
           </>
@@ -1726,14 +1726,14 @@ export default function Listes({ integre = false, domaine = null }) {
               <IconDownload size={16} /> CSV
             </button>
             <button onClick={() => exportExcel(rows, colsVisibles, nomFichier)} disabled={rows.length === 0}
-              className="text-sm border border-emerald-500 text-emerald-700 hover:bg-emerald-50 disabled:opacity-40 px-3 py-2 rounded-lg font-medium flex items-center gap-1.5">
+              className="text-sm border border-emerald-500 text-emerald-700 hover:bg-emerald-50 disabled:opacity-40 px-3 py-2 rounded-lg font-medium flex items-center gap-1.5 border-l-4 border-l-emerald-500">
               <IconFileSpreadsheet size={16} /> Excel
             </button>
           </>
         ))}
       </div>
 
-      {error && <div className="bg-red-50 text-red-700 text-sm p-3 mx-5 mt-3 rounded-lg flex-shrink-0">{error}</div>}
+      {error && <div className="bg-red-50 text-red-700 text-sm p-3 mx-5 mt-3 rounded-lg flex-shrink-0 border-l-4 border-l-red-500">{error}</div>}
 
       {/* ── Zone de contenu ── */}
       <div className="flex-1 min-h-0 overflow-auto">
@@ -1955,7 +1955,7 @@ function HeuresContactView({ sections, annee }) {
 
   const ORDRE_BLOC = ['BA1','BA2','BA3','BA4','Autres'];
   const BLOC_LABEL = { BA1:'Bloc 1 (BA1)', BA2:'Bloc 2 (BA2)', BA3:'Bloc 3 (BA3)', BA4:'Bloc 4 (BA4)', Autres:'Autres' };
-  const BLOC_COLOR = { BA1:'#f97316', BA2:'#3b82f6', BA3:'#1e3a8a', BA4:'#a855f7', Autres:'#6b7280' };
+  const BLOC_COLOR = { BA1:'var(--c-attente)', BA2:'var(--c-disponible)', BA3:'var(--c-texte)', BA4:'var(--c-faveur)', Autres:'#6b7280' };
 
   const parBloc = (ues) => {
     const map = {};
@@ -1963,10 +1963,10 @@ function HeuresContactView({ sections, annee }) {
     return ORDRE_BLOC.filter(b => map[b]).map(b => ({ bloc: b, ues: map[b] }));
   };
 
-  const BLEU = '#1B2B4B', TURQ = '#00AACC', GRIS = '#F4F6FA';
+  const BLEU = 'var(--c-principal)', TURQ = 'var(--c-accent)', GRIS = '#F4F6FA';
 
   const imprimer = () => {
-    const BCOL = { BA1:'#f97316', BA2:'#3b82f6', BA3:'#1e3a8a', BA4:'#a855f7', Autres:'#6b7280' };
+    const BCOL = { BA1:'var(--c-attente)', BA2:'var(--c-disponible)', BA3:'var(--c-texte)', BA4:'var(--c-faveur)', Autres:'#6b7280' };
     const BLAB = { BA1:'Bloc 1 (BA1)', BA2:'Bloc 2 (BA2)', BA3:'Bloc 3 (BA3)', BA4:'Bloc 4 (BA4)', Autres:'Autres' };
     const ordrB = ['BA1','BA2','BA3','BA4','Autres'];
     const getBl = ues => { const m={}; for(const u of ues){const b=u.bloc||'Autres';if(!m[b])m[b]=[];m[b].push(u);} return ordrB.filter(b=>m[b]).map(b=>({bloc:b,ues:m[b]})); };
@@ -2038,7 +2038,7 @@ function HeuresContactView({ sections, annee }) {
                       </div>
                       <table className="w-full text-xs border-collapse">
                         <thead>
-                          <tr style={{ background: '#163A6B' }}>
+                          <tr style={{ background: 'var(--c-principal)' }}>
                             <th className="text-left px-2 py-1.5 text-white font-medium w-20">Code</th>
                             <th className="text-left px-2 py-1.5 text-white font-medium">Cours</th>
                             <th className="text-center px-2 py-1.5 text-white font-medium w-12">Type</th>
@@ -2061,7 +2061,7 @@ function HeuresContactView({ sections, annee }) {
                                 <td className="px-2 py-1 text-gray-700">{c.cours_nom}</td>
                                 <td className="px-2 py-1 text-center">
                                   {c.ct_pp && (
-                                    <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${c.ct_pp === 'CT' ? 'bg-blue-100 text-blue-700' : 'bg-green-100 text-green-700'}`}>{c.ct_pp}</span>
+                                    <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${c.ct_pp === 'CT' ? 'bg-blue-500 text-white' : 'bg-green-500 text-white'}`}>{c.ct_pp}</span>
                                   )}
                                 </td>
                                 <td className="px-2 py-1 text-right font-bold text-gray-800">

@@ -22,22 +22,22 @@ const af = (url, opts = {}) =>
   }).then(async r => { const j = await r.json().catch(() => ({})); if (!r.ok) throw new Error(j.error || 'Erreur'); return j; });
 
 const DISPOSITIFS = [
-  { id: 'auto-analyse', label: 'Auto-analyse', icon: IconClipboardList, couleur: '#00AACC' },
-  { id: 'observation',  label: 'Observation en classe', icon: IconEye, couleur: '#7C5BD9' },
+  { id: 'auto-analyse', label: 'Auto-analyse', icon: IconClipboardList, couleur: 'var(--c-accent)' },
+  { id: 'observation',  label: 'Observation en classe', icon: IconEye, couleur: 'var(--c-faveur)' },
 ];
 
 const SCORE_LABELS = { 0: 'Non observable / absent', 1: 'Partiellement présent', 2: 'Présent et efficace' };
-const SCORE_COLORS = { 0: '#E5E7EB', 1: '#FCD34D', 2: '#34D399' };
+const SCORE_COLORS = { 0: '#E5E7EB', 1: 'var(--c-attente)', 2: 'var(--c-reussi)' };
 
 // ─── Petit badge de statut ────────────────────────────────────────────────────
 function StatutBadge({ statut }) {
   const cfg = {
-    'en-cours':  { label: 'En cours',  bg: '#EFF6FF', color: '#1D4ED8' },
-    'complete':  { label: 'Complète',  bg: '#F0FDF4', color: '#15803D' },
-    'actif':     { label: 'Actif',     bg: '#EFF6FF', color: '#1D4ED8' },
-    'atteint':   { label: 'Atteint',   bg: '#F0FDF4', color: '#15803D' },
-    'abandonne': { label: 'Abandonné', bg: '#FFF7ED', color: '#C2410C' },
-  }[statut] || { label: statut, bg: '#F3F4F6', color: '#374151' };
+    'en-cours':  { label: 'En cours',  bg: 'var(--c-disponible)', color: '#FFFFFF' },
+    'complete':  { label: 'Complète',  bg: 'var(--c-reussi)', color: '#FFFFFF' },
+    'actif':     { label: 'Actif',     bg: 'var(--c-disponible)', color: '#FFFFFF' },
+    'atteint':   { label: 'Atteint',   bg: 'var(--c-reussi)', color: '#FFFFFF' },
+    'abandonne': { label: 'Abandonné', bg: 'var(--c-attente)', color: '#FFFFFF' },
+  }[statut] || { label: statut, bg: '#F3F4F6', color: 'var(--c-texte)' };
   return (
     <span style={{ background: cfg.bg, color: cfg.color, fontSize: 11, padding: '2px 8px', borderRadius: 10, fontWeight: 600 }}>
       {cfg.label}
@@ -46,7 +46,7 @@ function StatutBadge({ statut }) {
 }
 
 // ─── Carte KPI ────────────────────────────────────────────────────────────────
-function Kpi({ label, val, couleur = '#1B2B4B' }) {
+function Kpi({ label, val, couleur = 'var(--c-principal)' }) {
   return (
     <div style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: 10, padding: '12px 16px', textAlign: 'center', minWidth: 90 }}>
       <div style={{ fontSize: 24, fontWeight: 700, color: couleur }}>{val}</div>
@@ -72,15 +72,15 @@ function TableauDeBord({ profId, profNom, annee, onNavigate }) {
     <div style={{ padding: '24px 0' }}>
       <div style={{ marginBottom: 24 }}>
         <div style={{ fontSize: 13, color: '#64748B', marginBottom: 4 }}>Année scolaire</div>
-        <div style={{ fontSize: 20, fontWeight: 700, color: '#1B2B4B' }}>{profNom}</div>
-        <div style={{ fontSize: 13, color: '#00AACC', marginTop: 2 }}>{annee}</div>
+        <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--c-texte)' }}>{profNom}</div>
+        <div style={{ fontSize: 13, color: 'var(--c-accent)', marginTop: 2 }}>{annee}</div>
       </div>
 
       {/* Auto-analyse */}
-      <Section titre="Auto-analyse" icon={IconClipboardList} couleur="#00AACC">
+      <Section titre="Auto-analyse" icon={IconClipboardList} couleur="var(--c-accent)">
         <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 12 }}>
-          <Kpi label="En cours" val={countSeances('auto-analyse','en-cours')} couleur="#1B2B4B" />
-          <Kpi label="Complètes" val={countSeances('auto-analyse','complete')} couleur="#15803D" />
+          <Kpi label="En cours" val={countSeances('auto-analyse','en-cours')} couleur="var(--c-principal)" />
+          <Kpi label="Complètes" val={countSeances('auto-analyse','complete')} couleur="var(--c-texte)" />
         </div>
         <Btn onClick={() => onNavigate('auto-analyse')} icon={IconPlus} variant="accent">
           Nouvelle auto-analyse
@@ -90,8 +90,8 @@ function TableauDeBord({ profId, profNom, annee, onNavigate }) {
       {/* Observation */}
       <Section titre="Observation en classe" icon={IconEye} couleur="#7C5BD9">
         <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 12 }}>
-          <Kpi label="En cours" val={countSeances('observation','en-cours')} couleur="#1B2B4B" />
-          <Kpi label="Complètes" val={countSeances('observation','complete')} couleur="#15803D" />
+          <Kpi label="En cours" val={countSeances('observation','en-cours')} couleur="var(--c-principal)" />
+          <Kpi label="Complètes" val={countSeances('observation','complete')} couleur="var(--c-texte)" />
         </div>
         <Btn onClick={() => onNavigate('observation')} icon={IconPlus} variant="secondary">
           Nouvelle observation
@@ -101,8 +101,8 @@ function TableauDeBord({ profId, profNom, annee, onNavigate }) {
       {/* PDCP */}
       <Section titre="Plan de développement (PDCP)" icon={IconTargetArrow} couleur="#C0392B">
         <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 12 }}>
-          <Kpi label="Actifs" val={countObj('actif')} couleur="#1B2B4B" />
-          <Kpi label="Atteints" val={countObj('atteint')} couleur="#15803D" />
+          <Kpi label="Actifs" val={countObj('actif')} couleur="var(--c-principal)" />
+          <Kpi label="Atteints" val={countObj('atteint')} couleur="var(--c-texte)" />
           <Kpi label="Max" val={4} couleur="#94A3B8" />
         </div>
         <Btn onClick={() => onNavigate('pdcp')} icon={IconTargetArrow} variant="secondary">
@@ -220,20 +220,20 @@ function ListeSeances({ profId, annee, dispositif, onOuvrir }) {
         </div>
       )}
 
-      {loading && <p style={{ color: '#94A3B8', fontSize: 13 }}>Chargement…</p>}
+      {loading && <p style={{ color: 'var(--c-texte)', fontSize: 13 }}>Chargement…</p>}
       {!loading && seances.length === 0 && (
-        <p style={{ color: '#94A3B8', fontSize: 13, fontStyle: 'italic' }}>Aucune séance pour cette année.</p>
+        <p style={{ color: 'var(--c-texte)', fontSize: 13, fontStyle: 'italic' }}>Aucune séance pour cette année.</p>
       )}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
         {seances.map(s => (
           <div key={s.id} style={{ background: '#fff', border: '1px solid #E2E8F0', borderRadius: 8, padding: '12px 14px', display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer' }}
             onClick={() => onOuvrir(s.id)}>
             <div style={{ flex: 1 }}>
-              <div style={{ fontWeight: 600, color: '#1B2B4B', fontSize: 14 }}>
+              <div style={{ fontWeight: 600, color: 'var(--c-texte)', fontSize: 14 }}>
                 {s.cours_nom || '(cours non précisé)'}
                 {s.ue_num && <span style={{ marginLeft: 8, fontSize: 12, color: '#64748B' }}>UE {s.ue_num}</span>}
               </div>
-              <div style={{ fontSize: 12, color: '#94A3B8', marginTop: 2 }}>
+              <div style={{ fontSize: 12, color: 'var(--c-texte)', marginTop: 2 }}>
                 {s.date_seance || 'Date non renseignée'}
                 {dispositif === 'observation' && ` · Rencontre ${s.rencontre_num}`}
                 {s.type_cours && ` · ${s.type_cours === 'tp' ? 'TP/TD' : 'Cours'}`}
@@ -241,7 +241,7 @@ function ListeSeances({ profId, annee, dispositif, onOuvrir }) {
             </div>
             <StatutBadge statut={s.statut} />
             <button onClick={e => { e.stopPropagation(); supprimer(s.id); }}
-              style={{ color: '#EF4444', background: 'none', border: 'none', cursor: 'pointer', padding: 4 }}>
+              style={{ color: 'var(--c-texte)', background: 'none', border: 'none', cursor: 'pointer', padding: 4 }}>
               <IconTrash size={15} />
             </button>
           </div>
@@ -290,7 +290,7 @@ function GrilleSeance({ seanceId, referentiel, onBack }) {
     } catch (e) { alert(e.message); } finally { setSaving(false); }
   }
 
-  if (!seance) return <p style={{ color: '#94A3B8', padding: 24 }}>Chargement…</p>;
+  if (!seance) return <p style={{ color: 'var(--c-texte)', padding: 24 }}>Chargement…</p>;
 
   const libelles = filteredCriteres();
   const estObservation = seance.dispositif === 'observation';
@@ -301,7 +301,7 @@ function GrilleSeance({ seanceId, referentiel, onBack }) {
       <div style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: 10, padding: '12px 16px', marginBottom: 20 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div>
-            <div style={{ fontWeight: 700, color: '#1B2B4B', fontSize: 15 }}>{seance.cours_nom || '(cours)'}</div>
+            <div style={{ fontWeight: 700, color: 'var(--c-texte)', fontSize: 15 }}>{seance.cours_nom || '(cours)'}</div>
             <div style={{ fontSize: 12, color: '#64748B', marginTop: 2 }}>
               {seance.date_seance} · {seance.type_cours === 'tp' ? 'TP/TD' : 'Cours théorique'}
               {seance.ue_num && ` · UE ${seance.ue_num}`}
@@ -321,13 +321,13 @@ function GrilleSeance({ seanceId, referentiel, onBack }) {
           return (
             <div key={lib.id} style={{ background: '#fff', border: '1px solid #E2E8F0', borderRadius: 8, padding: 14 }}>
               <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
-                <span style={{ background: '#1B2B4B', color: '#fff', fontSize: 11, fontWeight: 700, padding: '2px 7px', borderRadius: 6, whiteSpace: 'nowrap' }}>
+                <span style={{ background: 'var(--c-principal)', color: '#fff', fontSize: 11, fontWeight: 700, padding: '2px 7px', borderRadius: 6, whiteSpace: 'nowrap' }}>
                   {critere?.code}
                 </span>
-                <span style={{ fontWeight: 600, color: '#1B2B4B', fontSize: 13 }}>{lib.libelle}</span>
+                <span style={{ fontWeight: 600, color: 'var(--c-texte)', fontSize: 13 }}>{lib.libelle}</span>
               </div>
               {lib.question_ref && (
-                <p style={{ fontSize: 11, color: '#94A3B8', fontStyle: 'italic', marginBottom: 8 }}>{lib.question_ref}</p>
+                <p style={{ fontSize: 11, color: 'var(--c-texte)', fontStyle: 'italic', marginBottom: 8 }}>{lib.question_ref}</p>
               )}
 
               {!estObservation ? (
@@ -357,9 +357,9 @@ function GrilleSeance({ seanceId, referentiel, onBack }) {
                             title={SCORE_LABELS[score]}
                             style={{
                               width: 32, height: 32, borderRadius: 6, border: '2px solid',
-                              borderColor: rep[`score_${moment}`] === score ? '#1B2B4B' : '#E5E7EB',
+                              borderColor: rep[`score_${moment}`] === score ? 'var(--c-principal)' : '#E5E7EB',
                               background: rep[`score_${moment}`] === score ? SCORE_COLORS[score] : '#F9FAFB',
-                              fontWeight: 700, fontSize: 14, cursor: 'pointer', color: '#1B2B4B',
+                              fontWeight: 700, fontSize: 14, cursor: 'pointer', color: 'var(--c-texte)',
                             }}>
                             {score}
                           </button>
@@ -437,8 +437,8 @@ function PlanDeveloppement({ profId, annee, referentiel }) {
     <div style={{ padding: '16px 0' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
         <div>
-          <div style={{ fontWeight: 700, color: '#C0392B', fontSize: 16 }}>Plan de développement des compétences</div>
-          <div style={{ fontSize: 12, color: '#94A3B8', marginTop: 2 }}>Maximum 4 objectifs SMART · {annee}</div>
+          <div style={{ fontWeight: 700, color: 'var(--c-texte)', fontSize: 16 }}>Plan de développement des compétences</div>
+          <div style={{ fontSize: 12, color: 'var(--c-texte)', marginTop: 2 }}>Maximum 4 objectifs SMART · {annee}</div>
         </div>
         {objectifs.length < 4 && (
           <Btn onClick={() => setCreating(v => !v)} icon={creating ? IconX : IconPlus} variant="accent">
@@ -448,7 +448,7 @@ function PlanDeveloppement({ profId, annee, referentiel }) {
       </div>
 
       {creating && (
-        <div style={{ background: '#FFF5F5', border: '1px solid #FECACA', borderRadius: 10, padding: 16, marginBottom: 16 }}>
+        <div style={{ background: '#FFF5F5', border: '1px solid rgb(var(--gris-200))', borderRadius: 10, padding: 16, marginBottom: 16 }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             <Field label="Objectif *">
               <input value={form.libelle} onChange={e => setForm(f => ({ ...f, libelle: e.target.value }))}
@@ -481,18 +481,18 @@ function PlanDeveloppement({ profId, annee, referentiel }) {
       )}
 
       {objectifs.length === 0 && (
-        <p style={{ color: '#94A3B8', fontSize: 13, fontStyle: 'italic' }}>Aucun objectif défini pour cette année.</p>
+        <p style={{ color: 'var(--c-texte)', fontSize: 13, fontStyle: 'italic' }}>Aucun objectif défini pour cette année.</p>
       )}
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
         {objectifs.map((obj, i) => (
           <div key={obj.id} style={{ background: '#fff', border: '1px solid #E2E8F0', borderRadius: 10, padding: 16 }}>
             <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
-              <div style={{ width: 28, height: 28, borderRadius: 8, background: '#1B2B4B', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 14, flexShrink: 0 }}>
+              <div style={{ width: 28, height: 28, borderRadius: 8, background: 'var(--c-principal)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 14, flexShrink: 0 }}>
                 {obj.numero}
               </div>
               <div style={{ flex: 1 }}>
-                <div style={{ fontWeight: 600, color: '#1B2B4B', fontSize: 14 }}>{obj.libelle}</div>
+                <div style={{ fontWeight: 600, color: 'var(--c-texte)', fontSize: 14 }}>{obj.libelle}</div>
                 {obj.indicateurs?.length > 0 && (
                   <ul style={{ marginTop: 6, paddingLeft: 16, fontSize: 12, color: '#64748B' }}>
                     {obj.indicateurs.map((ind, j) => <li key={j}>{ind}</li>)}
@@ -500,9 +500,9 @@ function PlanDeveloppement({ profId, annee, referentiel }) {
                 )}
                 <div style={{ display: 'flex', gap: 8, marginTop: 8, flexWrap: 'wrap', alignItems: 'center' }}>
                   <StatutBadge statut={obj.statut} />
-                  {obj.echeance && <span style={{ fontSize: 11, color: '#94A3B8' }}>⏱ {obj.echeance}</span>}
+                  {obj.echeance && <span style={{ fontSize: 11, color: 'var(--c-texte)' }}>⏱ {obj.echeance}</span>}
                   {obj.critere_id && (
-                    <span style={{ fontSize: 11, background: '#EFF6FF', color: '#1D4ED8', padding: '2px 7px', borderRadius: 10 }}>
+                    <span style={{ fontSize: 11, background: 'var(--c-disponible)', color: '#FFFFFF', padding: '2px 7px', borderRadius: 10 }}>
                       Critère {referentiel?.criteres?.find(c => c.id === obj.critere_id)?.code}
                     </span>
                   )}
@@ -511,12 +511,12 @@ function PlanDeveloppement({ profId, annee, referentiel }) {
               <div style={{ display: 'flex', gap: 4 }}>
                 {obj.statut === 'actif' && (
                   <button onClick={() => patcher(obj.id, { statut: 'atteint' })} title="Marquer atteint"
-                    style={{ color: '#15803D', background: 'none', border: 'none', cursor: 'pointer', padding: 4 }}>
+                    style={{ color: 'var(--c-texte)', background: 'none', border: 'none', cursor: 'pointer', padding: 4 }}>
                     <IconCircleCheck size={16} />
                   </button>
                 )}
                 <button onClick={() => supprimer(obj.id)} title="Supprimer"
-                  style={{ color: '#EF4444', background: 'none', border: 'none', cursor: 'pointer', padding: 4 }}>
+                  style={{ color: 'var(--c-texte)', background: 'none', border: 'none', cursor: 'pointer', padding: 4 }}>
                   <IconTrash size={15} />
                 </button>
               </div>
@@ -531,10 +531,10 @@ function PlanDeveloppement({ profId, annee, referentiel }) {
 // ─── Composants utilitaires ───────────────────────────────────────────────────
 function Section({ titre, icon: Icon, couleur, children }) {
   return (
-    <div style={{ background: '#fff', border: `1px solid ${couleur}30`, borderLeft: `3px solid ${couleur}`, borderRadius: 10, padding: 16, marginBottom: 14 }}>
+    <div style={{ background: '#fff', border: `1px solid rgb(var(--gris-200))`, borderLeft: `3px solid ${couleur}`, borderRadius: 10, padding: 16, marginBottom: 14 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
         <Icon size={17} style={{ color: couleur }} />
-        <span style={{ fontWeight: 700, color: '#1B2B4B', fontSize: 14 }}>{titre}</span>
+        <span style={{ fontWeight: 700, color: 'var(--c-texte)', fontSize: 14 }}>{titre}</span>
       </div>
       {children}
     </div>
@@ -552,10 +552,10 @@ function Field({ label, children }) {
 
 function Btn({ onClick, icon: Icon, children, variant = 'secondary', disabled = false }) {
   const styles = {
-    primary:   { background: '#1B2B4B', color: '#fff', border: 'none' },
-    secondary: { background: '#fff', color: '#374151', border: '1px solid #D1D5DB' },
-    accent:    { background: '#00AACC', color: '#fff', border: 'none' },
-    danger:    { background: '#C0392B', color: '#fff', border: 'none' },
+    primary:   { background: 'var(--c-principal)', color: '#fff', border: 'none' },
+    secondary: { background: '#fff', color: 'var(--c-texte)', border: '1px solid #D1D5DB' },
+    accent:    { background: 'var(--c-accent)', color: '#fff', border: 'none' },
+    danger:    { background: 'var(--c-refuse)', color: '#fff', border: 'none' },
   }[variant];
   return (
     <button onClick={onClick} disabled={disabled} style={{
@@ -619,8 +619,8 @@ export default function DCPP() {
   return (
     <div style={{ display: 'flex', minHeight: 'calc(100vh - 64px)', background: '#F8FAFC' }}>
       {/* Rail latéral */}
-      <div style={{ width: 56, background: '#1B2B4B', display: 'flex', flexDirection: 'column', alignItems: 'center', paddingTop: 12, gap: 4, flexShrink: 0 }}>
-        <button onClick={goBack} title="Retour" style={{ color: '#94A3B8', background: 'none', border: 'none', cursor: 'pointer', padding: 8, borderRadius: 8, marginBottom: 8 }}>
+      <div style={{ width: 56, background: 'var(--c-principal)', display: 'flex', flexDirection: 'column', alignItems: 'center', paddingTop: 12, gap: 4, flexShrink: 0 }}>
+        <button onClick={goBack} title="Retour" style={{ color: 'var(--c-texte)', background: 'none', border: 'none', cursor: 'pointer', padding: 8, borderRadius: 8, marginBottom: 8 }}>
           <IconArrowLeft size={18} />
         </button>
         {navItems.map(item => {
@@ -628,7 +628,7 @@ export default function DCPP() {
           return (
             <button key={item.id} onClick={() => setView(item.id)} title={item.label}
               style={{
-                color: active ? '#00AACC' : '#94A3B8', background: active ? 'rgba(0,170,204,0.15)' : 'none',
+                color: active ? 'var(--c-accent)' : 'var(--c-disponible)', background: active ? 'rgba(0,170,204,0.15)' : 'none',
                 border: 'none', cursor: 'pointer', padding: 10, borderRadius: 8,
               }}>
               <item.icon size={19} />
@@ -641,7 +641,7 @@ export default function DCPP() {
       <div style={{ flex: 1, padding: '24px 32px', maxWidth: 860, overflow: 'auto' }}>
         {/* Fil d'Ariane */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
-          <button onClick={() => navigate('/professeurs')} style={{ color: '#94A3B8', background: 'none', border: 'none', cursor: 'pointer', fontSize: 12 }}>
+          <button onClick={() => navigate('/professeurs')} style={{ color: 'var(--c-texte)', background: 'none', border: 'none', cursor: 'pointer', fontSize: 12 }}>
             Membres du personnel
           </button>
           <span style={{ color: '#CBD5E1' }}>›</span>
@@ -649,15 +649,15 @@ export default function DCPP() {
           {view !== 'dashboard' && (
             <>
               <span style={{ color: '#CBD5E1' }}>›</span>
-              <span style={{ color: '#1B2B4B', fontSize: 12, fontWeight: 600 }}>{breadcrumb}</span>
+              <span style={{ color: 'var(--c-texte)', fontSize: 12, fontWeight: 600 }}>{breadcrumb}</span>
             </>
           )}
         </div>
 
         {/* Titre */}
-        <h1 style={{ fontSize: 22, fontWeight: 800, color: '#1B2B4B', marginBottom: 20 }}>
+        <h1 style={{ fontSize: 22, fontWeight: 800, color: 'var(--c-texte)', marginBottom: 20 }}>
           Développement des compétences
-          <span style={{ fontSize: 13, fontWeight: 400, color: '#00AACC', marginLeft: 10 }}>{annee}</span>
+          <span style={{ fontSize: 13, fontWeight: 400, color: 'var(--c-accent)', marginLeft: 10 }}>{annee}</span>
         </h1>
 
         {view === 'dashboard' && (

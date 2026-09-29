@@ -12,10 +12,10 @@ import { authHeaders } from '../lib/api.js';
  */
 
 const ACTIONS = {
-  create:   { libelle: 'Création',     cls: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
-  update:   { libelle: 'Modification', cls: 'bg-sky-50 text-sky-700 border-sky-200' },
-  delete:   { libelle: 'Suppression',  cls: 'bg-red-50 text-red-700 border-red-200' },
-  rollback: { libelle: 'Restauration', cls: 'bg-violet-50 text-violet-700 border-violet-200' },
+  create:   { libelle: 'Création',     cls: 'bg-emerald-500 text-white border-emerald-500' },
+  update:   { libelle: 'Modification', cls: 'bg-sky-500 text-white border-sky-500' },
+  delete:   { libelle: 'Suppression',  cls: 'bg-red-500 text-white border-red-500' },
+  rollback: { libelle: 'Restauration', cls: 'bg-violet-500 text-white border-violet-500' },
 };
 
 export default function AnnulationPanel({ annee, onClose, onRestaure }) {
@@ -81,7 +81,7 @@ export default function AnnulationPanel({ annee, onClose, onRestaure }) {
 
         <div className="p-5 space-y-3">
           {historiqueInactif && (
-            <div className="flex items-start gap-2 px-3 py-2.5 rounded-lg bg-amber-50 border border-amber-200 text-[13px] text-amber-800">
+            <div className="flex items-start gap-2 px-3 py-2.5 rounded-lg bg-amber-50 border border-amber-200 text-[13px] text-amber-800 border-l-4 border-l-amber-500">
               <IconAlertTriangle size={15} className="mt-0.5 flex-none" />
               <span>
                 L'historique est <b>désactivé</b> : les modifications ne sont plus enregistrées et
@@ -93,8 +93,8 @@ export default function AnnulationPanel({ annee, onClose, onRestaure }) {
           {message && (
             <div className={`px-3 py-2 rounded-lg text-[13px] flex items-center justify-between ${
               message.type === 'ok'
-                ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
-                : 'bg-red-50 text-red-800 border border-red-200'}`}>
+                ? 'bg-emerald-500 text-white border border-emerald-500'
+                : 'bg-red-500 text-white border border-red-500'}`}>
               <span>{message.texte}</span>
               <button onClick={() => setMessage(null)} className="opacity-60 ml-3">✕</button>
             </div>

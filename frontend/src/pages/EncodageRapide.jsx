@@ -29,7 +29,7 @@ const CYCLE = [null, 'reussi', 'ajourne', 'refuse'];
 
 // Couleurs des années d'études, communes à Lucie : BA1 orange, BA2 bleu clair,
 // BA3 bleu marine.
-const NIV_PALETTE = ['#F97316', '#60A5FA', '#1E3A8A', '#A855F7', '#EC4899'];
+const NIV_PALETTE = ['var(--c-attente)', 'var(--c-disponible)', 'var(--c-texte)', 'var(--c-faveur)', 'var(--c-helb)'];
 const couleurNiveau = niv => {
   const m = /^BA(\d+)$/i.exec(String(niv || '').trim());
   return m ? NIV_PALETTE[(Number(m[1]) - 1) % NIV_PALETTE.length] : null;
@@ -39,19 +39,19 @@ const couleurNiveau = niv => {
 // dans la même teinte, plus douce, avec leur millésime — le parcours se lit
 // alors sans quitter l'écran.
 const STYLE = {
-  reussi:  'bg-emerald-100 text-emerald-800 border-emerald-300',
+  reussi:  'bg-emerald-500 text-white border-emerald-500',
   // L'ajournement rouvre une session : ambre, non rouge. Le refus est
   // définitif : rouge.
-  ajourne: 'bg-amber-100 text-amber-800 border-amber-300',
-  refuse:  'bg-red-100 text-red-700 border-red-300',
+  ajourne: 'bg-amber-500 text-white border-amber-500',
+  refuse:  'bg-red-500 text-white border-red-500',
   absent:  'bg-slate-100 text-slate-500 border-slate-300',
 };
 const STYLE_ANTERIEUR = {
-  reussi:  'bg-emerald-50/70 text-emerald-600 border-emerald-200',
-  ajourne: 'bg-amber-50/60 text-amber-600 border-amber-200',
-  refuse:  'bg-red-50/60 text-red-500 border-red-200',
+  reussi:  'bg-emerald-500 text-white border-emerald-500',
+  ajourne: 'bg-amber-500 text-white border-amber-500',
+  refuse:  'bg-red-500 text-white border-red-500',
   absent:  'bg-slate-50 text-slate-400 border-slate-200',
-  va:      'bg-violet-50/70 text-violet-600 border-violet-200',
+  va:      'bg-violet-500 text-white border-violet-500',
 };
 const SIGLE = { reussi: '✓', ajourne: 'Aj', refuse: 'R', absent: '–', va: 'VA' };
 // En vue délibération, la réussite prend « C » — capitalisé — comme dans vos
@@ -402,7 +402,7 @@ export default function EncodageRapide() {
                         ? 'border-l-2 border-l-iip-blue/30' : ''}`}>
                     <div className="text-[12px] font-bold text-iip-blue">{u.ue_num}</div>
                     <div className="text-[8.5px] font-semibold"
-                      style={{ color: couleurNiveau(u.ue_niv) || '#94A3B8' }}>
+                      style={{ color: couleurNiveau(u.ue_niv) || 'var(--c-texte)' }}>
                       {u.ue_niv || '—'}
                     </div>
                   </th>
@@ -531,11 +531,11 @@ function SyntheseAnnees({ synthese, recherche, onOuvrir }) {
   const teinte = (r, t) => {
     if (!t) return { bg: 'transparent', fg: '#CBD5E1', bd: 'transparent' };
     const p = r / t;
-    if (p >= 0.999) return { bg: '#D1FAE5', fg: '#065F46', bd: '#6EE7B7' };
-    if (p >= 0.75)  return { bg: '#ECFDF5', fg: '#047857', bd: '#A7F3D0' };
-    if (p >= 0.5)   return { bg: '#FEF9C3', fg: '#854D0E', bd: '#FDE68A' };
-    if (p > 0)      return { bg: '#FFEDD5', fg: '#9A3412', bd: '#FED7AA' };
-    return { bg: '#FEE2E2', fg: '#991B1B', bd: '#FCA5A5' };
+    if (p >= 0.999) return { bg: 'var(--c-reussi)', fg: '#FFFFFF', bd: 'var(--c-reussi)' };
+    if (p >= 0.75)  return { bg: 'var(--c-reussi)', fg: '#FFFFFF', bd: 'var(--c-reussi)' };
+    if (p >= 0.5)   return { bg: 'var(--c-attente)', fg: '#FFFFFF', bd: 'var(--c-attente)' };
+    if (p > 0)      return { bg: 'var(--c-attente)', fg: '#FFFFFF', bd: 'var(--c-attente)' };
+    return { bg: 'var(--c-refuse)', fg: '#FFFFFF', bd: 'var(--c-refuse)' };
   };
 
   return (

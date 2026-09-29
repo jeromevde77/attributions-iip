@@ -36,9 +36,9 @@ export function tonTaux(v) {
 /** Le même jugement, mais pour un filet ou un fond. */
 export function couleurTaux(v) {
   if (v == null) return '#CBD5E1';
-  if (v >= 75) return '#047857';
-  if (v >= 50) return '#B45309';
-  return '#9D4A38';
+  if (v >= 75) return 'var(--c-texte)';
+  if (v >= 50) return 'var(--c-attente)';
+  return 'var(--c-refuse)';
 }
 
 /**
@@ -72,8 +72,8 @@ export function BarreDecisions({ reussi = 0, ajourne = 0, refuse = 0, largeur = 
  * signale.
  */
 export function Tuile({ libelle, valeur, unite, precision, ton, couleur }) {
-  const bord = couleur || (ton === 'fort' ? 'var(--c-iip, #1B2B4B)'
-    : ton === 'alerte' ? 'var(--c-attente, #B45309)' : '#CBD5E1');
+  const bord = couleur || (ton === 'fort' ? 'var(--c-iip, var(--c-principal))'
+    : ton === 'alerte' ? 'var(--c-attente, var(--c-attente))' : '#CBD5E1');
   return (
     <div className="carte px-3 py-2.5 flex-1 min-w-[132px]"
       style={{ borderLeft: `3px solid ${bord}` }}>
@@ -103,7 +103,7 @@ export function Etendue({ d, max = 20 }) {
       <div className="absolute inset-y-[-2px] w-[2px] bg-iip-blue rounded"
         style={{ left: `${p(d.mediane)}%` }} />
       <div className="absolute inset-y-[-2px] w-[2px] rounded"
-        style={{ left: `${p(d.moyenne)}%`, background: 'var(--c-attente, #B45309)' }} />
+        style={{ left: `${p(d.moyenne)}%`, background: 'var(--c-attente, var(--c-attente))' }} />
     </div>
   );
 }

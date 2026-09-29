@@ -567,7 +567,7 @@ export default function ProfFicheModal({ prof, onClose, onSaved }) {
                 <SelectField label="Revenus du conjoint" value={form.conjoint_revenus} onChange={v => set('conjoint_revenus', v)} options={REVENUS_CONJOINT} />
               </div>
             )}
-            <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded px-3 py-2">
+            <p className="text-xs text-white bg-amber-500 border border-amber-500 rounded px-3 py-2">
               ⚠️ Marié(e)/cohabitant(e) légal(e) : joindre la déclaration de précompte professionnel,
               sans laquelle les enfants ne seront pas renseignés à charge.
             </p>

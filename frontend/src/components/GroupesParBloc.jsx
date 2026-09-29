@@ -37,7 +37,7 @@ export default function GroupesParBloc({ items, blocDeItem, estEpreuve, children
       .map(([cle, liste]) => ({
         cle, liste,
         titre: cle === 'EI' ? 'Épreuve intégrée' : cle === 'AUTRE' ? 'Sans bloc' : cle,
-        couleur: cle === 'EI' ? OR_EPREUVE : cle === 'AUTRE' ? '#CBD5E1' : (COULEUR_BLOC[cle] || '#94A3B8'),
+        couleur: cle === 'EI' ? OR_EPREUVE : cle === 'AUTRE' ? '#CBD5E1' : (COULEUR_BLOC[cle] || 'var(--c-disponible)'),
       }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [items]);

@@ -128,7 +128,7 @@ function Decisions({ stats, donnees, section, categorie }) {
       {/* CE BLOC NE SUIT PAS LE FILTRE DE CATÉGORIE, et il faut le dire :
           un chiffre qui ignore un filtre affiché est un chiffre faux. */}
       {categorie !== 'tout' && (
-        <div className="text-[11px] text-[color:var(--c-attente,#B45309)]">
+        <div className="text-[11px] text-[color:var(--c-attente,var(--c-attente))]">
           Les décisions ne se filtrent pas par catégorie : ce bloc porte
           {section ? ` la section ${section}` : ' toutes les sections'}.
         </div>
@@ -208,7 +208,7 @@ function Decisions({ stats, donnees, section, categorie }) {
                 <td className={`px-2 py-1.5 text-right tabular-nums font-semibold
                     border-l border-slate-100 ${l.cote && Math.abs(
                       (l.cote.moyenne ?? 0) - (l.cote.mediane ?? 0)) > 1
-                      ? 'text-[color:var(--c-attente,#B45309)]' : 'text-iip-blue'}`}>
+                      ? 'text-[color:var(--c-attente,var(--c-attente))]' : 'text-iip-blue'}`}>
                   {nb(l.cote?.moyenne)}
                 </td>
                 <td className="px-2 py-1.5 text-right tabular-nums text-iip-blue font-semibold">
@@ -264,7 +264,7 @@ function Table({ lignes, max }) {
                 <td className="px-2 py-1.5 text-slate-700">{l.libelle}</td>
                 <td className="px-2 py-1.5 text-right tabular-nums text-slate-500">{l.n}</td>
                 <td className={`px-2 py-1.5 text-right tabular-nums font-semibold
-                  ${ecart > 1 ? 'text-[color:var(--c-attente,#B45309)]' : 'text-iip-blue'}`}>
+                  ${ecart > 1 ? 'text-[color:var(--c-attente,var(--c-attente))]' : 'text-iip-blue'}`}>
                   {nb(l.moyenne)}
                 </td>
                 <td className="px-2 py-1.5 text-right tabular-nums text-iip-blue font-semibold">
@@ -441,7 +441,7 @@ export default function Distributions() {
       </div>
 
       {erreur && (
-        <div className="carte p-3 text-[13px] text-[color:var(--c-refuse,#9D4A38)]">{erreur}</div>
+        <div className="carte p-3 text-[13px] text-[color:var(--c-refuse,var(--c-refuse))]">{erreur}</div>
       )}
 
       {/* CE QUE LE FILTRE NE VOIT PAS. Un « bachelier » qui ignore en silence
@@ -450,7 +450,7 @@ export default function Distributions() {
       {categorie !== 'tout' && categorie !== 'non_qualifiee' && !!nonQualifiees.length && (
         <div className="carte p-3 flex items-start gap-2">
           <IconAlertTriangle size={16}
-            className="text-[color:var(--c-attente,#B45309)] flex-none mt-0.5" />
+            className="text-[color:var(--c-attente,var(--c-attente))] flex-none mt-0.5" />
           <div className="text-[12px] text-slate-600">
             {nonQualifiees.length} section(s) n’ont pas de niveau au référentiel et ne sont
             donc comptées dans aucune catégorie : <b>{nonQualifiees.join(', ')}</b>.

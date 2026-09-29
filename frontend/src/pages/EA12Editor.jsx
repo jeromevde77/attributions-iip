@@ -207,7 +207,7 @@ export default function EA12Editor() {
         </h1>
         <p className="text-xs text-gray-500">Année {ea12.annee_scolaire} · Doc n° {ea12.num_doc}</p>
       </div>
-      {msg && <div className={`text-sm px-3 py-1.5 rounded ${msg.startsWith('Erreur') ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-700'}`}>{msg}</div>}
+      {msg && <div className={`text-sm px-3 py-1.5 rounded ${msg.startsWith('Erreur') ? 'bg-red-500 text-white' : 'bg-green-500 text-white'} border-l-4 border-l-red-500`}>{msg}</div>}
 
       {/* ─── 1. En-tête document ──────────────────────────────────────────── */}
       <Section titre="1 · En-tête du document">

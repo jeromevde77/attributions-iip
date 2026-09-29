@@ -95,8 +95,8 @@ export default function PonderationsAA() {
       {message && (
         <div className={`px-4 py-2.5 rounded-lg text-sm flex items-center justify-between ${
           message.type === 'ok'
-            ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
-            : 'bg-red-50 text-red-800 border border-red-200'}`}>
+            ? 'bg-emerald-500 text-white border border-emerald-500'
+            : 'bg-red-500 text-white border border-red-500'}`}>
           <span>{message.texte}</span>
           <button onClick={() => setMessage(null)} className="ml-3 opacity-60">✕</button>
         </div>
@@ -203,8 +203,8 @@ export default function PonderationsAA() {
                         </div>
                       </div>
                       <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-lg border flex-none ${
-                        ok ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                           : 'bg-amber-50 text-amber-700 border-amber-200'}`}>
+                        ok ? 'bg-emerald-500 text-white border-emerald-500'
+                           : 'bg-amber-500 text-white border-amber-500'}`}>
                         {somme} / 100
                       </span>
                     </div>

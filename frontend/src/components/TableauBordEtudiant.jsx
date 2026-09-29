@@ -30,15 +30,15 @@ const DECISIONS = [
 // Une note se lit d'un coup d'œil : la couleur porte l'information, le chiffre
 // la précise.
 const tonNote = n => n == null ? 'bg-slate-100 text-slate-400'
-  : n >= 14 ? 'bg-emerald-100 text-emerald-800'
-  : n >= SEUIL ? 'bg-sky-100 text-sky-800'
-  : n >= 8 ? 'bg-amber-100 text-amber-900'
-  : 'bg-red-100 text-red-800';
+  : n >= 14 ? 'bg-emerald-500 text-white'
+  : n >= SEUIL ? 'bg-sky-500 text-white'
+  : n >= 8 ? 'bg-amber-500 text-white'
+  : 'bg-red-500 text-white';
 
 const tonResultat = r => ({
-  reussi: 'bg-emerald-100 text-emerald-800 border-emerald-200',
-  ajourne: 'bg-amber-100 text-amber-900 border-amber-200',
-  refuse: 'bg-red-100 text-red-800 border-red-200',
+  reussi: 'bg-emerald-500 text-white border-emerald-500',
+  ajourne: 'bg-amber-500 text-white border-amber-500',
+  refuse: 'bg-red-500 text-white border-red-500',
   absent: 'bg-slate-100 text-slate-500 border-slate-200',
 }[r] || 'bg-white text-slate-500 border-slate-200');
 
@@ -141,8 +141,8 @@ export default function TableauBordEtudiant({ etudId, ueNum, annee, onClose, onD
 
       {message && (
         <div className={`px-3 py-2 rounded-lg text-[13px] ${message.type === 'ok'
-          ? 'bg-emerald-50 border border-emerald-200 text-emerald-800'
-          : 'bg-red-50 border border-red-200 text-red-800'}`}>{message.texte}</div>
+          ? 'bg-emerald-500 border border-emerald-500 text-white'
+          : 'bg-red-500 border border-red-500 text-white'}`}>{message.texte}</div>
       )}
 
       {/* ── IDENTITÉ ─────────────────────────────────────────────────────── */}
@@ -331,7 +331,7 @@ export default function TableauBordEtudiant({ etudId, ueNum, annee, onClose, onD
             communication : les documents remis portent « NA ». */}
         {detail?.note_deliberee != null && detail.note_deliberee < SEUIL
           && decision === 'reussi' && (
-          <div className="px-3 py-2 rounded-lg bg-amber-50 border border-amber-200 text-[12px] text-amber-900">
+          <div className="px-3 py-2 rounded-lg bg-amber-50 border border-amber-200 text-[12px] text-amber-900 border-l-4 border-l-amber-500">
             Cote délibérée sous le seuil de {SEUIL}/20 avec une décision de réussite.
             C'est possible — le Conseil délibère — mais la décision devra être motivée,
             et une faveur porterait l'unité à exactement {SEUIL}.

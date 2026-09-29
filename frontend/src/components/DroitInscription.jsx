@@ -163,7 +163,7 @@ export default function DroitInscription({ etudId, annee, peutEcrire = true }) {
               </div>
 
               {di.plafond_atteint && (
-                <div className="px-3 py-2 rounded-lg bg-sky-50 border border-sky-200 text-[12px] text-sky-900">
+                <div className="px-3 py-2 rounded-lg bg-sky-50 border border-sky-200 text-[12px] text-sky-900 border-l-4 border-l-sky-500">
                   Plafond de {di.bareme.plafond_periodes} périodes atteint : {di.periodes.total} périodes
                   au programme, dont {di.retenues.secondaire + di.retenues.superieur} facturées. Les
                   périodes du secondaire sont comptées en premier, conformément à la circulaire.
@@ -280,7 +280,7 @@ export default function DroitInscription({ etudId, annee, peutEcrire = true }) {
                     </div>
                   </div>
                   {dis.plafond_atteint && (
-                    <div className="text-[11px] text-sky-800 bg-sky-50 border border-sky-200 rounded-lg px-2 py-1">
+                    <div className="text-[11px] text-white bg-sky-500 border border-sky-500 rounded-lg px-2 py-1">
                       Plafonné à {eur(dis.plafond)}
                     </div>
                   )}

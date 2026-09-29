@@ -125,7 +125,7 @@ export function AxeEtudiants() {
            c'est la seule rubrique de l'axe qui porte une couleur, et c'est
            pour cela qu'elle la porte. */
         { key: 'procedures', label: 'Procédures', icone: IconShieldExclamation,
-          couleur: '#B45309',
+          couleur: 'var(--c-attente)',
           sansMarge: true, railPropre: true,
           rendu: <Suspense fallback={<Attente />}><Procedures /></Suspense> },
         { key: 'presences', label: 'Présences', icone: IconUserCheck, futur: true,

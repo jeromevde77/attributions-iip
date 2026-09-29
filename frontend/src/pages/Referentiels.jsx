@@ -201,7 +201,7 @@ function DPImportModal({ annee, sections, onClose, onSaved }) {
             </div>
 
             {error && (
-              <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-sm text-red-700 flex items-start gap-2">
+              <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-sm text-red-700 flex items-start gap-2 border-l-4 border-l-red-500">
                 <IconAlertTriangle size={16} className="flex-shrink-0 mt-0.5" />{error}
               </div>
             )}
@@ -252,7 +252,7 @@ function DPImportModal({ annee, sections, onClose, onSaved }) {
                             de l'import, pas six mois plus tard devant une
                             unité dont personne ne sait d'où elle sort. */}
                         {x.data.code_depuis_nom && (
-                          <div className="text-[11px] text-[#B45309] mt-0.5">
+                          <div className="text-[11px] text-[color:var(--c-attente)] mt-0.5">
                             Code FWB repris du <b>nom du fichier</b> — le document ne le porte pas.
                           </div>
                         )}
@@ -287,7 +287,7 @@ function DPImportModal({ annee, sections, onClose, onSaved }) {
                         )}
                         {!resultats && x.data.action === 'updated' && cibles[x.fichier]
                           && cibles[x.fichier] !== String(x.data.ue_num) && (
-                          <div className="text-[11px] text-[#B45309] mt-0.5 pl-6">
+                          <div className="text-[11px] text-[color:var(--c-attente)] mt-0.5 pl-6">
                             Redirigé vers l'UE {cibles[x.fichier]} — pensez à supprimer
                             l'UE {x.data.ue_num} si c'est un doublon.
                           </div>
@@ -321,7 +321,7 @@ function DPImportModal({ annee, sections, onClose, onSaved }) {
                                       return { ...m, [x.fichier]: { ...c0, choix } };
                                     })}
                                     className={`w-56 border rounded px-1.5 py-0.5 text-[11px] bg-white
-                                      ${carte.choix[ci] ? 'border-green-400 text-green-800' : 'border-amber-300 text-[#B45309]'}`}>
+                                      ${carte.choix[ci] ? 'border-green-400 text-green-800' : 'border-amber-300 text-[color:var(--c-attente)]'}`}>
                                     <option value="">➕ Créer ce cours</option>
                                     {carte.cours.map(k => (
                                       <option key={k.cours_code} value={k.cours_code}>
@@ -348,7 +348,7 @@ function DPImportModal({ annee, sections, onClose, onSaved }) {
               {!resultats && (
                 <div className="p-3 border-t border-gray-100 space-y-2">
                   {bloquant && (
-                    <div className="bg-amber-50 border border-amber-200 rounded p-2 text-xs text-amber-700 flex items-start gap-1.5">
+                    <div className="bg-amber-500 border border-amber-500 rounded p-2 text-xs text-white flex items-start gap-1.5">
                       <IconAlertTriangle size={14} className="flex-shrink-0 mt-0.5" />
                       {aCreer.length} unité(s) sont inconnues et seraient créées : choisissez une
                       section cible, ou rattachez chaque dossier à une unité existante.
@@ -542,7 +542,7 @@ function SectionModal({ section, onClose, onSaved, annee, isAdmin }) {
             section. Une unité peut les redéfinir si elle fait exception.
           </p>
           {!isNew && form.code.trim() && form.code.trim() !== section.code && (
-            <div className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1.5 h-9">
+            <div className="text-xs text-white bg-amber-500 border border-amber-500 rounded px-2 py-1.5 h-9">
               ⚠️ Renommer « {section.code} » → « {form.code.trim()} » mettra à jour toutes les attributions, cours, UE et rattachements liés.
             </div>
           )}
@@ -564,7 +564,7 @@ function SectionModal({ section, onClose, onSaved, annee, isAdmin }) {
               <input value={form.responsable} onChange={e => set('responsable', e.target.value)} placeholder="Coordinateur (optionnel)"
                 className="w-full border border-gray-300 rounded px-3 py-1.5 h-9 text-sm" /></label>
           </div>
-          {error && <div className="bg-red-50 text-red-700 text-sm rounded p-2">{error}</div>}
+          {error && <div className="bg-red-50 text-red-700 text-sm rounded p-2 border-l-4 border-l-red-500">{error}</div>}
 
 
           {!isNew && section?.code && (
@@ -1154,7 +1154,7 @@ export default function Referentiels({ embedded = false }) {
                             <td className="px-2 py-1.5 h-9 cursor-pointer truncate max-w-[280px]" title={ue.ue_nom} onClick={() => { toggle(ueKey); setActiveUE(ueKey); }}>
                               {ue.ue_nom}
                               {ue._orpheline && (
-                                <span className="ml-2 text-xs bg-orange-100 text-orange-700 border border-orange-200 rounded px-1.5 py-0.5" title="Des attributions existent pour cette UE mais elle n'a pas de fiche dans le référentiel">
+                                <span className="ml-2 text-xs bg-orange-500 text-white border border-orange-500 rounded px-1.5 py-0.5" title="Des attributions existent pour cette UE mais elle n'a pas de fiche dans le référentiel">
                                   ⚠ fiche manquante
                                 </span>
                               )}
@@ -1523,7 +1523,7 @@ function GestionActivites({ sections = [] }) {
           <select value={a.type_etp || ''} onChange={e => changerType(a.id, e.target.value)}
             className={`text-xs font-semibold border rounded px-1.5 py-0.5 cursor-pointer outline-none
               ${a.type_etp === 'TH' ? 'bg-slate-100 text-slate-800 border-slate-300'
-              : a.type_etp === 'TP' ? 'bg-cyan-50 text-cyan-700 border-cyan-300'
+              : a.type_etp === 'TP' ? 'bg-cyan-500 text-white border-cyan-500'
               : a.type_etp === 'COD' ? 'bg-iip-gold/10 text-iip-gold border-iip-gold/40'
               : 'bg-gray-50 text-gray-400 border-gray-200'}`}
             title="Type pour le calcul ETP : TH ÷800, TP ÷1000, COD ÷1440">

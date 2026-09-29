@@ -79,7 +79,7 @@ export default function DoublesProgrammes() {
                     <tr key={l.etudiant_id} className={`border-t border-slate-100 bg-white ${l.ambigu || exclus.has(l.etudiant_id) ? 'text-slate-400' : ''}`}>
                       <td className="px-2 py-1">{!l.ambigu && <input type="checkbox" checked={!exclus.has(l.etudiant_id)} onChange={() => bascule(l.etudiant_id)} aria-label="Réparer ce dossier" />}</td>
                       <td className="px-2 py-1 whitespace-nowrap"><b>{(l.nom || '').toUpperCase()}</b> {l.prenom} <span className="text-slate-400">· {l.id_ecampus || '—'}</span></td>
-                      <td className="px-2 py-1">{l.ambigu ? <span className="text-[#B45309]">à trancher — {l.raison}</span>
+                      <td className="px-2 py-1">{l.ambigu ? <span className="text-[color:var(--c-attente)]">à trancher — {l.raison}</span>
                         : <><b className="text-iip-blue">{l.garde}</b> <span className="text-slate-400">({l.raison})</span></>}</td>
                       <td className="px-2 py-1 tabular-nums">{l.retirer.length ? `${l.retirer[0].section} : UE ${l.retirer.map(x => x.ue_num).join(', ')}` : '—'}</td>
                       <td className="px-2 py-1 tabular-nums text-slate-500">{l.proteges.map(x => `UE ${x.ue_num} (${x.pourquoi})`).join(' · ') || '—'}</td>

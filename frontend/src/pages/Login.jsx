@@ -74,8 +74,8 @@ function NetworkBg() {
          viewBox="0 0 100 100" preserveAspectRatio="xMidYMid slice"
          xmlns="http://www.w3.org/2000/svg">
       <style>{`
-        .nl { stroke:#00AACC; stroke-width:.18; fill:none; }
-        .nd { fill:#00AACC; animation: pulse 4s ease-in-out infinite; }
+        .nl { stroke:var(--c-accent); stroke-width:.18; fill:none; }
+        .nd { fill:var(--c-accent); animation: pulse 4s ease-in-out infinite; }
         @keyframes pulse {
           0%,100% { opacity:.5; }
           50%      { opacity:1; }
@@ -194,7 +194,7 @@ export default function Login() {
   return (
     <div style={{
       minHeight:'100vh', display:'flex', alignItems:'center', justifyContent:'center',
-      background:'#1B2B4B', position:'relative', overflow:'hidden', padding:'24px',
+      background:'var(--c-principal)', position:'relative', overflow:'hidden', padding:'24px',
     }}>
       <NetworkBg/>
 
@@ -224,7 +224,7 @@ export default function Login() {
             }}>Gestion des membres de personnel</p>
             {info.etab_nom && (
               <p style={{
-                color:'#00AACC', fontSize:'12px', fontWeight:600,
+                color:'var(--c-accent)', fontSize:'12px', fontWeight:600,
                 letterSpacing:'1px', fontFamily:"'Segoe UI',sans-serif", margin:0,
               }}>{info.etab_nom}</p>
             )}
@@ -238,7 +238,7 @@ export default function Login() {
               <div style={{
                 marginTop:'8px',
                 display:'inline-block',
-                background: 'repeating-linear-gradient(45deg, #f59e0b, #f59e0b 8px, #d97706 8px, #d97706 16px)',
+                background: 'repeating-linear-gradient(45deg, var(--c-attente), var(--c-attente) 8px, var(--c-attente) 8px, var(--c-attente) 16px)',
                 color:'white', fontSize:'11px', fontWeight:700, letterSpacing:'1.5px',
                 padding:'4px 14px', borderRadius:'6px',
                 textShadow:'0 1px 2px rgba(0,0,0,.3)',
@@ -305,7 +305,7 @@ export default function Login() {
                   }} />
               </div>
               <button type="submit" disabled={loading} style={{
-                width:'100%', padding:'13px', background:'#00AACC', border:'none',
+                width:'100%', padding:'13px', background:'var(--c-accent)', border:'none',
                 borderRadius:'8px', color:'white', fontSize:'14px', fontWeight:600,
                 letterSpacing:'.5px', cursor: loading ? 'not-allowed' : 'pointer',
                 fontFamily:"'Segoe UI',sans-serif",
@@ -379,7 +379,7 @@ export default function Login() {
             <div style={{
               background:'rgba(220,60,60,.1)', border:'1px solid rgba(220,60,60,.3)',
               borderRadius:'8px', padding:'12px 14px', marginBottom:'18px',
-              color:'#FF8888', fontSize:'13px', fontFamily:"'Segoe UI',sans-serif",
+              color:'var(--c-texte)', fontSize:'13px', fontFamily:"'Segoe UI',sans-serif",
               display:'flex', gap:'8px', alignItems:'flex-start',
             }}>
               <span style={{fontSize:'15px',marginTop:'1px'}}>⚠</span>
@@ -395,7 +395,7 @@ export default function Login() {
             style={{
               width:'100%', padding:'12px',
               background: (loading || (parSecours ? code.length < 6 : code.length !== 6))
-                ? 'rgba(0,170,204,.4)' : '#00AACC',
+                ? 'rgba(0,170,204,.4)' : 'var(--c-accent)',
               border:'none', borderRadius:'8px',
               color:'white', fontSize:'14px', fontWeight:600,
               letterSpacing:'.5px',
@@ -451,7 +451,7 @@ export default function Login() {
             <div style={{
               background:'rgba(220,60,60,.1)', border:'1px solid rgba(220,60,60,.3)',
               borderRadius:'8px', padding:'12px 14px', marginBottom:'18px',
-              color:'#FF8888', fontSize:'13px', fontFamily:"'Segoe UI',sans-serif",
+              color:'var(--c-texte)', fontSize:'13px', fontFamily:"'Segoe UI',sans-serif",
               display:'flex', gap:'8px', alignItems:'flex-start',
             }}>
               <span style={{fontSize:'15px',marginTop:'1px'}}>⚠</span>
@@ -464,15 +464,15 @@ export default function Login() {
 
           <button type="submit" disabled={loading} style={{
             width:'100%', padding:'12px',
-            background: loading ? 'rgba(0,170,204,.4)' : '#00AACC',
+            background: loading ? 'rgba(0,170,204,.4)' : 'var(--c-accent)',
             border:'none', borderRadius:'8px',
             color:'white', fontSize:'14px', fontWeight:600,
             letterSpacing:'.5px', cursor: loading ? 'not-allowed' : 'pointer',
             fontFamily:"'Segoe UI',sans-serif",
             transition:'background .2s',
           }}
-          onMouseEnter={e=>{ if(!loading) e.target.style.background='#009BBB'; }}
-          onMouseLeave={e=>{ if(!loading) e.target.style.background='#00AACC'; }}
+          onMouseEnter={e=>{ if(!loading) e.target.style.background='var(--c-accent)'; }}
+          onMouseLeave={e=>{ if(!loading) e.target.style.background='var(--c-accent)'; }}
           >
             {loading ? 'Connexion…' : 'Se connecter'}
           </button>
@@ -512,7 +512,7 @@ export default function Login() {
         }
         input::placeholder { color:rgba(255,255,255,.22); }
         input:-webkit-autofill {
-          -webkit-box-shadow:0 0 0 100px #1e3560 inset !important;
+          -webkit-box-shadow:0 0 0 100px var(--c-principal) inset !important;
           -webkit-text-fill-color:white !important;
         }
       `}</style>

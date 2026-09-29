@@ -271,7 +271,7 @@ export default function GrilleSectionModal({ section, onClose }) {
             const insuffisant = besoinTotal > n(ue.ue_aut);
             return (
               <div key={ue.ue_num} className={`border rounded-lg overflow-hidden ${insuffisant ? 'border-red-400 ring-1 ring-red-300' : 'border-gray-200'} ${ue.ue_tc === 'x' ? 'border-t-2 border-t-blue-900' : ''}`}>
-                <div className={`flex items-center justify-between px-3 py-2 border-b ${insuffisant ? 'bg-red-50 border-red-200' : 'bg-gray-50 border-gray-200'}`}>
+                <div className={`flex items-center justify-between px-3 py-2 border-b ${insuffisant ? 'bg-red-50 border-red-200' : 'bg-gray-50 border-gray-200'} border-l-4 border-l-red-500`}>
                   <div className="flex items-center gap-2">
                     <button onClick={() => baguette(ue)} title="Répartir l'autonomie automatiquement (prorata des besoins)"
                       className="text-base hover:scale-110 transition" >🪄</button>
@@ -290,11 +290,11 @@ export default function GrilleSectionModal({ section, onClose }) {
                       Utilisé {ue.autonomie_utilisee || 0}/{ue.ue_aut}
                     </span>
                     {insuffisant
-                      ? <span className="px-2 py-0.5 rounded font-medium bg-red-100 text-red-700">Besoin {besoinTotal} &gt; enveloppe {ue.ue_aut} · il manque {besoinTotal - n(ue.ue_aut)}</span>
+                      ? <span className="px-2 py-0.5 rounded font-medium bg-red-500 text-white">Besoin {besoinTotal} &gt; enveloppe {ue.ue_aut} · il manque {besoinTotal - n(ue.ue_aut)}</span>
                       : <span className={`px-2 py-0.5 rounded font-medium ${
-                          depasse ? 'bg-red-100 text-red-700'
-                            : ue.autonomie_restante === 0 ? 'bg-green-100 text-green-700'
-                            : 'bg-amber-100 text-amber-700'}`}>
+                          depasse ? 'bg-red-500 text-white'
+                            : ue.autonomie_restante === 0 ? 'bg-green-500 text-white'
+                            : 'bg-amber-500 text-white'}`}>
                           {depasse ? `Dépassement de ${-ue.autonomie_restante} pér.` : `Reste ${ue.autonomie_restante} à placer`}
                         </span>}
                   </div>

@@ -876,11 +876,11 @@ export function TableauVide({ colonnes, children }) {
 
 const TEINTES_BADGE = {
   neutre:  'bg-slate-100 text-slate-600',
-  info:    'bg-sky-100 text-sky-800',
-  succes:  'bg-emerald-100 text-emerald-800',
-  alerte:  'bg-amber-100 text-amber-800',
-  danger:  'bg-red-100 text-red-700',
-  accent:  'bg-violet-100 text-violet-700',
+  info:    'bg-sky-500 text-white',
+  succes:  'bg-emerald-500 text-white',
+  alerte:  'bg-amber-500 text-white',
+  danger:  'bg-red-500 text-white',
+  accent:  'bg-violet-500 text-white',
 };
 
 /** Badge de tableau : discret, sans bordure, aux teintes de l'application. */
@@ -917,8 +917,8 @@ export function TuileEtat({ etat = 'neutre', valeur, unite, libelle, precision, 
       data-etat={etat}
       className={`bloc-etat ${sousReserve ? 'sous-reserve' : ''} relative text-left px-3 py-2 min-w-0
         ${onClick ? 'cursor-pointer hover:brightness-[.98] transition' : ''}
-        ${actif ? 'ring-2 ring-offset-1 ring-[#1B2B4B]/30' : ''} ${className}`}>
-      {Icone && <Icone size={15} stroke={1.8} className="absolute right-2.5 top-2.5 text-slate-400" />}
+        ${actif ? 'ring-2 ring-offset-1 ring-iip-blue/30' : ''} ${className}`}>
+      {Icone && <Icone size={15} stroke={1.8} className="absolute right-2.5 top-2.5" style={{ color: 'var(--e)' }} />}
       <div className="text-[17px] font-bold tabular-nums leading-tight">
         {valeur}
         {unite && <span className="text-[11px] font-normal text-slate-500 ml-1">{unite}</span>}
@@ -936,7 +936,7 @@ export function Encadre({ etat = 'surveiller', titre, children, icone: Icone, cl
     <div data-etat={etat} className={`bloc-etat px-3 py-2 text-[12px] ${className}`}>
       {(titre || Icone) && (
         <div className="flex items-center gap-1.5 font-semibold text-[13px]">
-          {Icone && <Icone size={15} stroke={1.8} className="text-slate-500" />}
+          {Icone && <Icone size={15} stroke={1.8} style={{ color: 'var(--e)' }} />}
           {titre}
         </div>
       )}
@@ -1103,9 +1103,9 @@ export function Fenetre({ icone: Ic, titre, sous, large = 'moyenne',
                        ${hauteurFixe ? 'h-[88vh]' : 'max-h-[88vh]'}
                        ${largeurs[large] || largeurs.moyenne}`}>
         <div className="flex items-center gap-3 px-5 py-3 text-white flex-shrink-0"
-          style={{ background: ton === 'alerte' ? '#9d4a38' : '#1B2B4B' }}>
+          style={{ background: ton === 'alerte' ? 'var(--c-refuse)' : 'var(--c-principal)' }}>
           {Ic && <Ic size={18} className="flex-shrink-0"
-            style={{ color: ton === 'alerte' ? '#f1c7bf' : '#7fd4e6' }} />}
+            style={{ color: ton === 'alerte' ? 'var(--c-texte)' : 'var(--c-accent)' }} />}
           <div className="min-w-0 flex-1">
             <div className="text-[15px] font-semibold truncate">{titre}</div>
             {sous && <div className="text-[12px] text-white/70 truncate">{sous}</div>}
@@ -1148,7 +1148,7 @@ export function GroupeFenetre({ titre, ton = 'neutre', children }) {
     <section className="mb-4 last:mb-0">
       {titre && (
         <div className="text-[11px] font-semibold uppercase tracking-[.13em] mb-2"
-          style={{ color: ton === 'alerte' ? '#9d4a38' : '#94a3b8' }}>{titre}</div>
+          style={{ color: ton === 'alerte' ? 'var(--c-refuse)' : 'var(--c-disponible)' }}>{titre}</div>
       )}
       <div className="space-y-1.5">{children}</div>
     </section>
@@ -1165,7 +1165,7 @@ export function GroupeFenetre({ titre, ton = 'neutre', children }) {
  */
 export function PieceFenetre({ icone: Ic, titre, sous, meta, ton = 'neutre',
                                actif = false, desactive = false, onClick }) {
-  const teinte = ton === 'alerte' ? '#9d4a38' : ton === 'neuf' ? '#00809c' : null;
+  const teinte = ton === 'alerte' ? 'var(--c-refuse)' : ton === 'neuf' ? 'var(--c-accent)' : null;
   const Balise = onClick ? 'button' : 'div';
   return (
     <Balise onClick={desactive ? undefined : onClick} disabled={desactive || undefined}
@@ -1173,9 +1173,9 @@ export function PieceFenetre({ icone: Ic, titre, sous, meta, ton = 'neutre',
         border transition-colors duration-150 ease-ios
         ${desactive ? 'opacity-45' : onClick ? 'hover:border-slate-400' : ''}
         ${actif ? 'bg-slate-50' : 'bg-white'}`}
-      style={{ borderColor: actif || teinte ? (teinte || '#1B2B4B') + '55' : '#e2e8f0' }}>
+      style={{ borderColor: actif || teinte ? `rgb(var(--gris-200))` : '#e2e8f0' }}>
       {Ic && <Ic size={17} className="flex-shrink-0"
-        style={{ color: teinte || '#94a3b8' }} />}
+        style={{ color: teinte || 'var(--c-texte)' }} />}
       <span className="min-w-0 flex-1">
         <span className="block text-[13px] text-slate-700">{titre}</span>
         {sous && <span className="block text-[12px] text-slate-400">{sous}</span>}
@@ -1190,7 +1190,7 @@ export function PieceFenetre({ icone: Ic, titre, sous, meta, ton = 'neutre',
 /** Les boutons du pied : un seul principal, le reste en retrait. */
 export function BoutonFenetre({ principal = false, ton = 'neutre', desactive = false,
                                 onClick, children }) {
-  const fond = ton === 'alerte' ? '#9d4a38' : '#1B2B4B';
+  const fond = ton === 'alerte' ? 'var(--c-refuse)' : 'var(--c-principal)';
   return (
     <button onClick={onClick} disabled={desactive}
       className={`px-4 py-2 rounded-champ text-[13px] font-semibold

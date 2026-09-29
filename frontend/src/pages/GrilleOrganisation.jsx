@@ -27,15 +27,15 @@ import { Fenetre } from '../components/ui.jsx';
  * voit la charge, pas seulement le calendrier.
  */
 
-const BLOC = { 1: '#E8890C', 2: '#7FB3D5', 3: '#1B2B4B' };
+const BLOC = { 1: 'var(--c-ba1)', 2: 'var(--c-ba2)', 3: 'var(--c-principal)' };
 const teinteBloc = niv => {
   const m = String(niv || '').match(/([123])\s*$/);
-  return m ? BLOC[m[1]] : '#94A3B8';
+  return m ? BLOC[m[1]] : 'var(--c-disponible)';
 };
 
 const FOND_SEM = {
   cours: 'transparent', vacances: '#EEF0F3', ferie: '#EEF0F3',
-  ev1: '#FDF3E7', ev2: '#FDF3E7', stage: '#EFF6FF',
+  ev1: '#FDF3E7', ev2: '#FDF3E7', stage: 'rgb(var(--e-disponible-100))',
 };
 
 /** 5 px pour 2 h/semaine — plancher à 4 px, plafond à 22 pour rester lisible. */
@@ -149,8 +149,8 @@ export default function GrilleOrganisation({ sansTitre = false } = {}) {
           <div className="px-3 py-2 space-y-1.5 border-b border-slate-200">
             {anomalies.map(u => (
               <div key={u.ue_num}
-                className="carte px-3 py-2 border-l-[3px] border-l-[#9D4A38] text-[12px]">
-                <IconAlertTriangle size={13} className="inline align-[-2px] mr-1.5 text-[#9D4A38]" />
+                className="carte px-3 py-2 border-l-[3px] border-l-[color:var(--c-refuse)] text-[12px]">
+                <IconAlertTriangle size={13} className="inline align-[-2px] mr-1.5 text-[color:var(--c-refuse)]" />
                 <b>UE {u.ue_num}</b> — la règle des multiples n'est pas respectée.
                 {u.controle.anomalies.map(a => (
                   <div key={a.cours_code} className="text-slate-600 mt-0.5">
@@ -166,7 +166,7 @@ export default function GrilleOrganisation({ sansTitre = false } = {}) {
               </div>
             ))}
             {aPoser.length > 0 && (
-              <div className="carte px-3 py-2 border-l-[3px] border-l-[#B45309] text-[12px]">
+              <div className="carte px-3 py-2 border-l-[3px] border-l-[color:var(--c-attente)] text-[12px]">
                 <b>{aPoser.length} unité(s) sans dates</b> — elles ne sont pas encore
                 posées dans l'année : {aPoser.slice(0, 6).map(u => `UE ${u.ue_num}`).join(', ')}
                 {aPoser.length > 6 ? '…' : ''}. Elles se complètent ici.
@@ -204,10 +204,10 @@ export default function GrilleOrganisation({ sansTitre = false } = {}) {
                 <div className="flex-1 grid gap-0.5"
                   style={{ gridTemplateColumns: `repeat(${nbSem}, 1fr)` }}>
                   <div className="text-[9px] font-bold tracking-wider text-white text-center
-                                  rounded-sm bg-[#2D4470]"
+                                  rounded-sm bg-[color:var(--c-disponible)]"
                     style={{ gridColumn: `1 / ${Math.max(2, coupure + 1)}` }}>Q1</div>
                   <div className="text-[9px] font-bold tracking-wider text-white text-center
-                                  rounded-sm bg-[#2D4470]"
+                                  rounded-sm bg-[color:var(--c-disponible)]"
                     style={{ gridColumn: `${Math.max(2, coupure + 1)} / ${nbSem + 1}` }}>Q2</div>
                 </div>
               </div>
@@ -284,7 +284,7 @@ function LigneUE({ u, semaines, nbSem, coupure, ouverte, surOuvrir, surCours, vu
                   backgroundImage: `repeating-linear-gradient(45deg, ${teinte} 0 3px,`
                     + ` transparent 3px 6px)` }} />
               <span style={{ gridRow: 1, gridColumn: `${deb} / ${nbSem + 1}`, zIndex: 2 }}
-                className="text-[10px] text-[#B45309] pl-1 self-start">sans dates — à poser</span>
+                className="text-[10px] text-[color:var(--c-attente)] pl-1 self-start">sans dates — à poser</span>
             </>
           )}
         </div>
@@ -325,7 +325,7 @@ function LigneUE({ u, semaines, nbSem, coupure, ouverte, surOuvrir, surCours, vu
       {ouverte && u.controle.autonomie.unite > 0 && (
         <div className="flex items-center border-t border-slate-100 bg-[#FCFCFD]">
           <div className="px-3 py-1.5 text-[11.5px]" style={{ width: 230, flexShrink: 0, paddingLeft: 34 }}>
-            <span className="text-[#7C3AED]">Autonomie</span>
+            <span className="text-[color:var(--c-texte)]">Autonomie</span>
             <span className="text-[10px] text-slate-400 block">
               {u.controle.autonomie.placee} placée sur {u.controle.autonomie.unite}
               {u.controle.autonomie.restante > 0
@@ -335,7 +335,7 @@ function LigneUE({ u, semaines, nbSem, coupure, ouverte, surOuvrir, surCours, vu
           <div className="flex-1 grid items-center" style={{
             gridTemplateColumns: `repeat(${nbSem}, 1fr)`, height: 24 }}>
             <div style={{ gridRow: 1, gridColumn: `${deb} / ${fin + 1}`, height: 6,
-              background: '#8B5CF6', opacity: .5, borderRadius: 3 }} />
+              background: 'var(--c-faveur)', opacity: .5, borderRadius: 3 }} />
           </div>
         </div>
       )}
@@ -485,17 +485,17 @@ function FenetreCours({ etat, annee, section, periodeMinutes = 50,
           {enCours ? 'Enregistrement…' : 'Enregistrer'}
         </button>
         {dp > 0 && total === 0
-          ? <span className="text-[12px] text-[#B45309]">
+          ? <span className="text-[12px] text-[color:var(--c-attente)]">
               Sans activité, le cours revient à son contenu du dossier
               — <b>{dp} périodes</b>. On ne supprime pas un cours.
             </span>
           : dp > 0 && (manque
-          ? <span className="text-[12px] text-[#9D4A38]">
+          ? <span className="text-[12px] text-[color:var(--c-refuse)]">
               Cours {total} pér. — il manque {manque} pour un multiple de {dp}.
               {Number(auto) > 0 && <span className="text-slate-500">
                 {' '}(autonomie {auto} comptée à part)</span>}
             </span>
-          : <span className="text-[12px] text-[#15803D]">
+          : <span className="text-[12px] text-[color:var(--c-texte)]">
               <IconCheck size={13} className="inline align-[-2px] mr-1" />
               Cours {total} pér. — multiple de {dp} respecté.
               {Number(auto) > 0 && <span className="text-slate-500">
@@ -561,7 +561,7 @@ function FenetreCours({ etat, annee, section, periodeMinutes = 50,
                 </td>
                 <td className="text-center">
                   <button onClick={() => setLignes(ls => ls.filter((_, j) => j !== i))}
-                    className="text-slate-300 hover:text-[#9D4A38]"><IconTrash size={14} /></button>
+                    className="text-slate-300 hover:text-[color:var(--c-refuse)]"><IconTrash size={14} /></button>
                 </td>
               </tr>
             ))}
@@ -609,13 +609,13 @@ function FenetreCours({ etat, annee, section, periodeMinutes = 50,
             <span className="text-slate-500 text-[11.5px]">
               unité : {ue.controle.autonomie.unite} · restante ailleurs : {restanteUE}
             </span>
-            <span className="ml-auto text-[#7C3AED] font-semibold">{auto}</span>
+            <span className="ml-auto text-[color:var(--c-texte)] font-semibold">{auto}</span>
           </div>
           <input type="range" min="0" max={ue.controle.autonomie.unite || 0} step="1"
             value={auto} onChange={e => setAuto(Number(e.target.value))}
-            className="w-full accent-[#8B5CF6] mt-1.5" />
+            className="w-full accent-[color:var(--c-faveur)] mt-1.5" />
           {restanteUE < 0 && (
-            <div className="text-[11.5px] text-[#9D4A38] mt-1">
+            <div className="text-[11.5px] text-[color:var(--c-refuse)] mt-1">
               Vous placez plus d'autonomie que l'unité n'en porte.
             </div>
           )}
@@ -655,15 +655,15 @@ function enHeures(periodes, minutes) {
  * distingue pas les parts ne jauge rien. Les teintes s'écartent donc :
  * deux segments successifs changent franchement.
  */
-const TEINTES = ['#1B2B4B', '#00AACC', '#5B7FB8', '#7FB3D5', '#3B5488', '#A9C6E0'];
+const TEINTES = ['var(--c-principal)', 'var(--c-accent)', 'var(--c-disponible)', 'var(--c-ba2)', 'var(--c-disponible)', 'var(--c-disponible)'];
 
 /* L'ÉVALUATION A SA TEINTE, ET ELLE NE DÉPEND PAS DE SON RANG.
    Elle est la seule activité que la grille propose d'office, la seule qu'une
    bascule commande, et celle qu'on cherche du regard. Orange, donc — quelle
    que soit sa place dans la liste : lui donner la couleur de son rang la
    faisait changer de teinte quand on ajoutait une activité au-dessus. */
-const TEINTE_EVALUATION = '#E8890C';
-const TEINTE_AUTONOMIE = '#8B5CF6';
+const TEINTE_EVALUATION = 'var(--c-ba1)';
+const TEINTE_AUTONOMIE = 'var(--c-faveur)';
 
 function JaugeCours({ dp, lignes, auto, dispo, minutes, idEval = null }) {
   const nom = id => dispo.find(a => a.id === Number(id))?.libelle || 'Activité';
@@ -696,8 +696,8 @@ function JaugeCours({ dp, lignes, auto, dispo, minutes, idEval = null }) {
           {dp ? ` p · ${enHeures(dp, minutes)}` : ''}
         </span>
         <span className="ml-auto text-[12.5px]">
-          <b className={total === dp ? 'text-[#15803D]'
-            : (total > (dp || 0) ? 'text-[#9D4A38]' : 'text-slate-700')}>{total}</b>
+          <b className={total === dp ? 'text-[color:var(--c-texte)]'
+            : (total > (dp || 0) ? 'text-[color:var(--c-refuse)]' : 'text-slate-700')}>{total}</b>
           <span className="text-slate-500"> p · {enHeures(total, minutes)} organisés</span>
         </span>
       </div>
@@ -714,7 +714,7 @@ function JaugeCours({ dp, lignes, auto, dispo, minutes, idEval = null }) {
       {/* LE REPÈRE DU DOSSIER, quand on le dépasse : il dit OÙ était la cible. */}
       {dp > 0 && total > dp && (
         <div className="relative h-0">
-          <div className="absolute -top-3 w-px h-3 bg-[#9D4A38]"
+          <div className="absolute -top-3 w-px h-3 bg-[color:var(--c-refuse)]"
             style={{ left: pct(dp) }} title={`Dossier pédagogique : ${dp} périodes`} />
         </div>
       )}

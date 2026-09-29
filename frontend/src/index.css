@@ -6,7 +6,7 @@
 /* LES CASES À COCHER SONT MARINE (Charles, 27 septembre 2026 : « je n'aime pas
  * ce bleu flash, on coche en bleu marine »). Posé une fois, pour tout Lucie :
  * le bleu du navigateur n'est pas une couleur de la maison. */
-input[type="checkbox"], input[type="radio"] { accent-color: #1B2B4B; }
+input[type="checkbox"], input[type="radio"] { accent-color: var(--c-principal); }
 
 
 /* LES GRIS — deux jeux, un seul réglage (Configuration → Thèmes et couleurs).
@@ -22,6 +22,44 @@ input[type="checkbox"], input[type="radio"] { accent-color: #1B2B4B; }
   --gris-50: 247 247 248; --gris-100: 242 242 244; --gris-200: 229 230 233; --gris-300: 209 211 216;
   --gris-400: 156 160 168; --gris-500: 110 114 122; --gris-600: 82 86 94; --gris-700: 60 63 70;
   --gris-800: 38 40 45; --gris-900: 22 23 26; --gris-950: 10 10 12;
+}
+
+:root {
+  /* LES RÉGLAGES DE COULEUR, VALEURS DE REPLI (générées depuis lib/couleurs.js, DEFAUT).
+     lib/couleurs.js les réécrit au démarrage avec ce qui est réglé ; ces valeurs ne servent
+     qu'aux pages qui ne passent pas par lui (fenêtre d'impression, aperçu). */
+  --c-iip_bleu: #19537E; --c-iip_bleu-rgb: 25 83 126;
+  --c-iip_or: #F9B619; --c-iip_or-rgb: 249 182 25;
+  --c-iip_cyan: #05B7E6; --c-iip_cyan-rgb: 5 183 230;
+  --c-principal: #1B2B4B; --c-principal-rgb: 27 43 75;
+  --e-principal-50: 246 247 248; --e-principal-100: 237 238 241; --e-principal-200: 219 221 226; --e-principal-300: 187 191 201; --e-principal-400: 114 124 143; --e-principal-500: 27 43 75; --e-principal-600: 22 34 60; --e-principal-700: 17 27 47; --e-principal-800: 11 17 30; --e-principal-900: 6 10 18; --e-principal-950: 3 4 7;
+  --c-accent: #00AACC; --c-accent-rgb: 0 170 204;
+  --e-accent-50: 255 255 255; --e-accent-100: 255 255 255; --e-accent-200: var(--gris-200); --e-accent-300: var(--gris-200); --e-accent-400: 0 170 204; --e-accent-500: 0 170 204; --e-accent-600: 0 170 204; --e-accent-700: 0 170 204; --e-accent-800: var(--c-texte-rgb); --e-accent-900: var(--c-texte-rgb); --e-accent-950: var(--c-texte-rgb);
+  --c-texte: #1B2B4B; --c-texte-rgb: 27 43 75;
+  --c-donnees: #00AACC; --c-donnees-rgb: 0 170 204;
+  --e-donnees-50: 245 252 253; --e-donnees-100: 235 248 251; --e-donnees-200: 214 241 247; --e-donnees-300: 179 230 240; --e-donnees-400: 97 202 223; --e-donnees-500: 0 170 204; --e-donnees-600: 0 136 163; --e-donnees-700: 0 105 126; --e-donnees-800: 0 68 82; --e-donnees-900: 0 41 49; --e-donnees-950: 0 17 20;
+  --c-menu_sombre: #0F1A2E; --c-menu_sombre-rgb: 15 26 46;
+  --c-iip: #1B2B4B; --c-iip-rgb: 27 43 75;
+  --c-helb: #DB2777; --c-helb-rgb: 219 39 119;
+  --e-helb-50: 255 255 255; --e-helb-100: 255 255 255; --e-helb-200: var(--gris-200); --e-helb-300: var(--gris-200); --e-helb-400: 219 39 119; --e-helb-500: 219 39 119; --e-helb-600: 219 39 119; --e-helb-700: 219 39 119; --e-helb-800: var(--c-texte-rgb); --e-helb-900: var(--c-texte-rgb); --e-helb-950: var(--c-texte-rgb);
+  --c-ct: #1D4ED8; --c-ct-rgb: 29 78 216;
+  --c-pp: #047857; --c-pp-rgb: 4 120 87;
+  --c-reussi: #3E7D5E; --c-reussi-rgb: 62 125 94;
+  --e-reussi-50: 255 255 255; --e-reussi-100: 255 255 255; --e-reussi-200: var(--gris-200); --e-reussi-300: var(--gris-200); --e-reussi-400: 62 125 94; --e-reussi-500: 62 125 94; --e-reussi-600: 62 125 94; --e-reussi-700: 62 125 94; --e-reussi-800: var(--c-texte-rgb); --e-reussi-900: var(--c-texte-rgb); --e-reussi-950: var(--c-texte-rgb);
+  --c-faveur: #6B46C1; --c-faveur-rgb: 107 70 193;
+  --e-faveur-50: 255 255 255; --e-faveur-100: 255 255 255; --e-faveur-200: var(--gris-200); --e-faveur-300: var(--gris-200); --e-faveur-400: 107 70 193; --e-faveur-500: 107 70 193; --e-faveur-600: 107 70 193; --e-faveur-700: 107 70 193; --e-faveur-800: var(--c-texte-rgb); --e-faveur-900: var(--c-texte-rgb); --e-faveur-950: var(--c-texte-rgb);
+  --c-disponible: #2F6FB0; --c-disponible-rgb: 47 111 176;
+  --e-disponible-50: 255 255 255; --e-disponible-100: 255 255 255; --e-disponible-200: var(--gris-200); --e-disponible-300: var(--gris-200); --e-disponible-400: 47 111 176; --e-disponible-500: 47 111 176; --e-disponible-600: 47 111 176; --e-disponible-700: 47 111 176; --e-disponible-800: var(--c-texte-rgb); --e-disponible-900: var(--c-texte-rgb); --e-disponible-950: var(--c-texte-rgb);
+  --c-attente: #B45309; --c-attente-rgb: 180 83 9;
+  --e-attente-50: 255 255 255; --e-attente-100: 255 255 255; --e-attente-200: var(--gris-200); --e-attente-300: var(--gris-200); --e-attente-400: 180 83 9; --e-attente-500: 180 83 9; --e-attente-600: 180 83 9; --e-attente-700: 180 83 9; --e-attente-800: var(--c-texte-rgb); --e-attente-900: var(--c-texte-rgb); --e-attente-950: var(--c-texte-rgb);
+  --c-refuse: #9D4A38; --c-refuse-rgb: 157 74 56;
+  --e-refuse-50: 255 255 255; --e-refuse-100: 255 255 255; --e-refuse-200: var(--gris-200); --e-refuse-300: var(--gris-200); --e-refuse-400: 157 74 56; --e-refuse-500: 157 74 56; --e-refuse-600: 157 74 56; --e-refuse-700: 157 74 56; --e-refuse-800: var(--c-texte-rgb); --e-refuse-900: var(--c-texte-rgb); --e-refuse-950: var(--c-texte-rgb);
+  --c-ba1: #E8890C; --c-ba1-rgb: 232 137 12;
+  --c-ba2: #7FB3D5; --c-ba2-rgb: 127 179 213;
+  --c-ba3: #1B2B4B; --c-ba3-rgb: 27 43 75;
+  --c-epreuve: #C9A84C; --c-epreuve-rgb: 201 168 76;
+  --c-fond_page: #FFFFFF; --c-fond_page-rgb: 255 255 255;
+  --c-fond_indispo: #F4F5F7; --c-fond_indispo-rgb: 244 245 247;
 }
 
 :root {
@@ -63,7 +101,7 @@ table.grid-excel th, table.grid-excel td {
   white-space: nowrap;
 }
 table.grid-excel thead th {
-  background: #1B2B4B;
+  background: var(--c-principal);
   color: white;
   position: sticky;
   top: 0;
@@ -106,7 +144,7 @@ table.grid-excel-soft thead th:last-child { padding-right: 1rem; }
 .seg-fam button { border:0; background:#fff; padding:0 12px; height:30px;
                   font-size:12.5px; font-family:inherit; color:#6B7280;
                   cursor:pointer; }
-.seg-fam button.on { background:#1B2B4B; color:#fff; font-weight:600; }
+.seg-fam button.on { background:var(--c-principal); color:#fff; font-weight:600; }
 
 /* LA BANDE DU COURS ET SON EN-TÊTE NE FONT QU'UN OBJET.
    Le titre du cours et la ligne « VAL. CONTR. ACTIVITÉ… » étaient deux bandeaux
@@ -116,7 +154,7 @@ table.grid-excel-soft thead th:last-child { padding-right: 1rem; }
    filet entre eux : on lit « voici ce cours, et voici ce que ses colonnes
    disent » d'un seul mouvement. */
 .fusion-cours table.grid-excel-soft thead th {
-  background: #F4F6F8;
+  background: #fff;
   position: static;
 }
 /* La ligne des plafonds : une valeur, pas une étiquette — donc ni graisse ni
@@ -177,7 +215,7 @@ table.grid-excel th.num, table.grid-excel-soft th.num { text-align: right; font-
   transition: background .12s, border-color .12s;
 }
 .input-cell:hover { background: #fafafa; border-color: #dcdfe4; }
-.input-cell:focus { background: #e0f4f9; border-color: #00AACC; outline: none; }
+.input-cell:focus { background: #e0f4f9; border-color: var(--c-accent); outline: none; }
 
 /* UNE LISTE DÉROULANTE DANS UNE CELLULE N'EST PAS UN BOUTON.
    Les « IIP », « R », « — » de la grille ne sont pas des badges : ce sont des
@@ -201,7 +239,7 @@ table.grid-excel-soft select:hover {
 }
 table.grid-excel-soft select:focus {
   background-color: #e0f4f9;
-  border-color: #00AACC;
+  border-color: var(--c-accent);
   outline: none;
 }
 
@@ -224,19 +262,19 @@ table.grid-excel-soft select:focus {
    Professeurs : trois réponses à une question qui n'en a qu'une. Les badges
    lisent le réglage de la maison, posé sur la racine au démarrage — et le
    papier lit exactement le même. */
-.badge-iip   { background: color-mix(in srgb, var(--c-iip, #1B2B4B) 14%, #fff);
-               color: var(--c-iip, #1B2B4B); }
-.badge-helb  { background: color-mix(in srgb, var(--c-helb, #DB2777) 14%, #fff);
-               color: var(--c-helb, #DB2777); }
-.badge-ct    { background: #dbeafe; color: #1e40af; }
-.badge-pp    { background: #dcfce7; color: #166534; }
-.badge-z     { background: #1F3864; color: #ffffff; letter-spacing: 0.05em; }
-.badge-b     { background: #fef3c7; color: #92400e; }
-.badge-f     { background: #ffe4e6; color: #9f1239; }
-.badge-t     { background: #f0fdf4; color: #14532d; border: 1px solid #86efac; }
-.badge-p     { background: #faf5ff; color: #6b21a8; border: 1px solid #d8b4fe; }
-.badge-o     { background: #fff7ed; color: #9a3412; border: 1px solid #fdba74; }
-.badge-cc    { background: #e0e7ff; color: #3730a3; }
+.badge-iip   { background: #fff;
+               color: var(--c-principal, var(--c-principal)); }
+.badge-helb  { background: #fff;
+               color: var(--c-helb, var(--c-texte)); }
+.badge-ct    { background: #FFFFFF; color: var(--c-texte); }
+.badge-pp    { background: #FFFFFF; color: var(--c-texte); }
+.badge-z     { background: var(--c-principal); color: #ffffff; letter-spacing: 0.05em; }
+.badge-b     { background: #FFFFFF; color: var(--c-texte); }
+.badge-f     { background: #FFFFFF; color: var(--c-texte); }
+.badge-t     { background: #f0fdf4; color: var(--c-texte); border: 1px solid var(--c-reussi); }
+.badge-p     { background: #faf5ff; color: var(--c-texte); border: 1px solid var(--c-faveur); }
+.badge-o     { background: #fff7ed; color: var(--c-texte); border: 1px solid var(--c-attente); }
+.badge-cc    { background: #FFFFFF; color: var(--c-texte); }
 /* CC ET EXP SONT DEUX STATUTS, PAS UN STATUT ET SON ABSENCE.
    EXP se dessinait en gris bordé au milieu de badges teintés : il se lisait
    comme « rien », alors que c'est une situation aussi nette que CC. Deux
@@ -246,8 +284,8 @@ table.grid-excel-soft select:focus {
 /* PAS LE VIOLET (27 septembre 2026) : il ne dit que la faveur, et EXP en a été
    retiré par la règle des états. Un bleu pétrole : distinct du marine de CC,
    étranger aux états comme aux blocs. */
-.badge-exp   { background: color-mix(in srgb, #2F6B72 13%, #fff); color: #245A60; }
-.badge-incomplete { background: #fef9c3; color: #854d0e; }
+.badge-exp   { background: #fff; color: var(--c-texte); }
+.badge-incomplete { background: #FFFFFF; color: var(--c-texte); }
 
 /* ═══════════════════════════════════════════════════════════════════════════
    RESPONSIVE MOBILE (iPhone / écrans ≤ 768px)
@@ -453,30 +491,30 @@ table.grid-excel-soft select:focus {
    l'œil — la rubrique ouverte, une alerte. Tout le reste est gris.
    ───────────────────────────────────────────────────────────────────────── */
 :root, :root[data-mode="clair"] {
-  --menu-fond:        var(--c-fond_page, #F8FAFC);   /* le fond de la page : le rail s'y fond */
-  --page-fond:        var(--c-fond_page, #F8FAFC);   /* en clair, la page et les menus ont UN sol */
-  --menu-bord:        rgba(27, 43, 75, 0.10);
-  --menu-texte:       #1B2B4B;
-  --menu-texte-doux:  rgba(27, 43, 75, 0.55);
-  --menu-survol:      rgba(27, 43, 75, 0.06);
+  --menu-fond:        var(--c-fond_page, #FFFFFF);   /* le fond de la page : le rail s'y fond */
+  --page-fond:        var(--c-fond_page, #FFFFFF);   /* en clair, la page et les menus ont UN sol */
+  --menu-bord:        rgb(var(--c-texte-rgb) / 0.10);
+  --menu-texte:       var(--c-principal);
+  --menu-texte-doux:  rgb(var(--c-texte-rgb) / 0.55);
+  --menu-survol:      rgb(var(--c-texte-rgb) / 0.06);
   --menu-actif:       rgba(255, 255, 255, 0.95);
-  --menu-actif-bord:  rgba(27, 43, 75, 0.12);
-  --menu-filet:       rgba(27, 43, 75, 0.10);
+  --menu-actif-bord:  rgb(var(--c-texte-rgb) / 0.12);
+  --menu-filet:       rgb(var(--c-texte-rgb) / 0.10);
   --menu-ombre:       0 18px 45px -20px rgba(11, 21, 45, 0.28);
-  --menu-icone:       rgba(27, 43, 75, 0.60);
-  --menu-accent:      #0093B0;   /* turquoise assombri : lisible sur gris pâle */
+  --menu-icone:       rgb(var(--c-texte-rgb) / 0.60);
+  --menu-accent:      color-mix(in srgb, var(--c-accent) 85%, #000);   /* turquoise assombri : lisible sur gris pâle */
   /* LE SOUS-MENU DÉPLIÉ. Il vit DANS le rail, entre deux filets, et doit se
      distinguer des rubriques de l'axe sans crier : un bleu clair, qui se lit
      comme « second niveau » et non comme « alerte ». */
   --menu-sous:        #3E7FB8;
   --menu-sous-filet:  rgba(62, 127, 184, 0.34);
   --menu-sous-actif:  rgba(62, 127, 184, 0.12);
-  --barre-fond:       var(--c-fond_page, #F8FAFC);   /* le fond de la page : la barre s'y fond aussi */
+  --barre-fond:       var(--c-fond_page, #FFFFFF);   /* le fond de la page : la barre s'y fond aussi */
   --champ-fond:       #FFFFFF;
-  --tab-repere:       var(--c-fond_page, #F8FAFC);   /* le fond de la page : le filet suffit à démarquer */
+  --tab-repere:       var(--c-fond_page, #FFFFFF);   /* le fond de la page : le filet suffit à démarquer */
 }
 :root[data-mode="sombre"] {
-  --menu-fond:        #0F1A2E;   /* le marine des MENUS en mode sombre */
+  --menu-fond:        var(--c-menu_sombre);   /* le marine des MENUS en mode sombre */
   /* LE MODE SOMBRE EST CELUI DES MENUS, PAS CELUI DE LA PAGE.
      La barre et le rail passent au marine ; les écrans, eux, restent clairs —
      on y lit des tableaux, des notes et des documents. En donnant à la page le
@@ -494,11 +532,11 @@ table.grid-excel-soft select:focus {
   --menu-filet:       rgba(255, 255, 255, 0.12);
   --menu-ombre:       0 20px 50px -15px rgba(11, 21, 45, 0.55);
   --menu-icone:       rgba(255, 255, 255, 0.70);
-  --menu-accent:      #00AACC;
+  --menu-accent:      var(--c-accent);
   --menu-sous:        #7FB6E8;
   --menu-sous-filet:  rgba(127, 182, 232, 0.38);
   --menu-sous-actif:  rgba(127, 182, 232, 0.16);
-  --barre-fond:       #0F1A2E;
+  --barre-fond:       var(--c-menu_sombre);
   --champ-fond:       rgba(255,255,255,.08);
   --tab-repere:       rgba(255,255,255,.04);
 }
@@ -610,7 +648,7 @@ table.grid-excel-soft select:focus {
   display: inline-flex; align-items: center; justify-content: center;
   height: 2rem; min-width: 2rem; padding: 0 .5rem;
   border-radius: 8px; font-size: 12px; font-weight: 700; letter-spacing: .02em;
-  color: var(--menu-texte, #1B2B4B); background: var(--menu-actif, #EEF2F7);
+  color: var(--menu-texte, var(--c-principal)); background: var(--menu-actif, #EEF2F7);
   box-shadow: inset 0 0 0 1px var(--menu-actif-bord, #E2E8F0);
 }
 
@@ -870,15 +908,15 @@ select[multiple], select[size]:not([size="1"]) {
    une icône, et TOUJOURS LA MÊME pour ce qui sort une pièce — l'avion. Le
    libellé vit dans l'infobulle. */
 .bouton.bouton-icone { width: 2.25rem; padding-inline: 0; justify-content: center; border-radius: 10px; }
-.bouton-fort     { background: #1B2B4B; color: #fff; border-color: transparent; }
-.bouton-fort:hover:not(:disabled)     { background: #163A6B; }
+.bouton-fort     { background: var(--c-principal); color: #fff; border-color: transparent; }
+.bouton-fort:hover:not(:disabled)     { background: var(--c-principal); }
 /* SORTIR — FOND BLANC, MARINE (Charles, 27 septembre 2026 : « je n'aime pas
    ce bleu turquoise, on reste dans nos couleurs »). Le filet marine le
    distingue d'un bouton neutre sans lui donner un aplat. */
-.bouton-sortir   { background: #fff; color: #1B2B4B; border-color: #1B2B4B; }
+.bouton-sortir   { background: #fff; color: var(--c-texte); border-color: var(--c-principal); }
 .bouton-sortir:hover:not(:disabled)   { background: #EEF1F6; }
-.bouton-detruire { background: #9d4a38; color: #fff; border-color: transparent; }
-.bouton-detruire:hover:not(:disabled) { background: #883f2f; }
+.bouton-detruire { background: var(--c-refuse); color: #fff; border-color: transparent; }
+.bouton-detruire:hover:not(:disabled) { background: var(--c-refuse); }
 
 /* ═══ LES TABLEAUX — deux tons, pas cinq ══════════════════════════════════
  *
@@ -934,14 +972,14 @@ select[multiple], select[size]:not([size="1"]) {
  * Or, argent, bronze — et le brique pour le seul vrai problème, le
  * dépassement. Lucie n'a pas de rouge.
  */
-.medaille-or         { color: #C9A84C; font-weight: 700; }
-.medaille-argent     { color: #7C8899; font-weight: 600; }
-.medaille-bronze     { color: #A8763E; font-weight: 600; }
-.medaille-depassement{ color: #9d4a38; font-weight: 700; }
-.fond-or          { background: #FBF6E8; border-color: #E6D6A5; }
-.fond-argent      { background: #F4F6F8; border-color: #D8DEE6; }
-.fond-bronze      { background: #F8F2EB; border-color: #DFC9AE; }
-.fond-depassement { background: #F9EFEC; border-color: #E3C4BB; }
+.medaille-or         { color: var(--c-texte); font-weight: 700; }
+.medaille-argent     { color: var(--c-texte); font-weight: 600; }
+.medaille-bronze     { color: var(--c-texte); font-weight: 600; }
+.medaille-depassement{ color: var(--c-texte); font-weight: 700; }
+.fond-or          { background: #fff; }
+.fond-argent      { background: #fff; }
+.fond-bronze      { background: #fff; }
+.fond-depassement { background: #fff; }
 
 /* ═══ LE BLANC EST RÉSERVÉ À CE QUI SE REMPLIT ════════════════════════════
  *
@@ -979,11 +1017,14 @@ select[multiple], select[size]:not([size="1"]) {
  */
 .bloc-etat {
   --e: #D8DCE4;
-  background: color-mix(in srgb, var(--e) 11%, #fff);
-  border: 1px solid color-mix(in srgb, var(--e) 30%, #fff);
+  /* PLUS DE FOND PÂLE (Charles, 29 septembre 2026 : « encore du pâle ; il
+     y a trop de teintes partout »). La couleur ne se montre que PLEINE : le
+     liseré. Le fond est blanc, le contour celui des filets. */
+  background: #fff;
+  border: 1px solid rgb(var(--gris-200));
   border-left: 4px solid var(--e);
   border-radius: 0 10px 10px 0;
-  color: #1B2B4B;
+  color: var(--c-texte);
 }
 .bloc-etat[data-etat="reussi"]     { --e: var(--c-reussi); }
 .bloc-etat[data-etat="faveur"]     { --e: var(--c-faveur); }
@@ -995,7 +1036,7 @@ select[multiple], select[size]:not([size="1"]) {
 /* Neutre : un chiffre sans état. Le blanc est celui de la tuile. */
 .bloc-etat:not([data-etat]), .bloc-etat[data-etat="neutre"] { background: #fff; border-color: #D8DCE4; }
 /* Fort : le chiffre qui compte, sans état — liseré marine, fond blanc. */
-.bloc-etat[data-etat="fort"] { --e: var(--c-iip, #1B2B4B); background: #fff; border-color: #D8DCE4; }
+.bloc-etat[data-etat="fort"] { --e: var(--c-principal, var(--c-principal)); background: #fff; border-color: #D8DCE4; }
 /* Une réserve est une nuance, pas un état : le trait, pas la couleur. */
 .bloc-etat.sous-reserve { border-style: dashed; border-left-style: solid; }
 
@@ -1005,8 +1046,10 @@ select[multiple], select[size]:not([size="1"]) {
   display: inline-flex; align-items: center; gap: 3px;
   font-size: 10px; font-weight: 600; line-height: 1.5;
   padding: 0 6px; border-radius: 4px; white-space: nowrap;
-  background: color-mix(in srgb, var(--e) 13%, #fff);
-  color: color-mix(in srgb, var(--e) 78%, #1B2B4B);
+  /* LA PASTILLE EST PLEINE (Charles, 29 septembre 2026) : la couleur réglée,
+     texte blanc — aucun ton dérivé. */
+  background: var(--e);
+  color: #fff;
 }
 .pastille-etat[data-etat="reussi"]     { --e: var(--c-reussi); }
 .pastille-etat[data-etat="faveur"]     { --e: var(--c-faveur); }
@@ -1022,25 +1065,25 @@ select[multiple], select[size]:not([size="1"]) {
  * de style — l'une pour écrire, l'autre pour lire — finiraient par montrer deux
  * documents, et c'est celui qu'on n'a pas relu qui serait confirmé.
  * Échelle de la maison : 13 le corps, 15 et 17 pour les titres, rien au-delà. */
-.texte-corpus { font-size: 13px; line-height: 1.6; color: #1e293b; }
+.texte-corpus { font-size: 13px; line-height: 1.6; color: var(--c-texte); }
 .texte-corpus > * + * { margin-top: 0.6em; }
-.texte-corpus h1 { font-size: 17px; font-weight: 700; color: #1B2B4B; margin-top: 1.2em; }
-.texte-corpus h2 { font-size: 15px; font-weight: 700; color: #1B2B4B; margin-top: 1.1em;
+.texte-corpus h1 { font-size: 17px; font-weight: 700; color: var(--c-texte); margin-top: 1.2em; }
+.texte-corpus h2 { font-size: 15px; font-weight: 700; color: var(--c-texte); margin-top: 1.1em;
                    padding-bottom: 2px; border-bottom: 1px solid #D8DCE4; }
-.texte-corpus h3 { font-size: 13px; font-weight: 700; color: #1B2B4B; margin-top: 0.9em; }
-.texte-corpus h4 { font-size: 13px; font-weight: 600; color: #334155; }
+.texte-corpus h3 { font-size: 13px; font-weight: 700; color: var(--c-texte); margin-top: 0.9em; }
+.texte-corpus h4 { font-size: 13px; font-weight: 600; color: var(--c-texte); }
 .texte-corpus ul { list-style: disc; padding-left: 1.4em; }
 .texte-corpus ol { list-style: decimal; padding-left: 1.4em; }
 .texte-corpus li + li { margin-top: 0.2em; }
 .texte-corpus li > p { margin: 0; }
-.texte-corpus a { color: #1B2B4B; text-decoration: underline; }
+.texte-corpus a { color: var(--c-texte); text-decoration: underline; }
 /* L'ENCADRÉ — le bloc signalé du papier, à l'écran : rail marine, filet fin,
  * fond légèrement détaché. Marine et non ocre : « Art. 82 » ou « ce document
  * en un coup d'œil » ne sont pas des alertes, et le « ⚠ » du texte dit déjà
  * lesquels en sont. Si tout est ocre, plus rien ne signale. */
-.texte-corpus blockquote { border: 1px solid #D8DCE4; border-left: 3px solid #1B2B4B;
-                           border-radius: 8px; background: #FAFAFB; padding: 0.5em 0.9em; }
-.texte-corpus blockquote > p:first-child strong { color: #1B2B4B; }
+.texte-corpus blockquote { border: 1px solid #D8DCE4; border-left: 3px solid var(--c-principal);
+                           border-radius: 8px; background: #fff; padding: 0.5em 0.9em; }
+.texte-corpus blockquote > p:first-child strong { color: var(--c-texte); }
 .texte-corpus hr { border: 0; border-top: 1px solid #D8DCE4; margin: 1em 0; }
 /* Un tableau n'a que deux tons : l'en-tête, et la donnée blanche. */
 .texte-corpus table { border-collapse: collapse; width: 100%; margin: 0.6em 0; table-layout: auto; }
@@ -1061,9 +1104,9 @@ select[multiple], select[size]:not([size="1"]) {
   display: inline-grid; place-items: center;
   width: 27px; height: 17px; flex: none;
   font-size: 9px; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1;
-  color: #1B2B4B;
-  background: color-mix(in srgb, var(--e) 13%, #fff);
-  border: 1px solid color-mix(in srgb, var(--e) 35%, #fff);
+  color: var(--c-texte);
+  background: #fff;
+  border: 1px solid rgb(var(--gris-200));
   border-left: 2.5px solid var(--e);
   border-radius: 0 4px 4px 0;
 }
@@ -1085,13 +1128,13 @@ select[multiple], select[size]:not([size="1"]) {
   border-radius: 0 6px 6px 0; overflow: hidden;
   font-size: 9.5px; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1;
 }
-.gelule > span { display: inline-grid; place-items: center; min-width: 24px; height: 18px; padding: 0 4px; color: #1B2B4B; }
+.gelule > span { display: inline-grid; place-items: center; min-width: 24px; height: 18px; padding: 0 4px; color: var(--c-texte); }
 .gelule > span + span { border-left: 1px solid #E4E7EC; }
-.gelule > .gelule-bloc { color: #1B2B4B; font-weight: 700; padding: 0 5px; }
-.gelule > span[data-c="r"] { background: color-mix(in srgb, var(--c-reussi) 14%, #fff); }
-.gelule > span[data-c="f"] { background: color-mix(in srgb, var(--c-faveur) 14%, #fff); }
-.gelule > span[data-c="i"] { background: color-mix(in srgb, var(--c-disponible) 14%, #fff); }
-.gelule > span[data-c="a"] { background: color-mix(in srgb, var(--c-attente) 16%, #fff); }
+.gelule > .gelule-bloc { color: var(--c-texte); font-weight: 700; padding: 0 5px; }
+.gelule > span[data-c="r"] { background: #fff; }
+.gelule > span[data-c="f"] { background: #fff; }
+.gelule > span[data-c="i"] { background: #fff; }
+.gelule > span[data-c="a"] { background: #fff; }
 .gelule > span[data-c="o"] { color: #7A879E; }
 .gelule > span[data-c="n"] { background: var(--c-fond_indispo, #F4F5F7); color: #B6BDC9; }
 
@@ -1109,8 +1152,8 @@ select[multiple], select[size]:not([size="1"]) {
   input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="range"]):focus,
   select:focus, textarea:focus {
     outline: none;
-    border-color: #1B2B4B;
-    box-shadow: inset 0 0 0 1px #1B2B4B;
+    border-color: var(--c-principal);
+    box-shadow: inset 0 0 0 1px var(--c-principal);
   }
 }
 
@@ -1148,5 +1191,5 @@ select[multiple], select[size]:not([size="1"]) {
 
 /* La ligne de l'UE cliquée sur le schéma, au dos (notes par année). Les
    cellules collantes portent leur propre fond blanc : on les teinte aussi. */
-tr.ligne-visee > td { background: color-mix(in srgb, var(--c-disponible) 11%, #fff) !important; }
-tr.ligne-visee > td:first-child { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--c-disponible) 30%, #fff); }
+tr.ligne-visee > td { background: #fff !important; }
+tr.ligne-visee > td:first-child { box-shadow: inset 0 0 0 1px #fff; }

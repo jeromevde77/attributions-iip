@@ -69,7 +69,7 @@ export default function GardeAnnee({ quoi = 'ces données' }) {
                     bg-[rgba(11,21,45,.32)] backdrop-blur-[3px]">
       <div className="bg-white rounded-fenetre max-w-lg w-full shadow-dessus overflow-hidden">
         <div className="px-5 py-4 flex items-start gap-3 border-b border-slate-200">
-          <IconCalendarExclamation size={22} className="text-[color:var(--c-attente,#B45309)] flex-none mt-0.5" />
+          <IconCalendarExclamation size={22} className="text-[color:var(--c-attente,var(--c-attente))] flex-none mt-0.5" />
           <div>
             <h2 className="text-[15px] font-semibold text-iip-blue">
               Vous n'êtes pas dans l'année en cours

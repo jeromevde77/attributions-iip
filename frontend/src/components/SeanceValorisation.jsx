@@ -250,7 +250,7 @@ export default function SeanceValorisation({ ueNum, ueNom, annee, onClose }) {
           </div>
 
           {!!manques.length && (
-            <div className="carte border-amber-300 bg-amber-50/60 px-3 py-2">
+            <div className="carte border-amber-300 bg-amber-50/60 px-3 py-2 border-l-4 border-l-amber-500">
               <div className="flex items-center gap-1.5 text-[12px] font-semibold text-amber-800">
                 <IconAlertTriangle size={14} /> À encoder avant impression
               </div>
@@ -268,7 +268,7 @@ export default function SeanceValorisation({ ueNum, ueNom, annee, onClose }) {
               côté serveur, pas dans un onglet. */}
           {doc && (
             <div className="flex items-center gap-2 text-[12px] border border-slate-200
-                            rounded-carte px-3 py-2 border-l-[3px] border-l-[#C9A84C]">
+                            rounded-carte px-3 py-2 border-l-[3px] border-l-[color:var(--c-epreuve)]">
               <span className="flex-1">
                 L'onglet ouvert est un <b>aperçu</b>. Pour la pièce elle-même —
                 A4 garanti, pied de page sur chaque feuille — prends le PDF.

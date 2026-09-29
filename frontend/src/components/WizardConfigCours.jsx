@@ -212,7 +212,7 @@ export default function WizardConfigCours({ cours: coursInit, ueNum, section, an
                   className="w-full border border-gray-300 rounded px-3 py-2 text-sm" placeholder="ex. 20" />
               </label>
               {format === 'mixte' && (
-                <div className={`text-xs rounded p-2 ${(Number(heuresTheorie)+Number(heuresTP)) === totalPer ? 'bg-green-50 text-green-700' : 'bg-amber-50 text-amber-700'}`}>
+                <div className={`text-xs rounded p-2 ${(Number(heuresTheorie)+Number(heuresTP)) === totalPer ? 'bg-green-500 text-white' : 'bg-amber-500 text-white'} border-l-4 border-l-green-500`}>
                   Théorie {Number(heuresTheorie)||0} + TP {Number(heuresTP)||0} = {(Number(heuresTheorie)||0)+(Number(heuresTP)||0)} pér.
                   {(Number(heuresTheorie)+Number(heuresTP)) !== totalPer && ` (DP : ${totalPer} pér.)`}
                 </div>
@@ -245,7 +245,7 @@ export default function WizardConfigCours({ cours: coursInit, ueNum, section, an
                 </label>
               </div>
               {effectif && Number(capaciteTP) > 0 && (
-                <div className="bg-violet-50 rounded p-3 text-sm text-violet-700">
+                <div className="bg-violet-50 rounded p-3 text-sm text-violet-700 border-l-4 border-l-violet-500">
                   {effectif.total} étudiants ÷ {capaciteTP} places = <strong>{nbGroupesSuggere} sous-groupe(s)</strong> suggéré(s)
                   {nbGroupes !== nbGroupesSuggere && <span className="text-amber-600"> · vous avez forcé {nbGroupes}</span>}
                   <div className="text-xs text-violet-500 mt-1">

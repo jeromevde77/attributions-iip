@@ -402,7 +402,7 @@ export default function AcquisUE({ ueNum, annee, estAdmin }) {
       )}
 
       {data.epreuve_integree && (
-        <p className="text-[11px] text-violet-800 bg-violet-50 border border-violet-200 rounded px-2 py-1.5">
+        <p className="text-[11px] text-white bg-violet-500 border border-violet-500 rounded px-2 py-1.5">
           Épreuve intégrée : les acquis ne se rattachent pas aux cours. Leur <b>pondération
           dans l'unité</b> se règle dans Délibération → « Paramétrer ».
         </p>

@@ -100,9 +100,9 @@ export default function Rentree({ annee }) {
 
       {message && (
         <div className={`px-4 py-2.5 rounded-lg text-sm flex items-center justify-between ${
-          message.type === 'ok' ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
-          : message.type === 'err' ? 'bg-red-50 text-red-800 border border-red-200'
-          : 'bg-sky-50 text-sky-800 border border-sky-200'}`}>
+          message.type === 'ok' ? 'bg-emerald-500 text-white border border-emerald-500'
+          : message.type === 'err' ? 'bg-red-500 text-white border border-red-500'
+          : 'bg-sky-500 text-white border border-sky-500'}`}>
           <span>{message.texte}</span>
           <button onClick={() => setMessage(null)} className="ml-3 opacity-60">✕</button>
         </div>

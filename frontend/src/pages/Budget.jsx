@@ -215,8 +215,8 @@ export default function Budget() {
 
       {message && (
         <div className={`px-4 py-2.5 rounded-lg text-sm flex items-center justify-between ${
-          message.type === 'ok' ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
-                                : 'bg-red-50 text-red-800 border border-red-200'}`}>
+          message.type === 'ok' ? 'bg-emerald-500 text-white border border-emerald-500'
+                                : 'bg-red-500 text-white border border-red-500'}`}>
           <span>{message.texte}</span>
           <button onClick={() => setMessage(null)} className="ml-3 opacity-60">✕</button>
         </div>
@@ -313,7 +313,7 @@ export default function Budget() {
           )}
 
           {data.hors_prevision?.length > 0 && (
-            <div className="border border-amber-200 bg-amber-50 rounded-xl px-4 py-3">
+            <div className="border border-amber-200 bg-amber-50 rounded-xl px-4 py-3 border-l-4 border-l-amber-500">
               <div className="flex items-center gap-1.5 text-[13px] font-semibold text-amber-900 mb-1.5">
                 <IconAlertTriangle size={15} /> Dépenses hors prévision
               </div>
@@ -355,7 +355,7 @@ function LigneBudget({ l, depenses, peutEcrire, onEditer, onSupprimer, onDepense
         <td className="px-3 py-2 text-[13px] text-slate-800">
           {l.details}
           {l.a_charge && l.a_charge !== 'IIP' && (
-            <span className="ml-1.5 text-[10px] px-1 py-0.5 rounded bg-violet-50 text-violet-700 border border-violet-200">
+            <span className="ml-1.5 text-[10px] px-1 py-0.5 rounded bg-violet-500 text-white border border-violet-500">
               {l.a_charge}
             </span>
           )}

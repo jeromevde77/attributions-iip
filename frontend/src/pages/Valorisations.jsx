@@ -52,9 +52,9 @@ import { nomListe, parNom } from '../lib/nom.js';
 const PEUT_DEVALIDER = ['admin', 'directeur', 'directeur_adjoint'];
 
 export const TEINTE_PORTE = {
-  admission: { t: '#15803D', f: '#15803D26', b: '#15803D66' },  // vert
-  va:        { t: '#2D4470', f: '#2D447020', b: '#2D447066' },  // bleu
-  vae:       { t: '#6D28D9', f: '#8B5CF624', b: '#8B5CF666' },  // violet
+  admission: { t: 'var(--c-texte)', f: '#15803D26', b: '#15803D66' },  // vert
+  va:        { t: 'var(--c-disponible)', f: '#2D447020', b: '#2D447066' },  // bleu
+  vae:       { t: 'var(--c-texte)', f: '#8B5CF624', b: '#8B5CF666' },  // violet
 };
 
 const DECISIONS = [
@@ -462,7 +462,7 @@ function LigneEtudiant({ etudiant, annee, ouvert, onBasculer, onAjouterUE,
                 <span key={v.id} className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
                   {/* LA PORTE GARDE SA TEINTE : AD vert, VA bleu, VAE violet. */}
                   <span className="text-[12px] font-medium"
-                    style={{ color: TEINTE_PORTE[v.porte]?.t || '#2D4470' }}>
+                    style={{ color: TEINTE_PORTE[v.porte]?.t || 'var(--c-texte)' }}>
                     {v.ue_num === 0 ? 'Admission' : `UE ${v.ue_num}`}
                   </span>
                   <span className="text-[12px] text-slate-500 truncate max-w-[22rem]">
@@ -485,7 +485,7 @@ function LigneEtudiant({ etudiant, annee, ouvert, onBasculer, onAjouterUE,
             une erreur qui reste. */}
         <button onClick={onSupprimerLigne}
           title="Retirer cet étudiant du registre pour cette année"
-          className="text-slate-300 hover:text-[#9D4A38]">
+          className="text-slate-300 hover:text-[color:var(--c-refuse)]">
           <IconTrash size={16} />
         </button>
       </div>
@@ -619,7 +619,7 @@ function UniteValorisee({ va, annee, onSupprimer, onDocuments, onDossier, onChan
   return (
     <div className="border-b border-slate-100 last:border-0">
       <div className={`flex items-center gap-2 px-4 py-2 border-l-[3px]
-        ${refuse ? 'border-l-[#9D4A38]' : 'border-l-transparent'}`}>
+        ${refuse ? 'border-l-[color:var(--c-refuse)]' : 'border-l-transparent'}`}>
         <button onClick={() => setOuvert(o => !o)}
           className="text-slate-400 hover:text-iip-blue">
           <Fleche size={15} />
@@ -666,7 +666,7 @@ function UniteValorisee({ va, annee, onSupprimer, onDocuments, onDossier, onChan
             {form.decision === 'refusee' ? (
               <label className="block text-xs">
                 <span className="block font-semibold text-slate-500 uppercase tracking-wide mb-1">
-                  Motif du refus <span className="text-[#9D4A38]">— obligatoire</span>
+                  Motif du refus <span className="text-[color:var(--c-refuse)]">— obligatoire</span>
                 </span>
                 <textarea rows={3} value={form.motif_refus}
                   placeholder="Ce que le Conseil a constaté : pièces insuffisantes, acquis non démontrés…"
@@ -1117,7 +1117,7 @@ function ChoisirUnite({ annee, etudiant, onClose, onCree }) {
               {/* CELLES DE SON PROGRAMME SE SIGNALENT : ce sont les plus
                   probables, et elles arrivent déjà en tête de la liste. */}
               {u.au_pae && (
-                <span className="text-[10px] uppercase tracking-wider text-[#0093B0]
+                <span className="text-[10px] uppercase tracking-wider text-[color:var(--c-texte)]
                                  flex-none">à son programme</span>
               )}
               <span className="text-[11px] text-slate-400 flex-none w-24 text-right truncate">
@@ -2417,7 +2417,7 @@ function EtapeDecision({ dossier, bases, onEnregistrer, enCours }) {
                   dit ici plutôt que de le faire découvrir au refus du serveur. */}
               {cible === 'cours' && composantes?.cours?.length > 0
                 && composantes.cours.every(c => coches.has(c.cours_code)) && (
-                <p className="text-[12px] text-[#9D4A38]">
+                <p className="text-[12px] text-[color:var(--c-refuse)]">
                   Toutes les activités sont cochées : une dispense partielle ne peut pas
                   couvrir l'unité entière (RDE art. 29 §2). C'est alors une dispense complète.
                 </p>
@@ -2555,7 +2555,7 @@ const ETAPES = [
  * `ETAPES` est la seule table, partagée avec « Analyser en série » : deux
  * frises pour un même circuit finiraient par compter différemment.
  */
-const VERT = '#15803D', BRIQUE = '#9D4A38', GRIS = '#CBD5E1';
+const VERT = 'var(--c-texte)', BRIQUE = 'var(--c-refuse)', GRIS = '#CBD5E1';
 
 function etatEtape(d, cle) {
   if (cle === 'recevabilite' && d.recevable === 0) return 'refus';
@@ -2593,8 +2593,8 @@ export function FriseCircuit({ dossier, compact = false }) {
         ))}
       </span>
       <span className={`${compact ? 'text-[10px]' : 'text-[11px]'} ${
-        arret >= 0 ? 'text-[#9D4A38]'
-          : courante < 0 ? 'text-[#15803D]' : 'text-slate-500'}`}>
+        arret >= 0 ? 'text-[color:var(--c-refuse)]'
+          : courante < 0 ? 'text-[color:var(--c-texte)]' : 'text-slate-500'}`}>
         {libelle}
       </span>
     </span>
@@ -3736,7 +3736,7 @@ function EtapeTest({ dossier, onEnregistrer, enCours }) {
       {/* LA COPIE SE DÉPOSE, ET CE N'EST PAS UNE POLITESSE. Quatre ans de
           conservation, présentable à l'inspection — si elle n'est pas déposée
           le jour même, elle ne le sera jamais. */}
-      <p className="text-[12px] text-[#B45309]">
+      <p className="text-[12px] text-[color:var(--c-attente)]">
         La copie du test doit être déposée au dossier de l'étudiant, en pièce
         « Copie du test ou de l'épreuve d'admission » : elle se conserve quatre ans
         et se présente aux services d'inspection (AGCF du 13.12.2024, art. 5 al. 2).

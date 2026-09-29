@@ -446,7 +446,7 @@ export default function EncodageUE({ ueNum, annee, onClose, onEnregistre, onPara
                             : 'Note du cours, calculée depuis les acquis et leurs poids'}
                             className={`inline-block min-w-[34px] px-1 py-0.5 rounded font-bold
                               tabular-nums ${data.cotes?.[e.id]?.na?.[c.cours_code]
-                                ? 'text-red-700 bg-red-50'
+                                ? 'text-white bg-red-500'
                                 : tonCote(data.cotes?.[e.id]?.cours?.[c.cours_code])}`}>
                             {data.cotes?.[e.id]?.na?.[c.cours_code]
                               ? 'NA' : fmtCote(data.cotes?.[e.id]?.cours?.[c.cours_code])}
@@ -462,8 +462,8 @@ export default function EncodageUE({ ueNum, annee, onClose, onEnregistre, onPara
                                 : "Pas présenté — absence non justifiée, refus d'office"}
                               className={`px-1 mx-0.5 rounded text-[10px] font-semibold border
                                 ${m === x
-                    ? (x === 'NP' ? 'bg-amber-100 border-amber-300 text-amber-800'
-                      : 'bg-red-100 border-red-300 text-red-700')
+                    ? (x === 'NP' ? 'bg-amber-500 border-amber-500 text-white'
+                      : 'bg-red-500 border-red-500 text-white')
                     : 'border-slate-200 text-slate-400 hover:border-slate-400'}`}>
                               {x}
                             </button>

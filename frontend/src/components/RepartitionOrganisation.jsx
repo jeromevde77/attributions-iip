@@ -83,7 +83,7 @@ export default function RepartitionOrganisation({ ueNum, ueNom, annee, onClose, 
 
         <div className="flex-1 min-h-0 overflow-y-auto p-5 space-y-3">
           {erreur && (
-            <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-sm text-red-700">{erreur}</div>
+            <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-sm text-red-700 border-l-4 border-l-red-500">{erreur}</div>
           )}
           {!data && !erreur && <p className="text-sm text-slate-400">Chargement…</p>}
 
@@ -97,7 +97,7 @@ export default function RepartitionOrganisation({ ueNum, ueNom, annee, onClose, 
             <p className="text-[13px] text-slate-500">
               {data.etudiants.length} inscrit(s) ·
               {orgs.map(o => ` org. ${o} : ${compte[o] || 0}`).join(' ·')}
-              {' · '}<span className={compte[0] ? 'text-[#B45309] font-semibold' : ''}>
+              {' · '}<span className={compte[0] ? 'text-[color:var(--c-attente)] font-semibold' : ''}>
                 non répartis : {compte[0] || 0}</span>
             </p>
 

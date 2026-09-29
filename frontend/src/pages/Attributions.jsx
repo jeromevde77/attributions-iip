@@ -116,13 +116,13 @@ function CopierSectionModal({ sections, anneeActive, isAdmin, onClose, onCopied 
           </div>
 
           {anneeSrc && nbSource > 0 && (
-            <div className="bg-indigo-50 border border-indigo-200 rounded-lg px-3 py-2 text-xs text-indigo-700">
+            <div className="bg-indigo-50 border border-indigo-200 rounded-lg px-3 py-2 text-xs text-indigo-700 border-l-4 border-l-indigo-500">
               {nbSource} attribution(s) seront copiées de <strong>{sectionSrc}</strong> ({anneeSrc}) vers <strong>{anneeDest}</strong>.
             </div>
           )}
 
           {error && (
-            <div className="bg-[#FBF1EE] border border-[#E8CFC7] rounded-carte p-3 text-sm text-[#9d4a38]">
+            <div className="bg-[#FBF1EE] border border-[color:var(--c-attente)] rounded-carte p-3 text-sm text-[color:var(--c-refuse)]">
               {error}
               {conflict && isAdmin && (
                 <div className="mt-2">
@@ -139,7 +139,7 @@ function CopierSectionModal({ sections, anneeActive, isAdmin, onClose, onCopied 
           )}
 
           {success && (
-            <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-sm text-green-700">{success}</div>
+            <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-sm text-green-700 border-l-4 border-l-green-500">{success}</div>
           )}
 
           <div className="flex justify-end gap-2 pt-2 border-t border-gray-100">
@@ -266,7 +266,7 @@ function FenetreStatut({ etat, onFermer, onGeneral, onException }) {
               </label>
 
               <label className={`carte flex gap-2.5 px-3 py-2 cursor-pointer
-                ${mode === 'exception' ? 'ring-1 ring-inset ring-[#B45309]' : ''}`}>
+                ${mode === 'exception' ? 'ring-1 ring-inset ring-[color:var(--c-attente)]' : ''}`}>
                 <input type="radio" name="portee" className="mt-0.5" checked={mode === 'exception'}
                   onChange={()=>{ setMode('exception'); setValeur(exception || statutMdp); }}/>
                 <span>
@@ -330,7 +330,7 @@ const DEFAULT_COLS = [
   { key: 'bloc',                  label: 'Bloc',       width: 70,  rowClickable: true, flatOnly: true },
   { key: 'num_organisation',      label: 'Org.',       width: 60,  num: true, edit: 'select', flatOnly: true,
     options: [['1','1'],['2','2'],['3','3'],['4','4']],
-    render: v => v && v > 1 ? <span className="bg-amber-100 text-amber-800 text-xs px-1.5 py-0.5 rounded font-semibold">{v}</span> : <span className="text-gray-400">{v || 1}</span> },
+    render: v => v && v > 1 ? <span className="bg-amber-500 text-white text-xs px-1.5 py-0.5 rounded font-semibold">{v}</span> : <span className="text-gray-400">{v || 1}</span> },
   { key: 'quadrimestre_attribue', label: 'Quadri',     width: 110, edit: 'select', flatOnly: true,
     options: [['','—'],['Q1','Q1'],['Q2','Q2'],['Q1/Q2','Q1/Q2']] },
   { key: 'code_cours',            label: 'Code',       width: 70,  rowClickable: true, coursOnly: true },
@@ -352,10 +352,10 @@ const DEFAULT_COLS = [
     options: [['','—'],['CC','CC'],['EXP','EXP']] },
   { key: 'titre_rtf',             label: 'Titre',      width: 64, edit: 'select',
     options: [['','—'],['R','R — Titre requis'],['TR','TR — Titre requis (RTF)'],['TS','TS — Titre suffisant'],['TPL','TPL — Pénurie listé'],['TPNL','TPNL — Pénurie non listé'],['ATS','ATS — Assim. suffisant'],['ATP','ATP — Assim. pénurie listé'],['A','A — Suffisant gr. A'],['3B','3B — Suffisant gr. B (3 déc.)'],['Art. 20','Art. 20 (WBE)']],
-    render: v => v ? <span className="bg-indigo-100 text-indigo-700 text-xs px-1.5 py-0.5 rounded font-semibold">{v}</span> : <span className="text-gray-300">—</span> },
+    render: v => v ? <span className="bg-indigo-500 text-white text-xs px-1.5 py-0.5 rounded font-semibold">{v}</span> : <span className="text-gray-300">—</span> },
   { key: 'type_cours_helb',       label: 'HELB',       width: 60, edit: 'select', helbOnly: true,
     options: [['','—'],['MFP','MFP'],['MA','MA']],
-    render: v => v ? <span className="bg-pink-100 text-pink-700 text-xs px-1.5 py-0.5 rounded font-semibold">{v}</span> : <span className="text-gray-300">—</span> },
+    render: v => v ? <span className="bg-pink-500 text-white text-xs px-1.5 py-0.5 rounded font-semibold">{v}</span> : <span className="text-gray-300">—</span> },
   /* LE BLOC CHIFFRÉ PRENAIT 292 PX POUR QUATRE NOMBRES À DEUX CHIFFRES.
      Deux d'entre eux ne se saisissent même pas — Total et Hrs se calculent —,
      et les deux autres n'affichent qu'une valeur et son plafond (« 48/48 »).
@@ -528,7 +528,7 @@ export default function Attributions() {
       const na = parseInt(a.match(/\d+$/)?.[0]??'99'); const nb = parseInt(b.match(/\d+$/)?.[0]??'99');
       return na - nb;
     });
-    const NIV_PALETTE = ['#f97316','#60a5fa','#1e3a8a','#a855f7','#ec4899'];
+    const NIV_PALETTE = ['var(--c-attente)','var(--c-disponible)','var(--c-texte)','var(--c-faveur)','var(--c-helb)'];
     const getNivCol = niv => NIV_PALETTE[niveaux.indexOf(niv) % NIV_PALETTE.length] || '#6b7280';
     const fmt = n => (n != null && n !== '') ? String(n) : '0';
     const S = 'padding:1px 5px;font-size:10px;line-height:1.2;';
@@ -1174,12 +1174,12 @@ export default function Attributions() {
   function groupCodeSeq(n) { return Array.from({length: n}, (_, i) => groupCode(i)); }
 
   const BADGE_COLORS = {
-    A: { bg: '#DBEAFE', color: '#1D4ED8', border: '#BFDBFE' },
-    B: { bg: '#D1FAE5', color: '#065F46', border: '#A7F3D0' },
-    C: { bg: '#FEF3C7', color: '#92400E', border: '#FDE68A' },
-    D: { bg: '#FCE7F3', color: '#9D174D', border: '#FBCFE8' },
-    E: { bg: '#EDE9FE', color: '#5B21B6', border: '#DDD6FE' },
-    F: { bg: '#FFE4E6', color: '#9F1239', border: '#FECDD3' },
+    A: { bg: 'var(--c-disponible)', color: '#FFFFFF', border: 'var(--c-disponible)' },
+    B: { bg: 'var(--c-reussi)', color: '#FFFFFF', border: 'var(--c-reussi)' },
+    C: { bg: 'var(--c-attente)', color: '#FFFFFF', border: 'var(--c-attente)' },
+    D: { bg: '#FCE7F3', color: 'var(--c-texte)', border: 'rgb(var(--gris-200))' },
+    E: { bg: 'var(--c-faveur)', color: '#FFFFFF', border: 'var(--c-faveur)' },
+    F: { bg: 'var(--c-refuse)', color: '#FFFFFF', border: 'rgb(var(--gris-200))' },
   };
 
   // Ouvre et scrolle jusqu'au cours concerné par une anomalie de groupe
@@ -1218,7 +1218,7 @@ export default function Attributions() {
         el.scrollIntoView({ behavior: 'smooth', block: 'center' });
         // Flash visuel pour repérer le cours
         el.style.transition = 'background 0.2s';
-        el.style.background = '#FEF9C3';
+        el.style.background = 'rgb(var(--e-attente-100))';
         setTimeout(() => { el.style.background = ''; }, 1500);
       } else if (attempts > 0) {
         setTimeout(() => scrollTo(attempts - 1), 150);
@@ -1398,7 +1398,7 @@ export default function Attributions() {
       );
     }
     return (
-      <tr key={row.id} className={rowBg} style={aValider ? { boxShadow: 'inset 4px 0 0 #f59e0b' } : undefined}>
+      <tr key={row.id} className={rowBg} style={aValider ? { boxShadow: 'inset 4px 0 0 var(--c-attente)' } : undefined}>
         {colSet.map(c => {
           const _textCols = ['nom_cours','ue_nom','activite_nom','professeur_id','section','code_cours']; const sty = { ...(c.flex ? {} : { width:c.width, minWidth:c.width, maxWidth:c.width }), overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', textAlign: c.num ? 'right' : _textCols.includes(c.key) ? 'left' : 'center' };
           const click = c.rowClickable ? ()=>setEditRow(row) : undefined;
@@ -1437,7 +1437,7 @@ export default function Attributions() {
           }
           if (c.key==='__actions') {
             return <td key={c.key} className="text-center" style={sty}>
-              <button onClick={()=>deleteRow(row.id)} className="text-[#9d4a38] hover:opacity-70" title="Supprimer"><IconTrash size={15}/></button>
+              <button onClick={()=>deleteRow(row.id)} className="text-[color:var(--c-refuse)] hover:opacity-70" title="Supprimer"><IconTrash size={15}/></button>
             </td>;
           }
           if (c.key==='__conformite') return <td key={c.key} className="text-center" style={sty}>{c.render(null,row)}</td>;
@@ -1450,10 +1450,10 @@ export default function Attributions() {
                 {verrous[row.id] && <span title={`Nomination définitive — ${verrous[row.id].periodes_nommees||''} pér. ${verrous[row.id].type_charge||''} · code FWB ${verrous[row.id].code_fwb||''} (attribution verrouillée)`} className="shrink-0 text-iip-blue"><IconLock size={13}/></span>}
                 {!verrous[row.id] && alertesCours[row.id] && <span title={`⚠ ${alertesCours[row.id].definitif} est engagé(e) à titre définitif sur ce cours (${alertesCours[row.id].periodes_nommees||''} pér. ${alertesCours[row.id].type_charge||''}, FWB ${alertesCours[row.id].code_fwb||''})`} className="shrink-0 cursor-help text-amber-600"><IconLockOpen size={13}/></span>}
                 {!!row.remplace_attribution_id && <span title="Ligne de remplacement (titulaire en congé)" className="shrink-0 text-[10px] text-iip-blue font-bold">R</span>}
-                {!!row.est_rt && <span title="Remise au travail (RT) — charge d'un définitif recasée ici" className="shrink-0 text-[10px] px-1 py-0 rounded font-bold text-[#9d4a38] border border-[#C9A69C]">RT</span>}
-                {badge === 'EXT' && <span className="text-[10px] px-1 py-0 rounded font-bold bg-teal-100 text-teal-700 border border-teal-300 shrink-0" title="Couvert par l'enveloppe externe">EXT</span>}
-                {badge === 'DOT' && <span className="text-[10px] px-1 py-0 rounded font-bold bg-orange-100 text-orange-700 border border-orange-300 shrink-0" title="Dépasse le plafond → dotation organique">DOT</span>}
-                {badge === 'EXT+DOT' && <span className="text-[10px] px-1 py-0 rounded font-bold bg-purple-100 text-purple-700 border border-purple-300 shrink-0" title="Partiellement EXT, partiellement DOT">EXT+DOT</span>}
+                {!!row.est_rt && <span title="Remise au travail (RT) — charge d'un définitif recasée ici" className="shrink-0 text-[10px] px-1 py-0 rounded font-bold text-[color:var(--c-refuse)] border border-[color:var(--c-attente)]">RT</span>}
+                {badge === 'EXT' && <span className="text-[10px] px-1 py-0 rounded font-bold bg-teal-500 text-white border border-teal-500 shrink-0" title="Couvert par l'enveloppe externe">EXT</span>}
+                {badge === 'DOT' && <span className="text-[10px] px-1 py-0 rounded font-bold bg-orange-500 text-white border border-orange-500 shrink-0" title="Dépasse le plafond → dotation organique">DOT</span>}
+                {badge === 'EXT+DOT' && <span className="text-[10px] px-1 py-0 rounded font-bold bg-purple-500 text-white border border-purple-500 shrink-0" title="Partiellement EXT, partiellement DOT">EXT+DOT</span>}
                 <div className="flex-1 min-w-0">{select}</div>
                 {(!row.professeur || /désigner|designer/i.test(row.professeur || '')) && (
                   <button onClick={e=>{e.stopPropagation(); if(recrutMenu?.rowId===row.id){setRecrutMenu(null);}else{const r=e.currentTarget.getBoundingClientRect(); ouvrirRecrut(row, {top:r.bottom+4, right:window.innerWidth-r.right});}}} title="Piocher un candidat du recrutement (devient recruté et lié à ce groupe)" className="shrink-0 text-iip-turquoise hover:text-iip-blue"><IconBriefcase size={14}/></button>
@@ -1494,7 +1494,7 @@ export default function Attributions() {
             return <td key={c.key} style={sty} className="text-center">
               <button onClick={e=>{e.stopPropagation(); saveCell(row.id,'helb_nature', nat==='CT'?'TP':'CT');}}
                 title={nat==='CT' ? 'Théorie (cliquer pour travaux pratiques)' : 'Travaux pratiques (cliquer pour théorie)'}
-                className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${nat==='TP' ? 'bg-cyan-50 text-cyan-700 border-cyan-300' : 'bg-indigo-50 text-indigo-700 border-indigo-300'}`}>
+                className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${nat==='TP' ? 'bg-cyan-500 text-white border-cyan-500' : 'bg-indigo-500 text-white border-indigo-500'}`}>
                 {nat==='TP' ? 'TP' : 'TH'}
               </button>
             </td>;
@@ -1543,7 +1543,7 @@ export default function Attributions() {
             const lettre    = estGroupe ? codeVal : 'Ts';
             // BADGE_COLORS défini au niveau composant
             const badgeStyle = estGroupe
-              ? (BADGE_COLORS[lettre[0]] || { bg: '#F3F4F6', color: '#374151', border: '#E5E7EB' })
+              ? (BADGE_COLORS[lettre[0]] || { bg: '#F3F4F6', color: 'var(--c-texte)', border: '#E5E7EB' })
               : { bg: '#F9FAFB', color: '#9CA3AF', border: '#E5E7EB' };
 
             // Frères = toutes les lignes du même cours (même activité OU même cours si pas d'activité)
@@ -1635,7 +1635,7 @@ export default function Attributions() {
                       {toutesLettres.map(l => {
                         const prise = !!lettreAFrere[l];
                         const courante = l === lettre;
-                        const bs = BADGE_COLORS[l[0]] || { bg:'#F3F4F6', color:'#374151', border:'#E5E7EB' };
+                        const bs = BADGE_COLORS[l[0]] || { bg:'#F3F4F6', color:'var(--c-texte)', border:'#E5E7EB' };
                         return (
                           <span key={l}
                             onClick={e => { e.stopPropagation(); assignerLettre(l); }}
@@ -1643,9 +1643,9 @@ export default function Attributions() {
                             style={{
                               display:'inline-flex',alignItems:'center',justifyContent:'center',
                               width:24,height:22,borderRadius:5,fontSize:11,fontWeight:700,
-                              background: courante ? '#1B2B4B' : bs.bg,
+                              background: courante ? 'var(--c-principal)' : bs.bg,
                               color: courante ? '#fff' : bs.color,
-                              border: `2px solid ${courante ? '#1B2B4B' : prise ? bs.color : bs.border}`,
+                              border: `2px solid ${courante ? 'var(--c-principal)' : prise ? bs.color : bs.border}`,
                               cursor: courante ? 'default' : 'pointer',
                             }}>
                             {l}
@@ -1659,14 +1659,14 @@ export default function Attributions() {
                 {/* Toggle split / groupe */}
                 {!row.is_z && <>
                   <button onClick={e=>{e.stopPropagation();splitterLigne(row);}} title="Split : découper en morceaux partagés (Ts, plusieurs profs)"
-                    style={{ padding:1, background:'none', border:'none', cursor:'pointer', color: estSplit ? '#16A34A' : '#D1D5DB' }}
-                    onMouseEnter={e=>{if(!estSplit) e.currentTarget.style.color='#16A34A';}}
+                    style={{ padding:1, background:'none', border:'none', cursor:'pointer', color: estSplit ? 'var(--c-texte)' : '#D1D5DB' }}
+                    onMouseEnter={e=>{if(!estSplit) e.currentTarget.style.color='var(--c-reussi)';}}
                     onMouseLeave={e=>{if(!estSplit) e.currentTarget.style.color='#D1D5DB';}}>
                     <IconScissors size={13}/>
                   </button>
                   <button onClick={e=>{e.stopPropagation();grouperLigne(row);}} title={estGroupe ? 'Groupes actifs — recliquer pour recréer' : 'Créer des sous-groupes A, B, C…'}
-                    style={{ padding:1, background:'none', border:'none', cursor:'pointer', color: estGroupe ? '#16A34A' : '#D1D5DB' }}
-                    onMouseEnter={e=>{if(!estGroupe) e.currentTarget.style.color='#16A34A';}}
+                    style={{ padding:1, background:'none', border:'none', cursor:'pointer', color: estGroupe ? 'var(--c-texte)' : '#D1D5DB' }}
+                    onMouseEnter={e=>{if(!estGroupe) e.currentTarget.style.color='var(--c-reussi)';}}
                     onMouseLeave={e=>{if(!estGroupe) e.currentTarget.style.color='#D1D5DB';}}>
                     <IconUsersGroup size={13}/>
                   </button>
@@ -1732,18 +1732,18 @@ export default function Attributions() {
                       : 'Statut du membre du personnel — cliquer pour le modifier'}
                     className={`relative inline-flex items-center justify-center min-w-[2rem] h-5 px-1
                                 rounded-md text-[10px] font-bold leading-none ${badgeCls}
-                                ${exception ? 'ring-1 ring-inset ring-[#B45309]' : ''}`}>
+                                ${exception ? 'ring-1 ring-inset ring-[color:var(--c-attente)]' : ''}`}>
                     {displayVal}
                     {/* L'EXCEPTION SE VOIT. Un badge identique au statut général
                         ferait passer une dérogation pour la règle. */}
                     {exception && <span className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5
-                                                   rounded-full bg-[#B45309]"/>}
+                                                   rounded-full bg-[color:var(--c-attente)]"/>}
                   </button>
                 ) : (
                   <button onClick={ouvrir} title="Aucun statut défini pour ce membre du personnel — cliquer pour le définir"
                     className="inline-flex items-center justify-center min-w-[2rem] h-5 px-1 rounded-md
                                text-[10px] font-bold leading-none bg-amber-100 text-amber-800
-                               ring-1 ring-inset ring-[#B45309]/40">?</button>
+                               ring-1 ring-inset ring-amber-500/40">?</button>
                 )}
               </div>
             </td>;
@@ -1801,7 +1801,7 @@ export default function Attributions() {
               <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-iip-gold text-white text-[11px] font-bold">{lignes.length}</span>
               <span className="text-sm font-medium text-gray-700">{nom}</span>
               <span className="text-xs text-gray-400">· {tPer}p sur {lignes.length} groupes</span>
-              {!memeProf && <span className="text-[10px] text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded">profs différents</span>}
+              {!memeProf && <span className="text-[10px] text-white bg-amber-500 px-1.5 py-0.5 rounded">profs différents</span>}
               {!memePer && <span className="text-[10px] text-gray-400">périodes variables</span>}
             </span>
           </td>
@@ -1845,7 +1845,7 @@ export default function Attributions() {
             </span>;
           })()}
           <span className="flex-1"></span>
-          {cg.type_cours && <span className={`text-xs px-1.5 py-0.5 rounded ${isZCours ? 'bg-gray-100 text-gray-400' : cg.type_cours==='CT'?'bg-iip-turquoise/10 text-iip-blue':'bg-purple-100 text-purple-700'}`}>{cg.type_cours}</span>}
+          {cg.type_cours && <span className={`text-xs px-1.5 py-0.5 rounded ${isZCours ? 'bg-gray-100 text-gray-400' : cg.type_cours==='CT'?'bg-iip-turquoise/10 text-iip-blue':'bg-purple-500 text-white'}`}>{cg.type_cours}</span>}
           {isZCours
             ? <span className="text-xs text-gray-400 italic">périodes étudiants — sans prof</span>
             : <>
@@ -1855,9 +1855,9 @@ export default function Attributions() {
                   const cc = ctrlUE?.cours?.find(x => x.code_cours === cg.code_cours);
                   if (!cc || !cc.dp) return null;
                   if (cc.est_multiple) {
-                    return <span className="text-[11px] px-1.5 py-0.5 rounded bg-green-50 text-green-700 border border-green-200" title={`${cc.per} = ${cc.dp} × ${cc.multiple} (DP ${cc.dp})`}>×{cc.multiple}</span>;
+                    return <span className="text-[11px] px-1.5 py-0.5 rounded bg-green-500 text-white border border-green-500" title={`${cc.per} = ${cc.dp} × ${cc.multiple} (DP ${cc.dp})`}>×{cc.multiple}</span>;
                   }
-                  return <span className="text-[11px] px-1.5 py-0.5 rounded bg-orange-50 text-orange-700 border border-orange-200" title={`Pas un multiple du DP (${cc.dp}). Attendu : ${cc.attendu}`}>×{cc.ratio} ⚠</span>;
+                  return <span className="text-[11px] px-1.5 py-0.5 rounded bg-orange-500 text-white border border-orange-500" title={`Pas un multiple du DP (${cc.dp}). Attendu : ${cc.attendu}`}>×{cc.ratio} ⚠</span>;
                 })()}
                 <span className="text-sm text-gray-500">{cg.rows.length} attr.</span>
                 {/* « 159p sur 120 » dit d'un coup d'œil qu'on a dépassé — ce que
@@ -1940,7 +1940,7 @@ export default function Attributions() {
               /* LE TRONC COMMUN SE MARQUE À GAUCHE, COMME LA HELB (Charles, 27
                  septembre 2026 : « cette bordure au-dessus, c'est vieillot ») :
                  un liseré turquoise, et le filet marine du dessus disparaît. */
-              : isTC ? 'border-b border-gray-100 border-l-2 border-l-[#0093B0]'
+              : isTC ? 'border-b border-gray-100 border-l-2 border-l-[color:var(--c-accent)]'
               : 'border-b border-gray-100')
       }`}>
         <div className={`w-full flex items-center pl-6 pr-3 py-1.5 transition relative ${activeUE === key ? (isHelb ? 'bg-pink-50 hover:bg-pink-100/70' : 'bg-iip-gold/5 hover:bg-iip-gold/10') : (isHelb ? 'hover:bg-pink-100/60' : 'hover:bg-gray-50')}`}>
@@ -2010,14 +2010,14 @@ export default function Attributions() {
               {ctrlPourUE(ue.ue_num, ue.num_organisation) && (() => {
                 const a = ctrlPourUE(ue.ue_num, ue.num_organisation);
                 if (a.ok) {
-                  return <span className="text-[10px] px-1.5 py-0.5 rounded bg-green-100 text-green-700 font-medium flex-shrink-0" title={`Autonomie ${a.aut_attribuee} dans l'intervalle [${a.min} ; ${a.max}]`}>✓ aut.</span>;
+                  return <span className="text-[10px] px-1.5 py-0.5 rounded bg-green-500 text-white font-medium flex-shrink-0" title={`Autonomie ${a.aut_attribuee} dans l'intervalle [${a.min} ; ${a.max}]`}>✓ aut.</span>;
                 }
                 const msg = a.multiple_obligatoire
                   ? `Tous dédoublés ×${a.multiple_obligatoire} → autonomie doit être ${a.attendu} (actuel ${a.aut_attribuee})`
                   : a.depasse_max
                     ? `Autonomie ${a.aut_attribuee} > max ${a.max} → utiliser EPT ligne 96`
                     : `Autonomie ${a.aut_attribuee} hors intervalle [${a.min} ; ${a.max}]`;
-                return <span className="text-[10px] px-1.5 py-0.5 rounded bg-orange-100 text-orange-700 font-medium flex-shrink-0" title={msg}>⚠ aut. {a.aut_attribuee}/[{a.min}–{a.max}]</span>;
+                return <span className="text-[10px] px-1.5 py-0.5 rounded bg-orange-500 text-white font-medium flex-shrink-0" title={msg}>⚠ aut. {a.aut_attribuee}/[{a.min}–{a.max}]</span>;
               })()}
             </span>
             <span className="flex items-center gap-3 text-sm text-gray-500 flex-shrink-0 justify-end whitespace-nowrap">
@@ -2062,7 +2062,7 @@ export default function Attributions() {
               {/* Cours du référentiel (DP) sans aucune ligne d'attribution — re-créables */}
               {coursManquants.length > 0 && (
                 <>
-                  <div className="px-3 py-1.5 h-9 text-xs font-semibold text-amber-600 border-t border-gray-100 bg-amber-50">Cours du DP sans ligne (à rétablir)</div>
+                  <div className="px-3 py-1.5 h-9 text-xs font-semibold text-amber-600 border-t border-gray-100 bg-amber-50 border-l-4 border-l-amber-500">Cours du DP sans ligne (à rétablir)</div>
                   {coursManquants.map(cm => (
                     <button key={cm.cours_code} onClick={async ()=>{
                         try {
@@ -2087,11 +2087,11 @@ export default function Attributions() {
                 <IconClipboardText size={15}/><span>Lignes EPT (95-99)</span>
               </button>
               <button onClick={()=>{ setOrgModal({section: sec, ue_num: ue.ue_num, ue_nom: ue.ue_nom}); setAddMenuUE(null); }}
-                      className="w-full text-left px-3 py-1.5 h-9 text-sm hover:bg-teal-50 text-teal-700 border-t border-gray-100 flex items-center gap-2">
+                      className="w-full text-left px-3 py-1.5 h-9 text-sm hover:bg-teal-50 text-teal-700 border-t border-gray-100 flex items-center gap-2 border-l-4 border-l-teal-500">
                 <IconCalendar size={15}/><span>Organisations (Doc A)</span>
               </button>
               <button onClick={()=>{ setDoc23Modal({section: sec, ue_num: ue.ue_num, ue_nom: ue.ue_nom}); setAddMenuUE(null); }}
-                      className="w-full text-left px-3 py-1.5 h-9 text-sm hover:bg-purple-50 text-purple-700 border-t border-gray-100 flex items-center gap-2">
+                      className="w-full text-left px-3 py-1.5 h-9 text-sm hover:bg-purple-50 text-purple-700 border-t border-gray-100 flex items-center gap-2 border-l-4 border-l-purple-500">
                 <IconFileText size={15}/><span>DOC2 / DOC3</span>
               </button>
             </div>
@@ -2103,10 +2103,10 @@ export default function Attributions() {
               const ctrl = ctrlPourUE(ue.ue_num, ue.num_organisation);
               if (!ctrl || !ctrl.message) return null;
               const styles = {
-                ok:          'bg-green-50 border-green-200 text-green-800',
-                sous:        'bg-amber-50 border-amber-200 text-amber-800',
-                'dépassement':'bg-[#FBF1EE] border-[#E8CFC7] text-[#9d4a38]',
-                cours:       'bg-orange-50 border-orange-200 text-orange-700',
+                ok:          'bg-green-500 border-green-500 text-white',
+                sous:        'bg-amber-500 border-amber-500 text-white',
+                'dépassement':'bg-[#FBF1EE] border-[color:var(--c-attente)] text-[color:var(--c-refuse)]',
+                cours:       'bg-orange-500 border-orange-500 text-white',
               };
               const icone = { ok:'✓', sous:'➜', 'dépassement':'⚠', cours:'⚠' }[ctrl.etat] || 'ℹ';
               return (
@@ -2163,7 +2163,7 @@ export default function Attributions() {
                 <button onClick={()=>genererExcel(sg.section)}
                   className="text-gray-400 hover:text-green-600" title="Exporter en Excel (.xlsx)"><IconFileSpreadsheet size={16}/></button>
                 <button onClick={()=>ouvrirSuppressionSection(sg.section)}
-                  className="text-[#9d4a38] hover:opacity-70" title="Supprimer toutes les attributions de cette section (avec sauvegarde)"><IconEraser size={16}/></button>
+                  className="text-[color:var(--c-refuse)] hover:opacity-70" title="Supprimer toutes les attributions de cette section (avec sauvegarde)"><IconEraser size={16}/></button>
                 <button onClick={()=>delSection(sg.section)}
                   className="text-slate-400 hover:text-slate-600" title="Retirer cette section de la vue"><IconTrash size={16}/></button>
               </span>
@@ -2304,8 +2304,8 @@ export default function Attributions() {
                   <button onClick={()=>setShowCopierSection(true)} className="flex items-center gap-2 bg-white border border-slate-300 text-iip-blue hover:bg-slate-50 text-[13px] font-medium px-3 py-2 rounded-lg"><IconClipboardText size={16}/>Copier section</button>
                   <button onClick={()=>api.exportExcel()} className="flex items-center gap-2 bg-white border border-slate-300 text-iip-blue hover:bg-slate-50 text-[13px] font-medium px-3 py-2 rounded-lg"><IconFileImport size={16}/>Export</button>
                   {isAdmin && <>
-                    {selected.size>0 && <button onClick={()=>openBulkModal('selection')} className="flex items-center gap-2 bg-white border border-[#E8CFC7] text-[#9d4a38] hover:bg-[#FBF1EE] text-[13px] font-medium px-3 py-2 rounded-champ"><IconTrash size={16}/>Sélection ({selected.size})</button>}
-                    <button onClick={()=>openBulkModal('filtered')} className="flex items-center gap-2 bg-white border border-[#E8CFC7] text-[#9d4a38] hover:bg-[#FBF1EE] text-[13px] font-medium px-3 py-2 rounded-champ"><IconTrash size={16}/>Suppr. filtre</button>
+                    {selected.size>0 && <button onClick={()=>openBulkModal('selection')} className="flex items-center gap-2 bg-white border border-[color:var(--c-attente)] text-[color:var(--c-refuse)] hover:bg-[#FBF1EE] text-[13px] font-medium px-3 py-2 rounded-champ"><IconTrash size={16}/>Sélection ({selected.size})</button>}
+                    <button onClick={()=>openBulkModal('filtered')} className="flex items-center gap-2 bg-white border border-[color:var(--c-attente)] text-[color:var(--c-refuse)] hover:bg-[#FBF1EE] text-[13px] font-medium px-3 py-2 rounded-champ"><IconTrash size={16}/>Suppr. filtre</button>
                     <button onClick={()=>openBulkModal('all')} className="flex items-center gap-2 bg-iip-danger hover:brightness-110 text-white text-[13px] font-medium px-3 py-2 rounded-lg"><IconTrash size={16}/>Tout supprimer</button>
                     <button onClick={reimportExcel} className="flex items-center gap-2 bg-white border border-slate-300 text-iip-blue hover:bg-slate-50 text-[13px] font-medium px-3 py-2 rounded-lg"><IconRefresh size={16}/>Réimporter</button>
                   </>}
@@ -2481,16 +2481,16 @@ export default function Attributions() {
             {/* Corps — tableau des attributions du cours */}
             <div className="overflow-auto flex-1 px-4 py-3">
               {toutesLignes.length === 0 ? (
-                <p style={{color:'#94A3B8', fontSize:13, fontStyle:'italic'}}>Aucune attribution trouvée pour ce cours.</p>
+                <p style={{color:'var(--c-texte)', fontSize:13, fontStyle:'italic'}}>Aucune attribution trouvée pour ce cours.</p>
               ) : (
                 <table style={{width:'100%', borderCollapse:'collapse', fontSize:12}}>
                   <thead>
                     <tr style={{borderBottom:'2px solid #E2E8F0', background:'#F8FAFC'}}>
-                      <th style={{padding:'6px 8px', textAlign:'left', color:'#475569', fontWeight:600}}>Activité</th>
-                      <th style={{padding:'6px 8px', textAlign:'left', color:'#475569', fontWeight:600}}>Professeur</th>
-                      <th style={{padding:'6px 8px', textAlign:'center', color:'#475569', fontWeight:600}}>Split</th>
-                      <th style={{padding:'6px 8px', textAlign:'center', color:'#475569', fontWeight:600}}>Groupe</th>
-                      <th style={{padding:'6px 8px', textAlign:'center', color:'#475569', fontWeight:600}}>Corriger</th>
+                      <th style={{padding:'6px 8px', textAlign:'left', color:'var(--c-texte)', fontWeight:600}}>Activité</th>
+                      <th style={{padding:'6px 8px', textAlign:'left', color:'var(--c-texte)', fontWeight:600}}>Professeur</th>
+                      <th style={{padding:'6px 8px', textAlign:'center', color:'var(--c-texte)', fontWeight:600}}>Split</th>
+                      <th style={{padding:'6px 8px', textAlign:'center', color:'var(--c-texte)', fontWeight:600}}>Groupe</th>
+                      <th style={{padding:'6px 8px', textAlign:'center', color:'var(--c-texte)', fontWeight:600}}>Corriger</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -2498,7 +2498,7 @@ export default function Attributions() {
                       const code = (r.code||'').toUpperCase() || 'Ts';
                       const enErreur = lignesErreur.has(r.id);
                       const isSplit = r.split_groupe === 'O';
-                      const bs = BADGE_COLORS[code[0]] || { bg:'#F3F4F6', color:'#374151', border:'#E5E7EB' };
+                      const bs = BADGE_COLORS[code[0]] || { bg:'#F3F4F6', color:'var(--c-texte)', border:'#E5E7EB' };
                       const peerLines = toutesLignes.filter(p =>
                         (p.activite_id||null) === (r.activite_id||null) && p.split_groupe !== 'O'
                       );
@@ -2506,26 +2506,26 @@ export default function Attributions() {
                       const peerAttendu = groupCodeSeq(peerLines.length);
                       return (
                         <tr key={r.id} style={{
-                          background: enErreur ? '#FEF2F2' : '#fff',
+                          background: enErreur ? 'rgb(var(--e-refuse-100))' : '#fff',
                           borderBottom: '1px solid #F1F5F9',
-                          borderLeft: enErreur ? '3px solid #EF4444' : '3px solid transparent',
+                          borderLeft: enErreur ? '3px solid var(--c-refuse)' : '3px solid transparent',
                         }}>
                           <td style={{padding:'6px 8px', color:'#64748B', fontSize:11}}>
                             {r.activite_nom || <span style={{color:'#CBD5E1'}}>—</span>}
                           </td>
-                          <td style={{padding:'6px 8px', fontWeight: enErreur ? 600 : 400, color: enErreur ? '#991B1B' : '#1E293B'}}>
+                          <td style={{padding:'6px 8px', fontWeight: enErreur ? 600 : 400, color: enErreur ? 'var(--c-texte)' : 'var(--c-principal)'}}>
                             {r.prof_nom || r.prof_prenom ? `${r.prof_nom||''} ${r.prof_prenom||''}`.trim() : <span style={{color:'#CBD5E1'}}>À désigner</span>}
                           </td>
                           <td style={{padding:'6px 8px', textAlign:'center'}}>
-                            {isSplit && <span style={{fontSize:10, background:'#EEF2FF', color:'#4338CA', padding:'1px 5px', borderRadius:4, fontWeight:600}}>Split</span>}
+                            {isSplit && <span style={{fontSize:10, background:'#EEF2FF', color:'var(--c-texte)', padding:'1px 5px', borderRadius:4, fontWeight:600}}>Split</span>}
                           </td>
                           <td style={{padding:'6px 8px', textAlign:'center'}}>
                             <span style={{
                               display:'inline-flex', alignItems:'center', justifyContent:'center',
                               minWidth:22, height:20, paddingInline:5, borderRadius:5, fontSize:11, fontWeight:700,
-                              background: enErreur ? '#FEE2E2' : bs.bg,
-                              color: enErreur ? '#DC2626' : bs.color,
-                              border: `1px solid ${enErreur ? '#FECACA' : bs.border}`,
+                              background: enErreur ? 'rgb(var(--e-refuse-100))' : bs.bg,
+                              color: enErreur ? 'var(--c-texte)' : bs.color,
+                              border: `1px solid ${enErreur ? 'rgb(var(--e-refuse-100))' : bs.border}`,
                             }}>{code}</span>
                           </td>
                           <td style={{padding:'6px 8px', textAlign:'center'}}>
@@ -2546,7 +2546,7 @@ export default function Attributions() {
                                 {peerAttendu.length > 1 && peerAttendu.map(l => {
                                   const estCourante = l === code;
                                   const dejaPrise = peerCodes.includes(l) && !estCourante;
-                                  const bs2 = BADGE_COLORS[l[0]] || { bg:'#F3F4F6', color:'#374151', border:'#E5E7EB' };
+                                  const bs2 = BADGE_COLORS[l[0]] || { bg:'#F3F4F6', color:'var(--c-texte)', border:'#E5E7EB' };
                                   return (
                                     <span key={l}
                                       onClick={e => { e.stopPropagation(); if (!estCourante) corrigerIci(r.id, l); }}
@@ -2554,9 +2554,9 @@ export default function Attributions() {
                                       style={{
                                         display:'inline-flex', alignItems:'center', justifyContent:'center',
                                         width:22, height:20, borderRadius:5, fontSize:11, fontWeight:700,
-                                        background: estCourante ? '#1B2B4B' : bs2.bg,
+                                        background: estCourante ? 'var(--c-principal)' : bs2.bg,
                                         color: estCourante ? '#fff' : bs2.color,
-                                        border: `${dejaPrise?2:1}px solid ${estCourante?'#1B2B4B':bs2.color}`,
+                                        border: `${dejaPrise?2:1}px solid ${estCourante?'var(--c-principal)':bs2.color}`,
                                         cursor: estCourante ? 'default' : 'pointer',
                                         opacity: estCourante ? 0.7 : 1,
                                       }}>{l}</span>
@@ -2578,17 +2578,17 @@ export default function Attributions() {
               <div className="flex gap-2">
                 <button onClick={() => setErreurIndex(i => Math.max(0, i-1))} disabled={idx===0}
                   style={{padding:'6px 14px', borderRadius:8, fontSize:13, fontWeight:600, border:'1px solid #D1D5DB',
-                    background: idx===0?'#F9FAFB':'#fff', color: idx===0?'#CBD5E1':'#374151', cursor: idx===0?'default':'pointer'}}>
+                    background: idx===0?'#F9FAFB':'#fff', color: idx===0?'#CBD5E1':'var(--c-principal)', cursor: idx===0?'default':'pointer'}}>
                   ← Précédent
                 </button>
                 <button onClick={() => setErreurIndex(i => Math.min(anomalies.length-1, i+1))} disabled={idx===anomalies.length-1}
                   style={{padding:'6px 14px', borderRadius:8, fontSize:13, fontWeight:600, border:'1px solid #D1D5DB',
-                    background: idx===anomalies.length-1?'#F9FAFB':'#fff', color: idx===anomalies.length-1?'#CBD5E1':'#374151', cursor: idx===anomalies.length-1?'default':'pointer'}}>
+                    background: idx===anomalies.length-1?'#F9FAFB':'#fff', color: idx===anomalies.length-1?'#CBD5E1':'var(--c-principal)', cursor: idx===anomalies.length-1?'default':'pointer'}}>
                   Suivant →
                 </button>
               </div>
               <button onClick={fermer}
-                style={{padding:'6px 16px', borderRadius:8, fontSize:13, fontWeight:600, background:'#1B2B4B', color:'#fff', border:'none', cursor:'pointer'}}>
+                style={{padding:'6px 16px', borderRadius:8, fontSize:13, fontWeight:600, background:'var(--c-principal)', color:'#fff', border:'none', cursor:'pointer'}}>
                 Fermer
               </button>
             </div>
@@ -2639,7 +2639,7 @@ export default function Attributions() {
             <p className="text-sm text-gray-600">
               Supprimer <strong>toutes les attributions</strong> de la section <strong>{confirmViderSection}</strong> pour l'année <strong>{getAnnee()}</strong> ?
             </p>
-            <p className="text-xs text-[#9d4a38] font-medium">Cette action est irréversible. Le référentiel (UE, cours) n'est pas touché.</p>
+            <p className="text-xs text-[color:var(--c-refuse)] font-medium">Cette action est irréversible. Le référentiel (UE, cours) n'est pas touché.</p>
             <div className="flex gap-3 justify-end pt-2">
               <button onClick={() => setConfirmViderSection(null)}
                 className="px-4 py-2 text-sm border border-gray-300 rounded hover:bg-gray-50">Annuler</button>
@@ -2694,10 +2694,10 @@ export default function Attributions() {
 
       {secDel && (
         <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] flex items-center justify-center p-4 z-40" onClick={e=>e.target===e.currentTarget&&setSecDel(null)}>
-          <div className="bg-white rounded-xl shadow-2xl max-w-lg w-full p-6 border-t-4 border-[#9d4a38] flex flex-col" style={{maxHeight:'85vh'}}>
-            <h2 className="text-xl font-title text-[#9d4a38] mb-2">⚠️ Tout supprimer — section {secDel.section}</h2>
+          <div className="bg-white rounded-xl shadow-2xl max-w-lg w-full p-6 border-t-4 border-[color:var(--c-refuse)] flex flex-col" style={{maxHeight:'85vh'}}>
+            <h2 className="text-xl font-title text-[color:var(--c-refuse)] mb-2">⚠️ Tout supprimer — section {secDel.section}</h2>
             <p className="text-sm text-gray-700 mb-2">
-              Vous allez supprimer <b className="text-[#9d4a38]">{secDel.count} attribution(s)</b> de la section <b>{secDel.section}</b> pour {getAnnee()}.
+              Vous allez supprimer <b className="text-[color:var(--c-refuse)]">{secDel.count} attribution(s)</b> de la section <b>{secDel.section}</b> pour {getAnnee()}.
               La section et les cours restent dans le référentiel ; seules les attributions sont effacées.
             </p>
             <p className="text-xs text-gray-500 mb-2">Une <b>copie de sauvegarde</b> de la base est créée automatiquement juste avant. Action <b>irréversible</b> sans restauration de cette copie.</p>
@@ -2737,12 +2737,12 @@ export default function Attributions() {
 
       {bulkDeleteModal && (
         <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] flex items-center justify-center p-4 z-40" onClick={e=>e.target===e.currentTarget&&setBulkDeleteModal(null)}>
-          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6 border-t-4 border-[#9d4a38]">
-            <h2 className="text-xl font-title text-[#9d4a38] mb-3">⚠️ Suppression en masse</h2>
+          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6 border-t-4 border-[color:var(--c-refuse)]">
+            <h2 className="text-xl font-title text-[color:var(--c-refuse)] mb-3">⚠️ Suppression en masse</h2>
             <p className="text-sm text-gray-700 mb-4">
               {bulkDeleteModal==='selection'&&<>Supprimer <b>{bulkPreview?.count??'…'}</b> attribution(s) sélectionnée(s) ?</>}
               {bulkDeleteModal==='filtered'&&<>Supprimer <b>{bulkPreview?.count??'…'}</b> attribution(s) correspondant aux filtres ?</>}
-              {bulkDeleteModal==='all'&&<>Supprimer <b className="text-[#9d4a38]">TOUTES les {bulkPreview?.count??'…'} attributions</b> ?</>}
+              {bulkDeleteModal==='all'&&<>Supprimer <b className="text-[color:var(--c-refuse)]">TOUTES les {bulkPreview?.count??'…'} attributions</b> ?</>}
             </p>
             <p className="text-xs text-gray-500 mb-3">Planning supprimé en cascade. <b>Irréversible.</b></p>
             <label className="block text-xs text-gray-600 mb-1">Tapez <code className="bg-gray-100 px-1 rounded font-mono">SUPPRIMER</code> :</label>
@@ -2757,18 +2757,18 @@ export default function Attributions() {
 
       {/* Bandeau : profs définitifs en perte de charge (ETP global, en bas) */}
       {pertesCharge.length > 0 && (
-        <div className="mt-4 bg-[#FBF1EE] border border-[#E8CFC7] rounded-carte p-3">
-          <div className="flex items-center gap-2 text-[#9d4a38] font-medium text-sm mb-1.5">
+        <div className="mt-4 bg-[#FBF1EE] border border-[color:var(--c-attente)] rounded-carte p-3">
+          <div className="flex items-center gap-2 text-[color:var(--c-refuse)] font-medium text-sm mb-1.5">
             ⚠ {pertesCharge.length} engagement(s) à titre définitif en perte de charge
           </div>
-          <p className="text-[12px] text-[#9d4a38] mb-2">
+          <p className="text-[12px] text-[color:var(--c-refuse)] mb-2">
             L'équivalent ETP de l'engagement définitif n'est pas couvert. Cochez des attributions comme remise au travail (RT) dans la fiche du prof, ou attribuez-leur de nouveaux cours.
           </p>
           <div className="space-y-1">
             {pertesCharge.map(p => (
               <div key={p.professeur_id} className="flex items-center justify-between bg-white rounded px-2.5 py-1.5 h-9 text-[12px]">
                 <span className="text-gray-700"><strong>{p.prof}</strong></span>
-                <span className="text-[#9d4a38] font-semibold whitespace-nowrap ml-2">
+                <span className="text-[color:var(--c-refuse)] font-semibold whitespace-nowrap ml-2">
                   manque {p.etp_manque} ETP (~{p.equiv_periodes_ct} pér. CT)
                   <span className="text-gray-400 font-normal"> · nommé {p.etp_nomme} / couvert {p.etp_couvert}</span>
                 </span>
@@ -2822,7 +2822,7 @@ export default function Attributions() {
                   await appliquerCellule(noteMenu.rowId, 'commentaire', null);
                   setNoteMenu(null);
                 }}
-                className="text-[12px] text-[#9d4a38] hover:underline">Effacer</button>
+                className="text-[12px] text-[color:var(--c-refuse)] hover:underline">Effacer</button>
             )}
             <button onClick={()=>setNoteMenu(null)}
               className="bouton text-[12px] px-3 py-1 ml-auto">Annuler</button>
@@ -2844,7 +2844,7 @@ export default function Attributions() {
           )}
           {recrutCands && recrutCands.map(cd => (
             <button key={cd.id} onClick={()=>assignerCandidat(recrutMenu.row, cd.id)}
-              className="w-full text-left px-3 py-1.5 text-sm hover:bg-green-50 flex items-center justify-between text-green-700">
+              className="w-full text-left px-3 py-1.5 text-sm hover:bg-green-50 flex items-center justify-between text-green-700 border-l-4 border-l-green-500">
               <span className="truncate">{cd.prenom} {cd.nom}</span>
               <span className="text-[10px] text-gray-400 flex-shrink-0 ml-2">{cd.statut||''}</span>
             </button>

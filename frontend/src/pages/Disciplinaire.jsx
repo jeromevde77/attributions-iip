@@ -53,17 +53,17 @@ function docHTML(titreDoc, corps, pied) {
   body { font-family: Arial, sans-serif; font-size: 11pt; color: #1a1a1a; line-height: 1.5; }
   .doc { max-width: 180mm; margin: 0 auto; padding: 12mm 16mm; }
   @media print { @page { size: A4 portrait; margin: 18mm; } .doc { max-width: none; margin: 0; padding: 0; } }
-  .entete { border-bottom: 2pt solid #1B2B4B; padding-bottom: 6pt; margin-bottom: 12pt; }
-  .entete .nom { font-size: 15pt; font-weight: bold; color: #1B2B4B; }
+  .entete { border-bottom: 2pt solid var(--c-principal); padding-bottom: 6pt; margin-bottom: 12pt; }
+  .entete .nom { font-size: 15pt; font-weight: bold; color: var(--c-texte); }
   .entete .coord { font-size: 8.5pt; color: #555; margin-top: 2pt; }
-  .titre { text-align: center; font-weight: bold; font-size: 12.5pt; color: #1B2B4B; text-transform: uppercase; margin: 14pt 0; letter-spacing: .5pt; }
+  .titre { text-align: center; font-weight: bold; font-size: 12.5pt; color: var(--c-texte); text-transform: uppercase; margin: 14pt 0; letter-spacing: .5pt; }
   .bloc-faits { border: 1pt solid #ccc; background: #fff8f0; padding: 8pt 10pt; margin: 10pt 0; }
   p { margin: 7pt 0; text-align: justify; }
   .sig { margin-top: 26pt; }
   table { width: 100%; }
   .footer-bloc { margin-top: 22pt; }
   .footer-logo { height: 9mm; width: auto; opacity: .92; display: block; margin-bottom: 2mm; }
-  .footer-texte { border-top: .5pt solid #C9A84C; padding-top: 2mm; font-size: 6.5pt; color: #888; text-align: center; line-height: 1.4; }
+  .footer-texte { border-top: .5pt solid var(--c-attente); padding-top: 2mm; font-size: 6.5pt; color: #888; text-align: center; line-height: 1.4; }
 </style></head><body><div class="doc">
   <div class="entete"><div class="nom">${ETAB.nom}</div>
   <div class="coord">${ETAB.adresse} · Matricule ${ETAB.matricule} · Fase ${ETAB.fase} · ${ETAB.tel}</div></div>
@@ -376,7 +376,7 @@ export default function Disciplinaire() {
             <Q text="S'agit-il d'une fraude / d'un plagiat ?" art={r2627 ? 'Art. 72-75' : 'Art. 54-55'} value={tf.fraude ? 'oui' : qGrave === '' ? '' : 'non'} onChange={() => {}} />
             <div className="mt-3"><label className={lab}>Sanction envisagée</label>
               <select className={champ} value={sanction} onChange={e => setSanction(e.target.value)}>{SANCTIONS.map(s => <option key={s.key} value={s.key}>{s.label}</option>)}</select></div>
-            <div className="mt-3 text-sm bg-amber-50 border border-amber-200 rounded p-3 text-amber-900"><strong>Recommandation :</strong> {recommandation()}</div>
+            <div className="mt-3 text-sm bg-amber-50 border border-amber-200 rounded p-3 text-amber-900 border-l-4 border-l-amber-500"><strong>Recommandation :</strong> {recommandation()}</div>
           </div>
           <div className="bg-iip-blue/5 border border-iip-blue/20 rounded-xl p-4">
             <div className="flex items-center gap-2 text-iip-blue font-semibold text-sm mb-2"><IconScale size={16} /> Analyse RDE/ROI</div>
@@ -436,7 +436,7 @@ export default function Disciplinaire() {
             </div>
             <button onClick={() => ouvrir('Décision disciplinaire', genDecision())} className={btnDoc}><IconDecision size={16} /> Générer la décision</button>
           </div>
-          <div className={`border rounded-xl p-4 ${conformiteOk ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}`}>
+          <div className={`border rounded-xl p-4 ${conformiteOk ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'} border-l-4 border-l-green-500`}>
             <div className="font-semibold text-sm mb-2">{conformiteOk ? '✓ Conformité procédurale' : '⚠ Points à vérifier avant de notifier'}</div>
             {conformite.map((c, i) => <Check key={i} ok={c.ok} label={c.label} />)}
           </div>

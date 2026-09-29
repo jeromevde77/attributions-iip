@@ -225,7 +225,7 @@ export default function NouveauModal({ onClose, onCreated }) {
                         </div>
                         <div className="flex gap-1.5 flex-shrink-0 text-[10px]">
                           {u.cours_total > 0 && (
-                            <span className={`px-1.5 py-0.5 rounded-champ font-semibold ${u.cours_manquants > 0 ? 'bg-orange-100 text-orange-700' : 'bg-green-100 text-green-700'}`}>
+                            <span className={`px-1.5 py-0.5 rounded-champ font-semibold ${u.cours_manquants > 0 ? 'bg-orange-500 text-white' : 'bg-green-500 text-white'}`}>
                               {u.cours_couverts}/{u.cours_total}
                             </span>
                           )}
@@ -278,7 +278,7 @@ export default function NouveauModal({ onClose, onCreated }) {
                         <span className={`w-2 h-2 rounded-full flex-shrink-0 ${c.nb_attributions > 0 ? 'bg-green-400' : 'bg-orange-400'}`} />
                         <span className="font-mono text-gray-400">{c.cours_code}</span>
                         <span className="text-gray-700 flex-1 truncate">{c.cours_nom}</span>
-                        <span className={`px-1.5 py-0.5 rounded font-bold ${c.type_cours === 'CT' ? 'bg-blue-100 text-blue-700' : 'bg-green-100 text-green-700'}`}>{c.type_cours}</span>
+                        <span className={`px-1.5 py-0.5 rounded font-bold ${c.type_cours === 'CT' ? 'bg-blue-500 text-white' : 'bg-green-500 text-white'}`}>{c.type_cours}</span>
                         {c.nb_attributions > 0 && <span className="text-gray-400">déjà créé</span>}
                       </div>
                     ))}
@@ -329,7 +329,7 @@ export default function NouveauModal({ onClose, onCreated }) {
                         <span className="text-xs flex-1 truncate">{c.cours_nom}</span>
                         <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold flex-shrink-0 ${
                           selCours === c.cours_code ? 'bg-white/20 text-white' :
-                          c.type_cours === 'CT' ? 'bg-blue-100 text-blue-700' : 'bg-green-100 text-green-700'
+                          c.type_cours === 'CT' ? 'bg-blue-500 text-white' : 'bg-green-500 text-white'
                         }`}>{c.type_cours}</span>
                         {c.nb_attributions > 0 && (
                           <span className={`text-[10px] flex-shrink-0 ${selCours === c.cours_code ? 'text-white/70' : 'text-gray-400'}`}>✓</span>

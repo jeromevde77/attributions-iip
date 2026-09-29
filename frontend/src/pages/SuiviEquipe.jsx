@@ -465,7 +465,7 @@ function DetailReunion({ reunion, personnes, obligations, types = [], perimetre,
             <span key={p.id || p.cle || p.nom}
               className={`group inline-flex items-center gap-1 rounded-full pl-2 pr-1 h-6 text-[12px] border
                 ${p.present ? 'bg-iip-blue/10 border-iip-blue/20 text-iip-blue'
-                  : p.excuse ? 'bg-amber-50 border-amber-200 text-amber-800'
+                  : p.excuse ? 'bg-amber-500 border-amber-500 text-white'
                   : 'bg-slate-50 border-slate-200 text-slate-400 line-through'}`}>
               <button onClick={() => basculerPresence(i)} title="Clic : présent → excusé → absent">
                 {nomListe(p.nom)}{!p.present && p.excuse ? ' · excusé' : ''}

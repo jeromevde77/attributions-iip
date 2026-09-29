@@ -142,7 +142,7 @@ function Cellule({ groupeId, semaineId, semaineType, value, onChange, warning })
             if (e.key === 'Delete' || e.key === 'Backspace') setDraft('');
           }}
           style={{ MozAppearance: 'textfield', appearance: 'textfield' }}
-          className="w-9 h-7 text-center text-xs border-0 bg-yellow-50 outline outline-2 outline-iip-gold rounded p-0"
+          className="w-9 h-7 text-center text-xs border-0 bg-yellow-500 outline outline-2 outline-iip-gold rounded p-0"
           autoFocus
         />
       ) : (
@@ -204,7 +204,7 @@ function LigneGroupe({ groupe, semaines, cellules, onCellChange, onEditGroupe, w
       </td>
       {/* Total — bordure colorée à gauche = repère visuel du niveau */}
       <td className={`sticky left-[260px] z-10 border border-gray-200 text-center text-xs w-24 font-mono
-        ${over ? 'bg-red-50 text-red-700' : done ? 'bg-green-50 text-green-700' : 'bg-gray-50 text-gray-500'}`}
+        ${over ? 'bg-red-500 text-white' : done ? 'bg-green-500 text-white' : 'bg-gray-50 text-gray-500'}`}
         style={nivBorderColor ? { borderLeft: `3px solid ${nivBorderColor}` } : {}}>
         <div className="font-semibold text-[11px]">{Math.round(hPlanif * 10) / 10}h</div>
         <div className="text-[10px] opacity-70">/{groupe.heures_attribuees}h · {pct}%</div>
@@ -559,14 +559,14 @@ function ModalImport({ annee, onImported, onClose }) {
                   <p className="text-xs text-gray-500">groupes à importer</p>
                 </div>
                 {preview?.existants > 0 && (
-                  <div className="bg-orange-50 rounded-lg px-4 py-3 text-center">
+                  <div className="bg-orange-50 rounded-lg px-4 py-3 text-center border-l-4 border-l-orange-500">
                     <p className="text-2xl font-bold text-orange-500">{preview.existants}</p>
                     <p className="text-xs text-gray-500">déjà en base</p>
                   </div>
                 )}
               </div>
               {preview?.existants > 0 && (
-                <div className="bg-orange-50 border border-orange-200 rounded-lg p-3 space-y-2">
+                <div className="bg-orange-50 border border-orange-200 rounded-lg p-3 space-y-2 border-l-4 border-l-orange-500">
                   <p className="text-xs font-medium text-orange-800">Des groupes existent déjà. Comment procéder ?</p>
                   <div className="flex flex-col gap-2">
                     <label className="flex items-center gap-2 cursor-pointer text-sm">
@@ -701,7 +701,7 @@ function ModalIA({ annee, section, onApplied, onClose }) {
                 </div>
               </label>
 
-              {error && <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded p-3">{error}</p>}
+              {error && <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded p-3 border-l-4 border-l-red-500">{error}</p>}
             </>
           )}
 
@@ -717,7 +717,7 @@ function ModalIA({ annee, section, onApplied, onClose }) {
                   <p className="text-2xl font-bold text-iip-gold">{nbCellules}</p>
                   <p className="text-xs text-gray-500">cellules à créer</p>
                 </div>
-                <div className={`rounded-lg p-3 ${preview.alertes.length ? 'bg-red-50' : 'bg-green-50'}`}>
+                <div className={`rounded-lg p-3 ${preview.alertes.length ? 'bg-red-50' : 'bg-green-50'} border-l-4 border-l-red-500`}>
                   <p className={`text-2xl font-bold ${preview.alertes.length ? 'text-red-600' : 'text-green-600'}`}>
                     {preview.alertes.length}
                   </p>
@@ -747,12 +747,12 @@ function ModalIA({ annee, section, onApplied, onClose }) {
                 <div className="space-y-1.5">
                   <p className="text-xs font-medium text-red-600">⚠ Alertes ({preview.alertes.length})</p>
                   {preview.alertes.map((a, i) => (
-                    <div key={i} className="text-xs bg-red-50 border border-red-200 rounded p-2 text-red-700">{a.msg}</div>
+                    <div key={i} className="text-xs bg-red-500 border border-red-500 rounded p-2 text-white">{a.msg}</div>
                   ))}
                 </div>
               )}
 
-              {error && <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded p-3">{error}</p>}
+              {error && <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded p-3 border-l-4 border-l-red-500">{error}</p>}
             </>
           )}
 
@@ -855,11 +855,11 @@ function triNiveaux(niveaux) {
 // Couleur selon la position dans la liste des niveaux (0=premier, 1=second, ...)
 const NIV_COLORS = [
   // rang 1 = orange, rang 2 = bleu clair, rang 3 = bleu marine
-  { bg: 'bg-orange-100', text: 'text-orange-700', border: '#f97316', hex: '#fff7ed' },
-  { bg: 'bg-iip-turquoise/10',   text: 'text-iip-blue',   border: '#60a5fa', hex: '#eff6ff' },
-  { bg: 'bg-iip-blue',   text: 'text-iip-blue',   border: '#1e3a8a', hex: '#1e3a8a' },
-  { bg: 'bg-purple-100', text: 'text-purple-700', border: '#a855f7', hex: '#faf5ff' },
-  { bg: 'bg-pink-100',   text: 'text-pink-700',   border: '#ec4899', hex: '#fdf2f8' },
+  { bg: 'bg-orange-100', text: 'text-orange-700', border: 'var(--c-attente)', hex: 'rgb(var(--e-attente-100))' },
+  { bg: 'bg-iip-turquoise/10',   text: 'text-iip-blue',   border: 'var(--c-disponible)', hex: 'rgb(var(--e-disponible-100))' },
+  { bg: 'bg-iip-blue',   text: 'text-iip-blue',   border: 'var(--c-texte)', hex: 'var(--c-texte)' },
+  { bg: 'bg-purple-100', text: 'text-purple-700', border: 'var(--c-faveur)', hex: 'rgb(var(--e-faveur-100))' },
+  { bg: 'bg-pink-100',   text: 'text-pink-700',   border: 'var(--c-helb)', hex: '#fdf2f8' },
 ];
 function getNivColor(niv, niveauxListe) {
   const idx = niveauxListe.indexOf(niv);
@@ -978,7 +978,7 @@ function StructureUE({ annee, section, groupes }) {
           <span className="text-[10px] font-bold text-iip-mauve">UE{u.ue_num}</span>
           {saving === u.ue_num && <span className="text-[10px] text-gray-400"><IconDeviceFloppy size={12} className="inline" /></span>}
           {nbPre > 0 && <span className="text-[10px] bg-iip-turquoise/10 text-iip-blue px-1 rounded">{nbPre}↑</span>}
-          {nbDep > 0 && <span className="text-[10px] bg-orange-100 text-orange-600 px-1 rounded">{nbDep}↓</span>}
+          {nbDep > 0 && <span className="text-[10px] bg-orange-500 text-white px-1 rounded">{nbDep}↓</span>}
         </div>
         <p className="text-[10px] text-gray-600 leading-tight mt-0.5">{u.ue_nom?.slice(0, 40)}</p>
       </div>
@@ -1293,7 +1293,7 @@ function ModalReset({ annee, section, onReset, onClose }) {
           )}
 
           {etape === 'confirm' && (
-            <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-sm text-red-700">
+            <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-sm text-red-700 border-l-4 border-l-red-500">
               <p className="font-medium mb-1">⚠ Confirmation requise</p>
               <p>{mode === 'tout'
                 ? `Tous les groupes et cellules de ${section} seront supprimés définitivement.`
@@ -1446,9 +1446,9 @@ export default function Planification() {
         <div className="flex-1" />
         {/* Légende */}
         <div className="flex gap-1.5 items-center text-[10px]">
-          <span className="px-1.5 py-0.5 rounded bg-orange-100 text-orange-700 font-bold">EV1 = 2h</span>
-          <span className="px-1.5 py-0.5 rounded bg-red-100 text-red-700 font-bold">EV2 = 0h</span>
-          <span className="px-1.5 py-0.5 rounded bg-purple-100 text-purple-700 font-bold">VC = 1h</span>
+          <span className="px-1.5 py-0.5 rounded bg-orange-500 text-white font-bold">EV1 = 2h</span>
+          <span className="px-1.5 py-0.5 rounded bg-red-500 text-white font-bold">EV2 = 0h</span>
+          <span className="px-1.5 py-0.5 rounded bg-purple-500 text-white font-bold">VC = 1h</span>
         </div>
         <button onClick={() => setShowImport(true)}
           className="bg-iip-gold text-white text-xs px-3 py-1.5 h-9 rounded hover:bg-iip-amber">
@@ -1472,7 +1472,7 @@ export default function Planification() {
         )}
         {filtreSection && (
           <button onClick={() => setShowReset(true)}
-            className="bg-red-100 text-red-600 text-xs px-3 py-1.5 h-9 rounded hover:bg-red-200 flex items-center gap-1">
+            className="bg-red-500 text-white text-xs px-3 py-1.5 h-9 rounded hover:bg-red-500 flex items-center gap-1">
             <IconTrash size={15} className="inline align-[-2px] mr-1" /> Réinitialiser
           </button>
         )}

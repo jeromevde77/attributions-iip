@@ -15,18 +15,18 @@ const SEM_STYLE = {
   cours:    { bg: '#ffffff',  label: '' },
   vacances: { bg: '#f3f4f6',  label: 'Vac.' },
   ferie:    { bg: '#f3f4f6',  label: 'Férié' },
-  ev1:      { bg: '#fff7ed',  label: 'EV1' },
-  ev2:      { bg: '#fef2f2',  label: 'EV2' },
-  stage:    { bg: '#eff6ff',  label: 'Stage' },
+  ev1:      { bg: 'rgb(var(--e-attente-100))',  label: 'EV1' },
+  ev2:      { bg: 'rgb(var(--e-refuse-100))',  label: 'EV2' },
+  stage:    { bg: 'rgb(var(--e-disponible-100))',  label: 'Stage' },
 };
 
 // Couleur d'un bloc selon le type d'activité
 function blocColor(activite) {
   const a = (activite || '').toLowerCase();
-  if (a.includes('remédiation') || a.includes('remediation')) return { bg: '#fef3c7', border: '#f59e0b', text: '#92400e' };
-  if (a.includes('autonomie')) return { bg: '#fae8ff', border: '#c026d3', text: '#86198f' };
-  if (a.includes('évaluation') || a.includes('evaluation')) return { bg: '#fee2e2', border: '#ef4444', text: '#991b1b' };
-  return { bg: '#dbeafe', border: '#3b82f6', text: '#1e40af' }; // cours par défaut
+  if (a.includes('remédiation') || a.includes('remediation')) return { bg: 'var(--c-attente)', border: 'var(--c-attente)', text: '#FFFFFF' };
+  if (a.includes('autonomie')) return { bg: 'var(--c-faveur)', border: 'var(--c-faveur)', text: '#FFFFFF' };
+  if (a.includes('évaluation') || a.includes('evaluation')) return { bg: 'var(--c-refuse)', border: 'var(--c-refuse)', text: '#FFFFFF' };
+  return { bg: 'var(--c-disponible)', border: 'var(--c-disponible)', text: '#FFFFFF' }; // cours par défaut
 }
 
 /**
@@ -510,7 +510,7 @@ export default function PlanificateurVisuel({ onClose }) {
                   <span className="text-orange-500">⚠ Dernier jour admin non défini (Paramètres) — limite de session non calculée</span>
                 )}
                 {!capaciteOK && (
-                  <span className="bg-red-100 text-red-700 px-2 py-0.5 rounded font-medium">
+                  <span className="bg-red-500 text-white px-2 py-0.5 rounded font-medium">
                     ⚠ Le volume horaire risque de ne pas tenir dans les semaines disponibles
                   </span>
                 )}
@@ -591,7 +591,7 @@ export default function PlanificateurVisuel({ onClose }) {
                           width: b.dureeSem * PX_SEM - 2,
                           top: 6, bottom: 6,
                           background: b.color.bg,
-                          border: `1.5px solid ${depasseLimite ? '#ef4444' : b.color.border}`,
+                          border: `1.5px solid ${depasseLimite ? 'var(--c-refuse)' : b.color.border}`,
                           color: b.color.text,
                           borderRadius: 6,
                           cursor: 'grab',
@@ -645,7 +645,7 @@ export default function PlanificateurVisuel({ onClose }) {
                         top: 6, bottom: 6,
                         background: '#e5e7eb',
                         border: '1.5px solid #9ca3af',
-                        color: '#374151',
+                        color: 'var(--c-texte)',
                         borderRadius: 6,
                         cursor: ev.supprimable ? 'pointer' : 'default',
                       }}
@@ -661,9 +661,9 @@ export default function PlanificateurVisuel({ onClose }) {
                 </div>
               ))}
               <div className="mt-4 flex items-center gap-4 text-[11px] text-gray-500 flex-wrap" style={{ paddingLeft: LABEL_W }}>
-                <span className="flex items-center gap-1"><span className="inline-block w-3 h-3 rounded" style={{background:'#dbeafe',border:'1.5px solid #3b82f6'}}/>Cours</span>
-                <span className="flex items-center gap-1"><span className="inline-block w-3 h-3 rounded" style={{background:'#fef3c7',border:'1.5px solid #f59e0b'}}/>Remédiation</span>
-                <span className="flex items-center gap-1"><span className="inline-block w-3 h-3 rounded" style={{background:'#fae8ff',border:'1.5px solid #c026d3'}}/>Autonomie</span>
+                <span className="flex items-center gap-1"><span className="inline-block w-3 h-3 rounded" style={{background:'rgb(var(--e-disponible-100))',border:'1.5px solid var(--c-disponible)'}}/>Cours</span>
+                <span className="flex items-center gap-1"><span className="inline-block w-3 h-3 rounded" style={{background:'rgb(var(--e-attente-100))',border:'1.5px solid var(--c-attente)'}}/>Remédiation</span>
+                <span className="flex items-center gap-1"><span className="inline-block w-3 h-3 rounded" style={{background:'rgb(var(--e-faveur-100))',border:'1.5px solid var(--c-faveur)'}}/>Autonomie</span>
                 <span className="ml-4">Glisser = décaler · bord droit = rythme · <IconScissors size={12} className="inline align-[-2px]" /> = couper</span>
               </div>
             </div>
@@ -707,7 +707,7 @@ export default function PlanificateurVisuel({ onClose }) {
             {Object.keys(reductions).length > 0 && (
               <>
                 <div className="text-xs font-semibold text-amber-600 uppercase mb-1">Évaluations supprimées (déduites de l'autonomie)</div>
-                <div className="bg-amber-50 rounded p-3 text-xs text-amber-800 max-h-32 overflow-auto mb-3">
+                <div className="bg-amber-500 rounded p-3 text-xs text-white max-h-32 overflow-auto mb-3">
                   {Object.entries(reductions).map(([gid, r]) => (
                     <div key={gid} className="py-0.5">
                       <div className="flex justify-between">
@@ -822,7 +822,7 @@ export default function PlanificateurVisuel({ onClose }) {
               <IconScissors size={14} className="inline align-[-2px] mr-1" />Scinder le bloc…
             </button>
             <div className="border-t border-gray-100 my-1" />
-            <button onClick={() => supprimerBloc(menuBloc.id)} className="w-full text-left px-3 py-2 hover:bg-red-50 text-red-600 flex items-center gap-2">
+            <button onClick={() => supprimerBloc(menuBloc.id)} className="w-full text-left px-3 py-2 hover:bg-red-50 text-red-600 flex items-center gap-2 border-l-4 border-l-red-500">
               <IconTrash size={14} className="inline align-[-2px] mr-1" />Supprimer ce bloc
             </button>
           </div>

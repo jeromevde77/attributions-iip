@@ -108,7 +108,7 @@ export default function MesCours() {
       </div>
 
       {erreur && (
-        <div className="bg-red-50 border border-red-200 rounded-carte px-4 py-3 text-sm text-red-700 flex items-start gap-2">
+        <div className="bg-red-50 border border-red-200 rounded-carte px-4 py-3 text-sm text-red-700 flex items-start gap-2 border-l-4 border-l-red-500">
           <IconAlertTriangle size={16} className="flex-none mt-0.5" />{erreur}
         </div>
       )}
@@ -388,7 +388,7 @@ export default function MesCours() {
                               reporté {String(e.report.annee_origine || '').replace(/^20(\d\d)-20(\d\d)$/, '$1-$2')}</span>}
                             {/* Les mesures accordées, et elles seules : le survol les
                                 énumère, la nature de la situation n'est jamais là. */}
-                            {e.amenagements?.length > 0 && <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded border border-[#1B2B4B]/30 text-[#1B2B4B] cursor-help"
+                            {e.amenagements?.length > 0 && <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded border border-iip-blue/30 text-[color:var(--c-texte)] cursor-help"
                               title={`Aménagements raisonnables accordés :\n${e.amenagements.map(m =>
                                 `• ${m.libelle}${m.precisions ? ` — ${m.precisions}` : ''}`).join('\n')}`}>
                               AR · {e.amenagements.length}</span>}</td>
@@ -430,7 +430,7 @@ export default function MesCours() {
                                   className={`w-12 h-7 rounded-champ px-1 text-[13px] text-right tabular-nums outline-none
                                     border border-transparent hover:border-slate-200 focus:border-iip-blue focus:bg-white
                                     placeholder:text-slate-300
-                                    ${!ok ? 'text-[#9D4A38] bg-[#FBEDEA] font-semibold'
+                                    ${!ok ? 'text-[color:var(--c-refuse)] bg-[#FBEDEA] font-semibold'
                                       : MENTIONS.includes(t) ? 'font-semibold text-slate-500 text-center'
                                       : 'bg-transparent text-iip-blue font-semibold'}`} />
                                 {/* « /20 » : l'échelle se lit à côté de chaque NOTE (Charles) —
@@ -443,7 +443,7 @@ export default function MesCours() {
                                       onClick={() => allerA({ r, ci })}
                                       title={j ? `Justificatif : ${j}` : 'Note sous 10 : justificatif à écrire (panneau de droite)'}
                                       aria-label={j ? 'Justificatif écrit' : 'Justificatif à écrire'}
-                                      className="ml-0.5 align-middle" style={{ color: j ? 'var(--iip-blue, #1B2B4B)' : '#B45309' }}>
+                                      className="ml-0.5 align-middle" style={{ color: j ? 'var(--iip-blue, var(--c-principal))' : 'var(--c-attente)' }}>
                                       <IconMessageCircle size={13} stroke={2} />
                                     </button>
                                   );
@@ -564,8 +564,8 @@ export default function MesCours() {
             {face === 'notes' && feuille && (
               <div className="flex items-center gap-3 justify-end border-t border-slate-200 pt-2">
                 <span className="text-[12px] text-slate-500 min-w-0 flex-1">
-                  {invalides ? <span style={{ color: '#C2412D' }}>{invalides} case{invalides > 1 ? 's' : ''} à corriger : un nombre entier de 0 à 20, PP, NP ou CM.</span>
-                    : manquants.length ? <span style={{ color: '#B45309' }}>{manquants.length} note{manquants.length > 1 ? 's' : ''} sous 10 sans justificatif.{' '}
+                  {invalides ? <span style={{ color: 'var(--c-texte)' }}>{invalides} case{invalides > 1 ? 's' : ''} à corriger : un nombre entier de 0 à 20, PP, NP ou CM.</span>
+                    : manquants.length ? <span style={{ color: 'var(--c-attente)' }}>{manquants.length} note{manquants.length > 1 ? 's' : ''} sous 10 sans justificatif.{' '}
                         <button type="button" className="underline" onClick={() => allerA(manquants[0])}>Aller au premier</button></span>
                     : 'Vos notes sont des propositions : la coordination les reprend dans l’encodage officiel.'}
                 </span>

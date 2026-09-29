@@ -230,7 +230,7 @@ export default function StatsDeliberation({ annee }) {
               </div>
               <Etendue d={formeUE} max={100} />
               {Math.abs(formeUE.moyenne - formeUE.mediane) > 5 && (
-                <div className="text-[11px] text-[color:var(--c-attente,#B45309)]">
+                <div className="text-[11px] text-[color:var(--c-attente,var(--c-attente))]">
                   Plus de cinq points entre la moyenne et la médiane : la série est
                   tirée par un bout — quelques unités pèsent sur l'ensemble.
                 </div>

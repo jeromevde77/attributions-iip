@@ -254,11 +254,11 @@ export default function CoursEditModal({ section, codeCours, onClose, onChanged 
           {loading ? (
             <p className="text-gray-400 text-center py-8">Chargement…</p>
           ) : error ? (
-            <div className="bg-red-50 text-red-700 text-sm rounded p-3">{error}</div>
+            <div className="bg-red-50 text-red-700 text-sm rounded p-3 border-l-4 border-l-red-500">{error}</div>
           ) : (
             <>
               {/* ── Encart Vue étudiant ── */}
-              <div className="bg-violet-50 border border-violet-200 rounded-lg p-3 mb-4 space-y-2">
+              <div className="bg-violet-50 border border-violet-200 rounded-lg p-3 mb-4 space-y-2 border-l-4 border-l-violet-500">
                 <div className="text-xs font-semibold text-violet-700 uppercase tracking-wider">🎓 Vue étudiant</div>
                 <div className="grid grid-cols-3 gap-3 text-center">
                   <div className="bg-white rounded border border-violet-100 p-2">
@@ -295,7 +295,7 @@ export default function CoursEditModal({ section, codeCours, onClose, onChanged 
 
                 {/* Analyse autonomie UE — intervalle [min ; max] */}
                 {ueAnalyse && ueAnalyse.per_ouvertes > 0 && (
-                  <div className={`rounded p-2 mt-1 text-xs ${ueAnalyse.ok ? 'bg-green-50 text-green-700' : 'bg-orange-50 text-orange-700'}`}>
+                  <div className={`rounded p-2 mt-1 text-xs ${ueAnalyse.ok ? 'bg-green-500 text-white' : 'bg-orange-500 text-white'} border-l-4 border-l-green-500`}>
                     <div className="font-semibold mb-1">
                       {ueAnalyse.ok ? '✅' : '⚠'} Autonomie UE {ueNum} ({ueAnalyse.nb_cours} cours)
                     </div>
@@ -343,7 +343,7 @@ export default function CoursEditModal({ section, codeCours, onClose, onChanged 
                       <th className="text-left p-2 border-b">Groupe</th>
                       <th className="text-left p-2 border-b">Contrat</th>
                       <th className="text-left p-2 border-b">Professeur</th>
-                      {hasHelb && <th className="text-left p-2 border-b bg-pink-50 text-pink-700">Statut HELB</th>}
+                      {hasHelb && <th className="text-left p-2 border-b bg-pink-50 text-pink-700 border-l-4 border-l-pink-500">Statut HELB</th>}
                       <th className="text-right p-2 border-b">Périodes</th>
                       <th className="text-right p-2 border-b bg-gray-100 text-gray-500"
                           title="Périodes prévues pour ce cours (BD_UE_COURS)">Per. prévu</th>
@@ -432,7 +432,7 @@ export default function CoursEditModal({ section, codeCours, onClose, onChanged 
                             </select>
                           </td>
                           {hasHelb && (
-                            <td className="p-2 border-b bg-pink-50/50">
+                            <td className="p-2 border-b bg-pink-50/50 border-l-4 border-l-pink-500">
                               {isHelb ? (
                                 <select value={r.type_cours_helb ?? ''}
                                         disabled={!canEdit}
@@ -510,7 +510,7 @@ export default function CoursEditModal({ section, codeCours, onClose, onChanged 
                 return (
                   <div className="mt-3 flex flex-col gap-1.5 text-xs">
                     {coursPer != null && coursPer > 0 && (
-                      <div className={`rounded p-2.5 flex items-center gap-2 ${perEntier ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}>
+                      <div className={`rounded p-2.5 flex items-center gap-2 ${perEntier ? 'bg-green-500 text-white' : 'bg-red-500 text-white'} border-l-4 border-l-green-500`}>
                         <span className="text-base">{perEntier ? '✓' : '✗'}</span>
                         <span>
                           <b>Périodes</b> : {coursNom} <b>{coursPer}p</b> × <b>{perMultiple != null ? perMultiple.toLocaleString('fr-BE', { maximumFractionDigits: 2 }) : '?'}</b> = <b>{totals.periodes}p</b>

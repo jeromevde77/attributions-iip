@@ -123,7 +123,7 @@ export default function SchemaLiensAA({ ueNum, annee, onClose, onEnregistre }) {
 
     if (!l.length) {
       return { ok: false, modifie, libelle: modifie ? 'à vider' : '—',
-               ton: modifie ? '#B45309' : '#94A3B8', quoi: 'aucun acquis relié' };
+               ton: modifie ? 'var(--c-attente)' : 'var(--c-disponible)', quoi: 'aucun acquis relié' };
     }
     // Un cours à UN SEUL acquis est valide quel que soit le poids : cet acquis
     // fait tout le cours. Le compter comme parité évite un rouge absurde.
@@ -144,7 +144,7 @@ export default function SchemaLiensAA({ ueNum, annee, onClose, onEnregistre }) {
       ok, modifie, parite, libelle, quoi,
       // Vert : valide ET enregistré. Ambre : valide, reste à enregistrer.
       // Rouge : la répartition ne tient pas.
-      ton: !ok ? '#B91C1C' : modifie ? '#B45309' : '#15803D',
+      ton: !ok ? 'var(--c-texte)' : modifie ? 'var(--c-attente)' : 'var(--c-texte)',
     };
   };
 
@@ -395,8 +395,8 @@ export default function SchemaLiensAA({ ueNum, annee, onClose, onEnregistre }) {
 
           {!integree && (
             <label className={`flex items-start gap-2.5 px-3 py-2 rounded-xl border cursor-pointer
-              ${unique ? 'border-[#1B2B4B]/40' : 'bg-slate-50 border-slate-200'}`}
-              style={unique ? { background: 'color-mix(in srgb, #1B2B4B 6%, #fff)' } : undefined}>
+              ${unique ? 'border-iip-blue/40' : 'bg-slate-50 border-slate-200'}`}
+              style={unique ? { background: '#fff' } : undefined}>
               <input type="checkbox" checked={unique} disabled={enCours}
                 onChange={e => basculerUnique(e.target.checked)} className="mt-0.5 w-4 h-4" />
               <span className="text-[13px]">
@@ -419,7 +419,7 @@ export default function SchemaLiensAA({ ueNum, annee, onClose, onEnregistre }) {
               <Bandeau ton="alerte">Aucun acquis d'apprentissage au référentiel de cette unité.</Bandeau>
             ) : (
               <div className="border border-violet-200 rounded-xl bg-white overflow-hidden">
-                <div className="px-3 py-2 bg-violet-50 border-b border-violet-200 text-[12px] text-violet-900">
+                <div className="px-3 py-2 bg-violet-50 border-b border-violet-200 text-[12px] text-violet-900 border-l-4 border-l-violet-500">
                   Épreuve commune : les acquis ne sont <b>pas rattachés aux cours</b>. Répartissez
                   <b> dix points</b> entre les acquis de l'unité (ou cent) — seul le rapport entre les
                   poids compte. Chaque acquis doit atteindre le seuil, quel que soit son poids.
@@ -571,7 +571,7 @@ export default function SchemaLiensAA({ ueNum, annee, onClose, onEnregistre }) {
                         <rect x={p.x} y={p.y} width={L} height={H} rx="8"
                           fill={c.non_evalue ? '#F1F5F9' : (lien?.cible === c.cours_code ? '#EFF6FF' : '#F8FAFC')}
                           stroke={c.non_evalue ? '#CBD5E1'
-                            : survol?.cours === c.cours_code ? '#0369A1' : '#1B2B4B'}
+                            : survol?.cours === c.cours_code ? 'var(--c-texte)' : 'var(--c-principal)'}
                           strokeDasharray={c.non_evalue ? '4 3' : ''}
                           strokeWidth={survol?.cours === c.cours_code ? 2.2 : 1.2} />
                         <text x={p.x + 8} y={p.y + 14} fontSize="11" fontWeight="700"
@@ -632,9 +632,9 @@ export default function SchemaLiensAA({ ueNum, annee, onClose, onEnregistre }) {
                   const et = etatCours(c.cours_code);
                   const relie = data.acquis.some(a => Number(poids[`${c.cours_code}|${a.aa_code}`]) > 0);
                   const ton = et.non_evalue ? 'border-slate-300 bg-slate-50 text-slate-600'
-                    : !et.ok ? 'border-red-300 bg-red-50 text-red-800'
-                    : et.modifie ? 'border-amber-400 bg-amber-50 text-amber-900'
-                    : 'border-emerald-400 bg-emerald-50 text-emerald-800';
+                    : !et.ok ? 'border-red-500 bg-red-500 text-white'
+                    : et.modifie ? 'border-amber-500 bg-amber-500 text-white'
+                    : 'border-emerald-500 bg-emerald-500 text-white';
                   /* « PAS ÉVALUÉ » se coche sur le cours lui-même : des périodes
                      Z, un accompagnement — le cours existe, rien n'y est noté. */
                   const caseEval = (
@@ -728,9 +728,9 @@ export default function SchemaLiensAA({ ueNum, annee, onClose, onEnregistre }) {
 }
 
 function Bandeau({ ton, children }) {
-  const c = ton === 'err' ? 'bg-red-50 border-red-200 text-red-800'
-    : ton === 'ok' ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
-    : 'bg-amber-50 border-amber-200 text-amber-900';
+  const c = ton === 'err' ? 'bg-red-500 border-red-500 text-white'
+    : ton === 'ok' ? 'bg-emerald-500 border-emerald-500 text-white'
+    : 'bg-amber-500 border-amber-500 text-white';
   return (
     <div className={`px-3 py-2 rounded-lg border text-[13px] flex items-start gap-1.5 ${c}`}>
       {ton === 'alerte' && <IconAlertTriangle size={15} className="mt-0.5 flex-none" />}

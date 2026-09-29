@@ -91,13 +91,13 @@ function ouvrirFeuilleImpression(data) {
       body { font-family: Arial, sans-serif; margin: 0; color: #1a1a1a; }
       .page { padding: 18mm 14mm; page-break-after: always; }
       .page:last-child { page-break-after: auto; }
-      .entete { border-bottom: 2px solid #1F3864; padding-bottom: 8px; margin-bottom: 14px; }
+      .entete { border-bottom: 2px solid var(--c-principal); padding-bottom: 8px; margin-bottom: 14px; }
       .titre { font-size: 12px; color: #555; text-transform: uppercase; letter-spacing: 1px; }
       .prof { font-size: 20px; margin-top: 4px; }
-      .badge { font-size: 11px; background: #1F3864; color: #fff; padding: 2px 8px; border-radius: 10px; vertical-align: middle; margin-left: 6px; }
+      .badge { font-size: 11px; background: var(--c-principal); color: #fff; padding: 2px 8px; border-radius: 10px; vertical-align: middle; margin-left: 6px; }
       table { width: 100%; border-collapse: collapse; font-size: 12px; }
       th, td { border: 1px solid #ccc; padding: 5px 7px; text-align: left; vertical-align: top; }
-      thead th { background: #9CC2E5; font-weight: bold; }
+      thead th { background: var(--c-disponible); font-weight: bold; }
       tfoot td { background: #f0f4f8; font-size: 13px; }
       .c { text-align: center; } .r { text-align: right; }
       .h { color: #777; font-weight: normal; font-size: 11px; }
@@ -568,8 +568,8 @@ function AccesLuciePanel({ profId, detail }) {
               .then(charger).catch(e => setErr(e.message));
           }}
           className={`flex items-center gap-1.5 text-sm px-3 py-2 rounded-lg border ${account.actif
-            ? 'border-red-300 text-red-600 hover:bg-red-50'
-            : 'border-emerald-300 text-emerald-700 hover:bg-emerald-50'}`}>
+            ? 'border-red-500 text-white hover:bg-red-500'
+            : 'border-emerald-500 text-white hover:bg-emerald-500'}`}>
           {account.actif ? <IconX size={14} /> : <IconKey size={14} />}
           {account.actif ? 'Désactiver' : 'Réactiver'}
         </button>
@@ -583,15 +583,15 @@ function AccesLuciePanel({ profId, detail }) {
         <IconLock size={16} className="text-iip-turquoise" />
         <span className="text-sm font-semibold text-iip-blue">Accès Lucie</span>
         {account && (
-          <span className={`ml-auto text-xs px-2 py-0.5 rounded-champ font-semibold ${account.actif ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
+          <span className={`ml-auto text-xs px-2 py-0.5 rounded-champ font-semibold ${account.actif ? 'bg-green-500 text-white' : 'bg-gray-100 text-gray-500'}`}>
             {account.actif ? 'Actif' : 'Désactivé'}
           </span>
         )}
       </div>
       <div className="p-4 space-y-3">
-        {err && <div className="text-xs text-red-600 bg-red-50 border border-red-200 rounded px-3 py-2">{err}</div>}
+        {err && <div className="text-xs text-white bg-red-500 border border-red-500 rounded px-3 py-2">{err}</div>}
         {pwd && (
-          <div className="bg-amber-50 border border-amber-300 rounded px-3 py-2">
+          <div className="bg-amber-50 border border-amber-300 rounded px-3 py-2 border-l-4 border-l-amber-500">
             <div className="text-xs font-semibold text-amber-800 flex items-center gap-1.5 mb-1"><IconKey size={14} /> Mot de passe — à noter maintenant</div>
             <div className="font-mono text-base bg-white border border-amber-200 rounded px-2 py-1 inline-block select-all mr-2">{pwd}</div>
             <button onClick={() => setPwd(null)} className="text-xs text-amber-700 hover:underline">masquer</button>
@@ -1165,11 +1165,11 @@ const MOTIFS_FIN = [
 
 const ETAPES_DISC = [
   { val: 'ouverture',   label: 'Ouverture du dossier',   color: '#6b7280' },
-  { val: 'convocation', label: 'Convocation',             color: '#d97706' },
-  { val: 'audition',    label: 'Audition',                color: '#7c3aed' },
-  { val: 'decision',    label: 'Décision',                color: '#b91c1c' },
-  { val: 'appel',       label: 'Recours / Appel',         color: '#0369a1' },
-  { val: 'cloture',     label: 'Clôture',                 color: '#15803d' },
+  { val: 'convocation', label: 'Convocation',             color: 'var(--c-texte)' },
+  { val: 'audition',    label: 'Audition',                color: 'var(--c-texte)' },
+  { val: 'decision',    label: 'Décision',                color: 'var(--c-texte)' },
+  { val: 'appel',       label: 'Recours / Appel',         color: 'var(--c-texte)' },
+  { val: 'cloture',     label: 'Clôture',                 color: 'var(--c-texte)' },
 ];
 
 function DossiersRH({ profId, profNom }) {
@@ -1305,7 +1305,7 @@ function DossiersRH({ profId, profNom }) {
             return (
               <div key={d.id} className={`border-2 rounded-xl overflow-hidden ${isClos ? 'border-gray-200 opacity-75' : isFinContrat ? 'border-red-200' : 'border-orange-200'}`}>
                 {/* En-tête dossier */}
-                <div className={`flex items-center justify-between px-4 py-3 ${isFinContrat ? 'bg-red-50' : 'bg-orange-50'}`}>
+                <div className={`flex items-center justify-between px-4 py-3 ${isFinContrat ? 'bg-red-50' : 'bg-orange-50'} border-l-4 border-l-red-500`}>
                   <div className="flex items-center gap-3">
                     <span className="text-lg">{isFinContrat ? '📋' : '⚠️'}</span>
                     <div>
@@ -1315,7 +1315,7 @@ function DossiersRH({ profId, profNom }) {
                       </div>
                       <div className="text-xs text-gray-500 flex items-center gap-2">
                         <span>Ouvert le {new Date(d.date_ouverture).toLocaleDateString('fr-BE')}</span>
-                        {motif && <span className="bg-red-100 text-red-700 px-1.5 rounded">{motif.label}</span>}
+                        {motif && <span className="bg-red-500 text-white px-1.5 rounded">{motif.label}</span>}
                         {d.date_cloture && <span>· Clos le {new Date(d.date_cloture).toLocaleDateString('fr-BE')}</span>}
                       </div>
                     </div>
@@ -1368,7 +1368,7 @@ function DossiersRH({ profId, profNom }) {
 
                 {/* Formulaire ajout étape */}
                 {etapeForm?.dossier_id === d.id && (
-                  <div className="border-t border-orange-200 bg-orange-50/50 px-4 py-3 space-y-2">
+                  <div className="border-t border-orange-200 bg-orange-50/50 px-4 py-3 space-y-2 border-l-4 border-l-orange-500">
                     <div className="grid grid-cols-2 gap-2">
                       <div>
                         <div className="text-xs text-gray-500 mb-1">Type d'étape</div>
@@ -1591,7 +1591,7 @@ export default function Professeurs({ vue: vueInitiale = 'membres' }) {
         .page-table>tfoot{display:table-footer-group}
         .footer-iip{margin-top:6mm}
         .footer-iip .logo{height:8mm;width:auto;opacity:.9;display:block;margin-bottom:2mm}
-        .footer-iip .txt{border-top:0.5pt solid #C9A84C;padding-top:2mm;font-size:7px;color:#888;text-align:center;line-height:1.4}
+        .footer-iip .txt{border-top:0.5pt solid var(--c-attente);padding-top:2mm;font-size:7px;color:#888;text-align:center;line-height:1.4}
       </style></head><body>
       <table class="page-table"><tbody><tr><td>
       <div style="padding:10mm">
@@ -1701,7 +1701,7 @@ export default function Professeurs({ vue: vueInitiale = 'membres' }) {
         .page-table>tfoot{display:table-footer-group}
         .footer-iip{margin-top:6mm}
         .footer-iip .logo{height:8mm;width:auto;opacity:.9;display:block;margin-bottom:2mm}
-        .footer-iip .txt{border-top:0.5pt solid #C9A84C;padding-top:2mm;font-size:7px;color:#888;text-align:center;line-height:1.4}
+        .footer-iip .txt{border-top:0.5pt solid var(--c-attente);padding-top:2mm;font-size:7px;color:#888;text-align:center;line-height:1.4}
       </style></head><body>
       <table class="page-table"><tbody><tr><td>
       <div style="padding:10mm">
@@ -1843,7 +1843,7 @@ export default function Professeurs({ vue: vueInitiale = 'membres' }) {
         .page-table>tfoot{display:table-footer-group}
         .footer-iip{margin-top:6mm}
         .footer-iip .logo{height:8mm;width:auto;opacity:.9;display:block;margin-bottom:2mm}
-        .footer-iip .txt{border-top:0.5pt solid #C9A84C;padding-top:2mm;font-size:7px;color:#888;text-align:center;line-height:1.4}
+        .footer-iip .txt{border-top:0.5pt solid var(--c-attente);padding-top:2mm;font-size:7px;color:#888;text-align:center;line-height:1.4}
       </style></head><body>
       <table class="page-table"><tbody><tr><td>
       <div style="padding:10mm">
@@ -2229,7 +2229,7 @@ export default function Professeurs({ vue: vueInitiale = 'membres' }) {
               {/* UN MÊME RAYON POUR TOUT — une pastille pleinement ronde ici,
                   des coins de huit partout ailleurs : c'est le genre d'écart
                   qu'on ne sait pas nommer mais qu'on voit. */}
-              <span className="bg-orange-100 text-orange-700 border border-orange-300 rounded-champ px-2.5 py-0.5 text-[11px] font-bold">
+              <span className="bg-orange-500 text-white border border-orange-500 rounded-champ px-2.5 py-0.5 text-[11px] font-bold">
                 À désigner
               </span>
             </span>
@@ -2248,7 +2248,7 @@ export default function Professeurs({ vue: vueInitiale = 'membres' }) {
           <div className="flex items-center gap-1 flex-wrap">
             {p.missions_libelles && p.missions_libelles.split(',').filter(Boolean).map((f, i) => {
               const label = f.trim().split(' ').map(w => w[0]).join('').slice(0, 3).toUpperCase();
-              return <span key={i} title={f.trim()} className="inline-flex items-center justify-center min-w-7 h-7 px-1 rounded text-[10px] font-bold" style={{background:'#00AACC',color:'white'}}>{label}</span>;
+              return <span key={i} title={f.trim()} className="inline-flex items-center justify-center min-w-7 h-7 px-1 rounded text-[10px] font-bold" style={{background:'var(--c-accent)',color:'white'}}>{label}</span>;
             })}
             {/* LE STATUT SE VOIT TOUJOURS (Nicolas, 27 septembre 2026). On lisait
                 les contrats de l'année OU, à défaut, le statut : dès qu'un
@@ -2301,7 +2301,7 @@ export default function Professeurs({ vue: vueInitiale = 'membres' }) {
                   </button>
                   <button onClick={() => { genererFicheAttributions(p.id, 'HELB'); setFicheMenu(null); }}
                     className="text-left px-2 py-1.5 h-9 rounded hover:bg-gray-50 text-sm flex items-center gap-2">
-                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-purple-100 text-purple-700">HELB</span>
+                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-purple-500 text-white">HELB</span>
                     <span className="text-gray-600 text-xs">Contrat HELB</span>
                   </button>
                 </div>
@@ -2469,7 +2469,7 @@ export default function Professeurs({ vue: vueInitiale = 'membres' }) {
                         <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-iip-turquoise/10 text-iip-blue">IIP</span><span className="text-gray-600 text-xs">Contrat IIP</span>
                       </button>
                       <button onClick={() => imprimerSelectionFiches('HELB')} className="text-left px-2 py-1.5 rounded hover:bg-gray-50 text-sm flex items-center gap-2">
-                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-purple-100 text-purple-700">HELB</span><span className="text-gray-600 text-xs">Contrat HELB</span>
+                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-purple-500 text-white">HELB</span><span className="text-gray-600 text-xs">Contrat HELB</span>
                       </button>
                     </div>
                   </>
@@ -2495,7 +2495,7 @@ export default function Professeurs({ vue: vueInitiale = 'membres' }) {
                         <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-iip-turquoise/10 text-iip-blue">IIP</span><span className="text-gray-600 text-xs">Contrat IIP</span>
                       </button>
                       <button onClick={() => exporterZip('HELB')} className="text-left px-2 py-1.5 rounded hover:bg-gray-50 text-sm flex items-center gap-2">
-                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-purple-100 text-purple-700">HELB</span><span className="text-gray-600 text-xs">Contrat HELB</span>
+                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-purple-500 text-white">HELB</span><span className="text-gray-600 text-xs">Contrat HELB</span>
                       </button>
                     </div>
                   </>

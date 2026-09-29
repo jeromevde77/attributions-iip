@@ -1212,6 +1212,51 @@ et 3 composants de tuile**. La stratégie tient en cinq chantiers, dans cet ordr
   parcours (2.12.191) · délibération et PAE · tuiles d'indicateur · pastilles,
   encadrés, palettes de bloc · pièces imprimées · réglage des couleurs.
 
+### Les couleurs — TOUTES se règlent, et elles viennent du logo
+
+> **LUCIE S'ÉTAIT ASSOMBRIE** (Charles, 29 septembre 2026 : « tu es devenu très
+> sombre avec le temps »). Le marine #1B2B4B faisait tout — titres, boutons,
+> texte, menus, BA3 — alors que le bleu du LOGO est #19537E, son or #F9B619 et
+> son cyan #05B7E6 (relevés sur `logo_iip_jpeg.js`). Deux mille sept cents
+> classes Tailwind (emerald, amber, red, violet…) nommaient une couleur fixe que
+> Configuration n'atteignait pas.
+
+- **TOUT SE RÈGLE DANS Configuration → Thèmes et couleurs** (règle de Charles).
+  Familles : écran (principal, accent, texte, données, menus sombres), états,
+  repères, fonds, contrats, identité. `lib/couleurs.js` (serveur : le
+  catalogue ; écran : `poser()`) publie chaque réglage en `--c-<clé>`, ses
+  canaux `--c-<clé>-rgb` et, pour les familles, son échelle `--e-<clé>-50…950`.
+- **Les familles de Tailwind lisent ces échelles** (`tailwind.config.js`) :
+  emerald/green/lime = réussi · amber/orange/yellow = à surveiller · red/rose =
+  à corriger · violet/purple/fuchsia = faveur · blue/sky = en cours · teal/cyan
+  = accent · indigo = principal · pink = HELB. `iip-*` lit le principal et
+  l'accent. **Écrire une couleur en dur, c'est la soustraire au réglage** : on
+  écrit une famille Tailwind ou `var(--c-…)`.
+- **Exceptions voulues** : les pièces imprimées (HTML en chaîne, fenêtres
+  d'impression) gardent la charte en hexadécimal ; les attributs SVG `fill=` /
+  `stroke=` (où `var()` ne s'évalue pas) ; le QR code. Une couleur en variable
+  ne se concatène pas avec une opacité (`${c}33`) : `color-mix`.
+- **Le thème « Maison IIP »** : bleu, or et cyan du logo, états dans les tons
+  EPFC, une seule teinte pour les données. BA1 = or/jaune du logo, BA2 = cyan
+  du logo, BA3 = bleu du logo, épreuve intégrée = un OR franc (#C9A227),
+  distinct du jaune de BA1 (Charles). Les défauts restent ceux de Lucie
+  d'origine : c'est le clic sur le thème qui bascule.
+- **LA RÈGLE DES COULEURS, VALIDÉE LE 29 SEPTEMBRE 2026** (après une journée
+  d'essais : « trop de teintes », « encore du pâle », puis « je veux quand
+  même des couleurs ») : (1) une INFORMATION D'ÉTAT est une PASTILLE PLEINE —
+  la couleur du réglage, texte blanc (grille des droits, étiquettes, états des
+  listes) ; (2) un BANDEAU ou une TUILE est BLANC, avec son LISERÉ et son ICÔNE
+  dans la couleur, le texte à l'encre ; (3) les BOUTONS : marine plein pour
+  l'action principale, contour marine pour produire une pièce, rouge du
+  réglage pour détruire, contour gris pour le reste ; (4) tout le reste est
+  blanc, filets gris, texte marine. AUCUN FOND PÂLE, aucun ton qu'aucun
+  réglage ne porte. Le marine de la maison : #16406A (le bleu du logo
+  approfondi, choix de Charles). Les contrôles d'une barre ont UNE hauteur et
+  UNE forme (`.controle`, `.segments`) : pas de pastilles arrondies mêlées à
+  des boutons de trois hauteurs.
+- **On ne touche ni aux polices, ni aux icônes, ni aux tailles** (Charles) : ce
+  chantier est celui des couleurs et des tuiles.
+
 ### Navigation
 
 - **Seul le menu principal est horizontal** : il dit dans quel métier on est.
