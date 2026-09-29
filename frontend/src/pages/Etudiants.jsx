@@ -30,6 +30,7 @@ import ImportSignaletique from '../components/ImportSignaletique.jsx';
 import RattacherPack from '../components/RattacherPack.jsx';
 import ImportSuivi from '../components/ImportSuivi.jsx';
 import Annexe2 from '../components/Annexe2.jsx';
+import Annexe1 from '../components/Annexe1.jsx';
 import MotivationDecision from '../components/MotivationDecision.jsx';
 import MenuActions from '../components/MenuActions.jsx';
 import ComparaisonClasseur from '../components/ComparaisonClasseur.jsx';
@@ -1942,6 +1943,7 @@ function MenuParcourir({ portee, onPortee, sections, ues, annees }) {
 export function FicheEtudiant({ id, annee, onClose, position, onPrec, onSuiv,
                          portee, onPortee, sections, ues, annees, onModifie, ongletInitial = 'parcours' }) {
   const [annexe2, setAnnexe2] = useState(false);
+  const [annexe1, setAnnexe1] = useState(false);
   const [motivation, setMotivation] = useState(false);
   const [edition, setEdition] = useState(false);   // le centre d'édition, sur cet étudiant
   const [data, setData] = useState(null);
@@ -2282,6 +2284,8 @@ export function FicheEtudiant({ id, annee, onClose, position, onPrec, onSuiv,
                 description: 'Schéma de capitalisation et unités acquises — 1 page', onClick: ouvrirParcours },
               { cle: 'motivation', icon: IconFileText, label: 'Motiver un refus ou un ajournement',
                 description: 'Annexes 8 et 9 — une justification par acquis', onClick: () => setMotivation(true) },
+              { cle: 'annexe1', icon: IconFileText, label: 'Visa ou titre de séjour étudiant (annexe 1)',
+                description: "Office des Étrangers — ressortissant d'un pays tiers", onClick: () => setAnnexe1(true) },
               { cle: 'annexe2', icon: IconFileText, label: 'Progrès des études (annexe 2)',
                 description: "Office des Étrangers — réclame la nationalité", onClick: () => setAnnexe2(true) },
             ]} />
@@ -2382,6 +2386,9 @@ export function FicheEtudiant({ id, annee, onClose, position, onPrec, onSuiv,
               onClose={() => setMotivation(false)} />
           )}
 
+          {annexe1 && (
+            <Annexe1 etudId={id} annee={annee} onClose={() => setAnnexe1(false)} />
+          )}
           {annexe2 && (
             <Annexe2 etudId={id} annee={annee} onClose={() => setAnnexe2(false)} />
           )}

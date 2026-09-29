@@ -61,6 +61,17 @@ export const DOCUMENTS = [
     roles: ['admin', 'directeur', 'directeur_adjoint', 'editeur'],
   },
   {
+    cle: 'annexe1',
+    libelle: 'Visa ou titre de séjour étudiant (annexe 1)',
+    description: "Formulaire standard de l'Office des Étrangers (AM du 28 mars 2022, art. 99 AR du 8 octobre 1981).",
+    portee: 'etudiant', lot: false, groupe: 'Étudiants',
+    route: { methode: 'POST', chemin: '/api/annexe1/document' },
+    parametres: ['annee', 'situation', 'raisons'],
+    nomFichier: 'Annexe1_{nom}_{prenom}_{annee}',
+    destinataires: 'etudiant',
+    roles: ['admin', 'directeur', 'directeur_adjoint', 'editeur', 'secretariat'],
+  },
+  {
     cle: 'annexe2',
     libelle: 'Attestation du progrès des études (annexe 2)',
     description: "Formulaire de l'Office des Étrangers. Réclame la nationalité.",

@@ -58,6 +58,7 @@ import attestationsRoutes, { migrerAttestations } from './routes/attestations.js
 import dueRoutes, { migrerDUE } from './routes/due.js';
 import diplomesRoutes from './routes/diplomes.js';
 import annexe2Routes from './routes/annexe2.js';
+import annexe1Routes from './routes/annexe1.js';
 import impressionRoutes from './routes/impression.js';
 import importSurMesureRoutes from './routes/importSurMesure.js';
 import authRoutes from './routes/auth.js';
@@ -3007,6 +3008,7 @@ app.use('/api/cep', cepRoutes);
 app.use('/api/stages', garderModule('stages'), stagesRoutes);
 app.use('/api/attestations', garderModule('attestations'), attestationsRoutes);
 app.use('/api/annexe2', garderModule('annexe2'), annexe2Routes);
+app.use('/api/annexe1', garderModule('annexe2'), annexe1Routes);
 app.use('/api/impression', garderModule('impression'), impressionRoutes);
 app.use('/api/envois',     garderModule('envois'), (await import('./routes/envois.js')).default);
 app.use('/api/import-sur-mesure', garderModule('import-sur-mesure'), importSurMesureRoutes);
