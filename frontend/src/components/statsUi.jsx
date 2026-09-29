@@ -103,7 +103,7 @@ export function Etendue({ d, max = 20 }) {
       <div className="absolute inset-y-[-2px] w-[2px] bg-iip-blue rounded"
         style={{ left: `${p(d.mediane)}%` }} />
       <div className="absolute inset-y-[-2px] w-[2px] rounded"
-        style={{ left: `${p(d.moyenne)}%`, background: 'var(--c-attente, var(--c-attente))' }} />
+        style={{ left: `${p(d.moyenne)}%`, background: 'var(--c-donnees)' }} />
     </div>
   );
 }

@@ -271,7 +271,7 @@ export default function GrilleSectionModal({ section, onClose }) {
             const insuffisant = besoinTotal > n(ue.ue_aut);
             return (
               <div key={ue.ue_num} className={`border rounded-lg overflow-hidden ${insuffisant ? 'border-red-400 ring-1 ring-red-300' : 'border-gray-200'} ${ue.ue_tc === 'x' ? 'border-t-2 border-t-blue-900' : ''}`}>
-                <div className={`flex items-center justify-between px-3 py-2 border-b ${insuffisant ? 'bg-red-50 border-red-200' : 'bg-gray-50 border-gray-200'} border-l-4 border-l-red-500`}>
+                <div className={`flex items-center justify-between px-3 py-2 border-b ${insuffisant ? 'bg-red-50 border-red-200 border-l-4 border-l-red-500' : 'bg-gray-50 border-gray-200'}`}>
                   <div className="flex items-center gap-2">
                     <button onClick={() => baguette(ue)} title="Répartir l'autonomie automatiquement (prorata des besoins)"
                       className="text-base hover:scale-110 transition" >🪄</button>

@@ -114,7 +114,7 @@ export default function AttributionCard({ row, selected, onToggleSelect, onChang
       {open && (
         <div className="fixed inset-0 z-40 flex items-end" onClick={() => setOpen(false)}>
           <div className="absolute inset-0 bg-black/40"></div>
-          <div className={`relative w-full rounded-t-2xl shadow-2xl p-4 max-h-[88vh] overflow-auto ${isHelb ? 'bg-pink-50' : 'bg-white'} border-l-4 border-l-pink-500`}
+          <div className={`relative w-full rounded-t-2xl shadow-2xl p-4 max-h-[88vh] overflow-auto ${isHelb ? 'bg-pink-50 border-l-4 border-l-pink-500' : 'bg-white'}`}
                onClick={e => e.stopPropagation()}>
             <div className="w-12 h-1 bg-gray-300 rounded mx-auto mb-3"></div>
             <h3 className="font-title text-lg text-iip-gold mb-1">{row.nom_cours || row.ue_nom}</h3>
@@ -221,7 +221,7 @@ export default function AttributionCard({ row, selected, onToggleSelect, onChang
               </div>
 
               {row.cours_per != null && (
-                <div className={`text-xs rounded p-2 ${conforme ? 'bg-green-500 text-white' : 'bg-red-500 text-white'} border-l-4 border-l-green-500`}>
+                <div className={`text-xs rounded p-2 ${conforme ? 'bg-green-500 text-white' : 'bg-red-500 text-white'}`}>
                   Cours_per : {row.cours_per} · Total attribué : {row.cours_total_attribue}
                   {conforme
                     ? <span className="ml-1 font-semibold">✓ Conforme</span>

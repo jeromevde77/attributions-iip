@@ -1110,6 +1110,7 @@ select[multiple], select[size]:not([size="1"]) {
   border-left: 2.5px solid var(--e);
   border-radius: 0 4px 4px 0;
 }
+.puce-ue[data-c="r"], .puce-ue[data-c="f"], .puce-ue[data-c="i"], .puce-ue[data-c="a"] { background: var(--e); border-color: var(--e); color: #fff; }
 .puce-ue[data-c="r"] { --e: var(--c-reussi); }
 .puce-ue[data-c="f"] { --e: var(--c-faveur); }
 .puce-ue[data-c="i"] { --e: var(--c-disponible); }
@@ -1131,10 +1132,13 @@ select[multiple], select[size]:not([size="1"]) {
 .gelule > span { display: inline-grid; place-items: center; min-width: 24px; height: 18px; padding: 0 4px; color: var(--c-texte); }
 .gelule > span + span { border-left: 1px solid #E4E7EC; }
 .gelule > .gelule-bloc { color: var(--c-texte); font-weight: 700; padding: 0 5px; }
-.gelule > span[data-c="r"] { background: #fff; }
-.gelule > span[data-c="f"] { background: #fff; }
-.gelule > span[data-c="i"] { background: #fff; }
-.gelule > span[data-c="a"] { background: #fff; }
+/* L'ÉTAT DE L'UNITÉ EST UNE PASTILLE PLEINE (règle des couleurs, 29 septembre
+   2026) : acquise, faveur, inscrite, ajournée se lisent de loin — la couleur du
+   réglage, texte blanc. Ce qui reste à faire est blanc ; l'inatteignable, gris. */
+.gelule > span[data-c="r"] { background: var(--c-reussi); color: #fff; }
+.gelule > span[data-c="f"] { background: var(--c-faveur); color: #fff; }
+.gelule > span[data-c="i"] { background: var(--c-disponible); color: #fff; }
+.gelule > span[data-c="a"] { background: var(--c-attente); color: #fff; }
 .gelule > span[data-c="o"] { color: #7A879E; }
 .gelule > span[data-c="n"] { background: var(--c-fond_indispo, #F4F5F7); color: #B6BDC9; }
 

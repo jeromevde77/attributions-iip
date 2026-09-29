@@ -295,7 +295,7 @@ export default function CoursEditModal({ section, codeCours, onClose, onChanged 
 
                 {/* Analyse autonomie UE — intervalle [min ; max] */}
                 {ueAnalyse && ueAnalyse.per_ouvertes > 0 && (
-                  <div className={`rounded p-2 mt-1 text-xs ${ueAnalyse.ok ? 'bg-green-500 text-white' : 'bg-orange-500 text-white'} border-l-4 border-l-green-500`}>
+                  <div className={`rounded p-2 mt-1 text-xs ${ueAnalyse.ok ? 'bg-green-500 text-white' : 'bg-orange-500 text-white'}`}>
                     <div className="font-semibold mb-1">
                       {ueAnalyse.ok ? '✅' : '⚠'} Autonomie UE {ueNum} ({ueAnalyse.nb_cours} cours)
                     </div>
@@ -510,7 +510,7 @@ export default function CoursEditModal({ section, codeCours, onClose, onChanged 
                 return (
                   <div className="mt-3 flex flex-col gap-1.5 text-xs">
                     {coursPer != null && coursPer > 0 && (
-                      <div className={`rounded p-2.5 flex items-center gap-2 ${perEntier ? 'bg-green-500 text-white' : 'bg-red-500 text-white'} border-l-4 border-l-green-500`}>
+                      <div className={`rounded p-2.5 flex items-center gap-2 ${perEntier ? 'bg-green-500 text-white' : 'bg-red-500 text-white'}`}>
                         <span className="text-base">{perEntier ? '✓' : '✗'}</span>
                         <span>
                           <b>Périodes</b> : {coursNom} <b>{coursPer}p</b> × <b>{perMultiple != null ? perMultiple.toLocaleString('fr-BE', { maximumFractionDigits: 2 }) : '?'}</b> = <b>{totals.periodes}p</b>

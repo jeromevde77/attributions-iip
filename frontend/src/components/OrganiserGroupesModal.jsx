@@ -151,7 +151,7 @@ export default function OrganiserGroupesModal({ portee, section, ues, onClose, o
 
                       return (
                         <div key={c.code_cours}
-                          className={`px-3 py-2 ${changed ? 'bg-amber-50/60' : ''} border-l-4 border-l-amber-500`}>
+                          className={`px-3 py-2 ${changed ? 'bg-amber-50/60 border-l-4 border-l-amber-500' : ''}`}>
 
                           {/* Ligne 1 : nom du cours + mode actuel */}
                           <div className="flex items-start gap-2 mb-1.5">
