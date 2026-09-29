@@ -726,7 +726,7 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose, enPage = fa
             </div>
           )}
 
-          {data.sans_structure && (
+          {!!data.sans_structure && (
             <div className="px-3 py-2 rounded-carte bg-amber-50 border border-amber-200
                             text-[13px] text-amber-900">
               Cette unité n'est pas paramétrée : ses acquis ne sont pas rattachés à
@@ -802,7 +802,7 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose, enPage = fa
                 decision={decisions[etud.id] || etud.ue?.decision_proposee || null}
                 onDecision={d => setDecisions(m => ({ ...m, [etud.id]: d }))}
                 onAnnuler={annulerEtudiant}
-                navigation={(
+                navigation={tuile => (
               <div className="flex items-center justify-between gap-3 px-3 py-1
                               rounded-carte border border-slate-200 mb-2">
                 <button disabled={idx <= 0 || enCours} onClick={() => enregistrerPuisAvancer(-1)}
@@ -810,7 +810,7 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose, enPage = fa
                   className="p-1.5 rounded-lg border border-slate-300 disabled:opacity-30">
                   <IconChevronLeft size={16} />
                 </button>
-                <div className="text-center min-w-0">
+                <div className="flex-1 min-w-0 px-2">
                   <div className="text-[15px] font-bold text-iip-blue truncate">
                     {nomPropre(etud.nom, etud.prenom)}
                   </div>
@@ -819,6 +819,7 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose, enPage = fa
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
+                  <div className="w-[230px]">{tuile}</div>
                   {/* La raison du blocage, à côté du bouton qu'on presse. */}
                   {!!aMotiver.length && (
                     <button onClick={() => document.getElementById('a-justifier')
@@ -1794,8 +1795,17 @@ function Fiche({ e, data, onAjuster, onLot, onMotif, enCours, onBord,
     </button>
   );
 
+  const tuile = (
+    <TuileUE ue={ue} seuil={seuil} enCours={enCours}
+      onFaveur={() => onAjuster('ue', '*', ue.faveur_ue ? null : 'faveur')} />
+  );
   return (
     <div className="grid gap-3 grid-cols-[46px_minmax(0,1fr)] items-start">
+      {/* EN HAUT, COLLÉ : de qui l'on parle, et la note de son unité. */}
+      <div className="col-span-2 sticky top-0 z-20 -mx-1 px-1 pb-1.5 border-b border-slate-200"
+        style={{ background: 'var(--page-fond, #fff)' }}>
+        {typeof navigation === 'function' ? navigation(tuile) : navigation}
+      </div>
       <Thermometre pc={e.parcours_complet} ueNum={ue.ue_num} onBord={onBord} />
 
       <div className="space-y-2 min-w-0">
@@ -1894,20 +1904,14 @@ function Fiche({ e, data, onAjuster, onLot, onMotif, enCours, onBord,
           onDecision={onDecision} enCours={enCours} session={session} partie="details" />
       </div>
 
-      {/* LA BANDE DE DÉCISION, TOUJOURS VISIBLE (Charles, 29 septembre 2026) :
-          collée au bas de l'écran, l'étudiant nommé au-dessus. On décide sans
-          avoir à la chercher, et l'on voit toujours de qui l'on parle. */}
-      <div className="col-span-2 sticky bottom-0 z-20 -mx-1 px-1 pt-2 pb-1 border-t border-slate-200"
+      {/* EN BAS, COLLÉS : LES SEULS BOUTONS DU CONSEIL (Charles, 29 septembre
+          2026 : « juste le bouton ; et le nom en haut »). */}
+      <div className="col-span-2 sticky bottom-0 z-20 -mx-1 px-1 py-1.5 border-t border-slate-200"
         style={{ background: 'var(--page-fond, #fff)' }}>
-        {navigation}
-        <div className="grid gap-2 grid-cols-[160px_minmax(0,1fr)] items-start mt-1.5">
-          <TuileUE ue={ue} seuil={seuil} enCours={enCours}
-            onFaveur={() => onAjuster('ue', '*', ue.faveur_ue ? null : 'faveur')} />
-          <Decision e={e} ue={ue} onBord={onBord} acquis={acquis} cours={cours}
-            decision={decision} onDecision={onDecision} enCours={enCours}
-            onAnnuler={onAnnuler} session={session} partie="boutons"
-            onFaveurUE={() => onAjuster('ue', '*', ue.faveur_ue ? null : 'faveur')} />
-        </div>
+        <Decision e={e} ue={ue} onBord={onBord} acquis={acquis} cours={cours}
+          decision={decision} onDecision={onDecision} enCours={enCours}
+          onAnnuler={onAnnuler} session={session} partie="boutons"
+          onFaveurUE={() => onAjuster('ue', '*', ue.faveur_ue ? null : 'faveur')} />
       </div>
     </div>
   );
