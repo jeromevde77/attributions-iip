@@ -14,7 +14,7 @@ import express from 'express';
 import db from '../db/index.js';
 import { authRequired, getUserSections } from '../middleware/auth.js';
 import { documentsPour, documentParCle, valeursParametre } from '../lib/documents.js';
-import { capacitePdf, rendrePdf } from '../services/pdf.js';
+import { capacitePdf, rendrePdf, rendrePdfs } from '../services/pdf.js';
 import { piedGabaritPdf, BANDE_PIED_MM } from '../lib/document.js';
 import { LOGO_IIP_JPEG } from '../services/assets/logo_iip_jpeg.js';
 import { piedDocument } from './parametres.js';
@@ -122,6 +122,51 @@ r.get('/destinataires', authRequired, (req, res) => {
   }
 
   res.status(400).json({ error: `portée « ${doc.portee} » non gérée` });
+});
+
+/* LES PIÈCES SÉPARÉES, EN UNE ARCHIVE (29 septembre 2026 : « l'impression par
+   unité est terriblement lente »). L'écran demandait les PDF un par un, puis
+   les téléchargeait un par un, une pause entre chaque : soixante attestations,
+   des minutes, et un navigateur qui bloque les téléchargements en rafale. Une
+   seule requête, les pièces rendues en parallèle, une seule archive. Les
+   options de chaque pièce sont celles de /pdf — même pied, même marge. */
+function optionsPiece({ pagination, pied = true, orientation, page_css } = {}) {
+  const pageCss = !!page_css && !pied;
+  return {
+    pagination: pageCss ? 'jamais' : (pagination || 'si-plusieurs'),
+    pied: pied ? (avecNum => piedGabaritPdf(LOGO_IIP_JPEG, piedDocument(), avecNum)) : null,
+    orientation: orientation === 'paysage' ? 'paysage' : 'portrait',
+    pageCss,
+    ...(pied ? { marges: { top: '12mm', right: '15mm', bottom: `${BANDE_PIED_MM}mm`, left: '15mm' } } : {}),
+  };
+}
+r.post('/pdfs', authRequired, async (req, res) => {
+  const cap = await capacitePdf();
+  if (!cap.disponible) return res.status(503).json({ error: 'Ce serveur ne sait pas produire de PDF.', capacite_absente: 'pdf', detail: cap.raison });
+  const docs = Array.isArray(req.body?.documents) ? req.body.documents.filter(d => d?.html) : [];
+  if (!docs.length) return res.status(400).json({ error: 'documents requis' });
+  if (docs.length > 400) return res.status(413).json({ error: 'Plus de 400 pièces : scindez la sélection.' });
+  try {
+    const pdfs = await rendrePdfs(docs.map(d => ({ html: d.html, ...optionsPiece(d) })));
+    const JSZip = (await import('jszip')).default;
+    const zip = new JSZip();
+    const vus = new Map();
+    docs.forEach((d, i) => {
+      let nom = String(d.nom || `piece_${i + 1}`).replace(/[^A-Za-z0-9_.-]/g, '_');
+      const n = (vus.get(nom) || 0) + 1; vus.set(nom, n);
+      if (n > 1) nom += `_${n}`;                       // deux pièces du même nom ne s'écrasent pas
+      zip.file(`${nom}.pdf`, pdfs[i]);
+    });
+    const out = await zip.generateAsync({ type: 'nodebuffer' });
+    const fichier = String(req.body?.nom || 'pieces').replace(/[^A-Za-z0-9_.-]/g, '_');
+    res.setHeader('Content-Type', 'application/zip');
+    res.setHeader('Content-Disposition', `attachment; filename="${fichier}.zip"`);
+    res.setHeader('Content-Length', out.length);
+    res.end(out);
+  } catch (e) {
+    console.error('[impression/pdfs]', e);
+    res.status(500).json({ error: e.message });
+  }
 });
 
 // ── Rendu PDF d'un document déjà composé ────────────────────────────────────
