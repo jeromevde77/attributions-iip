@@ -25,6 +25,18 @@
 import db from '../db/index.js';
 
 export const COULEURS_DEFAUT = {
+  // L'IDENTITÉ — relevée sur le logo (29 septembre 2026). Elle ne dit aucun
+  // état : c'est la maison. Les pièces imprimées gardent la charte.
+  iip_bleu: { groupe: 'identite', libelle: 'Bleu IIP (logo)', valeur: '#19537E' },
+  iip_or:   { groupe: 'identite', libelle: 'Or IIP (logo)',   valeur: '#F9B619' },
+  iip_cyan: { groupe: 'identite', libelle: 'Cyan IIP (logo)', valeur: '#05B7E6' },
+  // L'ÉCRAN — tout ce qui n'est pas un état. Les défauts sont ceux de Lucie
+  // d'origine : rien ne change tant qu'un thème n'est pas appliqué.
+  principal:   { groupe: 'ecran', libelle: 'Principal — bouton fort, titres, rubrique ouverte', valeur: '#1B2B4B' },
+  accent:      { groupe: 'ecran', libelle: 'Accent — sortir une pièce, liens, focus', valeur: '#00AACC' },
+  texte:       { groupe: 'ecran', libelle: 'Texte', valeur: '#1B2B4B' },
+  donnees:     { groupe: 'ecran', libelle: 'Données — barres, jauges, graphiques', valeur: '#00AACC' },
+  menu_sombre: { groupe: 'ecran', libelle: 'Menus en mode sombre', valeur: '#0F1A2E' },
   // LE SENS — les deux employeurs, les deux natures de cours.
   iip:  { groupe: 'sens', libelle: "Institut (IIP)",    valeur: '#1B2B4B' },
   helb: { groupe: 'sens', libelle: "Haute École (HELB)", valeur: '#DB2777' },

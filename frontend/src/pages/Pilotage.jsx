@@ -39,10 +39,10 @@ const sign = (v) => (v > 0 ? '+' : '');
  * fait. C'est pourquoi il sort du podium plutôt que d'en occuper le dernier
  * rang.
  */
-const OR_MEDAILLE     = '#C9A84C';
+const OR_MEDAILLE     = 'var(--c-epreuve)';
 const ARGENT_MEDAILLE = '#8C97A8';
 const BRONZE_MEDAILLE = '#A8763E';
-const BRIQUE          = '#9d4a38';
+const BRIQUE          = 'var(--c-refuse)';
 
 export function tonDotation(p) {
   if (p == null) return { teinte: '#94A3B8', fond: '#F8FAFC', bord: '#E2E8F0', rang: null };
@@ -406,8 +406,8 @@ function DotationComparaison({ civil }) {
         <div className="bg-white rounded-xl border border-gray-200 overflow-x-auto">
           <table className="w-full text-sm border-collapse">
             <thead>
-              <tr className="text-white text-xs" style={{ background: '#1B2B4B' }}>
-                <Th col="nom" align="left" rowSpan={2} style={{position:'sticky',left:0,background:'#1B2B4B',zIndex:10,verticalAlign:'bottom',paddingBottom:'0.5rem'}}>Section / UE</Th>
+              <tr className="text-white text-xs" style={{ background: 'var(--c-principal)' }}>
+                <Th col="nom" align="left" rowSpan={2} style={{position:'sticky',left:0,background:'var(--c-principal)',zIndex:10,verticalAlign:'bottom',paddingBottom:'0.5rem'}}>Section / UE</Th>
                 <Th col="niv" align="center" rowSpan={2} style={{verticalAlign:'bottom',paddingBottom:'0.5rem'}}>Niv.</Th>
                 <Th col="quad" align="center" rowSpan={2} style={{verticalAlign:'bottom',paddingBottom:'0.5rem'}}>Quad.</Th>
                 <th className="px-2 py-1.5 h-9 text-center font-semibold" colSpan={3}
@@ -416,7 +416,7 @@ function DotationComparaison({ civil }) {
                   style={{borderLeft:'1px solid rgba(255,255,255,.18)'}}>{annee2}</th>
                 <Th col="delta" align="center" rowSpan={2} style={{borderLeft:'1px solid rgba(255,255,255,.18)',verticalAlign:'bottom',paddingBottom:'0.5rem'}}>Δ</Th>
               </tr>
-              <tr className="text-white/80 text-[10px]" style={{ background: '#1B2B4B' }}>
+              <tr className="text-white/80 text-[10px]" style={{ background: 'var(--c-principal)' }}>
                 <Th col="q1a" align="right" style={{borderLeft:'1px solid rgba(255,255,255,.12)',fontWeight:'normal'}}>Q1</Th>
                 <Th col="q2a" align="right" style={{fontWeight:'normal'}}>Q2</Th>
                 <Th col="ta" align="right" style={{fontWeight:'600'}}>Total</Th>
@@ -434,7 +434,7 @@ function DotationComparaison({ civil }) {
                     {/* Ligne section */}
                     <tr key={sec.section}
                       className={`cursor-pointer border-t-2 ${si % 2 === 0 ? 'bg-gray-50' : 'bg-white'} hover:bg-iip-gold/5`}
-                      style={{borderTopColor: '#1B2B4B'}}
+                      style={{borderTopColor: 'var(--c-principal)'}}
                       onClick={() => toggleSec(sec.section)}>
                       <td className="px-3 py-2 font-bold text-iip-gold sticky left-0 z-10 overflow-hidden text-ellipsis whitespace-nowrap"
                         style={{background: si % 2 === 0 ? '#f9fafb' : 'white', width:colW.nom, maxWidth:colW.nom}}>
@@ -969,7 +969,7 @@ export default function Pilotage({ vue = 'tout' }) {
                         Reste pour la rentrée
                       </div>
                       <div className={`text-lg font-bold leading-tight ${
-                        d.solde_apres_jan_juin < 0 ? 'text-[#9d4a38]' : 'text-emerald-800'}`}>
+                        d.solde_apres_jan_juin < 0 ? 'text-[color:var(--c-refuse)]' : 'text-emerald-800'}`}>
                         {fmt(d.solde_apres_jan_juin)}
                       </div>
                       <div className="text-[10px] text-gray-500">

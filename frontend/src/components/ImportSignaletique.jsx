@@ -309,10 +309,10 @@ export default function ImportSignaletique({ onClose, onTermine }) {
 
 function Rapport({ r }) {
   const tuiles = [
-    [r.nb_crees, r.simulation ? 'à créer' : 'créés', '#1B2B4B'],
-    [r.nb_completes, r.simulation ? 'à compléter' : 'complétés', '#1B2B4B'],
+    [r.nb_crees, r.simulation ? 'à créer' : 'créés', 'var(--c-principal)'],
+    [r.nb_completes, r.simulation ? 'à compléter' : 'complétés', 'var(--c-principal)'],
     [r.nb_inchanges, 'déjà complets', null],
-    [r.nb_ecartes, 'écartés', r.nb_ecartes ? '#B45309' : null],
+    [r.nb_ecartes, 'écartés', r.nb_ecartes ? 'var(--c-attente)' : null],
   ];
   return (
     <div className="space-y-2">
@@ -329,7 +329,7 @@ function Rapport({ r }) {
         ))}
       </div>
       {[...r.ecartes, ...r.conflits].length > 0 && (
-        <div className="carte p-2.5 text-[12px]" style={{ borderLeftWidth: 3, borderLeftColor: '#B45309' }}>
+        <div className="carte p-2.5 text-[12px]" style={{ borderLeftWidth: 3, borderLeftColor: 'var(--c-attente)' }}>
           {r.ecartes.map(e => <div key={`e${e.ligne}`}>Ligne {e.ligne} — {e.qui} : {e.motif}</div>)}
           {r.conflits.map((c, i) => <div key={`c${i}`}>Ligne {c.ligne} — {c.qui} : {c.motif}</div>)}
         </div>

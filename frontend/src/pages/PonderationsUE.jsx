@@ -21,7 +21,7 @@ import SchemaLiensAA from '../components/SchemaLiensAA.jsx';
  * modifier : leurs délibérations sont tenues.
  */
 const ANNEE_PERIODES = '2026-2027';
-const TEINTES = ['#1F6F8B', '#A0602A', '#6E48A6', '#2F7D5B', '#9D4A38', '#4B5F8A', '#8A6A1F', '#3E6E6E'];
+const TEINTES = ['#1F6F8B', '#A0602A', '#6E48A6', '#2F7D5B', 'var(--c-refuse)', '#4B5F8A', '#8A6A1F', '#3E6E6E'];
 const PEUT_REGLER = ['admin', 'editeur', 'coordination'];
 const fr = (n, d = 1) => Number(n || 0).toLocaleString('fr-BE', { maximumFractionDigits: d });
 const anneeAvant = a => { const m = /^(\d{4})-(\d{4})$/.exec(a || ''); return m ? `${+m[1] - 1}-${+m[2] - 1}` : null; };
@@ -41,7 +41,7 @@ async function ecrire(url, corps, method = 'PUT') {
 }
 
 function Tuile({ valeur, libelle, precision, ton = 'neutre' }) {
-  const rail = { vert: '#3E7D5E', ocre: '#B0701A', brique: '#9D4A38', marine: '#1B2B4B', neutre: '#D8DCE4' }[ton];
+  const rail = { vert: 'var(--c-reussi)', ocre: '#B0701A', brique: 'var(--c-refuse)', marine: 'var(--c-principal)', neutre: '#D8DCE4' }[ton];
   return (
     <div className="bg-white rounded-carte border border-slate-200 px-3 py-2.5" style={{ borderLeft: `3px solid ${rail}` }}>
       <div className="text-[17px] font-bold text-iip-blue tabular-nums">{valeur}</div>
@@ -55,7 +55,7 @@ function Zone({ lettre, titre, sous, children, droite }) {
   return (
     <section className="rounded-carte border border-slate-200 p-3.5 space-y-3 min-w-0">
       <div className="flex items-baseline gap-2.5 flex-wrap">
-        <span className="w-[22px] h-[22px] rounded-full bg-[#C9A84C] text-iip-blue text-[12px] font-bold grid place-items-center flex-none">{lettre}</span>
+        <span className="w-[22px] h-[22px] rounded-full bg-[color:var(--c-epreuve)] text-iip-blue text-[12px] font-bold grid place-items-center flex-none">{lettre}</span>
         <h3 className="text-[15px] font-semibold text-iip-blue">{titre}</h3>
         {sous && <span className="text-[12px] text-slate-400">{sous}</span>}
         {droite && <span className="ml-auto">{droite}</span>}
@@ -224,8 +224,8 @@ export default function PonderationsUE() {
           {annee} est une année reprise des classeurs, dont les délibérations sont tenues : ses poids se lisent ici, ils ne se modifient pas.
         </p>
       )}
-      {erreur && <div className="carte p-2.5 text-[12px] text-[#9D4A38] flex items-start gap-1.5"><IconAlertTriangle size={14} className="mt-0.5 flex-none" />{erreur}</div>}
-      {message && <div className="text-[12px] text-[#3E7D5E] flex items-center gap-1.5"><IconCheck size={14} />{message}</div>}
+      {erreur && <div className="carte p-2.5 text-[12px] text-[color:var(--c-refuse)] flex items-start gap-1.5"><IconAlertTriangle size={14} className="mt-0.5 flex-none" />{erreur}</div>}
+      {message && <div className="text-[12px] text-[color:var(--c-reussi)] flex items-center gap-1.5"><IconCheck size={14} />{message}</div>}
 
       {!ues.length && section && <p className="text-[13px] text-slate-400">Aucune unité pour {section} en {annee}.</p>}
       {ue && structure && liens && (
@@ -429,7 +429,7 @@ export default function PonderationsUE() {
                       <span className="text-[12px] tabular-nums">Total : <b>{fr(somme(coursC.cours_code))} / 10</b>
                         {pasJuste(coursC.cours_code) && <span className="text-[#B0701A]"> · par pas de 0,5</span>}</span>
                       {coursJuste(coursC.cours_code)
-                        ? <span className="text-[11px] font-semibold px-1.5 rounded-full border border-[#BCD6C8] text-[#3E7D5E]">réparti</span>
+                        ? <span className="text-[11px] font-semibold px-1.5 rounded-full border border-[#BCD6C8] text-[color:var(--c-reussi)]">réparti</span>
                         : <span className="text-[11px] font-semibold px-1.5 rounded-full border border-[#E6CFA8] text-[#B0701A]">
                             {somme(coursC.cours_code) > 10 ? `dépasse de ${fr(somme(coursC.cours_code) - 10)}` : `manque ${fr(10 - somme(coursC.cours_code))}`} point</span>}
                       {peutRegler && modifie(coursC.cours_code) && (

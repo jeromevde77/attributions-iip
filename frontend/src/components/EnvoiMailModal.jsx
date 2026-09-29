@@ -122,7 +122,7 @@ export default function EnvoiMailModal({ pieces, typeDoc, sujet: sujetInitial = 
            style={{ maxHeight: '92vh' }}>
 
         {/* Barre marine */}
-        <div className="flex items-center justify-between px-4 py-2.5 bg-[#1B2B4B] flex-shrink-0">
+        <div className="flex items-center justify-between px-4 py-2.5 bg-[color:var(--c-principal)] flex-shrink-0">
           <div className="flex items-center gap-2 text-white">
             <IconMail size={18} />
             <div>

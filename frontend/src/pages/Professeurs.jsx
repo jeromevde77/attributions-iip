@@ -2248,7 +2248,7 @@ export default function Professeurs({ vue: vueInitiale = 'membres' }) {
           <div className="flex items-center gap-1 flex-wrap">
             {p.missions_libelles && p.missions_libelles.split(',').filter(Boolean).map((f, i) => {
               const label = f.trim().split(' ').map(w => w[0]).join('').slice(0, 3).toUpperCase();
-              return <span key={i} title={f.trim()} className="inline-flex items-center justify-center min-w-7 h-7 px-1 rounded text-[10px] font-bold" style={{background:'#00AACC',color:'white'}}>{label}</span>;
+              return <span key={i} title={f.trim()} className="inline-flex items-center justify-center min-w-7 h-7 px-1 rounded text-[10px] font-bold" style={{background:'var(--c-accent)',color:'white'}}>{label}</span>;
             })}
             {/* LE STATUT SE VOIT TOUJOURS (Nicolas, 27 septembre 2026). On lisait
                 les contrats de l'année OU, à défaut, le statut : dès qu'un

@@ -548,7 +548,7 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose }) {
                     ${org === val
                       ? 'bg-iip-blue text-white border-iip-blue'
                       : alerte
-                        ? 'bg-amber-50 text-[#B45309] border-amber-300'
+                        ? 'bg-amber-50 text-[color:var(--c-attente)] border-amber-300'
                         : 'bg-white text-iip-blue border-slate-300 hover:border-iip-blue'}`}>
                   {label}
                 </button>

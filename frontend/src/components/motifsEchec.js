@@ -55,7 +55,7 @@ export const MOTIFS_ECHEC = [
   {
     cle: 'methode',
     libelle: 'Méthode et démarche',
-    couleur: '#b45309',
+    couleur: 'var(--c-attente)',
     motifs: [
       { cle: 'me_demarche', texte: "La démarche attendue par cet acquis n'est pas conduite jusqu'à son terme." },
       { cle: 'me_etapes', texte: "Les étapes de la démarche sont omises ou inversées." },

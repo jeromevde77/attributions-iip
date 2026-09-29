@@ -277,7 +277,7 @@ export default function Recrutement() {
                       {p.nom_cours || p.ue_nom}
                       {p.contrat_mdp && (
                         <span className="text-[10px] font-bold px-1.5 py-0.5 rounded text-white flex-shrink-0"
-                          style={{ background: p.contrat_mdp === 'HELB' ? '#8B5CF6' : '#1B2B4B' }}>
+                          style={{ background: p.contrat_mdp === 'HELB' ? '#8B5CF6' : 'var(--c-principal)' }}>
                           {p.contrat_mdp}
                         </span>
                       )}
@@ -864,7 +864,7 @@ const GRILLE_IIP = [
   },
   {
     axe: 'Axe 4 — Contraintes pratiques et administratives',
-    couleur: '#b45309',
+    couleur: 'var(--c-attente)',
     questions: [
       "Quel volume horaire hebdomadaire êtes-vous en mesure d'assumer ?",
       "Avez-vous des contraintes de jours ou d'horaires (activité clinique en parallèle, etc.) ?",
@@ -976,7 +976,7 @@ Réponds en JSON strict sans backticks : {"questions":["question 1","question 2"
 
         {qIA.length > 0 && (
           <div className="border border-iip-blue/20 rounded-xl overflow-hidden">
-            <div className="px-4 py-2.5 text-sm font-semibold text-white flex items-center justify-between" style={{ background: '#1B2B4B' }}>
+            <div className="px-4 py-2.5 text-sm font-semibold text-white flex items-center justify-between" style={{ background: 'var(--c-principal)' }}>
               <span>Axe 5 — Questions spécifiques au cours</span>
               <span className="text-[10px] font-normal opacity-60">générées par l'IA · UE {poste.ue_num}</span>
             </div>
@@ -1008,7 +1008,7 @@ function EntretienModal({ candidature, poste, annee, qIA, grille, onClose, onSav
   const grilleActive = useMemo(() => grilleAvecTirage(grille || GRILLE_IIP), []);
   const toutesQuestions = [
     ...grilleActive.flatMap(axe => (axe.questions || []).map(q => ({ axe: axe.axe || axe.libelle, q: q.libelle || q, couleur: axe.couleur }))),
-    ...qIA.map(q => ({ axe: 'Axe 5 — Questions spécifiques au cours', q, couleur: '#1B2B4B' })),
+    ...qIA.map(q => ({ axe: 'Axe 5 — Questions spécifiques au cours', q, couleur: 'var(--c-principal)' })),
   ];
 
   // Initialiser depuis les réponses sauvegardées
@@ -1329,7 +1329,7 @@ function VueParallele({ postes, candidats, fonctions, annee, onRecharger }) {
                         <span className="truncate">{p.nom_cours || p.ue_nom}</span>
                         {p.contrat_mdp && (
                           <span className="text-[10px] font-bold px-1.5 py-0.5 rounded text-white flex-shrink-0"
-                            style={{ background: p.contrat_mdp === 'HELB' ? '#8B5CF6' : '#1B2B4B' }}>{p.contrat_mdp}</span>
+                            style={{ background: p.contrat_mdp === 'HELB' ? '#8B5CF6' : 'var(--c-principal)' }}>{p.contrat_mdp}</span>
                         )}
                       </div>
                       <div className="text-xs text-gray-400 mt-0.5">
@@ -2952,7 +2952,7 @@ function ModalNouveauCandidat({ onClose, onSaved }) {
 
 /* ══════════════════════ ÉDITEUR DE GRILLE ══════════════════════ */
 
-const COULEURS_AXES = ['#0369a1','#7c3aed','#15803d','#b45309','#dc2626','#0891b2','#4f46e5','#b45309'];
+const COULEURS_AXES = ['#0369a1','#7c3aed','#15803d','var(--c-attente)','#dc2626','#0891b2','#4f46e5','var(--c-attente)'];
 
 function EditeurGrille({ grille, onSaved }) {
   const [axes, setAxes]     = useState(null);
@@ -3268,7 +3268,7 @@ function EntretienLibre({ candidat, grille, onClose, onSaved, onAutoSave }) {
           {section === 'q-fixe' && (
             <div className="space-y-4">
               <div className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm">
-                <div className="px-4 py-2.5 text-sm font-semibold text-white" style={{ background: '#1B2B4B' }}>
+                <div className="px-4 py-2.5 text-sm font-semibold text-white" style={{ background: 'var(--c-principal)' }}>
                   Questions fixes — posées à tous les candidats
                 </div>
                 <div className="divide-y divide-gray-100 px-4 py-3 space-y-4">
@@ -3351,7 +3351,7 @@ function EntretienLibre({ candidat, grille, onClose, onSaved, onAutoSave }) {
           {section === 'admin' && (
             <div className="space-y-4">
               <div className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm">
-                <div className="px-4 py-2.5 text-sm font-semibold text-white" style={{ background: '#b45309' }}>
+                <div className="px-4 py-2.5 text-sm font-semibold text-white" style={{ background: 'var(--c-attente)' }}>
                   Questions administratives
                 </div>
                 <div className="px-4 py-3 space-y-3 text-sm text-gray-700">

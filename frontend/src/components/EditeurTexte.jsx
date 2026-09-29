@@ -113,8 +113,8 @@ export default function EditeurTexte({ valeur, onChange, importer = true }) {
       )}
       {analyse?.avertissements?.map((a, i) => (
         <div key={i} className="carte p-2.5 text-[12px] text-slate-700 flex items-start gap-1.5"
-          style={{ borderLeftWidth: 3, borderLeftColor: '#B45309' }}>
-          <IconAlertTriangle size={14} className="mt-0.5 flex-none text-[#B45309]" />{a}
+          style={{ borderLeftWidth: 3, borderLeftColor: 'var(--c-attente)' }}>
+          <IconAlertTriangle size={14} className="mt-0.5 flex-none text-[color:var(--c-attente)]" />{a}
         </div>
       ))}
 

@@ -21,7 +21,7 @@ import { Fenetre } from '../components/ui.jsx';
 
 const H0 = 8, H1 = 21, PX = 12;                     // 12 px par quart d'heure
 const NOMS_JOURS = ['lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi', 'dimanche'];
-const TEINTES = ['#3E7D5E', '#B8674A', '#6E8FA3', '#5E8C7A', '#C99A7A', '#6A8797', '#4C68B0', '#8A7CA8',
+const TEINTES = ['var(--c-reussi)', '#B8674A', '#6E8FA3', '#5E8C7A', '#C99A7A', '#6A8797', '#4C68B0', '#8A7CA8',
   '#6B6798', '#7FA65A', '#8C96A8', '#A0707C', '#9C8A5A', '#5F8F96'];
 const teinte = code => { let h = 0; for (const c of String(code || '')) h = (h * 31 + c.charCodeAt(0)) >>> 0; return TEINTES[h % TEINTES.length]; };
 const hm = t => { const [h, m] = String(t || '0:0').split(':').map(Number); return h * 60 + (m || 0); };

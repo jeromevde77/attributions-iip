@@ -194,7 +194,7 @@ export default function Login() {
   return (
     <div style={{
       minHeight:'100vh', display:'flex', alignItems:'center', justifyContent:'center',
-      background:'#1B2B4B', position:'relative', overflow:'hidden', padding:'24px',
+      background:'var(--c-principal)', position:'relative', overflow:'hidden', padding:'24px',
     }}>
       <NetworkBg/>
 
@@ -224,7 +224,7 @@ export default function Login() {
             }}>Gestion des membres de personnel</p>
             {info.etab_nom && (
               <p style={{
-                color:'#00AACC', fontSize:'12px', fontWeight:600,
+                color:'var(--c-accent)', fontSize:'12px', fontWeight:600,
                 letterSpacing:'1px', fontFamily:"'Segoe UI',sans-serif", margin:0,
               }}>{info.etab_nom}</p>
             )}
@@ -305,7 +305,7 @@ export default function Login() {
                   }} />
               </div>
               <button type="submit" disabled={loading} style={{
-                width:'100%', padding:'13px', background:'#00AACC', border:'none',
+                width:'100%', padding:'13px', background:'var(--c-accent)', border:'none',
                 borderRadius:'8px', color:'white', fontSize:'14px', fontWeight:600,
                 letterSpacing:'.5px', cursor: loading ? 'not-allowed' : 'pointer',
                 fontFamily:"'Segoe UI',sans-serif",
@@ -395,7 +395,7 @@ export default function Login() {
             style={{
               width:'100%', padding:'12px',
               background: (loading || (parSecours ? code.length < 6 : code.length !== 6))
-                ? 'rgba(0,170,204,.4)' : '#00AACC',
+                ? 'rgba(0,170,204,.4)' : 'var(--c-accent)',
               border:'none', borderRadius:'8px',
               color:'white', fontSize:'14px', fontWeight:600,
               letterSpacing:'.5px',
@@ -464,7 +464,7 @@ export default function Login() {
 
           <button type="submit" disabled={loading} style={{
             width:'100%', padding:'12px',
-            background: loading ? 'rgba(0,170,204,.4)' : '#00AACC',
+            background: loading ? 'rgba(0,170,204,.4)' : 'var(--c-accent)',
             border:'none', borderRadius:'8px',
             color:'white', fontSize:'14px', fontWeight:600,
             letterSpacing:'.5px', cursor: loading ? 'not-allowed' : 'pointer',
@@ -472,7 +472,7 @@ export default function Login() {
             transition:'background .2s',
           }}
           onMouseEnter={e=>{ if(!loading) e.target.style.background='#009BBB'; }}
-          onMouseLeave={e=>{ if(!loading) e.target.style.background='#00AACC'; }}
+          onMouseLeave={e=>{ if(!loading) e.target.style.background='var(--c-accent)'; }}
           >
             {loading ? 'Connexion…' : 'Se connecter'}
           </button>

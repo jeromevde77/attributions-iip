@@ -1,7 +1,7 @@
 import { useEffect, useState, lazy, Suspense } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { api, getAnnee, setAnnee as setAnneeActive, getUser } from '../lib/api.js';
-import { chargerCouleurs, echelleGris, poser as poserCouleurs, poserGris } from '../lib/couleurs.js';
+import { chargerCouleurs, echelleGris, poser as poserCouleurs, poserGris, variables as variablesCouleurs } from '../lib/couleurs.js';
 import Audit from './Audit.jsx';
 import { IconAdjustments, IconAward, IconBooks, IconBuilding, IconCalendar, IconCalendarEvent, IconChartBar, IconCheck, IconChevronRight, IconDownload, IconFileText, IconHistory, IconLink, IconScale, IconSettings, IconSparkles, IconUserShield, IconUsers, IconX, IconGavel, IconPlus, IconTrash, IconGripVertical, IconEdit, IconMail, IconPalette, IconArchive, IconAlertTriangle, IconShieldLock, IconDatabase, IconHierarchy, IconArrowsSplit, IconTool, IconSchool, IconStairsUp } from '@tabler/icons-react';
 import { PageHeader, RailLateral, TuileEtat, PastilleEtat, Encadre } from '../components/ui.jsx';
@@ -1693,7 +1693,7 @@ docker start attributions-backend-dev`}</div>
 const PNCC_CATS = [
   { value: 'secretariat_etudiant', label: 'Secrétariat étudiant', color: '#0EA5E9', desc: 'Proratisé au nb de sections pour le ratio étu./ETP' },
   { value: 'secretariat_rh',       label: 'Secrétariat RH',       color: '#8B5CF6', desc: '' },
-  { value: 'direction',            label: 'Direction',             color: '#1B2B4B', desc: '' },
+  { value: 'direction',            label: 'Direction',             color: 'var(--c-texte)', desc: '' },
   { value: 'economat',             label: 'Économat',              color: '#F59E0B', desc: '' },
   { value: 'autre',                label: 'Autre',                 color: '#6B7280', desc: '' },
 ];
@@ -2329,6 +2329,18 @@ function ConfigRecrutement() {
  * choisit la nuance, pas la signification.
  */
 const THEMES = [
+  /* LA MAISON IIP (Charles, 29 septembre 2026 : « on garde évidemment les
+     couleurs IIP du logo » ; « je me retrouve mieux dans les tons de
+     l'EPFC »). Le bleu, l'or et le cyan RELEVÉS SUR LE LOGO — Lucie avait
+     glissé vers un marine presque noir —, les états dans des tons vifs, une
+     seule teinte pour les données. BA1 l'or du logo, BA2 son cyan, BA3 son
+     bleu ; l'épreuve intégrée un OR franc, distinct du jaune de BA1. */
+  { cle: 'maison', nom: 'Maison IIP', texte: 'Les couleurs du logo, des états vifs.', gris: '#5B6B7D',
+    valeurs: { principal: '#19537E', accent: '#0A8FBF', texte: '#1F2F40', donnees: '#0A8FBF', menu_sombre: '#123E5F',
+               iip: '#19537E', helb: '#D14F8A', ct: '#2F6FB0', pp: '#2E8F6E',
+               reussi: '#4FA64A', faveur: '#8E4F9A', disponible: '#3F7FD0', attente: '#F0922E', refuse: '#E0564F',
+               ba1: '#F9B619', ba2: '#05B7E6', ba3: '#19537E', epreuve: '#C9A227',
+               fond_page: '#F6F8FA', fond_indispo: '#EEF1F4' } },
   { cle: 'origine', nom: "Lucie d'origine", texte: 'Gris ardoise, états sobres.', gris: 'ardoise', valeurs: {} },
   { cle: 'clair', nom: 'Gris clair', texte: 'Gris neutre, sans bleu ; états sobres.', gris: 'neutre',
     valeurs: { fond_page: '#F4F5F7', fond_indispo: '#ECEEF1' } },
@@ -2337,10 +2349,12 @@ const THEMES = [
                disponible: '#3478D4', attente: '#D97706', refuse: '#C2412D' } },
 ];
 const GROUPES_COULEURS = [
+  ['ecran', 'L’écran', 'Tout ce qui n’est pas un état : le bouton principal, l’accent, le texte, les données, les menus sombres.'],
   ['etats', 'Les états', 'Ce que dit une tuile, une case, une pastille.'],
   ['blocs', 'Les repères', 'Les blocs d’études et l’épreuve intégrée : où l’on est, jamais un état.'],
   ['fonds', 'Les fonds', 'Le sol de la page et le gris de ce qui n’est pas encore atteignable.'],
   ['sens', 'Contrats et cours', 'Les deux employeurs et les deux natures de cours.'],
+  ['identite', 'L’identité', 'Les couleurs du logo, pour mémoire et pour les thèmes : elles ne disent aucun état.'],
 ];
 
 function ReglageCouleurs() {
@@ -2395,7 +2409,7 @@ function ReglageCouleurs() {
 
   // L'aperçu porte ses propres variables : il montre ce qui SERA, sans
   // toucher au reste de l'écran avant l'enregistrement.
-  const styleApercu = Object.fromEntries(Object.keys(catalogue).map(k => [`--c-${k}`, v(k)]));
+  const styleApercu = variablesCouleurs(Object.fromEntries(Object.keys(catalogue).map(k => [k, v(k)])));
   const puces = [['r', 246], ['f', 248], ['i', 255], ['a', 253], ['o', 259], ['n', 263]];
 
   return (
@@ -2410,7 +2424,7 @@ function ReglageCouleurs() {
         </p>
       </div>
 
-      <div className="grid gap-3 md:grid-cols-3">
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
         {THEMES.map(t => (
           <button key={t.cle} type="button" onClick={() => appliquerTheme(t)}
             data-etat={themeActif === t.cle ? 'fort' : 'neutre'}

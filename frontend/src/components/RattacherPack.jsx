@@ -140,7 +140,7 @@ export default function RattacherPack({ onClose, onTermine }) {
                         {sections.map(s0 => <option key={s0.code} value={s0.code}>{s0.libelle || s0.code}</option>)}
                       </select>
                       {!p.section_proposee && !corresp[p.libelle] && (
-                        <div className="text-[11px] text-[#B45309] mt-0.5">Lucie ne sait pas : à choisir.</div>
+                        <div className="text-[11px] text-[color:var(--c-attente)] mt-0.5">Lucie ne sait pas : à choisir.</div>
                       )}
                     </td>
                   </tr>
@@ -156,10 +156,10 @@ export default function RattacherPack({ onClose, onTermine }) {
               {rapport.etape === 'simulation' ? 'Simulation — rien n’a été écrit' : 'Effectué'}
             </div>
             <div className="grid grid-cols-4 gap-2">
-              {[[rapport.nb_a_placer, rapport.etape === 'simulation' ? 'à placer' : 'placés', '#1B2B4B'],
+              {[[rapport.nb_a_placer, rapport.etape === 'simulation' ? 'à placer' : 'placés', 'var(--c-principal)'],
                 [rapport.deja_meme, 'déjà dans cette section', null],
-                [rapport.deja_autre.length, 'dans une autre section', rapport.deja_autre.length ? '#B45309' : null],
-                [rapport.introuvables.length, 'introuvables dans Lucie', rapport.introuvables.length ? '#B45309' : null],
+                [rapport.deja_autre.length, 'dans une autre section', rapport.deja_autre.length ? 'var(--c-attente)' : null],
+                [rapport.introuvables.length, 'introuvables dans Lucie', rapport.introuvables.length ? 'var(--c-attente)' : null],
               ].map(([n, lib, rail]) => (
                 <div key={lib} className="rounded-carte border border-slate-200 bg-white px-3 py-2"
                   style={{ borderLeftWidth: 3, borderLeftColor: rail || 'transparent' }}>

@@ -31,13 +31,13 @@ const TYPE_CONFIG = {
     info: { label: 'Recrutement', color: '#7c3aed', bg: '#ede9fe', icon: IconUserPlus },
   },
   systeme: {
-    info: { label: 'Lucie',       color: '#1B2B4B', bg: '#e8edf5', icon: IconSettings },
+    info: { label: 'Lucie',       color: 'var(--c-texte)', bg: '#e8edf5', icon: IconSettings },
   },
   anniversaire: {
     // La veille en teinte sourde, le jour même en ambre : l'un prépare,
     // l'autre appelle.
     demain:     { label: 'Demain',      color: '#92400e', bg: '#fef3c7', icon: IconCake },
-    aujourdhui: { label: "Aujourd'hui", color: '#b45309', bg: '#fde68a', icon: IconCake },
+    aujourdhui: { label: "Aujourd'hui", color: 'var(--c-attente)', bg: '#fde68a', icon: IconCake },
   },
 };
 
@@ -52,7 +52,7 @@ function getConfig(type, action) {
    rectangles de l'Accueil — trois genres, et rien entre eux. */
 const GENRES_NOTIF = {
   info:   { bg: '#E0F2FE', fg: '#0369A1', Icone: IconInfoCircle },
-  delai:  { bg: '#FEF3C7', fg: '#B45309', Icone: IconClock },
+  delai:  { bg: '#FEF3C7', fg: 'var(--c-attente)', Icone: IconClock },
   urgent: { bg: '#FEE2E2', fg: '#B91C1C', Icone: IconExclamationCircle },
 };
 function PastilleNotif({ genre }) {

@@ -205,7 +205,7 @@ function OngletValorisation() {
                     MOMENT D'IMPRIMER — le découvrir devant quelqu'un qui
                     attend son attestation est la mauvaise façon de l'apprendre. */}
                 {u.avalider
-                  ? <span className="text-[#B45309]"> · {u.avalider} non validé(s)</span>
+                  ? <span className="text-[color:var(--c-attente)]"> · {u.avalider} non validé(s)</span>
                   : null}
               </span>
             </span>
@@ -511,7 +511,7 @@ function OngletRapports({ domaine }) {
                   : 'border-transparent hover:bg-slate-50'}`}>
               <span className="flex-1 min-w-0 truncate">{r.libelle}</span>
               <span className={`text-[10px] px-1.5 py-0.5 rounded-md flex-shrink-0
-                ${r.piece ? 'bg-[#00AACC]/12 text-[#046B80]' : 'bg-slate-100 text-slate-500'}`}>
+                ${r.piece ? 'bg-[color:var(--c-accent)]/12 text-[#046B80]' : 'bg-slate-100 text-slate-500'}`}>
                 {r.piece ? 'pièce' : 'tableau'}
               </span>
               {portee && (

@@ -61,8 +61,8 @@ export function urgence(echeance, depuis = aujourdhui()) {
     return {
       niveau: 'depasse', jours: j,
       mention: n === 1 ? 'en retard d’un jour' : `en retard de ${n} jours`,
-      rail: 'border-l-[3px] border-l-[#9D4A38]',
-      pastille: 'text-[#9D4A38]',
+      rail: 'border-l-[3px] border-l-[color:var(--c-refuse)]',
+      pastille: 'text-[color:var(--c-refuse)]',
     };
   }
 
@@ -70,8 +70,8 @@ export function urgence(echeance, depuis = aujourdhui()) {
     return {
       niveau: 'presse', jours: j,
       mention: j === 0 ? 'aujourd’hui' : `J-${j}`,
-      rail: 'border-l-[3px] border-l-[#9D4A38]',
-      pastille: 'text-[#9D4A38]',
+      rail: 'border-l-[3px] border-l-[color:var(--c-refuse)]',
+      pastille: 'text-[color:var(--c-refuse)]',
     };
   }
 
@@ -79,7 +79,7 @@ export function urgence(echeance, depuis = aujourdhui()) {
     return {
       niveau: 'approche', jours: j,
       mention: `J-${j}`,
-      rail: 'border-l-[3px] border-l-[#B45309]',
+      rail: 'border-l-[3px] border-l-[color:var(--c-attente)]',
       pastille: 'text-amber-800',
     };
   }

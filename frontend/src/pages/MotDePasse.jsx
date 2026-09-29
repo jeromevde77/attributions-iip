@@ -75,7 +75,7 @@ export default function MotDePasse() {
   };
   const Bouton = ({ children, ...p }) => (
     <button {...p} style={{
-      width:'100%', padding:'13px', background: p.disabled ? 'rgba(0,170,204,.35)' : '#00AACC',
+      width:'100%', padding:'13px', background: p.disabled ? 'rgba(0,170,204,.35)' : 'var(--c-accent)',
       border:'none', borderRadius:'8px', color:'white', fontSize:'14px', fontWeight:600,
       cursor: p.disabled ? 'not-allowed' : 'pointer',
     }}>{children}</button>

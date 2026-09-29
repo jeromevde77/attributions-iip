@@ -20,6 +20,8 @@ import { authHeaders } from './api.js';
  */
 
 export const DEFAUT = {
+  iip_bleu: '#19537E', iip_or: '#F9B619', iip_cyan: '#05B7E6',
+  principal: '#1B2B4B', accent: '#00AACC', texte: '#1B2B4B', donnees: '#00AACC', menu_sombre: '#0F1A2E',
   iip: '#1B2B4B', helb: '#DB2777', ct: '#1D4ED8', pp: '#047857',
   reussi: '#3E7D5E', faveur: '#6B46C1', disponible: '#2F6FB0', attente: '#B45309', refuse: '#9D4A38',
   ba1: '#E8890C', ba2: '#7FB3D5', ba3: '#1B2B4B', epreuve: '#C9A84C',
@@ -50,13 +52,45 @@ export function poserGris(jeu) {
   else delete racine.dataset.gris;
 }
 
-export function poser(jeu) {
-  const racine = document.documentElement;
+/* TOUT LUCIE LIT LES RÉGLAGES (29 septembre 2026, Charles : « TOUT doit être
+ * paramétrable dans Config »). Deux mille sept cents classes Tailwind
+ * nommaient une couleur fixe — emerald, amber, red, violet… — que rien ne
+ * pouvait atteindre. On ne les réécrit pas : chaque famille lit désormais
+ * l'échelle d'un réglage (tailwind.config.js), calculée ici comme celle des
+ * gris. « emerald » veut dire « réussi », et c'est la maison qui en choisit la
+ * nuance. */
+export const ECHELLES = ['reussi', 'attente', 'refuse', 'faveur', 'disponible', 'accent', 'principal', 'helb', 'donnees'];
+const canaux = hex => { const m = /^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(String(hex || ''));
+  return m ? [1, 2, 3].map(i => parseInt(m[i], 16)) : null; };
+export function echelle(hex) {
+  const c = canaux(hex);
+  if (!c) return null;
+  return Object.fromEntries(Object.entries(MELANGE).map(([n, [vers, k]]) => [n,
+    c.map(x => Math.round(vers === 'b' ? 255 - (255 - x) * k : x * (1 - k))).join(' ')]));
+}
+
+export function poser(jeu, racine = document.documentElement) {
   for (const [cle, valeur] of Object.entries(jeu || {})) {
     if (/^#[0-9a-fA-F]{6}$/.test(String(valeur))) {
       racine.style.setProperty(`--c-${cle}`, valeur);
+      racine.style.setProperty(`--c-${cle}-rgb`, canaux(valeur).join(' '));
+      if (ECHELLES.includes(cle)) {
+        for (const [n, v] of Object.entries(echelle(valeur))) racine.style.setProperty(`--e-${cle}-${n}`, v);
+      }
     }
   }
+}
+
+/** Les mêmes variables, en objet de style — pour un aperçu qui montre ce qui SERA. */
+export function variables(jeu) {
+  const out = {};
+  for (const [cle, valeur] of Object.entries(jeu || {})) {
+    const c = canaux(valeur);
+    if (!c) continue;
+    out[`--c-${cle}`] = valeur; out[`--c-${cle}-rgb`] = c.join(' ');
+    if (ECHELLES.includes(cle)) for (const [n, v] of Object.entries(echelle(valeur))) out[`--e-${cle}-${n}`] = v;
+  }
+  return out;
 }
 
 /** À l'ouverture de l'application, et après chaque réglage. */

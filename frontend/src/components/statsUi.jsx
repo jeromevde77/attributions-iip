@@ -37,8 +37,8 @@ export function tonTaux(v) {
 export function couleurTaux(v) {
   if (v == null) return '#CBD5E1';
   if (v >= 75) return '#047857';
-  if (v >= 50) return '#B45309';
-  return '#9D4A38';
+  if (v >= 50) return 'var(--c-attente)';
+  return 'var(--c-refuse)';
 }
 
 /**

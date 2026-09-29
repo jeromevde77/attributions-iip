@@ -20,9 +20,9 @@ import { Fenetre } from './ui.jsx';
  */
 
 const TEINTE = {
-  nouvelle: 'border-l-[#1B2B4B]',
+  nouvelle: 'border-l-[color:var(--c-principal)]',
   retenue: 'border-l-[#0093B0]',
-  en_cours: 'border-l-[#B45309]',
+  en_cours: 'border-l-[color:var(--c-attente)]',
   faite: 'border-l-[#15803D]',
   ecartee: 'border-l-slate-300',
 };

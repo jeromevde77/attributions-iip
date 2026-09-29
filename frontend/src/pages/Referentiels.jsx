@@ -252,7 +252,7 @@ function DPImportModal({ annee, sections, onClose, onSaved }) {
                             de l'import, pas six mois plus tard devant une
                             unité dont personne ne sait d'où elle sort. */}
                         {x.data.code_depuis_nom && (
-                          <div className="text-[11px] text-[#B45309] mt-0.5">
+                          <div className="text-[11px] text-[color:var(--c-attente)] mt-0.5">
                             Code FWB repris du <b>nom du fichier</b> — le document ne le porte pas.
                           </div>
                         )}
@@ -287,7 +287,7 @@ function DPImportModal({ annee, sections, onClose, onSaved }) {
                         )}
                         {!resultats && x.data.action === 'updated' && cibles[x.fichier]
                           && cibles[x.fichier] !== String(x.data.ue_num) && (
-                          <div className="text-[11px] text-[#B45309] mt-0.5 pl-6">
+                          <div className="text-[11px] text-[color:var(--c-attente)] mt-0.5 pl-6">
                             Redirigé vers l'UE {cibles[x.fichier]} — pensez à supprimer
                             l'UE {x.data.ue_num} si c'est un doublon.
                           </div>
@@ -321,7 +321,7 @@ function DPImportModal({ annee, sections, onClose, onSaved }) {
                                       return { ...m, [x.fichier]: { ...c0, choix } };
                                     })}
                                     className={`w-56 border rounded px-1.5 py-0.5 text-[11px] bg-white
-                                      ${carte.choix[ci] ? 'border-green-400 text-green-800' : 'border-amber-300 text-[#B45309]'}`}>
+                                      ${carte.choix[ci] ? 'border-green-400 text-green-800' : 'border-amber-300 text-[color:var(--c-attente)]'}`}>
                                     <option value="">➕ Créer ce cours</option>
                                     {carte.cours.map(k => (
                                       <option key={k.cours_code} value={k.cours_code}>

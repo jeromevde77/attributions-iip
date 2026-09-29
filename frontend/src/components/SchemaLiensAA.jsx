@@ -123,7 +123,7 @@ export default function SchemaLiensAA({ ueNum, annee, onClose, onEnregistre }) {
 
     if (!l.length) {
       return { ok: false, modifie, libelle: modifie ? 'à vider' : '—',
-               ton: modifie ? '#B45309' : '#94A3B8', quoi: 'aucun acquis relié' };
+               ton: modifie ? 'var(--c-attente)' : '#94A3B8', quoi: 'aucun acquis relié' };
     }
     // Un cours à UN SEUL acquis est valide quel que soit le poids : cet acquis
     // fait tout le cours. Le compter comme parité évite un rouge absurde.
@@ -144,7 +144,7 @@ export default function SchemaLiensAA({ ueNum, annee, onClose, onEnregistre }) {
       ok, modifie, parite, libelle, quoi,
       // Vert : valide ET enregistré. Ambre : valide, reste à enregistrer.
       // Rouge : la répartition ne tient pas.
-      ton: !ok ? '#B91C1C' : modifie ? '#B45309' : '#15803D',
+      ton: !ok ? '#B91C1C' : modifie ? 'var(--c-attente)' : '#15803D',
     };
   };
 
@@ -395,7 +395,7 @@ export default function SchemaLiensAA({ ueNum, annee, onClose, onEnregistre }) {
 
           {!integree && (
             <label className={`flex items-start gap-2.5 px-3 py-2 rounded-xl border cursor-pointer
-              ${unique ? 'border-[#1B2B4B]/40' : 'bg-slate-50 border-slate-200'}`}
+              ${unique ? 'border-[color:var(--c-principal)]/40' : 'bg-slate-50 border-slate-200'}`}
               style={unique ? { background: 'color-mix(in srgb, #1B2B4B 6%, #fff)' } : undefined}>
               <input type="checkbox" checked={unique} disabled={enCours}
                 onChange={e => basculerUnique(e.target.checked)} className="mt-0.5 w-4 h-4" />
@@ -571,7 +571,7 @@ export default function SchemaLiensAA({ ueNum, annee, onClose, onEnregistre }) {
                         <rect x={p.x} y={p.y} width={L} height={H} rx="8"
                           fill={c.non_evalue ? '#F1F5F9' : (lien?.cible === c.cours_code ? '#EFF6FF' : '#F8FAFC')}
                           stroke={c.non_evalue ? '#CBD5E1'
-                            : survol?.cours === c.cours_code ? '#0369A1' : '#1B2B4B'}
+                            : survol?.cours === c.cours_code ? '#0369A1' : 'var(--c-principal)'}
                           strokeDasharray={c.non_evalue ? '4 3' : ''}
                           strokeWidth={survol?.cours === c.cours_code ? 2.2 : 1.2} />
                         <text x={p.x + 8} y={p.y + 14} fontSize="11" fontWeight="700"

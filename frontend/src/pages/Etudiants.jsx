@@ -135,7 +135,7 @@ function FriseParcours({ ues, codes }) {
     <div className="flex items-center gap-1.5">
       {groupes.map((g, gi) => (
         <span key={gi} className="gelule" title={g.b === 'EI' ? 'Épreuve intégrée' : g.b}
-          style={{ '--b': g.b === 'EI' ? '#C9A84C' : (couleurBloc(g.b) || '#D8DCE4') }}>
+          style={{ '--b': g.b === 'EI' ? 'var(--c-epreuve)' : (couleurBloc(g.b) || '#D8DCE4') }}>
           {g.l.map(u => (
             <span key={u.ue_num} data-c={u.c}
               title={`UE ${u.ue_num} — ${u.ue_nom || ''} · ${SENS_PUCE[u.c] || ''}`}>
@@ -215,7 +215,7 @@ function SchemaCapitalisation({ etudId, annee, onNoeud = null, programme = null,
           <span className="flex-1 min-w-0">
             <b>Cursus antérieur archivé : {a.section}</b>
             <span className="text-slate-500"> · {a.du === a.au ? court(a.du) : `${court(a.du)} → ${court(a.au)}`} · {a.reussies} unité{a.reussies > 1 ? 's' : ''} réussie{a.reussies > 1 ? 's' : ''}</span>
-            {a.encore_cette_annee && <span className="text-[#B45309]"> · encore des inscriptions cette année : à retirer, ou à déclarer compatible</span>}
+            {a.encore_cette_annee && <span className="text-[color:var(--c-attente)]"> · encore des inscriptions cette année : à retirer, ou à déclarer compatible</span>}
           </span>
           {a.encore_cette_annee && (
             <button type="button" className="bouton bouton-compact" onClick={() => retirerArchive(a.section)}>
@@ -244,14 +244,14 @@ const KINDS_CELLULE = [
   // LES ÉTATS DE LUCIE (2.12.211) : bleu inscrite, vert réussie — la VA
   // aussi, avec sa mention —, ocre ajournée, brique refusée. Le violet ne dit
   // que la faveur.
-  { val: 'inscrit', label: 'Inscrit',  short: '·',  cls: 'bg-[color-mix(in_srgb,var(--c-disponible)_11%,#fff)] border-[color-mix(in_srgb,var(--c-disponible)_32%,#fff)] text-[#2F6FB0]' },
-  { val: 'reussi',  label: 'Réussi',   short: '✓',  cls: 'bg-[color-mix(in_srgb,var(--c-reussi)_11%,#fff)] border-[color-mix(in_srgb,var(--c-reussi)_32%,#fff)] text-[#1B2B4B]' },
-  { val: 'va',      label: 'VA',       short: 'VA', cls: 'bg-[color-mix(in_srgb,var(--c-reussi)_11%,#fff)] border-[color-mix(in_srgb,var(--c-reussi)_32%,#fff)] text-[#1B2B4B]' },
+  { val: 'inscrit', label: 'Inscrit',  short: '·',  cls: 'bg-[color-mix(in_srgb,var(--c-disponible)_11%,#fff)] border-[color-mix(in_srgb,var(--c-disponible)_32%,#fff)] text-[color:var(--c-disponible)]' },
+  { val: 'reussi',  label: 'Réussi',   short: '✓',  cls: 'bg-[color-mix(in_srgb,var(--c-reussi)_11%,#fff)] border-[color-mix(in_srgb,var(--c-reussi)_32%,#fff)] text-[color:var(--c-texte)]' },
+  { val: 'va',      label: 'VA',       short: 'VA', cls: 'bg-[color-mix(in_srgb,var(--c-reussi)_11%,#fff)] border-[color-mix(in_srgb,var(--c-reussi)_32%,#fff)] text-[color:var(--c-texte)]' },
   // La circulaire distingue l'AJOURNEMENT, qui ouvre une seconde session sur
   // des acquis précis, du REFUS, qui ne l'ouvre pas. Les confondre sous un même
   // libellé privait le Conseil des études d'une de ses trois décisions.
   { val: 'ajourne', label: 'Ajourné',  short: 'Aj', cls: 'bg-[color-mix(in_srgb,var(--c-attente)_11%,#fff)] border-[color-mix(in_srgb,var(--c-attente)_32%,#fff)] text-[#8A5A12]' },
-  { val: 'refuse',  label: 'Refusé',   short: '✕',  cls: 'bg-[color-mix(in_srgb,var(--c-refuse)_11%,#fff)] border-[color-mix(in_srgb,var(--c-refuse)_32%,#fff)] text-[#9D4A38]' },
+  { val: 'refuse',  label: 'Refusé',   short: '✕',  cls: 'bg-[color-mix(in_srgb,var(--c-refuse)_11%,#fff)] border-[color-mix(in_srgb,var(--c-refuse)_32%,#fff)] text-[color:var(--c-refuse)]' },
   { val: 'absent',  label: 'Absent',   short: '–',  cls: 'bg-slate-50 text-slate-600 border-slate-200' },
 ];
 
@@ -504,7 +504,7 @@ function GrilleParcours({ etudId, peutEcrire, annee, ueFocus = null }) {
             « {nbHistorique === 0 ? 'années antérieures' : 'remonter encore'}
           </button>
           <button onClick={purgerAnnee} title="Effacer les résultats ou les inscriptions d'une année"
-            className="px-2 py-0.5 text-[11px] border border-[#E3BFB5] text-[#9D4A38] rounded-md hover:bg-[#F7E9E5]">Purger…</button>
+            className="px-2 py-0.5 text-[11px] border border-[#E3BFB5] text-[color:var(--c-refuse)] rounded-md hover:bg-[#F7E9E5]">Purger…</button>
         </div>
       </div>
 
@@ -617,7 +617,7 @@ function GrilleParcours({ etudId, peutEcrire, annee, ueFocus = null }) {
                             className={`w-11 h-[22px] text-[11px] font-semibold tabular-nums rounded-md border px-0.5 transition
                               ${kind ? kind.cls : 'border-transparent text-slate-300 hover:border-slate-200 hover:bg-slate-50'}
                               ${cl?.derogation ? 'ring-1 ring-amber-400' : ''}
-                              ${choix.has(`${a}|${u.ue_num}`) ? 'ring-2 ring-[#2F6FB0] ring-offset-1' : ''}
+                              ${choix.has(`${a}|${u.ue_num}`) ? 'ring-2 ring-[color:var(--c-disponible)] ring-offset-1' : ''}
                               ${peutEcrire && deplacable(cl) ? 'cursor-grab active:cursor-grabbing' : ''}`}
                             title={cl?.derogation ? 'Encodée avec dérogation' : ''}>
                             {kind
@@ -695,7 +695,7 @@ function GrilleParcours({ etudId, peutEcrire, annee, ueFocus = null }) {
                           <td className="px-2 py-1">{m.resultat || 'inscrit'}{m.points != null ? ` · ${m.points}/20` : ''}</td>
                           <td className="px-2 py-1 text-slate-600">
                             {suit.length ? suit.join(' · ') : '—'}
-                            {m.seance_close && <span className="block text-[11px] text-[#B45309]">délibération close en {m.de} : décision déjà notifiée</span>}
+                            {m.seance_close && <span className="block text-[11px] text-[color:var(--c-attente)]">délibération close en {m.de} : décision déjà notifiée</span>}
                             {m.stage_reste > 0 && <span className="block text-[11px] text-slate-400">le stage reste en {m.de}</span>}
                           </td>
                         </tr>
@@ -772,7 +772,7 @@ function GrilleParcours({ etudId, peutEcrire, annee, ueFocus = null }) {
             </div>
 
             <button onClick={() => detailOuvert ? setDetailOuvert(false) : chargerDetail()}
-              className="mt-3 w-full text-[12px] px-2 py-1.5 rounded-lg border border-[#1B2B4B]/30 text-iip-blue hover:bg-[#1B2B4B]/5">
+              className="mt-3 w-full text-[12px] px-2 py-1.5 rounded-lg border border-[color:var(--c-principal)]/30 text-iip-blue hover:bg-[color:var(--c-principal)]/5">
               {detailOuvert ? 'Masquer le détail' : 'Notes par cours & AA…'}
             </button>
 
@@ -1284,7 +1284,7 @@ function Valorisations({ etudId, annee }) {
                   « refusé » sans motif ne se défend pas devant un recours. */}
               <label className="block text-xs">
                 <span className="block font-semibold text-slate-500 uppercase tracking-wide mb-1">
-                  Motif du refus <span className="text-[#9D4A38]">— obligatoire</span>
+                  Motif du refus <span className="text-[color:var(--c-refuse)]">— obligatoire</span>
                 </span>
                 <textarea rows={3} value={form.motif_refus || ''}
                   placeholder="Ce que le Conseil a constaté : pièces insuffisantes, acquis non démontrés, formation sans rapport…"
@@ -1659,7 +1659,7 @@ function Valorisations({ etudId, annee }) {
                 <span className="font-medium text-iip-blue">{v.ue_num}</span>
                 <span className="text-slate-600 ml-1.5 text-[13px]">{v.ue_nom}</span>
                 {v.decision === 'refusee' && (
-                  <span className="ml-2 text-[11px] font-semibold text-[#9D4A38]">refusée</span>
+                  <span className="ml-2 text-[11px] font-semibold text-[color:var(--c-refuse)]">refusée</span>
                 )}
                 <div className="text-[11px] text-slate-400 mt-0.5">
                   {v.decision === 'refusee' ? 'Demande refusée' : (
@@ -1912,7 +1912,7 @@ function MenuParcourir({ portee, onPortee, sections, ues, annees }) {
     <div className="relative">
       <button type="button" onClick={() => setOuvert(o => !o)}
         title="Les dossiers que les flèches parcourent"
-        className={`bouton bouton-compact inline-flex items-center gap-1 ${actifs ? 'border-[#1B2B4B] text-iip-blue' : ''}`}>
+        className={`bouton bouton-compact inline-flex items-center gap-1 ${actifs ? 'border-[color:var(--c-principal)] text-iip-blue' : ''}`}>
         Parcourir{actifs ? ` · ${actifs}` : ''} <IconChevronRight size={12} className={`transition ${ouvert ? 'rotate-90' : ''}`} />
       </button>
       {ouvert && (
@@ -2582,7 +2582,7 @@ export function FicheEtudiant({ id, annee, onClose, position, onPrec, onSuiv,
                             <td className="py-2">
                               <input type="checkbox" checked readOnly
                                 onClick={() => basculerUE(u)}
-                                className="cursor-pointer accent-[#00AACC]" />
+                                className="cursor-pointer accent-[color:var(--c-accent)]" />
                             </td>
                             <td className="py-2">
                               <span className="font-medium text-iip-blue">{u.ue_num}</span>
@@ -2645,7 +2645,7 @@ export function FicheEtudiant({ id, annee, onClose, position, onPrec, onSuiv,
                                 <td className="py-1.5 w-8">
                                   <input type="checkbox" checked={false} readOnly
                                     onClick={() => basculerUE(u)}
-                                    className="cursor-pointer accent-[#00AACC]" />
+                                    className="cursor-pointer accent-[color:var(--c-accent)]" />
                                 </td>
                                 <td className="py-1.5">
                                   <span className="font-medium text-iip-blue">{u.ue_num}</span>
@@ -3297,7 +3297,7 @@ export default function Etudiants() {
     // avertissement, pas une décoration.
     ...(peutSupprimer ? [{ label: 'Supprimer', items: [
       { key: 'purge', label: 'Vider des résultats ou des inscriptions',
-        icon: IconTrash, couleur: '#9d4a38', destructif: true,
+        icon: IconTrash, couleur: 'var(--c-refuse)', destructif: true,
         onClick: () => setPurge(true) },
     ] }] : []),
     // INSCRIRE QUELQU'UN. La route serveur existait depuis l'origine, sans
@@ -3472,7 +3472,7 @@ export default function Etudiants() {
               const visibles = filtres.filter(e => selEtudiants.has(e.id)).length;
               if (visibles === selEtudiants.size) return null;
               return (
-                <span className="font-normal text-[12px] text-[#B45309]">
+                <span className="font-normal text-[12px] text-[color:var(--c-attente)]">
                   dont {visibles} affiché(s) — {selEtudiants.size - visibles} caché(s) par les filtres
                   <button className="underline ml-2 text-iip-blue"
                     onClick={() => setSelEtudiants(new Set(filtres.filter(e => selEtudiants.has(e.id)).map(e => e.id)))}>
@@ -3615,7 +3615,7 @@ export default function Etudiants() {
                     {ouverte && liste.map(e => (
                 <tr key={e.id} onClick={() => setSelId(e.id)}
                   className={`border-b border-slate-100 last:border-0 cursor-pointer
-                    ${selEtudiants.has(e.id) ? 'bg-[#1B2B4B]/[0.04]' : 'hover:bg-slate-50/60'}`}>
+                    ${selEtudiants.has(e.id) ? 'bg-[color:var(--c-principal)]/[0.04]' : 'hover:bg-slate-50/60'}`}>
                   <td className="px-3 py-1" onClick={ev => ev.stopPropagation()}>
                     <input type="checkbox" checked={selEtudiants.has(e.id)}
                       onChange={() => basculerSelection(e.id)} />
@@ -3633,7 +3633,7 @@ export default function Etudiants() {
                   </td>
                   <td className="px-2 py-1">
                     {e.pae_confirme
-                      ? <IconWritingSign size={15} className="text-[#3E7D5E]" title="Programme confirmé — étudiant inscrit" />
+                      ? <IconWritingSign size={15} className="text-[color:var(--c-reussi)]" title="Programme confirmé — étudiant inscrit" />
                       : <IconWritingSignOff size={15} className="text-slate-300" title="Programme non confirmé" />}
                   </td>
                   <td className="px-3 py-1 whitespace-nowrap">

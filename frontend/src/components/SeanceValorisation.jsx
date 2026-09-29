@@ -268,7 +268,7 @@ export default function SeanceValorisation({ ueNum, ueNom, annee, onClose }) {
               côté serveur, pas dans un onglet. */}
           {doc && (
             <div className="flex items-center gap-2 text-[12px] border border-slate-200
-                            rounded-carte px-3 py-2 border-l-[3px] border-l-[#C9A84C]">
+                            rounded-carte px-3 py-2 border-l-[3px] border-l-[color:var(--c-epreuve)]">
               <span className="flex-1">
                 L'onglet ouvert est un <b>aperçu</b>. Pour la pièce elle-même —
                 A4 garanti, pied de page sur chaque feuille — prends le PDF.
