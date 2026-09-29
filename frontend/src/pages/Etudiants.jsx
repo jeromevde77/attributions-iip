@@ -2143,18 +2143,20 @@ export function FicheEtudiant({ id, annee, onClose, position, onPrec, onSuiv,
     setFicheInscription({ html: j.html, titre: 'Parcours de formation', nom: j.nom });
   }
 
-  async function ouvrirAttestations() {
-    const rep = await fetch(`/api/attestations/etudiant/${id}/document?annee=${annee}`,
+  async function ouvrirAttestations(toutes = false) {
+    const quand = toutes === true ? 'toutes' : annee;
+    const rep = await fetch(`/api/attestations/etudiant/${id}/document?annee=${quand}`,
       { headers: authHeaders() });
     const j = await rep.json().catch(() => ({}));
     if (!rep.ok) { alert(j.error || 'Erreur à la génération.'); return; }
     if (j.manques?.length) {
       alert(
         `${j.unites} attestation(s) produite(s), mais des mentions obligatoires manquent :\n\n`
-        + j.manques.map(m => `UE ${m.ue_num} — ${m.manques.join(', ')}`).join('\n')
+        + j.manques.map(m => `UE ${m.ue_num}${m.annee && toutes === true ? ` (${m.annee})` : ''} — ${m.manques.join(', ')}`).join('\n')
         + `\n\nCes mentions se complètent dans le référentiel des UE.`);
     }
-    setFicheInscription({ html: j.html, titre: `Attestations de réussite — ${annee}`, nom: j.nom });
+    setFicheInscription({ html: j.html, nom: j.nom,
+      titre: toutes === true ? `Attestations de réussite — toutes les années (${(j.annees || []).join(', ')})` : `Attestations de réussite — ${annee}` });
   }
 
 
@@ -2257,7 +2259,9 @@ export function FicheEtudiant({ id, annee, onClose, position, onPrec, onSuiv,
           <CentreImpressionCentral onClose={() => setEdition(false)}
             pieces={[
               { cle: 'attestations', icon: IconFileText, label: 'Attestations de réussite',
-                description: "Une par unité d'enseignement réussie", onClick: ouvrirAttestations },
+                description: `Une par unité réussie en ${annee}`, onClick: () => ouvrirAttestations(false) },
+              { cle: 'attestations-toutes', icon: IconFileText, label: 'Attestations de réussite — toutes les années',
+                description: "Toutes les unités réussies du parcours, chacune avec son année", onClick: () => ouvrirAttestations(true) },
               { cle: 'parcours', icon: IconFileText, label: 'Parcours de formation',
                 description: 'Schéma de capitalisation et unités acquises — 1 page', onClick: ouvrirParcours },
               { cle: 'motivation', icon: IconFileText, label: 'Motiver un refus ou un ajournement',

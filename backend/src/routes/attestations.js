@@ -876,11 +876,22 @@ r.get('/etudiant/:id/document', authRequired, (req, res) => {
   const e = db.prepare('SELECT * FROM etudiant WHERE id = ?').get(Number(req.params.id));
   if (!e) return res.status(404).json({ error: 'étudiant introuvable' });
 
-  let unites = unitesReussies(e.id, annee);
+  /* TOUTES LES ANNÉES D'UN ÉTUDIANT, EN UNE FOIS (Charles, 29 septembre
+     2026 : « je ne sais pas imprimer toutes les attestations de réussite d'un
+     étudiant sur plusieurs années »). `annee=toutes` prend chaque année où il a
+     réussi une unité, dans l'ordre ; chaque attestation reste sur sa page, et
+     porte SON année. */
+  const annees = annee === 'toutes'
+    ? db.prepare(`SELECT DISTINCT annee_scolaire AS a FROM etudiant_inscription
+        WHERE etudiant_id = ? AND resultat = 'reussi' ORDER BY annee_scolaire`).all(e.id).map(x => x.a)
+    : String(annee).split(',').filter(Boolean);
   const filtre = (req.query.ue || '').split(',').filter(Boolean).map(Number);
+  let unites = annees.flatMap(an => unitesReussies(e.id, an).map(u => ({ ...u, _annee: an })));
   if (filtre.length) unites = unites.filter(u => filtre.includes(u.ue_num));
   if (!unites.length) {
-    return res.status(404).json({ error: `Aucune unité réussie en ${annee} pour cet étudiant.` });
+    return res.status(404).json({ error: annee === 'toutes'
+      ? 'Aucune unité réussie pour cet étudiant, toutes années confondues.'
+      : `Aucune unité réussie en ${annee} pour cet étudiant.` });
   }
 
   const etab = db.prepare('SELECT * FROM etablissement LIMIT 1').get() || {};
@@ -888,18 +899,19 @@ r.get('/etudiant/:id/document', authRequired, (req, res) => {
 
   // Une attestation par unité, chacune sur sa propre page : ce sont des pièces
   // distinctes, remises séparément.
-  const pages = unites.map(u => pageAttestation(e, u, annee, etab, req.query.date_document,
-      ident, sessionDeReussite(e.id, u.ue_num, annee)))
+  const pages = unites.map(u => pageAttestation(e, u, u._annee, etab, req.query.date_document,
+      ident, sessionDeReussite(e.id, u.ue_num, u._annee)))
     .join('<div class="saut"></div>');
 
   const html = envelopper(pages, `Attestations — ${e.nom} ${e.prenom}`);
 
   res.json({
     html,
-    nom: `attestations_${(e.nom || '').replace(/\W/g, '_')}_${annee}.html`,
+    nom: `attestations_${(e.nom || '').replace(/\W/g, '_')}_${annee === 'toutes' ? 'toutes_annees' : annee}.html`,
     unites: unites.length,
+    annees,
     manques: unites.filter(u => u.manques.length)
-      .map(u => ({ ue_num: u.ue_num, manques: u.manques })),
+      .map(u => ({ ue_num: u.ue_num, annee: u._annee, manques: u.manques })),
   });
 });
 
