@@ -12,7 +12,7 @@
  */
 import { useEffect, useMemo, useState } from 'react';
 import { authHeaders, getAnnee } from '../lib/api.js';
-import { TuileEtat } from '../components/ui.jsx';
+import { TuileEtat, Fenetre } from '../components/ui.jsx';
 import { FicheEtudiant } from './Etudiants.jsx';
 
 const STATUTS = {
@@ -35,6 +35,7 @@ export default function RegistreAmenagements() {
   const [statut, setStatut] = useState('');
   const [fiche, setFiche] = useState(null);
   const [recharge, setRecharge] = useState(0);
+  const [creation, setCreation] = useState(false);   // « Créer un aménagement »
 
   useEffect(() => {
     let vivant = true;
@@ -79,6 +80,9 @@ export default function RegistreAmenagements() {
           {Object.entries(STATUTS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
         </select>
         <span className="text-[12px] text-slate-500">{visibles.length} dossier(s) affiché(s) sur {lignes.length}</span>
+        <button type="button" className="bouton bouton-fort controle ml-auto" onClick={() => setCreation(true)}>
+          Créer un aménagement
+        </button>
       </div>
 
       {!data ? <p className="text-slate-400 text-[13px]">Chargement…</p> : !lignes.length ? (
@@ -133,10 +137,68 @@ export default function RegistreAmenagements() {
         l'étudiant (secret professionnel, décret du 30 juin 2016, art. 5).
       </p>
 
+      {creation && (
+        <CreerAmenagement annee={annee} existants={lignes} onFermer={() => setCreation(false)}
+          onOuvrir={id => { setCreation(false); setFiche(id); }} />
+      )}
+
       {fiche && (
         <FicheEtudiant id={fiche} annee={annee} ongletInitial="amenagements"
           onClose={() => { setFiche(null); setRecharge(x => x + 1); }} />
       )}
     </div>
+  );
+}
+
+/* CRÉER UN AMÉNAGEMENT DEPUIS LE REGISTRE (Charles, 29 septembre 2026 : « il
+   manque un bouton "créer un AR" quand on est sur la page »). On choisit
+   l'étudiant ; s'il a déjà un dossier cette année, on l'ouvre — un second
+   dossier pour la même année ferait deux décisions pour une demande —, sinon
+   il est créé, et la fiche s'ouvre sur l'onglet Aménagements pour le remplir. */
+function CreerAmenagement({ annee, existants, onFermer, onOuvrir }) {
+  const [q, setQ] = useState('');
+  const [trouves, setTrouves] = useState([]);
+  const [erreur, setErreur] = useState(null);
+  const [enCours, setEnCours] = useState(false);
+  useEffect(() => {
+    if (q.trim().length < 2) { setTrouves([]); return; }
+    const t = setTimeout(() => {
+      fetch(`/api/etudiants?q=${encodeURIComponent(q.trim())}`, { headers: authHeaders() })
+        .then(r => r.ok ? r.json() : []).then(l => setTrouves((Array.isArray(l) ? l : []).slice(0, 10))).catch(() => {});
+    }, 250);
+    return () => clearTimeout(t);
+  }, [q]);
+  const choisir = async e => {
+    if (existants.some(l => l.etudiant_id === e.id)) { onOuvrir(e.id); return; }
+    setEnCours(true); setErreur(null);
+    try {
+      const r = await fetch('/api/amenagements/dossier', { method: 'POST', headers: authHeaders(),
+        body: JSON.stringify({ etudiant_id: e.id, annee_scolaire: annee }) });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(j.error || `Erreur ${r.status}`);
+      onOuvrir(e.id);
+    } catch (err) { setErreur(err.message); } finally { setEnCours(false); }
+  };
+  return (
+    <Fenetre titre="Créer un aménagement raisonnable" large="petite" onFermer={onFermer}
+      sous={`Année ${annee} — choisissez l'étudiant ; son dossier s'ouvre ensuite sur sa fiche`}>
+      <div className="space-y-2 text-[13px]">
+        <input className="controle w-full" autoFocus placeholder="Nom ou matricule…" value={q} onChange={e => setQ(e.target.value)} />
+        <div className="space-y-1 max-h-72 overflow-auto">
+          {trouves.map(e => {
+            const deja = existants.some(l => l.etudiant_id === e.id);
+            return (
+              <button key={e.id} type="button" disabled={enCours} onClick={() => choisir(e)}
+                className="w-full text-left px-2.5 py-1.5 rounded-champ border border-slate-200 hover:bg-slate-50">
+                <b>{(e.nom || '').toUpperCase()}</b> {e.prenom} <span className="text-slate-400">· {e.id_ecampus || '—'}</span>
+                {deja && <span className="block text-[11.5px] text-slate-500">A déjà un dossier en {annee} : il s'ouvrira.</span>}
+              </button>
+            );
+          })}
+          {q.trim().length >= 2 && !trouves.length && <p className="text-slate-400 text-[12px]">Aucun étudiant ne correspond.</p>}
+        </div>
+        {erreur && <div data-etat="corriger" className="bloc-etat px-2.5 py-1.5">{erreur}</div>}
+      </div>
+    </Fenetre>
   );
 }
