@@ -33,11 +33,11 @@ const af = (url, opts = {}) =>
   }).then(async r => { const j = await r.json().catch(() => ({})); if (!r.ok) throw new Error(j.error || 'Erreur'); return j; });
 
 const STATUT = {
-  engage:    { label: 'Engagé', color: 'var(--c-texte)', bg: '#dcfce7' },
+  engage:    { label: 'Engagé', color: '#FFFFFF', bg: 'var(--c-reussi)' },
   a_voir:    { label: 'À voir',    color: '#6b7280', bg: '#f3f4f6' },
-  entretien: { label: 'Entretien', color: 'var(--c-texte)', bg: '#e0f2fe' },
-  retenu:    { label: 'Retenu',    color: 'var(--c-texte)', bg: '#dcfce7' },
-  ecarte:    { label: 'Écarté',    color: 'var(--c-texte)', bg: '#fee2e2' },
+  entretien: { label: 'Entretien', color: '#FFFFFF', bg: 'var(--c-disponible)' },
+  retenu:    { label: 'Retenu',    color: '#FFFFFF', bg: 'var(--c-reussi)' },
+  ecarte:    { label: 'Écarté',    color: '#FFFFFF', bg: 'var(--c-refuse)' },
 };
 
 
@@ -277,7 +277,7 @@ export default function Recrutement() {
                       {p.nom_cours || p.ue_nom}
                       {p.contrat_mdp && (
                         <span className="text-[10px] font-bold px-1.5 py-0.5 rounded text-white flex-shrink-0"
-                          style={{ background: p.contrat_mdp === 'HELB' ? 'var(--c-faveur)' : 'var(--c-principal)' }}>
+                          style={{ background: p.contrat_mdp === 'HELB' ? '#8B5CF6' : 'var(--c-principal)' }}>
                           {p.contrat_mdp}
                         </span>
                       )}
@@ -806,10 +806,10 @@ function CarteCandidatPoste({ candidature: c, onChange, onEntretien }) {
 /* ══════════════════════ GRILLE D'ENTRETIEN ══════════════════════ */
 
 const LIKERT_REFLEXIF = [
-  { val: 1, label: 'Descriptif',     desc: "Décrit les faits sans analyse",                       color: 'var(--c-texte)' },
-  { val: 2, label: 'Analytique',     desc: "Identifie les causes et conséquences",                color: 'var(--c-texte)' },
+  { val: 1, label: 'Descriptif',     desc: "Décrit les faits sans analyse",                       color: '#ef4444' },
+  { val: 2, label: 'Analytique',     desc: "Identifie les causes et conséquences",                color: '#f97316' },
   { val: 3, label: 'Réflexif',       desc: "Questionne ses pratiques et ses représentations",     color: '#eab308' },
-  { val: 4, label: 'Critique',       desc: "Remet en question les présupposés, prise de recul",   color: 'var(--c-texte)' },
+  { val: 4, label: 'Critique',       desc: "Remet en question les présupposés, prise de recul",   color: '#22c55e' },
   { val: 5, label: 'Transformatif',  desc: "Change de posture, apprend et se transforme",         color: '#0ea5e9' },
 ];
 
@@ -832,7 +832,7 @@ function grilleAvecTirage(grilleActive) {
 const GRILLE_IIP = [
   {
     axe: 'Axe 1 — Connaissance de la formation et du contexte',
-    couleur: 'var(--c-disponible)',
+    couleur: 'var(--c-texte)',
     questions: [
       "Quelles sont, selon vous, les différences les plus marquantes entre l'ancienne formation et la nouvelle ?",
       "Que savez-vous du cadre légal de cette formation ?",
@@ -842,7 +842,7 @@ const GRILLE_IIP = [
   },
   {
     axe: 'Axe 2 — Expérience professionnelle et clinique',
-    couleur: 'var(--c-faveur)',
+    couleur: '#7c3aed',
     questions: [
       "Décrivez votre parcours professionnel dans votre domaine de spécialité.",
       "Avez-vous une expérience d'encadrement de stagiaires ou d'étudiants en milieu clinique ou professionnel ?",
@@ -852,7 +852,7 @@ const GRILLE_IIP = [
   },
   {
     axe: 'Axe 3 — Compétences pédagogiques',
-    couleur: 'var(--c-reussi)',
+    couleur: 'var(--c-texte)',
     questions: [
       "Comment organiseriez-vous vos cours pour satisfaire un public de l'enseignement pour adultes ?",
       "Avez-vous déjà donné cours à des groupes de 50 à 100 étudiants ?",
@@ -948,7 +948,7 @@ Réponds en JSON strict sans backticks : {"questions":["question 1","question 2"
         </div>
       </div>
 
-      {err && <div className="text-xs text-red-600 bg-red-50 rounded px-3 py-2 mb-3">{err}</div>}
+      {err && <div className="text-xs text-white bg-red-500 rounded px-3 py-2 mb-3">{err}</div>}
 
       <div className="space-y-3">
         {grilleActive.map((axe, i) => (
@@ -997,10 +997,10 @@ Réponds en JSON strict sans backticks : {"questions":["question 1","question 2"
 
 /* ══════════════════════ MODAL ENTRETIEN ══════════════════════ */
 const LIKERT = [
-  { val: 1, label: 'Superficielle',  desc: 'Réponse vague, générale, sans ancrage réel',                      color: 'var(--c-texte)' },
-  { val: 2, label: 'Partielle',      desc: 'Quelques éléments pertinents, mais incomplets',                   color: 'var(--c-texte)' },
+  { val: 1, label: 'Superficielle',  desc: 'Réponse vague, générale, sans ancrage réel',                      color: '#ef4444' },
+  { val: 2, label: 'Partielle',      desc: 'Quelques éléments pertinents, mais incomplets',                   color: '#f97316' },
   { val: 3, label: 'Adéquate',       desc: 'Répond à la question, compréhension correcte',                    color: '#eab308' },
-  { val: 4, label: 'Élaborée',       desc: 'Nuancée, exemples concrets, prise de recul visible',              color: 'var(--c-texte)' },
+  { val: 4, label: 'Élaborée',       desc: 'Nuancée, exemples concrets, prise de recul visible',              color: '#22c55e' },
   { val: 5, label: 'Excellente',     desc: 'Réflexivité, profondeur, lien théorie-pratique maîtrisé',         color: '#0ea5e9' },
 ];
 
@@ -1329,7 +1329,7 @@ function VueParallele({ postes, candidats, fonctions, annee, onRecharger }) {
                         <span className="truncate">{p.nom_cours || p.ue_nom}</span>
                         {p.contrat_mdp && (
                           <span className="text-[10px] font-bold px-1.5 py-0.5 rounded text-white flex-shrink-0"
-                            style={{ background: p.contrat_mdp === 'HELB' ? 'var(--c-faveur)' : 'var(--c-principal)' }}>{p.contrat_mdp}</span>
+                            style={{ background: p.contrat_mdp === 'HELB' ? '#8B5CF6' : 'var(--c-principal)' }}>{p.contrat_mdp}</span>
                         )}
                       </div>
                       <div className="text-xs text-gray-400 mt-0.5">
@@ -1423,7 +1423,7 @@ function genererComparatif(candidats, poste, grille) {
     const noteQ = c.note_globale;
     const noteL = c.entretien_note;
     const noteAff = noteQ ?? noteL ?? null;
-    const col = noteAff>=4?'var(--c-reussi)':noteAff>=3?'var(--c-attente)':noteAff!=null?'var(--c-refuse)':'#9ca3af';
+    const col = noteAff>=4?'var(--c-texte)':noteAff>=3?'#d97706':noteAff!=null?'var(--c-texte)':'#9ca3af';
     const refl = c.reflexif_niveau || c.reflexif_niveau_libre;
     const REFL = ['','Descriptif','Analytique','Réflexif','Critique','Transformatif'];
     return { nom, st, noteAff, col, refl, REFL };
@@ -1454,13 +1454,13 @@ function genererComparatif(candidats, poste, grille) {
       const r = rep[i]||{};
       if (!r.note && !r.commentaire) return '';
       const lbl = LIKERT_LABELS[r.note]||'';
-      const lcol = ['','var(--c-refuse)','var(--c-attente)','#eab308','var(--c-reussi)','#0ea5e9'][r.note]||'#6b7280';
+      const lcol = ['','#ef4444','#f97316','#eab308','#22c55e','#0ea5e9'][r.note]||'#6b7280';
       return `<tr><td style="padding:2px 5px;color:#6b7280;font-size:8pt;border-bottom:1px solid #f1f5f9;width:18%">${item.axe.replace(/Axe \d+ — /,'')}</td>
         <td style="padding:2px 5px;font-size:8pt;border-bottom:1px solid #f1f5f9">${item.q}</td>
         <td style="padding:2px 5px;text-align:center;border-bottom:1px solid #f1f5f9;width:15%">${r.note?`<span style="background:${lcol};color:white;padding:1px 5px;border-radius:8px;font-size:7.5pt;font-weight:700">${r.note} — ${lbl}</span>`:'—'}</td>
         <td style="padding:2px 5px;font-size:8pt;border-bottom:1px solid #f1f5f9;width:22%">${r.commentaire||''}</td></tr>`;
     }).join('');
-    const nc = c.note_globale; const col = nc>=4?'var(--c-reussi)':nc>=3?'var(--c-attente)':nc!=null?'var(--c-refuse)':'#9ca3af';
+    const nc = c.note_globale; const col = nc>=4?'var(--c-texte)':nc>=3?'#d97706':nc!=null?'var(--c-texte)':'#9ca3af';
     return `<div style="page-break-before:always;margin-bottom:6mm">
       <div style="background:${BLEU};color:white;padding:5px 10px;border-radius:4px;display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
         <span style="font-size:11pt;font-weight:700">${nom}</span>
@@ -1503,9 +1503,9 @@ function genererComparatif(candidats, poste, grille) {
 function genererFicheIndividuelle(candidat, grille) {
   const BLEU = '#1B2B4B', TURQ = '#00AACC';
   const LIKERT_LABELS = ['','Peu structurée','Partiellement','Structurée','Bien structurée','Très structurée'];
-  const LIKERT_COLORS = ['','var(--c-refuse)','var(--c-attente)','#eab308','var(--c-reussi)','#0ea5e9'];
+  const LIKERT_COLORS = ['','#ef4444','#f97316','#eab308','#22c55e','#0ea5e9'];
   const REFL_LABELS   = ['','Descriptif','Analytique','Réflexif','Critique','Transformatif'];
-  const REFL_COLORS   = ['','var(--c-refuse)','var(--c-attente)','#eab308','var(--c-reussi)','#0ea5e9'];
+  const REFL_COLORS   = ['','#ef4444','#f97316','#eab308','#22c55e','#0ea5e9'];
   const grilleActive  = grille || GRILLE_IIP;
   const nom = [candidat.prenom, candidat.nom].filter(Boolean).join(' ') || '—';
 
@@ -1553,7 +1553,7 @@ function genererFicheIndividuelle(candidat, grille) {
   const hasLibre = candidat.entretien_note || candidat.entretien_commentaire || Object.values(repL).some(r=>r&&r.note>0);
   const entretienLibreHtml = hasLibre ? (() => {
     const nc = candidat.entretien_note;
-    const col = nc>=4?'var(--c-reussi)':nc>=3?'var(--c-attente)':'var(--c-refuse)';
+    const col = nc>=4?'var(--c-texte)':nc>=3?'#d97706':'var(--c-texte)';
     const rows = toutesQs.map((item,i) => {
       const r = repL[i]||{};
       if (r.disabled||(!r.note&&!r.commentaire)) return '';
@@ -1582,7 +1582,7 @@ function genererFicheIndividuelle(candidat, grille) {
   // Entretiens par cours
   const entretiensCoursHtml = (candidat.candidatures||[]).filter(ca=>ca.note_globale||ca.commentaire).map(ca => {
     const st = STATUT[ca.statut]||STATUT.a_voir;
-    const nc = ca.note_globale; const col = nc>=4?'var(--c-reussi)':nc>=3?'var(--c-attente)':'var(--c-refuse)';
+    const nc = ca.note_globale; const col = nc>=4?'var(--c-texte)':nc>=3?'#d97706':'var(--c-texte)';
     const rep = ca.reponses_json||{};
     const rows = toutesQs.map((item,i)=>{ const r=rep[i]||{}; if(!r.note&&!r.commentaire) return ''; const lbl=LIKERT_LABELS[r.note]||''; const lcol=LIKERT_COLORS[r.note]||'#6b7280'; return `<tr><td style="padding:2px 5px;color:#6b7280;font-size:8pt;border-bottom:1px solid #f1f5f9">${item.axe.replace(/Axe \d+ — /,'')}</td><td style="padding:2px 5px;font-size:8.5pt;border-bottom:1px solid #f1f5f9">${item.q}</td><td style="padding:2px 5px;text-align:center;border-bottom:1px solid #f1f5f9">${r.note?`<span style="background:${lcol};color:white;padding:1px 6px;border-radius:10px;font-size:8pt;font-weight:700">${r.note} — ${lbl}</span>`:'—'}</td><td style="padding:2px 5px;font-size:8pt;border-bottom:1px solid #f1f5f9">${r.commentaire||''}</td></tr>`; }).join('');
     return `<div style="margin-bottom:6px;border:1px solid #e2e8f0;border-radius:4px;overflow:hidden">
@@ -1653,7 +1653,7 @@ function VueCandidatsGlobal({ candidats, fonctions, grille, onRecharger,
 
   const BLEU = '#1B2B4B', TURQ = '#00AACC';
   const LIKERT_LABELS = ['','Superficielle','Partielle','Adéquate','Élaborée','Excellente'];
-  const LIKERT_COLORS = ['','var(--c-refuse)','var(--c-attente)','#eab308','var(--c-reussi)','#0ea5e9'];
+  const LIKERT_COLORS = ['','#ef4444','#f97316','#eab308','#22c55e','#0ea5e9'];
   const grilleActive = useMemo(() => grilleAvecTirage(grille || GRILLE_IIP), []);
   const toutesQs = grilleActive.flatMap(axe =>
     (axe.questions||[]).map(q => ({ axe: axe.axe||axe.libelle, q: q.libelle||q, couleur: axe.couleur }))
@@ -1726,7 +1726,7 @@ function VueCandidatsGlobal({ candidats, fonctions, grille, onRecharger,
       const repLibre = c.entretien_reponses || {};
       const hasLibre = c.entretien_note || c.entretien_commentaire || Object.values(repLibre).some(r=>r&&(r.note>0||r.commentaire));
       const entretienLibre = hasLibre ? (() => {
-        const nc = c.entretien_note; const col = nc>=4?'var(--c-reussi)':nc>=3?'var(--c-attente)':'var(--c-refuse)';
+        const nc = c.entretien_note; const col = nc>=4?'var(--c-texte)':nc>=3?'#d97706':'var(--c-texte)';
         const rows = blockQ(repLibre);
         return `<div style="margin-bottom:8px">
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
@@ -1742,7 +1742,7 @@ function VueCandidatsGlobal({ candidats, fonctions, grille, onRecharger,
 
       // Entretiens par cours
       const entretiensCours = (c.candidatures||[]).filter(ca=>ca.note_globale||ca.commentaire||Object.keys(ca.reponses_json||{}).length).map(ca=>{
-        const nc = ca.note_globale; const col = nc>=4?'var(--c-reussi)':nc>=3?'var(--c-attente)':'var(--c-refuse)';
+        const nc = ca.note_globale; const col = nc>=4?'var(--c-texte)':nc>=3?'#d97706':'var(--c-texte)';
         const rows = blockQ(ca.reponses_json||{});
         return `<div style="margin-bottom:6px;background:#f8fafc;border-radius:4px;padding:5px 8px">
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:3px">
@@ -1821,7 +1821,7 @@ ${tous.map(candidatHtml).join('')}
         )}
         {filtres.map((c, idx) => {
           const entretienNote = c.entretien_note;
-          const noteColor = entretienNote >= 4 ? 'var(--c-reussi)' : entretienNote >= 3 ? 'var(--c-attente)' : 'var(--c-refuse)';
+          const noteColor = entretienNote >= 4 ? 'var(--c-texte)' : entretienNote >= 3 ? '#d97706' : 'var(--c-texte)';
           const docs = Object.values(c.docs_remis || {}).filter(Boolean).length;
           return (
             <button key={c.id} onClick={() => setFiche(c)}
@@ -2108,7 +2108,7 @@ function FicheCandidat({ candidat, fonctions, grille, onClose, onSaved }) {
                 } catch(e) { alert('Erreur : ' + e.message); }
               }}
               title="Créer la fiche prof sans attribuer de cours"
-              className="text-xs border border-green-600/40 bg-green-50 text-green-700 hover:bg-green-100 rounded px-2.5 py-1.5 flex items-center gap-1.5 font-medium">
+              className="text-xs border border-green-500/40 bg-green-500 text-white hover:bg-green-500 rounded px-2.5 py-1.5 flex items-center gap-1.5 font-medium">
               ➕ Recrutement global
             </button>
             {candidat.candidatures?.some(ca => ca.statut === 'retenu') && (
@@ -2302,7 +2302,7 @@ function FicheCandidat({ candidat, fonctions, grille, onClose, onSaved }) {
                             </button>
                           )}
                           {ca.statut === 'engage' && (
-                            <span className="text-xs bg-green-100 text-green-700 border border-green-300 rounded-champ px-2.5 py-0.5 font-semibold flex-shrink-0">
+                            <span className="text-xs bg-green-500 text-white border border-green-500 rounded-champ px-2.5 py-0.5 font-semibold flex-shrink-0">
                               ✓ Engagé
                             </span>
                           )}
@@ -2743,7 +2743,7 @@ function ModalAnalyseCv({ onClose, onResultat, candidatExistant = null }) {
                 )}
               </div>
 
-              {err && <div className="text-xs text-red-600 bg-red-50 rounded px-3 py-2 mt-2">{err}</div>}
+              {err && <div className="text-xs text-white bg-red-500 rounded px-3 py-2 mt-2">{err}</div>}
 
               <button onClick={analyser} disabled={!fichier || loading}
                 className="mt-3 w-full flex items-center justify-center gap-2 bg-iip-blue text-white py-2.5 rounded-xl font-medium text-sm hover:opacity-90 disabled:opacity-40 transition">
@@ -2952,7 +2952,7 @@ function ModalNouveauCandidat({ onClose, onSaved }) {
 
 /* ══════════════════════ ÉDITEUR DE GRILLE ══════════════════════ */
 
-const COULEURS_AXES = ['var(--c-disponible)','var(--c-faveur)','var(--c-reussi)','var(--c-attente)','var(--c-refuse)','#0891b2','#4f46e5','var(--c-attente)'];
+const COULEURS_AXES = ['var(--c-texte)','#7c3aed','var(--c-texte)','var(--c-attente)','#dc2626','#0891b2','#4f46e5','var(--c-attente)'];
 
 function EditeurGrille({ grille, onSaved }) {
   const [axes, setAxes]     = useState(null);
@@ -3355,7 +3355,7 @@ function EntretienLibre({ candidat, grille, onClose, onSaved, onAutoSave }) {
                   Questions administratives
                 </div>
                 <div className="px-4 py-3 space-y-3 text-sm text-gray-700">
-                  <div className="bg-amber-50 rounded-lg px-3 py-2 text-xs text-amber-800 font-medium">
+                  <div className="bg-amber-500 rounded-lg px-3 py-2 text-xs text-white font-medium">
                     Questions à poser systématiquement en fin d'entretien
                   </div>
                   <ul className="space-y-1.5 text-sm">

@@ -280,7 +280,7 @@ export default function DroitInscription({ etudId, annee, peutEcrire = true }) {
                     </div>
                   </div>
                   {dis.plafond_atteint && (
-                    <div className="text-[11px] text-sky-800 bg-sky-50 border border-sky-200 rounded-lg px-2 py-1">
+                    <div className="text-[11px] text-white bg-sky-500 border border-sky-500 rounded-lg px-2 py-1">
                       Plafonné à {eur(dis.plafond)}
                     </div>
                   )}

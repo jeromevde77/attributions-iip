@@ -23,21 +23,21 @@ const LIBELLES_PERIODE = { 7: '7 derniers jours', 90: '3 derniers mois' };
 // ── Config visuelle par type d'événement ──────────────────────────────────────
 const TYPE_CONFIG = {
   attribution: {
-    create: { label: 'Nouvelle attribution', color: 'var(--c-texte)', bg: '#dcfce7', icon: IconUserPlus },
-    delete: { label: 'Attribution retirée',  color: 'var(--c-texte)', bg: '#fee2e2', icon: IconClipboardList },
-    update: { label: 'Modification',         color: 'var(--c-texte)', bg: '#e0f2fe', icon: IconClipboardList },
+    create: { label: 'Nouvelle attribution', color: '#FFFFFF', bg: 'var(--c-reussi)', icon: IconUserPlus },
+    delete: { label: 'Attribution retirée',  color: '#FFFFFF', bg: 'var(--c-refuse)', icon: IconClipboardList },
+    update: { label: 'Modification',         color: '#FFFFFF', bg: 'var(--c-disponible)', icon: IconClipboardList },
   },
   recrutement: {
-    info: { label: 'Recrutement', color: 'var(--c-texte)', bg: '#ede9fe', icon: IconUserPlus },
+    info: { label: 'Recrutement', color: '#7c3aed', bg: 'rgb(var(--e-faveur-100))', icon: IconUserPlus },
   },
   systeme: {
-    info: { label: 'Lucie',       color: 'var(--c-texte)', bg: '#e8edf5', icon: IconSettings },
+    info: { label: 'Lucie',       color: 'var(--c-texte)', bg: 'rgb(var(--e-disponible-100))', icon: IconSettings },
   },
   anniversaire: {
     // La veille en teinte sourde, le jour même en ambre : l'un prépare,
     // l'autre appelle.
-    demain:     { label: 'Demain',      color: 'var(--c-texte)', bg: '#fef3c7', icon: IconCake },
-    aujourdhui: { label: "Aujourd'hui", color: 'var(--c-attente)', bg: '#fde68a', icon: IconCake },
+    demain:     { label: 'Demain',      color: '#FFFFFF', bg: 'var(--c-attente)', icon: IconCake },
+    aujourdhui: { label: "Aujourd'hui", color: 'var(--c-attente)', bg: 'rgb(var(--e-attente-100))', icon: IconCake },
   },
 };
 
@@ -51,9 +51,9 @@ function getConfig(type, action) {
    point d'exclamation : urgent ou dépassé. Une seule palette pour tous les
    rectangles de l'Accueil — trois genres, et rien entre eux. */
 const GENRES_NOTIF = {
-  info:   { bg: '#E0F2FE', fg: 'var(--c-disponible)', Icone: IconInfoCircle },
-  delai:  { bg: '#FEF3C7', fg: 'var(--c-attente)', Icone: IconClock },
-  urgent: { bg: '#FEE2E2', fg: 'var(--c-refuse)', Icone: IconExclamationCircle },
+  info:   { bg: 'var(--c-disponible)', fg: '#FFFFFF', Icone: IconInfoCircle },
+  delai:  { bg: 'rgb(var(--e-attente-100))', fg: 'var(--c-attente)', Icone: IconClock },
+  urgent: { bg: 'var(--c-refuse)', fg: '#FFFFFF', Icone: IconExclamationCircle },
 };
 function PastilleNotif({ genre }) {
   const g = GENRES_NOTIF[genre] || GENRES_NOTIF.info;

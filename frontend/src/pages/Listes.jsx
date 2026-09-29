@@ -602,7 +602,7 @@ export default function Listes({ integre = false, domaine = null }) {
 
   function genererGrilleHtml(d) {
     if (d.error) { alert(d.error); return; }
-    const NIV_PAL = ['var(--c-attente)','#60a5fa','#1e3a8a','#a855f7','#ec4899'];
+    const NIV_PAL = ['#f97316','#60a5fa','var(--c-texte)','#a855f7','#ec4899'];
     const niveaux = [...new Set(d.ues.map(u => u.ue_niv).filter(Boolean))];
     const nivColor = niv => NIV_PAL[niveaux.indexOf(niv) % NIV_PAL.length] || '#6b7280';
     const S = 'padding:1px 5px;font-size:10px;';
@@ -814,7 +814,7 @@ export default function Listes({ integre = false, domaine = null }) {
     const sec = (d.sections || []).find(s => s.section === secCode);
     if (!sec) { alert('Aucune donnée ETP pour cette section. Choisissez une section.'); return; }
 
-    const BLEU = '#1B2B4B', BLEU2 = '#163A6B', TURQ = '#00AACC', CLAIR = '#E1ECF5', GRIS = '#F4F6FA', VIOLET = 'var(--c-faveur)';
+    const BLEU = '#1B2B4B', BLEU2 = '#163A6B', TURQ = '#00AACC', CLAIR = 'rgb(var(--e-disponible-100))', GRIS = '#F4F6FA', VIOLET = '#7c3aed';
     const fmt = n => Math.round(n || 0).toLocaleString('fr-BE').replace(/\u202f/g, ' ');
     const fmtEtp = n => (n || 0).toFixed(4).replace('.', ',');
     const fmtEtp2 = n => (n || 0).toFixed(2).replace('.', ',');
@@ -1094,7 +1094,7 @@ export default function Listes({ integre = false, domaine = null }) {
 
   function genererRapportHtml(d, filtres) {
     if (d.error) { alert(d.error); return; }
-    const NIV_PAL = ['var(--c-attente)','#60a5fa','#1e3a8a','#a855f7','#ec4899'];
+    const NIV_PAL = ['#f97316','#60a5fa','var(--c-texte)','#a855f7','#ec4899'];
     const niveaux = [...new Set(d.ues?.map(u => u.ue_niv).filter(Boolean))].sort((a,b)=>parseInt(a.match(/\d+$/)?.[0]??99)-parseInt(b.match(/\d+$/)?.[0]??99));
     const getNivCol = niv => NIV_PAL[niveaux.indexOf(niv) % NIV_PAL.length] || '#6b7280';
     const fmt = n => (n != null && n !== '') ? String(n) : '0';
@@ -1955,7 +1955,7 @@ function HeuresContactView({ sections, annee }) {
 
   const ORDRE_BLOC = ['BA1','BA2','BA3','BA4','Autres'];
   const BLOC_LABEL = { BA1:'Bloc 1 (BA1)', BA2:'Bloc 2 (BA2)', BA3:'Bloc 3 (BA3)', BA4:'Bloc 4 (BA4)', Autres:'Autres' };
-  const BLOC_COLOR = { BA1:'var(--c-attente)', BA2:'var(--c-disponible)', BA3:'#1e3a8a', BA4:'#a855f7', Autres:'#6b7280' };
+  const BLOC_COLOR = { BA1:'#f97316', BA2:'#3b82f6', BA3:'var(--c-texte)', BA4:'#a855f7', Autres:'#6b7280' };
 
   const parBloc = (ues) => {
     const map = {};
@@ -1966,7 +1966,7 @@ function HeuresContactView({ sections, annee }) {
   const BLEU = '#1B2B4B', TURQ = '#00AACC', GRIS = '#F4F6FA';
 
   const imprimer = () => {
-    const BCOL = { BA1:'var(--c-attente)', BA2:'var(--c-disponible)', BA3:'#1e3a8a', BA4:'#a855f7', Autres:'#6b7280' };
+    const BCOL = { BA1:'#f97316', BA2:'#3b82f6', BA3:'var(--c-texte)', BA4:'#a855f7', Autres:'#6b7280' };
     const BLAB = { BA1:'Bloc 1 (BA1)', BA2:'Bloc 2 (BA2)', BA3:'Bloc 3 (BA3)', BA4:'Bloc 4 (BA4)', Autres:'Autres' };
     const ordrB = ['BA1','BA2','BA3','BA4','Autres'];
     const getBl = ues => { const m={}; for(const u of ues){const b=u.bloc||'Autres';if(!m[b])m[b]=[];m[b].push(u);} return ordrB.filter(b=>m[b]).map(b=>({bloc:b,ues:m[b]})); };

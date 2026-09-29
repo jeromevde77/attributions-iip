@@ -50,6 +50,23 @@ export default {
           donnees:   'rgb(var(--c-donnees-rgb) / <alpha-value>)',
         }
       },
+      // LA COULEUR NE VA JAMAIS AU TEXTE (règle du modèle ; Charles, 29
+      // septembre 2026 : « reste à ce qui est dans la configuration »). Pour
+      // le TEXTE seulement, les familles d'état et d'accent donnent l'encre —
+      // la couleur reste au liseré, au fond pâle et au contour. Les nuances
+      // claires (50–300) restent pâles : ce sont celles qu'on écrit sur un
+      // fond sombre.
+      textColor: Object.fromEntries([
+        ['emerald', 'reussi'], ['green', 'reussi'], ['lime', 'reussi'],
+        ['amber', 'attente'], ['orange', 'attente'], ['yellow', 'attente'],
+        ['red', 'refuse'], ['rose', 'refuse'],
+        ['violet', 'faveur'], ['purple', 'faveur'], ['fuchsia', 'faveur'],
+        ['blue', 'disponible'], ['sky', 'disponible'],
+        ['teal', 'accent'], ['cyan', 'accent'], ['pink', 'helb'],
+      ].map(([famille, reglage]) => [famille, Object.fromEntries(
+        [50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 950].map(n => [n, n <= 300
+          ? `rgb(var(--e-${reglage}-${n}) / <alpha-value>)`
+          : 'rgb(var(--c-texte-rgb) / <alpha-value>)']))])),
       // ─── L'ÉCHELLE, ET RIEN EN DEHORS ───────────────────────────────────
       // Quatre rayons, trois élévations, une courbe. C'est cela — plus que les
       // couleurs — qui sépare un système d'un assemblage.

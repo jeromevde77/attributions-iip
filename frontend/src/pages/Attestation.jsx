@@ -706,7 +706,7 @@ export default function Attestation() {
           {l.mention
             ? <span className={`text-[11px] font-bold px-2 py-0.5 rounded whitespace-nowrap ${mentionColorClass(l._calcPct)}`}>{l._calcPct}% — {l.mention}</span>
             : l._complet
-              ? <span className="text-[11px] font-bold px-2 py-0.5 rounded whitespace-nowrap text-red-700 bg-red-50">{l._calcPct}% — Échec</span>
+              ? <span className="text-[11px] font-bold px-2 py-0.5 rounded whitespace-nowrap text-white bg-red-500">{l._calcPct}% — Échec</span>
               : <span className="text-gray-300" title="UE manquantes">—</span>}
         </td>
         <td className="px-2 py-1">

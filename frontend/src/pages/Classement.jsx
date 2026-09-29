@@ -115,7 +115,7 @@ export default function Classement({ annee: anneeProp }) {
                 <td className="px-2 py-2">
                   <span className="font-medium text-slate-800">{nomPropre(l.nom, l.prenom)}</span>
                   {l.exclu_tp && (
-                    <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded-champ bg-amber-100 text-amber-900 font-bold">
+                    <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded-champ bg-amber-500 text-white font-bold">
                       définitif TP — demande écrite (15/04) manquante
                     </span>
                   )}

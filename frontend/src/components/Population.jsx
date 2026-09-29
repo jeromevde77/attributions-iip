@@ -117,7 +117,7 @@ export default function Population({ annee }) {
           </table>
         </div>
         {ues.length > 0 && ues.filter(u => u.prevus != null).length < ues.length && (
-          <p className="text-[12px] text-amber-800 mt-1.5">
+          <p className="text-[12px] text-[color:var(--c-attente)] mt-1.5">
             {ues.length - ues.filter(u => u.prevus != null).length} unité(s) sur {ues.length} n'ont pas d'effectif prévu :
             l'écart ne se calcule pas pour elles. Il se saisit dans la planification de l'unité.
           </p>

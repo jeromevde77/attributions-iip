@@ -150,7 +150,7 @@ export default function CalculateurAnciennete({ profId, estAdmin, peutEcrire, an
             <div className="flex gap-4 text-[12px] text-slate-500">
               <span>ETP : <b className="text-slate-700">{a.etp_total}</b></span>
               <span>Jours PO : <b className={a.jours_po >= 360 ? 'text-amber-700' : 'text-slate-700'}>{a.jours_po}</b>
-                {a.jours_po >= 360 && <span className="ml-1 text-[10px] bg-amber-100 text-amber-800 px-1 rounded">plafonné</span>}
+                {a.jours_po >= 360 && <span className="ml-1 text-[10px] bg-amber-500 text-white px-1 rounded">plafonné</span>}
               </span>
             </div>
           </div>

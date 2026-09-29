@@ -215,7 +215,7 @@ export default function HoraireSemaine() {
                       title={s.conflits?.length ? `Conflit : ${s.conflits.map(x => RAISONS[x]).join(', ')}` : undefined}
                       className={`absolute left-[3px] right-[3px] overflow-hidden rounded-r-[8px] px-1.5 py-1 text-[11px] leading-tight ${peutEcrire ? 'cursor-grab' : 'cursor-pointer'} ${g ? 'opacity-80 z-10' : ''}`}
                       style={{ top: (debut - H0 * 60) / 15 * PX, height: (fin - debut) / 15 * PX - 2, borderLeft: `4px solid ${c}`,
-                        background: s.annule ? 'repeating-linear-gradient(45deg,#F4F5F7 0 6px,#fff 6px 12px)' : `color-mix(in srgb, ${c} 15%, #fff)`,
+                        background: s.annule ? 'repeating-linear-gradient(45deg,#F4F5F7 0 6px,#fff 6px 12px)' : `#fff`,
                         outline: s.conflits?.length ? '2px solid #9D4A38' : 'none', outlineOffset: -2 }}>
                       <div className={`font-semibold truncate ${s.annule ? 'line-through text-slate-400' : 'text-[#1B2B4B]'}`}>{s.cours_code} {s.cours_nom || s.matiere || ''}</div>
                       <div className="truncate text-slate-600">{s.annule ? 'Annulée' : nomProf(s)}{s.sous_groupe ? ` · gr. ${s.sous_groupe}` : s.groupe_nom && s.groupe_nom !== 'A' ? ` · gr. ${s.groupe_nom}` : ''}</div>
@@ -228,7 +228,7 @@ export default function HoraireSemaine() {
                 {glisse?.groupe && glisse.d === d && (
                   <div className="absolute left-[3px] right-[3px] rounded-r-[8px] px-1.5 py-1 text-[11px] opacity-80 z-10"
                     style={{ top: (glisse.debut - H0 * 60) / 15 * PX, height: (glisse.fin - glisse.debut) / 15 * PX - 2,
-                      borderLeft: `4px solid ${teinte(glisse.groupe.code_cours)}`, background: `color-mix(in srgb, ${teinte(glisse.groupe.code_cours)} 15%, #fff)` }}>
+                      borderLeft: `4px solid ${teinte(glisse.groupe.code_cours)}`, background: `#fff` }}>
                     <b>{glisse.groupe.code_cours}</b> {lisible(deHm(glisse.debut))}–{lisible(deHm(glisse.fin))}
                   </div>
                 )}

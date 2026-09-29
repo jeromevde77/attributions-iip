@@ -52,9 +52,9 @@ import { nomListe, parNom } from '../lib/nom.js';
 const PEUT_DEVALIDER = ['admin', 'directeur', 'directeur_adjoint'];
 
 export const TEINTE_PORTE = {
-  admission: { t: 'var(--c-reussi)', f: '#15803D26', b: '#15803D66' },  // vert
+  admission: { t: 'var(--c-texte)', f: '#15803D26', b: '#15803D66' },  // vert
   va:        { t: '#2D4470', f: '#2D447020', b: '#2D447066' },  // bleu
-  vae:       { t: 'var(--c-faveur)', f: '#8B5CF624', b: '#8B5CF666' },  // violet
+  vae:       { t: 'var(--c-texte)', f: '#8B5CF624', b: '#8B5CF666' },  // violet
 };
 
 const DECISIONS = [
@@ -485,7 +485,7 @@ function LigneEtudiant({ etudiant, annee, ouvert, onBasculer, onAjouterUE,
             une erreur qui reste. */}
         <button onClick={onSupprimerLigne}
           title="Retirer cet étudiant du registre pour cette année"
-          className="text-slate-300 hover:text-red-800">
+          className="text-slate-300 hover:text-[color:var(--c-refuse)]">
           <IconTrash size={16} />
         </button>
       </div>
@@ -666,7 +666,7 @@ function UniteValorisee({ va, annee, onSupprimer, onDocuments, onDossier, onChan
             {form.decision === 'refusee' ? (
               <label className="block text-xs">
                 <span className="block font-semibold text-slate-500 uppercase tracking-wide mb-1">
-                  Motif du refus <span className="text-red-800">— obligatoire</span>
+                  Motif du refus <span className="text-[color:var(--c-refuse)]">— obligatoire</span>
                 </span>
                 <textarea rows={3} value={form.motif_refus}
                   placeholder="Ce que le Conseil a constaté : pièces insuffisantes, acquis non démontrés…"
@@ -2417,7 +2417,7 @@ function EtapeDecision({ dossier, bases, onEnregistrer, enCours }) {
                   dit ici plutôt que de le faire découvrir au refus du serveur. */}
               {cible === 'cours' && composantes?.cours?.length > 0
                 && composantes.cours.every(c => coches.has(c.cours_code)) && (
-                <p className="text-[12px] text-red-800">
+                <p className="text-[12px] text-[color:var(--c-refuse)]">
                   Toutes les activités sont cochées : une dispense partielle ne peut pas
                   couvrir l'unité entière (RDE art. 29 §2). C'est alors une dispense complète.
                 </p>
@@ -2555,7 +2555,7 @@ const ETAPES = [
  * `ETAPES` est la seule table, partagée avec « Analyser en série » : deux
  * frises pour un même circuit finiraient par compter différemment.
  */
-const VERT = 'var(--c-reussi)', BRIQUE = 'var(--c-refuse)', GRIS = '#CBD5E1';
+const VERT = 'var(--c-texte)', BRIQUE = 'var(--c-refuse)', GRIS = '#CBD5E1';
 
 function etatEtape(d, cle) {
   if (cle === 'recevabilite' && d.recevable === 0) return 'refus';
@@ -2593,8 +2593,8 @@ export function FriseCircuit({ dossier, compact = false }) {
         ))}
       </span>
       <span className={`${compact ? 'text-[10px]' : 'text-[11px]'} ${
-        arret >= 0 ? 'text-red-800'
-          : courante < 0 ? 'text-emerald-800' : 'text-slate-500'}`}>
+        arret >= 0 ? 'text-[color:var(--c-refuse)]'
+          : courante < 0 ? 'text-[#15803D]' : 'text-slate-500'}`}>
         {libelle}
       </span>
     </span>
@@ -3736,7 +3736,7 @@ function EtapeTest({ dossier, onEnregistrer, enCours }) {
       {/* LA COPIE SE DÉPOSE, ET CE N'EST PAS UNE POLITESSE. Quatre ans de
           conservation, présentable à l'inspection — si elle n'est pas déposée
           le jour même, elle ne le sera jamais. */}
-      <p className="text-[12px] text-amber-800">
+      <p className="text-[12px] text-[color:var(--c-attente)]">
         La copie du test doit être déposée au dossier de l'étudiant, en pièce
         « Copie du test ou de l'épreuve d'admission » : elle se conserve quatre ans
         et se présente aux services d'inspection (AGCF du 13.12.2024, art. 5 al. 2).

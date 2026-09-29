@@ -589,7 +589,7 @@ function AccesLuciePanel({ profId, detail }) {
         )}
       </div>
       <div className="p-4 space-y-3">
-        {err && <div className="text-xs text-red-600 bg-red-50 border border-red-200 rounded px-3 py-2">{err}</div>}
+        {err && <div className="text-xs text-white bg-red-500 border border-red-500 rounded px-3 py-2">{err}</div>}
         {pwd && (
           <div className="bg-amber-50 border border-amber-300 rounded px-3 py-2">
             <div className="text-xs font-semibold text-amber-800 flex items-center gap-1.5 mb-1"><IconKey size={14} /> Mot de passe — à noter maintenant</div>
@@ -1165,8 +1165,8 @@ const MOTIFS_FIN = [
 
 const ETAPES_DISC = [
   { val: 'ouverture',   label: 'Ouverture du dossier',   color: '#6b7280' },
-  { val: 'convocation', label: 'Convocation',             color: 'var(--c-texte)' },
-  { val: 'audition',    label: 'Audition',                color: 'var(--c-texte)' },
+  { val: 'convocation', label: 'Convocation',             color: '#d97706' },
+  { val: 'audition',    label: 'Audition',                color: '#7c3aed' },
   { val: 'decision',    label: 'Décision',                color: 'var(--c-texte)' },
   { val: 'appel',       label: 'Recours / Appel',         color: 'var(--c-texte)' },
   { val: 'cloture',     label: 'Clôture',                 color: 'var(--c-texte)' },
@@ -2229,7 +2229,7 @@ export default function Professeurs({ vue: vueInitiale = 'membres' }) {
               {/* UN MÊME RAYON POUR TOUT — une pastille pleinement ronde ici,
                   des coins de huit partout ailleurs : c'est le genre d'écart
                   qu'on ne sait pas nommer mais qu'on voit. */}
-              <span className="bg-orange-100 text-orange-700 border border-orange-300 rounded-champ px-2.5 py-0.5 text-[11px] font-bold">
+              <span className="bg-orange-500 text-white border border-orange-500 rounded-champ px-2.5 py-0.5 text-[11px] font-bold">
                 À désigner
               </span>
             </span>
@@ -2301,7 +2301,7 @@ export default function Professeurs({ vue: vueInitiale = 'membres' }) {
                   </button>
                   <button onClick={() => { genererFicheAttributions(p.id, 'HELB'); setFicheMenu(null); }}
                     className="text-left px-2 py-1.5 h-9 rounded hover:bg-gray-50 text-sm flex items-center gap-2">
-                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-purple-100 text-purple-700">HELB</span>
+                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-purple-500 text-white">HELB</span>
                     <span className="text-gray-600 text-xs">Contrat HELB</span>
                   </button>
                 </div>
@@ -2469,7 +2469,7 @@ export default function Professeurs({ vue: vueInitiale = 'membres' }) {
                         <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-iip-turquoise/10 text-iip-blue">IIP</span><span className="text-gray-600 text-xs">Contrat IIP</span>
                       </button>
                       <button onClick={() => imprimerSelectionFiches('HELB')} className="text-left px-2 py-1.5 rounded hover:bg-gray-50 text-sm flex items-center gap-2">
-                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-purple-100 text-purple-700">HELB</span><span className="text-gray-600 text-xs">Contrat HELB</span>
+                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-purple-500 text-white">HELB</span><span className="text-gray-600 text-xs">Contrat HELB</span>
                       </button>
                     </div>
                   </>
@@ -2495,7 +2495,7 @@ export default function Professeurs({ vue: vueInitiale = 'membres' }) {
                         <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-iip-turquoise/10 text-iip-blue">IIP</span><span className="text-gray-600 text-xs">Contrat IIP</span>
                       </button>
                       <button onClick={() => exporterZip('HELB')} className="text-left px-2 py-1.5 rounded hover:bg-gray-50 text-sm flex items-center gap-2">
-                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-purple-100 text-purple-700">HELB</span><span className="text-gray-600 text-xs">Contrat HELB</span>
+                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-purple-500 text-white">HELB</span><span className="text-gray-600 text-xs">Contrat HELB</span>
                       </button>
                     </div>
                   </>

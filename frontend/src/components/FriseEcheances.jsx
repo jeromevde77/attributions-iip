@@ -143,7 +143,7 @@ export default function FriseEcheances({ taches = [], onOuvrir }) {
                       className={`h-4 rounded-champ border border-slate-200
                         border-l-[3px] bg-white hover:shadow-pose
                         ${fait ? 'opacity-80' : ''}`}
-                      style={{ borderLeftColor: fait ? 'var(--c-reussi)' : couleurRail(u) }} />
+                      style={{ borderLeftColor: fait ? 'var(--c-texte)' : couleurRail(u) }} />
                   );
                 })}
                 {j.taches.length > 8 && (
@@ -179,7 +179,7 @@ export default function FriseEcheances({ taches = [], onOuvrir }) {
                         flex flex-wrap gap-x-4">
           {sansEcheance.length > 0 && (
             <span>
-              <b className="text-amber-800">{sansEcheance.length}</b> sans échéance —
+              <b className="text-[color:var(--c-attente)]">{sansEcheance.length}</b> sans échéance —
               {' '}elles ne tombent jamais, donc elles ne se font pas.
             </span>
           )}

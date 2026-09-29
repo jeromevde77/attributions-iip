@@ -355,7 +355,7 @@ function LigneBudget({ l, depenses, peutEcrire, onEditer, onSupprimer, onDepense
         <td className="px-3 py-2 text-[13px] text-slate-800">
           {l.details}
           {l.a_charge && l.a_charge !== 'IIP' && (
-            <span className="ml-1.5 text-[10px] px-1 py-0.5 rounded bg-violet-50 text-violet-700 border border-violet-200">
+            <span className="ml-1.5 text-[10px] px-1 py-0.5 rounded bg-violet-500 text-white border border-violet-500">
               {l.a_charge}
             </span>
           )}

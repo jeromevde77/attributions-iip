@@ -113,7 +113,7 @@ function ExtDotPanel({ annee }) {
               <div key={pot} className="rounded-lg border border-teal-200 bg-teal-50 p-3">
                 <div className="flex justify-between items-center mb-1">
                   <span className="font-bold text-sm">{pot}</span>
-                  <span className="text-[10px] bg-teal-200 text-teal-800 px-1.5 py-0.5 rounded font-bold">∞ Illimité</span>
+                  <span className="text-[10px] bg-teal-500 text-white px-1.5 py-0.5 rounded font-bold">∞ Illimité</span>
                 </div>
                 <div className="text-xs text-gray-600 mb-2">
                   Enveloppe <b>illimitée</b> · Consommé : <b>{v.consomme}</b> pér. B
@@ -126,7 +126,7 @@ function ExtDotPanel({ annee }) {
             <div key={pot} className={`rounded-lg border p-3 ${depasse ? 'border-orange-300 bg-orange-50' : 'border-teal-200 bg-teal-50'}`}>
               <div className="flex justify-between items-center mb-1">
                 <span className="font-bold text-sm">{pot}</span>
-                {depasse && <span className="text-[10px] bg-orange-200 text-orange-800 px-1.5 py-0.5 rounded font-bold">⚠ DOT {v.dot} pér. B</span>}
+                {depasse && <span className="text-[10px] bg-orange-500 text-white px-1.5 py-0.5 rounded font-bold">⚠ DOT {v.dot} pér. B</span>}
               </div>
               <div className="text-xs text-gray-600 mb-2">
                 Plafond EXT : <b>{v.plafond}</b> pér. B · Consommé : <b>{v.consomme}</b> pér. B
@@ -181,7 +181,7 @@ function EnvCard({ env }) {
       </div>
       {/* Badge dépassement */}
       {depasse && (
-        <span className="text-[10px] bg-orange-100 text-orange-700 border border-orange-200 px-1.5 py-0.5 rounded font-bold flex-shrink-0 whitespace-nowrap">
+        <span className="text-[10px] bg-orange-500 text-white border border-orange-500 px-1.5 py-0.5 rounded font-bold flex-shrink-0 whitespace-nowrap">
           ⚠ +{fmt(dot)}
         </span>
       )}
@@ -320,7 +320,7 @@ function DotationComparaison({ civil }) {
     });
   }
 
-  const NIV_PAL = ['var(--c-attente)','#60a5fa','#1e3a8a','#a855f7','#ec4899'];
+  const NIV_PAL = ['#f97316','#60a5fa','var(--c-texte)','#a855f7','#ec4899'];
   const niveaux = data ? [...new Set(data.sections.flatMap(s => s.ues.map(u => u.ue_niv).filter(Boolean)))]
     .sort((a,b) => parseInt(a.match(/\d+$/)?.[0]??99) - parseInt(b.match(/\d+$/)?.[0]??99)) : [];
   const nivColor = niv => NIV_PAL[niveaux.indexOf(niv) % NIV_PAL.length] || '#6b7280';
@@ -969,7 +969,7 @@ export default function Pilotage({ vue = 'tout' }) {
                         Reste pour la rentrée
                       </div>
                       <div className={`text-lg font-bold leading-tight ${
-                        d.solde_apres_jan_juin < 0 ? 'text-red-800' : 'text-emerald-800'}`}>
+                        d.solde_apres_jan_juin < 0 ? 'text-[color:var(--c-refuse)]' : 'text-emerald-800'}`}>
                         {fmt(d.solde_apres_jan_juin)}
                       </div>
                       <div className="text-[10px] text-gray-500">
@@ -1204,7 +1204,7 @@ export default function Pilotage({ vue = 'tout' }) {
                       <tr key={row.annee_civile} className={`border-t border-gray-100 ${row.annee_civile === selYear ? 'bg-iip-gold/5' : 'hover:bg-gray-50'}`}>
                         <td className={`px-3 py-2 font-semibold ${row.annee_civile === selYear ? 'text-iip-gold' : 'text-gray-700'}`}>
                           {row.annee_civile} {row.annee_civile === selYear ? '◄' : ''}
-                          {row.derogation && <span className="ml-1 text-[10px] bg-amber-100 text-amber-600 px-1 rounded">dérог.</span>}
+                          {row.derogation && <span className="ml-1 text-[10px] bg-amber-500 text-white px-1 rounded">dérог.</span>}
                           {row.partiel && <span className="ml-1 text-[10px] bg-iip-turquoise/10 text-iip-blue px-1 rounded">partiel</span>}
                         </td>
                         <td className="px-3 py-2 text-right text-gray-500 font-mono text-xs">{row.pep_annee_utilisee || '—'}</td>
@@ -1221,9 +1221,9 @@ export default function Pilotage({ vue = 'tout' }) {
                             : '—'}
                         </td>
                         <td className="px-3 py-2 text-center">
-                          {row.zone === 'NEUTRE' && <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-champ">Neutre ±8 %</span>}
+                          {row.zone === 'NEUTRE' && <span className="text-xs bg-green-500 text-white px-2 py-0.5 rounded-champ">Neutre ±8 %</span>}
                           {row.zone === 'HAUSSE' && <span className="text-xs bg-iip-turquoise/10 text-iip-blue px-2 py-0.5 rounded-champ">↑ Hausse &gt;+8 %</span>}
-                          {row.zone === 'BAISSE' && <span className="text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded-champ">↓ Baisse &lt;−8 %</span>}
+                          {row.zone === 'BAISSE' && <span className="text-xs bg-red-500 text-white px-2 py-0.5 rounded-champ">↓ Baisse &lt;−8 %</span>}
                           {row.zone == null && <span className="text-gray-300 text-xs">—</span>}
                         </td>
                         <td className="px-3 py-2 text-right">

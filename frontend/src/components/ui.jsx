@@ -1173,7 +1173,7 @@ export function PieceFenetre({ icone: Ic, titre, sous, meta, ton = 'neutre',
         border transition-colors duration-150 ease-ios
         ${desactive ? 'opacity-45' : onClick ? 'hover:border-slate-400' : ''}
         ${actif ? 'bg-slate-50' : 'bg-white'}`}
-      style={{ borderColor: actif || teinte ? `color-mix(in srgb, ${teinte || 'var(--c-principal)'} 33%, transparent)` : '#e2e8f0' }}>
+      style={{ borderColor: actif || teinte ? `rgb(var(--gris-200))` : '#e2e8f0' }}>
       {Ic && <Ic size={17} className="flex-shrink-0"
         style={{ color: teinte || '#94a3b8' }} />}
       <span className="min-w-0 flex-1">

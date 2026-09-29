@@ -109,7 +109,7 @@ export default function NominationsPanel({ profId }) {
                 </div>
               </div>
               <button type="button" onClick={() => setRtPour(n)} title="Remise au travail (UE non organisée)"
-                className="text-[11px] bg-amber-100 text-amber-700 px-2 py-1 rounded hover:bg-amber-200 whitespace-nowrap">
+                className="text-[11px] bg-amber-500 text-white px-2 py-1 rounded hover:bg-amber-500 whitespace-nowrap">
                 RT
               </button>
               <button type="button" onClick={() => supprimer(n.id)} className="text-gray-400 hover:text-red-500 text-sm"><IconTrash size={15} /></button>
@@ -206,7 +206,7 @@ export default function NominationsPanel({ profId }) {
           </label>
           {form.ueAbsente ? (
             <>
-              <div className="bg-amber-50 text-amber-700 text-[11px] rounded px-2 py-1.5 h-9">
+              <div className="bg-amber-500 text-white text-[11px] rounded px-2 py-1.5 h-9">
                 Code FWB : <strong>Code inconnu</strong> — saisissez librement le cours et le nombre de périodes.
               </div>
               <div className="grid grid-cols-3 gap-2">

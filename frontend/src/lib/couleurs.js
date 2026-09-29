@@ -76,17 +76,19 @@ export function echelle(hex) {
  * porte. Pour un état, les classes de Tailwind ne produisent donc que ce que
  * dit le modèle de la tuile : le FOND PÂLE (11 %), le CONTOUR (30 %), la
  * COULEUR elle-même, et l'ENCRE du texte — la couleur ne va jamais au texte.
- *   50–100 fond pâle · 200–300 contour · 400–700 la couleur · 800–950 l'encre
+ *   50–100 blanc · 200–300 le gris des filets · 400–700 la couleur · 800–950 l'encre
  * Les échelles de l'accent, du principal et des données restent graduées :
  * elles servent au survol et aux nuances d'une série, pas à un état. */
-export const ETATS_REGLES = ['reussi', 'attente', 'refuse', 'faveur', 'disponible'];
+export const ETATS_REGLES = ['reussi', 'attente', 'refuse', 'faveur', 'disponible', 'accent', 'helb'];
 const pale = (c, k) => c.map(x => Math.round(255 - (255 - x) * k)).join(' ');
 export function echelleEtat(hex) {
   const c = canaux(hex);
   if (!c) return null;
   const e = {};
-  for (const n of [50, 100]) e[n] = pale(c, 0.11);
-  for (const n of [200, 300]) e[n] = pale(c, 0.30);
+  // PLUS DE PÂLE (Charles, 29 septembre 2026 : « trop de teintes partout ») :
+  // les fonds clairs d'un état sont BLANCS, ses contours ceux des filets.
+  for (const n of [50, 100]) e[n] = '255 255 255';
+  for (const n of [200, 300]) e[n] = 'var(--gris-200)';
   for (const n of [400, 500, 600, 700]) e[n] = c.join(' ');
   for (const n of [800, 900, 950]) e[n] = 'var(--c-texte-rgb)';
   return e;

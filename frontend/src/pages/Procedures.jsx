@@ -1393,7 +1393,7 @@ function OutilFraude({ initialPayload, onPayloadConsumed }) {
               <label key={val} className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition ${decision===val?'bg-green-50 border-green-500':'bg-white border-gray-300 hover:bg-gray-50'}`}>
                 <input type="radio" name="decision" value={val} checked={decision===val} onChange={() => setDecision(val)} className="accent-red-700" />
                 <span className="text-sm flex-1">{label}</span>
-                {recommande && <span className="text-xs bg-green-100 text-green-800 border border-green-300 rounded-champ px-2 py-0.5">Recommandé</span>}
+                {recommande && <span className="text-xs bg-green-500 text-white border border-green-500 rounded-champ px-2 py-0.5">Recommandé</span>}
               </label>
             ))}
           </div>
@@ -1418,7 +1418,7 @@ function OutilFraude({ initialPayload, onPayloadConsumed }) {
             {profsPresents.size > 0 && (
               <div className="mt-2 flex flex-wrap gap-1">
                 {profs.filter(p => profsPresents.has(p.id)).map(p => (
-                  <span key={p.id} className="text-xs bg-green-100 text-green-800 border border-green-300 rounded-champ px-2 py-0.5 inline-flex items-center gap-1"><IconCheck size={12} /> {p.nomComplet}</span>
+                  <span key={p.id} className="text-xs bg-green-500 text-white border border-green-500 rounded-champ px-2 py-0.5 inline-flex items-center gap-1"><IconCheck size={12} /> {p.nomComplet}</span>
                 ))}
               </div>
             )}

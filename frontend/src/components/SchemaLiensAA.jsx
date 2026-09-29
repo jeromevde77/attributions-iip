@@ -144,7 +144,7 @@ export default function SchemaLiensAA({ ueNum, annee, onClose, onEnregistre }) {
       ok, modifie, parite, libelle, quoi,
       // Vert : valide ET enregistré. Ambre : valide, reste à enregistrer.
       // Rouge : la répartition ne tient pas.
-      ton: !ok ? 'var(--c-refuse)' : modifie ? 'var(--c-attente)' : 'var(--c-reussi)',
+      ton: !ok ? 'var(--c-texte)' : modifie ? 'var(--c-attente)' : 'var(--c-texte)',
     };
   };
 
@@ -396,7 +396,7 @@ export default function SchemaLiensAA({ ueNum, annee, onClose, onEnregistre }) {
           {!integree && (
             <label className={`flex items-start gap-2.5 px-3 py-2 rounded-xl border cursor-pointer
               ${unique ? 'border-iip-blue/40' : 'bg-slate-50 border-slate-200'}`}
-              style={unique ? { background: 'color-mix(in srgb, #1B2B4B 6%, #fff)' } : undefined}>
+              style={unique ? { background: '#fff' } : undefined}>
               <input type="checkbox" checked={unique} disabled={enCours}
                 onChange={e => basculerUnique(e.target.checked)} className="mt-0.5 w-4 h-4" />
               <span className="text-[13px]">
@@ -571,7 +571,7 @@ export default function SchemaLiensAA({ ueNum, annee, onClose, onEnregistre }) {
                         <rect x={p.x} y={p.y} width={L} height={H} rx="8"
                           fill={c.non_evalue ? '#F1F5F9' : (lien?.cible === c.cours_code ? '#EFF6FF' : '#F8FAFC')}
                           stroke={c.non_evalue ? '#CBD5E1'
-                            : survol?.cours === c.cours_code ? 'var(--c-disponible)' : 'var(--c-principal)'}
+                            : survol?.cours === c.cours_code ? 'var(--c-texte)' : 'var(--c-principal)'}
                           strokeDasharray={c.non_evalue ? '4 3' : ''}
                           strokeWidth={survol?.cours === c.cours_code ? 2.2 : 1.2} />
                         <text x={p.x + 8} y={p.y + 14} fontSize="11" fontWeight="700"

@@ -314,12 +314,12 @@ export default function RepartitionPeriodes() {
                             {s.ues} organisation(s) · {nb(s.attribue)} pér. attribuées
                           </span>
                           {!s.boucle && (
-                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-red-100 text-red-700 font-normal">
+                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-red-500 text-white font-normal">
                               écart de bouclage
                             </span>
                           )}
                           {s.hors_organique > 0 && (
-                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-violet-100 text-violet-700 font-normal">
+                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-violet-500 text-white font-normal">
                               dont {nb(s.hors_organique)} hors dotation
                             </span>
                           )}
@@ -402,7 +402,7 @@ function UeBloc({ u, val, editer, cle, modifs, onAppliquerDates }) {
             {fr(u.date_debut)} → {fr(u.date_fin)}
           </span>
           {u.pot && u.pot !== 'organique' && (
-            <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded bg-violet-100 text-violet-800"
+            <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded bg-violet-500 text-white"
               title="Cette UE est financée par une enveloppe fermée, non par la dotation organique.">
               {u.pot}
             </span>

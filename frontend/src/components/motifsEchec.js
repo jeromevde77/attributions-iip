@@ -20,7 +20,7 @@ export const MOTIFS_ECHEC = [
   {
     cle: 'theorie',
     libelle: 'Maîtrise des notions théoriques',
-    couleur: 'var(--c-disponible)',
+    couleur: 'var(--c-texte)',
     motifs: [
       { cle: 'th_restitution', texte: "Les notions théoriques que mobilise cet acquis ne sont pas restituées avec exactitude." },
       { cle: 'th_lacunes', texte: "Des lacunes portant sur les fondements de cet acquis subsistent au terme de l'unité." },
@@ -32,7 +32,7 @@ export const MOTIFS_ECHEC = [
   {
     cle: 'integration',
     libelle: 'Intégration et mise en relation',
-    couleur: 'var(--c-faveur)',
+    couleur: '#7c3aed',
     motifs: [
       { cle: 'in_juxtapose', texte: "Les éléments de cet acquis sont juxtaposés sans être mis en relation." },
       { cle: 'in_lien', texte: "Le lien entre les notions de cet acquis et celles des autres acquis de l'unité n'est pas établi." },
@@ -43,7 +43,7 @@ export const MOTIFS_ECHEC = [
   {
     cle: 'transfert',
     libelle: 'Transfert en situation',
-    couleur: 'var(--c-reussi)',
+    couleur: 'var(--c-texte)',
     motifs: [
       { cle: 'tr_situation', texte: "Cet acquis n'est pas transféré à une situation professionnelle nouvelle : la restitution reste théorique." },
       { cle: 'tr_choix', texte: "Le choix de la démarche adaptée à la situation proposée n'est pas justifié." },

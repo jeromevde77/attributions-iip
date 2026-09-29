@@ -16,9 +16,9 @@ function nbGroupesActuels(cours) {
 }
 
 const MODE_CFG = {
-  ts:      { label: 'Ts',      desc: 'Tous ensemble · 1 prof',    icon: IconUser,        bg: '#f0fdf4', color: 'var(--c-texte)', border: '#86efac' },
-  split:   { label: 'Split',   desc: 'Ts partagé entre N profs',  icon: IconArrowsSplit, bg: '#eff6ff', color: '#1d4ed8', border: '#93c5fd' },
-  groupes: { label: 'Groupes', desc: 'Étudiants répartis A/B/C',  icon: IconUsers,       bg: '#fdf4ff', color: '#7e22ce', border: '#d8b4fe' },
+  ts:      { label: 'Ts',      desc: 'Tous ensemble · 1 prof',    icon: IconUser,        bg: 'var(--c-reussi)', color: '#FFFFFF', border: '#86efac' },
+  split:   { label: 'Split',   desc: 'Ts partagé entre N profs',  icon: IconArrowsSplit, bg: 'var(--c-disponible)', color: '#FFFFFF', border: '#93c5fd' },
+  groupes: { label: 'Groupes', desc: 'Étudiants répartis A/B/C',  icon: IconUsers,       bg: 'rgb(var(--e-faveur-100))', color: '#7e22ce', border: '#d8b4fe' },
 };
 
 export default function OrganiserGroupesModal({ portee, section, ues, onClose, onApplied }) {
@@ -44,7 +44,7 @@ export default function OrganiserGroupesModal({ portee, section, ues, onClose, o
   const toggleO2 = k => setCreerOrga2(p => { const n = new Set(p); n.has(k) ? n.delete(k) : n.add(k); return n; });
   const setMode = (k, cc, mode) => setEtat(e => ({ ...e, [k]: { ...e[k], [cc]: { ...e[k][cc], mode } } }));
   const setNb   = (k, cc, nb)   => setEtat(e => ({ ...e, [k]: { ...e[k], [cc]: { ...e[k][cc], nb } } }));
-  const blocCouleur = b => { const n = parseInt((b||'').match(/\d+/)?.[0]||'0'); return ['#6b7280','var(--c-attente)','#60a5fa','#1e3a8a','#a855f7'][n]||'#6b7280'; };
+  const blocCouleur = b => { const n = parseInt((b||'').match(/\d+/)?.[0]||'0'); return ['#6b7280','#f97316','#60a5fa','var(--c-texte)','#a855f7'][n]||'#6b7280'; };
 
   const nbChanges = ues.reduce((acc, ue) => {
     const k = keyOf(ue);

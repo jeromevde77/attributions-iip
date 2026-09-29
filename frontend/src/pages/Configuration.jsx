@@ -334,7 +334,7 @@ function PurgeAnnee() {
               Toutes les attributions, UE, cours, organisations et EA12 de cette année
               seront définitivement supprimés. Cette action est irréversible.
             </p>
-            {err && <p className="text-xs text-red-600 bg-red-100 rounded p-2">{err}</p>}
+            {err && <p className="text-xs text-white bg-red-500 rounded p-2">{err}</p>}
             <div className="flex gap-3">
               <button onClick={purger} disabled={loading}
                 className="px-4 py-1.5 h-9 bg-red-600 text-white text-sm rounded hover:bg-red-700 disabled:opacity-50">
@@ -413,7 +413,7 @@ function RegenererDonneesDev() {
               et diplômes seront remplacés par de nouvelles données fictives. Les
               attributions, UE et cours ne sont pas touchés.
             </p>
-            {err && <p className="text-xs text-red-600 bg-red-100 rounded p-2">{err}</p>}
+            {err && <p className="text-xs text-white bg-red-500 rounded p-2">{err}</p>}
             <div className="flex gap-3">
               <button onClick={regenerer} disabled={loading}
                 className="px-4 py-1.5 h-9 bg-amber-500 text-white text-sm rounded hover:bg-amber-600 disabled:opacity-50">
@@ -1044,7 +1044,7 @@ function ConfigContrat() {
         <div className="flex flex-wrap gap-1.5">
           {VARS.map(({ v, desc }) => (
             <button key={v} onClick={() => inserer(v)} title={desc}
-              className="text-xs font-mono bg-white border border-amber-300 text-amber-800 hover:bg-amber-100 px-2 py-0.5 rounded transition">
+              className="text-xs font-mono bg-white border border-amber-500 text-white hover:bg-amber-500 px-2 py-0.5 rounded transition">
               {v}
             </button>
           ))}
@@ -1583,7 +1583,7 @@ export default function Configuration() {
         </div>
         {historiqueActif && (
           <div className="px-4 pb-4">
-            <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded px-3 py-2">
+            <p className="text-xs text-white bg-amber-500 border border-amber-500 rounded px-3 py-2">
               ⚠️ L'historique consomme de l'espace disque. Pour une utilisation intensive,
               pensez à effectuer des sauvegardes régulières et à purger l'historique ancien.
             </p>
@@ -1692,9 +1692,9 @@ docker start attributions-backend-dev`}</div>
 // Catégories PNCC
 const PNCC_CATS = [
   { value: 'secretariat_etudiant', label: 'Secrétariat étudiant', color: '#0EA5E9', desc: 'Proratisé au nb de sections pour le ratio étu./ETP' },
-  { value: 'secretariat_rh',       label: 'Secrétariat RH',       color: 'var(--c-texte)', desc: '' },
+  { value: 'secretariat_rh',       label: 'Secrétariat RH',       color: '#8B5CF6', desc: '' },
   { value: 'direction',            label: 'Direction',             color: 'var(--c-texte)', desc: '' },
-  { value: 'economat',             label: 'Économat',              color: 'var(--c-texte)', desc: '' },
+  { value: 'economat',             label: 'Économat',              color: '#F59E0B', desc: '' },
   { value: 'autre',                label: 'Autre',                 color: '#6B7280', desc: '' },
 ];
 
@@ -2329,24 +2329,24 @@ function ConfigRecrutement() {
  * choisit la nuance, pas la signification.
  */
 const THEMES = [
-  /* LA MAISON IIP (Charles, 29 septembre 2026 : « on garde évidemment les
-     couleurs IIP du logo » ; « je me retrouve mieux dans les tons de
-     l'EPFC »). Le bleu, l'or et le cyan RELEVÉS SUR LE LOGO — Lucie avait
-     glissé vers un marine presque noir —, les états dans des tons vifs, une
-     seule teinte pour les données. BA1 l'or du logo, BA2 son cyan, BA3 son
-     bleu ; l'épreuve intégrée un OR franc, distinct du jaune de BA1. */
-  { cle: 'maison', nom: 'Maison IIP', texte: 'Les couleurs du logo, des états vifs.', gris: '#5B6B7D',
-    valeurs: { principal: '#19537E', accent: '#0A8FBF', texte: '#1F2F40', donnees: '#0A8FBF', menu_sombre: '#123E5F',
-               iip: '#19537E', helb: '#D14F8A', ct: 'var(--c-disponible)', pp: '#2E8F6E',
+  /* LA MAISON IIP (Charles, 29 septembre 2026). Le MARINE ET LE BLANC restent
+     (« je veux le bleu marine, comme avant, et le blanc ») ; les repères
+     prennent les couleurs du logo — BA1 son jaune, BA2 son cyan, BA3 le
+     marine —, l'épreuve intégrée un OR franc, et les états s'avivent dans les
+     tons de l'EPFC. UN THÈME NE PORTE QUE DES COULEURS : jamais une variable,
+     il est enregistré tel quel. */
+  { cle: 'maison', nom: 'Maison IIP', texte: 'Marine et blanc, repères du logo, états vifs.', gris: 'ardoise',
+    valeurs: { principal: '#1B2B4B', accent: '#0A8FBF', texte: '#1B2B4B', donnees: '#0A8FBF', menu_sombre: '#0F1A2E',
+               iip: '#1B2B4B', helb: '#D14F8A', ct: '#2F6FB0', pp: '#2E8F6E',
                reussi: '#4FA64A', faveur: '#8E4F9A', disponible: '#3F7FD0', attente: '#F0922E', refuse: '#E0564F',
-               ba1: '#F9B619', ba2: '#05B7E6', ba3: '#19537E', epreuve: '#C9A227',
-               fond_page: '#F6F8FA', fond_indispo: '#EEF1F4' } },
+               ba1: '#F9B619', ba2: '#05B7E6', ba3: '#1B2B4B', epreuve: '#C9A227',
+               fond_page: '#FFFFFF', fond_indispo: '#F4F5F7' } },
   { cle: 'origine', nom: "Lucie d'origine", texte: 'Gris ardoise, états sobres.', gris: 'ardoise', valeurs: {} },
   { cle: 'clair', nom: 'Gris clair', texte: 'Gris neutre, sans bleu ; états sobres.', gris: 'neutre',
     valeurs: { fond_page: '#F4F5F7', fond_indispo: '#ECEEF1' } },
   { cle: 'vif', nom: 'Gris clair et vif', texte: 'Gris neutre ; états plus francs, plus gais.', gris: 'neutre',
-    valeurs: { fond_page: '#F4F5F7', fond_indispo: '#ECEEF1', reussi: 'var(--c-reussi)', faveur: 'var(--c-faveur)',
-               disponible: '#3478D4', attente: 'var(--c-attente)', refuse: 'var(--c-refuse)' } },
+    valeurs: { fond_page: '#F4F5F7', fond_indispo: '#ECEEF1', reussi: '#2F9A5B', faveur: '#7C3AED',
+               disponible: '#3478D4', attente: '#D97706', refuse: '#C2412D' } },
 ];
 const GROUPES_COULEURS = [
   ['ecran', 'L’écran', 'Tout ce qui n’est pas un état : le bouton principal, l’accent, le texte, les données, les menus sombres.'],

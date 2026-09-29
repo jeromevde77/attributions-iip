@@ -140,7 +140,7 @@ export default function RapportPAE({ anneeCourante, onClose }) {
   function construireHtml(j) {
     const esc = s => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;');
     // BA1 orange, BA2 bleu clair, BA3 bleu marine — convention de Lucie
-    const NIV_PALETTE = ['var(--c-attente)', '#60A5FA', '#1E3A8A', '#A855F7', '#EC4899'];
+    const NIV_PALETTE = ['#F97316', '#60A5FA', 'var(--c-texte)', '#A855F7', '#EC4899'];
     const coulNiv = niv => {
       const m = /^BA(\d+)$/i.exec(String(niv || '').trim());
       return m ? NIV_PALETTE[(Number(m[1]) - 1) % NIV_PALETTE.length] : '#94A3B8';

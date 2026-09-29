@@ -32,11 +32,11 @@ const SCORE_COLORS = { 0: '#E5E7EB', 1: '#FCD34D', 2: '#34D399' };
 // ─── Petit badge de statut ────────────────────────────────────────────────────
 function StatutBadge({ statut }) {
   const cfg = {
-    'en-cours':  { label: 'En cours',  bg: '#EFF6FF', color: '#1D4ED8' },
-    'complete':  { label: 'Complète',  bg: '#F0FDF4', color: 'var(--c-texte)' },
-    'actif':     { label: 'Actif',     bg: '#EFF6FF', color: '#1D4ED8' },
-    'atteint':   { label: 'Atteint',   bg: '#F0FDF4', color: 'var(--c-texte)' },
-    'abandonne': { label: 'Abandonné', bg: '#FFF7ED', color: 'var(--c-texte)' },
+    'en-cours':  { label: 'En cours',  bg: 'var(--c-disponible)', color: '#FFFFFF' },
+    'complete':  { label: 'Complète',  bg: 'var(--c-reussi)', color: '#FFFFFF' },
+    'actif':     { label: 'Actif',     bg: 'var(--c-disponible)', color: '#FFFFFF' },
+    'atteint':   { label: 'Atteint',   bg: 'var(--c-reussi)', color: '#FFFFFF' },
+    'abandonne': { label: 'Abandonné', bg: 'var(--c-attente)', color: '#FFFFFF' },
   }[statut] || { label: statut, bg: '#F3F4F6', color: '#374151' };
   return (
     <span style={{ background: cfg.bg, color: cfg.color, fontSize: 11, padding: '2px 8px', borderRadius: 10, fontWeight: 600 }}>
@@ -80,7 +80,7 @@ function TableauDeBord({ profId, profNom, annee, onNavigate }) {
       <Section titre="Auto-analyse" icon={IconClipboardList} couleur="var(--c-accent)">
         <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 12 }}>
           <Kpi label="En cours" val={countSeances('auto-analyse','en-cours')} couleur="var(--c-principal)" />
-          <Kpi label="Complètes" val={countSeances('auto-analyse','complete')} couleur="var(--c-reussi)" />
+          <Kpi label="Complètes" val={countSeances('auto-analyse','complete')} couleur="var(--c-texte)" />
         </div>
         <Btn onClick={() => onNavigate('auto-analyse')} icon={IconPlus} variant="accent">
           Nouvelle auto-analyse
@@ -91,7 +91,7 @@ function TableauDeBord({ profId, profNom, annee, onNavigate }) {
       <Section titre="Observation en classe" icon={IconEye} couleur="#7C5BD9">
         <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 12 }}>
           <Kpi label="En cours" val={countSeances('observation','en-cours')} couleur="var(--c-principal)" />
-          <Kpi label="Complètes" val={countSeances('observation','complete')} couleur="var(--c-reussi)" />
+          <Kpi label="Complètes" val={countSeances('observation','complete')} couleur="var(--c-texte)" />
         </div>
         <Btn onClick={() => onNavigate('observation')} icon={IconPlus} variant="secondary">
           Nouvelle observation
@@ -99,10 +99,10 @@ function TableauDeBord({ profId, profNom, annee, onNavigate }) {
       </Section>
 
       {/* PDCP */}
-      <Section titre="Plan de développement (PDCP)" icon={IconTargetArrow} couleur="var(--c-refuse)">
+      <Section titre="Plan de développement (PDCP)" icon={IconTargetArrow} couleur="#C0392B">
         <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 12 }}>
           <Kpi label="Actifs" val={countObj('actif')} couleur="var(--c-principal)" />
-          <Kpi label="Atteints" val={countObj('atteint')} couleur="var(--c-reussi)" />
+          <Kpi label="Atteints" val={countObj('atteint')} couleur="var(--c-texte)" />
           <Kpi label="Max" val={4} couleur="#94A3B8" />
         </div>
         <Btn onClick={() => onNavigate('pdcp')} icon={IconTargetArrow} variant="secondary">
@@ -241,7 +241,7 @@ function ListeSeances({ profId, annee, dispositif, onOuvrir }) {
             </div>
             <StatutBadge statut={s.statut} />
             <button onClick={e => { e.stopPropagation(); supprimer(s.id); }}
-              style={{ color: 'var(--c-texte)', background: 'none', border: 'none', cursor: 'pointer', padding: 4 }}>
+              style={{ color: '#EF4444', background: 'none', border: 'none', cursor: 'pointer', padding: 4 }}>
               <IconTrash size={15} />
             </button>
           </div>
@@ -437,7 +437,7 @@ function PlanDeveloppement({ profId, annee, referentiel }) {
     <div style={{ padding: '16px 0' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
         <div>
-          <div style={{ fontWeight: 700, color: 'var(--c-texte)', fontSize: 16 }}>Plan de développement des compétences</div>
+          <div style={{ fontWeight: 700, color: '#C0392B', fontSize: 16 }}>Plan de développement des compétences</div>
           <div style={{ fontSize: 12, color: '#94A3B8', marginTop: 2 }}>Maximum 4 objectifs SMART · {annee}</div>
         </div>
         {objectifs.length < 4 && (
@@ -502,7 +502,7 @@ function PlanDeveloppement({ profId, annee, referentiel }) {
                   <StatutBadge statut={obj.statut} />
                   {obj.echeance && <span style={{ fontSize: 11, color: '#94A3B8' }}>⏱ {obj.echeance}</span>}
                   {obj.critere_id && (
-                    <span style={{ fontSize: 11, background: '#EFF6FF', color: '#1D4ED8', padding: '2px 7px', borderRadius: 10 }}>
+                    <span style={{ fontSize: 11, background: 'var(--c-disponible)', color: '#FFFFFF', padding: '2px 7px', borderRadius: 10 }}>
                       Critère {referentiel?.criteres?.find(c => c.id === obj.critere_id)?.code}
                     </span>
                   )}
@@ -516,7 +516,7 @@ function PlanDeveloppement({ profId, annee, referentiel }) {
                   </button>
                 )}
                 <button onClick={() => supprimer(obj.id)} title="Supprimer"
-                  style={{ color: 'var(--c-texte)', background: 'none', border: 'none', cursor: 'pointer', padding: 4 }}>
+                  style={{ color: '#EF4444', background: 'none', border: 'none', cursor: 'pointer', padding: 4 }}>
                   <IconTrash size={15} />
                 </button>
               </div>
@@ -531,7 +531,7 @@ function PlanDeveloppement({ profId, annee, referentiel }) {
 // ─── Composants utilitaires ───────────────────────────────────────────────────
 function Section({ titre, icon: Icon, couleur, children }) {
   return (
-    <div style={{ background: '#fff', border: `1px solid color-mix(in srgb, ${couleur} 19%, transparent)`, borderLeft: `3px solid ${couleur}`, borderRadius: 10, padding: 16, marginBottom: 14 }}>
+    <div style={{ background: '#fff', border: `1px solid rgb(var(--gris-200))`, borderLeft: `3px solid ${couleur}`, borderRadius: 10, padding: 16, marginBottom: 14 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
         <Icon size={17} style={{ color: couleur }} />
         <span style={{ fontWeight: 700, color: 'var(--c-texte)', fontSize: 14 }}>{titre}</span>
@@ -555,7 +555,7 @@ function Btn({ onClick, icon: Icon, children, variant = 'secondary', disabled = 
     primary:   { background: 'var(--c-principal)', color: '#fff', border: 'none' },
     secondary: { background: '#fff', color: '#374151', border: '1px solid #D1D5DB' },
     accent:    { background: 'var(--c-accent)', color: '#fff', border: 'none' },
-    danger:    { background: 'var(--c-refuse)', color: '#fff', border: 'none' },
+    danger:    { background: '#C0392B', color: '#fff', border: 'none' },
   }[variant];
   return (
     <button onClick={onClick} disabled={disabled} style={{

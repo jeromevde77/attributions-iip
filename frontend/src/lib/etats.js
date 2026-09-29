@@ -43,8 +43,9 @@ export function teintes(etat) {
   const e = `var(${d.jeton})`;
   return {
     rail: e,
-    fond: `color-mix(in srgb, ${e} 11%, #fff)`,
-    bord: `color-mix(in srgb, ${e} 30%, #fff)`,
+    // Plus de fond pâle : blanc, et le gris des filets (29 septembre 2026).
+    fond: '#FFFFFF',
+    bord: 'rgb(var(--gris-200))',
     texte: 'var(--c-texte)',
   };
 }

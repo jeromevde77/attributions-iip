@@ -288,7 +288,7 @@ export function Absences({ profId, peutEcrire }) {
               Certificat {a.certificat_recu ? '✓' : '✗'}
             </button>
             {a.remplacement_requis === 1 && (
-              <span className="text-[11px] px-2 py-1 rounded-champ bg-red-100 text-red-800 font-bold">
+              <span className="text-[11px] px-2 py-1 rounded-champ bg-red-500 text-white font-bold">
                 Remplacement requis
               </span>
             )}
