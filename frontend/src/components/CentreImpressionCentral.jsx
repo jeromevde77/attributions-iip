@@ -1192,6 +1192,7 @@ function UnEtudiantToutesAnnees() {
   const [choisi, setChoisi] = useState(null);
   const [enCours, setEnCours] = useState(false);
   const [erreur, setErreur] = useState(null);
+  const [doc, setDoc] = useState(null);
   useEffect(() => {
     if (q.trim().length < 2 || choisi) { setTrouves([]); return; }
     const t = setTimeout(() => {
@@ -1206,9 +1207,10 @@ function UnEtudiantToutesAnnees() {
       const r = await fetch(`/api/attestations/etudiant/${choisi.id}/document?annee=toutes`, { headers: authHeaders() });
       const j = await r.json().catch(() => ({}));
       if (!r.ok) throw new Error(j.error || 'Aucune attestation.');
-      const { ouvrirApercu } = await import('../lib/apercu.js');
-      ouvrirApercu({ html: j.html, titre: 'Attestations de réussite', sousTitre: `${nomPropre(choisi.nom, choisi.prenom)} — ${(j.annees || []).join(', ')}`,
-        nomFichier: `Attestations_${choisi.nom}_${choisi.prenom}_toutes_annees`, typeDoc: 'attestation_reussite', envoiPossible: false });
+      // L'aperçu LOCAL, rendu dans la fenêtre Éditions : l'aperçu commun est
+      // monté sous elle, et s'ouvrait derrière (29 septembre 2026).
+      setDoc({ html: j.html, titre: `Attestations de réussite — ${nomPropre(choisi.nom, choisi.prenom)} (${(j.annees || []).join(', ')})`,
+        nom: `Attestations_${choisi.nom}_${choisi.prenom}_toutes_annees` });
     } catch (e) { setErreur(e.message); } finally { setEnCours(false); }
   };
   const archive = async () => {
@@ -1254,6 +1256,8 @@ function UnEtudiantToutesAnnees() {
         </div>
       )}
       {erreur && <div className="text-[11.5px] text-[#9D4A38]">{erreur}</div>}
+      {doc && <PreviewModal html={doc.html} titre={doc.titre} nomFichier={doc.nom} typeDoc="attestation_reussite"
+        onClose={() => setDoc(null)} />}
     </div>
   );
 }
