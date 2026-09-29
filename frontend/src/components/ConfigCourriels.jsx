@@ -235,7 +235,7 @@ export default function ConfigCourriels() {
 
       {/* ── Garde-fou de test ── */}
       <section className="bg-white rounded-lg border border-amber-200 overflow-hidden">
-        <div className="px-4 py-3 bg-amber-50 border-b border-amber-200">
+        <div className="px-4 py-3 bg-amber-50 border-b border-amber-200 border-l-4 border-l-amber-500">
           <h2 className="font-semibold text-amber-800">Redirection de test</h2>
           <p className="text-xs text-amber-700 mt-0.5">
             Si une adresse est renseignée, <b>tous</b> les courriels partent vers elle, quel que soit le destinataire — l'objet indique le vrai destinataire.

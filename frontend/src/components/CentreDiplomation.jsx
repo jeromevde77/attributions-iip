@@ -389,7 +389,7 @@ export default function CentreDiplomation({ annee, onClose }) {
                                   title={`${u.ue_nom || ''} · ${u.periodes || '?'} périodes`}
                                   className={`text-[10px] px-1.5 py-px rounded border
                                     ${u.cote == null
-                                      ? 'bg-red-50 border-red-200 text-red-700'
+                                      ? 'bg-red-500 border-red-500 text-white'
                                       : 'bg-slate-50 border-slate-200 text-slate-600'}`}>
                                   {u.ue_num} : {u.cote == null ? '—'
                                     : `${Math.round(u.cote)}/20`}

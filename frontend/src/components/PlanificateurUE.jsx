@@ -198,7 +198,7 @@ export default function PlanificateurUE({ items, annee, val, editer, modifs }) {
           </div>
 
           {elargie && (
-            <div className="px-3 py-1 bg-amber-50 border-b border-amber-200 text-[11px] text-amber-800">
+            <div className="px-3 py-1 bg-amber-50 border-b border-amber-200 text-[11px] text-amber-800 border-l-4 border-l-amber-500">
               Des dates sortent de l'année académique : la ligne du temps a été élargie pour les
               montrer. Vérifiez qu'il ne s'agit pas d'une erreur de saisie.
             </div>

@@ -149,7 +149,7 @@ export default function AttributionForm({ onClose, onCreated, editRow = null }) 
         </div>
 
         <div className="p-6 space-y-5">
-          {error && <div className="bg-red-50 text-red-700 text-sm rounded p-3">{error}</div>}
+          {error && <div className="bg-red-50 text-red-700 text-sm rounded p-3 border-l-4 border-l-red-500">{error}</div>}
 
           {/* Contexte */}
           <fieldset className="grid grid-cols-2 md:grid-cols-4 gap-3">

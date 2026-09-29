@@ -99,15 +99,15 @@ export default function Sauvegardes() {
       </div>
 
       {data.alerte && (
-        <div className="px-4 py-2.5 rounded-lg bg-amber-50 border border-amber-200 text-[13px] text-amber-900 flex items-center gap-2">
+        <div className="px-4 py-2.5 rounded-lg bg-amber-50 border border-amber-200 text-[13px] text-amber-900 flex items-center gap-2 border-l-4 border-l-amber-500">
           <IconAlertTriangle size={15} className="flex-none" /> {data.alerte}
         </div>
       )}
 
       {message && (
         <div className={`px-4 py-2.5 rounded-lg text-sm flex items-center justify-between ${
-          message.type === 'ok' ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
-                                : 'bg-red-50 text-red-800 border border-red-200'}`}>
+          message.type === 'ok' ? 'bg-emerald-500 text-white border border-emerald-500'
+                                : 'bg-red-500 text-white border border-red-500'}`}>
           <span>{message.texte}</span>
           <button onClick={() => setMessage(null)} className="ml-3 opacity-60">✕</button>
         </div>

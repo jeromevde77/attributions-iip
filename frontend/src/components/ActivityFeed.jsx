@@ -4,7 +4,7 @@ import { api } from '../lib/api.js';
 
 /* Libellés et couleurs par type d'action */
 const ACTIONS = {
-  create: { label: 'Ajout',        cls: 'bg-green-100 text-green-700' },
+  create: { label: 'Ajout',        cls: 'bg-green-500 text-white' },
   update: { label: 'Modification', cls: 'bg-iip-turquoise/10 text-iip-blue' },
   delete: { label: 'Suppression',  cls: 'bg-red-500/10 text-[color:var(--c-refuse)]' },
 };

@@ -1097,7 +1097,7 @@ function Presences({ seance, onValider, enCours, ueNum, annee }) {
               </span>
             )}
             <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-champ flex-none
-              ${m.present ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-500'}`}>
+              ${m.present ? 'bg-emerald-500 text-white' : 'bg-slate-100 text-slate-500'}`}>
               {m.present ? 'présent' : 'excusé'}
             </span>
           </label>
@@ -1156,7 +1156,7 @@ function Presences({ seance, onValider, enCours, ueNum, annee }) {
           soit lui qui préside. Un procès-verbal signé du titulaire absent
           serait faux — d'où l'obligation de désigner. */}
       {membres.some(m => m.role === 'direction' && !m.present) && (
-        <div className="border border-amber-300 bg-amber-50 rounded-xl p-2.5 space-y-2">
+        <div className="border border-amber-300 bg-amber-50 rounded-xl p-2.5 space-y-2 border-l-4 border-l-amber-500">
           <div className="text-[13px] font-semibold text-amber-900">
             Présidence à désigner
           </div>
@@ -1239,7 +1239,7 @@ function Reprise({ reprise, session, onAppliquer, onRetour, enCours }) {
   const sans = (reprise.etudiants || []).filter(l => l.statut === 'sans_decision');
   return (
     <div className="space-y-3 max-w-3xl mx-auto">
-      <div className="px-3 py-2 rounded-xl bg-sky-50 border border-sky-200">
+      <div className="px-3 py-2 rounded-xl bg-sky-50 border border-sky-200 border-l-4 border-l-sky-500">
         <div className="text-[13px] font-semibold text-sky-900">
           Reprendre la délibération encodée — session {session}
         </div>
@@ -1265,7 +1265,7 @@ function Reprise({ reprise, session, onAppliquer, onRetour, enCours }) {
 
       {!!divergents.length && (
         <div className="border border-amber-200 rounded-xl overflow-hidden">
-          <div className="px-3 py-1.5 bg-amber-50 text-[12px] text-amber-900 font-semibold">
+          <div className="px-3 py-1.5 bg-amber-50 text-[12px] text-amber-900 font-semibold border-l-4 border-l-amber-500">
             Le classeur et le calcul ne disent pas la même chose — la décision du
             classeur est conservée, ces cas se relisent
           </div>
@@ -1314,7 +1314,7 @@ function PleinDroit({ auto, onAppliquer, onPasser, enCours }) {
   if (!auto) return <div className="py-10 text-center text-[13px] text-slate-400">Calcul…</div>;
   return (
     <div className="space-y-3 max-w-2xl mx-auto">
-      <div className="px-3 py-2 rounded-xl bg-emerald-50 border border-emerald-200">
+      <div className="px-3 py-2 rounded-xl bg-emerald-50 border border-emerald-200 border-l-4 border-l-emerald-500">
         <div className="text-[13px] font-semibold text-emerald-900">
           Réussites de plein droit
         </div>
@@ -1484,7 +1484,7 @@ function Cloture({ seance, onClore, onRetour, onPV, onReprendre, enCours, nb, aj
 
   return (
     <div className="space-y-3 max-w-xl mx-auto py-4">
-      <div className="px-4 py-3 rounded-xl bg-emerald-50 border border-emerald-200">
+      <div className="px-4 py-3 rounded-xl bg-emerald-50 border border-emerald-200 border-l-4 border-l-emerald-500">
         <div className="text-[15px] font-semibold text-emerald-900">Délibération terminée</div>
         <p className="text-[12px] text-emerald-800">
           Les {nb} étudiant(s) de cette unité ont été délibérés et leurs décisions
@@ -1601,7 +1601,7 @@ function Cloture({ seance, onClore, onRetour, onPV, onReprendre, enCours, nb, aj
 
       {/* La seconde session, cours par cours, portée par l'annexe 8. */}
       {ajournes > 0 && !!s2.length && (
-        <div className="border border-amber-300 bg-amber-50/60 rounded-xl p-4 space-y-3">
+        <div className="border border-amber-300 bg-amber-50/60 rounded-xl p-4 space-y-3 border-l-4 border-l-amber-500">
           <div className="flex items-start justify-between gap-3">
             <div>
               <div className="text-[13px] font-semibold text-amber-900">Seconde session</div>
@@ -2160,10 +2160,10 @@ function TuileSomme({ etat, seuil, onAjourner, onFaveur, motif, enCours,
     <div className={`rounded-lg border px-2 py-1 flex items-center gap-1.5
       ${indicatif ? 'opacity-50' : ''}
       ${na ? 'border-slate-300 bg-slate-100 text-slate-600'
-        : faveur ? 'border-violet-400 bg-violet-50 text-violet-900'
-        : echec ? 'border-red-500 border-2 bg-red-50 text-red-800'
+        : faveur ? 'border-violet-500 bg-violet-500 text-white'
+        : echec ? 'border-red-500 border-2 bg-red-500 text-white'
         : note == null ? 'border-slate-200 bg-white text-slate-300'
-        : 'border-emerald-300 bg-emerald-50 text-emerald-900'}`}>
+        : 'border-emerald-500 bg-emerald-500 text-white'}`}>
       <span className={`text-[15px] font-bold tabular-nums flex-1 text-right
         ${decidee && echec ? 'text-red-700' : ''}`}
         title={mention === 'NP' ? 'Note de présence'
@@ -2392,14 +2392,14 @@ function LigneMotif({ a, onMotif, onReporter, seul, enCours }) {
   };
 
   return (
-    <div className={`px-3 py-2 flex items-start gap-3 ${a.motif ? '' : 'bg-red-50/40'}`}>
+    <div className={`px-3 py-2 flex items-start gap-3 ${a.motif ? '' : 'bg-red-50/40'} border-l-4 border-l-red-500`}>
       <div className="w-40 flex-none">
         <div className="font-mono text-[12px] font-bold text-slate-700">{a.aa_code}</div>
         <div className="text-[11px] text-slate-500 truncate" title={a.description || ''}>
           {a.description || ''}
         </div>
         <span className={`inline-block mt-0.5 text-[10px] font-bold px-1.5 py-0.5 rounded-champ
-          ${a.na ? 'bg-slate-200 text-slate-700' : 'bg-red-100 text-red-800'}`}>
+          ${a.na ? 'bg-slate-200 text-slate-700' : 'bg-red-500 text-white'}`}>
           {a.na ? 'ajourné · à représenter' : `${fmt(a.note)}/20`}
         </span>
       </div>
@@ -2485,7 +2485,7 @@ function AideDecision({ ue }) {
     <div className="space-y-1.5">
       {!!ue.faveur_cout && (
         <div className={`rounded-xl border px-3 py-2 text-[12px]
-          ${ok ? 'bg-emerald-50 border-emerald-200 text-emerald-900'
+          ${ok ? 'bg-emerald-500 border-emerald-500 text-white'
                : 'bg-slate-50 border-slate-200 text-slate-700'}`}>
           <div className="flex items-center gap-2 flex-wrap">
             <span className="font-semibold">
@@ -2595,8 +2595,8 @@ function DecisionGenerale({ cours, enCours, onLot, onDecision, decision }) {
           : "Ajourner les cours de l'unité en une fois"}
         className={`px-2.5 py-1 rounded-lg border font-semibold flex items-center gap-1.5
           ${tousAjournes
-    ? 'bg-amber-100 border-amber-300 text-amber-900'
-    : 'bg-white border-amber-300 text-amber-800 hover:bg-amber-50'}`}>
+    ? 'bg-amber-500 border-amber-500 text-white'
+    : 'bg-white border-amber-500 text-white hover:bg-amber-500'}`}>
         <IconAlertTriangle size={13} />
         {tousAjournes ? 'Relever l’ajournement général' : 'Ajournement général'}
       </button>
@@ -2605,8 +2605,8 @@ function DecisionGenerale({ cours, enCours, onLot, onDecision, decision }) {
         title="Tous les cours tombent et l'unité est refusée — sans seconde session"
         className={`px-2.5 py-1 rounded-lg border font-semibold flex items-center gap-1.5
           ${decision === 'refuse'
-    ? 'bg-red-100 border-red-300 text-red-800'
-    : 'bg-white border-red-300 text-red-700 hover:bg-red-50'}`}>
+    ? 'bg-red-500 border-red-500 text-white'
+    : 'bg-white border-red-500 text-white hover:bg-red-500'}`}>
         <IconBan size={13} /> Refus général
       </button>
       {tousAjournes && (
@@ -2663,7 +2663,7 @@ function Decision({ e, ue, onBord, acquis, cours, decision, onDecision, enCours,
               className={`px-3 py-1.5 text-[13px] font-semibold rounded-lg border
                 ${ue.faveur_ue
                   ? 'bg-violet-600 border-violet-700 text-white'
-                  : 'bg-white border-violet-400 text-violet-800 hover:bg-violet-50'}`}>
+                  : 'bg-white border-violet-500 text-white hover:bg-violet-500'}`}>
               {/* UN CADEAU, NON UN PINCEAU — et violet, non orange. La faveur
                   est un octroi : le Conseil donne l'unité. Le pinceau disait
                   « repeindre », ce qui n'est ni le geste ni son sens. Et
@@ -2723,7 +2723,7 @@ function Decision({ e, ue, onBord, acquis, cours, decision, onDecision, enCours,
           )}
 
           {!!manquants.length && decision !== 'reussi' && (
-            <span className="text-red-800 bg-red-50 border border-red-200 rounded-lg px-2 py-0.5">
+            <span className="text-white bg-red-500 border border-red-500 rounded-lg px-2 py-0.5">
               À justifier sous la matrice avant de passer au suivant :
               {' '}{manquants.join(', ')}
             </span>
@@ -2893,8 +2893,8 @@ function Case({ etat, bord }) {
     <td className={`border-b border-slate-100 px-1 text-center text-[11px] font-semibold
       ${bord ? 'border-l border-slate-300 bg-slate-50/60' : ''}
       ${etat.na ? 'text-slate-500'
-        : etat.faveur ? 'bg-violet-100 text-violet-900'
-        : etat.echec ? 'bg-red-50 text-red-700 outline outline-1 outline-red-400'
+        : etat.faveur ? 'bg-violet-500 text-white'
+        : etat.echec ? 'bg-red-500 text-white outline outline-1 outline-red-400'
         : 'text-emerald-700'}`}>
       {etat.na ? 'NA' : fmt(etat.note)}
     </td>
@@ -2957,7 +2957,7 @@ function VueLot({ liste, onAjourner, onOuvrir, enCours }) {
 
   return (
     <div className="space-y-3">
-      <div className="px-3 py-2 rounded-xl bg-amber-50 border border-amber-200">
+      <div className="px-3 py-2 rounded-xl bg-amber-50 border border-amber-200 border-l-4 border-l-amber-500">
         <div className="text-[13px] font-semibold text-amber-900">Ajourner un paquet</div>
         <p className="text-[12px] text-amber-800">
           On ajourne <b>par cours</b> : cochez les étudiants, et décochez au besoin l'un
@@ -2992,7 +2992,7 @@ function VueLot({ liste, onAjourner, onOuvrir, enCours }) {
           const defauts = enDefaut(e);
           const pris = choisis.has(e.id);
           return (
-            <div key={e.id} className={`px-3 py-1.5 ${pris ? 'bg-amber-50/50' : ''}`}>
+            <div key={e.id} className={`px-3 py-1.5 ${pris ? 'bg-amber-50/50' : ''} border-l-4 border-l-amber-500`}>
               <label className="flex items-center gap-3 cursor-pointer">
                 <input type="checkbox" checked={pris} onChange={() => bascule(e.id)}
                   className="w-4 h-4 accent-amber-600 flex-none" />
@@ -3028,7 +3028,7 @@ function VueLot({ liste, onAjourner, onOuvrir, enCours }) {
                           .filter(Boolean).join(' · ')}
                         className={`px-2 py-0.5 rounded-champ border text-[11px] font-semibold
                           ${off ? 'border-slate-300 text-slate-400 line-through'
-                                : 'border-amber-500 bg-amber-100 text-amber-900'}`}>
+                                : 'border-amber-500 bg-amber-500 text-white'}`}>
                         {c.cours_code} · {c.na ? 'NA' : fmt(c.note)}
                       </button>
                     );
@@ -3281,7 +3281,7 @@ export function CorrectionAdministrative({ ueNum, annee, session, org = 0, seanc
         </div>
 
         {erreur && (
-          <div className="px-3 py-2 rounded-lg bg-red-50 text-red-700 text-[13px]">{erreur}</div>
+          <div className="px-3 py-2 rounded-lg bg-red-50 text-red-700 text-[13px] border-l-4 border-l-red-500">{erreur}</div>
         )}
 
         <div className="flex justify-end gap-2">
@@ -3357,7 +3357,7 @@ function ChoixMotif({ valeur, precision, onValeur, onPrecision,
           <button key={m.cle} onClick={() => onValeur(m.cle)}
             className={`px-2.5 py-1 text-[12px] rounded-champ border transition-colors
               ${valeur === m.cle
-                ? 'border-amber-500 bg-amber-50 text-amber-900 font-semibold'
+                ? 'border-amber-500 bg-amber-500 text-white font-semibold'
                 : 'border-slate-300 text-slate-600 hover:border-slate-400'}`}>
             {m.label}
           </button>

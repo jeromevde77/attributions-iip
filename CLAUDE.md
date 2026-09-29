@@ -1241,6 +1241,19 @@ et 3 composants de tuile**. La stratégie tient en cinq chantiers, dans cet ordr
   du logo, BA3 = bleu du logo, épreuve intégrée = un OR franc (#C9A227),
   distinct du jaune de BA1 (Charles). Les défauts restent ceux de Lucie
   d'origine : c'est le clic sur le thème qui bascule.
+- **LA RÈGLE DES COULEURS, VALIDÉE LE 29 SEPTEMBRE 2026** (après une journée
+  d'essais : « trop de teintes », « encore du pâle », puis « je veux quand
+  même des couleurs ») : (1) une INFORMATION D'ÉTAT est une PASTILLE PLEINE —
+  la couleur du réglage, texte blanc (grille des droits, étiquettes, états des
+  listes) ; (2) un BANDEAU ou une TUILE est BLANC, avec son LISERÉ et son ICÔNE
+  dans la couleur, le texte à l'encre ; (3) les BOUTONS : marine plein pour
+  l'action principale, contour marine pour produire une pièce, rouge du
+  réglage pour détruire, contour gris pour le reste ; (4) tout le reste est
+  blanc, filets gris, texte marine. AUCUN FOND PÂLE, aucun ton qu'aucun
+  réglage ne porte. Le marine de la maison : #16406A (le bleu du logo
+  approfondi, choix de Charles). Les contrôles d'une barre ont UNE hauteur et
+  UNE forme (`.controle`, `.segments`) : pas de pastilles arrondies mêlées à
+  des boutons de trois hauteurs.
 - **On ne touche ni aux polices, ni aux icônes, ni aux tailles** (Charles) : ce
   chantier est celui des couleurs et des tuiles.
 

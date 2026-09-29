@@ -8,12 +8,12 @@ import { authHeaders } from '../lib/api.js';
 const fr = (iso) => iso ? iso.slice(0, 10).split('-').reverse().join('/') : '—';
 
 const STATUTS_PIECE = {
-  manquante:   { label: 'Manquante',    classe: 'bg-red-100 text-red-800' },
-  a_demander:  { label: 'À demander',   classe: 'bg-amber-100 text-amber-900' },
-  recue:       { label: 'Au dossier',   classe: 'bg-emerald-100 text-emerald-800' },
-  transmise:   { label: 'Transmise',    classe: 'bg-emerald-100 text-emerald-800' },
+  manquante:   { label: 'Manquante',    classe: 'bg-red-500 text-white' },
+  a_demander:  { label: 'À demander',   classe: 'bg-amber-500 text-white' },
+  recue:       { label: 'Au dossier',   classe: 'bg-emerald-500 text-white' },
+  transmise:   { label: 'Transmise',    classe: 'bg-emerald-500 text-white' },
   non_requise: { label: 'Non requise',  classe: 'bg-slate-100 text-slate-500' },
-  expiree:     { label: 'Expirée',      classe: 'bg-red-100 text-red-800' },
+  expiree:     { label: 'Expirée',      classe: 'bg-red-500 text-white' },
 };
 
 const TYPES_ABSENCE = [
@@ -278,13 +278,13 @@ export function Absences({ profId, peutEcrire }) {
             <button onClick={() => peutEcrire && basculer(a, 'cammat_declare')}
               disabled={!peutEcrire}
               className={`text-[11px] px-2 py-1 rounded-champ font-bold ${a.cammat_declare
-                ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-900'}`}>
+                ? 'bg-emerald-500 text-white' : 'bg-amber-500 text-white'}`}>
               CAMMAT {a.cammat_declare ? '✓' : '✗'}
             </button>
             <button onClick={() => peutEcrire && basculer(a, 'certificat_recu')}
               disabled={!peutEcrire}
               className={`text-[11px] px-2 py-1 rounded-champ font-bold ${a.certificat_recu
-                ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-600'}`}>
+                ? 'bg-emerald-500 text-white' : 'bg-slate-100 text-slate-600'}`}>
               Certificat {a.certificat_recu ? '✓' : '✗'}
             </button>
             {a.remplacement_requis === 1 && (
@@ -452,7 +452,7 @@ export function Entretiens({ profId, peutEcrire, estAdmin }) {
                 {e.mene_par && <div className="text-[11px] text-slate-500">{e.mene_par}</div>}
               </div>
               <span className={`text-[11px] px-2 py-0.5 rounded-champ font-bold ${e.date_tenue
-                ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-900'}`}>
+                ? 'bg-emerald-500 text-white' : 'bg-amber-500 text-white'}`}>
                 {e.date_tenue ? 'Tenu' : 'Prévu'}
               </span>
               {(e.compte_rendu_html || e.masque) && !e.masque && (

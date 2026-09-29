@@ -510,7 +510,7 @@ export default function PlanificateurVisuel({ onClose }) {
                   <span className="text-orange-500">⚠ Dernier jour admin non défini (Paramètres) — limite de session non calculée</span>
                 )}
                 {!capaciteOK && (
-                  <span className="bg-red-100 text-red-700 px-2 py-0.5 rounded font-medium">
+                  <span className="bg-red-500 text-white px-2 py-0.5 rounded font-medium">
                     ⚠ Le volume horaire risque de ne pas tenir dans les semaines disponibles
                   </span>
                 )}
@@ -822,7 +822,7 @@ export default function PlanificateurVisuel({ onClose }) {
               <IconScissors size={14} className="inline align-[-2px] mr-1" />Scinder le bloc…
             </button>
             <div className="border-t border-gray-100 my-1" />
-            <button onClick={() => supprimerBloc(menuBloc.id)} className="w-full text-left px-3 py-2 hover:bg-red-50 text-red-600 flex items-center gap-2">
+            <button onClick={() => supprimerBloc(menuBloc.id)} className="w-full text-left px-3 py-2 hover:bg-red-50 text-red-600 flex items-center gap-2 border-l-4 border-l-red-500">
               <IconTrash size={14} className="inline align-[-2px] mr-1" />Supprimer ce bloc
             </button>
           </div>

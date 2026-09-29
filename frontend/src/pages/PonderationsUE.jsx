@@ -251,7 +251,7 @@ export default function PonderationsUE() {
             </div>
 
             {liens.epreuve_integree ? (
-              <p className="text-[12px] text-violet-800 bg-violet-50 border border-violet-200 rounded-champ px-2.5 py-1.5">
+              <p className="text-[12px] text-violet-800 bg-violet-50 border border-violet-200 rounded-champ px-2.5 py-1.5 border-l-4 border-l-violet-500">
                 Épreuve intégrée : les acquis se pèsent pour l'unité, sans cours. Leur poids se règle au tracé (« Relier au tracé »).
               </p>
             ) : (

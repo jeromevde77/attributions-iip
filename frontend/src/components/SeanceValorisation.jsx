@@ -250,7 +250,7 @@ export default function SeanceValorisation({ ueNum, ueNom, annee, onClose }) {
           </div>
 
           {!!manques.length && (
-            <div className="carte border-amber-300 bg-amber-50/60 px-3 py-2">
+            <div className="carte border-amber-300 bg-amber-50/60 px-3 py-2 border-l-4 border-l-amber-500">
               <div className="flex items-center gap-1.5 text-[12px] font-semibold text-amber-800">
                 <IconAlertTriangle size={14} /> À encoder avant impression
               </div>

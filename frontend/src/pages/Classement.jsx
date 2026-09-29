@@ -176,8 +176,8 @@ export default function Classement({ annee: anneeProp }) {
 
       {message && (
         <div className={`px-4 py-2.5 rounded-lg text-sm flex items-center justify-between gap-3 ${message.type === 'ok'
-          ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
-          : 'bg-red-50 text-red-800 border border-red-200'}`}>
+          ? 'bg-emerald-500 text-white border border-emerald-500'
+          : 'bg-red-500 text-white border border-red-500'}`}>
           <span>{message.texte}</span>
           <button onClick={() => setMessage(null)}><IconX size={15} /></button>
         </div>
@@ -312,7 +312,7 @@ export default function Classement({ annee: anneeProp }) {
                     </td>
                     <td className="px-3 py-2">
                       <span className={`px-2 py-0.5 rounded-champ text-[11px] font-bold ${c.recevable
-                        ? 'bg-emerald-100 text-emerald-800' : 'bg-red-100 text-red-800'}`}>
+                        ? 'bg-emerald-500 text-white' : 'bg-red-500 text-white'}`}>
                         {c.recevable ? 'Recevable' : 'Hors délai'}
                       </span>
                     </td>

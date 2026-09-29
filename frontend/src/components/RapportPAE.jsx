@@ -344,7 +344,7 @@ ${j.granularite === 'cours' && !cotesCours ? `
 
           <div className="p-5 space-y-4">
             {erreur && (
-              <div className="px-3 py-2 rounded-lg bg-red-50 border border-red-200 text-[13px] text-red-800">
+              <div className="px-3 py-2 rounded-lg bg-red-50 border border-red-200 text-[13px] text-red-800 border-l-4 border-l-red-500">
                 {erreur}
               </div>
             )}
@@ -475,7 +475,7 @@ ${j.granularite === 'cours' && !cotesCours ? `
             </div>
 
             {granularite === 'cours' && (
-              <div className="px-3 py-2 rounded-lg bg-amber-50 border border-amber-200 text-[12px] text-amber-900">
+              <div className="px-3 py-2 rounded-lg bg-amber-50 border border-amber-200 text-[12px] text-amber-900 border-l-4 border-l-amber-500">
                 Les colonnes par cours ne portent de valeurs propres que si des résultats ont été
                 encodés à cette maille — par « Reconstruire l'historique » ou « Importer le classeur
                 PAE ». À défaut, chaque cours reprend la décision de son UE, en estompé.
@@ -490,7 +490,7 @@ ${j.granularite === 'cours' && !cotesCours ? `
               </div>
             )}
 
-            <div className="px-3 py-2 rounded-lg bg-sky-50 border border-sky-200 text-[12px] text-sky-900">
+            <div className="px-3 py-2 rounded-lg bg-sky-50 border border-sky-200 text-[12px] text-sky-900 border-l-4 border-l-sky-500">
               Le classeur exporté reprend la forme de celui de la coordination : il peut être
               complété à la main, puis réimporté par « Importer le classeur PAE ». Choisissez
               alors des colonnes <b>par cours</b>, la maille de l'encodage.

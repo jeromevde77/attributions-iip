@@ -209,7 +209,7 @@ function MesTaches({ signal = 0 }) {
         return urgentes > 0 ? (
           <div className="mb-2 px-3 py-2 rounded-carte bg-red-50 border border-red-200
                           text-[13px] text-red-800 font-semibold flex items-center gap-2">
-            <span className="w-6 h-6 flex-none grid place-items-center rounded-lg bg-red-100 text-red-700 font-bold">!</span>
+            <span className="w-6 h-6 flex-none grid place-items-center rounded-lg bg-red-500 text-white font-bold">!</span>
             Urgent — vous avez {urgentes} tâche{urgentes > 1 ? 's' : ''} importante{urgentes > 1 ? 's' : ''} à
             échéance immédiate ou dépassée.
           </div>

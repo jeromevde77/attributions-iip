@@ -12,17 +12,17 @@ const fr = (iso) => iso ? iso.slice(0, 10).split('-').reverse().join('/') : '—
 
 const PORTEE = {
   requis:    { label: 'Titre requis',    classe: 'bg-iip-blue/10 text-iip-blue' },
-  suffisant: { label: 'Titre suffisant', classe: 'bg-emerald-100 text-emerald-800' },
-  penurie:   { label: 'Pénurie',         classe: 'bg-amber-100 text-amber-900' },
+  suffisant: { label: 'Titre suffisant', classe: 'bg-emerald-500 text-white' },
+  penurie:   { label: 'Pénurie',         classe: 'bg-amber-500 text-white' },
   ajoute:    { label: 'Ajouté',          classe: 'bg-slate-100 text-slate-600' },
 };
 
 const STATUT_OFFRE = {
   brouillon: { label: 'Brouillon', classe: 'bg-slate-100 text-slate-600' },
-  publiee:   { label: 'Publiée',   classe: 'bg-emerald-100 text-emerald-800' },
+  publiee:   { label: 'Publiée',   classe: 'bg-emerald-500 text-white' },
   pourvue:   { label: 'Pourvue',   classe: 'bg-iip-blue/10 text-iip-blue' },
   close:     { label: 'Close',     classe: 'bg-slate-100 text-slate-500' },
-  ouvert:    { label: 'Ouverte',   classe: 'bg-emerald-100 text-emerald-800' },
+  ouvert:    { label: 'Ouverte',   classe: 'bg-emerald-500 text-white' },
 };
 
 /**
@@ -167,8 +167,8 @@ export default function Besoins({ annee: anneeProp }) {
 
       {message && (
         <div className={`px-4 py-2.5 rounded-lg text-sm flex items-center justify-between gap-3
-          ${message.type === 'ok' ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
-                                  : 'bg-red-50 text-red-800 border border-red-200'}`}>
+          ${message.type === 'ok' ? 'bg-emerald-500 text-white border border-emerald-500'
+                                  : 'bg-red-500 text-white border border-red-500'}`}>
           <span>{message.texte}</span>
           <button onClick={() => setMessage(null)}><IconX size={15} /></button>
         </div>
@@ -483,8 +483,8 @@ export default function Besoins({ annee: anneeProp }) {
             {envoi.fait ? (
               <>
                 <div className={`px-3 py-2.5 rounded-lg text-sm ${envoi.mode === 'smtp'
-                  ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
-                  : 'bg-amber-50 text-amber-800 border border-amber-200'}`}>
+                  ? 'bg-emerald-500 text-white border border-emerald-500'
+                  : 'bg-amber-500 text-white border border-amber-500'}`}>
                   {envoi.mode === 'smtp'
                     ? `Offre envoyée à ${envoi.nb} destinataire(s). L'envoi est tracé dans Lucie.`
                     : envoi.avertissement}

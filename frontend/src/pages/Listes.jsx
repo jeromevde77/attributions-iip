@@ -1690,7 +1690,7 @@ export default function Listes({ integre = false, domaine = null }) {
                 const d = await def.fetch(annee, filtres);
                 def.grille ? genererGrilleExcel(d) : genererRapportExcel(d, filtres);
               }}
-              className="text-sm border border-emerald-500 text-emerald-700 hover:bg-emerald-50 px-3 py-2 rounded-lg font-medium flex items-center gap-1.5">
+              className="text-sm border border-emerald-500 text-emerald-700 hover:bg-emerald-50 px-3 py-2 rounded-lg font-medium flex items-center gap-1.5 border-l-4 border-l-emerald-500">
               <IconFileSpreadsheet size={16} /> Excel
             </button>
           </>
@@ -1726,14 +1726,14 @@ export default function Listes({ integre = false, domaine = null }) {
               <IconDownload size={16} /> CSV
             </button>
             <button onClick={() => exportExcel(rows, colsVisibles, nomFichier)} disabled={rows.length === 0}
-              className="text-sm border border-emerald-500 text-emerald-700 hover:bg-emerald-50 disabled:opacity-40 px-3 py-2 rounded-lg font-medium flex items-center gap-1.5">
+              className="text-sm border border-emerald-500 text-emerald-700 hover:bg-emerald-50 disabled:opacity-40 px-3 py-2 rounded-lg font-medium flex items-center gap-1.5 border-l-4 border-l-emerald-500">
               <IconFileSpreadsheet size={16} /> Excel
             </button>
           </>
         ))}
       </div>
 
-      {error && <div className="bg-red-50 text-red-700 text-sm p-3 mx-5 mt-3 rounded-lg flex-shrink-0">{error}</div>}
+      {error && <div className="bg-red-50 text-red-700 text-sm p-3 mx-5 mt-3 rounded-lg flex-shrink-0 border-l-4 border-l-red-500">{error}</div>}
 
       {/* ── Zone de contenu ── */}
       <div className="flex-1 min-h-0 overflow-auto">
@@ -2061,7 +2061,7 @@ function HeuresContactView({ sections, annee }) {
                                 <td className="px-2 py-1 text-gray-700">{c.cours_nom}</td>
                                 <td className="px-2 py-1 text-center">
                                   {c.ct_pp && (
-                                    <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${c.ct_pp === 'CT' ? 'bg-blue-100 text-blue-700' : 'bg-green-100 text-green-700'}`}>{c.ct_pp}</span>
+                                    <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${c.ct_pp === 'CT' ? 'bg-blue-500 text-white' : 'bg-green-500 text-white'}`}>{c.ct_pp}</span>
                                   )}
                                 </td>
                                 <td className="px-2 py-1 text-right font-bold text-gray-800">

@@ -408,7 +408,7 @@ export default function FeuilleCorrection({ ueNum, annee, onClose, onModifie }) 
                               className="px-1 py-0.5 border-b border-slate-100 text-center">
                               <span className={`inline-block min-w-[30px] px-1 py-0.5
                                 font-bold tabular-nums ${k.na?.[c.cours_code]
-                                  ? 'text-red-700 bg-red-50' : ton(k.cours?.[c.cours_code])}`}>
+                                  ? 'text-white bg-red-500' : ton(k.cours?.[c.cours_code])}`}>
                                 {k.na?.[c.cours_code] ? 'NA' : fmt(k.cours?.[c.cours_code])}
                               </span>
                             </td>,
@@ -435,7 +435,7 @@ export default function FeuilleCorrection({ ueNum, annee, onClose, onModifie }) 
                         <td className={`px-1 py-0.5 border-b border-slate-100
                                        bg-iip-blue/5 text-center ${SEP_UE}`}>
                           <span className={`inline-block min-w-[30px] px-1 py-0.5
-                            font-bold tabular-nums ${k.ue_na ? 'text-red-700 bg-red-50'
+                            font-bold tabular-nums ${k.ue_na ? 'text-white bg-red-500'
                               : ton(k.ue)}`}>
                             {k.ue_na ? 'NA' : fmt(k.ue)}
                           </span>
@@ -450,7 +450,7 @@ export default function FeuilleCorrection({ ueNum, annee, onClose, onModifie }) 
                                        text-center">
                           <span className={`inline-block min-w-[30px] px-1 py-0.5
                             font-bold tabular-nums ${k.cote_etudiant === 'NA'
-                              ? 'text-red-700 bg-red-50' : 'text-slate-700'}`}>
+                              ? 'text-white bg-red-500' : 'text-slate-700'}`}>
                             {k.cote_etudiant ?? '—'}
                           </span>
                         </td>

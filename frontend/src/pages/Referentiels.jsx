@@ -201,7 +201,7 @@ function DPImportModal({ annee, sections, onClose, onSaved }) {
             </div>
 
             {error && (
-              <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-sm text-red-700 flex items-start gap-2">
+              <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-sm text-red-700 flex items-start gap-2 border-l-4 border-l-red-500">
                 <IconAlertTriangle size={16} className="flex-shrink-0 mt-0.5" />{error}
               </div>
             )}
@@ -564,7 +564,7 @@ function SectionModal({ section, onClose, onSaved, annee, isAdmin }) {
               <input value={form.responsable} onChange={e => set('responsable', e.target.value)} placeholder="Coordinateur (optionnel)"
                 className="w-full border border-gray-300 rounded px-3 py-1.5 h-9 text-sm" /></label>
           </div>
-          {error && <div className="bg-red-50 text-red-700 text-sm rounded p-2">{error}</div>}
+          {error && <div className="bg-red-50 text-red-700 text-sm rounded p-2 border-l-4 border-l-red-500">{error}</div>}
 
 
           {!isNew && section?.code && (
@@ -1523,7 +1523,7 @@ function GestionActivites({ sections = [] }) {
           <select value={a.type_etp || ''} onChange={e => changerType(a.id, e.target.value)}
             className={`text-xs font-semibold border rounded px-1.5 py-0.5 cursor-pointer outline-none
               ${a.type_etp === 'TH' ? 'bg-slate-100 text-slate-800 border-slate-300'
-              : a.type_etp === 'TP' ? 'bg-cyan-50 text-cyan-700 border-cyan-300'
+              : a.type_etp === 'TP' ? 'bg-cyan-500 text-white border-cyan-500'
               : a.type_etp === 'COD' ? 'bg-iip-gold/10 text-iip-gold border-iip-gold/40'
               : 'bg-gray-50 text-gray-400 border-gray-200'}`}
             title="Type pour le calcul ETP : TH ÷800, TP ÷1000, COD ÷1440">

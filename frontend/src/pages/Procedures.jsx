@@ -42,8 +42,8 @@ function fmtCourt(d) {
 // ─── Composants UI ────────────────────────────────────────────────────────────
 function Badge({ ok, label }) {
   return ok
-    ? <span className="inline-flex items-center gap-1 bg-green-100 text-green-800 border border-green-300 rounded-champ px-3 py-0.5 text-sm font-semibold"><IconCheck size={15} stroke={2.2} /> {label}</span>
-    : <span className="inline-flex items-center gap-1 bg-red-100 text-red-800 border border-red-300 rounded-champ px-3 py-0.5 text-sm font-semibold"><IconX size={15} stroke={2.2} /> {label}</span>;
+    ? <span className="inline-flex items-center gap-1 bg-green-100 text-green-800 border border-green-300 rounded-champ px-3 py-0.5 text-sm font-semibold border-l-4 border-l-green-500"><IconCheck size={15} stroke={2.2} /> {label}</span>
+    : <span className="inline-flex items-center gap-1 bg-red-100 text-red-800 border border-red-300 rounded-champ px-3 py-0.5 text-sm font-semibold border-l-4 border-l-red-500"><IconX size={15} stroke={2.2} /> {label}</span>;
 }
 function Ref({ text }) {
   return <span className="inline-flex items-center gap-1 text-xs text-iip-blue bg-iip-turquoise/5 border border-iip-turquoise/30 rounded px-1.5 py-0.5 ml-1"><IconScale size={13} stroke={1.8} /> {text}</span>;
@@ -614,7 +614,7 @@ function OutilRecours({ initialPayload, onPayloadConsumed }) {
                 <p className="text-xs text-iip-blue mb-2">Cochez les membres <strong>présents</strong> à la délibération (CDE restreint = Président + min. 2 membres — Art. 89 §1) :</p>
                 <div className="space-y-1">
                   {profs.map(p => (
-                    <label key={p.id} className={`flex items-center gap-3 px-3 py-2 rounded-lg border cursor-pointer transition ${profsPresents.has(p.id) ? 'bg-green-50 border-green-400' : 'bg-white border-iip-turquoise/30 hover:bg-iip-turquoise/5'}`}>
+                    <label key={p.id} className={`flex items-center gap-3 px-3 py-2 rounded-lg border cursor-pointer transition ${profsPresents.has(p.id) ? 'bg-green-50 border-green-400' : 'bg-white border-iip-turquoise/30 hover:bg-iip-turquoise/5'} border-l-4 border-l-green-500`}>
                       <input type="checkbox" checked={profsPresents.has(p.id)} onChange={() => toggleProfPresent(p.id)} className="w-4 h-4 accent-green-600" />
                       <span className={`w-7 h-7 rounded-full text-white text-xs font-bold flex items-center justify-center flex-shrink-0 ${profsPresents.has(p.id) ? 'bg-green-600' : 'bg-iip-turquoise'}`}>
                         {(p.nom[0]||'?').toUpperCase()}
@@ -646,19 +646,19 @@ function OutilRecours({ initialPayload, onPayloadConsumed }) {
       <Section title="2 · Qualification de la décision">
         <Q num="1" text="La décision contestée est-elle une DÉCISION DE REFUS ?" value={q.decisionRefus} onChange={v => set('decisionRefus', v)} ref_={UI.porteeRefus} />
         {q.decisionRefus === 'non' && (
-          <div className="mt-3 p-4 bg-red-100 border-2 border-red-500 rounded-lg">
+          <div className="mt-3 p-4 bg-red-100 border-2 border-red-500 rounded-lg border-l-4 border-l-red-500">
             <p className="font-bold text-red-800 inline-flex items-center gap-1.5"><IconBan size={18} /> IRRECEVABLE DE PLEIN DROIT</p>
             <p className="text-red-700 text-sm mt-1">Seules les décisions de REFUS sont recourables. Les ajournements (1re session), VA/VAE et délivrances de titre ne peuvent pas faire l'objet d'un recours.</p>
             <p className="text-xs text-red-600 mt-1 inline-flex items-center gap-1"><IconScale size={13} /> {UI.porteeRefus2}</p>
           </div>
         )}
         {q.decisionRefus === 'oui' && (
-          <div className="mt-3 p-3 bg-green-50 border border-green-200 rounded text-sm text-green-800 inline-flex items-center gap-1.5">
+          <div className="mt-3 p-3 bg-green-50 border border-green-200 rounded text-sm text-green-800 inline-flex items-center gap-1.5 border-l-4 border-l-green-500">
             <IconCheck size={16} /> La décision est de nature recourable (décision de refus). Procéder à l'analyse de recevabilité.
           </div>
         )}
         {q.decisionRefus === 'oui' && delaiRespect === false && (
-          <div className="mt-2 p-3 bg-orange-50 border-2 border-orange-400 rounded text-sm text-orange-800 flex items-start gap-1.5">
+          <div className="mt-2 p-3 bg-orange-50 border-2 border-orange-400 rounded text-sm text-orange-800 flex items-start gap-1.5 border-l-4 border-l-orange-500">
             <IconAlertTriangle size={16} className="flex-shrink-0 mt-0.5" />
             <span><strong>Attention :</strong> le délai de 4 jours calendrier est dépassé (J+{nbJours}). La plainte sera vraisemblablement <strong>irrecevable</strong> pour ce motif — vérification formelle ci-dessous.</span>
           </div>
@@ -676,7 +676,7 @@ function OutilRecours({ initialPayload, onPayloadConsumed }) {
         <Q num="4" text="Mentionne des IRRÉGULARITÉS PRÉCISES (pas juste 'je ne suis pas d'accord') ?" value={q.irregulPrecises} onChange={v => set('irregulPrecises', v)} ref_={is2526 ? 'Art. 67 ROI/RGE' : 'Art. 88 §3'} />
 
         {conditionsRecevabilite.some(c => c.ok !== undefined) && (
-          <div className={`p-4 rounded-xl border-2 mt-4 ${recevable ? 'bg-green-50 border-green-500' : irrecevable ? 'bg-red-50 border-red-500' : 'bg-gray-50 border-gray-300'}`}>
+          <div className={`p-4 rounded-xl border-2 mt-4 ${recevable ? 'bg-green-50 border-green-500' : irrecevable ? 'bg-red-50 border-red-500' : 'bg-gray-50 border-gray-300'} border-l-4 border-l-green-500`}>
             {recevable && <>
               <p className="font-bold text-green-800 text-base inline-flex items-center gap-1.5"><IconCircleCheck size={20} /> RECEVABLE — Procéder à l'instruction</p>
               {limiteDecisionInterne && <p className="text-sm text-green-700 mt-1 inline-flex items-center gap-1"><IconClock size={14} /> Date limite décision interne : <strong>{fmt(limiteDecisionInterne)}</strong></p>}
@@ -719,7 +719,7 @@ function OutilRecours({ initialPayload, onPayloadConsumed }) {
         </div>
 
         {/* Synthèse */}
-        <div className={`p-4 rounded-lg border-2 mb-5 ${recevable ? 'border-green-500 bg-green-50' : 'border-red-500 bg-red-50'}`}>
+        <div className={`p-4 rounded-lg border-2 mb-5 ${recevable ? 'border-green-500 bg-green-50' : 'border-red-500 bg-red-50'} border-l-4 border-l-green-500`}>
           <p className="font-bold text-base inline-flex items-center gap-1.5">{recevable ? <><IconCircleCheck size={18} /> Recevable</> : <><IconBan size={18} /> Irrecevable</>}</p>
           {recevable && (() => {
             const irregs = [
@@ -753,7 +753,7 @@ function OutilRecours({ initialPayload, onPayloadConsumed }) {
         </div>
 
         {limiteRecourseExterne && (
-          <div className="p-3 bg-orange-50 border border-orange-300 rounded text-sm mb-5 inline-flex items-center gap-1.5">
+          <div className="p-3 bg-orange-50 border border-orange-300 rounded text-sm mb-5 inline-flex items-center gap-1.5 border-l-4 border-l-orange-500">
             <IconClock size={15} /> <strong>Limite recours externe :</strong> {fmt(limiteRecourseExterne)}
             <span className="text-xs text-orange-700 ml-2 inline-flex items-center gap-1"><IconScale size={12} /> Art. 90 §2 RDE/ROI</span>
           </div>
@@ -1229,7 +1229,7 @@ function OutilFraude({ initialPayload, onPayloadConsumed }) {
 
         {/* Membres présents */}
         {ueNum && (
-          <div className="mt-3 p-4 bg-red-50 border border-red-200 rounded-lg">
+          <div className="mt-3 p-4 bg-red-50 border border-red-200 rounded-lg border-l-4 border-l-red-500">
             <div className="flex items-center justify-between mb-2">
               <p className="text-sm font-bold text-red-900">
                 Membres du CDE présents {loadingProfs && <span className="text-xs font-normal ml-1">…</span>}
@@ -1274,7 +1274,7 @@ function OutilFraude({ initialPayload, onPayloadConsumed }) {
               ['pendant',    "Pendant l'épreuve", is2526F ? 'Art. 54 ROI/RGE' : 'Art. 73 RDE/ROI'],
               ['correction', "À la correction / après l'épreuve", is2526F ? 'Art. 54 ROI/RGE' : 'Art. 74 RDE/ROI'],
             ].map(([val, label, ref]) => (
-              <label key={val} className={`flex items-start gap-2.5 p-3 rounded-lg border cursor-pointer transition ${momentFaits===val?'bg-red-50 border-red-500':'bg-white border-gray-300 hover:bg-gray-50'}`}>
+              <label key={val} className={`flex items-start gap-2.5 p-3 rounded-lg border cursor-pointer transition ${momentFaits===val?'bg-red-50 border-red-500':'bg-white border-gray-300 hover:bg-gray-50'} border-l-4 border-l-red-500`}>
                 <input type="radio" name="momentFaits" value={val} checked={momentFaits===val} onChange={() => setMomentFaits(val)} className="accent-red-700 mt-0.5" />
                 <span><span className="text-sm font-medium block">{label}</span><Ref text={ref} /></span>
               </label>
@@ -1310,7 +1310,7 @@ function OutilFraude({ initialPayload, onPayloadConsumed }) {
               className="w-full border border-gray-300 rounded px-3 py-2 text-sm resize-y" />
           </div>
         </div>
-        <div className="mt-4 p-3 bg-amber-50 border border-amber-300 rounded text-sm">
+        <div className="mt-4 p-3 bg-amber-50 border border-amber-300 rounded text-sm border-l-4 border-l-amber-500">
           <p className="font-semibold text-amber-800 inline-flex items-center gap-1.5"><IconAlertTriangle size={15} /> Important — {is2526F ? 'Art. 54 ROI/RGE' : 'Art. 72 §2 RDE/ROI'}</p>
           <p className="text-amber-700 mt-1">L'élément suspect doit être saisi et joint au dossier. Le rapport du surveillant est obligatoire. L'étudiant peut terminer son épreuve même en cas de fraude constatée.</p>
         </div>
@@ -1325,7 +1325,7 @@ function OutilFraude({ initialPayload, onPayloadConsumed }) {
             <p className="text-xs text-gray-400 mt-0.5">Courrier/e-mail informant des faits reprochés et du droit à l'audition</p>
           </label>
           {!dateNotification && (
-            <div className="mb-3 p-3 bg-red-50 border border-red-400 rounded text-sm text-red-800 flex items-start gap-1.5">
+            <div className="mb-3 p-3 bg-red-50 border border-red-400 rounded text-sm text-red-800 flex items-start gap-1.5 border-l-4 border-l-red-500">
               <IconBan size={16} className="flex-shrink-0 mt-0.5" />
               <span>La notification préalable est obligatoire ({is2526F ? 'Art. 54 ROI/RGE' : 'Art. 74 §1'}). Toute décision sans notification préalable serait nulle.</span>
             </div>
@@ -1365,7 +1365,7 @@ function OutilFraude({ initialPayload, onPayloadConsumed }) {
           </label>
         </div>
 
-        <div className="mb-4 p-3 bg-amber-50 border border-amber-300 rounded text-sm">
+        <div className="mb-4 p-3 bg-amber-50 border border-amber-300 rounded text-sm border-l-4 border-l-amber-500">
           <p className="font-semibold text-amber-800">Sanction applicable selon la situation :</p>
           <p className="text-amber-700 mt-1">
             {is2526F
@@ -1390,7 +1390,7 @@ function OutilFraude({ initialPayload, onPayloadConsumed }) {
               ['ajournement', `Ajournement pour les AA visés par l'épreuve (Art. 73 §1)`, session==='1'&&!recidive],
               ['refus',       `Refus pour l'UE ${ueNum} (Art. 73 §2 — 2e session ou récidive)`, session==='2'||recidive],
             ]).map(([val, label, recommande]) => (
-              <label key={val} className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition ${decision===val?'bg-green-50 border-green-500':'bg-white border-gray-300 hover:bg-gray-50'}`}>
+              <label key={val} className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition ${decision===val?'bg-green-50 border-green-500':'bg-white border-gray-300 hover:bg-gray-50'} border-l-4 border-l-green-500`}>
                 <input type="radio" name="decision" value={val} checked={decision===val} onChange={() => setDecision(val)} className="accent-red-700" />
                 <span className="text-sm flex-1">{label}</span>
                 {recommande && <span className="text-xs bg-green-500 text-white border border-green-500 rounded-champ px-2 py-0.5">Recommandé</span>}
@@ -1408,7 +1408,7 @@ function OutilFraude({ initialPayload, onPayloadConsumed }) {
 
         {/* Synthèse */}
         {decision && (
-          <div className="p-4 bg-red-50 border-2 border-red-500 rounded-lg mt-5">
+          <div className="p-4 bg-red-50 border-2 border-red-500 rounded-lg mt-5 border-l-4 border-l-red-500">
             <p className="font-bold text-red-900 inline-flex items-center gap-1.5">
               Décision : {decision === 'ajournement'
                 ? <><IconCheck size={16} /> Ajournement ({is2526F ? 'Art. 55 ROI/RGE' : 'Art. 73 §1'})</>
@@ -1466,7 +1466,7 @@ function OutilFraude({ initialPayload, onPayloadConsumed }) {
       {/* Réinitialiser */}
       <div className="flex justify-end">
         <button onClick={() => { setStep(1); setEtudiant(''); setUeNum(''); setSession('1'); setRecidive(false); setDateExamen(''); setDateFaits(''); setTypeFraude(''); setDescriptionFraits(''); setDateNotification(''); setDateAudition(''); setDeclarationsEtudiant(''); setDateCDE(''); setDateEnvoi(''); setDecision(''); setCommentaireCDE(''); setMomentFaits('pendant'); setConteste(false); setProfsPresents(new Set()); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
-          className="border border-red-700 text-red-700 px-6 py-2 rounded-lg text-sm font-medium hover:bg-red-50 inline-flex items-center gap-1.5">
+          className="border border-red-700 text-red-700 px-6 py-2 rounded-lg text-sm font-medium hover:bg-red-50 inline-flex items-center gap-1.5 border-l-4 border-l-red-500">
           <IconRefresh size={16} /> Nouveau dossier
         </button>
       </div>
@@ -1503,10 +1503,10 @@ function OutilFraude({ initialPayload, onPayloadConsumed }) {
 // ─── PAGE PRINCIPALE ──────────────────────────────────────────────────────────
 // ─── ArchivesProcedures ───────────────────────────────────────────────────────
 const STATUT_LABEL = { en_cours: 'En cours', clos: 'Clôturé', annule: 'Annulé', brouillon: 'Brouillon' };
-const STATUT_COLOR = { en_cours: 'bg-iip-turquoise/10 text-iip-blue', clos: 'bg-green-100 text-green-700', annule: 'bg-gray-100 text-gray-500', brouillon: 'bg-amber-100 text-amber-700' };
+const STATUT_COLOR = { en_cours: 'bg-iip-turquoise/10 text-iip-blue', clos: 'bg-green-500 text-white', annule: 'bg-gray-100 text-gray-500', brouillon: 'bg-amber-500 text-white' };
 const VERDICT_LABEL = { irrecevable: 'Irrecevable', rejete: 'Rejeté', accueilli: 'Accueilli', ajourne: 'Ajourné', refus: 'Refus' };
-const VERDICT_COLOR = { irrecevable: 'bg-red-100 text-red-700', rejete: 'bg-orange-100 text-orange-700', accueilli: 'bg-green-100 text-green-700', ajourne: 'bg-yellow-100 text-yellow-700', refus: 'bg-red-100 text-red-700' };
-const TYPE_COLOR = { recours: 'bg-iip-turquoise/10 text-iip-turquoise', fraude: 'bg-red-50 text-red-700' };
+const VERDICT_COLOR = { irrecevable: 'bg-red-500 text-white', rejete: 'bg-orange-500 text-white', accueilli: 'bg-green-500 text-white', ajourne: 'bg-yellow-500 text-white', refus: 'bg-red-500 text-white' };
+const TYPE_COLOR = { recours: 'bg-iip-turquoise/10 text-iip-turquoise', fraude: 'bg-red-500 text-white' };
 
 function fmtDate(s) {
   if (!s) return '—';
@@ -1776,7 +1776,7 @@ function ArchivesProcedures({ onReprendreRecours, onReprendre }) {
               {/* Suppression */}
               <div className="border-t border-red-100 pt-4 mt-4">
                 {confirmSupp === detail.id ? (
-                  <div className="bg-red-50 border border-red-200 rounded-lg p-4 space-y-3">
+                  <div className="bg-red-50 border border-red-200 rounded-lg p-4 space-y-3 border-l-4 border-l-red-500">
                     <p className="text-sm font-medium text-red-800">Suppression physique définitive</p>
                     <p className="text-xs text-red-700">Cette action est irréversible. La procédure et toutes ses traces seront effacées de la base de données.</p>
                     <div className="flex gap-2">

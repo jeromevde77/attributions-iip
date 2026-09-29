@@ -876,11 +876,11 @@ export function TableauVide({ colonnes, children }) {
 
 const TEINTES_BADGE = {
   neutre:  'bg-slate-100 text-slate-600',
-  info:    'bg-sky-100 text-sky-800',
-  succes:  'bg-emerald-100 text-emerald-800',
-  alerte:  'bg-amber-100 text-amber-800',
-  danger:  'bg-red-100 text-red-700',
-  accent:  'bg-violet-100 text-violet-700',
+  info:    'bg-sky-500 text-white',
+  succes:  'bg-emerald-500 text-white',
+  alerte:  'bg-amber-500 text-white',
+  danger:  'bg-red-500 text-white',
+  accent:  'bg-violet-500 text-white',
 };
 
 /** Badge de tableau : discret, sans bordure, aux teintes de l'application. */
@@ -918,7 +918,7 @@ export function TuileEtat({ etat = 'neutre', valeur, unite, libelle, precision, 
       className={`bloc-etat ${sousReserve ? 'sous-reserve' : ''} relative text-left px-3 py-2 min-w-0
         ${onClick ? 'cursor-pointer hover:brightness-[.98] transition' : ''}
         ${actif ? 'ring-2 ring-offset-1 ring-iip-blue/30' : ''} ${className}`}>
-      {Icone && <Icone size={15} stroke={1.8} className="absolute right-2.5 top-2.5 text-slate-400" />}
+      {Icone && <Icone size={15} stroke={1.8} className="absolute right-2.5 top-2.5" style={{ color: 'var(--e)' }} />}
       <div className="text-[17px] font-bold tabular-nums leading-tight">
         {valeur}
         {unite && <span className="text-[11px] font-normal text-slate-500 ml-1">{unite}</span>}
@@ -936,7 +936,7 @@ export function Encadre({ etat = 'surveiller', titre, children, icone: Icone, cl
     <div data-etat={etat} className={`bloc-etat px-3 py-2 text-[12px] ${className}`}>
       {(titre || Icone) && (
         <div className="flex items-center gap-1.5 font-semibold text-[13px]">
-          {Icone && <Icone size={15} stroke={1.8} className="text-slate-500" />}
+          {Icone && <Icone size={15} stroke={1.8} style={{ color: 'var(--e)' }} />}
           {titre}
         </div>
       )}

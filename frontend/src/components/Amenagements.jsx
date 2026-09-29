@@ -118,9 +118,9 @@ export default function Amenagements({ etudId, annee }) {
 
       {message && (
         <div className={`px-3 py-2 rounded-lg text-[13px] flex items-start justify-between gap-2 ${
-          message.type === 'rappel' ? 'bg-amber-50 border border-amber-200 text-amber-900'
-          : message.type === 'err' ? 'bg-red-50 border border-red-200 text-red-800'
-          : 'bg-emerald-50 border border-emerald-200 text-emerald-800'}`}>
+          message.type === 'rappel' ? 'bg-amber-500 border border-amber-500 text-white'
+          : message.type === 'err' ? 'bg-red-500 border border-red-500 text-white'
+          : 'bg-emerald-500 border border-emerald-500 text-white'}`}>
           <span>{message.texte}</span>
           <button onClick={() => setMessage(null)} className="opacity-60">✕</button>
         </div>
@@ -129,8 +129,8 @@ export default function Amenagements({ etudId, annee }) {
       {/* La pièce vaut au-delà de l'année : la rappeler évite de la redemander. */}
       {data.piece_valide && (
         <div className={`px-3 py-2 rounded-lg text-[12px] flex items-start gap-2 ${
-          data.piece_valide.perime ? 'bg-amber-50 border border-amber-200 text-amber-900'
-                                   : 'bg-sky-50 border border-sky-200 text-sky-900'}`}>
+          data.piece_valide.perime ? 'bg-amber-500 border border-amber-500 text-white'
+                                   : 'bg-sky-500 border border-sky-500 text-white'}`}>
           <IconShieldCheck size={15} className="mt-0.5 flex-none" />
           <span>
             Pièce au dossier ({data.piece_valide.annee_scolaire}) : {data.piece_valide.note}

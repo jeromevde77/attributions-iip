@@ -85,8 +85,8 @@ export default function IdentiteEtudiant({ etudId, onModifie }) {
 
       {message && (
         <div className={`px-3 py-2 rounded-lg text-[13px] flex items-start justify-between gap-2 ${
-          message.type === 'ok' ? 'bg-emerald-50 border border-emerald-200 text-emerald-800'
-                                : 'bg-red-50 border border-red-200 text-red-800'}`}>
+          message.type === 'ok' ? 'bg-emerald-500 border border-emerald-500 text-white'
+                                : 'bg-red-500 border border-red-500 text-white'}`}>
           <span>{message.texte}</span>
           <button onClick={() => setMessage(null)} className="opacity-60">✕</button>
         </div>
@@ -346,13 +346,13 @@ export function ComplementDossiers({ onTermine }) {
       </label>
 
       {avertissement && (
-        <div className="px-3 py-2 rounded-lg bg-amber-50 border border-amber-200 text-[13px] text-amber-900">
+        <div className="px-3 py-2 rounded-lg bg-amber-50 border border-amber-200 text-[13px] text-amber-900 border-l-4 border-l-amber-500">
           {avertissement}
         </div>
       )}
 
       {erreur && (
-        <div className="px-3 py-2 rounded-lg bg-red-50 border border-red-200 text-[13px] text-red-800">
+        <div className="px-3 py-2 rounded-lg bg-red-50 border border-red-200 text-[13px] text-red-800 border-l-4 border-l-red-500">
           {erreur}
         </div>
       )}
@@ -451,7 +451,7 @@ export function ComplementDossiers({ onTermine }) {
           )}
 
           {rapport.nb_ambigus > 0 && (
-            <div className="px-3 py-2 rounded-lg bg-amber-50 border border-amber-200 text-[12px] text-amber-900">
+            <div className="px-3 py-2 rounded-lg bg-amber-50 border border-amber-200 text-[12px] text-amber-900 border-l-4 border-l-amber-500">
               <div className="flex items-center gap-1.5 font-semibold mb-1">
                 <IconAlertTriangle size={14} /> {rapport.nb_ambigus} homonyme(s) non tranché(s)
               </div>
@@ -467,7 +467,7 @@ export function ComplementDossiers({ onTermine }) {
           )}
 
           {rapport.nb_conflits > 0 && (
-            <div className="px-3 py-2 rounded-lg bg-amber-50 border border-amber-300 text-[12px] text-amber-900">
+            <div className="px-3 py-2 rounded-lg bg-amber-50 border border-amber-300 text-[12px] text-amber-900 border-l-4 border-l-amber-500">
               <div className="flex items-center gap-1.5 font-semibold mb-1">
                 <IconAlertTriangle size={14} /> {rapport.nb_conflits} matricule(s) déjà attribué(s)
               </div>
@@ -486,7 +486,7 @@ export function ComplementDossiers({ onTermine }) {
           )}
 
           {rapport.nb_inconnus > 0 && (
-            <div className="px-3 py-2 rounded-lg bg-amber-50 border border-amber-200 text-[12px] text-amber-900">
+            <div className="px-3 py-2 rounded-lg bg-amber-50 border border-amber-200 text-[12px] text-amber-900 border-l-4 border-l-amber-500">
               <div className="flex items-center gap-1.5 font-semibold mb-1">
                 <IconAlertTriangle size={14} /> {rapport.nb_inconnus} numéro(s) sans correspondance
               </div>

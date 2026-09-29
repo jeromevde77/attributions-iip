@@ -106,7 +106,7 @@ function ExtDotPanel({ annee }) {
           const depasse = v.dot > 0;
           if (v.illimite) {
             return (
-              <div key={pot} className="rounded-lg border border-teal-200 bg-teal-50 p-3">
+              <div key={pot} className="rounded-lg border border-teal-200 bg-teal-50 p-3 border-l-4 border-l-teal-500">
                 <div className="flex justify-between items-center mb-1">
                   <span className="font-bold text-sm">{pot}</span>
                   <span className="text-[10px] bg-teal-500 text-white px-1.5 py-0.5 rounded font-bold">∞ Illimité</span>
@@ -119,7 +119,7 @@ function ExtDotPanel({ annee }) {
             );
           }
           return (
-            <div key={pot} className={`rounded-lg border p-3 ${depasse ? 'border-orange-300 bg-orange-50' : 'border-teal-200 bg-teal-50'}`}>
+            <div key={pot} className={`rounded-lg border p-3 ${depasse ? 'border-orange-300 bg-orange-50' : 'border-teal-200 bg-teal-50'} border-l-4 border-l-orange-500`}>
               <div className="flex justify-between items-center mb-1">
                 <span className="font-bold text-sm">{pot}</span>
                 {depasse && <span className="text-[10px] bg-orange-500 text-white px-1.5 py-0.5 rounded font-bold">⚠ DOT {v.dot} pér. B</span>}
@@ -149,7 +149,7 @@ function EnvCard({ env }) {
   const depasse = env.solde < 0;
   const dot = Math.abs(Math.min(0, env.solde));
   return (
-    <div className={`border rounded-lg px-3 py-2 flex items-center gap-3 ${depasse ? 'border-orange-200 bg-orange-50' : 'border-gray-200 bg-white'}`}>
+    <div className={`border rounded-lg px-3 py-2 flex items-center gap-3 ${depasse ? 'border-orange-200 bg-orange-50' : 'border-gray-200 bg-white'} border-l-4 border-l-orange-500`}>
       {/* Nom + code */}
       <div className="min-w-0 flex-1">
         <div className="text-xs font-semibold text-gray-700 truncate">{env.label}</div>
@@ -983,7 +983,7 @@ export default function Pilotage({ vue = 'tout' }) {
                   deux mesure ce qui reste à encoder. Le fondre dans le solde
                   ferait disparaître cette information même. */}
               {d.solde_constate != null && (
-                <div className="px-4 py-3 border-b border-gray-100 bg-amber-50/60">
+                <div className="px-4 py-3 border-b border-gray-100 bg-amber-50/60 border-l-4 border-l-amber-500">
                   <div className="flex items-center gap-6 flex-wrap text-xs">
                     <div>
                       <div className="text-[10px] uppercase tracking-wider text-amber-700 mb-0.5">
@@ -1037,7 +1037,7 @@ export default function Pilotage({ vue = 'tout' }) {
                       const dep = e.solde < 0;
                       const dot = Math.abs(Math.min(0, e.solde));
                       return (
-                        <div key={e.code} className={`rounded-lg border px-3 py-2 text-xs ${dep ? 'border-orange-200 bg-orange-50' : 'border-gray-200'}`}>
+                        <div key={e.code} className={`rounded-lg border px-3 py-2 text-xs ${dep ? 'border-orange-200 bg-orange-50' : 'border-gray-200'} border-l-4 border-l-orange-500`}>
                           <div className="font-semibold text-iip-blue truncate">{e.label}</div>
                           <div className="text-[10px] text-gray-400 mb-1.5">{e.code}</div>
                           <div className="flex justify-between text-[10px] text-gray-500 mb-1">
@@ -1394,7 +1394,7 @@ export default function Pilotage({ vue = 'tout' }) {
                     ce dont on se souvient d'une année ; la consommation, on ne
                     l'a jamais soustraite. On saisit donc ce qu'on sait, et
                     Lucie en déduit le reste. */}
-                <td className="px-4 py-2"><input type="number" step="0.01" value={editDot.solde_constate ?? ''} onChange={e => setEditDot({ ...editDot, solde_constate: e.target.value })} placeholder="ex. 5" title="Périodes restées inutilisées, telles que la direction les constate" className="border border-amber-300 bg-amber-50 rounded px-2 py-1.5 h-9 text-sm w-28 text-right" /></td>
+                <td className="px-4 py-2"><input type="number" step="0.01" value={editDot.solde_constate ?? ''} onChange={e => setEditDot({ ...editDot, solde_constate: e.target.value })} placeholder="ex. 5" title="Périodes restées inutilisées, telles que la direction les constate" className="border border-amber-300 bg-amber-50 rounded px-2 py-1.5 h-9 text-sm w-28 text-right border-l-4 border-l-amber-500" /></td>
                 <td className="px-4 py-2"><input value={editDot.notes || ''} onChange={e => setEditDot({ ...editDot, notes: e.target.value })} className="border border-gray-300 rounded px-2 py-1.5 h-9 text-sm w-full" /></td>
                 <td className="px-4 py-2 flex gap-1 justify-end">
                   <button onClick={saveDotation} disabled={saving} className="bg-iip-gold text-white text-xs px-2 py-1 rounded"><IconCheck size={14} /></button>
@@ -1632,7 +1632,7 @@ export default function Pilotage({ vue = 'tout' }) {
         ) : loading ? (
           <div className="text-gray-400 py-12 text-center">Chargement…</div>
         ) : civil.length === 0 ? (
-          <div className="bg-amber-50 border border-amber-200 rounded-xl p-6 text-sm text-amber-700">
+          <div className="bg-amber-500 border border-amber-500 rounded-xl p-6 text-sm text-white">
             Aucune année civile configurée. Allez dans <strong>Configuration</strong> pour ajouter les premières années.
           </div>
         ) : (

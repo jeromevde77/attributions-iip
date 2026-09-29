@@ -272,8 +272,8 @@ function Liste({ onOuvrir }) {
               </div>
               <span className={`flex-none text-[10px] px-2 py-0.5 rounded-champ font-semibold ${
                 u.statut === 'validee'
-                  ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                  : 'bg-amber-50 text-amber-800 border border-amber-200'}`}>
+                  ? 'bg-emerald-500 text-white border border-emerald-500'
+                  : 'bg-amber-500 text-white border border-amber-500'}`}>
                 {u.statut === 'validee' ? 'validée' : 'en préparation'}
               </span>
             </div>
@@ -391,8 +391,8 @@ function Fiche({ ueNum, onRetour }) {
           <div className="flex items-center gap-2 mt-1">
             <span className={`text-[11px] px-2 py-0.5 rounded-champ font-semibold ${
               d.statut === 'validee'
-                ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                : 'bg-amber-50 text-amber-800 border border-amber-200'}`}>
+                ? 'bg-emerald-500 text-white border border-emerald-500'
+                : 'bg-amber-500 text-white border border-amber-500'}`}>
               {d.statut === 'validee' ? `validée le ${d.valide_le || ''}` : 'en préparation'}
             </span>
             <span className="text-[11px] text-slate-400 flex items-center gap-1">
@@ -411,7 +411,7 @@ function Fiche({ ueNum, onRetour }) {
             <button onClick={basculerValidation} disabled={enCours}
               className={`px-3 py-1.5 text-[12px] rounded-lg font-semibold flex items-center gap-1.5
                 ${d.statut === 'validee'
-      ? 'border border-amber-300 text-amber-800 bg-amber-50'
+      ? 'border border-amber-500 text-white bg-amber-500'
       : 'bg-emerald-600 text-white'}`}>
               {d.statut === 'validee' ? <><IconLockOpen size={14} /> Rouvrir</>
                 : <><IconLock size={14} /> Valider</>}

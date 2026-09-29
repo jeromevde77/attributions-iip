@@ -660,7 +660,7 @@ export default function ComposerPAE({ onClose, onTermine, onPassage, modeInitial
                       {e.primo && <span className="ml-1.5 text-[9.5px] font-bold px-1.5 py-0.5 rounded-full bg-blue-500/10 text-[color:var(--c-disponible)] align-middle"
                         title="Nouvel inscrit : aucune trace dans une année antérieure">primo</span>}
                       {mode === 'valider' && (e.pae_confirme_le ? (
-                        <span className="ml-1.5 text-[9.5px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 align-middle"
+                        <span className="ml-1.5 text-[9.5px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-500 text-white align-middle"
                           title={`Validé le ${e.pae_confirme_le}${e.pae_confirme_par ? ` par ${e.pae_confirme_par}` : ''}`}>
                           validé {e.pae_confirme_le.slice(8, 10)}/{e.pae_confirme_le.slice(5, 7)}
                         </span>
@@ -669,12 +669,12 @@ export default function ComposerPAE({ onClose, onTermine, onPassage, modeInitial
                           aucune UE
                         </span>
                       ) : (
-                        <span className="ml-1.5 text-[9.5px] font-bold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-800 align-middle">
+                        <span className="ml-1.5 text-[9.5px] font-bold px-1.5 py-0.5 rounded-full bg-amber-500 text-white align-middle">
                           à valider
                         </span>
                       ))}
                       {mode === 'valider' && alertes(e) > 0 && (
-                        <span className="ml-1 text-[9.5px] font-bold px-1.5 py-0.5 rounded-full bg-amber-50 border border-amber-300 text-amber-800 align-middle"
+                        <span className="ml-1 text-[9.5px] font-bold px-1.5 py-0.5 rounded-full bg-amber-500 border border-amber-500 text-white align-middle"
                           title={`Inscrit sans les prérequis : UE ${e.controle.hors_proposition.join(', ')}`}>
                           <IconAlertTriangle size={10} className="inline -mt-0.5" /> {alertes(e)} sans prérequis
                         </span>

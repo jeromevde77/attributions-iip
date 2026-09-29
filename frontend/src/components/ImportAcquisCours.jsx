@@ -215,8 +215,8 @@ export default function ImportAcquisCours({ coursCode, coursNom, annee, onClose,
               {rapport && (
                 <div className="border border-slate-200 rounded-xl overflow-hidden">
                   <div className={`px-3 py-2 border-b text-[13px] ${rapport.simulation
-                    ? 'bg-sky-50 border-sky-200 text-sky-900'
-                    : 'bg-emerald-50 border-emerald-200 text-emerald-900'}`}>
+                    ? 'bg-sky-500 border-sky-500 text-white'
+                    : 'bg-emerald-500 border-emerald-500 text-white'}`}>
                     <b>{rapport.simulation ? 'Simulation' : 'Import effectué'}</b> —
                     {' '}{rapport.resume.creees} créé(s),
                     {' '}{rapport.resume.modifiees} modifié(s),
@@ -236,7 +236,7 @@ export default function ImportAcquisCours({ coursCode, coursNom, annee, onClose,
                       </div>
                     ))}
                     {!!rapport.delies?.length && (
-                      <div className="px-3 py-1.5 text-[12px] text-amber-800 bg-amber-50">
+                      <div className="px-3 py-1.5 text-[12px] text-amber-800 bg-amber-50 border-l-4 border-l-amber-500">
                         Détachés de ce cours : {rapport.delies.join(', ')}
                       </div>
                     )}

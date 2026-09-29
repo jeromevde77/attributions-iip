@@ -105,12 +105,12 @@ export default function CompositionSection({ sectionCode, annee, estAdmin }) {
       <span className="flex items-center gap-1.5 flex-none text-[11px] text-slate-400">
         {u.ue_per_total ? `${u.ue_per_total} pér.` : ''}
         {u.autres_sections?.length > 0 && (
-          <span className="px-1.5 py-0.5 rounded-champ bg-sky-100 text-sky-800 font-bold">
+          <span className="px-1.5 py-0.5 rounded-champ bg-sky-500 text-white font-bold">
             aussi en {u.autres_sections.join(', ')}
           </span>
         )}
         {u.nb_organisations > 0 && (
-          <span className="px-1.5 py-0.5 rounded-champ bg-emerald-100 text-emerald-800 font-bold">
+          <span className="px-1.5 py-0.5 rounded-champ bg-emerald-500 text-white font-bold">
             {u.nb_organisations} org.
           </span>
         )}
@@ -142,8 +142,8 @@ export default function CompositionSection({ sectionCode, annee, estAdmin }) {
 
       {message && (
         <div className={`px-3 py-2 rounded-lg text-[13px] ${message.type === 'ok'
-          ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
-          : 'bg-red-50 text-red-800 border border-red-200'}`}
+          ? 'bg-emerald-500 text-white border border-emerald-500'
+          : 'bg-red-500 text-white border border-red-500'}`}
           onClick={() => setMessage(null)}>
           {message.texte}
         </div>

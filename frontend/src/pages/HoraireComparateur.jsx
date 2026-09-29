@@ -21,13 +21,13 @@ import { authHeaders } from '../lib/api.js';
  */
 
 const VERDICTS = {
-  concordant: { l: 'Concordant', c: 'bg-emerald-50 border-emerald-200 text-emerald-900',
+  concordant: { l: 'Concordant', c: 'bg-emerald-500 border-emerald-500 text-white',
     pastille: 'bg-emerald-500' },
-  professeur: { l: 'Autre professeur', c: 'bg-amber-50 border-amber-300 text-amber-900',
+  professeur: { l: 'Autre professeur', c: 'bg-amber-500 border-amber-500 text-white',
     pastille: 'bg-amber-500' },
-  heures: { l: 'Charge non dépensée', c: 'bg-orange-50 border-orange-300 text-orange-900',
+  heures: { l: 'Charge non dépensée', c: 'bg-orange-500 border-orange-500 text-white',
     pastille: 'bg-orange-500' },
-  hors_attribution: { l: 'Hors attribution', c: 'bg-rose-50 border-rose-300 text-rose-900',
+  hors_attribution: { l: 'Hors attribution', c: 'bg-rose-500 border-rose-500 text-white',
     pastille: 'bg-rose-500' },
 };
 
@@ -140,7 +140,7 @@ export default function HoraireComparateur({ annee }) {
 
       {/* LA SIMULATION D'ABORD : ce qui sera lu, avant que rien ne soit écrit. */}
       {apercu && (
-        <div className="px-4 py-3 rounded-xl bg-amber-50 border border-amber-300 space-y-2">
+        <div className="px-4 py-3 rounded-xl bg-amber-50 border border-amber-300 space-y-2 border-l-4 border-l-amber-500">
           <div className="text-[13px] font-semibold text-amber-900">
             {apercu.classe || 'Classe non reconnue'} — {apercu.seances} séance(s),
             {' '}{h1(apercu.heures)}, du {apercu.periode?.debut} au {apercu.periode?.fin}
@@ -301,7 +301,7 @@ export default function HoraireComparateur({ annee }) {
 
           {/* LA MOITIÉ QU'ON NE REGARDE JAMAIS : ce qui est payé et jamais posé. */}
           {!!comp.sans_seance.length && (
-            <div className="px-4 py-3 rounded-xl bg-rose-50 border border-rose-200">
+            <div className="px-4 py-3 rounded-xl bg-rose-50 border border-rose-200 border-l-4 border-l-rose-500">
               <div className="text-[13px] font-semibold text-rose-900 flex items-center gap-1.5">
                 <IconAlertTriangle size={15} />
                 {comp.sans_seance.length} cours attribué(s) sans une seule séance à l'horaire
@@ -319,7 +319,7 @@ export default function HoraireComparateur({ annee }) {
           )}
 
           {(!!comp.collisions.professeur.length || !!comp.collisions.local.length) && (
-            <div className="px-4 py-3 rounded-xl bg-amber-50 border border-amber-300">
+            <div className="px-4 py-3 rounded-xl bg-amber-50 border border-amber-300 border-l-4 border-l-amber-500">
               <div className="text-[13px] font-semibold text-amber-900 flex items-center gap-1.5">
                 <IconUsers size={15} /> Chevauchements
               </div>

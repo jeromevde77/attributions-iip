@@ -17,11 +17,11 @@ const NIVEAUX = [
   { val: 'rien',       label: '—',          aide: 'Aucun accès',
     cls: 'bg-slate-50 text-slate-300 border-slate-200' },
   { val: 'lit',        label: 'lit',        aide: 'Consultation seule',
-    cls: 'bg-sky-100 text-sky-800 border-sky-200' },
+    cls: 'bg-sky-500 text-white border-sky-500' },
   { val: 'validation', label: 'validation', aide: 'Encode, la direction tranche',
-    cls: 'bg-amber-100 text-amber-800 border-amber-200' },
+    cls: 'bg-amber-500 text-white border-amber-500' },
   { val: 'ecrit',      label: 'écrit',      aide: 'Modifie directement',
-    cls: 'bg-emerald-100 text-emerald-800 border-emerald-200' },
+    cls: 'bg-emerald-500 text-white border-emerald-500' },
 ];
 
 const LIBELLE_ROLE = {
@@ -75,8 +75,8 @@ function Constat() {
                 : <IconEye size={15} className="text-slate-400" />}
         <span className="text-[15px]">Ce que le contrôle a vu</span>
         <span className={`text-[10px] px-1.5 py-0.5 rounded border ${
-          strict ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
-                 : 'bg-amber-50 text-amber-800 border-amber-200'}`}>
+          strict ? 'bg-emerald-500 text-white border-emerald-500'
+                 : 'bg-amber-500 text-white border-amber-500'}`}>
           {strict ? 'mode strict — les refus s’appliquent'
                   : 'mode constat — rien n’est refusé'}
         </span>
@@ -231,8 +231,8 @@ export default function RolesPlafonds() {
 
       {message && (
         <div className={`px-4 py-2.5 rounded-lg text-[13px] flex items-start justify-between gap-3 ${
-          message.type === 'err' ? 'bg-red-50 border border-red-200 text-red-800'
-                                 : 'bg-amber-50 border border-amber-200 text-amber-900'}`}>
+          message.type === 'err' ? 'bg-red-500 border border-red-500 text-white'
+                                 : 'bg-amber-500 border border-amber-500 text-white'}`}>
           <span>{message.texte}</span>
           <button onClick={() => setMessage(null)} className="opacity-60">✕</button>
         </div>

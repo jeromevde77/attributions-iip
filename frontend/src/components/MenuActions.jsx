@@ -56,7 +56,7 @@ export default function MenuActions({ libelle, Icone, ton = 'neutre', items, tit
     neutre: 'border-slate-300 text-slate-600 hover:bg-slate-50',
     bleu: 'border-iip-blue text-iip-blue hover:bg-iip-blue/5',
     turquoise: 'border-iip-turquoise text-iip-turquoise hover:bg-iip-turquoise/5',
-    danger: 'border-red-200 text-red-600 hover:bg-red-50',
+    danger: 'border-red-500 text-white hover:bg-red-500',
   };
 
   const visibles = items.filter(i => i && (i.si === undefined || i.si));

@@ -215,8 +215,8 @@ export default function Budget() {
 
       {message && (
         <div className={`px-4 py-2.5 rounded-lg text-sm flex items-center justify-between ${
-          message.type === 'ok' ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
-                                : 'bg-red-50 text-red-800 border border-red-200'}`}>
+          message.type === 'ok' ? 'bg-emerald-500 text-white border border-emerald-500'
+                                : 'bg-red-500 text-white border border-red-500'}`}>
           <span>{message.texte}</span>
           <button onClick={() => setMessage(null)} className="ml-3 opacity-60">✕</button>
         </div>
@@ -313,7 +313,7 @@ export default function Budget() {
           )}
 
           {data.hors_prevision?.length > 0 && (
-            <div className="border border-amber-200 bg-amber-50 rounded-xl px-4 py-3">
+            <div className="border border-amber-200 bg-amber-50 rounded-xl px-4 py-3 border-l-4 border-l-amber-500">
               <div className="flex items-center gap-1.5 text-[13px] font-semibold text-amber-900 mb-1.5">
                 <IconAlertTriangle size={15} /> Dépenses hors prévision
               </div>

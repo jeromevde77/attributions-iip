@@ -92,9 +92,9 @@ function ThTri({ champ, tri, onTri, className = '', children }) {
 
 function BadgeNiveau({ niveau, libelle, className = '' }) {
   if (!libelle) return null;
-  const cls = niveau === 'MIXTE' ? 'bg-amber-50 text-amber-700 border-amber-200'
-    : niveau === 'BA3'          ? 'bg-violet-50 text-violet-700 border-violet-200'
-    : 'bg-sky-50 text-sky-700 border-sky-200';
+  const cls = niveau === 'MIXTE' ? 'bg-amber-500 text-white border-amber-500'
+    : niveau === 'BA3'          ? 'bg-violet-500 text-white border-violet-500'
+    : 'bg-sky-500 text-white border-sky-500';
   return (
     <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded border ${cls} ${className}`}>
       {libelle}
@@ -149,8 +149,8 @@ function FriseParcours({ ues, codes }) {
 }
 
 const STATUTS_PIECE = [
-  { val: 'manquant', label: 'Manquant', cls: 'bg-red-50 text-red-700 border-red-200' },
-  { val: 'recu',     label: 'Reçu',     cls: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
+  { val: 'manquant', label: 'Manquant', cls: 'bg-red-500 text-white border-red-500' },
+  { val: 'recu',     label: 'Reçu',     cls: 'bg-emerald-500 text-white border-emerald-500' },
   { val: 'na',       label: 'N/A',      cls: 'bg-slate-100 text-slate-500 border-slate-200' },
 ];
 
@@ -766,7 +766,7 @@ function GrilleParcours({ etudId, peutEcrire, annee, ueFocus = null }) {
                     ecrire('effacer');
                 }}
                 title="Supprime l'inscription et tout ce qui s'y rattache"
-                className="text-[12px] px-2 py-1.5 rounded-lg border border-red-200 text-red-600 hover:bg-red-50">
+                className="text-[12px] px-2 py-1.5 rounded-lg border border-red-200 text-red-600 hover:bg-red-50 border-l-4 border-l-red-500">
                 Supprimer l'inscription
               </button>
             </div>
@@ -828,7 +828,7 @@ function GrilleParcours({ etudId, peutEcrire, annee, ueFocus = null }) {
 
                 {/* Reports de note proposés : cours validés dans une UE échouée */}
                 {(detail.candidats_report || []).length > 0 && (
-                  <div className="mb-3 border border-sky-200 bg-sky-50 rounded-xl px-3 py-2.5">
+                  <div className="mb-3 border border-sky-200 bg-sky-50 rounded-xl px-3 py-2.5 border-l-4 border-l-sky-500">
                     <div className="text-[12px] font-semibold text-sky-900 mb-1.5">
                       Report de note possible
                     </div>
@@ -907,7 +907,7 @@ function GrilleParcours({ etudId, peutEcrire, annee, ueFocus = null }) {
                         (() => {
                           const rn = detail.reports.find(r0 => r0.cours_code === co.cours_code);
                           return (
-                            <div className="px-3 py-2 flex items-center gap-2 bg-sky-50/60">
+                            <div className="px-3 py-2 flex items-center gap-2 bg-sky-50/60 border-l-4 border-l-sky-500">
                               <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-sky-600 text-white flex-none">
                                 RN
                               </span>
@@ -2428,8 +2428,8 @@ export function FicheEtudiant({ id, annee, onClose, position, onPrec, onSuiv,
                   maintenant que schéma et programme sont sur la même page. */}
               <div className={`mb-3 px-3 py-2 rounded-lg text-[13px] border ${
                 paeConfirme
-                  ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
-                  : 'bg-amber-50 border-amber-200 text-amber-900'}`}>
+                  ? 'bg-emerald-500 border-emerald-500 text-white'
+                  : 'bg-amber-500 border-amber-500 text-white'}`}>
                 <b>{paeConfirme ? 'Programme confirmé' : 'Programme proposé'}</b>
                 {' — '}
                 {paeConfirme
@@ -2442,7 +2442,7 @@ export function FicheEtudiant({ id, annee, onClose, position, onPrec, onSuiv,
               {!pae ? (
                 <div className="text-center py-8 text-slate-400 text-sm">Chargement du PAE…</div>
               ) : pae.erreur ? (
-                <div className="text-center py-8 text-red-600 text-sm border border-red-200 bg-red-50 rounded-xl">{pae.erreur}</div>
+                <div className="text-center py-8 text-white text-sm border border-red-500 bg-red-500 rounded-xl">{pae.erreur}</div>
               ) : (() => {
                 const sel = selection || new Set();
                 const retenues = pae.pae.filter(u => sel.has(u.ue_num));
@@ -2523,7 +2523,7 @@ export function FicheEtudiant({ id, annee, onClose, position, onPrec, onSuiv,
                   })()}
 
                   {bloquees.length > 0 && (
-                    <div className="mb-3 px-3 py-2.5 rounded-xl bg-red-50 border border-red-200">
+                    <div className="mb-3 px-3 py-2.5 rounded-xl bg-red-50 border border-red-200 border-l-4 border-l-red-500">
                       <div className="flex items-start gap-2">
                         <IconAlertTriangle size={15} className="text-red-600 mt-0.5 flex-none" />
                         <div className="flex-1 text-[12px] text-red-900">
@@ -2545,7 +2545,7 @@ export function FicheEtudiant({ id, annee, onClose, position, onPrec, onSuiv,
                   )}
 
                   {residuelles.length > 0 && (
-                    <div className="mb-3 px-3 py-2.5 rounded-xl bg-amber-50 border border-amber-200">
+                    <div className="mb-3 px-3 py-2.5 rounded-xl bg-amber-50 border border-amber-200 border-l-4 border-l-amber-500">
                       <div className="flex items-start gap-2">
                         <IconAlertTriangle size={15} className="text-amber-600 mt-0.5 flex-none" />
                         <div className="flex-1 text-[12px] text-amber-900">
@@ -3354,8 +3354,8 @@ export default function Etudiants() {
 
       {msgImport && (
         <div className={`px-4 py-2.5 rounded-lg text-sm flex items-center justify-between ${msgImport.type==='ok'
-          ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
-          : 'bg-red-50 text-red-800 border border-red-200'}`}>
+          ? 'bg-emerald-500 text-white border border-emerald-500'
+          : 'bg-red-500 text-white border border-red-500'}`}>
           <span>{msgImport.texte}</span>
           <button onClick={() => setMsgImport(null)} className="ml-3 opacity-60">✕</button>
         </div>

@@ -393,8 +393,8 @@ export default function ImportNotesUE({ ueNum, annee, onClose, onImporte }) {
 
           {rapport && (
             <div className={`rounded-lg border p-3 text-[12px] space-y-1.5 ${rapport.simulation
-              ? 'bg-sky-50 border-sky-200 text-sky-900'
-              : 'bg-emerald-50 border-emerald-200 text-emerald-900'}`}>
+              ? 'bg-sky-500 border-sky-500 text-white'
+              : 'bg-emerald-500 border-emerald-500 text-white'}`}>
               <div className="font-semibold flex items-center gap-1.5">
                 {rapport.simulation
                   ? 'Simulation — rien n’a été écrit'

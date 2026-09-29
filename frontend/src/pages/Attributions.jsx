@@ -116,7 +116,7 @@ function CopierSectionModal({ sections, anneeActive, isAdmin, onClose, onCopied 
           </div>
 
           {anneeSrc && nbSource > 0 && (
-            <div className="bg-indigo-50 border border-indigo-200 rounded-lg px-3 py-2 text-xs text-indigo-700">
+            <div className="bg-indigo-50 border border-indigo-200 rounded-lg px-3 py-2 text-xs text-indigo-700 border-l-4 border-l-indigo-500">
               {nbSource} attribution(s) seront copiées de <strong>{sectionSrc}</strong> ({anneeSrc}) vers <strong>{anneeDest}</strong>.
             </div>
           )}
@@ -139,7 +139,7 @@ function CopierSectionModal({ sections, anneeActive, isAdmin, onClose, onCopied 
           )}
 
           {success && (
-            <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-sm text-green-700">{success}</div>
+            <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-sm text-green-700 border-l-4 border-l-green-500">{success}</div>
           )}
 
           <div className="flex justify-end gap-2 pt-2 border-t border-gray-100">
@@ -352,10 +352,10 @@ const DEFAULT_COLS = [
     options: [['','—'],['CC','CC'],['EXP','EXP']] },
   { key: 'titre_rtf',             label: 'Titre',      width: 64, edit: 'select',
     options: [['','—'],['R','R — Titre requis'],['TR','TR — Titre requis (RTF)'],['TS','TS — Titre suffisant'],['TPL','TPL — Pénurie listé'],['TPNL','TPNL — Pénurie non listé'],['ATS','ATS — Assim. suffisant'],['ATP','ATP — Assim. pénurie listé'],['A','A — Suffisant gr. A'],['3B','3B — Suffisant gr. B (3 déc.)'],['Art. 20','Art. 20 (WBE)']],
-    render: v => v ? <span className="bg-indigo-100 text-indigo-700 text-xs px-1.5 py-0.5 rounded font-semibold">{v}</span> : <span className="text-gray-300">—</span> },
+    render: v => v ? <span className="bg-indigo-500 text-white text-xs px-1.5 py-0.5 rounded font-semibold">{v}</span> : <span className="text-gray-300">—</span> },
   { key: 'type_cours_helb',       label: 'HELB',       width: 60, edit: 'select', helbOnly: true,
     options: [['','—'],['MFP','MFP'],['MA','MA']],
-    render: v => v ? <span className="bg-pink-100 text-pink-700 text-xs px-1.5 py-0.5 rounded font-semibold">{v}</span> : <span className="text-gray-300">—</span> },
+    render: v => v ? <span className="bg-pink-500 text-white text-xs px-1.5 py-0.5 rounded font-semibold">{v}</span> : <span className="text-gray-300">—</span> },
   /* LE BLOC CHIFFRÉ PRENAIT 292 PX POUR QUATRE NOMBRES À DEUX CHIFFRES.
      Deux d'entre eux ne se saisissent même pas — Total et Hrs se calculent —,
      et les deux autres n'affichent qu'une valeur et son plafond (« 48/48 »).
@@ -1494,7 +1494,7 @@ export default function Attributions() {
             return <td key={c.key} style={sty} className="text-center">
               <button onClick={e=>{e.stopPropagation(); saveCell(row.id,'helb_nature', nat==='CT'?'TP':'CT');}}
                 title={nat==='CT' ? 'Théorie (cliquer pour travaux pratiques)' : 'Travaux pratiques (cliquer pour théorie)'}
-                className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${nat==='TP' ? 'bg-cyan-500 text-white border-cyan-500' : 'bg-indigo-50 text-indigo-700 border-indigo-300'}`}>
+                className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${nat==='TP' ? 'bg-cyan-500 text-white border-cyan-500' : 'bg-indigo-500 text-white border-indigo-500'}`}>
                 {nat==='TP' ? 'TP' : 'TH'}
               </button>
             </td>;
@@ -1845,7 +1845,7 @@ export default function Attributions() {
             </span>;
           })()}
           <span className="flex-1"></span>
-          {cg.type_cours && <span className={`text-xs px-1.5 py-0.5 rounded ${isZCours ? 'bg-gray-100 text-gray-400' : cg.type_cours==='CT'?'bg-iip-turquoise/10 text-iip-blue':'bg-purple-100 text-purple-700'}`}>{cg.type_cours}</span>}
+          {cg.type_cours && <span className={`text-xs px-1.5 py-0.5 rounded ${isZCours ? 'bg-gray-100 text-gray-400' : cg.type_cours==='CT'?'bg-iip-turquoise/10 text-iip-blue':'bg-purple-500 text-white'}`}>{cg.type_cours}</span>}
           {isZCours
             ? <span className="text-xs text-gray-400 italic">périodes étudiants — sans prof</span>
             : <>
@@ -1855,9 +1855,9 @@ export default function Attributions() {
                   const cc = ctrlUE?.cours?.find(x => x.code_cours === cg.code_cours);
                   if (!cc || !cc.dp) return null;
                   if (cc.est_multiple) {
-                    return <span className="text-[11px] px-1.5 py-0.5 rounded bg-green-50 text-green-700 border border-green-200" title={`${cc.per} = ${cc.dp} × ${cc.multiple} (DP ${cc.dp})`}>×{cc.multiple}</span>;
+                    return <span className="text-[11px] px-1.5 py-0.5 rounded bg-green-500 text-white border border-green-500" title={`${cc.per} = ${cc.dp} × ${cc.multiple} (DP ${cc.dp})`}>×{cc.multiple}</span>;
                   }
-                  return <span className="text-[11px] px-1.5 py-0.5 rounded bg-orange-50 text-orange-700 border border-orange-200" title={`Pas un multiple du DP (${cc.dp}). Attendu : ${cc.attendu}`}>×{cc.ratio} ⚠</span>;
+                  return <span className="text-[11px] px-1.5 py-0.5 rounded bg-orange-500 text-white border border-orange-500" title={`Pas un multiple du DP (${cc.dp}). Attendu : ${cc.attendu}`}>×{cc.ratio} ⚠</span>;
                 })()}
                 <span className="text-sm text-gray-500">{cg.rows.length} attr.</span>
                 {/* « 159p sur 120 » dit d'un coup d'œil qu'on a dépassé — ce que
@@ -2010,7 +2010,7 @@ export default function Attributions() {
               {ctrlPourUE(ue.ue_num, ue.num_organisation) && (() => {
                 const a = ctrlPourUE(ue.ue_num, ue.num_organisation);
                 if (a.ok) {
-                  return <span className="text-[10px] px-1.5 py-0.5 rounded bg-green-100 text-green-700 font-medium flex-shrink-0" title={`Autonomie ${a.aut_attribuee} dans l'intervalle [${a.min} ; ${a.max}]`}>✓ aut.</span>;
+                  return <span className="text-[10px] px-1.5 py-0.5 rounded bg-green-500 text-white font-medium flex-shrink-0" title={`Autonomie ${a.aut_attribuee} dans l'intervalle [${a.min} ; ${a.max}]`}>✓ aut.</span>;
                 }
                 const msg = a.multiple_obligatoire
                   ? `Tous dédoublés ×${a.multiple_obligatoire} → autonomie doit être ${a.attendu} (actuel ${a.aut_attribuee})`
@@ -2062,7 +2062,7 @@ export default function Attributions() {
               {/* Cours du référentiel (DP) sans aucune ligne d'attribution — re-créables */}
               {coursManquants.length > 0 && (
                 <>
-                  <div className="px-3 py-1.5 h-9 text-xs font-semibold text-amber-600 border-t border-gray-100 bg-amber-50">Cours du DP sans ligne (à rétablir)</div>
+                  <div className="px-3 py-1.5 h-9 text-xs font-semibold text-amber-600 border-t border-gray-100 bg-amber-50 border-l-4 border-l-amber-500">Cours du DP sans ligne (à rétablir)</div>
                   {coursManquants.map(cm => (
                     <button key={cm.cours_code} onClick={async ()=>{
                         try {
@@ -2087,11 +2087,11 @@ export default function Attributions() {
                 <IconClipboardText size={15}/><span>Lignes EPT (95-99)</span>
               </button>
               <button onClick={()=>{ setOrgModal({section: sec, ue_num: ue.ue_num, ue_nom: ue.ue_nom}); setAddMenuUE(null); }}
-                      className="w-full text-left px-3 py-1.5 h-9 text-sm hover:bg-teal-50 text-teal-700 border-t border-gray-100 flex items-center gap-2">
+                      className="w-full text-left px-3 py-1.5 h-9 text-sm hover:bg-teal-50 text-teal-700 border-t border-gray-100 flex items-center gap-2 border-l-4 border-l-teal-500">
                 <IconCalendar size={15}/><span>Organisations (Doc A)</span>
               </button>
               <button onClick={()=>{ setDoc23Modal({section: sec, ue_num: ue.ue_num, ue_nom: ue.ue_nom}); setAddMenuUE(null); }}
-                      className="w-full text-left px-3 py-1.5 h-9 text-sm hover:bg-purple-50 text-purple-700 border-t border-gray-100 flex items-center gap-2">
+                      className="w-full text-left px-3 py-1.5 h-9 text-sm hover:bg-purple-50 text-purple-700 border-t border-gray-100 flex items-center gap-2 border-l-4 border-l-purple-500">
                 <IconFileText size={15}/><span>DOC2 / DOC3</span>
               </button>
             </div>
@@ -2103,10 +2103,10 @@ export default function Attributions() {
               const ctrl = ctrlPourUE(ue.ue_num, ue.num_organisation);
               if (!ctrl || !ctrl.message) return null;
               const styles = {
-                ok:          'bg-green-50 border-green-200 text-green-800',
-                sous:        'bg-amber-50 border-amber-200 text-amber-800',
+                ok:          'bg-green-500 border-green-500 text-white',
+                sous:        'bg-amber-500 border-amber-500 text-white',
                 'dépassement':'bg-[#FBF1EE] border-[color:var(--c-attente)] text-[color:var(--c-refuse)]',
-                cours:       'bg-orange-50 border-orange-200 text-orange-700',
+                cours:       'bg-orange-500 border-orange-500 text-white',
               };
               const icone = { ok:'✓', sous:'➜', 'dépassement':'⚠', cours:'⚠' }[ctrl.etat] || 'ℹ';
               return (
@@ -2844,7 +2844,7 @@ export default function Attributions() {
           )}
           {recrutCands && recrutCands.map(cd => (
             <button key={cd.id} onClick={()=>assignerCandidat(recrutMenu.row, cd.id)}
-              className="w-full text-left px-3 py-1.5 text-sm hover:bg-green-50 flex items-center justify-between text-green-700">
+              className="w-full text-left px-3 py-1.5 text-sm hover:bg-green-50 flex items-center justify-between text-green-700 border-l-4 border-l-green-500">
               <span className="truncate">{cd.prenom} {cd.nom}</span>
               <span className="text-[10px] text-gray-400 flex-shrink-0 ml-2">{cd.statut||''}</span>
             </button>

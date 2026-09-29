@@ -228,8 +228,8 @@ export default function DatesUE({ annee, sansTitre = false }) {
 
       {message && (
         <div className={`px-4 py-2.5 rounded-lg text-sm flex items-center justify-between gap-3
-          ${message.type === 'ok' ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
-                                  : 'bg-red-50 text-red-800 border border-red-200'}`}>
+          ${message.type === 'ok' ? 'bg-emerald-500 text-white border border-emerald-500'
+                                  : 'bg-red-500 text-white border border-red-500'}`}>
           <span className="flex items-center gap-2">
             {message.type === 'ok' ? <IconCheck size={16} /> : <IconAlertTriangle size={16} />}
             {message.texte}
@@ -253,7 +253,7 @@ export default function DatesUE({ annee, sansTitre = false }) {
       </div>
 
       {incoherentes > 0 && (
-        <div className="px-4 py-3 rounded-xl bg-red-50 border border-red-200">
+        <div className="px-4 py-3 rounded-xl bg-red-50 border border-red-200 border-l-4 border-l-red-500">
           <div className="text-[13px] font-semibold text-red-900 mb-1">
             {incoherentes === 1 ? 'Une organisation a ses dates inversées'
                                 : `${incoherentes} organisations ont leurs dates inversées`}

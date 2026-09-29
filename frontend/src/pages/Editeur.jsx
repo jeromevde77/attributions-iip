@@ -403,7 +403,7 @@ function Btn({ onClick, active, disabled, title, children, danger }) {
   return (
     <button type="button" onClick={onClick} disabled={disabled} title={title}
       className={`h-7 px-1.5 rounded text-sm flex items-center justify-center transition min-w-[26px]
-        ${active ? 'bg-iip-gold text-white' : danger ? 'text-red-500 hover:bg-red-50' : 'text-gray-700 hover:bg-gray-100'}
+        ${active ? 'bg-iip-gold text-white' : danger ? 'text-white hover:bg-red-500' : 'text-gray-700 hover:bg-gray-100'}
         ${disabled ? 'opacity-30 cursor-not-allowed' : 'cursor-pointer'}`}>
       {children}
     </button>

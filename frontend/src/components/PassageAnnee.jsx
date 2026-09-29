@@ -232,9 +232,9 @@ export default function PassageAnnee({ annee, onClose, onTermine }) {
                                 <span key={u.ue_num} title={u.ue_nom || ''}
                                   className={`px-1.5 py-px rounded text-[10px] border
                                     ${u.epreuve_integree
-                                      ? 'bg-violet-50 border-violet-300 text-violet-800'
+                                      ? 'bg-violet-500 border-violet-500 text-white'
                                       : u.reprise
-                                        ? 'bg-amber-50 border-amber-300 text-amber-800'
+                                        ? 'bg-amber-500 border-amber-500 text-white'
                                         : 'bg-slate-50 border-slate-200 text-slate-600'}`}>
                                   {u.ue_num}
                                   {u.epreuve_integree && ' · EI'}

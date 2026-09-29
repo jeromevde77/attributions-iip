@@ -53,7 +53,7 @@ export default function Assistant({ cle, params = {}, onFerme = null }) {
       </div>
 
       {etat.termine && (
-        <div className="px-4 py-2.5 bg-emerald-50 border-b border-emerald-200 text-[13px] text-emerald-800 flex items-center gap-2">
+        <div className="px-4 py-2.5 bg-emerald-50 border-b border-emerald-200 text-[13px] text-emerald-800 flex items-center gap-2 border-l-4 border-l-emerald-500">
           <IconCheck size={15} /> Toutes les étapes sont faites — la section est opérationnelle.
         </div>
       )}
@@ -63,9 +63,9 @@ export default function Assistant({ cle, params = {}, onFerme = null }) {
           const prochaine = etat.prochaine === e.cle;
           return (
             <li key={e.cle}
-              className={`flex items-start gap-3 px-4 py-3 ${prochaine ? 'bg-sky-50/60' : ''}`}>
+              className={`flex items-start gap-3 px-4 py-3 ${prochaine ? 'bg-sky-50/60' : ''} border-l-4 border-l-sky-500`}>
               <div className={`flex-none w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-bold mt-0.5
-                ${e.fait ? 'bg-emerald-100 text-emerald-700'
+                ${e.fait ? 'bg-emerald-500 text-white'
                          : prochaine ? 'bg-iip-turquoise text-white'
                          : 'bg-slate-100 text-slate-400'}`}>
                 {e.fait ? <IconCheck size={13} /> : i + 1}

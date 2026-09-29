@@ -170,8 +170,8 @@ export default function Echeancier() {
 
         {message && (
           <div className={`px-4 py-2.5 rounded-lg text-sm flex items-center justify-between gap-3
-            ${message.type === 'ok' ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
-                                    : 'bg-red-50 text-red-800 border border-red-200'}`}>
+            ${message.type === 'ok' ? 'bg-emerald-500 text-white border border-emerald-500'
+                                    : 'bg-red-500 text-white border border-red-500'}`}>
             <span>{message.texte}</span>
             <button onClick={() => setMessage(null)}><IconX size={15} /></button>
           </div>

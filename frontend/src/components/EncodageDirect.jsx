@@ -122,9 +122,9 @@ export default function EncodageDirect({ onClose, anneeDefaut, sectionDefaut }) 
 
         {message && (
           <div className={`px-3 py-2 rounded-lg text-[13px] ${
-            message.type === 'err' ? 'bg-red-50 border border-red-200 text-red-800'
-            : message.type === 'alerte' ? 'bg-amber-50 border border-amber-200 text-amber-900'
-            : 'bg-emerald-50 border border-emerald-200 text-emerald-800'}`}>
+            message.type === 'err' ? 'bg-red-500 border border-red-500 text-white'
+            : message.type === 'alerte' ? 'bg-amber-500 border border-amber-500 text-white'
+            : 'bg-emerald-500 border border-emerald-500 text-white'}`}>
             {message.texte}
           </div>
         )}

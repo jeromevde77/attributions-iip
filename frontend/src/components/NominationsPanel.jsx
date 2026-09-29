@@ -126,7 +126,7 @@ export default function NominationsPanel({ profId }) {
 
       {/* Bilan ETP global de couverture */}
       {bilan && situation.length > 0 && (
-        <div className={`border rounded-lg p-3 ${bilan.couvert ? 'border-green-200 bg-green-50/50' : 'border-red-200 bg-red-50/50'}`}>
+        <div className={`border rounded-lg p-3 ${bilan.couvert ? 'border-green-200 bg-green-50/50' : 'border-red-200 bg-red-50/50'} border-l-4 border-l-green-500`}>
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold text-gray-500 uppercase">Couverture (équivalent ETP)</span>
             {bilan.couvert
@@ -174,7 +174,7 @@ export default function NominationsPanel({ profId }) {
         <div className="border border-gray-200 rounded-lg p-3 space-y-1.5">
           <div className="text-xs font-semibold text-gray-500 uppercase mb-1">Ses attributions · cocher la remise au travail</div>
           {attributions.map(a => (
-            <div key={a.id} className={`flex items-center gap-2 text-[12px] rounded px-2 py-1.5 ${a.en_conge ? 'opacity-50 bg-gray-100' : a.est_rt ? 'bg-orange-50 border border-red-300' : 'bg-gray-50'}`}>
+            <div key={a.id} className={`flex items-center gap-2 text-[12px] rounded px-2 py-1.5 ${a.en_conge ? 'opacity-50 bg-gray-100' : a.est_rt ? 'bg-orange-50 border border-red-300' : 'bg-gray-50'} border-l-4 border-l-orange-500`}>
               <div className="flex-1 min-w-0">
                 <span className="font-medium text-gray-800">UE {a.ue_num} · {a.code_cours}</span>
                 <span className="text-gray-500"> — {a.cours_nom || ''}</span>

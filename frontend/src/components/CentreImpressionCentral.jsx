@@ -172,7 +172,7 @@ function OngletValorisation() {
       </div>
 
       {erreur && (
-        <div className="px-3 py-2 rounded-lg bg-amber-50 text-amber-900 text-[13px]">
+        <div className="px-3 py-2 rounded-lg bg-amber-50 text-amber-900 text-[13px] border-l-4 border-l-amber-500">
           {erreur}
         </div>
       )}

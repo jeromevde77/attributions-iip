@@ -92,11 +92,11 @@ export default function AttributionCard({ row, selected, onToggleSelect, onChang
               <div className="flex items-center gap-1.5 flex-wrap">
                 {contratBadge}
                 {typeBadge}
-                {row.type_cours_helb && <span className="bg-pink-100 text-pink-700 text-[10px] px-1.5 py-0.5 rounded font-semibold">{row.type_cours_helb}</span>}
+                {row.type_cours_helb && <span className="bg-pink-500 text-white text-[10px] px-1.5 py-0.5 rounded font-semibold">{row.type_cours_helb}</span>}
                 {row.code && <span className="badge badge-exp">Gr. {row.code}</span>}
                 {row.quadrimestre_attribue && <span className="badge badge-exp">{row.quadrimestre_attribue}</span>}
                 {row.contrat && <span className="badge badge-exp">{row.contrat === 'EXP' && cardHelb ? 'PI' : row.contrat}</span>}
-                {conforme === 0 && <span className="badge bg-red-100 text-red-700">✗</span>}
+                {conforme === 0 && <span className="badge bg-red-500 text-white">✗</span>}
               </div>
               <div className="text-right">
                 <div className="text-base font-bold text-iip-gold leading-tight">{row.total_attribue_professeur ?? total}</div>
@@ -114,7 +114,7 @@ export default function AttributionCard({ row, selected, onToggleSelect, onChang
       {open && (
         <div className="fixed inset-0 z-40 flex items-end" onClick={() => setOpen(false)}>
           <div className="absolute inset-0 bg-black/40"></div>
-          <div className={`relative w-full rounded-t-2xl shadow-2xl p-4 max-h-[88vh] overflow-auto ${isHelb ? 'bg-pink-50' : 'bg-white'}`}
+          <div className={`relative w-full rounded-t-2xl shadow-2xl p-4 max-h-[88vh] overflow-auto ${isHelb ? 'bg-pink-50' : 'bg-white'} border-l-4 border-l-pink-500`}
                onClick={e => e.stopPropagation()}>
             <div className="w-12 h-1 bg-gray-300 rounded mx-auto mb-3"></div>
             <h3 className="font-title text-lg text-iip-gold mb-1">{row.nom_cours || row.ue_nom}</h3>
@@ -221,7 +221,7 @@ export default function AttributionCard({ row, selected, onToggleSelect, onChang
               </div>
 
               {row.cours_per != null && (
-                <div className={`text-xs rounded p-2 ${conforme ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}>
+                <div className={`text-xs rounded p-2 ${conforme ? 'bg-green-500 text-white' : 'bg-red-500 text-white'} border-l-4 border-l-green-500`}>
                   Cours_per : {row.cours_per} · Total attribué : {row.cours_total_attribue}
                   {conforme
                     ? <span className="ml-1 font-semibold">✓ Conforme</span>
@@ -237,7 +237,7 @@ export default function AttributionCard({ row, selected, onToggleSelect, onChang
               </button>
               {isAdmin && (
                 <button onClick={() => { setOpen(false); onDelete?.(row.id); }}
-                        className="px-4 py-2.5 text-sm bg-red-50 hover:bg-red-100 text-red-600 rounded font-medium">
+                        className="px-4 py-2.5 text-sm bg-red-50 hover:bg-red-100 text-red-600 rounded font-medium border-l-4 border-l-red-500">
                   <IconTrash size={15} />
                 </button>
               )}

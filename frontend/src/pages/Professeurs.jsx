@@ -568,8 +568,8 @@ function AccesLuciePanel({ profId, detail }) {
               .then(charger).catch(e => setErr(e.message));
           }}
           className={`flex items-center gap-1.5 text-sm px-3 py-2 rounded-lg border ${account.actif
-            ? 'border-red-300 text-red-600 hover:bg-red-50'
-            : 'border-emerald-300 text-emerald-700 hover:bg-emerald-50'}`}>
+            ? 'border-red-500 text-white hover:bg-red-500'
+            : 'border-emerald-500 text-white hover:bg-emerald-500'}`}>
           {account.actif ? <IconX size={14} /> : <IconKey size={14} />}
           {account.actif ? 'Désactiver' : 'Réactiver'}
         </button>
@@ -583,7 +583,7 @@ function AccesLuciePanel({ profId, detail }) {
         <IconLock size={16} className="text-iip-turquoise" />
         <span className="text-sm font-semibold text-iip-blue">Accès Lucie</span>
         {account && (
-          <span className={`ml-auto text-xs px-2 py-0.5 rounded-champ font-semibold ${account.actif ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
+          <span className={`ml-auto text-xs px-2 py-0.5 rounded-champ font-semibold ${account.actif ? 'bg-green-500 text-white' : 'bg-gray-100 text-gray-500'}`}>
             {account.actif ? 'Actif' : 'Désactivé'}
           </span>
         )}
@@ -591,7 +591,7 @@ function AccesLuciePanel({ profId, detail }) {
       <div className="p-4 space-y-3">
         {err && <div className="text-xs text-white bg-red-500 border border-red-500 rounded px-3 py-2">{err}</div>}
         {pwd && (
-          <div className="bg-amber-50 border border-amber-300 rounded px-3 py-2">
+          <div className="bg-amber-50 border border-amber-300 rounded px-3 py-2 border-l-4 border-l-amber-500">
             <div className="text-xs font-semibold text-amber-800 flex items-center gap-1.5 mb-1"><IconKey size={14} /> Mot de passe — à noter maintenant</div>
             <div className="font-mono text-base bg-white border border-amber-200 rounded px-2 py-1 inline-block select-all mr-2">{pwd}</div>
             <button onClick={() => setPwd(null)} className="text-xs text-amber-700 hover:underline">masquer</button>
@@ -1305,7 +1305,7 @@ function DossiersRH({ profId, profNom }) {
             return (
               <div key={d.id} className={`border-2 rounded-xl overflow-hidden ${isClos ? 'border-gray-200 opacity-75' : isFinContrat ? 'border-red-200' : 'border-orange-200'}`}>
                 {/* En-tête dossier */}
-                <div className={`flex items-center justify-between px-4 py-3 ${isFinContrat ? 'bg-red-50' : 'bg-orange-50'}`}>
+                <div className={`flex items-center justify-between px-4 py-3 ${isFinContrat ? 'bg-red-50' : 'bg-orange-50'} border-l-4 border-l-red-500`}>
                   <div className="flex items-center gap-3">
                     <span className="text-lg">{isFinContrat ? '📋' : '⚠️'}</span>
                     <div>
@@ -1315,7 +1315,7 @@ function DossiersRH({ profId, profNom }) {
                       </div>
                       <div className="text-xs text-gray-500 flex items-center gap-2">
                         <span>Ouvert le {new Date(d.date_ouverture).toLocaleDateString('fr-BE')}</span>
-                        {motif && <span className="bg-red-100 text-red-700 px-1.5 rounded">{motif.label}</span>}
+                        {motif && <span className="bg-red-500 text-white px-1.5 rounded">{motif.label}</span>}
                         {d.date_cloture && <span>· Clos le {new Date(d.date_cloture).toLocaleDateString('fr-BE')}</span>}
                       </div>
                     </div>
@@ -1368,7 +1368,7 @@ function DossiersRH({ profId, profNom }) {
 
                 {/* Formulaire ajout étape */}
                 {etapeForm?.dossier_id === d.id && (
-                  <div className="border-t border-orange-200 bg-orange-50/50 px-4 py-3 space-y-2">
+                  <div className="border-t border-orange-200 bg-orange-50/50 px-4 py-3 space-y-2 border-l-4 border-l-orange-500">
                     <div className="grid grid-cols-2 gap-2">
                       <div>
                         <div className="text-xs text-gray-500 mb-1">Type d'étape</div>

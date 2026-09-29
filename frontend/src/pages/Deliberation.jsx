@@ -298,7 +298,7 @@ export default function Deliberation() {
       </div>
 
       {erreur && (
-        <div className="px-3 py-2 rounded-lg bg-red-50 border border-red-200 text-[13px] text-red-800">
+        <div className="px-3 py-2 rounded-lg bg-red-50 border border-red-200 text-[13px] text-red-800 border-l-4 border-l-red-500">
           {erreur}
         </div>
       )}
@@ -359,7 +359,7 @@ export default function Deliberation() {
                 <button onClick={() => setForcage(f => f
                   ? null : { ues: new Set(), s1: true, s2: false })}
                   className={`px-2 py-1 text-[12px] rounded-lg border font-semibold flex-none
-                    ${forcage ? 'border-amber-500 bg-amber-50 text-amber-900'
+                    ${forcage ? 'border-amber-500 bg-amber-500 text-white'
                               : 'border-slate-300 text-slate-600'}`}>
                   {forcage ? 'Annuler le forçage' : 'Forcer la clôture…'}
                 </button>
@@ -376,7 +376,7 @@ export default function Deliberation() {
             )}
 
             {forcage && (
-              <div className="px-3 py-2.5 bg-amber-50 border-b border-amber-200 space-y-2">
+              <div className="px-3 py-2.5 bg-amber-50 border-b border-amber-200 space-y-2 border-l-4 border-l-amber-500">
                 <p className="text-[12px] text-amber-900">
                   Cochez les unités, puis les sessions à clôturer. Le quorum n'est pas
                   constatable sans attributions : ces séances seront closes et
@@ -489,7 +489,7 @@ export default function Deliberation() {
                           : 'Première session'}
                       className={`px-2 py-1 text-[12px] rounded-lg border font-semibold flex-none
                         ${u.session === 2
-    ? 'border-amber-500 text-amber-800 bg-amber-50'
+    ? 'border-amber-500 text-white bg-amber-500'
     : 'border-iip-blue text-iip-blue'}`}>
                       Délibérer {u.session === 2 ? 'S2' : 'S1'}
                     </button>

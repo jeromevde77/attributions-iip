@@ -39,19 +39,19 @@ const couleurNiveau = niv => {
 // dans la même teinte, plus douce, avec leur millésime — le parcours se lit
 // alors sans quitter l'écran.
 const STYLE = {
-  reussi:  'bg-emerald-100 text-emerald-800 border-emerald-300',
+  reussi:  'bg-emerald-500 text-white border-emerald-500',
   // L'ajournement rouvre une session : ambre, non rouge. Le refus est
   // définitif : rouge.
-  ajourne: 'bg-amber-100 text-amber-800 border-amber-300',
-  refuse:  'bg-red-100 text-red-700 border-red-300',
+  ajourne: 'bg-amber-500 text-white border-amber-500',
+  refuse:  'bg-red-500 text-white border-red-500',
   absent:  'bg-slate-100 text-slate-500 border-slate-300',
 };
 const STYLE_ANTERIEUR = {
-  reussi:  'bg-emerald-50/70 text-emerald-600 border-emerald-200',
-  ajourne: 'bg-amber-50/60 text-amber-600 border-amber-200',
-  refuse:  'bg-red-50/60 text-red-500 border-red-200',
+  reussi:  'bg-emerald-500 text-white border-emerald-500',
+  ajourne: 'bg-amber-500 text-white border-amber-500',
+  refuse:  'bg-red-500 text-white border-red-500',
   absent:  'bg-slate-50 text-slate-400 border-slate-200',
-  va:      'bg-violet-50/70 text-violet-600 border-violet-200',
+  va:      'bg-violet-500 text-white border-violet-500',
 };
 const SIGLE = { reussi: '✓', ajourne: 'Aj', refuse: 'R', absent: '–', va: 'VA' };
 // En vue délibération, la réussite prend « C » — capitalisé — comme dans vos

@@ -303,7 +303,7 @@ function deriveLigne(l, cfgBySec = null) {
            ue_determinantes: detLines, ue_integree: intLine, _calcPct: has ? calc.pct : 0, _complet: complet };
 }
 function mentionColorClass(pct) {
-  return pct >= 70 ? 'text-green-700 bg-green-50' : pct >= 50 ? 'text-amber-700 bg-amber-50' : 'text-red-700 bg-red-50';
+  return pct >= 70 ? 'text-white bg-green-500' : pct >= 50 ? 'text-white bg-amber-500' : 'text-white bg-red-500';
 }
 
 /* ── Données pré-importées TIM BA1 2025-2026 ───────────────────────────────── */
