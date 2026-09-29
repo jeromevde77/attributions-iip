@@ -611,13 +611,13 @@ export default function ComposerPAE({ onClose, onTermine, onPassage, modeInitial
           </div>
         )}
         {grille?.source === 'referentiel' && (
-          <p className="text-[12px] text-[color:var(--c-attente)]">
+          <p className="text-[12px] text-amber-800">
             Cette section n’a pas de composition déclarée pour {annee} : les colonnes sont les UE rangées sous elle
             au référentiel.
           </p>
         )}
         {grille?.source === 'referentiel-autre-annee' && (
-          <p className="text-[12px] text-[color:var(--c-attente)]">
+          <p className="text-[12px] text-amber-800">
             Le référentiel ne couvre pas {annee} : les colonnes viennent des autres années — c’est
             ce qui permet d’y encoder un historique.
           </p>
@@ -657,7 +657,7 @@ export default function ComposerPAE({ onClose, onTermine, onPassage, modeInitial
                       <b>{(e.nom || '').toUpperCase()}</b> {e.prenom}
                       <span className="text-slate-400"> · {e.id_ecampus || '—'}</span>
                       {e.niveau && <span className="text-[10px] text-slate-500"> · {e.niveau}</span>}
-                      {e.primo && <span className="ml-1.5 text-[9.5px] font-bold px-1.5 py-0.5 rounded-full bg-blue-500/10 text-[color:var(--c-disponible)] align-middle"
+                      {e.primo && <span className="ml-1.5 text-[9.5px] font-bold px-1.5 py-0.5 rounded-full bg-blue-500/10 text-blue-800 align-middle"
                         title="Nouvel inscrit : aucune trace dans une année antérieure">primo</span>}
                       {mode === 'valider' && (e.pae_confirme_le ? (
                         <span className="ml-1.5 text-[9.5px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 align-middle"
@@ -680,13 +680,13 @@ export default function ComposerPAE({ onClose, onTermine, onPassage, modeInitial
                         </span>
                       )}
                       {mode === 'valider' && reprises(e) > 0 && (
-                        <span className="ml-1 text-[9.5px] font-bold px-1.5 py-0.5 rounded-full bg-white border border-[color:var(--c-refuse)] text-[color:var(--c-refuse)] align-middle"
+                        <span className="ml-1 text-[9.5px] font-bold px-1.5 py-0.5 rounded-full bg-white border border-[color:var(--c-refuse)] text-red-800 align-middle"
                           title={`Déjà réussie${reprises(e) > 1 ? 's' : ''}, réinscrite${reprises(e) > 1 ? 's' : ''} sans forçage : UE ${e.controle.deja_reussies.join(', ')}. La validation est refusée tant qu'elle${reprises(e) > 1 ? 's restent' : ' reste'}.`}>
                           <IconAlertTriangle size={10} className="inline -mt-0.5" /> {reprises(e)} déjà réussie{reprises(e) > 1 ? 's' : ''}
                         </span>
                       )}
                       {mode === 'valider' && enAttente(e) > 0 && (
-                        <span className="ml-1 text-[9.5px] font-bold px-1.5 py-0.5 rounded-full bg-white border border-[color:var(--c-refuse)] text-[color:var(--c-refuse)] align-middle"
+                        <span className="ml-1 text-[9.5px] font-bold px-1.5 py-0.5 rounded-full bg-white border border-[color:var(--c-refuse)] text-red-800 align-middle"
                           title={`Réinscrite alors que la seconde session n'est pas délibérée : UE ${e.controle.en_attente.join(', ')}. Son sort se joue dans l'année où elle a été suivie.`}>
                           <IconAlertTriangle size={10} className="inline -mt-0.5" /> {enAttente(e)} en attente de session
                         </span>

@@ -46,7 +46,7 @@ import ImportHistorique from '../components/ImportHistorique.jsx';
 // s'il ne lui reste que la BA3, « Parcours » s'il en mélange plusieurs.
 // Couleurs des années d'études, communes à Lucie (cf. exports Attributions) :
 // BA1 orange, BA2 bleu clair, BA3 bleu marine, puis violet et rose au-delà.
-const NIV_PALETTE = ['#F97316', '#60A5FA', '#1E3A8A', '#A855F7', '#EC4899'];
+const NIV_PALETTE = ['var(--c-attente)', '#60A5FA', '#1E3A8A', '#A855F7', '#EC4899'];
 
 function couleurNiveau(niv) {
   const m = /^BA(\d+)$/i.exec(String(niv || '').trim());
@@ -215,7 +215,7 @@ function SchemaCapitalisation({ etudId, annee, onNoeud = null, programme = null,
           <span className="flex-1 min-w-0">
             <b>Cursus antérieur archivé : {a.section}</b>
             <span className="text-slate-500"> · {a.du === a.au ? court(a.du) : `${court(a.du)} → ${court(a.au)}`} · {a.reussies} unité{a.reussies > 1 ? 's' : ''} réussie{a.reussies > 1 ? 's' : ''}</span>
-            {a.encore_cette_annee && <span className="text-[color:var(--c-attente)]"> · encore des inscriptions cette année : à retirer, ou à déclarer compatible</span>}
+            {a.encore_cette_annee && <span className="text-amber-800"> · encore des inscriptions cette année : à retirer, ou à déclarer compatible</span>}
           </span>
           {a.encore_cette_annee && (
             <button type="button" className="bouton bouton-compact" onClick={() => retirerArchive(a.section)}>
@@ -244,14 +244,14 @@ const KINDS_CELLULE = [
   // LES ÉTATS DE LUCIE (2.12.211) : bleu inscrite, vert réussie — la VA
   // aussi, avec sa mention —, ocre ajournée, brique refusée. Le violet ne dit
   // que la faveur.
-  { val: 'inscrit', label: 'Inscrit',  short: '·',  cls: 'bg-[color-mix(in_srgb,var(--c-disponible)_11%,#fff)] border-[color-mix(in_srgb,var(--c-disponible)_32%,#fff)] text-[color:var(--c-disponible)]' },
+  { val: 'inscrit', label: 'Inscrit',  short: '·',  cls: 'bg-[color-mix(in_srgb,var(--c-disponible)_11%,#fff)] border-[color-mix(in_srgb,var(--c-disponible)_32%,#fff)] text-blue-800' },
   { val: 'reussi',  label: 'Réussi',   short: '✓',  cls: 'bg-[color-mix(in_srgb,var(--c-reussi)_11%,#fff)] border-[color-mix(in_srgb,var(--c-reussi)_32%,#fff)] text-[color:var(--c-texte)]' },
   { val: 'va',      label: 'VA',       short: 'VA', cls: 'bg-[color-mix(in_srgb,var(--c-reussi)_11%,#fff)] border-[color-mix(in_srgb,var(--c-reussi)_32%,#fff)] text-[color:var(--c-texte)]' },
   // La circulaire distingue l'AJOURNEMENT, qui ouvre une seconde session sur
   // des acquis précis, du REFUS, qui ne l'ouvre pas. Les confondre sous un même
   // libellé privait le Conseil des études d'une de ses trois décisions.
   { val: 'ajourne', label: 'Ajourné',  short: 'Aj', cls: 'bg-[color-mix(in_srgb,var(--c-attente)_11%,#fff)] border-[color-mix(in_srgb,var(--c-attente)_32%,#fff)] text-[#8A5A12]' },
-  { val: 'refuse',  label: 'Refusé',   short: '✕',  cls: 'bg-[color-mix(in_srgb,var(--c-refuse)_11%,#fff)] border-[color-mix(in_srgb,var(--c-refuse)_32%,#fff)] text-[color:var(--c-refuse)]' },
+  { val: 'refuse',  label: 'Refusé',   short: '✕',  cls: 'bg-[color-mix(in_srgb,var(--c-refuse)_11%,#fff)] border-[color-mix(in_srgb,var(--c-refuse)_32%,#fff)] text-red-800' },
   { val: 'absent',  label: 'Absent',   short: '–',  cls: 'bg-slate-50 text-slate-600 border-slate-200' },
 ];
 
@@ -504,7 +504,7 @@ function GrilleParcours({ etudId, peutEcrire, annee, ueFocus = null }) {
             « {nbHistorique === 0 ? 'années antérieures' : 'remonter encore'}
           </button>
           <button onClick={purgerAnnee} title="Effacer les résultats ou les inscriptions d'une année"
-            className="px-2 py-0.5 text-[11px] border border-[#E3BFB5] text-[color:var(--c-refuse)] rounded-md hover:bg-[#F7E9E5]">Purger…</button>
+            className="px-2 py-0.5 text-[11px] border border-[#E3BFB5] text-red-800 rounded-md hover:bg-[#F7E9E5]">Purger…</button>
         </div>
       </div>
 
@@ -695,7 +695,7 @@ function GrilleParcours({ etudId, peutEcrire, annee, ueFocus = null }) {
                           <td className="px-2 py-1">{m.resultat || 'inscrit'}{m.points != null ? ` · ${m.points}/20` : ''}</td>
                           <td className="px-2 py-1 text-slate-600">
                             {suit.length ? suit.join(' · ') : '—'}
-                            {m.seance_close && <span className="block text-[11px] text-[color:var(--c-attente)]">délibération close en {m.de} : décision déjà notifiée</span>}
+                            {m.seance_close && <span className="block text-[11px] text-amber-800">délibération close en {m.de} : décision déjà notifiée</span>}
                             {m.stage_reste > 0 && <span className="block text-[11px] text-slate-400">le stage reste en {m.de}</span>}
                           </td>
                         </tr>
@@ -1284,7 +1284,7 @@ function Valorisations({ etudId, annee }) {
                   « refusé » sans motif ne se défend pas devant un recours. */}
               <label className="block text-xs">
                 <span className="block font-semibold text-slate-500 uppercase tracking-wide mb-1">
-                  Motif du refus <span className="text-[color:var(--c-refuse)]">— obligatoire</span>
+                  Motif du refus <span className="text-red-800">— obligatoire</span>
                 </span>
                 <textarea rows={3} value={form.motif_refus || ''}
                   placeholder="Ce que le Conseil a constaté : pièces insuffisantes, acquis non démontrés, formation sans rapport…"
@@ -1659,7 +1659,7 @@ function Valorisations({ etudId, annee }) {
                 <span className="font-medium text-iip-blue">{v.ue_num}</span>
                 <span className="text-slate-600 ml-1.5 text-[13px]">{v.ue_nom}</span>
                 {v.decision === 'refusee' && (
-                  <span className="ml-2 text-[11px] font-semibold text-[color:var(--c-refuse)]">refusée</span>
+                  <span className="ml-2 text-[11px] font-semibold text-red-800">refusée</span>
                 )}
                 <div className="text-[11px] text-slate-400 mt-0.5">
                   {v.decision === 'refusee' ? 'Demande refusée' : (
@@ -3472,7 +3472,7 @@ export default function Etudiants() {
               const visibles = filtres.filter(e => selEtudiants.has(e.id)).length;
               if (visibles === selEtudiants.size) return null;
               return (
-                <span className="font-normal text-[12px] text-[color:var(--c-attente)]">
+                <span className="font-normal text-[12px] text-amber-800">
                   dont {visibles} affiché(s) — {selEtudiants.size - visibles} caché(s) par les filtres
                   <button className="underline ml-2 text-iip-blue"
                     onClick={() => setSelEtudiants(new Set(filtres.filter(e => selEtudiants.has(e.id)).map(e => e.id)))}>
@@ -3633,7 +3633,7 @@ export default function Etudiants() {
                   </td>
                   <td className="px-2 py-1">
                     {e.pae_confirme
-                      ? <IconWritingSign size={15} className="text-[color:var(--c-reussi)]" title="Programme confirmé — étudiant inscrit" />
+                      ? <IconWritingSign size={15} className="text-emerald-800" title="Programme confirmé — étudiant inscrit" />
                       : <IconWritingSignOff size={15} className="text-slate-300" title="Programme non confirmé" />}
                   </td>
                   <td className="px-3 py-1 whitespace-nowrap">

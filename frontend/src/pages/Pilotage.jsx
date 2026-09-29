@@ -320,7 +320,7 @@ function DotationComparaison({ civil }) {
     });
   }
 
-  const NIV_PAL = ['#f97316','#60a5fa','#1e3a8a','#a855f7','#ec4899'];
+  const NIV_PAL = ['var(--c-attente)','#60a5fa','#1e3a8a','#a855f7','#ec4899'];
   const niveaux = data ? [...new Set(data.sections.flatMap(s => s.ues.map(u => u.ue_niv).filter(Boolean)))]
     .sort((a,b) => parseInt(a.match(/\d+$/)?.[0]??99) - parseInt(b.match(/\d+$/)?.[0]??99)) : [];
   const nivColor = niv => NIV_PAL[niveaux.indexOf(niv) % NIV_PAL.length] || '#6b7280';
@@ -969,7 +969,7 @@ export default function Pilotage({ vue = 'tout' }) {
                         Reste pour la rentrée
                       </div>
                       <div className={`text-lg font-bold leading-tight ${
-                        d.solde_apres_jan_juin < 0 ? 'text-[color:var(--c-refuse)]' : 'text-emerald-800'}`}>
+                        d.solde_apres_jan_juin < 0 ? 'text-red-800' : 'text-emerald-800'}`}>
                         {fmt(d.solde_apres_jan_juin)}
                       </div>
                       <div className="text-[10px] text-gray-500">

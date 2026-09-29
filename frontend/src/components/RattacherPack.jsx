@@ -140,7 +140,7 @@ export default function RattacherPack({ onClose, onTermine }) {
                         {sections.map(s0 => <option key={s0.code} value={s0.code}>{s0.libelle || s0.code}</option>)}
                       </select>
                       {!p.section_proposee && !corresp[p.libelle] && (
-                        <div className="text-[11px] text-[color:var(--c-attente)] mt-0.5">Lucie ne sait pas : à choisir.</div>
+                        <div className="text-[11px] text-amber-800 mt-0.5">Lucie ne sait pas : à choisir.</div>
                       )}
                     </td>
                   </tr>

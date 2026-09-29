@@ -23,7 +23,7 @@ const TEINTE = {
   nouvelle: 'border-l-[color:var(--c-principal)]',
   retenue: 'border-l-[#0093B0]',
   en_cours: 'border-l-[color:var(--c-attente)]',
-  faite: 'border-l-[#15803D]',
+  faite: 'border-l-emerald-500',
   ecartee: 'border-l-slate-300',
 };
 

@@ -855,7 +855,7 @@ function triNiveaux(niveaux) {
 // Couleur selon la position dans la liste des niveaux (0=premier, 1=second, ...)
 const NIV_COLORS = [
   // rang 1 = orange, rang 2 = bleu clair, rang 3 = bleu marine
-  { bg: 'bg-orange-100', text: 'text-orange-700', border: '#f97316', hex: '#fff7ed' },
+  { bg: 'bg-orange-100', text: 'text-orange-700', border: 'var(--c-attente)', hex: '#fff7ed' },
   { bg: 'bg-iip-turquoise/10',   text: 'text-iip-blue',   border: '#60a5fa', hex: '#eff6ff' },
   { bg: 'bg-iip-blue',   text: 'text-iip-blue',   border: '#1e3a8a', hex: '#1e3a8a' },
   { bg: 'bg-purple-100', text: 'text-purple-700', border: '#a855f7', hex: '#faf5ff' },

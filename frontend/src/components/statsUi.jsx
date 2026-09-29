@@ -36,7 +36,7 @@ export function tonTaux(v) {
 /** Le même jugement, mais pour un filet ou un fond. */
 export function couleurTaux(v) {
   if (v == null) return '#CBD5E1';
-  if (v >= 75) return '#047857';
+  if (v >= 75) return 'var(--c-reussi)';
   if (v >= 50) return 'var(--c-attente)';
   return 'var(--c-refuse)';
 }

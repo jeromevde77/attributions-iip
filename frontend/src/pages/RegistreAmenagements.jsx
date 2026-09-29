@@ -114,7 +114,7 @@ export default function RegistreAmenagements() {
                     <span data-etat={ETAT_STATUT[l.statut] || 'neutre'} className="bloc-etat inline-block px-2 py-0.5 text-[11.5px]">
                       {STATUTS[l.statut] || l.statut}
                     </span>
-                    {l.a_faire && <div className="text-[11px] text-[color:var(--c-attente)] mt-0.5">{l.a_faire}</div>}
+                    {l.a_faire && <div className="text-[11px] text-amber-800 mt-0.5">{l.a_faire}</div>}
                   </td>
                   <td className="px-2 py-1.5 tabular-nums">{fr(l.date_demande)}</td>
                   <td className="px-2 py-1.5 tabular-nums">{fr(l.cde_date)}</td>
@@ -132,7 +132,7 @@ export default function RegistreAmenagements() {
                   <td className="px-2 py-1.5 text-right">
                     <button type="button" title="Supprimer ce dossier"
                       onClick={e => { e.stopPropagation(); setASupprimer(l); }}
-                      className="p-1 rounded-champ text-slate-400 hover:text-[color:var(--c-refuse)] hover:bg-slate-100">
+                      className="p-1 rounded-champ text-slate-400 hover:text-red-800 hover:bg-slate-100">
                       <IconTrash size={15} />
                     </button>
                   </td>

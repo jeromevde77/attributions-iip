@@ -144,7 +144,7 @@ export default function SchemaLiensAA({ ueNum, annee, onClose, onEnregistre }) {
       ok, modifie, parite, libelle, quoi,
       // Vert : valide ET enregistré. Ambre : valide, reste à enregistrer.
       // Rouge : la répartition ne tient pas.
-      ton: !ok ? '#B91C1C' : modifie ? 'var(--c-attente)' : '#15803D',
+      ton: !ok ? 'var(--c-refuse)' : modifie ? 'var(--c-attente)' : 'var(--c-reussi)',
     };
   };
 
@@ -571,7 +571,7 @@ export default function SchemaLiensAA({ ueNum, annee, onClose, onEnregistre }) {
                         <rect x={p.x} y={p.y} width={L} height={H} rx="8"
                           fill={c.non_evalue ? '#F1F5F9' : (lien?.cible === c.cours_code ? '#EFF6FF' : '#F8FAFC')}
                           stroke={c.non_evalue ? '#CBD5E1'
-                            : survol?.cours === c.cours_code ? '#0369A1' : 'var(--c-principal)'}
+                            : survol?.cours === c.cours_code ? 'var(--c-disponible)' : 'var(--c-principal)'}
                           strokeDasharray={c.non_evalue ? '4 3' : ''}
                           strokeWidth={survol?.cours === c.cours_code ? 2.2 : 1.2} />
                         <text x={p.x + 8} y={p.y + 14} fontSize="11" fontWeight="700"

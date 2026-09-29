@@ -175,7 +175,7 @@ export default function Documentation() {
             {aLire > 0 && (
               <div className="carte p-3 flex items-start gap-2"
                 style={{ borderLeftWidth: 3, borderLeftColor: 'var(--c-attente)' }}>
-                <IconAlertTriangle size={16} className="flex-none mt-0.5 text-[color:var(--c-attente)]" />
+                <IconAlertTriangle size={16} className="flex-none mt-0.5 text-amber-800" />
                 <div className="text-[13px]">
                   <b>La direction a publié {aLire === 1 ? 'un document'
                     : `${aLire} documents`} : veuillez en prendre connaissance.</b>
@@ -226,7 +226,7 @@ export default function Documentation() {
                       <IconCheck size={14} /> confirmé le {frDate(d.confirme_le)}
                     </span>
                   ) : d.a_confirmer ? (
-                    <span className="text-[11px] text-[color:var(--c-attente)] flex-none">à confirmer</span>
+                    <span className="text-[11px] text-amber-800 flex-none">à confirmer</span>
                   ) : d.me_concerne ? null : (
                     <span className="text-[11px] text-slate-400 flex-none">pour information</span>
                   )}
@@ -788,7 +788,7 @@ function Registre({ cle, onClose }) {
               {l.ouvert_le ? `ouvert le ${frDate(l.ouvert_le)}` : 'jamais ouvert'}
             </span>
             <span className={`text-[11px] flex-none ${l.confirme_le
-              ? 'text-emerald-700' : 'text-[color:var(--c-attente)] font-semibold'}`}>
+              ? 'text-emerald-700' : 'text-amber-800 font-semibold'}`}>
               {l.confirme_le ? `confirmé le ${frDate(l.confirme_le)}` : 'non confirmé'}
             </span>
           </div>

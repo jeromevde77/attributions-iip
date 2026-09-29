@@ -23,10 +23,10 @@ const SEM_STYLE = {
 // Couleur d'un bloc selon le type d'activité
 function blocColor(activite) {
   const a = (activite || '').toLowerCase();
-  if (a.includes('remédiation') || a.includes('remediation')) return { bg: '#fef3c7', border: '#f59e0b', text: '#92400e' };
+  if (a.includes('remédiation') || a.includes('remediation')) return { bg: '#fef3c7', border: 'var(--c-attente)', text: 'var(--c-attente)' };
   if (a.includes('autonomie')) return { bg: '#fae8ff', border: '#c026d3', text: '#86198f' };
-  if (a.includes('évaluation') || a.includes('evaluation')) return { bg: '#fee2e2', border: '#ef4444', text: '#991b1b' };
-  return { bg: '#dbeafe', border: '#3b82f6', text: '#1e40af' }; // cours par défaut
+  if (a.includes('évaluation') || a.includes('evaluation')) return { bg: '#fee2e2', border: 'var(--c-refuse)', text: 'var(--c-refuse)' };
+  return { bg: '#dbeafe', border: 'var(--c-disponible)', text: 'var(--c-disponible)' }; // cours par défaut
 }
 
 /**
@@ -591,7 +591,7 @@ export default function PlanificateurVisuel({ onClose }) {
                           width: b.dureeSem * PX_SEM - 2,
                           top: 6, bottom: 6,
                           background: b.color.bg,
-                          border: `1.5px solid ${depasseLimite ? '#ef4444' : b.color.border}`,
+                          border: `1.5px solid ${depasseLimite ? 'var(--c-refuse)' : b.color.border}`,
                           color: b.color.text,
                           borderRadius: 6,
                           cursor: 'grab',

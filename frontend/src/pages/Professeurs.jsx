@@ -1165,11 +1165,11 @@ const MOTIFS_FIN = [
 
 const ETAPES_DISC = [
   { val: 'ouverture',   label: 'Ouverture du dossier',   color: '#6b7280' },
-  { val: 'convocation', label: 'Convocation',             color: '#d97706' },
-  { val: 'audition',    label: 'Audition',                color: '#7c3aed' },
-  { val: 'decision',    label: 'Décision',                color: '#b91c1c' },
-  { val: 'appel',       label: 'Recours / Appel',         color: '#0369a1' },
-  { val: 'cloture',     label: 'Clôture',                 color: '#15803d' },
+  { val: 'convocation', label: 'Convocation',             color: 'var(--c-texte)' },
+  { val: 'audition',    label: 'Audition',                color: 'var(--c-texte)' },
+  { val: 'decision',    label: 'Décision',                color: 'var(--c-texte)' },
+  { val: 'appel',       label: 'Recours / Appel',         color: 'var(--c-texte)' },
+  { val: 'cloture',     label: 'Clôture',                 color: 'var(--c-texte)' },
 ];
 
 function DossiersRH({ profId, profNom }) {

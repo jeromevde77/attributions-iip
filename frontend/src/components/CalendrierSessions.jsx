@@ -569,7 +569,7 @@ export default function CalendrierSessions({ sansTitre = false } = {}) {
         </div>
 
         {erreur && (
-          <div className="mb-3 px-3 py-2 rounded-carte bg-[#FBF1EE] text-[color:var(--c-refuse)] text-[13px]
+          <div className="mb-3 px-3 py-2 rounded-carte bg-[#FBF1EE] text-red-800 text-[13px]
                           border border-[#E8CFC7] inline-flex items-center gap-2">
             <IconAlertTriangle size={15} /> {erreur}
           </div>

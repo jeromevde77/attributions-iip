@@ -1692,9 +1692,9 @@ docker start attributions-backend-dev`}</div>
 // Catégories PNCC
 const PNCC_CATS = [
   { value: 'secretariat_etudiant', label: 'Secrétariat étudiant', color: '#0EA5E9', desc: 'Proratisé au nb de sections pour le ratio étu./ETP' },
-  { value: 'secretariat_rh',       label: 'Secrétariat RH',       color: '#8B5CF6', desc: '' },
+  { value: 'secretariat_rh',       label: 'Secrétariat RH',       color: 'var(--c-texte)', desc: '' },
   { value: 'direction',            label: 'Direction',             color: 'var(--c-texte)', desc: '' },
-  { value: 'economat',             label: 'Économat',              color: '#F59E0B', desc: '' },
+  { value: 'economat',             label: 'Économat',              color: 'var(--c-texte)', desc: '' },
   { value: 'autre',                label: 'Autre',                 color: '#6B7280', desc: '' },
 ];
 
@@ -2337,7 +2337,7 @@ const THEMES = [
      bleu ; l'épreuve intégrée un OR franc, distinct du jaune de BA1. */
   { cle: 'maison', nom: 'Maison IIP', texte: 'Les couleurs du logo, des états vifs.', gris: '#5B6B7D',
     valeurs: { principal: '#19537E', accent: '#0A8FBF', texte: '#1F2F40', donnees: '#0A8FBF', menu_sombre: '#123E5F',
-               iip: '#19537E', helb: '#D14F8A', ct: '#2F6FB0', pp: '#2E8F6E',
+               iip: '#19537E', helb: '#D14F8A', ct: 'var(--c-disponible)', pp: '#2E8F6E',
                reussi: '#4FA64A', faveur: '#8E4F9A', disponible: '#3F7FD0', attente: '#F0922E', refuse: '#E0564F',
                ba1: '#F9B619', ba2: '#05B7E6', ba3: '#19537E', epreuve: '#C9A227',
                fond_page: '#F6F8FA', fond_indispo: '#EEF1F4' } },
@@ -2345,8 +2345,8 @@ const THEMES = [
   { cle: 'clair', nom: 'Gris clair', texte: 'Gris neutre, sans bleu ; états sobres.', gris: 'neutre',
     valeurs: { fond_page: '#F4F5F7', fond_indispo: '#ECEEF1' } },
   { cle: 'vif', nom: 'Gris clair et vif', texte: 'Gris neutre ; états plus francs, plus gais.', gris: 'neutre',
-    valeurs: { fond_page: '#F4F5F7', fond_indispo: '#ECEEF1', reussi: '#2F9A5B', faveur: '#7C3AED',
-               disponible: '#3478D4', attente: '#D97706', refuse: '#C2412D' } },
+    valeurs: { fond_page: '#F4F5F7', fond_indispo: '#ECEEF1', reussi: 'var(--c-reussi)', faveur: 'var(--c-faveur)',
+               disponible: '#3478D4', attente: 'var(--c-attente)', refuse: 'var(--c-refuse)' } },
 ];
 const GROUPES_COULEURS = [
   ['ecran', 'L’écran', 'Tout ce qui n’est pas un état : le bouton principal, l’accent, le texte, les données, les menus sombres.'],

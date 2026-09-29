@@ -86,7 +86,7 @@ export default function HorsBloc() {
                       <td className="px-2 py-1 whitespace-nowrap"><b>{(l.nom || '').toUpperCase()}</b> {l.prenom} <span className="text-slate-400">· {l.id_ecampus || '—'}{l.primo ? ' · primo' : ''}</span></td>
                       <td className="px-2 py-1">{l.section || '—'}</td>
                       <td className="px-2 py-1">jusqu'au {ba(l.plafond)}</td>
-                      <td className="px-2 py-1 tabular-nums">{l.ambigu ? <span className="text-[color:var(--c-attente)]">à trancher — {l.raison}</span>
+                      <td className="px-2 py-1 tabular-nums">{l.ambigu ? <span className="text-amber-800">à trancher — {l.raison}</span>
                         : l.retirer.length ? `UE ${l.retirer.map(x => x.ue_num).join(', ')}` : '—'}</td>
                       <td className="px-2 py-1 tabular-nums text-slate-500">{l.proteges.map(x => `UE ${x.ue_num} (${x.pourquoi})`).join(' · ') || '—'}</td>
                     </tr>

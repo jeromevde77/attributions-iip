@@ -228,8 +228,8 @@ export default function PonderationsUE() {
           {annee} est une année reprise des classeurs, dont les délibérations sont tenues : ses poids se lisent ici, ils ne se modifient pas.
         </p>
       )}
-      {erreur && <div className="carte p-2.5 text-[12px] text-[color:var(--c-refuse)] flex items-start gap-1.5"><IconAlertTriangle size={14} className="mt-0.5 flex-none" />{erreur}</div>}
-      {message && <div className="text-[12px] text-[color:var(--c-reussi)] flex items-center gap-1.5"><IconCheck size={14} />{message}</div>}
+      {erreur && <div className="carte p-2.5 text-[12px] text-red-800 flex items-start gap-1.5"><IconAlertTriangle size={14} className="mt-0.5 flex-none" />{erreur}</div>}
+      {message && <div className="text-[12px] text-emerald-800 flex items-center gap-1.5"><IconCheck size={14} />{message}</div>}
 
       {!ues.length && section && <p className="text-[13px] text-slate-400">Aucune unité pour {section} en {annee}.</p>}
       {ue && structure && liens && (
@@ -433,7 +433,7 @@ export default function PonderationsUE() {
                       <span className="text-[12px] tabular-nums">Total : <b>{fr(somme(coursC.cours_code))} / 10</b>
                         {pasJuste(coursC.cours_code) && <span className="text-amber-700"> · par pas de 0,5</span>}</span>
                       {coursJuste(coursC.cours_code)
-                        ? <span className="text-[11px] font-semibold px-1.5 rounded-full border border-emerald-300 text-[color:var(--c-reussi)]">réparti</span>
+                        ? <span className="text-[11px] font-semibold px-1.5 rounded-full border border-emerald-300 text-emerald-800">réparti</span>
                         : <span className="text-[11px] font-semibold px-1.5 rounded-full border border-amber-300 text-amber-700">
                             {somme(coursC.cours_code) > 10 ? `dépasse de ${fr(somme(coursC.cours_code) - 10)}` : `manque ${fr(10 - somme(coursC.cours_code))}`} point</span>}
                       {peutRegler && modifie(coursC.cours_code) && (

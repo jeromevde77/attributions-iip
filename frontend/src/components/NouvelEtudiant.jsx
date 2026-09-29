@@ -159,7 +159,7 @@ export default function NouvelEtudiant({ onClose, onCree }) {
             </div>
             <div className="px-3 py-2 border-t border-slate-100">
               <button onClick={() => creer(true)} disabled={enCours}
-                className="text-[12px] text-[color:var(--c-refuse)] hover:underline">
+                className="text-[12px] text-red-800 hover:underline">
                 Ce n'est pas la même personne — créer quand même
               </button>
             </div>

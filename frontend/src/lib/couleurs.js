@@ -69,13 +69,37 @@ export function echelle(hex) {
     c.map(x => Math.round(vers === 'b' ? 255 - (255 - x) * k : x * (1 - k))).join(' ')]));
 }
 
+/* LES ÉTATS N'ONT QUE QUATRE VALEURS, ET AUCUNE AUTRE (Charles, 29 septembre
+ * 2026 : « il n'y a pas ce ton dans le modèle ; reste à ce qui est dans la
+ * configuration »). Une échelle de onze nuances calculées inventait des tons —
+ * un brun sous l'ocre, un vert bouteille sous le vert — qu'aucun réglage ne
+ * porte. Pour un état, les classes de Tailwind ne produisent donc que ce que
+ * dit le modèle de la tuile : le FOND PÂLE (11 %), le CONTOUR (30 %), la
+ * COULEUR elle-même, et l'ENCRE du texte — la couleur ne va jamais au texte.
+ *   50–100 fond pâle · 200–300 contour · 400–700 la couleur · 800–950 l'encre
+ * Les échelles de l'accent, du principal et des données restent graduées :
+ * elles servent au survol et aux nuances d'une série, pas à un état. */
+export const ETATS_REGLES = ['reussi', 'attente', 'refuse', 'faveur', 'disponible'];
+const pale = (c, k) => c.map(x => Math.round(255 - (255 - x) * k)).join(' ');
+export function echelleEtat(hex) {
+  const c = canaux(hex);
+  if (!c) return null;
+  const e = {};
+  for (const n of [50, 100]) e[n] = pale(c, 0.11);
+  for (const n of [200, 300]) e[n] = pale(c, 0.30);
+  for (const n of [400, 500, 600, 700]) e[n] = c.join(' ');
+  for (const n of [800, 900, 950]) e[n] = 'var(--c-texte-rgb)';
+  return e;
+}
+const echelleDe = (cle, valeur) => (ETATS_REGLES.includes(cle) ? echelleEtat(valeur) : echelle(valeur));
+
 export function poser(jeu, racine = document.documentElement) {
   for (const [cle, valeur] of Object.entries(jeu || {})) {
     if (/^#[0-9a-fA-F]{6}$/.test(String(valeur))) {
       racine.style.setProperty(`--c-${cle}`, valeur);
       racine.style.setProperty(`--c-${cle}-rgb`, canaux(valeur).join(' '));
       if (ECHELLES.includes(cle)) {
-        for (const [n, v] of Object.entries(echelle(valeur))) racine.style.setProperty(`--e-${cle}-${n}`, v);
+        for (const [n, v] of Object.entries(echelleDe(cle, valeur))) racine.style.setProperty(`--e-${cle}-${n}`, v);
       }
     }
   }
@@ -88,7 +112,7 @@ export function variables(jeu) {
     const c = canaux(valeur);
     if (!c) continue;
     out[`--c-${cle}`] = valeur; out[`--c-${cle}-rgb`] = c.join(' ');
-    if (ECHELLES.includes(cle)) for (const [n, v] of Object.entries(echelle(valeur))) out[`--e-${cle}-${n}`] = v;
+    if (ECHELLES.includes(cle)) for (const [n, v] of Object.entries(echelleDe(cle, valeur))) out[`--e-${cle}-${n}`] = v;
   }
   return out;
 }

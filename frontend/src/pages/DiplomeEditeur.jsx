@@ -106,7 +106,7 @@ function EditeurSignataires({ liste, setListe, palette, peutEcrire, rendu }) {
       <div className="font-semibold mt-0.5">{x.nom || <i className="text-slate-400 font-normal">nom</i>}</div>
       {onX && peutEcrire && (
         <button type="button" onClick={e => { e.stopPropagation(); onX(); }} title="Retirer"
-          className="absolute -top-2 -right-2 w-5 h-5 grid place-items-center rounded-full bg-white border border-slate-300 text-slate-500 hover:text-[color:var(--c-refuse)]">
+          className="absolute -top-2 -right-2 w-5 h-5 grid place-items-center rounded-full bg-white border border-slate-300 text-slate-500 hover:text-red-800">
           <IconX size={11} />
         </button>
       )}

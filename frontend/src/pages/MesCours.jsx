@@ -430,7 +430,7 @@ export default function MesCours() {
                                   className={`w-12 h-7 rounded-champ px-1 text-[13px] text-right tabular-nums outline-none
                                     border border-transparent hover:border-slate-200 focus:border-iip-blue focus:bg-white
                                     placeholder:text-slate-300
-                                    ${!ok ? 'text-[color:var(--c-refuse)] bg-[#FBEDEA] font-semibold'
+                                    ${!ok ? 'text-red-800 bg-[#FBEDEA] font-semibold'
                                       : MENTIONS.includes(t) ? 'font-semibold text-slate-500 text-center'
                                       : 'bg-transparent text-iip-blue font-semibold'}`} />
                                 {/* « /20 » : l'échelle se lit à côté de chaque NOTE (Charles) —
@@ -564,7 +564,7 @@ export default function MesCours() {
             {face === 'notes' && feuille && (
               <div className="flex items-center gap-3 justify-end border-t border-slate-200 pt-2">
                 <span className="text-[12px] text-slate-500 min-w-0 flex-1">
-                  {invalides ? <span style={{ color: '#C2412D' }}>{invalides} case{invalides > 1 ? 's' : ''} à corriger : un nombre entier de 0 à 20, PP, NP ou CM.</span>
+                  {invalides ? <span style={{ color: 'var(--c-texte)' }}>{invalides} case{invalides > 1 ? 's' : ''} à corriger : un nombre entier de 0 à 20, PP, NP ou CM.</span>
                     : manquants.length ? <span style={{ color: 'var(--c-attente)' }}>{manquants.length} note{manquants.length > 1 ? 's' : ''} sous 10 sans justificatif.{' '}
                         <button type="button" className="underline" onClick={() => allerA(manquants[0])}>Aller au premier</button></span>
                     : 'Vos notes sont des propositions : la coordination les reprend dans l’encodage officiel.'}
