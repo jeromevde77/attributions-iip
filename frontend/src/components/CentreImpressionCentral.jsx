@@ -1,5 +1,7 @@
+import PiecesEtudiant from './PiecesEtudiant.jsx';
 import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { createPortal } from 'react-dom';
 import { nomPropre } from '../lib/nom.js';
 import {
   IconPrinter, IconUsers, IconSchool, IconChartBar, IconCalendarStats,
@@ -1186,13 +1188,13 @@ function SeriePersonnel({ ids, profs, annee, annexes, nom, outilsMembre = null }
    l'onglet part d'un périmètre — une année, une section —, et un parcours sur
    plusieurs années n'y entrait pas. On cherche la personne, et l'on sort ses
    attestations de toutes les années : en un aperçu, ou un PDF par unité. */
-function UnEtudiantToutesAnnees() {
+/* UN ÉTUDIANT, TOUTES SES PIÈCES (Charles, 29 septembre 2026 : « je dois
+   pouvoir sortir TOUS les documents étudiants depuis Éditions »). On le
+   choisit, et la liste commune de ses pièces s'ouvre — la même que sur sa fiche. */
+function UnEtudiantToutesAnnees({ annee }) {
   const [q, setQ] = useState('');
   const [trouves, setTrouves] = useState([]);
   const [choisi, setChoisi] = useState(null);
-  const [enCours, setEnCours] = useState(false);
-  const [erreur, setErreur] = useState(null);
-  const [doc, setDoc] = useState(null);
   useEffect(() => {
     if (q.trim().length < 2 || choisi) { setTrouves([]); return; }
     const t = setTimeout(() => {
@@ -1201,63 +1203,29 @@ function UnEtudiantToutesAnnees() {
     }, 250);
     return () => clearTimeout(t);
   }, [q, choisi]);
-  const apercu = async () => {
-    setEnCours(true); setErreur(null);
-    try {
-      const r = await fetch(`/api/attestations/etudiant/${choisi.id}/document?annee=toutes`, { headers: authHeaders() });
-      const j = await r.json().catch(() => ({}));
-      if (!r.ok) throw new Error(j.error || 'Aucune attestation.');
-      // L'aperçu LOCAL, rendu dans la fenêtre Éditions : l'aperçu commun est
-      // monté sous elle, et s'ouvrait derrière (29 septembre 2026).
-      setDoc({ html: j.html, titre: `Attestations de réussite — ${nomPropre(choisi.nom, choisi.prenom)} (${(j.annees || []).join(', ')})`,
-        nom: `Attestations_${choisi.nom}_${choisi.prenom}_toutes_annees` });
-    } catch (e) { setErreur(e.message); } finally { setEnCours(false); }
-  };
-  const archive = async () => {
-    setEnCours(true); setErreur(null);
-    try {
-      const r = await fetch(`/api/attestations/etudiant/${choisi.id}/pdfs?annee=toutes`, { headers: authHeaders() });
-      if (!r.ok) { const j = await r.json().catch(() => ({})); throw new Error(j.error || 'Les PDF n’ont pas pu être produits.'); }
-      const nom = (r.headers.get('Content-Disposition') || '').match(/filename="([^"]+)"/)?.[1] || 'attestations.zip';
-      const url = URL.createObjectURL(await r.blob());
-      const a = document.createElement('a'); a.href = url; a.download = nom;
-      document.body.appendChild(a); a.click(); a.remove();
-      setTimeout(() => URL.revokeObjectURL(url), 30000);
-    } catch (e) { setErreur(e.message); } finally { setEnCours(false); }
-  };
   return (
     <div className="px-3 py-2 border-b border-slate-200 space-y-1.5">
-      <div className="text-[13px] font-semibold text-iip-blue">Un étudiant, toutes ses années</div>
-      {!choisi ? (
-        <div className="relative">
-          <input className="controle w-full text-[13px]" placeholder="Nom ou matricule…" value={q} onChange={e => setQ(e.target.value)} />
-          {trouves.length > 0 && (
-            <div className="absolute z-20 left-0 right-0 mt-1 bg-white border border-slate-200 rounded-champ shadow-flottant max-h-64 overflow-auto">
-              {trouves.map(e => (
-                <button key={e.id} type="button" onClick={() => { setChoisi(e); setTrouves([]); }}
-                  className="w-full text-left px-2.5 py-1.5 text-[12.5px] hover:bg-slate-50">
-                  <b>{(e.nom || '').toUpperCase()}</b> {e.prenom} <span className="text-slate-400">· {e.id_ecampus || '—'}</span>
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-      ) : (
-        <div className="space-y-1.5">
-          <div className="flex items-center gap-2 text-[12.5px]">
-            <span className="flex-1 min-w-0 truncate"><b>{(choisi.nom || '').toUpperCase()}</b> {choisi.prenom}</span>
-            <button type="button" className="text-[12px] text-slate-500 underline" onClick={() => { setChoisi(null); setQ(''); }}>changer</button>
+      <div className="text-[13px] font-semibold text-iip-blue">Un étudiant — toutes ses pièces</div>
+      <div className="relative">
+        <input className="controle w-full text-[13px]" placeholder="Nom ou matricule…" value={q} onChange={e => setQ(e.target.value)} />
+        {trouves.length > 0 && (
+          <div className="absolute z-20 left-0 right-0 mt-1 bg-white border border-slate-200 rounded-champ shadow-flottant max-h-64 overflow-auto">
+            {trouves.map(e => (
+              <button key={e.id} type="button" onClick={() => { setChoisi(e); setTrouves([]); }}
+                className="w-full text-left px-2.5 py-1.5 text-[12.5px] hover:bg-slate-50">
+                <b>{(e.nom || '').toUpperCase()}</b> {e.prenom} <span className="text-slate-400">· {e.id_ecampus || '—'}</span>
+              </button>
+            ))}
           </div>
-          <div className="flex gap-1.5 flex-wrap">
-            <button type="button" className="bouton bouton-compact" disabled={enCours} onClick={apercu}>Toutes ses attestations</button>
-            <button type="button" className="bouton bouton-compact" disabled={enCours} onClick={archive}>Un PDF par unité</button>
-          </div>
-          {enCours && <div className="text-[11.5px] text-slate-400">Production…</div>}
-        </div>
-      )}
-      {erreur && <div className="text-[11.5px] text-[#9D4A38]">{erreur}</div>}
-      {doc && <PreviewModal html={doc.html} titre={doc.titre} nomFichier={doc.nom} typeDoc="attestation_reussite"
-        onClose={() => setDoc(null)} />}
+        )}
+      </div>
+      <div className="text-[11px] text-slate-400">Attestations, parcours, fiche d'inscription, annexes de l'Office des
+        Étrangers, congé-éducation, aménagements raisonnables — pour l'année {annee}.</div>
+      {choisi && createPortal(
+        <Fenetre icone={IconSchool} titre={`Pièces — ${nomPropre(choisi.nom, choisi.prenom)}`} large="grande"
+          sous={`${choisi.id_ecampus || ''} · année ${annee}`} onFermer={() => { setChoisi(null); setQ(''); }}>
+          <PiecesEtudiant etud={choisi} annee={annee} />
+        </Fenetre>, document.body)}
     </div>
   );
 }
@@ -1466,7 +1434,7 @@ function OngletEtudiants({ perimetre = null }) {
     <div className="flex min-h-0 flex-1">
       {/* LE PÉRIMÈTRE */}
       <div className="w-[340px] border-r border-slate-200 flex flex-col min-h-0">
-        <UnEtudiantToutesAnnees />
+        <UnEtudiantToutesAnnees annee={annee} />
         <div className="px-3 py-2 border-b border-slate-200">
           <div className="text-[13px] font-semibold text-iip-blue mb-1.5">Périmètre</div>
           <select value={annee} onChange={e => setAnnee(e.target.value)}
@@ -1702,7 +1670,7 @@ function PiecesDeLEcran({ pieces, onChoisir }) {
 }
 
 export default function CentreImpressionCentral({ ongletInitial = 'etudiants',
-                                                  perimetre = null, pieces = null,
+                                                  perimetre = null, pieces = null, etudiant = null, anneeEtudiant = null,
                                                   membreInitial = null, outilsMembre = null,
                                                   onClose }) {
   const [onglet, setOnglet] = useState(ongletInitial);
@@ -1728,6 +1696,11 @@ export default function CentreImpressionCentral({ ongletInitial = 'etudiants',
 
       <PiecesDeLEcran pieces={pieces}
         onChoisir={p => { onClose?.(); p.onClick?.(); }} />
+      {etudiant && (
+        <div className="mb-4 pb-3 border-b border-slate-200">
+          <PiecesEtudiant etud={etudiant} annee={anneeEtudiant || getAnnee()} />
+        </div>
+      )}
 
       {/* Les domaines : ce qu'on sort ici porte sur les étudiants, le
           personnel, l'établissement… Le domaine ouvert est le seul en marine. */}
