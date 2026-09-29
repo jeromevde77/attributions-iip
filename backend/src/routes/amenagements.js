@@ -442,6 +442,43 @@ r.post('/dossier/:id/communication', authRequired, peutAmenager, (req, res) => {
   res.json({ ok: true });
 });
 
+/* SUPPRIMER UN DOSSIER (Charles, 29 septembre 2026 : « je ne sais pas
+   supprimer un AR depuis la liste, enfin un dossier »). Un geste irréversible
+   se nomme, se motive et laisse une trace :
+     · un dossier SANS décision (ouvert par erreur, en double) se supprime par
+       qui peut écrire les aménagements ;
+     · un dossier DÉCIDÉ, notifié ou communiqué aux chargés de cours ne se
+       supprime que par la direction, motif écrit — une décision a pu partir ;
+     · dans les deux cas, un instantané complet du dossier (mesures et unités
+       comprises) s'écrit dans amenagement_suppression, en ajout seul. */
+const DIRECTION_AR = ['admin', 'directeur', 'directeur_adjoint'];
+r.delete('/dossier/:id', authRequired, peutAmenager, (req, res) => {
+  const d = dossierLisible(req, res);
+  if (!d) return;
+  const motif = String(req.body?.motif || req.query?.motif || '').trim();
+  const engage = ['accepte', 'partiel', 'refuse', 'recours'].includes(d.statut) || d.cde_date || d.notifie_le || d.communique_le;
+  if (engage && !DIRECTION_AR.includes(req.user?.role)) {
+    return res.status(403).json({ error: 'Ce dossier porte une décision du Conseil, ou a déjà été notifié ou communiqué : seule la direction peut le supprimer, et elle motive sa décision.' });
+  }
+  if (engage && !motif) {
+    return res.status(400).json({ error: 'Ce dossier porte une décision : sa suppression se motive — une décision a pu partir sur sa foi.', motif_requis: true });
+  }
+  db.exec(`CREATE TABLE IF NOT EXISTS amenagement_suppression (
+    id INTEGER PRIMARY KEY AUTOINCREMENT, dossier_id INTEGER, etudiant_id INTEGER, annee_scolaire TEXT,
+    statut TEXT, instantane TEXT, motif TEXT, par TEXT, le TEXT DEFAULT (datetime('now')))`);
+  const mesures = db.prepare('SELECT * FROM amenagement_mesure WHERE dossier_id = ?').all(d.id);
+  const ues = db.prepare('SELECT ue_num FROM amenagement_ue WHERE dossier_id = ?').all(d.id).map(x => x.ue_num);
+  db.transaction(() => {
+    db.prepare(`INSERT INTO amenagement_suppression (dossier_id, etudiant_id, annee_scolaire, statut, instantane, motif, par)
+      VALUES (?,?,?,?,?,?,?)`).run(d.id, d.etudiant_id, d.annee_scolaire, d.statut,
+      JSON.stringify({ dossier: d, mesures, ues }), motif || null, req.user?.email || req.user?.nom || null);
+    db.prepare('DELETE FROM amenagement_mesure WHERE dossier_id = ?').run(d.id);
+    db.prepare('DELETE FROM amenagement_ue WHERE dossier_id = ?').run(d.id);
+    db.prepare('DELETE FROM amenagement_dossier WHERE id = ?').run(d.id);
+  })();
+  res.json({ ok: true, supprime: d.id });
+});
+
 r.delete('/mesure/:id', authRequired, peutAmenager, (req, res) => {
   db.prepare('DELETE FROM amenagement_mesure WHERE id = ?').run(Number(req.params.id));
   res.json({ ok: true });
