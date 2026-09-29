@@ -917,7 +917,7 @@ export function TuileEtat({ etat = 'neutre', valeur, unite, libelle, precision, 
       data-etat={etat}
       className={`bloc-etat ${sousReserve ? 'sous-reserve' : ''} relative text-left px-3 py-2 min-w-0
         ${onClick ? 'cursor-pointer hover:brightness-[.98] transition' : ''}
-        ${actif ? 'ring-2 ring-offset-1 ring-[color:var(--c-principal)]/30' : ''} ${className}`}>
+        ${actif ? 'ring-2 ring-offset-1 ring-iip-blue/30' : ''} ${className}`}>
       {Icone && <Icone size={15} stroke={1.8} className="absolute right-2.5 top-2.5 text-slate-400" />}
       <div className="text-[17px] font-bold tabular-nums leading-tight">
         {valeur}

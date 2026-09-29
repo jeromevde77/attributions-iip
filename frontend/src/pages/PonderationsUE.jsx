@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { IconArrowsSplit, IconCheck, IconAlertTriangle, IconHistory, IconLock } from '@tabler/icons-react';
 import { authHeaders, getAnnee, getUser } from '../lib/api.js';
 import SchemaLiensAA from '../components/SchemaLiensAA.jsx';
+import { TuileEtat } from '../components/ui.jsx';
 
 /**
  * ORGANISATION → PONDÉRATIONS : le tableau de bord d'une UE, pour une année
@@ -21,7 +22,11 @@ import SchemaLiensAA from '../components/SchemaLiensAA.jsx';
  * modifier : leurs délibérations sont tenues.
  */
 const ANNEE_PERIODES = '2026-2027';
-const TEINTES = ['#1F6F8B', '#A0602A', '#6E48A6', '#2F7D5B', 'var(--c-refuse)', '#4B5F8A', '#8A6A1F', '#3E6E6E'];
+/* UNE SEULE TEINTE POUR LES DONNÉES (Charles, 29 septembre 2026 : « trop de
+   palettes différentes ») : les acquis se distinguent par des nuances de la
+   couleur « Données » des réglages, non par un arc-en-ciel qui ne dit rien et
+   brouille les couleurs qui alertent. */
+const TEINTES = [700, 500, 800, 400, 600, 300].map(n => `rgb(var(--e-donnees-${n}))`);
 const PEUT_REGLER = ['admin', 'editeur', 'coordination'];
 const fr = (n, d = 1) => Number(n || 0).toLocaleString('fr-BE', { maximumFractionDigits: d });
 const anneeAvant = a => { const m = /^(\d{4})-(\d{4})$/.exec(a || ''); return m ? `${+m[1] - 1}-${+m[2] - 1}` : null; };
@@ -40,22 +45,21 @@ async function ecrire(url, corps, method = 'PUT') {
   return j;
 }
 
+/* LA TUILE DE LA MAISON (29 septembre 2026) : celle de tout Lucie, et non une
+   copie locale aux couleurs écrites en dur — l'ocre ici n'était pas celui des
+   réglages. Le ton se traduit en état. */
+const ETAT_TON = { vert: 'reussi', ocre: 'surveiller', brique: 'corriger', marine: 'fort', neutre: 'neutre' };
 function Tuile({ valeur, libelle, precision, ton = 'neutre' }) {
-  const rail = { vert: 'var(--c-reussi)', ocre: '#B0701A', brique: 'var(--c-refuse)', marine: 'var(--c-principal)', neutre: '#D8DCE4' }[ton];
-  return (
-    <div className="bg-white rounded-carte border border-slate-200 px-3 py-2.5" style={{ borderLeft: `3px solid ${rail}` }}>
-      <div className="text-[17px] font-bold text-iip-blue tabular-nums">{valeur}</div>
-      <div className="text-[12px] text-slate-600">{libelle}</div>
-      {precision && <div className="text-[11px] text-slate-400 mt-0.5">{precision}</div>}
-    </div>
-  );
+  return <TuileEtat etat={ETAT_TON[ton] || 'neutre'} valeur={valeur} libelle={libelle} precision={precision} />;
 }
 
 function Zone({ lettre, titre, sous, children, droite }) {
   return (
-    <section className="rounded-carte border border-slate-200 p-3.5 space-y-3 min-w-0">
+    <section className="rounded-carte border border-slate-200 p-3 space-y-2 min-w-0">
       <div className="flex items-baseline gap-2.5 flex-wrap">
-        <span className="w-[22px] h-[22px] rounded-full bg-[color:var(--c-epreuve)] text-iip-blue text-[12px] font-bold grid place-items-center flex-none">{lettre}</span>
+        {/* La lettre de la zone porte le principal : l'or est celui de
+            l'épreuve intégrée, et il ne dit que cela. */}
+        <span className="w-[20px] h-[20px] rounded-full bg-iip-blue/10 text-iip-blue text-[11px] font-bold grid place-items-center flex-none">{lettre}</span>
         <h3 className="text-[15px] font-semibold text-iip-blue">{titre}</h3>
         {sous && <span className="text-[12px] text-slate-400">{sous}</span>}
         {droite && <span className="ml-auto">{droite}</span>}
@@ -272,12 +276,12 @@ export default function PonderationsUE() {
                     </button>
                   )}
                 </div>
-                <div className="flex h-10 rounded-champ overflow-hidden border border-slate-200" role="img"
+                <div className="flex h-7 rounded-champ overflow-hidden border border-slate-200" role="img"
                   aria-label={coursEval.map(c => `${c.cours_code} ${fr(poidsCoursDe[c.cours_code], 0)} %`).join(', ')}>
                   {coursEval.map((c, i) => {
                     const p = base === 'saisi' ? Number(poidsSaisis[c.cours_code]) || 0 : poidsCoursDe[c.cours_code] || 0;
                     return (
-                      <div key={c.cours_code} style={{ width: `${p}%`, background: ['#1B2B4B', '#3A5580', '#8FA3C2', '#5C6F91', '#2A4068'][i % 5], color: i % 5 === 2 ? '#1B2B4B' : '#fff' }}
+                      <div key={c.cours_code} style={{ width: `${p}%`, background: `rgb(var(--e-donnees-${[600, 400, 300, 500, 700][i % 5]}))`, color: [1, 2].includes(i % 5) ? 'var(--c-texte)' : '#fff' }}
                         className="flex items-center px-2 text-[12px] font-semibold whitespace-nowrap overflow-hidden min-w-0">
                         {c.cours_code} · {fr(p, 0)} %
                       </div>
@@ -292,7 +296,7 @@ export default function PonderationsUE() {
                       <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
                         {!evalue(c)
                           ? <span className="text-[11px] font-semibold px-1.5 rounded-full border border-slate-300 text-slate-500">{c.non_evalue ? 'pas évalué' : 'activité Z'}</span>
-                          : <span className={`text-[11px] font-semibold px-1.5 rounded-full border ${coursJuste(c.cours_code) ? 'border-[#BCD6C8] text-[#3E7D5E]' : 'border-[#E6CFA8] text-[#B0701A]'}`}>{fr(somme(c.cours_code))} / 10</span>}
+                          : <span className={`text-[11px] font-semibold px-1.5 rounded-full border ${coursJuste(c.cours_code) ? 'border-emerald-300 text-emerald-700' : 'border-amber-300 text-amber-700'}`}>{fr(somme(c.cours_code))} / 10</span>}
                         {base === 'saisi' && evalue(c) && (
                           <label className="flex items-center gap-1 text-[11px]">
                             <input type="number" min="0" max="100" step="1" value={poidsSaisis[c.cours_code] ?? ''} disabled={!peutRegler}
@@ -334,7 +338,7 @@ export default function PonderationsUE() {
                           <tr key={a.aa_code} className={eteint ? 'opacity-35' : ''}>
                             <td className="sticky left-0 z-[1] bg-white border-t border-slate-100 px-2.5 py-1.5 cursor-pointer"
                               onClick={() => setAaSuivi(s => (s === a.aa_code ? null : a.aa_code))}>
-                              <div className="font-bold" style={{ color: t }}>{a.aa_code}</div>
+                              <div className="font-bold text-slate-800">{a.aa_code}</div>
                               <div className="text-slate-500 truncate max-w-[260px]" title={a.description}>{a.description}</div>
                               <div className="flex items-center gap-2 mt-1">
                                 <div className="h-1.5 flex-1 rounded bg-slate-100 overflow-hidden">
@@ -376,7 +380,7 @@ export default function PonderationsUE() {
                         <td className="tab-entete sticky left-0 z-10 px-2.5 py-1.5 text-slate-600">Points répartis dans le cours</td>
                         {coursEval.map(c => (
                           <td key={c.cours_code} className="tab-entete px-1.5 py-1.5 text-center">
-                            <div className={`font-bold tabular-nums ${coursJuste(c.cours_code) ? 'text-slate-700' : 'text-[#B0701A]'}`}>{fr(somme(c.cours_code))} / 10</div>
+                            <div className={`font-bold tabular-nums ${coursJuste(c.cours_code) ? 'text-slate-700' : 'text-amber-700'}`}>{fr(somme(c.cours_code))} / 10</div>
                             {peutRegler && modifie(c.cours_code) && (
                               <button className="text-[11px] font-semibold text-iip-blue underline disabled:text-slate-400 disabled:no-underline"
                                 disabled={!coursJuste(c.cours_code)} onClick={() => enregistrerCours(c.cours_code)}
@@ -414,7 +418,7 @@ export default function PonderationsUE() {
                       const t = teinte(a.aa_code);
                       return (
                         <div key={a.aa_code} className="grid grid-cols-[72px_1fr_76px] gap-2 items-center">
-                          <span className="font-bold text-[12px]" style={{ color: t }}>{a.aa_code}</span>
+                          <span className="font-bold text-[12px] text-slate-800">{a.aa_code}</span>
                           <div className="h-5 rounded bg-slate-100 overflow-hidden"><div className="h-full rounded" style={{ width: `${v * 10}%`, background: t }} /></div>
                           {peutRegler ? (
                             <input type="number" min="0" max="10" step="0.5" value={v || ''} placeholder="0"
@@ -427,10 +431,10 @@ export default function PonderationsUE() {
                     })}
                     <div className="flex items-center justify-between gap-2 pt-2 border-t border-slate-100 flex-wrap">
                       <span className="text-[12px] tabular-nums">Total : <b>{fr(somme(coursC.cours_code))} / 10</b>
-                        {pasJuste(coursC.cours_code) && <span className="text-[#B0701A]"> · par pas de 0,5</span>}</span>
+                        {pasJuste(coursC.cours_code) && <span className="text-amber-700"> · par pas de 0,5</span>}</span>
                       {coursJuste(coursC.cours_code)
-                        ? <span className="text-[11px] font-semibold px-1.5 rounded-full border border-[#BCD6C8] text-[color:var(--c-reussi)]">réparti</span>
-                        : <span className="text-[11px] font-semibold px-1.5 rounded-full border border-[#E6CFA8] text-[#B0701A]">
+                        ? <span className="text-[11px] font-semibold px-1.5 rounded-full border border-emerald-300 text-[color:var(--c-reussi)]">réparti</span>
+                        : <span className="text-[11px] font-semibold px-1.5 rounded-full border border-amber-300 text-amber-700">
                             {somme(coursC.cours_code) > 10 ? `dépasse de ${fr(somme(coursC.cours_code) - 10)}` : `manque ${fr(10 - somme(coursC.cours_code))}`} point</span>}
                       {peutRegler && modifie(coursC.cours_code) && (
                         <button className="bouton bouton-fort" disabled={!coursJuste(coursC.cours_code)}

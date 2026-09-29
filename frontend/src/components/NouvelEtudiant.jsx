@@ -134,8 +134,8 @@ export default function NouvelEtudiant({ onClose, onCree }) {
         {/* LE DOUBLON SE MONTRE, IL NE SE DEVINE PAS. Deux homonymes nés le
             même jour existent : le serveur signale, le secrétariat tranche. */}
         {doublons && (
-          <div className="border border-[color:var(--c-attente)]/40 rounded-carte overflow-hidden">
-            <div className="px-3 py-2 bg-amber-50 border-b border-[color:var(--c-attente)]/30
+          <div className="border border-amber-500/40 rounded-carte overflow-hidden">
+            <div className="px-3 py-2 bg-amber-50 border-b border-amber-500/30
                             text-[12px] text-amber-900">
               <b>Un dossier existe déjà pour cette personne.</b> Le recréer
               couperait son parcours en deux.

@@ -1743,7 +1743,7 @@ export default function Attributions() {
                   <button onClick={ouvrir} title="Aucun statut défini pour ce membre du personnel — cliquer pour le définir"
                     className="inline-flex items-center justify-center min-w-[2rem] h-5 px-1 rounded-md
                                text-[10px] font-bold leading-none bg-amber-100 text-amber-800
-                               ring-1 ring-inset ring-[color:var(--c-attente)]/40">?</button>
+                               ring-1 ring-inset ring-amber-500/40">?</button>
                 )}
               </div>
             </td>;

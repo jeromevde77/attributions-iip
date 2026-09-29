@@ -657,7 +657,7 @@ export default function ComposerPAE({ onClose, onTermine, onPassage, modeInitial
                       <b>{(e.nom || '').toUpperCase()}</b> {e.prenom}
                       <span className="text-slate-400"> · {e.id_ecampus || '—'}</span>
                       {e.niveau && <span className="text-[10px] text-slate-500"> · {e.niveau}</span>}
-                      {e.primo && <span className="ml-1.5 text-[9.5px] font-bold px-1.5 py-0.5 rounded-full bg-[color:var(--c-disponible)]/10 text-[color:var(--c-disponible)] align-middle"
+                      {e.primo && <span className="ml-1.5 text-[9.5px] font-bold px-1.5 py-0.5 rounded-full bg-blue-500/10 text-[color:var(--c-disponible)] align-middle"
                         title="Nouvel inscrit : aucune trace dans une année antérieure">primo</span>}
                       {mode === 'valider' && (e.pae_confirme_le ? (
                         <span className="ml-1.5 text-[9.5px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 align-middle"
@@ -766,7 +766,7 @@ export default function ComposerPAE({ onClose, onTermine, onPassage, modeInitial
                                   ${rx.resultat === 'reussi' ? 'border-emerald-400 text-emerald-700'
                                     : rx.resultat === 'refuse' ? 'border-rose-400 text-rose-700'
                                     : 'border-slate-200 text-slate-600'}
-                                  ${rx.attente ? 'ring-2 ring-[color:var(--c-disponible)]/40' : ''}`} />
+                                  ${rx.attente ? 'ring-2 ring-blue-500/40' : ''}`} />
                             </td>
                           );
                         }

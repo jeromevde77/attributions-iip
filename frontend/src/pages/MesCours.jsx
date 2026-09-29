@@ -388,7 +388,7 @@ export default function MesCours() {
                               reporté {String(e.report.annee_origine || '').replace(/^20(\d\d)-20(\d\d)$/, '$1-$2')}</span>}
                             {/* Les mesures accordées, et elles seules : le survol les
                                 énumère, la nature de la situation n'est jamais là. */}
-                            {e.amenagements?.length > 0 && <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded border border-[color:var(--c-principal)]/30 text-[color:var(--c-texte)] cursor-help"
+                            {e.amenagements?.length > 0 && <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded border border-iip-blue/30 text-[color:var(--c-texte)] cursor-help"
                               title={`Aménagements raisonnables accordés :\n${e.amenagements.map(m =>
                                 `• ${m.libelle}${m.precisions ? ` — ${m.precisions}` : ''}`).join('\n')}`}>
                               AR · {e.amenagements.length}</span>}</td>

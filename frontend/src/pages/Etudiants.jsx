@@ -772,7 +772,7 @@ function GrilleParcours({ etudId, peutEcrire, annee, ueFocus = null }) {
             </div>
 
             <button onClick={() => detailOuvert ? setDetailOuvert(false) : chargerDetail()}
-              className="mt-3 w-full text-[12px] px-2 py-1.5 rounded-lg border border-[color:var(--c-principal)]/30 text-iip-blue hover:bg-[color:var(--c-principal)]/5">
+              className="mt-3 w-full text-[12px] px-2 py-1.5 rounded-lg border border-iip-blue/30 text-iip-blue hover:bg-iip-blue/5">
               {detailOuvert ? 'Masquer le détail' : 'Notes par cours & AA…'}
             </button>
 
