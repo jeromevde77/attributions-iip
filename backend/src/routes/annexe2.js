@@ -51,7 +51,7 @@ const MOIS_FR = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet
  * voit une date américaine, ou rien) ni « 13 août 2004 » : le formulaire
  * sortait alors vide sans qu'on sache pourquoi.
  */
-const frDate = iso => {
+export const frDate = iso => {
   if (iso == null || String(iso).trim() === '') return null;
   const t = String(iso).trim();
   const rendre = (j, m, a) => `${String(Number(j)).padStart(2, '0')}-`
@@ -77,7 +77,7 @@ const frDate = iso => {
  * dans la formation — celui-ci porte sur toutes les années, pas seulement la
  * dernière.
  */
-function bilanCredits(etudiantId, annee) {
+export function bilanCredits(etudiantId, annee) {
   const lignes = db.prepare(`
     SELECT i.annee_scolaire, i.ue_num, i.resultat,
            (SELECT u.ects FROM ue u WHERE u.ue_num = i.ue_num AND u.ects IS NOT NULL
@@ -246,7 +246,7 @@ r.post('/document', authRequired, roleRequired('admin', 'directeur',
     titre: '',
     // Le modèle officiel n'a NI en-tête NI pied de page : nous n'en ajoutons
     // pas. L'administration attend la forme stricte, pas notre habillage.
-    avecPied: false,
+    avecPied: false, entete: false, logo: false,
     margeHaut: 20, margeCote: 20,
     styles: `
 :root{--paraphe:url("${SIGNATURE_SOHET}");--sceau:url("${SCEAU_IIP}")}
