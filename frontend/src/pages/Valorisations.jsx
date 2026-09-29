@@ -485,7 +485,7 @@ function LigneEtudiant({ etudiant, annee, ouvert, onBasculer, onAjouterUE,
             une erreur qui reste. */}
         <button onClick={onSupprimerLigne}
           title="Retirer cet étudiant du registre pour cette année"
-          className="text-slate-300 hover:text-[color:var(--c-refuse)]">
+          className="text-slate-300 hover:text-iip-texte">
           <IconTrash size={16} />
         </button>
       </div>
@@ -666,7 +666,7 @@ function UniteValorisee({ va, annee, onSupprimer, onDocuments, onDossier, onChan
             {form.decision === 'refusee' ? (
               <label className="block text-xs">
                 <span className="block font-semibold text-slate-500 uppercase tracking-wide mb-1">
-                  Motif du refus <span className="text-[color:var(--c-refuse)]">— obligatoire</span>
+                  Motif du refus <span className="text-iip-texte">— obligatoire</span>
                 </span>
                 <textarea rows={3} value={form.motif_refus}
                   placeholder="Ce que le Conseil a constaté : pièces insuffisantes, acquis non démontrés…"
@@ -2417,7 +2417,7 @@ function EtapeDecision({ dossier, bases, onEnregistrer, enCours }) {
                   dit ici plutôt que de le faire découvrir au refus du serveur. */}
               {cible === 'cours' && composantes?.cours?.length > 0
                 && composantes.cours.every(c => coches.has(c.cours_code)) && (
-                <p className="text-[12px] text-[color:var(--c-refuse)]">
+                <p className="text-[12px] text-iip-texte">
                   Toutes les activités sont cochées : une dispense partielle ne peut pas
                   couvrir l'unité entière (RDE art. 29 §2). C'est alors une dispense complète.
                 </p>
@@ -2593,7 +2593,7 @@ export function FriseCircuit({ dossier, compact = false }) {
         ))}
       </span>
       <span className={`${compact ? 'text-[10px]' : 'text-[11px]'} ${
-        arret >= 0 ? 'text-[color:var(--c-refuse)]'
+        arret >= 0 ? 'text-iip-texte'
           : courante < 0 ? 'text-[color:var(--c-texte)]' : 'text-slate-500'}`}>
         {libelle}
       </span>
@@ -3736,7 +3736,7 @@ function EtapeTest({ dossier, onEnregistrer, enCours }) {
       {/* LA COPIE SE DÉPOSE, ET CE N'EST PAS UNE POLITESSE. Quatre ans de
           conservation, présentable à l'inspection — si elle n'est pas déposée
           le jour même, elle ne le sera jamais. */}
-      <p className="text-[12px] text-[color:var(--c-attente)]">
+      <p className="text-[12px] text-iip-texte">
         La copie du test doit être déposée au dossier de l'étudiant, en pièce
         « Copie du test ou de l'épreuve d'admission » : elle se conserve quatre ans
         et se présente aux services d'inspection (AGCF du 13.12.2024, art. 5 al. 2).

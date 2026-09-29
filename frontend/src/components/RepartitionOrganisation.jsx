@@ -97,7 +97,7 @@ export default function RepartitionOrganisation({ ueNum, ueNom, annee, onClose, 
             <p className="text-[13px] text-slate-500">
               {data.etudiants.length} inscrit(s) ·
               {orgs.map(o => ` org. ${o} : ${compte[o] || 0}`).join(' ·')}
-              {' · '}<span className={compte[0] ? 'text-[color:var(--c-attente)] font-semibold' : ''}>
+              {' · '}<span className={compte[0] ? 'text-iip-texte font-semibold' : ''}>
                 non répartis : {compte[0] || 0}</span>
             </p>
 
