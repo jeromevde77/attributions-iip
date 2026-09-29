@@ -539,6 +539,7 @@ const GROUPE_LABELS = {
 const PARAM_TYPES = {
   // Les paragraphes se lisent et s'écrivent dans une zone de texte.
   'envoi_message':                 { type: 'texte' },
+  'amenagement_recours':           { type: 'texte' },
   'due_finalites_generales':       { type: 'texte' },
   'due_note_supports':             { type: 'texte' },
   'due_note_evaluation':           { type: 'texte' },

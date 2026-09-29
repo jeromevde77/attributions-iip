@@ -11,7 +11,8 @@
  * son onglet Aménagements.
  */
 import { useEffect, useMemo, useState } from 'react';
-import { authHeaders, getAnnee } from '../lib/api.js';
+import { authHeaders, getAnnee, getUser } from '../lib/api.js';
+import { IconTrash } from '@tabler/icons-react';
 import { TuileEtat, Fenetre } from '../components/ui.jsx';
 import { FicheEtudiant } from './Etudiants.jsx';
 
@@ -36,6 +37,7 @@ export default function RegistreAmenagements() {
   const [fiche, setFiche] = useState(null);
   const [recharge, setRecharge] = useState(0);
   const [creation, setCreation] = useState(false);   // « Créer un aménagement »
+  const [aSupprimer, setASupprimer] = useState(null); // ligne dont on demande la suppression
 
   useEffect(() => {
     let vivant = true;
@@ -97,6 +99,7 @@ export default function RegistreAmenagements() {
                 <th className="px-2 py-1.5">État</th><th className="px-2 py-1.5">Demande</th>
                 <th className="px-2 py-1.5">Décision</th><th className="px-2 py-1.5">Notifiée</th>
                 <th className="px-2 py-1.5">Mesures retenues</th>
+                <th className="px-2 py-1.5"></th>
               </tr>
             </thead>
             <tbody>
@@ -126,6 +129,13 @@ export default function RegistreAmenagements() {
                       : <span className="text-slate-400">—</span>}
                     {l.ues.length > 0 && <div className="text-[11px] text-slate-400 mt-0.5">Unités concernées : {l.ues.join(', ')}</div>}
                   </td>
+                  <td className="px-2 py-1.5 text-right">
+                    <button type="button" title="Supprimer ce dossier"
+                      onClick={e => { e.stopPropagation(); setASupprimer(l); }}
+                      className="p-1 rounded-champ text-slate-400 hover:text-[#9D4A38] hover:bg-slate-100">
+                      <IconTrash size={15} />
+                    </button>
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -140,6 +150,11 @@ export default function RegistreAmenagements() {
       {creation && (
         <CreerAmenagement annee={annee} existants={lignes} onFermer={() => setCreation(false)}
           onOuvrir={id => { setCreation(false); setFiche(id); }} />
+      )}
+
+      {aSupprimer && (
+        <SupprimerDossier ligne={aSupprimer} onFermer={() => setASupprimer(null)}
+          onFait={() => { setASupprimer(null); setRecharge(x => x + 1); }} />
       )}
 
       {fiche && (
@@ -197,6 +212,57 @@ function CreerAmenagement({ annee, existants, onFermer, onOuvrir }) {
           })}
           {q.trim().length >= 2 && !trouves.length && <p className="text-slate-400 text-[12px]">Aucun étudiant ne correspond.</p>}
         </div>
+        {erreur && <div data-etat="corriger" className="bloc-etat px-2.5 py-1.5">{erreur}</div>}
+      </div>
+    </Fenetre>
+  );
+}
+
+/* SUPPRIMER UN DOSSIER (Charles, 29 septembre 2026). Un dossier sans décision
+   — ouvert par erreur, en double — se supprime simplement ; un dossier décidé,
+   notifié ou communiqué ne se supprime que par la direction, motif écrit : une
+   décision a pu partir sur sa foi. Le serveur en garde un instantané complet. */
+const DIRECTION = ['admin', 'directeur', 'directeur_adjoint'];
+function SupprimerDossier({ ligne, onFermer, onFait }) {
+  const [motif, setMotif] = useState('');
+  const [erreur, setErreur] = useState(null);
+  const [enCours, setEnCours] = useState(false);
+  const engage = ['accepte', 'partiel', 'refuse', 'recours'].includes(ligne.statut)
+    || ligne.cde_date || ligne.notifie_le || ligne.communique_le;
+  const direction = DIRECTION.includes(getUser()?.role);
+  const bloque = engage && (!direction || !motif.trim());
+  const supprimer = async () => {
+    setEnCours(true); setErreur(null);
+    try {
+      const r = await fetch(`/api/amenagements/dossier/${ligne.id}`, { method: 'DELETE', headers: authHeaders(),
+        body: JSON.stringify({ motif: motif.trim() }) });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(j.error || `Erreur ${r.status}`);
+      onFait();
+    } catch (e) { setErreur(e.message); } finally { setEnCours(false); }
+  };
+  return (
+    <Fenetre titre="Supprimer le dossier d'aménagement" large="petite" onFermer={onFermer}
+      sous={`${(ligne.nom || '').toUpperCase()} ${ligne.prenom || ''} — ${STATUTS[ligne.statut] || ligne.statut}`}
+      pied={<div className="flex items-center gap-2 w-full">
+        <span className="text-[12px] text-slate-500 min-w-0 flex-1">
+          {engage && !direction ? 'Réservé à la direction : ce dossier porte une décision.'
+            : bloque ? 'Écrivez le motif de la suppression.' : 'La suppression est définitive.'}
+        </span>
+        <button type="button" className="bouton" onClick={onFermer}>Annuler</button>
+        <button type="button" className="bouton bouton-detruire" disabled={bloque || enCours} onClick={supprimer}>
+          Supprimer le dossier
+        </button>
+      </div>}>
+      <div className="space-y-2 text-[13px]">
+        <p>Le dossier, ses mesures et ses unités concernées sont supprimés. Lucie en garde une copie datée,
+          avec votre nom{engage ? ' et le motif' : ''}.</p>
+        {engage && <div data-etat="surveiller" className="bloc-etat px-2.5 py-1.5">
+          Ce dossier porte une décision du Conseil{ligne.notifie_le ? ', notifiée à l\'étudiant' : ''}
+          {ligne.communique_le ? ', communiquée aux chargés de cours' : ''}. Une pièce a pu partir sur sa foi.
+        </div>}
+        <textarea className="controle w-full h-20 py-1.5" placeholder={engage ? 'Motif (obligatoire)' : 'Motif (facultatif) — ex. dossier ouvert en double'}
+          value={motif} onChange={e => setMotif(e.target.value)} />
         {erreur && <div data-etat="corriger" className="bloc-etat px-2.5 py-1.5">{erreur}</div>}
       </div>
     </Fenetre>

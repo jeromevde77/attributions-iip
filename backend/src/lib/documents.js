@@ -109,6 +109,56 @@ export const DOCUMENTS = [
     destinataires: 'conseil',
     roles: ['admin', 'directeur', 'directeur_adjoint', 'editeur', 'secretariat'],
   },
+  /* LES PIÈCES D'UN DOSSIER D'AMÉNAGEMENTS RAISONNABLES (décret du 30 juin
+     2016). Elles se produisent depuis le dossier — fiche de l'étudiant, onglet
+     Aménagements —, qui est leur porte ; elles se déclarent ici pour que le
+     catalogue reste la liste complète de ce qui sort de Lucie. Composition :
+     lib/piecesAmenagement.js. Les rôles d'écriture du module ; une personne
+     à qui la direction a accordé le module le peut aussi (fiche d'accès). */
+  {
+    cle: 'amenagement_formulaire',
+    libelle: "Aménagements raisonnables — demande (cadres A et B)",
+    description: "Le formulaire recomposé depuis le dossier. Pièce confidentielle.",
+    portee: 'etudiant', lot: false, groupe: 'Étudiants',
+    route: { methode: 'GET', chemin: '/api/amenagements/dossier/:dossier/piece/formulaire' },
+    parametres: ['annee'],
+    nomFichier: 'AR_Demande_{nom}_{prenom}_{annee}',
+    destinataires: null,
+    roles: ['admin', 'directeur', 'directeur_adjoint', 'editeur', 'secretariat'],
+  },
+  {
+    cle: 'amenagement_decision',
+    libelle: "Aménagements raisonnables — décision du Conseil des études",
+    description: "Décision motivée (art. 6 § 2) : mesures accordées, refusées et leurs motifs.",
+    portee: 'etudiant', lot: false, groupe: 'Étudiants',
+    route: { methode: 'GET', chemin: '/api/amenagements/dossier/:dossier/piece/decision' },
+    parametres: ['annee'],
+    nomFichier: 'AR_Decision_{nom}_{prenom}_{annee}',
+    destinataires: 'etudiant',
+    roles: ['admin', 'directeur', 'directeur_adjoint', 'editeur', 'secretariat'],
+  },
+  {
+    cle: 'amenagement_notification',
+    libelle: "Aménagements raisonnables — notification de la décision",
+    description: "La lettre de la direction, suivie de la décision, avec les voies de recours.",
+    portee: 'etudiant', lot: false, groupe: 'Étudiants',
+    route: { methode: 'GET', chemin: '/api/amenagements/dossier/:dossier/piece/notification' },
+    parametres: ['annee'],
+    nomFichier: 'AR_Notification_{nom}_{prenom}_{annee}',
+    destinataires: 'etudiant',
+    roles: ['admin', 'directeur', 'directeur_adjoint', 'editeur', 'secretariat'],
+  },
+  {
+    cle: 'amenagement_mesures',
+    libelle: "Aménagements raisonnables — fiche « mesures » (chargés de cours)",
+    description: "Les seules mesures retenues, jamais la nature de la situation (art. 5).",
+    portee: 'etudiant', lot: false, groupe: 'Étudiants',
+    route: { methode: 'GET', chemin: '/api/amenagements/dossier/:dossier/piece/mesures' },
+    parametres: ['annee'],
+    nomFichier: 'AR_Mesures_{nom}_{prenom}_{annee}',
+    destinataires: 'professeur',
+    roles: ['admin', 'directeur', 'directeur_adjoint', 'editeur', 'secretariat'],
+  },
 ];
 
 /** Le catalogue taillé au périmètre de la personne. */

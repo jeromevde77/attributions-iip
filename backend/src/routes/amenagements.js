@@ -29,6 +29,8 @@ import db from '../db/index.js';
 import { authRequired, roleRequired, getUserSections } from '../middleware/auth.js';
 import { sectionRattachement } from './etudiants.js';
 import { peut } from '../middleware/permissions.js';
+import { chargerDossier, composerPiece, chargesDeCours, TYPES_PIECE, RECOURS_DEFAUT }
+  from '../lib/piecesAmenagement.js';
 
 /* QUI ÉCRIT UN AMÉNAGEMENT : les rôles d'office, OU toute personne à qui
  * l'écriture a été accordée sur sa fiche (Accès Lucie → Aménagements
@@ -38,6 +40,21 @@ function peutAmenager(req, res, next) {
   if (!req.user) return res.status(401).json({ error: 'Non authentifié' });
   if (ROLES_AMENAGEMENT.includes(req.user.role) || peut(req.user, 'amenagements', 'ecrire') === 'direct') return next();
   return res.status(403).json({ error: "Vous n'avez pas le droit de modifier les aménagements raisonnables." });
+}
+
+/* QUI LIT UN DOSSIER, ET DANS QUEL PÉRIMÈTRE. Les pièces portent la situation
+ * de l'étudiant : elles ne sortent que pour qui peut lire le module, et dans
+ * ses sections — le périmètre se pose sur chaque porte, pas sur l'entrée. */
+function dossierLisible(req, res) {
+  if (!ROLES_AMENAGEMENT.includes(req.user?.role) && !peut(req.user, 'amenagements', 'lire')) {
+    res.status(403).json({ error: 'Accès refusé.' }); return null;
+  }
+  const d = chargerDossier(req.params.id);
+  const perim = getUserSections(req.user);
+  if (!d || (perim && d.section && !perim.includes(d.section))) {
+    res.status(404).json({ error: 'dossier introuvable' }); return null;
+  }
+  return d;
 }
 
 const r = Router();
@@ -141,12 +158,27 @@ export function migrerAmenagements(dbx) {
       ['rapport_annexes_desc', 'TEXT'],
       ['transmis_cde_le', 'TEXT'],     // cadre B.6
       ['cde_recu_le', 'TEXT'],         // cadre B.7
+      // La décision de la Commission, quand un recours a été introduit.
+      ['recours_decision_le', 'TEXT'],
+      // La communication des mesures aux chargés de cours : quand, par qui,
+      // à qui. Celui qui clique est celui qui signe.
+      ['communique_le', 'TEXT'],
+      ['communique_par', 'TEXT'],
+      ['communique_a', 'TEXT'],
     ];
     for (const [nom, type] of manquants) {
       if (!cols.includes(nom)) {
         db.exec(`ALTER TABLE amenagement_dossier ADD COLUMN ${nom} ${type}`);
       }
     }
+    // La mention des voies de recours se relit et se corrige à l'écran
+    // (Configuration → Procédures), elle n'est pas écrite en dur.
+    try {
+      dbx.prepare('INSERT OR IGNORE INTO parametre (cle, valeur, label, groupe) VALUES (?,?,?,?)')
+        .run('amenagement_recours', RECOURS_DEFAUT,
+          'Aménagements raisonnables — mention des voies de recours (décision et notification)',
+          'procedures');
+    } catch (e) { console.error('[migration] aménagements, mention de recours :', e.message); }
     console.log('[migration] aménagements raisonnables : dossier et mesures');
   } catch (e) { console.error('[migration] aménagements :', e.message); }
 }
@@ -166,7 +198,7 @@ r.get('/registre', authRequired, (req, res) => {
   if (!annee) return res.status(400).json({ error: 'annee requise' });
   const perim = getUserSections(req.user);
   const dossiers = db.prepare(`SELECT d.id, d.etudiant_id, d.statut, d.date_demande, d.cde_date, d.notifie_le,
-      d.recours_le, d.delai_mise_oeuvre, e.nom, e.prenom, e.id_ecampus
+      d.recours_le, d.delai_mise_oeuvre, d.communique_le, e.nom, e.prenom, e.id_ecampus
     FROM amenagement_dossier d JOIN etudiant e ON e.id = d.etudiant_id
     WHERE d.annee_scolaire = ? ORDER BY e.nom, e.prenom`).all(annee);
   const mesures = db.prepare(`SELECT libelle, nature, portee, ue_num, accorde FROM amenagement_mesure
@@ -185,6 +217,7 @@ r.get('/registre', authRequired, (req, res) => {
     const aFaire = !decide ? 'décision du Conseil à rendre'
       : !d.notifie_le ? 'décision à notifier'
       : ['accepte', 'partiel'].includes(d.statut) && !m.some(x => x.accorde) ? 'aucune mesure accordée encodée'
+      : ['accepte', 'partiel'].includes(d.statut) && !d.communique_le ? 'mesures à communiquer aux chargés de cours'
       : null;
     lignes.push({ ...d, section, mesures: m, ues: ues.all(d.id).map(x => x.ue_num), a_faire: aFaire });
   }
@@ -312,7 +345,7 @@ r.put('/dossier/:id', authRequired, peutAmenager, (req, res) => {
                   'materiel_demande', 'materiel_desc',
                   'pedago_demande', 'pedago_desc',
                   'rapport_annexes_nb', 'rapport_annexes_desc',
-                  'transmis_cde_le', 'cde_recu_le'];
+                  'transmis_cde_le', 'cde_recu_le', 'recours_decision_le'];
   const presents = champs.filter(k => k in d);
   if (!presents.length) return res.json({ ok: true, inchange: true });
 
@@ -340,6 +373,9 @@ r.put('/dossier/:id', authRequired, peutAmenager, (req, res) => {
 r.post('/dossier/:id/mesure', authRequired, peutAmenager, (req, res) => {
   const m = req.body || {};
   if (!m.libelle) return res.status(400).json({ error: 'libelle requis' });
+  if (m.accorde === false && !String(m.motif_refus || '').trim()) {
+    return res.status(400).json({ error: 'Une mesure refusée se motive (art. 6 § 2) : le motif du refus est requis.' });
+  }
   const info = db.prepare(`
     INSERT INTO amenagement_mesure (dossier_id, code, nature, libelle, precisions, portee, ue_num, accorde, motif_refus)
     VALUES (?,?,?,?,?,?,?,?,?)
@@ -352,12 +388,95 @@ r.post('/dossier/:id/mesure', authRequired, peutAmenager, (req, res) => {
 
 r.put('/mesure/:id', authRequired, peutAmenager, (req, res) => {
   const m = req.body || {};
+  // UN REFUS SE MOTIVE, MESURE PAR MESURE. La même règle qu'à la création :
+  // sans quoi on aurait une porte dérobée pour écrire ce que l'entrée refuse.
+  if (m.accorde === false && !String(m.motif_refus || '').trim()) {
+    return res.status(400).json({ error: 'Une mesure refusée se motive (art. 6 § 2) : le motif du refus est requis.' });
+  }
   db.prepare(`
     UPDATE amenagement_mesure SET precisions = ?, portee = ?, ue_num = ?,
       accorde = ?, motif_refus = ? WHERE id = ?
   `).run(m.precisions ?? null, m.portee || 'toutes', m.ue_num ? Number(m.ue_num) : null,
          m.accorde === false ? 0 : 1, m.motif_refus || null, Number(req.params.id));
   res.json({ ok: true });
+});
+
+// ── Les pièces du dossier ───────────────────────────────────────────────────
+// Formulaire (cadres A et B), décision motivée, notification (qui emporte la
+// décision), fiche « mesures » des chargés de cours. Le serveur refuse, et
+// nomme ce qui manque, tant que la décision n'est pas complète.
+r.get('/dossier/:id/piece/:type', authRequired, (req, res) => {
+  const d = dossierLisible(req, res);
+  if (!d) return;
+  if (!TYPES_PIECE[req.params.type]) return res.status(400).json({ error: 'pièce inconnue' });
+  const p = composerPiece(req.params.type, d);
+  if (p.erreur) return res.status(p.code || 400).json({ error: p.erreur, manques: p.manques || [] });
+  res.json({ html: p.html, nom: p.nom, titre: TYPES_PIECE[req.params.type],
+             etudiant_id: d.etudiant_id });
+});
+
+// ── Les chargés de cours des unités concernées ──────────────────────────────
+// Ceux qui portent une attribution, cette année, dans une unité visée par la
+// demande (aucune cochée : tout le programme de l'année).
+r.get('/dossier/:id/charges-de-cours', authRequired, (req, res) => {
+  const d = dossierLisible(req, res);
+  if (!d) return;
+  res.json({ professeurs: chargesDeCours(d), communique_le: d.communique_le || null,
+             communique_par: d.communique_par || null, communique_a: d.communique_a || null });
+});
+
+// ── La communication des mesures, consignée au dossier ─────────────────────
+// Posée après l'envoi par le centre d'envoi, qui garde son propre journal ;
+// le dossier, lui, dit quand et à qui les mesures sont parties — c'est la
+// question qu'on posera si un chargé de cours dit n'avoir rien reçu.
+r.post('/dossier/:id/communication', authRequired, peutAmenager, (req, res) => {
+  const d = dossierLisible(req, res);
+  if (!d) return;
+  const noms = (Array.isArray(req.body?.destinataires) ? req.body.destinataires : [])
+    .map(x => String(x || '').trim()).filter(Boolean);
+  if (!noms.length) return res.status(400).json({ error: 'aucun destinataire' });
+  const par = req.user?.nom || req.user?.email || null;
+  db.prepare(`UPDATE amenagement_dossier SET communique_le = datetime('now'),
+      communique_par = ?, communique_a = ?, maj_le = datetime('now') WHERE id = ?`)
+    .run(par, noms.join(', '), d.id);
+  res.json({ ok: true });
+});
+
+/* SUPPRIMER UN DOSSIER (Charles, 29 septembre 2026 : « je ne sais pas
+   supprimer un AR depuis la liste, enfin un dossier »). Un geste irréversible
+   se nomme, se motive et laisse une trace :
+     · un dossier SANS décision (ouvert par erreur, en double) se supprime par
+       qui peut écrire les aménagements ;
+     · un dossier DÉCIDÉ, notifié ou communiqué aux chargés de cours ne se
+       supprime que par la direction, motif écrit — une décision a pu partir ;
+     · dans les deux cas, un instantané complet du dossier (mesures et unités
+       comprises) s'écrit dans amenagement_suppression, en ajout seul. */
+const DIRECTION_AR = ['admin', 'directeur', 'directeur_adjoint'];
+r.delete('/dossier/:id', authRequired, peutAmenager, (req, res) => {
+  const d = dossierLisible(req, res);
+  if (!d) return;
+  const motif = String(req.body?.motif || req.query?.motif || '').trim();
+  const engage = ['accepte', 'partiel', 'refuse', 'recours'].includes(d.statut) || d.cde_date || d.notifie_le || d.communique_le;
+  if (engage && !DIRECTION_AR.includes(req.user?.role)) {
+    return res.status(403).json({ error: 'Ce dossier porte une décision du Conseil, ou a déjà été notifié ou communiqué : seule la direction peut le supprimer, et elle motive sa décision.' });
+  }
+  if (engage && !motif) {
+    return res.status(400).json({ error: 'Ce dossier porte une décision : sa suppression se motive — une décision a pu partir sur sa foi.', motif_requis: true });
+  }
+  db.exec(`CREATE TABLE IF NOT EXISTS amenagement_suppression (
+    id INTEGER PRIMARY KEY AUTOINCREMENT, dossier_id INTEGER, etudiant_id INTEGER, annee_scolaire TEXT,
+    statut TEXT, instantane TEXT, motif TEXT, par TEXT, le TEXT DEFAULT (datetime('now')))`);
+  const mesures = db.prepare('SELECT * FROM amenagement_mesure WHERE dossier_id = ?').all(d.id);
+  const ues = db.prepare('SELECT ue_num FROM amenagement_ue WHERE dossier_id = ?').all(d.id).map(x => x.ue_num);
+  db.transaction(() => {
+    db.prepare(`INSERT INTO amenagement_suppression (dossier_id, etudiant_id, annee_scolaire, statut, instantane, motif, par)
+      VALUES (?,?,?,?,?,?,?)`).run(d.id, d.etudiant_id, d.annee_scolaire, d.statut,
+      JSON.stringify({ dossier: d, mesures, ues }), motif || null, req.user?.email || req.user?.nom || null);
+    db.prepare('DELETE FROM amenagement_mesure WHERE dossier_id = ?').run(d.id);
+    db.prepare('DELETE FROM amenagement_ue WHERE dossier_id = ?').run(d.id);
+    db.prepare('DELETE FROM amenagement_dossier WHERE id = ?').run(d.id);
+  })();
+  res.json({ ok: true, supprime: d.id });
 });
 
 r.delete('/mesure/:id', authRequired, peutAmenager, (req, res) => {

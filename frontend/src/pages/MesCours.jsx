@@ -341,6 +341,13 @@ export default function MesCours() {
                       {enCours ? 'Enregistrement…' : 'Enregistrer'}
                     </button>
                   </div>
+                  {feuille.etudiants.some(e => e.amenagements?.length > 0) && (
+                    <div className="text-[12px] text-slate-600 px-3 py-1.5">
+                      <b>AR</b> : l'étudiant bénéficie d'aménagements raisonnables dans cette unité —
+                      survolez la mention pour lire les mesures à mettre en œuvre. Leur motif est
+                      couvert par le secret professionnel et n'a pas à être recherché.
+                    </div>
+                  )}
                   <table className="w-full text-[13px]">
                     <thead>
                       <tr className="tab-entete text-left">
@@ -366,7 +373,13 @@ export default function MesCours() {
                             <span className="text-slate-400 text-[11px]"> · {e.id_ecampus || '—'}</span>
                             {e.report && <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded border border-slate-200 text-slate-500"
                               title="Tous les acquis de ce cours ont été maîtrisés l'an passé : le cours est dispensé et ses notes sont reprises">
-                              reporté {String(e.report.annee_origine || '').replace(/^20(\d\d)-20(\d\d)$/, '$1-$2')}</span>}</td>
+                              reporté {String(e.report.annee_origine || '').replace(/^20(\d\d)-20(\d\d)$/, '$1-$2')}</span>}
+                            {/* Les mesures accordées, et elles seules : le survol les
+                                énumère, la nature de la situation n'est jamais là. */}
+                            {e.amenagements?.length > 0 && <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded border border-[#1B2B4B]/30 text-[#1B2B4B] cursor-help"
+                              title={`Aménagements raisonnables accordés :\n${e.amenagements.map(m =>
+                                `• ${m.libelle}${m.precisions ? ` — ${m.precisions}` : ''}`).join('\n')}`}>
+                              AR · {e.amenagements.length}</span>}</td>
                           {feuille.repartition && (
                             <td className="py-0.5 pr-4 text-[12px] text-slate-500 whitespace-nowrap">{e.groupe}</td>
                           )}
