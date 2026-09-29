@@ -627,7 +627,7 @@ function UniteValorisee({ va, annee, onSupprimer, onDocuments, onDossier, onChan
         <span className="font-mono text-[11px] text-slate-500 w-10">{va.ue_num}</span>
         <span className="flex-1 min-w-0 text-[13px] truncate">{va.ue_nom || ''}</span>
         <span className={`text-[11px] ${refuse ? 'text-[#9D4A38] font-semibold' : 'text-slate-500'}`}>
-          {refuse ? 'Refusée' : va.type === 'complete' ? 'Totale' : 'Partielle'}
+          {refuse ? 'Refusée' : va.type === 'admission' ? 'Admission' : va.type === 'complete' ? 'Totale' : 'Partielle'}
         </span>
         {/* LE DOSSIER AVANT LA PIÈCE. On ouvrait directement sur l'impression,
             comme si produire était l'objet du travail ; c'est l'INSTRUCTION qui
@@ -1488,6 +1488,7 @@ function ValoriserEnSerie({ annee, onClose, onCree }) {
                           {pris ? (
                             <span className="text-[12px] text-amber-700">
                               {e.valorisation.decision === 'refusee' ? 'Refus'
+                                : e.valorisation.type === 'admission' ? 'Admission'
                                 : e.valorisation.type === 'complete' ? 'Dispense totale'
                                   : 'Dispense partielle'}
                             </span>
@@ -2528,7 +2529,7 @@ const ETAPES = [
     aide: 'Un avis, un auteur nommé, une cohorte homogène',
     franchie: d => !!d.avis_le },
   { cle: 'decision', label: 'Décision du Conseil', court: 'Décision',
-    aide: 'Une séance, une unité',
+    aide: 'Une séance : une section, une date',
     franchie: d => !!d.decision_le },
   { cle: 'validation', label: 'Validation direction', court: 'Validation',
     aide: 'Réservée à la direction et à la direction adjointe',
@@ -2810,7 +2811,22 @@ function AnalyserEnSerie({ annee, onClose, onChange }) {
     return n;
   });
 
+  /* UNE ADMISSION N'EST PAS UNE DISPENSE (Charles, 29 septembre 2026 : « une
+     admission n'est pas une dispense mais… une admission »). Elle ne porte sur
+     aucune unité : elle s'accorde ou se refuse, et l'écran le dit avec ses
+     mots. Un lot ne mêle pas admissions et dispenses — deux décisions de
+     nature différente. */
+  const estAdmission = d => d.type === 'admission' || d.porte === 'admission' || Number(d.ue_num) === 0;
+  const nbAdmissions = retenus.filter(estAdmission).length;
+  const lotAdmission = retenus.length > 0 && nbAdmissions === retenus.length;
+  const lotMele = nbAdmissions > 0 && nbAdmissions < retenus.length;
+
+  // Une admission n'a pas de branche « partielle » : on y revient à « accordée ».
+  useEffect(() => { if (lotAdmission && branche === 'partielle') poserBranche('totale'); }, [lotAdmission]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const manque = !retenus.length ? 'Coche au moins un dossier.'
+    : geste === 'decision' && lotMele
+      ? `Le lot mêle ${nbAdmissions} admission(s) et ${retenus.length - nbAdmissions} dispense(s) : décidez-les séparément.`
     : melangeSeance
       ? `Le lot mêle ${unitesRetenues.length} unités : une séance du conseil `
         + 'des études se tient par unité.'
@@ -3159,9 +3175,12 @@ function AnalyserEnSerie({ annee, onClose, onChange }) {
                   constante DECISIONS du fichier, qui disait déjà totale ·
                   partielle · refusée. On ne garde qu'un niveau. */}
               <div className="flex flex-wrap items-center gap-3">
-                {[['totale', 'Dispense totale', "L'unité entière et tous ses acquis"],
-                  ['partielle', 'Dispense partielle', 'Des cours ou des acquis'],
-                  ['refusee', 'Refusée', 'Rien de dispensé — motif obligatoire']]
+                {(lotAdmission
+                  ? [['totale', 'Admission accordée', "L'étudiant est admis dans la section"],
+                     ['refusee', 'Admission refusée', 'Motif obligatoire']]
+                  : [['totale', 'Dispense totale', "L'unité entière et tous ses acquis"],
+                     ['partielle', 'Dispense partielle', 'Des cours ou des acquis'],
+                     ['refusee', 'Refusée', 'Rien de dispensé — motif obligatoire']])
                   .map(([v, l, aide]) => (
                   <label key={v} title={aide}
                     className="flex items-center gap-1.5 text-[13px]">
@@ -3183,7 +3202,7 @@ function AnalyserEnSerie({ annee, onClose, onChange }) {
                         une valeur qui part dans eProm. */}
                     <select value={base} onChange={e => setBase(e.target.value)}
                       className="controle text-[13px] min-w-[30rem]">
-                      <option value="">Sur quoi la dispense se fonde-t-elle ?…</option>
+                      <option value="">{lotAdmission ? 'Sur quoi l’admission se fonde-t-elle ?…' : 'Sur quoi la dispense se fonde-t-elle ?…'}</option>
                       {bases.map(b => (
                         <option key={b.code} value={b.code}>
                           {b.famille} {b.code} — {b.libelle}
@@ -3234,7 +3253,13 @@ function AnalyserEnSerie({ annee, onClose, onChange }) {
                   que le mot veut dire. Le Conseil arrête une fois ce qu'il
                   dispense ; le porter dossier par dossier, c'est autant
                   d'occasions de se tromper d'une case. */}
-              {branche === 'totale' && (
+              {branche === 'totale' && lotAdmission && (
+                <div className="text-[12px] text-slate-500">
+                  L'étudiant est admis dans la section : il peut s'inscrire aux unités qu'elle ouvre
+                  sans le titre d'accès habituel. Rien à cocher.
+                </div>
+              )}
+              {branche === 'totale' && !lotAdmission && (
                 <div className="text-[12px] text-slate-500">
                   L'unité entière et tous ses acquis — rien à cocher.
                   L'attestation « Valorisation » devient possible, et
@@ -3426,7 +3451,8 @@ function AnalyserEnSerie({ annee, onClose, onChange }) {
                         </span>
                         {d.type && (
                           <span className="ml-1 text-[11px] text-slate-500">
-                            {d.type === 'complete' || d.type === 'totale' ? 'Totale'
+                            {d.type === 'admission' ? 'Admission'
+                              : d.type === 'complete' || d.type === 'totale' ? 'Totale'
                               : d.type === 'partielle' ? 'Partielle' : ''}
                           </span>
                         )}

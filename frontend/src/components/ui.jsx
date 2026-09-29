@@ -1126,11 +1126,16 @@ export function Fenetre({ icone: Ic, titre, sous, large = 'moyenne',
            * un enfant de boîte flex ne descend pas sous la largeur de son
            * contenu sans `min-w-0`. Sur une fenêtre étroite, le texte passait
            * donc SOUS le bouton. Les boutons ne se compriment jamais
-           * (`.bouton` est en `nowrap`), c'est au texte de céder. */
+           * (`.bouton` est en `nowrap`), c'est au texte de céder.
+           * UNE CALE VIDE NE RÉSERVE RIEN (29 septembre 2026) : le
+           * `<span className="flex-1" />` qui pousse « Fermer · Enregistrer » à
+           * droite recevait aussi les 12 rem de la phrase, et dans une petite
+           * fenêtre il envoyait les boutons à la ligne. */
           <div className="flex-shrink-0 px-5 py-3 border-t border-slate-200
                           flex items-center gap-x-3 gap-y-2 flex-wrap
                           [&>button]:flex-none [&>span]:min-w-0
-                          [&>span]:flex-1 [&>span]:basis-48">{pied}</div>
+                          [&>span]:flex-1 [&>span]:basis-48
+                          [&>span:empty]:basis-0">{pied}</div>
         )}
       </div>
     </div>
