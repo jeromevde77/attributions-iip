@@ -39,30 +39,26 @@ const sign = (v) => (v > 0 ? '+' : '');
  * fait. C'est pourquoi il sort du podium plutôt que d'en occuper le dernier
  * rang.
  */
-const OR_MEDAILLE     = 'var(--c-epreuve)';
-const ARGENT_MEDAILLE = '#8C97A8';
-const BRONZE_MEDAILLE = '#A8763E';
-const BRIQUE          = 'var(--c-refuse)';
-
+/* LE PODIUM EST RETIRÉ (Charles, 29 septembre 2026 : « couleurs ! ») : or,
+   argent et bronze étaient trois teintes qu'aucun réglage ne porte — et l'or
+   est celui de l'épreuve intégrée, il ne dit que cela. Le taux se lit dans
+   les ÉTATS de la configuration, sur fond blanc, chiffre à l'encre :
+     95–100 % réussi (la dotation est employée, c'est le but) · 85–95 % en
+     cours · sous 85 % à surveiller (des périodes restent sur la table) ·
+     au-delà de 100 % à corriger (le dépassement, seul vrai problème). */
 export function tonDotation(p) {
-  if (p == null) return { teinte: '#94A3B8', fond: '#F8FAFC', bord: '#E2E8F0', rang: null };
-  if (p > 100)   return { teinte: BRIQUE, fond: '#F9EFEC', bord: '#E3C4BB', rang: 'dépassement' };
-  if (p >= 95)   return { teinte: OR_MEDAILLE, fond: '#FBF6E8', bord: '#E6D6A5', rang: 'or' };
-  if (p >= 85)   return { teinte: ARGENT_MEDAILLE, fond: '#F4F6F8', bord: '#D8DEE6', rang: 'argent' };
-  return { teinte: BRONZE_MEDAILLE, fond: '#F8F2EB', bord: '#DFC9AE', rang: 'bronze' };
+  const blanc = { fond: '#FFFFFF', bord: 'rgb(var(--gris-200))' };
+  if (p == null) return { teinte: 'rgb(var(--gris-300))', ...blanc, rang: null, etat: 'neutre' };
+  if (p > 100)   return { teinte: 'var(--c-refuse)', ...blanc, rang: 'dépassement', etat: 'corriger' };
+  if (p >= 95)   return { teinte: 'var(--c-reussi)', ...blanc, rang: 'or', etat: 'reussi' };
+  if (p >= 85)   return { teinte: 'var(--c-disponible)', ...blanc, rang: 'argent', etat: 'disponible' };
+  return { teinte: 'var(--c-attente)', ...blanc, rang: 'bronze', etat: 'surveiller' };
 }
+// Le chiffre reste à l'encre : la couleur va à la barre, jamais au texte.
 function trafficColor(p) {
-  const r = tonDotation(p).rang;
-  return r === 'or' ? 'medaille-or' : r === 'argent' ? 'medaille-argent'
-    : r === 'bronze' ? 'medaille-bronze'
-    : r === 'dépassement' ? 'medaille-depassement' : 'text-slate-400';
+  return tonDotation(p).rang === 'dépassement' ? 'text-iip-texte font-bold' : 'text-iip-texte';
 }
-function trafficBg(p) {
-  const r = tonDotation(p).rang;
-  return r === 'or' ? 'fond-or' : r === 'argent' ? 'fond-argent'
-    : r === 'bronze' ? 'fond-bronze'
-    : r === 'dépassement' ? 'fond-depassement' : '';
-}
+function trafficBg() { return ''; }
 
 // ── KPI card ─────────────────────────────────────────────────────────────────
 function Kpi({ label, value, sub, color = 'text-iip-gold' }) {
@@ -871,11 +867,11 @@ export default function Pilotage({ vue = 'tout' }) {
                     <YAxis tick={{ fontSize: 11 }} tickFormatter={v => fmt(v / 1000, 1) + 'k'} />
                     <Tooltip content={<ChartTip />} />
                     <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 12 }} />
-                    <Bar dataKey="Dotation organique" fill="#1B2B4B" radius={[3, 3, 0, 0]} />
-                    <Bar dataKey="Usage organique"    fill="#00AACC" radius={[3, 3, 0, 0]} />
+                    <Bar dataKey="Dotation organique" fill="var(--c-principal)" radius={[3, 3, 0, 0]} />
+                    <Bar dataKey="Usage organique"    fill="rgb(var(--e-donnees-500))" radius={[3, 3, 0, 0]} />
                     {/* Les années où la direction a constaté un solde : ce
                         qu'elle déclare, à côté de ce que la base compte. */}
-                    <Bar dataKey="Usage constaté"     fill="#C9A84C" radius={[3, 3, 0, 0]} />
+                    <Bar dataKey="Usage constaté"     fill="rgb(var(--e-donnees-300))" radius={[3, 3, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               ) : (
@@ -964,12 +960,12 @@ export default function Pilotage({ vue = 'tout' }) {
 
                     <div className={`rounded-carte border px-3 py-2 ${
                       d.solde_apres_jan_juin < 0
-                        ? 'border-[#E8CFC7] bg-[#FBF1EE]' : 'border-emerald-200 bg-emerald-50'}`}>
+                        ? 'border-slate-200 border-l-4 border-l-[color:var(--c-refuse)]' : 'border-slate-200 border-l-4 border-l-[color:var(--c-reussi)]'}`}>
                       <div className="text-[10px] text-gray-600">
                         Reste pour la rentrée
                       </div>
                       <div className={`text-lg font-bold leading-tight ${
-                        d.solde_apres_jan_juin < 0 ? 'text-[color:var(--c-refuse)]' : 'text-emerald-800'}`}>
+                        'text-iip-texte'}`}>
                         {fmt(d.solde_apres_jan_juin)}
                       </div>
                       <div className="text-[10px] text-gray-500">
@@ -1176,7 +1172,7 @@ export default function Pilotage({ vue = 'tout' }) {
                   <Legend iconSize={8} wrapperStyle={{ fontSize: 11 }} />
                   <Bar yAxisId="pep" dataKey="PEP"      fill="#6b7fff" radius={[3,3,0,0]} name="PEP (pér.-élèves)" />
                   <Line yAxisId="pep" dataKey="PEP réf." stroke="#ef4444" strokeWidth={2} dot={{ r: 3 }} strokeDasharray="4 2" name="PEP réf." />
-                  <Line yAxisId="dot" dataKey="Dotation" stroke="#d1a846" strokeWidth={2} dot={{ r: 3 }} name="Dotation org. (pér. B)" />
+                  <Line yAxisId="dot" dataKey="Dotation" stroke="var(--c-principal)" strokeWidth={2} dot={{ r: 3 }} name="Dotation org. (pér. B)" />
                 </ComposedChart>
               </ResponsiveContainer>
             </div>

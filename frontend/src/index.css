@@ -972,14 +972,14 @@ select[multiple], select[size]:not([size="1"]) {
  * Or, argent, bronze — et le brique pour le seul vrai problème, le
  * dépassement. Lucie n'a pas de rouge.
  */
-.medaille-or         { color: var(--c-epreuve); font-weight: 700; }
-.medaille-argent     { color: #7C8899; font-weight: 600; }
-.medaille-bronze     { color: #A8763E; font-weight: 600; }
-.medaille-depassement{ color: #9d4a38; font-weight: 700; }
-.fond-or          { background: #FBF6E8; border-color: #E6D6A5; }
-.fond-argent      { background: #F4F6F8; border-color: #D8DEE6; }
-.fond-bronze      { background: #F8F2EB; border-color: #DFC9AE; }
-.fond-depassement { background: #F9EFEC; border-color: #E3C4BB; }
+.medaille-or         { color: var(--c-texte); font-weight: 700; }
+.medaille-argent     { color: var(--c-texte); font-weight: 600; }
+.medaille-bronze     { color: var(--c-texte); font-weight: 600; }
+.medaille-depassement{ color: var(--c-texte); font-weight: 700; }
+.fond-or          { background: #fff; }
+.fond-argent      { background: #fff; }
+.fond-bronze      { background: #fff; }
+.fond-depassement { background: #fff; }
 
 /* ═══ LE BLANC EST RÉSERVÉ À CE QUI SE REMPLIT ════════════════════════════
  *
