@@ -64,7 +64,7 @@ function Cadeau({ x, y, taille = 8 }) {
 // L'épreuve intégrée est l'aboutissement du cursus : liseré doré, quelle que
 // soit la situation de l'étudiant (la couleur de fond continue d'indiquer
 // l'état : acquise, accessible, bloquée…).
-export const OR = { fill: '#FBF3DC', stroke: 'var(--c-epreuve)', text: '#7A5C12', label: 'Épreuve intégrée' };
+export const OR = { fill: '#FFFFFF', stroke: 'var(--c-epreuve)', text: 'var(--c-texte)', label: 'Épreuve intégrée' };
 
 export default function SchemaCapitalisation({
   data, mode = 'etudiant', onNiveau = null, replie = false, titre = 'Schéma de capitalisation',
@@ -418,7 +418,7 @@ export default function SchemaCapitalisation({
                 const memeAnnee = nDe(eg.from) && nDe(eg.from) === nDe(eg.to);
                 const interne = eg.type === 'interne';
                 const bloc = nDe(eg.to);
-                const couleur = enArriere ? 'var(--c-attente)' : (couleurBloc(bloc) || '#94A3B8');
+                const couleur = enArriere ? 'var(--c-attente)' : (couleurBloc(bloc) || 'var(--c-disponible)');
                 const pointe = enArriere ? 'fl-INC' : (['BA1', 'BA2', 'BA3'].includes(bloc) ? `fl-${bloc}` : 'fl-cap');
                 const titre = (interne ? 'Prérequis interne — ' : 'Prérequis du dossier pédagogique — ')
                   + `l'UE ${eg.from} conditionne l'UE ${eg.to}`

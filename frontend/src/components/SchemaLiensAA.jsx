@@ -123,7 +123,7 @@ export default function SchemaLiensAA({ ueNum, annee, onClose, onEnregistre }) {
 
     if (!l.length) {
       return { ok: false, modifie, libelle: modifie ? 'à vider' : '—',
-               ton: modifie ? 'var(--c-attente)' : '#94A3B8', quoi: 'aucun acquis relié' };
+               ton: modifie ? 'var(--c-attente)' : 'var(--c-disponible)', quoi: 'aucun acquis relié' };
     }
     // Un cours à UN SEUL acquis est valide quel que soit le poids : cet acquis
     // fait tout le cours. Le compter comme parité évite un rouge absurde.

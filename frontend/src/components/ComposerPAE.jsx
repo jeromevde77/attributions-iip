@@ -38,7 +38,7 @@ import { Fenetre } from './ui.jsx';
    En composition : + bleu pointillé = ajout en attente, − brique pointillé =
    retrait en attente. `anneau` superpose un contrôle (mode Valider). */
 const T_CASE = 16;
-const COUL = { vert: 'var(--c-reussi)', bleu: 'var(--c-disponible)', brique: 'var(--c-refuse)', orange: '#F2C27E', brun: '#6B3B05' };
+const COUL = { vert: 'var(--c-reussi)', bleu: 'var(--c-disponible)', brique: 'var(--c-refuse)', orange: 'var(--c-attente)', brun: 'var(--c-attente)' };
 const court = a => String(a || '').replace(/^20(\d\d)-20(\d\d)$/, '$1-$2');
 export function CasePAE({ x = {}, resultat, attente = null, anneau = null, titre = null, contenu = null }) {
   const res = resultat !== undefined ? resultat : x.resultat;

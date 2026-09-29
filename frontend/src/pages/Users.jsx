@@ -608,7 +608,7 @@ function MatriceAcces({ users, sectionsDispo, profils, onModifie, onProfil,
           il faut le téléphone de l'intéressé. */}
       <td className="border-b border-slate-100 px-2 py-1.5 text-center whitespace-nowrap">
         {u.mfa_actif
-          ? <IconShieldCheck size={15} className="inline-block" style={{ color: '#4a7c59' }}
+          ? <IconShieldCheck size={15} className="inline-block" style={{ color: 'var(--c-texte)' }}
               title="Vérification en deux temps active" />
           : <IconShieldOff size={15} className="inline-block text-slate-300"
               title="Mot de passe seul" />}

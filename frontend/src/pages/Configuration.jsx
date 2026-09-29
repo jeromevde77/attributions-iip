@@ -1691,10 +1691,10 @@ docker start attributions-backend-dev`}</div>
 
 // Catégories PNCC
 const PNCC_CATS = [
-  { value: 'secretariat_etudiant', label: 'Secrétariat étudiant', color: '#0EA5E9', desc: 'Proratisé au nb de sections pour le ratio étu./ETP' },
-  { value: 'secretariat_rh',       label: 'Secrétariat RH',       color: '#8B5CF6', desc: '' },
+  { value: 'secretariat_etudiant', label: 'Secrétariat étudiant', color: 'var(--c-texte)', desc: 'Proratisé au nb de sections pour le ratio étu./ETP' },
+  { value: 'secretariat_rh',       label: 'Secrétariat RH',       color: 'var(--c-texte)', desc: '' },
   { value: 'direction',            label: 'Direction',             color: 'var(--c-texte)', desc: '' },
-  { value: 'economat',             label: 'Économat',              color: '#F59E0B', desc: '' },
+  { value: 'economat',             label: 'Économat',              color: 'var(--c-texte)', desc: '' },
   { value: 'autre',                label: 'Autre',                 color: '#6B7280', desc: '' },
 ];
 
@@ -2661,7 +2661,7 @@ function ClotureReprise() {
 
       <div className="carte p-4 space-y-2">
         <div className="flex items-start gap-2">
-          <IconAlertTriangle size={18} className="text-[color:var(--c-attente,#B45309)] flex-none mt-0.5" />
+          <IconAlertTriangle size={18} className="text-[color:var(--c-attente,var(--c-attente))] flex-none mt-0.5" />
           <p className="text-[13px] text-slate-600">
             Cette opération écrit une motivation sur chaque acquis en défaut des
             décisions défavorables de l'année, et marque les séances comme
@@ -2699,7 +2699,7 @@ function ClotureReprise() {
         </button>
       </div>
 
-      {err && <div className="carte p-3 text-[13px] text-[color:var(--c-refuse,#9D4A38)]">{err}</div>}
+      {err && <div className="carte p-3 text-[13px] text-[color:var(--c-refuse,var(--c-refuse))]">{err}</div>}
 
       {fait && (
         <div className="carte p-4 text-[13px]">
@@ -2718,7 +2718,7 @@ function ClotureReprise() {
           </div>
 
           {!!plan.unites_sans_referentiel?.length && (
-            <div className="text-[12px] text-[color:var(--c-attente,#B45309)]">
+            <div className="text-[12px] text-[color:var(--c-attente,var(--c-attente))]">
               {plan.unites_sans_referentiel.length} dossier(s) portent une décision défavorable
               sur une unité sans acquis au référentiel : rien ne peut y être écrit, et le dossier
               restera incomplet.

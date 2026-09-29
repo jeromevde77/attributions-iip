@@ -122,7 +122,7 @@ function CopierSectionModal({ sections, anneeActive, isAdmin, onClose, onCopied 
           )}
 
           {error && (
-            <div className="bg-[#FBF1EE] border border-[#E8CFC7] rounded-carte p-3 text-sm text-[color:var(--c-refuse)]">
+            <div className="bg-[#FBF1EE] border border-[color:var(--c-attente)] rounded-carte p-3 text-sm text-[color:var(--c-refuse)]">
               {error}
               {conflict && isAdmin && (
                 <div className="mt-2">
@@ -528,7 +528,7 @@ export default function Attributions() {
       const na = parseInt(a.match(/\d+$/)?.[0]??'99'); const nb = parseInt(b.match(/\d+$/)?.[0]??'99');
       return na - nb;
     });
-    const NIV_PALETTE = ['#f97316','#60a5fa','var(--c-texte)','#a855f7','#ec4899'];
+    const NIV_PALETTE = ['var(--c-attente)','var(--c-disponible)','var(--c-texte)','var(--c-faveur)','var(--c-helb)'];
     const getNivCol = niv => NIV_PALETTE[niveaux.indexOf(niv) % NIV_PALETTE.length] || '#6b7280';
     const fmt = n => (n != null && n !== '') ? String(n) : '0';
     const S = 'padding:1px 5px;font-size:10px;line-height:1.2;';
@@ -1177,9 +1177,9 @@ export default function Attributions() {
     A: { bg: 'var(--c-disponible)', color: '#FFFFFF', border: 'var(--c-disponible)' },
     B: { bg: 'var(--c-reussi)', color: '#FFFFFF', border: 'var(--c-reussi)' },
     C: { bg: 'var(--c-attente)', color: '#FFFFFF', border: 'var(--c-attente)' },
-    D: { bg: '#FCE7F3', color: '#9D174D', border: '#FBCFE8' },
+    D: { bg: '#FCE7F3', color: 'var(--c-texte)', border: 'rgb(var(--gris-200))' },
     E: { bg: 'var(--c-faveur)', color: '#FFFFFF', border: 'var(--c-faveur)' },
-    F: { bg: 'var(--c-refuse)', color: '#FFFFFF', border: '#FECDD3' },
+    F: { bg: 'var(--c-refuse)', color: '#FFFFFF', border: 'rgb(var(--gris-200))' },
   };
 
   // Ouvre et scrolle jusqu'au cours concerné par une anomalie de groupe
@@ -1398,7 +1398,7 @@ export default function Attributions() {
       );
     }
     return (
-      <tr key={row.id} className={rowBg} style={aValider ? { boxShadow: 'inset 4px 0 0 #f59e0b' } : undefined}>
+      <tr key={row.id} className={rowBg} style={aValider ? { boxShadow: 'inset 4px 0 0 var(--c-attente)' } : undefined}>
         {colSet.map(c => {
           const _textCols = ['nom_cours','ue_nom','activite_nom','professeur_id','section','code_cours']; const sty = { ...(c.flex ? {} : { width:c.width, minWidth:c.width, maxWidth:c.width }), overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', textAlign: c.num ? 'right' : _textCols.includes(c.key) ? 'left' : 'center' };
           const click = c.rowClickable ? ()=>setEditRow(row) : undefined;
@@ -1450,7 +1450,7 @@ export default function Attributions() {
                 {verrous[row.id] && <span title={`Nomination définitive — ${verrous[row.id].periodes_nommees||''} pér. ${verrous[row.id].type_charge||''} · code FWB ${verrous[row.id].code_fwb||''} (attribution verrouillée)`} className="shrink-0 text-iip-blue"><IconLock size={13}/></span>}
                 {!verrous[row.id] && alertesCours[row.id] && <span title={`⚠ ${alertesCours[row.id].definitif} est engagé(e) à titre définitif sur ce cours (${alertesCours[row.id].periodes_nommees||''} pér. ${alertesCours[row.id].type_charge||''}, FWB ${alertesCours[row.id].code_fwb||''})`} className="shrink-0 cursor-help text-amber-600"><IconLockOpen size={13}/></span>}
                 {!!row.remplace_attribution_id && <span title="Ligne de remplacement (titulaire en congé)" className="shrink-0 text-[10px] text-iip-blue font-bold">R</span>}
-                {!!row.est_rt && <span title="Remise au travail (RT) — charge d'un définitif recasée ici" className="shrink-0 text-[10px] px-1 py-0 rounded font-bold text-[color:var(--c-refuse)] border border-[#C9A69C]">RT</span>}
+                {!!row.est_rt && <span title="Remise au travail (RT) — charge d'un définitif recasée ici" className="shrink-0 text-[10px] px-1 py-0 rounded font-bold text-[color:var(--c-refuse)] border border-[color:var(--c-attente)]">RT</span>}
                 {badge === 'EXT' && <span className="text-[10px] px-1 py-0 rounded font-bold bg-teal-500 text-white border border-teal-500 shrink-0" title="Couvert par l'enveloppe externe">EXT</span>}
                 {badge === 'DOT' && <span className="text-[10px] px-1 py-0 rounded font-bold bg-orange-500 text-white border border-orange-500 shrink-0" title="Dépasse le plafond → dotation organique">DOT</span>}
                 {badge === 'EXT+DOT' && <span className="text-[10px] px-1 py-0 rounded font-bold bg-purple-500 text-white border border-purple-500 shrink-0" title="Partiellement EXT, partiellement DOT">EXT+DOT</span>}
@@ -1543,7 +1543,7 @@ export default function Attributions() {
             const lettre    = estGroupe ? codeVal : 'Ts';
             // BADGE_COLORS défini au niveau composant
             const badgeStyle = estGroupe
-              ? (BADGE_COLORS[lettre[0]] || { bg: '#F3F4F6', color: '#374151', border: '#E5E7EB' })
+              ? (BADGE_COLORS[lettre[0]] || { bg: '#F3F4F6', color: 'var(--c-texte)', border: '#E5E7EB' })
               : { bg: '#F9FAFB', color: '#9CA3AF', border: '#E5E7EB' };
 
             // Frères = toutes les lignes du même cours (même activité OU même cours si pas d'activité)
@@ -1635,7 +1635,7 @@ export default function Attributions() {
                       {toutesLettres.map(l => {
                         const prise = !!lettreAFrere[l];
                         const courante = l === lettre;
-                        const bs = BADGE_COLORS[l[0]] || { bg:'#F3F4F6', color:'#374151', border:'#E5E7EB' };
+                        const bs = BADGE_COLORS[l[0]] || { bg:'#F3F4F6', color:'var(--c-texte)', border:'#E5E7EB' };
                         return (
                           <span key={l}
                             onClick={e => { e.stopPropagation(); assignerLettre(l); }}
@@ -1659,14 +1659,14 @@ export default function Attributions() {
                 {/* Toggle split / groupe */}
                 {!row.is_z && <>
                   <button onClick={e=>{e.stopPropagation();splitterLigne(row);}} title="Split : découper en morceaux partagés (Ts, plusieurs profs)"
-                    style={{ padding:1, background:'none', border:'none', cursor:'pointer', color: estSplit ? '#16A34A' : '#D1D5DB' }}
-                    onMouseEnter={e=>{if(!estSplit) e.currentTarget.style.color='#16A34A';}}
+                    style={{ padding:1, background:'none', border:'none', cursor:'pointer', color: estSplit ? 'var(--c-texte)' : '#D1D5DB' }}
+                    onMouseEnter={e=>{if(!estSplit) e.currentTarget.style.color='var(--c-reussi)';}}
                     onMouseLeave={e=>{if(!estSplit) e.currentTarget.style.color='#D1D5DB';}}>
                     <IconScissors size={13}/>
                   </button>
                   <button onClick={e=>{e.stopPropagation();grouperLigne(row);}} title={estGroupe ? 'Groupes actifs — recliquer pour recréer' : 'Créer des sous-groupes A, B, C…'}
-                    style={{ padding:1, background:'none', border:'none', cursor:'pointer', color: estGroupe ? '#16A34A' : '#D1D5DB' }}
-                    onMouseEnter={e=>{if(!estGroupe) e.currentTarget.style.color='#16A34A';}}
+                    style={{ padding:1, background:'none', border:'none', cursor:'pointer', color: estGroupe ? 'var(--c-texte)' : '#D1D5DB' }}
+                    onMouseEnter={e=>{if(!estGroupe) e.currentTarget.style.color='var(--c-reussi)';}}
                     onMouseLeave={e=>{if(!estGroupe) e.currentTarget.style.color='#D1D5DB';}}>
                     <IconUsersGroup size={13}/>
                   </button>
@@ -1940,7 +1940,7 @@ export default function Attributions() {
               /* LE TRONC COMMUN SE MARQUE À GAUCHE, COMME LA HELB (Charles, 27
                  septembre 2026 : « cette bordure au-dessus, c'est vieillot ») :
                  un liseré turquoise, et le filet marine du dessus disparaît. */
-              : isTC ? 'border-b border-gray-100 border-l-2 border-l-[#0093B0]'
+              : isTC ? 'border-b border-gray-100 border-l-2 border-l-[color:var(--c-accent)]'
               : 'border-b border-gray-100')
       }`}>
         <div className={`w-full flex items-center pl-6 pr-3 py-1.5 transition relative ${activeUE === key ? (isHelb ? 'bg-pink-50 hover:bg-pink-100/70' : 'bg-iip-gold/5 hover:bg-iip-gold/10') : (isHelb ? 'hover:bg-pink-100/60' : 'hover:bg-gray-50')}`}>
@@ -2105,7 +2105,7 @@ export default function Attributions() {
               const styles = {
                 ok:          'bg-green-50 border-green-200 text-green-800',
                 sous:        'bg-amber-50 border-amber-200 text-amber-800',
-                'dépassement':'bg-[#FBF1EE] border-[#E8CFC7] text-[color:var(--c-refuse)]',
+                'dépassement':'bg-[#FBF1EE] border-[color:var(--c-attente)] text-[color:var(--c-refuse)]',
                 cours:       'bg-orange-50 border-orange-200 text-orange-700',
               };
               const icone = { ok:'✓', sous:'➜', 'dépassement':'⚠', cours:'⚠' }[ctrl.etat] || 'ℹ';
@@ -2304,8 +2304,8 @@ export default function Attributions() {
                   <button onClick={()=>setShowCopierSection(true)} className="flex items-center gap-2 bg-white border border-slate-300 text-iip-blue hover:bg-slate-50 text-[13px] font-medium px-3 py-2 rounded-lg"><IconClipboardText size={16}/>Copier section</button>
                   <button onClick={()=>api.exportExcel()} className="flex items-center gap-2 bg-white border border-slate-300 text-iip-blue hover:bg-slate-50 text-[13px] font-medium px-3 py-2 rounded-lg"><IconFileImport size={16}/>Export</button>
                   {isAdmin && <>
-                    {selected.size>0 && <button onClick={()=>openBulkModal('selection')} className="flex items-center gap-2 bg-white border border-[#E8CFC7] text-[color:var(--c-refuse)] hover:bg-[#FBF1EE] text-[13px] font-medium px-3 py-2 rounded-champ"><IconTrash size={16}/>Sélection ({selected.size})</button>}
-                    <button onClick={()=>openBulkModal('filtered')} className="flex items-center gap-2 bg-white border border-[#E8CFC7] text-[color:var(--c-refuse)] hover:bg-[#FBF1EE] text-[13px] font-medium px-3 py-2 rounded-champ"><IconTrash size={16}/>Suppr. filtre</button>
+                    {selected.size>0 && <button onClick={()=>openBulkModal('selection')} className="flex items-center gap-2 bg-white border border-[color:var(--c-attente)] text-[color:var(--c-refuse)] hover:bg-[#FBF1EE] text-[13px] font-medium px-3 py-2 rounded-champ"><IconTrash size={16}/>Sélection ({selected.size})</button>}
+                    <button onClick={()=>openBulkModal('filtered')} className="flex items-center gap-2 bg-white border border-[color:var(--c-attente)] text-[color:var(--c-refuse)] hover:bg-[#FBF1EE] text-[13px] font-medium px-3 py-2 rounded-champ"><IconTrash size={16}/>Suppr. filtre</button>
                     <button onClick={()=>openBulkModal('all')} className="flex items-center gap-2 bg-iip-danger hover:brightness-110 text-white text-[13px] font-medium px-3 py-2 rounded-lg"><IconTrash size={16}/>Tout supprimer</button>
                     <button onClick={reimportExcel} className="flex items-center gap-2 bg-white border border-slate-300 text-iip-blue hover:bg-slate-50 text-[13px] font-medium px-3 py-2 rounded-lg"><IconRefresh size={16}/>Réimporter</button>
                   </>}
@@ -2481,16 +2481,16 @@ export default function Attributions() {
             {/* Corps — tableau des attributions du cours */}
             <div className="overflow-auto flex-1 px-4 py-3">
               {toutesLignes.length === 0 ? (
-                <p style={{color:'#94A3B8', fontSize:13, fontStyle:'italic'}}>Aucune attribution trouvée pour ce cours.</p>
+                <p style={{color:'var(--c-texte)', fontSize:13, fontStyle:'italic'}}>Aucune attribution trouvée pour ce cours.</p>
               ) : (
                 <table style={{width:'100%', borderCollapse:'collapse', fontSize:12}}>
                   <thead>
                     <tr style={{borderBottom:'2px solid #E2E8F0', background:'#F8FAFC'}}>
-                      <th style={{padding:'6px 8px', textAlign:'left', color:'#475569', fontWeight:600}}>Activité</th>
-                      <th style={{padding:'6px 8px', textAlign:'left', color:'#475569', fontWeight:600}}>Professeur</th>
-                      <th style={{padding:'6px 8px', textAlign:'center', color:'#475569', fontWeight:600}}>Split</th>
-                      <th style={{padding:'6px 8px', textAlign:'center', color:'#475569', fontWeight:600}}>Groupe</th>
-                      <th style={{padding:'6px 8px', textAlign:'center', color:'#475569', fontWeight:600}}>Corriger</th>
+                      <th style={{padding:'6px 8px', textAlign:'left', color:'var(--c-texte)', fontWeight:600}}>Activité</th>
+                      <th style={{padding:'6px 8px', textAlign:'left', color:'var(--c-texte)', fontWeight:600}}>Professeur</th>
+                      <th style={{padding:'6px 8px', textAlign:'center', color:'var(--c-texte)', fontWeight:600}}>Split</th>
+                      <th style={{padding:'6px 8px', textAlign:'center', color:'var(--c-texte)', fontWeight:600}}>Groupe</th>
+                      <th style={{padding:'6px 8px', textAlign:'center', color:'var(--c-texte)', fontWeight:600}}>Corriger</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -2498,7 +2498,7 @@ export default function Attributions() {
                       const code = (r.code||'').toUpperCase() || 'Ts';
                       const enErreur = lignesErreur.has(r.id);
                       const isSplit = r.split_groupe === 'O';
-                      const bs = BADGE_COLORS[code[0]] || { bg:'#F3F4F6', color:'#374151', border:'#E5E7EB' };
+                      const bs = BADGE_COLORS[code[0]] || { bg:'#F3F4F6', color:'var(--c-texte)', border:'#E5E7EB' };
                       const peerLines = toutesLignes.filter(p =>
                         (p.activite_id||null) === (r.activite_id||null) && p.split_groupe !== 'O'
                       );
@@ -2508,23 +2508,23 @@ export default function Attributions() {
                         <tr key={r.id} style={{
                           background: enErreur ? 'rgb(var(--e-refuse-100))' : '#fff',
                           borderBottom: '1px solid #F1F5F9',
-                          borderLeft: enErreur ? '3px solid #EF4444' : '3px solid transparent',
+                          borderLeft: enErreur ? '3px solid var(--c-refuse)' : '3px solid transparent',
                         }}>
                           <td style={{padding:'6px 8px', color:'#64748B', fontSize:11}}>
                             {r.activite_nom || <span style={{color:'#CBD5E1'}}>—</span>}
                           </td>
-                          <td style={{padding:'6px 8px', fontWeight: enErreur ? 600 : 400, color: enErreur ? 'var(--c-texte)' : '#1E293B'}}>
+                          <td style={{padding:'6px 8px', fontWeight: enErreur ? 600 : 400, color: enErreur ? 'var(--c-texte)' : 'var(--c-principal)'}}>
                             {r.prof_nom || r.prof_prenom ? `${r.prof_nom||''} ${r.prof_prenom||''}`.trim() : <span style={{color:'#CBD5E1'}}>À désigner</span>}
                           </td>
                           <td style={{padding:'6px 8px', textAlign:'center'}}>
-                            {isSplit && <span style={{fontSize:10, background:'#EEF2FF', color:'#4338CA', padding:'1px 5px', borderRadius:4, fontWeight:600}}>Split</span>}
+                            {isSplit && <span style={{fontSize:10, background:'#EEF2FF', color:'var(--c-texte)', padding:'1px 5px', borderRadius:4, fontWeight:600}}>Split</span>}
                           </td>
                           <td style={{padding:'6px 8px', textAlign:'center'}}>
                             <span style={{
                               display:'inline-flex', alignItems:'center', justifyContent:'center',
                               minWidth:22, height:20, paddingInline:5, borderRadius:5, fontSize:11, fontWeight:700,
                               background: enErreur ? 'rgb(var(--e-refuse-100))' : bs.bg,
-                              color: enErreur ? '#DC2626' : bs.color,
+                              color: enErreur ? 'var(--c-texte)' : bs.color,
                               border: `1px solid ${enErreur ? 'rgb(var(--e-refuse-100))' : bs.border}`,
                             }}>{code}</span>
                           </td>
@@ -2546,7 +2546,7 @@ export default function Attributions() {
                                 {peerAttendu.length > 1 && peerAttendu.map(l => {
                                   const estCourante = l === code;
                                   const dejaPrise = peerCodes.includes(l) && !estCourante;
-                                  const bs2 = BADGE_COLORS[l[0]] || { bg:'#F3F4F6', color:'#374151', border:'#E5E7EB' };
+                                  const bs2 = BADGE_COLORS[l[0]] || { bg:'#F3F4F6', color:'var(--c-texte)', border:'#E5E7EB' };
                                   return (
                                     <span key={l}
                                       onClick={e => { e.stopPropagation(); if (!estCourante) corrigerIci(r.id, l); }}
@@ -2578,12 +2578,12 @@ export default function Attributions() {
               <div className="flex gap-2">
                 <button onClick={() => setErreurIndex(i => Math.max(0, i-1))} disabled={idx===0}
                   style={{padding:'6px 14px', borderRadius:8, fontSize:13, fontWeight:600, border:'1px solid #D1D5DB',
-                    background: idx===0?'#F9FAFB':'#fff', color: idx===0?'#CBD5E1':'#374151', cursor: idx===0?'default':'pointer'}}>
+                    background: idx===0?'#F9FAFB':'#fff', color: idx===0?'#CBD5E1':'var(--c-principal)', cursor: idx===0?'default':'pointer'}}>
                   ← Précédent
                 </button>
                 <button onClick={() => setErreurIndex(i => Math.min(anomalies.length-1, i+1))} disabled={idx===anomalies.length-1}
                   style={{padding:'6px 14px', borderRadius:8, fontSize:13, fontWeight:600, border:'1px solid #D1D5DB',
-                    background: idx===anomalies.length-1?'#F9FAFB':'#fff', color: idx===anomalies.length-1?'#CBD5E1':'#374151', cursor: idx===anomalies.length-1?'default':'pointer'}}>
+                    background: idx===anomalies.length-1?'#F9FAFB':'#fff', color: idx===anomalies.length-1?'#CBD5E1':'var(--c-principal)', cursor: idx===anomalies.length-1?'default':'pointer'}}>
                   Suivant →
                 </button>
               </div>
@@ -2757,7 +2757,7 @@ export default function Attributions() {
 
       {/* Bandeau : profs définitifs en perte de charge (ETP global, en bas) */}
       {pertesCharge.length > 0 && (
-        <div className="mt-4 bg-[#FBF1EE] border border-[#E8CFC7] rounded-carte p-3">
+        <div className="mt-4 bg-[#FBF1EE] border border-[color:var(--c-attente)] rounded-carte p-3">
           <div className="flex items-center gap-2 text-[color:var(--c-refuse)] font-medium text-sm mb-1.5">
             ⚠ {pertesCharge.length} engagement(s) à titre définitif en perte de charge
           </div>

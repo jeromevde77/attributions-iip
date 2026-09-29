@@ -33,7 +33,7 @@ export function genererTemplateAttestation() {
 
   /* Bandeau marine */
   .bandeau {
-    background: #1B2B4B; padding: 8px 18mm;
+    background: var(--c-principal); padding: 8px 18mm;
     display: flex; justify-content: space-between; align-items: center;
     flex-shrink: 0; position: relative; z-index: 1;
   }
@@ -44,7 +44,7 @@ export function genererTemplateAttestation() {
   .corps { flex: 1; padding: 4mm 18mm 2mm 18mm; display: flex; flex-direction: column; justify-content: space-between; position: relative; z-index: 1; }
 
   /* Filet doré institutionnel */
-  .filet-or { border-top: 1pt solid #C9A84C; border-bottom: 1pt solid #C9A84C; padding: 4pt 0; line-height: 1; text-align: center; margin-bottom: 4mm; }
+  .filet-or { border-top: 1pt solid var(--c-attente); border-bottom: 1pt solid var(--c-attente); padding: 4pt 0; line-height: 1; text-align: center; margin-bottom: 4mm; }
   .filet-or span { font-size: 7.3pt; color: #888; letter-spacing: 0.2pt; text-transform: uppercase; white-space: nowrap; }
 
   /* Établissement */
@@ -52,7 +52,7 @@ export function genererTemplateAttestation() {
   .etab strong { color: #1a1a1a; }
 
   /* Encadré attestation */
-  .encadre { border: 1pt solid #C9A84C; padding: 5pt 0; line-height: 1; text-align: center; margin-bottom: 4mm; }
+  .encadre { border: 1pt solid var(--c-attente); padding: 5pt 0; line-height: 1; text-align: center; margin-bottom: 4mm; }
   .encadre span { font-size: 9pt; font-weight: bold; letter-spacing: 0.5pt; }
 
   /* Texte courant */
@@ -60,11 +60,11 @@ export function genererTemplateAttestation() {
 
   /* Carte étudiant */
   .carte-etudiant {
-    background: #f0f4ff; border-left: 3pt solid #C9A84C;
+    background: #f0f4ff; border-left: 3pt solid var(--c-attente);
     padding: 4pt 8pt; margin: 3mm 0;
     border-radius: 0 3pt 3pt 0;
   }
-  .carte-etudiant .nom { font-size: 9pt; font-weight: bold; color: #1B2B4B; }
+  .carte-etudiant .nom { font-size: 9pt; font-weight: bold; color: var(--c-texte); }
   .carte-etudiant .naissance { font-size: 9pt; color: #555; margin-top: 1.5pt; }
 
   /* UE */
@@ -75,12 +75,12 @@ export function genererTemplateAttestation() {
   /* Signatures — 3 colonnes */
   .signatures { padding-top: 2mm; flex-shrink: 0; font-size: 9pt; }
   .sig-jury { text-align: center; color: #333; line-height: 1.6; margin: 0 0 9mm; padding: 0 8mm; }
-  .sig-jury strong { color: #1B2B4B; }
+  .sig-jury strong { color: var(--c-texte); }
   .sig-final { position: relative; min-height: 26mm; }
   .sig-directeur { width: 70mm; margin: 0 auto; text-align: center; display: flex; flex-direction: column; align-items: center; overflow: visible; }
   .sig-directeur .sig-role { color: #555; font-size: 9pt; padding-bottom: 1mm; }
   .sig-directeur .sig-image { display: block; height: 30mm; width: auto; margin: 1mm auto -12mm; position: relative; z-index: 2; pointer-events: none; }
-  .sig-directeur .sig-nom { font-weight: bold; color: #1B2B4B; border-top: 0.6pt solid #C9A84C; padding-top: 1.5mm; display: inline-block; width: 48mm; }
+  .sig-directeur .sig-nom { font-weight: bold; color: var(--c-texte); border-top: 0.6pt solid var(--c-attente); padding-top: 1.5mm; display: inline-block; width: 48mm; }
   .sceau { position: absolute; right: 2mm; bottom: -2mm; width: 36mm; height: auto; opacity: 0.92; transform: rotate(-6deg); }
 
   /* Logo + pied de page */
@@ -90,7 +90,7 @@ export function genererTemplateAttestation() {
   }
   .footer-logo { height: 10mm; width: auto; opacity: 0.9; display: block; margin-bottom: 2.5mm; }
   .footer-texte {
-    border-top: 0.5pt solid #C9A84C; padding-top: 2.5mm;
+    border-top: 0.5pt solid var(--c-attente); padding-top: 2.5mm;
     font-size: 6pt; color: #888; text-align: center; line-height: 1.4;
   }
 </style>

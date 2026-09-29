@@ -23,10 +23,10 @@ const SEM_STYLE = {
 // Couleur d'un bloc selon le type d'activité
 function blocColor(activite) {
   const a = (activite || '').toLowerCase();
-  if (a.includes('remédiation') || a.includes('remediation')) return { bg: 'var(--c-attente)', border: '#f59e0b', text: '#FFFFFF' };
-  if (a.includes('autonomie')) return { bg: 'var(--c-faveur)', border: '#c026d3', text: '#FFFFFF' };
-  if (a.includes('évaluation') || a.includes('evaluation')) return { bg: 'var(--c-refuse)', border: '#ef4444', text: '#FFFFFF' };
-  return { bg: 'var(--c-disponible)', border: '#3b82f6', text: '#FFFFFF' }; // cours par défaut
+  if (a.includes('remédiation') || a.includes('remediation')) return { bg: 'var(--c-attente)', border: 'var(--c-attente)', text: '#FFFFFF' };
+  if (a.includes('autonomie')) return { bg: 'var(--c-faveur)', border: 'var(--c-faveur)', text: '#FFFFFF' };
+  if (a.includes('évaluation') || a.includes('evaluation')) return { bg: 'var(--c-refuse)', border: 'var(--c-refuse)', text: '#FFFFFF' };
+  return { bg: 'var(--c-disponible)', border: 'var(--c-disponible)', text: '#FFFFFF' }; // cours par défaut
 }
 
 /**
@@ -591,7 +591,7 @@ export default function PlanificateurVisuel({ onClose }) {
                           width: b.dureeSem * PX_SEM - 2,
                           top: 6, bottom: 6,
                           background: b.color.bg,
-                          border: `1.5px solid ${depasseLimite ? '#ef4444' : b.color.border}`,
+                          border: `1.5px solid ${depasseLimite ? 'var(--c-refuse)' : b.color.border}`,
                           color: b.color.text,
                           borderRadius: 6,
                           cursor: 'grab',
@@ -645,7 +645,7 @@ export default function PlanificateurVisuel({ onClose }) {
                         top: 6, bottom: 6,
                         background: '#e5e7eb',
                         border: '1.5px solid #9ca3af',
-                        color: '#374151',
+                        color: 'var(--c-texte)',
                         borderRadius: 6,
                         cursor: ev.supprimable ? 'pointer' : 'default',
                       }}
@@ -661,9 +661,9 @@ export default function PlanificateurVisuel({ onClose }) {
                 </div>
               ))}
               <div className="mt-4 flex items-center gap-4 text-[11px] text-gray-500 flex-wrap" style={{ paddingLeft: LABEL_W }}>
-                <span className="flex items-center gap-1"><span className="inline-block w-3 h-3 rounded" style={{background:'rgb(var(--e-disponible-100))',border:'1.5px solid #3b82f6'}}/>Cours</span>
-                <span className="flex items-center gap-1"><span className="inline-block w-3 h-3 rounded" style={{background:'rgb(var(--e-attente-100))',border:'1.5px solid #f59e0b'}}/>Remédiation</span>
-                <span className="flex items-center gap-1"><span className="inline-block w-3 h-3 rounded" style={{background:'rgb(var(--e-faveur-100))',border:'1.5px solid #c026d3'}}/>Autonomie</span>
+                <span className="flex items-center gap-1"><span className="inline-block w-3 h-3 rounded" style={{background:'rgb(var(--e-disponible-100))',border:'1.5px solid var(--c-disponible)'}}/>Cours</span>
+                <span className="flex items-center gap-1"><span className="inline-block w-3 h-3 rounded" style={{background:'rgb(var(--e-attente-100))',border:'1.5px solid var(--c-attente)'}}/>Remédiation</span>
+                <span className="flex items-center gap-1"><span className="inline-block w-3 h-3 rounded" style={{background:'rgb(var(--e-faveur-100))',border:'1.5px solid var(--c-faveur)'}}/>Autonomie</span>
                 <span className="ml-4">Glisser = décaler · bord droit = rythme · <IconScissors size={12} className="inline align-[-2px]" /> = couper</span>
               </div>
             </div>

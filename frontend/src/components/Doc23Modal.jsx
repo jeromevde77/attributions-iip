@@ -40,7 +40,7 @@ function entete(etab, ue, org, num_org, annee) {
 
 function genDoc2Html(d, annee) {
   const { etab, ue, org, num_organisation, cours, lignes_ept, tot_prevu, tot_reel } = d;
-  const TH = 'background:#5a9eb0;color:white;padding:4px 8px;font-size:10px;font-weight:bold;text-align:left;border:1px solid #4a8ea0';
+  const TH = 'background:var(--c-accent);color:white;padding:4px 8px;font-size:10px;font-weight:bold;text-align:left;border:1px solid var(--c-accent)';
   const TD = 'padding:3px 8px;font-size:10px;border:1px solid #ccc';
   const TDR = TD + ';text-align:right';
 
@@ -161,7 +161,7 @@ function genDoc2Html(d, annee) {
 
 function genDoc3Html(d, annee, coursCible) {
   const { etab, ue, org, num_organisation, cours, attrs, tot_reel } = d;
-  const TH = 'background:#5a9eb0;color:white;padding:4px 8px;font-size:10px;font-weight:bold;text-align:left;border:1px solid #4a8ea0';
+  const TH = 'background:var(--c-accent);color:white;padding:4px 8px;font-size:10px;font-weight:bold;text-align:left;border:1px solid var(--c-accent)';
   const TD = 'padding:3px 8px;font-size:10px;border:1px solid #ccc';
   const TDR = TD + ';text-align:right';
 

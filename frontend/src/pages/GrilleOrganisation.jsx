@@ -30,7 +30,7 @@ import { Fenetre } from '../components/ui.jsx';
 const BLOC = { 1: 'var(--c-ba1)', 2: 'var(--c-ba2)', 3: 'var(--c-principal)' };
 const teinteBloc = niv => {
   const m = String(niv || '').match(/([123])\s*$/);
-  return m ? BLOC[m[1]] : '#94A3B8';
+  return m ? BLOC[m[1]] : 'var(--c-disponible)';
 };
 
 const FOND_SEM = {
@@ -204,10 +204,10 @@ export default function GrilleOrganisation({ sansTitre = false } = {}) {
                 <div className="flex-1 grid gap-0.5"
                   style={{ gridTemplateColumns: `repeat(${nbSem}, 1fr)` }}>
                   <div className="text-[9px] font-bold tracking-wider text-white text-center
-                                  rounded-sm bg-[#2D4470]"
+                                  rounded-sm bg-[color:var(--c-disponible)]"
                     style={{ gridColumn: `1 / ${Math.max(2, coupure + 1)}` }}>Q1</div>
                   <div className="text-[9px] font-bold tracking-wider text-white text-center
-                                  rounded-sm bg-[#2D4470]"
+                                  rounded-sm bg-[color:var(--c-disponible)]"
                     style={{ gridColumn: `${Math.max(2, coupure + 1)} / ${nbSem + 1}` }}>Q2</div>
                 </div>
               </div>
@@ -325,7 +325,7 @@ function LigneUE({ u, semaines, nbSem, coupure, ouverte, surOuvrir, surCours, vu
       {ouverte && u.controle.autonomie.unite > 0 && (
         <div className="flex items-center border-t border-slate-100 bg-[#FCFCFD]">
           <div className="px-3 py-1.5 text-[11.5px]" style={{ width: 230, flexShrink: 0, paddingLeft: 34 }}>
-            <span className="text-[#7C3AED]">Autonomie</span>
+            <span className="text-[color:var(--c-texte)]">Autonomie</span>
             <span className="text-[10px] text-slate-400 block">
               {u.controle.autonomie.placee} placée sur {u.controle.autonomie.unite}
               {u.controle.autonomie.restante > 0
@@ -335,7 +335,7 @@ function LigneUE({ u, semaines, nbSem, coupure, ouverte, surOuvrir, surCours, vu
           <div className="flex-1 grid items-center" style={{
             gridTemplateColumns: `repeat(${nbSem}, 1fr)`, height: 24 }}>
             <div style={{ gridRow: 1, gridColumn: `${deb} / ${fin + 1}`, height: 6,
-              background: '#8B5CF6', opacity: .5, borderRadius: 3 }} />
+              background: 'var(--c-faveur)', opacity: .5, borderRadius: 3 }} />
           </div>
         </div>
       )}
@@ -495,7 +495,7 @@ function FenetreCours({ etat, annee, section, periodeMinutes = 50,
               {Number(auto) > 0 && <span className="text-slate-500">
                 {' '}(autonomie {auto} comptée à part)</span>}
             </span>
-          : <span className="text-[12px] text-[#15803D]">
+          : <span className="text-[12px] text-[color:var(--c-texte)]">
               <IconCheck size={13} className="inline align-[-2px] mr-1" />
               Cours {total} pér. — multiple de {dp} respecté.
               {Number(auto) > 0 && <span className="text-slate-500">
@@ -609,11 +609,11 @@ function FenetreCours({ etat, annee, section, periodeMinutes = 50,
             <span className="text-slate-500 text-[11.5px]">
               unité : {ue.controle.autonomie.unite} · restante ailleurs : {restanteUE}
             </span>
-            <span className="ml-auto text-[#7C3AED] font-semibold">{auto}</span>
+            <span className="ml-auto text-[color:var(--c-texte)] font-semibold">{auto}</span>
           </div>
           <input type="range" min="0" max={ue.controle.autonomie.unite || 0} step="1"
             value={auto} onChange={e => setAuto(Number(e.target.value))}
-            className="w-full accent-[#8B5CF6] mt-1.5" />
+            className="w-full accent-[color:var(--c-faveur)] mt-1.5" />
           {restanteUE < 0 && (
             <div className="text-[11.5px] text-[color:var(--c-refuse)] mt-1">
               Vous placez plus d'autonomie que l'unité n'en porte.
@@ -655,7 +655,7 @@ function enHeures(periodes, minutes) {
  * distingue pas les parts ne jauge rien. Les teintes s'écartent donc :
  * deux segments successifs changent franchement.
  */
-const TEINTES = ['var(--c-principal)', 'var(--c-accent)', '#5B7FB8', 'var(--c-ba2)', '#3B5488', '#A9C6E0'];
+const TEINTES = ['var(--c-principal)', 'var(--c-accent)', 'var(--c-disponible)', 'var(--c-ba2)', 'var(--c-disponible)', 'var(--c-disponible)'];
 
 /* L'ÉVALUATION A SA TEINTE, ET ELLE NE DÉPEND PAS DE SON RANG.
    Elle est la seule activité que la grille propose d'office, la seule qu'une
@@ -663,7 +663,7 @@ const TEINTES = ['var(--c-principal)', 'var(--c-accent)', '#5B7FB8', 'var(--c-ba
    que soit sa place dans la liste : lui donner la couleur de son rang la
    faisait changer de teinte quand on ajoutait une activité au-dessus. */
 const TEINTE_EVALUATION = 'var(--c-ba1)';
-const TEINTE_AUTONOMIE = '#8B5CF6';
+const TEINTE_AUTONOMIE = 'var(--c-faveur)';
 
 function JaugeCours({ dp, lignes, auto, dispo, minutes, idEval = null }) {
   const nom = id => dispo.find(a => a.id === Number(id))?.libelle || 'Activité';
@@ -696,7 +696,7 @@ function JaugeCours({ dp, lignes, auto, dispo, minutes, idEval = null }) {
           {dp ? ` p · ${enHeures(dp, minutes)}` : ''}
         </span>
         <span className="ml-auto text-[12.5px]">
-          <b className={total === dp ? 'text-[#15803D]'
+          <b className={total === dp ? 'text-[color:var(--c-texte)]'
             : (total > (dp || 0) ? 'text-[color:var(--c-refuse)]' : 'text-slate-700')}>{total}</b>
           <span className="text-slate-500"> p · {enHeures(total, minutes)} organisés</span>
         </span>

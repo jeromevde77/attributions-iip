@@ -28,7 +28,7 @@ const TYPE_CONFIG = {
     update: { label: 'Modification',         color: '#FFFFFF', bg: 'var(--c-disponible)', icon: IconClipboardList },
   },
   recrutement: {
-    info: { label: 'Recrutement', color: '#7c3aed', bg: 'rgb(var(--e-faveur-100))', icon: IconUserPlus },
+    info: { label: 'Recrutement', color: 'var(--c-texte)', bg: 'rgb(var(--e-faveur-100))', icon: IconUserPlus },
   },
   systeme: {
     info: { label: 'Lucie',       color: 'var(--c-texte)', bg: 'rgb(var(--e-disponible-100))', icon: IconSettings },

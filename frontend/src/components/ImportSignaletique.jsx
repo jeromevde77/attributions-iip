@@ -223,7 +223,7 @@ export default function ImportSignaletique({ onClose, onTermine }) {
                   <label key={fe.nom} className="flex items-center gap-2 text-[13px]">
                     <span className="w-40 truncate"><b>{fe.nom}</b> <span className="text-slate-400">· {fe.n}</span></span>
                     <select value={code} onChange={e => poserFeuille(fe, e.target.value)}
-                      className={`controle text-[13px] flex-1 ${code ? '' : 'border-[#B0701A]'}`}>
+                      className={`controle text-[13px] flex-1 ${code ? '' : 'border-[color:var(--c-attente)]'}`}>
                       <option value="">— aucune section —</option>
                       {sections.map(s0 => <option key={s0.code} value={s0.code}>{s0.libelle || s0.code}</option>)}
                     </select>

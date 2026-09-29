@@ -53,7 +53,7 @@ export default function MotDePasse() {
   const Cadre = ({ children }) => (
     <div style={{
       minHeight:'100vh', display:'flex', alignItems:'center', justifyContent:'center',
-      background:'#16294d', padding:'24px', fontFamily:"'Segoe UI',sans-serif",
+      background:'var(--c-principal)', padding:'24px', fontFamily:"'Segoe UI',sans-serif",
     }}>
       <div style={{
         width:'100%', maxWidth:'420px', background:'rgba(255,255,255,.04)',
@@ -130,7 +130,7 @@ export default function MotDePasse() {
             onChange={e => { setMdp(e.target.value); setErr(''); }}
             placeholder="Nouveau mot de passe" style={champ} />
           {trop_court && (
-            <div style={{fontSize:'11.5px', color:'#e0a96d', marginTop:'6px'}}>
+            <div style={{fontSize:'11.5px', color:'var(--c-texte)', marginTop:'6px'}}>
               Encore {longueurMin - mdp.length} caractère(s).
             </div>
           )}
@@ -141,7 +141,7 @@ export default function MotDePasse() {
             onChange={e => { setConfirme(e.target.value); setErr(''); }}
             placeholder="Répéter le mot de passe" style={champ} />
           {discordent && (
-            <div style={{fontSize:'11.5px', color:'#e0a96d', marginTop:'6px'}}>
+            <div style={{fontSize:'11.5px', color:'var(--c-texte)', marginTop:'6px'}}>
               Les deux saisies diffèrent.
             </div>
           )}

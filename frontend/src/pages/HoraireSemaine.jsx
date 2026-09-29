@@ -21,8 +21,8 @@ import { Fenetre } from '../components/ui.jsx';
 
 const H0 = 8, H1 = 21, PX = 12;                     // 12 px par quart d'heure
 const NOMS_JOURS = ['lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi', 'dimanche'];
-const TEINTES = ['var(--c-reussi)', '#B8674A', '#6E8FA3', '#5E8C7A', '#C99A7A', '#6A8797', '#4C68B0', '#8A7CA8',
-  '#6B6798', '#7FA65A', '#8C96A8', '#A0707C', '#9C8A5A', '#5F8F96'];
+const TEINTES = ['var(--c-reussi)', 'var(--c-attente)', 'var(--c-disponible)', 'var(--c-reussi)', 'var(--c-attente)', '#6A8797', 'var(--c-disponible)', 'var(--c-faveur)',
+  'var(--c-disponible)', 'var(--c-reussi)', '#8C96A8', 'var(--c-refuse)', 'var(--c-attente)', 'var(--c-accent)'];
 const teinte = code => { let h = 0; for (const c of String(code || '')) h = (h * 31 + c.charCodeAt(0)) >>> 0; return TEINTES[h % TEINTES.length]; };
 const hm = t => { const [h, m] = String(t || '0:0').split(':').map(Number); return h * 60 + (m || 0); };
 const deHm = n => `${String(Math.floor(n / 60)).padStart(2, '0')}:${String(n % 60).padStart(2, '0')}`;
@@ -216,7 +216,7 @@ export default function HoraireSemaine() {
                       className={`absolute left-[3px] right-[3px] overflow-hidden rounded-r-[8px] px-1.5 py-1 text-[11px] leading-tight ${peutEcrire ? 'cursor-grab' : 'cursor-pointer'} ${g ? 'opacity-80 z-10' : ''}`}
                       style={{ top: (debut - H0 * 60) / 15 * PX, height: (fin - debut) / 15 * PX - 2, borderLeft: `4px solid ${c}`,
                         background: s.annule ? 'repeating-linear-gradient(45deg,#F4F5F7 0 6px,#fff 6px 12px)' : `#fff`,
-                        outline: s.conflits?.length ? '2px solid #9D4A38' : 'none', outlineOffset: -2 }}>
+                        outline: s.conflits?.length ? '2px solid var(--c-refuse)' : 'none', outlineOffset: -2 }}>
                       <div className={`font-semibold truncate ${s.annule ? 'line-through text-slate-400' : 'text-[#1B2B4B]'}`}>{s.cours_code} {s.cours_nom || s.matiere || ''}</div>
                       <div className="truncate text-slate-600">{s.annule ? 'Annulée' : nomProf(s)}{s.sous_groupe ? ` · gr. ${s.sous_groupe}` : s.groupe_nom && s.groupe_nom !== 'A' ? ` · gr. ${s.groupe_nom}` : ''}</div>
                       <div className="truncate text-slate-500">{s.local_texte || 'local à préciser'} · {lisible(deHm(debut))}–{lisible(deHm(fin))}</div>

@@ -53,7 +53,7 @@ const PEUT_DEVALIDER = ['admin', 'directeur', 'directeur_adjoint'];
 
 export const TEINTE_PORTE = {
   admission: { t: 'var(--c-texte)', f: '#15803D26', b: '#15803D66' },  // vert
-  va:        { t: '#2D4470', f: '#2D447020', b: '#2D447066' },  // bleu
+  va:        { t: 'var(--c-disponible)', f: '#2D447020', b: '#2D447066' },  // bleu
   vae:       { t: 'var(--c-texte)', f: '#8B5CF624', b: '#8B5CF666' },  // violet
 };
 
@@ -462,7 +462,7 @@ function LigneEtudiant({ etudiant, annee, ouvert, onBasculer, onAjouterUE,
                 <span key={v.id} className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
                   {/* LA PORTE GARDE SA TEINTE : AD vert, VA bleu, VAE violet. */}
                   <span className="text-[12px] font-medium"
-                    style={{ color: TEINTE_PORTE[v.porte]?.t || '#2D4470' }}>
+                    style={{ color: TEINTE_PORTE[v.porte]?.t || 'var(--c-texte)' }}>
                     {v.ue_num === 0 ? 'Admission' : `UE ${v.ue_num}`}
                   </span>
                   <span className="text-[12px] text-slate-500 truncate max-w-[22rem]">
@@ -1117,7 +1117,7 @@ function ChoisirUnite({ annee, etudiant, onClose, onCree }) {
               {/* CELLES DE SON PROGRAMME SE SIGNALENT : ce sont les plus
                   probables, et elles arrivent déjà en tête de la liste. */}
               {u.au_pae && (
-                <span className="text-[10px] uppercase tracking-wider text-[#0093B0]
+                <span className="text-[10px] uppercase tracking-wider text-[color:var(--c-texte)]
                                  flex-none">à son programme</span>
               )}
               <span className="text-[11px] text-slate-400 flex-none w-24 text-right truncate">
@@ -2594,7 +2594,7 @@ export function FriseCircuit({ dossier, compact = false }) {
       </span>
       <span className={`${compact ? 'text-[10px]' : 'text-[11px]'} ${
         arret >= 0 ? 'text-[color:var(--c-refuse)]'
-          : courante < 0 ? 'text-[#15803D]' : 'text-slate-500'}`}>
+          : courante < 0 ? 'text-[color:var(--c-texte)]' : 'text-slate-500'}`}>
         {libelle}
       </span>
     </span>

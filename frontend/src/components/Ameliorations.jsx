@@ -21,9 +21,9 @@ import { Fenetre } from './ui.jsx';
 
 const TEINTE = {
   nouvelle: 'border-l-[color:var(--c-principal)]',
-  retenue: 'border-l-[#0093B0]',
+  retenue: 'border-l-[color:var(--c-accent)]',
   en_cours: 'border-l-[color:var(--c-attente)]',
-  faite: 'border-l-[#15803D]',
+  faite: 'border-l-[color:var(--c-reussi)]',
   ecartee: 'border-l-slate-300',
 };
 

@@ -855,11 +855,11 @@ function triNiveaux(niveaux) {
 // Couleur selon la position dans la liste des niveaux (0=premier, 1=second, ...)
 const NIV_COLORS = [
   // rang 1 = orange, rang 2 = bleu clair, rang 3 = bleu marine
-  { bg: 'bg-orange-100', text: 'text-orange-700', border: '#f97316', hex: 'rgb(var(--e-attente-100))' },
-  { bg: 'bg-iip-turquoise/10',   text: 'text-iip-blue',   border: '#60a5fa', hex: 'rgb(var(--e-disponible-100))' },
+  { bg: 'bg-orange-100', text: 'text-orange-700', border: 'var(--c-attente)', hex: 'rgb(var(--e-attente-100))' },
+  { bg: 'bg-iip-turquoise/10',   text: 'text-iip-blue',   border: 'var(--c-disponible)', hex: 'rgb(var(--e-disponible-100))' },
   { bg: 'bg-iip-blue',   text: 'text-iip-blue',   border: 'var(--c-texte)', hex: 'var(--c-texte)' },
-  { bg: 'bg-purple-100', text: 'text-purple-700', border: '#a855f7', hex: 'rgb(var(--e-faveur-100))' },
-  { bg: 'bg-pink-100',   text: 'text-pink-700',   border: '#ec4899', hex: '#fdf2f8' },
+  { bg: 'bg-purple-100', text: 'text-purple-700', border: 'var(--c-faveur)', hex: 'rgb(var(--e-faveur-100))' },
+  { bg: 'bg-pink-100',   text: 'text-pink-700',   border: 'var(--c-helb)', hex: '#fdf2f8' },
 ];
 function getNivColor(niv, niveauxListe) {
   const idx = niveauxListe.indexOf(niv);

@@ -230,13 +230,13 @@ const CHAMPS = {
 const BOUCLES = {
   resume_section: {
     label: 'Tableau synthèse UE + Cours (par section)',
-    color: '#eaf2ff', border: '#1a5276',
+    color: '#eaf2ff', border: 'var(--c-principal)',
     description: 'Génère automatiquement un tableau hiérarchique complet : UE avec leurs cours, périodes prof et étudiant. Sélectionnez une section à la génération.',
     champs: [], // Pas de champs manuels — le backend génère tout
   },
   profs_ue: {
     label: "Pour chaque prof de l'UE",
-    color: '#e8f5e9', border: '#43a047',
+    color: '#e8f5e9', border: 'var(--c-reussi)',
     description: 'Répète le contenu du bloc pour chaque professeur attribué à l\'UE. Indiquez le N° UE à la génération.',
     champs: [
       { key: 'item.professeur',               label: 'Professeur (nom complet)' },
@@ -253,7 +253,7 @@ const BOUCLES = {
   },
   cours_ue: {
     label: "Pour chaque cours de l'UE",
-    color: '#e3f2fd', border: '#1e88e5',
+    color: '#FFFFFF', border: 'var(--c-disponible)',
     description: 'Répète le contenu pour chaque cours de l\'UE. Indiquez le N° UE à la génération.',
     champs: [
       { key: 'item.cours_code',        label: 'Code cours' },
@@ -267,7 +267,7 @@ const BOUCLES = {
   },
   attributions_prof: {
     label: 'Pour chaque cours attribué au prof',
-    color: '#fce4ec', border: '#e53935',
+    color: '#fce4ec', border: 'var(--c-refuse)',
     description: 'Répète le contenu pour chaque cours attribué au professeur sélectionné.',
     champs: [
       { key: 'item.ue_num',                   label: 'N° UE' },
@@ -359,10 +359,10 @@ const EnTeteBlock = Node.create({
       const dom = document.createElement('div');
       dom.className = 'entete-block';
       dom.setAttribute('data-entete', '1');
-      dom.style.cssText = 'border:2px solid #1F3864;border-radius:6px;margin:8px 0;overflow:hidden;';
+      dom.style.cssText = 'border:2px solid var(--c-principal);border-radius:6px;margin:8px 0;overflow:hidden;';
       const hd = document.createElement('div');
       hd.contentEditable = 'false';
-      hd.style.cssText = 'background:#1F3864;color:#fff;padding:3px 10px;font-size:11px;font-weight:bold;user-select:none;';
+      hd.style.cssText = 'background:var(--c-principal);color:#fff;padding:3px 10px;font-size:11px;font-weight:bold;user-select:none;';
       hd.textContent = '⬆ En-tête (répété sur chaque page à l\'impression)';
       const contentDOM = document.createElement('div');
       contentDOM.style.cssText = 'padding:8px 10px;background:#eef2ff;min-height:36px;';
@@ -458,11 +458,11 @@ function Regle({ fmt = 'A4P', margins, onMarginChange }) {
     width: '10px', marginLeft: '-5px', cursor: 'ew-resize', zIndex: 10,
     display: 'flex', alignItems: 'center', justifyContent: 'center',
   });
-  const lineStyle = { width: '2px', height: '100%', background: '#7B2D8B', pointerEvents: 'none', opacity: 0.8 };
+  const lineStyle = { width: '2px', height: '100%', background: 'var(--c-faveur)', pointerEvents: 'none', opacity: 0.8 };
   const arrowStyle = {
     position: 'absolute', bottom: '-5px', width: 0, height: 0,
     borderLeft: '4px solid transparent', borderRight: '4px solid transparent',
-    borderTop: '5px solid #7B2D8B', pointerEvents: 'none',
+    borderTop: '5px solid var(--c-faveur)', pointerEvents: 'none',
   };
 
   return (
@@ -844,7 +844,7 @@ export default function Editeur() {
           .page-break{break-after:page;page-break-after:always;height:0;border:0;margin:0}
           ul[data-type="taskList"]{list-style:none;padding-left:0}
           ul[data-type="taskList"] li{display:flex;align-items:flex-start;gap:6px}
-          a{color:#1565c0}blockquote{border-left:3px solid #ccc;padding-left:12px;color:#555;font-style:italic}
+          a{color:var(--c-texte)}blockquote{border-left:3px solid #ccc;padding-left:12px;color:#555;font-style:italic}
           pre{background:#f5f5f5;padding:8px 10px;border-radius:4px;font-family:monospace}
           p{margin:4px 0}.champ-tag,.entete-block,.pied-block,.boucle-block{display:block}
           .doc-header{border-bottom:1px solid #ccc;padding-bottom:6px;margin-bottom:16px}
@@ -1140,8 +1140,8 @@ export default function Editeur() {
         .editeur-content { min-height: calc(${PAGE_FORMATS[format]?.h || '297mm'} - ${margins.top}mm - ${margins.bottom}mm); outline: none; }
         .champ-tag {
           display: inline-block;
-          background: #e3f2fd; color: #1565c0;
-          border: 1px solid #90caf9; border-radius: 4px;
+          background: #FFFFFF; color: var(--c-texte);
+          border: 1px solid var(--c-disponible); border-radius: 4px;
           padding: 0 5px; font-size: 0.8em;
           font-family: monospace; cursor: default;
           user-select: none; white-space: nowrap;
@@ -1162,8 +1162,8 @@ export default function Editeur() {
         }
         .tableWrapper { overflow-x: auto; }
         .boucle-block p { margin: 2px 0; }
-        .page-break { border-top: 2px dashed #c0392b; margin: 14px 0; height: 0; position: relative; }
-        .page-break::after { content: '⤓ Saut de page'; position: absolute; right: 0; top: -8px; font-size: 9px; color: #c0392b; background: #fff; padding: 0 4px; }
+        .page-break { border-top: 2px dashed var(--c-refuse); margin: 14px 0; height: 0; position: relative; }
+        .page-break::after { content: '⤓ Saut de page'; position: absolute; right: 0; top: -8px; font-size: 9px; color: var(--c-texte); background: #fff; padding: 0 4px; }
         .editeur-content ul[data-type="taskList"] { list-style: none; padding-left: 0; }
         .editeur-content ul[data-type="taskList"] li { display: flex; align-items: flex-start; gap: 6px; }
         .editeur-content ul[data-type="taskList"] li > label { margin-top: 2px; }
@@ -1171,11 +1171,11 @@ export default function Editeur() {
         .editeur-content ol { list-style: decimal; padding-left: 1.6em; margin: 4px 0; }
         .editeur-content li { margin: 2px 0; }
         .editeur-content li > p { margin: 0; }
-        .editeur-content a { color: #1565c0; text-decoration: underline; }
+        .editeur-content a { color: var(--c-texte); text-decoration: underline; }
         .editeur-content blockquote { border-left: 3px solid #ccc; padding-left: 12px; color: #555; margin: 8px 0; font-style: italic; }
         .editeur-content pre { background: #f5f5f5; border-radius: 4px; padding: 8px 10px; font-family: monospace; font-size: 0.9em; overflow-x: auto; }
         .editeur-content hr { border: none; border-top: 2px solid #999; margin: 14px 0; }
-        .editeur-content hr.ProseMirror-selectednode { border-top-color: #1a5276; }
+        .editeur-content hr.ProseMirror-selectednode { border-top-color: var(--c-texte); }
       `}</style>
       {previewHtml && (
         <PreviewModal html={previewHtml} titre={nom || 'Document'} onClose={() => setPreviewHtml(null)} />

@@ -91,13 +91,13 @@ function ouvrirFeuilleImpression(data) {
       body { font-family: Arial, sans-serif; margin: 0; color: #1a1a1a; }
       .page { padding: 18mm 14mm; page-break-after: always; }
       .page:last-child { page-break-after: auto; }
-      .entete { border-bottom: 2px solid #1F3864; padding-bottom: 8px; margin-bottom: 14px; }
+      .entete { border-bottom: 2px solid var(--c-principal); padding-bottom: 8px; margin-bottom: 14px; }
       .titre { font-size: 12px; color: #555; text-transform: uppercase; letter-spacing: 1px; }
       .prof { font-size: 20px; margin-top: 4px; }
-      .badge { font-size: 11px; background: #1F3864; color: #fff; padding: 2px 8px; border-radius: 10px; vertical-align: middle; margin-left: 6px; }
+      .badge { font-size: 11px; background: var(--c-principal); color: #fff; padding: 2px 8px; border-radius: 10px; vertical-align: middle; margin-left: 6px; }
       table { width: 100%; border-collapse: collapse; font-size: 12px; }
       th, td { border: 1px solid #ccc; padding: 5px 7px; text-align: left; vertical-align: top; }
-      thead th { background: #9CC2E5; font-weight: bold; }
+      thead th { background: var(--c-disponible); font-weight: bold; }
       tfoot td { background: #f0f4f8; font-size: 13px; }
       .c { text-align: center; } .r { text-align: right; }
       .h { color: #777; font-weight: normal; font-size: 11px; }
@@ -1165,8 +1165,8 @@ const MOTIFS_FIN = [
 
 const ETAPES_DISC = [
   { val: 'ouverture',   label: 'Ouverture du dossier',   color: '#6b7280' },
-  { val: 'convocation', label: 'Convocation',             color: '#d97706' },
-  { val: 'audition',    label: 'Audition',                color: '#7c3aed' },
+  { val: 'convocation', label: 'Convocation',             color: 'var(--c-texte)' },
+  { val: 'audition',    label: 'Audition',                color: 'var(--c-texte)' },
   { val: 'decision',    label: 'Décision',                color: 'var(--c-texte)' },
   { val: 'appel',       label: 'Recours / Appel',         color: 'var(--c-texte)' },
   { val: 'cloture',     label: 'Clôture',                 color: 'var(--c-texte)' },
@@ -1591,7 +1591,7 @@ export default function Professeurs({ vue: vueInitiale = 'membres' }) {
         .page-table>tfoot{display:table-footer-group}
         .footer-iip{margin-top:6mm}
         .footer-iip .logo{height:8mm;width:auto;opacity:.9;display:block;margin-bottom:2mm}
-        .footer-iip .txt{border-top:0.5pt solid #C9A84C;padding-top:2mm;font-size:7px;color:#888;text-align:center;line-height:1.4}
+        .footer-iip .txt{border-top:0.5pt solid var(--c-attente);padding-top:2mm;font-size:7px;color:#888;text-align:center;line-height:1.4}
       </style></head><body>
       <table class="page-table"><tbody><tr><td>
       <div style="padding:10mm">
@@ -1701,7 +1701,7 @@ export default function Professeurs({ vue: vueInitiale = 'membres' }) {
         .page-table>tfoot{display:table-footer-group}
         .footer-iip{margin-top:6mm}
         .footer-iip .logo{height:8mm;width:auto;opacity:.9;display:block;margin-bottom:2mm}
-        .footer-iip .txt{border-top:0.5pt solid #C9A84C;padding-top:2mm;font-size:7px;color:#888;text-align:center;line-height:1.4}
+        .footer-iip .txt{border-top:0.5pt solid var(--c-attente);padding-top:2mm;font-size:7px;color:#888;text-align:center;line-height:1.4}
       </style></head><body>
       <table class="page-table"><tbody><tr><td>
       <div style="padding:10mm">
@@ -1843,7 +1843,7 @@ export default function Professeurs({ vue: vueInitiale = 'membres' }) {
         .page-table>tfoot{display:table-footer-group}
         .footer-iip{margin-top:6mm}
         .footer-iip .logo{height:8mm;width:auto;opacity:.9;display:block;margin-bottom:2mm}
-        .footer-iip .txt{border-top:0.5pt solid #C9A84C;padding-top:2mm;font-size:7px;color:#888;text-align:center;line-height:1.4}
+        .footer-iip .txt{border-top:0.5pt solid var(--c-attente);padding-top:2mm;font-size:7px;color:#888;text-align:center;line-height:1.4}
       </style></head><body>
       <table class="page-table"><tbody><tr><td>
       <div style="padding:10mm">

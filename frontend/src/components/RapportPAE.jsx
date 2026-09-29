@@ -140,10 +140,10 @@ export default function RapportPAE({ anneeCourante, onClose }) {
   function construireHtml(j) {
     const esc = s => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;');
     // BA1 orange, BA2 bleu clair, BA3 bleu marine — convention de Lucie
-    const NIV_PALETTE = ['#F97316', '#60A5FA', 'var(--c-texte)', '#A855F7', '#EC4899'];
+    const NIV_PALETTE = ['var(--c-attente)', 'var(--c-disponible)', 'var(--c-texte)', 'var(--c-faveur)', 'var(--c-helb)'];
     const coulNiv = niv => {
       const m = /^BA(\d+)$/i.exec(String(niv || '').trim());
-      return m ? NIV_PALETTE[(Number(m[1]) - 1) % NIV_PALETTE.length] : '#94A3B8';
+      return m ? NIV_PALETTE[(Number(m[1]) - 1) % NIV_PALETTE.length] : 'var(--c-disponible)';
     };
     const enTetes = j.colonnes.map(c =>
       `<th title="${esc(c.libelle)}" class="${intitules ? 'long' : ''}">${esc(c.code)}` +
@@ -206,30 +206,30 @@ export default function RapportPAE({ anneeCourante, onClose }) {
 <title>PAE ${esc(j.section)} — ${esc(j.annee)}</title>
 <style>
   * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-  body { font-family: 'Segoe UI', Arial, sans-serif; font-size: 11px; color: #1B2B4B; margin: 22px; }
+  body { font-family: 'Segoe UI', Arial, sans-serif; font-size: 11px; color: var(--c-texte); margin: 22px; }
   h1 { font-size: 16px; margin: 0 0 2px; }
   .meta { color: #64748b; font-size: 11px; margin-bottom: 12px; }
   table { border-collapse: collapse; width: 100%; }
   th, td { border: 1px solid #cbd5e1; padding: 3px 5px; text-align: center; }
   th { background: #f1f5f9; font-size: 9.5px; }
-  th span { display: block; font-weight: normal; color: #94a3b8; font-size: 8px; }
-  td.num { color: #94a3b8; width: 24px; }
+  th span { display: block; font-weight: normal; color: var(--c-texte); font-size: 8px; }
+  td.num { color: var(--c-texte); width: 24px; }
   td.nom { text-align: left; white-space: nowrap; font-weight: 500; }
-  td.nom .mat { display: block; color: #94a3b8; font-weight: normal; font-size: 9px; }
-  td.ok  { background: #d1fae5; color: #065f46; font-weight: 700; }
-  td.va  { background: #ede9fe; color: #5b21b6; font-weight: 700; }
-  td.ko  { background: #fee2e2; color: #991b1b; font-weight: 700; }
-  td.ins { background: #e0f2fe; color: #075985; }
+  td.nom .mat { display: block; color: var(--c-texte); font-weight: normal; font-size: 9px; }
+  td.ok  { background: #FFFFFF; color: var(--c-texte); font-weight: 700; }
+  td.va  { background: #ede9fe; color: var(--c-texte); font-weight: 700; }
+  td.ko  { background: #FFFFFF; color: var(--c-texte); font-weight: 700; }
+  td.ins { background: #FFFFFF; color: var(--c-texte); }
   td.abs { background: #f1f5f9; color: #64748b; }
   td.repris { opacity: .55; font-style: italic; }
   th.long { min-width: 74px; }
   th .lib { display: block; font-weight: normal; color: #64748b; font-size: 7.5px;
             line-height: 1.15; margin-top: 2px; }
   td.s, th.s { background: #f8fafc; font-size: 10px; }
-  tr.taux td { background: #f1f5f9; font-weight: 700; font-size: 10px; color: #475569; }
-  tr.taux td.ok { color: #047857; }
-  tr.taux td.ko { color: #b91c1c; }
-  .alerte { background: #FEF3C7; border: 1px solid #FCD34D; color: #92400E;
+  tr.taux td { background: #f1f5f9; font-weight: 700; font-size: 10px; color: var(--c-texte); }
+  tr.taux td.ok { color: var(--c-texte); }
+  tr.taux td.ko { color: var(--c-texte); }
+  .alerte { background: #FFFFFF; border: 1px solid var(--c-attente); color: var(--c-texte);
             padding: 7px 10px; border-radius: 6px; font-size: 11px; margin-bottom: 10px; }
   .legende { margin-top: 10px; font-size: 10px; color: #64748b; }
   /* L'orientation suit le choix : paysage par défaut, une colonne par UE ;

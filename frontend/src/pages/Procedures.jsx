@@ -183,16 +183,16 @@ function genererDecision({ etudiant, ueNum, ueNom, profs, profsPresentsListe,
   return `<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8"><title>Décision motivée — ${etudiant}</title>
 <style>
   body { font-family: Arial, sans-serif; font-size: 11pt; color: #000; margin: 0; padding: 20mm 20mm 15mm 20mm; }
-  .header { display:flex; justify-content:space-between; align-items:flex-start; border-bottom: 2px solid #1F3864; padding-bottom: 8px; margin-bottom: 16px; }
-  .logo-txt { font-size: 14pt; font-weight: bold; color: #1F3864; }
+  .header { display:flex; justify-content:space-between; align-items:flex-start; border-bottom: 2px solid var(--c-principal); padding-bottom: 8px; margin-bottom: 16px; }
+  .logo-txt { font-size: 14pt; font-weight: bold; color: var(--c-texte); }
   .logo-sub { font-size: 9pt; color: #555; }
   .ref { font-size: 9pt; text-align:right; color: #555; }
-  h2 { font-size: 13pt; text-align: center; color: #1F3864; border: 2px solid #1F3864; padding: 10px; margin: 20px 0; }
+  h2 { font-size: 13pt; text-align: center; color: var(--c-texte); border: 2px solid var(--c-principal); padding: 10px; margin: 20px 0; }
   h3 { font-size: 11pt; font-weight: bold; margin-top: 16px; margin-bottom: 6px; border-bottom: 1px solid #ccc; padding-bottom: 3px; }
   p { margin: 5px 0; line-height: 1.5; }
   ol { margin: 6px 0 6px 20px; }
   li { margin: 4px 0; }
-  .composition { background: #f0f4ff; border: 1px solid #c0d0f0; padding: 8px 12px; margin: 10px 0; font-size: 10pt; }
+  .composition { background: #f0f4ff; border: 1px solid var(--c-disponible); padding: 8px 12px; margin: 10px 0; font-size: 10pt; }
   .signatures { display:flex; justify-content:space-between; margin-top: 30px; }
   .sig-block { text-align: center; min-width: 180px; }
   .sig-line { border-top: 1px solid #000; margin-top: 40px; padding-top: 4px; font-size: 10pt; }
@@ -932,18 +932,18 @@ function genererPVFraude({ etudiant, ueNum, ueNom, profs, profsPresents,
   return `<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8"><title>PV Fraude — ${etudiant}</title>
 <style>
   body{font-family:Arial,sans-serif;font-size:11pt;color:#000;margin:0;padding:20mm 20mm 15mm 20mm}
-  .header{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #7B1C1C;padding-bottom:8px;margin-bottom:16px}
-  .logo-txt{font-size:14pt;font-weight:bold;color:#7B1C1C}
+  .header{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid var(--c-refuse);padding-bottom:8px;margin-bottom:16px}
+  .logo-txt{font-size:14pt;font-weight:bold;color:var(--c-texte)}
   .logo-sub{font-size:9pt;color:#555}
   .ref{font-size:9pt;text-align:right;color:#555}
-  h2{font-size:13pt;text-align:center;color:#7B1C1C;border:2px solid #7B1C1C;padding:10px;margin:20px 0}
+  h2{font-size:13pt;text-align:center;color:var(--c-texte);border:2px solid var(--c-refuse);padding:10px;margin:20px 0}
   h3{font-size:11pt;font-weight:bold;margin-top:16px;margin-bottom:6px;border-bottom:1px solid #ccc;padding-bottom:3px;color:#333}
   p{margin:5px 0;line-height:1.5}
   ol,ul{margin:6px 0 6px 20px} li{margin:4px 0}
-  .composition{background:#fff5f5;border:1px solid #f0c0c0;padding:8px 12px;margin:10px 0;font-size:10pt}
-  .facts-box{background:#fff8f0;border:1px solid #f0d0a0;padding:10px 14px;margin:10px 0}
-  .decision-box{background:#f0fff0;border:2px solid #2e7d32;padding:12px 14px;margin:16px 0}
-  .alert-box{background:#fff3cd;border:1px solid #ffc107;padding:8px 12px;margin:8px 0;font-size:10pt}
+  .composition{background:#fff5f5;border:1px solid var(--c-refuse);padding:8px 12px;margin:10px 0;font-size:10pt}
+  .facts-box{background:#fff8f0;border:1px solid var(--c-attente);padding:10px 14px;margin:10px 0}
+  .decision-box{background:#f0fff0;border:2px solid var(--c-reussi);padding:12px 14px;margin:16px 0}
+  .alert-box{background:#FFFFFF;border:1px solid var(--c-attente);padding:8px 12px;margin:8px 0;font-size:10pt}
   .signatures{display:flex;justify-content:space-between;margin-top:30px}
   .sig-block{text-align:center;min-width:180px}
   .sig-line{border-top:1px solid #000;margin-top:40px;padding-top:4px;font-size:10pt}

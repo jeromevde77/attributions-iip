@@ -265,16 +265,16 @@ table.grid-excel-soft select:focus {
 .badge-iip   { background: #fff;
                color: var(--c-principal, var(--c-principal)); }
 .badge-helb  { background: #fff;
-               color: var(--c-helb, #DB2777); }
-.badge-ct    { background: #dbeafe; color: #1e40af; }
-.badge-pp    { background: #dcfce7; color: #166534; }
-.badge-z     { background: #1F3864; color: #ffffff; letter-spacing: 0.05em; }
-.badge-b     { background: #fef3c7; color: #92400e; }
-.badge-f     { background: #ffe4e6; color: #9f1239; }
-.badge-t     { background: #f0fdf4; color: #14532d; border: 1px solid #86efac; }
-.badge-p     { background: #faf5ff; color: #6b21a8; border: 1px solid #d8b4fe; }
-.badge-o     { background: #fff7ed; color: #9a3412; border: 1px solid #fdba74; }
-.badge-cc    { background: #e0e7ff; color: #3730a3; }
+               color: var(--c-helb, var(--c-texte)); }
+.badge-ct    { background: #FFFFFF; color: var(--c-texte); }
+.badge-pp    { background: #FFFFFF; color: var(--c-texte); }
+.badge-z     { background: var(--c-principal); color: #ffffff; letter-spacing: 0.05em; }
+.badge-b     { background: #FFFFFF; color: var(--c-texte); }
+.badge-f     { background: #FFFFFF; color: var(--c-texte); }
+.badge-t     { background: #f0fdf4; color: var(--c-texte); border: 1px solid var(--c-reussi); }
+.badge-p     { background: #faf5ff; color: var(--c-texte); border: 1px solid var(--c-faveur); }
+.badge-o     { background: #fff7ed; color: var(--c-texte); border: 1px solid var(--c-attente); }
+.badge-cc    { background: #FFFFFF; color: var(--c-texte); }
 /* CC ET EXP SONT DEUX STATUTS, PAS UN STATUT ET SON ABSENCE.
    EXP se dessinait en gris bordé au milieu de badges teintés : il se lisait
    comme « rien », alors que c'est une situation aussi nette que CC. Deux
@@ -284,8 +284,8 @@ table.grid-excel-soft select:focus {
 /* PAS LE VIOLET (27 septembre 2026) : il ne dit que la faveur, et EXP en a été
    retiré par la règle des états. Un bleu pétrole : distinct du marine de CC,
    étranger aux états comme aux blocs. */
-.badge-exp   { background: #fff; color: #245A60; }
-.badge-incomplete { background: #fef9c3; color: #854d0e; }
+.badge-exp   { background: #fff; color: var(--c-texte); }
+.badge-incomplete { background: #FFFFFF; color: var(--c-texte); }
 
 /* ═══════════════════════════════════════════════════════════════════════════
    RESPONSIVE MOBILE (iPhone / écrans ≤ 768px)
@@ -909,14 +909,14 @@ select[multiple], select[size]:not([size="1"]) {
    libellé vit dans l'infobulle. */
 .bouton.bouton-icone { width: 2.25rem; padding-inline: 0; justify-content: center; border-radius: 10px; }
 .bouton-fort     { background: var(--c-principal); color: #fff; border-color: transparent; }
-.bouton-fort:hover:not(:disabled)     { background: #163A6B; }
+.bouton-fort:hover:not(:disabled)     { background: var(--c-principal); }
 /* SORTIR — FOND BLANC, MARINE (Charles, 27 septembre 2026 : « je n'aime pas
    ce bleu turquoise, on reste dans nos couleurs »). Le filet marine le
    distingue d'un bouton neutre sans lui donner un aplat. */
 .bouton-sortir   { background: #fff; color: var(--c-texte); border-color: var(--c-principal); }
 .bouton-sortir:hover:not(:disabled)   { background: #EEF1F6; }
-.bouton-detruire { background: #9d4a38; color: #fff; border-color: transparent; }
-.bouton-detruire:hover:not(:disabled) { background: #883f2f; }
+.bouton-detruire { background: var(--c-refuse); color: #fff; border-color: transparent; }
+.bouton-detruire:hover:not(:disabled) { background: var(--c-refuse); }
 
 /* ═══ LES TABLEAUX — deux tons, pas cinq ══════════════════════════════════
  *
@@ -1065,13 +1065,13 @@ select[multiple], select[size]:not([size="1"]) {
  * de style — l'une pour écrire, l'autre pour lire — finiraient par montrer deux
  * documents, et c'est celui qu'on n'a pas relu qui serait confirmé.
  * Échelle de la maison : 13 le corps, 15 et 17 pour les titres, rien au-delà. */
-.texte-corpus { font-size: 13px; line-height: 1.6; color: #1e293b; }
+.texte-corpus { font-size: 13px; line-height: 1.6; color: var(--c-texte); }
 .texte-corpus > * + * { margin-top: 0.6em; }
 .texte-corpus h1 { font-size: 17px; font-weight: 700; color: var(--c-texte); margin-top: 1.2em; }
 .texte-corpus h2 { font-size: 15px; font-weight: 700; color: var(--c-texte); margin-top: 1.1em;
                    padding-bottom: 2px; border-bottom: 1px solid #D8DCE4; }
 .texte-corpus h3 { font-size: 13px; font-weight: 700; color: var(--c-texte); margin-top: 0.9em; }
-.texte-corpus h4 { font-size: 13px; font-weight: 600; color: #334155; }
+.texte-corpus h4 { font-size: 13px; font-weight: 600; color: var(--c-texte); }
 .texte-corpus ul { list-style: disc; padding-left: 1.4em; }
 .texte-corpus ol { list-style: decimal; padding-left: 1.4em; }
 .texte-corpus li + li { margin-top: 0.2em; }

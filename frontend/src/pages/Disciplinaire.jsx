@@ -53,17 +53,17 @@ function docHTML(titreDoc, corps, pied) {
   body { font-family: Arial, sans-serif; font-size: 11pt; color: #1a1a1a; line-height: 1.5; }
   .doc { max-width: 180mm; margin: 0 auto; padding: 12mm 16mm; }
   @media print { @page { size: A4 portrait; margin: 18mm; } .doc { max-width: none; margin: 0; padding: 0; } }
-  .entete { border-bottom: 2pt solid #1B2B4B; padding-bottom: 6pt; margin-bottom: 12pt; }
-  .entete .nom { font-size: 15pt; font-weight: bold; color: #1B2B4B; }
+  .entete { border-bottom: 2pt solid var(--c-principal); padding-bottom: 6pt; margin-bottom: 12pt; }
+  .entete .nom { font-size: 15pt; font-weight: bold; color: var(--c-texte); }
   .entete .coord { font-size: 8.5pt; color: #555; margin-top: 2pt; }
-  .titre { text-align: center; font-weight: bold; font-size: 12.5pt; color: #1B2B4B; text-transform: uppercase; margin: 14pt 0; letter-spacing: .5pt; }
+  .titre { text-align: center; font-weight: bold; font-size: 12.5pt; color: var(--c-texte); text-transform: uppercase; margin: 14pt 0; letter-spacing: .5pt; }
   .bloc-faits { border: 1pt solid #ccc; background: #fff8f0; padding: 8pt 10pt; margin: 10pt 0; }
   p { margin: 7pt 0; text-align: justify; }
   .sig { margin-top: 26pt; }
   table { width: 100%; }
   .footer-bloc { margin-top: 22pt; }
   .footer-logo { height: 9mm; width: auto; opacity: .92; display: block; margin-bottom: 2mm; }
-  .footer-texte { border-top: .5pt solid #C9A84C; padding-top: 2mm; font-size: 6.5pt; color: #888; text-align: center; line-height: 1.4; }
+  .footer-texte { border-top: .5pt solid var(--c-attente); padding-top: 2mm; font-size: 6.5pt; color: #888; text-align: center; line-height: 1.4; }
 </style></head><body><div class="doc">
   <div class="entete"><div class="nom">${ETAB.nom}</div>
   <div class="coord">${ETAB.adresse} · Matricule ${ETAB.matricule} · Fase ${ETAB.fase} · ${ETAB.tel}</div></div>

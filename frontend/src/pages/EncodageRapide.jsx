@@ -29,7 +29,7 @@ const CYCLE = [null, 'reussi', 'ajourne', 'refuse'];
 
 // Couleurs des années d'études, communes à Lucie : BA1 orange, BA2 bleu clair,
 // BA3 bleu marine.
-const NIV_PALETTE = ['#F97316', '#60A5FA', 'var(--c-texte)', '#A855F7', '#EC4899'];
+const NIV_PALETTE = ['var(--c-attente)', 'var(--c-disponible)', 'var(--c-texte)', 'var(--c-faveur)', 'var(--c-helb)'];
 const couleurNiveau = niv => {
   const m = /^BA(\d+)$/i.exec(String(niv || '').trim());
   return m ? NIV_PALETTE[(Number(m[1]) - 1) % NIV_PALETTE.length] : null;
@@ -402,7 +402,7 @@ export default function EncodageRapide() {
                         ? 'border-l-2 border-l-iip-blue/30' : ''}`}>
                     <div className="text-[12px] font-bold text-iip-blue">{u.ue_num}</div>
                     <div className="text-[8.5px] font-semibold"
-                      style={{ color: couleurNiveau(u.ue_niv) || '#94A3B8' }}>
+                      style={{ color: couleurNiveau(u.ue_niv) || 'var(--c-texte)' }}>
                       {u.ue_niv || '—'}
                     </div>
                   </th>
@@ -531,11 +531,11 @@ function SyntheseAnnees({ synthese, recherche, onOuvrir }) {
   const teinte = (r, t) => {
     if (!t) return { bg: 'transparent', fg: '#CBD5E1', bd: 'transparent' };
     const p = r / t;
-    if (p >= 0.999) return { bg: 'var(--c-reussi)', fg: '#FFFFFF', bd: '#6EE7B7' };
+    if (p >= 0.999) return { bg: 'var(--c-reussi)', fg: '#FFFFFF', bd: 'var(--c-reussi)' };
     if (p >= 0.75)  return { bg: 'var(--c-reussi)', fg: '#FFFFFF', bd: 'var(--c-reussi)' };
     if (p >= 0.5)   return { bg: 'var(--c-attente)', fg: '#FFFFFF', bd: 'var(--c-attente)' };
     if (p > 0)      return { bg: 'var(--c-attente)', fg: '#FFFFFF', bd: 'var(--c-attente)' };
-    return { bg: 'var(--c-refuse)', fg: '#FFFFFF', bd: '#FCA5A5' };
+    return { bg: 'var(--c-refuse)', fg: '#FFFFFF', bd: 'var(--c-refuse)' };
   };
 
   return (

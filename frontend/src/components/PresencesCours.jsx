@@ -18,7 +18,7 @@ const BOUTONS = [
   ['present', 'P', 'Présent', 'var(--c-reussi)'],
   ['absent', 'A', 'Absent', 'var(--c-corriger)'],
   ['justifie', 'J', 'Absence justifiée', 'var(--c-surveiller)'],
-  ['non_concerne', '—', 'Non concerné (autre sous-groupe)', '#94a3b8'],
+  ['non_concerne', '—', 'Non concerné (autre sous-groupe)', 'var(--c-disponible)'],
 ];
 
 export default function PresencesCours({ coursCode, annee }) {
@@ -102,8 +102,8 @@ export default function PresencesCours({ coursCode, annee }) {
               <span className="tabular-nums w-[92px]">{jourDe(s.date)} {fr(s.date)}</span>
               <span className="tabular-nums text-slate-500">{String(s.heure_debut).slice(0, 5)}–{String(s.heure_fin).slice(0, 5)}</span>
               {s.sous_groupe && <span className="text-[11px] text-slate-400">gr. {s.sous_groupe}</span>}
-              <span className="ml-auto text-[11px]" style={{ color: s.annule ? '#94a3b8' : complet ? 'var(--c-reussi)'
-                : passe ? 'var(--c-surveiller)' : '#94a3b8' }}>
+              <span className="ml-auto text-[11px]" style={{ color: s.annule ? 'var(--c-texte)' : complet ? 'var(--c-reussi)'
+                : passe ? 'var(--c-surveiller)' : 'var(--c-disponible)' }}>
                 {s.annule ? 'annulée' : complet ? '✓' : passe ? `${s.encodees}/${n}` : 'à venir'}</span>
             </button>
           );
@@ -149,7 +149,7 @@ export default function PresencesCours({ coursCode, annee }) {
                         <button key={k} type="button" title={t} disabled={future || seance.annule}
                           onClick={() => poser(e.id, k)}
                           className="w-8 h-7 mr-1 rounded-champ border text-[12px] font-semibold disabled:opacity-40"
-                          style={v.statut === k ? { background: c, borderColor: c, color: '#fff' } : { borderColor: '#cbd5e1', color: '#475569' }}>
+                          style={v.statut === k ? { background: c, borderColor: c, color: '#fff' } : { borderColor: '#cbd5e1', color: 'var(--c-texte)' }}>
                           {l}</button>
                       ))}
                     </td>

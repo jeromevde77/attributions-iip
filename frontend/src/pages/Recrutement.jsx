@@ -277,7 +277,7 @@ export default function Recrutement() {
                       {p.nom_cours || p.ue_nom}
                       {p.contrat_mdp && (
                         <span className="text-[10px] font-bold px-1.5 py-0.5 rounded text-white flex-shrink-0"
-                          style={{ background: p.contrat_mdp === 'HELB' ? '#8B5CF6' : 'var(--c-principal)' }}>
+                          style={{ background: p.contrat_mdp === 'HELB' ? 'var(--c-faveur)' : 'var(--c-principal)' }}>
                           {p.contrat_mdp}
                         </span>
                       )}
@@ -806,11 +806,11 @@ function CarteCandidatPoste({ candidature: c, onChange, onEntretien }) {
 /* ══════════════════════ GRILLE D'ENTRETIEN ══════════════════════ */
 
 const LIKERT_REFLEXIF = [
-  { val: 1, label: 'Descriptif',     desc: "Décrit les faits sans analyse",                       color: '#ef4444' },
-  { val: 2, label: 'Analytique',     desc: "Identifie les causes et conséquences",                color: '#f97316' },
-  { val: 3, label: 'Réflexif',       desc: "Questionne ses pratiques et ses représentations",     color: '#eab308' },
-  { val: 4, label: 'Critique',       desc: "Remet en question les présupposés, prise de recul",   color: '#22c55e' },
-  { val: 5, label: 'Transformatif',  desc: "Change de posture, apprend et se transforme",         color: '#0ea5e9' },
+  { val: 1, label: 'Descriptif',     desc: "Décrit les faits sans analyse",                       color: 'var(--c-texte)' },
+  { val: 2, label: 'Analytique',     desc: "Identifie les causes et conséquences",                color: 'var(--c-texte)' },
+  { val: 3, label: 'Réflexif',       desc: "Questionne ses pratiques et ses représentations",     color: 'var(--c-texte)' },
+  { val: 4, label: 'Critique',       desc: "Remet en question les présupposés, prise de recul",   color: 'var(--c-texte)' },
+  { val: 5, label: 'Transformatif',  desc: "Change de posture, apprend et se transforme",         color: 'var(--c-texte)' },
 ];
 
 // ── Tirage aléatoire de N questions dans un pool ─────────────────────────────
@@ -842,7 +842,7 @@ const GRILLE_IIP = [
   },
   {
     axe: 'Axe 2 — Expérience professionnelle et clinique',
-    couleur: '#7c3aed',
+    couleur: 'var(--c-faveur)',
     questions: [
       "Décrivez votre parcours professionnel dans votre domaine de spécialité.",
       "Avez-vous une expérience d'encadrement de stagiaires ou d'étudiants en milieu clinique ou professionnel ?",
@@ -917,7 +917,7 @@ Réponds en JSON strict sans backticks : {"questions":["question 1","question 2"
     const html = `<!DOCTYPE html><html><head><meta charset="utf-8">
     <style>
       body{font-family:Arial,sans-serif;font-size:11px;color:#222;padding:0}
-      h1{color:#1B2B4B;font-size:15px;border-bottom:2px solid #00AACC;padding-bottom:6px;margin-bottom:4px}
+      h1{color:var(--c-texte);font-size:15px;border-bottom:2px solid var(--c-accent);padding-bottom:6px;margin-bottom:4px}
       .meta{color:#777;font-size:9px;margin-bottom:14px}
       h2{font-size:11px;font-weight:bold;margin:12px 0 5px;padding:4px 10px;border-radius:3px;color:white}
       ul{margin:0 0 6px 16px;padding:0}
@@ -997,11 +997,11 @@ Réponds en JSON strict sans backticks : {"questions":["question 1","question 2"
 
 /* ══════════════════════ MODAL ENTRETIEN ══════════════════════ */
 const LIKERT = [
-  { val: 1, label: 'Superficielle',  desc: 'Réponse vague, générale, sans ancrage réel',                      color: '#ef4444' },
-  { val: 2, label: 'Partielle',      desc: 'Quelques éléments pertinents, mais incomplets',                   color: '#f97316' },
-  { val: 3, label: 'Adéquate',       desc: 'Répond à la question, compréhension correcte',                    color: '#eab308' },
-  { val: 4, label: 'Élaborée',       desc: 'Nuancée, exemples concrets, prise de recul visible',              color: '#22c55e' },
-  { val: 5, label: 'Excellente',     desc: 'Réflexivité, profondeur, lien théorie-pratique maîtrisé',         color: '#0ea5e9' },
+  { val: 1, label: 'Superficielle',  desc: 'Réponse vague, générale, sans ancrage réel',                      color: 'var(--c-texte)' },
+  { val: 2, label: 'Partielle',      desc: 'Quelques éléments pertinents, mais incomplets',                   color: 'var(--c-texte)' },
+  { val: 3, label: 'Adéquate',       desc: 'Répond à la question, compréhension correcte',                    color: 'var(--c-texte)' },
+  { val: 4, label: 'Élaborée',       desc: 'Nuancée, exemples concrets, prise de recul visible',              color: 'var(--c-texte)' },
+  { val: 5, label: 'Excellente',     desc: 'Réflexivité, profondeur, lien théorie-pratique maîtrisé',         color: 'var(--c-texte)' },
 ];
 
 function EntretienModal({ candidature, poste, annee, qIA, grille, onClose, onSaved }) {
@@ -1329,7 +1329,7 @@ function VueParallele({ postes, candidats, fonctions, annee, onRecharger }) {
                         <span className="truncate">{p.nom_cours || p.ue_nom}</span>
                         {p.contrat_mdp && (
                           <span className="text-[10px] font-bold px-1.5 py-0.5 rounded text-white flex-shrink-0"
-                            style={{ background: p.contrat_mdp === 'HELB' ? '#8B5CF6' : 'var(--c-principal)' }}>{p.contrat_mdp}</span>
+                            style={{ background: p.contrat_mdp === 'HELB' ? 'var(--c-faveur)' : 'var(--c-principal)' }}>{p.contrat_mdp}</span>
                         )}
                       </div>
                       <div className="text-xs text-gray-400 mt-0.5">
@@ -1408,7 +1408,7 @@ function VueParallele({ postes, candidats, fonctions, annee, onRecharger }) {
 
 /* ══════════════════════ PDF COMPARATIF ══════════════════════ */
 function genererComparatif(candidats, poste, grille) {
-  const BLEU = '#1B2B4B', TURQ = '#00AACC';
+  const BLEU = 'var(--c-principal)', TURQ = 'var(--c-accent)';
   const LIKERT_LABELS = ['','Peu structurée','Partiellement','Structurée','Bien structurée','Très structurée'];
   const grilleActive = grille || GRILLE_IIP;
   const toutesQs = grilleActive.flatMap(axe =>
@@ -1423,7 +1423,7 @@ function genererComparatif(candidats, poste, grille) {
     const noteQ = c.note_globale;
     const noteL = c.entretien_note;
     const noteAff = noteQ ?? noteL ?? null;
-    const col = noteAff>=4?'var(--c-texte)':noteAff>=3?'#d97706':noteAff!=null?'var(--c-texte)':'#9ca3af';
+    const col = noteAff>=4?'var(--c-texte)':noteAff>=3?'var(--c-attente)':noteAff!=null?'var(--c-texte)':'#9ca3af';
     const refl = c.reflexif_niveau || c.reflexif_niveau_libre;
     const REFL = ['','Descriptif','Analytique','Réflexif','Critique','Transformatif'];
     return { nom, st, noteAff, col, refl, REFL };
@@ -1454,13 +1454,13 @@ function genererComparatif(candidats, poste, grille) {
       const r = rep[i]||{};
       if (!r.note && !r.commentaire) return '';
       const lbl = LIKERT_LABELS[r.note]||'';
-      const lcol = ['','#ef4444','#f97316','#eab308','#22c55e','#0ea5e9'][r.note]||'#6b7280';
+      const lcol = ['','var(--c-refuse)','var(--c-attente)','var(--c-attente)','var(--c-reussi)','var(--c-accent)'][r.note]||'#6b7280';
       return `<tr><td style="padding:2px 5px;color:#6b7280;font-size:8pt;border-bottom:1px solid #f1f5f9;width:18%">${item.axe.replace(/Axe \d+ — /,'')}</td>
         <td style="padding:2px 5px;font-size:8pt;border-bottom:1px solid #f1f5f9">${item.q}</td>
         <td style="padding:2px 5px;text-align:center;border-bottom:1px solid #f1f5f9;width:15%">${r.note?`<span style="background:${lcol};color:white;padding:1px 5px;border-radius:8px;font-size:7.5pt;font-weight:700">${r.note} — ${lbl}</span>`:'—'}</td>
         <td style="padding:2px 5px;font-size:8pt;border-bottom:1px solid #f1f5f9;width:22%">${r.commentaire||''}</td></tr>`;
     }).join('');
-    const nc = c.note_globale; const col = nc>=4?'var(--c-texte)':nc>=3?'#d97706':nc!=null?'var(--c-texte)':'#9ca3af';
+    const nc = c.note_globale; const col = nc>=4?'var(--c-texte)':nc>=3?'var(--c-attente)':nc!=null?'var(--c-texte)':'#9ca3af';
     return `<div style="page-break-before:always;margin-bottom:6mm">
       <div style="background:${BLEU};color:white;padding:5px 10px;border-radius:4px;display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
         <span style="font-size:11pt;font-weight:700">${nom}</span>
@@ -1501,11 +1501,11 @@ function genererComparatif(candidats, poste, grille) {
 
 /* ══════════════════════ PDF FICHE INDIVIDUELLE ══════════════════════ */
 function genererFicheIndividuelle(candidat, grille) {
-  const BLEU = '#1B2B4B', TURQ = '#00AACC';
+  const BLEU = 'var(--c-principal)', TURQ = 'var(--c-accent)';
   const LIKERT_LABELS = ['','Peu structurée','Partiellement','Structurée','Bien structurée','Très structurée'];
-  const LIKERT_COLORS = ['','#ef4444','#f97316','#eab308','#22c55e','#0ea5e9'];
+  const LIKERT_COLORS = ['','var(--c-refuse)','var(--c-attente)','var(--c-attente)','var(--c-reussi)','var(--c-accent)'];
   const REFL_LABELS   = ['','Descriptif','Analytique','Réflexif','Critique','Transformatif'];
-  const REFL_COLORS   = ['','#ef4444','#f97316','#eab308','#22c55e','#0ea5e9'];
+  const REFL_COLORS   = ['','var(--c-refuse)','var(--c-attente)','var(--c-attente)','var(--c-reussi)','var(--c-accent)'];
   const grilleActive  = grille || GRILLE_IIP;
   const nom = [candidat.prenom, candidat.nom].filter(Boolean).join(' ') || '—';
 
@@ -1553,7 +1553,7 @@ function genererFicheIndividuelle(candidat, grille) {
   const hasLibre = candidat.entretien_note || candidat.entretien_commentaire || Object.values(repL).some(r=>r&&r.note>0);
   const entretienLibreHtml = hasLibre ? (() => {
     const nc = candidat.entretien_note;
-    const col = nc>=4?'var(--c-texte)':nc>=3?'#d97706':'var(--c-texte)';
+    const col = nc>=4?'var(--c-texte)':nc>=3?'var(--c-attente)':'var(--c-texte)';
     const rows = toutesQs.map((item,i) => {
       const r = repL[i]||{};
       if (r.disabled||(!r.note&&!r.commentaire)) return '';
@@ -1582,7 +1582,7 @@ function genererFicheIndividuelle(candidat, grille) {
   // Entretiens par cours
   const entretiensCoursHtml = (candidat.candidatures||[]).filter(ca=>ca.note_globale||ca.commentaire).map(ca => {
     const st = STATUT[ca.statut]||STATUT.a_voir;
-    const nc = ca.note_globale; const col = nc>=4?'var(--c-texte)':nc>=3?'#d97706':'var(--c-texte)';
+    const nc = ca.note_globale; const col = nc>=4?'var(--c-texte)':nc>=3?'var(--c-attente)':'var(--c-texte)';
     const rep = ca.reponses_json||{};
     const rows = toutesQs.map((item,i)=>{ const r=rep[i]||{}; if(!r.note&&!r.commentaire) return ''; const lbl=LIKERT_LABELS[r.note]||''; const lcol=LIKERT_COLORS[r.note]||'#6b7280'; return `<tr><td style="padding:2px 5px;color:#6b7280;font-size:8pt;border-bottom:1px solid #f1f5f9">${item.axe.replace(/Axe \d+ — /,'')}</td><td style="padding:2px 5px;font-size:8.5pt;border-bottom:1px solid #f1f5f9">${item.q}</td><td style="padding:2px 5px;text-align:center;border-bottom:1px solid #f1f5f9">${r.note?`<span style="background:${lcol};color:white;padding:1px 6px;border-radius:10px;font-size:8pt;font-weight:700">${r.note} — ${lbl}</span>`:'—'}</td><td style="padding:2px 5px;font-size:8pt;border-bottom:1px solid #f1f5f9">${r.commentaire||''}</td></tr>`; }).join('');
     return `<div style="margin-bottom:6px;border:1px solid #e2e8f0;border-radius:4px;overflow:hidden">
@@ -1651,9 +1651,9 @@ function VueCandidatsGlobal({ candidats, fonctions, grille, onRecharger,
         || (c.email || '').toLowerCase().includes(search.toLowerCase()))
     : candidats;
 
-  const BLEU = '#1B2B4B', TURQ = '#00AACC';
+  const BLEU = 'var(--c-principal)', TURQ = 'var(--c-accent)';
   const LIKERT_LABELS = ['','Superficielle','Partielle','Adéquate','Élaborée','Excellente'];
-  const LIKERT_COLORS = ['','#ef4444','#f97316','#eab308','#22c55e','#0ea5e9'];
+  const LIKERT_COLORS = ['','var(--c-refuse)','var(--c-attente)','var(--c-attente)','var(--c-reussi)','var(--c-accent)'];
   const grilleActive = useMemo(() => grilleAvecTirage(grille || GRILLE_IIP), []);
   const toutesQs = grilleActive.flatMap(axe =>
     (axe.questions||[]).map(q => ({ axe: axe.axe||axe.libelle, q: q.libelle||q, couleur: axe.couleur }))
@@ -1726,7 +1726,7 @@ function VueCandidatsGlobal({ candidats, fonctions, grille, onRecharger,
       const repLibre = c.entretien_reponses || {};
       const hasLibre = c.entretien_note || c.entretien_commentaire || Object.values(repLibre).some(r=>r&&(r.note>0||r.commentaire));
       const entretienLibre = hasLibre ? (() => {
-        const nc = c.entretien_note; const col = nc>=4?'var(--c-texte)':nc>=3?'#d97706':'var(--c-texte)';
+        const nc = c.entretien_note; const col = nc>=4?'var(--c-texte)':nc>=3?'var(--c-attente)':'var(--c-texte)';
         const rows = blockQ(repLibre);
         return `<div style="margin-bottom:8px">
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
@@ -1742,7 +1742,7 @@ function VueCandidatsGlobal({ candidats, fonctions, grille, onRecharger,
 
       // Entretiens par cours
       const entretiensCours = (c.candidatures||[]).filter(ca=>ca.note_globale||ca.commentaire||Object.keys(ca.reponses_json||{}).length).map(ca=>{
-        const nc = ca.note_globale; const col = nc>=4?'var(--c-texte)':nc>=3?'#d97706':'var(--c-texte)';
+        const nc = ca.note_globale; const col = nc>=4?'var(--c-texte)':nc>=3?'var(--c-attente)':'var(--c-texte)';
         const rows = blockQ(ca.reponses_json||{});
         return `<div style="margin-bottom:6px;background:#f8fafc;border-radius:4px;padding:5px 8px">
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:3px">
@@ -1821,7 +1821,7 @@ ${tous.map(candidatHtml).join('')}
         )}
         {filtres.map((c, idx) => {
           const entretienNote = c.entretien_note;
-          const noteColor = entretienNote >= 4 ? 'var(--c-texte)' : entretienNote >= 3 ? '#d97706' : 'var(--c-texte)';
+          const noteColor = entretienNote >= 4 ? 'var(--c-texte)' : entretienNote >= 3 ? 'var(--c-attente)' : 'var(--c-texte)';
           const docs = Object.values(c.docs_remis || {}).filter(Boolean).length;
           return (
             <button key={c.id} onClick={() => setFiche(c)}
@@ -2952,7 +2952,7 @@ function ModalNouveauCandidat({ onClose, onSaved }) {
 
 /* ══════════════════════ ÉDITEUR DE GRILLE ══════════════════════ */
 
-const COULEURS_AXES = ['var(--c-texte)','#7c3aed','var(--c-texte)','var(--c-attente)','#dc2626','#0891b2','#4f46e5','var(--c-attente)'];
+const COULEURS_AXES = ['var(--c-texte)','var(--c-faveur)','var(--c-texte)','var(--c-attente)','var(--c-refuse)','var(--c-accent)','var(--c-disponible)','var(--c-attente)'];
 
 function EditeurGrille({ grille, onSaved }) {
   const [axes, setAxes]     = useState(null);

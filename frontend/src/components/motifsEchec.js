@@ -32,7 +32,7 @@ export const MOTIFS_ECHEC = [
   {
     cle: 'integration',
     libelle: 'Intégration et mise en relation',
-    couleur: '#7c3aed',
+    couleur: 'var(--c-faveur)',
     motifs: [
       { cle: 'in_juxtapose', texte: "Les éléments de cet acquis sont juxtaposés sans être mis en relation." },
       { cle: 'in_lien', texte: "Le lien entre les notions de cet acquis et celles des autres acquis de l'unité n'est pas établi." },
@@ -66,7 +66,7 @@ export const MOTIFS_ECHEC = [
   {
     cle: 'communication',
     libelle: 'Communication et argumentation',
-    couleur: '#be185d',
+    couleur: 'var(--c-helb)',
     motifs: [
       { cle: 'co_clarte', texte: "La communication des éléments de cet acquis manque de clarté : le propos n'est pas intelligible pour son destinataire." },
       { cle: 'co_argument', texte: "Les affirmations ne sont pas étayées : l'argumentation attendue par cet acquis fait défaut." },
@@ -77,7 +77,7 @@ export const MOTIFS_ECHEC = [
   {
     cle: 'posture',
     libelle: 'Posture professionnelle et réflexivité',
-    couleur: '#0891b2',
+    couleur: 'var(--c-accent)',
     motifs: [
       { cle: 'po_reflexif', texte: "Le retour réflexif attendu par cet acquis reste descriptif : les faits sont rapportés, non analysés." },
       { cle: 'po_limites', texte: "Les limites de sa propre pratique ne sont pas identifiées." },

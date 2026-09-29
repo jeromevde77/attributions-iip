@@ -511,7 +511,7 @@ function OngletRapports({ domaine }) {
                   : 'border-transparent hover:bg-slate-50'}`}>
               <span className="flex-1 min-w-0 truncate">{r.libelle}</span>
               <span className={`text-[10px] px-1.5 py-0.5 rounded-md flex-shrink-0
-                ${r.piece ? 'bg-iip-turquoise/10 text-[#046B80]' : 'bg-slate-100 text-slate-500'}`}>
+                ${r.piece ? 'bg-iip-turquoise/10 text-[color:var(--c-texte)]' : 'bg-slate-100 text-slate-500'}`}>
                 {r.piece ? 'pièce' : 'tableau'}
               </span>
               {portee && (

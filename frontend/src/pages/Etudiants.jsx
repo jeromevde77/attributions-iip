@@ -46,7 +46,7 @@ import ImportHistorique from '../components/ImportHistorique.jsx';
 // s'il ne lui reste que la BA3, « Parcours » s'il en mélange plusieurs.
 // Couleurs des années d'études, communes à Lucie (cf. exports Attributions) :
 // BA1 orange, BA2 bleu clair, BA3 bleu marine, puis violet et rose au-delà.
-const NIV_PALETTE = ['#F97316', '#60A5FA', 'var(--c-texte)', '#A855F7', '#EC4899'];
+const NIV_PALETTE = ['var(--c-attente)', 'var(--c-disponible)', 'var(--c-texte)', 'var(--c-faveur)', 'var(--c-helb)'];
 
 function couleurNiveau(niv) {
   const m = /^BA(\d+)$/i.exec(String(niv || '').trim());
@@ -250,7 +250,7 @@ const KINDS_CELLULE = [
   // La circulaire distingue l'AJOURNEMENT, qui ouvre une seconde session sur
   // des acquis précis, du REFUS, qui ne l'ouvre pas. Les confondre sous un même
   // libellé privait le Conseil des études d'une de ses trois décisions.
-  { val: 'ajourne', label: 'Ajourné',  short: 'Aj', cls: 'bg-[color-mix(in_srgb,var(--c-attente)_11%,#fff)] border-[color-mix(in_srgb,var(--c-attente)_32%,#fff)] text-[#8A5A12]' },
+  { val: 'ajourne', label: 'Ajourné',  short: 'Aj', cls: 'bg-[color-mix(in_srgb,var(--c-attente)_11%,#fff)] border-[color-mix(in_srgb,var(--c-attente)_32%,#fff)] text-[color:var(--c-texte)]' },
   { val: 'refuse',  label: 'Refusé',   short: '✕',  cls: 'bg-[color-mix(in_srgb,var(--c-refuse)_11%,#fff)] border-[color-mix(in_srgb,var(--c-refuse)_32%,#fff)] text-[color:var(--c-refuse)]' },
   { val: 'absent',  label: 'Absent',   short: '–',  cls: 'bg-slate-50 text-slate-600 border-slate-200' },
 ];
@@ -504,7 +504,7 @@ function GrilleParcours({ etudId, peutEcrire, annee, ueFocus = null }) {
             « {nbHistorique === 0 ? 'années antérieures' : 'remonter encore'}
           </button>
           <button onClick={purgerAnnee} title="Effacer les résultats ou les inscriptions d'une année"
-            className="px-2 py-0.5 text-[11px] border border-[#E3BFB5] text-[color:var(--c-refuse)] rounded-md hover:bg-[#F7E9E5]">Purger…</button>
+            className="px-2 py-0.5 text-[11px] border border-[color:var(--c-attente)] text-[color:var(--c-refuse)] rounded-md hover:bg-[#F7E9E5]">Purger…</button>
         </div>
       </div>
 

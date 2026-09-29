@@ -443,7 +443,7 @@ export default function MesCours() {
                                       onClick={() => allerA({ r, ci })}
                                       title={j ? `Justificatif : ${j}` : 'Note sous 10 : justificatif à écrire (panneau de droite)'}
                                       aria-label={j ? 'Justificatif écrit' : 'Justificatif à écrire'}
-                                      className="ml-0.5 align-middle" style={{ color: j ? 'var(--iip-blue, #1B2B4B)' : 'var(--c-attente)' }}>
+                                      className="ml-0.5 align-middle" style={{ color: j ? 'var(--iip-blue, var(--c-principal))' : 'var(--c-attente)' }}>
                                       <IconMessageCircle size={13} stroke={2} />
                                     </button>
                                   );
@@ -564,7 +564,7 @@ export default function MesCours() {
             {face === 'notes' && feuille && (
               <div className="flex items-center gap-3 justify-end border-t border-slate-200 pt-2">
                 <span className="text-[12px] text-slate-500 min-w-0 flex-1">
-                  {invalides ? <span style={{ color: '#C2412D' }}>{invalides} case{invalides > 1 ? 's' : ''} à corriger : un nombre entier de 0 à 20, PP, NP ou CM.</span>
+                  {invalides ? <span style={{ color: 'var(--c-texte)' }}>{invalides} case{invalides > 1 ? 's' : ''} à corriger : un nombre entier de 0 à 20, PP, NP ou CM.</span>
                     : manquants.length ? <span style={{ color: 'var(--c-attente)' }}>{manquants.length} note{manquants.length > 1 ? 's' : ''} sous 10 sans justificatif.{' '}
                         <button type="button" className="underline" onClick={() => allerA(manquants[0])}>Aller au premier</button></span>
                     : 'Vos notes sont des propositions : la coordination les reprend dans l’encodage officiel.'}

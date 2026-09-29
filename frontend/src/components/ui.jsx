@@ -1105,7 +1105,7 @@ export function Fenetre({ icone: Ic, titre, sous, large = 'moyenne',
         <div className="flex items-center gap-3 px-5 py-3 text-white flex-shrink-0"
           style={{ background: ton === 'alerte' ? 'var(--c-refuse)' : 'var(--c-principal)' }}>
           {Ic && <Ic size={18} className="flex-shrink-0"
-            style={{ color: ton === 'alerte' ? '#f1c7bf' : '#7fd4e6' }} />}
+            style={{ color: ton === 'alerte' ? 'var(--c-texte)' : 'var(--c-accent)' }} />}
           <div className="min-w-0 flex-1">
             <div className="text-[15px] font-semibold truncate">{titre}</div>
             {sous && <div className="text-[12px] text-white/70 truncate">{sous}</div>}
@@ -1148,7 +1148,7 @@ export function GroupeFenetre({ titre, ton = 'neutre', children }) {
     <section className="mb-4 last:mb-0">
       {titre && (
         <div className="text-[11px] font-semibold uppercase tracking-[.13em] mb-2"
-          style={{ color: ton === 'alerte' ? 'var(--c-refuse)' : '#94a3b8' }}>{titre}</div>
+          style={{ color: ton === 'alerte' ? 'var(--c-refuse)' : 'var(--c-disponible)' }}>{titre}</div>
       )}
       <div className="space-y-1.5">{children}</div>
     </section>
@@ -1165,7 +1165,7 @@ export function GroupeFenetre({ titre, ton = 'neutre', children }) {
  */
 export function PieceFenetre({ icone: Ic, titre, sous, meta, ton = 'neutre',
                                actif = false, desactive = false, onClick }) {
-  const teinte = ton === 'alerte' ? 'var(--c-refuse)' : ton === 'neuf' ? '#00809c' : null;
+  const teinte = ton === 'alerte' ? 'var(--c-refuse)' : ton === 'neuf' ? 'var(--c-accent)' : null;
   const Balise = onClick ? 'button' : 'div';
   return (
     <Balise onClick={desactive ? undefined : onClick} disabled={desactive || undefined}
@@ -1175,7 +1175,7 @@ export function PieceFenetre({ icone: Ic, titre, sous, meta, ton = 'neutre',
         ${actif ? 'bg-slate-50' : 'bg-white'}`}
       style={{ borderColor: actif || teinte ? `rgb(var(--gris-200))` : '#e2e8f0' }}>
       {Ic && <Ic size={17} className="flex-shrink-0"
-        style={{ color: teinte || '#94a3b8' }} />}
+        style={{ color: teinte || 'var(--c-texte)' }} />}
       <span className="min-w-0 flex-1">
         <span className="block text-[13px] text-slate-700">{titre}</span>
         {sous && <span className="block text-[12px] text-slate-400">{sous}</span>}
