@@ -529,8 +529,8 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose, enPage = fa
         : 'bg-white rounded-fenetre shadow-dessus w-full max-w-[1400px] mt-4 max-h-[94vh] overflow-hidden flex flex-col'}>
 
         {/* L'en-tête ne défile pas : on doit toujours savoir de qui l'on parle. */}
-        <div className="flex-none px-4 py-3 border-b border-slate-100
-                        flex items-center justify-between gap-3 flex-wrap">
+        <div className={`flex-none ${enPage ? 'px-0 py-1' : 'px-4 py-3'} border-b border-slate-100
+                        flex items-center justify-between gap-3 flex-wrap`}>
           <div className="min-w-0">
             <h3 className="text-[15px] font-semibold text-iip-blue truncate">
               UE {data.ue_num} · {data.ue_nom}
@@ -541,7 +541,7 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose, enPage = fa
                 </span>
               )}
             </h3>
-            <p className="text-[12px] text-slate-500">
+            <p className="text-[11.5px] text-slate-500">
               {data.section || '—'} · {annee} · {data.etudiants.length} étudiant(s)
             </p>
             {/* PLUSIEURS ORGANISATIONS, PLUSIEURS DÉLIBÉRATIONS. Les onglets
@@ -641,7 +641,7 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose, enPage = fa
           </div>
         </div>
 
-        <div className={enPage ? 'py-3 space-y-3' : 'flex-1 overflow-y-auto p-4 space-y-3'}>
+        <div className={enPage ? 'py-1.5 space-y-1.5' : 'flex-1 overflow-y-auto p-4 space-y-3'}>
           {/* LA RÉOUVERTURE SE PRÉSENTE OÙ ELLE SERT — EN TÊTE.
               Elle n'existait que sur l'écran de clôture, qu'on n'atteint qu'en
               parcourant tous les étudiants jusqu'au dernier. Sur une unité
@@ -649,7 +649,7 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose, enPage = fa
               revue. Et si la seconde session s'est ouverte entre-temps, la
               feuille s'affiche en session 2 et la séance close de juin devient
               inatteignable. Le bandeau la rend accessible dans tous les cas. */}
-          {seance?.seance?.cloturee && (
+          {!!seance?.seance?.cloturee && (
             <BandeauReouverture session={session}
               onReprendre={() => setCorrection(true)} />
           )}
@@ -665,7 +665,7 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose, enPage = fa
               les étudiants jusqu'au dernier : ayant délibéré, on cherchait la
               session 2 et l'on ne trouvait ni elle, ni le geste qui l'ouvre.
               Le bandeau porte donc le chemin, non seulement la règle. */}
-          {data?.etat_sessions?.seconde_attend && (
+          {!!data?.etat_sessions?.seconde_attend && (
             <div className="px-3 py-2 rounded-carte bg-sky-50 border border-sky-200
                             flex items-start justify-between gap-3">
               <span className="text-[12px] text-sky-900">
@@ -688,7 +688,7 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose, enPage = fa
               vingt pixels de plus que leurs voisins, et la pile de bandeaux
               faisait un escalier. Le retrait est celui du conteneur, une fois
               pour tous. */}
-          {data?.etat_sessions?.seconde_possible && (
+          {!!data?.etat_sessions?.seconde_possible && (
         <div className="flex items-center gap-2 text-[12px]">
           <span className="text-slate-500">Session délibérée :</span>
           <div className="segments">
@@ -803,23 +803,18 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose, enPage = fa
                 onDecision={d => setDecisions(m => ({ ...m, [etud.id]: d }))}
                 onAnnuler={annulerEtudiant}
                 navigation={tuile => (
-              <div className="flex items-center justify-between gap-3 px-3 py-1
-                              rounded-carte border border-slate-200 mb-2">
+              <div className="flex items-center justify-between gap-3 py-0.5">
                 <button disabled={idx <= 0 || enCours} onClick={() => enregistrerPuisAvancer(-1)}
                   title="Enregistrer la décision et revenir au précédent"
-                  className="p-1.5 rounded-lg border border-slate-300 disabled:opacity-30">
+                  className="p-1 rounded-lg border border-slate-300 disabled:opacity-30">
                   <IconChevronLeft size={16} />
                 </button>
-                <div className="flex-1 min-w-0 px-2">
-                  <div className="text-[15px] font-bold text-iip-blue truncate">
-                    {nomPropre(etud.nom, etud.prenom)}
-                  </div>
-                  <div className="text-[11px] text-slate-500">
-                    {etud.id_ecampus || '—'} · {idx + 1} / {liste.length}
-                  </div>
+                <div className="flex-1 min-w-0 px-1 flex items-baseline gap-2 truncate">
+                  <span className="text-[15px] font-bold text-iip-blue truncate">{nomPropre(etud.nom, etud.prenom)}</span>
+                  <span className="text-[11px] text-slate-500 whitespace-nowrap">{etud.id_ecampus || '—'} · {idx + 1} / {liste.length}</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <div className="w-[230px]">{tuile}</div>
+                  {tuile}
                   {/* La raison du blocage, à côté du bouton qu'on presse. */}
                   {!!aMotiver.length && (
                     <button onClick={() => document.getElementById('a-justifier')
@@ -1796,13 +1791,13 @@ function Fiche({ e, data, onAjuster, onLot, onMotif, enCours, onBord,
   );
 
   const tuile = (
-    <TuileUE ue={ue} seuil={seuil} enCours={enCours}
+    <TuileUE compacte ue={ue} seuil={seuil} enCours={enCours}
       onFaveur={() => onAjuster('ue', '*', ue.faveur_ue ? null : 'faveur')} />
   );
   return (
-    <div className="grid gap-3 grid-cols-[46px_minmax(0,1fr)] items-start">
+    <div className="grid gap-x-2 gap-y-1.5 grid-cols-[40px_minmax(0,1fr)] items-start">
       {/* EN HAUT, COLLÉ : de qui l'on parle, et la note de son unité. */}
-      <div className="col-span-2 sticky top-0 z-20 -mx-1 px-1 pb-1.5 border-b border-slate-200"
+      <div className="col-span-2 sticky top-0 z-20 -mx-1 px-1 pb-1 border-b border-slate-200"
         style={{ background: 'var(--page-fond, #fff)' }}>
         {typeof navigation === 'function' ? navigation(tuile) : navigation}
       </div>
@@ -1819,24 +1814,21 @@ function Fiche({ e, data, onAjuster, onLot, onMotif, enCours, onBord,
         {(regarde.aa || regarde.cours) && (
           <div id="a-justifier" className="border border-slate-200 rounded-carte overflow-x-auto">
             <table className="w-full border-collapse text-[11.5px]">
-              <thead className="tab-entete">
+              <thead className="bg-slate-50 normal-case tracking-normal">
                 <tr className="align-bottom">
-                  <th className="text-left px-2.5 py-1.5 font-semibold text-slate-600 w-[22%]">Acquis</th>
+                  <th className="text-left px-2.5 py-1 font-semibold text-slate-600 w-[22%]">Acquis</th>
                   {cours.map(c => (
-                    <th key={c.cours_code} className="px-1.5 py-1.5 text-center font-normal min-w-[64px]"
-                      title={[c.cours_nom, c.professeurs].filter(Boolean).join(' · ')}>
-                      <div className="font-semibold text-slate-700">{c.cours_code}</div>
-                      {c.cours_nom && <div className="text-[10.5px] text-slate-500 leading-tight line-clamp-2">{c.cours_nom}</div>}
-                      <div className="text-[10.5px] text-slate-400 truncate max-w-[110px] mx-auto">
-                        {[c.professeurs, c.poids_cours_affiche != null ? `${c.poids_cours_affiche} %` : null].filter(Boolean).join(' · ')}
-                      </div>
+                    <th key={c.cours_code} className="px-1.5 py-1 text-center font-normal min-w-[64px]"
+                      title={[c.cours_nom, c.professeurs, c.poids_cours_affiche != null ? `${c.poids_cours_affiche} %` : null].filter(Boolean).join(' · ')}>
+                      <div className="text-slate-700 truncate"><b className="font-semibold">{c.cours_code}</b>
+                        {c.poids_cours_affiche != null && <span className="text-slate-400"> · {c.poids_cours_affiche} %</span>}</div>
+                      {c.cours_nom && <div className="text-[10.5px] text-slate-500 leading-tight truncate">{c.cours_nom}</div>}
                     </th>
                   ))}
-                  <th className="px-2 py-1.5 text-center font-semibold text-slate-700 bg-iip-blue/10 min-w-[70px]">
-                    Acquis<div className="text-[10.5px] font-normal text-slate-500">fait foi</div>
-                  </th>
+                  <th className="px-2 py-1 text-center font-semibold text-slate-700 bg-iip-blue/10 min-w-[70px]"
+                    title="La note consolidée de l'acquis : c'est elle qui fait foi">Acquis</th>
                   {aJust.length > 0 && (
-                    <th className="text-left px-2.5 py-1.5 font-semibold text-slate-600 w-[38%]">
+                    <th className="text-left px-2.5 py-1 font-semibold text-slate-600 w-[38%]">
                       Motivation de l'échec
                       <span className="font-normal text-slate-400"> · {aJust.filter(a => !a.motif).length
                         ? `${aJust.filter(a => !a.motif).length} à écrire` : 'toutes écrites'}</span>
@@ -1849,16 +1841,16 @@ function Fiche({ e, data, onAjuster, onLot, onMotif, enCours, onBord,
                   const enCause = aJustCodes.has(a.aa_code);
                   return (
                     <tr key={a.aa_code} className="border-t border-slate-100 bg-white align-top">
-                      <td className="px-2.5 py-1.5">
-                        <div className={`font-semibold ${enCause ? 'text-red-700' : 'text-slate-700'}`}>{a.aa_code}</div>
-                        <div className="text-[10.5px] text-slate-500 line-clamp-2" title={a.description || ''}>{a.description || ''}</div>
+                      <td className="px-2.5 py-1 max-w-0" title={a.description || ''}>
+                        <div className="truncate"><b className={`font-semibold ${enCause ? 'text-red-700' : 'text-slate-700'}`}>{a.aa_code}</b>
+                          <span className="text-[10.5px] text-slate-500"> {a.description || ''}</span></div>
                       </td>
                       {cours.map(c => (
-                        <td key={c.cours_code} className="px-1.5 py-1.5 text-center">
+                        <td key={c.cours_code} className="px-1.5 py-1 text-center">
                           {note(caseDe(a, c.cours_code), { na: c.na || a.na })}
                         </td>
                       ))}
-                      <td className="px-2 py-1.5 text-center bg-iip-blue/10 whitespace-nowrap">
+                      <td className="px-2 py-1 text-center bg-iip-blue/10 whitespace-nowrap">
                         {a.faveur ? <span className="text-violet-700 font-semibold" title="Octroyé par le Conseil"><IconGift size={11} className="inline -mt-0.5" /> {fmt(seuil)}</span>
                           : note(a, { na: a.na, gras: true })}
                         {bouton(!!a.ajourne_directement, a.ajourne_directement ? "Lever l'ajournement" : 'Ajourner cet acquis — à représenter',
@@ -2238,12 +2230,29 @@ function TuileSomme({ etat, seuil, onAjourner, onFaveur, motif, enCours,
 }
 
 /** La note de l'unité. La faveur se pose ici comme sur l'acquis et le cours. */
-function TuileUE({ ue, seuil, onFaveur, enCours }) {
+function TuileUE({ ue, seuil, onFaveur, enCours, compacte = false }) {
   const echec = !ue.na && ue.note != null && ue.note < seuil;
   // LA TUILE DE LA MAISON (bloc d'état) : le liseré porte l'état, le texte
   // reste à l'encre. Une unité non acquise est « à surveiller » tant qu'on
   // délibère ; la faveur, violette, garde son cadeau.
   const etat = ue.na ? 'indisponible' : ue.faveur ? 'faveur' : echec ? 'surveiller' : ue.note == null ? 'neutre' : 'reussi';
+  if (compacte) {
+    // UNE LIGNE (29 septembre 2026 : « il faut au moins gagner la moitié »).
+    return (
+      <div data-etat={etat} className="bloc-etat px-2.5 py-0.5 flex items-baseline gap-2 whitespace-nowrap">
+        {ue.faveur && <IconGift size={13} className="self-center" style={{ color: 'var(--c-faveur)' }} />}
+        <span className="text-[16px] font-bold tabular-nums">{ue.na ? 'NA' : fmt(ue.note)}</span>
+        <span className="text-[11px] text-slate-500">/ 20 · note de l'unité{echec ? ' · non acquise' : ''}</span>
+        {ue.cote_etudiant != null && String(ue.cote_etudiant) !== fmt(ue.note) && (
+          <span className="text-[11px] text-slate-500">· à l'étudiant <b className="tabular-nums">{ue.cote_etudiant}</b></span>
+        )}
+        {(echec || ue.faveur) && !ue.na && (
+          <button disabled={enCours} onClick={onFaveur} title={ue.faveur ? 'Retirer la faveur' : "Lever l'unité en faveur — elle vaudra exactement le seuil"}
+            className="self-center text-[11px] text-violet-700 underline">{ue.faveur ? 'retirer la faveur' : 'faveur'}</button>
+        )}
+      </div>
+    );
+  }
   return (
     <div data-etat={etat} className="bloc-etat px-2.5 py-1.5">
       <div className="flex items-center gap-1.5">

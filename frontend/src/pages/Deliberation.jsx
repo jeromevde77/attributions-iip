@@ -221,7 +221,7 @@ export default function Deliberation() {
   // (Charles, 29 septembre 2026).
   if (ueNum) {
     return (
-      <div className="p-5">
+      <div className="px-4 pt-1 pb-2">
         <FeuilleDeliberation enPage ueNum={ueNum} annee={annee}
           onClose={() => { setUeNum(null); charger(); }} />
       </div>
