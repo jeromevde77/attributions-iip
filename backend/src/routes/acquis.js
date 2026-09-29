@@ -21,6 +21,7 @@
 // numérateur ET du dénominateur : il ne pénalise pas l'étudiant.
 // ─────────────────────────────────────────────────────────────────────────────
 
+import { niveauxEffectifs } from './capitalisation.js';
 import { Router } from 'express';
 import db from '../db/index.js';
 import { nomPropre, nomPropreDepuisChaine, separerNomPrenom } from '../lib/nom.js';
@@ -5275,6 +5276,7 @@ r.get('/deliberation/ue/:ueNum', authRequired, (req, res) => {
     return { ...e, ...d,
       groupes: [...(grpParEtud[e.id] || [])].sort(),
       parcours: parcoursDeLAnnee(e.id, annee),
+      parcours_complet: parcoursComplet(e.id, annee),
       ue: { ...d.ue, ...aideDecision(d, moyennes[e.id] ?? null, ailleurs) } };
   });
 
@@ -8494,6 +8496,46 @@ export function parcoursDeLAnnee(etudId, annee) {
   `).all(etudId, annee).map(u => ({ ...u, faveur: faveurs.has(u.ue_num) }));
 }
 
+/**
+ * LE THERMOMÈTRE DU PARCOURS (Charles, 29 septembre 2026 : « sur le côté, le
+ * parcours de l'étudiant sous la forme d'un petit thermomètre, vert réussi,
+ * bleu en cours, jaune ajourné, violet faveur »). Toutes les unités de SA
+ * section, rangées par bloc, avec leur état — non les seules unités de
+ * l'année : c'est le chemin entier qu'on veut voir en délibérant.
+ * La section : celle déclarée, sinon la plus fréquente de ses inscriptions.
+ */
+export function parcoursComplet(etudId, annee) {
+  let section = null;
+  try { section = db.prepare('SELECT section_rattachement s FROM etudiant WHERE id = ?').get(etudId)?.s || null; } catch { /* */ }
+  if (!section) {
+    section = db.prepare(`SELECT u.section s, COUNT(*) n FROM etudiant_inscription i
+        JOIN ue u ON u.ue_num = i.ue_num AND u.annee_scolaire = i.annee_scolaire
+        WHERE i.etudiant_id = ? AND u.section IS NOT NULL AND COALESCE(u.hors_cursus, 0) = 0
+        GROUP BY u.section ORDER BY n DESC LIMIT 1`).get(etudId)?.s || null;
+  }
+  if (!section) return { section: null, unites: [] };
+  const niv = niveauxEffectifs([section], annee);
+  const faveurs = new Set(db.prepare(`SELECT DISTINCT ue_num FROM deliberation_ajustement
+      WHERE etudiant_id = ? AND action = 'faveur'`).all(etudId).map(r => r.ue_num));
+  const ins = db.prepare(`SELECT ue_num, annee_scolaire, resultat FROM etudiant_inscription
+      WHERE etudiant_id = ? ORDER BY annee_scolaire`).all(etudId);
+  const unites = Object.entries(niv).map(([n, bloc]) => {
+    const ue = Number(n);
+    const lignes = ins.filter(x => x.ue_num === ue);
+    const acquise = lignes.some(x => ['reussi', 'valorise', 'capitalise'].includes(x.resultat));
+    const cetteAnnee = lignes.find(x => x.annee_scolaire === annee);
+    const etat = acquise ? (faveurs.has(ue) ? 'faveur' : 'reussi')
+      : cetteAnnee ? (cetteAnnee.resultat === 'ajourne' ? 'ajourne' : cetteAnnee.resultat === 'refuse' ? 'refuse' : 'en_cours')
+        : 'a_venir';
+    const nom = db.prepare('SELECT ue_nom FROM ue WHERE ue_num = ? AND ue_nom IS NOT NULL ORDER BY (annee_scolaire = ?) DESC LIMIT 1')
+      .get(ue, annee)?.ue_nom || null;
+    return { ue_num: ue, ue_nom: nom, bloc: String(bloc || '').toUpperCase(), etat };
+  }).sort((x, y) => x.bloc.localeCompare(y.bloc) || x.ue_num - y.ue_num);
+  const ects = unites.filter(u => u.etat === 'reussi' || u.etat === 'faveur').reduce((t, u) =>
+    t + (Number(db.prepare('SELECT MAX(ects) e FROM ue WHERE ue_num = ?').get(u.ue_num)?.e) || 0), 0);
+  return { section, unites, ects };
+}
+
 /** Un étudiant délibéré, augmenté de son aide à la décision. */
 export function avecAide(etudId, ueNum, annee, session = 1) {
   const d = delibererUE(etudId, ueNum, annee, session);
@@ -8520,7 +8562,7 @@ export function avecAide(etudId, ueNum, annee, session = 1) {
     ORDER BY a.ue_num
   `).all(etudId, annee, ueNum);
 
-  return { ...d, parcours: parcoursDeLAnnee(etudId, annee),
+  return { ...d, parcours: parcoursDeLAnnee(etudId, annee), parcours_complet: parcoursComplet(etudId, annee),
            ue: { ...d.ue, ...aideDecision(d, moyenne, ailleurs) } };
 }
 
