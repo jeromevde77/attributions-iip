@@ -2143,6 +2143,18 @@ export function FicheEtudiant({ id, annee, onClose, position, onPrec, onSuiv,
     setFicheInscription({ html: j.html, titre: 'Parcours de formation', nom: j.nom });
   }
 
+  /* UN PDF PAR ATTESTATION, dans une archive (29 septembre 2026) : chaque
+     attestation est une pièce distincte, remise séparément. */
+  async function telechargerAttestationsPdf() {
+    const rep = await fetch(`/api/attestations/etudiant/${id}/pdfs?annee=toutes`, { headers: authHeaders() });
+    if (!rep.ok) { const j = await rep.json().catch(() => ({})); alert(j.error || 'Les PDF n\u2019ont pas pu être produits.'); return; }
+    const nom = (rep.headers.get('Content-Disposition') || '').match(/filename="([^"]+)"/)?.[1] || 'attestations.zip';
+    const url = URL.createObjectURL(await rep.blob());
+    const a = document.createElement('a'); a.href = url; a.download = nom;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 30000);
+  }
+
   async function ouvrirAttestations(toutes = false) {
     const quand = toutes === true ? 'toutes' : annee;
     const rep = await fetch(`/api/attestations/etudiant/${id}/document?annee=${quand}`,
@@ -2261,7 +2273,9 @@ export function FicheEtudiant({ id, annee, onClose, position, onPrec, onSuiv,
               { cle: 'attestations', icon: IconFileText, label: 'Attestations de réussite',
                 description: `Une par unité réussie en ${annee}`, onClick: () => ouvrirAttestations(false) },
               { cle: 'attestations-toutes', icon: IconFileText, label: 'Attestations de réussite — toutes les années',
-                description: "Toutes les unités réussies du parcours, chacune avec son année", onClick: () => ouvrirAttestations(true) },
+                description: "Toutes les unités réussies du parcours, en un document, chacune avec son année", onClick: () => ouvrirAttestations(true) },
+              { cle: 'attestations-pdf', icon: IconFileText, label: 'Attestations de réussite — un PDF par unité',
+                description: "Toutes les années : une archive, un fichier PDF par attestation", onClick: telechargerAttestationsPdf },
               { cle: 'parcours', icon: IconFileText, label: 'Parcours de formation',
                 description: 'Schéma de capitalisation et unités acquises — 1 page', onClick: ouvrirParcours },
               { cle: 'motivation', icon: IconFileText, label: 'Motiver un refus ou un ajournement',
