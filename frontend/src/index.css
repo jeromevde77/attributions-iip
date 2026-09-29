@@ -58,7 +58,7 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--c-principal); 
   --c-ba2: #7FB3D5; --c-ba2-rgb: 127 179 213;
   --c-ba3: #1B2B4B; --c-ba3-rgb: 27 43 75;
   --c-epreuve: #C9A84C; --c-epreuve-rgb: 201 168 76;
-  --c-fond_page: #F8FAFC; --c-fond_page-rgb: 248 250 252;
+  --c-fond_page: #FFFFFF; --c-fond_page-rgb: 255 255 255;
   --c-fond_indispo: #F4F5F7; --c-fond_indispo-rgb: 244 245 247;
 }
 
@@ -491,8 +491,8 @@ table.grid-excel-soft select:focus {
    l'œil — la rubrique ouverte, une alerte. Tout le reste est gris.
    ───────────────────────────────────────────────────────────────────────── */
 :root, :root[data-mode="clair"] {
-  --menu-fond:        var(--c-fond_page, #F8FAFC);   /* le fond de la page : le rail s'y fond */
-  --page-fond:        var(--c-fond_page, #F8FAFC);   /* en clair, la page et les menus ont UN sol */
+  --menu-fond:        var(--c-fond_page, #FFFFFF);   /* le fond de la page : le rail s'y fond */
+  --page-fond:        var(--c-fond_page, #FFFFFF);   /* en clair, la page et les menus ont UN sol */
   --menu-bord:        rgb(var(--c-texte-rgb) / 0.10);
   --menu-texte:       var(--c-principal);
   --menu-texte-doux:  rgb(var(--c-texte-rgb) / 0.55);
@@ -509,9 +509,9 @@ table.grid-excel-soft select:focus {
   --menu-sous:        #3E7FB8;
   --menu-sous-filet:  rgba(62, 127, 184, 0.34);
   --menu-sous-actif:  rgba(62, 127, 184, 0.12);
-  --barre-fond:       var(--c-fond_page, #F8FAFC);   /* le fond de la page : la barre s'y fond aussi */
+  --barre-fond:       var(--c-fond_page, #FFFFFF);   /* le fond de la page : la barre s'y fond aussi */
   --champ-fond:       #FFFFFF;
-  --tab-repere:       var(--c-fond_page, #F8FAFC);   /* le fond de la page : le filet suffit à démarquer */
+  --tab-repere:       var(--c-fond_page, #FFFFFF);   /* le fond de la page : le filet suffit à démarquer */
 }
 :root[data-mode="sombre"] {
   --menu-fond:        var(--c-menu_sombre);   /* le marine des MENUS en mode sombre */

@@ -59,7 +59,7 @@ export const COULEURS_DEFAUT = {
   epreuve: { groupe: 'blocs', libelle: 'Épreuve intégrée', valeur: '#C9A84C' },
   // LES FONDS — le sol de la page (barre et rail compris, en mode clair : un
   // seul sol) et le gris de ce qui n'est pas encore atteignable.
-  fond_page:    { groupe: 'fonds', libelle: 'Fond de la page', valeur: '#F8FAFC' },
+  fond_page:    { groupe: 'fonds', libelle: 'Fond de la page', valeur: '#FFFFFF' },
   fond_indispo: { groupe: 'fonds', libelle: 'Pas encore atteignable', valeur: '#F4F5F7' },
 };
 

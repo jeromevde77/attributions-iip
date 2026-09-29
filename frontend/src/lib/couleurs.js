@@ -25,7 +25,7 @@ export const DEFAUT = {
   iip: '#1B2B4B', helb: '#DB2777', ct: '#1D4ED8', pp: '#047857',
   reussi: '#3E7D5E', faveur: '#6B46C1', disponible: '#2F6FB0', attente: '#B45309', refuse: '#9D4A38',
   ba1: '#E8890C', ba2: '#7FB3D5', ba3: '#1B2B4B', epreuve: '#C9A84C',
-  fond_page: '#F8FAFC', fond_indispo: '#F4F5F7',
+  fond_page: '#FFFFFF', fond_indispo: '#F4F5F7',
 };
 
 /* L'ÉCHELLE DES GRIS À PARTIR D'UNE TEINTE (2.12.198). La teinte choisie
