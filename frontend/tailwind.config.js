@@ -50,6 +50,14 @@ export default {
           donnees:   'rgb(var(--c-donnees-rgb) / <alpha-value>)',
         }
       },
+      // LE FOND EST BLANC (Charles, 29 septembre 2026 : « du blanc !!! je veux
+      // le fond en blanc »). Les deux gris les plus clairs, employés partout
+      // comme FOND de panneau, de ligne ou d'étiquette, deviennent blancs —
+      // pour le fond seulement : filets et textes gris ne changent pas.
+      backgroundColor: Object.fromEntries(['slate', 'gray'].map(famille => [famille,
+        Object.fromEntries([50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 950].map(n => [n, n <= 100
+          ? 'rgb(255 255 255 / <alpha-value>)'
+          : `rgb(var(--gris-${n}) / <alpha-value>)`]))])),
       // LA COULEUR NE VA JAMAIS AU TEXTE (règle du modèle ; Charles, 29
       // septembre 2026 : « reste à ce qui est dans la configuration »). Pour
       // le TEXTE seulement, les familles d'état et d'accent donnent l'encre —

@@ -154,7 +154,7 @@ table.grid-excel-soft thead th:last-child { padding-right: 1rem; }
    filet entre eux : on lit « voici ce cours, et voici ce que ses colonnes
    disent » d'un seul mouvement. */
 .fusion-cours table.grid-excel-soft thead th {
-  background: #F4F6F8;
+  background: #fff;
   position: static;
 }
 /* La ligne des plafonds : une valeur, pas une étiquette — donc ni graisse ni
@@ -1082,7 +1082,7 @@ select[multiple], select[size]:not([size="1"]) {
  * en un coup d'œil » ne sont pas des alertes, et le « ⚠ » du texte dit déjà
  * lesquels en sont. Si tout est ocre, plus rien ne signale. */
 .texte-corpus blockquote { border: 1px solid #D8DCE4; border-left: 3px solid var(--c-principal);
-                           border-radius: 8px; background: #FAFAFB; padding: 0.5em 0.9em; }
+                           border-radius: 8px; background: #fff; padding: 0.5em 0.9em; }
 .texte-corpus blockquote > p:first-child strong { color: var(--c-texte); }
 .texte-corpus hr { border: 0; border-top: 1px solid #D8DCE4; margin: 1em 0; }
 /* Un tableau n'a que deux tons : l'en-tête, et la donnée blanche. */
