@@ -99,27 +99,57 @@ export default function Organisation({ ongletInitial }) {
         // qu'il parle, et les titulaires y accèdent pour leurs propres unités.
         { key: 'due', label: "Descriptifs d'UE", icone: IconFileDescription, sansMarge: true,
           rendu: <DUE /> },
-        /* L'HORAIRE SE COMPOSE ICI (Charles, 28 septembre 2026) : la semaine,
-           par classe, professeur ou local ; des tuiles qu'on déplace ; le bac
-           de ce qui reste à poser, tiré des groupes des attributions. */
-        { key: 'horaire-semaine', label: 'Horaire de la semaine', icone: IconCalendarWeek,
-          rendu: <Suspense fallback={<div className="p-4 text-[13px] text-slate-400">Chargement…</div>}>
-                   <HoraireSemaine /></Suspense> },
-        // L'HORAIRE VIENT D'AILLEURS, ET PERSONNE NE LE RELIT. Les
-        // coordinations le bâtissent dans Hyperplanning à partir des
-        // attributions ; que l'horaire dépense bien ce qui a été accordé, et
-        // par les bonnes personnes, ne se vérifiait nulle part.
-        { key: 'horaire', label: 'Horaire ↔ attributions', icone: IconClock, sansMarge: true,
-          rendu: annee
-            ? <HoraireComparateur annee={annee} />
-            : <div className="text-sm text-slate-400 p-4">Chargement de l'année active…</div> },
+        /* UN SEUL CENTRE HORAIRE (Charles, 29 septembre 2026 : « les deux
+           premières icônes doivent devenir un seul centre horaire ; la
+           troisième est un ancien module, à cacher »). Deux faces d'un même
+           objet : COMPOSER la semaine (tuiles, bac tiré des groupes, import
+           Hyperplanning) et CONTRÔLER l'horaire contre les attributions — ce
+           que l'horaire dépense doit être ce qui a été accordé, et par les
+           bonnes personnes. L'ancien « Horaires & planification » est masqué :
+           la Planification du rail le remplace. */
+        { key: 'horaire-semaine', label: 'Horaires', icone: IconCalendarWeek, sansMarge: true,
+          rendu: <CentreHoraire annee={annee} /> },
         { key: 'planification', label: 'Horaires & planification', icone: IconCalendarStats,
-          sansMarge: true,
+          sansMarge: true, masque: true,
           rendu: <Planification /> },
         { key: 'locaux', label: 'Locaux', icone: IconBuilding, futur: true,
           description: "Les locaux quitteront Configuration pour rejoindre le travail d'organisation." },
       ]}
     />
     </>
+  );
+}
+
+function CentreHoraire({ annee }) {
+  const [face, setFace] = useState('composer');
+  const FACES = [
+    { cle: 'composer', label: 'Composer la semaine', icone: IconCalendarWeek,
+      aide: 'La semaine par classe, professeur ou local ; les tuiles se déplacent, le bac tient ce qui reste à poser.' },
+    { cle: 'controler', label: 'Contrôler contre les attributions', icone: IconClock,
+      aide: "Ce que l'horaire dépense, rapporté à ce qui a été attribué, et par qui." },
+  ];
+  return (
+    <div>
+      <div className="flex items-center gap-1 px-4 pt-3 border-b border-slate-200">
+        {FACES.map(o => {
+          const Icone = o.icone;
+          return (
+            <button key={o.cle} type="button" onClick={() => setFace(o.cle)} title={o.aide}
+              className={`onglet-page ${face === o.cle ? 'onglet-page-actif' : ''} flex items-center gap-1.5`}>
+              <Icone size={15} /> {o.label}
+            </button>
+          );
+        })}
+      </div>
+      {face === 'composer' ? (
+        <div className="p-4">
+          <Suspense fallback={<div className="text-[13px] text-slate-400">Chargement…</div>}>
+            <HoraireSemaine />
+          </Suspense>
+        </div>
+      ) : annee
+        ? <HoraireComparateur annee={annee} />
+        : <div className="text-sm text-slate-400 p-4">Chargement de l'année active…</div>}
+    </div>
   );
 }

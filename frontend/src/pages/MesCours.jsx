@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { IconBooks, IconChevronLeft, IconAlertTriangle, IconMessageCircle } from '@tabler/icons-react';
 import { authHeaders, getAnnee } from '../lib/api.js';
 import { MOTIFS_ECHEC } from '../components/motifsEchec.js';
+import PresencesCours from '../components/PresencesCours.jsx';
 
 /**
  * MES COURS — la porte du professeur.
@@ -37,6 +38,7 @@ export default function MesCours() {
   const [fait, setFait] = useState(null);
   const [enCours, setEnCours] = useState(false);
   const [filtre, setFiltre] = useState('');
+  const [face, setFace] = useState('notes');          // notes | presences
   const [caseActive, setCaseActive] = useState(null);   // { id, k, r, ci } — la case que visent PP et NP
 
   useEffect(() => {
@@ -309,10 +311,20 @@ export default function MesCours() {
               </div>
             </div>
 
+            {/* DEUX FACES DU MÊME COURS (29 septembre 2026) : les notes, et les
+                présences séance par séance — celles-ci partent sur les
+                attestations du congé-éducation payé. */}
+            <div className="flex items-center gap-1 border-b border-slate-200">
+              {[['notes', 'Notes'], ['presences', 'Présences']].map(([k, l]) => (
+                <button key={k} type="button" onClick={() => setFace(k)}
+                  className={`onglet-page ${face === k ? 'onglet-page-actif' : ''}`}>{l}</button>
+              ))}
+            </div>
+            {face === 'presences' && <PresencesCours coursCode={ouvert} annee={annee} />}
             {fait && <p className="text-[13px] m-0" style={{ color: 'var(--c-reussi)' }}>✓ {fait}</p>}
             {!feuille && !erreur && <p className="text-sm text-slate-400">Chargement…</p>}
 
-            {feuille && (
+            {face === 'notes' && feuille && (
               <div className="grid gap-3 items-start lg:grid-cols-[minmax(0,1fr)_320px]">
                 <div className="carte overflow-x-auto">
                   <div className="flex items-center gap-2 px-3 py-1.5 border-b border-slate-100 text-[12px] text-slate-500">
@@ -549,7 +561,7 @@ export default function MesCours() {
               </div>
             )}
 
-            {feuille && (
+            {face === 'notes' && feuille && (
               <div className="flex items-center gap-3 justify-end border-t border-slate-200 pt-2">
                 <span className="text-[12px] text-slate-500 min-w-0 flex-1">
                   {invalides ? <span style={{ color: '#C2412D' }}>{invalides} case{invalides > 1 ? 's' : ''} à corriger : un nombre entier de 0 à 20, PP, NP ou CM.</span>
