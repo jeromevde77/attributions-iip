@@ -44,8 +44,19 @@ export default function PiecesEtudiant({ etud, annee }) {
   }, [id, annee]);
 
   const destinataire = { type: 'etudiant', id, nom: nomDe(etud) };
+  /* LE PDF EST LA SORTIE, L'APERÇU L'EXCEPTION (Charles, 29 septembre 2026 :
+     « je veux que ça sorte avec bas de page, et pas en mode HTML »). Le PDF
+     serveur pose le pied sur CHAQUE feuille, en A4 imposé ; l'aperçu du
+     navigateur ne le garantit pas. L'aperçu reste pour envoyer par courriel. */
+  const [sortie, setSortie] = useState('pdf');     // pdf | apercu
+  const telecharger = (blob, nom) => {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href = url; a.download = nom;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 30000);
+  };
   /** Une pièce rendue par une route GET qui répond { html }. */
-  const apercu = async (cle, url, titre, typeDoc) => {
+  const apercu = async (cle, url, titre, typeDoc, { orientation = 'portrait' } = {}) => {
     setEnCours(cle); setErreur(null);
     try {
       const r = await fetch(url, { headers: authHeaders() });
@@ -54,8 +65,16 @@ export default function PiecesEtudiant({ etud, annee }) {
       if (j.manques?.length && typeof j.manques[0] === 'object') {
         setErreur(`Des mentions obligatoires manquent : ${j.manques.map(m => `UE ${m.ue_num} — ${(m.manques || []).join(', ')}`).join(' · ')}`);
       }
-      ouvrirApercu({ html: j.html, titre: j.titre || titre, sousTitre: nomDe(etud), nomFichier: j.nom ? String(j.nom).replace(/\.html$/, '') : undefined,
-        typeDoc, destinataire, astuceImpression: 'A4 portrait' });
+      const nomFichier = (j.nom ? String(j.nom).replace(/\.html$/, '') : `${typeDoc}_${nomDe(etud)}`).replace(/[^A-Za-z0-9_.-]+/g, '_');
+      if (sortie === 'apercu') {
+        ouvrirApercu({ html: j.html, titre: j.titre || titre, sousTitre: nomDe(etud), nomFichier,
+          typeDoc, destinataire, astuceImpression: orientation === 'paysage' ? 'A4 paysage' : 'A4 portrait' });
+        return;
+      }
+      const rp = await fetch('/api/impression/pdf', { method: 'POST', headers: authHeaders(),
+        body: JSON.stringify({ html: j.html, nom: nomFichier, pagination: 'si-plusieurs', orientation }) });
+      if (!rp.ok) { const e = await rp.json().catch(() => ({})); throw new Error(e.error || "Le PDF n'a pas pu être produit."); }
+      telecharger(await rp.blob(), `${nomFichier}.pdf`);
     } catch (e) { setErreur(e.message); } finally { setEnCours(null); }
   };
   const archive = async () => {
@@ -80,7 +99,7 @@ export default function PiecesEtudiant({ etud, annee }) {
         clic: () => apercu('att-toutes', `/api/attestations/etudiant/${id}/document?annee=toutes`, 'Attestations de réussite — toutes les années', 'attestation_reussite') },
       { cle: 'pdfs', icone: IconFileZip, titre: 'Attestations de réussite — un PDF par unité', sous: 'Toutes les années, une archive', clic: archive },
       { cle: 'parcours', icone: IconFileText, titre: 'Parcours de formation', sous: 'Schéma de capitalisation et unités acquises',
-        clic: () => apercu('parcours', `/api/etudiants/${id}/fiche-parcours/document?annee=${a}`, 'Parcours de formation', 'parcours') },
+        clic: () => apercu('parcours', `/api/etudiants/${id}/fiche-parcours/document?annee=${a}`, 'Parcours de formation', 'parcours', { orientation: 'paysage' }) },
       { cle: 'motivation', icone: IconFileText, titre: 'Motiver un refus ou un ajournement', sous: 'Annexes 8 et 9 — par acquis',
         clic: () => setModale('motivation') },
     ]],
@@ -114,6 +133,13 @@ export default function PiecesEtudiant({ etud, annee }) {
   if (!id) return null;
   return (
     <div>
+      <div className="flex items-center gap-3 mb-3 text-[12.5px]">
+        <span className="text-slate-500">Sortie :</span>
+        <label className="flex items-center gap-1"><input type="radio" checked={sortie === 'pdf'} onChange={() => setSortie('pdf')} />
+          PDF avec bas de page</label>
+        <label className="flex items-center gap-1"><input type="radio" checked={sortie === 'apercu'} onChange={() => setSortie('apercu')} />
+          Aperçu à l'écran (pour envoyer par courriel)</label>
+      </div>
       {groupes.map(([titre, pieces]) => (
         <GroupeFenetre key={titre} titre={titre}>
           <div className="grid gap-1.5 md:grid-cols-2">
@@ -129,7 +155,7 @@ export default function PiecesEtudiant({ etud, annee }) {
           retrouvaient enfermées, derrière le voile. */}
       {modale && createPortal(
         modale === 'motivation' ? <MotivationDecision etudId={id} annee={annee} onClose={() => setModale(null)} />
-          : modale === 'annexe1' ? <Annexe1 etudId={id} annee={annee} onClose={() => setModale(null)} />
+          : modale === 'annexe1' ? <Annexe1 etudId={id} annee={annee} enPdf={sortie === 'pdf'} onClose={() => setModale(null)} />
             : <Annexe2 etudId={id} annee={annee} onClose={() => setModale(null)} />,
         document.body)}
     </div>

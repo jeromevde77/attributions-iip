@@ -17,7 +17,7 @@ import { Fenetre, Encadre } from './ui.jsx';
  */
 const aujourdHui = () => new Date().toISOString().slice(0, 10);
 
-export default function Annexe1({ etudId, annee, onClose }) {
+export default function Annexe1({ etudId, annee, onClose, enPdf = true }) {
   const [d, setD] = useState(null);
   const [erreur, setErreur] = useState(null);
   const [enCours, setEnCours] = useState(false);
@@ -44,9 +44,20 @@ export default function Annexe1({ etudId, annee, onClose }) {
         body: JSON.stringify({ etudiant_id: etudId, annee, ...f }) });
       const j = await r.json();
       if (!r.ok) throw new Error(j.error || `Erreur ${r.status}`);
-      ouvrirApercu({ html: j.html, titre: 'Visa ou titre de séjour étudiant (annexe 1)', sousTitre: annee,
-        nomFichier: `Annexe1_${(d?.etudiant?.nom || '').toUpperCase()}_${annee}`,
-        destinataire: { type: 'etudiant', id: etudId }, typeDoc: 'annexe1', astuceImpression: 'A4 portrait' });
+      const nom = `Annexe1_${(d?.etudiant?.nom || '').toUpperCase()}_${annee}`.replace(/[^A-Za-z0-9_.-]+/g, '_');
+      if (!enPdf) {
+        ouvrirApercu({ html: j.html, titre: 'Visa ou titre de séjour étudiant (annexe 1)', sousTitre: annee,
+          nomFichier: nom, destinataire: { type: 'etudiant', id: etudId }, typeDoc: 'annexe1', astuceImpression: 'A4 portrait' });
+        return;
+      }
+      // LE MODÈLE OFFICIEL N'A PAS DE BAS DE PAGE : le PDF n'en ajoute pas.
+      const rp = await fetch('/api/impression/pdf', { method: 'POST', headers: authHeaders(),
+        body: JSON.stringify({ html: j.html, nom, pagination: 'jamais', pied: false }) });
+      if (!rp.ok) { const x = await rp.json().catch(() => ({})); throw new Error(x.error || "Le PDF n'a pas pu être produit."); }
+      const url = URL.createObjectURL(await rp.blob());
+      const lien = document.createElement('a'); lien.href = url; lien.download = `${nom}.pdf`;
+      document.body.appendChild(lien); lien.click(); lien.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 30000);
     } catch (e) { setErreur(e.message); } finally { setEnCours(false); }
   };
 

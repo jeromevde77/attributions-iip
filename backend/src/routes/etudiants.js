@@ -5923,7 +5923,9 @@ r.get('/:id/valorisations/unites', authRequired, (req, res) => {
  */
 function verifierValorisation(b) {
   const { annee_scolaire, ue_num, type, cible } = b;
-  if (!annee_scolaire || !ue_num || !type) {
+  // L'ADMISSION PORTE ue_num = 0 : « !ue_num » la déclarait sans unité et la
+  // refusait — toute admission décidée en série tombait là (29 septembre 2026).
+  if (!annee_scolaire || ((ue_num == null || ue_num === '') && type !== 'admission') || !type) {
     return 'annee_scolaire, ue_num et type requis';
   }
   if (!['complete','partielle','admission'].includes(type)) return 'type invalide';
@@ -6551,9 +6553,10 @@ r.put('/valorisations/:vid/decision', authRequired, roleRequired(...PEUT_INSTRUI
         + '(étape 4) : c’est lui qui fonde la décision.' });
     }
 
-    const type = req.body.type || v.type;
+    // Une admission reste une admission, quel que soit le mot de l'écran.
+    const type = estAdmissionDeSection(v) ? 'admission' : (req.body.type || v.type);
     const decision = req.body.decision === 'refusee' ? 'refusee' : 'accordee';
-    const corps = { ...req.body, type, decision,
+    const corps = { ...req.body, type, porte: v.porte, decision,
                     annee_scolaire: v.annee_scolaire, ue_num: v.ue_num };
     const souci = verifierValorisation(corps) || verifierDecisionCE(corps);
     if (souci) return res.status(400).json({ error: souci });
@@ -6845,11 +6848,22 @@ r.post('/valorisations/lot/decision', authRequired, roleRequired(...PEUT_INSTRUI
   }
   if (memeSeance(cibles, res, req.body.decision_ce_date || null)) return;
 
-  const type = req.body.type;
   const decision = req.body.decision === 'refusee' ? 'refusee' : 'accordee';
   const refus = decision === 'refusee';
+  /* UNE ADMISSION RESTE UNE ADMISSION. « Dispense totale » à l'écran veut dire,
+     pour elle, « accordée » : elle ne porte sur aucune unité, et l'écrire en
+     « complete » en aurait fait une dispense d'une unité 0 qui n'existe pas.
+     Une admission n'a pas de cours à dispenser : pas de partielle. */
+  const typeDe = v => (estAdmissionDeSection(v) ? 'admission' : req.body.type);
+  if (!refus && req.body.type === 'partielle') {
+    const adm = cibles.filter(v => estAdmissionDeSection(v));
+    if (adm.length) {
+      return res.status(409).json({ error: "Une admission ne se décide pas en dispense partielle : elle est accordée ou refusée.",
+        bloquants: adm.map(v => ({ id: v.id, qui: `${(v.nom || '').toUpperCase()} ${v.prenom || ''}`.trim(), pourquoi: 'admission de section' })) });
+    }
+  }
   for (const v of cibles) {
-    const corps = { ...req.body, type, decision,
+    const corps = { ...req.body, type: typeDe(v), porte: v.porte, decision,
                     annee_scolaire: v.annee_scolaire, ue_num: v.ue_num };
     const souci = verifierValorisation(corps) || verifierDecisionCE(corps);
     if (souci) return res.status(400).json({ error: souci });
@@ -6857,12 +6871,12 @@ r.post('/valorisations/lot/decision', authRequired, roleRequired(...PEUT_INSTRUI
 
   const nom = req.user?.nom || req.user?.email || null;
   db.transaction(() => {
-    for (const v of cibles) ecrireDecision(v, { ...req.body, type, decision }, nom);
+    for (const v of cibles) ecrireDecision(v, { ...req.body, type: typeDe(v), decision }, nom);
   })();
   for (const v of cibles) {
     journaliser(v.id, refus ? 'decision_refus' : 'decision_accord', req,
       `en série (${cibles.length} dossiers) · ${refus ? 'refus'
-        : `${type} · base ${req.body.base_code}`}`);
+        : `${typeDe(v)} · base ${req.body.base_code}`}`);
     rafraichirEtat(v.id);
   }
   res.json({ ok: true, corriges: cibles.length });
