@@ -6689,7 +6689,7 @@ r.put('/valorisations/:vid/validation', authRequired, (req, res) => {
 r.delete('/valorisations/:vid/validation', authRequired, (req, res) => {
   if (!PEUT_DEVALIDER.includes(req.user?.role)) {
     return res.status(403).json({ error: 'Retirer une validation est réservé à la '
-      + 'direction : la coordination peut valider, elle ne défait pas.' });
+      + 'direction, qui seule valide : la coordination instruit le dossier.' });
   }
   const vid = Number(req.params.vid);
   const motif = String(req.body?.motif || '').trim();
