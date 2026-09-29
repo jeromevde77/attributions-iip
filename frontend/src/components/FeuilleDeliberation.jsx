@@ -52,7 +52,11 @@ function aJustifier(acquis = [], cours = [], decision = null) {
   return acquis.filter(a => enCause.has(a.aa_code));
 }
 
-export default function FeuilleDeliberation({ ueNum, annee, onClose }) {
+/* UN CONTENU, PAS UNE FENÊTRE (Charles, 29 septembre 2026). `enPage` : la
+   feuille remplace la liste des unités dans l'écran de délibération, au lieu
+   de s'ouvrir par-dessus ; la page défile, et la bande de décision reste
+   collée au bas. Sans lui (saisie rapide), elle reste une fenêtre. */
+export default function FeuilleDeliberation({ ueNum, annee, onClose, enPage = false }) {
   // La correction administrative d'une séance close, distincte de sa
   // réouverture : on répare une mention, on ne rejuge personne.
   const [correction, setCorrection] = useState(false);
@@ -505,6 +509,9 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose }) {
     finally { setEnCours(false); }
   }
 
+  if (!data && enPage) {
+    return <div className="py-10 text-center text-[13px] text-slate-500">{erreur || 'Chargement…'}</div>;
+  }
   if (!data) {
     return (
       <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] flex items-start justify-center z-50 p-4">
@@ -516,10 +523,10 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose }) {
   }
 
   return (
-    <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] flex items-start justify-center z-50 p-3"
-      onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="bg-white rounded-fenetre shadow-dessus w-full max-w-[1400px] mt-4
-                      max-h-[94vh] overflow-hidden flex flex-col">
+    <div className={enPage ? '' : 'fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] flex items-start justify-center z-50 p-3'}
+      onClick={e => !enPage && e.target === e.currentTarget && onClose()}>
+      <div className={enPage ? 'w-full flex flex-col'
+        : 'bg-white rounded-fenetre shadow-dessus w-full max-w-[1400px] mt-4 max-h-[94vh] overflow-hidden flex flex-col'}>
 
         {/* L'en-tête ne défile pas : on doit toujours savoir de qui l'on parle. */}
         <div className="flex-none px-4 py-3 border-b border-slate-100
@@ -622,13 +629,19 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose }) {
                                       : 'border-slate-300 text-slate-600'}`}>
               Clôture
             </button>
-            <button onClick={onClose} className="text-slate-400 hover:text-slate-600">
-              <IconX size={18} />
-            </button>
+            {enPage ? (
+              <button onClick={onClose} className="bouton inline-flex items-center gap-1">
+                <IconChevronLeft size={14} /> Les unités
+              </button>
+            ) : (
+              <button onClick={onClose} className="text-slate-400 hover:text-slate-600">
+                <IconX size={18} />
+              </button>
+            )}
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-4 space-y-3">
+        <div className={enPage ? 'py-3 space-y-3' : 'flex-1 overflow-y-auto p-4 space-y-3'}>
           {/* LA RÉOUVERTURE SE PRÉSENTE OÙ ELLE SERT — EN TÊTE.
               Elle n'existait que sur l'écran de clôture, qu'on n'atteint qu'en
               parcourant tous les étudiants jusqu'au dernier. Sur une unité
@@ -783,7 +796,13 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose }) {
               onOuvrir={e => { setIdx(liste.indexOf(e)); setTableau(false); }} />
           ) : etud ? (
             <>
-              {/* Le passage d'un étudiant au suivant : c'est le geste du Conseil. */}
+              <Fiche e={etud} data={data} onAjuster={ajuster} onLot={ajusterLot}
+                onMotif={poserMotif} session={session}
+                enCours={enCours} onBord={() => setBord(etud)}
+                decision={decisions[etud.id] || etud.ue?.decision_proposee || null}
+                onDecision={d => setDecisions(m => ({ ...m, [etud.id]: d }))}
+                onAnnuler={annulerEtudiant}
+                navigation={(
               <div className="flex items-center justify-between gap-3 px-3 py-1
                               rounded-carte border border-slate-200 mb-2">
                 <button disabled={idx <= 0 || enCours} onClick={() => enregistrerPuisAvancer(-1)}
@@ -825,13 +844,7 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose }) {
                   </button>
                 </div>
               </div>
-
-              <Fiche e={etud} data={data} onAjuster={ajuster} onLot={ajusterLot}
-                onMotif={poserMotif} session={session}
-                enCours={enCours} onBord={() => setBord(etud)}
-                decision={decisions[etud.id] || etud.ue?.decision_proposee || null}
-                onDecision={d => setDecisions(m => ({ ...m, [etud.id]: d }))}
-                onAnnuler={annulerEtudiant} />
+                )} />
             </>
           ) : null}
         </div>
@@ -1736,7 +1749,7 @@ function Cloture({ seance, onClore, onRetour, onPV, onReprendre, enCours, nb, aj
  *     Conseil. Le calcul et les gestes n'ont pas changé : seule la mise en page.
  */
 function Fiche({ e, data, onAjuster, onLot, onMotif, enCours, onBord,
-  decision, onDecision, onAnnuler, session }) {
+  decision, onDecision, onAnnuler, session, navigation = null }) {
   const ue = e.ue || {};
   const acquis = e.acquis || [];
   const cours = e.cours || [];
@@ -1872,19 +1885,28 @@ function Fiche({ e, data, onAjuster, onLot, onMotif, enCours, onBord,
           </div>
         )}
 
-        {/* LA BANDE DE DÉCISION : la note d'unité, puis ce que le Conseil décide. */}
-        <div className="grid gap-2 grid-cols-[150px_minmax(0,1fr)] items-start">
+        {/* Ce que la décision emporte, et ce que la faveur coûterait : dans la
+            fiche, lu avant de cliquer. */}
+        <DecisionGenerale cours={cours} enCours={enCours} onLot={onLot}
+          onDecision={onDecision} decision={decision} />
+        <AideDecision ue={ue} />
+        <Decision e={e} ue={ue} acquis={acquis} cours={cours} decision={decision}
+          onDecision={onDecision} enCours={enCours} session={session} partie="details" />
+      </div>
+
+      {/* LA BANDE DE DÉCISION, TOUJOURS VISIBLE (Charles, 29 septembre 2026) :
+          collée au bas de l'écran, l'étudiant nommé au-dessus. On décide sans
+          avoir à la chercher, et l'on voit toujours de qui l'on parle. */}
+      <div className="col-span-2 sticky bottom-0 z-20 -mx-1 px-1 pt-2 pb-1 border-t border-slate-200"
+        style={{ background: 'var(--page-fond, #fff)' }}>
+        {navigation}
+        <div className="grid gap-2 grid-cols-[160px_minmax(0,1fr)] items-start mt-1.5">
           <TuileUE ue={ue} seuil={seuil} enCours={enCours}
             onFaveur={() => onAjuster('ue', '*', ue.faveur_ue ? null : 'faveur')} />
-          <div className="space-y-1.5 min-w-0">
-            <Decision e={e} ue={ue} onBord={onBord} acquis={acquis} cours={cours}
-              decision={decision} onDecision={onDecision} enCours={enCours}
-              onAnnuler={onAnnuler} session={session}
-              onFaveurUE={() => onAjuster('ue', '*', ue.faveur_ue ? null : 'faveur')} />
-            <DecisionGenerale cours={cours} enCours={enCours} onLot={onLot}
-              onDecision={onDecision} decision={decision} />
-            <AideDecision ue={ue} />
-          </div>
+          <Decision e={e} ue={ue} onBord={onBord} acquis={acquis} cours={cours}
+            decision={decision} onDecision={onDecision} enCours={enCours}
+            onAnnuler={onAnnuler} session={session} partie="boutons"
+            onFaveurUE={() => onAjuster('ue', '*', ue.faveur_ue ? null : 'faveur')} />
         </div>
       </div>
     </div>
@@ -2563,15 +2585,24 @@ function DecisionGenerale({ cours, enCours, onLot, onDecision, decision }) {
 }
 
 function Decision({ e, ue, onBord, acquis, cours, decision, onDecision, enCours,
-                    onAnnuler, session, onFaveurUE }) {
+                    onAnnuler, session, onFaveurUE, partie = null }) {
+  // DEUX PARTIES (29 septembre 2026) : les BOUTONS vivent dans la bande
+  // toujours visible au bas de l'écran ; les EXPLICATIONS (ce qu'un refus
+  // emporte, ce qui se représente) restent dans la fiche, au-dessus.
+  const boutons = partie !== 'details', details = partie !== 'boutons';
   const detail = ue.a_representer_detail || [];
   // Ce qui reste à justifier se lit sur les acquis affichés, non sur la liste
   // que le serveur a calculée à l'ouverture de la fiche.
   const manquants = aJustifier(acquis, cours, decision).filter(a => !a.motif).map(a => a.aa_code);
   const propose = ue.decision_proposee;
 
+  if (details && !boutons) {
+    const rien = !ue.faveur && decision !== 'refuse' && !(ue.na && decision !== 'refuse');
+    if (rien) return null;
+  }
   return (
-    <div className="border border-slate-200 rounded-xl overflow-hidden">
+    <div className={boutons && details ? 'border border-slate-200 rounded-xl overflow-hidden' : ''}>
+      {boutons && details && (
       <div className="px-3 py-1.5 bg-slate-50 border-b border-slate-200 text-[12px]
                       font-semibold text-iip-blue flex items-center justify-between gap-2">
         <span>Décision du Conseil des études</span>
@@ -2581,8 +2612,10 @@ function Decision({ e, ue, onBord, acquis, cours, decision, onDecision, enCours,
           </span>
         )}
       </div>
+      )}
 
-      <div className="p-3 space-y-2">
+      <div className={boutons && details ? 'p-3 space-y-2' : 'space-y-1.5'}>
+        {boutons && (<>
         <div className="flex items-center gap-2 flex-wrap">
           {/* LA FAVEUR EST UNE DÉCISION DE L'UNITÉ, pas une retouche de note.
               Le Conseil accorde l'unité malgré un acquis manquant : la cote
@@ -2681,6 +2714,8 @@ function Decision({ e, ue, onBord, acquis, cours, decision, onDecision, enCours,
           )}
         </div>
 
+        </>)}
+        {details && (<>
         {ue.faveur && (
           <p className="text-[12px] text-amber-900 bg-amber-50 border border-amber-200
                         rounded-lg px-2.5 py-1.5">
@@ -2743,6 +2778,7 @@ function Decision({ e, ue, onBord, acquis, cours, decision, onDecision, enCours,
             )}
           </div>
         )}
+        </>)}
       </div>
     </div>
   );

@@ -217,6 +217,17 @@ export default function Deliberation() {
 
   const sec = plan?.sections.find(s => s.section === section) || null;
 
+  // LA FEUILLE EST LE CONTENU DE L'ÉCRAN, PAS UNE FENÊTRE PAR-DESSUS
+  // (Charles, 29 septembre 2026).
+  if (ueNum) {
+    return (
+      <div className="p-5">
+        <FeuilleDeliberation enPage ueNum={ueNum} annee={annee}
+          onClose={() => { setUeNum(null); charger(); }} />
+      </div>
+    );
+  }
+
   return (
     <div className="p-5 space-y-4">
       <div className="flex items-start justify-between gap-3 flex-wrap">
@@ -593,10 +604,7 @@ export default function Deliberation() {
         </>
       )}
 
-      {ueNum && (
-        <FeuilleDeliberation ueNum={ueNum} annee={annee}
-          onClose={() => { setUeNum(null); charger(); }} />
-      )}
+
 
       {repartirUE && (
         <RepartitionOrganisation ueNum={repartirUE.ue_num} ueNom={repartirUE.ue_nom}
