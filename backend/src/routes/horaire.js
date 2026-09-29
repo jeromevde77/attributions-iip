@@ -74,6 +74,15 @@ export function migrerHoraire(base = db) {
     if (!cols.includes(nom)) base.exec(`ALTER TABLE horaire_seance ADD COLUMN ${nom} ${type}`);
   }
   base.exec('CREATE INDEX IF NOT EXISTS idx_hs_groupe ON horaire_seance(groupe_id)');
+  /* LE NOM D'HYPERPLANNING N'EST PAS TOUJOURS CELUI DE LUCIE (Charles, 29
+     septembre 2026 : « ELJASZUK » dans l'export, « ELJASUK » dans Lucie, et
+     c'est Lucie qui a raison). On ne corrige pas une donnée juste pour
+     satisfaire un fichier : on dit une fois pour toutes que ce texte-là
+     désigne cette personne-là, et chaque import le relit. */
+  base.exec(`CREATE TABLE IF NOT EXISTS horaire_alias_prof (
+    texte TEXT PRIMARY KEY, texte_brut TEXT,
+    professeur_id INTEGER NOT NULL REFERENCES professeur(id) ON DELETE CASCADE,
+    pose_par TEXT, pose_le TEXT DEFAULT (datetime('now')))`);
 }
 
 /** L'index des professeurs, par nom+prénom normalisés — et par nom seul. */
@@ -83,9 +92,17 @@ function indexProfs() {
     complet.set(clean(`${p.nom}${p.prenom}`), p);
     (parNom.get(clean(p.nom)) || parNom.set(clean(p.nom), []).get(clean(p.nom))).push(p);
   }
+  const alias = new Map();
+  try {
+    const parId = new Map(db.prepare('SELECT id, nom, prenom FROM professeur').all().map(p => [p.id, p]));
+    for (const a of db.prepare('SELECT texte, professeur_id FROM horaire_alias_prof').all()) {
+      if (parId.has(a.professeur_id)) alias.set(a.texte, parId.get(a.professeur_id));
+    }
+  } catch { /* table absente */ }
   return (texte) => {
     const k = clean(texte);
     if (!k) return null;
+    if (alias.has(k)) return { ...alias.get(k), methode: 'correspondance enregistrée' };
     const exact = complet.get(k);
     if (exact) return { ...exact, methode: 'nom et prénom' };
     // « DIAZ VILLAMIL Esteban » : le nom peut compter plusieurs mots. On essaie
@@ -562,6 +579,26 @@ function sectionPermise(req, section) {
 }
 
 // POSER une séance, depuis le bac : un groupe, un jour, une heure.
+/* « C'EST LA MÊME PERSONNE » : le texte de l'export désigne ce professeur.
+   Enregistré pour les imports suivants, et appliqué tout de suite aux séances
+   déjà importées sous ce texte sans professeur reconnu — sans ré-import. */
+r.post('/alias', authRequired, roleRequired(...EDITEURS), (req, res) => {
+  const texte = String(req.body?.texte || '').trim();
+  const profId = Number(req.body?.professeur_id);
+  if (!texte || !profId) return res.status(400).json({ error: 'Le nom de l’export et le professeur sont requis.' });
+  const p = db.prepare('SELECT id, nom, prenom FROM professeur WHERE id = ?').get(profId);
+  if (!p) return res.status(404).json({ error: 'professeur introuvable' });
+  const k = clean(texte);
+  db.prepare(`INSERT INTO horaire_alias_prof (texte, texte_brut, professeur_id, pose_par) VALUES (?, ?, ?, ?)
+    ON CONFLICT (texte) DO UPDATE SET professeur_id = excluded.professeur_id, texte_brut = excluded.texte_brut,
+      pose_par = excluded.pose_par, pose_le = datetime('now')`).run(k, texte, p.id, qui(req));
+  const ids = db.prepare('SELECT id, professeur_texte FROM horaire_seance WHERE professeur_id IS NULL AND professeur_texte IS NOT NULL')
+    .all().filter(x => clean(x.professeur_texte) === k).map(x => x.id);
+  const maj = db.prepare('UPDATE horaire_seance SET professeur_id = ? WHERE id = ?');
+  db.transaction(() => { for (const id of ids) maj.run(p.id, id); })();
+  res.json({ ok: true, seances: ids.length, professeur: `${p.nom} ${p.prenom || ''}`.trim() });
+});
+
 r.post('/seance', authRequired, roleRequired(...EDITEURS), (req, res) => {
   const b = req.body || {};
   const g = db.prepare('SELECT * FROM groupe WHERE id = ?').get(Number(b.groupe_id));

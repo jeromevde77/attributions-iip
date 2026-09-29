@@ -43,6 +43,15 @@ export default function HoraireComparateur({ annee }) {
   const fichierRef = useRef(null);
   const choisi = useRef(null);
 
+  const memePersonne = async (texte, a) => {
+    setErreur('');
+    const r = await fetch('/api/horaire/alias', { method: 'POST', headers: authHeaders(),
+      body: JSON.stringify({ texte, professeur_id: a.id }) });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) { setErreur(j.error || `Erreur ${r.status}`); return; }
+    charger();
+  };
+
   const charger = async () => {
     if (!annee) return;
     setEnCours(true); setErreur('');
@@ -266,6 +275,15 @@ export default function HoraireComparateur({ annee }) {
                             attribué à {l.profs_attribues.map(p => p.nom || 'À désigner').join(', ')}
                           </div>
                         )}
+                        {/* LE NOM DE L'EXPORT N'EST PAS RECONNU, MAIS C'EST LA MÊME
+                            PERSONNE (ELJASZUK / ELJASUK) : on le dit une fois, et
+                            c'est retenu pour les imports suivants. */}
+                        {l.profs_horaire.filter(p => !p.id && p.nom).map(p => l.profs_attribues.filter(a => a.id).map(a => (
+                          <button key={`${p.nom}-${a.id}`} type="button" onClick={() => memePersonne(p.nom, a)}
+                            className="block text-[11px] text-iip-blue underline mt-0.5">
+                            « {p.nom} » est {a.nom} — c'est la même personne
+                          </button>
+                        )))}
                       </td>
                       <td className="px-3 py-1.5">
                         <span className={`inline-flex items-center gap-1.5 px-2 py-0.5
