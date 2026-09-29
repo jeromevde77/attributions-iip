@@ -133,7 +133,11 @@ export function identiteEtablissement() {
     ville:     saved.ville     || 'Bruxelles',
     tel:       saved.tel       || etabDB.gest_tel || null,
     site:      saved.site      || etabDB.site_web || null,
-    directeur: saved.directeur || etabDB.gest_nom || 'SOHET Charles',
+    /* JAMAIS LE GESTIONNAIRE À LA PLACE DU DIRECTEUR (29 septembre 2026) : le
+       repli sur `gest_nom` posait la signature et le sceau du directeur sous le
+       nom de la personne qui gère la fiche. À défaut de réglage, le nom par
+       défaut du signataire, et lui seul. */
+    directeur: saved.directeur || 'SOHET Charles',
   };
 }
 

@@ -134,7 +134,13 @@ export async function rendrePdf(html, options = {}) {
     const contenu = pied
       ? html.replace('</head>', '<style>.pied-lucie{display:none!important}</style></head>')
       : html;
-    await page.setContent(contenu, { waitUntil: 'networkidle0', timeout: 120000 });
+    /* LE CHARGEMENT, PAS LE SILENCE RÉSEAU (29 septembre 2026 : « terriblement
+       lent »). Les pièces de Lucie portent tout en ligne — logo, sceau,
+       signature en data: — : attendre 500 ms sans requête (networkidle0) ne
+       servait à rien, et se payait à chaque pièce. On attend le chargement,
+       puis les polices. */
+    await page.setContent(contenu, { waitUntil: 'load', timeout: 120000 });
+    try { await page.evaluate(() => document.fonts && document.fonts.ready); } catch { /* */ }
 
     // Le délai s'adapte au volume : une minute de base, plus une seconde par
     // page estimée. Mieux vaut un rendu long qu'une expiration à mi-course.
@@ -156,15 +162,18 @@ export async function rendrePdf(html, options = {}) {
     // AVEC UN PIED, LE GABARIT PREND LA MAIN. La numérotation, quand elle est
     // demandée, s'y intègre : deux pieds superposés n'auraient aucun sens.
     if (pied) {
-      const avecNum = pagination === 'toujours'
-        || (pagination === 'si-plusieurs'
-            && compterPages(await page.pdf({ ...commun })) > 1);
-      return Buffer.from(await page.pdf({
+      const avecPied = numeroter => page.pdf({
         ...commun,
         displayHeaderFooter: true,
         headerTemplate: '<span></span>',
-        footerTemplate: typeof pied === 'function' ? pied(avecNum) : pied,
-      }));
+        footerTemplate: typeof pied === 'function' ? pied(numeroter) : pied,
+      });
+      if (pagination === 'toujours') return Buffer.from(await avecPied(true));
+      // UN SEUL RENDU POUR UNE PIÈCE D'UNE PAGE : on rend avec le pied sans
+      // numéro, et l'on ne recommence que s'il y a plusieurs pages à numéroter.
+      const premier = await avecPied(false);
+      if (pagination !== 'si-plusieurs' || typeof pied !== 'function' || compterPages(premier) <= 1) return Buffer.from(premier);
+      return Buffer.from(await avecPied(true));
     }
 
     if (pagination === 'jamais') return Buffer.from(await page.pdf(commun));
@@ -214,4 +223,24 @@ function sommeMm(valeur, ajout) {
 /** Ferme proprement le navigateur — appelé à l'arrêt du serveur. */
 export async function fermerPdf() {
   if (navigateur) { await navigateur.close().catch(() => {}); navigateur = null; }
+}
+
+/**
+ * PLUSIEURS PIÈCES, EN PARALLÈLE (29 septembre 2026). Rendues une à une,
+ * soixante attestations prenaient des minutes ; Chromium sait tenir plusieurs
+ * onglets à la fois. `pieces` : [{ html, ...options }] ; rend [Buffer] dans
+ * l'ordre reçu.
+ */
+export async function rendrePdfs(pieces, optionsCommunes = {}, parallele = 4) {
+  const sortie = new Array(pieces.length);
+  let suivant = 0;
+  const ouvrier = async () => {
+    while (suivant < pieces.length) {
+      const i = suivant++;
+      const { html, ...opts } = pieces[i];
+      sortie[i] = await rendrePdf(html, { ...optionsCommunes, ...opts });
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(parallele, pieces.length) }, ouvrier));
+  return sortie;
 }

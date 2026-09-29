@@ -22,7 +22,7 @@ import { piedBalisage, piedStyles, reglesDePage, stylesEntete, enteteDocument,
 import db from '../db/index.js';
 import { authRequired, getUserSections, roleRequired } from '../middleware/auth.js';
 import { PEUT_INSTRUIRE } from '../lib/valorisation.js';
-import { capacitePdf, rendrePdf, compterPages } from '../services/pdf.js';
+import { capacitePdf, rendrePdf, rendrePdfs, compterPages } from '../services/pdf.js';
 import { SIGNATURE_SOHET, SCEAU_IIP } from '../services/assets/signature_sohet.js';
 import { piedDocument } from './parametres.js';
 import { identiteEtablissement } from './config.js';
@@ -813,8 +813,8 @@ export function pageAttestation(e, u, annee, etab, dateDoc = null,
          d'enseignement réparties comme suit :`}
   </p>
   ${u.est_stage || u.epreuve_integree ? '' : `<div class="activites">${activites}${u.autonomie
-    ? `<div class="ligne autonomie"><span>Activités d'enseignement en autonomie</span>`
-      + `<span><b>${u.autonomie}</b> pér.</span></div>`
+    ? `<div class="ligne autonomie"><span>Activités d'enseignement en autonomie</span> `
+      + `<span>(<b>${u.autonomie}</b> périodes)</span></div>`
     : ''}</div>`}
 
   <p class="corps">Attendu qu'${accord} tous les acquis d'apprentissage de l'unité
@@ -870,6 +870,16 @@ export function pageAttestation(e, u, annee, etab, dateDoc = null,
 </div>`;
 }
 
+/* LE PIED D'UNE ATTESTATION EN PDF : le gabarit commun, répété sur chaque
+   feuille, et la bande basse de la norme (BANDE_PIED_MM, 24 mm). Ces routes
+   réservaient 22 mm sans gabarit : le pied, posé dans le flux, débordait de la
+   page selon la longueur de la pièce. */
+const OPTIONS_PDF_ATTESTATION = () => ({
+  pied: avecNum => piedGabaritPdf(LOGO_IIP_JPEG, piedDocument(), avecNum),
+  marges: { top: '12mm', right: '15mm', bottom: `${BANDE_PIED_MM}mm`, left: '15mm' },
+  pagination: 'si-plusieurs',
+});
+
 /** Les unités réussies d'un étudiant, pour une année, plusieurs, ou « toutes ».
  *  Seule source : l'aperçu en un document et l'archive de PDF séparés la
  *  lisent l'un comme l'autre. */
@@ -904,12 +914,10 @@ r.get('/etudiant/:id/pdfs', authRequired, async (req, res) => {
   try {
     const JSZip = (await import('jszip')).default;
     const zip = new JSZip();
-    for (const u of unites) {
-      const html = envelopper(pageAttestation(e, u, u._annee, etab, req.query.date_document, ident,
-        sessionDeReussite(e.id, u.ue_num, u._annee)), `Attestation — UE ${u.ue_num}`);
-      const pdf = await rendrePdf(html, { marges: { top: '12mm', right: '15mm', bottom: '22mm', left: '15mm' }, pagination: 'si-plusieurs' });
-      zip.file(`${propre(e.nom)}_${propre(e.prenom)}_UE${u.ue_num}_${u._annee}.pdf`, pdf);
-    }
+    const pdfs = await rendrePdfs(unites.map(u => ({ html: envelopper(pageAttestation(e, u, u._annee, etab,
+      req.query.date_document, ident, sessionDeReussite(e.id, u.ue_num, u._annee)), `Attestation — UE ${u.ue_num}`) })),
+      OPTIONS_PDF_ATTESTATION());
+    unites.forEach((u, i) => zip.file(`${propre(e.nom)}_${propre(e.prenom)}_UE${u.ue_num}_${u._annee}.pdf`, pdfs[i]));
     const out = await zip.generateAsync({ type: 'nodebuffer' });
     const nom = `Attestations_${propre(e.nom)}_${propre(e.prenom)}_${annee === 'toutes' ? 'toutes_annees' : propre(annee)}.zip`;
     res.setHeader('Content-Type', 'application/zip');
@@ -1126,10 +1134,7 @@ r.post('/pdf', authRequired, async (req, res) => {
   try {
     // Marges reprises de l'enveloppe des attestations, pour que le PDF rende
     // exactement ce que l'impression rend.
-    const pdf = await rendrePdf(html, {
-      marges: { top: '12mm', right: '15mm', bottom: '22mm', left: '15mm' },
-      pagination: 'si-plusieurs',
-    });
+    const pdf = await rendrePdf(html, OPTIONS_PDF_ATTESTATION());
     const fichier = String(nom || 'attestations').replace(/[^A-Za-z0-9_.-]/g, '_');
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename="${fichier}.pdf"`);

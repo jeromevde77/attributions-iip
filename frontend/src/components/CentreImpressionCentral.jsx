@@ -1292,18 +1292,28 @@ function OngletEtudiants({ perimetre = null }) {
       const tout = j.separes
         ? [...(j.collectif ? [j.collectif] : []), ...j.documents]
         : [{ nom: (j.nom || 'documents').replace(/\.html$/, ''), html: j.html }];
-      for (const d of tout) {
-        const rp = await fetch('/api/impression/pdf', {
-          method: 'POST', headers: authHeaders(),
-          body: JSON.stringify({ html: d.html, nom: d.nom, pagination: 'si-plusieurs' }),
-        });
-        if (!rp.ok) { setErreur(`${d.etudiant || d.nom} : PDF non produit.`); return; }
-        const url = URL.createObjectURL(await rp.blob());
+      /* UNE DEMANDE, UNE ARCHIVE (29 septembre 2026 : « terriblement lent »).
+         Les PDF se demandaient un par un et se téléchargeaient un par un ; le
+         serveur les rend désormais en parallèle et renvoie un seul zip. Une
+         pièce seule reste un PDF. */
+      const telecharger = (blob, nom) => {
+        const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
-        a.href = url; a.download = `${d.nom}.pdf`;
+        a.href = url; a.download = nom;
         document.body.appendChild(a); a.click(); a.remove();
         setTimeout(() => URL.revokeObjectURL(url), 30000);
-        await new Promise(r => setTimeout(r, 350));
+      };
+      if (tout.length === 1) {
+        const rp = await fetch('/api/impression/pdf', { method: 'POST', headers: authHeaders(),
+          body: JSON.stringify({ html: tout[0].html, nom: tout[0].nom, pagination: 'si-plusieurs' }) });
+        if (!rp.ok) { const e = await rp.json().catch(() => ({})); setErreur(e.error || 'PDF non produit.'); return; }
+        telecharger(await rp.blob(), `${tout[0].nom}.pdf`);
+      } else {
+        const rp = await fetch('/api/impression/pdfs', { method: 'POST', headers: authHeaders(),
+          body: JSON.stringify({ nom: (j.nom || 'pieces').replace(/\.html$/, ''),
+            documents: tout.map(d => ({ html: d.html, nom: d.nom, pagination: 'si-plusieurs' })) }) });
+        if (!rp.ok) { const e = await rp.json().catch(() => ({})); setErreur(e.error || 'Les PDF n\u2019ont pas pu être produits.'); return; }
+        telecharger(await rp.blob(), `${(j.nom || 'pieces').replace(/\.html$/, '')}.zip`);
       }
     } catch (e) { setErreur(e.message); }
     finally { setEnCours(false); }
