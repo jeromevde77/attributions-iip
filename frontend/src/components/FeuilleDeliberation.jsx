@@ -549,27 +549,23 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose, enPage = fa
                 elle-même est le geste de la coordination, juste à côté. */}
             {(data.organisations?.length > 1) && (() => {
               const nb = Object.fromEntries((data.par_organisation || []).map(x => [x.num, x.nb]));
-              const chip = (val, label, alerte) => (
-                <button key={String(val)} onClick={() => setOrg(val)}
-                  className={`px-2 py-0.5 rounded-full text-[11px] font-semibold border transition
-                    ${org === val
-                      ? 'bg-iip-blue text-white border-iip-blue'
-                      : alerte
-                        ? 'bg-amber-50 text-[color:var(--c-attente)] border-amber-300'
-                        : 'bg-white text-iip-blue border-slate-300 hover:border-iip-blue'}`}>
+              // UN SEUL CONTRÔLE (29 septembre 2026 : « trop de différences de
+              // hauteurs, de formes ») : les organisations sont les faces d'un
+              // même choix, à la hauteur des autres contrôles.
+              const face = (val, label) => (
+                <button key={String(val)} type="button" onClick={() => setOrg(val)}
+                  className={org === val ? 'bg-iip-blue text-white font-semibold' : 'text-slate-600 hover:bg-slate-50'}>
                   {label}
                 </button>
               );
               return (
-                <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
-                  {chip(null, `Toute l'unité`)}
-                  {data.organisations.map(o => chip(o, `Organisation ${o} (${nb[o] || 0})`))}
-                  {(nb[0] || 0) > 0 && chip(0, `Non répartis (${nb[0]})`, true)}
-                  <button onClick={() => setRepartir(true)}
-                    className="px-2 py-0.5 rounded-full text-[11px] font-semibold border border-dashed
-                               border-iip-turquoise text-iip-turquoise hover:bg-iip-turquoise/10">
-                    Répartir…
-                  </button>
+                <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+                  <div className="segments">
+                    {face(null, `Toute l'unité`)}
+                    {data.organisations.map(o => face(o, `Organisation ${o} (${nb[o] || 0})`))}
+                    {(nb[0] || 0) > 0 && face(0, `Non répartis (${nb[0]})`)}
+                  </div>
+                  <button type="button" onClick={() => setRepartir(true)} className="bouton controle">Répartir…</button>
                 </div>
               );
             })()}
@@ -577,18 +573,17 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose, enPage = fa
                 répartition étudiants × cours ; le filtre ne touche ni la
                 séance, ni la clôture, ni le PV. */}
             {(data.groupes?.length > 0) && (
-              <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
-                <span className="text-[10px] uppercase tracking-wide text-slate-400">Groupe</span>
-                {[null, ...data.groupes].map(g => (
-                  <button key={String(g)} onClick={() => setGroupe(g)}
-                    className={`px-2 py-0.5 rounded-full text-[11px] font-semibold border transition
-                      ${groupe === g
-                        ? 'bg-iip-turquoise text-white border-iip-turquoise'
-                        : 'bg-white text-iip-turquoise-dark border-slate-300 hover:border-iip-turquoise'}`}>
-                    {g === null ? 'Tous'
-                      : `${g} (${data.etudiants.filter(e => (e.groupes || []).includes(g)).length})`}
-                  </button>
-                ))}
+              <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+                <span className="text-[11px] text-slate-500">Groupe</span>
+                <div className="segments">
+                  {[null, ...data.groupes].map(g => (
+                    <button key={String(g)} type="button" onClick={() => setGroupe(g)}
+                      className={groupe === g ? 'bg-iip-blue text-white font-semibold' : 'text-slate-600 hover:bg-slate-50'}>
+                      {g === null ? 'Tous'
+                        : `${g} (${data.etudiants.filter(e => (e.groupes || []).includes(g)).length})`}
+                    </button>
+                  ))}
+                </div>
               </div>
             )}
           </div>
@@ -599,11 +594,10 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose, enPage = fa
               <input value={recherche}
                 onChange={e => { setRecherche(e.target.value); setIdx(0); }}
                 placeholder="Filtrer…"
-                className="border border-slate-300 rounded-lg pl-8 pr-2 py-1 text-[12px] w-36" />
+                className="controle controle-icone w-36" />
             </div>
             <button onClick={() => { setTableau(t => !t); setLot(false); }}
-              className="px-2.5 py-1 text-[12px] rounded-lg border border-slate-300
-                         text-slate-600 flex items-center gap-1.5">
+              className={`bouton controle inline-flex items-center gap-1.5 ${tableau ? 'bg-iip-blue text-white' : ''}`}>
               {tableau ? <><IconFileText size={14} /> Fiche</> : <><IconList size={14} /> Tableau</>}
             </button>
             {/* L'AJOURNEMENT EN PAQUET. Après les réussites de plein droit, il
@@ -612,9 +606,7 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose, enPage = fa
                 une décision que personne ne discute. */}
             <button onClick={() => { setLot(l => !l); setTableau(false); }}
               title="Ajourner plusieurs étudiants d'un coup, avec une justification commune"
-              className={`px-2.5 py-1 text-[12px] rounded-lg border flex items-center gap-1.5
-                ${lot ? 'border-amber-500 bg-amber-50 text-amber-900 font-semibold'
-                      : 'border-slate-300 text-slate-600'}`}>
+              className={`bouton controle inline-flex items-center gap-1.5 ${lot ? 'bg-iip-blue text-white' : ''}`}>
               <IconList size={14} /> Ajourner en lot
             </button>
             {/* LA CLÔTURE, ATTEIGNABLE DE PARTOUT. Elle ne l'était qu'au bout
@@ -624,13 +616,11 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose, enPage = fa
                 reparcourir quatre-vingts fiches. */}
             <button onClick={() => { setLot(false); setTableau(false); setEtape('cloture'); }}
               title="Écran de clôture : visite des copies, dates de seconde session, documents"
-              className={`px-2.5 py-1 text-[12px] rounded-lg border flex items-center gap-1.5
-                ${etape === 'cloture' ? 'border-emerald-500 bg-emerald-50 text-emerald-900 font-semibold'
-                                      : 'border-slate-300 text-slate-600'}`}>
+              className={`bouton controle inline-flex items-center gap-1.5 ${etape === 'cloture' ? 'bg-iip-blue text-white' : ''}`}>
               Clôture
             </button>
             {enPage ? (
-              <button onClick={onClose} className="bouton inline-flex items-center gap-1">
+              <button onClick={onClose} className="bouton controle inline-flex items-center gap-1">
                 <IconChevronLeft size={14} /> Les unités
               </button>
             ) : (
