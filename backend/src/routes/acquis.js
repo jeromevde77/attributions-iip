@@ -1250,21 +1250,10 @@ r.put('/feuille/note', authRequired,
   // Une note hors bornes ne vaut RIEN, pas zéro.
   const n = points == null || points === '' ? null
     : Number(String(points).replace(',', '.'));
-  let note = (n != null && Number.isFinite(n) && n >= 0 && n <= 20) ? n : null;
+  const note = (n != null && Number.isFinite(n) && n >= 0 && n <= 20) ? n : null;
   if (points != null && points !== '' && note == null) {
     return res.status(400).json({ error: 'note attendue entre 0 et 20' });
   }
-  /* LA NOTE D'UNITÉ SE CALCULE ICI, PAS À L'ÉCRAN (30 septembre 2026,
-     KOANANG WANDJI, UE 261) : le Conseil avait décidé « réussi », le PV
-     portait 13, l'attestation 10 — la décision avait enregistré le 0 que
-     l'écran affichait avant que l'évaluation unique ne soit réglée. Le
-     serveur recalcule avec delibererUE, la même fonction que le PV ; le
-     chiffre de l'écran ne sert qu'à défaut de calcul. */
-  try {
-    const d = delibererUE(Number(etudiant_id), Number(ue_num), annee_scolaire, Number(req.body?.session) === 2 ? 2 : 1);
-    const calc = d?.ue?.note;
-    if (calc != null && Number.isFinite(Number(calc))) note = Number(calc);
-  } catch { /* calcul impossible : le chiffre transmis reste */ }
 
   // Le code porte la SESSION puis le COURS : sans la session, la seconde
   // écraserait la première ; sans le cours, un acquis évalué dans deux cours
@@ -1328,10 +1317,25 @@ r.put('/decision', authRequired,
 
   const n = points == null || points === '' ? null
     : Number(String(points).replace(',', '.'));
-  const note = (n != null && Number.isFinite(n) && n >= 0 && n <= 20) ? n : null;
+  let note = (n != null && Number.isFinite(n) && n >= 0 && n <= 20) ? n : null;
   if (points != null && points !== '' && note == null) {
     return res.status(400).json({ error: 'note attendue entre 0 et 20' });
   }
+
+  /* LA NOTE D'UNITÉ SE CALCULE ICI, PAS À L'ÉCRAN (30 septembre 2026,
+     KOANANG WANDJI, UE 261) : le Conseil avait décidé « réussi », le PV
+     portait 13, l'attestation 10 — la décision avait enregistré le 0 que
+     l'écran affichait avant que l'évaluation unique ne soit réglée. Le
+     serveur recalcule avec delibererUE, la même fonction que le PV ; le
+     chiffre de l'écran ne sert qu'à défaut de calcul. */
+  try {
+    const d = delibererUE(Number(etudiant_id), Number(ue_num), annee_scolaire, Number(req.body?.session) === 2 ? 2 : 1);
+    const calc = d?.ue?.note;
+    if (calc != null && Number.isFinite(Number(calc))) note = Number(calc);
+  } catch { /* calcul impossible : le chiffre transmis reste */ }
+  /* ET PAS DANS /feuille/note, OÙ IL AVAIT ÉTÉ POSÉ EN 2.12.330 : chaque note
+     d'ACQUIS encodée depuis la feuille recevait alors la note de l'UNITÉ.
+     Corrigé en 2.12.331. */
 
   // La décision se range DEUX fois. Dans deliberation_resultat, sous sa
   // session : c'est la trace de ce que le Conseil a décidé ce jour-là, et
