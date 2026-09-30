@@ -66,7 +66,13 @@ r.get('/ue', authRequired, (req, res) => {
   const anneeVal = annee || '2025-2026';
   let sql = 'SELECT * FROM ue WHERE annee_scolaire = ?';
   const params = [anneeVal];
-  if (section) { sql += ' AND section = ?'; params.push(section); }
+  // LES UNITÉS RATTACHÉES À LA SECTION (ue_section) en font partie (30
+  // septembre 2026) : sans elles, poser une attribution du tronc commun sous
+  // Orthoptie était impossible — la liste des UE de la section était vide.
+  if (section) {
+    sql += ' AND (section = ? OR ue_num IN (SELECT ue_num FROM ue_section WHERE section_code = ? AND annee_scolaire = ?))';
+    params.push(section, section, anneeVal);
+  }
   sql += ' ORDER BY ue_num';
   res.json(db.prepare(sql).all(...params));
 });
