@@ -3561,6 +3561,89 @@ function sectionDuDossier(etudId, annee) {
  *   · un étudiant qui a une VALORISATION n'est pas tranché : une VA peut ouvrir
  *     le bloc suivant, cela se regarde à la main.
  * Simulation d'abord ; l'écriture est un geste de direction. */
+/**
+ * LES DÉCISIONS SANS INSCRIPTION — la réparation (Charles, 30 septembre 2026 :
+ * « ABDO R est notée comme primo. Pourquoi ? »).
+ *
+ * Une décision du Conseil a été posée sur une inscription, puis l'inscription
+ * a disparu (suppression d'une année sur la fiche, purge) : ces deux gestes
+ * effaçaient inscriptions et notes, jamais deliberation_resultat. La décision
+ * restait donc, invisible — or c'est l'INSCRIPTION que lisent « primo », le
+ * parcours, la frise, le bloc atteint, les crédits et les attestations. Une
+ * étudiante dont trois UE sont réussies se lisait comme une nouvelle inscrite.
+ *
+ * On recrée l'inscription d'après la décision de la session la plus avancée,
+ * avec sa cote. Les notes d'acquis effacées avec elle ne reviennent pas : seul
+ * un nouvel import du classeur les rend. Un dossier sans matricule qui a un
+ * homonyme est un doublon probable : il se fusionne d'abord, on ne le répare
+ * pas — sans quoi on donnerait un parcours à un dossier qui ne devrait pas
+ * exister.
+ */
+r.post('/decisions-sans-inscription', authRequired,
+       roleRequired('admin', 'directeur', 'directeur_adjoint', 'editeur', 'secretariat'), (req, res) => {
+  const { simulation = true, exclus = [] } = req.body || {};
+  const direction = ['admin', 'directeur', 'directeur_adjoint'].includes(req.user.role);
+  if (!simulation && !direction) return res.status(403).json({ error: 'La réparation est un geste de direction.' });
+  const exclusSet = new Set((Array.isArray(exclus) ? exclus : []).map(Number));
+
+  const orphelines = db.prepare(`
+    SELECT d.etudiant_id, d.annee_scolaire, d.ue_num,
+           MAX(CASE WHEN d.session = 1 THEN d.resultat END) AS resultat_s1,
+           MAX(CASE WHEN d.session = 1 THEN d.points END)   AS points_s1,
+           MAX(CASE WHEN d.session = 2 THEN d.resultat END) AS resultat_s2,
+           MAX(CASE WHEN d.session = 2 THEN d.points END)   AS points_s2
+    FROM deliberation_resultat d
+    WHERE d.resultat IS NOT NULL AND d.resultat != ''
+      AND NOT EXISTS (SELECT 1 FROM etudiant_inscription i WHERE i.etudiant_id = d.etudiant_id
+                        AND i.annee_scolaire = d.annee_scolaire AND i.ue_num = d.ue_num)
+    GROUP BY d.etudiant_id, d.annee_scolaire, d.ue_num
+    ORDER BY d.etudiant_id, d.annee_scolaire, d.ue_num
+  `).all();
+  const etud = db.prepare('SELECT id, nom, prenom, id_ecampus FROM etudiant WHERE id = ?');
+  const homonymes = db.prepare(`SELECT id, prenom, id_ecampus FROM etudiant
+    WHERE id != ? AND UPPER(TRIM(nom)) = UPPER(TRIM(?))`);
+  const ueNom = db.prepare(`SELECT ue_nom FROM ue WHERE ue_num = ? AND ue_nom IS NOT NULL
+    ORDER BY (annee_scolaire = ?) DESC, annee_scolaire DESC LIMIT 1`);
+  const anterieure = db.prepare(`SELECT 1 FROM etudiant_inscription WHERE etudiant_id = ? AND annee_scolaire < ? LIMIT 1`);
+  const anneeActive = anneeDeTravail(req);
+
+  const parEtud = new Map();
+  for (const o of orphelines) {
+    if (!parEtud.has(o.etudiant_id)) {
+      const e = etud.get(o.etudiant_id);
+      if (!e) continue;
+      const hom = e.id_ecampus ? [] : homonymes.all(e.id, e.nom).filter(h => h.id_ecampus);
+      parEtud.set(e.id, { etudiant_id: e.id, nom: e.nom, prenom: e.prenom, id_ecampus: e.id_ecampus,
+        doublon: hom.length ? hom.map(h => ({ id: h.id, prenom: h.prenom, id_ecampus: h.id_ecampus })) : null,
+        primo_a_tort: !anterieure.get(e.id, anneeActive), unites: [] });
+    }
+    const final = o.resultat_s2 ? { resultat: o.resultat_s2, points: o.points_s2 } : { resultat: o.resultat_s1, points: o.points_s1 };
+    parEtud.get(o.etudiant_id).unites.push({ annee: o.annee_scolaire, ue_num: o.ue_num,
+      ue_nom: ueNom.get(o.ue_num, o.annee_scolaire)?.ue_nom || null, ...final,
+      resultat_s1: o.resultat_s1, points_s1: o.points_s1, resultat_s2: o.resultat_s2, points_s2: o.points_s2 });
+  }
+  const lignes = [...parEtud.values()];
+
+  if (simulation) return res.json({ simulation: true, lignes });
+
+  const ins = db.prepare(`INSERT OR IGNORE INTO etudiant_inscription
+    (etudiant_id, annee_scolaire, ue_num, resultat, points, resultat_s1, points_s1, resultat_s2, points_s2)
+    VALUES (?,?,?,?,?,?,?,?,?)`);
+  let recreees = 0, etudiants = 0;
+  db.transaction(() => {
+    for (const l of lignes) {
+      if (l.doublon || exclusSet.has(l.etudiant_id)) continue;
+      etudiants++;
+      for (const u of l.unites) {
+        recreees += ins.run(l.etudiant_id, u.annee, u.ue_num, u.resultat, u.points ?? null,
+          u.resultat_s1 ?? null, u.points_s1 ?? null, u.resultat_s2 ?? null, u.points_s2 ?? null).changes;
+      }
+    }
+  })();
+  console.log(`[decisions-sans-inscription] ${recreees} inscription(s) recréée(s) pour ${etudiants} étudiant(s) par ${req.user?.email || '?'}`);
+  res.json({ ok: true, recreees, etudiants });
+});
+
 r.post('/hors-bloc', authRequired,
        roleRequired('admin', 'directeur', 'directeur_adjoint', 'editeur', 'secretariat'), (req, res) => {
   const { annee, simulation = true, exclus = [] } = req.body || {};
@@ -4092,7 +4175,19 @@ r.post('/purge', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
     inscriptions: cc ? 0 : compter('etudiant_inscription'),
     inscriptions_avec_resultat: cc ? 0 : compter('etudiant_inscription', ' AND resultat IS NOT NULL'),
     valorisations: cc ? 0 : compter('etudiant_valorisation'),
+    decisions: cc ? 0 : compter('deliberation_resultat', " AND resultat IS NOT NULL AND resultat != ''"),
   };
+
+  // Une purge des inscriptions laissait les décisions du Conseil sans
+  // inscription pour les porter (30 septembre 2026) : on ne purge pas ce qui a
+  // été délibéré.
+  if (!simulation && !cc && portee === 'inscriptions' && compte.decisions > 0) {
+    return res.status(409).json({
+      error: `${compte.decisions} décision(s) du Conseil portent sur ces inscriptions : elles ne se purgent pas. `
+           + 'Restreignez la purge aux résultats, ou corrigez les décisions en séance.',
+      compte,
+    });
+  }
 
   if (simulation) {
     return res.json({
@@ -5032,6 +5127,22 @@ r.delete('/:id/annee/:annee', authRequired, roleRequired('admin', 'editeur'), (r
   const avant = db.prepare(
     'SELECT COUNT(*) AS n FROM etudiant_inscription WHERE etudiant_id=? AND annee_scolaire=?'
   ).get(etudId, annee).n;
+
+  /* UNE DÉCISION DU CONSEIL NE S'EFFACE PAS PAR LA FICHE (30 septembre 2026,
+     ABDO R.). Cette route effaçait inscriptions et notes, jamais
+     deliberation_resultat : la décision restait, sans inscription pour la
+     porter — l'étudiante se lisait « primo », ses UE réussies ne comptaient
+     plus. Une année délibérée se corrige en séance, elle ne se supprime pas. */
+  const deliberees = db.prepare(`SELECT DISTINCT ue_num FROM deliberation_resultat
+    WHERE etudiant_id = ? AND annee_scolaire = ? AND resultat IS NOT NULL AND resultat != ''
+    ORDER BY ue_num`).all(etudId, annee).map(x => x.ue_num);
+  if (deliberees.length) {
+    return res.status(409).json({
+      error: `Cette année porte des décisions du Conseil (UE ${deliberees.join(', ')}) : elle ne se supprime pas. `
+           + 'Une décision se corrige en séance (Délibération → Corriger ou rouvrir…).',
+      ue: deliberees,
+    });
+  }
 
   let notes = 0, inscriptions = 0, valorisations = 0;
   db.transaction(() => {
