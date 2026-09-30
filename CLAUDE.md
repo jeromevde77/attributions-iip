@@ -270,12 +270,21 @@ NAS Synology.
 
 ### Restaurer des données réelles en dev
 
-Configuration → Sauvegardes → *Télécharger* en **prod**
-(www.lucie-iip.be), puis, sur **dev** (dev.lucie-iip.be), même écran, section
-rouge « Restauration de la base ». La route valide
-le fichier, sauvegarde l'état courant sous `backups-auto/`, remet l'ancienne
-base si la nouvelle s'avère illisible, et redémarre. **Elle refuse de
-s'exécuter hors développement**, côté serveur.
+**Il n'y a plus de bouton** (l'écran Sauvegardes le dit : « la restauration
+reste manuelle, en ligne de commande »). Procédure du 30 septembre 2026, sur le
+VPS en `debian`, une commande à la fois — la production n'est que LUE :
+
+```bash
+# 1. Copie cohérente de la prod (API de sauvegarde SQLite, même en marche)
+sudo docker exec attributions-backend node -e "const D=require('better-sqlite3');new D('/app/data/attributions.db',{readonly:true}).backup('/app/data/backups/copie_pour_dev.db').then(()=>console.log('copie ok'))"
+# 2. Garder la base dev actuelle
+cd /opt/lucie && sudo cp dev/data/attributions.db dev/backups/avant_copie_prod_$(date +%Y%m%d_%H%M%S).db
+# 3. Arrêter la dev, remplacer, nettoyer WAL/SHM, redémarrer
+sudo docker stop attributions-backend-dev && sudo cp prod/backups/copie_pour_dev.db dev/data/attributions.db && sudo rm -f dev/data/attributions.db-wal dev/data/attributions.db-shm && sudo docker start attributions-backend-dev
+```
+
+Le redémarrage se voit à `demarre_le` (`ssh lucie-vps version`). `lucie-ops
+lecture` ne lit que la PROD : la vérification de la dev se fait à l'écran.
 
 ### Sauvegarde avant tout merge vers `main`
 
