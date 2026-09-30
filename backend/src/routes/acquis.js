@@ -1250,21 +1250,10 @@ r.put('/feuille/note', authRequired,
   // Une note hors bornes ne vaut RIEN, pas zéro.
   const n = points == null || points === '' ? null
     : Number(String(points).replace(',', '.'));
-  let note = (n != null && Number.isFinite(n) && n >= 0 && n <= 20) ? n : null;
+  const note = (n != null && Number.isFinite(n) && n >= 0 && n <= 20) ? n : null;
   if (points != null && points !== '' && note == null) {
     return res.status(400).json({ error: 'note attendue entre 0 et 20' });
   }
-  /* LA NOTE D'UNITÉ SE CALCULE ICI, PAS À L'ÉCRAN (30 septembre 2026,
-     KOANANG WANDJI, UE 261) : le Conseil avait décidé « réussi », le PV
-     portait 13, l'attestation 10 — la décision avait enregistré le 0 que
-     l'écran affichait avant que l'évaluation unique ne soit réglée. Le
-     serveur recalcule avec delibererUE, la même fonction que le PV ; le
-     chiffre de l'écran ne sert qu'à défaut de calcul. */
-  try {
-    const d = delibererUE(Number(etudiant_id), Number(ue_num), annee_scolaire, Number(req.body?.session) === 2 ? 2 : 1);
-    const calc = d?.ue?.note;
-    if (calc != null && Number.isFinite(Number(calc))) note = Number(calc);
-  } catch { /* calcul impossible : le chiffre transmis reste */ }
 
   // Le code porte la SESSION puis le COURS : sans la session, la seconde
   // écraserait la première ; sans le cours, un acquis évalué dans deux cours
@@ -1328,10 +1317,25 @@ r.put('/decision', authRequired,
 
   const n = points == null || points === '' ? null
     : Number(String(points).replace(',', '.'));
-  const note = (n != null && Number.isFinite(n) && n >= 0 && n <= 20) ? n : null;
+  let note = (n != null && Number.isFinite(n) && n >= 0 && n <= 20) ? n : null;
   if (points != null && points !== '' && note == null) {
     return res.status(400).json({ error: 'note attendue entre 0 et 20' });
   }
+
+  /* LA NOTE D'UNITÉ SE CALCULE ICI, PAS À L'ÉCRAN (30 septembre 2026,
+     KOANANG WANDJI, UE 261) : le Conseil avait décidé « réussi », le PV
+     portait 13, l'attestation 10 — la décision avait enregistré le 0 que
+     l'écran affichait avant que l'évaluation unique ne soit réglée. Le
+     serveur recalcule avec delibererUE, la même fonction que le PV ; le
+     chiffre de l'écran ne sert qu'à défaut de calcul. */
+  try {
+    const d = delibererUE(Number(etudiant_id), Number(ue_num), annee_scolaire, Number(req.body?.session) === 2 ? 2 : 1);
+    const calc = d?.ue?.note;
+    if (calc != null && Number.isFinite(Number(calc))) note = Number(calc);
+  } catch { /* calcul impossible : le chiffre transmis reste */ }
+  /* ET PAS DANS /feuille/note, OÙ IL AVAIT ÉTÉ POSÉ EN 2.12.330 : chaque note
+     d'ACQUIS encodée depuis la feuille recevait alors la note de l'UNITÉ.
+     Corrigé en 2.12.331. */
 
   // La décision se range DEUX fois. Dans deliberation_resultat, sous sa
   // session : c'est la trace de ce que le Conseil a décidé ce jour-là, et
@@ -1387,6 +1391,160 @@ r.put('/decision', authRequired,
   })();
 
   res.json({ ok: true, session: ses });
+});
+
+// ── LE CONTRÔLE DES NOTES DE DÉCISION ──────────────────────────────────────
+//
+// (Charles, 30 septembre 2026, après KOANANG WANDJI, UE 261 : « réussi »
+// enregistré à 0, PV à 13, attestation à 10.) Jusqu'en 2.12.331, la note
+// d'unité d'une décision était celle que l'ÉCRAN affichait au moment du clic ;
+// le PV la recalcule, l'attestation lit celle qui est enregistrée. Deux
+// chiffres pour un même fait. Cet outil les met côte à côte, et corrige sur
+// demande — avec un motif, une ligne de journal par décision.
+//
+// Trois règles :
+//  · LE RÉSULTAT NE CHANGE JAMAIS. On corrige la cote, pas la décision du
+//    Conseil. Un « réussi » dont le calcul donne moins de dix, sans faveur,
+//    n'est pas une faute de cote : c'est une décision à reprendre en séance
+//    (poser la faveur, ou revenir sur le résultat). L'outil le NOMME et ne
+//    le corrige pas.
+//  · UNE NOTE REPRISE DU CLASSEUR FAIT FOI (le classeur calcule la note
+//    consolidée). Une décision sans séance tenue dans Lucie est montrée, jamais
+//    cochée d'office.
+//  · LE JOURNAL EST EN AJOUT SEUL (decision_correction).
+(function migrerCorrectionDecision() {
+  try {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS decision_correction (
+        id             INTEGER PRIMARY KEY AUTOINCREMENT,
+        etudiant_id    INTEGER NOT NULL,
+        annee_scolaire TEXT    NOT NULL,
+        ue_num         INTEGER NOT NULL,
+        session        INTEGER NOT NULL,
+        resultat       TEXT,
+        ancienne_note  REAL,
+        nouvelle_note  REAL,
+        motif          TEXT    NOT NULL,
+        corrige_par    TEXT,
+        corrige_le     TEXT DEFAULT CURRENT_TIMESTAMP
+      );
+      CREATE INDEX IF NOT EXISTS idx_decision_correction
+        ON decision_correction(etudiant_id, annee_scolaire, ue_num);
+    `);
+  } catch (e) { console.error('[migration] decision_correction :', e.message); }
+})();
+
+const DIRECTION_DECISION = ['admin', 'directeur', 'directeur_adjoint'];
+
+function controlerDecisions(annee) {
+  const seances = new Map(db.prepare(`
+    SELECT ue_num, COALESCE(reprise, 0) AS reprise FROM deliberation_seance WHERE annee_scolaire = ?
+  `).all(annee).map(x => [x.ue_num, x.reprise]));
+  const decisions = db.prepare(`
+    SELECT d.etudiant_id, d.ue_num, d.session, d.resultat, d.points, d.decide_le, d.decide_par,
+           e.nom, e.prenom, e.id_ecampus,
+           (SELECT u.ue_nom FROM ue u WHERE u.ue_num = d.ue_num AND u.ue_nom IS NOT NULL
+             ORDER BY (u.annee_scolaire = d.annee_scolaire) DESC, u.annee_scolaire DESC LIMIT 1) AS ue_nom,
+           (SELECT u.section FROM ue u WHERE u.ue_num = d.ue_num
+             ORDER BY (u.annee_scolaire = d.annee_scolaire) DESC, u.annee_scolaire DESC LIMIT 1) AS section
+    FROM deliberation_resultat d
+    JOIN etudiant e ON e.id = d.etudiant_id
+    WHERE d.annee_scolaire = ? AND d.resultat IN ('reussi', 'ajourne', 'refuse')
+    ORDER BY d.ue_num, e.nom, e.prenom, d.session
+  `).all(annee);
+
+  const ecarts = [], aTrancher = [];
+  let controlees = 0, incalculables = 0;
+  for (const d of decisions) {
+    let calc = null, faveur = false;
+    try {
+      const r = delibererUE(d.etudiant_id, d.ue_num, annee, d.session);
+      calc = r?.ue?.note_calculee ?? null;
+      faveur = !!r?.ue?.faveur;
+      if (faveur) calc = SEUIL_UE;
+    } catch { calc = null; }
+    if (calc == null || !Number.isFinite(Number(calc))) { incalculables++; continue; }
+    controlees++;
+    calc = Number(calc);
+    const stockee = d.points == null ? null : Number(d.points);
+    const seance = seances.has(d.ue_num) ? (seances.get(d.ue_num) ? 'reprise' : 'seance') : 'sans_seance';
+    const ligne = {
+      etudiant_id: d.etudiant_id, nom: d.nom, prenom: d.prenom, matricule: d.id_ecampus,
+      ue_num: d.ue_num, ue_nom: d.ue_nom, section: d.section, session: d.session,
+      resultat: d.resultat, enregistree: stockee, calculee: calc, faveur,
+      source: seance, decide_le: d.decide_le, decide_par: d.decide_par,
+    };
+    // Un « réussi » que le calcul place sous le seuil, sans faveur : la cote
+    // n'y est pour rien, c'est la décision qui est à reprendre.
+    if (d.resultat === 'reussi' && calc < SEUIL_UE && !faveur) { aTrancher.push(ligne); continue; }
+    if (stockee == null || Math.abs(stockee - calc) >= 0.005) ecarts.push(ligne);
+  }
+  return { annee, decisions: decisions.length, controlees, incalculables, ecarts, a_trancher: aTrancher };
+}
+
+r.get('/controle-decisions', authRequired, roleRequired(...DIRECTION_DECISION), (req, res) => {
+  const annee = req.query.annee;
+  if (!annee) return res.status(400).json({ error: 'annee requise' });
+  res.json(controlerDecisions(annee));
+});
+
+r.post('/controle-decisions/corriger', authRequired, roleRequired(...DIRECTION_DECISION), (req, res) => {
+  const { annee, lignes, motif } = req.body || {};
+  if (!annee) return res.status(400).json({ error: 'annee requise' });
+  if (!Array.isArray(lignes) || !lignes.length) return res.status(400).json({ error: 'aucune décision à corriger' });
+  const m = String(motif || '').trim();
+  if (m.length < 5) return res.status(400).json({ error: 'Une correction se motive : le motif est obligatoire.' });
+
+  // On ne corrige que ce que le contrôle, relu À L'INSTANT, désigne comme un
+  // écart : l'écran peut être resté ouvert pendant qu'une séance changeait
+  // une note. Ce qui n'en est plus un est nommé, et rien ne s'écrit.
+  const actuel = controlerDecisions(annee);
+  const cle = l => `${Number(l.etudiant_id)}|${Number(l.ue_num)}|${Number(l.session)}`;
+  const parCle = new Map(actuel.ecarts.map(l => [cle(l), l]));
+  const refusees = lignes.filter(l => !parCle.has(cle(l)));
+  if (refusees.length) {
+    return res.status(409).json({
+      error: `${refusees.length} décision(s) ne présentent plus d'écart : rechargez la liste.`,
+      refusees,
+    });
+  }
+  const qui = req.user?.email || null;
+  const maj = db.prepare(`UPDATE deliberation_resultat SET points = ?
+    WHERE etudiant_id = ? AND annee_scolaire = ? AND ue_num = ? AND session = ?`);
+  const journal = db.prepare(`INSERT INTO decision_correction
+    (etudiant_id, annee_scolaire, ue_num, session, resultat, ancienne_note, nouvelle_note, motif, corrige_par)
+    VALUES (?,?,?,?,?,?,?,?,?)`);
+  const fin = db.prepare(`SELECT resultat, points, mention FROM deliberation_resultat
+    WHERE etudiant_id = ? AND annee_scolaire = ? AND ue_num = ?
+      AND resultat IS NOT NULL AND resultat != '' ORDER BY session DESC LIMIT 1`);
+  const majInsc = db.prepare(`UPDATE etudiant_inscription SET points = ?
+    WHERE etudiant_id = ? AND annee_scolaire = ? AND ue_num = ?`);
+  let n = 0;
+  db.transaction(() => {
+    for (const l of lignes) {
+      const x = parCle.get(cle(l));
+      maj.run(x.calculee, x.etudiant_id, annee, x.ue_num, x.session);
+      journal.run(x.etudiant_id, annee, x.ue_num, x.session, x.resultat, x.enregistree, x.calculee, m, qui);
+      // Le dossier porte le résultat de la session la plus avancée : on le
+      // relit, comme la route de décision.
+      const f = fin.get(x.etudiant_id, annee, x.ue_num);
+      if (f) majInsc.run(f.points ?? null, x.etudiant_id, annee, x.ue_num);
+      n++;
+    }
+  })();
+  console.log(`[controle-decisions] ${n} note(s) corrigée(s) par ${qui || '?'} (${annee})`);
+  res.json({ ok: true, corrigees: n });
+});
+
+// Le journal des corrections, pour qu'une cote changée après coup se lise
+// encore un an plus tard : qui, quand, de combien à combien, pourquoi.
+r.get('/controle-decisions/journal', authRequired, roleRequired(...DIRECTION_DECISION), (req, res) => {
+  const annee = req.query.annee;
+  res.json(db.prepare(`
+    SELECT c.*, e.nom, e.prenom FROM decision_correction c
+    JOIN etudiant e ON e.id = c.etudiant_id
+    WHERE (? IS NULL OR c.annee_scolaire = ?) ORDER BY c.id DESC LIMIT 500
+  `).all(annee || null, annee || null));
 });
 
 // ── Les unités en échec d'un étudiant ──────────────────────────────────────
