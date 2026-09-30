@@ -72,7 +72,16 @@ function titreExterne(sectionCode) {
 const REFUS_TITRE_EXTERNE = s0 => ({ error: `Le titre de la section ${s0} est délivré par un autre établissement : `
   + "l'IIP n'en fait ni la diplomation, ni les pièces de section (Organisation → Unités et cours → la section).", titre_externe: true });
 
+/* LES UE PROPRES DE LA SECTION ET SES UE RATTACHÉES, ENSEMBLE (30 septembre
+   2026). Les rattachements REMPLAÇAIENT les UE propres dès qu'il en existait
+   un : enregistrer la composition d'une section avec une seule UE partagée
+   aurait réduit son diplôme à cette UE. */
 function unitesDeLaSection(sectionCode, annee) {
+  const propres = db.prepare('SELECT DISTINCT ue_num FROM ue WHERE section = ? AND annee_scolaire = ?')
+    .all(sectionCode, annee).map(x => x.ue_num);
+  return [...new Set([...propres, ...rattacheesDeLaSection(sectionCode, annee)])].sort((a, b) => a - b);
+}
+function rattacheesDeLaSection(sectionCode, annee) {
   const parAnnee = db.prepare(`
     SELECT DISTINCT ue_num FROM ue_section
     WHERE section_code = ? AND annee_scolaire = ?

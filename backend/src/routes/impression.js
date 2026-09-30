@@ -93,9 +93,14 @@ r.get('/destinataires', authRequired, (req, res) => {
     const lignes = db.prepare(`
       SELECT DISTINCT e.id AS etudiant_id, e.nom, e.prenom,
              ${parUE ? 'i.ue_num,' : ''} i.annee_scolaire,
-             (SELECT u.section FROM ue u WHERE u.ue_num = i.ue_num
+             -- La section DU DOSSIER (30 septembre 2026) : celle de l'étudiant
+             -- quand l'UE est rattachée à sa section déclarée (lib/sectionDossier.js).
+             (CASE WHEN e.section_rattachement IS NOT NULL AND EXISTS (SELECT 1 FROM ue_section us
+                     WHERE us.ue_num = i.ue_num AND us.section_code = e.section_rattachement)
+                   THEN e.section_rattachement
+                   ELSE (SELECT u.section FROM ue u WHERE u.ue_num = i.ue_num
                AND u.section IS NOT NULL
-               ORDER BY u.annee_scolaire DESC LIMIT 1) AS section
+               ORDER BY u.annee_scolaire DESC LIMIT 1) END) AS section
       FROM etudiant_inscription i
       JOIN etudiant e ON e.id = i.etudiant_id
       WHERE ${clauses.join(' AND ')}

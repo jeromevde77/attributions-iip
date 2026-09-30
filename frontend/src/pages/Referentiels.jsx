@@ -451,7 +451,14 @@ function EffectifsImportModal({ annee, onClose, onSaved }) {
 }
 
 function SectionModal({ section, onClose, onSaved, annee, isAdmin }) {
-  const isNew = !section?._edit;
+  /* LA FICHE D'UNE SECTION ET SA COMPOSITION, DANS UNE FENÊTRE (Charles, 30
+     septembre 2026 : « moche, fenêtre trop étroite et design ancien » ; « quand
+     je crée la section, je devrais pouvoir cocher dans la grille des UE celles
+     qui seront comprises »). La fenêtre commune, en pleine largeur : la fiche à
+     gauche, la grille des UE à droite, un seul « Enregistrer » dans le pied.
+     À la création, la fenêtre reste ouverte : on coche aussitôt ses UE. */
+  const [code, setCode] = useState(section?._edit ? section.code : null);   // la section en base
+  const isNew = !code;
   const [form, setForm] = useState({
     code: section?.code || '',
     libelle: section?.libelle || '',
@@ -464,11 +471,28 @@ function SectionModal({ section, onClose, onSaved, annee, isAdmin }) {
   });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const [info, setInfo] = useState('');
+  const [compo, setCompo] = useState(null);                 // réponse du serveur
+  const [choix, setChoix] = useState(() => new Set());      // UE rattachées cochées
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
+  const chargerCompo = async c => {
+    try {
+      const r = await fetch(`/api/composition/section/${encodeURIComponent(c)}?annee=${encodeURIComponent(annee)}`,
+        { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } });
+      const j = await r.json();
+      if (!r.ok) throw new Error(j.error || `Erreur ${r.status}`);
+      setCompo(j);
+      setChoix(new Set(j.composition.map(u => u.ue_num)));
+    } catch (e) { setError(e.message); }
+  };
+  useEffect(() => { if (code) chargerCompo(code); /* eslint-disable-next-line */ }, [code, annee]);
+  const initiale = new Set((compo?.composition || []).map(u => u.ue_num));
+  const compoModifiee = compo && (initiale.size !== choix.size || [...choix].some(n => !initiale.has(n)));
+
   async function submit(e) {
-    e.preventDefault();
-    setError('');
+    e?.preventDefault?.();
+    setError(''); setInfo('');
     if (!form.code.trim()) { setError('Le code de section est requis'); return; }
     setSaving(true);
     try {
@@ -477,127 +501,103 @@ function SectionModal({ section, onClose, onSaved, annee, isAdmin }) {
         niveau: form.niveau || null,
         responsable: form.responsable.trim() || null,
         code_fwb: form.code_fwb.trim() || null,
-        // Ces deux mentions figurent sur les attestations de réussite.
         domaine: form.domaine.trim() || null,
         type_enseignement: form.type_enseignement.trim() || null,
         titre_externe: form.titre_externe ? 1 : 0
       };
       if (isNew) {
         await api.createSection({ code: form.code.trim(), ...payload });
-      } else {
-        // Si le code a changé, renommer d'abord (propagation), puis mettre à jour les autres champs
-        const nouveauCode = form.code.trim();
-        if (nouveauCode && nouveauCode !== section.code) {
-          await api.renameSectionCode(section.code, nouveauCode);
-        }
-        await api.updateSection(nouveauCode || section.code, payload);
+        setCode(form.code.trim());
+        setInfo('Section créée. Cochez maintenant, à droite, les UE qu’elle comprend, puis enregistrez.');
+        return;
+      }
+      const nouveauCode = form.code.trim();
+      if (nouveauCode && nouveauCode !== code) await api.renameSectionCode(code, nouveauCode);
+      await api.updateSection(nouveauCode || code, payload);
+      if (compoModifiee) {
+        const r = await fetch(`/api/composition/section/${encodeURIComponent(nouveauCode || code)}`, {
+          method: 'PUT', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('token')}` },
+          body: JSON.stringify({ annee, ue_nums: [...choix].sort((a, b) => a - b) }) });
+        const j = await r.json().catch(() => ({}));
+        if (!r.ok) throw new Error(j.error || 'La composition n’a pas été enregistrée.');
       }
       onSaved();
     } catch (e) { setError(e.message); }
     finally { setSaving(false); }
   }
 
+  const lbl = 'block text-[11px] font-semibold text-slate-500 uppercase tracking-wide mb-1';
   return (
-    <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] flex items-start justify-center p-4 z-50 overflow-y-auto"
-      onClick={e => e.target === e.currentTarget && onClose()}>
-      {/* CETTE FENÊTRE N'AVAIT AUCUN PLAFOND DE HAUTEUR. Elle tenait tant que la
-          section n'avait qu'un code et un libellé ; depuis qu'elle porte la
-          COMPOSITION du programme — deux listes d'unités —, elle dépasse par le
-          haut ET par le bas, et ni le titre ni les boutons ne sont atteignables.
-          On la plafonne à la fenêtre, marges comprises, on l'ancre en haut, et
-          le formulaire défile à l'intérieur. */}
-      <div className="bg-white rounded-xl shadow-2xl max-w-md w-full border-t-4 border-iip-gold
-                      max-h-[calc(100vh-2rem)] overflow-hidden flex flex-col">
-        <div className="flex items-center justify-between px-5 py-3 border-b flex-shrink-0">
-          <h2 className="font-title text-lg text-iip-gold">{isNew ? 'Nouvelle section' : `Modifier ${section.code}`}</h2>
-          <button onClick={onClose} className="text-gray-400 hover:text-red-500 text-2xl"><IconX size={20} /></button>
-        </div>
-        <form onSubmit={submit} className="flex-1 min-h-0 overflow-y-auto p-5 space-y-3">
-          <div className="grid grid-cols-2 gap-3">
-            <label className="block"><div className="text-xs text-gray-600 mb-0.5">Code *</div>
-              <input value={form.code} onChange={e => set('code', e.target.value)} placeholder="ex: TIM"
-                className="w-full border border-gray-300 rounded px-3 py-1.5 h-9 text-sm" /></label>
-            <label className="block"><div className="text-xs text-gray-600 mb-0.5">Code FWB</div>
-              <input value={form.code_fwb} onChange={e => set('code_fwb', e.target.value)}
-                className="w-full border border-gray-300 rounded px-3 py-1.5 h-9 text-sm" /></label>
-          </div>
-
-          {/* Ces deux mentions figurent sur les attestations de réussite de
-              chaque unité : les porter sur la section évite de les ressaisir. */}
-          <div className="grid grid-cols-2 gap-3">
-            <label className="block">
-              <div className="text-xs text-gray-600 mb-0.5">Domaine d'études</div>
-              <input value={form.domaine} onChange={e => set('domaine', e.target.value)}
-                placeholder="Sciences de la santé publique"
-                className="w-full border border-gray-300 rounded px-3 py-1.5 h-9 text-sm" />
-            </label>
-            <label className="block">
-              <div className="text-xs text-gray-600 mb-0.5">Type d'enseignement</div>
-              <input value={form.type_enseignement}
-                onChange={e => set('type_enseignement', e.target.value)}
-                placeholder="Enseignement supérieur de type court"
-                className="w-full border border-gray-300 rounded px-3 py-1.5 h-9 text-sm" />
-            </label>
-          </div>
-          <p className="text-[11px] text-slate-500 -mt-1">
-            Ces mentions figurent sur les attestations de réussite de chaque unité de la
-            section. Une unité peut les redéfinir si elle fait exception.
-          </p>
-          {!isNew && form.code.trim() && form.code.trim() !== section.code && (
-            <div className="text-xs text-white bg-amber-500 border border-amber-500 rounded px-2 py-1.5 h-9">
-              ⚠️ Renommer « {section.code} » → « {form.code.trim()} » mettra à jour toutes les attributions, cours, UE et rattachements liés.
+    <Fenetre icone={IconBooks} large="pleine" hauteurFixe onFermer={onClose}
+      titre={isNew ? 'Nouvelle section' : `Section ${code}`}
+      sous={isNew ? 'La fiche d’abord ; la composition se coche ensuite, dans la même fenêtre' : `Fiche et composition — ${annee}`}
+      pied={<>
+        <span className="flex-1 min-w-0 text-[12px]" style={{ color: error ? 'var(--c-refuse)' : undefined }}>
+          {error || info || (compoModifiee ? 'La composition a changé : elle s’enregistre avec la fiche.' : '')}
+        </span>
+        <button type="button" className="bouton" onClick={onClose}>{isNew ? 'Annuler' : 'Fermer'}</button>
+        <button type="button" className="bouton bouton-fort" disabled={saving} onClick={submit}>
+          {saving ? '…' : isNew ? 'Créer la section' : 'Enregistrer'}</button>
+      </>}>
+      <div className="grid gap-5 lg:grid-cols-[minmax(300px,380px)_1fr] items-start">
+        <form onSubmit={submit} className="space-y-3">
+          <GroupeFenetre titre="Identification">
+            <div className="grid grid-cols-2 gap-3">
+              <label className="block"><span className={lbl}>Code *</span>
+                <input value={form.code} onChange={e => set('code', e.target.value)} placeholder="ex : TIM" className="controle w-full" /></label>
+              <label className="block"><span className={lbl}>Code FWB</span>
+                <input value={form.code_fwb} onChange={e => set('code_fwb', e.target.value)} className="controle w-full" /></label>
             </div>
-          )}
-          <label className="block"><div className="text-xs text-gray-600 mb-0.5">Libellé</div>
-            <input value={form.libelle} onChange={e => set('libelle', e.target.value)} placeholder="Nom complet de la section"
-              className="w-full border border-gray-300 rounded px-3 py-1.5 h-9 text-sm" /></label>
-          <div className="grid grid-cols-2 gap-3">
-            <label className="block"><div className="text-xs text-gray-600 mb-0.5">Niveau</div>
-              <select value={form.niveau} onChange={e => set('niveau', e.target.value)}
-                className="w-full border border-gray-300 rounded px-3 py-1.5 h-9 text-sm bg-white">
-                <option value="">—</option>
-                <option value="FC Secondaire Supérieur">FC Secondaire Supérieur</option>
-                <option value="FC Enseignement Supérieur">FC Enseignement Supérieur</option>
-                <option value="BES">BES — Brevet d'enseignement supérieur</option>
-                <option value="Bachelier">Bachelier</option>
-                <option value="Master">Master</option>
-              </select></label>
-            <label className="block"><div className="text-xs text-gray-600 mb-0.5">Responsable</div>
-              <input value={form.responsable} onChange={e => set('responsable', e.target.value)} placeholder="Coordinateur (optionnel)"
-                className="w-full border border-gray-300 rounded px-3 py-1.5 h-9 text-sm" /></label>
-          </div>
-          {/* LE TITRE DÉLIVRÉ AILLEURS (30 septembre 2026, Orthoptie : l'IIP
-              organise le tronc commun, la HELB délivre les papiers). La
-              diplomation de l'IIP ignore alors la section. */}
-          <label className="flex items-start gap-2 text-[13px] text-slate-700 cursor-pointer">
-            <input type="checkbox" className="mt-0.5" checked={form.titre_externe} onChange={e => set('titre_externe', e.target.checked)} />
-            <span>Le titre de cette section est délivré par un autre établissement
-              <span className="block text-[11px] text-slate-500">L'IIP n'en fait ni la diplomation, ni les attestations de section (ex. : Orthoptie, titre délivré par la HELB).</span></span>
-          </label>
-          {error && <div className="bg-red-50 text-red-700 text-sm rounded p-2 border-l-4 border-l-red-500">{error}</div>}
-
-
-          {!isNew && section?.code && (
-            <div className="pt-3 mt-1 border-t">
-              <div className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-2">
-                Composition — UE du programme ({annee})
-              </div>
-              <CompositionSection sectionCode={section.code} annee={annee} estAdmin={isAdmin} />
+            {!isNew && form.code.trim() && form.code.trim() !== code && (
+              <div data-etat="surveiller" className="bloc-etat px-3 py-2 text-[12px] mt-2">
+                Renommer « {code} » en « {form.code.trim()} » mettra à jour toutes les attributions, cours, UE et rattachements liés.</div>
+            )}
+            <label className="block mt-3"><span className={lbl}>Libellé</span>
+              <input value={form.libelle} onChange={e => set('libelle', e.target.value)} placeholder="Nom complet de la section" className="controle w-full" /></label>
+            <div className="grid grid-cols-2 gap-3 mt-3">
+              <label className="block"><span className={lbl}>Niveau</span>
+                <select value={form.niveau} onChange={e => set('niveau', e.target.value)} className="controle w-full">
+                  <option value="">—</option>
+                  <option value="FC Secondaire Supérieur">FC Secondaire Supérieur</option>
+                  <option value="FC Enseignement Supérieur">FC Enseignement Supérieur</option>
+                  <option value="BES">BES — Brevet d'enseignement supérieur</option>
+                  <option value="Bachelier">Bachelier</option>
+                  <option value="Master">Master</option>
+                </select></label>
+              <label className="block"><span className={lbl}>Responsable</span>
+                <input value={form.responsable} onChange={e => set('responsable', e.target.value)} placeholder="Coordination (facultatif)" className="controle w-full" /></label>
             </div>
-          )}
-
-          {/* Les boutons restent au bord : sur une fiche longue, « Enregistrer »
-              se trouvait tout en bas d'un défilement de deux écrans. */}
-          <div className="sticky bottom-0 -mx-5 -mb-5 px-5 py-3 bg-white border-t
-                          flex justify-end gap-2">
-            <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-gray-600">Annuler</button>
-            <button type="submit" disabled={saving} className="bg-iip-gold hover:bg-iip-amber disabled:opacity-40 text-white text-sm px-5 py-2 rounded font-medium">
-              {saving ? '…' : isNew ? 'Créer' : 'Enregistrer'}
-            </button>
-          </div>
+          </GroupeFenetre>
+          <GroupeFenetre titre="Mentions des attestations">
+            <label className="block"><span className={lbl}>Domaine d'études</span>
+              <input value={form.domaine} onChange={e => set('domaine', e.target.value)} placeholder="Sciences de la santé publique" className="controle w-full" /></label>
+            <label className="block mt-3"><span className={lbl}>Type d'enseignement</span>
+              <input value={form.type_enseignement} onChange={e => set('type_enseignement', e.target.value)} placeholder="Enseignement supérieur de type court" className="controle w-full" /></label>
+            <p className="text-[11px] text-slate-500 mt-1.5">Elles figurent sur l'attestation de réussite de chaque unité de la section ; une unité peut les redéfinir si elle fait exception.</p>
+          </GroupeFenetre>
+          <GroupeFenetre titre="Titre">
+            {/* LE TITRE DÉLIVRÉ AILLEURS (30 septembre 2026, Orthoptie). */}
+            <label className="flex items-start gap-2 text-[13px] text-slate-700 cursor-pointer">
+              <input type="checkbox" className="mt-0.5" checked={form.titre_externe} onChange={e => set('titre_externe', e.target.checked)} />
+              <span>Le titre de cette section est délivré par un autre établissement
+                <span className="block text-[11px] text-slate-500">L'IIP n'en fait ni la diplomation, ni les attestations de section (ex. : Orthoptie, titre délivré par la HELB).</span></span>
+            </label>
+          </GroupeFenetre>
         </form>
+        <div>
+          <div className="text-[15px] font-semibold text-iip-texte mb-1">Composition — les UE de la section ({annee})</div>
+          <p className="text-[12px] text-slate-500 mb-3">
+            Cochez les UE que la section comprend. Une UE d'une autre section est <b>rattachée</b>, jamais dupliquée : le tronc commun
+            reste une seule UE, suivie par les deux sections. Ce qu'on organise une année donnée se règle ailleurs (organisations, attributions).
+          </p>
+          {isNew
+            ? <div className="border border-dashed border-slate-300 rounded-carte px-4 py-8 text-center text-[13px] text-slate-500">
+                Créez d'abord la section : la grille des UE s'ouvre ici, dans la même fenêtre.</div>
+            : <CompositionSection sectionCode={code} data={compo} choix={choix} onChoix={setChoix} lecture={!isAdmin} />}
+          {!isNew && !isAdmin && <p className="text-[11px] text-slate-500 mt-2">La composition se règle par l'administration.</p>}
+        </div>
       </div>
-    </div>
+    </Fenetre>
   );
 }
 

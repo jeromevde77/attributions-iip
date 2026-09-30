@@ -1,210 +1,114 @@
-import { useEffect, useMemo, useState } from 'react';
-import {
-  IconChevronRight, IconChevronLeft, IconSearch, IconDeviceFloppy,
-  IconWand, IconAlertTriangle,
-} from '@tabler/icons-react';
-import { authHeaders } from '../lib/api.js';
+import { useMemo, useState } from 'react';
+import { IconSearch } from '@tabler/icons-react';
+import { couleurBloc, rangBloc } from '../lib/blocs.js';
 
 /**
- * Composition déclarée d'une section : les UE qui constituent son programme,
- * choisies dans la base par double liste. Une UE peut appartenir à plusieurs
- * sections — le badge « aussi en … » le signale, sans jamais dupliquer l'UE.
+ * LA COMPOSITION D'UNE SECTION, EN GRILLE À COCHER (Charles, 30 septembre
+ * 2026 : « quand je crée la section, je devrais pouvoir cocher dans la grille
+ * des UE les UE qui seront comprises — partagées ou non »).
  *
- * Composition (référentiel, ici) ≠ organisation (paramétrage annuel, dans le
- * planificateur et les dates des UE).
+ * Remplace la double liste étroite d'avant. Les UE de l'année, rangées par
+ * section principale puis par bloc — celles de la section en tête —, une case
+ * chacune. Une UE dont c'est la section principale en fait partie d'office.
+ * Cocher une UE d'une autre section la RATTACHE (ue_section) : elle n'est
+ * jamais dupliquée. Le tronc commun et les UE déjà partagées le disent.
+ *
+ * Composant piloté : la fenêtre de section tient la sélection et l'enregistre
+ * avec le reste de la fiche — un seul bouton pour toute la fenêtre.
  */
-export default function CompositionSection({ sectionCode, annee, estAdmin }) {
-  const [data, setData] = useState(null);
-  const [erreur, setErreur] = useState(null);
-  const [message, setMessage] = useState(null);
+export default function CompositionSection({ sectionCode, data, choix, onChoix, lecture = false }) {
   const [recherche, setRecherche] = useState('');
-  const [selG, setSelG] = useState(new Set());   // sélection côté disponibles
-  const [selD, setSelD] = useState(new Set());   // sélection côté composition
-  const [composition, setComposition] = useState([]);   // état de travail
-  const [enregistrement, setEnregistrement] = useState(false);
+  const [seulesCochees, setSeulesCochees] = useState(false);
 
-  async function charger() {
-    setErreur(null);
-    try {
-      const rep = await fetch(
-        `/api/composition/section/${encodeURIComponent(sectionCode)}?annee=${encodeURIComponent(annee)}`,
-        { headers: authHeaders() });
-      const j = await rep.json();
-      if (!rep.ok) { setErreur(j.error || `Erreur ${rep.status}`); return; }
-      setData(j);
-      setComposition(j.composition.map(u => u.ue_num));
-    } catch (e) { setErreur(String(e.message || e)); }
-  }
-  useEffect(() => { if (sectionCode && annee) charger(); /* eslint-disable-next-line */ }, [sectionCode, annee]);
+  const toutes = useMemo(() => (data ? [...data.composition, ...data.disponibles] : []), [data]);
+  const principale = u => u.section === sectionCode;
+  const coche = u => principale(u) || choix.has(u.ue_num);
+  const f = recherche.trim().toLowerCase();
+  const visibles = toutes.filter(u => (!f || String(u.ue_num).includes(f) || (u.ue_nom || '').toLowerCase().includes(f))
+    && (!seulesCochees || coche(u)));
 
-  const toutes = useMemo(() => {
-    if (!data) return new Map();
-    return new Map([...data.composition, ...data.disponibles].map(u => [u.ue_num, u]));
-  }, [data]);
+  // Par section principale (la sienne d'abord), puis par bloc.
+  const groupes = useMemo(() => {
+    const m = new Map();
+    for (const u of visibles) {
+      const s = u.section || 'Sans section';
+      if (!m.has(s)) m.set(s, new Map());
+      const b = String(u.ue_niv || '—').toUpperCase();
+      if (!m.get(s).has(b)) m.get(s).set(b, []);
+      m.get(s).get(b).push(u);
+    }
+    return [...m.entries()].sort((a, b) => (a[0] === sectionCode ? -1 : b[0] === sectionCode ? 1 : a[0].localeCompare(b[0], 'fr')))
+      .map(([s, blocs]) => ({ section: s, blocs: [...blocs.entries()].sort((x, y) => rangBloc(x[0]) - rangBloc(y[0]) || x[0].localeCompare(y[0])) }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visibles, sectionCode]);
 
-  const dansCompo = new Set(composition);
-  const f = recherche.toLowerCase();
-  const correspond = u => !f || String(u.ue_num).includes(f)
-    || (u.ue_nom || '').toLowerCase().includes(f);
+  const retenues = toutes.filter(coche);
+  const ects = retenues.reduce((t, u) => t + (Number(u.ects) || 0), 0);
+  const basculer = n => onChoix(s => { const x = new Set(s); x.has(n) ? x.delete(n) : x.add(n); return x; });
+  const toutLeGroupe = (lst, oui) => onChoix(s => { const x = new Set(s); lst.filter(u => !principale(u)).forEach(u => (oui ? x.add(u.ue_num) : x.delete(u.ue_num))); return x; });
 
-  const disponibles = [...toutes.values()]
-    .filter(u => !dansCompo.has(u.ue_num)).filter(correspond);
-  const choisies = composition.map(n => toutes.get(n)).filter(Boolean);
-
-  const modifie = useMemo(() => {
-    const initiale = new Set((data?.composition || []).map(u => u.ue_num));
-    if (initiale.size !== dansCompo.size) return true;
-    return [...dansCompo].some(n => !initiale.has(n));
-  }, [data, composition]);
-
-  function basculer(set, setSet, n) {
-    const s = new Set(set);
-    s.has(n) ? s.delete(n) : s.add(n);
-    setSet(s);
-  }
-
-  const ajouter = () => { setComposition(c => [...c, ...[...selG].filter(n => !c.includes(n))].sort((a, b) => a - b)); setSelG(new Set()); };
-  const retirer = () => { setComposition(c => c.filter(n => !selD.has(n))); setSelD(new Set()); };
-
-  async function enregistrer() {
-    setEnregistrement(true);
-    try {
-      const rep = await fetch(`/api/composition/section/${encodeURIComponent(sectionCode)}`, {
-        method: 'PUT', headers: authHeaders(),
-        body: JSON.stringify({ annee, ue_nums: composition }),
-      });
-      const j = await rep.json();
-      if (!rep.ok) { setMessage({ type: 'err', texte: j.error || 'échec' }); return; }
-      setMessage({ type: 'ok', texte: `Composition enregistrée : ${j.nb_ue} UE.` });
-      await charger();
-    } finally { setEnregistrement(false); }
-  }
-
-  async function preremplir() {
-    const rep = await fetch(
-      `/api/composition/section/${encodeURIComponent(sectionCode)}/preremplir`, {
-        method: 'POST', headers: authHeaders(), body: JSON.stringify({ annee }),
-      });
-    const j = await rep.json();
-    if (!rep.ok) { setMessage({ type: 'err', texte: j.error || 'échec' }); return; }
-    setMessage({ type: 'ok', texte: `${j.ajoutees} UE ajoutée(s) depuis les attributions constatées.` });
-    await charger();
-  }
-
-  if (erreur) return <div className="text-sm text-red-700 py-3">{erreur}</div>;
-  if (!data) return <div className="text-sm text-slate-400 py-3">Chargement…</div>;
-
-  const Ligne = ({ u, sel, onClick }) => (
-    <button onClick={onClick}
-      className={`w-full text-left px-3 py-2 border-b border-slate-100 last:border-0 text-[13px]
-        flex items-center justify-between gap-2 ${sel ? 'bg-cyan-50' : 'hover:bg-slate-50'}`}>
-      <span className="min-w-0">
-        <b className="text-iip-blue">UE {u.ue_num}</b>
-        <span className="text-slate-700"> — {u.ue_nom}</span>
-      </span>
-      <span className="flex items-center gap-1.5 flex-none text-[11px] text-slate-400">
-        {u.ue_per_total ? `${u.ue_per_total} pér.` : ''}
-        {u.autres_sections?.length > 0 && (
-          <span className="px-1.5 py-0.5 rounded-champ bg-sky-500 text-white font-bold">
-            aussi en {u.autres_sections.join(', ')}
-          </span>
-        )}
-        {u.nb_organisations > 0 && (
-          <span className="px-1.5 py-0.5 rounded-champ bg-emerald-500 text-white font-bold">
-            {u.nb_organisations} org.
-          </span>
-        )}
-      </span>
-    </button>
-  );
-
+  if (!data) return <p className="text-[13px] text-slate-400">Chargement des UE…</p>;
   return (
     <div className="space-y-3">
-      <div className="flex items-center justify-between gap-2 flex-wrap">
-        <p className="text-[12px] text-slate-500">
-          Le programme déclaré de la section — distinct de ce qu'on organise une
-          année donnée. Une UE partagée est rattachée, jamais dupliquée.
-        </p>
-        {estAdmin && (
-          <div className="flex gap-2">
-            <button onClick={preremplir}
-              className="text-[12px] px-2.5 py-1.5 rounded-lg border border-slate-300 flex items-center gap-1.5">
-              <IconWand size={14} /> Pré-remplir depuis les attributions
-            </button>
-            <button onClick={enregistrer} disabled={!modifie || enregistrement}
-              className="text-[12px] px-2.5 py-1.5 rounded-lg bg-iip-blue text-white font-semibold flex items-center gap-1.5 disabled:opacity-40">
-              <IconDeviceFloppy size={14} />
-              {enregistrement ? 'Enregistrement…' : 'Enregistrer la composition'}
-            </button>
-          </div>
-        )}
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="relative">
+          <IconSearch size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+          <input className="controle controle-icone w-64" placeholder="Numéro ou intitulé…" value={recherche} onChange={e => setRecherche(e.target.value)} />
+        </div>
+        <label className="flex items-center gap-1.5 text-[12px] text-slate-600 cursor-pointer">
+          <input type="checkbox" checked={seulesCochees} onChange={e => setSeulesCochees(e.target.checked)} /> seulement les UE comprises
+        </label>
+        <span className="ml-auto text-[12px] text-slate-600"><b className="text-iip-texte">{retenues.length}</b> UE comprises · <b className="text-iip-texte">{ects}</b> ECTS</span>
       </div>
-
-      {message && (
-        <div className={`px-3 py-2 rounded-lg text-[13px] ${message.type === 'ok'
-          ? 'bg-emerald-500 text-white border border-emerald-500'
-          : 'bg-red-500 text-white border border-red-500'}`}
-          onClick={() => setMessage(null)}>
-          {message.texte}
-        </div>
-      )}
-
-      <div className="grid grid-cols-[1fr_auto_1fr] gap-2 items-stretch">
-        <div className="border border-slate-200 rounded-xl overflow-hidden bg-white">
-          <div className="px-3 py-2 bg-slate-50 border-b border-slate-200 text-[11px] font-bold uppercase tracking-wide text-slate-500">
-            UE disponibles ({disponibles.length})
+      {groupes.map(g => {
+        const aelle = g.section === sectionCode;
+        return (
+          <div key={g.section} className="border border-slate-200 rounded-carte overflow-hidden">
+            <div className="tab-entete px-3 py-1.5 text-[12px] font-semibold text-slate-700 flex items-center gap-2">
+              {aelle ? `${g.section} — ses propres UE, comprises d'office` : `UE de ${g.section}`}
+            </div>
+            <div className="divide-y divide-slate-100">
+              {g.blocs.map(([bloc, lst]) => {
+                const tous = lst.every(coche);
+                return (
+                  <div key={bloc} className="bg-white">
+                    <div className="px-3 pt-2 pb-1 flex items-center gap-2 text-[11px] font-semibold text-slate-500">
+                      <span className="inline-block w-2.5 h-2.5 rounded-sm" style={{ background: couleurBloc(bloc) || '#D8DCE4' }} />
+                      {bloc}
+                      {!aelle && !lecture && (
+                        <button type="button" className="ml-1 font-normal underline text-slate-500" onClick={() => toutLeGroupe(lst, !tous)}>
+                          {tous ? 'tout décocher' : 'tout cocher'}</button>
+                      )}
+                    </div>
+                    <div className="grid gap-1.5 px-3 pb-2.5 sm:grid-cols-2 xl:grid-cols-3">
+                      {lst.map(u => {
+                        const c = coche(u);
+                        return (
+                          <label key={u.ue_num}
+                            className={`flex items-start gap-2 rounded-champ border px-2.5 py-1.5 text-[12.5px] ${aelle || lecture ? '' : 'cursor-pointer hover:border-slate-400'}`}
+                            style={{ borderColor: c ? 'var(--c-principal)' : '#E4E7EC' }}>
+                            <input type="checkbox" className="mt-0.5" checked={c} disabled={aelle || lecture} onChange={() => basculer(u.ue_num)} />
+                            <span className="min-w-0 flex-1">
+                              <b className="text-iip-texte tabular-nums">{u.ue_num}</b> <span className="text-slate-700">{u.ue_nom}</span>
+                              <span className="block text-[11px] text-slate-500">
+                                {[u.ects ? `${u.ects} ECTS` : null, u.ue_per_total ? `${u.ue_per_total} pér.` : null].filter(Boolean).join(' · ')}
+                                {String(u.ue_tc).toLowerCase() === 'x' && <span className="ml-1.5 font-semibold text-slate-600">tronc commun</span>}
+                                {u.autres_sections?.filter(s => s !== g.section).length > 0 && (
+                                  <span className="ml-1.5">· aussi en {u.autres_sections.filter(s => s !== g.section).join(', ')}</span>)}
+                              </span>
+                            </span>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           </div>
-          <div className="flex items-center gap-1.5 border-b border-slate-100 px-3">
-            <IconSearch size={13} className="text-slate-400 flex-none" />
-            <input value={recherche} onChange={e => setRecherche(e.target.value)}
-              placeholder="numéro ou intitulé…"
-              className="w-full py-1.5 text-[13px] outline-none" />
-          </div>
-          <div className="max-h-72 overflow-auto">
-            {disponibles.map(u => (
-              <Ligne key={u.ue_num} u={u} sel={selG.has(u.ue_num)}
-                     onClick={() => estAdmin && basculer(selG, setSelG, u.ue_num)} />
-            ))}
-            {!disponibles.length && (
-              <div className="px-3 py-6 text-center text-[12px] text-slate-400">Aucune UE.</div>
-            )}
-          </div>
-        </div>
-
-        <div className="flex flex-col justify-center gap-2">
-          <button onClick={ajouter} disabled={!estAdmin || !selG.size}
-            className="px-2 py-2 rounded-lg border border-slate-300 disabled:opacity-30">
-            <IconChevronRight size={16} />
-          </button>
-          <button onClick={retirer} disabled={!estAdmin || !selD.size}
-            className="px-2 py-2 rounded-lg border border-slate-300 disabled:opacity-30">
-            <IconChevronLeft size={16} />
-          </button>
-        </div>
-
-        <div className="border border-slate-200 rounded-xl overflow-hidden bg-white">
-          <div className="px-3 py-2 bg-slate-50 border-b border-slate-200 text-[11px] font-bold uppercase tracking-wide text-slate-500">
-            Composition de {sectionCode} ({choisies.length} UE)
-          </div>
-          <div className="max-h-[19.5rem] overflow-auto">
-            {choisies.map(u => (
-              <Ligne key={u.ue_num} u={u} sel={selD.has(u.ue_num)}
-                     onClick={() => estAdmin && basculer(selD, setSelD, u.ue_num)} />
-            ))}
-            {!choisies.length && (
-              <div className="px-3 py-6 text-center text-[12px] text-slate-400">
-                Aucune UE — sélectionnez à gauche puis ›
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {modifie && (
-        <p className="text-[12px] text-amber-700 flex items-center gap-1.5">
-          <IconAlertTriangle size={13} /> Modifications non enregistrées.
-        </p>
-      )}
+        );
+      })}
+      {!groupes.length && <p className="text-[13px] text-slate-500">Aucune UE ne correspond.</p>}
     </div>
   );
 }

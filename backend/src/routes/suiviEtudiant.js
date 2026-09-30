@@ -65,6 +65,10 @@ function peutVoirSuivi(user, etudId) {
     if (perim === null) return true;
     const { section } = sectionRattachement(etudId) || {};
     if (section && perim.includes(section)) return true;
+    // UN RATTACHEMENT DÉCLARÉ TRANCHE (30 septembre 2026) : un orthoptiste
+    // inscrit au tronc commun, déclaré en Optométrie, ouvrait son dossier
+    // confidentiel à la coordination d'Optométrie par cette seconde porte.
+    if (db.prepare('SELECT section_rattachement s FROM etudiant WHERE id = ?').get(etudId)?.s) return false;
     // À défaut de rattachement posé, ses inscriptions font foi.
     const marks = perim.map(() => '?').join(',');
     if (perim.length && db.prepare(`
