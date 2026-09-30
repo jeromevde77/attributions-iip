@@ -157,6 +157,23 @@ du même schéma écrit `ue_epreuve_integree`, c'est-à-dire l'épreuve intégr�
 DÉCRET — celle qui ouvre au diplôme et que le moteur du PAE ne propose qu'une
 fois tout le reste acquis. Ne jamais la cocher pour dire « examen commun ».
 
+**L'ORTHOPTIE PARTAGE LE TRONC COMMUN D'OPTOMÉTRIE — ET RIEN D'AUTRE
+N'OUVRE CHEZ NOUS** (Charles, 30 septembre 2026). Section `Orthoptie`, code
+FWB `824600S34D2`, dossier pédagogique propre dont les UE du tronc commun sont
+IDENTIQUES à celles d'Optométrie (281, 282, 283, 286, 287, 290, 291, 292, 293,
+296 ; `ue_tc = 'x'`). Les autres UE du dossier d'orthoptie ne s'ouvrent pas à
+l'IIP (la HELB les organise) et n'entrent pas dans Lucie. Le tronc commun est
+un REGROUPEMENT d'organisation et de financement : les étudiants restent dans
+leur section et dans leurs listes. D'où : les UE du tronc commun sont
+RATTACHÉES à Orthoptie (`ue_section`, jamais dupliquées) ; **une organisation
+par section** — Optométrie = organisation 1, Orthoptie = organisation 2 (3 pour
+la 282, dont l'organisation 2 porte l'EPT de Sébastien Raucq pour la création
+des horaires) ; chaque étudiant va dans l'organisation de SA section ; les
+attributions de l'organisation Orthoptie se posent à la main. La délibération
+se tient déjà par organisation (onglet, séance, PV — le cas de l'UE 333 AESI) :
+pas de « séance par section » à construire. Les étudiants arrivent par la
+liste d'inscrits de la HELB (matricule HELB, adresse @helb-prigogine.be).
+
 **Deux sources pour un même fait, c'est une source de moins.** L'épreuve
 intégrée s'écrivait dans `ue.is_epreuve_integree` (case du référentiel) et se
 lisait dans `ue_epreuve_integree` (table annuelle) : la case ne faisait rien,
