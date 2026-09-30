@@ -11,6 +11,7 @@
  * connaît pas sont donc SIGNALÉES et laissées à compléter, jamais devinées.
  */
 import express from 'express';
+import { sectionDuDossier } from '../lib/sectionDossier.js';
 import db from '../db/index.js';
 import { authRequired, roleRequired } from '../middleware/auth.js';
 import { envelopperDocument } from '../lib/document.js';
@@ -108,13 +109,11 @@ export function bilanCredits(etudiantId, annee) {
 
 /** La section suivie l'année considérée, et le total de crédits du cursus. */
 function formationDe(etudiantId, annee) {
-  const s = db.prepare(`
-    SELECT (SELECT u.section FROM ue u
-             WHERE u.ue_num = i.ue_num AND u.section IS NOT NULL
-             ORDER BY u.annee_scolaire DESC LIMIT 1) AS section
-    FROM etudiant_inscription i
-    WHERE i.etudiant_id = ? AND i.annee_scolaire = ?
-  `).all(etudiantId, annee).map(x => x.section).filter(Boolean);
+  // LA SECTION DU DOSSIER, unité par unité (lib/sectionDossier.js) : un
+  // orthoptiste au tronc commun suit une formation d'Orthoptie, même si l'UE
+  // est déclarée en Optométrie (30 septembre 2026).
+  const s = db.prepare(`SELECT ue_num FROM etudiant_inscription WHERE etudiant_id = ? AND annee_scolaire = ?`)
+    .all(etudiantId, annee).map(x => sectionDuDossier(etudiantId, x.ue_num, annee)).filter(Boolean);
 
   const section = s.sort((a, b) =>
     s.filter(x => x === b).length - s.filter(x => x === a).length)[0] || null;
@@ -126,8 +125,9 @@ function formationDe(etudiantId, annee) {
   // Le total de crédits de la formation se déduit du référentiel de la section.
   const total = section ? db.prepare(`
     SELECT SUM(ects) AS t FROM (
-      SELECT DISTINCT ue_num, ects FROM ue WHERE section = ? AND ects IS NOT NULL
-    )`).get(section)?.t : null;
+      SELECT DISTINCT ue_num, ects FROM ue WHERE ects IS NOT NULL AND (section = ?
+        OR ue_num IN (SELECT ue_num FROM ue_section WHERE section_code = ?))
+    )`).get(section, section)?.t : null;
 
   return { section, libelle: sec?.libelle || section, totalCredits: total || null };
 }

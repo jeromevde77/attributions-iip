@@ -89,9 +89,12 @@ export function construireGraphe({ sections, annee, etat }) {
            -- Une UE DÉTERMINANTE pèse double dans la mention du diplôme
            -- (décret de 1991) : elle mérite d'être signalée sur le schéma.
            MAX(CASE WHEN ue_det = 'x' THEN 1 ELSE 0 END) AS determinante
-    FROM ue WHERE annee_scolaire = ? AND section IN (${ph})
+    FROM ue WHERE annee_scolaire = ? AND (section IN (${ph})
+      -- les unités RATTACHÉES à la section : le tronc commun des orthoptistes
+      -- (30 septembre 2026 — sans elles, ni schéma ni frise pour l'Orthoptie).
+      OR ue_num IN (SELECT ue_num FROM ue_section WHERE annee_scolaire IN (?, ?) AND section_code IN (${ph})))
     GROUP BY ue_num
-  `).all(anneeRef, ...sections);
+  `).all(anneeRef, ...sections, anneeRef, annee || anneeRef, ...sections);
   if (!ues.length) return { nodes: [], edges: [], colonnes: [] };
 
   const ueSet = new Set(ues.map(u => u.ue_num));

@@ -168,6 +168,232 @@ function clausePerimetre(req, alias = 'a') {
   };
 }
 
+/**
+ * LA BASCULE D'ORGANISATION (Charles, 30 septembre 2026 : « je sélectionne les
+ * lignes — cours ou activités — qui passent en orga 2 »). Le tronc commun
+ * d'Optométrie est suivi aussi par les orthoptistes : une organisation par
+ * section — Optométrie en 1, Orthoptie en 2 (3 pour la 282). Les lignes
+ * cochées sont DÉPLACÉES, pas recopiées : elles prennent l'organisation et la
+ * section cibles, et l'organisation cible est ouverte au besoin (sans dates).
+ * Simulation d'abord ; chaque ligne garde son instantané et son journal.
+ * Refusé : une organisation déjà tenue par UNE AUTRE section de l'unité — deux
+ * sections sous un même numéro, c'est deux délibérations confondues.
+ */
+const ROLES_BASCULE = ['admin', 'directeur', 'directeur_adjoint', 'editeur'];
+function sectionsDeLUE(ueNum, annee) {
+  const s = new Set();
+  const p = db.prepare('SELECT section FROM ue WHERE ue_num = ? AND annee_scolaire = ?').get(ueNum, annee)?.section;
+  if (p) s.add(p);
+  try { for (const x of db.prepare('SELECT section_code FROM ue_section WHERE ue_num = ? AND annee_scolaire = ?').all(ueNum, annee)) s.add(x.section_code); } catch { /* table absente */ }
+  return [...s];
+}
+function occupants(ueNum, annee) {
+  // Qui tient chaque numéro d'organisation : attributions et organisations.
+  const m = new Map();
+  const noter = (n, sec) => { if (!m.has(n)) m.set(n, new Set()); if (sec) m.get(n).add(sec); };
+  for (const x of db.prepare(`SELECT DISTINCT COALESCE(num_organisation, 1) n, section FROM attribution
+      WHERE ue_num = ? AND annee_scolaire = ?`).all(ueNum, annee)) noter(x.n, x.section);
+  for (const x of db.prepare(`SELECT DISTINCT num_organisation n, section FROM organisation_ue
+      WHERE ue_num = ? AND annee_scolaire = ?`).all(ueNum, annee)) noter(x.n, x.section);
+  return m;
+}
+
+r.get('/basculer/:ueNum', authRequired, roleRequired(...ROLES_BASCULE), (req, res) => {
+  const annee = req.query.annee || anneeDeTravail(req);
+  const ueNum = Number(req.params.ueNum);
+  const lignes = db.prepare(`
+    SELECT att.id, att.section, COALESCE(att.num_organisation, 1) AS num_organisation, att.code_cours,
+           c.cours_nom, act.libelle AS activite_nom, att.type_cours, att.periodes_attribuees, att.contrat_mdp,
+           att.num_groupe, att.autonomie_attribuee, p.nom, p.prenom
+    FROM attribution att
+    LEFT JOIN professeur p ON p.id = att.professeur_id
+    LEFT JOIN activite_type act ON act.id = att.activite_id
+    LEFT JOIN cours c ON c.cours_code = att.code_cours AND c.annee_scolaire = att.annee_scolaire
+    WHERE att.ue_num = ? AND att.annee_scolaire = ?
+    ORDER BY COALESCE(att.num_organisation, 1), att.code_cours, att.id`).all(ueNum, annee);
+  const occ = occupants(ueNum, annee);
+  const organisations = [...occ.entries()].sort((a, b) => a[0] - b[0]).map(([n, secs]) => ({ num: n, sections: [...secs] }));
+  const ue = db.prepare('SELECT ue_nom, ue_aut, ue_per_cours FROM ue WHERE ue_num = ? ORDER BY (annee_scolaire = ?) DESC LIMIT 1').get(ueNum, annee);
+  // CE QUE PRÉVOIT LE DOSSIER PÉDAGOGIQUE, en regard de ce qui est attribué
+  // (Charles, 30 septembre 2026) : les périodes professeur de chaque cours, et
+  // l'autonomie de l'unité. Les activités Z ne comptent pas (per_etudiant).
+  const cours = db.prepare(`SELECT cours_code, cours_nom, cours_per, ct_pp FROM cours
+      WHERE ue_num = ? AND annee_scolaire = ? AND cours_code IS NOT NULL ORDER BY cours_num, cours_code`).all(ueNum, annee);
+  res.json({ annee, ue_num: ueNum, ue_nom: ue?.ue_nom || null, autonomie_dp: ue?.ue_aut ?? null,
+    periodes_dp: ue?.ue_per_cours ?? null, cours, sections: sectionsDeLUE(ueNum, annee), organisations, lignes });
+});
+
+r.post('/basculer', authRequired, roleRequired(...ROLES_BASCULE), (req, res) => {
+  const { annee, ue_num, ids, section, num_organisation, simulation = true } = req.body || {};
+  const ueNum = Number(ue_num), cible = Number(num_organisation);
+  if (!annee || !ueNum) return res.status(400).json({ error: 'annee et ue_num requis' });
+  if (!Number.isInteger(cible) || cible < 1) return res.status(400).json({ error: "numéro d'organisation attendu (1, 2, 3…)" });
+  if (!Array.isArray(ids) || !ids.length) return res.status(400).json({ error: 'aucune ligne cochée' });
+  if (!sectionsDeLUE(ueNum, annee).includes(section)) {
+    return res.status(400).json({ error: `L'UE ${ueNum} n'est pas rattachée à la section « ${section} » en ${annee}.` });
+  }
+  const autres = [...(occupants(ueNum, annee).get(cible) || [])].filter(x => x && x !== section);
+  const lignes = db.prepare(`SELECT id, section, COALESCE(num_organisation, 1) AS num_organisation, code_cours
+      FROM attribution WHERE ue_num = ? AND annee_scolaire = ? AND id IN (${ids.map(() => '?').join(',')})`)
+    .all(ueNum, annee, ...ids.map(Number));
+  if (lignes.length !== ids.length) return res.status(400).json({ error: "Des lignes cochées n'appartiennent pas à cette UE ou à cette année." });
+  // Les lignes qu'on déplace ne comptent pas comme occupant : c'est ce qui reste.
+  const restent = db.prepare(`SELECT DISTINCT section FROM attribution WHERE ue_num = ? AND annee_scolaire = ?
+      AND COALESCE(num_organisation, 1) = ? AND id NOT IN (${ids.map(() => '?').join(',')})`).all(ueNum, annee, cible, ...ids.map(Number))
+    .map(x => x.section).filter(x => x && x !== section);
+  const orgAutre = db.prepare(`SELECT DISTINCT section FROM organisation_ue WHERE ue_num = ? AND annee_scolaire = ?
+      AND num_organisation = ? AND section != ?`).all(ueNum, annee, cible, section).map(x => x.section);
+  const conflit = [...new Set([...restent, ...orgAutre])];
+  if (conflit.length) {
+    return res.status(409).json({ error: `L'organisation ${cible} de l'UE ${ueNum} est déjà tenue par ${conflit.join(', ')} : `
+      + `choisissez un autre numéro (deux sections sous un même numéro, ce sont deux délibérations confondues).`, autres });
+  }
+  const aBouger = lignes.filter(l => l.section !== section || l.num_organisation !== cible);
+  const orgExiste = !!db.prepare('SELECT 1 FROM organisation_ue WHERE ue_num = ? AND section = ? AND annee_scolaire = ? AND num_organisation = ?')
+    .get(ueNum, section, annee, cible);
+  if (simulation) {
+    return res.json({ simulation: true, a_basculer: aBouger.length, deja: lignes.length - aBouger.length, organisation_a_ouvrir: !orgExiste });
+  }
+  const maj = db.prepare("UPDATE attribution SET section = ?, num_organisation = ?, updated_at = datetime('now'), updated_by = ? WHERE id = ?");
+  const log = db.prepare(`INSERT INTO modification_log (attribution_id, utilisateur_id, action, champ_modifie, valeur_avant, valeur_apres)
+      VALUES (?,?,?,?,?,?)`);
+  db.transaction(() => {
+    if (!orgExiste) {
+      db.prepare('INSERT INTO organisation_ue (ue_num, section, annee_scolaire, num_organisation) VALUES (?,?,?,?)').run(ueNum, section, annee, cible);
+    }
+    for (const l of aBouger) {
+      saveSnapshot(l.id, 'update', req.user);
+      maj.run(section, cible, req.user.id, l.id);
+      log.run(l.id, req.user.id, 'update', 'organisation', `${l.section} · org. ${l.num_organisation}`, `${section} · org. ${cible}`);
+    }
+  })();
+  console.log(`[bascule] UE ${ueNum} ${annee} : ${aBouger.length} ligne(s) → ${section} org. ${cible} par ${req.user?.email || '?'}`);
+  res.json({ ok: true, basculees: aBouger.length, organisation_ouverte: !orgExiste });
+});
+
+/**
+ * RÉPARTIR ENTRE DEUX ORGANISATIONS SANS RIEN EFFACER (Charles, 30 septembre
+ * 2026 : « je ne veux pas effacer mes groupes, mais je peux mettre zéro
+ * période ; je dois rester dans les multiples ; je DOIS avoir dans mon orga 2
+ * au moins un groupe de chaque cours et une part d'autonomie »). Trois gestes,
+ * écrits d'un bloc après vérification :
+ *   · copies  — une ligne recopiée dans l'organisation cible (même cours,
+ *               activité, enseignant, contrat, groupe), avec ses périodes ;
+ *   · modifs  — les périodes et l'autonomie d'une ligne existante, 0 compris ;
+ *   · deplace — des lignes qui changent d'organisation (la bascule).
+ * Le contrôle rendu à chaque vérification : dans CHAQUE organisation, le total
+ * d'un cours est un multiple de ses périodes au dossier pédagogique ;
+ * l'organisation cible a au moins une ligne par cours ; l'autonomie attribuée
+ * ne dépasse pas celle du dossier. Il SIGNALE, comme la grille d'organisation.
+ */
+const COLONNES_COPIE = ['section', 'etablissement_referent', 'contrat_mdp', 'organisation', 'annee_scolaire', 'ue_num',
+  'quadrimestre_attribue', 'code_cours', 'type_cours', 'type_cours_helb', 'code', 'nb_groupes', 'split_groupe',
+  'num_split', 'num_groupe', 'activite_id', 'professeur_id', 'helb_nature', 'per_etudiant_total_dp', 'cours_ept_ad',
+  'coordination_encadrement'];
+r.post('/repartir-organisations', authRequired, roleRequired(...ROLES_BASCULE), (req, res) => {
+  const { annee, ue_num, section, num_organisation, copies = [], modifs = [], deplace = [], simulation = true } = req.body || {};
+  const ueNum = Number(ue_num), cible = Number(num_organisation);
+  if (!annee || !ueNum) return res.status(400).json({ error: 'annee et ue_num requis' });
+  if (!Number.isInteger(cible) || cible < 1) return res.status(400).json({ error: "numéro d'organisation cible attendu" });
+  if (!sectionsDeLUE(ueNum, annee).includes(section)) {
+    return res.status(400).json({ error: `L'UE ${ueNum} n'est pas rattachée à la section « ${section} » en ${annee}.` });
+  }
+  const lignes = db.prepare(`SELECT * FROM attribution WHERE ue_num = ? AND annee_scolaire = ?`).all(ueNum, annee);
+  const parId = new Map(lignes.map(l => [l.id, l]));
+  const num = v => { const n = Number(String(v ?? '').replace(',', '.')); return Number.isFinite(n) && n >= 0 ? n : null; };
+  for (const x of [...copies.map(c => c.source_id), ...modifs.map(m => m.id), ...deplace]) {
+    if (!parId.has(Number(x))) return res.status(400).json({ error: `La ligne ${x} n'appartient pas à l'UE ${ueNum} en ${annee}.` });
+  }
+  for (const x of [...copies, ...modifs]) {
+    if (x.periodes != null && x.periodes !== '' && num(x.periodes) == null) return res.status(400).json({ error: `« ${x.periodes} » n'est pas un nombre de périodes.` });
+    if (x.autonomie != null && x.autonomie !== '' && num(x.autonomie) == null) return res.status(400).json({ error: `« ${x.autonomie} » n'est pas une autonomie.` });
+  }
+  // L'état APRÈS, pour le contrôle.
+  const apres = lignes.map(l => ({ ...l, num_organisation: l.num_organisation || 1 }));
+  const idx = new Map(apres.map(l => [l.id, l]));
+  for (const id of deplace) { const l = idx.get(Number(id)); l.section = section; l.num_organisation = cible; }
+  for (const m of modifs) {
+    const l = idx.get(Number(m.id));
+    if (m.periodes != null && m.periodes !== '') l.periodes_attribuees = num(m.periodes);
+    if (m.autonomie != null && m.autonomie !== '') l.autonomie_attribuee = num(m.autonomie);
+  }
+  for (const c of copies) {
+    const src = parId.get(Number(c.source_id));
+    apres.push({ ...src, id: null, section, num_organisation: cible,
+      periodes_attribuees: num(c.periodes) ?? 0, autonomie_attribuee: num(c.autonomie) ?? 0 });
+  }
+  // Un numéro tenu par une autre section, après les gestes : refusé.
+  const autres = new Set(apres.filter(l => l.num_organisation === cible && l.section && l.section !== section).map(l => l.section));
+  for (const x of db.prepare('SELECT DISTINCT section FROM organisation_ue WHERE ue_num = ? AND annee_scolaire = ? AND num_organisation = ? AND section != ?')
+    .all(ueNum, annee, cible, section)) autres.add(x.section);
+  if (autres.size) {
+    return res.status(409).json({ error: `L'organisation ${cible} de l'UE ${ueNum} est tenue par ${[...autres].join(', ')} : choisissez un autre numéro.` });
+  }
+  const cours = db.prepare(`SELECT cours_code, cours_nom, cours_per, ct_pp FROM cours WHERE ue_num = ? AND annee_scolaire = ?
+      AND cours_code IS NOT NULL ORDER BY cours_num, cours_code`).all(ueNum, annee);
+  const autDP = db.prepare('SELECT ue_aut FROM ue WHERE ue_num = ? ORDER BY (annee_scolaire = ?) DESC LIMIT 1').get(ueNum, annee)?.ue_aut ?? null;
+  const orgs = [...new Set(apres.map(l => l.num_organisation))].sort((a, b) => a - b);
+  const controles = [];
+  for (const c of cours) {
+    if (c.ct_pp === 'Z' || !Number(c.cours_per)) continue;
+    for (const n of orgs) {
+      const t = apres.filter(l => l.code_cours === c.cours_code && l.num_organisation === n).reduce((s0, l) => s0 + (Number(l.periodes_attribuees) || 0), 0);
+      const reste = t % Number(c.cours_per);
+      if (reste) controles.push({ etat: 'corriger', texte: `${c.cours_code}, org. ${n} : ${t} p., pas un multiple de ${c.cours_per} (il manque ${Number(c.cours_per) - reste})` });
+    }
+    if (!apres.some(l => l.code_cours === c.cours_code && l.num_organisation === cible)) {
+      controles.push({ etat: 'corriger', texte: `${c.cours_code} n'a aucun groupe dans l'organisation ${cible}` });
+    }
+  }
+  const autTotal = apres.reduce((s0, l) => s0 + (Number(l.autonomie_attribuee) || 0), 0);
+  const autCible = apres.filter(l => l.num_organisation === cible).reduce((s0, l) => s0 + (Number(l.autonomie_attribuee) || 0), 0);
+  if (autDP != null && autTotal > Number(autDP)) controles.push({ etat: 'corriger', texte: `Autonomie attribuée ${autTotal} p. : plus que les ${autDP} du dossier` });
+  if (Number(autDP) > 0 && !autCible) controles.push({ etat: 'surveiller', texte: `L'organisation ${cible} n'a aucune part d'autonomie` });
+
+  const orgExiste = !!db.prepare('SELECT 1 FROM organisation_ue WHERE ue_num = ? AND section = ? AND annee_scolaire = ? AND num_organisation = ?')
+    .get(ueNum, section, annee, cible);
+  if (simulation) {
+    return res.json({ simulation: true, copies: copies.length, modifs: modifs.length, deplace: deplace.length,
+      organisation_a_ouvrir: !orgExiste, controles });
+  }
+  const qui = req.user.id;
+  const cols = COLONNES_COPIE.filter(c => c !== 'section');
+  const ins = db.prepare(`INSERT INTO attribution (section, num_organisation, periodes_attribuees, autonomie_attribuee, valide, created_by, updated_by, ${cols.join(', ')})
+      VALUES (?,?,?,?,0,?,?, ${cols.map(() => '?').join(', ')})`);
+  const log = db.prepare(`INSERT INTO modification_log (attribution_id, utilisateur_id, action, champ_modifie, valeur_avant, valeur_apres)
+      VALUES (?,?,?,?,?,?)`);
+  let creees = 0, modifiees = 0, deplacees = 0;
+  db.transaction(() => {
+    if (!orgExiste) db.prepare('INSERT INTO organisation_ue (ue_num, section, annee_scolaire, num_organisation) VALUES (?,?,?,?)').run(ueNum, section, annee, cible);
+    for (const id of deplace) {
+      const l = parId.get(Number(id));
+      if (l.section === section && (l.num_organisation || 1) === cible) continue;
+      saveSnapshot(l.id, 'update', req.user);
+      db.prepare("UPDATE attribution SET section = ?, num_organisation = ?, updated_at = datetime('now'), updated_by = ? WHERE id = ?").run(section, cible, qui, l.id);
+      log.run(l.id, qui, 'update', 'organisation', `${l.section} · org. ${l.num_organisation || 1}`, `${section} · org. ${cible}`);
+      deplacees++;
+    }
+    for (const m of modifs) {
+      const l = parId.get(Number(m.id));
+      const p = m.periodes != null && m.periodes !== '' ? num(m.periodes) : l.periodes_attribuees;
+      const a = m.autonomie != null && m.autonomie !== '' ? num(m.autonomie) : l.autonomie_attribuee;
+      if (p === l.periodes_attribuees && a === l.autonomie_attribuee) continue;
+      saveSnapshot(l.id, 'update', req.user);
+      db.prepare("UPDATE attribution SET periodes_attribuees = ?, autonomie_attribuee = ?, updated_at = datetime('now'), updated_by = ? WHERE id = ?").run(p, a, qui, l.id);
+      log.run(l.id, qui, 'update', 'periodes', `${l.periodes_attribuees ?? ''} p. · aut. ${l.autonomie_attribuee ?? ''}`, `${p ?? ''} p. · aut. ${a ?? ''}`);
+      modifiees++;
+    }
+    for (const c of copies) {
+      const src = parId.get(Number(c.source_id));
+      const info = ins.run(section, cible, num(c.periodes) ?? 0, num(c.autonomie) ?? 0, qui, qui, ...cols.map(k => src[k] ?? null));
+      log.run(info.lastInsertRowid, qui, 'create', 'organisation', `copie de la ligne ${src.id} (${src.section} · org. ${src.num_organisation || 1})`, `${section} · org. ${cible}`);
+      creees++;
+    }
+  })();
+  console.log(`[repartir] UE ${ueNum} ${annee} → ${section} org. ${cible} : ${creees} copie(s), ${modifiees} modif(s), ${deplacees} déplacement(s) par ${req.user?.email || '?'}`);
+  res.json({ ok: true, creees, modifiees, deplacees, organisation_ouverte: !orgExiste, controles });
+});
+
 r.get('/', authRequired, withSectionScope, (req, res) => {
   const { section, prof_id, contrat, ue, ue_num, q, type_cours, annee } = req.query;
   const where = [];

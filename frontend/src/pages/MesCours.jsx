@@ -38,6 +38,7 @@ export default function MesCours() {
   const [fait, setFait] = useState(null);
   const [enCours, setEnCours] = useState(false);
   const [filtre, setFiltre] = useState('');
+  const [filtreSection, setFiltreSection] = useState('');
   const [face, setFace] = useState('notes');          // notes | presences
   const [caseActive, setCaseActive] = useState(null);   // { id, k, r, ci } — la case que visent PP et NP
 
@@ -118,7 +119,11 @@ export default function MesCours() {
            Charles, 26 septembre 2026). La seconde se lit par UNITÉ et se
            filtre : une section, ce sont des dizaines de cours. */
         const q = filtre.trim().toLowerCase();
-        const garde = x => !q || `${x.cours_code} ${x.cours_nom || ''} ${x.ue_num} ${x.ue_nom || ''}`.toLowerCase().includes(q);
+        /* UNE SECTION À LA FOIS, POUR QUI EN A PLUSIEURS (Charles, 30 septembre
+           2026). Le filtre ne paraît que s'il y a le choix. */
+        const sectionsDispo = [...new Set(cours.map(x => x.section).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'fr'));
+        const garde = x => (!filtreSection || x.section === filtreSection)
+          && (!q || `${x.cours_code} ${x.cours_nom || ''} ${x.ue_num} ${x.ue_nom || ''} ${(x.enseignants || []).join(' ')}`.toLowerCase().includes(q));
         const miens = cours.filter(x => x.a_moi !== false).filter(garde);
         const section = cours.filter(x => x.a_moi === false).filter(garde);
         /* PAR SECTION, PUIS PAR BLOC (Charles, 27 septembre 2026) : le titre
@@ -149,6 +154,9 @@ export default function MesCours() {
               <div className="text-[12px] text-slate-500 truncate">
                 {x.a_moi === false ? (x.section || '') : <>UE {x.ue_num}{x.ue_nom ? ` — ${x.ue_nom}` : ''} · {x.groupes.join(' + ')}</>}
               </div>
+              <div className="text-[12px] text-slate-600 truncate" title={(x.enseignants || []).join(', ')}>
+                {(x.enseignants || []).length ? x.enseignants.join(', ') : <span className="text-slate-400">aucun titulaire attribué</span>}
+              </div>
             </div>
             <span className="flex-none text-[12px] font-semibold text-iip-turquoise-dark text-right">
               {x.nb_etudiants} étudiant{x.nb_etudiants > 1 ? 's' : ''}
@@ -161,10 +169,21 @@ export default function MesCours() {
         const aSection = cours.some(x => x.a_moi === false);
         return (
           <div className="space-y-3">
-            {aSection && (
-              <input value={filtre} onChange={e => setFiltre(e.target.value)}
-                placeholder="Chercher un cours ou une unité…"
-                className="controle w-72 max-w-full border border-slate-300 rounded-champ bg-white" />
+            {(aSection || sectionsDispo.length > 1) && (
+              <div className="flex flex-wrap items-center gap-2">
+                {sectionsDispo.length > 1 && (
+                  <select value={filtreSection} onChange={e => setFiltreSection(e.target.value)} aria-label="Section"
+                    className="controle border border-slate-300 rounded-champ bg-white">
+                    <option value="">Toutes mes sections</option>
+                    {sectionsDispo.map(s0 => <option key={s0} value={s0}>{s0}</option>)}
+                  </select>
+                )}
+                {aSection && (
+                  <input value={filtre} onChange={e => setFiltre(e.target.value)}
+                    placeholder="Chercher un cours, une unité, un enseignant…"
+                    className="controle w-72 max-w-full border border-slate-300 rounded-champ bg-white" />
+                )}
+              </div>
             )}
             {(miens.length > 0 || !aSection) && (
               <div className="space-y-1.5">
@@ -293,6 +312,9 @@ export default function MesCours() {
                   {c && <span className="text-slate-400">· UE {c.ue_num}{c.ue_nom ? ` — ${c.ue_nom}` : ''}</span>}
                 </button>
                 <div className="text-[15px] font-semibold leading-snug">{ouvert} · {c?.cours_nom || ''}</div>
+                {(feuille?.enseignants || c?.enseignants || []).length > 0 && (
+                  <div className="text-[12px] text-slate-600">Enseigné par {(feuille?.enseignants || c?.enseignants).join(', ')}</div>
+                )}
                 <div className="text-[12px] text-slate-500">
                   {feuille?.portee === 'coordination' ? 'Cours de votre section — en tant que coordination'
                     : (c?.groupes || []).join(' + ')} · {annee}

@@ -203,6 +203,22 @@ function sectionsCoordination(req) {
   const s = getUserSections(req.user);
   return s === null ? null : s;        // null : toutes les sections
 }
+/* QUI DONNE CE COURS (Charles, 30 septembre 2026 : « il faudrait que le nom et
+   le prénom du MP apparaissent »). Les titulaires de l'année, d'après les
+   attributions : Prénom NOM, dans l'ordre des périodes. */
+function enseignantsParCours(annee) {
+  const m = new Map();
+  for (const x of db.prepare(`SELECT a.code_cours, p.nom, p.prenom, SUM(COALESCE(a.periodes_attribuees, 0)) per
+      FROM attribution a JOIN professeur p ON p.id = a.professeur_id
+      WHERE a.annee_scolaire = ? AND a.code_cours IS NOT NULL
+      GROUP BY a.code_cours, p.id ORDER BY per DESC`).all(annee)) {
+    const nom = [String(x.prenom || '').trim(), String(x.nom || '').trim().toLocaleUpperCase('fr')].filter(Boolean).join(' ');
+    if (!m.has(x.code_cours)) m.set(x.code_cours, []);
+    if (nom && !m.get(x.code_cours).includes(nom)) m.get(x.code_cours).push(nom);
+  }
+  return m;
+}
+
 function coursDesSections(sections, annee) {
   if (Array.isArray(sections) && !sections.length) return [];
   const ph = Array.isArray(sections) ? sections.map(() => '?').join(',') : null;
@@ -281,6 +297,8 @@ r.get('/', authRequired, (req, res) => {
       .filter(c => !parCours.has(c.cours_code))
       .map(c => ({ ...c, a_moi: false, groupes: [], nb_etudiants: nbInscrits.get(c.ue_num) || 0 }));
   }
+  const ens = enseignantsParCours(annee);
+  for (const c of [...cours, ...section]) c.enseignants = ens.get(c.cours_code) || [];
   res.json({ annee, cours: [...cours, ...section],
     sections_coordination: coordination ? (secs === null ? 'toutes' : secs) : null });
 });
@@ -338,6 +356,7 @@ r.get('/:coursCode/etudiants', authRequired, (req, res) => {
   res.json({
     annee, cours_code: req.params.coursCode, ue_num: d.ueNum,
     repartition: d.repartition, portee: d.portee,
+    enseignants: enseignantsParCours(annee).get(req.params.coursCode) || [],
     // La feuille du professeur note PAR ACQUIS ; sans AA rattachés au cours,
     // elle retombe sur une note de cours (clé '').
     acquis,

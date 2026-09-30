@@ -168,6 +168,7 @@ export const CARTE = {
 const LECTURES_EN_POST = [
   /^\/api\/impression\//,
   /^\/api\/rapports\/[^/]+\/(xlsx|pdf)$/,
+  /^\/api\/rapports\/mise-en-page$/,   // met en page une liste : elle produit, elle n'écrit rien (Mati, 7 refus)
   /^\/api\/exports\//,
   /^\/api\/apercu\//,
   /\/simuler$/,            // toute simulation : elle n'écrit rien, c'est son objet

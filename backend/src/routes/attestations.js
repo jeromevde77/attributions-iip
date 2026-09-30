@@ -19,6 +19,7 @@ import { manquesDossier, uniteValorisable } from '../lib/valorisation.js';
 import { LOGO_IIP_JPEG } from '../services/assets/logo_iip_jpeg.js';
 import { piedBalisage, piedStyles, reglesDePage, stylesEntete, enteteDocument,
   BANDE_PIED_MM, MARGE_SOUS_PIED_MM, piedGabaritPdf } from '../lib/document.js';
+import { sectionDuDossier } from '../lib/sectionDossier.js';
 import db from '../db/index.js';
 import { authRequired, getUserSections, roleRequired } from '../middleware/auth.js';
 import { PEUT_INSTRUIRE } from '../lib/valorisation.js';
@@ -190,7 +191,7 @@ export function unitesReussies(etudId, annee, surcharge = null) {
   `).all(etudId, annee).map(i => (surcharge && surcharge[i.ue_num] !== undefined
     ? { ...i, points: surcharge[i.ue_num] } : i));
 
-  return insc.map(i => decrireUnite(i.ue_num, i.annee_scolaire, { points: i.points }));
+  return insc.map(i => decrireUnite(i.ue_num, i.annee_scolaire, { points: i.points }, { etudiant_id: etudId }));
 }
 
 /**
@@ -204,7 +205,7 @@ export function unitesReussies(etudId, annee, surcharge = null) {
  *
  * @param {object} resultat  { points } sur 20, ou { pourcentage } déjà en %.
  */
-export function decrireUnite(ueNum, anneeRef, resultat = {}) {
+export function decrireUnite(ueNum, anneeRef, resultat = {}, { etudiant_id = null } = {}) {
   const i = { ue_num: ueNum, annee_scolaire: anneeRef,
               points: resultat.points ?? null };
   {
@@ -215,10 +216,13 @@ export function decrireUnite(ueNum, anneeRef, resultat = {}) {
     `).get(i.ue_num, i.annee_scolaire) || {};
 
     // Domaine et type d'enseignement : ceux de l'UE s'ils sont renseignés,
-    // sinon ceux de sa section.
-    const sec = ue.section
+    // sinon ceux de sa section. LA SECTION EST CELLE DU DOSSIER (30 septembre
+    // 2026) : pour un orthoptiste au tronc commun, l'Orthoptie — l'UE est
+    // déclarée en Optométrie, la pièce est la sienne (lib/sectionDossier.js).
+    const secCode = etudiant_id ? sectionDuDossier(etudiant_id, i.ue_num, i.annee_scolaire) : ue.section;
+    const sec = secCode
       ? db.prepare('SELECT libelle, domaine, type_enseignement FROM section WHERE code = ?')
-          .get(ue.section)
+          .get(secCode)
       : null;
 
     const cours = db.prepare(`
@@ -283,7 +287,7 @@ export function decrireUnite(ueNum, anneeRef, resultat = {}) {
       type_enseignement: ue.type_enseignement || sec?.type_enseignement
         || (superieur ? 'Enseignement supérieur de type court'
                       : 'Enseignement secondaire pour adultes'),
-      section: ue.section || null,
+      section: secCode || null,
       // LE LIBELLÉ DE LA SECTION, et pas seulement son code. Sur une
       // attestation, « TIM » ne dit rien à qui la reçoit — ni à l'employeur,
       // ni à l'administration qui la vérifiera.
@@ -1867,7 +1871,7 @@ r.post('/valorisation/ue/:ueNum/documents', authRequired, roleRequired(...PEUT_I
   const completes = vas.filter(v => v.decision !== 'refusee'
     && v.type === 'complete' && v.pourcentage != null);
   const attestations = completes.map(v => {
-    const u = decrireUnite(ueNum, annee, { pourcentage: v.pourcentage });
+    const u = decrireUnite(ueNum, annee, { pourcentage: v.pourcentage }, { etudiant_id: v.etudiant_id });
     return {
       etudiant_id: v.etudiant_id,
       etudiant: `${v.nom} ${v.prenom || ''}`.trim(),

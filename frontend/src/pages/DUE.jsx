@@ -708,7 +708,7 @@ function Fiche({ ueNum, onRetour }) {
       </Bloc>
 
       <Bloc titre="Supports de cours"
-        aide="Un support obligatoire doit être déposé sur e-campus, sauf ouvrage protégé.">
+        aide="Un support obligatoire doit être déposé sur eCampus, sauf ouvrage protégé.">
         <table className="w-full text-[12px]">
           <thead>
             <tr className="text-left text-[11px] uppercase text-slate-400">

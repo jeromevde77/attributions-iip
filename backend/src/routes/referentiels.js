@@ -66,7 +66,13 @@ r.get('/ue', authRequired, (req, res) => {
   const anneeVal = annee || '2025-2026';
   let sql = 'SELECT * FROM ue WHERE annee_scolaire = ?';
   const params = [anneeVal];
-  if (section) { sql += ' AND section = ?'; params.push(section); }
+  // LES UNITÉS RATTACHÉES À LA SECTION (ue_section) en font partie (30
+  // septembre 2026) : sans elles, poser une attribution du tronc commun sous
+  // Orthoptie était impossible — la liste des UE de la section était vide.
+  if (section) {
+    sql += ' AND (section = ? OR ue_num IN (SELECT ue_num FROM ue_section WHERE section_code = ? AND annee_scolaire = ?))';
+    params.push(section, section, anneeVal);
+  }
   sql += ' ORDER BY ue_num';
   res.json(db.prepare(sql).all(...params));
 });
@@ -602,13 +608,18 @@ r.delete('/cours/:code', authRequired, roleRequired('admin'), (req, res) => {
 
 // ─── CRUD Section ───
 r.post('/sections', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
-  const { code, libelle, niveau, type_horaire, responsable, code_fwb } = req.body;
+  const { code, libelle, niveau, type_horaire, responsable, code_fwb, domaine, type_enseignement, titre_externe } = req.body;
   if (!code) return res.status(400).json({ error: 'Code de section requis' });
   const exists = db.prepare('SELECT 1 FROM section WHERE code = ?').get(code);
   if (exists) return res.status(409).json({ error: 'Cette section existe déjà' });
-  db.prepare(`INSERT INTO section (code, libelle, niveau, type_horaire, responsable, code_fwb)
-              VALUES (?, ?, ?, ?, ?, ?)`)
-    .run(code, libelle || code, niveau || null, type_horaire || null, responsable || null, code_fwb || null);
+  // LE DOMAINE ET LE TYPE S'ENREGISTRENT DÈS LA CRÉATION (30 septembre 2026) :
+  // la fenêtre les demandait, la route les ignorait — ils ne tenaient qu'à une
+  // modification ultérieure.
+  try { db.exec('ALTER TABLE section ADD COLUMN titre_externe INTEGER NOT NULL DEFAULT 0'); } catch { /* déjà là */ }
+  db.prepare(`INSERT INTO section (code, libelle, niveau, type_horaire, responsable, code_fwb, domaine, type_enseignement, titre_externe)
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+    .run(code, libelle || code, niveau || null, type_horaire || null, responsable || null, code_fwb || null,
+      domaine || null, type_enseignement || null, titre_externe ? 1 : 0);
   res.status(201).json({ ok: true });
 });
 
@@ -619,6 +630,12 @@ r.patch('/sections/:code', authRequired, roleRequired('admin', 'editeur'), (req,
                    'domaine', 'type_enseignement'];
   const updates = []; const params = { code: req.params.code };
   for (const k of allowed) if (k in req.body) { updates.push(`${k} = @${k}`); params[k] = req.body[k] || null; }
+  // LE TITRE DÉLIVRÉ AILLEURS (30 septembre 2026, Orthoptie) : la diplomation de
+  // l'IIP ignore la section.
+  if ('titre_externe' in req.body) {
+    try { db.exec('ALTER TABLE section ADD COLUMN titre_externe INTEGER NOT NULL DEFAULT 0'); } catch { /* déjà là */ }
+    updates.push('titre_externe = @titre_externe'); params.titre_externe = req.body.titre_externe ? 1 : 0;
+  }
   if (!updates.length) return res.status(400).json({ error: 'Aucun champ à modifier' });
   const result = db.prepare(`UPDATE section SET ${updates.join(', ')} WHERE code = @code`).run(params);
   if (result.changes === 0) return res.status(404).json({ error: 'Section introuvable' });
@@ -833,6 +850,24 @@ r.get('/professeurs', authRequired, (req, res) => {
       SELECT DISTINCT professeur_id FROM attribution WHERE ${cl.sql}
     `).all(...cl.params).map(r0 => r0.professeur_id));
     lignes = lignes.filter(p => dansPerim.has(p.id));
+  }
+
+  /* L'ETP DE L'ANNÉE, par employeur (Charles, 30 septembre 2026 : la liste du
+     personnel dit « ETP, plus simple »). La formule est celle de la charge et
+     de Pilotage — CT/800, PP/1000, un type inconnu compté comme CT —, reprise
+     et non réinventée. */
+  const etp = new Map(db.prepare(`
+    SELECT professeur_id,
+      SUM(CASE WHEN COALESCE(contrat_mdp,'IIP') = 'HELB' THEN 0 ELSE
+        CASE WHEN type_cours = 'PP' THEN COALESCE(total_attribue_professeur,0)/1000.0 ELSE COALESCE(total_attribue_professeur,0)/800.0 END END) AS etp_iip,
+      SUM(CASE WHEN COALESCE(contrat_mdp,'IIP') = 'HELB' THEN
+        CASE WHEN type_cours = 'PP' THEN COALESCE(total_attribue_professeur,0)/1000.0 ELSE COALESCE(total_attribue_professeur,0)/800.0 END ELSE 0 END) AS etp_helb
+    FROM v_attribution_complete WHERE annee_scolaire = ? AND professeur_id IS NOT NULL
+    GROUP BY professeur_id`).all(anneeActive).map(x => [x.professeur_id, x]));
+  for (const l of lignes) {
+    const e = etp.get(l.id);
+    l.etp_iip = e ? Math.round(e.etp_iip * 100) / 100 : 0;
+    l.etp_helb = e ? Math.round(e.etp_helb * 100) / 100 : 0;
   }
 
   res.json(lignes);

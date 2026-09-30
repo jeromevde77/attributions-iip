@@ -157,6 +157,23 @@ du même schéma écrit `ue_epreuve_integree`, c'est-à-dire l'épreuve intégr�
 DÉCRET — celle qui ouvre au diplôme et que le moteur du PAE ne propose qu'une
 fois tout le reste acquis. Ne jamais la cocher pour dire « examen commun ».
 
+**L'ORTHOPTIE PARTAGE LE TRONC COMMUN D'OPTOMÉTRIE — ET RIEN D'AUTRE
+N'OUVRE CHEZ NOUS** (Charles, 30 septembre 2026). Section `Orthoptie`, code
+FWB `824600S34D2`, dossier pédagogique propre dont les UE du tronc commun sont
+IDENTIQUES à celles d'Optométrie (281, 282, 283, 286, 287, 290, 291, 292, 293,
+296 ; `ue_tc = 'x'`). Les autres UE du dossier d'orthoptie ne s'ouvrent pas à
+l'IIP (la HELB les organise) et n'entrent pas dans Lucie. Le tronc commun est
+un REGROUPEMENT d'organisation et de financement : les étudiants restent dans
+leur section et dans leurs listes. D'où : les UE du tronc commun sont
+RATTACHÉES à Orthoptie (`ue_section`, jamais dupliquées) ; **une organisation
+par section** — Optométrie = organisation 1, Orthoptie = organisation 2 (3 pour
+la 282, dont l'organisation 2 porte l'EPT de Sébastien Raucq pour la création
+des horaires) ; chaque étudiant va dans l'organisation de SA section ; les
+attributions de l'organisation Orthoptie se posent à la main. La délibération
+se tient déjà par organisation (onglet, séance, PV — le cas de l'UE 333 AESI) :
+pas de « séance par section » à construire. Les étudiants arrivent par la
+liste d'inscrits de la HELB (matricule HELB, adresse @helb-prigogine.be).
+
 **Deux sources pour un même fait, c'est une source de moins.** L'épreuve
 intégrée s'écrivait dans `ue.is_epreuve_integree` (case du référentiel) et se
 lisait dans `ue_epreuve_integree` (table annuelle) : la case ne faisait rien,
@@ -270,12 +287,21 @@ NAS Synology.
 
 ### Restaurer des données réelles en dev
 
-Configuration → Sauvegardes → *Télécharger* en **prod**
-(www.lucie-iip.be), puis, sur **dev** (dev.lucie-iip.be), même écran, section
-rouge « Restauration de la base ». La route valide
-le fichier, sauvegarde l'état courant sous `backups-auto/`, remet l'ancienne
-base si la nouvelle s'avère illisible, et redémarre. **Elle refuse de
-s'exécuter hors développement**, côté serveur.
+**Il n'y a plus de bouton** (l'écran Sauvegardes le dit : « la restauration
+reste manuelle, en ligne de commande »). Procédure du 30 septembre 2026, sur le
+VPS en `debian`, une commande à la fois — la production n'est que LUE :
+
+```bash
+# 1. Copie cohérente de la prod (API de sauvegarde SQLite, même en marche)
+sudo docker exec attributions-backend node -e "const D=require('better-sqlite3');new D('/app/data/attributions.db',{readonly:true}).backup('/app/data/backups/copie_pour_dev.db').then(()=>console.log('copie ok'))"
+# 2. Garder la base dev actuelle
+cd /opt/lucie && sudo cp dev/data/attributions.db dev/backups/avant_copie_prod_$(date +%Y%m%d_%H%M%S).db
+# 3. Arrêter la dev, remplacer, nettoyer WAL/SHM, redémarrer
+sudo docker stop attributions-backend-dev && sudo cp prod/backups/copie_pour_dev.db dev/data/attributions.db && sudo rm -f dev/data/attributions.db-wal dev/data/attributions.db-shm && sudo docker start attributions-backend-dev
+```
+
+Le redémarrage se voit à `demarre_le` (`ssh lucie-vps version`). `lucie-ops
+lecture` ne lit que la PROD : la vérification de la dev se fait à l'écran.
 
 ### Sauvegarde avant tout merge vers `main`
 
