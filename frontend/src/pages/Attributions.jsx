@@ -2096,7 +2096,7 @@ export default function Attributions() {
                   une autre organisation — l'Orthoptie pour le tronc commun. */}
               <button onClick={()=>{ setBasculeUE(ue.ue_num); setAddMenuUE(null); }}
                       className="w-full text-left px-3 py-1.5 h-9 text-sm hover:bg-slate-50 text-iip-blue border-t border-gray-100 flex items-center gap-2">
-                <IconArrowsSplit size={15}/><span>Basculer des lignes vers une autre organisation</span>
+                <IconArrowsSplit size={15}/><span>Répartir entre organisations</span>
               </button>
               <button onClick={()=>{ setDoc23Modal({section: sec, ue_num: ue.ue_num, ue_nom: ue.ue_nom}); setAddMenuUE(null); }}
                       className="w-full text-left px-3 py-1.5 h-9 text-sm hover:bg-purple-50 text-purple-700 border-t border-gray-100 flex items-center gap-2 border-l-4 border-l-purple-500">
