@@ -2249,7 +2249,7 @@ export function FicheEtudiant({ id, annee, onClose, position, onPrec, onSuiv,
   // bandeau commun sait faire.
   return (
     <Fenetre icone={IconUser} titre={nomPropre(data.nom, data.prenom)}
-      sous={`${data.email_ecole} · ${data.id_ecampus}`
+      sous={[data.email_ecole || 'sans adresse d’école', data.id_ecampus || (data.matricule_helb ? `HELB ${data.matricule_helb}` : 'sans matricule')].join(' · ')
             + (data.niveau?.libelle ? ' · ' + data.niveau.libelle : '')}
       large="ecran" onFermer={onClose}>
       <div className="-mx-5 -my-4">

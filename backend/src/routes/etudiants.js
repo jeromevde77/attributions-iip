@@ -692,6 +692,20 @@ export function cursusDe(etudId, annee) {
     courant = Object.entries(n).sort((a, b) => b[1] - a[1])[0]?.[0] || null;
   }
   if (!courant) courant = rat || toutes[0];
+  /* UNE SECTION N'EST PAS UN CURSUS QUAND ELLE NE FAIT QUE PORTER DES UNITÉS
+     RATTACHÉES AU SIEN (30 septembre 2026, orthoptie) : le tronc commun est
+     rangé sous Optométrie et rattaché à Orthoptie ; un orthoptiste inscrit à
+     ce tronc commun lisait « cursus antérieur archivé : Optométrie ». */
+  const rattachees = new Set(db.prepare('SELECT DISTINCT ue_num FROM ue_section WHERE section_code = ?').all(courant).map(x => x.ue_num));
+  if (rattachees.size) {
+    const insc = db.prepare('SELECT DISTINCT ue_num FROM etudiant_inscription WHERE etudiant_id = ?').all(etudId).map(x => x.ue_num);
+    const secDe = db.prepare('SELECT section FROM ue WHERE ue_num = ? AND section IS NOT NULL ORDER BY annee_scolaire DESC LIMIT 1');
+    for (const sx of [...presentes]) {
+      if (sx === courant) continue;
+      const siennes = insc.filter(u => secDe.get(u)?.section === sx);
+      if (siennes.length && siennes.every(u => rattachees.has(u))) presentes.splice(presentes.indexOf(sx), 1);
+    }
+  }
   const compat = new Set(cursusCompatibles().filter(p => p.includes(courant)).flat());
   const actifs = presentes.filter(x => x === courant || compat.has(x));
   if (!actifs.includes(courant)) actifs.unshift(courant);
@@ -4492,12 +4506,15 @@ export function composerPAE(profId, annee, options = {}) {
       FROM organisation_ue o
       LEFT JOIN ue u ON u.ue_num = o.ue_num AND u.annee_scolaire = ?
                     AND u.section = o.section
-      WHERE o.annee_scolaire = ? AND o.section IN (${placeholders})
+      WHERE o.annee_scolaire = ? AND (o.section IN (${placeholders})
+        -- les unités RATTACHÉES à la section (ue_section), organisées par la
+        -- section qui les porte : le tronc commun des orthoptistes.
+        OR o.ue_num IN (SELECT ue_num FROM ue_section WHERE annee_scolaire = ? AND section_code IN (${placeholders})))
       GROUP BY o.ue_num
       ORDER BY
         CASE UPPER(COALESCE(MIN(u.ue_niv),'')) WHEN 'BA1' THEN 1 WHEN 'BA2' THEN 2 WHEN 'BA3' THEN 3 ELSE 4 END,
         o.ue_num
-    `).all(annee, annee, ...sectionsEtudiant);
+    `).all(annee, annee, ...sectionsEtudiant, annee, ...sectionsEtudiant);
   }
 
   const nomUe = db.prepare('SELECT ue_nom FROM ue WHERE ue_num = ? AND annee_scolaire = ? LIMIT 1');
