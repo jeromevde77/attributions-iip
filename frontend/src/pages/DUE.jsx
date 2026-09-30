@@ -289,6 +289,126 @@ function Liste({ onOuvrir }) {
   );
 }
 
+// ── Le tableau des critères d'évaluation ────────────────────────────────────
+/* (Charles, 30 septembre 2026 ; modèle : UE 333, « 4.1 Introduction à
+   l'anatomie ».) Pour chaque acquis, les points du programme qui le composent,
+   et pour chacun l'indicateur (seuil = 50 %), le signe de non-réussite et un
+   exemple de question — la chaîne du Guide pour l'évaluation par acquis
+   d'apprentissage (Documentation). DEUX FORMES, cochées par la coordination ou
+   la direction : un tableau pour l'unité si elle est évaluée d'une seule
+   épreuve, un par activité d'enseignement sinon. La case écrit le réglage
+   « évaluation unique » que la délibération lit : un seul fait, une source. */
+const COLONNES_CRIT = [
+  ['point', 'Point du programme'], ['indicateur', 'Indicateurs (seuil = 50 %)'],
+  ['non_reussite', 'Signe de non-réussite'], ['exemple', 'Exemples de question'],
+];
+function GrilleCriteres({ d, c, lecture, ueNum, onGrille, onMode }) {
+  const [erreur, setErreur] = useState(null);
+  const [enCours, setEnCours] = useState(false);
+  const unique = !!d.evaluation_unique;
+  const grille = c.grille_criteres || {};
+  const acquis = d.acquis || [];
+  const descr = Object.fromEntries(acquis.map(a => [a.aa_code, a.description || '']));
+  const tables = unique
+    ? [{ cle: '__ue__', titre: 'Épreuve de l’unité — évaluation globale', aa: acquis.map(a => a.aa_code) }]
+    : (d.cours || []).map(co => ({ cle: co.cours_code, titre: `${co.cours_code} — ${co.cours_nom || ''}`,
+        aa: co.acquis?.length ? co.acquis : acquis.map(a => a.aa_code) }));
+  const poser = (cle, lignes) => onGrille({ ...grille, [cle]: lignes });
+  const changerMode = async u => {
+    setEnCours(true); setErreur(null);
+    try { await api.dueModeEvaluation(ueNum, u); onMode(u); }
+    catch (e) { setErreur(e.message); } finally { setEnCours(false); }
+  };
+  const idList = `points-${ueNum}`;
+  return (
+    <div className="mt-3 space-y-3">
+      <div className="flex flex-wrap items-center gap-3 text-[12px]">
+        <span className="font-semibold text-slate-600">L'unité est évaluée</span>
+        {[[true, 'globalement — un tableau pour l’unité'], [false, 'par activité d’enseignement — un tableau par cours']].map(([v, l]) => (
+          <label key={String(v)} className={`flex items-center gap-1.5 ${d.droits?.regler_mode ? 'cursor-pointer' : 'text-slate-500'}`}>
+            <input type="radio" name={`mode-${ueNum}`} checked={unique === v} disabled={!d.droits?.regler_mode || enCours}
+              onChange={() => changerMode(v)} /> {l}
+          </label>
+        ))}
+        {!d.droits?.regler_mode && <span className="text-slate-400">— réglé par la coordination ou la direction</span>}
+      </div>
+      {erreur && <p className="text-[12px]" style={{ color: 'var(--c-refuse)' }}>{erreur}</p>}
+      {!lecture && !c.grille_criteres && d.grille_precedente && (
+        <p className="text-[12px] text-slate-600">Le tableau de {d.grille_precedente.annee} existe.{' '}
+          <button type="button" className="underline" onClick={() => onGrille(d.grille_precedente.grille)}>Le reprendre</button>, puis l'adapter.</p>
+      )}
+      <datalist id={idList}>{(d.points_programme || []).map((p, i) => <option key={i} value={p} />)}</datalist>
+      {tables.map(t => {
+        const lignes = grille[t.cle] || [];
+        const maj = (i, k, v) => poser(t.cle, lignes.map((l, j) => (j === i ? { ...l, [k]: v } : l)));
+        const ajouter = aa => {
+          // La nouvelle ligne se range sous les lignes du même acquis.
+          const dernier = lignes.map(l => l.aa_code).lastIndexOf(aa);
+          const n = [...lignes]; n.splice(dernier >= 0 ? dernier + 1 : n.length, 0, { aa_code: aa });
+          poser(t.cle, n);
+        };
+        return (
+          <div key={t.cle} className="border border-slate-200 rounded-carte overflow-x-auto">
+            <div className="tab-entete px-3 py-1.5 text-[12px] font-semibold text-slate-700">{t.titre}</div>
+            <table className="w-full text-[12px]">
+              <thead className="tab-entete"><tr className="text-left text-[11px] text-slate-500">
+                <th className="px-2 py-1 w-[18%]">Acquis d’apprentissage</th>
+                {COLONNES_CRIT.map(([k, l]) => <th key={k} className="px-2 py-1">{l}</th>)}
+                {!lecture && <th className="w-8" />}
+              </tr></thead>
+              <tbody>
+                {!lignes.length && (
+                  <tr><td colSpan={6} className="px-2 py-2 text-slate-400">Aucune ligne. {!lecture && 'Ajoutez un acquis ci-dessous.'}</td></tr>
+                )}
+                {lignes.map((l, i) => {
+                  const premier = i === 0 || lignes[i - 1].aa_code !== l.aa_code;
+                  return (
+                    <tr key={i} className={`bg-white align-top ${premier ? 'border-t border-slate-200' : ''}`}>
+                      <td className="px-2 py-1">
+                        {premier && (lecture
+                          ? <span title={descr[l.aa_code]}><b>{l.aa_code}</b> <span className="text-slate-500">{descr[l.aa_code]}</span></span>
+                          : <select className="controle w-full h-auto py-1 text-[12px]" value={l.aa_code || ''}
+                              onChange={e => maj(i, 'aa_code', e.target.value)}>
+                              <option value="">— acquis —</option>
+                              {acquis.map(a => <option key={a.aa_code} value={a.aa_code}>{a.aa_code} — {(a.description || '').slice(0, 60)}</option>)}
+                            </select>)}
+                      </td>
+                      {COLONNES_CRIT.map(([k]) => (
+                        <td key={k} className="px-1 py-1">
+                          {lecture ? <span className="whitespace-pre-line">{l[k] || ''}</span>
+                            : k === 'point'
+                              ? <input list={idList} className="controle w-full h-auto py-1 text-[12px]" value={l[k] || ''} onChange={e => maj(i, k, e.target.value)} />
+                              : <textarea rows={2} className="controle w-full h-auto py-1 text-[12px]" value={l[k] || ''} onChange={e => maj(i, k, e.target.value)} />}
+                        </td>
+                      ))}
+                      {!lecture && (
+                        <td className="px-1 py-1 whitespace-nowrap">
+                          <button type="button" className="text-slate-400 hover:text-slate-700" title="Un point de plus pour cet acquis" onClick={() => ajouter(l.aa_code)}>+</button>
+                          <button type="button" className="ml-1.5 text-slate-400 hover:text-slate-700" title="Retirer cette ligne"
+                            onClick={() => poser(t.cle, lignes.filter((_, j) => j !== i))}>×</button>
+                        </td>
+                      )}
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+            {!lecture && (
+              <div className="px-2 py-1.5 border-t border-slate-100 flex flex-wrap items-center gap-2 text-[12px]">
+                <span className="text-slate-500">Ajouter un acquis :</span>
+                {t.aa.filter(a => !lignes.some(l => l.aa_code === a)).map(a => (
+                  <button key={a} type="button" className="bouton" title={descr[a]} onClick={() => ajouter(a)}>{a}</button>
+                ))}
+                {t.aa.every(a => lignes.some(l => l.aa_code === a)) && <span className="text-slate-400">tous les acquis de {unique ? 'l’unité' : 'ce cours'} ont leur ligne.</span>}
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 // ── La fiche ─────────────────────────────────────────────────────────────────
 
 function Fiche({ ueNum, onRetour }) {
@@ -672,11 +792,15 @@ function Fiche({ ueNum, onRetour }) {
       </Bloc>
 
       <Bloc titre="Critères d'évaluation" aide="Ce qui, concrètement, mène à la réussite.">
-        <Zone valeur={c.criteres} lecture={lecture} lignes={4}
+        <Zone valeur={c.criteres} lecture={lecture} lignes={3}
+          placeholder="Introduction facultative ; le détail se pose dans le tableau ci-dessous, acquis par acquis."
           onChange={v => maj('criteres', v)} />
         <DuDossier texte={d.dp?.capacites} valeur={c.criteres} lecture={lecture}
           onChange={v => maj('criteres', v)}
           libelle="les capacités préalables du dossier pédagogique" />
+        <GrilleCriteres d={d} c={c} lecture={lecture} ueNum={ueNum}
+          onGrille={g => maj('grille_criteres', g)}
+          onMode={unique => setD(x => ({ ...x, evaluation_unique: unique }))} />
       </Bloc>
 
       <Bloc titre="Degré de maîtrise" aide="Pour chaque acquis, ce qui distingue la maîtrise.">

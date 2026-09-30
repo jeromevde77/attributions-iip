@@ -86,6 +86,48 @@ function droitsSurLUE(user, ueNum, annee) {
   return { lire, ecrire: titulaire, valider: false, titulaire };
 }
 
+// ── L'évaluation de l'unité : globale ou par activité ────────────────────────
+//
+// (Charles, 30 septembre 2026.) Le tableau des critères d'évaluation prend
+// l'une de deux formes : GLOBAL, si l'unité est évaluée d'une seule épreuve
+// — un tableau pour l'unité —, ou PAR ACTIVITÉ, un tableau par cours. Ce fait
+// existait déjà : c'est le réglage « évaluation unique » (ue_evaluation_unique),
+// que la délibération lit pour étendre la note d'un acquis à tous les cours qui
+// le portent. La case du DUE l'écrit ; il n'y a pas de seconde source.
+// NB : ce n'est PAS l'épreuve intégrée du décret (ue_epreuve_integree).
+function evaluationUnique(ueNum, annee) {
+  try {
+    return !!db.prepare('SELECT actif FROM ue_evaluation_unique WHERE ue_num = ? AND annee_scolaire = ?').get(ueNum, annee)?.actif;
+  } catch { return false; }
+}
+// Qui coche : la direction, une coordination de la section, et les fonctions
+// de coordination de la fiche du personnel (cursus pour sa section ;
+// pédagogique et qualité partout).
+const FONCTIONS_MODE = ['Coordinateur de cursus', 'Coordinateur pédagogique', 'Conseiller qualité'];
+function peutReglerMode(user, ueNum, annee) {
+  if (NIVEAU_DIRECTION.includes(user?.role)) return true;
+  const section = db.prepare('SELECT section FROM ue WHERE ue_num = ? AND annee_scolaire = ?').get(ueNum, annee)?.section || null;
+  if (user?.role === 'coordination') {
+    const perim = getUserSections(user);
+    if (perim === null || (section && perim.includes(section))) return true;
+  }
+  const profId = db.prepare('SELECT professeur_id FROM utilisateur WHERE id = ?').get(user?.id)?.professeur_id;
+  if (!profId) return false;
+  try {
+    const f = db.prepare(`SELECT fonction, section_code FROM personnel_mission
+      WHERE professeur_id = ? AND annee_scolaire = ?`).all(profId, annee);
+    return f.some(x => FONCTIONS_MODE.includes(x.fonction)
+      && (x.fonction !== 'Coordinateur de cursus' || !x.section_code || x.section_code === '__ETAB__' || x.section_code === section));
+  } catch { return false; }
+}
+
+/** Les points du programme du dossier pédagogique, un par ligne : ce qu'on
+ *  propose dans la colonne « Point du programme ». */
+function pointsDuProgramme(programme) {
+  return String(programme || '').split('\n').map(l => l.replace(/^[\s•\-–*]+/, '').trim())
+    .filter(l => l.length > 3).slice(0, 200);
+}
+
 // ── La part automatique ──────────────────────────────────────────────────────
 
 // Le référentiel exprime le volume en périodes ; la DUE l'annonce aussi en
@@ -294,9 +336,22 @@ r.get('/:ueNum', authRequired, (req, res) => {
   if (!auto) return res.status(404).json({ error: `L'unité ${ueNum} n'existe pas en ${annee}` });
 
   const d = lireDUE(ueNum, annee);
+  // Le tableau de l'an dernier, proposé tant que celui de l'année est vide.
+  let grille_precedente = null;
+  if (!d.contenu?.grille_criteres) {
+    const m = /^(\d{4})-(\d{4})$/.exec(annee);
+    if (m) {
+      const prec = lireDUE(ueNum, `${+m[1] - 1}-${+m[2] - 1}`);
+      if (prec.contenu?.grille_criteres) grille_precedente = { annee: `${+m[1] - 1}-${+m[2] - 1}`, grille: prec.contenu.grille_criteres };
+    }
+  }
   res.json({
     annee, ...auto, ...d,
-    droits: { ...droits, ecrire: droits.ecrire && d.statut !== 'validee' },
+    evaluation_unique: evaluationUnique(ueNum, annee),
+    points_programme: pointsDuProgramme(d.contenu?.programme || auto.dp?.programme),
+    grille_precedente,
+    droits: { ...droits, ecrire: droits.ecrire && d.statut !== 'validee',
+      regler_mode: peutReglerMode(req.user, ueNum, annee) && (d.statut !== 'validee' || droits.valider) },
   });
 });
 
@@ -328,6 +383,28 @@ r.put('/:ueNum', authRequired, (req, res) => {
   `).run(ueNum, annee, JSON.stringify(contenu), actuel.statut, req.user.nom || req.user.email);
 
   res.json({ ok: true, ...lireDUE(ueNum, annee) });
+});
+
+r.put('/:ueNum/mode-evaluation', authRequired, (req, res) => {
+  const annee = anneeDeTravail(req);
+  const ueNum = Number(req.params.ueNum);
+  if (!peutReglerMode(req.user, ueNum, annee)) {
+    return res.status(403).json({ error: "Le mode d'évaluation se règle par la coordination (de cursus, pédagogique, qualité) ou la direction." });
+  }
+  const d = lireDUE(ueNum, annee);
+  if (d.statut === 'validee' && !NIVEAU_DIRECTION.includes(req.user.role)) {
+    return res.status(409).json({ error: 'Cette DUE est validée : demandez sa réouverture à la direction.' });
+  }
+  const unique = !!req.body?.unique;
+  db.exec(`CREATE TABLE IF NOT EXISTS ue_evaluation_unique (
+    ue_num INTEGER NOT NULL, annee_scolaire TEXT NOT NULL, actif INTEGER NOT NULL DEFAULT 1,
+    maj_le TEXT DEFAULT CURRENT_TIMESTAMP, maj_par TEXT, PRIMARY KEY (ue_num, annee_scolaire))`);
+  db.prepare(`INSERT INTO ue_evaluation_unique (ue_num, annee_scolaire, actif, maj_le, maj_par)
+    VALUES (?,?,?, datetime('now'), ?)
+    ON CONFLICT(ue_num, annee_scolaire) DO UPDATE SET actif = excluded.actif, maj_le = excluded.maj_le, maj_par = excluded.maj_par`)
+    .run(ueNum, annee, unique ? 1 : 0, req.user?.email || req.user?.nom || null);
+  console.log(`[due] UE ${ueNum} ${annee} : évaluation ${unique ? 'globale' : 'par activité'} (${req.user?.email || '?'})`);
+  res.json({ ok: true, evaluation_unique: unique });
 });
 
 // La validation fige. La réouverture la défait — les deux sont réservées à la
@@ -409,6 +486,41 @@ function bloc(titre, corps) {
 }
 const para = t => String(t || '').split(/\n+/).filter(Boolean)
   .map(l => `<p>${esc(l)}</p>`).join('') || '<p class="vide">à compléter</p>';
+
+/**
+ * LE TABLEAU DES CRITÈRES (Charles, 30 septembre 2026 ; le modèle : UE 333,
+ * « 4.1 Introduction à l'anatomie »). Pour chaque acquis, les points du
+ * programme qui le composent, et pour chacun : l'indicateur (seuil = 50 %),
+ * le signe de non-réussite, un exemple de question — la chaîne du Guide pour
+ * l'évaluation par acquis d'apprentissage. Un tableau pour l'unité si elle est
+ * évaluée d'une seule épreuve, un par activité sinon. La case de l'acquis
+ * couvre les lignes de ses points.
+ */
+function grillesCriteres(auto, c, unique) {
+  const g = c.grille_criteres || {};
+  const descr = Object.fromEntries((auto.acquis || []).map(a => [a.aa_code, a.description || '']));
+  const tableau = lignes => {
+    const ls = (lignes || []).filter(l => l && (l.aa_code || l.point || l.indicateur || l.non_reussite || l.exemple));
+    if (!ls.length) return '<p class="vide">à compléter</p>';
+    let html = '<table class="doc crit"><tr><th style="width:22%">Acquis d’apprentissage</th><th>Point du programme</th>'
+      + '<th>Indicateurs (seuil = 50 %)</th><th>Signe de non-réussite</th><th>Exemples de question</th></tr>';
+    for (let i = 0; i < ls.length; i++) {
+      const l = ls[i];
+      let span = 1;
+      if (i === 0 || ls[i - 1].aa_code !== l.aa_code) { while (i + span < ls.length && ls[i + span].aa_code === l.aa_code) span++; }
+      else span = 0;
+      html += '<tr>' + (span ? `<td rowspan="${span}"><b>${esc(l.aa_code || '')}</b>${descr[l.aa_code] ? `<br>${esc(descr[l.aa_code])}` : ''}</td>` : '')
+        + ['point', 'indicateur', 'non_reussite', 'exemple'].map(k => `<td>${esc(l[k] || '').replace(/\n/g, '<br>')}</td>`).join('') + '</tr>';
+    }
+    return html + '</table>';
+  };
+  if (unique) {
+    if (!(g.__ue__ || []).length) return '';
+    return '<div class="crit-t">Épreuve de l’unité — évaluation globale</div>' + tableau(g.__ue__);
+  }
+  const avec = (auto.cours || []).filter(co => (g[co.cours_code] || []).length);
+  return avec.map(co => `<div class="crit-t">${esc(co.cours_code)} — ${esc(co.cours_nom || '')}</div>${tableau(g[co.cours_code])}`).join('');
+}
 
 export function documentDUE(ueNum, annee) {
   const auto = partieAutomatique(ueNum, annee);
@@ -544,12 +656,16 @@ export function documentDUE(ueNum, annee) {
       ${evaluation}</table>
       <p class="fin">${esc(c.note_ue || getParam('due_note_evaluation', NOTE_UE_DEFAUT))}</p>`)}
 
-    ${bloc("Critères d'évaluation", para(rediges.criteres))}
+    ${bloc("Critères d'évaluation", (rediges.criteres ? para(rediges.criteres) : '') + grillesCriteres(auto, c, evaluationUnique(ueNum, annee)))}
 
     ${bloc('Degré de maîtrise', para(rediges.degre_maitrise))}
   </div>`;
 
-  return envelopper(corps, `DUE ${ueNum} — ${annee}`) + STYLE_DUE;
+  // LA FEUILLE DANS LE <head>, PAS APRÈS </html> : ajoutée à la fin, elle
+  // cassait le saut de page (catalogue des erreurs, CLAUDE.md). Elle vient
+  // après celle de l'enveloppe, donc ses règles l'emportent toujours.
+  const doc = envelopper(corps, `DUE ${ueNum} — ${annee}`);
+  return doc.includes('</head>') ? doc.replace('</head>', `${STYLE_DUE}</head>`) : doc + STYLE_DUE;
 }
 
 // Le gabarit commun porte l'en-tête, les filets dorés et le pied ; la DUE y
@@ -576,6 +692,9 @@ const STYLE_DUE = `<style>
   .vide { color:#9aa3b2; font-style:italic; }
   .fin { font-size:8pt; color:#4b5563; margin-top:1.5mm; }
   tr.sess td { background:#f1f4f9; font-weight:700; font-size:8pt; }
+  .crit-t { font-weight:700; color:#1B2B4B; font-size:9pt; margin: 2.5mm 0 1mm; }
+  table.doc.crit td, table.doc.crit th { vertical-align: top; font-size: 8pt; }
+  table.doc.crit tr { break-inside: avoid; }
 </style>`;
 
 r.get('/:ueNum/document', authRequired, (req, res) => {

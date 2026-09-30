@@ -184,6 +184,7 @@ export const api = {
   dueListe() { return request('/due'); },
   dueLire(ueNum) { return request(`/due/${ueNum}`); },
   dueEnregistrer(ueNum, contenu) { return request(`/due/${ueNum}`, { method: 'PUT', body: { contenu } }); },
+  dueModeEvaluation(ueNum, unique) { return request(`/due/${ueNum}/mode-evaluation`, { method: 'PUT', body: { unique } }); },
   dueValider(ueNum, rouvrir = false) { return request(`/due/${ueNum}/valider`, { method: 'POST', body: { rouvrir } }); },
   dueDocument(ueNum) { return request(`/due/${ueNum}/document`); },
 
