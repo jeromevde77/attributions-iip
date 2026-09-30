@@ -147,12 +147,12 @@ export const CARTE = {
   besoins:                 'recrutement',    // les besoins ouvrent les postes
 
   // ── Le travail d'équipe ─────────────────────────────────────────────────
-  // L'échéancier et les réunions portent la démarche qualité, et le CLAUDE.md
-  // est explicite : un seul registre, deux lentilles. Ils relèvent des
-  // PROCÉDURES, faute d'un module « qualité » qui n'existe pas — à revoir le
-  // jour où il existera, plutôt que d'en inventer un ici.
-  echeancier:              'procedures',
-  reunions:                'procedures',
+  // L'échéancier et les réunions ont LEUR module depuis le 30 septembre 2026
+  // (Amélie Verkest, coordination qualité, ne pouvait pas créer une réunion) :
+  // rangés sous « procédures », les ouvrir à la coordination lui aurait aussi
+  // ouvert les procédures disciplinaires.
+  echeancier:              'reunions',
+  reunions:                'reunions',
 };
 
 /**

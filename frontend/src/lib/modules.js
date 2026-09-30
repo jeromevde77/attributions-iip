@@ -12,7 +12,7 @@ import { authHeaders, isAuthenticated } from './api.js';
 // Icônes Tabler, monochromes : les émojis coloraient le tableau et juraient
 // avec le reste de l'application, tenue en aplats et en traits.
 import {
-  IconSchool, IconClipboardList, IconUsers, IconFolders, IconCalendar,
+  IconCalendarEvent,   IconSchool, IconClipboardList, IconUsers, IconFolders, IconCalendar,
   IconMail, IconFileText, IconGavel, IconChartBar, IconCalendarStats, IconCoin, IconBriefcase,
   IconAccessible,
 } from '@tabler/icons-react';
@@ -33,6 +33,7 @@ export const MODULES_ACCES = [
   { key: 'listes',       label: 'Impression & envois', Icone: IconFileText,
     desc: 'Produire une pièce et l’envoyer — bouton « Imprimer ou envoyer »' },
   { key: 'procedures',   label: 'Procédures',    Icone: IconGavel,         desc: 'Accès aux procédures' },
+  { key: 'reunions',     label: 'Réunions et échéances', Icone: IconCalendarEvent, desc: 'Réunions, tâches confiées, échéancier' },
   // PILOTAGE SE LIT, DOTATION S'ENGAGE — et ce n'est pas le même cadenas.
   // Tant que la dotation vivait dans « pilotage », ouvrir le reporting à une
   // coordination lui ouvrait la dotation : la règle de la maison — elle
@@ -86,10 +87,10 @@ const AMORCE = {
   directeur_adjoint: () => 'ecrit',
   admin:             () => 'ecrit',
   editeur:           () => 'ecrit',
-  secretariat:  m => (['etudiants', 'listes', 'procedures'].includes(m)
+  secretariat:  m => (['etudiants', 'listes', 'procedures', 'reunions'].includes(m)
     ? 'ecrit' : 'lit'),
   coordination: m => (['recrutement', 'repartition', 'dotation'].includes(m)
-    ? 'rien' : m === 'pilotage' ? 'lit' : 'validation'),
+    ? 'rien' : m === 'pilotage' ? 'lit' : m === 'reunions' ? 'ecrit' : 'validation'),
   professeur:   m => (['attributions', 'personnel', 'planification'].includes(m) ? 'lit' : 'rien'),
   consultation: () => 'lit',
 };

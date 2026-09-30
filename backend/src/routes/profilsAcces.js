@@ -136,6 +136,25 @@ export function recalculerDroits({ role = null, userId = null } = {}) {
   return n;
 }
 
+/** Le module « réunions » dans les profils de référence : la valeur de
+ *  « procédures », écriture pour la coordination. Après la conversion en
+ *  exceptions, pour que les comptes le reçoivent de leur profil. */
+export function migrerModuleReunions(dbx) {
+  try {
+    const roles = [];
+    for (const p of dbx.prepare('SELECT id, role, permissions_json FROM profil_acces WHERE systeme = 1').all()) {
+      const pj = lireJson(p.permissions_json) || {};
+      if (pj.reunions) continue;
+      pj.reunions = p.role === 'coordination' ? { lire: true, ecrire: true } : { ...(pj.procedures || { lire: false, ecrire: false }) };
+      dbx.prepare("UPDATE profil_acces SET permissions_json = ?, maj_le = datetime('now') WHERE id = ?").run(JSON.stringify(pj), p.id);
+      roles.push(p.role);
+    }
+    let n = 0;
+    for (const role of roles) n += recalculerDroits({ role });
+    if (roles.length) console.log(`[migration] module réunions : ${roles.length} profil(s), ${n} compte(s) mis à jour`);
+  } catch (e) { console.error('[migration] module réunions :', e.message); }
+}
+
 export function migrerExceptions(dbx) {
   try {
     const cols = dbx.prepare('PRAGMA table_info(utilisateur)').all().map(c => c.name);
