@@ -835,6 +835,24 @@ r.get('/professeurs', authRequired, (req, res) => {
     lignes = lignes.filter(p => dansPerim.has(p.id));
   }
 
+  /* L'ETP DE L'ANNÉE, par employeur (Charles, 30 septembre 2026 : la liste du
+     personnel dit « ETP, plus simple »). La formule est celle de la charge et
+     de Pilotage — CT/800, PP/1000, un type inconnu compté comme CT —, reprise
+     et non réinventée. */
+  const etp = new Map(db.prepare(`
+    SELECT professeur_id,
+      SUM(CASE WHEN COALESCE(contrat_mdp,'IIP') = 'HELB' THEN 0 ELSE
+        CASE WHEN type_cours = 'PP' THEN COALESCE(total_attribue_professeur,0)/1000.0 ELSE COALESCE(total_attribue_professeur,0)/800.0 END END) AS etp_iip,
+      SUM(CASE WHEN COALESCE(contrat_mdp,'IIP') = 'HELB' THEN
+        CASE WHEN type_cours = 'PP' THEN COALESCE(total_attribue_professeur,0)/1000.0 ELSE COALESCE(total_attribue_professeur,0)/800.0 END ELSE 0 END) AS etp_helb
+    FROM v_attribution_complete WHERE annee_scolaire = ? AND professeur_id IS NOT NULL
+    GROUP BY professeur_id`).all(anneeActive).map(x => [x.professeur_id, x]));
+  for (const l of lignes) {
+    const e = etp.get(l.id);
+    l.etp_iip = e ? Math.round(e.etp_iip * 100) / 100 : 0;
+    l.etp_helb = e ? Math.round(e.etp_helb * 100) / 100 : 0;
+  }
+
   res.json(lignes);
 });
 

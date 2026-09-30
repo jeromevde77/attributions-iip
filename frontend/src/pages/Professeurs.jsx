@@ -2232,12 +2232,7 @@ export default function Professeurs({ vue: vueInitiale = 'membres' }) {
     const designer = isDesigner(p);
     const nouveau  = isNew(p);
     return (
-      <tr key={p.id} className={
-        designer ? 'bg-orange-50/40 hover:bg-orange-50' :
-        nouveau  ? 'bg-green-50 hover:bg-green-100/70' :
-        p.statut === 'EXP' ? 'bg-slate-100/60 hover:bg-slate-200/60' :
-        'hover:bg-gray-50'
-      }>
+      <tr key={p.id} className="bg-white hover:bg-slate-50">
         <td className="text-center">
           <input type="checkbox" checked={selection.has(p.id)} onChange={() => toggleSelect(p.id)} />
         </td>
@@ -2262,41 +2257,46 @@ export default function Professeurs({ vue: vueInitiale = 'membres' }) {
             </button>
           )}
         </td>
+        {/* LA LISTE DIT QUI, À QUEL TITRE, POUR QUI ET OÙ — ET COMBIEN
+            (Charles, 30 septembre 2026 : « nom, prénom, statut, ETP, et c'est
+            tout ; si IIP badge IIP, si HELB badge HELB ; les sections où la
+            personne donne cours »). Les périodes, les heures HELB et
+            l'ancienneté vivent sur la fiche. */}
         <td>
-          <div className="flex items-center gap-1 flex-wrap">
-            {p.missions_libelles && p.missions_libelles.split(',').filter(Boolean).map((f, i) => {
-              const label = f.trim().split(' ').map(w => w[0]).join('').slice(0, 3).toUpperCase();
-              return <span key={i} title={f.trim()} className="inline-flex items-center justify-center min-w-7 h-7 px-1 rounded text-[10px] font-bold" style={{background:'var(--c-accent)',color:'white'}}>{label}</span>;
-            })}
-            {/* LE STATUT SE VOIT TOUJOURS (Nicolas, 27 septembre 2026). On lisait
-                les contrats de l'année OU, à défaut, le statut : dès qu'un
-                professeur avait un contrat MDP, son CC ou son EXP disparaissait. */}
-            {statutsDe(p).map(c => (
-              <span key={c} title={c === 'CC' ? 'Chargé de cours' : c === 'EXP' ? 'Expert' : 'Membre du personnel'}
-                className={`inline-flex items-center justify-center w-7 h-7 rounded text-[10px] font-bold ${c === 'CC' ? 'badge-iip' : c === 'EXP' ? 'badge-exp' : 'badge-helb'}`}>{c}</span>
+          <div className="flex items-center gap-1.5 flex-wrap text-[12px]">
+            {statutsDe(p).filter(c => c !== 'MDP').map(c => (
+              <span key={c} className="text-slate-700">{c === 'CC' ? 'Chargé de cours' : 'Expert'}</span>
             ))}
-            {!p.missions_libelles && !p.contrats_annee && !p.statut && (
-              <span className="text-gray-300 text-xs">—</span>
-            )}
+            {p.missions_libelles && p.missions_libelles.split(',').filter(Boolean).map((f, i) => (
+              <span key={i} className="text-slate-500 border border-slate-200 rounded-champ px-1.5 py-0.5 text-[11px]">{f.trim()}</span>
+            ))}
+            {!statutsDe(p).length && !p.missions_libelles && <span className="text-slate-300">—</span>}
           </div>
         </td>
-        <td className="num">
-          {Number(p.total_per_annee ?? p.total_per_iip ?? 0).toLocaleString('fr-BE')}
-          {/* LE PLAFOND DE L'EXPERT (circ. 9760, p.222-226) : 260 périodes par an
-              sur 800, tous établissements compris ; 360 avec la dérogation A28.
-              Lucie ne connaît que les périodes de l'IIP — elle signale donc dès
-              que l'IIP seul approche du plafond. */}
-          {statutsDe(p).includes('EXP') && (() => {
-            const n = Number(p.total_per_annee ?? p.total_per_iip ?? 0);
-            if (n <= 240) return null;
-            const etat = n > 360 ? 'corriger' : n > 260 ? 'surveiller' : 'surveiller';
-            const txt = n > 360 ? 'au-delà de 360 : interdit' : n > 260 ? 'au-delà de 260 : dérogation A28' : 'proche de 260';
-            return <span data-etat={etat} className="pastille-etat ml-1.5 text-[10px] px-1.5 py-0.5"
-              title={`Expert : ${n} périodes à l'IIP cette année. Plafond de 260 périodes par an (tous établissements), 360 avec la dérogation A28.`}>{txt}</span>;
-          })()}
+        <td>
+          <div className="flex items-center gap-1">
+            {String(p.contrats_annee || '').split(',').map(c => c.trim()).filter(c => c === 'IIP' || c === 'HELB').map(c => (
+              <span key={c} className="rounded-champ px-2 py-0.5 text-[11px] font-bold text-white"
+                style={{ background: c === 'HELB' ? 'var(--c-helb)' : 'var(--c-principal)' }}
+                title={c === 'HELB' ? 'Attributions sous contrat HELB cette année' : 'Attributions sous contrat IIP cette année'}>{c}</span>
+            ))}
+          </div>
         </td>
-        <td className="num">{Number(p.total_hrs_helb || 0).toLocaleString('fr-BE')}</td>
-        <td className="num">{p.anciennete_25_26_po || 0}</td>
+        <td>
+          <div className="flex items-center gap-1 flex-wrap">
+            {String(p.sections_annee || '').split(',').map(x => x.trim()).filter(Boolean).sort((a, b) => a.localeCompare(b, 'fr')).map(x => (
+              <span key={x} className="text-[11px] text-slate-600 border border-slate-200 rounded-champ px-1.5 py-0.5">{x}</span>
+            ))}
+          </div>
+        </td>
+        <td className="num tabular-nums" title={`IIP ${Number(p.etp_iip || 0).toLocaleString('fr-BE')} · HELB ${Number(p.etp_helb || 0).toLocaleString('fr-BE')} — CT/800 + PP/1000, comme Pilotage`}>
+          <b>{(Number(p.etp_iip || 0) + Number(p.etp_helb || 0)).toLocaleString('fr-BE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</b>
+          {statutsDe(p).includes('EXP') && Number(p.total_per_annee ?? 0) > 260 && (
+            <span data-etat={Number(p.total_per_annee) > 360 ? 'corriger' : 'surveiller'} className="pastille-etat ml-1.5 text-[10px] px-1.5 py-0.5"
+              title={`Expert : ${p.total_per_annee} périodes à l'IIP cette année. Plafond de 260 périodes par an (tous établissements), 360 avec la dérogation A28.`}>
+              {Number(p.total_per_annee) > 360 ? '> 360 p.' : '> 260 p.'}</span>
+          )}
+        </td>
         <td className="text-center">
           <div className="flex items-center justify-center gap-2 relative">
             <button onClick={() => setFicheMenu(ficheMenu === p.id ? null : p.id)}
@@ -2542,9 +2542,9 @@ export default function Professeurs({ vue: vueInitiale = 'membres' }) {
                 </th>
                 <Th k="nom_prenom">Nom et prénom</Th>
                 <Th k="statut">Statut</Th>
-                <Th k="total_per_annee" num>Total année</Th>
-                <Th k="total_hrs_helb" num>HELB (hrs)</Th>
-                <Th k="anciennete_25_26_po" num>Anc. PO</Th>
+                <Th k="contrats_annee">Employeur</Th>
+                <Th k="sections_annee">Sections</Th>
+                <Th k="etp_iip" num>ETP</Th>
                 <th></th>
               </tr>
             </thead>
