@@ -3138,8 +3138,20 @@ export default function Etudiants() {
      recherche qui trouve puis cache n'est pas une recherche. Le repli fait à
      la main pendant la recherche est respecté, et oublié à la suivante ; sans
      recherche, les volets restent fermés, comme avant. */
+  /* ET PENDANT N'IMPORTE QUEL FILTRE (Charles, 30 septembre 2026 : « quand je
+     fais un filtre, il mélange les volets par section et le filtre »). Seule
+     la recherche par nom ouvrait les volets : filtrer « BA1 » laissait trois
+     volets fermés dont les comptes ne disaient pas qu'ils étaient filtrés —
+     on ne savait plus si « 61 étudiants » était la section ou le filtre. Tout
+     filtre ouvre désormais les volets, et chaque volet dit « 61 sur 120 ». */
+  const filtreActif = !!(recherche.trim() || fNiveau || fUE || fRatt || fPrimo || fDoublons);
   const [repliesRecherche, setRepliesRecherche] = useState({});
-  useEffect(() => { setRepliesRecherche({}); }, [recherche]);
+  useEffect(() => { setRepliesRecherche({}); }, [recherche, fNiveau, fUE, fRatt, fPrimo, fDoublons]);
+  const totalParSection = useMemo(() => {
+    const m = {};
+    for (const e of etudiants || []) { const s = e.section_rattachement || '(sans section)'; m[s] = (m[s] || 0) + 1; }
+    return m;
+  }, [etudiants]);
   /* UN ÉTUDIANT, UNE SECTION : LA SIENNE — et non celles de ses UE.
      La colonne et les volets lisaient la liste des sections de TOUTES ses
      unités : un étudiant de TIM inscrit à l'UE hors cursus (rangée sous
@@ -3596,7 +3608,7 @@ export default function Etudiants() {
                 // huit cents lignes avant d'atteindre celle qu'on cherchait.
                 // Replié, l'écran tient sur une vue : on ouvre la section
                 // voulue, et on y est.
-                const enRecherche = !!recherche.trim();
+                const enRecherche = filtreActif;
                 /* UNE SEULE SECTION : TOUJOURS OUVERTE — et c'est un défaut
                    qui a coupé une coordination de ses propres étudiants. Le
                    volet n'a pas d'en-tête quand il est seul (il ne sépare
@@ -3626,7 +3638,9 @@ export default function Etudiants() {
                             <span className="w-3 inline-block opacity-50">{ouverte ? '−' : '+'}</span>
                             {sec}
                             <span className="font-normal text-[11px] text-slate-500">
-                              {liste.length} étudiant(s)
+                              {filtreActif && totalParSection[sec] && totalParSection[sec] !== liste.length
+                                ? `${liste.length} sur ${totalParSection[sec]} étudiant(s) — filtrés`
+                                : `${liste.length} étudiant(s)`}
                             </span>
                           </button>
                         </td>
