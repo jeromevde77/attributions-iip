@@ -3590,7 +3590,13 @@ function sectionDuDossier(etudId, annee) {
  * reprise que si le fichier la porte — on ne la devine pas.
  */
 const SECTION_HELB = 'Orthoptie';
-try { db.exec('ALTER TABLE etudiant ADD COLUMN matricule_helb TEXT'); } catch { /* déjà là */ }
+// Toutes les colonnes que l'import écrit, créées au démarrage : certaines ne
+// naissaient que dans la route qui s'en servait la première (rattachement_par
+// dans « Reprendre ce cursus ») — une base où cette route n'avait jamais servi
+// refusait l'import (dev, 30 septembre 2026).
+for (const c of ['matricule_helb', 'rattachement_par', 'rattachement_le', 'rn_norm', 'nationalite', 'lieu_naissance', 'section_rattachement']) {
+  try { db.exec(`ALTER TABLE etudiant ADD COLUMN ${c} TEXT`); } catch { /* déjà là */ }
+}
 try { db.exec('CREATE INDEX IF NOT EXISTS idx_etudiant_mat_helb ON etudiant(matricule_helb)'); } catch { /* */ }
 
 r.post('/import-helb', authRequired, roleRequired('admin', 'directeur', 'directeur_adjoint', 'editeur'), (req, res) => {
