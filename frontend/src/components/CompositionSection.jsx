@@ -42,6 +42,11 @@ export default function CompositionSection({ sectionCode, data, choix, onChoix, 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visibles, sectionCode]);
 
+  // LE TRONC COMMUN D'UN CLIC (30 septembre 2026 : « je ne sais pas rattacher
+  // plusieurs UE en même temps, c'est ennuyant ») : les UE marquées tronc commun
+  // des autres sections, cochées ensemble.
+  const troncCommun = toutes.filter(u => !principale(u) && String(u.ue_tc).toLowerCase() === 'x');
+  const tcCoche = troncCommun.length > 0 && troncCommun.every(u => choix.has(u.ue_num));
   const retenues = toutes.filter(coche);
   const ects = retenues.reduce((t, u) => t + (Number(u.ects) || 0), 0);
   const basculer = n => onChoix(s => { const x = new Set(s); x.has(n) ? x.delete(n) : x.add(n); return x; });
@@ -55,6 +60,11 @@ export default function CompositionSection({ sectionCode, data, choix, onChoix, 
           <IconSearch size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
           <input className="controle controle-icone w-64" placeholder="Numéro ou intitulé…" value={recherche} onChange={e => setRecherche(e.target.value)} />
         </div>
+        {troncCommun.length > 0 && !lecture && (
+          <button type="button" className="bouton" onClick={() => toutLeGroupe(troncCommun, !tcCoche)}
+            title={troncCommun.map(u => u.ue_num).join(', ')}>
+            {tcCoche ? `Retirer le tronc commun (${troncCommun.length})` : `Cocher le tronc commun (${troncCommun.length} UE)`}</button>
+        )}
         <label className="flex items-center gap-1.5 text-[12px] text-slate-600 cursor-pointer">
           <input type="checkbox" checked={seulesCochees} onChange={e => setSeulesCochees(e.target.checked)} /> seulement les UE comprises
         </label>
