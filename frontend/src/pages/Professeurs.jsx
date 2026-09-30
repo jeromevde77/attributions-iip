@@ -467,10 +467,28 @@ function AccesLuciePanel({ profId, detail }) {
               </button>
             ))}
           </div>
-          <p className="text-[11px] text-slate-500 mt-1.5">
-            Un profil est un modèle : il remplit les cases une fois, et ce qui est coché
-            ci-dessous reste la vérité. Le périmètre par sections n'est pas touché.
-          </p>
+          {/* L'HÉRITAGE (30 septembre 2026) : la fiche suit le profil de
+              référence de son rôle ; seules les cases qui en diffèrent sont
+              propres à la personne, et elles seules survivent à une
+              modification du profil dans Configuration. */}
+          {(() => {
+            const ref = profils.find(p => p.systeme && p.role === role);
+            if (!ref) return <p className="text-[11px] text-slate-500 mt-1.5">Ce rôle n'a pas de profil de référence : les cases ci-dessous valent telles quelles.</p>;
+            const base = ref.permissions || {};
+            const ecarts = MODULES_ACCES.filter(m => ['lire', 'ecrire', 'voir_tout', 'valider']
+              .some(k => (perms[m.key]?.[k] ?? false) !== (base[m.key]?.[k] ?? false)));
+            return (
+              <p className="text-[11px] text-slate-500 mt-1.5">
+                Cette fiche suit le profil <b className="text-slate-700">{ref.nom}</b> : modifié dans Configuration, il met ses droits à jour.{' '}
+                {ecarts.length
+                  ? <>Propre à cette personne : <b className="text-slate-700">{ecarts.map(m => m.label).join(', ')}</b> —
+                      ces cases ne suivent pas le profil.{' '}
+                      <button type="button" className="underline" onClick={() => changerRole(role)}>Revenir au profil</button> (puis enregistrer).</>
+                  : 'Aucune exception : tout vient du profil.'}
+                {' '}Le périmètre par sections n'est pas touché.
+              </p>
+            );
+          })()}
         </div>
       )}
 

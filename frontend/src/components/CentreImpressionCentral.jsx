@@ -1396,7 +1396,7 @@ function OngletEtudiants({ perimetre = null }) {
       if (!rep.ok) { setErreur(j.error); return; }
 
       const pieces = (j.documents || []).map(d => ({
-        html: d.html, nom_fichier: d.nom,
+        html: d.html, nom_fichier: d.nom, contenu: d.contenu,
         destinataire: { type: 'etudiant', id: d.etudiant_id, nom: d.etudiant },
       }));
 
@@ -1417,6 +1417,8 @@ function OngletEtudiants({ perimetre = null }) {
         for (const m of (rd.ok ? await rd.json() : [])) {
           pieces.push({
             html: j.collectif.html, nom_fichier: j.collectif.nom,
+            contenu: `Session ${session} — UE ${unites[0]} : pièces du Conseil (${PIECES
+              .filter(x => (j.collectif.pieces || []).includes(x.cle)).map(x => x.label.toLowerCase()).join(', ') || (j.collectif.pieces || []).join(', ')})`,
             destinataire: { type: m.type, id: m.id, nom: m.nom, email: m.email || '' },
           });
         }
@@ -1642,6 +1644,7 @@ function OngletEtudiants({ perimetre = null }) {
           pieces={envoi}
           typeDoc="deliberation_lot"
           sujet={`Documents de délibération — ${annee}`}
+          contenu={`Délibération ${annee} · session ${session} · UE ${(liste?.unites || []).map(u => u.ue_num).join(', ')} · ${PIECES.filter(x => choix[x.cle]).map(x => x.label.toLowerCase()).join(', ')}`}
           onClose={() => setEnvoi(null)} />
       )}
     </div>

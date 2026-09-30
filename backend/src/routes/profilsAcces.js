@@ -1,12 +1,22 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // Lucie — Profils d'accès
 //
-// Un profil est un MODÈLE, non un héritage : on l'applique, il remplit les
-// cases, et l'on retouche ensuite librement. Ce qui est coché sur une fiche est
-// donc toujours ce qui s'applique — sans quoi un droit pourrait changer sans
-// que personne n'ait touché à la fiche.
+// UN PROFIL EST UN HÉRITAGE (Charles, 30 septembre 2026 : « il ne met pas les
+// profils à jour sur base des accès dans config » — tranché : la fiche suit le
+// profil). Jusque-là le profil était un MODÈLE : appliqué, il remplissait les
+// cases de la fiche, qui n'en dépendaient plus ; corriger un profil ne changeait
+// aucun compte existant, et la fiche montrait un état que plus personne ne
+// réglait.
 //
-// La fiche signale la dérive et permet de réappliquer le profil.
+// Désormais chaque compte porte :
+//   · `permissions_exceptions` — CE QUI DIFFÈRE DE SON PROFIL, posé à la main
+//     sur la personne (null = une case du profil retirée) ;
+//   · `permissions_json` — la copie EFFECTIVE, profil + exceptions, que lisent
+//     tous les contrôles de droits (inchangés). Elle se recalcule quand le
+//     profil du rôle change, quand le rôle change, quand la fiche change.
+// Le profil d'un rôle est le profil DE RÉFÉRENCE (systeme = 1) de ce rôle.
+// Un compte sans aucune case (permissions_json vide) suit son rôle entier,
+// comme avant, et n'est pas touché.
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { Router } from 'express';
@@ -56,6 +66,112 @@ export function migrerProfilsAcces(dbx) {
     for (const [nom, role, desc, pj] of defauts) up.run(nom, role, desc, pj);
     console.log('[migration] profil_acces : 5 profils de référence');
   } catch (e) { console.error('[migration] profils accès :', e.message); }
+}
+
+// ── L'héritage ──────────────────────────────────────────────────────────────
+const lireJson = t => { try { return t ? (typeof t === 'string' ? JSON.parse(t) : t) : null; } catch { return null; } };
+
+export function profilDuRole(role) {
+  try {
+    const p = db.prepare('SELECT permissions_json FROM profil_acces WHERE role = ? AND systeme = 1 ORDER BY id LIMIT 1').get(role);
+    return p ? (lireJson(p.permissions_json) || {}) : null;
+  } catch { return null; }
+}
+
+/** Ce qui, dans `complet`, diffère de `base` — module par module, case par
+ *  case. Une case ou un module présent dans le profil et absent de la fiche
+ *  s'écrit `null` : la fusion le retire, et le droit reste celui d'avant. */
+export function ecartsAuProfil(complet, base) {
+  const c = complet || {}, b = base || {}, ex = {};
+  for (const m of new Set([...Object.keys(c), ...Object.keys(b)])) {
+    if (!(m in c)) { ex[m] = null; continue; }
+    const cm = c[m] || {}, bm = b[m];
+    if (!bm) { ex[m] = { ...cm }; continue; }
+    const d = {};
+    for (const k of new Set([...Object.keys(cm), ...Object.keys(bm)])) {
+      if (!(k in cm)) d[k] = null;
+      else if (cm[k] !== bm[k]) d[k] = cm[k];
+    }
+    if (Object.keys(d).length) ex[m] = d;
+  }
+  return ex;
+}
+
+export function fusionnerProfil(base, ex) {
+  const out = JSON.parse(JSON.stringify(base || {}));
+  for (const [m, v] of Object.entries(ex || {})) {
+    if (v === null) { delete out[m]; continue; }
+    out[m] = { ...(out[m] || {}) };
+    for (const [k, x] of Object.entries(v)) { if (x === null) delete out[m][k]; else out[m][k] = x; }
+  }
+  return out;
+}
+
+/** Écrit les droits d'un compte à partir de ce que la fiche montre : les
+ *  exceptions se déduisent du profil du rôle. Sans profil pour ce rôle, la
+ *  fiche est gardée telle quelle, sans héritage. */
+export function enregistrerDroits(userId, role, complet) {
+  const c = lireJson(complet);
+  if (c == null) return;
+  const base = profilDuRole(role);
+  const ex = base ? ecartsAuProfil(c, base) : null;
+  db.prepare('UPDATE utilisateur SET permissions_json = ?, permissions_exceptions = ? WHERE id = ?')
+    .run(JSON.stringify(c), ex ? JSON.stringify(ex) : null, userId);
+}
+
+/** Le rôle a changé de profil, ou le compte a changé de rôle : on recalcule. */
+export function recalculerDroits({ role = null, userId = null } = {}) {
+  const lignes = userId
+    ? db.prepare('SELECT id, role, permissions_json, permissions_exceptions FROM utilisateur WHERE id = ?').all(userId)
+    : db.prepare('SELECT id, role, permissions_json, permissions_exceptions FROM utilisateur WHERE role = ?').all(role);
+  let n = 0;
+  const maj = db.prepare('UPDATE utilisateur SET permissions_json = ? WHERE id = ?');
+  for (const u of lignes) {
+    if (!u.permissions_json || u.permissions_exceptions == null) continue;   // suit son rôle, ou sans héritage
+    const base = profilDuRole(u.role);
+    if (!base) continue;
+    const eff = JSON.stringify(fusionnerProfil(base, lireJson(u.permissions_exceptions) || {}));
+    if (eff !== u.permissions_json) { maj.run(eff, u.id); n++; }
+  }
+  return n;
+}
+
+/** Le module « réunions » dans les profils de référence : la valeur de
+ *  « procédures », écriture pour la coordination. Après la conversion en
+ *  exceptions, pour que les comptes le reçoivent de leur profil. */
+export function migrerModuleReunions(dbx) {
+  try {
+    const roles = [];
+    for (const p of dbx.prepare('SELECT id, role, permissions_json FROM profil_acces WHERE systeme = 1').all()) {
+      const pj = lireJson(p.permissions_json) || {};
+      if (pj.reunions) continue;
+      pj.reunions = p.role === 'coordination' ? { lire: true, ecrire: true } : { ...(pj.procedures || { lire: false, ecrire: false }) };
+      dbx.prepare("UPDATE profil_acces SET permissions_json = ?, maj_le = datetime('now') WHERE id = ?").run(JSON.stringify(pj), p.id);
+      roles.push(p.role);
+    }
+    let n = 0;
+    for (const role of roles) n += recalculerDroits({ role });
+    if (roles.length) console.log(`[migration] module réunions : ${roles.length} profil(s), ${n} compte(s) mis à jour`);
+  } catch (e) { console.error('[migration] module réunions :', e.message); }
+}
+
+export function migrerExceptions(dbx) {
+  try {
+    const cols = dbx.prepare('PRAGMA table_info(utilisateur)').all().map(c => c.name);
+    if (!cols.includes('permissions_exceptions')) dbx.exec('ALTER TABLE utilisateur ADD COLUMN permissions_exceptions TEXT');
+    // Chaque fiche devient « profil + écarts » : les droits de chacun restent
+    // EXACTEMENT ceux d'avant, seul le profil pourra désormais les faire bouger.
+    let n = 0;
+    for (const u of dbx.prepare(`SELECT id, role, permissions_json FROM utilisateur
+        WHERE permissions_json IS NOT NULL AND permissions_json != '' AND permissions_exceptions IS NULL`).all()) {
+      const base = profilDuRole(u.role);
+      const c = lireJson(u.permissions_json);
+      if (!base || !c) continue;
+      dbx.prepare('UPDATE utilisateur SET permissions_exceptions = ? WHERE id = ?').run(JSON.stringify(ecartsAuProfil(c, base)), u.id);
+      n++;
+    }
+    if (n) console.log(`[migration] ${n} compte(s) : droits convertis en profil + exceptions`);
+  } catch (e) { console.error('[migration] exceptions de droits :', e.message); }
 }
 
 r.get('/', authRequired, (req, res) => {
@@ -227,9 +343,17 @@ r.put('/:id', authRequired, roleRequired('admin'), (req, res) => {
       maj_le = datetime('now') WHERE id = ?
   `).run(nom || p.nom, role || p.role, description ?? p.description,
          JSON.stringify(permissions || {}), p.id);
-  res.json({ ok: true, avertissement: p.systeme
-    ? "Ce profil de référence est modifié : les fiches déjà établies ne changent pas, "
-    + "il faudra le réappliquer là où c'est voulu." : null });
+  // L'héritage : les comptes du rôle suivent leur profil de référence. Les
+  // exceptions posées sur une personne restent les siennes.
+  let comptes = 0;
+  if (p.systeme) {
+    comptes += recalculerDroits({ role: p.role });
+    if (role && role !== p.role) comptes += recalculerDroits({ role });
+    invaliderPlafonds();
+  }
+  res.json({ ok: true, comptes_mis_a_jour: comptes, avertissement: p.systeme
+    ? `Profil de référence modifié : ${comptes} compte(s) mis à jour. Les exceptions posées sur une personne restent les siennes.`
+    : "Ce profil n'est pas le profil de référence d'un rôle : il sert de modèle, les comptes ne le suivent pas." });
 });
 
 r.delete('/:id', authRequired, roleRequired('admin'), (req, res) => {

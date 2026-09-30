@@ -45,7 +45,7 @@ import db from '../db/index.js';
 export const MODULES = [
   'etudiants', 'attributions', 'personnel', 'organisation', 'planification',
   'listes', 'procedures', 'pilotage', 'dotation', 'repartition', 'budget',
-  'recrutement', 'amenagements',
+  'recrutement', 'amenagements', 'reunions',
 ];
 
 /* LES DROITS PAR ÉCRAN, ACCORDÉS À UNE PERSONNE (2.12.207, Charles, 26
@@ -73,13 +73,14 @@ const PLAFOND_INITIAL = {
   directeur:         () => 'ecrit',
   directeur_adjoint: () => 'ecrit',
   editeur:           m => (['dotation', 'repartition', 'budget'].includes(m) ? 'rien' : 'ecrit'),
-  secretariat:  m => (['etudiants', 'listes', 'procedures', 'amenagements'].includes(m)
+  secretariat:  m => (['etudiants', 'listes', 'procedures', 'amenagements', 'reunions'].includes(m)
     ? 'ecrit' : ['dotation', 'repartition', 'budget'].includes(m) ? 'rien' : 'lit'),
   // La coordination consulte le reporting, prépare un budget, et n'engage ni
   // la dotation ni la répartition des périodes.
   coordination: m => (['recrutement', 'repartition', 'dotation'].includes(m)
     ? 'rien' : m === 'pilotage' ? 'lit'
     : m === 'amenagements' ? 'ecrit'      // sur octroi nominatif — voir MODULES_SUR_OCTROI
+    : m === 'reunions' ? 'ecrit'          // réunions et échéances : la coordination les tient
     : 'validation'),
   professeur:   m => (['attributions', 'personnel', 'planification'].includes(m) ? 'lit' : 'rien'),
   consultation: m => (['dotation', 'repartition', 'budget'].includes(m) ? 'rien' : 'lit'),
@@ -98,6 +99,15 @@ export function migrerPlafonds(dbx) {
       maj_le  TEXT DEFAULT (datetime('now')),
       PRIMARY KEY (role, module)
     );`);
+    /* RÉUNIONS ET ÉCHÉANCES, NOUVEAU MODULE (30 septembre 2026) : chaque rôle
+       garde le niveau que « procédures » lui donnait sur ces écrans — la
+       coordination seule passe à l'écriture. AVANT l'amorce, pour qu'un
+       plafond réglé par la direction ne soit pas remplacé par la valeur du code. */
+    try {
+      dbx.exec(`INSERT OR IGNORE INTO role_plafond (role, module, niveau)
+        SELECT role, 'reunions', CASE WHEN role = 'coordination' THEN 'ecrit' ELSE niveau END
+        FROM role_plafond WHERE module = 'procedures'`);
+    } catch { /* table neuve */ }
     const ins = dbx.prepare(
       'INSERT OR IGNORE INTO role_plafond (role, module, niveau) VALUES (?,?,?)');
     let n = 0;

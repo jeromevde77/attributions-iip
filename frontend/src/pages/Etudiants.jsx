@@ -27,6 +27,7 @@ import CentreDiplomation from '../components/CentreDiplomation.jsx';
 import SeanceValorisation from '../components/SeanceValorisation.jsx';
 import ImportSurMesure from '../components/ImportSurMesure.jsx';
 import ImportSignaletique from '../components/ImportSignaletique.jsx';
+import ImportHELB from '../components/ImportHELB.jsx';
 import RattacherPack from '../components/RattacherPack.jsx';
 import ImportSuivi from '../components/ImportSuivi.jsx';
 import Annexe2 from '../components/Annexe2.jsx';
@@ -2248,7 +2249,7 @@ export function FicheEtudiant({ id, annee, onClose, position, onPrec, onSuiv,
   // bandeau commun sait faire.
   return (
     <Fenetre icone={IconUser} titre={nomPropre(data.nom, data.prenom)}
-      sous={`${data.email_ecole} · ${data.id_ecampus}`
+      sous={[data.email_ecole || 'sans adresse d’école', data.id_ecampus || (data.matricule_helb ? `HELB ${data.matricule_helb}` : 'sans matricule')].join(' · ')
             + (data.niveau?.libelle ? ' · ' + data.niveau.libelle : '')}
       large="ecran" onFermer={onClose}>
       <div className="-mx-5 -my-4">
@@ -2812,6 +2813,7 @@ export default function Etudiants() {
   const [comparaison, setComparaison] = useState(false);
   const [importSurMesure, setImportSurMesure] = useState(false);
   const [importSignaletique, setImportSignaletique] = useState(false);
+  const [importHELB, setImportHELB] = useState(false);
   const [rattacherPack, setRattacherPack] = useState(false);
   const [importSuivi, setImportSuivi] = useState(false);
   const [tri, setTri] = useState({ champ: 'nom', sens: 1 });
@@ -3138,8 +3140,20 @@ export default function Etudiants() {
      recherche qui trouve puis cache n'est pas une recherche. Le repli fait à
      la main pendant la recherche est respecté, et oublié à la suivante ; sans
      recherche, les volets restent fermés, comme avant. */
+  /* ET PENDANT N'IMPORTE QUEL FILTRE (Charles, 30 septembre 2026 : « quand je
+     fais un filtre, il mélange les volets par section et le filtre »). Seule
+     la recherche par nom ouvrait les volets : filtrer « BA1 » laissait trois
+     volets fermés dont les comptes ne disaient pas qu'ils étaient filtrés —
+     on ne savait plus si « 61 étudiants » était la section ou le filtre. Tout
+     filtre ouvre désormais les volets, et chaque volet dit « 61 sur 120 ». */
+  const filtreActif = !!(recherche.trim() || fNiveau || fUE || fRatt || fPrimo || fDoublons);
   const [repliesRecherche, setRepliesRecherche] = useState({});
-  useEffect(() => { setRepliesRecherche({}); }, [recherche]);
+  useEffect(() => { setRepliesRecherche({}); }, [recherche, fNiveau, fUE, fRatt, fPrimo, fDoublons]);
+  const totalParSection = useMemo(() => {
+    const m = {};
+    for (const e of etudiants || []) { const s = e.section_rattachement || '(sans section)'; m[s] = (m[s] || 0) + 1; }
+    return m;
+  }, [etudiants]);
   /* UN ÉTUDIANT, UNE SECTION : LA SIENNE — et non celles de ses UE.
      La colonne et les volets lisaient la liste des sections de TOUTES ses
      unités : un étudiant de TIM inscrit à l'UE hors cursus (rangée sous
@@ -3596,7 +3610,7 @@ export default function Etudiants() {
                 // huit cents lignes avant d'atteindre celle qu'on cherchait.
                 // Replié, l'écran tient sur une vue : on ouvre la section
                 // voulue, et on y est.
-                const enRecherche = !!recherche.trim();
+                const enRecherche = filtreActif;
                 /* UNE SEULE SECTION : TOUJOURS OUVERTE — et c'est un défaut
                    qui a coupé une coordination de ses propres étudiants. Le
                    volet n'a pas d'en-tête quand il est seul (il ne sépare
@@ -3626,7 +3640,9 @@ export default function Etudiants() {
                             <span className="w-3 inline-block opacity-50">{ouverte ? '−' : '+'}</span>
                             {sec}
                             <span className="font-normal text-[11px] text-slate-500">
-                              {liste.length} étudiant(s)
+                              {filtreActif && totalParSection[sec] && totalParSection[sec] !== liste.length
+                                ? `${liste.length} sur ${totalParSection[sec]} étudiant(s) — filtrés`
+                                : `${liste.length} étudiant(s)`}
                             </span>
                           </button>
                         </td>
@@ -3741,6 +3757,7 @@ export default function Etudiants() {
       {importSurMesure && (
         <ImportSurMesure onClose={() => setImportSurMesure(false)} onTermine={charger} annee={annee} />
       )}
+      {importHELB && <ImportHELB onClose={() => setImportHELB(false)} onTermine={charger} />}
       {importSignaletique && (
         <ImportSignaletique onClose={() => setImportSignaletique(false)} onTermine={charger} />
       )}
@@ -3770,6 +3787,12 @@ export default function Etudiants() {
               quoi: 'Ouvrir les dossiers d’une nouvelle promotion ; ceux qui existent déjà sont complétés, jamais dédoublés.',
               attend: 'l’export eCampus des étudiants (R_Etudiants_Excel, .xls)',
               onClick: () => setImportSignaletique(true) },
+            /* LES ORTHOPTISTES DE LA HELB (30 septembre 2026) : ils suivent le
+               tronc commun organisé par l'IIP, sans passer par eCampus. */
+            { cle: 'creer-helb', titre: 'Créer les étudiants d’orthoptie (HELB)',
+              quoi: 'Ouvrir les dossiers de la section Orthoptie et y rattacher les unités du tronc commun ; ceux qui existent déjà sont complétés.',
+              attend: 'la liste des inscrits transmise par la HELB (.xls)',
+              onClick: () => setImportHELB(true) },
             /* L'ÉTAPE SUIVANTE : une promotion importée sans section se range
                d'après le rapport eCampus « Pack UF ». */
             { cle: 'rattacher-pack', titre: 'Placer les étudiants dans leur section',

@@ -220,7 +220,7 @@ export default function CentreDocumentsUE({ ueNum, ueNom, annee, onClose }) {
       if (!rep.ok) { setErreur(j.error); return; }
 
       const aEnvoyer = (j.documents || []).map(d => ({
-        html: d.html, nom_fichier: d.nom,
+        html: d.html, nom_fichier: d.nom, contenu: d.contenu,
         destinataire: { type: 'etudiant', id: d.etudiant_id, nom: d.etudiant },
       }));
 
@@ -231,6 +231,7 @@ export default function CentreDocumentsUE({ ueNum, ueNom, annee, onClose }) {
         for (const m of membres) {
           aEnvoyer.push({
             html: j.collectif.html, nom_fichier: j.collectif.nom,
+            contenu: `UE ${ueNum} : pièces du Conseil (${(j.collectif.pieces || []).join(', ')})`,
             destinataire: { type: m.type, id: m.id, nom: m.nom, email: m.email || '' },
           });
         }
@@ -394,6 +395,7 @@ export default function CentreDocumentsUE({ ueNum, ueNom, annee, onClose }) {
         <EnvoiMailModal
           pieces={envoi}
           typeDoc={`deliberation_ue${ueNum}`}
+          contenu={`UE ${ueNum} ${ueNom || ''} · ${annee}`}
           sujet={`${ueNom || `UE ${ueNum}`} — ${annee}`}
           onClose={() => setEnvoi(null)} />
       )}

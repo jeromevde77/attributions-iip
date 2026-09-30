@@ -6,6 +6,7 @@ import { envoyerEmail, templateNotif } from '../services/mailer.js';
 import { creerJeton, comptePeutMotDePasse, VALIDITE_INVITATION_MINUTES, dureeLisible } from '../lib/motDePasse.js';
 import { journaliser } from './mfa.js';
 import { rolesConnus } from '../middleware/permissions.js';
+import { enregistrerDroits, recalculerDroits } from './profilsAcces.js';
 
 const r = Router();
 
@@ -47,7 +48,7 @@ function setSections(userId, sections) {
 r.get('/', authRequired, roleRequired('admin'), (req, res) => {
   const users = db.prepare(`
     SELECT id, email, nom_complet, role, actif, professeur_id, created_at, last_login_at,
-           acces_recrutement, permissions_json, mfa_actif, methode_auth, perimetre_toutes
+           acces_recrutement, permissions_json, permissions_exceptions, mfa_actif, methode_auth, perimetre_toutes
     FROM utilisateur ORDER BY nom_complet
   `).all();
   // Joindre les sections pour les coordinations
@@ -97,7 +98,7 @@ r.post('/', authRequired, roleRequired('admin'), (req, res) => {
       if (professeur_id) {
         db.prepare('UPDATE utilisateur SET professeur_id = ?, role = ?, actif = 1 WHERE id = ?')
           .run(professeur_id, role, existing.id);
-        if (perms != null) db.prepare('UPDATE utilisateur SET permissions_json = ? WHERE id = ?').run(perms, existing.id);
+        if (perms != null) enregistrerDroits(existing.id, role, perms);
         poserPerimetre(existing.id, sections, perimetre_toutes);
       }
       return res.status(200).json({ id: existing.id, linked: true });
@@ -107,6 +108,7 @@ r.post('/', authRequired, roleRequired('admin'), (req, res) => {
       INSERT INTO utilisateur (email, password_hash, nom_complet, role, actif, professeur_id, permissions_json)
       VALUES (?, ?, ?, ?, 1, ?, ?)
     `).run(email, hash, nom_complet || email, role, professeur_id || null, perms);
+    if (perms != null) enregistrerDroits(result.lastInsertRowid, role, perms);
     poserPerimetre(result.lastInsertRowid, sections, perimetre_toutes);
     res.status(201).json({ id: result.lastInsertRowid });
   } catch (e) {
@@ -230,6 +232,13 @@ r.patch('/:id', authRequired, roleRequired('admin'), (req, res) => {
   }
   if (updates.length) {
     db.prepare(`UPDATE utilisateur SET ${updates.join(', ')} WHERE id = @id`).run(params);
+  }
+  // L'HÉRITAGE : ce que la fiche envoie se range en profil + exceptions ; un
+  // changement de rôle sans cases recalcule la copie depuis le nouveau profil.
+  {
+    const u = db.prepare('SELECT role FROM utilisateur WHERE id = ?').get(Number(req.params.id));
+    if (u && permissions_json !== undefined) enregistrerDroits(Number(req.params.id), u.role, params.permissions_json);
+    else if (u && role !== undefined) recalculerDroits({ userId: Number(req.params.id) });
   }
 
   // Mise à jour des sections (si fournies)
