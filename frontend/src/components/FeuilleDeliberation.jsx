@@ -690,16 +690,15 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose, enPage = fa
               </button>
             ))}
           </div>
-          {session === 1 && (
-            <span className="text-slate-500">
-              Retour sur la première session — la décision de seconde session, si elle existe,
-              reste le résultat final.
-            </span>
-          )}
+          <span className="text-slate-500">
+            {session === 1
+              ? 'Retour sur la première session — la décision de seconde session, si elle existe, reste le résultat final.'
+              : 'Seconde session : seuls les ajournés sont présentés ; la décision de septembre devient le résultat final.'}
+          </span>
         </div>
       )}
 
-      {data?.session === 2 && (
+      {data?.session === 2 && !data?.etat_sessions?.seconde_possible && (
         <div className="px-3 py-2 rounded-carte bg-amber-50 border border-amber-200
                         text-[12px] text-amber-900">
           <b>Seconde session.</b> Seuls les étudiants ajournés en première session sont
@@ -796,8 +795,8 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose, enPage = fa
               <div className="flex items-center justify-between gap-3 py-0.5">
                 <button disabled={idx <= 0 || enCours} onClick={() => enregistrerPuisAvancer(-1)}
                   title="Enregistrer la décision et revenir au précédent"
-                  className="p-1 rounded-lg border border-slate-300 disabled:opacity-30">
-                  <IconChevronLeft size={16} />
+                  className="h-9 w-9 inline-flex items-center justify-center rounded-lg border border-slate-300 disabled:opacity-30">
+                  <IconChevronLeft size={18} />
                 </button>
                 <div className="flex-1 min-w-0 px-1 flex items-baseline gap-2 truncate">
                   <span className="text-[15px] font-bold text-iip-blue truncate">{nomPropre(etud.nom, etud.prenom)}</span>
@@ -809,10 +808,11 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose, enPage = fa
                   {!!aMotiver.length && (
                     <button onClick={() => document.getElementById('a-justifier')
                         ?.scrollIntoView({ behavior: 'smooth', block: 'center' })}
-                      className="text-[11px] text-red-800 bg-red-50 border border-red-300
-                                 rounded-lg px-2 py-1 text-right max-w-[280px]">
-                      <b>{aMotiver.length} acquis à justifier</b> avant de passer :
-                      {' '}{aMotiver.map(a => a.aa_code).join(', ')}
+                      title="Aller aux justifications"
+                      className="h-9 inline-flex items-center gap-1.5 px-3 rounded-lg text-white text-[12px] whitespace-nowrap max-w-[320px]"
+                      style={{ background: 'var(--c-refuse)' }}>
+                      <b>{aMotiver.length} acquis à justifier</b>
+                      <span className="truncate opacity-90">· {aMotiver.map(a => a.aa_code).join(', ')}</span>
                     </button>
                   )}
                   <button disabled={enCours} onClick={() => enregistrerPuisAvancer(1)}
@@ -821,12 +821,10 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose, enPage = fa
                       : idx >= liste.length - 1
                         ? 'Enregistrer et clore la délibération'
                         : 'Enregistrer la décision et passer au suivant'}
-                    className={`px-2.5 py-1.5 rounded-lg border font-semibold text-[12px]
-                      flex items-center gap-1 disabled:opacity-30 ${aMotiver.length
-                        ? 'border-red-300 text-red-400 cursor-not-allowed'
-                        : 'border-iip-blue text-iip-blue'}`}>
-                    {idx >= liste.length - 1 ? 'Clore' : 'Suivant'}
-                    <IconChevronRight size={16} />
+                    className={`h-9 w-9 inline-flex items-center justify-center rounded-lg border disabled:opacity-30 ${aMotiver.length
+                        ? 'border-slate-300 text-slate-300 cursor-not-allowed'
+                        : 'border-iip-blue bg-iip-blue text-white'}`}>
+                    <IconChevronRight size={18} />
                   </button>
                 </div>
               </div>
@@ -1760,16 +1758,23 @@ function Fiche({ e, data, onAjuster, onLot, onMotif, enCours, onBord,
   }
 
   /** Une note dans la matrice : un chiffre, et le seuil se lit au trait. */
-  const note = (v, { na = false, gras = false } = {}) => {
-    if (na) return <span className="text-slate-400" title="Non acquis — à représenter">NA</span>;
+  /* LA NOTE SE LIT D'UN COUP D'ŒIL (Charles, 30 septembre 2026) : un rectangle
+     plein, texte blanc — VERT au-dessus du seuil, ORANGE au seuil tout juste,
+     ROUGE (fraise écrasée) sous le seuil ou non acquis. Les couleurs sont
+     celles des réglages : réussi, à surveiller, à corriger. */
+  const rect = (fond, texte, titre) => (
+    <span title={titre || undefined} style={{ background: fond }}
+      className="inline-flex items-center justify-center min-w-[40px] h-[22px] px-1.5 rounded-[5px] text-white font-semibold tabular-nums">{texte}</span>
+  );
+  const note = (v, { na = false } = {}) => {
+    if (na) return rect('var(--c-refuse)', 'NA', 'Non acquis — à représenter');
     if (!v) return <span className="text-slate-300">·</span>;
-    if (v.mention) return <span className={v.mention === 'PP' ? 'text-red-700' : 'text-amber-700'}
-      title={v.mention === 'NP' ? 'Note de présence' : v.mention === 'PP' ? 'Pas présenté' : ''}>{v.mention}</span>;
+    if (v.mention) return rect(v.mention === 'PP' ? 'var(--c-refuse)' : 'var(--c-attente)', v.mention,
+      v.mention === 'NP' ? 'Note de présence' : v.mention === 'PP' ? 'Pas présenté' : '');
     if (v.note == null) return <span className="text-slate-300">·</span>;
-    const sous = v.note < seuil;
-    return <span className={`tabular-nums ${gras ? 'font-semibold' : ''} ${sous
-      ? 'text-red-700 underline decoration-red-600 underline-offset-2' : ''}`}>
-      {decidee && sous ? 'NA' : fmt(v.note)}</span>;
+    if (v.note < seuil) return rect('var(--c-refuse)', decidee ? 'NA' : fmt(v.note), decidee ? `Cote calculée : ${fmt(v.note)}/20 — non acquis` : '');
+    if (v.note === seuil) return rect('var(--c-attente)', fmt(v.note), 'Au seuil, tout juste');
+    return rect('var(--c-reussi)', fmt(v.note));
   };
 
   const bouton = (actif, titre, onClick) => !sansAjournement && (
@@ -1805,7 +1810,7 @@ function Fiche({ e, data, onAjuster, onLot, onMotif, enCours, onBord,
           <div id="a-justifier" className="border border-slate-200 rounded-carte overflow-x-auto">
             <table className="w-full border-collapse text-[11.5px]">
               <thead className="bg-slate-50 normal-case tracking-normal">
-                <tr className="align-bottom">
+                <tr className="align-middle">
                   <th className="text-left px-2.5 py-1 font-semibold text-slate-600 w-[22%]">Acquis</th>
                   {cours.map(c => (
                     <th key={c.cours_code} className="px-1.5 py-1 text-center font-normal min-w-[64px]"
@@ -1830,7 +1835,7 @@ function Fiche({ e, data, onAjuster, onLot, onMotif, enCours, onBord,
                 {regarde.aa && acquis.map(a => {
                   const enCause = aJustCodes.has(a.aa_code);
                   return (
-                    <tr key={a.aa_code} className="border-t border-slate-100 bg-white align-top">
+                    <tr key={a.aa_code} className="border-t border-slate-100 bg-white align-middle">
                       <td className="px-2.5 py-1 max-w-0" title={a.description || ''}>
                         <div className="truncate"><b className={`font-semibold ${enCause ? 'text-red-700' : 'text-slate-700'}`}>{a.aa_code}</b>
                           <span className="text-[10.5px] text-slate-500"> {a.description || ''}</span></div>
@@ -1841,8 +1846,8 @@ function Fiche({ e, data, onAjuster, onLot, onMotif, enCours, onBord,
                         </td>
                       ))}
                       <td className="px-2 py-1 text-center bg-iip-blue/10 whitespace-nowrap">
-                        {a.faveur ? <span className="text-violet-700 font-semibold" title="Octroyé par le Conseil"><IconGift size={11} className="inline -mt-0.5" /> {fmt(seuil)}</span>
-                          : note(a, { na: a.na, gras: true })}
+                        {a.faveur ? rect('var(--c-faveur)', <><IconGift size={11} className="mr-0.5" />{fmt(seuil)}</>, 'Octroyé par le Conseil')
+                          : note(a, { na: a.na })}
                         {bouton(!!a.ajourne_directement, a.ajourne_directement ? "Lever l'ajournement" : 'Ajourner cet acquis — à représenter',
                           () => onAjuster('aa', a.aa_code, a.ajourne_directement ? null : 'ajourne'))}
                       </td>
@@ -1863,7 +1868,7 @@ function Fiche({ e, data, onAjuster, onLot, onMotif, enCours, onBord,
                   </td>
                   {cours.map(c => (
                     <td key={c.cours_code} className={`px-1.5 py-1.5 text-center whitespace-nowrap ${!regarde.cours ? 'opacity-60' : ''}`}>
-                      {note(c, { na: c.na, gras: true })}
+                      {note(c, { na: c.na })}
                       {bouton(!!c.ajourne_directement, c.ajourne_directement ? "Lever l'ajournement du cours" : 'Ajourner ce cours — à représenter',
                         () => onAjuster('cours', c.cours_code, c.ajourne_directement ? null : 'ajourne'))}
                     </td>
@@ -2227,18 +2232,18 @@ function TuileUE({ ue, seuil, onFaveur, enCours, compacte = false }) {
   // délibère ; la faveur, violette, garde son cadeau.
   const etat = ue.na ? 'indisponible' : ue.faveur ? 'faveur' : echec ? 'surveiller' : ue.note == null ? 'neutre' : 'reussi';
   if (compacte) {
-    // UNE LIGNE (29 septembre 2026 : « il faut au moins gagner la moitié »).
+    // PLEINE, À LA HAUTEUR DU NOM (Charles, 30 septembre 2026) : verte si
+    // l'unité est acquise, violette si elle l'est par faveur, rouge sinon.
+    const fond = ue.note == null && !ue.na ? null
+      : ue.faveur ? 'var(--c-faveur)' : (ue.na || echec) ? 'var(--c-refuse)' : 'var(--c-reussi)';
     return (
-      <div data-etat={etat} className="bloc-etat px-2.5 py-0.5 flex items-baseline gap-2 whitespace-nowrap">
-        {ue.faveur && <IconGift size={13} className="self-center" style={{ color: 'var(--c-faveur)' }} />}
+      <div className={`h-9 inline-flex items-center gap-2 px-3 rounded-[8px] whitespace-nowrap ${fond ? 'text-white' : 'border border-slate-300'}`}
+        style={fond ? { background: fond } : undefined}>
+        {ue.faveur && <IconGift size={14} />}
         <span className="text-[16px] font-bold tabular-nums">{ue.na ? 'NA' : fmt(ue.note)}</span>
-        <span className="text-[11px] text-slate-500">/ 20 · note de l'unité{echec ? ' · non acquise' : ''}</span>
+        <span className="text-[11.5px] opacity-90">/ 20 · note de l'unité</span>
         {ue.cote_etudiant != null && String(ue.cote_etudiant) !== fmt(ue.note) && (
-          <span className="text-[11px] text-slate-500">· à l'étudiant <b className="tabular-nums">{ue.cote_etudiant}</b></span>
-        )}
-        {(echec || ue.faveur) && !ue.na && (
-          <button disabled={enCours} onClick={onFaveur} title={ue.faveur ? 'Retirer la faveur' : "Lever l'unité en faveur — elle vaudra exactement le seuil"}
-            className="self-center text-[11px] text-violet-700 underline">{ue.faveur ? 'retirer la faveur' : 'faveur'}</button>
+          <span className="text-[11.5px] opacity-90">· à l'étudiant <b className="tabular-nums">{ue.cote_etudiant}</b></span>
         )}
       </div>
     );
@@ -2596,7 +2601,7 @@ function DecisionGenerale({ cours, enCours, onLot, onDecision, decision }) {
         className={`px-2.5 py-1 rounded-lg border font-semibold flex items-center gap-1.5
           ${tousAjournes
     ? 'bg-amber-500 border-amber-500 text-white'
-    : 'bg-white border-amber-500 text-white hover:bg-amber-500'}`}>
+    : 'bg-white border-amber-500 text-iip-texte hover:bg-amber-500 hover:text-white'}`}>
         <IconAlertTriangle size={13} />
         {tousAjournes ? 'Relever l’ajournement général' : 'Ajournement général'}
       </button>
@@ -2606,7 +2611,7 @@ function DecisionGenerale({ cours, enCours, onLot, onDecision, decision }) {
         className={`px-2.5 py-1 rounded-lg border font-semibold flex items-center gap-1.5
           ${decision === 'refuse'
     ? 'bg-red-500 border-red-500 text-white'
-    : 'bg-white border-red-500 text-white hover:bg-red-500'}`}>
+    : 'bg-white border-red-500 text-iip-texte hover:bg-red-500 hover:text-white'}`}>
         <IconBan size={13} /> Refus général
       </button>
       {tousAjournes && (
@@ -2660,10 +2665,10 @@ function Decision({ e, ue, onBord, acquis, cours, decision, onDecision, enCours,
               title={ue.faveur_ue
                 ? 'Retirer la faveur accordée à l’unité'
                 : 'Accorder l’unité en faveur — la cote monte au seuil, jamais au-delà'}
-              className={`px-3 py-1.5 text-[13px] font-semibold rounded-lg border
+              className={`h-9 px-3 inline-flex items-center text-[13px] font-semibold rounded-lg border transition
                 ${ue.faveur_ue
-                  ? 'bg-violet-600 border-violet-700 text-white'
-                  : 'bg-white border-violet-500 text-white hover:bg-violet-500'}`}>
+                  ? 'bg-violet-500 border-violet-500 text-white'
+                  : 'bg-white border-slate-300 text-iip-texte hover:bg-violet-500 hover:border-violet-500 hover:text-white'}`}>
               {/* UN CADEAU, NON UN PINCEAU — et violet, non orange. La faveur
                   est un octroi : le Conseil donne l'unité. Le pinceau disait
                   « repeindre », ce qui n'est ni le geste ni son sens. Et
@@ -2679,12 +2684,24 @@ function Decision({ e, ue, onBord, acquis, cours, decision, onDecision, enCours,
               cliquable — une troisième session ne se propose pas. */}
           {DECISIONS.filter(d => !(session >= 2 && d.cle === 'ajourne')).map(d => {
             const actif = decision === d.cle;
+            /* RÉUSSI SUR UNE UNITÉ NON ACQUISE, C'EST UNE FAVEUR (Charles, 30
+               septembre 2026) : le Conseil accorde l'unité malgré l'échec — Lucie
+               pose la faveur d'office, tracée comme toute faveur, et le bouton
+               passe au violet. */
+            const nonAcquise = ue.na || (ue.note != null && ue.note < 10) || propose !== 'reussi';
+            const enFaveur = d.cle === 'reussi' && actif && ue.faveur_ue;
             return (
               <button key={d.cle} disabled={enCours}
-                onClick={() => onDecision(d.cle)}
-                className={`px-3 py-1.5 text-[13px] font-semibold rounded-lg border
-                  ${actif ? `${d.ton} text-white`
+                onClick={() => {
+                  if (d.cle === 'reussi' && nonAcquise && !ue.faveur_ue && onFaveurUE) onFaveurUE();
+                  onDecision(d.cle);
+                }}
+                title={d.cle === 'reussi' && nonAcquise && !ue.faveur_ue ? "L'unité n'est pas acquise : la réussir, c'est accorder une faveur — elle sera tracée" : undefined}
+                className={`h-9 px-3 inline-flex items-center text-[13px] font-semibold rounded-lg border
+                  ${enFaveur ? 'bg-violet-500 border-violet-500 text-white'
+                    : actif ? `${d.ton} text-white`
                           : 'bg-white border-slate-300 text-slate-600 hover:border-slate-400'}`}>
+                {enFaveur && <IconGift size={13} className="mr-1" />}
                 {d.libelle}
                 {d.cle === propose && (
                   <span className={`ml-1.5 text-[10px] font-normal
@@ -2722,10 +2739,11 @@ function Decision({ e, ue, onBord, acquis, cours, decision, onDecision, enCours,
             </span>
           )}
 
-          {!!manquants.length && decision !== 'reussi' && (
+          {/* Le rappel « à justifier » vit dans la tuile, à côté de la flèche
+              suivante : le répéter ici faisait deux fois la même alerte. */}
+          {!!manquants.length && decision !== 'reussi' && partie !== 'boutons' && (
             <span className="text-white bg-red-500 border border-red-500 rounded-lg px-2 py-0.5">
-              À justifier sous la matrice avant de passer au suivant :
-              {' '}{manquants.join(', ')}
+              À justifier avant de passer au suivant : {manquants.join(', ')}
             </span>
           )}
 

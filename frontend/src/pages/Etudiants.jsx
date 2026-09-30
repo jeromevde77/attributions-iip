@@ -2620,7 +2620,7 @@ export function FicheEtudiant({ id, annee, onClose, position, onPrec, onSuiv,
                           {acquises.map(u => (
                             <button key={u.ue_num} onClick={() => basculerUE(u)}
                               title={`${u.ue_nom || ''} — cliquer pour réinscrire`}
-                              className="text-[11px] px-2 py-0.5 rounded-lg border border-emerald-500 bg-white text-white hover:bg-emerald-500">
+                              className="text-[11px] px-2 py-0.5 rounded-lg border border-emerald-500 bg-white text-iip-texte hover:bg-emerald-500 hover:text-white">
                               {u.ue_num}
                               {u.va_complete ? ' · VA' : ''}
                             </button>

@@ -1044,7 +1044,7 @@ function ConfigContrat() {
         <div className="flex flex-wrap gap-1.5">
           {VARS.map(({ v, desc }) => (
             <button key={v} onClick={() => inserer(v)} title={desc}
-              className="text-xs font-mono bg-white border border-amber-500 text-white hover:bg-amber-500 px-2 py-0.5 rounded transition">
+              className="text-xs font-mono bg-white border border-amber-500 text-iip-texte hover:bg-amber-500 hover:text-white px-2 py-0.5 rounded transition">
               {v}
             </button>
           ))}
