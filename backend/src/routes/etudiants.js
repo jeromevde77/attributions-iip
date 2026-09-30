@@ -717,8 +717,14 @@ export function faitsPAE(etudId, annee, sections, cache = null) {
     const ph = sections.map(() => '?').join(',');
     const organisees = new Set(sections.length ? db.prepare(`SELECT DISTINCT ue_num FROM organisation_ue
       WHERE annee_scolaire = ? AND section IN (${ph})`).all(annee, ...sections).map(x => x.ue_num) : []);
+    // Les unités RATTACHÉES à la section (ue_section) en font partie comme
+    // celles qu'elle porte : le tronc commun d'Optométrie, suivi par les
+    // orthoptistes (30 septembre 2026), est rangé sous Optométrie et
+    // rattaché à Orthoptie.
     const nums = new Set([...organisees, ...(sections.length ? db.prepare(`SELECT DISTINCT ue_num FROM ue
-      WHERE annee_scolaire = ? AND section IN (${ph})`).all(annee, ...sections).map(x => x.ue_num) : [])]);
+      WHERE annee_scolaire = ? AND section IN (${ph})`).all(annee, ...sections).map(x => x.ue_num) : []),
+      ...(sections.length ? db.prepare(`SELECT DISTINCT ue_num FROM ue_section
+      WHERE annee_scolaire = ? AND section_code IN (${ph})`).all(annee, ...sections).map(x => x.ue_num) : [])]);
     // L'épreuve intégrée : la ligne annuelle l'emporte quand elle existe ;
     // sinon la case du référentiel, sinon l'intitulé.
     const annuelle = new Map();
@@ -3561,6 +3567,123 @@ function sectionDuDossier(etudId, annee) {
  *   · un étudiant qui a une VALORISATION n'est pas tranché : une VA peut ouvrir
  *     le bloc suivant, cela se regarde à la main.
  * Simulation d'abord ; l'écriture est un geste de direction. */
+/**
+ * LES ORTHOPTISTES DE LA HELB (Charles, 30 septembre 2026 : « le tronc commun
+ * regroupe en fait deux sections, Optométrie et Orthoptie. L'orthoptie est
+ * gérée par la HELB, MAIS c'est moi qui organise les UE du tronc commun »).
+ *
+ * La HELB transmet sa liste d'inscrits (colonnes : matricule, nom, prenom,
+ * sexe, naiss_date « jj/mm/aaaa », naiss_lieu, nat_lib, dom_rue, dom_cp,
+ * dom_loc, gsm, et_lib_regnat = registre national…). L'import :
+ *   · crée la section « Orthoptie » si elle manque ;
+ *   · rattache à Orthoptie, pour l'année, les unités de TRONC COMMUN
+ *     (ue_tc = 'x', rangées sous Optométrie) — un rattachement, jamais une
+ *     copie de l'unité (ue_section) ;
+ *   · ouvre ou complète un dossier par étudiant, rattaché à Orthoptie
+ *     (déclaré, signé, daté). Le matricule HELB est leur identifiant ; le
+ *     doublon se cherche d'abord au registre national (`rapprocher`).
+ *   · N'INSCRIT À AUCUNE UNITÉ : les programmes se composent un à un, dans le
+ *     PAE (choix de Charles).
+ * Un dossier déjà rattaché à une AUTRE section n'est pas déplacé : il est
+ * nommé, et c'est à la main qu'on tranche.
+ * L'adresse d'école est celle de la HELB (@helb-prigogine.be) : elle n'est
+ * reprise que si le fichier la porte — on ne la devine pas.
+ */
+const SECTION_HELB = 'Orthoptie';
+try { db.exec('ALTER TABLE etudiant ADD COLUMN matricule_helb TEXT'); } catch { /* déjà là */ }
+try { db.exec('CREATE INDEX IF NOT EXISTS idx_etudiant_mat_helb ON etudiant(matricule_helb)'); } catch { /* */ }
+
+r.post('/import-helb', authRequired, roleRequired('admin', 'directeur', 'directeur_adjoint', 'editeur'), (req, res) => {
+  const { lignes, annee, simulation = true, exclus = [] } = req.body || {};
+  if (!annee) return res.status(400).json({ error: 'annee requise' });
+  if (!Array.isArray(lignes) || !lignes.length) return res.status(400).json({ error: 'le fichier ne porte aucune ligne' });
+  const exclusSet = new Set((Array.isArray(exclus) ? exclus : []).map(String));
+  const qui = req.user?.email || null;
+  const t = v => String(v ?? '').trim();
+  const capit = x => t(x).toLowerCase().replace(/(^|[-'’\s])([\p{L}])/gu, (_, a, c) => a + c.toLocaleUpperCase('fr'));
+  const iso = d => { const m = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(t(d)); return m ? `${m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}` : t(d) || null; };
+  const rnForme = d => { const x = t(d).replace(/\D/g, ''); return x.length === 11 ? `${x.slice(0, 6)} ${x.slice(6, 9)}-${x.slice(9)}` : (t(d) || null); };
+  const cleMail = l => Object.keys(l).find(k => /mail/i.test(k));
+
+  const sectionExiste = !!db.prepare('SELECT 1 FROM section WHERE code = ?').get(SECTION_HELB);
+  const tc = db.prepare(`SELECT DISTINCT u.ue_num, u.ue_nom, u.section FROM ue u
+    WHERE u.annee_scolaire = ? AND LOWER(COALESCE(u.ue_tc,'')) = 'x' ORDER BY u.ue_num`).all(annee);
+  const dejaLie = db.prepare('SELECT 1 FROM ue_section WHERE ue_num = ? AND section_code = ? AND annee_scolaire = ?');
+  const aLier = tc.filter(u => u.section !== SECTION_HELB && !dejaLie.get(u.ue_num, SECTION_HELB, annee));
+
+  const parMatricule = db.prepare('SELECT id FROM etudiant WHERE matricule_helb = ?');
+  const fiche = db.prepare('SELECT id, nom, prenom, id_ecampus, matricule_helb, section_rattachement, email_ecole FROM etudiant WHERE id = ?');
+  const plan = [];
+  for (const [i, l] of lignes.entries()) {
+    const mat = t(l.matricule);
+    const nom = t(l.nom).toLocaleUpperCase('fr').replace(/\s+/g, ' ');
+    const prenom = capit(l.prenom);
+    if (!nom || !prenom) { plan.push({ i, action: 'ignore', raison: 'nom ou prénom absent', nom, prenom, matricule: mat }); continue; }
+    const email = cleMail(l) ? t(l[cleMail(l)]).toLowerCase() || null : null;
+    const donnees = {
+      nom, prenom, matricule_helb: mat || null, date_naissance: iso(l.naiss_date),
+      lieu_naissance: t(l.naiss_lieu) || null, nationalite: t(l.nat_lib) || null,
+      num_national: rnForme(l.et_lib_regnat), rn_norm: t(l.et_lib_regnat).replace(/\D/g, '') || null,
+      titre: t(l.sexe).toUpperCase() === 'F' ? 'Madame' : t(l.sexe).toUpperCase() === 'M' ? 'Monsieur' : null,
+      adresse: t(l.dom_rue) || null, cp: t(l.dom_cp) || null, localite: t(l.dom_loc) || null,
+      gsm: t(l.gsm) || null, email_ecole: email,
+    };
+    let trouve = mat ? parMatricule.get(mat) : null;
+    let methode = trouve ? 'matricule HELB' : null;
+    if (!trouve) {
+      const rp = rapprocher({ num_national: donnees.num_national, nom, prenom, date_naissance: donnees.date_naissance });
+      if (rp) { trouve = { id: rp.id }; methode = rp.methode === 'numero_national' ? 'registre national' : 'nom, prénom et naissance'; }
+    }
+    if (!trouve) { plan.push({ i, action: 'creer', nom, prenom, matricule: mat, email, donnees }); continue; }
+    const f = fiche.get(trouve.id);
+    const autre = f.section_rattachement && f.section_rattachement !== SECTION_HELB;
+    plan.push({ i, action: autre ? 'a_trancher' : 'completer', etudiant_id: f.id, nom, prenom, matricule: mat, email,
+      methode, section_actuelle: f.section_rattachement || null, id_ecampus: f.id_ecampus || null, donnees });
+  }
+  const resume = {
+    creer: plan.filter(p => p.action === 'creer').length,
+    completer: plan.filter(p => p.action === 'completer').length,
+    a_trancher: plan.filter(p => p.action === 'a_trancher').length,
+    ignores: plan.filter(p => p.action === 'ignore').length,
+    sans_adresse: plan.filter(p => p.action !== 'ignore' && !p.email).length,
+  };
+  const vue = plan.map(({ donnees, ...p }) => p);
+  if (simulation) {
+    return res.json({ simulation: true, annee, section: SECTION_HELB, section_a_creer: !sectionExiste,
+      tronc_commun: tc.map(u => ({ ue_num: u.ue_num, ue_nom: u.ue_nom, a_lier: aLier.some(x => x.ue_num === u.ue_num) })),
+      resume, lignes: vue });
+  }
+
+  const cols = ['nom', 'prenom', 'matricule_helb', 'date_naissance', 'lieu_naissance', 'nationalite',
+    'num_national', 'rn_norm', 'titre', 'adresse', 'cp', 'localite', 'gsm', 'email_ecole'];
+  const ins = db.prepare(`INSERT INTO etudiant (${cols.join(', ')}, actif, section_rattachement, rattachement_par, rattachement_le)
+    VALUES (${cols.map(() => '?').join(', ')}, 1, ?, ?, datetime('now'))`);
+  // Compléter : on n'écrase jamais ce qui est déjà écrit dans Lucie.
+  const comp = db.prepare(`UPDATE etudiant SET ${cols.filter(c => !['nom', 'prenom'].includes(c))
+    .map(c => `${c} = COALESCE(NULLIF(${c}, ''), ?)`).join(', ')},
+    section_rattachement = COALESCE(section_rattachement, ?),
+    rattachement_par = CASE WHEN section_rattachement IS NULL THEN ? ELSE rattachement_par END,
+    rattachement_le  = CASE WHEN section_rattachement IS NULL THEN datetime('now') ELSE rattachement_le END
+    WHERE id = ?`);
+  let crees = 0, completes = 0, liees = 0;
+  db.transaction(() => {
+    if (!sectionExiste) db.prepare('INSERT OR IGNORE INTO section (code, libelle) VALUES (?, ?)').run(SECTION_HELB, SECTION_HELB);
+    const lier = db.prepare('INSERT OR IGNORE INTO ue_section (ue_num, section_code, annee_scolaire) VALUES (?,?,?)');
+    for (const u of aLier) liees += lier.run(u.ue_num, SECTION_HELB, annee).changes;
+    for (const p of plan) {
+      if (exclusSet.has(String(p.i))) continue;
+      const d = p.donnees;
+      if (p.action === 'creer') { ins.run(...cols.map(c => d[c] ?? null), SECTION_HELB, qui); crees++; }
+      else if (p.action === 'completer') {
+        comp.run(...cols.filter(c => !['nom', 'prenom'].includes(c)).map(c => d[c] ?? null), SECTION_HELB, qui, p.etudiant_id);
+        completes++;
+      }
+    }
+  })();
+  console.log(`[import-helb] ${crees} créé(s), ${completes} complété(s), ${liees} UE rattachée(s) à ${SECTION_HELB} par ${qui || '?'} (${annee})`);
+  res.json({ ok: true, crees, completes, ue_rattachees: liees, a_trancher: resume.a_trancher });
+});
+
 /**
  * LES DÉCISIONS SANS INSCRIPTION — la réparation (Charles, 30 septembre 2026 :
  * « ABDO R est notée comme primo. Pourquoi ? »).

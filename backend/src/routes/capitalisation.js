@@ -49,10 +49,14 @@ export function niveauxEffectifs(sections, annee) {
      lisait dans l'année ACTIVE et la surcharge dans l'année consultée : deux
      années mêlées dans un même niveau. L'année active ne sert plus que de
      repli pour une unité que l'année consultée ne décrit pas. */
+  // Une unité RATTACHÉE à la section (ue_section) garde le niveau de son
+  // référentiel : le tronc commun lu par les orthoptistes (30 septembre 2026).
   const lire = an => db.prepare(`
     SELECT ue_num, MIN(ue_niv) AS ue_niv FROM ue
-    WHERE annee_scolaire = ? AND section IN (${ph}) GROUP BY ue_num
-  `).all(an, ...sections);
+    WHERE annee_scolaire = ? AND (section IN (${ph})
+      OR ue_num IN (SELECT ue_num FROM ue_section WHERE annee_scolaire = ? AND section_code IN (${ph})))
+    GROUP BY ue_num
+  `).all(an, ...sections, an, ...sections);
   for (const u of lire(annee)) map[u.ue_num] = (u.ue_niv || '').toUpperCase();
   if (anneeRef && anneeRef !== annee) {
     for (const u of lire(anneeRef)) if (!(u.ue_num in map)) map[u.ue_num] = (u.ue_niv || '').toUpperCase();

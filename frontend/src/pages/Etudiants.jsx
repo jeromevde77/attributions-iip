@@ -27,6 +27,7 @@ import CentreDiplomation from '../components/CentreDiplomation.jsx';
 import SeanceValorisation from '../components/SeanceValorisation.jsx';
 import ImportSurMesure from '../components/ImportSurMesure.jsx';
 import ImportSignaletique from '../components/ImportSignaletique.jsx';
+import ImportHELB from '../components/ImportHELB.jsx';
 import RattacherPack from '../components/RattacherPack.jsx';
 import ImportSuivi from '../components/ImportSuivi.jsx';
 import Annexe2 from '../components/Annexe2.jsx';
@@ -2812,6 +2813,7 @@ export default function Etudiants() {
   const [comparaison, setComparaison] = useState(false);
   const [importSurMesure, setImportSurMesure] = useState(false);
   const [importSignaletique, setImportSignaletique] = useState(false);
+  const [importHELB, setImportHELB] = useState(false);
   const [rattacherPack, setRattacherPack] = useState(false);
   const [importSuivi, setImportSuivi] = useState(false);
   const [tri, setTri] = useState({ champ: 'nom', sens: 1 });
@@ -3755,6 +3757,7 @@ export default function Etudiants() {
       {importSurMesure && (
         <ImportSurMesure onClose={() => setImportSurMesure(false)} onTermine={charger} annee={annee} />
       )}
+      {importHELB && <ImportHELB onClose={() => setImportHELB(false)} onTermine={charger} />}
       {importSignaletique && (
         <ImportSignaletique onClose={() => setImportSignaletique(false)} onTermine={charger} />
       )}
@@ -3784,6 +3787,12 @@ export default function Etudiants() {
               quoi: 'Ouvrir les dossiers d’une nouvelle promotion ; ceux qui existent déjà sont complétés, jamais dédoublés.',
               attend: 'l’export eCampus des étudiants (R_Etudiants_Excel, .xls)',
               onClick: () => setImportSignaletique(true) },
+            /* LES ORTHOPTISTES DE LA HELB (30 septembre 2026) : ils suivent le
+               tronc commun organisé par l'IIP, sans passer par eCampus. */
+            { cle: 'creer-helb', titre: 'Créer les étudiants d’orthoptie (HELB)',
+              quoi: 'Ouvrir les dossiers de la section Orthoptie et y rattacher les unités du tronc commun ; ceux qui existent déjà sont complétés.',
+              attend: 'la liste des inscrits transmise par la HELB (.xls)',
+              onClick: () => setImportHELB(true) },
             /* L'ÉTAPE SUIVANTE : une promotion importée sans section se range
                d'après le rapport eCampus « Pack UF ». */
             { cle: 'rattacher-pack', titre: 'Placer les étudiants dans leur section',
