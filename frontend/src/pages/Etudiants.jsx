@@ -206,6 +206,16 @@ function SchemaCapitalisation({ etudId, annee, onNoeud = null, programme = null,
      de cursus archive le précédent — il ne se mêle plus au schéma, mais il se
      nomme, avec ses années et ce qui y a été réussi, et s'ouvre à la demande. */
   const [archiveVue, setArchiveVue] = useState(null);   // { section, data }
+  const reprendre = async section => {
+    if (!window.confirm(`Faire de ${section} le cursus en cours de l'étudiant ?\n\n`
+      + `Sa section actuelle deviendra un cursus archivé ; ses inscriptions de ${annee} y resteront, `
+      + 'et se retireront ensuite avec « Retirer ces inscriptions ».')) return;
+    const r = await fetch(`/api/etudiants/${etudId}/cursus/reprendre`, { method: 'POST', headers: authHeaders(),
+      body: JSON.stringify({ annee, section }) });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) { alert(j.error || 'Refusé.'); return; }
+    setArchiveVue(null); setRecharge(n => n + 1); onModifie?.();
+  };
   const voirArchive = async section => {
     if (archiveVue?.section === section) { setArchiveVue(null); return; }
     const r = await fetch(`/api/etudiants/${etudId}/capitalisation?annee=${annee}&section=${encodeURIComponent(section)}`, { headers: authHeaders() });
@@ -228,6 +238,10 @@ function SchemaCapitalisation({ etudId, annee, onNoeud = null, programme = null,
               Retirer ces inscriptions
             </button>
           )}
+          <button type="button" className="bouton bouton-compact" onClick={() => reprendre(a.section)}
+            title={`Faire de ${a.section} le cursus en cours — la section actuelle sera archivée`}>
+            Reprendre ce cursus
+          </button>
           <button type="button" className="bouton bouton-compact" onClick={() => voirArchive(a.section)}>
             {archiveVue?.section === a.section ? 'Masquer' : 'Afficher'}
           </button>
