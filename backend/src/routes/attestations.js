@@ -1009,8 +1009,12 @@ r.get('/candidats', authRequired, (req, res) => {
            -- d'une année à l'autre.
            (SELECT ue_nom FROM ue u WHERE u.ue_num = i.ue_num
              ORDER BY u.annee_scolaire DESC LIMIT 1) AS ue_nom,
-           (SELECT section FROM ue u WHERE u.ue_num = i.ue_num AND u.section IS NOT NULL
-             ORDER BY u.annee_scolaire DESC LIMIT 1) AS section
+           -- La section DU DOSSIER (lib/sectionDossier.js, 30 septembre 2026).
+           (CASE WHEN e.section_rattachement IS NOT NULL AND EXISTS (SELECT 1 FROM ue_section us
+                   WHERE us.ue_num = i.ue_num AND us.section_code = e.section_rattachement)
+                 THEN e.section_rattachement
+                 ELSE (SELECT section FROM ue u WHERE u.ue_num = i.ue_num AND u.section IS NOT NULL
+             ORDER BY u.annee_scolaire DESC LIMIT 1) END) AS section
     FROM etudiant_inscription i
     JOIN etudiant e ON e.id = i.etudiant_id
     WHERE ${clauses.join(' AND ')}

@@ -37,6 +37,14 @@ const r = Router();
 // lecture pérenne : le millésime de l'année demandée s'il existe, sinon le
 // plus récent connu. Sans quoi les années antérieures au premier référentiel
 // affichent des UE sans nom.
+/* LA SECTION D'UNE INSCRIPTION, EN SQL (30 septembre 2026, orthoptie) — la
+   règle de lib/sectionDossier.js pour les requêtes qui joignent `e`
+   (etudiant), `i` (inscription) et `u` (UE_REF) : celle de l'étudiant quand
+   l'unité est rattachée à sa section déclarée, sinon celle de l'unité. */
+const SECTION_INSCRIPTION = `(CASE WHEN e.section_rattachement IS NOT NULL AND EXISTS (
+    SELECT 1 FROM ue_section us WHERE us.ue_num = i.ue_num AND us.section_code = e.section_rattachement)
+  THEN e.section_rattachement ELSE u.section END)`;
+
 const UE_REF = `(
   SELECT ue_num,
          (SELECT ue_nom  FROM ue x WHERE x.ue_num = u0.ue_num AND x.ue_nom  IS NOT NULL ORDER BY x.annee_scolaire DESC LIMIT 1) AS ue_nom,
@@ -636,8 +644,17 @@ function sectionsDeLEtudiant(etudId, forcee) {
     }
   }
 
+  /* UNE UE RATTACHÉE À LA SECTION DÉCLARÉE DE L'ÉTUDIANT COMPTE POUR ELLE
+     (30 septembre 2026, orthoptie) : le tronc commun est déclaré en
+     Optométrie, un orthoptiste qui le suit n'en devient pas optométriste — la
+     règle de lib/sectionDossier.js. Sans elle, la coordination d'Orthoptie
+     était refusée sur la fiche de ses propres étudiants, et celle
+     d'Optométrie y entrait. */
+  const rat = db.prepare('SELECT section_rattachement s FROM etudiant WHERE id = ?').get(etudId)?.s || null;
+  const lieesAuRat = new Set(rat ? db.prepare('SELECT DISTINCT ue_num FROM ue_section WHERE section_code = ?').all(rat).map(x => x.ue_num) : []);
   const parSection = {};
   for (const ins of inscriptions) {
+    if (rat && lieesAuRat.has(ins.ue_num)) { (parSection[rat] = parSection[rat] || new Set()).add(ins.ue_num); continue; }
     const candidats = sectionsParUe[ins.ue_num] || [];
     if (!candidats.length) continue;
     const exact = candidats.find(x => x.annee_scolaire === ins.annee_scolaire);
@@ -963,7 +980,7 @@ r.get('/', authRequired, (req, res) => {
   let sql = `
     SELECT e.id, e.nom, e.prenom, e.email_ecole, e.id_ecampus,
            e.sortie_statut, e.sortie_le, e.sortie_motif,
-           COALESCE(GROUP_CONCAT(DISTINCT u.section), e.section_rattachement) AS sections,
+           COALESCE(GROUP_CONCAT(DISTINCT ${SECTION_INSCRIPTION}), e.section_rattachement) AS sections,
            COUNT(DISTINCT i.ue_num) AS nb_ue,
            MAX(i.annee_scolaire) AS derniere_annee
     FROM etudiant e
@@ -974,12 +991,12 @@ r.get('/', authRequired, (req, res) => {
   const params = [];
 
   if (section) {
-    sql += ` AND (u.section = ? OR (i.ue_num IS NULL AND e.section_rattachement = ?))`;
+    sql += ` AND (${SECTION_INSCRIPTION} = ? OR (i.ue_num IS NULL AND e.section_rattachement = ?))`;
     params.push(section, section);
   } else if (autorisees) {
     // Hors filtre explicite, la liste se borne au périmètre de la personne.
     const marques = autorisees.map(() => '?').join(',') || "''";
-    sql += ` AND (u.section IN (${marques})
+    sql += ` AND (${SECTION_INSCRIPTION} IN (${marques})
                   OR (i.ue_num IS NULL AND e.section_rattachement IN (${marques})))`;
     params.push(...autorisees, ...autorisees);
   }
@@ -1193,7 +1210,7 @@ r.post('/coordonnees', authRequired, (req, res) => {
   let lignes = db.prepare(`
     SELECT e.id, e.nom, e.prenom, e.email_ecole, e.email_perso, e.gsm,
            e.adresse, e.cp, e.localite,
-           COALESCE(GROUP_CONCAT(DISTINCT u.section), e.section_rattachement) AS sections
+           COALESCE(GROUP_CONCAT(DISTINCT ${SECTION_INSCRIPTION}), e.section_rattachement) AS sections
     FROM etudiant e
     LEFT JOIN etudiant_inscription i ON i.etudiant_id = e.id
     LEFT JOIN ${UE_REF} u ON u.ue_num = i.ue_num
@@ -3439,7 +3456,12 @@ r.post('/pae-valider-lot', authRequired,
   db.transaction(() => {
     for (const id of [...new Set(etudiants.map(Number).filter(Number.isInteger))]) {
       // Le périmètre se vérifie par étudiant : la section annoncée ne suffit pas.
-      if (sectionRattachement(id, annee).section !== section && !dansSection.get(id, annee, section)) {
+      // Un rattachement DÉCLARÉ tranche (30 septembre 2026) : sans quoi la
+      // coordination d'Optométrie validait le PAE d'un orthoptiste inscrit au
+      // tronc commun, déclaré en Optométrie.
+      const declaree = db.prepare('SELECT section_rattachement s FROM etudiant WHERE id = ?').get(id)?.s || null;
+      if (declaree ? declaree !== section
+        : (sectionRattachement(id, annee).section !== section && !dansSection.get(id, annee, section))) {
         ignores.push({ id, raison: 'hors de la section' }); continue;
       }
       if (retirer) { faits += oter.run(id, annee).changes; continue; }
