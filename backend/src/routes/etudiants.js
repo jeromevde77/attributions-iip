@@ -3941,11 +3941,15 @@ r.post('/pae-modifier', authRequired,
      nomme ; l'écriture la refuse tant que ce n'est pas confirmé. */
   const autreSection = [];
   const secDossier = new Map();
+  const rattacheeA = db.prepare('SELECT 1 FROM ue_section WHERE ue_num = ? AND section_code = ? AND annee_scolaire = ?');
   for (const [e, u] of A) {
     const su = sectionDeLUE(u, annee);
     if (!su || su.hc) continue;
     if (!secDossier.has(e)) secDossier.set(e, sectionDuDossier(e, annee));
     const sd = secDossier.get(e);
+    // Une unité RATTACHÉE à la section du dossier (ue_section) en fait partie :
+    // le tronc commun d'Optométrie, pour un orthoptiste (30 septembre 2026).
+    if (sd && sd !== su.section && rattacheeA.get(u, sd, annee)) continue;
     if (sd && sd !== su.section) autreSection.push({ etudiant_id: e, etudiant: nom(e), ue_num: u, section_ue: su.section, section_dossier: sd });
   }
   if (autreSection.length && !simulation && !req.body?.autre_section_confirmee) {
