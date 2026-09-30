@@ -1779,7 +1779,7 @@ function Fiche({ e, data, onAjuster, onLot, onMotif, enCours, onBord,
 
   const bouton = (actif, titre, onClick) => !sansAjournement && (
     <button disabled={enCours} onClick={onClick} title={titre}
-      className={`ml-1 w-4 h-4 rounded-full inline-flex items-center justify-center border align-middle
+      className={`absolute left-full top-1/2 -translate-y-1/2 ml-1 w-4 h-4 rounded-full inline-flex items-center justify-center border
         ${actif ? 'bg-amber-500 border-amber-600 text-white' : 'bg-white border-slate-300 text-slate-400 hover:border-amber-500 hover:text-amber-600'}`}>
       <IconRepeat size={9} />
     </button>
@@ -1808,22 +1808,23 @@ function Fiche({ e, data, onAjuster, onLot, onMotif, enCours, onBord,
 
         {(regarde.aa || regarde.cours) && (
           <div id="a-justifier" className="border border-slate-200 rounded-carte overflow-x-auto">
-            <table className="w-full border-collapse text-[11.5px]">
+            <table className="w-full border-collapse text-[11.5px] table-fixed">
               <thead className="bg-slate-50 normal-case tracking-normal">
                 <tr className="align-middle">
-                  <th className="text-left px-2.5 py-1 font-semibold text-slate-600 w-[22%]">Acquis</th>
+                  <th className="text-left px-2.5 py-1 font-semibold text-slate-600 w-[24%]">Acquis</th>
                   {cours.map(c => (
-                    <th key={c.cours_code} className="px-1.5 py-1 text-center font-normal min-w-[64px]"
+                    <th key={c.cours_code} className="w-[112px] px-1.5 py-1 text-center font-normal align-middle"
                       title={[c.cours_nom, c.professeurs, c.poids_cours_affiche != null ? `${c.poids_cours_affiche} %` : null].filter(Boolean).join(' · ')}>
                       <div className="text-slate-700 truncate"><b className="font-semibold">{c.cours_code}</b>
                         {c.poids_cours_affiche != null && <span className="text-slate-400"> · {c.poids_cours_affiche} %</span>}</div>
-                      {c.cours_nom && <div className="text-[10.5px] text-slate-500 leading-tight truncate">{c.cours_nom}</div>}
+                      {c.cours_nom && <div className="text-[10.5px] text-slate-500 leading-tight line-clamp-2">{c.cours_nom}</div>}
+                      {c.professeurs && <div className="text-[10px] text-slate-400 italic truncate">{c.professeurs}</div>}
                     </th>
                   ))}
-                  <th className="px-2 py-1 text-center font-semibold text-slate-700 bg-iip-blue/10 min-w-[70px]"
+                  <th className="w-[84px] px-2 py-1 text-center font-semibold text-slate-700 bg-iip-blue/10"
                     title="La note consolidée de l'acquis : c'est elle qui fait foi">Acquis</th>
                   {aJust.length > 0 && (
-                    <th className="text-left px-2.5 py-1 font-semibold text-slate-600 w-[38%]">
+                    <th className="text-left px-2.5 py-1 font-semibold text-slate-600">
                       Motivation de l'échec
                       <span className="font-normal text-slate-400"> · {aJust.filter(a => !a.motif).length
                         ? `${aJust.filter(a => !a.motif).length} à écrire` : 'toutes écrites'}</span>
@@ -1846,10 +1847,12 @@ function Fiche({ e, data, onAjuster, onLot, onMotif, enCours, onBord,
                         </td>
                       ))}
                       <td className="px-2 py-1 text-center bg-iip-blue/10 whitespace-nowrap">
+                        <span className="relative inline-flex align-middle">
                         {a.faveur ? rect('var(--c-faveur)', <><IconGift size={11} className="mr-0.5" />{fmt(seuil)}</>, 'Octroyé par le Conseil')
                           : note(a, { na: a.na })}
                         {bouton(!!a.ajourne_directement, a.ajourne_directement ? "Lever l'ajournement" : 'Ajourner cet acquis — à représenter',
                           () => onAjuster('aa', a.aa_code, a.ajourne_directement ? null : 'ajourne'))}
+                        </span>
                       </td>
                       {aJust.length > 0 && (
                         <td className="px-2 py-1">
@@ -1868,9 +1871,11 @@ function Fiche({ e, data, onAjuster, onLot, onMotif, enCours, onBord,
                   </td>
                   {cours.map(c => (
                     <td key={c.cours_code} className={`px-1.5 py-1.5 text-center whitespace-nowrap ${!regarde.cours ? 'opacity-60' : ''}`}>
+                      <span className="relative inline-flex align-middle">
                       {note(c, { na: c.na })}
                       {bouton(!!c.ajourne_directement, c.ajourne_directement ? "Lever l'ajournement du cours" : 'Ajourner ce cours — à représenter',
                         () => onAjuster('cours', c.cours_code, c.ajourne_directement ? null : 'ajourne'))}
+                      </span>
                     </td>
                   ))}
                   <td className="bg-iip-blue/10" />
