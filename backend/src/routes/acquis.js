@@ -1444,14 +1444,14 @@ function controlerDecisions(annee) {
     SELECT d.etudiant_id, d.ue_num, d.session, d.resultat, d.points, d.decide_le, d.decide_par,
            e.nom, e.prenom, e.id_ecampus,
            (SELECT u.ue_nom FROM ue u WHERE u.ue_num = d.ue_num AND u.ue_nom IS NOT NULL
-             ORDER BY (u.annee_scolaire = d.annee_scolaire) DESC, u.annee_scolaire DESC LIMIT 1) AS ue_nom,
+             ORDER BY (u.annee_scolaire = @annee) DESC, u.annee_scolaire DESC LIMIT 1) AS ue_nom,
            (SELECT u.section FROM ue u WHERE u.ue_num = d.ue_num
-             ORDER BY (u.annee_scolaire = d.annee_scolaire) DESC, u.annee_scolaire DESC LIMIT 1) AS section
+             ORDER BY (u.annee_scolaire = @annee) DESC, u.annee_scolaire DESC LIMIT 1) AS section
     FROM deliberation_resultat d
     JOIN etudiant e ON e.id = d.etudiant_id
-    WHERE d.annee_scolaire = ? AND d.resultat IN ('reussi', 'ajourne', 'refuse')
+    WHERE d.annee_scolaire = @annee AND d.resultat IN ('reussi', 'ajourne', 'refuse')
     ORDER BY d.ue_num, e.nom, e.prenom, d.session
-  `).all(annee);
+  `).all({ annee });
 
   const ecarts = [], aTrancher = [];
   let controlees = 0, incalculables = 0;
