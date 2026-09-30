@@ -715,8 +715,13 @@ export function faitsPAE(etudId, annee, sections, cache = null) {
   let sec = cache?.get(cle);
   if (!sec) {
     const ph = sections.map(() => '?').join(',');
+    // Une unité RATTACHÉE à la section (ue_section) est organisée par la
+    // section qui la porte : le tronc commun, organisé sous Optométrie, n'était
+    // « pas organisé cette année » pour les orthoptistes (30 septembre 2026).
     const organisees = new Set(sections.length ? db.prepare(`SELECT DISTINCT ue_num FROM organisation_ue
-      WHERE annee_scolaire = ? AND section IN (${ph})`).all(annee, ...sections).map(x => x.ue_num) : []);
+      WHERE annee_scolaire = ? AND (section IN (${ph})
+        OR ue_num IN (SELECT ue_num FROM ue_section WHERE annee_scolaire = ? AND section_code IN (${ph})))`)
+      .all(annee, ...sections, annee, ...sections).map(x => x.ue_num) : []);
     // Les unités RATTACHÉES à la section (ue_section) en font partie comme
     // celles qu'elle porte : le tronc commun d'Optométrie, suivi par les
     // orthoptistes (30 septembre 2026), est rangé sous Optométrie et
