@@ -151,25 +151,25 @@ function MesTaches({ signal = 0 }) {
     }).catch(() => {});
   }, [taches, informe]);
 
-  async function cocher(t) {
-    await fetch(`/api/reunions/taches/${t.id}`, {
+  /* LE REFUS SE DIT (30 septembre 2026) : la réponse n'était pas lue, et un
+     clic refusé ressemblait à un clic qui n'avait rien fait. */
+  async function envoyerTache(t, corps) {
+    const r = await fetch(`/api/reunions/taches/${t.id}`, {
       method: 'PUT',
       headers: { ...authHeaders(), 'Content-Type': 'application/json' },
-      body: JSON.stringify({ statut: 'fait' }),
+      body: JSON.stringify(corps),
     });
+    if (!r.ok) {
+      const j = await r.json().catch(() => ({}));
+      window.alert(`La tâche n'a pas été mise à jour : ${j.error || `erreur ${r.status}`}`);
+    }
     charger();
   }
+  async function cocher(t) { await envoyerTache(t, { statut: 'fait' }); }
 
   /* « PAS ENCORE FAIT » — dire le retard vaut mieux que le taire : le signal
      est daté, signé, et celui qui a confié le voit dans son suivi. */
-  async function pointer(t, valeur) {
-    await fetch(`/api/reunions/taches/${t.id}`, {
-      method: 'PUT',
-      headers: { ...authHeaders(), 'Content-Type': 'application/json' },
-      body: JSON.stringify({ pas_fait: valeur }),
-    });
-    charger();
-  }
+  async function pointer(t, valeur) { await envoyerTache(t, { pas_fait: valeur }); }
 
   const fr = d => (d ? String(d).slice(0, 10).split('-').reverse().join('/') : null);
   if (!taches.length && !confiees.length && !informe.length && !prochaine) return null;

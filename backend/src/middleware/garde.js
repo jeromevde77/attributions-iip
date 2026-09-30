@@ -89,6 +89,38 @@ function noter(req, module, action, u) {
  * Il ne fait RIEN pour une porte sans module : la liste `SANS_MODULE` dit
  * lesquelles, et pourquoi.
  */
+/*
+ * CE QU'ON A À FAIRE, ON PEUT LE DIRE FAIT (Charles, 30 septembre 2026 : Mati
+ * « ne sait pas cocher une tâche réalisée »). Cocher une tâche passait par la
+ * porte des réunions : un secrétariat qui les LIT sans les écrire voyait son
+ * clic refusé — 29 fois pour Mati, sans un mot, l'Accueil n'affichant pas la
+ * réponse. Deux gestes échappent donc au module, et deux seulement, sur les
+ * tâches dont on est RESPONSABLE : se marquer « vu », et dire « fait » ou
+ * « pas encore fait » — et, en lecture, voir ses propres tâches. Rien d'autre du corps ne passe : modifier l'intitulé,
+ * l'échéance ou l'équipage reste un geste du module.
+ */
+function gesteSurSaTache(req, user) {
+  try {
+    const chemin = req.originalUrl.split('?')[0];
+    if (req.method === 'POST' && chemin === '/api/reunions/taches/vues') return true;   // ne touche que ses propres lignes
+    // LIRE SES PROPRES TÂCHES à l'Accueil : un professeur à qui l'on confie une
+    // tâche ne la voyait pas (Sébastien Delvosal, 78 refus). « mien », « informe »
+    // et « confie » ne rendent que ce qui concerne la personne (routes/reunions.js).
+    if (req.method === 'GET' && chemin === '/api/reunions/taches'
+        && ['mien', 'informe', 'confie'].some(k => req.query?.[k] === '1')) return true;
+    const m = /^\/api\/reunions\/taches\/(\d+)$/.exec(chemin);
+    if (req.method !== 'PUT' || !m) return false;
+    const cles = Object.keys(req.body || {});
+    if (!cles.length || !cles.every(k => ['statut', 'pas_fait'].includes(k))) return false;
+    if (req.body.statut !== undefined && !['fait', 'a_faire', 'en_cours'].includes(req.body.statut)) return false;
+    const id = Number(m[1]);
+    const prof = db.prepare('SELECT professeur_id FROM utilisateur WHERE id = ?').get(user.id)?.professeur_id || null;
+    return !!db.prepare(`SELECT 1 FROM tache t WHERE t.id = ? AND (t.responsable_user_id = ?
+        OR EXISTS (SELECT 1 FROM tache_personne p WHERE p.tache_id = t.id AND (p.user_id = ? OR (? IS NOT NULL AND p.professeur_id = ?))))`)
+      .get(id, user.id, user.id, prof, prof);
+  } catch { return false; }
+}
+
 export function garderModule(prefixe) {
   return (req, res, next) => {
     // Le module se résout à CHAQUE requête, et non une fois au montage : deux
@@ -115,6 +147,8 @@ export function garderModule(prefixe) {
       if (action === 'ecrire') req.ecriture = droit;
       return next();
     }
+
+    if (gesteSurSaTache(req, user)) return next();
 
     noter(req, module, action, user);
     if (MODE() === 'constat') {
