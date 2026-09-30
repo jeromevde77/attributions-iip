@@ -7,11 +7,12 @@ import { api, getAnnee, nomDoc, getUnite, setUnite as setUniteGlobal, perToH, hT
 import PreviewModal from '../components/PreviewModal.jsx';
 import EptModal from '../components/EptModal.jsx';
 import OrganisationUEModal from '../components/OrganisationUEModal.jsx';
+import BasculeOrganisation from '../components/BasculeOrganisation.jsx';
 import OrganiserGroupesModal from '../components/OrganiserGroupesModal.jsx';
 import Doc23Modal from '../components/Doc23Modal.jsx';
 import AnnulationPanel from '../components/AnnulationPanel.jsx';
 import * as XLSX from 'xlsx';
-import { IconClipboardText, IconTrash, IconLock, IconLockOpen, IconRefresh, IconCalendar, IconFileText, IconEraser, IconWand, IconX, IconSettings, IconFolder, IconPlus, IconFileImport, IconFileSpreadsheet, IconUsersGroup, IconScissors, IconClock, IconChevronLeft, IconChevronRight, IconFilter, IconBriefcase, IconArrowBackUp, IconInfoCircle, IconUserCog } from '@tabler/icons-react';
+import { IconArrowsSplit, IconClipboardText, IconTrash, IconLock, IconLockOpen, IconRefresh, IconCalendar, IconFileText, IconEraser, IconWand, IconX, IconSettings, IconFolder, IconPlus, IconFileImport, IconFileSpreadsheet, IconUsersGroup, IconScissors, IconClock, IconChevronLeft, IconChevronRight, IconFilter, IconBriefcase, IconArrowBackUp, IconInfoCircle, IconUserCog } from '@tabler/icons-react';
 
 // ─── Modale : copier les attributions d'une section d'une année vers une autre ─
 function CopierSectionModal({ sections, anneeActive, isAdmin, onClose, onCopied }) {
@@ -441,6 +442,7 @@ export default function Attributions() {
   const [recrutCands, setRecrutCands] = useState(null);
   const [eptModal, setEptModal] = useState(null);
   const [orgModal, setOrgModal] = useState(null);
+  const [basculeUE, setBasculeUE] = useState(null);
   const [doc23Modal, setDoc23Modal] = useState(null);
   const [quadriMenu, setQuadriMenu] = useState(null); // key de l'UE dont le menu quadri est ouvert
   const [quadriMenuPos, setQuadriMenuPos] = useState({ top: 0, left: 0 });
@@ -2090,6 +2092,12 @@ export default function Attributions() {
                       className="w-full text-left px-3 py-1.5 h-9 text-sm hover:bg-teal-50 text-teal-700 border-t border-gray-100 flex items-center gap-2 border-l-4 border-l-teal-500">
                 <IconCalendar size={15}/><span>Organisations (Doc A)</span>
               </button>
+              {/* LA BASCULE (30 septembre 2026) : les lignes cochées passent dans
+                  une autre organisation — l'Orthoptie pour le tronc commun. */}
+              <button onClick={()=>{ setBasculeUE(ue.ue_num); setAddMenuUE(null); }}
+                      className="w-full text-left px-3 py-1.5 h-9 text-sm hover:bg-slate-50 text-iip-blue border-t border-gray-100 flex items-center gap-2">
+                <IconArrowsSplit size={15}/><span>Basculer des lignes vers une autre organisation</span>
+              </button>
               <button onClick={()=>{ setDoc23Modal({section: sec, ue_num: ue.ue_num, ue_nom: ue.ue_nom}); setAddMenuUE(null); }}
                       className="w-full text-left px-3 py-1.5 h-9 text-sm hover:bg-purple-50 text-purple-700 border-t border-gray-100 flex items-center gap-2 border-l-4 border-l-purple-500">
                 <IconFileText size={15}/><span>DOC2 / DOC3</span>
@@ -2653,6 +2661,7 @@ export default function Attributions() {
       )}
       {eptModal && <EptModal {...eptModal} annee={getAnnee()} onClose={() => { setEptModal(null); load(); }} />}
       {orgModal && <OrganisationUEModal {...orgModal} annee={getAnnee()} onClose={() => setOrgModal(null)} />}
+      {basculeUE && <BasculeOrganisation ueNum={basculeUE} onClose={() => setBasculeUE(null)} onFait={() => load?.()} />}
       {doc23Modal && <Doc23Modal {...doc23Modal} annee={getAnnee()} onClose={() => setDoc23Modal(null)} />}
       {rapportHtml && <PreviewModal html={rapportHtml.html || rapportHtml} titre="Rapport d'attributions" nomFichier={rapportHtml.nom} onClose={() => setRapportHtml(null)} />}
       {groupesUE && (

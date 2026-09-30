@@ -168,6 +168,103 @@ function clausePerimetre(req, alias = 'a') {
   };
 }
 
+/**
+ * LA BASCULE D'ORGANISATION (Charles, 30 septembre 2026 : « je sélectionne les
+ * lignes — cours ou activités — qui passent en orga 2 »). Le tronc commun
+ * d'Optométrie est suivi aussi par les orthoptistes : une organisation par
+ * section — Optométrie en 1, Orthoptie en 2 (3 pour la 282). Les lignes
+ * cochées sont DÉPLACÉES, pas recopiées : elles prennent l'organisation et la
+ * section cibles, et l'organisation cible est ouverte au besoin (sans dates).
+ * Simulation d'abord ; chaque ligne garde son instantané et son journal.
+ * Refusé : une organisation déjà tenue par UNE AUTRE section de l'unité — deux
+ * sections sous un même numéro, c'est deux délibérations confondues.
+ */
+const ROLES_BASCULE = ['admin', 'directeur', 'directeur_adjoint', 'editeur'];
+function sectionsDeLUE(ueNum, annee) {
+  const s = new Set();
+  const p = db.prepare('SELECT section FROM ue WHERE ue_num = ? AND annee_scolaire = ?').get(ueNum, annee)?.section;
+  if (p) s.add(p);
+  try { for (const x of db.prepare('SELECT section_code FROM ue_section WHERE ue_num = ? AND annee_scolaire = ?').all(ueNum, annee)) s.add(x.section_code); } catch { /* table absente */ }
+  return [...s];
+}
+function occupants(ueNum, annee) {
+  // Qui tient chaque numéro d'organisation : attributions et organisations.
+  const m = new Map();
+  const noter = (n, sec) => { if (!m.has(n)) m.set(n, new Set()); if (sec) m.get(n).add(sec); };
+  for (const x of db.prepare(`SELECT DISTINCT COALESCE(num_organisation, 1) n, section FROM attribution
+      WHERE ue_num = ? AND annee_scolaire = ?`).all(ueNum, annee)) noter(x.n, x.section);
+  for (const x of db.prepare(`SELECT DISTINCT num_organisation n, section FROM organisation_ue
+      WHERE ue_num = ? AND annee_scolaire = ?`).all(ueNum, annee)) noter(x.n, x.section);
+  return m;
+}
+
+r.get('/basculer/:ueNum', authRequired, roleRequired(...ROLES_BASCULE), (req, res) => {
+  const annee = req.query.annee || anneeDeTravail(req);
+  const ueNum = Number(req.params.ueNum);
+  const lignes = db.prepare(`
+    SELECT att.id, att.section, COALESCE(att.num_organisation, 1) AS num_organisation, att.code_cours,
+           c.cours_nom, act.libelle AS activite_nom, att.type_cours, att.periodes_attribuees, att.contrat_mdp,
+           att.num_groupe, p.nom, p.prenom
+    FROM attribution att
+    LEFT JOIN professeur p ON p.id = att.professeur_id
+    LEFT JOIN activite_type act ON act.id = att.activite_id
+    LEFT JOIN cours c ON c.cours_code = att.code_cours AND c.annee_scolaire = att.annee_scolaire
+    WHERE att.ue_num = ? AND att.annee_scolaire = ?
+    ORDER BY COALESCE(att.num_organisation, 1), att.code_cours, att.id`).all(ueNum, annee);
+  const occ = occupants(ueNum, annee);
+  const organisations = [...occ.entries()].sort((a, b) => a[0] - b[0]).map(([n, secs]) => ({ num: n, sections: [...secs] }));
+  const ue = db.prepare('SELECT ue_nom FROM ue WHERE ue_num = ? ORDER BY (annee_scolaire = ?) DESC LIMIT 1').get(ueNum, annee);
+  res.json({ annee, ue_num: ueNum, ue_nom: ue?.ue_nom || null, sections: sectionsDeLUE(ueNum, annee), organisations, lignes });
+});
+
+r.post('/basculer', authRequired, roleRequired(...ROLES_BASCULE), (req, res) => {
+  const { annee, ue_num, ids, section, num_organisation, simulation = true } = req.body || {};
+  const ueNum = Number(ue_num), cible = Number(num_organisation);
+  if (!annee || !ueNum) return res.status(400).json({ error: 'annee et ue_num requis' });
+  if (!Number.isInteger(cible) || cible < 1) return res.status(400).json({ error: "numéro d'organisation attendu (1, 2, 3…)" });
+  if (!Array.isArray(ids) || !ids.length) return res.status(400).json({ error: 'aucune ligne cochée' });
+  if (!sectionsDeLUE(ueNum, annee).includes(section)) {
+    return res.status(400).json({ error: `L'UE ${ueNum} n'est pas rattachée à la section « ${section} » en ${annee}.` });
+  }
+  const autres = [...(occupants(ueNum, annee).get(cible) || [])].filter(x => x && x !== section);
+  const lignes = db.prepare(`SELECT id, section, COALESCE(num_organisation, 1) AS num_organisation, code_cours
+      FROM attribution WHERE ue_num = ? AND annee_scolaire = ? AND id IN (${ids.map(() => '?').join(',')})`)
+    .all(ueNum, annee, ...ids.map(Number));
+  if (lignes.length !== ids.length) return res.status(400).json({ error: "Des lignes cochées n'appartiennent pas à cette UE ou à cette année." });
+  // Les lignes qu'on déplace ne comptent pas comme occupant : c'est ce qui reste.
+  const restent = db.prepare(`SELECT DISTINCT section FROM attribution WHERE ue_num = ? AND annee_scolaire = ?
+      AND COALESCE(num_organisation, 1) = ? AND id NOT IN (${ids.map(() => '?').join(',')})`).all(ueNum, annee, cible, ...ids.map(Number))
+    .map(x => x.section).filter(x => x && x !== section);
+  const orgAutre = db.prepare(`SELECT DISTINCT section FROM organisation_ue WHERE ue_num = ? AND annee_scolaire = ?
+      AND num_organisation = ? AND section != ?`).all(ueNum, annee, cible, section).map(x => x.section);
+  const conflit = [...new Set([...restent, ...orgAutre])];
+  if (conflit.length) {
+    return res.status(409).json({ error: `L'organisation ${cible} de l'UE ${ueNum} est déjà tenue par ${conflit.join(', ')} : `
+      + `choisissez un autre numéro (deux sections sous un même numéro, ce sont deux délibérations confondues).`, autres });
+  }
+  const aBouger = lignes.filter(l => l.section !== section || l.num_organisation !== cible);
+  const orgExiste = !!db.prepare('SELECT 1 FROM organisation_ue WHERE ue_num = ? AND section = ? AND annee_scolaire = ? AND num_organisation = ?')
+    .get(ueNum, section, annee, cible);
+  if (simulation) {
+    return res.json({ simulation: true, a_basculer: aBouger.length, deja: lignes.length - aBouger.length, organisation_a_ouvrir: !orgExiste });
+  }
+  const maj = db.prepare("UPDATE attribution SET section = ?, num_organisation = ?, updated_at = datetime('now'), updated_by = ? WHERE id = ?");
+  const log = db.prepare(`INSERT INTO modification_log (attribution_id, utilisateur_id, action, champ_modifie, valeur_avant, valeur_apres)
+      VALUES (?,?,?,?,?,?)`);
+  db.transaction(() => {
+    if (!orgExiste) {
+      db.prepare('INSERT INTO organisation_ue (ue_num, section, annee_scolaire, num_organisation) VALUES (?,?,?,?)').run(ueNum, section, annee, cible);
+    }
+    for (const l of aBouger) {
+      saveSnapshot(l.id, 'update', req.user);
+      maj.run(section, cible, req.user.id, l.id);
+      log.run(l.id, req.user.id, 'update', 'organisation', `${l.section} · org. ${l.num_organisation}`, `${section} · org. ${cible}`);
+    }
+  })();
+  console.log(`[bascule] UE ${ueNum} ${annee} : ${aBouger.length} ligne(s) → ${section} org. ${cible} par ${req.user?.email || '?'}`);
+  res.json({ ok: true, basculees: aBouger.length, organisation_ouverte: !orgExiste });
+});
+
 r.get('/', authRequired, withSectionScope, (req, res) => {
   const { section, prof_id, contrat, ue, ue_num, q, type_cours, annee } = req.query;
   const where = [];
