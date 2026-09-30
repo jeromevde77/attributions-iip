@@ -118,7 +118,7 @@ function demanderMotifs(refus) {
 
 const SENS_PUCE = { r: 'réussie', f: 'réussie par faveur', i: 'inscrite cette année',
   a: 'ajournée, en attente', o: 'atteignable, non prise', n: 'pas encore atteignable' };
-function FriseParcours({ ues, codes }) {
+function FriseParcours({ ues, codes, ects = null }) {
   if (!ues?.length || !codes) return null;
   const groupes = [];
   ues.forEach((u, i) => {
@@ -144,6 +144,12 @@ function FriseParcours({ ues, codes }) {
           ))}
         </span>
       ))}
+      {ects != null && (
+        <span className="text-[11px] text-slate-500 whitespace-nowrap tabular-nums ml-1"
+          title="Crédits des unités inscrites cette année">
+          <b className="text-iip-texte">{ects}</b> ECTS
+        </span>
+      )}
     </div>
   );
 }
@@ -3669,7 +3675,7 @@ export default function Etudiants() {
                       est dans le filtre, perte de place ») : les lignes sont déjà
                       rangées par section, sous son volet. */}
                   <td className="px-3 py-1">
-                    <FriseParcours ues={frises?.sections?.[frises?.etats?.[e.id]?.s]} codes={frises?.etats?.[e.id]?.c} />
+                    <FriseParcours ues={frises?.sections?.[frises?.etats?.[e.id]?.s]} codes={frises?.etats?.[e.id]?.c} ects={frises?.etats?.[e.id]?.ects ?? null} />
                   </td>
                   <td className="px-2 py-1 text-slate-300"><IconChevronRight size={16} /></td>
                 </tr>
