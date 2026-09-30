@@ -204,7 +204,7 @@ r.get('/basculer/:ueNum', authRequired, roleRequired(...ROLES_BASCULE), (req, re
   const lignes = db.prepare(`
     SELECT att.id, att.section, COALESCE(att.num_organisation, 1) AS num_organisation, att.code_cours,
            c.cours_nom, act.libelle AS activite_nom, att.type_cours, att.periodes_attribuees, att.contrat_mdp,
-           att.num_groupe, p.nom, p.prenom
+           att.num_groupe, att.autonomie_attribuee, p.nom, p.prenom
     FROM attribution att
     LEFT JOIN professeur p ON p.id = att.professeur_id
     LEFT JOIN activite_type act ON act.id = att.activite_id
@@ -213,8 +213,14 @@ r.get('/basculer/:ueNum', authRequired, roleRequired(...ROLES_BASCULE), (req, re
     ORDER BY COALESCE(att.num_organisation, 1), att.code_cours, att.id`).all(ueNum, annee);
   const occ = occupants(ueNum, annee);
   const organisations = [...occ.entries()].sort((a, b) => a[0] - b[0]).map(([n, secs]) => ({ num: n, sections: [...secs] }));
-  const ue = db.prepare('SELECT ue_nom FROM ue WHERE ue_num = ? ORDER BY (annee_scolaire = ?) DESC LIMIT 1').get(ueNum, annee);
-  res.json({ annee, ue_num: ueNum, ue_nom: ue?.ue_nom || null, sections: sectionsDeLUE(ueNum, annee), organisations, lignes });
+  const ue = db.prepare('SELECT ue_nom, ue_aut, ue_per_cours FROM ue WHERE ue_num = ? ORDER BY (annee_scolaire = ?) DESC LIMIT 1').get(ueNum, annee);
+  // CE QUE PRÉVOIT LE DOSSIER PÉDAGOGIQUE, en regard de ce qui est attribué
+  // (Charles, 30 septembre 2026) : les périodes professeur de chaque cours, et
+  // l'autonomie de l'unité. Les activités Z ne comptent pas (per_etudiant).
+  const cours = db.prepare(`SELECT cours_code, cours_nom, cours_per, ct_pp FROM cours
+      WHERE ue_num = ? AND annee_scolaire = ? AND cours_code IS NOT NULL ORDER BY cours_num, cours_code`).all(ueNum, annee);
+  res.json({ annee, ue_num: ueNum, ue_nom: ue?.ue_nom || null, autonomie_dp: ue?.ue_aut ?? null,
+    periodes_dp: ue?.ue_per_cours ?? null, cours, sections: sectionsDeLUE(ueNum, annee), organisations, lignes });
 });
 
 r.post('/basculer', authRequired, roleRequired(...ROLES_BASCULE), (req, res) => {

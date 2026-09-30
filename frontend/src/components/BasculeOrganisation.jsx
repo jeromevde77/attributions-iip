@@ -12,6 +12,62 @@ import { IconArrowsSplit } from '@tabler/icons-react';
 import { authHeaders, getAnnee } from '../lib/api.js';
 import { Fenetre } from './ui.jsx';
 
+/* LE PRÉVU ET L'ATTRIBUÉ, COURS PAR COURS (Charles, 30 septembre 2026 : « tu
+   dois me mettre combien de périodes sont prévues au DP pour chaque cours,
+   ainsi que l'autonomie de l'UE »). Une colonne par organisation, et la même
+   après bascule si des lignes sont cochées : on voit ce que la bascule change
+   avant de la faire. */
+function Bilan({ d, parOrg, coches, section, org }) {
+  const orgs = [...new Set(parOrg.map(g => g.num))];
+  const cible = Number(org);
+  if (cible && !orgs.includes(cible)) orgs.push(cible);
+  orgs.sort((a, b) => a - b);
+  const somme = (filtre, champ = 'periodes_attribuees') => d.lignes.filter(filtre).reduce((t, l) => t + (Number(l[champ]) || 0), 0);
+  const apres = l => (coches.has(l.id) ? cible : l.num_organisation);
+  const nb = v => (v ? v.toLocaleString('fr-BE') : '—');
+  const autreCours = d.lignes.filter(l => !d.cours.some(c => c.cours_code === l.code_cours));
+  const lignesCours = [...d.cours.map(c => ({ code: c.cours_code, nom: c.cours_nom, dp: c.ct_pp === 'Z' ? null : c.cours_per, z: c.ct_pp === 'Z' })),
+    ...(autreCours.length ? [{ code: null, nom: 'Hors cours (coordination, EPT…)', dp: null }] : [])];
+  const deCours = code => l => (code ? l.code_cours === code : !d.cours.some(c => c.cours_code === l.code_cours));
+  const modifie = coches.size > 0 && cible > 0;
+  return (
+    <div className="border border-slate-200 rounded-carte overflow-x-auto">
+      <table className="w-full text-[12px]">
+        <thead className="tab-entete"><tr className="text-left text-[11px] text-slate-500">
+          <th className="px-2 py-1">Cours</th><th className="px-2 py-1 text-right">Prévu au DP</th>
+          {orgs.map(n => <th key={n} className="px-2 py-1 text-right">Org. {n}{modifie ? ' — après' : ''}</th>)}
+          <th className="px-2 py-1 text-right">Total attribué</th></tr></thead>
+        <tbody>
+          {lignesCours.map(c => {
+            const total = somme(deCours(c.code));
+            return (
+              <tr key={c.code || 'hors'} className="border-t border-slate-100 bg-white">
+                <td className="px-2 py-1"><b>{c.code || '—'}</b> <span className="text-slate-500">{c.nom || ''}</span>
+                  {c.z && <span className="text-slate-400"> · activité Z, ne compte pas</span>}</td>
+                <td className="px-2 py-1 text-right tabular-nums font-semibold">{c.code ? nb(c.dp) : ''}</td>
+                {orgs.map(n => (
+                  <td key={n} className="px-2 py-1 text-right tabular-nums">{nb(somme(l => deCours(c.code)(l) && (modifie ? apres(l) : l.num_organisation) === n))}</td>
+                ))}
+                <td className="px-2 py-1 text-right tabular-nums">{nb(total)}</td>
+              </tr>
+            );
+          })}
+          <tr className="border-t border-slate-200 bg-white">
+            <td className="px-2 py-1 text-slate-600">Autonomie de l’UE</td>
+            <td className="px-2 py-1 text-right tabular-nums font-semibold">{nb(d.autonomie_dp)}</td>
+            {orgs.map(n => (
+              <td key={n} className="px-2 py-1 text-right tabular-nums">{nb(somme(l => (modifie ? apres(l) : l.num_organisation) === n, 'autonomie_attribuee'))}</td>
+            ))}
+            <td className="px-2 py-1 text-right tabular-nums">{nb(somme(() => true, 'autonomie_attribuee'))}</td>
+          </tr>
+        </tbody>
+      </table>
+      {modifie && <p className="px-2 py-1 text-[11px] text-slate-500 border-t border-slate-100">
+        Colonnes « après » : ce que donnerait la bascule des {coches.size} ligne(s) cochée(s) vers {section}, organisation {cible}.</p>}
+    </div>
+  );
+}
+
 export default function BasculeOrganisation({ ueNum, onClose, onFait }) {
   const annee = getAnnee();
   const [d, setD] = useState(null);
@@ -105,6 +161,7 @@ export default function BasculeOrganisation({ ueNum, onClose, onFait }) {
                 Organisations existantes : {d.organisations.map(o => `${o.num} (${o.sections.join(', ') || '—'})`).join(' · ') || 'aucune'}
               </span>
             </div>
+            <Bilan d={d} parOrg={parOrg} coches={coches} section={section} org={org} />
             {parOrg.map(g => (
               <div key={`${g.num}|${g.section}`} className="border border-slate-200 rounded-carte overflow-x-auto">
                 <div className="tab-entete px-3 py-1.5 text-[12px] font-semibold text-slate-700 flex items-center gap-2">
