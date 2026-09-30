@@ -25,8 +25,9 @@
  *     (Charles, 25 septembre).
  *   · Sous réserve : les prérequis manquants sont proposés la même année et
  *     au même niveau (l'épreuve intégrée et ses déterminantes).
- *   · Plafond de bloc : on ne propose que jusqu'au bloc QUI SUIT le plus haut
- *     bloc déjà suivi ou acquis — BA1 pour un primo-inscrit (27 septembre).
+ *   · Plafond de bloc : un bloc s'ouvre quand une part du bloc précédent est
+ *     ACQUISE (réglage, 50 % des ECTS par défaut — 30 septembre ; jusque-là,
+ *     il suffisait d'avoir SUIVI le bloc précédent). BA1 pour un primo.
  *     Au-delà, l'unité s'ajoute à la main, et la dérogation se trace.
  *   · L'épreuve intégrée ne s'ouvre que lorsque toutes les unités des blocs
  *     inférieurs sont acquises.
@@ -38,10 +39,36 @@ export function rangBloc(niv) {
   return m ? Number(m[1]) : 0;
 }
 
-/** Plafond : bloc qui suit le plus haut bloc déjà suivi ou acquis. */
-export function plafondBloc(suiviesAvant, acquis, niv) {
-  const r = [...suiviesAvant, ...acquis].map(n => rangBloc(niv[n])).filter(x => x > 0);
-  return (r.length ? Math.max(...r) : 0) + 1;
+/**
+ * Plafond : le plus haut bloc que l'étudiant peut se voir proposer.
+ *
+ * AVEC `ects` (Charles, 30 septembre 2026 : « tu donnes accès aux UE 252 et
+ * 253 alors que c'est du B2 ») : un bloc s'ouvre quand une PART du bloc
+ * précédent est ACQUISE — `seuil` % de ses ECTS dans la section (réglage
+ * `pae_seuil_bloc`). Le BA1 est toujours ouvert. Suivre le BA1 sans le réussir
+ * n'ouvre plus le BA2 : dix-neuf étudiants de TIM sans aucune UE de BA1
+ * réussie étaient inscrits à la Radioprotection.
+ * SANS `ects` : l'ancienne règle, bloc qui suit le plus haut bloc suivi ou acquis.
+ */
+export function plafondBloc(suiviesAvant, acquis, niv, { ects = null, seuil = 50 } = {}) {
+  if (!ects) {
+    const r = [...suiviesAvant, ...acquis].map(n => rangBloc(niv[n])).filter(x => x > 0);
+    return (r.length ? Math.max(...r) : 0) + 1;
+  }
+  const total = {}, acq = {};
+  for (const [n, v] of Object.entries(niv)) {
+    const k = rangBloc(v);
+    if (!k) continue;
+    total[k] = (total[k] || 0) + (Number(ects[n]) || 0);
+    if (acquis.has(Number(n))) acq[k] = (acq[k] || 0) + (Number(ects[n]) || 0);
+  }
+  let plafond = 1;
+  const max = Math.max(0, ...Object.keys(total).map(Number));
+  for (let k = 1; k <= max; k++) {
+    if (!total[k] || ((acq[k] || 0) * 100) / total[k] < seuil) break;
+    plafond = k + 1;
+  }
+  return plafond;
 }
 
 /**

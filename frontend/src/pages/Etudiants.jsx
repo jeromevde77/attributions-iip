@@ -2016,7 +2016,7 @@ export function FicheEtudiant({ id, annee, onClose, position, onPrec, onSuiv,
       // Une unité d'un bloc que l'étudiant n'a pas encore atteint (27 septembre
       // 2026 : « pas possible, tu donnes accès à une UE de B2 »).
       if (u.hors_bloc && !window.confirm(`L'UE ${u.ue_num} est une unité de ${u.ue_niv || 'bloc supérieur'} : `
-        + `l'étudiant n'a pas encore suivi le BA${u.plafond_bloc}.\n\n`
+        + `l'étudiant n'a pas encore acquis la part requise du BA${u.plafond_bloc} (Configuration → Paramètres, « pae_seuil_bloc »).\n\n`
         + `L'ajouter quand même ? Ce choix sera tracé.`)) return s;
       if (!u.hors_bloc && !u.propose && !u.accessible && !u.reinscriptible_ce) {
         const chaine = u.prereq_chaine?.length ? u.prereq_chaine : (u.prereq_manquants || []);
@@ -2482,8 +2482,8 @@ export function FicheEtudiant({ id, annee, onClose, position, onPrec, onSuiv,
                         {u.va_complete ? 'Dispensée (VA complète)' : 'Réinscription — décision du Conseil des études'}</span>
                     : u.hors_bloc
                       ? <span className="text-[11px] text-slate-500 flex items-center gap-1"
-                          title="Unité d'un bloc que l'étudiant n'a pas encore atteint : elle ne se propose pas, et l'ajouter demande confirmation">
-                          {u.ue_niv || 'Bloc supérieur'} — le BA{u.plafond_bloc} n'est pas encore suivi</span>
+                          title="Unité d'un bloc qui ne s'ouvre pas encore : le bloc précédent n'est pas acquis à la part requise des ECTS. Elle ne se propose pas, et l'ajouter demande confirmation">
+                          {u.ue_niv || 'Bloc supérieur'} — le BA{u.plafond_bloc} n'est pas encore assez acquis</span>
                     : u.accessible
                       ? <span className="text-[11px] font-semibold text-emerald-700 flex items-center gap-1"><IconCheck size={12} /> Accessible</span>
                       : u.sous_reserve || u.propose_sous_reserve

@@ -724,6 +724,19 @@ export function cursusDe(etudId, annee) {
  * lecteurs : proposition, schéma, frise, PAE de base, contrôle des écritures.
  * `cache` (facultatif) garde ce qui ne dépend que des sections et de l'année
  * — la frise calcule six cents étudiants d'affilée. */
+/* LA PART D'UN BLOC À ACQUÉRIR POUR OUVRIR LE SUIVANT (30 septembre 2026) :
+   un réglage, pas une constante — Configuration → Paramètres. */
+try {
+  db.prepare('INSERT OR IGNORE INTO parametre (cle, valeur, label, groupe) VALUES (?,?,?,?)')
+    .run('pae_seuil_bloc', '50', "PAE — part des ECTS d'un bloc à acquérir pour ouvrir le bloc suivant (%)", 'pae');
+} catch (e) { console.error('[migration] pae_seuil_bloc :', e.message); }
+function seuilBloc() {
+  try {
+    const v = Number(String(db.prepare("SELECT valeur FROM parametre WHERE cle = 'pae_seuil_bloc'").get()?.valeur ?? '50').replace(',', '.'));
+    return Number.isFinite(v) && v >= 0 && v <= 100 ? v : 50;
+  } catch { return 50; }
+}
+
 export function faitsPAE(etudId, annee, sections, cache = null) {
   const cle = `${annee}|${[...sections].sort().join(',')}`;
   let sec = cache?.get(cle);
@@ -783,7 +796,10 @@ export function faitsPAE(etudId, annee, sections, cache = null) {
       && (x.annee_scolaire === annee || x.annee_scolaire === anneePrec)).map(x => x.ue_num));
   const suiviesAvant = db.prepare(`SELECT DISTINCT ue_num FROM etudiant_inscription
     WHERE etudiant_id = ? AND annee_scolaire < ?`).all(etudId, annee).map(x => x.ue_num);
-  const plafond = plafondBloc(suiviesAvant, acquis, sec.niv);
+  if (!sec.ects) {
+    sec.ects = Object.fromEntries(db.prepare('SELECT ue_num, MAX(ects) e FROM ue WHERE ects IS NOT NULL GROUP BY ue_num').all().map(x => [x.ue_num, Number(x.e) || 0]));
+  }
+  const plafond = plafondBloc(suiviesAvant, acquis, sec.niv, { ects: sec.ects, seuil: seuilBloc() });
   const etats = etatsPAE({ ues: sec.ues, niv: sec.niv, legal: sec.legal, interne: sec.interne, acquis, enAttente, plafond });
   return { ...sec, acquis, enAttente, suiviesAvant, plafond, etats };
 }
