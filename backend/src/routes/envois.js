@@ -11,6 +11,8 @@
  * destinataire reçoit son document, et lui seul.
  */
 import express from 'express';
+import { gzipSync, gunzipSync } from 'zlib';
+import { createHash } from 'crypto';
 import db from '../db/index.js';
 import { authRequired, roleRequired } from '../middleware/auth.js';
 import { capacitePdf, rendrePdf } from '../services/pdf.js';
@@ -40,6 +42,68 @@ function ensureTable() {
       envoye_le          TEXT DEFAULT (datetime('now'))
     );
   `);
+  /* CE QUI A ÉTÉ ENVOYÉ, ET PAS SEULEMENT À QUI (Charles, 30 septembre 2026 :
+     « il faut assurer une traçabilité de tout cela : savoir ce qui a été
+     envoyé, quand et par qui »). Le registre gardait le destinataire, le
+     sujet et le nom du fichier — pas la pièce : après un envoi de 64
+     documents de délibération, on ne pouvait plus dire si les motivations
+     de refus en faisaient partie. Chaque envoi garde désormais :
+       · `contenu`  — ce que l'écran déclare avoir mis dans le lot (unités,
+                      session, pièces cochées) ;
+       · la COPIE   — le document tel que remis au serveur, compressé ; les
+                      images répétées (logo, signature, sceau) n'y sont
+                      stockées qu'une fois (envoi_ressource), sans quoi chaque
+                      lot de soixante pièces doublerait la base ;
+       · l'EMPREINTE — le SHA-256 du fichier réellement parti : un PDF qu'on
+                      nous présente se vérifie contre elle.
+     La copie ne se modifie ni ne s'efface : aucune route ne le permet. */
+  for (const col of ['reference TEXT', 'contenu TEXT', 'message TEXT', 'mode TEXT']) {
+    try { db.exec(`ALTER TABLE envoi_mail ADD COLUMN ${col}`); } catch { /* déjà là */ }
+  }
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS envoi_copie (
+      envoi_id   INTEGER PRIMARY KEY REFERENCES envoi_mail(id),
+      html_gz    BLOB NOT NULL,
+      jour       TEXT,
+      empreinte  TEXT
+    );
+    CREATE TABLE IF NOT EXISTS envoi_ressource (
+      hash       TEXT PRIMARY KEY,
+      contenu    TEXT NOT NULL
+    );
+  `);
+}
+
+/** Les grandes images en data: URI sortent du document, une fois pour toutes. */
+const RE_DATA = /data:([a-z0-9.+\/-]+);base64,([A-Za-z0-9+/=]{2000,})/gi;
+function compacter(html) {
+  const ins = db.prepare('INSERT OR IGNORE INTO envoi_ressource (hash, contenu) VALUES (?, ?)');
+  const leger = String(html || '').replace(RE_DATA, (m) => {
+    const h = createHash('sha1').update(m).digest('hex');
+    ins.run(h, m);
+    return `lucie-ressource:${h}`;
+  });
+  return gzipSync(Buffer.from(leger, 'utf8'));
+}
+function decompacter(gz) {
+  const lire = db.prepare('SELECT contenu FROM envoi_ressource WHERE hash = ?');
+  return gunzipSync(gz).toString('utf8')
+    .replace(/lucie-ressource:([0-9a-f]{40})/g, (m, h) => lire.get(h)?.contenu || '');
+}
+const empreinte = buf => createHash('sha256').update(buf).digest('hex');
+
+/** Refait la signature filigranée d'un envoi, à l'identique : même pièce,
+ *  même destinataire, même date, même référence. */
+async function signer(html, { sujet, destinataire, jour, reference }) {
+  const aParaphe = /class="cloture(?![^"]*sans-paraphe)[^"]*"/.test(html || '')
+    && /class="paraphe"/.test(html || '');
+  const nue = aParaphe ? variableImage(html, 'paraphe') : null;
+  const filigrane = nue ? await signatureFiligranee(nue, {
+    piece: sujet, destinataire, date: jour, reference }) : null;
+  const htmlSigne = !aParaphe ? html
+    : String(html).replace(/--paraphe\s*:\s*url\([^)]*\)/g, filigrane
+      ? `--paraphe:url("data:image/png;base64,${filigrane.toString('base64')}")` : '--paraphe:none');
+  return { htmlSigne, filigrane };
 }
 
 const ADRESSE_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -313,7 +377,7 @@ r.get('/adresses', authRequired, actifRequis, (req, res) => {
  * un rate doivent rendre neuf « envoyé » et un « échec » nommé.
  */
 r.post('/', authRequired, roleRequired(...PEUT_ENVOYER), actifRequis, async (req, res) => {
-  const { sujet, message, type_doc, pieces, mode } = req.body || {};
+  const { sujet, message, type_doc, pieces, mode, contenu } = req.body || {};
   if (!sujet?.trim()) return res.status(400).json({ error: 'sujet requis' });
   if (!Array.isArray(pieces) || !pieces.length) {
     return res.status(400).json({ error: 'aucune pièce à envoyer' });
@@ -344,18 +408,35 @@ r.post('/', authRequired, roleRequired(...PEUT_ENVOYER), actifRequis, async (req
   const corpsHtml = corpsCourriel(message, signe);
   // La référence de chaque envoi : portée par le filigrane de la signature,
   // elle se retrouve ici — c'est ce qui permettra de vérifier une pièce.
-  try { db.exec('ALTER TABLE envoi_mail ADD COLUMN reference TEXT'); } catch { /* déjà là */ }
   const journalAvecRef = db.prepare(`
     INSERT INTO envoi_mail (lot, type_doc, destinataire_type, destinataire_id,
-      destinataire_nom, email, sujet, nom_fichier, taille, statut, erreur, envoye_par, reference)
-    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)
+      destinataire_nom, email, sujet, nom_fichier, taille, statut, erreur, envoye_par, reference,
+      contenu, message, mode)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
   `);
+  const posercopie = db.prepare(`INSERT OR IGNORE INTO envoi_copie (envoi_id, html_gz, jour, empreinte)
+    VALUES (?,?,?,?)`);
+  const contenuLot = String(contenu || '').trim().slice(0, 1000) || null;
+  const messageLot = String(message || '').slice(0, 5000) || null;
   let refCourante = null;
-  const journal = { run: (...a) => journalAvecRef.run(...a, refCourante) };
+  let pieceCourante = null;
+  let empreinteCourante = null;
+  const journal = { run: (...a) => {
+    const info = journalAvecRef.run(...a, refCourante,
+      String(pieceCourante?.contenu || '').trim().slice(0, 1000) || contenuLot, messageLot, enCorps ? 'corps' : 'pdf');
+    // La copie de ce qui a été remis, même en cas d'échec : on doit pouvoir
+    // dire ce qu'on a TENTÉ d'envoyer.
+    if (pieceCourante?.html) {
+      try { posercopie.run(info.lastInsertRowid, compacter(pieceCourante.html), jour, empreinteCourante); }
+      catch (e) { console.error('[envois] copie non conservée :', e.message); }
+    }
+    return info;
+  } };
   const jour = new Date().toLocaleDateString('fr-BE', { day: '2-digit', month: '2-digit', year: 'numeric' });
 
   const resultats = [];
   for (const p of pieces) {
+    pieceCourante = p; empreinteCourante = null; refCourante = null;
     const email = String(p.email || '').trim();
     const base = {
       destinataire_type: p.destinataire_type || null,
@@ -380,14 +461,8 @@ r.post('/', authRequired, roleRequired(...PEUT_ENVOYER), actifRequis, async (req
        référence. Il remplace la signature nue dans le courriel ET dans le
        PDF ; faute de pouvoir le dessiner, aucun fac-similé ne part. */
     refCourante = nouvelleReference();
-    const aParaphe = /class="cloture(?![^"]*sans-paraphe)[^"]*"/.test(p.html || '')
-      && /class="paraphe"/.test(p.html || '');
-    const nue = aParaphe ? variableImage(p.html, 'paraphe') : null;
-    const filigrane = nue ? await signatureFiligranee(nue, {
-      piece: sujet, destinataire: base.nom, date: jour, reference: refCourante }) : null;
-    const htmlSigne = !aParaphe ? p.html
-      : String(p.html).replace(/--paraphe\s*:\s*url\([^)]*\)/g, filigrane
-        ? `--paraphe:url("data:image/png;base64,${filigrane.toString('base64')}")` : '--paraphe:none');
+    const { htmlSigne, filigrane } = await signer(p.html,
+      { sujet, destinataire: base.nom, jour, reference: refCourante });
     if (enCorps) {
       // Le bloc de signature se reconstruit pour la messagerie : sans cela,
       // ni le sceau ni la signature ne s'affichent (lib/courrielPiece.js).
@@ -400,6 +475,7 @@ r.post('/', authRequired, roleRequired(...PEUT_ENVOYER), actifRequis, async (req
       const redir = lireConfigSmtp().redirection;
       const note = envoi.erreur || (redir ? `redirigé vers ${redir}` : null);
       resultats.push({ ...base, statut, erreur: envoi.erreur || null, redirige: redir || null });
+      empreinteCourante = empreinte(Buffer.from(emailHtml, 'utf8'));
       journal.run(lot, type_doc || null, base.destinataire_type, base.destinataire_id,
         base.nom, email, sujet, null, Buffer.byteLength(emailHtml), statut, note, par);
       continue;
@@ -424,6 +500,7 @@ r.post('/', authRequired, roleRequired(...PEUT_ENVOYER), actifRequis, async (req
     const redir = lireConfigSmtp().redirection;
     const note = envoi.erreur || (redir ? `redirigé vers ${redir}` : null);
     resultats.push({ ...base, statut, erreur: envoi.erreur || null, redirige: redir || null, nom_fichier: fichier });
+    empreinteCourante = empreinte(pdf);
     journal.run(lot, type_doc || null, base.destinataire_type, base.destinataire_id,
       base.nom, email, sujet, fichier, pdf.length, statut, note, par);
   }
@@ -439,20 +516,68 @@ r.post('/', authRequired, roleRequired(...PEUT_ENVOYER), actifRequis, async (req
 });
 
 // ── Le journal : qui a reçu quoi, quand, et si c'est parti ──────────────────
-r.get('/journal', authRequired, (req, res) => {
+// Réservé à ceux qui envoient : il porte les adresses de tous les étudiants.
+r.get('/journal', authRequired, roleRequired(...PEUT_ENVOYER), (req, res) => {
   ensureTable();
-  const { type_doc, destinataire_type, destinataire_id, limite } = req.query;
+  const { type_doc, destinataire_type, destinataire_id, limite, lot, du, au, par, q } = req.query;
   const clauses = ['1=1']; const params = [];
-  if (type_doc) { clauses.push('type_doc = ?'); params.push(type_doc); }
-  if (destinataire_type) { clauses.push('destinataire_type = ?'); params.push(destinataire_type); }
-  if (destinataire_id) { clauses.push('destinataire_id = ?'); params.push(Number(destinataire_id)); }
-  const n = Math.min(500, Number(limite) || 100);
+  if (type_doc) { clauses.push('m.type_doc = ?'); params.push(type_doc); }
+  if (destinataire_type) { clauses.push('m.destinataire_type = ?'); params.push(destinataire_type); }
+  if (destinataire_id) { clauses.push('m.destinataire_id = ?'); params.push(Number(destinataire_id)); }
+  if (lot) { clauses.push('m.lot = ?'); params.push(lot); }
+  if (du) { clauses.push('m.envoye_le >= ?'); params.push(String(du)); }
+  if (au) { clauses.push("m.envoye_le < date(?, '+1 day')"); params.push(String(au)); }
+  if (par) { clauses.push('m.envoye_par = ?'); params.push(String(par)); }
+  if (q) {
+    clauses.push('(m.destinataire_nom LIKE ? OR m.sujet LIKE ? OR m.contenu LIKE ? OR m.nom_fichier LIKE ? OR m.reference = ?)');
+    const l = `%${q}%`; params.push(l, l, l, l, String(q));
+  }
+  const n = Math.min(2000, Number(limite) || 100);
   res.json(db.prepare(`
-    SELECT id, lot, type_doc, destinataire_type, destinataire_id, destinataire_nom,
-           email, sujet, nom_fichier, taille, statut, erreur, envoye_par, envoye_le
-    FROM envoi_mail WHERE ${clauses.join(' AND ')}
-    ORDER BY envoye_le DESC, id DESC LIMIT ${n}
+    SELECT m.id, m.lot, m.type_doc, m.destinataire_type, m.destinataire_id, m.destinataire_nom,
+           m.email, m.sujet, m.nom_fichier, m.taille, m.statut, m.erreur, m.envoye_par, m.envoye_le,
+           m.reference, m.contenu, m.mode,
+           (SELECT 1 FROM envoi_copie c WHERE c.envoi_id = m.id) AS copie,
+           (SELECT c.empreinte FROM envoi_copie c WHERE c.envoi_id = m.id) AS empreinte
+    FROM envoi_mail m WHERE ${clauses.join(' AND ')}
+    ORDER BY m.envoye_le DESC, m.id DESC LIMIT ${n}
   `).all(...params));
+});
+
+/**
+ * LA COPIE D'UN ENVOI — le document tel qu'il est parti, refait à l'identique
+ * à partir de ce qui a été remis au serveur : même signature filigranée, même
+ * référence, même date. Les envois antérieurs au 30 septembre 2026 n'en ont
+ * pas : on le dit, on n'invente rien.
+ */
+r.get('/:id/copie', authRequired, roleRequired(...PEUT_ENVOYER), async (req, res) => {
+  if (!/^\d+$/.test(String(req.params.id))) return res.status(400).json({ error: 'numéro d\'envoi attendu' });
+  ensureTable();
+  const m = db.prepare('SELECT * FROM envoi_mail WHERE id = ?').get(Number(req.params.id));
+  if (!m) return res.status(404).json({ error: 'envoi introuvable' });
+  const c = db.prepare('SELECT * FROM envoi_copie WHERE envoi_id = ?').get(m.id);
+  if (!c) {
+    return res.status(404).json({ error: "Cet envoi est antérieur à la conservation des copies (30 septembre 2026) : "
+      + 'le registre dit à qui et quand, il ne peut pas dire ce que contenait la pièce.' });
+  }
+  let html;
+  try { html = decompacter(c.html_gz); } catch (e) { return res.status(500).json({ error: `copie illisible : ${e.message}` }); }
+  const { htmlSigne } = await signer(html, { sujet: m.sujet, destinataire: m.destinataire_nom,
+    jour: c.jour, reference: m.reference });
+  const nom = String(m.nom_fichier || 'copie').replace(/\.(html?|pdf)$/i, '');
+  if (req.query.format !== 'html' && m.mode !== 'corps') {
+    const cap = await capacitePdf();
+    if (cap.disponible) {
+      try {
+        const pdf = await rendrePdf(htmlSigne, { pagination: 'si-plusieurs' });
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', `inline; filename="${nom.replace(/[^A-Za-z0-9_.-]/g, '_')}_copie.pdf"`);
+        return res.send(pdf);
+      } catch { /* on retombe sur le HTML */ }
+    }
+  }
+  res.setHeader('Content-Type', 'text/html; charset=utf-8');
+  res.send(htmlSigne);
 });
 
 /** Le corps du courriel : le message de l'expéditeur, dans l'enveloppe Lucie. */

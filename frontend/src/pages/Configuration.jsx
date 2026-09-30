@@ -3,7 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import { api, getAnnee, setAnnee as setAnneeActive, getUser } from '../lib/api.js';
 import { chargerCouleurs, echelleGris, poser as poserCouleurs, poserGris, variables as variablesCouleurs } from '../lib/couleurs.js';
 import Audit from './Audit.jsx';
-import { IconAdjustments, IconAward, IconBooks, IconBuilding, IconCalendar, IconCalendarEvent, IconChartBar, IconCheck, IconChevronRight, IconDownload, IconFileText, IconHistory, IconLink, IconScale, IconSettings, IconSparkles, IconUserShield, IconUsers, IconX, IconGavel, IconPlus, IconTrash, IconGripVertical, IconEdit, IconMail, IconPalette, IconArchive, IconAlertTriangle, IconShieldLock, IconDatabase, IconHierarchy, IconArrowsSplit, IconTool, IconSchool, IconStairsUp, IconCalculator, IconLinkOff } from '@tabler/icons-react';
+import { IconAdjustments, IconAward, IconBooks, IconBuilding, IconCalendar, IconCalendarEvent, IconChartBar, IconCheck, IconChevronRight, IconDownload, IconFileText, IconHistory, IconLink, IconScale, IconSettings, IconSparkles, IconUserShield, IconUsers, IconX, IconGavel, IconPlus, IconTrash, IconGripVertical, IconEdit, IconMail, IconPalette, IconArchive, IconAlertTriangle, IconShieldLock, IconDatabase, IconHierarchy, IconArrowsSplit, IconTool, IconSchool, IconStairsUp, IconCalculator, IconLinkOff, IconSend } from '@tabler/icons-react';
 import { PageHeader, RailLateral, TuileEtat, PastilleEtat, Encadre } from '../components/ui.jsx';
 import ApercuDocuments from '../components/ApercuDocuments.jsx';
 const Editeur = lazy(() => import('./Editeur.jsx'));
@@ -12,6 +12,7 @@ const DoublesProgrammes = lazy(() => import('../components/DoublesProgrammes.jsx
 const HorsBloc = lazy(() => import('../components/HorsBloc.jsx'));
 const ControleDecisions = lazy(() => import('../components/ControleDecisions.jsx'));
 const DecisionsSansInscription = lazy(() => import('../components/DecisionsSansInscription.jsx'));
+const RegistreEnvois = lazy(() => import('../components/RegistreEnvois.jsx'));
 const ModeleDiplome = lazy(() => import('./Attestation.jsx').then(m => ({ default: m.ModeleDiplome })));
 const ConfigCourriels = lazy(() => import('../components/ConfigCourriels.jsx'));
 
@@ -1394,6 +1395,7 @@ export default function Configuration() {
       { key: 'couleurs', label: 'Thèmes et couleurs', icon: IconPalette },
       { key: 'sauvegardes', label: 'Sauvegardes', icon: IconDownload },
       { key: 'systeme', label: 'Traces et historique', icon: IconHistory },
+      { key: 'registre-envois', label: 'Registre des envois', icon: IconSend },
       { key: 'audit', label: 'Qui a fait quoi', icon: IconUserShield },
       { key: 'changelog', label: 'Nouveautés', icon: IconSparkles },
     ]},
@@ -1498,6 +1500,7 @@ export default function Configuration() {
       {tab === 'hors-bloc' && <Suspense fallback={null}><HorsBloc /></Suspense>}
       {tab === 'controle-decisions' && <Suspense fallback={null}><ControleDecisions /></Suspense>}
       {tab === 'decisions-sans-inscription' && <Suspense fallback={null}><DecisionsSansInscription /></Suspense>}
+      {tab === 'registre-envois' && <Suspense fallback={null}><RegistreEnvois /></Suspense>}
 
       {/* ── Onglet Dates des UE (paramétrage annuel) ── */}
       {tab === 'dates-ue' && <DatesUE annee={anneeActive} />}

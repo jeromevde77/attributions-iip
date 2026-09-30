@@ -127,6 +127,7 @@ export default function PreviewModal({ html, titre = 'Document', sousTitre, nomF
           pieces={[{ html, nom_fichier: nomFichier || titre,
                      destinataire: destinataire || { nom: titre || nomFichier || 'Document' } }]}
           typeDoc={typeDoc || 'apercu'}
+          contenu={[sousTitre, titre].filter(Boolean).join(' — ') || nomFichier || ''}
           sujet={sujetMail || [sousTitre, titre].filter(Boolean).join(' — ') || 'Votre document'}
           onClose={() => setEnvoi(false)} />
       )}

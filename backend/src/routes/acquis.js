@@ -7259,6 +7259,13 @@ function assemblerDocumentsUE(ueNum, annee, veut, opts = {}) {
            conseil: nbC, grille: nbG, ajustements: nbAj, motivations: nbM };
 }
 
+// Le nom des pièces d'un lot de délibération, pour dire au registre des envois
+// ce que contenait chaque document.
+const LIBELLE_PIECE_LOT = { grille: 'grille de délibération', pv: 'procès-verbal',
+  conseil: 'composition du Conseil', ajustements: 'ajustements', motivations: 'motivations',
+  reussite: 'attestation de réussite', ajournement: "motivation d'ajournement",
+  refus: 'motivation de refus', listes: 'listes' };
+
 r.post('/deliberation/ue/:ueNum/documents', authRequired, (req, res) => {
   const ueNum = Number(req.params.ueNum);
   const annee = req.body?.annee || anneeDeTravail(req);
@@ -7315,6 +7322,9 @@ r.post('/deliberation/ue/:ueNum/documents', authRequired, (req, res) => {
       etudiant_id: d.etudiant.id,
       etudiant: `${d.etudiant.nom} ${d.etudiant.prenom || ''}`.trim(),
       pieces: d.pages.map(p => p.t),
+      contenu: `UE ${ueNum} — ` + (req.body?.total === true ? 'relevé total'
+        : `session ${Number(req.body?.session) === 2 ? 2 : 1}`) + ' : '
+        + [...new Set(d.pages.map(p => LIBELLE_PIECE_LOT[p.t] || p.t))].join(', '),
       nom: `UE${ueNum}_${slug(d.etudiant.nom)}_${slug(d.etudiant.prenom)}`,
       html: envelopper(a.styles.join('') + d.pages.map(p => p.h).join(''),
                        `${d.etudiant.nom} ${d.etudiant.prenom || ''} — UE ${ueNum}`),
@@ -7527,6 +7537,11 @@ r.post('/deliberation/documents-lot', authRequired, (req, res) => {
         etudiant: `${d.etudiant.nom} ${d.etudiant.prenom || ''}`.trim(),
         unites: [...new Set(d.pages.map(p => p.ue))],
         pieces: d.pages.map(p => p.t),
+        // CE QUE CONTIENT CE DOCUMENT, dit une fois par le serveur qui l'a
+        // composé : le registre des envois le garde (30 septembre 2026 — on
+        // n'avait pas pu dire si les motivations de refus étaient parties).
+        contenu: `Session ${Number(req.body?.session) === 2 ? 2 : 1} — ` + [...d.pages].sort((x, y) => x.ue - y.ue)
+          .map(p => `UE ${p.ue} : ${LIBELLE_PIECE_LOT[p.t] || p.t}`).join(' · '),
         nom: `${slug(d.etudiant.nom)}_${slug(d.etudiant.prenom)}_${String(annee).replace(/\W/g, '')}`,
         html: envelopper(styles.join('')
           + [...d.pages].sort((x, y) => x.ue - y.ue).map(p => p.h).join(''),

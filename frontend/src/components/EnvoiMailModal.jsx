@@ -25,7 +25,13 @@ export default function EnvoiMailModal({ pieces, typeDoc, sujet: sujetInitial = 
                                             avec le résultat du serveur — pour
                                             consigner l'envoi là où il compte
                                             (le dossier qui l'a demandé). */
-                                         onEnvoye = null }) {
+                                         onEnvoye = null,
+                                         /* CE QUE LE LOT CONTIENT, pour le
+                                            registre des envois (unités, session,
+                                            pièces). Une pièce peut porter le
+                                            sien (`pieces[i].contenu`), qui
+                                            l'emporte. */
+                                         contenu = '' }) {
   const etat = useEnvoiMail(true);                 // { actif, smtp, pdf } — relu à l'ouverture
   const [lignes, setLignes] = useState(null);      // une par pièce
   const [sujet, setSujet] = useState(sujetInitial);
@@ -96,10 +102,11 @@ export default function EnvoiMailModal({ pieces, typeDoc, sujet: sujetInitial = 
       const rep = await fetch('/api/envois', {
         method: 'POST', headers: authHeaders(),
         body: JSON.stringify({
-          sujet, message, type_doc: typeDoc, mode: mode || 'pdf',
+          sujet, message, type_doc: typeDoc, mode: mode || 'pdf', contenu,
           pieces: retenues.map(l => ({
             destinataire_type: l.type, destinataire_id: l.id, nom: l.nom,
             email: l.email.trim(), html: pieces[l.idx].html, nom_fichier: l.nom_fichier,
+            contenu: pieces[l.idx].contenu || undefined,
           })),
         }),
       });
