@@ -50,7 +50,7 @@ r.get('/section/:code', authRequired, (req, res) => {
   const toutes = db.prepare(`
     -- ue_per_total n'existe pas : les périodes destinées à l'étudiant sont
     -- dans ue_per_etudiants. La requête échouait dès qu'elle était atteinte.
-    SELECT ue_num, ue_nom, ue_per_etudiants AS ue_per_total, ue_niv
+    SELECT ue_num, ue_nom, ue_per_etudiants AS ue_per_total, ue_niv, section, ects, COALESCE(ue_tc, '') AS ue_tc
       FROM ue WHERE annee_scolaire = ? ORDER BY ue_num
   `).all(annee);
 
