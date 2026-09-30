@@ -459,7 +459,8 @@ function SectionModal({ section, onClose, onSaved, annee, isAdmin }) {
     responsable: section?.responsable || '',
     code_fwb: section?.code_fwb || '',
     domaine: section?.domaine || '',
-    type_enseignement: section?.type_enseignement || ''
+    type_enseignement: section?.type_enseignement || '',
+    titre_externe: !!section?.titre_externe
   });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -478,7 +479,8 @@ function SectionModal({ section, onClose, onSaved, annee, isAdmin }) {
         code_fwb: form.code_fwb.trim() || null,
         // Ces deux mentions figurent sur les attestations de réussite.
         domaine: form.domaine.trim() || null,
-        type_enseignement: form.type_enseignement.trim() || null
+        type_enseignement: form.type_enseignement.trim() || null,
+        titre_externe: form.titre_externe ? 1 : 0
       };
       if (isNew) {
         await api.createSection({ code: form.code.trim(), ...payload });
@@ -564,6 +566,14 @@ function SectionModal({ section, onClose, onSaved, annee, isAdmin }) {
               <input value={form.responsable} onChange={e => set('responsable', e.target.value)} placeholder="Coordinateur (optionnel)"
                 className="w-full border border-gray-300 rounded px-3 py-1.5 h-9 text-sm" /></label>
           </div>
+          {/* LE TITRE DÉLIVRÉ AILLEURS (30 septembre 2026, Orthoptie : l'IIP
+              organise le tronc commun, la HELB délivre les papiers). La
+              diplomation de l'IIP ignore alors la section. */}
+          <label className="flex items-start gap-2 text-[13px] text-slate-700 cursor-pointer">
+            <input type="checkbox" className="mt-0.5" checked={form.titre_externe} onChange={e => set('titre_externe', e.target.checked)} />
+            <span>Le titre de cette section est délivré par un autre établissement
+              <span className="block text-[11px] text-slate-500">L'IIP n'en fait ni la diplomation, ni les attestations de section (ex. : Orthoptie, titre délivré par la HELB).</span></span>
+          </label>
           {error && <div className="bg-red-50 text-red-700 text-sm rounded p-2 border-l-4 border-l-red-500">{error}</div>}
 
 

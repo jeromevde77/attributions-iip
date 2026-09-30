@@ -60,6 +60,18 @@ function genre(titre) {
  * n'avait « tout réussi ». On prend donc la grille de l'année demandée, et à
  * défaut la dernière grille renseignée avant elle.
  */
+/* UN TITRE QUE L'IIP NE DÉLIVRE PAS (Charles, 30 septembre 2026 : l'Orthoptie
+   suit le tronc commun chez nous, mais c'est la HELB qui délivre les papiers).
+   Une case sur la section, pas un nom écrit dans le code : le jour où une autre
+   section est dans ce cas, il suffit de la cocher. */
+try { db.exec('ALTER TABLE section ADD COLUMN titre_externe INTEGER NOT NULL DEFAULT 0'); } catch { /* déjà là */ }
+function titreExterne(sectionCode) {
+  try { return !!db.prepare('SELECT titre_externe FROM section WHERE code = ?').get(sectionCode)?.titre_externe; }
+  catch { return false; }
+}
+const REFUS_TITRE_EXTERNE = s0 => ({ error: `Le titre de la section ${s0} est délivré par un autre établissement : `
+  + "l'IIP n'en fait ni la diplomation, ni les pièces de section (Organisation → Unités et cours → la section).", titre_externe: true });
+
 function unitesDeLaSection(sectionCode, annee) {
   const parAnnee = db.prepare(`
     SELECT DISTINCT ue_num FROM ue_section
@@ -148,6 +160,7 @@ r.get('/candidats', authRequired, (req, res) => {
   const annee = req.query.annee || anneeDeTravail(req);
   const section = req.query.section;
   if (!section) return res.status(400).json({ error: 'section requise' });
+  if (titreExterne(section)) return res.status(409).json(REFUS_TITRE_EXTERNE(section));
 
   const perim = getUserSections(req.user);
   if (perim && !perim.includes(section)) {
@@ -426,6 +439,7 @@ r.get('/dossier', authRequired, (req, res) => {
   const annee = req.query.annee || anneeDeTravail(req);
   const section = req.query.section;
   if (!section) return res.status(400).json({ error: 'section requise' });
+  if (titreExterne(section)) return res.status(409).json(REFUS_TITRE_EXTERNE(section));
 
   const perim = getUserSections(req.user);
   if (perim && !perim.includes(section)) {
@@ -685,6 +699,7 @@ r.post('/pieces', authRequired,
        async (req, res) => {
   const { section, annee, etudiants: ids, pieces, date_deliberation } = req.body || {};
   if (!section) return res.status(400).json({ error: 'section requise' });
+  if (titreExterne(section)) return res.status(409).json(REFUS_TITRE_EXTERNE(section));
   if (!Array.isArray(ids) || !ids.length) {
     return res.status(400).json({ error: 'aucun étudiant sélectionné' });
   }
@@ -995,6 +1010,7 @@ r.post('/document', authRequired,
        roleRequired('admin', 'directeur', 'directeur_adjoint', 'editeur'), (req, res) => {
   const { section, annee, etudiants: ids, lieu, date } = req.body || {};
   if (!section) return res.status(400).json({ error: 'section requise' });
+  if (titreExterne(section)) return res.status(409).json(REFUS_TITRE_EXTERNE(section));
   if (!Array.isArray(ids) || !ids.length) {
     return res.status(400).json({ error: 'aucun étudiant sélectionné' });
   }
@@ -1107,6 +1123,7 @@ r.post('/pv-section', authRequired,
        roleRequired('admin', 'directeur', 'directeur_adjoint', 'editeur'), (req, res) => {
   const { section, annee, etudiants: ids, session, lieu, date } = req.body || {};
   if (!section) return res.status(400).json({ error: 'section requise' });
+  if (titreExterne(section)) return res.status(409).json(REFUS_TITRE_EXTERNE(section));
   if (!Array.isArray(ids) || !ids.length) {
     return res.status(400).json({ error: 'aucun étudiant sélectionné' });
   }

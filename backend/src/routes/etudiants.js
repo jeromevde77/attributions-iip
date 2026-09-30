@@ -10,6 +10,7 @@ import { LOGO_IIP_JPEG } from '../services/assets/logo_iip_jpeg.js';
 import { piedBalisage, piedStyles, reglesDePage, envelopperDocument } from '../lib/document.js';
 import { htmlListeCoordonnees } from '../services/liste_coordonnees.js';
 
+import { sectionDuDossier as sectionDeLInscription } from '../lib/sectionDossier.js';
 import db from '../db/index.js';
 import { piedDocument } from './parametres.js';
 import { anneeDeTravail } from '../helpers/annee.js';
@@ -8340,7 +8341,10 @@ r.get('/:id/fiche-inscription', authRequired, (req, res) => {
     LEFT JOIN ${UE_REF} u ON u.ue_num = i.ue_num
     WHERE i.etudiant_id = ? AND i.annee_scolaire = ?
     ORDER BY u.section, i.ue_num
-  `).all(etudId, annee);
+  `).all(etudId, annee)
+    // La section DU DOSSIER (lib/sectionDossier.js) : un orthoptiste au tronc
+    // commun est inscrit en Orthoptie, même si l'UE est déclarée en Optométrie.
+    .map(i => ({ ...i, section: sectionDeLInscription(etudId, i.ue_num, annee) || i.section }));
 
   // Sous réserve : prérequis non acquis mais inscrits la même année
   const prereqs = db.prepare('SELECT ue_num, prerequis_num FROM ue_prerequis').all();

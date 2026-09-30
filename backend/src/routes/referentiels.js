@@ -608,13 +608,18 @@ r.delete('/cours/:code', authRequired, roleRequired('admin'), (req, res) => {
 
 // ─── CRUD Section ───
 r.post('/sections', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
-  const { code, libelle, niveau, type_horaire, responsable, code_fwb } = req.body;
+  const { code, libelle, niveau, type_horaire, responsable, code_fwb, domaine, type_enseignement, titre_externe } = req.body;
   if (!code) return res.status(400).json({ error: 'Code de section requis' });
   const exists = db.prepare('SELECT 1 FROM section WHERE code = ?').get(code);
   if (exists) return res.status(409).json({ error: 'Cette section existe déjà' });
-  db.prepare(`INSERT INTO section (code, libelle, niveau, type_horaire, responsable, code_fwb)
-              VALUES (?, ?, ?, ?, ?, ?)`)
-    .run(code, libelle || code, niveau || null, type_horaire || null, responsable || null, code_fwb || null);
+  // LE DOMAINE ET LE TYPE S'ENREGISTRENT DÈS LA CRÉATION (30 septembre 2026) :
+  // la fenêtre les demandait, la route les ignorait — ils ne tenaient qu'à une
+  // modification ultérieure.
+  try { db.exec('ALTER TABLE section ADD COLUMN titre_externe INTEGER NOT NULL DEFAULT 0'); } catch { /* déjà là */ }
+  db.prepare(`INSERT INTO section (code, libelle, niveau, type_horaire, responsable, code_fwb, domaine, type_enseignement, titre_externe)
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+    .run(code, libelle || code, niveau || null, type_horaire || null, responsable || null, code_fwb || null,
+      domaine || null, type_enseignement || null, titre_externe ? 1 : 0);
   res.status(201).json({ ok: true });
 });
 
@@ -625,6 +630,12 @@ r.patch('/sections/:code', authRequired, roleRequired('admin', 'editeur'), (req,
                    'domaine', 'type_enseignement'];
   const updates = []; const params = { code: req.params.code };
   for (const k of allowed) if (k in req.body) { updates.push(`${k} = @${k}`); params[k] = req.body[k] || null; }
+  // LE TITRE DÉLIVRÉ AILLEURS (30 septembre 2026, Orthoptie) : la diplomation de
+  // l'IIP ignore la section.
+  if ('titre_externe' in req.body) {
+    try { db.exec('ALTER TABLE section ADD COLUMN titre_externe INTEGER NOT NULL DEFAULT 0'); } catch { /* déjà là */ }
+    updates.push('titre_externe = @titre_externe'); params.titre_externe = req.body.titre_externe ? 1 : 0;
+  }
   if (!updates.length) return res.status(400).json({ error: 'Aucun champ à modifier' });
   const result = db.prepare(`UPDATE section SET ${updates.join(', ')} WHERE code = @code`).run(params);
   if (result.changes === 0) return res.status(404).json({ error: 'Section introuvable' });
