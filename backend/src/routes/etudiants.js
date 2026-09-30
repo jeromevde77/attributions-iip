@@ -1089,6 +1089,12 @@ r.get('/frises', authRequired, (req, res) => {
   for (const x of db.prepare('SELECT etudiant_id, ue_num FROM etudiant_inscription WHERE annee_scolaire = ?').all(annee)) {
     ajouter(inscritesDe, x.etudiant_id, x.ue_num);
   }
+  /* LES ECTS DU PROGRAMME DE L'ANNÉE, à côté de la frise (Charles, 30
+     septembre 2026 : « à côté, le nombre d'ECTS inscrits cette année »). Les
+     crédits de l'unité dans le référentiel de l'année, à défaut le plus récent. */
+  const ectsUE = new Map(db.prepare(`SELECT ue_num, MAX(ects) e FROM ue WHERE ects IS NOT NULL
+      AND annee_scolaire = (SELECT MAX(u2.annee_scolaire) FROM ue u2 WHERE u2.ue_num = ue.ue_num AND u2.ects IS NOT NULL AND u2.annee_scolaire <= ?)
+      GROUP BY ue_num`).all(annee).map(x => [x.ue_num, Number(x.e) || 0]));
 
   const graphes = {};
   const graphe = sec => {
@@ -1127,7 +1133,7 @@ r.get('/frises', authRequired, (req, res) => {
       if (st === 'en_attente') return 'a';
       if (st === 'accessible' || st === 'sous_reserve') return 'o';
       return 'n';
-    }).join('') };
+    }).join(''), ects: [...inscrites].reduce((t, u) => t + (ectsUE.get(u) || 0), 0) };
   }
   res.json({ annee, sections, etats });
 });
