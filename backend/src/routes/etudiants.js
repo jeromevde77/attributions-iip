@@ -4889,6 +4889,33 @@ r.post('/:id/cursus-archive/retirer', authRequired, roleRequired('admin', 'edite
     confirmation_retiree: b.confirmation_retiree });
 });
 
+/* REPRENDRE UN CURSUS ARCHIVÉ (Charles, 30 septembre 2026 : « inscrit en opto,
+ * parcours antérieur en TIM ; je veux le faire sortir d'opto et l'intégrer en
+ * TIM »). Le cursus en cours se déduit des inscriptions de l'année — donc ici
+ * de l'erreur même. Le rattachement DÉCLARÉ prime (cursusDe) : on le pose sur
+ * la section reprise, et celle d'aujourd'hui devient à son tour un cursus
+ * archivé, dont les inscriptions de l'année se retirent par le geste qui
+ * existe déjà (« Retirer ces inscriptions », simulation d'abord). Le geste est
+ * signé et daté sur la fiche. */
+r.post('/:id/cursus/reprendre', authRequired,
+  roleRequired('admin', 'editeur', 'directeur', 'directeur_adjoint', 'secretariat'), (req, res) => {
+  const etudId = Number(req.params.id);
+  const { annee, section } = req.body || {};
+  if (!annee || !section) return res.status(400).json({ error: 'annee et section requises' });
+  if (!db.prepare('SELECT 1 FROM section WHERE code = ?').get(section)) {
+    return res.status(404).json({ error: `Section inconnue : ${section}.` });
+  }
+  const permises = perimetre(req);
+  if (permises && !permises.includes(section)) return res.status(403).json({ error: 'Section hors de votre périmètre.' });
+  const cols = db.prepare('PRAGMA table_info(etudiant)').all().map(c => c.name);
+  for (const c of ['rattachement_par', 'rattachement_le']) if (!cols.includes(c)) db.exec(`ALTER TABLE etudiant ADD COLUMN ${c} TEXT`);
+  const avant = cursusDe(etudId, annee).courant;
+  db.prepare(`UPDATE etudiant SET section_rattachement = ?, rattachement_par = ?, rattachement_le = datetime('now') WHERE id = ?`)
+    .run(section, req.user?.nom || req.user?.email || null, etudId);
+  const apres = cursusDe(etudId, annee);
+  res.json({ ok: true, avant, courant: apres.courant, archives: apres.archives });
+});
+
 r.get('/:id/capitalisation', authRequired, (req, res) => {
   const etudId = Number(req.params.id);
   const annee = req.query.annee;
