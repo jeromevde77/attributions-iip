@@ -270,6 +270,12 @@ r.get('/structure', authRequired, (req, res) => {
       (sections[sec] ||= []).push(ueData);
     }
   }
+  // UNE SECTION SANS UE EST UNE SECTION QUI COMMENCE (30 septembre 2026,
+  // Orthoptie) : elle doit paraître, sans quoi on ne peut pas l'ouvrir pour lui
+  // donner ses UE. Les sections masquées pour l'année restent cachées.
+  let masquees = new Set();
+  try { masquees = new Set(db.prepare('SELECT section FROM section_masquee WHERE annee_scolaire = ?').all(annee).map(x => x.section)); } catch { /* table absente */ }
+  for (const code of refSections) if (!sections[code] && !masquees.has(code)) sections[code] = [];
   // Trier les sections par nom et les UE par numéro
   const refSecInfo = Object.fromEntries(
     db.prepare('SELECT code, niveau FROM section').all().map(s => [s.code, s.niveau])
