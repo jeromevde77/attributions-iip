@@ -164,11 +164,11 @@ r.get('/donnees/:etudiantId', authRequired, (req, res) => {
 });
 
 // ── Le document ─────────────────────────────────────────────────────────────
-r.post('/document', authRequired, roleRequired('admin', 'directeur',
-       'directeur_adjoint', 'editeur', 'secretariat'), (req, res) => {
-  const { etudiant_id, annee, motif, avis, date_document } = req.body || {};
+/** La pièce, composée hors de la route : le lot du centre d'impression la tire aussi. */
+export function documentAnnexe2(body) {
+  const { etudiant_id, annee, motif, avis, date_document } = body || {};
   const e = db.prepare('SELECT * FROM etudiant WHERE id = ?').get(etudiant_id);
-  if (!e) return res.status(404).json({ error: 'étudiant introuvable' });
+  if (!e) return { code: 404, erreur: 'étudiant introuvable' };
 
   const etab = db.prepare('SELECT * FROM etablissement LIMIT 1').get() || {};
   const ident = identiteEtablissement();
@@ -270,7 +270,14 @@ r.post('/document', authRequired, roleRequired('admin', 'directeur',
   background-repeat:no-repeat;background-position:left bottom;background-size:contain}`,
   });
 
-  res.json({ html, credits, manques: [] });
+  return { html, credits, manques: [] };
+}
+
+r.post('/document', authRequired, roleRequired('admin', 'directeur',
+       'directeur_adjoint', 'editeur', 'secretariat'), (req, res) => {
+  const d = documentAnnexe2(req.body);
+  if (d.erreur) return res.status(d.code || 400).json({ error: d.erreur });
+  res.json(d);
 });
 
 export default r;
