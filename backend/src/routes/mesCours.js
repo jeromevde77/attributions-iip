@@ -4,6 +4,10 @@ import { authRequired, roleRequired, getUserSections } from '../middleware/auth.
 import { anneeDeTravail } from '../helpers/annee.js';
 import { PEUT_INSTRUIRE } from '../lib/valorisation.js';
 import { ecrirePresences, minutesDe, STATUTS_PRESENCE, MOTIFS_JUSTIFIES } from '../lib/cep.js';
+import { envelopperDocument, piedGabaritPdf, BANDE_PIED_MM } from '../lib/document.js';
+import { capacitePdf, rendrePdf } from '../services/pdf.js';
+import { LOGO_IIP_JPEG } from '../services/assets/logo_iip_jpeg.js';
+import { piedDocument } from './parametres.js';
 
 /**
  * MES COURS — la porte du professeur (25 septembre 2026).
@@ -369,6 +373,59 @@ r.get('/:coursCode/etudiants', authRequired, (req, res) => {
 });
 
 // ── Proposer ses notes — rien n'entre au dossier ─────────────────────────────
+/**
+ * LES LISTES PAR GROUPE (1er octobre 2026, UE 333 AESI : « il ne sait pas
+ * imprimer les listes de groupes différents »). Une feuille par groupe — ou
+ * celle du seul groupe demandé —, avec une colonne de signature : la liste
+ * qu'on emporte en classe. Produite ICI et non par le centre d'impression : un
+ * professeur n'a pas accès aux listes ni aux rapports, et c'est l'appartenance
+ * du cours (accesCours) qui l'autorise.
+ */
+r.get('/:coursCode/listes', authRequired, async (req, res) => {
+  const annee = req.query.annee || anneeDeTravail(req);
+  const code = req.params.coursCode;
+  const d = accesCours(req, code, annee);
+  if (!d) return res.status(403).json({ error: "Ce cours n'est ni dans vos attributions, ni dans votre section." });
+  const groupesDe = e => String(e.groupe || '').split(' + ').map(x => x.trim()).filter(Boolean);
+  const demande = String(req.query.groupe || '').trim();
+  const tous = [...new Set(d.etudiants.flatMap(groupesDe))].sort((a, b) => a.localeCompare(b, 'fr', { numeric: true }));
+  const gs = demande ? [demande] : (tous.length ? tous : ['']);
+  const nom = db.prepare('SELECT cours_nom FROM cours WHERE cours_code = ? ORDER BY (annee_scolaire = ?) DESC LIMIT 1')
+    .get(code, annee)?.cours_nom || '';
+  const esc = v => String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;');
+  const corps = gs.map((g, i) => {
+    const lot = d.etudiants.filter(e => !g || groupesDe(e).includes(g));
+    return `<div${i ? ' style="break-before:page;page-break-before:always"' : ''}>
+      <div class="tg">${esc(g || 'Tous les étudiants')} <span>— ${lot.length} étudiant(s)</span></div>
+      <table><thead><tr><th style="width:8mm">N°</th><th>Nom</th><th>Prénom</th><th style="width:26mm">Matricule</th><th style="width:45mm">Signature</th></tr></thead>
+      <tbody>${lot.map((e, k) => `<tr><td>${k + 1}</td><td><b>${esc(String(e.nom || '').toUpperCase())}</b></td><td>${esc(e.prenom)}</td><td>${esc(e.id_ecampus || '')}</td><td></td></tr>`).join('')
+        || '<tr><td colspan="5" style="text-align:center;color:#94a3b8">Aucun étudiant dans ce groupe.</td></tr>'}</tbody></table></div>`;
+  }).join('');
+  const html = envelopperDocument({
+    html: corps, titre: `Liste — ${code}`,
+    entete: { titre: `${code} — ${nom}`.trim(), sous: `UE ${d.ueNum} · année ${annee}`,
+      ligne: demande ? `Groupe ${demande}` : (tous.length > 1 ? `${tous.length} groupes, une feuille par groupe` : null) },
+    styles: `
+.tg{font-size:11pt;font-weight:700;color:#1B2B4B;margin:0 0 2.5mm;border-left:1.2mm solid #C9A84C;padding-left:2.5mm}
+.tg span{font-weight:400;font-size:9pt;color:#64748b}
+table{width:100%;border-collapse:collapse;font-size:9pt}
+th{text-align:left;font-size:7.5pt;text-transform:uppercase;letter-spacing:.04em;color:#475569;background:#F1F4F9;padding:1.4mm 2mm;border-bottom:.3mm solid #D8DCE4}
+td{padding:2.2mm 2mm;border-bottom:.2mm solid #E4E7EC}
+tr{break-inside:avoid}`,
+  });
+  const cap = await capacitePdf();
+  if (!cap.disponible) return res.json({ html });
+  try {
+    const pdf = await rendrePdf(html, { pagination: 'si-plusieurs', orientation: 'portrait',
+      pied: avecNum => piedGabaritPdf(LOGO_IIP_JPEG, piedDocument(), avecNum),
+      marges: { top: '12mm', right: '15mm', bottom: `${BANDE_PIED_MM}mm`, left: '15mm' } });
+    const fichier = `Liste_${code}${demande ? `_${demande}` : ''}`.replace(/[^A-Za-z0-9_.-]+/g, '_');
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `inline; filename="${fichier}.pdf"`);
+    res.end(pdf);
+  } catch (e) { res.json({ html, avertissement: e.message }); }
+});
+
 r.post('/:coursCode/notes', authRequired, (req, res) => {
   const annee = String(req.body?.annee || anneeDeTravail(req));
   const d = accesCours(req, req.params.coursCode, annee);

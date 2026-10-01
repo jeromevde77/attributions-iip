@@ -1,6 +1,6 @@
 import { couleurBloc, rangBloc } from '../lib/blocs.js';
 import { useEffect, useState } from 'react';
-import { IconBooks, IconChevronLeft, IconAlertTriangle, IconMessageCircle } from '@tabler/icons-react';
+import { IconBooks, IconChevronLeft, IconAlertTriangle, IconMessageCircle, IconPrinter } from '@tabler/icons-react';
 import { authHeaders, getAnnee } from '../lib/api.js';
 import { MOTIFS_ECHEC } from '../components/motifsEchec.js';
 import PresencesCours from '../components/PresencesCours.jsx';
@@ -41,6 +41,14 @@ export default function MesCours() {
   const [filtreSection, setFiltreSection] = useState('');
   const [face, setFace] = useState('notes');          // notes | presences
   const [caseActive, setCaseActive] = useState(null);   // { id, k, r, ci } — la case que visent PP et NP
+  /* LE GROUPE QU'ON A DEVANT SOI (1er octobre 2026, UE 333 AESI : « il ne
+     semble pas faire Mes cours par groupes »). Un professeur qui porte les
+     groupes A, B et Ts d'un même cours encode groupe par groupe : il choisit
+     celui qu'il a devant lui ; « tous » reste possible. Le choix ne touche
+     que l'affichage — les notes des autres groupes restent dans la feuille et
+     partent avec l'enregistrement. */
+  const [groupeVu, setGroupeVu] = useState('');
+  const [impression, setImpression] = useState(null);
 
   useEffect(() => {
     fetch(`/api/mes-cours?annee=${encodeURIComponent(annee)}`, { headers: authHeaders() })
@@ -55,7 +63,7 @@ export default function MesCours() {
   const colonnes = (f) => (f?.acquis?.length ? f.acquis.map(a => a.aa_code) : ['']);
 
   async function ouvrir(code) {
-    setOuvert(code); setFeuille(null); setNotes({}); setJustifs({}); setFait(null); setErreur(null);
+    setOuvert(code); setFeuille(null); setNotes({}); setJustifs({}); setFait(null); setErreur(null); setGroupeVu('');
     try {
       const r = await fetch(`/api/mes-cours/${encodeURIComponent(code)}/etudiants?annee=${encodeURIComponent(annee)}`,
         { headers: authHeaders() });
@@ -301,6 +309,32 @@ export default function MesCours() {
           for (let pas = 1; pas < 200 && !suivante; pas++) suivante = document.querySelector(`[data-case="${r + pas}:${ci}"]`);
           if (suivante) { suivante.focus(); suivante.select?.(); }
         };
+        const groupesDe = e => String(e.groupe || '').split(' + ').map(x => x.trim()).filter(Boolean);
+        const groupesDispo = feuille?.repartition
+          ? [...new Set(feuille.etudiants.flatMap(groupesDe))].sort((a, b) => a.localeCompare(b, 'fr', { numeric: true }))
+          : [];
+        const vus = feuille ? feuille.etudiants.filter(e => !groupeVu || groupesDe(e).includes(groupeVu)) : [];
+        /* LA LISTE DU GROUPE, IMPRIMÉE : une feuille par groupe (ou celle du
+           groupe choisi), dans l'enveloppe commune — la même mise en page que
+           Listes. */
+        const imprimerGroupes = async () => {
+          setImpression('…'); setErreur(null);
+          try {
+            const r0 = await fetch(`/api/mes-cours/${encodeURIComponent(ouvert)}/listes?annee=${encodeURIComponent(annee)}${groupeVu ? `&groupe=${encodeURIComponent(groupeVu)}` : ''}`,
+              { headers: authHeaders() });
+            if (!r0.ok) { const x = await r0.json().catch(() => ({})); throw new Error(x.error || `Erreur ${r0.status}`); }
+            if ((r0.headers.get('Content-Type') || '').includes('pdf')) {
+              const url = URL.createObjectURL(await r0.blob());
+              window.open(url, '_blank');
+              setTimeout(() => URL.revokeObjectURL(url), 60000);
+            } else {
+              // Le serveur ne sait pas produire de PDF : l'aperçu du navigateur, annoncé.
+              const j = await r0.json();
+              const w = window.open('', '_blank');
+              if (w) { w.document.write(j.html); w.document.close(); }
+            }
+          } catch (e) { setErreur(e.message); } finally { setImpression(null); }
+        };
         return (
           <div className="space-y-3">
             {/* LE COURS DANS UNE TUILE (Charles, 26 septembre 2026). */}
@@ -342,6 +376,25 @@ export default function MesCours() {
                   className={`onglet-page ${face === k ? 'onglet-page-actif' : ''}`}>{l}</button>
               ))}
             </div>
+            {feuille && (
+              <div className="flex flex-wrap items-center gap-2">
+                {groupesDispo.length > 0 && (
+                  <div className="segments">
+                    {[['', `Tous (${feuille.etudiants.length})`], ...groupesDispo.map(g => [g,
+                      `${g} (${feuille.etudiants.filter(e => groupesDe(e).includes(g)).length})`])].map(([g, l]) => (
+                      <button key={g || 'tous'} type="button" onClick={() => setGroupeVu(g)}
+                        className={`px-2.5 py-1 text-[12px] ${groupeVu === g ? 'bg-iip-blue text-white font-semibold' : 'text-slate-600'}`}>{l}</button>
+                    ))}
+                  </div>
+                )}
+                <button type="button" onClick={imprimerGroupes} disabled={!!impression}
+                  className="bouton bouton-sortir controle inline-flex items-center gap-1.5 ml-auto"
+                  title={groupesDispo.length && !groupeVu ? 'Une feuille par groupe' : 'La liste des étudiants affichés'}>
+                  <IconPrinter size={14} /> {impression ? 'Production…'
+                    : groupeVu ? `Liste du groupe ${groupeVu}` : groupesDispo.length > 1 ? 'Listes par groupe' : 'Liste des étudiants'}
+                </button>
+              </div>
+            )}
             {face === 'presences' && <PresencesCours coursCode={ouvert} annee={annee} />}
             {fait && <p className="text-[13px] m-0" style={{ color: 'var(--c-reussi)' }}>✓ {fait}</p>}
             {!feuille && !erreur && <p className="text-sm text-slate-400">Chargement…</p>}
@@ -401,7 +454,7 @@ export default function MesCours() {
                       </tr>
                     </thead>
                     <tbody>
-                      {feuille.etudiants.map((e, r) => (
+                      {vus.map((e, r) => (
                         <tr key={e.id} className="border-t border-slate-100 bg-white">
                           <td className="py-0.5 px-3 whitespace-nowrap"><b>{(e.nom || '').toUpperCase()}</b> {e.prenom}
                             <span className="text-slate-400 text-[11px]"> · {e.id_ecampus || '—'}</span>
