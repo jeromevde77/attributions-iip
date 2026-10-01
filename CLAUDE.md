@@ -710,7 +710,13 @@ promesse, et le refus arrive alors après coup.
 > unité garde son PV d'annexe 4, daté de cette séance. Ce qu'elle protège
 > reste vrai : un lot n'attribue pas à une réunion ce qu'une autre a décidé.
 >
-> **DÉCIDER PAR ÉTUDIANT** (rail *Valorisation*, le tampon) : un étudiant, une
+> **INSTRUIRE ET DÉCIDER PAR ÉTUDIANT** (rail *Valorisation*, le tampon ; nommé
+> *Décider par étudiant* jusqu'en 2.12.364) : depuis 2.12.364, chaque unité y
+> porte sa frise (demande · recevabilité · avis · décision · validation) et
+> s'instruit sur sa ligne avec les formulaires de la fiche du dossier — l'écran
+> bloquait la décision sans offrir de poser recevabilité ni avis (coordination
+> d'imagerie médicale, 1er octobre 2026). « Tout déclarer recevable » vaut pour
+> les unités de l'étudiant. Un étudiant, une
 > ligne par unité, **une décision par ligne** — totale, partielle avec SES
 > cours ou SES acquis, refusée avec son motif —, un seul enregistrement
 > (`POST /valorisations/lot/decisions`), puis la validation des dossiers prêts.

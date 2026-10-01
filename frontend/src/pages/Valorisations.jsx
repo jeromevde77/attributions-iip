@@ -253,7 +253,7 @@ export default function Valorisations() {
          TAMPON dit la décision puis l'acceptation, et n'appartient qu'à cette
          entrée : la personne cochée est à « Présences », le marteau à
          « Procédures », qui vit dans ce même rail. */
-      { key: 'par-etudiant', label: 'Décider par étudiant', icon: IconRubberStamp,
+      { key: 'par-etudiant', label: 'Instruire et décider par étudiant', icon: IconRubberStamp,
         onClick: () => setDeciderEtudiant(true) },
       { key: 'ajouter', label: 'Ajouter des étudiants', icon: IconUserPlus,
         onClick: () => setAjout(true) },
@@ -4191,6 +4191,72 @@ function choixInitial(d) {
   return { branche: 'totale', cible: 'cours', coches: [], motif: '' };
 }
 
+/* LES ÉTAPES D'UN DOSSIER, SUR SA LIGNE (1er octobre 2026, la coordination
+   d'imagerie médicale : « étudier toutes les demandes d'un étudiant — toutes les
+   étapes »). « Décider par étudiant » bloquait une unité tant que recevabilité
+   ou avis manquaient, sans offrir de les poser : on était renvoyé ailleurs, et
+   l'écran ne suivait plus le circuit. Les étapes s'ouvrent ici, avec LES MÊMES
+   formulaires que la fiche d'un dossier — un second jeu finirait par différer. */
+const ETAPES_FRISE = [
+  ['Demande', d => !!(d.date_demande || d.date_reception)],
+  ['Recevabilité', d => d.recevable != null],
+  ['Avis', d => !!d.avis_le],
+  ['Décision', d => !!d.decision_le],
+  ['Validation', d => !!d.valide_le],
+];
+function FriseDossier({ d }) {
+  const courante = ETAPES_FRISE.findIndex(([, fait]) => !fait(d));
+  return (
+    <div className="flex flex-wrap items-center gap-1 mt-1">
+      {ETAPES_FRISE.map(([lib, fait], i) => {
+        const ok = fait(d);
+        const irrecevable = lib === 'Recevabilité' && d.recevable === 0;
+        return (
+          <span key={lib} className={`text-[10.5px] px-1.5 py-px rounded border whitespace-nowrap ${
+            irrecevable ? 'border-rose-700 bg-rose-700 text-white'
+              : ok ? 'border-emerald-700 bg-emerald-700 text-white'
+                : i === courante ? 'border-iip-blue text-iip-blue font-semibold' : 'border-slate-200 text-slate-400'}`}>
+            {ok && !irrecevable ? '✓ ' : ''}{irrecevable ? 'Irrecevable' : lib}
+          </span>
+        );
+      })}
+    </div>
+  );
+}
+function InstruireUnite({ vid, onChange }) {
+  const [d, setD] = useState(null);
+  const [erreur, setErreur] = useState(null);
+  const [enCours, setEnCours] = useState(false);
+  const charger = useCallback(async () => {
+    const r = await fetch(`/api/etudiants/valorisations/${vid}/dossier`, { headers: authHeaders() });
+    setD(r.ok ? await r.json() : null);
+  }, [vid]);
+  useEffect(() => { charger(); }, [charger]);
+  async function agir(chemin, corps) {
+    setEnCours(true); setErreur(null);
+    try {
+      const r = await fetch(`/api/etudiants/valorisations/${vid}/${chemin}`, {
+        method: 'PUT', headers: authHeaders(), body: JSON.stringify(corps || {}) });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) { setErreur(j.error || 'Refusé.'); return false; }
+      await charger(); await onChange?.();
+      return true;
+    } catch (e) { setErreur(e.message); return false; }
+    finally { setEnCours(false); }
+  }
+  if (!d) return <div className="text-[12px] text-slate-400 p-2">Chargement du dossier…</div>;
+  const v = d.dossier;
+  return (
+    <div className="space-y-2 rounded-champ border border-slate-200 p-2">
+      {erreur && <div className="text-[12px] text-rose-700 flex items-start gap-1.5"><IconAlertTriangle size={14} className="mt-0.5 flex-none" />{erreur}</div>}
+      <EtapeDemande dossier={v} delai={d.delai} onEnregistrer={c => agir('demande', c)} enCours={enCours} />
+      <EtapeRecevabilite dossier={v} onEnregistrer={c => agir('recevabilite', c)} enCours={enCours} />
+      <EtapeAvis dossier={v} onEnregistrer={c => agir('avis', c)} enCours={enCours} />
+      <EtapeTest dossier={v} onEnregistrer={c => agir('test', c)} enCours={enCours} />
+    </div>
+  );
+}
+
 function DeciderParEtudiant({ annee, onClose, onChange }) {
   const [dossiers, setDossiers] = useState(null);
   const [peutValider, setPeutValider] = useState(false);
@@ -4205,6 +4271,7 @@ function DeciderParEtudiant({ annee, onClose, onChange }) {
   const [erreur, setErreur] = useState(null);
   const [bloquants, setBloquants] = useState(null);
   const [fait, setFait] = useState(null);          // { ids, valides? }
+  const [instruits, setInstruits] = useState(() => new Set());   // dossiers dont les étapes sont ouvertes
 
   const charger = useCallback(async () => {
     const r = await fetch(`/api/etudiants/valorisations/analyse?annee=${encodeURIComponent(annee)}`,
@@ -4245,7 +4312,7 @@ function DeciderParEtudiant({ annee, onClose, onChange }) {
   // Changer d'étudiant efface le message et le « c'est fait » ; RECHARGER après
   // un enregistrement, non — sans quoi le bouton « Valider ces dossiers »
   // disparaissait à l'instant même où il devenait utile.
-  useEffect(() => { setErreur(null); setBloquants(null); setFait(null); }, [etudId]);
+  useEffect(() => { setErreur(null); setBloquants(null); setFait(null); setInstruits(new Set()); }, [etudId]);
 
   // Choisir un étudiant repart de ce qui est déjà décidé pour lui.
   useEffect(() => {
@@ -4300,6 +4367,22 @@ function DeciderParEtudiant({ annee, onClose, onChange }) {
     for (const d of decidables) if (!n[d.id]?.branche) n[d.id] = { ...n[d.id], branche: 'totale' };
     return n;
   });
+
+  /* TOUT DÉCLARER RECEVABLE — la recevabilité est un contrôle de FORME, elle
+     traverse les unités : un dossier reçu complet l'est pour toutes. */
+  const aControler = lignes.filter(d => d.recevable == null && !d.valide_le && d.type !== 'admission' && d.ue_num !== 0);
+  async function toutRecevable() {
+    setEnCours(true); setErreur(null); setBloquants(null);
+    try {
+      const r = await fetch('/api/etudiants/valorisations/lot/recevabilite', {
+        method: 'POST', headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids: aControler.map(d => d.id), recevable: true }) });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) { setErreur(j.error || 'Refusé.'); if (Array.isArray(j.bloquants)) setBloquants(j.bloquants); return; }
+      await charger(); await onChange?.();
+    } catch (e) { setErreur(e.message); }
+    finally { setEnCours(false); }
+  }
 
   const manqueLigne = d => {
     const c = choix[d.id] || {};
@@ -4385,8 +4468,8 @@ function DeciderParEtudiant({ annee, onClose, onChange }) {
 
   return (
     <Fenetre icone={IconRubberStamp} large="grande" onFermer={onClose}
-      titre="Décider par étudiant"
-      sous={etud ? `${(etud.nom || '').toUpperCase()} ${etud.prenom || ''} — une décision par unité, une séance`
+      titre="Instruire et décider par étudiant"
+      sous={etud ? `${(etud.nom || '').toUpperCase()} ${etud.prenom || ''} — toutes ses demandes : recevabilité, avis, décision, validation`
         : 'Toutes les unités d’un même dossier, dans une même séance'}
       pied={<>
         {peutValider && !retenues.length && aValider.length > 0 && !fait?.valides ? (
@@ -4465,6 +4548,12 @@ function DeciderParEtudiant({ annee, onClose, onChange }) {
                 {bases.map(b => <option key={b.code} value={b.code}>{b.code} — {b.libelle}</option>)}
               </select>
             </label>
+            {aControler.length > 0 && (
+              <button className="bouton" disabled={enCours} onClick={toutRecevable}
+                title="Contrôle de forme : délai, formulaire complet, pièces officielles — pour toutes les unités de cet étudiant">
+                Tout déclarer recevable ({aControler.length})
+              </button>
+            )}
             <button className="bouton" disabled={!decidables.length} onClick={toutEnTotale}
               title="Pose « totale » sur toutes les unités encore sans décision">
               <IconCheck size={14} className="inline -mt-0.5 mr-1" />Tout accorder en totale
@@ -4474,7 +4563,7 @@ function DeciderParEtudiant({ annee, onClose, onChange }) {
           <table className="w-full text-[13px] border-collapse">
             <thead>
               <tr className="tab-entete text-left">
-                <th className="px-2 py-1.5 w-[34%]">Unité</th>
+                <th className="px-2 py-1.5 w-[34%]">Unité et avancement</th>
                 <th className="px-2 py-1.5">Décision du Conseil</th>
               </tr>
             </thead>
@@ -4496,10 +4585,24 @@ function DeciderParEtudiant({ annee, onClose, onChange }) {
                       <div className="text-[11px] text-slate-400">{d.section || ''}
                         {d.decision_le ? ` · décidée le ${String(d.decision_ce_date || d.decision_le).slice(0, 10)}` : ''}
                         {modifiee(d) && d.decision_le ? ' · modifiée' : ''}</div>
+                      <FriseDossier d={d} />
+                      {!d.valide_le && d.type !== 'admission' && d.ue_num !== 0 && (
+                        <button type="button" className="mt-1 text-[12px] underline text-iip-blue"
+                          onClick={() => setInstruits(x => { const n = new Set(x); n.has(d.id) ? n.delete(d.id) : n.add(d.id); return n; })}>
+                          {instruits.has(d.id) ? 'Refermer les étapes' : 'Instruire : demande, recevabilité, avis'}
+                        </button>
+                      )}
                     </td>
                     <td className="px-2 py-2 bg-white">
+                      {instruits.has(d.id) && (
+                        <div className="mb-2"><InstruireUnite vid={d.id} onChange={async () => { await charger(); await onChange?.(); }} /></div>
+                      )}
                       {bloque ? (
-                        <span className="text-[12px] text-slate-500">{bloque}</span>
+                        <span className="text-[12px] text-slate-500">{bloque}
+                          {!d.valide_le && !instruits.has(d.id) && d.type !== 'admission' && d.ue_num !== 0 && (
+                            <> — <button type="button" className="underline text-iip-blue"
+                              onClick={() => setInstruits(x => new Set(x).add(d.id))}>l'instruire ici</button></>
+                          )}</span>
                       ) : (
                         <div className="space-y-1.5">
                           <div className="segments inline-flex">
