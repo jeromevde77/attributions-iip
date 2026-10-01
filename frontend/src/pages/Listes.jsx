@@ -320,9 +320,19 @@ const ENTITES = {
         if (filtres[k]) url += `&${k}=${encodeURIComponent(filtres[k])}`;
       }
       if (filtres.primo) url += '&primo=1';
-      return authFetch(url).then(d => d.lignes || []);
+      return authFetch(url).then(d => {
+        const toutes = d.lignes || [];
+        /* LES GROUPES D'UN COURS (1er octobre 2026, UE 333) : un étudiant peut
+           être dans plusieurs (« Org 1 · Gr. A + … ») ; on les liste tous, et
+           le filtre garde ceux qui appartiennent au groupe choisi. */
+        const groupesDe = r => String(r.groupe || '').split(' + ').map(x => x.trim()).filter(Boolean);
+        const dispo = [...new Set(toutes.flatMap(groupesDe))].sort((a, b) => a.localeCompare(b, 'fr', { numeric: true }));
+        const l = filtres.groupe ? toutes.filter(r => groupesDe(r).includes(filtres.groupe)) : toutes;
+        l.groupesDispo = dispo;
+        return l;
+      });
     },
-    filtres: ['section', 'ue_num', 'cours_code', 'primo', 'niveau_etu'],
+    filtres: ['section', 'ue_num', 'cours_code', 'groupe', 'primo', 'niveau_etu'],
   },
 
   etudiants_ue: {
@@ -418,7 +428,7 @@ const ENTITES = {
  * navigateur reste le repli quand le serveur ne sait pas produire de PDF : le
  * même repli que partout ailleurs.
  */
-async function mettreEnPage(rows, cols, titre, annee, mention) {
+async function mettreEnPage(rows, cols, titre, annee, mention, parGroupe = false) {
   /* ON ENVOIE LA CLÉ AVEC LE LIBELLÉ.
    *
    * Seuls les libellés partaient — « UE », « Périodes » —, si bien que le
@@ -434,16 +444,31 @@ async function mettreEnPage(rows, cols, titre, annee, mention) {
     method: 'POST',
     headers: { 'Content-Type': 'application/json',
       Authorization: `Bearer ${localStorage.getItem('token')}` },
-    body: JSON.stringify({ titre, annee, mention, colonnes: entetes, lignes }),
+    body: JSON.stringify({ titre, annee, mention, colonnes: entetes,
+      ...(parGroupe ? { pages: pagesParGroupe(rows, cols) } : { lignes }) }),
   });
   const j = await mise.json();
   if (!mise.ok) throw new Error(j.error || 'Mise en page impossible');
   return j.html;
 }
 
+/** UNE PAGE PAR GROUPE : un étudiant de deux groupes paraît sur les deux feuilles. */
+function pagesParGroupe(rows, cols) {
+  const paquets = new Map();
+  for (const r of rows) {
+    const gs = String(r.groupe || '').split(' + ').map(x => x.trim()).filter(Boolean);
+    for (const g of (gs.length ? gs : ['Sans groupe'])) {
+      if (!paquets.has(g)) paquets.set(g, []);
+      paquets.get(g).push(cols.map(c => { const v = c.key === 'groupe' ? g : r[c.key]; return v == null ? '' : v; }));
+    }
+  }
+  return [...paquets.entries()].sort((a, b) => a[0].localeCompare(b[0], 'fr', { numeric: true }))
+    .map(([titre, lignes]) => ({ titre, lignes }));
+}
+
 /** Imprimer : le PDF du serveur d'abord, le navigateur en repli annoncé. */
-async function imprimerListe(rows, cols, titre, annee, mention) {
-  const html = await mettreEnPage(rows, cols, titre, annee, mention);
+async function imprimerListe(rows, cols, titre, annee, mention, parGroupe = false) {
+  const html = await mettreEnPage(rows, cols, titre, annee, mention, parGroupe);
   const pdf = await fetch('/api/impression/pdf', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json',
@@ -1373,6 +1398,7 @@ export default function Listes({ integre = false, domaine = null }) {
       }))
     : [];
   const colsVisibles = [...def.cols.filter(c => colsActives.has(c.key)), ...colsDyn];
+  const parGroupe = !!(def?.filtres?.includes('groupe') && filtres.cours_code && filtres.par_groupe && !filtres.groupe);
   const nomFichier = `lucie_${entite}_${annee}`;
 
   // Injecte l'orientation choisie + le titre du document dans le HTML du rapport
@@ -1539,7 +1565,7 @@ export default function Listes({ integre = false, domaine = null }) {
               <span className="text-xs text-slate-500">Cours</span>
               {filtres.ue_num
                 ? <select value={filtres.cours_code || ''}
-                    onChange={e => setFiltres(f => ({ ...f, cours_code: e.target.value }))}
+                    onChange={e => setFiltres(f => ({ ...f, cours_code: e.target.value, groupe: '', par_groupe: false }))}
                     className="border border-slate-300 rounded-lg px-2.5 py-1.5 h-9 text-sm bg-white">
                     <option value="">— Toute l'unité —</option>
                     {coursList.map(c => (
@@ -1550,6 +1576,27 @@ export default function Listes({ integre = false, domaine = null }) {
                   </select>
                 : <span className="text-[12px] text-slate-400 italic">choisissez d'abord une UE</span>}
             </label>
+          )}
+          {def.filtres.includes('groupe') && filtres.cours_code && (
+            <>
+              <label className="flex items-center gap-2">
+                <span className="text-xs text-slate-500">Groupe</span>
+                <select value={filtres.groupe || ''}
+                  onChange={e => setFiltres(f => ({ ...f, groupe: e.target.value }))}
+                  className="border border-slate-300 rounded-lg px-2.5 py-1.5 h-9 text-sm bg-white">
+                  <option value="">— Tous les groupes —</option>
+                  {(rows?.groupesDispo || []).map(g => <option key={g} value={g}>{g}</option>)}
+                </select>
+              </label>
+              {(rows?.groupesDispo || []).length > 1 && !filtres.groupe && (
+                <label className="flex items-center gap-2 text-sm text-slate-600"
+                  title="À l'impression et à l'envoi : chaque groupe sur sa feuille, sous son nom">
+                  <input type="checkbox" checked={!!filtres.par_groupe}
+                    onChange={e => setFiltres(f => ({ ...f, par_groupe: e.target.checked }))} />
+                  Une page par groupe
+                </label>
+              )}
+            </>
           )}
           {def.filtres.includes('primo') && (
             <label className="flex items-center gap-2 text-sm text-slate-600"
@@ -1700,7 +1747,7 @@ export default function Listes({ integre = false, domaine = null }) {
                 on imprime tous les jours, on exporte quelques fois par an. */}
             <button onClick={async () => {
                 try {
-                  await imprimerListe(rows, colsVisibles, def.label, annee, def.aide || null);
+                  await imprimerListe(rows, colsVisibles, def.label, annee, def.aide || null, parGroupe);
                 } catch (e) { setError(e.message); }
               }}
               disabled={rows.length === 0}
@@ -1713,7 +1760,7 @@ export default function Listes({ integre = false, domaine = null }) {
                 diverger, et c'est celle qu'on n'a pas relue qui partirait. */}
             <button onClick={async () => {
                 try {
-                  const html = await mettreEnPage(rows, colsVisibles, def.label, annee, def.aide || null);
+                  const html = await mettreEnPage(rows, colsVisibles, def.label, annee, def.aide || null, parGroupe);
                   setEnvoi([{ html, nom_fichier: `${nomFichier}.pdf` }]);
                 } catch (e) { setError(e.message); }
               }}

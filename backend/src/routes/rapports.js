@@ -1503,7 +1503,16 @@ r.post('/mise-en-page', authRequired, (req, res) => {
     .map(c => (c && typeof c === 'object')
       ? { label: String(c.label ?? c.entete ?? c.cle ?? ''), cle: String(c.cle ?? '') }
       : { label: String(c ?? ''), cle: '' });
-  const lignes = Array.isArray(b.lignes) ? b.lignes.slice(0, 5000) : [];
+  /* UNE PAGE PAR GROUPE (1er octobre 2026, UE 333 AESI : « il ne sait pas
+     imprimer les listes de groupes différents »). `pages: [{ titre, lignes }]`
+     sort chaque paquet sur sa feuille, sous son titre — un seul PDF, qu'on
+     distribue groupe par groupe. Sans `pages`, rien ne change. */
+  const pages = Array.isArray(b.pages) && b.pages.length
+    ? b.pages.slice(0, 200).map(pg => ({ titre: String(pg?.titre || '').slice(0, 200),
+        lignes: Array.isArray(pg?.lignes) ? pg.lignes.slice(0, 5000) : [] }))
+    : null;
+  const lignes = pages ? pages.flatMap(pg => pg.lignes).slice(0, 5000)
+    : (Array.isArray(b.lignes) ? b.lignes.slice(0, 5000) : []);
   if (!colonnes.length) return res.status(400).json({ error: 'Aucune colonne à mettre en page.' });
 
   const esc = v => String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;');
@@ -1552,64 +1561,72 @@ r.post('/mise-en-page', authRequired, (req, res) => {
     && !LIBELLE_IDENTIFIANT.test(c.label || ''));
 
   const aDesNombres = sommable.some(Boolean);
-  const total = aDesNombres ? `<tfoot><tr class="repere">${colonnes.map((_, i) => {
-    if (i === 0) return `<td><b>Ensemble — ${lignes.length} ligne(s)</b></td>`;
-    if (!sommable[i]) return numerique[i] ? '<td class="n">—</td>' : '<td></td>';
-    const s2 = lignes.reduce((acc, l) => acc + (Number(Array.isArray(l) ? l[i] : 0) || 0), 0);
-    return `<td class="n"><b>${esc(Math.round(s2 * 100) / 100)}</b></td>`;
-  }).join('')}</tr></tfoot>` : '';
+  const tableau = (lignes) => {
+    const total = aDesNombres ? `<tfoot><tr class="repere">${colonnes.map((_, i) => {
+      if (i === 0) return `<td><b>Ensemble — ${lignes.length} ligne(s)</b></td>`;
+      if (!sommable[i]) return numerique[i] ? '<td class="n">—</td>' : '<td></td>';
+      const s2 = lignes.reduce((acc, l) => acc + (Number(Array.isArray(l) ? l[i] : 0) || 0), 0);
+      return `<td class="n"><b>${esc(Math.round(s2 * 100) / 100)}</b></td>`;
+    }).join('')}</tr></tfoot>` : '';
 
-  /* GROUPER PAR LA PREMIÈRE COLONNE, comme le fait déjà le rendu des rapports.
-     Une liste de deux cents lignes sans bande de regroupement se lit à la
-     règle : on suit du doigt pour savoir où une section finit. Le regroupement
-     ne se déclenche que s'il APPREND quelque chose — une valeur qui ne se
-     répète jamais ferait autant de bandes que de lignes, et deux valeurs pour
-     deux cents lignes n'en font que deux. */
-  const cle = l => String((Array.isArray(l) ? l[0] : '') ?? '—');
-  const distinctes = new Set(lignes.map(cle));
-  const groupable = lignes.length >= 4 && distinctes.size > 1
-    && distinctes.size <= Math.max(2, Math.floor(lignes.length / 2));
+    /* GROUPER PAR LA PREMIÈRE COLONNE, comme le fait déjà le rendu des rapports.
+       Une liste de deux cents lignes sans bande de regroupement se lit à la
+       règle : on suit du doigt pour savoir où une section finit. Le regroupement
+       ne se déclenche que s'il APPREND quelque chose — une valeur qui ne se
+       répète jamais ferait autant de bandes que de lignes, et deux valeurs pour
+       deux cents lignes n'en font que deux. */
+    const cle = l => String((Array.isArray(l) ? l[0] : '') ?? '—');
+    const distinctes = new Set(lignes.map(cle));
+    const groupable = lignes.length >= 4 && distinctes.size > 1
+      && distinctes.size <= Math.max(2, Math.floor(lignes.length / 2));
 
-  const sousTotal = (lot, titre) => `<tr class="repere">${colonnes.map((_, i) => {
-    if (i === 0) return `<td>${esc(titre)}</td>`;
-    if (!numerique[i]) return '<td></td>';
-    const s2 = lot.reduce((a, l) => a + (Number(Array.isArray(l) ? l[i] : 0) || 0), 0);
-    return `<td class="n">${esc(Math.round(s2 * 100) / 100)}</td>`;
-  }).join('')}</tr>`;
+    const sousTotal = (lot, titre) => `<tr class="repere">${colonnes.map((_, i) => {
+      if (i === 0) return `<td>${esc(titre)}</td>`;
+      if (!numerique[i]) return '<td></td>';
+      const s2 = lot.reduce((a, l) => a + (Number(Array.isArray(l) ? l[i] : 0) || 0), 0);
+      return `<td class="n">${esc(Math.round(s2 * 100) / 100)}</td>`;
+    }).join('')}</tr>`;
 
-  let corpsTable = '';
-  if (groupable) {
-    const paquets = new Map();
-    for (const l of lignes) {
-      const k = cle(l);
-      if (!paquets.has(k)) paquets.set(k, []);
-      paquets.get(k).push(l);
+    let corpsTable = '';
+    if (groupable) {
+      const paquets = new Map();
+      for (const l of lignes) {
+        const k = cle(l);
+        if (!paquets.has(k)) paquets.set(k, []);
+        paquets.get(k).push(l);
+      }
+      for (const [k, lot] of paquets) {
+        /* LE REPÈRE DE BLOC. Quand la clé de regroupement EST un bloc — BA1,
+           BE1, BA2, BA3 —, la bande prend sa couleur. Ailleurs elle garde le
+           marine : une couleur posée sur un groupement qui n'est pas un bloc
+           mentirait sur ce qu'elle désigne. */
+        const b = /\bB[AE]?\s*1\b/i.test(k) ? ' bloc1'
+          : /\bBA\s*2\b/i.test(k) ? ' bloc2'
+            : /\bBA\s*3\b/i.test(k) ? ' bloc3' : '';
+        corpsTable += `<tr class="groupe${b}"><td colspan="${colonnes.length}">${esc(k)}`
+          + `<span class="fin"> — ${lot.length} ligne(s)</span></td></tr>`;
+        corpsTable += lot.map(l => `<tr>${cellules(l)}</tr>`).join('');
+        if (aDesNombres && lot.length > 1) corpsTable += sousTotal(lot, `Sous-total ${k}`);
+      }
+    } else {
+      corpsTable = lignes.map(l => `<tr>${cellules(l)}</tr>`).join('');
     }
-    for (const [k, lot] of paquets) {
-      /* LE REPÈRE DE BLOC. Quand la clé de regroupement EST un bloc — BA1,
-         BE1, BA2, BA3 —, la bande prend sa couleur. Ailleurs elle garde le
-         marine : une couleur posée sur un groupement qui n'est pas un bloc
-         mentirait sur ce qu'elle désigne. */
-      const b = /\bB[AE]?\s*1\b/i.test(k) ? ' bloc1'
-        : /\bBA\s*2\b/i.test(k) ? ' bloc2'
-          : /\bBA\s*3\b/i.test(k) ? ' bloc3' : '';
-      corpsTable += `<tr class="groupe${b}"><td colspan="${colonnes.length}">${esc(k)}`
-        + `<span class="fin"> — ${lot.length} ligne(s)</span></td></tr>`;
-      corpsTable += lot.map(l => `<tr>${cellules(l)}</tr>`).join('');
-      if (aDesNombres && lot.length > 1) corpsTable += sousTotal(lot, `Sous-total ${k}`);
-    }
-  } else {
-    corpsTable = lignes.map(l => `<tr>${cellules(l)}</tr>`).join('');
-  }
 
-  const corps = `
-      <table>
-        <thead><tr>${colonnes.map((c, i) =>
-          `<th${numerique[i] ? ' class="n"' : ''}>${esc(c.label)}</th>`).join('')}</tr></thead>
-        <tbody>${corpsTable
-          || `<tr><td colspan="${colonnes.length}" class="vide">Aucune donnée.</td></tr>`}</tbody>
-        ${total}
-      </table>`;
+    const corps = `
+        <table>
+          <thead><tr>${colonnes.map((c, i) =>
+            `<th${numerique[i] ? ' class="n"' : ''}>${esc(c.label)}</th>`).join('')}</tr></thead>
+          <tbody>${corpsTable
+            || `<tr><td colspan="${colonnes.length}" class="vide">Aucune donnée.</td></tr>`}</tbody>
+          ${total}
+        </table>`;
+    return corps;
+  };
+  const corps = pages
+    ? pages.map((pg, i) => `<div class="page-groupe"${i ? ' style="break-before:page;page-break-before:always"' : ''}>
+        <div class="titre-groupe" style="font-size:11pt;font-weight:700;color:#1B2B4B;margin:0 0 2.5mm;border-left:1.2mm solid #C9A84C;padding-left:2.5mm">${esc(pg.titre)} <span style="font-weight:400;font-size:9pt;color:#64748b">— ${pg.lignes.length} ligne(s)</span></div>
+        ${tableau(pg.lignes)}</div>`).join('')
+    : tableau(lignes);
 
   res.json({
     html: envelopperDocument({
