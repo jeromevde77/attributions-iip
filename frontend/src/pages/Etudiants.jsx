@@ -190,7 +190,11 @@ function RevuePAE({ liste: base, annee: anneeDepart, onClose }) {
   const [erreur, setErreur] = useState(null);
   const [enCours, setEnCours] = useState(null);
   const [saisie, setSaisie] = useState(null);      // { ue, code, note, origine }
+  const [ajout, setAjout] = useState('');
+  const [versionSchema, setVersionSchema] = useState(0);
   const peutReporter = ['admin', 'directeur', 'directeur_adjoint', 'editeur'].includes(getUser()?.role);
+  // La porte du PAE (pae-valider → ecrireProgramme) : mêmes rôles que la fiche.
+  const peutModifier = ['admin', 'editeur'].includes(getUser()?.role);
 
   useEffect(() => {
     fetch('/api/annees', { headers: authHeaders() }).then(r => r.json())
@@ -265,6 +269,42 @@ function RevuePAE({ liste: base, annee: anneeDepart, onClose }) {
       if (!r.ok) throw new Error(j.error || 'Refusé.');
       setD(j.revue); majSynthese(cur.id, j.revue);
     } catch (e) { setErreur(e.message); } finally { setEnCours(null); }
+  };
+
+  /* AJOUTER OU RETIRER UNE UE — par la porte unique, comme la fiche : le
+     serveur juge chaque ajout et demande un motif pour une dérogation ; une
+     inscription qui porte un résultat n'est retirée que sur confirmation. Les
+     reports d'office se reposent seuls à l'enregistrement. */
+  const modifierProgramme = async (ueNums, libelle) => {
+    if (!window.confirm(`${libelle} — le PAE ${annee} de ${nomPropre(cur.nom, cur.prenom)} sera enregistré, et sa confirmation retirée s'il était confirmé.`)) return;
+    setEnCours('pae'); setErreur(null);
+    try {
+      const appel = corps => fetch(`/api/etudiants/${cur.id}/pae-valider`, { method: 'POST', headers: authHeaders(),
+        body: JSON.stringify({ annee, ue_nums: ueNums, ...corps }) }).then(async r => ({ r, j: await r.json().catch(() => ({})) }));
+      let motifs = {};
+      let { r, j } = await appel({});
+      if (r.status === 409 && j.refus?.length) {
+        motifs = demanderMotifs(j.refus);
+        if (!motifs) return;
+        ({ r, j } = await appel({ motifs }));
+      }
+      if (!r.ok) throw new Error(j.error || 'Refusé.');
+      if (j.conservees && window.confirm(`${j.conservees} inscription(s) portent un résultat encodé et ont été conservées. Les retirer quand même, avec leurs notes ?`)) {
+        ({ r, j } = await appel({ motifs, forcer: true }));
+        if (!r.ok) throw new Error(j.error || 'Refusé.');
+      }
+      setAjout(''); setVersionSchema(v => v + 1);
+      await charger();
+      setSynthese(sy => (sy ? { ...sy, [cur.id]: { ...(sy[cur.id] || {}), pae: ueNums.length } } : sy));
+    } catch (e) { setErreur(e.message); } finally { setEnCours(null); }
+  };
+  const dansPAE = d ? d.ues.map(u => u.ue_num) : [];
+  const retirerUE = n => modifierProgramme(dansPAE.filter(x => x !== n), `Retirer l'UE ${n}`);
+  const ajouterUE = n => modifierProgramme([...dansPAE, Number(n)], `Ajouter l'UE ${n}`);
+  const clicSchema = n => {
+    if (!peutModifier || !d) return;
+    if (dansPAE.includes(n)) retirerUE(n);
+    else if (d.autres.some(x => x.ue_num === n)) ajouterUE(n);
   };
 
   const imprimer = async (separer = false) => {
@@ -370,7 +410,7 @@ function RevuePAE({ liste: base, annee: anneeDepart, onClose }) {
             <Tuile v={`${ch.cours_a_suivre} cours`} l="à suivre" p={`${ch.periodes_a_suivre} périodes`} />
             <Tuile etat={d.alertes.length ? 'surveiller' : 'neutre'} v={d.alertes.length} l="à vérifier" />
           </div>
-          <div className="grid gap-4 items-start lg:grid-cols-[minmax(0,1fr)_minmax(0,440px)]">
+          <div className="grid gap-4 items-start lg:grid-cols-2">
             <div className="space-y-2">
               {d.alertes.map((a, k) => (
                 <div key={k} data-etat="surveiller" className="bloc-etat px-3 py-2 text-[12.5px]"><b>À vérifier</b> — {a.texte}</div>
@@ -391,6 +431,8 @@ function RevuePAE({ liste: base, annee: anneeDepart, onClose }) {
                         <span className={`text-[10.5px] font-semibold text-white rounded px-1.5 py-px ${fond}`}>{lib}</span>
                         {u.deja && <span className="text-[10.5px] font-semibold text-white rounded px-1.5 py-px bg-amber-700">déjà acquise {court(u.deja)}</span>}
                         <span className="text-[11px] text-slate-500">{u.ects} ECTS</span>
+                        {peutModifier && <button type="button" disabled={!!enCours} className="text-[11.5px] underline text-slate-500"
+                          title="Retirer cette UE du PAE de l'année" onClick={() => retirerUE(u.ue_num)}>retirer l'UE</button>}
                       </div>
                       <div className="grid gap-x-3 gap-y-1 mt-1.5 text-[12.5px] items-center" style={{ gridTemplateColumns: '64px minmax(0,1fr) 48px minmax(0,300px)' }}>
                         {u.cours.map(c => {
@@ -442,11 +484,27 @@ function RevuePAE({ liste: base, annee: anneeDepart, onClose }) {
                   </Fragment>
                 );
               })}
+              {peutModifier && d.autres.length > 0 && (
+                <div className="carte p-2.5 flex flex-wrap items-center gap-2">
+                  <span className="text-[12.5px] font-semibold">Ajouter une UE au PAE</span>
+                  <select className="controle text-[13px] min-w-0 flex-1" value={ajout} onChange={e => setAjout(e.target.value)}>
+                    <option value="">— choisir dans le cursus —</option>
+                    {d.autres.map(x => <option key={x.ue_num} value={x.ue_num}>
+                      {x.niv || '—'} · UE {x.ue_num} — {x.ue_nom}{x.statut ? ` (${({ accessible: 'accessible', bloquee: 'bloquée', sous_reserve: 'sous réserve', en_attente: 'en attente' })[x.statut] || x.statut})` : ''}</option>)}
+                  </select>
+                  <button type="button" className="bouton bouton-fort" disabled={!ajout || !!enCours} onClick={() => ajouterUE(ajout)}>
+                    {enCours === 'pae' ? 'Enregistrement…' : 'Ajouter'}</button>
+                  <span className="text-[11px] text-slate-500 w-full">Ou cliquez une unité dans le schéma : au PAE, elle se retire ; hors du PAE, elle s'ajoute. Une dérogation aux règles demande un motif.</span>
+                </div>
+              )}
               {!peutReporter && <p className="text-[12px] text-slate-500">Encoder un report est réservé à la direction et à l'administration des études.</p>}
             </div>
-            <div className="carte p-2.5 min-w-0 overflow-x-auto">
-              <div className="text-[13px] font-semibold mb-1.5">Parcours</div>
-              <SchemaCapitalisation etudId={cur.id} annee={annee} />
+            {/* LE SCHÉMA RESTE SOUS LES YEUX : même largeur que la liste, fixé
+                pendant qu'on fait défiler les cours. */}
+            <div className="carte p-2.5 min-w-0 overflow-auto lg:sticky lg:top-0 lg:max-h-[78vh]">
+              <div className="text-[13px] font-semibold mb-1.5">Parcours{peutModifier ? <span className="font-normal text-[11.5px] text-slate-500"> — cliquer une unité pour l'ajouter ou la retirer</span> : null}</div>
+              <SchemaCapitalisation key={`${cur.id}-${annee}-${versionSchema}`} etudId={cur.id} annee={annee}
+                onNoeud={peutModifier ? clicSchema : null} programme={new Set(dansPAE)} />
             </div>
           </div>
         </>
