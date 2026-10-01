@@ -3040,13 +3040,17 @@ export function documentBulletin(etudId, annee) {
     const i = insc.find(x => x.ue_num === ue && x.annee_scolaire === an);
     if (!i) return null;
     const s1 = sessions.get(`${ue}|${an}|1`), s2 = sessions.get(`${ue}|${an}|2`);
-    const deux = s1 && s2;
+    // UNE LIGNE « SESSION 2 » NE PROUVE PAS UNE SECONDE SESSION : la clôture de
+    // septembre écrit une ligne pour TOUS les inscrits de l'unité, y compris ceux
+    // qui avaient réussi en juin (2 169 cas en production au 1er octobre 2026).
+    // Il n'y a eu seconde session que si la première a AJOURNÉ l'étudiant.
+    const deux = !!(s1 && s2 && s1.resultat === 'ajourne');
     const mS = r => (r?.resultat === 'reussi' ? (noteLisible(r.points) === 'NA' ? '✓' : noteLisible(r.points) || '✓') : 'NA');
-    const mention = deux ? `S1 ${mS(s1)} · S2 ${mS(s2)}` : (s2 && !s1 ? 'S2' : null);
-    if (faveurs.has(`${ue}|${an}`) && i.resultat === 'reussi') return { cls: 'c-fav', txt: '10', m: 'faveur du Conseil', acquise: true, faveur: true, s2: !!s2 };
+    const mention = deux ? `S1 ${mS(s1)} · S2 ${mS(s2)}` : null;
+    if (faveurs.has(`${ue}|${an}`) && i.resultat === 'reussi') return { cls: 'c-fav', txt: '10', m: 'faveur du Conseil', acquise: true, faveur: true, s2: deux };
     if (i.resultat === 'reussi') {
       const n = noteLisible(i.points);
-      return { cls: 'c-ok', txt: n && n !== 'NA' ? n : '✓', m: mention, acquise: true, s2: !!s2 };
+      return { cls: 'c-ok', txt: n && n !== 'NA' ? n : '✓', m: mention, acquise: true, s2: deux };
     }
     if (i.resultat === 'ajourne' || i.resultat === 'refuse') return { cls: 'c-na', txt: 'NA', m: mention, echec: true };
     if (an === annee) return { cls: 'c-cours', txt: 'en cours', encours: true };
