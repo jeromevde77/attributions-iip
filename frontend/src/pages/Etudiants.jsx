@@ -6,7 +6,7 @@ import { RailLateral } from '../components/ui.jsx';
 import SuiviEtudiant from '../components/SuiviEtudiant.jsx';
 import NouvelEtudiant from '../components/NouvelEtudiant.jsx';
 import {
-  IconAddressBook, IconAlertTriangle, IconArrowForwardUp, IconArchive, IconDoorExit, IconSchool, IconArrowBackUp, IconAward, IconCertificate, IconStairsUp, IconUserPlus, IconCheck, IconChecklist, IconChevronLeft, IconChevronRight, IconClock, IconFileText, IconFolder, IconPlus, IconPrinter, IconSearch, IconTable, IconTrash, IconUpload, IconUser, IconSend, IconWritingSign, IconWritingSignOff, IconX,
+  IconAddressBook, IconAlertTriangle, IconEyeCheck, IconArrowForwardUp, IconArchive, IconDoorExit, IconSchool, IconArrowBackUp, IconAward, IconCertificate, IconStairsUp, IconUserPlus, IconCheck, IconChecklist, IconChevronLeft, IconChevronRight, IconClock, IconFileText, IconFolder, IconPlus, IconPrinter, IconSearch, IconTable, IconTrash, IconUpload, IconUser, IconSend, IconWritingSign, IconWritingSignOff, IconX,
   IconChecks, IconLock
 } from '@tabler/icons-react';
 import { authHeaders, getAnnee, getUser } from '../lib/api.js';
@@ -168,6 +168,184 @@ const STATUTS_PIECE = [
    n'est pas confirmé ; le schéma ne lisait que les inscriptions enregistrées,
    et une UE qu'on venait de cocher restait sans couleur. Il suit désormais la
    sélection en direct — c'est elle qui dit ce que sera le programme. */
+/**
+ * LA REVUE DES PAE (Charles et Marie, 1er octobre 2026 ; maquette validée le
+ * même jour). On passe les étudiants de la liste l'un après l'autre, dans
+ * l'ordre où la liste les montre : le PAE de l'année COURS PAR COURS — reporté,
+ * dispensé, à suivre —, le parcours à droite, et une case « PAE revu » qui
+ * garde qui l'a cochée et quand. Les UE sans report sont repliées.
+ */
+function RevuePAE({ liste, annee, depart = 0, onClose }) {
+  const [i, setI] = useState(Math.min(depart, Math.max(0, liste.length - 1)));
+  const [d, setD] = useState(null);
+  const [erreur, setErreur] = useState(null);
+  const [deplie, setDeplie] = useState(false);
+  const [enCours, setEnCours] = useState(null);
+  const cur = liste[i];
+  const charger = useCallback(async () => {
+    if (!cur) return;
+    setD(null); setErreur(null);
+    try {
+      const r = await fetch(`/api/etudiants/${cur.id}/revue-pae?annee=${encodeURIComponent(annee)}`, { headers: authHeaders() });
+      const j = await r.json();
+      if (!r.ok) throw new Error(j.error || `Erreur ${r.status}`);
+      setD(j);
+    } catch (e) { setErreur(e.message); }
+  }, [cur, annee]);
+  useEffect(() => { charger(); setDeplie(false); }, [charger]);
+
+  const marquer = async (revu, puisSuivant = false) => {
+    setEnCours('revu'); setErreur(null);
+    try {
+      const r = await fetch(`/api/etudiants/${cur.id}/revue-pae/revu`, { method: 'PUT', headers: authHeaders(),
+        body: JSON.stringify({ annee, revu }) });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(j.error || 'Refusé.');
+      if (puisSuivant && i < liste.length - 1) setI(i + 1);
+      else setD(x => (x ? { ...x, revu: j.revu } : x));
+    } catch (e) { setErreur(e.message); } finally { setEnCours(null); }
+  };
+
+  const imprimer = async (separer = false) => {
+    setEnCours('impr'); setErreur(null);
+    try {
+      const r = await fetch('/api/etudiants/revue-pae/document', { method: 'POST', headers: authHeaders(),
+        body: JSON.stringify({ annee, ids: liste.map(e => e.id), separer }) });
+      const j = await r.json();
+      if (!r.ok) throw new Error(j.error || 'Refusé.');
+      const ouvrir = (blob, nom, telecharger) => {
+        const url = URL.createObjectURL(blob);
+        if (telecharger) { const a = document.createElement('a'); a.href = url; a.download = nom; document.body.appendChild(a); a.click(); a.remove(); }
+        else window.open(url, '_blank');
+        setTimeout(() => URL.revokeObjectURL(url), 60000);
+      };
+      if (separer) {
+        const rp = await fetch('/api/impression/pdfs', { method: 'POST', headers: authHeaders(),
+          body: JSON.stringify({ nom: `PAE_${annee}`, documents: j.documents.map(x => ({ html: x.html, nom: x.nom, pagination: 'si-plusieurs' })) }) });
+        if (!rp.ok) { const x = await rp.json().catch(() => ({})); throw new Error(x.error || 'PDF non produits.'); }
+        ouvrir(await rp.blob(), `PAE_${annee}.zip`, true);
+      } else {
+        const rp = await fetch('/api/impression/pdf', { method: 'POST', headers: authHeaders(),
+          body: JSON.stringify({ html: j.html, nom: j.nom, pagination: 'si-plusieurs' }) });
+        if (!rp.ok) { const x = await rp.json().catch(() => ({})); throw new Error(x.error || 'PDF non produit.'); }
+        ouvrir(await rp.blob(), `${j.nom}.pdf`, false);
+      }
+    } catch (e) { setErreur(e.message); } finally { setEnCours(null); }
+  };
+
+  const ETAT = { dispensee: ['dispensée — VA', 'bg-emerald-700'], partielle: ['reprise partielle', 'bg-blue-700'],
+    reprendre: ['à reprendre', 'bg-amber-700'], programme: ['au programme', 'bg-blue-700'] };
+  const ch = d?.chiffres;
+  const visibles = d ? d.ues.filter(u => deplie || u.reports || u.va || u.etat !== 'programme' || u.deja) : [];
+  const caches = d ? d.ues.length - visibles.length : 0;
+  let blocCourant = null;
+  const Tuile = ({ v, l, p, etat = 'fort' }) => (
+    <div data-etat={etat} className="bloc-etat px-3 py-2">
+      <div className="text-[17px] font-bold leading-tight">{v}</div>
+      <div className="text-[12px]">{l}</div>
+      {p && <div className="text-[11px] text-slate-500">{p}</div>}
+    </div>
+  );
+
+  return (
+    <Fenetre icone={IconEyeCheck} large="pleine" onFermer={onClose}
+      titre={d ? `Revue des PAE — ${nomPropre(d.etudiant.nom, d.etudiant.prenom)}` : 'Revue des PAE'}
+      sous={`${i + 1} sur ${liste.length} · année ${annee} · dans l'ordre de la liste`}
+      pied={<>
+        <label className="flex items-center gap-2 text-[13px]">
+          <input type="checkbox" checked={!!d?.revu} disabled={!d || !!enCours}
+            onChange={e => marquer(e.target.checked)} /> PAE revu
+        </label>
+        <span className="text-[12px] text-slate-500 min-w-0">
+          {d?.revu ? `par ${d.revu.revu_par || '—'}, le ${String(d.revu.revu_le).slice(0, 16).replace('T', ' ')}` : ''}
+        </span>
+        <span className="ml-auto" />
+        <button className="bouton" disabled={i === 0} onClick={() => setI(i - 1)}>◀ Précédent</button>
+        <button className="bouton" disabled={i >= liste.length - 1} onClick={() => setI(i + 1)}>Suivant ▶</button>
+        <button className="bouton bouton-fort" disabled={!d || !!enCours} onClick={() => marquer(true, true)}>
+          {i >= liste.length - 1 ? 'Revu' : 'Revu · étudiant suivant ▶'}</button>
+      </>}>
+      <div className="flex flex-wrap items-center gap-2 mb-3">
+        {d && <span className="text-[12px] text-slate-600">{d.etudiant.id_ecampus || ''} · {d.etudiant.section || '—'}
+          {d.etudiant.niveau_libelle ? ` · ${d.etudiant.niveau_libelle}` : ''}</span>}
+        <span className="flex-1" />
+        <button className="bouton bouton-sortir controle" disabled={!!enCours} onClick={() => imprimer(false)}>
+          <IconPrinter size={14} className="inline -mt-0.5 mr-1" />
+          {enCours === 'impr' ? 'Production…' : `Imprimer les ${liste.length} PAE`}</button>
+        <button className="bouton controle" disabled={!!enCours} onClick={() => imprimer(true)}
+          title="Un PDF par étudiant, dans une archive — pour envoyer ou classer">Un PDF par étudiant</button>
+      </div>
+      {erreur && <div data-etat="corriger" className="bloc-etat px-3 py-2 text-[12.5px] mb-3">{erreur}</div>}
+      {!d && !erreur && <p className="text-[13px] text-slate-400">Chargement…</p>}
+      {d && (
+        <>
+          <div className="grid gap-2.5 mb-3" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))' }}>
+            <Tuile etat="reussi" v={`${ch.ects_acquis}`} l="ECTS acquis" p="avant cette année" />
+            <Tuile v={`${ch.nb_ue} UE`} l={`au PAE ${annee}`} p={`${ch.ects_pae} ECTS`} />
+            <Tuile etat="neutre" v={`${ch.cours_reportes} cours`} l="reportés d'office"
+              p={ch.ue_avec_report ? `dans ${ch.ue_avec_report} UE — notes reprises` : 'aucun report'} />
+            <Tuile v={`${ch.cours_a_suivre} cours`} l="à suivre" p={`${ch.periodes_a_suivre} périodes`} />
+            <Tuile etat={d.alertes.length ? 'surveiller' : 'neutre'} v={d.alertes.length} l="à vérifier" />
+          </div>
+          <div className="grid gap-4 items-start lg:grid-cols-[minmax(0,1fr)_minmax(0,460px)]">
+            <div className="space-y-2">
+              {d.alertes.map((a, k) => (
+                <div key={k} data-etat="surveiller" className="bloc-etat px-3 py-2 text-[12.5px]"><b>À vérifier</b> — {a.texte}</div>
+              ))}
+              {!d.ues.length && <p className="text-[13px] text-slate-500">Aucune UE au PAE de {annee}.</p>}
+              {visibles.map(u => {
+                const b = u.ei ? 'Épreuve intégrée' : (u.niv || '—');
+                const tete = b !== blocCourant;
+                blocCourant = b;
+                const [lib, fond] = ETAT[u.etat];
+                return (
+                  <Fragment key={u.ue_num}>
+                    {tete && <div className="inline-block text-[11px] font-bold px-2 py-0.5 rounded mt-2"
+                      style={{ background: u.ei ? '#C9A227' : (couleurBloc(b) || '#94a3b8'), color: b === 'BA2' ? 'var(--c-texte)' : '#fff' }}>{b}</div>}
+                    <div className="carte p-2.5 bg-white">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <b>{u.ue_num}</b><span className="flex-1 min-w-0">{u.ue_nom}</span>
+                        <span className={`text-[10.5px] font-semibold text-white rounded px-1.5 py-px ${fond}`}>{lib}</span>
+                        {u.deja && <span className="text-[10.5px] font-semibold text-white rounded px-1.5 py-px bg-amber-700">déjà acquise {u.deja}</span>}
+                        <span className="text-[11px] text-slate-500">{u.ects} ECTS</span>
+                      </div>
+                      <div className="grid gap-x-3 gap-y-0.5 mt-1.5 text-[12.5px] items-center" style={{ gridTemplateColumns: '64px minmax(0,1fr) 52px 200px' }}>
+                        {u.cours.map(c => (
+                          <Fragment key={c.code}>
+                            <span className="text-slate-500 tabular-nums">{c.code}</span>
+                            <span className={c.statut === 'suivre' ? '' : 'text-slate-400'}>{c.nom}</span>
+                            <span className="text-[11px] text-slate-500 text-right tabular-nums">{c.per ? `${c.per} p.` : ''}</span>
+                            <span className="text-[11.5px]">
+                              {c.statut === 'report'
+                                ? <span className="border border-dashed border-slate-400 rounded px-1.5 text-slate-600">reporté <b className="text-iip-texte">{String(c.annee_origine || '').replace(/^20(\d\d)-20(\d\d)$/, '$1-$2')}</b>{c.note != null ? <> · <b className="text-iip-texte">{Math.round(c.note)}</b>/20</> : ''}</span>
+                                : c.statut === 'va'
+                                  ? <span className="border border-slate-400 rounded px-1.5 text-slate-600">dispensé · VA</span>
+                                  : <span className="font-semibold text-blue-700">à suivre</span>}
+                            </span>
+                          </Fragment>
+                        ))}
+                        {!u.cours.length && <span className="col-span-4 text-[12px] text-slate-400">Aucun cours encodé pour cette unité en {annee}.</span>}
+                      </div>
+                    </div>
+                  </Fragment>
+                );
+              })}
+              {(caches > 0 || deplie) && (
+                <button type="button" className="text-[12px] underline text-slate-500" onClick={() => setDeplie(x => !x)}>
+                  {deplie ? 'Replier les UE sans report' : `… ${caches} autre(s) UE sans report, repliée(s) — tout déplier`}</button>
+              )}
+            </div>
+            <div className="carte p-2.5 min-w-0 overflow-x-auto">
+              <div className="text-[13px] font-semibold mb-1.5">Parcours</div>
+              <SchemaCapitalisation etudId={cur.id} annee={annee} />
+            </div>
+          </div>
+        </>
+      )}
+    </Fenetre>
+  );
+}
+
 function SchemaCapitalisation({ etudId, annee, onNoeud = null, programme = null, onModifie = null }) {
   const [data, setData] = useState(null);
   const [recharge, setRecharge] = useState(0);
@@ -2802,6 +2980,7 @@ export default function Etudiants() {
   const [importHisto, setImportHisto] = useState(false);
   const [complement, setComplement] = useState(false);
   const [rapportPAESel, setRapportPAESel] = useState(false);
+  const [revuePAE, setRevuePAE] = useState(null);       // liste d'étudiants à passer en revue
   // Le passage d'année : toute une section, sur ses résultats.
   const [passage, setPassage] = useState(false);
   const [reportsOffice, setReportsOffice] = useState(false);
@@ -3360,6 +3539,14 @@ export default function Etudiants() {
       // enregistré ; cette entrée rattrape les PAE composés avant.
       { key: 'reports', label: 'Reports de notes', icon: IconArrowForwardUp,
         onClick: () => setReportsOffice(true) },
+      /* LA REVUE DES PAE (1er octobre 2026) : les étudiants cochés s'il y en a,
+         sinon la liste telle qu'elle est filtrée, dans son ordre. */
+      { key: 'revue-pae', label: 'Revue des PAE', icon: IconEyeCheck,
+        onClick: () => {
+          const coches = filtres.filter(e => selEtudiants.has(e.id));
+          const l = (coches.length ? coches : filtres).map(e => ({ id: e.id, nom: e.nom, prenom: e.prenom }));
+          if (l.length) setRevuePAE(l);
+        } },
       // « Valider les PAE » n'a plus d'entrée à lui (Charles, 26 septembre
       // 2026 : « il est dans la fenêtre PAE ») : Valider est un des modes de
       // la fenêtre Composer les PAE.
@@ -3883,6 +4070,7 @@ export default function Etudiants() {
       {rapportPAE && (
         <RapportPAE anneeCourante={annee} onClose={() => setRapportPAE(false)} />
       )}
+      {revuePAE && <RevuePAE liste={revuePAE} annee={annee} onClose={() => setRevuePAE(null)} />}
       {rapportPAESel && (
         <RapportPAE anneeCourante={annee} onClose={() => setRapportPAESel(false)}
           selection={(etudiants || []).filter(e => selEtudiants.has(e.id))
