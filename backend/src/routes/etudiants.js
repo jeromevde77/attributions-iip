@@ -16,7 +16,7 @@ import { piedDocument } from './parametres.js';
 import { anneeDeTravail } from '../helpers/annee.js';
 import { authRequired, roleRequired, getUserSections } from '../middleware/auth.js';
 import { construireGraphe, niveauxEffectifs, rangNiveau } from './capitalisation.js';
-import { etatsPAE, plafondBloc } from '../lib/pae.js';
+import { etatsPAE, plafondBloc, rangBloc } from '../lib/pae.js';
 import { structureUE, calculerNoteUE, coursValidesAnterieurs, poserReportsDOffice } from './acquis.js';
 import {
   BASES, CODES_BASE, FINALITES, ETATS, etatDeduit, uniteValorisable,
@@ -2979,6 +2979,301 @@ table.acquises td.n{text-align:right;white-space:nowrap;font-weight:600}
            etudiant: e, section, annee,
            acquises: reussies.length, programme: inscritesListe.length };
 }
+
+/**
+ * LE BULLETIN DE PARCOURS (Charles, 1er octobre 2026 : « toutes ses UE
+ * inscrites, année après année, et les notes obtenues ; s'il est inscrit deux
+ * années, la note de la première année, celle de la seconde ; avec le schéma de
+ * capitalisation ; si la note est < 10, NA »). Maquette validée le même jour.
+ *
+ *   · une ligne par UE du cursus (rangée par bloc, épreuve intégrée au bout),
+ *     une colonne par année suivie — la même UE porte ses cotes successives ;
+ *   · une rubrique « autres unités » pour ce qui a été suivi hors du cursus ;
+ *   · quatre tuiles : ECTS acquis, UE acquises, ECTS inscrits cette année,
+ *     moyenne générale (pondérée par les périodes étudiant, la définition du
+ *     bilan de parcours, sur les unités ACQUISES — la seule qui garde ses
+ *     décimales) ;
+ *   · en annexe, le schéma de la fiche de parcours (lib/schemaSvg.js), tourné
+ *     d'un quart de tour pour tenir en largeur.
+ * Pièce remise à l'étudiant : jamais de cote sous dix (NA) ; une faveur vaut 10.
+ */
+export function documentBulletin(etudId, annee) {
+  const e = db.prepare('SELECT * FROM etudiant WHERE id = ?').get(etudId);
+  if (!e) return { erreur: 'étudiant introuvable', code: 404 };
+  const section = cursusDe(etudId, annee).courant || sectionRattachement(etudId, annee).section;
+  if (!section) return { erreur: 'aucune section pour cet étudiant', code: 400 };
+  const sec = db.prepare('SELECT code, libelle FROM section WHERE code = ?').get(section) || { code: section };
+  const graphe = donneesCapitalisation(etudId, annee, section);
+  const esc = x => String(x ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  const court = a => String(a || '').replace(/^20(\d\d)-20(\d\d)$/, '$1-$2');
+
+  const refUe = db.prepare(`SELECT ue_nom, ue_niv, ects, ue_per_etudiants, COALESCE(is_epreuve_integree,0) ei FROM ue
+      WHERE ue_num = ? ORDER BY (annee_scolaire = ?) DESC, annee_scolaire DESC LIMIT 1`);
+  const ref = new Map();
+  const refDe = n => { if (!ref.has(n)) ref.set(n, refUe.get(n, annee) || {}); return ref.get(n); };
+
+  const insc = db.prepare(`SELECT ue_num, annee_scolaire, resultat, points FROM etudiant_inscription WHERE etudiant_id = ?`).all(etudId);
+  const sessions = new Map();
+  try {
+    for (const d of db.prepare(`SELECT ue_num, annee_scolaire, session, resultat, points FROM deliberation_resultat
+        WHERE etudiant_id = ? AND resultat IS NOT NULL AND resultat != ''`).all(etudId)) {
+      sessions.set(`${d.ue_num}|${d.annee_scolaire}|${d.session}`, d);
+    }
+  } catch { /* table absente */ }
+  const faveurs = new Set();
+  try {
+    for (const f of db.prepare(`SELECT DISTINCT ue_num, annee_scolaire FROM deliberation_ajustement WHERE etudiant_id = ? AND action = 'faveur'`).all(etudId)) {
+      faveurs.add(`${f.ue_num}|${f.annee_scolaire}`);
+    }
+  } catch { /* table absente */ }
+  const vas = db.prepare(`SELECT ue_num, annee_scolaire FROM etudiant_valorisation WHERE etudiant_id = ?
+      AND type = 'complete' AND COALESCE(decision, 'accordee') <> 'refusee'`).all(etudId);
+  const annees = [...new Set([...insc.map(i => i.annee_scolaire), ...vas.map(v => v.annee_scolaire)])].filter(Boolean).sort();
+  if (!annees.includes(annee) && insc.some(i => i.annee_scolaire === annee)) annees.push(annee);
+
+  const noteLisible = p => { if (p == null) return null; const n = Math.round(Number(p)); return n < 10 ? 'NA' : String(n); };
+  // Une case : ce qui s'est passé pour cette UE cette année-là.
+  const caseDe = (ue, an) => {
+    if (vas.some(v => v.ue_num === ue && v.annee_scolaire === an)) return { cls: 'c-ok', txt: 'VA', m: 'valorisation', acquise: true };
+    const i = insc.find(x => x.ue_num === ue && x.annee_scolaire === an);
+    if (!i) return null;
+    const s1 = sessions.get(`${ue}|${an}|1`), s2 = sessions.get(`${ue}|${an}|2`);
+    const deux = s1 && s2;
+    const mS = r => (r?.resultat === 'reussi' ? (noteLisible(r.points) === 'NA' ? '✓' : noteLisible(r.points) || '✓') : 'NA');
+    const mention = deux ? `S1 ${mS(s1)} · S2 ${mS(s2)}` : (s2 && !s1 ? 'S2' : null);
+    if (faveurs.has(`${ue}|${an}`) && i.resultat === 'reussi') return { cls: 'c-fav', txt: '10', m: 'faveur du Conseil', acquise: true, faveur: true, s2: !!s2 };
+    if (i.resultat === 'reussi') {
+      const n = noteLisible(i.points);
+      return { cls: 'c-ok', txt: n && n !== 'NA' ? n : '✓', m: mention, acquise: true, s2: !!s2 };
+    }
+    if (i.resultat === 'ajourne' || i.resultat === 'refuse') return { cls: 'c-na', txt: 'NA', m: mention, echec: true };
+    if (an === annee) return { cls: 'c-cours', txt: 'en cours', encours: true };
+    // Une année qui n'est pas encore commencée porte un programme, pas un résultat manquant.
+    if (an > annee) return { cls: 'c-cours', txt: 'inscrite', prevue: true };
+    return { cls: 'c-vide', txt: '—', m: 'sans résultat', vide: true };
+  };
+
+  const prereqDe = {};
+  for (const ed of graphe.edges || []) (prereqDe[ed.to] ||= []).push(ed.from);
+  const nodes = (graphe.nodes || []).slice().sort((a, b) =>
+    (!!a.epreuve_integree - !!b.epreuve_integree) || rangBloc(a.ue_niv) - rangBloc(b.ue_niv) || a.ue_num - b.ue_num);
+  const dansCursus = new Set(nodes.map(n => n.ue_num));
+  const acquisSet = new Set();
+  const ligne = n => {
+    const cases = annees.map(an => caseDe(n.ue_num, an));
+    const derniereAcquise = [...cases].reverse().find(c => c?.acquise);
+    const iAcq = derniereAcquise ? annees[cases.lastIndexOf(derniereAcquise)] : null;
+    if (derniereAcquise) acquisSet.add(n.ue_num);
+    const tente = cases.some(c => c && (c.acquise || c.echec));
+    const inscriteSansResultat = !tente && cases.some(c => c?.vide);
+    let etat;
+    if (derniereAcquise) etat = `Acquise en ${iAcq}${derniereAcquise.faveur ? ' (faveur)' : derniereAcquise.txt === 'VA' ? ' (valorisation)' : derniereAcquise.s2 ? ' (2<sup>e</sup> session)' : ''}`;
+    else if (cases[annees.indexOf(annee)]?.encours) etat = tente ? `Reprise en ${annee}` : 'Première inscription';
+    else if (tente) etat = 'À reprendre';
+    else if (cases.some(c => c?.prevue)) etat = 'Inscrite pour l\'année suivante';
+    else if (inscriteSansResultat) etat = '<span class="gris">Inscrite, aucun résultat encodé</span>';
+    else if (n.epreuve_integree) etat = '<span class="gris">S\'ouvre quand tout le reste est acquis</span>';
+    else {
+      const manque = (prereqDe[n.ue_num] || []).filter(p => !acquisDuGraphe.has(p));
+      etat = `<span class="gris">Pas encore suivie${manque.length ? ` — exige ${manque.join(', ')}` : ''}</span>`;
+    }
+    const r0 = refDe(n.ue_num);
+    return { ue: n.ue_num, nom: n.ue_nom || r0.ue_nom || `UE ${n.ue_num}`, niv: String(n.ue_niv || r0.ue_niv || '').toUpperCase(),
+      ects: Number(r0.ects) || 0, per: Number(r0.ue_per_etudiants) || 0, ei: !!n.epreuve_integree, cases, etat,
+      acquise: !!derniereAcquise, faveur: !!derniereAcquise?.faveur, encours: !!cases[annees.indexOf(annee)]?.encours,
+      inscriteAnnee: insc.some(x => x.ue_num === n.ue_num && x.annee_scolaire === annee),
+      note: derniereAcquise ? (derniereAcquise.faveur ? 10 : (() => { const i = insc.filter(x => x.ue_num === n.ue_num && x.resultat === 'reussi').pop(); return i?.points ?? null; })()) : null };
+  };
+  const acquisDuGraphe = new Set((graphe.nodes || []).filter(n => n.statut === 'acquise').map(n => n.ue_num));
+  const lignes = nodes.map(ligne);
+  // LES AUTRES UNITÉS : suivies, mais hors du cursus de la section.
+  const autresNums = [...new Set([...insc.map(i => i.ue_num), ...vas.map(v => v.ue_num)])].filter(u => !dansCursus.has(u)).sort((a, b) => a - b);
+  const autres = autresNums.map(u => ligne({ ue_num: u, ue_nom: refDe(u).ue_nom, ue_niv: refDe(u).ue_niv }));
+
+  const tous = [...lignes, ...autres];
+  const ectsAcquis = tous.filter(l => l.acquise).reduce((t, l) => t + l.ects, 0);
+  const ectsFaveur = tous.filter(l => l.faveur).reduce((t, l) => t + l.ects, 0);
+  const ectsCursus = lignes.reduce((t, l) => t + l.ects, 0);
+  const ectsInscrits = tous.filter(l => l.inscriteAnnee).reduce((t, l) => t + l.ects, 0);
+  const nbEnCours = tous.filter(l => l.encours).length;
+  let num = 0, den = 0;
+  for (const l of tous) { if (!l.acquise || l.note == null || !l.per) continue; num += Number(l.note) * l.per; den += l.per; }
+  const moyenne = den ? (num / den) : null;
+
+  const couleurBlocP = { BA1: '#E8890C', BA2: '#7FB3D5', BA3: '#1B2B4B' };
+  const texteBloc = b => (b === 'BA2' ? '#1B2B4B' : '#fff');
+  const cellule = c => (!c ? '<td class="n vide">—</td>'
+    : `<td class="n">${c.cls === 'c-vide' ? '<span class="vide">—</span>' : `<span class="cote ${c.cls}">${esc(c.txt)}</span>`}${c.m ? `<span class="m">${esc(c.m)}</span>` : ''}</td>`);
+  const rangee = l => `<tr><td${l.ei ? ' class="ei"' : ''}><b>${l.ue}</b> ${esc(l.nom)}</td><td class="n">${l.ects || '—'}</td>${l.cases.map(cellule).join('')}<td class="etat">${l.etat}</td></tr>`;
+  const groupes = [];
+  for (const l of lignes) {
+    const b = l.ei ? 'EI' : (l.niv || '—');
+    let g = groupes.find(x => x.b === b);
+    if (!g) { g = { b, l: [] }; groupes.push(g); }
+    g.l.push(l);
+  }
+  const nbCol = annees.length + 3;
+  const corpsTable = groupes.map(g => {
+    if (g.b === 'EI') return g.l.map(rangee).join('');
+    const tot = g.l.reduce((t, l) => t + l.ects, 0), acq = g.l.filter(l => l.acquise).reduce((t, l) => t + l.ects, 0),
+      cours = g.l.filter(l => l.encours).reduce((t, l) => t + l.ects, 0);
+    return `<tr class="bloc"><td colspan="${nbCol}" style="background:${couleurBlocP[g.b] || '#64748b'};color:${texteBloc(g.b)}">${esc(g.b)} — ${tot} ECTS · acquis ${acq}${cours ? ` · en cours ${cours}` : ''}</td></tr>`
+      + g.l.map(rangee).join('');
+  }).join('') + (autres.length ? `<tr class="bloc"><td colspan="${nbCol}" style="background:#EEF1F6;color:#1B2B4B">Autres unités suivies — hors du cursus de la section</td></tr>${autres.map(rangee).join('')}` : '');
+
+  const tuile = (v, l, p) => `<div class="tuile"><div class="v">${v}</div><div class="l">${l}</div>${p ? `<div class="p">${p}</div>` : ''}</div>`;
+  const naissance = e.date_naissance ? String(e.date_naissance).replace(/^(\d{4})-(\d{2})-(\d{2})$/, '$3/$2/$1') : null;
+  const svg = schemaSvg(graphe);
+
+  const corps = `
+<div class="bulletin">
+  <div class="etudiant"><div class="nom">${esc(String(e.nom || '').toUpperCase())} ${esc(e.prenom || '')}</div>
+    <div class="d">${[e.id_ecampus || (e.matricule_helb ? `HELB ${e.matricule_helb}` : null), naissance ? `né(e) le ${esc(naissance)}` : null, `section ${esc(section)}`].filter(Boolean).join(' · ')}</div></div>
+  <div class="tuiles">
+    ${tuile(`${ectsAcquis} <span class="sur">/ ${ectsCursus}</span>`, 'ECTS acquis', ectsFaveur ? `dont ${ectsFaveur} par faveur du Conseil` : null)}
+    ${tuile(`${tous.filter(l => l.acquise).length} <span class="sur">/ ${lignes.length}</span>`, 'UE acquises', autres.filter(l => l.acquise).length ? `dont ${autres.filter(l => l.acquise).length} hors cursus` : null)}
+    ${tuile(ectsInscrits, `ECTS inscrits en ${esc(annee)}`, `${tous.filter(l => l.inscriteAnnee).length} UE${nbEnCours ? `, dont ${nbEnCours} en cours` : ''}`)}
+    ${tuile(moyenne == null ? '—' : moyenne.toLocaleString('fr-BE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }), 'Moyenne générale', 'UE acquises, pondérée par les périodes')}
+  </div>
+  <h2>Les unités du cursus, année après année</h2>
+  <table class="ues">
+    <thead><tr><th style="width:40%">Unité d'enseignement</th><th class="n">ECTS</th>${annees.map(a => `<th class="n">${esc(a)}</th>`).join('')}<th>Où en est l'unité</th></tr></thead>
+    <tbody>${corpsTable}</tbody>
+  </table>
+  <div class="legende"><b>NA</b> : non acquis. Aucune cote inférieure à 10/20 ne figure sur un document remis à l'étudiant (circulaire Sanction des études).
+    · <b>S1 / S2</b> : première et seconde session, quand l'unité s'est jouée en deux temps — la cote de la case est celle qui a été retenue.
+    · <b>Faveur</b> : unité accordée par le Conseil des études ; elle vaut 10. · <b>VA</b> : valorisation des acquis. · Les cotes sont sur 20.
+    · La moyenne générale porte sur les unités acquises, pondérées par leurs périodes ; elle seule garde ses décimales.</div>
+  <div class="annexe">
+    <div class="tourne">
+      <div class="doc-cadre" style="margin-top:0"><div class="doc-cadre-t">Annexe — Schéma de capitalisation</div>
+        <div class="doc-cadre-s">${esc(String(e.nom || '').toUpperCase())} ${esc(e.prenom || '')} · ${esc(section)} · état au ${esc(annee)}</div></div>
+      <div class="legende-schema">${legendeSchemaHtml()}</div>
+      ${svg}
+    </div>
+  </div>
+</div>`;
+
+  const html = envelopperDocument({
+    html: corps, titre: `Bulletin de parcours — ${e.nom} ${e.prenom || ''}`,
+    entete: { titre: 'Bulletin de parcours', sous: sec.libelle && sec.libelle !== section ? `${sec.libelle} (${section})` : section,
+      ligne: annees.length ? `De ${annees[0]} à ${annees[annees.length - 1]} · arrêté le ${new Date().toLocaleDateString('fr-BE')}` : null },
+    styles: `
+.bulletin{font-size:8.5pt;color:#1B2B4B}
+.etudiant{background:#eff6ff;border-left:.6mm solid #1B2B4B;padding:2.5mm 3.5mm;margin:0 0 4mm;display:flex;justify-content:space-between;align-items:baseline;gap:4mm}
+.etudiant .nom{font-size:11pt;font-weight:700}
+.etudiant .d{font-size:8pt;color:#475569}
+.tuiles{display:grid;grid-template-columns:repeat(4,1fr);gap:3mm;margin:0 0 4mm}
+.tuile{border:.3mm solid #D8DCE4;border-left:1.6mm solid #C9A84C;border-radius:0 1.5mm 1.5mm 0;padding:1.6mm 2.6mm;background:#FAFAFB}
+.tuile .v{font-size:11pt;font-weight:700;line-height:1.15}
+.tuile .v .sur{font-size:8.5pt;font-weight:400}
+.tuile .l{font-size:7.5pt}
+.tuile .p{font-size:6.8pt;color:#8A93A3}
+h2{font-size:9.5pt;margin:4mm 0 1.8mm;color:#1B2B4B}
+table.ues{width:100%;border-collapse:collapse;font-size:7.8pt}
+table.ues th{text-align:left;font-size:6.8pt;text-transform:uppercase;letter-spacing:.04em;color:#475569;background:#F1F4F9;padding:1.4mm 1.8mm;border-bottom:.3mm solid #D8DCE4}
+table.ues td{padding:1.3mm 1.8mm;border-bottom:.2mm solid #E4E7EC;vertical-align:middle}
+table.ues tr{break-inside:avoid}
+table.ues tr.bloc td{font-weight:700;font-size:7.8pt;padding:1mm 1.8mm}
+table.ues td.ei{border-left:1mm solid #C9A227}
+.n{text-align:center;white-space:nowrap}
+.cote{display:inline-block;min-width:8mm;text-align:center;font-weight:700;border-radius:1mm;padding:.35mm 1mm;color:#fff;font-size:7.5pt}
+.c-ok{background:#3E7D5E}.c-fav{background:#6B46C1}.c-na{background:#9D4A38}
+.c-cours{background:#fff;color:#2F6FB0;border:.3mm solid #2F6FB0}
+.m{display:block;font-size:6.3pt;color:#64748b;margin-top:.3mm}
+.vide{color:#cbd5e1}
+.gris{color:#8A93A3}
+.etat{font-size:7.3pt}
+.legende{font-size:6.8pt;color:#475569;margin-top:2mm;line-height:1.5}
+/* L'ANNEXE : une page à elle, le schéma tourné d'un quart de tour pour tenir en largeur. */
+.annexe{break-before:page;page-break-before:always;height:235mm;position:relative;overflow:hidden}
+.tourne{position:absolute;top:0;left:0;width:235mm;transform-origin:top left;transform:translate(0,235mm) rotate(-90deg)}
+.tourne svg{width:100%;height:auto;max-height:160mm;display:block;margin-top:2mm}
+.legende-schema{font-size:6.8pt;color:#475569;margin:2mm 0;line-height:1.8}`,
+  });
+  return { html, nom: `Bulletin_${e.nom}_${e.prenom || ''}_${annee}`, titre: 'Bulletin de parcours', etudiant: e, section };
+}
+
+/**
+ * LES PIÈCES DU DOSSIER, EN NOMBRE (Charles, 1er octobre 2026 : « TOUT doit
+ * pouvoir sortir du centre d'impression, et en grand nombre avec envoi direct.
+ * Les annexes 1 et 2, c'est pour les étudiants en SLE »).
+ *
+ * Le lot de délibération ne connaît que des pièces PAR UNITÉ. Celles-ci sont
+ * PAR ÉTUDIANT : le bulletin de parcours, et les deux annexes de l'Office des
+ * Étrangers. Un document par pièce et par étudiant — jamais une enveloppe à
+ * vingt noms, puisqu'on l'envoie.
+ *
+ * LES ANNEXES NE VONT QU'AUX ÉTUDIANTS EN SÉJOUR LIMITÉ AUX ÉTUDES : les autres
+ * sont écartés, et NOMMÉS — un étudiant qui manque sans qu'on dise pourquoi est
+ * un étudiant qu'on croit avoir servi. Ce qui est une appréciation de la
+ * direction (motif de l'annexe 2, raisons d'un programme sous 54 crédits) reste
+ * en pointillés, comme sur la pièce tirée seule.
+ */
+r.post('/pieces-dossier-lot', authRequired, async (req, res) => {
+  const b = req.body || {};
+  const annee = b.annee || anneeDeTravail(req);
+  const ids = (Array.isArray(b.etudiants) ? b.etudiants : []).map(Number).filter(Boolean);
+  const veut = { bulletin: b.bulletin === true, annexe1: b.annexe1 === true, annexe2: b.annexe2 === true };
+  if (!ids.length) return res.status(400).json({ error: 'aucun étudiant coché' });
+  if (!Object.values(veut).some(Boolean)) return res.status(400).json({ error: 'aucune pièce demandée' });
+  const peutAnnexes = ['admin', 'directeur', 'directeur_adjoint', 'editeur', 'secretariat'].includes(req.user?.role);
+  if ((veut.annexe1 || veut.annexe2) && !peutAnnexes) {
+    return res.status(403).json({ error: "Les annexes de l'Office des Étrangers sont réservées au secrétariat et à la direction." });
+  }
+  const { documentAnnexe1 } = await import('./annexe1.js');
+  const { documentAnnexe2 } = await import('./annexe2.js');
+  const permises = perimetre(req);
+  const slug = t => String(t || '').normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .replace(/[^A-Za-z0-9]+/g, '_').replace(/^_|_$/g, '');
+  const documents = [], manques = [], horsSLE = [];
+  for (const id of ids) {
+    const e = db.prepare('SELECT id, nom, prenom, sejour_limite_etudes, section_rattachement FROM etudiant WHERE id = ?').get(id);
+    if (!e) continue;
+    if (permises) {
+      const toutes = [...new Set([...sectionsDeLEtudiant(id, null).sections, ...(e.section_rattachement ? [e.section_rattachement] : [])])];
+      if (toutes.length && !toutes.some(s => permises.includes(s))) continue;
+    }
+    const nomE = `${e.nom} ${e.prenom || ''}`.trim();
+    const base = `${slug(e.nom)}_${slug(e.prenom)}_${String(annee).replace(/\W/g, '')}`;
+    const pousser = (piece, d, opts, contenu) => documents.push({
+      etudiant_id: e.id, etudiant: nomE, piece, contenu, nom: `${piece === 'bulletin' ? 'Bulletin' : piece === 'annexe1' ? 'Annexe1' : 'Annexe2'}_${base}`,
+      html: d.html, ...opts });
+    if (veut.bulletin) {
+      try {
+        const d = documentBulletin(e.id, annee);
+        if (d.erreur) manques.push(`${nomE} — bulletin : ${d.erreur}`);
+        else pousser('bulletin', d, { pagination: 'si-plusieurs', pied: true }, `Bulletin de parcours — ${annee}`);
+      } catch (err) { manques.push(`${nomE} — bulletin : ${err.message}`); }
+    }
+    if (veut.annexe1 || veut.annexe2) {
+      if (!Number(e.sejour_limite_etudes)) { horsSLE.push(nomE); continue; }
+      if (veut.annexe1) {
+        const d = documentAnnexe1({ etudiant_id: e.id, annee, date_document: b.date_document || undefined });
+        if (d.erreur) manques.push(`${nomE} — annexe 1 : ${d.erreur}`);
+        else pousser('annexe1', d, { pagination: 'jamais', pied: false }, `Annexe 1 — visa ou titre de séjour étudiant — ${annee}`);
+      }
+      if (veut.annexe2) {
+        const d = documentAnnexe2({ etudiant_id: e.id, annee, avis: 'Néant', date_document: b.date_document || undefined });
+        if (d.erreur) manques.push(`${nomE} — annexe 2 : ${d.erreur}`);
+        else pousser('annexe2', d, { pagination: 'jamais', pied: false }, `Annexe 2 — progrès des études — ${annee}`);
+      }
+    }
+  }
+  if (!documents.length) {
+    return res.status(400).json({ error: horsSLE.length && !veut.bulletin
+      ? "Aucun des étudiants cochés n'est en séjour limité aux études : les annexes 1 et 2 ne les concernent pas."
+      : 'Aucune pièce produite.', manques, hors_sle: horsSLE });
+  }
+  res.json({ documents, manques, hors_sle: horsSLE });
+});
+
+r.get('/:id/bulletin/document', authRequired, (req, res) => {
+  if (!etudiantPermis(req, res, Number(req.params.id))) return;
+  const d = documentBulletin(Number(req.params.id), req.query.annee || anneeDeTravail(req));
+  if (d.erreur) return res.status(d.code || 400).json({ error: d.erreur });
+  res.json({ html: d.html, nom: d.nom, titre: d.titre });
+});
 
 r.get('/:id/fiche-parcours/document', authRequired, (req, res) => {
   const d = documentParcours(Number(req.params.id),

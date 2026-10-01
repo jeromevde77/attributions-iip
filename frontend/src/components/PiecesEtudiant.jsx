@@ -98,6 +98,8 @@ export default function PiecesEtudiant({ etud, annee }) {
       { cle: 'att-toutes', icone: IconCertificate, titre: 'Attestations de réussite — toutes les années', sous: 'Tout le parcours, en un document',
         clic: () => apercu('att-toutes', `/api/attestations/etudiant/${id}/document?annee=toutes`, 'Attestations de réussite — toutes les années', 'attestation_reussite') },
       { cle: 'pdfs', icone: IconFileZip, titre: 'Attestations de réussite — un PDF par unité', sous: 'Toutes les années, une archive', clic: archive },
+      { cle: 'bulletin', icone: IconFileText, titre: 'Bulletin de parcours', sous: 'Toutes les UE, année après année, et le schéma en annexe',
+        clic: () => apercu('bulletin', `/api/etudiants/${id}/bulletin/document?annee=${a}`, 'Bulletin de parcours', 'bulletin') },
       { cle: 'parcours', icone: IconFileText, titre: 'Parcours de formation', sous: 'Schéma de capitalisation et unités acquises',
         clic: () => apercu('parcours', `/api/etudiants/${id}/fiche-parcours/document?annee=${a}`, 'Parcours de formation', 'parcours', { orientation: 'paysage' }) },
       { cle: 'motivation', icone: IconFileText, titre: 'Motiver un refus ou un ajournement', sous: 'Annexes 8 et 9 — par acquis',

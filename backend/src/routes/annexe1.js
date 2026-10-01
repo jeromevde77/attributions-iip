@@ -75,12 +75,13 @@ r.get('/donnees/:etudiantId', authRequired, (req, res) => {
   });
 });
 
-r.post('/document', authRequired, roleRequired('admin', 'directeur', 'directeur_adjoint', 'editeur', 'secretariat'), (req, res) => {
-  const b = req.body || {};
+/** La pièce, composée hors de la route : le lot du centre d'impression la tire aussi. */
+export function documentAnnexe1(body) {
+  const b = body || {};
   const e = db.prepare('SELECT * FROM etudiant WHERE id = ?').get(b.etudiant_id);
-  if (!e) return res.status(404).json({ error: 'étudiant introuvable' });
+  if (!e) return { code: 404, erreur: 'étudiant introuvable' };
   const annee = String(b.annee || '');
-  if (!/^\d{4}-\d{4}$/.test(annee)) return res.status(400).json({ error: 'année requise' });
+  if (!/^\d{4}-\d{4}$/.test(annee)) return { code: 400, erreur: 'année requise' };
   const situation = SITUATIONS[b.situation] ? b.situation : 'definitive';
   const ident = identiteEtablissement();
   const f = formation(e.id, annee);
@@ -208,7 +209,13 @@ r.post('/document', authRequired, roleRequired('admin', 'directeur', 'directeur_
 .a1 .notes{margin-top:4mm;border-top:0.4pt solid #000;padding-top:1.5mm}
 .a1 .notes p{font-size:7.5pt;margin:0 0 0.8mm;line-height:1.25}`,
   });
-  res.json({ html, manques: [] });
+  return { html, manques: [] };
+}
+
+r.post('/document', authRequired, roleRequired('admin', 'directeur', 'directeur_adjoint', 'editeur', 'secretariat'), (req, res) => {
+  const d = documentAnnexe1(req.body);
+  if (d.erreur) return res.status(d.code || 400).json({ error: d.erreur });
+  res.json(d);
 });
 
 export default r;

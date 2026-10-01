@@ -1,7 +1,8 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { IconSend, IconX, IconDownload, IconMail } from '@tabler/icons-react';
 import EnvoiMailModal from './EnvoiMailModal.jsx';
 import { useEnvoiMail } from '../lib/envoiMail.js';
+import { authHeaders } from '../lib/api.js';
 
 /**
  * Modale d'aperçu d'un document HTML avant impression / sauvegarde PDF.
@@ -24,6 +25,26 @@ export default function PreviewModal({ html, titre = 'Document', sousTitre, nomF
                                        astuceImpression = "⊞ Choisir « Paysage » à l'impression" }) {
   const iframeRef = useRef(null);
   const [pret, setPret] = useState(false);
+  /* LA SIGNATURE NE SORT JAMAIS NUE (1er octobre 2026 : « ma signature doit
+     toujours être avec la protection fac-similé »). Ce qui s'AFFICHE et
+     s'IMPRIME ici porte le fac-similé, posé par le serveur
+     (lib/protectionSignature.js) ; tant qu'il n'est pas arrivé, la signature
+     est masquée. L'ENVOI garde l'original : il pose son propre fac-similé,
+     au nom du destinataire. */
+  const signe = /class="paraphe"/.test(html || '') && /--paraphe\s*:\s*url\(/.test(html || '');
+  const masque = signe ? String(html).replace(/--paraphe\s*:\s*url\([^)]*\)/g, '--paraphe:none') : html;
+  const [htmlAffiche, setHtmlAffiche] = useState(masque);
+  useEffect(() => {
+    setHtmlAffiche(masque);
+    if (!signe) return;
+    let vivant = true;
+    fetch('/api/impression/proteger', { method: 'POST', headers: authHeaders(),
+      body: JSON.stringify({ html, piece: [titre, sousTitre].filter(Boolean).join(' — ') || nomFichier || 'Document',
+        destinataire_nom: destinataire?.nom || null }) })
+      .then(r => (r.ok ? r.json() : null)).then(j => { if (vivant && j?.html) setHtmlAffiche(j.html); }).catch(() => {});
+    return () => { vivant = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [html]);
   const [envoi, setEnvoi] = useState(false);
   const envoiMail = useEnvoiMail();
 
@@ -47,7 +68,7 @@ export default function PreviewModal({ html, titre = 'Document', sousTitre, nomF
     }
 
     w.document.open();
-    w.document.write(html);
+    w.document.write(htmlAffiche);
     w.document.close();
     try { w.document.title = nomFichier || titre; } catch { /* sans conséquence */ }
 
@@ -116,7 +137,7 @@ export default function PreviewModal({ html, titre = 'Document', sousTitre, nomF
         {/* ── iframe ── */}
         <iframe
           ref={iframeRef}
-          srcDoc={html}
+          srcDoc={htmlAffiche}
           onLoad={() => setPret(true)}
           title={nomFichier || titre}
           className="flex-1 w-full border-0 bg-gray-100"

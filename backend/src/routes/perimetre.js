@@ -119,7 +119,7 @@ r.post('/etudiants', authRequired, (req, res) => {
 
   const marques = liste.map(() => '?').join(',');
   const inscrits = db.prepare(`
-    SELECT i.etudiant_id, i.ue_num, e.nom, e.prenom
+    SELECT i.etudiant_id, i.ue_num, e.nom, e.prenom, COALESCE(e.sejour_limite_etudes, 0) AS sle
     FROM etudiant_inscription i JOIN etudiant e ON e.id = i.etudiant_id
     WHERE i.annee_scolaire = ? AND i.ue_num IN (${marques})
     ORDER BY e.nom, e.prenom, i.ue_num`).all(annee, ...liste);
@@ -143,7 +143,7 @@ r.post('/etudiants', authRequired, (req, res) => {
     if (!suitLeCours(i.etudiant_id, i.ue_num)) continue;
     if (!parEtud.has(i.etudiant_id)) {
       parEtud.set(i.etudiant_id, {
-        id: i.etudiant_id, nom: i.nom, prenom: i.prenom, unites: [],
+        id: i.etudiant_id, nom: i.nom, prenom: i.prenom, sle: !!Number(i.sle), unites: [],
       });
     }
     const d = decisionDeSession(i.etudiant_id, i.ue_num, annee, session);

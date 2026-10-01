@@ -70,6 +70,17 @@ const PIECES = [
   { cle: 'grille', label: 'Grille de délibération', nominatif: false },
 ];
 
+/* LES PIÈCES DU DOSSIER — par étudiant, non par unité (1er octobre 2026 :
+   « TOUT doit pouvoir sortir de là, en grand nombre, avec envoi direct »).
+   Elles ne demandent pas de décision de session : tout étudiant du périmètre
+   peut les recevoir. Les annexes ne vont qu'aux étudiants en séjour limité aux
+   études (SLE) — le serveur écarte les autres et les nomme. */
+const PIECES_DOSSIER = [
+  { cle: 'bulletin', label: 'Bulletin de parcours' },
+  { cle: 'annexe1', label: 'Annexe 1 — visa ou titre de séjour', sle: true },
+  { cle: 'annexe2', label: 'Annexe 2 — progrès des études', sle: true },
+];
+
 /* ══ LA VALORISATION DES ACQUIS, DEPUIS ÉDITIONS ══════════════════════════
  *
  * Les pièces de valorisation ne se sortaient QUE depuis la fiche d'un
@@ -1219,7 +1230,7 @@ function UnEtudiantToutesAnnees({ annee }) {
           </div>
         )}
       </div>
-      <div className="text-[11px] text-slate-400">Attestations, parcours, fiche d'inscription, annexes de l'Office des
+      <div className="text-[11px] text-slate-400">Attestations, bulletin, parcours, fiche d'inscription, annexes de l'Office des
         Étrangers, congé-éducation, aménagements raisonnables — pour l'année {annee}.</div>
       {choisi && createPortal(
         <Fenetre icone={IconSchool} titre={`Pièces — ${nomPropre(choisi.nom, choisi.prenom)}`} large="grande"
@@ -1317,30 +1328,57 @@ function OngletEtudiants({ perimetre = null }) {
     return q ? l.filter(e => `${e.nom} ${e.prenom}`.toLowerCase().includes(q)) : l;
   }, [liste, recherche]);
 
+  /** Les pièces du dossier (bulletin, annexes) des étudiants cochés. */
+  async function piecesDossier() {
+    const demandees = PIECES_DOSSIER.filter(p => choix[p.cle]);
+    if (!demandees.length) return { documents: [], avis: [] };
+    const rep = await fetch('/api/etudiants/pieces-dossier-lot', {
+      method: 'POST', headers: authHeaders(),
+      body: JSON.stringify({ annee, etudiants: [...coches], ...Object.fromEntries(demandees.map(p => [p.cle, true])) }),
+    });
+    const j = await rep.json().catch(() => ({}));
+    if (!rep.ok) throw new Error(j.error || `Erreur ${rep.status}`);
+    const avis = [...(j.manques || [])];
+    if (j.hors_sle?.length) avis.push(`annexes non produites — pas en séjour limité aux études : ${j.hors_sle.slice(0, 6).join(', ')}${j.hors_sle.length > 6 ? ` et ${j.hors_sle.length - 6} autre(s)` : ''}`);
+    return { documents: j.documents || [], avis };
+  }
+
   async function produire() {
     setEnCours(true); setErreur(null);
     try {
-      const rep = await fetch('/api/acquis/deliberation/documents-lot', {
-        method: 'POST', headers: authHeaders(),
-        body: JSON.stringify({
-          annee, session, separer,
-          // La feuille de délibération ouvre le centre SUR UNE ORGANISATION :
-          // ses pièces — PV, grille, notifications — ne portent alors qu'elle.
-          org: perimetre?.org ?? undefined,
-          ue_nums: (liste?.unites || []).map(u => u.ue_num),
-          etudiants: [...coches],
-          ...choix,
-        }),
-      });
-      const j = await rep.json();
-      if (!rep.ok) { setErreur(j.error); return; }
-      if (j.manques?.length) {
-        setErreur(`${j.pieces} pièce(s), mais : ${j.manques.slice(0, 4).join(' · ')}`
-          + (j.manques.length > 4 ? ' …' : ''));
+      const avis = [];
+      let tout = [];
+      if (delibChoisie) {
+        const rep = await fetch('/api/acquis/deliberation/documents-lot', {
+          method: 'POST', headers: authHeaders(),
+          body: JSON.stringify({
+            annee, session,
+            // Avec des pièces du dossier, tout part en un document par étudiant :
+            // un bulletin ne se coud pas dans l'enveloppe d'une délibération.
+            separer: separer || dossierChoisi.length > 0,
+            // La feuille de délibération ouvre le centre SUR UNE ORGANISATION :
+            // ses pièces — PV, grille, notifications — ne portent alors qu'elle.
+            org: perimetre?.org ?? undefined,
+            ue_nums: (liste?.unites || []).map(u => u.ue_num),
+            etudiants: [...coches].filter(id => etudiants.find(e => e.id === id)?.decide),
+            ...Object.fromEntries(PIECES.map(p => [p.cle, !!choix[p.cle]])),
+          }),
+        });
+        const j = await rep.json();
+        if (!rep.ok) { if (!dossierChoisi.length) { setErreur(j.error); return; } avis.push(j.error); }
+        else {
+          if (j.manques?.length) avis.push(`${j.pieces} pièce(s), mais : ${j.manques.slice(0, 4).join(' · ')}${j.manques.length > 4 ? ' …' : ''}`);
+          tout = j.separes
+            ? [...(j.collectif ? [j.collectif] : []), ...j.documents]
+            : [{ nom: (j.nom || 'documents').replace(/\.html$/, ''), html: j.html }];
+          tout = tout.map(d => ({ html: d.html, nom: d.nom, pagination: 'si-plusieurs' }));
+        }
       }
-      const tout = j.separes
-        ? [...(j.collectif ? [j.collectif] : []), ...j.documents]
-        : [{ nom: (j.nom || 'documents').replace(/\.html$/, ''), html: j.html }];
+      const dossier = await piecesDossier();
+      avis.push(...dossier.avis);
+      tout.push(...dossier.documents.map(d => ({ html: d.html, nom: d.nom, pagination: d.pagination, pied: d.pied, etudiant: d.etudiant })));
+      if (avis.length) setErreur(avis.join(' · '));
+      if (!tout.length) { if (!avis.length) setErreur('Aucune pièce à produire.'); return; }
       /* UNE DEMANDE, UNE ARCHIVE (29 septembre 2026 : « terriblement lent »).
          Les PDF se demandaient un par un et se téléchargeaient un par un ; le
          serveur les rend désormais en parallèle et renvoie un seul zip. Une
@@ -1352,17 +1390,18 @@ function OngletEtudiants({ perimetre = null }) {
         document.body.appendChild(a); a.click(); a.remove();
         setTimeout(() => URL.revokeObjectURL(url), 30000);
       };
+      const nomLot = `Pieces_${String(annee).replace(/\W/g, '')}`;
       if (tout.length === 1) {
         const rp = await fetch('/api/impression/pdf', { method: 'POST', headers: authHeaders(),
-          body: JSON.stringify({ html: tout[0].html, nom: tout[0].nom, pagination: 'si-plusieurs' }) });
+          body: JSON.stringify({ html: tout[0].html, nom: tout[0].nom, pagination: tout[0].pagination || 'si-plusieurs',
+            pied: tout[0].pied !== false, destinataire_nom: tout[0].etudiant || null }) });
         if (!rp.ok) { const e = await rp.json().catch(() => ({})); setErreur(e.error || 'PDF non produit.'); return; }
         telecharger(await rp.blob(), `${tout[0].nom}.pdf`);
       } else {
         const rp = await fetch('/api/impression/pdfs', { method: 'POST', headers: authHeaders(),
-          body: JSON.stringify({ nom: (j.nom || 'pieces').replace(/\.html$/, ''),
-            documents: tout.map(d => ({ html: d.html, nom: d.nom, pagination: 'si-plusieurs' })) }) });
+          body: JSON.stringify({ nom: nomLot, documents: tout }) });
         if (!rp.ok) { const e = await rp.json().catch(() => ({})); setErreur(e.error || 'Les PDF n\u2019ont pas pu être produits.'); return; }
-        telecharger(await rp.blob(), `${(j.nom || 'pieces').replace(/\.html$/, '')}.zip`);
+        telecharger(await rp.blob(), `${nomLot}.zip`);
       }
     } catch (e) { setErreur(e.message); }
     finally { setEnCours(false); }
@@ -1382,55 +1421,74 @@ function OngletEtudiants({ perimetre = null }) {
   async function envoyer() {
     setEnCours(true); setErreur(null);
     try {
-      const rep = await fetch('/api/acquis/deliberation/documents-lot', {
-        method: 'POST', headers: authHeaders(),
-        body: JSON.stringify({
-          annee, session, separer: true,
-          org: perimetre?.org ?? undefined,
-          ue_nums: (liste?.unites || []).map(u => u.ue_num),
-          etudiants: [...coches],
-          ...choix,
-        }),
-      });
-      const j = await rep.json();
-      if (!rep.ok) { setErreur(j.error); return; }
+      const pieces = [];
+      const avis = [];
+      if (delibChoisie) {
+        const rep = await fetch('/api/acquis/deliberation/documents-lot', {
+          method: 'POST', headers: authHeaders(),
+          body: JSON.stringify({
+            annee, session, separer: true,
+            org: perimetre?.org ?? undefined,
+            ue_nums: (liste?.unites || []).map(u => u.ue_num),
+            etudiants: [...coches].filter(id => etudiants.find(e => e.id === id)?.decide),
+            ...Object.fromEntries(PIECES.map(p => [p.cle, !!choix[p.cle]])),
+          }),
+        });
+        const j = await rep.json();
+        if (!rep.ok) { if (!dossierChoisi.length) { setErreur(j.error); return; } avis.push(j.error); }
+        else {
+          pieces.push(...(j.documents || []).map(d => ({
+            html: d.html, nom_fichier: d.nom, contenu: d.contenu,
+            destinataire: { type: 'etudiant', id: d.etudiant_id, nom: d.etudiant },
+          })));
 
-      const pieces = (j.documents || []).map(d => ({
-        html: d.html, nom_fichier: d.nom, contenu: d.contenu,
-        destinataire: { type: 'etudiant', id: d.etudiant_id, nom: d.etudiant },
-      }));
-
-      if (j.collectif) {
-        // Une pièce du Conseil se rattache à UNE unité : sans elle, on ne sait
-        // pas quelle composition interroger. Quand le périmètre en porte
-        // plusieurs, on ne devine pas — on le dit.
-        const unites = (liste?.unites || []).map(u => u.ue_num);
-        if (unites.length !== 1) {
-          setErreur("Les pièces du Conseil ne s'envoient que pour une unité à la "
-            + `fois (${unites.length} dans ce périmètre) : restreignez le périmètre, `
-            + 'ou décochez-les.');
-          return;
-        }
-        const rd = await fetch('/api/envois/destinataires?regle=conseil'
-          + `&ue=${unites[0]}&annee=${encodeURIComponent(annee)}`,
-          { headers: authHeaders() });
-        for (const m of (rd.ok ? await rd.json() : [])) {
-          pieces.push({
-            html: j.collectif.html, nom_fichier: j.collectif.nom,
-            contenu: `Session ${session} — UE ${unites[0]} : pièces du Conseil (${PIECES
-              .filter(x => (j.collectif.pieces || []).includes(x.cle)).map(x => x.label.toLowerCase()).join(', ') || (j.collectif.pieces || []).join(', ')})`,
-            destinataire: { type: m.type, id: m.id, nom: m.nom, email: m.email || '' },
-          });
+          if (j.collectif) {
+            // Une pièce du Conseil se rattache à UNE unité : sans elle, on ne sait
+            // pas quelle composition interroger. Quand le périmètre en porte
+            // plusieurs, on ne devine pas — on le dit.
+            const unites = (liste?.unites || []).map(u => u.ue_num);
+            if (unites.length !== 1) {
+              setErreur("Les pièces du Conseil ne s'envoient que pour une unité à la "
+                + `fois (${unites.length} dans ce périmètre) : restreignez le périmètre, `
+                + 'ou décochez-les.');
+              return;
+            }
+            const rd = await fetch('/api/envois/destinataires?regle=conseil'
+              + `&ue=${unites[0]}&annee=${encodeURIComponent(annee)}`,
+              { headers: authHeaders() });
+            for (const m of (rd.ok ? await rd.json() : [])) {
+              pieces.push({
+                html: j.collectif.html, nom_fichier: j.collectif.nom,
+                contenu: `Session ${session} — UE ${unites[0]} : pièces du Conseil (${PIECES
+                  .filter(x => (j.collectif.pieces || []).includes(x.cle)).map(x => x.label.toLowerCase()).join(', ') || (j.collectif.pieces || []).join(', ')})`,
+                destinataire: { type: m.type, id: m.id, nom: m.nom, email: m.email || '' },
+              });
+            }
+          }
         }
       }
-
-      if (!pieces.length) { setErreur('Aucune pièce à envoyer.'); return; }
+      // Les pièces du dossier vont à l'étudiant qu'elles nomment, une par courriel.
+      const dossier = await piecesDossier();
+      avis.push(...dossier.avis);
+      pieces.push(...dossier.documents.map(d => ({
+        html: d.html, nom_fichier: d.nom, contenu: d.contenu,
+        destinataire: { type: 'etudiant', id: d.etudiant_id, nom: d.etudiant },
+      })));
+      if (avis.length) setErreur(avis.join(' · '));
+      if (!pieces.length) { if (!avis.length) setErreur('Aucune pièce à envoyer.'); return; }
       setEnvoi(pieces);
     } catch (e) { setErreur(e.message); }
     finally { setEnCours(false); }
   }
 
   const rien = !sections.size && !ues.size && !cours.size;
+  const dossierChoisi = PIECES_DOSSIER.filter(p => choix[p.cle]);
+  const delibChoisie = PIECES.some(p => choix[p.cle]);
+  const seulementSLE = dossierChoisi.length > 0 && dossierChoisi.every(p => p.sle) && !delibChoisie;
+  // Un étudiant sans décision n'a rien à recevoir de la délibération, mais son
+  // bulletin et ses annexes, si : il devient cochable dès qu'une pièce du
+  // dossier est demandée.
+  const cochable = e => (seulementSLE ? e.sle : (e.decide || dossierChoisi.length > 0));
 
   return (
     <div className="flex min-h-0 flex-1">
@@ -1539,7 +1597,7 @@ function OngletEtudiants({ perimetre = null }) {
               placeholder="Un nom…"
               className="pl-7 pr-2 py-1 text-[12px] border border-slate-300 rounded-lg w-48" />
           </div>
-          <button onClick={() => setCoches(new Set(etudiants.filter(e => e.decide).map(e => e.id)))}
+          <button onClick={() => setCoches(new Set(etudiants.filter(cochable).map(e => e.id)))}
             className="text-[12px] text-iip-blue underline">tout cocher</button>
           <button onClick={() => setCoches(new Set())}
             className="text-[12px] text-slate-500 underline">tout décocher</button>
@@ -1568,6 +1626,21 @@ function OngletEtudiants({ perimetre = null }) {
                   className="w-3.5 h-3.5 accent-iip-blue" />
                 {p.label}
                 {!p.nominatif && <span className="text-[10px] text-slate-400">collectif</span>}
+              </label>
+            ))}
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-[11px] text-slate-500">Pièces du dossier :</span>
+            {PIECES_DOSSIER.map(p => (
+              <label key={p.cle}
+                className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border
+                  cursor-pointer text-[12px] ${choix[p.cle]
+                    ? 'border-iip-blue bg-iip-blue/5' : 'border-slate-200 text-slate-600'}`}>
+                <input type="checkbox" checked={!!choix[p.cle]}
+                  onChange={() => setChoix(c => ({ ...c, [p.cle]: !c[p.cle] }))}
+                  className="w-3.5 h-3.5 accent-iip-blue" />
+                {p.label}
+                {p.sle && <span className="text-[10px] text-slate-400">SLE</span>}
               </label>
             ))}
           </div>
@@ -1621,12 +1694,13 @@ function OngletEtudiants({ perimetre = null }) {
           {etudiants.map(e => (
             <label key={e.id}
               className={`flex items-center gap-2 px-3 py-1.5 border-b border-slate-100
-                          cursor-pointer ${e.decide ? '' : 'opacity-50'}`}>
-              <input type="checkbox" checked={coches.has(e.id)} disabled={!e.decide}
+                          cursor-pointer ${cochable(e) ? '' : 'opacity-50'}`}>
+              <input type="checkbox" checked={coches.has(e.id)} disabled={!cochable(e)}
                 onChange={() => setCoches(s => bascule(s, e.id))}
                 className="w-4 h-4 accent-iip-blue" />
               <span className="flex-1 min-w-0">
                 <span className="text-[13px] font-medium">{nomPropre(e.nom, e.prenom)}</span>
+                {e.sle && <span className="ml-1.5 text-[10px] font-semibold text-white bg-iip-blue rounded px-1 py-px">SLE</span>}
                 <span className="block text-[11px] text-slate-500">
                   {e.decide
                     ? `${e.reussites} réussite(s) · ${e.echecs} échec(s) sur ${e.unites.length} unité(s)`
@@ -1643,8 +1717,8 @@ function OngletEtudiants({ perimetre = null }) {
         <EnvoiMailModal
           pieces={envoi}
           typeDoc="deliberation_lot"
-          sujet={`Documents de délibération — ${annee}`}
-          contenu={`Délibération ${annee} · session ${session} · UE ${(liste?.unites || []).map(u => u.ue_num).join(', ')} · ${PIECES.filter(x => choix[x.cle]).map(x => x.label.toLowerCase()).join(', ')}`}
+          sujet={delibChoisie ? `Documents de délibération — ${annee}` : `Documents — ${annee}`}
+          contenu={`${delibChoisie ? `Délibération ${annee} · session ${session} · UE ${(liste?.unites || []).map(u => u.ue_num).join(', ')}` : annee} · ${[...PIECES, ...PIECES_DOSSIER].filter(x => choix[x.cle]).map(x => x.label.toLowerCase()).join(', ')}`}
           onClose={() => setEnvoi(null)} />
       )}
     </div>

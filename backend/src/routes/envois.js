@@ -17,7 +17,8 @@ import db from '../db/index.js';
 import { authRequired, roleRequired } from '../middleware/auth.js';
 import { capacitePdf, rendrePdf } from '../services/pdf.js';
 import { preparerPourCourriel, variableImage } from '../lib/courrielPiece.js';
-import { signatureFiligranee, nouvelleReference } from '../services/filigrane.js';
+import { nouvelleReference } from '../services/filigrane.js';
+import { protegerSignature } from '../lib/protectionSignature.js';
 import { getParam } from './parametres.js';
 import { envoyerEmail, mailerConfigure, lireConfigSmtp, ecrireConfigSmtp, verifierSmtp } from '../services/mailer.js';
 
@@ -93,17 +94,11 @@ function decompacter(gz) {
 const empreinte = buf => createHash('sha256').update(buf).digest('hex');
 
 /** Refait la signature filigranée d'un envoi, à l'identique : même pièce,
- *  même destinataire, même date, même référence. */
+ *  même destinataire, même date, même référence (lib/protectionSignature.js —
+ *  la même protection que le PDF et l'aperçu). */
 async function signer(html, { sujet, destinataire, jour, reference }) {
-  const aParaphe = /class="cloture(?![^"]*sans-paraphe)[^"]*"/.test(html || '')
-    && /class="paraphe"/.test(html || '');
-  const nue = aParaphe ? variableImage(html, 'paraphe') : null;
-  const filigrane = nue ? await signatureFiligranee(nue, {
-    piece: sujet, destinataire, date: jour, reference }) : null;
-  const htmlSigne = !aParaphe ? html
-    : String(html).replace(/--paraphe\s*:\s*url\([^)]*\)/g, filigrane
-      ? `--paraphe:url("data:image/png;base64,${filigrane.toString('base64')}")` : '--paraphe:none');
-  return { htmlSigne, filigrane };
+  const r = await protegerSignature(html, { piece: sujet, destinataire, jour, reference });
+  return { htmlSigne: r.htmlSigne, filigrane: r.filigrane };
 }
 
 const ADRESSE_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
