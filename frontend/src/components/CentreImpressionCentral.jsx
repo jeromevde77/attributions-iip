@@ -1202,10 +1202,10 @@ function SeriePersonnel({ ids, profs, annee, annexes, nom, outilsMembre = null }
 /* UN ÉTUDIANT, TOUTES SES PIÈCES (Charles, 29 septembre 2026 : « je dois
    pouvoir sortir TOUS les documents étudiants depuis Éditions »). On le
    choisit, et la liste commune de ses pièces s'ouvre — la même que sur sa fiche. */
-function UnEtudiantToutesAnnees({ annee }) {
+function UnEtudiantToutesAnnees({ annee, choisi, onChoisir }) {
   const [q, setQ] = useState('');
   const [trouves, setTrouves] = useState([]);
-  const [choisi, setChoisi] = useState(null);
+  const setChoisi = e => onChoisir(e);
   useEffect(() => {
     if (q.trim().length < 2 || choisi) { setTrouves([]); return; }
     const t = setTimeout(() => {
@@ -1232,11 +1232,10 @@ function UnEtudiantToutesAnnees({ annee }) {
       </div>
       <div className="text-[11px] text-slate-400">Attestations, bulletin, parcours, fiche d'inscription, annexes de l'Office des
         Étrangers, congé-éducation, aménagements raisonnables — pour l'année {annee}.</div>
-      {choisi && createPortal(
-        <Fenetre icone={IconSchool} titre={`Pièces — ${nomPropre(choisi.nom, choisi.prenom)}`} large="grande"
-          sous={`${choisi.id_ecampus || ''} · année ${annee}`} onFermer={() => { setChoisi(null); setQ(''); }}>
-          <PiecesEtudiant etud={choisi} annee={annee} />
-        </Fenetre>, document.body)}
+      {choisi && (
+        <div className="text-[12px] text-iip-texte">Choisi : <b>{nomPropre(choisi.nom, choisi.prenom)}</b>
+          <button type="button" className="ml-2 underline text-slate-500" onClick={() => { onChoisir(null); setQ(''); }}>retirer</button></div>
+      )}
     </div>
   );
 }
@@ -1257,6 +1256,10 @@ function OngletEtudiants({ perimetre = null }) {
     // eslint-disable-next-line
   }, []);
   const [arbre, setArbre] = useState(null);
+  /* UN ÉTUDIANT, DANS ÉDITIONS (1er octobre 2026 : « il ouvre cette fenêtre,
+     cela n'a pas de sens — il faut rester dans Éditions »). Ses pièces
+     prennent la place de la colonne de droite ; on revient au lot d'un clic. */
+  const [etudiantVu, setEtudiantVu] = useState(null);
   // LE CONTEXTE SUIT LE BOUTON. Ouvrir le centre depuis la délibération d'une
   // unité sans que cette unité soit déjà choisie ferait recommencer un travail
   // qu'on venait de faire : on arrive là où l'on était.
@@ -1494,7 +1497,7 @@ function OngletEtudiants({ perimetre = null }) {
     <div className="flex min-h-0 flex-1">
       {/* LE PÉRIMÈTRE */}
       <div className="w-[340px] border-r border-slate-200 flex flex-col min-h-0">
-        <UnEtudiantToutesAnnees annee={annee} />
+        <UnEtudiantToutesAnnees annee={annee} choisi={etudiantVu} onChoisir={setEtudiantVu} />
         <div className="px-3 py-2 border-b border-slate-200">
           <div className="text-[13px] font-semibold text-iip-blue mb-1.5">Périmètre</div>
           <select value={annee} onChange={e => setAnnee(e.target.value)}
@@ -1588,8 +1591,21 @@ function OngletEtudiants({ perimetre = null }) {
         </div>
       </div>
 
-      {/* LES PERSONNES ET LES PIÈCES */}
-      <div className="flex-1 flex flex-col min-h-0">
+      {/* LES PERSONNES ET LES PIÈCES — ou, quand on en a choisi un, l'étudiant seul */}
+      {etudiantVu && (
+        <div className="flex-1 min-h-0 overflow-auto p-4">
+          <div className="flex items-center gap-3 mb-3">
+            <IconSchool size={18} className="text-iip-blue" />
+            <div className="min-w-0 flex-1">
+              <div className="text-[15px] font-semibold text-iip-texte">{nomPropre(etudiantVu.nom, etudiantVu.prenom)}</div>
+              <div className="text-[12px] text-slate-500">{etudiantVu.id_ecampus || ''} · année {annee}</div>
+            </div>
+            <button type="button" className="bouton controle" onClick={() => setEtudiantVu(null)}>Revenir au lot</button>
+          </div>
+          <PiecesEtudiant etud={etudiantVu} annee={annee} />
+        </div>
+      )}
+      <div className={`flex-1 flex flex-col min-h-0 ${etudiantVu ? 'hidden' : ''}`}>
         <div className="px-3 py-2 border-b border-slate-200 flex flex-wrap items-center gap-2">
           <div className="relative">
             <IconSearch size={13} className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400" />

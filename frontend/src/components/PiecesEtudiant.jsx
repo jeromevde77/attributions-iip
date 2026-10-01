@@ -49,11 +49,15 @@ export default function PiecesEtudiant({ etud, annee }) {
      serveur pose le pied sur CHAQUE feuille, en A4 imposé ; l'aperçu du
      navigateur ne le garantit pas. L'aperçu reste pour envoyer par courriel. */
   const [sortie, setSortie] = useState('pdf');     // pdf | apercu
+  /* LE PDF S'OUVRE, ET IL RESTE À PORTÉE (1er octobre 2026 : « je ne sais pas
+     sortir son bulletin ») : un téléchargement silencieux ne se voit pas — on
+     croit que rien ne s'est passé. Il s'ouvre dans un onglet, et la pièce reste
+     nommée ici, avec de quoi la rouvrir ou l'enregistrer. */
+  const [produit, setProduit] = useState(null);       // { url, nom }
   const telecharger = (blob, nom) => {
     const url = URL.createObjectURL(blob);
-    const a = document.createElement('a'); a.href = url; a.download = nom;
-    document.body.appendChild(a); a.click(); a.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 30000);
+    setProduit(p => { if (p?.url) URL.revokeObjectURL(p.url); return { url, nom }; });
+    window.open(url, '_blank');
   };
   /** Une pièce rendue par une route GET qui répond { html }. */
   const apercu = async (cle, url, titre, typeDoc, { orientation = 'portrait' } = {}) => {
@@ -142,6 +146,14 @@ export default function PiecesEtudiant({ etud, annee }) {
         <label className="flex items-center gap-1"><input type="radio" checked={sortie === 'apercu'} onChange={() => setSortie('apercu')} />
           Aperçu à l'écran (pour envoyer par courriel)</label>
       </div>
+      {produit && (
+        <div data-etat="reussi" className="bloc-etat px-3 py-2 text-[12.5px] mb-3 flex flex-wrap items-center gap-3">
+          <span className="min-w-0 flex-1">Pièce produite : <b>{produit.nom}</b></span>
+          <a href={produit.url} target="_blank" rel="noreferrer" className="underline">Ouvrir</a>
+          <a href={produit.url} download={produit.nom} className="underline">Enregistrer</a>
+        </div>
+      )}
+      {erreur && <div data-etat="corriger" className="bloc-etat px-3 py-2 text-[12.5px] mb-3">{erreur}</div>}
       {groupes.map(([titre, pieces]) => (
         <GroupeFenetre key={titre} titre={titre}>
           <div className="grid gap-1.5 md:grid-cols-2">
@@ -152,7 +164,7 @@ export default function PiecesEtudiant({ etud, annee }) {
           </div>
         </GroupeFenetre>
       ))}
-      {erreur && <div data-etat="corriger" className="bloc-etat px-3 py-2 text-[12.5px] mt-2">{erreur}</div>}
+
       {/* HORS DE LA FENÊTRE QUI LES APPELLE : rendues dedans, elles s'y
           retrouvaient enfermées, derrière le voile. */}
       {modale && createPortal(
