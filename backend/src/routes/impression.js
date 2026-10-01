@@ -18,6 +18,7 @@ import { capacitePdf, rendrePdf, rendrePdfs } from '../services/pdf.js';
 import { piedGabaritPdf, BANDE_PIED_MM } from '../lib/document.js';
 import { LOGO_IIP_JPEG } from '../services/assets/logo_iip_jpeg.js';
 import { piedDocument } from './parametres.js';
+import { protegerSignature } from '../lib/protectionSignature.js';
 
 const r = express.Router();
 
@@ -162,7 +163,9 @@ r.post('/pdfs', authRequired, async (req, res) => {
   if (!docs.length) return res.status(400).json({ error: 'documents requis' });
   if (docs.length > 400) return res.status(413).json({ error: 'Plus de 400 pièces : scindez la sélection.' });
   try {
-    const pdfs = await rendrePdfs(docs.map(d => ({ html: d.html, ...optionsPiece(d) })));
+    const signes = [];
+    for (const d of docs) signes.push((await protegerSignature(d.html, { piece: d.nom || d.titre || 'Document', destinataire: d.destinataire?.nom || d.etudiant || null })).htmlSigne);
+    const pdfs = await rendrePdfs(docs.map((d, i) => ({ html: signes[i], ...optionsPiece(d) })));
     const JSZip = (await import('jszip')).default;
     const zip = new JSZip();
     const vus = new Map();
@@ -188,6 +191,15 @@ r.post('/pdfs', authRequired, async (req, res) => {
 // Le centre ne compose pas : l'écran lui remet le HTML produit par la route
 // du document, et le centre le rend en PDF. C'est ce qui évite de dupliquer
 // la composition, source de nos régressions.
+/* L'APERÇU AUSSI (1er octobre 2026) : ce qu'on imprime depuis le navigateur
+   porte la signature protégée, comme le PDF et le courriel. */
+r.post('/proteger', authRequired, async (req, res) => {
+  const { html, piece, destinataire_nom } = req.body || {};
+  if (!html) return res.status(400).json({ error: 'document requis' });
+  const { htmlSigne, reference } = await protegerSignature(html, { piece: piece || 'Document', destinataire: destinataire_nom || null });
+  res.json({ html: htmlSigne, reference });
+});
+
 r.post('/pdf', authRequired, async (req, res) => {
   const cap = await capacitePdf();
   if (!cap.disponible) {
@@ -197,8 +209,11 @@ r.post('/pdf', authRequired, async (req, res) => {
       capacite_absente: 'pdf', detail: cap.raison,
     });
   }
-  const { html, nom, pagination, pied = true, orientation, page_css } = req.body || {};
-  if (!html) return res.status(400).json({ error: 'document requis' });
+  const { nom, pagination, pied = true, orientation, page_css, destinataire_nom } = req.body || {};
+  if (!req.body?.html) return res.status(400).json({ error: 'document requis' });
+  // LA SIGNATURE NE SORT JAMAIS NUE (lib/protectionSignature.js) : le PDF
+  // porte le même fac-similé que le courriel.
+  const { htmlSigne: html } = await protegerSignature(req.body.html, { piece: nom || 'Document', destinataire: destinataire_nom || null });
 
   try {
     // LE PIED SUR CHAQUE FEUILLE. En HTML il ne peut être qu'à la fin du

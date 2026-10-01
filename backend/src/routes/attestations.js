@@ -20,6 +20,7 @@ import { LOGO_IIP_JPEG } from '../services/assets/logo_iip_jpeg.js';
 import { piedBalisage, piedStyles, reglesDePage, stylesEntete, enteteDocument,
   BANDE_PIED_MM, MARGE_SOUS_PIED_MM, piedGabaritPdf } from '../lib/document.js';
 import { sectionDuDossier } from '../lib/sectionDossier.js';
+import { protegerSignature } from '../lib/protectionSignature.js';
 import db from '../db/index.js';
 import { authRequired, getUserSections, roleRequired } from '../middleware/auth.js';
 import { PEUT_INSTRUIRE } from '../lib/valorisation.js';
@@ -918,9 +919,14 @@ r.get('/etudiant/:id/pdfs', authRequired, async (req, res) => {
   try {
     const JSZip = (await import('jszip')).default;
     const zip = new JSZip();
-    const pdfs = await rendrePdfs(unites.map(u => ({ html: envelopper(pageAttestation(e, u, u._annee, etab,
-      req.query.date_document, ident, sessionDeReussite(e.id, u.ue_num, u._annee)), `Attestation — UE ${u.ue_num}`) })),
-      OPTIONS_PDF_ATTESTATION());
+    // LA SIGNATURE NE SORT JAMAIS NUE (lib/protectionSignature.js).
+    const htmls = [];
+    for (const u of unites) {
+      const h = envelopper(pageAttestation(e, u, u._annee, etab,
+        req.query.date_document, ident, sessionDeReussite(e.id, u.ue_num, u._annee)), `Attestation — UE ${u.ue_num}`);
+      htmls.push((await protegerSignature(h, { piece: `Attestation de réussite — UE ${u.ue_num}`, destinataire: `${e.nom} ${e.prenom || ''}`.trim() })).htmlSigne);
+    }
+    const pdfs = await rendrePdfs(htmls.map(html => ({ html })), OPTIONS_PDF_ATTESTATION());
     unites.forEach((u, i) => zip.file(`${propre(e.nom)}_${propre(e.prenom)}_UE${u.ue_num}_${u._annee}.pdf`, pdfs[i]));
     const out = await zip.generateAsync({ type: 'nodebuffer' });
     const nom = `Attestations_${propre(e.nom)}_${propre(e.prenom)}_${annee === 'toutes' ? 'toutes_annees' : propre(annee)}.zip`;
@@ -1142,7 +1148,8 @@ r.post('/pdf', authRequired, async (req, res) => {
   try {
     // Marges reprises de l'enveloppe des attestations, pour que le PDF rende
     // exactement ce que l'impression rend.
-    const pdf = await rendrePdf(html, OPTIONS_PDF_ATTESTATION());
+    const { htmlSigne } = await protegerSignature(html, { piece: nom || 'Attestations' });
+    const pdf = await rendrePdf(htmlSigne, OPTIONS_PDF_ATTESTATION());
     const fichier = String(nom || 'attestations').replace(/[^A-Za-z0-9_.-]/g, '_');
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename="${fichier}.pdf"`);
