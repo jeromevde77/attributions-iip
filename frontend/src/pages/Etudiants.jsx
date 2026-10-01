@@ -175,16 +175,51 @@ const STATUTS_PIECE = [
  * dispensé, à suivre —, le parcours à droite, et une case « PAE revu » qui
  * garde qui l'a cochée et quand. Les UE sans report sont repliées.
  */
-function RevuePAE({ liste, annee, depart = 0, onClose }) {
-  const [i, setI] = useState(Math.min(depart, Math.max(0, liste.length - 1)));
+function RevuePAE({ liste: base, annee: anneeDepart, onClose }) {
+  /* TOUT VOIR, FILTRER, ENCODER (Charles, 1er octobre 2026, après le premier
+     essai : « pas clair — il faut tout voir ; un filtre par section, par
+     année ; voir directement les reports, et surtout pouvoir les encoder »). */
+  const [annee, setAnnee] = useState(anneeDepart);
+  const [annees, setAnnees] = useState([]);
+  const [synthese, setSynthese] = useState(null);
+  const [fSection, setFSection] = useState('');
+  const [fNiveau, setFNiveau] = useState('');
+  const [fCritere, setFCritere] = useState('');    // '' | reports | verifier | nonrevus
+  const [i, setI] = useState(0);
   const [d, setD] = useState(null);
   const [erreur, setErreur] = useState(null);
-  const [deplie, setDeplie] = useState(false);
   const [enCours, setEnCours] = useState(null);
-  const cur = liste[i];
+  const [saisie, setSaisie] = useState(null);      // { ue, code, note, origine }
+  const peutReporter = ['admin', 'directeur', 'directeur_adjoint', 'editeur'].includes(getUser()?.role);
+
+  useEffect(() => {
+    fetch('/api/annees', { headers: authHeaders() }).then(r => r.json())
+      .then(l => setAnnees((Array.isArray(l) ? l : []).map(x => x.code).filter(Boolean))).catch(() => {});
+  }, []);
+  useEffect(() => {
+    setSynthese(null);
+    fetch('/api/etudiants/revue-pae/synthese', { method: 'POST', headers: authHeaders(),
+      body: JSON.stringify({ annee, ids: base.map(e => e.id) }) })
+      .then(r => (r.ok ? r.json() : {})).then(setSynthese).catch(() => setSynthese({}));
+  }, [annee, base]);
+
+  const sections = useMemo(() => [...new Set(base.map(e => e.section).filter(Boolean))].sort(), [base]);
+  const liste = useMemo(() => base.filter(e => {
+    const sy = synthese?.[e.id];
+    if (fSection && e.section !== fSection) return false;
+    if (fNiveau && e.niveau !== fNiveau) return false;
+    if (synthese && !sy?.pae) return false;          // pas de PAE cette année : rien à revoir
+    if (fCritere === 'reports' && !sy?.reports) return false;
+    if (fCritere === 'verifier' && !(sy?.deja || sy?.reprendre)) return false;
+    if (fCritere === 'nonrevus' && sy?.revu) return false;
+    return true;
+  }), [base, synthese, fSection, fNiveau, fCritere]);
+  useEffect(() => { setI(0); }, [fSection, fNiveau, fCritere, annee]);
+  const cur = liste[Math.min(i, Math.max(0, liste.length - 1))];
+
   const charger = useCallback(async () => {
-    if (!cur) return;
-    setD(null); setErreur(null);
+    if (!cur) { setD(null); return; }
+    setD(null); setErreur(null); setSaisie(null);
     try {
       const r = await fetch(`/api/etudiants/${cur.id}/revue-pae?annee=${encodeURIComponent(annee)}`, { headers: authHeaders() });
       const j = await r.json();
@@ -192,7 +227,11 @@ function RevuePAE({ liste, annee, depart = 0, onClose }) {
       setD(j);
     } catch (e) { setErreur(e.message); }
   }, [cur, annee]);
-  useEffect(() => { charger(); setDeplie(false); }, [charger]);
+  useEffect(() => { charger(); }, [charger]);
+
+  const majSynthese = (id, rv) => setSynthese(sy => (sy ? { ...sy, [id]: { ...(sy[id] || {}),
+    reports: rv.chiffres.cours_reportes, revu: !!rv.revu,
+    deja: rv.ues.filter(u => u.deja).length, reprendre: rv.ues.filter(u => u.etat === 'reprendre').length } } : sy));
 
   const marquer = async (revu, puisSuivant = false) => {
     setEnCours('revu'); setErreur(null);
@@ -201,8 +240,30 @@ function RevuePAE({ liste, annee, depart = 0, onClose }) {
         body: JSON.stringify({ annee, revu }) });
       const j = await r.json().catch(() => ({}));
       if (!r.ok) throw new Error(j.error || 'Refusé.');
-      if (puisSuivant && i < liste.length - 1) setI(i + 1);
-      else setD(x => (x ? { ...x, revu: j.revu } : x));
+      setSynthese(sy => (sy ? { ...sy, [cur.id]: { ...(sy[cur.id] || {}), revu: !!revu } } : sy));
+      if (puisSuivant && i < liste.length - 1 && fCritere !== 'nonrevus') setI(i + 1);
+      else if (!puisSuivant || fCritere === 'nonrevus') setD(x => (x ? { ...x, revu: j.revu } : x));
+    } catch (e) { setErreur(e.message); } finally { setEnCours(null); }
+  };
+
+  const reporter = async (ue, code, corps = {}) => {
+    setEnCours(`rep-${ue}-${code}`); setErreur(null);
+    try {
+      const r = await fetch(`/api/etudiants/${cur.id}/revue-pae/report`, { method: 'PUT', headers: authHeaders(),
+        body: JSON.stringify({ annee, ue_num: ue, cours_code: code, ...corps }) });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(j.error || 'Refusé.');
+      setD(j.revue); majSynthese(cur.id, j.revue); setSaisie(null);
+    } catch (e) { setErreur(e.message); } finally { setEnCours(null); }
+  };
+  const retirer = async (ue, code) => {
+    setEnCours(`rep-${ue}-${code}`); setErreur(null);
+    try {
+      const r = await fetch(`/api/etudiants/${cur.id}/revue-pae/report?annee=${encodeURIComponent(annee)}&ue_num=${ue}&cours_code=${encodeURIComponent(code)}`,
+        { method: 'DELETE', headers: authHeaders() });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(j.error || 'Refusé.');
+      setD(j.revue); majSynthese(cur.id, j.revue);
     } catch (e) { setErreur(e.message); } finally { setEnCours(null); }
   };
 
@@ -236,8 +297,8 @@ function RevuePAE({ liste, annee, depart = 0, onClose }) {
   const ETAT = { dispensee: ['dispensée — VA', 'bg-emerald-700'], partielle: ['reprise partielle', 'bg-blue-700'],
     reprendre: ['à reprendre', 'bg-amber-700'], programme: ['au programme', 'bg-blue-700'] };
   const ch = d?.chiffres;
-  const visibles = d ? d.ues.filter(u => deplie || u.reports || u.va || u.etat !== 'programme' || u.deja) : [];
-  const caches = d ? d.ues.length - visibles.length : 0;
+  const court = a => String(a || '').replace(/^20(\d\d)-20(\d\d)$/, '$1-$2');
+  const anterieures = annees.filter(a => a < annee).sort().reverse();
   let blocCourant = null;
   const Tuile = ({ v, l, p, etat = 'fort' }) => (
     <div data-etat={etat} className="bloc-etat px-3 py-2">
@@ -246,11 +307,12 @@ function RevuePAE({ liste, annee, depart = 0, onClose }) {
       {p && <div className="text-[11px] text-slate-500">{p}</div>}
     </div>
   );
+  const nRevus = synthese ? liste.filter(e => synthese[e.id]?.revu).length : 0;
 
   return (
     <Fenetre icone={IconEyeCheck} large="pleine" onFermer={onClose}
       titre={d ? `Revue des PAE — ${nomPropre(d.etudiant.nom, d.etudiant.prenom)}` : 'Revue des PAE'}
-      sous={`${i + 1} sur ${liste.length} · année ${annee} · dans l'ordre de la liste`}
+      sous={liste.length ? `${Math.min(i, liste.length - 1) + 1} sur ${liste.length} · ${nRevus} revu(s) · année ${annee}` : `Aucun étudiant ne correspond · année ${annee}`}
       pied={<>
         <label className="flex items-center gap-2 text-[13px]">
           <input type="checkbox" checked={!!d?.revu} disabled={!d || !!enCours}
@@ -265,35 +327,56 @@ function RevuePAE({ liste, annee, depart = 0, onClose }) {
         <button className="bouton bouton-fort" disabled={!d || !!enCours} onClick={() => marquer(true, true)}>
           {i >= liste.length - 1 ? 'Revu' : 'Revu · étudiant suivant ▶'}</button>
       </>}>
+      {/* LES FILTRES : on choisit la liasse avant de la parcourir. */}
       <div className="flex flex-wrap items-center gap-2 mb-3">
-        {d && <span className="text-[12px] text-slate-600">{d.etudiant.id_ecampus || ''} · {d.etudiant.section || '—'}
-          {d.etudiant.niveau_libelle ? ` · ${d.etudiant.niveau_libelle}` : ''}</span>}
+        <select className="controle text-[13px]" value={annee} onChange={e => setAnnee(e.target.value)} title="Année du PAE">
+          {(annees.length ? annees : [annee]).map(a => <option key={a} value={a}>{a}</option>)}
+        </select>
+        <select className="controle text-[13px]" value={fSection} onChange={e => setFSection(e.target.value)}>
+          <option value="">Toutes les sections</option>
+          {sections.map(x => <option key={x} value={x}>{x}</option>)}
+        </select>
+        <select className="controle text-[13px]" value={fNiveau} onChange={e => setFNiveau(e.target.value)}>
+          <option value="">Tous les blocs</option>
+          <option value="BA1">BA1</option><option value="BA2">BA2</option><option value="BA3">BA3 / diplômant</option>
+          <option value="MIXTE">Parcours mixte</option>
+        </select>
+        <div className="segments">
+          {[['', 'Tous'], ['reports', 'Avec reports'], ['verifier', 'À vérifier'], ['nonrevus', 'Pas encore revus']].map(([v, l]) => (
+            <button key={v || 'tous'} type="button" onClick={() => setFCritere(v)}
+              className={`px-2.5 py-1 text-[12px] ${fCritere === v ? 'bg-iip-blue text-white font-semibold' : 'text-slate-600'}`}>{l}</button>
+          ))}
+        </div>
         <span className="flex-1" />
-        <button className="bouton bouton-sortir controle" disabled={!!enCours} onClick={() => imprimer(false)}>
+        <button className="bouton bouton-sortir controle" disabled={!!enCours || !liste.length} onClick={() => imprimer(false)}>
           <IconPrinter size={14} className="inline -mt-0.5 mr-1" />
-          {enCours === 'impr' ? 'Production…' : `Imprimer les ${liste.length} PAE`}</button>
-        <button className="bouton controle" disabled={!!enCours} onClick={() => imprimer(true)}
-          title="Un PDF par étudiant, dans une archive — pour envoyer ou classer">Un PDF par étudiant</button>
+          {enCours === 'impr' ? 'Production…' : `Imprimer ${liste.length} PAE`}</button>
+        <button className="bouton controle" disabled={!!enCours || !liste.length} onClick={() => imprimer(true)}
+          title="Un PDF par étudiant, dans une archive">Un PDF par étudiant</button>
       </div>
       {erreur && <div data-etat="corriger" className="bloc-etat px-3 py-2 text-[12.5px] mb-3">{erreur}</div>}
-      {!d && !erreur && <p className="text-[13px] text-slate-400">Chargement…</p>}
+      {!synthese && <p className="text-[13px] text-slate-400">Lecture de la liste…</p>}
+      {synthese && !liste.length && <p className="text-[13px] text-slate-500">Aucun étudiant de la liste ne correspond à ces filtres pour {annee}.</p>}
+      {synthese && liste.length > 0 && !d && !erreur && <p className="text-[13px] text-slate-400">Chargement…</p>}
       {d && (
         <>
+          <div className="text-[12px] text-slate-600 mb-2">{d.etudiant.id_ecampus || ''} · {d.etudiant.section || '—'}
+            {d.etudiant.niveau_libelle ? ` · ${d.etudiant.niveau_libelle}` : ''}</div>
           <div className="grid gap-2.5 mb-3" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))' }}>
             <Tuile etat="reussi" v={`${ch.ects_acquis}`} l="ECTS acquis" p="avant cette année" />
             <Tuile v={`${ch.nb_ue} UE`} l={`au PAE ${annee}`} p={`${ch.ects_pae} ECTS`} />
-            <Tuile etat="neutre" v={`${ch.cours_reportes} cours`} l="reportés d'office"
+            <Tuile etat="neutre" v={`${ch.cours_reportes} cours`} l="reportés"
               p={ch.ue_avec_report ? `dans ${ch.ue_avec_report} UE — notes reprises` : 'aucun report'} />
             <Tuile v={`${ch.cours_a_suivre} cours`} l="à suivre" p={`${ch.periodes_a_suivre} périodes`} />
             <Tuile etat={d.alertes.length ? 'surveiller' : 'neutre'} v={d.alertes.length} l="à vérifier" />
           </div>
-          <div className="grid gap-4 items-start lg:grid-cols-[minmax(0,1fr)_minmax(0,460px)]">
+          <div className="grid gap-4 items-start lg:grid-cols-[minmax(0,1fr)_minmax(0,440px)]">
             <div className="space-y-2">
               {d.alertes.map((a, k) => (
                 <div key={k} data-etat="surveiller" className="bloc-etat px-3 py-2 text-[12.5px]"><b>À vérifier</b> — {a.texte}</div>
               ))}
               {!d.ues.length && <p className="text-[13px] text-slate-500">Aucune UE au PAE de {annee}.</p>}
-              {visibles.map(u => {
+              {d.ues.map(u => {
                 const b = u.ei ? 'Épreuve intégrée' : (u.niv || '—');
                 const tete = b !== blocCourant;
                 blocCourant = b;
@@ -306,34 +389,60 @@ function RevuePAE({ liste, annee, depart = 0, onClose }) {
                       <div className="flex items-center gap-2 flex-wrap">
                         <b>{u.ue_num}</b><span className="flex-1 min-w-0">{u.ue_nom}</span>
                         <span className={`text-[10.5px] font-semibold text-white rounded px-1.5 py-px ${fond}`}>{lib}</span>
-                        {u.deja && <span className="text-[10.5px] font-semibold text-white rounded px-1.5 py-px bg-amber-700">déjà acquise {u.deja}</span>}
+                        {u.deja && <span className="text-[10.5px] font-semibold text-white rounded px-1.5 py-px bg-amber-700">déjà acquise {court(u.deja)}</span>}
                         <span className="text-[11px] text-slate-500">{u.ects} ECTS</span>
                       </div>
-                      <div className="grid gap-x-3 gap-y-0.5 mt-1.5 text-[12.5px] items-center" style={{ gridTemplateColumns: '64px minmax(0,1fr) 52px 200px' }}>
-                        {u.cours.map(c => (
-                          <Fragment key={c.code}>
-                            <span className="text-slate-500 tabular-nums">{c.code}</span>
-                            <span className={c.statut === 'suivre' ? '' : 'text-slate-400'}>{c.nom}</span>
-                            <span className="text-[11px] text-slate-500 text-right tabular-nums">{c.per ? `${c.per} p.` : ''}</span>
-                            <span className="text-[11.5px]">
-                              {c.statut === 'report'
-                                ? <span className="border border-dashed border-slate-400 rounded px-1.5 text-slate-600">reporté <b className="text-iip-texte">{String(c.annee_origine || '').replace(/^20(\d\d)-20(\d\d)$/, '$1-$2')}</b>{c.note != null ? <> · <b className="text-iip-texte">{Math.round(c.note)}</b>/20</> : ''}</span>
-                                : c.statut === 'va'
-                                  ? <span className="border border-slate-400 rounded px-1.5 text-slate-600">dispensé · VA</span>
-                                  : <span className="font-semibold text-blue-700">à suivre</span>}
-                            </span>
-                          </Fragment>
-                        ))}
+                      <div className="grid gap-x-3 gap-y-1 mt-1.5 text-[12.5px] items-center" style={{ gridTemplateColumns: '64px minmax(0,1fr) 48px minmax(0,300px)' }}>
+                        {u.cours.map(c => {
+                          const occupe = enCours === `rep-${u.ue_num}-${c.code}`;
+                          const ouvert = saisie && saisie.ue === u.ue_num && saisie.code === c.code;
+                          return (
+                            <Fragment key={c.code}>
+                              <span className="text-slate-500 tabular-nums">{c.code}</span>
+                              <span className={c.statut === 'suivre' ? '' : 'text-slate-400'}>{c.nom}</span>
+                              <span className="text-[11px] text-slate-500 text-right tabular-nums">{c.per ? `${c.per} p.` : ''}</span>
+                              <span className="text-[11.5px] flex flex-wrap items-center gap-1.5">
+                                {c.statut === 'report' && <>
+                                  <span className="border border-dashed border-slate-400 rounded px-1.5 text-slate-600"
+                                    title={c.par ? `Posé par ${c.par}` : ''}>reporté <b className="text-iip-texte">{court(c.annee_origine)}</b>{c.note != null ? <> · <b className="text-iip-texte">{Math.round(c.note)}</b>/20</> : ''}</span>
+                                  {peutReporter && <button type="button" disabled={occupe} className="underline text-slate-500" onClick={() => retirer(u.ue_num, c.code)}>retirer</button>}
+                                </>}
+                                {c.statut === 'va' && <span className="border border-slate-400 rounded px-1.5 text-slate-600">dispensé · VA</span>}
+                                {c.statut === 'suivre' && !ouvert && <>
+                                  <span className="font-semibold text-blue-700">à suivre</span>
+                                  {c.refuse && <span className="text-slate-400" title={c.refuse.motif || ''}>· report retiré{c.refuse.par ? ` (${c.refuse.par})` : ''}</span>}
+                                  {peutReporter && c.eligible && (
+                                    <button type="button" disabled={occupe} className="bouton h-6 px-2 text-[11.5px]"
+                                      title="Lucie connaît ce cours réussi : ses notes d'acquis sont reprises"
+                                      onClick={() => reporter(u.ue_num, c.code)}>Reporter {c.eligible.note != null ? `${c.eligible.note}/20` : ''} · {court(c.eligible.annee_origine)}</button>
+                                  )}
+                                  {peutReporter && (
+                                    <button type="button" disabled={occupe} className="underline text-slate-500"
+                                      onClick={() => setSaisie({ ue: u.ue_num, code: c.code, note: c.eligible?.note ?? '', origine: c.eligible?.annee_origine || anterieures[0] || '' })}>
+                                      {c.eligible ? 'autre note' : 'encoder un report'}</button>
+                                  )}
+                                </>}
+                                {ouvert && <>
+                                  <input className="controle h-7 w-16 text-[12px]" placeholder="/20" value={saisie.note} autoFocus
+                                    onChange={e => setSaisie({ ...saisie, note: e.target.value })} />
+                                  <select className="controle h-7 text-[12px]" value={saisie.origine} onChange={e => setSaisie({ ...saisie, origine: e.target.value })}>
+                                    {anterieures.map(a => <option key={a} value={a}>{a}</option>)}
+                                  </select>
+                                  <button type="button" disabled={occupe} className="bouton bouton-fort h-7 px-2 text-[12px]"
+                                    onClick={() => reporter(u.ue_num, c.code, { note: saisie.note, annee_origine: saisie.origine })}>Reporter</button>
+                                  <button type="button" className="underline text-slate-500" onClick={() => setSaisie(null)}>annuler</button>
+                                </>}
+                              </span>
+                            </Fragment>
+                          );
+                        })}
                         {!u.cours.length && <span className="col-span-4 text-[12px] text-slate-400">Aucun cours encodé pour cette unité en {annee}.</span>}
                       </div>
                     </div>
                   </Fragment>
                 );
               })}
-              {(caches > 0 || deplie) && (
-                <button type="button" className="text-[12px] underline text-slate-500" onClick={() => setDeplie(x => !x)}>
-                  {deplie ? 'Replier les UE sans report' : `… ${caches} autre(s) UE sans report, repliée(s) — tout déplier`}</button>
-              )}
+              {!peutReporter && <p className="text-[12px] text-slate-500">Encoder un report est réservé à la direction et à l'administration des études.</p>}
             </div>
             <div className="carte p-2.5 min-w-0 overflow-x-auto">
               <div className="text-[13px] font-semibold mb-1.5">Parcours</div>
@@ -3544,7 +3653,8 @@ export default function Etudiants() {
       { key: 'revue-pae', label: 'Revue des PAE', icon: IconEyeCheck,
         onClick: () => {
           const coches = filtres.filter(e => selEtudiants.has(e.id));
-          const l = (coches.length ? coches : filtres).map(e => ({ id: e.id, nom: e.nom, prenom: e.prenom }));
+          const l = (coches.length ? coches : filtres).map(e => ({ id: e.id, nom: e.nom, prenom: e.prenom,
+            section: e.section_rattachement || null, niveau: e.niveau || null }));
           if (l.length) setRevuePAE(l);
         } },
       // « Valider les PAE » n'a plus d'entrée à lui (Charles, 26 septembre

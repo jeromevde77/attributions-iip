@@ -3336,11 +3336,13 @@ export function revuePAE(etudId, annee) {
     .all(etudId, annee).map(x => x.ue_num);
   const tentees = new Set(db.prepare(`SELECT DISTINCT ue_num FROM etudiant_inscription WHERE etudiant_id = ?
       AND annee_scolaire < ? AND resultat IN ('ajourne', 'refuse')`).all(etudId, annee).map(x => x.ue_num));
-  const reports = new Map();
+  const reports = new Map(), refuses = new Map();
   try {
-    for (const r of db.prepare(`SELECT ue_num, cours_code, note, annee_origine FROM etudiant_report_note
-        WHERE etudiant_id = ? AND annee_scolaire = ? AND COALESCE(statut, 'accorde') = 'accorde'
-          AND COALESCE(cible, 'cours') = 'cours'`).all(etudId, annee)) reports.set(`${r.ue_num}|${r.cours_code}`, r);
+    for (const r of db.prepare(`SELECT ue_num, cours_code, note, annee_origine, COALESCE(statut, 'accorde') statut,
+        motif, decide_par FROM etudiant_report_note
+        WHERE etudiant_id = ? AND annee_scolaire = ? AND COALESCE(cible, 'cours') = 'cours'`).all(etudId, annee)) {
+      (r.statut === 'accorde' ? reports : refuses).set(`${r.ue_num}|${r.cours_code}`, r);
+    }
   } catch { /* table ancienne */ }
   const vaCours = new Map(), vaComplete = new Set();
   for (const v of db.prepare(`SELECT ue_num, type, cible, cible_detail FROM etudiant_valorisation
@@ -3353,11 +3355,18 @@ export function revuePAE(etudId, annee) {
   }
   const ues = inscr.map(n => {
     const u = refUe.get(n, annee, section) || {};
+    let eligibles = [];
+    try { eligibles = coursValidesAnterieurs(etudId, n, annee) || []; } catch { eligibles = []; }
     const cours = coursDe.all(n, annee).map(c => {
       const r = reports.get(`${n}|${c.cours_code}`);
       const statut = vaComplete.has(n) ? 'va' : r ? 'report' : vaCours.has(`${n}|${c.cours_code}`) ? 'va' : 'suivre';
+      const el = eligibles.find(x => x.cours_code === c.cours_code);
+      const rf = refuses.get(`${n}|${c.cours_code}`);
       return { code: c.cours_code, nom: c.cours_nom, per: Number(c.cours_per) || 0, stage: !!c.is_stage, statut,
-        note: r ? r.note : null, annee_origine: r ? r.annee_origine : null };
+        note: r ? r.note : null, annee_origine: r ? r.annee_origine : null, par: r ? r.decide_par : null,
+        // Ce que Lucie sait du cours : réussi une année antérieure, avec quelle note.
+        eligible: statut === 'suivre' && el ? { note: el.note_affichee ?? (el.note != null ? Math.round(el.note) : null), annee_origine: el.annee_origine } : null,
+        refuse: statut === 'suivre' && rf ? { motif: rf.motif || null, par: rf.decide_par || null } : null };
     });
     const nRep = cours.filter(c => c.statut === 'report').length;
     const nVa = cours.filter(c => c.statut === 'va').length;
@@ -3399,6 +3408,117 @@ export function revuePAE(etudId, annee) {
     revu,
   };
 }
+
+/* LES REPORTS S'ENCODENT DANS LA REVUE (Charles, 1er octobre 2026 : « je veux
+   voir directement les reports, mais je veux surtout pouvoir les encoder »).
+   Même écriture que le report d'office : une ligne `etudiant_report_note`
+   accordée, et la note de chaque acquis du cours recopiée dans l'année sous
+   `origine = 'report:<année>'` — la délibération, Mes cours et les pièces la
+   lisent sans rien savoir du report.
+   · Lucie connaît le cours réussi avant : ses notes d'acquis sont reprises.
+   · Elle ne le connaît pas (notes jamais importées) : la note du cours est
+     saisie, et vaut pour chacun de ses acquis.
+   Une note déjà encodée cette année pour un acquis n'est jamais écrasée. */
+const PEUT_REPORTER = ['admin', 'directeur', 'directeur_adjoint', 'editeur'];
+r.put('/:id/revue-pae/report', authRequired, roleRequired(...PEUT_REPORTER), (req, res) => {
+  const id = Number(req.params.id);
+  if (!etudiantPermis(req, res, id)) return;
+  const annee = req.body?.annee || anneeDeTravail(req);
+  const ue = Number(req.body?.ue_num);
+  const code = String(req.body?.cours_code || '');
+  if (!ue || !code) return res.status(400).json({ error: 'unité et cours requis' });
+  if (!db.prepare('SELECT 1 FROM etudiant_inscription WHERE etudiant_id = ? AND annee_scolaire = ? AND ue_num = ?').get(id, annee, ue)) {
+    return res.status(409).json({ error: `L'UE ${ue} n'est pas au PAE ${annee} : il n'y a rien à reporter.` });
+  }
+  const structure = structureUE(ue, annee);
+  const co = structure.find(c => c.cours_code === code);
+  if (!co) return res.status(404).json({ error: `Le cours ${code} n'appartient pas à l'UE ${ue} en ${annee}.` });
+  let el = null;
+  try { el = (coursValidesAnterieurs(id, ue, annee) || []).find(x => x.cours_code === code) || null; } catch { el = null; }
+  const saisie = req.body?.note != null && req.body.note !== '';
+  let note, origine, notesAA;
+  if (saisie || !el) {
+    note = Number(String(req.body?.note ?? '').replace(',', '.'));
+    origine = String(req.body?.annee_origine || '');
+    if (!Number.isFinite(note) || note < 10 || note > 20) {
+      return res.status(400).json({ error: 'La note reportée est celle d’un cours réussi : entre 10 et 20.' });
+    }
+    if (!/^\d{4}-\d{4}$/.test(origine) || origine >= annee) {
+      return res.status(400).json({ error: "L'année d'origine est une année antérieure, au format 2025-2026." });
+    }
+    notesAA = (co.aas || []).map(a => ({ aa_code: a.aa_code, note }));
+  } else {
+    note = el.note ?? el.note_affichee; origine = el.annee_origine;
+    notesAA = (el.aas || []).filter(a => (co.aas || []).some(x => x.aa_code === a.aa_code));
+  }
+  const qui = req.user?.nom || req.user?.email || null;
+  const motif = saisie || !el ? `report encodé en revue des PAE — note de cours ${note}/20 (${origine})` : 'report accordé en revue des PAE';
+  const reelle = db.prepare(`SELECT 1 FROM etudiant_note_detail WHERE etudiant_id = ? AND annee_scolaire = ? AND ue_num = ?
+      AND type = 'aa' AND (cours_code = ? OR cours_code IS NULL) AND (code = ? OR code LIKE '%|' || ?)
+      AND (origine IS NULL OR origine NOT LIKE 'report:%') LIMIT 1`);
+  const insNote = db.prepare(`INSERT INTO etudiant_note_detail (etudiant_id, annee_scolaire, ue_num, type, code, cours_code, points, origine)
+      VALUES (?,?,?, 'aa', ?,?,?,?) ON CONFLICT(etudiant_id, annee_scolaire, ue_num, type, code) DO NOTHING`);
+  db.transaction(() => {
+    const ligne = db.prepare(`SELECT id FROM etudiant_report_note WHERE etudiant_id = ? AND annee_scolaire = ? AND ue_num = ?
+        AND cible = 'cours' AND cours_code = ? AND aa_code IS NULL`).get(id, annee, ue, code);
+    if (ligne) {
+      // Repasser par « refusé » efface les notes recopiées (déclencheur) : on repart propre.
+      db.prepare(`UPDATE etudiant_report_note SET statut = 'refuse' WHERE id = ?`).run(ligne.id);
+      db.prepare(`UPDATE etudiant_report_note SET statut = 'accorde', note = ?, annee_origine = ?, decision_ce = ?,
+          motif = NULL, decide_le = datetime('now'), decide_par = ? WHERE id = ?`).run(note, origine, motif, qui, ligne.id);
+    } else {
+      db.prepare(`INSERT INTO etudiant_report_note (etudiant_id, annee_scolaire, ue_num, cible, cours_code, aa_code, note,
+          annee_origine, statut, decision_ce, decide_le, decide_par) VALUES (?,?,?, 'cours', ?, NULL, ?, ?, 'accorde', ?, datetime('now'), ?)`)
+        .run(id, annee, ue, code, note, origine, motif, qui);
+    }
+    for (const a of notesAA) {
+      if (a.note == null || reelle.get(id, annee, ue, code, a.aa_code, a.aa_code)) continue;
+      insNote.run(id, annee, ue, `s1|${code}|${a.aa_code}`, code, a.note, `report:${origine}`);
+    }
+  })();
+  res.json({ ok: true, revue: revuePAE(id, annee) });
+});
+
+/* RETIRER, C'EST REFUSER : supprimer la ligne ferait reposer le report d'office
+   au prochain PAE enregistré. Refusé, il ne l'est plus jamais ; ses notes
+   recopiées s'effacent (déclencheur). */
+r.delete('/:id/revue-pae/report', authRequired, roleRequired(...PEUT_REPORTER), (req, res) => {
+  const id = Number(req.params.id);
+  if (!etudiantPermis(req, res, id)) return;
+  const annee = req.query.annee || anneeDeTravail(req);
+  const ue = Number(req.query.ue_num), code = String(req.query.cours_code || '');
+  const qui = req.user?.nom || req.user?.email || null;
+  const n = db.prepare(`UPDATE etudiant_report_note SET statut = 'refuse', motif = ?, decide_le = datetime('now'), decide_par = ?
+      WHERE etudiant_id = ? AND annee_scolaire = ? AND ue_num = ? AND cours_code = ? AND COALESCE(cible, 'cours') = 'cours'`)
+    .run('retiré en revue des PAE — le cours est à suivre', qui, id, annee, ue, code).changes;
+  if (!n) return res.status(404).json({ error: 'Aucun report sur ce cours.' });
+  res.json({ ok: true, revue: revuePAE(id, annee) });
+});
+
+/* LA SYNTHÈSE DE LA LISTE, pour filtrer la revue sans ouvrir 833 dossiers :
+   reports, alertes, revu — en quelques requêtes. */
+r.post('/revue-pae/synthese', authRequired, (req, res) => {
+  const annee = req.body?.annee || anneeDeTravail(req);
+  const ids = (Array.isArray(req.body?.ids) ? req.body.ids : []).map(Number).filter(Boolean);
+  const out = {};
+  for (const id of ids) out[id] = { reports: 0, deja: 0, reprendre: 0, revu: false, pae: 0 };
+  const dans = id => out[id];
+  for (const x of db.prepare(`SELECT etudiant_id id, COUNT(DISTINCT ue_num) n FROM etudiant_inscription WHERE annee_scolaire = ? GROUP BY 1`).all(annee)) if (dans(x.id)) out[x.id].pae = x.n;
+  try {
+    for (const x of db.prepare(`SELECT etudiant_id id, COUNT(*) n FROM etudiant_report_note WHERE annee_scolaire = ?
+        AND COALESCE(statut,'accorde') = 'accorde' GROUP BY 1`).all(annee)) if (dans(x.id)) out[x.id].reports = x.n;
+  } catch { /* */ }
+  for (const x of db.prepare(`SELECT i.etudiant_id id, COUNT(*) n FROM etudiant_inscription i WHERE i.annee_scolaire = ?
+      AND EXISTS (SELECT 1 FROM etudiant_inscription p WHERE p.etudiant_id = i.etudiant_id AND p.ue_num = i.ue_num
+        AND p.annee_scolaire < ? AND p.resultat = 'reussi') GROUP BY 1`).all(annee, annee)) if (dans(x.id)) out[x.id].deja = x.n;
+  for (const x of db.prepare(`SELECT i.etudiant_id id, COUNT(*) n FROM etudiant_inscription i WHERE i.annee_scolaire = ?
+      AND EXISTS (SELECT 1 FROM etudiant_inscription p WHERE p.etudiant_id = i.etudiant_id AND p.ue_num = i.ue_num
+        AND p.annee_scolaire < ? AND p.resultat IN ('ajourne','refuse'))
+      AND NOT EXISTS (SELECT 1 FROM etudiant_report_note r WHERE r.etudiant_id = i.etudiant_id AND r.ue_num = i.ue_num
+        AND r.annee_scolaire = i.annee_scolaire AND COALESCE(r.statut,'accorde') = 'accorde') GROUP BY 1`).all(annee, annee)) if (dans(x.id)) out[x.id].reprendre = x.n;
+  for (const x of db.prepare('SELECT etudiant_id id FROM pae_revue WHERE annee_scolaire = ?').all(annee)) if (dans(x.id)) out[x.id].revu = true;
+  res.json(out);
+});
 
 r.get('/:id/revue-pae', authRequired, (req, res) => {
   const id = Number(req.params.id);
