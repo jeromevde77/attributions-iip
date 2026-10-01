@@ -17,6 +17,8 @@ import { anneeDeTravail } from '../helpers/annee.js';
 import { authRequired, roleRequired, getUserSections } from '../middleware/auth.js';
 import { construireGraphe, niveauxEffectifs, rangNiveau } from './capitalisation.js';
 import { etatsPAE, plafondBloc, rangBloc } from '../lib/pae.js';
+import { SIGNATURE_SOHET, SCEAU_IIP } from '../services/assets/signature_sohet.js';
+import { identiteEtablissement } from './config.js';
 import { structureUE, calculerNoteUE, coursValidesAnterieurs, poserReportsDOffice } from './acquis.js';
 import {
   BASES, CODES_BASE, FINALITES, ETATS, etatDeduit, uniteValorisable,
@@ -3124,6 +3126,9 @@ export function documentBulletin(etudId, annee) {
   const tuile = (v, l, p) => `<div class="tuile"><div class="v">${v}</div><div class="l">${l}</div>${p ? `<div class="p">${p}</div>` : ''}</div>`;
   const naissance = e.date_naissance ? String(e.date_naissance).replace(/^(\d{4})-(\d{2})-(\d{2})$/, '$3/$2/$1') : null;
   const svg = schemaSvg(graphe);
+  const ident = identiteEtablissement();
+  const dateLongue = new Date().toLocaleDateString('fr-BE', { day: 'numeric', month: 'long', year: 'numeric' })
+    .replace(/^1 /, '1er ');
 
   const corps = `
 <div class="bulletin">
@@ -3144,12 +3149,27 @@ export function documentBulletin(etudId, annee) {
     · <b>S1 / S2</b> : première et seconde session, quand l'unité s'est jouée en deux temps — la cote de la case est celle qui a été retenue.
     · <b>Faveur</b> : unité accordée par le Conseil des études ; elle vaut 10. · <b>VA</b> : valorisation des acquis. · Les cotes sont sur 20.
     · La moyenne générale porte sur les unités acquises, pondérées par leurs périodes ; elle seule garde ses décimales.</div>
+  <div class="cloture">
+    <div class="sceau"></div>
+    <div class="paraphe"></div>
+    <div class="lieu">Fait à ${esc(ident.ville || 'Bruxelles')}, le ${esc(dateLongue)}</div>
+    <div class="legende">
+      <div class="qualite">Pour l'Institut,<br>le Directeur</div>
+      <div class="nom">${esc(ident.directeur || 'SOHET Charles')}</div>
+    </div>
+  </div>
   <div class="annexe">
     <div class="tourne">
       <div class="doc-cadre" style="margin-top:0"><div class="doc-cadre-t">Annexe — Schéma de capitalisation</div>
         <div class="doc-cadre-s">${esc(String(e.nom || '').toUpperCase())} ${esc(e.prenom || '')} · ${esc(section)} · état au ${esc(annee)}</div></div>
       <div class="legende-schema">${legendeSchemaHtml()}</div>
       ${svg}
+      <div class="fleches"><b>Lire les flèches.</b> Une flèche va d'une unité vers celle qu'elle ouvre : l'unité de
+        départ doit être acquise pour pouvoir s'inscrire à l'unité d'arrivée (prérequis). Sa couleur est celle du
+        bloc de l'unité d'arrivée. <b>En trait plein</b>, le prérequis est réglementaire : il s'impose. <b>En
+        pointillés</b>, c'est un prérequis recommandé par l'Institut : il est conseillé de le respecter, sans
+        qu'il empêche l'inscription. Une unité sans flèche entrante est ouverte d'emblée ; l'épreuve intégrée
+        (★) ne s'ouvre qu'une fois toutes les autres unités acquises.</div>
     </div>
   </div>
 </div>`;
@@ -3189,7 +3209,19 @@ table.ues td.ei{border-left:1mm solid #C9A227}
 .annexe{break-before:page;page-break-before:always;height:235mm;position:relative;overflow:hidden}
 .tourne{position:absolute;top:0;left:0;width:235mm;transform-origin:top left;transform:translate(0,235mm) rotate(-90deg)}
 .tourne svg{width:100%;height:auto;max-height:160mm;display:block;margin-top:2mm}
-.legende-schema{font-size:6.8pt;color:#475569;margin:2mm 0;line-height:1.8}`,
+.legende-schema{font-size:6.8pt;color:#475569;margin:2mm 0;line-height:1.8}
+.fleches{font-size:7.2pt;color:#334155;line-height:1.45;margin-top:2mm;border-left:.6mm solid #C9A84C;padding-left:2.5mm}
+/* LA SIGNATURE : le bloc des attestations, tel quel — la protection fac-similé
+   (lib/protectionSignature.js) le reconnaît et le filigrane au PDF, à l'aperçu et à l'envoi. */
+:root{--sceau:url("${SCEAU_IIP}");--paraphe:url("${SIGNATURE_SOHET}")}
+.cloture{display:grid;grid-template-columns:auto 1fr auto;grid-template-rows:auto auto;column-gap:14mm;align-items:end;margin-top:8mm;page-break-inside:avoid;break-inside:avoid}
+.cloture .lieu{grid-column:2;grid-row:2;font-size:8.5pt;color:#334;text-align:center;padding-bottom:1mm}
+.cloture .sceau,.cloture .paraphe{grid-row:1;height:20mm;background-repeat:no-repeat;background-position:center bottom;background-size:contain}
+.cloture .sceau{grid-column:1;width:20mm;opacity:.92;background-image:var(--sceau)}
+.cloture .paraphe{grid-column:3;width:46mm;background-image:var(--paraphe)}
+.cloture .legende{grid-column:3;grid-row:2;text-align:center;border-top:.4pt solid #94a3b8;padding-top:1mm;width:46mm}
+.cloture .qualite{font-size:8.5pt;color:#334}
+.cloture .nom{font-size:9.5pt;font-weight:700;color:#1B2B4B;letter-spacing:.3px}`,
   });
   return { html, nom: `Bulletin_${e.nom}_${e.prenom || ''}_${annee}`, titre: 'Bulletin de parcours', etudiant: e, section };
 }
