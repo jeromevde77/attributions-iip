@@ -3048,7 +3048,9 @@ export function documentBulletin(etudId, annee) {
     }
     if (i.resultat === 'ajourne' || i.resultat === 'refuse') return { cls: 'c-na', txt: 'NA', m: mention, echec: true };
     if (an === annee) return { cls: 'c-cours', txt: 'en cours', encours: true };
-    return { cls: 'c-vide', txt: '—', m: 'sans résultat' };
+    // Une année qui n'est pas encore commencée porte un programme, pas un résultat manquant.
+    if (an > annee) return { cls: 'c-cours', txt: 'inscrite', prevue: true };
+    return { cls: 'c-vide', txt: '—', m: 'sans résultat', vide: true };
   };
 
   const prereqDe = {};
@@ -3062,11 +3064,14 @@ export function documentBulletin(etudId, annee) {
     const derniereAcquise = [...cases].reverse().find(c => c?.acquise);
     const iAcq = derniereAcquise ? annees[cases.lastIndexOf(derniereAcquise)] : null;
     if (derniereAcquise) acquisSet.add(n.ue_num);
-    const tente = cases.some(c => c && !c.encours);
+    const tente = cases.some(c => c && (c.acquise || c.echec));
+    const inscriteSansResultat = !tente && cases.some(c => c?.vide);
     let etat;
     if (derniereAcquise) etat = `Acquise en ${iAcq}${derniereAcquise.faveur ? ' (faveur)' : derniereAcquise.txt === 'VA' ? ' (valorisation)' : derniereAcquise.s2 ? ' (2<sup>e</sup> session)' : ''}`;
     else if (cases[annees.indexOf(annee)]?.encours) etat = tente ? `Reprise en ${annee}` : 'Première inscription';
     else if (tente) etat = 'À reprendre';
+    else if (cases.some(c => c?.prevue)) etat = 'Inscrite pour l\'année suivante';
+    else if (inscriteSansResultat) etat = '<span class="gris">Inscrite, aucun résultat encodé</span>';
     else if (n.epreuve_integree) etat = '<span class="gris">S\'ouvre quand tout le reste est acquis</span>';
     else {
       const manque = (prereqDe[n.ue_num] || []).filter(p => !acquisDuGraphe.has(p));
@@ -3076,6 +3081,7 @@ export function documentBulletin(etudId, annee) {
     return { ue: n.ue_num, nom: n.ue_nom || r0.ue_nom || `UE ${n.ue_num}`, niv: String(n.ue_niv || r0.ue_niv || '').toUpperCase(),
       ects: Number(r0.ects) || 0, per: Number(r0.ue_per_etudiants) || 0, ei: !!n.epreuve_integree, cases, etat,
       acquise: !!derniereAcquise, faveur: !!derniereAcquise?.faveur, encours: !!cases[annees.indexOf(annee)]?.encours,
+      inscriteAnnee: insc.some(x => x.ue_num === n.ue_num && x.annee_scolaire === annee),
       note: derniereAcquise ? (derniereAcquise.faveur ? 10 : (() => { const i = insc.filter(x => x.ue_num === n.ue_num && x.resultat === 'reussi').pop(); return i?.points ?? null; })()) : null };
   };
   const acquisDuGraphe = new Set((graphe.nodes || []).filter(n => n.statut === 'acquise').map(n => n.ue_num));
@@ -3088,7 +3094,8 @@ export function documentBulletin(etudId, annee) {
   const ectsAcquis = tous.filter(l => l.acquise).reduce((t, l) => t + l.ects, 0);
   const ectsFaveur = tous.filter(l => l.faveur).reduce((t, l) => t + l.ects, 0);
   const ectsCursus = lignes.reduce((t, l) => t + l.ects, 0);
-  const ectsInscrits = tous.filter(l => l.encours).reduce((t, l) => t + l.ects, 0);
+  const ectsInscrits = tous.filter(l => l.inscriteAnnee).reduce((t, l) => t + l.ects, 0);
+  const nbEnCours = tous.filter(l => l.encours).length;
   let num = 0, den = 0;
   for (const l of tous) { if (!l.acquise || l.note == null || !l.per) continue; num += Number(l.note) * l.per; den += l.per; }
   const moyenne = den ? (num / den) : null;
@@ -3125,7 +3132,7 @@ export function documentBulletin(etudId, annee) {
   <div class="tuiles">
     ${tuile(`${ectsAcquis} <span class="sur">/ ${ectsCursus}</span>`, 'ECTS acquis', ectsFaveur ? `dont ${ectsFaveur} par faveur du Conseil` : null)}
     ${tuile(`${tous.filter(l => l.acquise).length} <span class="sur">/ ${lignes.length}</span>`, 'UE acquises', autres.filter(l => l.acquise).length ? `dont ${autres.filter(l => l.acquise).length} hors cursus` : null)}
-    ${tuile(ectsInscrits, `ECTS inscrits en ${esc(annee)}`, `${tous.filter(l => l.encours).length} UE en cours`)}
+    ${tuile(ectsInscrits, `ECTS inscrits en ${esc(annee)}`, `${tous.filter(l => l.inscriteAnnee).length} UE${nbEnCours ? `, dont ${nbEnCours} en cours` : ''}`)}
     ${tuile(moyenne == null ? '—' : moyenne.toLocaleString('fr-BE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }), 'Moyenne générale', 'UE acquises, pondérée par les périodes')}
   </div>
   <h2>Les unités du cursus, année après année</h2>
