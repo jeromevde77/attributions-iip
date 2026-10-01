@@ -3389,9 +3389,22 @@ export function revuePAE(etudId, annee) {
   const aSuivre = tousCours.filter(c => c.statut === 'suivre');
   const revu = db.prepare('SELECT revu_le, revu_par FROM pae_revue WHERE etudiant_id = ? AND annee_scolaire = ?').get(etudId, annee) || null;
   const niveau = niveauEtudiant(etudId, annee);
+  /* CE QUI PEUT ENTRER AU PAE : les unités du cursus qui n'y sont pas, avec
+     ce que le moteur en dit (accessible, bloquée…). L'ajout lui-même passe par
+     la porte unique — pae-valider, ecrireProgramme() —, qui juge et demande
+     un motif pour toute dérogation. */
+  let autres = [];
+  try {
+    const g = donneesCapitalisation(etudId, annee, section);
+    const dedans = new Set(inscr);
+    autres = (g.nodes || []).filter(n => !dedans.has(n.ue_num) && n.statut !== 'acquise')
+      .map(n => ({ ue_num: n.ue_num, ue_nom: n.ue_nom, niv: String(n.ue_niv || '').toUpperCase(), statut: n.statut || null,
+        ei: !!n.epreuve_integree }))
+      .sort((a, b) => rangBloc(a.niv) - rangBloc(b.niv) || a.ue_num - b.ue_num);
+  } catch { autres = []; }
   return {
     etudiant: { id: e.id, nom: e.nom, prenom: e.prenom, id_ecampus: e.id_ecampus, section, niveau: niveau.niveau, niveau_libelle: niveau.libelle },
-    annee, ues,
+    annee, ues, autres,
     chiffres: {
       ects_acquis: ectsAcquis, nb_ue: ues.length, ects_pae: ues.reduce((t, u) => t + u.ects, 0),
       cours_reportes: tousCours.filter(c => c.statut === 'report').length,
