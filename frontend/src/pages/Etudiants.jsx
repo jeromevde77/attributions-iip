@@ -2801,7 +2801,7 @@ export default function Etudiants() {
   const [importListe, setImportListe] = useState(false);
   const [importHisto, setImportHisto] = useState(false);
   const [complement, setComplement] = useState(false);
-  const [centreImpression, setCentreImpression] = useState(false);
+  const [rapportPAESel, setRapportPAESel] = useState(false);
   // Le passage d'année : toute une section, sur ses résultats.
   const [passage, setPassage] = useState(false);
   const [reportsOffice, setReportsOffice] = useState(false);
@@ -3519,10 +3519,14 @@ export default function Etudiants() {
               onClick={() => setSelEtudiants(new Set())}>Tout désélectionner</button>
           </span>
           <div className="flex gap-2">
-            <button onClick={() => setCentreImpression(true)}
+            {/* LE BOUTON « IMPRIMER » NE FAISAIT RIEN : il posait un état que
+                personne ne lisait. Il ouvre le PAE des étudiants cochés —
+                tableau croisé étudiants × UE, à l'écran ou en Excel. */}
+            <button onClick={() => setRapportPAESel(true)}
+              title="Le PAE des étudiants cochés : une ligne par étudiant, une colonne par UE — imprimable ou en Excel"
               className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-iip-blue text-white
                          font-semibold rounded-lg">
-              <IconPrinter size={14} /> Imprimer
+              <IconPrinter size={14} /> PAE des cochés
             </button>
             <button onClick={imprimerCoordonnees}
               title="La liste imprimable des emails, GSM et adresses des étudiants cochés"
@@ -3878,6 +3882,11 @@ export default function Etudiants() {
 
       {rapportPAE && (
         <RapportPAE anneeCourante={annee} onClose={() => setRapportPAE(false)} />
+      )}
+      {rapportPAESel && (
+        <RapportPAE anneeCourante={annee} onClose={() => setRapportPAESel(false)}
+          selection={(etudiants || []).filter(e => selEtudiants.has(e.id))
+            .map(e => ({ id: e.id, section: e.section_rattachement || null }))} />
       )}
 
       {purge && (

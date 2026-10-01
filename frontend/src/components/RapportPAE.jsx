@@ -9,7 +9,13 @@ import { authHeaders } from '../lib/api.js';
  * un aperçu imprimable, et un classeur Excel à la forme du classeur de la
  * coordination — donc réimportable par l'écran d'import une fois complété.
  */
-export default function RapportPAE({ anneeCourante, onClose }) {
+export default function RapportPAE({ anneeCourante, onClose, selection = null }) {
+  /* LE PAE D'UNE SÉLECTION (1er octobre 2026 : « comment sortir le PAE d'une
+     liste d'étudiants que je sélectionne ? »). Venu de la liste avec des
+     étudiants cochés, le rapport ne garde qu'eux — dans les sections où ils
+     sont rattachés, chacune dans son tableau. */
+  const idsSel = selection ? new Set(selection.map(e => e.id)) : null;
+  const sectionsSel = selection ? [...new Set(selection.map(e => e.section).filter(Boolean))] : null;
   const [sections, setSections] = useState([]);
   const [choisies, setChoisies] = useState([]);   // sections retenues
   const [annee, setAnnee] = useState(anneeCourante || '');
@@ -37,7 +43,11 @@ export default function RapportPAE({ anneeCourante, onClose }) {
   useEffect(() => {
     fetch('/api/ref/sections', { headers: authHeaders() })
       .then(r => r.json()).then(l => {
-        if (Array.isArray(l)) { setSections(l); if (l.length) setChoisies([l[0].code]); }
+        if (Array.isArray(l)) {
+          setSections(l);
+          if (sectionsSel?.length) setChoisies(l.map(x => x.code).filter(c => sectionsSel.includes(c)));
+          else if (l.length) setChoisies([l[0].code]);
+        }
       }).catch(() => {});
     fetch('/api/etudiants/purge/perimetre', { headers: authHeaders() })
       .then(r => r.json()).then(j => {
@@ -73,9 +83,10 @@ export default function RapportPAE({ anneeCourante, onClose }) {
         const rep = await fetch(url(sect), { headers: authHeaders() });
         const j = await rep.json();
         if (!rep.ok) { setErreur(j.error || 'Erreur'); return null; }
+        if (idsSel) j.etudiants = (j.etudiants || []).filter(e => idsSel.has(e.id));
         if (j.etudiants?.length) jeux.push(j);
       }
-      if (!jeux.length) { setErreur('Aucun étudiant pour ce périmètre.'); return null; }
+      if (!jeux.length) { setErreur(idsSel ? "Aucun des étudiants cochés n'a de PAE dans ces sections pour cette année." : 'Aucun étudiant pour ce périmètre.'); return null; }
       return jeux;
     } finally { setEnCours(false); }
   }
@@ -334,7 +345,7 @@ ${j.granularite === 'cours' && !cotesCours ? `
         <div className="bg-white rounded-fenetre shadow-dessus w-full max-w-2xl mt-10">
           <div className="bg-iip-blue rounded-t-2xl px-5 py-4 flex items-start justify-between">
             <div>
-              <div className="text-white font-bold text-[15px]">Rapport de PAE</div>
+              <div className="text-white font-bold text-[15px]">Rapport de PAE{idsSel ? ` — ${idsSel.size} étudiant(s) coché(s)` : ''}</div>
               <div className="text-blue-200 text-[12px] mt-0.5">
                 Aperçu imprimable ou classeur à compléter
               </div>
