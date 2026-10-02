@@ -95,7 +95,10 @@ export function filigraner(html, o = {}) {
   const date = new Date().toLocaleDateString('fr-BE');
   const texteDe = bloc => {
     // La personne : le nom en tête de la pièce, quand elle en porte un.
-    const nom = (/<div class="nom">([^<]+)<\/div>/.exec(bloc) || [])[1];
+    // Le DERNIER nom avant ce bloc : le morceau commence au bloc précédent, et
+    // son premier nom est celui du signataire de la page d'avant.
+    const noms = [...bloc.matchAll(/<div class="nom">([^<]+)<\/div>/g)];
+    const nom = noms.length ? noms[noms.length - 1][1] : undefined;
     return [o.texte || 'Institut Ilya Prigogine', nom, date].filter(Boolean).join(' · ');
   };
   // Chaque bloc de clôture reçoit son fond, avec la personne de SA page.

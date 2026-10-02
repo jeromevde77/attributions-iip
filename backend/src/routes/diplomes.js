@@ -156,6 +156,8 @@ export function donneesSectionDiplome(code) {
     date_approbation: f.date_approbation || '',
     duree_annees: f.duree_annees || '',
     total_ects: f.ects || '',
+    total_periodes: f.periodes || '',
+    intitule_diplome: f.diplome || f.grade_academique || f.section || sec.libelle || '',
     type_enseignement: sec.type_enseignement || '',
     fiche_trouvee: !!f.code,
   };
@@ -615,7 +617,10 @@ async function modeleDiplome() {
 function attestationSection(d, ctx) {
   const { section, annee, ident, dateDelib } = ctx;
   const e0 = d.genre === 'F' ? 'e' : '';
-  const cote = v => v == null ? '………' : `${Math.round(Number(v))}/20`;
+  // LE CARTOUCHE SE POSE SUR LA COTE, PAS SUR LA CELLULE (2 octobre 2026) :
+  // la classe « cote » sur le <td> en faisait un bloc en ligne, et les
+  // rectangles guillochés sortaient de la grille du tableau.
+  const cote = v => v == null ? '………' : `<span class="cote">${Math.round(Number(v))}/20</span>`;
 
   return `<div class="attestation piece">
     ${enteteDocument({
@@ -644,10 +649,10 @@ function attestationSection(d, ctx) {
           <td>${u.ue_num}</td><td>${esc(u.ue_nom || '')}
             <span class="ref">unité déterminante</span></td>
           <td class="n">${u.periodes || '—'}</td>
-          <td class="n cote">${cote(u.cote)}</td></tr>`).join('')}
+          <td class="n">${cote(u.cote)}</td></tr>`).join('')}
         ${d.epreuve ? `<tr class="ei">
           <td>${d.epreuve.ue_num}</td><td>Épreuve intégrée</td>
-          <td class="n">—</td><td class="n cote">${cote(d.epreuve.cote)}</td></tr>` : ''}
+          <td class="n">—</td><td class="n">${cote(d.epreuve.cote)}</td></tr>` : ''}
       </tbody>
     </table>
 
@@ -657,10 +662,66 @@ function attestationSection(d, ctx) {
       ${d.mention.mention ? `<br>Mention : <b>${esc(d.mention.mention)}</b>` : ''}
     </div>
 
+    <!-- LE BLOC DES ATTESTATIONS : sceau, signature (protégée par le
+         fac-similé au PDF, à l'aperçu et à l'envoi), lieu et date, qualité.
+         Cette pièce n'avait que le lieu et le nom — rien à signer. -->
     <div class="cloture">
+      <div class="sceau"></div>
+      <div class="paraphe"></div>
       <div class="lieu">Fait à ${esc(ident.ville)}, le ${dateLongue(dateDelib)}.</div>
-      <div class="sig"><div class="nom">${esc(ident.directeur)}</div>
-        <div class="role">Directeur</div></div>
+      <div class="legende">
+        <div class="qualite">Pour le Conseil des études,<br>le Directeur</div>
+        <div class="nom">${esc(ident.directeur)}</div>
+      </div>
+    </div>
+  </div>`;
+}
+
+/**
+ * L'ATTESTATION PROVISOIRE DE DIPLÔME (Charles, 2 octobre 2026 : « j'avais
+ * cela, à mettre au goût du jour » — le générateur de juin, `pages/
+ * Attestation.jsx`, où tout se saisissait à la main). Elle se remet le jour de
+ * la délibération, en attendant le diplôme que l'autorité doit encore signer.
+ * Tout vient du dossier de diplomation : identité, mention, section ; le code,
+ * l'intitulé, les périodes et les ECTS de la fiche de section (Configuration
+ * → Attestation → Sections & diplômes) ; les cosignataires du diplôme
+ * (réglés par section) se nomment dans la formule « Pour … et pour … ».
+ * La signature du directeur suit la règle commune : sous fac-similé.
+ */
+function attestationProvisoire(d, ctx) {
+  const { section, annee, ident, dateDelib, ds, cosignataires } = ctx;
+  const ne = d.genre === 'F' ? 'Née' : d.genre === 'H' ? 'Né' : 'Né·e';
+  const lui = d.genre === 'F' ? "de l'intéressée" : d.genre === 'H' ? "de l'intéressé" : "de l'intéressé·e";
+  const manque = '<span class="manque">……………</span>';
+  const v = x => (x != null && x !== '' ? `<b>${esc(x)}</b>` : manque);
+  const pour = cosignataires.length
+    ? `<p class="pour">Pour ${cosignataires.map(c => `${esc(c.qualite)}, <b>${esc(c.nom)}</b>`).join(', et pour ')}.</p>` : '';
+  return `<div class="attestation piece provisoire">
+    ${enteteDocument({
+      titre: 'Attestation provisoire de diplôme',
+      sous: section.libelle || section.code,
+      ligne: annee ? `Année académique ${String(annee).replace('-', '/')}` : null,
+    })}
+    <p class="corps">Je soussigné, ${esc(ident.directeur || '')}, Directeur de l'établissement, certifie que</p>
+    <div class="etudiant">
+      <div class="nom">${esc((d.nom || '').toUpperCase())} ${esc(d.prenom || '')}</div>
+      <div class="naissance">${ne}${d.lieu_naissance ? ` à ${esc(d.lieu_naissance)}` : ''}, ${enToutesLettres(d.date_naissance) || '………'}</div>
+    </div>
+    <p class="corps">a obtenu, le ${dateLongue(dateDelib)}, le <b>diplôme de ${esc(String(ds.intitule_diplome || ds.intitule_section || '').toLocaleLowerCase('fr'))}</b>${
+      d.mention?.mention ? `, avec la mention <b>${esc(d.mention.mention)}</b>` : ''},</p>
+    <p class="corps">à l'issue de la section ${v(ds.intitule_section)}, approuvée par le Gouvernement sous le numéro de code ${v(ds.code_section)}.
+      Ladite section comporte ${v(ds.total_periodes)} périodes et ${v(ds.total_ects)} crédits ECTS.</p>
+    <p class="corps avis">Le diplôme ${lui} est actuellement soumis à la signature de l'autorité compétente.
+      La présente attestation en tient lieu jusqu'à sa délivrance.</p>
+    ${pour}
+    <div class="cloture">
+      <div class="sceau"></div>
+      <div class="paraphe"></div>
+      <div class="lieu">Fait à ${esc(ident.ville || 'Bruxelles')}, le ${dateLongue(dateDelib)}.</div>
+      <div class="legende">
+        <div class="qualite">Le Directeur<br>de l'Institut Ilya Prigogine</div>
+        <div class="nom">${esc(ident.directeur || '')}</div>
+      </div>
     </div>
   </div>`;
 }
@@ -676,6 +737,10 @@ const STYLE_SECTION = `<style>
   .resultat { margin-top: 4mm; padding: 2.5mm 4mm; border: 0.3mm solid #C9A84C;
     border-radius: 1.5mm; text-align: right; font-size: 10pt; }
   .resultat .pct { font-size: 13pt; font-weight: 700; color: #1B2B4B; }
+  .provisoire .corps { font-size: 10pt; line-height: 1.6; }
+  .provisoire .avis { font-style: italic; color: #475569; margin-top: 4mm; }
+  .provisoire .pour { font-size: 9.5pt; text-align: center; margin: 6mm 6mm 0; line-height: 1.6; }
+  .provisoire .manque { color: #b45309; font-style: italic; }
 </style>`;
 
 /**
@@ -787,6 +852,28 @@ r.post('/pieces', authRequired,
     }
   }
 
+  if (veut.includes('provisoire')) {
+    styles.add(STYLE_SECTION);
+    const dsP = donneesSectionDiplome(sec.code);
+    const sigP = await signatairesDe(sec.code);
+    const jetonsP = { president_jury: presidence?.titulaire?.nom || ident.directeur, directeur: ident.directeur };
+    const resoudre = t => String(t || '').replace(/\{\{\s*([a-z_]+)\s*\}\}/gi, (_, k) => jetonsP[k] || '');
+    // Les cosignataires : tous ceux du diplôme, sauf le directeur, qui signe la pièce.
+    ctx.cosignataires = (sigP.liste || [])
+      .map(x => ({ qualite: resoudre(x.qualite).replace(/\s*\n\s*/g, ' ').replace(/[,\s]+$/, ''), nom: resoudre(x.nom).trim() }))
+      .filter(x => x.nom && x.nom !== ident.directeur)
+      .map(x => ({ ...x, qualite: x.qualite.charAt(0).toLocaleLowerCase('fr') + x.qualite.slice(1) }));
+    // Les ECTS : la fiche, à défaut la somme des unités de la section — le calcul du diplôme.
+    const ectsP = dossier.requises.length ? db.prepare(`SELECT SUM(n) AS t FROM (SELECT ue_num, MAX(ects) AS n FROM ue
+        WHERE ue_num IN (${dossier.requises.map(() => '?').join(',')}) GROUP BY ue_num)`).get(...dossier.requises)?.t : null;
+    ctx.ds = { ...dsP, total_ects: dsP.total_ects || ectsP || '' };
+    if (!dsP.total_periodes) manques.push(`Attestation provisoire : le nombre de périodes de ${sec.libelle || sec.code} manque à la fiche de section (Configuration → Attestation → Sections & diplômes).`);
+    if (!dsP.code_section) manques.push(`Attestation provisoire : le code de la section ${sec.libelle || sec.code} manque.`);
+    for (const d of choisis) {
+      pages.push({ t: `Attestation provisoire — ${d.nom} ${d.prenom}`, h: attestationProvisoire(d, ctx) });
+    }
+  }
+
   if (veut.includes('attestation')) {
     styles.add(STYLE_SECTION);
     for (const d of choisis) {
@@ -797,11 +884,13 @@ r.post('/pieces', authRequired,
 
   // UNE PIÈCE PAR PERSONNE, pour l'envoi : on n'adresse pas à quelqu'un un
   // fichier qui porte vingt noms. L'attestation de chacun est enveloppée seule.
-  const parEtudiant = veut.includes('attestation')
+  const parEtudiant = veut.includes('attestation') || veut.includes('provisoire')
     ? choisis.map(d => ({
       id: d.id, nom: d.nom, prenom: d.prenom,
-      attestation: envelopper(STYLE_SECTION + attestationSection(d, ctx),
-        `Attestation de réussite de section — ${d.nom} ${d.prenom}`),
+      ...(veut.includes('attestation') ? { attestation: envelopper(STYLE_SECTION + attestationSection(d, ctx),
+        `Attestation de réussite de section — ${d.nom} ${d.prenom}`) } : {}),
+      ...(veut.includes('provisoire') ? { provisoire: envelopper(STYLE_SECTION + attestationProvisoire(d, ctx),
+        `Attestation provisoire de diplôme — ${d.nom} ${d.prenom}`) } : {}),
     }))
     : [];
   const diplomes = pages.filter(p => p.entier).map(p => p.h);

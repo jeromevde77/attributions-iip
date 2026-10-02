@@ -94,14 +94,14 @@ export default function CentreDiplomation({ annee, onClose }) {
    */
   const produire = async () => {
     const titres = veut.diplome || veut.attestation;
-    if (!retenus.size || !(titres || veut.liste || veut.pv)) return;
+    if (!retenus.size || !(titres || veut.provisoire || veut.liste || veut.pv)) return;
     setEnCours(true); setErreur(null); setProduits(null); setManques([]);
     const ids = [...retenus];
     const poster = (url, corps) => fetch(url, {
       method: 'POST', headers: authHeaders(), body: JSON.stringify(corps),
     }).then(async r => { const j = await r.json(); if (!r.ok) throw new Error(j.error); return j; });
     try {
-      const [t, l, pv] = await Promise.all([
+      const [t, l, pv, pr] = await Promise.all([
         titres ? poster('/api/diplomes/pieces', {
           section, annee, etudiants: ids, date_deliberation: date,
           pieces: ['diplome', 'attestation'].filter(k => veut[k]),
@@ -111,6 +111,11 @@ export default function CentreDiplomation({ annee, onClose }) {
         }) : null,
         veut.pv ? poster('/api/diplomes/pv-section', {
           section, annee, etudiants: ids, date,
+        }) : null,
+        // L'ATTESTATION PROVISOIRE, À PART : elle se remet le jour même, et ne
+        // se mêle pas aux attestations de section dans un même document.
+        veut.provisoire ? poster('/api/diplomes/pieces', {
+          section, annee, etudiants: ids, date_deliberation: date, pieces: ['provisoire'],
         }) : null,
       ]);
       const an = String(annee).replace(/\W/g, '');
@@ -130,6 +135,16 @@ export default function CentreDiplomation({ annee, onClose }) {
           destinataire: { type: 'etudiant', id: e.id, nom: nomPropre(e.nom, e.prenom) },
         })),
       });
+      if (pr?.html) out.push({
+        cle: 'provisoire', titre: 'Attestations provisoires de diplôme',
+        nb: pr.par_etudiant?.length || 0, detail: 'en attendant la signature du diplôme',
+        html: pr.html, nom: `Attestations_provisoires_${section}_${an}`,
+        envoi: (pr.par_etudiant || []).map(e => ({
+          html: e.provisoire,
+          nom_fichier: `Attestation_provisoire_${e.nom}_${e.prenom}_${an}`,
+          destinataire: { type: 'etudiant', id: e.id, nom: nomPropre(e.nom, e.prenom) },
+        })),
+      });
       if (l?.html) out.push({
         cle: 'liste', titre: 'Liste des étudiants diplômés', nb: l.nb,
         detail: 'formulaire de la Fédération', html: l.html,
@@ -141,7 +156,7 @@ export default function CentreDiplomation({ annee, onClose }) {
         nom: `PV_section_${section}_${an}`,
       });
       setProduits(out);
-      setManques([...(t?.manques || []), ...(l?.manques || []), ...(pv?.manques || [])]);
+      setManques([...(t?.manques || []), ...(pr?.manques || []), ...(l?.manques || []), ...(pv?.manques || [])]);
     } catch (e) { setErreur(e.message); } finally { setEnCours(false); }
   };
 
@@ -176,7 +191,7 @@ export default function CentreDiplomation({ annee, onClose }) {
   const cocherTout = () => setRetenus(new Set(liste.map(x => x.id)));
   const decocherTout = () => setRetenus(new Set());
   const cetteAnnee = () => setRetenus(new Set(d?.proposes || []));
-  const nbPieces = ['diplome', 'attestation', 'liste', 'pv'].filter(k => veut[k]).length;
+  const nbPieces = ['diplome', 'attestation', 'provisoire', 'liste', 'pv'].filter(k => veut[k]).length;
 
   return (
     <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] flex items-start justify-center z-[60] p-4">
@@ -221,7 +236,7 @@ export default function CentreDiplomation({ annee, onClose }) {
           <div className="text-[12px] text-slate-600">
             <div className="font-semibold mb-0.5">Pièces</div>
             <div className="flex gap-1">
-              {[['diplome', 'Diplôme'], ['attestation', 'Attestation de section'],
+              {[['diplome', 'Diplôme'], ['provisoire', 'Attestation provisoire'], ['attestation', 'Attestation de section'],
                 ['liste', 'Liste des diplômés'], ['pv', 'PV de section']].map(([k, l]) => (
                 <button key={k} onClick={() => setVeut(v => ({ ...v, [k]: !v[k] }))}
                   className={`px-2 py-1.5 text-[12px] rounded-lg border font-medium
