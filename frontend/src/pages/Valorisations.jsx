@@ -4410,6 +4410,7 @@ const TEINTE_DECISION = {
   '': 'var(--c-indisponible-bord, #94A3B8)',
 };
 const LIB_DECISION = { totale: 'Totale', partielle: 'Partielle', refusee: 'Refusée' };
+const LIB_PORTE = { va: 'VA', vae: 'VAE', admission: 'AD' };
 const SENS_AVIS = { favorable: ['favorable', 'totale'], partiel: ['partiel', 'partielle'], defavorable: ['défavorable', 'refusee'] };
 
 function choixDepuisAvis(d) {
@@ -4652,7 +4653,9 @@ export function DeliberationVA({ annee, onClose, onChange, mode: modeDepart = 'e
                     ? `✓ Arrêter ${prets.length} décision(s)${iCur < groupes.length - 1 ? ' · suivant ▶' : ''}`
                     : 'Rien à arrêter · suivant ▶'}</button>
               </div>
-              {info && <div data-etat="reussi" className="bloc-etat px-3 py-1.5 text-[12px] mb-2">{info}</div>}
+              {/* Le constat s'écrit, il ne se cadre pas : un bandeau à liseré posé
+                  sur le tableau se confondait avec le liseré de la première ligne. */}
+              {info && <p className="text-[12px] font-semibold mb-2" style={{ color: 'var(--c-reussi, #3E7D5E)' }}>✓ {info}</p>}
               {erreur && (
                 <div data-etat="corriger" className="bloc-etat px-3 py-2 text-[12px] mb-2">
                   {erreur}
@@ -4684,11 +4687,11 @@ export function DeliberationVA({ annee, onClose, onChange, mode: modeDepart = 'e
                         <tr className="border-b border-slate-100 align-top">
                           <td className="px-2 py-2" style={{ borderLeft: `5px solid ${TEINTE_DECISION[d.valide_le || !bloque ? (c.branche || '') : '']}` }}>
                             {mode === 'etudiant' ? (
-                              <><b>UE {d.ue_num}</b> {d.porte && <span className="text-[10.5px] font-bold text-slate-500 border border-slate-300 rounded px-1">{d.porte}</span>}
+                              <><b>UE {d.ue_num}</b> {d.porte && <span className="text-[10.5px] font-bold text-slate-500 border border-slate-300 rounded px-1">{LIB_PORTE[d.porte] || String(d.porte).toUpperCase()}</span>}
                                 <div className="text-[12px] text-slate-500">{d.ue_nom || ''}</div></>
                             ) : (
                               <><b>{(d.nom || '').toUpperCase()}</b> {d.prenom}
-                                <div className="text-[11px] text-slate-500 tabular-nums">{d.id_ecampus}{d.porte ? ` · ${d.porte}` : ''}</div></>
+                                <div className="text-[11px] text-slate-500 tabular-nums">{d.id_ecampus}{d.porte ? ` · ${LIB_PORTE[d.porte] || String(d.porte).toUpperCase()}` : ''}</div></>
                             )}
                           </td>
                           <td className="px-2 py-2 text-[12px] text-slate-700">

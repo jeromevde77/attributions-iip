@@ -1788,8 +1788,15 @@ circulé sans qu'on puisse dire qui l'avait sortie. « Je veux des traces. »
   2026) : « NOM Prénom », jamais « Prénom NOM » — listes, titres, fenêtres,
   messages, courriels internes. `nomPropre()` (`frontend/src/lib/nom.js`) le
   fait d'office ; un écran qui compose le nom à la main écrit
-  `${NOM.toUpperCase()} ${prenom}`. Les pièces officielles (contrats,
-  attestations, courriers, DUE) gardent leur forme propre.
+  `${NOM.toUpperCase()} ${prenom}`. Raison : pour encoder et choisir, les gens
+  connaissent les noms. Les DOCUMENTS (contrats, attestations, PV, courriers,
+  DUE) gardent « Prénom NOM » — confirmé par Charles le 2 octobre 2026.
+- **LES VA NE SONT PAS SUSCEPTIBLES DE RECOURS, MAIS ELLES SE MOTIVENT**
+  (Charles, 2 octobre 2026, face à la circulaire « toutes les UE peuvent faire
+  l'objet d'un recours ») : le RDE fait foi pour Lucie.
+- **DONNÉES PRIVÉES DANS LES LISTES** : n° national et adresse postale —
+  administrateur et direction ; e-mail privé — aussi secrétariat et
+  coordinations. Le tri se fait dans `routes/listes.js`, pas à l'écran.
 - **LE NOM SE MET EN CAPITALES, LE PRÉNOM SE CAPITALISE — DEUX RÈGLES, DEUX
   FONCTIONS.** `lib/nom.js` les porte, sorties de `routes/acquis.js` où elles
   étaient enfermées : ce sont des règles d'écriture pures, et l'accueil en avait

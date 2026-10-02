@@ -77,7 +77,7 @@ export default function AvisValorisationProf({ annee }) {
               <div className="flex flex-wrap items-center gap-2">
                 <b>{x.etudiant}</b><span className="text-[11px] text-slate-500 tabular-nums">{x.id_ecampus}</span>
                 <span>UE {x.ue_num}{x.ue_nom ? ` — ${x.ue_nom}` : ''}</span>
-                {x.porte && <span className="text-[10.5px] font-bold text-slate-500 border border-slate-300 rounded px-1">{x.porte}</span>}
+                {x.porte && <span className="text-[10.5px] font-bold text-slate-500 border border-slate-300 rounded px-1">{({ va: 'VA', vae: 'VAE', admission: 'AD' })[x.porte] || String(x.porte).toUpperCase()}</span>}
                 {x.cours_demandes.length > 0 && <span className="text-[12px] text-slate-500">cours demandés : {x.cours_demandes.join(', ')}</span>}
                 <span className="ml-auto text-[12px]">
                   {x.mon_avis

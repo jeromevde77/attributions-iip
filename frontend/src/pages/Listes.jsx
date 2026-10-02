@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { api, getAnnee, nomDoc } from '../lib/api.js';
+import { api, getAnnee, nomDoc, getUser } from '../lib/api.js';
 import PreviewModal from '../components/PreviewModal.jsx';
 import ListeDiplomes from '../components/ListeDiplomes.jsx';
 import { RailLateral } from '../components/ui.jsx';
@@ -15,6 +15,15 @@ import * as XLSX from 'xlsx';
 import { ouvrirApercu } from '../lib/apercu.js';
 
 // Table des composants d'icônes (référencés par nom dans ENTITES.tabler)
+/* Les colonnes privées ne se proposent qu'à qui peut les lire — le serveur,
+   de toute façon, ne les remplit pas pour les autres (2 octobre 2026). */
+function colPermise(c) {
+  const role = getUser()?.role;
+  if (c.prive) return ['admin', 'directeur', 'directeur_adjoint'].includes(role);
+  if (c.mailPrive) return ['admin', 'directeur', 'directeur_adjoint', 'secretariat', 'coordination', 'editeur'].includes(role);
+  return true;
+}
+
 const TABLER = {
   IconUser, IconBooks, IconBook, IconLink, IconSchool, IconScale,
   IconAlertTriangle, IconLayoutGrid, IconFileText, IconFileDescription,
@@ -317,12 +326,12 @@ const ENTITES = {
       { key: 'date_naissance', label: 'Né(e) le', defaut: false },
       { key: 'lieu_naissance', label: 'Lieu de naissance', defaut: false },
       { key: 'nationalite',  label: 'Nationalité', defaut: false },
-      { key: 'num_national', label: 'N° national', defaut: false },
-      { key: 'email_perso',  label: 'E-mail privé', defaut: false },
+      { key: 'num_national', label: 'N° national', defaut: false , prive: true },
+      { key: 'email_perso',  label: 'E-mail privé', defaut: false , mailPrive: true },
       { key: 'gsm',          label: 'GSM',       defaut: false },
-      { key: 'adresse',      label: 'Adresse',   defaut: false },
-      { key: 'cp',           label: 'CP',        defaut: false },
-      { key: 'localite',     label: 'Localité',  defaut: false },
+      { key: 'adresse',      label: 'Adresse',   defaut: false , prive: true },
+      { key: 'cp',           label: 'CP',        defaut: false , prive: true },
+      { key: 'localite',     label: 'Localité',  defaut: false , prive: true },
       { key: 'titre',        label: 'Titre d’accès', defaut: false },
       { key: 'matricule_helb', label: 'Matricule HELB', defaut: false },
       { key: 'section_posee', label: 'Section posée', defaut: false },
@@ -1503,8 +1512,6 @@ export default function Listes({ integre = false, domaine = null }) {
         titre="Listes & rapports"
         sections={[
           { label: 'Documents', items: [
-            { key: 'attestation', label: 'Attestation réussite', icon: IconFileText, actif: false,
-              onClick: () => navigate('/attestation') },
             // La liste réclamée par la Fédération en fin de cycle : elle se
             // tapait à la main dans un Word recopié d'année en année.
             { key: 'diplomes', label: 'Étudiants diplômés', icon: IconCertificate, actif: false,
@@ -1848,7 +1855,7 @@ export default function Listes({ integre = false, domaine = null }) {
             {def.cols.length > 0 && (
               <div className="flex flex-wrap items-center gap-1 mb-2">
                 <span className="text-[11px] font-semibold text-slate-500 mr-1">Colonnes</span>
-                {def.cols.map(c => (
+                {def.cols.filter(colPermise).map(c => (
                   <button key={c.key} onClick={() => toggleCol(c.key)}
                     className={`text-[11px] px-2 py-0.5 rounded border transition ${
                       colsActives.has(c.key)
@@ -1858,7 +1865,7 @@ export default function Listes({ integre = false, domaine = null }) {
                     {c.label}
                   </button>
                 ))}
-                <button onClick={() => setColsActives(new Set(def.cols.map(c => c.key)))}
+                <button onClick={() => setColsActives(new Set(def.cols.filter(colPermise).map(c => c.key)))}
                   className="text-[11px] text-slate-500 underline ml-1">tout</button>
                 <button onClick={() => setColsActives(new Set(def.cols.filter(c => c.defaut).map(c => c.key)))}
                   className="text-[11px] text-slate-500 underline">par défaut</button>

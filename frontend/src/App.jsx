@@ -46,7 +46,6 @@ import Pilotage from './pages/Pilotage.jsx';
 import Planification from './pages/Planification.jsx';
 const Documentation = lazy(() => import('./pages/Documentation.jsx'));
 const MesCours = lazy(() => import('./pages/MesCours.jsx'));
-import Attestation from './pages/Attestation.jsx';
 import Disciplinaire from './pages/Disciplinaire.jsx';
 import Echeancier from './pages/Echeancier.jsx';
 import Organisation from './pages/Organisation.jsx';
@@ -754,7 +753,9 @@ export default function App() {
       {/* L'ancienne adresse continue de mener quelque part : un lien noté dans
           un courriel ou un signet ne doit pas tomber dans le vide. */}
       <Route path="/aide"           element={<Navigate to="/documentation" replace />} />
-      <Route path="/attestation"   element={<ProtectedLayout><Attestation /></ProtectedLayout>} />
+      {/* L'ANCIENNE ATTESTATION EST RETIRÉE (2 octobre 2026) : elle portait des
+          pondérations TIM écrites en dur ; les attestations sortent par Éditions. */}
+      <Route path="/attestation"   element={<Navigate to="/" replace />} />
       <Route path="/disciplinaire" element={<ProtectedLayout><Disciplinaire /></ProtectedLayout>} />
       {/* CES ÉCRANS ONT DÉJÀ LEUR PLACE — ON N'EN OUVRE PAS UNE SECONDE.
           `Users`, `Annees`, `Referentiels` et `Editeur` sont DÉJÀ rendus comme

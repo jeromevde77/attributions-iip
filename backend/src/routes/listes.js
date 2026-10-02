@@ -139,8 +139,18 @@ r.get('/etudiants', authRequired, (req, res) => {
   const dateFr = d => (d ? String(d).slice(0, 10).split('-').reverse().join('/') : '');
   const oui = v => (v === 1 || v === '1' || v === true ? 'Oui' : '');
   const fiches = new Map(db.prepare('SELECT * FROM etudiant').all().map(f => [f.id, f]));
+  /* LES DONNÉES PRIVÉES NE SORTENT QUE POUR QUI EN A L'USAGE (Charles,
+     2 octobre 2026) : n° national et adresse postale — administrateur et
+     direction ; e-mail privé — aussi le secrétariat et les coordinations. Le
+     tri se fait ICI : une colonne cachée à l'écran partirait encore dans
+     l'export. */
+  const role = req.user?.role;
+  const voitPrive = ['admin', 'directeur', 'directeur_adjoint'].includes(role);
+  const voitMailPrive = voitPrive || ['secretariat', 'coordination', 'editeur'].includes(role);
   const champsFiche = id => {
-    const f = fiches.get(id) || {};
+    let f = fiches.get(id) || {};
+    if (!voitPrive) f = { ...f, num_national: null, adresse: null, cp: null, localite: null };
+    if (!voitMailPrive) f = { ...f, email_perso: null };
     return {
       date_naissance: dateFr(f.date_naissance), lieu_naissance: f.lieu_naissance || '',
       nationalite: f.nationalite || '', num_national: f.num_national || '',
