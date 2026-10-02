@@ -23,7 +23,7 @@ import { useMode, basculerMode } from './lib/theme.js';
 import {
   IconClipboardList, IconBooks, IconUsers, IconFileExport, IconChecklist,
   IconChartBar, IconCalendarStats, IconEdit, IconSettings, IconLogout, IconMenu2, IconX,
-  IconHome, IconBell, IconHelpCircle, IconGavel, IconSun, IconMoon,
+  IconHome, IconBell, IconLibrary, IconGavel, IconSun, IconMoon,
   IconShieldLock, IconShieldCheck,
 } from '@tabler/icons-react';
 
@@ -511,7 +511,10 @@ function ProtectedLayout({ children }) {
    * dans l'autre, sans pouvoir deviner laquelle. L'écran porte donc deux
    * faces — les TEXTES qui s'imposent, et le MODE D'EMPLOI de l'outil — et il
    * garde la place et l'icône que l'aide occupait déjà dans la barre. */
-  nav.push(['/documentation', '', IconHelpCircle]);
+  /* LE POINT D'INTERROGATION NE DISAIT PAS CE QU'IL OUVRE (Charles, 2 octobre
+     2026 : « changer cette icône et mettre Documentation à côté, ce sera plus
+     clair pour tout le monde »). Une bibliothèque, et son nom. */
+  nav.push(['/documentation', 'Documentation', IconLibrary]);
   if (estDirection(u)) nav.push(['/configuration', 'Config.', IconSettings]);
 
   return (
@@ -602,7 +605,7 @@ function ProtectedLayout({ children }) {
                     </span>
                   )}
                 </span>
-                <span>{lbl}</span>
+                <span className={to === '/documentation' ? 'text-[12px]' : ''}>{lbl}</span>
               </NavLink>
             ))}
           </nav>
