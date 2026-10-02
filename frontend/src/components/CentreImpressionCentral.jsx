@@ -1424,8 +1424,13 @@ function OngletEtudiants({ perimetre = null, mode = 'deliberation', seul = null,
     }
     const docsRoute = [], avisRoute = [];
     const nomDe = id => { const e = etudiants.find(x => x.id === id); return e ? `${e.nom} ${e.prenom || ''}`.trim() : `#${id}`; };
-    for (const p of avecRoute) {
-      for (const id of coches) {
+    /* QUATRE À LA FOIS, PAS UNE PAR UNE (2 octobre 2026) : une fiche par
+       étudiant, en série, c'était soixante allers-retours bout à bout. */
+    const taches = avecRoute.flatMap(p => [...coches].map(id => [p, id]));
+    let suivante = 0;
+    const ouvrier = async () => {
+      while (suivante < taches.length) {
+        const [p, id] = taches[suivante++];
         try {
           const r = await fetch(p.route(id, encodeURIComponent(annee)), { headers: authHeaders() });
           const j = await r.json().catch(() => ({}));
@@ -1435,7 +1440,8 @@ function OngletEtudiants({ perimetre = null, mode = 'deliberation', seul = null,
             contenu: `${p.label} — ${annee}` });
         } catch (e) { avisRoute.push(`${nomDe(id)} — ${p.label.toLowerCase()} : ${e.message}`); }
       }
-    }
+    };
+    await Promise.all(Array.from({ length: Math.min(4, taches.length) }, ouvrier));
     docsRoute.push(...docsPAE);
     const demandees = toutes.filter(p => !p.route && !p.pae);
     if (!demandees.length) return { documents: docsRoute, avis: avisRoute };
