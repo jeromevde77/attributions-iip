@@ -245,6 +245,7 @@ function RevuePAE({ liste: base, annee: anneeDepart, onClose }) {
     deja: rv.ues.filter(u => u.deja).length, reprendre: rv.ues.filter(u => u.etat === 'reprendre').length } } : sy));
 
   const marquer = async (revu, puisSuivant = false) => {
+    if (!cur) return;
     setEnCours('revu'); setErreur(null);
     try {
       const r = await fetch(`/api/etudiants/${cur.id}/revue-pae/revu`, { method: 'PUT', headers: authHeaders(),
@@ -413,7 +414,11 @@ function RevuePAE({ liste: base, annee: anneeDepart, onClose }) {
       {!synthese && <p className="text-[13px] text-slate-400">Lecture de la liste…</p>}
       {synthese && !liste.length && <p className="text-[13px] text-slate-500">Aucun étudiant de la liste ne correspond à ces filtres pour {annee}.</p>}
       {synthese && liste.length > 0 && !d && !erreur && <p className="text-[13px] text-slate-400">Chargement…</p>}
-      {d && (
+      {/* L'ÉTUDIANT AFFICHÉ DOIT ÊTRE CELUI DE LA LISTE : validé sous le filtre
+          « pas encore validés », il sort de la liste — le dernier validé la
+          vidait, et l'écran plantait sur un étudiant qui n'y était plus
+          (2 octobre 2026, « undefined … R.id »). */}
+      {d && cur && d.etudiant?.id === cur.id && (
         <>
           {d.revu && (
             <div className="mb-2 px-3 py-2 rounded-lg text-[13px] bg-emerald-700 text-white">
