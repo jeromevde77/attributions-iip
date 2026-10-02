@@ -757,7 +757,13 @@ export function RailDessine({ icon: HeaderIcon, titre, sousTitre, extra, surAccu
 
   return (
     <>
-      {rail}
+      {/* LE RAIL SORT DE L'ÉCRAN, PAR UN PORTAIL (Charles, 2 octobre 2026 :
+          « le rail devrait rester statique quand je défile »). Un élément
+          « fixed » n'est fixe que si aucun ancêtre ne transforme, ne filtre ni
+          n'anime : il suffisait qu'un écran pose une transition sur son cadre
+          pour que le rail défile avec la page. Rendu sur le corps du
+          document, il est fixe partout, quoi que fassent les écrans. */}
+      {typeof document !== 'undefined' ? createPortal(rail, document.body) : rail}
       {/* LA FENÊTRE SORT DU RAIL, PAR UN PORTAIL.
           Un élément « fixed » n'est fixe que si aucun de ses ancêtres ne
           transforme ni ne filtre : le rail floutait son fond, ce qui suffit à
