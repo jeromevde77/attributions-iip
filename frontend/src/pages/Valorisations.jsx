@@ -4317,8 +4317,8 @@ function InstruireUnite({ vid, onChange }) {
  */
 const TEINTE_DECISION = {
   totale: 'var(--c-reussi, #3E7D5E)',
-  partielle: 'var(--c-va-partielle, #D9822B)',
-  refusee: 'var(--c-va-refusee, #B83A4B)',
+  partielle: 'var(--c-attente)',
+  refusee: 'var(--c-refuse)',
   '': 'var(--c-indisponible-bord, #94A3B8)',
 };
 const LIB_DECISION = { totale: 'Totale', partielle: 'Partielle', refusee: 'Refusée' };

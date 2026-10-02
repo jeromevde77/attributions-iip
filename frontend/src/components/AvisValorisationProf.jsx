@@ -14,7 +14,7 @@ import { authHeaders } from '../lib/api.js';
  * Conseil n'a pas décidé, il corrige le sien ; ensuite, il le relit.
  */
 const SENS = [['favorable', 'Favorable'], ['partiel', 'Partiel'], ['defavorable', 'Défavorable']];
-const TEINTE = { favorable: 'var(--c-reussi, #3E7D5E)', partiel: 'var(--c-va-partielle, #D9822B)', defavorable: 'var(--c-va-refusee, #B83A4B)' };
+const TEINTE = { favorable: 'var(--c-reussi, #3E7D5E)', partiel: 'var(--c-attente)', defavorable: 'var(--c-refuse)' };
 const LIB = { favorable: 'favorable', partiel: 'partiel', defavorable: 'défavorable' };
 const date = t => (t ? String(t).slice(0, 10).split('-').reverse().join('/') : '');
 
