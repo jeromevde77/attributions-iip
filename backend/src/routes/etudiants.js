@@ -3329,11 +3329,23 @@ try {
   )`);
 } catch (e) { console.error('[pae_revue]', e.message); }
 
+/* LA NATURE D'UNE DISPENSE DE COURS (2 octobre 2026) : un report de note, ou
+   une VA / VAE / VAP / VAEP reprise sans dossier pour 2024-2025 et 2025-2026. */
+try {
+  const cols = db.prepare('PRAGMA table_info(etudiant_report_note)').all().map(c => c.name);
+  if (cols.length && !cols.includes('nature')) db.exec('ALTER TABLE etudiant_report_note ADD COLUMN nature TEXT');
+} catch (e) { console.error('[etudiant_report_note.nature]', e.message); }
+/* Sur un COURS : VAP, VAEP ou dispense ; sur l'UE ENTIÈRE : VA ou VAE, posée
+   cours par cours sur tous ses cours (Charles, 2 octobre 2026). */
+const NATURES_REPRISE = ['VA', 'VAE', 'VAP', 'VAEP', 'DISPENSE'];
+const DERNIERE_ANNEE_REPRISE = '2025-2026';
+
 export function revuePAE(etudId, annee) {
   const e = db.prepare('SELECT id, nom, prenom, id_ecampus, section_rattachement FROM etudiant WHERE id = ?').get(etudId);
   if (!e) return null;
   const section = sectionRattachement(etudId, annee).section || e.section_rattachement || null;
-  const refUe = db.prepare(`SELECT ue_nom, ue_niv, ects, COALESCE(is_epreuve_integree, 0) ei FROM ue WHERE ue_num = ?
+  const refUe = db.prepare(`SELECT ue_nom, ue_niv, ects, COALESCE(is_epreuve_integree, 0) ei,
+      COALESCE(ue_per_etudiants, 0) per_etud, COALESCE(ue_aut, 0) aut FROM ue WHERE ue_num = ?
       ORDER BY (annee_scolaire = ?) DESC, (section = ?) DESC, annee_scolaire DESC LIMIT 1`);
   const coursDe = db.prepare(`SELECT cours_code, MIN(cours_nom) cours_nom, MAX(COALESCE(cours_per, 0)) cours_per,
       MAX(COALESCE(is_stage, 0)) is_stage FROM cours WHERE ue_num = ? AND annee_scolaire = ? AND cours_code IS NOT NULL
@@ -3345,18 +3357,22 @@ export function revuePAE(etudId, annee) {
   const reports = new Map(), refuses = new Map();
   try {
     for (const r of db.prepare(`SELECT ue_num, cours_code, note, annee_origine, COALESCE(statut, 'accorde') statut,
-        motif, decide_par FROM etudiant_report_note
+        motif, decide_par, nature FROM etudiant_report_note
         WHERE etudiant_id = ? AND annee_scolaire = ? AND COALESCE(cible, 'cours') = 'cours'`).all(etudId, annee)) {
       (r.statut === 'accorde' ? reports : refuses).set(`${r.ue_num}|${r.cours_code}`, r);
     }
   } catch { /* table ancienne */ }
-  const vaCours = new Map(), vaComplete = new Set();
-  for (const v of db.prepare(`SELECT ue_num, type, cible, cible_detail FROM etudiant_valorisation
+  /* LA NATURE DE LA DISPENSE SE NOMME (Charles, 2 octobre 2026) : VA ou VAE pour
+     une dispense totale, VAP ou VAEP pour une partielle, Report pour un cours
+     reporté. */
+  const vaCours = new Map(), vaComplete = new Map();
+  for (const v of db.prepare(`SELECT ue_num, type, cible, cible_detail, porte FROM etudiant_valorisation
       WHERE etudiant_id = ? AND annee_scolaire = ? AND COALESCE(decision, 'accordee') <> 'refusee'
         AND decision_le IS NOT NULL`).all(etudId, annee)) {
-    if (v.type === 'complete') vaComplete.add(v.ue_num);
+    const vae = v.porte === 'vae';
+    if (v.type === 'complete') vaComplete.set(v.ue_num, vae ? 'VAE' : 'VA');
     else if (v.type === 'partielle' && v.cible === 'cours') {
-      for (const c of String(v.cible_detail || '').split(',').map(x => x.trim()).filter(Boolean)) vaCours.set(`${v.ue_num}|${c}`, true);
+      for (const c of String(v.cible_detail || '').split(',').map(x => x.trim()).filter(Boolean)) vaCours.set(`${v.ue_num}|${c}`, vae ? 'VAEP' : 'VAP');
     }
   }
   const ues = inscr.map(n => {
@@ -3368,19 +3384,27 @@ export function revuePAE(etudId, annee) {
       const statut = vaComplete.has(n) ? 'va' : r ? 'report' : vaCours.has(`${n}|${c.cours_code}`) ? 'va' : 'suivre';
       const el = eligibles.find(x => x.cours_code === c.cours_code);
       const rf = refuses.get(`${n}|${c.cours_code}`);
-      return { code: c.cours_code, nom: c.cours_nom, per: Number(c.cours_per) || 0, stage: !!c.is_stage, statut,
+      const nature = statut === 'report' ? (r?.nature || 'Report')
+        : statut === 'va' ? (vaComplete.get(n) || vaCours.get(`${n}|${c.cours_code}`) || 'VA') : null;
+      return { code: c.cours_code, nom: c.cours_nom, per: Number(c.cours_per) || 0, stage: !!c.is_stage, statut, nature,
         note: r ? r.note : null, annee_origine: r ? r.annee_origine : null, par: r ? r.decide_par : null,
         // Ce que Lucie sait du cours : réussi une année antérieure, avec quelle note.
         eligible: statut === 'suivre' && el ? { note: el.note_affichee ?? (el.note != null ? Math.round(el.note) : null), annee_origine: el.annee_origine } : null,
         refuse: statut === 'suivre' && rf ? { motif: rf.motif || null, par: rf.decide_par || null } : null };
     });
-    const nRep = cours.filter(c => c.statut === 'report').length;
-    const nVa = cours.filter(c => c.statut === 'va').length;
+    // Une VA reprise sans dossier se range avec les VA, pas avec les reports.
+    const estVA = c => c.statut === 'va' || (c.statut === 'report' && c.nature && c.nature !== 'Report');
+    const nRep = cours.filter(c => c.statut === 'report' && !estVA(c)).length;
+    const nVa = cours.filter(estVA).length;
     const etat = vaComplete.has(n) ? 'dispensee'
       : nRep || nVa ? 'partielle'
         : tentees.has(n) ? 'reprendre' : 'programme';
     return { ue_num: n, ue_nom: u.ue_nom || `UE ${n}`, niv: String(u.ue_niv || '').toUpperCase(), ects: Number(u.ects) || 0,
-      ei: !!u.ei, etat, cours, reports: nRep, va: nVa };
+      periodes: (Number(u.per_etud) || 0) + (Number(u.aut) || 0),
+      ei: !!u.ei, etat, cours, reports: nRep, va: nVa,
+      nature_totale: vaComplete.get(n)
+        || (cours.length && cours.every(c => c.statut === 'report' && ['VA', 'VAE'].includes(c.nature)) ? cours[0].nature : null),
+      nature_partielle: [...new Set(cours.filter(estVA).map(c => c.nature))].join(' / ') || null };
   }).sort((a, b) => (a.ei - b.ei) || rangBloc(a.niv) - rangBloc(b.niv) || a.ue_num - b.ue_num);
 
   const acquises = db.prepare(`SELECT DISTINCT ue_num FROM etudiant_inscription WHERE etudiant_id = ? AND resultat = 'reussi'
@@ -3413,10 +3437,24 @@ export function revuePAE(etudId, annee) {
     annee, ues, autres,
     chiffres: {
       ects_acquis: ectsAcquis, nb_ue: ues.length, ects_pae: ues.reduce((t, u) => t + u.ects, 0),
-      cours_reportes: tousCours.filter(c => c.statut === 'report').length,
+      cours_reportes: tousCours.filter(c => c.statut === 'report' && (!c.nature || c.nature === 'Report')).length,
       ue_avec_report: ues.filter(u => u.reports).length,
-      cours_va: tousCours.filter(c => c.statut === 'va').length,
+      cours_va: tousCours.filter(c => c.statut === 'va' || (c.statut === 'report' && c.nature && c.nature !== 'Report')).length,
       cours_a_suivre: aSuivre.length, periodes_a_suivre: aSuivre.reduce((t, c) => t + c.per, 0),
+      // Les périodes étudiant du PAE : toute l'UE, autonomie comprise.
+      periodes_pae: ues.reduce((t, u) => t + (u.periodes || 0), 0),
+      // LA MOYENNE DU PARCOURS, celle du bulletin : les unités réussies,
+      // pondérées par leurs périodes étudiant ; elle seule garde ses décimales.
+      moyenne: (() => {
+        let num = 0, den = 0;
+        for (const x of db.prepare(`SELECT i.ue_num, i.points FROM etudiant_inscription i WHERE i.etudiant_id = ?
+            AND i.resultat = 'reussi' AND i.points IS NOT NULL AND i.annee_scolaire < ?`).all(etudId, annee)) {
+          const p = Number(refUe.get(x.ue_num, annee, section)?.per_etud) || 0;
+          if (!p) continue;
+          num += Number(x.points) * p; den += p;
+        }
+        return den ? Math.round((num / den) * 100) / 100 : null;
+      })(),
     },
     alertes: [
       ...ues.filter(u => dejaAcquises.has(u.ue_num)).map(u => ({ ue_num: u.ue_num,
@@ -3454,6 +3492,20 @@ r.put('/:id/revue-pae/report', authRequired, roleRequired(...PEUT_REPORTER), (re
   if (!co) return res.status(404).json({ error: `Le cours ${code} n'appartient pas à l'UE ${ue} en ${annee}.` });
   let el = null;
   try { el = (coursValidesAnterieurs(id, ue, annee) || []).find(x => x.cours_code === code) || null; } catch { el = null; }
+  /* UNE VA REPRISE SANS DOSSIER (Charles, 2 octobre 2026 : « il en manque pour
+     24-25 et 25-26 ; sans encoder les dossiers, on doit pouvoir mettre
+     VA/VAE/VAP en regard du cours, et ça met la note à 10 »). Réservé aux
+     années antérieures à 2026-2027 : à partir de là, une valorisation passe
+     par son dossier et son circuit. */
+  const nature = req.body?.nature ? String(req.body.nature).toUpperCase() : null;
+  if (nature && !NATURES_REPRISE.includes(nature)) return res.status(400).json({ error: 'Nature inconnue : VA, VAE (UE entière), VAP, VAEP ou dispense (cours).' });
+  if (nature) {
+    const o = String(req.body?.annee_origine || '');
+    if (!/^\d{4}-\d{4}$/.test(o) || o > DERNIERE_ANNEE_REPRISE) {
+      return res.status(400).json({ error: `Une VA sans dossier ne se pose que pour ${DERNIERE_ANNEE_REPRISE} et avant ; à partir de 2026-2027, elle passe par le dossier de valorisation.` });
+    }
+    req.body.note = 10;
+  }
   const saisie = req.body?.note != null && req.body.note !== '';
   let note, origine, notesAA;
   if (saisie || !el) {
@@ -3471,7 +3523,8 @@ r.put('/:id/revue-pae/report', authRequired, roleRequired(...PEUT_REPORTER), (re
     notesAA = (el.aas || []).filter(a => (co.aas || []).some(x => x.aa_code === a.aa_code));
   }
   const qui = req.user?.nom || req.user?.email || null;
-  const motif = saisie || !el ? `report encodé en revue des PAE — note de cours ${note}/20 (${origine})` : 'report accordé en revue des PAE';
+  const motif = nature ? `${nature} reprise sans dossier (${origine}) — dispense du cours à 10/20, revue des PAE`
+    : saisie || !el ? `report encodé en revue des PAE — note de cours ${note}/20 (${origine})` : 'report accordé en revue des PAE';
   const reelle = db.prepare(`SELECT 1 FROM etudiant_note_detail WHERE etudiant_id = ? AND annee_scolaire = ? AND ue_num = ?
       AND type = 'aa' AND (cours_code = ? OR cours_code IS NULL) AND (code = ? OR code LIKE '%|' || ?)
       AND (origine IS NULL OR origine NOT LIKE 'report:%') LIMIT 1`);
@@ -3484,15 +3537,63 @@ r.put('/:id/revue-pae/report', authRequired, roleRequired(...PEUT_REPORTER), (re
       // Repasser par « refusé » efface les notes recopiées (déclencheur) : on repart propre.
       db.prepare(`UPDATE etudiant_report_note SET statut = 'refuse' WHERE id = ?`).run(ligne.id);
       db.prepare(`UPDATE etudiant_report_note SET statut = 'accorde', note = ?, annee_origine = ?, decision_ce = ?,
-          motif = NULL, decide_le = datetime('now'), decide_par = ? WHERE id = ?`).run(note, origine, motif, qui, ligne.id);
+          motif = NULL, decide_le = datetime('now'), decide_par = ?, nature = ? WHERE id = ?`).run(note, origine, motif, qui, nature, ligne.id);
     } else {
       db.prepare(`INSERT INTO etudiant_report_note (etudiant_id, annee_scolaire, ue_num, cible, cours_code, aa_code, note,
-          annee_origine, statut, decision_ce, decide_le, decide_par) VALUES (?,?,?, 'cours', ?, NULL, ?, ?, 'accorde', ?, datetime('now'), ?)`)
-        .run(id, annee, ue, code, note, origine, motif, qui);
+          annee_origine, statut, decision_ce, decide_le, decide_par, nature) VALUES (?,?,?, 'cours', ?, NULL, ?, ?, 'accorde', ?, datetime('now'), ?, ?)`)
+        .run(id, annee, ue, code, note, origine, motif, qui, nature);
     }
     for (const a of notesAA) {
       if (a.note == null || reelle.get(id, annee, ue, code, a.aa_code, a.aa_code)) continue;
       insNote.run(id, annee, ue, `s1|${code}|${a.aa_code}`, code, a.note, `report:${origine}`);
+    }
+  })();
+  res.json({ ok: true, revue: revuePAE(id, annee) });
+});
+
+/* LA VA OU VAE D'UNE UE ENTIÈRE, SANS DOSSIER (2024-2025 et 2025-2026) : chaque
+   cours de l'unité est dispensé à 10/20 sous cette nature — la délibération
+   lit l'UE comme acquise à 10. Une note réellement encodée n'est jamais écrasée. */
+r.put('/:id/revue-pae/va-ue', authRequired, roleRequired(...PEUT_REPORTER), (req, res) => {
+  const id = Number(req.params.id);
+  if (!etudiantPermis(req, res, id)) return;
+  const annee = req.body?.annee || anneeDeTravail(req);
+  const ue = Number(req.body?.ue_num);
+  const nature = String(req.body?.nature || '').toUpperCase();
+  const origine = String(req.body?.annee_origine || '');
+  if (!['VA', 'VAE'].includes(nature)) return res.status(400).json({ error: "Sur l'UE entière : VA ou VAE." });
+  if (!/^\d{4}-\d{4}$/.test(origine) || origine > DERNIERE_ANNEE_REPRISE) {
+    return res.status(400).json({ error: `Une VA sans dossier ne se pose que pour ${DERNIERE_ANNEE_REPRISE} et avant ; à partir de 2026-2027, elle passe par le dossier de valorisation.` });
+  }
+  if (!db.prepare('SELECT 1 FROM etudiant_inscription WHERE etudiant_id = ? AND annee_scolaire = ? AND ue_num = ?').get(id, annee, ue)) {
+    return res.status(409).json({ error: `L'UE ${ue} n'est pas au PAE ${annee}.` });
+  }
+  const structure = structureUE(ue, annee);
+  if (!structure.length) return res.status(409).json({ error: `L'UE ${ue} n'a aucun cours encodé en ${annee}.` });
+  const qui = req.user?.nom || req.user?.email || null;
+  const motif = `${nature} de l'UE entière, reprise sans dossier (${origine}) — dispense à 10/20, revue des PAE`;
+  const reelle = db.prepare(`SELECT 1 FROM etudiant_note_detail WHERE etudiant_id = ? AND annee_scolaire = ? AND ue_num = ?
+      AND type = 'aa' AND (cours_code = ? OR cours_code IS NULL) AND (code = ? OR code LIKE '%|' || ?)
+      AND (origine IS NULL OR origine NOT LIKE 'report:%') LIMIT 1`);
+  const insNote = db.prepare(`INSERT INTO etudiant_note_detail (etudiant_id, annee_scolaire, ue_num, type, code, cours_code, points, origine)
+      VALUES (?,?,?, 'aa', ?,?,?,?) ON CONFLICT(etudiant_id, annee_scolaire, ue_num, type, code) DO NOTHING`);
+  db.transaction(() => {
+    for (const co of structure) {
+      const ligne = db.prepare(`SELECT id FROM etudiant_report_note WHERE etudiant_id = ? AND annee_scolaire = ? AND ue_num = ?
+          AND cible = 'cours' AND cours_code = ? AND aa_code IS NULL`).get(id, annee, ue, co.cours_code);
+      if (ligne) {
+        db.prepare(`UPDATE etudiant_report_note SET statut = 'refuse' WHERE id = ?`).run(ligne.id);
+        db.prepare(`UPDATE etudiant_report_note SET statut = 'accorde', note = 10, annee_origine = ?, decision_ce = ?,
+            motif = NULL, decide_le = datetime('now'), decide_par = ?, nature = ? WHERE id = ?`).run(origine, motif, qui, nature, ligne.id);
+      } else {
+        db.prepare(`INSERT INTO etudiant_report_note (etudiant_id, annee_scolaire, ue_num, cible, cours_code, aa_code, note,
+            annee_origine, statut, decision_ce, decide_le, decide_par, nature) VALUES (?,?,?, 'cours', ?, NULL, 10, ?, 'accorde', ?, datetime('now'), ?, ?)`)
+          .run(id, annee, ue, co.cours_code, origine, motif, qui, nature);
+      }
+      for (const a of co.aas || []) {
+        if (reelle.get(id, annee, ue, co.cours_code, a.aa_code, a.aa_code)) continue;
+        insNote.run(id, annee, ue, `s1|${co.cours_code}|${a.aa_code}`, co.cours_code, 10, `report:${origine}`);
+      }
     }
   })();
   res.json({ ok: true, revue: revuePAE(id, annee) });
@@ -3576,43 +3677,93 @@ r.put('/:id/revue-pae/revu', authRequired, (req, res) => {
    « sans schéma pour commencer »). Un document pour la pile, ou un par
    étudiant pour l'envoi. */
 function pageRevue(d, esc) {
+  /* LA PIÈCE SUIT L'ÉCRAN (Charles, 2 octobre 2026 : « alignement mauvais,
+     mise en page peu jolie ») : l'identité sur une ligne, le train des
+     chiffres en tuiles, une bande par bloc qui porte sa couleur, et un tableau
+     sans trait vertical — les filets séparent, l'alignement fait le reste. */
   const couleurBloc = { BA1: '#E8890C', BA2: '#7FB3D5', BA3: '#1B2B4B' };
-  const etatUE = { dispensee: 'dispensée — VA', partielle: 'reprise partielle', reprendre: 'à reprendre en entier', programme: 'au programme' };
-  let lignes = '', bloc = null;
+  const etatUE = { dispensee: 'dispensée', partielle: 'reprise partielle', reprendre: 'à reprendre', programme: 'au programme' };
+  const court = a => String(a || '').replace(/^20(\d\d)-20(\d\d)$/, '$1-$2');
+  const groupes = [];
   for (const u of d.ues) {
-    const b = u.ei ? 'Épreuve intégrée' : (u.niv || '—');
-    if (b !== bloc) {
-      bloc = b;
-      lignes += `<tr><td colspan="4" class="bande" style="background:${u.ei ? '#C9A227' : (couleurBloc[b] || '#64748b')};color:${b === 'BA2' ? '#1B2B4B' : '#fff'}">${esc(b)}</td></tr>`;
-    }
-    lignes += `<tr class="ue"><td>${u.ue_num}</td><td>${esc(u.ue_nom)}</td><td class="n">${u.cours.reduce((t, c) => t + c.per, 0) || ''}</td><td>${etatUE[u.etat]}${u.deja ? ` — <b>déjà acquise en ${esc(u.deja)}</b>` : ''}</td></tr>`;
-    for (const c of u.cours) {
-      if (c.statut === 'suivre') continue;
-      lignes += `<tr><td>${esc(c.code)}</td><td>${esc(c.nom || '')}</td><td class="n">${c.per || ''}</td><td>${c.statut === 'report'
-        ? `reporté ${esc(c.annee_origine || '')} — ${c.note != null ? `${Math.round(c.note)}/20` : 'note reprise'}` : 'dispensé — VA'}</td></tr>`;
+    const k = u.ei ? 'Épreuve intégrée' : (u.niv || '—');
+    let g = groupes.find(x => x.k === k);
+    if (!g) groupes.push(g = { k, ei: u.ei, ues: [] });
+    g.ues.push(u);
+  }
+  let lignes = '';
+  for (const g of groupes) {
+    const fond = g.ei ? '#C9A227' : (couleurBloc[g.k] || '#64748b');
+    lignes += `<tr class="bande"><td colspan="5" style="background:${fond};color:${g.k === 'BA2' ? '#1B2B4B' : '#fff'}">${esc(g.k)}<span>${g.ues.length} UE · ${g.ues.reduce((t, u) => t + u.ects, 0)} ECTS</span></td></tr>`;
+    for (const u of g.ues) {
+      const statut = u.nature_totale ? `dispensée — ${esc(u.nature_totale)}`
+        : u.etat === 'partielle'
+          ? `reprise partielle${u.reports ? ` · ${u.reports} report${u.reports > 1 ? 's' : ''}` : ''}${u.va ? ` · ${u.va} dispense${u.va > 1 ? 's' : ''}` : ''}`
+          : etatUE[u.etat];
+      lignes += `<tr class="ue"><td class="num">${u.ue_num}</td><td>${esc(u.ue_nom)}${u.deja ? `<div class="alerte">déjà acquise en ${esc(u.deja)} — à vérifier</div>` : ''}</td>`
+        + `<td class="n">${u.ects || ''}</td><td class="n">${u.periodes || ''}</td><td class="st">${statut}</td></tr>`;
+      if (u.nature_totale) continue;
+      for (const c of u.cours) {
+        if (c.statut === 'suivre') continue;
+        const vaReprise = c.statut === 'report' && c.nature && c.nature !== 'Report';
+        const st = vaReprise ? `${esc(c.nature === 'DISPENSE' ? 'Dispense' : c.nature)} ${esc(court(c.annee_origine))} · 10/20`
+          : c.statut === 'report' ? `<b class="rep">Report</b> ${esc(court(c.annee_origine))} · ${c.note != null ? `${Math.round(c.note)}/20` : 'note reprise'}`
+            : `dispensé · ${esc(c.nature || 'VA')}`;
+        lignes += `<tr class="cours"><td class="num">${esc(c.code)}</td><td>${esc(c.nom || '')}</td><td></td><td class="n">${c.per || ''}</td><td class="st">${st}</td></tr>`;
+      }
     }
   }
   const e = d.etudiant, ch = d.chiffres;
+  const moy = ch.moyenne != null ? String(ch.moyenne.toFixed(2)).replace('.', ',') : '—';
+  const tuile = (v, l, rail = '#1B2B4B') => `<div class="tuile" style="border-left-color:${rail}"><b>${v}</b><span>${l}</span></div>`;
+  const nDeja = d.ues.filter(u => u.deja).length;
   return `<div class="revue">
-    <div class="doc-cadre"><div class="doc-cadre-t">${esc(String(e.nom || '').toUpperCase())} ${esc(e.prenom || '')}</div>
-      <div class="doc-cadre-s">${esc(e.id_ecampus || '')} · ${esc(e.section || '')}${e.niveau_libelle ? ` · ${esc(e.niveau_libelle)}` : ''}</div></div>
-    <p class="resume">${ch.ects_acquis} ECTS acquis · ${ch.nb_ue} UE au PAE (${ch.ects_pae} ECTS) · <b>${ch.cours_reportes} cours reporté(s) d'office</b>${ch.cours_va ? ` · ${ch.cours_va} dispensé(s) par VA` : ''}${d.ues.filter(u => u.etat === 'reprendre').length ? ` · ${d.ues.filter(u => u.etat === 'reprendre').length} UE à reprendre en entier` : ''}${d.ues.filter(u => u.deja).length ? ` · <b>${d.ues.filter(u => u.deja).length} UE déjà acquise(s) remise(s) au PAE — à vérifier</b>` : ''}</p>
-    <table><thead><tr><th style="width:12%">UE / cours</th><th>Intitulé</th><th style="width:8%" class="n">Pér.</th><th style="width:30%">Statut</th></tr></thead>
-    <tbody>${lignes || '<tr><td colspan="4">Aucune UE au PAE de cette année.</td></tr>'}</tbody></table>
-    <p class="pied-revue">Les cours non cités sont à suivre.${d.revu ? ` PAE validé par ${esc(d.revu.revu_par || '')} le ${esc(String(d.revu.revu_le).slice(0, 10).split('-').reverse().join('/'))}.` : ''}</p>
+    <div class="ident"><div><div class="nom">${esc(String(e.nom || '').toUpperCase())} ${esc(e.prenom || '')}</div>
+      <div class="mat">${esc(e.id_ecampus || '')}</div></div>
+      <div class="sec">${esc(e.section || '')}${e.niveau_libelle ? ` · ${esc(e.niveau_libelle)}` : ''}</div></div>
+    <div class="train">
+      ${tuile(ch.ects_pae, 'ECTS au PAE')}
+      ${tuile(`${ch.nb_ue} UE`, `${ch.periodes_pae} périodes étudiant`)}
+      ${tuile(ch.cours_reportes, "cours reportés d'office")}
+      ${ch.cours_va ? tuile(ch.cours_va, 'cours dispensés') : ''}
+      ${tuile(ch.ects_acquis, 'ECTS réussis', '#3E7D5E')}
+      ${tuile(moy, 'moyenne du parcours')}
+    </div>
+    ${nDeja ? `<div class="encadre">${nDeja} UE déjà acquise${nDeja > 1 ? 's' : ''} remise${nDeja > 1 ? 's' : ''} au PAE — à vérifier.</div>` : ''}
+    <table class="pae"><colgroup><col style="width:13mm"><col><col style="width:11mm"><col style="width:12mm"><col style="width:46mm"></colgroup>
+    <thead><tr><th>UE</th><th>Intitulé</th><th class="n">ECTS</th><th class="n">Pér.</th><th>Statut</th></tr></thead>
+    <tbody>${lignes || '<tr><td colspan="5">Aucune UE au PAE de cette année.</td></tr>'}</tbody></table>
+    <p class="pied-revue">Les cours non cités sont à suivre.</p>
+    ${d.revu ? `<div class="valide">PAE validé le ${esc(String(d.revu.revu_le).slice(0, 10).split('-').reverse().join('/'))} par ${esc(d.revu.revu_par || '')}.</div>` : ''}
   </div>`;
 }
 const STYLE_REVUE = `
 .revue+.revue{break-before:page;page-break-before:always}
-.revue .resume{font-size:9pt;margin:0 0 3mm}
-.revue table{width:100%;border-collapse:collapse;font-size:8.5pt}
-.revue th{text-align:left;background:#F1F4F9;font-size:7pt;text-transform:uppercase;letter-spacing:.04em;color:#475569;padding:1.4mm 2mm;border-bottom:.3mm solid #D8DCE4}
-.revue td{padding:1.1mm 2mm;border-bottom:.2mm solid #E4E7EC;vertical-align:top}
-.revue tr{break-inside:avoid}
-.revue tr.ue td{font-weight:700;background:#FAFAFB}
-.revue td.bande{font-weight:700;font-size:8pt;padding:.8mm 2mm}
-.revue .n{text-align:right}
-.revue .pied-revue{font-size:7.5pt;color:#64748b;margin-top:2mm}`;
+.revue .ident{display:flex;justify-content:space-between;align-items:flex-end;gap:6mm;padding-bottom:2mm;border-bottom:.25mm solid #D8DCE4;margin-bottom:3mm}
+.revue .ident .nom{font-size:13pt;font-weight:700;color:#1B2B4B;line-height:1.1}
+.revue .ident .mat{font-size:8pt;color:#6e6e73;margin-top:.6mm}
+.revue .ident .sec{font-size:10pt;font-weight:700;color:#1B2B4B}
+.revue .train{display:flex;gap:2mm;margin-bottom:3mm}
+.revue .tuile{flex:1;border:.3mm solid #D8DCE4;border-left:1.6mm solid #1B2B4B;border-radius:0 1.5mm 1.5mm 0;padding:1.6mm 2.4mm;background:#FAFAFB}
+.revue .tuile b{display:block;font-size:12pt;color:#1B2B4B;line-height:1.1}
+.revue .tuile span{display:block;font-size:7.5pt;color:#6e6e73;margin-top:.4mm}
+.revue .encadre{border:.3mm solid #D8DCE4;border-left:1.6mm solid #B45309;border-radius:0 1.5mm 1.5mm 0;padding:1.6mm 2.4mm;font-size:8.5pt;margin-bottom:3mm}
+.revue table.pae{width:100%;border-collapse:collapse;table-layout:fixed;font-size:8.5pt}
+.revue table.pae th,.revue table.pae td{border:0;border-bottom:.2mm solid #E4E7EC;padding:1.3mm 2mm;vertical-align:baseline;text-align:left}
+.revue table.pae th{background:#F1F4F9;font-size:7pt;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#475569;border-bottom:.3mm solid #D8DCE4}
+.revue table.pae .n{text-align:right;font-variant-numeric:tabular-nums}
+.revue table.pae .num{font-variant-numeric:tabular-nums}
+.revue table.pae tr{break-inside:avoid}
+.revue table.pae tr.bande td{font-weight:700;font-size:8pt;padding:1.2mm 2mm;border-bottom:0;letter-spacing:.03em}
+.revue table.pae tr.bande td span{float:right;font-weight:600;font-size:7.5pt;opacity:.9}
+.revue table.pae tr.ue td{font-weight:700;color:#1B2B4B}
+.revue table.pae tr.ue td.st{font-weight:500;color:#334155}
+.revue table.pae tr.cours td{font-size:8pt;color:#475569;padding-top:.9mm;padding-bottom:.9mm}
+.revue table.pae tr.cours td.num{padding-left:5mm;color:#6e6e73}
+.revue table.pae .rep{color:#3E7D5E}
+.revue table.pae .alerte{font-weight:500;font-size:7.5pt;color:#B45309;margin-top:.4mm}
+.revue .pied-revue{font-size:7.5pt;color:#64748b;margin-top:2mm}
+.revue .valide{margin-top:2mm;border:.3mm solid #D8DCE4;border-left:1.6mm solid #3E7D5E;border-radius:0 1.5mm 1.5mm 0;padding:1.6mm 2.4mm;font-size:8.5pt}`;
 
 r.post('/revue-pae/document', authRequired, (req, res) => {
   const annee = req.body?.annee || anneeDeTravail(req);
@@ -3632,7 +3783,7 @@ r.post('/revue-pae/document', authRequired, (req, res) => {
   }
   if (!pages.length) return res.status(400).json({ error: 'Aucun étudiant de votre périmètre.' });
   const envelopper = (corps, sous) => envelopperDocument({ html: corps, titre: `PAE ${annee}`, styles: STYLE_REVUE,
-    entete: { titre: `PAE ${annee} — détail par cours`, sous, ligne: `Reports d'office et dispenses · arrêté le ${new Date().toLocaleDateString('fr-BE')}` } });
+    entete: { titre: `Programme annuel de l'étudiant — ${annee}`, sous, ligne: `Détail par cours, reports et dispenses · arrêté le ${new Date().toLocaleDateString('fr-BE')}` } });
   const slug = t => String(t || '').normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^A-Za-z0-9]+/g, '_').replace(/^_|_$/g, '');
   if (req.body?.separer === true) {
     return res.json({ documents: pages.map(p => ({ etudiant_id: p.d.etudiant.id,
@@ -5826,6 +5977,16 @@ export function donneesCapitalisation(etudId, annee, sectionForcee = null) {
       hors_bloc: !!etatDe(n)?.hors_bloc,
     }),
   });
+
+  /* DEUX REPÈRES SUR LA TUILE (Charles, 2 octobre 2026) : l'unité a déjà été
+     REFUSÉE une fois (cercle rouge, en haut à gauche), et elle est
+     DÉTERMINANTE pour la mention (cercle marine, en haut à droite). */
+  const refusees = new Set(db.prepare(`SELECT DISTINCT ue_num FROM etudiant_inscription
+      WHERE etudiant_id = ? AND resultat = 'refuse'`).all(etudId).map(r0 => r0.ue_num));
+  const nums = (g.nodes || []).map(n => n.ue_num);
+  const determinantes = new Set(nums.length ? db.prepare(`SELECT DISTINCT ue_num FROM ue
+      WHERE ue_det = 'x' AND ue_num IN (${nums.map(() => '?').join(',')})`).all(...nums).map(r0 => r0.ue_num) : []);
+  for (const n of g.nodes || []) { n.refusee = refusees.has(n.ue_num); n.determinante = determinantes.has(n.ue_num); }
 
   return { ...g, sections, annee, archives };
 }

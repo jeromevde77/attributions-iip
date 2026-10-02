@@ -1047,7 +1047,7 @@ export function BulleAide({ titre, children }) {
 }
 
 export function Fenetre({ icone: Ic, titre, sous, large = 'moyenne',
-                         hauteurFixe = false,
+                         hauteurFixe = false, outils = null,
                           pied = null, ton = 'neutre', onFermer, children }) {
   const largeurs = {
     petite: 'w-[440px]', moyenne: 'w-[720px]',
@@ -1110,6 +1110,8 @@ export function Fenetre({ icone: Ic, titre, sous, large = 'moyenne',
             <div className="text-[15px] font-semibold truncate">{titre}</div>
             {sous && <div className="text-[12px] text-white/70 truncate">{sous}</div>}
           </div>
+          {/* Les outils de la fenêtre (l'avion d'Éditions…), à côté de la croix. */}
+          {outils}
           <button onClick={onFermer} aria-label="Fermer"
             className="flex-none w-8 h-8 grid place-items-center rounded-champ
                        hover:bg-white/15 transition-colors duration-150 ease-ios">

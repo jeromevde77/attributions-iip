@@ -101,7 +101,10 @@ export function calculerMention(determinantes = [], epreuve = null, regles = nul
              manquantes, sans_epreuve: e == null };
   }
 
-  const pourcent = Math.round(finale * 10) / 10;
+  // LA NOTE FINALE DE LA SECTION S'ARRONDIT À L'UNITÉ (Charles, 2 octobre 2026 :
+  // « pas de virgule, tu arrondis ») — c'est elle que portent l'attestation de
+  // section, le PV et le diplôme, et c'est elle qu'on compare aux seuils.
+  const pourcent = Math.round(finale);
   const seuil = r.seuils.find(s => pourcent >= s.min);
 
   return {

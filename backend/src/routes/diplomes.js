@@ -669,7 +669,7 @@ function attestationSection(d, ctx) {
 
     <div class="resultat">
       Résultat global : <span class="pct">${d.mention.pourcent != null
-        ? `${String(d.mention.pourcent).replace('.', ',')} %` : '………'}</span>
+        ? `${Math.round(Number(d.mention.pourcent))} %` : '………'}</span>
       ${d.mention.mention ? `<br>Mention : <b>${esc(d.mention.mention)}</b>` : ''}
     </div>
 
@@ -1269,7 +1269,7 @@ r.post('/pv-section', authRequired,
     return {
       ...e,
       ei_atteint: ei ? resEI === 'reussi' : null,
-      ei_pourcent: coteEI == null ? null : Math.round(Number(coteEI) * 5 * 10) / 10,
+      ei_pourcent: coteEI == null ? null : Math.round(Number(coteEI) * 5),
       pourcent: m.pourcent,
       reussi: !ei || resEI === 'reussi',
       decision: !ei ? 'Réussite'
