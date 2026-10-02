@@ -1282,6 +1282,12 @@ function OngletEtudiants({ perimetre = null, mode = 'deliberation', seul = null,
   const [ues, setUes] = useState(() => new Set(perimetre?.ue_nums || []));
   const [cours, setCours] = useState(() => new Set(perimetre?.cours_codes || []));
   const [deplie, setDeplie] = useState(() => new Set());
+  /* LA SÉLECTION INTELLIGENTE (Charles, 2 octobre 2026) : une section au menu
+     déroulant, puis SES UE à cocher, puis leurs cours au besoin ; sans UE
+     cochée, c'est toute la section. Pour un étudiant cherché, seules SES UE —
+     celles où il y a des données — se proposent. */
+  const [secChoisie, setSecChoisie] = useState(perimetre?.sections?.[0] || '');
+  const [uesSeul, setUesSeul] = useState(null);   // Map ue_num → résultat, pour l'étudiant cherché
   // LES SECTIONS SE REPLIENT (Charles, 27 septembre 2026 : « pour gagner en
   // place ») : on ouvre celle où l'on travaille.
   const [secOuvertes, setSecOuvertes] = useState(() => new Set());
@@ -1321,6 +1327,15 @@ function OngletEtudiants({ perimetre = null, mode = 'deliberation', seul = null,
       .then(r => r.json()).then(setArbre).catch(e => setErreur(e.message));
   }, [annee]);
 
+  const choisirSection = sec => {
+    setSecChoisie(sec); setUes(new Set()); setCours(new Set()); setUesSeul(null);
+    setSections(sec ? new Set([sec]) : new Set());
+  };
+  const basculerUE = n => setUes(u0 => {
+    const n2 = new Set(u0); n2.has(n) ? n2.delete(n) : n2.add(n);
+    setSections(n2.size ? new Set() : (secChoisie ? new Set([secChoisie]) : new Set()));
+    return n2;
+  });
   const bascule = (set, valeur) => {
     const n = new Set(set);
     n.has(valeur) ? n.delete(valeur) : n.add(valeur);
@@ -1341,6 +1356,10 @@ function OngletEtudiants({ perimetre = null, mode = 'deliberation', seul = null,
       const j = await rep.json();
       if (!rep.ok) throw new Error(j.error);
       setListe(j);
+      if (seul && !uesSeul && !ues.size) {
+        const me = (j.etudiants || []).find(e => e.id === seul.id);
+        if (me) setUesSeul(new Map(me.unites.map(u => [u.ue_num, u.resultat || null])));
+      }
       // Tous cochés par défaut DANS LE PÉRIMÈTRE choisi : la sélection sert à
       // restreindre, non à tout reconstruire. Rien n'est coché tant qu'aucun
       // périmètre n'est posé.
@@ -1564,7 +1583,26 @@ function OngletEtudiants({ perimetre = null, mode = 'deliberation', seul = null,
     }
     return l;
   };
-  const nbPieces = (delib ? PIECES : PIECES_DOSSIER).filter(p => choix[p.cle]).length;
+  /* GRISÉ QUAND IL N'Y A RIEN À PRODUIRE (2 octobre 2026). */
+  const dispo = p => {
+    if (!etudiants.length) return false;
+    if (p.cle === 'reussite') return etudiants.some(e => e.reussites > 0);
+    if (p.cle === 'ajournement') return session === 1 && etudiants.some(e => e.echecs > 0);
+    if (p.cle === 'refus') return session === 2 && etudiants.some(e => e.echecs > 0);
+    if (['pv', 'conseil', 'grille'].includes(p.cle)) return etudiants.some(e => e.decide);
+    if (p.sle) return etudiants.some(e => e.sle);
+    return true;
+  };
+  const nbPieces = (delib ? PIECES : PIECES_DOSSIER).filter(p => choix[p.cle] && dispo(p)).length;
+  // Une pièce devenue indisponible se décoche : elle ne partirait pas avec le lot.
+  useEffect(() => {
+    setChoix(c => {
+      const n = { ...c }; let change = false;
+      for (const p of [...PIECES, ...PIECES_DOSSIER]) if (n[p.cle] && !dispo(p)) { delete n[p.cle]; change = true; }
+      return change ? n : c;
+    });
+    // eslint-disable-next-line
+  }, [etudiants, session]);
 
   return (
     <div className="flex min-h-0 flex-1">
@@ -1598,71 +1636,50 @@ function OngletEtudiants({ perimetre = null, mode = 'deliberation', seul = null,
           </div>}
         </div>
 
-        <div className={`flex-1 overflow-auto p-2 space-y-2 ${seul ? 'hidden' : ''}`}>
-          {(arbre?.sections || []).map(sec => (
-            <div key={sec}>
-              {(() => {
-                const us = (arbre?.unites || []).filter(u => u.section === sec);
-                const nCoches = us.filter(u => ues.has(u.ue_num)).length;
-                const ouverte = secOuvertes.has(sec);
-                return (
-                  <div className="flex items-center gap-1.5 px-1.5 py-1 rounded hover:bg-slate-50">
-                    <button type="button" onClick={() => setSecOuvertes(o => bascule(o, sec))}
-                      aria-label={ouverte ? `Replier ${sec}` : `Déplier ${sec}`} className="text-slate-400 hover:text-slate-700">
-                      {ouverte ? <IconChevronDown size={14} /> : <IconChevronRight size={14} />}
-                    </button>
-                    <input type="checkbox" checked={sections.has(sec)}
-                      onChange={() => setSections(s => bascule(s, sec))}
-                      aria-label={`Toute la section ${sec}`} className="w-4 h-4 accent-iip-blue" />
-                    <button type="button" onClick={() => setSecOuvertes(o => bascule(o, sec))}
-                      className="flex-1 min-w-0 text-left text-[13px] font-medium text-slate-800">
-                      {sec} <span className="text-[11px] font-normal text-slate-400">· {us.length} unité{us.length > 1 ? 's' : ''}{nCoches ? ` · ${nCoches} cochée${nCoches > 1 ? 's' : ''}` : ''}</span>
-                    </button>
-                  </div>
-                );
-              })()}
-              {secOuvertes.has(sec) && <div className="pl-4">
-                {(arbre?.unites || []).filter(u => u.section === sec).map(u => (
+        <div className="flex-1 overflow-auto p-2 space-y-1.5">
+          <select value={secChoisie} onChange={e => choisirSection(e.target.value)} className="controle w-full text-[13px]">
+            <option value="">{arbre ? '— choisir une section —' : 'Chargement…'}</option>
+            {(arbre?.sections || []).map(sec => <option key={sec} value={sec}>{sec}</option>)}
+          </select>
+          {secChoisie && (() => {
+            const us = (arbre?.unites || []).filter(u => u.section === secChoisie && (!seul || !uesSeul || uesSeul.has(u.ue_num)));
+            if (!us.length) return <p className="text-[12px] text-slate-400 px-1">{seul ? 'Aucune UE de cet étudiant dans cette section.' : 'Aucune UE.'}</p>;
+            return (
+              <>
+                <div className="text-[11px] text-slate-500 px-1">{ues.size ? `${ues.size} UE cochée(s)` : `toute la section${seul ? ' — ses UE' : ''} · cochez pour restreindre`}</div>
+                {us.map(u => (
                   <div key={u.ue_num}>
-                    <div className="flex items-center gap-1.5 px-1.5 py-0.5">
-                      <input type="checkbox" checked={ues.has(u.ue_num)}
-                        disabled={sections.has(sec)}
-                        onChange={() => setUes(s => bascule(s, u.ue_num))}
-                        className="w-3.5 h-3.5 accent-iip-blue disabled:opacity-40" />
-                      <button onClick={() => setDeplie(d => bascule(d, u.ue_num))}
-                        className="text-slate-400 hover:text-slate-700">
-                        {deplie.has(u.ue_num)
-                          ? <IconChevronDown size={13} /> : <IconChevronRight size={13} />}
-                      </button>
-                      <span className="text-[12px] text-slate-700 truncate">
-                        <b>{u.ue_num}</b> {u.ue_nom}
-                      </span>
+                    <div className="flex items-center gap-1.5 px-1 py-0.5">
+                      <input type="checkbox" checked={ues.has(u.ue_num)} onChange={() => basculerUE(u.ue_num)} className="w-3.5 h-3.5 accent-iip-blue" />
+                      {u.cours?.length > 0 && (
+                        <button onClick={() => setDeplie(d => bascule(d, u.ue_num))} className="text-slate-400 hover:text-slate-700">
+                          {deplie.has(u.ue_num) ? <IconChevronDown size={13} /> : <IconChevronRight size={13} />}
+                        </button>
+                      )}
+                      <span className="text-[12.5px] text-slate-700 truncate flex-1"><b>{u.ue_num}</b> {u.ue_nom}</span>
+                      {seul && uesSeul?.get(u.ue_num) && (
+                        <span className="text-[10.5px] font-semibold text-white rounded-full px-1.5"
+                          style={{ background: uesSeul.get(u.ue_num) === 'reussi' ? 'var(--c-reussi, #3E7D5E)' : uesSeul.get(u.ue_num) === 'ajourne' ? 'var(--c-attente, #B45309)' : 'var(--c-refuse, #9D4A38)' }}>
+                          {uesSeul.get(u.ue_num) === 'reussi' ? 'réussi' : uesSeul.get(u.ue_num) === 'ajourne' ? 'ajourné' : 'refusé'}</span>
+                      )}
                     </div>
                     {deplie.has(u.ue_num) && (
                       <div className="pl-8">
                         {u.cours.map(c => (
-                          <label key={c.cours_code}
-                            className="flex items-center gap-1.5 px-1.5 py-0.5 cursor-pointer">
-                            <input type="checkbox" checked={cours.has(c.cours_code)}
-                              disabled={sections.has(sec) || ues.has(u.ue_num)}
-                              onChange={() => setCours(s => bascule(s, c.cours_code))}
+                          <label key={c.cours_code} className="flex items-center gap-1.5 px-1.5 py-0.5 cursor-pointer">
+                            <input type="checkbox" checked={cours.has(c.cours_code)} disabled={ues.has(u.ue_num)}
+                              onChange={() => { setCours(s0 => bascule(s0, c.cours_code)); setSections(new Set()); }}
                               className="w-3.5 h-3.5 accent-iip-blue disabled:opacity-40" />
-                            <span className="text-[12px] text-slate-500 truncate">
-                              {c.cours_code} {c.cours_nom}
-                            </span>
+                            <span className="text-[12px] text-slate-500 truncate">{c.cours_code} {c.cours_nom}</span>
                           </label>
                         ))}
-                        {!u.cours.length && (
-                          <div className="text-[11px] text-slate-400 px-1.5">aucun cours</div>
-                        )}
                       </div>
                     )}
                   </div>
                 ))}
-              </div>}
-            </div>
-          ))}
-          {!arbre && <div className="text-[12px] text-slate-400 p-2">Chargement…</div>}
+              </>
+            );
+          })()}
         </div>
 
         <div className="px-3 py-2 border-t border-slate-200 text-[11px] text-slate-500">
@@ -1725,8 +1742,9 @@ function OngletEtudiants({ perimetre = null, mode = 'deliberation', seul = null,
               <div className="text-[14px] font-semibold">À remettre aux étudiants</div>
               <div className="text-[11.5px] text-slate-500 mb-1.5">une pièce par étudiant décidé</div>
               {PIECES.filter(p => p.nominatif).map(p => (
-                <label key={p.cle} className="flex items-center gap-2 py-0.5 text-[13px] cursor-pointer">
-                  <input type="checkbox" checked={!!choix[p.cle]} onChange={() => setChoix(c => ({ ...c, [p.cle]: !c[p.cle] }))}
+                <label key={p.cle} className={`flex items-center gap-2 py-0.5 text-[13px] ${dispo(p) ? 'cursor-pointer' : 'opacity-40 cursor-not-allowed'}`}
+                  title={dispo(p) ? '' : 'Rien à produire pour ce périmètre'}>
+                  <input type="checkbox" checked={!!choix[p.cle] && dispo(p)} disabled={!dispo(p)} onChange={() => setChoix(c => ({ ...c, [p.cle]: !c[p.cle] }))}
                     className="w-3.5 h-3.5 accent-iip-blue" />
                   {p.label}
                   {p.sle && <span className="text-[10px] font-bold text-slate-500 border border-slate-300 rounded px-1">SLE · {etudiants.filter(e => e.sle).length}</span>}
@@ -1738,8 +1756,9 @@ function OngletEtudiants({ perimetre = null, mode = 'deliberation', seul = null,
               <div className="text-[14px] font-semibold">Pour le Conseil</div>
               <div className="text-[11.5px] text-slate-500 mb-1.5">une pièce pour l’unité</div>
               {PIECES.filter(p => !p.nominatif).map(p => (
-                <label key={p.cle} className="flex items-center gap-2 py-0.5 text-[13px] cursor-pointer">
-                  <input type="checkbox" checked={!!choix[p.cle]} onChange={() => setChoix(c => ({ ...c, [p.cle]: !c[p.cle] }))}
+                <label key={p.cle} className={`flex items-center gap-2 py-0.5 text-[13px] ${dispo(p) ? 'cursor-pointer' : 'opacity-40 cursor-not-allowed'}`}
+                  title={dispo(p) ? '' : 'Rien à produire pour ce périmètre'}>
+                  <input type="checkbox" checked={!!choix[p.cle] && dispo(p)} disabled={!dispo(p)} onChange={() => setChoix(c => ({ ...c, [p.cle]: !c[p.cle] }))}
                     className="w-3.5 h-3.5 accent-iip-blue" />
                   {p.label}
                   {p.sle && <span className="text-[10px] font-bold text-slate-500 border border-slate-300 rounded px-1">SLE · {etudiants.filter(e => e.sle).length}</span>}
@@ -1752,8 +1771,9 @@ function OngletEtudiants({ perimetre = null, mode = 'deliberation', seul = null,
               <div className="text-[14px] font-semibold">Le parcours</div>
               <div className="text-[11.5px] text-slate-500 mb-1.5">à tout moment de l’année</div>
               {PIECES_DOSSIER.filter(p => ['bulletin', 'pae', 'parcours'].includes(p.cle)).map(p => (
-                <label key={p.cle} className="flex items-center gap-2 py-0.5 text-[13px] cursor-pointer">
-                  <input type="checkbox" checked={!!choix[p.cle]} onChange={() => setChoix(c => ({ ...c, [p.cle]: !c[p.cle] }))}
+                <label key={p.cle} className={`flex items-center gap-2 py-0.5 text-[13px] ${dispo(p) ? 'cursor-pointer' : 'opacity-40 cursor-not-allowed'}`}
+                  title={dispo(p) ? '' : 'Rien à produire pour ce périmètre'}>
+                  <input type="checkbox" checked={!!choix[p.cle] && dispo(p)} disabled={!dispo(p)} onChange={() => setChoix(c => ({ ...c, [p.cle]: !c[p.cle] }))}
                     className="w-3.5 h-3.5 accent-iip-blue" />
                   {p.label}
                   {p.sle && <span className="text-[10px] font-bold text-slate-500 border border-slate-300 rounded px-1">SLE · {etudiants.filter(e => e.sle).length}</span>}
@@ -1765,8 +1785,9 @@ function OngletEtudiants({ perimetre = null, mode = 'deliberation', seul = null,
               <div className="text-[14px] font-semibold">L’inscription</div>
               <div className="text-[11.5px] text-slate-500 mb-1.5">administratif — les annexes ne vont qu’aux étudiants SLE</div>
               {PIECES_DOSSIER.filter(p => !['bulletin', 'pae', 'parcours'].includes(p.cle)).map(p => (
-                <label key={p.cle} className="flex items-center gap-2 py-0.5 text-[13px] cursor-pointer">
-                  <input type="checkbox" checked={!!choix[p.cle]} onChange={() => setChoix(c => ({ ...c, [p.cle]: !c[p.cle] }))}
+                <label key={p.cle} className={`flex items-center gap-2 py-0.5 text-[13px] ${dispo(p) ? 'cursor-pointer' : 'opacity-40 cursor-not-allowed'}`}
+                  title={dispo(p) ? '' : 'Rien à produire pour ce périmètre'}>
+                  <input type="checkbox" checked={!!choix[p.cle] && dispo(p)} disabled={!dispo(p)} onChange={() => setChoix(c => ({ ...c, [p.cle]: !c[p.cle] }))}
                     className="w-3.5 h-3.5 accent-iip-blue" />
                   {p.label}
                   {p.sle && <span className="text-[10px] font-bold text-slate-500 border border-slate-300 rounded px-1">SLE · {etudiants.filter(e => e.sle).length}</span>}
