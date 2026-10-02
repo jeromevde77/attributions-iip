@@ -1,4 +1,5 @@
 import PiecesEtudiant from './PiecesEtudiant.jsx';
+import CentreDiplomation from './CentreDiplomation.jsx';
 import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { createPortal } from 'react-dom';
@@ -77,6 +78,9 @@ const PIECES = [
    études (SLE) — le serveur écarte les autres et les nomme. */
 const PIECES_DOSSIER = [
   { cle: 'bulletin', label: 'Bulletin de parcours' },
+  // Pièces d'inscription, tirées une par étudiant depuis leur route propre.
+  { cle: 'fiche', label: "Fiche d'inscription / reçu", route: (id, a) => `/api/etudiants/${id}/fiche-inscription?annee=${a}` },
+  { cle: 'frais', label: 'Frais de scolarité', route: (id, a) => `/api/frais-scolarite/etudiant/${id}/document?annee=${a}` },
   { cle: 'annexe1', label: 'Annexe 1 — visa ou titre de séjour', sle: true },
   { cle: 'annexe2', label: 'Annexe 2 — progrès des études', sle: true },
 ];
@@ -1333,8 +1337,26 @@ function OngletEtudiants({ perimetre = null }) {
 
   /** Les pièces du dossier (bulletin, annexes) des étudiants cochés. */
   async function piecesDossier() {
-    const demandees = PIECES_DOSSIER.filter(p => choix[p.cle]);
-    if (!demandees.length) return { documents: [], avis: [] };
+    const toutes = PIECES_DOSSIER.filter(p => choix[p.cle]);
+    if (!toutes.length) return { documents: [], avis: [] };
+    // Les pièces à route propre : une requête par étudiant, en série courte.
+    const avecRoute = toutes.filter(p => p.route);
+    const docsRoute = [], avisRoute = [];
+    const nomDe = id => { const e = etudiants.find(x => x.id === id); return e ? `${e.nom} ${e.prenom || ''}`.trim() : `#${id}`; };
+    for (const p of avecRoute) {
+      for (const id of coches) {
+        try {
+          const r = await fetch(p.route(id, encodeURIComponent(annee)), { headers: authHeaders() });
+          const j = await r.json().catch(() => ({}));
+          if (!r.ok || !j.html) { avisRoute.push(`${nomDe(id)} — ${p.label.toLowerCase()} : ${j.error || 'non produite'}`); continue; }
+          docsRoute.push({ etudiant_id: id, etudiant: nomDe(id), html: j.html, pagination: 'si-plusieurs', pied: true,
+            nom: `${p.cle}_${nomDe(id)}_${String(annee).replace(/\W/g, '')}`.replace(/[^A-Za-z0-9_.-]+/g, '_'),
+            contenu: `${p.label} — ${annee}` });
+        } catch (e) { avisRoute.push(`${nomDe(id)} — ${p.label.toLowerCase()} : ${e.message}`); }
+      }
+    }
+    const demandees = toutes.filter(p => !p.route);
+    if (!demandees.length) return { documents: docsRoute, avis: avisRoute };
     const rep = await fetch('/api/etudiants/pieces-dossier-lot', {
       method: 'POST', headers: authHeaders(),
       body: JSON.stringify({ annee, etudiants: [...coches], ...Object.fromEntries(demandees.map(p => [p.cle, true])) }),
@@ -1343,7 +1365,7 @@ function OngletEtudiants({ perimetre = null }) {
     if (!rep.ok) throw new Error(j.error || `Erreur ${rep.status}`);
     const avis = [...(j.manques || [])];
     if (j.hors_sle?.length) avis.push(`annexes non produites — pas en séjour limité aux études : ${j.hors_sle.slice(0, 6).join(', ')}${j.hors_sle.length > 6 ? ` et ${j.hors_sle.length - 6} autre(s)` : ''}`);
-    return { documents: j.documents || [], avis };
+    return { documents: [...(j.documents || []), ...docsRoute], avis: [...avis, ...avisRoute] };
   }
 
   async function produire() {
@@ -1837,6 +1859,10 @@ export default function CentreImpressionCentral({ ongletInitial = 'etudiants',
                 className={famille === 'valorisation' ? 'on' : ''}>
                 Valorisation des acquis
               </button>
+              <button onClick={() => setFamille('diplomes')}
+                className={famille === 'diplomes' ? 'on' : ''}>
+                Diplômes et titres
+              </button>
               <button onClick={() => setFamille('rapports')}
                 className={famille === 'rapports' ? 'on' : ''}>
                 Rapports
@@ -1849,6 +1875,7 @@ export default function CentreImpressionCentral({ ongletInitial = 'etudiants',
           </div>
           {famille === 'pieces' ? <OngletEtudiants perimetre={perimetre} />
             : famille === 'valorisation' ? <OngletValorisation />
+            : famille === 'diplomes' ? <CentreDiplomation annee={getAnnee()} integre onClose={onClose} />
             : famille === 'listes' ? <CadreListes domaine="etudiants" />
             : <OngletRapports domaine="etudiants" />}
         </>

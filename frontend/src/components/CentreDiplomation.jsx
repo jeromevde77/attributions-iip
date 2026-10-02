@@ -36,7 +36,7 @@ const dateLongue = iso => {
  * date de naissance manquante, une déterminante sans cote : chacun est dit sur
  * la ligne concernée. Un diplôme se corrige mal une fois signé.
  */
-export default function CentreDiplomation({ annee, onClose }) {
+export default function CentreDiplomation({ annee, onClose, integre = false }) {
   const [sections, setSections] = useState([]);
   const [section, setSection] = useState('');
   const [d, setD] = useState(null);
@@ -193,12 +193,15 @@ export default function CentreDiplomation({ annee, onClose }) {
   const cetteAnnee = () => setRetenus(new Set(d?.proposes || []));
   const nbPieces = ['diplome', 'attestation', 'provisoire', 'liste', 'pv'].filter(k => veut[k]).length;
 
+  /* DANS ÉDITIONS AUSSI (2 octobre 2026 : « tous les documents doivent pouvoir
+     sortir depuis Éditions ») : le même centre, intégré — sans voile, sans
+     en-tête de fenêtre ; on le ferme avec Éditions. */
   return (
-    <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] flex items-start justify-center z-[60] p-4">
-      <div className="bg-white rounded-fenetre shadow-dessus w-full max-w-4xl mt-10
-                      max-h-[88vh] overflow-hidden flex flex-col">
-        <div className="flex-none px-5 py-3 border-b border-slate-100 flex items-start
-                        justify-between gap-3">
+    <div className={integre ? '' : 'fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] flex items-start justify-center z-[60] p-4'}>
+      <div className={integre ? 'flex flex-col border border-slate-200 rounded-carte' : `bg-white rounded-fenetre shadow-dessus w-full max-w-4xl mt-10
+                      max-h-[88vh] overflow-hidden flex flex-col`}>
+        <div className={`flex-none px-5 py-3 border-b border-slate-100 flex items-start
+                        justify-between gap-3 ${integre ? 'hidden' : ''}`}>
           <div>
             <h3 className="text-[15px] font-semibold text-iip-blue flex items-center gap-2">
               <IconAward size={17} className="text-iip-turquoise" /> Diplomation
