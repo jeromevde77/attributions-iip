@@ -615,7 +615,10 @@ async function modeleDiplome() {
 function attestationSection(d, ctx) {
   const { section, annee, ident, dateDelib } = ctx;
   const e0 = d.genre === 'F' ? 'e' : '';
-  const cote = v => v == null ? '………' : `${Math.round(Number(v))}/20`;
+  // LE CARTOUCHE SE POSE SUR LA COTE, PAS SUR LA CELLULE (2 octobre 2026) :
+  // la classe « cote » sur le <td> en faisait un bloc en ligne, et les
+  // rectangles guillochés sortaient de la grille du tableau.
+  const cote = v => v == null ? '………' : `<span class="cote">${Math.round(Number(v))}/20</span>`;
 
   return `<div class="attestation piece">
     ${enteteDocument({
@@ -644,10 +647,10 @@ function attestationSection(d, ctx) {
           <td>${u.ue_num}</td><td>${esc(u.ue_nom || '')}
             <span class="ref">unité déterminante</span></td>
           <td class="n">${u.periodes || '—'}</td>
-          <td class="n cote">${cote(u.cote)}</td></tr>`).join('')}
+          <td class="n">${cote(u.cote)}</td></tr>`).join('')}
         ${d.epreuve ? `<tr class="ei">
           <td>${d.epreuve.ue_num}</td><td>Épreuve intégrée</td>
-          <td class="n">—</td><td class="n cote">${cote(d.epreuve.cote)}</td></tr>` : ''}
+          <td class="n">—</td><td class="n">${cote(d.epreuve.cote)}</td></tr>` : ''}
       </tbody>
     </table>
 
@@ -657,10 +660,17 @@ function attestationSection(d, ctx) {
       ${d.mention.mention ? `<br>Mention : <b>${esc(d.mention.mention)}</b>` : ''}
     </div>
 
+    <!-- LE BLOC DES ATTESTATIONS : sceau, signature (protégée par le
+         fac-similé au PDF, à l'aperçu et à l'envoi), lieu et date, qualité.
+         Cette pièce n'avait que le lieu et le nom — rien à signer. -->
     <div class="cloture">
+      <div class="sceau"></div>
+      <div class="paraphe"></div>
       <div class="lieu">Fait à ${esc(ident.ville)}, le ${dateLongue(dateDelib)}.</div>
-      <div class="sig"><div class="nom">${esc(ident.directeur)}</div>
-        <div class="role">Directeur</div></div>
+      <div class="legende">
+        <div class="qualite">Pour le Conseil des études,<br>le Directeur</div>
+        <div class="nom">${esc(ident.directeur)}</div>
+      </div>
     </div>
   </div>`;
 }
