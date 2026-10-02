@@ -216,6 +216,27 @@ export default function CentreDiplomation({ annee, onClose, integre = false }) {
           </button>
         </div>
 
+        {/* LE BOUTON EN HAUT, JAMAIS AU BAS DE CE QUI DÉFILE (Charles, 2 octobre
+            2026 : « jamais un bouton ne doit être en bas d'une fenêtre, il faut
+            dérouler pour le trouver »). */}
+        {d && (
+          <div className="flex-none px-5 py-3 border-b border-slate-100 bg-white flex items-center
+                          justify-between gap-3">
+            <p className="text-[11px] text-slate-500">
+              <b>{nb}</b> titre(s) retenu(s) sur {liste.length} en conditions
+              {d.total.provisoires > 0 && (
+                <span className="text-amber-700">
+                  {' '}· {d.total.provisoires} dossier(s) dont une séance reste ouverte
+                </span>
+              )}
+            </p>
+            <button onClick={produire} disabled={enCours || !nb || !nbPieces}
+              className="px-4 py-2 text-[13px] rounded-lg bg-iip-blue text-white
+                         font-semibold flex items-center gap-1.5 disabled:opacity-40">
+              <IconCertificate size={15} /> Produire les pièces
+            </button>
+          </div>
+        )}
         <div className="flex-none px-5 py-3 border-b border-slate-100 flex items-end
                         gap-3 flex-wrap">
           <label className="text-[12px] text-slate-600">
@@ -442,24 +463,6 @@ export default function CentreDiplomation({ annee, onClose, integre = false }) {
           )}
         </div>
 
-        {d && (
-          <div className="flex-none px-5 py-3 border-t border-slate-100 flex items-center
-                          justify-between gap-3">
-            <p className="text-[11px] text-slate-500">
-              <b>{nb}</b> titre(s) retenu(s) sur {liste.length} en conditions
-              {d.total.provisoires > 0 && (
-                <span className="text-amber-700">
-                  {' '}· {d.total.provisoires} dossier(s) dont une séance reste ouverte
-                </span>
-              )}
-            </p>
-            <button onClick={produire} disabled={enCours || !nb || !nbPieces}
-              className="px-4 py-2 text-[13px] rounded-lg bg-iip-blue text-white
-                         font-semibold flex items-center gap-1.5 disabled:opacity-40">
-              <IconCertificate size={15} /> Produire les pièces
-            </button>
-          </div>
-        )}
       </div>
 
       {apercu && (
