@@ -31,7 +31,9 @@ export default function PreviewModal({ html, titre = 'Document', sousTitre, nomF
      (lib/protectionSignature.js) ; tant qu'il n'est pas arrivé, la signature
      est masquée. L'ENVOI garde l'original : il pose son propre fac-similé,
      au nom du destinataire. */
-  const signe = /class="paraphe"/.test(html || '') && /--paraphe\s*:\s*url\(/.test(html || '');
+  // Une pièce qui porte déjà les vagues de sécurité n'a pas de second filigrane.
+  const signe = /class="paraphe"/.test(html || '') && /--paraphe\s*:\s*url\(/.test(html || '')
+    && !/class="filigrane-cloture"/.test(html || '');
   const masque = signe ? String(html).replace(/--paraphe\s*:\s*url\([^)]*\)/g, '--paraphe:none') : html;
   const [htmlAffiche, setHtmlAffiche] = useState(masque);
   useEffect(() => {

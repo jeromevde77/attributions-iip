@@ -19,6 +19,11 @@ export const jourDuJour = () => new Date().toLocaleDateString('fr-BE', { day: '2
 /** Le document porte-t-il une signature à protéger ? */
 export function aSignature(html) {
   const h = String(html || '');
+  /* UNE PROTECTION, PAS DEUX (Charles, 2 octobre 2026 : « double fac-similé »).
+     Une pièce de l'enveloppe des attestations porte déjà les vagues de
+     micro-texte (lib/filigraneDocument.js) qui traversent la signature et le
+     sceau et portent la référence : on n'y superpose pas un second filigrane. */
+  if (h.includes('class="filigrane-cloture"')) return false;
   return /class="cloture(?![^"]*sans-paraphe)[^"]*"/.test(h) && /class="paraphe"/.test(h) && RE_PARAPHE.test(h);
 }
 
