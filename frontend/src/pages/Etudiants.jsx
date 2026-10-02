@@ -1,5 +1,7 @@
 import OngletCep from '../components/OngletCep.jsx';
-import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+// LA MÊME FENÊTRE DE SÉANCE QUE L'ÉCRAN VALORISATION (2 octobre 2026) : une porte de plus, une seule réponse.
+const DeliberationVA = lazy(() => import('./Valorisations.jsx').then(m => ({ default: m.DeliberationVA })));
 import { nomPropre } from '../lib/nom.js';
 import { couleurBloc } from '../lib/blocs.js';
 import { RailLateral } from '../components/ui.jsx';
@@ -1575,6 +1577,7 @@ const TYPES_VA = [
 
 function Valorisations({ etudId, annee }) {
   const [valos, setValos] = useState(null);
+  const [seance, setSeance] = useState(false);
   // L'unité dont on veut les pièces. Le procès-verbal est une pièce d'UNITÉ :
   // il porte tous les étudiants valorisés dans cette unité, pas seulement
   // celui dont on a la fiche sous les yeux.
@@ -1798,12 +1801,25 @@ function Valorisations({ etudId, annee }) {
         <p className="text-[12px] text-slate-500">
           Valorisation des acquis — AGCF du 13-12-2024 · décisions du Conseil des études
         </p>
+        <span className="ml-auto" />
+        <button onClick={() => setSeance(true)}
+          className="bouton bouton-fort mr-2 inline-flex items-center gap-1.5"
+          title="Instruire, décider et valider toutes les UE de cet étudiant — la même fenêtre que l'écran Valorisation">
+          <IconCertificate size={14} /> Délibérer cet étudiant
+        </button>
         <button onClick={() => setForm({ type: 'complete', ue_num: '', pourcentage: 50, cible: 'cours',
                              cible_detail: '', equivalences: {}, decision: 'accordee' })}
           className="flex items-center gap-1.5 px-3 py-1.5 text-sm border border-slate-300 rounded-lg">
           <IconPlus size={14} /> Ajouter une VA
         </button>
       </div>
+
+      {seance && (
+        <Suspense fallback={null}>
+          <DeliberationVA mode="etudiant" annee={annee} etudInitial={etudId}
+            onClose={() => { setSeance(false); charger && charger(); }} onChange={() => charger && charger()} />
+        </Suspense>
+      )}
 
       {form && (
         <div className="border border-slate-200 rounded-xl p-4 bg-slate-50/60 space-y-3 mb-4">

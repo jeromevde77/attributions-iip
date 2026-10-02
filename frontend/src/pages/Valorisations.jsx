@@ -1404,7 +1404,7 @@ function ValoriserEnSerie({ annee, onClose, onCree }) {
       <div className="space-y-4">
 
         {/* 1 — L'UNITÉ. C'est elle qui convoque le conseil des études. */}
-        <section className="carte p-3 space-y-2">
+        <section className="py-2.5 border-b border-slate-100 last:border-b-0 space-y-2">
           <div className="text-[11px] uppercase tracking-wide text-slate-500">
             1 · L'unité
           </div>
@@ -1924,7 +1924,7 @@ function FenetreDossier({ vid, onClose, onChange }) {
           enCours={enCours} />
 
         {/* ÉTAPES 7, 8, 10 — LES GESTES ADMINISTRATIFS. */}
-        <section className="carte p-3 space-y-2">
+        <section className="py-2.5 border-b border-slate-100 last:border-b-0 space-y-2">
           <div className="text-[11px] uppercase tracking-wide text-slate-500">
             7 · 8 · 10 — Notification, encodage, archivage
           </div>
@@ -2007,7 +2007,7 @@ function EtapeDemande({ dossier, delai, onEnregistrer, enCours }) {
   const admission = porte === 'admission';
 
   return (
-    <section className="carte p-3 space-y-2">
+    <section className="py-2.5 border-b border-slate-100 last:border-b-0 space-y-2">
       <div className="text-[11px] uppercase tracking-wide text-slate-500">
         2 — La demande : ce qui est demandé, et quand
       </div>
@@ -2054,11 +2054,11 @@ function EtapeDemande({ dossier, delai, onEnregistrer, enCours }) {
       <div className="flex flex-wrap items-end gap-3">
         <label className="block">
           <span className="text-[12px] text-slate-600">Date du formulaire</span>
-          <input type="date" value={dd} onChange={e => setDd(e.target.value)}
+          <input type="date" value={dd} onChange={e => { const v = e.target.value; if (dr === dd) setDr(v); setDd(v); }}
             className="controle text-[13px] mt-1" />
         </label>
         <label className="block">
-          <span className="text-[12px] text-slate-600">Date d'envoi ou de dépôt</span>
+          <span className="text-[12px] text-slate-600">Date d'envoi ou de dépôt <span className="text-slate-400">(suit le formulaire)</span></span>
           <input type="date" value={dr} onChange={e => setDr(e.target.value)}
             className="controle text-[13px] mt-1" />
         </label>
@@ -2094,7 +2094,7 @@ function EtapeRecevabilite({ dossier, onEnregistrer, enCours }) {
   const [motif, setMotif] = useState(dossier.motif_irrecevabilite || '');
   const fait = dossier.recevable != null;
   return (
-    <section className="carte p-3 space-y-2">
+    <section className="py-2.5 border-b border-slate-100 last:border-b-0 space-y-2">
       <div className="flex items-center gap-2">
         <span className="text-[11px] uppercase tracking-wide text-slate-500">
           3 — La recevabilité (coordination, 5 jours ouvrables)
@@ -2202,14 +2202,75 @@ function ChoixChargeDeCours({ valeur, onChange, className = '', ue = null, annee
   );
 }
 
+/* « RENDU PAR » EN BADGES (Charles, 2 octobre 2026) : les chargés de cours
+   attribués aux cours visés sont posés d'office ; un clic sur un badge le
+   retire ; « + » ajoute quelqu'un du personnel, ou un nom externe. La valeur
+   enregistrée reste un texte — les noms séparés par des virgules. */
+function BadgesCharges({ valeur, onChange, ue = null, annee = null, cours = '' }) {
+  const [personnes, setPersonnes] = useState(null);
+  const [ajout, setAjout] = useState(false);
+  const [libre, setLibre] = useState('');
+  const noms = String(valeur || '').split(',').map(x => x.trim()).filter(Boolean);
+  useEffect(() => {
+    if (!ue || noms.length) return;
+    fetch(`/api/etudiants/ue/${ue}/charges?annee=${encodeURIComponent(annee || getAnnee())}&cours=${encodeURIComponent(cours || '')}`, { headers: authHeaders() })
+      .then(r => (r.ok ? r.json() : null))
+      .then(j => { const l = (j?.charges || []).map(c => nomListe(c.nom)); if (l.length) onChange(l.join(', ')); })
+      .catch(() => {});
+    // eslint-disable-next-line
+  }, [ue, annee, cours]);
+  useEffect(() => {
+    if (!ajout || personnes) return;
+    fetch(`/api/reunions/personnes?annee=${encodeURIComponent(getAnnee())}`, { headers: authHeaders() })
+      .then(r => (r.ok ? r.json() : [])).then(l => setPersonnes(Array.isArray(l) ? l : [])).catch(() => setPersonnes([]));
+  }, [ajout, personnes]);
+  const poser = l => onChange([...new Set(l)].join(', '));
+  const tous = useMemo(() => [...new Set((personnes || []).map(p => nomListe(p.nom)))].sort(parNom), [personnes]);
+  return (
+    <span className="inline-flex flex-wrap items-center gap-1">
+      {noms.map(n => (
+        <button key={n} type="button" title="Retirer" onClick={() => poser(noms.filter(x => x !== n))}
+          className="inline-flex items-center gap-1 rounded-full bg-iip-blue text-white text-[12px] font-semibold px-2.5 py-0.5 hover:opacity-80">
+          {n} <IconX size={11} /></button>
+      ))}
+      {!noms.length && <span className="text-[12px] text-slate-400">aucun chargé de cours</span>}
+      {ajout ? (
+        <span className="inline-flex items-center gap-1">
+          <select value="" onChange={e => { if (e.target.value) { poser([...noms, e.target.value]); setAjout(false); } }}
+            className="border border-slate-300 rounded h-7 px-1.5 text-[12px] bg-white max-w-[16rem]">
+            <option value="">{personnes ? '— du personnel —' : 'Chargement…'}</option>
+            {tous.filter(n => !noms.includes(n)).map(n => <option key={n} value={n}>{n}</option>)}
+          </select>
+          <input value={libre} onChange={e => setLibre(e.target.value)} placeholder="ou un nom externe"
+            onKeyDown={e => { if (e.key === 'Enter' && libre.trim()) { poser([...noms, libre.trim()]); setLibre(''); setAjout(false); } }}
+            className="border border-slate-300 rounded h-7 px-1.5 text-[12px] w-40" />
+          <button type="button" disabled={!libre.trim()} onClick={() => { poser([...noms, libre.trim()]); setLibre(''); setAjout(false); }}
+            className="rounded border border-slate-300 bg-white h-7 px-2 text-[12px] disabled:opacity-40">Ajouter</button>
+          <button type="button" onClick={() => setAjout(false)} className="text-[12px] underline text-slate-500">annuler</button>
+        </span>
+      ) : (
+        <button type="button" onClick={() => setAjout(true)} title="Ajouter un chargé de cours, du personnel ou externe"
+          className="rounded-full border border-slate-300 bg-white w-6 h-6 grid place-items-center text-[14px] leading-none hover:border-iip-blue">+</button>
+      )}
+    </span>
+  );
+}
+
 /** Étape 4 — l'avis écrit du chargé de cours. C'est la pièce qui manquait. */
 function EtapeAvis({ dossier, onEnregistrer, enCours }) {
   const [sens, setSens] = useState(dossier.avis_sens || '');
   const [texte, setTexte] = useState(dossier.avis_texte || '');
   const [par, setPar] = useState(dossier.avis_par || '');
+  const [types, setTypes] = useState([]);
+  useEffect(() => {
+    fetch('/api/etudiants/valorisations/referentiel', { headers: authHeaders() })
+      .then(r => (r.ok ? r.json() : null)).then(j => setTypes(j?.motifs?.avis || [])).catch(() => {});
+  }, []);
+  const prefixe = { favorable: 'Favorable', partiel: 'Partiel', defavorable: 'Défavorable' }[sens];
+  const groupes = types.filter(g => !prefixe || g.titre.startsWith(prefixe));
   const bloque = dossier.recevable !== 1;
   return (
-    <section className="carte p-3 space-y-2">
+    <section className="py-2.5 border-b border-slate-100 last:border-b-0 space-y-2">
       <div className="flex items-center gap-2">
         <span className="text-[11px] uppercase tracking-wide text-slate-500">
           4 — L'avis du chargé de cours (10 jours ouvrables)
@@ -2240,13 +2301,26 @@ function EtapeAvis({ dossier, onEnregistrer, enCours }) {
                 </label>
               ))}
           </div>
-          <div className="flex items-center gap-2 text-[12px] text-slate-500">
-            Rendu par <ChoixChargeDeCours valeur={par} onChange={setPar}
+          <div className="flex flex-wrap items-center gap-2 text-[12px] text-slate-500">
+            Rendu par <BadgesCharges valeur={par} onChange={setPar}
               ue={dossier.ue_num || null} annee={dossier.annee_scolaire || null}
               cours={dossier.cible === 'cours' ? dossier.cible_detail || '' : ''} />
           </div>
-          {/* UN AVIS SANS TEXTE N'EST PAS UN AVIS. Les décisions de VA ne sont
-              pas susceptibles de recours : la motivation est tout ce qui reste. */}
+          {/* L'AVIS SE CHOISIT DANS UNE LISTE, OU S'ÉCRIT (2 octobre 2026). */}
+          <select value="" onChange={e => { const v = e.target.value; if (!v) return;
+              const g = types.find(x => x.motifs.includes(v));
+              if (!sens && g) setSens(g.titre.startsWith('Favorable') ? 'favorable' : g.titre.startsWith('Partiel') ? 'partiel' : 'defavorable');
+              setTexte(t => (t.trim() ? `${t.trim()} ${v}` : v)); }}
+            className="w-full border border-slate-300 rounded h-8 px-2 text-[12.5px] bg-white">
+            <option value="">Avis type{prefixe ? ` — ${prefixe.toLowerCase()}` : ''}… (ou rédigez ci-dessous)</option>
+            {groupes.map(g => (
+              <optgroup key={g.titre} label={g.titre}>
+                {g.motifs.map(m => <option key={m} value={m}>{m}</option>)}
+              </optgroup>
+            ))}
+          </select>
+          {/* UN AVIS SANS TEXTE N'EST PAS UN AVIS : la motivation est tout ce qui
+              reste pour défendre la décision. */}
           <textarea value={texte} onChange={e => setTexte(e.target.value)} rows={3}
             className="controle w-full h-auto text-[13px]"
             placeholder="Comparaison des preuves au dossier pédagogique : contenus, volume horaire, crédits, résultats obtenus…" />
@@ -2311,7 +2385,7 @@ function EtapeDecision({ dossier, bases, onEnregistrer, enCours }) {
   }, [composantes]);
 
   return (
-    <section className="carte p-3 space-y-2">
+    <section className="py-2.5 border-b border-slate-100 last:border-b-0 space-y-2">
       <div className="flex items-center gap-2">
         <span className="text-[11px] uppercase tracking-wide text-slate-500">
           6 — La décision du Conseil des études
@@ -3055,7 +3129,7 @@ function AnalyserEnSerie({ annee, onClose, onChange }) {
             porte sa coche — elle reste cliquable, car on revient en arrière
             pour corriger —, l'étape courante est mise en valeur, et la suivante
             attend. La flèche entre deux étapes dit le sens de lecture. */}
-        <section className="carte p-3 space-y-2">
+        <section className="py-2.5 border-b border-slate-100 last:border-b-0 space-y-2">
           <div className="flex items-center gap-2">
             <div className="text-[11px] uppercase tracking-wide text-slate-500">
               1 · L'étape du circuit
@@ -3716,7 +3790,7 @@ function EtapeTest({ dossier, onEnregistrer, enCours }) {
   }
 
   return (
-    <section className="carte p-3 space-y-2">
+    <section className="py-2.5 border-b border-slate-100 last:border-b-0 space-y-2">
       <div className="flex items-center gap-2 flex-wrap">
         <span className="text-[11px] uppercase tracking-wide text-slate-500">
           5 — Le test ou l'épreuve complémentaire
@@ -4261,7 +4335,7 @@ function FriseDossier({ d }) {
     </div>
   );
 }
-function InstruireUnite({ vid, onChange }) {
+function InstruireUnite({ vid, onChange, freres = [] }) {
   const [d, setD] = useState(null);
   const [erreur, setErreur] = useState(null);
   const [enCours, setEnCours] = useState(false);
@@ -4287,7 +4361,21 @@ function InstruireUnite({ vid, onChange }) {
   return (
     <div className="space-y-2 rounded-champ border border-slate-200 p-2">
       {erreur && <div className="text-[12px] text-rose-700 flex items-start gap-1.5"><IconAlertTriangle size={14} className="mt-0.5 flex-none" />{erreur}</div>}
-      <EtapeDemande dossier={v} delai={d.delai} onEnregistrer={c => agir('demande', c)} enCours={enCours} />
+      {/* LES DATES VALENT POUR TOUT LE DOSSIER DE L'ÉTUDIANT (2 octobre 2026) :
+          les poser ici les pose sur ses autres demandes encore à instruire. */}
+      <EtapeDemande dossier={v} delai={d.delai} enCours={enCours}
+        onEnregistrer={async c => {
+          const ok = await agir('demande', c);
+          if (ok && freres.length && (c.date_demande || c.date_reception)) {
+            try {
+              await fetch('/api/etudiants/valorisations/lot/demande', { method: 'POST',
+                headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+                body: JSON.stringify({ ids: freres, date_demande: c.date_demande, date_reception: c.date_reception }) });
+              await onChange?.();
+            } catch { /* la demande de cette UE est enregistrée ; les autres se reprennent */ }
+          }
+          return ok;
+        }} />
       <EtapeRecevabilite dossier={v} onEnregistrer={c => agir('recevabilite', c)} enCours={enCours} />
       <EtapeAvis dossier={v} onEnregistrer={c => agir('avis', c)} enCours={enCours} />
       <EtapeTest dossier={v} onEnregistrer={c => agir('test', c)} enCours={enCours} />
@@ -4723,7 +4811,8 @@ export function DeliberationVA({ annee, onClose, onChange, mode: modeDepart = 'e
                         </tr>
                         {instruits.has(d.id) && (
                           <tr className="border-b border-slate-100"><td colSpan={4} className="px-2 py-2 bg-slate-50">
-                            <InstruireUnite vid={d.id} onChange={async () => { await charger(); await onChange?.(); }} />
+                            <InstruireUnite vid={d.id} onChange={async () => { await charger(); await onChange?.(); }}
+                              freres={(dossiers || []).filter(x => x.etudiant_id === d.etudiant_id && x.id !== d.id && !x.valide_le && !x.decision_le).map(x => x.id)} />
                           </td></tr>
                         )}
                       </Fragment>

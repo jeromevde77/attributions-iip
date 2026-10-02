@@ -135,6 +135,36 @@ try {
   maj.run(MOTIFS_REFUS_DEFAUT, 'Valorisation — motifs types d’un refus (un par ligne ; « # Titre » ouvre un groupe)', 'va_motifs_refus', ANCIEN_REFUS);
   maj.run(MOTIFS_PARTIEL_DEFAUT, 'Valorisation — remarques types d’une dispense partielle (une par ligne ; « # Titre » ouvre un groupe)', 'va_motifs_partiel', ANCIEN_PARTIEL);
 } catch { /* base ancienne */ }
+/* LES AVIS TYPES DU CHARGÉ DE COURS — rangés par sens (« Favorable — … »,
+   « Partiel — … », « Défavorable — … ») : l'écran ne montre que ceux du sens
+   choisi. Les crochets [ ] marquent ce qui reste à compléter. */
+const AVIS_TYPES_DEFAUT = [
+  '# Favorable — titres et formations',
+  'Le titre [diplôme] obtenu à [établissement] en [année] couvre l’ensemble des acquis d’apprentissage de l’unité : contenus, volume horaire et niveau sont équivalents au dossier pédagogique.',
+  'Les cours suivis et réussis ([intitulés], [périodes] attestées, relevé de notes joint) correspondent à toutes les activités d’enseignement de l’unité.',
+  'Une unité de même intitulé a déjà été réussie dans un autre établissement d’enseignement pour adultes ([établissement], [année]) : le dossier pédagogique est identique.',
+  '# Favorable — expérience (VAE)',
+  'L’expérience professionnelle attestée ([fonction], [durée], attestation d’employeur) et le test du [date] démontrent la maîtrise de tous les acquis de l’unité.',
+  '# Partiel — cours ou acquis',
+  'Les preuves couvrent les activités [cours] ; elles ne couvrent pas [cours restants], qui restent à suivre.',
+  'Les acquis [AA reconnus] sont maîtrisés ; les acquis [AA restants] restent à évaluer.',
+  'Le volume attesté ([périodes]) suffit pour [cours] mais pas pour l’ensemble de l’unité.',
+  '# Partiel — stage',
+  'Les heures prestées ([heures], [lieu]) couvrent une partie des périodes de stage ; l’évaluation du stage reste due.',
+  'L’expérience couvre les activités pratiques ; la partie théorique ([cours]) reste à suivre et à évaluer.',
+  '# Défavorable — fond',
+  'Les contenus attestés ne correspondent pas aux acquis d’apprentissage du dossier pédagogique : [acquis non couverts].',
+  'Le volume attesté ([périodes]) est insuffisant au regard des périodes de l’unité.',
+  'Les résultats obtenus dans la formation antérieure ([résultat]) ne démontrent pas la maîtrise des acquis.',
+  'Le niveau de la formation antérieure ([niveau]) n’atteint pas celui de l’unité.',
+  '# Défavorable — expérience',
+  'L’expérience décrite ne démontre pas la maîtrise des acquis [acquis] ; le test du [date] ne l’a pas établie.',
+  'Les preuves ne permettent pas d’établir le niveau requis : [précision].',
+].join('\n');
+try {
+  db.prepare('INSERT OR IGNORE INTO parametre (cle, valeur, label, groupe) VALUES (?, ?, ?, ?)')
+    .run('va_avis_types', AVIS_TYPES_DEFAUT, 'Valorisation — avis types du chargé de cours (« # Favorable — … », « # Partiel — … », « # Défavorable — … » ouvrent les groupes)', 'procedures');
+} catch { /* */ }
 /** Les motifs, rangés : [{ titre, motifs: [...] }]. */
 export function motifsVA() {
   const lire = (cle, defaut) => {
@@ -147,7 +177,8 @@ export function motifsVA() {
     }
     return groupes.filter(g => g.motifs.length);
   };
-  return { refus: lire('va_motifs_refus', MOTIFS_REFUS_DEFAUT), partiel: lire('va_motifs_partiel', MOTIFS_PARTIEL_DEFAUT) };
+  return { refus: lire('va_motifs_refus', MOTIFS_REFUS_DEFAUT), partiel: lire('va_motifs_partiel', MOTIFS_PARTIEL_DEFAUT),
+           avis: lire('va_avis_types', AVIS_TYPES_DEFAUT) };
 }
 
 const RANG_SENS = { defavorable: 3, partiel: 2, favorable: 1 };
