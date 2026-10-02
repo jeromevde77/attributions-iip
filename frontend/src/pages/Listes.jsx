@@ -564,7 +564,9 @@ const LOGO_IIP = 'data:image/jpeg;base64,/9j/4AAQSkZJRgABAgAAZABkAAD/7AARRHVja3k
  * Passé un `domaine`, l'écran ne montre que les listes de cet axe. Sans
  * `domaine`, il les montre toutes — c'est l'écran plein, hors du centre.
  */
-export default function Listes({ integre = false, domaine = null }) {
+export default function Listes({ integre = false, domaine = null, rapports = null, renduRapport = null }) {
+  // Un rapport du catalogue choisi dans la colonne (« Listes et rapports »).
+  const [rapportVu, setRapportVu] = useState(null);
   const navigate = useNavigate();
   const annee = getAnnee() || '2026-2027';
   const [diplomes, setDiplomes] = useState(false);
@@ -1461,23 +1463,29 @@ export default function Listes({ integre = false, domaine = null }) {
      marcher. Un bouton qui ne peut rien faire est pire qu'un bouton absent. */
   const estRapport = def.rapport || def.grille || def.heuresContact;
 
-  const GROUPES_LABEL = { data: 'Listes de données', rapport: 'Rapports' };
+  const GROUPES_LABEL = { data: 'À composer — colonnes au choix', rapport: 'Mis en page' };
   const ordreGroupes = ['data', 'rapport'];
 
   /* LA LISTE DES TYPES : rail de l'écran, ou colonne de la fenêtre.
      Le même contenu, rendu là où il a un sens — un rail flottant n'a rien à
      faire à l'intérieur d'une fenêtre, et une colonne perdue au milieu d'un
      écran non plus. */
-  const deLAxe = ([, e]) => !domaine || e.domaine === domaine;
-  const groupesTypes = ordreGroupes.map(grp => ({
+  // « ÉTUDIANTS PAR UE » N'EST QUE LA LISTE DES ÉTUDIANTS AVEC UNE UE CHOISIE
+  // (2 octobre 2026) : elle ne se propose plus à part.
+  const deLAxe = ([k, e]) => (!domaine || e.domaine === domaine) && k !== 'etudiants_ue';
+  const groupesTypes = [
+    ...(rapports && rapports.length ? [{ label: 'Prêts à imprimer', items: rapports.map(r => ({
+      key: `r-${r.id}`, label: r.libelle, icon: IconFileText, actif: rapportVu?.id === r.id,
+      onClick: () => setRapportVu(r) })) }] : []),
+    ...ordreGroupes.map(grp => ({
     label: GROUPES_LABEL[grp],
     items: Object.entries(ENTITES)
       .filter(deLAxe)
       .filter(([, e]) => (e.groupe || 'data') === grp)
       .map(([k, e]) => ({ key: k, label: e.label,
         icon: TABLER[e.tabler] || IconFileText,
-        actif: entite === k, onClick: () => changerEntite(k) })),
-  })).filter(g => g.items.length > 0);
+        actif: !rapportVu && entite === k, onClick: () => { setRapportVu(null); changerEntite(k); } })),
+  })).filter(g => g.items.length > 0)];
 
   return (
     <div className={integre ? 'flex min-h-0 flex-1' : 'relative bg-slate-50'}
@@ -1533,9 +1541,10 @@ export default function Listes({ integre = false, domaine = null }) {
         <ListeDiplomes annee={annee} onClose={() => setDiplomes(false)} />
       )}
 
+      {rapportVu && renduRapport && <div className="flex-1 flex min-w-0 min-h-0">{renduRapport(rapportVu)}</div>}
       {/* ── Colonne droite : filtres + contenu ── */}
-      <div className={integre ? 'flex-1 flex flex-col min-w-0 min-h-0'
-                              : 'gouttiere-rail flex flex-col min-w-0'}>
+      <div className={`${integre ? 'flex-1 flex flex-col min-w-0 min-h-0'
+                              : 'gouttiere-rail flex flex-col min-w-0'} ${rapportVu && renduRapport ? 'hidden' : ''}`}>
 
       {/* ── Barre de filtres + actions ── */}
       <div className="flex-shrink-0 bg-white border-b border-slate-200 px-5 py-2.5 flex items-center gap-3 flex-wrap">
