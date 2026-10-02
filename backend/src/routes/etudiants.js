@@ -8361,7 +8361,7 @@ r.get('/valorisations/analyse', authRequired, (req, res) => {
       date_demande: v.date_demande, date_reception: v.date_reception,
       recevable: v.recevable, recevabilite_le: v.recevabilite_le,
       motif_irrecevabilite: v.motif_irrecevabilite,
-      avis_le: v.avis_le, avis_sens: v.avis_sens,
+      avis_le: v.avis_le, avis_sens: v.avis_sens, avis_texte: v.avis_texte, avis_par: v.avis_par,
       decision_le: v.decision_le, decision_ce_date: v.decision_ce_date,
       valide_le: v.valide_le, valide_par: v.valide_par,
       notifie_le: v.notifie_le, eprom_le: v.eprom_le,
@@ -9135,9 +9135,9 @@ r.get('/ue/:ueNum/composantes', authRequired, (req, res) => {
   const ueNum = Number(req.params.ueNum);
   const annee = req.query.annee;
   const cours = db.prepare(`
-    SELECT cours_code, cours_nom FROM cours
+    SELECT cours_code, MAX(cours_nom) AS cours_nom, MAX(COALESCE(cours_per, 0)) AS per FROM cours
     WHERE ue_num = ? ${annee ? 'AND annee_scolaire = ?' : ''}
-    ORDER BY cours_code
+    GROUP BY cours_code ORDER BY cours_code
   `).all(...(annee ? [ueNum, annee] : [ueNum]));
   const aas = db.prepare(`
     SELECT aa_code, aa_num, cours_code, description FROM aa
