@@ -473,11 +473,14 @@ function RevuePAE({ liste: base, annee: anneeDepart, onClose }) {
         // LE PETIT TRAIN (Charles, 2 octobre 2026) : sur le modèle du badge des
         // attributions — section, niveau, ECTS réussis (bande verte), ECTS en
         // cours, UE en cours et leurs périodes étudiant, moyenne du parcours.
-        const Wagon = ({ v, l, vert = false, fort = false }) => (
+        /* LE TRAIN SE LIT EN DEUX TEMPS (Charles, 2 octobre 2026) : ce qui est EN
+           COURS, souligné de bleu — niveau, ECTS, UE et périodes de l'année —,
+           puis ce qui est ACQUIS, au bout — ECTS réussis (vert), moyenne. */
+        const Wagon = ({ v, l, ligne = null, fort = false }) => (
           <span className={`relative px-2.5 py-1 leading-tight ${fort ? 'font-bold text-iip-texte' : ''}`}>
             <span className="block text-[13px] font-semibold text-iip-texte tabular-nums">{v}</span>
             {l && <span className="block text-[10px] text-slate-500">{l}</span>}
-            {vert && <span className="absolute left-1.5 right-1.5 bottom-0 h-[3px] rounded-full bg-emerald-700" />}
+            {ligne && <span className={`absolute left-1.5 right-1.5 bottom-0 h-[3px] rounded-full ${ligne === 'vert' ? 'bg-emerald-700' : 'bg-blue-700'}`} />}
           </span>
         );
         const BadgeUE = ({ u }) => {
@@ -493,17 +496,20 @@ function RevuePAE({ liste: base, annee: anneeDepart, onClose }) {
         return (
           <>
             <div className="flex flex-wrap items-center gap-3 mb-2">
-              <span className="text-[16px] font-bold text-iip-texte">{nomPropre(e.nom, e.prenom)}</span>
+              {/* Le nom et le matricule dessous : la même hauteur que le train. */}
+              <span className="leading-tight">
+                <span className="block text-[16px] font-bold text-iip-texte">{nomPropre(e.nom, e.prenom)}</span>
+                <span className="block text-[11px] text-slate-500 tabular-nums">{e.id_ecampus || '—'}</span>
+              </span>
               <span className="inline-flex items-stretch bg-white border border-slate-200 border-l-[4px] rounded divide-x divide-slate-200"
                 style={{ borderLeftColor: couleurBloc(e.niveau) || '#D8DCE4' }}>
                 <Wagon v={e.section || '—'} l="section" fort />
-                <Wagon v={e.niveau_libelle || '—'} l="niveau" />
-                <Wagon v={ch.ects_acquis} l="ECTS réussis" vert />
-                <Wagon v={ch.ects_pae} l="ECTS en cours" />
-                <Wagon v={`${ch.nb_ue} UE`} l={`${ch.periodes_pae} pér. étudiant`} />
+                <Wagon v={e.niveau_libelle || '—'} l="niveau" ligne="bleu" />
+                <Wagon v={ch.ects_pae} l="ECTS en cours" ligne="bleu" />
+                <Wagon v={`${ch.nb_ue} UE`} l={`${ch.periodes_pae} pér. étudiant`} ligne="bleu" />
+                <Wagon v={ch.ects_acquis} l="ECTS réussis" ligne="vert" />
                 <Wagon v={fmtMoy} l="moyenne du parcours" />
               </span>
-              <span className="text-[12px] text-slate-500">{e.id_ecampus || ''}</span>
             </div>
             {d.revu && (
               <div className="mb-2 px-3 py-2 rounded-lg text-[13px] bg-emerald-700 text-white">
