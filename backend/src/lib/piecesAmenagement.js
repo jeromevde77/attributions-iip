@@ -64,6 +64,10 @@ const esc = s => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;')
 const jour = d => (d ? frDate(d) : '……………');
 const aujourdhui = () => new Date().toISOString().slice(0, 10);
 const multi = s => esc(s).replace(/\n/g, '<br>');
+/* LES MESURES COCHÉES, telles que la demande les porte (2 octobre 2026) : la
+   liste remplace le texte libre des cadres A et B. */
+const listeMesures = (ms, vide = '……………') => (ms && ms.length
+  ? ms.map(m => `• ${esc(m.libelle)}${m.precisions ? ` — ${esc(m.precisions)}` : ''}`).join('<br>') : vide);
 
 /** Le dossier et tout ce que les pièces en lisent. */
 export function chargerDossier(id) {
@@ -287,7 +291,8 @@ function corpsFormulaire(d) {
     ${ligne('Étudiant', `${nomEtudiant(e)} · matricule ${esc(e.id_ecampus || '—')}`)}
     ${ligne('Date de la demande', jour(d.date_demande))}
     ${ligne('Unités concernées', unitesConcernees(d))}
-    ${ligne('Nature des soins spécifiques et aménagements demandés', multi(d.soins_specifiques))}
+    ${ligne('Aménagements demandés', listeMesures(d.mesures))}
+    ${d.soins_specifiques ? ligne('Soins spécifiques', multi(d.soins_specifiques)) : ''}
     ${ligne('Difficultés entravant le parcours', multi(d.besoins))}
     ${ligne('Pièce produite', piece ? `${piece}${d.piece_date ? ` — ${jour(d.piece_date)}` : ''}${
       d.piece_auteur ? ` — ${esc(d.piece_auteur)}` : ''}${d.piece_reference ? ` — réf. ${esc(d.piece_reference)}` : ''}` : '')}
@@ -298,8 +303,8 @@ function corpsFormulaire(d) {
   <h3>Cadre B — le rapport de la personne de référence</h3>
   <table class="doc"><tbody>
     ${ligne('Personne de référence', esc(d.personne_reference))}
-    ${ligne('Aménagements matériels', `${oui(d.materiel_demande)}${d.materiel_desc ? `<br>${multi(d.materiel_desc)}` : ''}`)}
-    ${ligne('Aménagements pédagogiques', `${oui(d.pedago_demande)}${d.pedago_desc ? `<br>${multi(d.pedago_desc)}` : ''}`)}
+    ${ligne('Aménagements matériels', listeMesures(d.mesures.filter(m => m.nature === 'materiel'), 'Non demandés'))}
+    ${ligne('Aménagements pédagogiques', listeMesures(d.mesures.filter(m => m.nature !== 'materiel'), 'Non demandés'))}
     ${ligne('Annexes', d.rapport_annexes_nb != null ? `${d.rapport_annexes_nb}${d.rapport_annexes_desc ? ` — ${esc(d.rapport_annexes_desc)}` : ''}` : esc(d.rapport_annexes_desc))}
     ${ligne('Transmis au Conseil des études le', d.transmis_cde_le ? jour(d.transmis_cde_le) : '')}
     ${ligne('Reçu par le Conseil le', d.cde_recu_le ? jour(d.cde_recu_le) : '')}

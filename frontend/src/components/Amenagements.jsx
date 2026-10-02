@@ -83,8 +83,8 @@ export default function Amenagements({ etudId, annee }) {
     await charger();
   }
 
-  async function supprimerMesure(id) {
-    if (!window.confirm('Retirer cette mesure du dossier ?')) return;
+  async function supprimerMesure(id, sansConfirmer = false) {
+    if (!sansConfirmer && !window.confirm('Retirer cette mesure du dossier ?')) return;
     await fetch(`/api/amenagements/mesure/${id}`, { method: 'DELETE', headers: authHeaders() });
     await charger();
   }
@@ -209,7 +209,11 @@ export default function Amenagements({ etudId, annee }) {
               <Tr key={m.id}>
                 <Td>
                   <span className={modeDecision && !m.accorde ? 'line-through text-slate-400' : ''}>{m.libelle}</span>
-                  {m.precisions && <span className="block text-[11px] text-slate-500">{m.precisions}</span>}
+                  {modeDecision || c?.b?.valide_le
+                    ? (m.precisions && <span className="block text-[11px] text-slate-500">{m.precisions}</span>)
+                    : <input defaultValue={m.precisions || ''} placeholder="précision (facultatif)"
+                        onBlur={e => e.target.value !== (m.precisions || '') && majMesure(m, { precisions: e.target.value })}
+                        className="block mt-0.5 w-full border border-slate-200 rounded px-1.5 py-0.5 text-[12px]" />}
                   {modeDecision && !m.accorde && (
                     <textarea rows={2} defaultValue={m.motif_refus || ''} placeholder="Motif du refus — obligatoire"
                       onBlur={e => e.target.value.trim() && e.target.value !== (m.motif_refus || '') && majMesure(m, { accorde: false, motif_refus: e.target.value })}
@@ -301,9 +305,15 @@ export default function Amenagements({ etudId, annee }) {
             {/* ── A — LA DEMANDE ── */}
             {etapeVue === 'demande' && (
               <div className="space-y-3">
+                {/* LES AMÉNAGEMENTS SE COCHENT (Charles, 2 octobre 2026 : « des
+                    aménagements listés à sélectionner, et une case autre ; ne
+                    laisse pas trop de choix »). Chaque case cochée est une mesure
+                    du dossier, que le cadre B ajuste. */}
+                <ChoixMesures d={d} catalogue={data.catalogue} verrou={!!c?.b?.valide_le || (!!c?.a?.valide_le && !hors)}
+                  onAjouter={ajouterMesure} onRetirer={id => supprimerMesure(id, true)} onPreciser={(m, t) => majMesure(m, { precisions: t })} />
                 <label className="text-xs block">
-                  <span className="block font-semibold text-slate-500 uppercase tracking-wide mb-1">Nature des soins spécifiques et aménagements demandés</span>
-                  <textarea rows={3} defaultValue={d.soins_specifiques || ''} disabled={!!c?.a?.valide_le}
+                  <span className="block font-semibold text-slate-500 uppercase tracking-wide mb-1">Soins spécifiques <span className="normal-case font-normal text-slate-400">(facultatif)</span></span>
+                  <textarea rows={2} defaultValue={d.soins_specifiques || ''} disabled={!!c?.a?.valide_le}
                     onBlur={e => e.target.value !== (d.soins_specifiques || '') && majDossier({ soins_specifiques: e.target.value })}
                     className="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-sm" />
                 </label>
@@ -337,22 +347,8 @@ export default function Amenagements({ etudId, annee }) {
             {/* ── B — LE RAPPORT ET LES MESURES ── */}
             {etapeVue === 'rapport' && (
               <div className="space-y-3">
-                {[['materiel', 'Aménagements matériels'], ['pedago', 'Aménagements pédagogiques']].map(([k, lib]) => (
-                  <div key={k}>
-                    <div className="flex items-center gap-3 mb-1">
-                      <span className="text-[13px] font-semibold text-iip-blue">{lib}</span>
-                      <div className="flex gap-1">
-                        {[[1, 'Demandés'], [0, 'Non demandés']].map(([v, l]) => (
-                          <button key={v} disabled={!!c?.b?.valide_le} onClick={() => majDossier({ [`${k}_demande`]: v })}
-                            className={`px-2.5 py-0.5 text-[12px] rounded-md border ${d[`${k}_demande`] === v ? 'bg-iip-blue text-white border-iip-blue' : 'border-slate-300 text-slate-600'}`}>{l}</button>
-                        ))}
-                      </div>
-                    </div>
-                    <textarea rows={2} defaultValue={d[`${k}_desc`] || ''} placeholder="Description" disabled={!!c?.b?.valide_le}
-                      onBlur={e => e.target.value !== (d[`${k}_desc`] || '') && majDossier({ [`${k}_desc`]: e.target.value })}
-                      className="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-sm" />
-                  </div>
-                ))}
+                {/* Les mesures cochées au cadre A, à ajuster : précisions, ajouts,
+                    retraits. Matériel et pédagogique se lisent de chaque mesure. */}
                 {tableMesures(false)}
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
                   {champ('rapport_annexes_nb', 'Annexes — nombre', 'number')}
@@ -733,6 +729,62 @@ function UesConcernees({ dossierId, annee, choisies, onChange }) {
             <span className="truncate">{u.ue_nom}</span>
           </label>
         ))}
+      </div>
+    </div>
+  );
+}
+
+/* La liste courte, à cocher, rangée par moment ; « Autre » s'écrit. */
+function ChoixMesures({ d, catalogue, verrou, onAjouter, onRetirer, onPreciser }) {
+  const [autre, setAutre] = useState('');
+  const parCode = new Map((d.mesures || []).filter(m => m.code).map(m => [m.code, m]));
+  const autres = (d.mesures || []).filter(m => !m.code || m.code === 'AUTRE' || !catalogue.some(x => x.code === m.code));
+  const moments = [...new Set(catalogue.map(x => x.moment || 'Autres'))];
+  return (
+    <div>
+      <div className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5">Aménagements demandés</div>
+      <div className="grid gap-x-6 gap-y-1 md:grid-cols-2">
+        {moments.map(mo => (
+          <div key={mo}>
+            <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide mt-1">{mo}</div>
+            {catalogue.filter(x => (x.moment || 'Autres') === mo).map(x => {
+              const m = parCode.get(x.code);
+              return (
+                <div key={x.code} className="flex flex-wrap items-center gap-2 py-0.5 text-[13px]">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input type="checkbox" checked={!!m} disabled={verrou}
+                      onChange={() => (m ? onRetirer(m.id) : onAjouter({ code: x.code, libelle: x.libelle, nature: x.nature, portee: 'toutes' }))} />
+                    {x.libelle}
+                  </label>
+                  {m && (
+                    <input defaultValue={m.precisions || ''} disabled={verrou} placeholder="précision"
+                      onBlur={e => e.target.value !== (m.precisions || '') && onPreciser(m, e.target.value)}
+                      className="border border-slate-200 rounded px-1.5 py-0.5 text-[12px] w-40" />
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        ))}
+      </div>
+      <div className="mt-2 text-[13px]">
+        {autres.map(m => (
+          <div key={m.id} className="flex items-center gap-2 py-0.5">
+            <input type="checkbox" checked disabled={verrou} onChange={() => onRetirer(m.id)} />
+            <span>{m.libelle}</span>
+          </div>
+        ))}
+        {!verrou && (
+          <div className="flex items-center gap-2 py-0.5">
+            <input type="checkbox" checked={false} disabled readOnly />
+            <span className="text-slate-500">Autre :</span>
+            <input value={autre} onChange={e => setAutre(e.target.value)} placeholder="décrire l'aménagement"
+              onKeyDown={e => { if (e.key === 'Enter' && autre.trim()) { onAjouter({ code: 'AUTRE', libelle: autre.trim(), nature: 'pedagogique', portee: 'toutes' }); setAutre(''); } }}
+              className="border border-slate-300 rounded px-1.5 py-0.5 text-[12.5px] flex-1 max-w-md" />
+            <button type="button" disabled={!autre.trim()} className="bouton text-[12px] px-2 py-0.5 disabled:opacity-40"
+              onClick={() => { onAjouter({ code: 'AUTRE', libelle: autre.trim(), nature: 'pedagogique', portee: 'toutes' }); setAutre(''); }}>Ajouter</button>
+          </div>
+        )}
       </div>
     </div>
   );

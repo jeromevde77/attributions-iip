@@ -45,12 +45,34 @@ export function migrerCircuitAR() {
       .run('ar_catalogue', CATALOGUE_DEFAUT,
         'Aménagements raisonnables — catalogue des mesures (« # Moment » ouvre un groupe ; « M · » matériel, « P · » pédagogique)',
         'procedures');
+    // La première liste (vingt-six mesures) cède la place à la courte — si
+    // personne ne l'a retouchée.
+    db.prepare("UPDATE parametre SET valeur = ? WHERE cle = 'ar_catalogue' AND valeur = ?").run(CATALOGUE_DEFAUT, CATALOGUE_26);
   } catch { /* table absente */ }
 }
 
 /* LE CATALOGUE, RANGÉ PAR MOMENT, RÉGLABLE PAR LA DIRECTION. Une ligne par
    mesure ; « M · » matérielle, « P · » pédagogique (art. 7 § 1er). */
+/* COURT, EXPRÈS (Charles, 2 octobre 2026 : « ne laisse pas trop de choix ») :
+   onze mesures et une case « Autre ». */
 const CATALOGUE_DEFAUT = [
+  '# Évaluations',
+  'P · Temps supplémentaire lors des évaluations',
+  'M · Local isolé ou à effectif réduit',
+  'P · Pauses aménagées durant les épreuves',
+  'M · Questionnaire adapté (police aérée, interligne 1,5, recto seul)',
+  'P · Calendrier d’examens aménagé',
+  '# Cours',
+  'M · Supports de cours numériques, transmis à l’avance',
+  'M · Autorisation d’enregistrer les cours',
+  'M · Place réservée dans le local',
+  'P · Souplesse sur les absences liées aux soins',
+  '# Stage',
+  'P · Adaptation des horaires ou de la durée du stage',
+  '# Accompagnement',
+  'P · Rencontre de suivi avec la personne de référence',
+].join('\n');
+const CATALOGUE_26 = [
   '# Évaluations',
   'P · Temps supplémentaire lors des évaluations',
   'M · Local isolé ou à effectif réduit',
@@ -103,10 +125,10 @@ export function catalogueAR() {
 
 export const horsCircuit = d => !d.valide_a_le && DECIDE.includes(d.statut);
 
-export function manquesA(d) {
+export function manquesA(d, nbMesures = 0) {
   return [
     !d.date_demande && 'la date de la demande',
-    !d.soins_specifiques && 'la nature des soins et aménagements demandés',
+    !nbMesures && 'au moins un aménagement demandé',
     !d.signe_etudiant_le && "la signature de l'étudiant",
   ].filter(Boolean);
 }

@@ -69,7 +69,7 @@ function circuitDe(d) {
   const charges = (() => { try { return chargesDeCours(chargerDossier(d.id)); } catch { return []; } })();
   return {
     hors_circuit: horsCircuit(d),
-    a: { valide_le: d.valide_a_le || null, valide_par: d.valide_a_par || null, manques: manquesA(d) },
+    a: { valide_le: d.valide_a_le || null, valide_par: d.valide_a_par || null, manques: manquesA(d, nbMesures) },
     b: { valide_le: d.valide_b_le || null, valide_par: d.valide_b_par || null, manques: manquesB(d, nbMesures) },
     charges: charges.map(p => ({ professeur_id: p.id, nom: `${String(p.nom || '').toUpperCase()} ${p.prenom || ''}`.trim(), ues: p.ues })),
     avis: avisDuDossier(d.id),
@@ -81,6 +81,13 @@ const CHAMPS_B = ['materiel_demande', 'materiel_desc', 'pedago_demande',
   'pedago_desc', 'rapport_annexes_nb', 'rapport_annexes_desc', 'transmis_cde_le'];
 // Ce qui se tient à jour à toute étape : qui suit le dossier, ce qui entrave le parcours.
 const CHAMPS_LIBRES = ['personne_reference', 'besoins', 'remarques'];
+/* LES MESURES DEMANDÉES se cochent au cadre A et s'ajustent au cadre B :
+   elles restent modifiables jusqu'à la validation du rapport. */
+function refusMesures(d) {
+  if (!d || horsCircuit(d)) return null;
+  if (d.valide_b_le) return 'Le rapport (volet B) est validé : rouvrez-le pour changer les mesures.';
+  return null;
+}
 /* Le serveur tient le circuit : un bouton grisé n'est pas une protection. */
 function refusEtape(d, champs) {
   if (!d || horsCircuit(d)) return null;
@@ -413,7 +420,7 @@ r.put('/dossier/:id', authRequired, peutAmenager, (req, res) => {
 r.post('/dossier/:id/mesure', authRequired, peutAmenager, (req, res) => {
   const m = req.body || {};
   const dos = db.prepare('SELECT * FROM amenagement_dossier WHERE id = ?').get(Number(req.params.id));
-  const refus = refusEtape(dos, ['materiel_desc']);
+  const refus = refusMesures(dos);
   if (refus) return res.status(409).json({ error: refus });
   if (!m.libelle) return res.status(400).json({ error: 'libelle requis' });
   if (m.accorde === false && !String(m.motif_refus || '').trim()) {
@@ -438,7 +445,7 @@ r.put('/mesure/:id', authRequired, peutAmenager, (req, res) => {
     const contenu = (m.precisions ?? null) !== (avant.precisions ?? null) || (m.portee || 'toutes') !== (avant.portee || 'toutes')
       || (m.ue_num ? Number(m.ue_num) : null) !== (avant.ue_num ?? null);
     const decision = (m.accorde === false ? 0 : 1) !== avant.accorde || (m.motif_refus || null) !== (avant.motif_refus || null);
-    const refus = refusEtape(dos, [...(contenu ? ['materiel_desc'] : []), ...(decision ? ['cde_date'] : [])]);
+    const refus = (contenu && refusMesures(dos)) || (decision ? refusEtape(dos, ['cde_date']) : null);
     if (refus) return res.status(409).json({ error: refus });
   }
   // UN REFUS SE MOTIVE, MESURE PAR MESURE. La même règle qu'à la création :
@@ -536,7 +543,7 @@ r.delete('/mesure/:id', authRequired, peutAmenager, (req, res) => {
   {
     const m0 = db.prepare('SELECT dossier_id FROM amenagement_mesure WHERE id = ?').get(Number(req.params.id));
     const dos = m0 && db.prepare('SELECT * FROM amenagement_dossier WHERE id = ?').get(m0.dossier_id);
-    const refus = refusEtape(dos, ['materiel_desc']);
+    const refus = refusMesures(dos);
     if (refus) return res.status(409).json({ error: refus });
   }
   db.prepare('DELETE FROM amenagement_mesure WHERE id = ?').run(Number(req.params.id));
@@ -547,7 +554,7 @@ r.delete('/mesure/:id', authRequired, peutAmenager, (req, res) => {
 r.put('/dossier/:id/valider-a', authRequired, peutAmenager, (req, res) => {
   const d = db.prepare('SELECT * FROM amenagement_dossier WHERE id = ?').get(Number(req.params.id));
   if (!d) return res.status(404).json({ error: 'dossier introuvable' });
-  const manque = manquesA(d);
+  const manque = manquesA(d, db.prepare('SELECT COUNT(*) n FROM amenagement_mesure WHERE dossier_id = ?').get(d.id).n);
   if (manque.length) return res.status(409).json({ error: `La demande n'est pas complète : il manque ${manque.join(', ')}.`, manques: manque });
   const par = req.user?.nom || req.user?.email || null;
   db.prepare(`UPDATE amenagement_dossier SET valide_a_le = datetime('now'), valide_a_par = ?,
