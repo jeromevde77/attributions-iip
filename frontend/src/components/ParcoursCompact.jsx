@@ -16,7 +16,9 @@ import { couleurBloc, rangBloc } from '../lib/blocs.js';
  * Les données sont celles du schéma de la fiche (GET /capitalisation) : un
  * même calcul, deux dessins.
  */
-const L = 46, H = 24, PAS_Y = 34, PAS_X = 104, MARGE = 12, HAUT = 30;
+// Petites, et à LEUR taille (2 octobre 2026 : « icônes trop grandes, on ne voit
+// pas d'un coup ») : le dessin ne s'étire plus à la largeur de la colonne.
+const L = 34, H = 18, PAS_Y = 23, PAS_X = 74, MARGE = 8, HAUT = 24;
 
 export default function ParcoursCompact({ etudId, annee, programme = new Set(), dispenses = new Set(),
                                           onNoeud = null, version = 0 }) {
@@ -81,11 +83,11 @@ export default function ParcoursCompact({ etudId, annee, programme = new Set(), 
     const x1 = a.x + L, y1 = a.y + H / 2, y2 = b.y + H / 2;
     const x2 = memeCol ? b.x + L + 2 : b.x - 3;
     const d = memeCol
-      ? `M${x1},${y1} C${x1 + 18},${y1} ${x2 + 18},${y2} ${x2},${y2}`
-      : `M${x1},${y1} C${x1 + 26},${y1} ${x2 - 26},${y2} ${x2},${y2}`;
+      ? `M${x1},${y1} C${x1 + 12},${y1} ${x2 + 12},${y2} ${x2},${y2}`
+      : `M${x1},${y1} C${x1 + 18},${y1} ${x2 - 18},${y2} ${x2},${y2}`;
     const couleur = relief ? '#16406A' : fort ? '#2F6FB0' : '#CBD5E1';
     return <path key={`${e.from}-${e.to}`} d={d} fill="none" stroke={couleur}
-      strokeWidth={relief ? 2 : fort ? 1.5 : 1} strokeDasharray={e.type === 'interne' ? '4 3' : undefined}
+      strokeWidth={relief ? 1.6 : fort ? 1.1 : 0.7} strokeDasharray={e.type === 'interne' ? '4 3' : undefined}
       opacity={survol != null && !relief ? 0.35 : 1}
       markerEnd={`url(#pc-${relief ? 'r' : fort ? 'f' : 'g'})`} />;
   };
@@ -100,19 +102,19 @@ export default function ParcoursCompact({ etudId, annee, programme = new Set(), 
 
   return (
     <div>
-      <svg viewBox={`0 0 ${plan.largeur} ${plan.hauteur}`} width="100%" role="img" aria-label="Schéma du parcours"
-        style={{ maxHeight: '70vh' }}>
+      <svg viewBox={`0 0 ${plan.largeur} ${plan.hauteur}`} width={plan.largeur} height={plan.hauteur}
+        role="img" aria-label="Schéma du parcours" style={{ maxWidth: '100%', height: 'auto' }}>
         <defs>
           {[['f', '#2F6FB0'], ['g', '#CBD5E1'], ['r', '#16406A']].map(([k, c]) => (
-            <marker key={k} id={`pc-${k}`} markerWidth="7" markerHeight="7" refX="6" refY="3" orient="auto">
-              <path d="M0,0 L0,6 L6,3 z" fill={c} />
+            <marker key={k} id={`pc-${k}`} markerWidth="5" markerHeight="5" refX="4.5" refY="2.25" orient="auto">
+              <path d="M0,0 L0,4.5 L4.5,2.25 z" fill={c} />
             </marker>
           ))}
         </defs>
         {plan.cols.map((c, i) => (
           <g key={c.cle}>
-            <text x={MARGE + i * PAS_X + L / 2} y={11} textAnchor="middle" fontSize="9.5" fontWeight="700" fill="#64748b" letterSpacing=".5">{c.label.toUpperCase()}</text>
-            <rect x={MARGE + i * PAS_X - 4} y={16} width={L + 8} height={3} rx={1.5}
+            <text x={MARGE + i * PAS_X + L / 2} y={9} textAnchor="middle" fontSize="8" fontWeight="700" fill="#64748b" letterSpacing=".4">{c.label.toUpperCase()}</text>
+            <rect x={MARGE + i * PAS_X - 3} y={13} width={L + 6} height={2.5} rx={1.2}
               style={{ fill: c.cle === 'EI' ? '#C9A227' : (couleurBloc(c.cle) || '#CBD5E1') }} />
           </g>
         ))}
@@ -126,11 +128,11 @@ export default function ParcoursCompact({ etudId, annee, programme = new Set(), 
               onClick={onNoeud ? () => onNoeud(n.ue_num) : undefined} style={{ cursor: onNoeud ? 'pointer' : 'default' }}
               opacity={survol != null && !relief ? 0.45 : 1}>
               <title>{`${n.ue_num} ${n.ue_nom || ''}`}</title>
-              <rect x={x} y={y} width={L} height={H} rx={5}
+              <rect x={x} y={y} width={L} height={H} rx={4}
                 style={{ fill: t.fond, stroke: relief && n.ue_num === survol ? '#16406A' : t.bord }}
-                strokeWidth={n.ue_num === survol ? 2.2 : 1.6} />
-              <text x={x + L / 2} y={y + 16} textAnchor="middle" fontSize="11.5" fontWeight="700" style={{ fill: t.texte }}>{n.ue_num}</text>
-              {dispenses.has(n.ue_num) && <circle cx={x + L - 5} cy={y + 5} r={2.6} fill="#475569" />}
+                strokeWidth={n.ue_num === survol ? 1.8 : 1.2} />
+              <text x={x + L / 2} y={y + 12.5} textAnchor="middle" fontSize="9.5" fontWeight="700" style={{ fill: t.texte }}>{n.ue_num}</text>
+              {dispenses.has(n.ue_num) && <circle cx={x + L - 4} cy={y + 4} r={2} fill="#475569" />}
             </g>
           );
         })}

@@ -510,9 +510,8 @@ function RevuePAE({ liste: base, annee: anneeDepart, onClose }) {
                 <b>Ce PAE a été validé</b> le {quandLocal(d.revu.revu_le)} par {d.revu.revu_par || '—'}.
               </div>
             )}
-            {d.alertes.map((a2, k) => (
-              <div key={k} data-etat="surveiller" className="bloc-etat px-3 py-1.5 text-[12.5px] mb-1.5"><b>À vérifier</b> — {a2.texte}</div>
-            ))}
+            {/* Plus de bandeaux « À vérifier » : le badge du volet le dit déjà
+                (« à reprendre », « déjà acquise »), et le filtre trie dessus. */}
             <div className="grid gap-5 items-start lg:grid-cols-[minmax(0,1fr)_minmax(0,460px)] mt-2">
               <div>
                 <div className="flex items-center gap-3 text-[12px] mb-1.5">
