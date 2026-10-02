@@ -410,7 +410,7 @@ function RevuePAE({ liste: base, annee: anneeDepart, onClose }) {
   const nRevus = synthese ? liste.filter(e => synthese[e.id]?.revu).length : 0;
 
   return (
-    <Fenetre icone={IconEyeCheck} large="pleine" onFermer={onClose}
+    <Fenetre icone={IconEyeCheck} large="ecran" hauteurFixe onFermer={onClose}
       titre={d ? `Revue des PAE — ${nomPropre(d.etudiant.nom, d.etudiant.prenom)}` : 'Revue des PAE'}
       sous={liste.length ? `${Math.min(i, liste.length - 1) + 1} sur ${liste.length} · ${nRevus} validé(s) · année ${annee}` : `Aucun étudiant ne correspond · année ${annee}`}
       pied={<>
