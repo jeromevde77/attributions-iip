@@ -61,7 +61,9 @@ r.get('/etudiants', authRequired, (req, res) => {
   const annee = req.query.annee || anneeDeTravail(req);
   if (!annee) return res.status(400).json({ error: 'annee requise' });
   const { section, cours_code } = req.query;
+  // primo=1 : les primo-arrivés ; primo=0 : les autres, déjà inscrits avant.
   const primo = req.query.primo === '1';
+  const anciensSeuls = req.query.primo === '0';
   const fNiveau = String(req.query.niveau_etu || '');
 
   const perim = getUserSections(req.user);
@@ -131,10 +133,32 @@ r.get('/etudiants', authRequired, (req, res) => {
     ...db.prepare('SELECT DISTINCT etudiant_id FROM etudiant_valorisation WHERE annee_scolaire < ?')
       .all(annee).map(x => x.etudiant_id),
   ]);
+  /* TOUS LES CHAMPS DE LA FICHE (Charles, 2 octobre 2026) : la liste se
+     compose à la carte, elle n'a pas à décider d'avance ce qu'on y lira. Le
+     périmètre reste posé plus bas ; les colonnes sont choisies à l'écran. */
+  const dateFr = d => (d ? String(d).slice(0, 10).split('-').reverse().join('/') : '');
+  const oui = v => (v === 1 || v === '1' || v === true ? 'Oui' : '');
+  const fiches = new Map(db.prepare('SELECT * FROM etudiant').all().map(f => [f.id, f]));
+  const champsFiche = id => {
+    const f = fiches.get(id) || {};
+    return {
+      date_naissance: dateFr(f.date_naissance), lieu_naissance: f.lieu_naissance || '',
+      nationalite: f.nationalite || '', num_national: f.num_national || '',
+      email_perso: f.email_perso || '', gsm: f.gsm || '',
+      adresse: f.adresse || '', cp: f.cp || '', localite: f.localite || '',
+      titre: f.titre || '', matricule_helb: f.matricule_helb || '',
+      section_posee: f.section_rattachement || '', sle: oui(f.sejour_limite_etudes),
+      di_exonere: oui(f.di_exonere), di_motif: f.di_motif || '',
+      dis_soumis: oui(f.dis_soumis), dis_motif_exemption: f.dis_motif_exemption || '',
+      dis_periodes_hebdo: f.dis_periodes_hebdo ?? '',
+      sortie_statut: f.sortie_statut || '', sortie_le: dateFr(f.sortie_le), sortie_motif: f.sortie_motif || '',
+      cree_le: dateFr(f.cree_le), id_lucie: f.id ?? '',
+    };
+  };
   const enrichir = (x) => {
     const rat = sectionRattachement(x.id, annee);
     return {
-      ...x, section: rat.section || '',
+      ...x, ...champsFiche(x.id), section: rat.section || '',
       niveau: niveauEtudiant(x.id, annee).niveau || '',
       primo: anciens.has(x.id) ? '' : 'Oui',
       matricule: x.id_ecampus || '',
@@ -144,6 +168,7 @@ r.get('/etudiants', authRequired, (req, res) => {
   const garder = (x) =>
     (!section || norm(x.section) === norm(section))
     && (!primo || x.primo === 'Oui')
+    && (!anciensSeuls || x.primo !== 'Oui')
     && (!fNiveau || (fNiveau === 'aucun' ? !x.niveau : x.niveau === fNiveau))
     && (!perim || !x.section || perim.some(s => norm(s) === norm(x.section)));
 
