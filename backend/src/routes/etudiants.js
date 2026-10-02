@@ -9152,7 +9152,8 @@ r.get('/ue/:ueNum/composantes', authRequired, (req, res) => {
   const ueNum = Number(req.params.ueNum);
   const annee = req.query.annee;
   const cours = db.prepare(`
-    SELECT cours_code, MAX(cours_nom) AS cours_nom, MAX(COALESCE(cours_per, 0)) AS per FROM cours
+    SELECT cours_code, MAX(cours_nom) AS cours_nom, MAX(COALESCE(cours_per, 0)) AS per,
+           MAX(COALESCE(is_stage, 0)) AS stage FROM cours
     WHERE ue_num = ? ${annee ? 'AND annee_scolaire = ?' : ''}
     GROUP BY cours_code ORDER BY cours_code
   `).all(...(annee ? [ueNum, annee] : [ueNum]));

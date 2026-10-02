@@ -4513,7 +4513,7 @@ export function DeliberationVA({ annee, onClose, onChange, mode: modeDepart = 'e
   }, [choix, lignes, composantes, annee]);
 
   const poser = (id, patch) => setChoix(c => ({ ...c, [id]: { ...c[id], ...patch, propose: false } }));
-  const signature = c => JSON.stringify([c?.branche || '', c?.cible || '', [...(c?.coches || [])].sort(), (c?.motif || '').trim(), c?.base || '']);
+  const signature = c => JSON.stringify([c?.branche || '', c?.cible || '', [...(c?.coches || [])].sort(), (c?.motif || '').trim(), c?.base || '', (c?.remarque || '').trim()]);
   const aEcrire = d => {
     const c = choix[d.id];
     if (!c?.branche || MOTS_ETAT_BLOQUANT(d)) return false;
@@ -4770,6 +4770,23 @@ export function DeliberationVA({ annee, onClose, onChange, mode: modeDepart = 'e
                                               {on ? '✓ ' : ''}{lib}</button>
                                           );
                                         })}
+                                    {/* LE STAGE DISPENSÉ EN PARTIE (2 octobre 2026) : un nombre sur
+                                        le total prévu, écrit dans la remarque du Conseil. */}
+                                    {c.cible !== 'acquis' && (comp?.cours || []).filter(k => k.stage && (c.coches || []).includes(k.cours_code)).map(k => (
+                                      <div key={k.cours_code} className="flex flex-wrap items-center gap-1.5 mt-1.5 text-[12px]">
+                                        <span>Stage {k.cours_code} : heures dispensées</span>
+                                        <input type="number" min="0" max={k.per || undefined} value={c.heures?.[k.cours_code] ?? ''}
+                                          onChange={e => {
+                                            const h = { ...(c.heures || {}), [k.cours_code]: e.target.value };
+                                            const phrase = Object.entries(h).filter(([, v]) => v !== '' && v != null)
+                                              .map(([code, v]) => `Stage ${code} : ${v} h dispensées sur ${(comp.cours.find(x => x.cours_code === code) || {}).per || '…'} prévues ; l’évaluation du stage reste due.`).join(' ');
+                                            const sansStage = String(c.remarque || '').replace(/Stage [^:]+ : \d+ h dispensées sur [^;]+; l’évaluation du stage reste due\.\s*/g, '').trim();
+                                            poser(d.id, { heures: h, remarque: [phrase, sansStage].filter(Boolean).join(' ') });
+                                          }}
+                                          className="border border-slate-300 rounded h-7 px-1.5 w-20 text-[12px]" />
+                                        <span className="text-slate-500">sur {k.per || '…'} prévues</span>
+                                      </div>
+                                    ))}
                                     <select value="" onChange={e => e.target.value && poser(d.id, { remarque: e.target.value })}
                                       className="w-full border border-slate-300 rounded h-7 px-1.5 text-[12px] bg-white mt-1.5">
                                       <option value="">Remarque du Conseil, type…</option>
