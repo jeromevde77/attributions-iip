@@ -1253,7 +1253,7 @@ function UnEtudiantToutesAnnees({ annee, choisi, onChoisir, compact = false }) {
   );
 }
 
-function OngletEtudiants({ perimetre = null, mode = 'deliberation' }) {
+function OngletEtudiants({ perimetre = null, mode = 'deliberation', seul = null, onRevenir = null }) {
   const delib = mode === 'deliberation';
   /* L'ANNÉE SE CHOISIT ICI AUSSI. L'onglet des rapports la montre depuis
      longtemps ; celui des étudiants reprenait l'année de travail sans jamais
@@ -1355,9 +1355,12 @@ function OngletEtudiants({ perimetre = null, mode = 'deliberation' }) {
 
   const etudiants = useMemo(() => {
     const q = recherche.trim().toLowerCase();
-    const l = liste?.etudiants || [];
+    let l = liste?.etudiants || [];
+    // UN ÉTUDIANT CHERCHÉ DEVIENT LE PÉRIMÈTRE (2 octobre 2026) : même fenêtre,
+    // mêmes cases à cocher — la liste ne porte que lui.
+    if (seul) l = l.filter(e => e.id === seul.id);
     return q ? l.filter(e => `${e.nom} ${e.prenom}`.toLowerCase().includes(q)) : l;
-  }, [liste, recherche]);
+  }, [liste, recherche, seul]);
 
   /** Les pièces du dossier (bulletin, annexes) des étudiants cochés. */
   async function piecesDossier() {
@@ -1567,6 +1570,14 @@ function OngletEtudiants({ perimetre = null, mode = 'deliberation' }) {
     <div className="flex min-h-0 flex-1">
       {/* LE PÉRIMÈTRE */}
       <div className="w-[340px] border-r border-slate-200 flex flex-col min-h-0">
+        {seul && (
+          <div className="px-3 py-2 border-b border-slate-200">
+            <div className="text-[11px] uppercase tracking-wide text-slate-500">Pour</div>
+            <div className="text-[15px] font-semibold text-iip-texte">{nomPropre(seul.nom, seul.prenom)}</div>
+            <div className="text-[12px] text-slate-500">{seul.id_ecampus || ''}{seul.section_rattachement ? ` · ${seul.section_rattachement}` : ''}</div>
+            <button type="button" className="mt-1 text-[12px] underline text-iip-blue" onClick={onRevenir}>revenir au périmètre</button>
+          </div>
+        )}
         <div className="px-3 py-2 border-b border-slate-200">
           <div className="text-[13px] font-semibold text-iip-blue mb-1.5">Périmètre</div>
           <select value={annee} onChange={e => setAnnee(e.target.value)}
@@ -1587,7 +1598,7 @@ function OngletEtudiants({ perimetre = null, mode = 'deliberation' }) {
           </div>}
         </div>
 
-        <div className="flex-1 overflow-auto p-2 space-y-2">
+        <div className={`flex-1 overflow-auto p-2 space-y-2 ${seul ? 'hidden' : ''}`}>
           {(arbre?.sections || []).map(sec => (
             <div key={sec}>
               {(() => {
@@ -1953,22 +1964,14 @@ export default function CentreImpressionCentral({ ongletInitial = 'etudiants',
             </span>
             {/* UN ÉTUDIANT — TOUTES SES PIÈCES, depuis n'importe quelle famille. */}
             <div className="ml-auto w-72 max-w-full">
-              <UnEtudiantToutesAnnees compact annee={getAnnee()} choisi={etudiantVu} onChoisir={setEtudiantVu} />
+              <UnEtudiantToutesAnnees compact annee={getAnnee()} choisi={etudiantVu}
+                onChoisir={e => { setEtudiantVu(e); if (e && !['pieces', 'dossiers'].includes(famille)) setFamille('pieces'); }} />
             </div>
           </div>
-          {etudiantVu ? (
-            <div className="p-1">
-              <div className="flex items-center gap-3 mb-3">
-                <IconSchool size={18} className="text-iip-blue" />
-                <div className="min-w-0 flex-1">
-                  <div className="text-[15px] font-semibold text-iip-texte">{nomPropre(etudiantVu.nom, etudiantVu.prenom)}</div>
-                  <div className="text-[12px] text-slate-500">{etudiantVu.id_ecampus || ''} · toutes ses pièces</div>
-                </div>
-                <button type="button" className="bouton controle" onClick={() => setEtudiantVu(null)}>Revenir</button>
-              </div>
-              <PiecesEtudiant etud={etudiantVu} annee={getAnnee()} />
-            </div>
-          ) : famille === 'pieces' ? <OngletEtudiants perimetre={perimetre} mode="deliberation" />
+          {etudiantVu && ['pieces', 'dossiers'].includes(famille) ? (
+            <OngletEtudiants key={`seul-${etudiantVu.id}-${famille}`} mode={famille === 'pieces' ? 'deliberation' : 'dossiers'}
+              seul={etudiantVu} onRevenir={() => setEtudiantVu(null)}
+              perimetre={{ sections: [etudiantVu.section_rattachement || String(etudiantVu.sections || '').split(',')[0]].filter(Boolean), coches: [etudiantVu.id] }} />          ) : famille === 'pieces' ? <OngletEtudiants perimetre={perimetre} mode="deliberation" />
             : famille === 'dossiers' ? <OngletEtudiants perimetre={perimetre} mode="dossiers" />
             : famille === 'valorisation' ? <OngletValorisation />
             : famille === 'diplomes' ? <CentreDiplomation annee={getAnnee()} integre onClose={onClose} />
