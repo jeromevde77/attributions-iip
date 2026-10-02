@@ -466,10 +466,10 @@ export default function ComposerPAE({ onClose, onTermine, onPassage, modeInitial
               Encoder l'historique
             </button>
             <button onClick={() => { setMode('valider'); setCoches(new Set()); }}
-              title="Relire et valider les programmes composés"
+              title="Valider en groupe des PAE standards — la même validation que l'œil (revue des PAE), au nom de qui clique"
               className={`px-3 py-1.5 text-[12.5px] font-semibold border-l border-slate-300 ${mode === 'valider'
                 ? 'bg-iip-blue text-white' : 'bg-white text-slate-600'}`}>
-              Valider
+              Valider en groupe
             </button>
           </span>
         </div>

@@ -4284,6 +4284,13 @@ r.post('/pae-valider-lot', authRequired,
     ON CONFLICT(etudiant_id, annee_scolaire) DO UPDATE SET
       confirme_le = datetime('now'), confirme_par = excluded.confirme_par`);
   const oter = db.prepare('DELETE FROM etudiant_pae WHERE etudiant_id = ? AND annee_scolaire = ?');
+  /* UNE SEULE NOTION DE « VALIDÉ » (Charles, 2 octobre 2026) : valider en
+     groupe des PAE standards écrit la MÊME trace que l'œil — la revue —, au
+     nom de qui clique. Le crayon de la liste passe au vert pareil. */
+  const revu = db.prepare(`INSERT INTO pae_revue (etudiant_id, annee_scolaire, revu_par) VALUES (?, ?, ?)
+    ON CONFLICT(etudiant_id, annee_scolaire) DO UPDATE SET revu_le = datetime('now'), revu_par = excluded.revu_par`);
+  const quiRevu = req.user?.nom || req.user?.email || null;
+  const pasRevu = db.prepare('DELETE FROM pae_revue WHERE etudiant_id = ? AND annee_scolaire = ?');
 
   let faits = 0;
   const ignores = [];
@@ -4298,7 +4305,7 @@ r.post('/pae-valider-lot', authRequired,
         : (sectionRattachement(id, annee).section !== section && !dansSection.get(id, annee, section))) {
         ignores.push({ id, raison: 'hors de la section' }); continue;
       }
-      if (retirer) { faits += oter.run(id, annee).changes; continue; }
+      if (retirer) { faits += oter.run(id, annee).changes; pasRevu.run(id, annee); continue; }
       if (!nbInscr.get(id, annee).n) { ignores.push({ id, raison: 'programme vide' }); continue; }
       const reprises = reprisesNonForcees(id, annee);
       if (reprises.length) {
@@ -4307,7 +4314,7 @@ r.post('/pae-valider-lot', authRequired,
           + reprises.join(', ') });
         continue;
       }
-      signer.run(id, annee, qui); faits++;
+      signer.run(id, annee, qui); revu.run(id, annee, quiRevu); faits++;
     }
   })();
   res.json({ ok: true, faits, ignores });
