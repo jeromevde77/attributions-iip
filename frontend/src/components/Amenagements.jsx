@@ -56,15 +56,17 @@ export default function Amenagements({ etudId, annee }) {
     const rep = await fetch(`/api/amenagements/dossier/${data.courant.id}`, {
       method: 'PUT', headers: authHeaders(), body: JSON.stringify(champs),
     });
-    const j = await rep.json();
-    if (j.rappel) setMessage({ type: 'rappel', texte: j.rappel });
+    const j = await rep.json().catch(() => ({}));
+    if (!rep.ok) setMessage({ type: 'err', texte: j.error || `erreur ${rep.status}` });
+    else if (j.rappel) setMessage({ type: 'rappel', texte: j.rappel });
     await charger();
   }
 
   async function ajouterMesure(m) {
-    await fetch(`/api/amenagements/dossier/${data.courant.id}/mesure`, {
+    const rep = await fetch(`/api/amenagements/dossier/${data.courant.id}/mesure`, {
       method: 'POST', headers: authHeaders(), body: JSON.stringify(m),
     });
+    if (!rep.ok) { const j = await rep.json().catch(() => ({})); setMessage({ type: 'err', texte: j.error || `erreur ${rep.status}` }); }
     setAjout(null);
     await charger();
   }
@@ -90,24 +92,181 @@ export default function Amenagements({ etudId, annee }) {
   if (!data) return <div className="py-8 text-center text-sm text-slate-400">Chargement…</div>;
 
   const d = data.courant;
+  // Un champ d'un volet validé ne se modifie plus : on rouvre le volet.
+  const VOLET_A = ['date_demande', 'soins_specifiques', 'annexes_nb', 'annexes_desc', 'signe_etudiant_le',
+    'signe_reference_le', 'piece_type', 'piece_date', 'piece_auteur', 'piece_reference'];
+  const VOLET_B = ['materiel_demande', 'materiel_desc', 'pedago_demande', 'pedago_desc',
+    'rapport_annexes_nb', 'rapport_annexes_desc', 'transmis_cde_le'];
+  const verrou = nom => {
+    const ci = data.circuit;
+    if (!ci || ci.hors_circuit) return false;
+    return (VOLET_A.includes(nom) && !!ci.a?.valide_le) || (VOLET_B.includes(nom) && !!ci.b?.valide_le);
+  };
   const champ = (nom, libelle, type = 'text') => (
     <label className="text-xs block">
       <span className="block font-semibold text-slate-500 uppercase tracking-wide mb-1">{libelle}</span>
-      <input type={type} defaultValue={d[nom] || ''}
+      <input type={type} defaultValue={d[nom] || ''} disabled={verrou(nom)}
         onBlur={e => e.target.value !== (d[nom] || '') && majDossier({ [nom]: e.target.value })}
         className="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-sm" />
     </label>
   );
 
+  // LE CIRCUIT (2 octobre 2026) : A validée → B s'ouvre ; B validée → avis des
+  // chargés de cours et décision. Le serveur le tient ; l'écran le montre.
+  const c = data.circuit || null;
+  const hors = !!c?.hors_circuit;
+  const aOk = hors || !!c?.a?.valide_le;
+  const bOk = hors || !!c?.b?.valide_le;
+  const ouverte = cle => cle === 'demande' || (cle === 'rapport' ? aOk : bOk);
+  const etapeVue = d && !ouverte(etape) ? 'demande' : etape;
+
+  async function geste(chemin, methode = 'PUT') {
+    const rep = await fetch(`/api/amenagements/dossier/${d.id}/${chemin}`, { method: methode, headers: authHeaders() });
+    const j = await rep.json().catch(() => ({}));
+    if (!rep.ok) { setMessage({ type: 'err', texte: j.error || `erreur ${rep.status}` }); return false; }
+    setMessage(null); await charger(); return true;
+  }
+  const quand = t => (t ? String(t).replace('T', ' ').slice(0, 16).split(' ').map((x, i) => (i ? x : x.split('-').reverse().join('/'))).join(' à ') : '');
+
+  /* LA BARRE DE VALIDATION D'UN VOLET — verte quand il est validé, avec qui et
+     quand ; sinon, le bouton et ce qui manque, nommé. */
+  const barreValidation = (vol, libelle, route, suite) => {
+    const v = c?.[vol] || {};
+    if (hors) return null;
+    return v.valide_le ? (
+      <div className="flex flex-wrap items-center gap-2 px-3 py-2 rounded-lg text-[13px] text-white" style={{ background: 'var(--c-reussi, #3E7D5E)' }}>
+        <b>{libelle} validé</b> le {quand(v.valide_le)} par {v.valide_par || '—'}.
+        {suite && <span className="text-white/90">{suite}</span>}
+        <button type="button" className="ml-auto underline text-white/90 text-[12px]" onClick={() => geste(route, 'DELETE')}>rouvrir</button>
+      </div>
+    ) : (
+      <div className="flex flex-wrap items-center gap-2">
+        <button type="button" className="bouton font-semibold disabled:opacity-40" disabled={!!v.manques?.length}
+          style={v.manques?.length ? undefined : { background: 'var(--c-reussi, #3E7D5E)', borderColor: 'var(--c-reussi, #3E7D5E)', color: '#fff' }}
+          onClick={() => geste(route)}>✓ Valider {libelle.toLowerCase()}</button>
+        <span className="text-[12px] text-slate-500 min-w-0">
+          {v.manques?.length ? `Il manque : ${v.manques.join(', ')}.` : 'Tout est complet.'}
+        </span>
+      </div>
+    );
+  };
+
+  const tableMesures = (modeDecision) => (
+    <div>
+      <div className="flex items-center justify-between mb-2">
+        <span className="text-[13px] font-semibold text-iip-blue">Mesures {modeDecision ? 'à trancher' : 'demandées'} ({d.mesures?.length || 0})</span>
+        {!modeDecision && !c?.b?.valide_le && (
+          <button onClick={() => setAjout({ nature: 'pedagogique', portee: 'toutes' })}
+            className="flex items-center gap-1.5 text-[12px] px-2.5 py-1 border border-slate-300 rounded-lg hover:bg-slate-50">
+            <IconPlus size={14} /> Ajouter une mesure
+          </button>
+        )}
+      </div>
+      {ajout && !modeDecision && (
+        <div className="border border-slate-200 rounded-xl p-3 mb-2 space-y-2">
+          <select onChange={e => {
+              const x = data.catalogue.find(y => y.code === e.target.value);
+              setAjout(a0 => ({ ...a0, code: x?.code, libelle: x?.libelle, nature: x?.nature || a0.nature }));
+            }} className="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-sm bg-white">
+            <option value="">— choisir dans le catalogue —</option>
+            {[...new Set(data.catalogue.map(x => x.moment || 'Autres'))].map(mo => (
+              <optgroup key={mo} label={mo}>
+                {data.catalogue.filter(x => (x.moment || 'Autres') === mo).map(x => (
+                  <option key={x.code} value={x.code}>{x.nature === 'materiel' ? 'Matériel' : 'Pédagogique'} · {x.libelle}</option>
+                ))}
+              </optgroup>
+            ))}
+          </select>
+          <input placeholder="Précisions — modalités concrètes (« tiers-temps », « 2 semaines »)"
+            onChange={e => setAjout(a0 => ({ ...a0, precisions: e.target.value }))}
+            className="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-sm" />
+          <div className="flex gap-2 items-center">
+            <select value={ajout.portee} onChange={e => setAjout(a0 => ({ ...a0, portee: e.target.value }))}
+              className="border border-slate-300 rounded-lg px-2 py-1.5 text-sm bg-white">
+              {Object.entries(PORTEES).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+            </select>
+            <div className="flex-1" />
+            <button onClick={() => setAjout(null)} className="bouton">Annuler</button>
+            <button onClick={() => ajouterMesure(ajout)} disabled={!ajout.libelle} className="bouton bouton-fort">Ajouter</button>
+          </div>
+        </div>
+      )}
+      {!d.mesures?.length ? (
+        <div className="py-5 text-center text-[13px] text-slate-400 border-2 border-dashed rounded-xl">
+          Aucune mesure. Un aménagement porte sur la manière d'accéder aux acquis d'apprentissage et de les évaluer, jamais sur les acquis eux-mêmes.
+        </div>
+      ) : (
+        <Tableau dense>
+          <TableauEntete>
+            <Th>Aménagement</Th>
+            <Th largeur="w-24">Nature</Th>
+            <Th largeur="w-32">Portée</Th>
+            {modeDecision && <Th largeur="w-48">Décision</Th>}
+            {!modeDecision && !c?.b?.valide_le && <Th largeur="w-12" />}
+          </TableauEntete>
+          <tbody>
+            {d.mesures.map(m => (
+              <Tr key={m.id}>
+                <Td>
+                  <span className={modeDecision && !m.accorde ? 'line-through text-slate-400' : ''}>{m.libelle}</span>
+                  {m.precisions && <span className="block text-[11px] text-slate-500">{m.precisions}</span>}
+                  {modeDecision && !m.accorde && (
+                    <textarea rows={2} defaultValue={m.motif_refus || ''} placeholder="Motif du refus — obligatoire"
+                      onBlur={e => e.target.value.trim() && e.target.value !== (m.motif_refus || '') && majMesure(m, { accorde: false, motif_refus: e.target.value })}
+                      className="mt-1 w-full border border-slate-300 rounded-lg px-2 py-1 text-[12px]" />
+                  )}
+                </Td>
+                <Td><Badge ton={m.nature === 'materiel' ? 'info' : 'accent'}>{m.nature === 'materiel' ? 'Matériel' : 'Pédagogique'}</Badge></Td>
+                <Td ton="secondaire">{PORTEES[m.portee] || m.portee}</Td>
+                {modeDecision && (
+                  <Td>
+                    <div className="flex gap-1">
+                      <button onClick={() => !m.accorde && majMesure(m, { accorde: true, motif_refus: null })}
+                        className="px-2 py-0.5 text-[12px] rounded-md border font-semibold"
+                        style={m.accorde ? { background: 'var(--c-reussi, #3E7D5E)', borderColor: 'var(--c-reussi, #3E7D5E)', color: '#fff' } : { borderColor: '#CBD5E1', color: '#475569' }}>Accordée</button>
+                      <button onClick={() => m.accorde && setRefus({ mesure: m, motif: '' })}
+                        className="px-2 py-0.5 text-[12px] rounded-md border font-semibold"
+                        style={!m.accorde ? { background: 'var(--c-refuse, #9D4A38)', borderColor: 'var(--c-refuse, #9D4A38)', color: '#fff' } : { borderColor: '#CBD5E1', color: '#475569' }}>Refusée</button>
+                    </div>
+                  </Td>
+                )}
+                {!modeDecision && !c?.b?.valide_le && (
+                  <Td align="droite">
+                    <button onClick={() => supprimerMesure(m.id)} className="text-slate-300 hover:text-red-500"><IconTrash size={13} /></button>
+                  </Td>
+                )}
+              </Tr>
+            ))}
+          </tbody>
+        </Tableau>
+      )}
+      {refus && modeDecision && (
+        <div className="mt-2 border border-slate-300 rounded-xl p-3 space-y-2">
+          <div className="text-[13px] text-iip-blue font-semibold">Refuser « {refus.mesure.libelle} »</div>
+          <textarea rows={2} autoFocus value={refus.motif} onChange={e => setRefus(r0 => ({ ...r0, motif: e.target.value }))}
+            placeholder="Motif du refus — il figure sur la décision notifiée à l'étudiant"
+            className="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-sm" />
+          <div className="flex items-center gap-2">
+            <span className="text-[12px] text-slate-500 flex-1 min-w-0">{!refus.motif.trim() && 'Un refus se motive (art. 6 § 2).'}</span>
+            <button onClick={() => setRefus(null)} className="bouton">Annuler</button>
+            <button disabled={!refus.motif.trim()} className="bouton bouton-fort"
+              onClick={async () => { await majMesure(refus.mesure, { accorde: false, motif_refus: refus.motif }); setRefus(null); }}>Refuser la mesure</button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+
+  const SENS = { realisable: ['réalisable', 'var(--c-reussi, #3E7D5E)'], adaptation: ['avec adaptation', 'var(--c-attente, #B45309)'], impossible: ['pas réalisable', 'var(--c-refuse, #9D4A38)'] };
+
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       <div className="flex items-start justify-between gap-3 flex-wrap">
         <div>
           <h3 className="text-[15px] font-semibold text-iip-blue">Aménagements raisonnables</h3>
-          <p className="text-[12px] text-slate-500">
-            Décret du 30 juin 2016 · année {annee}
-          </p>
+          <p className="text-[12px] text-slate-500">Décret du 30 juin 2016 · année {annee}</p>
         </div>
+        {d && <Badge ton={STATUTS[d.statut]?.ton || 'neutre'}>{STATUTS[d.statut]?.libelle}</Badge>}
         {!d && (
           <button onClick={creerDossier}
             className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-iip-blue text-white font-semibold rounded-lg">
@@ -117,395 +276,197 @@ export default function Amenagements({ etudId, annee }) {
       </div>
 
       {message && (
-        <div className={`px-3 py-2 rounded-lg text-[13px] flex items-start justify-between gap-2 ${
-          message.type === 'rappel' ? 'bg-amber-500 border border-amber-500 text-white'
-          : message.type === 'err' ? 'bg-red-500 border border-red-500 text-white'
-          : 'bg-emerald-500 border border-emerald-500 text-white'}`}>
+        <div data-etat={message.type === 'err' ? 'corriger' : message.type === 'rappel' ? 'surveiller' : 'reussi'}
+          className="bloc-etat px-3 py-2 text-[13px] flex items-start justify-between gap-2">
           <span>{message.texte}</span>
           <button onClick={() => setMessage(null)} className="opacity-60">✕</button>
         </div>
       )}
 
-      {/* La pièce vaut au-delà de l'année : la rappeler évite de la redemander. */}
+      {/* La pièce vaut au-delà de l'année : une ligne, pas un bandeau. */}
       {data.piece_valide && (
-        <div className={`px-3 py-2 rounded-lg text-[12px] flex items-start gap-2 ${
-          data.piece_valide.perime ? 'bg-amber-500 border border-amber-500 text-white'
-                                   : 'bg-sky-500 border border-sky-500 text-white'}`}>
-          <IconShieldCheck size={15} className="mt-0.5 flex-none" />
-          <span>
-            Pièce au dossier ({data.piece_valide.annee_scolaire}) : {data.piece_valide.note}
-          </span>
+        <div className="flex items-start gap-1.5 text-[12px]" style={{ color: data.piece_valide.perime ? 'var(--c-attente, #B45309)' : '#475569' }}>
+          <IconShieldCheck size={14} className="mt-0.5 flex-none" />
+          <span>Pièce au dossier ({data.piece_valide.annee_scolaire}) : {data.piece_valide.note}</span>
         </div>
       )}
 
       {!d ? (
-        <div className="py-8 text-center text-[13px] text-slate-400 border-2 border-dashed rounded-xl">
-          Aucun dossier pour {annee}.
-        </div>
+        <div className="py-8 text-center text-[13px] text-slate-400 border-2 border-dashed rounded-xl">Aucun dossier pour {annee}.</div>
       ) : (
         <>
-          {/* Le cheminement du formulaire, rendu visible : cadre A, cadre B,
-              décision. On voit où l'on en est et ce qui manque. */}
-          <EtapesAmenagement d={d} etapeActive={etape} onAller={setEtape} />
+          <EtapesAmenagement d={d} circuit={c} etapeActive={etapeVue} onAller={k => ouverte(k) && setEtape(k)} />
 
           <div className="border border-slate-200 rounded-xl p-4 space-y-3">
-            {/* Le statut n'est CHOISI qu'à la décision : c'est là seulement
-                qu'il résulte d'un acte. Aux cadres A et B il découle de
-                l'étape où l'on se trouve, et le proposer au choix n'ajoutait
-                rien tout en permettant de désaccorder statut et étape.
-                Le badge, lui, reste partout : on doit toujours voir où en est
-                le dossier. */}
-            <div className="flex items-center gap-3 flex-wrap">
-              <Badge ton={STATUTS[d.statut]?.ton || 'neutre'}>{STATUTS[d.statut]?.libelle}</Badge>
-              {etape === 'decision' && (
-                <label className="flex items-center gap-2 text-xs text-slate-500">
-                  Décision du Conseil
-                  <select value={d.statut} onChange={e => majDossier({ statut: e.target.value })}
-                    className="border border-slate-300 rounded-lg px-2 py-1.5 text-sm">
-                    {Object.entries(STATUTS).map(([k, s]) => (
-                      <option key={k} value={k}>{s.libelle}</option>
-                    ))}
-                  </select>
-                </label>
-              )}
-            </div>
-
-            {/* CADRE A — la demande de l'étudiant. */}
-            {etape === 'demande' && (
+            {/* ── A — LA DEMANDE ── */}
+            {etapeVue === 'demande' && (
               <div className="space-y-3">
                 <label className="text-xs block">
-                  <span className="block font-semibold text-slate-500 uppercase
-                                   tracking-wide mb-1">
-                    Nature des soins spécifiques et aménagements demandés
-                  </span>
-                  <textarea rows={3} defaultValue={d.soins_specifiques || ''}
-                    onBlur={e => e.target.value !== (d.soins_specifiques || '')
-                      && majDossier({ soins_specifiques: e.target.value })}
+                  <span className="block font-semibold text-slate-500 uppercase tracking-wide mb-1">Nature des soins spécifiques et aménagements demandés</span>
+                  <textarea rows={3} defaultValue={d.soins_specifiques || ''} disabled={!!c?.a?.valide_le}
+                    onBlur={e => e.target.value !== (d.soins_specifiques || '') && majDossier({ soins_specifiques: e.target.value })}
                     className="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-sm" />
                 </label>
-
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-                  {champ('annexes_nb', 'Annexes — nombre', 'number')}
-                  <div className="md:col-span-3">
-                    {champ('annexes_desc', 'Annexes — description')}
-                  </div>
+                  {champ('date_demande', 'Date de la demande', 'date')}
                   {champ('signe_etudiant_le', "Signé par l'étudiant le", 'date')}
                   {champ('signe_reference_le', 'Reçu et signé le', 'date')}
+                  {champ('personne_reference', 'Personne de référence')}
+                  {champ('annexes_nb', 'Annexes — nombre', 'number')}
+                  <div className="md:col-span-3">{champ('annexes_desc', 'Annexes — description')}</div>
                 </div>
-
-                {/* Le cadre A.2 fait cocher les unités : une demande ne porte
-                    pas toujours sur toute l'année. */}
-                <UesConcernees dossierId={d.id} annee={annee}
-                  choisies={d.ues || []} onChange={charger} />
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+                  <label className="text-xs block">
+                    <span className="block font-semibold text-slate-500 uppercase tracking-wide mb-1">Pièce produite</span>
+                    <select value={d.piece_type || ''} disabled={!!c?.a?.valide_le} onChange={e => majDossier({ piece_type: e.target.value })}
+                      className="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-sm">
+                      <option value="">— à recevoir</option>
+                      <option value="probant">Document probant (art. 7 § 2, 1°)</option>
+                      <option value="rapport_specialiste">Rapport de spécialiste (art. 7 § 2, 2°)</option>
+                    </select>
+                  </label>
+                  {champ('piece_date', 'Date de la pièce', 'date')}
+                  {champ('piece_auteur', 'Auteur de la pièce')}
+                  {champ('piece_reference', 'Référence')}
+                </div>
+                <UesConcernees dossierId={d.id} annee={annee} choisies={d.ues || []} onChange={charger} />
+                {barreValidation('a', 'La demande', 'valider-a', 'Le rapport (volet B) est ouvert.')}
               </div>
             )}
 
-            {/* CADRE B — le rapport de la personne de référence. */}
-            {etape === 'rapport' && (
+            {/* ── B — LE RAPPORT ET LES MESURES ── */}
+            {etapeVue === 'rapport' && (
               <div className="space-y-3">
-                {[['materiel', 'Aménagements matériels'],
-                  ['pedago', 'Aménagements pédagogiques']].map(([k, lib]) => (
-                  <div key={k} className="border border-slate-200 rounded-lg p-3">
-                    <div className="flex items-center gap-3 mb-2">
+                {[['materiel', 'Aménagements matériels'], ['pedago', 'Aménagements pédagogiques']].map(([k, lib]) => (
+                  <div key={k}>
+                    <div className="flex items-center gap-3 mb-1">
                       <span className="text-[13px] font-semibold text-iip-blue">{lib}</span>
                       <div className="flex gap-1">
                         {[[1, 'Demandés'], [0, 'Non demandés']].map(([v, l]) => (
-                          <button key={v}
-                            onClick={() => majDossier({ [`${k}_demande`]: v })}
-                            className={`px-2.5 py-1 text-[12px] rounded-md border ${
-                              d[`${k}_demande`] === v
-                                ? 'bg-iip-blue text-white border-iip-blue'
-                                : 'border-slate-300 text-slate-600'}`}>
-                            {l}
-                          </button>
+                          <button key={v} disabled={!!c?.b?.valide_le} onClick={() => majDossier({ [`${k}_demande`]: v })}
+                            className={`px-2.5 py-0.5 text-[12px] rounded-md border ${d[`${k}_demande`] === v ? 'bg-iip-blue text-white border-iip-blue' : 'border-slate-300 text-slate-600'}`}>{l}</button>
                         ))}
                       </div>
                     </div>
-                    <textarea rows={2} defaultValue={d[`${k}_desc`] || ''}
-                      placeholder="Description"
-                      onBlur={e => e.target.value !== (d[`${k}_desc`] || '')
-                        && majDossier({ [`${k}_desc`]: e.target.value })}
+                    <textarea rows={2} defaultValue={d[`${k}_desc`] || ''} placeholder="Description" disabled={!!c?.b?.valide_le}
+                      onBlur={e => e.target.value !== (d[`${k}_desc`] || '') && majDossier({ [`${k}_desc`]: e.target.value })}
                       className="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-sm" />
                   </div>
                 ))}
-
+                {tableMesures(false)}
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
                   {champ('rapport_annexes_nb', 'Annexes — nombre', 'number')}
-                  <div className="md:col-span-3">
-                    {champ('rapport_annexes_desc', 'Annexes — description')}
-                  </div>
+                  <div className="md:col-span-2">{champ('rapport_annexes_desc', 'Annexes — description')}</div>
                   {champ('transmis_cde_le', 'Transmis au Conseil le', 'date')}
                 </div>
-              </div>
-            )}
-
-            {/* La DÉCISION du Conseil. */}
-            {etape === 'decision' && (
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                {champ('cde_recu_le', 'Reçu par le Conseil le', 'date')}
-                {champ('cde_date', 'Date de la décision', 'date')}
-                {champ('notifie_le', "Notifié à l'étudiant le", 'date')}
-              </div>
-            )}
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-              {champ('date_demande', 'Date de la demande', 'date')}
-              {champ('personne_reference', 'Personne de référence')}
-              <label className="text-xs block">
-                <span className="block font-semibold text-slate-500 uppercase tracking-wide mb-1">
-                  Pièce produite
-                </span>
-                <select value={d.piece_type || ''}
-                  onChange={e => majDossier({ piece_type: e.target.value })}
-                  className="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-sm">
-                  <option value="">— à recevoir</option>
-                  <option value="probant">Document probant (art. 7 § 2, 1°)</option>
-                  <option value="rapport_specialiste">Rapport de spécialiste (art. 7 § 2, 2°)</option>
-                </select>
-              </label>
-              {champ('piece_date', 'Date de la pièce', 'date')}
-              {champ('piece_auteur', 'Auteur de la pièce')}
-              {champ('piece_reference', 'Référence')}
-            </div>
-
-            <label className="text-xs block">
-              <span className="block font-semibold text-slate-500 uppercase tracking-wide mb-1">
-                Difficultés entravant le parcours
-              </span>
-              <textarea defaultValue={d.besoins || ''} rows={2}
-                onBlur={e => e.target.value !== (d.besoins || '') && majDossier({ besoins: e.target.value })}
-                className="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-sm" />
-            </label>
-          </div>
-
-          {/* Décision du Conseil des études — elle doit être MOTIVÉE */}
-          <div className="border border-slate-200 rounded-xl p-4 space-y-3">
-            <div className="text-[13px] font-semibold text-iip-blue">
-              Décision du Conseil des études
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-              {champ('cde_date', 'Date de la décision', 'date')}
-              {champ('delai_mise_oeuvre', 'Délai de mise en œuvre')}
-              {champ('conditions_particulieres', 'Conditions particulières')}
-            </div>
-            <label className="text-xs block">
-              <span className="block font-semibold text-slate-500 uppercase tracking-wide mb-1">
-                Motivation — obligatoire, art. 6 § 2
-              </span>
-              <textarea defaultValue={d.cde_motivation || ''} rows={3}
-                onBlur={e => e.target.value !== (d.cde_motivation || '')
-                  && majDossier({ cde_motivation: e.target.value })}
-                className="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-sm" />
-            </label>
-            {['accepte', 'partiel', 'refuse'].includes(d.statut) && !d.cde_motivation && (
-              <div className="text-[12px] text-amber-800 flex items-center gap-1.5">
-                <IconAlertTriangle size={14} />
-                Une décision doit être formellement motivée, quel qu'en soit le sens.
-              </div>
-            )}
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-1 border-t border-slate-100">
-              {champ('notifie_le', 'Notifiée le', 'date')}
-              <label className="text-xs block">
-                <span className="block font-semibold text-slate-500 uppercase tracking-wide mb-1">
-                  Mode de notification
-                </span>
-                <select value={d.notifie_par || ''}
-                  onChange={e => majDossier({ notifie_par: e.target.value })}
-                  className="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-sm">
-                  <option value="">—</option>
-                  <option value="recommande">Lettre recommandée</option>
-                  <option value="courriel">Courriel</option>
-                  <option value="main_propre">Remise en mains propres contre accusé</option>
-                </select>
-              </label>
-            </div>
-            {d.cde_date && !d.notifie_le && (
-              <div className="text-[12px] text-amber-800 flex items-center gap-1.5">
-                <IconAlertTriangle size={14} />
-                La direction adresse la décision au demandeur et en communique copie à la
-                personne de référence.
-              </div>
-            )}
-
-            {/* LE RECOURS SE SUIT JUSQU'À SON ISSUE. Il n'existait que comme
-                statut : on savait qu'un recours était pendant, jamais quand il
-                avait été introduit ni ce que la Commission avait décidé. Les
-                colonnes étaient en base depuis l'origine ; elles ont un écran. */}
-            {(['partiel', 'refuse', 'recours'].includes(d.statut) || d.recours_le) && (
-              <div className="pt-2 border-t border-slate-100 space-y-3">
-                <div className="text-[12px] font-semibold text-iip-blue">
-                  Recours devant la Commission de l'enseignement pour adultes inclusif
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                  {champ('recours_le', 'Recours introduit le', 'date')}
-                  {champ('recours_decision_le', 'Décision de la Commission le', 'date')}
-                </div>
                 <label className="text-xs block">
-                  <span className="block font-semibold text-slate-500 uppercase tracking-wide mb-1">
-                    Issue du recours
-                  </span>
-                  <textarea defaultValue={d.recours_issue || ''} rows={2}
-                    placeholder="Ce que la Commission a décidé, et ce qui change pour le dossier"
-                    onBlur={e => e.target.value !== (d.recours_issue || '')
-                      && majDossier({ recours_issue: e.target.value })}
+                  <span className="block font-semibold text-slate-500 uppercase tracking-wide mb-1">Difficultés entravant le parcours</span>
+                  <textarea defaultValue={d.besoins || ''} rows={2}
+                    onBlur={e => e.target.value !== (d.besoins || '') && majDossier({ besoins: e.target.value })}
                     className="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-sm" />
                 </label>
-                {d.recours_le && d.statut !== 'recours' && !d.recours_decision_le && (
-                  <div className="text-[12px] text-amber-800 flex items-center gap-1.5">
-                    <IconAlertTriangle size={14} />
-                    Un recours est introduit : le statut du dossier devrait être « En recours »
-                    tant que la Commission n'a pas statué.
+                <p className="text-[12px] text-slate-500">Le rapport se valide par la personne de référence{d.personne_reference ? ` (${d.personne_reference})` : ''}, ou par la direction. Sa validation appelle les chargés de cours des unités concernées : ils rendent leur avis dans Mes cours.</p>
+                {barreValidation('b', 'Le rapport', 'valider-b', 'Les chargés de cours sont appelés à rendre leur avis.')}
+              </div>
+            )}
+
+            {/* ── LES AVIS DES CHARGÉS DE COURS ── */}
+            {etapeVue === 'avis' && (
+              <div className="space-y-2">
+                <p className="text-[12px] text-slate-500">
+                  Mesure par mesure, l'avis de chaque chargé de cours des unités concernées — rendu dans Mes cours. Il ne voit que les mesures demandées (secret professionnel, art. 5). Le Conseil peut trancher sans tous les avis.
+                </p>
+                {!(c?.charges || []).length ? (
+                  <p className="text-[13px] text-slate-500">Aucun chargé de cours attribué cette année aux unités concernées.</p>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-[12.5px] border-collapse">
+                      <thead><tr className="tab-entete text-left">
+                        <th className="px-2 py-1.5">Mesure demandée</th>
+                        {c.charges.map(p => <th key={p.professeur_id} className="px-2 py-1.5">{p.nom}<div className="font-normal text-[11px] text-slate-500">UE {p.ues.join(', ')}</div></th>)}
+                      </tr></thead>
+                      <tbody>
+                        {d.mesures.map(m => (
+                          <tr key={m.id} className="border-b border-slate-100 align-top">
+                            <td className="px-2 py-1.5"><b>{m.libelle}</b>{m.precisions && <div className="text-[11px] text-slate-500">{m.precisions}</div>}</td>
+                            {c.charges.map(p => {
+                              const a0 = c.avis.find(x => x.mesure_id === m.id && x.professeur_id === p.professeur_id);
+                              return (
+                                <td key={p.professeur_id} className="px-2 py-1.5">
+                                  {a0 ? <>
+                                    <span className="inline-block text-[11px] font-semibold text-white rounded-full px-2" style={{ background: SENS[a0.sens]?.[1] }}>{SENS[a0.sens]?.[0]}</span>
+                                    {a0.motif && <div className="text-[11.5px] mt-0.5">{a0.motif}</div>}
+                                  </> : <span className="inline-block text-[11px] font-semibold text-white rounded-full px-2 bg-slate-400">attendu</span>}
+                                </td>
+                              );
+                            })}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
                   </div>
                 )}
               </div>
             )}
-          </div>
 
-          {/* LES PIÈCES DU DOSSIER — et la communication aux chargés de cours. */}
-          <PiecesDossier d={d} etudId={etudId} onChange={charger} setMessage={setMessage} />
-
-          {/* Mesures */}
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-[13px] font-semibold text-iip-blue">
-                Mesures ({d.mesures?.length || 0})
-              </span>
-              <button onClick={() => setAjout({ nature: 'pedagogique', portee: 'toutes' })}
-                className="flex items-center gap-1.5 text-[12px] px-2.5 py-1 border border-slate-300 rounded-lg hover:bg-slate-50">
-                <IconPlus size={14} /> Ajouter
-              </button>
-            </div>
-
-            {ajout && (
-              <div className="border border-iip-turquoise/40 rounded-xl p-3 bg-iip-turquoise/5 mb-2 space-y-2">
-                <select onChange={e => {
-                    const c = data.catalogue.find(x => x.code === e.target.value);
-                    setAjout(a => ({ ...a, code: c?.code, libelle: c?.libelle, nature: c?.nature || a.nature }));
-                  }}
-                  className="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-sm bg-white">
-                  <option value="">— choisir un aménagement —</option>
-                  {data.catalogue.map(c => (
-                    <option key={c.code} value={c.code}>
-                      {c.nature === 'materiel' ? 'Matériel' : 'Pédagogique'} · {c.libelle}
-                    </option>
-                  ))}
-                </select>
-                <input placeholder="Précisions — modalités concrètes"
-                  onChange={e => setAjout(a => ({ ...a, precisions: e.target.value }))}
-                  className="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-sm" />
-                <div className="flex gap-2 items-center">
-                  <select value={ajout.portee}
-                    onChange={e => setAjout(a => ({ ...a, portee: e.target.value }))}
-                    className="border border-slate-300 rounded-lg px-2 py-1.5 text-sm bg-white">
-                    {Object.entries(PORTEES).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+            {/* ── LA DÉCISION DU CONSEIL ── */}
+            {etapeVue === 'decision' && (
+              <div className="space-y-3">
+                <label className="flex items-center gap-2 text-xs text-slate-500">
+                  Décision du Conseil
+                  <select value={d.statut} onChange={e => majDossier({ statut: e.target.value })}
+                    className="border border-slate-300 rounded-lg px-2 py-1.5 text-sm">
+                    {Object.entries(STATUTS).map(([k, s0]) => <option key={k} value={k}>{s0.libelle}</option>)}
                   </select>
-                  <div className="flex-1" />
-                  <button onClick={() => setAjout(null)}
-                    className="text-sm px-3 py-1.5 rounded-lg border border-slate-300">Annuler</button>
-                  <button onClick={() => ajouterMesure(ajout)} disabled={!ajout.libelle}
-                    className="bouton bouton-fort">
-                    Ajouter
-                  </button>
+                </label>
+                {tableMesures(true)}
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+                  {champ('cde_recu_le', 'Reçu par le Conseil le', 'date')}
+                  {champ('cde_date', 'Date de la décision', 'date')}
+                  {champ('delai_mise_oeuvre', 'Délai de mise en œuvre')}
+                  {champ('conditions_particulieres', 'Conditions particulières')}
                 </div>
-              </div>
-            )}
-
-            {!d.mesures?.length ? (
-              <div className="py-6 text-center text-[13px] text-slate-400 border-2 border-dashed rounded-xl">
-                Aucune mesure. Un aménagement porte sur la manière d'accéder aux acquis
-                d'apprentissage et de les évaluer, jamais sur les acquis eux-mêmes.
-              </div>
-            ) : (
-              <Tableau dense>
-                <TableauEntete>
-                  <Th>Aménagement</Th>
-                  <Th largeur="w-24">Nature</Th>
-                  <Th largeur="w-32">Portée</Th>
-                  <Th largeur="w-48">Décision</Th>
-                  <Th largeur="w-20" />
-                </TableauEntete>
-                <tbody>
-                  {d.mesures.map(m => (
-                    <Tr key={m.id}>
-                      <Td>
-                        <span className={m.accorde ? '' : 'line-through text-slate-400'}>{m.libelle}</span>
-                        {m.precisions && (
-                          <span className="block text-[11px] text-slate-500">{m.precisions}</span>
-                        )}
-                        {/* UN REFUS SE MOTIVE, MESURE PAR MESURE (art. 6 § 2). */}
-                        {!m.accorde && (
-                          <textarea rows={2} defaultValue={m.motif_refus || ''}
-                            placeholder="Motif du refus — obligatoire"
-                            onBlur={e => e.target.value.trim() && e.target.value !== (m.motif_refus || '')
-                              && majMesure(m, { accorde: false, motif_refus: e.target.value })}
-                            className="mt-1 w-full border border-slate-300 rounded-lg px-2 py-1 text-[12px]" />
-                        )}
-                      </Td>
-                      <Td>
-                        <Badge ton={m.nature === 'materiel' ? 'info' : 'accent'}>
-                          {m.nature === 'materiel' ? 'Matériel' : 'Pédagogique'}
-                        </Badge>
-                      </Td>
-                      <Td ton="secondaire">{PORTEES[m.portee] || m.portee}</Td>
-                      <Td>
-                        <div className="flex gap-1">
-                          <button onClick={() => !m.accorde && majMesure(m, { accorde: true, motif_refus: null })}
-                            className={`px-2 py-0.5 text-[12px] rounded-md border ${m.accorde
-                              ? 'bg-iip-blue text-white border-iip-blue' : 'border-slate-300 text-slate-600'}`}>
-                            Accordée
-                          </button>
-                          <button onClick={() => m.accorde && setRefus({ mesure: m, motif: '' })}
-                            className={`px-2 py-0.5 text-[12px] rounded-md border ${!m.accorde
-                              ? 'bg-iip-blue text-white border-iip-blue' : 'border-slate-300 text-slate-600'}`}>
-                            Refusée
-                          </button>
-                        </div>
-                      </Td>
-                      <Td align="droite">
-                        <button onClick={() => supprimerMesure(m.id)}
-                          className="text-slate-300 hover:text-red-500">
-                          <IconTrash size={13} />
-                        </button>
-                      </Td>
-                    </Tr>
-                  ))}
-                </tbody>
-              </Tableau>
-            )}
-
-            {/* Refuser une mesure : le motif d'abord, le refus ensuite — le
-                serveur n'accepte pas un refus sans motif. */}
-            {refus && (
-              <div className="mt-2 border border-slate-300 rounded-xl p-3 space-y-2">
-                <div className="text-[13px] text-iip-blue font-semibold">
-                  Refuser « {refus.mesure.libelle} »
+                <label className="text-xs block">
+                  <span className="block font-semibold text-slate-500 uppercase tracking-wide mb-1">Motivation — obligatoire, art. 6 § 2</span>
+                  <textarea defaultValue={d.cde_motivation || ''} rows={3}
+                    onBlur={e => e.target.value !== (d.cde_motivation || '') && majDossier({ cde_motivation: e.target.value })}
+                    className="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-sm" />
+                </label>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  {champ('notifie_le', 'Notifiée le', 'date')}
+                  <label className="text-xs block">
+                    <span className="block font-semibold text-slate-500 uppercase tracking-wide mb-1">Mode de notification</span>
+                    <select value={d.notifie_par || ''} onChange={e => majDossier({ notifie_par: e.target.value })}
+                      className="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-sm">
+                      <option value="">—</option>
+                      <option value="recommande">Lettre recommandée</option>
+                      <option value="courriel">Courriel</option>
+                      <option value="main_propre">Remise en mains propres contre accusé</option>
+                    </select>
+                  </label>
                 </div>
-                <textarea rows={2} autoFocus value={refus.motif}
-                  onChange={e => setRefus(r => ({ ...r, motif: e.target.value }))}
-                  placeholder="Motif du refus — il figure sur la décision notifiée à l'étudiant"
-                  className="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-sm" />
-                <div className="flex items-center gap-2">
-                  <span className="text-[12px] text-slate-500 flex-1 min-w-0">
-                    {!refus.motif.trim() && 'Un refus se motive (art. 6 § 2).'}
-                  </span>
-                  <button onClick={() => setRefus(null)} className="bouton">Annuler</button>
-                  <button disabled={!refus.motif.trim()} className="bouton bouton-fort"
-                    onClick={async () => {
-                      await majMesure(refus.mesure, { accorde: false, motif_refus: refus.motif });
-                      setRefus(null);
-                    }}>
-                    Refuser la mesure
-                  </button>
-                </div>
+                {(['partiel', 'refuse', 'recours'].includes(d.statut) || d.recours_le) && (
+                  <div className="pt-2 border-t border-slate-100 space-y-3">
+                    <div className="text-[12px] font-semibold text-iip-blue">Recours devant la Commission de l'enseignement pour adultes inclusif</div>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                      {champ('recours_le', 'Recours introduit le', 'date')}
+                      {champ('recours_decision_le', 'Décision de la Commission le', 'date')}
+                    </div>
+                    <label className="text-xs block">
+                      <span className="block font-semibold text-slate-500 uppercase tracking-wide mb-1">Issue du recours</span>
+                      <textarea defaultValue={d.recours_issue || ''} rows={2}
+                        onBlur={e => e.target.value !== (d.recours_issue || '') && majDossier({ recours_issue: e.target.value })}
+                        className="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-sm" />
+                    </label>
+                  </div>
+                )}
+                <PiecesDossier d={d} etudId={etudId} onChange={charger} setMessage={setMessage} />
               </div>
             )}
           </div>
 
           <p className="text-[11px] text-slate-500">
-            Les échanges relatifs à la situation de l'étudiant sont couverts par le secret
-            professionnel. Seules les mesures retenues sont communiquées aux chargés de cours,
-            à l'exclusion de la nature du handicap.
+            Les échanges relatifs à la situation de l'étudiant sont couverts par le secret professionnel. Seules les mesures sont montrées aux chargés de cours, à l'exclusion de la nature du handicap.
           </p>
         </>
       )}

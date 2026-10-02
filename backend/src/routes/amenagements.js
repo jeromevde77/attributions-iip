@@ -31,6 +31,8 @@ import { sectionRattachement } from './etudiants.js';
 import { peut } from '../middleware/permissions.js';
 import { chargerDossier, composerPiece, chargesDeCours, TYPES_PIECE, RECOURS_DEFAUT }
   from '../lib/piecesAmenagement.js';
+import { migrerCircuitAR, catalogueAR, horsCircuit, manquesA, manquesB, estPersonneReference,
+  avisDuDossier, DIRECTION, DECIDE } from '../lib/circuitAR.js';
 
 /* QUI ÉCRIT UN AMÉNAGEMENT : les rôles d'office, OU toute personne à qui
  * l'écriture a été accordée sur sa fiche (Accès Lucie → Aménagements
@@ -58,6 +60,37 @@ function dossierLisible(req, res) {
 }
 
 const r = Router();
+
+/* LE CIRCUIT DU DOSSIER (Charles, 2 octobre 2026) : A validée → B s'ouvre ;
+   B validée par la personne de référence → les chargés de cours sont appelés,
+   et le Conseil des études peut trancher. Voir lib/circuitAR.js. */
+function circuitDe(d) {
+  const nbMesures = db.prepare('SELECT COUNT(*) n FROM amenagement_mesure WHERE dossier_id = ?').get(d.id).n;
+  const charges = (() => { try { return chargesDeCours(chargerDossier(d.id)); } catch { return []; } })();
+  return {
+    hors_circuit: horsCircuit(d),
+    a: { valide_le: d.valide_a_le || null, valide_par: d.valide_a_par || null, manques: manquesA(d) },
+    b: { valide_le: d.valide_b_le || null, valide_par: d.valide_b_par || null, manques: manquesB(d, nbMesures) },
+    charges: charges.map(p => ({ professeur_id: p.id, nom: `${String(p.nom || '').toUpperCase()} ${p.prenom || ''}`.trim(), ues: p.ues })),
+    avis: avisDuDossier(d.id),
+  };
+}
+const CHAMPS_A = ['date_demande', 'soins_specifiques', 'annexes_nb', 'annexes_desc', 'signe_etudiant_le',
+  'signe_reference_le', 'piece_type', 'piece_date', 'piece_auteur', 'piece_reference'];
+const CHAMPS_B = ['materiel_demande', 'materiel_desc', 'pedago_demande',
+  'pedago_desc', 'rapport_annexes_nb', 'rapport_annexes_desc', 'transmis_cde_le'];
+// Ce qui se tient à jour à toute étape : qui suit le dossier, ce qui entrave le parcours.
+const CHAMPS_LIBRES = ['personne_reference', 'besoins', 'remarques'];
+/* Le serveur tient le circuit : un bouton grisé n'est pas une protection. */
+function refusEtape(d, champs) {
+  if (!d || horsCircuit(d)) return null;
+  if (champs.some(k => CHAMPS_A.includes(k)) && d.valide_a_le) return 'La demande (volet A) est validée : rouvrez-la pour la modifier.';
+  if (champs.some(k => CHAMPS_B.includes(k)) && !d.valide_a_le) return 'Le rapport (volet B) s’ouvre quand la demande (volet A) est validée.';
+  if (champs.some(k => CHAMPS_B.includes(k)) && d.valide_b_le) return 'Le rapport (volet B) est validé : rouvrez-le pour le modifier.';
+  const decision = champs.filter(k => !CHAMPS_A.includes(k) && !CHAMPS_B.includes(k) && !CHAMPS_LIBRES.includes(k));
+  if (decision.length && !d.valide_b_le) return 'La décision du Conseil se prend quand le rapport (volet B) est validé.';
+  return null;
+}
 
 // Catalogue indicatif, librement complétable. La distinction matériel /
 // pédagogique est celle de l'article 7 § 1er.
@@ -179,11 +212,12 @@ export function migrerAmenagements(dbx) {
           'Aménagements raisonnables — mention des voies de recours (décision et notification)',
           'procedures');
     } catch (e) { console.error('[migration] aménagements, mention de recours :', e.message); }
+    try { migrerCircuitAR(); } catch (e) { console.error('[migration] circuit AR :', e.message); }
     console.log('[migration] aménagements raisonnables : dossier et mesures');
   } catch (e) { console.error('[migration] aménagements :', e.message); }
 }
 
-r.get('/catalogue', authRequired, (req, res) => res.json(CATALOGUE));
+r.get('/catalogue', authRequired, (req, res) => res.json(catalogueAR()));
 
 // ── LE REGISTRE DE L'ANNÉE (Charles, 28 septembre 2026 : « un lien direct
 // dans le rail, comme la valorisation, afin que ce soit rapidement joint »).
@@ -271,7 +305,7 @@ r.get('/etudiant/:id', authRequired, (req, res) => {
   }
 
   res.json({ dossiers, courant: courant || null, piece_valide: pieceValide,
-             catalogue: CATALOGUE });
+             catalogue: catalogueAR(), circuit: courant ? circuitDe(courant) : null });
 });
 
 // ── Création et mise à jour ─────────────────────────────────────────────────
@@ -321,6 +355,9 @@ r.get('/dossier/:id/ues-possibles', authRequired, (req, res) => {
 // ── Les unités concernées par la demande (cadre A.2) ───────────────────────
 r.put('/dossier/:id/ues', authRequired, peutAmenager, (req, res) => {
   const id = Number(req.params.id);
+  const dos = db.prepare('SELECT * FROM amenagement_dossier WHERE id = ?').get(id);
+  const refus = refusEtape(dos, ['date_demande']);
+  if (refus) return res.status(409).json({ error: refus });
   const ues = Array.isArray(req.body?.ues) ? req.body.ues.map(Number).filter(Boolean) : [];
 
   db.transaction(() => {
@@ -348,6 +385,9 @@ r.put('/dossier/:id', authRequired, peutAmenager, (req, res) => {
                   'transmis_cde_le', 'cde_recu_le', 'recours_decision_le'];
   const presents = champs.filter(k => k in d);
   if (!presents.length) return res.json({ ok: true, inchange: true });
+  const dos = db.prepare('SELECT * FROM amenagement_dossier WHERE id = ?').get(Number(req.params.id));
+  const refus = refusEtape(dos, presents);
+  if (refus) return res.status(409).json({ error: refus });
 
   db.prepare(`
     UPDATE amenagement_dossier SET ${presents.map(k => `${k} = ?`).join(', ')},
@@ -372,6 +412,9 @@ r.put('/dossier/:id', authRequired, peutAmenager, (req, res) => {
 // ── Mesures ─────────────────────────────────────────────────────────────────
 r.post('/dossier/:id/mesure', authRequired, peutAmenager, (req, res) => {
   const m = req.body || {};
+  const dos = db.prepare('SELECT * FROM amenagement_dossier WHERE id = ?').get(Number(req.params.id));
+  const refus = refusEtape(dos, ['materiel_desc']);
+  if (refus) return res.status(409).json({ error: refus });
   if (!m.libelle) return res.status(400).json({ error: 'libelle requis' });
   if (m.accorde === false && !String(m.motif_refus || '').trim()) {
     return res.status(400).json({ error: 'Une mesure refusée se motive (art. 6 § 2) : le motif du refus est requis.' });
@@ -388,6 +431,16 @@ r.post('/dossier/:id/mesure', authRequired, peutAmenager, (req, res) => {
 
 r.put('/mesure/:id', authRequired, peutAmenager, (req, res) => {
   const m = req.body || {};
+  const avant = db.prepare('SELECT * FROM amenagement_mesure WHERE id = ?').get(Number(req.params.id));
+  const dos = avant && db.prepare('SELECT * FROM amenagement_dossier WHERE id = ?').get(avant.dossier_id);
+  if (avant && dos) {
+    // Le contenu de la mesure est du volet B ; son accord ou son refus, de la décision.
+    const contenu = (m.precisions ?? null) !== (avant.precisions ?? null) || (m.portee || 'toutes') !== (avant.portee || 'toutes')
+      || (m.ue_num ? Number(m.ue_num) : null) !== (avant.ue_num ?? null);
+    const decision = (m.accorde === false ? 0 : 1) !== avant.accorde || (m.motif_refus || null) !== (avant.motif_refus || null);
+    const refus = refusEtape(dos, [...(contenu ? ['materiel_desc'] : []), ...(decision ? ['cde_date'] : [])]);
+    if (refus) return res.status(409).json({ error: refus });
+  }
   // UN REFUS SE MOTIVE, MESURE PAR MESURE. La même règle qu'à la création :
   // sans quoi on aurait une porte dérobée pour écrire ce que l'entrée refuse.
   if (m.accorde === false && !String(m.motif_refus || '').trim()) {
@@ -480,7 +533,60 @@ r.delete('/dossier/:id', authRequired, peutAmenager, (req, res) => {
 });
 
 r.delete('/mesure/:id', authRequired, peutAmenager, (req, res) => {
+  {
+    const m0 = db.prepare('SELECT dossier_id FROM amenagement_mesure WHERE id = ?').get(Number(req.params.id));
+    const dos = m0 && db.prepare('SELECT * FROM amenagement_dossier WHERE id = ?').get(m0.dossier_id);
+    const refus = refusEtape(dos, ['materiel_desc']);
+    if (refus) return res.status(409).json({ error: refus });
+  }
   db.prepare('DELETE FROM amenagement_mesure WHERE id = ?').run(Number(req.params.id));
+  res.json({ ok: true });
+});
+
+// ── Le circuit : valider A, valider B, rouvrir ─────────────────────────────
+r.put('/dossier/:id/valider-a', authRequired, peutAmenager, (req, res) => {
+  const d = db.prepare('SELECT * FROM amenagement_dossier WHERE id = ?').get(Number(req.params.id));
+  if (!d) return res.status(404).json({ error: 'dossier introuvable' });
+  const manque = manquesA(d);
+  if (manque.length) return res.status(409).json({ error: `La demande n'est pas complète : il manque ${manque.join(', ')}.`, manques: manque });
+  const par = req.user?.nom || req.user?.email || null;
+  db.prepare(`UPDATE amenagement_dossier SET valide_a_le = datetime('now'), valide_a_par = ?,
+      statut = CASE WHEN statut = 'demande' THEN 'instruction' ELSE statut END, maj_le = datetime('now') WHERE id = ?`).run(par, d.id);
+  res.json({ ok: true });
+});
+r.delete('/dossier/:id/valider-a', authRequired, peutAmenager, (req, res) => {
+  const d = db.prepare('SELECT * FROM amenagement_dossier WHERE id = ?').get(Number(req.params.id));
+  if (!d) return res.status(404).json({ error: 'dossier introuvable' });
+  if (d.valide_b_le) return res.status(409).json({ error: 'Le rapport (volet B) est validé : rouvrez-le d’abord.' });
+  db.prepare(`UPDATE amenagement_dossier SET valide_a_le = NULL, valide_a_par = NULL, maj_le = datetime('now') WHERE id = ?`).run(d.id);
+  res.json({ ok: true });
+});
+/* B : la personne de référence du dossier — ou la direction à sa place.
+   Celui qui clique est celui qui signe. La validation appelle les chargés de
+   cours : la demande paraît dans leur Mes cours. */
+r.put('/dossier/:id/valider-b', authRequired, peutAmenager, (req, res) => {
+  const d = db.prepare('SELECT * FROM amenagement_dossier WHERE id = ?').get(Number(req.params.id));
+  if (!d) return res.status(404).json({ error: 'dossier introuvable' });
+  if (!d.valide_a_le) return res.status(409).json({ error: 'La demande (volet A) doit être validée d’abord.' });
+  if (!DIRECTION.includes(req.user?.role) && !estPersonneReference(req.user, d)) {
+    return res.status(403).json({ error: `Le rapport se valide par la personne de référence du dossier${d.personne_reference ? ` (${d.personne_reference})` : ''}, ou par la direction.` });
+  }
+  const nb = db.prepare('SELECT COUNT(*) n FROM amenagement_mesure WHERE dossier_id = ?').get(d.id).n;
+  const manque = manquesB(d, nb);
+  if (manque.length) return res.status(409).json({ error: `Le rapport n'est pas complet : il manque ${manque.join(', ')}.`, manques: manque });
+  const par = req.user?.nom || req.user?.email || null;
+  db.prepare(`UPDATE amenagement_dossier SET valide_b_le = datetime('now'), valide_b_par = ?,
+      avis_demande_le = COALESCE(avis_demande_le, datetime('now')), maj_le = datetime('now') WHERE id = ?`).run(par, d.id);
+  res.json({ ok: true });
+});
+r.delete('/dossier/:id/valider-b', authRequired, peutAmenager, (req, res) => {
+  const d = db.prepare('SELECT * FROM amenagement_dossier WHERE id = ?').get(Number(req.params.id));
+  if (!d) return res.status(404).json({ error: 'dossier introuvable' });
+  if (DECIDE.includes(d.statut) || d.cde_date) return res.status(409).json({ error: 'Le Conseil a décidé : le rapport ne se rouvre plus.' });
+  if (!DIRECTION.includes(req.user?.role) && !estPersonneReference(req.user, d)) {
+    return res.status(403).json({ error: 'Seule la personne de référence ou la direction rouvre le rapport.' });
+  }
+  db.prepare(`UPDATE amenagement_dossier SET valide_b_le = NULL, valide_b_par = NULL, maj_le = datetime('now') WHERE id = ?`).run(d.id);
   res.json({ ok: true });
 });
 

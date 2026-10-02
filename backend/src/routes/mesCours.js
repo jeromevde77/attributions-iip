@@ -5,6 +5,8 @@ import { anneeDeTravail } from '../helpers/annee.js';
 import { PEUT_INSTRUIRE } from '../lib/valorisation.js';
 import { existsSync } from 'fs';
 import { profConcerne, rendreAvis } from '../lib/avisVA.js';
+import { chargerDossier, chargesDeCours } from '../lib/piecesAmenagement.js';
+import { DECIDE } from '../lib/circuitAR.js';
 import { ecrirePresences, minutesDe, STATUTS_PRESENCE, MOTIFS_JUSTIFIES } from '../lib/cep.js';
 import { envelopperDocument, piedGabaritPdf, BANDE_PIED_MM } from '../lib/document.js';
 import { capacitePdf, rendrePdf } from '../services/pdf.js';
@@ -335,6 +337,66 @@ r.put('/valorisations/:vid/avis', authRequired, (req, res) => {
   if (texte.length < 15) return res.status(400).json({ error: 'Un avis se motive par écrit : ce que vous avez comparé au dossier pédagogique, et ce que vous en concluez. Il n’y a pas de recours ensuite.' });
   rendreAvis(req, v, pid, sens, texte);
   res.json({ ok: true });
+});
+
+/* ══ LES AMÉNAGEMENTS RAISONNABLES, DANS L'ESPACE DU CHARGÉ DE COURS ══════
+ * (Charles, 2 octobre 2026.) Quand le rapport (volet B) est validé, les
+ * chargés de cours des unités concernées voient la demande et rendent leur
+ * avis, MESURE PAR MESURE : réalisable, avec adaptation, pas réalisable — motivé
+ * dès que ce n'est pas « réalisable ». SECRET PROFESSIONNEL (art. 5) : ils ne
+ * voient que les mesures et leurs précisions, jamais la pièce, les soins, le
+ * diagnostic ni la motivation. */
+function arDuProf(pid, annee) {
+  const out = [];
+  for (const x of db.prepare(`SELECT id FROM amenagement_dossier WHERE annee_scolaire = ? AND valide_b_le IS NOT NULL`).all(annee)) {
+    const d = chargerDossier(x.id);
+    if (!d) continue;
+    const moi = chargesDeCours(d).find(p => p.id === pid);
+    if (!moi) continue;
+    out.push({ d, ues: moi.ues });
+  }
+  return out;
+}
+r.get('/amenagements', authRequired, (req, res) => {
+  const pid = profDe(req);
+  if (!pid) return res.json({ dossiers: [] });
+  const annee = req.query.annee || anneeDeTravail(req);
+  const dossiers = arDuProf(pid, annee).map(({ d, ues }) => {
+    const mesures = d.mesures.filter(m => !m.ue_num || ues.includes(m.ue_num));
+    const avis = db.prepare('SELECT mesure_id, professeur_id, auteur, sens, motif, rendu_le FROM amenagement_avis WHERE dossier_id = ?').all(d.id);
+    return {
+      id: d.id, etudiant: `${String(d.etudiant?.nom || '').toUpperCase()} ${d.etudiant?.prenom || ''}`.trim(),
+      id_ecampus: d.etudiant?.id_ecampus || null, section: d.section, ues,
+      appele_le: d.avis_demande_le || d.valide_b_le,
+      decide: DECIDE.includes(d.statut) || !!d.cde_date,
+      mesures: mesures.map(m => ({ id: m.id, libelle: m.libelle, precisions: m.precisions, portee: m.portee, nature: m.nature,
+        ue_num: m.ue_num, accorde: DECIDE.includes(d.statut) ? !!m.accorde : null,
+        mon_avis: avis.find(a => a.mesure_id === m.id && a.professeur_id === pid) || null,
+        autres: avis.filter(a => a.mesure_id === m.id && a.professeur_id !== pid).map(a => ({ auteur: a.auteur, sens: a.sens, motif: a.motif })) })),
+    };
+  });
+  res.json({ annee, dossiers });
+});
+r.put('/amenagements/:id/avis', authRequired, (req, res) => {
+  const pid = profDe(req);
+  if (!pid) return res.status(403).json({ error: 'Votre compte n’est relié à aucun dossier professeur : l’avis ne peut pas porter votre nom.' });
+  const d = chargerDossier(Number(req.params.id));
+  if (!d || !d.valide_b_le || !chargesDeCours(d).some(p => p.id === pid)) return res.status(404).json({ error: 'Demande introuvable.' });
+  if (DECIDE.includes(d.statut) || d.cde_date) return res.status(409).json({ error: 'Le Conseil a décidé : l’avis ne se modifie plus.' });
+  const lignes = Array.isArray(req.body?.avis) ? req.body.avis : [];
+  const ids = new Set(d.mesures.map(m => m.id));
+  for (const l of lignes) {
+    if (!ids.has(Number(l.mesure_id))) return res.status(400).json({ error: 'Mesure inconnue pour ce dossier.' });
+    if (!['realisable', 'adaptation', 'impossible'].includes(l.sens)) return res.status(400).json({ error: 'Le sens de l’avis est requis pour chaque mesure.' });
+    if (l.sens !== 'realisable' && String(l.motif || '').trim().length < 5) return res.status(400).json({ error: 'Un avis « avec adaptation » ou « pas réalisable » se motive.' });
+  }
+  const p = db.prepare('SELECT nom, prenom FROM professeur WHERE id = ?').get(pid);
+  const auteur = p ? `${String(p.nom || '').toUpperCase()} ${p.prenom || ''}`.trim() : (req.user?.nom || null);
+  const ecr = db.prepare(`INSERT INTO amenagement_avis (dossier_id, mesure_id, professeur_id, auteur, sens, motif)
+    VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT(mesure_id, professeur_id) DO UPDATE SET sens = excluded.sens,
+    motif = excluded.motif, auteur = excluded.auteur, rendu_le = datetime('now')`);
+  db.transaction(() => { for (const l of lignes) ecr.run(d.id, Number(l.mesure_id), pid, auteur, l.sens, String(l.motif || '').trim() || null); })();
+  res.json({ ok: true, ecrits: lignes.length });
 });
 
 r.get('/', authRequired, (req, res) => {
