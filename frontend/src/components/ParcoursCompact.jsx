@@ -18,7 +18,7 @@ import { couleurBloc, rangBloc } from '../lib/blocs.js';
  */
 // Petites, et à LEUR taille (2 octobre 2026 : « icônes trop grandes, on ne voit
 // pas d'un coup ») : le dessin ne s'étire plus à la largeur de la colonne.
-const L = 34, H = 18, PAS_Y = 23, PAS_X = 74, MARGE = 8, HAUT = 24;
+const L = 34, H = 18, PAS_Y = 23, PAS_X = 74, PAS_SOUS = 60, MARGE = 8, HAUT = 24;
 
 export default function ParcoursCompact({ etudId, annee, programme = new Set(), dispenses = new Set(),
                                           onNoeud = null, version = 0 }) {
@@ -41,14 +41,39 @@ export default function ParcoursCompact({ etudId, annee, programme = new Set(), 
     const cols = [...blocs.map(b => ({ cle: b, label: b })), ...(nodes.some(n => n.epreuve_integree) ? [{ cle: 'EI', label: 'Épreuve' }] : [])];
     const pos = {};
     let hMax = 0;
-    cols.forEach((c, i) => {
-      const dans = nodes.filter(n => (n.epreuve_integree ? 'EI' : String(n.ue_niv || '—').toUpperCase()) === c.cle)
+    const cleDe = n => (n.epreuve_integree ? 'EI' : String(n.ue_niv || '—').toUpperCase());
+    const tousEdges = data.edges || [];
+    // DEUX COLONNES QUAND UNE UE DÉPEND D'UNE AUTRE DU MÊME BLOC (Charles,
+    // 2 octobre 2026 : « sinon pas lisible ») — la flèche ne remonte plus dans
+    // sa propre colonne, elle avance d'une sous-colonne.
+    let x = MARGE;
+    cols.forEach(c => {
+      const dans = nodes.filter(n => cleDe(n) === c.cle)
         .sort((a, b) => (a.couche - b.couche) || (a.ordre - b.ordre) || (a.ue_num - b.ue_num));
-      dans.forEach((n, k) => { pos[n.ue_num] = { x: MARGE + i * PAS_X, y: HAUT + k * PAS_Y, n }; });
-      hMax = Math.max(hMax, HAUT + dans.length * PAS_Y);
+      const ici = new Set(dans.map(n => n.ue_num));
+      const prof = {};
+      const profondeur = (u, vus = new Set()) => {
+        if (prof[u] != null) return prof[u];
+        if (vus.has(u)) return 0;
+        vus.add(u);
+        const amont = tousEdges.filter(e => e.to === u && ici.has(e.from) && e.from !== u);
+        prof[u] = amont.length ? 1 + Math.max(...amont.map(e => profondeur(e.from, vus))) : 0;
+        return prof[u];
+      };
+      dans.forEach(n => profondeur(n.ue_num));
+      const nSous = Math.max(1, ...dans.map(n => prof[n.ue_num] + 1));
+      const rang = new Array(nSous).fill(0);
+      dans.forEach(n => {
+        const k = prof[n.ue_num];
+        pos[n.ue_num] = { x: x + k * PAS_SOUS, y: HAUT + rang[k] * PAS_Y, n };
+        rang[k] += 1;
+      });
+      c.x = x; c.w = (nSous - 1) * PAS_SOUS + L;
+      hMax = Math.max(hMax, HAUT + Math.max(...rang) * PAS_Y);
+      x += c.w + (PAS_X - L);
     });
-    const edges = (data.edges || []).filter(e => pos[e.from] && pos[e.to]);
-    return { cols, pos, edges, largeur: MARGE * 2 + (cols.length - 1) * PAS_X + L, hauteur: hMax + 6 };
+    const edges = tousEdges.filter(e => pos[e.from] && pos[e.to]);
+    return { cols, pos, edges, largeur: x - (PAS_X - L) + MARGE, hauteur: hMax + 6 };
   }, [data]);
 
   if (!data) return <p className="text-[12px] text-slate-400">Chargement du parcours…</p>;
@@ -113,8 +138,8 @@ export default function ParcoursCompact({ etudId, annee, programme = new Set(), 
         </defs>
         {plan.cols.map((c, i) => (
           <g key={c.cle}>
-            <text x={MARGE + i * PAS_X + L / 2} y={9} textAnchor="middle" fontSize="8" fontWeight="700" fill="#64748b" letterSpacing=".4">{c.label.toUpperCase()}</text>
-            <rect x={MARGE + i * PAS_X - 3} y={13} width={L + 6} height={2.5} rx={1.2}
+            <text x={c.x + c.w / 2} y={9} textAnchor="middle" fontSize="8" fontWeight="700" fill="#64748b" letterSpacing=".4">{c.label.toUpperCase()}</text>
+            <rect x={c.x - 3} y={13} width={c.w + 6} height={2.5} rx={1.2}
               style={{ fill: c.cle === 'EI' ? '#C9A227' : (couleurBloc(c.cle) || '#CBD5E1') }} />
           </g>
         ))}

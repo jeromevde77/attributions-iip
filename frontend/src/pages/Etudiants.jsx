@@ -200,7 +200,8 @@ function RevuePAE({ liste: base, annee: anneeDepart, onClose }) {
   const [enCours, setEnCours] = useState(null);
   const [saisie, setSaisie] = useState(null);      // { ue, code, note, origine }
   const [saisieVA, setSaisieVA] = useState(null);  // { ue, code, nature, origine } — VA reprise sans dossier
-  const [saisieUE, setSaisieUE] = useState(null);  // { ue, nature, origine } — VA / VAE de l'UE entière
+  const [saisieUE, setSaisieUE] = useState(null);
+  const [editions, setEditions] = useState(false);  // { ue, nature, origine } — VA / VAE de l'UE entière
   const [ajout, setAjout] = useState('');
   const [versionSchema, setVersionSchema] = useState(0);
   const [ouverts, setOuverts] = useState(() => new Set());   // les volets d'UE ouverts
@@ -365,33 +366,6 @@ function RevuePAE({ liste: base, annee: anneeDepart, onClose }) {
     else if (d.autres.some(x => x.ue_num === n)) ajouterUE(n);
   };
 
-  const imprimer = async (separer = false) => {
-    setEnCours('impr'); setErreur(null);
-    try {
-      const r = await fetch('/api/etudiants/revue-pae/document', { method: 'POST', headers: authHeaders(),
-        body: JSON.stringify({ annee, ids: liste.map(e => e.id), separer }) });
-      const j = await r.json();
-      if (!r.ok) throw new Error(j.error || 'Refusé.');
-      const ouvrir = (blob, nom, telecharger) => {
-        const url = URL.createObjectURL(blob);
-        if (telecharger) { const a = document.createElement('a'); a.href = url; a.download = nom; document.body.appendChild(a); a.click(); a.remove(); }
-        else window.open(url, '_blank');
-        setTimeout(() => URL.revokeObjectURL(url), 60000);
-      };
-      if (separer) {
-        const rp = await fetch('/api/impression/pdfs', { method: 'POST', headers: authHeaders(),
-          body: JSON.stringify({ nom: `PAE_${annee}`, documents: j.documents.map(x => ({ html: x.html, nom: x.nom, pagination: 'si-plusieurs' })) }) });
-        if (!rp.ok) { const x = await rp.json().catch(() => ({})); throw new Error(x.error || 'PDF non produits.'); }
-        ouvrir(await rp.blob(), `PAE_${annee}.zip`, true);
-      } else {
-        const rp = await fetch('/api/impression/pdf', { method: 'POST', headers: authHeaders(),
-          body: JSON.stringify({ html: j.html, nom: j.nom, pagination: 'si-plusieurs' }) });
-        if (!rp.ok) { const x = await rp.json().catch(() => ({})); throw new Error(x.error || 'PDF non produit.'); }
-        ouvrir(await rp.blob(), `${j.nom}.pdf`, false);
-      }
-    } catch (e) { setErreur(e.message); } finally { setEnCours(null); }
-  };
-
   const ETAT = { dispensee: ['dispensée — VA', 'bg-emerald-700'], partielle: ['reprise partielle', 'bg-blue-700'],
     reprendre: ['à reprendre', 'bg-amber-700'], programme: ['au programme', 'bg-blue-700'] };
   const ch = d?.chiffres;
@@ -407,22 +381,31 @@ function RevuePAE({ liste: base, annee: anneeDepart, onClose }) {
       {p && <div className="text-[11px] text-slate-500">{p}</div>}
     </div>
   );
+  // LES TROIS BOUTONS À HAUTEUR DU NOM, À DROITE (Charles, 2 octobre 2026) :
+  // ils ne descendent plus au pied, et « Suivant » devient « Passer ».
+  const etudiantPret = !!(d && cur && d.etudiant?.id === cur.id);
+  const navBoutons = (
+    <span className="ml-auto flex items-center gap-2">
+      <button className="bouton" disabled={i === 0} onClick={() => setI(i - 1)}>◀ Précédent</button>
+      <button className="bouton" disabled={i >= liste.length - 1} onClick={() => setI(i + 1)}>Passer ▶</button>
+      {/* VERT, ÉCRIT BLANC : c'est le geste de la revue, et il valide. Le fond
+          passe en style — `.bouton` porte le sien et l'emporte sur l'utilitaire. */}
+      <button className="bouton font-semibold disabled:opacity-40"
+        style={{ background: 'var(--c-reussi, #3E7D5E)', borderColor: 'var(--c-reussi, #3E7D5E)', color: '#fff' }}
+        disabled={!etudiantPret || !!enCours} onClick={() => marquer(true, true)}>
+        {i >= liste.length - 1 ? 'Valider' : 'Valider · étudiant suivant ▶'}</button>
+    </span>
+  );
   const nRevus = synthese ? liste.filter(e => synthese[e.id]?.revu).length : 0;
 
   return (
     <Fenetre icone={IconEyeCheck} large="ecran" hauteurFixe onFermer={onClose}
       titre={d ? `Revue des PAE — ${nomPropre(d.etudiant.nom, d.etudiant.prenom)}` : 'Revue des PAE'}
       sous={liste.length ? `${Math.min(i, liste.length - 1) + 1} sur ${liste.length} · ${nRevus} validé(s) · année ${annee}` : `Aucun étudiant ne correspond · année ${annee}`}
-      pied={<>
-        {/* La case « PAE validé » est partie : le bandeau vert le dit (Charles, 2 octobre 2026). */}
-        <span className="ml-auto" />
-        <button className="bouton" disabled={i === 0} onClick={() => setI(i - 1)}>◀ Précédent</button>
-        <button className="bouton" disabled={i >= liste.length - 1} onClick={() => setI(i + 1)}>Suivant ▶</button>
-        {/* VERT : c'est le geste de la revue, et il valide (Charles, 2 octobre 2026). */}
-        <button className="bouton bg-emerald-700 border-emerald-700 text-white font-semibold hover:bg-emerald-800 disabled:opacity-40"
-          disabled={!d || !!enCours} onClick={() => marquer(true, true)}>
-          {i >= liste.length - 1 ? 'Valider' : 'Valider · étudiant suivant ▶'}</button>
-      </>}>
+      outils={<button type="button" title="Éditions — imprimer ou envoyer les PAE" aria-label="Éditions"
+        disabled={!liste.length} onClick={() => setEditions(true)}
+        className="flex-none w-8 h-8 grid place-items-center rounded-champ hover:bg-white/15 disabled:opacity-40">
+        <IconSend size={16} /></button>}>
       {/* LES FILTRES : on choisit la liasse avant de la parcourir. */}
       <div className="flex flex-wrap items-center gap-2 mb-3">
         <select className="controle text-[13px]" value={annee} onChange={e => setAnnee(e.target.value)} title="Année du PAE">
@@ -449,18 +432,17 @@ function RevuePAE({ liste: base, annee: anneeDepart, onClose }) {
           title="Aller directement à un étudiant">
           {liste.map((x, k) => <option key={x.id} value={x.id}>{k + 1}. {nomPropre(x.nom, x.prenom)}{synthese?.[x.id]?.revu ? ' ✓' : ''}</option>)}
         </select>
-        <span className="flex-1" />
-        <button className="bouton bouton-sortir controle" disabled={!!enCours || !liste.length} onClick={() => imprimer(false)}>
-          <IconPrinter size={14} className="inline -mt-0.5 mr-1" />
-          {enCours === 'impr' ? 'Production…' : `Imprimer ${liste.length} PAE`}</button>
-        <button className="bouton controle" disabled={!!enCours || !liste.length} onClick={() => imprimer(true)}
-          title="Un PDF par étudiant, dans une archive">Un PDF par étudiant</button>
+
       </div>
       {erreurSyn && <div data-etat="surveiller" className="bloc-etat px-3 py-2 text-[12.5px] mb-3">{erreurSyn}</div>}
       {erreur && <div data-etat="corriger" className="bloc-etat px-3 py-2 text-[12.5px] mb-3">{erreur}</div>}
       {!synthese && <p className="text-[13px] text-slate-400">Lecture de la liste…</p>}
       {synthese && !liste.length && <p className="text-[13px] text-slate-500">Aucun étudiant de la liste ne correspond à ces filtres pour {annee}.</p>}
-      {synthese && liste.length > 0 && !d && !erreur && <p className="text-[13px] text-slate-400">Chargement…</p>}
+      {synthese && liste.length > 0 && !etudiantPret && (
+        <div className="flex items-center gap-3 mb-2 min-h-[44px]">
+          <span className="text-[13px] text-slate-400">{erreur ? '' : 'Chargement…'}</span>{navBoutons}
+        </div>
+      )}
       {/* L'ÉTUDIANT AFFICHÉ DOIT ÊTRE CELUI DE LA LISTE : validé sous le filtre
           « pas encore validés », il sort de la liste — le dernier validé la
           vidait, et l'écran plantait sur un étudiant qui n'y était plus
@@ -501,7 +483,7 @@ function RevuePAE({ liste: base, annee: anneeDepart, onClose }) {
         };
         return (
           <>
-            <div className="flex flex-wrap items-center gap-3 mb-2">
+            <div className="flex flex-wrap items-center gap-3 mb-2 min-h-[44px]">
               {/* Le nom et le matricule dessous : la même hauteur que le train. */}
               <span className="leading-tight">
                 <span className="block text-[16px] font-bold text-iip-texte">{nomPropre(e.nom, e.prenom)}</span>
@@ -516,6 +498,7 @@ function RevuePAE({ liste: base, annee: anneeDepart, onClose }) {
                 <Wagon v={ch.ects_acquis} l="ECTS réussis" ligne="vert" />
                 <Wagon v={fmtMoy} l="moyenne du parcours" />
               </span>
+              {navBoutons}
             </div>
             {d.revu && (
               <div className="mb-2 px-3 py-2 rounded-lg text-[13px] bg-emerald-700 text-white">
@@ -674,6 +657,11 @@ function RevuePAE({ liste: base, annee: anneeDepart, onClose }) {
           </>
         );
       })()}
+      {editions && (
+        <CentreImpressionCentral ongletInitial="etudiants" onClose={() => setEditions(false)}
+          perimetre={{ annee, pieces: ['pae'], coches: liste.map(x => x.id),
+            sections: fSection ? [fSection] : [...new Set(liste.map(x => x.section).filter(Boolean))] }} />
+      )}
     </Fenetre>
   );
 }

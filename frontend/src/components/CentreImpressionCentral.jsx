@@ -1,6 +1,6 @@
 import PiecesEtudiant from './PiecesEtudiant.jsx';
 import CentreDiplomation from './CentreDiplomation.jsx';
-import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { createPortal } from 'react-dom';
 import { nomPropre } from '../lib/nom.js';
@@ -78,6 +78,9 @@ const PIECES = [
    études (SLE) — le serveur écarte les autres et les nomme. */
 const PIECES_DOSSIER = [
   { cle: 'bulletin', label: 'Bulletin de parcours' },
+  // LE PAE SORT D'ÉDITIONS (Charles, 2 octobre 2026) : la revue y mène par
+  // l'avion, avec ses étudiants déjà cochés.
+  { cle: 'pae', label: "Programme annuel (PAE)", pae: true },
   // Pièces d'inscription, tirées une par étudiant depuis leur route propre.
   { cle: 'fiche', label: "Fiche d'inscription / reçu", route: (id, a) => `/api/etudiants/${id}/fiche-inscription?annee=${a}` },
   { cle: 'frais', label: 'Frais de scolarité', route: (id, a) => `/api/frais-scolarite/etudiant/${id}/document?annee=${a}` },
@@ -107,7 +110,7 @@ const PIECES_DOSSIER = [
  * la séance s'ouvre.
  */
 function OngletValorisation() {
-  const [annee, setAnnee] = useState(getAnnee());
+  const [annee, setAnnee] = useState(perimetre?.annee || getAnnee());
   const [annees, setAnnees] = useState([]);
   const [arbre, setArbre] = useState(null);
   const [section, setSection] = useState('');
@@ -1284,7 +1287,10 @@ function OngletEtudiants({ perimetre = null }) {
      écran qui IMPRIME et ENVOIE n'est pas une commodité, c'est un envoi de
      travers en attente — et un courriel parti ne se rattrape pas.
      Le choix se fait, il ne se subit pas : on coche ce qu'on veut. */
-  const [choix, setChoix] = useState({});
+  // Sauf quand un écran ouvre le centre POUR une pièce précise (la revue des
+  // PAE) : c'est alors le bouton qu'on a cliqué qui l'a choisie.
+  const [choix, setChoix] = useState(() => Object.fromEntries((perimetre?.pieces || []).map(c => [c, true])));
+  const cochesImposees = useRef(perimetre?.coches ? new Set(perimetre.coches) : null);
   const [separer, setSeparer] = useState(
     () => localStorage.getItem('impression.separer') === '1');
   // L'envoi ne se montre que s'il est allumé ET permis. La route refuse de
@@ -1324,7 +1330,11 @@ function OngletEtudiants({ perimetre = null }) {
       // Tous cochés par défaut DANS LE PÉRIMÈTRE choisi : la sélection sert à
       // restreindre, non à tout reconstruire. Rien n'est coché tant qu'aucun
       // périmètre n'est posé.
-      setCoches(new Set(j.etudiants.filter(e => e.decide).map(e => e.id)));
+      if (cochesImposees.current) {
+        // Les étudiants de l'écran d'où l'on vient — une fois, à l'ouverture.
+        setCoches(new Set(j.etudiants.filter(e => cochesImposees.current.has(e.id)).map(e => e.id)));
+        cochesImposees.current = null;
+      } else setCoches(new Set(j.etudiants.filter(e => e.decide).map(e => e.id)));
     } catch (e) { setErreur(e.message); }
   }, [annee, session, sections, ues, cours]);
   useEffect(() => { charger(); }, [charger]);
@@ -1341,6 +1351,14 @@ function OngletEtudiants({ perimetre = null }) {
     if (!toutes.length) return { documents: [], avis: [] };
     // Les pièces à route propre : une requête par étudiant, en série courte.
     const avecRoute = toutes.filter(p => p.route);
+    const docsPAE = [];
+    if (toutes.some(p => p.pae) && coches.size) {
+      const r = await fetch('/api/etudiants/revue-pae/document', { method: 'POST', headers: authHeaders(),
+        body: JSON.stringify({ annee, ids: [...coches], separer: true }) });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(j.error || 'PAE non produits.');
+      for (const x of j.documents || []) docsPAE.push({ ...x, pagination: 'si-plusieurs', pied: true, contenu: `Programme annuel — ${annee}` });
+    }
     const docsRoute = [], avisRoute = [];
     const nomDe = id => { const e = etudiants.find(x => x.id === id); return e ? `${e.nom} ${e.prenom || ''}`.trim() : `#${id}`; };
     for (const p of avecRoute) {
@@ -1355,7 +1373,8 @@ function OngletEtudiants({ perimetre = null }) {
         } catch (e) { avisRoute.push(`${nomDe(id)} — ${p.label.toLowerCase()} : ${e.message}`); }
       }
     }
-    const demandees = toutes.filter(p => !p.route);
+    docsRoute.push(...docsPAE);
+    const demandees = toutes.filter(p => !p.route && !p.pae);
     if (!demandees.length) return { documents: docsRoute, avis: avisRoute };
     const rep = await fetch('/api/etudiants/pieces-dossier-lot', {
       method: 'POST', headers: authHeaders(),
