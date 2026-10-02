@@ -18,7 +18,7 @@ import { couleurBloc, rangBloc } from '../lib/blocs.js';
  */
 // Petites, et à LEUR taille (2 octobre 2026 : « icônes trop grandes, on ne voit
 // pas d'un coup ») : le dessin ne s'étire plus à la largeur de la colonne.
-const L = 34, H = 18, PAS_Y = 23, PAS_X = 74, PAS_SOUS = 60, MARGE = 8, HAUT = 24;
+const L = 44, H = 23, PAS_Y = 29, PAS_X = 96, PAS_SOUS = 76, MARGE = 8, HAUT = 28;
 
 export default function ParcoursCompact({ etudId, annee, programme = new Set(), dispenses = new Set(),
                                           onNoeud = null, version = 0 }) {
@@ -138,8 +138,8 @@ export default function ParcoursCompact({ etudId, annee, programme = new Set(), 
         </defs>
         {plan.cols.map((c, i) => (
           <g key={c.cle}>
-            <text x={c.x + c.w / 2} y={9} textAnchor="middle" fontSize="8" fontWeight="700" fill="#64748b" letterSpacing=".4">{c.label.toUpperCase()}</text>
-            <rect x={c.x - 3} y={13} width={c.w + 6} height={2.5} rx={1.2}
+            <text x={c.x + c.w / 2} y={11} textAnchor="middle" fontSize="10" fontWeight="700" fill="#64748b" letterSpacing=".4">{c.label.toUpperCase()}</text>
+            <rect x={c.x - 3} y={16} width={c.w + 6} height={3} rx={1.2}
               style={{ fill: c.cle === 'EI' ? '#C9A227' : (couleurBloc(c.cle) || '#CBD5E1') }} />
           </g>
         ))}
@@ -156,14 +156,14 @@ export default function ParcoursCompact({ etudId, annee, programme = new Set(), 
               <rect x={x} y={y} width={L} height={H} rx={4}
                 style={{ fill: t.fond, stroke: relief && n.ue_num === survol ? '#16406A' : t.bord }}
                 strokeWidth={n.ue_num === survol ? 1.8 : 1.2} />
-              <text x={x + L / 2} y={y + 12.5} textAnchor="middle" fontSize="9.5" fontWeight="700" style={{ fill: t.texte }}>{n.ue_num}</text>
-              {dispenses.has(n.ue_num) && <circle cx={x + L - 4} cy={y + 4} r={2} fill="#475569" />}
+              <text x={x + L / 2} y={y + 15.5} textAnchor="middle" fontSize="12" fontWeight="700" style={{ fill: t.texte }}>{n.ue_num}</text>
+              {dispenses.has(n.ue_num) && <circle cx={x + L - 5} cy={y + 5} r={2.5} fill="#475569" />}
             </g>
           );
         })}
       </svg>
-      <div className="min-h-[20px] mt-1 text-[11.5px] text-iip-texte">{etiquette || <span className="text-slate-400">Survolez une unité pour voir sa chaîne de prérequis.</span>}</div>
-      <div className="text-[10.5px] text-slate-500 leading-[1.9] mt-1">
+      <div className="min-h-[20px] mt-1 text-[12px] text-iip-texte">{etiquette || <span className="text-slate-400">Survolez une unité pour voir sa chaîne de prérequis.</span>}</div>
+      <div className="text-[11px] text-slate-500 leading-[1.9] mt-1">
         <Leg fond="var(--c-reussi, #3E7D5E)" bord="var(--c-reussi, #3E7D5E)" /> réussie ·
         <Leg bord="var(--c-disponible, #2F6FB0)" /> au PAE ·
         <Leg bord="var(--c-disponible, #2F6FB0)" point /> avec report ou VA ·

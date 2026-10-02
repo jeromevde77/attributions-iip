@@ -509,7 +509,7 @@ function RevuePAE({ liste: base, annee: anneeDepart, onClose }) {
             )}
             {/* Plus de bandeaux « À vérifier » : le badge du volet le dit déjà
                 (« à reprendre », « déjà acquise »), et le filtre trie dessus. */}
-            <div className="grid gap-5 items-start lg:grid-cols-[minmax(0,1fr)_minmax(0,460px)] mt-2">
+            <div className="grid gap-5 items-start lg:grid-cols-[minmax(0,1fr)_minmax(0,600px)] mt-2">
               <div>
                 <div className="flex items-center gap-3 text-[12px] mb-1.5">
                   <span className="text-slate-500">{ch.cours_reportes} cours reporté(s) · {ch.cours_va} dispensé(s) par VA · {ch.cours_a_suivre} à suivre ({ch.periodes_a_suivre} pér.)</span>
@@ -530,7 +530,7 @@ function RevuePAE({ liste: base, annee: anneeDepart, onClose }) {
                         const ouvert = ouverts.has(u.ue_num);
                         return (
                           <div key={u.ue_num} className="border-b border-slate-100">
-                            <div className="grid items-center gap-2 py-1.5 px-0.5 hover:bg-slate-50 cursor-pointer"
+                            <div className="grid items-center gap-2 py-1 px-0.5 text-[13px] hover:bg-slate-50 cursor-pointer"
                               style={{ gridTemplateColumns: '14px 56px minmax(0,1fr) auto 56px 50px auto auto' }}
                               onClick={() => basculerVolet(u.ue_num)}>
                               <IconChevronRight size={13} className={`text-slate-400 transition-transform ${ouvert ? 'rotate-90' : ''}`} />
