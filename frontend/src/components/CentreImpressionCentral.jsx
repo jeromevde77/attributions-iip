@@ -1806,7 +1806,7 @@ function PiecesDeLEcran({ pieces, onChoisir }) {
 export default function CentreImpressionCentral({ ongletInitial = 'etudiants',
                                                   perimetre = null, pieces = null, etudiant = null, anneeEtudiant = null,
                                                   membreInitial = null, outilsMembre = null,
-                                                  onClose }) {
+                                                  familleInitiale = null, onClose }) {
   const [onglet, setOnglet] = useState(ongletInitial);
   // Dans un axe qui porte deux familles : les pièces par personne, ou les
   // rapports du catalogue. On entre par les pièces, qui sont le quotidien.
@@ -1814,9 +1814,16 @@ export default function CentreImpressionCentral({ ongletInitial = 'etudiants',
      les rapports partout ailleurs. Elle se remet à sa valeur d'origine quand
      on change d'axe : « Listes » laissé actif en passant de Personnel à
      Gestion ouvrait une colonne vide, et l'on croyait l'axe vide. */
-  const [famille, setFamille] = useState('pieces');
+  const [famille, setFamille] = useState(familleInitiale || 'pieces');
   // Personnel s'ouvre aussi sur ses pièces : contrats, fiches, EA12, annexes.
-  useEffect(() => { setFamille(onglet === 'etudiants' || onglet === 'personnel' ? 'pieces' : 'rapports'); }, [onglet]);
+  // La famille demandée par le bouton qui ouvre le centre vaut à l'ouverture ;
+  // changer d'axe ensuite revient au défaut.
+  const premier = useRef(true);
+  useEffect(() => {
+    if (premier.current && familleInitiale) { premier.current = false; return; }
+    premier.current = false;
+    setFamille(onglet === 'etudiants' || onglet === 'personnel' ? 'pieces' : 'rapports');
+  }, [onglet]);
 
   return (
     /* L'AVION, ET LE SOUS-TITRE AVEC LUI.

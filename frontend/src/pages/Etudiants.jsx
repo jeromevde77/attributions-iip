@@ -22,7 +22,7 @@ import IdentiteEtudiant, { ComplementDossiers } from '../components/IdentiteEtud
 // LE CENTRE CENTRAL. Les boutons restent où on les cherche — là où l'on
 // travaille — mais mènent désormais au même endroit.
 import CentreImpressionCentral from '../components/CentreImpressionCentral.jsx';
-import { useEchangesDuRail, Fenetre, Encadre, BulleAide } from '../components/ui.jsx';
+import { useEchangesDuRail, Fenetre, Encadre, BulleAide, BoutonEditions, OuvrirEditions } from '../components/ui.jsx';
 import PassageAnnee from '../components/PassageAnnee.jsx';
 import ComposerPAE from '../components/ComposerPAE.jsx';
 import CentreEchanges from '../components/CentreEchanges.jsx';
@@ -2309,11 +2309,8 @@ function Valorisations({ etudId, annee }) {
                   className="bouton text-[12px] px-2.5 py-1">
                   <IconWritingSign size={14} /> Modifier
                 </button>
-                <button onClick={() => setDocuments({ ue_num: v.ue_num, ue_nom: v.ue_nom })}
-                  title="Procès-verbal de valorisation et attestations — pièce de l'unité"
-                  className="bouton bouton-sortir text-[12px] px-2.5 py-1">
-                  <IconPrinter size={14} /> Documents
-                </button>
+                <OuvrirEditions taille="petit" ongletInitial="etudiants" familleInitiale="valorisation"
+                  titre="Procès-verbal et attestations de l'unité — centre d'édition" />
                 {estAdmin && (
                   <button onClick={() => supprimer(v.id)} className="text-slate-300 hover:text-red-500">
                     <IconTrash size={15} />
@@ -2541,7 +2538,6 @@ export function FicheEtudiant({ id, annee, onClose, position, onPrec, onSuiv,
   const [paeConfirme, setPaeConfirme] = useState(false);
   const [paeValide, setPaeValide] = useState(null);   // la validation de la revue des PAE
   const [revueFiche, setRevueFiche] = useState(false);
-  const [voirProgramme, setVoirProgramme] = useState(false);
   const [sectionForcee, setSectionForcee] = useState('');
 
   // LES FLÈCHES DU CLAVIER, mais jamais pendant qu'on écrit : dans un champ de
@@ -2852,11 +2848,10 @@ export function FicheEtudiant({ id, annee, onClose, position, onPrec, onSuiv,
           {(onPrec || onSuiv) && portee && (
             <MenuParcourir portee={portee} onPortee={onPortee} sections={sections} ues={ues} annees={annees} />
           )}
-          <button type="button" onClick={() => setEdition(true)}
-            title="Le centre d'édition, avec les pièces de cet étudiant en tête"
-            className="bouton bouton-sortir bouton-compact inline-flex items-center gap-1.5">
-            <IconSend size={14} /> Imprimer ou envoyer
-          </button>
+          {/* L'AVION, ET RIEN D'AUTRE (2 octobre 2026) : il ouvre le centre
+              d'édition sur cet étudiant. */}
+          <BoutonEditions onClick={() => setEdition(true)}
+            titre="Imprimer ou envoyer — le centre d'édition, sur cet étudiant" />
           </div>
         </div>
         {revueFiche && (
@@ -2872,27 +2867,8 @@ export function FicheEtudiant({ id, annee, onClose, position, onPrec, onSuiv,
         {/* Les ACTIONS du programme, ancrées sous les onglets. Placées dans
             le contenu, elles ne pouvaient pas rester visibles : le défilement
             est porté par la fenêtre entière, non par l'onglet. */}
-              {onglet === 'parcours' && pae && !pae.erreur && (
-                <div className="sticky -top-4 z-30 bg-white border-b border-slate-200 px-5 py-1.5 flex gap-2 items-center flex-wrap">
-                  {/* COLLÉE AU BORD, PAS SOUS LA MARGE (27 septembre 2026, « le menu passe
-                    derrière ») : la zone qui défile porte 1 rem de marge haute, et un
-                    élément collant s'arrête sous cette marge — le schéma se lisait
-                    dans la bande au-dessus de la barre. -top-4 la ramène au bord. */}
-                  {/* LE PAE SE TRAVAILLE DANS LA REVUE (Charles, 2 octobre 2026 :
-                      « ceci n'a plus de sens dans cet onglet, puisque nous avons
-                      une revue des PAE »). Enregistrer et confirmer y sont réunis
-                      en un geste — Valider ; la fiche y ouvre l'étudiant. */}
-                  <button onClick={() => setRevueFiche(true)}
-                    className="bouton bouton-fort bouton-compact inline-flex items-center gap-1.5">
-                    <IconEyeCheck size={14} /> Ouvrir dans la revue des PAE
-                  </button>
-                  <span className="text-[12px] text-slate-500 ml-1">
-                    {paeConfirme
-                      ? "L'étudiant est inscrit aux unités retenues."
-                      : "Rien n'est inscrit tant que vous n'avez pas confirmé."}
-                  </span>
-                </div>
-              )}
+              {/* La barre « Ouvrir dans la revue des PAE » est retirée : la ligne
+                  d'état du parcours y mène, et la fiche ne compose plus le PAE. */}
 
         <div className="px-5 py-3">
           {/* Inscriptions + résultats */}
@@ -3017,11 +2993,12 @@ export function FicheEtudiant({ id, annee, onClose, position, onPrec, onSuiv,
                   : <span className="text-[11px] font-semibold text-white rounded-full px-2 py-px bg-slate-400">pas encore validé</span>}
                 <span className="text-[12px] text-slate-500">{paeConfirme ? 'programme confirmé' : 'programme proposé'}</span>
                 <button type="button" className="text-[12px] underline text-iip-blue" onClick={() => setRevueFiche(true)}>ouvrir la revue</button>
-                <button type="button" className="text-[12px] underline text-slate-500" onClick={() => setVoirProgramme(v => !v)}>
-                  {voirProgramme ? 'masquer le programme' : 'voir le programme'}</button>
               </div>
 
-              <div className={`pt-3 ${voirProgramme ? '' : 'hidden'}`}>
+              {/* LE PROGRAMME NE SE MONTRE PLUS DANS LA FICHE (Charles, 2 octobre
+                  2026 : « tout se change dans l'œil ») : il reste monté pour la
+                  ligne d'état ci-dessus, et caché. */}
+              <div className="hidden">
               {/* Ce qui suit est une PROPOSITION tant qu'elle n'est pas
                   confirmée : le dire évite de la lire comme un état de fait,
                   maintenant que schéma et programme sont sur la même page. */}
@@ -4132,12 +4109,10 @@ export default function Etudiants() {
             {/* LE BOUTON « IMPRIMER » NE FAISAIT RIEN : il posait un état que
                 personne ne lisait. Il ouvre le PAE des étudiants cochés —
                 tableau croisé étudiants × UE, à l'écran ou en Excel. */}
-            <button onClick={() => setRapportPAESel(true)}
-              title="Le PAE des étudiants cochés : une ligne par étudiant, une colonne par UE — imprimable ou en Excel"
-              className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-iip-blue text-white
-                         font-semibold rounded-lg">
-              <IconPrinter size={14} /> PAE des cochés
-            </button>
+            <OuvrirEditions ongletInitial="etudiants"
+              titre="Imprimer ou envoyer le PAE des étudiants cochés — centre d'édition"
+              perimetre={{ annee, pieces: ['pae'], coches: [...selEtudiants],
+                sections: [...new Set(etudiants.filter(e => selEtudiants.has(e.id)).map(e => e.section_rattachement).filter(Boolean))] }} />
             <button onClick={imprimerCoordonnees}
               title="La liste imprimable des emails, GSM et adresses des étudiants cochés"
               className="flex items-center gap-1.5 px-3 py-1.5 text-sm border border-iip-blue

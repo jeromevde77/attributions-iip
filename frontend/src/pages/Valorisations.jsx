@@ -5,7 +5,7 @@ import {
   IconRubberStamp, IconUserPlus, IconUsersGroup, IconX,
 } from '@tabler/icons-react';
 import { authHeaders, getAnnee, getUser } from '../lib/api.js';
-import { BulleAide, Fenetre, RailLateral } from '../components/ui.jsx';
+import { BulleAide, Fenetre, RailLateral, OuvrirEditions } from '../components/ui.jsx';
 import SeanceValorisation from '../components/SeanceValorisation.jsx';
 import { nomListe, parNom } from '../lib/nom.js';
 
@@ -648,10 +648,8 @@ function UniteValorisee({ va, annee, onSupprimer, onDocuments, onDossier, onChan
           className="bouton text-[12px] px-2 py-1">
           <IconListCheck size={13} /> Dossier
         </button>
-        <button onClick={onDocuments} title="Procès-verbal et attestations"
-          className="bouton bouton-sortir text-[12px] px-2 py-1">
-          <IconPrinter size={13} />
-        </button>
+        <OuvrirEditions taille="petit" ongletInitial="etudiants" familleInitiale="valorisation"
+          titre="Procès-verbal et attestations — centre d'édition" />
         <button onClick={onSupprimer} className="text-slate-300 hover:text-red-500">
           <IconTrash size={15} />
         </button>

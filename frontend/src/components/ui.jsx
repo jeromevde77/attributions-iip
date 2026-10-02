@@ -1209,3 +1209,41 @@ export function BoutonFenetre({ principal = false, ton = 'neutre', desactive = f
     </button>
   );
 }
+
+
+/* ══ L'AVION — LA SEULE PORTE POUR IMPRIMER OU ENVOYER ═════════════════════
+ *
+ * Charles, 2 octobre 2026 : « le simple petit avion, dans un carré, en bleu
+ * comme partout, et il renvoie vers le centre d'édition TOUJOURS ». Chaque
+ * écran avait son bouton — « Imprimer ou envoyer », « Documents », une
+ * imprimante — et la moitié ouvrait autre chose que le centre. Un seul dessin,
+ * une seule destination : le centre, ouvert sur ce que l'écran regarde.
+ *
+ * BoutonEditions : le carré seul (onClick fourni).
+ * OuvrirEditions : le carré ET le centre, ouvert avec le contexte donné.
+ */
+export function BoutonEditions({ onClick, titre = 'Imprimer ou envoyer — centre d’édition', taille = 'normal', disabled = false, sombre = false }) {
+  const cote = taille === 'petit' ? 'w-7 h-7' : 'w-9 h-9';
+  return (
+    <button type="button" onClick={onClick} disabled={disabled} title={titre} aria-label={titre}
+      className={`${cote} flex-none grid place-items-center rounded-champ border transition-colors duration-150 ease-ios disabled:opacity-40
+        ${sombre ? 'border-white/40 text-white hover:bg-white/10' : 'bg-white hover:bg-[color:var(--c-principal)]/[0.06]'}`}
+      style={sombre ? undefined : { borderColor: 'var(--c-principal, #16406A)', color: 'var(--c-principal, #16406A)' }}>
+      <IconSend size={taille === 'petit' ? 14 : 17} />
+    </button>
+  );
+}
+
+export function OuvrirEditions({ titre, taille, disabled, sombre, ...contexte }) {
+  const [ouvert, setOuvert] = useState(false);
+  return (
+    <>
+      <BoutonEditions titre={titre} taille={taille} disabled={disabled} sombre={sombre}
+        onClick={ev => { ev?.stopPropagation?.(); setOuvert(true); }} />
+      {ouvert && createPortal(
+        <Suspense fallback={null}>
+          <CentreImpressionCentral {...contexte} onClose={() => setOuvert(false)} />
+        </Suspense>, document.body)}
+    </>
+  );
+}
