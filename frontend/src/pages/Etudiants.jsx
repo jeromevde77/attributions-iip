@@ -4239,6 +4239,12 @@ export default function Etudiants() {
                   <td className="px-3 py-1 h-10 whitespace-nowrap">
                     <span className="font-semibold text-iip-blue">{nomPropre(e.nom, '')}</span>
                     <span className="text-slate-700 ml-1">{nomPropre('', e.prenom)}</span>
+                    {e.pae_valide && (
+                      <span className="inline-grid place-items-center w-4 h-4 rounded-full ml-1.5 align-[-3px] text-white"
+                        style={{ background: 'var(--c-reussi, #3E7D5E)' }}
+                        title={`PAE validé le ${quandLocal(e.pae_valide.le)} par ${e.pae_valide.par || '—'}`}>
+                        <IconCheck size={11} stroke={3} /></span>
+                    )}
                     <span className="text-[11px] text-slate-400 ml-1.5 tabular-nums">{e.id_ecampus}</span>
                     {e.primo && <span className="ml-1.5 text-[10px] font-semibold px-1.5 rounded bg-slate-100 text-slate-600"
                       title="Primo-arrivé : aucune trace avant l'année de travail">primo</span>}

@@ -1097,6 +1097,14 @@ r.get('/', authRequired, (req, res) => {
       .all(anneeActive).map(x => x.etudiant_id),
   ]);
 
+  // LE PAE VALIDÉ DANS LA REVUE se voit dans la liste (Charles, 2 octobre
+  // 2026 : une bille verte au v blanc, à côté du nom).
+  const valides = new Map();
+  try {
+    for (const x of db.prepare('SELECT etudiant_id, revu_le, revu_par FROM pae_revue WHERE annee_scolaire = ?').all(anneeActive))
+      valides.set(x.etudiant_id, x);
+  } catch { /* table pas encore créée */ }
+
   res.json(vus.map(r0 => {
     const n = niveauEtudiant(r0.id, anneeActive);
     const rat = sectionRattachement(r0.id, anneeActive);
@@ -1109,6 +1117,7 @@ r.get('/', authRequired, (req, res) => {
       segment: segment(r0),
       // Tant que le programme n'est pas confirmé, il n'est qu'une proposition.
       pae_confirme: confirmes.has(r0.id),
+      pae_valide: valides.has(r0.id) ? { le: valides.get(r0.id).revu_le, par: valides.get(r0.id).revu_par } : null,
       primo: !anciensListe.has(r0.id),
       section_rattachement: rat.section,
       section_deduite: rat.deduite,
