@@ -351,6 +351,7 @@ export function dossierDiplomation(section, annee) {
   const requises = unitesDeLaSection(section, annee);
   const ei = epreuveIntegreeDe(requises);
   const det = determinantesDe(requises, annee);
+  const periodesEI = ei ? (db.prepare('SELECT MAX(COALESCE(ue_per_etudiants, 0)) p FROM ue WHERE ue_num = ?').get(ei)?.p || null) : null;
   const regles = reglesMention();
 
   if (!requises.length) {
@@ -388,7 +389,9 @@ export function dossierDiplomation(section, annee) {
       const c = coteArretee(e.id, u.ue_num);
       return { ...u, ...c, close: seanceClose(u.ue_num, c.annee, c.session) };
     });
-    const cEI = ei ? { ue_num: ei, ...coteArretee(e.id, ei) } : null;
+    // L'ÉPREUVE A SES PÉRIODES, COMME LES AUTRES UNITÉS (2 octobre 2026 : la
+    // ligne de l'attestation portait « — » en dur).
+    const cEI = ei ? { ue_num: ei, periodes: periodesEI, ...coteArretee(e.id, ei) } : null;
       if (cEI) cEI.close = seanceClose(ei, cEI.annee, cEI.session);
 
     const m = calculerMention(lignes, cEI?.cote ?? null, regles);
@@ -652,7 +655,7 @@ function attestationSection(d, ctx) {
           <td class="n">${cote(u.cote)}</td></tr>`).join('')}
         ${d.epreuve ? `<tr class="ei">
           <td>${d.epreuve.ue_num}</td><td>Épreuve intégrée</td>
-          <td class="n">—</td><td class="n">${cote(d.epreuve.cote)}</td></tr>` : ''}
+          <td class="n">${d.epreuve.periodes || '—'}</td><td class="n">${cote(d.epreuve.cote)}</td></tr>` : ''}
       </tbody>
     </table>
 

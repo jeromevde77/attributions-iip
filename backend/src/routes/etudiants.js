@@ -3541,6 +3541,15 @@ r.get('/:id/revue-pae', authRequired, (req, res) => {
   res.json(d);
 });
 
+/* LA VALIDATION DE LA REVUE, LUE PAR LA FICHE (2 octobre 2026 : « une fois
+   validé, le message sur la fiche est : ce PAE a été validé le … par … »). */
+r.get('/:id/revue-pae/revu', authRequired, (req, res) => {
+  const id = Number(req.params.id);
+  if (!etudiantPermis(req, res, id)) return;
+  const annee = req.query.annee || anneeDeTravail(req);
+  res.json({ revu: db.prepare('SELECT revu_le, revu_par FROM pae_revue WHERE etudiant_id = ? AND annee_scolaire = ?').get(id, annee) || null });
+});
+
 /* CELUI QUI COCHE EST CELUI QUI SIGNE : le nom vient de la session, jamais d'un champ. */
 r.put('/:id/revue-pae/revu', authRequired, (req, res) => {
   const id = Number(req.params.id);
@@ -3584,7 +3593,7 @@ function pageRevue(d, esc) {
     <p class="resume">${ch.ects_acquis} ECTS acquis · ${ch.nb_ue} UE au PAE (${ch.ects_pae} ECTS) · <b>${ch.cours_reportes} cours reporté(s) d'office</b>${ch.cours_va ? ` · ${ch.cours_va} dispensé(s) par VA` : ''}${d.ues.filter(u => u.etat === 'reprendre').length ? ` · ${d.ues.filter(u => u.etat === 'reprendre').length} UE à reprendre en entier` : ''}${d.ues.filter(u => u.deja).length ? ` · <b>${d.ues.filter(u => u.deja).length} UE déjà acquise(s) remise(s) au PAE — à vérifier</b>` : ''}</p>
     <table><thead><tr><th style="width:12%">UE / cours</th><th>Intitulé</th><th style="width:8%" class="n">Pér.</th><th style="width:30%">Statut</th></tr></thead>
     <tbody>${lignes || '<tr><td colspan="4">Aucune UE au PAE de cette année.</td></tr>'}</tbody></table>
-    <p class="pied-revue">Les cours non cités sont à suivre.${d.revu ? ` PAE revu par ${esc(d.revu.revu_par || '')} le ${esc(String(d.revu.revu_le).slice(0, 10).split('-').reverse().join('/'))}.` : ''}</p>
+    <p class="pied-revue">Les cours non cités sont à suivre.${d.revu ? ` PAE validé par ${esc(d.revu.revu_par || '')} le ${esc(String(d.revu.revu_le).slice(0, 10).split('-').reverse().join('/'))}.` : ''}</p>
   </div>`;
 }
 const STYLE_REVUE = `
