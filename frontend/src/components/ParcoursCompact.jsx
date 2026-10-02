@@ -157,7 +157,11 @@ export default function ParcoursCompact({ etudId, annee, programme = new Set(), 
                 style={{ fill: t.fond, stroke: relief && n.ue_num === survol ? '#16406A' : t.bord }}
                 strokeWidth={n.ue_num === survol ? 1.8 : 1.2} />
               <text x={x + L / 2} y={y + 15.5} textAnchor="middle" fontSize="12" fontWeight="700" style={{ fill: t.texte }}>{n.ue_num}</text>
-              {dispenses.has(n.ue_num) && <circle cx={x + L - 5} cy={y + 5} r={2.5} fill="#475569" />}
+              {/* Repères : refusée une fois (rouge, haut gauche), déterminante
+                  (marine, haut droit), report ou VA (gris, bas droit). */}
+              {n.refusee && <circle cx={x} cy={y} r={3.6} fill="#C0392B" stroke="#fff" strokeWidth={1} />}
+              {n.determinante && <circle cx={x + L} cy={y} r={3.6} fill="#16406A" stroke="#fff" strokeWidth={1} />}
+              {dispenses.has(n.ue_num) && <circle cx={x + L - 5} cy={y + H - 5} r={2.5} fill="#475569" />}
             </g>
           );
         })}
@@ -170,7 +174,9 @@ export default function ParcoursCompact({ etudId, annee, programme = new Set(), 
         <Leg bord="#94A3B8" /> accessible ·
         <Leg bord="#CBD5E1" /> pas encore ·
         <Leg bord="var(--c-refuse, #9D4A38)" /> ajournée ·
-        <Leg bord="#C9A227" /> épreuve<br />
+        <Leg bord="#C9A227" /> épreuve ·
+        <Rep c="#C0392B" g /> refusée une fois ·
+        <Rep c="#16406A" /> déterminante<br />
         Flèche bleue pleine : elle touche le PAE de l'année · grise : le reste du parcours · pointillés : prérequis recommandé.
       </div>
     </div>
@@ -180,7 +186,15 @@ export default function ParcoursCompact({ etudId, annee, programme = new Set(), 
 function Leg({ fond = '#fff', bord, point = false }) {
   return (
     <span className="relative inline-block align-[-2px] mx-1" style={{ width: 20, height: 12, borderRadius: 3, background: fond, border: `1.5px solid ${bord}` }}>
-      {point && <span className="absolute right-[2px] top-[2px] w-[4px] h-[4px] rounded-full bg-slate-600" />}
+      {point && <span className="absolute right-[2px] bottom-[2px] w-[4px] h-[4px] rounded-full bg-slate-600" />}
+    </span>
+  );
+}
+
+function Rep({ c, g = false }) {
+  return (
+    <span className="relative inline-block align-[-2px] mx-1" style={{ width: 20, height: 12, borderRadius: 3, border: '1.5px solid #94A3B8', background: '#fff' }}>
+      <span className="absolute w-[7px] h-[7px] rounded-full" style={{ background: c, top: -4, [g ? 'left' : 'right']: -4, border: '1px solid #fff' }} />
     </span>
   );
 }
