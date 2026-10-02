@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useRef, Fragment } from 'react';
 import { api, getAnnee, getUser, authHeaders } from '../lib/api.js';
 import { IconChartBar, IconHome, IconUsers, IconSettings, IconChevronRight, IconChevronDown, IconPrinter, IconRotateClockwise, IconCheck, IconX, IconTrash, IconCash, IconCalendar, IconArrowsLeftRight, IconScale, IconUsersGroup } from '@tabler/icons-react';
-import { PageHeader, Tabs, RailLateral } from '../components/ui.jsx';
+import { PageHeader, Tabs, RailLateral, OuvrirEditions } from '../components/ui.jsx';
 import Distributions from '../components/Distributions.jsx';
 import Population from '../components/Population.jsx';
 import CentreImpressionCentral from '../components/CentreImpressionCentral.jsx';
@@ -763,10 +763,8 @@ export default function Pilotage({ vue = 'tout' }) {
               <button onClick={() => setRapportPaysage(false)} className={`px-2.5 py-1 ${!rapportPaysage ? 'bg-iip-blue text-white' : 'bg-white text-gray-500'}`}>Portrait</button>
               <button onClick={() => setRapportPaysage(true)} className={`px-2.5 py-1 ${rapportPaysage ? 'bg-iip-blue text-white' : 'bg-white text-gray-500'}`}>Paysage</button>
             </div>
-            <button onClick={() => imprimerDotation(rapportPaysage)}
-              className="inline-flex items-center gap-1.5 bg-iip-blue text-white text-xs px-3 py-1.5 h-9 rounded-lg hover:opacity-90">
-              <IconPrinter size={15} /> Rapport A4
-            </button>
+            <OuvrirEditions ongletInitial="gestion" titre="Imprimer ou envoyer le rapport — centre d'édition"
+              pieces={[{ cle: 'dotation', label: 'Rapport de dotation (A4)', description: rapportPaysage ? 'Paysage' : 'Portrait', onClick: () => imprimerDotation(rapportPaysage) }]} />
           </div>
         </div>
         <div className="space-y-2">
@@ -1068,10 +1066,8 @@ export default function Pilotage({ vue = 'tout' }) {
                       <button onClick={() => setRapportPaysage(false)} className={`px-2 py-1 ${!rapportPaysage ? 'bg-iip-blue text-white' : 'bg-white text-gray-500'}`}>Portrait</button>
                       <button onClick={() => setRapportPaysage(true)}  className={`px-2 py-1 ${rapportPaysage ? 'bg-iip-blue text-white' : 'bg-white text-gray-500'}`}>Paysage</button>
                     </div>
-                    <button onClick={() => imprimerDotation(rapportPaysage)}
-                      className="inline-flex items-center gap-1 bg-iip-blue text-white text-[10px] px-2.5 py-1 rounded hover:opacity-90">
-                      <IconPrinter size={12} /> Rapport A4
-                    </button>
+                    <OuvrirEditions taille="petit" ongletInitial="gestion" titre="Imprimer ou envoyer le rapport — centre d'édition"
+                      pieces={[{ cle: 'dotation', label: 'Rapport de dotation (A4)', description: rapportPaysage ? 'Paysage' : 'Portrait', onClick: () => imprimerDotation(rapportPaysage) }]} />
                   </div>
                 </div>
                 {!dotTable ? (

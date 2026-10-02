@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { OuvrirEditions } from './ui.jsx';
 import {
   IconX, IconPrinter, IconAlertTriangle, IconCertificate,
 } from '@tabler/icons-react';
@@ -227,20 +228,12 @@ export default function ListeDiplomes({ annee, onClose }) {
               className="px-3 py-1.5 text-[13px] rounded-lg border border-slate-300 text-slate-600">
               Fermer
             </button>
-            <button onClick={() => imprimer('liste')} disabled={enCours || !choisis.size}
-              title="Document de travail — ne figure pas dans la circulaire"
-              className="px-3 py-2 text-[13px] rounded-lg border border-slate-300
-                         text-slate-600 disabled:opacity-40 flex items-center gap-1.5">
-              <IconPrinter size={14} /> Liste des diplômés
-            </button>
-            {/* L'ACTE, et non le document de travail : c'est lui qui fonde le
-                titre, et c'est donc lui qui porte le bouton principal. */}
-            <button onClick={() => imprimer('pv')} disabled={enCours || !choisis.size}
-              title="Annexe 6 (section avec épreuve intégrée) ou 7 — l'acte qui fonde le titre"
-              className="px-4 py-2 text-[13px] rounded-lg bg-iip-blue text-white font-semibold
-                         disabled:opacity-40 flex items-center gap-1.5">
-              <IconPrinter size={14} /> Procès-verbal de section
-            </button>
+            {/* L'AVION MÈNE AU CENTRE D'ÉDITION (2 octobre 2026) : l'acte et le document de travail y sont, en tête. */}
+            <OuvrirEditions disabled={enCours || !choisis.size} titre="Procès-verbal de section et liste des diplômés — centre d'édition"
+              pieces={[
+                { cle: 'pv', label: 'Procès-verbal de section', description: "Annexe 6 (section avec épreuve intégrée) ou 7 — l'acte qui fonde le titre", onClick: () => imprimer('pv') },
+                { cle: 'liste', label: 'Liste des diplômés', description: 'Document de travail — ne figure pas dans la circulaire', onClick: () => imprimer('liste') },
+              ]} />
           </div>
         </div>
       </div>

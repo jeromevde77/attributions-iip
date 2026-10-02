@@ -4,6 +4,7 @@ import { IconBooks, IconChevronLeft, IconAlertTriangle, IconMessageCircle, IconP
 import { authHeaders, getAnnee } from '../lib/api.js';
 import { MOTIFS_ECHEC } from '../components/motifsEchec.js';
 import PresencesCours from '../components/PresencesCours.jsx';
+import { OuvrirEditions } from '../components/ui.jsx';
 import AvisValorisationProf from '../components/AvisValorisationProf.jsx';
 import AvisAmenagementProf from '../components/AvisAmenagementProf.jsx';
 
@@ -393,12 +394,10 @@ export default function MesCours() {
                     ))}
                   </div>
                 )}
-                <button type="button" onClick={imprimerGroupes} disabled={!!impression}
-                  className="bouton bouton-sortir controle inline-flex items-center gap-1.5 ml-auto"
-                  title={groupesDispo.length && !groupeVu ? 'Une feuille par groupe' : 'La liste des étudiants affichés'}>
-                  <IconPrinter size={14} /> {impression ? 'Production…'
-                    : groupeVu ? `Liste du groupe ${groupeVu}` : groupesDispo.length > 1 ? 'Listes par groupe' : 'Liste des étudiants'}
-                </button>
+                <span className="ml-auto" />
+                <OuvrirEditions disabled={!!impression} titre="Imprimer ou envoyer les listes — centre d'édition"
+                  pieces={[{ cle: 'listes-cours', label: groupesDispo.length && !groupeVu ? 'Listes du cours — une feuille par groupe' : 'Liste des étudiants affichés',
+                    description: 'Avec une colonne de signature', onClick: () => imprimerGroupes() }]} />
               </div>
             )}
             {face === 'presences' && <PresencesCours coursCode={ouvert} annee={annee} />}

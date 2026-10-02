@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { OuvrirEditions } from '../components/ui.jsx';
 import {
   IconPrinter, IconDeviceFloppy, IconLock, IconLockOpen, IconArrowLeft,
   IconAlertTriangle, IconCheck, IconCircleCheck, IconPencil, IconEye, IconFileText,
@@ -522,11 +523,8 @@ function Fiche({ ueNum, onRetour }) {
           </div>
         </div>
         <div className="flex flex-none gap-2">
-          <button onClick={imprimer}
-            className="px-3 py-1.5 text-[12px] rounded-lg border border-slate-300 text-slate-600
-                       flex items-center gap-1.5 hover:bg-slate-50">
-            <IconPrinter size={14} /> Imprimer
-          </button>
+          <OuvrirEditions titre="Imprimer ou envoyer le DUE — centre d'édition"
+            pieces={[{ cle: 'due', label: 'Document d’unité d’enseignement (DUE)', description: 'Tel qu’il est à l’écran', onClick: () => imprimer() }]} />
           {d.droits.valider && (
             <button onClick={basculerValidation} disabled={enCours}
               className={`px-3 py-1.5 text-[12px] rounded-lg font-semibold flex items-center gap-1.5

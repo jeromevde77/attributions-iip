@@ -6,7 +6,7 @@ import {
 } from '@tabler/icons-react';
 import { authHeaders, getUser } from '../lib/api.js';
 import FriseEcheances from '../components/FriseEcheances.jsx';
-import { Fenetre, PageHeader, RailLateral } from '../components/ui.jsx';
+import { Fenetre, PageHeader, RailLateral, OuvrirEditions } from '../components/ui.jsx';
 import { nomDepuisChaine, nomListe, parNom } from '../lib/nom.js';
 import PreviewModal from '../components/PreviewModal.jsx';
 import ConfierTache from '../components/ConfierTache.jsx';
@@ -140,7 +140,8 @@ export default function SuiviEquipe() {
       <RailLateral
         icon={IconChecklist} titre="Suivi d'équipe"
         sousTitre={`${tachesOuvertes.length} tâche(s) ouverte(s)`}
-        impression={null}
+        impression="etudiants"
+        pieces={[{ cle: 'feuille-taches', label: 'Feuille des tâches', description: 'Toutes les tâches en cours, par personne', onClick: () => imprimer('/taches/document') }]}
         sections={[
           /* L'ICÔNE DU TEMPS POUR LA FRISE, JAMAIS CELLE DU TITRE DE L'ÉCRAN.
              `IconChecklist` désigne déjà Suivi d'équipe lui-même : le rail
@@ -158,9 +159,7 @@ export default function SuiviEquipe() {
               onClick: () => setConfier(true) },
             { key: 'nouvelle', label: 'Nouvelle réunion', icon: IconPlus,
               onClick: () => nouvelleReunion() },
-            { key: 'feuille', label: 'Feuille des tâches', icon: IconPrinter,
-              couleur: 'var(--menu-accent)',
-              onClick: () => imprimer('/taches/document') },
+
             ...(direction ? [{ key: 'rapport-mois', label: 'Rapport du mois', icon: IconReport,
               onClick: () => setRapportMois(moisParDefaut()) }] : []),
           ]},
@@ -380,10 +379,9 @@ function DetailReunion({ reunion, personnes, obligations, types = [], perimetre,
         <div className="flex-1" />
         <span className="text-[11.5px] text-slate-400">{enregistre ? 'Enregistré' : ''}</span>
         <button onClick={() => enregistrer()} className="bouton-fort controle px-3">Enregistrer</button>
-        <button onClick={() => onImprimer()} className="bouton-sortir controle px-3 flex items-center gap-1.5"
-          title="Le PV à diffuser : les notes confidentielles n'y figurent pas">
-          <IconPrinter size={16} /> Procès-verbal
-        </button>
+        {/* L'AVION MÈNE AU CENTRE D'ÉDITION (2 octobre 2026), la pièce de cet écran en tête. */}
+        <OuvrirEditions titre="Imprimer ou envoyer le procès-verbal — centre d'édition"
+          pieces={[{ cle: 'pv-reunion', label: 'Procès-verbal de la réunion', description: 'Le PV à diffuser : les notes confidentielles n’y figurent pas', onClick: () => onImprimer() }]} />
         {reunion.peut_confidentiel && (
           <button onClick={() => onImprimer('integrale')} className="bouton controle px-3
             flex items-center gap-1.5 text-[color:var(--brique)]"
@@ -1094,10 +1092,8 @@ function VueTaches({ taches, personnes, obligations, api, filtre, setFiltre,
                 </button>
               ))}
             </div>
-            <button onClick={onImprimer} className="bouton-sortir controle px-3
-              flex items-center gap-1.5">
-              <IconPrinter size={16} /> Imprimer
-            </button>
+            <OuvrirEditions titre="Imprimer ou envoyer — centre d'édition"
+              pieces={[{ cle: 'echeances', label: 'Échéances et tâches', description: 'La liste telle qu’elle est filtrée', onClick: () => onImprimer() }]} />
           </>
         } />
 
