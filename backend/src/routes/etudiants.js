@@ -104,11 +104,38 @@ export function niveauEtudiant(etudId, annee) {
   const presents = Object.keys(detail);
   if (!presents.length) return { niveau: null, libelle: null, detail };
 
+  /* LE STAGE CLASSE (Charles, 2 octobre 2026) : l'épreuve intégrée au PAE
+     donne « Diplômant » ; sinon le stage le plus avancé du PAE décide — stage
+     de BA1 → Parcours B1, de BA2 → Parcours B2, de BA3 → Diplômant. Sans
+     stage, la règle des blocs. Toutes les sections. Le niveau ne sert qu'à
+     lire et à filtrer : le moteur du PAE ne le consulte pas. */
+  const LIB = { BA1: 'Parcours B1', BA2: 'Parcours B2', BA3: 'Diplômant' };
+  const nums = lignes.map(l => l.ue_num);
+  const ph = nums.map(() => '?').join(',');
+  let ei = false;
+  try {
+    ei = !!db.prepare(`SELECT 1 FROM ue_epreuve_integree WHERE actif = 1 AND ue_num IN (${ph}) LIMIT 1`).get(...nums);
+  } catch { /* table absente */ }
+  if (!ei) {
+    try { ei = !!db.prepare(`SELECT 1 FROM ue WHERE is_epreuve_integree = 1 AND ue_num IN (${ph}) LIMIT 1`).get(...nums); }
+    catch { /* colonne absente */ }
+  }
+  if (ei) return { niveau: 'BA3', libelle: 'Diplômant', detail, annee: anneeRetenue, par: 'epreuve' };
+  let stages = [];
+  try {
+    stages = db.prepare(`SELECT DISTINCT ue_num FROM cours WHERE COALESCE(is_stage, 0) = 1 AND ue_num IN (${ph})`)
+      .all(...nums).map(x => (niveaux[x.ue_num] || '').toUpperCase()).filter(n => LIB[n]);
+  } catch { /* colonne absente */ }
+  if (stages.length) {
+    const haut = stages.sort().pop();
+    return { niveau: haut, libelle: LIB[haut], detail, annee: anneeRetenue, par: 'stage' };
+  }
+
   if (presents.length === 1) {
     const seul = presents[0];
     return {
       niveau: seul,
-      libelle: seul === 'BA3' ? 'Diplômant' : seul,
+      libelle: LIB[seul] || seul,
       detail, annee: anneeRetenue,
     };
   }
