@@ -3,6 +3,8 @@ import db from '../db/index.js';
 import { authRequired, roleRequired, getUserSections } from '../middleware/auth.js';
 import { anneeDeTravail } from '../helpers/annee.js';
 import { PEUT_INSTRUIRE } from '../lib/valorisation.js';
+import { existsSync } from 'fs';
+import { profConcerne, rendreAvis } from '../lib/avisVA.js';
 import { ecrirePresences, minutesDe, STATUTS_PRESENCE, MOTIFS_JUSTIFIES } from '../lib/cep.js';
 import { envelopperDocument, piedGabaritPdf, BANDE_PIED_MM } from '../lib/document.js';
 import { capacitePdf, rendrePdf } from '../services/pdf.js';
@@ -269,6 +271,72 @@ function accesCours(req, coursCode, annee) {
 }
 
 // ── Mes cours de l'année ─────────────────────────────────────────────────────
+/* ══ LES AVIS DE VALORISATION, DANS L'ESPACE DU CHARGÉ DE COURS ══════════════
+ * (Charles, 2 octobre 2026.) Le chargé de cours attribué aux cours visés voit
+ * la demande dès qu'elle est recevable, ouvre les pièces déposées, et rend SON
+ * avis — sens et motivation, obligatoires. Il le corrige tant que le Conseil
+ * n'a pas décidé ; ensuite il le relit. Celui qui clique est celui qui signe :
+ * l'avis porte le nom du dossier professeur du compte connecté. */
+function dossierVA(vid) {
+  return db.prepare(`SELECT v.*, e.nom AS e_nom, e.prenom AS e_prenom, e.id_ecampus,
+      (SELECT ue_nom FROM ue u WHERE u.ue_num = v.ue_num AND u.ue_nom IS NOT NULL ORDER BY u.annee_scolaire DESC LIMIT 1) AS ue_nom,
+      (SELECT section FROM ue u WHERE u.ue_num = v.ue_num AND u.section IS NOT NULL ORDER BY u.annee_scolaire DESC LIMIT 1) AS section
+      FROM etudiant_valorisation v JOIN etudiant e ON e.id = v.etudiant_id WHERE v.id = ?`).get(vid);
+}
+
+r.get('/valorisations', authRequired, (req, res) => {
+  const pid = profDe(req);
+  if (!pid) return res.json({ dossiers: [], sans_dossier_professeur: true });
+  const annee = req.query.annee || anneeDeTravail(req);
+  const ids = db.prepare(`SELECT id FROM etudiant_valorisation WHERE recevable = 1 AND ue_num > 0
+      AND annee_scolaire = ?`).all(annee).map(x => x.id);
+  const dossiers = [];
+  for (const id of ids) {
+    const v = dossierVA(id);
+    if (!v || !profConcerne(v, pid)) continue;
+    const avis = db.prepare('SELECT professeur_id, auteur, sens, texte, rendu_le FROM valorisation_avis WHERE valorisation_id = ? ORDER BY rendu_le').all(id);
+    const mien = avis.find(a => a.professeur_id === pid) || null;
+    dossiers.push({
+      id, annee: v.annee_scolaire, etudiant: `${(v.e_nom || '').toUpperCase()} ${v.e_prenom || ''}`.trim(), id_ecampus: v.id_ecampus,
+      section: v.section, ue_num: v.ue_num, ue_nom: v.ue_nom, porte: v.porte,
+      cours_demandes: v.cible === 'cours' ? String(v.cible_detail || '').split(',').map(x => x.trim()).filter(Boolean) : [],
+      recevable_le: v.recevabilite_le, decision_le: v.decision_le, valide_le: v.valide_le,
+      mon_avis: mien ? { sens: mien.sens, texte: mien.texte, rendu_le: mien.rendu_le } : null,
+      autres_avis: avis.filter(a => a.professeur_id !== pid).map(a => ({ auteur: a.auteur, sens: a.sens, texte: a.texte, rendu_le: a.rendu_le })),
+      // L'avis déjà saisi par la coordination, s'il n'est pas encore dans la liste.
+      avis_dossier: !avis.length && v.avis_le ? { auteur: v.avis_par, sens: v.avis_sens, texte: v.avis_texte, rendu_le: v.avis_le } : null,
+      fichiers: db.prepare('SELECT id, nom, nature, taille FROM etudiant_valorisation_fichier WHERE valorisation_id = ? ORDER BY id').all(id),
+    });
+  }
+  dossiers.sort((a, b) => (!!a.mon_avis - !!b.mon_avis) || (!!a.decision_le - !!b.decision_le) || a.etudiant.localeCompare(b.etudiant, 'fr'));
+  res.json({ annee, dossiers });
+});
+
+r.get('/valorisations/fichiers/:fid', authRequired, (req, res) => {
+  const pid = profDe(req);
+  const f = db.prepare('SELECT * FROM etudiant_valorisation_fichier WHERE id = ?').get(Number(req.params.fid));
+  if (!f || !existsSync(f.chemin)) return res.status(404).json({ error: 'Pièce introuvable' });
+  const v = dossierVA(f.valorisation_id);
+  // 404 et non 403 : « interdit » confirmerait que la pièce existe.
+  if (!v || v.recevable !== 1 || !profConcerne(v, pid)) return res.status(404).json({ error: 'Pièce introuvable' });
+  res.download(f.chemin, f.nom);
+});
+
+r.put('/valorisations/:vid/avis', authRequired, (req, res) => {
+  const pid = profDe(req);
+  if (!pid) return res.status(403).json({ error: 'Votre compte n’est relié à aucun dossier professeur : l’avis ne peut pas porter votre nom.' });
+  const v = dossierVA(Number(req.params.vid));
+  if (!v || !profConcerne(v, pid)) return res.status(404).json({ error: 'Demande introuvable.' });
+  if (v.recevable !== 1) return res.status(409).json({ error: 'La demande n’est pas (ou plus) déclarée recevable.' });
+  if (v.decision_le || v.valide_le) return res.status(409).json({ error: 'Le Conseil a déjà décidé : l’avis ne se modifie plus.' });
+  const sens = String(req.body?.sens || '');
+  if (!['favorable', 'partiel', 'defavorable'].includes(sens)) return res.status(400).json({ error: 'Le sens de l’avis est requis : favorable, partiel ou défavorable.' });
+  const texte = String(req.body?.texte || '').trim();
+  if (texte.length < 15) return res.status(400).json({ error: 'Un avis se motive par écrit : ce que vous avez comparé au dossier pédagogique, et ce que vous en concluez. Il n’y a pas de recours ensuite.' });
+  rendreAvis(req, v, pid, sens, texte);
+  res.json({ ok: true });
+});
+
 r.get('/', authRequired, (req, res) => {
   const annee = req.query.annee || anneeDeTravail(req);
   const profId = profDe(req);

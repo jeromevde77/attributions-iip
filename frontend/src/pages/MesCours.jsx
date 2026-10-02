@@ -4,6 +4,7 @@ import { IconBooks, IconChevronLeft, IconAlertTriangle, IconMessageCircle, IconP
 import { authHeaders, getAnnee } from '../lib/api.js';
 import { MOTIFS_ECHEC } from '../components/motifsEchec.js';
 import PresencesCours from '../components/PresencesCours.jsx';
+import AvisValorisationProf from '../components/AvisValorisationProf.jsx';
 
 /**
  * MES COURS — la porte du professeur.
@@ -121,6 +122,9 @@ export default function MesCours() {
           <IconAlertTriangle size={16} className="flex-none mt-0.5" />{erreur}
         </div>
       )}
+
+      {/* LES AVIS DE VALORISATION ATTENDUS, au-dessus des cours : c'est un délai. */}
+      {!ouvert && <AvisValorisationProf annee={annee} />}
 
       {!ouvert && cours && (() => {
         /* DEUX LISTES : mes cours, puis ceux de ma section (coordination —

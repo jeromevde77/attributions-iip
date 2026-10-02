@@ -498,7 +498,10 @@ r.get('/feed', authRequired, (req, res) => {
 
   // 3. Changelog système
   try {
-    const cl = db.prepare('SELECT * FROM lucie_changelog ORDER BY cree_le DESC LIMIT 10').all();
+    // UNE ANNONCE A UNE SAISON : au-delà de soixante jours, elle n'annonce plus
+    // rien — elle encombre l'accueil de tous (2 octobre 2026).
+    const cl = db.prepare(`SELECT * FROM lucie_changelog WHERE cree_le >= datetime('now', '-60 days')
+      ORDER BY cree_le DESC LIMIT 10`).all();
     for (const c of cl) {
       let lue = false;
       try { lue = JSON.parse(c.lue_par || '[]').includes(u.id); } catch {}

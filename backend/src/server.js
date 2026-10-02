@@ -2499,15 +2499,10 @@ try {
     cree_le   TEXT DEFAULT (datetime('now')),
     lue_par   TEXT DEFAULT '[]'
   );`);
-  // Entrée initiale
-  const nb = db.prepare('SELECT COUNT(*) as n FROM lucie_changelog').get().n;
-  if (nb === 0) {
-    db.prepare("INSERT INTO lucie_changelog (titre, corps, version) VALUES (?, ?, ?)").run(
-      'Module Recrutement disponible',
-      'Le module Recrutement est maintenant actif. Il permet de gérer les postes à pourvoir, les candidats, les entretiens et d\'attribuer directement un candidat retenu vers le personnel.',
-      '3.4.0'
-    );
-  }
+  /* PLUS D'ANNONCE SEMÉE AU DÉMARRAGE (2 octobre 2026). L'entrée « Module
+     Recrutement disponible — v3.4.0 », posée en juin sur une base vide,
+     paraissait encore chez TOUT LE MONDE à l'accueil, enseignants compris,
+     avec un numéro de version que Lucie n'a jamais porté. */
 } catch(e) { console.error('[migration] lucie_changelog :', e.message); }
 
 // ── Recrutement : champ fonction sur candidat + table fonctions ───────────────

@@ -31,6 +31,7 @@ import { calculerDI, calculerDIS } from './droitInscription.js';
 import { rapprocher, normDate } from './importHistorique.js';
 import { lirePackUF } from '../lib/packUF.js';
 import { schemaSvg, legendeSchemaHtml } from '../lib/schemaSvg.js';
+import { appelerCharges, avisCoordination } from '../lib/avisVA.js';
 
 const r = Router();
 
@@ -7659,6 +7660,8 @@ r.put('/valorisations/:vid/recevabilite', authRequired, roleRequired(...PEUT_INS
       .run(recevable, recevable ? null : motif, qui, vid);
     journaliser(vid, recevable ? 'recevable' : 'irrecevable', req,
       recevable ? null : motif);
+    // RECEVABLE : les chargés de cours des cours visés sont appelés et prévenus.
+    if (recevable) appelerCharges(vid).catch(e => console.error('[avisVA]', e.message));
     res.json({ ok: true, etat: rafraichirEtat(vid) });
   });
 
@@ -7702,9 +7705,13 @@ r.put('/valorisations/:vid/avis', authRequired, roleRequired(...PEUT_INSTRUIRE, 
     // qui a tenu le clavier.
     const qui = String(req.body.avis_par || '').trim()
       || req.user?.nom || req.user?.email || null;
-    db.prepare(`UPDATE etudiant_valorisation
-      SET avis_sens = ?, avis_texte = ?, avis_par = ?, avis_le = datetime('now')
-      WHERE id = ?`).run(sens, texte, qui, vid);
+    // Des chargés de cours ont déjà rendu le leur dans Mes cours : celui-ci
+    // s'ajoute à la liste, il ne les écrase pas.
+    if (!avisCoordination(v, qui, sens, texte, req.user?.nom || req.user?.email || null)) {
+      db.prepare(`UPDATE etudiant_valorisation
+        SET avis_sens = ?, avis_texte = ?, avis_par = ?, avis_le = datetime('now')
+        WHERE id = ?`).run(sens, texte, qui, vid);
+    }
     journaliser(vid, 'avis', req, `${sens} — ${texte.slice(0, 180)}`);
     res.json({ ok: true, etat: rafraichirEtat(vid) });
   });
@@ -8223,7 +8230,9 @@ r.post('/valorisations/lot/avis', authRequired, roleRequired(...PEUT_INSTRUIRE, 
       SET avis_sens = ?, avis_texte = ?, avis_par = ?, avis_le = datetime('now')
       WHERE id = ?`);
     db.transaction(() => {
-      for (const v of cibles) maj.run(sens, texte, auteur, v.id);
+      for (const v of cibles) {
+        if (!avisCoordination(v, auteur, sens, texte, req.user?.nom || req.user?.email || null)) maj.run(sens, texte, auteur, v.id);
+      }
     })();
     for (const v of cibles) {
       journaliser(v.id, 'avis', req,
@@ -8541,6 +8550,7 @@ r.post('/valorisations/lot/recevabilite', authRequired,
       journaliser(v.id, recevable ? 'recevable' : 'irrecevable', req,
         `en série (${cibles.length} dossiers)${recevable ? '' : ` · ${motif}`}`);
       rafraichirEtat(v.id);
+      if (recevable) appelerCharges(v.id).catch(e => console.error('[avisVA]', e.message));
     }
     res.json({ ok: true, traites: cibles.length, recevable: !!recevable });
   });
