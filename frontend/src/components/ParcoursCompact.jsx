@@ -94,7 +94,8 @@ export default function ParcoursCompact({ etudId, annee, programme = new Set(), 
     if (n.statut === 'acquise') return n.reussite?.faveur
       ? { fond: 'var(--c-faveur, #6B46C1)', bord: 'var(--c-faveur, #6B46C1)', texte: '#fff' }
       : { fond: 'var(--c-reussi, #3E7D5E)', bord: 'var(--c-reussi, #3E7D5E)', texte: '#fff' };
-    if (auPAE(n.ue_num)) return { fond: '#fff', bord: 'var(--c-disponible, #2F6FB0)', texte: 'var(--c-disponible, #2F6FB0)' };
+    // LES UE DE L'ANNÉE, EN BLEU PLEIN (Charles, 2 octobre 2026).
+    if (auPAE(n.ue_num)) return { fond: 'var(--c-disponible, #2F6FB0)', bord: 'var(--c-disponible, #2F6FB0)', texte: '#fff' };
     if (n.statut === 'en_attente') return { fond: '#fff', bord: 'var(--c-refuse, #9D4A38)', texte: 'var(--c-refuse, #9D4A38)' };
     if (n.statut === 'accessible' || n.statut === 'sous_reserve') return { fond: '#fff', bord: '#94A3B8', texte: '#475569' };
     return { fond: '#fff', bord: '#CBD5E1', texte: '#94A3B8' };
@@ -161,7 +162,7 @@ export default function ParcoursCompact({ etudId, annee, programme = new Set(), 
                   (marine, haut droit), report ou VA (gris, bas droit). */}
               {n.refusee && <circle cx={x} cy={y} r={3.6} fill="#C0392B" stroke="#fff" strokeWidth={1} />}
               {n.determinante && <circle cx={x + L} cy={y} r={3.6} fill="#16406A" stroke="#fff" strokeWidth={1} />}
-              {dispenses.has(n.ue_num) && <circle cx={x + L - 5} cy={y + H - 5} r={2.5} fill="#475569" />}
+              {dispenses.has(n.ue_num) && <circle cx={x + L - 5} cy={y + H - 5} r={2.5} fill={auPAE(n.ue_num) ? '#fff' : '#475569'} />}
             </g>
           );
         })}
@@ -169,8 +170,8 @@ export default function ParcoursCompact({ etudId, annee, programme = new Set(), 
       <div className="min-h-[20px] mt-1 text-[12px] text-iip-texte">{etiquette || <span className="text-slate-400">Survolez une unité pour voir sa chaîne de prérequis.</span>}</div>
       <div className="text-[11px] text-slate-500 leading-[1.9] mt-1">
         <Leg fond="var(--c-reussi, #3E7D5E)" bord="var(--c-reussi, #3E7D5E)" /> réussie ·
-        <Leg bord="var(--c-disponible, #2F6FB0)" /> au PAE ·
-        <Leg bord="var(--c-disponible, #2F6FB0)" point /> avec report ou VA ·
+        <Leg fond="var(--c-disponible, #2F6FB0)" bord="var(--c-disponible, #2F6FB0)" /> au PAE ·
+        <Leg fond="var(--c-disponible, #2F6FB0)" bord="var(--c-disponible, #2F6FB0)" point /> avec report ou VA ·
         <Leg bord="#94A3B8" /> accessible ·
         <Leg bord="#CBD5E1" /> pas encore ·
         <Leg bord="var(--c-refuse, #9D4A38)" /> ajournée ·
@@ -186,7 +187,7 @@ export default function ParcoursCompact({ etudId, annee, programme = new Set(), 
 function Leg({ fond = '#fff', bord, point = false }) {
   return (
     <span className="relative inline-block align-[-2px] mx-1" style={{ width: 20, height: 12, borderRadius: 3, background: fond, border: `1.5px solid ${bord}` }}>
-      {point && <span className="absolute right-[2px] bottom-[2px] w-[4px] h-[4px] rounded-full bg-slate-600" />}
+      {point && <span className="absolute right-[2px] bottom-[2px] w-[4px] h-[4px] rounded-full bg-white" />}
     </span>
   );
 }
