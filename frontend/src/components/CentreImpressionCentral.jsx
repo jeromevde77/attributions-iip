@@ -1209,7 +1209,7 @@ function SeriePersonnel({ ids, profs, annee, annexes, nom, outilsMembre = null }
 /* UN ÉTUDIANT, TOUTES SES PIÈCES (Charles, 29 septembre 2026 : « je dois
    pouvoir sortir TOUS les documents étudiants depuis Éditions »). On le
    choisit, et la liste commune de ses pièces s'ouvre — la même que sur sa fiche. */
-function UnEtudiantToutesAnnees({ annee, choisi, onChoisir }) {
+function UnEtudiantToutesAnnees({ annee, choisi, onChoisir, compact = false }) {
   const [q, setQ] = useState('');
   const [trouves, setTrouves] = useState([]);
   const setChoisi = e => onChoisir(e);
@@ -1221,11 +1221,17 @@ function UnEtudiantToutesAnnees({ annee, choisi, onChoisir }) {
     }, 250);
     return () => clearTimeout(t);
   }, [q, choisi]);
+  // COMPACT (2 octobre 2026, « bof ») : un seul champ sur la ligne des
+  // familles ; le titre et le texte d'aide repoussaient tout le contenu.
   return (
-    <div className="px-3 py-2 border-b border-slate-200 space-y-1.5">
-      <div className="text-[13px] font-semibold text-iip-blue">Un étudiant — toutes ses pièces</div>
+    <div className={compact ? 'relative' : 'px-3 py-2 border-b border-slate-200 space-y-1.5'}>
+      {!compact && <div className="text-[13px] font-semibold text-iip-blue">Un étudiant — toutes ses pièces</div>}
       <div className="relative">
-        <input className="controle w-full text-[13px]" placeholder="Nom ou matricule…" value={q} onChange={e => setQ(e.target.value)} />
+        {compact && <IconSearch size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />}
+        <input className={`controle w-full text-[13px] ${compact ? 'controle-icone' : ''}`}
+          placeholder={compact ? 'Un étudiant — toutes ses pièces…' : 'Nom ou matricule…'}
+          title="Attestations, bulletin, parcours, fiche d'inscription, annexes, congé-éducation, aménagements — toutes les pièces d'un étudiant"
+          value={q} onChange={e => setQ(e.target.value)} />
         {trouves.length > 0 && (
           <div className="absolute z-20 left-0 right-0 mt-1 bg-white border border-slate-200 rounded-champ shadow-flottant max-h-64 overflow-auto">
             {trouves.map(e => (
@@ -1237,9 +1243,9 @@ function UnEtudiantToutesAnnees({ annee, choisi, onChoisir }) {
           </div>
         )}
       </div>
-      <div className="text-[11px] text-slate-400">Attestations, bulletin, parcours, fiche d'inscription, annexes de l'Office des
-        Étrangers, congé-éducation, aménagements raisonnables — pour l'année {annee}.</div>
-      {choisi && (
+      {!compact && <div className="text-[11px] text-slate-400">Attestations, bulletin, parcours, fiche d'inscription, annexes de l'Office des
+        Étrangers, congé-éducation, aménagements raisonnables — pour l'année {annee}.</div>}
+      {choisi && !compact && (
         <div className="text-[12px] text-iip-texte">Choisi : <b>{nomPropre(choisi.nom, choisi.prenom)}</b>
           <button type="button" className="ml-2 underline text-slate-500" onClick={() => { onChoisir(null); setQ(''); }}>retirer</button></div>
       )}
@@ -1909,7 +1915,7 @@ export default function CentreImpressionCentral({ ongletInitial = 'etudiants',
           bascule quand il a les deux familles. */}
       {onglet === 'etudiants' ? (
         <>
-          <div className="px-1 pb-3 flex flex-wrap items-start gap-3">
+          <div className="px-1 pb-3 flex flex-wrap items-center gap-3">
             <span className="seg-fam">
               {/* « PIÈCES PAR ÉTUDIANT » SE COUPE EN DEUX (maquette validée,
                   2 octobre 2026) : ce qui demande une délibération, et le
@@ -1946,8 +1952,8 @@ export default function CentreImpressionCentral({ ongletInitial = 'etudiants',
               </button>
             </span>
             {/* UN ÉTUDIANT — TOUTES SES PIÈCES, depuis n'importe quelle famille. */}
-            <div className="ml-auto w-80 max-w-full border border-slate-200 rounded-carte overflow-hidden">
-              <UnEtudiantToutesAnnees annee={getAnnee()} choisi={etudiantVu} onChoisir={setEtudiantVu} />
+            <div className="ml-auto w-72 max-w-full">
+              <UnEtudiantToutesAnnees compact annee={getAnnee()} choisi={etudiantVu} onChoisir={setEtudiantVu} />
             </div>
           </div>
           {etudiantVu ? (
