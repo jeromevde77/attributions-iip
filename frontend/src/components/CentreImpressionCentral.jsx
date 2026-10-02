@@ -110,7 +110,7 @@ const PIECES_DOSSIER = [
  * la séance s'ouvre.
  */
 function OngletValorisation() {
-  const [annee, setAnnee] = useState(perimetre?.annee || getAnnee());
+  const [annee, setAnnee] = useState(getAnnee());
   const [annees, setAnnees] = useState([]);
   const [arbre, setArbre] = useState(null);
   const [section, setSection] = useState('');
@@ -1260,7 +1260,7 @@ function OngletEtudiants({ perimetre = null, mode = 'deliberation', seul = null,
      la dire. Pour retirer une attestation de l'an dernier, il fallait changer
      l'année de toute l'application, produire la pièce, puis penser à la
      remettre — et la fenêtre couvre justement le sélecteur de la barre. */
-  const [annee, setAnnee] = useState(getAnnee());
+  const [annee, setAnnee] = useState(perimetre?.annee || getAnnee());
   const [annees, setAnnees] = useState([]);
   useEffect(() => {
     fetch('/api/annees', { headers: authHeaders() })
