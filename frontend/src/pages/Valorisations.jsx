@@ -4526,7 +4526,14 @@ export function DeliberationVA({ annee, onClose, onChange, mode: modeDepart = 'e
           {sections.map(x => <option key={x} value={x}>{x}</option>)}
         </select>
         <span>Base par défaut <BulleAide titre="Base de la décision">La base légale qui part dans eProm : VAF V1 à V4 ou VANFI. Elle se propose à chaque UE accordée ; chaque UE peut en porter une autre, sur sa ligne.</BulleAide></span>
-        <select value={baseCommune} onChange={e => setBaseCommune(e.target.value)} className="controle text-[13px] max-w-[22rem]">
+        {/* CHOISIR LA BASE ICI LA POSE SUR TOUTES LES UE DE L'ÉCRAN (Charles,
+            2 octobre 2026 : « ça doit forcer toutes les décisions pour cet
+            étudiant ») ; chacune se change ensuite sur sa ligne. */}
+        <select value={baseCommune} onChange={e => {
+            const v = e.target.value;
+            setBaseCommune(v);
+            setChoix(c => { const n = { ...c }; for (const d of lignes) if (!d.valide_le && n[d.id]) n[d.id] = { ...n[d.id], base: v }; return n; });
+          }} className="controle text-[13px] max-w-[22rem]">
           <option value="">— choisir —</option>
           {bases.map(b => <option key={b.code} value={b.code}>{b.code} — {b.libelle}</option>)}
         </select>
@@ -4630,7 +4637,11 @@ export function DeliberationVA({ annee, onClose, onChange, mode: modeDepart = 'e
                                     <select value="" onChange={e => e.target.value && poser(d.id, { motif: c.motif?.trim() ? `${c.motif.trim()} ${e.target.value}` : e.target.value })}
                                       className="w-full border border-slate-300 rounded h-7 px-1.5 text-[12px] bg-white">
                                       <option value="">Motif type du refus…</option>
-                                      {motifs.refus.map(m => <option key={m} value={m}>{m}</option>)}
+                                      {(motifs.refus || []).map(g => (
+                                        <optgroup key={g.titre} label={g.titre}>
+                                          {g.motifs.map(m => <option key={m} value={m}>{m}</option>)}
+                                        </optgroup>
+                                      ))}
                                     </select>
                                     <textarea rows={2} value={c.motif || ''} placeholder="Motif du refus — obligatoire, à compléter"
                                       onChange={e => poser(d.id, { motif: e.target.value })}
@@ -4673,7 +4684,11 @@ export function DeliberationVA({ annee, onClose, onChange, mode: modeDepart = 'e
                                     <select value="" onChange={e => e.target.value && poser(d.id, { remarque: e.target.value })}
                                       className="w-full border border-slate-300 rounded h-7 px-1.5 text-[12px] bg-white mt-1.5">
                                       <option value="">Remarque du Conseil, type…</option>
-                                      {motifs.partiel.map(m => <option key={m} value={m}>{m}</option>)}
+                                      {(motifs.partiel || []).map(g => (
+                                        <optgroup key={g.titre} label={g.titre}>
+                                          {g.motifs.map(m => <option key={m} value={m}>{m}</option>)}
+                                        </optgroup>
+                                      ))}
                                     </select>
                                     <input value={c.remarque || ''} onChange={e => poser(d.id, { remarque: e.target.value })}
                                       placeholder="Remarque du Conseil (facultative) — « dispensé des heures de stage, doit présenter l’examen »"

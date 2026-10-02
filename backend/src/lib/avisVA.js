@@ -62,7 +62,10 @@ const courrielAllume = () => {
    Conseil complète ; une par ligne, réglable dans Configuration → Procédures
    sans déploiement. Les motifs de FORME (hors délai, dossier incomplet) n'y
    sont pas : ils relèvent de la recevabilité. */
-const MOTIFS_REFUS_DEFAUT = [
+/* Une ligne qui commence par « # » est un TITRE : les motifs se rangent par
+   nature d'activité (Charles, 2 octobre 2026 : « une liste plus large, avec
+   des titres : cours théoriques, cours pratiques, stages… »). */
+const ANCIEN_REFUS = [
   'Les contenus attestés ne correspondent pas aux acquis d’apprentissage du dossier pédagogique.',
   'Le volume attesté est insuffisant au regard des périodes de l’unité.',
   'Les résultats obtenus dans la formation antérieure ne démontrent pas la maîtrise des acquis.',
@@ -70,22 +73,79 @@ const MOTIFS_REFUS_DEFAUT = [
   'L’expérience décrite ne démontre pas la maîtrise des acquis ; le test ne l’a pas établie.',
   'Les preuves ne permettent pas d’établir le niveau requis.',
 ].join('\n');
-const MOTIFS_PARTIEL_DEFAUT = [
+const ANCIEN_PARTIEL = [
   'Les preuves couvrent une partie des activités d’enseignement ; les autres restent à suivre.',
   'Une partie des acquis est maîtrisée ; les autres restent à évaluer.',
   'Les heures prestées couvrent une partie des périodes de stage ; l’évaluation du stage reste due.',
   'L’expérience couvre les activités pratiques ; la partie théorique reste à suivre et à évaluer.',
 ].join('\n');
+const MOTIFS_REFUS_DEFAUT = [
+  '# Cours théoriques',
+  'Les contenus attestés ne couvrent pas les acquis d’apprentissage du cours (dossier pédagogique).',
+  'Le volume horaire attesté est insuffisant au regard des périodes du cours.',
+  'Le niveau de la formation antérieure n’atteint pas celui du cours.',
+  'Les résultats obtenus ne démontrent pas la maîtrise des acquis (note insuffisante ou non communiquée).',
+  'La formation antérieure est trop ancienne au regard de l’évolution des contenus.',
+  '# Cours pratiques et laboratoires',
+  'Les preuves n’attestent pas la pratique des techniques visées par le cours.',
+  'Le volume de pratique attesté est insuffisant.',
+  'La maîtrise des gestes techniques n’a pas pu être établie : le test n’est pas concluant.',
+  'L’environnement de pratique attesté diffère de celui qu’exige le cours.',
+  '# Stages et enseignement clinique',
+  'Les heures prestées ne couvrent pas les périodes de stage requises.',
+  'Le lieu ou la fonction du stage antérieur ne correspond pas au secteur visé.',
+  'Aucune évaluation du stage antérieur n’est produite (rapport, grille, attestation du maître de stage).',
+  'Les activités professionnelles visées par le stage ne sont pas démontrées.',
+  '# Expérience professionnelle (VAE)',
+  'L’expérience décrite ne correspond pas aux acquis d’apprentissage de l’unité.',
+  'La durée de l’expérience attestée est insuffisante.',
+  'L’attestation d’employeur ne précise pas les tâches exercées.',
+  'Le test ou l’entretien n’a pas permis d’établir la maîtrise des acquis.',
+  '# Titres et formations (VA)',
+  'Le titre produit ne couvre pas l’ensemble des acquis de l’unité.',
+  'Le programme de la formation antérieure n’est pas produit : l’équivalence ne peut être établie.',
+  'Le relevé de notes n’est pas produit : la réussite des cours invoqués n’est pas établie.',
+].join('\n');
+const MOTIFS_PARTIEL_DEFAUT = [
+  '# Cours théoriques',
+  'Les cours théoriques sont dispensés ; les cours pratiques restent à suivre.',
+  'Une partie des cours théoriques est dispensée ; les autres restent à suivre et à évaluer.',
+  'Les acquis théoriques sont maîtrisés ; les acquis restants seront évalués à l’examen.',
+  '# Cours pratiques et laboratoires',
+  'Les cours pratiques sont dispensés ; la partie théorique reste à suivre et à évaluer.',
+  'Dispensé des séances de laboratoire ; doit présenter l’évaluation pratique.',
+  '# Stages et enseignement clinique',
+  'Dispensé des heures de stage ; doit présenter l’évaluation du stage.',
+  'Les heures prestées couvrent une partie des périodes de stage ; le solde reste à effectuer.',
+  'Dispensé d’une partie du stage ; le rapport de stage reste dû.',
+  '# Expérience professionnelle (VAE)',
+  'L’expérience couvre les activités pratiques ; la partie théorique reste à suivre et à évaluer.',
+  'L’expérience couvre une partie des acquis ; les autres seront évalués lors d’un test.',
+  '# Général',
+  'Une partie des acquis est maîtrisée ; les autres restent à évaluer.',
+  'Les preuves couvrent une partie des activités d’enseignement ; les autres restent à suivre.',
+].join('\n');
 try {
   const ins = db.prepare('INSERT OR IGNORE INTO parametre (cle, valeur, label, groupe) VALUES (?, ?, ?, ?)');
-  ins.run('va_motifs_refus', MOTIFS_REFUS_DEFAUT, 'Valorisation — motifs types d’un refus (un par ligne)', 'procedures');
-  ins.run('va_motifs_partiel', MOTIFS_PARTIEL_DEFAUT, 'Valorisation — remarques types d’une dispense partielle (une par ligne)', 'procedures');
+  ins.run('va_motifs_refus', MOTIFS_REFUS_DEFAUT, 'Valorisation — motifs types d’un refus (un par ligne ; « # Titre » ouvre un groupe)', 'procedures');
+  ins.run('va_motifs_partiel', MOTIFS_PARTIEL_DEFAUT, 'Valorisation — remarques types d’une dispense partielle (une par ligne ; « # Titre » ouvre un groupe)', 'procedures');
+  // La première liste, courte et sans titres, cède la place à la liste rangée
+  // — seulement si personne ne l'a retouchée.
+  const maj = db.prepare('UPDATE parametre SET valeur = ?, label = ? WHERE cle = ? AND valeur = ?');
+  maj.run(MOTIFS_REFUS_DEFAUT, 'Valorisation — motifs types d’un refus (un par ligne ; « # Titre » ouvre un groupe)', 'va_motifs_refus', ANCIEN_REFUS);
+  maj.run(MOTIFS_PARTIEL_DEFAUT, 'Valorisation — remarques types d’une dispense partielle (une par ligne ; « # Titre » ouvre un groupe)', 'va_motifs_partiel', ANCIEN_PARTIEL);
 } catch { /* base ancienne */ }
+/** Les motifs, rangés : [{ titre, motifs: [...] }]. */
 export function motifsVA() {
   const lire = (cle, defaut) => {
     let v = defaut;
     try { v = db.prepare('SELECT valeur FROM parametre WHERE cle = ?').get(cle)?.valeur || defaut; } catch { /* */ }
-    return String(v).split(/\n|\r/).map(x => x.trim()).filter(Boolean);
+    const groupes = [];
+    for (const l of String(v).split(/\r?\n/).map(x => x.trim()).filter(Boolean)) {
+      if (l.startsWith('#')) groupes.push({ titre: l.replace(/^#+\s*/, ''), motifs: [] });
+      else { if (!groupes.length) groupes.push({ titre: 'Motifs', motifs: [] }); groupes.at(-1).motifs.push(l); }
+    }
+    return groupes.filter(g => g.motifs.length);
   };
   return { refus: lire('va_motifs_refus', MOTIFS_REFUS_DEFAUT), partiel: lire('va_motifs_partiel', MOTIFS_PARTIEL_DEFAUT) };
 }
