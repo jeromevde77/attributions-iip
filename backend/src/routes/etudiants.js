@@ -3329,6 +3329,15 @@ try {
   )`);
 } catch (e) { console.error('[pae_revue]', e.message); }
 
+/* LA NATURE D'UNE DISPENSE DE COURS (2 octobre 2026) : un report de note, ou
+   une VA / VAE / VAP / VAEP reprise sans dossier pour 2024-2025 et 2025-2026. */
+try {
+  const cols = db.prepare('PRAGMA table_info(etudiant_report_note)').all().map(c => c.name);
+  if (cols.length && !cols.includes('nature')) db.exec('ALTER TABLE etudiant_report_note ADD COLUMN nature TEXT');
+} catch (e) { console.error('[etudiant_report_note.nature]', e.message); }
+const NATURES_REPRISE = ['VA', 'VAE', 'VAP', 'VAEP'];
+const DERNIERE_ANNEE_REPRISE = '2025-2026';
+
 export function revuePAE(etudId, annee) {
   const e = db.prepare('SELECT id, nom, prenom, id_ecampus, section_rattachement FROM etudiant WHERE id = ?').get(etudId);
   if (!e) return null;
@@ -3346,7 +3355,7 @@ export function revuePAE(etudId, annee) {
   const reports = new Map(), refuses = new Map();
   try {
     for (const r of db.prepare(`SELECT ue_num, cours_code, note, annee_origine, COALESCE(statut, 'accorde') statut,
-        motif, decide_par FROM etudiant_report_note
+        motif, decide_par, nature FROM etudiant_report_note
         WHERE etudiant_id = ? AND annee_scolaire = ? AND COALESCE(cible, 'cours') = 'cours'`).all(etudId, annee)) {
       (r.statut === 'accorde' ? reports : refuses).set(`${r.ue_num}|${r.cours_code}`, r);
     }
@@ -3373,7 +3382,7 @@ export function revuePAE(etudId, annee) {
       const statut = vaComplete.has(n) ? 'va' : r ? 'report' : vaCours.has(`${n}|${c.cours_code}`) ? 'va' : 'suivre';
       const el = eligibles.find(x => x.cours_code === c.cours_code);
       const rf = refuses.get(`${n}|${c.cours_code}`);
-      const nature = statut === 'report' ? 'Report'
+      const nature = statut === 'report' ? (r?.nature || 'Report')
         : statut === 'va' ? (vaComplete.get(n) || vaCours.get(`${n}|${c.cours_code}`) || 'VA') : null;
       return { code: c.cours_code, nom: c.cours_nom, per: Number(c.cours_per) || 0, stage: !!c.is_stage, statut, nature,
         note: r ? r.note : null, annee_origine: r ? r.annee_origine : null, par: r ? r.decide_par : null,
@@ -3381,15 +3390,17 @@ export function revuePAE(etudId, annee) {
         eligible: statut === 'suivre' && el ? { note: el.note_affichee ?? (el.note != null ? Math.round(el.note) : null), annee_origine: el.annee_origine } : null,
         refuse: statut === 'suivre' && rf ? { motif: rf.motif || null, par: rf.decide_par || null } : null };
     });
-    const nRep = cours.filter(c => c.statut === 'report').length;
-    const nVa = cours.filter(c => c.statut === 'va').length;
+    // Une VA reprise sans dossier se range avec les VA, pas avec les reports.
+    const estVA = c => c.statut === 'va' || (c.statut === 'report' && c.nature && c.nature !== 'Report');
+    const nRep = cours.filter(c => c.statut === 'report' && !estVA(c)).length;
+    const nVa = cours.filter(estVA).length;
     const etat = vaComplete.has(n) ? 'dispensee'
       : nRep || nVa ? 'partielle'
         : tentees.has(n) ? 'reprendre' : 'programme';
     return { ue_num: n, ue_nom: u.ue_nom || `UE ${n}`, niv: String(u.ue_niv || '').toUpperCase(), ects: Number(u.ects) || 0,
       periodes: (Number(u.per_etud) || 0) + (Number(u.aut) || 0),
       ei: !!u.ei, etat, cours, reports: nRep, va: nVa, nature_totale: vaComplete.get(n) || null,
-      nature_partielle: [...new Set(cours.filter(c => c.statut === 'va').map(c => c.nature))].join(' / ') || null };
+      nature_partielle: [...new Set(cours.filter(estVA).map(c => c.nature))].join(' / ') || null };
   }).sort((a, b) => (a.ei - b.ei) || rangBloc(a.niv) - rangBloc(b.niv) || a.ue_num - b.ue_num);
 
   const acquises = db.prepare(`SELECT DISTINCT ue_num FROM etudiant_inscription WHERE etudiant_id = ? AND resultat = 'reussi'
@@ -3422,9 +3433,9 @@ export function revuePAE(etudId, annee) {
     annee, ues, autres,
     chiffres: {
       ects_acquis: ectsAcquis, nb_ue: ues.length, ects_pae: ues.reduce((t, u) => t + u.ects, 0),
-      cours_reportes: tousCours.filter(c => c.statut === 'report').length,
+      cours_reportes: tousCours.filter(c => c.statut === 'report' && (!c.nature || c.nature === 'Report')).length,
       ue_avec_report: ues.filter(u => u.reports).length,
-      cours_va: tousCours.filter(c => c.statut === 'va').length,
+      cours_va: tousCours.filter(c => c.statut === 'va' || (c.statut === 'report' && c.nature && c.nature !== 'Report')).length,
       cours_a_suivre: aSuivre.length, periodes_a_suivre: aSuivre.reduce((t, c) => t + c.per, 0),
       // Les périodes étudiant du PAE : toute l'UE, autonomie comprise.
       periodes_pae: ues.reduce((t, u) => t + (u.periodes || 0), 0),
@@ -3477,6 +3488,20 @@ r.put('/:id/revue-pae/report', authRequired, roleRequired(...PEUT_REPORTER), (re
   if (!co) return res.status(404).json({ error: `Le cours ${code} n'appartient pas à l'UE ${ue} en ${annee}.` });
   let el = null;
   try { el = (coursValidesAnterieurs(id, ue, annee) || []).find(x => x.cours_code === code) || null; } catch { el = null; }
+  /* UNE VA REPRISE SANS DOSSIER (Charles, 2 octobre 2026 : « il en manque pour
+     24-25 et 25-26 ; sans encoder les dossiers, on doit pouvoir mettre
+     VA/VAE/VAP en regard du cours, et ça met la note à 10 »). Réservé aux
+     années antérieures à 2026-2027 : à partir de là, une valorisation passe
+     par son dossier et son circuit. */
+  const nature = req.body?.nature ? String(req.body.nature).toUpperCase() : null;
+  if (nature && !NATURES_REPRISE.includes(nature)) return res.status(400).json({ error: 'Nature inconnue : VA, VAE, VAP ou VAEP.' });
+  if (nature) {
+    const o = String(req.body?.annee_origine || '');
+    if (!/^\d{4}-\d{4}$/.test(o) || o > DERNIERE_ANNEE_REPRISE) {
+      return res.status(400).json({ error: `Une VA sans dossier ne se pose que pour ${DERNIERE_ANNEE_REPRISE} et avant ; à partir de 2026-2027, elle passe par le dossier de valorisation.` });
+    }
+    req.body.note = 10;
+  }
   const saisie = req.body?.note != null && req.body.note !== '';
   let note, origine, notesAA;
   if (saisie || !el) {
@@ -3494,7 +3519,8 @@ r.put('/:id/revue-pae/report', authRequired, roleRequired(...PEUT_REPORTER), (re
     notesAA = (el.aas || []).filter(a => (co.aas || []).some(x => x.aa_code === a.aa_code));
   }
   const qui = req.user?.nom || req.user?.email || null;
-  const motif = saisie || !el ? `report encodé en revue des PAE — note de cours ${note}/20 (${origine})` : 'report accordé en revue des PAE';
+  const motif = nature ? `${nature} reprise sans dossier (${origine}) — dispense du cours à 10/20, revue des PAE`
+    : saisie || !el ? `report encodé en revue des PAE — note de cours ${note}/20 (${origine})` : 'report accordé en revue des PAE';
   const reelle = db.prepare(`SELECT 1 FROM etudiant_note_detail WHERE etudiant_id = ? AND annee_scolaire = ? AND ue_num = ?
       AND type = 'aa' AND (cours_code = ? OR cours_code IS NULL) AND (code = ? OR code LIKE '%|' || ?)
       AND (origine IS NULL OR origine NOT LIKE 'report:%') LIMIT 1`);
@@ -3507,11 +3533,11 @@ r.put('/:id/revue-pae/report', authRequired, roleRequired(...PEUT_REPORTER), (re
       // Repasser par « refusé » efface les notes recopiées (déclencheur) : on repart propre.
       db.prepare(`UPDATE etudiant_report_note SET statut = 'refuse' WHERE id = ?`).run(ligne.id);
       db.prepare(`UPDATE etudiant_report_note SET statut = 'accorde', note = ?, annee_origine = ?, decision_ce = ?,
-          motif = NULL, decide_le = datetime('now'), decide_par = ? WHERE id = ?`).run(note, origine, motif, qui, ligne.id);
+          motif = NULL, decide_le = datetime('now'), decide_par = ?, nature = ? WHERE id = ?`).run(note, origine, motif, qui, nature, ligne.id);
     } else {
       db.prepare(`INSERT INTO etudiant_report_note (etudiant_id, annee_scolaire, ue_num, cible, cours_code, aa_code, note,
-          annee_origine, statut, decision_ce, decide_le, decide_par) VALUES (?,?,?, 'cours', ?, NULL, ?, ?, 'accorde', ?, datetime('now'), ?)`)
-        .run(id, annee, ue, code, note, origine, motif, qui);
+          annee_origine, statut, decision_ce, decide_le, decide_par, nature) VALUES (?,?,?, 'cours', ?, NULL, ?, ?, 'accorde', ?, datetime('now'), ?, ?)`)
+        .run(id, annee, ue, code, note, origine, motif, qui, nature);
     }
     for (const a of notesAA) {
       if (a.note == null || reelle.get(id, annee, ue, code, a.aa_code, a.aa_code)) continue;
@@ -3611,8 +3637,11 @@ function pageRevue(d, esc) {
     lignes += `<tr class="ue"><td>${u.ue_num}</td><td>${esc(u.ue_nom)}</td><td class="n">${u.cours.reduce((t, c) => t + c.per, 0) || ''}</td><td>${etatUE[u.etat]}${u.deja ? ` — <b>déjà acquise en ${esc(u.deja)}</b>` : ''}</td></tr>`;
     for (const c of u.cours) {
       if (c.statut === 'suivre') continue;
-      lignes += `<tr><td>${esc(c.code)}</td><td>${esc(c.nom || '')}</td><td class="n">${c.per || ''}</td><td>${c.statut === 'report'
-        ? `reporté ${esc(c.annee_origine || '')} — ${c.note != null ? `${Math.round(c.note)}/20` : 'note reprise'}` : 'dispensé — VA'}</td></tr>`;
+      const vaReprise = c.statut === 'report' && c.nature && c.nature !== 'Report';
+      lignes += `<tr><td>${esc(c.code)}</td><td>${esc(c.nom || '')}</td><td class="n">${c.per || ''}</td><td>${vaReprise
+        ? `${esc(c.nature)} ${esc(c.annee_origine || '')} — 10/20`
+        : c.statut === 'report'
+          ? `reporté ${esc(c.annee_origine || '')} — ${c.note != null ? `${Math.round(c.note)}/20` : 'note reprise'}` : `dispensé — ${esc(c.nature || 'VA')}`}</td></tr>`;
     }
   }
   const e = d.etudiant, ch = d.chiffres;

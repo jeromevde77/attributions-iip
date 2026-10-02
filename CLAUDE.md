@@ -358,6 +358,13 @@ Trois niveaux :
 **Arrondi à l'unité.** 9,6 devient 10 et l'étudiant réussit. Seule la moyenne
 générale de tout le parcours garde ses décimales.
 
+**La mention du titre** (Charles, 2 octobre 2026) : unités déterminantes
+pondérées par les périodes étudiant de TOUTE l'UE, autonomie comprise
+(`POIDS_DETERMINANTE`, `routes/diplomes.js`) = 2/3 ; épreuve intégrée = 1/3.
+La note finale de la section **s'arrondit à l'unité** (`lib/mention.js`) : c'est
+elle que portent l'attestation de section, le PV et le diplôme, et elle qu'on
+compare aux seuils — 69,7 devient 70, Distinction.
+
 **Bascule par millésime :** 2024-25 et 2025-26 → pondération **du classeur**
 (`cours_ponderation`, `aa_ponderation`) ; à partir de 2026-27 → **périodes** du
 dossier pédagogique pour le poids des COURS (un poids saisi reste permis, UE

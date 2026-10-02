@@ -199,6 +199,7 @@ function RevuePAE({ liste: base, annee: anneeDepart, onClose }) {
   const [erreurSyn, setErreurSyn] = useState(null);
   const [enCours, setEnCours] = useState(null);
   const [saisie, setSaisie] = useState(null);      // { ue, code, note, origine }
+  const [saisieVA, setSaisieVA] = useState(null);  // { ue, code, nature, origine } — VA reprise sans dossier
   const [ajout, setAjout] = useState('');
   const [versionSchema, setVersionSchema] = useState(0);
   const [ouverts, setOuverts] = useState(() => new Set());   // les volets d'UE ouverts
@@ -384,6 +385,8 @@ function RevuePAE({ liste: base, annee: anneeDepart, onClose }) {
   const ch = d?.chiffres;
   const court = a => String(a || '').replace(/^20(\d\d)-20(\d\d)$/, '$1-$2');
   const anterieures = annees.filter(a => a < annee).sort().reverse();
+  // UNE VA SANS DOSSIER ne se pose que pour 2025-2026 et avant (Charles, 2 octobre 2026).
+  const anneesReprise = anterieures.filter(a => a <= '2025-2026');
   let blocCourant = null;
   const Tuile = ({ v, l, p, etat = 'fort' }) => (
     <div data-etat={etat} className="bloc-etat px-3 py-2">
@@ -548,7 +551,9 @@ function RevuePAE({ liste: base, annee: anneeDepart, onClose }) {
                                 {u.cours.map(c => {
                                   const occupe = enCours === `rep-${u.ue_num}-${c.code}`;
                                   const saisieIci = saisie && saisie.ue === u.ue_num && saisie.code === c.code;
-                                  const teinte = c.statut === 'report' ? 'text-emerald-700 font-medium' : c.statut === 'va' ? 'text-teal-800 font-medium' : '';
+                                  const vaReprise = c.statut === 'report' && c.nature && c.nature !== 'Report';
+                                  const saisieVAIci = saisieVA && saisieVA.ue === u.ue_num && saisieVA.code === c.code;
+                                  const teinte = vaReprise || c.statut === 'va' ? 'text-teal-800 font-medium' : c.statut === 'report' ? 'text-emerald-700 font-medium' : '';
                                   return (
                                     <Fragment key={c.code}>
                                       <span className="text-slate-500 tabular-nums">{c.code}</span>
@@ -556,12 +561,24 @@ function RevuePAE({ liste: base, annee: anneeDepart, onClose }) {
                                       <span className="text-[11px] text-slate-500 text-right tabular-nums">{c.per ? `${c.per} p.` : ''}</span>
                                       <span className="text-[11.5px] flex flex-wrap items-center gap-1.5">
                                         {c.statut === 'report' && <>
-                                          <span className="rounded px-1.5 py-px bg-emerald-700 text-white font-semibold" title={c.par ? `Posé par ${c.par}` : ''}>
-                                            Report {String(c.annee_origine || '').replace(/^20(\d\d)-20(\d\d)$/, '$1-$2')}{c.note != null ? ` · ${Math.round(c.note)}/20` : ''}</span>
+                                          <span className={`rounded px-1.5 py-px text-white font-semibold ${vaReprise ? 'bg-teal-800' : 'bg-emerald-700'}`}
+                                            title={vaReprise ? `${c.nature} reprise sans dossier${c.par ? ` — posée par ${c.par}` : ''}` : (c.par ? `Posé par ${c.par}` : '')}>
+                                            {vaReprise ? c.nature : 'Report'} {String(c.annee_origine || '').replace(/^20(\d\d)-20(\d\d)$/, '$1-$2')}{c.note != null ? ` · ${Math.round(c.note)}/20` : ''}</span>
                                           {peutReporter && <button type="button" disabled={occupe} className="underline text-slate-500" onClick={() => retirer(u.ue_num, c.code)}>retirer</button>}
                                         </>}
                                         {c.statut === 'va' && <span className="rounded px-1.5 py-px bg-teal-800 text-white font-semibold">{c.nature || 'VAP'}</span>}
-                                        {c.statut === 'suivre' && !saisieIci && <>
+                                        {c.statut === 'suivre' && saisieVAIci && <>
+                                          <select className="controle h-7 text-[12px]" value={saisieVA.nature} onChange={ev => setSaisieVA({ ...saisieVA, nature: ev.target.value })}>
+                                            {['VA', 'VAE', 'VAP', 'VAEP'].map(x => <option key={x} value={x}>{x}</option>)}
+                                          </select>
+                                          <select className="controle h-7 text-[12px]" value={saisieVA.origine} onChange={ev => setSaisieVA({ ...saisieVA, origine: ev.target.value })}>
+                                            {anneesReprise.map(x => <option key={x} value={x}>{x}</option>)}
+                                          </select>
+                                          <button type="button" disabled={occupe || !saisieVA.origine} className="bouton h-7 px-2 text-[12px] bg-teal-800 border-teal-800 text-white"
+                                            onClick={() => reporter(u.ue_num, c.code, { nature: saisieVA.nature, annee_origine: saisieVA.origine }).then(() => setSaisieVA(null))}>Poser · 10/20</button>
+                                          <button type="button" className="underline text-slate-500" onClick={() => setSaisieVA(null)}>annuler</button>
+                                        </>}
+                                        {c.statut === 'suivre' && !saisieIci && !saisieVAIci && <>
                                           <span className="font-semibold text-blue-700">à suivre</span>
                                           {c.refuse && <span className="text-slate-400" title={c.refuse.motif || ''}>· report retiré</span>}
                                           {peutReporter && c.eligible && (
@@ -572,6 +589,11 @@ function RevuePAE({ liste: base, annee: anneeDepart, onClose }) {
                                             <button type="button" disabled={occupe} className="underline text-slate-500"
                                               onClick={() => setSaisie({ ue: u.ue_num, code: c.code, note: c.eligible?.note ?? '', origine: c.eligible?.annee_origine || anterieures[0] || '' })}>
                                               {c.eligible ? 'autre note' : 'encoder un report'}</button>
+                                          )}
+                                          {peutReporter && anneesReprise.length > 0 && (
+                                            <button type="button" disabled={occupe} className="underline text-teal-800"
+                                              title="Une VA accordée en 2024-2025 ou 2025-2026 et jamais encodée en dossier : le cours est dispensé à 10/20"
+                                              onClick={() => { setSaisie(null); setSaisieVA({ ue: u.ue_num, code: c.code, nature: 'VAP', origine: anneesReprise[0] }); }}>VA sans dossier</button>
                                           )}
                                         </>}
                                         {saisieIci && <>
