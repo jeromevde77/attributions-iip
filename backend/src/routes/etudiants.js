@@ -9102,6 +9102,34 @@ r.delete('/valorisations/:vid', authRequired, roleRequired(...PEUT_INSTRUIRE), (
   res.json({ ok: true });
 });
 
+/* QUI REND L'AVIS SE LIT DES ATTRIBUTIONS (Charles, 2 octobre 2026 : « ce
+ * doit être automatique en fonction des attributions »). Les chargés de cours
+ * de l'UE pour l'année — à défaut, la dernière année attribuée —, ceux des
+ * cours visés d'abord, puis par volume de périodes : le premier est proposé
+ * d'office, la liste du personnel reste ouverte derrière. */
+r.get('/ue/:ueNum/charges', authRequired, (req, res) => {
+  const ueNum = Number(req.params.ueNum);
+  const annee = req.query.annee || anneeDeTravail(req);
+  const vises = new Set(String(req.query.cours || '').split(',').map(x => x.trim()).filter(Boolean));
+  let an = annee;
+  const compte = a => db.prepare(`SELECT COUNT(*) n FROM attribution WHERE ue_num = ? AND annee_scolaire = ? AND professeur_id IS NOT NULL`).get(ueNum, a).n;
+  if (!compte(an)) an = db.prepare(`SELECT MAX(annee_scolaire) a FROM attribution WHERE ue_num = ? AND annee_scolaire <= ? AND professeur_id IS NOT NULL`).get(ueNum, annee)?.a || annee;
+  const lignes = db.prepare(`SELECT p.id, p.nom, p.prenom, a.code_cours, COALESCE(a.periodes_attribuees, 0) per
+      FROM attribution a JOIN professeur p ON p.id = a.professeur_id
+     WHERE a.ue_num = ? AND a.annee_scolaire = ?`).all(ueNum, an);
+  const m = new Map();
+  for (const l of lignes) {
+    if (!m.has(l.id)) m.set(l.id, { professeur_id: l.id, nom: `${l.prenom || ''} ${l.nom || ''}`.trim(), cours: new Set(), periodes: 0, vise: false });
+    const x = m.get(l.id);
+    if (l.code_cours) x.cours.add(l.code_cours);
+    x.periodes += Number(l.per) || 0;
+    if (vises.has(l.code_cours)) x.vise = true;
+  }
+  const charges = [...m.values()].map(x => ({ ...x, cours: [...x.cours].sort() }))
+    .sort((a, b) => (b.vise - a.vise) || (b.periodes - a.periodes) || a.nom.localeCompare(b.nom, 'fr'));
+  res.json({ annee: an, charges });
+});
+
 // Cibles disponibles pour une dispense partielle : les cours et AA d'une UE
 r.get('/ue/:ueNum/composantes', authRequired, (req, res) => {
   const ueNum = Number(req.params.ueNum);

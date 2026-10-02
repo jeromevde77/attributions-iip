@@ -352,6 +352,7 @@ export default function Valorisations() {
                 onDocuments={ue => setDocuments(ue)}
                 onDossier={setDossier}
                 onSupprimerLigne={() => supprimerLigne(e)}
+                onDeliberer={e.vas.length ? () => setDeciderEtudiant(e.id) : null}
                 onChange={charger} onErreur={setErreur} />
             ))}
           </div>
@@ -379,6 +380,7 @@ export default function Valorisations() {
 
       {deciderEtudiant && (
         <DeciderParEtudiant annee={annee} onClose={() => setDeciderEtudiant(false)}
+          etudInitial={typeof deciderEtudiant === 'number' ? deciderEtudiant : null}
           onChange={charger} />
       )}
 
@@ -431,7 +433,7 @@ function anneesProches() {
 
 function LigneEtudiant({ etudiant, annee, ouvert, onBasculer, onAjouterUE,
                          onSupprimer, onSupprimerLigne, onDocuments, onDossier,
-                         onChange, onErreur }) {
+                         onDeliberer = null, onChange, onErreur }) {
   const Fleche = ouvert ? IconChevronDown : IconChevronRight;
   return (
     <div className="carte overflow-hidden">
@@ -474,6 +476,14 @@ function LigneEtudiant({ etudiant, annee, ouvert, onBasculer, onAjouterUE,
             </span>
           )}
         </span>
+        {/* DÉLIBÉRER CET ÉTUDIANT, d'un clic depuis sa ligne (Charles, 2
+            octobre 2026) : toutes ses unités, du contrôle à la validation. */}
+        {onDeliberer && (
+          <button onClick={onDeliberer} className="bouton text-[12px] px-2.5 py-1"
+            title="Instruire, décider et valider toutes les unités de cet étudiant">
+            <IconRubberStamp size={14} /> Délibérer
+          </button>
+        )}
         <button onClick={onAjouterUE} className="bouton text-[12px] px-2.5 py-1"
           title="Ajouter une ou plusieurs unités à valoriser">
           <IconPlus size={14} /> Unités
@@ -2132,18 +2142,34 @@ function EtapeRecevabilite({ dossier, onEnregistrer, enCours }) {
  * derrière le « + ». Un nom tapé est un nom qu'on orthographie de trois
  * façons, et qu'on ne retrouve plus ensuite.
  */
-function ChoixChargeDeCours({ valeur, onChange, className = '' }) {
+function ChoixChargeDeCours({ valeur, onChange, className = '', ue = null, annee = null, cours = '' }) {
   const [personnes, setPersonnes] = useState(null);
+  const [charges, setCharges] = useState([]);
   const [libre, setLibre] = useState(false);
   useEffect(() => {
     fetch(`/api/reunions/personnes?annee=${encodeURIComponent(getAnnee())}`, { headers: authHeaders() })
       .then(r => (r.ok ? r.json() : [])).then(l => setPersonnes(Array.isArray(l) ? l : []))
       .catch(() => setPersonnes([]));
   }, []);
+  /* LES ATTRIBUTIONS PROPOSENT (2 octobre 2026) : les chargés de cours de
+     l'UE en tête, et le premier — celui des cours visés, puis du plus grand
+     volume — posé d'office quand rien n'est encore choisi. */
+  useEffect(() => {
+    if (!ue) { setCharges([]); return; }
+    fetch(`/api/etudiants/ue/${ue}/charges?annee=${encodeURIComponent(annee || getAnnee())}&cours=${encodeURIComponent(cours || '')}`,
+      { headers: authHeaders() })
+      .then(r => (r.ok ? r.json() : null)).then(j => setCharges(j?.charges || [])).catch(() => setCharges([]));
+  }, [ue, annee, cours]);
+  const attribues = useMemo(() => charges.map(c => ({ ...c, n: nomListe(c.nom) })), [charges]);
+  useEffect(() => {
+    if (!valeur && attribues.length && !libre) onChange(attribues[0].n);
+    // eslint-disable-next-line
+  }, [attribues]);
   const noms = useMemo(() => [...new Set((personnes || []).map(p => nomListe(p.nom)))]
     .sort(parNom), [personnes]);
-  // Une valeur déjà écrite qui n'est pas dans la liste s'affiche en saisie libre.
-  const horsListe = !!valeur && personnes && !noms.includes(valeur);
+  const dejaAttribues = new Set(attribues.map(a => a.n));
+  // Une valeur déjà écrite qui n'est dans aucune liste s'affiche en saisie libre.
+  const horsListe = !!valeur && personnes && !noms.includes(valeur) && !dejaAttribues.has(valeur);
   if (libre || horsListe) {
     return (
       <span className={`inline-flex items-center gap-1 ${className}`}>
@@ -2159,7 +2185,14 @@ function ChoixChargeDeCours({ valeur, onChange, className = '' }) {
       <select value={valeur} onChange={e => onChange(e.target.value)}
         className="controle text-[13px] flex-1 min-w-[14rem]">
         <option value="">{personnes ? '— chargé de cours qui rend l’avis —' : 'Chargement…'}</option>
-        {noms.map(n => <option key={n} value={n}>{n}</option>)}
+        {attribues.length > 0 && (
+          <optgroup label={`Attribués à l’UE ${ue}`}>
+            {attribues.map(a => <option key={`a${a.professeur_id}`} value={a.n}>{a.n}{a.cours.length ? ` — ${a.cours.join(', ')}` : ''}</option>)}
+          </optgroup>
+        )}
+        <optgroup label="Tout le personnel">
+          {noms.filter(n => !dejaAttribues.has(n)).map(n => <option key={n} value={n}>{n}</option>)}
+        </optgroup>
       </select>
       <button type="button" className="bouton controle px-2.5" title="Il n’est pas dans la liste : l’écrire"
         onClick={() => { setLibre(true); onChange(''); }}>+</button>
@@ -2206,7 +2239,9 @@ function EtapeAvis({ dossier, onEnregistrer, enCours }) {
               ))}
           </div>
           <div className="flex items-center gap-2 text-[12px] text-slate-500">
-            Rendu par <ChoixChargeDeCours valeur={par} onChange={setPar} />
+            Rendu par <ChoixChargeDeCours valeur={par} onChange={setPar}
+              ue={dossier.ue_num || null} annee={dossier.annee_scolaire || null}
+              cours={dossier.cible === 'cours' ? dossier.cible_detail || '' : ''} />
           </div>
           {/* UN AVIS SANS TEXTE N'EST PAS UN AVIS. Les décisions de VA ne sont
               pas susceptibles de recours : la motivation est tout ce qui reste. */}
@@ -3120,7 +3155,8 @@ function AnalyserEnSerie({ annee, onClose, onChange }) {
                   </label>
                 ))}
                 {/* QUI REND L'AVIS N'EST PAS QUI LE SAISIT. */}
-                <ChoixChargeDeCours valeur={avisPar} onChange={setAvisPar} />
+                <ChoixChargeDeCours valeur={avisPar} onChange={setAvisPar}
+                  ue={unitesRetenues.length === 1 ? unitesRetenues[0] || null : null} annee={annee} />
               </div>
               <textarea value={avisTexte} onChange={e => setAvisTexte(e.target.value)}
                 rows={3}
@@ -4257,12 +4293,12 @@ function InstruireUnite({ vid, onChange }) {
   );
 }
 
-function DeciderParEtudiant({ annee, onClose, onChange }) {
+function DeciderParEtudiant({ annee, onClose, onChange, etudInitial = null }) {
   const [dossiers, setDossiers] = useState(null);
   const [peutValider, setPeutValider] = useState(false);
   const [bases, setBases] = useState([]);
   const [q, setQ] = useState('');
-  const [etudId, setEtudId] = useState(null);
+  const [etudId, setEtudId] = useState(etudInitial);
   const [choix, setChoix] = useState({});          // id → { branche, cible, coches[], motif, base }
   const [composantes, setComposantes] = useState({}); // ue_num → { cours, aas }
   const [dateCE, setDateCE] = useState(aujourdHui());
