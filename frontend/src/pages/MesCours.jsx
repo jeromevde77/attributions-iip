@@ -1,10 +1,10 @@
 import { couleurBloc, rangBloc } from '../lib/blocs.js';
 import { useEffect, useState } from 'react';
-import { IconBooks, IconChevronLeft, IconAlertTriangle, IconMessageCircle, IconPrinter } from '@tabler/icons-react';
+import { IconBooks, IconChevronLeft, IconAlertTriangle, IconMessageCircle, IconPrinter, IconCertificate, IconAccessible, IconPencil, IconUserCheck } from '@tabler/icons-react';
 import { authHeaders, getAnnee } from '../lib/api.js';
 import { MOTIFS_ECHEC } from '../components/motifsEchec.js';
 import PresencesCours from '../components/PresencesCours.jsx';
-import { OuvrirEditions } from '../components/ui.jsx';
+import { OuvrirEditions, RailLateral } from '../components/ui.jsx';
 import AvisValorisationProf from '../components/AvisValorisationProf.jsx';
 import AvisAmenagementProf from '../components/AvisAmenagementProf.jsx';
 
@@ -108,7 +108,24 @@ export default function MesCours() {
        le nom à un bout de la ligne et la note à l'autre, et renvoyait le
        bouton à la ligne. La page prend la largeur ; le tableau, lui, ne
        prend que celle qu'il lui faut. */
-    <div className="px-4 py-3 md:px-6 space-y-2.5">
+    <>
+    {/* LE RAIL DE MES COURS (Charles, 2 octobre 2026 : « le rail n'est pas
+        visible dans Mes cours ») : la liste, les avis à rendre, et — un cours
+        ouvert — ses deux faces. */}
+    <RailLateral icon={IconBooks} titre="Mes cours" sousTitre={annee}
+      sections={[{ items: [
+        { key: 'liste', label: 'Mes cours', icon: IconBooks, actif: !ouvert,
+          onClick: () => { setOuvert(null); setFeuille(null); } },
+        { key: 'avis-va', label: 'Avis de valorisation', icon: IconCertificate,
+          onClick: () => { setOuvert(null); setFeuille(null); setTimeout(() => document.getElementById('avis-va')?.scrollIntoView({ behavior: 'smooth' }), 50); } },
+        { key: 'avis-ar', label: 'Aménagements raisonnables', icon: IconAccessible,
+          onClick: () => { setOuvert(null); setFeuille(null); setTimeout(() => document.getElementById('avis-ar')?.scrollIntoView({ behavior: 'smooth' }), 50); } },
+        ...(ouvert ? [
+          { key: 'notes', label: 'Notes du cours', icon: IconPencil, actif: face === 'notes', onClick: () => setFace('notes') },
+          { key: 'presences', label: 'Présences', icon: IconUserCheck, actif: face === 'presences', onClick: () => setFace('presences') },
+        ] : []),
+      ] }]} />
+    <div className="gouttiere-rail px-4 py-3 md:px-6 space-y-2.5">
       <div className="flex items-center gap-2">
         <IconBooks size={20} className="text-iip-turquoise" />
         <h1 className="text-[17px] font-semibold text-iip-blue m-0">Mes cours</h1>
@@ -126,8 +143,8 @@ export default function MesCours() {
       )}
 
       {/* LES AVIS DE VALORISATION ATTENDUS, au-dessus des cours : c'est un délai. */}
-      {!ouvert && <AvisValorisationProf annee={annee} />}
-      {!ouvert && <AvisAmenagementProf annee={annee} />}
+      {!ouvert && <div id="avis-va"><AvisValorisationProf annee={annee} /></div>}
+      {!ouvert && <div id="avis-ar"><AvisAmenagementProf annee={annee} /></div>}
 
       {!ouvert && cours && (() => {
         /* DEUX LISTES : mes cours, puis ceux de ma section (coordination —
@@ -655,5 +672,6 @@ export default function MesCours() {
         );
       })()}
     </div>
+    </>
   );
 }
