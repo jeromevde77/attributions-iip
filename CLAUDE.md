@@ -1427,6 +1427,11 @@ et 3 composants de tuile**. La stratégie tient en cinq chantiers, dans cet ordr
   l'envers : chacun avait ajouté le padding qu'il fallait, et chacun avait été
   ignoré. D'où **`.controle-icone`** (2 rem), à poser avec `.controle` dès qu'une
   icône est posée en absolu dans le champ.
+  > **ET LA BARRE DU HAUT L'A PAYÉ AUSSI** (2.12.407) : `.barre-haut` posait
+  > `position: relative` pour son filet, ce qui annulait le `sticky` d'App.jsx.
+  > La barre partait avec la page, et le rail — accroché à son bord bas par
+  > `--barre-h` — montait avec elle. Une mesure en local (puppeteer, 900 px de
+  > défilement) l'a montré ; la classe porte désormais `sticky` elle-même.
   > **RÈGLE GÉNÉRALE : une propriété raccourcie dans une classe de la maison
   > annule l'utilitaire correspondant.** Avant d'ajouter un utilitaire à un
   > élément qui porte `.controle`, `.bouton` ou `.carte`, vérifier que la classe

@@ -544,8 +544,13 @@ table.grid-excel-soft select:focus {
 /* ─── LA BARRE DU HAUT — entière, mais du même monde que le rail ─────────
    Elle ne flotte pas : deux panneaux détachés sur un écran, c'est un de trop,
    et il faut un point fixe. Elle suit en revanche le mode. */
+/* LA BARRE RESTE EN HAUT QUAND ON DÉFILE (2 octobre 2026). Elle portait
+   « position: relative » pour son filet, et cette règle écrasait l'utilitaire
+   « sticky » posé dans App.jsx : la barre partait avec la page, et le rail,
+   accroché à son bord bas, montait avec elle. « sticky » sert aussi de
+   référence au filet, qui reste en absolu dessous. */
 .barre-haut { background: var(--barre-fond); color: var(--menu-texte);
-              border-color: transparent; position: relative; }
+              border-color: transparent; position: sticky; top: 0; }
 /* UN SEUL TRAIT, ET IL TOURNE.
  *
  * Le filet de la barre courait par-dessus le rail, et celui du rail montait à
