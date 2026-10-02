@@ -57,6 +57,39 @@ const courrielAllume = () => {
   catch { return false; }
 };
 
+/* LES MOTIFS TYPES DE LA DÉCISION (Charles, 2 octobre 2026 : « la
+   justification à choisir dans une liste »). Une phrase de départ, que le
+   Conseil complète ; une par ligne, réglable dans Configuration → Procédures
+   sans déploiement. Les motifs de FORME (hors délai, dossier incomplet) n'y
+   sont pas : ils relèvent de la recevabilité. */
+const MOTIFS_REFUS_DEFAUT = [
+  'Les contenus attestés ne correspondent pas aux acquis d’apprentissage du dossier pédagogique.',
+  'Le volume attesté est insuffisant au regard des périodes de l’unité.',
+  'Les résultats obtenus dans la formation antérieure ne démontrent pas la maîtrise des acquis.',
+  'Le niveau de la formation antérieure n’atteint pas celui de l’unité.',
+  'L’expérience décrite ne démontre pas la maîtrise des acquis ; le test ne l’a pas établie.',
+  'Les preuves ne permettent pas d’établir le niveau requis.',
+].join('\n');
+const MOTIFS_PARTIEL_DEFAUT = [
+  'Les preuves couvrent une partie des activités d’enseignement ; les autres restent à suivre.',
+  'Une partie des acquis est maîtrisée ; les autres restent à évaluer.',
+  'Les heures prestées couvrent une partie des périodes de stage ; l’évaluation du stage reste due.',
+  'L’expérience couvre les activités pratiques ; la partie théorique reste à suivre et à évaluer.',
+].join('\n');
+try {
+  const ins = db.prepare('INSERT OR IGNORE INTO parametre (cle, valeur, label, groupe) VALUES (?, ?, ?, ?)');
+  ins.run('va_motifs_refus', MOTIFS_REFUS_DEFAUT, 'Valorisation — motifs types d’un refus (un par ligne)', 'procedures');
+  ins.run('va_motifs_partiel', MOTIFS_PARTIEL_DEFAUT, 'Valorisation — remarques types d’une dispense partielle (une par ligne)', 'procedures');
+} catch { /* base ancienne */ }
+export function motifsVA() {
+  const lire = (cle, defaut) => {
+    let v = defaut;
+    try { v = db.prepare('SELECT valeur FROM parametre WHERE cle = ?').get(cle)?.valeur || defaut; } catch { /* */ }
+    return String(v).split(/\n|\r/).map(x => x.trim()).filter(Boolean);
+  };
+  return { refus: lire('va_motifs_refus', MOTIFS_REFUS_DEFAUT), partiel: lire('va_motifs_partiel', MOTIFS_PARTIEL_DEFAUT) };
+}
+
 const RANG_SENS = { defavorable: 3, partiel: 2, favorable: 1 };
 export const LIB_SENS = { favorable: 'favorable', partiel: 'partiel', defavorable: 'défavorable' };
 

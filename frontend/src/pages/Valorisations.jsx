@@ -4347,6 +4347,7 @@ export function DeliberationVA({ annee, onClose, onChange, mode: modeDepart = 'e
   const [dossiers, setDossiers] = useState(null);
   const [peutValider, setPeutValider] = useState(false);
   const [bases, setBases] = useState([]);
+  const [motifs, setMotifs] = useState({ refus: [], partiel: [] });
   const [section, setSection] = useState('');
   const [dateCE, setDateCE] = useState(aujourdHui());
   const [baseCommune, setBaseCommune] = useState('');
@@ -4369,7 +4370,7 @@ export function DeliberationVA({ annee, onClose, onChange, mode: modeDepart = 'e
   useEffect(() => { charger(); }, [charger]);
   useEffect(() => {
     fetch('/api/etudiants/valorisations/referentiel', { headers: authHeaders() })
-      .then(r => (r.ok ? r.json() : null)).then(j => setBases(j?.bases || [])).catch(() => {});
+      .then(r => (r.ok ? r.json() : null)).then(j => { setBases(j?.bases || []); setMotifs(j?.motifs || { refus: [], partiel: [] }); }).catch(() => {});
   }, []);
 
   const sections = useMemo(() => [...new Set((dossiers || []).map(d => d.section).filter(Boolean))].sort(), [dossiers]);
@@ -4443,11 +4444,15 @@ export function DeliberationVA({ annee, onClose, onChange, mode: modeDepart = 'e
     if (c.branche !== 'refusee' && !(c.base || baseCommune)) return 'Base de la décision manquante';
     return null;
   };
-  const prets = lignes.filter(d => aEcrire(d) && !manqueDe(d));
+  const prets0 = lignes.filter(d => aEcrire(d) && !manqueDe(d));
+  const prets = prets0;
   const aValider = lignes.filter(d => d.pret_a_valider && !aEcrire(d));
   const fait = x => x.lignes.every(d => d.valide_le || (d.decision_le && !aEcrire(d)) || MOTS_ETAT_BLOQUANT(d));
 
-  async function arreter(suivant = true) {
+  // AU CAS PAR CAS OU EN UNE FOIS (2 octobre 2026) : `seules` restreint le
+  // geste à une UE ; sans elle, toutes les UE prêtes de l'écran partent.
+  async function arreter(suivant = true, seules = null) {
+    const prets = seules || prets0;
     if (!prets.length) { if (suivant && iCur < groupes.length - 1) setCle(groupes[iCur + 1].cle); return; }
     if (!/^\d{4}-\d{2}-\d{2}$/.test(dateCE)) { setErreur('Date de la séance manquante.'); return; }
     setEnCours(true); setErreur(null); setBloquants(null); setInfo(null);
@@ -4464,6 +4469,7 @@ export function DeliberationVA({ annee, onClose, onChange, mode: modeDepart = 'e
           const l = { id: d.id, decision: 'accordee', base_code: c.base || baseCommune };
           if (c.branche === 'totale') return { ...l, type: 'complete' };
           return { ...l, type: 'partielle', cible: c.cible === 'acquis' ? 'aa' : 'cours', cible_detail: c.coches.join(','),
+            ...(c.remarque?.trim() ? { commentaire: c.remarque.trim() } : {}),
             ...(c.cible === 'acquis' ? { equivalences: c.coches.map(code => ({ aa_code: code })) } : {}) };
         });
         const r = await fetch('/api/etudiants/valorisations/lot/decisions', {
@@ -4479,15 +4485,16 @@ export function DeliberationVA({ annee, onClose, onChange, mode: modeDepart = 'e
     } catch (e) { setErreur(e.message); } finally { setEnCours(false); }
   }
 
-  async function valider() {
+  async function valider(seules = null) {
+    const liste = seules || aValider;
     setEnCours(true); setErreur(null); setBloquants(null); setInfo(null);
     try {
       const r = await fetch('/api/etudiants/valorisations/lot/validation', {
         method: 'POST', headers: { ...authHeaders(), 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ids: aValider.map(d => d.id) }) });
+        body: JSON.stringify({ ids: liste.map(d => d.id) }) });
       const j = await r.json().catch(() => ({}));
       if (!r.ok) { setErreur(j.error || 'Validation refusée.'); if (Array.isArray(j.bloquants)) setBloquants(j.bloquants); return; }
-      setInfo(`${j.valides ?? aValider.length} dossier(s) validé(s).`);
+      setInfo(`${j.valides ?? liste.length} dossier(s) validé(s).`);
       await charger(); await onChange?.();
     } catch (e) { setErreur(e.message); } finally { setEnCours(false); }
   }
@@ -4518,7 +4525,7 @@ export function DeliberationVA({ annee, onClose, onChange, mode: modeDepart = 'e
           <option value="">Toutes</option>
           {sections.map(x => <option key={x} value={x}>{x}</option>)}
         </select>
-        <span>Base des accords <BulleAide titre="Base de la décision">La base légale qui part dans eProm : VAF V1 à V4 ou VANFI. Elle vaut pour toutes les UE accordées de la séance, sauf celles qui en portent déjà une autre.</BulleAide></span>
+        <span>Base par défaut <BulleAide titre="Base de la décision">La base légale qui part dans eProm : VAF V1 à V4 ou VANFI. Elle se propose à chaque UE accordée ; chaque UE peut en porter une autre, sur sa ligne.</BulleAide></span>
         <select value={baseCommune} onChange={e => setBaseCommune(e.target.value)} className="controle text-[13px] max-w-[22rem]">
           <option value="">— choisir —</option>
           {bases.map(b => <option key={b.code} value={b.code}>{b.code} — {b.libelle}</option>)}
@@ -4536,7 +4543,7 @@ export function DeliberationVA({ annee, onClose, onChange, mode: modeDepart = 'e
                 <span className="text-[12px] text-slate-500">{iCur + 1} sur {groupes.length} · {lignes.length} {mode === 'etudiant' ? 'unité(s)' : 'étudiant(s)'}</span>
                 <span className="ml-auto" />
                 {peutValider && aValider.length > 0 && (
-                  <button className="bouton font-semibold" disabled={enCours} onClick={valider}
+                  <button className="bouton font-semibold" disabled={enCours} onClick={() => valider()}
                     style={{ borderColor: 'var(--c-reussi, #3E7D5E)', color: 'var(--c-reussi, #3E7D5E)' }}
                     title="Geste de la direction : les décisions arrêtées et complètes">
                     <IconCheck size={14} className="inline -mt-0.5 mr-1" />Valider {aValider.length} dossier(s)</button>
@@ -4618,19 +4625,39 @@ export function DeliberationVA({ annee, onClose, onChange, mode: modeDepart = 'e
                                 </div>
                                 {c.propose && <div className="text-[11px] text-slate-500">proposé par l’avis — à confirmer</div>}
                                 {c.branche === 'refusee' && (
-                                  <textarea rows={2} value={c.motif || ''} placeholder="Motif du refus — obligatoire"
-                                    onChange={e => poser(d.id, { motif: e.target.value })}
-                                    className="w-full border border-slate-300 rounded px-2 py-1 text-[12.5px]" />
+                                  <>
+                                    {/* LE MOTIF SE CHOISIT, PUIS SE COMPLÈTE (2 octobre 2026). */}
+                                    <select value="" onChange={e => e.target.value && poser(d.id, { motif: c.motif?.trim() ? `${c.motif.trim()} ${e.target.value}` : e.target.value })}
+                                      className="w-full border border-slate-300 rounded h-7 px-1.5 text-[12px] bg-white">
+                                      <option value="">Motif type du refus…</option>
+                                      {motifs.refus.map(m => <option key={m} value={m}>{m}</option>)}
+                                    </select>
+                                    <textarea rows={2} value={c.motif || ''} placeholder="Motif du refus — obligatoire, à compléter"
+                                      onChange={e => poser(d.id, { motif: e.target.value })}
+                                      className="w-full border border-slate-300 rounded px-2 py-1 text-[12.5px]" />
+                                  </>
+                                )}
+                                {/* LA BASE SE CHOISIT UE PAR UE (2 octobre 2026) : celle de la
+                                    séance n'est qu'un défaut. */}
+                                {(c.branche === 'totale' || c.branche === 'partielle') && (
+                                  <select value={c.base || ''} onChange={e => poser(d.id, { base: e.target.value })}
+                                    className="w-full border border-slate-300 rounded h-7 px-1.5 text-[12px] bg-white">
+                                    <option value="">Base : {baseCommune ? `${baseCommune} (celle de la séance)` : '— à choisir —'}</option>
+                                    {bases.map(x => <option key={x.code} value={x.code}>Base : {x.code} — {x.libelle}</option>)}
+                                  </select>
                                 )}
                                 {c.branche === 'partielle' && (
                                   <div className="text-[12px]">
-                                    <span className="mr-2 text-slate-500">
-                                      {[['cours', 'Cours'], ['acquis', 'Acquis']].map(([v, l]) => (
+                                    {/* PAR COURS OU PAR ACQUIS — les deux portées de la partielle. */}
+                                    <div className="inline-flex border border-slate-300 rounded overflow-hidden mb-1 mr-2 align-middle">
+                                      {[['cours', 'Par cours'], ['acquis', 'Par acquis']].map(([v, l]) => (
                                         <button key={v} type="button" onClick={() => poser(d.id, { cible: v, coches: [] })}
-                                          className={`mr-1 underline-offset-2 ${c.cible === v ? 'font-semibold text-iip-texte underline' : 'text-slate-500'}`}>{l}</button>
+                                          className="px-2 py-0.5 text-[12px] font-semibold border-r border-slate-200 last:border-r-0"
+                                          style={c.cible === v ? { background: TEINTE_DECISION.partielle, color: '#fff' } : { color: '#475569' }}>{l}</button>
                                       ))}
-                                      dispensés :
-                                    </span>
+                                    </div>
+                                    <span className="text-slate-500">{c.cible === 'acquis' ? 'acquis reconnus :' : 'cours dispensés :'}</span>
+                                    <br />
                                     {!comp ? <span className="text-slate-400">chargement…</span>
                                       : !items.length ? <span className="text-slate-500">aucun élément connu</span>
                                         : items.map(([code, lib, titre]) => {
@@ -4643,6 +4670,14 @@ export function DeliberationVA({ annee, onClose, onChange, mode: modeDepart = 'e
                                               {on ? '✓ ' : ''}{lib}</button>
                                           );
                                         })}
+                                    <select value="" onChange={e => e.target.value && poser(d.id, { remarque: e.target.value })}
+                                      className="w-full border border-slate-300 rounded h-7 px-1.5 text-[12px] bg-white mt-1.5">
+                                      <option value="">Remarque du Conseil, type…</option>
+                                      {motifs.partiel.map(m => <option key={m} value={m}>{m}</option>)}
+                                    </select>
+                                    <input value={c.remarque || ''} onChange={e => poser(d.id, { remarque: e.target.value })}
+                                      placeholder="Remarque du Conseil (facultative) — « dispensé des heures de stage, doit présenter l’examen »"
+                                      className="w-full border border-slate-300 rounded h-7 px-1.5 text-[12px] mt-1" />
                                   </div>
                                 )}
                               </div>
@@ -4652,6 +4687,18 @@ export function DeliberationVA({ annee, onClose, onChange, mode: modeDepart = 'e
                             {d.valide_le ? <span className="font-semibold" style={{ color: 'var(--c-reussi, #3E7D5E)' }}>✓ validé</span>
                               : !manque ? <span className="font-semibold" style={{ color: 'var(--c-reussi, #3E7D5E)' }}>{aEcrire(d) ? '✓ prêt' : '✓ arrêtée'}</span>
                                 : <span className="font-semibold" style={{ color: TEINTE_DECISION.refusee }}>{manque}</span>}
+                            {/* LE GESTE SUR CETTE UE SEULE. */}
+                            {!d.valide_le && aEcrire(d) && !manque && (
+                              <button type="button" disabled={enCours} onClick={() => arreter(false, [d])}
+                                className="block mt-1 rounded border border-slate-300 bg-white h-7 px-2 text-[12px] font-semibold hover:bg-slate-50">
+                                Arrêter cette UE</button>
+                            )}
+                            {peutValider && d.pret_a_valider && !aEcrire(d) && (
+                              <button type="button" disabled={enCours} onClick={() => valider([d])}
+                                className="block mt-1 rounded border h-7 px-2 text-[12px] font-semibold"
+                                style={{ borderColor: 'var(--c-reussi, #3E7D5E)', color: 'var(--c-reussi, #3E7D5E)' }}>
+                                ✓ Valider cette UE</button>
+                            )}
                             {!d.valide_le && (bloque || !d.avis_le) && (
                               <button type="button" className="block mt-1 underline text-iip-blue"
                                 onClick={() => setInstruits(x => { const n = new Set(x); n.has(d.id) ? n.delete(d.id) : n.add(d.id); return n; })}>

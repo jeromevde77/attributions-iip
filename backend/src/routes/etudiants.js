@@ -31,7 +31,7 @@ import { calculerDI, calculerDIS } from './droitInscription.js';
 import { rapprocher, normDate } from './importHistorique.js';
 import { lirePackUF } from '../lib/packUF.js';
 import { schemaSvg, legendeSchemaHtml } from '../lib/schemaSvg.js';
-import { appelerCharges, avisCoordination } from '../lib/avisVA.js';
+import { appelerCharges, avisCoordination, motifsVA } from '../lib/avisVA.js';
 
 const r = Router();
 
@@ -7463,7 +7463,7 @@ r.post('/valorisations/matrice', authRequired, roleRequired(...PEUT_INSTRUIRE),
  *  et une contrôlée, finiraient par diverger. */
 r.get('/valorisations/referentiel', authRequired, (req, res) => {
   res.json({ bases: BASES, finalites: FINALITES, etats: ETATS,
-             pourcentage_dispense: POURCENTAGE_DISPENSE });
+             pourcentage_dispense: POURCENTAGE_DISPENSE, motifs: motifsVA() });
 });
 
 /**
