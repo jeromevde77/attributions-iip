@@ -2525,6 +2525,7 @@ export function FicheEtudiant({ id, annee, onClose, position, onPrec, onSuiv,
   const [paeConfirme, setPaeConfirme] = useState(false);
   const [paeValide, setPaeValide] = useState(null);   // la validation de la revue des PAE
   const [revueFiche, setRevueFiche] = useState(false);
+  const [voirProgramme, setVoirProgramme] = useState(false);
   const [sectionForcee, setSectionForcee] = useState('');
 
   // LES FLÈCHES DU CLAVIER, mais jamais pendant qu'on écrit : dans un champ de
@@ -2989,7 +2990,22 @@ export function FicheEtudiant({ id, annee, onClose, position, onPrec, onSuiv,
                   onModifie={async () => { await chargerPAE(); await charger(); onModifie && onModifie(); }} />}
                 verso={ue => <GrilleParcours etudId={id} peutEcrire={true} annee={annee} ueFocus={ue} />} />
 
-              <div className="border-t border-slate-200 mt-4 pt-4">
+              {/* LA FICHE EST LA VUE DU PARCOURS ET DES NOTES (Charles, 2 octobre
+                  2026) : le PAE se travaille dans la revue. Il se résume ici en
+                  une ligne, et le programme détaillé se déplie au besoin. */}
+              <div className="border-t border-slate-200 mt-4 pt-3 flex flex-wrap items-center gap-2 text-[13px]">
+                <b>PAE {annee}</b>
+                {paeValide
+                  ? <span className="text-[11px] font-semibold text-white rounded-full px-2 py-px" style={{ background: 'var(--c-reussi, #3E7D5E)' }}>
+                      validé le {quandLocal(paeValide.revu_le)} par {paeValide.revu_par || '—'}</span>
+                  : <span className="text-[11px] font-semibold text-white rounded-full px-2 py-px bg-slate-400">pas encore validé</span>}
+                <span className="text-[12px] text-slate-500">{paeConfirme ? 'programme confirmé' : 'programme proposé'}</span>
+                <button type="button" className="text-[12px] underline text-iip-blue" onClick={() => setRevueFiche(true)}>ouvrir la revue</button>
+                <button type="button" className="text-[12px] underline text-slate-500" onClick={() => setVoirProgramme(v => !v)}>
+                  {voirProgramme ? 'masquer le programme' : 'voir le programme'}</button>
+              </div>
+
+              <div className={`pt-3 ${voirProgramme ? '' : 'hidden'}`}>
               {/* Ce qui suit est une PROPOSITION tant qu'elle n'est pas
                   confirmée : le dire évite de la lire comme un état de fait,
                   maintenant que schéma et programme sont sur la même page. */}
@@ -4245,20 +4261,22 @@ export default function Etudiants() {
                   <td className="px-3 py-1 h-10 whitespace-nowrap">
                     <span className="font-semibold text-iip-blue">{nomPropre(e.nom, '')}</span>
                     <span className="text-slate-700 ml-1">{nomPropre('', e.prenom)}</span>
-                    {e.pae_valide && (
-                      <span className="inline-grid place-items-center w-4 h-4 rounded-full ml-1.5 align-[-3px] text-white"
-                        style={{ background: 'var(--c-reussi, #3E7D5E)' }}
-                        title={`PAE validé le ${quandLocal(e.pae_valide.le)} par ${e.pae_valide.par || '—'}`}>
-                        <IconCheck size={11} stroke={3} /></span>
-                    )}
                     <span className="text-[11px] text-slate-400 ml-1.5 tabular-nums">{e.id_ecampus}</span>
                     {e.primo && <span className="ml-1.5 text-[10px] font-semibold px-1.5 rounded bg-slate-100 text-slate-600"
                       title="Primo-arrivé : aucune trace avant l'année de travail">primo</span>}
                   </td>
-                  <td className="px-2 py-1">
-                    {e.pae_confirme
-                      ? <IconWritingSign size={15} className="text-iip-texte" title="Programme confirmé — étudiant inscrit" />
-                      : <IconWritingSignOff size={15} className="text-slate-300" title="Programme non confirmé" />}
+                  {/* LE CRAYON DIT LE PAE, ET IL L'OUVRE (Charles, 2 octobre 2026) :
+                      vert quand le PAE est validé dans la revue, gris sinon ; un
+                      clic ouvre la revue — la fenêtre « œil » — sur cet étudiant.
+                      La fiche, elle, reste la vue du parcours et des notes. */}
+                  <td className="px-2 py-1" onClick={ev => ev.stopPropagation()}>
+                    <button type="button" className="p-0.5 rounded hover:bg-slate-100"
+                      onClick={() => setRevuePAE([{ id: e.id, nom: e.nom, prenom: e.prenom,
+                        section: e.section_rattachement || null, niveau: e.niveau || null }])}
+                      title={e.pae_valide ? `PAE validé le ${quandLocal(e.pae_valide.le)} par ${e.pae_valide.par || '—'} — ouvrir la revue`
+                        : e.pae_confirme ? 'Programme confirmé, PAE pas encore validé — ouvrir la revue' : 'PAE pas encore validé — ouvrir la revue'}>
+                      <IconWritingSign size={15} style={{ color: e.pae_valide ? 'var(--c-reussi, #3E7D5E)' : '#CBD5E1' }} />
+                    </button>
                   </td>
                   <td className="px-3 py-1 whitespace-nowrap">
                     <BadgeNiveau niveau={e.niveau} libelle={e.niveau_libelle} />
@@ -4467,7 +4485,7 @@ export default function Etudiants() {
       {rapportPAE && (
         <RapportPAE anneeCourante={annee} onClose={() => setRapportPAE(false)} />
       )}
-      {revuePAE && <RevuePAE liste={revuePAE} annee={annee} onClose={() => setRevuePAE(null)} />}
+      {revuePAE && <RevuePAE liste={revuePAE} annee={annee} onClose={() => { setRevuePAE(null); charger(); }} />}
       {rapportPAESel && (
         <RapportPAE anneeCourante={annee} onClose={() => setRapportPAESel(false)}
           selection={(etudiants || []).filter(e => selEtudiants.has(e.id))
