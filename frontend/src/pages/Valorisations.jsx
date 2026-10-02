@@ -234,31 +234,16 @@ export default function Valorisations() {
   const RAIL = [{
     label: 'Valorisation',
     items: [
-      { key: 'introduire', label: 'Introduire des demandes', icon: IconTable,
+      /* TROIS PORTES, DANS L'ORDRE DU CIRCUIT (maquette validée par Charles,
+         2 octobre 2026). « Ajouter des étudiants » vit dans la matrice,
+         « Créer avec la même dispense » dans la séance par UE, et l'analyse
+         en série ne fait plus qu'instruire : une décision n'a qu'une porte. */
+      { key: 'introduire', label: '1 · Introduire des demandes', icon: IconTable,
         onClick: () => setMatrice(true) },
-      /* « VALORISER EN SÉRIE » NE DISAIT PAS CE QU'IL FAISAIT — et trois
-         entrées se ressemblaient au point qu'on ne pouvait plus les
-         distinguer : « Introduire des demandes », « Valoriser en série »,
-         « Analyser les demandes en série ». Même longueur, même structure.
-         Chacune fait pourtant autre chose : la matrice OUVRE des dossiers
-         vides (AD/VA/VAE), celle-ci les ouvre DÉJÀ PORTEURS du détail de la
-         dispense — mêmes cours, mêmes acquis, même remarque pour toute une
-         cohorte —, et la troisième INSTRUIT ce qui existe. Le libellé dit
-         désormais ce qui la distingue : la dispense identique. */
-      { key: 'serie', label: 'Créer avec la même dispense', icon: IconUsersGroup,
-        onClick: () => setSerie(true) },
-      { key: 'analyse', label: 'Analyser les demandes en série', icon: IconListCheck,
+      { key: 'analyse', label: '2 · Instruire en série', icon: IconListCheck,
         onClick: () => setAnalyse(true) },
-      /* UN ÉTUDIANT, TOUTES SES UNITÉS : le dossier tel qu'il arrive. Le
-         TAMPON dit la décision puis l'acceptation, et n'appartient qu'à cette
-         entrée : la personne cochée est à « Présences », le marteau à
-         « Procédures », qui vit dans ce même rail. */
-      // UNE SEULE ENTRÉE POUR LA SÉANCE : la fenêtre porte les deux lectures,
-      // par étudiant et par UE (2 octobre 2026).
-      { key: 'par-etudiant', label: 'Séance du conseil — par étudiant ou par UE', icon: IconRubberStamp,
+      { key: 'par-etudiant', label: '3 · Séance du conseil', icon: IconRubberStamp,
         onClick: () => setDeciderEtudiant(true) },
-      { key: 'ajouter', label: 'Ajouter des étudiants', icon: IconUserPlus,
-        onClick: () => setAjout(true) },
     ],
   }];
 
@@ -274,27 +259,26 @@ export default function Valorisations() {
             className="controle text-[13px]">
             {anneesProches().map(a => <option key={a} value={a}>{a}</option>)}
           </select>
-          {/* L'ACTION PRINCIPALE DE L'ÉCRAN EST LA SÉANCE, PAS LE DOSSIER.
-              On encode une valorisation par unité devant un conseil des études,
-              pas un étudiant à la fois : c'est celle-là qui porte le ton fort,
-              et il n'y en a qu'une. */}
-          {/* LA PORTE D'ENTRÉE EST L'ACTION PRINCIPALE : avant de valoriser,
-              il faut que les demandes soient entrées. */}
-          <button onClick={() => setMatrice(true)} className="controle controle-fort">
-            <IconTable size={16} /> Introduire des demandes
-          </button>
-          <button onClick={() => setAnalyse(true)} className="controle">
-            <IconListCheck size={16} /> Analyser en série
-          </button>
-          <button onClick={() => setSerie(true)} className="controle">
-            <IconUsersGroup size={16} /> Créer avec la même dispense
-          </button>
-          <button onClick={() => setAjout(true)} className="controle">
-            <IconUserPlus size={16} /> Ajouter des étudiants
-          </button>
           <span className="ml-auto text-[12px] text-slate-500">
             {(lignes || []).length} valorisation(s) · {annee}
           </span>
+        </div>
+
+        {/* LES TROIS PORTES, dans l'ordre du circuit. */}
+        <div className="grid gap-2.5 md:grid-cols-3">
+          {[
+            ['1', 'Introduire des demandes', 'La matrice : un étudiant par ligne, une UE par colonne, VA ou VAE. On y ajoute aussi des étudiants.', () => setMatrice(true), false],
+            ['2', 'Instruire en série', 'Dates, recevabilité, avis : en lot, sur les demandes cochées. Les chargés de cours rendent leur avis dans Mes cours.', () => setAnalyse(true), false],
+            ['3', 'Séance du conseil', 'Par étudiant ou par UE — une décision par UE, la même pour plusieurs si le Conseil l’a dit. Puis la validation.', () => setDeciderEtudiant(true), true],
+          ].map(([n, t, sous, go, fort]) => (
+            <button key={n} type="button" onClick={go}
+              className="text-left flex items-start gap-2.5 bg-white border rounded-carte px-3 py-2.5 hover:bg-slate-50"
+              style={{ borderColor: fort ? 'var(--c-principal, #16406A)' : '#D8DCE4' }}>
+              <span className="flex-none w-6 h-6 rounded-full grid place-items-center text-[12px] font-bold"
+                style={fort ? { background: 'var(--c-principal, #16406A)', color: '#fff' } : { background: '#E8EEF6', color: 'var(--c-principal, #16406A)' }}>{n}</span>
+              <span><b className="block text-[14px]">{t}</b><span className="text-[12px] text-slate-600">{sous}</span></span>
+            </button>
+          ))}
         </div>
 
         {erreur && <div className="text-[12px] text-rose-700">{erreur}</div>}
@@ -2645,6 +2629,10 @@ const ETAPES = [
     franchie: d => !!d.valide_le },
 ];
 
+// L'INSTRUCTION EN SÉRIE s'arrête à l'avis : la décision et la validation ont
+// leur porte, la séance du conseil (2 octobre 2026).
+const ETAPES_INSTRUIRE = ETAPES.filter(e => ['demande', 'recevabilite', 'avis'].includes(e.cle));
+
 /* ══ LA FRISE DU CIRCUIT — UN DOSSIER, CINQ ÉTAPES ════════════════════════
  *
  * « Où en est-on ? » est la question qu'on pose devant le registre, et le
@@ -2851,7 +2839,7 @@ function AnalyserEnSerie({ annee, onClose, onChange }) {
    * régularisation demande ; ce qui bloque, c'est le serveur, et il le dit
    * dossier par dossier. */
   const reference = retenus.length ? retenus : vues;
-  const avancement = ETAPES.map(e => {
+  const avancement = ETAPES_INSTRUIRE.map(e => {
     if (!reference.length) return { ...e, etat: 'vide', nb: 0, sur: 0 };
     const nb = reference.filter(e.franchie).length;
     return { ...e, nb, sur: reference.length,
@@ -3053,10 +3041,10 @@ function AnalyserEnSerie({ annee, onClose, onChange }) {
        * La sélection reste : c'est la même liasse qui passe l'étape suivante, et
        * la recomposer cinq fois était le travail que le lot devait supprimer.
        * L'élagage ci-dessus retirera ceux que l'étape suivante refuse. */
-      const rang = ETAPES.findIndex(e => e.cle === geste);
+      const rang = ETAPES_INSTRUIRE.findIndex(e => e.cle === geste);
       setMotifForme(''); setMotifRefus('');
-      if (rang >= 0 && rang < ETAPES.length - 1) setGeste(ETAPES[rang + 1].cle);
-      else setCoches(new Set());   // la validation close le circuit
+      if (rang >= 0 && rang < ETAPES_INSTRUIRE.length - 1) setGeste(ETAPES_INSTRUIRE[rang + 1].cle);
+      else setCoches(new Set());   // l'avis close l'instruction : la suite est en séance
       await charger();
       await onChange?.();
     } catch (e) { setErreur(e.message); }
@@ -3065,8 +3053,8 @@ function AnalyserEnSerie({ annee, onClose, onChange }) {
 
   return (
     <Fenetre icone={IconListCheck} large="grande" onFermer={onClose}
-      titre="Analyser les demandes en série"
-      sous="Une ligne par demande — on filtre, on coche, on pose le geste"
+      titre="Instruire en série"
+      sous="Dates, recevabilité, avis — une ligne par demande ; la décision se prend en séance du conseil"
       pied={<>
         <button onClick={poser} disabled={!!manque || enCours
             || (geste === 'validation' && !donnees?.peut_valider)}
@@ -4720,6 +4708,22 @@ export function DeliberationVA({ annee, onClose, onChange, mode: modeDepart = 'e
                                   ))}
                                 </div>
                                 {c.propose && <div className="text-[11px] text-slate-500">proposé par l’avis — à confirmer</div>}
+                                {/* LA MÊME DISPENSE POUR PLUSIEURS (porte 3, par UE — 2 octobre
+                                    2026) : la décision de cette ligne se reporte sur les autres
+                                    étudiants de l'UE encore à décider ; chacune se corrige ensuite. */}
+                                {mode === 'ue' && c.branche && lignes.length > 1 && (
+                                  <button type="button" className="text-[11.5px] underline text-iip-blue"
+                                    onClick={() => setChoix(o => {
+                                      const n = { ...o };
+                                      for (const x of lignes) {
+                                        if (x.id === d.id || x.valide_le || MOTS_ETAT_BLOQUANT(x)) continue;
+                                        n[x.id] = { ...n[x.id], branche: c.branche, cible: c.cible, coches: [...(c.coches || [])],
+                                          motif: c.motif || '', remarque: c.remarque || '', base: c.base || '', heures: c.heures, propose: false };
+                                      }
+                                      return n;
+                                    })}>
+                                    la même décision pour les autres étudiants de l’UE</button>
+                                )}
                                 {c.branche === 'refusee' && (
                                   <>
                                     {/* LE MOTIF SE CHOISIT, PUIS SE COMPLÈTE (2 octobre 2026). */}
