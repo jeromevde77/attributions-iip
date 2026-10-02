@@ -29,6 +29,15 @@ export default function Axe({ titre, question, icone, onglets, ongletInitial,
                                  Voir plus bas : sans lui, on retombe sur les
                                  rubriques puis le tiroir. */
                               ordreRail = null,
+                              /* DES SOUS-MENUS QUI GLISSENT (Charles, 2 octobre
+                                 2026 : « l'escalier devient Parcours, on y place
+                                 report de notes, valorisation des acquis et revue
+                                 des PAE »). [{ key, label, icone, hote,
+                                 enfants: [{ key, label, icone }] }] — un enfant
+                                 qui est un outil d'un autre écran ouvre l'écran
+                                 hôte, qui lance l'outil (sessionStorage
+                                 « lucie.outil »). */
+                              sousMenus = [],
                               impression = 'etudiants', echanges = false }) {
   // LES RUBRIQUES « À VENIR » NE SONT PLUS DANS LE MENU.
   // Une place réservée annonçant un écran qui n'existe pas est une promesse
@@ -151,6 +160,22 @@ export default function Axe({ titre, question, icone, onglets, ongletInitial,
   const parCle = new Map();
   for (const o of visibles) parCle.set(o.key, entreeRubrique(o));
   for (const it of sousOutils) if (!parCle.has(it.key)) parCle.set(it.key, it);
+
+  const [sousOuvert, setSousOuvert] = useState(null);
+  for (const sm of sousMenus) {
+    const enfants = (sm.enfants || []).map(e => {
+      const present = parCle.get(e.key);
+      if (present) return { ...present, label: e.label || present.label, icon: e.icone || present.icon };
+      // L'outil vit sur un autre écran : on l'ouvre, et il se lance.
+      return { key: e.key, label: e.label, icon: e.icone, actif: false,
+        onClick: () => { try { sessionStorage.setItem('lucie.outil', e.key); } catch { /* */ } setActif(sm.hote); } };
+    });
+    for (const e of sm.enfants || []) parCle.delete(e.key);
+    const ouvert = sousOuvert === sm.key || enfants.some(e => e.actif);
+    parCle.set(sm.key, { key: sm.key, label: sm.label, icon: sm.icone, actif: false,
+      onClick: () => setSousOuvert(o => (o === sm.key ? null : sm.key)),
+      sous: ouvert ? enfants : undefined });
+  }
 
   const groupes = [];
   if (Array.isArray(ordreRail) && ordreRail.length) {

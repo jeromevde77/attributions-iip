@@ -3,7 +3,7 @@ import {
   IconHome, IconChecklist, IconSend, IconLayoutDashboard, IconCalendarStats,
   IconChartBar,
   IconCertificate, IconClipboardList, IconScale, IconShieldExclamation, IconDoorEnter,
-  IconUserCheck, IconRoute, IconFileText, IconFolder, IconNotes, IconAccessible,
+  IconUserCheck, IconRoute, IconFileText, IconStairsUp, IconEyeCheck, IconArrowForwardUp, IconTablePlus, IconFolder, IconNotes, IconAccessible,
 } from '@tabler/icons-react';
 import Axe from '../components/Axe.jsx';
 import Accueil from './Accueil.jsx';
@@ -93,7 +93,7 @@ export function AxeEtudiants() {
        * le PAE suivant), on instruit (valorisation, délibération), on délivre
        * (diplômes) — puis l'exception (procédures), puis ce qui efface. */
       ordreRail={[
-        ['nouvel-etudiant', 'pae', 'passage', 'reports', 'valorisation', 'amenagements', 'deliberation',
+        ['nouvel-etudiant', 'pae', 'parcours', 'amenagements', 'deliberation',
          'diplomation'],
         ['procedures'],
         ['purge'],
@@ -104,6 +104,14 @@ export function AxeEtudiants() {
          l'exception, à part et signalée. Un menu rangé dans l'ordre où les
          écrans ont été écrits oblige chacun à retenir une liste ; rangé dans
          l'ordre du travail, il ne se retient pas, il se suit. */
+      /* LE PARCOURS, UN SOUS-MENU (Charles, 2 octobre 2026). */
+      sousMenus={[{ key: 'parcours', label: 'Parcours', icone: IconStairsUp, hote: 'pae',
+        enfants: [
+          { key: 'passage', label: 'Composer les PAE', icone: IconTablePlus },
+          { key: 'revue-pae', label: 'Revue des PAE', icone: IconEyeCheck },
+          { key: 'reports', label: 'Reports de notes', icone: IconArrowForwardUp },
+          { key: 'valorisation', label: 'Valorisation des acquis', icone: IconCertificate },
+        ] }]}
       onglets={[
         { key: 'pae', label: 'Inscriptions & PAE', icone: IconClipboardList,
           sansMarge: true, railPropre: true,
