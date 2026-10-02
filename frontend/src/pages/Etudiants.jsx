@@ -1578,6 +1578,10 @@ const TYPES_VA = [
 function Valorisations({ etudId, annee }) {
   const [valos, setValos] = useState(null);
   const [seance, setSeance] = useState(false);
+  // INTRODUIRE UNE DEMANDE, ici aussi (2 octobre 2026) : l'onglet ne décide
+  // plus — il ouvre un dossier vide, qui suit le circuit.
+  const [demande, setDemande] = useState(null);   // { ue_num, porte } | null
+  const [demandeErr, setDemandeErr] = useState(null);
   // L'unité dont on veut les pièces. Le procès-verbal est une pièce d'UNITÉ :
   // il porte tous les étudiants valorisés dans cette unité, pas seulement
   // celui dont on a la fiche sous les yeux.
@@ -1612,7 +1616,7 @@ function Valorisations({ etudId, annee }) {
   const [sectionVA, setSectionVA] = useState('');
 
   useEffect(() => {
-    if (!form) return;
+    if (!form && !demande) return;
     const qs = new URLSearchParams({ annee });
     if (sectionVA) qs.set('section', sectionVA);
     fetch(`/api/etudiants/${etudId}/valorisations/unites?${qs}`, { headers: authHeaders() })
@@ -1625,7 +1629,7 @@ function Valorisations({ etudId, annee }) {
       })
       .catch(() => setUnites({ sections: [], unites: [] }));
     /* eslint-disable-next-line */
-  }, [!!form, sectionVA, etudId, annee]);
+  }, [!!form || !!demande, sectionVA, etudId, annee]);
   // Directeur, directeur adjoint et administrateur technique ont les mêmes
   // droits ici : comparer à la seule chaîne 'admin' en écartait la direction.
   const [estAdmin] = useState(() => {
@@ -1807,12 +1811,42 @@ function Valorisations({ etudId, annee }) {
           title="Instruire, décider et valider toutes les UE de cet étudiant — la même fenêtre que l'écran Valorisation">
           <IconCertificate size={14} /> Délibérer cet étudiant
         </button>
-        <button onClick={() => setForm({ type: 'complete', ue_num: '', pourcentage: 50, cible: 'cours',
-                             cible_detail: '', equivalences: {}, decision: 'accordee' })}
+        {/* L'ONGLET NE DÉCIDE PLUS (Charles, 2 octobre 2026) : il montre, il
+            introduit une demande, et il ouvre la séance. L'ancien formulaire
+            écrivait une décision à côté du circuit. */}
+        <button onClick={() => { setDemande({ ue_num: '', porte: 'va' }); setDemandeErr(null); }}
           className="flex items-center gap-1.5 px-3 py-1.5 text-sm border border-slate-300 rounded-lg">
-          <IconPlus size={14} /> Ajouter une VA
+          <IconPlus size={14} /> Introduire une demande
         </button>
       </div>
+
+      {demande && (
+        <div className="border border-slate-200 rounded-xl p-3 mb-3 flex flex-wrap items-center gap-2 text-[13px]">
+          <select value={demande.ue_num} onChange={e => setDemande(x => ({ ...x, ue_num: e.target.value }))}
+            className="controle text-[13px] max-w-[26rem]">
+            <option value="">{unites ? '— l’unité demandée —' : 'Chargement…'}</option>
+            {(unites?.unites || []).map(u => <option key={u.ue_num} value={u.ue_num}>{u.ue_num} — {u.ue_nom}</option>)}
+          </select>
+          <div className="segments">
+            {[['va', 'VA — acquis formels'], ['vae', 'VAE — expérience']].map(([v, l]) => (
+              <button key={v} type="button" onClick={() => setDemande(x => ({ ...x, porte: v }))}
+                className={`px-2.5 py-1 text-[12px] ${demande.porte === v ? 'bg-iip-blue text-white font-semibold' : 'text-slate-600'}`}>{l}</button>
+            ))}
+          </div>
+          <button className="bouton bouton-fort disabled:opacity-40" disabled={!demande.ue_num}
+            onClick={async () => {
+              setDemandeErr(null);
+              const r = await fetch('/api/etudiants/valorisations/matrice', { method: 'POST', headers: authHeaders(),
+                body: JSON.stringify({ annee, cellules: [{ etudiant_id: etudId, ue_num: Number(demande.ue_num), porte: demande.porte }] }) });
+              const j = await r.json().catch(() => ({}));
+              if (!r.ok) { setDemandeErr(j.error || 'Refusé.'); return; }
+              setDemande(null); await charger();
+            }}>Introduire</button>
+          <button className="bouton" onClick={() => setDemande(null)}>Annuler</button>
+          <span className="text-[12px] text-slate-500 basis-full">La demande s'instruit ensuite dans la séance : dates, recevabilité, avis, décision.</span>
+          {demandeErr && <span className="text-[12px] basis-full" style={{ color: 'var(--c-refuse, #9D4A38)' }}>{demandeErr}</span>}
+        </div>
+      )}
 
       {seance && (
         <Suspense fallback={null}>
@@ -2305,10 +2339,8 @@ function Valorisations({ etudId, annee }) {
                 {/* UNE ICÔNE SE MÉRITE. Celle-ci ouvrait une fenêtre entière et
                     produisait des pièces officielles : au bout d'une ligne, à
                     côté d'une corbeille, personne ne la trouvait. Un libellé. */}
-                <button onClick={() => rouvrir(v)} title="Rouvrir et corriger"
-                  className="bouton text-[12px] px-2.5 py-1">
-                  <IconWritingSign size={14} /> Modifier
-                </button>
+                {/* « Modifier » est retiré : une décision se corrige dans la séance,
+                    qui garde le circuit et le journal. */}
                 <OuvrirEditions taille="petit" ongletInitial="etudiants" familleInitiale="valorisation"
                   titre="Procès-verbal et attestations de l'unité — centre d'édition" />
                 {estAdmin && (
