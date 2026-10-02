@@ -26,7 +26,6 @@ import { useEchangesDuRail, Fenetre, Encadre, BulleAide, BoutonEditions, OuvrirE
 import PassageAnnee from '../components/PassageAnnee.jsx';
 import ComposerPAE from '../components/ComposerPAE.jsx';
 import CentreEchanges from '../components/CentreEchanges.jsx';
-import CentreDiplomation from '../components/CentreDiplomation.jsx';
 import SeanceValorisation from '../components/SeanceValorisation.jsx';
 import ImportSurMesure from '../components/ImportSurMesure.jsx';
 import ImportSignaletique from '../components/ImportSignaletique.jsx';
@@ -4465,7 +4464,11 @@ export default function Etudiants() {
       )}
 
       {diplomation && (
-        <CentreDiplomation annee={annee} onClose={() => setDiplomation(false)} />
+        /* LES DIPLÔMES SORTENT PAR ÉDITIONS (Charles, 2 octobre 2026 : « c'est
+           dans Éditions ») : l'entrée du rail garde sa rosette, et ouvre le
+           centre sur sa famille — la même fenêtre que partout. */
+        <CentreImpressionCentral ongletInitial="etudiants" familleInitiale="diplomes"
+          onClose={() => setDiplomation(false)} />
       )}
 
       {composer && (

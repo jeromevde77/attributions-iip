@@ -89,17 +89,22 @@ export default function ParcoursCompact({ etudId, annee, programme = new Set(), 
   const dansChaine = u => survol != null && (u === survol || amont.has(u) || aval.has(u));
   const auPAE = u => programme.has(u);
 
+  /* LE MODÈLE DE LA TUILE (Charles, 2 octobre 2026) : un liseré gauche qui
+     porte l'état, coins droits de ce côté et arrondis de l'autre. Réussie,
+     faveur et UE de l'année sont PLEINES, liseré plus foncé, texte blanc ; le
+     reste est blanc (gris pâle pour ce qui n'est pas atteint) sous un filet fin. */
+  const fonce = c => `color-mix(in srgb, ${c} 62%, #000)`;
+  const plein = c => ({ fond: c, bord: c, lisere: fonce(c), texte: '#fff' });
   const etatTuile = n => {
-    if (n.epreuve_integree && !['acquise'].includes(n.statut)) return { fond: '#fff', bord: '#C9A227', texte: '#8a6d16' };
-    if (n.statut === 'acquise') return n.reussite?.faveur
-      ? { fond: 'var(--c-faveur, #6B46C1)', bord: 'var(--c-faveur, #6B46C1)', texte: '#fff' }
-      : { fond: 'var(--c-reussi, #3E7D5E)', bord: 'var(--c-reussi, #3E7D5E)', texte: '#fff' };
-    // LES UE DE L'ANNÉE, EN BLEU PLEIN (Charles, 2 octobre 2026).
-    if (auPAE(n.ue_num)) return { fond: 'var(--c-disponible, #2F6FB0)', bord: 'var(--c-disponible, #2F6FB0)', texte: '#fff' };
-    if (n.statut === 'en_attente') return { fond: '#fff', bord: 'var(--c-refuse, #9D4A38)', texte: 'var(--c-refuse, #9D4A38)' };
-    if (n.statut === 'accessible' || n.statut === 'sous_reserve') return { fond: '#fff', bord: '#94A3B8', texte: '#475569' };
-    return { fond: '#fff', bord: '#CBD5E1', texte: '#94A3B8' };
+    if (n.epreuve_integree && !['acquise'].includes(n.statut)) return { fond: '#fff', bord: '#D8DCE4', lisere: '#C9A227', texte: '#16406A' };
+    if (n.statut === 'acquise') return plein(n.reussite?.faveur ? 'var(--c-faveur, #6B46C1)' : 'var(--c-reussi, #3E7D5E)');
+    if (auPAE(n.ue_num)) return plein('var(--c-disponible, #2F6FB0)');
+    if (n.statut === 'en_attente') return { fond: '#fff', bord: '#D8DCE4', lisere: 'var(--c-refuse, #9D4A38)', texte: '#16406A' };
+    if (n.statut === 'accessible' || n.statut === 'sous_reserve') return { fond: '#fff', bord: '#D8DCE4', lisere: '#94A3B8', texte: '#475569' };
+    return { fond: '#F4F5F7', bord: '#D8DCE4', lisere: '#C3C9D3', texte: '#8C95A5' };
   };
+  const R = 5, LIS = 4;
+  const forme = (x, y) => `M${x},${y} h${L - R} a${R},${R} 0 0 1 ${R},${R} v${H - 2 * R} a${R},${R} 0 0 1 -${R},${R} h-${L - R} z`;
 
   const fleche = e => {
     const a = plan.pos[e.from], b = plan.pos[e.to];
@@ -154,10 +159,11 @@ export default function ParcoursCompact({ etudId, annee, programme = new Set(), 
               onClick={onNoeud ? () => onNoeud(n.ue_num) : undefined} style={{ cursor: onNoeud ? 'pointer' : 'default' }}
               opacity={survol != null && !relief ? 0.45 : 1}>
               <title>{`${n.ue_num} ${n.ue_nom || ''}`}</title>
-              <rect x={x} y={y} width={L} height={H} rx={4}
-                style={{ fill: t.fond, stroke: relief && n.ue_num === survol ? '#16406A' : t.bord }}
-                strokeWidth={n.ue_num === survol ? 1.8 : 1.2} />
-              <text x={x + L / 2} y={y + 15.5} textAnchor="middle" fontSize="12" fontWeight="700" style={{ fill: t.texte }}>{n.ue_num}</text>
+              <path d={forme(x, y)}
+                style={{ fill: t.fond, stroke: n.ue_num === survol ? '#16406A' : t.bord }}
+                strokeWidth={n.ue_num === survol ? 1.8 : 1} />
+              <rect x={x} y={y} width={LIS} height={H} style={{ fill: t.lisere }} />
+              <text x={x + (L + LIS) / 2} y={y + 15.5} textAnchor="middle" fontSize="12" fontWeight="700" style={{ fill: t.texte }}>{n.ue_num}</text>
               {/* Repères : refusée une fois (rouge, haut gauche), déterminante
                   (marine, haut droit), report ou VA (gris, bas droit). */}
               {n.refusee && <circle cx={x} cy={y} r={3.6} fill="#C0392B" stroke="#fff" strokeWidth={1} />}
@@ -169,13 +175,14 @@ export default function ParcoursCompact({ etudId, annee, programme = new Set(), 
       </svg>
       <div className="min-h-[20px] mt-1 text-[12px] text-iip-texte">{etiquette || <span className="text-slate-400">Survolez une unité pour voir sa chaîne de prérequis.</span>}</div>
       <div className="text-[11px] text-slate-500 leading-[1.9] mt-1">
-        <Leg fond="var(--c-reussi, #3E7D5E)" bord="var(--c-reussi, #3E7D5E)" /> réussie ·
-        <Leg fond="var(--c-disponible, #2F6FB0)" bord="var(--c-disponible, #2F6FB0)" /> au PAE ·
-        <Leg fond="var(--c-disponible, #2F6FB0)" bord="var(--c-disponible, #2F6FB0)" point /> avec report ou VA ·
-        <Leg bord="#94A3B8" /> accessible ·
-        <Leg bord="#CBD5E1" /> pas encore ·
-        <Leg bord="var(--c-refuse, #9D4A38)" /> ajournée ·
-        <Leg bord="#C9A227" /> épreuve ·
+        <Leg fond="var(--c-reussi, #3E7D5E)" lisere="color-mix(in srgb, var(--c-reussi, #3E7D5E) 62%, #000)" /> réussie ·
+        <Leg fond="var(--c-faveur, #6B46C1)" lisere="color-mix(in srgb, var(--c-faveur, #6B46C1) 62%, #000)" /> faveur ·
+        <Leg fond="var(--c-disponible, #2F6FB0)" lisere="color-mix(in srgb, var(--c-disponible, #2F6FB0) 62%, #000)" /> au PAE ·
+        <Leg fond="var(--c-disponible, #2F6FB0)" lisere="color-mix(in srgb, var(--c-disponible, #2F6FB0) 62%, #000)" point /> avec report ou VA ·
+        <Leg lisere="#94A3B8" /> accessible ·
+        <Leg fond="#F4F5F7" lisere="#C3C9D3" /> pas encore ·
+        <Leg lisere="var(--c-refuse, #9D4A38)" /> ajournée ·
+        <Leg lisere="#C9A227" /> épreuve ·
         <Rep c="#C0392B" g /> refusée une fois ·
         <Rep c="#16406A" /> déterminante<br />
         Flèche bleue pleine : elle touche le PAE de l'année · grise : le reste du parcours · pointillés : prérequis recommandé.
@@ -184,9 +191,10 @@ export default function ParcoursCompact({ etudId, annee, programme = new Set(), 
   );
 }
 
-function Leg({ fond = '#fff', bord, point = false }) {
+function Leg({ fond = '#fff', lisere, point = false }) {
   return (
-    <span className="relative inline-block align-[-2px] mx-1" style={{ width: 20, height: 12, borderRadius: 3, background: fond, border: `1.5px solid ${bord}` }}>
+    <span className="relative inline-block align-[-2px] mx-1" style={{ width: 20, height: 12, borderRadius: '0 3px 3px 0', background: fond,
+      border: '1px solid #D8DCE4', borderLeft: `3px solid ${lisere}` }}>
       {point && <span className="absolute right-[2px] bottom-[2px] w-[4px] h-[4px] rounded-full bg-white" />}
     </span>
   );
