@@ -1261,7 +1261,14 @@ r.put('/feuille/note', authRequired,
   // fausse. Les trois formes cohabitent — « aa », « cours|aa »,
   // « s1|cours|aa » — et la lecture prend la plus précise.
   const prefixe = session === 1 || session === 2 ? `s${session}|` : '';
-  const code = prefixe + (cours_code ? `${cours_code}|${aa_code}` : aa_code);
+  /* L'ÉPREUVE D'UNITÉ N'EST PAS UN COURS (2 octobre 2026, UE 264, ABDELLAOUI
+     Kenza). La feuille envoie la colonne « unité entière » sous le code
+     technique « __ue__ » ; écrit tel quel (« s2|__ue__|AA264.1 »), il donnait
+     une note que le calcul — qui lit l'épreuve SANS cours — ne voyait pas : la
+     cote retombait sur la note de juin, en silence. La note d'épreuve s'écrit
+     donc sans cours, la forme que tout le reste lit. */
+  const coursEcrit = cours_code && cours_code !== CODE_EPREUVE_UE ? cours_code : null;
+  const code = prefixe + (coursEcrit ? `${coursEcrit}|${aa_code}` : aa_code);
 
   // Une mention vaut zéro : NP et PP ne sont pas des notes, mais elles
   // comptent comme telles dans la moyenne.
@@ -1269,8 +1276,9 @@ r.put('/feuille/note', authRequired,
 
   if (valeur == null) {
     db.prepare(`DELETE FROM etudiant_note_detail
-      WHERE etudiant_id = ? AND annee_scolaire = ? AND ue_num = ? AND type = 'aa' AND code = ?`)
-      .run(etudiant_id, annee_scolaire, Number(ue_num), code);
+      WHERE etudiant_id = ? AND annee_scolaire = ? AND ue_num = ? AND type = 'aa' AND code IN (?, ?)`)
+      .run(etudiant_id, annee_scolaire, Number(ue_num), code,
+           coursEcrit ? code : `${prefixe}${CODE_EPREUVE_UE}|${aa_code}`);
   } else {
     db.prepare(`
       INSERT INTO etudiant_note_detail
@@ -3822,12 +3830,15 @@ export function delibererUE(etudId, ueNum, annee, session = 1) {
    * l'aveugle une décision remise à l'étudiant.
    */
   const sansTrace = !coursARepresenter.size && !aaARepresenter.size;
-  const s2Compte = (cours, aa) => sansTrace
+  // UNE ÉPREUVE INTÉGRÉE SE REPRÉSENTE ENTIÈRE : tout ajournement de juin —
+  // sur un cours, un acquis ou l'unité — rouvre l'épreuve, et sa note de
+  // septembre compte. La feuille l'ouvrait déjà ainsi ; le calcul, non.
+  const s2Compte = (cours, aa) => sansTrace || (integree && ajournesS1.length > 0)
     || (cours ? coursARepresenter.has(cours) : false) || aaARepresenter.has(aa);
 
   const parCoursAA = {}, parAA = {}, mentionDe = {};
   const rang = { '': 0, s1: 1, s2: 2 };
-  const meilleur = {};
+  const meilleur = {}, formeUE = {};
   for (const l of brutes) {
     let parts = String(l.code).split('|');
     const ses = /^s[12]$/.test(parts[0]) ? parts[0] : '';
@@ -3835,12 +3846,21 @@ export function delibererUE(etudId, ueNum, annee, session = 1) {
     if (ses === 's2' && session < 2) continue;          // pas encore délibérée
     if (ses === 's2' && !s2Compte(parts.length === 2 ? parts[0] : null,
                                   parts[parts.length - 1])) continue;
+    // LA FORME « __ue__|acquis » EST UNE NOTE D'ÉPREUVE, SANS COURS — écrite
+    // ainsi par la feuille jusqu'au 2 octobre 2026. Elle se lit comme telle ;
+    // quand la forme sans cours existe AUSSI dans la même session, c'est
+    // celle-ci qui garde la main : c'est elle que les décisions déjà prises
+    // ont lue, et l'on ne change pas une cote en silence.
+    const deUE = parts.length === 2 && parts[0] === CODE_EPREUVE_UE;
+    if (deUE) parts = [parts[1]];
     const cle = parts.length === 2 ? `${parts[0]}|${parts[1]}` : parts[0];
     // À clé égale, la note la plus récemment sessionnée gagne ; une note sans
     // préfixe, écrite avant qu'on ne distingue les sessions, vaut pour la
     // première et ne recouvre jamais une note explicite.
     if (meilleur[cle] != null && meilleur[cle] > rang[ses]) continue;
+    if (meilleur[cle] === rang[ses] && deUE && formeUE[cle] === false) continue;
     meilleur[cle] = rang[ses];
+    formeUE[cle] = deUE;
     if (parts.length === 2) {
       parCoursAA[cle] = l.points;
       mentionDe[cle] = l.mention || null;
@@ -4805,6 +4825,7 @@ r.get('/ue/:ueNum/feuille', authRequired,
   const notes = {};
   const mentions = {};
   const prefixe = `s${session}|`;
+  const formeVue = new Map();      // « étudiant|clé » → 'ue' | 'plain' : la forme qui a rempli la case
   for (const l of db.prepare(`
     SELECT etudiant_id, code, points, mention FROM etudiant_note_detail
     WHERE annee_scolaire = ? AND ue_num = ? AND type = 'aa'
@@ -4812,7 +4833,12 @@ r.get('/ue/:ueNum/feuille', authRequired,
     const code = String(l.code);
     const avecSession = code.startsWith(prefixe);
     if (!avecSession && (session === 2 || code.startsWith('s2|') || code.startsWith('s1|'))) continue;
-    const reste = avecSession ? code.slice(prefixe.length) : code;
+    let reste = avecSession ? code.slice(prefixe.length) : code;
+    // « __ue__|acquis » : une note d'épreuve écrite avec le code technique (voir
+    // PUT /feuille/note). Elle se montre dans la colonne de l'unité, sauf si la
+    // forme sans cours existe aussi — c'est alors celle-ci, que le calcul lit.
+    const deUE = integree && reste.startsWith(`${CODE_EPREUVE_UE}|`);
+    if (deUE) reste = reste.slice(CODE_EPREUVE_UE.length + 1);
     const sep = reste.indexOf('|');
     // Épreuve intégrée : la note est posée SANS cours. C'est elle — et elle
     // seule — que la grille d'unité montre ; les notes par cours, restées d'un
@@ -4821,7 +4847,11 @@ r.get('/ue/:ueNum/feuille', authRequired,
       if (!integree) continue;                   // note d'acquis sans cours
       const e0 = (notes[l.etudiant_id] ||= {});
       const k = `${CODE_EPREUVE_UE}|${reste}`;
-      if (avecSession || e0[k] == null) e0[k] = l.points;
+      const fk = `${l.etudiant_id}|${k}`;
+      if (deUE ? e0[k] == null || formeVue.get(fk) === 'ue' : (avecSession || e0[k] == null || formeVue.get(fk) === 'ue')) {
+        e0[k] = l.points;
+        formeVue.set(fk, deUE ? 'ue' : 'plain');
+      }
       if (l.mention && avecSession) {
         (mentions[l.etudiant_id] ||= {})[CODE_EPREUVE_UE] = l.mention;
       }
