@@ -199,9 +199,9 @@ function RevuePAE({ liste: base, annee: anneeDepart, onClose }) {
   const [saisie, setSaisie] = useState(null);      // { ue, code, note, origine }
   const [ajout, setAjout] = useState('');
   const [versionSchema, setVersionSchema] = useState(0);
-  const peutReporter = ['admin', 'directeur', 'directeur_adjoint', 'editeur'].includes(getUser()?.role);
+  const peutReporter = ['admin', 'directeur', 'directeur_adjoint', 'editeur', 'coordination'].includes(getUser()?.role);
   // La porte du PAE (pae-valider → ecrireProgramme) : mêmes rôles que la fiche.
-  const peutModifier = ['admin', 'editeur'].includes(getUser()?.role);
+  const peutModifier = ['admin', 'directeur', 'directeur_adjoint', 'editeur', 'secretariat', 'coordination'].includes(getUser()?.role);
 
   useEffect(() => {
     fetch('/api/annees', { headers: authHeaders() }).then(r => r.json())
@@ -517,7 +517,7 @@ function RevuePAE({ liste: base, annee: anneeDepart, onClose }) {
                   <span className="text-[11px] text-slate-500 w-full">Ou cliquez une unité dans le schéma : au PAE, elle se retire ; hors du PAE, elle s'ajoute. Une dérogation aux règles demande un motif.</span>
                 </div>
               )}
-              {!peutReporter && <p className="text-[12px] text-slate-500">Encoder un report est réservé à la direction et à l'administration des études.</p>}
+              {!peutReporter && <p className="text-[12px] text-slate-500">Encoder un report est réservé à la direction, à la coordination et à l'administration des études.</p>}
             </div>
             {/* LE SCHÉMA RESTE SOUS LES YEUX : même largeur que la liste, fixé
                 pendant qu'on fait défiler les cours. */}
