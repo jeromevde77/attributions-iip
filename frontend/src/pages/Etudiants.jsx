@@ -2892,7 +2892,7 @@ export function FicheEtudiant({ id, annee, onClose, position, onPrec, onSuiv,
         )}
         {edition && (
           <CentreImpressionCentral onClose={() => setEdition(false)}
-            etudiant={{ id, nom: data?.nom, prenom: data?.prenom, id_ecampus: data?.id_ecampus }}
+            etudiant={{ id, nom: data?.nom, prenom: data?.prenom, id_ecampus: data?.id_ecampus, section_rattachement: data?.section_rattachement || null }}
             anneeEtudiant={annee} />
         )}
 

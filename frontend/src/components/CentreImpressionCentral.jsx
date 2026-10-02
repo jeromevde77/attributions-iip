@@ -1847,14 +1847,26 @@ function OngletEtudiants({ perimetre = null, mode = 'deliberation', seul = null,
  * ici, en tête du centre : une pièce de plus ne coûte plus une icône.
  */
 function PiecesDeLEcran({ pieces, onChoisir }) {
+  /* UNE LIGNE, PAS DES TUILES (2 octobre 2026 : « appuyer sur Édition doit
+     toujours mener à la même fenêtre »). La pièce de l'écran d'où l'on vient
+     se choisit en tête ; le reste du centre est le même pour tous. */
+  const [choisie, setChoisie] = useState(pieces?.[0]?.cle || null);
   if (!pieces || !pieces.length) return null;
+  const p = pieces.find(x => x.cle === choisie) || pieces[0];
   return (
-    <GroupeFenetre titre="Pièces de cet écran">
-      {pieces.map(p => (
-        <PieceFenetre key={p.cle} icone={p.icon} titre={p.label} sous={p.description}
-          onClick={() => onChoisir(p)} />
+    <div className="mb-3 pb-3 border-b border-slate-200 flex flex-wrap items-center gap-x-4 gap-y-1.5">
+      <span className="text-[12px] font-semibold text-slate-500 uppercase tracking-wide">De cet écran</span>
+      {pieces.map(x => (
+        <label key={x.cle} className="flex items-center gap-1.5 text-[13px] cursor-pointer" title={x.description || ''}>
+          <input type="radio" name="piece-ecran" checked={p.cle === x.cle} onChange={() => setChoisie(x.cle)} className="accent-iip-blue" />
+          {x.label}
+        </label>
       ))}
-    </GroupeFenetre>
+      <button type="button" onClick={() => onChoisir(p)}
+        className="ml-auto px-4 py-2 text-[13px] rounded-lg bg-iip-blue text-white font-semibold inline-flex items-center gap-1.5">
+        <IconPrinter size={14} /> Produire
+      </button>
+    </div>
   );
 }
 
@@ -1871,7 +1883,9 @@ export default function CentreImpressionCentral({ ongletInitial = 'etudiants',
      Gestion ouvrait une colonne vide, et l'on croyait l'axe vide. */
   const versDossiers = (perimetre?.pieces || []).some(c => PIECES_DOSSIER.some(p => p.cle === c));
   const [famille, setFamille] = useState(familleInitiale || (versDossiers ? 'dossiers' : 'pieces'));
-  const [etudiantVu, setEtudiantVu] = useState(null);
+  // OUVERT DEPUIS LA FICHE D'UN ÉTUDIANT : il est le périmètre, dans la même
+  // fenêtre que partout ailleurs.
+  const [etudiantVu, setEtudiantVu] = useState(etudiant ? { ...etudiant } : null);
   // Personnel s'ouvre aussi sur ses pièces : contrats, fiches, EA12, annexes.
   // La famille demandée par le bouton qui ouvre le centre vaut à l'ouverture ;
   // changer d'axe ensuite revient au défaut.
@@ -1894,11 +1908,6 @@ export default function CentreImpressionCentral({ ongletInitial = 'etudiants',
 
       <PiecesDeLEcran pieces={pieces}
         onChoisir={p => { onClose?.(); p.onClick?.(); }} />
-      {etudiant && (
-        <div className="mb-4 pb-3 border-b border-slate-200">
-          <PiecesEtudiant etud={etudiant} annee={anneeEtudiant || getAnnee()} />
-        </div>
-      )}
 
       {/* Les domaines : ce qu'on sort ici porte sur les étudiants, le
           personnel, l'établissement… Le domaine ouvert est le seul en marine. */}
