@@ -12,6 +12,7 @@ import {
 import { authHeaders, getAnnee, getUser } from '../lib/api.js';
 import PreviewModal from '../components/PreviewModal.jsx';
 import SchemaCapitalisationVue from '../components/SchemaCapitalisation.jsx';
+import ParcoursCompact from '../components/ParcoursCompact.jsx';
 import ReportsOffice from '../components/ReportsOffice.jsx';
 import Amenagements from '../components/Amenagements.jsx';
 import Stages from '../components/Stages.jsx';
@@ -200,6 +201,7 @@ function RevuePAE({ liste: base, annee: anneeDepart, onClose }) {
   const [saisie, setSaisie] = useState(null);      // { ue, code, note, origine }
   const [ajout, setAjout] = useState('');
   const [versionSchema, setVersionSchema] = useState(0);
+  const [ouverts, setOuverts] = useState(() => new Set());   // les volets d'UE ouverts
   const peutReporter = ['admin', 'directeur', 'directeur_adjoint', 'editeur', 'coordination'].includes(getUser()?.role);
   // La porte du PAE (pae-valider → ecrireProgramme) : mêmes rôles que la fiche.
   const peutModifier = ['admin', 'directeur', 'directeur_adjoint', 'editeur', 'secretariat', 'coordination'].includes(getUser()?.role);
@@ -247,6 +249,17 @@ function RevuePAE({ liste: base, annee: anneeDepart, onClose }) {
     } catch (e) { setErreur(e.message); }
   }, [cur, annee]);
   useEffect(() => { charger(); }, [charger]);
+  /* LES VOLETS S'OUVRENT SUR CE QUI DEMANDE UN REGARD (Charles, 2 octobre 2026) :
+     un report, une VA partielle, une alerte. Une UE en VA totale reste fermée,
+     son badge suffit ; une UE sans rien de particulier aussi. */
+  const idCharge = d?.etudiant?.id;
+  useEffect(() => {
+    if (!d) return;
+    setOuverts(new Set(d.ues.filter(u => !u.nature_totale
+      && (u.reports > 0 || u.va > 0 || u.deja || u.etat === 'reprendre')).map(u => u.ue_num)));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [idCharge, annee]);
+  const basculerVolet = n => setOuverts(o => { const x = new Set(o); x.has(n) ? x.delete(n) : x.add(n); return x; });
 
   const majSynthese = (id, rv) => setSynthese(sy => (sy ? { ...sy, [id]: { ...(sy[id] || {}),
     reports: rv.chiffres.cours_reportes, revu: !!rv.revu,
@@ -443,122 +456,172 @@ function RevuePAE({ liste: base, annee: anneeDepart, onClose }) {
           « pas encore validés », il sort de la liste — le dernier validé la
           vidait, et l'écran plantait sur un étudiant qui n'y était plus
           (2 octobre 2026, « undefined … R.id »). */}
-      {d && cur && d.etudiant?.id === cur.id && (
-        <>
-          {d.revu && (
-            <div className="mb-2 px-3 py-2 rounded-lg text-[13px] bg-emerald-700 text-white">
-              <b>Ce PAE a été validé</b> le {quandLocal(d.revu.revu_le)} par {d.revu.revu_par || '—'}.
+      {d && cur && d.etudiant?.id === cur.id && (() => {
+        const ch = d.chiffres;
+        const e = d.etudiant;
+        const blocs = [];
+        for (const u of d.ues) {
+          const k = u.ei ? 'EI' : (u.niv || '—');
+          let g = blocs.find(x => x.k === k);
+          if (!g) { g = { k, ues: [] }; blocs.push(g); }
+          g.ues.push(u);
+        }
+        const fmtMoy = ch.moyenne == null ? '—' : ch.moyenne.toLocaleString('fr-BE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        // LE PETIT TRAIN (Charles, 2 octobre 2026) : sur le modèle du badge des
+        // attributions — section, niveau, ECTS réussis (bande verte), ECTS en
+        // cours, UE en cours et leurs périodes étudiant, moyenne du parcours.
+        const Wagon = ({ v, l, vert = false, fort = false }) => (
+          <span className={`relative px-2.5 py-1 leading-tight ${fort ? 'font-bold text-iip-texte' : ''}`}>
+            <span className="block text-[13px] font-semibold text-iip-texte tabular-nums">{v}</span>
+            {l && <span className="block text-[10px] text-slate-500">{l}</span>}
+            {vert && <span className="absolute left-1.5 right-1.5 bottom-0 h-[3px] rounded-full bg-emerald-700" />}
+          </span>
+        );
+        const BadgeUE = ({ u }) => {
+          if (u.nature_totale) return <span className="text-[10.5px] font-semibold text-white rounded px-1.5 py-px bg-teal-800">{u.nature_totale}</span>;
+          const out = [];
+          if (u.reports) out.push(<span key="r" className="text-[10.5px] font-semibold text-white rounded px-1.5 py-px bg-emerald-700">{u.reports} report{u.reports > 1 ? 's' : ''}</span>);
+          if (u.va) out.push(<span key="v" className="text-[10.5px] font-semibold text-white rounded px-1.5 py-px bg-teal-800">{u.nature_partielle || 'VAP'}</span>);
+          if (u.deja) out.push(<span key="d" className="text-[10.5px] font-semibold text-white rounded px-1.5 py-px bg-amber-700">déjà acquise {String(u.deja).replace(/^20(\d\d)-20(\d\d)$/, '$1-$2')}</span>);
+          if (u.etat === 'reprendre') out.push(<span key="p" className="text-[10.5px] font-semibold text-white rounded px-1.5 py-px bg-amber-700">à reprendre</span>);
+          if (!out.length) out.push(<span key="a" className="text-[10.5px] font-semibold text-white rounded px-1.5 py-px bg-blue-700">au programme</span>);
+          return <span className="inline-flex gap-1 flex-wrap">{out}</span>;
+        };
+        return (
+          <>
+            <div className="flex flex-wrap items-center gap-3 mb-2">
+              <span className="text-[16px] font-bold text-iip-texte">{nomPropre(e.nom, e.prenom)}</span>
+              <span className="inline-flex items-stretch bg-white border border-slate-200 border-l-[4px] rounded divide-x divide-slate-200"
+                style={{ borderLeftColor: couleurBloc(e.niveau) || '#D8DCE4' }}>
+                <Wagon v={e.section || '—'} l="section" fort />
+                <Wagon v={e.niveau_libelle || '—'} l="niveau" />
+                <Wagon v={ch.ects_acquis} l="ECTS réussis" vert />
+                <Wagon v={ch.ects_pae} l="ECTS en cours" />
+                <Wagon v={`${ch.nb_ue} UE`} l={`${ch.periodes_pae} pér. étudiant`} />
+                <Wagon v={fmtMoy} l="moyenne du parcours" />
+              </span>
+              <span className="text-[12px] text-slate-500">{e.id_ecampus || ''}</span>
             </div>
-          )}
-          <div className="text-[12px] text-slate-600 mb-2">{d.etudiant.id_ecampus || ''} · {d.etudiant.section || '—'}
-            {d.etudiant.niveau_libelle ? ` · ${d.etudiant.niveau_libelle}` : ''}</div>
-          <div className="grid gap-2.5 mb-3" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))' }}>
-            <Tuile etat="reussi" v={`${ch.ects_acquis}`} l="ECTS acquis" p="avant cette année" />
-            <Tuile v={`${ch.nb_ue} UE`} l={`au PAE ${annee}`} p={`${ch.ects_pae} ECTS`} />
-            <Tuile etat="neutre" v={`${ch.cours_reportes} cours`} l="reportés"
-              p={ch.ue_avec_report ? `dans ${ch.ue_avec_report} UE — notes reprises` : 'aucun report'} />
-            <Tuile v={`${ch.cours_a_suivre} cours`} l="à suivre" p={`${ch.periodes_a_suivre} périodes`} />
-            <Tuile etat={d.alertes.length ? 'surveiller' : 'neutre'} v={d.alertes.length} l="à vérifier" />
-          </div>
-          <div className="grid gap-4 items-start lg:grid-cols-2">
-            <div className="space-y-2">
-              {d.alertes.map((a, k) => (
-                <div key={k} data-etat="surveiller" className="bloc-etat px-3 py-2 text-[12.5px]"><b>À vérifier</b> — {a.texte}</div>
-              ))}
-              {!d.ues.length && <p className="text-[13px] text-slate-500">Aucune UE au PAE de {annee}.</p>}
-              {d.ues.map(u => {
-                const b = u.ei ? 'Épreuve intégrée' : (u.niv || '—');
-                const tete = b !== blocCourant;
-                blocCourant = b;
-                const [lib, fond] = ETAT[u.etat];
-                return (
-                  <Fragment key={u.ue_num}>
-                    {tete && <div className="inline-block text-[11px] font-bold px-2 py-0.5 rounded mt-2"
-                      style={{ background: u.ei ? '#C9A227' : (couleurBloc(b) || '#94a3b8'), color: b === 'BA2' ? 'var(--c-texte)' : '#fff' }}>{b}</div>}
-                    <div className="carte p-2.5 bg-white">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <b>{u.ue_num}</b><span className="flex-1 min-w-0">{u.ue_nom}</span>
-                        <span className={`text-[10.5px] font-semibold text-white rounded px-1.5 py-px ${fond}`}>{lib}</span>
-                        {u.deja && <span className="text-[10.5px] font-semibold text-white rounded px-1.5 py-px bg-amber-700">déjà acquise {court(u.deja)}</span>}
-                        <span className="text-[11px] text-slate-500">{u.ects} ECTS</span>
-                        {peutModifier && <button type="button" disabled={!!enCours} className="text-[11.5px] underline text-slate-500"
-                          title="Retirer cette UE du PAE de l'année" onClick={() => retirerUE(u.ue_num)}>retirer l'UE</button>}
-                      </div>
-                      <div className="grid gap-x-3 gap-y-1 mt-1.5 text-[12.5px] items-center" style={{ gridTemplateColumns: '64px minmax(0,1fr) 48px minmax(0,300px)' }}>
-                        {u.cours.map(c => {
-                          const occupe = enCours === `rep-${u.ue_num}-${c.code}`;
-                          const ouvert = saisie && saisie.ue === u.ue_num && saisie.code === c.code;
-                          return (
-                            <Fragment key={c.code}>
-                              <span className="text-slate-500 tabular-nums">{c.code}</span>
-                              <span className={c.statut === 'suivre' ? '' : 'text-slate-400'}>{c.nom}</span>
-                              <span className="text-[11px] text-slate-500 text-right tabular-nums">{c.per ? `${c.per} p.` : ''}</span>
-                              <span className="text-[11.5px] flex flex-wrap items-center gap-1.5">
-                                {c.statut === 'report' && <>
-                                  <span className="border border-dashed border-slate-400 rounded px-1.5 text-slate-600"
-                                    title={c.par ? `Posé par ${c.par}` : ''}>reporté <b className="text-iip-texte">{court(c.annee_origine)}</b>{c.note != null ? <> · <b className="text-iip-texte">{Math.round(c.note)}</b>/20</> : ''}</span>
-                                  {peutReporter && <button type="button" disabled={occupe} className="underline text-slate-500" onClick={() => retirer(u.ue_num, c.code)}>retirer</button>}
-                                </>}
-                                {c.statut === 'va' && <span className="border border-slate-400 rounded px-1.5 text-slate-600">dispensé · VA</span>}
-                                {c.statut === 'suivre' && !ouvert && <>
-                                  <span className="font-semibold text-blue-700">à suivre</span>
-                                  {c.refuse && <span className="text-slate-400" title={c.refuse.motif || ''}>· report retiré{c.refuse.par ? ` (${c.refuse.par})` : ''}</span>}
-                                  {peutReporter && c.eligible && (
-                                    <button type="button" disabled={occupe} className="bouton h-6 px-2 text-[11.5px]"
-                                      title="Lucie connaît ce cours réussi : ses notes d'acquis sont reprises"
-                                      onClick={() => reporter(u.ue_num, c.code)}>Reporter {c.eligible.note != null ? `${c.eligible.note}/20` : ''} · {court(c.eligible.annee_origine)}</button>
-                                  )}
-                                  {peutReporter && (
-                                    <button type="button" disabled={occupe} className="underline text-slate-500"
-                                      onClick={() => setSaisie({ ue: u.ue_num, code: c.code, note: c.eligible?.note ?? '', origine: c.eligible?.annee_origine || anterieures[0] || '' })}>
-                                      {c.eligible ? 'autre note' : 'encoder un report'}</button>
-                                  )}
-                                </>}
-                                {ouvert && <>
-                                  <input className="controle h-7 w-16 text-[12px]" placeholder="/20" value={saisie.note} autoFocus
-                                    onChange={e => setSaisie({ ...saisie, note: e.target.value })} />
-                                  <select className="controle h-7 text-[12px]" value={saisie.origine} onChange={e => setSaisie({ ...saisie, origine: e.target.value })}>
-                                    {anterieures.map(a => <option key={a} value={a}>{a}</option>)}
-                                  </select>
-                                  <button type="button" disabled={occupe} className="bouton bouton-fort h-7 px-2 text-[12px]"
-                                    onClick={() => reporter(u.ue_num, c.code, { note: saisie.note, annee_origine: saisie.origine })}>Reporter</button>
-                                  <button type="button" className="underline text-slate-500" onClick={() => setSaisie(null)}>annuler</button>
-                                </>}
-                              </span>
-                            </Fragment>
-                          );
-                        })}
-                        {!u.cours.length && <span className="col-span-4 text-[12px] text-slate-400">Aucun cours encodé pour cette unité en {annee}.</span>}
-                      </div>
-                    </div>
-                  </Fragment>
-                );
-              })}
-              {peutModifier && d.autres.length > 0 && (
-                <div className="carte p-2.5 flex flex-wrap items-center gap-2">
-                  <span className="text-[12.5px] font-semibold">Ajouter une UE au PAE</span>
-                  <select className="controle text-[13px] min-w-0 flex-1" value={ajout} onChange={e => setAjout(e.target.value)}>
-                    <option value="">— choisir dans le cursus —</option>
-                    {d.autres.map(x => <option key={x.ue_num} value={x.ue_num}>
-                      {x.niv || '—'} · UE {x.ue_num} — {x.ue_nom}{x.statut ? ` (${({ accessible: 'accessible', bloquee: 'bloquée', sous_reserve: 'sous réserve', en_attente: 'en attente' })[x.statut] || x.statut})` : ''}</option>)}
-                  </select>
-                  <button type="button" className="bouton bouton-fort" disabled={!ajout || !!enCours} onClick={() => ajouterUE(ajout)}>
-                    {enCours === 'pae' ? 'Enregistrement…' : 'Ajouter'}</button>
-                  <span className="text-[11px] text-slate-500 w-full">Ou cliquez une unité dans le schéma : au PAE, elle se retire ; hors du PAE, elle s'ajoute. Une dérogation aux règles demande un motif.</span>
+            {d.revu && (
+              <div className="mb-2 px-3 py-2 rounded-lg text-[13px] bg-emerald-700 text-white">
+                <b>Ce PAE a été validé</b> le {quandLocal(d.revu.revu_le)} par {d.revu.revu_par || '—'}.
+              </div>
+            )}
+            {d.alertes.map((a2, k) => (
+              <div key={k} data-etat="surveiller" className="bloc-etat px-3 py-1.5 text-[12.5px] mb-1.5"><b>À vérifier</b> — {a2.texte}</div>
+            ))}
+            <div className="grid gap-5 items-start lg:grid-cols-[minmax(0,1fr)_minmax(0,460px)] mt-2">
+              <div>
+                <div className="flex items-center gap-3 text-[12px] mb-1.5">
+                  <span className="text-slate-500">{ch.cours_reportes} cours reporté(s) · {ch.cours_va} dispensé(s) par VA · {ch.cours_a_suivre} à suivre ({ch.periodes_a_suivre} pér.)</span>
+                  <span className="flex-1" />
+                  <button type="button" className="underline text-slate-500" onClick={() => setOuverts(new Set(d.ues.map(u => u.ue_num)))}>tout ouvrir</button>
+                  <button type="button" className="underline text-slate-500" onClick={() => setOuverts(new Set())}>tout fermer</button>
                 </div>
-              )}
-              {!peutReporter && <p className="text-[12px] text-slate-500">Encoder un report est réservé à la direction, à la coordination et à l'administration des études.</p>}
+                {!d.ues.length && <p className="text-[13px] text-slate-500">Aucune UE au PAE de {annee}.</p>}
+                {/* LES VOLETS, COMME DANS LES ATTRIBUTIONS : pas de cadres, une
+                    ligne par UE, une bande à la couleur du bloc le long du groupe. */}
+                {blocs.map(g => (
+                  <div key={g.k} className="flex mb-3">
+                    <div className="w-[5px] rounded-full flex-none" style={{ background: g.k === 'EI' ? '#C9A227' : (couleurBloc(g.k) || '#CBD5E1') }} />
+                    <div className="flex-1 min-w-0 pl-2.5">
+                      <div className="text-[10.5px] font-bold uppercase tracking-wider text-slate-500 pb-1">
+                        {g.k === 'EI' ? 'Épreuve intégrée' : g.k} · {g.ues.length} UE · {g.ues.reduce((t, u) => t + u.ects, 0)} ECTS</div>
+                      {g.ues.map(u => {
+                        const ouvert = ouverts.has(u.ue_num);
+                        return (
+                          <div key={u.ue_num} className="border-b border-slate-100">
+                            <div className="grid items-center gap-2 py-1.5 px-0.5 hover:bg-slate-50 cursor-pointer"
+                              style={{ gridTemplateColumns: '14px 56px minmax(0,1fr) auto 56px 50px auto' }}
+                              onClick={() => basculerVolet(u.ue_num)}>
+                              <IconChevronRight size={13} className={`text-slate-400 transition-transform ${ouvert ? 'rotate-90' : ''}`} />
+                              <b className="text-iip-texte tabular-nums">UE {u.ue_num}</b>
+                              <span className="truncate">{u.ue_nom}</span>
+                              <BadgeUE u={u} />
+                              <span className="text-[11px] text-slate-500 text-right">{u.cours.length} cours</span>
+                              <span className="text-[11px] text-slate-500 text-right">{u.ects} ECTS</span>
+                              {peutModifier ? <button type="button" disabled={!!enCours} className="text-[11px] underline text-slate-400 hover:text-slate-600"
+                                title="Retirer cette UE du PAE de l'année" onClick={ev => { ev.stopPropagation(); retirerUE(u.ue_num); }}>retirer</button> : <span />}
+                            </div>
+                            {ouvert && (
+                              <div className="grid gap-x-3 gap-y-1 pb-2 pl-6 text-[12.5px] items-center" style={{ gridTemplateColumns: '56px minmax(0,1fr) 46px minmax(0,300px)' }}>
+                                {u.cours.map(c => {
+                                  const occupe = enCours === `rep-${u.ue_num}-${c.code}`;
+                                  const saisieIci = saisie && saisie.ue === u.ue_num && saisie.code === c.code;
+                                  const teinte = c.statut === 'report' ? 'text-emerald-700 font-medium' : c.statut === 'va' ? 'text-teal-800 font-medium' : '';
+                                  return (
+                                    <Fragment key={c.code}>
+                                      <span className="text-slate-500 tabular-nums">{c.code}</span>
+                                      <span className={teinte}>{c.nom}</span>
+                                      <span className="text-[11px] text-slate-500 text-right tabular-nums">{c.per ? `${c.per} p.` : ''}</span>
+                                      <span className="text-[11.5px] flex flex-wrap items-center gap-1.5">
+                                        {c.statut === 'report' && <>
+                                          <span className="rounded px-1.5 py-px bg-emerald-700 text-white font-semibold" title={c.par ? `Posé par ${c.par}` : ''}>
+                                            Report {String(c.annee_origine || '').replace(/^20(\d\d)-20(\d\d)$/, '$1-$2')}{c.note != null ? ` · ${Math.round(c.note)}/20` : ''}</span>
+                                          {peutReporter && <button type="button" disabled={occupe} className="underline text-slate-500" onClick={() => retirer(u.ue_num, c.code)}>retirer</button>}
+                                        </>}
+                                        {c.statut === 'va' && <span className="rounded px-1.5 py-px bg-teal-800 text-white font-semibold">{c.nature || 'VAP'}</span>}
+                                        {c.statut === 'suivre' && !saisieIci && <>
+                                          <span className="font-semibold text-blue-700">à suivre</span>
+                                          {c.refuse && <span className="text-slate-400" title={c.refuse.motif || ''}>· report retiré</span>}
+                                          {peutReporter && c.eligible && (
+                                            <button type="button" disabled={occupe} className="bouton h-6 px-2 text-[11.5px]"
+                                              onClick={() => reporter(u.ue_num, c.code)}>Reporter {c.eligible.note != null ? `${c.eligible.note}/20` : ''} · {String(c.eligible.annee_origine || '').replace(/^20(\d\d)-20(\d\d)$/, '$1-$2')}</button>
+                                          )}
+                                          {peutReporter && (
+                                            <button type="button" disabled={occupe} className="underline text-slate-500"
+                                              onClick={() => setSaisie({ ue: u.ue_num, code: c.code, note: c.eligible?.note ?? '', origine: c.eligible?.annee_origine || anterieures[0] || '' })}>
+                                              {c.eligible ? 'autre note' : 'encoder un report'}</button>
+                                          )}
+                                        </>}
+                                        {saisieIci && <>
+                                          <input className="controle h-7 w-16 text-[12px]" placeholder="/20" value={saisie.note} autoFocus
+                                            onChange={ev => setSaisie({ ...saisie, note: ev.target.value })} />
+                                          <select className="controle h-7 text-[12px]" value={saisie.origine} onChange={ev => setSaisie({ ...saisie, origine: ev.target.value })}>
+                                            {anterieures.map(x => <option key={x} value={x}>{x}</option>)}
+                                          </select>
+                                          <button type="button" disabled={occupe} className="bouton bouton-fort h-7 px-2 text-[12px]"
+                                            onClick={() => reporter(u.ue_num, c.code, { note: saisie.note, annee_origine: saisie.origine })}>Reporter</button>
+                                          <button type="button" className="underline text-slate-500" onClick={() => setSaisie(null)}>annuler</button>
+                                        </>}
+                                      </span>
+                                    </Fragment>
+                                  );
+                                })}
+                                {!u.cours.length && <span className="col-span-4 text-[12px] text-slate-400">Aucun cours encodé pour cette unité en {annee}.</span>}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
+                {peutModifier && d.autres.length > 0 && (
+                  <div className="flex flex-wrap items-center gap-2 pl-4 mt-1">
+                    <span className="text-[12.5px] font-semibold">Ajouter une UE au PAE</span>
+                    <select className="controle text-[13px] min-w-0 flex-1" value={ajout} onChange={ev => setAjout(ev.target.value)}>
+                      <option value="">— choisir dans le cursus —</option>
+                      {d.autres.map(x => <option key={x.ue_num} value={x.ue_num}>
+                        {x.niv || '—'} · UE {x.ue_num} — {x.ue_nom}{x.statut ? ` (${({ accessible: 'accessible', bloquee: 'bloquée', sous_reserve: 'sous réserve', en_attente: 'en attente' })[x.statut] || x.statut})` : ''}</option>)}
+                    </select>
+                    <button type="button" className="bouton bouton-fort" disabled={!ajout || !!enCours} onClick={() => ajouterUE(ajout)}>
+                      {enCours === 'pae' ? 'Enregistrement…' : 'Ajouter'}</button>
+                  </div>
+                )}
+                {!peutReporter && <p className="text-[12px] text-slate-500 pl-4">Encoder un report est réservé à la direction, à la coordination et à l'administration des études.</p>}
+              </div>
+              <div className="min-w-0 lg:sticky lg:top-0 lg:border-l lg:border-slate-200 lg:pl-4">
+                <div className="text-[13px] font-semibold mb-1">Parcours{peutModifier ? <span className="font-normal text-[11.5px] text-slate-500"> — cliquer une tuile pour l'ajouter au PAE ou l'en retirer</span> : null}</div>
+                <ParcoursCompact etudId={cur.id} annee={annee} version={versionSchema}
+                  programme={new Set(dansPAE)}
+                  dispenses={new Set(d.ues.filter(u => u.reports || u.va).map(u => u.ue_num))}
+                  onNoeud={peutModifier ? clicSchema : null} />
+              </div>
             </div>
-            {/* LE SCHÉMA RESTE SOUS LES YEUX : même largeur que la liste, fixé
-                pendant qu'on fait défiler les cours. */}
-            <div className="carte p-2.5 min-w-0 overflow-auto lg:sticky lg:top-0 lg:max-h-[78vh]">
-              <div className="text-[13px] font-semibold mb-1.5">Parcours{peutModifier ? <span className="font-normal text-[11.5px] text-slate-500"> — cliquer une unité pour l'ajouter ou la retirer</span> : null}</div>
-              <SchemaCapitalisation key={`${cur.id}-${annee}-${versionSchema}`} etudId={cur.id} annee={annee}
-                onNoeud={peutModifier ? clicSchema : null} programme={new Set(dansPAE)} />
-            </div>
-          </div>
-        </>
-      )}
+          </>
+        );
+      })()}
     </Fenetre>
   );
 }

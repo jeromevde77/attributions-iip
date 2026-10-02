@@ -3333,7 +3333,8 @@ export function revuePAE(etudId, annee) {
   const e = db.prepare('SELECT id, nom, prenom, id_ecampus, section_rattachement FROM etudiant WHERE id = ?').get(etudId);
   if (!e) return null;
   const section = sectionRattachement(etudId, annee).section || e.section_rattachement || null;
-  const refUe = db.prepare(`SELECT ue_nom, ue_niv, ects, COALESCE(is_epreuve_integree, 0) ei FROM ue WHERE ue_num = ?
+  const refUe = db.prepare(`SELECT ue_nom, ue_niv, ects, COALESCE(is_epreuve_integree, 0) ei,
+      COALESCE(ue_per_etudiants, 0) per_etud, COALESCE(ue_aut, 0) aut FROM ue WHERE ue_num = ?
       ORDER BY (annee_scolaire = ?) DESC, (section = ?) DESC, annee_scolaire DESC LIMIT 1`);
   const coursDe = db.prepare(`SELECT cours_code, MIN(cours_nom) cours_nom, MAX(COALESCE(cours_per, 0)) cours_per,
       MAX(COALESCE(is_stage, 0)) is_stage FROM cours WHERE ue_num = ? AND annee_scolaire = ? AND cours_code IS NOT NULL
@@ -3350,13 +3351,17 @@ export function revuePAE(etudId, annee) {
       (r.statut === 'accorde' ? reports : refuses).set(`${r.ue_num}|${r.cours_code}`, r);
     }
   } catch { /* table ancienne */ }
-  const vaCours = new Map(), vaComplete = new Set();
-  for (const v of db.prepare(`SELECT ue_num, type, cible, cible_detail FROM etudiant_valorisation
+  /* LA NATURE DE LA DISPENSE SE NOMME (Charles, 2 octobre 2026) : VA ou VAE pour
+     une dispense totale, VAP ou VAEP pour une partielle, Report pour un cours
+     reporté. */
+  const vaCours = new Map(), vaComplete = new Map();
+  for (const v of db.prepare(`SELECT ue_num, type, cible, cible_detail, porte FROM etudiant_valorisation
       WHERE etudiant_id = ? AND annee_scolaire = ? AND COALESCE(decision, 'accordee') <> 'refusee'
         AND decision_le IS NOT NULL`).all(etudId, annee)) {
-    if (v.type === 'complete') vaComplete.add(v.ue_num);
+    const vae = v.porte === 'vae';
+    if (v.type === 'complete') vaComplete.set(v.ue_num, vae ? 'VAE' : 'VA');
     else if (v.type === 'partielle' && v.cible === 'cours') {
-      for (const c of String(v.cible_detail || '').split(',').map(x => x.trim()).filter(Boolean)) vaCours.set(`${v.ue_num}|${c}`, true);
+      for (const c of String(v.cible_detail || '').split(',').map(x => x.trim()).filter(Boolean)) vaCours.set(`${v.ue_num}|${c}`, vae ? 'VAEP' : 'VAP');
     }
   }
   const ues = inscr.map(n => {
@@ -3368,7 +3373,9 @@ export function revuePAE(etudId, annee) {
       const statut = vaComplete.has(n) ? 'va' : r ? 'report' : vaCours.has(`${n}|${c.cours_code}`) ? 'va' : 'suivre';
       const el = eligibles.find(x => x.cours_code === c.cours_code);
       const rf = refuses.get(`${n}|${c.cours_code}`);
-      return { code: c.cours_code, nom: c.cours_nom, per: Number(c.cours_per) || 0, stage: !!c.is_stage, statut,
+      const nature = statut === 'report' ? 'Report'
+        : statut === 'va' ? (vaComplete.get(n) || vaCours.get(`${n}|${c.cours_code}`) || 'VA') : null;
+      return { code: c.cours_code, nom: c.cours_nom, per: Number(c.cours_per) || 0, stage: !!c.is_stage, statut, nature,
         note: r ? r.note : null, annee_origine: r ? r.annee_origine : null, par: r ? r.decide_par : null,
         // Ce que Lucie sait du cours : réussi une année antérieure, avec quelle note.
         eligible: statut === 'suivre' && el ? { note: el.note_affichee ?? (el.note != null ? Math.round(el.note) : null), annee_origine: el.annee_origine } : null,
@@ -3380,7 +3387,9 @@ export function revuePAE(etudId, annee) {
       : nRep || nVa ? 'partielle'
         : tentees.has(n) ? 'reprendre' : 'programme';
     return { ue_num: n, ue_nom: u.ue_nom || `UE ${n}`, niv: String(u.ue_niv || '').toUpperCase(), ects: Number(u.ects) || 0,
-      ei: !!u.ei, etat, cours, reports: nRep, va: nVa };
+      periodes: (Number(u.per_etud) || 0) + (Number(u.aut) || 0),
+      ei: !!u.ei, etat, cours, reports: nRep, va: nVa, nature_totale: vaComplete.get(n) || null,
+      nature_partielle: [...new Set(cours.filter(c => c.statut === 'va').map(c => c.nature))].join(' / ') || null };
   }).sort((a, b) => (a.ei - b.ei) || rangBloc(a.niv) - rangBloc(b.niv) || a.ue_num - b.ue_num);
 
   const acquises = db.prepare(`SELECT DISTINCT ue_num FROM etudiant_inscription WHERE etudiant_id = ? AND resultat = 'reussi'
@@ -3417,6 +3426,20 @@ export function revuePAE(etudId, annee) {
       ue_avec_report: ues.filter(u => u.reports).length,
       cours_va: tousCours.filter(c => c.statut === 'va').length,
       cours_a_suivre: aSuivre.length, periodes_a_suivre: aSuivre.reduce((t, c) => t + c.per, 0),
+      // Les périodes étudiant du PAE : toute l'UE, autonomie comprise.
+      periodes_pae: ues.reduce((t, u) => t + (u.periodes || 0), 0),
+      // LA MOYENNE DU PARCOURS, celle du bulletin : les unités réussies,
+      // pondérées par leurs périodes étudiant ; elle seule garde ses décimales.
+      moyenne: (() => {
+        let num = 0, den = 0;
+        for (const x of db.prepare(`SELECT i.ue_num, i.points FROM etudiant_inscription i WHERE i.etudiant_id = ?
+            AND i.resultat = 'reussi' AND i.points IS NOT NULL AND i.annee_scolaire < ?`).all(etudId, annee)) {
+          const p = Number(refUe.get(x.ue_num, annee, section)?.per_etud) || 0;
+          if (!p) continue;
+          num += Number(x.points) * p; den += p;
+        }
+        return den ? Math.round((num / den) * 100) / 100 : null;
+      })(),
     },
     alertes: [
       ...ues.filter(u => dejaAcquises.has(u.ue_num)).map(u => ({ ue_num: u.ue_num,
