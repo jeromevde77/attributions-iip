@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { getAnnee } from '../lib/api.js';
 import PreviewModal from '../components/PreviewModal.jsx';
 import { ouvrirApercu } from '../lib/apercu.js';
-import { PageHeader, RailLateral } from '../components/ui.jsx';
+import { PageHeader, RailLateral, OuvrirEditions } from '../components/ui.jsx';
 import Disciplinaire from './Disciplinaire.jsx';
 import {
   IconChecklist, IconScale, IconShieldExclamation, IconClipboardList,
@@ -1762,10 +1762,8 @@ function ArchivesProcedures({ onReprendreRecours, onReprendre }) {
               <div className="space-y-2">
                 <p className="text-xs text-gray-500 font-medium">Actions</p>
                 <div className="flex flex-wrap gap-2">
-                  <button onClick={() => regenererHTML(detail)}
-                    className="flex items-center gap-1.5 text-sm px-3 py-2 rounded border border-iip-turquoise text-iip-turquoise hover:bg-iip-turquoise hover:text-white transition">
-                    <IconPrinter size={15} className="inline align-[-2px] mr-1" />Voir / Imprimer le document
-                  </button>
+                  <OuvrirEditions titre="Voir, imprimer ou envoyer le document — centre d'édition"
+                    pieces={[{ cle: 'procedure', label: 'Document de la procédure', description: 'Recomposé à partir du dossier', onClick: () => regenererHTML(detail) }]} />
                   <button onClick={() => { setDetail(null); onReprendreRecours && onReprendreRecours(detail); }}
                     className="flex items-center gap-1.5 text-sm px-3 py-2 rounded border border-gray-300 text-gray-700 hover:bg-gray-50 transition">
                     <IconPencil size={15} className="inline align-[-2px] mr-1" />Reprendre dans le formulaire

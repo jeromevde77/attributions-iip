@@ -110,7 +110,7 @@ const PIECES_DOSSIER = [
  * la séance s'ouvre.
  */
 function OngletValorisation() {
-  const [annee, setAnnee] = useState(perimetre?.annee || getAnnee());
+  const [annee, setAnnee] = useState(getAnnee());
   const [annees, setAnnees] = useState([]);
   const [arbre, setArbre] = useState(null);
   const [section, setSection] = useState('');
@@ -1209,7 +1209,7 @@ function SeriePersonnel({ ids, profs, annee, annexes, nom, outilsMembre = null }
 /* UN ÉTUDIANT, TOUTES SES PIÈCES (Charles, 29 septembre 2026 : « je dois
    pouvoir sortir TOUS les documents étudiants depuis Éditions »). On le
    choisit, et la liste commune de ses pièces s'ouvre — la même que sur sa fiche. */
-function UnEtudiantToutesAnnees({ annee, choisi, onChoisir }) {
+function UnEtudiantToutesAnnees({ annee, choisi, onChoisir, compact = false }) {
   const [q, setQ] = useState('');
   const [trouves, setTrouves] = useState([]);
   const setChoisi = e => onChoisir(e);
@@ -1221,11 +1221,17 @@ function UnEtudiantToutesAnnees({ annee, choisi, onChoisir }) {
     }, 250);
     return () => clearTimeout(t);
   }, [q, choisi]);
+  // COMPACT (2 octobre 2026, « bof ») : un seul champ sur la ligne des
+  // familles ; le titre et le texte d'aide repoussaient tout le contenu.
   return (
-    <div className="px-3 py-2 border-b border-slate-200 space-y-1.5">
-      <div className="text-[13px] font-semibold text-iip-blue">Un étudiant — toutes ses pièces</div>
+    <div className={compact ? 'relative' : 'px-3 py-2 border-b border-slate-200 space-y-1.5'}>
+      {!compact && <div className="text-[13px] font-semibold text-iip-blue">Un étudiant — toutes ses pièces</div>}
       <div className="relative">
-        <input className="controle w-full text-[13px]" placeholder="Nom ou matricule…" value={q} onChange={e => setQ(e.target.value)} />
+        {compact && <IconSearch size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />}
+        <input className={`controle w-full text-[13px] ${compact ? 'controle-icone' : ''}`}
+          placeholder={compact ? 'Un étudiant — toutes ses pièces…' : 'Nom ou matricule…'}
+          title="Attestations, bulletin, parcours, fiche d'inscription, annexes, congé-éducation, aménagements — toutes les pièces d'un étudiant"
+          value={q} onChange={e => setQ(e.target.value)} />
         {trouves.length > 0 && (
           <div className="absolute z-20 left-0 right-0 mt-1 bg-white border border-slate-200 rounded-champ shadow-flottant max-h-64 overflow-auto">
             {trouves.map(e => (
@@ -1237,9 +1243,9 @@ function UnEtudiantToutesAnnees({ annee, choisi, onChoisir }) {
           </div>
         )}
       </div>
-      <div className="text-[11px] text-slate-400">Attestations, bulletin, parcours, fiche d'inscription, annexes de l'Office des
-        Étrangers, congé-éducation, aménagements raisonnables — pour l'année {annee}.</div>
-      {choisi && (
+      {!compact && <div className="text-[11px] text-slate-400">Attestations, bulletin, parcours, fiche d'inscription, annexes de l'Office des
+        Étrangers, congé-éducation, aménagements raisonnables — pour l'année {annee}.</div>}
+      {choisi && !compact && (
         <div className="text-[12px] text-iip-texte">Choisi : <b>{nomPropre(choisi.nom, choisi.prenom)}</b>
           <button type="button" className="ml-2 underline text-slate-500" onClick={() => { onChoisir(null); setQ(''); }}>retirer</button></div>
       )}
@@ -1247,13 +1253,14 @@ function UnEtudiantToutesAnnees({ annee, choisi, onChoisir }) {
   );
 }
 
-function OngletEtudiants({ perimetre = null }) {
+function OngletEtudiants({ perimetre = null, mode = 'deliberation', seul = null, onRevenir = null }) {
+  const delib = mode === 'deliberation';
   /* L'ANNÉE SE CHOISIT ICI AUSSI. L'onglet des rapports la montre depuis
      longtemps ; celui des étudiants reprenait l'année de travail sans jamais
      la dire. Pour retirer une attestation de l'an dernier, il fallait changer
      l'année de toute l'application, produire la pièce, puis penser à la
      remettre — et la fenêtre couvre justement le sélecteur de la barre. */
-  const [annee, setAnnee] = useState(getAnnee());
+  const [annee, setAnnee] = useState(perimetre?.annee || getAnnee());
   const [annees, setAnnees] = useState([]);
   useEffect(() => {
     fetch('/api/annees', { headers: authHeaders() })
@@ -1275,6 +1282,12 @@ function OngletEtudiants({ perimetre = null }) {
   const [ues, setUes] = useState(() => new Set(perimetre?.ue_nums || []));
   const [cours, setCours] = useState(() => new Set(perimetre?.cours_codes || []));
   const [deplie, setDeplie] = useState(() => new Set());
+  /* LA SÉLECTION INTELLIGENTE (Charles, 2 octobre 2026) : une section au menu
+     déroulant, puis SES UE à cocher, puis leurs cours au besoin ; sans UE
+     cochée, c'est toute la section. Pour un étudiant cherché, seules SES UE —
+     celles où il y a des données — se proposent. */
+  const [secChoisie, setSecChoisie] = useState(perimetre?.sections?.[0] || '');
+  const [uesSeul, setUesSeul] = useState(null);   // Map ue_num → résultat, pour l'étudiant cherché
   // LES SECTIONS SE REPLIENT (Charles, 27 septembre 2026 : « pour gagner en
   // place ») : on ouvre celle où l'on travaille.
   const [secOuvertes, setSecOuvertes] = useState(() => new Set());
@@ -1290,6 +1303,13 @@ function OngletEtudiants({ perimetre = null }) {
   // Sauf quand un écran ouvre le centre POUR une pièce précise (la revue des
   // PAE) : c'est alors le bouton qu'on a cliqué qui l'a choisie.
   const [choix, setChoix] = useState(() => Object.fromEntries((perimetre?.pieces || []).map(c => [c, true])));
+  // UNE FAMILLE, SES PIÈCES (2 octobre 2026) : on ne garde coché que ce que
+  // la famille ouverte propose.
+  useEffect(() => {
+    const garde = new Set((delib ? PIECES : PIECES_DOSSIER).map(p => p.cle));
+    setChoix(c => Object.fromEntries(Object.entries(c).filter(([k]) => garde.has(k))));
+    // eslint-disable-next-line
+  }, [mode]);
   const cochesImposees = useRef(perimetre?.coches ? new Set(perimetre.coches) : null);
   const [separer, setSeparer] = useState(
     () => localStorage.getItem('impression.separer') === '1');
@@ -1307,6 +1327,15 @@ function OngletEtudiants({ perimetre = null }) {
       .then(r => r.json()).then(setArbre).catch(e => setErreur(e.message));
   }, [annee]);
 
+  const choisirSection = sec => {
+    setSecChoisie(sec); setUes(new Set()); setCours(new Set()); setUesSeul(null);
+    setSections(sec ? new Set([sec]) : new Set());
+  };
+  const basculerUE = n => setUes(u0 => {
+    const n2 = new Set(u0); n2.has(n) ? n2.delete(n) : n2.add(n);
+    setSections(n2.size ? new Set() : (secChoisie ? new Set([secChoisie]) : new Set()));
+    return n2;
+  });
   const bascule = (set, valeur) => {
     const n = new Set(set);
     n.has(valeur) ? n.delete(valeur) : n.add(valeur);
@@ -1327,6 +1356,10 @@ function OngletEtudiants({ perimetre = null }) {
       const j = await rep.json();
       if (!rep.ok) throw new Error(j.error);
       setListe(j);
+      if (seul && !uesSeul && !ues.size) {
+        const me = (j.etudiants || []).find(e => e.id === seul.id);
+        if (me) setUesSeul(new Map(me.unites.map(u => [u.ue_num, u.resultat || null])));
+      }
       // Tous cochés par défaut DANS LE PÉRIMÈTRE choisi : la sélection sert à
       // restreindre, non à tout reconstruire. Rien n'est coché tant qu'aucun
       // périmètre n'est posé.
@@ -1334,16 +1367,19 @@ function OngletEtudiants({ perimetre = null }) {
         // Les étudiants de l'écran d'où l'on vient — une fois, à l'ouverture.
         setCoches(new Set(j.etudiants.filter(e => cochesImposees.current.has(e.id)).map(e => e.id)));
         cochesImposees.current = null;
-      } else setCoches(new Set(j.etudiants.filter(e => e.decide).map(e => e.id)));
+      } else setCoches(new Set(j.etudiants.filter(e => !delib || e.decide).map(e => e.id)));
     } catch (e) { setErreur(e.message); }
-  }, [annee, session, sections, ues, cours]);
+  }, [annee, session, sections, ues, cours, delib]);
   useEffect(() => { charger(); }, [charger]);
 
   const etudiants = useMemo(() => {
     const q = recherche.trim().toLowerCase();
-    const l = liste?.etudiants || [];
+    let l = liste?.etudiants || [];
+    // UN ÉTUDIANT CHERCHÉ DEVIENT LE PÉRIMÈTRE (2 octobre 2026) : même fenêtre,
+    // mêmes cases à cocher — la liste ne porte que lui.
+    if (seul) l = l.filter(e => e.id === seul.id);
     return q ? l.filter(e => `${e.nom} ${e.prenom}`.toLowerCase().includes(q)) : l;
-  }, [liste, recherche]);
+  }, [liste, recherche, seul]);
 
   /** Les pièces du dossier (bulletin, annexes) des étudiants cochés. */
   async function piecesDossier() {
@@ -1532,13 +1568,54 @@ function OngletEtudiants({ perimetre = null }) {
   // Un étudiant sans décision n'a rien à recevoir de la délibération, mais son
   // bulletin et ses annexes, si : il devient cochable dès qu'une pièce du
   // dossier est demandée.
-  const cochable = e => (seulementSLE ? e.sle : (e.decide || dossierChoisi.length > 0));
+  /* LA LISTE NE BOUGE PLUS QUAND ON COCHE (maquette validée, 2 octobre 2026) :
+     tout étudiant du périmètre se coche ; la colonne « Reçoit » dit ce qu'il
+     recevra, et « — » quand rien ne le concerne. */
+  const cochable = () => true;
+  const recoit = e => {
+    const l = [];
+    if (delib) {
+      if (choix.reussite && e.reussites > 0) l.push('Attestation');
+      if (choix.ajournement && e.echecs > 0 && session === 1) l.push('Motivation d’ajournement');
+      if (choix.refus && e.echecs > 0 && session === 2) l.push('Motivation de refus');
+    } else {
+      for (const p of PIECES_DOSSIER) if (choix[p.cle] && (!p.sle || e.sle)) l.push(p.label.split(' — ')[0]);
+    }
+    return l;
+  };
+  /* GRISÉ QUAND IL N'Y A RIEN À PRODUIRE (2 octobre 2026). */
+  const dispo = p => {
+    if (!etudiants.length) return false;
+    if (p.cle === 'reussite') return etudiants.some(e => e.reussites > 0);
+    if (p.cle === 'ajournement') return session === 1 && etudiants.some(e => e.echecs > 0);
+    if (p.cle === 'refus') return session === 2 && etudiants.some(e => e.echecs > 0);
+    if (['pv', 'conseil', 'grille'].includes(p.cle)) return etudiants.some(e => e.decide);
+    if (p.sle) return etudiants.some(e => e.sle);
+    return true;
+  };
+  const nbPieces = (delib ? PIECES : PIECES_DOSSIER).filter(p => choix[p.cle] && dispo(p)).length;
+  // Une pièce devenue indisponible se décoche : elle ne partirait pas avec le lot.
+  useEffect(() => {
+    setChoix(c => {
+      const n = { ...c }; let change = false;
+      for (const p of [...PIECES, ...PIECES_DOSSIER]) if (n[p.cle] && !dispo(p)) { delete n[p.cle]; change = true; }
+      return change ? n : c;
+    });
+    // eslint-disable-next-line
+  }, [etudiants, session]);
 
   return (
     <div className="flex min-h-0 flex-1">
       {/* LE PÉRIMÈTRE */}
       <div className="w-[340px] border-r border-slate-200 flex flex-col min-h-0">
-        <UnEtudiantToutesAnnees annee={annee} choisi={etudiantVu} onChoisir={setEtudiantVu} />
+        {seul && (
+          <div className="px-3 py-2 border-b border-slate-200">
+            <div className="text-[11px] uppercase tracking-wide text-slate-500">Pour</div>
+            <div className="text-[15px] font-semibold text-iip-texte">{nomPropre(seul.nom, seul.prenom)}</div>
+            <div className="text-[12px] text-slate-500">{seul.id_ecampus || ''}{seul.section_rattachement ? ` · ${seul.section_rattachement}` : ''}</div>
+            <button type="button" className="mt-1 text-[12px] underline text-iip-blue" onClick={onRevenir}>revenir au périmètre</button>
+          </div>
+        )}
         <div className="px-3 py-2 border-b border-slate-200">
           <div className="text-[13px] font-semibold text-iip-blue mb-1.5">Périmètre</div>
           <select value={annee} onChange={e => setAnnee(e.target.value)}
@@ -1548,7 +1625,7 @@ function OngletEtudiants({ perimetre = null }) {
               <option key={a} value={a}>{a}</option>
             ))}
           </select>
-          <div className="segments w-full">
+          {delib && <div className="segments w-full">
             {[[1, '1re session'], [2, '2e session']].map(([v, lib]) => (
               <button key={v} onClick={() => setSession(v)}
                 className={`flex-1 px-2 py-1 text-[12px] ${session === v
@@ -1556,74 +1633,53 @@ function OngletEtudiants({ perimetre = null }) {
                 {lib}
               </button>
             ))}
-          </div>
+          </div>}
         </div>
 
-        <div className="flex-1 overflow-auto p-2 space-y-2">
-          {(arbre?.sections || []).map(sec => (
-            <div key={sec}>
-              {(() => {
-                const us = (arbre?.unites || []).filter(u => u.section === sec);
-                const nCoches = us.filter(u => ues.has(u.ue_num)).length;
-                const ouverte = secOuvertes.has(sec);
-                return (
-                  <div className="flex items-center gap-1.5 px-1.5 py-1 rounded hover:bg-slate-50">
-                    <button type="button" onClick={() => setSecOuvertes(o => bascule(o, sec))}
-                      aria-label={ouverte ? `Replier ${sec}` : `Déplier ${sec}`} className="text-slate-400 hover:text-slate-700">
-                      {ouverte ? <IconChevronDown size={14} /> : <IconChevronRight size={14} />}
-                    </button>
-                    <input type="checkbox" checked={sections.has(sec)}
-                      onChange={() => setSections(s => bascule(s, sec))}
-                      aria-label={`Toute la section ${sec}`} className="w-4 h-4 accent-iip-blue" />
-                    <button type="button" onClick={() => setSecOuvertes(o => bascule(o, sec))}
-                      className="flex-1 min-w-0 text-left text-[13px] font-medium text-slate-800">
-                      {sec} <span className="text-[11px] font-normal text-slate-400">· {us.length} unité{us.length > 1 ? 's' : ''}{nCoches ? ` · ${nCoches} cochée${nCoches > 1 ? 's' : ''}` : ''}</span>
-                    </button>
-                  </div>
-                );
-              })()}
-              {secOuvertes.has(sec) && <div className="pl-4">
-                {(arbre?.unites || []).filter(u => u.section === sec).map(u => (
+        <div className="flex-1 overflow-auto p-2 space-y-1.5">
+          <select value={secChoisie} onChange={e => choisirSection(e.target.value)} className="controle w-full text-[13px]">
+            <option value="">{arbre ? '— choisir une section —' : 'Chargement…'}</option>
+            {(arbre?.sections || []).map(sec => <option key={sec} value={sec}>{sec}</option>)}
+          </select>
+          {secChoisie && (() => {
+            const us = (arbre?.unites || []).filter(u => u.section === secChoisie && (!seul || !uesSeul || uesSeul.has(u.ue_num)));
+            if (!us.length) return <p className="text-[12px] text-slate-400 px-1">{seul ? 'Aucune UE de cet étudiant dans cette section.' : 'Aucune UE.'}</p>;
+            return (
+              <>
+                <div className="text-[11px] text-slate-500 px-1">{ues.size ? `${ues.size} UE cochée(s)` : `toute la section${seul ? ' — ses UE' : ''} · cochez pour restreindre`}</div>
+                {us.map(u => (
                   <div key={u.ue_num}>
-                    <div className="flex items-center gap-1.5 px-1.5 py-0.5">
-                      <input type="checkbox" checked={ues.has(u.ue_num)}
-                        disabled={sections.has(sec)}
-                        onChange={() => setUes(s => bascule(s, u.ue_num))}
-                        className="w-3.5 h-3.5 accent-iip-blue disabled:opacity-40" />
-                      <button onClick={() => setDeplie(d => bascule(d, u.ue_num))}
-                        className="text-slate-400 hover:text-slate-700">
-                        {deplie.has(u.ue_num)
-                          ? <IconChevronDown size={13} /> : <IconChevronRight size={13} />}
-                      </button>
-                      <span className="text-[12px] text-slate-700 truncate">
-                        <b>{u.ue_num}</b> {u.ue_nom}
-                      </span>
+                    <div className="flex items-center gap-1.5 px-1 py-0.5">
+                      <input type="checkbox" checked={ues.has(u.ue_num)} onChange={() => basculerUE(u.ue_num)} className="w-3.5 h-3.5 accent-iip-blue" />
+                      {u.cours?.length > 0 && (
+                        <button onClick={() => setDeplie(d => bascule(d, u.ue_num))} className="text-slate-400 hover:text-slate-700">
+                          {deplie.has(u.ue_num) ? <IconChevronDown size={13} /> : <IconChevronRight size={13} />}
+                        </button>
+                      )}
+                      <span className="text-[12.5px] text-slate-700 truncate flex-1"><b>{u.ue_num}</b> {u.ue_nom}</span>
+                      {seul && uesSeul?.get(u.ue_num) && (
+                        <span className="text-[10.5px] font-semibold text-white rounded-full px-1.5"
+                          style={{ background: uesSeul.get(u.ue_num) === 'reussi' ? 'var(--c-reussi, #3E7D5E)' : uesSeul.get(u.ue_num) === 'ajourne' ? 'var(--c-attente, #B45309)' : 'var(--c-refuse, #9D4A38)' }}>
+                          {uesSeul.get(u.ue_num) === 'reussi' ? 'réussi' : uesSeul.get(u.ue_num) === 'ajourne' ? 'ajourné' : 'refusé'}</span>
+                      )}
                     </div>
                     {deplie.has(u.ue_num) && (
                       <div className="pl-8">
                         {u.cours.map(c => (
-                          <label key={c.cours_code}
-                            className="flex items-center gap-1.5 px-1.5 py-0.5 cursor-pointer">
-                            <input type="checkbox" checked={cours.has(c.cours_code)}
-                              disabled={sections.has(sec) || ues.has(u.ue_num)}
-                              onChange={() => setCours(s => bascule(s, c.cours_code))}
+                          <label key={c.cours_code} className="flex items-center gap-1.5 px-1.5 py-0.5 cursor-pointer">
+                            <input type="checkbox" checked={cours.has(c.cours_code)} disabled={ues.has(u.ue_num)}
+                              onChange={() => { setCours(s0 => bascule(s0, c.cours_code)); setSections(new Set()); }}
                               className="w-3.5 h-3.5 accent-iip-blue disabled:opacity-40" />
-                            <span className="text-[12px] text-slate-500 truncate">
-                              {c.cours_code} {c.cours_nom}
-                            </span>
+                            <span className="text-[12px] text-slate-500 truncate">{c.cours_code} {c.cours_nom}</span>
                           </label>
                         ))}
-                        {!u.cours.length && (
-                          <div className="text-[11px] text-slate-400 px-1.5">aucun cours</div>
-                        )}
                       </div>
                     )}
                   </div>
                 ))}
-              </div>}
-            </div>
-          ))}
-          {!arbre && <div className="text-[12px] text-slate-400 p-2">Chargement…</div>}
+              </>
+            );
+          })()}
         </div>
 
         <div className="px-3 py-2 border-t border-slate-200 text-[11px] text-slate-500">
@@ -1647,93 +1703,126 @@ function OngletEtudiants({ perimetre = null }) {
         </div>
       )}
       <div className={`flex-1 flex flex-col min-h-0 ${etudiantVu ? 'hidden' : ''}`}>
-        <div className="px-3 py-2 border-b border-slate-200 flex flex-wrap items-center gap-2">
-          <div className="relative">
-            <IconSearch size={13} className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400" />
-            <input value={recherche} onChange={e => setRecherche(e.target.value)}
-              placeholder="Un nom…"
-              className="pl-7 pr-2 py-1 text-[12px] border border-slate-300 rounded-lg w-48" />
-          </div>
-          <button onClick={() => setCoches(new Set(etudiants.filter(cochable).map(e => e.id)))}
-            className="text-[12px] text-iip-blue underline">tout cocher</button>
-          <button onClick={() => setCoches(new Set())}
-            className="text-[12px] text-slate-500 underline">tout décocher</button>
-          <span className="flex-1" />
-          <span className="text-[12px] text-slate-500">
-            {coches.size} / {etudiants.length} étudiant(s)
-            {liste?.unites?.length ? ` · ${liste.unites.length} unité(s)` : ''}
-          </span>
-        </div>
 
-        {/* CE QU'ON PRODUIT SE DÉCIDE AVANT DE CHOISIR QUI.
-            Le choix des pièces et le bouton vivaient SOUS la liste : avec
-            seize étudiants on les voyait, avec deux cents il fallait
-            parcourir tout l'écran pour les atteindre, et le bouton
-            disparaissait à mesure que le travail grossissait. Ils passent
-            au-dessus : la liste peut alors s'allonger autant qu'elle veut. */}
-        <div className="border-b border-slate-200 p-3 space-y-2">
-          <div className="flex flex-wrap gap-2">
-            {PIECES.map(p => (
-              <label key={p.cle}
-                className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border
-                  cursor-pointer text-[12px] ${choix[p.cle]
-                    ? 'border-iip-blue bg-iip-blue/5' : 'border-slate-200 text-slate-600'}`}>
-                <input type="checkbox" checked={!!choix[p.cle]}
-                  onChange={() => setChoix(c => ({ ...c, [p.cle]: !c[p.cle] }))}
-                  className="w-3.5 h-3.5 accent-iip-blue" />
-                {p.label}
-                {!p.nominatif && <span className="text-[10px] text-slate-400">collectif</span>}
-              </label>
-            ))}
-          </div>
+        {/* LES BOUTONS EN TÊTE, et ce qu'ils vont faire (maquette validée). */}
+        <div className="border-b border-slate-200 p-3 space-y-2.5">
           <div className="flex flex-wrap items-center gap-2">
-            <span className="text-[11px] text-slate-500">Pièces du dossier :</span>
-            {PIECES_DOSSIER.map(p => (
-              <label key={p.cle}
-                className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border
-                  cursor-pointer text-[12px] ${choix[p.cle]
-                    ? 'border-iip-blue bg-iip-blue/5' : 'border-slate-200 text-slate-600'}`}>
-                <input type="checkbox" checked={!!choix[p.cle]}
-                  onChange={() => setChoix(c => ({ ...c, [p.cle]: !c[p.cle] }))}
-                  className="w-3.5 h-3.5 accent-iip-blue" />
-                {p.label}
-                {p.sle && <span className="text-[10px] text-slate-400">SLE</span>}
-              </label>
-            ))}
-          </div>
-
-          {erreur && (
-            <div className="px-3 py-2 rounded-lg bg-amber-50 text-amber-900 text-[13px]
-                            flex items-start gap-2">
-              <IconAlertTriangle size={15} className="flex-none mt-0.5" /> {erreur}
-            </div>
-          )}
-
-          <div className="flex items-center gap-2">
             <label className="flex items-center gap-1.5 text-[12px] text-slate-600 cursor-pointer">
               <input type="checkbox" checked={separer}
                 onChange={e => {
                   setSeparer(e.target.checked);
-                  localStorage.setItem('impression.separer', e.target.checked ? '1' : '0');
+                  try { localStorage.setItem('impression.separer', e.target.checked ? '1' : '0'); } catch { /* */ }
                 }}
                 className="w-4 h-4 accent-iip-blue" />
               Un document par étudiant
             </label>
             <span className="flex-1" />
-            <button onClick={produire} disabled={enCours || !coches.size}
-              className="px-4 py-2 text-[13px] rounded-lg bg-iip-blue text-white
-                         font-semibold disabled:opacity-40 inline-flex items-center gap-1.5">
+            <button onClick={produire} disabled={enCours || !coches.size || !nbPieces}
+              className="px-4 py-2 text-[13px] rounded-lg bg-iip-blue text-white font-semibold disabled:opacity-40 inline-flex items-center gap-1.5">
               <IconPrinter size={14} />
-              {enCours ? 'Production…' : `Produire pour ${coches.size} étudiant(s)`}
+              {enCours ? 'Production…' : `Produire ${nbPieces} pièce${nbPieces > 1 ? 's' : ''} · ${coches.size} étudiant${coches.size > 1 ? 's' : ''}`}
             </button>
             {etatEnvoi?.actif && etatEnvoi?.peut_envoyer && (
-              <button onClick={envoyer} disabled={enCours || !coches.size}
+              <button onClick={envoyer} disabled={enCours || !coches.size || !nbPieces}
                 title="Envoyer par courriel — un document par personne, jamais de copie collective"
-                className="px-4 py-2 text-[13px] rounded-lg bg-iip-blue text-white
-                           font-semibold disabled:opacity-40 inline-flex items-center gap-1.5">
+                className="px-4 py-2 text-[13px] rounded-lg border font-semibold disabled:opacity-40 inline-flex items-center gap-1.5"
+                style={{ borderColor: 'var(--c-principal, #16406A)', color: 'var(--c-principal, #16406A)' }}>
                 <IconSend size={14} /> Envoyer
               </button>
             )}
+          </div>
+          {erreur && (
+            <div data-etat="surveiller" className="bloc-etat px-3 py-2 text-[13px] flex items-start gap-2">
+              <IconAlertTriangle size={15} className="flex-none mt-0.5" /> {erreur}
+            </div>
+          )}
+          <div className="grid gap-2.5 md:grid-cols-2">
+            {delib ? <>
+            <div className="border border-slate-200 rounded-carte p-2.5">
+              <div className="text-[14px] font-semibold">À remettre aux étudiants</div>
+              <div className="text-[11.5px] text-slate-500 mb-1.5">une pièce par étudiant décidé</div>
+              {PIECES.filter(p => p.nominatif).map(p => (
+                <label key={p.cle} className={`flex items-center gap-2 py-0.5 text-[13px] ${dispo(p) ? 'cursor-pointer' : 'opacity-40 cursor-not-allowed'}`}
+                  title={dispo(p) ? '' : 'Rien à produire pour ce périmètre'}>
+                  {/* LA PETITE LIGNE DIT LE SENS (2 octobre 2026) : orange pour
+                      l'ajournement, fraise pour le refus. */}
+                  <span className="w-[3px] h-4 rounded-full flex-none"
+                    style={{ background: p.cle === 'ajournement' ? 'var(--c-attente, #B45309)' : p.cle === 'refus' ? 'var(--c-refuse, #9D4A38)' : 'transparent' }} />
+                  <input type="checkbox" checked={!!choix[p.cle] && dispo(p)} disabled={!dispo(p)} onChange={() => setChoix(c => ({ ...c, [p.cle]: !c[p.cle] }))}
+                    className="w-3.5 h-3.5 accent-iip-blue" />
+                  {p.label}
+                  {p.sle && <span className="text-[10px] font-bold text-slate-500 border border-slate-300 rounded px-1">SLE · {etudiants.filter(e => e.sle).length}</span>}
+                  {p.nominatif && dispo(p) && <span className="ml-auto text-[11.5px] text-slate-400 tabular-nums">{p.cle === 'reussite' ? etudiants.filter(e => e.reussites > 0).length : etudiants.filter(e => e.echecs > 0).length}</span>}
+                </label>
+              ))}
+            </div>
+            <div className="border border-slate-200 rounded-carte p-2.5">
+              <div className="text-[14px] font-semibold">Pour le Conseil</div>
+              <div className="text-[11.5px] text-slate-500 mb-1.5">une pièce pour l’unité</div>
+              {PIECES.filter(p => !p.nominatif).map(p => (
+                <label key={p.cle} className={`flex items-center gap-2 py-0.5 text-[13px] ${dispo(p) ? 'cursor-pointer' : 'opacity-40 cursor-not-allowed'}`}
+                  title={dispo(p) ? '' : 'Rien à produire pour ce périmètre'}>
+                  {/* LA PETITE LIGNE DIT LE SENS (2 octobre 2026) : orange pour
+                      l'ajournement, fraise pour le refus. */}
+                  <span className="w-[3px] h-4 rounded-full flex-none"
+                    style={{ background: p.cle === 'ajournement' ? 'var(--c-attente, #B45309)' : p.cle === 'refus' ? 'var(--c-refuse, #9D4A38)' : 'transparent' }} />
+                  <input type="checkbox" checked={!!choix[p.cle] && dispo(p)} disabled={!dispo(p)} onChange={() => setChoix(c => ({ ...c, [p.cle]: !c[p.cle] }))}
+                    className="w-3.5 h-3.5 accent-iip-blue" />
+                  {p.label}
+                  {p.sle && <span className="text-[10px] font-bold text-slate-500 border border-slate-300 rounded px-1">SLE · {etudiants.filter(e => e.sle).length}</span>}
+                  {p.nominatif && dispo(p) && <span className="ml-auto text-[11.5px] text-slate-400 tabular-nums">{p.cle === 'reussite' ? etudiants.filter(e => e.reussites > 0).length : etudiants.filter(e => e.echecs > 0).length}</span>}
+                </label>
+              ))}
+            </div>
+            </> : <>
+            <div className="border border-slate-200 rounded-carte p-2.5">
+              <div className="text-[14px] font-semibold">Le parcours</div>
+              <div className="text-[11.5px] text-slate-500 mb-1.5">à tout moment de l’année</div>
+              {PIECES_DOSSIER.filter(p => ['bulletin', 'pae', 'parcours'].includes(p.cle)).map(p => (
+                <label key={p.cle} className={`flex items-center gap-2 py-0.5 text-[13px] ${dispo(p) ? 'cursor-pointer' : 'opacity-40 cursor-not-allowed'}`}
+                  title={dispo(p) ? '' : 'Rien à produire pour ce périmètre'}>
+                  {/* LA PETITE LIGNE DIT LE SENS (2 octobre 2026) : orange pour
+                      l'ajournement, fraise pour le refus. */}
+                  <span className="w-[3px] h-4 rounded-full flex-none"
+                    style={{ background: p.cle === 'ajournement' ? 'var(--c-attente, #B45309)' : p.cle === 'refus' ? 'var(--c-refuse, #9D4A38)' : 'transparent' }} />
+                  <input type="checkbox" checked={!!choix[p.cle] && dispo(p)} disabled={!dispo(p)} onChange={() => setChoix(c => ({ ...c, [p.cle]: !c[p.cle] }))}
+                    className="w-3.5 h-3.5 accent-iip-blue" />
+                  {p.label}
+                  {p.sle && <span className="text-[10px] font-bold text-slate-500 border border-slate-300 rounded px-1">SLE · {etudiants.filter(e => e.sle).length}</span>}
+                  {p.nominatif && dispo(p) && <span className="ml-auto text-[11.5px] text-slate-400 tabular-nums">{p.cle === 'reussite' ? etudiants.filter(e => e.reussites > 0).length : etudiants.filter(e => e.echecs > 0).length}</span>}
+                </label>
+              ))}
+            </div>
+            <div className="border border-slate-200 rounded-carte p-2.5">
+              <div className="text-[14px] font-semibold">L’inscription</div>
+              <div className="text-[11.5px] text-slate-500 mb-1.5">administratif — les annexes ne vont qu’aux étudiants SLE</div>
+              {PIECES_DOSSIER.filter(p => !['bulletin', 'pae', 'parcours'].includes(p.cle)).map(p => (
+                <label key={p.cle} className={`flex items-center gap-2 py-0.5 text-[13px] ${dispo(p) ? 'cursor-pointer' : 'opacity-40 cursor-not-allowed'}`}
+                  title={dispo(p) ? '' : 'Rien à produire pour ce périmètre'}>
+                  {/* LA PETITE LIGNE DIT LE SENS (2 octobre 2026) : orange pour
+                      l'ajournement, fraise pour le refus. */}
+                  <span className="w-[3px] h-4 rounded-full flex-none"
+                    style={{ background: p.cle === 'ajournement' ? 'var(--c-attente, #B45309)' : p.cle === 'refus' ? 'var(--c-refuse, #9D4A38)' : 'transparent' }} />
+                  <input type="checkbox" checked={!!choix[p.cle] && dispo(p)} disabled={!dispo(p)} onChange={() => setChoix(c => ({ ...c, [p.cle]: !c[p.cle] }))}
+                    className="w-3.5 h-3.5 accent-iip-blue" />
+                  {p.label}
+                  {p.sle && <span className="text-[10px] font-bold text-slate-500 border border-slate-300 rounded px-1">SLE · {etudiants.filter(e => e.sle).length}</span>}
+                  {p.nominatif && dispo(p) && <span className="ml-auto text-[11.5px] text-slate-400 tabular-nums">{p.cle === 'reussite' ? etudiants.filter(e => e.reussites > 0).length : etudiants.filter(e => e.echecs > 0).length}</span>}
+                </label>
+              ))}
+            </div>
+            </>}
+          </div>
+          <div className="flex flex-wrap items-center gap-2 text-[12px]">
+            <div className="relative">
+              <IconSearch size={13} className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400" />
+              <input value={recherche} onChange={e => setRecherche(e.target.value)} placeholder="Un nom…"
+                className="pl-7 pr-2 py-1 text-[12px] border border-slate-300 rounded-lg w-48" />
+            </div>
+            <button onClick={() => setCoches(new Set(etudiants.map(e => e.id)))} className="text-iip-blue underline">tout cocher</button>
+            <button onClick={() => setCoches(new Set())} className="text-slate-500 underline">tout décocher</button>
+            <span className="flex-1" />
+            <span className="text-slate-500">{coches.size} / {etudiants.length} étudiant(s){liste?.unites?.length ? ` · ${liste.unites.length} unité(s)` : ''}{delib ? ` · session ${session}` : ''}</span>
           </div>
         </div>
         <div className="flex-1 overflow-auto min-h-0">
@@ -1758,11 +1847,14 @@ function OngletEtudiants({ perimetre = null }) {
               <span className="flex-1 min-w-0">
                 <span className="text-[13px] font-medium">{nomPropre(e.nom, e.prenom)}</span>
                 {e.sle && <span className="ml-1.5 text-[10px] font-semibold text-white bg-iip-blue rounded px-1 py-px">SLE</span>}
-                <span className="block text-[11px] text-slate-500">
+                {delib && <span className="block text-[11px] text-slate-500">
                   {e.decide
                     ? `${e.reussites} réussite(s) · ${e.echecs} échec(s) sur ${e.unites.length} unité(s)`
                     : 'aucune décision pour cette session'}
-                </span>
+                </span>}
+              </span>
+              <span className="text-[12px] text-right max-w-[45%]" style={{ color: recoit(e).length ? '#334155' : '#94A3B8' }}>
+                {recoit(e).length ? recoit(e).join(' · ') : '—'}
               </span>
             </label>
           ))}
@@ -1792,21 +1884,33 @@ function OngletEtudiants({ perimetre = null }) {
  * ici, en tête du centre : une pièce de plus ne coûte plus une icône.
  */
 function PiecesDeLEcran({ pieces, onChoisir }) {
+  /* UNE LIGNE, PAS DES TUILES (2 octobre 2026 : « appuyer sur Édition doit
+     toujours mener à la même fenêtre »). La pièce de l'écran d'où l'on vient
+     se choisit en tête ; le reste du centre est le même pour tous. */
+  const [choisie, setChoisie] = useState(pieces?.[0]?.cle || null);
   if (!pieces || !pieces.length) return null;
+  const p = pieces.find(x => x.cle === choisie) || pieces[0];
   return (
-    <GroupeFenetre titre="Pièces de cet écran">
-      {pieces.map(p => (
-        <PieceFenetre key={p.cle} icone={p.icon} titre={p.label} sous={p.description}
-          onClick={() => onChoisir(p)} />
+    <div className="mb-3 pb-3 border-b border-slate-200 flex flex-wrap items-center gap-x-4 gap-y-1.5">
+      <span className="text-[12px] font-semibold text-slate-500 uppercase tracking-wide">De cet écran</span>
+      {pieces.map(x => (
+        <label key={x.cle} className="flex items-center gap-1.5 text-[13px] cursor-pointer" title={x.description || ''}>
+          <input type="radio" name="piece-ecran" checked={p.cle === x.cle} onChange={() => setChoisie(x.cle)} className="accent-iip-blue" />
+          {x.label}
+        </label>
       ))}
-    </GroupeFenetre>
+      <button type="button" onClick={() => onChoisir(p)}
+        className="ml-auto px-4 py-2 text-[13px] rounded-lg bg-iip-blue text-white font-semibold inline-flex items-center gap-1.5">
+        <IconPrinter size={14} /> Produire
+      </button>
+    </div>
   );
 }
 
 export default function CentreImpressionCentral({ ongletInitial = 'etudiants',
                                                   perimetre = null, pieces = null, etudiant = null, anneeEtudiant = null,
                                                   membreInitial = null, outilsMembre = null,
-                                                  onClose }) {
+                                                  familleInitiale = null, onClose }) {
   const [onglet, setOnglet] = useState(ongletInitial);
   // Dans un axe qui porte deux familles : les pièces par personne, ou les
   // rapports du catalogue. On entre par les pièces, qui sont le quotidien.
@@ -1814,9 +1918,20 @@ export default function CentreImpressionCentral({ ongletInitial = 'etudiants',
      les rapports partout ailleurs. Elle se remet à sa valeur d'origine quand
      on change d'axe : « Listes » laissé actif en passant de Personnel à
      Gestion ouvrait une colonne vide, et l'on croyait l'axe vide. */
-  const [famille, setFamille] = useState('pieces');
+  const versDossiers = (perimetre?.pieces || []).some(c => PIECES_DOSSIER.some(p => p.cle === c));
+  const [famille, setFamille] = useState(familleInitiale || (versDossiers ? 'dossiers' : 'pieces'));
+  // OUVERT DEPUIS LA FICHE D'UN ÉTUDIANT : il est le périmètre, dans la même
+  // fenêtre que partout ailleurs.
+  const [etudiantVu, setEtudiantVu] = useState(etudiant ? { ...etudiant } : null);
   // Personnel s'ouvre aussi sur ses pièces : contrats, fiches, EA12, annexes.
-  useEffect(() => { setFamille(onglet === 'etudiants' || onglet === 'personnel' ? 'pieces' : 'rapports'); }, [onglet]);
+  // La famille demandée par le bouton qui ouvre le centre vaut à l'ouverture ;
+  // changer d'axe ensuite revient au défaut.
+  const premier = useRef(true);
+  useEffect(() => {
+    if (premier.current && familleInitiale) { premier.current = false; return; }
+    premier.current = false;
+    setFamille(onglet === 'etudiants' || onglet === 'personnel' ? 'pieces' : 'rapports');
+  }, [onglet]);
 
   return (
     /* L'AVION, ET LE SOUS-TITRE AVEC LUI.
@@ -1830,11 +1945,6 @@ export default function CentreImpressionCentral({ ongletInitial = 'etudiants',
 
       <PiecesDeLEcran pieces={pieces}
         onChoisir={p => { onClose?.(); p.onClick?.(); }} />
-      {etudiant && (
-        <div className="mb-4 pb-3 border-b border-slate-200">
-          <PiecesEtudiant etud={etudiant} annee={anneeEtudiant || getAnnee()} />
-        </div>
-      )}
 
       {/* Les domaines : ce qu'on sort ici porte sur les étudiants, le
           personnel, l'établissement… Le domaine ouvert est le seul en marine. */}
@@ -1862,11 +1972,18 @@ export default function CentreImpressionCentral({ ongletInitial = 'etudiants',
           bascule quand il a les deux familles. */}
       {onglet === 'etudiants' ? (
         <>
-          <div className="px-1 pb-3">
+          <div className="px-1 pb-3 flex flex-wrap items-center gap-3">
             <span className="seg-fam">
+              {/* « PIÈCES PAR ÉTUDIANT » SE COUPE EN DEUX (maquette validée,
+                  2 octobre 2026) : ce qui demande une délibération, et le
+                  dossier de l'étudiant, à tout moment. */}
               <button onClick={() => setFamille('pieces')}
                 className={famille === 'pieces' ? 'on' : ''}>
-                Pièces par étudiant
+                Délibération
+              </button>
+              <button onClick={() => setFamille('dossiers')}
+                className={famille === 'dossiers' ? 'on' : ''}>
+                Dossiers étudiants
               </button>
               {/* LA VALORISATION EST UNE FAMILLE À PART, ET NON UNE PIÈCE
                   « PAR ÉTUDIANT ». Le procès-verbal d'annexe 4 porte TOUS les
@@ -1891,8 +2008,17 @@ export default function CentreImpressionCentral({ ongletInitial = 'etudiants',
                 Listes
               </button>
             </span>
+            {/* UN ÉTUDIANT — TOUTES SES PIÈCES, depuis n'importe quelle famille. */}
+            <div className="ml-auto w-72 max-w-full">
+              <UnEtudiantToutesAnnees compact annee={getAnnee()} choisi={etudiantVu}
+                onChoisir={e => { setEtudiantVu(e); if (e && !['pieces', 'dossiers'].includes(famille)) setFamille('pieces'); }} />
+            </div>
           </div>
-          {famille === 'pieces' ? <OngletEtudiants perimetre={perimetre} />
+          {etudiantVu && ['pieces', 'dossiers'].includes(famille) ? (
+            <OngletEtudiants key={`seul-${etudiantVu.id}-${famille}`} mode={famille === 'pieces' ? 'deliberation' : 'dossiers'}
+              seul={etudiantVu} onRevenir={() => setEtudiantVu(null)}
+              perimetre={{ sections: [etudiantVu.section_rattachement || String(etudiantVu.sections || '').split(',')[0]].filter(Boolean), coches: [etudiantVu.id] }} />          ) : famille === 'pieces' ? <OngletEtudiants perimetre={perimetre} mode="deliberation" />
+            : famille === 'dossiers' ? <OngletEtudiants perimetre={perimetre} mode="dossiers" />
             : famille === 'valorisation' ? <OngletValorisation />
             : famille === 'diplomes' ? <CentreDiplomation annee={getAnnee()} integre onClose={onClose} />
             : famille === 'listes' ? <CadreListes domaine="etudiants" />

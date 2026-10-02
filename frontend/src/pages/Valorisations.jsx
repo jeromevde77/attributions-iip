@@ -5,7 +5,7 @@ import {
   IconRubberStamp, IconUserPlus, IconUsersGroup, IconX,
 } from '@tabler/icons-react';
 import { authHeaders, getAnnee, getUser } from '../lib/api.js';
-import { BulleAide, Fenetre, RailLateral } from '../components/ui.jsx';
+import { BulleAide, Fenetre, RailLateral, OuvrirEditions } from '../components/ui.jsx';
 import SeanceValorisation from '../components/SeanceValorisation.jsx';
 import { nomListe, parNom } from '../lib/nom.js';
 
@@ -234,29 +234,16 @@ export default function Valorisations() {
   const RAIL = [{
     label: 'Valorisation',
     items: [
-      { key: 'introduire', label: 'Introduire des demandes', icon: IconTable,
+      /* TROIS PORTES, DANS L'ORDRE DU CIRCUIT (maquette validée par Charles,
+         2 octobre 2026). « Ajouter des étudiants » vit dans la matrice,
+         « Créer avec la même dispense » dans la séance par UE, et l'analyse
+         en série ne fait plus qu'instruire : une décision n'a qu'une porte. */
+      { key: 'introduire', label: '1 · Introduire des demandes', icon: IconTable,
         onClick: () => setMatrice(true) },
-      /* « VALORISER EN SÉRIE » NE DISAIT PAS CE QU'IL FAISAIT — et trois
-         entrées se ressemblaient au point qu'on ne pouvait plus les
-         distinguer : « Introduire des demandes », « Valoriser en série »,
-         « Analyser les demandes en série ». Même longueur, même structure.
-         Chacune fait pourtant autre chose : la matrice OUVRE des dossiers
-         vides (AD/VA/VAE), celle-ci les ouvre DÉJÀ PORTEURS du détail de la
-         dispense — mêmes cours, mêmes acquis, même remarque pour toute une
-         cohorte —, et la troisième INSTRUIT ce qui existe. Le libellé dit
-         désormais ce qui la distingue : la dispense identique. */
-      { key: 'serie', label: 'Créer avec la même dispense', icon: IconUsersGroup,
-        onClick: () => setSerie(true) },
-      { key: 'analyse', label: 'Analyser les demandes en série', icon: IconListCheck,
+      { key: 'analyse', label: '2 · Instruire en série', icon: IconListCheck,
         onClick: () => setAnalyse(true) },
-      /* UN ÉTUDIANT, TOUTES SES UNITÉS : le dossier tel qu'il arrive. Le
-         TAMPON dit la décision puis l'acceptation, et n'appartient qu'à cette
-         entrée : la personne cochée est à « Présences », le marteau à
-         « Procédures », qui vit dans ce même rail. */
-      { key: 'par-etudiant', label: 'Instruire et décider par étudiant', icon: IconRubberStamp,
+      { key: 'par-etudiant', label: '3 · Séance du conseil', icon: IconRubberStamp,
         onClick: () => setDeciderEtudiant(true) },
-      { key: 'ajouter', label: 'Ajouter des étudiants', icon: IconUserPlus,
-        onClick: () => setAjout(true) },
     ],
   }];
 
@@ -272,27 +259,26 @@ export default function Valorisations() {
             className="controle text-[13px]">
             {anneesProches().map(a => <option key={a} value={a}>{a}</option>)}
           </select>
-          {/* L'ACTION PRINCIPALE DE L'ÉCRAN EST LA SÉANCE, PAS LE DOSSIER.
-              On encode une valorisation par unité devant un conseil des études,
-              pas un étudiant à la fois : c'est celle-là qui porte le ton fort,
-              et il n'y en a qu'une. */}
-          {/* LA PORTE D'ENTRÉE EST L'ACTION PRINCIPALE : avant de valoriser,
-              il faut que les demandes soient entrées. */}
-          <button onClick={() => setMatrice(true)} className="controle controle-fort">
-            <IconTable size={16} /> Introduire des demandes
-          </button>
-          <button onClick={() => setAnalyse(true)} className="controle">
-            <IconListCheck size={16} /> Analyser en série
-          </button>
-          <button onClick={() => setSerie(true)} className="controle">
-            <IconUsersGroup size={16} /> Créer avec la même dispense
-          </button>
-          <button onClick={() => setAjout(true)} className="controle">
-            <IconUserPlus size={16} /> Ajouter des étudiants
-          </button>
           <span className="ml-auto text-[12px] text-slate-500">
             {(lignes || []).length} valorisation(s) · {annee}
           </span>
+        </div>
+
+        {/* LES TROIS PORTES, dans l'ordre du circuit. */}
+        <div className="grid gap-2.5 md:grid-cols-3">
+          {[
+            ['1', 'Introduire des demandes', 'La matrice : un étudiant par ligne, une UE par colonne, VA ou VAE. On y ajoute aussi des étudiants.', () => setMatrice(true), false],
+            ['2', 'Instruire en série', 'Dates, recevabilité, avis : en lot, sur les demandes cochées. Les chargés de cours rendent leur avis dans Mes cours.', () => setAnalyse(true), false],
+            ['3', 'Séance du conseil', 'Par étudiant ou par UE — une décision par UE, la même pour plusieurs si le Conseil l’a dit. Puis la validation.', () => setDeciderEtudiant(true), true],
+          ].map(([n, t, sous, go, fort]) => (
+            <button key={n} type="button" onClick={go}
+              className="text-left flex items-start gap-2.5 bg-white border rounded-carte px-3 py-2.5 hover:bg-slate-50"
+              style={{ borderColor: fort ? 'var(--c-principal, #16406A)' : '#D8DCE4' }}>
+              <span className="flex-none w-6 h-6 rounded-full grid place-items-center text-[12px] font-bold"
+                style={fort ? { background: 'var(--c-principal, #16406A)', color: '#fff' } : { background: '#E8EEF6', color: 'var(--c-principal, #16406A)' }}>{n}</span>
+              <span><b className="block text-[14px]">{t}</b><span className="text-[12px] text-slate-600">{sous}</span></span>
+            </button>
+          ))}
         </div>
 
         {erreur && <div className="text-[12px] text-rose-700">{erreur}</div>}
@@ -352,6 +338,7 @@ export default function Valorisations() {
                 onDocuments={ue => setDocuments(ue)}
                 onDossier={setDossier}
                 onSupprimerLigne={() => supprimerLigne(e)}
+                onDeliberer={e.vas.length ? () => setDeciderEtudiant(e.id) : null}
                 onChange={charger} onErreur={setErreur} />
             ))}
           </div>
@@ -379,6 +366,7 @@ export default function Valorisations() {
 
       {deciderEtudiant && (
         <DeciderParEtudiant annee={annee} onClose={() => setDeciderEtudiant(false)}
+          etudInitial={typeof deciderEtudiant === 'number' ? deciderEtudiant : null}
           onChange={charger} />
       )}
 
@@ -431,7 +419,7 @@ function anneesProches() {
 
 function LigneEtudiant({ etudiant, annee, ouvert, onBasculer, onAjouterUE,
                          onSupprimer, onSupprimerLigne, onDocuments, onDossier,
-                         onChange, onErreur }) {
+                         onDeliberer = null, onChange, onErreur }) {
   const Fleche = ouvert ? IconChevronDown : IconChevronRight;
   return (
     <div className="carte overflow-hidden">
@@ -474,6 +462,14 @@ function LigneEtudiant({ etudiant, annee, ouvert, onBasculer, onAjouterUE,
             </span>
           )}
         </span>
+        {/* DÉLIBÉRER CET ÉTUDIANT, d'un clic depuis sa ligne (Charles, 2
+            octobre 2026) : toutes ses unités, du contrôle à la validation. */}
+        {onDeliberer && (
+          <button onClick={onDeliberer} className="bouton text-[12px] px-2.5 py-1"
+            title="Instruire, décider et valider toutes les unités de cet étudiant">
+            <IconRubberStamp size={14} /> Délibérer
+          </button>
+        )}
         <button onClick={onAjouterUE} className="bouton text-[12px] px-2.5 py-1"
           title="Ajouter une ou plusieurs unités à valoriser">
           <IconPlus size={14} /> Unités
@@ -636,10 +632,8 @@ function UniteValorisee({ va, annee, onSupprimer, onDocuments, onDossier, onChan
           className="bouton text-[12px] px-2 py-1">
           <IconListCheck size={13} /> Dossier
         </button>
-        <button onClick={onDocuments} title="Procès-verbal et attestations"
-          className="bouton bouton-sortir text-[12px] px-2 py-1">
-          <IconPrinter size={13} />
-        </button>
+        <OuvrirEditions taille="petit" ongletInitial="etudiants" familleInitiale="valorisation"
+          titre="Procès-verbal et attestations — centre d'édition" />
         <button onClick={onSupprimer} className="text-slate-300 hover:text-red-500">
           <IconTrash size={15} />
         </button>
@@ -1392,7 +1386,7 @@ function ValoriserEnSerie({ annee, onClose, onCree }) {
       <div className="space-y-4">
 
         {/* 1 — L'UNITÉ. C'est elle qui convoque le conseil des études. */}
-        <section className="carte p-3 space-y-2">
+        <section className="py-2.5 border-b border-slate-100 last:border-b-0 space-y-2">
           <div className="text-[11px] uppercase tracking-wide text-slate-500">
             1 · L'unité
           </div>
@@ -1912,7 +1906,7 @@ function FenetreDossier({ vid, onClose, onChange }) {
           enCours={enCours} />
 
         {/* ÉTAPES 7, 8, 10 — LES GESTES ADMINISTRATIFS. */}
-        <section className="carte p-3 space-y-2">
+        <section className="py-2.5 border-b border-slate-100 last:border-b-0 space-y-2">
           <div className="text-[11px] uppercase tracking-wide text-slate-500">
             7 · 8 · 10 — Notification, encodage, archivage
           </div>
@@ -1995,7 +1989,7 @@ function EtapeDemande({ dossier, delai, onEnregistrer, enCours }) {
   const admission = porte === 'admission';
 
   return (
-    <section className="carte p-3 space-y-2">
+    <section className="py-2.5 border-b border-slate-100 last:border-b-0 space-y-2">
       <div className="text-[11px] uppercase tracking-wide text-slate-500">
         2 — La demande : ce qui est demandé, et quand
       </div>
@@ -2042,11 +2036,11 @@ function EtapeDemande({ dossier, delai, onEnregistrer, enCours }) {
       <div className="flex flex-wrap items-end gap-3">
         <label className="block">
           <span className="text-[12px] text-slate-600">Date du formulaire</span>
-          <input type="date" value={dd} onChange={e => setDd(e.target.value)}
+          <input type="date" value={dd} onChange={e => { const v = e.target.value; if (dr === dd) setDr(v); setDd(v); }}
             className="controle text-[13px] mt-1" />
         </label>
         <label className="block">
-          <span className="text-[12px] text-slate-600">Date d'envoi ou de dépôt</span>
+          <span className="text-[12px] text-slate-600">Date d'envoi ou de dépôt <span className="text-slate-400">(suit le formulaire)</span></span>
           <input type="date" value={dr} onChange={e => setDr(e.target.value)}
             className="controle text-[13px] mt-1" />
         </label>
@@ -2082,7 +2076,7 @@ function EtapeRecevabilite({ dossier, onEnregistrer, enCours }) {
   const [motif, setMotif] = useState(dossier.motif_irrecevabilite || '');
   const fait = dossier.recevable != null;
   return (
-    <section className="carte p-3 space-y-2">
+    <section className="py-2.5 border-b border-slate-100 last:border-b-0 space-y-2">
       <div className="flex items-center gap-2">
         <span className="text-[11px] uppercase tracking-wide text-slate-500">
           3 — La recevabilité (coordination, 5 jours ouvrables)
@@ -2132,18 +2126,34 @@ function EtapeRecevabilite({ dossier, onEnregistrer, enCours }) {
  * derrière le « + ». Un nom tapé est un nom qu'on orthographie de trois
  * façons, et qu'on ne retrouve plus ensuite.
  */
-function ChoixChargeDeCours({ valeur, onChange, className = '' }) {
+function ChoixChargeDeCours({ valeur, onChange, className = '', ue = null, annee = null, cours = '' }) {
   const [personnes, setPersonnes] = useState(null);
+  const [charges, setCharges] = useState([]);
   const [libre, setLibre] = useState(false);
   useEffect(() => {
     fetch(`/api/reunions/personnes?annee=${encodeURIComponent(getAnnee())}`, { headers: authHeaders() })
       .then(r => (r.ok ? r.json() : [])).then(l => setPersonnes(Array.isArray(l) ? l : []))
       .catch(() => setPersonnes([]));
   }, []);
+  /* LES ATTRIBUTIONS PROPOSENT (2 octobre 2026) : les chargés de cours de
+     l'UE en tête, et le premier — celui des cours visés, puis du plus grand
+     volume — posé d'office quand rien n'est encore choisi. */
+  useEffect(() => {
+    if (!ue) { setCharges([]); return; }
+    fetch(`/api/etudiants/ue/${ue}/charges?annee=${encodeURIComponent(annee || getAnnee())}&cours=${encodeURIComponent(cours || '')}`,
+      { headers: authHeaders() })
+      .then(r => (r.ok ? r.json() : null)).then(j => setCharges(j?.charges || [])).catch(() => setCharges([]));
+  }, [ue, annee, cours]);
+  const attribues = useMemo(() => charges.map(c => ({ ...c, n: nomListe(c.nom) })), [charges]);
+  useEffect(() => {
+    if (!valeur && attribues.length && !libre) onChange(attribues[0].n);
+    // eslint-disable-next-line
+  }, [attribues]);
   const noms = useMemo(() => [...new Set((personnes || []).map(p => nomListe(p.nom)))]
     .sort(parNom), [personnes]);
-  // Une valeur déjà écrite qui n'est pas dans la liste s'affiche en saisie libre.
-  const horsListe = !!valeur && personnes && !noms.includes(valeur);
+  const dejaAttribues = new Set(attribues.map(a => a.n));
+  // Une valeur déjà écrite qui n'est dans aucune liste s'affiche en saisie libre.
+  const horsListe = !!valeur && personnes && !noms.includes(valeur) && !dejaAttribues.has(valeur);
   if (libre || horsListe) {
     return (
       <span className={`inline-flex items-center gap-1 ${className}`}>
@@ -2159,10 +2169,71 @@ function ChoixChargeDeCours({ valeur, onChange, className = '' }) {
       <select value={valeur} onChange={e => onChange(e.target.value)}
         className="controle text-[13px] flex-1 min-w-[14rem]">
         <option value="">{personnes ? '— chargé de cours qui rend l’avis —' : 'Chargement…'}</option>
-        {noms.map(n => <option key={n} value={n}>{n}</option>)}
+        {attribues.length > 0 && (
+          <optgroup label={`Attribués à l’UE ${ue}`}>
+            {attribues.map(a => <option key={`a${a.professeur_id}`} value={a.n}>{a.n}{a.cours.length ? ` — ${a.cours.join(', ')}` : ''}</option>)}
+          </optgroup>
+        )}
+        <optgroup label="Tout le personnel">
+          {noms.filter(n => !dejaAttribues.has(n)).map(n => <option key={n} value={n}>{n}</option>)}
+        </optgroup>
       </select>
       <button type="button" className="bouton controle px-2.5" title="Il n’est pas dans la liste : l’écrire"
         onClick={() => { setLibre(true); onChange(''); }}>+</button>
+    </span>
+  );
+}
+
+/* « RENDU PAR » EN BADGES (Charles, 2 octobre 2026) : les chargés de cours
+   attribués aux cours visés sont posés d'office ; un clic sur un badge le
+   retire ; « + » ajoute quelqu'un du personnel, ou un nom externe. La valeur
+   enregistrée reste un texte — les noms séparés par des virgules. */
+function BadgesCharges({ valeur, onChange, ue = null, annee = null, cours = '' }) {
+  const [personnes, setPersonnes] = useState(null);
+  const [ajout, setAjout] = useState(false);
+  const [libre, setLibre] = useState('');
+  const noms = String(valeur || '').split(',').map(x => x.trim()).filter(Boolean);
+  useEffect(() => {
+    if (!ue || noms.length) return;
+    fetch(`/api/etudiants/ue/${ue}/charges?annee=${encodeURIComponent(annee || getAnnee())}&cours=${encodeURIComponent(cours || '')}`, { headers: authHeaders() })
+      .then(r => (r.ok ? r.json() : null))
+      .then(j => { const l = (j?.charges || []).map(c => nomListe(c.nom)); if (l.length) onChange(l.join(', ')); })
+      .catch(() => {});
+    // eslint-disable-next-line
+  }, [ue, annee, cours]);
+  useEffect(() => {
+    if (!ajout || personnes) return;
+    fetch(`/api/reunions/personnes?annee=${encodeURIComponent(getAnnee())}`, { headers: authHeaders() })
+      .then(r => (r.ok ? r.json() : [])).then(l => setPersonnes(Array.isArray(l) ? l : [])).catch(() => setPersonnes([]));
+  }, [ajout, personnes]);
+  const poser = l => onChange([...new Set(l)].join(', '));
+  const tous = useMemo(() => [...new Set((personnes || []).map(p => nomListe(p.nom)))].sort(parNom), [personnes]);
+  return (
+    <span className="inline-flex flex-wrap items-center gap-1">
+      {noms.map(n => (
+        <button key={n} type="button" title="Retirer" onClick={() => poser(noms.filter(x => x !== n))}
+          className="inline-flex items-center gap-1 rounded-full bg-iip-blue text-white text-[12px] font-semibold px-2.5 py-0.5 hover:opacity-80">
+          {n} <IconX size={11} /></button>
+      ))}
+      {!noms.length && <span className="text-[12px] text-slate-400">aucun chargé de cours</span>}
+      {ajout ? (
+        <span className="inline-flex items-center gap-1">
+          <select value="" onChange={e => { if (e.target.value) { poser([...noms, e.target.value]); setAjout(false); } }}
+            className="border border-slate-300 rounded h-7 px-1.5 text-[12px] bg-white max-w-[16rem]">
+            <option value="">{personnes ? '— du personnel —' : 'Chargement…'}</option>
+            {tous.filter(n => !noms.includes(n)).map(n => <option key={n} value={n}>{n}</option>)}
+          </select>
+          <input value={libre} onChange={e => setLibre(e.target.value)} placeholder="ou un nom externe"
+            onKeyDown={e => { if (e.key === 'Enter' && libre.trim()) { poser([...noms, libre.trim()]); setLibre(''); setAjout(false); } }}
+            className="border border-slate-300 rounded h-7 px-1.5 text-[12px] w-40" />
+          <button type="button" disabled={!libre.trim()} onClick={() => { poser([...noms, libre.trim()]); setLibre(''); setAjout(false); }}
+            className="rounded border border-slate-300 bg-white h-7 px-2 text-[12px] disabled:opacity-40">Ajouter</button>
+          <button type="button" onClick={() => setAjout(false)} className="text-[12px] underline text-slate-500">annuler</button>
+        </span>
+      ) : (
+        <button type="button" onClick={() => setAjout(true)} title="Ajouter un chargé de cours, du personnel ou externe"
+          className="rounded-full border border-slate-300 bg-white w-6 h-6 grid place-items-center text-[14px] leading-none hover:border-iip-blue">+</button>
+      )}
     </span>
   );
 }
@@ -2172,9 +2243,16 @@ function EtapeAvis({ dossier, onEnregistrer, enCours }) {
   const [sens, setSens] = useState(dossier.avis_sens || '');
   const [texte, setTexte] = useState(dossier.avis_texte || '');
   const [par, setPar] = useState(dossier.avis_par || '');
+  const [types, setTypes] = useState([]);
+  useEffect(() => {
+    fetch('/api/etudiants/valorisations/referentiel', { headers: authHeaders() })
+      .then(r => (r.ok ? r.json() : null)).then(j => setTypes(j?.motifs?.avis || [])).catch(() => {});
+  }, []);
+  const prefixe = { favorable: 'Favorable', partiel: 'Partiel', defavorable: 'Défavorable' }[sens];
+  const groupes = types.filter(g => !prefixe || g.titre.startsWith(prefixe));
   const bloque = dossier.recevable !== 1;
   return (
-    <section className="carte p-3 space-y-2">
+    <section className="py-2.5 border-b border-slate-100 last:border-b-0 space-y-2">
       <div className="flex items-center gap-2">
         <span className="text-[11px] uppercase tracking-wide text-slate-500">
           4 — L'avis du chargé de cours (10 jours ouvrables)
@@ -2205,11 +2283,26 @@ function EtapeAvis({ dossier, onEnregistrer, enCours }) {
                 </label>
               ))}
           </div>
-          <div className="flex items-center gap-2 text-[12px] text-slate-500">
-            Rendu par <ChoixChargeDeCours valeur={par} onChange={setPar} />
+          <div className="flex flex-wrap items-center gap-2 text-[12px] text-slate-500">
+            Rendu par <BadgesCharges valeur={par} onChange={setPar}
+              ue={dossier.ue_num || null} annee={dossier.annee_scolaire || null}
+              cours={dossier.cible === 'cours' ? dossier.cible_detail || '' : ''} />
           </div>
-          {/* UN AVIS SANS TEXTE N'EST PAS UN AVIS. Les décisions de VA ne sont
-              pas susceptibles de recours : la motivation est tout ce qui reste. */}
+          {/* L'AVIS SE CHOISIT DANS UNE LISTE, OU S'ÉCRIT (2 octobre 2026). */}
+          <select value="" onChange={e => { const v = e.target.value; if (!v) return;
+              const g = types.find(x => x.motifs.includes(v));
+              if (!sens && g) setSens(g.titre.startsWith('Favorable') ? 'favorable' : g.titre.startsWith('Partiel') ? 'partiel' : 'defavorable');
+              setTexte(t => (t.trim() ? `${t.trim()} ${v}` : v)); }}
+            className="w-full border border-slate-300 rounded h-8 px-2 text-[12.5px] bg-white">
+            <option value="">Avis type{prefixe ? ` — ${prefixe.toLowerCase()}` : ''}… (ou rédigez ci-dessous)</option>
+            {groupes.map(g => (
+              <optgroup key={g.titre} label={g.titre}>
+                {g.motifs.map(m => <option key={m} value={m}>{m}</option>)}
+              </optgroup>
+            ))}
+          </select>
+          {/* UN AVIS SANS TEXTE N'EST PAS UN AVIS : la motivation est tout ce qui
+              reste pour défendre la décision. */}
           <textarea value={texte} onChange={e => setTexte(e.target.value)} rows={3}
             className="controle w-full h-auto text-[13px]"
             placeholder="Comparaison des preuves au dossier pédagogique : contenus, volume horaire, crédits, résultats obtenus…" />
@@ -2274,7 +2367,7 @@ function EtapeDecision({ dossier, bases, onEnregistrer, enCours }) {
   }, [composantes]);
 
   return (
-    <section className="carte p-3 space-y-2">
+    <section className="py-2.5 border-b border-slate-100 last:border-b-0 space-y-2">
       <div className="flex items-center gap-2">
         <span className="text-[11px] uppercase tracking-wide text-slate-500">
           6 — La décision du Conseil des études
@@ -2536,6 +2629,10 @@ const ETAPES = [
     franchie: d => !!d.valide_le },
 ];
 
+// L'INSTRUCTION EN SÉRIE s'arrête à l'avis : la décision et la validation ont
+// leur porte, la séance du conseil (2 octobre 2026).
+const ETAPES_INSTRUIRE = ETAPES.filter(e => ['demande', 'recevabilite', 'avis'].includes(e.cle));
+
 /* ══ LA FRISE DU CIRCUIT — UN DOSSIER, CINQ ÉTAPES ════════════════════════
  *
  * « Où en est-on ? » est la question qu'on pose devant le registre, et le
@@ -2742,7 +2839,7 @@ function AnalyserEnSerie({ annee, onClose, onChange }) {
    * régularisation demande ; ce qui bloque, c'est le serveur, et il le dit
    * dossier par dossier. */
   const reference = retenus.length ? retenus : vues;
-  const avancement = ETAPES.map(e => {
+  const avancement = ETAPES_INSTRUIRE.map(e => {
     if (!reference.length) return { ...e, etat: 'vide', nb: 0, sur: 0 };
     const nb = reference.filter(e.franchie).length;
     return { ...e, nb, sur: reference.length,
@@ -2944,10 +3041,10 @@ function AnalyserEnSerie({ annee, onClose, onChange }) {
        * La sélection reste : c'est la même liasse qui passe l'étape suivante, et
        * la recomposer cinq fois était le travail que le lot devait supprimer.
        * L'élagage ci-dessus retirera ceux que l'étape suivante refuse. */
-      const rang = ETAPES.findIndex(e => e.cle === geste);
+      const rang = ETAPES_INSTRUIRE.findIndex(e => e.cle === geste);
       setMotifForme(''); setMotifRefus('');
-      if (rang >= 0 && rang < ETAPES.length - 1) setGeste(ETAPES[rang + 1].cle);
-      else setCoches(new Set());   // la validation close le circuit
+      if (rang >= 0 && rang < ETAPES_INSTRUIRE.length - 1) setGeste(ETAPES_INSTRUIRE[rang + 1].cle);
+      else setCoches(new Set());   // l'avis close l'instruction : la suite est en séance
       await charger();
       await onChange?.();
     } catch (e) { setErreur(e.message); }
@@ -2956,8 +3053,8 @@ function AnalyserEnSerie({ annee, onClose, onChange }) {
 
   return (
     <Fenetre icone={IconListCheck} large="grande" onFermer={onClose}
-      titre="Analyser les demandes en série"
-      sous="Une ligne par demande — on filtre, on coche, on pose le geste"
+      titre="Instruire en série"
+      sous="Dates, recevabilité, avis — une ligne par demande ; la décision se prend en séance du conseil"
       pied={<>
         <button onClick={poser} disabled={!!manque || enCours
             || (geste === 'validation' && !donnees?.peut_valider)}
@@ -3018,7 +3115,7 @@ function AnalyserEnSerie({ annee, onClose, onChange }) {
             porte sa coche — elle reste cliquable, car on revient en arrière
             pour corriger —, l'étape courante est mise en valeur, et la suivante
             attend. La flèche entre deux étapes dit le sens de lecture. */}
-        <section className="carte p-3 space-y-2">
+        <section className="py-2.5 border-b border-slate-100 last:border-b-0 space-y-2">
           <div className="flex items-center gap-2">
             <div className="text-[11px] uppercase tracking-wide text-slate-500">
               1 · L'étape du circuit
@@ -3120,7 +3217,8 @@ function AnalyserEnSerie({ annee, onClose, onChange }) {
                   </label>
                 ))}
                 {/* QUI REND L'AVIS N'EST PAS QUI LE SAISIT. */}
-                <ChoixChargeDeCours valeur={avisPar} onChange={setAvisPar} />
+                <ChoixChargeDeCours valeur={avisPar} onChange={setAvisPar}
+                  ue={unitesRetenues.length === 1 ? unitesRetenues[0] || null : null} annee={annee} />
               </div>
               <textarea value={avisTexte} onChange={e => setAvisTexte(e.target.value)}
                 rows={3}
@@ -3678,7 +3776,7 @@ function EtapeTest({ dossier, onEnregistrer, enCours }) {
   }
 
   return (
-    <section className="carte p-3 space-y-2">
+    <section className="py-2.5 border-b border-slate-100 last:border-b-0 space-y-2">
       <div className="flex items-center gap-2 flex-wrap">
         <span className="text-[11px] uppercase tracking-wide text-slate-500">
           5 — Le test ou l'épreuve complémentaire
@@ -4223,7 +4321,7 @@ function FriseDossier({ d }) {
     </div>
   );
 }
-function InstruireUnite({ vid, onChange }) {
+function InstruireUnite({ vid, onChange, freres = [] }) {
   const [d, setD] = useState(null);
   const [erreur, setErreur] = useState(null);
   const [enCours, setEnCours] = useState(false);
@@ -4249,7 +4347,21 @@ function InstruireUnite({ vid, onChange }) {
   return (
     <div className="space-y-2 rounded-champ border border-slate-200 p-2">
       {erreur && <div className="text-[12px] text-rose-700 flex items-start gap-1.5"><IconAlertTriangle size={14} className="mt-0.5 flex-none" />{erreur}</div>}
-      <EtapeDemande dossier={v} delai={d.delai} onEnregistrer={c => agir('demande', c)} enCours={enCours} />
+      {/* LES DATES VALENT POUR TOUT LE DOSSIER DE L'ÉTUDIANT (2 octobre 2026) :
+          les poser ici les pose sur ses autres demandes encore à instruire. */}
+      <EtapeDemande dossier={v} delai={d.delai} enCours={enCours}
+        onEnregistrer={async c => {
+          const ok = await agir('demande', c);
+          if (ok && freres.length && (c.date_demande || c.date_reception)) {
+            try {
+              await fetch('/api/etudiants/valorisations/lot/demande', { method: 'POST',
+                headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+                body: JSON.stringify({ ids: freres, date_demande: c.date_demande, date_reception: c.date_reception }) });
+              await onChange?.();
+            } catch { /* la demande de cette UE est enregistrée ; les autres se reprennent */ }
+          }
+          return ok;
+        }} />
       <EtapeRecevabilite dossier={v} onEnregistrer={c => agir('recevabilite', c)} enCours={enCours} />
       <EtapeAvis dossier={v} onEnregistrer={c => agir('avis', c)} enCours={enCours} />
       <EtapeTest dossier={v} onEnregistrer={c => agir('test', c)} enCours={enCours} />
@@ -4257,415 +4369,493 @@ function InstruireUnite({ vid, onChange }) {
   );
 }
 
-function DeciderParEtudiant({ annee, onClose, onChange }) {
+/* ══ LA SÉANCE DU CONSEIL — DEUX PORTES, UNE RÉPONSE ══════════════════════
+ *
+ * Charles, 2 octobre 2026 : « on réunit la coordination, elle a pris l'avis des
+ * chargés de cours ; on passe chaque étudiant en revue et on dit ok, pas ok,
+ * pour telle UE ou une autre — ça doit aller vite MAIS ça doit être complet ».
+ * Et : « les deux types d'encodage (par UE ou par étudiant) dans les mêmes
+ * standards visuels, et le même encodage — des portes d'entrée différentes pour
+ * une même réponse ».
+ *
+ * Une seule fenêtre, deux lectures : PAR ÉTUDIANT (ses UE l'une sous l'autre)
+ * ou PAR UE (ses étudiants l'un sous l'autre). La ligne est la même — l'avis,
+ * la décision, ce qui manque — et l'écriture est la même route,
+ * `lot/decisions` : une décision PAR UE, une ligne de journal par dossier.
+ *
+ * LA DÉCISION PART DE L'AVIS : favorable → totale, partiel → partielle avec
+ * les cours que la demande désignait, défavorable → refusée avec le texte de
+ * l'avis pour motif. Le Conseil confirme ou change d'un clic ; ce qu'il arrête
+ * est ce qu'il a vu. Une UE incomplète (pas d'avis, rien de coché, pas de
+ * motif) reste ouverte et ne retient pas les autres.
+ */
+const TEINTE_DECISION = {
+  totale: 'var(--c-reussi, #3E7D5E)',
+  partielle: 'var(--c-attente)',
+  refusee: 'var(--c-refuse)',
+  '': 'var(--c-indisponible-bord, #94A3B8)',
+};
+const LIB_DECISION = { totale: 'Totale', partielle: 'Partielle', refusee: 'Refusée' };
+const LIB_PORTE = { va: 'VA', vae: 'VAE', admission: 'AD' };
+const SENS_AVIS = { favorable: ['favorable', 'totale'], partiel: ['partiel', 'partielle'], defavorable: ['défavorable', 'refusee'] };
+
+function choixDepuisAvis(d) {
+  if (d.decision_le) return { ...choixInitial(d), base: d.base_code || '', propose: false };
+  const sens = SENS_AVIS[d.avis_sens]?.[1] || '';
+  const demande = d.cible === 'cours' || !d.cible
+    ? String(d.cible_detail || '').split(',').map(x => x.trim()).filter(Boolean) : [];
+  return {
+    branche: sens, cible: d.cible === 'aa' ? 'acquis' : 'cours',
+    coches: sens === 'partielle' ? demande : [],
+    motif: sens === 'refusee' ? (d.avis_texte || '') : '',
+    base: d.base_code || '', propose: !!sens,
+  };
+}
+
+function DeciderParEtudiant(props) {
+  return <DeliberationVA mode="etudiant" {...props} />;
+}
+
+export function DeliberationVA({ annee, onClose, onChange, mode: modeDepart = 'etudiant',
+                                 etudInitial = null, ueInitial = null }) {
+  const [mode, setMode] = useState(modeDepart);
   const [dossiers, setDossiers] = useState(null);
   const [peutValider, setPeutValider] = useState(false);
   const [bases, setBases] = useState([]);
-  const [q, setQ] = useState('');
-  const [etudId, setEtudId] = useState(null);
-  const [choix, setChoix] = useState({});          // id → { branche, cible, coches[], motif, base }
-  const [composantes, setComposantes] = useState({}); // ue_num → { cours, aas }
+  const [motifs, setMotifs] = useState({ refus: [], partiel: [] });
+  const [section, setSection] = useState('');
   const [dateCE, setDateCE] = useState(aujourdHui());
   const [baseCommune, setBaseCommune] = useState('');
+  const [cle, setCle] = useState(null);             // le groupe affiché (étudiant ou UE|section)
+  const [choix, setChoix] = useState({});
+  const [composantes, setComposantes] = useState({});
+  const [instruits, setInstruits] = useState(() => new Set());
   const [enCours, setEnCours] = useState(false);
   const [erreur, setErreur] = useState(null);
   const [bloquants, setBloquants] = useState(null);
-  const [fait, setFait] = useState(null);          // { ids, valides? }
-  const [instruits, setInstruits] = useState(() => new Set());   // dossiers dont les étapes sont ouvertes
+  const [info, setInfo] = useState(null);
 
   const charger = useCallback(async () => {
-    const r = await fetch(`/api/etudiants/valorisations/analyse?annee=${encodeURIComponent(annee)}`,
-      { headers: authHeaders() });
+    const r = await fetch(`/api/etudiants/valorisations/analyse?annee=${encodeURIComponent(annee)}`, { headers: authHeaders() });
     const j = await r.json().catch(() => ({}));
     if (!r.ok) { setErreur(j.error || 'Lecture refusée.'); return; }
-    setDossiers(j.dossiers || []);
+    setDossiers((j.dossiers || []).filter(d => d.ue_num !== 0 && d.type !== 'admission'));
     setPeutValider(!!j.peut_valider);
   }, [annee]);
   useEffect(() => { charger(); }, [charger]);
   useEffect(() => {
     fetch('/api/etudiants/valorisations/referentiel', { headers: authHeaders() })
-      .then(r => (r.ok ? r.json() : null)).then(j => setBases(j?.bases || [])).catch(() => {});
+      .then(r => (r.ok ? r.json() : null)).then(j => { setBases(j?.bases || []); setMotifs(j?.motifs || { refus: [], partiel: [] }); }).catch(() => {});
   }, []);
 
-  // Les étudiants qui ont au moins un dossier, avec ce qui reste à décider.
-  const etudiants = useMemo(() => {
+  const sections = useMemo(() => [...new Set((dossiers || []).map(d => d.section).filter(Boolean))].sort(), [dossiers]);
+  const cleDe = useCallback(d => (mode === 'etudiant' ? `e${d.etudiant_id}` : `u${d.ue_num}|${d.section || ''}`), [mode]);
+  const groupes = useMemo(() => {
     const m = new Map();
     for (const d of dossiers || []) {
-      if (!m.has(d.etudiant_id)) {
-        m.set(d.etudiant_id, { id: d.etudiant_id, nom: d.nom, prenom: d.prenom,
-          id_ecampus: d.id_ecampus, section: d.section, n: 0, aDecider: 0 });
-      }
-      const e = m.get(d.etudiant_id);
-      e.n += 1;
-      if (!MOTS_ETAT_BLOQUANT(d) && !d.decision_le) e.aDecider += 1;
+      if (section && d.section !== section) continue;
+      const k = cleDe(d);
+      if (!m.has(k)) m.set(k, { cle: k, d0: d, lignes: [] });
+      m.get(k).lignes.push(d);
     }
-    const t = q.trim().toLowerCase();
-    return [...m.values()]
-      .filter(e => !t || `${e.nom} ${e.prenom} ${e.id_ecampus || ''}`.toLowerCase().includes(t))
-      .sort((a, b) => (b.aDecider - a.aDecider) || `${a.nom}`.localeCompare(`${b.nom}`, 'fr'));
-  }, [dossiers, q]);
+    const l = [...m.values()];
+    for (const g of l) g.lignes.sort(mode === 'etudiant' ? (a, b) => a.ue_num - b.ue_num
+      : (a, b) => `${a.nom} ${a.prenom}`.localeCompare(`${b.nom} ${b.prenom}`, 'fr'));
+    return l.sort(mode === 'etudiant'
+      ? (a, b) => `${a.d0.nom} ${a.d0.prenom}`.localeCompare(`${b.d0.nom} ${b.d0.prenom}`, 'fr')
+      : (a, b) => (a.d0.ue_num - b.d0.ue_num) || String(a.d0.section).localeCompare(String(b.d0.section)));
+  }, [dossiers, section, cleDe, mode]);
 
-  const lignes = useMemo(() => (dossiers || [])
-    .filter(d => d.etudiant_id === etudId)
-    .sort((a, b) => a.ue_num - b.ue_num), [dossiers, etudId]);
+  // Le groupe de départ : celui qu'on a demandé, sinon le premier qui a du travail.
+  useEffect(() => {
+    if (!groupes.length) { setCle(null); return; }
+    if (cle && groupes.some(g => g.cle === cle)) return;
+    const voulu = mode === 'etudiant' && etudInitial ? `e${etudInitial}`
+      : mode === 'ue' && ueInitial ? groupes.find(g => g.d0.ue_num === Number(ueInitial))?.cle : null;
+    const g = groupes.find(x => x.cle === voulu) || groupes.find(x => x.lignes.some(d => !d.decision_le)) || groupes[0];
+    setCle(g.cle);
+    // eslint-disable-next-line
+  }, [groupes]);
+  useEffect(() => { setCle(null); }, [mode]);
 
-  // Changer d'étudiant efface le message et le « c'est fait » ; RECHARGER après
-  // un enregistrement, non — sans quoi le bouton « Valider ces dossiers »
-  // disparaissait à l'instant même où il devenait utile.
-  useEffect(() => { setErreur(null); setBloquants(null); setFait(null); setInstruits(new Set()); }, [etudId]);
+  const iCur = groupes.findIndex(g => g.cle === cle);
+  const g = iCur >= 0 ? groupes[iCur] : null;
+  const lignes = g?.lignes || [];
 
-  // Choisir un étudiant repart de ce qui est déjà décidé pour lui.
   useEffect(() => {
     const init = {};
-    for (const d of lignes) init[d.id] = { ...choixInitial(d), base: d.base_code || '' };
+    for (const d of lignes) init[d.id] = choixDepuisAvis(d);
     setChoix(init);
+    setErreur(null); setBloquants(null); setInstruits(new Set());
     const b = lignes.map(d => d.base_code).find(Boolean);
-    if (b) setBaseCommune(b);
-    const dt = lignes.map(d => d.decision_ce_date).find(Boolean);
-    if (dt) setDateCE(String(dt).slice(0, 10));
-  }, [lignes]);
+    if (b && !baseCommune) setBaseCommune(b);
+    // eslint-disable-next-line
+  }, [cle, dossiers]);
 
-  // Les cours et acquis d'une unité, chargés à la demande (partielle seulement).
   useEffect(() => {
     for (const d of lignes) {
       if (choix[d.id]?.branche !== 'partielle' || composantes[d.ue_num]) continue;
-      fetch(`/api/etudiants/ue/${d.ue_num}/composantes?annee=${encodeURIComponent(annee)}`,
-        { headers: authHeaders() })
-        .then(r => (r.ok ? r.json() : null))
-        .then(j => j && setComposantes(c => ({ ...c, [d.ue_num]: j })))
-        .catch(() => {});
+      fetch(`/api/etudiants/ue/${d.ue_num}/composantes?annee=${encodeURIComponent(annee)}`, { headers: authHeaders() })
+        .then(r => (r.ok ? r.json() : null)).then(j => j && setComposantes(c => ({ ...c, [d.ue_num]: j }))).catch(() => {});
     }
   }, [choix, lignes, composantes, annee]);
 
-  const poser = (id, patch) => setChoix(c => ({ ...c, [id]: { ...c[id], ...patch } }));
-  const decidables = lignes.filter(d => !MOTS_ETAT_BLOQUANT(d));
-  /* SEULES LES LIGNES MODIFIÉES PARTENT. Une unité déjà décidée, laissée
-     telle quelle, n'est pas réécrite : la renvoyer referait une ligne de
-     journal pour rien, et — pour un étudiant inscrit dans DEUX sections —
-     décider plus tard l'unité de l'autre section la mêlerait à celles-ci, et
-     le serveur refuserait le lot. */
-  const signature = c => JSON.stringify([c?.branche || '', c?.cible || '',
-    [...(c?.coches || [])].sort(), (c?.motif || '').trim(), c?.base || '']);
-  const modifiee = d => {
+  const poser = (id, patch) => setChoix(c => ({ ...c, [id]: { ...c[id], ...patch, propose: false } }));
+  const signature = c => JSON.stringify([c?.branche || '', c?.cible || '', [...(c?.coches || [])].sort(), (c?.motif || '').trim(), c?.base || '', (c?.remarque || '').trim()]);
+  const aEcrire = d => {
     const c = choix[d.id];
-    if (!c?.branche) return false;
+    if (!c?.branche || MOTS_ETAT_BLOQUANT(d)) return false;
     if (!d.decision_le) return true;
-    const avant = { ...choixInitial(d), base: d.base_code || '' };
-    return signature(c) !== signature(avant)
-      // La base commune ne compte que pour un ACCORD : un refus n'en a pas.
-      || (c.branche !== 'refusee' && !c.base && baseCommune
-          && baseCommune !== (d.base_code || ''))
+    return signature(c) !== signature({ ...choixInitial(d), base: d.base_code || '' })
       || (d.decision_ce_date && String(d.decision_ce_date).slice(0, 10) !== dateCE);
   };
-  const retenues = decidables.filter(modifiee);
-
-  /* TOUT COCHER — la demande de Charles, au sens le plus courant : tout
-     accorder entièrement. Ce qui est déjà réglé autrement (une partielle, un
-     refus) n'est pas écrasé : on ne défait pas d'un clic ce qu'on a désigné. */
-  const toutEnTotale = () => setChoix(c => {
-    const n = { ...c };
-    for (const d of decidables) if (!n[d.id]?.branche) n[d.id] = { ...n[d.id], branche: 'totale' };
-    return n;
-  });
-
-  /* TOUT DÉCLARER RECEVABLE — la recevabilité est un contrôle de FORME, elle
-     traverse les unités : un dossier reçu complet l'est pour toutes. */
-  const aControler = lignes.filter(d => d.recevable == null && !d.valide_le && d.type !== 'admission' && d.ue_num !== 0);
-  async function toutRecevable() {
-    setEnCours(true); setErreur(null); setBloquants(null);
-    try {
-      const r = await fetch('/api/etudiants/valorisations/lot/recevabilite', {
-        method: 'POST', headers: { ...authHeaders(), 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ids: aControler.map(d => d.id), recevable: true }) });
-      const j = await r.json().catch(() => ({}));
-      if (!r.ok) { setErreur(j.error || 'Refusé.'); if (Array.isArray(j.bloquants)) setBloquants(j.bloquants); return; }
-      await charger(); await onChange?.();
-    } catch (e) { setErreur(e.message); }
-    finally { setEnCours(false); }
-  }
-
-  const manqueLigne = d => {
+  const manqueDe = d => {
+    const bloque = MOTS_ETAT_BLOQUANT(d);
+    if (bloque) return bloque;
     const c = choix[d.id] || {};
-    if (c.branche === 'refusee' && !c.motif?.trim()) return `UE ${d.ue_num} : motif du refus manquant`;
-    if (c.branche === 'partielle' && !c.coches?.length) {
-      return `UE ${d.ue_num} : cochez les ${c.cible === 'acquis' ? 'acquis' : 'cours'} dispensés`;
-    }
-    if ((c.branche === 'totale' || c.branche === 'partielle') && !(c.base || baseCommune)) {
-      return `UE ${d.ue_num} : base de la décision manquante`;
-    }
+    if (!c.branche) return 'Décision à poser';
+    if (c.branche === 'refusee' && !c.motif?.trim()) return 'Motif du refus manquant';
+    if (c.branche === 'partielle' && !c.coches?.length) return `Cochez les ${c.cible === 'acquis' ? 'acquis' : 'cours'} dispensés`;
+    if (c.branche !== 'refusee' && !(c.base || baseCommune)) return 'Base de la décision manquante';
     return null;
   };
-  const manque = !etudId ? 'Choisissez un étudiant.'
-    : !retenues.length ? (decidables.some(d => d.decision_le)
-      ? 'Rien n’a changé depuis le dernier enregistrement.'
-      : 'Posez au moins une décision.')
-      : !/^\d{4}-\d{2}-\d{2}$/.test(dateCE) ? 'Date de la séance manquante.'
-        : retenues.map(manqueLigne).find(Boolean) || null;
+  const prets0 = lignes.filter(d => aEcrire(d) && !manqueDe(d));
+  const prets = prets0;
+  const aValider = lignes.filter(d => d.pret_a_valider && !aEcrire(d));
+  const fait = x => x.lignes.every(d => d.valide_le || (d.decision_le && !aEcrire(d)) || MOTS_ETAT_BLOQUANT(d));
 
-  async function enregistrer() {
-    if (manque) return;
-    setEnCours(true); setErreur(null); setBloquants(null);
-    const corpsLignes = retenues.map(d => {
-      const c = choix[d.id];
-      if (c.branche === 'refusee') {
-        return { id: d.id, decision: 'refusee', motif_refus: c.motif.trim() };
-      }
-      const l = { id: d.id, decision: 'accordee', base_code: c.base || baseCommune };
-      if (c.branche === 'totale') return { ...l, type: 'complete' };
-      return { ...l, type: 'partielle',
-        cible: c.cible === 'acquis' ? 'aa' : 'cours',
-        cible_detail: c.coches.join(','),
-        ...(c.cible === 'acquis' ? { equivalences: c.coches.map(code => ({ aa_code: code })) } : {}) };
-    });
+  // AU CAS PAR CAS OU EN UNE FOIS (2 octobre 2026) : `seules` restreint le
+  // geste à une UE ; sans elle, toutes les UE prêtes de l'écran partent.
+  async function arreter(suivant = true, seules = null) {
+    const prets = seules || prets0;
+    if (!prets.length) { if (suivant && iCur < groupes.length - 1) setCle(groupes[iCur + 1].cle); return; }
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(dateCE)) { setErreur('Date de la séance manquante.'); return; }
+    setEnCours(true); setErreur(null); setBloquants(null); setInfo(null);
     try {
-      const r = await fetch('/api/etudiants/valorisations/lot/decisions', {
-        method: 'POST', headers: { ...authHeaders(), 'Content-Type': 'application/json' },
-        body: JSON.stringify({ decision_ce_date: dateCE, lignes: corpsLignes }),
-      });
-      const j = await r.json().catch(() => ({}));
-      if (!r.ok) {
-        setErreur(j.error || 'Enregistrement refusé.');
-        if (Array.isArray(j.bloquants)) setBloquants(j.bloquants);
-        return;
+      // UNE SÉANCE, C'EST UNE SECTION ET UNE DATE : un étudiant inscrit dans
+      // deux sections part en deux lots, sans qu'on ait à y penser.
+      const parSection = new Map();
+      for (const d of prets) { const k = d.section || ''; if (!parSection.has(k)) parSection.set(k, []); parSection.get(k).push(d); }
+      let n = 0;
+      for (const lot of parSection.values()) {
+        const corps = lot.map(d => {
+          const c = choix[d.id];
+          if (c.branche === 'refusee') return { id: d.id, decision: 'refusee', motif_refus: c.motif.trim() };
+          const l = { id: d.id, decision: 'accordee', base_code: c.base || baseCommune };
+          if (c.branche === 'totale') return { ...l, type: 'complete' };
+          return { ...l, type: 'partielle', cible: c.cible === 'acquis' ? 'aa' : 'cours', cible_detail: c.coches.join(','),
+            ...(c.remarque?.trim() ? { commentaire: c.remarque.trim() } : {}),
+            ...(c.cible === 'acquis' ? { equivalences: c.coches.map(code => ({ aa_code: code })) } : {}) };
+        });
+        const r = await fetch('/api/etudiants/valorisations/lot/decisions', {
+          method: 'POST', headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+          body: JSON.stringify({ decision_ce_date: dateCE, lignes: corps }) });
+        const j = await r.json().catch(() => ({}));
+        if (!r.ok) { setErreur(j.error || 'Enregistrement refusé.'); if (Array.isArray(j.bloquants)) setBloquants(j.bloquants); await charger(); return; }
+        n += lot.length;
       }
-      setFait({ ids: j.ids || [] });
+      setInfo(`${n} décision(s) arrêtée(s) — séance du ${dateCE.split('-').reverse().join('/')}.`);
       await charger(); await onChange?.();
-    } catch (e) { setErreur(e.message); }
-    finally { setEnCours(false); }
+      if (suivant && iCur < groupes.length - 1) setCle(groupes[iCur + 1].cle);
+    } catch (e) { setErreur(e.message); } finally { setEnCours(false); }
   }
 
-  /* ACCEPTER — la validation, geste de la direction. Mêmes dossiers, même
-     séance ; le serveur refuse ce qui n'est pas complet et le nomme. */
-  /* CE QUI SE VALIDE : ce qu'on vient d'enregistrer, ou — en rouvrant la
-     fenêtre le lendemain — les dossiers de l'étudiant que le serveur dit
-     prêts. La validation ne se proposait qu'à la seconde qui suivait
-     l'enregistrement : le lendemain, on ne pouvait plus accepter. */
-  const aValider = fait?.ids?.length ? fait.ids
-    : lignes.filter(d => d.pret_a_valider).map(d => d.id);
-
-  async function valider() {
-    setEnCours(true); setErreur(null); setBloquants(null);
+  async function valider(seules = null) {
+    const liste = seules || aValider;
+    setEnCours(true); setErreur(null); setBloquants(null); setInfo(null);
     try {
       const r = await fetch('/api/etudiants/valorisations/lot/validation', {
         method: 'POST', headers: { ...authHeaders(), 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ids: aValider }),
-      });
+        body: JSON.stringify({ ids: liste.map(d => d.id) }) });
       const j = await r.json().catch(() => ({}));
-      if (!r.ok) {
-        setErreur(j.error || 'Validation refusée.');
-        if (Array.isArray(j.bloquants)) setBloquants(j.bloquants);
-        return;
-      }
-      setFait({ ids: aValider, valides: j.valides });
+      if (!r.ok) { setErreur(j.error || 'Validation refusée.'); if (Array.isArray(j.bloquants)) setBloquants(j.bloquants); return; }
+      setInfo(`${j.valides ?? liste.length} dossier(s) validé(s).`);
       await charger(); await onChange?.();
-    } catch (e) { setErreur(e.message); }
-    finally { setEnCours(false); }
+    } catch (e) { setErreur(e.message); } finally { setEnCours(false); }
   }
 
-  const etud = etudiants.find(e => e.id === etudId)
-    || (dossiers || []).filter(d => d.etudiant_id === etudId)
-      .map(d => ({ nom: d.nom, prenom: d.prenom, id_ecampus: d.id_ecampus }))[0];
+  const titreGroupe = !g ? '' : mode === 'etudiant'
+    ? <><span className="text-[16px] font-bold">{(g.d0.nom || '').toUpperCase()} {g.d0.prenom}</span>
+        <span className="text-[11px] text-slate-500 ml-1.5 tabular-nums">{g.d0.id_ecampus}</span></>
+    : <><span className="text-[16px] font-bold">UE {g.d0.ue_num}</span>
+        <span className="text-[13px] ml-1.5">{g.d0.ue_nom || ''}</span></>;
+  const nomGroupe = x => (mode === 'etudiant' ? (x.d0.nom || '').toUpperCase() : `UE ${x.d0.ue_num}${sections.length > 1 && !section ? ` · ${x.d0.section || ''}` : ''}`);
 
   return (
-    <Fenetre icone={IconRubberStamp} large="grande" onFermer={onClose}
-      titre="Instruire et décider par étudiant"
-      sous={etud ? `${(etud.nom || '').toUpperCase()} ${etud.prenom || ''} — toutes ses demandes : recevabilité, avis, décision, validation`
-        : 'Toutes les unités d’un même dossier, dans une même séance'}
-      pied={<>
-        {peutValider && !retenues.length && aValider.length > 0 && !fait?.valides ? (
-          <button className="bouton bouton-fort disabled:opacity-40" disabled={enCours}
-            onClick={valider}>
-            {enCours ? 'Validation…' : `Valider ${aValider.length} dossier(s)`}
-          </button>
-        ) : (
-          <button className="bouton bouton-fort disabled:opacity-40" disabled={!!manque || enCours}
-            onClick={enregistrer}>
-            {enCours ? 'Enregistrement…' : `Enregistrer ${retenues.length || ''} décision(s)`}
-          </button>
-        )}
-        <span className="text-[12px] text-slate-500 min-w-0">
-          {fait?.valides ? `${fait.valides} dossier(s) validé(s).`
-            : fait ? `${fait.ids.length} décision(s) enregistrée(s), séance du ${dateCE}.`
-              + (peutValider ? ' Vous pouvez les valider.' : ' La validation revient à la direction.')
-              : manque}
-        </span>
-        <button className="bouton ml-auto" onClick={onClose}>Fermer</button>
-      </>}>
-
-      {erreur && (
-        <div className="carte p-3 text-[12px] text-rose-700 mb-3">
-          <div className="flex items-start gap-1.5"><IconAlertTriangle size={14} className="mt-0.5 flex-none" />{erreur}</div>
-          {bloquants?.length > 0 && (
-            <ul className="mt-1.5 pl-5 list-disc text-slate-700">
-              {bloquants.map(b => <li key={b.id}><b>{b.qui}</b> — {b.pourquoi}</li>)}
-            </ul>
-          )}
+    <Fenetre icone={IconRubberStamp} large="ecran" hauteurFixe onFermer={onClose}
+      titre="Séance du conseil — valorisation"
+      sous={`${annee} · ${groupes.length} ${mode === 'etudiant' ? 'étudiant(s)' : 'unité(s)'} · ${(dossiers || []).filter(d => !section || d.section === section).length} demande(s)`}>
+      {/* CE QUI SE POSE UNE FOIS POUR TOUTE LA SÉANCE. */}
+      <div className="flex flex-wrap items-center gap-2 pb-3 mb-3 border-b border-slate-200 text-[12px] text-slate-600">
+        <div className="segments">
+          {[['etudiant', 'Par étudiant'], ['ue', 'Par UE']].map(([v, l]) => (
+            <button key={v} type="button" onClick={() => setMode(v)}
+              className={`px-3 py-1 text-[12px] ${mode === v ? 'bg-iip-blue text-white font-semibold' : 'text-slate-600'}`}>{l}</button>
+          ))}
         </div>
-      )}
+        <span className="ml-2">Séance du</span>
+        <input type="date" value={dateCE} onChange={e => setDateCE(e.target.value)} className="controle text-[13px]" />
+        <span>Section</span>
+        <select value={section} onChange={e => { setSection(e.target.value); setCle(null); }} className="controle text-[13px]">
+          <option value="">Toutes</option>
+          {sections.map(x => <option key={x} value={x}>{x}</option>)}
+        </select>
+        <span>Base par défaut <BulleAide titre="Base de la décision">La base légale qui part dans eProm : VAF V1 à V4 ou VANFI. Elle se propose à chaque UE accordée ; chaque UE peut en porter une autre, sur sa ligne.</BulleAide></span>
+        {/* CHOISIR LA BASE ICI LA POSE SUR TOUTES LES UE DE L'ÉCRAN (Charles,
+            2 octobre 2026 : « ça doit forcer toutes les décisions pour cet
+            étudiant ») ; chacune se change ensuite sur sa ligne. */}
+        <select value={baseCommune} onChange={e => {
+            const v = e.target.value;
+            setBaseCommune(v);
+            setChoix(c => { const n = { ...c }; for (const d of lignes) if (!d.valide_le && n[d.id]) n[d.id] = { ...n[d.id], base: v }; return n; });
+          }} className="controle text-[13px] max-w-[22rem]">
+          <option value="">— choisir —</option>
+          {bases.map(b => <option key={b.code} value={b.code}>{b.code} — {b.libelle}</option>)}
+        </select>
+      </div>
 
-      {!etudId ? (
-        <div className="space-y-2">
-          <div className="relative">
-            <IconSearch size={15} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
-            <input value={q} onChange={e => setQ(e.target.value)} autoFocus
-              placeholder="Un nom, un prénom ou un matricule…"
-              className="controle controle-icone w-full text-[13px]" />
-          </div>
-          {!dossiers ? <div className="text-[13px] text-slate-400">Chargement…</div>
-            : !etudiants.length ? <div className="text-[13px] text-slate-500">Aucun étudiant n’a de demande de valorisation en {annee}.</div>
-              : (
-                <div className="carte divide-y divide-slate-100 max-h-[55vh] overflow-auto">
-                  {etudiants.map(e => (
-                    <button key={e.id} onClick={() => setEtudId(e.id)}
-                      className="w-full text-left px-3 py-2 flex items-center gap-3 hover:bg-slate-100">
-                      <span className="flex-1 min-w-0 text-[13px] truncate">
-                        <b>{(e.nom || '').toUpperCase()}</b> {e.prenom}
-                        <span className="text-slate-400"> · {e.id_ecampus}{e.section ? ` · ${e.section}` : ''}</span>
-                      </span>
-                      <span className="text-[11px] text-slate-500 tabular-nums flex-none">
-                        {e.n} unité(s){e.aDecider ? ` · ${e.aDecider} à décider` : ''}
-                      </span>
-                      <IconChevronRight size={14} className="text-slate-300 flex-none" />
-                    </button>
-                  ))}
+      {!dossiers ? <p className="text-[13px] text-slate-400">Chargement…</p>
+        : !groupes.length ? <p className="text-[13px] text-slate-500">Aucune demande de valorisation en {annee}{section ? ` pour ${section}` : ''}.</p>
+          : g && (
+            <>
+              {/* LE GROUPE, SES GESTES — EN TÊTE, JAMAIS AU PIED. */}
+              <div className="flex flex-wrap items-center gap-2 mb-2 min-h-[44px]">
+                <span className="leading-tight">{titreGroupe}</span>
+                {g.d0.section && <span className="text-[11px] font-bold text-white bg-iip-blue rounded px-1.5 py-px">{g.d0.section}</span>}
+                <span className="text-[12px] text-slate-500">{iCur + 1} sur {groupes.length} · {lignes.length} {mode === 'etudiant' ? 'unité(s)' : 'étudiant(s)'}</span>
+                <span className="ml-auto" />
+                {peutValider && aValider.length > 0 && (
+                  <button className="bouton font-semibold" disabled={enCours} onClick={() => valider()}
+                    style={{ borderColor: 'var(--c-reussi, #3E7D5E)', color: 'var(--c-reussi, #3E7D5E)' }}
+                    title="Geste de la direction : les décisions arrêtées et complètes">
+                    <IconCheck size={14} className="inline -mt-0.5 mr-1" />Valider {aValider.length} dossier(s)</button>
+                )}
+                <button className="bouton" disabled={iCur <= 0} onClick={() => setCle(groupes[iCur - 1].cle)}>◀ Précédent</button>
+                <button className="bouton" disabled={iCur >= groupes.length - 1} onClick={() => setCle(groupes[iCur + 1].cle)}>Passer ▶</button>
+                <button className="bouton font-semibold disabled:opacity-40" disabled={enCours || (!prets.length && iCur >= groupes.length - 1)}
+                  onClick={() => arreter(true)}
+                  style={prets.length ? { background: 'var(--c-reussi, #3E7D5E)', borderColor: 'var(--c-reussi, #3E7D5E)', color: '#fff' } : undefined}>
+                  {enCours ? 'Enregistrement…' : prets.length
+                    ? `✓ Arrêter ${prets.length} décision(s)${iCur < groupes.length - 1 ? ' · suivant ▶' : ''}`
+                    : 'Rien à arrêter · suivant ▶'}</button>
+              </div>
+              {/* Le constat s'écrit, il ne se cadre pas : un bandeau à liseré posé
+                  sur le tableau se confondait avec le liseré de la première ligne. */}
+              {info && <p className="text-[12px] font-semibold mb-2" style={{ color: 'var(--c-reussi, #3E7D5E)' }}>✓ {info}</p>}
+              {erreur && (
+                <div data-etat="corriger" className="bloc-etat px-3 py-2 text-[12px] mb-2">
+                  {erreur}
+                  {bloquants?.length > 0 && <ul className="mt-1 pl-5 list-disc">{bloquants.map(b => <li key={b.id}><b>{b.qui}</b> — {b.pourquoi}</li>)}</ul>}
                 </div>
               )}
-        </div>
-      ) : (
-        <div className="space-y-3">
-          <div className="flex flex-wrap items-end gap-3">
-            <button className="bouton" onClick={() => setEtudId(null)}>← Autre étudiant</button>
-            <label className="text-[12px] text-slate-600">
-              <span className="block mb-0.5">Date de la séance du Conseil</span>
-              <input type="date" value={dateCE} onChange={e => setDateCE(e.target.value)}
-                className="controle text-[13px]" />
-            </label>
-            <label className="text-[12px] text-slate-600 min-w-0 flex-1">
-              <span className="block mb-0.5">Base de la décision (accords) <BulleAide titre="Base de la décision">La base légale qui part dans eProm : VAF V1 à V4 ou VANFI. Elle vaut pour toutes les unités accordées, sauf si une ligne en porte une autre.</BulleAide></span>
-              <select value={baseCommune} onChange={e => setBaseCommune(e.target.value)}
-                className="controle text-[13px] w-full">
-                <option value="">— choisir —</option>
-                {bases.map(b => <option key={b.code} value={b.code}>{b.code} — {b.libelle}</option>)}
-              </select>
-            </label>
-            {aControler.length > 0 && (
-              <button className="bouton" disabled={enCours} onClick={toutRecevable}
-                title="Contrôle de forme : délai, formulaire complet, pièces officielles — pour toutes les unités de cet étudiant">
-                Tout déclarer recevable ({aControler.length})
-              </button>
-            )}
-            <button className="bouton" disabled={!decidables.length} onClick={toutEnTotale}
-              title="Pose « totale » sur toutes les unités encore sans décision">
-              <IconCheck size={14} className="inline -mt-0.5 mr-1" />Tout accorder en totale
-            </button>
-          </div>
 
-          <table className="w-full text-[13px] border-collapse">
-            <thead>
-              <tr className="tab-entete text-left">
-                <th className="px-2 py-1.5 w-[34%]">Unité et avancement</th>
-                <th className="px-2 py-1.5">Décision du Conseil</th>
-              </tr>
-            </thead>
-            <tbody>
-              {lignes.map(d => {
-                const bloque = MOTS_ETAT_BLOQUANT(d);
-                const c = choix[d.id] || {};
-                const comp = composantes[d.ue_num];
-                const items = c.cible === 'acquis'
-                  ? (comp?.aas || []).map(a => [a.aa_code, `${a.aa_code} — ${a.description || ''}`])
-                  : (comp?.cours || []).map(k => [k.cours_code, `${k.cours_code} — ${k.cours_nom || ''}`]);
-                return (
-                  <tr key={d.id} className="border-t border-slate-200 align-top">
-                    <td className="px-2 py-2 bg-white">
-                      <div className="font-semibold">UE {d.ue_num}</div>
-                      <div className="text-[12px] text-slate-500">{d.ue_nom || ''}</div>
-                      {/* LA SECTION SE LIT SUR LA LIGNE : un lot ne mêle pas
-                          deux conseils, et c'est ici qu'on voit pourquoi. */}
-                      <div className="text-[11px] text-slate-400">{d.section || ''}
-                        {d.decision_le ? ` · décidée le ${String(d.decision_ce_date || d.decision_le).slice(0, 10)}` : ''}
-                        {modifiee(d) && d.decision_le ? ' · modifiée' : ''}</div>
-                      <FriseDossier d={d} />
-                      {!d.valide_le && d.type !== 'admission' && d.ue_num !== 0 && (
-                        <button type="button" className="mt-1 text-[12px] underline text-iip-blue"
-                          onClick={() => setInstruits(x => { const n = new Set(x); n.has(d.id) ? n.delete(d.id) : n.add(d.id); return n; })}>
-                          {instruits.has(d.id) ? 'Refermer les étapes' : 'Instruire : demande, recevabilité, avis'}
-                        </button>
-                      )}
-                    </td>
-                    <td className="px-2 py-2 bg-white">
-                      {instruits.has(d.id) && (
-                        <div className="mb-2"><InstruireUnite vid={d.id} onChange={async () => { await charger(); await onChange?.(); }} /></div>
-                      )}
-                      {bloque ? (
-                        <span className="text-[12px] text-slate-500">{bloque}
-                          {!d.valide_le && !instruits.has(d.id) && d.type !== 'admission' && d.ue_num !== 0 && (
-                            <> — <button type="button" className="underline text-iip-blue"
-                              onClick={() => setInstruits(x => new Set(x).add(d.id))}>l'instruire ici</button></>
-                          )}</span>
-                      ) : (
-                        <div className="space-y-1.5">
-                          <div className="segments inline-flex">
-                            {[['', '—'], ['totale', 'Totale'], ['partielle', 'Partielle'], ['refusee', 'Refusée']]
-                              .map(([v, lib]) => (
-                                <button key={v || 'aucune'} type="button"
-                                  onClick={() => poser(d.id, { branche: v,
-                                    ...(v !== 'partielle' ? { coches: [] } : {}),
-                                    ...(v !== 'refusee' ? { motif: '' } : {}) })}
-                                  className={`px-2.5 py-1 text-[12px] ${c.branche === v
-                                    ? 'bg-iip-blue text-white font-semibold' : 'text-slate-600'}`}>
-                                  {lib}
-                                </button>
-                              ))}
-                          </div>
-                          {c.branche === 'refusee' && (
-                            <textarea rows={2} value={c.motif || ''} placeholder="Motif du refus — obligatoire"
-                              onChange={e => poser(d.id, { motif: e.target.value })}
-                              className="controle w-full h-auto py-1.5 text-[13px]" />
-                          )}
-                          {c.branche === 'partielle' && (
-                            <div className="rounded-champ border border-slate-200 p-2 space-y-1.5">
-                              <div className="flex gap-3 text-[12px]">
-                                {[['cours', 'Des cours'], ['acquis', 'Des acquis']].map(([v, lib]) => (
-                                  <label key={v} className="flex items-center gap-1">
-                                    <input type="radio" checked={c.cible === v}
-                                      onChange={() => poser(d.id, { cible: v, coches: [] })} />{lib}
-                                  </label>
-                                ))}
-                              </div>
-                              {!comp ? <div className="text-[12px] text-slate-400">Chargement de l’unité…</div>
-                                : !items.length ? <div className="text-[12px] text-slate-500">Aucun élément connu pour cette unité en {annee}.</div>
-                                  : items.map(([code, lib]) => (
-                                    <label key={code} className="flex items-start gap-1.5 text-[12px]">
-                                      <input type="checkbox" className="mt-0.5" checked={(c.coches || []).includes(code)}
-                                        onChange={() => poser(d.id, { coches: (c.coches || []).includes(code)
-                                          ? c.coches.filter(x => x !== code) : [...(c.coches || []), code] })} />
-                                      <span>{lib}</span>
-                                    </label>
-                                  ))}
-                            </div>
-                          )}
-                          {(c.branche === 'totale' || c.branche === 'partielle') && (
-                            <select value={c.base || ''} onChange={e => poser(d.id, { base: e.target.value })}
-                              className="controle text-[12px]">
-                              <option value="">Base : {baseCommune || 'celle du haut'}</option>
-                              {bases.map(b => <option key={b.code} value={b.code}>Base : {b.code} (propre à cette unité)</option>)}
-                            </select>
-                          )}
-                        </div>
-                      )}
-                    </td>
+              <table className="w-full text-[13px] border-collapse">
+                <thead>
+                  <tr className="tab-entete text-left">
+                    <th className="px-2 py-1.5 w-[190px]">{mode === 'etudiant' ? 'Unité' : 'Étudiant'}</th>
+                    <th className="px-2 py-1.5">Avis du chargé de cours</th>
+                    <th className="px-2 py-1.5 w-[360px]">Décision du Conseil</th>
+                    <th className="px-2 py-1.5 w-[170px]">Complet ?</th>
                   </tr>
-                );
-              })}
-            </tbody>
-          </table>
-          <p className="text-[12px] text-slate-500">
-            Chaque unité garde son procès-verbal d’annexe 4, daté de cette séance. Une unité
-            sans décision (« — ») n’est pas touchée.
-          </p>
-        </div>
-      )}
+                </thead>
+                <tbody>
+                  {lignes.map(d => {
+                    const c = choix[d.id] || {};
+                    const bloque = MOTS_ETAT_BLOQUANT(d);
+                    const manque = manqueDe(d);
+                    const comp = composantes[d.ue_num];
+                    const items = c.cible === 'acquis'
+                      ? (comp?.aas || []).map(a => [a.aa_code, a.aa_code, a.description || ''])
+                      : (comp?.cours || []).map(k => [k.cours_code, `${k.cours_code}${k.per ? ` · ${k.per} p.` : ''}`, k.cours_nom || '']);
+                    const sens = SENS_AVIS[d.avis_sens];
+                    return (
+                      <Fragment key={d.id}>
+                        <tr className="border-b border-slate-100 align-top">
+                          <td className="px-2 py-2" style={{ borderLeft: `5px solid ${TEINTE_DECISION[d.valide_le || !bloque ? (c.branche || '') : '']}` }}>
+                            {mode === 'etudiant' ? (
+                              <><b>UE {d.ue_num}</b> {d.porte && <span className="text-[10.5px] font-bold text-slate-500 border border-slate-300 rounded px-1">{LIB_PORTE[d.porte] || String(d.porte).toUpperCase()}</span>}
+                                <div className="text-[12px] text-slate-500">{d.ue_nom || ''}</div></>
+                            ) : (
+                              <><b>{(d.nom || '').toUpperCase()}</b> {d.prenom}
+                                <div className="text-[11px] text-slate-500 tabular-nums">{d.id_ecampus}{d.porte ? ` · ${LIB_PORTE[d.porte] || String(d.porte).toUpperCase()}` : ''}</div></>
+                            )}
+                          </td>
+                          <td className="px-2 py-2 text-[12px] text-slate-700">
+                            {d.avis_le ? (
+                              <>
+                                <span className="inline-block text-[11px] font-semibold text-white rounded-full px-2 mr-1.5"
+                                  style={{ background: TEINTE_DECISION[sens?.[1] || ''] }}>{sens?.[0] || d.avis_sens}</span>
+                                {d.avis_texte || <i className="text-slate-400">(sans texte)</i>}
+                                <div className="text-[11px] text-slate-500 mt-0.5">{d.avis_par || '—'} · {String(d.avis_le).slice(0, 10).split('-').reverse().join('/')}</div>
+                              </>
+                            ) : <span className="inline-block text-[11px] font-semibold text-white rounded-full px-2" style={{ background: TEINTE_DECISION[''] }}>pas d’avis</span>}
+                          </td>
+                          <td className="px-2 py-2">
+                            {d.valide_le ? (
+                              <span className="text-[12px]"><span className="inline-block text-[11px] font-semibold text-white rounded-full px-2 mr-1.5"
+                                style={{ background: TEINTE_DECISION[choixInitial(d).branche] }}>{LIB_DECISION[choixInitial(d).branche] || '—'}</span>
+                                validée le {String(d.valide_le).slice(0, 10).split('-').reverse().join('/')}{d.valide_par ? ` par ${d.valide_par}` : ''}</span>
+                            ) : bloque ? <span className="text-[12px] text-slate-500">{bloque}</span> : (
+                              <div className="space-y-1.5">
+                                <div className="inline-flex border border-slate-300 rounded-champ overflow-hidden">
+                                  {['totale', 'partielle', 'refusee'].map(v => (
+                                    <button key={v} type="button"
+                                      onClick={() => poser(d.id, { branche: v, ...(v !== 'partielle' ? { coches: [] } : {}),
+                                        ...(v === 'refusee' ? { motif: c.motif || (d.avis_sens === 'defavorable' ? d.avis_texte || '' : '') } : { motif: '' }) })}
+                                      className="px-3 py-1 text-[12.5px] font-semibold border-r border-slate-200 last:border-r-0"
+                                      style={c.branche === v ? { background: TEINTE_DECISION[v], color: '#fff' } : { color: '#475569' }}>
+                                      {LIB_DECISION[v]}</button>
+                                  ))}
+                                </div>
+                                {c.propose && <div className="text-[11px] text-slate-500">proposé par l’avis — à confirmer</div>}
+                                {/* LA MÊME DISPENSE POUR PLUSIEURS (porte 3, par UE — 2 octobre
+                                    2026) : la décision de cette ligne se reporte sur les autres
+                                    étudiants de l'UE encore à décider ; chacune se corrige ensuite. */}
+                                {mode === 'ue' && c.branche && lignes.length > 1 && (
+                                  <button type="button" className="text-[11.5px] underline text-iip-blue"
+                                    onClick={() => setChoix(o => {
+                                      const n = { ...o };
+                                      for (const x of lignes) {
+                                        if (x.id === d.id || x.valide_le || MOTS_ETAT_BLOQUANT(x)) continue;
+                                        n[x.id] = { ...n[x.id], branche: c.branche, cible: c.cible, coches: [...(c.coches || [])],
+                                          motif: c.motif || '', remarque: c.remarque || '', base: c.base || '', heures: c.heures, propose: false };
+                                      }
+                                      return n;
+                                    })}>
+                                    la même décision pour les autres étudiants de l’UE</button>
+                                )}
+                                {c.branche === 'refusee' && (
+                                  <>
+                                    {/* LE MOTIF SE CHOISIT, PUIS SE COMPLÈTE (2 octobre 2026). */}
+                                    <select value="" onChange={e => e.target.value && poser(d.id, { motif: c.motif?.trim() ? `${c.motif.trim()} ${e.target.value}` : e.target.value })}
+                                      className="w-full border border-slate-300 rounded h-7 px-1.5 text-[12px] bg-white">
+                                      <option value="">Motif type du refus…</option>
+                                      {(motifs.refus || []).map(g => (
+                                        <optgroup key={g.titre} label={g.titre}>
+                                          {g.motifs.map(m => <option key={m} value={m}>{m}</option>)}
+                                        </optgroup>
+                                      ))}
+                                    </select>
+                                    <textarea rows={2} value={c.motif || ''} placeholder="Motif du refus — obligatoire, à compléter"
+                                      onChange={e => poser(d.id, { motif: e.target.value })}
+                                      className="w-full border border-slate-300 rounded px-2 py-1 text-[12.5px]" />
+                                  </>
+                                )}
+                                {/* LA BASE SE CHOISIT UE PAR UE (2 octobre 2026) : celle de la
+                                    séance n'est qu'un défaut. */}
+                                {(c.branche === 'totale' || c.branche === 'partielle') && (
+                                  <select value={c.base || ''} onChange={e => poser(d.id, { base: e.target.value })}
+                                    className="w-full border border-slate-300 rounded h-7 px-1.5 text-[12px] bg-white">
+                                    <option value="">Base : {baseCommune ? `${baseCommune} (celle de la séance)` : '— à choisir —'}</option>
+                                    {bases.map(x => <option key={x.code} value={x.code}>Base : {x.code} — {x.libelle}</option>)}
+                                  </select>
+                                )}
+                                {c.branche === 'partielle' && (
+                                  <div className="text-[12px]">
+                                    {/* PAR COURS OU PAR ACQUIS — les deux portées de la partielle. */}
+                                    <div className="inline-flex border border-slate-300 rounded overflow-hidden mb-1 mr-2 align-middle">
+                                      {[['cours', 'Par cours'], ['acquis', 'Par acquis']].map(([v, l]) => (
+                                        <button key={v} type="button" onClick={() => poser(d.id, { cible: v, coches: [] })}
+                                          className="px-2 py-0.5 text-[12px] font-semibold border-r border-slate-200 last:border-r-0"
+                                          style={c.cible === v ? { background: TEINTE_DECISION.partielle, color: '#fff' } : { color: '#475569' }}>{l}</button>
+                                      ))}
+                                    </div>
+                                    <span className="text-slate-500">{c.cible === 'acquis' ? 'acquis reconnus :' : 'cours dispensés :'}</span>
+                                    <br />
+                                    {!comp ? <span className="text-slate-400">chargement…</span>
+                                      : !items.length ? <span className="text-slate-500">aucun élément connu</span>
+                                        : items.map(([code, lib, titre]) => {
+                                          const on = (c.coches || []).includes(code);
+                                          return (
+                                            <button key={code} type="button" title={titre}
+                                              onClick={() => poser(d.id, { coches: on ? c.coches.filter(x => x !== code) : [...(c.coches || []), code] })}
+                                              className="inline-block rounded border px-1.5 mr-1 mt-1 text-[12px]"
+                                              style={on ? { borderColor: TEINTE_DECISION.partielle, color: TEINTE_DECISION.partielle, fontWeight: 600 } : { borderColor: '#CBD5E1', color: '#475569' }}>
+                                              {on ? '✓ ' : ''}{lib}</button>
+                                          );
+                                        })}
+                                    {/* LE STAGE DISPENSÉ EN PARTIE (2 octobre 2026) : un nombre sur
+                                        le total prévu, écrit dans la remarque du Conseil. */}
+                                    {c.cible !== 'acquis' && (comp?.cours || []).filter(k => k.stage && (c.coches || []).includes(k.cours_code)).map(k => (
+                                      <div key={k.cours_code} className="flex flex-wrap items-center gap-1.5 mt-1.5 text-[12px]">
+                                        <span>Stage {k.cours_code} : heures dispensées</span>
+                                        <input type="number" min="0" max={k.per || undefined} value={c.heures?.[k.cours_code] ?? ''}
+                                          onChange={e => {
+                                            const h = { ...(c.heures || {}), [k.cours_code]: e.target.value };
+                                            const phrase = Object.entries(h).filter(([, v]) => v !== '' && v != null)
+                                              .map(([code, v]) => `Stage ${code} : ${v} h dispensées sur ${(comp.cours.find(x => x.cours_code === code) || {}).per || '…'} prévues ; l’évaluation du stage reste due.`).join(' ');
+                                            const sansStage = String(c.remarque || '').replace(/Stage [^:]+ : \d+ h dispensées sur [^;]+; l’évaluation du stage reste due\.\s*/g, '').trim();
+                                            poser(d.id, { heures: h, remarque: [phrase, sansStage].filter(Boolean).join(' ') });
+                                          }}
+                                          className="border border-slate-300 rounded h-7 px-1.5 w-20 text-[12px]" />
+                                        <span className="text-slate-500">sur {k.per || '…'} prévues</span>
+                                      </div>
+                                    ))}
+                                    <select value="" onChange={e => e.target.value && poser(d.id, { remarque: e.target.value })}
+                                      className="w-full border border-slate-300 rounded h-7 px-1.5 text-[12px] bg-white mt-1.5">
+                                      <option value="">Remarque du Conseil, type…</option>
+                                      {(motifs.partiel || []).map(g => (
+                                        <optgroup key={g.titre} label={g.titre}>
+                                          {g.motifs.map(m => <option key={m} value={m}>{m}</option>)}
+                                        </optgroup>
+                                      ))}
+                                    </select>
+                                    <input value={c.remarque || ''} onChange={e => poser(d.id, { remarque: e.target.value })}
+                                      placeholder="Remarque du Conseil (facultative) — « dispensé des heures de stage, doit présenter l’examen »"
+                                      className="w-full border border-slate-300 rounded h-7 px-1.5 text-[12px] mt-1" />
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </td>
+                          <td className="px-2 py-2 text-[12px]">
+                            {d.valide_le ? <span className="font-semibold" style={{ color: 'var(--c-reussi, #3E7D5E)' }}>✓ validé</span>
+                              : !manque ? <span className="font-semibold" style={{ color: 'var(--c-reussi, #3E7D5E)' }}>{aEcrire(d) ? '✓ prêt' : '✓ arrêtée'}</span>
+                                : <span className="font-semibold" style={{ color: TEINTE_DECISION.refusee }}>{manque}</span>}
+                            {/* LE GESTE SUR CETTE UE SEULE. */}
+                            {!d.valide_le && aEcrire(d) && !manque && (
+                              <button type="button" disabled={enCours} onClick={() => arreter(false, [d])}
+                                className="block mt-1 rounded border border-slate-300 bg-white h-7 px-2 text-[12px] font-semibold hover:bg-slate-50">
+                                Arrêter cette UE</button>
+                            )}
+                            {peutValider && d.pret_a_valider && !aEcrire(d) && (
+                              <button type="button" disabled={enCours} onClick={() => valider([d])}
+                                className="block mt-1 rounded border h-7 px-2 text-[12px] font-semibold"
+                                style={{ borderColor: 'var(--c-reussi, #3E7D5E)', color: 'var(--c-reussi, #3E7D5E)' }}>
+                                ✓ Valider cette UE</button>
+                            )}
+                            {!d.valide_le && (bloque || !d.avis_le) && (
+                              <button type="button" className="block mt-1 underline text-iip-blue"
+                                onClick={() => setInstruits(x => { const n = new Set(x); n.has(d.id) ? n.delete(d.id) : n.add(d.id); return n; })}>
+                                {instruits.has(d.id) ? 'refermer' : 'instruire : recevabilité, avis'}</button>
+                            )}
+                          </td>
+                        </tr>
+                        {instruits.has(d.id) && (
+                          <tr className="border-b border-slate-100"><td colSpan={4} className="px-2 py-2 bg-slate-50">
+                            <InstruireUnite vid={d.id} onChange={async () => { await charger(); await onChange?.(); }}
+                              freres={(dossiers || []).filter(x => x.etudiant_id === d.etudiant_id && x.id !== d.id && !x.valide_le && !x.decision_le).map(x => x.id)} />
+                          </td></tr>
+                        )}
+                      </Fragment>
+                    );
+                  })}
+                </tbody>
+              </table>
+
+              {/* LA SÉANCE ENTIÈRE, D'UN COUP D'ŒIL : qui est passé, qui reste. */}
+              <div className="flex flex-wrap items-center gap-1.5 mt-4 text-[12px] text-slate-500">
+                <span className="mr-1">{mode === 'etudiant' ? 'Les étudiants' : 'Les unités'} de la séance :</span>
+                {groupes.map(x => (
+                  <button key={x.cle} type="button" onClick={() => setCle(x.cle)}
+                    className="rounded border px-2 py-0.5"
+                    style={x.cle === cle ? { background: 'var(--c-principal, #16406A)', borderColor: 'var(--c-principal, #16406A)', color: '#fff', fontWeight: 600 }
+                      : fait(x) ? { borderColor: 'var(--c-reussi, #3E7D5E)', color: 'var(--c-reussi, #3E7D5E)', fontWeight: 600 } : { borderColor: '#CBD5E1', color: '#475569' }}>
+                    {fait(x) && x.cle !== cle ? '✓ ' : ''}{nomGroupe(x)}</button>
+                ))}
+              </div>
+            </>
+          )}
     </Fenetre>
   );
 }

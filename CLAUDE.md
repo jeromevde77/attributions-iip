@@ -1427,6 +1427,11 @@ et 3 composants de tuile**. La stratégie tient en cinq chantiers, dans cet ordr
   l'envers : chacun avait ajouté le padding qu'il fallait, et chacun avait été
   ignoré. D'où **`.controle-icone`** (2 rem), à poser avec `.controle` dès qu'une
   icône est posée en absolu dans le champ.
+  > **ET LA BARRE DU HAUT L'A PAYÉ AUSSI** (2.12.407) : `.barre-haut` posait
+  > `position: relative` pour son filet, ce qui annulait le `sticky` d'App.jsx.
+  > La barre partait avec la page, et le rail — accroché à son bord bas par
+  > `--barre-h` — montait avec elle. Une mesure en local (puppeteer, 900 px de
+  > défilement) l'a montré ; la classe porte désormais `sticky` elle-même.
   > **RÈGLE GÉNÉRALE : une propriété raccourcie dans une classe de la maison
   > annule l'utilitaire correspondant.** Avant d'ajouter un utilitaire à un
   > élément qui porte `.controle`, `.bouton` ou `.carte`, vérifier que la classe
@@ -1784,6 +1789,19 @@ circulé sans qu'on puisse dire qui l'avait sortie. « Je veux des traces. »
   elles prouvent quelque chose. On propose **aujourd'hui**, et l'on corrige
   quand ce n'est pas le bon jour (`aujourdHui()` dans `pages/Valorisations.jsx`,
   à généraliser). Le défaut doit être correct.
+- **LE NOM DE FAMILLE D'ABORD, PARTOUT DANS LES ÉCRANS** (Charles, 2 octobre
+  2026) : « NOM Prénom », jamais « Prénom NOM » — listes, titres, fenêtres,
+  messages, courriels internes. `nomPropre()` (`frontend/src/lib/nom.js`) le
+  fait d'office ; un écran qui compose le nom à la main écrit
+  `${NOM.toUpperCase()} ${prenom}`. Raison : pour encoder et choisir, les gens
+  connaissent les noms. Les DOCUMENTS (contrats, attestations, PV, courriers,
+  DUE) gardent « Prénom NOM » — confirmé par Charles le 2 octobre 2026.
+- **LES VA NE SONT PAS SUSCEPTIBLES DE RECOURS, MAIS ELLES SE MOTIVENT**
+  (Charles, 2 octobre 2026, face à la circulaire « toutes les UE peuvent faire
+  l'objet d'un recours ») : le RDE fait foi pour Lucie.
+- **DONNÉES PRIVÉES DANS LES LISTES** : n° national et adresse postale —
+  administrateur et direction ; e-mail privé — aussi secrétariat et
+  coordinations. Le tri se fait dans `routes/listes.js`, pas à l'écran.
 - **LE NOM SE MET EN CAPITALES, LE PRÉNOM SE CAPITALISE — DEUX RÈGLES, DEUX
   FONCTIONS.** `lib/nom.js` les porte, sorties de `routes/acquis.js` où elles
   étaient enfermées : ce sont des règles d'écriture pures, et l'accueil en avait

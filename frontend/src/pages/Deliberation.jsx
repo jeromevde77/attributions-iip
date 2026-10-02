@@ -16,6 +16,7 @@ import DiagnosticAnnees from '../components/DiagnosticAnnees.jsx';
 import SchemaLiensAA from '../components/SchemaLiensAA.jsx';
 import EncodageRapide from './EncodageRapide.jsx';
 import CentreImpressionCentral from '../components/CentreImpressionCentral.jsx';
+import { BoutonEditions } from '../components/ui.jsx';
 import RepriseLot from '../components/RepriseLot.jsx';
 import ImportTableauPlat from '../components/ImportTableauPlat.jsx';
 import ReglesDeliberation from '../components/ReglesDeliberation.jsx';
@@ -543,12 +544,8 @@ export default function Deliberation() {
                     </div>
                     {/* Les documents de la séance : le secrétariat sort les
                         trois piles d'ici, non dossier par dossier. */}
-                    <button onClick={() => setDocs(u)}
-                      title="Attestations de réussite, notifications d'ajournement et de refus"
-                      className="px-2 py-1 text-[12px] rounded-lg border border-iip-blue
-                                 text-iip-blue font-semibold flex-none flex items-center gap-1">
-                      <IconPrinter size={13} /> Documents
-                    </button>
+                    <BoutonEditions taille="petit" onClick={() => setDocs(u)}
+                      titre="Attestations, notifications d'ajournement et de refus — centre d'édition" />
                     <IconChevronRight size={16} className="text-slate-300 flex-none" />
                   </div>
 

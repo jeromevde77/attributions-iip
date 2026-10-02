@@ -70,7 +70,7 @@ function addJoursCal(date, n) {
 function tableComposition(membres, annee) {
   if (!membres || !membres.length) return '';
   const liste = membres.map(m => {
-    const nom = m.nomComplet || `${m.prenom||''} ${m.nom||''}`.trim();
+    const nom = m.nomComplet || `${String(m.nom||'').toUpperCase()} ${m.prenom||''}`.trim();
     const qualite = m.qualite || 'Membre du CDE';
     return `<strong>${nom}</strong> (${qualite})`;
   }).join(', ');

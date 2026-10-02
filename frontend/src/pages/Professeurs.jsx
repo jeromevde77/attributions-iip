@@ -8,7 +8,7 @@ import PreviewModal from '../components/PreviewModal.jsx';
 import CoursEditModal from '../components/CoursEditModal.jsx';
 import { IconSend, IconAddressBook, IconMail, IconMapPin, IconFileText, IconEdit, IconDownload, IconRefresh, IconX, IconPrinter, IconPlus, IconTrash, IconKey, IconLock, IconCheck, IconBriefcase, IconTargetArrow, IconChevronDown, IconChevronRight, IconUsers, IconSchool, IconUserPlus, IconBuilding, IconBuildingBank, IconFileDescription } from '@tabler/icons-react';
 import { MODULES_ACCES, ROLES_LUCIE, estDirection } from '../lib/modules.js';
-import { RailLateral } from '../components/ui.jsx';
+import { RailLateral, OuvrirEditions } from '../components/ui.jsx';
 /* LES RUBRIQUES DE L'AXE PERSONNEL SE RENDENT DANS L'AXE, PAS AILLEURS.
    « Besoins & offres » et « Classement & prioritaires » étaient des entrées de
    ce rail qui appelaient navigate() : elles QUITTAIENT l'axe, et le rail —
@@ -818,8 +818,8 @@ function DetailModal({ profId, onClose, onEdit, onFiche, onEditions }) {
                 les deux — et propose les pièces qui en découlent. */}
             {onEditions && (
               <button onClick={() => onEditions(profId)} title="Imprimer ou envoyer — contrats, fiches, EA12, annexes"
-                className="w-8 h-8 grid place-items-center rounded-champ text-white/80 hover:text-white hover:bg-white/10">
-                <IconSend size={18} />
+                className="w-9 h-9 grid place-items-center rounded-champ border border-white/40 text-white hover:bg-white/10">
+                <IconSend size={17} />
               </button>
             )}
             <button onClick={onClose} className="text-white/60 hover:text-white"><IconX size={20}/></button>
@@ -1657,7 +1657,7 @@ export default function Professeurs({ vue: vueInitiale = 'membres' }) {
       </table>
       </body></html>`;
     if (returnOnly) return html;
-    setFicheHtml({ html, destinataire: { type: 'professeur', id: prof.id, nom: `${prof.nom || ''} ${prof.prenom || ''}`.trim() }, nom: nomDoc('Fiche_HELB', prof.nom, prof.prenom, annee), titre: `${prof.prenom || ''} ${prof.nom || ''}`.trim(), sousTitre: `Fiche HELB · ${annee}` });
+    setFicheHtml({ html, destinataire: { type: 'professeur', id: prof.id, nom: `${prof.nom || ''} ${prof.prenom || ''}`.trim() }, nom: nomDoc('Fiche_HELB', prof.nom, prof.prenom, annee), titre: `${(prof.nom || '').toUpperCase()} ${prof.prenom || ''}`.trim(), sousTitre: `Fiche HELB · ${annee}` });
   }
 
   // Fiche globale : bloc IIP (périodes) + bloc HELB (heures) + rectangle récap combiné
@@ -1785,7 +1785,7 @@ export default function Professeurs({ vue: vueInitiale = 'membres' }) {
       </table>
       </body></html>`;
     if (returnOnly) return html;
-    setFicheHtml({ html, destinataire: { type: 'professeur', id: prof.id, nom: `${prof.nom || ''} ${prof.prenom || ''}`.trim() }, nom: nomDoc('Fiche_globale', prof.nom, prof.prenom, annee), titre: `${prof.prenom || ''} ${prof.nom || ''}`.trim(), sousTitre: `Fiche globale · ${annee}` });
+    setFicheHtml({ html, destinataire: { type: 'professeur', id: prof.id, nom: `${prof.nom || ''} ${prof.prenom || ''}`.trim() }, nom: nomDoc('Fiche_globale', prof.nom, prof.prenom, annee), titre: `${(prof.nom || '').toUpperCase()} ${prof.prenom || ''}`.trim(), sousTitre: `Fiche globale · ${annee}` });
   }
 
   async function genererFicheAttributions(profId, contratFiltre = null, returnOnly = false) {
@@ -1967,7 +1967,7 @@ export default function Professeurs({ vue: vueInitiale = 'membres' }) {
       </body></html>`;
 
     if (returnOnly) return html;
-    setFicheHtml({ html, destinataire: { type: 'professeur', id: prof.id, nom: `${prof.nom || ''} ${prof.prenom || ''}`.trim() }, nom: nomDoc('Fiche_attr', prof.nom, prof.prenom, annee), titre: `${prof.prenom || ''} ${prof.nom || ''}`.trim(), sousTitre: `Fiche attributions IIP · ${annee}` });
+    setFicheHtml({ html, destinataire: { type: 'professeur', id: prof.id, nom: `${prof.nom || ''} ${prof.prenom || ''}`.trim() }, nom: nomDoc('Fiche_attr', prof.nom, prof.prenom, annee), titre: `${(prof.nom || '').toUpperCase()} ${prof.prenom || ''}`.trim(), sousTitre: `Fiche attributions IIP · ${annee}` });
   }
   const canEdit = estDirection(me) || ['editeur', 'secretariat'].includes(me?.role);
 
@@ -2299,10 +2299,9 @@ export default function Professeurs({ vue: vueInitiale = 'membres' }) {
         </td>
         <td className="text-center">
           <div className="flex items-center justify-center gap-2 relative">
-            <button onClick={() => setFicheMenu(ficheMenu === p.id ? null : p.id)}
-              className="text-gray-400 hover:text-iip-mauve" title="Fiche d'attributions">
-              <IconPrinter size={15} />
-            </button>
+            {/* L'AVION MÈNE AU CENTRE D'ÉDITION, sur ce membre (2 octobre 2026). */}
+            <OuvrirEditions taille="petit" ongletInitial="personnel" membreInitial={p.id}
+              titre="Fiches, contrats, EA12 — centre d'édition, sur ce membre" />
             {ficheMenu === p.id && (
               <>
                 <div className="fixed inset-0 z-40" onClick={() => setFicheMenu(null)} />

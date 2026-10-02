@@ -813,6 +813,13 @@ r.post('/pieces', authRequired,
   const dateDelib = date_deliberation || new Date().toISOString().slice(0, 10);
   const presidence = (() => { try { return presidenceConseil(); } catch { return {}; } })();
   const ctx = { section: sec, annee: an, ident, dateDelib };
+  /* L'ANNÉE DU TITRE EST CELLE DE LA RÉUSSITE (Charles, 2 octobre 2026 : « la
+     date est en dur, pas liée à l'année de réussite de l'épreuve intégrée »).
+     Le diplôme portait l'année choisie à l'écran ; il porte désormais celle où
+     l'épreuve intégrée a été réussie — à défaut, celle de la dernière unité
+     acquise. Même règle pour l'attestation de section et la provisoire. */
+  const anneeDe = d => d.epreuve?.annee || d.annee_fin || an;
+  const ctxDe = d => ({ ...ctx, annee: anneeDe(d) });
 
   const pages = [];
   const styles = new Set();
@@ -844,7 +851,7 @@ r.post('/pieces', authRequired,
         nom_etudiant: d.nom, prenom_etudiant: d.prenom,
         genre: d.genre === 'F' ? 'F' : d.genre === 'H' ? 'H' : '',
         lieu_naissance: d.lieu_naissance, date_naissance: dateLongue(d.date_naissance),
-        annee: an, mention: d.mention.mention,
+        annee: anneeDe(d), mention: d.mention.mention,
         intitule_section: ds.intitule_section, code_section: ds.code_section,
         domaine: ds.domaine, grade_academique: ds.grade_academique,
         type_enseignement: ds.type_enseignement,
@@ -881,7 +888,7 @@ r.post('/pieces', authRequired,
     if (!dsP.total_periodes) manques.push(`Attestation provisoire : le nombre de périodes de ${sec.libelle || sec.code} manque à la fiche de section (Configuration → Attestation → Sections & diplômes).`);
     if (!dsP.code_section) manques.push(`Attestation provisoire : le code de la section ${sec.libelle || sec.code} manque.`);
     for (const d of choisis) {
-      pages.push({ t: `Attestation provisoire — ${d.nom} ${d.prenom}`, h: attestationProvisoire(d, ctx) });
+      pages.push({ t: `Attestation provisoire — ${d.nom} ${d.prenom}`, h: attestationProvisoire(d, ctxDe(d)) });
     }
   }
 
@@ -889,7 +896,7 @@ r.post('/pieces', authRequired,
     styles.add(STYLE_SECTION);
     for (const d of choisis) {
       pages.push({ t: `Attestation de section — ${d.nom} ${d.prenom}`,
-                   h: attestationSection(d, ctx) });
+                   h: attestationSection(d, ctxDe(d)) });
     }
   }
 
@@ -898,9 +905,9 @@ r.post('/pieces', authRequired,
   const parEtudiant = veut.includes('attestation') || veut.includes('provisoire')
     ? choisis.map(d => ({
       id: d.id, nom: d.nom, prenom: d.prenom,
-      ...(veut.includes('attestation') ? { attestation: envelopper(STYLE_SECTION + attestationSection(d, ctx),
+      ...(veut.includes('attestation') ? { attestation: envelopper(STYLE_SECTION + attestationSection(d, ctxDe(d)),
         `Attestation de réussite de section — ${d.nom} ${d.prenom}`) } : {}),
-      ...(veut.includes('provisoire') ? { provisoire: envelopper(STYLE_SECTION + attestationProvisoire(d, ctx),
+      ...(veut.includes('provisoire') ? { provisoire: envelopper(STYLE_SECTION + attestationProvisoire(d, ctxDe(d)),
         `Attestation provisoire de diplôme — ${d.nom} ${d.prenom}`) } : {}),
     }))
     : [];

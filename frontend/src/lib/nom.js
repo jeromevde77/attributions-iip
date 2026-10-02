@@ -6,14 +6,15 @@
  * croit issues de trois fichiers différents. Rien de tout cela ne vient du
  * code — ce sont des chaînes tapées à la main, un jour, par quelqu'un.
  *
- * LA RÈGLE, ET ELLE EST ABSOLUE :
+ * LA RÈGLE, ET ELLE EST ABSOLUE À L'ÉCRAN (Charles, 2 octobre 2026 :
+ * « toujours le nom de famille en premier, partout dans les écrans ») :
  *
- *      Prénom NOM       —  « Natacha BOULENGIER »
+ *      NOM Prénom       —  « BOULENGIER Natacha »
  *
- * Le prénom d'abord, première lettre en capitale ; le nom ensuite, tout en
- * capitales. C'est l'usage administratif belge, et il a une vertu pratique :
- * dans une liste, l'œil trouve le nom de famille sans avoir à le chercher,
- * parce qu'il est le seul en capitales.
+ * Le nom d'abord, tout en capitales ; le prénom ensuite, première lettre en
+ * capitale. Elle remplace l'ancienne « Prénom NOM » : dans une liste, on
+ * cherche un nom de famille, et c'est lui qui trie. Les pièces officielles
+ * (contrats, attestations, courriers) gardent leur propre forme.
  *
  * ON NE CORRIGE PAS LA BASE, ON CORRIGE L'AFFICHAGE. Réécrire les chaînes
  * enregistrées reviendrait à trancher à la place de l'utilisateur sur des
@@ -33,13 +34,14 @@ function capitaliser(mot) {
   ).join('');
 }
 
-/** « Prénom NOM » à partir des deux champs. */
+/** « NOM Prénom » à partir des deux champs — LE NOM DE FAMILLE D'ABORD,
+ *  PARTOUT DANS LES ÉCRANS (Charles, 2 octobre 2026). */
 export function nomPropre(nom, prenom) {
   const N = String(nom || '').trim().split(/\s+/).filter(Boolean)
     .map(m => m.toLocaleUpperCase('fr')).join(' ');
   const P = String(prenom || '').trim().split(/\s+/).filter(Boolean)
     .map(capitaliser).join(' ');
-  return [P, N].filter(Boolean).join(' ');
+  return [N, P].filter(Boolean).join(' ');
 }
 
 /**

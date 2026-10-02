@@ -31,6 +31,7 @@ import { calculerDI, calculerDIS } from './droitInscription.js';
 import { rapprocher, normDate } from './importHistorique.js';
 import { lirePackUF } from '../lib/packUF.js';
 import { schemaSvg, legendeSchemaHtml } from '../lib/schemaSvg.js';
+import { appelerCharges, avisCoordination, motifsVA } from '../lib/avisVA.js';
 
 const r = Router();
 
@@ -103,11 +104,38 @@ export function niveauEtudiant(etudId, annee) {
   const presents = Object.keys(detail);
   if (!presents.length) return { niveau: null, libelle: null, detail };
 
+  /* LE STAGE CLASSE (Charles, 2 octobre 2026) : l'épreuve intégrée au PAE
+     donne « Diplômant » ; sinon le stage le plus avancé du PAE décide — stage
+     de BA1 → Parcours B1, de BA2 → Parcours B2, de BA3 → Diplômant. Sans
+     stage, la règle des blocs. Toutes les sections. Le niveau ne sert qu'à
+     lire et à filtrer : le moteur du PAE ne le consulte pas. */
+  const LIB = { BA1: 'Parcours B1', BA2: 'Parcours B2', BA3: 'Diplômant' };
+  const nums = lignes.map(l => l.ue_num);
+  const ph = nums.map(() => '?').join(',');
+  let ei = false;
+  try {
+    ei = !!db.prepare(`SELECT 1 FROM ue_epreuve_integree WHERE actif = 1 AND ue_num IN (${ph}) LIMIT 1`).get(...nums);
+  } catch { /* table absente */ }
+  if (!ei) {
+    try { ei = !!db.prepare(`SELECT 1 FROM ue WHERE is_epreuve_integree = 1 AND ue_num IN (${ph}) LIMIT 1`).get(...nums); }
+    catch { /* colonne absente */ }
+  }
+  if (ei) return { niveau: 'BA3', libelle: 'Diplômant', detail, annee: anneeRetenue, par: 'epreuve' };
+  let stages = [];
+  try {
+    stages = db.prepare(`SELECT DISTINCT ue_num FROM cours WHERE COALESCE(is_stage, 0) = 1 AND ue_num IN (${ph})`)
+      .all(...nums).map(x => (niveaux[x.ue_num] || '').toUpperCase()).filter(n => LIB[n]);
+  } catch { /* colonne absente */ }
+  if (stages.length) {
+    const haut = stages.sort().pop();
+    return { niveau: haut, libelle: LIB[haut], detail, annee: anneeRetenue, par: 'stage' };
+  }
+
   if (presents.length === 1) {
     const seul = presents[0];
     return {
       niveau: seul,
-      libelle: seul === 'BA3' ? 'Diplômant' : seul,
+      libelle: LIB[seul] || seul,
       detail, annee: anneeRetenue,
     };
   }
@@ -1097,6 +1125,14 @@ r.get('/', authRequired, (req, res) => {
       .all(anneeActive).map(x => x.etudiant_id),
   ]);
 
+  // LE PAE VALIDÉ DANS LA REVUE se voit dans la liste (Charles, 2 octobre
+  // 2026 : une bille verte au v blanc, à côté du nom).
+  const valides = new Map();
+  try {
+    for (const x of db.prepare('SELECT etudiant_id, revu_le, revu_par FROM pae_revue WHERE annee_scolaire = ?').all(anneeActive))
+      valides.set(x.etudiant_id, x);
+  } catch { /* table pas encore créée */ }
+
   res.json(vus.map(r0 => {
     const n = niveauEtudiant(r0.id, anneeActive);
     const rat = sectionRattachement(r0.id, anneeActive);
@@ -1109,6 +1145,7 @@ r.get('/', authRequired, (req, res) => {
       segment: segment(r0),
       // Tant que le programme n'est pas confirmé, il n'est qu'une proposition.
       pae_confirme: confirmes.has(r0.id),
+      pae_valide: valides.has(r0.id) ? { le: valides.get(r0.id).revu_le, par: valides.get(r0.id).revu_par } : null,
       primo: !anciensListe.has(r0.id),
       section_rattachement: rat.section,
       section_deduite: rat.deduite,
@@ -4274,6 +4311,13 @@ r.post('/pae-valider-lot', authRequired,
     ON CONFLICT(etudiant_id, annee_scolaire) DO UPDATE SET
       confirme_le = datetime('now'), confirme_par = excluded.confirme_par`);
   const oter = db.prepare('DELETE FROM etudiant_pae WHERE etudiant_id = ? AND annee_scolaire = ?');
+  /* UNE SEULE NOTION DE « VALIDÉ » (Charles, 2 octobre 2026) : valider en
+     groupe des PAE standards écrit la MÊME trace que l'œil — la revue —, au
+     nom de qui clique. Le crayon de la liste passe au vert pareil. */
+  const revu = db.prepare(`INSERT INTO pae_revue (etudiant_id, annee_scolaire, revu_par) VALUES (?, ?, ?)
+    ON CONFLICT(etudiant_id, annee_scolaire) DO UPDATE SET revu_le = datetime('now'), revu_par = excluded.revu_par`);
+  const quiRevu = req.user?.nom || req.user?.email || null;
+  const pasRevu = db.prepare('DELETE FROM pae_revue WHERE etudiant_id = ? AND annee_scolaire = ?');
 
   let faits = 0;
   const ignores = [];
@@ -4288,7 +4332,7 @@ r.post('/pae-valider-lot', authRequired,
         : (sectionRattachement(id, annee).section !== section && !dansSection.get(id, annee, section))) {
         ignores.push({ id, raison: 'hors de la section' }); continue;
       }
-      if (retirer) { faits += oter.run(id, annee).changes; continue; }
+      if (retirer) { faits += oter.run(id, annee).changes; pasRevu.run(id, annee); continue; }
       if (!nbInscr.get(id, annee).n) { ignores.push({ id, raison: 'programme vide' }); continue; }
       const reprises = reprisesNonForcees(id, annee);
       if (reprises.length) {
@@ -4297,7 +4341,7 @@ r.post('/pae-valider-lot', authRequired,
           + reprises.join(', ') });
         continue;
       }
-      signer.run(id, annee, qui); faits++;
+      signer.run(id, annee, qui); revu.run(id, annee, quiRevu); faits++;
     }
   })();
   res.json({ ok: true, faits, ignores });
@@ -6122,7 +6166,7 @@ r.delete('/:id', authRequired, roleRequired('admin', 'directeur', 'directeur_adj
 
   if (total > 0 && req.query.force !== '1') {
     return res.status(409).json({
-      confirmation_requise: true, etudiant: `${e.prenom} ${e.nom}`, inventaire, total,
+      confirmation_requise: true, etudiant: `${String(e.nom || '').toUpperCase()} ${e.prenom || ''}`.trim(), inventaire, total,
       force_permis: direction,
     });
   }
@@ -6142,7 +6186,7 @@ r.delete('/:id', authRequired, roleRequired('admin', 'directeur', 'directeur_adj
     }
     db.prepare('DELETE FROM etudiant WHERE id = ?').run(id);
   })();
-  res.json({ ok: true, supprime: `${e.prenom} ${e.nom}`, donnees_emportees: total });
+  res.json({ ok: true, supprime: `${String(e.nom || '').toUpperCase()} ${e.prenom || ''}`.trim(), donnees_emportees: total });
 });
 
 r.delete('/:id/annee/:annee', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
@@ -7453,7 +7497,7 @@ r.post('/valorisations/matrice', authRequired, roleRequired(...PEUT_INSTRUIRE),
  *  et une contrôlée, finiraient par diverger. */
 r.get('/valorisations/referentiel', authRequired, (req, res) => {
   res.json({ bases: BASES, finalites: FINALITES, etats: ETATS,
-             pourcentage_dispense: POURCENTAGE_DISPENSE });
+             pourcentage_dispense: POURCENTAGE_DISPENSE, motifs: motifsVA() });
 });
 
 /**
@@ -7650,6 +7694,8 @@ r.put('/valorisations/:vid/recevabilite', authRequired, roleRequired(...PEUT_INS
       .run(recevable, recevable ? null : motif, qui, vid);
     journaliser(vid, recevable ? 'recevable' : 'irrecevable', req,
       recevable ? null : motif);
+    // RECEVABLE : les chargés de cours des cours visés sont appelés et prévenus.
+    if (recevable) appelerCharges(vid).catch(e => console.error('[avisVA]', e.message));
     res.json({ ok: true, etat: rafraichirEtat(vid) });
   });
 
@@ -7693,9 +7739,13 @@ r.put('/valorisations/:vid/avis', authRequired, roleRequired(...PEUT_INSTRUIRE, 
     // qui a tenu le clavier.
     const qui = String(req.body.avis_par || '').trim()
       || req.user?.nom || req.user?.email || null;
-    db.prepare(`UPDATE etudiant_valorisation
-      SET avis_sens = ?, avis_texte = ?, avis_par = ?, avis_le = datetime('now')
-      WHERE id = ?`).run(sens, texte, qui, vid);
+    // Des chargés de cours ont déjà rendu le leur dans Mes cours : celui-ci
+    // s'ajoute à la liste, il ne les écrase pas.
+    if (!avisCoordination(v, qui, sens, texte, req.user?.nom || req.user?.email || null)) {
+      db.prepare(`UPDATE etudiant_valorisation
+        SET avis_sens = ?, avis_texte = ?, avis_par = ?, avis_le = datetime('now')
+        WHERE id = ?`).run(sens, texte, qui, vid);
+    }
     journaliser(vid, 'avis', req, `${sens} — ${texte.slice(0, 180)}`);
     res.json({ ok: true, etat: rafraichirEtat(vid) });
   });
@@ -8214,7 +8264,9 @@ r.post('/valorisations/lot/avis', authRequired, roleRequired(...PEUT_INSTRUIRE, 
       SET avis_sens = ?, avis_texte = ?, avis_par = ?, avis_le = datetime('now')
       WHERE id = ?`);
     db.transaction(() => {
-      for (const v of cibles) maj.run(sens, texte, auteur, v.id);
+      for (const v of cibles) {
+        if (!avisCoordination(v, auteur, sens, texte, req.user?.nom || req.user?.email || null)) maj.run(sens, texte, auteur, v.id);
+      }
     })();
     for (const v of cibles) {
       journaliser(v.id, 'avis', req,
@@ -8352,7 +8404,7 @@ r.get('/valorisations/analyse', authRequired, (req, res) => {
       date_demande: v.date_demande, date_reception: v.date_reception,
       recevable: v.recevable, recevabilite_le: v.recevabilite_le,
       motif_irrecevabilite: v.motif_irrecevabilite,
-      avis_le: v.avis_le, avis_sens: v.avis_sens,
+      avis_le: v.avis_le, avis_sens: v.avis_sens, avis_texte: v.avis_texte, avis_par: v.avis_par,
       decision_le: v.decision_le, decision_ce_date: v.decision_ce_date,
       valide_le: v.valide_le, valide_par: v.valide_par,
       notifie_le: v.notifie_le, eprom_le: v.eprom_le,
@@ -8532,6 +8584,7 @@ r.post('/valorisations/lot/recevabilite', authRequired,
       journaliser(v.id, recevable ? 'recevable' : 'irrecevable', req,
         `en série (${cibles.length} dossiers)${recevable ? '' : ` · ${motif}`}`);
       rafraichirEtat(v.id);
+      if (recevable) appelerCharges(v.id).catch(e => console.error('[avisVA]', e.message));
     }
     res.json({ ok: true, traites: cibles.length, recevable: !!recevable });
   });
@@ -9093,14 +9146,43 @@ r.delete('/valorisations/:vid', authRequired, roleRequired(...PEUT_INSTRUIRE), (
   res.json({ ok: true });
 });
 
+/* QUI REND L'AVIS SE LIT DES ATTRIBUTIONS (Charles, 2 octobre 2026 : « ce
+ * doit être automatique en fonction des attributions »). Les chargés de cours
+ * de l'UE pour l'année — à défaut, la dernière année attribuée —, ceux des
+ * cours visés d'abord, puis par volume de périodes : le premier est proposé
+ * d'office, la liste du personnel reste ouverte derrière. */
+r.get('/ue/:ueNum/charges', authRequired, (req, res) => {
+  const ueNum = Number(req.params.ueNum);
+  const annee = req.query.annee || anneeDeTravail(req);
+  const vises = new Set(String(req.query.cours || '').split(',').map(x => x.trim()).filter(Boolean));
+  let an = annee;
+  const compte = a => db.prepare(`SELECT COUNT(*) n FROM attribution WHERE ue_num = ? AND annee_scolaire = ? AND professeur_id IS NOT NULL`).get(ueNum, a).n;
+  if (!compte(an)) an = db.prepare(`SELECT MAX(annee_scolaire) a FROM attribution WHERE ue_num = ? AND annee_scolaire <= ? AND professeur_id IS NOT NULL`).get(ueNum, annee)?.a || annee;
+  const lignes = db.prepare(`SELECT p.id, p.nom, p.prenom, a.code_cours, COALESCE(a.periodes_attribuees, 0) per
+      FROM attribution a JOIN professeur p ON p.id = a.professeur_id
+     WHERE a.ue_num = ? AND a.annee_scolaire = ?`).all(ueNum, an);
+  const m = new Map();
+  for (const l of lignes) {
+    if (!m.has(l.id)) m.set(l.id, { professeur_id: l.id, nom: `${(l.nom || '').toUpperCase()} ${l.prenom || ''}`.trim(), cours: new Set(), periodes: 0, vise: false });
+    const x = m.get(l.id);
+    if (l.code_cours) x.cours.add(l.code_cours);
+    x.periodes += Number(l.per) || 0;
+    if (vises.has(l.code_cours)) x.vise = true;
+  }
+  const charges = [...m.values()].map(x => ({ ...x, cours: [...x.cours].sort() }))
+    .sort((a, b) => (b.vise - a.vise) || (b.periodes - a.periodes) || a.nom.localeCompare(b.nom, 'fr'));
+  res.json({ annee: an, charges });
+});
+
 // Cibles disponibles pour une dispense partielle : les cours et AA d'une UE
 r.get('/ue/:ueNum/composantes', authRequired, (req, res) => {
   const ueNum = Number(req.params.ueNum);
   const annee = req.query.annee;
   const cours = db.prepare(`
-    SELECT cours_code, cours_nom FROM cours
+    SELECT cours_code, MAX(cours_nom) AS cours_nom, MAX(COALESCE(cours_per, 0)) AS per,
+           MAX(COALESCE(is_stage, 0)) AS stage FROM cours
     WHERE ue_num = ? ${annee ? 'AND annee_scolaire = ?' : ''}
-    ORDER BY cours_code
+    GROUP BY cours_code ORDER BY cours_code
   `).all(...(annee ? [ueNum, annee] : [ueNum]));
   const aas = db.prepare(`
     SELECT aa_code, aa_num, cours_code, description FROM aa

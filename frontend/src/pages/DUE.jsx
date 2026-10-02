@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { OuvrirEditions } from '../components/ui.jsx';
 import {
   IconPrinter, IconDeviceFloppy, IconLock, IconLockOpen, IconArrowLeft,
   IconAlertTriangle, IconCheck, IconCircleCheck, IconPencil, IconEye, IconFileText,
@@ -148,7 +149,7 @@ function Responsable({ c, d, lecture, onChange }) {
   const parDefaut = c.responsable == null && d.responsable_propose != null;
   const nom = id => {
     const e = liste.find(x => String(x.id) === String(id));
-    return e ? `${e.prenom} ${e.nom}` : (id || '—');
+    return e ? `${(e.nom || '').toUpperCase()} ${e.prenom || ''}`.trim() : (id || '—');
   };
 
   if (lecture) {
@@ -185,7 +186,7 @@ function Responsable({ c, d, lecture, onChange }) {
                    focus:outline-none focus:ring-2 focus:ring-iip-blue/30">
         {liste.map(e => (
           <option key={e.id} value={String(e.id)}>
-            {e.prenom} {e.nom}{e.periodes ? ` — ${e.periodes} p.` : ''}
+            {(e.nom || '').toUpperCase()} {e.prenom}{e.periodes ? ` — ${e.periodes} p.` : ''}
           </option>
         ))}
       </select>
@@ -522,11 +523,8 @@ function Fiche({ ueNum, onRetour }) {
           </div>
         </div>
         <div className="flex flex-none gap-2">
-          <button onClick={imprimer}
-            className="px-3 py-1.5 text-[12px] rounded-lg border border-slate-300 text-slate-600
-                       flex items-center gap-1.5 hover:bg-slate-50">
-            <IconPrinter size={14} /> Imprimer
-          </button>
+          <OuvrirEditions titre="Imprimer ou envoyer le DUE — centre d'édition"
+            pieces={[{ cle: 'due', label: 'Document d’unité d’enseignement (DUE)', description: 'Tel qu’il est à l’écran', onClick: () => imprimer() }]} />
           {d.droits.valider && (
             <button onClick={basculerValidation} disabled={enCours}
               className={`px-3 py-1.5 text-[12px] rounded-lg font-semibold flex items-center gap-1.5
@@ -604,7 +602,7 @@ function Fiche({ ueNum, onRetour }) {
         {d.enseignants.length ? (
           <ul className="text-[13px] text-slate-700 space-y-0.5">
             {d.enseignants.map((e, i) => (
-              <li key={i}>{e.prenom} {e.nom}
+              <li key={i}>{(e.nom || '').toUpperCase()} {e.prenom}
                 {e.cours && <span className="text-slate-400"> — {e.cours}</span>}</li>
             ))}
           </ul>

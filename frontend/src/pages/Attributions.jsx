@@ -2854,7 +2854,7 @@ export default function Attributions() {
           {recrutCands && recrutCands.map(cd => (
             <button key={cd.id} onClick={()=>assignerCandidat(recrutMenu.row, cd.id)}
               className="w-full text-left px-3 py-1.5 text-sm hover:bg-green-50 flex items-center justify-between text-green-700 border-l-4 border-l-green-500">
-              <span className="truncate">{cd.prenom} {cd.nom}</span>
+              <span className="truncate">{(cd.nom || '').toUpperCase()} {cd.prenom}</span>
               <span className="text-[10px] text-gray-400 flex-shrink-0 ml-2">{cd.statut||''}</span>
             </button>
           ))}

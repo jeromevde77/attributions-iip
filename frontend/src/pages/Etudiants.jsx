@@ -1,5 +1,7 @@
 import OngletCep from '../components/OngletCep.jsx';
-import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+// LA MÊME FENÊTRE DE SÉANCE QUE L'ÉCRAN VALORISATION (2 octobre 2026) : une porte de plus, une seule réponse.
+const DeliberationVA = lazy(() => import('./Valorisations.jsx').then(m => ({ default: m.DeliberationVA })));
 import { nomPropre } from '../lib/nom.js';
 import { couleurBloc } from '../lib/blocs.js';
 import { RailLateral } from '../components/ui.jsx';
@@ -20,7 +22,7 @@ import IdentiteEtudiant, { ComplementDossiers } from '../components/IdentiteEtud
 // LE CENTRE CENTRAL. Les boutons restent où on les cherche — là où l'on
 // travaille — mais mènent désormais au même endroit.
 import CentreImpressionCentral from '../components/CentreImpressionCentral.jsx';
-import { useEchangesDuRail, Fenetre, Encadre, BulleAide } from '../components/ui.jsx';
+import { useEchangesDuRail, Fenetre, Encadre, BulleAide, BoutonEditions, OuvrirEditions } from '../components/ui.jsx';
 import PassageAnnee from '../components/PassageAnnee.jsx';
 import ComposerPAE from '../components/ComposerPAE.jsx';
 import CentreEchanges from '../components/CentreEchanges.jsx';
@@ -1575,6 +1577,11 @@ const TYPES_VA = [
 
 function Valorisations({ etudId, annee }) {
   const [valos, setValos] = useState(null);
+  const [seance, setSeance] = useState(false);
+  // INTRODUIRE UNE DEMANDE, ici aussi (2 octobre 2026) : l'onglet ne décide
+  // plus — il ouvre un dossier vide, qui suit le circuit.
+  const [demande, setDemande] = useState(null);   // { ue_num, porte } | null
+  const [demandeErr, setDemandeErr] = useState(null);
   // L'unité dont on veut les pièces. Le procès-verbal est une pièce d'UNITÉ :
   // il porte tous les étudiants valorisés dans cette unité, pas seulement
   // celui dont on a la fiche sous les yeux.
@@ -1609,7 +1616,7 @@ function Valorisations({ etudId, annee }) {
   const [sectionVA, setSectionVA] = useState('');
 
   useEffect(() => {
-    if (!form) return;
+    if (!form && !demande) return;
     const qs = new URLSearchParams({ annee });
     if (sectionVA) qs.set('section', sectionVA);
     fetch(`/api/etudiants/${etudId}/valorisations/unites?${qs}`, { headers: authHeaders() })
@@ -1622,7 +1629,7 @@ function Valorisations({ etudId, annee }) {
       })
       .catch(() => setUnites({ sections: [], unites: [] }));
     /* eslint-disable-next-line */
-  }, [!!form, sectionVA, etudId, annee]);
+  }, [!!form || !!demande, sectionVA, etudId, annee]);
   // Directeur, directeur adjoint et administrateur technique ont les mêmes
   // droits ici : comparer à la seule chaîne 'admin' en écartait la direction.
   const [estAdmin] = useState(() => {
@@ -1798,12 +1805,55 @@ function Valorisations({ etudId, annee }) {
         <p className="text-[12px] text-slate-500">
           Valorisation des acquis — AGCF du 13-12-2024 · décisions du Conseil des études
         </p>
-        <button onClick={() => setForm({ type: 'complete', ue_num: '', pourcentage: 50, cible: 'cours',
-                             cible_detail: '', equivalences: {}, decision: 'accordee' })}
+        <span className="ml-auto" />
+        <button onClick={() => setSeance(true)}
+          className="bouton bouton-fort mr-2 inline-flex items-center gap-1.5"
+          title="Instruire, décider et valider toutes les UE de cet étudiant — la même fenêtre que l'écran Valorisation">
+          <IconCertificate size={14} /> Délibérer cet étudiant
+        </button>
+        {/* L'ONGLET NE DÉCIDE PLUS (Charles, 2 octobre 2026) : il montre, il
+            introduit une demande, et il ouvre la séance. L'ancien formulaire
+            écrivait une décision à côté du circuit. */}
+        <button onClick={() => { setDemande({ ue_num: '', porte: 'va' }); setDemandeErr(null); }}
           className="flex items-center gap-1.5 px-3 py-1.5 text-sm border border-slate-300 rounded-lg">
-          <IconPlus size={14} /> Ajouter une VA
+          <IconPlus size={14} /> Introduire une demande
         </button>
       </div>
+
+      {demande && (
+        <div className="border border-slate-200 rounded-xl p-3 mb-3 flex flex-wrap items-center gap-2 text-[13px]">
+          <select value={demande.ue_num} onChange={e => setDemande(x => ({ ...x, ue_num: e.target.value }))}
+            className="controle text-[13px] max-w-[26rem]">
+            <option value="">{unites ? '— l’unité demandée —' : 'Chargement…'}</option>
+            {(unites?.unites || []).map(u => <option key={u.ue_num} value={u.ue_num}>{u.ue_num} — {u.ue_nom}</option>)}
+          </select>
+          <div className="segments">
+            {[['va', 'VA — acquis formels'], ['vae', 'VAE — expérience']].map(([v, l]) => (
+              <button key={v} type="button" onClick={() => setDemande(x => ({ ...x, porte: v }))}
+                className={`px-2.5 py-1 text-[12px] ${demande.porte === v ? 'bg-iip-blue text-white font-semibold' : 'text-slate-600'}`}>{l}</button>
+            ))}
+          </div>
+          <button className="bouton bouton-fort disabled:opacity-40" disabled={!demande.ue_num}
+            onClick={async () => {
+              setDemandeErr(null);
+              const r = await fetch('/api/etudiants/valorisations/matrice', { method: 'POST', headers: authHeaders(),
+                body: JSON.stringify({ annee, cellules: [{ etudiant_id: etudId, ue_num: Number(demande.ue_num), porte: demande.porte }] }) });
+              const j = await r.json().catch(() => ({}));
+              if (!r.ok) { setDemandeErr(j.error || 'Refusé.'); return; }
+              setDemande(null); await charger();
+            }}>Introduire</button>
+          <button className="bouton" onClick={() => setDemande(null)}>Annuler</button>
+          <span className="text-[12px] text-slate-500 basis-full">La demande s'instruit ensuite dans la séance : dates, recevabilité, avis, décision.</span>
+          {demandeErr && <span className="text-[12px] basis-full" style={{ color: 'var(--c-refuse, #9D4A38)' }}>{demandeErr}</span>}
+        </div>
+      )}
+
+      {seance && (
+        <Suspense fallback={null}>
+          <DeliberationVA mode="etudiant" annee={annee} etudInitial={etudId}
+            onClose={() => { setSeance(false); charger && charger(); }} onChange={() => charger && charger()} />
+        </Suspense>
+      )}
 
       {form && (
         <div className="border border-slate-200 rounded-xl p-4 bg-slate-50/60 space-y-3 mb-4">
@@ -2289,15 +2339,10 @@ function Valorisations({ etudId, annee }) {
                 {/* UNE ICÔNE SE MÉRITE. Celle-ci ouvrait une fenêtre entière et
                     produisait des pièces officielles : au bout d'une ligne, à
                     côté d'une corbeille, personne ne la trouvait. Un libellé. */}
-                <button onClick={() => rouvrir(v)} title="Rouvrir et corriger"
-                  className="bouton text-[12px] px-2.5 py-1">
-                  <IconWritingSign size={14} /> Modifier
-                </button>
-                <button onClick={() => setDocuments({ ue_num: v.ue_num, ue_nom: v.ue_nom })}
-                  title="Procès-verbal de valorisation et attestations — pièce de l'unité"
-                  className="bouton bouton-sortir text-[12px] px-2.5 py-1">
-                  <IconPrinter size={14} /> Documents
-                </button>
+                {/* « Modifier » est retiré : une décision se corrige dans la séance,
+                    qui garde le circuit et le journal. */}
+                <OuvrirEditions taille="petit" ongletInitial="etudiants" familleInitiale="valorisation"
+                  titre="Procès-verbal et attestations de l'unité — centre d'édition" />
                 {estAdmin && (
                   <button onClick={() => supprimer(v.id)} className="text-slate-300 hover:text-red-500">
                     <IconTrash size={15} />
@@ -2835,11 +2880,10 @@ export function FicheEtudiant({ id, annee, onClose, position, onPrec, onSuiv,
           {(onPrec || onSuiv) && portee && (
             <MenuParcourir portee={portee} onPortee={onPortee} sections={sections} ues={ues} annees={annees} />
           )}
-          <button type="button" onClick={() => setEdition(true)}
-            title="Le centre d'édition, avec les pièces de cet étudiant en tête"
-            className="bouton bouton-sortir bouton-compact inline-flex items-center gap-1.5">
-            <IconSend size={14} /> Imprimer ou envoyer
-          </button>
+          {/* L'AVION, ET RIEN D'AUTRE (2 octobre 2026) : il ouvre le centre
+              d'édition sur cet étudiant. */}
+          <BoutonEditions onClick={() => setEdition(true)}
+            titre="Imprimer ou envoyer — le centre d'édition, sur cet étudiant" />
           </div>
         </div>
         {revueFiche && (
@@ -2848,34 +2892,15 @@ export function FicheEtudiant({ id, annee, onClose, position, onPrec, onSuiv,
         )}
         {edition && (
           <CentreImpressionCentral onClose={() => setEdition(false)}
-            etudiant={{ id, nom: data?.nom, prenom: data?.prenom, id_ecampus: data?.id_ecampus }}
+            etudiant={{ id, nom: data?.nom, prenom: data?.prenom, id_ecampus: data?.id_ecampus, section_rattachement: data?.section_rattachement || null }}
             anneeEtudiant={annee} />
         )}
 
         {/* Les ACTIONS du programme, ancrées sous les onglets. Placées dans
             le contenu, elles ne pouvaient pas rester visibles : le défilement
             est porté par la fenêtre entière, non par l'onglet. */}
-              {onglet === 'parcours' && pae && !pae.erreur && (
-                <div className="sticky -top-4 z-30 bg-white border-b border-slate-200 px-5 py-1.5 flex gap-2 items-center flex-wrap">
-                  {/* COLLÉE AU BORD, PAS SOUS LA MARGE (27 septembre 2026, « le menu passe
-                    derrière ») : la zone qui défile porte 1 rem de marge haute, et un
-                    élément collant s'arrête sous cette marge — le schéma se lisait
-                    dans la bande au-dessus de la barre. -top-4 la ramène au bord. */}
-                  {/* LE PAE SE TRAVAILLE DANS LA REVUE (Charles, 2 octobre 2026 :
-                      « ceci n'a plus de sens dans cet onglet, puisque nous avons
-                      une revue des PAE »). Enregistrer et confirmer y sont réunis
-                      en un geste — Valider ; la fiche y ouvre l'étudiant. */}
-                  <button onClick={() => setRevueFiche(true)}
-                    className="bouton bouton-fort bouton-compact inline-flex items-center gap-1.5">
-                    <IconEyeCheck size={14} /> Ouvrir dans la revue des PAE
-                  </button>
-                  <span className="text-[12px] text-slate-500 ml-1">
-                    {paeConfirme
-                      ? "L'étudiant est inscrit aux unités retenues."
-                      : "Rien n'est inscrit tant que vous n'avez pas confirmé."}
-                  </span>
-                </div>
-              )}
+              {/* La barre « Ouvrir dans la revue des PAE » est retirée : la ligne
+                  d'état du parcours y mène, et la fiche ne compose plus le PAE. */}
 
         <div className="px-5 py-3">
           {/* Inscriptions + résultats */}
@@ -2989,7 +3014,23 @@ export function FicheEtudiant({ id, annee, onClose, position, onPrec, onSuiv,
                   onModifie={async () => { await chargerPAE(); await charger(); onModifie && onModifie(); }} />}
                 verso={ue => <GrilleParcours etudId={id} peutEcrire={true} annee={annee} ueFocus={ue} />} />
 
-              <div className="border-t border-slate-200 mt-4 pt-4">
+              {/* LA FICHE EST LA VUE DU PARCOURS ET DES NOTES (Charles, 2 octobre
+                  2026) : le PAE se travaille dans la revue. Il se résume ici en
+                  une ligne, et le programme détaillé se déplie au besoin. */}
+              <div className="border-t border-slate-200 mt-4 pt-3 flex flex-wrap items-center gap-2 text-[13px]">
+                <b>PAE {annee}</b>
+                {paeValide
+                  ? <span className="text-[11px] font-semibold text-white rounded-full px-2 py-px" style={{ background: 'var(--c-reussi, #3E7D5E)' }}>
+                      validé le {quandLocal(paeValide.revu_le)} par {paeValide.revu_par || '—'}</span>
+                  : <span className="text-[11px] font-semibold text-white rounded-full px-2 py-px bg-slate-400">pas encore validé</span>}
+                <span className="text-[12px] text-slate-500">{paeConfirme ? 'programme confirmé' : 'programme proposé'}</span>
+                <button type="button" className="text-[12px] underline text-iip-blue" onClick={() => setRevueFiche(true)}>ouvrir la revue</button>
+              </div>
+
+              {/* LE PROGRAMME NE SE MONTRE PLUS DANS LA FICHE (Charles, 2 octobre
+                  2026 : « tout se change dans l'œil ») : il reste monté pour la
+                  ligne d'état ci-dessus, et caché. */}
+              <div className="hidden">
               {/* Ce qui suit est une PROPOSITION tant qu'elle n'est pas
                   confirmée : le dire évite de la lire comme un état de fait,
                   maintenant que schéma et programme sont sur la même page. */}
@@ -3316,7 +3357,8 @@ export default function Etudiants() {
   const [fUE, setFUE] = useState('');             // '' | sans | avec
   const [fRatt, setFRatt] = useState('');         // '' | posee | deduite | aucune
   // Les nouveaux inscrits : aucune trace avant l'année de travail.
-  const [fPrimo, setFPrimo] = useState(false);
+  // '' tous · 'primo' les primo-arrivés · 'anciens' les autres (2 octobre 2026).
+  const [fPrimo, setFPrimo] = useState('');
   // « Doublons » : ne garder que les étudiants dont le nom+prénom (accents et
   // casse ignorés) existe sur PLUSIEURS fiches — les dossiers coupés en deux.
   const [fDoublons, setFDoublons] = useState(false);
@@ -3649,7 +3691,7 @@ export default function Etudiants() {
       .filter(e => !fRatt || (fRatt === 'aucune' ? !e.section_rattachement
         : fRatt === 'deduite' ? (e.section_rattachement && e.section_deduite)
           : (e.section_rattachement && !e.section_deduite)))
-      .filter(e => !fPrimo || e.primo);
+      .filter(e => !fPrimo || (fPrimo === 'primo' ? e.primo : !e.primo));
     if (fDoublons) {
       const cleDe = e => `${e.nom || ''}|${e.prenom || ''}`.normalize('NFD')
         .replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9|]/g, '');
@@ -4011,11 +4053,16 @@ export default function Etudiants() {
           <option value="deduite">Section déduite seulement</option>
           <option value="aucune">Aucune section</option>
         </select>
-        <label className="flex items-center gap-1.5 text-sm text-slate-600 self-center"
-          title="Aucune inscription ni valorisation avant l'année de travail">
-          <input type="checkbox" checked={fPrimo} onChange={e => setFPrimo(e.target.checked)} />
-          Primo-arrivés
-        </label>
+        {/* PRIMO OU LES AUTRES : un primo-arrivé n'a aucune inscription ni
+            valorisation avant l'année de travail ; « déjà inscrits » est
+            l'inverse exact. */}
+        <select value={fPrimo} onChange={e => setFPrimo(e.target.value)}
+          title="Primo-arrivé : aucune inscription ni valorisation avant l'année de travail"
+          className="controle text-sm">
+          <option value="">Primo et déjà inscrits</option>
+          <option value="primo">Primo-arrivés</option>
+          <option value="anciens">Déjà inscrits avant (non primo)</option>
+        </select>
         <label className="flex items-center gap-1.5 text-sm text-slate-600 self-center"
           title="Ne montrer que les étudiants dont le nom et le prénom existent sur plusieurs fiches">
           <input type="checkbox" checked={fDoublons} onChange={e => setFDoublons(e.target.checked)} />
@@ -4023,7 +4070,7 @@ export default function Etudiants() {
         </label>
         {(section || fNiveau || fUE || fRatt || fPrimo || fDoublons) && (
           <button className="text-[12px] text-iip-blue underline self-center"
-            onClick={() => { setSection(''); setFNiveau(''); setFUE(''); setFRatt(''); setFPrimo(false); setFDoublons(false); }}>
+            onClick={() => { setSection(''); setFNiveau(''); setFUE(''); setFRatt(''); setFPrimo(''); setFDoublons(false); }}>
             Tout effacer
           </button>
         )}
@@ -4094,12 +4141,10 @@ export default function Etudiants() {
             {/* LE BOUTON « IMPRIMER » NE FAISAIT RIEN : il posait un état que
                 personne ne lisait. Il ouvre le PAE des étudiants cochés —
                 tableau croisé étudiants × UE, à l'écran ou en Excel. */}
-            <button onClick={() => setRapportPAESel(true)}
-              title="Le PAE des étudiants cochés : une ligne par étudiant, une colonne par UE — imprimable ou en Excel"
-              className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-iip-blue text-white
-                         font-semibold rounded-lg">
-              <IconPrinter size={14} /> PAE des cochés
-            </button>
+            <OuvrirEditions ongletInitial="etudiants"
+              titre="Imprimer ou envoyer le PAE des étudiants cochés — centre d'édition"
+              perimetre={{ annee, pieces: ['pae'], coches: [...selEtudiants],
+                sections: [...new Set(etudiants.filter(e => selEtudiants.has(e.id)).map(e => e.section_rattachement).filter(Boolean))] }} />
             <button onClick={imprimerCoordonnees}
               title="La liste imprimable des emails, GSM et adresses des étudiants cochés"
               className="flex items-center gap-1.5 px-3 py-1.5 text-sm border border-iip-blue
@@ -4243,10 +4288,18 @@ export default function Etudiants() {
                     {e.primo && <span className="ml-1.5 text-[10px] font-semibold px-1.5 rounded bg-slate-100 text-slate-600"
                       title="Primo-arrivé : aucune trace avant l'année de travail">primo</span>}
                   </td>
-                  <td className="px-2 py-1">
-                    {e.pae_confirme
-                      ? <IconWritingSign size={15} className="text-iip-texte" title="Programme confirmé — étudiant inscrit" />
-                      : <IconWritingSignOff size={15} className="text-slate-300" title="Programme non confirmé" />}
+                  {/* LE CRAYON DIT LE PAE, ET IL L'OUVRE (Charles, 2 octobre 2026) :
+                      vert quand le PAE est validé dans la revue, gris sinon ; un
+                      clic ouvre la revue — la fenêtre « œil » — sur cet étudiant.
+                      La fiche, elle, reste la vue du parcours et des notes. */}
+                  <td className="px-2 py-1" onClick={ev => ev.stopPropagation()}>
+                    <button type="button" className="p-0.5 rounded hover:bg-slate-100"
+                      onClick={() => setRevuePAE([{ id: e.id, nom: e.nom, prenom: e.prenom,
+                        section: e.section_rattachement || null, niveau: e.niveau || null }])}
+                      title={e.pae_valide ? `PAE validé le ${quandLocal(e.pae_valide.le)} par ${e.pae_valide.par || '—'} — ouvrir la revue`
+                        : e.pae_confirme ? 'Programme confirmé, PAE pas encore validé — ouvrir la revue' : 'PAE pas encore validé — ouvrir la revue'}>
+                      <IconWritingSign size={15} style={{ color: e.pae_valide ? 'var(--c-reussi, #3E7D5E)' : '#CBD5E1' }} />
+                    </button>
                   </td>
                   <td className="px-3 py-1 whitespace-nowrap">
                     <BadgeNiveau niveau={e.niveau} libelle={e.niveau_libelle} />
@@ -4455,7 +4508,7 @@ export default function Etudiants() {
       {rapportPAE && (
         <RapportPAE anneeCourante={annee} onClose={() => setRapportPAE(false)} />
       )}
-      {revuePAE && <RevuePAE liste={revuePAE} annee={annee} onClose={() => setRevuePAE(null)} />}
+      {revuePAE && <RevuePAE liste={revuePAE} annee={annee} onClose={() => { setRevuePAE(null); charger(); }} />}
       {rapportPAESel && (
         <RapportPAE anneeCourante={annee} onClose={() => setRapportPAESel(false)}
           selection={(etudiants || []).filter(e => selEtudiants.has(e.id))

@@ -5,7 +5,7 @@ import {
   IconSquareCheck, IconArrowRight,
 } from '@tabler/icons-react';
 import { authHeaders } from '../lib/api.js';
-import { TuileEtat } from './ui.jsx';
+import { TuileEtat, OuvrirEditions } from './ui.jsx';
 import { ouvrirApercu } from '../lib/apercu.js';
 
 /**
@@ -295,13 +295,8 @@ export default function PassageAnnee({ annee, onClose, onTermine }) {
               créées. Une unité déjà inscrite n'est jamais recréée, et rien n'est supprimé.
             </p>
             <div className="flex items-center gap-2">
-              <button onClick={imprimer} disabled={enCours || !retenus.length}
-                title="Le parcours de chacun : graphe des prérequis, unités acquises, programme"
-                className="px-3 py-2 text-[13px] rounded-lg border border-slate-300
-                           text-slate-600 font-semibold flex items-center gap-1.5
-                           disabled:opacity-40">
-                <IconPrinter size={14} /> Parcours individuels
-              </button>
+              <OuvrirEditions disabled={enCours || !retenus.length} titre="Parcours individuels — centre d'édition"
+                pieces={[{ cle: 'parcours', label: 'Parcours individuels', description: 'Graphe des prérequis, unités acquises, programme — un par dossier retenu', onClick: () => imprimer() }]} />
               <button onClick={ecrire} disabled={enCours || !aCreer}
                 className="px-4 py-2 text-[13px] rounded-lg bg-emerald-600 text-white
                            font-semibold flex items-center gap-1.5 disabled:opacity-40">

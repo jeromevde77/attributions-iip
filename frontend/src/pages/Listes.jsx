@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { api, getAnnee, nomDoc } from '../lib/api.js';
+import { api, getAnnee, nomDoc, getUser } from '../lib/api.js';
 import PreviewModal from '../components/PreviewModal.jsx';
 import ListeDiplomes from '../components/ListeDiplomes.jsx';
 import { RailLateral } from '../components/ui.jsx';
@@ -15,6 +15,15 @@ import * as XLSX from 'xlsx';
 import { ouvrirApercu } from '../lib/apercu.js';
 
 // Table des composants d'icônes (référencés par nom dans ENTITES.tabler)
+/* Les colonnes privées ne se proposent qu'à qui peut les lire — le serveur,
+   de toute façon, ne les remplit pas pour les autres (2 octobre 2026). */
+function colPermise(c) {
+  const role = getUser()?.role;
+  if (c.prive) return ['admin', 'directeur', 'directeur_adjoint'].includes(role);
+  if (c.mailPrive) return ['admin', 'directeur', 'directeur_adjoint', 'secretariat', 'coordination', 'editeur'].includes(role);
+  return true;
+}
+
 const TABLER = {
   IconUser, IconBooks, IconBook, IconLink, IconSchool, IconScale,
   IconAlertTriangle, IconLayoutGrid, IconFileText, IconFileDescription,
@@ -313,13 +322,38 @@ const ENTITES = {
       { key: 'resultat',    label: 'Résultat',  defaut: false },
       { key: 'points',      label: 'Note',      defaut: false },
       { key: 'groupe',      label: 'Groupe',    defaut: false },
+      // TOUS LES CHAMPS DE LA FICHE (2 octobre 2026), à la carte.
+      { key: 'date_naissance', label: 'Né(e) le', defaut: false },
+      { key: 'lieu_naissance', label: 'Lieu de naissance', defaut: false },
+      { key: 'nationalite',  label: 'Nationalité', defaut: false },
+      { key: 'num_national', label: 'N° national', defaut: false , prive: true },
+      { key: 'email_perso',  label: 'E-mail privé', defaut: false , mailPrive: true },
+      { key: 'gsm',          label: 'GSM',       defaut: false },
+      { key: 'adresse',      label: 'Adresse',   defaut: false , prive: true },
+      { key: 'cp',           label: 'CP',        defaut: false , prive: true },
+      { key: 'localite',     label: 'Localité',  defaut: false , prive: true },
+      { key: 'titre',        label: 'Titre d’accès', defaut: false },
+      { key: 'matricule_helb', label: 'Matricule HELB', defaut: false },
+      { key: 'section_posee', label: 'Section posée', defaut: false },
+      { key: 'sle',          label: 'SLE',       defaut: false },
+      { key: 'di_exonere',   label: 'DI exonéré', defaut: false },
+      { key: 'di_motif',     label: 'Motif DI',  defaut: false },
+      { key: 'dis_soumis',   label: 'DIS',       defaut: false },
+      { key: 'dis_motif_exemption', label: 'Exemption DIS', defaut: false },
+      { key: 'dis_periodes_hebdo', label: 'Pér./sem. (DIS)', defaut: false },
+      { key: 'sortie_statut', label: 'Sortie', defaut: false },
+      { key: 'sortie_le',    label: 'Sortie le', defaut: false },
+      { key: 'sortie_motif', label: 'Motif de sortie', defaut: false },
+      { key: 'cree_le',      label: 'Fiche créée le', defaut: false },
+      { key: 'id_lucie',     label: 'N° Lucie',  defaut: false },
     ],
     fetch: (annee, filtres) => {
       let url = `/api/listes/etudiants?annee=${encodeURIComponent(annee)}`;
       for (const k of ['section', 'ue_num', 'cours_code', 'niveau_etu']) {
         if (filtres[k]) url += `&${k}=${encodeURIComponent(filtres[k])}`;
       }
-      if (filtres.primo) url += '&primo=1';
+      if (filtres.primo === true || filtres.primo === 'primo') url += '&primo=1';
+      else if (filtres.primo === 'anciens') url += '&primo=0';
       return authFetch(url).then(d => {
         const toutes = d.lignes || [];
         /* LES GROUPES D'UN COURS (1er octobre 2026, UE 333) : un étudiant peut
@@ -1478,8 +1512,6 @@ export default function Listes({ integre = false, domaine = null }) {
         titre="Listes & rapports"
         sections={[
           { label: 'Documents', items: [
-            { key: 'attestation', label: 'Attestation réussite', icon: IconFileText, actif: false,
-              onClick: () => navigate('/attestation') },
             // La liste réclamée par la Fédération en fin de cycle : elle se
             // tapait à la main dans un Word recopié d'année en année.
             { key: 'diplomes', label: 'Étudiants diplômés', icon: IconCertificate, actif: false,
@@ -1599,12 +1631,15 @@ export default function Listes({ integre = false, domaine = null }) {
             </>
           )}
           {def.filtres.includes('primo') && (
-            <label className="flex items-center gap-2 text-sm text-slate-600"
-              title="Aucune inscription ni valorisation avant l'année choisie">
-              <input type="checkbox" checked={!!filtres.primo}
-                onChange={e => setFiltres(f => ({ ...f, primo: e.target.checked }))} />
-              Primo-arrivés
-            </label>
+            /* PRIMO OU LES AUTRES (2 octobre 2026) : l'inverse exact se choisit aussi. */
+            <select value={filtres.primo === true ? 'primo' : (filtres.primo || '')}
+              onChange={e => setFiltres(f => ({ ...f, primo: e.target.value }))}
+              title="Primo-arrivé : aucune inscription ni valorisation avant l'année choisie"
+              className="controle text-sm">
+              <option value="">Primo et déjà inscrits</option>
+              <option value="primo">Primo-arrivés</option>
+              <option value="anciens">Déjà inscrits avant (non primo)</option>
+            </select>
           )}
           {def.filtres.includes('niveau_etu') && (
             <label className="flex items-center gap-2">
@@ -1815,6 +1850,27 @@ export default function Listes({ integre = false, domaine = null }) {
               <b>{rows.length}</b> résultat{rows.length > 1 ? 's' : ''} · {def.label} · {annee}
               {filtres.section && <span className="ml-1 font-medium text-iip-turquoise">· {filtres.section}</span>}
             </div>
+            {/* LES COLONNES, AU-DESSUS DU TABLEAU ET SUR UNE LIGNE (Charles,
+                2 octobre 2026 : « mettre cette barre au-dessus… plus simple »). */}
+            {def.cols.length > 0 && (
+              <div className="flex flex-wrap items-center gap-1 mb-2">
+                <span className="text-[11px] font-semibold text-slate-500 mr-1">Colonnes</span>
+                {def.cols.filter(colPermise).map(c => (
+                  <button key={c.key} onClick={() => toggleCol(c.key)}
+                    className={`text-[11px] px-2 py-0.5 rounded border transition ${
+                      colsActives.has(c.key)
+                        ? 'bg-iip-blue text-white border-iip-blue font-semibold'
+                        : 'border-slate-300 text-slate-500 hover:border-iip-blue hover:text-iip-blue'
+                    }`}>
+                    {c.label}
+                  </button>
+                ))}
+                <button onClick={() => setColsActives(new Set(def.cols.filter(colPermise).map(c => c.key)))}
+                  className="text-[11px] text-slate-500 underline ml-1">tout</button>
+                <button onClick={() => setColsActives(new Set(def.cols.filter(c => c.defaut).map(c => c.key)))}
+                  className="text-[11px] text-slate-500 underline">par défaut</button>
+              </div>
+            )}
             <div className="bg-white rounded-lg border border-slate-200 overflow-auto">
               <table className="w-full text-sm border-collapse">
                 <thead className="sticky top-0 bg-slate-50 z-10">
@@ -1840,30 +1896,6 @@ export default function Listes({ integre = false, domaine = null }) {
                 </tbody>
               </table>
             </div>
-            {/* Colonnes — badges cliquables */}
-            {def.cols.length > 0 && (
-              <div className="mt-3 pt-3 border-t border-gray-100">
-                <div className="flex items-center gap-2 mb-2">
-                  <span className="text-xs font-bold text-gray-400 uppercase tracking-widest">Colonnes</span>
-                  <button onClick={() => setColsActives(new Set(def.cols.map(c => c.key)))}
-                    className="text-[10px] text-iip-turquoise hover:underline">Tout</button>
-                  <button onClick={() => setColsActives(new Set(def.cols.filter(c => c.defaut).map(c => c.key)))}
-                    className="text-[10px] text-gray-400 hover:underline">Par défaut</button>
-                </div>
-                <div className="flex flex-wrap gap-1.5">
-                  {def.cols.map(c => (
-                    <button key={c.key} onClick={() => toggleCol(c.key)}
-                      className={`text-xs px-2.5 py-1 rounded-champ border font-medium transition ${
-                        colsActives.has(c.key)
-                          ? 'bg-iip-blue text-white border-iip-blue'
-                          : 'border-gray-300 text-gray-400 hover:border-iip-blue hover:text-iip-blue'
-                      }`}>
-                      {c.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
           </div>
         )}
       </div>

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { OuvrirEditions } from './ui.jsx';
 import {
   IconAlertTriangle, IconPrinter, IconX, IconFileTypePdf,
 } from '@tabler/icons-react';
@@ -171,11 +172,8 @@ export default function Annexe2({ etudId, annee, onClose }) {
             <IconFileTypePdf size={15} /> {enCours ? 'Génération…' : 'PDF'}
           </button>
         )}
-        <button onClick={() => produire(false)} disabled={enCours || !donnees}
-          className="flex items-center gap-1.5 px-4 py-2 text-sm bg-iip-blue text-white
-                     font-semibold rounded-lg disabled:opacity-40">
-          <IconPrinter size={15} /> Imprimer
-        </button>
+        <OuvrirEditions disabled={enCours || !donnees} titre="Imprimer ou envoyer l'annexe 2 — centre d'édition"
+          pieces={[{ cle: 'annexe2', label: 'Annexe 2 — progrès des études', description: 'Telle qu’elle est complétée ici', onClick: () => produire(false) }]} />
         </div>
 
         <p className="text-[11px] text-slate-500">
