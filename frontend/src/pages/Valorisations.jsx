@@ -4293,11 +4293,13 @@ function DeciderParEtudiant({ annee, onClose, onChange }) {
     for (const d of dossiers || []) {
       if (!m.has(d.etudiant_id)) {
         m.set(d.etudiant_id, { id: d.etudiant_id, nom: d.nom, prenom: d.prenom,
-          id_ecampus: d.id_ecampus, section: d.section, n: 0, aDecider: 0 });
+          id_ecampus: d.id_ecampus, section: d.section, n: 0, aDecider: 0, aValider: 0, valides: 0 });
       }
       const e = m.get(d.etudiant_id);
       e.n += 1;
       if (!MOTS_ETAT_BLOQUANT(d) && !d.decision_le) e.aDecider += 1;
+      if (d.pret_a_valider) e.aValider += 1;
+      if (d.valide_le) e.valides += 1;
     }
     const t = q.trim().toLowerCase();
     return [...m.values()]
@@ -4471,26 +4473,7 @@ function DeciderParEtudiant({ annee, onClose, onChange }) {
       titre="Instruire et décider par étudiant"
       sous={etud ? `${(etud.nom || '').toUpperCase()} ${etud.prenom || ''} — toutes ses demandes : recevabilité, avis, décision, validation`
         : 'Toutes les unités d’un même dossier, dans une même séance'}
-      pied={<>
-        {peutValider && !retenues.length && aValider.length > 0 && !fait?.valides ? (
-          <button className="bouton bouton-fort disabled:opacity-40" disabled={enCours}
-            onClick={valider}>
-            {enCours ? 'Validation…' : `Valider ${aValider.length} dossier(s)`}
-          </button>
-        ) : (
-          <button className="bouton bouton-fort disabled:opacity-40" disabled={!!manque || enCours}
-            onClick={enregistrer}>
-            {enCours ? 'Enregistrement…' : `Enregistrer ${retenues.length || ''} décision(s)`}
-          </button>
-        )}
-        <span className="text-[12px] text-slate-500 min-w-0">
-          {fait?.valides ? `${fait.valides} dossier(s) validé(s).`
-            : fait ? `${fait.ids.length} décision(s) enregistrée(s), séance du ${dateCE}.`
-              + (peutValider ? ' Vous pouvez les valider.' : ' La validation revient à la direction.')
-              : manque}
-        </span>
-        <button className="bouton ml-auto" onClick={onClose}>Fermer</button>
-      </>}>
+      >
 
       {erreur && (
         <div className="carte p-3 text-[12px] text-rose-700 mb-3">
@@ -4523,8 +4506,13 @@ function DeciderParEtudiant({ annee, onClose, onChange }) {
                         <span className="text-slate-400"> · {e.id_ecampus}{e.section ? ` · ${e.section}` : ''}</span>
                       </span>
                       <span className="text-[11px] text-slate-500 tabular-nums flex-none">
-                        {e.n} unité(s){e.aDecider ? ` · ${e.aDecider} à décider` : ''}
+                        {e.n} unité(s){e.aDecider ? ` · ${e.aDecider} à décider` : ''}{e.aValider ? ` · ${e.aValider} à valider` : ''}
                       </span>
+                      {e.valides === e.n && e.n > 0 && (
+                        <span className="inline-grid place-items-center w-4 h-4 rounded-full text-white flex-none"
+                          style={{ background: 'var(--c-reussi, #3E7D5E)' }} title="Toutes ses dispenses sont validées">
+                          <IconCheck size={11} stroke={3} /></span>
+                      )}
                       <IconChevronRight size={14} className="text-slate-300 flex-none" />
                     </button>
                   ))}
@@ -4533,8 +4521,42 @@ function DeciderParEtudiant({ annee, onClose, onChange }) {
         </div>
       ) : (
         <div className="space-y-3">
+          {/* LES DEUX GESTES EN TÊTE, JAMAIS AU PIED (Charles, 2 octobre 2026 :
+              « il manque la manière de valider toutes les dispenses PAR
+              étudiant »). Le bouton de validation n'apparaissait qu'au pied,
+              et seulement une fois tout enregistré : on ne le voyait pas. Il
+              est là, toujours, et quand il est gris il dit pourquoi. */}
+          {(() => {
+            const nonPrets = lignes.filter(d => !d.valide_le && !d.pret_a_valider && !MOTS_ETAT_BLOQUANT(d));
+            const valides = lignes.filter(d => d.valide_le).length;
+            const raisonValider = !peutValider ? 'La validation revient à la direction et à la direction adjointe.'
+              : retenues.length ? 'Enregistrez d’abord les décisions modifiées.'
+                : !aValider.length ? (valides === lignes.length && lignes.length ? 'Toutes les dispenses de cet étudiant sont validées.'
+                  : nonPrets.length ? `Pas encore prêt — ${nonPrets.slice(0, 3).map(d => `UE ${d.ue_num} : ${(d.manques || [])[0] || 'à instruire'}`).join(' · ')}${nonPrets.length > 3 ? ' …' : ''}`
+                    : 'Aucun dossier à valider.')
+                  : null;
+            return (
+              <div className="flex flex-wrap items-center gap-2 pb-3 border-b border-slate-200">
+                <button className="bouton" onClick={() => setEtudId(null)}>← Autre étudiant</button>
+                <span className="text-[12px] text-slate-500">{lignes.length} unité(s) · {valides} validée(s)</span>
+                <span className="ml-auto" />
+                <button className="bouton bouton-fort disabled:opacity-40" disabled={!!manque || enCours} onClick={enregistrer}
+                  title={manque || ''}>
+                  {enCours ? 'Enregistrement…' : `Enregistrer ${retenues.length || ''} décision(s)`}</button>
+                <button className="bouton font-semibold disabled:opacity-40" disabled={!!raisonValider || enCours} onClick={valider}
+                  style={raisonValider ? undefined : { background: 'var(--c-reussi, #3E7D5E)', borderColor: 'var(--c-reussi, #3E7D5E)', color: '#fff' }}
+                  title={raisonValider || ''}>
+                  <IconCheck size={14} className="inline -mt-0.5 mr-1" />
+                  {enCours ? 'Validation…' : `Valider ${aValider.length ? `les ${aValider.length} ` : 'les '}dispense(s) de l’étudiant`}</button>
+                <div className="basis-full text-[12px] text-slate-500 text-right min-w-0">
+                  {fait?.valides ? `${fait.valides} dossier(s) validé(s).`
+                    : fait ? `${fait.ids.length} décision(s) enregistrée(s), séance du ${dateCE}.` + (peutValider ? ' Vous pouvez les valider.' : ' La validation revient à la direction.')
+                      : (manque && retenues.length ? manque : raisonValider) || ''}
+                </div>
+              </div>
+            );
+          })()}
           <div className="flex flex-wrap items-end gap-3">
-            <button className="bouton" onClick={() => setEtudId(null)}>← Autre étudiant</button>
             <label className="text-[12px] text-slate-600">
               <span className="block mb-0.5">Date de la séance du Conseil</span>
               <input type="date" value={dateCE} onChange={e => setDateCE(e.target.value)}
