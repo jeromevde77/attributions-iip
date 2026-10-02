@@ -6,7 +6,7 @@ import { RailLateral } from '../components/ui.jsx';
 import SuiviEtudiant from '../components/SuiviEtudiant.jsx';
 import NouvelEtudiant from '../components/NouvelEtudiant.jsx';
 import {
-  IconAddressBook, IconAlertTriangle, IconEyeCheck, IconArrowForwardUp, IconArchive, IconDoorExit, IconSchool, IconArrowBackUp, IconAward, IconCertificate, IconStairsUp, IconUserPlus, IconCheck, IconChecklist, IconChevronLeft, IconChevronRight, IconClock, IconFileText, IconFolder, IconPlus, IconPrinter, IconSearch, IconTable, IconTrash, IconUpload, IconUser, IconSend, IconWritingSign, IconWritingSignOff, IconX,
+  IconAddressBook, IconAlertTriangle, IconEyeCheck, IconTablePlus, IconArrowForwardUp, IconArchive, IconDoorExit, IconSchool, IconArrowBackUp, IconAward, IconCertificate, IconStairsUp, IconUserPlus, IconCheck, IconChecklist, IconChevronLeft, IconChevronRight, IconClock, IconFileText, IconFolder, IconPlus, IconPrinter, IconSearch, IconTable, IconTrash, IconUpload, IconUser, IconSend, IconWritingSign, IconWritingSignOff, IconX,
   IconChecks, IconLock
 } from '@tabler/icons-react';
 import { authHeaders, getAnnee, getUser } from '../lib/api.js';
@@ -256,6 +256,22 @@ function RevuePAE({ liste: base, annee: anneeDepart, onClose }) {
     if (!cur) return;
     setEnCours('revu'); setErreur(null);
     try {
+      /* VALIDER CONFIRME LE PROGRAMME (Charles, 2 octobre 2026) : un seul geste,
+         celui de la revue — l'étudiant est inscrit aux unités du PAE affiché,
+         puis la validation est signée. Une dérogation demande son motif ; un
+         refus du serveur arrête tout, rien n'est validé à moitié. */
+      if (revu && d) {
+        const ues = d.ues.map(u => u.ue_num);
+        const appel = corps => fetch(`/api/etudiants/${cur.id}/pae/confirmer`, { method: 'POST', headers: authHeaders(),
+          body: JSON.stringify({ annee, ues, ...corps }) }).then(async x => ({ x, j: await x.json().catch(() => ({})) }));
+        let { x, j } = await appel({});
+        if (x.status === 409 && j.refus?.length) {
+          const motifs = demanderMotifs(j.refus);
+          if (!motifs) return;
+          ({ x, j } = await appel({ motifs }));
+        }
+        if (!x.ok) throw new Error(j.error || 'La confirmation du programme a été refusée.');
+      }
       const r = await fetch(`/api/etudiants/${cur.id}/revue-pae/revu`, { method: 'PUT', headers: authHeaders(),
         body: JSON.stringify({ annee, revu }) });
       const j = await r.json().catch(() => ({}));
@@ -2405,6 +2421,7 @@ export function FicheEtudiant({ id, annee, onClose, position, onPrec, onSuiv,
   const [enregistrement, setEnregistrement] = useState(false);
   const [paeConfirme, setPaeConfirme] = useState(false);
   const [paeValide, setPaeValide] = useState(null);   // la validation de la revue des PAE
+  const [revueFiche, setRevueFiche] = useState(false);
   const [sectionForcee, setSectionForcee] = useState('');
 
   // LES FLÈCHES DU CLAVIER, mais jamais pendant qu'on écrit : dans un champ de
@@ -2722,6 +2739,10 @@ export function FicheEtudiant({ id, annee, onClose, position, onPrec, onSuiv,
           </button>
           </div>
         </div>
+        {revueFiche && (
+          <RevuePAE liste={[{ id, nom: data?.nom, prenom: data?.prenom, section: data?.section_rattachement || null, niveau: null }]}
+            annee={annee} onClose={() => { setRevueFiche(false); chargerPAE(); charger && charger(); }} />
+        )}
         {edition && (
           <CentreImpressionCentral onClose={() => setEdition(false)}
             etudiant={{ id, nom: data?.nom, prenom: data?.prenom, id_ecampus: data?.id_ecampus }}
@@ -2737,22 +2758,14 @@ export function FicheEtudiant({ id, annee, onClose, position, onPrec, onSuiv,
                     derrière ») : la zone qui défile porte 1 rem de marge haute, et un
                     élément collant s'arrête sous cette marge — le schéma se lisait
                     dans la bande au-dessus de la barre. -top-4 la ramène au bord. */}
-                  <button onClick={enregistrerPAE} disabled={enregistrement}
-                    className="bouton bouton-fort bouton-compact">
-                    <IconCheck size={14} />
-                    {enregistrement ? 'Enregistrement…' : 'Enregistrer le PAE'}
+                  {/* LE PAE SE TRAVAILLE DANS LA REVUE (Charles, 2 octobre 2026 :
+                      « ceci n'a plus de sens dans cet onglet, puisque nous avons
+                      une revue des PAE »). Enregistrer et confirmer y sont réunis
+                      en un geste — Valider ; la fiche y ouvre l'étudiant. */}
+                  <button onClick={() => setRevueFiche(true)}
+                    className="bouton bouton-fort bouton-compact inline-flex items-center gap-1.5">
+                    <IconEyeCheck size={14} /> Ouvrir dans la revue des PAE
                   </button>
-                  <button onClick={confirmerPAE} disabled={enregistrement}
-                    title={paeConfirme
-                      ? 'Retirer la confirmation — les inscriptions sont conservées'
-                      : "Confirmer le programme : l'étudiant passe en inscrit"}
-                    className="bouton bouton-compact">
-                    <IconWritingSign size={14} />
-                    {paeConfirme ? 'Programme confirmé' : 'Confirmer le programme'}
-                  </button>
-                  {/* Le menu « Documents » a rejoint le centre d'édition : bouton
-                      « Imprimer ou envoyer », au bout de la rangée d'onglets. */}
-
                   <span className="text-[12px] text-slate-500 ml-1">
                     {paeConfirme
                       ? "L'étudiant est inscrit aux unités retenues."
@@ -3791,7 +3804,7 @@ export default function Etudiants() {
         /* LE MÊME ESCALIER, UN OUTIL PLUS LARGE (21 septembre 2026) : la
            grille de composition, dont le passage d'année n'est plus qu'un
            des gestes. On garde l'icône — c'est celle que Charles cherche. */
-        icon: IconStairsUp, onClick: () => setComposer('composer') },
+        icon: IconTablePlus, onClick: () => setComposer('composer') },
       // LES REPORTS D'OFFICE (27 septembre 2026) : se posent seuls à chaque PAE
       // enregistré ; cette entrée rattrape les PAE composés avant.
       { key: 'reports', label: 'Reports de notes', icon: IconArrowForwardUp,
@@ -3819,6 +3832,17 @@ export default function Etudiants() {
     // filet, à la même place que sur Personnel et Organisation. L'écran dit
     // seulement COMMENT l'ouvrir.
   ];
+
+  /* UN OUTIL DEMANDÉ DEPUIS LE SOUS-MENU « PARCOURS » D'UN AUTRE ÉCRAN : l'axe
+     ouvre celui-ci et laisse la clé ; on lance l'outil une fois la liste là. */
+  useEffect(() => {
+    let cle = null;
+    try { cle = sessionStorage.getItem('lucie.outil'); } catch { /* */ }
+    if (!cle || !etudiants) return;
+    try { sessionStorage.removeItem('lucie.outil'); } catch { /* */ }
+    for (const sec of RAIL) for (const it of sec.items || []) if (it.key === cle) { it.onClick?.(); return; }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [etudiants]);
 
   return (
     <div className="relative" style={{ minHeight: 'calc(100vh - 64px)' }}>
