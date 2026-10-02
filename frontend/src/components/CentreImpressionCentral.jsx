@@ -261,7 +261,26 @@ function CadreListes({ domaine = null }) {
   );
 }
 
-function OngletRapports({ domaine }) {
+/* LISTES ET RAPPORTS — UNE SEULE FAMILLE POUR TOUT CE QUI EST TABLEAU
+   (projet validé par Charles, 2 octobre 2026). Une seule colonne : ce qui est
+   prêt à imprimer (le catalogue des rapports), puis ce qu'on compose (le
+   générateur de listes). À droite, l'outil de l'entrée choisie. */
+function ListesEtRapports({ domaine }) {
+  const [catalogue, setCatalogue] = useState(null);
+  useEffect(() => {
+    fetch('/api/rapports/catalogue', { headers: authHeaders() })
+      .then(r => r.json()).then(j => setCatalogue((j.rapports || []).filter(r => r.domaine === domaine)))
+      .catch(() => setCatalogue([]));
+  }, [domaine]);
+  return (
+    <Suspense fallback={<div className="p-6 text-[13px] text-slate-400">Chargement…</div>}>
+      <Listes integre domaine={domaine} rapports={catalogue || []}
+        renduRapport={r => <OngletRapports key={r.id} domaine={domaine} sansListe rapportId={r.id} />} />
+    </Suspense>
+  );
+}
+
+function OngletRapports({ domaine, sansListe = false, rapportId = null }) {
   /* L'ANNÉE SE CHOISIT ICI. Le centre reprenait l'année de travail sans
      jamais la montrer : pour sortir la charge de l'an dernier — ce que
      demandent la dotation, le COPIL et l'AEQES —, il fallait changer l'année
@@ -391,6 +410,14 @@ function OngletRapports({ domaine }) {
 
   const liste = useMemo(
     () => (catalogue || []).filter(r => r.domaine === domaine), [catalogue, domaine]);
+  // CHOISI DE L'EXTÉRIEUR (« Listes et rapports ») : on l'ouvre d'emblée.
+  const ouvertExterne = useRef(false);
+  useEffect(() => {
+    if (!rapportId || ouvertExterne.current || !catalogue) return;
+    const r = catalogue.find(x => x.id === rapportId);
+    if (r) { ouvertExterne.current = true; voir(r); }
+    // eslint-disable-next-line
+  }, [catalogue, rapportId]);
 
   // LES UNITÉS PROPOSÉES — une seule liste, filtrée une seule fois : la
   // section choisie, puis le tronc commun. Deux endroits qui filtrent
@@ -504,7 +531,7 @@ function OngletRapports({ domaine }) {
 
   return (
     <div className="flex min-h-0 flex-1">
-      <div className="w-[340px] border-r border-slate-200 overflow-auto p-2 space-y-1">
+      <div className={`w-[340px] border-r border-slate-200 overflow-auto p-2 space-y-1 ${sansListe ? 'hidden' : ''}`}>
         {/* UNE LISTE SE PARCOURT, UNE FICHE SE LIT.
             Chaque entrée portait son libellé ET une phrase entière d'aide, en
             11 px, dans une colonne de 340 px : trois à quatre lignes de gris
@@ -1999,13 +2026,9 @@ export default function CentreImpressionCentral({ ongletInitial = 'etudiants',
                 className={famille === 'diplomes' ? 'on' : ''}>
                 Diplômes et titres
               </button>
-              <button onClick={() => setFamille('rapports')}
-                className={famille === 'rapports' ? 'on' : ''}>
-                Rapports
-              </button>
               <button onClick={() => setFamille('listes')}
-                className={famille === 'listes' ? 'on' : ''}>
-                Listes
+                className={famille === 'listes' || famille === 'rapports' ? 'on' : ''}>
+                Listes et rapports
               </button>
             </span>
             {/* UN ÉTUDIANT — TOUTES SES PIÈCES, depuis n'importe quelle famille. */}
@@ -2021,8 +2044,7 @@ export default function CentreImpressionCentral({ ongletInitial = 'etudiants',
             : famille === 'dossiers' ? <OngletEtudiants perimetre={perimetre} mode="dossiers" />
             : famille === 'valorisation' ? <OngletValorisation />
             : famille === 'diplomes' ? <CentreDiplomation annee={getAnnee()} integre onClose={onClose} />
-            : famille === 'listes' ? <CadreListes domaine="etudiants" />
-            : <OngletRapports domaine="etudiants" />}
+            : <ListesEtRapports domaine="etudiants" />}
         </>
       ) : (
         /* CHAQUE AXE PORTE SES DEUX FAMILLES, ET LE GÉNÉRATEUR N'EST PLUS UN
@@ -2041,20 +2063,14 @@ export default function CentreImpressionCentral({ ongletInitial = 'etudiants',
                   Pièces par membre
                 </button>
               )}
-              <button onClick={() => setFamille('rapports')}
-                className={famille === 'listes' || (onglet === 'personnel' && famille === 'pieces') ? '' : 'on'}>
-                Rapports
-              </button>
               <button onClick={() => setFamille('listes')}
-                className={famille === 'listes' ? 'on' : ''}>
-                Listes
+                className={onglet === 'personnel' && famille === 'pieces' ? '' : 'on'}>
+                Listes et rapports
               </button>
             </span>
           </div>
           {onglet === 'personnel' && famille === 'pieces' ? <OngletPersonnel onClose={onClose} membreInitial={membreInitial} outilsMembre={outilsMembre} />
-            : famille === 'listes'
-            ? <CadreListes domaine={onglet} />
-            : <OngletRapports domaine={onglet} />}
+            : <ListesEtRapports key={onglet} domaine={onglet} />}
         </>
       )}
     </Fenetre>

@@ -1,7 +1,7 @@
 import { useEffect, useState, lazy, Suspense } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { api, getAnnee, setAnnee as setAnneeActive, getUser } from '../lib/api.js';
-import { chargerCouleurs, echelleGris, poser as poserCouleurs, poserGris, variables as variablesCouleurs } from '../lib/couleurs.js';
+import { ORIGINE, chargerCouleurs, echelleGris, poser as poserCouleurs, poserGris, variables as variablesCouleurs } from '../lib/couleurs.js';
 import Audit from './Audit.jsx';
 import { IconAdjustments, IconAward, IconBooks, IconBuilding, IconCalendar, IconCalendarEvent, IconChartBar, IconCheck, IconChevronRight, IconDownload, IconFileText, IconHistory, IconLink, IconScale, IconSettings, IconSparkles, IconUserShield, IconUsers, IconX, IconGavel, IconPlus, IconTrash, IconGripVertical, IconEdit, IconMail, IconPalette, IconArchive, IconAlertTriangle, IconShieldLock, IconDatabase, IconHierarchy, IconArrowsSplit, IconTool, IconSchool, IconStairsUp, IconCalculator, IconLinkOff, IconSend } from '@tabler/icons-react';
 import { PageHeader, RailLateral, TuileEtat, PastilleEtat, Encadre } from '../components/ui.jsx';
@@ -2351,7 +2351,7 @@ const THEMES = [
                reussi: '#4FA64A', faveur: '#8E4F9A', disponible: '#3F7FD0', attente: '#F0922E', refuse: '#E0564F',
                ba1: '#F9B619', ba2: '#05B7E6', ba3: '#16406A', epreuve: '#C9A227',
                fond_page: '#FFFFFF', fond_indispo: '#F4F5F7' } },
-  { cle: 'origine', nom: "Lucie d'origine", texte: 'Gris ardoise, états sobres.', gris: 'ardoise', valeurs: {} },
+  { cle: 'origine', nom: "Lucie d'origine", texte: 'Gris ardoise, états sobres.', gris: 'ardoise', valeurs: ORIGINE },
   { cle: 'clair', nom: 'Gris clair', texte: 'Gris neutre, sans bleu ; états sobres.', gris: 'neutre',
     valeurs: { fond_page: '#F4F5F7', fond_indispo: '#ECEEF1' } },
   { cle: 'vif', nom: 'Gris clair et vif', texte: 'Gris neutre ; états plus francs, plus gais.', gris: 'neutre',

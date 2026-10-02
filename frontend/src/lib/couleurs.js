@@ -19,12 +19,21 @@ import { authHeaders } from './api.js';
  * réglées.
  */
 
-export const DEFAUT = {
-  iip_bleu: '#19537E', iip_or: '#F9B619', iip_cyan: '#05B7E6',
+/* LE DÉFAUT EST LA MAISON IIP (3.0.2, Charles : « tu n'as pas mis Maison IIP
+   de base »). « Lucie d'origine » reste un thème qu'on peut rappeler. */
+export const ORIGINE = {
   principal: '#1B2B4B', accent: '#00AACC', texte: '#1B2B4B', donnees: '#00AACC', menu_sombre: '#0F1A2E',
   iip: '#1B2B4B', helb: '#DB2777', ct: '#1D4ED8', pp: '#047857',
   reussi: '#3E7D5E', faveur: '#6B46C1', disponible: '#2F6FB0', attente: '#B45309', refuse: '#9D4A38',
   ba1: '#E8890C', ba2: '#7FB3D5', ba3: '#1B2B4B', epreuve: '#C9A84C',
+};
+
+export const DEFAUT = {
+  iip_bleu: '#19537E', iip_or: '#F9B619', iip_cyan: '#05B7E6',
+  principal: '#16406A', accent: '#0A8FBF', texte: '#16406A', donnees: '#0A8FBF', menu_sombre: '#0F2A47',
+  iip: '#16406A', helb: '#D14F8A', ct: '#2F6FB0', pp: '#2E8F6E',
+  reussi: '#4FA64A', faveur: '#8E4F9A', disponible: '#3F7FD0', attente: '#F0922E', refuse: '#E0564F',
+  ba1: '#F9B619', ba2: '#05B7E6', ba3: '#16406A', epreuve: '#C9A227',
   fond_page: '#FFFFFF', fond_indispo: '#F4F5F7',
 };
 
