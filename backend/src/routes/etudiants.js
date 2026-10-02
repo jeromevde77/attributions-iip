@@ -2485,10 +2485,16 @@ export function sectionRattachement(etudId, annee = null) {
 // ── Confirmer le programme d'un étudiant ───────────────────────────────────
 // Tant que le PAE n'est pas confirmé, il n'est qu'une PROPOSITION. La
 // confirmation le fige et fait passer l'étudiant en « inscrit ».
+/* LA COORDINATION COMPOSE, CONFIRME ET VALIDE LES PAE DE SES SECTIONS (Charles,
+   2 octobre 2026 : « la coordination doit être oui pour tous ces gestes »).
+   Exception explicite à la règle « un coordinateur n'écrit jamais directement »,
+   comme la valorisation — et le périmètre se pose sur chaque porte. */
+const PEUT_COMPOSER_PAE = ['admin', 'directeur', 'directeur_adjoint', 'editeur', 'secretariat', 'coordination'];
 r.post('/:id/pae/confirmer', authRequired,
-       roleRequired('admin', 'directeur', 'directeur_adjoint', 'editeur', 'secretariat'),
+       roleRequired(...PEUT_COMPOSER_PAE),
        (req, res) => {
   const etudId = Number(req.params.id);
+  if (!etudiantPermis(req, res, etudId)) return;
   const { annee, ues } = req.body || {};
   if (!annee) return res.status(400).json({ error: 'annee requise' });
 
@@ -3432,7 +3438,7 @@ export function revuePAE(etudId, annee) {
    · Elle ne le connaît pas (notes jamais importées) : la note du cours est
      saisie, et vaut pour chacun de ses acquis.
    Une note déjà encodée cette année pour un acquis n'est jamais écrasée. */
-const PEUT_REPORTER = ['admin', 'directeur', 'directeur_adjoint', 'editeur'];
+const PEUT_REPORTER = ['admin', 'directeur', 'directeur_adjoint', 'editeur', 'coordination'];
 r.put('/:id/revue-pae/report', authRequired, roleRequired(...PEUT_REPORTER), (req, res) => {
   const id = Number(req.params.id);
   if (!etudiantPermis(req, res, id)) return;
@@ -4097,7 +4103,7 @@ r.get('/pae-grille', authRequired, (req, res) => {
  * se valide pas — il n'y aurait rien à signer.
  */
 r.post('/pae-valider-lot', authRequired,
-       roleRequired('admin', 'directeur', 'directeur_adjoint', 'editeur', 'secretariat'), (req, res) => {
+       roleRequired(...PEUT_COMPOSER_PAE), (req, res) => {
   const { section, annee, etudiants, retirer } = req.body || {};
   if (!section || !annee || !Array.isArray(etudiants) || !etudiants.length) {
     return res.status(400).json({ error: 'section, annee et étudiants requis' });
@@ -4636,7 +4642,7 @@ r.post('/doubles-programmes', authRequired,
 });
 
 r.post('/pae-modifier', authRequired,
-       roleRequired('admin', 'directeur', 'directeur_adjoint', 'editeur', 'secretariat'), (req, res) => {
+       roleRequired(...PEUT_COMPOSER_PAE), (req, res) => {
   const { annee, ajouts = [], retraits = [], simulation = true } = req.body || {};
   if (!annee) return res.status(400).json({ error: 'annee requise' });
   const couples = l => (Array.isArray(l) ? l : []).map(x => [Number(x.etudiant_id), Number(x.ue_num)])
@@ -5419,8 +5425,9 @@ function reporterDOffice(etudId, annee) {
   catch (e) { console.error('[report d\'office]', etudId, annee, e.message); return 0; }
 }
 
-r.post('/:id/pae-valider', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
+r.post('/:id/pae-valider', authRequired, roleRequired(...PEUT_COMPOSER_PAE), (req, res) => {
   const etudId = Number(req.params.id);
+  if (!etudiantPermis(req, res, etudId)) return;
   const { annee, ue_nums, motifs, forcer, simulation } = req.body;
   if (!annee || !Array.isArray(ue_nums)) {
     return res.status(400).json({ error: 'annee et ue_nums requis' });

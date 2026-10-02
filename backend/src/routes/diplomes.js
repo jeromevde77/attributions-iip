@@ -267,12 +267,20 @@ r.get('/candidats', authRequired, (req, res) => {
  */
 
 /** Les unités déterminantes de la section, avec leurs périodes. */
+/* LE POIDS D'UNE UNITÉ DÉTERMINANTE (Charles, 2 octobre 2026) : « pondération
+ * sur base des périodes des étudiants — TOUTE l'UE — des UE déterminantes =
+ * 2/3 ; TFE = 1/3 ». Les périodes étudiant ET l'autonomie : 64 + 16 = 80 pour
+ * une unité de cours, 600 pour le stage. Deux calculs coexistaient — la
+ * diplomation lisait les périodes étudiant sans l'autonomie, le PV de section
+ * les périodes professeur plus l'autonomie — : le PV et le diplôme pouvaient
+ * porter deux mentions. Une seule expression, ici, pour les deux. */
+const POIDS_DETERMINANTE = 'MAX(COALESCE(ue_per_etudiants, 0)) + MAX(COALESCE(ue_aut, 0))';
 function determinantesDe(unites, annee) {
   if (!unites.length) return [];
   const m = unites.map(() => '?').join(',');
   return db.prepare(`
     SELECT ue_num,
-           MAX(COALESCE(ue_per_etudiants, 0)) AS periodes,
+           ${POIDS_DETERMINANTE} AS periodes,
            (SELECT ue_nom FROM ue x WHERE x.ue_num = u.ue_num AND x.ue_nom IS NOT NULL
              ORDER BY (x.annee_scolaire = ?) DESC, x.annee_scolaire DESC LIMIT 1) AS ue_nom
     FROM ue u
@@ -351,7 +359,7 @@ export function dossierDiplomation(section, annee) {
   const requises = unitesDeLaSection(section, annee);
   const ei = epreuveIntegreeDe(requises);
   const det = determinantesDe(requises, annee);
-  const periodesEI = ei ? (db.prepare('SELECT MAX(COALESCE(ue_per_etudiants, 0)) p FROM ue WHERE ue_num = ?').get(ei)?.p || null) : null;
+  const periodesEI = ei ? (db.prepare(`SELECT ${POIDS_DETERMINANTE} p FROM ue WHERE ue_num = ?`).get(ei)?.p || null) : null;
   const regles = reglesMention();
 
   if (!requises.length) {
@@ -1245,11 +1253,7 @@ r.post('/pv-section', authRequired,
   // « ue_det » est un TEXTE qui vaut 'x' — non un booléen. Écrit « = 1 », le
   // filtre n'aurait jamais rien retourné et la mention se serait calculée sur
   // la seule épreuve intégrée, en silence.
-  const det = requises.length ? db.prepare(`
-    SELECT ue_num,
-           MAX(COALESCE(ue_tot_prf, COALESCE(ue_per_cours, 0) + COALESCE(ue_aut, 0))) AS periodes
-    FROM ue WHERE ue_num IN (${requises.map(() => '?').join(',')})
-      AND ue_det = 'x' GROUP BY ue_num`).all(...requises) : [];
+  const det = determinantesDe(requises, an);
 
   const resultatUE = db.prepare(`SELECT resultat FROM etudiant_inscription
     WHERE etudiant_id = ? AND ue_num = ? ORDER BY annee_scolaire DESC LIMIT 1`);

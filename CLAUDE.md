@@ -131,6 +131,12 @@ tranchées : prérequis interne = avertissement ; sans note = non acquis (pas
 écrire `etudiant_inscription` pour composer un programme sans passer par
 `ecrireProgramme()`.** Les routes de résultats (suivi, historique, encodage)
 consignent des faits et n'y passent pas.
+**La coordination compose, confirme et valide les PAE de ses sections** (Charles,
+2 octobre 2026) : `PEUT_COMPOSER_PAE` (`routes/etudiants.js`) ouvre pae-valider,
+pae/confirmer, pae-valider-lot et pae-modifier, et `PEUT_REPORTER` les reports
+de la revue — seconde exception explicite à « un coordinateur n'écrit jamais
+directement », après la valorisation ; le périmètre (`etudiantPermis`) se pose
+sur chaque route par étudiant.
 
 **L'HORAIRE SE COMPOSE DANS LUCIE** (2.12.287, Charles, 28 septembre 2026 :
 « copier Hyperplanning, en plus simple »). Organisation → *Horaire de la
