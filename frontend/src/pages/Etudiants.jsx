@@ -3316,7 +3316,8 @@ export default function Etudiants() {
   const [fUE, setFUE] = useState('');             // '' | sans | avec
   const [fRatt, setFRatt] = useState('');         // '' | posee | deduite | aucune
   // Les nouveaux inscrits : aucune trace avant l'année de travail.
-  const [fPrimo, setFPrimo] = useState(false);
+  // '' tous · 'primo' les primo-arrivés · 'anciens' les autres (2 octobre 2026).
+  const [fPrimo, setFPrimo] = useState('');
   // « Doublons » : ne garder que les étudiants dont le nom+prénom (accents et
   // casse ignorés) existe sur PLUSIEURS fiches — les dossiers coupés en deux.
   const [fDoublons, setFDoublons] = useState(false);
@@ -3649,7 +3650,7 @@ export default function Etudiants() {
       .filter(e => !fRatt || (fRatt === 'aucune' ? !e.section_rattachement
         : fRatt === 'deduite' ? (e.section_rattachement && e.section_deduite)
           : (e.section_rattachement && !e.section_deduite)))
-      .filter(e => !fPrimo || e.primo);
+      .filter(e => !fPrimo || (fPrimo === 'primo' ? e.primo : !e.primo));
     if (fDoublons) {
       const cleDe = e => `${e.nom || ''}|${e.prenom || ''}`.normalize('NFD')
         .replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9|]/g, '');
@@ -4011,11 +4012,16 @@ export default function Etudiants() {
           <option value="deduite">Section déduite seulement</option>
           <option value="aucune">Aucune section</option>
         </select>
-        <label className="flex items-center gap-1.5 text-sm text-slate-600 self-center"
-          title="Aucune inscription ni valorisation avant l'année de travail">
-          <input type="checkbox" checked={fPrimo} onChange={e => setFPrimo(e.target.checked)} />
-          Primo-arrivés
-        </label>
+        {/* PRIMO OU LES AUTRES : un primo-arrivé n'a aucune inscription ni
+            valorisation avant l'année de travail ; « déjà inscrits » est
+            l'inverse exact. */}
+        <select value={fPrimo} onChange={e => setFPrimo(e.target.value)}
+          title="Primo-arrivé : aucune inscription ni valorisation avant l'année de travail"
+          className="controle text-sm">
+          <option value="">Primo et déjà inscrits</option>
+          <option value="primo">Primo-arrivés</option>
+          <option value="anciens">Déjà inscrits avant (non primo)</option>
+        </select>
         <label className="flex items-center gap-1.5 text-sm text-slate-600 self-center"
           title="Ne montrer que les étudiants dont le nom et le prénom existent sur plusieurs fiches">
           <input type="checkbox" checked={fDoublons} onChange={e => setFDoublons(e.target.checked)} />
@@ -4023,7 +4029,7 @@ export default function Etudiants() {
         </label>
         {(section || fNiveau || fUE || fRatt || fPrimo || fDoublons) && (
           <button className="text-[12px] text-iip-blue underline self-center"
-            onClick={() => { setSection(''); setFNiveau(''); setFUE(''); setFRatt(''); setFPrimo(false); setFDoublons(false); }}>
+            onClick={() => { setSection(''); setFNiveau(''); setFUE(''); setFRatt(''); setFPrimo(''); setFDoublons(false); }}>
             Tout effacer
           </button>
         )}
