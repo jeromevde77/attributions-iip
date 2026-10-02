@@ -1657,7 +1657,7 @@ export default function Professeurs({ vue: vueInitiale = 'membres' }) {
       </table>
       </body></html>`;
     if (returnOnly) return html;
-    setFicheHtml({ html, destinataire: { type: 'professeur', id: prof.id, nom: `${prof.nom || ''} ${prof.prenom || ''}`.trim() }, nom: nomDoc('Fiche_HELB', prof.nom, prof.prenom, annee), titre: `${prof.prenom || ''} ${prof.nom || ''}`.trim(), sousTitre: `Fiche HELB · ${annee}` });
+    setFicheHtml({ html, destinataire: { type: 'professeur', id: prof.id, nom: `${prof.nom || ''} ${prof.prenom || ''}`.trim() }, nom: nomDoc('Fiche_HELB', prof.nom, prof.prenom, annee), titre: `${(prof.nom || '').toUpperCase()} ${prof.prenom || ''}`.trim(), sousTitre: `Fiche HELB · ${annee}` });
   }
 
   // Fiche globale : bloc IIP (périodes) + bloc HELB (heures) + rectangle récap combiné
@@ -1785,7 +1785,7 @@ export default function Professeurs({ vue: vueInitiale = 'membres' }) {
       </table>
       </body></html>`;
     if (returnOnly) return html;
-    setFicheHtml({ html, destinataire: { type: 'professeur', id: prof.id, nom: `${prof.nom || ''} ${prof.prenom || ''}`.trim() }, nom: nomDoc('Fiche_globale', prof.nom, prof.prenom, annee), titre: `${prof.prenom || ''} ${prof.nom || ''}`.trim(), sousTitre: `Fiche globale · ${annee}` });
+    setFicheHtml({ html, destinataire: { type: 'professeur', id: prof.id, nom: `${prof.nom || ''} ${prof.prenom || ''}`.trim() }, nom: nomDoc('Fiche_globale', prof.nom, prof.prenom, annee), titre: `${(prof.nom || '').toUpperCase()} ${prof.prenom || ''}`.trim(), sousTitre: `Fiche globale · ${annee}` });
   }
 
   async function genererFicheAttributions(profId, contratFiltre = null, returnOnly = false) {
@@ -1967,7 +1967,7 @@ export default function Professeurs({ vue: vueInitiale = 'membres' }) {
       </body></html>`;
 
     if (returnOnly) return html;
-    setFicheHtml({ html, destinataire: { type: 'professeur', id: prof.id, nom: `${prof.nom || ''} ${prof.prenom || ''}`.trim() }, nom: nomDoc('Fiche_attr', prof.nom, prof.prenom, annee), titre: `${prof.prenom || ''} ${prof.nom || ''}`.trim(), sousTitre: `Fiche attributions IIP · ${annee}` });
+    setFicheHtml({ html, destinataire: { type: 'professeur', id: prof.id, nom: `${prof.nom || ''} ${prof.prenom || ''}`.trim() }, nom: nomDoc('Fiche_attr', prof.nom, prof.prenom, annee), titre: `${(prof.nom || '').toUpperCase()} ${prof.prenom || ''}`.trim(), sousTitre: `Fiche attributions IIP · ${annee}` });
   }
   const canEdit = estDirection(me) || ['editeur', 'secretariat'].includes(me?.role);
 

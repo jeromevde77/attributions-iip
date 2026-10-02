@@ -77,7 +77,7 @@ export function chargesVises(v) {
     ? lignes.filter(l => vises.has(l.code_cours)) : lignes;
   const m = new Map();
   for (const l of garder) {
-    if (!m.has(l.pid)) m.set(l.pid, { professeur_id: l.pid, nom: `${l.prenom || ''} ${l.nom || ''}`.trim(),
+    if (!m.has(l.pid)) m.set(l.pid, { professeur_id: l.pid, nom: `${(l.nom || '').toUpperCase()} ${l.prenom || ''}`.trim(),
       email: l.adresse_mail || null, cours: new Set() });
     if (l.code_cours) m.get(l.pid).cours.add(l.code_cours);
   }

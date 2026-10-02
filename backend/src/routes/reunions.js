@@ -55,7 +55,7 @@ r.get('/personnes', authRequired, (req, res) => {
   `).all().map(p => ({
     cle: p.user_id ? `u:${p.user_id}` : `p:${p.id}`,
     professeur_id: p.id, user_id: p.user_id || null,
-    nom: `${p.prenom} ${p.nom}`, statut: p.statut || null, source: 'personnel',
+    nom: `${(p.nom || '').toUpperCase()} ${p.prenom || ''}`.trim(), statut: p.statut || null, source: 'personnel',
   }));
 
   /**

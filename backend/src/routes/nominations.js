@@ -153,7 +153,7 @@ r.get('/pertes-charge', authRequired, (req, res) => {
   // Regrouper les nominations par prof
   const parProf = {};
   for (const n of noms) {
-    (parProf[n.professeur_id] ||= { prof: `${n.prof_prenom || ''} ${n.prof_nom}`.trim(), noms: [] }).noms.push(n);
+    (parProf[n.professeur_id] ||= { prof: `${String(n.prof_nom || '').toUpperCase()} ${n.prof_prenom || ''}`.trim(), noms: [] }).noms.push(n);
   }
 
   const pertes = [];
@@ -228,7 +228,7 @@ r.get('/alertes-cours', authRequired, (req, res) => {
       code_cours: r.code_cours,
       ue_num: r.ue_num,
       code_fwb: r.code_fwb,
-      definitif: `${r.definitif_prenom || ''} ${r.definitif_nom}`.trim(),
+      definitif: `${String(r.definitif_nom || '').toUpperCase()} ${r.definitif_prenom || ''}`.trim(),
       periodes_nommees: r.periodes_nommees,
       type_charge: r.type_charge,
     }));

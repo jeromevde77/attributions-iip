@@ -209,7 +209,7 @@ export default function OrganiserGroupesModal({ portee, section, ues, onClose, o
                                     {r.code && r.code !== 'Ts' && <b>{r.code}</b>}
                                     {r.split_groupe === 'O' && <span className="text-blue-400">↔</span>}
                                     {(r.prof_nom || r.prof_prenom)
-                                      ? `${r.prof_prenom||''} ${r.prof_nom||''}`.trim()
+                                      ? `${(r.prof_nom||'').toUpperCase()} ${r.prof_prenom||''}`.trim()
                                       : <i className="text-gray-400">À désigner</i>}
                                   </span>
                                 ))}

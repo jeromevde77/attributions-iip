@@ -557,8 +557,8 @@ r.get('/feed', authRequired, (req, res) => {
           type: 'anniversaire',
           action: cestAujourdhui ? 'aujourdhui' : 'demain',
           titre: cestAujourdhui
-            ? `Anniversaire de ${p.prenom || ''} ${p.nom}`.trim()
-            : `Demain, anniversaire de ${p.prenom || ''} ${p.nom}`.trim(),
+            ? `Anniversaire de ${String(p.nom || '').toUpperCase()} ${p.prenom || ''}`.trim()
+            : `Demain, anniversaire de ${String(p.nom || '').toUpperCase()} ${p.prenom || ''}`.trim(),
           corps: age ? `${age} ans` : null,
           auteur: 'Lucie',
           // Daté du jour concerné, pour que le tri le place au bon endroit.

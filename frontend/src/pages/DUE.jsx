@@ -148,7 +148,7 @@ function Responsable({ c, d, lecture, onChange }) {
   const parDefaut = c.responsable == null && d.responsable_propose != null;
   const nom = id => {
     const e = liste.find(x => String(x.id) === String(id));
-    return e ? `${e.prenom} ${e.nom}` : (id || '—');
+    return e ? `${(e.nom || '').toUpperCase()} ${e.prenom || ''}`.trim() : (id || '—');
   };
 
   if (lecture) {
@@ -185,7 +185,7 @@ function Responsable({ c, d, lecture, onChange }) {
                    focus:outline-none focus:ring-2 focus:ring-iip-blue/30">
         {liste.map(e => (
           <option key={e.id} value={String(e.id)}>
-            {e.prenom} {e.nom}{e.periodes ? ` — ${e.periodes} p.` : ''}
+            {(e.nom || '').toUpperCase()} {e.prenom}{e.periodes ? ` — ${e.periodes} p.` : ''}
           </option>
         ))}
       </select>
@@ -604,7 +604,7 @@ function Fiche({ ueNum, onRetour }) {
         {d.enseignants.length ? (
           <ul className="text-[13px] text-slate-700 space-y-0.5">
             {d.enseignants.map((e, i) => (
-              <li key={i}>{e.prenom} {e.nom}
+              <li key={i}>{(e.nom || '').toUpperCase()} {e.prenom}
                 {e.cours && <span className="text-slate-400"> — {e.cours}</span>}</li>
             ))}
           </ul>

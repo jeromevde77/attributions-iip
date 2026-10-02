@@ -358,7 +358,7 @@ r.get('/lignes-ue', authRequired, (req, res) => {
       periodes: per,
       heures: Math.round((per / 1.2) * 10) / 10,  // périodes prof → heures (×50min)
       autonomie: r.autonomie_attribuee || 0,
-      prof: r.prof_nom ? `${r.prof_prenom || ''} ${r.prof_nom}`.trim() : null,
+      prof: r.prof_nom ? `${String(r.prof_nom).toUpperCase()} ${r.prof_prenom || ''}`.trim() : null,
     };
   });
 

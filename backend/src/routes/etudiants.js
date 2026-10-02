@@ -6132,7 +6132,7 @@ r.delete('/:id', authRequired, roleRequired('admin', 'directeur', 'directeur_adj
 
   if (total > 0 && req.query.force !== '1') {
     return res.status(409).json({
-      confirmation_requise: true, etudiant: `${e.prenom} ${e.nom}`, inventaire, total,
+      confirmation_requise: true, etudiant: `${String(e.nom || '').toUpperCase()} ${e.prenom || ''}`.trim(), inventaire, total,
       force_permis: direction,
     });
   }
@@ -6152,7 +6152,7 @@ r.delete('/:id', authRequired, roleRequired('admin', 'directeur', 'directeur_adj
     }
     db.prepare('DELETE FROM etudiant WHERE id = ?').run(id);
   })();
-  res.json({ ok: true, supprime: `${e.prenom} ${e.nom}`, donnees_emportees: total });
+  res.json({ ok: true, supprime: `${String(e.nom || '').toUpperCase()} ${e.prenom || ''}`.trim(), donnees_emportees: total });
 });
 
 r.delete('/:id/annee/:annee', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
@@ -9129,7 +9129,7 @@ r.get('/ue/:ueNum/charges', authRequired, (req, res) => {
      WHERE a.ue_num = ? AND a.annee_scolaire = ?`).all(ueNum, an);
   const m = new Map();
   for (const l of lignes) {
-    if (!m.has(l.id)) m.set(l.id, { professeur_id: l.id, nom: `${l.prenom || ''} ${l.nom || ''}`.trim(), cours: new Set(), periodes: 0, vise: false });
+    if (!m.has(l.id)) m.set(l.id, { professeur_id: l.id, nom: `${(l.nom || '').toUpperCase()} ${l.prenom || ''}`.trim(), cours: new Set(), periodes: 0, vise: false });
     const x = m.get(l.id);
     if (l.code_cours) x.cours.add(l.code_cours);
     x.periodes += Number(l.per) || 0;

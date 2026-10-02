@@ -1784,6 +1784,12 @@ circulé sans qu'on puisse dire qui l'avait sortie. « Je veux des traces. »
   elles prouvent quelque chose. On propose **aujourd'hui**, et l'on corrige
   quand ce n'est pas le bon jour (`aujourdHui()` dans `pages/Valorisations.jsx`,
   à généraliser). Le défaut doit être correct.
+- **LE NOM DE FAMILLE D'ABORD, PARTOUT DANS LES ÉCRANS** (Charles, 2 octobre
+  2026) : « NOM Prénom », jamais « Prénom NOM » — listes, titres, fenêtres,
+  messages, courriels internes. `nomPropre()` (`frontend/src/lib/nom.js`) le
+  fait d'office ; un écran qui compose le nom à la main écrit
+  `${NOM.toUpperCase()} ${prenom}`. Les pièces officielles (contrats,
+  attestations, courriers, DUE) gardent leur forme propre.
 - **LE NOM SE MET EN CAPITALES, LE PRÉNOM SE CAPITALISE — DEUX RÈGLES, DEUX
   FONCTIONS.** `lib/nom.js` les porte, sorties de `routes/acquis.js` où elles
   étaient enfermées : ce sont des règles d'écriture pures, et l'accueil en avait

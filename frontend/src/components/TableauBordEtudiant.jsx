@@ -136,7 +136,7 @@ export default function TableauBordEtudiant({ etudId, ueNum, annee, onClose, onD
 
   return (
     <Cadre onClose={onClose}
-      titre={`${e.prenom || ''} ${e.nom || ''}`.trim()}
+      titre={`${(e.nom || '').toUpperCase()} ${e.prenom || ''}`.trim()}
       sous={`UE ${ueNum} · ${e.section || '—'} · ${annee}`}>
 
       {message && (

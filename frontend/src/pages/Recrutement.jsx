@@ -1079,7 +1079,7 @@ function EntretienModal({ candidature, poste, annee, qIA, grille, onClose, onSav
       <div className="flex items-center justify-between px-5 py-3 bg-white border-b border-gray-200 flex-shrink-0"
         onClick={e => e.stopPropagation()}>
         <div>
-          <h3 className="text-base font-bold text-iip-blue">Entretien — {candidature.prenom ? `${candidature.prenom} ${candidature.nom}` : candidature.nom}</h3>
+          <h3 className="text-base font-bold text-iip-blue">Entretien — {candidature.prenom ? `${(candidature.nom || '').toUpperCase()} ${candidature.prenom}` : candidature.nom}</h3>
           <div className="text-xs text-gray-400">{poste.nom_cours || poste.ue_nom} · {poste.section}</div>
         </div>
         <div className="flex items-center gap-3">
@@ -1376,7 +1376,7 @@ function VueParallele({ postes, candidats, fonctions, annee, onRecharger }) {
                     <span className="text-lg leading-none">⠿</span>
                   </div>
                   <div className="min-w-0 flex-1">
-                    <div className="text-sm font-semibold text-iip-blue">{c.prenom ? `${c.prenom} ${c.nom}` : c.nom}</div>
+                    <div className="text-sm font-semibold text-iip-blue">{c.prenom ? `${(c.nom || '').toUpperCase()} ${c.prenom}` : c.nom}</div>
                     <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                       {c.fonction && (
                         <span className="text-[10px] bg-iip-blue/10 text-iip-blue px-1.5 py-0.5 rounded font-medium">
@@ -1834,7 +1834,7 @@ ${tous.map(candidatHtml).join('')}
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
                   <span className="font-semibold text-gray-900 text-sm">
-                    {c.prenom ? `${c.prenom} ${c.nom}` : c.nom}
+                    {c.prenom ? `${(c.nom || '').toUpperCase()} ${c.prenom}` : c.nom}
                   </span>
                   {c.candidatures?.map((ca, i) => {
                     const st = STATUT[ca.statut] || STATUT.a_voir;
@@ -2100,10 +2100,10 @@ function FicheCandidat({ candidat, fonctions, grille, onClose, onSaved }) {
               <IconClipboardText size={14} /> Entretien
             </button>
             <button onClick={async () => {
-                if (!confirm(`Recrutement global de ${candidat.prenom||''} ${candidat.nom} ?\n\nCela crée sa fiche prof en base SANS lui attribuer de cours. Vous pourrez ensuite le placer dans les cours via la grille Attributions.`)) return;
+                if (!confirm(`Recrutement global de ${(candidat.nom||'').toUpperCase()} ${candidat.prenom||''} ?\n\nCela crée sa fiche prof en base SANS lui attribuer de cours. Vous pourrez ensuite le placer dans les cours via la grille Attributions.`)) return;
                 try {
                   const r = await af(`/candidats/${candidat.id}/engager-global`, { method: 'POST' });
-                  alert(`✅ ${r.prenom} ${r.nom} ${r.cree ? 'ajouté·e' : 'déjà présent·e'} en base. Placez-le·la dans les cours via la grille Attributions.`);
+                  alert(`✅ ${(r.nom||'').toUpperCase()} ${r.prenom||''} ${r.cree ? 'ajouté·e' : 'déjà présent·e'} en base. Placez-le·la dans les cours via la grille Attributions.`);
                   onSaved();
                 } catch(e) { alert('Erreur : ' + e.message); }
               }}
@@ -2113,10 +2113,10 @@ function FicheCandidat({ candidat, fonctions, grille, onClose, onSaved }) {
             </button>
             {candidat.candidatures?.some(ca => ca.statut === 'retenu') && (
               <button onClick={async () => {
-                  if (!confirm(`Engager ${candidat.prenom||''} ${candidat.nom} ? Cela créera sa fiche prof et attribuera les cours "Retenu".`)) return;
+                  if (!confirm(`Engager ${(candidat.nom||'').toUpperCase()} ${candidat.prenom||''} ? Cela créera sa fiche prof et attribuera les cours "Retenu".`)) return;
                   try {
                     const r = await af(`/candidats/${candidat.id}/engager`, { method: 'POST', body: JSON.stringify({ annee: getAnnee() }) });
-                    alert(`✅ ${r.prenom} ${r.nom} engagé·e — ${r.nb_attributions} attribution(s) mise(s) à jour.`);
+                    alert(`✅ ${(r.nom||'').toUpperCase()} ${r.prenom||''} engagé·e — ${r.nb_attributions} attribution(s) mise(s) à jour.`);
                     onSaved();
                   } catch(e) { alert('Erreur : ' + e.message); }
                 }}
@@ -2286,14 +2286,14 @@ function FicheCandidat({ candidat, fonctions, grille, onClose, onSaved }) {
                           {ca.statut !== 'engage' && (
                             <button
                               onClick={async () => {
-                                if (!confirm(`Engager ${candidat.prenom||''} ${candidat.nom} sur "${ca.cours_nom || ca.ue_nom || `UE ${ca.ue_num}`}" ?`)) return;
+                                if (!confirm(`Engager ${(candidat.nom||'').toUpperCase()} ${candidat.prenom||''} sur "${ca.cours_nom || ca.ue_nom || `UE ${ca.ue_num}`}" ?`)) return;
                                 try {
                                   // Passer en retenu seulement si pas déjà engagé
                                   if (ca.statut !== 'engage' && ca.statut !== 'retenu') {
                                     await af(`/candidatures/${ca.id}`, { method: 'PATCH', body: JSON.stringify({ statut: 'retenu' }) });
                                   }
                                   const r = await af(`/candidats/${candidat.id}/engager`, { method: 'POST', body: JSON.stringify({ annee: getAnnee() }) });
-                                  alert(`✅ ${r.prenom} ${r.nom} engagé·e — ${r.nb_attributions} attribution(s) mise(s) à jour.`);
+                                  alert(`✅ ${(r.nom||'').toUpperCase()} ${r.prenom||''} engagé·e — ${r.nb_attributions} attribution(s) mise(s) à jour.`);
                                   onSaved();
                                 } catch(e) { alert('Erreur : ' + e.message); }
                               }}
