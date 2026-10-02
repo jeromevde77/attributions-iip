@@ -109,6 +109,13 @@ function BadgeNiveau({ niveau, libelle, className = '' }) {
 /* UNE DÉROGATION AU PAE SE MOTIVE (porte unique, 28 septembre 2026). Le
    serveur nomme chaque unité refusée et la règle qu'elle enfreint ; un motif,
    donné une fois, vaut pour chacune et se trace sur chacune. */
+/* Une date de SQLite (« AAAA-MM-JJ HH:MM:SS », en temps universel), lue à l'heure de Bruxelles. */
+const quandLocal = t => {
+  if (!t) return '';
+  const d = new Date(String(t).replace(' ', 'T') + (/[zZ]|[+-]\d\d:?\d\d$/.test(String(t)) ? '' : 'Z'));
+  if (Number.isNaN(d.getTime())) return String(t);
+  return `${d.toLocaleDateString('fr-BE')} à ${d.toLocaleTimeString('fr-BE', { hour: '2-digit', minute: '2-digit' })}`;
+};
 function demanderMotifs(refus) {
   const lignes = refus.map(x => `UE ${x.ue_num} — ${x.regles.map(r0 => r0.libelle + (r0.detail ? ` (${r0.detail})` : '')).join(' ; ')}`);
   const m = window.prompt(`Ces unités contreviennent aux règles du PAE :\n\n${lignes.join('\n')}\n\n`
@@ -352,20 +359,22 @@ function RevuePAE({ liste: base, annee: anneeDepart, onClose }) {
   return (
     <Fenetre icone={IconEyeCheck} large="pleine" onFermer={onClose}
       titre={d ? `Revue des PAE — ${nomPropre(d.etudiant.nom, d.etudiant.prenom)}` : 'Revue des PAE'}
-      sous={liste.length ? `${Math.min(i, liste.length - 1) + 1} sur ${liste.length} · ${nRevus} revu(s) · année ${annee}` : `Aucun étudiant ne correspond · année ${annee}`}
+      sous={liste.length ? `${Math.min(i, liste.length - 1) + 1} sur ${liste.length} · ${nRevus} validé(s) · année ${annee}` : `Aucun étudiant ne correspond · année ${annee}`}
       pied={<>
         <label className="flex items-center gap-2 text-[13px]">
           <input type="checkbox" checked={!!d?.revu} disabled={!d || !!enCours}
-            onChange={e => marquer(e.target.checked)} /> PAE revu
+            onChange={e => marquer(e.target.checked)} /> PAE validé
         </label>
         <span className="text-[12px] text-slate-500 min-w-0">
-          {d?.revu ? `par ${d.revu.revu_par || '—'}, le ${String(d.revu.revu_le).slice(0, 16).replace('T', ' ')}` : ''}
+          {d?.revu ? `par ${d.revu.revu_par || '—'}, le ${quandLocal(d.revu.revu_le)}` : ''}
         </span>
         <span className="ml-auto" />
         <button className="bouton" disabled={i === 0} onClick={() => setI(i - 1)}>◀ Précédent</button>
         <button className="bouton" disabled={i >= liste.length - 1} onClick={() => setI(i + 1)}>Suivant ▶</button>
-        <button className="bouton bouton-fort" disabled={!d || !!enCours} onClick={() => marquer(true, true)}>
-          {i >= liste.length - 1 ? 'Revu' : 'Revu · étudiant suivant ▶'}</button>
+        {/* VERT : c'est le geste de la revue, et il valide (Charles, 2 octobre 2026). */}
+        <button className="bouton bg-emerald-700 border-emerald-700 text-white font-semibold hover:bg-emerald-800 disabled:opacity-40"
+          disabled={!d || !!enCours} onClick={() => marquer(true, true)}>
+          {i >= liste.length - 1 ? 'Valider' : 'Valider · étudiant suivant ▶'}</button>
       </>}>
       {/* LES FILTRES : on choisit la liasse avant de la parcourir. */}
       <div className="flex flex-wrap items-center gap-2 mb-3">
@@ -382,11 +391,17 @@ function RevuePAE({ liste: base, annee: anneeDepart, onClose }) {
           <option value="MIXTE">Parcours mixte</option>
         </select>
         <div className="segments">
-          {[['', 'Tous'], ['reports', 'Avec reports'], ['verifier', 'À vérifier'], ['nonrevus', 'Pas encore revus']].map(([v, l]) => (
+          {[['', 'Tous'], ['reports', 'Avec reports'], ['verifier', 'À vérifier'], ['nonrevus', 'Pas encore validés']].map(([v, l]) => (
             <button key={v || 'tous'} type="button" onClick={() => setFCritere(v)}
               className={`px-2.5 py-1 text-[12px] ${fCritere === v ? 'bg-iip-blue text-white font-semibold' : 'text-slate-600'}`}>{l}</button>
           ))}
         </div>
+        {/* ALLER DIRECTEMENT À UN ÉTUDIANT DE LA LISTE. */}
+        <select className="controle text-[13px] max-w-[16rem]" value={cur?.id || ''}
+          onChange={e => { const k = liste.findIndex(x => x.id === Number(e.target.value)); if (k >= 0) setI(k); }}
+          title="Aller directement à un étudiant">
+          {liste.map((x, k) => <option key={x.id} value={x.id}>{k + 1}. {nomPropre(x.nom, x.prenom)}{synthese?.[x.id]?.revu ? ' ✓' : ''}</option>)}
+        </select>
         <span className="flex-1" />
         <button className="bouton bouton-sortir controle" disabled={!!enCours || !liste.length} onClick={() => imprimer(false)}>
           <IconPrinter size={14} className="inline -mt-0.5 mr-1" />
@@ -400,6 +415,11 @@ function RevuePAE({ liste: base, annee: anneeDepart, onClose }) {
       {synthese && liste.length > 0 && !d && !erreur && <p className="text-[13px] text-slate-400">Chargement…</p>}
       {d && (
         <>
+          {d.revu && (
+            <div className="mb-2 px-3 py-2 rounded-lg text-[13px] bg-emerald-700 text-white">
+              <b>Ce PAE a été validé</b> le {quandLocal(d.revu.revu_le)} par {d.revu.revu_par || '—'}.
+            </div>
+          )}
           <div className="text-[12px] text-slate-600 mb-2">{d.etudiant.id_ecampus || ''} · {d.etudiant.section || '—'}
             {d.etudiant.niveau_libelle ? ` · ${d.etudiant.niveau_libelle}` : ''}</div>
           <div className="grid gap-2.5 mb-3" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))' }}>
@@ -2370,6 +2390,7 @@ export function FicheEtudiant({ id, annee, onClose, position, onPrec, onSuiv,
   const [catalogueOuvert, setCatalogueOuvert] = useState(false);
   const [enregistrement, setEnregistrement] = useState(false);
   const [paeConfirme, setPaeConfirme] = useState(false);
+  const [paeValide, setPaeValide] = useState(null);   // la validation de la revue des PAE
   const [sectionForcee, setSectionForcee] = useState('');
 
   // LES FLÈCHES DU CLAVIER, mais jamais pendant qu'on écrit : dans un champ de
@@ -2606,6 +2627,8 @@ export function FicheEtudiant({ id, annee, onClose, position, onPrec, onSuiv,
         (sectionForcee ? `&section=${encodeURIComponent(sectionForcee)}` : ''),
         { headers: authHeaders() });
       const j = await rep.json();
+      fetch(`/api/etudiants/${id}/revue-pae/revu?annee=${encodeURIComponent(annee)}`, { headers: authHeaders() })
+        .then(r => (r.ok ? r.json() : null)).then(x => setPaeValide(x?.revu || null)).catch(() => setPaeValide(null));
       if (rep.ok) {
         setPae(j);
         // L'état vient du serveur : sans cela le bouton repartirait à zéro à
@@ -2840,6 +2863,11 @@ export function FicheEtudiant({ id, annee, onClose, position, onPrec, onSuiv,
               {/* Ce qui suit est une PROPOSITION tant qu'elle n'est pas
                   confirmée : le dire évite de la lire comme un état de fait,
                   maintenant que schéma et programme sont sur la même page. */}
+              {paeValide && (
+                <div className="mb-2 px-3 py-2 rounded-lg text-[13px] bg-emerald-700 text-white">
+                  <b>Ce PAE a été validé</b> le {quandLocal(paeValide.revu_le)} par {paeValide.revu_par || '—'} — revue des PAE.
+                </div>
+              )}
               <div className={`mb-3 px-3 py-2 rounded-lg text-[13px] border ${
                 paeConfirme
                   ? 'bg-emerald-500 border-emerald-500 text-white'
