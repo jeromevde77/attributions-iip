@@ -1748,7 +1748,7 @@ function OngletEtudiants({ perimetre = null, mode = 'deliberation', seul = null,
                     className="w-3.5 h-3.5 accent-iip-blue" />
                   {p.label}
                   {p.sle && <span className="text-[10px] font-bold text-slate-500 border border-slate-300 rounded px-1">SLE · {etudiants.filter(e => e.sle).length}</span>}
-                  {p.nominatif && <span className="ml-auto text-[11.5px] text-slate-400 tabular-nums">{p.cle === 'reussite' ? etudiants.filter(e => e.reussites > 0).length : etudiants.filter(e => e.echecs > 0).length}</span>}
+                  {p.nominatif && dispo(p) && <span className="ml-auto text-[11.5px] text-slate-400 tabular-nums">{p.cle === 'reussite' ? etudiants.filter(e => e.reussites > 0).length : etudiants.filter(e => e.echecs > 0).length}</span>}
                 </label>
               ))}
             </div>
@@ -1762,7 +1762,7 @@ function OngletEtudiants({ perimetre = null, mode = 'deliberation', seul = null,
                     className="w-3.5 h-3.5 accent-iip-blue" />
                   {p.label}
                   {p.sle && <span className="text-[10px] font-bold text-slate-500 border border-slate-300 rounded px-1">SLE · {etudiants.filter(e => e.sle).length}</span>}
-                  {p.nominatif && <span className="ml-auto text-[11.5px] text-slate-400 tabular-nums">{p.cle === 'reussite' ? etudiants.filter(e => e.reussites > 0).length : etudiants.filter(e => e.echecs > 0).length}</span>}
+                  {p.nominatif && dispo(p) && <span className="ml-auto text-[11.5px] text-slate-400 tabular-nums">{p.cle === 'reussite' ? etudiants.filter(e => e.reussites > 0).length : etudiants.filter(e => e.echecs > 0).length}</span>}
                 </label>
               ))}
             </div>
@@ -1777,7 +1777,7 @@ function OngletEtudiants({ perimetre = null, mode = 'deliberation', seul = null,
                     className="w-3.5 h-3.5 accent-iip-blue" />
                   {p.label}
                   {p.sle && <span className="text-[10px] font-bold text-slate-500 border border-slate-300 rounded px-1">SLE · {etudiants.filter(e => e.sle).length}</span>}
-                  {p.nominatif && <span className="ml-auto text-[11.5px] text-slate-400 tabular-nums">{p.cle === 'reussite' ? etudiants.filter(e => e.reussites > 0).length : etudiants.filter(e => e.echecs > 0).length}</span>}
+                  {p.nominatif && dispo(p) && <span className="ml-auto text-[11.5px] text-slate-400 tabular-nums">{p.cle === 'reussite' ? etudiants.filter(e => e.reussites > 0).length : etudiants.filter(e => e.echecs > 0).length}</span>}
                 </label>
               ))}
             </div>
@@ -1791,7 +1791,7 @@ function OngletEtudiants({ perimetre = null, mode = 'deliberation', seul = null,
                     className="w-3.5 h-3.5 accent-iip-blue" />
                   {p.label}
                   {p.sle && <span className="text-[10px] font-bold text-slate-500 border border-slate-300 rounded px-1">SLE · {etudiants.filter(e => e.sle).length}</span>}
-                  {p.nominatif && <span className="ml-auto text-[11.5px] text-slate-400 tabular-nums">{p.cle === 'reussite' ? etudiants.filter(e => e.reussites > 0).length : etudiants.filter(e => e.echecs > 0).length}</span>}
+                  {p.nominatif && dispo(p) && <span className="ml-auto text-[11.5px] text-slate-400 tabular-nums">{p.cle === 'reussite' ? etudiants.filter(e => e.reussites > 0).length : etudiants.filter(e => e.echecs > 0).length}</span>}
                 </label>
               ))}
             </div>
