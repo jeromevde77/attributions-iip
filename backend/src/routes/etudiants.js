@@ -3335,7 +3335,9 @@ try {
   const cols = db.prepare('PRAGMA table_info(etudiant_report_note)').all().map(c => c.name);
   if (cols.length && !cols.includes('nature')) db.exec('ALTER TABLE etudiant_report_note ADD COLUMN nature TEXT');
 } catch (e) { console.error('[etudiant_report_note.nature]', e.message); }
-const NATURES_REPRISE = ['VA', 'VAE', 'VAP', 'VAEP'];
+/* Sur un COURS : VAP, VAEP ou dispense ; sur l'UE ENTIÈRE : VA ou VAE, posée
+   cours par cours sur tous ses cours (Charles, 2 octobre 2026). */
+const NATURES_REPRISE = ['VA', 'VAE', 'VAP', 'VAEP', 'DISPENSE'];
 const DERNIERE_ANNEE_REPRISE = '2025-2026';
 
 export function revuePAE(etudId, annee) {
@@ -3399,7 +3401,9 @@ export function revuePAE(etudId, annee) {
         : tentees.has(n) ? 'reprendre' : 'programme';
     return { ue_num: n, ue_nom: u.ue_nom || `UE ${n}`, niv: String(u.ue_niv || '').toUpperCase(), ects: Number(u.ects) || 0,
       periodes: (Number(u.per_etud) || 0) + (Number(u.aut) || 0),
-      ei: !!u.ei, etat, cours, reports: nRep, va: nVa, nature_totale: vaComplete.get(n) || null,
+      ei: !!u.ei, etat, cours, reports: nRep, va: nVa,
+      nature_totale: vaComplete.get(n)
+        || (cours.length && cours.every(c => c.statut === 'report' && ['VA', 'VAE'].includes(c.nature)) ? cours[0].nature : null),
       nature_partielle: [...new Set(cours.filter(estVA).map(c => c.nature))].join(' / ') || null };
   }).sort((a, b) => (a.ei - b.ei) || rangBloc(a.niv) - rangBloc(b.niv) || a.ue_num - b.ue_num);
 
@@ -3494,7 +3498,7 @@ r.put('/:id/revue-pae/report', authRequired, roleRequired(...PEUT_REPORTER), (re
      années antérieures à 2026-2027 : à partir de là, une valorisation passe
      par son dossier et son circuit. */
   const nature = req.body?.nature ? String(req.body.nature).toUpperCase() : null;
-  if (nature && !NATURES_REPRISE.includes(nature)) return res.status(400).json({ error: 'Nature inconnue : VA, VAE, VAP ou VAEP.' });
+  if (nature && !NATURES_REPRISE.includes(nature)) return res.status(400).json({ error: 'Nature inconnue : VA, VAE (UE entière), VAP, VAEP ou dispense (cours).' });
   if (nature) {
     const o = String(req.body?.annee_origine || '');
     if (!/^\d{4}-\d{4}$/.test(o) || o > DERNIERE_ANNEE_REPRISE) {
@@ -3542,6 +3546,54 @@ r.put('/:id/revue-pae/report', authRequired, roleRequired(...PEUT_REPORTER), (re
     for (const a of notesAA) {
       if (a.note == null || reelle.get(id, annee, ue, code, a.aa_code, a.aa_code)) continue;
       insNote.run(id, annee, ue, `s1|${code}|${a.aa_code}`, code, a.note, `report:${origine}`);
+    }
+  })();
+  res.json({ ok: true, revue: revuePAE(id, annee) });
+});
+
+/* LA VA OU VAE D'UNE UE ENTIÈRE, SANS DOSSIER (2024-2025 et 2025-2026) : chaque
+   cours de l'unité est dispensé à 10/20 sous cette nature — la délibération
+   lit l'UE comme acquise à 10. Une note réellement encodée n'est jamais écrasée. */
+r.put('/:id/revue-pae/va-ue', authRequired, roleRequired(...PEUT_REPORTER), (req, res) => {
+  const id = Number(req.params.id);
+  if (!etudiantPermis(req, res, id)) return;
+  const annee = req.body?.annee || anneeDeTravail(req);
+  const ue = Number(req.body?.ue_num);
+  const nature = String(req.body?.nature || '').toUpperCase();
+  const origine = String(req.body?.annee_origine || '');
+  if (!['VA', 'VAE'].includes(nature)) return res.status(400).json({ error: "Sur l'UE entière : VA ou VAE." });
+  if (!/^\d{4}-\d{4}$/.test(origine) || origine > DERNIERE_ANNEE_REPRISE) {
+    return res.status(400).json({ error: `Une VA sans dossier ne se pose que pour ${DERNIERE_ANNEE_REPRISE} et avant ; à partir de 2026-2027, elle passe par le dossier de valorisation.` });
+  }
+  if (!db.prepare('SELECT 1 FROM etudiant_inscription WHERE etudiant_id = ? AND annee_scolaire = ? AND ue_num = ?').get(id, annee, ue)) {
+    return res.status(409).json({ error: `L'UE ${ue} n'est pas au PAE ${annee}.` });
+  }
+  const structure = structureUE(ue, annee);
+  if (!structure.length) return res.status(409).json({ error: `L'UE ${ue} n'a aucun cours encodé en ${annee}.` });
+  const qui = req.user?.nom || req.user?.email || null;
+  const motif = `${nature} de l'UE entière, reprise sans dossier (${origine}) — dispense à 10/20, revue des PAE`;
+  const reelle = db.prepare(`SELECT 1 FROM etudiant_note_detail WHERE etudiant_id = ? AND annee_scolaire = ? AND ue_num = ?
+      AND type = 'aa' AND (cours_code = ? OR cours_code IS NULL) AND (code = ? OR code LIKE '%|' || ?)
+      AND (origine IS NULL OR origine NOT LIKE 'report:%') LIMIT 1`);
+  const insNote = db.prepare(`INSERT INTO etudiant_note_detail (etudiant_id, annee_scolaire, ue_num, type, code, cours_code, points, origine)
+      VALUES (?,?,?, 'aa', ?,?,?,?) ON CONFLICT(etudiant_id, annee_scolaire, ue_num, type, code) DO NOTHING`);
+  db.transaction(() => {
+    for (const co of structure) {
+      const ligne = db.prepare(`SELECT id FROM etudiant_report_note WHERE etudiant_id = ? AND annee_scolaire = ? AND ue_num = ?
+          AND cible = 'cours' AND cours_code = ? AND aa_code IS NULL`).get(id, annee, ue, co.cours_code);
+      if (ligne) {
+        db.prepare(`UPDATE etudiant_report_note SET statut = 'refuse' WHERE id = ?`).run(ligne.id);
+        db.prepare(`UPDATE etudiant_report_note SET statut = 'accorde', note = 10, annee_origine = ?, decision_ce = ?,
+            motif = NULL, decide_le = datetime('now'), decide_par = ?, nature = ? WHERE id = ?`).run(origine, motif, qui, nature, ligne.id);
+      } else {
+        db.prepare(`INSERT INTO etudiant_report_note (etudiant_id, annee_scolaire, ue_num, cible, cours_code, aa_code, note,
+            annee_origine, statut, decision_ce, decide_le, decide_par, nature) VALUES (?,?,?, 'cours', ?, NULL, 10, ?, 'accorde', ?, datetime('now'), ?, ?)`)
+          .run(id, annee, ue, co.cours_code, origine, motif, qui, nature);
+      }
+      for (const a of co.aas || []) {
+        if (reelle.get(id, annee, ue, co.cours_code, a.aa_code, a.aa_code)) continue;
+        insNote.run(id, annee, ue, `s1|${co.cours_code}|${a.aa_code}`, co.cours_code, 10, `report:${origine}`);
+      }
     }
   })();
   res.json({ ok: true, revue: revuePAE(id, annee) });

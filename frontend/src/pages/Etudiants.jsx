@@ -200,6 +200,7 @@ function RevuePAE({ liste: base, annee: anneeDepart, onClose }) {
   const [enCours, setEnCours] = useState(null);
   const [saisie, setSaisie] = useState(null);      // { ue, code, note, origine }
   const [saisieVA, setSaisieVA] = useState(null);  // { ue, code, nature, origine } — VA reprise sans dossier
+  const [saisieUE, setSaisieUE] = useState(null);  // { ue, nature, origine } — VA / VAE de l'UE entière
   const [ajout, setAjout] = useState('');
   const [versionSchema, setVersionSchema] = useState(0);
   const [ouverts, setOuverts] = useState(() => new Set());   // les volets d'UE ouverts
@@ -306,6 +307,17 @@ function RevuePAE({ liste: base, annee: anneeDepart, onClose }) {
       setD(j.revue); majSynthese(cur.id, j.revue); setSaisie(null);
     } catch (e) { setErreur(e.message); } finally { setEnCours(null); }
   };
+  const poserVAUE = async (ue, nature, origine) => {
+    setEnCours(`ue-${ue}`); setErreur(null);
+    try {
+      const r = await fetch(`/api/etudiants/${cur.id}/revue-pae/va-ue`, { method: 'PUT', headers: authHeaders(),
+        body: JSON.stringify({ annee, ue_num: ue, nature, annee_origine: origine }) });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(j.error || 'Refusé.');
+      setD(j.revue); majSynthese(cur.id, j.revue); setSaisieUE(null);
+      setOuverts(o => { const x = new Set(o); x.delete(ue); return x; });
+    } catch (e) { setErreur(e.message); } finally { setEnCours(null); }
+  };
   const retirer = async (ue, code) => {
     setEnCours(`rep-${ue}-${code}`); setErreur(null);
     try {
@@ -402,13 +414,7 @@ function RevuePAE({ liste: base, annee: anneeDepart, onClose }) {
       titre={d ? `Revue des PAE — ${nomPropre(d.etudiant.nom, d.etudiant.prenom)}` : 'Revue des PAE'}
       sous={liste.length ? `${Math.min(i, liste.length - 1) + 1} sur ${liste.length} · ${nRevus} validé(s) · année ${annee}` : `Aucun étudiant ne correspond · année ${annee}`}
       pied={<>
-        <label className="flex items-center gap-2 text-[13px]">
-          <input type="checkbox" checked={!!d?.revu} disabled={!d || !!enCours}
-            onChange={e => marquer(e.target.checked)} /> PAE validé
-        </label>
-        <span className="text-[12px] text-slate-500 min-w-0">
-          {d?.revu ? `par ${d.revu.revu_par || '—'}, le ${quandLocal(d.revu.revu_le)}` : ''}
-        </span>
+        {/* La case « PAE validé » est partie : le bandeau vert le dit (Charles, 2 octobre 2026). */}
         <span className="ml-auto" />
         <button className="bouton" disabled={i === 0} onClick={() => setI(i - 1)}>◀ Précédent</button>
         <button className="bouton" disabled={i >= liste.length - 1} onClick={() => setI(i + 1)}>Suivant ▶</button>
@@ -484,13 +490,13 @@ function RevuePAE({ liste: base, annee: anneeDepart, onClose }) {
           </span>
         );
         const BadgeUE = ({ u }) => {
-          if (u.nature_totale) return <span className="text-[10.5px] font-semibold text-white rounded px-1.5 py-px bg-teal-800">{u.nature_totale}</span>;
+          if (u.nature_totale) return <span className="text-[11px] font-semibold text-white rounded px-1.5 py-px bg-teal-800">{u.nature_totale}</span>;
           const out = [];
-          if (u.reports) out.push(<span key="r" className="text-[10.5px] font-semibold text-white rounded px-1.5 py-px bg-emerald-700">{u.reports} report{u.reports > 1 ? 's' : ''}</span>);
-          if (u.va) out.push(<span key="v" className="text-[10.5px] font-semibold text-white rounded px-1.5 py-px bg-teal-800">{u.nature_partielle || 'VAP'}</span>);
-          if (u.deja) out.push(<span key="d" className="text-[10.5px] font-semibold text-white rounded px-1.5 py-px bg-amber-700">déjà acquise {String(u.deja).replace(/^20(\d\d)-20(\d\d)$/, '$1-$2')}</span>);
-          if (u.etat === 'reprendre') out.push(<span key="p" className="text-[10.5px] font-semibold text-white rounded px-1.5 py-px bg-amber-700">à reprendre</span>);
-          if (!out.length) out.push(<span key="a" className="text-[10.5px] font-semibold text-white rounded px-1.5 py-px bg-blue-700">au programme</span>);
+          if (u.reports) out.push(<span key="r" className="text-[11px] font-semibold text-white rounded px-1.5 py-px bg-emerald-700">{u.reports} report{u.reports > 1 ? 's' : ''}</span>);
+          if (u.va) out.push(<span key="v" className="text-[11px] font-semibold text-white rounded px-1.5 py-px bg-teal-800">{u.nature_partielle || 'VAP'}</span>);
+          if (u.deja) out.push(<span key="d" className="text-[11px] font-semibold text-white rounded px-1.5 py-px bg-amber-700">déjà acquise {String(u.deja).replace(/^20(\d\d)-20(\d\d)$/, '$1-$2')}</span>);
+          if (u.etat === 'reprendre') out.push(<span key="p" className="text-[11px] font-semibold text-white rounded px-1.5 py-px bg-amber-700">à reprendre</span>);
+          if (!out.length) out.push(<span key="a" className="text-[11px] font-semibold text-white rounded px-1.5 py-px bg-blue-700">au programme</span>);
           return <span className="inline-flex gap-1 flex-wrap">{out}</span>;
         };
         return (
@@ -514,6 +520,8 @@ function RevuePAE({ liste: base, annee: anneeDepart, onClose }) {
             {d.revu && (
               <div className="mb-2 px-3 py-2 rounded-lg text-[13px] bg-emerald-700 text-white">
                 <b>Ce PAE a été validé</b> le {quandLocal(d.revu.revu_le)} par {d.revu.revu_par || '—'}.
+                <button type="button" disabled={!!enCours} className="ml-3 underline text-white/80 hover:text-white text-[12px]"
+                  onClick={() => marquer(false)}>retirer la validation</button>
               </div>
             )}
             {/* Plus de bandeaux « À vérifier » : le badge du volet le dit déjà
@@ -540,7 +548,7 @@ function RevuePAE({ liste: base, annee: anneeDepart, onClose }) {
                         return (
                           <div key={u.ue_num} className="border-b border-slate-100">
                             <div className="grid items-center gap-2 py-1.5 px-0.5 hover:bg-slate-50 cursor-pointer"
-                              style={{ gridTemplateColumns: '14px 56px minmax(0,1fr) auto 56px 50px auto' }}
+                              style={{ gridTemplateColumns: '14px 56px minmax(0,1fr) auto 56px 50px auto auto' }}
                               onClick={() => basculerVolet(u.ue_num)}>
                               <IconChevronRight size={13} className={`text-slate-400 transition-transform ${ouvert ? 'rotate-90' : ''}`} />
                               <b className="text-iip-texte tabular-nums">UE {u.ue_num}</b>
@@ -548,11 +556,28 @@ function RevuePAE({ liste: base, annee: anneeDepart, onClose }) {
                               <BadgeUE u={u} />
                               <span className="text-[11px] text-slate-500 text-right">{u.cours.length} cours</span>
                               <span className="text-[11px] text-slate-500 text-right">{u.ects} ECTS</span>
+                              {peutReporter && !u.nature_totale && anneesReprise.length > 0 ? <button type="button" className="text-[12px] underline text-teal-800 whitespace-nowrap"
+                                title="Une VA ou VAE de toute l'UE, accordée en 2024-2025 ou 2025-2026 sans dossier : tous ses cours sont dispensés à 10/20"
+                                onClick={ev => { ev.stopPropagation(); setSaisieUE({ ue: u.ue_num, nature: 'VA', origine: anneesReprise[0] }); }}>VA / VAE</button> : <span />}
                               {peutModifier ? <button type="button" disabled={!!enCours} className="text-[11px] underline text-slate-400 hover:text-slate-600"
                                 title="Retirer cette UE du PAE de l'année" onClick={ev => { ev.stopPropagation(); retirerUE(u.ue_num); }}>retirer</button> : <span />}
                             </div>
+                            {saisieUE?.ue === u.ue_num && (
+                              <div className="flex flex-wrap items-center gap-2 pb-2 pl-6 text-[12px]">
+                                <span className="text-slate-600">L'UE entière, sans dossier :</span>
+                                <select className="border border-slate-300 rounded h-7 px-1.5 text-[12px] bg-white" value={saisieUE.nature} onChange={ev => setSaisieUE({ ...saisieUE, nature: ev.target.value })}>
+                                  <option value="VA">VA</option><option value="VAE">VAE</option>
+                                </select>
+                                <select className="border border-slate-300 rounded h-7 px-1.5 text-[12px] bg-white" value={saisieUE.origine} onChange={ev => setSaisieUE({ ...saisieUE, origine: ev.target.value })}>
+                                  {anneesReprise.map(x => <option key={x} value={x}>{x}</option>)}
+                                </select>
+                                <button type="button" disabled={enCours === `ue-${u.ue_num}`} className="rounded bg-teal-800 text-white h-7 px-2 text-[12px] font-semibold disabled:opacity-40"
+                                  onClick={() => poserVAUE(u.ue_num, saisieUE.nature, saisieUE.origine)}>Poser · tous les cours à 10/20</button>
+                                <button type="button" className="underline text-slate-500" onClick={() => setSaisieUE(null)}>annuler</button>
+                              </div>
+                            )}
                             {ouvert && (
-                              <div className="grid gap-x-3 gap-y-1 pb-2 pl-6 text-[12.5px] items-center" style={{ gridTemplateColumns: '56px minmax(0,1fr) 46px minmax(0,300px)' }}>
+                              <div className="grid gap-x-3 gap-y-1 pb-2 pl-6 text-[13px] items-center" style={{ gridTemplateColumns: '56px minmax(0,1fr) 46px minmax(0,300px)' }}>
                                 {u.cours.map(c => {
                                   const occupe = enCours === `rep-${u.ue_num}-${c.code}`;
                                   const saisieIci = saisie && saisie.ue === u.ue_num && saisie.code === c.code;
@@ -564,22 +589,22 @@ function RevuePAE({ liste: base, annee: anneeDepart, onClose }) {
                                       <span className="text-slate-500 tabular-nums">{c.code}</span>
                                       <span className={teinte}>{c.nom}</span>
                                       <span className="text-[11px] text-slate-500 text-right tabular-nums">{c.per ? `${c.per} p.` : ''}</span>
-                                      <span className="text-[11.5px] flex flex-wrap items-center gap-1.5">
+                                      <span className="text-[12px] flex flex-wrap items-center gap-1.5">
                                         {c.statut === 'report' && <>
                                           <span className={`rounded px-1.5 py-px text-white font-semibold ${vaReprise ? 'bg-teal-800' : 'bg-emerald-700'}`}
                                             title={vaReprise ? `${c.nature} reprise sans dossier${c.par ? ` — posée par ${c.par}` : ''}` : (c.par ? `Posé par ${c.par}` : '')}>
-                                            {vaReprise ? c.nature : 'Report'} {String(c.annee_origine || '').replace(/^20(\d\d)-20(\d\d)$/, '$1-$2')}{c.note != null ? ` · ${Math.round(c.note)}/20` : ''}</span>
+                                            {vaReprise ? (c.nature === 'DISPENSE' ? 'Dispense' : c.nature) : 'Report'} {String(c.annee_origine || '').replace(/^20(\d\d)-20(\d\d)$/, '$1-$2')}{c.note != null ? ` · ${Math.round(c.note)}/20` : ''}</span>
                                           {peutReporter && <button type="button" disabled={occupe} className="underline text-slate-500" onClick={() => retirer(u.ue_num, c.code)}>retirer</button>}
                                         </>}
                                         {c.statut === 'va' && <span className="rounded px-1.5 py-px bg-teal-800 text-white font-semibold">{c.nature || 'VAP'}</span>}
                                         {c.statut === 'suivre' && saisieVAIci && <>
-                                          <select className="controle h-7 text-[12px]" value={saisieVA.nature} onChange={ev => setSaisieVA({ ...saisieVA, nature: ev.target.value })}>
-                                            {['VA', 'VAE', 'VAP', 'VAEP'].map(x => <option key={x} value={x}>{x}</option>)}
+                                          <select className="border border-slate-300 rounded h-7 px-1.5 text-[12px] bg-white" value={saisieVA.nature} onChange={ev => setSaisieVA({ ...saisieVA, nature: ev.target.value })}>
+                                            {[['VAP', 'VAP'], ['VAEP', 'VAEP'], ['DISPENSE', 'Dispense']].map(([x, l]) => <option key={x} value={x}>{l}</option>)}
                                           </select>
-                                          <select className="controle h-7 text-[12px]" value={saisieVA.origine} onChange={ev => setSaisieVA({ ...saisieVA, origine: ev.target.value })}>
+                                          <select className="border border-slate-300 rounded h-7 px-1.5 text-[12px] bg-white" value={saisieVA.origine} onChange={ev => setSaisieVA({ ...saisieVA, origine: ev.target.value })}>
                                             {anneesReprise.map(x => <option key={x} value={x}>{x}</option>)}
                                           </select>
-                                          <button type="button" disabled={occupe || !saisieVA.origine} className="bouton h-7 px-2 text-[12px] bg-teal-800 border-teal-800 text-white"
+                                          <button type="button" disabled={occupe || !saisieVA.origine} className="rounded bg-teal-800 text-white h-7 px-2 text-[12px] font-semibold disabled:opacity-40"
                                             onClick={() => reporter(u.ue_num, c.code, { nature: saisieVA.nature, annee_origine: saisieVA.origine }).then(() => setSaisieVA(null))}>Poser · 10/20</button>
                                           <button type="button" className="underline text-slate-500" onClick={() => setSaisieVA(null)}>annuler</button>
                                         </>}
@@ -587,7 +612,7 @@ function RevuePAE({ liste: base, annee: anneeDepart, onClose }) {
                                           <span className="font-semibold text-blue-700">à suivre</span>
                                           {c.refuse && <span className="text-slate-400" title={c.refuse.motif || ''}>· report retiré</span>}
                                           {peutReporter && c.eligible && (
-                                            <button type="button" disabled={occupe} className="bouton h-6 px-2 text-[11.5px]"
+                                            <button type="button" disabled={occupe} className="rounded border border-slate-300 bg-white h-7 px-2 text-[12px] font-medium hover:bg-slate-50 disabled:opacity-40"
                                               onClick={() => reporter(u.ue_num, c.code)}>Reporter {c.eligible.note != null ? `${c.eligible.note}/20` : ''} · {String(c.eligible.annee_origine || '').replace(/^20(\d\d)-20(\d\d)$/, '$1-$2')}</button>
                                           )}
                                           {peutReporter && (
@@ -597,17 +622,17 @@ function RevuePAE({ liste: base, annee: anneeDepart, onClose }) {
                                           )}
                                           {peutReporter && anneesReprise.length > 0 && (
                                             <button type="button" disabled={occupe} className="underline text-teal-800"
-                                              title="Une VA accordée en 2024-2025 ou 2025-2026 et jamais encodée en dossier : le cours est dispensé à 10/20"
-                                              onClick={() => { setSaisie(null); setSaisieVA({ ue: u.ue_num, code: c.code, nature: 'VAP', origine: anneesReprise[0] }); }}>VA sans dossier</button>
+                                              title="Une VAP, une VAEP ou une dispense accordée en 2024-2025 ou 2025-2026 et jamais encodée en dossier : le cours est dispensé à 10/20"
+                                              onClick={() => { setSaisie(null); setSaisieVA({ ue: u.ue_num, code: c.code, nature: 'VAP', origine: anneesReprise[0] }); }}>VAP / dispense</button>
                                           )}
                                         </>}
                                         {saisieIci && <>
-                                          <input className="controle h-7 w-16 text-[12px]" placeholder="/20" value={saisie.note} autoFocus
+                                          <input className="border border-slate-300 rounded h-7 px-1.5 text-[12px] bg-white w-16" placeholder="/20" value={saisie.note} autoFocus
                                             onChange={ev => setSaisie({ ...saisie, note: ev.target.value })} />
-                                          <select className="controle h-7 text-[12px]" value={saisie.origine} onChange={ev => setSaisie({ ...saisie, origine: ev.target.value })}>
+                                          <select className="border border-slate-300 rounded h-7 px-1.5 text-[12px] bg-white" value={saisie.origine} onChange={ev => setSaisie({ ...saisie, origine: ev.target.value })}>
                                             {anterieures.map(x => <option key={x} value={x}>{x}</option>)}
                                           </select>
-                                          <button type="button" disabled={occupe} className="bouton bouton-fort h-7 px-2 text-[12px]"
+                                          <button type="button" disabled={occupe} className="rounded bg-iip-blue text-white h-7 px-2 text-[12px] font-semibold disabled:opacity-40"
                                             onClick={() => reporter(u.ue_num, c.code, { note: saisie.note, annee_origine: saisie.origine })}>Reporter</button>
                                           <button type="button" className="underline text-slate-500" onClick={() => setSaisie(null)}>annuler</button>
                                         </>}
