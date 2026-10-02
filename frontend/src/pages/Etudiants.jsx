@@ -570,8 +570,56 @@ function SchemaCapitalisation({ etudId, annee, onNoeud = null, programme = null,
   };
   const archives = data?.archives || [];
   const court = a => String(a || '').replace(/^20(\d\d)-20(\d\d)$/, '$1-$2');
-  const bandeau = archives.length > 0 && (
+  /* CHANGER DE SECTION, VERS UNE SECTION JAMAIS SUIVIE (2 octobre 2026 :
+     BOKAM, de Psychomotricité vers TIM — « je sais l'archiver ou la faire
+     sortir du cursus, mais pas lui donner un nouveau cursus »). « Reprendre ce
+     cursus » ne valait que pour une section déjà suivie. Même geste, même
+     route : le rattachement déclaré passe à la nouvelle section, l'ancienne
+     devient un cursus archivé — ses réussites restent, ses inscriptions de
+     l'année se retirent ensuite par « Retirer ces inscriptions ». */
+  const [changer, setChanger] = useState(false);
+  const [sectionsRef, setSectionsRef] = useState([]);
+  const [nouvelle, setNouvelle] = useState('');
+  useEffect(() => {
+    if (!changer || sectionsRef.length) return;
+    fetch('/api/ref/sections', { headers: authHeaders() }).then(r => (r.ok ? r.json() : []))
+      .then(l => setSectionsRef(Array.isArray(l) ? l : [])).catch(() => {});
+  }, [changer, sectionsRef.length]);
+  const courante = (data?.sections || [])[0] || null;
+  const changerSection = async () => {
+    if (!nouvelle) return;
+    if (!window.confirm(`Faire passer l'étudiant en ${nouvelle} ?\n\n`
+      + (courante ? `${courante} deviendra un cursus archivé : ses réussites restent au dossier ; ses inscriptions de ${annee} `
+        + 'se retirent ensuite avec « Retirer ces inscriptions ». ' : '')
+      + `Le PAE ${annee} se compose ensuite dans ${nouvelle}, onglet PAE de la fiche.`)) return;
+    const r = await fetch(`/api/etudiants/${etudId}/cursus/reprendre`, { method: 'POST', headers: authHeaders(),
+      body: JSON.stringify({ annee, section: nouvelle }) });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) { alert(j.error || 'Refusé.'); return; }
+    setChanger(false); setNouvelle(''); setArchiveVue(null); setRecharge(n => n + 1); onModifie?.();
+  };
+  const ligneChanger = (
+    <div className="flex items-center gap-2 flex-wrap text-[12.5px]">
+      {!changer ? (
+        <button type="button" className="bouton bouton-compact" onClick={() => setChanger(true)}
+          title="Faire passer l'étudiant dans une autre section — l'actuelle est archivée, rien n'est effacé">
+          Changer de section…</button>
+      ) : (
+        <>
+          <span>Nouvelle section{courante ? ` (aujourd'hui : ${courante})` : ''} :</span>
+          <select className="controle text-[13px]" value={nouvelle} onChange={e => setNouvelle(e.target.value)}>
+            <option value="">— choisir —</option>
+            {sectionsRef.filter(x => x.code !== courante).map(x => <option key={x.code} value={x.code}>{x.libelle && x.libelle !== x.code ? `${x.code} — ${x.libelle}` : x.code}</option>)}
+          </select>
+          <button type="button" className="bouton bouton-fort bouton-compact" disabled={!nouvelle} onClick={changerSection}>Changer</button>
+          <button type="button" className="underline text-slate-500" onClick={() => { setChanger(false); setNouvelle(''); }}>annuler</button>
+        </>
+      )}
+    </div>
+  );
+  const bandeau = (
     <div className="mb-2 space-y-1">
+      {ligneChanger}
       {archives.map(a => (
         <div key={a.section} data-etat="neutre" className="bloc-etat px-3 py-1.5 text-[12.5px] flex items-center gap-3 flex-wrap">
           <span className="flex-1 min-w-0">
