@@ -1370,12 +1370,15 @@ export default function Configuration() {
     ]},
     // Les modèles de ce qui sort de Lucie — sur papier ou par courriel.
     { label: 'Documents et envois', icon: IconFileText, items: [
-      { key: 'editeur', label: 'Modèles de pièces', icon: IconEdit },
-      { key: 'apercu', label: 'Aperçu des pièces', icon: IconFileText },
-      { key: 'contrat', label: 'Contrat', icon: IconFileText },
-      { key: 'attestation', label: 'Attestation', icon: IconAward },
-      { key: 'diplome', label: 'Modèle de diplôme', icon: IconSchool },
-      { key: 'recrutement', label: 'Recrutement', icon: IconSettings },
+      /* QUATRE ONGLETS, PAS HUIT (plan du 26 septembre 2026, rappelé par
+         Charles le 2 octobre : « tu n'as pas revu config »). L'aperçu est une
+         face de l'éditeur ; contrat, attestation, diplôme et recrutement sont
+         les faces d'un même onglet — les modèles des pièces officielles. Les
+         anciennes clés restent valables (?onglet=attestation y mène). */
+      { key: 'editeur', label: 'Modèles de pièces', icon: IconEdit,
+        faces: [['editeur', 'Écrire un modèle'], ['apercu', 'Voir une pièce']] },
+      { key: 'contrat', label: 'Pièces officielles', icon: IconAward,
+        faces: [['contrat', 'Contrat'], ['attestation', 'Attestation'], ['diplome', 'Diplôme'], ['recrutement', 'Recrutement']] },
       { key: 'due', label: "Descriptifs d'UE", icon: IconFileText },
       { key: 'courriels', label: 'Courriels', icon: IconMail },
     ]},
@@ -1419,7 +1422,9 @@ export default function Configuration() {
   // est cassée », pas « ce n'est pas pour vous ».
   const groupesVisibles = CONF_GROUPES.map(g => ({ ...g,
     items: g.items.filter(t => t.key !== 'audit' || getUser()?.role === 'admin') }));
-  const groupeActif = groupesVisibles.find(g => g.items.some(t => t.key === tab)) || groupesVisibles[0];
+  const porte = t => t.key === tab || (t.faces || []).some(([k]) => k === tab);
+  const groupeActif = groupesVisibles.find(g => g.items.some(porte)) || groupesVisibles[0];
+  const ongletActif = groupeActif.items.find(porte);
   return (
     <div className="relative" style={{ minHeight: 'calc(100vh - 64px)' }}>
       {/* VINGT-DEUX ICÔNES, ET PLUS PERSONNE NE TROUVAIT RIEN (Charles, 21
@@ -1450,7 +1455,7 @@ export default function Configuration() {
               const Icone = t.icon;
               return (
                 <button key={t.key} onClick={() => setTab(t.key)}
-                  className={`onglet-page ${tab === t.key ? 'onglet-page-actif' : ''} flex items-center gap-1.5`}>
+                  className={`onglet-page ${porte(t) ? 'onglet-page-actif' : ''} flex items-center gap-1.5`}>
                   <Icone size={15} />{t.label}
                 </button>
               );
@@ -1460,6 +1465,13 @@ export default function Configuration() {
             {groupeActif.items.find(t => t.key === tab)?.annee && (
               <span className="ml-auto pb-1"><AnneeDuReferentiel onglet={tab} /></span>
             )}
+          </div>
+        )}
+        {ongletActif?.faces && (
+          <div className="segments -mt-1">
+            {ongletActif.faces.map(([k, l]) => (
+              <button key={k} type="button" onClick={() => setTab(k)} className={tab === k ? 'bg-iip-blue text-white font-semibold' : 'text-slate-600 hover:bg-slate-50'}>{l}</button>
+            ))}
           </div>
         )}
 
