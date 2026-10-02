@@ -67,6 +67,15 @@ function withAnnee(path, extra = {}) {
   return path + (qs ? `?${qs}` : '');
 }
 
+/* LES COULEURS SE RELISENT À LA CONNEXION (3.0.2). Elles se chargent à
+   l'ouverture de l'application, c'est-à-dire sur l'écran de connexion — où le
+   serveur, sans session, refuse de les donner : on restait sur les couleurs de
+   repli jusqu'au prochain rechargement (la fraise réglée s'affichait brique).
+   Import différé : couleurs.js importe déjà ce fichier. */
+function relireCouleurs() {
+  import('./couleurs.js').then(m => m.chargerCouleurs()).catch(() => {});
+}
+
 export const api = {
   // auth
   //
@@ -80,13 +89,14 @@ export const api = {
       .then(r => {
         if (r.mfa_requis) return r;              // rien n'est enregistré : on n'est pas connecté
         setToken(r.token); localStorage.setItem('user', JSON.stringify(r.user));
+        relireCouleurs();
         return r;
       });
   },
   /** Seconde étape : `{ code }` ou `{ code_recuperation }`. */
   loginMfa(token_intermediaire, preuve) {
     return request('/auth/login/mfa', { method: 'POST', body: { token_intermediaire, ...preuve } })
-      .then(r => { setToken(r.token); localStorage.setItem('user', JSON.stringify(r.user)); return r; });
+      .then(r => { setToken(r.token); localStorage.setItem('user', JSON.stringify(r.user)); relireCouleurs(); return r; });
   },
 
   // ── Le mot de passe ───────────────────────────────────────────────────────

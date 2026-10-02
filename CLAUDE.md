@@ -1240,6 +1240,11 @@ et 3 composants de tuile**. La stratégie tient en cinq chantiers, dans cet ordr
   (ajourné, échéance proche) · `corriger` brique `#9D4A38` (refus, erreur) ·
   `neutre` fond blanc (et `fort`, liseré marine). Seul le liseré se règle
   (`--c-*`, Configuration) ; fond et contour s'en DÉDUISENT par `color-mix`.
+  Ces teintes sont celles de « Lucie d'origine » ; **le défaut du code est la
+  Maison IIP depuis 3.0.2** (`DEFAUT` dans `lib/couleurs.js`, des deux côtés,
+  et les replis d'`index.css` régénérés depuis lui). Les couleurs se relisent
+  à la connexion : chargées sur l'écran de login, sans session, elles
+  retombaient sur le repli jusqu'au rechargement.
 - **Composants** (`ui.jsx`) : `TuileEtat`, `Encadre`, `PastilleEtat`,
   `IconeFaveur`. Pour un SVG : `teintes(etat)`, lu dans `style`, jamais dans
   un attribut `fill=` où `var()` ne s'évalue pas.
