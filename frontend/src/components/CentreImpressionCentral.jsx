@@ -1744,6 +1744,10 @@ function OngletEtudiants({ perimetre = null, mode = 'deliberation', seul = null,
               {PIECES.filter(p => p.nominatif).map(p => (
                 <label key={p.cle} className={`flex items-center gap-2 py-0.5 text-[13px] ${dispo(p) ? 'cursor-pointer' : 'opacity-40 cursor-not-allowed'}`}
                   title={dispo(p) ? '' : 'Rien à produire pour ce périmètre'}>
+                  {/* LA PETITE LIGNE DIT LE SENS (2 octobre 2026) : orange pour
+                      l'ajournement, fraise pour le refus. */}
+                  <span className="w-[3px] h-4 rounded-full flex-none"
+                    style={{ background: p.cle === 'ajournement' ? 'var(--c-attente, #B45309)' : p.cle === 'refus' ? 'var(--c-refuse, #9D4A38)' : 'transparent' }} />
                   <input type="checkbox" checked={!!choix[p.cle] && dispo(p)} disabled={!dispo(p)} onChange={() => setChoix(c => ({ ...c, [p.cle]: !c[p.cle] }))}
                     className="w-3.5 h-3.5 accent-iip-blue" />
                   {p.label}
@@ -1758,6 +1762,10 @@ function OngletEtudiants({ perimetre = null, mode = 'deliberation', seul = null,
               {PIECES.filter(p => !p.nominatif).map(p => (
                 <label key={p.cle} className={`flex items-center gap-2 py-0.5 text-[13px] ${dispo(p) ? 'cursor-pointer' : 'opacity-40 cursor-not-allowed'}`}
                   title={dispo(p) ? '' : 'Rien à produire pour ce périmètre'}>
+                  {/* LA PETITE LIGNE DIT LE SENS (2 octobre 2026) : orange pour
+                      l'ajournement, fraise pour le refus. */}
+                  <span className="w-[3px] h-4 rounded-full flex-none"
+                    style={{ background: p.cle === 'ajournement' ? 'var(--c-attente, #B45309)' : p.cle === 'refus' ? 'var(--c-refuse, #9D4A38)' : 'transparent' }} />
                   <input type="checkbox" checked={!!choix[p.cle] && dispo(p)} disabled={!dispo(p)} onChange={() => setChoix(c => ({ ...c, [p.cle]: !c[p.cle] }))}
                     className="w-3.5 h-3.5 accent-iip-blue" />
                   {p.label}
@@ -1773,6 +1781,10 @@ function OngletEtudiants({ perimetre = null, mode = 'deliberation', seul = null,
               {PIECES_DOSSIER.filter(p => ['bulletin', 'pae', 'parcours'].includes(p.cle)).map(p => (
                 <label key={p.cle} className={`flex items-center gap-2 py-0.5 text-[13px] ${dispo(p) ? 'cursor-pointer' : 'opacity-40 cursor-not-allowed'}`}
                   title={dispo(p) ? '' : 'Rien à produire pour ce périmètre'}>
+                  {/* LA PETITE LIGNE DIT LE SENS (2 octobre 2026) : orange pour
+                      l'ajournement, fraise pour le refus. */}
+                  <span className="w-[3px] h-4 rounded-full flex-none"
+                    style={{ background: p.cle === 'ajournement' ? 'var(--c-attente, #B45309)' : p.cle === 'refus' ? 'var(--c-refuse, #9D4A38)' : 'transparent' }} />
                   <input type="checkbox" checked={!!choix[p.cle] && dispo(p)} disabled={!dispo(p)} onChange={() => setChoix(c => ({ ...c, [p.cle]: !c[p.cle] }))}
                     className="w-3.5 h-3.5 accent-iip-blue" />
                   {p.label}
@@ -1787,6 +1799,10 @@ function OngletEtudiants({ perimetre = null, mode = 'deliberation', seul = null,
               {PIECES_DOSSIER.filter(p => !['bulletin', 'pae', 'parcours'].includes(p.cle)).map(p => (
                 <label key={p.cle} className={`flex items-center gap-2 py-0.5 text-[13px] ${dispo(p) ? 'cursor-pointer' : 'opacity-40 cursor-not-allowed'}`}
                   title={dispo(p) ? '' : 'Rien à produire pour ce périmètre'}>
+                  {/* LA PETITE LIGNE DIT LE SENS (2 octobre 2026) : orange pour
+                      l'ajournement, fraise pour le refus. */}
+                  <span className="w-[3px] h-4 rounded-full flex-none"
+                    style={{ background: p.cle === 'ajournement' ? 'var(--c-attente, #B45309)' : p.cle === 'refus' ? 'var(--c-refuse, #9D4A38)' : 'transparent' }} />
                   <input type="checkbox" checked={!!choix[p.cle] && dispo(p)} disabled={!dispo(p)} onChange={() => setChoix(c => ({ ...c, [p.cle]: !c[p.cle] }))}
                     className="w-3.5 h-3.5 accent-iip-blue" />
                   {p.label}
