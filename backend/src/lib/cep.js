@@ -168,8 +168,25 @@ export function seancesEtudiant(etudId, ueNum, annee) {
       LEFT JOIN presence p ON p.seance_id = s.id AND p.etudiant_id = ?
       WHERE s.annee_scolaire = ? AND (s.ue_num = ?${codes.length ? ` OR s.cours_code IN (${ph})` : ''})
       ORDER BY s.date, s.heure_debut`).all(etudId, annee, ueNum, ...codes);
-  const parCle = new Map();
+  /* UN SEUL SOUS-GROUPE PAR COURS (2 octobre 2026). Les TP se donnent en
+     sous-groupes 1, 2, 3 à des moments différents : sans répartition encodée,
+     l'étudiant se voyait compter les trois — trois fois ses heures. On garde,
+     par cours, le sous-groupe où il a une présence ; à défaut, le premier :
+     le volume horaire est alors juste, même si le groupe exact ne l'est pas. */
+  const sgDe = new Map();          // cours → { tous: Set, presence: Set }
   for (const s of brutes) {
+    if (s.sous_groupe == null || s.sous_groupe === '') continue;
+    const k = s.cours_code || s.matiere;
+    if (!sgDe.has(k)) sgDe.set(k, { tous: new Set(), presence: new Set() });
+    sgDe.get(k).tous.add(String(s.sous_groupe));
+    if (s.statut && s.statut !== 'non_concerne') sgDe.get(k).presence.add(String(s.sous_groupe));
+  }
+  const tri = l => [...l].sort((x, y) => x.localeCompare(y, 'fr', { numeric: true }));
+  for (const [k, v] of sgDe) sgDe.set(k, { sg: tri(v.presence.size ? v.presence : v.tous)[0] });
+  const garde = s => s.sous_groupe == null || s.sous_groupe === ''
+    || sgDe.get(s.cours_code || s.matiere)?.sg === String(s.sous_groupe);
+  const parCle = new Map();
+  for (const s of brutes.filter(garde)) {
     const cle = `${s.cours_code || s.matiere}|${s.date}|${s.heure_debut}`;
     const deja = parCle.get(cle);
     if (!deja || (!deja.statut && s.statut)) parCle.set(cle, s);
