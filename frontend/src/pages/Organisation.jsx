@@ -4,7 +4,7 @@ import { useSearchParams } from 'react-router-dom';
 import Axe from '../components/Axe.jsx';
 import {
   IconLayoutGrid, IconSchool, IconSitemap, IconFileDescription,
-  IconClock, IconCalendarStats, IconBuilding, IconBooks, IconUsersGroup, IconPercentage, IconCalendarWeek,
+  IconClock, IconCalendarStats, IconBuilding, IconBooks, IconUsersGroup, IconPercentage, IconCalendarWeek, IconChartBar,
 } from '@tabler/icons-react';
 import Attributions from './Attributions.jsx';
 import Planification from './Planification.jsx';
@@ -18,6 +18,7 @@ const CentrePlanification = lazy(() => import('./CentrePlanification.jsx'));
 const RepartitionCours = lazy(() => import('./RepartitionCours.jsx'));
 const PonderationsUE = lazy(() => import('./PonderationsUE.jsx'));
 const HoraireSemaine = lazy(() => import('./HoraireSemaine.jsx'));
+const Effectifs = lazy(() => import('./Configuration.jsx').then(m => ({ default: m.OngletStatistiques })));
 
 /**
  * Axe ORGANISATION — « Qu'organise-t-on cette année ? »
@@ -112,6 +113,12 @@ export default function Organisation({ ongletInitial }) {
         { key: 'planification', label: 'Horaires & planification', icone: IconCalendarStats,
           sansMarge: true, masque: true,
           rendu: <Planification /> },
+        /* LES EFFECTIFS ET LES POSTES PNCC SONT DES DONNÉES DE L'ANNÉE (lot 4,
+           2 octobre 2026) : ils quittent Configuration pour l'axe de ce qu'on
+           organise. */
+        { key: 'effectifs', label: 'Effectifs et postes PNCC', icone: IconChartBar,
+          rendu: <Suspense fallback={<div className="p-4 text-[13px] text-slate-400">Chargement…</div>}>
+                   <Effectifs /></Suspense> },
         { key: 'locaux', label: 'Locaux', icone: IconBuilding, futur: true,
           description: "Les locaux quitteront Configuration pour rejoindre le travail d'organisation." },
       ]}

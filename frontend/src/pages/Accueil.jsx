@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { lazy, Suspense, useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api, getAnnee, getUser, authHeaders } from '../lib/api.js';
 import { PageHeader, RailLateral } from '../components/ui.jsx';
@@ -409,6 +409,47 @@ function MesTaches({ signal = 0 }) {
  * confirmer » : un même état ne prend pas deux couleurs selon l'écran d'où on
  * le regarde. Un premier jet l'avait mis en marine, faute d'avoir regardé.
  */
+/**
+ * À VALIDER — les demandes de modification des coordinations (lot 4, 2 octobre
+ * 2026). C'était un onglet de Configuration qu'il fallait penser à ouvrir : une
+ * file de travail se présente là où l'on arrive, et seulement à qui tranche.
+ */
+const Demandes = lazy(() => import('./Demandes.jsx'));
+function DemandesAValider() {
+  const [n, setN] = useState(0);
+  const [ouvert, setOuvert] = useState(false);
+  const role = getUser()?.role;
+  const tranche = ['admin', 'directeur', 'directeur_adjoint'].includes(role);
+  const charger = useCallback(() => {
+    if (!tranche) return;
+    fetch('/api/demandes?statut=en_attente', { headers: authHeaders() })
+      .then(r => (r.ok ? r.json() : null))
+      .then(j => setN(Array.isArray(j?.demandes) ? j.demandes.length : 0))
+      .catch(() => {});
+  }, [tranche]);
+  useEffect(() => { charger(); }, [charger]);
+  if (!tranche || (!n && !ouvert)) return null;
+  return (
+    <div className="mb-5">
+      <div className="flex items-baseline gap-2 mb-1.5">
+        <h2 className="text-[13px] font-semibold text-iip-blue">À valider</h2>
+        <span className="text-[11px] text-slate-400">modifications proposées par les coordinations</span>
+      </div>
+      <button type="button" onClick={() => setOuvert(true)}
+        className="carte w-full text-left px-3 py-2 flex items-center gap-3 hover:bg-slate-100">
+        <PastilleNotif genre="delai" />
+        <span className="flex-1 text-[13px] text-slate-800">{n} demande{n > 1 ? 's' : ''} en attente de décision</span>
+        <span className="text-[12px] text-iip-blue font-semibold">Ouvrir</span>
+      </button>
+      {ouvert && (
+        <Fenetre titre="Demandes à valider" large="pleine" onFermer={() => { setOuvert(false); charger(); }}>
+          <Suspense fallback={<p className="text-[13px] text-slate-400">Chargement…</p>}><Demandes /></Suspense>
+        </Fenetre>
+      )}
+    </div>
+  );
+}
+
 function TextesAConfirmer() {
   const [attente, setAttente] = useState([]);
   const navigate = useNavigate();
@@ -636,6 +677,7 @@ export default function Accueil() {
             du fil, et se coche d'ici — avec les tâches confiées à mon rôle, pas
             seulement à mon nom. */}
         <TextesAConfirmer />
+        <DemandesAValider />
         <MesTaches signal={rafraichirTaches} />
 
         {/* En-tête du fil */}

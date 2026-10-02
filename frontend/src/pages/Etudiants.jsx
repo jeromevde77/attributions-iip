@@ -8,7 +8,7 @@ import { RailLateral } from '../components/ui.jsx';
 import SuiviEtudiant from '../components/SuiviEtudiant.jsx';
 import NouvelEtudiant from '../components/NouvelEtudiant.jsx';
 import {
-  IconAddressBook, IconAlertTriangle, IconEyeCheck, IconTablePlus, IconArrowForwardUp, IconArchive, IconDoorExit, IconSchool, IconArrowBackUp, IconAward, IconCertificate, IconStairsUp, IconUserPlus, IconCheck, IconChecklist, IconChevronLeft, IconChevronRight, IconClock, IconFileText, IconFolder, IconPlus, IconPrinter, IconSearch, IconTable, IconTrash, IconUpload, IconUser, IconSend, IconWritingSign, IconWritingSignOff, IconX,
+  IconAddressBook, IconListSearch, IconAlertTriangle, IconEyeCheck, IconTablePlus, IconArrowForwardUp, IconArchive, IconDoorExit, IconSchool, IconArrowBackUp, IconAward, IconCertificate, IconStairsUp, IconUserPlus, IconCheck, IconChecklist, IconChevronLeft, IconChevronRight, IconClock, IconFileText, IconFolder, IconPlus, IconPrinter, IconSearch, IconTable, IconTrash, IconUpload, IconUser, IconSend, IconWritingSign, IconWritingSignOff, IconX,
   IconChecks, IconLock
 } from '@tabler/icons-react';
 import { authHeaders, getAnnee, getUser } from '../lib/api.js';
@@ -22,6 +22,11 @@ import IdentiteEtudiant, { ComplementDossiers } from '../components/IdentiteEtud
 // LE CENTRE CENTRAL. Les boutons restent où on les cherche — là où l'on
 // travaille — mais mènent désormais au même endroit.
 import CentreImpressionCentral from '../components/CentreImpressionCentral.jsx';
+import OutilsAFaces from '../components/OutilsAFaces.jsx';
+const DoublonsEtudiants = lazy(() => import('../components/DoublonsEtudiants.jsx'));
+const DoublesProgrammes = lazy(() => import('../components/DoublesProgrammes.jsx'));
+const HorsBloc = lazy(() => import('../components/HorsBloc.jsx'));
+const DecisionsSansInscription = lazy(() => import('../components/DecisionsSansInscription.jsx'));
 import { useEchangesDuRail, Fenetre, Encadre, BulleAide, BoutonEditions, OuvrirEditions } from '../components/ui.jsx';
 import PassageAnnee from '../components/PassageAnnee.jsx';
 import ComposerPAE from '../components/ComposerPAE.jsx';
@@ -3389,6 +3394,8 @@ export default function Etudiants() {
   const [importPAE, setImportPAE] = useState(false);
   const [purge, setPurge] = useState(false);
   const [nouvel, setNouvel] = useState(false);
+  // Les contrôles des dossiers, venus de Configuration (lot 4) : la face ouverte.
+  const [controles, setControles] = useState(null);
   const [rapportPAE, setRapportPAE] = useState(false);
   const [importListe, setImportListe] = useState(false);
   const [importHisto, setImportHisto] = useState(false);
@@ -3934,6 +3941,14 @@ export default function Etudiants() {
     { label: 'Inscrire', items: [
       { key: 'nouvel-etudiant', label: 'Créer un étudiant',
         icon: IconUserPlus, onClick: () => setNouvel(true) },
+      /* CE QUI RÉPARE LES DOSSIERS, À CÔTÉ DE CE QUI LES CRÉE (lot 4, 2 octobre
+         2026). Quatre outils, une seule entrée : une icône se mérite. */
+      { key: 'controles-dossiers', label: 'Contrôler les dossiers', icon: IconListSearch,
+        onClick: () => {
+          let f = 'doublons';
+          try { f = sessionStorage.getItem('lucie.outil.face') || f; sessionStorage.removeItem('lucie.outil.face'); } catch { /* */ }
+          setControles(f);
+        } },
     ] },
     // LE REGISTRE DES VALORISATIONS A QUITTÉ CE RAIL. Il y figurait en même
     // temps que l'onglet « Valorisation des acquis » de l'axe : deux portes
@@ -4344,6 +4359,18 @@ export default function Etudiants() {
             </tbody>
           </table>
         </div>
+      )}
+
+      {controles && (
+        <OutilsAFaces icone={IconListSearch} titre="Contrôler les dossiers"
+          sous="Doublons, programmes sur deux sections, au-delà du bloc, décisions sans inscription"
+          faceInitiale={controles} onFermer={() => { setControles(null); charger(); }}
+          faces={[
+            { cle: 'doublons', label: 'Dossiers dédoublés', rendu: <DoublonsEtudiants /> },
+            { cle: 'doubles-programmes', label: 'Programmes sur deux sections', rendu: <DoublesProgrammes /> },
+            { cle: 'hors-bloc', label: 'Au-delà du bloc atteint', rendu: <HorsBloc /> },
+            { cle: 'decisions-sans-inscription', label: 'Décisions sans inscription', rendu: <DecisionsSansInscription /> },
+          ]} />
       )}
 
       {nouvel && (

@@ -1,8 +1,11 @@
-import { useEffect, useState } from 'react';
+import { lazy, useEffect, useState } from 'react';
+import OutilsAFaces from '../components/OutilsAFaces.jsx';
+const ControleDecisions = lazy(() => import('../components/ControleDecisions.jsx'));
+const ClotureReprise = lazy(() => import('./Configuration.jsx').then(m => ({ default: m.ClotureReprise })));
 import GroupesParBloc from '../components/GroupesParBloc.jsx';
 import { IconChevronRight, IconArrowLeft, IconBolt, IconAlertTriangle,
   IconRotate, IconPrinter, IconFileSpreadsheet, IconPencil, IconTable, IconList,
-  IconUpload, IconEdit, IconAdjustments } from '@tabler/icons-react';
+  IconUpload, IconEdit, IconAdjustments, IconChecks } from '@tabler/icons-react';
 import MenuActions from '../components/MenuActions.jsx';
 import { authHeaders, getAnnee, getUser } from '../lib/api.js';
 import { estDirection } from '../lib/modules.js';
@@ -45,6 +48,13 @@ export default function Deliberation() {
   // La répartition des étudiants dans les organisations d'une unité, depuis le plan.
   const [repartirUE, setRepartirUE] = useState(null);
   const [rapide, setRapide] = useState(false);
+  /* LES CONTRÔLES VENUS DE CONFIGURATION (lot 4, 2 octobre 2026) : le
+     contrôle des notes de décision et la clôture d'une année reprise
+     appartiennent à la délibération. Un renvoi pose la face à ouvrir. */
+  const [controles, setControles] = useState(() => {
+    try { const f = sessionStorage.getItem('lucie.delib.outil'); if (f) { sessionStorage.removeItem('lucie.delib.outil'); return f; } } catch { /* */ }
+    return null;
+  });
   // Les COURS d'une unité, dépliés à la demande : c'est par eux que les
   // professeurs encodent, acquis par acquis.
   const [coursDeUe, setCoursDeUe] = useState({});   // ue_num → [cours]
@@ -231,6 +241,14 @@ export default function Deliberation() {
 
   return (
     <div className="p-5 space-y-4">
+      {controles && (
+        <OutilsAFaces icone={IconChecks} titre="Contrôles de la délibération"
+          faceInitiale={controles} onFermer={() => setControles(null)}
+          faces={[
+            { cle: 'controle-decisions', label: 'Contrôle des notes de décision', rendu: <ControleDecisions /> },
+            { cle: 'reprise', label: 'Clôturer une année reprise', rendu: <ClotureReprise /> },
+          ]} />
+      )}
       <div className="flex items-start justify-between gap-3 flex-wrap">
         <div>
           <h2 className="titre-ecran mb-0">Délibération</h2>
@@ -288,6 +306,14 @@ export default function Deliberation() {
               className="flex items-center gap-1.5 px-3 py-1.5 text-sm border border-slate-300
                          text-slate-600 font-semibold rounded-lg">
               Où sont les notes ?
+            </button>
+          )}
+          {peutToutEncoder && (
+            <button onClick={() => setControles('controle-decisions')}
+              title="Contrôler les notes de décision ; clôturer une année reprise d'archives"
+              className="flex items-center gap-1.5 px-3 py-1.5 text-sm border border-slate-300
+                         text-slate-600 font-semibold rounded-lg">
+              <IconChecks size={15} /> Contrôles
             </button>
           )}
           <button onClick={() => setRapide(true)}
