@@ -195,6 +195,7 @@ function RevuePAE({ liste: base, annee: anneeDepart, onClose }) {
   const [i, setI] = useState(0);
   const [d, setD] = useState(null);
   const [erreur, setErreur] = useState(null);
+  const [erreurSyn, setErreurSyn] = useState(null);
   const [enCours, setEnCours] = useState(null);
   const [saisie, setSaisie] = useState(null);      // { ue, code, note, origine }
   const [ajout, setAjout] = useState('');
@@ -209,9 +210,16 @@ function RevuePAE({ liste: base, annee: anneeDepart, onClose }) {
   }, []);
   useEffect(() => {
     setSynthese(null);
+    /* LA SYNTHÈSE NE DOIT JAMAIS VIDER LA LISTE EN SILENCE (2 octobre 2026 :
+       « Marie ne voit aucun étudiant »). Un échec se DIT, et la liste reste
+       entière ; un étudiant sur qui la synthèse ne dit rien reste dedans. */
     fetch('/api/etudiants/revue-pae/synthese', { method: 'POST', headers: authHeaders(),
-      body: JSON.stringify({ annee, ids: base.map(e => e.id) }) })
-      .then(r => (r.ok ? r.json() : {})).then(setSynthese).catch(() => setSynthese({}));
+      body: JSON.stringify({ annee, ids: base.map(e => e.id).filter(Boolean) }) })
+      .then(async r => {
+        const j = await r.json().catch(() => ({}));
+        if (!r.ok) { setErreurSyn(`La synthèse de la liste a échoué (${r.status}) : ${j.error || 'erreur du serveur'}. Les filtres « avec reports », « à vérifier » et « pas encore validés » ne s'appliquent pas.`); setSynthese({}); return; }
+        setSynthese(j);
+      }).catch(e => { setErreurSyn(`La synthèse de la liste a échoué : ${e.message}`); setSynthese({}); });
   }, [annee, base]);
 
   const sections = useMemo(() => [...new Set(base.map(e => e.section).filter(Boolean))].sort(), [base]);
@@ -219,7 +227,7 @@ function RevuePAE({ liste: base, annee: anneeDepart, onClose }) {
     const sy = synthese?.[e.id];
     if (fSection && e.section !== fSection) return false;
     if (fNiveau && e.niveau !== fNiveau) return false;
-    if (synthese && !sy?.pae) return false;          // pas de PAE cette année : rien à revoir
+    if (sy && !sy.pae) return false;                 // pas de PAE cette année : rien à revoir
     if (fCritere === 'reports' && !sy?.reports) return false;
     if (fCritere === 'verifier' && !(sy?.deja || sy?.reprendre)) return false;
     if (fCritere === 'nonrevus' && sy?.revu) return false;
@@ -410,6 +418,7 @@ function RevuePAE({ liste: base, annee: anneeDepart, onClose }) {
         <button className="bouton controle" disabled={!!enCours || !liste.length} onClick={() => imprimer(true)}
           title="Un PDF par étudiant, dans une archive">Un PDF par étudiant</button>
       </div>
+      {erreurSyn && <div data-etat="surveiller" className="bloc-etat px-3 py-2 text-[12.5px] mb-3">{erreurSyn}</div>}
       {erreur && <div data-etat="corriger" className="bloc-etat px-3 py-2 text-[12.5px] mb-3">{erreur}</div>}
       {!synthese && <p className="text-[13px] text-slate-400">Lecture de la liste…</p>}
       {synthese && !liste.length && <p className="text-[13px] text-slate-500">Aucun étudiant de la liste ne correspond à ces filtres pour {annee}.</p>}
