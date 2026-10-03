@@ -9579,29 +9579,29 @@ r.get('/:id/fiche-inscription', authRequired, (req, res) => {
       <td style="text-align:right"><b>${eur(dis.montant_du)}</b></td><td></td></tr>` : ''}
   ` : '';
 
-  const html = `<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8">
-<title>Fiche d'inscription — ${esc(e.nom)} ${esc(e.prenom)}</title>
-<style>
-  body { font-family: 'Segoe UI', Arial, sans-serif; font-size: 12px; color: #1B2B4B; margin: 32px; }
-  h1 { font-size: 17px; margin: 0 0 2px; } h2 { font-size: 13px; margin: 18px 0 6px; }
-  .etab { font-size: 13px; font-weight: 600; }
-  .meta { color: #556; margin-bottom: 14px; }
-  table { border-collapse: collapse; width: 100%; margin-bottom: 10px; }
-  th, td { border: 1px solid #cbd5e1; padding: 4px 7px; text-align: left; }
-  th { background: #f1f5f9; font-size: 10.5px; text-transform: uppercase; letter-spacing: .4px; }
-  tr.tot td { background: #f8fafc; font-size: 11px; }
-  .alerte { background: #FEF3C7; border: 1px solid #FCD34D; color: #92400E;
-            padding: 7px 10px; border-radius: 6px; font-size: 11px; margin: 10px 0; }
-  .alerte.grave { background: #FEE2E2; border-color: #FCA5A5; color: #991B1B; }
-  .sig { margin-top: 34px; display: flex; gap: 60px; }
-  .sig div { flex: 1; border-top: 1px solid #94a3b8; padding-top: 5px; font-size: 11px; }
-  .engagement { margin-top: 20px; padding: 10px 12px; border: 1px solid #cbd5e1;
-                border-radius: 6px; background: #f8fafc; font-size: 10.5px; line-height: 1.5; }
-  .engagement p { margin: 0 0 6px; }
+  /* L'ENVELOPPE COMMUNE (Charles, 3 octobre 2026 : « c'est quoi cette moche
+     mise en page ? et le bas de page ? »). La fiche montait son propre HTML :
+     pas de cadre de titre, des tailles en pixels, et un pied qui flottait au
+     milieu de la feuille. Elle passe désormais par envelopperDocument, comme
+     toutes les pièces : en-tête de l'établissement, titre, pied en bas de
+     chaque page. Seul le corps lui est propre. */
+  const stylesFiche = `
+  .meta { color: #475569; margin: 0 0 3mm; font-size: 9.5pt; line-height: 1.45; }
+  th, td { border-bottom: 0.25mm solid #D8DCE4; padding: 1.2mm 1.6mm; text-align: left; font-size: 9pt; }
+  th { font-size: 7.5pt; text-transform: uppercase; letter-spacing: .3pt; color: #475569; }
+  tr.tot td { font-size: 8.5pt; }
+  .alerte { border: 0.25mm solid #D8DCE4; border-left: 1mm solid #B45309; border-radius: 0 2.6mm 2.6mm 0;
+            padding: 2mm 3mm; font-size: 8.5pt; margin: 3mm 0; }
+  .alerte.grave { border-left-color: #9D4A38; }
+  .sig { margin-top: 12mm; display: flex; gap: 20mm; }
+  .sig div { flex: 1; border-top: 0.25mm solid #94a3b8; padding-top: 1.5mm; font-size: 9pt; }
+  .engagement { margin-top: 6mm; padding: 3mm 4mm; border: 0.25mm solid #D8DCE4;
+                border-radius: 2.6mm; font-size: 9pt; line-height: 1.5; }
+  .engagement p { margin: 0 0 1.5mm; }
   .engagement p:last-child { margin-bottom: 0; }
-  .engagement .rgpd { font-size: 9.5px; color: #475569; border-top: 1px solid #cbd5e1;
-                      padding-top: 6px; }
-  .sig .mention { display: block; font-size: 9px; color: #94a3b8; font-style: italic; }
+  .engagement .rgpd { font-size: 8pt; color: #475569; border-top: 0.25mm solid #D8DCE4;
+                      padding-top: 1.5mm; }
+  .sig .mention { display: block; font-size: 7.5pt; color: #94a3b8; font-style: italic; }
   /* Sans largeurs explicites, le navigateur donnait autant de place aux
      colonnes vides qu'aux intitulés, qui s'écrasaient sur six lignes. */
   table.ues { table-layout: fixed; }
@@ -9650,22 +9650,9 @@ r.get('/:id/fiche-inscription', authRequired, (req, res) => {
   .engagement, .sig { break-inside: avoid; page-break-inside: avoid; }
   .engagement { break-before: auto; }
 
-  .footer { margin-top: 22px; font-size: 10px; color: #64748b; }
-  /* Marge basse à zéro : elle s'ajouterait au flux et pousserait une page
-     blanche. La réserve du pied est déjà faite par @page. */
-  @media print { body { margin: 12mm 12mm 0; } }
-
-  /* La marge basse réserve la hauteur du pied : sans elle, le texte passerait
-     dessous en fin de page. */
-  ${reglesDePage({ haut: 14, cote: 14 })}
-
-  /* Pied de page commun, ancré en bas de CHAQUE page — dernière comprise.
-     Un pied placé dans le flux, ou en table-footer-group, flotte au milieu
-     d'une dernière page à moitié vide. */
-  ${piedStyles()}
-</style></head><body>
-<div class="etab">${esc(etab)} — Enseignement pour Adultes</div>
-<h1>Fiche d'inscription / reçu — ${esc(annee)}</h1>
+  .footer { margin-top: 6mm; font-size: 7.5pt; color: #64748b; line-height: 1.4; }
+`;
+  const corpsFiche = `
 <div class="meta">
   ${esc(e.titre || '')} <b>${esc(e.nom)} ${esc(e.prenom)}</b>
   ${e.date_naissance ? ' · né(e) le ' + esc(e.date_naissance) : ''}
@@ -9764,11 +9751,13 @@ ${(() => {
 <div class="footer">
   Mention « CH » : UE suivie dans le cadre d'un programme d'études en codiplômation.
   « Sous réserve » : l'accès effectif dépend de la réussite de l'UE prérequise organisée la même année.
-  Document imprimé le ${new Date().toLocaleDateString('fr-BE')} — ${esc(etab)}.
 </div>
-
-${piedBalisage(LOGO_IIP_JPEG)}
-</body></html>`;
+`;
+  const html = envelopperDocument({
+    html: corpsFiche, styles: stylesFiche,
+    titre: `Fiche d'inscription — ${e.nom} ${e.prenom}`,
+    entete: { titre: "Fiche d'inscription / reçu", sous: `${etab} — Enseignement pour adultes · ${annee}` },
+  });
 
   res.json({ html, nom: 'fiche_inscription_' + (e.nom || 'etudiant') + '_' + annee + '.html' });
 });
