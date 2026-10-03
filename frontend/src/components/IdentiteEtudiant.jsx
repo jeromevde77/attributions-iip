@@ -1,3 +1,4 @@
+import { listePays } from '../lib/pays.js';
 import { useEffect, useState } from 'react';
 import { nomPropre } from '../lib/nom.js';
 import { IconDeviceFloppy, IconUpload, IconAlertTriangle, IconCheck } from '@tabler/icons-react';
@@ -23,7 +24,7 @@ const CHAMPS = [
   { k: 'prenom', l: 'Prénom', requis: true },
   { k: 'date_naissance', l: 'Date de naissance', type: 'date' },
   { k: 'lieu_naissance', l: 'Lieu de naissance', aide: "Figure sur les attestations de réussite" },
-  { k: 'nationalite', l: 'Nationalité', aide: "Exigée par l'annexe 2 (Office des Étrangers)" },
+  { k: 'nationalite', l: 'Nationalité', type: 'pays', aide: "Exigée par l'annexe 2 (Office des Étrangers) — le pays" },
   { k: 'num_national', l: 'Numéro national', aide: "Sert au rapprochement des dossiers" },
   { k: 'id_ecampus', l: 'Matricule eCampus' },
   { k: 'adresse', l: 'Adresse' },
@@ -98,7 +99,20 @@ export default function IdentiteEtudiant({ etudId, onModifie }) {
             <span className="block font-semibold text-slate-500 uppercase tracking-wide mb-1">
               {c.l}{c.requis && <span className="text-red-500"> *</span>}
             </span>
-            {c.type === 'select' ? (
+            {c.type === 'pays' ? (
+              /* UNE LISTE FERMÉE DE PAYS (3 octobre 2026). Une valeur saisie
+                 avant la liste reste affichée, marquée, jusqu'à ce qu'on la
+                 remplace. */
+              <select value={val(c.k)}
+                onChange={ev => setModifs(m => ({ ...m, [c.k]: ev.target.value }))}
+                className={`w-full border rounded-lg px-2 py-1.5 text-sm ${c.k in modifs ? 'border-amber-400 bg-amber-50' : 'border-slate-300'}`}>
+                <option value="">—</option>
+                {val(c.k) && !listePays().some(p => p.nom === val(c.k)) && (
+                  <option value={val(c.k)}>{val(c.k)} (saisie à remplacer)</option>
+                )}
+                {listePays().map(p => <option key={p.code} value={p.nom}>{p.nom}</option>)}
+              </select>
+            ) : c.type === 'select' ? (
               <select value={val(c.k)}
                 onChange={ev => setModifs(m => ({ ...m, [c.k]: ev.target.value }))}
                 className="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-sm">
