@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { nomPropre } from '../lib/nom.js';
 import { IconTrash } from '@tabler/icons-react';
 import { demander, informer } from '../lib/dialogue.jsx';
+import { Fenetre } from './ui.jsx';
 
 const CODES_EPT = [
   { code: '95', label: 'ExPT — Expertise Pédagogique et Technique' },
@@ -77,17 +78,12 @@ export default function EptModal({ section, ue_num, ue_nom, annee, onClose }) {
   }
 
   return (
-    <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl flex flex-col max-h-[90vh]">
-        <div className="flex items-center justify-between px-6 py-4 border-b">
-          <div>
-            <div className="font-bold text-iip-gold text-lg">Lignes EPT — UE {ue_num}</div>
-            <div className="text-xs text-gray-500">{ue_nom} · {section} · {annee}</div>
-          </div>
-          <button onClick={onClose} className="text-gray-400 hover:text-red-500 text-2xl">×</button>
-        </div>
-
-        <div className="overflow-y-auto flex-1 px-6 py-4">
+    <Fenetre titre={`Lignes EPT — UE ${ue_num}`} sous={`${ue_nom} · ${section} · ${annee}`}
+      large="moyenne" onFermer={onClose}
+      pied={<>
+        <span />
+        <button onClick={onClose} className="bouton">Fermer</button>
+      </>}>
           {loading ? (
             <div className="text-gray-400 text-sm text-center py-4">Chargement...</div>
           ) : lignes.length === 0 ? (
@@ -172,14 +168,6 @@ export default function EptModal({ section, ue_num, ue_nom, annee, onClose }) {
               {saving ? 'Ajout...' : '＋ Ajouter'}
             </button>
           </div>
-        </div>
-
-        <div className="px-6 py-3 border-t flex justify-end">
-          <button onClick={onClose} className="bg-iip-gold text-white px-4 py-1.5 h-9 rounded text-sm hover:bg-iip-amber">
-            Fermer
-          </button>
-        </div>
-      </div>
-    </div>
+    </Fenetre>
   );
 }

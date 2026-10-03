@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { IconX, IconAlertTriangle, IconCheck, IconEqual, IconDeviceFloppy }
+import { IconAlertTriangle, IconCheck, IconEqual, IconDeviceFloppy }
   from '@tabler/icons-react';
 import { authHeaders } from '../lib/api.js';
 import { demander } from '../lib/dialogue.jsx';
+import { Fenetre } from './ui.jsx';
 
 /**
  * Relier les acquis aux cours — au tracé, comme le schéma de capitalisation.
@@ -349,29 +350,17 @@ export default function SchemaLiensAA({ ueNum, annee, onClose, onEnregistre }) {
     !(data?.cours || []).some(c => Number(poids[`${c.cours_code}|${a.aa_code}`]) > 0));
 
   return (
-    <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] flex items-start justify-center z-50 p-4"
-      onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="bg-white rounded-fenetre shadow-dessus w-full max-w-6xl mt-6
-                      max-h-[92vh] overflow-hidden flex flex-col">
-        <div className="flex-none p-5 pb-3 border-b border-slate-100 flex items-start justify-between">
-          <div>
-            <h3 className="text-[15px] font-semibold text-iip-blue">
-              UE {ueNum}{data?.ue_nom ? ` · ${data.ue_nom}` : ''} — cours et acquis
-            </h3>
-            <p className="text-[12px] text-slate-500">
+    <Fenetre large="pleine" onFermer={onClose}
+      titre={`UE ${ueNum}${data?.ue_nom ? ` · ${data.ue_nom}` : ''} — cours et acquis`}>
+            <p className="text-[12px] text-slate-500 mb-3">
               {integree
                 ? <>Épreuve intégrée : pas de liens aux cours — le <b>poids de chaque acquis</b> dans l'unité.</>
                 : <>Tirez une flèche d'un <b>acquis</b> vers le <b>cours</b> qu'il alimente :
                     c'est la somme des acquis qui fait le cours. Répartissez ensuite
                     <b> dix points</b> entre les acquis de chaque cours.</>}
             </p>
-          </div>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-600">
-            <IconX size={18} />
-          </button>
-        </div>
 
-        <div className="flex-1 overflow-y-auto p-5 space-y-3">
+        <div className="space-y-3">
           {erreur && <Bandeau ton="err">{erreur}</Bandeau>}
           {message && <Bandeau ton="ok">{message}</Bandeau>}
 
@@ -723,8 +712,7 @@ export default function SchemaLiensAA({ ueNum, annee, onClose, onEnregistre }) {
             </>
           )}
         </div>
-      </div>
-    </div>
+    </Fenetre>
   );
 }
 

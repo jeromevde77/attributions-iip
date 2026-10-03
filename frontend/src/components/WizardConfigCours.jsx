@@ -1,5 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { getAnnee } from '../lib/api.js';
+import { IconSettings } from '@tabler/icons-react';
+import { Fenetre } from './ui.jsx';
 
 const TOKEN = () => localStorage.getItem('token');
 const authFetch = (url, opts = {}) =>
@@ -123,21 +125,33 @@ export default function WizardConfigCours({ cours: coursInit, ueNum, section, an
   };
 
   return (
-    <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] flex items-center justify-center z-[60] p-4" onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col">
-        {/* En-tête */}
-        <div className="border-b border-gray-200 p-4">
-          <div className="flex items-center justify-between">
-            <h2 className="font-title text-lg text-iip-gold">⚙ Configuration du cours</h2>
-            <button onClick={onClose} className="text-gray-400 hover:text-red-500 text-2xl leading-none">×</button>
-          </div>
-          <div className="text-sm text-gray-600 mt-1">
-            {cours?.cours_code} — {cours?.cours_nom}
-            <span className="text-gray-400"> · {totalPer} pér. DP</span>
-            {effectif && <span className="text-violet-600 ml-2">· {effectif.total} étudiants inscrits</span>}
-          </div>
+    <Fenetre icone={IconSettings} titre="Configuration du cours" large="moyenne" onFermer={onClose}
+      sous={<>
+        {cours?.cours_code} — {cours?.cours_nom}
+        <span> · {totalPer} pér. DP</span>
+        {effectif && <span className="ml-2">· {effectif.total} étudiants inscrits</span>}
+      </>}
+      pied={<>
+        <button onClick={() => step > minStep ? setStep(step - 1) : onClose()}
+          className="bouton">
+          {step > minStep ? '← Précédent' : 'Annuler'}
+        </button>
+        <span />
+        {(step === 0 || step < totalSteps) ? (
+          <button onClick={() => canNext() && setStep(step + 1)} disabled={!canNext()}
+            className="bouton bouton-fort">
+            Suivant →
+          </button>
+        ) : (
+          <button onClick={genererLignes}
+            className="bouton bouton-fort">
+            ✓ Générer les lignes
+          </button>
+        )}
+      </>}>
+        <div className="mb-4">
           {/* Progression */}
-          <div className="flex gap-1.5 mt-3">
+          <div className="flex gap-1.5">
             {Array.from({ length: totalSteps }).map((_, i) => (
               <div key={i} className={`h-1.5 flex-1 rounded-full ${i < step ? 'bg-iip-gold' : 'bg-gray-200'}`} />
             ))}
@@ -145,7 +159,7 @@ export default function WizardConfigCours({ cours: coursInit, ueNum, section, an
         </div>
 
         {/* Corps */}
-        <div className="flex-1 overflow-auto p-5">
+        <div>
           {/* ── Étape 0 : choix du cours ── */}
           {step === 0 && (
             <div className="space-y-3">
@@ -304,26 +318,6 @@ export default function WizardConfigCours({ cours: coursInit, ueNum, section, an
             </div>
           )}
         </div>
-
-        {/* Pied : navigation */}
-        <div className="border-t border-gray-200 p-4 flex items-center justify-between">
-          <button onClick={() => step > minStep ? setStep(step - 1) : onClose()}
-            className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800">
-            {step > minStep ? '← Précédent' : 'Annuler'}
-          </button>
-          {(step === 0 || step < totalSteps) ? (
-            <button onClick={() => canNext() && setStep(step + 1)} disabled={!canNext()}
-              className="bg-iip-gold hover:bg-iip-amber disabled:opacity-40 text-white text-sm px-5 py-2 rounded font-medium">
-              Suivant →
-            </button>
-          ) : (
-            <button onClick={genererLignes}
-              className="bg-iip-gold hover:bg-iip-amber text-white text-sm px-5 py-2 rounded font-medium">
-              ✓ Générer les lignes
-            </button>
-          )}
-        </div>
-      </div>
-    </div>
+    </Fenetre>
   );
 }

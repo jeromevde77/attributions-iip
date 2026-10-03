@@ -5,7 +5,7 @@ import {
 import { authHeaders } from '../lib/api.js';
 import ChoixUnite from './ChoixUnite.jsx';
 import ConventionStage from './ConventionStage.jsx';
-import { Tableau, TableauEntete, Th, Td, Tr, Badge } from './ui.jsx';
+import { Tableau, TableauEntete, Th, Td, Tr, Badge, Fenetre } from './ui.jsx';
 import { demander } from '../lib/dialogue.jsx';
 
 /**
@@ -272,10 +272,16 @@ export default function Stages({ etudId, annee, peutEcrire = true }) {
 
       {/* Création d'un lieu, sans quitter la fiche */}
       {nouveauLieu && (
-        <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] flex items-start justify-center z-50 p-4"
-          onClick={e => e.target === e.currentTarget && setNouveauLieu(null)}>
-          <div className="bg-white rounded-fenetre shadow-dessus w-full max-w-2xl mt-16 p-5 space-y-3">
-            <div className="text-[15px] font-semibold text-iip-blue">Nouveau lieu de stage</div>
+        <Fenetre titre="Nouveau lieu de stage" large="moyenne" onFermer={() => setNouveauLieu(null)}
+          pied={<>
+            <span />
+            <button onClick={() => setNouveauLieu(null)} className="bouton">Annuler</button>
+            <button onClick={creerLieu} disabled={!nouveauLieu.nom}
+              className="bouton bouton-fort">
+              Créer
+            </button>
+          </>}>
+          <div className="space-y-3">
             <p className="text-[12px] text-slate-500">
               L'adresse complète figurera au supplément au diplôme de chaque étudiant accueilli.
             </p>
@@ -293,16 +299,8 @@ export default function Stages({ etudId, annee, peutEcrire = true }) {
                 </label>
               ))}
             </div>
-            <div className="flex justify-end gap-2">
-              <button onClick={() => setNouveauLieu(null)}
-                className="text-sm px-3 py-1.5 rounded-lg border border-slate-300">Annuler</button>
-              <button onClick={creerLieu} disabled={!nouveauLieu.nom}
-                className="bouton bouton-fort">
-                Créer
-              </button>
-            </div>
           </div>
-        </div>
+        </Fenetre>
       )}
     </div>
   );

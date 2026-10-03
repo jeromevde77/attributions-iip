@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
-import { IconX, IconAlertTriangle } from '@tabler/icons-react';
+import { IconAlertTriangle } from '@tabler/icons-react';
 import { authHeaders } from '../lib/api.js';
+import { Fenetre } from './ui.jsx';
 
 /**
  * REPRENDRE TOUT UN CLASSEUR — une section, ou les unités qu'on coche.
@@ -84,27 +85,28 @@ export default function RepriseLot({ annee, section = null, onClose, onFini }) {
   });
 
   return (
-    <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] flex items-start justify-center z-50 p-3"
-      onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="bg-white rounded-fenetre shadow-dessus w-full max-w-[980px] mt-6
-                      max-h-[90vh] overflow-hidden flex flex-col">
-        <div className="flex items-start justify-between gap-3 px-5 py-4 border-b border-slate-200">
-          <div>
-            <h3 className="text-[15px] font-semibold text-iip-blue">
-              Reprendre les délibérations du classeur — en lot
-            </h3>
-            <p className="text-[12px] text-slate-500">
-              Année <b>{annee}</b> · première session. Les décisions viennent du classeur et
-              sont reprises telles quelles ; Lucie y ajoute la cote qu'elle calcule et les
-              cours à représenter, puis pose la date que vous fixez.
-            </p>
-          </div>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-600">
-            <IconX size={18} />
-          </button>
-        </div>
-
-        <div className="px-5 py-4 space-y-4 overflow-y-auto">
+    <Fenetre titre="Reprendre les délibérations du classeur — en lot" large="grande" onFermer={onClose}
+      sous={`Année ${annee} · première session`}
+      pied={<>
+        <span className="text-[12px] text-slate-500">
+          {choisies.size} unité(s) cochée(s) sur {reprenables.length} reprenables
+        </span>
+        <button onClick={onClose} className="bouton">
+          Fermer
+        </button>
+        <button disabled={enCours || !choisies.size || !date} onClick={() => envoyer(true)} className="bouton">
+          Simuler
+        </button>
+        <button disabled={enCours || !choisies.size || !date} onClick={() => envoyer(false)} className="bouton bouton-fort">
+          Reprendre {choisies.size} unité(s)
+        </button>
+      </>}>
+        <div className="space-y-4">
+          <p className="text-[12px] text-slate-500">
+            Les décisions viennent du classeur et
+            sont reprises telles quelles ; Lucie y ajoute la cote qu'elle calcule et les
+            cours à représenter, puis pose la date que vous fixez.
+          </p>
           {erreur && (
             <div className="px-3 py-2 rounded-lg bg-red-50 border border-red-200
                             text-[13px] text-red-800 flex items-start gap-2">
@@ -278,29 +280,6 @@ export default function RepriseLot({ annee, section = null, onClose, onFini }) {
             </>
           )}
         </div>
-
-        <div className="px-5 py-3 border-t border-slate-200 flex items-center justify-between gap-3">
-          <span className="text-[12px] text-slate-500">
-            {choisies.size} unité(s) cochée(s) sur {reprenables.length} reprenables
-          </span>
-          <div className="flex gap-2">
-            <button onClick={onClose}
-              className="px-3 py-1.5 text-[13px] rounded-lg border border-slate-300 text-slate-600">
-              Fermer
-            </button>
-            <button disabled={enCours || !choisies.size || !date} onClick={() => envoyer(true)}
-              className="px-3 py-1.5 text-[13px] rounded-lg border border-sky-400
-                         text-sky-800 font-semibold disabled:opacity-40">
-              Simuler
-            </button>
-            <button disabled={enCours || !choisies.size || !date} onClick={() => envoyer(false)}
-              className="px-4 py-2 text-[13px] rounded-lg bg-sky-700 text-white
-                         font-semibold disabled:opacity-40">
-              Reprendre {choisies.size} unité(s)
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
+    </Fenetre>
   );
 }

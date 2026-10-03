@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { estDirection } from '../lib/modules.js';
 import { IconCheck, IconX } from '@tabler/icons-react';
 import { api, getUser } from '../lib/api.js';
+import { Fenetre } from './ui.jsx';
 
 /**
  * Modale création / édition d'un cours du référentiel.
@@ -88,19 +89,17 @@ export default function CoursFormModal({ cours, ueNum, section, onClose, onSaved
   const lblZ = 'text-xs font-medium mb-1 text-gray-400';
 
   return (
-    <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] flex items-center justify-center p-4 z-50"
-         onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg border-t-4 border-iip-blue">
-
-        {/* ── En-tête ── */}
-        <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100">
-          <h2 className="font-title text-lg text-iip-blue">
-            {isNew ? `Nouveau cours${ueNum ? ` — UE ${ueNum}` : ''}` : `Modifier ${cours.cours_code}`}
-          </h2>
-          <button onClick={onClose} className="text-gray-400 hover:text-red-500 text-2xl leading-none">×</button>
-        </div>
-
-        <form onSubmit={submit} className="p-5 space-y-4">
+    <Fenetre large="petite" onFermer={onClose}
+      titre={isNew ? `Nouveau cours${ueNum ? ` — UE ${ueNum}` : ''}` : `Modifier ${cours.cours_code}`}
+      pied={<>
+        <span />
+        <button type="button" onClick={onClose} className="bouton">Annuler</button>
+        <button type="submit" form="fiche-cours" disabled={saving}
+          className="bouton bouton-fort">
+          {saving ? '…' : isNew ? 'Créer' : 'Enregistrer'}
+        </button>
+      </>}>
+        <form id="fiche-cours" onSubmit={submit} className="space-y-4">
 
           {/* ── CODE + Z ──────────────────────────────────────────────────── */}
           <div>
@@ -314,15 +313,7 @@ export default function CoursFormModal({ cours, ueNum, section, onClose, onSaved
 
           {error && <div className="bg-red-50 text-red-700 text-sm rounded-lg p-2 border-l-4 border-l-red-500">{error}</div>}
 
-          <div className="flex justify-end gap-2 pt-2 border-t border-gray-100">
-            <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-gray-500 hover:text-gray-700">Annuler</button>
-            <button type="submit" disabled={saving}
-              className="bg-iip-blue hover:bg-iip-blue-dark disabled:opacity-40 text-white text-sm px-5 py-2 rounded-lg font-medium">
-              {saving ? '…' : isNew ? 'Créer' : 'Enregistrer'}
-            </button>
-          </div>
         </form>
-      </div>
-    </div>
+    </Fenetre>
   );
 }

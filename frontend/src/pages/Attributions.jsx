@@ -13,7 +13,7 @@ import OrganiserGroupesModal from '../components/OrganiserGroupesModal.jsx';
 import Doc23Modal from '../components/Doc23Modal.jsx';
 import AnnulationPanel from '../components/AnnulationPanel.jsx';
 import * as XLSX from 'xlsx';
-import { IconArrowsSplit, IconClipboardText, IconTrash, IconLock, IconLockOpen, IconRefresh, IconCalendar, IconFileText, IconEraser, IconWand, IconX, IconSettings, IconFolder, IconPlus, IconFileImport, IconFileSpreadsheet, IconUsersGroup, IconScissors, IconClock, IconChevronLeft, IconChevronRight, IconFilter, IconBriefcase, IconArrowBackUp, IconInfoCircle, IconUserCog } from '@tabler/icons-react';
+import { IconArrowsSplit, IconClipboardText, IconTrash, IconLock, IconLockOpen, IconRefresh, IconCalendar, IconFileText, IconEraser, IconWand, IconX, IconSettings, IconFolder, IconPlus, IconFileImport, IconFileSpreadsheet, IconUsersGroup, IconScissors, IconClock, IconChevronLeft, IconChevronRight, IconFilter, IconBriefcase, IconArrowBackUp, IconInfoCircle, IconUserCog, IconAlertTriangle } from '@tabler/icons-react';
 
 // ─── Modale : copier les attributions d'une section d'une année vers une autre ─
 function CopierSectionModal({ sections, anneeActive, isAdmin, onClose, onCopied }) {
@@ -71,14 +71,21 @@ function CopierSectionModal({ sections, anneeActive, isAdmin, onClose, onCopied 
   }
 
   return (
-    <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] flex items-center justify-center p-4 z-50"
-         onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="bg-white rounded-xl shadow-2xl w-full max-w-md border-t-4 border-indigo-600">
-        <div className="flex items-center justify-between px-5 py-3 border-b">
-          <h2 className="font-title text-lg text-indigo-700 flex items-center gap-2"><IconClipboardText size={18}/> Copier les attributions</h2>
-          <button onClick={onClose} className="text-gray-400 hover:text-slate-600 text-2xl">×</button>
-        </div>
-        <div className="p-5 space-y-4">
+    <Fenetre icone={IconClipboardText} titre="Copier les attributions" large="petite" onFermer={onClose}
+      pied={<>
+        <span />
+        <button onClick={onClose} className="bouton">
+          {success ? 'Fermer' : 'Annuler'}
+        </button>
+        {!success && (
+          <button onClick={() => copier(false)}
+            disabled={loading || !sectionSrc || !anneeSrc || !anneeDest || nbSource === 0}
+            className="bouton bouton-fort">
+            {loading ? '…' : <span className="inline-flex items-center gap-1.5"><IconClipboardText size={15}/> Copier {nbSource ? `(${nbSource})` : ''}</span>}
+          </button>
+        )}
+      </>}>
+        <div className="space-y-4">
           <p className="text-sm text-gray-500">Copie toutes les attributions (prof inclus) d'une section vers une autre année.</p>
 
           <label className="block">
@@ -143,22 +150,8 @@ function CopierSectionModal({ sections, anneeActive, isAdmin, onClose, onCopied 
           {success && (
             <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-sm text-green-700 border-l-4 border-l-green-500">{success}</div>
           )}
-
-          <div className="flex justify-end gap-2 pt-2 border-t border-gray-100">
-            <button onClick={onClose} className="px-4 py-2 text-sm text-gray-500 hover:text-gray-700">
-              {success ? 'Fermer' : 'Annuler'}
-            </button>
-            {!success && (
-              <button onClick={() => copier(false)}
-                disabled={loading || !sectionSrc || !anneeSrc || !anneeDest || nbSource === 0}
-                className="bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40 text-white text-sm px-5 py-2 rounded-lg font-medium">
-                {loading ? '…' : <span className="inline-flex items-center gap-1.5"><IconClipboardText size={15}/> Copier {nbSource ? `(${nbSource})` : ''}</span>}
-              </button>
-            )}
-          </div>
         </div>
-      </div>
-    </div>
+    </Fenetre>
   );
 }
 
@@ -2469,24 +2462,29 @@ export default function Attributions() {
         }
 
         return (
-        <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] z-50 flex items-center justify-center p-4" onClick={fermer}>
-          <div className="bg-white rounded-xl shadow-2xl w-full flex flex-col" style={{maxWidth: 680, maxHeight: '85vh'}} onClick={e => e.stopPropagation()}>
-
-            {/* En-tête */}
-            <div className="flex items-start gap-3 px-5 py-4 border-b border-gray-100 flex-shrink-0">
-              <span className="text-amber-500 text-xl mt-0.5">⚠</span>
-              <div className="flex-1 min-w-0">
-                <div className="font-semibold text-gray-800">
-                  Erreur {idx + 1} / {anomalies.length} — {a.section} · {a.code_cours}
-                </div>
-                <div className="text-sm text-gray-600 mt-0.5 truncate">{a.cours}</div>
-                {a.activite && <div className="text-xs text-gray-400 mt-0.5">Activité : {a.activite}</div>}
-                <div className="text-xs text-amber-700 mt-1 font-medium">{a.probleme}</div>
-              </div>
-              <button onClick={fermer} className="text-gray-400 hover:text-gray-600 text-xl leading-none flex-shrink-0">×</button>
+        <Fenetre icone={IconAlertTriangle} large="moyenne" onFermer={fermer}
+          titre={`Erreur ${idx + 1} / ${anomalies.length} — ${a.section} · ${a.code_cours}`}
+          sous={a.cours}
+          pied={<>
+            <button onClick={() => setErreurIndex(i => Math.max(0, i-1))} disabled={idx===0}
+              className="bouton">
+              ← Précédent
+            </button>
+            <button onClick={() => setErreurIndex(i => Math.min(anomalies.length-1, i+1))} disabled={idx===anomalies.length-1}
+              className="bouton">
+              Suivant →
+            </button>
+            <span />
+            <button onClick={fermer} className="bouton bouton-fort">
+              Fermer
+            </button>
+          </>}>
+            <div className="mb-3">
+              {a.activite && <div className="text-xs text-gray-400">Activité : {a.activite}</div>}
+              <div className="text-xs text-amber-700 mt-1 font-medium">{a.probleme}</div>
             </div>
             {/* Corps — tableau des attributions du cours */}
-            <div className="overflow-auto flex-1 px-4 py-3">
+            <div>
               {toutesLignes.length === 0 ? (
                 <p style={{color:'var(--c-texte)', fontSize:13, fontStyle:'italic'}}>Aucune attribution trouvée pour ce cours.</p>
               ) : (
@@ -2580,51 +2578,29 @@ export default function Attributions() {
               )}
             </div>
 
-            {/* Pied — navigation + fermer */}
-            <div className="px-5 py-3 border-t border-gray-100 flex items-center justify-between flex-shrink-0">
-              <div className="flex gap-2">
-                <button onClick={() => setErreurIndex(i => Math.max(0, i-1))} disabled={idx===0}
-                  style={{padding:'6px 14px', borderRadius:8, fontSize:13, fontWeight:600, border:'1px solid #D1D5DB',
-                    background: idx===0?'#F9FAFB':'#fff', color: idx===0?'#CBD5E1':'var(--c-principal)', cursor: idx===0?'default':'pointer'}}>
-                  ← Précédent
-                </button>
-                <button onClick={() => setErreurIndex(i => Math.min(anomalies.length-1, i+1))} disabled={idx===anomalies.length-1}
-                  style={{padding:'6px 14px', borderRadius:8, fontSize:13, fontWeight:600, border:'1px solid #D1D5DB',
-                    background: idx===anomalies.length-1?'#F9FAFB':'#fff', color: idx===anomalies.length-1?'#CBD5E1':'var(--c-principal)', cursor: idx===anomalies.length-1?'default':'pointer'}}>
-                  Suivant →
-                </button>
-              </div>
-              <button onClick={fermer}
-                style={{padding:'6px 16px', borderRadius:8, fontSize:13, fontWeight:600, background:'var(--c-principal)', color:'#fff', border:'none', cursor:'pointer'}}>
-                Fermer
-              </button>
-            </div>
-          </div>
-        </div>
+        </Fenetre>
         );
       })()}
 
       {confirmDeleteSection && (
-        <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] z-50 flex items-center justify-center">
-          <div className="bg-white rounded-xl shadow-2xl p-6 max-w-sm w-full space-y-4">
-            <h3 className="font-semibold text-gray-800">Retirer la section</h3>
+        <Fenetre icone={IconTrash} titre="Retirer la section" large="petite"
+          onFermer={() => setConfirmDeleteSection(null)}
+          pied={<>
+            <span />
+            <button onClick={() => setConfirmDeleteSection(null)} className="bouton">
+              Annuler
+            </button>
+            <button onClick={() => delSectionConfirmed(confirmDeleteSection)}
+              className="bouton bouton-detruire">
+              Supprimer
+            </button>
+          </>}>
             <p className="text-sm text-gray-600">
               Retirer la section <strong>{confirmDeleteSection}</strong> de la vue des attributions pour cette année ?
               Le référentiel (UE et cours) n'est pas touché. La section réapparaîtra automatiquement
               dès que tu y crées des attributions.
             </p>
-            <div className="flex gap-2 justify-end">
-              <button onClick={() => setConfirmDeleteSection(null)}
-                className="px-4 py-2 text-sm border border-gray-300 rounded text-gray-600 hover:bg-gray-50">
-                Annuler
-              </button>
-              <button onClick={() => delSectionConfirmed(confirmDeleteSection)}
-                className="bouton-detruire controle px-4">
-                Supprimer
-              </button>
-            </div>
-          </div>
-        </div>
+        </Fenetre>
       )}
       {quadriMenu && <div className="fixed inset-0 z-30" onClick={()=>setQuadriMenu(null)} />}
       {orgMenu && <div className="fixed inset-0 z-30" onClick={()=>setOrgMenu(null)} />}
@@ -2640,23 +2616,23 @@ export default function Attributions() {
       {showBulkCreate && <BulkCreateForm onClose={()=>setShowBulkCreate(false)} onCreated={load}/>}
       {showCopierSection && <CopierSectionModal sections={sections} anneeActive={getAnnee()} isAdmin={isAdmin} onClose={()=>setShowCopierSection(false)} onCopied={load}/>}
       {confirmViderSection && (
-        <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6 space-y-4">
-            <h3 className="font-semibold text-gray-800">⚠️ Supprimer toutes les attributions</h3>
+        <Fenetre icone={IconAlertTriangle} titre="Supprimer toutes les attributions" large="petite" ton="alerte"
+          onFermer={() => setConfirmViderSection(null)}
+          pied={<>
+            <span />
+            <button onClick={() => setConfirmViderSection(null)} className="bouton">Annuler</button>
+            <button onClick={() => viderSectionConfirmed(confirmViderSection)}
+              className="bouton bouton-detruire">
+              Supprimer toutes les attributions
+            </button>
+          </>}>
+          <div className="space-y-4">
             <p className="text-sm text-gray-600">
               Supprimer <strong>toutes les attributions</strong> de la section <strong>{confirmViderSection}</strong> pour l'année <strong>{getAnnee()}</strong> ?
             </p>
             <p className="text-xs text-iip-texte font-medium">Cette action est irréversible. Le référentiel (UE, cours) n'est pas touché.</p>
-            <div className="flex gap-3 justify-end pt-2">
-              <button onClick={() => setConfirmViderSection(null)}
-                className="px-4 py-2 text-sm border border-gray-300 rounded hover:bg-gray-50">Annuler</button>
-              <button onClick={() => viderSectionConfirmed(confirmViderSection)}
-                className="px-4 py-2 text-sm bg-orange-500 hover:bg-orange-600 text-white rounded font-semibold">
-                Supprimer toutes les attributions
-              </button>
-            </div>
           </div>
-        </div>
+        </Fenetre>
       )}
       {eptModal && <EptModal {...eptModal} annee={getAnnee()} onClose={() => { setEptModal(null); load(); }} />}
       {orgModal && <OrganisationUEModal {...orgModal} annee={getAnnee()} onClose={() => setOrgModal(null)} />}
@@ -2675,9 +2651,12 @@ export default function Attributions() {
       {editRow && <CoursEditModal section={editRow.section} codeCours={editRow.code_cours} onClose={()=>setEditRow(null)} onChanged={load}/>}
 
       {rapportSectionChoix && (
-        <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] flex items-center justify-center p-4 z-40" onClick={e=>e.target===e.currentTarget&&setRapportSectionChoix(null)}>
-          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6 border-t-4 border-iip-mauve">
-            <h2 className="text-lg font-title text-iip-mauve mb-1">Rapport — {rapportSectionChoix}</h2>
+        <Fenetre icone={IconFileText} titre={`Rapport — ${rapportSectionChoix}`} large="petite"
+          onFermer={()=>setRapportSectionChoix(null)}
+          pied={<>
+            <span />
+            <button onClick={()=>setRapportSectionChoix(null)} className="bouton">Annuler</button>
+          </>}>
             <p className="text-sm text-gray-500 mb-4">Quel périmètre souhaitez-vous inclure&nbsp;?</p>
             <div className="space-y-2">
               <button onClick={()=>{ const s=rapportSectionChoix; setRapportSectionChoix(null); genererRapport(s, ''); }}
@@ -2693,23 +2672,26 @@ export default function Attributions() {
                 Hors TC <span className="text-gray-400 font-normal">— cours propres à la section</span>
               </button>
             </div>
-            <div className="mt-4 text-right">
-              <button onClick={()=>setRapportSectionChoix(null)} className="text-sm text-gray-500 hover:text-gray-700">Annuler</button>
-            </div>
-          </div>
-        </div>
+        </Fenetre>
       )}
 
       {secDel && (
-        <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] flex items-center justify-center p-4 z-40" onClick={e=>e.target===e.currentTarget&&setSecDel(null)}>
-          <div className="bg-white rounded-xl shadow-2xl max-w-lg w-full p-6 border-t-4 border-[color:var(--c-refuse)] flex flex-col" style={{maxHeight:'85vh'}}>
-            <h2 className="text-xl font-title text-iip-texte mb-2">⚠️ Tout supprimer — section {secDel.section}</h2>
+        <Fenetre icone={IconAlertTriangle} titre={`Tout supprimer — section ${secDel.section}`} large="petite" ton="alerte"
+          onFermer={()=>setSecDel(null)}
+          pied={<>
+            <span />
+            <button onClick={()=>setSecDel(null)} className="bouton">Annuler</button>
+            <button onClick={confirmSuppressionSection} disabled={secDelText!==secDel.section || secDel.count===0 || secDelBusy}
+              className="bouton bouton-detruire">
+              {secDelBusy ? 'Suppression…' : `Supprimer ${secDel.count} attribution(s)`}
+            </button>
+          </>}>
             <p className="text-sm text-gray-700 mb-2">
               Vous allez supprimer <b className="text-iip-texte">{secDel.count} attribution(s)</b> de la section <b>{secDel.section}</b> pour {getAnnee()}.
               La section et les cours restent dans le référentiel ; seules les attributions sont effacées.
             </p>
             <p className="text-xs text-gray-500 mb-2">Une <b>copie de sauvegarde</b> de la base est créée automatiquement juste avant. Action <b>irréversible</b> sans restauration de cette copie.</p>
-            <div className="border border-gray-200 rounded-lg overflow-auto mb-3 flex-1" style={{minHeight:'80px'}}>
+            <div className="border border-gray-200 rounded-lg overflow-auto mb-3 max-h-[40vh]" style={{minHeight:'80px'}}>
               <table className="w-full text-[11px]">
                 <thead className="bg-gray-50 sticky top-0"><tr>
                   <th className="text-left px-2 py-1 text-gray-500">UE</th>
@@ -2731,22 +2713,18 @@ export default function Attributions() {
               </table>
             </div>
             <label className="block text-xs text-gray-600 mb-1">Tapez le nom de la section <code className="bg-gray-100 px-1 rounded font-mono">{secDel.section}</code> pour confirmer :</label>
-            <input value={secDelText} onChange={e=>setSecDelText(e.target.value)} autoFocus className="w-full border border-gray-300 rounded px-3 py-2 text-sm font-mono mb-4" placeholder={secDel.section}/>
-            <div className="flex justify-end gap-2">
-              <button onClick={()=>setSecDel(null)} className="px-4 py-2 text-sm text-gray-600">Annuler</button>
-              <button onClick={confirmSuppressionSection} disabled={secDelText!==secDel.section || secDel.count===0 || secDelBusy}
-                className="bouton-detruire controle px-5 disabled:opacity-30">
-                {secDelBusy ? 'Suppression…' : `Supprimer ${secDel.count} attribution(s)`}
-              </button>
-            </div>
-          </div>
-        </div>
+            <input value={secDelText} onChange={e=>setSecDelText(e.target.value)} autoFocus className="w-full border border-gray-300 rounded px-3 py-2 text-sm font-mono" placeholder={secDel.section}/>
+        </Fenetre>
       )}
 
       {bulkDeleteModal && (
-        <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] flex items-center justify-center p-4 z-40" onClick={e=>e.target===e.currentTarget&&setBulkDeleteModal(null)}>
-          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6 border-t-4 border-[color:var(--c-refuse)]">
-            <h2 className="text-xl font-title text-iip-texte mb-3">⚠️ Suppression en masse</h2>
+        <Fenetre icone={IconAlertTriangle} titre="Suppression en masse" large="petite" ton="alerte"
+          onFermer={()=>setBulkDeleteModal(null)}
+          pied={<>
+            <span />
+            <button onClick={()=>setBulkDeleteModal(null)} className="bouton">Annuler</button>
+            <button onClick={confirmBulkDelete} disabled={bulkConfirmText!=='SUPPRIMER'} className="bouton bouton-detruire">Confirmer</button>
+          </>}>
             <p className="text-sm text-gray-700 mb-4">
               {bulkDeleteModal==='selection'&&<>Supprimer <b>{bulkPreview?.count??'…'}</b> attribution(s) sélectionnée(s) ?</>}
               {bulkDeleteModal==='filtered'&&<>Supprimer <b>{bulkPreview?.count??'…'}</b> attribution(s) correspondant aux filtres ?</>}
@@ -2754,13 +2732,8 @@ export default function Attributions() {
             </p>
             <p className="text-xs text-gray-500 mb-3">Planning supprimé en cascade. <b>Irréversible.</b></p>
             <label className="block text-xs text-gray-600 mb-1">Tapez <code className="bg-gray-100 px-1 rounded font-mono">SUPPRIMER</code> :</label>
-            <input value={bulkConfirmText} onChange={e=>setBulkConfirmText(e.target.value)} autoFocus className="w-full border border-gray-300 rounded px-3 py-2 text-sm font-mono mb-4" placeholder="SUPPRIMER"/>
-            <div className="flex justify-end gap-2">
-              <button onClick={()=>setBulkDeleteModal(null)} className="px-4 py-2 text-sm text-gray-600">Annuler</button>
-              <button onClick={confirmBulkDelete} disabled={bulkConfirmText!=='SUPPRIMER'} className="bouton-detruire controle px-5 disabled:opacity-30">Confirmer</button>
-            </div>
-          </div>
-        </div>
+            <input value={bulkConfirmText} onChange={e=>setBulkConfirmText(e.target.value)} autoFocus className="w-full border border-gray-300 rounded px-3 py-2 text-sm font-mono" placeholder="SUPPRIMER"/>
+        </Fenetre>
       )}
 
       {/* Bandeau : profs définitifs en perte de charge (ETP global, en bas) */}

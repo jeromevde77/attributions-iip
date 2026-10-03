@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { api } from '../lib/api.js';
-import { IconX, IconCheck, IconChevronRight, IconBuilding, IconBook, IconSchool } from '@tabler/icons-react';
+import { IconCheck, IconChevronRight, IconBuilding, IconBook, IconSchool } from '@tabler/icons-react';
 import { informer } from '../lib/dialogue.jsx';
+import { Fenetre } from './ui.jsx';
 
 /**
  * Modale "Nouveau" — 3 chemins :
@@ -111,39 +112,60 @@ export default function NouveauModal({ onClose, onCreated }) {
 
   // ── Rendu ──────────────────────────────────────────────────────────────────
   if (result) return (
-    <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] z-50 flex items-center justify-center p-4" onClick={onClose}>
-      <div className="bg-white rounded-xl shadow-xl w-full max-w-sm p-6 text-center" onClick={e => e.stopPropagation()}>
+    <Fenetre titre="Nouveau" large="petite" onFermer={onClose}
+      pied={<>
+        <span />
+        <button onClick={onClose} className="bouton bouton-fort">Fermer</button>
+      </>}>
+      <div className="text-center">
         <div className="text-4xl mb-3">✅</div>
         <div className="text-lg font-bold text-iip-blue mb-1">
           {result.created} attribution{result.created > 1 ? 's' : ''} créée{result.created > 1 ? 's' : ''}
         </div>
         {result.skipped > 0 && <div className="text-sm text-gray-400">{result.skipped} déjà existante{result.skipped > 1 ? 's' : ''}, ignorée{result.skipped > 1 ? 's' : ''}</div>}
-        <button onClick={onClose} className="mt-4 bg-iip-blue text-white px-6 py-2 rounded-lg text-sm font-medium hover:opacity-90">
-          Fermer
-        </button>
       </div>
-    </div>
+    </Fenetre>
   );
 
+  // Les boutons de l'étape vivent dans le pied de la fenêtre : ils ne défilent
+  // pas avec la liste des UE.
+  const annuler = <button onClick={onClose} className="bouton">Annuler</button>;
+  const piedEtape =
+    etape === 'section' ? <>
+      <span />
+      {annuler}
+      <button onClick={creerSection} disabled={!section || selectedUEs.size === 0 || creating}
+        className="bouton bouton-fort inline-flex items-center gap-2">
+        <IconCheck size={15} /> {creating ? 'Création…' : `Créer (${selectedUEs.size} UE)`}
+      </button>
+    </>
+    : etape === 'ue' ? <>
+      <span />
+      {annuler}
+      <button onClick={creerUE} disabled={!section || !selUE || creating}
+        className="bouton bouton-fort inline-flex items-center gap-2">
+        <IconCheck size={15} /> {creating ? 'Création…' : 'Importer l\'UE'}
+      </button>
+    </>
+    : etape === 'cours' ? <>
+      <span />
+      {annuler}
+      <button onClick={creerCours} disabled={!section || !selUE || !selCours || creating}
+        className="bouton bouton-fort inline-flex items-center gap-2">
+        <IconCheck size={15} /> {creating ? 'Création…' : 'Créer l\'attribution'}
+      </button>
+    </>
+    : null;
+
   return (
-    <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] z-50 flex items-center justify-center p-4" onClick={onClose}>
-      <div className="bg-white rounded-xl shadow-xl w-full max-w-lg" onClick={e => e.stopPropagation()}>
-
-        {/* En-tête */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
-          <div className="flex items-center gap-2">
-            {etape !== 'choix' && (
-              <button onClick={() => { setEtape('choix'); setSection(''); setSelUE(''); setSelCours(''); }}
-                className="text-gray-400 hover:text-gray-600 mr-1">←</button>
-            )}
-            <h2 className="text-lg font-bold text-iip-blue">
-              {etape === 'choix' ? 'Nouveau' : etape === 'section' ? 'Importer une section' : etape === 'ue' ? 'Importer une UE' : 'Ajouter un cours'}
-            </h2>
-          </div>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><IconX size={18} /></button>
-        </div>
-
-        <div className="px-5 py-5">
+    <Fenetre large="petite" onFermer={onClose} pied={piedEtape}
+      titre={etape === 'choix' ? 'Nouveau' : etape === 'section' ? 'Importer une section' : etape === 'ue' ? 'Importer une UE' : 'Ajouter un cours'}
+      outils={etape !== 'choix' && (
+        <button onClick={() => { setEtape('choix'); setSection(''); setSelUE(''); setSelCours(''); }}
+          aria-label="Retour" title="Retour"
+          className="flex-none w-8 h-8 grid place-items-center rounded-champ hover:bg-white/15">←</button>
+      )}>
+        <div>
 
           {/* ── Étape 1 : Choix du mode ── */}
           {etape === 'choix' && (
@@ -238,13 +260,6 @@ export default function NouveauModal({ onClose, onCreated }) {
                 </div>
               )}
 
-              <div className="flex justify-end gap-2 pt-2">
-                <button onClick={onClose} className="text-sm text-gray-500 hover:text-gray-700 px-4 py-2">Annuler</button>
-                <button onClick={creerSection} disabled={!section || selectedUEs.size === 0 || creating}
-                  className="flex items-center gap-2 bg-iip-blue text-white text-sm px-5 py-2 rounded-lg font-medium hover:opacity-90 disabled:opacity-40">
-                  <IconCheck size={15} /> {creating ? 'Création…' : `Créer (${selectedUEs.size} UE)`}
-                </button>
-              </div>
             </div>
           )}
 
@@ -287,13 +302,6 @@ export default function NouveauModal({ onClose, onCreated }) {
                 </div>
               )}
 
-              <div className="flex justify-end gap-2 pt-2">
-                <button onClick={onClose} className="text-sm text-gray-500 hover:text-gray-700 px-4 py-2">Annuler</button>
-                <button onClick={creerUE} disabled={!section || !selUE || creating}
-                  className="flex items-center gap-2 bg-iip-blue text-white text-sm px-5 py-2 rounded-lg font-medium hover:opacity-90 disabled:opacity-40">
-                  <IconCheck size={15} /> {creating ? 'Création…' : 'Importer l\'UE'}
-                </button>
-              </div>
             </div>
           )}
 
@@ -355,18 +363,10 @@ export default function NouveauModal({ onClose, onCreated }) {
                 ) : null;
               })()}
 
-              <div className="flex justify-end gap-2 pt-2">
-                <button onClick={onClose} className="text-sm text-gray-500 hover:text-gray-700 px-4 py-2">Annuler</button>
-                <button onClick={creerCours} disabled={!section || !selUE || !selCours || creating}
-                  className="flex items-center gap-2 bg-iip-blue text-white text-sm px-5 py-2 rounded-lg font-medium hover:opacity-90 disabled:opacity-40">
-                  <IconCheck size={15} /> {creating ? 'Création…' : 'Créer l\'attribution'}
-                </button>
-              </div>
             </div>
           )}
 
         </div>
-      </div>
-    </div>
+    </Fenetre>
   );
 }

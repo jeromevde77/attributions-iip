@@ -3,7 +3,7 @@ import {
   IconPlus, IconTrash, IconUpload, IconCopy, IconAlertTriangle, IconCash,
 } from '@tabler/icons-react';
 import { authHeaders } from '../lib/api.js';
-import { Tableau, TableauEntete, Th } from '../components/ui.jsx';
+import { Tableau, TableauEntete, Th, Fenetre } from '../components/ui.jsx';
 import { demander } from '../lib/dialogue.jsx';
 
 /**
@@ -490,13 +490,16 @@ function DepenseForm({ ligne, onEnregistrer, onAnnuler }) {
     taux_tva: ligne.taux_tva,
   });
   return (
-    <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] flex items-start justify-center z-50 p-4"
-      onClick={e => e.target === e.currentTarget && onAnnuler()}>
-      <div className="bg-white rounded-fenetre shadow-dessus w-full max-w-lg mt-24 p-5 space-y-3">
-        <div className="flex items-center gap-2">
-          <IconCash size={18} className="text-iip-turquoise" />
-          <span className="font-semibold text-iip-blue">Encoder une dépense</span>
-        </div>
+    <Fenetre icone={IconCash} titre="Encoder une dépense" large="petite" onFermer={onAnnuler}
+      pied={<>
+        <span />
+        <button onClick={onAnnuler} className="bouton">Annuler</button>
+        <button onClick={() => onEnregistrer(d)} disabled={!d.libelle || !d.montant_htva}
+          className="bouton bouton-fort">
+          Enregistrer
+        </button>
+      </>}>
+      <div className="space-y-3">
         <div className="text-[12px] text-slate-500">
           Sur la prévision « {ligne.details} » — solde actuel <b>{eur(ligne.solde)}</b>
         </div>
@@ -525,15 +528,8 @@ function DepenseForm({ ligne, onEnregistrer, onAnnuler }) {
               className="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-sm" />
           </label>
         </div>
-        <div className="flex justify-end gap-2">
-          <button onClick={onAnnuler} className="text-sm px-3 py-1.5 rounded-lg border border-slate-300">Annuler</button>
-          <button onClick={() => onEnregistrer(d)} disabled={!d.libelle || !d.montant_htva}
-            className="bouton bouton-fort">
-            Enregistrer
-          </button>
-        </div>
       </div>
-    </div>
+    </Fenetre>
   );
 }
 

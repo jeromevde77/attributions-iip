@@ -1319,21 +1319,11 @@ function GrilleParcours({ etudId, peutEcrire, annee, ueFocus = null }) {
       })()}
 
       {popover && (
-        <div className="fixed inset-0 z-[60] bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] flex items-center justify-center p-4"
-          onClick={() => { setPopover(null); setPts(''); setDetail(null); setDetailOuvert(false); }}>
-          {/* DEUX FENÊTRES EN UNE, ET UNE SEULE LARGEUR POUR LES DEUX.
-              Fermée, cette fenêtre ne porte qu'une poignée de boutons : 320 px
-              suffisent. Ouverte sur le détail, elle doit montrer une grille —
-              cours, acquis, notes des deux sessions — et 320 px la réduisaient
-              à une colonne de libellés tronqués. La largeur suit donc ce qu'on
-              y fait, et la hauteur aussi : c'est le contenu qui défile, pas la
-              fenêtre qui s'étire hors de l'écran. */}
-          <div onClick={e => e.stopPropagation()}
-            className={`bg-white rounded-fenetre shadow-dessus p-5 flex flex-col
-                        ${detailOuvert ? 'w-full max-w-3xl max-h-[88vh]' : 'w-80'}`}>
-            <div className="font-semibold text-iip-blue mb-1">
-              UE {popover.ue_num} — {popover.annee}
-            </div>
+        <Fenetre titre={`UE ${popover.ue_num} — ${popover.annee}`}
+          large={detailOuvert ? 'moyenne' : 'petite'}
+          onFermer={() => { setPopover(null); setPts(''); setDetail(null); setDetailOuvert(false); }}>
+          {/* DEUX FENÊTRES EN UNE : la largeur suit ce qu'on y fait — petite
+              pour la poignée de boutons, moyenne pour la grille du détail. */}
             {popover.verrou && (
               <div className="text-[11px] text-white bg-amber-500 border border-amber-500 rounded-lg px-2 py-1 mb-2">
                 Dérogation — sera tracée comme telle
@@ -1593,8 +1583,7 @@ function GrilleParcours({ etudId, peutEcrire, annee, ueFocus = null }) {
                 </p>
               </div>
             )}
-          </div>
-        </div>
+        </Fenetre>
       )}
     </div>
   );
@@ -4560,19 +4549,10 @@ export default function Etudiants() {
 
 
       {complement && (
-        <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] flex items-start justify-center z-50 p-4"
-          onClick={e => e.target === e.currentTarget && setComplement(false)}>
-          <div className="bg-white rounded-fenetre shadow-dessus w-full max-w-3xl mt-12 p-5
-                          max-h-[85vh] overflow-y-auto">
-            <div className="flex items-center justify-between mb-3">
-              <span className="text-[15px] font-semibold text-iip-blue">
-                Compléter les dossiers
-              </span>
-              <button onClick={() => setComplement(false)} className="text-slate-400">✕</button>
-            </div>
-            <ComplementDossiers onTermine={charger} />
-          </div>
-        </div>
+        <Fenetre titre="Compléter les dossiers" large="moyenne"
+          onFermer={() => setComplement(false)}>
+          <ComplementDossiers onTermine={charger} />
+        </Fenetre>
       )}
 
       {importHisto && (

@@ -213,9 +213,13 @@ export default function Users({ embedded = false }) {
 
 
       {showForm && (
-        <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] flex items-center justify-center p-4 z-30" onClick={() => setShowForm(false)}>
-          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6" onClick={e => e.stopPropagation()}>
-            <h2 className="text-xl font-title text-iip-gold mb-1">Compte sans fiche de personnel</h2>
+        <Fenetre titre="Compte sans fiche de personnel" large="petite"
+          onFermer={() => setShowForm(false)}
+          pied={<>
+            <span />
+            <button onClick={() => setShowForm(false)} className="bouton">Annuler</button>
+            <button onClick={createUser} className="bouton bouton-fort">Créer</button>
+          </>}>
             <p className="text-[12px] text-slate-500 mb-4">
               Pour un administrateur technique ou un prestataire extérieur. Pour un membre du
               personnel, créez l'accès depuis sa fiche.
@@ -260,12 +264,7 @@ export default function Users({ embedded = false }) {
               )}
             </div>
             {error && <div className="text-red-600 text-sm mt-2">{error}</div>}
-            <div className="flex justify-end gap-2 mt-4">
-              <button onClick={() => setShowForm(false)} className="px-4 py-2 text-sm text-gray-600">Annuler</button>
-              <button onClick={createUser} className="bg-iip-gold hover:bg-iip-amber text-white text-sm px-5 py-2 rounded">Créer</button>
-            </div>
-          </div>
-        </div>
+        </Fenetre>
       )}
       <MatriceAcces users={users} sectionsDispo={allSections} profils={profils}
         moiId={me?.id}
@@ -351,9 +350,13 @@ export default function Users({ embedded = false }) {
       )}
 
       {editingSections && (
-        <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] flex items-center justify-center p-4 z-30" onClick={() => setEditingSections(null)}>
-          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6" onClick={e => e.stopPropagation()}>
-            <h2 className="text-xl font-title text-iip-gold mb-1">Périmètre — {editingSections.nom}</h2>
+        <Fenetre titre={`Périmètre — ${editingSections.nom}`} large="petite"
+          onFermer={() => setEditingSections(null)}
+          pied={<>
+            <span />
+            <button onClick={() => setEditingSections(null)} className="bouton">Annuler</button>
+            <button onClick={saveSections} className="bouton bouton-fort">Enregistrer</button>
+          </>}>
             <p className="text-xs text-gray-500 mb-4">Sections que cette coordination peut voir et gérer.</p>
             <div className="grid grid-cols-2 gap-1 max-h-64 overflow-auto border border-gray-200 rounded p-2">
               {allSections.map(s => (
@@ -364,12 +367,7 @@ export default function Users({ embedded = false }) {
                 </label>
               ))}
             </div>
-            <div className="flex justify-end gap-2 mt-4">
-              <button onClick={() => setEditingSections(null)} className="px-4 py-2 text-sm text-gray-600">Annuler</button>
-              <button onClick={saveSections} className="bg-iip-gold hover:bg-iip-amber text-white text-sm px-5 py-2 rounded">Enregistrer</button>
-            </div>
-          </div>
-        </div>
+        </Fenetre>
       )}
     </div>
   );

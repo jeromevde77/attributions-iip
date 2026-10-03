@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { IconBook, IconUsers } from '@tabler/icons-react';
 import { api } from '../lib/api.js';
+import { Fenetre } from './ui.jsx';
 
 /**
  * Modale de création OU d'édition d'une attribution.
@@ -141,14 +142,16 @@ export default function AttributionForm({ onClose, onCreated, editRow = null }) 
   const cout = form.contrat_mdp === 'IIP' ? (total * 1.5) : 0; // approx SUP
 
   return (
-    <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] flex items-center justify-center p-4 z-30" onClick={onClose}>
-      <div className="bg-white rounded-xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-auto border-t-4 border-iip-gold" onClick={e => e.stopPropagation()}>
-        <div className="sticky top-0 bg-white border-b border-gray-200 p-5 flex items-center justify-between">
-          <h2 className="text-xl font-title text-iip-gold">{isEdit ? 'Modifier l\'attribution' : 'Nouvelle attribution'}</h2>
-          <button onClick={onClose} className="text-gray-400 hover:text-red-500 text-2xl leading-none">×</button>
-        </div>
-
-        <div className="p-6 space-y-5">
+    <Fenetre icone={IconBook} titre={isEdit ? 'Modifier l\'attribution' : 'Nouvelle attribution'}
+      large="grande" onFermer={onClose}
+      pied={<>
+        <span />
+        <button onClick={onClose} className="bouton">Annuler</button>
+        <button onClick={submit} disabled={saving} className="bouton bouton-fort">
+          {saving ? 'Enregistrement…' : (isEdit ? '✓ Enregistrer' : '✓ Créer l\'attribution')}
+        </button>
+      </>}>
+        <div className="space-y-5">
           {error && <div className="bg-red-50 text-red-700 text-sm rounded p-3 border-l-4 border-l-red-500">{error}</div>}
 
           {/* Contexte */}
@@ -340,15 +343,6 @@ export default function AttributionForm({ onClose, onCreated, editRow = null }) 
                       rows="2" className="w-full border border-gray-300 rounded px-2 py-1.5 h-9 text-sm" />
           </div>
         </div>
-
-        <div className="sticky bottom-0 bg-gray-50 border-t border-gray-200 p-4 flex justify-end gap-2">
-          <button onClick={onClose} className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800">Annuler</button>
-          <button onClick={submit} disabled={saving}
-                  className="bg-iip-gold hover:bg-iip-amber text-white text-sm px-5 py-2 rounded font-medium disabled:opacity-50">
-            {saving ? 'Enregistrement…' : (isEdit ? '✓ Enregistrer' : '✓ Créer l\'attribution')}
-          </button>
-        </div>
-      </div>
-    </div>
+    </Fenetre>
   );
 }

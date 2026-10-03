@@ -6,6 +6,7 @@ import {
   IconRotate, IconBan,
 } from '@tabler/icons-react';
 import { authHeaders } from '../lib/api.js';
+import { Fenetre } from './ui.jsx';
 import TableauBordEtudiant from './TableauBordEtudiant.jsx';
 import RepartitionOrganisation from './RepartitionOrganisation.jsx';
 import { MOTIFS_ECHEC, composerMotif, decomposerMotif, texteDuMotif } from './motifsEchec.js';
@@ -522,36 +523,13 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose, enPage = fa
   }
   if (!data) {
     return (
-      <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] flex items-start justify-center z-50 p-4">
-        <div className="bg-white rounded-fenetre shadow-dessus p-6 mt-20 text-[13px] text-slate-500">
-          {erreur || 'Chargement…'}
-        </div>
-      </div>
+      <Fenetre titre="Délibération" large="petite" onFermer={onClose}>
+        <div className="text-[13px] text-slate-500">{erreur || 'Chargement…'}</div>
+      </Fenetre>
     );
   }
 
-  return (
-    <div className={enPage ? '' : 'fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] flex items-start justify-center z-50 p-3'}
-      onClick={e => !enPage && e.target === e.currentTarget && onClose()}>
-      <div className={enPage ? 'w-full flex flex-col'
-        : 'bg-white rounded-fenetre shadow-dessus w-full max-w-[1400px] mt-4 max-h-[94vh] overflow-hidden flex flex-col'}>
-
-        {/* L'en-tête ne défile pas : on doit toujours savoir de qui l'on parle. */}
-        <div className={`flex-none ${enPage ? 'px-0 py-1' : 'px-4 py-3'} border-b border-slate-100
-                        flex items-center justify-between gap-3 flex-wrap`}>
-          <div className="min-w-0">
-            <h3 className="text-[15px] font-semibold text-iip-blue truncate">
-              UE {data.ue_num} · {data.ue_nom}
-              {data.epreuve_integree && (
-                <span className="ml-2 align-middle text-[10px] font-bold px-2 py-0.5 rounded-champ
-                                 bg-violet-100 text-violet-800 border border-violet-200">
-                  épreuve intégrée
-                </span>
-              )}
-            </h3>
-            <p className="text-[11.5px] text-slate-500">
-              {data.section || '—'} · {annee} · {data.etudiants.length} étudiant(s)
-            </p>
+  const filtres = (<>
             {/* PLUSIEURS ORGANISATIONS, PLUSIEURS DÉLIBÉRATIONS. Les onglets
                 restreignent la feuille à une organisation ; la répartition
                 elle-même est le geste de la coordination, juste à côté. */}
@@ -594,8 +572,9 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose, enPage = fa
                 </div>
               </div>
             )}
-          </div>
+  </>);
 
+  const controles = (
           <div className="flex items-center gap-2">
             <div className="relative">
               <IconSearch size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
@@ -627,19 +606,16 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose, enPage = fa
               className={`bouton controle inline-flex items-center gap-1.5 ${etape === 'cloture' ? 'bg-iip-blue text-white' : ''}`}>
               Clôture
             </button>
-            {enPage ? (
+            {enPage && (
               <button onClick={onClose} className="bouton controle inline-flex items-center gap-1">
                 <IconChevronLeft size={14} /> Les unités
               </button>
-            ) : (
-              <button onClick={onClose} className="text-slate-400 hover:text-slate-600">
-                <IconX size={18} />
-              </button>
             )}
           </div>
-        </div>
+  );
 
-        <div className={enPage ? 'py-1.5 space-y-1.5' : 'flex-1 overflow-y-auto p-4 space-y-3'}>
+  const corps = (
+        <div className={enPage ? 'py-1.5 space-y-1.5' : 'space-y-3'}>
           {/* LA RÉOUVERTURE SE PRÉSENTE OÙ ELLE SERT — EN TÊTE.
               Elle n'existait que sur l'écran de clôture, qu'on n'atteint qu'en
               parcourant tous les étudiants jusqu'au dernier. Sur une unité
@@ -845,8 +821,9 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose, enPage = fa
             </>
           ) : null}
         </div>
-      </div>
+  );
 
+  const annexes = (<>
       {bord && (
         <TableauBordEtudiant etudId={bord.id} ueNum={data.ue_num} annee={annee}
           onClose={() => setBord(null)} onDecide={charger} />
@@ -876,7 +853,53 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose, enPage = fa
             if (ok) await charger();
           }} />
       )}
-    </div>
+  </>);
+
+  if (enPage) {
+    return (
+      <div className="w-full flex flex-col">
+        {/* L'en-tête ne défile pas : on doit toujours savoir de qui l'on parle. */}
+        <div className="flex-none px-0 py-1 border-b border-slate-100
+                        flex items-center justify-between gap-3 flex-wrap">
+          <div className="min-w-0">
+            <h3 className="text-[15px] font-semibold text-iip-blue truncate">
+              UE {data.ue_num} · {data.ue_nom}
+              {data.epreuve_integree && (
+                <span className="ml-2 align-middle text-[10px] font-bold px-2 py-0.5 rounded-champ
+                                 bg-violet-100 text-violet-800 border border-violet-200">
+                  épreuve intégrée
+                </span>
+              )}
+            </h3>
+            <p className="text-[11.5px] text-slate-500">
+              {data.section || '—'} · {annee} · {data.etudiants.length} étudiant(s)
+            </p>
+            {filtres}
+          </div>
+          {controles}
+        </div>
+        {corps}
+        {annexes}
+      </div>
+    );
+  }
+
+  return (
+    <>
+      <Fenetre titre={`UE ${data.ue_num} · ${data.ue_nom}`}
+        sous={`${data.epreuve_integree ? 'Épreuve intégrée · ' : ''}${data.section || '—'} · ${annee} · ${data.etudiants.length} étudiant(s)`}
+        large="ecran" hauteurFixe onFermer={onClose}>
+        {/* L'en-tête ne défile pas : on doit toujours savoir de qui l'on parle.
+            La barre colle au haut de la zone qui défile. */}
+        <div className="sticky -top-4 z-10 bg-white -mt-4 pt-4 pb-2 mb-3 border-b border-slate-100
+                        flex items-start justify-between gap-3 flex-wrap">
+          <div className="min-w-0">{filtres}</div>
+          {controles}
+        </div>
+        {corps}
+      </Fenetre>
+      {annexes}
+    </>
   );
 }
 
@@ -896,65 +919,49 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose, enPage = fa
 function MotivationsProposees({ liste, detail, onRelire, onConfirmer, enCours }) {
   const nbAcquis = liste.reduce((n, e) => n + e.acquis.length, 0);
   return (
-    <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] flex items-start justify-center z-[70] p-4">
-      <div className="bg-white rounded-fenetre shadow-dessus w-full max-w-2xl mt-16
-                      max-h-[82vh] overflow-hidden flex flex-col">
-        <div className="flex-none px-5 py-3 border-b border-slate-100">
-          <h3 className="text-[15px] font-semibold text-amber-900 flex items-center gap-2">
-            <IconAlertTriangle size={17} />
-            {liste.length} motivation(s) rédigée(s) par Lucie, non par le Conseil
-          </h3>
-          <p className="text-[12px] text-slate-600 mt-1">{detail}</p>
-        </div>
-
-        <div className="flex-1 overflow-y-auto px-5 py-3 space-y-3">
-          {liste.map(e => (
-            <div key={e.etudiant_id} className="border border-slate-200 rounded-xl p-3">
-              <div className="text-[13px] font-semibold text-iip-blue">
-                {nomPropre(e.nom, e.prenom)}
-                <span className="ml-2 text-[11px] font-normal text-slate-500">
-                  {e.decision === 'refuse' ? 'refusé' : 'ajourné'}
-                </span>
-              </div>
-              <ul className="mt-1.5 space-y-1.5">
-                {e.acquis.map(a => (
-                  <li key={a.aa_code} className="text-[12px]">
-                    <span className="inline-block px-1 py-px rounded bg-slate-100
-                                     border border-slate-300 font-bold text-[10px]">
-                      {a.aa_code}
-                    </span>{' '}
-                    <span className="text-slate-500 italic whitespace-pre-line">{a.motif_propose}</span>
-                    {a.motif_source === 'enseignant' && <span className="ml-1 text-[10px] text-slate-400">· rédigé par l’enseignant</span>}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ))}
-        </div>
-
-        <div className="flex-none px-5 py-3 border-t border-slate-100 space-y-2">
-          <p className="text-[11px] text-slate-500">
-            Ces {nbAcquis} énoncé(s) sont défendables tels quels, mais deux dossiers
-            portant la même phrase s'affaiblissent l'un l'autre : une décision
-            défavorable se motive au cas d'espèce (RGE art. 79). Confirmées, elles
-            seront enregistrées comme <b>acceptées telles que proposées</b> — la
-            distinction reste au dossier.
-          </p>
-          <div className="flex items-center justify-end gap-2">
-            <button onClick={onRelire} disabled={enCours}
-              className="px-3 py-2 text-[13px] rounded-lg border border-slate-300
-                         text-slate-700 font-semibold">
-              Relire et rédiger
-            </button>
-            <button onClick={onConfirmer} disabled={enCours}
-              className="px-4 py-2 text-[13px] rounded-lg bg-amber-600 text-white
-                         font-semibold disabled:opacity-40">
-              Notifier telles quelles et clore
-            </button>
+    <Fenetre icone={IconAlertTriangle} ton="alerte" large="moyenne" onFermer={onRelire}
+      titre={`${liste.length} motivation(s) rédigée(s) par Lucie, non par le Conseil`}
+      pied={<>
+        <span className="text-[11px] text-slate-500">
+          Ces {nbAcquis} énoncé(s) sont défendables tels quels, mais deux dossiers
+          portant la même phrase s'affaiblissent l'un l'autre : une décision
+          défavorable se motive au cas d'espèce (RGE art. 79). Confirmées, elles
+          seront enregistrées comme <b>acceptées telles que proposées</b> — la
+          distinction reste au dossier.
+        </span>
+        <button onClick={onRelire} disabled={enCours} className="bouton">
+          Relire et rédiger
+        </button>
+        <button onClick={onConfirmer} disabled={enCours} className="bouton bouton-fort">
+          Notifier telles quelles et clore
+        </button>
+      </>}>
+      <p className="text-[12px] text-slate-600 mb-3">{detail}</p>
+      <div className="space-y-3">
+      {liste.map(e => (
+        <div key={e.etudiant_id} className="border border-slate-200 rounded-xl p-3">
+          <div className="text-[13px] font-semibold text-iip-blue">
+            {nomPropre(e.nom, e.prenom)}
+            <span className="ml-2 text-[11px] font-normal text-slate-500">
+              {e.decision === 'refuse' ? 'refusé' : 'ajourné'}
+            </span>
           </div>
+          <ul className="mt-1.5 space-y-1.5">
+            {e.acquis.map(a => (
+              <li key={a.aa_code} className="text-[12px]">
+                <span className="inline-block px-1 py-px rounded bg-slate-100
+                                 border border-slate-300 font-bold text-[10px]">
+                  {a.aa_code}
+                </span>{' '}
+                <span className="text-slate-500 italic whitespace-pre-line">{a.motif_propose}</span>
+                {a.motif_source === 'enseignant' && <span className="ml-1 text-[10px] text-slate-400">· rédigé par l’enseignant</span>}
+              </li>
+            ))}
+          </ul>
         </div>
+      ))}
       </div>
-    </div>
+    </Fenetre>
   );
 }
 
@@ -3226,12 +3233,26 @@ export function CorrectionAdministrative({ ueNum, annee, session, org = 0, seanc
   }));
 
   return (
-    <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-xl w-[720px] max-w-full max-h-[90vh] overflow-auto p-5 space-y-3">
+    <Fenetre titre="Reprendre une séance close" large="moyenne" onFermer={onFerme}
+      pied={<>
+        <span />
+        <button onClick={onFerme} className="bouton">
+          Annuler
+        </button>
+        {mode === 'corriger' ? (
+          <button onClick={envoyer} disabled={enCours || !motifOk} className="bouton bouton-fort">
+            {enCours ? 'Enregistrement…' : 'Corriger'}
+          </button>
+        ) : (
+          <button disabled={rouvertureEnCours || !motifOk}
+            onClick={() => { onRouvrir(motif); onFerme(); }}
+            className="bouton bouton-fort">
+            {rouvertureEnCours ? 'Réouverture…' : 'Rouvrir la séance'}
+          </button>
+        )}
+      </>}>
+      <div className="space-y-3">
         <div>
-          <h3 className="text-[15px] font-semibold text-iip-blue">
-            Reprendre une séance close
-          </h3>
           <div className="flex gap-4 mt-2 border-b border-slate-200">
             {[['corriger', 'Corriger l’administratif'],
               ['rouvrir', 'Rouvrir la séance']].map(([m, lib]) => (
@@ -3330,29 +3351,8 @@ export function CorrectionAdministrative({ ueNum, annee, session, org = 0, seanc
         {erreur && (
           <div className="px-3 py-2 rounded-lg bg-red-50 text-red-700 text-[13px] border-l-4 border-l-red-500">{erreur}</div>
         )}
-
-        <div className="flex justify-end gap-2">
-          <button onClick={onFerme}
-            className="px-3 py-1.5 text-[13px] rounded-lg border border-slate-300">
-            Annuler
-          </button>
-          {mode === 'corriger' ? (
-            <button onClick={envoyer} disabled={enCours || !motifOk}
-              className="px-3 py-1.5 text-[13px] rounded-lg bg-iip-blue text-white
-                         font-semibold disabled:opacity-40">
-              {enCours ? 'Enregistrement…' : 'Corriger'}
-            </button>
-          ) : (
-            <button disabled={rouvertureEnCours || !motifOk}
-              onClick={() => { onRouvrir(motif); onFerme(); }}
-              className="px-3 py-1.5 text-[13px] rounded-lg bg-amber-600 text-white
-                         font-semibold disabled:opacity-40">
-              {rouvertureEnCours ? 'Réouverture…' : 'Rouvrir la séance'}
-            </button>
-          )}
-        </div>
       </div>
-    </div>
+    </Fenetre>
   );
 }
 

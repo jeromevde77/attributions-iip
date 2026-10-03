@@ -3,6 +3,7 @@ import { IconFileText, IconAlertTriangle, IconExternalLink } from '@tabler/icons
 import { authHeaders, getAnnee } from '../lib/api.js';
 import ChoixUnite from './ChoixUnite.jsx';
 import { ouvrirApercu } from '../lib/apercu.js';
+import { Fenetre } from './ui.jsx';
 
 /**
  * APERÇU DES DOCUMENTS — voir une pièce sans la produire.
@@ -61,23 +62,16 @@ export default function ApercuDocuments({ onClose }) {
   useEffect(() => { if (choisi?.mode === 'exemple') charger(); }, [choisi, niveau, charger]);
 
   return (
-    <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-xl w-[1100px] max-w-full h-[88vh] flex flex-col">
-        <div className="px-4 py-3 border-b border-slate-200 flex items-center gap-3">
-          <IconFileText size={18} className="text-iip-blue" />
-          <div className="flex-1">
-            <h3 className="text-[15px] font-semibold text-iip-blue">Aperçu des documents</h3>
-            <p className="text-[12px] text-slate-500">
-              Mise en page des pièces officielles, sur un dossier d’exemple.
-            </p>
-          </div>
-          <button onClick={onClose}
-            className="px-3 py-1.5 text-[13px] rounded-lg border border-slate-300 text-slate-600">
-            Fermer
-          </button>
-        </div>
-
-        <div className="flex-1 flex min-h-0">
+    <Fenetre icone={IconFileText} titre="Aperçu des documents" large="pleine" onFermer={onClose}
+      sous="Mise en page des pièces officielles, sur un dossier d’exemple."
+      pied={<>
+        <span />
+        <button onClick={onClose} className="bouton">Fermer</button>
+      </>}>
+        {/* Deux volets et un iframe qui doit remplir la hauteur : le contenu
+            de la fenêtre ne s'étire pas, on lui donne donc la sienne (88 vh
+            moins l'en-tête et le pied), et l'on reprend sa marge intérieure. */}
+        <div className="flex -mx-5 -my-4 h-[calc(88vh-8rem)]">
           <div className="w-[300px] border-r border-slate-200 overflow-auto p-2 space-y-1">
             {catalogue.map(d => (
               <button key={d.id} onClick={() => { setChoisi(d); setHtml(''); setErreur(null); }}
@@ -152,7 +146,6 @@ export default function ApercuDocuments({ onClose }) {
             </div>
           </div>
         </div>
-      </div>
-    </div>
+    </Fenetre>
   );
 }

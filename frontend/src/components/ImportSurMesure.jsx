@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
 import {
-  IconUpload, IconX, IconCheck, IconAlertTriangle, IconDeviceFloppy,
+  IconUpload, IconCheck, IconAlertTriangle, IconDeviceFloppy,
   IconArrowRight, IconTrash,
 } from '@tabler/icons-react';
+import { Fenetre } from './ui.jsx';
 import { authHeaders } from '../lib/api.js';
 
 /**
@@ -148,23 +149,26 @@ export default function ImportSurMesure({ onClose, onTermine, annee = null }) {
   if (!cible) return null;
 
   return (
-    <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] flex items-start justify-center z-50 p-4"
-      onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="bg-white rounded-fenetre shadow-dessus w-full max-w-3xl mt-8 max-h-[88vh] overflow-hidden flex flex-col">
-
-        <div className="flex-none p-5 pb-3 border-b border-slate-100 flex items-start justify-between">
-          <div>
-            <h3 className="text-[15px] font-semibold text-iip-blue">Importateur sur mesure</h3>
-            <p className="text-[12px] text-slate-500">
-              Choisissez ce que vous alimentez, puis reliez chaque champ à sa colonne.
-            </p>
-          </div>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-600">
-            <IconX size={18} />
+    <Fenetre icone={IconUpload} titre="Importateur sur mesure"
+      sous="Choisissez ce que vous alimentez, puis reliez chaque champ à sa colonne."
+      large="moyenne" onFermer={onClose}
+      pied={<>
+        <span />
+        {entetes && (
+          <button onClick={() => executer(true)} disabled={enCours || !corresp[cleChoisie]}
+            className={rapport?.simulation ? 'bouton' : 'bouton bouton-fort'}>
+            {enCours ? 'Analyse…' : 'Simuler'}
           </button>
-        </div>
-
-        <div className="flex-1 overflow-y-auto p-5 space-y-4">
+        )}
+        {rapport?.simulation && (
+          <button onClick={() => executer(false)}
+            disabled={enCours || !(rapport.nb_modifications || rapport.nb_crees)}
+            className="bouton bouton-fort flex items-center gap-1.5">
+            <IconCheck size={15} /> Appliquer à {rapport.nb_modifications} dossier(s)
+          </button>
+        )}
+      </>}>
+        <div className="space-y-4">
 
         {erreur && (
           <div className="px-3 py-2 rounded-lg bg-red-50 border border-red-200
@@ -348,12 +352,6 @@ export default function ImportSurMesure({ onClose, onTermine, annee = null }) {
             </label>
 
             <div className="flex gap-2 flex-wrap items-center">
-              <button onClick={() => executer(true)} disabled={enCours || !corresp[cleChoisie]}
-                className="px-4 py-2 text-sm bg-iip-blue text-white font-semibold rounded-lg
-                           disabled:opacity-40">
-                {enCours ? 'Analyse…' : 'Simuler'}
-              </button>
-
               <span className="flex-1" />
               <input value={nomProfil} onChange={e => setNomProfil(e.target.value)}
                 placeholder="Nom du profil"
@@ -416,19 +414,13 @@ export default function ImportSurMesure({ onClose, onTermine, annee = null }) {
               </div>
             )}
 
-            {rapport.simulation ? (
-              <button onClick={() => executer(false)}
-                disabled={enCours || !(rapport.nb_modifications || rapport.nb_crees)}
-                className="flex items-center gap-1.5 px-4 py-2 text-sm bg-iip-blue text-white
-                           font-semibold rounded-lg disabled:opacity-40">
-                <IconCheck size={15} /> Appliquer à {rapport.nb_modifications} dossier(s)
-              </button>
-            ) : (
+            {!rapport.simulation && (
               <div className="px-3 py-2 rounded-lg bg-emerald-50 border border-emerald-200
                               text-[13px] text-emerald-800">
                 {rapport.nb_modifications} dossier(s) complété(s).
               </div>
             )}
+
 
             {rapport.modifications.length > 0 && (
               <div className="max-h-48 overflow-y-auto border border-slate-200 rounded-xl
@@ -444,7 +436,6 @@ export default function ImportSurMesure({ onClose, onTermine, annee = null }) {
           </div>
         )}
         </div>
-      </div>
-    </div>
+    </Fenetre>
   );
 }

@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { getAnnee } from '../lib/api.js';
 import PreviewModal from '../components/PreviewModal.jsx';
 import { ouvrirApercu } from '../lib/apercu.js';
-import { PageHeader, RailLateral, OuvrirEditions } from '../components/ui.jsx';
+import { PageHeader, RailLateral, OuvrirEditions, Fenetre } from '../components/ui.jsx';
 import Disciplinaire from './Disciplinaire.jsx';
 import { informer } from '../lib/dialogue.jsx';
 import {
@@ -1712,20 +1712,9 @@ function ArchivesProcedures({ onReprendreRecours, onReprendre }) {
 
       {/* Panneau de détail */}
       {detail && (
-        <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] z-50 flex items-start justify-end">
-          <div className="bg-white w-full max-w-xl h-full overflow-auto shadow-2xl flex flex-col">
-            {/* Header */}
-            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 bg-gray-50">
-              <div>
-                <p className="font-semibold text-gray-800">{detail.etudiant}</p>
-                <p className="text-xs text-gray-500 mt-0.5">
-                  {detail.type === 'recours' ? '⚖ Recours' : '🚨 Fraude'} · UE {detail.ue_num} · {detail.section} · {detail.annee_scolaire}
-                </p>
-              </div>
-              <button onClick={() => setDetail(null)} className="text-gray-400 hover:text-gray-600 text-xl font-light"><IconX size={18} /></button>
-            </div>
-
-            <div className="flex-1 px-6 py-5 space-y-5 overflow-auto">
+        <Fenetre titre={detail.etudiant} large="moyenne" onFermer={() => setDetail(null)}
+          sous={`${detail.type === 'recours' ? '⚖ Recours' : '🚨 Fraude'} · UE ${detail.ue_num} · ${detail.section} · ${detail.annee_scolaire}`}>
+            <div className="space-y-5">
               {/* Badges */}
               <div className="flex flex-wrap gap-2">
                 <span className={`text-xs font-semibold px-2.5 py-1 rounded-champ ${STATUT_COLOR[detail.statut]}`}>
@@ -1796,8 +1785,7 @@ function ArchivesProcedures({ onReprendreRecours, onReprendre }) {
                 )}
               </div>
             </div>
-          </div>
-        </div>
+        </Fenetre>
       )}
 
       {/* Preview document */}

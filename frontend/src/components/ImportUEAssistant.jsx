@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { IconChevronRight } from '@tabler/icons-react';
+import { IconChevronRight, IconFileImport } from '@tabler/icons-react';
+import { Fenetre } from './ui.jsx';
 import { api } from '../lib/api.js';
 
 /**
@@ -67,21 +68,21 @@ export default function ImportUEAssistant({ source, cible, onClose, onDone }) {
   const totalImportable = tree.reduce((s, sg) => s + sg.ues.filter(u => !u.deja_presente).length, 0);
 
   return (
-    <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] flex items-center justify-center p-4 z-50" onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] flex flex-col border-t-4 border-iip-gold">
-        <div className="flex items-center justify-between px-5 py-3 border-b flex-shrink-0">
-          <div>
-            <h2 className="font-title text-lg text-iip-gold">Importer des UE</h2>
-            <p className="text-xs text-gray-500">Depuis {source} → vers {cible}</p>
-          </div>
-          <button onClick={onClose} className="text-gray-400 hover:text-red-500 text-2xl">×</button>
-        </div>
-
+    <Fenetre icone={IconFileImport} titre="Importer des UE" sous={`Depuis ${source} → vers ${cible}`}
+      large="moyenne" onFermer={onClose}
+      pied={loading ? null : (<>
+        <span className="text-sm text-red-600">{error}</span>
+        <button onClick={onClose} className="bouton">Annuler</button>
+        <button onClick={doImport} disabled={importing || checked.size === 0}
+                className="bouton bouton-fort">
+          {importing ? 'Import…' : `Importer ${checked.size} UE`}
+        </button>
+      </>)}>
         {loading ? (
           <div className="p-8 text-center text-gray-400">Chargement…</div>
         ) : (
           <>
-            <div className="px-5 py-2 border-b flex items-center gap-3 flex-wrap text-sm flex-shrink-0">
+            <div className="-mx-5 -mt-4 mb-3 px-5 py-2 border-b flex items-center gap-3 flex-wrap text-sm">
               <button onClick={selectAll} className="text-iip-gold hover:underline">Tout cocher</button>
               <button onClick={selectNone} className="text-gray-500 hover:underline">Tout décocher</button>
               <span className="text-gray-400">·</span>
@@ -92,7 +93,7 @@ export default function ImportUEAssistant({ source, cible, onClose, onDone }) {
               </label>
             </div>
 
-            <div className="flex-1 overflow-auto px-5 py-3 space-y-2">
+            <div className="space-y-2">
               {tree.length === 0 && <p className="text-gray-400 text-center py-4">Aucune UE dans l'année source.</p>}
               {tree.map(sg => {
                 const importables = sg.ues.filter(u => !u.deja_presente);
@@ -129,18 +130,8 @@ export default function ImportUEAssistant({ source, cible, onClose, onDone }) {
                 );
               })}
             </div>
-
-            {error && <div className="px-5 py-2 text-sm text-red-600 flex-shrink-0">{error}</div>}
-            <div className="flex justify-end gap-2 px-5 py-3 border-t flex-shrink-0">
-              <button onClick={onClose} className="px-4 py-2 text-sm text-gray-600">Annuler</button>
-              <button onClick={doImport} disabled={importing || checked.size === 0}
-                      className="bg-iip-gold hover:bg-iip-amber disabled:opacity-40 text-white text-sm px-5 py-2 rounded font-medium">
-                {importing ? 'Import…' : `Importer ${checked.size} UE`}
-              </button>
-            </div>
           </>
         )}
-      </div>
-    </div>
+    </Fenetre>
   );
 }

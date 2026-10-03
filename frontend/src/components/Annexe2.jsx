@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
-import { OuvrirEditions } from './ui.jsx';
+import { OuvrirEditions, Fenetre } from './ui.jsx';
 import {
-  IconAlertTriangle, IconPrinter, IconX, IconFileTypePdf,
+  IconAlertTriangle, IconPrinter, IconFileTypePdf,
 } from '@tabler/icons-react';
 import { authHeaders } from '../lib/api.js';
 import { ouvrirApercu } from '../lib/apercu.js';
@@ -81,23 +81,24 @@ export default function Annexe2({ etudId, annee, onClose }) {
   const c = donnees?.credits;
 
   return (
-    <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] flex items-start justify-center z-50 p-4"
-      onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="bg-white rounded-fenetre shadow-dessus w-full max-w-2xl mt-12 max-h-[85vh] overflow-hidden flex flex-col">
-        <div className="flex-none p-5 pb-3 border-b border-slate-100 flex items-start justify-between">
-          <div>
-            <h3 className="text-[15px] font-semibold text-iip-blue">
-              Attestation du progrès des études
-            </h3>
-            <p className="text-[12px] text-slate-500">
-              Annexe 2 — Office des Étrangers · année {annee}
-            </p>
-          </div>
-          <button onClick={onClose} className="text-slate-400"><IconX size={18} /></button>
-        </div>
-
-        <div className="flex-1 overflow-y-auto p-5 space-y-4">
-
+    <Fenetre titre="Attestation du progrès des études" large="moyenne" onFermer={onClose}
+      sous={`Annexe 2 — Office des Étrangers · année ${annee}`}
+      pied={<>
+        <span className="text-[11px] text-slate-500">
+          Le relevé de notes doit être joint au formulaire, comme le prévoit le modèle.
+        </span>
+        {pdfPossible && (
+          <button onClick={() => produire(true)} disabled={enCours || !donnees}
+            title="Recommandé : le pied de page est correctement ancré, ce que
+                   l'impression du navigateur ne garantit pas sur Safari"
+            className="bouton bouton-fort inline-flex items-center gap-1.5">
+            <IconFileTypePdf size={15} /> {enCours ? 'Génération…' : 'PDF'}
+          </button>
+        )}
+        <OuvrirEditions disabled={enCours || !donnees} titre="Imprimer ou envoyer l'annexe 2 — centre d'édition"
+          pieces={[{ cle: 'annexe2', label: 'Annexe 2 — progrès des études', description: 'Telle qu’elle est complétée ici', onClick: () => produire(false) }]} />
+      </>}>
+        <div className="space-y-4">
         {erreur && (
           <div className="px-3 py-2 rounded-lg bg-red-50 border border-red-200
                           text-[13px] text-red-800">{erreur}</div>
@@ -161,26 +162,7 @@ export default function Annexe2({ etudId, annee, onClose }) {
           <input type="date" value={dateDoc} onChange={e => setDateDoc(e.target.value)}
             className="border border-slate-300 rounded-lg px-2 py-1.5 text-sm" />
         </label>
-
-                <div className="flex gap-2 flex-wrap">
-        {pdfPossible && (
-          <button onClick={() => produire(true)} disabled={enCours || !donnees}
-            title="Recommandé : le pied de page est correctement ancré, ce que
-                   l'impression du navigateur ne garantit pas sur Safari"
-            className="flex items-center gap-1.5 px-4 py-2 text-sm bg-iip-blue text-white
-                       font-semibold rounded-lg disabled:opacity-40">
-            <IconFileTypePdf size={15} /> {enCours ? 'Génération…' : 'PDF'}
-          </button>
-        )}
-        <OuvrirEditions disabled={enCours || !donnees} titre="Imprimer ou envoyer l'annexe 2 — centre d'édition"
-          pieces={[{ cle: 'annexe2', label: 'Annexe 2 — progrès des études', description: 'Telle qu’elle est complétée ici', onClick: () => produire(false) }]} />
         </div>
-
-        <p className="text-[11px] text-slate-500">
-          Le relevé de notes doit être joint au formulaire, comme le prévoit le modèle.
-        </p>
-        </div>
-      </div>
-    </div>
+    </Fenetre>
   );
 }

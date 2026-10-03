@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
-import { IconX, IconAlertTriangle, IconCheck } from '@tabler/icons-react';
+import { IconAlertTriangle, IconCheck } from '@tabler/icons-react';
 import { authHeaders } from '../lib/api.js';
+import { Fenetre } from './ui.jsx';
 
 /**
  * Paramétrage des liens cours ↔ acquis d'une unité.
@@ -79,26 +80,13 @@ export default function LiensCoursAcquis({ ueNum, annee, onClose, onEnregistre }
     !(data?.cours || []).some(c => Number(poids[`${c.cours_code}|${a.aa_code}`]) > 0));
 
   return (
-    <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] flex items-start justify-center z-50 p-4"
-      onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="bg-white rounded-fenetre shadow-dessus w-full max-w-5xl mt-8
-                      max-h-[90vh] overflow-hidden flex flex-col">
-        <div className="flex-none p-5 pb-3 border-b border-slate-100 flex items-start justify-between">
-          <div>
-            <h3 className="text-[15px] font-semibold text-iip-blue">
-              UE {ueNum}{data?.ue_nom ? ` · ${data.ue_nom}` : ''} — cours et acquis
-            </h3>
-            <p className="text-[12px] text-slate-500">
-              Reliez chaque acquis aux cours qui l'évaluent, et répartissez
-              <b> dix points</b> par cours.
-            </p>
-          </div>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-600">
-            <IconX size={18} />
-          </button>
-        </div>
-
-        <div className="flex-1 overflow-y-auto p-5 space-y-3">
+    <Fenetre large="grande" onFermer={onClose}
+      titre={`UE ${ueNum}${data?.ue_nom ? ` · ${data.ue_nom}` : ''} — cours et acquis`}
+      sous={<>
+        Reliez chaque acquis aux cours qui l'évaluent, et répartissez
+        <b> dix points</b> par cours.
+      </>}>
+        <div className="space-y-3">
           {erreur && (
             <div className="px-3 py-2 rounded-lg bg-red-50 border border-red-200
                             text-[13px] text-red-800">{erreur}</div>
@@ -229,7 +217,6 @@ export default function LiensCoursAcquis({ ueNum, annee, onClose, onEnregistre }
             </>
           )}
         </div>
-      </div>
-    </div>
+    </Fenetre>
   );
 }

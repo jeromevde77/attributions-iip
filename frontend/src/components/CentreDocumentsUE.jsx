@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
-import { IconPrinter, IconFileText, IconX, IconAlertTriangle, IconSend } from '@tabler/icons-react';
+import { IconPrinter, IconFileText, IconAlertTriangle, IconSend } from '@tabler/icons-react';
 import { authHeaders } from '../lib/api.js';
 import { useEnvoiMail } from '../lib/envoiMail.js';
 import EnvoiMailModal from './EnvoiMailModal.jsx';
 import { ouvrirApercu } from '../lib/apercu.js';
+import { Fenetre } from './ui.jsx';
 
 /**
  * LE CENTRE D'IMPRESSION D'UNE UNITÉ.
@@ -246,27 +247,55 @@ export default function CentreDocumentsUE({ ueNum, ueNom, annee, onClose }) {
   const total = pieces.filter(p => choix[p.cle] && p.nb).reduce((n, p) => n + p.nb, 0);
 
   return (
-    <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] flex items-start justify-center z-50 p-4"
-      onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="bg-white rounded-fenetre shadow-dessus w-full max-w-lg mt-16
-                      max-h-[88vh] overflow-hidden flex flex-col">
-        <div className="flex-none px-5 py-3 border-b border-slate-100 flex items-start
-                        justify-between gap-3">
-          <div>
-            <h3 className="text-[15px] font-semibold text-iip-blue">
-              Générer les documents — UE {ueNum}
-            </h3>
-            <p className="text-[12px] text-slate-500">
-              {ueNom || ''} · {annee}
-              {etat && (etat.cloturee ? ' · séance close' : ' · séance non close')}
-            </p>
-          </div>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-600">
-            <IconX size={18} />
-          </button>
-        </div>
-
-        <div className="flex-1 overflow-y-auto p-5 space-y-3">
+    <>
+    <Fenetre icone={IconFileText} titre={`Générer les documents — UE ${ueNum}`} large="moyenne"
+      onFermer={onClose}
+      sous={`${ueNom || ''} · ${annee}${etat ? (etat.cloturee ? ' · séance close' : ' · séance non close') : ''}`}
+      pied={<>
+          <span className="text-[12px] text-slate-500">
+            {total ? `${total} pièce(s) à produire` : 'Rien de coché'}
+          {total ? (
+            <span className="block text-[11px] text-slate-400">
+              Le PDF porte le pied de page sur chaque feuille ; l'aperçu HTML, non —
+              le navigateur ne sait pas répéter un pied.
+            </span>
+          ) : null}
+          </span>
+            <label className="flex items-center gap-2 text-[12px] text-slate-600
+                              cursor-pointer">
+              <input type="checkbox" checked={separer}
+                onChange={e => {
+                  setSeparer(e.target.checked);
+                  localStorage.setItem('documentsUE.separer', e.target.checked ? '1' : '0');
+                }}
+                className="w-4 h-4 accent-iip-blue" />
+              Un document par étudiant
+              <span className="text-[11px] text-slate-400">
+                (les pièces du Conseil restent groupées)
+              </span>
+            </label>
+            <button onClick={onClose} className="bouton">
+              Fermer
+            </button>
+            <button onClick={() => produire('impression')} disabled={enCours || !total}
+              title="Aperçu HTML dans un onglet — sans pied de page répété"
+              className="bouton inline-flex items-center gap-1.5">
+              <IconPrinter size={14} /> Aperçu HTML
+            </button>
+            <button onClick={() => produire('pdf')} disabled={enCours || !total}
+              title="Pied de page sur chaque feuille, une pièce par page"
+              className="bouton bouton-fort inline-flex items-center gap-1.5">
+              <IconFileText size={14} /> PDF — à imprimer
+            </button>
+            {etatEnvoi?.actif && etatEnvoi?.peut_envoyer && (
+              <button onClick={preparerEnvoi} disabled={enCours || !total}
+                title="Envoyer par courriel — une pièce par personne, jamais de copie collective"
+                className="bouton inline-flex items-center gap-1.5">
+                <IconSend size={14} /> Envoyer
+              </button>
+            )}
+      </>}>
+        <div className="space-y-3">
           <div>
             <div className="text-[12px] text-slate-500 mb-1">Que montrent ces pièces ?</div>
             <div className="segments">
@@ -337,59 +366,7 @@ export default function CentreDocumentsUE({ ueNum, ueNom, annee, onClose }) {
           )}
         </div>
 
-        <div className="flex-none px-5 py-3 border-t border-slate-100 flex items-center
-                        justify-between gap-2">
-          <span className="text-[12px] text-slate-500">
-            {total ? `${total} pièce(s) à produire` : 'Rien de coché'}
-          {total ? (
-            <span className="block text-[11px] text-slate-400">
-              Le PDF porte le pied de page sur chaque feuille ; l'aperçu HTML, non —
-              le navigateur ne sait pas répéter un pied.
-            </span>
-          ) : null}
-          </span>
-          <div className="flex gap-2">
-            <label className="flex items-center gap-2 mr-auto text-[12px] text-slate-600
-                              cursor-pointer">
-              <input type="checkbox" checked={separer}
-                onChange={e => {
-                  setSeparer(e.target.checked);
-                  localStorage.setItem('documentsUE.separer', e.target.checked ? '1' : '0');
-                }}
-                className="w-4 h-4 accent-iip-blue" />
-              Un document par étudiant
-              <span className="text-[11px] text-slate-400">
-                (les pièces du Conseil restent groupées)
-              </span>
-            </label>
-            <button onClick={onClose}
-              className="px-3 py-1.5 text-[13px] rounded-lg border border-slate-300 text-slate-600">
-              Fermer
-            </button>
-            <button onClick={() => produire('impression')} disabled={enCours || !total}
-              title="Aperçu HTML dans un onglet — sans pied de page répété"
-              className="px-3 py-2 text-[13px] rounded-lg border border-slate-300
-                         text-slate-600 disabled:opacity-40
-                         flex items-center gap-1.5">
-              <IconPrinter size={14} /> Aperçu HTML
-            </button>
-            <button onClick={() => produire('pdf')} disabled={enCours || !total}
-              title="Pied de page sur chaque feuille, une pièce par page"
-              className="px-4 py-2 text-[13px] rounded-lg bg-iip-blue text-white
-                         font-semibold disabled:opacity-40 flex items-center gap-1.5">
-              <IconFileText size={14} /> PDF — à imprimer
-            </button>
-            {etatEnvoi?.actif && etatEnvoi?.peut_envoyer && (
-              <button onClick={preparerEnvoi} disabled={enCours || !total}
-                title="Envoyer par courriel — une pièce par personne, jamais de copie collective"
-                className="px-4 py-2 text-[13px] rounded-lg bg-iip-blue text-white
-                           font-semibold disabled:opacity-40 flex items-center gap-1.5">
-                <IconSend size={14} /> Envoyer
-              </button>
-            )}
-          </div>
-        </div>
-      </div>
+    </Fenetre>
 
       {envoi && (
         <EnvoiMailModal
@@ -399,6 +376,6 @@ export default function CentreDocumentsUE({ ueNum, ueNom, annee, onClose }) {
           sujet={`${ueNom || `UE ${ueNum}`} — ${annee}`}
           onClose={() => setEnvoi(null)} />
       )}
-    </div>
+    </>
   );
 }

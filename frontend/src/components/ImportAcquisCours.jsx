@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { IconX, IconFileSpreadsheet, IconAlertTriangle, IconCheck } from '@tabler/icons-react';
+import { IconFileSpreadsheet, IconAlertTriangle, IconCheck } from '@tabler/icons-react';
+import { Fenetre } from './ui.jsx';
 import { authHeaders } from '../lib/api.js';
 
 /**
@@ -104,27 +105,31 @@ export default function ImportAcquisCours({ coursCode, coursNom, annee, onClose,
                 refusee: 'text-red-700' };
 
   return (
-    <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] flex items-start justify-center z-[60] p-4"
-      onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="bg-white rounded-fenetre shadow-dessus w-full max-w-3xl mt-10
-                      max-h-[90vh] overflow-hidden flex flex-col">
-        <div className="flex-none px-5 py-3 border-b border-slate-100 flex items-start
-                        justify-between gap-3">
-          <div>
-            <h3 className="text-[15px] font-semibold text-iip-blue">
-              Importer les acquis — {coursCode}
-            </h3>
-            <p className="text-[12px] text-slate-500">
-              {coursNom || ''} · {annee} · l'acquis est créé dans l'unité s'il n'y est
-              pas, puis relié à ce cours avec son poids.
-            </p>
-          </div>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-600">
-            <IconX size={18} />
-          </button>
-        </div>
-
-        <div className="flex-1 overflow-y-auto p-5 space-y-3">
+    <Fenetre icone={IconFileSpreadsheet} titre={`Importer les acquis — ${coursCode}`}
+      sous={`${coursNom || ''} · ${annee}`} large="moyenne" onFermer={onClose}
+      pied={<>
+        <span className="text-[11px] text-slate-500">
+          Rien ne s'écrit tant que la simulation n'a pas été lue.
+        </span>
+        <button onClick={onClose} className="bouton">
+          Fermer
+        </button>
+        <button onClick={() => lancer(true)} disabled={enCours || !brut.length}
+          className="bouton">
+          Simuler
+        </button>
+        <button onClick={() => lancer(false)}
+          disabled={enCours || !rapport || rapport.simulation === false}
+          title={rapport ? '' : 'Simulez d’abord'}
+          className="bouton bouton-fort">
+          <IconCheck size={14} /> Importer
+        </button>
+      </>}>
+        <div className="space-y-3">
+          <p className="text-[12px] text-slate-500">
+            L'acquis est créé dans l'unité s'il n'y est
+            pas, puis relié à ce cours avec son poids.
+          </p>
           {erreur && (
             <div className="px-3 py-2 rounded-lg bg-red-50 border border-red-200
                             text-[13px] text-red-800 flex items-start gap-1.5">
@@ -246,32 +251,6 @@ export default function ImportAcquisCours({ coursCode, coursNom, annee, onClose,
             </>
           )}
         </div>
-
-        <div className="flex-none px-5 py-3 border-t border-slate-100 flex items-center
-                        justify-between gap-2">
-          <span className="text-[11px] text-slate-500">
-            Rien ne s'écrit tant que la simulation n'a pas été lue.
-          </span>
-          <div className="flex gap-2">
-            <button onClick={onClose}
-              className="px-3 py-1.5 text-[13px] rounded-lg border border-slate-300 text-slate-600">
-              Fermer
-            </button>
-            <button onClick={() => lancer(true)} disabled={enCours || !brut.length}
-              className="px-3 py-1.5 text-[13px] rounded-lg border border-iip-blue
-                         text-iip-blue font-semibold disabled:opacity-40">
-              Simuler
-            </button>
-            <button onClick={() => lancer(false)}
-              disabled={enCours || !rapport || rapport.simulation === false}
-              title={rapport ? '' : 'Simulez d’abord'}
-              className="px-4 py-1.5 text-[13px] rounded-lg bg-iip-blue text-white
-                         font-semibold disabled:opacity-40 flex items-center gap-1.5">
-              <IconCheck size={14} /> Importer
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
+    </Fenetre>
   );
 }

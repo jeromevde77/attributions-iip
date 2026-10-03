@@ -10,7 +10,7 @@ import PreviewModal from '../components/PreviewModal.jsx';
 import CoursEditModal from '../components/CoursEditModal.jsx';
 import { IconSend, IconAddressBook, IconMail, IconMapPin, IconFileText, IconEdit, IconDownload, IconRefresh, IconX, IconPrinter, IconPlus, IconTrash, IconKey, IconLock, IconCheck, IconBriefcase, IconTargetArrow, IconChevronDown, IconChevronRight, IconUsers, IconSchool, IconUserPlus, IconBuilding, IconBuildingBank, IconFileDescription } from '@tabler/icons-react';
 import { MODULES_ACCES, ROLES_LUCIE, estDirection } from '../lib/modules.js';
-import { RailLateral, OuvrirEditions } from '../components/ui.jsx';
+import { RailLateral, OuvrirEditions, Fenetre } from '../components/ui.jsx';
 /* LES RUBRIQUES DE L'AXE PERSONNEL SE RENDENT DANS L'AXE, PAS AILLEURS.
    « Besoins & offres » et « Classement & prioritaires » étaient des entrées de
    ce rail qui appelaient navigate() : elles QUITTAIENT l'axe, et le rail —
@@ -734,9 +734,9 @@ function DetailModal({ profId, onClose, onEdit, onFiche, onEditions }) {
   }
 
   if (!detail) return (
-    <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] flex items-center justify-center z-30">
-      <div className="bg-white rounded-xl p-8 text-gray-400">Chargement…</div>
-    </div>
+    <Fenetre titre="Chargement…" large="petite" onFermer={onClose}>
+      <div className="p-4 text-gray-400">Chargement…</div>
+    </Fenetre>
   );
 
   const initiales = [(detail.prenom||'')[0], (detail.nom||'')[0]].filter(Boolean).join('').toUpperCase();
@@ -794,43 +794,42 @@ function DetailModal({ profId, onClose, onEdit, onFiche, onEditions }) {
   ];
 
   return (
-    <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] flex items-center justify-center p-4 z-30"
-      onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="bg-white rounded-fenetre shadow-dessus w-full max-w-6xl max-h-[92vh] flex flex-col overflow-hidden">
-
-        {/* ── Barre de titre ── */}
-        <div className="flex items-center justify-between px-6 py-3 bg-iip-blue rounded-t-2xl flex-shrink-0">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
-              {initiales}
-            </div>
-            <div>
-              <div className="text-white font-bold text-lg leading-tight">{detail.nom_prenom}</div>
-              <div className="text-white/70 text-xs flex items-center gap-3">
-                {detail.adresse_mail && <span className="flex items-center gap-1"><IconMail size={11}/>{detail.adresse_mail}</span>}
-                {detail.commune && <span className="flex items-center gap-1"><IconMapPin size={11}/>{detail.code_postal} {detail.commune}</span>}
-                {detail.capaes === 'x' && <span className="bg-green-500 text-green-200 text-[10px] px-1.5 rounded">CAPAES</span>}
-                {detail.statut && <span className="bg-white/20 text-white/90 text-[10px] px-1.5 rounded">{detail.statut}</span>}
-              </div>
-            </div>
-          </div>
-          <div className="flex items-center gap-2 ml-4">
+    <>
+    <Fenetre large="pleine" hauteurFixe onFermer={onClose}
+      /* Les initiales tiennent lieu d'icône : la fenêtre passe ses propriétés
+         d'icône, qu'on ignore ici. */
+      icone={() => (
+        <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center text-white font-bold text-[12px] flex-shrink-0">
+          {initiales}
+        </div>
+      )}
+      titre={detail.nom_prenom}
+      sous={
+        <span className="inline-flex items-center gap-3">
+          {detail.adresse_mail && <span className="flex items-center gap-1"><IconMail size={11}/>{detail.adresse_mail}</span>}
+          {detail.commune && <span className="flex items-center gap-1"><IconMapPin size={11}/>{detail.code_postal} {detail.commune}</span>}
+          {detail.capaes === 'x' && <span className="bg-green-500 text-green-200 text-[10px] px-1.5 rounded">CAPAES</span>}
+          {detail.statut && <span className="bg-white/20 text-white/90 text-[10px] px-1.5 rounded">{detail.statut}</span>}
+        </span>
+      }
+      outils={onEditions && (
+        <>
             {/* L'AVION, VERS LES ÉDITIONS (Charles, 27 septembre 2026) : contrats,
                 fiches, EA12 et annexes s'impriment ou s'envoient depuis un seul
                 endroit, qui sait si ce membre est chargé de cours, expert, ou
                 les deux — et propose les pièces qui en découlent. */}
-            {onEditions && (
               <button onClick={() => onEditions(profId)} title="Imprimer ou envoyer — contrats, fiches, EA12, annexes"
                 className="w-9 h-9 grid place-items-center rounded-champ border border-white/40 text-white hover:bg-white/10">
                 <IconSend size={17} />
               </button>
-            )}
-            <button onClick={onClose} className="text-white/60 hover:text-white"><IconX size={20}/></button>
-          </div>
-        </div>
+        </>
+      )}>
 
-        {/* ── Layout 2 colonnes ── */}
-        <div className="flex flex-1 min-h-0">
+        {/* ── Layout 2 colonnes ──
+            Chaque colonne défile pour elle-même : le contenu de la fenêtre
+            ne s'étire pas, on lui donne donc la hauteur du panneau (88 vh)
+            moins l'en-tête, et l'on reprend sa marge intérieure. */}
+        <div className="flex -mx-5 -my-4 h-[calc(88vh-4.25rem)]">
 
           {/* ── Colonne gauche — identité + KPIs + actions ── */}
           <div className="w-64 flex-shrink-0 border-r border-gray-100 flex flex-col bg-gray-50/50 overflow-auto">
@@ -1104,7 +1103,7 @@ function DetailModal({ profId, onClose, onEdit, onFiche, onEditions }) {
             </div>
           </div>
         </div>
-      </div>
+    </Fenetre>
 
       {aperçuContrat && (
         <PreviewModal
@@ -1132,11 +1131,16 @@ function DetailModal({ profId, onClose, onEdit, onFiche, onEditions }) {
         />
       )}
       {showContratModal && (
-        <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl shadow-2xl w-full max-w-md p-6">
-            <h3 className="text-lg font-title text-iip-gold mb-4 flex items-center gap-2">
-              <IconFileText size={18}/> Générer le contrat de travail
-            </h3>
+        <Fenetre icone={IconFileText} titre="Générer le contrat de travail" large="petite"
+          onFermer={() => setShowContratModal(false)}
+          pied={<>
+            <span />
+            <button onClick={() => setShowContratModal(false)} className="bouton">Annuler</button>
+            <button onClick={genererContrat} disabled={generatingContrat || !dateContrat}
+              className="bouton bouton-fort">
+              {generatingContrat ? 'Génération…' : <span className="inline-flex items-center gap-1.5"><IconDownload size={15}/>Télécharger .docx</span>}
+            </button>
+          </>}>
             <p className="text-sm text-gray-600 mb-4">Contrat CDD — <strong>{detail.nom_prenom}</strong></p>
             <div className="space-y-4">
               <label className="block">
@@ -1155,18 +1159,9 @@ function DetailModal({ profId, onClose, onEdit, onFiche, onEditions }) {
                   className="w-full border border-gray-300 rounded px-3 py-2 text-sm"/>
               </label>
             </div>
-            <div className="flex gap-3 mt-6">
-              <button onClick={() => setShowContratModal(false)}
-                className="flex-1 border border-gray-300 text-gray-600 py-2 rounded text-sm">Annuler</button>
-              <button onClick={genererContrat} disabled={generatingContrat || !dateContrat}
-                className="flex-1 bg-green-700 hover:opacity-90 disabled:opacity-40 text-white py-2 rounded text-sm font-semibold">
-                {generatingContrat ? 'Génération…' : <span className="inline-flex items-center gap-1.5"><IconDownload size={15}/>Télécharger .docx</span>}
-              </button>
-            </div>
-          </div>
-        </div>
+        </Fenetre>
       )}
-    </div>
+    </>
   );
 
       {contratApercu && <PreviewModal html={contratApercu.html} titre="Contrat" nomFichier={contratApercu.nom} astuceImpression="Portrait A4 conseillé" onClose={() => setContratApercu(null)} />}

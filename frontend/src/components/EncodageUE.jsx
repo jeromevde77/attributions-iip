@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { IconX, IconAlertTriangle, IconSearch, IconCheck, IconLink } from '@tabler/icons-react';
+import { IconAlertTriangle, IconSearch, IconCheck, IconLink } from '@tabler/icons-react';
+import { Fenetre } from './ui.jsx';
 import { authHeaders } from '../lib/api.js';
 import PanneauAcquis from './PanneauAcquis.jsx';
 import ClasseurNotes from './ClasseurNotes.jsx';
@@ -178,17 +179,37 @@ export default function EncodageUE({ ueNum, annee, onClose, onEnregistre, onPara
   const mention = (e, coursCode) => data?.mentions?.[e.id]?.[coursCode];
 
   return (
-    <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] flex items-start justify-center z-50 p-4"
-      onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="bg-white rounded-fenetre shadow-dessus w-full max-w-7xl mt-6
-                      max-h-[92vh] overflow-hidden flex flex-col">
-
-        <div className="flex-none p-5 pb-3 border-b border-slate-100 flex items-start
-                        justify-between gap-3">
+    <Fenetre titre={`UE ${ueNum}${data?.ue?.ue_nom ? ` · ${data.ue.ue_nom}` : ''}`}
+      large="pleine" hauteurFixe onFermer={onClose}
+      pied={<>
+        <span className="text-[11px] text-slate-500">
+          Chaque note s'enregistre seule, en quittant la case. <b>NP</b> vaut zéro sur tout le
+          cours en gardant la seconde session ; <b>PP</b> est l'absence non justifiée.
+        </span>
+        {/* TOUS LES PROFESSEURS N'ENCODENT PAS À L'ÉCRAN. Le classeur part,
+            revient rempli, et se relit sur les clés qu'il porte. */}
+        <ClasseurNotes ueNum={ueNum} annee={annee} session={session}
+          ueNom={data?.ue?.ue_nom}
+          colonnes={(data?.cours || []).filter(c => c.acquis?.length)
+            .flatMap(c => c.acquis.map(a => ({
+              cours_code: c.cours_code, cours_nom: c.cours_nom,
+              aa_code: a.aa_code, description: a.description, poids: a.poids })))}
+          etudiants={data?.etudiants || []}
+          note={(id, c) => data?.notes?.[id]?.[`${c.cours_code}|${c.aa_code}`] ?? null}
+          mention={(id, cc) => data?.mentions?.[id]?.[cc] || null}
+          ferme={(id, cc) => !!data?.a_representer
+            && !(data.a_representer[id] || []).includes(cc)}
+          onImporte={charger} />
+        <button onClick={onClose}
+          className="bouton">
+          Fermer
+        </button>
+      </>}>
+      {/* La grille et le panneau des acquis défilent chacun pour soi : le
+          contenu prend toute la hauteur de la fenêtre. */}
+      <div className="h-full -mx-5 flex flex-col">
+        <div className="flex-none px-5 pb-3 flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <h3 className="text-[15px] font-semibold text-iip-blue truncate">
-              UE {ueNum}{data?.ue?.ue_nom ? ` · ${data.ue.ue_nom}` : ''}
-            </h3>
             <p className="text-[12px] text-slate-500">
               {data && (data.epreuve_integree
                 ? `épreuve intégrée · ${colonnes.length} acquis · `
@@ -217,14 +238,11 @@ export default function EncodageUE({ ueNum, annee, onClose, onEnregistre, onPara
                 placeholder="Étudiant…"
                 className="pl-7 pr-2 py-1 text-[12px] border border-slate-300 rounded-lg w-36" />
             </div>
-            <button onClick={onClose} className="text-slate-400 hover:text-slate-600">
-              <IconX size={18} />
-            </button>
           </div>
         </div>
 
         {erreur && (
-          <div className="flex-none mx-5 mt-3 px-3 py-2 rounded-lg bg-red-50 border
+          <div className="flex-none mx-5 mb-3 px-3 py-2 rounded-lg bg-red-50 border
                           border-red-200 text-[12px] text-red-800 flex items-start gap-1.5">
             <IconAlertTriangle size={14} className="mt-0.5 flex-none" /> {erreur}
           </div>
@@ -495,34 +513,7 @@ export default function EncodageUE({ ueNum, annee, onClose, onEnregistre, onPara
         </div>
         </div>
 
-        <div className="flex-none px-5 py-2.5 border-t border-slate-100 flex items-center
-                        justify-between gap-3">
-          <p className="text-[11px] text-slate-500">
-            Chaque note s'enregistre seule, en quittant la case. <b>NP</b> vaut zéro sur tout le
-            cours en gardant la seconde session ; <b>PP</b> est l'absence non justifiée.
-          </p>
-          <div className="flex items-center gap-2 flex-none">
-            {/* TOUS LES PROFESSEURS N'ENCODENT PAS À L'ÉCRAN. Le classeur part,
-                revient rempli, et se relit sur les clés qu'il porte. */}
-            <ClasseurNotes ueNum={ueNum} annee={annee} session={session}
-              ueNom={data?.ue?.ue_nom}
-              colonnes={(data?.cours || []).filter(c => c.acquis?.length)
-                .flatMap(c => c.acquis.map(a => ({
-                  cours_code: c.cours_code, cours_nom: c.cours_nom,
-                  aa_code: a.aa_code, description: a.description, poids: a.poids })))}
-              etudiants={data?.etudiants || []}
-              note={(id, c) => data?.notes?.[id]?.[`${c.cours_code}|${c.aa_code}`] ?? null}
-              mention={(id, cc) => data?.mentions?.[id]?.[cc] || null}
-              ferme={(id, cc) => !!data?.a_representer
-                && !(data.a_representer[id] || []).includes(cc)}
-              onImporte={charger} />
-            <button onClick={onClose}
-              className="px-3 py-1.5 text-[13px] rounded-lg border border-slate-300 text-slate-600">
-              Fermer
-            </button>
-          </div>
-        </div>
       </div>
-    </div>
+    </Fenetre>
   );
 }

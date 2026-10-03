@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react';
-import { IconTableExport, IconTableImport, IconCheck, IconX } from '@tabler/icons-react';
+import { IconTableExport, IconTableImport, IconCheck } from '@tabler/icons-react';
+import { Fenetre } from './ui.jsx';
 import { authHeaders } from '../lib/api.js';
 import { telechargerClasseur, lireClasseurNotes } from '../lib/classeurNotes.js';
 
@@ -94,20 +95,18 @@ export default function ClasseurNotes({
       </button>
 
       {(erreur || apercu) && (
-        <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] flex items-start justify-center z-[60] p-4"
-          onClick={e => e.target === e.currentTarget && (setApercu(null), setErreur(''))}>
-          <div className="bg-white rounded-fenetre shadow-dessus w-full max-w-xl mt-20
-                          max-h-[80vh] overflow-hidden flex flex-col">
-            <div className="flex-none px-5 py-3 border-b border-slate-100 flex items-start
-                            justify-between gap-3">
-              <h3 className="text-[15px] font-semibold text-iip-blue">
-                Classeur relu — UE {ueNum}
-              </h3>
-              <button onClick={() => { setApercu(null); setErreur(''); setLu(null); }}
-                className="text-slate-400 hover:text-slate-600"><IconX size={18} /></button>
-            </div>
-
-            <div className="flex-1 overflow-y-auto p-5 space-y-3 text-[13px]">
+        <Fenetre icone={IconTableImport} titre={`Classeur relu — UE ${ueNum}`}
+          large="moyenne" onFermer={() => { setApercu(null); setErreur(''); setLu(null); }}
+          pied={apercu && (<>
+            <span />
+            <button onClick={() => { setApercu(null); setLu(null); }}
+              className="bouton">Annuler</button>
+            <button onClick={appliquer} disabled={enCours || !apercu.total.rapproches}
+              className="bouton bouton-fort flex items-center gap-1.5">
+              <IconCheck size={15} /> Écrire {apercu.total.notes} note(s)
+            </button>
+          </>)}>
+            <div className="space-y-3 text-[13px]">
               {erreur && (
                 <div className="px-3 py-2 rounded-xl bg-rose-50 border border-rose-200
                                 text-rose-900">{erreur}</div>
@@ -166,21 +165,7 @@ export default function ClasseurNotes({
               )}
             </div>
 
-            {apercu && (
-              <div className="flex-none px-5 py-3 border-t border-slate-100 flex items-center
-                              justify-end gap-2">
-                <button onClick={() => { setApercu(null); setLu(null); }}
-                  className="px-3 py-2 text-[13px] rounded-lg border border-slate-300
-                             text-slate-600">Annuler</button>
-                <button onClick={appliquer} disabled={enCours || !apercu.total.rapproches}
-                  className="px-3 py-2 text-[13px] rounded-lg bg-iip-blue text-white
-                             font-semibold flex items-center gap-1.5 disabled:opacity-40">
-                  <IconCheck size={15} /> Écrire {apercu.total.notes} note(s)
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
+        </Fenetre>
       )}
     </>
   );

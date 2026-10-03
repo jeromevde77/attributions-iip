@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { api, getAnnee, nomDoc, getUser } from '../lib/api.js';
 import PreviewModal from '../components/PreviewModal.jsx';
 import ListeDiplomes from '../components/ListeDiplomes.jsx';
-import { RailLateral } from '../components/ui.jsx';
+import { RailLateral, Fenetre } from '../components/ui.jsx';
 import EnvoiMailModal from '../components/EnvoiMailModal.jsx';
 import {
   IconUser, IconBooks, IconBook, IconLink, IconSchool, IconScale,
@@ -2000,9 +2000,16 @@ ${methodologie}
       )}
 
       {showOptionsRapport && (
-        <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] flex items-center justify-center p-4 z-50" onClick={e=>e.target===e.currentTarget&&setShowOptionsRapport(false)}>
-          <div className="bg-white rounded-xl shadow-2xl max-w-lg w-full p-6 border-t-4 border-iip-gold max-h-[90vh] overflow-y-auto">
-            <h2 className="text-lg font-title text-slate-800 mb-1">Paramétrer le rapport</h2>
+        <Fenetre titre="Paramétrer le rapport" large="petite"
+          onFermer={()=>setShowOptionsRapport(false)}
+          pied={<>
+            <button onClick={()=>{ setFiltres(f=>({ section:f.section, ue_num:f.ue_num })); }}
+              className="text-xs text-gray-500 hover:text-gray-700 underline">Réinitialiser les critères</button>
+            <span />
+            <button onClick={()=>setShowOptionsRapport(false)} className="bouton">Annuler</button>
+            <button onClick={()=>{ setShowOptionsRapport(false); genererReel(); }}
+              className="bouton bouton-fort">Générer le rapport</button>
+          </>}>
             <p className="text-sm text-gray-500 mb-4">Choisissez les critères. Laissez « Tous » pour ne pas filtrer.</p>
             <div className="space-y-3">
               <div>
@@ -2098,17 +2105,7 @@ ${methodologie}
                 </select>
               </div>
             </div>
-            <div className="mt-5 flex items-center justify-between">
-              <button onClick={()=>{ setFiltres(f=>({ section:f.section, ue_num:f.ue_num })); }}
-                className="text-xs text-gray-500 hover:text-gray-700 underline">Réinitialiser les critères</button>
-              <div className="flex gap-2">
-                <button onClick={()=>setShowOptionsRapport(false)} className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800">Annuler</button>
-                <button onClick={()=>{ setShowOptionsRapport(false); genererReel(); }}
-                  className="bg-iip-gold hover:bg-iip-amber text-white text-sm font-medium px-5 py-2 rounded-lg">Générer le rapport</button>
-              </div>
-            </div>
-          </div>
-        </div>
+        </Fenetre>
       )}
     </div>
   );

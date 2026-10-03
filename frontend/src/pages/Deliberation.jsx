@@ -20,7 +20,7 @@ import DiagnosticAnnees from '../components/DiagnosticAnnees.jsx';
 import SchemaLiensAA from '../components/SchemaLiensAA.jsx';
 import EncodageRapide from './EncodageRapide.jsx';
 import CentreImpressionCentral from '../components/CentreImpressionCentral.jsx';
-import { BoutonEditions } from '../components/ui.jsx';
+import { BoutonEditions, Fenetre } from '../components/ui.jsx';
 import RepriseLot from '../components/RepriseLot.jsx';
 import ImportTableauPlat from '../components/ImportTableauPlat.jsx';
 import ReglesDeliberation from '../components/ReglesDeliberation.jsx';
@@ -686,18 +686,19 @@ export default function Deliberation() {
       )}
 
       {annuler && (
-        <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] flex items-start justify-center z-50 p-4"
-          onClick={e => e.target === e.currentTarget && setAnnuler(null)}>
-          <div className="bg-white rounded-fenetre shadow-dessus w-full max-w-lg mt-24 p-5 space-y-3">
-            <div>
-              <h3 className="text-[15px] font-semibold text-iip-blue">
-                Annuler la délibération de l'UE {annuler.ue_num}
-              </h3>
-              <p className="text-[12px] text-slate-500">
-                {annuler.ue_nom || ''} · {annuler.decides} décision(s) enregistrée(s)
-              </p>
-            </div>
-
+        <Fenetre titre={`Annuler la délibération de l'UE ${annuler.ue_num}`}
+          sous={`${annuler.ue_nom || ''} · ${annuler.decides} décision(s) enregistrée(s)`}
+          large="petite" ton="alerte" onFermer={() => setAnnuler(null)}
+          pied={<>
+            <span />
+            <button onClick={() => setAnnuler(null)} className="bouton">
+              Renoncer
+            </button>
+            <button onClick={annulerDeliberation} disabled={enCours} className="bouton bouton-detruire">
+              Annuler la délibération
+            </button>
+          </>}>
+          <div className="space-y-3">
             <div className="rounded-xl border border-red-200 bg-red-50 px-3 py-2
                             text-[13px] text-red-900">
               <div className="font-semibold">Seront effacés</div>
@@ -722,21 +723,8 @@ export default function Deliberation() {
               La délibération repartira de ce qui a été encodé. Cette action
               n'est pas réversible.
             </p>
-
-            <div className="flex justify-end gap-2">
-              <button onClick={() => setAnnuler(null)}
-                className="px-3 py-1.5 text-[13px] rounded-lg border border-slate-300
-                           text-slate-600">
-                Renoncer
-              </button>
-              <button onClick={annulerDeliberation} disabled={enCours}
-                className="px-4 py-2 text-[13px] rounded-lg bg-red-600 text-white
-                           font-semibold disabled:opacity-40">
-                Annuler la délibération
-              </button>
-            </div>
           </div>
-        </div>
+        </Fenetre>
       )}
 
       {docs && (

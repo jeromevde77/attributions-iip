@@ -3,6 +3,7 @@ import { api, getAnnee, setAnnee } from '../lib/api.js';
 import ImportUEAssistant from '../components/ImportUEAssistant.jsx';
 import { demander, informer, saisir } from '../lib/dialogue.jsx';
 import { IconPlus, IconPencil, IconTrash } from '@tabler/icons-react';
+import { Fenetre } from '../components/ui.jsx';
 
 export default function Annees({ embedded = false }) {
   const [annees, setAnnees] = useState([]);
@@ -143,11 +144,19 @@ export default function Annees({ embedded = false }) {
 
       {/* Formulaire création */}
       {showForm && (
-        <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] flex items-center justify-center p-4 z-40"
-          onClick={e => e.target === e.currentTarget && setShowForm(false)}>
-          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6 border-t-4 border-iip-gold">
-            <h2 className="text-xl font-title text-iip-gold mb-4">Nouvelle année scolaire</h2>
-            <form onSubmit={handleCreate} className="space-y-4">
+        <Fenetre titre="Nouvelle année scolaire" large="petite"
+          onFermer={() => setShowForm(false)}
+          pied={<>
+            <span />
+            <button type="button" onClick={() => setShowForm(false)} className="bouton">Annuler</button>
+            {/* Hors du formulaire, rattaché par son id : Entrée et la
+                validation native (champ requis, motif) restent actives. */}
+            <button type="submit" form="form-nouvelle-annee" disabled={saving}
+              className="bouton bouton-fort">
+              {saving ? 'Création…' : 'Créer'}
+            </button>
+          </>}>
+            <form id="form-nouvelle-annee" onSubmit={handleCreate} className="space-y-4">
               <div>
                 <label className="block text-sm text-gray-600 mb-1">Code <span className="text-red-500">*</span></label>
                 <input value={form.code} onChange={e => setForm({...form, code: e.target.value})}
@@ -196,17 +205,8 @@ export default function Annees({ embedded = false }) {
                   </div>
                 )}
               </div>
-              <div className="flex justify-end gap-2 pt-2">
-                <button type="button" onClick={() => setShowForm(false)}
-                  className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800">Annuler</button>
-                <button type="submit" disabled={saving}
-                  className="bg-iip-gold hover:bg-iip-amber disabled:opacity-40 text-white text-sm px-5 py-2 rounded font-medium">
-                  {saving ? 'Création…' : 'Créer'}
-                </button>
-              </div>
             </form>
-          </div>
-        </div>
+        </Fenetre>
       )}
 
       {importCtx && (

@@ -2,6 +2,7 @@ import { useEffect, useState, useMemo } from 'react';
 import { estDirection } from '../lib/modules.js';
 import { IconPlus, IconTarget, IconTrash } from '@tabler/icons-react';
 import { api } from '../lib/api.js';
+import { Fenetre } from './ui.jsx';
 import { informer } from '../lib/dialogue.jsx';
 
 /**
@@ -235,23 +236,37 @@ export default function CoursEditModal({ section, codeCours, onClose, onChanged 
   }
 
   return (
-    <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] flex items-center justify-center p-2 md:p-4 z-30"
-         onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="bg-white rounded-xl shadow-2xl w-full max-w-6xl max-h-[95vh] flex flex-col">
-        {/* En-tête */}
-        <div className="border-b border-gray-200 p-4 flex items-start justify-between">
-          <div>
-            <h2 className="text-xl font-title text-iip-gold">{coursNom}</h2>
-            <p className="text-xs text-gray-500 mt-0.5">
-              Section <b>{section}</b> · UE <b>{ueNum}</b> {ueNom && <>· {ueNom}</>} · Code <b>{codeCours}</b>
-              {coursPer != null && <> · <b>{coursPer} périodes prévues par cours</b></>}
-            </p>
-          </div>
-          <button onClick={onClose} className="text-gray-400 hover:text-red-500 text-2xl leading-none">×</button>
-        </div>
-
+    <>
+    <Fenetre titre={coursNom} large="pleine" onFermer={onClose}
+      sous={<>
+        Section <b>{section}</b> · UE <b>{ueNum}</b> {ueNom && <>· {ueNom}</>} · Code <b>{codeCours}</b>
+        {coursPer != null && <> · <b>{coursPer} périodes prévues par cours</b></>}
+      </>}
+      pied={<>
+        <span className="text-xs text-gray-500">
+          {visibleRows.length} ligne(s) · {rows.filter(r => r._new && !r._deleted).length} nouvelle(s) ·
+          {' '}{rows.filter(r => !r._new && r._deleted).length} à supprimer ·
+          {' '}{rows.filter(r => !r._new && r._dirty && !r._deleted).length} modifiée(s)
+        </span>
+        <button
+          onClick={() => {
+            localStorage.setItem('referentiels_goto', 'activites');
+            window.location.href = '/referentiels';
+          }}
+          title="Ouvrir la gestion des activités dans les Référentiels"
+          className="bouton">
+          <IconTarget size={14} className="inline align-[-2px] mr-1" />Gérer les activités…
+        </button>
+        <button onClick={onClose} className="bouton">Fermer</button>
+        {canEdit && (
+          <button onClick={save} disabled={saving}
+                  className="bouton bouton-fort">
+            {saving ? 'Enregistrement…' : '✓ Enregistrer'}
+          </button>
+        )}
+      </>}>
         {/* Corps */}
-        <div className="flex-1 overflow-auto p-4">
+        <div>
           {loading ? (
             <p className="text-gray-400 text-center py-8">Chargement…</p>
           ) : error ? (
@@ -544,33 +559,7 @@ export default function CoursEditModal({ section, codeCours, onClose, onChanged 
           )}
         </div>
 
-        {/* Pied */}
-        <div className="border-t border-gray-200 p-4 flex items-center justify-between gap-2">
-          <div className="text-xs text-gray-500">
-            {visibleRows.length} ligne(s) · {rows.filter(r => r._new && !r._deleted).length} nouvelle(s) ·
-            {' '}{rows.filter(r => !r._new && r._deleted).length} à supprimer ·
-            {' '}{rows.filter(r => !r._new && r._dirty && !r._deleted).length} modifiée(s)
-          </div>
-          <div className="flex gap-2 items-center">
-            <button
-              onClick={() => {
-                localStorage.setItem('referentiels_goto', 'activites');
-                window.location.href = '/referentiels';
-              }}
-              title="Ouvrir la gestion des activités dans les Référentiels"
-              className="text-sm text-gray-500 hover:text-iip-gold border border-gray-200 hover:border-iip-gold/40 px-3 py-2 rounded transition mr-auto">
-              <IconTarget size={14} className="inline align-[-2px] mr-1" />Gérer les activités…
-            </button>
-            <button onClick={onClose} className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800">Fermer</button>
-            {canEdit && (
-              <button onClick={save} disabled={saving}
-                      className="bg-iip-gold hover:bg-iip-amber disabled:opacity-50 text-white text-sm px-5 py-2 rounded font-medium">
-                {saving ? 'Enregistrement…' : '✓ Enregistrer'}
-              </button>
-            )}
-          </div>
-        </div>
-      </div>
+    </Fenetre>
 
       {/* Mini-modal : créer une nouvelle activité */}
       {showNewActivite && (
@@ -586,7 +575,7 @@ export default function CoursEditModal({ section, codeCours, onClose, onChanged 
           onClose={() => setShowNewActivite(null)}
         />
       )}
-    </div>
+    </>
   );
 }
 
@@ -603,9 +592,16 @@ function ModalNouvelleActivite({ section, onCreer, onClose }) {
   }
 
   return (
-    <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] z-50 flex items-center justify-center">
-      <div className="bg-white rounded-xl shadow-2xl w-full max-w-sm p-6 space-y-4">
-        <h3 className="font-semibold text-gray-800">+ Nouvelle activité</h3>
+    <Fenetre icone={IconPlus} titre="Nouvelle activité" large="petite" onFermer={onClose}
+      pied={<>
+        <span />
+        <button onClick={onClose} className="bouton">Annuler</button>
+        <button onClick={valider} disabled={!libelle.trim() || saving}
+          className="bouton bouton-fort">
+          {saving ? 'Création…' : 'Créer'}
+        </button>
+      </>}>
+      <div className="space-y-4">
 
         <div>
           <label className="block text-xs text-gray-500 mb-1">Nom de l'activité</label>
@@ -635,14 +631,7 @@ function ModalNouvelleActivite({ section, onCreer, onClose }) {
           </div>
         </div>
 
-        <div className="flex gap-2 pt-2">
-          <button onClick={onClose} className="flex-1 border border-gray-300 text-gray-600 text-sm py-2 rounded">Annuler</button>
-          <button onClick={valider} disabled={!libelle.trim() || saving}
-            className="flex-1 bg-iip-gold text-white text-sm py-2 rounded hover:bg-iip-amber disabled:opacity-50">
-            {saving ? 'Création…' : 'Créer'}
-          </button>
-        </div>
       </div>
-    </div>
+    </Fenetre>
   );
 }

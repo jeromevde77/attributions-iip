@@ -152,18 +152,30 @@ function DPImportModal({ annee, sections, onClose, onSaved }) {
     .map(s => [s, ues.filter(u => u.section === s)]);
 
   return (
-    <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] flex items-center justify-center p-4 z-50"
-      onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full border-t-4 border-iip-turquoise max-h-[90vh] overflow-hidden flex flex-col">
-        <div className="flex items-center justify-between px-5 py-3 border-b flex-shrink-0">
-          <h2 className="font-title text-lg text-iip-blue flex items-center gap-2">
-            <IconFileText size={20} className="text-iip-turquoise" />
-            Import des dossiers pédagogiques FWB
-          </h2>
-          <button onClick={onClose} className="text-gray-400 hover:text-red-500"><IconX size={20} /></button>
-        </div>
-
-        <div className="flex-1 min-h-0 overflow-y-auto p-5 space-y-4">
+    <Fenetre icone={IconFileText} titre="Import des dossiers pédagogiques FWB" large="moyenne" onFermer={onClose}
+      pied={<>
+        <span />
+        {!resultats && (
+          <button onClick={analyser} disabled={loading || !fichiers.length}
+            className={liste ? 'bouton' : 'bouton bouton-fort'}>
+            <IconFileText size={16} />
+            {loading && encours ? `Analyse de ${encours}…` : 'Analyser les documents'}
+          </button>
+        )}
+        {liste && !resultats && (
+          <button onClick={confirmer}
+            disabled={loading || bloquant || !liste.some(x => x.ok)}
+            className="bouton bouton-fort">
+            <IconCheck size={16} />
+            {loading && encours ? `Import de ${encours}…`
+              : `Confirmer l'import de ${liste.filter(x => x.ok).length} dossier(s)`}
+          </button>
+        )}
+        {resultats && !loading && (
+          <button onClick={onClose} className="bouton bouton-fort">Fermer</button>
+        )}
+      </>}>
+        <div className="space-y-4">
           {!resultats && (<>
             <div>
               <div className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">
@@ -208,11 +220,6 @@ function DPImportModal({ annee, sections, onClose, onSaved }) {
               </div>
             )}
 
-            <button onClick={analyser} disabled={loading || !fichiers.length}
-              className="w-full bg-iip-turquoise hover:opacity-90 disabled:opacity-40 text-white text-sm py-2.5 rounded-lg font-medium flex items-center justify-center gap-2">
-              <IconFileText size={16} />
-              {loading && encours ? `Analyse de ${encours}…` : 'Analyser les documents'}
-            </button>
           </>)}
 
           {liste && (
@@ -347,36 +354,19 @@ function DPImportModal({ annee, sections, onClose, onSaved }) {
                 ))}
               </div>
 
-              {!resultats && (
+              {!resultats && bloquant && (
                 <div className="p-3 border-t border-gray-100 space-y-2">
-                  {bloquant && (
-                    <div className="bg-amber-500 border border-amber-500 rounded p-2 text-xs text-white flex items-start gap-1.5">
-                      <IconAlertTriangle size={14} className="flex-shrink-0 mt-0.5" />
-                      {aCreer.length} unité(s) sont inconnues et seraient créées : choisissez une
-                      section cible, ou rattachez chaque dossier à une unité existante.
-                    </div>
-                  )}
-                  <button onClick={confirmer}
-                    disabled={loading || bloquant || !liste.some(x => x.ok)}
-                    className="w-full bg-iip-blue hover:bg-iip-blue-dark disabled:opacity-40 text-white text-sm py-2 rounded-lg font-medium flex items-center justify-center gap-2">
-                    <IconCheck size={16} />
-                    {loading && encours ? `Import de ${encours}…`
-                      : `Confirmer l'import de ${liste.filter(x => x.ok).length} dossier(s)`}
-                  </button>
+                  <div className="bg-amber-500 border border-amber-500 rounded p-2 text-xs text-white flex items-start gap-1.5">
+                    <IconAlertTriangle size={14} className="flex-shrink-0 mt-0.5" />
+                    {aCreer.length} unité(s) sont inconnues et seraient créées : choisissez une
+                    section cible, ou rattachez chaque dossier à une unité existante.
+                  </div>
                 </div>
               )}
             </div>
           )}
-
-          {resultats && !loading && (
-            <button onClick={onClose}
-              className="w-full bg-iip-blue text-white text-sm py-2 rounded-lg font-medium">
-              Fermer
-            </button>
-          )}
         </div>
-      </div>
-    </div>
+    </Fenetre>
   );
 }
 
@@ -415,9 +405,15 @@ function EffectifsImportModal({ annee, onClose, onSaved }) {
   }
 
   return (
-    <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] flex items-center justify-center p-4 z-50" onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full p-6 flex flex-col" style={{ maxHeight: '85vh' }}>
-        <h2 className="font-title text-lg text-iip-blue mb-1">Importer les effectifs étudiants — {annee}</h2>
+    <Fenetre icone={IconUpload} titre={`Importer les effectifs étudiants — ${annee}`} large="moyenne" onFermer={onClose}
+      pied={<>
+        <span />
+        <button type="button" onClick={onClose} className="bouton">Annuler</button>
+        <button type="button" onClick={importer} disabled={!preview || preview.length === 0 || busy}
+          className="bouton bouton-fort">
+          {busy ? 'Import…' : `Importer ${preview?.length || 0} effectif(s)`}
+        </button>
+      </>}>
         <p className="text-xs text-gray-500 mb-3">
           Collez votre tableau (depuis Word/Excel). Chaque ligne doit contenir le <b>n° d'UE</b> et le <b>nombre d'étudiants</b> (dernier nombre de la ligne). Les colonnes intermédiaires (section, nom, bloc, quadri) sont ignorées.
         </p>
@@ -440,15 +436,7 @@ function EffectifsImportModal({ annee, onClose, onSaved }) {
             </table>
           </div>
         )}
-        <div className="flex justify-end gap-2">
-          <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-gray-600">Annuler</button>
-          <button type="button" onClick={importer} disabled={!preview || preview.length === 0 || busy}
-            className="bg-iip-blue hover:bg-iip-blue-dark disabled:opacity-30 text-white text-sm px-5 py-2 rounded font-medium">
-            {busy ? 'Import…' : `Importer ${preview?.length || 0} effectif(s)`}
-          </button>
-        </div>
-      </div>
-    </div>
+    </Fenetre>
   );
 }
 
@@ -887,23 +875,17 @@ function CatalogueUEModal({ section, onClose, onDone }) {
   }
 
   return (
-    <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] flex items-center justify-center p-4 z-50" onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[85vh] flex flex-col border-t-4 border-iip-gold">
-        <div className="flex items-center justify-between px-5 py-3 border-b flex-shrink-0">
-          <div>
-            <h2 className="font-title text-lg text-iip-gold">Rattacher une UE à {section}</h2>
-            <p className="text-xs text-gray-500">Catalogue de toutes les UE. Une UE absente de l'année courante y sera copiée automatiquement.</p>
-          </div>
-          <button onClick={onClose} className="text-gray-400 hover:text-red-500 text-2xl"><IconX size={20} /></button>
-        </div>
-        <div className="px-5 py-2 border-b flex-shrink-0">
+    <Fenetre icone={IconLink} titre={`Rattacher une UE à ${section}`}
+      sous="Catalogue de toutes les UE. Une UE absente de l'année courante y sera copiée automatiquement."
+      large="moyenne" onFermer={onClose}>
+        <div className="pb-2 mb-1 border-b">
           <input value={q} onChange={e => setQ(e.target.value)} placeholder="Rechercher une UE (numéro ou nom)…"
             className="w-full border border-gray-300 rounded px-3 py-1.5 h-9 text-sm" autoFocus />
         </div>
         {loading ? (
           <div className="p-8 text-center text-gray-400">Chargement…</div>
         ) : (
-          <div className="flex-1 overflow-auto divide-y divide-gray-100">
+          <div className="-mx-5 divide-y divide-gray-100">
             {filtered.map(ue => {
               const present = dejaLa(ue);
               return (
@@ -927,8 +909,7 @@ function CatalogueUEModal({ section, onClose, onDone }) {
             {filtered.length === 0 && <div className="p-6 text-center text-gray-400 text-sm">Aucune UE trouvée.</div>}
           </div>
         )}
-      </div>
-    </div>
+    </Fenetre>
   );
 }
 
