@@ -1,3 +1,4 @@
+import { ICONE_AXE } from '../lib/iconesAxes.js';
 import { IconChalkboardTeacher } from '@tabler/icons-react';
 import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
 import { calculHELB, estHELB } from '../lib/helb.js';
@@ -2216,7 +2217,7 @@ export default function Professeurs({ vue: vueInitiale = 'membres' }) {
           ...(canEdit ? [{ key: 'nouveau', label: 'Nouveau membre', icon: IconUserPlus,
             onClick: () => setEditProf({ ...EMPTY }) }] : []),
         ]}
-        icon={IconChalkboardTeacher}
+        icon={ICONE_AXE.personnel}
         titre="Personnel"
         /* REVENIR À L'AXE, c'est revenir à sa première rubrique — la liste des
            membres, par laquelle on y entre. */

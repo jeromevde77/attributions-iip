@@ -1,3 +1,4 @@
+import { ICONE_AXE } from '../lib/iconesAxes.js';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   IconBook, IconFileText, IconCheck, IconAlertTriangle, IconPlus,
@@ -153,7 +154,7 @@ export default function Documentation() {
   return (
     <div className="relative">
       <RailLateral
-        icon={IconBook} titre="Documentation"
+        icon={ICONE_AXE.documentation} titre="Documentation"
         sousTitre={aLire ? `${aLire} à confirmer` : 'tout est confirmé'}
         sections={[
           { label: 'Vue', items: [

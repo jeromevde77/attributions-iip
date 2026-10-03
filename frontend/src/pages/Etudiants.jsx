@@ -1,3 +1,4 @@
+import { ICONE_AXE } from '../lib/iconesAxes.js';
 import OngletCep from '../components/OngletCep.jsx';
 import { createContext, Fragment, lazy, Suspense, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
@@ -4043,7 +4044,7 @@ export default function Etudiants() {
 
   return (
     <div className="relative" style={{ minHeight: 'calc(100vh - 64px)' }}>
-      <RailLateral icon={IconChecklist} titre="Étudiants"
+      <RailLateral icon={ICONE_AXE.etudiants} titre="Étudiants"
         sousTitre={`${filtres.length} étudiant(s)`} sections={RAIL}
         impression="etudiants" pieces={EDITIONS} />
     <div className="gouttiere-rail p-5 space-y-4 max-w-none">

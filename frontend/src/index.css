@@ -745,7 +745,7 @@ main:not(:has(> .gouttiere-rail)) {
  * arrondis, tenu par un filet. Elle ne peut pas s'écrire dans un style en
  * ligne : un pseudo-état n'en fait pas partie.
  */
-[data-case-rail]:hover {
+[data-case-rail]:hover, .case-barre:hover {
   background: var(--menu-actif);
   box-shadow: inset 0 0 0 1px var(--menu-actif-bord);
   color: var(--menu-texte);

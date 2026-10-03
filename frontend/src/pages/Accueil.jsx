@@ -1,3 +1,4 @@
+import { ICONE_AXE } from '../lib/iconesAxes.js';
 import { lazy, Suspense, useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api, getAnnee, getUser, authHeaders } from '../lib/api.js';
@@ -576,7 +577,7 @@ export default function Accueil() {
   return (
     <div className="relative" style={{ minHeight: 'calc(100vh - 64px)' }}>
       <RailLateral
-        icon={IconHome}
+        icon={ICONE_AXE.accueil}
         titre="Accueil"
         sousTitre={annee}
         /* UNE ICÔNE SE MÉRITE.

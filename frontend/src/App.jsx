@@ -1,4 +1,5 @@
-import { useState, useEffect, useRef, Component } from 'react';
+import { ICONE_AXE } from './lib/iconesAxes.js';
+import { useState, useEffect, useRef, Component, Fragment } from 'react';
 import { createPortal } from 'react-dom';
 import { estDirection, droitEffectif, usePlafonds, oublierPlafonds } from './lib/modules.js';
 
@@ -34,6 +35,7 @@ import MotDePasse from './pages/MotDePasse.jsx';
 import DemandeVA from './pages/DemandeVA.jsx';
 import RechercheLucie from './components/RechercheLucie.jsx';
 import { IconEtudiant } from './components/IconesLucie.jsx';
+import { useSousMenu } from './lib/sousMenu.js';
 import MonCompte from './components/MonCompte.jsx';
 import ApercuGlobal from './components/ApercuGlobal.jsx';
 import Dashboard from './pages/Dashboard.jsx';
@@ -234,6 +236,7 @@ function ProtectedLayout({ children }) {
   usePlafonds();
   const [compteOuvert, setCompteOuvert] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const sousMenu = useSousMenu();          // les faces de l'écran ouvert, glissées dans la barre
   const [bulleNav, setBulleNav] = useState(null);   // { lbl, x, y } : le nom au survol d'une icône
   const location = useLocation();
 
@@ -481,9 +484,9 @@ function ProtectedLayout({ children }) {
    *   écran où l'on décide ne peuvent pas porter le même cadenas.
    */
   const AXES = [
-    ['/accueil',       'Tableau de bord', IconHome,           null],
-    ['/etudiants',     'Étudiants',       IconEtudiant,       'etudiants'],
-    ['/professeurs',   'Personnel',       IconChalkboardTeacher, 'personnel'],
+    ['/accueil',       'Tableau de bord', ICONE_AXE.accueil,  null],
+    ['/etudiants',     'Étudiants',       ICONE_AXE.etudiants, 'etudiants'],
+    ['/professeurs',   'Personnel',       ICONE_AXE.personnel, 'personnel'],
     /* L'ICÔNE D'UN AXE EST LA MÊME DANS LA BARRE ET DANS SON RAIL, et elle
        n'appartient qu'à lui. Organisation portait IconClipboardList ici et
        IconBooks dans son rail : deux dessins pour un même territoire, et le
@@ -491,8 +494,8 @@ function ProtectedLayout({ children }) {
        Étudiants. Organisation est l'axe des unités, des cours et des
        référentiels — des livres —, ce qui rend le presse-papiers au PAE, qui
        est littéralement une liste à cocher. */
-    ['/organisation',  'Organisation',    IconBooks,          'attributions'],
-    ['/gestion',       'Gestion',         IconReportAnalytics, 'dotation'],
+    ['/organisation',  'Organisation',    ICONE_AXE.organisation, 'attributions'],
+    ['/gestion',       'Gestion',         ICONE_AXE.gestion,  'dotation'],
   ];
 
   const nav = AXES
@@ -511,7 +514,7 @@ function ProtectedLayout({ children }) {
     // Juste après le tableau de bord (Charles, 3 octobre 2026), avec son
     // propre dessin : les livres sont à Organisation.
     const iAccueil = nav.findIndex(([to]) => to === '/accueil');
-    nav.splice(iAccueil + 1, 0, ['/mes-cours', 'Mes cours', IconChalkboard]);
+    nav.splice(iAccueil + 1, 0, ['/mes-cours', 'Mes cours', ICONE_AXE.mesCours]);
   }
 
   /* L'AIDE DEVIENT LA DOCUMENTATION, ET C'EST UNE ABSORPTION, PAS UN AJOUT.
@@ -524,8 +527,8 @@ function ProtectedLayout({ children }) {
   /* LE POINT D'INTERROGATION NE DISAIT PAS CE QU'IL OUVRE (Charles, 2 octobre
      2026 : « changer cette icône et mettre Documentation à côté, ce sera plus
      clair pour tout le monde »). Une bibliothèque, et son nom. */
-  nav.push(['/documentation', 'Documentation', IconLibrary]);
-  if (estDirection(u)) nav.push(['/configuration', 'Config.', IconSettings]);
+  nav.push(['/documentation', 'Documentation', ICONE_AXE.documentation]);
+  if (estDirection(u)) nav.push(['/configuration', 'Config.', ICONE_AXE.configuration]);
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -599,23 +602,32 @@ function ProtectedLayout({ children }) {
             {annees.length === 0 && <option value={anneeActive}>{anneeActive}</option>}
           </select>
           {/* Nav desktop */}
-          <nav className="hidden md:flex gap-0.5 flex-1 ml-3">
+          <nav className="hidden md:flex items-center gap-0.5 flex-1 min-w-0 ml-2">
             {/* DES ICÔNES, ET LE NOM DE LA RUBRIQUE OUVERTE (Charles, 3 octobre
                 2026 : « le menu du dessus devient trop large ; si on passe sur
                 l'icône, le nom apparaît en bulle en dessous »). */}
             {nav.map(([to, lbl, Icon]) => (
-              <NavLink key={to} to={to} end={to === '/'} aria-label={lbl}
+              <Fragment key={to}>
+              <NavLink to={to} end={to === '/'} aria-label={lbl}
                 onMouseEnter={e => { const b = e.currentTarget.getBoundingClientRect(); setBulleNav({ lbl, x: b.left + b.width / 2, y: b.bottom + 6 }); }}
                 onMouseLeave={() => setBulleNav(null)} onClick={() => setBulleNav(null)}
+                /* LA MÊME CASE QUE LE RAIL (Charles, 3 octobre 2026 : « même taille
+                   d'icônes, même carré autour, même comportement ») : un carré de
+                   quarante aux coins de carte, icône de 19 ; la rubrique ouverte
+                   garde la pastille du rail, élargie à son nom. */
+                data-case-rail={undefined}
                 className={({ isActive }) =>
-                `group relative flex items-center gap-2 py-2 rounded-champ text-sm
+                `relative flex items-center gap-2 h-10 rounded-carte text-[13px] whitespace-nowrap flex-shrink-0
                  transition-colors duration-150 ease-ios ${
-                  isActive ? 'onglet-actif font-semibold px-3' : 'onglet-dormant px-2.5'
+                  isActive ? 'font-semibold ring-1 ring-inset px-3' : 'w-10 justify-center case-barre'
                 }`
-              }>
+              }
+                style={({ isActive }) => (isActive
+                  ? { background: 'var(--menu-actif)', color: 'var(--menu-texte)', '--tw-ring-color': 'var(--menu-actif-bord)' }
+                  : { color: 'var(--menu-texte-doux)' })}>
                 {({ isActive }) => (<>
                 <span className="relative flex-shrink-0">
-                  {Icon && <Icon size={17} stroke={1.8} />}
+                  {Icon && <Icon size={19} stroke={1.8} style={{ color: location.pathname.startsWith(to) ? 'var(--menu-accent)' : 'var(--menu-icone)' }} />}
                   {to === '/accueil' && nbNotifs > 0 && (
                     <span className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-iip-turquoise rounded-full text-[10px] text-white flex items-center justify-center font-bold">
                       {nbNotifs > 9 ? '9+' : nbNotifs}
@@ -625,6 +637,21 @@ function ProtectedLayout({ children }) {
                 {isActive && <span>{lbl}</span>}
                 </>)}
               </NavLink>
+              {/* LE TIROIR : les faces de l'écran ouvert, juste à droite de la
+                  rubrique (3 octobre 2026) — comme le tiroir du rail, derrière un filet. */}
+              {sousMenu?.items?.length > 1 && location.pathname.startsWith(to) && (
+                <span className="flex items-center gap-0 ml-1 pl-1.5 border-l-2 min-w-0 overflow-x-auto"
+                  style={{ borderColor: '#16406A' }}>
+                  {sousMenu.items.map(it => (
+                    <button key={it.key} type="button" onClick={() => sousMenu.onChoisir?.(it.key)}
+                      className={`whitespace-nowrap px-2 py-1.5 rounded-champ text-[12px] transition-colors duration-150 ${
+                        it.actif ? 'font-semibold text-iip-texte bg-slate-100' : 'text-slate-500 hover:text-iip-texte hover:bg-slate-50'}`}>
+                      {it.label}
+                    </button>
+                  ))}
+                </span>
+              )}
+              </Fragment>
             ))}
           </nav>
           {/* La bulle du nom, rendue au-dessus de tout : posée dans la barre,

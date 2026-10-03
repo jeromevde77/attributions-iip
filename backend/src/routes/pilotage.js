@@ -690,10 +690,23 @@ export function calculerEtp(annee) {
      Il compte désormais les personnes — inscrites cette année, dans leur
      section de rattachement. L'estimation par UE ne sert plus qu'à défaut. */
   const inscritsMap = {};
+  /* ET PAR UNITÉ (Charles, 3 octobre 2026 : « le nombre d'inscrits dans une
+     colonne — un rapport ETP à remettre à la HELB et au CA »). Les inscrits
+     d'une UE dans une section sont ceux qui y sont rattachés : une UE du tronc
+     commun compte ses optométristes chez Optométrie et ses orthoptistes chez
+     Orthoptie. */
+  const inscritsUE = {};                 // `${section}|${ue_num}` → nombre
+  const secDe = new Map();
   for (const x of db.prepare('SELECT DISTINCT etudiant_id FROM etudiant_inscription WHERE annee_scolaire = ?').all(annee)) {
     const sec = sectionRattachement(x.etudiant_id, annee).section;
+    secDe.set(x.etudiant_id, sec);
     if (sec) inscritsMap[sec] = (inscritsMap[sec] || 0) + 1;
   }
+  for (const x of db.prepare('SELECT DISTINCT etudiant_id, ue_num FROM etudiant_inscription WHERE annee_scolaire = ?').all(annee)) {
+    const sec = secDe.get(x.etudiant_id);
+    if (sec) inscritsUE[`${sec}|${x.ue_num}`] = (inscritsUE[`${sec}|${x.ue_num}`] || 0) + 1;
+  }
+  for (const s of Object.values(sections)) for (const u of s.ues) u.nb_inscrits = inscritsUE[`${s.section}|${u.ue_num}`] || 0;
 
   const out = Object.values(sections)
     .map(s => ({
