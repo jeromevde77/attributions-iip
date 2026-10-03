@@ -207,6 +207,9 @@ function etudiantsDuCours(profId, coursCode, annee) {
  * ses étudiants sont tous les inscrits de l'unité. Cela reste une PROPOSITION
  * de notes (`note_proposee`), reprise ensuite dans l'encodage officiel. */
 function sectionsCoordination(req) {
+  /* LA DIRECTION VOIT TOUT (Charles, 3 octobre 2026 : « la direction doit
+     avoir accès à Mes cours, et tout voir — ça semble logique »). */
+  if (['admin', 'directeur', 'directeur_adjoint'].includes(req.user?.role)) return null;
   if (req.user?.role !== 'coordination') return [];
   const s = getUserSections(req.user);
   return s === null ? null : s;        // null : toutes les sections

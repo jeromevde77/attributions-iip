@@ -88,8 +88,8 @@ r.post('/regenerate-fake-data', authRequired, roleRequired('admin'), async (req,
     });
   }
   try {
-    const { regenerateFakeProfs } = await import('../services/fake-data.js');
-    const stats = regenerateFakeProfs(db);
+    const { regenerateFakeProfs, regenerateFakeEtudiants } = await import('../services/fake-data.js');
+    const stats = { ...regenerateFakeProfs(db), ...regenerateFakeEtudiants(db) };
     console.log('[admin] Données fictives régénérées :', stats);
     res.json({ ok: true, stats });
   } catch (e) {

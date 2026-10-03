@@ -1,3 +1,4 @@
+import { IconEtudiant } from '../components/IconesLucie.jsx';
 import { Suspense, lazy } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import {
@@ -85,7 +86,7 @@ export function AxeEtudiants() {
   const [params] = useSearchParams();
   return (
     <Axe
-      titre="Étudiants" icone={IconChecklist} impression="etudiants" echanges
+      titre="Étudiants" icone={IconEtudiant} impression="etudiants" echanges
       ongletInitial={params.get('onglet') || undefined}
       question="« Où en est cet étudiant ? »"
       /* L'ORDRE DU RAIL EST CELUI DU PARCOURS, ET IL MÊLE LES DEUX NATURES.

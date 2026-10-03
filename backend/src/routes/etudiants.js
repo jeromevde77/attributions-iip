@@ -10022,6 +10022,11 @@ r.post('/', authRequired, gesteRequis('etudiants.creer'), (req, res) => {
          rest.section_rattachement||null);
 
   const id = Number(info.lastInsertRowid);
+  // Ce que la carte d'identité apporte en plus (3 octobre 2026).
+  try {
+    if (rest.nationalite || rest.lieu_naissance) db.prepare('UPDATE etudiant SET nationalite = COALESCE(?, nationalite), lieu_naissance = COALESCE(?, lieu_naissance) WHERE id = ?')
+      .run(rest.nationalite || null, rest.lieu_naissance || null, id);
+  } catch { /* colonnes absentes d'une base ancienne */ }
 
   // Inscriptions initiales
   // Par la porte unique (mode « signaler ») : l'écran n'en envoie pas, mais

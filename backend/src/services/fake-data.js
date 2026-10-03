@@ -447,3 +447,71 @@ export function regenerateFakeProfs(db) {
 
   return stats;
 }
+
+/**
+ * LES ÉTUDIANTS AUSSI (3.0.33, Charles, 3 octobre 2026 : l'annexe du mode
+ * d'emploi montre chaque pièce que Lucie produit — elle doit les montrer
+ * PLEINES, et ne nommer personne). La fonction des professeurs existait
+ * seule : une pièce d'étudiant sortie de la dev portait encore son vrai nom.
+ *
+ * On remplace l'IDENTITÉ — nom, prénom, naissance, matricule, numéro
+ * national, contacts, adresse — et rien d'autre : notes, parcours,
+ * décisions, valorisations restent tels quels, pour que les pièces aient
+ * l'air vraies. Les copies d'un nom ailleurs (membres d'un conseil, candidats
+ * au recrutement) sont refaites aussi : un procès-verbal anonyme dont la
+ * composition nomme les vrais enseignants n'est pas anonyme.
+ *
+ * Même garde que les professeurs : la route refuse hors développement.
+ */
+export function regenerateFakeEtudiants(db) {
+  const stats = { etudiants: 0, membres: 0, candidats: 0 };
+  const etus = db.prepare('SELECT id FROM etudiant').all();
+  const majEtu = db.prepare(`UPDATE etudiant SET
+      nom = ?, prenom = ?, date_naissance = ?, id_ecampus = ?, num_national = ?, rn_norm = ?,
+      email_ecole = ?, email_perso = ?, gsm = ?, adresse = ?, localite = ?, cp = ?,
+      lieu_naissance = ?, matricule_helb = CASE WHEN matricule_helb IS NULL THEN NULL ELSE ? END
+    WHERE id = ?`);
+  const pris = new Set();
+  const tx = db.transaction(() => {
+    // Les matricules sont UNIQUES : on les libère d'abord, sans quoi le
+    // premier nouveau matricule peut heurter un ancien encore en place.
+    db.prepare("UPDATE etudiant SET id_ecampus = 'tmp-' || id").run();
+    for (const e of etus) {
+      const homme = Math.random() < 0.45;
+      const nom = pick(NOMS);
+      const prenom = pick(homme ? PRENOMS_M : PRENOMS_F);
+      const annee = new Date().getFullYear() - randInt(19, 52);
+      const mois = String(randInt(1, 12)).padStart(2, '0');
+      const jour = String(randInt(1, 28)).padStart(2, '0');
+      let mat; do { mat = `${String(randInt(10, 26))}-${String(randInt(10000, 99999))}`; } while (pris.has(mat));
+      pris.add(mat);
+      const rn = `${String(annee).slice(2)}${mois}${jour}${String(randInt(100, 998)).padStart(3, '0')}${String(randInt(10, 97))}`;
+      const rnAff = `${rn.slice(0, 2)}.${rn.slice(2, 4)}.${rn.slice(4, 6)}-${rn.slice(6, 9)}.${rn.slice(9)}`;
+      const [cp, commune] = pick(COMMUNES);
+      const p = normalize(prenom), n = normalize(nom);
+      majEtu.run(nom, prenom, `${annee}-${mois}-${jour}`, mat, rnAff, rn,
+        `${p}.${n}@etu.institut-prigogine.be`, genMailPrive(prenom, nom), genTel(),
+        `${pick(RUES)} ${randInt(1, 180)}`, commune, cp, pick(VILLES_BE),
+        String(randInt(100000, 999999)), e.id);
+      stats.etudiants++;
+    }
+    // Les copies de noms : membres des conseils, candidats.
+    for (const t of ['deliberation_presence', 'valorisation_presence']) {
+      try {
+        const rows = db.prepare(`SELECT rowid AS r FROM ${t}`).all();
+        const up = db.prepare(`UPDATE ${t} SET nom = ?, prenom = ? WHERE rowid = ?`);
+        for (const r of rows) { up.run(pick(NOMS), pick(Math.random() < 0.5 ? PRENOMS_M : PRENOMS_F), r.r); stats.membres++; }
+      } catch { /* table absente */ }
+    }
+    try {
+      const rows = db.prepare('SELECT id FROM recrutement_candidat').all();
+      const up = db.prepare('UPDATE recrutement_candidat SET nom = ?, prenom = ?, email = ?, telephone = ? WHERE id = ?');
+      for (const r of rows) {
+        const nom = pick(NOMS), prenom = pick(Math.random() < 0.5 ? PRENOMS_M : PRENOMS_F);
+        up.run(nom, prenom, genMailPrive(prenom, nom), genTel(), r.id); stats.candidats++;
+      }
+    } catch { /* table absente */ }
+  });
+  tx();
+  return stats;
+}

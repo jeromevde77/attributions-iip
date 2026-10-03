@@ -1,3 +1,4 @@
+import { IconChalkboard } from '@tabler/icons-react';
 import { couleurBloc, rangBloc } from '../lib/blocs.js';
 import { useEffect, useState } from 'react';
 import { IconBooks, IconChevronLeft, IconAlertTriangle, IconMessageCircle, IconPrinter, IconCertificate, IconAccessible, IconPencil, IconUserCheck } from '@tabler/icons-react';
@@ -112,7 +113,7 @@ export default function MesCours() {
     {/* LE RAIL DE MES COURS (Charles, 2 octobre 2026 : « le rail n'est pas
         visible dans Mes cours ») : la liste, les avis à rendre, et — un cours
         ouvert — ses deux faces. */}
-    <RailLateral icon={IconBooks} titre="Mes cours" sousTitre={annee}
+    <RailLateral icon={IconChalkboard} titre="Mes cours" sousTitre={annee}
       sections={[{ items: [
         { key: 'liste', label: 'Mes cours', icon: IconBooks, actif: !ouvert,
           onClick: () => { setOuvert(null); setFeuille(null); } },

@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, Component } from 'react';
+import { createPortal } from 'react-dom';
 import { estDirection, droitEffectif, usePlafonds, oublierPlafonds } from './lib/modules.js';
 
 // Error boundary : affiche l'erreur au lieu d'une page blanche
@@ -17,12 +18,13 @@ class ErrorBoundary extends Component {
     return this.props.children;
   }
 }
-import { Routes, Route, Navigate, NavLink, useNavigate } from 'react-router-dom';
+import { Routes, Route, Navigate, NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { isAuthenticated, getUser, api, getAnnee, setAnnee } from './lib/api.js';
 import { useMode, basculerMode } from './lib/theme.js';
 import {
   IconClipboardList, IconBooks, IconUsers, IconFileExport, IconChecklist,
   IconChartBar, IconCalendarStats, IconEdit, IconSettings, IconLogout, IconMenu2, IconX,
+  IconChalkboard, IconChalkboardTeacher, IconReportAnalytics,
   IconHome, IconBell, IconLibrary, IconGavel, IconSun, IconMoon,
   IconShieldLock, IconShieldCheck,
 } from '@tabler/icons-react';
@@ -31,6 +33,7 @@ import Login from './pages/Login.jsx';
 import MotDePasse from './pages/MotDePasse.jsx';
 import DemandeVA from './pages/DemandeVA.jsx';
 import RechercheLucie from './components/RechercheLucie.jsx';
+import { IconEtudiant } from './components/IconesLucie.jsx';
 import MonCompte from './components/MonCompte.jsx';
 import ApercuGlobal from './components/ApercuGlobal.jsx';
 import Dashboard from './pages/Dashboard.jsx';
@@ -231,6 +234,8 @@ function ProtectedLayout({ children }) {
   usePlafonds();
   const [compteOuvert, setCompteOuvert] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [bulleNav, setBulleNav] = useState(null);   // { lbl, x, y } : le nom au survol d'une icône
+  const location = useLocation();
 
   /*
    * LA BARRE MESURE SA PROPRE HAUTEUR, ET LE RAIL LA LIT.
@@ -477,8 +482,8 @@ function ProtectedLayout({ children }) {
    */
   const AXES = [
     ['/accueil',       'Tableau de bord', IconHome,           null],
-    ['/etudiants',     'Étudiants',       IconChecklist,      'etudiants'],
-    ['/professeurs',   'Personnel',       IconUsers,          'personnel'],
+    ['/etudiants',     'Étudiants',       IconEtudiant,       'etudiants'],
+    ['/professeurs',   'Personnel',       IconChalkboardTeacher, 'personnel'],
     /* L'ICÔNE D'UN AXE EST LA MÊME DANS LA BARRE ET DANS SON RAIL, et elle
        n'appartient qu'à lui. Organisation portait IconClipboardList ici et
        IconBooks dans son rail : deux dessins pour un même territoire, et le
@@ -487,7 +492,7 @@ function ProtectedLayout({ children }) {
        référentiels — des livres —, ce qui rend le presse-papiers au PAE, qui
        est littéralement une liste à cocher. */
     ['/organisation',  'Organisation',    IconBooks,          'attributions'],
-    ['/gestion',       'Gestion',         IconChartBar,       'dotation'],
+    ['/gestion',       'Gestion',         IconReportAnalytics, 'dotation'],
   ];
 
   const nav = AXES
@@ -501,8 +506,12 @@ function ProtectedLayout({ children }) {
   // ne montre de toute façon que les attributions de la fiche liée.
   // Et pour la coordination, qui y trouve aussi tous les cours de sa section
   // (Charles, 26 septembre 2026).
-  if (u?.role === 'professeur' || u?.role === 'coordination' || u?.professeur_id) {
-    nav.unshift(['/mes-cours', 'Mes cours', IconBooks]);
+  // Et pour la direction, qui y voit tous les cours (3 octobre 2026).
+  if (u?.role === 'professeur' || u?.role === 'coordination' || u?.professeur_id || estDirection(u)) {
+    // Juste après le tableau de bord (Charles, 3 octobre 2026), avec son
+    // propre dessin : les livres sont à Organisation.
+    const iAccueil = nav.findIndex(([to]) => to === '/accueil');
+    nav.splice(iAccueil + 1, 0, ['/mes-cours', 'Mes cours', IconChalkboard]);
   }
 
   /* L'AIDE DEVIENT LA DOCUMENTATION, ET C'EST UNE ABSORPTION, PAS UN AJOUT.
@@ -535,7 +544,7 @@ function ProtectedLayout({ children }) {
           détachés sur le même écran, c'est un panneau de trop — il faut un
           point fixe, et c'est elle. Elle suit en revanche le mode des menus,
           sans quoi l'on retomberait sur deux espaces qui ne se parlent pas. */}
-      <header ref={refBarre} className="barre-haut px-3 md:px-6 py-3 sticky top-0 z-20">
+      <header ref={refBarre} className="barre-haut px-3 md:px-6 py-3 sticky top-0 z-40">
         <div className="flex items-center justify-between gap-3">
           {/* Burger mobile */}
           <button
@@ -591,13 +600,20 @@ function ProtectedLayout({ children }) {
           </select>
           {/* Nav desktop */}
           <nav className="hidden md:flex gap-0.5 flex-1 ml-3">
+            {/* DES ICÔNES, ET LE NOM DE LA RUBRIQUE OUVERTE (Charles, 3 octobre
+                2026 : « le menu du dessus devient trop large ; si on passe sur
+                l'icône, le nom apparaît en bulle en dessous »). */}
             {nav.map(([to, lbl, Icon]) => (
-              <NavLink key={to} to={to} end={to === '/'} className={({ isActive }) =>
-                `flex items-center gap-2 px-3 py-2 rounded-champ text-sm
+              <NavLink key={to} to={to} end={to === '/'} aria-label={lbl}
+                onMouseEnter={e => { const b = e.currentTarget.getBoundingClientRect(); setBulleNav({ lbl, x: b.left + b.width / 2, y: b.bottom + 6 }); }}
+                onMouseLeave={() => setBulleNav(null)} onClick={() => setBulleNav(null)}
+                className={({ isActive }) =>
+                `group relative flex items-center gap-2 py-2 rounded-champ text-sm
                  transition-colors duration-150 ease-ios ${
-                  isActive ? 'onglet-actif font-semibold' : 'onglet-dormant'
+                  isActive ? 'onglet-actif font-semibold px-3' : 'onglet-dormant px-2.5'
                 }`
               }>
+                {({ isActive }) => (<>
                 <span className="relative flex-shrink-0">
                   {Icon && <Icon size={17} stroke={1.8} />}
                   {to === '/accueil' && nbNotifs > 0 && (
@@ -606,10 +622,16 @@ function ProtectedLayout({ children }) {
                     </span>
                   )}
                 </span>
-                <span className={to === '/documentation' ? 'text-[12px]' : ''}>{lbl}</span>
+                {isActive && <span>{lbl}</span>}
+                </>)}
               </NavLink>
             ))}
           </nav>
+          {/* La bulle du nom, rendue au-dessus de tout : posée dans la barre,
+              elle passait sous le contenu de la page. */}
+          {bulleNav && !location.pathname.startsWith(nav.find(([, l]) => l === bulleNav.lbl)?.[0] || '§') && createPortal(
+            <span className="pointer-events-none fixed z-[100] -translate-x-1/2 whitespace-nowrap rounded-champ text-white text-[11.5px] font-medium px-2 py-0.5 shadow-flottant"
+              style={{ left: bulleNav.x, top: bulleNav.y, background: '#16406A' }}>{bulleNav.lbl}</span>, document.body)}
 
           {/* User info + version */}
           <div className="flex items-center gap-3 text-sm flex-shrink-0">
