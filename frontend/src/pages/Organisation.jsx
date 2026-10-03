@@ -55,7 +55,7 @@ export default function Organisation({ ongletInitial }) {
       question="« Qu'organise-t-on cette année ? »"
       ongletInitial={ongletDemande}
       onglets={[
-        { key: 'attributions', label: 'Attributions', icone: IconLayoutGrid, sansMarge: true,
+        { key: 'attributions', module: 'attributions', label: 'Attributions', icone: IconLayoutGrid, sansMarge: true,
           rendu: <Attributions /> },
         /* PLANIFIER, C'EST UN SEUL TERRITOIRE — DONC UNE SEULE PORTE.
          *
@@ -68,12 +68,12 @@ export default function Organisation({ ongletInitial }) {
          *
          * La planification suit immédiatement les attributions : elle se fait
          * AVANT d'attribuer, et c'est l'ordre du travail de rentrée. */
-        { key: 'planifier', label: 'Planification', icone: IconCalendarStats,
+        { key: 'planifier', module: 'planification', label: 'Planification', icone: IconCalendarStats,
           sansMarge: true, railPropre: true,
           rendu: <Suspense fallback={<div className="p-4 text-[13px] text-slate-400">Chargement…</div>}>
                    <CentrePlanification annee={annee}
                      ongletInitial={params.get('sous') || 'ue'} /></Suspense> },
-        { key: 'rentree', label: 'Rentrée', icone: IconSchool, sansMarge: true,
+        { key: 'rentree', module: 'organisation', label: 'Rentrée', icone: IconSchool, sansMarge: true,
           rendu: annee
             ? <Rentree annee={annee} />
             : <div className="text-sm text-slate-400 p-4">Chargement de l'année active…</div> },
@@ -81,11 +81,11 @@ export default function Organisation({ ongletInitial }) {
            et les attributions posées : on les croise — pour chaque cours, qui
            a cours dans quel groupe. Demandé par Charles (24 septembre 2026) :
            « c'est le tableau qui va croiser les attributions et les PAE. » */
-        { key: 'repartition', label: 'Répartition des étudiants', icone: IconUsersGroup,
+        { key: 'repartition', module: 'organisation', label: 'Répartition des étudiants', icone: IconUsersGroup,
           sansMarge: true,
           rendu: <Suspense fallback={<div className="p-4 text-[13px] text-slate-400">Chargement…</div>}>
                    <RepartitionCours /></Suspense> },
-        { key: 'structure', label: 'Schéma de capitalisation', icone: IconSitemap, sansMarge: true,
+        { key: 'structure', module: 'organisation', label: 'Schéma de capitalisation', icone: IconSitemap, sansMarge: true,
           rendu: annee
             ? <StructureSection annee={annee} />
             : <div className="text-sm text-slate-400 p-4">Chargement de l'année active…</div> },
@@ -93,13 +93,13 @@ export default function Organisation({ ongletInitial }) {
            elles quittent Configuration pour l'axe de ce qu'on organise cette
            année. Part des cours dans l'UE, liens acquis → cours, dix points
            par cours. */
-        { key: 'ponderations', label: 'Pondérations', icone: IconPercentage, sansMarge: true,
+        { key: 'ponderations', module: 'organisation', label: 'Pondérations', icone: IconPercentage, sansMarge: true,
           rendu: <Suspense fallback={<div className="p-4 text-[13px] text-slate-400">Chargement…</div>}>
                    <PonderationsUE /></Suspense> },
         // Le descriptif d'unité était un Word recopié d'année en année. Il
         // trouve ici sa place : c'est bien de l'organisation de l'enseignement
         // qu'il parle, et les titulaires y accèdent pour leurs propres unités.
-        { key: 'due', label: "Descriptifs d'UE", icone: IconFileDescription, sansMarge: true,
+        { key: 'due', module: 'organisation', label: "Descriptifs d'UE", icone: IconFileDescription, sansMarge: true,
           rendu: <DUE /> },
         /* UN SEUL CENTRE HORAIRE (Charles, 29 septembre 2026 : « les deux
            premières icônes doivent devenir un seul centre horaire ; la
@@ -109,15 +109,15 @@ export default function Organisation({ ongletInitial }) {
            que l'horaire dépense doit être ce qui a été accordé, et par les
            bonnes personnes. L'ancien « Horaires & planification » est masqué :
            la Planification du rail le remplace. */
-        { key: 'horaire-semaine', label: 'Horaires', icone: IconCalendarWeek, sansMarge: true,
+        { key: 'horaire-semaine', module: 'planification', label: 'Horaires', icone: IconCalendarWeek, sansMarge: true,
           rendu: <CentreHoraire annee={annee} /> },
-        { key: 'planification', label: 'Horaires & planification', icone: IconCalendarStats,
+        { key: 'planification', module: 'planification', label: 'Horaires & planification', icone: IconCalendarStats,
           sansMarge: true, masque: true,
           rendu: <Planification /> },
         /* LES EFFECTIFS ET LES POSTES PNCC SONT DES DONNÉES DE L'ANNÉE (lot 4,
            2 octobre 2026) : ils quittent Configuration pour l'axe de ce qu'on
            organise. */
-        { key: 'effectifs', label: 'Effectifs et postes PNCC', icone: IconChartBar,
+        { key: 'effectifs', module: 'organisation', label: 'Effectifs et postes PNCC', icone: IconChartBar,
           rendu: <Suspense fallback={<div className="p-4 text-[13px] text-slate-400">Chargement…</div>}>
                    <Effectifs /></Suspense> },
         { key: 'locaux', label: 'Locaux', icone: IconBuilding, futur: true,

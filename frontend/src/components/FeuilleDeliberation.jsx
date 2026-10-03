@@ -716,11 +716,16 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose, enPage = fa
           )}
 
           {!!data.sans_structure && (
-            <div className="px-3 py-2 rounded-carte bg-amber-50 border border-amber-200
-                            text-[13px] text-amber-900">
-              Cette unité n'est pas paramétrée : ses acquis ne sont pas rattachés à
-              des cours, ou aucun cours n'y est déclaré. Les notes ne peuvent pas se
-              consolider tant que ce lien n'existe pas.
+            /* UNE ALERTE SE VOIT (Charles, 3 octobre 2026) : bloc signalé orange,
+               icône, titre — un fond pâle ton sur ton ne se lisait pas. */
+            <div data-etat="surveiller" className="bloc-etat px-3 py-2.5 flex items-start gap-2.5">
+              <IconAlertTriangle size={18} className="flex-none mt-0.5" style={{ color: 'var(--c-attente)' }} />
+              <div className="text-[13px]">
+                <div className="font-semibold">Unité non paramétrée</div>
+                <div className="text-slate-700">Ses acquis ne sont pas rattachés à des cours, ou aucun
+                  cours n'y est déclaré. Les notes ne peuvent pas se consolider tant que ce lien
+                  n'existe pas.</div>
+              </div>
             </div>
           )}
 
@@ -1044,7 +1049,7 @@ function Presences({ seance, onValider, enCours, ueNum, annee }) {
           de cent pixels pour atteindre deux champs qui se remplissent seuls. Ce
           qui s'explique est à gauche, ce qui se remplit est à droite — et la
           date comme l'heure arrivent déjà posées à maintenant. */}
-      <div className="carte px-3 py-2.5 flex flex-wrap items-end gap-x-4 gap-y-2">
+      <div className="carte bg-white px-4 py-3 flex flex-wrap items-center gap-x-4 gap-y-2">
         <div className="flex-1 min-w-[260px]">
           <div className="text-[13px] font-semibold text-iip-blue">Conseil des études</div>
           <p className="text-[12px] text-slate-600">
@@ -1053,17 +1058,18 @@ function Presences({ seance, onValider, enCours, ueNum, annee }) {
             et restent modifiables jusqu'à la clôture.
           </p>
         </div>
-        <label className="text-[11px] text-slate-500 flex-none">
-          Date
+        {/* LA DATE ET L'HEURE SONT DES VALEURS, PAS DES INVITES : elles
+            héritaient du gris de l'étiquette et se lisaient comme des champs
+            vides. Elles arrivent posées à aujourd'hui et maintenant. */}
+        <label className="flex-none">
+          <span className="block text-[10.5px] uppercase tracking-[.1em] text-slate-400 font-semibold mb-0.5">Date</span>
           <input type="date" value={date} onChange={e => setDate(e.target.value)}
-            className="block mt-0.5 bg-white border border-slate-300 rounded-champ
-                       px-2 h-9 text-[13px]" />
+            className="controle bg-white text-iip-texte tabular-nums" />
         </label>
-        <label className="text-[11px] text-slate-500 flex-none">
-          Heure
+        <label className="flex-none">
+          <span className="block text-[10.5px] uppercase tracking-[.1em] text-slate-400 font-semibold mb-0.5">Heure</span>
           <input type="time" value={heure} onChange={e => setHeure(e.target.value)}
-            className="block mt-0.5 bg-white border border-slate-300 rounded-champ
-                       px-2 h-9 text-[13px]" />
+            className="controle bg-white text-iip-texte tabular-nums w-[7rem]" />
         </label>
       </div>
 

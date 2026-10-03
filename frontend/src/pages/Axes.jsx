@@ -57,7 +57,7 @@ export function AxeAccueil() {
         { key: 'tableau', label: 'Ce qui m\u2019attend', icone: IconLayoutDashboard,
           sansMarge: true, railPropre: true,
           rendu: <Accueil /> },
-        { key: 'echeancier', label: 'Échéancier', icone: IconCalendarStats,
+        { key: 'echeancier', module: 'reunions', label: 'Échéancier', icone: IconCalendarStats,
           sansMarge: true, railPropre: true,
           rendu: <Echeancier /> },
         /* LE SUIVI D'ÉQUIPE EST UN TABLEAU DE BORD, PAS UN MODULE À PART.
@@ -67,7 +67,7 @@ export function AxeAccueil() {
            et dans des courriels. L'échéancier porte les obligations légales de
            l'établissement ; ceci porte les décisions d'une réunion de service.
            Voisins, jamais confondus. */
-        { key: 'suivi', label: 'Suivi d\u2019équipe', icone: IconChecklist,
+        { key: 'suivi', module: 'reunions', label: 'Suivi d\u2019équipe', icone: IconChecklist,
           sansMarge: true, railPropre: true,
           rendu: <Suspense fallback={<Attente />}><SuiviEquipe /></Suspense> },
         ...(voitReporting ? [{
@@ -122,26 +122,26 @@ export function AxeEtudiants() {
           { key: 'valorisation', label: 'Valorisation des acquis', icone: IconCertificate },
         ] }]}
       onglets={[
-        { key: 'pae', label: 'Inscriptions & PAE', icone: IconClipboardList,
+        { key: 'pae', module: 'etudiants', label: 'Inscriptions & PAE', icone: IconClipboardList,
           sansMarge: true, railPropre: true,
           rendu: <Etudiants /> },
-        { key: 'valorisation', label: 'Valorisation des acquis', icone: IconCertificate,
+        { key: 'valorisation', module: 'etudiants', label: 'Valorisation des acquis', icone: IconCertificate,
           sansMarge: true, railPropre: true,
           rendu: <Suspense fallback={<Attente />}><Valorisations /></Suspense> },
         /* LES AMÉNAGEMENTS RAISONNABLES, EN DIRECT (Charles, 28 septembre 2026 :
            « comme valorisation des acquis, afin que cela soit rapidement
            joint »). Le registre de l'année ; chaque ligne ouvre la fiche sur
            son onglet Aménagements. */
-        { key: 'amenagements', label: 'Aménagements raisonnables', icone: IconAccessible,
+        { key: 'amenagements', module: 'amenagements', label: 'Aménagements raisonnables', icone: IconAccessible,
           rendu: <Suspense fallback={<Attente />}><RegistreAmenagements /></Suspense> },
-        { key: 'deliberation', label: 'Délibération', icone: IconScale, sansMarge: true,
+        { key: 'deliberation', module: 'etudiants', label: 'Délibération', icone: IconScale, sansMarge: true,
           rendu: <Deliberation /> },
         /* LES PROCÉDURES SONT L'EXCEPTION, ET ELLES SE SIGNALENT.
            Recours, fraude, disciplinaire : on n'y va pas dans le cours normal
            du travail, on y va quand quelque chose a dérapé. L'ocre le dit —
            c'est la seule rubrique de l'axe qui porte une couleur, et c'est
            pour cela qu'elle la porte. */
-        { key: 'procedures', label: 'Procédures', icone: IconShieldExclamation,
+        { key: 'procedures', module: 'procedures', label: 'Procédures', icone: IconShieldExclamation,
           couleur: 'var(--c-attente)',
           sansMarge: true, railPropre: true,
           rendu: <Suspense fallback={<Attente />}><Procedures /></Suspense> },
