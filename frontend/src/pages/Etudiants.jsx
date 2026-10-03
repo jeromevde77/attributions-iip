@@ -1,5 +1,6 @@
 import OngletCep from '../components/OngletCep.jsx';
-import { Fragment, lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { createContext, Fragment, lazy, Suspense, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 // LA MÊME FENÊTRE DE SÉANCE QUE L'ÉCRAN VALORISATION (2 octobre 2026) : une porte de plus, une seule réponse.
 const DeliberationVA = lazy(() => import('./Valorisations.jsx').then(m => ({ default: m.DeliberationVA })));
 import { nomPropre } from '../lib/nom.js';
@@ -672,6 +673,11 @@ function RevuePAE({ liste: base, annee: anneeDepart, onClose }) {
   );
 }
 
+/* LA RANGÉE DES ONGLETS DE LA FICHE ACCUEILLE LES OUTILS DE L'ONGLET OUVERT
+   (Charles, 3 octobre 2026 : « gagner de la place, les boutons sur la même
+   ligne »). La fiche fournit le nœud ; un onglet y pose ses boutons. */
+const OutilsFiche = createContext(null);
+
 function SchemaCapitalisation({ etudId, annee, onNoeud = null, programme = null, onModifie = null }) {
   const [data, setData] = useState(null);
   const [recharge, setRecharge] = useState(0);
@@ -776,9 +782,10 @@ function SchemaCapitalisation({ etudId, annee, onNoeud = null, programme = null,
       )}
     </div>
   );
+  const noeudOutils = useContext(OutilsFiche);
   const bandeau = (
     <div className="mb-2 space-y-1">
-      {ligneChanger}
+      {noeudOutils ? createPortal(ligneChanger, noeudOutils) : ligneChanger}
       {archives.map(a => (
         <div key={a.section} data-etat="neutre" className="bloc-etat px-3 py-1.5 text-[12.5px] flex items-center gap-3 flex-wrap">
           <span className="flex-1 min-w-0">
@@ -2574,6 +2581,7 @@ export function FicheEtudiant({ id, annee, onClose, position, onPrec, onSuiv,
   const [paeConfirme, setPaeConfirme] = useState(false);
   const [paeValide, setPaeValide] = useState(null);   // la validation de la revue des PAE
   const [revueFiche, setRevueFiche] = useState(false);
+  const [noeudOutils, setNoeudOutils] = useState(null);
   const [sectionForcee, setSectionForcee] = useState('');
 
   // LES FLÈCHES DU CLAVIER, mais jamais pendant qu'on écrit : dans un champ de
@@ -2859,7 +2867,8 @@ export function FicheEtudiant({ id, annee, onClose, position, onPrec, onSuiv,
             centre d'édition », « dans la rangée d'onglets »). Visible quel que
             soit l'onglet : les pièces d'un étudiant ne dépendent pas de la face
             qu'on regarde. */}
-        <div className="flex items-center border-b border-slate-200 px-5">
+        <OutilsFiche.Provider value={noeudOutils}>
+        <div className="flex flex-wrap items-center border-b border-slate-200 px-5">
           {(onPrec || onSuiv) && <NavFiche position={position} onPrec={onPrec} onSuiv={onSuiv} />}
           {/* Le PARCOURS réunit ce que la grille et le PAE disaient de deux
               façons : le schéma, l'acquis, et le programme proposé. Les
@@ -2881,6 +2890,15 @@ export function FicheEtudiant({ id, annee, onClose, position, onPrec, onSuiv,
             </button>
           ))}
           <div className="ml-auto flex items-center gap-2 my-1">
+          {/* Les outils de l'onglet ouvert (Changer de section…). */}
+          <span ref={setNoeudOutils} className="flex items-center gap-2" />
+          {/* L'ŒIL : parcourir et valider le PAE de cet étudiant, la même
+              fenêtre que la Revue des PAE. */}
+          <button type="button" onClick={() => setRevueFiche(true)}
+            title="Parcourir et valider le PAE — la revue, sur cet étudiant"
+            className="controle w-9 justify-center px-0 inline-flex items-center text-iip-blue">
+            <IconEyeCheck size={17} />
+          </button>
           {(onPrec || onSuiv) && portee && (
             <MenuParcourir portee={portee} onPortee={onPortee} sections={sections} ues={ues} annees={annees} />
           )}
@@ -3292,6 +3310,7 @@ export function FicheEtudiant({ id, annee, onClose, position, onPrec, onSuiv,
               </div>
           )}
         </div>
+        </OutilsFiche.Provider>
       </div>
 
       {ficheInscription && <PreviewModal html={ficheInscription.html}
