@@ -1,3 +1,4 @@
+import { ICONE_AXE } from '../lib/iconesAxes.js';
 import { lazy, Suspense, useEffect, useState } from 'react';
 import GardeAnnee from '../components/GardeAnnee.jsx';
 import { useSearchParams } from 'react-router-dom';
@@ -50,7 +51,7 @@ export default function Organisation({ ongletInitial }) {
         charge, on y reste le lendemain — et l'on y encode. */}
     <GardeAnnee quoi="l'organisation" />
     <Axe
-      titre="Organisation" icone={IconBooks} impression="organisation" echanges
+      titre="Organisation" icone={ICONE_AXE.organisation} impression="organisation" echanges
       question="« Qu'organise-t-on cette année ? »"
       ongletInitial={ongletDemande}
       onglets={[

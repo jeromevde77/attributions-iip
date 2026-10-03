@@ -1,3 +1,4 @@
+import { ICONE_AXE } from '../lib/iconesAxes.js';
 import { IconEtudiant } from '../components/IconesLucie.jsx';
 import { Suspense, lazy } from 'react';
 import { useSearchParams } from 'react-router-dom';
@@ -50,7 +51,7 @@ export function AxeAccueil() {
   return (
     <Axe
       ongletInitial={paramsAccueil.get('onglet') || undefined}
-      titre="Tableau de bord" icone={IconHome}
+      titre="Tableau de bord" icone={ICONE_AXE.accueil}
       question="« Où en sommes-nous ? »"
       onglets={[
         { key: 'tableau', label: 'Ce qui m\u2019attend', icone: IconLayoutDashboard,
@@ -86,7 +87,7 @@ export function AxeEtudiants() {
   const [params] = useSearchParams();
   return (
     <Axe
-      titre="Étudiants" icone={IconEtudiant} impression="etudiants" echanges
+      titre="Étudiants" icone={ICONE_AXE.etudiants} impression="etudiants" echanges
       ongletInitial={params.get('onglet') || undefined}
       question="« Où en est cet étudiant ? »"
       /* L'ORDRE DU RAIL EST CELUI DU PARCOURS, ET IL MÊLE LES DEUX NATURES.

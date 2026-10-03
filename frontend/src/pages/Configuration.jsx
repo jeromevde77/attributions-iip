@@ -1,3 +1,4 @@
+import { ICONE_AXE } from '../lib/iconesAxes.js';
 import { useDeclarerSousMenu } from '../lib/sousMenu.js';
 import { useEffect, useState, lazy, Suspense } from 'react';
 import { useSearchParams } from 'react-router-dom';
@@ -1416,7 +1417,7 @@ export default function Configuration() {
           chacune. Ce qu'une famille contient se choisit dans ses FEUILLES,
           en tête de l'écran, avec des mots — comme en Planification. */}
       <RailLateral
-        icon={IconSettings}
+        icon={ICONE_AXE.configuration}
         titre="Configuration"
         sousTitre="Administration"
         sections={[{ label: 'Configuration', items: groupesVisibles.map(g => ({

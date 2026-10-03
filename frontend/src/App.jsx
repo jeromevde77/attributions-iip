@@ -1,3 +1,4 @@
+import { ICONE_AXE } from './lib/iconesAxes.js';
 import { useState, useEffect, useRef, Component, Fragment } from 'react';
 import { createPortal } from 'react-dom';
 import { estDirection, droitEffectif, usePlafonds, oublierPlafonds } from './lib/modules.js';
@@ -483,9 +484,9 @@ function ProtectedLayout({ children }) {
    *   écran où l'on décide ne peuvent pas porter le même cadenas.
    */
   const AXES = [
-    ['/accueil',       'Tableau de bord', IconHome,           null],
-    ['/etudiants',     'Étudiants',       IconEtudiant,       'etudiants'],
-    ['/professeurs',   'Personnel',       IconChalkboardTeacher, 'personnel'],
+    ['/accueil',       'Tableau de bord', ICONE_AXE.accueil,  null],
+    ['/etudiants',     'Étudiants',       ICONE_AXE.etudiants, 'etudiants'],
+    ['/professeurs',   'Personnel',       ICONE_AXE.personnel, 'personnel'],
     /* L'ICÔNE D'UN AXE EST LA MÊME DANS LA BARRE ET DANS SON RAIL, et elle
        n'appartient qu'à lui. Organisation portait IconClipboardList ici et
        IconBooks dans son rail : deux dessins pour un même territoire, et le
@@ -493,8 +494,8 @@ function ProtectedLayout({ children }) {
        Étudiants. Organisation est l'axe des unités, des cours et des
        référentiels — des livres —, ce qui rend le presse-papiers au PAE, qui
        est littéralement une liste à cocher. */
-    ['/organisation',  'Organisation',    IconBooks,          'attributions'],
-    ['/gestion',       'Gestion',         IconReportAnalytics, 'dotation'],
+    ['/organisation',  'Organisation',    ICONE_AXE.organisation, 'attributions'],
+    ['/gestion',       'Gestion',         ICONE_AXE.gestion,  'dotation'],
   ];
 
   const nav = AXES
@@ -513,7 +514,7 @@ function ProtectedLayout({ children }) {
     // Juste après le tableau de bord (Charles, 3 octobre 2026), avec son
     // propre dessin : les livres sont à Organisation.
     const iAccueil = nav.findIndex(([to]) => to === '/accueil');
-    nav.splice(iAccueil + 1, 0, ['/mes-cours', 'Mes cours', IconChalkboard]);
+    nav.splice(iAccueil + 1, 0, ['/mes-cours', 'Mes cours', ICONE_AXE.mesCours]);
   }
 
   /* L'AIDE DEVIENT LA DOCUMENTATION, ET C'EST UNE ABSORPTION, PAS UN AJOUT.
@@ -526,8 +527,8 @@ function ProtectedLayout({ children }) {
   /* LE POINT D'INTERROGATION NE DISAIT PAS CE QU'IL OUVRE (Charles, 2 octobre
      2026 : « changer cette icône et mettre Documentation à côté, ce sera plus
      clair pour tout le monde »). Une bibliothèque, et son nom. */
-  nav.push(['/documentation', 'Documentation', IconLibrary]);
-  if (estDirection(u)) nav.push(['/configuration', 'Config.', IconSettings]);
+  nav.push(['/documentation', 'Documentation', ICONE_AXE.documentation]);
+  if (estDirection(u)) nav.push(['/configuration', 'Config.', ICONE_AXE.configuration]);
 
   return (
     <div className="min-h-screen flex flex-col">
