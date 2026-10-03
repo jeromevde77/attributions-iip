@@ -31,6 +31,7 @@ export async function ouvrirConvention(id, version = 'original') {
 const ETATS = {
   deposee: { etat: 'surveiller', libelle: 'À signer par la direction' },
   signee:  { etat: 'reussi',     libelle: 'Signée par l’IIP' },
+  contresignee: { etat: 'reussi', libelle: 'Contresignée par le lieu' },
   retiree: { etat: 'corriger',   libelle: 'Retirée' },
 };
 
@@ -91,7 +92,7 @@ export default function ConventionStage({ stage, peutEcrire, onChange }) {
           <>
             <PastilleEtat etat={ETATS[active.etat].etat}>{ETATS[active.etat].libelle}</PastilleEtat>
             <span className="text-[12px] text-slate-500">
-              {active.etat === 'signee'
+              {active.etat === 'signee' || active.etat === 'contresignee'
                 ? <>le {frDate(active.signe_le)} par {active.signe_par_nom} · réf. {active.reference}</>
                 : <>déposée le {frDate(active.depose_le)} par {active.depose_par_nom}</>}
             </span>
@@ -100,7 +101,7 @@ export default function ConventionStage({ stage, peutEcrire, onChange }) {
               title={active.fichier_nom}>
               <IconFileText size={14} /> Original
             </button>
-            {active.etat === 'signee' && (
+            {active.a_signe && (
               <button type="button" className="bouton bouton-sortir" onClick={() => ouvrir(active.id, 'signe')}>
                 <IconSignature size={14} /> Signée
               </button>

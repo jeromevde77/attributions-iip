@@ -330,11 +330,19 @@ export default function ComposerPAE({ onClose, onTermine, onPassage, modeInitial
     if (retirer && !window.confirm(`Retirer la validation de ${ids.length} PAE ? Les inscriptions ne changent pas.`)) return;
     setEnCours(true); setErreur(null); setValide(null);
     try {
-      const r = await fetch('/api/etudiants/pae-valider-lot', {
+      const poser = extra => fetch('/api/etudiants/pae-valider-lot', {
         method: 'POST', headers: { ...authHeaders(), 'Content-Type': 'application/json' },
-        body: JSON.stringify({ section, annee, etudiants: ids, retirer }),
+        body: JSON.stringify({ section, annee, etudiants: ids, retirer, ...extra }),
       });
-      const j = await r.json().catch(() => ({}));
+      let r = await poser({});
+      let j = await r.json().catch(() => ({}));
+      // Au-delà de 60 ECTS : le lot nomme les programmes, et se valide en connaissance de cause.
+      if (r.status === 409 && Array.isArray(j.plus60)) {
+        const liste = j.plus60.map(x => `· ${x.nom} — ${x.ects} ECTS`).join('\n');
+        if (!window.confirm(`${j.plus60.length} programme(s) au-delà de 60 ECTS :\n${liste}\n\nValider le lot en connaissance de cause ? La confirmation est enregistrée à votre nom.`)) return;
+        r = await poser({ plus60: true });
+        j = await r.json().catch(() => ({}));
+      }
       if (!r.ok) { setErreur(j.error || 'Refusé.'); return; }
       await charger(); onTermine?.();
       setValide({ retirer, faits: j.faits, ignores: j.ignores || [] });

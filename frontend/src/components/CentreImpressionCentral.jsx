@@ -86,6 +86,13 @@ const PIECES_DOSSIER = [
   { cle: 'frais', label: 'Frais de scolarité', route: (id, a) => `/api/frais-scolarite/etudiant/${id}/document?annee=${a}` },
   { cle: 'annexe1', label: 'Annexe 1 — visa ou titre de séjour', sle: true },
   { cle: 'annexe2', label: 'Annexe 2 — progrès des études', sle: true },
+  /* LE CONGÉ-ÉDUCATION PAYÉ (3 octobre 2026) : même logique que les SLE —
+     cocher une pièce CEP fait travailler pour les seuls étudiants au CEP
+     cette année (hors Flandre). Une pièce par étudiant, toutes ses unités. */
+  { cle: 'cep_inscription', label: 'CEP — attestation d’inscription régulière', cep: true,
+    route: (id, a) => `/api/cep/etudiant/${id}/piece/inscription?annee=${a}` },
+  { cle: 'cep_assiduite', label: 'CEP — attestation d’assiduité', cep: true,
+    route: (id, a) => `/api/cep/etudiant/${id}/piece/assiduite?annee=${a}` },
 ];
 
 /* ══ LA VALORISATION DES ACQUIS, DEPUIS ÉDITIONS ══════════════════════════
@@ -1603,11 +1610,16 @@ function OngletEtudiants({ perimetre = null, mode = 'deliberation', seul = null,
      pièces pour les SLE ; ce sera pareil pour les CEP »). Les autres pièces se
      grisent, la liste ne montre que les étudiants en séjour limité aux études,
      et la sélection s'y réduit. On en sort en décochant les annexes. */
-  const modeSLE = !delib && dossierChoisi.some(p => p.sle);
-  const visibles = modeSLE ? etudiants.filter(e => e.sle) : etudiants;
+  // Le public d'une pièce : 'sle', 'cep', ou personne en particulier.
+  const publicDe = p => (p.sle ? 'sle' : p.cep ? 'cep' : null);
+  const modePublic = delib ? null : (dossierChoisi.map(publicDe).find(Boolean) || null);
+  const modeSLE = modePublic === 'sle';
+  const NOM_PUBLIC = { sle: 'SLE : seuls les étudiants en séjour limité aux études', cep: 'CEP : seuls les étudiants au congé-éducation payé' };
+  const visibles = modePublic ? etudiants.filter(e => e[modePublic]) : etudiants;
   const basculerPiece = p => setChoix(c => {
     const n = { ...c, [p.cle]: !c[p.cle] };
-    if (p.sle && n[p.cle]) for (const q of PIECES_DOSSIER) if (!q.sle) delete n[q.cle];
+    const pub = publicDe(p);
+    if (pub && n[p.cle]) for (const q of PIECES_DOSSIER) if (publicDe(q) !== pub) delete n[q.cle];
     return n;
   });
   // Un étudiant sans décision n'a rien à recevoir de la délibération, mais son
@@ -1624,7 +1636,7 @@ function OngletEtudiants({ perimetre = null, mode = 'deliberation', seul = null,
       if (choix.ajournement && e.echecs > 0 && session === 1) l.push('Motivation d’ajournement');
       if (choix.refus && e.echecs > 0 && session === 2) l.push('Motivation de refus');
     } else {
-      for (const p of PIECES_DOSSIER) if (choix[p.cle] && (!p.sle || e.sle)) l.push(p.label.split(' — ')[0]);
+      for (const p of PIECES_DOSSIER) if (choix[p.cle] && (!p.sle || e.sle) && (!p.cep || e.cep)) l.push(p.cep ? p.label.replace('CEP — attestation d’', 'CEP ') : p.label.split(' — ')[0]);
     }
     return l;
   };
@@ -1635,8 +1647,9 @@ function OngletEtudiants({ perimetre = null, mode = 'deliberation', seul = null,
     if (p.cle === 'ajournement') return session === 1 && etudiants.some(e => e.echecs > 0);
     if (p.cle === 'refus') return session === 2 && etudiants.some(e => e.echecs > 0);
     if (['pv', 'conseil', 'grille'].includes(p.cle)) return etudiants.some(e => e.decide);
-    if (p.sle) return etudiants.some(e => e.sle);
-    if (modeSLE && PIECES_DOSSIER.includes(p)) return false;
+    if (p.sle && !etudiants.some(e => e.sle)) return false;
+    if (p.cep && !etudiants.some(e => e.cep)) return false;
+    if (modePublic && PIECES_DOSSIER.includes(p) && publicDe(p) !== modePublic) return false;
     return true;
   };
   const nbPieces = (delib ? PIECES : PIECES_DOSSIER).filter(p => choix[p.cle] && dispo(p)).length;
@@ -1649,13 +1662,13 @@ function OngletEtudiants({ perimetre = null, mode = 'deliberation', seul = null,
     });
     // eslint-disable-next-line
   }, [etudiants, session]);
-  // En mode SLE, la sélection se réduit aux étudiants SLE.
+  // Avec une pièce SLE ou CEP, la sélection se réduit à ce public.
   useEffect(() => {
-    if (!modeSLE) return;
-    const sle = new Set(etudiants.filter(e => e.sle).map(e => e.id));
-    setCoches(c => { const n = new Set([...c].filter(id => sle.has(id))); return n.size === c.size ? c : n; });
+    if (!modePublic) return;
+    const ok = new Set(etudiants.filter(e => e[modePublic]).map(e => e.id));
+    setCoches(c => { const n = new Set([...c].filter(id => ok.has(id))); return n.size === c.size ? c : n; });
     // eslint-disable-next-line
-  }, [modeSLE, etudiants]);
+  }, [modePublic, etudiants]);
 
   return (
     <div className="flex min-h-0 flex-1">
@@ -1796,7 +1809,7 @@ function OngletEtudiants({ perimetre = null, mode = 'deliberation', seul = null,
               <div className="text-[11.5px] text-slate-500 mb-1.5">une pièce par étudiant décidé</div>
               {PIECES.filter(p => p.nominatif).map(p => (
                 <label key={p.cle} className={`flex items-center gap-2 py-0.5 text-[13px] ${dispo(p) ? 'cursor-pointer' : 'opacity-40 cursor-not-allowed'}`}
-                  title={dispo(p) ? '' : modeSLE && !p.sle && PIECES_DOSSIER.includes(p) ? 'Pièces SLE en cours — décochez les annexes pour les autres pièces' : 'Rien à produire pour ce périmètre'}>
+                  title={dispo(p) ? '' : modePublic && publicDe(p) !== modePublic && PIECES_DOSSIER.includes(p) ? `Pièces ${modePublic.toUpperCase()} en cours — décochez-les pour les autres pièces` : 'Rien à produire pour ce périmètre'}>
                   {/* LA PETITE LIGNE DIT LE SENS (2 octobre 2026) : orange pour
                       l'ajournement, fraise pour le refus. */}
                   <span className="w-[3px] h-4 rounded-full flex-none"
@@ -1805,6 +1818,7 @@ function OngletEtudiants({ perimetre = null, mode = 'deliberation', seul = null,
                     className="w-3.5 h-3.5 accent-iip-blue" />
                   {p.label}
                   {p.sle && <span className="text-[10px] font-bold text-slate-500 border border-slate-300 rounded px-1">SLE · {etudiants.filter(e => e.sle).length}</span>}
+                  {p.cep && <span className="text-[10px] font-bold text-slate-500 border border-slate-300 rounded px-1">CEP · {etudiants.filter(e => e.cep).length}</span>}
                   {p.nominatif && dispo(p) && <span className="ml-auto text-[11.5px] text-slate-400 tabular-nums">{p.cle === 'reussite' ? etudiants.filter(e => e.reussites > 0).length : etudiants.filter(e => e.echecs > 0).length}</span>}
                 </label>
               ))}
@@ -1814,7 +1828,7 @@ function OngletEtudiants({ perimetre = null, mode = 'deliberation', seul = null,
               <div className="text-[11.5px] text-slate-500 mb-1.5">une pièce pour l’unité</div>
               {PIECES.filter(p => !p.nominatif).map(p => (
                 <label key={p.cle} className={`flex items-center gap-2 py-0.5 text-[13px] ${dispo(p) ? 'cursor-pointer' : 'opacity-40 cursor-not-allowed'}`}
-                  title={dispo(p) ? '' : modeSLE && !p.sle && PIECES_DOSSIER.includes(p) ? 'Pièces SLE en cours — décochez les annexes pour les autres pièces' : 'Rien à produire pour ce périmètre'}>
+                  title={dispo(p) ? '' : modePublic && publicDe(p) !== modePublic && PIECES_DOSSIER.includes(p) ? `Pièces ${modePublic.toUpperCase()} en cours — décochez-les pour les autres pièces` : 'Rien à produire pour ce périmètre'}>
                   {/* LA PETITE LIGNE DIT LE SENS (2 octobre 2026) : orange pour
                       l'ajournement, fraise pour le refus. */}
                   <span className="w-[3px] h-4 rounded-full flex-none"
@@ -1823,6 +1837,7 @@ function OngletEtudiants({ perimetre = null, mode = 'deliberation', seul = null,
                     className="w-3.5 h-3.5 accent-iip-blue" />
                   {p.label}
                   {p.sle && <span className="text-[10px] font-bold text-slate-500 border border-slate-300 rounded px-1">SLE · {etudiants.filter(e => e.sle).length}</span>}
+                  {p.cep && <span className="text-[10px] font-bold text-slate-500 border border-slate-300 rounded px-1">CEP · {etudiants.filter(e => e.cep).length}</span>}
                   {p.nominatif && dispo(p) && <span className="ml-auto text-[11.5px] text-slate-400 tabular-nums">{p.cle === 'reussite' ? etudiants.filter(e => e.reussites > 0).length : etudiants.filter(e => e.echecs > 0).length}</span>}
                 </label>
               ))}
@@ -1833,7 +1848,7 @@ function OngletEtudiants({ perimetre = null, mode = 'deliberation', seul = null,
               <div className="text-[11.5px] text-slate-500 mb-1.5">à tout moment de l’année</div>
               {PIECES_DOSSIER.filter(p => ['bulletin', 'pae', 'parcours'].includes(p.cle)).map(p => (
                 <label key={p.cle} className={`flex items-center gap-2 py-0.5 text-[13px] ${dispo(p) ? 'cursor-pointer' : 'opacity-40 cursor-not-allowed'}`}
-                  title={dispo(p) ? '' : modeSLE && !p.sle && PIECES_DOSSIER.includes(p) ? 'Pièces SLE en cours — décochez les annexes pour les autres pièces' : 'Rien à produire pour ce périmètre'}>
+                  title={dispo(p) ? '' : modePublic && publicDe(p) !== modePublic && PIECES_DOSSIER.includes(p) ? `Pièces ${modePublic.toUpperCase()} en cours — décochez-les pour les autres pièces` : 'Rien à produire pour ce périmètre'}>
                   {/* LA PETITE LIGNE DIT LE SENS (2 octobre 2026) : orange pour
                       l'ajournement, fraise pour le refus. */}
                   <span className="w-[3px] h-4 rounded-full flex-none"
@@ -1842,16 +1857,17 @@ function OngletEtudiants({ perimetre = null, mode = 'deliberation', seul = null,
                     className="w-3.5 h-3.5 accent-iip-blue" />
                   {p.label}
                   {p.sle && <span className="text-[10px] font-bold text-slate-500 border border-slate-300 rounded px-1">SLE · {etudiants.filter(e => e.sle).length}</span>}
+                  {p.cep && <span className="text-[10px] font-bold text-slate-500 border border-slate-300 rounded px-1">CEP · {etudiants.filter(e => e.cep).length}</span>}
                   {p.nominatif && dispo(p) && <span className="ml-auto text-[11.5px] text-slate-400 tabular-nums">{p.cle === 'reussite' ? etudiants.filter(e => e.reussites > 0).length : etudiants.filter(e => e.echecs > 0).length}</span>}
                 </label>
               ))}
             </div>
             <div className="border border-slate-200 rounded-carte p-2.5">
               <div className="text-[14px] font-semibold">L’inscription</div>
-              <div className="text-[11.5px] text-slate-500 mb-1.5">administratif — les annexes ne vont qu’aux étudiants SLE</div>
+              <div className="text-[11.5px] text-slate-500 mb-1.5">administratif — les annexes ne vont qu’aux SLE, les pièces CEP qu’aux étudiants au congé-éducation</div>
               {PIECES_DOSSIER.filter(p => !['bulletin', 'pae', 'parcours'].includes(p.cle)).map(p => (
                 <label key={p.cle} className={`flex items-center gap-2 py-0.5 text-[13px] ${dispo(p) ? 'cursor-pointer' : 'opacity-40 cursor-not-allowed'}`}
-                  title={dispo(p) ? '' : modeSLE && !p.sle && PIECES_DOSSIER.includes(p) ? 'Pièces SLE en cours — décochez les annexes pour les autres pièces' : 'Rien à produire pour ce périmètre'}>
+                  title={dispo(p) ? '' : modePublic && publicDe(p) !== modePublic && PIECES_DOSSIER.includes(p) ? `Pièces ${modePublic.toUpperCase()} en cours — décochez-les pour les autres pièces` : 'Rien à produire pour ce périmètre'}>
                   {/* LA PETITE LIGNE DIT LE SENS (2 octobre 2026) : orange pour
                       l'ajournement, fraise pour le refus. */}
                   <span className="w-[3px] h-4 rounded-full flex-none"
@@ -1860,6 +1876,7 @@ function OngletEtudiants({ perimetre = null, mode = 'deliberation', seul = null,
                     className="w-3.5 h-3.5 accent-iip-blue" />
                   {p.label}
                   {p.sle && <span className="text-[10px] font-bold text-slate-500 border border-slate-300 rounded px-1">SLE · {etudiants.filter(e => e.sle).length}</span>}
+                  {p.cep && <span className="text-[10px] font-bold text-slate-500 border border-slate-300 rounded px-1">CEP · {etudiants.filter(e => e.cep).length}</span>}
                   {p.nominatif && dispo(p) && <span className="ml-auto text-[11.5px] text-slate-400 tabular-nums">{p.cle === 'reussite' ? etudiants.filter(e => e.reussites > 0).length : etudiants.filter(e => e.echecs > 0).length}</span>}
                 </label>
               ))}
@@ -1872,7 +1889,7 @@ function OngletEtudiants({ perimetre = null, mode = 'deliberation', seul = null,
               <input value={recherche} onChange={e => setRecherche(e.target.value)} placeholder="Un nom…"
                 className="pl-7 pr-2 py-1 text-[12px] border border-slate-300 rounded-lg w-48" />
             </div>
-            {modeSLE && <span className="font-semibold text-iip-blue">Pièces SLE : seuls les étudiants en séjour limité aux études</span>}
+            {modePublic && <span className="font-semibold text-iip-blue">Pièces {NOM_PUBLIC[modePublic]}</span>}
             <button onClick={() => setCoches(new Set(visibles.map(e => e.id)))} className="text-iip-blue underline">tout cocher</button>
             <button onClick={() => setCoches(new Set())} className="text-slate-500 underline">tout décocher</button>
             <span className="flex-1" />
@@ -1901,6 +1918,7 @@ function OngletEtudiants({ perimetre = null, mode = 'deliberation', seul = null,
               <span className="flex-1 min-w-0">
                 <span className="text-[13px] font-medium">{nomPropre(e.nom, e.prenom)}</span>
                 {e.sle && <span className="ml-1.5 text-[10px] font-semibold text-white bg-iip-blue rounded px-1 py-px">SLE</span>}
+                {e.cep && <span className="ml-1.5 text-[10px] font-semibold text-white bg-iip-blue rounded px-1 py-px">CEP</span>}
                 {delib && <span className="block text-[11px] text-slate-500">
                   {e.decide
                     ? `${e.reussites} réussite(s) · ${e.echecs} échec(s) sur ${e.unites.length} unité(s)`

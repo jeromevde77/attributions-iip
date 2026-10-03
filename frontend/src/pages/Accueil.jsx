@@ -11,6 +11,7 @@ import {
 import { urgence } from '../lib/urgence.js';
 import { Fenetre } from '../components/ui.jsx';
 import ConventionsASigner from '../components/ConventionsASigner.jsx';
+import MesPropositions from '../components/MesPropositions.jsx';
 
 const tok = () => localStorage.getItem('token');
 
@@ -680,6 +681,7 @@ export default function Accueil() {
         <ConventionsASigner />
         <TextesAConfirmer />
         <DemandesAValider />
+        <MesPropositions />
         <MesTaches signal={rafraichirTaches} />
 
         {/* En-tête du fil */}

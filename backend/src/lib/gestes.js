@@ -61,6 +61,12 @@ export const PEUT_PUBLIER = ['admin', 'directeur', 'directeur_adjoint'];
 /* QUI ÉCRIT UN AMÉNAGEMENT d'office (routes/amenagements.js) ; s'y ajoute la
  * case « Aménagements » cochée en écriture sur la fiche. */
 export const ROLES_AMENAGEMENT = ['admin', 'directeur', 'directeur_adjoint', 'editeur', 'secretariat'];
+/* LES CONVENTIONS (routes/conventions.js) — Charles, 3 octobre 2026 : le
+ * registre se lit et se prépare par la direction, le secrétariat et la
+ * coordination (dans ses sections) ; enseignants et étudiants n'y ont pas
+ * accès, et c'est le serveur qui le refuse. Signer reste l'affaire d'une
+ * personne, le signataire de l'établissement (estSignataire). */
+export const CONVENTIONS_REGISTRE = ['admin', 'directeur', 'directeur_adjoint', 'secretariat', 'editeur', 'coordination'];
 
 /** Les groupes, dans l'ordre du travail. `plafond` : le module de la grille
  *  dont le plafond s'applique en amont (null : hors grille des modules). */
@@ -74,6 +80,7 @@ export const GROUPES = [
   { cle: 'personnel',     label: 'Personnel',                  plafond: 'personnel' },
   { cle: 'envois',        label: 'Impression & envois',        plafond: 'listes' },
   { cle: 'documentation', label: 'Documentation',              plafond: null },
+  { cle: 'conventions',   label: 'Conventions',                plafond: null },
   { cle: 'configuration', label: 'Configuration',              plafond: null },
 ];
 
@@ -226,6 +233,26 @@ export const GESTES = [
     source: 'routes/documentation.js POST /, /importer, /:cle/versions, /:cle/retirer, PATCH /:cle, PUT /:cle/destinataires' },
   { module: 'documentation', verrou: true, cle: 'registre', label: 'Lire le registre des confirmations',
     roles: PEUT_PUBLIER, mode: 'garde', source: 'routes/documentation.js GET /:cle/registre' },
+
+  // ── Conventions ────────────────────────────────────────────────────────────
+  { module: 'conventions', cle: 'lire', label: 'Lire le registre des conventions',
+    roles: CONVENTIONS_REGISTRE, mode: 'liste',
+    conditions: { coordination: 'dans les sections de son périmètre' },
+    source: 'routes/conventions.js GET /, /modeles, /partenaires, /:id/journal, /:id/fichier' },
+  { module: 'conventions', cle: 'preparer', label: 'Préparer : composer, déposer, contresigné, supprimer avant signature',
+    roles: CONVENTIONS_REGISTRE, mode: 'liste',
+    conditions: { coordination: 'dans les sections de son périmètre' },
+    source: 'routes/conventions.js POST /, /apercu, /composer, /:id/contresigne, DELETE /:id' },
+  { module: 'conventions', verrou: true, cle: 'modeles', label: 'Publier une version d’un modèle de convention',
+    roles: PEUT_PUBLIER, mode: 'garde', source: 'routes/conventions.js POST /modeles/:famille' },
+  { module: 'conventions', reglable: false, cle: 'signer', label: 'Signer (griffe du signataire)',
+    roles: ['admin', 'directeur'], mode: 'liste',
+    conditions: { admin: "s'il est le signataire réglé dans Configuration, depuis son compte",
+                  directeur: "s'il est le signataire réglé dans Configuration, depuis son compte" },
+    source: 'routes/conventions.js POST /signer (estSignataire : une personne, pas un rôle)' },
+  { module: 'conventions', verrou: true, cle: 'retirer', label: 'Retirer une convention signée (motif écrit)',
+    roles: NIVEAU_DIRECTION, mode: 'liste', reglable: false,
+    source: 'routes/conventions.js POST /:id/retirer (roleRequired, non réglable)' },
 
   // ── Configuration ──────────────────────────────────────────────────────────
   { module: 'configuration', verrou: true, cle: 'comptes', label: 'Gérer les comptes et leurs droits',

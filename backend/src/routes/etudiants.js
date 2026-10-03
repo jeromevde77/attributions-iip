@@ -3395,6 +3395,20 @@ try {
     PRIMARY KEY (etudiant_id, annee_scolaire)
   )`);
 } catch (e) { console.error('[pae_revue]', e.message); }
+/* PLUS DE 60 ECTS, EN CONNAISSANCE DE CAUSE (Charles, 3 octobre 2026). Un
+   programme qui dépasse une année à temps plein ne se refuse pas — il se
+   valide après l'avoir vu : la validation exige une confirmation, et garde le
+   nombre d'ECTS confirmé. Un an après, on sait que la charge a été regardée. */
+try {
+  const cols = db.prepare('PRAGMA table_info(pae_revue)').all().map(c => c.name);
+  if (!cols.includes('ects_confirme')) db.exec('ALTER TABLE pae_revue ADD COLUMN ects_confirme INTEGER');
+} catch (e) { console.error('[pae_revue ects]', e.message); }
+const SEUIL_ECTS_PAE = 60;
+function ectsDuPAE(etudId, annee) {
+  return Number(db.prepare(`SELECT COALESCE(SUM((SELECT MAX(u.ects) FROM ue u WHERE u.ue_num = i.ue_num
+      AND u.annee_scolaire = i.annee_scolaire)), 0) n FROM etudiant_inscription i
+    WHERE i.etudiant_id = ? AND i.annee_scolaire = ?`).get(etudId, annee).n) || 0;
+}
 
 /* LA NATURE D'UNE DISPENSE DE COURS (2 octobre 2026) : un report de note, ou
    une VA / VAE / VAP / VAEP reprise sans dossier pour 2024-2025 et 2025-2026. */
@@ -3484,7 +3498,7 @@ export function revuePAE(etudId, annee) {
   const ectsAcquis = [...new Set(acquises)].reduce((t, n) => t + (Number(refUe.get(n, annee, section)?.ects) || 0), 0);
   const tousCours = ues.flatMap(u => u.cours);
   const aSuivre = tousCours.filter(c => c.statut === 'suivre');
-  const revu = db.prepare('SELECT revu_le, revu_par FROM pae_revue WHERE etudiant_id = ? AND annee_scolaire = ?').get(etudId, annee) || null;
+  const revu = db.prepare('SELECT revu_le, revu_par, ects_confirme FROM pae_revue WHERE etudiant_id = ? AND annee_scolaire = ?').get(etudId, annee) || null;
   const niveau = niveauEtudiant(etudId, annee);
   /* CE QUI PEUT ENTRER AU PAE : les unités du cursus qui n'y sont pas, avec
      ce que le moteur en dit (accessible, bloquée…). L'ajout lui-même passe par
@@ -3721,7 +3735,7 @@ r.get('/:id/revue-pae/revu', authRequired, (req, res) => {
   const id = Number(req.params.id);
   if (!etudiantPermis(req, res, id)) return;
   const annee = req.query.annee || anneeDeTravail(req);
-  res.json({ revu: db.prepare('SELECT revu_le, revu_par FROM pae_revue WHERE etudiant_id = ? AND annee_scolaire = ?').get(id, annee) || null });
+  res.json({ revu: db.prepare('SELECT revu_le, revu_par, ects_confirme FROM pae_revue WHERE etudiant_id = ? AND annee_scolaire = ?').get(id, annee) || null });
 });
 
 /* CELUI QUI COCHE EST CELUI QUI SIGNE : le nom vient de la session, jamais d'un champ. */
@@ -3734,10 +3748,16 @@ r.put('/:id/revue-pae/revu', authRequired, (req, res) => {
     return res.json({ ok: true, revu: null });
   }
   const qui = req.user?.nom || req.user?.email || null;
-  db.prepare(`INSERT INTO pae_revue (etudiant_id, annee_scolaire, revu_par) VALUES (?, ?, ?)
-    ON CONFLICT(etudiant_id, annee_scolaire) DO UPDATE SET revu_le = datetime('now'), revu_par = excluded.revu_par`)
-    .run(id, annee, qui);
-  res.json({ ok: true, revu: db.prepare('SELECT revu_le, revu_par FROM pae_revue WHERE etudiant_id = ? AND annee_scolaire = ?').get(id, annee) });
+  const ects = ectsDuPAE(id, annee);
+  if (ects > SEUIL_ECTS_PAE && Number(req.body?.plus60) !== ects) {
+    return res.status(409).json({ plus60: ects,
+      error: `Programme de ${ects} ECTS, au-delà de ${SEUIL_ECTS_PAE} : la validation demande de le confirmer en connaissance de cause.` });
+  }
+  db.prepare(`INSERT INTO pae_revue (etudiant_id, annee_scolaire, revu_par, ects_confirme) VALUES (?, ?, ?, ?)
+    ON CONFLICT(etudiant_id, annee_scolaire) DO UPDATE SET revu_le = datetime('now'), revu_par = excluded.revu_par,
+      ects_confirme = excluded.ects_confirme`)
+    .run(id, annee, qui, ects > SEUIL_ECTS_PAE ? ects : null);
+  res.json({ ok: true, revu: db.prepare('SELECT revu_le, revu_par, ects_confirme FROM pae_revue WHERE etudiant_id = ? AND annee_scolaire = ?').get(id, annee) });
 });
 
 /* L'IMPRESSION DES PARCOURS : une page par étudiant, sans le schéma (Charles :
@@ -4363,8 +4383,24 @@ r.post('/pae-valider-lot', authRequired,
   /* UNE SEULE NOTION DE « VALIDÉ » (Charles, 2 octobre 2026) : valider en
      groupe des PAE standards écrit la MÊME trace que l'œil — la revue —, au
      nom de qui clique. Le crayon de la liste passe au vert pareil. */
-  const revu = db.prepare(`INSERT INTO pae_revue (etudiant_id, annee_scolaire, revu_par) VALUES (?, ?, ?)
-    ON CONFLICT(etudiant_id, annee_scolaire) DO UPDATE SET revu_le = datetime('now'), revu_par = excluded.revu_par`);
+  const revu = db.prepare(`INSERT INTO pae_revue (etudiant_id, annee_scolaire, revu_par, ects_confirme) VALUES (?, ?, ?, ?)
+    ON CONFLICT(etudiant_id, annee_scolaire) DO UPDATE SET revu_le = datetime('now'), revu_par = excluded.revu_par,
+      ects_confirme = excluded.ects_confirme`);
+  /* AU-DELÀ DE 60 ECTS, LE LOT S'ARRÊTE AVANT D'ÉCRIRE (tout ou rien) et nomme
+     les programmes à confirmer ; renvoyé avec plus60: true, il les valide en
+     gardant le nombre d'ECTS confirmé. */
+  if (!retirer && req.body?.plus60 !== true) {
+    const lourds = [];
+    for (const id of [...new Set(etudiants.map(Number).filter(Number.isInteger))]) {
+      const n = ectsDuPAE(id, annee);
+      if (n > SEUIL_ECTS_PAE) {
+        const e = db.prepare('SELECT nom, prenom FROM etudiant WHERE id = ?').get(id) || {};
+        lourds.push({ id, ects: n, nom: `${String(e.nom || '').toUpperCase()} ${e.prenom || ''}`.trim() });
+      }
+    }
+    if (lourds.length) return res.status(409).json({ plus60: lourds,
+      error: `${lourds.length} programme(s) au-delà de ${SEUIL_ECTS_PAE} ECTS : la validation demande de les confirmer en connaissance de cause.` });
+  }
   const quiRevu = req.user?.nom || req.user?.email || null;
   const pasRevu = db.prepare('DELETE FROM pae_revue WHERE etudiant_id = ? AND annee_scolaire = ?');
 
@@ -4390,7 +4426,7 @@ r.post('/pae-valider-lot', authRequired,
           + reprises.join(', ') });
         continue;
       }
-      signer.run(id, annee, qui); revu.run(id, annee, quiRevu); faits++;
+      signer.run(id, annee, qui); { const n = ectsDuPAE(id, annee); revu.run(id, annee, quiRevu, n > SEUIL_ECTS_PAE ? n : null); } faits++;
     }
   })();
   res.json({ ok: true, faits, ignores });

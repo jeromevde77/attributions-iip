@@ -299,9 +299,16 @@ function RevuePAE({ liste: base, annee: anneeDepart, onClose }) {
         }
         if (!x.ok) throw new Error(j.error || 'La confirmation du programme a été refusée.');
       }
-      const r = await fetch(`/api/etudiants/${cur.id}/revue-pae/revu`, { method: 'PUT', headers: authHeaders(),
-        body: JSON.stringify({ annee, revu }) });
-      const j = await r.json().catch(() => ({}));
+      const poser = extra => fetch(`/api/etudiants/${cur.id}/revue-pae/revu`, { method: 'PUT', headers: authHeaders(),
+        body: JSON.stringify({ annee, revu, ...extra }) });
+      let r = await poser({});
+      let j = await r.json().catch(() => ({}));
+      // Au-delà de 60 ECTS : la validation se fait en connaissance de cause.
+      if (r.status === 409 && j.plus60) {
+        if (!window.confirm(`Programme de ${j.plus60} ECTS, au-delà de 60 (plus qu'une année à temps plein).\n\nValider en connaissance de cause ? La confirmation est enregistrée à votre nom.`)) return;
+        r = await poser({ plus60: j.plus60 });
+        j = await r.json().catch(() => ({}));
+      }
       if (!r.ok) throw new Error(j.error || 'Refusé.');
       setSynthese(sy => (sy ? { ...sy, [cur.id]: { ...(sy[cur.id] || {}), revu: !!revu } } : sy));
       if (puisSuivant && i < liste.length - 1 && fCritere !== 'nonrevus') setI(i + 1);
@@ -519,7 +526,7 @@ function RevuePAE({ liste: base, annee: anneeDepart, onClose }) {
             </div>
             {d.revu && (
               <div className="mb-2 px-3 py-2 rounded-lg text-[13px] bg-emerald-700 text-white">
-                <b>Ce PAE a été validé</b> le {quandLocal(d.revu.revu_le)} par {d.revu.revu_par || '—'}.
+                <b>Ce PAE a été validé</b> le {quandLocal(d.revu.revu_le)} par {d.revu.revu_par || '—'}{d.revu.ects_confirme ? ` — ${d.revu.ects_confirme} ECTS, au-delà de 60, confirmés en connaissance de cause` : ''}.
                 <button type="button" disabled={!!enCours} className="ml-3 underline text-white/80 hover:text-white text-[12px]"
                   onClick={() => marquer(false)}>retirer la validation</button>
               </div>

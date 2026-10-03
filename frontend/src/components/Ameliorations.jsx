@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import { IconBulb, IconTrash } from '@tabler/icons-react';
 import { authHeaders } from '../lib/api.js';
 import { Fenetre } from './ui.jsx';
+import { nomDepuisChaine } from '../lib/nom.js';
+import FilSuggestion, { PastilleIdee, PastilleNouveau } from './FilSuggestion.jsx';
 
 /**
  * LES AMÉLIORATIONS — CE QUE CEUX QUI S'EN SERVENT VOUDRAIENT.
@@ -33,6 +35,13 @@ export default function Ameliorations({ ecran, onClose }) {
   const [detail, setDetail] = useState('');
   const [erreur, setErreur] = useState(null);
   const [enCours, setEnCours] = useState(false);
+  // Les fils ouverts. Ouvrir un fil le marque vu côté serveur.
+  const [ouverts, setOuverts] = useState(() => new Set());
+  const [vus, setVus] = useState(() => new Set());
+  const basculer = id => {
+    setVus(v => new Set(v).add(id));
+    setOuverts(o => { const n = new Set(o); n.has(id) ? n.delete(id) : n.add(id); return n; });
+  };
 
   const charger = () => fetch('/api/suggestions', { headers: authHeaders() })
     .then(r => (r.ok ? r.json() : { lignes: [], etats: [] }))
@@ -114,7 +123,7 @@ export default function Ameliorations({ ecran, onClose }) {
                 <span className="flex-1 min-w-0">
                   <span className="text-[13px] font-medium">{s.titre}</span>
                   <span className="block text-[11px] text-slate-400">
-                    {s.auteur_nom || 'anonyme'}
+                    {s.auteur_nom ? nomDepuisChaine(s.auteur_nom) : 'anonyme'}
                     {s.ecran ? ` · ${s.ecran}` : ''}
                     {s.cree_le ? ` · ${String(s.cree_le).slice(0, 10).split('-').reverse().join('/')}` : ''}
                   </span>
@@ -125,14 +134,16 @@ export default function Ameliorations({ ecran, onClose }) {
                     {etats.map(e2 => <option key={e2.cle} value={e2.cle}>{e2.libelle}</option>)}
                   </select>
                 ) : (
-                  <span className="text-[11px] text-slate-500">
-                    {etats.find(e2 => e2.cle === s.etat)?.libelle || s.etat}
-                  </span>
+                  <PastilleIdee etat={s.etat} />
                 )}
-                <button onClick={() => retirer(s.id)}
-                  className="text-slate-300 hover:text-red-500" title="Retirer">
-                  <IconTrash size={14} />
-                </button>
+                {/* Une idée à laquelle la direction a répondu ne se retire plus
+                    par son auteur : la réponse partirait avec (le serveur refuse). */}
+                {(etat.tout || !s.dernier_direction_le) && (
+                  <button onClick={() => retirer(s.id)}
+                    className="text-slate-300 hover:text-red-500" title="Retirer">
+                    <IconTrash size={14} />
+                  </button>
+                )}
               </div>
 
               {s.detail && (
@@ -141,21 +152,25 @@ export default function Ameliorations({ ecran, onClose }) {
                 </div>
               )}
 
-              {/* LA RÉPONSE FAITE À L'AUTEUR. Elle se lit sous son idée, pas
-                  ailleurs : « on n'a jamais eu de retour » est le reproche que
-                  ce registre existe pour éteindre. */}
-              {etat.tout ? (
-                <input defaultValue={s.reponse || ''}
-                  placeholder="Réponse à l'auteur — même pour dire non, et pourquoi"
-                  onBlur={e => e.target.value !== (s.reponse || '')
-                    && majuscule(s.id, { reponse: e.target.value })}
-                  className="mt-1.5 w-full border border-slate-200 rounded-champ
-                             px-2 py-1 text-[12px]" />
-              ) : s.reponse ? (
-                <div className="mt-1.5 text-[12px] text-iip-blue border-l-2 border-slate-200 pl-2">
-                  {s.reponse}
-                </div>
-              ) : null}
+              {/* LE FIL, ET NON PLUS UNE RÉPONSE UNIQUE (3 octobre 2026).
+                  La réponse se lit sous l'idée et à l'Accueil de l'auteur, qui
+                  peut y répondre à son tour. « On n'a jamais eu de retour » est
+                  le reproche que ce registre existe pour éteindre. */}
+              <div className="mt-1.5 flex items-center gap-2">
+                <button onClick={() => basculer(s.id)}
+                  className="text-[12px] text-iip-blue hover:underline">
+                  {ouverts.has(s.id) ? 'Fermer le fil'
+                    : s.nb_messages ? `Lire le fil (${s.nb_messages})`
+                      : (etat.tout && s.cote === 'direction' ? 'Répondre' : 'Écrire')}
+                </button>
+                {s.nouveau && !vus.has(s.id) && <PastilleNouveau />}
+              </div>
+              {ouverts.has(s.id) && (
+                <FilSuggestion id={s.id}
+                  invite={s.cote === 'direction'
+                    ? "Réponse à l'auteur — même pour dire non, et pourquoi"
+                    : 'Votre réponse à la direction'} />
+              )}
             </div>
           ))}
         </div>

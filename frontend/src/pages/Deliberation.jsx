@@ -1,6 +1,7 @@
 import { lazy, useEffect, useState } from 'react';
 import OutilsAFaces from '../components/OutilsAFaces.jsx';
 const ControleDecisions = lazy(() => import('../components/ControleDecisions.jsx'));
+const NotesDoubles = lazy(() => import('../components/NotesDoubles.jsx'));
 const ClotureReprise = lazy(() => import('./Configuration.jsx').then(m => ({ default: m.ClotureReprise })));
 import GroupesParBloc from '../components/GroupesParBloc.jsx';
 import { IconChevronRight, IconArrowLeft, IconBolt, IconAlertTriangle,
@@ -245,6 +246,7 @@ export default function Deliberation() {
         <OutilsAFaces icone={IconChecks} titre="Contrôles de la délibération"
           faceInitiale={controles} onFermer={() => setControles(null)}
           faces={[
+            { cle: 'notes-doubles', label: 'Notes en double', rendu: <NotesDoubles /> },
             { cle: 'controle-decisions', label: 'Contrôle des notes de décision', rendu: <ControleDecisions /> },
             { cle: 'reprise', label: 'Clôturer une année reprise', rendu: <ClotureReprise /> },
           ]} />
