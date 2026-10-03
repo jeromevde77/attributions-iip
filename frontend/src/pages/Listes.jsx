@@ -1032,9 +1032,9 @@ export default function Listes({ integre = false, domaine = null, rapports = nul
         precision: `${(sec.coord_helb || []).length} poste(s) · ${pctCoord} %` }) : '',
     ].join('');
     const tuilesNature = [
-      tuile({ valeur: fmtEtp(totCt / 800), unite: 'ETP', libelle: 'CT — cours théoriques',
+      tuile({ valeur: fmtEtp2(totCt / 800), unite: 'ETP', libelle: 'CT — cours théoriques',
         precision: `÷800 · ${fmt(totCt)} pér.` }),
-      tuile({ valeur: fmtEtp(totPp / 1000), unite: 'ETP', libelle: 'PP — pratique professionnelle',
+      tuile({ valeur: fmtEtp2(totPp / 1000), unite: 'ETP', libelle: 'PP — pratique professionnelle',
         precision: `÷1000 · ${fmt(totPp)} pér.` }),
     ].join('');
     const tuilesRatios = [
@@ -1078,13 +1078,13 @@ export default function Listes({ integre = false, domaine = null, rapports = nul
            d'abord, libellé dessous, précision en gris. */
         .rangee-titre{font-size:7.5pt;color:#64748B;margin:0 0 1.5mm;font-weight:600}
         .tuiles{display:grid;grid-template-columns:repeat(4,1fr);gap:3mm;margin:0 0 4mm}
-        .tuile{background:#fff;border:0.3mm solid #D8DCE4;border-left:1mm solid ${MARINE};
-               border-radius:0 2.6mm 2.6mm 0;padding:2mm 3mm 2.2mm;break-inside:avoid;page-break-inside:avoid}
-        .t-val{font-size:15pt;font-weight:700;line-height:1.12;letter-spacing:-.3pt;font-variant-numeric:tabular-nums}
-        .tuile.fort .t-val{font-size:19pt}
-        .t-u{font-size:8pt;font-weight:400;color:#64748B;margin-left:1mm;letter-spacing:0}
-        .t-lib{font-size:9pt;font-weight:600;margin-top:1mm}
-        .t-fin{font-size:7.5pt;color:#64748B;margin-top:.5mm}
+        .tuile{background:#fff;border:0.25mm solid #D8DCE4;border-left:0.8mm solid ${MARINE};
+               border-radius:0 2.6mm 2.6mm 0;padding:1.8mm 2.8mm 2mm;break-inside:avoid;page-break-inside:avoid}
+        .t-val{font-size:12.5pt;font-weight:700;line-height:1.15;font-variant-numeric:tabular-nums}
+        .tuile.fort .t-val{font-size:14pt}
+        .t-u{font-size:7.5pt;font-weight:400;color:#64748B;margin-left:.8mm}
+        .t-lib{font-size:8.5pt;font-weight:600;margin-top:.6mm;color:#33415C}
+        .t-fin{font-size:7.2pt;color:#7A879E;margin-top:.3mm}
         h2{font-size:10pt;font-weight:700;margin:6mm 0 2.5mm;padding-bottom:1mm;border-bottom:0.3mm solid ${OR}}
         /* LE TABLEAU N'A QUE DEUX TONS : l'en-tête et la ligne de regroupement
            sur le même ton, la donnée blanche. La bande PORTE la couleur du bloc. */

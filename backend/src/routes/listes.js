@@ -12,7 +12,7 @@
 
 import { Router } from 'express';
 import db from '../db/index.js';
-import { authRequired, getUserSections } from '../middleware/auth.js';
+import { authRequired, getUserSections, soiSeul } from '../middleware/auth.js';
 import { niveauEtudiant, sectionRattachement } from './etudiants.js';
 import { POURCENTAGE_DISPENSE } from '../lib/valorisation.js';
 import { anneeDeTravail } from '../helpers/annee.js';
@@ -240,7 +240,7 @@ r.get('/etudiants', authRequired, (req, res) => {
   res.json({ annee, lignes });
 });
 
-r.get('/professeurs', authRequired, (req, res) => {
+r.get('/professeurs', authRequired, soiSeul({ ensemble: true }), (req, res) => {
   const annee = req.query.annee;
   if (!annee) return res.status(400).json({ error: 'annee requise' });
 
