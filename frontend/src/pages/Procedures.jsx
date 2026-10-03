@@ -370,6 +370,7 @@ function OuvrirDossier({ annee, onFermer, onOuvert }) {
   const [contexte, setContexte] = useState(null);
   const [genreChoisi, setGenreChoisi] = useState('recours');
   const [ueNum, setUeNum] = useState(null);
+  const [ueAnnee, setUeAnnee] = useState(null);     // l'année de l'inscription choisie
   const [ue, setUe] = useState(null);                  // cours, charges, séance
   const [acquis, setAcquis] = useState([]);            // [{cours_code, aa_code}]
   const [objet, setObjet] = useState('');
@@ -391,7 +392,7 @@ function OuvrirDossier({ annee, onFermer, onOuvert }) {
   }, [recherche, etudiant]);
 
   function choisirEtudiant(e) {
-    setEtudiant(e); setResultats([]); setUeNum(null); setUe(null); setAcquis([]); setContexte(null); setErreur(null);
+    setEtudiant(e); setResultats([]); setUeNum(null); setUeAnnee(null); setUe(null); setAcquis([]); setContexte(null); setErreur(null);
     appel(`${BASE}/contexte/${e.id}?annee=${encodeURIComponent(annee)}`).then(r => {
       if (r.ok) setContexte(r.data); else setErreur(r.data?.error || "Les inscriptions de l'étudiant ne se chargent pas.");
     });
@@ -413,8 +414,8 @@ function OuvrirDossier({ annee, onFermer, onOuvert }) {
   useEffect(() => {
     setUe(null); setAcquis([]);
     if (!ueNum) return;
-    appel(`${BASE}/ue/${ueNum}?annee=${encodeURIComponent(annee)}`).then(r => { if (r.ok) setUe(r.data); });
-  }, [ueNum, annee]);
+    appel(`${BASE}/ue/${ueNum}?annee=${encodeURIComponent(ueAnnee || annee)}`).then(r => { if (r.ok) setUe(r.data); });
+  }, [ueNum, ueAnnee, annee]);
 
   const inscriptions = contexte?.inscriptions || [];
   const permise = i => genreChoisi !== 'recours' || i.recourable;
@@ -433,7 +434,7 @@ function OuvrirDossier({ annee, onFermer, onOuvert }) {
     const corps = {
       type: genreChoisi === 'recours' ? 'recours' : 'disciplinaire',
       nature: genreChoisi === 'recours' ? undefined : genreChoisi === 'fraude' ? 'fraude' : 'comportement',
-      etudiant_id: etudiant.id, annee_scolaire: annee, ue_num: ueNum || null,
+      etudiant_id: etudiant.id, annee_scolaire: (ueNum && ueAnnee) || annee, ue_num: ueNum || null,
       objet: objet.trim(), acquis: genreChoisi === 'fraude' ? acquis : [],
     };
     const r = await appel(BASE, { method: 'POST', body: JSON.stringify(corps) });
@@ -511,12 +512,12 @@ function OuvrirDossier({ annee, onFermer, onOuvert }) {
         <div className="space-y-4">
           <div>
             <Intertitre>
-              {genreChoisi === 'recours' ? `3. Décision contestée (${annee})`
-                : genreChoisi === 'fraude' ? `3. UE de l'épreuve (${annee})` : `3. UE concernée — facultatif (${annee})`}
+              {genreChoisi === 'recours' ? '3. Décision contestée — cette année ou la précédente'
+                : genreChoisi === 'fraude' ? "3. UE de l'épreuve" : '3. UE concernée — facultatif'}
             </Intertitre>
             {!etudiant && <div className="text-[12px] text-slate-400">Choisissez d'abord l'étudiant.</div>}
             {etudiant && contexte && !inscriptions.length && (
-              <div className="text-[12px] text-slate-400">Aucune inscription en {annee} dans votre périmètre.</div>
+              <div className="text-[12px] text-slate-400">Aucune inscription en {annee} ni l'année précédente, dans votre périmètre.</div>
             )}
             <div className="divide-y divide-slate-100">
               {genreChoisi === 'discipline' && inscriptions.length > 0 && (
@@ -529,10 +530,11 @@ function OuvrirDossier({ annee, onFermer, onOuvert }) {
                 const ok = permise(i);
                 const r = lireResultat(i);
                 return (
-                  <label key={i.ue_num} className={`flex items-center gap-2 py-1.5 text-[13px] ${ok ? 'cursor-pointer' : 'opacity-50'}`}>
-                    <input type="radio" disabled={!ok} checked={ueNum === i.ue_num} onChange={() => setUeNum(i.ue_num)} />
+                  <label key={`${i.annee_scolaire}-${i.ue_num}`} className={`flex items-center gap-2 py-1.5 text-[13px] ${ok ? 'cursor-pointer' : 'opacity-50'}`}>
+                    <input type="radio" disabled={!ok} checked={ueNum === i.ue_num && ueAnnee === i.annee_scolaire}
+                      onChange={() => { setUeNum(i.ue_num); setUeAnnee(i.annee_scolaire); }} />
                     <span className="flex-1 min-w-0 truncate text-slate-800">
-                      UE {i.ue_num} · {i.ue_nom || '—'}
+                      <span className="text-slate-400 tabular-nums">{i.annee_scolaire} · </span>UE {i.ue_num} · {i.ue_nom || '—'}
                       {i.section && <span className="text-slate-400"> · {i.section}</span>}
                     </span>
                     {ok ? <PastilleEtat etat={r.etat}>{r.label}</PastilleEtat>

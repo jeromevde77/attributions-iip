@@ -64,8 +64,12 @@ r.get('/', authRequired, (req, res) => {
   migrerProcedures(db);
   const annee = req.query.annee || null;
   const perim = getUserSections(req.user);
+  // L'année de travail ET la précédente : le recours d'octobre porte sur les
+  // décisions de septembre, donc sur l'année d'avant.
+  const m = annee ? /^(\d{4})-(\d{4})$/.exec(annee) : null;
+  const precedente = m ? `${Number(m[1]) - 1}-${Number(m[2]) - 1}` : null;
   const lignes = db.prepare(`SELECT id FROM proc_dossier
-    WHERE (? IS NULL OR annee_scolaire = ?) ORDER BY id DESC LIMIT 500`).all(annee, annee);
+    WHERE (? IS NULL OR annee_scolaire IN (?, ?)) ORDER BY id DESC LIMIT 500`).all(annee, annee, precedente);
   const dossiers = [];
   for (const { id } of lignes) {
     const d = lireDossier(id);
@@ -94,17 +98,23 @@ r.get('/contexte/:etudiantId', authRequired, gesteRequis('procedures.instruire')
   // Le nom de l'unité se lit à part : une sous-requête qui trie sur une colonne
   // de la requête principale passait en local et cassait sur le serveur.
   const nomUE = db.prepare(`SELECT ue_nom FROM ue WHERE ue_num = ? ORDER BY (annee_scolaire = ?) DESC LIMIT 1`);
-  const inscriptions = db.prepare(`SELECT ue_num, resultat, resultat_s1, resultat_s2,
+  // L'ANNÉE DE TRAVAIL ET LA PRÉCÉDENTE : en octobre, un recours vise presque
+  // toujours un refus de septembre, donc de l'année d'avant.
+  const m = /^(\d{4})-(\d{4})$/.exec(annee);
+  const precedente = m ? `${Number(m[1]) - 1}-${Number(m[2]) - 1}` : null;
+  const annees = [annee, precedente].filter(Boolean);
+  const inscriptions = db.prepare(`SELECT ue_num, annee_scolaire, resultat, resultat_s1, resultat_s2,
       points, COALESCE(num_organisation, 0) AS num_organisation
-    FROM etudiant_inscription WHERE etudiant_id = ? AND annee_scolaire = ? ORDER BY ue_num`).all(id, annee)
+    FROM etudiant_inscription WHERE etudiant_id = ? AND annee_scolaire IN (${annees.map(() => '?').join(',')})
+    ORDER BY annee_scolaire DESC, ue_num`).all(id, ...annees)
     .map(i => {
       const session = i.resultat_s2 ? 2 : 1;
-      return { ...i, ue_nom: nomUE.get(i.ue_num, annee)?.ue_nom || null,
-               section: sectionDe(id, i.ue_num, annee), session, recourable: est_recourable(i.resultat) };
+      return { ...i, ue_nom: nomUE.get(i.ue_num, i.annee_scolaire)?.ue_nom || null,
+               section: sectionDe(id, i.ue_num, i.annee_scolaire), session, recourable: est_recourable(i.resultat) };
     });
   const perim = getUserSections(req.user);
   const visibles = perim ? inscriptions.filter(i => i.section && perim.includes(i.section)) : inscriptions;
-  res.json({ etudiant: e, annee, inscriptions: visibles });
+  res.json({ etudiant: e, annee, annees, inscriptions: visibles });
 });
 
 /** Les cours et acquis d'une UE, et ses chargés de cours de l'année. */
