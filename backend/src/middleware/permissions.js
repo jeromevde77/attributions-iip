@@ -174,8 +174,16 @@ let cacheRoles = null;
 export function invaliderPlafonds() { cachePlafonds = null; cacheRoles = null; }
 
 /** Rôles de la maison + rôles définis par la direction. */
+/* « ÉDITEUR » EST UN ANCIEN NOM (Charles, 3 octobre 2026 : « il faut
+   supprimer les anciens noms »). Les routes le gardent comme alias du
+   secrétariat ; les écrans ne le montrent plus dès qu'aucun compte ne le porte. */
+function sansAncienNom(rc) {
+  let reste = 0;
+  try { reste = db.prepare("SELECT COUNT(*) n FROM utilisateur WHERE role = 'editeur'").get().n; } catch { /* */ }
+  return reste ? rc : { ...rc, codes: rc.codes.filter(c => c !== 'editeur') };
+}
 export function rolesConnus() {
-  if (cacheRoles) return cacheRoles;
+  if (cacheRoles) return sansAncienNom(cacheRoles);
   let definis = [];
   try { definis = db.prepare('SELECT code, libelle FROM role_defini ORDER BY libelle').all(); }
   catch { definis = []; }
@@ -184,7 +192,7 @@ export function rolesConnus() {
     libelles: Object.fromEntries(definis.map(d => [d.code, d.libelle])),
     definis: definis.map(d => d.code),
   };
-  return cacheRoles;
+  return sansAncienNom(cacheRoles);
 }
 
 function plafonds() {

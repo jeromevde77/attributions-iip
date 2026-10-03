@@ -193,10 +193,10 @@ function Gestes({ plafonds }) {
         <table className="w-full table-fixed border-collapse text-[13px]">
           <thead>
             <tr className="tab-entete">
-              <th className="w-[300px] min-w-[300px] px-3 py-1.5 text-left sticky left-0 z-10"
+              <th className="w-[230px] min-w-[230px] px-3 py-1.5 text-left sticky left-0 z-10"
                 style={{ background: 'var(--tab-repere)' }}>Module · geste</th>
               {g.roles.map(r => (
-                <th key={r} className="w-[92px] min-w-[92px] px-1 py-1.5 align-bottom font-normal">
+                <th key={r} className="w-[80px] min-w-[80px] px-1 py-1.5 align-bottom font-normal">
                   <div className="text-[10px] leading-tight normal-case tracking-normal">{nomRole(g, r)}</div>
                 </th>
               ))}

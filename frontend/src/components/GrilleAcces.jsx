@@ -13,8 +13,8 @@ import { MODULES_ACCES } from '../lib/modules.js';
 /** Les mesures communes. Une colonne de module a la même largeur partout, la
  *  première colonne aussi : les modules tombent l'un sous l'autre d'un tableau
  *  à l'autre. */
-export const COL_PREMIERE = 'w-[220px] min-w-[220px]';
-export const COL_MODULE = 'w-[76px] min-w-[76px]';
+export const COL_PREMIERE = 'w-[190px] min-w-[190px]';
+export const COL_MODULE = 'w-[66px] min-w-[66px]';
 export const HAUTEUR_LIGNE = 'h-[44px]';
 
 /** Un niveau de droit, et l'état qui le colore (couleurs réglées, `--c-*`). */

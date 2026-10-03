@@ -13,7 +13,7 @@ const ROLE_LABEL = {
   directeur: 'Directeur',
   directeur_adjoint: 'Directeur adjoint',
   secretariat: 'Secrétariat',
-  editeur: 'Éditeur',
+  editeur: 'Éditeur (ancien nom — à convertir)',
   coordination: 'Coordination',
   professeur: 'Professeur',
   consultation: 'Consultation',
@@ -41,7 +41,7 @@ export default function Users({ embedded = false }) {
   const [profils, setProfils] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState({ email: '', nom_complet: '', role: 'editeur', password: '', sections: [] });
+  const [form, setForm] = useState({ email: '', nom_complet: '', role: 'secretariat', password: '', sections: [] });
   const [editingSections, setEditingSections] = useState(null); // {userId, sections} quand on édite le périmètre
   const [error, setError] = useState('');
   // La liste des rôles vient du serveur : les rôles définis par la direction
@@ -59,7 +59,8 @@ export default function Users({ embedded = false }) {
       setUsers(u); setAllSections(s); setProfils(Array.isArray(p) ? p : []);
       try {
         const pl = await authFetch('/api/profils-acces/plafonds');
-        setRolesDispo((pl.roles || []).map(c => [c, pl.libelles?.[c] || ROLE_LABEL[c] || c]));
+        // « Éditeur » ne s'attribue plus : c'est l'ancien nom du secrétariat.
+        setRolesDispo((pl.roles || []).filter(c => c !== 'editeur').map(c => [c, pl.libelles?.[c] || ROLE_LABEL[c] || c]));
       } catch { setRolesDispo(null); }
     }
     catch (e) { setError(e.message); }
@@ -76,7 +77,7 @@ export default function Users({ embedded = false }) {
     try {
       await authFetch('/api/users', { method: 'POST', body: JSON.stringify(form) });
       setShowForm(false);
-      setForm({ email: '', nom_complet: '', role: 'editeur', password: '', sections: [] });
+      setForm({ email: '', nom_complet: '', role: 'secretariat', password: '', sections: [] });
       load();
     } catch (e) { setError(e.message); }
   }
