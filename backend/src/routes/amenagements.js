@@ -37,7 +37,7 @@ import { migrerCircuitAR, catalogueAR, horsCircuit, manquesA, manquesB, estPerso
 /* QUI ÉCRIT UN AMÉNAGEMENT : les rôles d'office, OU toute personne à qui
  * l'écriture a été accordée sur sa fiche (Accès Lucie → Aménagements
  * raisonnables). Voir MODULES_SUR_OCTROI dans middleware/permissions.js. */
-const ROLES_AMENAGEMENT = ['admin', 'directeur', 'directeur_adjoint', 'editeur', 'secretariat'];
+export const ROLES_AMENAGEMENT = ['admin', 'directeur', 'directeur_adjoint', 'editeur', 'secretariat'];
 function peutAmenager(req, res, next) {
   if (!req.user) return res.status(401).json({ error: 'Non authentifié' });
   if (ROLES_AMENAGEMENT.includes(req.user.role) || peut(req.user, 'amenagements', 'ecrire') === 'direct') return next();

@@ -1,7 +1,9 @@
-import { useEffect, useState } from 'react';
-import { IconAlertTriangle, IconLock, IconEye, IconShieldCheck, IconTrash } from '@tabler/icons-react';
+import { Fragment, useEffect, useState } from 'react';
+import { IconLock, IconEye, IconShieldCheck, IconTrash, IconChevronRight, IconChevronDown } from '@tabler/icons-react';
 import { authHeaders } from '../lib/api.js';
 import { MODULES_ACCES, oublierPlafonds } from '../lib/modules.js';
+import { COL_PREMIERE, COL_MODULE, HAUTEUR_LIGNE, NIVEAUX_DROIT, VERDICTS, Pastille, CaseDroit,
+         EnteteModules, Legende, TitreCarte } from '../components/GrilleAcces.jsx';
 
 /**
  * Plafonds par rôle.
@@ -13,16 +15,8 @@ import { MODULES_ACCES, oublierPlafonds } from '../lib/modules.js';
  * Ces valeurs étaient codées en dur, ce qui obligeait à intervenir sur le code
  * à chaque changement d'avis. Elles se règlent maintenant ici.
  */
-const NIVEAUX = [
-  { val: 'rien',       label: '—',          aide: 'Aucun accès',
-    cls: 'bg-slate-50 text-slate-300 border-slate-200' },
-  { val: 'lit',        label: 'lit',        aide: 'Consultation seule',
-    cls: 'bg-sky-500 text-white border-sky-500' },
-  { val: 'validation', label: 'validation', aide: 'Encode, la direction tranche',
-    cls: 'bg-amber-500 text-white border-amber-500' },
-  { val: 'ecrit',      label: 'écrit',      aide: 'Modifie directement',
-    cls: 'bg-emerald-500 text-white border-emerald-500' },
-];
+/* L'ordre du cycle au clic ; le dessin vient de GrilleAcces (NIVEAUX_DROIT). */
+const NIVEAUX = ['rien', 'lit', 'validation', 'ecrit'].map(val => ({ val, ...NIVEAUX_DROIT[val] }));
 
 const LIBELLE_ROLE = {
   directeur: 'Directeur', directeur_adjoint: 'Directeur adjoint',
@@ -70,24 +64,20 @@ function Constat() {
 
   return (
     <div className="carte">
-      <div className="px-4 py-2.5 border-b border-slate-200 flex items-center gap-2">
-        {strict ? <IconShieldCheck size={15} className="text-slate-400" />
-                : <IconEye size={15} className="text-slate-400" />}
-        <span className="text-[15px]">Ce que le contrôle a vu</span>
-        <span className={`text-[10px] px-1.5 py-0.5 rounded border ${
-          strict ? 'bg-emerald-500 text-white border-emerald-500'
-                 : 'bg-amber-500 text-white border-amber-500'}`}>
-          {strict ? 'mode strict — les refus s’appliquent'
-                  : 'mode constat — rien n’est refusé'}
-        </span>
-        <div className="flex-1" />
-        {!!d.lignes.length && (
-          <button onClick={vider}
-            className="text-[11px] text-slate-500 hover:text-red-700 flex items-center gap-1">
-            <IconTrash size={13} /> Vider
-          </button>
-        )}
-      </div>
+      <TitreCarte titre="Ce que le contrôle a vu"
+        droite={<>
+          {strict ? <IconShieldCheck size={15} className="text-slate-400" />
+                  : <IconEye size={15} className="text-slate-400" />}
+          <span className="pastille-etat" data-etat={strict ? 'reussi' : 'surveiller'}>
+            {strict ? 'mode strict — les refus s’appliquent' : 'mode constat — rien n’est refusé'}
+          </span>
+          {!!d.lignes.length && (
+            <button onClick={vider}
+              className="text-[11px] text-slate-500 hover:text-red-700 flex items-center gap-1">
+              <IconTrash size={13} /> Vider
+            </button>
+          )}
+        </>} />
 
       {!d.lignes.length ? (
         <div className="px-4 py-3 text-[12px] text-slate-500">
@@ -128,7 +118,7 @@ function Constat() {
               </thead>
               <tbody>
                 {d.lignes.map((l, i) => (
-                  <tr key={i} className="border-b border-slate-100">
+                  <tr key={i} className="border-b border-slate-100 bg-white">
                     <td className="px-3 py-1">{l.email}</td>
                     <td className="px-2 py-1">{l.module}</td>
                     <td className="px-2 py-1">
@@ -154,6 +144,117 @@ function Constat() {
         accès ?</b> Si oui, relevez son plafond ci-dessus. Si non, le contrôle fera son
         office dès le passage en mode strict.
       </div>
+    </div>
+  );
+}
+
+const nomRole = (data, code) => data?.libelles?.[code] || LIBELLE_ROLE[code] || code;
+
+/**
+ * LES GESTES — qui peut faire quoi, au-delà du module (Charles, 3 octobre
+ * 2026 : « il faut les gestes »). Le serveur rend le catalogue
+ * (backend/src/lib/gestes.js) et le verdict de chaque rôle, calculé comme la
+ * porte le calcule. EN LECTURE : ces gestes sont écrits dans le code ; les
+ * montrer d'abord, c'est savoir ce qu'on voudrait régler avant de le régler.
+ */
+function Gestes({ plafonds }) {
+  const [g, setG] = useState(null);
+  const [ouverts, setOuverts] = useState(() => new Set());
+
+  useEffect(() => {
+    fetch('/api/profils-acces/gestes', { headers: authHeaders() })
+      .then(r => (r.ok ? r.json() : null)).then(setG).catch(() => setG(null));
+  }, []);
+  if (!g) return null;
+
+  const basculer = cle => setOuverts(o => {
+    const n = new Set(o);
+    if (n.has(cle)) n.delete(cle); else n.add(cle);
+    return n;
+  });
+  const tousOuverts = ouverts.size === g.groupes.length;
+
+  return (
+    <div className="carte overflow-hidden">
+      <TitreCarte titre="Les gestes"
+        droite={
+          <button className="bouton controle text-[12px]"
+            onClick={() => setOuverts(tousOuverts ? new Set() : new Set(g.groupes.map(x => x.cle)))}>
+            {tousOuverts ? 'Tout replier' : 'Tout déplier'}
+          </button>
+        }>
+        Ces gestes sont fixés dans le code aujourd’hui : ils sont montrés tels que le serveur les
+        applique, et ne se règlent pas ici. La grille des modules s’y ajoute en amont
+        {g.mode_modules === 'constat' ? ' (en mode constat, elle ne refuse encore rien)' : ''}.
+        Le survol d’une case dit d’où vient la règle.
+      </TitreCarte>
+
+      <div className="overflow-x-auto">
+        <table className="w-full table-fixed border-collapse text-[13px]">
+          <thead>
+            <tr className="tab-entete">
+              <th className="w-[230px] min-w-[230px] px-3 py-1.5 text-left sticky left-0 z-10"
+                style={{ background: 'var(--tab-repere)' }}>Module · geste</th>
+              {g.roles.map(r => (
+                <th key={r} className="w-[80px] min-w-[80px] px-1 py-1.5 align-bottom font-normal">
+                  <div className="text-[10px] leading-tight normal-case tracking-normal">{nomRole(g, r)}</div>
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {g.groupes.map(gr => {
+              const lignes = g.gestes.filter(x => x.module === gr.cle);
+              if (!lignes.length) return null;
+              const ouvert = ouverts.has(gr.cle);
+              const Chevron = ouvert ? IconChevronDown : IconChevronRight;
+              return (
+                <Fragment key={gr.cle}>
+                  <tr className={`tab-repere ${HAUTEUR_LIGNE} cursor-pointer`} onClick={() => basculer(gr.cle)}>
+                    <td className="px-3 sticky left-0 z-10" style={{ background: 'var(--tab-repere)' }}>
+                      <span className="inline-flex items-center gap-1.5 font-semibold">
+                        <Chevron size={14} className="text-slate-400" />
+                        {gr.label}
+                        <span className="text-[11px] font-normal text-slate-500">{lignes.length} geste(s)</span>
+                      </span>
+                    </td>
+                    {g.roles.map(r => {
+                      const niveau = gr.plafond ? (plafonds?.[r]?.[gr.plafond] || 'rien') : null;
+                      return (
+                        <td key={r} className="px-1.5 text-center"
+                          title={gr.plafond ? `Plafond du module : ${(NIVEAUX_DROIT[niveau] || {}).aide}` : 'Hors grille des modules'}>
+                          {niveau && <Pastille def={NIVEAUX_DROIT[niveau]} />}
+                        </td>
+                      );
+                    })}
+                  </tr>
+                  {ouvert && lignes.map(x => (
+                    <tr key={x.cle} className={`${HAUTEUR_LIGNE} bg-white border-b border-slate-100`}>
+                      <td className="pl-9 pr-3 sticky left-0 bg-white z-10" title={x.source}>
+                        <div className="truncate">{x.label}</div>
+                      </td>
+                      {g.roles.map(r => {
+                        const v = x.verdicts[r] || { v: 'non' };
+                        const def = VERDICTS[v.v] || VERDICTS.non;
+                        return (
+                          <td key={r} className="px-1.5 text-center"
+                            title={`${nomRole(g, r)} — ${def.aide}${v.note ? ` : ${v.note}` : ''}\n${x.source}`}>
+                            <Pastille def={def} />
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  ))}
+                </Fragment>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+
+      <Legende defs={VERDICTS}>
+        La ligne d’un module porte son plafond, rôle par rôle.
+      </Legende>
     </div>
   );
 }
@@ -188,7 +289,7 @@ export default function RolesPlafonds() {
   }
 
   async function supprimerRole(code) {
-    const lib = data.libelles?.[code] || code;
+    const lib = nomRole(data, code);
     if (!confirm(`Supprimer le rôle « ${lib} » ?\n\nRefusé si des comptes le portent encore.`)) return;
     const rep = await fetch(`/api/profils-acces/roles/${encodeURIComponent(code)}`, {
       method: 'DELETE', headers: authHeaders() });
@@ -218,149 +319,124 @@ export default function RolesPlafonds() {
     } finally { setEnCours(null); }
   }
 
-  if (!data) return <div className="p-5 text-sm text-slate-400">Chargement…</div>;
+  if (!data) return <div className="text-sm text-slate-400">Chargement…</div>;
 
   return (
-    <div className="p-5 space-y-4">
-      <div>
-        <h2 className="titre-ecran mb-0">Rôles</h2>
-        <p className="text-sm text-slate-500">
-          Ce que chaque rôle autorise au mieux. Les cases d'une fiche affinent à l'intérieur.
-        </p>
-      </div>
-
+    <div className="space-y-4">
       {message && (
-        <div className={`px-4 py-2.5 rounded-lg text-[13px] flex items-start justify-between gap-3 ${
-          message.type === 'err' ? 'bg-red-500 border border-red-500 text-white'
-                                 : 'bg-amber-500 border border-amber-500 text-white'}`}>
+        <div className="bloc-etat px-4 py-2.5 text-[13px] flex items-start justify-between gap-3"
+          data-etat={message.type === 'err' ? 'corriger' : 'surveiller'}>
           <span>{message.texte}</span>
-          <button onClick={() => setMessage(null)} className="opacity-60">✕</button>
+          <button onClick={() => setMessage(null)} className="text-slate-400">✕</button>
         </div>
       )}
 
-      <div className="border border-slate-200 rounded-xl overflow-x-auto bg-white">
-        <table className="w-full text-sm border-collapse">
-          <thead>
-            <tr className="bg-slate-50 border-b border-slate-200 text-[10px] uppercase
-                           tracking-wide text-slate-500">
-              <th className="px-3 py-2 text-left sticky left-0 bg-slate-50 min-w-[190px]">Rôle</th>
-              {MODULES_ACCES.map(m => (
-                <th key={m.key} className="px-1 py-2 w-24" title={m.desc}>
-                  <div className="flex justify-center text-slate-400">
-                    <m.Icone size={14} stroke={1.6} />
-                  </div>
-                  <div className="text-[10px] text-slate-500 leading-tight mt-0.5">{m.label}</div>
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {data.roles.map(role => {
-              const fige = DIRECTION.includes(role);
-              return (
-                <tr key={role} className="border-b border-slate-100 hover:bg-slate-50/60">
-                  <td className="px-3 py-2 sticky left-0 bg-white border-r border-slate-100">
-                    <div className="text-[13px] text-slate-800 flex items-center gap-1.5">
-                      {data.libelles?.[role] || LIBELLE_ROLE[role] || role}
-                      {fige && <IconLock size={12} className="text-slate-300" />}
-                      {data.personnalises?.includes(role) && (
-                        <button onClick={() => supprimerRole(role)}
-                          title="Supprimer ce rôle (refusé si des comptes le portent)"
-                          className="text-slate-300 hover:text-red-600">
-                          <IconTrash size={12} />
-                        </button>
-                      )}
-                    </div>
-                    <div className="text-[10px] text-slate-400">{role}</div>
-                  </td>
-                  {MODULES_ACCES.map(m => {
-                    const niveau = data.plafonds[role]?.[m.key] || 'rien';
-                    const n = NIVEAUX.find(x => x.val === niveau) || NIVEAUX[0];
-                    const occupe = enCours === `${role}|${m.key}`;
-                    return (
-                      <td key={m.key} className="px-1 py-2 text-center">
-                        <button onClick={() => basculer(role, m.key)} disabled={fige || occupe}
-                          title={fige
-                            ? "La direction conserve l'écriture partout"
-                            : `${n.aide} — cliquer pour changer`}
-                          className={`text-[10px] px-1.5 py-1 rounded border w-full ${n.cls}
-                            ${fige ? 'cursor-default opacity-70'
-                                   : 'hover:ring-2 hover:ring-iip-turquoise/40 cursor-pointer'}`}>
-                          {occupe ? '…' : n.label}
-                        </button>
-                      </td>
-                    );
-                  })}
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
+      <div className="carte overflow-hidden">
+        <TitreCarte titre="Plafonds par rôle"
+          droite={!nouveau && (
+            <button className="bouton controle text-[12px]"
+              onClick={() => setNouveau({ libelle: '', modele: '' })}>
+              + Nouveau rôle
+            </button>
+          )}>
+          Ce que chaque rôle autorise au mieux, module par module ; les cases d’une fiche affinent
+          à l’intérieur. Cliquer une case fait tourner le niveau.
+        </TitreCarte>
 
-      {!nouveau ? (
-        <button className="bouton text-[12px]"
-          onClick={() => setNouveau({ libelle: '', modele: '' })}>
-          + Nouveau rôle
-        </button>
-      ) : (
-        <div className="carte p-3 flex flex-wrap items-end gap-2">
-          <div>
-            <label className="block text-[11px] text-slate-500 mb-0.5">Libellé du rôle</label>
-            <input value={nouveau.libelle} autoFocus
-              onChange={e => setNouveau(n0 => ({ ...n0, libelle: e.target.value }))}
-              placeholder="ex : Conseiller numérique"
-              className="border border-slate-300 rounded px-2 py-1.5 h-9 text-sm min-w-[240px]" />
+        {nouveau && (
+          <div className="px-4 py-3 border-b border-slate-200 flex flex-wrap items-end gap-2">
+            <div>
+              <label className="block text-[11px] text-slate-500 mb-0.5">Libellé du rôle</label>
+              <input value={nouveau.libelle} autoFocus
+                onChange={e => setNouveau(n0 => ({ ...n0, libelle: e.target.value }))}
+                placeholder="ex : Conseiller numérique"
+                className="controle min-w-[240px]" />
+            </div>
+            <div>
+              <label className="block text-[11px] text-slate-500 mb-0.5">Partir des plafonds de</label>
+              <select value={nouveau.modele}
+                onChange={e => setNouveau(n0 => ({ ...n0, modele: e.target.value }))}
+                className="controle">
+                <option value="">— rien (tout fermé) —</option>
+                {data.roles.filter(r0 => !DIRECTION.includes(r0)).map(r0 => (
+                  <option key={r0} value={r0}>{nomRole(data, r0)}</option>
+                ))}
+              </select>
+            </div>
+            <button className="bouton bouton-fort controle disabled:opacity-40"
+              disabled={enCours === 'nouveau' || !nouveau.libelle.trim()} onClick={creerRole}>
+              Créer
+            </button>
+            <button className="bouton controle" onClick={() => setNouveau(null)}>Annuler</button>
+            <p className="w-full text-[11px] text-slate-500 m-0">
+              Le rôle naît avec ces plafonds ; réglez-les ensuite écran par écran dans la grille.
+              Le périmètre de sections se pose sur la fiche de chaque personne.
+            </p>
           </div>
-          <div>
-            <label className="block text-[11px] text-slate-500 mb-0.5">Partir des plafonds de</label>
-            <select value={nouveau.modele}
-              onChange={e => setNouveau(n0 => ({ ...n0, modele: e.target.value }))}
-              className="border border-slate-300 rounded px-2 py-1.5 h-9 text-sm">
-              <option value="">— rien (tout fermé) —</option>
-              {data.roles.filter(r0 => !DIRECTION.includes(r0)).map(r0 => (
-                <option key={r0} value={r0}>{data.libelles?.[r0] || LIBELLE_ROLE[r0] || r0}</option>
-              ))}
-            </select>
-          </div>
-          <button className="bouton bouton-fort disabled:opacity-40"
-            disabled={enCours === 'nouveau' || !nouveau.libelle.trim()} onClick={creerRole}>
-            Créer
-          </button>
-          <button className="bouton" onClick={() => setNouveau(null)}>Annuler</button>
-          <p className="w-full text-[11px] text-slate-500 m-0">
-            Le rôle naît avec ces plafonds ; réglez-les ensuite écran par écran dans la grille.
-            Le périmètre de sections se pose sur la fiche de chaque personne.
-          </p>
+        )}
+
+        <div className="overflow-x-auto">
+          <table className="w-full table-fixed border-collapse text-[13px]">
+            <thead>
+              <tr className="tab-entete">
+                <th className={`${COL_PREMIERE} px-3 py-1.5 text-left align-bottom sticky left-0 z-10`}
+                  style={{ background: 'var(--tab-repere)' }}>Rôle</th>
+                <EnteteModules />
+                <th aria-hidden="true" />
+              </tr>
+            </thead>
+            <tbody>
+              {data.roles.map(role => {
+                const fige = DIRECTION.includes(role);
+                return (
+                  <tr key={role} className={`${HAUTEUR_LIGNE} bg-white border-b border-slate-100`}>
+                    <td className={`${COL_PREMIERE} px-3 sticky left-0 bg-white z-10 border-r border-slate-100`}>
+                      <div className="flex items-center gap-1.5 truncate" style={{ color: 'var(--c-texte)' }}>
+                        <span className="truncate">{nomRole(data, role)}</span>
+                        {fige && <IconLock size={12} className="text-slate-300 flex-none" />}
+                        {data.personnalises?.includes(role) && (
+                          <button onClick={() => supprimerRole(role)}
+                            title="Supprimer ce rôle (refusé si des comptes le portent)"
+                            className="text-slate-300 hover:text-red-600 flex-none">
+                            <IconTrash size={12} />
+                          </button>
+                        )}
+                      </div>
+                      <div className="text-[10px] text-slate-400 truncate">{role}</div>
+                    </td>
+                    {MODULES_ACCES.map(m => {
+                      const niveau = data.plafonds[role]?.[m.key] || 'rien';
+                      const n = NIVEAUX_DROIT[niveau] || NIVEAUX_DROIT.rien;
+                      return (
+                        <td key={m.key} className={`${COL_MODULE} px-1.5 text-center`}>
+                          <CaseDroit niveau={niveau} occupe={enCours === `${role}|${m.key}`}
+                            disabled={fige || enCours === `${role}|${m.key}`}
+                            onClick={() => basculer(role, m.key)}
+                            title={fige ? "La direction conserve l'écriture partout"
+                                        : `${m.label} — ${n.aide} — cliquer pour changer`} />
+                        </td>
+                      );
+                    })}
+                    <td aria-hidden="true" />
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
         </div>
-      )}
 
-      <div className="flex flex-wrap gap-3 text-[11px] text-slate-600">
-        {NIVEAUX.map(n => (
-          <span key={n.val}>
-            <span className={`px-1.5 py-0.5 rounded border ${n.cls}`}>{n.label}</span> {n.aide}
+        <Legende defs={NIVEAUX_DROIT}>
+          <span title={"Le plafond est un maximum, non une attribution : une personne n'obtient un droit que si la case "
+            + "correspondante est aussi cochée sur sa fiche. Abaisser un plafond retire le droit à tous ceux qui "
+            + "portent ce rôle, immédiatement. Le niveau « validation » suppose que l'écran sache transmettre une "
+            + "demande ; ailleurs, la saisie est refusée avec un message explicite."}>
+            <IconLock size={11} className="inline -mt-0.5" /> la direction reste en écriture partout : c’est elle
+            qui répare les erreurs de paramétrage.
           </span>
-        ))}
+        </Legende>
       </div>
 
-      <div className="px-4 py-3 rounded-xl bg-slate-50 border border-slate-200 text-[12px]
-                      text-slate-600 space-y-1.5">
-        <p className="flex items-start gap-1.5">
-          <IconAlertTriangle size={14} className="mt-0.5 flex-none text-slate-400" />
-          Le plafond est un maximum, non une attribution : une personne n'obtient un droit que si
-          la case correspondante est également cochée sur sa fiche. Abaisser un plafond retire le
-          droit à tous ceux qui portent ce rôle, immédiatement.
-        </p>
-        <p>
-          <b>La direction reste figée en écriture</b> sur tous les modules : c'est elle qui répare
-          les erreurs de paramétrage, et se fermer la porte rendrait toute correction impossible.
-        </p>
-        <p>
-          Le niveau <b>validation</b> suppose que l'écran sache transmettre une demande. Là où ce
-          n'est pas encore le cas, la saisie est refusée avec un message explicite plutôt
-          qu'appliquée en silence.
-        </p>
-      </div>
+      <Gestes plafonds={data.plafonds} />
 
       <Constat />
     </div>

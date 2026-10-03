@@ -23,6 +23,7 @@ import { Router } from 'express';
 import db from '../db/index.js';
 import { authRequired, roleRequired } from '../middleware/auth.js';
 import { MODULES, ROLES, NIVEAUX, invaliderPlafonds, rolesConnus } from '../middleware/permissions.js';
+import { tableauGestes } from '../lib/gestes.js';
 
 const r = Router();
 
@@ -204,6 +205,21 @@ r.get('/plafonds', authRequired, (req, res) => {
   const rc = rolesConnus();
   res.json({ roles: rc.codes, libelles: rc.libelles, personnalises: rc.definis,
              modules: MODULES, niveaux: NIVEAUX, plafonds: par });
+});
+
+/* LES GESTES — qui peut faire quoi, au-delà du module (Charles, 3 octobre
+ * 2026 : « il faut les gestes »). EN LECTURE : le catalogue décrit ce que le
+ * code applique aujourd'hui (lib/gestes.js), il n'autorise rien. Mêmes rôles,
+ * dans le même ordre, que la grille des plafonds ; même réserve d'accès que
+ * l'écran qui le montre. */
+r.get('/gestes', authRequired, roleRequired('admin', 'directeur', 'directeur_adjoint'), (req, res) => {
+  const lignes = db.prepare('SELECT role, module, niveau FROM role_plafond').all();
+  const par = {};
+  for (const l of lignes) (par[l.role] = par[l.role] || {})[l.module] = l.niveau;
+  const rc = rolesConnus();
+  res.json({ roles: rc.codes, libelles: rc.libelles,
+             mode_modules: process.env.PERMISSIONS_MODE === 'strict' ? 'strict' : 'constat',
+             ...tableauGestes(rc.codes, (role, module) => par[role]?.[module] ?? null) });
 });
 
 /* CRÉER UN RÔLE — la liste cesse d'être une constante du code. Un rôle défini

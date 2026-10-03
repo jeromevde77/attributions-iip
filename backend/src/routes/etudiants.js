@@ -2556,7 +2556,7 @@ export function sectionRattachement(etudId, annee = null) {
    2 octobre 2026 : « la coordination doit être oui pour tous ces gestes »).
    Exception explicite à la règle « un coordinateur n'écrit jamais directement »,
    comme la valorisation — et le périmètre se pose sur chaque porte. */
-const PEUT_COMPOSER_PAE = ['admin', 'directeur', 'directeur_adjoint', 'editeur', 'secretariat', 'coordination'];
+export const PEUT_COMPOSER_PAE = ['admin', 'directeur', 'directeur_adjoint', 'editeur', 'secretariat', 'coordination'];
 r.post('/:id/pae/confirmer', authRequired,
        roleRequired(...PEUT_COMPOSER_PAE),
        (req, res) => {
@@ -3543,7 +3543,7 @@ export function revuePAE(etudId, annee) {
    · Elle ne le connaît pas (notes jamais importées) : la note du cours est
      saisie, et vaut pour chacun de ses acquis.
    Une note déjà encodée cette année pour un acquis n'est jamais écrasée. */
-const PEUT_REPORTER = ['admin', 'directeur', 'directeur_adjoint', 'editeur', 'coordination'];
+export const PEUT_REPORTER = ['admin', 'directeur', 'directeur_adjoint', 'editeur', 'coordination'];
 r.put('/:id/revue-pae/report', authRequired, roleRequired(...PEUT_REPORTER), (req, res) => {
   const id = Number(req.params.id);
   if (!etudiantPermis(req, res, id)) return;

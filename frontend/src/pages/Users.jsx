@@ -4,6 +4,8 @@ import { getUser, api } from '../lib/api.js';
 import { IconPlus, IconKey, IconTrash, IconAlertTriangle,
          IconShieldCheck, IconShieldOff } from '@tabler/icons-react';
 import { MODULES_ACCES, plafondDe, droitEffectif, LIBELLE_DROIT, estDirection, usePlafonds } from '../lib/modules.js';
+import { COL_PREMIERE, COL_MODULE, HAUTEUR_LIGNE, NIVEAUX_DROIT, CaseDroit, EnteteModules, Legende,
+         TitreCarte } from '../components/GrilleAcces.jsx';
 import { Fenetre, GroupeFenetre, BoutonFenetre } from '../components/ui.jsx';
 
 const ROLE_LABEL = {
@@ -11,7 +13,7 @@ const ROLE_LABEL = {
   directeur: 'Directeur',
   directeur_adjoint: 'Directeur adjoint',
   secretariat: 'Secrétariat',
-  editeur: 'Éditeur',
+  editeur: 'Éditeur (ancien nom — à convertir)',
   coordination: 'Coordination',
   professeur: 'Professeur',
   consultation: 'Consultation',
@@ -39,7 +41,7 @@ export default function Users({ embedded = false }) {
   const [profils, setProfils] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState({ email: '', nom_complet: '', role: 'editeur', password: '', sections: [] });
+  const [form, setForm] = useState({ email: '', nom_complet: '', role: 'secretariat', password: '', sections: [] });
   const [editingSections, setEditingSections] = useState(null); // {userId, sections} quand on édite le périmètre
   const [error, setError] = useState('');
   // La liste des rôles vient du serveur : les rôles définis par la direction
@@ -57,7 +59,8 @@ export default function Users({ embedded = false }) {
       setUsers(u); setAllSections(s); setProfils(Array.isArray(p) ? p : []);
       try {
         const pl = await authFetch('/api/profils-acces/plafonds');
-        setRolesDispo((pl.roles || []).map(c => [c, pl.libelles?.[c] || ROLE_LABEL[c] || c]));
+        // « Éditeur » ne s'attribue plus : c'est l'ancien nom du secrétariat.
+        setRolesDispo((pl.roles || []).filter(c => c !== 'editeur').map(c => [c, pl.libelles?.[c] || ROLE_LABEL[c] || c]));
       } catch { setRolesDispo(null); }
     }
     catch (e) { setError(e.message); }
@@ -74,7 +77,7 @@ export default function Users({ embedded = false }) {
     try {
       await authFetch('/api/users', { method: 'POST', body: JSON.stringify(form) });
       setShowForm(false);
-      setForm({ email: '', nom_complet: '', role: 'editeur', password: '', sections: [] });
+      setForm({ email: '', nom_complet: '', role: 'secretariat', password: '', sections: [] });
       load();
     } catch (e) { setError(e.message); }
   }
@@ -196,17 +199,14 @@ export default function Users({ embedded = false }) {
     <div className={embedded ? 'space-y-4' : 'p-6 space-y-4'}>
       {/* UNE LIGNE, PAS UN PARAGRAPHE (Charles, 26 septembre 2026 : « alignements…
           design à revoir »). L'explication complète reste au survol. */}
-      <div className="flex items-center justify-between gap-4 flex-wrap">
-        {!embedded && <h1 className="titre-ecran">Accès à Lucie</h1>}
+      {!embedded && <div className="flex items-center justify-between gap-4 flex-wrap">
+        <h1 className="titre-ecran">Accès à Lucie</h1>
         <p className="text-[12px] text-slate-500 min-w-0 flex-1 m-0"
           title="Un même droit modifiable à deux endroits, c'est deux endroits où l'on ne sait plus lequel a écrit en dernier. Ce que chaque rôle autorise au mieux se décide dans « Rôles et plafonds ». Seuls les comptes sans fiche — administrateur technique, prestataire extérieur — se règlent ici.">
           <b className="text-slate-700">Qui a accès, et à quoi.</b> Le maximum de chaque rôle est la grille
           au-dessus ; « réduit » marque une case que la fiche de la personne abaisse (onglet « Accès Lucie »).
         </p>
-        <button onClick={() => setShowForm(true)} className="bouton-fort controle inline-flex items-center gap-1.5 px-3">
-          <IconPlus size={16} /> Compte sans fiche
-        </button>
-      </div>
+      </div>}
 
       {error && <div className="bg-red-50 text-red-700 text-sm rounded p-3 mb-3 border-l-4 border-l-red-500">{error}</div>}
 
@@ -268,6 +268,11 @@ export default function Users({ embedded = false }) {
       )}
       <MatriceAcces users={users} sectionsDispo={allSections} profils={profils}
         moiId={me?.id}
+        action={
+          <button onClick={() => setShowForm(true)} className="bouton controle inline-flex items-center gap-1.5 px-3 text-[12px]">
+            <IconPlus size={14} /> Compte sans fiche
+          </button>
+        }
         onProfil={async (u, profilId) => {
           if (!profilId) return;
           const p = profils.find(x => String(x.id) === String(profilId));
@@ -374,7 +379,7 @@ export default function Users({ embedded = false }) {
 // personnel. Chaque case se modifie d'un clic — le droit tourne entre les
 // valeurs que le rôle autorise — et la modification rejoint la fiche de la
 // personne, puisque c'est la même donnée.
-function MatriceAcces({ users, sectionsDispo, profils, onModifie, onProfil,
+function MatriceAcces({ users, sectionsDispo, profils, onModifie, onProfil, action,
                        onBasculerActif, onMotDePasse, onReinitMfa, peutReinitMfa,
                        onRetirer, moiId }) {
   // Un profil est appliqué si le rôle correspond ET que les cases sont
@@ -463,22 +468,47 @@ function MatriceAcces({ users, sectionsDispo, profils, onModifie, onProfil,
   const reglableIci = u => !u.professeur_id;
 
   const Ligne = ({ u }) => (
-    <tr className={`hover:bg-slate-50/60 ${u.actif ? '' : 'opacity-55'}`}>
-      <td className="sticky left-0 bg-white border-r border-b border-slate-100 px-3 py-1.5">
-        <div className="text-[13px] text-slate-800 truncate max-w-[180px]">
+    <tr className={`${HAUTEUR_LIGNE} bg-white ${u.actif ? '' : 'opacity-55'}`}>
+      <td className={`${COL_PREMIERE} sticky left-0 z-10 bg-white border-r border-b border-slate-100 px-3`}>
+        <div className="truncate" style={{ color: 'var(--c-texte)' }}>
           {nomDepuisChaine(u.nom_complet) || u.email}
         </div>
-        <div className="text-[10px] text-slate-400 truncate max-w-[180px]" title={u.email}>
+        <div className="text-[10px] text-slate-400 truncate" title={u.email}>
           {u.role} · {u.email}
         </div>
       </td>
 
+      {MODULES_ACCES.map(m => {
+        const droit = droitEffectif(u, m.key);
+        const d = LIBELLE_DROIT[droit] || LIBELLE_DROIT.rien;
+        const modifiable = !!cycle(u, m.key) && reglableIci(u);
+        /* RÉDUIT PAR LA FICHE (27 septembre 2026) : la grille des rôles, au-dessus,
+           donne le maximum ; une case plus basse vient de la fiche de la
+           personne. Sans le dire, les deux tableaux semblaient se contredire. */
+        const RANG = { rien: 0, lit: 1, validation: 2, ecrit: 3 };
+        const max = plafondDe(u.role, m.key);
+        const reduit = (RANG[droit] ?? 0) < (RANG[max] ?? 0);
+        const occupe = enCours === `${u.id}|${m.key}`;
+        return (
+          <td key={m.key} className={`${COL_MODULE} border-b border-slate-100 px-1.5 text-center`}>
+            <CaseDroit niveau={droit} occupe={occupe} note={reduit ? 'réduit' : null}
+              onClick={() => modifiable && basculer(u, m.key)}
+              disabled={!modifiable || occupe}
+              title={reduit
+                ? `${m.label} — le rôle permet « ${(LIBELLE_DROIT[max] || {}).texte || max} », la fiche réduit à « ${d.texte} »`
+                : modifiable
+                ? `${m.label} — cliquer pour changer`
+                : `${m.label} — ${droit === 'rien' ? `le rôle ${u.role} ne le permet pas` : `le maximum du rôle ${u.role}`}`} />
+          </td>
+        );
+      })}
+
       {/* Profil : il pose le rôle et les cases d'un coup. Croisé avec le
           périmètre de la colonne suivante, il donne « coordination sur TIM ». */}
-      <td className="border-b border-slate-100 px-2 py-1.5">
+      <td className="border-b border-l border-slate-100 px-2 py-1.5">
         <select value={profilCourant(u)} disabled={u.id === moiId}
           onChange={e => onProfil(u, e.target.value)}
-          className="w-full border border-slate-200 rounded px-1.5 py-1 text-[11px] bg-white">
+          className="w-full border border-slate-200 rounded px-1.5 py-1 text-[11px] bg-white truncate">
           <option value="">— personnalisé —</option>
           {(profils || []).map(p => <option key={p.id} value={p.id}>{p.nom}</option>)}
         </select>
@@ -591,9 +621,8 @@ function MatriceAcces({ users, sectionsDispo, profils, onModifie, onProfil,
             retirait l'accès à quelqu'un ET faisait disparaître sa ligne. */}
         <button onClick={() => reglableIci(u) && onBasculerActif(u)}
           disabled={u.id === moiId || !reglableIci(u)}
-          className={`text-[10px] px-1.5 py-0.5 rounded ${u.actif
-            ? 'bg-emerald-500 text-white' : 'bg-slate-100 text-slate-500'}
-            ${!reglableIci(u) ? 'cursor-default' : ''}`}
+          data-etat={u.actif ? 'reussi' : 'neutre'}
+          className={`pastille-etat ${!reglableIci(u) ? 'cursor-default' : ''}`}
           title={u.id === moiId ? 'Votre propre compte'
             : reglableIci(u) ? 'Activer ou désactiver'
             : 'Se règle sur la fiche de la personne, onglet « Accès Lucie »'}>
@@ -624,35 +653,6 @@ function MatriceAcces({ users, sectionsDispo, profils, onModifie, onProfil,
         )}
       </td>
 
-      {MODULES_ACCES.map(m => {
-        const droit = droitEffectif(u, m.key);
-        const d = LIBELLE_DROIT[droit] || LIBELLE_DROIT.rien;
-        const modifiable = !!cycle(u, m.key) && reglableIci(u);
-        /* RÉDUIT PAR LA FICHE (27 septembre 2026) : la grille des rôles, au-dessus,
-           donne le maximum ; une case plus basse vient de la fiche de la
-           personne. Sans le dire, les deux tableaux semblaient se contredire. */
-        const RANG = { rien: 0, lit: 1, validation: 2, ecrit: 3 };
-        const max = plafondDe(u.role, m.key);
-        const reduit = (RANG[droit] ?? 0) < (RANG[max] ?? 0);
-        const occupe = enCours === `${u.id}|${m.key}`;
-        return (
-          <td key={m.key} className="border-b border-slate-100 px-1 py-1.5 text-center">
-            <button onClick={() => modifiable && basculer(u, m.key)}
-              disabled={!modifiable || occupe}
-              title={reduit
-                ? `${m.label} — le rôle permet « ${(LIBELLE_DROIT[max] || {}).texte || max} », la fiche réduit à « ${d.texte} »`
-                : modifiable
-                ? `${m.label} — cliquer pour changer`
-                : `${m.label} — ${droit === 'rien' ? `le rôle ${u.role} ne le permet pas` : `le maximum du rôle ${u.role}`}`}
-              className={`text-[10px] px-1.5 py-0.5 rounded transition ${d.cls} ${
-                modifiable ? 'hover:ring-2 hover:ring-iip-turquoise/40 cursor-pointer' : 'cursor-default'}`}>
-              {occupe ? '…' : d.texte}
-            </button>
-            {reduit && <span aria-hidden="true" className="block text-[9px] leading-none text-slate-400 mt-0.5">réduit</span>}
-          </td>
-        );
-      })}
-
       <td className="border-b border-l border-slate-100 px-2 py-1.5 whitespace-nowrap text-right">
         <button onClick={() => onMotDePasse(u)}
           title="Envoyer à cette personne un lien pour choisir son mot de passe"
@@ -671,80 +671,52 @@ function MatriceAcces({ users, sectionsDispo, profils, onModifie, onProfil,
   );
 
   return (
-    <div>
-      <div className="carte overflow-visible">
-        <div className="px-4 py-2 tab-repere">
-          <span className="text-[13px] font-semibold text-iip-blue">
-            Accès — {actifs.length} compte(s) actif(s)
-            {tous.length > actifs.length && (
-              <span className="font-normal text-slate-500">
-                {' '}· {tous.length - actifs.length} désactivé(s)
-              </span>
-            )}
-          </span>
-          <span className="text-[11px] text-slate-500 ml-2">
-            en lecture — pour modifier, ouvrez la fiche de la personne
-          </span>
-        </div>
+    <div className="carte overflow-visible">
+      <TitreCarte droite={action}
+        titre={<>Accès par personne <span className="text-[12px] font-normal text-slate-500">
+          — {actifs.length} compte(s) actif(s)
+          {tous.length > actifs.length && <> · {tous.length - actifs.length} désactivé(s)</>}
+        </span></>}>
+        <span title="Un même droit modifiable à deux endroits, c'est deux endroits où l'on ne sait plus lequel a écrit en dernier. Seuls les comptes sans fiche — administrateur technique, prestataire extérieur — se règlent ici.">
+          En lecture : le maximum de chaque rôle est la grille des plafonds ; « réduit » marque une case
+          que la fiche de la personne abaisse (onglet « Accès Lucie »), où l’on modifie.
+        </span>
+      </TitreCarte>
 
-        <div className="overflow-x-auto">
-          <table className="text-sm border-collapse w-full">
-            <thead>
-              <tr className="bg-white">
-                <th className="sticky left-0 bg-white border-b border-r border-slate-200 px-3 py-2 text-left min-w-[190px]">
-                  <span className="text-[10px] uppercase tracking-wide text-slate-500">Personne</span>
-                </th>
-                <th className="border-b border-slate-200 px-2 py-2 w-36">
-                  <span className="text-[10px] uppercase tracking-wide text-slate-500">Profil</span>
-                </th>
-                <th className="border-b border-slate-200 px-2 py-2 w-28">
-                  <span className="text-[10px] uppercase tracking-wide text-slate-500">Périmètre</span>
-                </th>
-                <th className="border-b border-slate-200 px-2 py-2 w-16">
-                  <span className="text-[10px] uppercase tracking-wide text-slate-500">État</span>
-                </th>
-                <th className="border-b border-slate-200 px-2 py-2 w-24">
-                  <span className="text-[10px] uppercase tracking-wide text-slate-500"
-                    title="Vérification en deux temps">2 temps</span>
-                </th>
-                {MODULES_ACCES.map(m => (
-                  <th key={m.key} className="border-b border-slate-200 px-1 py-2 w-20" title={m.desc}>
-                    <div className="flex justify-center text-slate-400"><m.Icone size={14} stroke={1.6} /></div>
-                    <div className="text-[10px] text-slate-500 leading-tight">{m.label}</div>
-                  </th>
-                ))}
-                <th className="border-b border-l border-slate-200 px-2 py-2 w-24">
-                  <span className="text-[10px] uppercase tracking-wide text-slate-500">Compte</span>
-                </th>
+      <div className="overflow-x-auto">
+        <table className="w-full table-fixed border-collapse text-[13px]">
+          <thead>
+            <tr className="tab-entete">
+              <th className={`${COL_PREMIERE} sticky left-0 z-10 border-r border-slate-200 px-3 py-1.5 text-left align-bottom`}
+                style={{ background: 'var(--tab-repere)' }}>Personne</th>
+              <EnteteModules />
+              <th className="w-36 min-w-[9rem] border-l border-slate-200 px-2 py-1.5 align-bottom">Profil</th>
+              <th className="w-28 min-w-[7rem] px-2 py-1.5 align-bottom">Périmètre</th>
+              <th className="w-16 min-w-[4rem] px-2 py-1.5 align-bottom">État</th>
+              <th className="w-24 min-w-[6rem] px-2 py-1.5 align-bottom" title="Vérification en deux temps">2 temps</th>
+              <th className="w-24 min-w-[6rem] border-l border-slate-200 px-2 py-1.5 align-bottom">Compte</th>
+            </tr>
+          </thead>
+          <tbody>
+            {techniques.map(u => <Ligne key={u.id} u={u} />)}
+
+            {techniques.length > 0 && personnel.length > 0 && (
+              <tr className="tab-repere">
+                <td colSpan={6 + MODULES_ACCES.length}
+                  className="px-3 py-1 text-[11px] font-semibold">
+                  Membres du personnel — leurs accès se règlent sur leur fiche
+                </td>
               </tr>
-            </thead>
-            <tbody>
-              {techniques.map(u => <Ligne key={u.id} u={u} />)}
+            )}
 
-              {techniques.length > 0 && personnel.length > 0 && (
-                <tr>
-                  <td colSpan={6 + MODULES_ACCES.length}   /* +1 : colonne « 2 temps » */
-                    className="bg-slate-100 border-y border-slate-300 px-3 py-1 text-[10px] uppercase tracking-wide text-slate-500 font-semibold">
-                    Membres du personnel — leurs accès se règlent sur leur fiche
-                  </td>
-                </tr>
-              )}
-
-              {personnel.map(u => <Ligne key={u.id} u={u} />)}
-            </tbody>
-          </table>
-        </div>
-
-        <div className="px-4 py-2 border-t border-slate-200 bg-slate-50 flex flex-wrap gap-3 text-[11px] text-slate-600">
-          <span><span className="px-1.5 py-0.5 rounded bg-emerald-500 text-white">écrit</span> modifie directement</span>
-          <span><span className="px-1.5 py-0.5 rounded bg-amber-500 text-white">validation</span> encode, la direction tranche</span>
-          <span><span className="px-1.5 py-0.5 rounded bg-sky-500 text-white">lit</span> consultation seule</span>
-          <span className="text-slate-400">— aucun accès</span>
-          <span className="flex-1 text-right italic">
-            Une case grisée signale un droit que le rôle interdit : changez le rôle pour l'ouvrir.
-          </span>
-        </div>
+            {personnel.map(u => <Ligne key={u.id} u={u} />)}
+          </tbody>
+        </table>
       </div>
+
+      <Legende defs={NIVEAUX_DROIT}>
+        Une case grisée signale un droit que le rôle interdit : changez le rôle pour l’ouvrir.
+      </Legende>
     </div>
   );
 }

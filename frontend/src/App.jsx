@@ -30,6 +30,7 @@ import {
 import Login from './pages/Login.jsx';
 import MotDePasse from './pages/MotDePasse.jsx';
 import DemandeVA from './pages/DemandeVA.jsx';
+import RechercheLucie from './components/RechercheLucie.jsx';
 import MonCompte from './components/MonCompte.jsx';
 import ApercuGlobal from './components/ApercuGlobal.jsx';
 import Dashboard from './pages/Dashboard.jsx';
@@ -619,6 +620,7 @@ function ProtectedLayout({ children }) {
                 barre du haut, qui est le seul point fixe — à côté de la
                 version et du compte, avec les autres choses qui ne dépendent
                 pas de là où l'on se trouve. */}
+            <RechercheLucie />
             <button onClick={basculerMode} aria-label="Changer le mode d'affichage"
               title={mode === 'sombre' ? 'Menus en gris pâle' : 'Menus en marine'}
               className="w-8 h-8 grid place-items-center rounded-champ text-slate-400
