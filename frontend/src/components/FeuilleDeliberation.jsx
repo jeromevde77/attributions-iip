@@ -3,7 +3,7 @@ import { nomPropre } from '../lib/nom.js';
 import {
   IconX, IconSearch, IconAlertTriangle, IconChevronLeft, IconChevronRight,
   IconArrowUp, IconRepeat, IconList, IconFileText, IconMessage, IconBrush, IconGift,
-  IconRotate, IconBan,
+  IconRotate, IconBan, IconTable, IconLock,
 } from '@tabler/icons-react';
 import { authHeaders } from '../lib/api.js';
 import { Fenetre } from './ui.jsx';
@@ -574,44 +574,47 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose, enPage = fa
             )}
   </>);
 
-  const controles = (
-          <div className="flex items-center gap-2">
+  /* QUATRE VUES DE LA MÊME UNITÉ, UN SEUL SÉLECTEUR (Charles, 3 octobre 2026 :
+     « bouton marche pas… utile encore ? »). « Fiche / Tableau » basculait un
+     drapeau que l'écran de clôture recouvrait : depuis la clôture, le clic ne
+     faisait rien de visible. Fiche · Tableau · En lot · Clôture sont les faces
+     d'un même choix, et chacune s'atteint de partout. */
+  const vueActive = etape === 'cloture' ? 'cloture' : lot ? 'lot' : tableau ? 'tableau' : 'fiche';
+  const allerA = v => {
+    setLot(v === 'lot'); setTableau(v === 'tableau');
+    setEtape(v === 'cloture' ? 'cloture' : 'fiche');
+  };
+  const rechercheTexte = recherche;
+  const champRecherche = (
             <div className="relative">
               <IconSearch size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
-              <input value={recherche}
+              <input value={rechercheTexte}
                 onChange={e => { setRecherche(e.target.value); setIdx(0); }}
                 placeholder="Filtrer…"
-                className="controle controle-icone w-36" />
+                className="controle controle-icone w-40" />
             </div>
-            <button onClick={() => { setTableau(t => !t); setLot(false); }}
-              className={`bouton controle inline-flex items-center gap-1.5 ${tableau ? 'bg-iip-blue text-white' : ''}`}>
-              {tableau ? <><IconFileText size={14} /> Fiche</> : <><IconList size={14} /> Tableau</>}
-            </button>
-            {/* L'AJOURNEMENT EN PAQUET. Après les réussites de plein droit, il
-                reste souvent un bloc d'évidences — ceux qui n'ont rien
-                présenté. Les passer un par un coûte une heure de Conseil pour
-                une décision que personne ne discute. */}
-            <button onClick={() => { setLot(l => !l); setTableau(false); }}
-              title="Ajourner plusieurs étudiants d'un coup, avec une justification commune"
-              className={`bouton controle inline-flex items-center gap-1.5 ${lot ? 'bg-iip-blue text-white' : ''}`}>
-              <IconList size={14} /> Ajourner en lot
-            </button>
-            {/* LA CLÔTURE, ATTEIGNABLE DE PARTOUT. Elle ne l'était qu'au bout
-                de la revue — après le dernier étudiant. Or c'est elle qui
-                ouvre la seconde session, produit les documents et ferme le
-                procès-verbal : la chercher ne devrait pas demander de
-                reparcourir quatre-vingts fiches. */}
-            <button onClick={() => { setLot(false); setTableau(false); setEtape('cloture'); }}
-              title="Écran de clôture : visite des copies, dates de seconde session, documents"
-              className={`bouton controle inline-flex items-center gap-1.5 ${etape === 'cloture' ? 'bg-iip-blue text-white' : ''}`}>
-              Clôture
-            </button>
-            {enPage && (
+  );
+  const vues = (
+            <div className="segments" role="tablist" aria-label="Vue de l'unité">
+              {[['fiche', 'Fiche', IconFileText, 'Un étudiant à la fois'],
+                ['tableau', 'Tableau', IconTable, "Tous les étudiants, toutes les notes d'un coup d'œil"],
+                ['lot', 'En lot', IconList, "Ajourner plusieurs étudiants d'un coup, avec une justification commune"],
+                ['cloture', 'Clôture', IconLock, 'Visite des copies, dates de seconde session, documents, clôture'],
+              ].map(([v, lib, Ic, aide]) => (
+                <button key={v} type="button" title={aide} onClick={() => allerA(v)}
+                  className={`inline-flex items-center gap-1.5 ${vueActive === v ? 'bg-iip-blue text-white font-semibold' : 'text-slate-600 hover:bg-slate-50'}`}>
+                  <Ic size={14} /> {lib}
+                </button>
+              ))}
+            </div>
+  );
+  const retour = enPage ? (
               <button onClick={onClose} className="bouton controle inline-flex items-center gap-1">
                 <IconChevronLeft size={14} /> Les unités
               </button>
-            )}
-          </div>
+  ) : null;
+  const controles = (
+          <div className="flex items-center gap-2 flex-wrap">{champRecherche}{vues}{retour}</div>
   );
 
   const corps = (
@@ -859,8 +862,10 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose, enPage = fa
     return (
       <div className="w-full flex flex-col">
         {/* L'en-tête ne défile pas : on doit toujours savoir de qui l'on parle. */}
-        <div className="flex-none px-0 py-1 border-b border-slate-100
-                        flex items-center justify-between gap-3 flex-wrap">
+        {/* DEUX RANGÉES ALIGNÉES (« alignement pas ok ») : le titre et ce qui
+            le cherche ; puis le périmètre (organisations, groupes) et la vue. */}
+        <div className="flex-none px-0 py-1.5 border-b border-slate-100">
+          <div className="flex items-start justify-between gap-3 flex-wrap">
           <div className="min-w-0">
             <h3 className="text-[15px] font-semibold text-iip-blue truncate">
               UE {data.ue_num} · {data.ue_nom}
@@ -874,9 +879,13 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose, enPage = fa
             <p className="text-[11.5px] text-slate-500">
               {data.section || '—'} · {annee} · {data.etudiants.length} étudiant(s)
             </p>
-            {filtres}
           </div>
-          {controles}
+          <div className="flex items-center gap-2">{champRecherche}{retour}</div>
+          </div>
+          <div className="flex items-end justify-between gap-3 flex-wrap">
+            <div className="min-w-0">{filtres}</div>
+            <div className="mt-1.5">{vues}</div>
+          </div>
         </div>
         {corps}
         {annexes}
@@ -1502,10 +1511,12 @@ function Cloture({ seance, onClore, onRetour, onPV, onReprendre, enCours, nb, aj
   }, [coursSession2, seance?.cloturee]);
 
   return (
-    <div className="space-y-3 max-w-xl mx-auto py-4">
-      <div className="px-4 py-3 rounded-xl bg-emerald-50 border border-emerald-200 border-l-4 border-l-emerald-500">
-        <div className="text-[15px] font-semibold text-emerald-900">Délibération terminée</div>
-        <p className="text-[12px] text-emerald-800">
+    <div className="grid lg:grid-cols-2 gap-3 items-start py-2">
+      {/* TOUTE LA LARGEUR (« trop vertical, il faut utiliser la page ») :
+          séance et visite des copies côte à côte, le reste sur deux colonnes. */}
+      <div data-etat="reussi" className="bloc-etat lg:col-span-2 px-4 py-3">
+        <div className="text-[15px] font-semibold">Délibération terminée</div>
+        <p className="text-[12px] text-slate-700">
           Les {nb} étudiant(s) de cette unité ont été délibérés et leurs décisions
           sont enregistrées.
         </p>
@@ -1515,7 +1526,7 @@ function Cloture({ seance, onClore, onRetour, onPV, onReprendre, enCours, nb, aj
           cliquer. Et l'appel des présences se fait à l'étape « Présences »,
           qu'on peut n'avoir jamais ouverte : le bouton y mène. */}
       {quorum && !quorum.atteint && (
-        <div className="px-3 py-2 rounded-xl bg-amber-50 border border-amber-300
+        <div className="lg:col-span-2 px-3 py-2 rounded-xl bg-amber-50 border border-amber-300
                         flex items-start justify-between gap-3">
           <span className="text-[12px] text-amber-900">
             <b>Quorum non constaté</b> — {quorum.presents} présent(s) sur {quorum.membres}
@@ -1530,7 +1541,7 @@ function Cloture({ seance, onClore, onRetour, onPV, onReprendre, enCours, nb, aj
         </div>
       )}
 
-      <div className="border border-slate-200 rounded-xl p-4 space-y-3">
+      <div className="carte bg-white p-4 space-y-3 h-full">
         <div className="flex items-start justify-between gap-3">
           <div>
             <div className="text-[13px] font-semibold text-iip-blue">Séance du Conseil</div>
@@ -1563,7 +1574,7 @@ function Cloture({ seance, onClore, onRetour, onPV, onReprendre, enCours, nb, aj
         </div>
       </div>
 
-      <div className="border border-slate-200 rounded-xl p-4 space-y-3">
+      <div className="carte bg-white p-4 space-y-3 h-full">
         <div>
           <div className="text-[13px] font-semibold text-iip-blue">Visite des copies</div>
           <p className="text-[12px] text-slate-500">
@@ -1620,7 +1631,7 @@ function Cloture({ seance, onClore, onRetour, onPV, onReprendre, enCours, nb, aj
 
       {/* La seconde session, cours par cours, portée par l'annexe 8. */}
       {ajournes > 0 && !!s2.length && (
-        <div className="border border-amber-300 bg-amber-50/60 rounded-xl p-4 space-y-3 border-l-4 border-l-amber-500">
+        <div data-etat="surveiller" className="bloc-etat lg:col-span-2 p-4 space-y-3">
           <div className="flex items-start justify-between gap-3">
             <div>
               <div className="text-[13px] font-semibold text-amber-900">Seconde session</div>
@@ -1664,7 +1675,7 @@ function Cloture({ seance, onClore, onRetour, onPV, onReprendre, enCours, nb, aj
         </div>
       )}
 
-      <div className="flex items-center justify-between gap-2">
+      <div className="lg:col-span-2 flex items-center justify-between gap-2">
         <button onClick={onRetour}
           className="px-3 py-1.5 text-[13px] rounded-lg border border-slate-300 text-slate-600">
           Revenir aux fiches
@@ -1702,7 +1713,7 @@ function Cloture({ seance, onClore, onRetour, onPV, onReprendre, enCours, nb, aj
       </div>
 
       {close && (
-        <div className="space-y-2">
+        <div className="lg:col-span-2 space-y-2">
           <p className="text-[12px] text-emerald-800 text-center">
             Séance close. Les documents peuvent être générés, imprimés, puis signés.
           </p>
