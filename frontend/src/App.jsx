@@ -27,7 +27,7 @@ import {
   IconChartBar, IconCalendarStats, IconEdit, IconSettings, IconLogout, IconMenu2, IconX,
   IconChalkboard, IconChalkboardTeacher, IconReportAnalytics,
   IconHome, IconBell, IconLibrary, IconGavel, IconSun, IconMoon,
-  IconShieldLock, IconShieldCheck,
+  IconShieldLock, IconShieldCheck, IconFlask,
 } from '@tabler/icons-react';
 
 import Login from './pages/Login.jsx';
@@ -533,16 +533,6 @@ function ProtectedLayout({ children }) {
   return (
     <div className="min-h-screen flex flex-col">
       <PreviewBanner />
-      {env === 'dev' && (
-        <div style={{
-          background: 'repeating-linear-gradient(45deg, #f59e0b, #f59e0b 12px, #d97706 12px, #d97706 24px)',
-          color: 'white', textAlign: 'center', padding: '4px 12px',
-          fontSize: '12px', fontWeight: 700, letterSpacing: '2px',
-          textShadow: '0 1px 2px rgba(0,0,0,.3)',
-        }}>
-          ⚠ ENVIRONNEMENT DE DÉVELOPPEMENT — DONNÉES FICTIVES ⚠
-        </div>
-      )}
       {/* LA BARRE DU HAUT RESTE ENTIÈRE, d'un bord à l'autre : deux panneaux
           détachés sur le même écran, c'est un panneau de trop — il faut un
           point fixe, et c'est elle. Elle suit en revanche le mode des menus,
@@ -683,6 +673,16 @@ function ProtectedLayout({ children }) {
             )}
             {/* LE BADGE SEUL, L'INFO AU CLIC (Charles, 27 septembre 2026 : « moche ;
                 on cache la date, et si je clique sur le badge, l'info apparaît »). */}
+            {/* LA DEV SE DIT À CÔTÉ DE LA VERSION, PAS EN BANDEAU (Charles, 3
+                octobre 2026) : le bandeau rayé prenait une ligne à chaque écran
+                et poussait la barre. Orange plein, le mot et l'icône. */}
+            {env === 'dev' && (
+              <span className="hidden md:inline-flex items-center gap-1.5 h-8 px-3 rounded-champ text-white font-bold text-[11px] tracking-[.08em]"
+                style={{ background: 'var(--c-attente, #E8890C)' }}
+                title="Version de développement — données de test">
+                <IconFlask size={16} stroke={2} /> DEV
+              </span>
+            )}
             <BadgeVersion versionIsNew={versionIsNew} versionDecalee={versionDecalee} verServeurNum={verServeurNum} />
             {/* LE COMPTE TIENT SUR UNE LIGNE.
                 Nom complet, rôle et « Déconnexion » s'empilaient sur trois
