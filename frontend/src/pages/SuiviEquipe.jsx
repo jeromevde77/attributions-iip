@@ -11,6 +11,7 @@ import { Fenetre, PageHeader, RailLateral, OuvrirEditions } from '../components/
 import { nomDepuisChaine, nomListe, parNom } from '../lib/nom.js';
 import PreviewModal from '../components/PreviewModal.jsx';
 import ConfierTache from '../components/ConfierTache.jsx';
+import { demander, informer } from '../lib/dialogue.jsx';
 
 /**
  * SUIVI D'ÉQUIPE — la réunion, et ce qu'elle laisse derrière elle.
@@ -170,7 +171,7 @@ export default function SuiviEquipe() {
       <div className="gouttiere-rail p-4 md:p-8">
         {ouverte ? (
           <DetailReunion reunion={ouverte} personnes={personnes} obligations={obligations}
-            types={types} perimetre={perimetre} api={api}
+            types={types} perimetre={perimetre} api={api} peutSupprimer={direction}
             onRetour={() => { setOuverte(null); chargerReunions(); chargerTaches(); }}
             onRecharger={() => { ouvrir(ouverte.id); chargerTaches(); }}
             onImprimer={version => imprimer(`/${ouverte.id}/document`, version ? { version } : {})} />
@@ -289,7 +290,7 @@ export default function SuiviEquipe() {
 // ─── UNE RÉUNION ────────────────────────────────────────────────────────────
 
 function DetailReunion({ reunion, personnes, obligations, types = [], perimetre,
-                        api, onRetour, onRecharger, onImprimer }) {
+                        api, onRetour, onRecharger, onImprimer, peutSupprimer = false }) {
   /* LA SÉANCE, EN UNE PAGE QUI SE LIT (Jérôme, 24 septembre 2026 : « c'est
    * trop compliqué, la mise en page ne va pas »). Dix cartes empilées, six
    * champs par décision, le suivi des séances précédentes au milieu : on ne
@@ -397,6 +398,22 @@ function DetailReunion({ reunion, personnes, obligations, types = [], perimetre,
             flex items-center gap-1.5 text-[color:var(--brique)]"
             title="PV intégral, notes confidentielles comprises — à ne pas diffuser">
             <IconLock size={16} /> PV intégral
+          </button>
+        )}
+        {/* DÉTRUIRE, TOUJOURS EN DERNIER — et réservé à la direction, comme la
+            route. Les tâches décidées en séance survivent : elles restent dues. */}
+        {peutSupprimer && (
+          <button onClick={async () => {
+              const nb = (reunion.taches || []).length;
+              if (!(await demander({ titre: 'Supprimer la réunion', ton: 'alerte', confirmer: 'Supprimer la réunion',
+                message: `« ${champs.titre || 'Réunion'} » du ${String(champs.date_seance || '').split('-').reverse().join('/')} : `
+                  + 'ses points, ses notes et ses présences seront effacés.'
+                  + (nb ? `\n\nLes ${nb} tâche(s) décidée(s) en séance sont conservées, sans réunion.` : '') }))) return;
+              try { await api(`/${reunion.id}`, { method: 'DELETE' }); onRetour(); }
+              catch (e) { informer(e.message || 'Suppression refusée.'); }
+            }}
+            title="Supprimer la réunion" className="bouton controle px-2.5 flex items-center gap-1.5 hover:text-white hover:bg-[color:var(--c-refuse)]">
+            <IconTrash size={16} />
           </button>
         )}
       </div>
