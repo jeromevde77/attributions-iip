@@ -694,13 +694,17 @@ function ChoixResponsables({ personnes, presents = [], tache, onChange, informes
       {cles.map((cle, i) => (
         <span key={cle} title={informes ? 'Au courant, sans en répondre'
                               : i === 0 ? "Répond de l'action" : undefined}
-          className={`group/nom inline-flex items-center text-[12px] whitespace-nowrap
+          className={`group/nom relative inline-flex items-center text-[12px] whitespace-nowrap
             ${!informes && i === 0 ? 'text-iip-blue font-semibold' : 'text-slate-600'}`}>
           {nomDeCle(cle)}
+          {/* LA CROIX SE POSE PAR-DESSUS, ELLE NE PREND PAS DE PLACE : en
+              s'élargissant au survol, elle repoussait les noms suivants et la
+              ligne sautait sous la souris. */}
           <button onClick={() => onChange(cles.filter(c => c !== cle))}
-            className="w-0 overflow-hidden group-hover/nom:w-3.5 group-hover/nom:ml-0.5 text-slate-400 hover:text-slate-700
-                       transition-[width] duration-100" title="Retirer">
-            <IconX size={11} />
+            className="absolute -top-1.5 -right-2.5 w-4 h-4 grid place-items-center rounded-full bg-white
+                       shadow-pose text-slate-500 hover:text-white hover:bg-[color:var(--c-refuse)]
+                       opacity-0 group-hover/nom:opacity-100 transition-opacity duration-100" title="Retirer">
+            <IconX size={10} stroke={2.5} />
           </button>
           {i < cles.length - 1 && <span className="text-slate-400">,</span>}
         </span>
