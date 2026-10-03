@@ -1085,15 +1085,10 @@ function ConfigAttestation() {
   const [saved, setSaved]         = useState('');
 
   useEffect(() => {
-    af('/api/config/attestation_etab').then(d => { try { setEtab(JSON.parse(d.valeur)); } catch { setEtab({}); } });
+    setEtab({});
     af('/api/config/attestation_sections').then(d => { try { setSections(JSON.parse(d.valeur)); } catch { setSections([]); } });
     af('/api/referentiels/ue-sections').then(d => setUeSections(Array.isArray(d) ? d : [])).catch(() => {});
   }, []);
-
-  const sauvegarderEtab = async () => {
-    await af('/api/config/attestation_etab', { method: 'PUT', body: JSON.stringify({ valeur: JSON.stringify(etab) }) });
-    setSaved('etab'); setTimeout(() => setSaved(''), 2000);
-  };
 
   const sauvegarderSections = async () => {
     await af('/api/config/attestation_sections', { method: 'PUT', body: JSON.stringify({ valeur: JSON.stringify(sections) }) });
@@ -1118,34 +1113,10 @@ function ConfigAttestation() {
           d'un trait, et l'on ne se demande plus dans quel onglet on est. */}
       <h2 className="text-[17px] font-semibold text-iip-blue">Configuration des attestations</h2>
 
-      {/* ── Établissement ── */}
-      <h3 className="text-[15px] font-semibold text-iip-blue">{ONGLETS_LOC[0].label}</h3>
-      {(
-        <div className="space-y-3">
-          <div className="grid grid-cols-2 gap-3">
-            {[
-              ['nom',        "Nom de l'établissement"],
-              ['adresse',    'Adresse complète'],
-              ['matricule',  'N° matricule'],
-              ['fase',       'N° FASE'],
-              ['ville',      'Ville'],
-              ['directeur',  'Directeur (Nom Prénom)'],
-              ['tel',        'Téléphone'],
-              ['site',       'Site web'],
-            ].map(([k, label]) => (
-              <div key={k} className={k === 'adresse' ? 'col-span-2' : ''}>
-                <div className="text-xs text-gray-500 mb-1">{label}</div>
-                <input value={etab[k]||''} onChange={e => setEtab(et => ({ ...et, [k]: e.target.value }))}
-                  className="w-full border border-gray-300 rounded px-2.5 py-1.5 text-sm h-9" />
-              </div>
-            ))}
-          </div>
-          <button onClick={sauvegarderEtab}
-            className={`px-4 py-2 rounded-lg text-sm font-semibold ${saved==='etab' ? 'bg-green-600 text-white' : 'bg-iip-blue text-white hover:opacity-90'}`}>
-            {saved==='etab' ? '✓ Sauvegardé' : '✓ Sauvegarder'}
-          </button>
-        </div>
-      )}
+      {/* L'ÉTABLISSEMENT N'EST PLUS ICI (3 octobre 2026 : Identité fait foi).
+          Nom, adresse, n° ECOT et FASE se règlent dans Établissement →
+          Identité, le signataire aussi ; l'attestation les lit de là. */}
+      <p className="text-[12px] text-slate-500">Nom, adresse, n° ECOT, FASE et signataire : <b>Établissement → Identité</b>. L'attestation les lit de là.</p>
 
       {/* ── Sections & Diplômes ── */}
       <h3 className="text-[15px] font-semibold text-iip-blue pt-2">{ONGLETS_LOC[1].label}</h3>
@@ -1370,12 +1341,15 @@ export default function Configuration() {
     ]},
     // Les modèles de ce qui sort de Lucie — sur papier ou par courriel.
     { label: 'Documents et envois', icon: IconFileText, items: [
-      { key: 'editeur', label: 'Modèles de pièces', icon: IconEdit },
-      { key: 'apercu', label: 'Aperçu des pièces', icon: IconFileText },
-      { key: 'contrat', label: 'Contrat', icon: IconFileText },
-      { key: 'attestation', label: 'Attestation', icon: IconAward },
-      { key: 'diplome', label: 'Modèle de diplôme', icon: IconSchool },
-      { key: 'recrutement', label: 'Recrutement', icon: IconSettings },
+      /* QUATRE ONGLETS, PAS HUIT (plan du 26 septembre 2026, rappelé par
+         Charles le 2 octobre : « tu n'as pas revu config »). L'aperçu est une
+         face de l'éditeur ; contrat, attestation, diplôme et recrutement sont
+         les faces d'un même onglet — les modèles des pièces officielles. Les
+         anciennes clés restent valables (?onglet=attestation y mène). */
+      { key: 'editeur', label: 'Modèles de pièces', icon: IconEdit,
+        faces: [['editeur', 'Écrire un modèle'], ['apercu', 'Voir une pièce']] },
+      { key: 'contrat', label: 'Pièces officielles', icon: IconAward,
+        faces: [['contrat', 'Contrat'], ['attestation', 'Attestation'], ['diplome', 'Diplôme'], ['recrutement', 'Recrutement']] },
       { key: 'due', label: "Descriptifs d'UE", icon: IconFileText },
       { key: 'courriels', label: 'Courriels', icon: IconMail },
     ]},
@@ -1402,24 +1376,29 @@ export default function Configuration() {
     /* CE QUI N'EST PAS UN RÉGLAGE. Des outils, une file de travail, des
      * données de l'année : ils rejoindront l'écran où l'on s'en sert (lot 4
      * du plan). Regroupés ici d'ici là, pour qu'on sache où ils sont. */
-    { label: 'Outils', icon: IconTool, items: [
-      { key: 'dates-ue', label: "Dates des UE", icon: IconCalendarEvent },
-      { key: 'doublons', label: 'Dossiers dédoublés', icon: IconUsers },
-      { key: 'doubles-programmes', label: 'Programmes sur deux sections', icon: IconArrowsSplit },
-      { key: 'hors-bloc', label: 'Programmes au-delà du bloc atteint', icon: IconStairsUp },
-      { key: 'controle-decisions', label: 'Contrôle des notes de décision', icon: IconCalculator },
-      { key: 'decisions-sans-inscription', label: 'Décisions sans inscription', icon: IconLinkOff },
-      { key: 'demandes', label: 'Demandes à valider', icon: IconCheck },
-      { key: 'statistiques', label: 'Effectifs et postes PNCC', icon: IconChartBar },
-      { key: 'reprise', label: "Clôturer une année reprise", icon: IconArchive },
-    ]},
+    /* ILS ONT DÉMÉNAGÉ (lot 4, 2 octobre 2026). L'entrée reste un mois,
+     * grisée, et dit où aller : le secrétariat change d'habitudes du jour au
+     * lendemain, et l'on ne cherche pas ce qu'on croit perdu. */
+    ...(new Date() < new Date('2026-11-03') ? [{ label: 'Outils', icon: IconTool, items: [
+      { key: 'dates-ue', label: "Dates des UE", icon: IconCalendarEvent, demenage: DEMENAGES['dates-ue'] },
+      { key: 'doublons', label: 'Dossiers dédoublés', icon: IconUsers, demenage: DEMENAGES.doublons },
+      { key: 'doubles-programmes', label: 'Programmes sur deux sections', icon: IconArrowsSplit, demenage: DEMENAGES['doubles-programmes'] },
+      { key: 'hors-bloc', label: 'Programmes au-delà du bloc atteint', icon: IconStairsUp, demenage: DEMENAGES['hors-bloc'] },
+      { key: 'controle-decisions', label: 'Contrôle des notes de décision', icon: IconCalculator, demenage: DEMENAGES['controle-decisions'] },
+      { key: 'decisions-sans-inscription', label: 'Décisions sans inscription', icon: IconLinkOff, demenage: DEMENAGES['decisions-sans-inscription'] },
+      { key: 'demandes', label: 'Demandes à valider', icon: IconCheck, demenage: DEMENAGES.demandes },
+      { key: 'statistiques', label: 'Effectifs et postes PNCC', icon: IconChartBar, demenage: DEMENAGES.statistiques },
+      { key: 'reprise', label: "Clôturer une année reprise", icon: IconArchive, demenage: DEMENAGES.reprise },
+    ]}] : []),
   ];
   // « QUI A FAIT QUOI » N'APPARAÎT QUE POUR L'ADMINISTRATEUR, et le serveur le
   // refuse de toute façon : un onglet visible qui rend un 403 se lit « Lucie
   // est cassée », pas « ce n'est pas pour vous ».
   const groupesVisibles = CONF_GROUPES.map(g => ({ ...g,
     items: g.items.filter(t => t.key !== 'audit' || getUser()?.role === 'admin') }));
-  const groupeActif = groupesVisibles.find(g => g.items.some(t => t.key === tab)) || groupesVisibles[0];
+  const porte = t => t.key === tab || (t.faces || []).some(([k]) => k === tab);
+  const groupeActif = groupesVisibles.find(g => g.items.some(porte)) || groupesVisibles[0];
+  const ongletActif = groupeActif.items.find(porte);
   return (
     <div className="relative" style={{ minHeight: 'calc(100vh - 64px)' }}>
       {/* VINGT-DEUX ICÔNES, ET PLUS PERSONNE NE TROUVAIT RIEN (Charles, 21
@@ -1443,14 +1422,14 @@ export default function Configuration() {
       <div className="gouttiere-rail cadre-page px-3 md:px-6 py-3 space-y-4">
         <PageHeader icon={groupeActif.icon || IconSettings} titre={`Configuration · ${groupeActif.label}`}
           sous={groupeActif.label === 'Outils'
-            ? 'Ce ne sont pas des réglages : ils rejoindront l’écran où l’on s’en sert.' : undefined} />
+            ? 'Ce ne sont pas des réglages : ils ont rejoint l’écran où l’on s’en sert. Ces entrées disparaîtront le 3 novembre.' : undefined} />
         {groupeActif.items.length > 1 && (
           <div className="flex flex-wrap items-center gap-1 border-b border-slate-200 -mt-2">
             {groupeActif.items.map(t => {
               const Icone = t.icon;
               return (
                 <button key={t.key} onClick={() => setTab(t.key)}
-                  className={`onglet-page ${tab === t.key ? 'onglet-page-actif' : ''} flex items-center gap-1.5`}>
+                  className={`onglet-page ${porte(t) ? 'onglet-page-actif' : ''} ${t.demenage ? 'opacity-60' : ''} flex items-center gap-1.5`}>
                   <Icone size={15} />{t.label}
                 </button>
               );
@@ -1462,6 +1441,15 @@ export default function Configuration() {
             )}
           </div>
         )}
+        {ongletActif?.faces && (
+          <div className="segments -mt-1">
+            {ongletActif.faces.map(([k, l]) => (
+              <button key={k} type="button" onClick={() => setTab(k)} className={tab === k ? 'bg-iip-blue text-white font-semibold' : 'text-slate-600 hover:bg-slate-50'}>{l}</button>
+            ))}
+          </div>
+        )}
+
+      {ongletActif?.demenage && <Demenage d={ongletActif.demenage} />}
 
       {/* ── Le référentiel de l'année, ses quatre faces ── */}
       {tab === 'referentiel-annee' && <Referentiels embedded />}
@@ -1489,21 +1477,21 @@ export default function Configuration() {
       {tab === 'securite' && <GestionParametres groupes={['securite']} />}
 
       {/* ── Onglet Clôture d'une année reprise d'archives ── */}
-      {tab === 'reprise' && <ClotureReprise />}
+      {false && tab === 'reprise' && <ClotureReprise />}
 
       {/* ── Onglet Dossiers dédoublés ──
           Le matricule change d'une année à l'autre : l'import d'une seconde
           année créait un dossier de plus par revenant. On répare ici. */}
-      {tab === 'doublons' && <DoublonsEtudiants />}
+      {false && tab === 'doublons' && <DoublonsEtudiants />}
       {tab === 'cursus-compatibles' && <Suspense fallback={null}><CursusCompatibles /></Suspense>}
-      {tab === 'doubles-programmes' && <Suspense fallback={null}><DoublesProgrammes /></Suspense>}
-      {tab === 'hors-bloc' && <Suspense fallback={null}><HorsBloc /></Suspense>}
-      {tab === 'controle-decisions' && <Suspense fallback={null}><ControleDecisions /></Suspense>}
-      {tab === 'decisions-sans-inscription' && <Suspense fallback={null}><DecisionsSansInscription /></Suspense>}
+      {false && tab === 'doubles-programmes' && <Suspense fallback={null}><DoublesProgrammes /></Suspense>}
+      {false && tab === 'hors-bloc' && <Suspense fallback={null}><HorsBloc /></Suspense>}
+      {false && tab === 'controle-decisions' && <Suspense fallback={null}><ControleDecisions /></Suspense>}
+      {false && tab === 'decisions-sans-inscription' && <Suspense fallback={null}><DecisionsSansInscription /></Suspense>}
       {tab === 'registre-envois' && <Suspense fallback={null}><RegistreEnvois /></Suspense>}
 
       {/* ── Onglet Dates des UE (paramétrage annuel) ── */}
-      {tab === 'dates-ue' && <DatesUE annee={anneeActive} />}
+      {false && tab === 'dates-ue' && <DatesUE annee={anneeActive} />}
 
       {/* ── Onglet Établissement ── */}
       {tab === 'etablissement' && <ParametresEtablissement />}
@@ -1515,7 +1503,7 @@ export default function Configuration() {
       {tab === 'parametres' && <GestionParametres />}
 
       {/* ── Onglet Prérequis ── */}
-      {tab === 'demandes' && <Demandes />}
+      {false && tab === 'demandes' && <Demandes />}
       {tab === 'sauvegardes' && <Sauvegardes />}
 
       {/* ── Onglet Utilisateurs ── */}
@@ -1691,7 +1679,7 @@ docker start attributions-backend-dev`}</div>
       {/* ── Onglet Procédures ── */}
       {tab === 'procedures' && <div className="space-y-4"><GestionParametres groupes={['procedures']} /><OngletProcedures /></div>}
       {tab === 'audit' && <Audit />}
-      {tab === 'statistiques' && <OngletStatistiques />}
+      {false && tab === 'statistiques' && <OngletStatistiques />}
 
         </div>
     </div>
@@ -1988,7 +1976,38 @@ function OngletProcedures() {
 }
 
 // ── Onglet Statistiques : effectifs estimés par section / UE ─────────────────
-function OngletStatistiques() {
+/* OÙ EST PASSÉ L'OUTIL. Le lien pose la clé que l'écran d'arrivée lit
+   (sessionStorage « lucie.outil ») : on arrive DANS l'outil, pas devant. */
+const versEtudiants = (outil, face) => () => {
+  try { sessionStorage.setItem('lucie.outil', outil); if (face) sessionStorage.setItem('lucie.outil.face', face); } catch { /* */ }
+  window.location.href = '/etudiants';
+};
+const versDelib = face => () => {
+  try { sessionStorage.setItem('lucie.delib.outil', face); } catch { /* */ }
+  window.location.href = '/etudiants?onglet=deliberation';
+};
+const DEMENAGES = {
+  'dates-ue': { ou: 'Organisation → Planification → Dates des UE', aller: () => { window.location.href = '/organisation?onglet=planifier&sous=dates'; } },
+  doublons: { ou: 'Étudiants → rail → Contrôler les dossiers', aller: versEtudiants('controles-dossiers', 'doublons') },
+  'doubles-programmes': { ou: 'Étudiants → rail → Contrôler les dossiers', aller: versEtudiants('controles-dossiers', 'doubles-programmes') },
+  'hors-bloc': { ou: 'Étudiants → rail → Contrôler les dossiers', aller: versEtudiants('controles-dossiers', 'hors-bloc') },
+  'decisions-sans-inscription': { ou: 'Étudiants → rail → Contrôler les dossiers', aller: versEtudiants('controles-dossiers', 'decisions-sans-inscription') },
+  'controle-decisions': { ou: 'Étudiants → Délibération → Contrôles', aller: versDelib('controle-decisions') },
+  reprise: { ou: 'Étudiants → Délibération → Contrôles', aller: versDelib('reprise') },
+  demandes: { ou: 'Accueil → bloc « À valider »', aller: () => { window.location.href = '/accueil'; } },
+  statistiques: { ou: 'Organisation → Effectifs et postes PNCC', aller: () => { window.location.href = '/organisation?onglet=effectifs'; } },
+};
+function Demenage({ d }) {
+  return (
+    <div className="carte p-5 space-y-3 max-w-2xl">
+      <h2 className="text-[15px] font-semibold text-iip-blue">Cet outil a déménagé</h2>
+      <p className="text-[13px] text-slate-600">Ce n'est pas un réglage : il vit désormais là où l'on s'en sert, dans <b>{d.ou}</b>.</p>
+      <button type="button" className="bouton bouton-fort" onClick={d.aller}>Y aller</button>
+    </div>
+  );
+}
+
+export function OngletStatistiques() {
   const [annees, setAnnees]       = useState([]);
   const [annee, setAnnee]         = useState('');
   const [sections, setSections]   = useState([]);
@@ -2618,7 +2637,7 @@ function AnneeDuReferentiel({ onglet }) {
 // L'écran ne cache donc rien de ce qu'il fait : il montre d'abord CE QUI SERA
 // ÉCRIT, dossier par dossier, et ne laisse écrire qu'après avoir retapé
 // l'année. Un bouton « Appliquer » seul se clique sans lire.
-function ClotureReprise() {
+export function ClotureReprise() {
   const [annees, setAnnees]   = useState([]);
   const [annee, setAnnee]     = useState('');
   const [plan, setPlan]       = useState(null);

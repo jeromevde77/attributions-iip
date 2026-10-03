@@ -1,3 +1,4 @@
+import { codeGroupe, modeGroupes } from '../lib/groupes.js';
 import { Router } from 'express';
 import db from '../db/index.js';
 import { renommerUE } from '../lib/renommerUE.js';
@@ -414,7 +415,8 @@ r.patch('/ue/:num/organiser-groupes', authRequired, roleRequired('admin', 'edite
   const ueNum = req.params.num;
   const { section, num_organisation, creer_orga_2, cours } = req.body || {};
   if (!section || !Array.isArray(cours)) return res.status(400).json({ error: 'section et cours requis' });
-  const lettre = (i) => String.fromCharCode(65 + i); // 0->A, 1->B…
+  // Le code suit la règle de la section : A, B… ; A1, A2… ; 1, 2… (lib/groupes.js).
+  const regle = modeGroupes(section);
   const aDesigner = db.prepare(`SELECT id FROM professeur WHERE nom = 'À DÉSIGNER' LIMIT 1`).get();
   const aDesId = aDesigner?.id ?? null;
   const orgSource = num_organisation || 1;
@@ -447,7 +449,7 @@ r.patch('/ue/:num/organiser-groupes', authRequired, roleRequired('admin', 'edite
         ? [{ code: 'Ts', split: 'N' }]
         : mode === 'split'
           ? Array.from({ length: m }, () => ({ code: 'Ts', split: 'O' }))
-          : Array.from({ length: m }, (_, i) => ({ code: lettre(i), split: 'N' }));
+          : Array.from({ length: m }, (_, i) => ({ code: codeGroupe(i, regle, orgCible), split: 'N' }));
       const dedouble = m > 1 ? 'O' : 'N';
 
       // Lignes modèles = celles de l'organisation SOURCE pour ce cours
@@ -633,7 +635,7 @@ r.patch('/sections/:code', authRequired, roleRequired('admin', 'editeur'), (req,
   // Le domaine et le type d'enseignement figurent sur les attestations de
   // réussite : ils relèvent de la section, non de chaque unité.
   const allowed = ['libelle', 'niveau', 'type_horaire', 'responsable', 'code_fwb',
-                   'domaine', 'type_enseignement'];
+                   'domaine', 'type_enseignement', 'numerotation_groupes'];
   const updates = []; const params = { code: req.params.code };
   for (const k of allowed) if (k in req.body) { updates.push(`${k} = @${k}`); params[k] = req.body[k] || null; }
   // LE TITRE DÉLIVRÉ AILLEURS (30 septembre 2026, Orthoptie) : la diplomation de

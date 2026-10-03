@@ -1,5 +1,6 @@
 import OngletCep from '../components/OngletCep.jsx';
-import { Fragment, lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { createContext, Fragment, lazy, Suspense, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 // LA MÊME FENÊTRE DE SÉANCE QUE L'ÉCRAN VALORISATION (2 octobre 2026) : une porte de plus, une seule réponse.
 const DeliberationVA = lazy(() => import('./Valorisations.jsx').then(m => ({ default: m.DeliberationVA })));
 import { nomPropre } from '../lib/nom.js';
@@ -8,7 +9,7 @@ import { RailLateral } from '../components/ui.jsx';
 import SuiviEtudiant from '../components/SuiviEtudiant.jsx';
 import NouvelEtudiant from '../components/NouvelEtudiant.jsx';
 import {
-  IconAddressBook, IconAlertTriangle, IconEyeCheck, IconTablePlus, IconArrowForwardUp, IconArchive, IconDoorExit, IconSchool, IconArrowBackUp, IconAward, IconCertificate, IconStairsUp, IconUserPlus, IconCheck, IconChecklist, IconChevronLeft, IconChevronRight, IconClock, IconFileText, IconFolder, IconPlus, IconPrinter, IconSearch, IconTable, IconTrash, IconUpload, IconUser, IconSend, IconWritingSign, IconWritingSignOff, IconX,
+  IconAddressBook, IconListSearch, IconAlertTriangle, IconEyeCheck, IconTablePlus, IconArrowForwardUp, IconArchive, IconDoorExit, IconSchool, IconArrowBackUp, IconAward, IconCertificate, IconStairsUp, IconUserPlus, IconCheck, IconChecklist, IconChevronLeft, IconChevronRight, IconClock, IconFileText, IconFolder, IconPlus, IconPrinter, IconSearch, IconTable, IconTrash, IconUpload, IconUser, IconSend, IconWritingSign, IconWritingSignOff, IconX,
   IconChecks, IconLock
 } from '@tabler/icons-react';
 import { authHeaders, getAnnee, getUser } from '../lib/api.js';
@@ -22,6 +23,11 @@ import IdentiteEtudiant, { ComplementDossiers } from '../components/IdentiteEtud
 // LE CENTRE CENTRAL. Les boutons restent où on les cherche — là où l'on
 // travaille — mais mènent désormais au même endroit.
 import CentreImpressionCentral from '../components/CentreImpressionCentral.jsx';
+import OutilsAFaces from '../components/OutilsAFaces.jsx';
+const DoublonsEtudiants = lazy(() => import('../components/DoublonsEtudiants.jsx'));
+const DoublesProgrammes = lazy(() => import('../components/DoublesProgrammes.jsx'));
+const HorsBloc = lazy(() => import('../components/HorsBloc.jsx'));
+const DecisionsSansInscription = lazy(() => import('../components/DecisionsSansInscription.jsx'));
 import { useEchangesDuRail, Fenetre, Encadre, BulleAide, BoutonEditions, OuvrirEditions } from '../components/ui.jsx';
 import PassageAnnee from '../components/PassageAnnee.jsx';
 import ComposerPAE from '../components/ComposerPAE.jsx';
@@ -667,6 +673,11 @@ function RevuePAE({ liste: base, annee: anneeDepart, onClose }) {
   );
 }
 
+/* LA RANGÉE DES ONGLETS DE LA FICHE ACCUEILLE LES OUTILS DE L'ONGLET OUVERT
+   (Charles, 3 octobre 2026 : « gagner de la place, les boutons sur la même
+   ligne »). La fiche fournit le nœud ; un onglet y pose ses boutons. */
+const OutilsFiche = createContext(null);
+
 function SchemaCapitalisation({ etudId, annee, onNoeud = null, programme = null, onModifie = null }) {
   const [data, setData] = useState(null);
   const [recharge, setRecharge] = useState(0);
@@ -771,9 +782,10 @@ function SchemaCapitalisation({ etudId, annee, onNoeud = null, programme = null,
       )}
     </div>
   );
+  const noeudOutils = useContext(OutilsFiche);
   const bandeau = (
     <div className="mb-2 space-y-1">
-      {ligneChanger}
+      {noeudOutils ? createPortal(ligneChanger, noeudOutils) : ligneChanger}
       {archives.map(a => (
         <div key={a.section} data-etat="neutre" className="bloc-etat px-3 py-1.5 text-[12.5px] flex items-center gap-3 flex-wrap">
           <span className="flex-1 min-w-0">
@@ -2569,6 +2581,7 @@ export function FicheEtudiant({ id, annee, onClose, position, onPrec, onSuiv,
   const [paeConfirme, setPaeConfirme] = useState(false);
   const [paeValide, setPaeValide] = useState(null);   // la validation de la revue des PAE
   const [revueFiche, setRevueFiche] = useState(false);
+  const [noeudOutils, setNoeudOutils] = useState(null);
   const [sectionForcee, setSectionForcee] = useState('');
 
   // LES FLÈCHES DU CLAVIER, mais jamais pendant qu'on écrit : dans un champ de
@@ -2854,7 +2867,8 @@ export function FicheEtudiant({ id, annee, onClose, position, onPrec, onSuiv,
             centre d'édition », « dans la rangée d'onglets »). Visible quel que
             soit l'onglet : les pièces d'un étudiant ne dépendent pas de la face
             qu'on regarde. */}
-        <div className="flex items-center border-b border-slate-200 px-5">
+        <OutilsFiche.Provider value={noeudOutils}>
+        <div className="flex flex-wrap items-center border-b border-slate-200 px-5">
           {(onPrec || onSuiv) && <NavFiche position={position} onPrec={onPrec} onSuiv={onSuiv} />}
           {/* Le PARCOURS réunit ce que la grille et le PAE disaient de deux
               façons : le schéma, l'acquis, et le programme proposé. Les
@@ -2876,6 +2890,15 @@ export function FicheEtudiant({ id, annee, onClose, position, onPrec, onSuiv,
             </button>
           ))}
           <div className="ml-auto flex items-center gap-2 my-1">
+          {/* Les outils de l'onglet ouvert (Changer de section…). */}
+          <span ref={setNoeudOutils} className="flex items-center gap-2" />
+          {/* L'ŒIL : parcourir et valider le PAE de cet étudiant, la même
+              fenêtre que la Revue des PAE. */}
+          <button type="button" onClick={() => setRevueFiche(true)}
+            title="Parcourir et valider le PAE — la revue, sur cet étudiant"
+            className="controle w-9 justify-center px-0 inline-flex items-center text-iip-blue">
+            <IconEyeCheck size={17} />
+          </button>
           {(onPrec || onSuiv) && portee && (
             <MenuParcourir portee={portee} onPortee={onPortee} sections={sections} ues={ues} annees={annees} />
           )}
@@ -3287,6 +3310,7 @@ export function FicheEtudiant({ id, annee, onClose, position, onPrec, onSuiv,
               </div>
           )}
         </div>
+        </OutilsFiche.Provider>
       </div>
 
       {ficheInscription && <PreviewModal html={ficheInscription.html}
@@ -3389,6 +3413,8 @@ export default function Etudiants() {
   const [importPAE, setImportPAE] = useState(false);
   const [purge, setPurge] = useState(false);
   const [nouvel, setNouvel] = useState(false);
+  // Les contrôles des dossiers, venus de Configuration (lot 4) : la face ouverte.
+  const [controles, setControles] = useState(null);
   const [rapportPAE, setRapportPAE] = useState(false);
   const [importListe, setImportListe] = useState(false);
   const [importHisto, setImportHisto] = useState(false);
@@ -3934,6 +3960,14 @@ export default function Etudiants() {
     { label: 'Inscrire', items: [
       { key: 'nouvel-etudiant', label: 'Créer un étudiant',
         icon: IconUserPlus, onClick: () => setNouvel(true) },
+      /* CE QUI RÉPARE LES DOSSIERS, À CÔTÉ DE CE QUI LES CRÉE (lot 4, 2 octobre
+         2026). Quatre outils, une seule entrée : une icône se mérite. */
+      { key: 'controles-dossiers', label: 'Contrôler les dossiers', icon: IconListSearch,
+        onClick: () => {
+          let f = 'doublons';
+          try { f = sessionStorage.getItem('lucie.outil.face') || f; sessionStorage.removeItem('lucie.outil.face'); } catch { /* */ }
+          setControles(f);
+        } },
     ] },
     // LE REGISTRE DES VALORISATIONS A QUITTÉ CE RAIL. Il y figurait en même
     // temps que l'onglet « Valorisation des acquis » de l'axe : deux portes
@@ -4344,6 +4378,18 @@ export default function Etudiants() {
             </tbody>
           </table>
         </div>
+      )}
+
+      {controles && (
+        <OutilsAFaces icone={IconListSearch} titre="Contrôler les dossiers"
+          sous="Doublons, programmes sur deux sections, au-delà du bloc, décisions sans inscription"
+          faceInitiale={controles} onFermer={() => { setControles(null); charger(); }}
+          faces={[
+            { cle: 'doublons', label: 'Dossiers dédoublés', rendu: <DoublonsEtudiants /> },
+            { cle: 'doubles-programmes', label: 'Programmes sur deux sections', rendu: <DoublesProgrammes /> },
+            { cle: 'hors-bloc', label: 'Au-delà du bloc atteint', rendu: <HorsBloc /> },
+            { cle: 'decisions-sans-inscription', label: 'Décisions sans inscription', rendu: <DecisionsSansInscription /> },
+          ]} />
       )}
 
       {nouvel && (

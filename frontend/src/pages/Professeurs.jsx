@@ -57,7 +57,7 @@ function ouvrirFeuilleImpression(data) {
         <td>${esc(a.nom_cours)}</td>
         <td class="c">${esc(a.quadrimestre_attribue || '')}</td>
         <td>${esc(a.activite_nom || '')}</td>
-        <td class="c">${a.num_groupe ? esc(a.num_groupe) : ''}</td>
+        <td class="c">${a.code && a.code !== 'Ts' ? esc(a.code) : (a.num_groupe ? esc(a.num_groupe) : '')}</td>
         <td class="c">${esc(a.type_cours || '')}</td>
         <td class="r">${fmt(a.periodes_attribuees)}</td>
         <td class="r">${fmt(a.autonomie_attribuee)}</td>

@@ -1,4 +1,5 @@
 import { Suspense, lazy } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import {
   IconHome, IconChecklist, IconSend, IconLayoutDashboard, IconCalendarStats,
   IconChartBar,
@@ -77,9 +78,13 @@ export function AxeAccueil() {
 
 // ── ÉTUDIANTS — « Où en est cet étudiant ? » ────────────────────────────────
 export function AxeEtudiants() {
+  // « ?onglet=deliberation » : un renvoi (Configuration, un lien) ouvre l'axe
+  // sur la bonne rubrique.
+  const [params] = useSearchParams();
   return (
     <Axe
       titre="Étudiants" icone={IconChecklist} impression="etudiants" echanges
+      ongletInitial={params.get('onglet') || undefined}
       question="« Où en est cet étudiant ? »"
       /* L'ORDRE DU RAIL EST CELUI DU PARCOURS, ET IL MÊLE LES DEUX NATURES.
        *
@@ -93,7 +98,7 @@ export function AxeEtudiants() {
        * le PAE suivant), on instruit (valorisation, délibération), on délivre
        * (diplômes) — puis l'exception (procédures), puis ce qui efface. */
       ordreRail={[
-        ['nouvel-etudiant', 'pae', 'parcours', 'amenagements', 'deliberation',
+        ['nouvel-etudiant', 'controles-dossiers', 'pae', 'parcours', 'amenagements', 'deliberation',
          'diplomation'],
         ['procedures'],
         ['purge'],

@@ -1210,7 +1210,8 @@ try {
   // 5d. Colonnes enrichies de la table section
   {
     const cols = db.prepare("PRAGMA table_info(section)").all().map(c => c.name);
-    for (const [name, type] of [['niveau','TEXT'],['type_horaire','TEXT'],['responsable','TEXT'],['code_fwb','TEXT']]) {
+    // numerotation_groupes : lettres | lettre_chiffre | chiffres (3 octobre 2026)
+    for (const [name, type] of [['niveau','TEXT'],['type_horaire','TEXT'],['responsable','TEXT'],['code_fwb','TEXT'],['numerotation_groupes',"TEXT DEFAULT 'lettres'"]]) {
       if (!cols.includes(name)) {
         db.exec(`ALTER TABLE section ADD COLUMN ${name} ${type};`);
         console.log(`[migration] section : colonne ${name} ajoutée`);

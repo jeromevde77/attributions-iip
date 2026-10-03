@@ -1,5 +1,6 @@
 import { useEffect, useState, useMemo } from 'react';
 import { couleurBloc } from '../lib/blocs.js';
+import { codeGroupe, suiteGroupes, trierCodes, rangCouleur } from '../lib/groupes.js';
 import { estDirection } from '../lib/modules.js';
 import { VoletRail, Fenetre } from '../components/ui.jsx';
 import { createPortal } from 'react-dom';
@@ -1089,12 +1090,12 @@ export default function Attributions() {
       r.section === row.section && r.code_cours === row.code_cours &&
       (r.num_organisation || 1) === (row.num_organisation || 1) &&
       (r.activite_id || null) === (row.activite_id || null);
-    if (!confirm(`Organiser cette activité en ${total} groupes (A, B, C…) ?`)) return;
+    if (!confirm(`Organiser cette activité en ${total} groupes (${groupCodeSeq(total, row).join(', ')}) ?`)) return;
     try {
       // La ligne source devient le groupe A ; les nouvelles prennent B, C… séquentiellement
-      await api.updateAttribution(row.id, { code: groupCode(0), split_groupe: 'N' });
+      await api.updateAttribution(row.id, { code: groupCode(0, row), split_groupe: 'N' });
       for (let i = 1; i < total; i++) {
-        await api.createAttribution(payloadCopie(row, groupCode(i), 'N'));
+        await api.createAttribution(payloadCopie(row, groupCode(i, row), 'N'));
       }
       load();
     } catch(e){ alert('Erreur : '+e.message); }
@@ -1166,14 +1167,13 @@ export default function Attributions() {
   }
 
   /* --- Chargement --- */
-  // Génère le code de groupe pour l'index i (0-based) : A,B,...,Z,AA,BB,...
-  function groupCode(i) {
-    const alpha = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
-    if (i < 26) return alpha[i];
-    const rep = Math.floor(i / 26);
-    return alpha[i % 26].repeat(rep + 1);
-  }
-  function groupCodeSeq(n) { return Array.from({length: n}, (_, i) => groupCode(i)); }
+  /* LE CODE DE GROUPE SUIT LA SECTION (3 octobre 2026) : A, B… ; A1, A2… ;
+     ou 1, 2… — `lib/groupes.js`. `ref` est la ligne d'attribution concernée :
+     sa section donne la règle, son organisation la lettre de la classe. */
+  const modeGroupes = sec => (sections || []).find(x => x.code === sec)?.numerotation_groupes || 'lettres';
+  function groupCode(i, ref) { return codeGroupe(i, modeGroupes(ref?.section), ref?.num_organisation || 1); }
+  function groupCodeSeq(n, ref) { return suiteGroupes(n, modeGroupes(ref?.section), ref?.num_organisation || 1); }
+  const badge = code => BADGE_COLORS['ABCDEFGHIJKLMNOPQRSTUVWXYZ'[rangCouleur(code)]];
 
   const BADGE_COLORS = {
     A: { bg: 'var(--c-disponible)', color: '#FFFFFF', border: 'var(--c-disponible)' },
@@ -1260,8 +1260,8 @@ export default function Attributions() {
         }
       } else {
         // Plusieurs lignes : codes doivent être A, B, C… séquentiels sans trou ni doublon
-        const codes = lignes.map(r => (r.code || '').toUpperCase()).sort();
-        const attendu = groupCodeSeq(codes.length);
+        const codes = trierCodes(lignes.map(r => (r.code || '').toUpperCase()));
+        const attendu = groupCodeSeq(codes.length, lignes[0]);
         const avecTs   = codes.some(c => !c || c === 'TS');
         const doublons = codes.length !== new Set(codes).size;
         const mauvaisSeq = JSON.stringify(codes) !== JSON.stringify(attendu);
@@ -1545,7 +1545,7 @@ export default function Attributions() {
             const lettre    = estGroupe ? codeVal : 'Ts';
             // BADGE_COLORS défini au niveau composant
             const badgeStyle = estGroupe
-              ? (BADGE_COLORS[lettre[0]] || { bg: '#F3F4F6', color: 'var(--c-texte)', border: '#E5E7EB' })
+              ? (badge(lettre) || { bg: '#F3F4F6', color: 'var(--c-texte)', border: '#E5E7EB' })
               : { bg: '#F9FAFB', color: '#9CA3AF', border: '#E5E7EB' };
 
             // Frères = toutes les lignes du même cours (même activité OU même cours si pas d'activité)
@@ -1559,7 +1559,7 @@ export default function Attributions() {
             );
             const nbGroupes = freres.length + 1;
             // Toutes les lettres du groupe (A..Z selon le nombre total)
-            const toutesLettres = groupCodeSeq(nbGroupes);
+            const toutesLettres = groupCodeSeq(nbGroupes, row);
             // Map lettre → frère qui l'a
             const lettreAFrere = {};
             freres.forEach(r => { const l = (r.code||'').toUpperCase(); if (l && l !== 'TS') lettreAFrere[l] = r; });
@@ -1574,9 +1574,9 @@ export default function Attributions() {
               const codesApres = freres
                 .map(r => r.id === frereAvecCetteLetttre?.id ? lettre : (r.code||'').toUpperCase())
                 .concat([newLettre])
-                .filter(l => l && l !== 'TS')
-                .sort();
-              const attendu = groupCodeSeq(codesApres.length);
+                .filter(l => l && l !== 'TS');
+              codesApres.sort((a, b) => a.localeCompare(b, 'fr', { numeric: true }));
+              const attendu = groupCodeSeq(codesApres.length, row);
               const seqOk = JSON.stringify(codesApres) === JSON.stringify(attendu);
               if (!seqOk) {
                 if (!confirm(`La lettre ${newLettre} rompt la séquence alphabétique. Continuer quand même ?`)) return;
@@ -1637,7 +1637,7 @@ export default function Attributions() {
                       {toutesLettres.map(l => {
                         const prise = !!lettreAFrere[l];
                         const courante = l === lettre;
-                        const bs = BADGE_COLORS[l[0]] || { bg:'#F3F4F6', color:'var(--c-texte)', border:'#E5E7EB' };
+                        const bs = badge(l) || { bg:'#F3F4F6', color:'var(--c-texte)', border:'#E5E7EB' };
                         return (
                           <span key={l}
                             onClick={e => { e.stopPropagation(); assignerLettre(l); }}
@@ -2430,7 +2430,7 @@ export default function Attributions() {
         });
         Object.values(parActivite).forEach(lignes => {
           const codes = lignes.map(r => (r.code||'').toUpperCase());
-          const attendu = groupCodeSeq(lignes.length);
+          const attendu = groupCodeSeq(lignes.length, lignes[0]);
           lignes.forEach(r => {
             const code = (r.code||'').toUpperCase();
             if (!code || code === 'TS') { if (lignes.length > 1) lignesErreur.add(r.id); }
@@ -2506,12 +2506,12 @@ export default function Attributions() {
                       const code = (r.code||'').toUpperCase() || 'Ts';
                       const enErreur = lignesErreur.has(r.id);
                       const isSplit = r.split_groupe === 'O';
-                      const bs = BADGE_COLORS[code[0]] || { bg:'#F3F4F6', color:'var(--c-texte)', border:'#E5E7EB' };
+                      const bs = badge(code) || { bg:'#F3F4F6', color:'var(--c-texte)', border:'#E5E7EB' };
                       const peerLines = toutesLignes.filter(p =>
                         (p.activite_id||null) === (r.activite_id||null) && p.split_groupe !== 'O'
                       );
                       const peerCodes = peerLines.map(p => (p.code||'').toUpperCase());
-                      const peerAttendu = groupCodeSeq(peerLines.length);
+                      const peerAttendu = groupCodeSeq(peerLines.length, r);
                       return (
                         <tr key={r.id} style={{
                           background: enErreur ? 'rgb(var(--e-refuse-100))' : '#fff',
@@ -2554,7 +2554,7 @@ export default function Attributions() {
                                 {peerAttendu.length > 1 && peerAttendu.map(l => {
                                   const estCourante = l === code;
                                   const dejaPrise = peerCodes.includes(l) && !estCourante;
-                                  const bs2 = BADGE_COLORS[l[0]] || { bg:'#F3F4F6', color:'var(--c-texte)', border:'#E5E7EB' };
+                                  const bs2 = badge(l) || { bg:'#F3F4F6', color:'var(--c-texte)', border:'#E5E7EB' };
                                   return (
                                     <span key={l}
                                       onClick={e => { e.stopPropagation(); if (!estCourante) corrigerIci(r.id, l); }}

@@ -14,7 +14,7 @@ import express from 'express';
 import db from '../db/index.js';
 import { authRequired, getUserSections } from '../middleware/auth.js';
 import { documentsPour, documentParCle, valeursParametre } from '../lib/documents.js';
-import { capacitePdf, rendrePdf, rendrePdfs } from '../services/pdf.js';
+import { capacitePdf, rendrePdf } from '../services/pdf.js';
 import { piedGabaritPdf, BANDE_PIED_MM } from '../lib/document.js';
 import { LOGO_IIP_JPEG } from '../services/assets/logo_iip_jpeg.js';
 import { piedDocument } from './parametres.js';
@@ -163,9 +163,25 @@ r.post('/pdfs', authRequired, async (req, res) => {
   if (!docs.length) return res.status(400).json({ error: 'documents requis' });
   if (docs.length > 400) return res.status(413).json({ error: 'Plus de 400 pièces : scindez la sélection.' });
   try {
-    const signes = [];
-    for (const d of docs) signes.push((await protegerSignature(d.html, { piece: d.nom || d.titre || 'Document', destinataire: d.destinataire?.nom || d.etudiant || null })).htmlSigne);
-    const pdfs = await rendrePdfs(docs.map((d, i) => ({ html: signes[i], ...optionsPiece(d) })));
+    /* LE FAC-SIMILÉ DANS LA MÊME CHAÎNE QUE LE PDF (2 octobre 2026 : « la
+       production est très lente »). Depuis le 1er octobre, chaque pièce
+       signée demande une image de plus à Chromium — et ces images se
+       faisaient UNE PAR UNE, avant que le rendu parallèle ne commence :
+       soixante attestations, soixante photographies en file. Chaque ouvrier
+       protège puis rend sa pièce ; quatre à la fois. */
+    const debut = Date.now();
+    const pdfs = new Array(docs.length);
+    let suivant = 0;
+    const ouvrier = async () => {
+      while (suivant < docs.length) {
+        const i = suivant++;
+        const d = docs[i];
+        const { htmlSigne } = await protegerSignature(d.html, { piece: d.nom || d.titre || 'Document', destinataire: d.destinataire?.nom || d.etudiant || null });
+        pdfs[i] = await rendrePdf(htmlSigne, optionsPiece(d));
+      }
+    };
+    await Promise.all(Array.from({ length: Math.min(4, docs.length) }, ouvrier));
+    console.log(`[impression/pdfs] ${docs.length} pièce(s) en ${Date.now() - debut} ms`);
     const JSZip = (await import('jszip')).default;
     const zip = new JSZip();
     const vus = new Map();
