@@ -2012,14 +2012,14 @@ export default function Attributions() {
               {ctrlPourUE(ue.ue_num, ue.num_organisation) && (() => {
                 const a = ctrlPourUE(ue.ue_num, ue.num_organisation);
                 if (a.ok) {
-                  return <span className="text-[10px] px-1.5 py-0.5 rounded bg-green-500 text-white font-medium flex-shrink-0" title={`Autonomie ${a.aut_attribuee} dans l'intervalle [${a.min} ; ${a.max}]`}>✓ aut.</span>;
+                  return <span className="text-[10px] px-1.5 py-0.5 rounded text-white font-medium flex-shrink-0" style={{ background: 'var(--c-reussi, #3E7D5E)' }} title={`Autonomie ${a.aut_attribuee} dans l'intervalle [${a.min} ; ${a.max}]`}>✓ aut.</span>;
                 }
                 const msg = a.multiple_obligatoire
                   ? `Tous dédoublés ×${a.multiple_obligatoire} → autonomie doit être ${a.attendu} (actuel ${a.aut_attribuee})`
                   : a.depasse_max
                     ? `Autonomie ${a.aut_attribuee} > max ${a.max} → utiliser EPT ligne 96`
                     : `Autonomie ${a.aut_attribuee} hors intervalle [${a.min} ; ${a.max}]`;
-                return <span className="text-[10px] px-1.5 py-0.5 rounded bg-orange-500 text-white font-medium flex-shrink-0" title={msg}>⚠ aut. {a.aut_attribuee}/[{a.min}–{a.max}]</span>;
+                return <span className="text-[10px] px-1.5 py-0.5 rounded text-white font-medium flex-shrink-0" style={{ background: 'var(--c-attente, #E8890C)' }} title={msg}>aut. {a.aut_attribuee}/[{a.min}–{a.max}]</span>;
               })()}
             </span>
             <span className="flex items-center gap-3 text-sm text-gray-500 flex-shrink-0 justify-end whitespace-nowrap">
@@ -2109,19 +2109,17 @@ export default function Attributions() {
           <div className={activeUE === key ? (isHelb ? 'bg-pink-50/60' : 'bg-iip-gold/5') : (isHelb ? 'bg-pink-50/40' : 'bg-gray-50/50')}>
             {(() => {
               const ctrl = ctrlPourUE(ue.ue_num, ue.num_organisation);
-              if (!ctrl || !ctrl.message) return null;
-              const styles = {
-                ok:          'bg-green-500 border-green-500 text-white',
-                sous:        'bg-amber-500 border-amber-500 text-white',
-                'dépassement':'bg-[#FBF1EE] border-[color:var(--c-attente)] text-iip-texte',
-                cours:       'bg-orange-500 border-orange-500 text-white',
-              };
-              const icone = { ok:'✓', sous:'➜', 'dépassement':'⚠', cours:'⚠' }[ctrl.etat] || 'ℹ';
+              /* QUAND TOUT VA BIEN, RIEN (Charles, 3 octobre 2026 : « la barre n'a
+                 pas d'intérêt, on a déjà au-dessus le ok ») : la pastille « ✓ aut. »
+                 de la ligne d'UE le dit. Le bandeau ne paraît que pour un écart,
+                 blanc à liseré, texte lisible — « on ne sait pas lire le gris ». */
+              if (!ctrl || !ctrl.message || ctrl.etat === 'ok') return null;
+              const liseré = { sous: 'var(--c-attente, #E8890C)', 'dépassement': 'var(--c-refuse, #9D4A38)', cours: 'var(--c-attente, #E8890C)' }[ctrl.etat] || '#94A3B8';
               return (
-                <div className={`mx-6 my-2 px-3 py-2 rounded-lg border text-[12px] ${styles[ctrl.etat] || 'bg-gray-50 border-gray-200 text-gray-600'}`}>
-                  <span className="font-semibold mr-1">{icone} Autonomie</span>
-                  {ctrl.message}
-                  <span className="text-gray-400 ml-2">· base {ctrl.ue_aut} · plancher {ctrl.min} · plafond {ctrl.max} · placé {ctrl.aut_attribuee}</span>
+                <div className="mx-6 my-2 px-3 py-2 bg-white border border-slate-200 border-l-4 rounded-r-carte text-[12.5px] text-iip-texte"
+                  style={{ borderLeftColor: liseré }}>
+                  <b className="mr-1">Autonomie</b>{ctrl.message}
+                  <span className="text-slate-600 ml-2">· base {ctrl.ue_aut} · plancher {ctrl.min} · plafond {ctrl.max} · placé {ctrl.aut_attribuee}</span>
                 </div>
               );
             })()}
