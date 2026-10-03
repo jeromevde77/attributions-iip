@@ -2965,6 +2965,7 @@ app.use((req, res, next) => {
 // LA PORTE DES ÉTUDIANTS (VA en ligne, 3 octobre 2026) : publique, avec son
 // propre jeton — aucune route du personnel ne l'accepte.
 app.use('/api/portail-va', (await import('./routes/portailVA.js')).default);
+app.use('/api/notes-doubles', (await import('./routes/notesDoubles.js')).default);
 app.use('/api/auth',         garderModule('auth'), authRoutes);
 app.use('/api/mfa',          garderModule('mfa'), mfaRoutes);
 app.use('/api/attributions', garderModule('attributions'), attrRoutes);
