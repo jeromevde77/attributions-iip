@@ -2843,63 +2843,71 @@ function Decision({ e, ue, onBord, acquis, cours, decision, onDecision, enCours,
 
 /* ═══ La vue d'ensemble ════════════════════════════════════════════════════ */
 
+/* LE TABLEAU SE LIT D'UN REGARD, ET LA COULEUR NE DIT QUE LE DÉFAUT (Charles,
+   3 octobre 2026 : « super laid, il faut revoir »). Cases pleines, cases
+   cerclées de rouge, trois tons d'en-tête : la grille criait partout. Règle
+   des couleurs du 29 septembre : une note juste reste à l'encre ; ce qui est
+   en défaut est une PASTILLE PLEINE fraise, la faveur une pastille violette ;
+   la note d'unité porte la pastille de son état. Trois groupes de colonnes
+   nommés au-dessus — acquis (ce qui fait foi), cours (indicatif), unité. */
 function VueTableau({ data, liste, onOuvrir }) {
+  const nA = data.colonnes_acquis.length, nC = data.colonnes_cours.length;
   return (
-    <div className="overflow-auto border border-slate-200 rounded-xl">
-      <table className="text-[12px] border-collapse">
-        <thead className="sticky top-0 bg-white z-10">
-          <tr>
-            <th className="sticky left-0 bg-white z-20 text-left px-3 py-2
-                           border-b border-r border-slate-200 min-w-[170px]">Étudiant</th>
+    <div className="overflow-auto border border-slate-200 rounded-carte bg-white">
+      <table className="text-[12px] border-collapse w-max min-w-full">
+        <thead className="sticky top-0 z-10">
+          <tr className="tab-entete text-[10px] uppercase tracking-[.1em] text-slate-500">
+            <th rowSpan={2} className="tab-entete sticky left-0 z-20 text-left px-3 py-2 align-bottom
+                           border-b border-r border-slate-200 min-w-[200px] normal-case tracking-normal text-[12px] text-iip-blue">Étudiant</th>
+            {nA > 0 && <th colSpan={nA} className="tab-entete px-2 pt-1.5 font-semibold border-b border-slate-200">Acquis d'apprentissage</th>}
+            {nC > 0 && <th colSpan={nC} className="tab-entete px-2 pt-1.5 font-semibold border-b border-l border-slate-200">Cours · indicatif</th>}
+            <th rowSpan={2} className="tab-entete px-2 py-2 align-bottom border-b border-l border-slate-200 w-16 text-[11px] text-iip-blue normal-case tracking-normal">Unité</th>
+          </tr>
+          <tr className="tab-entete">
             {data.colonnes_acquis.map(a => (
               <th key={a.aa_code} title={a.description || ''}
-                className="px-1 py-1.5 border-b border-slate-200 w-12 text-[10px]
-                           font-bold text-iip-blue">{a.aa_code}</th>
+                className="tab-entete px-1 py-1.5 border-b border-slate-200 min-w-[52px] text-[10.5px]
+                           font-semibold text-iip-blue">{a.aa_code}</th>
             ))}
-            {data.colonnes_cours.map(c => (
+            {data.colonnes_cours.map((c, k) => (
               <th key={c.cours_code}
                 title={[c.cours_nom, c.professeurs].filter(Boolean).join(' · ')}
-                className="px-1 py-1.5 border-b border-l border-slate-300 w-16
-                           bg-slate-50 text-[10px] font-bold text-slate-700">
+                className={`tab-entete px-1.5 py-1.5 border-b border-slate-200 min-w-[72px] max-w-[110px]
+                           text-[10.5px] font-semibold text-slate-600 ${k === 0 ? 'border-l' : ''}`}>
                 <div>{c.cours_code}</div>
                 {c.cours_nom && (
-                  <div className="font-normal text-[8.5px] text-slate-500 leading-tight
-                                  line-clamp-2">{c.cours_nom}</div>
-                )}
-                {c.professeurs && (
-                  <div className="font-normal text-[8.5px] text-iip-blue/70 italic truncate">
-                    {c.professeurs}
-                  </div>
+                  <div className="font-normal text-[9.5px] text-slate-500 leading-tight truncate">{c.cours_nom}</div>
                 )}
               </th>
             ))}
-            <th className="px-2 py-1.5 border-b border-l-2 border-l-iip-blue/40
-                           bg-iip-blue/5 w-14 text-[10px] text-iip-blue">UE</th>
           </tr>
         </thead>
         <tbody>
           {liste.map(e => {
             const parAA = Object.fromEntries((e.acquis || []).map(a => [a.aa_code, a]));
             const parCo = Object.fromEntries((e.cours || []).map(c => [c.cours_code, c]));
+            const ue = e.ue || {};
+            const teinteUE = ue.na ? '#94A3B8' : ue.faveur ? 'var(--c-faveur)'
+              : ue.echec ? 'var(--c-refuse)' : ue.note != null ? 'var(--c-reussi)' : null;
             return (
-              <tr key={e.id} className="hover:bg-slate-50/60">
-                <td className="sticky left-0 bg-white px-3 py-1 border-b border-r border-slate-100">
-                  <button onClick={() => onOuvrir(e)} className="text-left w-full">
-                    <div className="font-semibold text-iip-blue truncate hover:underline">{e.nom}</div>
-                    <div className="text-[11px] text-slate-500 truncate">{e.prenom}</div>
+              <tr key={e.id} className="hover:bg-slate-50">
+                <td className="sticky left-0 bg-white px-3 py-1.5 border-b border-r border-slate-100">
+                  <button onClick={() => onOuvrir(e)} className="text-left w-full truncate hover:underline">
+                    <span className="font-semibold text-iip-blue">{String(e.nom || '').toUpperCase()}</span>
+                    {' '}<span className="text-slate-600">{e.prenom}</span>
                   </button>
                 </td>
                 {data.colonnes_acquis.map(a => <Case key={a.aa_code} etat={parAA[a.aa_code]} />)}
-                {data.colonnes_cours.map(c => (
-                  <Case key={c.cours_code} etat={parCo[c.cours_code]} bord />
+                {data.colonnes_cours.map((c, k) => (
+                  <Case key={c.cours_code} etat={parCo[c.cours_code]} cours premier={k === 0} />
                 ))}
-                <td className="border-b border-l-2 border-l-iip-blue/40 bg-iip-blue/5
-                               px-2 text-center font-bold text-[12px]">
-                  <span className={e.ue?.na ? 'text-slate-500'
-                    : e.ue?.faveur ? 'text-violet-700'
-                    : e.ue?.echec ? 'text-red-700' : 'text-emerald-700'}>
-                    {e.ue?.na ? 'NA' : fmt(e.ue?.note)}
-                  </span>
+                <td className="border-b border-l border-slate-200 px-2 text-center">
+                  {teinteUE
+                    ? <span className="inline-flex items-center justify-center min-w-[30px] h-[22px] px-1.5 rounded-full
+                                       text-white font-bold text-[11.5px] tabular-nums" style={{ background: teinteUE }}>
+                        {ue.na ? 'NA' : fmt(ue.note)}
+                      </span>
+                    : <span className="text-slate-300">·</span>}
                 </td>
               </tr>
             );
@@ -2910,16 +2918,18 @@ function VueTableau({ data, liste, onOuvrir }) {
   );
 }
 
-function Case({ etat, bord }) {
-  if (!etat) return <td className={`border-b border-slate-100 ${bord ? 'border-l' : ''}`} />;
+function Case({ etat, cours, premier }) {
+  const bord = `border-b border-slate-100 ${premier ? 'border-l border-l-slate-200' : ''}`;
+  if (!etat) return <td className={`${bord} text-center text-slate-300`}>·</td>;
+  const enDefaut = !etat.faveur && !etat.na && etat.echec;
+  const pastille = etat.faveur ? 'var(--c-faveur)' : enDefaut ? 'var(--c-refuse)' : null;
+  const texte = etat.na ? 'NA' : etat.note == null ? '—' : fmt(etat.note);
   return (
-    <td className={`border-b border-slate-100 px-1 text-center text-[11px] font-semibold
-      ${bord ? 'border-l border-slate-300 bg-slate-50/60' : ''}
-      ${etat.na ? 'text-slate-500'
-        : etat.faveur ? 'bg-violet-500 text-white'
-        : etat.echec ? 'bg-red-500 text-white outline outline-1 outline-red-400'
-        : 'text-emerald-700'}`}>
-      {etat.na ? 'NA' : fmt(etat.note)}
+    <td className={`${bord} px-1 py-1 text-center tabular-nums`}>
+      {pastille
+        ? <span className="inline-flex items-center justify-center min-w-[26px] h-[20px] px-1 rounded-full
+                           text-white font-bold text-[11px]" style={{ background: pastille }}>{texte}</span>
+        : <span className={`text-[11.5px] ${etat.na ? 'text-slate-400' : cours ? 'text-slate-600' : 'font-semibold text-iip-texte'}`}>{texte}</span>}
     </td>
   );
 }
