@@ -1,3 +1,4 @@
+import { IconReportAnalytics } from '@tabler/icons-react';
 import { useState, useEffect, useMemo, useRef, Fragment } from 'react';
 import { api, getAnnee, getUser, authHeaders } from '../lib/api.js';
 import { IconChartBar, IconHome, IconUsers, IconSettings, IconChevronRight, IconChevronDown, IconPrinter, IconRotateClockwise, IconCheck, IconX, IconTrash, IconCash, IconCalendar, IconArrowsLeftRight, IconScale, IconUsersGroup } from '@tabler/icons-react';
@@ -1547,7 +1548,7 @@ export default function Pilotage({ vue = 'tout' }) {
     <div className="relative" style={{ minHeight: 'calc(100vh - 64px)' }}>
       <RailLateral impression="pilotage"
 
-        icon={IconChartBar}
+        icon={IconReportAnalytics}
         titre="Pilotage"
         extra={
           /* BLANC SUR BLANC. Ce sélecteur était écrit pour le rail marine :
