@@ -4,6 +4,7 @@ import {
 } from '@tabler/icons-react';
 import { authHeaders, telechargerFichier } from '../lib/api.js';
 import { TableauEntete, Th, Badge } from '../components/ui.jsx';
+import { demander } from '../lib/dialogue.jsx';
 
 /**
  * Sauvegardes de la base.
@@ -62,7 +63,7 @@ export default function Sauvegardes() {
   }
 
   async function supprimer(id) {
-    if (!window.confirm('Supprimer définitivement cette sauvegarde ?')) return;
+    if (!(await demander('Supprimer définitivement cette sauvegarde ?'))) return;
     await fetch(`/api/sauvegardes/${id}`, { method: 'DELETE', headers: authHeaders() });
     await charger();
   }

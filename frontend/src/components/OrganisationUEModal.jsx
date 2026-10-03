@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { IconCalendar, IconDeviceFloppy, IconPencil, IconTrash } from '@tabler/icons-react';
+import { demander } from '../lib/dialogue.jsx';
 
 const FLAGS = [
   { key: 'ept_uniquement',        label: 'Uniquement EPT / périodes suppl.' },
@@ -146,7 +147,7 @@ export default function OrganisationUEModal({ ue_num, section, ue_nom, annee, on
   }
 
   async function supprimer(id) {
-    if (!confirm('Supprimer cette organisation ?')) return;
+    if (!(await demander('Supprimer cette organisation ?'))) return;
     await fetch(`/api/ref/organisations-ue/${id}`, {
       method: 'DELETE', headers: { Authorization: `Bearer ${tok()}` }
     });

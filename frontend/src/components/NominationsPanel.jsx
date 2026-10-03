@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { IconTrash, IconLock
 } from '@tabler/icons-react';
 import { getAnnee } from '../lib/api.js';
+import { demander, informer } from '../lib/dialogue.jsx';
 
 const TOKEN = () => localStorage.getItem('token');
 const authFetch = (url, opts = {}) =>
@@ -48,8 +49,8 @@ export default function NominationsPanel({ profId }) {
 
   async function ajouter() {
     if (form.ueAbsente) {
-      if (!form.cours_libre || !form.periodes) { alert('Nom de cours et périodes requis'); return; }
-    } else if (!form.code_fwb || !form.ue_num) { alert('Code FWB et UE requis'); return; }
+      if (!form.cours_libre || !form.periodes) { informer('Nom de cours et périodes requis'); return; }
+    } else if (!form.code_fwb || !form.ue_num) { informer('Code FWB et UE requis'); return; }
     await authFetch('/api/nominations', {
       method: 'POST',
       body: JSON.stringify({
@@ -68,7 +69,7 @@ export default function NominationsPanel({ profId }) {
   }
 
   async function supprimer(id) {
-    if (!confirm('Supprimer cette nomination ?')) return;
+    if (!await demander('Supprimer cette nomination ?')) return;
     await authFetch(`/api/nominations/${id}`, { method: 'DELETE' });
     charger();
   }
@@ -156,7 +157,7 @@ export default function NominationsPanel({ profId }) {
             </div>
             <button type="button" onClick={async () => {
                 const activer = !tousEnConge;
-                if (activer && !confirm('Mettre cette personne en congé sur TOUTES ses heures ? Un remplaçant (À désigner) sera créé pour chaque ligne.')) return;
+                if (activer && !await demander('Mettre cette personne en congé sur TOUTES ses heures ? Un remplaçant (À désigner) sera créé pour chaque ligne.')) return;
                 await authFetch(`/api/nominations/prof/${profId}/conge-global`, {
                   method: 'POST', body: JSON.stringify({ annee, en_conge: activer }),
                 });
@@ -303,7 +304,7 @@ function RTDialog({ nomination, profId, ues, annee, onClose, onSaved }) {
   }, [ueNum, annee]);
 
   async function valider() {
-    if (!ueNum || !coursCode) { alert('Choisissez une UE et un cours pour la remise au travail.'); return; }
+    if (!ueNum || !coursCode) { informer('Choisissez une UE et un cours pour la remise au travail.'); return; }
     await authFetch('/api/nominations/rt', {
       method: 'POST',
       body: JSON.stringify({

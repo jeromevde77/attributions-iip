@@ -13,6 +13,7 @@ import {
 } from '@tabler/icons-react';
 import * as XLSX from 'xlsx';
 import { ouvrirApercu } from '../lib/apercu.js';
+import { informer } from '../lib/dialogue.jsx';
 
 // Table des composants d'icônes (référencés par nom dans ENTITES.tabler)
 /* Les colonnes privées ne se proposent qu'à qui peut les lire — le serveur,
@@ -39,7 +40,7 @@ async function exportExcel(rows, cols, nom) {
     XLSX.utils.book_append_sheet(wb, ws, 'Export');
     XLSX.writeFile(wb, `${nom}.xlsx`);
   } catch (e) {
-    alert('Export Excel indisponible : ' + e.message);
+    informer('Export Excel indisponible : ' + e.message);
   }
 }
 
@@ -662,7 +663,7 @@ export default function Listes({ integre = false, domaine = null, rapports = nul
   }
 
   function genererGrilleHtml(d) {
-    if (d.error) { alert(d.error); return; }
+    if (d.error) { informer(d.error); return; }
     const NIV_PAL = ['var(--c-attente)','var(--c-disponible)','var(--c-texte)','var(--c-faveur)','var(--c-helb)'];
     const niveaux = [...new Set(d.ues.map(u => u.ue_niv).filter(Boolean))];
     const nivColor = niv => NIV_PAL[niveaux.indexOf(niv) % NIV_PAL.length] || '#6b7280';
@@ -789,7 +790,7 @@ export default function Listes({ integre = false, domaine = null, rapports = nul
   }
 
   function genererGrilleExcel(d) {
-    if (d.error) { alert(d.error); return; }
+    if (d.error) { informer(d.error); return; }
     const BLEU = '1B2B4B', GRIS = 'F1F5F9', SOUS = 'E8EDF3', ZEBRE = 'F9FAFB';
     const NIV_PAL = ['F97316','60A5FA','1E3A8A','A855F7','EC4899'];
     const niveaux = [...new Set(d.ues.map(u => u.ue_niv).filter(Boolean))];
@@ -870,10 +871,10 @@ export default function Listes({ integre = false, domaine = null, rapports = nul
   }
 
   function genererRapportEtpHtml(d, filtres) {
-    if (d.error) { alert(d.error); return; }
+    if (d.error) { informer(d.error); return; }
     const secCode = filtres.section || '';
     const sec = (d.sections || []).find(s => s.section === secCode);
-    if (!sec) { alert('Aucune donnée ETP pour cette section. Choisissez une section.'); return; }
+    if (!sec) { informer('Aucune donnée ETP pour cette section. Choisissez une section.'); return; }
 
     /* LA PIÈCE IMPRIMÉE GARDE LA CHARTE EN HEXADÉCIMAL (CLAUDE.md §6) : elle
        vit dans un cadre d'aperçu et part en PDF, où `var(--c-…)` ne s'évalue
@@ -1170,7 +1171,7 @@ ${methodologie}
   }
 
   function genererRapportHtml(d, filtres) {
-    if (d.error) { alert(d.error); return; }
+    if (d.error) { informer(d.error); return; }
     const NIV_PAL = ['var(--c-attente)','var(--c-disponible)','var(--c-texte)','var(--c-faveur)','var(--c-helb)'];
     const niveaux = [...new Set(d.ues?.map(u => u.ue_niv).filter(Boolean))].sort((a,b)=>parseInt(a.match(/\d+$/)?.[0]??99)-parseInt(b.match(/\d+$/)?.[0]??99));
     const getNivCol = niv => NIV_PAL[niveaux.indexOf(niv) % NIV_PAL.length] || '#6b7280';
@@ -1369,9 +1370,9 @@ ${methodologie}
   /** Le rapport ETP en tableur : les mêmes lignes que la pièce, des NOMBRES
       (et non du texte mis en forme) pour que la HELB et le CA puissent compter. */
   function genererRapportEtpExcel(d, filtres) {
-    if (d.error) { alert(d.error); return; }
+    if (d.error) { informer(d.error); return; }
     const sec = (d.sections || []).find(s => s.section === (filtres.section || ''));
-    if (!sec) { alert('Aucune donnée ETP pour cette section. Choisissez une section.'); return; }
+    if (!sec) { informer('Aucune donnée ETP pour cette section. Choisissez une section.'); return; }
     const nivDe = u => { const m = String(u.ue_niv || '').match(/\d+/); return m ? `BA${m[0]}` : (u.ue_niv || 'Autres'); };
     const contratDe = u => (u.etp_helb > 0 && u.etp_iip <= 0) ? 'HELB' : 'IIP';
     const ct = u => (u.per_ct || 0) + (u.per_ct_helb || 0);
@@ -1430,7 +1431,7 @@ ${methodologie}
   }
 
   function genererRapportExcel(d, filtres) {
-    if (d.error) { alert(d.error); return; }
+    if (d.error) { informer(d.error); return; }
     const BLEU = '1B2B4B', TURQ = '00AACC', GRIS = 'F1F5F9', SOUS = 'E8EDF3', ZEBRE = 'F9FAFB';
     const NIV_PAL = ['F97316','60A5FA','1E3A8A','A855F7','EC4899'];
     const niveaux = [...new Set(d.ues?.map(u => u.ue_niv).filter(Boolean))].sort((a,b)=>parseInt(a.match(/\d+$/)?.[0]??99)-parseInt(b.match(/\d+$/)?.[0]??99));

@@ -35,6 +35,7 @@ function peutGenererContrat(u) {
 import { DossierAdmin, Absences, Entretiens, Journal } from '../components/DossierPersonnel.jsx';
 import CalculateurAnciennete from '../components/CalculateurAnciennete.jsx';
 import { ouvrirApercu } from '../lib/apercu.js';
+import { demander, informer } from '../lib/dialogue.jsx';
 
 const EMPTY = {
   nom: '', prenom: '', adresse_mail: '', mail_prive: '',
@@ -223,8 +224,8 @@ function AccesLuciePanel({ profId, detail }) {
     });
   }
 
-  function appliquerProfil(p) {
-    if (!window.confirm(
+  async function appliquerProfil(p) {
+    if (!await demander(
       `Appliquer le profil « ${p.nom} » ?\n\n${p.description || ''}\n\n`
       + `Les cases actuelles seront remplacées. Le périmètre par sections reste inchangé.`)) return;
     setRole(p.role);
@@ -578,12 +579,12 @@ function AccesLuciePanel({ profId, detail }) {
             Trois choses dépendent de l'état, et non une seule : ce qu'on écrit,
             ce qu'on demande, et la couleur — rendre un accès n'est pas une
             action destructrice, elle n'a pas à être en rouge. */}
-        <button onClick={() => {
+        <button onClick={async () => {
             const rendre = !account.actif;
             const question = rendre
               ? `Réactiver le compte de ${account.email} ?\n\nCette personne pourra de nouveau se connecter.`
               : `Désactiver le compte de ${account.email} ?\n\nElle ne pourra plus se connecter. Le compte reste listé et se réactive ici même.`;
-            if (!confirm(question)) return;
+            if (!await demander(question)) return;
             af(`/api/users/${account.id}`, { method: 'PATCH', body: JSON.stringify({ actif: rendre ? 1 : 0 }) })
               .then(charger).catch(e => setErr(e.message));
           }}
@@ -638,14 +639,14 @@ function DetailModal({ profId, onClose, onEdit, onFiche, onEditions }) {
   const [generatingContrat, setGeneratingContrat] = useState(false);
 
   useEffect(() => {
-    api.professeur(profId, getAnnee()).then(setDetail).catch(e => alert(e.message));
+    api.professeur(profId, getAnnee()).then(setDetail).catch(e => informer(e.message));
   }, [profId]);
 
   async function nouvelEA12() {
     try {
       const { id } = await api.ea12Create({ professeur_id: profId, annee_scolaire: getAnnee(), variante: 'bis', donnees: {} });
       navigate(`/ea12/${id}`);
-    } catch (e) { alert('Erreur : ' + e.message); }
+    } catch (e) { informer('Erreur : ' + e.message); }
   }
 
   const [aperçuContrat, setAperçuContrat] = useState(null); // { html, nom }
@@ -667,7 +668,7 @@ function DetailModal({ profId, onClose, onEdit, onFiche, onEditions }) {
          couvertes par la pièce qu'on s'apprête à signer. */
       setAperçuContrat({ html, nom, ecartees: ecartees_expert || [] });
       setShowContratModal(false);
-    } catch (e) { alert('Erreur : ' + e.message); }
+    } catch (e) { informer('Erreur : ' + e.message); }
     finally { setGeneratingContrat(false); }
   }
 
@@ -685,7 +686,7 @@ function DetailModal({ profId, onClose, onEdit, onFiche, onEditions }) {
       const a = document.createElement('a');
       a.href = url; a.download = `Contrat_${detail.nom}_${detail.prenom}_${dateContrat}.docx`;
       a.click(); URL.revokeObjectURL(url);
-    } catch (e) { alert('Erreur : ' + e.message); }
+    } catch (e) { informer('Erreur : ' + e.message); }
     finally { setGeneratingContrat(false); }
   }
 
@@ -704,7 +705,7 @@ function DetailModal({ profId, onClose, onEdit, onFiche, onEditions }) {
       const a = document.createElement('a');
       a.href = url; a.download = `Contrat_${detail.nom}_${detail.prenom}_${dateContrat}.pdf`;
       a.click(); URL.revokeObjectURL(url);
-    } catch (e) { alert('Erreur : ' + e.message); }
+    } catch (e) { informer('Erreur : ' + e.message); }
     finally { setGeneratingPdf(false); }
   }
 
@@ -728,7 +729,7 @@ function DetailModal({ profId, onClose, onEdit, onFiche, onEditions }) {
       if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || 'Erreur serveur');
       const j = await res.json();
       setContratApercu({ html: j.html, nom: j.nom });
-    } catch (e) { alert('Erreur : ' + e.message); }
+    } catch (e) { informer('Erreur : ' + e.message); }
     finally { setImprimantEnCours(false); }
   }
 
@@ -1024,7 +1025,7 @@ function DetailModal({ profId, onClose, onEdit, onFiche, onEditions }) {
                                         className="text-iip-gold hover:text-iip-amber p-1 rounded"><IconEdit size={13}/></button>
                                     )}
                                     <button title="Désattribuer tous les groupes" onClick={async () => {
-                                        if (!confirm(`Retirer toutes les attributions de ${a.nom_cours} (${a.nb_groupes} groupe${a.nb_groupes>1?'s':''})?`)) return;
+                                        if (!await demander(`Retirer toutes les attributions de ${a.nom_cours} (${a.nb_groupes} groupe${a.nb_groupes>1?'s':''})?`)) return;
                                         const tok = localStorage.getItem('token');
                                         for (const id of a.ids) {
                                           await fetch(`/api/attributions/${id}/desattribuer`, { method: 'PATCH', headers: { Authorization: `Bearer ${tok}` } });
@@ -1241,7 +1242,7 @@ function DossiersRH({ profId, profNom }) {
   };
 
   const supprimerDossier = async (id) => {
-    if (!confirm('Supprimer définitivement ce dossier ?')) return;
+    if (!await demander('Supprimer définitivement ce dossier ?')) return;
     await fetch(`/api/dossiers-rh/dossier/${id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${tok()}` } });
     charger();
   };
@@ -1795,14 +1796,14 @@ export default function Professeurs({ vue: vueInitiale = 'membres' }) {
     const tok = localStorage.getItem('token');
     const d = await fetch(`/api/ref/professeurs/${profId}/fiche-attributions?annee=${encodeURIComponent(annee)}`,
       { headers: { Authorization: `Bearer ${tok}` } }).then(r => r.json());
-    if (d.error) { alert(d.error); return; }
+    if (d.error) { informer(d.error); return; }
 
     const { prof, nominations, bilan_nomination, etp } = d;
     let attributions = d.attributions;
     if (contratFiltre) attributions = attributions.filter(a => (a.contrat_mdp || 'IIP') === contratFiltre);
     // Si on demande un type précis et que le prof n'a aucune attribution de ce type, pas de fiche
     if (contratFiltre && attributions.length === 0) {
-      if (!returnOnly) alert(`Ce membre du personnel n'a aucune attribution ${contratFiltre} pour ${annee}.`);
+      if (!returnOnly) informer(`Ce membre du personnel n'a aucune attribution ${contratFiltre} pour ${annee}.`);
       return null;
     }
     if (contratFiltre === 'HELB') { return genererFicheHELB(prof, attributions, annee, returnOnly); }
@@ -1816,7 +1817,7 @@ export default function Professeurs({ vue: vueInitiale = 'membres' }) {
       { headers: { Authorization: `Bearer ${tok}` } });
     const j = await rep.json().catch(() => ({}));
     if (!rep.ok || !j.html) {
-      if (!returnOnly) alert(j.error || 'Composition de la fiche échouée.');
+      if (!returnOnly) informer(j.error || 'Composition de la fiche échouée.');
       return null;
     }
     const html = j.html;
@@ -1880,7 +1881,7 @@ export default function Professeurs({ vue: vueInitiale = 'membres' }) {
         const corpsHtml = (i1 >= 0 && i2 > i1) ? html.slice(i1 + 6, i2) : html;
         corps.push(`<div style="page-break-after:always">${corpsHtml}</div>`);
       }
-      if (corps.length === 0) { alert('Aucune fiche à imprimer pour ce type.'); setPrinting(false); return; }
+      if (corps.length === 0) { informer('Aucune fiche à imprimer pour ce type.'); setPrinting(false); return; }
       const label = type === 'GLOBAL' ? 'Globales' : type;
       /* La fiche IIP vient du serveur dans l'enveloppe commune : ses styles
          (page A4 portrait, en-tête, pied) vivent dans son <head>, qu'on
@@ -1897,7 +1898,7 @@ export default function Professeurs({ vue: vueInitiale = 'membres' }) {
         @media print{@page{size:A4 landscape;margin:10mm}tr{page-break-inside:avoid}thead{display:table-header-group}}
         </style></head><body>${corps.join('')}</body></html>`;
       setFicheHtml({ html: doc, nom: `Fiches_${label}_${annee}_${lot.size}profs` });
-    } catch (e) { alert('Erreur : ' + e.message); }
+    } catch (e) { informer('Erreur : ' + e.message); }
     finally { setPrinting(false); setPrintSelMenu(false); }
   }
 
@@ -1935,7 +1936,7 @@ export default function Professeurs({ vue: vueInitiale = 'membres' }) {
       a.download = `Fiches_${type}_${annee}_${selection.size}profs.zip`;
       a.click();
       URL.revokeObjectURL(url);
-    } catch (e) { alert('Erreur ZIP : ' + e.message); }
+    } catch (e) { informer('Erreur ZIP : ' + e.message); }
     finally { setPrinting(false); setPrintSelMenu(false); }
   }
 
@@ -1972,8 +1973,8 @@ export default function Professeurs({ vue: vueInitiale = 'membres' }) {
       a.download = `Contrats_${dateContrat}_${selection.size}profs.zip`;
       a.click();
       URL.revokeObjectURL(url);
-      if (erreurs > 0) alert(`${erreurs} contrat(s) n'ont pas pu être générés (voir la console pour le détail).`);
-    } catch (e) { alert('Erreur : ' + e.message); }
+      if (erreurs > 0) informer(`${erreurs} contrat(s) n'ont pas pu être générés (voir la console pour le détail).`);
+    } catch (e) { informer('Erreur : ' + e.message); }
     finally { setContratsZipEnCours(false); }
   }
 
@@ -1990,7 +1991,7 @@ export default function Professeurs({ vue: vueInitiale = 'membres' }) {
       const j = await rep.json();
       if (!rep.ok) throw new Error(j.error || 'Erreur');
       setFicheHtml({ html: j.html, nom: j.nom, titre: 'Coordonnées du personnel' });
-    } catch (e) { alert('Erreur : ' + e.message); }
+    } catch (e) { informer('Erreur : ' + e.message); }
   }
 
   async function imprimerAttributions() {
@@ -2001,7 +2002,7 @@ export default function Professeurs({ vue: vueInitiale = 'membres' }) {
       const annee = getAnnee() || '';
       const data = await api.professeursAttributions(ids, annee);
       ouvrirFeuilleImpression(data);
-    } catch (e) { alert('Erreur : ' + e.message); }
+    } catch (e) { informer('Erreur : ' + e.message); }
     finally { setPrinting(false); }
   }
 
@@ -2076,12 +2077,12 @@ export default function Professeurs({ vue: vueInitiale = 'membres' }) {
   const listePrincipale = fCharge === 'sans' ? filtered : avecCharge;
 
   async function handleDelete(p) {
-    if (!confirm(`Supprimer ${p.nom_prenom} ? Cette action est irréversible.`)) return;
+    if (!await demander(`Supprimer ${p.nom_prenom} ? Cette action est irréversible.`)) return;
     setDeleting(p.id);
     try {
       await api.deleteProfesseur(p.id);
       load();
-    } catch (e) { alert('Erreur : ' + e.message); }
+    } catch (e) { informer('Erreur : ' + e.message); }
     finally { setDeleting(null); }
   }
 

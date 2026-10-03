@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { api } from '../lib/api.js';
 import { IconX, IconCheck, IconChevronRight, IconBuilding, IconBook, IconSchool } from '@tabler/icons-react';
+import { informer } from '../lib/dialogue.jsx';
 
 /**
  * Modale "Nouveau" — 3 chemins :
@@ -76,7 +77,7 @@ export default function NouveauModal({ onClose, onCreated }) {
       });
       setResult(res);
       onCreated();
-    } catch (e) { alert(e.message); }
+    } catch (e) { informer(e.message); }
     finally { setCreating(false); }
   };
 
@@ -90,7 +91,7 @@ export default function NouveauModal({ onClose, onCreated }) {
       });
       setResult(res);
       onCreated();
-    } catch (e) { alert(e.message); }
+    } catch (e) { informer(e.message); }
     finally { setCreating(false); }
   };
 
@@ -104,7 +105,7 @@ export default function NouveauModal({ onClose, onCreated }) {
       });
       setResult({ created: 1, skipped: 0 });
       onCreated();
-    } catch (e) { alert(e.message); }
+    } catch (e) { informer(e.message); }
     finally { setCreating(false); }
   };
 

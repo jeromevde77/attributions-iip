@@ -4,6 +4,7 @@ import { api, getAnnee } from '../lib/api.js';
 import { eidStatus, eidReadAll, eidToProf, eidChamps } from '../lib/eid.js';
 import NominationsPanel from '../components/NominationsPanel.jsx';
 import { IconId, IconTrash, IconFileText, IconChevronRight } from '@tabler/icons-react';
+import { informer } from '../lib/dialogue.jsx';
 
 const _tok = () => localStorage.getItem('token');
 const _fetch = (url, opts = {}) =>
@@ -334,7 +335,7 @@ export default function ProfFicheModal({ prof, onClose, onSaved }) {
         setReportsCours(rc);
       }
       setMissions(Array.isArray(p.missions) ? p.missions : []);
-    }).catch(e => alert('Erreur de chargement : ' + e.message))
+    }).catch(e => informer('Erreur de chargement : ' + e.message))
       .finally(() => setLoading(false));
   }, [prof, isNew]);
 
@@ -368,7 +369,7 @@ export default function ProfFicheModal({ prof, onClose, onSaved }) {
 
   async function handleSubmit(e) {
     e.preventDefault();
-    if (!form.nom.trim() || !form.prenom.trim()) return alert('Nom et prénom sont obligatoires');
+    if (!form.nom.trim() || !form.prenom.trim()) return informer('Nom et prénom sont obligatoires');
     setSaving(true);
     try {
       let id = prof?.id;
@@ -389,7 +390,7 @@ export default function ProfFicheModal({ prof, onClose, onSaved }) {
         await api.saveProfAncienneteCours(id, reports);
       }
       onSaved();
-    } catch (e) { alert('Erreur : ' + e.message); }
+    } catch (e) { informer('Erreur : ' + e.message); }
     finally { setSaving(false); }
   }
 
@@ -398,7 +399,7 @@ export default function ProfFicheModal({ prof, onClose, onSaved }) {
     try {
       const fn = `Fiche_signaletique_${form.nom || ''}_${form.prenom || ''}.pdf`.replace(/\s+/g, '_');
       await api.ficheDocumentPdf(prof.id, fn);
-    } catch (e) { alert('Erreur : ' + e.message); }
+    } catch (e) { informer('Erreur : ' + e.message); }
     finally { setGenPdf(false); }
   }
 

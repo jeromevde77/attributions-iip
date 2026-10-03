@@ -5,6 +5,7 @@ import {
   IconAlertTriangle, IconX, IconScale,
 } from '@tabler/icons-react';
 import { authHeaders } from '../lib/api.js';
+import { demander } from '../lib/dialogue.jsx';
 
 const fr = iso => iso ? iso.slice(0, 10).split('-').reverse().join('/') : '—';
 
@@ -94,7 +95,7 @@ export default function Classement({ annee: anneeProp }) {
   }
 
   async function supprimerPrioritaire(id) {
-    if (!confirm('Supprimer cette candidature du registre ?')) return;
+    if (!(await demander('Supprimer cette candidature du registre ?'))) return;
     await fetch(`/api/classement/prioritaires/${id}`, { method: 'DELETE', headers: authHeaders() });
     await chargerPrior();
   }

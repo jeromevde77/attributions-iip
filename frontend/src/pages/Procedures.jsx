@@ -4,6 +4,7 @@ import PreviewModal from '../components/PreviewModal.jsx';
 import { ouvrirApercu } from '../lib/apercu.js';
 import { PageHeader, RailLateral, OuvrirEditions } from '../components/ui.jsx';
 import Disciplinaire from './Disciplinaire.jsx';
+import { informer } from '../lib/dialogue.jsx';
 import {
   IconChecklist, IconScale, IconShieldExclamation, IconClipboardList,
   IconFolder, IconCheck, IconX, IconArrowBackUp, IconGavel,
@@ -492,9 +493,9 @@ function OutilRecours({ initialPayload, onPayloadConsumed }) {
           })(), q, verdict, annee,
         }),
       });
-      if (res.error) { alert('Erreur : ' + res.error); return; }
+      if (res.error) { informer('Erreur : ' + res.error); return; }
       if (res.champs_manquants?.length)
-        alert('⚠ Champs du modèle non disponibles pour cette procédure (laissés vides dans le document) :\n\n• '
+        informer('⚠ Champs du modèle non disponibles pour cette procédure (laissés vides dans le document) :\n\n• '
           + res.champs_manquants.join('\n• '));
       setPreviewHtml(res.html);
       const pid = res.procedure_id;
@@ -535,7 +536,7 @@ function OutilRecours({ initialPayload, onPayloadConsumed }) {
             }).catch(() => {});
         }, 1500);
       }
-    } catch(e) { alert('Erreur : ' + e.message); }
+    } catch(e) { informer('Erreur : ' + e.message); }
   }
 
   // Barre de progression
@@ -881,7 +882,7 @@ function OutilRecours({ initialPayload, onPayloadConsumed }) {
                   const a = document.createElement('a');
                   a.href = url; a.download = `PV_Recours_${etudiant || ''}.pdf`;
                   a.click(); URL.revokeObjectURL(url);
-                } catch (e) { alert('Erreur : ' + e.message); }
+                } catch (e) { informer('Erreur : ' + e.message); }
               }}
               className="flex items-center gap-1.5 px-3 py-1.5 bg-red-600 text-white rounded-lg text-xs font-medium hover:opacity-90">
               <IconFileText size={13}/> Télécharger PDF
@@ -1163,12 +1164,12 @@ function OutilFraude({ initialPayload, onPayloadConsumed }) {
           session, recidive, decision, annee,
         }),
       });
-      if (res.error) { alert('Erreur : ' + res.error); return; }
+      if (res.error) { informer('Erreur : ' + res.error); return; }
       if (res.champs_manquants?.length)
-        alert('⚠ Champs du modèle non disponibles pour cette procédure (laissés vides dans le document) :\n\n• '
+        informer('⚠ Champs du modèle non disponibles pour cette procédure (laissés vides dans le document) :\n\n• '
           + res.champs_manquants.join('\n• '));
       setPreviewHtml(res.html);
-    } catch(e) { alert('Erreur : ' + e.message); }
+    } catch(e) { informer('Erreur : ' + e.message); }
   }
 
   // Délai notification (3 jours après les faits)
@@ -1487,7 +1488,7 @@ function OutilFraude({ initialPayload, onPayloadConsumed }) {
                   const a = document.createElement('a');
                   a.href = url; a.download = `PV_Fraude_${etudiant || ''}.pdf`;
                   a.click(); URL.revokeObjectURL(url);
-                } catch (e) { alert('Erreur : ' + e.message); }
+                } catch (e) { informer('Erreur : ' + e.message); }
               }}
               className="flex items-center gap-1.5 px-3 py-1.5 bg-red-600 text-white rounded-lg text-xs font-medium hover:opacity-90">
               <IconFileText size={13}/> Télécharger PDF
@@ -1592,7 +1593,7 @@ function ArchivesProcedures({ onReprendreRecours, onReprendre }) {
         nomFichier: `${proc.type === 'recours' ? 'PV_Recours' : 'PV_Fraude'}_${payload.etudiant || ''}`,
         astuceImpression: 'A4 portrait',
       });
-    } catch (e) { alert('Erreur lors de la re-génération : ' + e.message); }
+    } catch (e) { informer('Erreur lors de la re-génération : ' + e.message); }
   }
 
   async function voirDetail(proc) {

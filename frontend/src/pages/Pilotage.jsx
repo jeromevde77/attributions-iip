@@ -15,6 +15,7 @@ import {
   ComposedChart, Line,
 } from 'recharts';
 import { ouvrirApercu } from '../lib/apercu.js';
+import { demander, informer } from '../lib/dialogue.jsx';
 
 // ── Utilitaires ──────────────────────────────────────────────────────────────
 const fmt  = (v, d = 0) => (v == null ? '—' : Number(v).toLocaleString('fr-BE', { maximumFractionDigits: d }));
@@ -306,7 +307,7 @@ function DotationComparaison({ civil }) {
       const d = await api.dotationComparaison(annee1, annee2, potFilter || null, pondere, mode);
       setData(d);
       setOpenSecs(new Set(d.sections.map(s => s.section)));
-    } catch(e) { alert(e.message); }
+    } catch(e) { informer(e.message); }
     finally { setLoading(false); }
   }
 
@@ -1358,7 +1359,7 @@ export default function Pilotage({ vue = 'tout' }) {
   };
 
   const deleteYear = async (y) => {
-    if (!confirm(`Supprimer l'année civile ${y} et toutes ses enveloppes ?`)) return;
+    if (!await demander(`Supprimer l'année civile ${y} et toutes ses enveloppes ?`)) return;
     await api.dotationCivileDelete(y);
     load();
   };
@@ -1475,7 +1476,7 @@ export default function Pilotage({ vue = 'tout' }) {
                 <td className="px-4 py-2.5">
                   <div className="flex gap-1 justify-end">
                     <button onClick={() => setEditEnv({ id: e.id, label: e.label, periodes_b: e.periodes_b, usage_historique: e.usage_historique ?? '', notes: e.notes || '' })} className="text-iip-gold hover:text-iip-amber text-xs border border-iip-gold/30 px-2 py-1 rounded">Modifier</button>
-                    <button onClick={async () => { if (confirm('Supprimer cette enveloppe ?')) { await api.enveloppeDelete(e.id); load(); } }} className="text-red-400 hover:text-red-600 text-xs px-2 py-1"><IconTrash size={16} /></button>
+                    <button onClick={async () => { if (await demander('Supprimer cette enveloppe ?')) { await api.enveloppeDelete(e.id); load(); } }} className="text-red-400 hover:text-red-600 text-xs px-2 py-1"><IconTrash size={16} /></button>
                   </div>
                 </td>
               </tr>

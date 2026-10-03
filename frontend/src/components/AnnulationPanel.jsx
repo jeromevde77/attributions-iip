@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { IconArrowBackUp, IconX, IconRefresh, IconAlertTriangle } from '@tabler/icons-react';
 import { authHeaders } from '../lib/api.js';
+import { demander } from '../lib/dialogue.jsx';
 
 /**
  * Annulation des dernières modifications d'attributions.
@@ -38,10 +39,10 @@ export default function AnnulationPanel({ annee, onClose, onRestaure }) {
 
   async function restaurer(it) {
     const quoi = `UE ${it.ue_num ?? '?'}${it.nom_cours ? ' — ' + it.nom_cours : ''}`;
-    if (!window.confirm(
+    if (!(await demander(
       `Restaurer l'état de ${quoi} tel qu'il était avant cette ${ACTIONS[it.action]?.libelle.toLowerCase() || 'action'} ?\n\n` +
       `Du ${new Date(it.created_at).toLocaleString('fr-BE')}` +
-      (it.utilisateur_nom ? ` par ${it.utilisateur_nom}` : ''))) return;
+      (it.utilisateur_nom ? ` par ${it.utilisateur_nom}` : '')))) return;
 
     setEnCours(it.id);
     try {

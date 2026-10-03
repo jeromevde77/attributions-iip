@@ -169,6 +169,7 @@ import AttributionCard from '../components/AttributionCard.jsx';
 import ResizableHeader from '../components/ResizableHeader.jsx';
 import CoursEditModal from '../components/CoursEditModal.jsx';
 import CoursFormModal from '../components/CoursFormModal.jsx';
+import { demander, informer, saisir } from '../lib/dialogue.jsx';
 
 /**
  * LE STATUT D'UN MEMBRE DU PERSONNEL, ET L'EXCEPTION D'UNE LIGNE.
@@ -488,9 +489,9 @@ export default function Attributions() {
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('token')}` },
         body: JSON.stringify({ valide: valide ? 1 : 0 }),
       });
-      if (!res.ok) { const j = await res.json().catch(() => ({})); alert(j.error || 'Erreur de validation'); return; }
+      if (!res.ok) { const j = await res.json().catch(() => ({})); informer(j.error || 'Erreur de validation'); return; }
       load();
-    } catch (e) { alert(e.message); }
+    } catch (e) { informer(e.message); }
   };
 
   // Piocher un candidat du recrutement et l'attribuer à CE groupe/slot (devient recruté + MDP)
@@ -510,10 +511,10 @@ export default function Attributions() {
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('token')}` },
         body: JSON.stringify({ attribution_id: row.id }),
       });
-      if (!res.ok) { const j = await res.json().catch(() => ({})); alert(j.error || 'Erreur'); return; }
+      if (!res.ok) { const j = await res.json().catch(() => ({})); informer(j.error || 'Erreur'); return; }
       setRecrutMenu(null);
       load();
-    } catch (e) { alert(e.message); }
+    } catch (e) { informer(e.message); }
   };
 
   async function genererRapport(section, tcFilter) {
@@ -521,7 +522,7 @@ export default function Attributions() {
     const tok = localStorage.getItem('token');
     const d = await fetch(`/api/attributions/rapport-attributions?section=${encodeURIComponent(section)}&annee=${encodeURIComponent(annee)}`,
       { headers: { Authorization: `Bearer ${tok}` } }).then(r => r.json());
-    if (d.error) { alert(d.error); return; }
+    if (d.error) { informer(d.error); return; }
     // Filtre tronc commun (pop-up) : 'tc' = uniquement TC, 'hors' = hors TC, sinon tout
     if (tcFilter === 'tc')   d.ues = (d.ues || []).filter(u => u.ue_tc === 'x');
     if (tcFilter === 'hors') d.ues = (d.ues || []).filter(u => u.ue_tc !== 'x');
@@ -663,7 +664,7 @@ export default function Attributions() {
     const tok = localStorage.getItem('token');
     const d = await fetch(`/api/attributions/rapport-attributions?section=${encodeURIComponent(section)}&annee=${encodeURIComponent(annee)}`,
       { headers: { Authorization: `Bearer ${tok}` } }).then(r => r.json());
-    if (d.error) { alert(d.error); return; }
+    if (d.error) { informer(d.error); return; }
 
     // Couleurs
     const BLEU_MARINE  = '1B2B4B';
@@ -870,7 +871,7 @@ export default function Attributions() {
         }),
       });
       load();
-    } catch (e) { alert(e.message); }
+    } catch (e) { informer(e.message); }
   }
   async function renumeroterOrg(ue, sec, ancienOrg, nouvelOrg) {
     setOrgMenu(null);
@@ -888,15 +889,15 @@ export default function Attributions() {
       const d = await res.json();
       if (!res.ok) throw new Error(d.error || 'Erreur serveur');
       load();
-    } catch (e) { alert(e.message); }
+    } catch (e) { informer(e.message); }
   }
   async function reouvrirUE(ue, sec) {
-    if (!confirm(`Réouvrir l'UE ${ue.ue_num} dans ${sec} ? Une nouvelle organisation sera créée avec le numéro suivant.`)) return;
+    if (!(await demander(`Réouvrir l'UE ${ue.ue_num} dans ${sec} ? Une nouvelle organisation sera créée avec le numéro suivant.`))) return;
     try {
       const r = await api.reouvrirUE(ue.ue_num, sec, ue.num_organisation || 1);
       load();
-      alert(`Nouvelle organisation ${r.num_organisation} créée (${r.created} cours).`);
-    } catch (e) { alert(e.message); }
+      informer(`Nouvelle organisation ${r.num_organisation} créée (${r.created} cours).`);
+    } catch (e) { informer(e.message); }
   }
 
   function expandAll() {
@@ -924,9 +925,9 @@ export default function Attributions() {
 
   /* --- CRUD --- */
   async function deleteRow(id) {
-    if (!confirm('Supprimer cette attribution ?')) return;
+    if (!(await demander('Supprimer cette attribution ?'))) return;
     try { await api.deleteAttribution(id); setData(d=>d.filter(r=>r.id!==id)); setSelected(s=>{const n=new Set(s);n.delete(id);return n;}); }
-    catch(e){ alert('Erreur : '+e.message); }
+    catch(e){ informer('Erreur : '+e.message); }
   }
   async function delSection(code) {
     setConfirmDeleteSection(code);
@@ -938,20 +939,20 @@ export default function Attributions() {
       const r = await api.bulkDeleteFiltered({ section, annee_scolaire: getAnnee() });
       setConfirmViderSection(null);
       load();
-      alert(`${r.deleted} attribution(s) supprimée(s) pour ${section}.`);
-    } catch(e) { alert('Erreur : ' + e.message); }
+      informer(`${r.deleted} attribution(s) supprimée(s) pour ${section}.`);
+    } catch(e) { informer('Erreur : ' + e.message); }
   }
   async function delSectionConfirmed(code) {
     try { await api.maskSection(code, getAnnee()); setConfirmDeleteSection(null); load(); }
-    catch(e){ alert('Erreur : ' + e.message); setConfirmDeleteSection(null); }
+    catch(e){ informer('Erreur : ' + e.message); setConfirmDeleteSection(null); }
   }
   async function autoFillSection(section) {
-    if (!confirm(`Remplir automatiquement les périodes prof de la section "${section}" ?\n\nToutes les lignes à 0 période recevront la valeur cours_per du cours correspondant. L'autonomie n'est pas touchée.`)) return;
+    if (!(await demander(`Remplir automatiquement les périodes prof de la section "${section}" ?\n\nToutes les lignes à 0 période recevront la valeur cours_per du cours correspondant. L'autonomie n'est pas touchée.`))) return;
     try {
       const r = await api.autoFillPeriodes(section);
       if (r.updated > 0) { load(); }
-      else alert('Aucune ligne à remplir (toutes les périodes sont déjà renseignées).');
-    } catch(e){ alert('Erreur : ' + e.message); }
+      else informer('Aucune ligne à remplir (toutes les périodes sont déjà renseignées).');
+    } catch(e){ informer('Erreur : ' + e.message); }
   }
   async function saveCell(id, field, value) {
     // ── Édition groupée : si la ligne éditée est cochée et que plusieurs lignes le sont,
@@ -963,7 +964,7 @@ export default function Attributions() {
         : field === 'periodes_attribuees' ? 'les périodes'
         : field === 'helb_nature' ? 'le type (TH/TP)'
         : field === 'activite_id' ? 'l\'activité' : 'l\'autonomie';
-      if (confirm(`Appliquer ${libelleChamp} à ${ids.length} lignes sélectionnées ?`)) {
+      if (await demander(`Appliquer ${libelleChamp} à ${ids.length} lignes sélectionnées ?`)) {
         for (const lid of ids) {
           await appliquerCellule(lid, field, value);
         }
@@ -985,7 +986,7 @@ export default function Attributions() {
         const nouveauId = value ? Number(value) : null;
         // Si un définitif est lié à ce cours et qu'on attribue à un AUTRE prof
         if (definitifNom && nouveauId && verrou?.definitif_id !== nouveauId) {
-          if (!confirm(`Ce cours est attribué à titre définitif à ${definitifNom}.\n\nÊtes-vous certain de l'attribuer à quelqu'un d'autre ?`)) {
+          if (!(await demander(`Ce cours est attribué à titre définitif à ${definitifNom}.\n\nÊtes-vous certain de l'attribuer à quelqu'un d'autre ?`))) {
             return; // annulé : on ne change rien
           }
         }
@@ -1032,7 +1033,7 @@ export default function Attributions() {
             setAlertesCours(map);
           }).catch(() => {});
       }
-    } catch(e){ alert('Erreur : '+e.message); }
+    } catch(e){ informer('Erreur : '+e.message); }
   }
 
   // Démultiplie une ligne d'attribution : crée N-1 copies (mêmes valeurs, groupes nouveaux sans doublon)
@@ -1063,12 +1064,12 @@ export default function Attributions() {
 
   // ✂️ SPLIT : découpe le cours en N morceaux partagés (mêmes étudiants = Ts, plusieurs profs/parties)
   async function splitterLigne(row) {
-    const saisie = prompt(`En combien de morceaux découper ce cours ?\n(même groupe d'étudiants « Ts », partagé entre plusieurs profs)`, '2');
+    const saisie = await saisir({ message: `En combien de morceaux découper ce cours ?\n(même groupe d'étudiants « Ts », partagé entre plusieurs profs)`, valeur: '2' });
     if (saisie == null) return;
     const total = Math.max(2, Math.min(20, parseInt(saisie, 10) || 0));
     if (!total || total < 2) return;
     const aCreer = total - 1; // la ligne actuelle compte déjà comme 1 morceau
-    if (!confirm(`Créer ${aCreer} morceau(x) supplémentaire(s) en split (Ts) ?\nLa somme des périodes devra rester un multiple du DP.`)) return;
+    if (!(await demander(`Créer ${aCreer} morceau(x) supplémentaire(s) en split (Ts) ?\nLa somme des périodes devra rester un multiple du DP.`))) return;
     try {
       // La ligne source devient un split (Ts, pas de lettre)
       await api.updateAttribution(row.id, { split_groupe: 'O', code: null });
@@ -1076,12 +1077,12 @@ export default function Attributions() {
         await api.createAttribution(payloadCopie(row, null, 'O'));
       }
       load();
-    } catch(e){ alert('Erreur : '+e.message); }
+    } catch(e){ informer('Erreur : '+e.message); }
   }
 
   // 👥 GROUPE : crée N sous-groupes (étudiants répartis), numérotés A, B, C… sans doublon
   async function grouperLigne(row) {
-    const saisie = prompt(`Combien de groupes au total pour cette activité ?\n(sous-groupes A, B, C… avec étudiants répartis)`, '2');
+    const saisie = await saisir({ message: `Combien de groupes au total pour cette activité ?\n(sous-groupes A, B, C… avec étudiants répartis)`, valeur: '2' });
     if (saisie == null) return;
     const total = Math.max(2, Math.min(26, parseInt(saisie, 10) || 0));
     if (!total || total < 2) return;
@@ -1090,7 +1091,7 @@ export default function Attributions() {
       r.section === row.section && r.code_cours === row.code_cours &&
       (r.num_organisation || 1) === (row.num_organisation || 1) &&
       (r.activite_id || null) === (row.activite_id || null);
-    if (!confirm(`Organiser cette activité en ${total} groupes (${groupCodeSeq(total, row).join(', ')}) ?`)) return;
+    if (!(await demander(`Organiser cette activité en ${total} groupes (${groupCodeSeq(total, row).join(', ')}) ?`))) return;
     try {
       // La ligne source devient le groupe A ; les nouvelles prennent B, C… séquentiellement
       await api.updateAttribution(row.id, { code: groupCode(0, row), split_groupe: 'N' });
@@ -1098,17 +1099,17 @@ export default function Attributions() {
         await api.createAttribution(payloadCopie(row, groupCode(i, row), 'N'));
       }
       load();
-    } catch(e){ alert('Erreur : '+e.message); }
+    } catch(e){ informer('Erreur : '+e.message); }
   }
 
   async function toggleConge(row) {
     try {
       if (!row.en_conge) {
-        if (!confirm(`Mettre ${row.professeur_id ? 'ce titulaire' : 'cette ligne'} en congé ?\n\nLa ligne sera grisée (comptée 0 en dotation) et une ligne de remplacement sera créée avec les mêmes périodes.`)) return;
+        if (!(await demander(`Mettre ${row.professeur_id ? 'ce titulaire' : 'cette ligne'} en congé ?\n\nLa ligne sera grisée (comptée 0 en dotation) et une ligne de remplacement sera créée avec les mêmes périodes.`))) return;
       }
       await api.toggleConge(row.id);
       load();
-    } catch(e){ alert('Erreur : '+e.message); }
+    } catch(e){ informer('Erreur : '+e.message); }
   }
   function recompute(row, patch) {
     const per = Number(patch.periodes_attribuees ?? row.periodes_attribuees ?? 0);
@@ -1125,14 +1126,14 @@ export default function Attributions() {
       const f = {};
       if (mode==='filtered') { if(filters.section) f.section=filters.section; if(filters.prof_id) f.professeur_id=filters.prof_id; if(filters.contrat) f.contrat=filters.contrat; }
       setBulkPreview(await api.bulkDeletePreview(f));
-    } catch(e){ alert(e.message); setBulkDeleteModal(null); }
+    } catch(e){ informer(e.message); setBulkDeleteModal(null); }
   }
   async function ouvrirSuppressionSection(section) {
     setSecDelText('');
     try {
       const d = await api.apercuSuppressionSection(section);
       setSecDel({ section, lignes: d.lignes || [], count: d.count || 0 });
-    } catch (e) { alert('Erreur : ' + e.message); }
+    } catch (e) { informer('Erreur : ' + e.message); }
   }
   async function confirmSuppressionSection() {
     if (!secDel) return;
@@ -1140,30 +1141,30 @@ export default function Attributions() {
     try {
       const r = await api.supprimerToutSection(secDel.section);
       setSecDel(null); setSecDelText('');
-      alert(`${r.supprimees} attribution(s) supprimée(s).` + (r.backup ? `\nSauvegarde créée : ${r.backup}` : ''));
+      informer(`${r.supprimees} attribution(s) supprimée(s).` + (r.backup ? `\nSauvegarde créée : ${r.backup}` : ''));
       load();
-    } catch (e) { alert('Erreur : ' + e.message); }
+    } catch (e) { informer('Erreur : ' + e.message); }
     finally { setSecDelBusy(false); }
   }
 
   async function confirmBulkDelete() {
-    if (bulkConfirmText!=='SUPPRIMER') { alert('Tapez SUPPRIMER.'); return; }
+    if (bulkConfirmText!=='SUPPRIMER') { informer('Tapez SUPPRIMER.'); return; }
     try {
       let r;
       if (bulkDeleteModal==='selection') {
         // Exclure les IDs synthétiques Z (format 'z-xxx')
         const realIds = Array.from(selected).filter(id => !String(id).startsWith('z-'));
-        if (realIds.length === 0) { alert('Aucune attribution réelle sélectionnée (les lignes Z ne peuvent pas être supprimées).'); return; }
+        if (realIds.length === 0) { informer('Aucune attribution réelle sélectionnée (les lignes Z ne peuvent pas être supprimées).'); return; }
         r = await api.bulkDeleteAttributions(realIds);
       }
       else if (bulkDeleteModal==='filtered') { const f={}; if(filters.section) f.section=filters.section; if(filters.prof_id) f.professeur_id=filters.prof_id; if(filters.contrat) f.contrat=filters.contrat; r = await api.bulkDeleteFiltered(f); }
       else r = await api.bulkDeleteFiltered({});
-      alert(`${r.deleted} supprimée(s).`); setBulkDeleteModal(null); setSelected(new Set()); load();
-    } catch(e){ alert('Erreur : '+e.message); }
+      informer(`${r.deleted} supprimée(s).`); setBulkDeleteModal(null); setSelected(new Set()); load();
+    } catch(e){ informer('Erreur : '+e.message); }
   }
   async function reimportExcel() {
-    if (!confirm('Réimporter depuis Excel ?')) return;
-    try { await api.adminReimportExcel(); alert('Réimport terminé.'); load(); } catch(e){ alert(e.message); }
+    if (!(await demander('Réimporter depuis Excel ?'))) return;
+    try { await api.adminReimportExcel(); informer('Réimport terminé.'); load(); } catch(e){ informer(e.message); }
   }
 
   /* --- Chargement --- */
@@ -1579,7 +1580,7 @@ export default function Attributions() {
               const attendu = groupCodeSeq(codesApres.length, row);
               const seqOk = JSON.stringify(codesApres) === JSON.stringify(attendu);
               if (!seqOk) {
-                if (!confirm(`La lettre ${newLettre} rompt la séquence alphabétique. Continuer quand même ?`)) return;
+                if (!(await demander(`La lettre ${newLettre} rompt la séquence alphabétique. Continuer quand même ?`))) return;
               }
               if (frereAvecCetteLetttre) {
                 // Switch : échanger les deux lettres
@@ -1598,14 +1599,14 @@ export default function Attributions() {
                     if (r.id === frereAvecCetteLetttre.id) return { ...r, code: newLettre };
                     return r;
                   }));
-                  alert('Erreur : ' + e.message);
+                  informer('Erreur : ' + e.message);
                 }
               } else {
                 // Lettre libre : assigner directement
                 const ancienCode = row.code || null;
                 setData(prev => prev.map(r => r.id === row.id ? { ...r, code: newLettre } : r));
                 try { await api.updateAttribution(row.id, { code: newLettre }); }
-                catch(e) { setData(prev => prev.map(r => r.id === row.id ? { ...r, code: ancienCode } : r)); alert('Erreur : ' + e.message); }
+                catch(e) { setData(prev => prev.map(r => r.id === row.id ? { ...r, code: ancienCode } : r)); informer('Erreur : ' + e.message); }
               }
             }
 
@@ -2071,7 +2072,7 @@ export default function Attributions() {
                           await api.creerLigneDepuisCours(cm.cours_code, cm.ue_num, cm.section);
                           setAddMenuUE(null);
                           load();
-                        } catch(err){ alert('Erreur : ' + err.message); }
+                        } catch(err){ informer('Erreur : ' + err.message); }
                       }}
                       className="w-full text-left px-3 py-1.5 h-9 text-sm hover:bg-amber-100 flex items-center gap-2">
                       <span className="text-amber-600">↻</span>
@@ -2452,11 +2453,11 @@ export default function Attributions() {
               return r;
             }));
             try { await api.updateAttribution(rowId, { code: codeEffectif }); await api.updateAttribution(autre.id, { code: ancienCode }); }
-            catch(e) { alert(e.message); }
+            catch(e) { informer(e.message); }
           } else {
             setData(prev => prev.map(r => r.id === rowId ? { ...r, code: codeEffectif } : r));
             try { await api.updateAttribution(rowId, { code: codeEffectif }); }
-            catch(e) { alert(e.message); }
+            catch(e) { informer(e.message); }
           }
           // Re-vérifier
           setTimeout(() => {

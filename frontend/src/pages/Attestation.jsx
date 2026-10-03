@@ -8,6 +8,7 @@ import DiplomeEditeur from './DiplomeEditeur.jsx';
 import { IconPlus, IconTrash, IconEye, IconDownload, IconCopy, IconLock
 } from '@tabler/icons-react';
 import { ouvrirApercu } from '../lib/apercu.js';
+import { demander, informer } from '../lib/dialogue.jsx';
 
 /* ── Template HTML attestation provisoire ─────────────────────────────────── */
 export function genererTemplateAttestation() {
@@ -553,21 +554,21 @@ export default function Attestation() {
 
   const telechargerUn = async (l) => {
     if (!(l.nom && l.section_code && l.mention)) return;
-    if (docType === 'diplome' && !tplDiplome) { alert('Modèle de diplôme non chargé.'); return; }
+    if (docType === 'diplome' && !tplDiplome) { informer('Modèle de diplôme non chargé.'); return; }
     setGenerating(true);
     try {
       const [{ jsPDF }, h2c] = await Promise.all([import('jspdf'), import('html2canvas')]);
       const blob = await htmlVersPdfBlob(docHtml(l), jsPDF, h2c.default, docPaysage);
       telecharger(blob, `${docNom(l)}.pdf`);
-    } catch (e) { alert('Erreur PDF : ' + e.message); }
+    } catch (e) { informer('Erreur PDF : ' + e.message); }
     finally { setGenerating(false); }
   };
 
   const genererZip = async () => {
     const base = selection.size ? lignesAffichees.filter(l => selection.has(l.id)) : lignesAffichees;
     const valides = base.filter(l => l.nom && l.section_code && l.mention);
-    if (valides.length === 0) { alert('Aucun étudiant éligible : une mention valide (toutes les UE notées et ≥ 50%) est requise.'); return; }
-    if (docType === 'diplome' && !tplDiplome) { alert('Modèle de diplôme non chargé. Ouvrez l’onglet « Modèle de diplôme » et Enregistrez une fois.'); return; }
+    if (valides.length === 0) { informer('Aucun étudiant éligible : une mention valide (toutes les UE notées et ≥ 50%) est requise.'); return; }
+    if (docType === 'diplome' && !tplDiplome) { informer('Modèle de diplôme non chargé. Ouvrez l’onglet « Modèle de diplôme » et Enregistrez une fois.'); return; }
     setGenerating(true);
     try {
       const [{ jsPDF }, h2c, JSZipMod] = await Promise.all([import('jspdf'), import('html2canvas'), import('jszip')]);
@@ -580,15 +581,15 @@ export default function Attestation() {
       }
       const out = await zip.generateAsync({ type: 'blob' });
       telecharger(out, `${docTitre}_${annee.replace('/', '-')}.zip`);
-    } catch (e) { alert('Erreur ZIP : ' + e.message); }
+    } catch (e) { informer('Erreur ZIP : ' + e.message); }
     finally { setGenerating(false); }
   };
 
   const genererBatch = () => {
     const base = selection.size ? lignesAffichees.filter(l => selection.has(l.id)) : lignesAffichees;
     const valides = base.filter(l => l.nom && l.section_code && l.mention);
-    if (valides.length === 0) { alert('Aucun étudiant éligible : une mention valide (toutes les UE notées et résultat ≥ 50%) est requise.'); return; }
-    if (docType === 'diplome' && !tplDiplome) { alert('Modèle de diplôme non chargé. Ouvrez l’onglet « Modèle de diplôme » et Enregistrez une fois.'); return; }
+    if (valides.length === 0) { informer('Aucun étudiant éligible : une mention valide (toutes les UE notées et résultat ≥ 50%) est requise.'); return; }
+    if (docType === 'diplome' && !tplDiplome) { informer('Modèle de diplôme non chargé. Ouvrez l’onglet « Modèle de diplôme » et Enregistrez une fois.'); return; }
     setGenerating(true);
     try {
       // Rendu fidèle : on imprime via le moteur du navigateur (identique à l'aperçu)
@@ -603,7 +604,7 @@ export default function Attestation() {
         nomFichier: `${docTitre}_${annee.replace('/', '-')}`,
         envoiPossible: false,
       });
-    } catch (e) { alert('Erreur génération : ' + e.message); }
+    } catch (e) { informer('Erreur génération : ' + e.message); }
     finally { setGenerating(false); }
   };
 
@@ -667,7 +668,7 @@ export default function Attestation() {
     const csv = '\ufeff' + [cols.join(';'), ...rows].join('\r\n');
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
     telecharger(blob, `Liste_resultats_TIM_${annee.replace('/', '-')}.csv`);
-    } catch (e) { alert('Erreur export liste : ' + e.message); }
+    } catch (e) { informer('Erreur export liste : ' + e.message); }
   };
 
   const trier = (col) => { if (sortCol === col) setSortDir(d => d === 'asc' ? 'desc' : 'asc'); else { setSortCol(col); setSortDir('asc'); } };
@@ -770,8 +771,8 @@ export default function Attestation() {
             className="flex items-center gap-1.5 bg-green-600 text-white text-sm px-3 py-1.5 rounded-lg hover:opacity-90">
             <IconPlus size={15}/> Ajouter une ligne
           </button>
-          <button onClick={() => {
-            if (lignes.some(l => l.nom) && !confirm('Remplacer les lignes existantes par les étudiants TIM BA1 2025-2026 ?')) return;
+          <button onClick={async () => {
+            if (lignes.some(l => l.nom) && !(await demander('Remplacer les lignes existantes par les étudiants TIM BA1 2025-2026 ?'))) return;
             setLignes(ETUDIANTS_TIM_BA1.map(e => deriveLigne({ ...LIGNE_VIDE(), ...e, id: Date.now() + Math.random() }, cfgBySec)));
           }}
             className="flex items-center gap-1.5 bg-amber-500 text-white text-sm px-3 py-1.5 rounded-lg hover:opacity-90">

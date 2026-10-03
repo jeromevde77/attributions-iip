@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { api } from '../lib/api.js';
 import { IconX, IconUsersGroup, IconUser, IconUsers, IconArrowsSplit } from '@tabler/icons-react';
+import { informer } from '../lib/dialogue.jsx';
 
 function modeActuel(cours) {
   const rows = cours.rows || [];
@@ -79,7 +80,7 @@ export default function OrganiserGroupesModal({ portee, section, ues, onClose, o
           ok++;
         } catch(e) { errs.push(`UE ${ue.ue_num} : ${e.message}`); }
       }
-      if (errs.length) alert(`${ok} UE traitée(s).\nErreurs :\n${errs.join('\n')}`);
+      if (errs.length) await informer(`${ok} UE traitée(s).\nErreurs :\n${errs.join('\n')}`);
       onApplied(ok);
     } finally { setBusy(false); }
   }

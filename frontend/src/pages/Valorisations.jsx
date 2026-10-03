@@ -8,6 +8,7 @@ import { authHeaders, getAnnee, getUser } from '../lib/api.js';
 import { BulleAide, Fenetre, RailLateral, OuvrirEditions } from '../components/ui.jsx';
 import SeanceValorisation from '../components/SeanceValorisation.jsx';
 import { nomListe, parNom } from '../lib/nom.js';
+import { demander, saisir } from '../lib/dialogue.jsx';
 
 /**
  * LA VALORISATION DES ACQUIS — UN ÉCRAN, PAS UNE FENÊTRE.
@@ -143,7 +144,7 @@ export default function Valorisations() {
    * est portée à l'écran, et quand elle réclame un motif, on le demande au
    * lieu de laisser deviner. */
   async function supprimer(vid, motif = null) {
-    if (!motif && !confirm('Supprimer cette valorisation ? Ses preuves partent avec elle.')) return;
+    if (!motif && !(await demander('Supprimer cette valorisation ? Ses preuves partent avec elle.'))) return;
     try {
       const r = await fetch(`/api/etudiants/valorisations/${vid}`, {
         method: 'DELETE', headers: authHeaders(),
@@ -153,7 +154,7 @@ export default function Valorisations() {
         const j = await r.json().catch(() => ({}));
         // Le serveur demande un motif : on le demande à son tour, une fois.
         if (j.motif_requis && !j.reserve_direction && !motif) {
-          const m = window.prompt(`${j.error}\n\nMotif de la suppression :`, '');
+          const m = await saisir({ message: `${j.error}\n\nMotif de la suppression :`, valeur: '' });
           if (m && m.trim()) return supprimer(vid, m.trim());
           return;
         }
@@ -179,10 +180,10 @@ export default function Valorisations() {
      une formalité, c'est ce qui explique un an après pourquoi elle a été
      défaite. Le journal garde les deux gestes. */
   async function devalider(vid) {
-    const motif = window.prompt(
-      'Retirer la validation de ce dossier.\n\n'
+    const motif = await saisir({
+      message: 'Retirer la validation de ce dossier.\n\n'
       + 'Une pièce a pu partir sur la foi de cette validation : le motif reste '
-      + 'au journal.\n\nMotif :', '');
+      + 'au journal.\n\nMotif :', valeur: '' });
     if (!motif || !motif.trim()) return;
     try {
       const r = await fetch(`/api/etudiants/valorisations/${vid}/validation`, {
@@ -201,10 +202,10 @@ export default function Valorisations() {
      les quatre demandes d'Untel » n'engagent pas la même chose. */
   async function supprimerLigne(e) {
     const n = (e.vas || []).length;
-    if (n && !window.confirm(
+    if (n && !(await demander(
       `Retirer ${(e.nom || '').toUpperCase()} ${e.prenom} du registre ${annee} ?\n`
       + `${n} demande(s) seront supprimées. Les décisions déjà prises, elles, `
-      + 'ne peuvent pas être effacées.')) return;
+      + 'ne peuvent pas être effacées.'))) return;
     try {
       const envoyer = motif => fetch(
         `/api/etudiants/valorisations/etudiant/${e.id}?annee=${encodeURIComponent(annee)}`,
@@ -213,8 +214,8 @@ export default function Valorisations() {
       let r = await envoyer(null);
       let j = await r.json().catch(() => ({}));
       if (!r.ok && j.motif_requis && !j.reserve_direction) {
-        const m = window.prompt(
-          `${j.error}\n${(j.bloquants || []).join('\n')}\n\nMotif de la suppression :`, '');
+        const m = await saisir({
+          message: `${j.error}\n${(j.bloquants || []).join('\n')}\n\nMotif de la suppression :`, valeur: '' });
         if (!m || !m.trim()) return;
         r = await envoyer(m.trim());
         j = await r.json().catch(() => ({}));

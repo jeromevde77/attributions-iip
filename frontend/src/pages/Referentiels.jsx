@@ -9,6 +9,7 @@ import ImportUEAssistant from '../components/ImportUEAssistant.jsx';
 import { IconX, IconPencil, IconTrash, IconPlus, IconCheck, IconLink, IconChevronRight, IconTarget, IconUpload, IconFileText, IconAlertTriangle, IconBooks } from '@tabler/icons-react';
 import { Fenetre, GroupeFenetre } from '../components/ui.jsx';
 import AcquisUE from '../components/AcquisUE.jsx';
+import { demander, informer } from '../lib/dialogue.jsx';
 
 // Même normalisation que le serveur : accents, casse et ponctuation ne font
 // pas deux cours différents.
@@ -407,9 +408,9 @@ function EffectifsImportModal({ annee, onClose, onSaved }) {
     setBusy(true);
     try {
       const r = await api.importEffectifs(preview);
-      alert(`${r.maj} UE mises à jour.` + (r.inconnus?.length ? `\nUE non trouvées pour ${annee} : ${r.inconnus.join(', ')}` : ''));
+      await informer(`${r.maj} UE mises à jour.` + (r.inconnus?.length ? `\nUE non trouvées pour ${annee} : ${r.inconnus.join(', ')}` : ''));
       onSaved();
-    } catch (e) { alert('Erreur : ' + e.message); }
+    } catch (e) { informer('Erreur : ' + e.message); }
     finally { setBusy(false); }
   }
 
@@ -649,7 +650,7 @@ function UEModal({ ue, sections, onClose, onSaved }) {
       const sim = await api.renameUENum(ue.ue_num, n, true);
       const detail = sim.lignes.slice(0, 14).map(l => `  • ${l.table} (${l.colonne}) : ${l.n}`).join('\n');
       const cours = sim.cours.map(([a, b]) => `${a} → ${b}`).join(', ');
-      const ok = window.confirm(
+      const ok = await demander(
         `Renuméroter l'UE ${ue.ue_num} en ${n}, sur TOUTES les années ?\n\n`
         + `${sim.total} ligne(s) changeront :\n${detail}${sim.lignes.length > 14 ? '\n  • …' : ''}\n\n`
         + (cours ? `Cours : ${cours}\n` : '')
@@ -660,13 +661,13 @@ function UEModal({ ue, sections, onClose, onSaved }) {
       await api.renameUENum(ue.ue_num, n, false);
       onSaved();
     }
-    catch (e) { alert('Erreur : ' + e.message); setSaving(false); }
+    catch (e) { informer('Erreur : ' + e.message); setSaving(false); }
   }
 
   async function submit(e) {
     e.preventDefault();
-    if (!form.ue_num || !form.ue_nom) return alert('Numéro et nom requis');
-    if (selSections.size === 0) return alert('Sélectionnez au moins une section.');
+    if (!form.ue_num || !form.ue_nom) return informer('Numéro et nom requis');
+    if (selSections.size === 0) return informer('Sélectionnez au moins une section.');
     setSaving(true);
     try {
       // La 1re section cochée reste la section "principale" (champ ue.section)
@@ -679,7 +680,7 @@ function UEModal({ ue, sections, onClose, onSaved }) {
       for (const code of apres) if (!avant.has(code)) await api.rattacherUE(form.ue_num, code);
       for (const code of avant) if (!apres.has(code)) await api.detacherUE(form.ue_num, code).catch(() => {});
       onSaved();
-    } catch (e) { alert('Erreur : ' + e.message); }
+    } catch (e) { informer('Erreur : ' + e.message); }
     finally { setSaving(false); }
   }
 
@@ -877,12 +878,12 @@ function CatalogueUEModal({ section, onClose, onDone }) {
       try {
         const res = await api.appliquerNominations(ue.ue_num, section);
         if (res?.alertes?.length) {
-          alert('Profs définitifs placés.\n\n⚠ ' + res.alertes.map(a => a.message).join('\n'));
+          await informer('Profs définitifs placés.\n\n⚠ ' + res.alertes.map(a => a.message).join('\n'));
         }
       } catch { /* non bloquant */ }
       onDone(r);
     }
-    catch (e) { alert(e.message); setBusy(null); }
+    catch (e) { informer(e.message); setBusy(null); }
   }
 
   return (
@@ -968,16 +969,16 @@ export default function Referentiels({ embedded = false }) {
   function toggle(key) { setOpen(o => ({ ...o, [key]: !o[key] })); }
 
   async function delUE(ue) {
-    if (!confirm(`Supprimer l'UE ${ue.ue_num} — ${ue.ue_nom} et ses cours ?`)) return;
-    try { await api.deleteUE(ue.ue_num); load(); } catch (e) { alert(e.message); }
+    if (!(await demander(`Supprimer l'UE ${ue.ue_num} — ${ue.ue_nom} et ses cours ?`))) return;
+    try { await api.deleteUE(ue.ue_num); load(); } catch (e) { informer(e.message); }
   }
   async function delCours(c) {
-    if (!confirm(`Supprimer le cours ${c.cours_code} ?`)) return;
-    try { await api.deleteCours(c.cours_code); load(); } catch (e) { alert(e.message); }
+    if (!(await demander(`Supprimer le cours ${c.cours_code} ?`))) return;
+    try { await api.deleteCours(c.cours_code); load(); } catch (e) { informer(e.message); }
   }
   async function delSection(code) {
-    if (!confirm(`Supprimer la section "${code}" ? (bloqué si des attributions existent)`)) return;
-    try { await api.deleteSection(code); load(); } catch (e) { alert(e.message); }
+    if (!(await demander(`Supprimer la section "${code}" ? (bloqué si des attributions existent)`))) return;
+    try { await api.deleteSection(code); load(); } catch (e) { informer(e.message); }
   }
 
   if (loading) return <div className="p-8 text-center text-gray-400">Chargement…</div>;
@@ -1415,7 +1416,7 @@ export default function Referentiels({ embedded = false }) {
       {catalogueOpen && (
         <CatalogueUEModal section={catalogueOpen}
           onClose={() => setCatalogueOpen(null)}
-          onDone={(r) => { setCatalogueOpen(null); load(); if (r?.copiee) alert('UE copiée dans l\'année courante et rattachée à la section.'); }} />
+          onDone={(r) => { setCatalogueOpen(null); load(); if (r?.copiee) informer('UE copiée dans l\'année courante et rattachée à la section.'); }} />
       )}
       {sectionModal && <SectionModal section={sectionModal} annee={annee} isAdmin={isAdmin} onClose={() => setSectionModal(null)} onSaved={() => { setSectionModal(null); load(); }} />}
       {importOpen && (
@@ -1423,7 +1424,7 @@ export default function Referentiels({ embedded = false }) {
           source={(annees.find(a => a.code !== annee && a.code === '2025-2026') || annees.find(a => a.code !== annee))?.code}
           cible={annee}
           onClose={() => setImportOpen(false)}
-          onDone={(r) => { setImportOpen(false); load(); alert(`Import réussi : ${r.ues} UE, ${r.cours} cours${r.attributions ? `, ${r.attributions} attributions` : ''}.`); }}
+          onDone={(r) => { setImportOpen(false); load(); informer(`Import réussi : ${r.ues} UE, ${r.cours} cours${r.attributions ? `, ${r.attributions} attributions` : ''}.`); }}
         />
       )}
       {effectifsOpen && <EffectifsImportModal annee={annee} onClose={() => setEffectifsOpen(false)} onSaved={() => { setEffectifsOpen(false); load(); }} />}
@@ -1472,7 +1473,7 @@ function GestionActivites({ sections = [] }) {
       });
       setNewLibelle(''); setNewSection('');
       charger();
-    } catch(e) { alert(e.message); }
+    } catch(e) { informer(e.message); }
     finally { setSaving(false); }
   }
 
@@ -1493,9 +1494,9 @@ function GestionActivites({ sections = [] }) {
   }
 
   async function supprimer(id, libelle) {
-    if (!confirm(`Supprimer l'activité "${libelle}" ?`)) return;
+    if (!(await demander(`Supprimer l'activité "${libelle}" ?`))) return;
     const r = await _fetch(`/api/ref/activites/${id}`, { method: 'DELETE' });
-    if (r.error) { alert(r.error); return; }
+    if (r.error) { informer(r.error); return; }
     charger();
   }
 

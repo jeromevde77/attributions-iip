@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { IconX, IconAlertTriangle, IconCheck, IconEqual, IconDeviceFloppy }
   from '@tabler/icons-react';
 import { authHeaders } from '../lib/api.js';
+import { demander } from '../lib/dialogue.jsx';
 
 /**
  * Relier les acquis aux cours — au tracé, comme le schéma de capitalisation.
@@ -263,8 +264,8 @@ export default function SchemaLiensAA({ ueNum, annee, onClose, onEnregistre }) {
       let rep = await envoyer(false);
       let j = await rep.json().catch(() => ({}));
       if (rep.status === 409 && j.confirmation_requise) {
-        if (!window.confirm(`Cours ${coursCode} : ${j.liens} acquis y sont reliés.\n\n`
-          + 'Le déclarer « pas évalué » les en détache. Continuer ?')) return;
+        if (!(await demander(`Cours ${coursCode} : ${j.liens} acquis y sont reliés.\n\n`
+          + 'Le déclarer « pas évalué » les en détache. Continuer ?'))) return;
         rep = await envoyer(true);
         j = await rep.json().catch(() => ({}));
       }

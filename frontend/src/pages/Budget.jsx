@@ -4,6 +4,7 @@ import {
 } from '@tabler/icons-react';
 import { authHeaders } from '../lib/api.js';
 import { Tableau, TableauEntete, Th } from '../components/ui.jsx';
+import { demander } from '../lib/dialogue.jsx';
 
 /**
  * Gestion budgétaire — par année CIVILE et par section.
@@ -71,7 +72,7 @@ export default function Budget() {
   }
 
   async function supprimerLigne(id) {
-    if (!window.confirm('Supprimer cette ligne de prévision ainsi que les dépenses qui s\u2019y rattachent ?')) return;
+    if (!await demander('Supprimer cette ligne de prévision ainsi que les dépenses qui s\u2019y rattachent ?')) return;
     await fetch(`/api/budget/ligne/${id}`, { method: 'DELETE', headers: authHeaders() });
     await charger();
   }
@@ -87,13 +88,13 @@ export default function Budget() {
   }
 
   async function supprimerDepense(id) {
-    if (!window.confirm('Supprimer cette dépense ?')) return;
+    if (!await demander('Supprimer cette dépense ?')) return;
     await fetch(`/api/budget/depense/${id}`, { method: 'DELETE', headers: authHeaders() });
     await charger();
   }
 
   async function reprendre() {
-    if (!window.confirm(`Reprendre les lignes de ${annee - 1} pour ${section} ?`)) return;
+    if (!await demander(`Reprendre les lignes de ${annee - 1} pour ${section} ?`)) return;
     const rep = await fetch('/api/budget/reprendre', {
       method: 'POST', headers: authHeaders(),
       body: JSON.stringify({ annee, annee_source: annee - 1, section }),
@@ -166,7 +167,7 @@ export default function Budget() {
 
           if (prev.length) {
             const sansSection = prev.filter(p => !p.section).length;
-            if (!window.confirm(
+            if (!await demander(
               `${prev.length} prévision(s) trouvée(s) dans le canevas.\n` +
               (sansSection ? `${sansSection} sans section identifiable iront dans « À répartir ».\n` : '') +
               `\nLes importer pour l'année ${annee} ? Les prévisions existantes des sections concernées seront remplacées.`

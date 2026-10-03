@@ -3,6 +3,7 @@ import { nomPropre } from '../lib/nom.js';
 import { getAnnee } from '../lib/api.js';
 import { IconCalendarStats, IconPencil, IconChevronDown, IconChevronRight, IconX, IconDeviceFloppy, IconTrash, IconPlus, IconHash, IconCalendar, IconSitemap, IconBook, IconAlertTriangle } from '@tabler/icons-react';
 import PlanificateurVisuel from '../components/PlanificateurVisuel.jsx';
+import { informer } from '../lib/dialogue.jsx';
 
 const TOKEN = () => localStorage.getItem('token');
 const authFetch = (url, opts = {}) =>
@@ -939,7 +940,7 @@ function StructureUE({ annee, section, groupes }) {
         method: 'PATCH',
         body: JSON.stringify({ annee_scolaire: annee, ue_niv: niv === 'Autre' ? null : niv, ue_quad: quad }),
       });
-    } catch(e) { alert('Erreur : ' + e.message); chargerUes(); }
+    } catch(e) { informer('Erreur : ' + e.message); chargerUes(); }
     finally { setSaving(null); }
   }
 
@@ -1137,7 +1138,7 @@ function SeqCours({ annee, section, groupes }) {
           rangs: rangs.map(r => ({ rang: r.rang, delai_avant: r.delai_avant, groupe_ids: r.groupe_ids })) }),
       });
       setSaved(true); setTimeout(() => setSaved(false), 2000);
-    } catch(e) { alert(e.message); }
+    } catch(e) { informer(e.message); }
     finally { setSaving(false); }
   }
 

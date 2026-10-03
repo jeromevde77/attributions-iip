@@ -6,6 +6,7 @@ import {
 import { Btn, KpiCard } from './ui.jsx';
 import { authHeaders } from '../lib/api.js';
 import PlanificateurUE from './PlanificateurUE.jsx';
+import { demander, informer } from '../lib/dialogue.jsx';
 
 /**
  * Paramétrage annuel — Dates réelles des unités d'enseignement.
@@ -126,18 +127,18 @@ export default function DatesUE({ annee, sansTitre = false }) {
   }
 
   async function initialiserDepuisAttributions() {
-    if (!window.confirm('Créer une organisation pour chaque UE attribuée en ' + annee + ' ?\nElles apparaîtront sans dates pour être placées sur la ligne du temps.')) return;
+    if (!(await demander('Créer une organisation pour chaque UE attribuée en ' + annee + ' ?\nElles apparaîtront sans dates pour être placées sur la ligne du temps.'))) return;
     const rep = await fetch('/api/annuel/dates-ue/initialiser', {
       method: 'POST', headers: authHeaders(),
       body: JSON.stringify({ annee }),
     });
     const j = await rep.json();
     if (rep.ok) { setMessage(j.message || 'Initialisé'); await charger(); }
-    else alert(j.error || 'Erreur');
+    else informer(j.error || 'Erreur');
   }
 
   async function reprendreAnneePrecedente() {
-    if (!confirm("Pré-remplir les dates manquantes à partir de l'année précédente, décalées de 52 semaines ?\n\nLes organisations déjà datées ne seront pas modifiées. Les dates obtenues sont à vérifier.")) return;
+    if (!(await demander("Pré-remplir les dates manquantes à partir de l'année précédente, décalées de 52 semaines ?\n\nLes organisations déjà datées ne seront pas modifiées. Les dates obtenues sont à vérifier."))) return;
     const rep = await fetch('/api/annuel/dates-ue/reprendre', {
       method: 'POST', headers: authHeaders(),
       body: JSON.stringify({ annee, ecraser: false }),

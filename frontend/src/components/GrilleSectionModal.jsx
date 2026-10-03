@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { IconPrinter } from '@tabler/icons-react';
 import { api, getAnnee } from '../lib/api.js';
 import PreviewModal from './PreviewModal.jsx';
+import { informer } from '../lib/dialogue.jsx';
 
 // Conversion heures (×60 min) → périodes (50 min) : ×1.2
 const h2p = (h) => Math.round((Number(h) || 0) * 1.2);
@@ -54,7 +55,7 @@ export default function GrilleSectionModal({ section, onClose }) {
     try {
       await api.updateCours(coursCode, payload);
     } catch (e) {
-      alert('Erreur : ' + e.message);
+      informer('Erreur : ' + e.message);
       charger();
     } finally {
       setSaving(s => { const m = { ...s }; delete m[coursCode]; return m; });

@@ -58,6 +58,7 @@ import Echeancier from './pages/Echeancier.jsx';
 import Organisation from './pages/Organisation.jsx';
 import { AxeAccueil, AxeEtudiants } from './pages/Axes.jsx';
 import { BoutonAide } from './pages/Aide.jsx';
+import { demander, informer } from './lib/dialogue.jsx';
 
 /* eslint-disable no-undef */
 const BUILD_DATE_STR = typeof __BUILD_DATE__ !== 'undefined' ? __BUILD_DATE__ : new Date().toISOString();
@@ -201,7 +202,7 @@ function VoirCommePicker() {
     setOpen(o => !o);
     if (!profils.length) api.profilsAcces().then(d => setProfils(Array.isArray(d) ? d : [])).catch(e => setErr(e.message));
   };
-  const voir = (id) => { api.impersonate(id).then(() => { window.location.href = '/'; }).catch(e => alert(e.message)); };
+  const voir = (id) => { api.impersonate(id).then(() => { window.location.href = '/'; }).catch(e => informer(e.message)); };
   return (
     <div className="relative">
       <button onClick={ouvrir} title="Voir Lucie comme un autre profil"
@@ -433,13 +434,13 @@ function ProtectedLayout({ children }) {
   // change l'ordre des crochets d'un rendu à l'autre, ce que React refuse.
   const mode = useMode();
 
-  function changeAnnee(code) {
+  async function changeAnnee(code) {
     // QUITTER L'ANNÉE EN COURS EST UN ACTE VOLONTAIRE : il se confirme, et il
     // ne tient que pour cette fenêtre — à la prochaine connexion ou ouverture,
     // on est de retour dans l'année en cours.
     const enCours = (annees.find(a => a.active) || {}).code;
     if (enCours && code !== enCours) {
-      const ok = window.confirm(
+      const ok = await demander(
         `Vous quittez l'année en cours (${enCours}) pour consulter ${code}.\n\n`
         + `Tous les écrans afficheront ${code} jusqu'à ce que vous reveniez à `
         + `${enCours} ou fermiez la fenêtre.\n\nContinuer ?`);

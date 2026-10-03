@@ -3,6 +3,7 @@ import { nomPropre } from '../lib/nom.js';
 import { IconTrash, IconAlertTriangle, IconSearch } from '@tabler/icons-react';
 import { authHeaders } from '../lib/api.js';
 import { Fenetre } from './ui.jsx';
+import { demander } from '../lib/dialogue.jsx';
 
 /**
  * Purge sélective des résultats.
@@ -83,12 +84,12 @@ export default function PurgeResultats({ anneeCourante, onClose, onPurge }) {
     const c = simulation?.compte || {};
     const total = (c.resultats_cours || 0) + (c.notes_aa || 0) + (c.reports || 0)
                 + (portee === 'inscriptions' ? (c.inscriptions || 0) : 0);
-    if (!window.confirm(
+    if (!(await demander(
       `Confirmer la purge ?\n\n${total} enregistrement(s) seront supprimés.\n` +
       (portee === 'inscriptions'
         ? "Les inscriptions elles-mêmes seront supprimées."
         : "Les inscriptions sont conservées, seuls leurs résultats sont vidés.") +
-      `\n\nCette action est définitive.`)) return;
+      `\n\nCette action est définitive.`))) return;
 
     setEnCours(true);
     try {

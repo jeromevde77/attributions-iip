@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { estDirection } from '../lib/modules.js';
 import { IconDeviceFloppy, IconEye, IconRefresh, IconPhoto, IconX, IconArrowUp, IconArrowDown, IconPlus, IconSignature } from '@tabler/icons-react';
 import { ouvrirApercu } from '../lib/apercu.js';
+import { demander } from '../lib/dialogue.jsx';
 
 const tok = () => localStorage.getItem('token');
 const af = (url, opts = {}) => fetch(url, {
@@ -331,7 +332,7 @@ export default function DiplomeEditeur({ assets = {} }) {
   };
 
   const restaurer = async () => {
-    if (!confirm('Restaurer le modèle de diplôme par défaut ? Vos modifications non enregistrées seront perdues.')) return;
+    if (!(await demander('Restaurer le modèle de diplôme par défaut ? Vos modifications non enregistrées seront perdues.'))) return;
     try { const d = await af('/api/config/diplome_template_defaut'); setModele(d.valeur); } catch (e) { setErr(e.message); }
   };
 
@@ -434,7 +435,7 @@ export default function DiplomeEditeur({ assets = {} }) {
                   Enregistrer pour {sections.find(s0 => s0.code === secSig)?.libelle || secSig}
                 </button>
                 {propre && (
-                  <button className="bouton" onClick={() => { if (confirm('Revenir aux signataires d’origine pour cette section ?')) enregistrerSignatures(null); }}>
+                  <button className="bouton" onClick={async () => { if (await demander('Revenir aux signataires d’origine pour cette section ?')) enregistrerSignatures(null); }}>
                     Revenir à la liste d’origine
                   </button>
                 )}

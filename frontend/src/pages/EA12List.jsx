@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api, getAnnee } from '../lib/api.js';
+import { demander, informer } from '../lib/dialogue.jsx';
 
 export default function EA12List() {
   const navigate = useNavigate();
@@ -15,14 +16,14 @@ export default function EA12List() {
 
   async function supprimer(id, e) {
     e.stopPropagation();
-    if (!confirm('Supprimer cet EA12 ?')) return;
+    if (!(await demander('Supprimer cet EA12 ?'))) return;
     await api.ea12Delete(id);
     load();
   }
   async function telecharger(row, e) {
     e.stopPropagation();
     const fn = `EA12_${row.prof_nom}_${row.prof_prenom}_${row.annee_scolaire}.docx`.replace(/\s+/g, '_');
-    try { await api.ea12Document(row.id, fn); } catch (err) { alert(err.message); }
+    try { await api.ea12Document(row.id, fn); } catch (err) { informer(err.message); }
   }
 
   return (

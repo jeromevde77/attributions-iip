@@ -8,6 +8,7 @@ import {
 import { Btn, RailLateral, VoletRail } from '../components/ui.jsx';
 import { getAnnee } from '../lib/api.js';
 import { ouvrirApercu } from '../lib/apercu.js';
+import { demander, informer } from '../lib/dialogue.jsx';
 
 // Champ texte simple (évite le ReferenceError: Champ non importé)
 function Champ({ label, value, onChange, placeholder, hint, className = '' }) {
@@ -480,7 +481,7 @@ const telechargerDoc = async (docId, nomOriginal, blobUrl = null) => {
     const a = document.createElement('a');
     a.href = url; a.download = nomOriginal; a.click();
     if (!blobUrl) URL.revokeObjectURL(url);
-  } catch (e) { alert(e.message); }
+  } catch (e) { informer(e.message); }
 };
 
 const TYPES_DOC = {
@@ -646,11 +647,11 @@ function CarteCandidatPoste({ candidature: c, onChange, onEntretien }) {
       const blob = await resp.blob();
       const url = URL.createObjectURL(blob);
       setVisionneur({ url, nom: nomOriginal, mime: blob.type });
-    } catch (e) { alert(e.message); }
+    } catch (e) { informer(e.message); }
   };
 
   const supprimerCandidature = async () => {
-    if (!confirm('Retirer ce candidat de ce poste ?')) return;
+    if (!await demander('Retirer ce candidat de ce poste ?')) return;
     await af(`/candidatures/${c.id}`, { method: 'DELETE' });
     onChange();
   };
@@ -669,7 +670,7 @@ function CarteCandidatPoste({ candidature: c, onChange, onEntretien }) {
         method: 'POST', headers: { Authorization: `Bearer ${tok()}` }, body: fd,
       });
       onChange();
-    } catch (e) { alert(e.message); } finally { setUploading(false); }
+    } catch (e) { informer(e.message); } finally { setUploading(false); }
   };
 
   const supprimerDoc = async (docId) => {
@@ -679,12 +680,12 @@ function CarteCandidatPoste({ candidature: c, onChange, onEntretien }) {
 
   const attribuer = async () => {
     const nomAff = [c.prenom, c.nom].filter(Boolean).join(' ');
-    if (!confirm(`Attribuer ${nomAff} à ce cours ?\n\nCela va :\n• Créer sa fiche dans Personnel\n• L'assigner au cours\n• Notifier la direction et les RH`)) return;
+    if (!await demander(`Attribuer ${nomAff} à ce cours ?\n\nCela va :\n• Créer sa fiche dans Personnel\n• L'assigner au cours\n• Notifier la direction et les RH`)) return;
     try {
       const res = await af(`/candidatures/${c.id}/attribuer`, { method: 'POST' });
-      alert(`✓ ${res.nom} a été créé dans Personnel et attribué au cours.\nNotification envoyée.`);
+      informer(`✓ ${res.nom} a été créé dans Personnel et attribué au cours.\nNotification envoyée.`);
       onChange();
-    } catch (e) { alert('Erreur : ' + e.message); }
+    } catch (e) { informer('Erreur : ' + e.message); }
   };
 
   return (
@@ -1259,7 +1260,7 @@ function VueParallele({ postes, candidats, fonctions, annee, onRecharger }) {
       if (e.message.includes('déjà rattaché') || e.message.includes('UNIQUE') || e.message.includes('409')) {
         setFeedback(`${cand.prenom ? cand.prenom + ' ' : ''}${cand.nom} est déjà candidat pour ce cours`);
         setTimeout(() => setFeedback(''), 3000);
-      } else { alert(e.message); }
+      } else { informer(e.message); }
     }
     setDragId(null);
   };
@@ -1659,12 +1660,12 @@ function VueCandidatsGlobal({ candidats, fonctions, grille, onRecharger,
     (axe.questions||[]).map(q => ({ axe: axe.axe||axe.libelle, q: q.libelle||q, couleur: axe.couleur }))
   );
 
-  const genererRapportPDF = () => {
+  const genererRapportPDF = async () => {
     const liste = filtres.filter(c =>
       c.entretien_note || c.entretien_commentaire ||
       c.candidatures?.some(ca => ca.note_globale || ca.commentaire || Object.keys(ca.reponses_json||{}).length > 0)
     );
-    if (liste.length === 0 && !confirm('Aucun entretien enregistré. Générer quand même la liste des candidats ?')) return;
+    if (liste.length === 0 && !await demander('Aucun entretien enregistré. Générer quand même la liste des candidats ?')) return;
     const tous = liste.length > 0 ? liste : filtres;
 
     const blockQ = (rep) => toutesQs.map((item, i) => {
@@ -1952,7 +1953,7 @@ function FicheCandidat({ candidat, fonctions, grille, onClose, onSaved }) {
   const enregistrer = async () => {
     setBusy(true);
     try { await af(`/candidats/${candidat.id}`, { method: 'PATCH', body: JSON.stringify(f) }); onSaved(); }
-    catch (e) { alert(e.message); } finally { setBusy(false); }
+    catch (e) { informer(e.message); } finally { setBusy(false); }
   };
 
   const [analyseCv, setAnalyseCv] = useState(false);
@@ -1973,7 +1974,7 @@ function FicheCandidat({ candidat, fonctions, grille, onClose, onSaved }) {
   };
 
   const supprimerCandidat = async () => {
-    if (!confirm(`Supprimer définitivement ${candidat.nom} et tous ses documents/candidatures ?`)) return;
+    if (!await demander(`Supprimer définitivement ${candidat.nom} et tous ses documents/candidatures ?`)) return;
     await af(`/candidats/${candidat.id}`, { method: 'DELETE' });
     onSaved();
   };
@@ -1987,7 +1988,7 @@ function FicheCandidat({ candidat, fonctions, grille, onClose, onSaved }) {
       const updated = await af('/candidats');
       const me = updated.find(c => c.id === candidat.id);
       if (me) setDocs(me.documents || []);
-    } catch (e) { alert(e.message); } finally { setUploading(false); }
+    } catch (e) { informer(e.message); } finally { setUploading(false); }
   };
 
   const supprimerDoc = async (docId) => {
@@ -2100,12 +2101,12 @@ function FicheCandidat({ candidat, fonctions, grille, onClose, onSaved }) {
               <IconClipboardText size={14} /> Entretien
             </button>
             <button onClick={async () => {
-                if (!confirm(`Recrutement global de ${(candidat.nom||'').toUpperCase()} ${candidat.prenom||''} ?\n\nCela crée sa fiche prof en base SANS lui attribuer de cours. Vous pourrez ensuite le placer dans les cours via la grille Attributions.`)) return;
+                if (!await demander(`Recrutement global de ${(candidat.nom||'').toUpperCase()} ${candidat.prenom||''} ?\n\nCela crée sa fiche prof en base SANS lui attribuer de cours. Vous pourrez ensuite le placer dans les cours via la grille Attributions.`)) return;
                 try {
                   const r = await af(`/candidats/${candidat.id}/engager-global`, { method: 'POST' });
-                  alert(`✅ ${(r.nom||'').toUpperCase()} ${r.prenom||''} ${r.cree ? 'ajouté·e' : 'déjà présent·e'} en base. Placez-le·la dans les cours via la grille Attributions.`);
+                  informer(`✅ ${(r.nom||'').toUpperCase()} ${r.prenom||''} ${r.cree ? 'ajouté·e' : 'déjà présent·e'} en base. Placez-le·la dans les cours via la grille Attributions.`);
                   onSaved();
-                } catch(e) { alert('Erreur : ' + e.message); }
+                } catch(e) { informer('Erreur : ' + e.message); }
               }}
               title="Créer la fiche prof sans attribuer de cours"
               className="text-xs border border-green-500/40 bg-green-500 text-white hover:bg-green-500 rounded px-2.5 py-1.5 flex items-center gap-1.5 font-medium">
@@ -2113,12 +2114,12 @@ function FicheCandidat({ candidat, fonctions, grille, onClose, onSaved }) {
             </button>
             {candidat.candidatures?.some(ca => ca.statut === 'retenu') && (
               <button onClick={async () => {
-                  if (!confirm(`Engager ${(candidat.nom||'').toUpperCase()} ${candidat.prenom||''} ? Cela créera sa fiche prof et attribuera les cours "Retenu".`)) return;
+                  if (!await demander(`Engager ${(candidat.nom||'').toUpperCase()} ${candidat.prenom||''} ? Cela créera sa fiche prof et attribuera les cours "Retenu".`)) return;
                   try {
                     const r = await af(`/candidats/${candidat.id}/engager`, { method: 'POST', body: JSON.stringify({ annee: getAnnee() }) });
-                    alert(`✅ ${(r.nom||'').toUpperCase()} ${r.prenom||''} engagé·e — ${r.nb_attributions} attribution(s) mise(s) à jour.`);
+                    informer(`✅ ${(r.nom||'').toUpperCase()} ${r.prenom||''} engagé·e — ${r.nb_attributions} attribution(s) mise(s) à jour.`);
                     onSaved();
-                  } catch(e) { alert('Erreur : ' + e.message); }
+                  } catch(e) { informer('Erreur : ' + e.message); }
                 }}
                 title="Engager ce candidat"
                 className="text-xs bg-green-600 text-white hover:opacity-90 rounded px-2.5 py-1.5 flex items-center gap-1.5 font-medium">
@@ -2286,16 +2287,16 @@ function FicheCandidat({ candidat, fonctions, grille, onClose, onSaved }) {
                           {ca.statut !== 'engage' && (
                             <button
                               onClick={async () => {
-                                if (!confirm(`Engager ${(candidat.nom||'').toUpperCase()} ${candidat.prenom||''} sur "${ca.cours_nom || ca.ue_nom || `UE ${ca.ue_num}`}" ?`)) return;
+                                if (!await demander(`Engager ${(candidat.nom||'').toUpperCase()} ${candidat.prenom||''} sur "${ca.cours_nom || ca.ue_nom || `UE ${ca.ue_num}`}" ?`)) return;
                                 try {
                                   // Passer en retenu seulement si pas déjà engagé
                                   if (ca.statut !== 'engage' && ca.statut !== 'retenu') {
                                     await af(`/candidatures/${ca.id}`, { method: 'PATCH', body: JSON.stringify({ statut: 'retenu' }) });
                                   }
                                   const r = await af(`/candidats/${candidat.id}/engager`, { method: 'POST', body: JSON.stringify({ annee: getAnnee() }) });
-                                  alert(`✅ ${(r.nom||'').toUpperCase()} ${r.prenom||''} engagé·e — ${r.nb_attributions} attribution(s) mise(s) à jour.`);
+                                  informer(`✅ ${(r.nom||'').toUpperCase()} ${r.prenom||''} engagé·e — ${r.nb_attributions} attribution(s) mise(s) à jour.`);
                                   onSaved();
-                                } catch(e) { alert('Erreur : ' + e.message); }
+                                } catch(e) { informer('Erreur : ' + e.message); }
                               }}
                               className="text-xs bg-green-600 text-white hover:opacity-90 rounded px-2.5 py-1 h-7 flex items-center gap-1 font-medium flex-shrink-0">
                               ✅ Engager
@@ -2314,7 +2315,7 @@ function FicheCandidat({ candidat, fonctions, grille, onClose, onSaved }) {
                           <IconClipboardText size={12} /> Lancer l'entretien
                         </button>
                         <button onClick={async () => {
-                          if (!confirm('Retirer ce cours ?')) return;
+                          if (!await demander('Retirer ce cours ?')) return;
                           await af(`/candidatures/${ca.id}`, { method: 'DELETE' });
                           rechargerCandidatures();
                         }} className="text-xs text-gray-400 hover:text-red-500 flex items-center gap-1">
@@ -2371,8 +2372,8 @@ function FicheCandidat({ candidat, fonctions, grille, onClose, onSaved }) {
                     setSelSection(''); setSelUE(''); setSelCours('');
                     rechargerCandidatures();
                   } catch (e) {
-                    if (e.message.includes('409') || e.message.includes('déjà')) alert('Ce candidat est déjà associé à ce cours.');
-                    else alert(e.message);
+                    if (e.message.includes('409') || e.message.includes('déjà')) informer('Ce candidat est déjà associé à ce cours.');
+                    else informer(e.message);
                   } finally { setAjoutBusy(false); }
                 }}
                 className="w-full text-xs bg-iip-blue text-white rounded px-3 py-1.5 hover:opacity-90 disabled:opacity-40 flex items-center justify-center gap-1.5">
@@ -2512,7 +2513,7 @@ function ModalAjoutQualification({ onClose, onAjouter, onFermer }) {
 
   const valider = () => {
     const valides = lignes.filter(l => l.niveau || l.titre_peda);
-    if (!valides.length) { alert("Complétez au moins un titre ou un niveau d'étude."); return; }
+    if (!valides.length) { informer("Complétez au moins un titre ou un niveau d'étude."); return; }
     valides.forEach(q => onAjouter(q));
     (onFermer || onClose)();
   };
@@ -2876,7 +2877,7 @@ function ModalNouveauCandidat({ onClose, onSaved }) {
         });
       }
       onSaved();
-    } catch (e) { alert(e.message); } finally { setBusy(false); }
+    } catch (e) { informer(e.message); } finally { setBusy(false); }
   };
 
   return (
@@ -2992,7 +2993,7 @@ function EditeurGrille({ grille, onSaved }) {
   const ajouterQ  = (ai) => setAxes(ax => ax.map((a, j) => j !== ai ? a : { ...a, questions: [...a.questions, { libelle: '', ordre: a.questions.length }] }));
   const retirerQ  = (ai, qi) => setAxes(ax => ax.map((a, j) => j !== ai ? a : { ...a, questions: a.questions.filter((_, k) => k !== qi) }));
   const ajouterAxe = () => setAxes(ax => [...ax, { libelle: 'Nouvel axe', couleur: COULEURS_AXES[ax.length % COULEURS_AXES.length], questions: [] }]);
-  const retirerAxe = (i) => { if (!confirm('Supprimer cet axe et toutes ses questions ?')) return; setAxes(ax => ax.filter((_, j) => j !== i)); };
+  const retirerAxe = async (i) => { if (!await demander('Supprimer cet axe et toutes ses questions ?')) return; setAxes(ax => ax.filter((_, j) => j !== i)); };
 
   const enregistrer = async () => {
     setSaving(true); setErr('');
@@ -3007,7 +3008,7 @@ function EditeurGrille({ grille, onSaved }) {
   // chacun. C'est un REMPLACEMENT — les axes ajoutés à la main disparaissent —
   // donc il se confirme.
   const revenirDefaut = async () => {
-    if (!confirm("Remplacer la grille actuelle par la grille de référence ?\n\n"
+    if (!await demander("Remplacer la grille actuelle par la grille de référence ?\n\n"
       + "Quatre axes, deux questions tirées dans chacun, soit huit questions par "
       + "entretien. Vos axes et questions personnalisés seront perdus.")) return;
     setSaving(true); setErr('');

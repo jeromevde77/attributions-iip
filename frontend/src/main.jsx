@@ -2,6 +2,7 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
 import App from './App.jsx';
+import { Dialogues } from './lib/dialogue.jsx';
 import './index.css';
 // LES COULEURS DE SIGNIFICATION SE POSENT AVANT LE PREMIER RENDU : un badge
 // HELB qui change de couleur une seconde après l'affichage se remarque plus
@@ -14,6 +15,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
     <BrowserRouter>
       <App />
+      <Dialogues />
     </BrowserRouter>
   </React.StrictMode>
 );

@@ -3,6 +3,7 @@ import { IconLayoutGrid, IconAlertTriangle, IconChecks, IconLock } from '@tabler
 import { authHeaders, getAnnee, getUser } from '../lib/api.js';
 import ImportTableauPlat from './ImportTableauPlat.jsx';
 import { Fenetre } from './ui.jsx';
+import { demander } from '../lib/dialogue.jsx';
 
 /**
  * COMPOSER LES PAE — voir, revoir, changer, créer, pour un ou pour cent.
@@ -286,8 +287,8 @@ export default function ComposerPAE({ onClose, onTermine, onPassage, modeInitial
   const nbReprises = (grille?.etudiants || []).reduce((n, e) => n + reprises(e), 0);
 
   async function forcer(e, ue) {
-    if (!window.confirm(`${(e.nom || '').toUpperCase()} ${e.prenom} a déjà réussi l'UE ${ue}.\n\n`
-      + `Forcer sa réinscription en ${annee} ? Votre nom et l'heure seront enregistrés sur l'inscription.`)) return;
+    if (!(await demander(`${(e.nom || '').toUpperCase()} ${e.prenom} a déjà réussi l'UE ${ue}.\n\n`
+      + `Forcer sa réinscription en ${annee} ? Votre nom et l'heure seront enregistrés sur l'inscription.`))) return;
     setEnCours(true); setErreur(null);
     try {
       const r = await fetch('/api/etudiants/pae-forcer-reinscription', {
@@ -314,9 +315,9 @@ export default function ComposerPAE({ onClose, onTermine, onPassage, modeInitial
       if (!sim.total.inscriptions) { setErreur('Aucune UE déjà réussie à retirer : celles qui restent portent un résultat, des notes ou un forçage.'); return; }
       const liste = sim.etudiants.slice(0, 25).map(x =>
         `  • ${(x.nom || '').toUpperCase()} ${x.prenom} — UE ${x.ues.join(', ')}${x.pae_valide ? ' (PAE validé : la validation sera retirée)' : ''}`).join('\n');
-      if (!window.confirm(`Retirer ${sim.total.inscriptions} inscription(s) ${annee} à des UE déjà réussies, `
+      if (!(await demander(`Retirer ${sim.total.inscriptions} inscription(s) ${annee} à des UE déjà réussies, `
         + `pour ${sim.total.etudiants} étudiant(s) ?\n\n${liste}${sim.etudiants.length > 25 ? '\n  • …' : ''}\n\n`
-        + 'Ne sont jamais retirées : celles qui portent un résultat, des points, des notes ou un forçage.')) return;
+        + 'Ne sont jamais retirées : celles qui portent un résultat, des points, des notes ou un forçage.'))) return;
       const j = await appel(false);
       await charger(); onTermine?.();
       setValide({ retirer: false, nettoyage: true, faits: j.retirees, ignores: [], validations: j.validations_retirees });
@@ -327,7 +328,7 @@ export default function ComposerPAE({ onClose, onTermine, onPassage, modeInitial
   async function valider(retirer = false) {
     const ids = choisis.map(e => e.id);
     if (!ids.length) return;
-    if (retirer && !window.confirm(`Retirer la validation de ${ids.length} PAE ? Les inscriptions ne changent pas.`)) return;
+    if (retirer && !(await demander(`Retirer la validation de ${ids.length} PAE ? Les inscriptions ne changent pas.`))) return;
     setEnCours(true); setErreur(null); setValide(null);
     try {
       const poser = extra => fetch('/api/etudiants/pae-valider-lot', {
@@ -339,7 +340,7 @@ export default function ComposerPAE({ onClose, onTermine, onPassage, modeInitial
       // Au-delà de 60 ECTS : le lot nomme les programmes, et se valide en connaissance de cause.
       if (r.status === 409 && Array.isArray(j.plus60)) {
         const liste = j.plus60.map(x => `· ${x.nom} — ${x.ects} ECTS`).join('\n');
-        if (!window.confirm(`${j.plus60.length} programme(s) au-delà de 60 ECTS :\n${liste}\n\nValider le lot en connaissance de cause ? La confirmation est enregistrée à votre nom.`)) return;
+        if (!(await demander(`${j.plus60.length} programme(s) au-delà de 60 ECTS :\n${liste}\n\nValider le lot en connaissance de cause ? La confirmation est enregistrée à votre nom.`))) return;
         r = await poser({ plus60: true });
         j = await r.json().catch(() => ({}));
       }

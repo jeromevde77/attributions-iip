@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { api } from '../lib/api.js';
+import { informer } from '../lib/dialogue.jsx';
 
 /**
  * Modale de création en masse d'attributions pour une section.
@@ -30,7 +31,7 @@ export default function BulkCreateForm({ onClose, onCreated }) {
         const auto = new Set(data.filter(u => u.cours_manquants > 0).map(u => u.ue_num));
         setSelected(auto);
       })
-      .catch(e => alert(e.message))
+      .catch(e => informer(e.message))
       .finally(() => setLoading(false));
   }, [section]);
 
@@ -61,7 +62,7 @@ export default function BulkCreateForm({ onClose, onCreated }) {
       const r = await api.bulkCreateFromSection(section, Array.from(selected));
       setResult(r);
       if (r.created > 0) onCreated?.();
-    } catch (e) { alert(e.message); }
+    } catch (e) { informer(e.message); }
     finally { setCreating(false); }
   }
 

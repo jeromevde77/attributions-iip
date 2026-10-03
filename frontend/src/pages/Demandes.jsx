@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { IconCheck, IconX, IconClock, IconAlertTriangle } from '@tabler/icons-react';
 import { authHeaders } from '../lib/api.js';
+import { saisir } from '../lib/dialogue.jsx';
 
 /**
  * Demandes de modification.
@@ -29,7 +30,7 @@ export default function Demandes() {
   async function decider(id, action) {
     let motif = null;
     if (action === 'refuser') {
-      motif = window.prompt('Motif du refus — il sera visible par le coordinateur :');
+      motif = await saisir('Motif du refus — il sera visible par le coordinateur :');
       if (motif === null) return;
     }
     setEnCours(true);

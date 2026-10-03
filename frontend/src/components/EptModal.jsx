@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { nomPropre } from '../lib/nom.js';
 import { IconTrash } from '@tabler/icons-react';
+import { demander, informer } from '../lib/dialogue.jsx';
 
 const CODES_EPT = [
   { code: '95', label: 'ExPT — Expertise Pédagogique et Technique' },
@@ -61,12 +62,12 @@ export default function EptModal({ section, ue_num, ue_nom, annee, onClose }) {
       }).then(r => r.json());
       await charger();
       setForm(f => ({ ...f, periodes: '', activite_id: '' }));
-    } catch(e) { alert('Erreur : ' + e.message); }
+    } catch(e) { informer('Erreur : ' + e.message); }
     finally { setSaving(false); }
   }
 
   async function supprimerLigne(id) {
-    if (!confirm('Supprimer cette ligne EPT ?')) return;
+    if (!await demander('Supprimer cette ligne EPT ?')) return;
     const tok = localStorage.getItem('token');
     await fetch(`/api/attributions/ept/${id}`, {
       method: 'DELETE',

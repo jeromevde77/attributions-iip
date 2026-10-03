@@ -2,6 +2,7 @@ import { useEffect, useState, useMemo } from 'react';
 import { estDirection } from '../lib/modules.js';
 import { IconPlus, IconTarget, IconTrash } from '@tabler/icons-react';
 import { api } from '../lib/api.js';
+import { informer } from '../lib/dialogue.jsx';
 
 /**
  * Modale d'édition d'un COURS (section + code_cours) avec toutes ses attributions.
@@ -580,7 +581,7 @@ export default function CoursEditModal({ section, codeCours, onClose, onChanged 
               const id = await creerActivite(libelle, portee);
               updateRow(showNewActivite.rowId, 'activite_id', id);
               setShowNewActivite(null);
-            } catch(e) { alert(e.message); }
+            } catch(e) { informer(e.message); }
           }}
           onClose={() => setShowNewActivite(null)}
         />

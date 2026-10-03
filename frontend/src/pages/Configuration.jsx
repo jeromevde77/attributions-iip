@@ -92,7 +92,7 @@ function GestionPersonnel() {
         actif ? cur.delete(fonction) : cur.add(fonction);
         return { ...prev, [profId]: [...cur] };
       });
-      alert('Erreur : ' + e.message);
+      informer('Erreur : ' + e.message);
     } finally {
       setSaving(s => { const n = { ...s }; delete n[key]; return n; });
     }
@@ -103,7 +103,7 @@ function GestionPersonnel() {
     setEtpHelb(prev => ({ ...prev, [key]: etp }));
     try {
       await api.setMission({ professeur_id: profId, fonction, section_code: section, annee_scolaire: annee, etp_helb: etp });
-    } catch(e) { alert('Erreur ETP HELB : ' + e.message); }
+    } catch(e) { informer('Erreur ETP HELB : ' + e.message); }
   }
 
   const profsFiltres = search.trim()
@@ -462,6 +462,7 @@ import Sauvegardes from './Sauvegardes.jsx';
 import RolesPlafonds from './RolesPlafonds.jsx';
 import ParametresEtablissement, { ReglesDeliberation } from './ParametresEtablissement.jsx';
 import { authHeaders } from '../lib/api.js';
+import { demander, informer, saisir } from '../lib/dialogue.jsx';
 
 function Toggle({ label, description, checked, onChange, disabled }) {
   return (
@@ -619,7 +620,7 @@ function GestionParametres({ groupes = null }) {
       setPending({});
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
-    } catch(e) { alert('Erreur : ' + e.message); }
+    } catch(e) { informer('Erreur : ' + e.message); }
     finally { setSaving(false); }
   }
 
@@ -759,9 +760,9 @@ function GestionPrerequis() {
   async function creerLien(prerequisNum, ueNum, nature = 'legal') {
     let motif = null;
     if (nature === 'interne') {
-      motif = window.prompt(
-        "Motif de cette règle interne — il apparaîtra en info-bulle sur le trait :",
-        `Les professeurs estiment la réussite de l'UE ${prerequisNum} nécessaire.`);
+      motif = await saisir({
+        message: "Motif de cette règle interne — il apparaîtra en info-bulle sur le trait :",
+        valeur: `Les professeurs estiment la réussite de l'UE ${prerequisNum} nécessaire.` });
       if (motif === null) return;
     }
     const rep = await fetch('/api/prerequis/ue', {
@@ -778,7 +779,7 @@ function GestionPrerequis() {
   }
 
   async function supprimerLien(prerequisNum, ueNum) {
-    if (!window.confirm(`Supprimer ce prérequis ? L'UE ${prerequisNum} ne conditionnera plus l'UE ${ueNum}, pour toutes les années.`)) return;
+    if (!(await demander(`Supprimer ce prérequis ? L'UE ${prerequisNum} ne conditionnera plus l'UE ${ueNum}, pour toutes les années.`))) return;
     const rep = await fetch(`/api/prerequis/ue?ue_num=${ueNum}&prerequis_num=${prerequisNum}`,
       { method: 'DELETE', headers: authHeaders() });
     const j = await rep.json();
@@ -816,12 +817,12 @@ function GestionPrerequis() {
       const p = await authFetch(`/api/prerequis/ue?section=${encodeURIComponent(section)}`);
       setPrereqs(Array.isArray(p) ? p : []);
       setNewUe(''); setNewPre('');
-    } catch(e) { alert(e.message); }
+    } catch(e) { informer(e.message); }
     finally { setSaving(false); }
   }
 
   async function supprimer(id) {
-    if (!confirm('Supprimer ce prérequis ?')) return;
+    if (!(await demander('Supprimer ce prérequis ?'))) return;
     await authFetch(`/api/prerequis/ue/${id}`, { method: 'DELETE' });
     setPrereqs(prev => prev.filter(p => p.id !== id));
   }
@@ -1002,17 +1003,17 @@ function ConfigContrat() {
         body: JSON.stringify({ valeur: template }),
       });
       setSaved(true); setTimeout(() => setSaved(false), 2000);
-    } catch (e) { alert('Erreur : ' + e.message); }
+    } catch (e) { informer('Erreur : ' + e.message); }
     finally { setSaving(false); }
   }
 
   async function reinitialiser() {
-    if (!confirm('Réinitialiser au template par défaut ? Vos modifications seront perdues.')) return;
+    if (!(await demander('Réinitialiser au template par défaut ? Vos modifications seront perdues.'))) return;
     try {
       const r = await fetch('/api/config/contrat_template_defaut', { headers: { Authorization: `Bearer ${tok()}` } });
       const d = await r.json();
       setTemplate(d.valeur || '');
-    } catch (e) { alert('Erreur : ' + e.message); }
+    } catch (e) { informer('Erreur : ' + e.message); }
   }
 
   const inserer = (v) => {
@@ -1216,7 +1217,7 @@ export default function Configuration() {
     try {
       await api.setHistoriqueConfig(val);
       setHistoriqueActif(val);
-    } catch(e) { alert('Erreur : ' + e.message); }
+    } catch(e) { informer('Erreur : ' + e.message); }
     finally { setSaving(false); }
   }
 
@@ -1276,7 +1277,7 @@ export default function Configuration() {
 
   async function restaurerBase() {
     if (!restoreFile) { setRestoreStatus('❌ Choisissez d\u2019abord un fichier .db'); return; }
-    if (!confirm(`⚠ ATTENTION — Restauration de la base\n\nCela va ÉCRASER toutes les données actuelles du serveur de DÉVELOPPEMENT par le contenu de "${restoreFile.name}".\n\nUne sauvegarde automatique de l'état actuel sera créée avant.\nLe serveur va redémarrer.\n\nConfirmer la restauration ?`)) return;
+    if (!(await demander(`⚠ ATTENTION — Restauration de la base\n\nCela va ÉCRASER toutes les données actuelles du serveur de DÉVELOPPEMENT par le contenu de "${restoreFile.name}".\n\nUne sauvegarde automatique de l'état actuel sera créée avant.\nLe serveur va redémarrer.\n\nConfirmer la restauration ?`))) return;
     setRestoring(true);
     setRestoreStatus('Envoi et validation du fichier…');
     try {
@@ -1719,12 +1720,12 @@ function PnccSection({ annee }) {
       const d = await r.json();
       setPostes(prev => [...prev, { id: d.id, ...form, annee_scolaire: annee, etp: parseFloat(form.etp) || 1.0 }]);
       setForm(f => ({ ...f, libelle_fonction: '', nom_personne: '', notes: '' }));
-    } catch(e) { alert('Erreur : ' + e.message); }
+    } catch(e) { informer('Erreur : ' + e.message); }
     finally { setSaving(false); }
   }
 
   async function supprimer(id) {
-    if (!confirm('Supprimer ce poste ?')) return;
+    if (!(await demander('Supprimer ce poste ?'))) return;
     await fetch(`/api/pilotage/pncc/${id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${tok()}` } });
     setPostes(prev => prev.filter(p => p.id !== id));
   }
@@ -1879,7 +1880,7 @@ function OngletProcedures() {
       }
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
-    } catch(e) { alert('Erreur : ' + e.message); }
+    } catch(e) { informer('Erreur : ' + e.message); }
     finally { setSaving(false); }
   }
 
@@ -2067,7 +2068,7 @@ export function OngletStatistiques() {
         body: JSON.stringify({ annee, effectifs: uesList.map(u => ({ ue_num: u.ue_num, nb_etudiants: u.nb_etudiants === '' ? null : parseInt(u.nb_etudiants) || 0 })) })
       });
       setSaved(true); setTimeout(() => setSaved(false), 2000);
-    } catch(e) { alert('Erreur : ' + e.message); }
+    } catch(e) { informer('Erreur : ' + e.message); }
     finally { setSaving(false); }
   }
 

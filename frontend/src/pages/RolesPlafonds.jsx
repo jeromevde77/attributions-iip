@@ -3,6 +3,7 @@ import { IconLock, IconEye, IconShieldCheck, IconTrash, IconChevronRight, IconCh
 import { authHeaders } from '../lib/api.js';
 import { nomListe } from '../lib/nom.js';
 import { MODULES_ACCES, oublierPlafonds } from '../lib/modules.js';
+import { demander } from '../lib/dialogue.jsx';
 import { COL_PREMIERE, COL_MODULE, HAUTEUR_LIGNE, NIVEAUX_DROIT, VERDICTS, Pastille, CaseDroit,
          EnteteModules, Legende, TitreCarte } from '../components/GrilleAcces.jsx';
 
@@ -54,7 +55,7 @@ function Constat() {
   useEffect(() => { charger(); }, []);
 
   async function vider() {
-    if (!confirm('Vider le registre ?\n\nÀ faire après avoir corrigé un plafond, pour repartir '
+    if (!await demander('Vider le registre ?\n\nÀ faire après avoir corrigé un plafond, pour repartir '
                + 'd’une page blanche et mesurer l’effet du changement.')) return;
     await fetch('/api/profils-acces/constat', { method: 'DELETE', headers: authHeaders() });
     charger();
@@ -429,7 +430,7 @@ export default function RolesPlafonds() {
 
   async function supprimerRole(code) {
     const lib = nomRole(data, code);
-    if (!confirm(`Supprimer le rôle « ${lib} » ?\n\nRefusé si des comptes le portent encore.`)) return;
+    if (!await demander(`Supprimer le rôle « ${lib} » ?\n\nRefusé si des comptes le portent encore.`)) return;
     const rep = await fetch(`/api/profils-acces/roles/${encodeURIComponent(code)}`, {
       method: 'DELETE', headers: authHeaders() });
     const j = await rep.json();

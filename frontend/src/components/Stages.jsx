@@ -6,6 +6,7 @@ import { authHeaders } from '../lib/api.js';
 import ChoixUnite from './ChoixUnite.jsx';
 import ConventionStage from './ConventionStage.jsx';
 import { Tableau, TableauEntete, Th, Td, Tr, Badge } from './ui.jsx';
+import { demander } from '../lib/dialogue.jsx';
 
 /**
  * Stages d'un étudiant — RDE, titre XIII.
@@ -68,7 +69,7 @@ export default function Stages({ etudId, annee, peutEcrire = true }) {
   }
 
   async function supprimer(id) {
-    if (!window.confirm('Supprimer ce stage du dossier ?')) return;
+    if (!(await demander('Supprimer ce stage du dossier ?'))) return;
     await fetch(`/api/stages/${id}`, { method: 'DELETE', headers: authHeaders() });
     await charger();
   }

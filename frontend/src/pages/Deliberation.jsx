@@ -25,6 +25,7 @@ import RepriseLot from '../components/RepriseLot.jsx';
 import ImportTableauPlat from '../components/ImportTableauPlat.jsx';
 import ReglesDeliberation from '../components/ReglesDeliberation.jsx';
 import FeuilleCorrection from '../components/FeuilleCorrection.jsx';
+import { informer } from '../lib/dialogue.jsx';
 
 /**
  * Délibération — la porte d'entrée.
@@ -96,7 +97,7 @@ export default function Deliberation() {
           cours_code: c.cours_code, cours_nom: c.cours_nom,
           aa_code: a.aa_code, description: a.description, poids: a.poids })));
       if (!colonnes.length) {
-        alert("Cette unité n'a pas d'acquis rattachés à ses cours : complétez la pondération dans le référentiel.");
+        informer("Cette unité n'a pas d'acquis rattachés à ses cours : complétez la pondération dans le référentiel.");
         return;
       }
       const { telechargerClasseur } = await import('../lib/classeurNotes.js');
@@ -108,7 +109,7 @@ export default function Deliberation() {
         ue_num: ueNum, ue_nom: d.ue?.ue_nom, annee, session,
         titre: `UE ${ueNum}${d.ue?.ue_nom ? ` — ${d.ue.ue_nom}` : ''}`,
       }, `Notes_UE${ueNum}_S${session}_${String(annee).replace('-', '')}.xlsx`);
-    } catch (e) { alert(e.message); }
+    } catch (e) { informer(e.message); }
   }
   const [importSuivi, setImportSuivi] = useState(false); // le classeur de l'année
   const [annees, setAnnees] = useState(false);           // où sont les notes ?

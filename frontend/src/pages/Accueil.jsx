@@ -13,6 +13,7 @@ import { urgence } from '../lib/urgence.js';
 import { Fenetre } from '../components/ui.jsx';
 import ConventionsASigner from '../components/ConventionsASigner.jsx';
 import MesPropositions from '../components/MesPropositions.jsx';
+import { informer } from '../lib/dialogue.jsx';
 
 const tok = () => localStorage.getItem('token');
 
@@ -164,7 +165,7 @@ function MesTaches({ signal = 0 }) {
     });
     if (!r.ok) {
       const j = await r.json().catch(() => ({}));
-      window.alert(`La tâche n'a pas été mise à jour : ${j.error || `erreur ${r.status}`}`);
+      informer(`La tâche n'a pas été mise à jour : ${j.error || `erreur ${r.status}`}`);
     }
     charger();
   }

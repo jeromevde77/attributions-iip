@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { IconX, IconUpload, IconAlertTriangle, IconCheck } from '@tabler/icons-react';
 import { authHeaders } from '../lib/api.js';
+import { demander } from '../lib/dialogue.jsx';
 
 /**
  * Import d'une liste eCampus (R_Etudiants_Excel_Inscriptions_).
@@ -85,9 +86,9 @@ export default function ImportListe({ annee, onClose, onImporte }) {
   async function importer() {
     if (!/^20\d{2}-20\d{2}$/.test(anneeImport.trim())) { setErreur('Année : format 2025-2026'); return; }
     const manquants = codes.filter(c => c.ue_num == null);
-    if (manquants.length && !window.confirm(
+    if (manquants.length && !(await demander(
       `${manquants.length} code(s) sans correspondance : ${manquants.map(c => c.code).join(', ')}.\n` +
-      `Leurs inscriptions seront ignorées. Poursuivre ?`)) return;
+      `Leurs inscriptions seront ignorées. Poursuivre ?`))) return;
 
     setEnCours(true); setErreur(null);
     try {
