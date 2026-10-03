@@ -48,6 +48,9 @@ export function migrerCircuitAR() {
     // La première liste (vingt-six mesures) cède la place à la courte — si
     // personne ne l'a retouchée.
     db.prepare("UPDATE parametre SET valeur = ? WHERE cle = 'ar_catalogue' AND valeur = ?").run(CATALOGUE_DEFAUT, CATALOGUE_26);
+    // Le catalogue court d'avant le 3 octobre reçoit les deux mesures ajoutées,
+    // s'il n'a pas été retouché ; sinon la direction les ajoute à l'écran.
+    db.prepare("UPDATE parametre SET valeur = ? WHERE cle = 'ar_catalogue' AND valeur = ?").run(CATALOGUE_DEFAUT, CATALOGUE_11);
   } catch { /* table absente */ }
 }
 
@@ -55,7 +58,28 @@ export function migrerCircuitAR() {
    mesure ; « M · » matérielle, « P · » pédagogique (art. 7 § 1er). */
 /* COURT, EXPRÈS (Charles, 2 octobre 2026 : « ne laisse pas trop de choix ») :
    onze mesures et une case « Autre ». */
+/* Deux mesures ajoutées le 3 octobre 2026 (Charles) : le casque anti-bruit et
+   la tolérance pour la syntaxe et l'orthographe. */
 const CATALOGUE_DEFAUT = [
+  '# Évaluations',
+  'P · Temps supplémentaire lors des évaluations',
+  'M · Local isolé ou à effectif réduit',
+  'P · Pauses aménagées durant les épreuves',
+  'M · Questionnaire adapté (police aérée, interligne 1,5, recto seul)',
+  'P · Calendrier d’examens aménagé',
+  'M · Port d’un casque anti-bruit lors des évaluations ou de certains exercices',
+  'P · Tolérance pour la syntaxe et l’orthographe',
+  '# Cours',
+  'M · Supports de cours numériques, transmis à l’avance',
+  'M · Autorisation d’enregistrer les cours',
+  'M · Place réservée dans le local',
+  'P · Souplesse sur les absences liées aux soins',
+  '# Stage',
+  'P · Adaptation des horaires ou de la durée du stage',
+  '# Accompagnement',
+  'P · Rencontre de suivi avec la personne de référence',
+].join('\n');
+const CATALOGUE_11 = [
   '# Évaluations',
   'P · Temps supplémentaire lors des évaluations',
   'M · Local isolé ou à effectif réduit',
