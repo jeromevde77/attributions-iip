@@ -30,6 +30,7 @@ const Attente = () => <div className="p-6 text-sm text-slate-400">Chargement…<
 
 // ── ACCUEIL — « Qu'est-ce qui m'attend ? » ──────────────────────────────────
 export function AxeAccueil() {
+  const [paramsAccueil] = useSearchParams();
   /*
    * ACCUEIL ET PILOTAGE NE FONT PLUS QU'UN.
    *
@@ -47,6 +48,7 @@ export function AxeAccueil() {
   const voitReporting = droitEffectif(getUser(), 'pilotage') !== 'rien';
   return (
     <Axe
+      ongletInitial={paramsAccueil.get('onglet') || undefined}
       titre="Tableau de bord" icone={IconHome}
       question="« Où en sommes-nous ? »"
       onglets={[
