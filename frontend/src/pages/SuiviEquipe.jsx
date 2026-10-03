@@ -665,20 +665,25 @@ function ChoixResponsables({ personnes, presents = [], tache, onChange, informes
     .sort((a, b) => parNom(a.nom, b.nom));
 
   return (
-    <div className={`flex flex-wrap items-center gap-1 min-w-[10rem] max-w-[18rem]
+    <div className={`flex flex-wrap items-center gap-x-1.5 gap-y-0.5 min-w-[10rem] max-w-[24rem]
       ${cles.length || informes ? '' : 'rounded-champ ring-1 ring-amber-300 px-1 py-0.5'}`}>
+      {/* LES NOMS À LA SUITE, COMME ON LES DIRAIT (Charles, 3 octobre 2026) :
+          six pastilles grises sur trois lignes faisaient un mur. Une phrase —
+          le premier en gras, c'est lui qui répond de l'action —, la croix au
+          survol seulement. */}
+      {informes && cles.length > 0 && <IconEye size={12} className="text-slate-400 flex-none" />}
       {cles.map((cle, i) => (
         <span key={cle} title={informes ? 'Au courant, sans en répondre'
                               : i === 0 ? "Répond de l'action" : undefined}
-          className={`inline-flex items-center gap-1 rounded-champ px-1.5 h-6 text-[11px]
-            ${!informes && i === 0 ? 'bg-iip-blue/10 text-iip-blue font-semibold'
-                      : 'bg-slate-100 text-slate-600'}`}>
-          {informes && <IconEye size={11} className="text-slate-400" />}
+          className={`group/nom inline-flex items-center text-[12px] whitespace-nowrap
+            ${!informes && i === 0 ? 'text-iip-blue font-semibold' : 'text-slate-600'}`}>
           {nomDeCle(cle)}
           <button onClick={() => onChange(cles.filter(c => c !== cle))}
-            className="text-slate-400 hover:text-slate-700" title="Retirer">
+            className="w-0 overflow-hidden group-hover/nom:w-3.5 group-hover/nom:ml-0.5 text-slate-400 hover:text-slate-700
+                       transition-[width] duration-100" title="Retirer">
             <IconX size={11} />
           </button>
+          {i < cles.length - 1 && <span className="text-slate-400">,</span>}
         </span>
       ))}
       <select value="" onChange={e => e.target.value && onChange([...cles, e.target.value])}
@@ -882,19 +887,9 @@ function ListeTaches({ taches, personnes, presents = [], obligations = [], api, 
           <TitreModifiable tache={t} compact={compact}
             onValider={titre => majTache(t, { titre })} />
 
-          {!!obligations.length && (
-            <select value={t.echeance_id || ''} title="Obligation servie par cette action"
-              onChange={e => majTache(t, { echeance_id: e.target.value ? Number(e.target.value) : null })}
-              className="bg-white border border-slate-300 rounded-champ px-1.5 h-8 text-[12px]
-                         max-w-[12rem] text-slate-600">
-              <option value="">— ne sert aucune obligation —</option>
-              {obligations.map(o => (
-                <option key={o.id} value={o.id}>
-                  {o.libelle}{o.base_legale ? ` · ${o.base_legale}` : ''}
-                </option>
-              ))}
-            </select>
-          )}
+          {/* LE MENU « OBLIGATION » A QUITTÉ LA LIGNE (Charles, 3 octobre 2026 :
+              « supprime ») : il prenait la place d'une colonne pour dire,
+              presque toujours, « aucune ». Le lien se pose à la création. */}
 
           <ChoixResponsables personnes={personnes} presents={presents} tache={t}
             onChange={cles => majTache(t, { responsables: cles })} />
