@@ -435,7 +435,8 @@ function _buildImportGroupes(annee) {
   // Sinon → regroupement classique par UE/groupe
   const map = new Map();
   for (const a of attrs) {
-    const nomGroupe = _numToLettre(a.num_groupe ?? 1);
+    // Le nom posé sur l'attribution d'abord (A, A1, 1… selon la section).
+    const nomGroupe = a.code && a.code !== 'Ts' ? a.code : _numToLettre(a.num_groupe ?? 1);
     // Clé : UE + section + groupe + activité (si renseignée) + code cours
     // Si activite_id renseigné → ligne distincte par activité
     // Sinon → ligne distincte par attribution (id), pour préserver la granularité

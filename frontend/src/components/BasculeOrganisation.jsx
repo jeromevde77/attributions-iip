@@ -218,7 +218,7 @@ export default function BasculeOrganisation({ ueNum, onClose, onFait }) {
                             onChange={() => setDeplace(s => { const n = new Set(s); n.has(l.id) ? n.delete(l.id) : n.add(l.id); return n; })} />)}</td>
                         <td className="px-2 py-1 whitespace-nowrap"><b>{l.code_cours || '—'}</b> <span className="text-slate-500">{l.cours_nom || ''}</span>
                           {l.copie && <span className="ml-1.5 text-[11px] text-slate-500 border border-slate-200 rounded-champ px-1">copie</span>}</td>
-                        <td className="px-2 py-1 text-slate-600">{l.activite_nom || l.type_cours || ''}{l.num_groupe ? ` · gr. ${l.num_groupe}` : ''}</td>
+                        <td className="px-2 py-1 text-slate-600">{l.activite_nom || l.type_cours || ''}{l.code && l.code !== 'Ts' ? ` · gr. ${l.code}` : l.num_groupe ? ` · gr. ${l.num_groupe}` : ''}</td>
                         <td className="px-2 py-1">{nomDe(l)}</td>
                         <td className="px-2 py-1 text-slate-500">{l.contrat_mdp || ''}</td>
                         <td className="px-2 py-1 text-right">{champ(l, 'periodes', 'periodes_attribuees')}</td>

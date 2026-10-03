@@ -204,7 +204,7 @@ r.get('/basculer/:ueNum', authRequired, roleRequired(...ROLES_BASCULE), (req, re
   const lignes = db.prepare(`
     SELECT att.id, att.section, COALESCE(att.num_organisation, 1) AS num_organisation, att.code_cours,
            c.cours_nom, act.libelle AS activite_nom, att.type_cours, att.periodes_attribuees, att.contrat_mdp,
-           att.num_groupe, att.autonomie_attribuee, p.nom, p.prenom
+           att.num_groupe, att.code, att.autonomie_attribuee, p.nom, p.prenom
     FROM attribution att
     LEFT JOIN professeur p ON p.id = att.professeur_id
     LEFT JOIN activite_type act ON act.id = att.activite_id

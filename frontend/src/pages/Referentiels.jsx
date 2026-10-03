@@ -1,3 +1,4 @@
+import { MODES_GROUPES } from '../lib/groupes.js';
 import { useEffect, useState, Fragment } from 'react';
 import { estDirection } from '../lib/modules.js';
 import { api, getAnnee, getUser } from '../lib/api.js';
@@ -467,7 +468,8 @@ function SectionModal({ section, onClose, onSaved, annee, isAdmin }) {
     code_fwb: section?.code_fwb || '',
     domaine: section?.domaine || '',
     type_enseignement: section?.type_enseignement || '',
-    titre_externe: !!section?.titre_externe
+    titre_externe: !!section?.titre_externe,
+    numerotation_groupes: section?.numerotation_groupes || 'lettres',
   });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -503,7 +505,8 @@ function SectionModal({ section, onClose, onSaved, annee, isAdmin }) {
         code_fwb: form.code_fwb.trim() || null,
         domaine: form.domaine.trim() || null,
         type_enseignement: form.type_enseignement.trim() || null,
-        titre_externe: form.titre_externe ? 1 : 0
+        titre_externe: form.titre_externe ? 1 : 0,
+        numerotation_groupes: form.numerotation_groupes || 'lettres',
       };
       if (isNew) {
         await api.createSection({ code: form.code.trim(), ...payload });
@@ -548,6 +551,13 @@ function SectionModal({ section, onClose, onSaved, annee, isAdmin }) {
               <label className="block"><span className={lbl}>Code FWB</span>
                 <input value={form.code_fwb} onChange={e => set('code_fwb', e.target.value)} className="controle w-full" /></label>
             </div>
+            {/* LA NUMÉROTATION DES GROUPES (3 octobre 2026) : en AeSI, la classe A
+                coupée en deux pour les TP donne A1 et A2, pas A et B. Elle vaut
+                pour les groupes formés ensuite ; les noms déjà posés restent. */}
+            <label className="block mt-3"><span className={lbl}>Numérotation des groupes</span>
+              <select value={form.numerotation_groupes} onChange={e => set('numerotation_groupes', e.target.value)} className="controle w-full">
+                {MODES_GROUPES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+              </select></label>
             {!isNew && form.code.trim() && form.code.trim() !== code && (
               <div data-etat="surveiller" className="bloc-etat px-3 py-2 text-[12px] mt-2">
                 Renommer « {code} » en « {form.code.trim()} » mettra à jour toutes les attributions, cours, UE et rattachements liés.</div>
