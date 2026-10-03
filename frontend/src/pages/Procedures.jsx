@@ -472,7 +472,7 @@ function OuvrirDossier({ annee, onFermer, onOuvert }) {
             ) : (
               <div className="relative">
                 <IconSearch size={15} className="absolute left-2.5 top-[18px] -translate-y-1/2 text-slate-400 pointer-events-none" />
-                <input className="controle controle-icone w-full" autoFocus placeholder="Nom, prénom ou matricule…"
+                <input type="search" name="search_etudiant" autoComplete="off" className="controle controle-icone w-full" autoFocus placeholder="Nom, prénom ou matricule…"
                   value={recherche} onChange={e => setRecherche(e.target.value)} />
                 {resultats.length > 0 && (
                   <div className="mt-1 border border-slate-200 rounded-champ bg-white max-h-64 overflow-y-auto">

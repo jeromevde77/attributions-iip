@@ -34,12 +34,17 @@ window.addEventListener('vite:preloadError', rechargerApresMiseAJour);
    qui DÉCLARE son remplissage (connexion : username, current-password,
    one-time-code) le garde ; tous les autres le perdent — aussi ceux qui
    naissent plus tard, d'où l'observateur. */
+let compteurChamps = 0;
 function sansRemplissage(racine) {
   const champs = racine.querySelectorAll ? racine.querySelectorAll('input:not([autocomplete]), textarea:not([autocomplete])') : [];
   for (const c of champs) {
     c.setAttribute('autocomplete', 'off');
     c.setAttribute('data-lpignore', 'true');      // gestionnaires de mots de passe
     c.setAttribute('data-1p-ignore', 'true');
+    // SAFARI PASSE OUTRE « off » quand il croit voir un champ de nom (« Nom,
+    // prénom… ») et propose les contacts. Il ne remplit jamais un champ dont
+    // le NOM contient « search » : c'est la seule parade qui tienne.
+    if (!c.getAttribute('name')) c.setAttribute('name', `search_lucie_${++compteurChamps}`);
   }
 }
 sansRemplissage(document);
