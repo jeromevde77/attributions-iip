@@ -1,3 +1,5 @@
+import { readFileSync } from 'fs';
+import { gunzipSync } from 'zlib';
 import { codeGroupe, modeGroupes } from '../lib/groupes.js';
 import { Router } from 'express';
 import db from '../db/index.js';
@@ -47,6 +49,33 @@ function autonomieUE(ueNum, annee, { exclureCours = null, ajoutCours = null } = 
   return { plafond, consomme, ue_aut: ueAut };
 }
 
+
+/* LES RUES DE BELGIQUE (3 octobre 2026) — BeST Address (SPF BOSA, données
+   ouvertes), réduites aux noms de rue par code postal, en français,
+   néerlandais et allemand : donnees/rues-be.json.gz. Chargées une fois, en
+   mémoire ; aucune dépendance à un service extérieur pendant la saisie. Pour
+   les remettre à jour : retélécharger openaddress-be*.zip et régénérer. */
+let RUES = null;
+function rues() {
+  if (RUES) return RUES;
+  try {
+    RUES = JSON.parse(gunzipSync(readFileSync(new URL('../donnees/rues-be.json.gz', import.meta.url))).toString('utf-8'));
+  } catch (e) { console.error('[rues]', e.message); RUES = {}; }
+  return RUES;
+}
+const platRue = t => String(t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+r.get('/rues', authRequired, (req, res) => {
+  const cp = String(req.query.cp || '').trim();
+  const q = platRue(req.query.q).trim();
+  const liste = rues()[cp] || [];
+  if (!q) return res.json(liste.slice(0, 30));
+  const debut = [], dedans = [];
+  for (const n of liste) {
+    const p = platRue(n);
+    if (p.startsWith(q)) debut.push(n); else if (p.includes(q)) dedans.push(n);
+  }
+  res.json([...debut, ...dedans].slice(0, 30));
+});
 
 r.get('/sections', authRequired, (req, res) => {
   const allowed = getUserSections(req.user);

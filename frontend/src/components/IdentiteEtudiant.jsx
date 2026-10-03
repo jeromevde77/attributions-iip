@@ -27,9 +27,12 @@ const CHAMPS = [
   { k: 'nationalite', l: 'Nationalité', type: 'pays', aide: "Exigée par l'annexe 2 (Office des Étrangers) — le pays" },
   { k: 'num_national', l: 'Numéro national', aide: "Sert au rapprochement des dossiers" },
   { k: 'id_ecampus', l: 'Matricule eCampus' },
-  { k: 'adresse', l: 'Adresse' },
-  { k: 'cp', l: 'Code postal' },
-  { k: 'localite', l: 'Localité' },
+  /* LE CODE POSTAL D'ABORD (3 octobre 2026) : il propose la localité (liste
+     bpost) et les rues (BeST Address, SPF BOSA). Une adresse à l'étranger
+     reste libre — rien n'est imposé. */
+  { k: 'cp', l: 'Code postal', type: 'cp' },
+  { k: 'localite', l: 'Localité', type: 'localite' },
+  { k: 'adresse', l: 'Adresse (rue et numéro)', type: 'rue' },
   { k: 'gsm', l: 'Téléphone' },
   { k: 'email_ecole', l: 'Courriel école', type: 'email' },
   { k: 'email_perso', l: 'Courriel personnel', type: 'email' },
@@ -40,6 +43,9 @@ export default function IdentiteEtudiant({ etudId, onModifie }) {
   const [modifs, setModifs] = useState({});
   const [message, setMessage] = useState(null);
   const [enCours, setEnCours] = useState(false);
+  const [cps, setCps] = useState(null);       // code postal → localités
+  const [ruesProposees, setRuesProposees] = useState([]);
+  useEffect(() => { import('../lib/codesPostaux.json').then(m => setCps(m.default)).catch(() => {}); }, []);
 
   async function charger() {
     const rep = await fetch(`/api/etudiants/${etudId}`, { headers: authHeaders() });
@@ -99,7 +105,33 @@ export default function IdentiteEtudiant({ etudId, onModifie }) {
             <span className="block font-semibold text-slate-500 uppercase tracking-wide mb-1">
               {c.l}{c.requis && <span className="text-red-500"> *</span>}
             </span>
-            {c.type === 'pays' ? (
+            {c.type === 'cp' || c.type === 'localite' || c.type === 'rue' ? (() => {
+              const cp = String(val('cp') || '').trim();
+              const locs = (cps && cps[cp]) || [];
+              const majChamp = v => setModifs(m => {
+                const n = { ...m, [c.k]: v };
+                // Un code postal belge d'une seule localité la pose d'office.
+                if (c.k === 'cp' && cps?.[v.trim()]?.length === 1 && !String(val('localite') || '').trim()) n.localite = cps[v.trim()][0];
+                return n;
+              });
+              const chercherRue = v => {
+                if (c.k !== 'adresse' || !/^\d{4}$/.test(cp) || v.length < 2 || /\d/.test(v)) return;
+                fetch(`/api/ref/rues?cp=${cp}&q=${encodeURIComponent(v)}`, { headers: authHeaders() })
+                  .then(r => (r.ok ? r.json() : [])).then(l => setRuesProposees(Array.isArray(l) ? l : [])).catch(() => {});
+              };
+              const liste = c.type === 'localite' ? locs : c.type === 'rue' ? ruesProposees : [];
+              return (
+                <>
+                  <input type="text" value={val(c.k)} list={liste.length ? `liste-${c.k}` : undefined}
+                    onChange={ev => { majChamp(ev.target.value); chercherRue(ev.target.value); }}
+                    className={`w-full border rounded-lg px-2 py-1.5 text-sm ${c.k in modifs ? 'border-amber-400 bg-amber-50' : 'border-slate-300'}`} />
+                  {!!liste.length && <datalist id={`liste-${c.k}`}>{liste.map(x => <option key={x} value={x} />)}</datalist>}
+                  {c.type === 'cp' && /^\d{4}$/.test(cp) && cps && !locs.length && (
+                    <span className="block text-[10px] mt-0.5" style={{ color: 'var(--c-attente, #E8890C)' }}>Code postal inconnu en Belgique</span>
+                  )}
+                </>
+              );
+            })() : c.type === 'pays' ? (
               /* UNE LISTE FERMÉE DE PAYS (3 octobre 2026). Une valeur saisie
                  avant la liste reste affichée, marquée, jusqu'à ce qu'on la
                  remplace. */
