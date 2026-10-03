@@ -7,6 +7,17 @@ import { estDirection, droitEffectif, usePlafonds, oublierPlafonds } from './lib
 class ErrorBoundary extends Component {
   constructor(props) { super(props); this.state = { error: null }; }
   static getDerivedStateFromError(e) { return { error: e }; }
+  // UN MORCEAU DISPARU APRÈS UNE MISE À JOUR n'est pas une erreur à copier :
+  // on recharge la page, une fois (garde de 30 s contre une boucle).
+  componentDidCatch(e) {
+    if (!/Importing a module script failed|dynamically imported module/i.test(String(e?.message || ''))) return;
+    try {
+      const dernier = Number(sessionStorage.getItem('lucie_rechargement') || 0);
+      if (Date.now() - dernier < 30000) return;
+      sessionStorage.setItem('lucie_rechargement', String(Date.now()));
+    } catch { /* stockage indisponible */ }
+    window.location.reload();
+  }
   render() {
     if (this.state.error) return (
       <div style={{ padding: '40px', fontFamily: 'monospace', background: '#fff0f0', minHeight: '100vh' }}>
