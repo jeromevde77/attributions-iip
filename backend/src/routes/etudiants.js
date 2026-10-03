@@ -2,6 +2,7 @@
 // Lucie — Module Étudiants : base étudiants, inscriptions, résultats et PAE
 // ─────────────────────────────────────────────────────────────────────────────
 
+import { paysDe, estUnPays } from '../lib/pays.js';
 import { Router } from 'express';
 import multer from 'multer';
 import { existsSync, mkdirSync, unlinkSync } from 'fs';
@@ -1163,6 +1164,35 @@ r.get('/', authRequired, (req, res) => {
  *   attente · o atteignable, non prise · n pas encore atteignable.
  * Les états viennent du moteur du PAE (lib/pae.js), comme ceux de la fiche.
  */
+/* ── LES NATIONALITÉS REMISES D'APLOMB (3 octobre 2026) ─────────────────────
+ * La nationalité se tapait : vingt formes pour une dizaine de pays. Depuis
+ * 3.0.15 elle se choisit dans la liste des pays ; ceci range ce qui a été
+ * écrit avant. Simulation d'abord (GET), puis l'écriture (POST), qui ne
+ * touche que ce qu'elle a reconnu — le reste est nommé, pour être corrigé à
+ * la main sur la fiche. */
+function planNationalites() {
+  const lignes = db.prepare(`SELECT nationalite v, COUNT(*) n FROM etudiant
+    WHERE COALESCE(TRIM(nationalite), '') <> '' GROUP BY nationalite ORDER BY n DESC`).all();
+  const corriger = [], revoir = [];
+  for (const l of lignes) {
+    if (estUnPays(l.v)) continue;
+    const p = paysDe(l.v);
+    (p ? corriger : revoir).push({ actuel: l.v, propose: p?.nom || null, dossiers: l.n });
+  }
+  return { corriger, revoir };
+}
+r.get('/nationalites/normaliser', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
+  res.json(planNationalites());
+});
+r.post('/nationalites/normaliser', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
+  const { corriger } = planNationalites();
+  const maj = db.prepare('UPDATE etudiant SET nationalite = ? WHERE nationalite = ?');
+  let n = 0;
+  db.transaction(() => { for (const c of corriger) n += maj.run(c.propose, c.actuel).changes; })();
+  console.log(`[nationalites] ${n} dossier(s) remis d'aplomb par ${req.user?.nom || req.user?.email || '?'}`);
+  res.json({ ok: true, dossiers: n });
+});
+
 r.get('/frises', authRequired, (req, res) => {
   const annee = req.query.annee || anneeDeTravail(req);
   const autorisees = perimetre(req);
