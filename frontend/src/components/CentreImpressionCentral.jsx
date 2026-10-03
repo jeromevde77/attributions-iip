@@ -1598,6 +1598,18 @@ function OngletEtudiants({ perimetre = null, mode = 'deliberation', seul = null,
   const dossierChoisi = PIECES_DOSSIER.filter(p => choix[p.cle]);
   const delibChoisie = PIECES.some(p => choix[p.cle]);
   const seulementSLE = dossierChoisi.length > 0 && dossierChoisi.every(p => p.sle) && !delibChoisie;
+  /* COCHER UNE PIÈCE SLE, C'EST TRAVAILLER POUR LES SLE (Charles, 3 octobre
+     2026 : « si je coche SLE, je ne dois sélectionner et travailler QUE les
+     pièces pour les SLE ; ce sera pareil pour les CEP »). Les autres pièces se
+     grisent, la liste ne montre que les étudiants en séjour limité aux études,
+     et la sélection s'y réduit. On en sort en décochant les annexes. */
+  const modeSLE = !delib && dossierChoisi.some(p => p.sle);
+  const visibles = modeSLE ? etudiants.filter(e => e.sle) : etudiants;
+  const basculerPiece = p => setChoix(c => {
+    const n = { ...c, [p.cle]: !c[p.cle] };
+    if (p.sle && n[p.cle]) for (const q of PIECES_DOSSIER) if (!q.sle) delete n[q.cle];
+    return n;
+  });
   // Un étudiant sans décision n'a rien à recevoir de la délibération, mais son
   // bulletin et ses annexes, si : il devient cochable dès qu'une pièce du
   // dossier est demandée.
@@ -1624,6 +1636,7 @@ function OngletEtudiants({ perimetre = null, mode = 'deliberation', seul = null,
     if (p.cle === 'refus') return session === 2 && etudiants.some(e => e.echecs > 0);
     if (['pv', 'conseil', 'grille'].includes(p.cle)) return etudiants.some(e => e.decide);
     if (p.sle) return etudiants.some(e => e.sle);
+    if (modeSLE && PIECES_DOSSIER.includes(p)) return false;
     return true;
   };
   const nbPieces = (delib ? PIECES : PIECES_DOSSIER).filter(p => choix[p.cle] && dispo(p)).length;
@@ -1636,6 +1649,13 @@ function OngletEtudiants({ perimetre = null, mode = 'deliberation', seul = null,
     });
     // eslint-disable-next-line
   }, [etudiants, session]);
+  // En mode SLE, la sélection se réduit aux étudiants SLE.
+  useEffect(() => {
+    if (!modeSLE) return;
+    const sle = new Set(etudiants.filter(e => e.sle).map(e => e.id));
+    setCoches(c => { const n = new Set([...c].filter(id => sle.has(id))); return n.size === c.size ? c : n; });
+    // eslint-disable-next-line
+  }, [modeSLE, etudiants]);
 
   return (
     <div className="flex min-h-0 flex-1">
@@ -1776,12 +1796,12 @@ function OngletEtudiants({ perimetre = null, mode = 'deliberation', seul = null,
               <div className="text-[11.5px] text-slate-500 mb-1.5">une pièce par étudiant décidé</div>
               {PIECES.filter(p => p.nominatif).map(p => (
                 <label key={p.cle} className={`flex items-center gap-2 py-0.5 text-[13px] ${dispo(p) ? 'cursor-pointer' : 'opacity-40 cursor-not-allowed'}`}
-                  title={dispo(p) ? '' : 'Rien à produire pour ce périmètre'}>
+                  title={dispo(p) ? '' : modeSLE && !p.sle && PIECES_DOSSIER.includes(p) ? 'Pièces SLE en cours — décochez les annexes pour les autres pièces' : 'Rien à produire pour ce périmètre'}>
                   {/* LA PETITE LIGNE DIT LE SENS (2 octobre 2026) : orange pour
                       l'ajournement, fraise pour le refus. */}
                   <span className="w-[3px] h-4 rounded-full flex-none"
                     style={{ background: p.cle === 'ajournement' ? 'var(--c-attente, #B45309)' : p.cle === 'refus' ? 'var(--c-refuse, #9D4A38)' : 'transparent' }} />
-                  <input type="checkbox" checked={!!choix[p.cle] && dispo(p)} disabled={!dispo(p)} onChange={() => setChoix(c => ({ ...c, [p.cle]: !c[p.cle] }))}
+                  <input type="checkbox" checked={!!choix[p.cle] && dispo(p)} disabled={!dispo(p)} onChange={() => basculerPiece(p)}
                     className="w-3.5 h-3.5 accent-iip-blue" />
                   {p.label}
                   {p.sle && <span className="text-[10px] font-bold text-slate-500 border border-slate-300 rounded px-1">SLE · {etudiants.filter(e => e.sle).length}</span>}
@@ -1794,12 +1814,12 @@ function OngletEtudiants({ perimetre = null, mode = 'deliberation', seul = null,
               <div className="text-[11.5px] text-slate-500 mb-1.5">une pièce pour l’unité</div>
               {PIECES.filter(p => !p.nominatif).map(p => (
                 <label key={p.cle} className={`flex items-center gap-2 py-0.5 text-[13px] ${dispo(p) ? 'cursor-pointer' : 'opacity-40 cursor-not-allowed'}`}
-                  title={dispo(p) ? '' : 'Rien à produire pour ce périmètre'}>
+                  title={dispo(p) ? '' : modeSLE && !p.sle && PIECES_DOSSIER.includes(p) ? 'Pièces SLE en cours — décochez les annexes pour les autres pièces' : 'Rien à produire pour ce périmètre'}>
                   {/* LA PETITE LIGNE DIT LE SENS (2 octobre 2026) : orange pour
                       l'ajournement, fraise pour le refus. */}
                   <span className="w-[3px] h-4 rounded-full flex-none"
                     style={{ background: p.cle === 'ajournement' ? 'var(--c-attente, #B45309)' : p.cle === 'refus' ? 'var(--c-refuse, #9D4A38)' : 'transparent' }} />
-                  <input type="checkbox" checked={!!choix[p.cle] && dispo(p)} disabled={!dispo(p)} onChange={() => setChoix(c => ({ ...c, [p.cle]: !c[p.cle] }))}
+                  <input type="checkbox" checked={!!choix[p.cle] && dispo(p)} disabled={!dispo(p)} onChange={() => basculerPiece(p)}
                     className="w-3.5 h-3.5 accent-iip-blue" />
                   {p.label}
                   {p.sle && <span className="text-[10px] font-bold text-slate-500 border border-slate-300 rounded px-1">SLE · {etudiants.filter(e => e.sle).length}</span>}
@@ -1813,12 +1833,12 @@ function OngletEtudiants({ perimetre = null, mode = 'deliberation', seul = null,
               <div className="text-[11.5px] text-slate-500 mb-1.5">à tout moment de l’année</div>
               {PIECES_DOSSIER.filter(p => ['bulletin', 'pae', 'parcours'].includes(p.cle)).map(p => (
                 <label key={p.cle} className={`flex items-center gap-2 py-0.5 text-[13px] ${dispo(p) ? 'cursor-pointer' : 'opacity-40 cursor-not-allowed'}`}
-                  title={dispo(p) ? '' : 'Rien à produire pour ce périmètre'}>
+                  title={dispo(p) ? '' : modeSLE && !p.sle && PIECES_DOSSIER.includes(p) ? 'Pièces SLE en cours — décochez les annexes pour les autres pièces' : 'Rien à produire pour ce périmètre'}>
                   {/* LA PETITE LIGNE DIT LE SENS (2 octobre 2026) : orange pour
                       l'ajournement, fraise pour le refus. */}
                   <span className="w-[3px] h-4 rounded-full flex-none"
                     style={{ background: p.cle === 'ajournement' ? 'var(--c-attente, #B45309)' : p.cle === 'refus' ? 'var(--c-refuse, #9D4A38)' : 'transparent' }} />
-                  <input type="checkbox" checked={!!choix[p.cle] && dispo(p)} disabled={!dispo(p)} onChange={() => setChoix(c => ({ ...c, [p.cle]: !c[p.cle] }))}
+                  <input type="checkbox" checked={!!choix[p.cle] && dispo(p)} disabled={!dispo(p)} onChange={() => basculerPiece(p)}
                     className="w-3.5 h-3.5 accent-iip-blue" />
                   {p.label}
                   {p.sle && <span className="text-[10px] font-bold text-slate-500 border border-slate-300 rounded px-1">SLE · {etudiants.filter(e => e.sle).length}</span>}
@@ -1831,12 +1851,12 @@ function OngletEtudiants({ perimetre = null, mode = 'deliberation', seul = null,
               <div className="text-[11.5px] text-slate-500 mb-1.5">administratif — les annexes ne vont qu’aux étudiants SLE</div>
               {PIECES_DOSSIER.filter(p => !['bulletin', 'pae', 'parcours'].includes(p.cle)).map(p => (
                 <label key={p.cle} className={`flex items-center gap-2 py-0.5 text-[13px] ${dispo(p) ? 'cursor-pointer' : 'opacity-40 cursor-not-allowed'}`}
-                  title={dispo(p) ? '' : 'Rien à produire pour ce périmètre'}>
+                  title={dispo(p) ? '' : modeSLE && !p.sle && PIECES_DOSSIER.includes(p) ? 'Pièces SLE en cours — décochez les annexes pour les autres pièces' : 'Rien à produire pour ce périmètre'}>
                   {/* LA PETITE LIGNE DIT LE SENS (2 octobre 2026) : orange pour
                       l'ajournement, fraise pour le refus. */}
                   <span className="w-[3px] h-4 rounded-full flex-none"
                     style={{ background: p.cle === 'ajournement' ? 'var(--c-attente, #B45309)' : p.cle === 'refus' ? 'var(--c-refuse, #9D4A38)' : 'transparent' }} />
-                  <input type="checkbox" checked={!!choix[p.cle] && dispo(p)} disabled={!dispo(p)} onChange={() => setChoix(c => ({ ...c, [p.cle]: !c[p.cle] }))}
+                  <input type="checkbox" checked={!!choix[p.cle] && dispo(p)} disabled={!dispo(p)} onChange={() => basculerPiece(p)}
                     className="w-3.5 h-3.5 accent-iip-blue" />
                   {p.label}
                   {p.sle && <span className="text-[10px] font-bold text-slate-500 border border-slate-300 rounded px-1">SLE · {etudiants.filter(e => e.sle).length}</span>}
@@ -1852,10 +1872,11 @@ function OngletEtudiants({ perimetre = null, mode = 'deliberation', seul = null,
               <input value={recherche} onChange={e => setRecherche(e.target.value)} placeholder="Un nom…"
                 className="pl-7 pr-2 py-1 text-[12px] border border-slate-300 rounded-lg w-48" />
             </div>
-            <button onClick={() => setCoches(new Set(etudiants.map(e => e.id)))} className="text-iip-blue underline">tout cocher</button>
+            {modeSLE && <span className="font-semibold text-iip-blue">Pièces SLE : seuls les étudiants en séjour limité aux études</span>}
+            <button onClick={() => setCoches(new Set(visibles.map(e => e.id)))} className="text-iip-blue underline">tout cocher</button>
             <button onClick={() => setCoches(new Set())} className="text-slate-500 underline">tout décocher</button>
             <span className="flex-1" />
-            <span className="text-slate-500">{coches.size} / {etudiants.length} étudiant(s){liste?.unites?.length ? ` · ${liste.unites.length} unité(s)` : ''}{delib ? ` · session ${session}` : ''}</span>
+            <span className="text-slate-500">{coches.size} / {visibles.length} étudiant(s){liste?.unites?.length ? ` · ${liste.unites.length} unité(s)` : ''}{delib ? ` · session ${session}` : ''}</span>
           </div>
         </div>
         <div className="flex-1 overflow-auto min-h-0">
@@ -1870,7 +1891,7 @@ function OngletEtudiants({ perimetre = null, mode = 'deliberation', seul = null,
               Aucun étudiant dans ce périmètre.
             </p>
           )}
-          {etudiants.map(e => (
+          {visibles.map(e => (
             <label key={e.id}
               className={`flex items-center gap-2 px-3 py-1.5 border-b border-slate-100
                           cursor-pointer ${cochable(e) ? '' : 'opacity-50'}`}>
