@@ -6,7 +6,7 @@ import db from '../db/index.js';
 import { renommerUE } from '../lib/renommerUE.js';
 import { anneeDeTravail } from '../helpers/annee.js';
 import { authRequired, roleRequired, getUserSections, exigerPerimetreProfesseur,
-  clauseSections, soiSeul, SOI_SEUL } from '../middleware/auth.js';
+  clauseSections, soiSeul, SOI_SEUL, professeurDe } from '../middleware/auth.js';
 import { deposerDemande } from './demandes.js';
 import { parseDossierPedagogique } from '../parseDossierPedagogique.js';
 import { gesteRequis } from '../lib/gestes.js';
@@ -1269,7 +1269,7 @@ const CHAMPS_PROPOSABLES_PROF = ['mail_prive', 'adresse_rue', 'code_postal', 'co
 r.patch('/professeurs/:id', authRequired, (req, res, next) => {
   if (!SOI_SEUL.includes(req.user?.role)) return next();
   const id = Number(req.params.id);
-  if (!req.user.professeur_id || Number(req.user.professeur_id) !== id) return res.status(404).json({ error: 'Introuvable.' });
+  if (professeurDe(req.user) !== id) return res.status(404).json({ error: 'Introuvable.' });
   const refuses = Object.keys(req.body || {}).filter(k => !CHAMPS_PROPOSABLES_PROF.includes(k));
   const apres = Object.fromEntries(Object.entries(req.body || {}).filter(([k]) => CHAMPS_PROPOSABLES_PROF.includes(k)));
   if (!Object.keys(apres).length) {

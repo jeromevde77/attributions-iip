@@ -218,7 +218,8 @@ export function exigerPerimetreProfesseur(req, res, next) {
   const profId = Number(brut);
   // SA PROPRE FICHE, TOUJOURS : un enseignant n'a pas de sections, et le
   // périmètre vide lui fermait jusqu'à son propre dossier.
-  if (req.user?.professeur_id && Number(req.user.professeur_id) === profId) return next();
+  const maFiche = professeurDe(req.user);
+  if (maFiche && maFiche === profId) return next();
   if (!Number.isFinite(profId)) {
     return res.status(400).json({ error: 'professeur non identifié' });
   }
@@ -367,10 +368,19 @@ export function signPreviewToken(target, admin) {
  * Les autres rôles passent sans changement : leur périmètre se contrôle ailleurs.
  */
 export const SOI_SEUL = ['professeur'];
+
+/** LA FICHE DU COMPTE, LUE EN BASE. Le jeton ne porte pas `professeur_id`
+ *  (ni celui de connexion, ni celui de l'aperçu) : le lire là rendait
+ *  « aucune fiche », et un professeur ne voyait plus rien, pas même lui. */
+export function professeurDe(user) {
+  if (!user?.id) return null;
+  const v = db.prepare('SELECT professeur_id FROM utilisateur WHERE id = ?').get(user.id)?.professeur_id;
+  return v ? Number(v) : null;
+}
 export function soiSeul({ liste = false, ensemble = false } = {}) {
   return (req, res, next) => {
     if (!SOI_SEUL.includes(req.user?.role)) return next();
-    const moi = Number(req.user.professeur_id);
+    const moi = professeurDe(req.user);
     if (ensemble) return res.status(403).json({ error: 'Réservé : un enseignant ne consulte que son propre dossier.' });
     if (liste) {
       const envoyer = res.json.bind(res);
