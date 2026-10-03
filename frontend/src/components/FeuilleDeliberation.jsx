@@ -346,6 +346,14 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose, enPage = fa
     // fiche : écrire une justification ne la rafraîchissait pas, et l'écran
     // réclamait encore ce qu'on venait d'écrire.
     const decision = decisions[etud.id] || ue.decision_proposee;
+    // SANS ACQUIS RATTACHÉS, RIEN À MOTIVER — DONC RIEN NE PASSE : une décision
+    // défavorable se motive acquis par acquis ; le serveur le refuse aussi.
+    if ((decision === 'ajourne' || decision === 'refuse') && data?.sans_structure) {
+      setErreur("Unité non paramétrée : un ajournement ou un refus se motive acquis par acquis, "
+        + "et ses acquis ne sont pas rattachés à ses cours. Paramétrez l'unité (liens cours ↔ acquis) "
+        + "avant de délibérer.");
+      return;
+    }
     if (aMotiver.length) {
       setErreur(`Justification requise avant de passer au suivant : `
         + `${aMotiver.map(a => a.aa_code).join(', ')}. Elle se pose sous la `
