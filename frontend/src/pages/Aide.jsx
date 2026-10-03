@@ -3,6 +3,7 @@ import {
   IconSearch, IconX, IconHelpCircle, IconChecklist, IconUsers, IconBooks,
   IconChartBar, IconSettings, IconChevronRight, IconHome, IconSend, IconPencil,
   IconBook, IconUserCheck, IconCertificate, IconAccessible, IconScale, IconAward, IconStairsUp,
+  IconShieldExclamation,
 } from '@tabler/icons-react';
 
 /**
@@ -17,7 +18,7 @@ import {
  * des écrans que l'équipe n'a pas. À relire et à renuméroter à chaque mise en
  * production qui change un geste.
  */
-const VERSION_DECRITE = '3.0.34';
+const VERSION_DECRITE = '3.1.1';
 
 /* Un point : { titre, ou?, texte, savoir?: [] }.
    ou     — le chemin, avec les libellés de l'écran ;
@@ -64,6 +65,17 @@ const RUBRIQUES = [
           "La réponse de la direction paraît sur votre Tableau de bord, bloc « Mes propositions », marquée nouveau. Vous pouvez y répondre.",
           "Les messages sont signés au nom de qui écrit. Ils ne se modifient pas et ne s'effacent pas.",
         ] },
+      { titre: "Les fenêtres et les questions de Lucie",
+        texte: "Toutes les fenêtres ont le même dessin : un en-tête bleu marine, le contenu qui défile, et les "
+             + "boutons d'action dans un pied fixe, en bas. Quand Lucie vous pose une question ou vous informe, "
+             + "c'est une boîte à ses couleurs : un liseré à gauche dit le ton — rouge brique pour ce qui efface "
+             + "ou pour une erreur, vert pour une réussite, bleu marine sinon.",
+        savoir: [
+          "Entrée confirme, Échap annule. Échap ne ferme que la fenêtre du dessus, jamais celle qui est dessous.",
+          "Une question qui efface quelque chose a son bouton en rouge brique : lisez-la avant de confirmer.",
+          "Après une mise à jour de Lucie, une page restée ouverte se recharge d'elle-même la première fois qu'elle en a besoin.",
+          "Sur la version de développement, une pastille orange « DEV » est collée au numéro de version : ce n'est pas la production.",
+        ] },
       { titre: "Votre rôle et votre périmètre",
         texte: "Le rôle dit ce que vous pouvez faire ; le périmètre, quelles sections vous voyez. Une coordination "
              + "limitée à TIM ne voit pas les étudiants des autres sections : c'est voulu.",
@@ -96,11 +108,16 @@ const RUBRIQUES = [
         savoir: [] },
       { titre: "Suivi d'équipe",
         ou: "Tableau de bord → Suivi d'équipe.",
-        texte: "« Échéances et tâches » montre les tâches dans le temps : trente jours devant, sept derrière. "
-             + "« Réunions » garde les réunions et leurs décisions. « Confier une tâche » : quoi, à qui, pour quand.",
+        texte: "« Échéances et tâches » s'ouvre sur une frise de trente jours devant et sept derrière : une boule "
+             + "par tâche, fraise si elle est en retard ou tombe dans les trois jours, orange dans la semaine, verte "
+             + "plus tard — cochée quand elle est faite. Dessous, les tâches en colonnes : tâche, responsables, "
+             + "échéance, statut ; tout se modifie sur la ligne. « Réunions » garde les séances et leurs décisions. "
+             + "« Confier une tâche » : quoi, à qui, pour quand.",
         savoir: [
-          "Une tâche se confie à une personne, jamais à un texte libre.",
-          "On peut mettre quelqu'un « au courant » : il voit la tâche sous « Pour information », sans en répondre.",
+          "Une tâche se confie à une personne, jamais à un texte libre. Le premier nom, en gras, répond de la tâche.",
+          "On peut mettre quelqu'un « au courant » (sous « ⋯ ») : il voit la tâche sous « Pour information », sans en répondre.",
+          "Une séance de réunion : type, date, heure et lieu en tête, présences en pastilles (un clic : présent, excusé, absent), puis les points numérotés et leurs décisions.",
+          "Supprimer une réunion : direction seule, la corbeille en fin de barre. Les tâches décidées en séance sont conservées.",
         ] },
       { titre: "Chiffres de l'école",
         ou: "Tableau de bord → Chiffres de l'école (si votre rôle y a accès).",
@@ -310,19 +327,24 @@ const RUBRIQUES = [
         ou: "Étudiants → Délibération : une section, puis l'unité.",
         texte: "La feuille montre l'étudiant, ses acquis par cours, la note d'unité et le choix du Conseil : "
              + "Réussi, Ajourné, Refusé, et « Faveur ». Précédent / suivant pour passer d'un étudiant à l'autre. "
-             + "« Ajourner en lot » ajourne plusieurs étudiants avec une justification commune.",
+             + "Le sélecteur en haut à droite change de vue : « Fiche » (un étudiant), « Tableau » (tous les "
+             + "étudiants d'un coup d'œil : une note juste à l'encre, un acquis en défaut en pastille fraise, la "
+             + "faveur en violet), « En lot » (ajourner plusieurs étudiants avec une justification commune), "
+             + "« Clôture ».",
         savoir: [
           "Pas de compensation entre acquis : un seul acquis en défaut, c'est « ajourné » en 1re session, « refusé » en 2e.",
           "En 2e session, « ajourné » n'existe pas.",
           "La faveur porte l'unité au seuil ; sur les documents de l'étudiant, tout vaut alors 10.",
           "Jamais de cote sous 10 sur un document remis à l'étudiant : c'est « NA ».",
           "Le justificatif d'échec écrit par le chargé de cours dans Mes cours EST la motivation. Le Conseil peut la réécrire.",
+          "Une unité NON PARAMÉTRÉE (acquis non rattachés aux cours) s'annonce en orange : on ne peut alors ni ajourner ni refuser, faute de pouvoir motiver acquis par acquis. On rattache d'abord les acquis aux cours.",
         ] },
       { titre: "Clore la délibération",
         ou: "Feuille de l'unité → Clôture.",
-        texte: "Appel des présences, visite des copies, dates de seconde session, documents, puis « Clore la "
-             + "délibération ».",
+        texte: "Appel des présences, séance du Conseil et date de publication des résultats, visite des copies, "
+             + "dates de seconde session, documents, puis « Clore la délibération ».",
         savoir: [
+          "La date de publication des résultats (aujourd'hui par défaut) fait courir les quatre jours de recours : corrigez-la si les résultats ont été affichés un autre jour.",
           "Quorum des deux tiers des voix délibératives, contrôlé à la clôture.",
           "Les motivations proposées par Lucie et restées telles quelles se confirment une seule fois, à la clôture.",
           "Rouvrir une séance close : direction seule, motif écrit obligatoire.",
@@ -338,12 +360,66 @@ const RUBRIQUES = [
           "Chaque correction entre dans un journal qui ne s'efface pas.",
           "Une année reprise reçoit un énoncé uniforme : elle ne se fait pas passer pour une délibération tenue.",
         ] },
-      { titre: "Les autres boutons",
-        ou: "Délibération, en tête de l'écran.",
-        texte: "« Encodage rapide » pour saisir vite. « Règles de délibération ». « Classeur de suivi » et "
-             + "« Reprise d'historique » pour reprendre des données. « Où sont les notes ? » quand des notes "
-             + "semblent rangées dans la mauvaise année.",
-        savoir: [] },
+      { titre: "Les outils de la délibération",
+        ou: "Le rail, sous Délibération.",
+        texte: "« Encodage rapide » pour saisir vite. « Contrôles des notes et des décisions ». « Où sont les "
+             + "notes ? » quand des notes semblent rangées dans la mauvaise année. « Règles de délibération ».",
+        savoir: [
+          "Le classeur de suivi et la reprise d'une année depuis un tableau plat sont dans « Importer » (rail de l'axe Étudiants).",
+          "L'impression des pièces se fait toujours par l'avion.",
+        ] },
+    ],
+  },
+  {
+    id: 'procedures', titre: 'Recours et discipline', Icone: IconShieldExclamation,
+    resume: "Recours contre un refus, fraude et procédure disciplinaire, selon le RDE 2026-2027.",
+    points: [
+      { titre: "Le registre",
+        ou: "Étudiants → Procédures.",
+        texte: "Tous les dossiers de l'année : recours, fraude, discipline. Pour chacun, l'étudiant, la section et "
+             + "l'unité, l'étape en cours et la prochaine échéance légale, en couleur : fraise si elle est dépassée "
+             + "ou à trois jours, orange dans la semaine. Les dossiers d'avant le 3 octobre 2026 restent lisibles "
+             + "sous « Anciens dossiers ».",
+        savoir: [
+          "Ouvrir un dossier : direction et secrétariat. Décider (recevabilité, décision, sanction) : la direction.",
+        ] },
+      { titre: "Ouvrir un dossier",
+        ou: "Procédures → « Ouvrir un dossier ».",
+        texte: "On choisit l'étudiant, puis le type, puis l'unité parmi SES unités de l'année, avec leur décision. "
+             + "Lucie remplit le reste : section, session, chargés de cours, président de la séance.",
+        savoir: [
+          "Un recours ne vise qu'un REFUS (RDE art. 87). Un ajournement ou une décision de valorisation se motive, mais ne se conteste pas : ces unités sont grisées.",
+          "Une fraude porte sur l'épreuve d'une unité : on coche les acquis qu'elle visait (art. 75 §1).",
+        ] },
+      { titre: "Le recours (art. 87 à 91)",
+        ou: "Le dossier : une frise d'étapes.",
+        texte: "Plainte reçue → recevabilité → CDE restreint → décision motivée → envoi recommandé → recours "
+             + "externe éventuel. Chaque étape porte la date et le nom de celui qui l'a posée. À droite : les "
+             + "échéances calculées, les personnes, les pièces, le journal.",
+        savoir: [
+          "Plainte au plus tard 4 jours calendrier après la publication des résultats ; décision envoyée dans les 7 jours calendrier hors congés scolaires.",
+          "Irrecevable : le motif précis est obligatoire (art. 88 §4).",
+          "Le CDE restreint compte un président et au moins deux membres présents (art. 89 §1) : Lucie le vérifie.",
+          "Un recours ACCUEILLI rouvre la délibération de l'unité : le Conseil re-délibère l'étudiant, et la réouverture garde la trace du dossier.",
+        ] },
+      { titre: "La discipline et la fraude (art. 72 à 75, 115 à 119)",
+        ou: "Le dossier : une frise d'étapes.",
+        texte: "Faits établis → convocation → audition et procès-verbal → avis du CDE (fraude ou renvoi définitif) "
+             + "→ décision motivée → notification → recours au Pouvoir organisateur en cas de renvoi définitif. "
+             + "L'écartement provisoire (15 jours ouvrables au plus) se pose à part.",
+        savoir: [
+          "Une fraude sanctionnée AJOURNE les acquis visés dans la délibération (1re session), ou mène au refus (2e session ou récidive). La récidive se lit dans les dossiers antérieurs.",
+          "Pour un renvoi définitif, la convocation part au moins huit jours ouvrables avant l'audition : Lucie refuse une date trop proche.",
+          "Le procès-verbal d'audition se rédige avec un membre du personnel ; un refus de signer se constate par deux membres.",
+        ] },
+      { titre: "Les pièces",
+        ou: "Le dossier → Pièces → « Produire ».",
+        texte: "Accusé de réception, décision d'irrecevabilité, décision motivée du CDE restreint ; convocation, "
+             + "procès-verbal d'audition, décision disciplinaire. Elles sortent dans la mise en page commune, avec "
+             + "les voies de recours qui conviennent. On dépose aussi la plainte reçue, le PV de surveillance, les preuves.",
+        savoir: [
+          "Une pièce ne sort pas tant que l'étape qu'elle relate n'est pas posée.",
+        ] },
     ],
   },
   {
@@ -466,6 +542,7 @@ const RUBRIQUES = [
           "ETP = cours techniques / 800 + pratique professionnelle / 1000, autonomie comprise.",
           "L'accès à Lucie se donne sur la fiche, onglet « Accès Lucie ». La fiche suit le profil de son rôle ; ce qui est propre à la personne est nommé, et « Revenir au profil » l'efface.",
           "Un compte qui a signé des décisions se désactive, il ne se supprime pas.",
+          "Un enseignant ne voit, dans Personnel, que SA fiche. Il peut proposer de corriger ses coordonnées, son état civil, son compte ou sa situation fiscale : la modification part en demande, et la direction la valide dans « Demandes ».",
         ] },
       { titre: "Besoins, recrutement, classement",
         ou: "Personnel → rail : Besoins & offres · Recrutement · Classement & prioritaires.",
@@ -587,7 +664,7 @@ const RUBRIQUES = [
              + "personne » : ce que chaque compte a réellement. « Les gestes » : pour chaque geste et chaque rôle, "
              + "oui, non, ou par demande pour la coordination.",
         savoir: [
-          "Un clic sur une case fait tourner le réglage, puis revient au défaut.",
+          "Un clic sur une case ouvre un menu : Oui, Non, Par demande (coordination), ou « Revenir au défaut ». Le réglage en vigueur est coché.",
           "Les cases au cadenas restent à la direction : configuration, validation et décision ne se retirent pas.",
           "Chaque changement entre dans le « Journal des réglages », sous la grille.",
           "L'accès d'une personne se modifie sur sa fiche, onglet « Accès Lucie ».",
