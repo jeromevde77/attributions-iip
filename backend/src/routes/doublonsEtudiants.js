@@ -28,6 +28,7 @@
 import { Router } from 'express';
 import db from '../db/index.js';
 import { authRequired, roleRequired } from '../middleware/auth.js';
+import { gesteRequis } from '../lib/gestes.js';
 
 const r = Router();
 
@@ -229,8 +230,7 @@ export function fusionner(garder, absorber, { simulation = false } = {}) {
   return bilan;
 }
 
-r.post('/fusionner', authRequired, roleRequired('admin', 'directeur',
-       'directeur_adjoint'), (req, res) => {
+r.post('/fusionner', authRequired, gesteRequis('etudiants.fusion'), (req, res) => {
   const { garder, absorber, simulation = false } = req.body || {};
   try {
     res.json({ ok: true, simulation, ...fusionner(garder, absorber, { simulation }) });
@@ -251,8 +251,7 @@ r.post('/fusionner', authRequired, roleRequired('admin', 'directeur',
  * La simulation est le défaut. Le rapport dit, groupe par groupe, ce qui aurait
  * été déplacé.
  */
-r.post('/fusionner-lot', authRequired, roleRequired('admin', 'directeur',
-       'directeur_adjoint'), (req, res) => {
+r.post('/fusionner-lot', authRequired, gesteRequis('etudiants.fusion'), (req, res) => {
   const { simulation = true, cles = null } = req.body || {};
   const voulus = Array.isArray(cles) && cles.length ? new Set(cles) : null;
 

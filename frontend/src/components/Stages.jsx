@@ -4,6 +4,7 @@ import {
 } from '@tabler/icons-react';
 import { authHeaders } from '../lib/api.js';
 import ChoixUnite from './ChoixUnite.jsx';
+import ConventionStage from './ConventionStage.jsx';
 import { Tableau, TableauEntete, Th, Td, Tr, Badge } from './ui.jsx';
 
 /**
@@ -237,6 +238,10 @@ export default function Stages({ etudId, annee, peutEcrire = true }) {
                     <ChampTexte libelle="Médecine du travail" valeur={s.medecine_le} type="date"
                       onValider={v => maj(s.id, { medecine_le: v })} lecture={!peutEcrire} />
                   </div>
+
+                  {/* La convention elle-même : déposée ici, signée d'un clic par la
+                      direction depuis son Accueil (routes/conventions.js). */}
+                  <ConventionStage stage={s} peutEcrire={peutEcrire} onChange={charger} />
 
                   <Champ libelle="Évaluation du tuteur">
                     <textarea defaultValue={s.evaluation_tuteur || ''} rows={2} readOnly={!peutEcrire}

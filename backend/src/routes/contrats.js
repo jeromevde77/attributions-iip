@@ -2,6 +2,7 @@ import { Router } from 'express';
 import db from '../db/index.js';
 import { anneeDeTravail } from '../helpers/annee.js';
 import { authRequired, roleRequired } from '../middleware/auth.js';
+import { gesteRequis } from '../lib/gestes.js';
 import { genererContrat } from '../services/contrat_fill.js';
 import { genererApercu } from '../services/contrat_preview.js';
 import { genererContratPdf } from '../services/contrat_pdf.js';
@@ -62,7 +63,7 @@ function chargerDonneesContrat(prof_id, annee) {
 }
 
 // ── GET /apercu — prévisualisation HTML ───────────────────────────────────────
-r.post('/apercu', authRequired, roleRequired('admin', 'editeur'), async (req, res) => {
+r.post('/apercu', authRequired, gesteRequis('personnel.contrats'), async (req, res) => {
   try {
     const { prof_id, date_contrat, annee, representant } = req.body;
     const { anneeActive, prof, etab, attributions, ecartees } = chargerDonneesContrat(prof_id, annee);
@@ -143,7 +144,7 @@ r.get('/statut/:profId', authRequired, roleRequired('admin', 'editeur'), (req, r
    MDP et sortir les documents en série »). Pour chaque membre, les contrats
    que son statut appelle — classique pour ses périodes CC, d'expert par
    niveau pour les autres —, chacun sur sa page, dans un seul document. */
-r.post('/lot', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
+r.post('/lot', authRequired, gesteRequis('personnel.contrats'), (req, res) => {
   const { professeurs = [], annee, types = ['cc', 'expert'], date_contrat, representant = 'Charles Sohet, Directeur' } = req.body || {};
   if (!Array.isArray(professeurs) || !professeurs.length) return res.status(400).json({ error: 'Cochez au moins un membre du personnel.' });
   const jour = date_contrat || new Date().toISOString().slice(0, 10);

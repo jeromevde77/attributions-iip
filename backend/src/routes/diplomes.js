@@ -16,6 +16,7 @@
 import { Router } from 'express';
 import db from '../db/index.js';
 import { authRequired, roleRequired, getUserSections } from '../middleware/auth.js';
+import { gesteRequis } from '../lib/gestes.js';
 import { anneeDeTravail } from '../helpers/annee.js';
 import { envelopper } from './attestations.js';
 import { enteteDocument } from '../lib/document.js';
@@ -780,7 +781,7 @@ export function reunirDiplomes(htmls) {
  * direction qui arrête qui reçoit un titre, pas une requête.
  */
 r.post('/pieces', authRequired,
-       roleRequired('admin', 'directeur', 'directeur_adjoint', 'editeur'),
+       gesteRequis('diplomes.produire'),
        async (req, res) => {
   const { section, annee, etudiants: ids, pieces, date_deliberation } = req.body || {};
   if (!section) return res.status(400).json({ error: 'section requise' });
@@ -1123,7 +1124,7 @@ export function pvDeSection(sectionCode, annee, lignes, { session = 1, lieu = nu
 }
 
 r.post('/document', authRequired,
-       roleRequired('admin', 'directeur', 'directeur_adjoint', 'editeur'), (req, res) => {
+       gesteRequis('diplomes.produire'), (req, res) => {
   const { section, annee, etudiants: ids, lieu, date } = req.body || {};
   if (!section) return res.status(400).json({ error: 'section requise' });
   if (titreExterne(section)) return res.status(409).json(REFUS_TITRE_EXTERNE(section));
@@ -1236,7 +1237,7 @@ r.post('/document', authRequired,
  * y figure : on ne devine pas une délibération.
  */
 r.post('/pv-section', authRequired,
-       roleRequired('admin', 'directeur', 'directeur_adjoint', 'editeur'), (req, res) => {
+       gesteRequis('diplomes.produire'), (req, res) => {
   const { section, annee, etudiants: ids, session, lieu, date } = req.body || {};
   if (!section) return res.status(400).json({ error: 'section requise' });
   if (titreExterne(section)) return res.status(409).json(REFUS_TITRE_EXTERNE(section));

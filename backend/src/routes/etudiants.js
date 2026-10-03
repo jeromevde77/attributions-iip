@@ -25,9 +25,10 @@ import {
   BASES, CODES_BASE, FINALITES, ETATS, etatDeduit, uniteValorisable,
   controleDelai, manquesDossier, pieceProduisible, journaliser, journalDe,
   rafraichirEtat, pourcentageDe, POURCENTAGE_DISPENSE,
-  PEUT_VALIDER, PEUT_DEVALIDER, PEUT_INSTRUIRE, PORTES, CODES_PORTE,
+  PEUT_INSTRUIRE, PORTES, CODES_PORTE,
   estAdmissionDeSection, unitesDeBase, decideHorsCircuit,
 } from '../lib/valorisation.js';
+import { gesteRequis, gesteAutorise } from '../lib/gestes.js';
 import { calculerDI, calculerDIS } from './droitInscription.js';
 import { rapprocher, normDate } from './importHistorique.js';
 import { lirePackUF } from '../lib/packUF.js';
@@ -550,8 +551,7 @@ function sectionAutoriseeReq(req, section) {
  * passer sans un mot : ce qui n'a pas été forcé est une erreur, pas un choix.
  * Réussie = résultat « reussi » une année ANTÉRIEURE, ou dispense complète
  * accordée (la même définition que composerPAE). */
-export const PEUT_FORCER_REINSCRIPTION = ['admin', 'directeur', 'directeur_adjoint',
-                                          'coordination', 'editeur'];
+/* Qui force : le geste « etudiants.reinscription » (lib/gestes.js). */
 const SQL_DEJA_REUSSIE = `(
   EXISTS (SELECT 1 FROM etudiant_inscription p
           WHERE p.etudiant_id = i.etudiant_id AND p.ue_num = i.ue_num
@@ -2556,9 +2556,9 @@ export function sectionRattachement(etudId, annee = null) {
    2 octobre 2026 : « la coordination doit être oui pour tous ces gestes »).
    Exception explicite à la règle « un coordinateur n'écrit jamais directement »,
    comme la valorisation — et le périmètre se pose sur chaque porte. */
-export const PEUT_COMPOSER_PAE = ['admin', 'directeur', 'directeur_adjoint', 'editeur', 'secretariat', 'coordination'];
+/* Les gestes « etudiants.pae_composer » et « etudiants.pae_valider » (lib/gestes.js). */
 r.post('/:id/pae/confirmer', authRequired,
-       roleRequired(...PEUT_COMPOSER_PAE),
+       gesteRequis('etudiants.pae_composer'),
        (req, res) => {
   const etudId = Number(req.params.id);
   if (!etudiantPermis(req, res, etudId)) return;
@@ -3543,8 +3543,8 @@ export function revuePAE(etudId, annee) {
    · Elle ne le connaît pas (notes jamais importées) : la note du cours est
      saisie, et vaut pour chacun de ses acquis.
    Une note déjà encodée cette année pour un acquis n'est jamais écrasée. */
-export const PEUT_REPORTER = ['admin', 'directeur', 'directeur_adjoint', 'editeur', 'coordination'];
-r.put('/:id/revue-pae/report', authRequired, roleRequired(...PEUT_REPORTER), (req, res) => {
+/* Le geste « etudiants.reports » (lib/gestes.js). */
+r.put('/:id/revue-pae/report', authRequired, gesteRequis('etudiants.reports'), (req, res) => {
   const id = Number(req.params.id);
   if (!etudiantPermis(req, res, id)) return;
   const annee = req.body?.annee || anneeDeTravail(req);
@@ -3621,7 +3621,7 @@ r.put('/:id/revue-pae/report', authRequired, roleRequired(...PEUT_REPORTER), (re
 /* LA VA OU VAE D'UNE UE ENTIÈRE, SANS DOSSIER (2024-2025 et 2025-2026) : chaque
    cours de l'unité est dispensé à 10/20 sous cette nature — la délibération
    lit l'UE comme acquise à 10. Une note réellement encodée n'est jamais écrasée. */
-r.put('/:id/revue-pae/va-ue', authRequired, roleRequired(...PEUT_REPORTER), (req, res) => {
+r.put('/:id/revue-pae/va-ue', authRequired, gesteRequis('etudiants.reports'), (req, res) => {
   const id = Number(req.params.id);
   if (!etudiantPermis(req, res, id)) return;
   const annee = req.body?.annee || anneeDeTravail(req);
@@ -3669,7 +3669,7 @@ r.put('/:id/revue-pae/va-ue', authRequired, roleRequired(...PEUT_REPORTER), (req
 /* RETIRER, C'EST REFUSER : supprimer la ligne ferait reposer le report d'office
    au prochain PAE enregistré. Refusé, il ne l'est plus jamais ; ses notes
    recopiées s'effacent (déclencheur). */
-r.delete('/:id/revue-pae/report', authRequired, roleRequired(...PEUT_REPORTER), (req, res) => {
+r.delete('/:id/revue-pae/report', authRequired, gesteRequis('etudiants.reports'), (req, res) => {
   const id = Number(req.params.id);
   if (!etudiantPermis(req, res, id)) return;
   const annee = req.query.annee || anneeDeTravail(req);
@@ -4340,7 +4340,7 @@ r.get('/pae-grille', authRequired, (req, res) => {
  * se valide pas — il n'y aurait rien à signer.
  */
 r.post('/pae-valider-lot', authRequired,
-       roleRequired(...PEUT_COMPOSER_PAE), (req, res) => {
+       gesteRequis('etudiants.pae_valider'), (req, res) => {
   const { section, annee, etudiants, retirer } = req.body || {};
   if (!section || !annee || !Array.isArray(etudiants) || !etudiants.length) {
     return res.status(400).json({ error: 'section, annee et étudiants requis' });
@@ -4404,7 +4404,7 @@ r.post('/pae-valider-lot', authRequired,
  * l'inscription. « retirer » défait le forçage, sans toucher à l'inscription.
  */
 r.post('/pae-forcer-reinscription', authRequired,
-       roleRequired(...PEUT_FORCER_REINSCRIPTION), (req, res) => {
+       gesteRequis('etudiants.reinscription'), (req, res) => {
   const { etudiant_id, annee, ue_num, retirer } = req.body || {};
   const id = Number(etudiant_id), ue = Number(ue_num);
   if (!id || !annee || !ue) return res.status(400).json({ error: 'étudiant, année et UE requis' });
@@ -4439,7 +4439,7 @@ r.post('/pae-forcer-reinscription', authRequired,
  * portait sur un autre programme que celui qui reste.
  */
 r.post('/pae-nettoyer-reussies', authRequired,
-       roleRequired(...PEUT_FORCER_REINSCRIPTION), (req, res) => {
+       gesteRequis('etudiants.reinscription'), (req, res) => {
   const { annee, section, simulation = true } = req.body || {};
   if (!annee || !section) return res.status(400).json({ error: 'année et section requises' });
   if (!sectionAutoriseeReq(req, section)) return res.status(403).json({ error: 'Section hors de votre périmètre' });
@@ -4886,7 +4886,7 @@ r.post('/doubles-programmes', authRequired,
 });
 
 r.post('/pae-modifier', authRequired,
-       roleRequired(...PEUT_COMPOSER_PAE), (req, res) => {
+       gesteRequis('etudiants.pae_composer'), (req, res) => {
   const { annee, ajouts = [], retraits = [], simulation = true } = req.body || {};
   if (!annee) return res.status(400).json({ error: 'annee requise' });
   const couples = l => (Array.isArray(l) ? l : []).map(x => [Number(x.etudiant_id), Number(x.ue_num)])
@@ -5225,7 +5225,7 @@ r.get('/purge/etudiants', authRequired, (req, res) => {
 // ── Purge sélective : section, UE ou cours, sur tout ou partie des étudiants
 // Appelée d'abord en simulation pour annoncer ce qui sera touché, puis pour
 // de bon. Rien n'est supprimé sans que le compte ait été montré.
-r.post('/purge', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
+r.post('/purge', authRequired, gesteRequis('etudiants.purge'), (req, res) => {
   const {
     annee, section, ue_num, cours_code,
     etudiant_ids,                 // null ou [] = tous les étudiants concernés
@@ -5669,7 +5669,7 @@ function reporterDOffice(etudId, annee) {
   catch (e) { console.error('[report d\'office]', etudId, annee, e.message); return 0; }
 }
 
-r.post('/:id/pae-valider', authRequired, roleRequired(...PEUT_COMPOSER_PAE), (req, res) => {
+r.post('/:id/pae-valider', authRequired, gesteRequis('etudiants.pae_valider'), (req, res) => {
   const etudId = Number(req.params.id);
   if (!etudiantPermis(req, res, etudId)) return;
   const { annee, ue_nums, motifs, forcer, simulation } = req.body;
@@ -5711,7 +5711,7 @@ r.post('/:id/pae-valider', authRequired, roleRequired(...PEUT_COMPOSER_PAE), (re
 // RIEN NE S'ÉCRIT SANS QU'ON AIT VU CE QUI SERA ÉCRIT : la simulation est le
 // mode par défaut, et l'écriture se demande.
 r.post('/pae-promotion', authRequired,
-       roleRequired('admin', 'directeur', 'directeur_adjoint', 'editeur'), (req, res) => {
+       gesteRequis('etudiants.promotion'), (req, res) => {
   const { section, annee_source, annee_cible, etudiants, simulation = true } = req.body || {};
   if (!section || !annee_source || !annee_cible) {
     return res.status(400).json({ error: 'section, annee_source et annee_cible requises' });
@@ -5851,7 +5851,7 @@ r.post('/:id/pae-auto', authRequired, roleRequired('admin', 'editeur'), (req, re
 
 // ── Import du classeur de PAE (résultats par cours + PAE de l'année suivante)
 // Le frontend a déjà résolu la légende : il envoie des entrées normalisées.
-r.post('/import-pae', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
+r.post('/import-pae', authRequired, gesteRequis('etudiants.import'), (req, res) => {
   const { annee_resultats, annee_pae, resultats, pae, commentaires } = req.body;
   if (!annee_resultats || !Array.isArray(resultats)) {
     return res.status(400).json({ error: 'annee_resultats et resultats requis' });
@@ -5967,7 +5967,7 @@ r.post('/import-pae', authRequired, roleRequired('admin', 'editeur'), (req, res)
 
 // ── Import des résultats depuis le classeur de suivi (.xlsm) ─────────────────
 // Le frontend lit les onglets par UE et envoie { annee, resultats: [...] }.
-r.post('/import-resultats', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
+r.post('/import-resultats', authRequired, gesteRequis('etudiants.import'), (req, res) => {
   const { annee, resultats } = req.body;
   if (!annee || !Array.isArray(resultats)) {
     return res.status(400).json({ error: 'annee et resultats requis' });
@@ -6193,7 +6193,7 @@ r.post('/statut', authRequired, roleRequired(...PEUT_INSTRUIRE), (req, res) => {
  *      secrétariat) → suppression en transaction, table par table.
  * Une fiche portant des DÉCISIONS de délibération se supprime, mais c'est un
  * geste de direction : effacer un dossier notifié n'est pas de l'entretien. */
-r.delete('/:id', authRequired, roleRequired('admin', 'directeur', 'directeur_adjoint', 'secretariat'), (req, res) => {
+r.delete('/:id', authRequired, gesteRequis('etudiants.supprimer'), (req, res) => {
   const id = Number(req.params.id);
   const e = db.prepare('SELECT id, nom, prenom FROM etudiant WHERE id = ?').get(id);
   if (!e) return res.status(404).json({ error: 'Étudiant introuvable.' });
@@ -7432,7 +7432,7 @@ r.get('/valorisations/matrice', authRequired, (req, res) => {
  * différence de la création en lot, où un doublon arrête tout, parce qu'ici le
  * tableau montre l'existant et qu'un enregistrement se rejoue sans dommage.
  */
-r.post('/valorisations/matrice', authRequired, roleRequired(...PEUT_INSTRUIRE),
+r.post('/valorisations/matrice', authRequired, gesteRequis('valorisation.instruire'),
   (req, res) => {
     const { annee, cellules } = req.body;
     if (!annee) return res.status(400).json({ error: 'annee requise' });
@@ -7618,8 +7618,8 @@ r.get('/valorisations/:vid/dossier', authRequired, (req, res) => {
     // CE QUI PROTÈGE LA SIGNATURE : l'écran le montre AVANT qu'on demande la
     // pièce, plutôt que de faire découvrir le refus au moment de l'imprimer.
     piece: pieceProduisible(v),
-    peut_valider: PEUT_VALIDER.includes(req.user?.role),
-    peut_devalider: PEUT_DEVALIDER.includes(req.user?.role),
+    peut_valider: gesteAutorise(req, 'valorisation.valider') === 'oui',
+    peut_devalider: gesteAutorise(req, 'valorisation.devalider') === 'oui',
     journal: journalDe(vid),
   });
 });
@@ -7632,7 +7632,7 @@ r.get('/valorisations/:vid/dossier', authRequired, (req, res) => {
  * postérieure à celle portée sur le formulaire, c'est L'ENVOI qui fait foi —
  * sans quoi il suffirait d'antidater le formulaire.
  */
-r.put('/valorisations/:vid/demande', authRequired, roleRequired(...PEUT_INSTRUIRE),
+r.put('/valorisations/:vid/demande', authRequired, gesteRequis('valorisation.instruire'),
   (req, res) => {
     const vid = Number(req.params.vid);
     if (!valorisationPermise(req, res, vid)) return;
@@ -7714,7 +7714,7 @@ r.put('/valorisations/:vid/demande', authRequired, roleRequired(...PEUT_INSTRUIR
  * « Toute demande est encodée dans Lucie, recevable ou non » : une irrecevable
  * reste un dossier, avec sa trace et son document de refus.
  */
-r.put('/valorisations/:vid/recevabilite', authRequired, roleRequired(...PEUT_INSTRUIRE),
+r.put('/valorisations/:vid/recevabilite', authRequired, gesteRequis('valorisation.instruire'),
   (req, res) => {
     const vid = Number(req.params.vid);
     if (!valorisationPermise(req, res, vid)) return;
@@ -7758,7 +7758,7 @@ r.put('/valorisations/:vid/recevabilite', authRequired, roleRequired(...PEUT_INS
  * VA ne sont pas susceptibles de recours (RDE art. 30 et 87 §2) et que c'est
  * tout ce qui restera pour les défendre.
  */
-r.put('/valorisations/:vid/avis', authRequired, roleRequired(...PEUT_INSTRUIRE, 'professeur'),
+r.put('/valorisations/:vid/avis', authRequired, gesteRequis('valorisation.avis'),
   (req, res) => {
     const vid = Number(req.params.vid);
     if (!valorisationPermise(req, res, vid)) return;
@@ -7808,7 +7808,7 @@ r.put('/valorisations/:vid/avis', authRequired, roleRequired(...PEUT_INSTRUIRE, 
  * réussite d'une dispense est fixée à 50 % (RDE art. 29 §3 et 30) ; un chiffre
  * modifiable finit par être modifié, et il part sur une pièce signée.
  */
-r.put('/valorisations/:vid/decision', authRequired, roleRequired(...PEUT_INSTRUIRE),
+r.put('/valorisations/:vid/decision', authRequired, gesteRequis('valorisation.instruire'),
   (req, res) => {
     const vid = Number(req.params.vid);
     if (!valorisationPermise(req, res, vid)) return;
@@ -7875,7 +7875,7 @@ r.put('/valorisations/:vid/decision', authRequired, roleRequired(...PEUT_INSTRUI
  * la décision » se conservent quatre ans et se présentent à l'inspection
  * (art. 5 al. 2).
  */
-r.put('/valorisations/:vid/test', authRequired, roleRequired(...PEUT_INSTRUIRE, 'professeur'),
+r.put('/valorisations/:vid/test', authRequired, gesteRequis('valorisation.avis'),
   (req, res) => {
     const vid = Number(req.params.vid);
     if (!valorisationPermise(req, res, vid)) return;
@@ -7933,7 +7933,7 @@ r.put('/valorisations/:vid/test', authRequired, roleRequired(...PEUT_INSTRUIRE, 
  *     un acte de direction qui se motive.
  */
 r.put('/valorisations/:vid/validation', authRequired, (req, res) => {
-  if (!PEUT_VALIDER.includes(req.user?.role)) {
+  if (gesteAutorise(req, 'valorisation.valider') !== 'oui') {
     return res.status(403).json({ error: 'La validation appartient à la direction '
       + "et à la direction adjointe : la coordination instruit le dossier, elle ne "
       + 'valide pas son propre travail.' });
@@ -7962,7 +7962,7 @@ r.put('/valorisations/:vid/validation', authRequired, (req, res) => {
 
 /** Retirer une validation : direction seule, motif écrit, trace conservée. */
 r.delete('/valorisations/:vid/validation', authRequired, (req, res) => {
-  if (!PEUT_DEVALIDER.includes(req.user?.role)) {
+  if (gesteAutorise(req, 'valorisation.devalider') !== 'oui') {
     return res.status(403).json({ error: 'Retirer une validation est réservé à la '
       + 'direction, qui seule valide : la coordination instruit le dossier.' });
   }
@@ -8010,8 +8010,8 @@ r.get('/valorisations/ue/:ueNum/seance-dossiers', authRequired, (req, res) => {
   const valorisable = uniteValorisable(ueNum, annee);
   res.json({
     ue_num: ueNum, annee, unite: valorisable.unite,
-    peut_valider: PEUT_VALIDER.includes(req.user?.role),
-    peut_devalider: PEUT_DEVALIDER.includes(req.user?.role),
+    peut_valider: gesteAutorise(req, 'valorisation.valider') === 'oui',
+    peut_devalider: gesteAutorise(req, 'valorisation.devalider') === 'oui',
     dossiers: lignes.map(v => {
       const manques = manquesDossier(v);
       return {
@@ -8046,7 +8046,7 @@ r.get('/valorisations/ue/:ueNum/seance-dossiers', authRequired, (req, res) => {
  * les décoche.
  */
 r.post('/valorisations/lot/validation', authRequired, (req, res) => {
-  if (!PEUT_VALIDER.includes(req.user?.role)) {
+  if (gesteAutorise(req, 'valorisation.valider') !== 'oui') {
     return res.status(403).json({ error: 'La validation appartient à la direction '
       + "et à la direction adjointe : la coordination instruit le dossier, elle ne "
       + 'valide pas son propre travail.' });
@@ -8097,7 +8097,7 @@ r.post('/valorisations/lot/validation', authRequired, (req, res) => {
 });
 
 /** Corriger en série : la même décision appliquée à plusieurs dossiers. */
-r.post('/valorisations/lot/decision', authRequired, roleRequired(...PEUT_INSTRUIRE), (req, res) => {
+r.post('/valorisations/lot/decision', authRequired, gesteRequis('valorisation.instruire'), (req, res) => {
   const ids = [...new Set((Array.isArray(req.body?.ids) ? req.body.ids : [])
     .map(Number).filter(n => Number.isInteger(n) && n > 0))];
   if (!ids.length) return res.status(400).json({ error: 'Aucun dossier coché.' });
@@ -8173,7 +8173,7 @@ r.post('/valorisations/lot/decision', authRequired, roleRequired(...PEUT_INSTRUI
  * TOUT OU RIEN, et ce qui bloque est NOMMÉ, dossier et unité : un
  * enregistrement partiel laisserait croire que tout est décidé.
  */
-r.post('/valorisations/lot/decisions', authRequired, roleRequired(...PEUT_INSTRUIRE), (req, res) => {
+r.post('/valorisations/lot/decisions', authRequired, gesteRequis('valorisation.instruire'), (req, res) => {
   const dateCE = String(req.body?.decision_ce_date || '').trim();
   if (!/^\d{4}-\d{2}-\d{2}$/.test(dateCE)) {
     return res.status(400).json({ error: 'La date de la séance du Conseil est obligatoire : '
@@ -8256,7 +8256,7 @@ r.post('/valorisations/lot/decisions', authRequired, roleRequired(...PEUT_INSTRU
  * L'ordre du circuit ne fléchit pas : la recevabilité vient avant, et un
  * dossier irrecevable ne se transmet pas au chargé de cours.
  */
-r.post('/valorisations/lot/avis', authRequired, roleRequired(...PEUT_INSTRUIRE, 'professeur'),
+r.post('/valorisations/lot/avis', authRequired, gesteRequis('valorisation.avis'),
   (req, res) => {
     const ids = [...new Set((Array.isArray(req.body?.ids) ? req.body.ids : [])
       .map(Number).filter(n => Number.isInteger(n) && n > 0))];
@@ -8337,7 +8337,7 @@ r.post('/valorisations/lot/avis', authRequired, roleRequired(...PEUT_INSTRUIRE, 
  * une route qui corrige la date ne doit pas pouvoir réécrire le reste au
  * passage.
  */
-r.post('/valorisations/lot/demande', authRequired, roleRequired(...PEUT_INSTRUIRE),
+r.post('/valorisations/lot/demande', authRequired, gesteRequis('valorisation.instruire'),
   (req, res) => {
     const ids = [...new Set((Array.isArray(req.body?.ids) ? req.body.ids : [])
       .map(Number).filter(n => Number.isInteger(n) && n > 0))];
@@ -8470,8 +8470,8 @@ r.get('/valorisations/analyse', authRequired, (req, res) => {
 
   res.json({
     annee,
-    peut_instruire: PEUT_INSTRUIRE.includes(req.user?.role),
-    peut_valider: PEUT_VALIDER.includes(req.user?.role),
+    peut_instruire: gesteAutorise(req, 'valorisation.instruire') === 'oui',
+    peut_valider: gesteAutorise(req, 'valorisation.valider') === 'oui',
     etats: ETATS,
     dossiers,
   });
@@ -8585,7 +8585,7 @@ function bloqueDecisionEnLot(v) {
  * un lot, ce sont des dossiers.
  */
 r.post('/valorisations/lot/recevabilite', authRequired,
-  roleRequired(...PEUT_INSTRUIRE), (req, res) => {
+  gesteRequis('valorisation.instruire'), (req, res) => {
     const ids = [...new Set((Array.isArray(req.body?.ids) ? req.body.ids : [])
       .map(Number).filter(n => Number.isInteger(n) && n > 0))];
     if (!ids.length) return res.status(400).json({ error: 'Aucun dossier coché.' });
@@ -8840,7 +8840,7 @@ r.get('/valorisations/ue/:ueNum/candidats', authRequired, (req, res) => {
  * celle du lot. On rend la liste, on n'écrit rien, et le secrétariat décoche
  * ou corrige à la main — c'est une décision, pas une collision de données.
  */
-r.post('/valorisations/lot', authRequired, roleRequired(...PEUT_INSTRUIRE), (req, res) => {
+r.post('/valorisations/lot', authRequired, gesteRequis('valorisation.instruire'), (req, res) => {
   const { etudiant_ids, annee_scolaire, ue_num, type, cible, cible_detail,
           pourcentage, decision_ce_date, commentaire } = req.body;
 
@@ -8923,7 +8923,7 @@ r.post('/valorisations/lot', authRequired, roleRequired(...PEUT_INSTRUIRE), (req
   res.json({ ok: true, crees: crees.length, valorisations: crees });
 });
 
-r.post('/:id/valorisations', authRequired, roleRequired(...PEUT_INSTRUIRE), (req, res) => {
+r.post('/:id/valorisations', authRequired, gesteRequis('valorisation.instruire'), (req, res) => {
   if (!etudiantPermis(req, res, req.params.id)) return;
   const { annee_scolaire, ue_num, type, cible, cible_detail, pourcentage,
           decision_ce_date, commentaire } = req.body;
@@ -9057,7 +9057,7 @@ export const TEXTE_EQUIVALENCE = "Les acquis d'apprentissage de cette unité "
  * deux dossiers vierges et de laisser le troisième seul — ce qui donnerait un
  * registre à moitié corrigé dont personne ne comprendrait l'état.
  */
-r.delete('/valorisations/etudiant/:id', authRequired, roleRequired(...PEUT_INSTRUIRE),
+r.delete('/valorisations/etudiant/:id', authRequired, gesteRequis('valorisation.instruire'),
   (req, res) => {
     const eid = Number(req.params.id);
     if (!etudiantPermis(req, res, eid)) return;
@@ -9083,7 +9083,7 @@ r.delete('/valorisations/etudiant/:id', authRequired, roleRequired(...PEUT_INSTR
     const decidees = lignes.filter(v => v.decision_le)
       .map(v => `UE ${v.ue_num} : décidée le ${v.decision_le}`);
     if (decidees.length) {
-      if (!PEUT_DEVALIDER.includes(req.user?.role)) {
+      if (gesteAutorise(req, 'valorisation.devalider') !== 'oui') {
         return res.status(409).json({
           error: 'Cette ligne porte des décisions du Conseil : seule la direction '
             + 'peut la supprimer, et elle motive sa décision.',
@@ -9133,7 +9133,7 @@ r.delete('/valorisations/etudiant/:id', authRequired, roleRequired(...PEUT_INSTR
  * il suffirait de supprimer pour faire disparaître une décision gênante — et
  * le journal partirait avec, puisqu'il pend à la ligne.
  */
-r.delete('/valorisations/:vid', authRequired, roleRequired(...PEUT_INSTRUIRE), (req, res) => {
+r.delete('/valorisations/:vid', authRequired, gesteRequis('valorisation.instruire'), (req, res) => {
   const vid = Number(req.params.vid);
   const v = db.prepare('SELECT * FROM etudiant_valorisation WHERE id = ?').get(vid);
   if (!v) return res.status(404).json({ error: 'Dossier introuvable.' });
@@ -9164,7 +9164,7 @@ r.delete('/valorisations/:vid', authRequired, roleRequired(...PEUT_INSTRUIRE), (
    * retrait d'une validation et que la réouverture d'une séance close. La
    * coordination, elle, ne défait pas ce que le Conseil a posé. */
   if (v.decision_le) {
-    if (!PEUT_DEVALIDER.includes(req.user?.role)) {
+    if (gesteAutorise(req, 'valorisation.devalider') !== 'oui') {
       return res.status(409).json({
         error: `Le Conseil des études a tranché ce dossier le ${v.decision_le} : `
           + 'seule la direction peut le supprimer, et elle motive sa décision.',
@@ -9745,8 +9745,7 @@ const CHAMPS_ETUDIANT = ['id_ecampus', 'nom', 'prenom', 'titre', 'date_naissance
   'lieu_naissance', 'nationalite', 'num_national', 'email_ecole', 'email_perso',
   'gsm', 'adresse', 'cp', 'localite', 'actif', 'sejour_limite_etudes'];
 
-r.patch('/:id', authRequired, roleRequired('admin', 'directeur', 'directeur_adjoint',
-        'editeur', 'secretariat'), (req, res) => {
+r.patch('/:id', authRequired, gesteRequis('etudiants.identite'), (req, res) => {
   const etudId = Number(req.params.id);
   const avant = db.prepare('SELECT * FROM etudiant WHERE id = ?').get(etudId);
   if (!avant) return res.status(404).json({ error: 'étudiant introuvable' });
@@ -9949,7 +9948,7 @@ r.post('/completer', authRequired, roleRequired('admin', 'directeur', 'directeur
  * n'est pas bloqué au sens strict : le serveur le SIGNALE et laisse le
  * secrétariat trancher, parce que deux homonymes nés le même jour existent.
  */
-r.post('/', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
+r.post('/', authRequired, gesteRequis('etudiants.creer'), (req, res) => {
   const { nom, prenom, annee, ue_nums, ...rest } = req.body;
   if (!nom || !prenom) return res.status(400).json({ error: 'nom et prenom requis' });
 
@@ -10274,7 +10273,7 @@ r.post('/rattacher-pack', authRequired,
 // ── Import depuis le fichier eCampus Excel ───────────────────────────────────
 // Le frontend lit le fichier XLS/XLSX avec SheetJS et envoie les données en JSON.
 // La colonne Code_UE contient directement le ue_num Lucie.
-r.post('/import-excel', authRequired, roleRequired('admin', 'editeur'), async (req, res) => {
+r.post('/import-excel', authRequired, gesteRequis('etudiants.import'), async (req, res) => {
   const { annee, etudiants: etudiantsData, inscriptions: inscriptionsData } = req.body;
   if (!annee || !Array.isArray(etudiantsData)) {
     return res.status(400).json({ error: 'annee et etudiants requis' });

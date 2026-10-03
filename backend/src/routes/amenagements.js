@@ -32,17 +32,24 @@ import { peut } from '../middleware/permissions.js';
 import { chargerDossier, composerPiece, chargesDeCours, TYPES_PIECE, RECOURS_DEFAUT }
   from '../lib/piecesAmenagement.js';
 import { migrerCircuitAR, catalogueAR, horsCircuit, manquesA, manquesB, estPersonneReference,
-  avisDuDossier, DIRECTION, DECIDE } from '../lib/circuitAR.js';
+  avisDuDossier, DECIDE } from '../lib/circuitAR.js';
+import { gesteAutorise, ROLES_AMENAGEMENT } from '../lib/gestes.js';
 
 /* QUI ÉCRIT UN AMÉNAGEMENT : les rôles d'office, OU toute personne à qui
  * l'écriture a été accordée sur sa fiche (Accès Lucie → Aménagements
  * raisonnables). Voir MODULES_SUR_OCTROI dans middleware/permissions.js. */
-export const ROLES_AMENAGEMENT = ['admin', 'directeur', 'directeur_adjoint', 'editeur', 'secretariat'];
-function peutAmenager(req, res, next) {
-  if (!req.user) return res.status(401).json({ error: 'Non authentifié' });
-  if (ROLES_AMENAGEMENT.includes(req.user.role) || peut(req.user, 'amenagements', 'ecrire') === 'direct') return next();
-  return res.status(403).json({ error: "Vous n'avez pas le droit de modifier les aménagements raisonnables." });
+/* Les rôles d'office sont le DÉFAUT des gestes « amenagements.* » (lib/gestes.js),
+ * que la direction peut régler ; la case de fiche reste un second chemin. */
+const parFiche = req => peut(req.user, 'amenagements', 'ecrire') === 'direct';
+const gesteOuFiche = (req, ...cles) => cles.some(c => gesteAutorise(req, c) === 'oui') || parFiche(req);
+function peutAmenagerGeste(...cles) {
+  return (req, res, next) => {
+    if (!req.user) return res.status(401).json({ error: 'Non authentifié' });
+    if (gesteOuFiche(req, ...cles)) return next();
+    return res.status(403).json({ error: "Vous n'avez pas le droit de modifier les aménagements raisonnables." });
+  };
 }
+const peutAmenager = peutAmenagerGeste('amenagements.instruire');
 
 /* QUI LIT UN DOSSIER, ET DANS QUEL PÉRIMÈTRE. Les pièces portent la situation
  * de l'étudiant : elles ne sortent que pour qui peut lire le module, et dans
@@ -377,7 +384,7 @@ r.put('/dossier/:id/ues', authRequired, peutAmenager, (req, res) => {
   res.json({ ok: true, ues });
 });
 
-r.put('/dossier/:id', authRequired, peutAmenager, (req, res) => {
+r.put('/dossier/:id', authRequired, peutAmenagerGeste('amenagements.instruire', 'amenagements.decider'), (req, res) => {
   const d = req.body || {};
   const champs = ['statut', 'date_demande', 'personne_reference', 'piece_type', 'piece_date',
                   'piece_auteur', 'piece_reference', 'cde_date', 'cde_motivation',
@@ -392,6 +399,16 @@ r.put('/dossier/:id', authRequired, peutAmenager, (req, res) => {
                   'transmis_cde_le', 'cde_recu_le', 'recours_decision_le'];
   const presents = champs.filter(k => k in d);
   if (!presents.length) return res.json({ ok: true, inchange: true });
+  /* Encoder la décision du Conseil est un geste à part (« amenagements.decider ») ;
+   * le reste du dossier relève de l'instruction. */
+  const decisionnels = presents.filter(k => k === 'cde_date' || k === 'cde_motivation'
+    || (k === 'statut' && DECIDE.includes(d.statut)));
+  if (decisionnels.length && !gesteOuFiche(req, 'amenagements.decider')) {
+    return res.status(403).json({ error: "Vous n'avez pas le droit d'encoder la décision du Conseil." });
+  }
+  if (presents.length > decisionnels.length && !gesteOuFiche(req, 'amenagements.instruire')) {
+    return res.status(403).json({ error: "Vous n'avez pas le droit de modifier les aménagements raisonnables." });
+  }
   const dos = db.prepare('SELECT * FROM amenagement_dossier WHERE id = ?').get(Number(req.params.id));
   const refus = refusEtape(dos, presents);
   if (refus) return res.status(409).json({ error: refus });
@@ -551,7 +568,7 @@ r.delete('/mesure/:id', authRequired, peutAmenager, (req, res) => {
 });
 
 // ── Le circuit : valider A, valider B, rouvrir ─────────────────────────────
-r.put('/dossier/:id/valider-a', authRequired, peutAmenager, (req, res) => {
+r.put('/dossier/:id/valider-a', authRequired, peutAmenagerGeste('amenagements.valider_a'), (req, res) => {
   const d = db.prepare('SELECT * FROM amenagement_dossier WHERE id = ?').get(Number(req.params.id));
   if (!d) return res.status(404).json({ error: 'dossier introuvable' });
   const manque = manquesA(d, db.prepare('SELECT COUNT(*) n FROM amenagement_mesure WHERE dossier_id = ?').get(d.id).n);
@@ -561,7 +578,7 @@ r.put('/dossier/:id/valider-a', authRequired, peutAmenager, (req, res) => {
       statut = CASE WHEN statut = 'demande' THEN 'instruction' ELSE statut END, maj_le = datetime('now') WHERE id = ?`).run(par, d.id);
   res.json({ ok: true });
 });
-r.delete('/dossier/:id/valider-a', authRequired, peutAmenager, (req, res) => {
+r.delete('/dossier/:id/valider-a', authRequired, peutAmenagerGeste('amenagements.valider_a'), (req, res) => {
   const d = db.prepare('SELECT * FROM amenagement_dossier WHERE id = ?').get(Number(req.params.id));
   if (!d) return res.status(404).json({ error: 'dossier introuvable' });
   if (d.valide_b_le) return res.status(409).json({ error: 'Le rapport (volet B) est validé : rouvrez-le d’abord.' });
@@ -571,11 +588,11 @@ r.delete('/dossier/:id/valider-a', authRequired, peutAmenager, (req, res) => {
 /* B : la personne de référence du dossier — ou la direction à sa place.
    Celui qui clique est celui qui signe. La validation appelle les chargés de
    cours : la demande paraît dans leur Mes cours. */
-r.put('/dossier/:id/valider-b', authRequired, peutAmenager, (req, res) => {
+r.put('/dossier/:id/valider-b', authRequired, peutAmenagerGeste('amenagements.instruire', 'amenagements.valider_b'), (req, res) => {
   const d = db.prepare('SELECT * FROM amenagement_dossier WHERE id = ?').get(Number(req.params.id));
   if (!d) return res.status(404).json({ error: 'dossier introuvable' });
   if (!d.valide_a_le) return res.status(409).json({ error: 'La demande (volet A) doit être validée d’abord.' });
-  if (!DIRECTION.includes(req.user?.role) && !estPersonneReference(req.user, d)) {
+  if (gesteAutorise(req, 'amenagements.valider_b') !== 'oui' && !estPersonneReference(req.user, d)) {
     return res.status(403).json({ error: `Le rapport se valide par la personne de référence du dossier${d.personne_reference ? ` (${d.personne_reference})` : ''}, ou par la direction.` });
   }
   const nb = db.prepare('SELECT COUNT(*) n FROM amenagement_mesure WHERE dossier_id = ?').get(d.id).n;
@@ -586,11 +603,11 @@ r.put('/dossier/:id/valider-b', authRequired, peutAmenager, (req, res) => {
       avis_demande_le = COALESCE(avis_demande_le, datetime('now')), maj_le = datetime('now') WHERE id = ?`).run(par, d.id);
   res.json({ ok: true });
 });
-r.delete('/dossier/:id/valider-b', authRequired, peutAmenager, (req, res) => {
+r.delete('/dossier/:id/valider-b', authRequired, peutAmenagerGeste('amenagements.instruire', 'amenagements.valider_b'), (req, res) => {
   const d = db.prepare('SELECT * FROM amenagement_dossier WHERE id = ?').get(Number(req.params.id));
   if (!d) return res.status(404).json({ error: 'dossier introuvable' });
   if (DECIDE.includes(d.statut) || d.cde_date) return res.status(409).json({ error: 'Le Conseil a décidé : le rapport ne se rouvre plus.' });
-  if (!DIRECTION.includes(req.user?.role) && !estPersonneReference(req.user, d)) {
+  if (gesteAutorise(req, 'amenagements.valider_b') !== 'oui' && !estPersonneReference(req.user, d)) {
     return res.status(403).json({ error: 'Seule la personne de référence ou la direction rouvre le rapport.' });
   }
   db.prepare(`UPDATE amenagement_dossier SET valide_b_le = NULL, valide_b_par = NULL, maj_le = datetime('now') WHERE id = ?`).run(d.id);

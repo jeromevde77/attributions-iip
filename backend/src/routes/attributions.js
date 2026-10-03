@@ -4,6 +4,7 @@ import { anneeDeTravail } from '../helpers/annee.js';
 import { authRequired, roleRequired, withSectionScope, canAccessSection,
   getUserSections } from '../middleware/auth.js';
 import { saveSnapshot } from '../helpers/snapshot.js';
+import { gesteRequis, gesteAutorise } from '../lib/gestes.js';
 import { copyFileSync, existsSync, mkdirSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -1094,7 +1095,7 @@ r.get('/:id', authRequired, withSectionScope, (req, res) => {
 });
 
 // Création
-r.post('/', authRequired, roleRequired('admin', 'editeur', 'coordination'), (req, res) => {
+r.post('/', authRequired, gesteRequis('attributions.modifier'), (req, res) => {
   const a = req.body || {};
   // Périmètre : une coordination ne peut créer que dans ses sections
   if (!canAccessSection(req.user, a.section)) {
@@ -1184,7 +1185,7 @@ r.post('/', authRequired, roleRequired('admin', 'editeur', 'coordination'), (req
 });
 
 // Update (PATCH partiel)
-r.patch('/:id', authRequired, roleRequired('admin', 'editeur', 'coordination'), (req, res) => {
+r.patch('/:id', authRequired, gesteRequis('attributions.modifier'), (req, res) => {
   // Périmètre : vérifier que l'attribution existante est dans une section autorisée
   const existing = db.prepare('SELECT section FROM attribution WHERE id = ?').get(req.params.id);
   if (!existing) return res.status(404).json({ error: 'Attribution introuvable' });
@@ -1233,7 +1234,7 @@ r.patch('/:id', authRequired, roleRequired('admin', 'editeur', 'coordination'), 
 
 // Valider / dévalider une attribution (direction + drapeau peut_valider uniquement)
 r.patch('/:id/valider', authRequired, (req, res) => {
-  if (req.user.role !== 'admin' && !req.user.peut_valider) {
+  if (gesteAutorise(req, 'attributions.valider') !== 'oui' && !req.user.peut_valider) {
     return res.status(403).json({ error: 'Seule la direction (ou la direction adjointe) peut valider une attribution.' });
   }
   const existing = db.prepare('SELECT id FROM attribution WHERE id = ?').get(req.params.id);
@@ -1261,7 +1262,7 @@ r.patch('/professeur/:id/statut', authRequired, roleRequired('admin', 'editeur')
 });
 
 // Suppression
-r.delete('/:id', authRequired, roleRequired('admin', 'coordination'), (req, res) => {
+r.delete('/:id', authRequired, gesteRequis('attributions.supprimer'), (req, res) => {
   // Périmètre : vérifier que l'attribution est dans une section autorisée
   const existing = db.prepare('SELECT section FROM attribution WHERE id = ?').get(req.params.id);
   if (!existing) return res.status(404).json({ error: 'Attribution introuvable' });

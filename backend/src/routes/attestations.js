@@ -24,6 +24,7 @@ import { protegerSignature } from '../lib/protectionSignature.js';
 import db from '../db/index.js';
 import { authRequired, getUserSections, roleRequired } from '../middleware/auth.js';
 import { PEUT_INSTRUIRE } from '../lib/valorisation.js';
+import { gesteRequis } from '../lib/gestes.js';
 import { capacitePdf, rendrePdf, rendrePdfs, compterPages } from '../services/pdf.js';
 import { SIGNATURE_SOHET, SCEAU_IIP } from '../services/assets/signature_sohet.js';
 import { piedDocument } from './parametres.js';
@@ -1388,7 +1389,7 @@ function unitePermise(req, res) {
   res.status(403).json({ error: 'Cette unité est hors de votre périmètre.' });
   return false;
 }
-r.put('/valorisation/ue/:ueNum/seance', authRequired, roleRequired(...PEUT_INSTRUIRE), (req, res) => {
+r.put('/valorisation/ue/:ueNum/seance', authRequired, gesteRequis('valorisation.instruire'), (req, res) => {
   if (!unitePermise(req, res)) return;
   const ueNum = Number(req.params.ueNum);
   const annee = req.body?.annee;
@@ -1454,7 +1455,7 @@ r.put('/valorisation/ue/:ueNum/seance', authRequired, roleRequired(...PEUT_INSTR
   res.json({ ok: true, ...etat, manques: manquesValorisation(etat, vas, ue, annee) });
 });
 
-r.post('/valorisation/ue/:ueNum/documents', authRequired, roleRequired(...PEUT_INSTRUIRE), async (req, res) => {
+r.post('/valorisation/ue/:ueNum/documents', authRequired, gesteRequis('valorisation.instruire'), async (req, res) => {
   if (!unitePermise(req, res)) return;
   const ueNum = Number(req.params.ueNum);
   const annee = req.body?.annee;
