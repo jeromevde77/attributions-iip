@@ -162,8 +162,11 @@ function FriseParcours({ ues, codes, ects = null }) {
       ))}
       {ects != null && (
         <span className="text-[11px] text-slate-500 whitespace-nowrap tabular-nums ml-1"
-          title="Crédits des unités inscrites cette année">
-          <b className="text-iip-texte">{ects}</b> ECTS
+          title={ects > 60 ? "Au-delà de 60 ECTS : plus qu'une année à temps plein" : 'Crédits des unités inscrites cette année'}>
+          {/* Au-delà de 60, une pastille orange (3 octobre 2026). */}
+          {ects > 60
+            ? <b className="text-white rounded px-1" style={{ background: 'var(--c-attente, #E8890C)' }}>{ects}</b>
+            : <b className="text-iip-texte">{ects}</b>} ECTS
         </span>
       )}
     </div>
@@ -471,11 +474,12 @@ function RevuePAE({ liste: base, annee: anneeDepart, onClose }) {
         /* LE TRAIN SE LIT EN DEUX TEMPS (Charles, 2 octobre 2026) : ce qui est EN
            COURS, souligné de bleu — niveau, ECTS, UE et périodes de l'année —,
            puis ce qui est ACQUIS, au bout — ECTS réussis (vert), moyenne. */
-        const Wagon = ({ v, l, ligne = null, fort = false }) => (
-          <span className={`relative px-2.5 py-1 leading-tight ${fort ? 'font-bold text-iip-texte' : ''}`}>
+        const Wagon = ({ v, l, ligne = null, fort = false, titre }) => (
+          <span title={titre} className={`relative px-2.5 py-1 leading-tight ${fort ? 'font-bold text-iip-texte' : ''}`}>
             <span className="block text-[13px] font-semibold text-iip-texte tabular-nums">{v}</span>
             {l && <span className="block text-[10px] text-slate-500">{l}</span>}
-            {ligne && <span className={`absolute left-1.5 right-1.5 bottom-0 h-[3px] rounded-full ${ligne === 'vert' ? 'bg-emerald-700' : 'bg-blue-700'}`} />}
+            {ligne && <span className={`absolute left-1.5 right-1.5 bottom-0 h-[3px] rounded-full ${ligne === 'vert' ? 'bg-emerald-700' : ligne === 'orange' ? '' : 'bg-blue-700'}`}
+              style={ligne === 'orange' ? { background: 'var(--c-attente, #E8890C)' } : undefined} />}
           </span>
         );
         const BadgeUE = ({ u }) => {
@@ -500,7 +504,12 @@ function RevuePAE({ liste: base, annee: anneeDepart, onClose }) {
                 style={{ borderLeftColor: couleurBloc(e.niveau) || '#D8DCE4' }}>
                 <Wagon v={e.section || '—'} l="section" fort />
                 <Wagon v={e.niveau_libelle || '—'} l="niveau" ligne="bleu" />
-                <Wagon v={ch.ects_pae} l="ECTS en cours" ligne="bleu" />
+                {/* AU-DELÀ DE 60 ECTS, ORANGE (Charles, 3 octobre 2026) : plus
+                    qu'une année à temps plein. Une information, pas un refus. */}
+                {Number(ch.ects_pae) > 60
+                  ? <Wagon v={ch.ects_pae} l="ECTS en cours · au-delà de 60" ligne="orange"
+                      titre="Plus qu'une année à temps plein : vérifier la faisabilité de l'horaire et la charge de travail." />
+                  : <Wagon v={ch.ects_pae} l="ECTS en cours" ligne="bleu" />}
                 <Wagon v={`${ch.nb_ue} UE`} l={`${ch.periodes_pae} pér. étudiant`} ligne="bleu" />
                 <Wagon v={ch.ects_acquis} l="ECTS réussis" ligne="vert" />
                 <Wagon v={fmtMoy} l="moyenne du parcours" />
@@ -3382,6 +3391,7 @@ export default function Etudiants() {
   // Les nouveaux inscrits : aucune trace avant l'année de travail.
   // '' tous · 'primo' les primo-arrivés · 'anciens' les autres (2 octobre 2026).
   const [fPrimo, setFPrimo] = useState('');
+  const [fPlus60, setFPlus60] = useState(false);   // plus de 60 ECTS au programme (3 octobre 2026)
   // « Doublons » : ne garder que les étudiants dont le nom+prénom (accents et
   // casse ignorés) existe sur PLUSIEURS fiches — les dossiers coupés en deux.
   const [fDoublons, setFDoublons] = useState(false);
@@ -3716,7 +3726,8 @@ export default function Etudiants() {
       .filter(e => !fRatt || (fRatt === 'aucune' ? !e.section_rattachement
         : fRatt === 'deduite' ? (e.section_rattachement && e.section_deduite)
           : (e.section_rattachement && !e.section_deduite)))
-      .filter(e => !fPrimo || (fPrimo === 'primo' ? e.primo : !e.primo));
+      .filter(e => !fPrimo || (fPrimo === 'primo' ? e.primo : !e.primo))
+      .filter(e => !fPlus60 || Number(frises?.etats?.[e.id]?.ects) > 60);
     if (fDoublons) {
       const cleDe = e => `${e.nom || ''}|${e.prenom || ''}`.normalize('NFD')
         .replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9|]/g, '');
@@ -3745,7 +3756,7 @@ export default function Etudiants() {
       if (typeof va === 'number' && typeof vb === 'number') return (va - vb) * tri.sens;
       return String(va).localeCompare(String(vb), 'fr') * tri.sens;
     });
-  }, [etudiants, recherche, tri, section, fNiveau, fUE, fRatt, fPrimo, fDoublons]);
+  }, [etudiants, recherche, tri, section, fNiveau, fUE, fRatt, fPrimo, fDoublons, fPlus60, frises]);
 
   // Volets par section, comme dans la répartition des périodes : la liste se
   // parcourt section par section, et un étudiant inscrit dans plusieurs
@@ -4101,9 +4112,14 @@ export default function Etudiants() {
           <input type="checkbox" checked={fDoublons} onChange={e => setFDoublons(e.target.checked)} />
           Doublons
         </label>
-        {(section || fNiveau || fUE || fRatt || fPrimo || fDoublons) && (
+        <label className="flex items-center gap-1.5 text-sm text-slate-600 self-center"
+          title="Ne montrer que les étudiants dont le programme de l'année dépasse 60 ECTS">
+          <input type="checkbox" checked={fPlus60} onChange={e => setFPlus60(e.target.checked)} />
+          Plus de 60 ECTS
+        </label>
+        {(section || fNiveau || fUE || fRatt || fPrimo || fDoublons || fPlus60) && (
           <button className="text-[12px] text-iip-blue underline self-center"
-            onClick={() => { setSection(''); setFNiveau(''); setFUE(''); setFRatt(''); setFPrimo(''); setFDoublons(false); }}>
+            onClick={() => { setSection(''); setFNiveau(''); setFUE(''); setFRatt(''); setFPrimo(''); setFDoublons(false); setFPlus60(false); }}>
             Tout effacer
           </button>
         )}
