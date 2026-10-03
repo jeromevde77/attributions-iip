@@ -52,6 +52,7 @@ import ImportListe from '../components/ImportListe.jsx';
 import DroitInscription from '../components/DroitInscription.jsx';
 import FraisScolarite from '../components/FraisScolarite.jsx';
 import ImportHistorique from '../components/ImportHistorique.jsx';
+import ImportTableauPlat from '../components/ImportTableauPlat.jsx';
 import { demander, informer, saisir } from '../lib/dialogue.jsx';
 
 // Niveau de l'étudiant : BA1/BA2 s'il ne suit qu'une année, « Diplômant »
@@ -3429,6 +3430,7 @@ export default function Etudiants() {
   const [rapportPAE, setRapportPAE] = useState(false);
   const [importListe, setImportListe] = useState(false);
   const [importHisto, setImportHisto] = useState(false);
+  const [tableauPlat, setTableauPlat] = useState(false);
   const [complement, setComplement] = useState(false);
   const [rapportPAESel, setRapportPAESel] = useState(false);
   const [revuePAE, setRevuePAE] = useState(null);       // liste d'étudiants à passer en revue
@@ -4504,9 +4506,16 @@ export default function Etudiants() {
               attend: 'Suivi_etudiants_XXX.xlsm',
               onClick: () => setImportSuivi(true) },
             { cle: 'histo', titre: "Reconstruire l'historique",
-              quoi: 'Une année déjà délibérée, reprise depuis un tableau de décisions.',
-              attend: 'un tableau plat, une ligne par décision',
+              quoi: 'Plusieurs années et sections d’un coup, depuis leurs classeurs de suivi ; les étudiants se rapprochent par numéro national.',
+              attend: 'plusieurs Suivi_etudiants_XXX.xlsm',
               onClick: () => setImportHisto(true) },
+            /* LA REPRISE PAR TABLEAU PLAT vivait dans une barre de boutons de
+               la délibération (Charles, 3 octobre 2026 : « ce menu n'était que
+               pour moi, il peut partir si on a les liens dans Importer »). */
+            { cle: 'tableau-plat', titre: 'Reprendre une année depuis un tableau plat',
+              quoi: 'Une année déjà délibérée : une ligne par étudiant, unité et session, dates du jury comprises.',
+              attend: 'un tableau plat, une ligne par décision',
+              onClick: () => setTableauPlat(true) },
             { cle: 'complement', titre: 'Compléter les dossiers',
               quoi: 'Ajouter adresses, dates de naissance et pièces aux dossiers existants.',
               attend: 'un classeur portant les matricules',
@@ -4555,6 +4564,9 @@ export default function Etudiants() {
         </Fenetre>
       )}
 
+      {tableauPlat && (
+        <ImportTableauPlat annee={annee} onClose={() => setTableauPlat(false)} onFini={charger} />
+      )}
       {importHisto && (
         <ImportHistorique onClose={() => setImportHisto(false)} onImporte={charger} />
       )}

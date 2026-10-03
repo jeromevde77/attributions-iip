@@ -6,7 +6,7 @@ const ClotureReprise = lazy(() => import('./Configuration.jsx').then(m => ({ def
 import GroupesParBloc from '../components/GroupesParBloc.jsx';
 import { IconChevronRight, IconArrowLeft, IconBolt, IconAlertTriangle,
   IconRotate, IconPrinter, IconFileSpreadsheet, IconPencil, IconTable, IconList,
-  IconUpload, IconEdit, IconAdjustments, IconChecks } from '@tabler/icons-react';
+  IconUpload, IconEdit, IconAdjustments, IconChecks, IconScale, IconZoomQuestion } from '@tabler/icons-react';
 import MenuActions from '../components/MenuActions.jsx';
 import { authHeaders, getAnnee, getUser } from '../lib/api.js';
 import { estDirection } from '../lib/modules.js';
@@ -20,7 +20,7 @@ import DiagnosticAnnees from '../components/DiagnosticAnnees.jsx';
 import SchemaLiensAA from '../components/SchemaLiensAA.jsx';
 import EncodageRapide from './EncodageRapide.jsx';
 import CentreImpressionCentral from '../components/CentreImpressionCentral.jsx';
-import { BoutonEditions, Fenetre } from '../components/ui.jsx';
+import { BoutonEditions, Fenetre, RailLateral } from '../components/ui.jsx';
 import RepriseLot from '../components/RepriseLot.jsx';
 import ImportTableauPlat from '../components/ImportTableauPlat.jsx';
 import ReglesDeliberation from '../components/ReglesDeliberation.jsx';
@@ -259,72 +259,20 @@ export default function Deliberation() {
             Année {annee} · choisissez une section, puis l'unité à délibérer.
           </p>
         </div>
-        {/* La saisie rapide reste accessible, mais elle n'est plus le CHEMIN :
-            on y va pour saisir vite, pas pour délibérer. */}
-        <div className="flex items-center gap-2">
-          {/* L'IMPORT DU CLASSEUR PORTE SUR TOUTE L'ANNÉE, non sur une unité :
-              sa place est ici, en tête, et non dans la ligne d'une UE. */}
-          {peutToutEncoder && (
-            <button onClick={() => setImportSuivi(true)}
-              title="Reprendre pondérations, notes et décisions depuis le classeur de suivi"
-              className="flex items-center gap-1.5 px-3 py-1.5 text-sm border border-slate-300
-                         text-slate-600 font-semibold rounded-lg">
-              <IconFileSpreadsheet size={15} /> Classeur de suivi
-            </button>
-          )}
-          {/* LES RÈGLES DE LA MAISON. Elles existaient dans le code depuis
-              longtemps ; aucun écran ne les nommait, et on ne cherche pas un
-              réglage dont rien ne dit qu'il existe. */}
-          {peutToutEncoder && (
-            <button onClick={() => setRegles(true)}
-              title="Sur quoi le Conseil délibère, seuil de maîtrise, ajournement d'office"
-              className="flex items-center gap-1.5 px-3 py-1.5 text-sm border border-slate-300
-                         text-slate-600 font-semibold rounded-lg">
-              Règles de délibération
-            </button>
-          )}
-          {/* LA REPRISE D'HISTORIQUE. Une année déjà délibérée n'arrive pas
-              sous la forme du classeur de suivi : c'est un tableau plat, une
-              ligne par décision, dates du jury comprises. */}
-          {peutToutEncoder && (
-            <button onClick={() => setTableauPlat(true)}
-              title="Reprendre une année déjà délibérée depuis un tableau de décisions"
-              className="flex items-center gap-1.5 px-3 py-1.5 text-sm border border-slate-300
-                         text-slate-600 font-semibold rounded-lg">
-              Reprise d'historique
-            </button>
-          )}
-          {/* LE CENTRE D'IMPRESSION — plusieurs unités d'un coup. Les pièces
-              se tiraient unité par unité : une section, c'était vingt-sept
-              fenêtres. Le secrétariat, lui, travaille par pile. */}
-          <button onClick={() => setImpression(true)}
-            title="Sortir les pièces de plusieurs unités en un seul document"
-            className="flex items-center gap-1.5 px-3 py-1.5 text-sm border border-slate-300
-                       text-slate-600 font-semibold rounded-lg">
-            Centre d'impression
-          </button>
-          {peutToutEncoder && (
-            <button onClick={() => setAnnees(true)}
-              title="Voir dans quelle année les notes ont été rangées, et les ramener"
-              className="flex items-center gap-1.5 px-3 py-1.5 text-sm border border-slate-300
-                         text-slate-600 font-semibold rounded-lg">
-              Où sont les notes ?
-            </button>
-          )}
-          {peutToutEncoder && (
-            <button onClick={() => setControles('controle-decisions')}
-              title="Contrôler les notes de décision ; clôturer une année reprise d'archives"
-              className="flex items-center gap-1.5 px-3 py-1.5 text-sm border border-slate-300
-                         text-slate-600 font-semibold rounded-lg">
-              <IconChecks size={15} /> Contrôles
-            </button>
-          )}
-          <button onClick={() => setRapide(true)}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-sm border border-iip-blue
-                       text-iip-blue font-semibold rounded-lg">
-            <IconBolt size={15} /> Encodage rapide
-          </button>
-        </div>
+        {/* LA BARRE DE SEPT BOUTONS EST PARTIE (Charles, 3 octobre 2026 : « ce
+            menu n'était que pour moi, c'était temporaire »). Les imports vivent
+            dans « Importer » (classeur de suivi, reprise par tableau plat),
+            l'impression dans l'avion ; le reste se range dans le rail, sous
+            la rubrique, réservé aux mêmes rôles. */}
+        <RailLateral icon={IconScale} titre="Délibération" sections={[{ items: [
+          { key: 'rapide', label: 'Encodage rapide', icon: IconBolt, onClick: () => setRapide(true) },
+          ...(peutToutEncoder ? [
+            { key: 'controles', label: 'Contrôles des notes et des décisions', icon: IconChecks,
+              onClick: () => setControles('controle-decisions') },
+            { key: 'ou-notes', label: 'Où sont les notes ?', icon: IconZoomQuestion, onClick: () => setAnnees(true) },
+            { key: 'regles', label: 'Règles de délibération', icon: IconAdjustments, onClick: () => setRegles(true) },
+          ] : []),
+        ] }]} />
       </div>
 
       {erreur && (
