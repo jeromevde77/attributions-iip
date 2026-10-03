@@ -477,7 +477,9 @@ function OuvrirDossier({ annee, onFermer, onOuvert }) {
                 {resultats.length > 0 && (
                   <div className="mt-1 border border-slate-200 rounded-champ bg-white max-h-64 overflow-y-auto">
                     {resultats.map(e => (
-                      <button key={e.id} type="button" onClick={() => choisirEtudiant(e)}
+                      <button key={e.id} type="button"
+                        onMouseDown={ev => { ev.preventDefault(); choisirEtudiant(e); }}
+                        onKeyDown={ev => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); choisirEtudiant(e); } }}
                         className="w-full text-left px-3 py-1.5 text-[13px] hover:bg-slate-50 border-b border-slate-100 last:border-0">
                         <span className="font-semibold text-slate-800">{nomPropre(e.nom, e.prenom)}</span>
                         <span className="text-[12px] text-slate-400"> · {[e.id_ecampus, e.sections].filter(Boolean).join(' · ')}</span>
@@ -491,10 +493,20 @@ function OuvrirDossier({ annee, onFermer, onOuvert }) {
               </div>
             )}
           </Champ>
+          {/* DEUX TYPES, ET PAS UN DE PLUS (Charles, 3 octobre 2026 : « soit c'est
+              recours, soit disciplinaire ») ; la fraude est une NATURE de la
+              procédure disciplinaire, qui se choisit ensuite. */}
           <Champ label="2. Type">
-            <Segments valeur={genreChoisi} onChange={changerGenre}
-              options={[['recours', 'Recours'], ['fraude', 'Fraude'], ['discipline', 'Discipline — comportement']]} />
+            <Segments valeur={genreChoisi === 'recours' ? 'recours' : 'disciplinaire'}
+              onChange={v => changerGenre(v === 'recours' ? 'recours' : 'discipline')}
+              options={[['recours', 'Recours (art. 87-91)'], ['disciplinaire', 'Disciplinaire (art. 115-119)']]} />
           </Champ>
+          {genreChoisi !== 'recours' && (
+            <Champ label="Nature des faits">
+              <Segments valeur={genreChoisi} onChange={changerGenre}
+                options={[['discipline', 'Comportement'], ['fraude', 'Fraude, plagiat, IA (art. 72)']]} />
+            </Champ>
+          )}
           {genreChoisi === 'recours' && ue?.seance && (
             <Champ label="Résultats publiés le">
               <div className="text-[13px] text-slate-700">
