@@ -1407,6 +1407,8 @@ function Cloture({ seance, onClore, onRetour, onPV, onReprendre, enCours, nb, aj
   // car la clôture les fige au procès-verbal.
   const [dateS, setDateS] = useState(seance?.date_seance || '');
   const [heureS, setHeureS] = useState(seance?.heure_seance || '');
+  // La publication des résultats fait courir le recours (RDE art. 88 §1).
+  const [publieLe, setPublieLe] = useState(seance?.publie_le || new Date().toISOString().slice(0, 10));
   const [date, setDate] = useState(seance?.visite_date || '');
   const [heure, setHeure] = useState(seance?.visite_heure || '');
   const [local, setLocal] = useState(seance?.visite_local || '');
@@ -1571,6 +1573,11 @@ function Cloture({ seance, onClore, onRetour, onPV, onReprendre, enCours, nb, aj
             <input type="time" value={heureS} onChange={e => setHeureS(e.target.value)}
               className="w-full mt-0.5 border border-slate-300 rounded-lg px-2 py-1.5 text-[13px]" />
           </label>
+          <label className="text-[12px] text-slate-600 col-span-2">
+            Résultats publiés le <span className="text-slate-400">— point de départ des 4 jours de recours (art. 88 §1)</span>
+            <input type="date" value={publieLe} onChange={e => setPublieLe(e.target.value)}
+              className="w-full mt-0.5 border border-slate-300 rounded-lg px-2 py-1.5 text-[13px]" />
+          </label>
         </div>
       </div>
 
@@ -1693,6 +1700,7 @@ function Cloture({ seance, onClore, onRetour, onPV, onReprendre, enCours, nb, aj
             <IconFileText size={14} /> Générer les documents
           </button>
           <button disabled={enCours || !complet} onClick={() => onClore({
+            publie_le: publieLe || null,
               date_seance: dateS, heure_seance: heureS || null,
               visite_date: date, visite_heure: heure, visite_local: local.trim(),
               visite_mention: mention,

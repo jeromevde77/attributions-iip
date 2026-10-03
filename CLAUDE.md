@@ -1166,6 +1166,31 @@ présences** : une heure ni présente ni absente ne s'atteste pas. Code :
 `lib/cep.js`, `lib/piecesCep.js`, `routes/cep.js`. **À venir :** le QR code
 projeté en classe pour l'émargement ; le registre CEP dans le rail.
 
+**RECOURS ET DISCIPLINE, REFONDUS SUR LE RDE 2026-2027** (3.1.x, Charles,
+3 octobre 2026 : « pas de liens avec les étudiants ni les membres des UE…
+c'était du bricolage ; revoir sur base du RDE »). Le texte fait foi : RDE et
+procédures IIP publiés dans Documentation (corpus), pas les citations éparses
+de l'ancien code — qui se trompaient d'article. **Deux circuits, pas un de
+plus** (`lib/procedures.js`) : le RECOURS académique (art. 87-91, contre un
+REFUS seulement) et la procédure DISCIPLINAIRE (art. 115-119), dont la FRAUDE
+est une nature (choix de Charles : « tout en disciplinaire ») — même frise,
+plus les acquis visés et la sanction académique de l'art. 75 (ajourné en S1,
+refusé en S2 ou en récidive ; la récidive se LIT dans les dossiers antérieurs).
+Tout dossier est rattaché à un ÉTUDIANT et à son inscription (`proc_dossier`) ;
+les personnes viennent du personnel ou des attributions de l'UE
+(`proc_membre`) ; l'état se déduit du journal en ajout seul (`proc_etape`).
+Délais du RDE calculés avec le calendrier de l'échéancier ; le recours au PO
+contre un renvoi définitif suit le RDE (4 jours ouvrables, 21 jours calendrier),
+non la procédure IIP qui dit 10/15 — **la procédure est à corriger**.
+**Effets réels** : un recours ACCUEILLI rouvre la séance de l'UE (motif lié au
+dossier) ; une fraude sanctionnée AJOURNE les acquis visés dans la délibération
+(`deliberation_ajustement`) avec sa motivation. La date de **publication des
+résultats** se pose à la clôture de la séance (`deliberation_seance.publie_le`)
+et fait courir les quatre jours du recours. Six pièces dans l'enveloppe des
+pièces nominatives (`lib/piecesProcedures.js`). Gestes `procedures.instruire`
+(direction, secrétariat) et `procedures.decider` (direction, verrou). Les
+anciens dossiers (`procedure_archive`) restent lisibles, non repris.
+
 **Chantiers de conformité ouverts, dans l'ordre :** geler les décisions à la
 clôture et historiser par ajout ; figer et horodater le PV ; bloc de signatures
 nominatif ; date d'affichage et mode de publication en champs propres ; écrire

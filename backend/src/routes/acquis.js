@@ -5587,7 +5587,11 @@ r.get('/deliberation/ue/:ueNum', authRequired, (req, res) => {
                        // absent un jour et présent le lendemain, et le
                        // procès-verbal doit dire qui a effectivement présidé.
                        'president_role TEXT', 'president_nom TEXT',
-                       'president_titre TEXT']) {
+                       'president_titre TEXT',
+                       // LA PUBLICATION DES RÉSULTATS fait courir le recours
+                       // (RDE art. 88 §1 : quatre jours calendrier) ; elle
+                       // n'était enregistrée nulle part (3 octobre 2026).
+                       'publie_le TEXT']) {
       try { db.exec(`ALTER TABLE deliberation_seance ADD COLUMN ${col}`); } catch { /* déjà là */ }
     }
   } catch (e) { console.error('[migration] deliberation_seance :', e.message); }
@@ -6564,6 +6568,14 @@ const STYLE_ENTETE_DELIB = `<style>
   /* La seconde session porte sa couleur : sur une pile de cinquante pièces,
      le titre seul ne distingue pas juin de septembre. */
   .delib-seance .delib-s2 { background: #fff4e6; border-color: #f59e0b; color: #9a3412; }
+    // La date de publication se pose à la clôture (aujourd'hui par défaut) et
+    // se corrige ensuite si les résultats ont été affichés un autre jour.
+    if (cloturee || req.body?.publie_le) {
+      db.prepare(`UPDATE deliberation_seance SET publie_le = COALESCE(?, publie_le, date('now'))
+        WHERE ue_num = ? AND annee_scolaire = ? AND session = ? AND num_organisation = ?`)
+        .run(req.body?.publie_le || null, ueNum, annee, session, org);
+    }
+
   .delib-seance .delib-total { background: #eef7ee; border-color: #4d9a5a; color: #1f5b2c; }
 </style>`;
 

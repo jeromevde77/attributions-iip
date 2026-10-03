@@ -64,7 +64,6 @@ import Pilotage from './pages/Pilotage.jsx';
 import Planification from './pages/Planification.jsx';
 const Documentation = lazy(() => import('./pages/Documentation.jsx'));
 const MesCours = lazy(() => import('./pages/MesCours.jsx'));
-import Disciplinaire from './pages/Disciplinaire.jsx';
 import Echeancier from './pages/Echeancier.jsx';
 import Organisation from './pages/Organisation.jsx';
 import { AxeAccueil, AxeEtudiants } from './pages/Axes.jsx';
@@ -822,7 +821,10 @@ export default function App() {
       {/* L'ANCIENNE ATTESTATION EST RETIRÉE (2 octobre 2026) : elle portait des
           pondérations TIM écrites en dur ; les attestations sortent par Éditions. */}
       <Route path="/attestation"   element={<Navigate to="/" replace />} />
-      <Route path="/disciplinaire" element={<ProtectedLayout><Disciplinaire /></ProtectedLayout>} />
+      {/* LA DISCIPLINE VIT DANS LES PROCÉDURES (3 octobre 2026) : un seul
+          registre pour le recours, la fraude et la discipline. L'adresse reste
+          servie pour les liens notés, et mène au registre. */}
+      <Route path="/disciplinaire" element={<Navigate to="/procedures" replace />} />
       {/* CES ÉCRANS ONT DÉJÀ LEUR PLACE — ON N'EN OUVRE PAS UNE SECONDE.
           `Users`, `Annees`, `Referentiels` et `Editeur` sont DÉJÀ rendus comme
           onglets de Configuration, et `DUE` comme onglet d'Organisation. Ces

@@ -1,1871 +1,1307 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
-import { getAnnee } from '../lib/api.js';
-import PreviewModal from '../components/PreviewModal.jsx';
+// ─────────────────────────────────────────────────────────────────────────────
+// Lucie — PROCÉDURES : RECOURS ET DISCIPLINE (RDE 2026-2027)
+//
+// Refonte du 3 octobre 2026, sur l'API /api/procedures/dossiers
+// (backend/src/routes/dossiers.js, lib/procedures.js) — c'est elle qui fait
+// foi pour les champs, l'ordre des étapes, les contrôles et les délais.
+//
+// Deux circuits, et pas un de plus : le RECOURS (art. 87-91) et la procédure
+// DISCIPLINAIRE (art. 115-119), dont la FRAUDE (art. 72-75) est une nature.
+// Chaque dossier part d'un ÉTUDIANT de Lucie et de son inscription : aucun nom,
+// aucune section, aucune UE tapés à la main. L'état se lit des traces ; chaque
+// étape porte le nom de celui qui l'a posée (la personne connectée).
+//
+// Les dossiers d'avant le 3 octobre se relisent sous « Anciens dossiers »
+// (pages/ProceduresAnciennes.jsx).
+// ─────────────────────────────────────────────────────────────────────────────
+import { useState, useEffect, useMemo, useCallback, useRef, lazy, Suspense } from 'react';
+import {
+  IconListDetails, IconArchive, IconPlus, IconArrowLeft, IconCheck, IconSearch,
+  IconUpload, IconDownload, IconFileText, IconTrash, IconScale, IconShieldExclamation,
+  IconAlertTriangle, IconCircleCheck,
+} from '@tabler/icons-react';
+import { authHeaders, getAnnee, telechargerFichier } from '../lib/api.js';
 import { ouvrirApercu } from '../lib/apercu.js';
-import { PageHeader, RailLateral, OuvrirEditions, Fenetre } from '../components/ui.jsx';
-import Disciplinaire from './Disciplinaire.jsx';
+import { nomPropre } from '../lib/nom.js';
 import { informer } from '../lib/dialogue.jsx';
 import {
-  IconChecklist, IconScale, IconShieldExclamation, IconClipboardList,
-  IconFolder, IconCheck, IconX, IconArrowBackUp, IconGavel,
-  IconBan, IconAlertTriangle, IconClock, IconCircleCheck, IconRefresh, IconFileText, IconPrinter, IconPencil,
-} from '@tabler/icons-react';
+  RailLateral, PageHeader, Fenetre, Encadre, PastilleEtat,
+  Tableau, TableauEntete, Th, Td, Tr, TableauVide,
+} from '../components/ui.jsx';
+// Les anciens dossiers ne se chargent que si on les ouvre : l'ancien écran est lourd.
+const ArchivesProcedures = lazy(() => import('./ProceduresAnciennes.jsx').then(m => ({ default: m.ArchivesProcedures })));
 
-// ─── Utilitaires ──────────────────────────────────────────────────────────────
-const JUSTIFS_DEFAUT = [
-  "L'étudiant·e ne conteste aucune irrégularité de procédure, mais exprime un désaccord avec l'appréciation pédagogique. Or, la Commission de recours ne peut substituer sa note à celle du jury (art. 123ter du Décret du 16 avril 1991 organisant l'enseignement pour adultes).",
-  "Les acquis d'apprentissage et les critères d'évaluation ont été communiqués conformément au dossier pédagogique. L'évaluation reflète fidèlement le niveau d'acquisition observé lors de l'épreuve.",
-  "Le CDE a examiné les copies en séance. Aucune erreur matérielle, aucun écart de traitement entre étudiants n'a été relevé.",
-  "La modalité d'évaluation contestée était prévue au dossier pédagogique et portée à la connaissance des étudiants en début d'UE.",
-  "L'irrégularité invoquée n'a pas eu d'incidence sur l'issue de la délibération : le résultat reste en-dessous du seuil de réussite, indépendamment du point litigieux.",
-  "Le délai de recours n'est pas respecté. La plainte a été introduite après le 4e jour calendrier suivant la publication des résultats (art. 123ter §4 du Décret du 16 avril 1991 organisant l'enseignement pour adultes).",
-  "La plainte ne mentionne pas d'irrégularités précises au sens de l'art. 123ter du Décret du 16 avril 1991 organisant l'enseignement pour adultes. Une contestation de la valeur d'une note n'est pas recevable comme motif de recours.",
+const BASE = '/api/procedures/dossiers';
+
+// ── Utilitaires ──────────────────────────────────────────────────────────────
+/** LA DATE DU JOUR EST LE DÉFAUT (CLAUDE.md, « Les traces »). Date locale. */
+function aujourdHui() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+/** jj/mm/aaaa — à partir de « aaaa-mm-jj » ou « aaaa-mm-jj hh:mm:ss ». */
+function fmt(s) {
+  if (!s) return '—';
+  const [a, m, j] = String(s).slice(0, 10).split('-');
+  return a && m && j ? `${j}/${m}/${a}` : String(s);
+}
+function fmtHeure(s) {
+  if (!s) return '';
+  const h = String(s).slice(11, 16);
+  return h ? ` à ${h}` : '';
+}
+/** Jours entre aujourd'hui et une date (négatif si dépassée). */
+function joursAvant(date) {
+  if (!date) return null;
+  const [a, m, j] = String(date).slice(0, 10).split('-').map(Number);
+  const cible = new Date(a, m - 1, j);
+  const t = new Date(); const auj = new Date(t.getFullYear(), t.getMonth(), t.getDate());
+  return Math.round((cible - auj) / 86400000);
+}
+
+/** Un appel JSON : rend { ok, status, data } — l'erreur se lit, elle ne jette pas. */
+async function appel(url, opts = {}) {
+  try {
+    const rep = await fetch(url, { ...opts, headers: authHeaders(opts.headers) });
+    let data = null;
+    try { data = await rep.json(); } catch { data = null; }
+    return { ok: rep.ok, status: rep.status, data };
+  } catch (e) {
+    return { ok: false, status: 0, data: { error: e.message } };
+  }
+}
+
+// ── Les vocabulaires de l'écran ──────────────────────────────────────────────
+/** Le genre d'un dossier, tel que le registre le nomme. */
+function genre(d) {
+  if (d.type === 'recours') return 'recours';
+  return d.nature === 'fraude' ? 'fraude' : 'discipline';
+}
+const GENRES = {
+  recours:    { label: 'Recours',    etat: 'disponible', icone: IconScale },
+  fraude:     { label: 'Fraude',     etat: 'surveiller', icone: IconShieldExclamation },
+  discipline: { label: 'Discipline', etat: 'corriger',   icone: IconShieldExclamation },
+};
+function PastilleType({ dossier }) {
+  const g = GENRES[genre(dossier)];
+  return <PastilleEtat etat={g.etat}>{g.label}</PastilleEtat>;
+}
+
+const MODES_REMISE = [['main_propre', 'Remise en main propre'], ['recommande', 'Recommandé']];
+const ISSUES_EXTERNES = [['accueilli', 'Accueilli'], ['rejete', 'Rejeté']];
+const PV_AUDITION = [
+  ['signe', "PV signé par l'étudiant"],
+  ['refus_constate', 'Refus de signer constaté par deux membres du personnel'],
+  ['absent', 'Étudiant absent'],
 ];
+const CATEGORIES_PIECE = [
+  ['plainte', 'Plainte'], ['pv_surveillance', 'PV de surveillance'], ['preuve', 'Preuve'],
+  ['courrier', 'Courrier'], ['autre', 'Autre'],
+];
+const ROLES = {
+  president: 'Président', membre: 'Membre', redacteur: 'Rédacteur du PV', rapporteur: 'A constaté les faits',
+};
+const ROLES_PAR_TYPE = {
+  recours: ['president', 'membre'],
+  disciplinaire: ['rapporteur', 'redacteur'],
+};
 
-const TOKEN = () => localStorage.getItem('token');
-const authFetch = (url, opts = {}) => fetch(url, { ...opts, headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${TOKEN()}`, ...(opts.headers || {}) } }).then(r => r.json());
+/** Les pièces officielles, et l'étape qui les rend possibles. */
+const PIECES_OFFICIELLES = {
+  recours: [
+    { piece: 'accuse_reception', label: 'Accusé de réception', etape: 'plainte', pret: d => !!d.etapes?.plainte },
+    { piece: 'irrecevabilite', label: "Décision d'irrecevabilité", etape: 'recevabilite',
+      pret: d => d.etapes?.recevabilite?.recevable === false },
+    { piece: 'decision_recours', label: 'Décision motivée du CDE restreint', etape: 'decision', pret: d => !!d.etapes?.decision },
+  ],
+  disciplinaire: [
+    { piece: 'convocation', label: "Convocation à l'audition", etape: 'convocation', pret: d => !!d.etapes?.convocation },
+    { piece: 'pv_audition', label: "Procès-verbal d'audition", etape: 'audition', pret: d => !!d.etapes?.audition },
+    { piece: 'decision_disciplinaire', label: 'Décision motivée', etape: 'decision', pret: d => !!d.etapes?.decision },
+  ],
+};
 
-function addJoursOuvrables(date, n) {
-  const d = new Date(date); let count = 0;
-  while (count < n) { d.setDate(d.getDate() + 1); if (d.getDay() !== 0) count++; }
-  return d;
-}
-function addJoursCalendrier(date, n) { const d = new Date(date); d.setDate(d.getDate() + n); return d; }
-function fmt(d) {
-  if (!d) return '—';
-  return new Date(d).toLocaleDateString('fr-BE', { weekday:'long', day:'2-digit', month:'long', year:'numeric' });
-}
-function fmtCourt(d) {
-  if (!d) return '—';
-  return new Date(d).toLocaleDateString('fr-BE', { day:'2-digit', month:'2-digit', year:'numeric' });
+/** Le résultat d'une inscription, lu comme un état. */
+function lireResultat(i) {
+  const r = String(i.resultat || '').toLowerCase();
+  const s = i.session === 2 ? ' · S2' : '';
+  if (r === 'refuse') return { etat: 'corriger', label: `Refusé${s}` };
+  if (r === 'reussi') return { etat: 'reussi', label: `Réussi${s}` };
+  if (r === 'ajourne') return { etat: 'surveiller', label: `Ajourné${s}` };
+  if (!r) return { etat: 'neutre', label: 'Pas de décision' };
+  return { etat: 'neutre', label: i.resultat };
 }
 
-// ─── Composants UI ────────────────────────────────────────────────────────────
-function Badge({ ok, label }) {
-  return ok
-    ? <span className="inline-flex items-center gap-1 bg-green-100 text-green-800 border border-green-300 rounded-champ px-3 py-0.5 text-sm font-semibold border-l-4 border-l-green-500"><IconCheck size={15} stroke={2.2} /> {label}</span>
-    : <span className="inline-flex items-center gap-1 bg-red-100 text-red-800 border border-red-300 rounded-champ px-3 py-0.5 text-sm font-semibold border-l-4 border-l-red-500"><IconX size={15} stroke={2.2} /> {label}</span>;
-}
-function Ref({ text }) {
-  return <span className="inline-flex items-center gap-1 text-xs text-iip-blue bg-iip-turquoise/5 border border-iip-turquoise/30 rounded px-1.5 py-0.5 ml-1"><IconScale size={13} stroke={1.8} /> {text}</span>;
-}
-function Section({ title, color = 'turquoise', children }) {
-  const cls = { red:'border-red-500', green:'border-green-500',
-    orange:'border-orange-500', turquoise:'border-iip-turquoise' };
-  return <div className={`border-l-4 pl-5 py-4 mb-5 ${cls[color]||cls.turquoise}`}><h3 className="font-bold text-base mb-3 text-iip-blue">{title}</h3>{children}</div>;
-}
-function Q({ num, text, value, onChange, ref_ }) {
+// ── Petites briques ──────────────────────────────────────────────────────────
+function Segments({ options, valeur, onChange, desactive = false }) {
   return (
-    <div className="mb-4 flex items-start gap-3">
-      <span className="flex-shrink-0 w-7 h-7 rounded-full bg-iip-turquoise text-white text-sm font-bold flex items-center justify-center">{num}</span>
-      <div className="flex-1">
-        <p className="text-sm font-medium text-gray-800 mb-2">{text}{ref_ && <Ref text={ref_} />}</p>
-        <div className="flex gap-2">
-          {[['oui', 'Oui', IconCheck], ['non', 'Non', IconX], ['', '—', null]].map(([v, l, Ic]) => (
-            <button key={v} onClick={() => onChange(v)}
-              className={`inline-flex items-center gap-1 px-4 py-1.5 rounded-champ text-sm border transition ${value===v?(v==='oui'?'bg-green-600 text-white border-green-600':v==='non'?'bg-red-600 text-white border-red-600':'bg-gray-400 text-white border-gray-400'):'bg-white text-gray-600 border-gray-300 hover:bg-gray-50'}`}>
-              {Ic && <Ic size={15} stroke={2.2} />}{l}
-            </button>
-          ))}
-        </div>
-      </div>
+    <div className="segments">
+      {options.map(([v, l]) => (
+        <button key={v} type="button" disabled={desactive} onClick={() => onChange(v)}
+          className={valeur === v ? 'bg-iip-blue text-white font-semibold' : 'text-slate-600'}>{l}</button>
+      ))}
     </div>
   );
 }
-
-// ─── Génération de la décision motivée (HTML → print) ─────────────────────────
-function genererDecision({ etudiant, ueNum, ueNom, profs, profsPresentsListe,
-  datePubli, dateRecours, dateDecisionInterne, dateSeance, commentaireCDE, q, verdict, irregularites, annee }) {
-  const today = new Date().toLocaleDateString('fr-BE', { day:'2-digit', month:'long', year:'numeric' });
-  // Utiliser les présents cochés, sinon tous les profs
-  const presents = (profsPresentsListe && profsPresentsListe.length > 0) ? profsPresentsListe : profs;
-  const membres = presents.length
-    ? presents.map(p => p.nomComplet || (p.nom + ' ' + p.prenom)).join(', ')
-    : '[À COMPLÉTER : membres du CDE restreint]';
-  const nbPresents = presents.length;
-
-  // ── Références d'articles selon l'année scolaire ──────────────────────────
-  const is2526 = (annee === '2025-2026');
-  const ART = is2526 ? {
-    decret:        null,
-    roi:           'ROI/RGE',
-    plage:         'Art. 65 à 68 ROI/RGE',
-    refHeader:     'ROI/RGE Art. 65-68',
-    recevabilite:  'Art. 67 ROI/RGE',
-    porteeRefus:   'Art. 65 ROI/RGE',
-    irrecevMotif:  'Art. 67 ROI/RGE',
-    irrecevNotif:  'Art. 67 ROI/RGE',
-    quorum:        'Art. 14 ROI/RGE',
-    visiteCopies:  'Art. 50 ROI/RGE',
-    publiResultats:'Art. 63 ROI/RGE',
-    appreciation:  'Art. 67 ROI/RGE',
-    recoursExt:    'Art. 68 ROI/RGE',
-    footer:        'Art. 65-68 ROI/RGE',
-  } : {
-    decret:        'Vu le Décret du 27 octobre 2006 organisant les recours dans l\'enseignement pour adultes ;',
-    roi:           'RDE/ROI',
-    plage:         'Art. 87 à 91 RDE/ROI',
-    refHeader:     'RDE/ROI Art. 87-91 · D. 27/10/2006',
-    recevabilite:  'Art. 88 §1 RDE/ROI',
-    porteeRefus:   'Art. 87 §1 RDE/ROI',
-    irrecevMotif:  'Art. 88 §3 RDE/ROI',
-    irrecevNotif:  'Art. 88 §4 du RDE/ROI',
-    quorum:        'Art. 89 §1 RDE/ROI',
-    visiteCopies:  'Art. 71 RDE/ROI',
-    publiResultats:'Art. 82 RDE/ROI',
-    appreciation:  'Art. 91 RDE/ROI',
-    recoursExt:    'Art. 90 du RDE/ROI et au Décret du 27/10/2006',
-    footer:        'Art. 87-91 RDE/ROI et le Décret du 27/10/2006',
-  };
-
-  const vu = `
-    <p>Vu le Décret du 16 avril 1991 relatif à l'enseignement de promotion sociale${is2526 ? '' : ', notamment les art. 123ter et 123quater'} ;</p>
-    ${ART.decret ? `<p>${ART.decret}</p>` : ''}
-    <p>Vu le ${ART.roi} de l'Institut Ilya Prigogine, année académique ${annee}, notamment les ${ART.plage} ;</p>
-    <p>Vu la plainte introduite par ${etudiant || '[NOM ÉTUDIANT]'} en date du ${fmtCourt(dateRecours)} concernant la délibération relative à l'UE ${ueNum} — ${ueNom || ''} ;</p>
-    <p>Vu les pièces du dossier ;</p>
-  `;
-
-  let corps = '';
-
-  if (verdict === 'irrecevable') {
-    const motifs = [];
-    if (q.ecrit === 'non') motifs.push(`La plainte ne respecte pas les conditions de forme : écrit avec accusé de réception, remise contre accusé de réception ou courrier recommandé (${ART.irrecevMotif}).`);
-    if (q.delaiRespect === 'non') motifs.push(`La plainte n'a pas été introduite dans le délai de 4 jours calendrier suivant la publication des résultats (${ART.recevabilite}). La date limite était le ${fmtCourt(addJoursCalendrier(datePubli, 4))}.`);
-    if (q.porteRefus === 'non') motifs.push(`La plainte ne porte pas sur une décision de refus. Seules les décisions de refus sont susceptibles de recours (${ART.porteeRefus}).`);
-    if (q.irregulPrecises === 'non') motifs.push(`La plainte ne mentionne pas d'irrégularités précises. Une contestation de la valeur de la note n'est pas recevable — seules les irrégularités de procédure ou de droit peuvent fonder un recours (${ART.irrecevMotif}).`);
-    if (q.decisionRefus === 'non') motifs.push(`La décision contestée n'est pas une décision de refus au sens de l'${ART.porteeRefus}. Les ajournements, décisions de VA/VAE et décisions de délivrance de titre ne sont pas susceptibles de recours.`);
-
-    corps = `
-      <h3>QUANT À LA RECEVABILITÉ</h3>
-      <p>Le Conseil des Études déclare la plainte <strong>IRRECEVABLE</strong> pour le${motifs.length > 1 ? 's' : ''} motif${motifs.length > 1 ? 's' : ''} suivant${motifs.length > 1 ? 's' : ''} :</p>
-      <ol>${motifs.map(m => `<li>${m}</li>`).join('')}</ol>
-      <p>Conformément à l'${ART.irrecevNotif}, la présente décision d'irrecevabilité expose les motifs précis de l'irrecevabilité et est notifiée à l'étudiant.</p>
-      <h3>DÉCIDE</h3>
-      <p>De déclarer la plainte introduite par <strong>${etudiant || '[NOM ÉTUDIANT]'}</strong> <strong>IRRECEVABLE</strong> pour les motifs exposés ci-dessus.</p>
-      <p>L'étudiant est informé que cette décision d'irrecevabilité ne peut faire l'objet d'un recours externe, dès lors que les conditions de recevabilité du recours interne ne sont pas réunies.</p>
-    `;
-  } else {
-    const irregList = [];
-    if (q.quorum === 'non') irregList.push(`Le quorum du CDE n'était pas atteint lors de la délibération (${ART.quorum}). Cette irrégularité constitue un vice de procédure grave.`);
-    if (q.conflitInteret === 'oui') irregList.push('Un conflit d\'intérêt non déclaré a été relevé parmi les membres du jury. Cette irrégularité est susceptible d\'affecter l\'impartialité de la délibération.');
-    if (q.motivJustif === 'non') irregList.push(`La justification de l'échec (AA non atteints) n'a pas été formellement encodée et communiquée à l'étudiant, en violation de l'${ART.visiteCopies}.`);
-    if (q.visiteCopies === 'non') irregList.push(`La visite des copies n'a pas été proposée à l'étudiant dans les délais (${ART.visiteCopies} — droit à la consultation en présence du chargé de cours).`);
-    if (q.publiResultats === 'non') irregList.push(`Les résultats n'ont pas été publiés dans le délai de 2 jours ouvrables suivant la délibération (${ART.publiResultats}).`);
-
-    const decision = irregList.length > 0 ? 'ACCUEILLE partiellement' : 'REJETTE';
-    const conclusionFond = irregList.length > 0
-      ? `Le Conseil des Études constate les irrégularités suivantes :\n<ol>${irregList.map(i => `<li>${i}</li>`).join('')}</ol>\nEn conséquence, le recours est fondé sur ces points. Le Conseil des Études procède à un réexamen de la situation de l'étudiant en tenant compte de ces irrégularités.`
-      : `Après examen des griefs soulevés par l'étudiant, le Conseil des Études constate qu'aucune irrégularité de procédure ou de droit n'est établie. Le Conseil des Études apprécie souverainement la valeur des notes et sa décision ne peut être remise en cause sur la seule contestation de l'appréciation pédagogique (${ART.appreciation}).`;
-
-    corps = `
-      <h3>QUANT À LA RECEVABILITÉ</h3>
-      <p>La plainte est déclarée <strong>RECEVABLE</strong> : elle est écrite, introduite dans le délai de 4 jours calendrier (${ART.recevabilite}), porte sur une décision de refus et mentionne des irrégularités précises (${ART.irrecevMotif}).</p>
-
-      <h3>QUANT AU FOND</h3>
-      <p>${conclusionFond}</p>
-
-      ${!irregList.length ? `
-      <p><em>Sur le quorum :</em> Le quorum requis était atteint lors de la délibération. Aucune irrégularité n'est établie.</p>
-      <p><em>Sur la motivation de la décision :</em> Les AA non atteints ont été dûment identifiés et communiqués. La décision de refus est fondée sur l'absence d'acquisition des acquis d'apprentissage définis dans le DUE de l'UE ${ueNum}.</p>
-      <p><em>Sur les droits de l'étudiant :</em> La visite des copies et la consultation des épreuves ont été proposées conformément à l'${ART.visiteCopies}.</p>
-      ` : ''}
-
-      <h3>DÉCIDE</h3>
-      <p>Le Conseil des Études <strong>${decision}</strong> le recours introduit par <strong>${etudiant || '[NOM ÉTUDIANT]'}</strong>.</p>
-      ${irregList.length === 0 ? '<p>La décision de refus initiale est <strong>confirmée</strong>.</p>' : '<p>Le dossier fait l\'objet d\'un réexamen par le Conseil des Études dans sa composition complète.</p>'}
-
-      <h3>VOIES DE RECOURS</h3>
-      <p>Conformément à l'${ART.recoursExt}, la présente décision peut faire l'objet d'un <strong>recours externe</strong> auprès de la Direction générale du Service général de l'Enseignement tout au long de la vie (rue Adolphe Lavallée 1, 1080 Bruxelles), par pli recommandé, dans un délai de <strong>7 jours calendrier</strong> à compter du troisième jour ouvrable suivant la date d'envoi de la présente décision.</p>
-      ${dateDecisionInterne ? `<p>La date limite pour le recours externe est le : <strong>${fmtCourt(addJoursCalendrier(addJoursOuvrables(dateDecisionInterne, 3), 7))}</strong>.</p>` : ''}
-    `;
-  }
-
-  return `<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8"><title>Décision motivée — ${etudiant}</title>
-<style>
-  body { font-family: Arial, sans-serif; font-size: 11pt; color: #000; margin: 0; padding: 20mm 20mm 15mm 20mm; }
-  .header { display:flex; justify-content:space-between; align-items:flex-start; border-bottom: 2px solid var(--c-principal); padding-bottom: 8px; margin-bottom: 16px; }
-  .logo-txt { font-size: 14pt; font-weight: bold; color: var(--c-texte); }
-  .logo-sub { font-size: 9pt; color: #555; }
-  .ref { font-size: 9pt; text-align:right; color: #555; }
-  h2 { font-size: 13pt; text-align: center; color: var(--c-texte); border: 2px solid var(--c-principal); padding: 10px; margin: 20px 0; }
-  h3 { font-size: 11pt; font-weight: bold; margin-top: 16px; margin-bottom: 6px; border-bottom: 1px solid #ccc; padding-bottom: 3px; }
-  p { margin: 5px 0; line-height: 1.5; }
-  ol { margin: 6px 0 6px 20px; }
-  li { margin: 4px 0; }
-  .composition { background: #f0f4ff; border: 1px solid var(--c-disponible); padding: 8px 12px; margin: 10px 0; font-size: 10pt; }
-  .signatures { display:flex; justify-content:space-between; margin-top: 30px; }
-  .sig-block { text-align: center; min-width: 180px; }
-  .sig-line { border-top: 1px solid #000; margin-top: 40px; padding-top: 4px; font-size: 10pt; }
-  .footer { border-top: 1px solid #ccc; margin-top: 20px; padding-top: 8px; font-size: 8pt; color: #888; text-align: center; }
-  @media print { body { padding: 10mm 15mm; } button { display:none; } }
-</style></head><body>
-<div class="header">
-  <div>
-    <div class="logo-txt">Institut Ilya Prigogine</div>
-    <div class="logo-sub">Campus Erasme · Route de Lennik 808 · 1070 Bruxelles<br>direction@institut-prigogine.be · 02/560.29.59</div>
-  </div>
-  <div class="ref">
-    ${ART.refHeader}<br>
-    Année académique ${annee}<br>
-    Date : ${today}
-  </div>
-</div>
-
-<h2>DÉCISION ${verdict === 'irrecevable' ? "D'IRRECEVABILITÉ" : 'MOTIVÉE'}<br>DU CONSEIL DES ÉTUDES</h2>
-
-<p><strong>Objet :</strong> Recours contre la décision de refus concernant l'UE ${ueNum}${ueNom ? ' — ' + ueNom : ''}</p>
-<p><strong>Étudiant·e :</strong> ${etudiant || '[NOM ÉTUDIANT]'}</p>
-<p><strong>Date de délibération :</strong> ${fmtCourt(datePubli) || '—'}</p>
-<p><strong>Date d'introduction du recours :</strong> ${fmtCourt(dateRecours) || '—'}</p>
-${dateSeance ? `<p><strong>Date de réunion du CDE restreint :</strong> ${fmtCourt(dateSeance)}</p>` : ''}
-
-${presents.length > 0 ? `
-<div class="composition">
-  <strong>Composition du Conseil des Études restreint (Art. 89 §1 RDE/ROI) :</strong><br>
-  <table style="width:100%;margin-top:6px;font-size:10pt">
-    <tr style="background:#e8eef8">
-      <th style="text-align:left;padding:4px 8px">Membre</th>
-      <th style="text-align:left;padding:4px 8px">Qualité</th>
-      <th style="text-align:center;padding:4px 8px">Présent à la délibération</th>
-    </tr>
-    ${presents.map((p, i) => `
-    <tr style="background:${i%2===0?'#f8f9fa':'white'}">
-      <td style="padding:4px 8px;font-weight:bold">${p.nomComplet || (p.nom + ' ' + p.prenom)}</td>
-      <td style="padding:4px 8px">${p.qualite || (i === 0 ? 'Président(e) du CDE' : 'Membre du CDE')}</td>
-      <td style="padding:4px 8px;text-align:center">✓</td>
-    </tr>`).join('')}
-  </table>
-  ${nbPresents < 3 ? '<p style="color:#cc7700;margin-top:6px;font-size:9pt">⚠ Attention : le quorum requiert Président + min. 2 membres (Art. 89 §1).</p>' : ''}
-</div>` : ''}
-
-<h3>VU ET CONSIDÉRANT</h3>
-${vu}
-
-${corps}
-
-${commentaireCDE ? `
-<h3>OBSERVATIONS DU CONSEIL DES ÉTUDES</h3>
-<p style="border:1px solid #ccc;padding:10px;background:#fafafa;">${commentaireCDE.replace(/\n/g,'<br>')}</p>
-` : ''}
-
-<div class="signatures">
-  <div class="sig-block">
-    <div class="sig-line">Le Président du CDE<br><em>(ou son délégué)</em></div>
-  </div>
-  <div class="sig-block">
-    <div class="sig-line">Le Directeur<br>Charles SOHET</div>
-  </div>
-</div>
-
-<div class="footer">
-  Institut Ilya Prigogine · direction@institut-prigogine.be · 02/560.29.59 · www.institut-prigogine.be<br>
-  Document généré par Lucie le ${today} · Fondé sur les ${ART.footer}
-</div>
-</body></html>`;
+function Champ({ label, children, aide }) {
+  return (
+    <label className="block">
+      <span className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1">{label}</span>
+      {children}
+      {aide && <span className="block text-[11px] text-slate-400 mt-1">{aide}</span>}
+    </label>
+  );
+}
+function Intertitre({ children }) {
+  return <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-2">{children}</div>;
+}
+const CLS_TEXTE = 'w-full rounded-champ border border-slate-300 bg-white px-3 py-2 text-[13px] text-slate-800';
+function Choix({ valeur, onChange, options, vide = '— choisir —', desactive }) {
+  return (
+    <select className="controle w-full" value={valeur ?? ''} disabled={desactive}
+      onChange={e => onChange(e.target.value || null)}>
+      <option value="">{vide}</option>
+      {options.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+    </select>
+  );
+}
+function Date_({ valeur, onChange, desactive }) {
+  return <input type="date" className="controle w-full" value={valeur || ''} disabled={desactive}
+    onChange={e => onChange(e.target.value || null)} />;
+}
+function Case({ coche, onChange, children, desactive }) {
+  return (
+    <label className={`flex items-start gap-2 text-[13px] text-slate-700 ${desactive ? 'opacity-60' : 'cursor-pointer'}`}>
+      <input type="checkbox" className="mt-0.5" checked={!!coche} disabled={desactive}
+        onChange={e => onChange(e.target.checked)} />
+      <span>{children}</span>
+    </label>
+  );
+}
+function OuiNon({ valeur, onChange, oui = 'Oui', non = 'Non', desactive }) {
+  return <Segments desactive={desactive} options={[['oui', oui], ['non', non]]}
+    valeur={valeur === true ? 'oui' : valeur === false ? 'non' : null}
+    onChange={v => onChange(v === 'oui')} />;
+}
+function Bloc({ titre, children, actions }) {
+  return (
+    <section className="carte p-3">
+      <div className="flex items-center justify-between gap-2 mb-2">
+        <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">{titre}</div>
+        {actions}
+      </div>
+      {children}
+    </section>
+  );
 }
 
-// ─── OUTIL RECOURS ─────────────────────────────────────────────────────────────
-function OutilRecours({ initialPayload, onPayloadConsumed }) {
+// ═════════════════════════════════════════════════════════════════════════════
+// L'ÉCRAN
+// ═════════════════════════════════════════════════════════════════════════════
+export default function Procedures() {
   const annee = getAnnee();
-  const is2526 = annee === '2025-2026';
-  const UI = is2526 ? {
-    porteeRefus:   'Art. 65 ROI/RGE',
-    porteeRefus2:  'Art. 65 ROI/RGE',
-    recevabilite:  'Art. 67 ROI/RGE',
-    quorum:        'Art. 14 ROI/RGE',
-  } : {
-    porteeRefus:   'Art. 87 §1 RDE/ROI',
-    porteeRefus2:  'Art. 87 §1-2 RDE/ROI · D. 27/10/2006',
-    recevabilite:  'Art. 88 §1 RDE/ROI',
-    quorum:        'Art. 89 §1 RDE/ROI',
-  };
-  const [step, setStep] = useState(1);
-  const [previewHtml, setPreviewHtml] = useState(null);
+  const [vue, setVue] = useState('registre');          // registre | anciens
+  const [dossierId, setDossierId] = useState(null);
+  const [ouvrir, setOuvrir] = useState(false);
+  const [ref, setRef] = useState(null);
+  const [refErreur, setRefErreur] = useState(null);
 
-  // Données dossier
-  const [etudiant, setEtudiant] = useState('');
-  const [ueNum, setUeNum] = useState('');
-  const [ueNom, setUeNom] = useState('');
-  const [datePubli, setDatePubli] = useState('');
-  const [dateRecours, setDateRecours] = useState('');
-  const [dateDecisionInterne, setDateDecisionInterne] = useState('');
-  const [dateSeance, setDateSeance] = useState('');
-  const [commentaireCDE, setCommentaireCDE] = useState('');
-  const [procId, setProcId]           = useState(null);   // ID archive après première génération
-  const [justificationsChoisies, setJustificationsChoisies] = useState(new Set()); // indices cochés
-  const [justificationsDB, setJustificationsDB] = useState(JUSTIFS_DEFAUT); // chargées depuis la config
-  const [fichierRecours, setFichierRecours] = useState(null); // { nom, uploading, ok }
-  const [autosaved, setAutosaved]       = useState(false);
-  const autosaveTimer = useRef(null);
-  const procIdRef     = useRef(null);
-
-  // Pré-remplissage depuis une archive
   useEffect(() => {
-    if (!initialPayload) return;
-    const p = initialPayload;
-    if (p.etudiant)      setEtudiant(p.etudiant);
-    if (p.ue_num)        setUeNum(String(p.ue_num));
-    if (p.ue_nom)        setUeNom(p.ue_nom);
-    if (p.date_publi)    setDatePubli(p.date_publi);
-    if (p.date_recours)  setDateRecours(p.date_recours);
-    if (p.date_seance)   setDateSeance(p.date_seance);
-    if (p.commentaire_cde) setCommentaireCDE(p.commentaire_cde);
-    if (p.q)             setQ(prev => ({ ...prev, ...p.q }));
-    if (p._proc_id)      setProcId(p._proc_id);
-    if (p._profs_presents) setProfsPresents(new Set(p._profs_presents));
-    setStep(1);
-    onPayloadConsumed?.();
-  }, [initialPayload]);
-
-  // Charger justifications depuis la configuration
-  useEffect(() => {
-    authFetch('/api/parametres/procedure.justifications_recours')
-      .then(d => { if (d?.valeur) { try { setJustificationsDB(JSON.parse(d.valeur)); } catch {} } })
-      .catch(() => {});
+    appel(`${BASE}/referentiel`).then(r => {
+      if (r.ok) setRef(r.data); else setRefErreur(r.data?.error || 'Référentiel indisponible.');
+    });
   }, []);
 
-  // Profs de l'UE (depuis la DB)
-  const [profs, setProfs] = useState([]);
-  const [profsPresents, setProfsPresents] = useState(new Set()); // IDs cochés comme présents
-  const [loadingProfs, setLoadingProfs] = useState(false);
-  const [ues, setUes] = useState([]);
-  const [sectionsListe, setSectionsListe] = useState([]); // sections disponibles
-  const [sectionSel, setSectionSel] = useState('');        // section choisie (filtre les UE)
-
-  function toggleProfPresent(id) {
-    setProfsPresents(s => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
-  }
-
-  // Questions
-  const [q, setQ] = useState({
-    decisionRefus:'', ecrit:'', delaiRespect:'', porteRefus:'', irregulPrecises:'',
-    quorum:'', conflitInteret:'', motivJustif:'', dueDelai:'', visiteCopies:'', publiResultats:'',
-  });
-  function set(k, v) { setQ(p => ({ ...p, [k]: v })); }
-
-  // Charger les UE au démarrage
-  useEffect(() => {
-    authFetch(`/api/ref/structure?annee=${encodeURIComponent(annee)}`)
-      .then(d => {
-        const map = new Map();
-        const secs = new Set();
-        for (const sg of (Array.isArray(d) ? d : [])) {
-          if (sg.section) secs.add(sg.section);
-          for (const ue of (sg.ues || [])) {
-            if (!map.has(ue.ue_num)) map.set(ue.ue_num, { ...ue, _section: sg.section });
-          }
-        }
-        setUes([...map.values()].sort((a,b) => (a.ue_num||0)-(b.ue_num||0)));
-        setSectionsListe([...secs].sort());
-      }).catch(() => {});
-  }, [annee]);
-
-  // UE filtrées selon la section choisie
-  const uesFiltrees = sectionSel ? ues.filter(u => u._section === sectionSel) : ues;
-
-  // Membres fixes du CDE (chargés depuis la DB au démarrage, avec leurs sections)
-  const [membresCde, setMembresCde] = useState([]);
-  useEffect(() => {
-    authFetch(`/api/ref/membres-cde?annee=${encodeURIComponent(annee)}`)
-      .then(d => setMembresCde(Array.isArray(d) ? d : []))
-      .catch(() => {});
-  }, [annee]);
-
-  // Charger les profs quand UE ou section change
-  useEffect(() => {
-    const ue = ues.find(u => String(u.ue_num) === String(ueNum));
-    if (ue) setUeNom(ue.ue_nom || '');
-    // Section effective : celle choisie explicitement, sinon celle de l'UE
-    const ueSection = sectionSel || ue?._section || null;
-
-    // Membres CDE filtrés selon leur portée (paramétrable, pas de fonction codée en dur) :
-    //  - portee 'etablissement' → toujours présents (direction, secrétariat…)
-    //  - portee 'section'       → présents uniquement si la section concernée est dans leurs sections
-    const cdeFiltrés = membresCde.filter(m => {
-      const portee = m.portee || 'etablissement';
-      if (portee === 'etablissement') return true;
-      return ueSection && Array.isArray(m.sections) && m.sections.includes(ueSection);
-    });
-
-    if (!ueNum) {
-      // Pas d'UE : on affiche quand même les membres CDE filtrés par section
-      setProfs([...cdeFiltrés]);
-      setProfsPresents(new Set());
-      return;
-    }
-    setLoadingProfs(true);
-    authFetch(`/api/attributions?annee=${encodeURIComponent(annee)}&ue_num=${encodeURIComponent(ueNum)}`)
-      .then(rows => {
-        const seen = new Set();
-        const ps = [];
-        for (const r of (Array.isArray(rows) ? rows : [])) {
-          if (r.professeur_id && !seen.has(r.professeur_id) && !r.is_z) {
-            seen.add(r.professeur_id);
-            const parts = (r.professeur || '').split(' ');
-            ps.push({ id: r.professeur_id, nom: parts[0] || '', prenom: parts.slice(1).join(' ') || '', nomComplet: r.professeur || '', qualite: 'Enseignant(e)' });
-          }
-        }
-        setProfs([...cdeFiltrés, ...ps]);
-      }).catch(() => setProfs([...cdeFiltrés]))
-      .finally(() => setLoadingProfs(false));
-  }, [ueNum, annee, membresCde, sectionSel, ues]);
-
-  // Calculs délais
-  const limiteRecours = datePubli ? addJoursCalendrier(datePubli, 4) : null;
-  const limiteDecisionInterne = datePubli ? addJoursCalendrier(datePubli, 7) : null;
-  const limiteRecourseExterne = dateDecisionInterne
-    ? addJoursCalendrier(addJoursOuvrables(dateDecisionInterne, 3), 7) : null;
-  const nbJours = datePubli && dateRecours
-    ? Math.round((new Date(dateRecours) - new Date(datePubli)) / 86400000) : null;
-  const delaiRespect = nbJours !== null ? nbJours <= 4 : (q.delaiRespect === 'oui' ? true : q.delaiRespect === 'non' ? false : null);
-
-  // Verdict recevabilité
-  const conditionsRecevabilite = [
-    { ok: q.ecrit === 'oui',           label: 'Conditions de forme respectées',   ref: is2526 ? 'Art. 67 ROI/RGE' : 'Art. 88 §3' },
-    { ok: delaiRespect === true,        label: `Dans le délai (J+${nbJours||'?'})`, ref: is2526 ? 'Art. 67 ROI/RGE' : 'Art. 88 §1' },
-    { ok: q.porteRefus === 'oui',       label: 'Porte sur un refus',               ref: is2526 ? 'Art. 65 ROI/RGE' : 'Art. 88 §3' },
-    { ok: q.irregulPrecises === 'oui',  label: 'Irrégularités précises',           ref: is2526 ? 'Art. 67 ROI/RGE' : 'Art. 88 §3' },
-  ];
-  const recevable = conditionsRecevabilite.every(c => c.ok === true);
-  const irrecevable = q.decisionRefus === 'non' || conditionsRecevabilite.some(c => c.ok === false);
-
-  // Verdict final
-  const verdict = q.decisionRefus === 'non' ? 'irrecevable'
-    : irrecevable ? 'irrecevable'
-    : recevable ? 'recevable' : null;
-
-  // ── Autosave brouillon (après toutes les déclarations de state) ──────────
-  useEffect(() => {
-    if (!etudiant && !ueNum) return;
-    clearTimeout(autosaveTimer.current);
-    autosaveTimer.current = setTimeout(async () => {
-      const payload = {
-        etudiant, ue_num: ueNum, ue_nom: ueNom,
-        date_publi: datePubli, date_recours: dateRecours,
-        date_seance: dateSeance, date_envoi: dateDecisionInterne,
-        commentaire_cde: commentaireCDE,
-        justificationsChoisies: Array.from(justificationsChoisies),
-        q, verdict, annee,
-        _proc_id: procIdRef.current,
-        _profs_presents: Array.from(profsPresents),
-      };
-      try {
-        if (!procIdRef.current) {
-          const d = await authFetch('/api/procedures/draft', {
-            method: 'POST',
-            body: JSON.stringify({ type: 'recours', annee, etudiant, ue_num: ueNum, ue_nom: ueNom, payload }),
-          });
-          if (d?.id) { setProcId(d.id); procIdRef.current = d.id; setAutosaved(true); setTimeout(()=>setAutosaved(false),2000); }
-        } else {
-          await authFetch(`/api/procedures/draft/${procIdRef.current}`, {
-            method: 'PATCH',
-            body: JSON.stringify({ etudiant, ue_num: ueNum, ue_nom: ueNom, annee, payload }),
-          });
-          setAutosaved(true); setTimeout(()=>setAutosaved(false),2000);
-        }
-      } catch { /* silencieux */ }
-    }, 1500);
-    return () => clearTimeout(autosaveTimer.current);
-  }, [etudiant, ueNum, ueNom, datePubli, dateRecours, dateSeance, dateDecisionInterne,
-      commentaireCDE, justificationsChoisies, q, annee]);
-
-
-  async function ouvrirDecision() {
-    const profsPresentsListe = profs.filter(p => profsPresents.has(p.id));
-    try {
-      const res = await authFetch('/api/procedures/pv-recours', {
-        method: 'POST',
-        body: JSON.stringify({
-          etudiant, ue_num: ueNum, ue_nom: ueNom,
-          membres_presents: (profsPresentsListe.length ? profsPresentsListe : profs)
-            .map(p => ({ nomComplet: p.nomComplet, qualite: p.qualite })),
-          date_publi: datePubli, date_recours: dateRecours,
-          date_seance: dateSeance, date_envoi: dateDecisionInterne,
-          commentaire_cde: (() => {
-            const items = justificationsChoisies.size
-              ? Array.from(justificationsChoisies).map(i => justificationsDB[i])
-              : [];
-            let out = '';
-            if (items.length) out += '<ul class="justifs">' + items.map(t => `<li>${t}</li>`).join('') + '</ul>';
-            if (commentaireCDE.trim()) out += `<p>${commentaireCDE.trim().replace(/\n/g, '<br>')}</p>`;
-            return out;
-          })(), q, verdict, annee,
-        }),
-      });
-      if (res.error) { informer('Erreur : ' + res.error); return; }
-      if (res.champs_manquants?.length)
-        informer('⚠ Champs du modèle non disponibles pour cette procédure (laissés vides dans le document) :\n\n• '
-          + res.champs_manquants.join('\n• '));
-      setPreviewHtml(res.html);
-      const pid = res.procedure_id;
-      if (pid) {
-        setProcId(pid);
-        procIdRef.current = pid;
-        // Passer le statut brouillon → en_cours
-        authFetch(`/api/procedures/archives/${pid}`, {
-          method: 'PATCH', body: JSON.stringify({ statut: 'en_cours' })
-        }).catch(() => {});
-        // Upload du fichier en attente si présent
-        if (fichierRecours?.file && !fichierRecours.ok) {
-          const fd = new FormData(); fd.append('fichier', fichierRecours.file);
-          fetch(`/api/procedures/archives/${pid}/upload`, {
-            method: 'POST', headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }, body: fd
-          }).then(r => r.json()).then(d => {
-            if (d.ok) setFichierRecours(prev => ({ ...prev, ok: true, uploading: false }));
-          }).catch(() => {});
-        }
-        // Persister les profs présents immédiatement
-        const profsIds = profsPresentsListe.map(p => p.id).filter(Boolean);
-        if (profsIds.length) {
-          authFetch(`/api/procedures/archives/${pid}/profs`, {
-            method: 'PATCH', body: JSON.stringify({ profs_presents: profsIds })
-          }).catch(() => {});
-        }
-        // Tracer le PDF (appel après un court délai pour laisser le temps à l'utilisateur d'imprimer)
-        setTimeout(() => {
-          authFetch(`/api/procedures/archives/${pid}/trace-pdf`, { method: 'POST' })
-            .then(tr => {
-              if (tr?.sig_code) {
-                // Injecter le code signature en invisible dans le HTML (blanc sur blanc, hors impression)
-                setPreviewHtml(prev => prev
-                  ? prev + `<div style="color:white;font-size:1px;user-select:none;position:absolute;opacity:0" aria-hidden="true"><!--lucie-sig:${pid}:${tr.sig_code}:${tr.genere_par}:${tr.genere_le}--></div>`
-                  : prev
-                );
-              }
-            }).catch(() => {});
-        }, 1500);
-      }
-    } catch(e) { informer('Erreur : ' + e.message); }
-  }
-
-  // Barre de progression
-  const steps = ['Dossier & UE', 'Qualification', 'Recevabilité', 'Analyse au fond', 'Décision'];
-
   return (
-    <div className="max-w-[1100px] space-y-6">
-
-      {/* Indicateur autosave */}
-      {autosaved && (
-        <div className="fixed bottom-4 right-4 z-50 bg-gray-800/80 text-white text-xs px-3 py-1.5 rounded-champ flex items-center gap-1.5 pointer-events-none">
-          <span>✓</span> Brouillon sauvegardé
-        </div>
-      )}
-
-      {/* ── 1 · IDENTIFICATION DU DOSSIER ── */}
-      <Section title="1 · Identification du dossier">
-        <div className="grid grid-cols-2 gap-4 mb-4">
-          <label className="block">
-            <div className="text-xs font-semibold text-gray-600 mb-1">Nom de l'étudiant·e *</div>
-            <input value={etudiant} onChange={e => setEtudiant(e.target.value)} placeholder="Prénom NOM"
-              className="w-full border border-gray-300 rounded px-3 py-1.5 h-9 text-sm" />
-          </label>
-          <label className="block">
-            <div className="text-xs font-semibold text-gray-600 mb-1">Section</div>
-            <select value={sectionSel} onChange={e => { setSectionSel(e.target.value); setUeNum(''); }}
-              className="w-full border border-gray-300 rounded px-3 py-1.5 h-9 text-sm bg-white">
-              <option value="">— Toutes les sections —</option>
-              {sectionsListe.map(s => <option key={s} value={s}>{s}</option>)}
-            </select>
-          </label>
-          <label className="block">
-            <div className="text-xs font-semibold text-gray-600 mb-1">UE concernée *</div>
-            <select value={ueNum} onChange={e => setUeNum(e.target.value)}
-              className="w-full border border-gray-300 rounded px-3 py-1.5 h-9 text-sm bg-white">
-              <option value="">— Choisir une UE —</option>
-              {uesFiltrees.map(u => <option key={u.ue_num} value={u.ue_num}>UE {u.ue_num} — {u.ue_nom}</option>)}
-            </select>
-          </label>
-          <label className="block">
-            <div className="text-xs font-semibold text-gray-600 mb-1">Date de publication des résultats</div>
-            <input type="date" value={datePubli} onChange={e => setDatePubli(e.target.value)}
-              className="w-full border border-gray-300 rounded px-3 py-1.5 h-9 text-sm" />
-            {datePubli && <p className="text-xs text-gray-500 mt-0.5">Limite recours : <strong>{fmt(limiteRecours)}</strong></p>}
-          </label>
-          <label className="block">
-            <div className="text-xs font-semibold text-gray-600 mb-1">Date de réception de la plainte</div>
-            <input type="date" value={dateRecours} onChange={e => setDateRecours(e.target.value)}
-              className="w-full border border-gray-300 rounded px-3 py-1.5 h-9 text-sm" />
-            {nbJours !== null && (
-              <p className={`text-xs mt-0.5 font-semibold inline-flex items-center gap-1 ${delaiRespect ? 'text-green-700' : 'text-red-700'}`}>
-                J+{nbJours} → {delaiRespect ? <><IconCheck size={14} /> Dans le délai</> : <><IconX size={14} /> HORS DÉLAI</>}
-              </p>
-            )}
-          </label>
-        </div>
-
-        {/* Professeurs de l'UE — checkboxes présents à la délibération */}
-        {ueNum && (
-          <div className="mt-3 p-4 bg-iip-turquoise/5 border border-iip-turquoise/30 rounded-lg">
-            <div className="flex items-center justify-between mb-2">
-              <p className="text-sm font-bold text-iip-blue">
-                Enseignants de l'UE {ueNum}{ueNom ? ` — ${ueNom}` : ''} ({annee})
-                {loadingProfs && <span className="text-xs font-normal ml-2">Chargement…</span>}
-              </p>
-              {profs.length > 0 && (
-                <button onClick={() => setProfsPresents(new Set(profs.map(p => p.id)))}
-                  className="text-xs text-iip-blue hover:underline">Tout cocher</button>
-              )}
-            </div>
-            {profs.length === 0 && !loadingProfs && (
-              <p className="text-sm text-gray-500 italic">Aucun enseignant attribué pour cette UE.</p>
-            )}
-            {profs.length > 0 && (
-              <>
-                <p className="text-xs text-iip-blue mb-2">Cochez les membres <strong>présents</strong> à la délibération (CDE restreint = Président + min. 2 membres — Art. 89 §1) :</p>
-                <div className="space-y-1">
-                  {profs.map(p => (
-                    <label key={p.id} className={`flex items-center gap-3 px-3 py-2 rounded-lg border cursor-pointer transition ${profsPresents.has(p.id) ? 'bg-green-50 border-green-400 border-l-4 border-l-green-500' : 'bg-white border-iip-turquoise/30 hover:bg-iip-turquoise/5'}`}>
-                      <input type="checkbox" checked={profsPresents.has(p.id)} onChange={() => toggleProfPresent(p.id)} className="w-4 h-4 accent-green-600" />
-                      <span className={`w-7 h-7 rounded-full text-white text-xs font-bold flex items-center justify-center flex-shrink-0 ${profsPresents.has(p.id) ? 'bg-green-600' : 'bg-iip-turquoise'}`}>
-                        {(p.nom[0]||'?').toUpperCase()}
-                      </span>
-                      <span className={`text-sm font-medium flex-1 ${profsPresents.has(p.id) ? 'text-green-800' : 'text-gray-700'}`}>{p.nomComplet}</span>
-                      {p.qualite && <span className="text-xs text-gray-400 italic">{p.qualite}</span>}
-                      {profsPresents.has(p.id) && <IconCheck size={15} className="text-green-700 ml-1" />}
-                    </label>
-                  ))}
-                </div>
-                {profsPresents.size > 0 && (
-                  <p className={`text-xs mt-2 font-medium inline-flex items-center gap-1 ${profsPresents.size >= 3 ? 'text-green-700' : 'text-orange-600'}`}>
-                    {profsPresents.size} membre{profsPresents.size > 1 ? 's' : ''} présent{profsPresents.size > 1 ? 's' : ''}
-                    {profsPresents.size >= 3
-                      ? <><IconCheck size={14} /> Quorum atteint</>
-                      : <><IconAlertTriangle size={14} /> Min. 3 membres requis ({3 - profsPresents.size} manquant{3 - profsPresents.size > 1 ? 's' : ''})</>}
-                  </p>
-                )}
-                {profsPresents.size === 0 && (
-                  <p className="text-xs text-orange-600 mt-2 inline-flex items-center gap-1"><IconAlertTriangle size={14} /> Cochez les membres présents pour les inclure dans le PV.</p>
-                )}
-              </>
-            )}
-          </div>
+    <div className="relative">
+      <RailLateral
+        icon={IconScale}
+        titre="Procédures"
+        sousTitre={`Année ${annee}`}
+        sections={[{
+          items: [
+            { key: 'registre', label: 'Registre', icon: IconListDetails,
+              actif: vue === 'registre', onClick: () => { setVue('registre'); setDossierId(null); } },
+            { key: 'anciens', label: 'Anciens dossiers', icon: IconArchive,
+              actif: vue === 'anciens', onClick: () => { setVue('anciens'); setDossierId(null); } },
+          ],
+        }]}
+      />
+      <div className="gouttiere-rail p-4 md:p-6">
+        {refErreur && <Encadre etat="corriger" className="mb-3">{refErreur}</Encadre>}
+        {vue === 'anciens' && (
+          <>
+            <PageHeader titre="Anciens dossiers" sous="Recours et fraudes enregistrés avant le 3 octobre 2026 — en lecture" />
+            <Suspense fallback={<div className="text-[13px] text-slate-400 p-6">Chargement…</div>}>
+              <ArchivesProcedures />
+            </Suspense>
+          </>
         )}
-      </Section>
-
-      {/* ── 2 · QUALIFICATION DE LA DÉCISION ── */}
-      <Section title="2 · Qualification de la décision">
-        <Q num="1" text="La décision contestée est-elle une DÉCISION DE REFUS ?" value={q.decisionRefus} onChange={v => set('decisionRefus', v)} ref_={UI.porteeRefus} />
-        {q.decisionRefus === 'non' && (
-          <div className="mt-3 p-4 bg-red-100 border-2 border-red-500 rounded-lg border-l-4 border-l-red-500">
-            <p className="font-bold text-red-800 inline-flex items-center gap-1.5"><IconBan size={18} /> IRRECEVABLE DE PLEIN DROIT</p>
-            <p className="text-red-700 text-sm mt-1">Seules les décisions de REFUS sont recourables. Les ajournements (1re session), VA/VAE et délivrances de titre ne peuvent pas faire l'objet d'un recours.</p>
-            <p className="text-xs text-red-600 mt-1 inline-flex items-center gap-1"><IconScale size={13} /> {UI.porteeRefus2}</p>
-          </div>
+        {vue === 'registre' && !dossierId && (
+          <Registre annee={annee} peutOuvrir={!!ref?.peut_instruire}
+            onOuvrir={() => setOuvrir(true)} onChoisir={setDossierId} />
         )}
-        {q.decisionRefus === 'oui' && (
-          <div className="mt-3 p-3 bg-green-50 border border-green-200 rounded text-sm text-green-800 inline-flex items-center gap-1.5 border-l-4 border-l-green-500">
-            <IconCheck size={16} /> La décision est de nature recourable (décision de refus). Procéder à l'analyse de recevabilité.
-          </div>
+        {vue === 'registre' && dossierId && (
+          <Dossier id={dossierId} ref_={ref} onRetour={() => setDossierId(null)} />
         )}
-        {q.decisionRefus === 'oui' && delaiRespect === false && (
-          <div className="mt-2 p-3 bg-orange-50 border-2 border-orange-400 rounded text-sm text-orange-800 flex items-start gap-1.5 border-l-4 border-l-orange-500">
-            <IconAlertTriangle size={16} className="flex-shrink-0 mt-0.5" />
-            <span><strong>Attention :</strong> le délai de 4 jours calendrier est dépassé (J+{nbJours}). La plainte sera vraisemblablement <strong>irrecevable</strong> pour ce motif — vérification formelle ci-dessous.</span>
-          </div>
-        )}
-      </Section>
-
-      {/* ── 3 · RECEVABILITÉ FORMELLE ── */}
-      <Section title={`3 · Recevabilité formelle (${is2526 ? 'Art. 67 ROI/RGE' : 'Art. 88 §3'})`}>
-        <p className="text-sm text-gray-600 mb-4">4 conditions <strong>cumulatives</strong> — une seule manquante = irrecevable.</p>
-        <Q num="1" text="La plainte respecte-t-elle les conditions de forme (écrit avec accusé de réception, remise contre accusé ou recommandé) ?" value={q.ecrit} onChange={v => set('ecrit', v)} ref_={is2526 ? 'Art. 67 ROI/RGE' : 'Art. 88 §3'} />
-        {delaiRespect !== null
-          ? <div className="mb-4 pl-10"><Badge ok={delaiRespect} label={delaiRespect ? `J+${nbJours} — Dans le délai` : `J+${nbJours} — HORS DÉLAI`} /><Ref text={is2526 ? 'Art. 67 ROI/RGE' : 'Art. 88 §1'} /></div>
-          : <Q num="2" text="Plainte reçue dans les 4 jours calendrier après publication ?" value={q.delaiRespect} onChange={v => set('delaiRespect', v)} ref_={is2526 ? 'Art. 67 ROI/RGE' : 'Art. 88 §1'} />}
-        <Q num="3" text="Porte sur une DÉCISION DE REFUS (pas ajournement, pas VA/VAE) ?" value={q.porteRefus} onChange={v => set('porteRefus', v)} ref_={is2526 ? 'Art. 65 ROI/RGE' : 'Art. 88 §3'} />
-        <Q num="4" text="Mentionne des IRRÉGULARITÉS PRÉCISES (pas juste 'je ne suis pas d'accord') ?" value={q.irregulPrecises} onChange={v => set('irregulPrecises', v)} ref_={is2526 ? 'Art. 67 ROI/RGE' : 'Art. 88 §3'} />
-
-        {conditionsRecevabilite.some(c => c.ok !== undefined) && (
-          <div className={`p-4 rounded-xl border-2 mt-4 ${recevable ? 'bg-green-50 border-green-500' : irrecevable ? 'bg-red-50 border-red-500' : 'bg-gray-50 border-gray-300'}`}>
-            {recevable && <>
-              <p className="font-bold text-green-800 text-base inline-flex items-center gap-1.5"><IconCircleCheck size={20} /> RECEVABLE — Procéder à l'instruction</p>
-              {limiteDecisionInterne && <p className="text-sm text-green-700 mt-1 inline-flex items-center gap-1"><IconClock size={14} /> Date limite décision interne : <strong>{fmt(limiteDecisionInterne)}</strong></p>}
-            </>}
-            {irrecevable && !recevable && <>
-              <p className="font-bold text-red-800 text-base inline-flex items-center gap-1.5"><IconBan size={20} /> IRRECEVABLE</p>
-              {conditionsRecevabilite.filter(c => c.ok === false).map(c => (
-                <p key={c.label} className="text-sm text-red-700 mt-1 inline-flex items-center gap-1"><IconX size={14} /> {c.label} <Ref text={c.ref} /></p>
-              ))}
-              <p className="text-sm text-red-700 mt-2">→ Notifier à l'étudiant par écrit ({is2526 ? 'Art. 67 ROI/RGE' : 'Art. 88 §4'}).</p>
-            </>}
-          </div>
-        )}
-      </Section>
-
-      {/* ── 4 · ANALYSE AU FOND ── */}
-      <Section title="4 · Analyse au fond (irrégularités invoquées)">
-        <p className="text-sm text-gray-600 mb-4">Seules les irrégularités de <strong>procédure ou de droit</strong> peuvent fonder un recours. La Commission de recours peut annuler mais ne substitue pas sa note.</p>
-        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">A — Délibération</p>
-        <Q num="1" text="Le quorum était-il atteint ? (Président + min. 2 membres)" value={q.quorum} onChange={v => set('quorum', v)} ref_={is2526 ? 'Art. 14 ROI/RGE' : 'Art. 89 §1'} />
-        <Q num="2" text="Conflit d'intérêt non déclaré parmi les membres du jury ?" value={q.conflitInteret} onChange={v => set('conflitInteret', v)} />
-        <Q num="3" text="Justification de l'échec (AA non atteints) encodée et communiquée ?" value={q.motivJustif} onChange={v => set('motivJustif', v)} ref_={is2526 ? 'Art. 50 ROI/RGE' : 'Art. 71'} />
-        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2 mt-3">B — Évaluation</p>
-        <Q num="4" text="DUE fournis dans les délais ?" value={q.dueDelai} onChange={v => set('dueDelai', v)} />
-        <Q num="5" text="Visite des copies proposée dans les délais (J+1 après délibération) ?" value={q.visiteCopies} onChange={v => set('visiteCopies', v)} ref_={is2526 ? 'Art. 50 ROI/RGE' : 'Art. 71 §1'} />
-        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2 mt-3">C — Post-délibération</p>
-        <Q num="6" text="Résultats publiés dans les 2 jours ouvrables suivant la délibération ?" value={q.publiResultats} onChange={v => set('publiResultats', v)} ref_={is2526 ? 'Art. 63 ROI/RGE' : 'Art. 82'} />
-      </Section>
-
-      {/* ── 5 · DÉCISION MOTIVÉE & RÉUNION DU CDE ── */}
-      <Section title="5 · Décision motivée & réunion du CDE">
-        {/* Date du CDE — placée ici, APRÈS la recevabilité */}
-        <div className="grid grid-cols-2 gap-4 mb-5">
-          <label className="block">
-            <div className="text-xs font-semibold text-gray-600 mb-1">Date de réunion du CDE restreint</div>
-            <input type="date" value={dateSeance} onChange={e => setDateSeance(e.target.value)}
-              className="w-full border border-gray-300 rounded px-3 py-1.5 h-9 text-sm" />
-            {limiteDecisionInterne && <p className="text-xs text-gray-500 mt-0.5">Date limite décision : <strong>{fmt(limiteDecisionInterne)}</strong></p>}
-          </label>
-        </div>
-
-        {/* Synthèse */}
-        <div className={`p-4 rounded-lg border-2 mb-5 ${recevable ? 'border-green-500 bg-green-50 border-l-4 border-l-green-500' : 'border-red-500 bg-red-50'}`}>
-          <p className="font-bold text-base inline-flex items-center gap-1.5">{recevable ? <><IconCircleCheck size={18} /> Recevable</> : <><IconBan size={18} /> Irrecevable</>}</p>
-          {recevable && (() => {
-            const irregs = [
-              q.quorum === 'non' && 'Quorum non atteint (Art. 89 §1)',
-              q.conflitInteret === 'oui' && 'Conflit d\'intérêt',
-              q.motivJustif === 'non' && 'Justification AA manquante (Art. 71)',
-              q.visiteCopies === 'non' && 'Visite des copies non proposée (Art. 71 §1)',
-              q.publiResultats === 'non' && `Publication tardive (${is2526 ? 'Art. 63 ROI/RGE' : 'Art. 82'})`,
-            ].filter(Boolean);
-            return irregs.length
-              ? <><p className="text-sm text-red-700 mt-2 font-medium">Irrégularités relevées :</p>{irregs.map(i=><p key={i} className="text-sm text-red-700 inline-flex items-center gap-1"><IconX size={14} /> {i}</p>)}</>
-              : <p className="text-sm text-green-700 mt-1">Aucune irrégularité de fond relevée — recours rejeté.</p>;
-          })()}
-        </div>
-
-        {/* Procédure */}
-        <div className="space-y-2 mb-5">
-          {[
-            {n:1, label:'Accusé de réception', detail:'Envoyer immédiatement un accusé de réception à l\'étudiant.'},
-            {n:2, label:'Convoquer le CDE restreint', detail:`Président + min. 2 membres.${profsPresents.size > 0 ? ' Présents cochés : ' + profs.filter(p=>profsPresents.has(p.id)).map(p=>p.nomComplet).join(', ') + '.' : profs.length ? ' Enseignants de l\'UE : ' + profs.map(p=>p.nomComplet).join(', ') + ' (cochez les présents en section 1).' : ''}`},
-            {n:3, label:'Instruction', detail:'Examiner les griefs argument par argument. Consulter épreuves, DUE, feuilles de délibération.'},
-            {n:4, label:'Décision motivée', detail:'Rédiger la décision en exposant pourquoi chaque grief est accepté ou rejeté.'},
-            {n:5, label:'Notification par recommandé', detail:`${limiteDecisionInterne ? 'Date limite : ' + fmt(limiteDecisionInterne) + '.' : 'Envoyer dans le délai légal (7 jours calendrier hors congés).'}`},
-            {n:6, label:'Archivage', detail:'Classer le dossier complet (plainte + pièces + décision + récépissé recommandé).'},
-          ].map(item => (
-            <div key={item.n} className="flex gap-3 p-3 bg-white border border-gray-200 rounded-lg text-sm">
-              <div className="w-6 h-6 rounded-full bg-iip-turquoise text-white text-xs font-bold flex items-center justify-center flex-shrink-0">{item.n}</div>
-              <div><p className="font-semibold">{item.label}</p><p className="text-gray-600">{item.detail}</p></div>
-            </div>
-          ))}
-        </div>
-
-        {limiteRecourseExterne && (
-          <div className="p-3 bg-orange-50 border border-orange-300 rounded text-sm mb-5 inline-flex items-center gap-1.5 border-l-4 border-l-orange-500">
-            <IconClock size={15} /> <strong>Limite recours externe :</strong> {fmt(limiteRecourseExterne)}
-            <span className="text-xs text-orange-700 ml-2 inline-flex items-center gap-1"><IconScale size={12} /> Art. 90 §2 RDE/ROI</span>
-          </div>
-        )}
-
-        {/* Date d'envoi + commentaire — saisis après la délibération */}
-        <div className="border border-gray-200 rounded-lg p-4 mb-5 bg-gray-50 space-y-4">
-          <p className="text-sm font-semibold text-gray-700">À compléter après la réunion du CDE restreint :</p>
-
-          <label className="block">
-            <div className="text-xs font-semibold text-gray-600 mb-1">
-              Date d'envoi de la décision par recommandé
-              <span className="text-gray-400 font-normal ml-1">(déclenche le délai de recours externe)</span>
-            </div>
-            <input type="date" value={dateDecisionInterne} onChange={e => setDateDecisionInterne(e.target.value)}
-              className="w-full border border-gray-300 rounded px-3 py-1.5 h-9 text-sm bg-white" />
-            {limiteRecourseExterne && (
-              <p className="text-xs text-orange-700 mt-1 font-medium inline-flex items-center gap-1">
-                <IconClock size={13} /> Limite recours externe : <strong>{fmt(limiteRecourseExterne)}</strong>
-                <span className="text-gray-500 font-normal ml-1">(J+3 ouvrables + 7 jours calendrier — Art. 90 §2)</span>
-              </p>
-            )}
-          </label>
-
-          <label className="block">
-            <div className="text-xs font-semibold text-gray-600 mb-1">
-              Observations / commentaire du CDE
-              <span className="text-gray-400 font-normal ml-1">(facultatif — apparaîtra dans la décision)</span>
-            </div>
-            {/* Justifications cochables */}
-            <div className="border border-gray-200 rounded-lg overflow-hidden mb-2">
-              {justificationsDB.map((j, i) => {
-                const checked = justificationsChoisies.has(i);
-                return (
-                  <label key={i} className={`flex items-start gap-2.5 px-3 py-2 cursor-pointer transition-colors ${checked ? 'bg-blue-50 border-l-2 border-iip-turquoise' : 'hover:bg-gray-50 border-l-2 border-transparent'} ${i > 0 ? 'border-t border-gray-100' : ''}`}>
-                    <input type="checkbox" checked={checked} onChange={() => {
-                      setJustificationsChoisies(prev => {
-                        const n = new Set(prev);
-                        n.has(i) ? n.delete(i) : n.add(i);
-                        return n;
-                      });
-                    }} className="mt-0.5 flex-shrink-0 accent-iip-blue" />
-                    <span className="text-xs text-gray-700 leading-relaxed">{j}</span>
-                  </label>
-                );
-              })}
-            </div>
-            {/* Commentaire libre complémentaire */}
-            <textarea value={commentaireCDE} onChange={e => setCommentaireCDE(e.target.value)}
-              rows={3} placeholder="Commentaire libre complémentaire (optionnel)…"
-              className="w-full border border-gray-300 rounded px-3 py-2 text-sm bg-white resize-y" />
-          </label>
-
-          {/* Upload courrier étudiant */}
-          <div className="border border-dashed border-gray-300 rounded-lg p-3 bg-gray-50">
-            <div className="text-xs font-semibold text-gray-600 mb-1">
-              Courrier de recours reçu
-              <span className="text-gray-400 font-normal ml-1">(optionnel — PDF, Word, image…)</span>
-            </div>
-            {fichierRecours?.ok ? (
-              <div className="flex items-center gap-2 text-sm text-green-700">
-                <span>✓</span>
-                <span className="truncate">{fichierRecours.nom}</span>
-                <button onClick={() => setFichierRecours(null)} className="text-gray-400 hover:text-red-500 ml-auto text-xs">×</button>
-              </div>
-            ) : (
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input type="file" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.eml,.msg" className="hidden"
-                  onChange={async e => {
-                    const file = e.target.files?.[0];
-                    if (!file) return;
-                    setFichierRecours({ nom: file.name, uploading: true, ok: false });
-                    if (!procId) {
-                      // Pas encore de procédure créée : stocker le fichier en mémoire pour upload après génération
-                      setFichierRecours({ nom: file.name, uploading: false, ok: false, file });
-                      return;
-                    }
-                    const fd = new FormData(); fd.append('fichier', file);
-                    try {
-                      const r = await fetch(`/api/procedures/archives/${procId}/upload`, {
-                        method: 'POST', headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }, body: fd
-                      });
-                      const d = await r.json();
-                      if (d.ok) setFichierRecours({ nom: file.name, uploading: false, ok: true });
-                      else setFichierRecours({ nom: file.name, uploading: false, ok: false, erreur: d.error });
-                    } catch { setFichierRecours({ nom: file.name, uploading: false, ok: false, erreur: 'Erreur réseau' }); }
-                  }} />
-                <span className="text-xs text-gray-500">{fichierRecours?.uploading ? 'Envoi…' : 'Cliquer pour téléverser le courrier reçu'}</span>
-              </label>
-            )}
-          </div>
-        </div>
-
-        {/* Bouton génération */}
-        <button onClick={ouvrirDecision}
-          className="w-full bg-iip-turquoise hover:opacity-90 text-white py-3 rounded-xl text-sm font-bold flex items-center justify-center gap-2">
-          <IconFileText size={18} /> Générer la décision motivée (Word / PDF)
-        </button>
-        <p className="text-xs text-gray-500 text-center mt-1">Document officiel à imprimer, signer et envoyer par recommandé à l'étudiant.</p>
-      </Section>
-
-      {/* Réinitialiser */}
-      <div className="flex justify-end">
-        <button onClick={() => { setStep(1); setQ({}); setEtudiant(''); setUeNum(''); setDatePubli(''); setDateRecours(''); setDateDecisionInterne(''); setDateSeance(''); setCommentaireCDE(''); setProfsPresents(new Set()); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
-          className="border border-iip-turquoise text-iip-turquoise px-6 py-2 rounded-lg text-sm font-medium hover:bg-iip-turquoise/5 inline-flex items-center gap-1.5">
-          <IconRefresh size={16} /> Nouveau recours
-        </button>
       </div>
-
-      {previewHtml && (
-        <PreviewModal html={previewHtml} titre="PV de recours — Décision motivée" onClose={() => setPreviewHtml(null)}
-          destinataire={{ nom: etudiant || 'Étudiant' }} typeDoc="decision_recours"
-          sujetMail={`Décision du Conseil des études — recours${ueNum ? ` UE ${ueNum}` : ''} — Institut Ilya Prigogine`}
-          actionExtra={
-            <button onClick={async () => {
-                try {
-                  const res = await fetch('/api/procedures/html-to-pdf', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('token')}` },
-                    body: JSON.stringify({ html: previewHtml, nom: `PV_Recours_${etudiant || ''}` }),
-                  });
-                  if (!res.ok) throw new Error((await res.json().catch(()=>({}))).error || 'Erreur serveur');
-                  const blob = await res.blob();
-                  const url = URL.createObjectURL(blob);
-                  const a = document.createElement('a');
-                  a.href = url; a.download = `PV_Recours_${etudiant || ''}.pdf`;
-                  a.click(); URL.revokeObjectURL(url);
-                } catch (e) { informer('Erreur : ' + e.message); }
-              }}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-red-600 text-white rounded-lg text-xs font-medium hover:opacity-90">
-              <IconFileText size={13}/> Télécharger PDF
-            </button>
-          }
-        />
+      {ouvrir && (
+        <OuvrirDossier annee={annee} onFermer={() => setOuvrir(false)}
+          onOuvert={d => { setOuvrir(false); setVue('registre'); setDossierId(d.id); }} />
       )}
     </div>
   );
 }
 
-// ─── OUTIL FRAUDE ─────────────────────────────────────────────────────────────
-function genererPVFraude({ etudiant, ueNum, ueNom, profs, profsPresents,
-  dateExamen, dateFaits, dateNotification, dateAudition, dateCDE, dateEnvoi,
-  typeFraude, descriptionFraits, declarationsEtudiant, commentaireCDE,
-  session, recidive, decision, annee }) {
-
-  const today = new Date().toLocaleDateString('fr-BE', { day:'2-digit', month:'long', year:'numeric' });
-  const presents = profsPresents.length > 0 ? profsPresents : profs;
-  const is2526F = annee === '2025-2026';
-  const AF = is2526F ? {
-    plage: 'Art. 54-55 ROI/RGE', plageLong: 'les articles 54 et 55',
-    composition: 'Art. 14 ROI/RGE', notifAudition: 'Art. 54 ROI/RGE',
-    contradictoire: 'Art. 54 ROI/RGE', motivation: 'Art. 55 ROI/RGE',
-    recours: 'Art. 65-68 ROI/RGE', recoursInterne: 'Art. 67 ROI/RGE', roi: 'ROI/RGE',
-  } : {
-    plage: 'Art. 72-75 RDE/ROI', plageLong: 'les articles 72 à 75',
-    composition: 'Art. 72 RDE/ROI', notifAudition: 'Art. 74 §1 RDE/ROI',
-    contradictoire: 'Art. 74 RDE/ROI', motivation: 'Art. 75 RDE/ROI',
-    recours: 'Art. 87-91 RDE/ROI', recoursInterne: 'Art. 88 §1 RDE/ROI', roi: 'RDE/ROI',
-  };
-  const sanction = decision === 'ajournement'
-    ? `L'étudiant·e est AJOURNÉ·E pour les acquis d'apprentissage visés par l'épreuve de l'UE ${ueNum}.`
-    : decision === 'refus'
-    ? `L'étudiant·e est REFUSÉ·E pour l'UE ${ueNum}. La décision de refus est susceptible de recours interne (${AF.recours}).`
-    : 'La décision sera notifiée séparément.';
-
-  const fondJuridique = is2526F
-    ? (session === '2'
-        ? `L'étudiant·e se trouve en deuxième session. Conformément à l'Art. 55 du ROI/RGE, l'étudiant·e est systématiquement refusé·e en cas de fraude constatée en seconde session.`
-        : recidive
-        ? `L'étudiant·e se trouve en situation de récidive. Conformément à l'Art. 55 du ROI/RGE, le Conseil des Études ou le Jury d'Épreuve intégrée peut refuser l'étudiant·e dès la première session.`
-        : `L'étudiant·e se trouve en première session. Conformément à l'Art. 55 du ROI/RGE, l'étudiant·e est soit ajourné·e, soit refusé·e, sur décision du Conseil des Études ou du Jury d'Épreuve intégrée.`)
-    : (session === '2' || recidive
-        ? `L'étudiant·e se trouve en deuxième session${recidive ? ' et/ou en situation de récidive' : ''}. Conformément à l'Art. 73 §2 du RDE/ROI, le CDE peut prononcer un refus systématique.`
-        : `L'étudiant·e se trouve en première session. Conformément à l'Art. 73 §1 du RDE/ROI, la fraude entraîne un ajournement pour les AA visés par l'épreuve concernée.`);
-
-  return `<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8"><title>PV Fraude — ${etudiant}</title>
-<style>
-  body{font-family:Arial,sans-serif;font-size:11pt;color:#000;margin:0;padding:20mm 20mm 15mm 20mm}
-  .header{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid var(--c-refuse);padding-bottom:8px;margin-bottom:16px}
-  .logo-txt{font-size:14pt;font-weight:bold;color:var(--c-texte)}
-  .logo-sub{font-size:9pt;color:#555}
-  .ref{font-size:9pt;text-align:right;color:#555}
-  h2{font-size:13pt;text-align:center;color:var(--c-texte);border:2px solid var(--c-refuse);padding:10px;margin:20px 0}
-  h3{font-size:11pt;font-weight:bold;margin-top:16px;margin-bottom:6px;border-bottom:1px solid #ccc;padding-bottom:3px;color:#333}
-  p{margin:5px 0;line-height:1.5}
-  ol,ul{margin:6px 0 6px 20px} li{margin:4px 0}
-  .composition{background:#fff5f5;border:1px solid var(--c-refuse);padding:8px 12px;margin:10px 0;font-size:10pt}
-  .facts-box{background:#fff8f0;border:1px solid var(--c-attente);padding:10px 14px;margin:10px 0}
-  .decision-box{background:#f0fff0;border:2px solid var(--c-reussi);padding:12px 14px;margin:16px 0}
-  .alert-box{background:#FFFFFF;border:1px solid var(--c-attente);padding:8px 12px;margin:8px 0;font-size:10pt}
-  .signatures{display:flex;justify-content:space-between;margin-top:30px}
-  .sig-block{text-align:center;min-width:180px}
-  .sig-line{border-top:1px solid #000;margin-top:40px;padding-top:4px;font-size:10pt}
-  .footer{border-top:1px solid #ccc;margin-top:20px;padding-top:8px;font-size:8pt;color:#888;text-align:center}
-  @media print{body{padding:10mm 15mm}button{display:none}}
-</style></head><body>
-<div class="header">
-  <div>
-    <div class="logo-txt">Institut Ilya Prigogine</div>
-    <div class="logo-sub">Campus Erasme · Route de Lennik 808 · 1070 Bruxelles<br>direction@institut-prigogine.be · 02/560.29.59</div>
-  </div>
-  <div class="ref">${AF.plage} · Année ${annee}<br>Date : ${today}<br><strong>CONFIDENTIEL</strong></div>
-</div>
-
-<h2>PROCÈS-VERBAL DE FRAUDE<br>PROCÉDURE CONTRADICTOIRE — DÉCISION DU CDE</h2>
-
-<p><strong>Étudiant·e :</strong> ${etudiant || '[NOM ÉTUDIANT]'}</p>
-<p><strong>UE concernée :</strong> UE ${ueNum}${ueNom ? ' — ' + ueNom : ''}</p>
-<p><strong>Date de l'épreuve :</strong> ${fmtCourt(dateExamen) || '—'}</p>
-<p><strong>Session :</strong> ${session === '1' ? '1re session' : '2e session'}${recidive ? ' — <strong>RÉCIDIVE</strong>' : ''}</p>
-${dateCDE ? `<p><strong>Date de réunion du CDE :</strong> ${fmtCourt(dateCDE)}</p>` : ''}
-
-${presents.length > 0 ? `
-<div class="composition">
-  <strong>Composition du Conseil des Études (${AF.composition}) :</strong><br>
-  <table style="width:100%;margin-top:6px;font-size:10pt">
-    <tr style="background:#f5e8e8"><th style="text-align:left;padding:4px 8px">Membre</th><th style="text-align:left;padding:4px 8px">Qualité</th><th style="text-align:center;padding:4px 8px">Présent</th></tr>
-    ${presents.map((p,i) => `<tr style="background:${i%2===0?'#fdf0f0':'white'}">
-      <td style="padding:4px 8px;font-weight:bold">${p.nomComplet}</td>
-      <td style="padding:4px 8px">${p.qualite || 'Membre du CDE'}</td>
-      <td style="padding:4px 8px;text-align:center">✓</td></tr>`).join('')}
-  </table>
-</div>` : ''}
-
-<h3>VU ET CONSIDÉRANT</h3>
-<p>Vu le ${AF.roi} de l'Institut Ilya Prigogine, année académique ${annee}, notamment ${AF.plageLong} ;</p>
-<p>Vu le Décret du 16 avril 1991 relatif à l'enseignement de promotion sociale ;</p>
-<p>Vu le rapport de fraude établi le ${fmtCourt(dateFaits) || '—'} lors de l'épreuve de l'UE ${ueNum} ;</p>
-<p>Vu la notification adressée à l'étudiant·e le ${fmtCourt(dateNotification) || '—'} l'informant de la fraude constatée et de son droit à une audition (${AF.notifAudition}) ;</p>
-${dateAudition ? `<p>Vu l'audition de l'étudiant·e qui s'est tenue le ${fmtCourt(dateAudition)} ;</p>` : '<p>Vu que l\'étudiant·e n\'a pas souhaité être entendu·e dans le délai imparti ;</p>'}
-<p>Vu les pièces du dossier ;</p>
-
-<h3>I. FAITS CONSTATÉS</h3>
-<div class="facts-box">
-  <p><strong>Type de fraude :</strong> ${typeFraude || '—'}</p>
-  <p><strong>Description des faits :</strong></p>
-  <p>${(descriptionFraits || '[À COMPLÉTER]').replace(/\n/g,'<br>')}</p>
-</div>
-
-<h3>II. PROCÉDURE CONTRADICTOIRE (${AF.contradictoire})</h3>
-<p>Conformément à l'${AF.contradictoire}, l'étudiant·e a été informé·e par écrit des faits qui lui sont reprochés et de son droit à être entendu·e.</p>
-${dateAudition
-  ? `<p>L'audition s'est tenue le ${fmtCourt(dateAudition)}. L'étudiant·e a eu la possibilité de présenter ses observations et de se faire assister.</p>
-     <p><strong>Déclarations de l'étudiant·e lors de l'audition :</strong></p>
-     <p style="border-left:3px solid #ccc;padding-left:10px;font-style:italic">${(declarationsEtudiant || 'Aucune déclaration consignée.').replace(/\n/g,'<br>')}</p>`
-  : `<p>L'étudiant·e a été dûment convoqué·e mais ne s'est pas présenté·e à l'audition dans le délai imparti. Le CDE a procédé à la délibération sur base des pièces disponibles.</p>`}
-
-<h3>III. ANALYSE JURIDIQUE</h3>
-<p>${fondJuridique}</p>
-<p>La décision doit être formellement motivée et notifiée à l'étudiant·e (${AF.motivation}). L'étudiant·e dispose du droit au recours prévu aux ${AF.recours} contre toute décision de sanction.</p>
-
-<h3>IV. DÉCISION DU CONSEIL DES ÉTUDES</h3>
-<div class="decision-box">
-  <p style="font-size:13pt;font-weight:bold">${sanction}</p>
-</div>
-${commentaireCDE ? `
-<h3>V. OBSERVATIONS DU CONSEIL DES ÉTUDES</h3>
-<p style="border:1px solid #ccc;padding:10px;background:#fafafa">${commentaireCDE.replace(/\n/g,'<br>')}</p>` : ''}
-
-<h3>VOIES DE RECOURS</h3>
-<div class="alert-box">
-<p>La présente décision peut faire l'objet d'un <strong>recours interne</strong> auprès de la Direction de l'IIP dans un délai de <strong>4 jours calendrier</strong> suivant la publication des résultats (${AF.recoursInterne}), par e-mail à direction@institut-prigogine.be ou remise en main propre au Bureau P2-210.</p>
-</div>
-
-<div class="signatures">
-  <div class="sig-block"><div class="sig-line">Le Président du CDE<br><em>(ou son délégué)</em></div></div>
-  <div class="sig-block"><div class="sig-line">Le Directeur<br>Charles SOHET</div></div>
-</div>
-<div class="footer">
-  Institut Ilya Prigogine · direction@institut-prigogine.be · 02/560.29.59 · www.institut-prigogine.be<br>
-  Document généré par Lucie le ${today} · Fondé sur les ${AF.plage} IIP ${annee} · CONFIDENTIEL
-</div>
-</body></html>`;
+// ═════════════════════════════════════════════════════════════════════════════
+// LE REGISTRE
+// ═════════════════════════════════════════════════════════════════════════════
+function PastilleEcheance({ dossier }) {
+  const p = dossier.prochaine;
+  if (dossier.hors_delai && !p) return <PastilleEtat etat="corriger">hors délai</PastilleEtat>;
+  if (!p) {
+    if (dossier.clos) return <span className="text-[12px] text-slate-400">clos{dossier.issue ? ` · ${libelleIssue(dossier.issue)}` : ''}</span>;
+    return <span className="text-[12px] text-slate-400">—</span>;
+  }
+  const n = joursAvant(p.date);
+  const etat = dossier.hors_delai || (n != null && n <= 3) ? 'corriger' : n != null && n <= 7 ? 'surveiller' : 'reussi';
+  const j = n == null ? '' : n < 0 ? ` · dépassée de ${-n} j` : n === 0 ? " · aujourd'hui" : ` · J-${n}`;
+  return <PastilleEtat etat={etat} title={p.label}>{`${p.label.replace(/ au plus (tard|tôt)$/, '')} ${fmt(p.date)}${j}`}</PastilleEtat>;
+}
+function libelleIssue(i) {
+  const T = { accueilli: 'accueilli', rejete: 'rejeté', irrecevable: 'irrecevable' };
+  return T[i] || i.replace(/_/g, ' ');
 }
 
-function OutilFraude({ initialPayload, onPayloadConsumed }) {
-  const annee = getAnnee();
-  const is2526F = annee === '2025-2026';
-  const [step, setStep] = useState(1);
-  const [previewHtml, setPreviewHtml] = useState(null);
-
-  // Données dossier
-  const [etudiant, setEtudiant]           = useState('');
-  const [ueNum, setUeNum]                 = useState('');
-  const [ueNom, setUeNom]                 = useState('');
-  const [session, setSession]             = useState('1');
-  const [recidive, setRecidive]           = useState(false);
-  const [dateExamen, setDateExamen]       = useState('');
-  const [dateFaits, setDateFaits]         = useState('');
-  const [typeFraude, setTypeFraude]       = useState('');
-  const [descriptionFraits, setDescriptionFraits] = useState('');
-  const [dateNotification, setDateNotification] = useState('');
-  const [dateAudition, setDateAudition]   = useState('');
-  const [declarationsEtudiant, setDeclarationsEtudiant] = useState('');
-  const [dateCDE, setDateCDE]             = useState('');
-  const [dateEnvoi, setDateEnvoi]         = useState('');
-  const [decision, setDecision]           = useState('');
-  const [commentaireCDE, setCommentaireCDE] = useState('');
-  const [procId, setProcId]           = useState(null);   // ID archive après première génération
-  const [justificationsChoisies, setJustificationsChoisies] = useState(new Set()); // indices cochés
-  const [justificationsDB, setJustificationsDB] = useState(JUSTIFS_DEFAUT); // chargées depuis la config
-  const [fichierRecours, setFichierRecours] = useState(null); // { nom, uploading, ok }
-  const [momentFaits, setMomentFaits]     = useState('pendant'); // 'pendant' (Art.73) | 'correction' (Art.74)
-  const [conteste, setConteste]           = useState(false);     // l'étudiant conteste les faits → audition
-
-  // Pré-remplissage depuis une archive
-  useEffect(() => {
-    if (!initialPayload) return;
-    const p = initialPayload;
-    if (p.etudiant)              setEtudiant(p.etudiant);
-    if (p.ue_num)                setUeNum(String(p.ue_num));
-    if (p.ue_nom)                setUeNom(p.ue_nom);
-    if (p.session)               setSession(p.session);
-    if (p.recidive !== undefined) setRecidive(!!p.recidive);
-    if (p.date_examen)           setDateExamen(p.date_examen);
-    if (p.date_faits)            setDateFaits(p.date_faits);
-    if (p.type_fraude)           setTypeFraude(p.type_fraude);
-    if (p.description_faits)     setDescriptionFraits(p.description_faits);
-    if (p.date_notification)     setDateNotification(p.date_notification);
-    if (p.date_audition)         setDateAudition(p.date_audition);
-    if (p.declarations_etudiant) setDeclarationsEtudiant(p.declarations_etudiant);
-    if (p.date_cde)              setDateCDE(p.date_cde);
-    if (p.date_envoi)            setDateEnvoi(p.date_envoi);
-    if (p.decision)              setDecision(p.decision);
-    if (p.commentaire_cde)       setCommentaireCDE(p.commentaire_cde);
-    if (p.moment_faits)          setMomentFaits(p.moment_faits);
-    if (p.conteste !== undefined) setConteste(!!p.conteste);
-    else if (p.date_audition)    setConteste(true);
-    setStep(1);
-    onPayloadConsumed?.();
-  }, [initialPayload]);
-
-  // Profs & membres CDE
-  const [profs, setProfs]                 = useState([]);
-  const [profsPresents, setProfsPresents] = useState(new Set());
-  const [loadingProfs, setLoadingProfs]   = useState(false);
-  const [ues, setUes]                     = useState([]);
-  const [membresCde, setMembresCde]       = useState([]);
-  const [sectionsListe, setSectionsListe] = useState([]);
-  const [sectionSel, setSectionSel]       = useState('');
+function Registre({ annee, peutOuvrir, onOuvrir, onChoisir }) {
+  const [dossiers, setDossiers] = useState(null);
+  const [erreur, setErreur] = useState(null);
+  const [q, setQ] = useState('');
+  const [filtreType, setFiltreType] = useState('tous');
+  const [section, setSection] = useState('');
+  const [etat, setEtat] = useState('ouverts');
 
   useEffect(() => {
-    authFetch(`/api/ref/structure?annee=${encodeURIComponent(annee)}`)
-      .then(d => {
-        const map = new Map();
-        const secs = new Set();
-        for (const sg of (Array.isArray(d) ? d : [])) {
-          if (sg.section) secs.add(sg.section);
-          for (const ue of (sg.ues || []))
-            if (!map.has(ue.ue_num)) map.set(ue.ue_num, { ...ue, _section: sg.section });
-        }
-        setUes([...map.values()].sort((a,b) => (a.ue_num||0)-(b.ue_num||0)));
-        setSectionsListe([...secs].sort());
-      }).catch(() => {});
-    authFetch(`/api/ref/membres-cde?annee=${encodeURIComponent(annee)}`)
-      .then(d => setMembresCde(Array.isArray(d) ? d : []))
-      .catch(() => {});
+    appel(`${BASE}?annee=${encodeURIComponent(annee)}`).then(r => {
+      if (r.ok) setDossiers(r.data?.dossiers || []);
+      else { setDossiers([]); setErreur(r.data?.error || 'Le registre ne se charge pas.'); }
+    });
   }, [annee]);
 
-  const uesFiltrees = sectionSel ? ues.filter(u => u._section === sectionSel) : ues;
-
-  useEffect(() => {
-    const ue = ues.find(u => String(u.ue_num) === String(ueNum));
-    if (ue) setUeNom(ue.ue_nom || '');
-    const ueSection = sectionSel || ue?._section || null;
-    const cdeFiltrés = membresCde.filter(m => {
-      const portee = m.portee || 'etablissement';
-      if (portee === 'etablissement') return true;
-      return ueSection && Array.isArray(m.sections) && m.sections.includes(ueSection);
+  const sections = useMemo(() => [...new Set((dossiers || []).map(d => d.section).filter(Boolean))].sort(), [dossiers]);
+  const visibles = useMemo(() => {
+    const t = q.trim().toLowerCase();
+    return (dossiers || []).filter(d => {
+      if (filtreType !== 'tous' && genre(d) !== filtreType) return false;
+      if (section && d.section !== section) return false;
+      if (etat === 'ouverts' && d.clos) return false;
+      if (etat === 'clos' && !d.clos) return false;
+      if (t) {
+        const n = `${d.etudiant?.nom || ''} ${d.etudiant?.prenom || ''} ${d.etudiant?.id_ecampus || ''}`.toLowerCase();
+        if (!n.includes(t)) return false;
+      }
+      return true;
     });
-    if (!ueNum) { setProfs([...cdeFiltrés]); setProfsPresents(new Set()); return; }
-    setLoadingProfs(true);
-    authFetch(`/api/attributions?annee=${encodeURIComponent(annee)}&ue_num=${encodeURIComponent(ueNum)}`)
-      .then(rows => {
-        const seen = new Set(); const ps = [];
-        for (const r of (Array.isArray(rows) ? rows : []))
-          if (r.professeur_id && !seen.has(r.professeur_id) && !r.is_z) {
-            seen.add(r.professeur_id);
-            const parts = (r.professeur||'').split(' ');
-            ps.push({ id: r.professeur_id, nom: parts[0]||'', prenom: parts.slice(1).join(' ')||'', nomComplet: r.professeur||'', qualite:'Enseignant(e)' });
-          }
-        setProfs([...cdeFiltrés, ...ps]);
-      }).catch(() => setProfs([...cdeFiltrés]))
-      .finally(() => setLoadingProfs(false));
-  }, [ueNum, annee, membresCde, sectionSel, ues]);
-
-  function togglePresent(id) {
-    setProfsPresents(s => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
-  }
-
-  async function ouvrirPV() {
-    const presents = profs.filter(p => profsPresents.has(p.id));
-    try {
-      const res = await authFetch('/api/procedures/pv-fraude', {
-        method: 'POST',
-        body: JSON.stringify({
-          etudiant, ue_num: ueNum, ue_nom: ueNom,
-          membres_presents: (presents.length ? presents : profs)
-            .map(p => ({ nomComplet: p.nomComplet, qualite: p.qualite })),
-          date_examen: dateExamen, date_faits: dateFaits,
-          date_notification: dateNotification, date_audition: dateAudition,
-          date_cde: dateCDE, type_fraude: typeFraude,
-          description_faits: descriptionFraits,
-          declarations_etudiant: declarationsEtudiant,
-          commentaire_cde: commentaireCDE,
-          moment_faits: momentFaits, conteste,
-          session, recidive, decision, annee,
-        }),
-      });
-      if (res.error) { informer('Erreur : ' + res.error); return; }
-      if (res.champs_manquants?.length)
-        informer('⚠ Champs du modèle non disponibles pour cette procédure (laissés vides dans le document) :\n\n• '
-          + res.champs_manquants.join('\n• '));
-      setPreviewHtml(res.html);
-    } catch(e) { informer('Erreur : ' + e.message); }
-  }
-
-  // Délai notification (3 jours après les faits)
-  const limiteNotif = dateFaits ? addJoursCalendrier(dateFaits, 3) : null;
+  }, [dossiers, q, filtreType, section, etat]);
 
   return (
-    <div className="max-w-[1100px] space-y-6">
-
-      {/* L'indicateur « Brouillon sauvegardé » a été retiré : il avait été
-          recopié de l'outil Recours, mais CET outil n'a aucune sauvegarde
-          automatique — ni état, ni minuteur, ni appel serveur. La variable
-          `autosaved` n'existait donc pas ici et l'écran plantait à
-          l'ouverture. L'afficher quand même aurait été pire : on perdrait sa
-          saisie en la croyant à l'abri. */}
-
-      {/* ── 1 · IDENTIFICATION DU DOSSIER ── */}
-      <Section title="1 · Identification du dossier" color="red">
-        <div className="grid grid-cols-2 gap-4 mb-4">
-          <label className="block">
-            <div className="text-xs font-semibold text-gray-600 mb-1">Nom de l'étudiant·e *</div>
-            <input value={etudiant} onChange={e => setEtudiant(e.target.value)} placeholder="Prénom NOM"
-              className="w-full border border-gray-300 rounded px-3 py-1.5 h-9 text-sm" />
-          </label>
-          <label className="block">
-            <div className="text-xs font-semibold text-gray-600 mb-1">Section</div>
-            <select value={sectionSel} onChange={e => { setSectionSel(e.target.value); setUeNum(''); }}
-              className="w-full border border-gray-300 rounded px-3 py-1.5 h-9 text-sm bg-white">
-              <option value="">— Toutes les sections —</option>
-              {sectionsListe.map(s => <option key={s} value={s}>{s}</option>)}
-            </select>
-          </label>
-          <label className="block">
-            <div className="text-xs font-semibold text-gray-600 mb-1">UE concernée *</div>
-            <select value={ueNum} onChange={e => setUeNum(e.target.value)}
-              className="w-full border border-gray-300 rounded px-3 py-1.5 h-9 text-sm bg-white">
-              <option value="">— Choisir une UE —</option>
-              {uesFiltrees.map(u => <option key={u.ue_num} value={u.ue_num}>UE {u.ue_num} — {u.ue_nom}</option>)}
-            </select>
-          </label>
-          <label className="block">
-            <div className="text-xs font-semibold text-gray-600 mb-1">Session</div>
-            <select value={session} onChange={e => setSession(e.target.value)}
-              className="w-full border border-gray-300 rounded px-3 py-1.5 h-9 text-sm bg-white">
-              <option value="1">1re session</option>
-              <option value="2">2e session</option>
-            </select>
-          </label>
-          <label className="flex items-center gap-2 cursor-pointer pt-5">
-            <input type="checkbox" checked={recidive} onChange={e => setRecidive(e.target.checked)} className="w-4 h-4 accent-red-700" />
-            <span className="text-sm font-medium text-red-800">Récidive (fraude antérieure)</span>
-          </label>
-          <label className="block">
-            <div className="text-xs font-semibold text-gray-600 mb-1">Date de l'épreuve</div>
-            <input type="date" value={dateExamen} onChange={e => setDateExamen(e.target.value)}
-              className="w-full border border-gray-300 rounded px-3 py-1.5 h-9 text-sm" />
-          </label>
+    <>
+      <PageHeader titre="Recours et discipline"
+        sous={`Registre ${annee} · RDE art. 72-75, 87-91, 115-119`} />
+      <div className="flex flex-wrap items-center gap-2 mb-3">
+        <div className="relative">
+          <IconSearch size={15} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+          <input className="controle controle-icone w-64" placeholder="Chercher un étudiant…"
+            value={q} onChange={e => setQ(e.target.value)} />
         </div>
-
-        {/* Membres présents */}
-        {ueNum && (
-          <div className="mt-3 p-4 bg-red-50 border border-red-200 rounded-lg border-l-4 border-l-red-500">
-            <div className="flex items-center justify-between mb-2">
-              <p className="text-sm font-bold text-red-900">
-                Membres du CDE présents {loadingProfs && <span className="text-xs font-normal ml-1">…</span>}
-              </p>
-              {profs.length > 0 && (
-                <button onClick={() => setProfsPresents(new Set(profs.map(p => p.id)))}
-                  className="text-xs text-red-600 hover:underline">Tout cocher</button>
-              )}
-            </div>
-            <div className="space-y-1">
-              {profs.map(p => (
-                <label key={p.id} className={`flex items-center gap-3 px-3 py-2 rounded-lg border cursor-pointer transition ${profsPresents.has(p.id)?'bg-green-50 border-green-400':'bg-white border-red-200 hover:bg-red-50'}`}>
-                  <input type="checkbox" checked={profsPresents.has(p.id)} onChange={() => togglePresent(p.id)} className="w-4 h-4 accent-green-600" />
-                  <span className={`w-7 h-7 rounded-full text-white text-xs font-bold flex items-center justify-center flex-shrink-0 ${profsPresents.has(p.id)?'bg-green-600':'bg-red-700'}`}>
-                    {(p.nom[0]||'?').toUpperCase()}
-                  </span>
-                  <span className="text-sm font-medium flex-1">{p.nomComplet}</span>
-                  {p.qualite && <span className="text-xs text-gray-400 italic">{p.qualite}</span>}
-                  {profsPresents.has(p.id) && <IconCheck size={15} className="text-green-700" />}
-                </label>
-              ))}
-            </div>
-            {profsPresents.size > 0 && (
-              <p className={`text-xs mt-2 font-medium inline-flex items-center gap-1 ${profsPresents.size >= 3 ? 'text-green-700' : 'text-orange-600'}`}>
-                {profsPresents.size} membre{profsPresents.size>1?'s':''} présent{profsPresents.size>1?'s':''}
-                {profsPresents.size >= 3
-                  ? <><IconCheck size={14} /> Quorum atteint</>
-                  : <><IconAlertTriangle size={14} /> Min. 3 membres requis</>}
-              </p>
-            )}
-          </div>
+        <Segments valeur={filtreType} onChange={setFiltreType}
+          options={[['tous', 'Tous'], ['recours', 'Recours'], ['fraude', 'Fraude'], ['discipline', 'Discipline']]} />
+        <select className="controle" value={section} onChange={e => setSection(e.target.value)}>
+          <option value="">Toutes les sections</option>
+          {sections.map(s => <option key={s} value={s}>{s}</option>)}
+        </select>
+        <select className="controle" value={etat} onChange={e => setEtat(e.target.value)}>
+          <option value="ouverts">Ouverts</option>
+          <option value="clos">Clos</option>
+          <option value="tous">Ouverts et clos</option>
+        </select>
+        <span className="flex-1" />
+        {peutOuvrir && (
+          <button type="button" className="bouton bouton-fort" onClick={onOuvrir}>
+            <IconPlus size={15} /> Ouvrir un dossier
+          </button>
         )}
-      </Section>
+      </div>
+      {erreur && <Encadre etat="corriger" className="mb-3">{erreur}</Encadre>}
+      <Tableau>
+        <TableauEntete>
+          <Th>Type</Th><Th>Étudiant</Th><Th>Section · UE</Th><Th>Objet</Th><Th>Étape</Th><Th>Échéance</Th>
+        </TableauEntete>
+        <tbody>
+          {dossiers == null && <TableauVide colonnes={6}>Chargement…</TableauVide>}
+          {dossiers && !visibles.length && (
+            <TableauVide colonnes={6}>
+              {dossiers.length ? 'Aucun dossier ne répond à ces filtres.' : `Aucun dossier ouvert en ${annee}.`}
+            </TableauVide>
+          )}
+          {visibles.map(d => (
+            <Tr key={d.id} className="cursor-pointer" onClick={() => onChoisir(d.id)}>
+              <Td><PastilleType dossier={d} /></Td>
+              <Td ton="fort">{nomPropre(d.etudiant?.nom, d.etudiant?.prenom)}</Td>
+              <Td>{[d.section, d.ue_num ? `UE ${d.ue_num}` : null].filter(Boolean).join(' · ') || '—'}</Td>
+              <Td>{d.objet || <span className="text-slate-400">—</span>}</Td>
+              <Td>{d.clos ? <span className="text-slate-400">Clos</span> : (d.courante_label || '—')}</Td>
+              <Td><PastilleEcheance dossier={d} /></Td>
+            </Tr>
+          ))}
+        </tbody>
+      </Tableau>
+    </>
+  );
+}
 
-      {/* ── 2 · LES FAITS ── */}
-      <Section title="2 · Les faits" color="red">
-        {/* Moment de la constatation : pendant l'épreuve (Art. 73) / à la correction (Art. 74) */}
-        <div className="mb-4">
-          <div className="text-xs font-semibold text-gray-600 mb-1.5">Moment de la constatation</div>
-          <div className="grid grid-cols-2 gap-3">
-            {[
-              ['pendant',    "Pendant l'épreuve", is2526F ? 'Art. 54 ROI/RGE' : 'Art. 73 RDE/ROI'],
-              ['correction', "À la correction / après l'épreuve", is2526F ? 'Art. 54 ROI/RGE' : 'Art. 74 RDE/ROI'],
-            ].map(([val, label, ref]) => (
-              <label key={val} className={`flex items-start gap-2.5 p-3 rounded-lg border cursor-pointer transition ${momentFaits===val? 'bg-red-50 border-red-500 border-l-4 border-l-red-500' : 'bg-white border-gray-300 hover:bg-gray-50'}`}>
-                <input type="radio" name="momentFaits" value={val} checked={momentFaits===val} onChange={() => setMomentFaits(val)} className="accent-red-700 mt-0.5" />
-                <span><span className="text-sm font-medium block">{label}</span><Ref text={ref} /></span>
-              </label>
-            ))}
-          </div>
+// ═════════════════════════════════════════════════════════════════════════════
+// OUVRIR UN DOSSIER — on part de l'étudiant, Lucie remplit le reste
+// ═════════════════════════════════════════════════════════════════════════════
+function OuvrirDossier({ annee, onFermer, onOuvert }) {
+  const [recherche, setRecherche] = useState('');
+  const [resultats, setResultats] = useState([]);
+  const [etudiant, setEtudiant] = useState(null);
+  const [contexte, setContexte] = useState(null);
+  const [genreChoisi, setGenreChoisi] = useState('recours');
+  const [ueNum, setUeNum] = useState(null);
+  const [ue, setUe] = useState(null);                  // cours, charges, séance
+  const [acquis, setAcquis] = useState([]);            // [{cours_code, aa_code}]
+  const [objet, setObjet] = useState('');
+  const [erreur, setErreur] = useState(null);
+  const [envoi, setEnvoi] = useState(false);
+  const minuterie = useRef(null);
+
+  // La recherche d'étudiant, avec un temps de réflexion.
+  useEffect(() => {
+    clearTimeout(minuterie.current);
+    const t = recherche.trim();
+    if (etudiant || t.length < 2) { setResultats([]); return undefined; }
+    minuterie.current = setTimeout(() => {
+      appel(`/api/etudiants?q=${encodeURIComponent(t)}`).then(r => {
+        setResultats(r.ok && Array.isArray(r.data) ? r.data.slice(0, 10) : []);
+      });
+    }, 250);
+    return () => clearTimeout(minuterie.current);
+  }, [recherche, etudiant]);
+
+  function choisirEtudiant(e) {
+    setEtudiant(e); setResultats([]); setUeNum(null); setUe(null); setAcquis([]); setContexte(null); setErreur(null);
+    appel(`${BASE}/contexte/${e.id}?annee=${encodeURIComponent(annee)}`).then(r => {
+      if (r.ok) setContexte(r.data); else setErreur(r.data?.error || "Les inscriptions de l'étudiant ne se chargent pas.");
+    });
+  }
+  function changerEtudiant() {
+    setEtudiant(null); setContexte(null); setRecherche(''); setUeNum(null); setUe(null); setAcquis([]);
+  }
+
+  // Changer de type efface le choix d'UE s'il n'est plus permis.
+  function changerGenre(g) {
+    setGenreChoisi(g);
+    if (g === 'recours' && ueNum) {
+      const i = contexte?.inscriptions?.find(x => x.ue_num === ueNum);
+      if (!i?.recourable) { setUeNum(null); setUe(null); }
+    }
+    if (g !== 'fraude') setAcquis([]);
+  }
+
+  useEffect(() => {
+    setUe(null); setAcquis([]);
+    if (!ueNum) return;
+    appel(`${BASE}/ue/${ueNum}?annee=${encodeURIComponent(annee)}`).then(r => { if (r.ok) setUe(r.data); });
+  }, [ueNum, annee]);
+
+  const inscriptions = contexte?.inscriptions || [];
+  const permise = i => genreChoisi !== 'recours' || i.recourable;
+
+  const raison = !etudiant ? "Choisissez l'étudiant."
+    : !contexte ? 'Chargement des inscriptions…'
+    : genreChoisi === 'recours' && !ueNum ? 'Choisissez la décision contestée (une UE refusée).'
+    : genreChoisi === 'fraude' && !ueNum ? "Choisissez l'UE dont l'épreuve est en cause."
+    : genreChoisi === 'fraude' && !acquis.length ? 'Cochez les acquis visés par l’épreuve (art. 75 §1).'
+    : !objet.trim() ? "Écrivez l'objet en une phrase."
+    : null;
+
+  async function ouvrirLeDossier() {
+    if (raison || envoi) return;
+    setEnvoi(true); setErreur(null);
+    const corps = {
+      type: genreChoisi === 'recours' ? 'recours' : 'disciplinaire',
+      nature: genreChoisi === 'recours' ? undefined : genreChoisi === 'fraude' ? 'fraude' : 'comportement',
+      etudiant_id: etudiant.id, annee_scolaire: annee, ue_num: ueNum || null,
+      objet: objet.trim(), acquis: genreChoisi === 'fraude' ? acquis : [],
+    };
+    const r = await appel(BASE, { method: 'POST', body: JSON.stringify(corps) });
+    setEnvoi(false);
+    if (!r.ok) { setErreur(r.data?.error || "Le dossier n'a pas pu s'ouvrir."); return; }
+    onOuvert(r.data);
+  }
+
+  const basculerAcquis = (cours_code, aa_code) => setAcquis(l => (l.some(a => a.aa_code === aa_code)
+    ? l.filter(a => a.aa_code !== aa_code) : [...l, { cours_code, aa_code }]));
+
+  return (
+    <Fenetre icone={IconPlus} titre="Ouvrir un dossier" sous={`Recours ou procédure disciplinaire · ${annee}`}
+      large="grande" onFermer={onFermer}
+      pied={<>
+        <span className="text-[12px]" style={{ color: erreur ? 'var(--c-refuse)' : undefined }}>
+          {erreur || raison || ''}
+        </span>
+        <button type="button" className="bouton" onClick={onFermer}>Annuler</button>
+        <button type="button" className="bouton bouton-fort" disabled={!!raison || envoi} onClick={ouvrirLeDossier}>
+          {envoi ? 'Ouverture…' : 'Ouvrir le dossier'}
+        </button>
+      </>}>
+      <div className="grid md:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)] gap-4">
+        <div className="space-y-4">
+          <Champ label="1. Étudiant">
+            {etudiant ? (
+              <div className="flex items-center gap-2">
+                <div className="controle w-full">
+                  <span className="font-semibold">{nomPropre(etudiant.nom, etudiant.prenom)}</span>
+                  {etudiant.id_ecampus && <span className="text-slate-400">· {etudiant.id_ecampus}</span>}
+                </div>
+                <button type="button" className="bouton" onClick={changerEtudiant}>Changer</button>
+              </div>
+            ) : (
+              <div className="relative">
+                <IconSearch size={15} className="absolute left-2.5 top-[18px] -translate-y-1/2 text-slate-400 pointer-events-none" />
+                <input className="controle controle-icone w-full" autoFocus placeholder="Nom, prénom ou matricule…"
+                  value={recherche} onChange={e => setRecherche(e.target.value)} />
+                {resultats.length > 0 && (
+                  <div className="mt-1 border border-slate-200 rounded-champ bg-white max-h-64 overflow-y-auto">
+                    {resultats.map(e => (
+                      <button key={e.id} type="button" onClick={() => choisirEtudiant(e)}
+                        className="w-full text-left px-3 py-1.5 text-[13px] hover:bg-slate-50 border-b border-slate-100 last:border-0">
+                        <span className="font-semibold text-slate-800">{nomPropre(e.nom, e.prenom)}</span>
+                        <span className="text-[12px] text-slate-400"> · {[e.id_ecampus, e.sections].filter(Boolean).join(' · ')}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+                {recherche.trim().length >= 2 && !resultats.length && (
+                  <div className="text-[12px] text-slate-400 mt-1">Aucun étudiant trouvé.</div>
+                )}
+              </div>
+            )}
+          </Champ>
+          <Champ label="2. Type">
+            <Segments valeur={genreChoisi} onChange={changerGenre}
+              options={[['recours', 'Recours'], ['fraude', 'Fraude'], ['discipline', 'Discipline — comportement']]} />
+          </Champ>
+          {genreChoisi === 'recours' && ue?.seance && (
+            <Champ label="Résultats publiés le">
+              <div className="text-[13px] text-slate-700">
+                {ue.seance.publie_le ? fmt(ue.seance.publie_le) : 'pas encore publiés'}
+                {ue.seance.president_nom && <span className="text-slate-400"> · séance présidée par {ue.seance.president_nom}</span>}
+              </div>
+            </Champ>
+          )}
+          <Champ label="Objet" aide="Une phrase : ce qui est contesté, ou ce qui est reproché.">
+            <input className="controle w-full" value={objet} onChange={e => setObjet(e.target.value)}
+              placeholder={genreChoisi === 'recours' ? 'Refus en 2e session — 2 acquis' : genreChoisi === 'fraude' ? "Usage d'une IA non autorisée" : 'Perturbation répétée des cours'} />
+          </Champ>
         </div>
 
         <div className="space-y-4">
           <div>
-            <div className="text-xs font-semibold text-gray-600 mb-1">Type de fraude constatée <Ref text={is2526F ? 'Art. 54 ROI/RGE' : 'Art. 72 RDE/ROI'} /></div>
-            <select value={typeFraude} onChange={e => setTypeFraude(e.target.value)}
-              className="w-full border border-gray-300 rounded px-3 py-1.5 h-9 text-sm bg-white">
-              <option value="">— Sélectionner —</option>
-              <option value="Usage de notes ou documents non autorisés (antisèche)">Usage de notes ou documents non autorisés (antisèche)</option>
-              <option value="Communication entre étudiants pendant l'épreuve">Communication entre étudiants pendant l'épreuve</option>
-              <option value="Utilisation d'un appareil électronique non autorisé">Utilisation d'un appareil électronique non autorisé</option>
-              <option value="Copie sur la copie d'un autre étudiant">Copie sur la copie d'un autre étudiant</option>
-              <option value="Substitution d'identité ou usurpation">Substitution d'identité ou usurpation</option>
-              <option value="Plagiat ou travail non personnel">Plagiat ou travail non personnel</option>
-              <option value="Autre fraude (à préciser ci-dessous)">Autre fraude (à préciser ci-dessous)</option>
-            </select>
+            <Intertitre>
+              {genreChoisi === 'recours' ? `3. Décision contestée (${annee})`
+                : genreChoisi === 'fraude' ? `3. UE de l'épreuve (${annee})` : `3. UE concernée — facultatif (${annee})`}
+            </Intertitre>
+            {!etudiant && <div className="text-[12px] text-slate-400">Choisissez d'abord l'étudiant.</div>}
+            {etudiant && contexte && !inscriptions.length && (
+              <div className="text-[12px] text-slate-400">Aucune inscription en {annee} dans votre périmètre.</div>
+            )}
+            <div className="divide-y divide-slate-100">
+              {genreChoisi === 'discipline' && inscriptions.length > 0 && (
+                <label className="flex items-center gap-2 py-1.5 text-[13px] cursor-pointer">
+                  <input type="radio" checked={!ueNum} onChange={() => setUeNum(null)} />
+                  <span className="text-slate-600">Aucune UE en particulier</span>
+                </label>
+              )}
+              {inscriptions.map(i => {
+                const ok = permise(i);
+                const r = lireResultat(i);
+                return (
+                  <label key={i.ue_num} className={`flex items-center gap-2 py-1.5 text-[13px] ${ok ? 'cursor-pointer' : 'opacity-50'}`}>
+                    <input type="radio" disabled={!ok} checked={ueNum === i.ue_num} onChange={() => setUeNum(i.ue_num)} />
+                    <span className="flex-1 min-w-0 truncate text-slate-800">
+                      UE {i.ue_num} · {i.ue_nom || '—'}
+                      {i.section && <span className="text-slate-400"> · {i.section}</span>}
+                    </span>
+                    {ok ? <PastilleEtat etat={r.etat}>{r.label}</PastilleEtat>
+                      : <span className="text-[12px] text-slate-400">{r.label} — non recourable</span>}
+                  </label>
+                );
+              })}
+            </div>
           </div>
-          <div>
-            <div className="text-xs font-semibold text-gray-600 mb-1">Date des faits constatés</div>
-            <input type="date" value={dateFaits} onChange={e => setDateFaits(e.target.value)}
-              className="border border-gray-300 rounded px-3 py-1.5 h-9 text-sm" />
-            {limiteNotif && <p className="text-xs text-orange-600 mt-1 inline-flex items-center gap-1"><IconClock size={13} /> Notification à l'étudiant recommandée avant le : <strong>{fmt(limiteNotif)}</strong></p>}
-          </div>
-          <div>
-            <div className="text-xs font-semibold text-gray-600 mb-1">Description détaillée des faits (rapport du surveillant)</div>
-            <textarea value={descriptionFraits} onChange={e => setDescriptionFraits(e.target.value)}
-              rows={5} placeholder="Décrire précisément : qui a constaté la fraude, à quelle heure, ce qui a été saisi ou observé, le comportement de l'étudiant, les témoins éventuels..."
-              className="w-full border border-gray-300 rounded px-3 py-2 text-sm resize-y" />
-          </div>
-        </div>
-        <div className="mt-4 p-3 bg-amber-50 border border-amber-300 rounded text-sm border-l-4 border-l-amber-500">
-          <p className="font-semibold text-amber-800 inline-flex items-center gap-1.5"><IconAlertTriangle size={15} /> Important — {is2526F ? 'Art. 54 ROI/RGE' : 'Art. 72 §2 RDE/ROI'}</p>
-          <p className="text-amber-700 mt-1">L'élément suspect doit être saisi et joint au dossier. Le rapport du surveillant est obligatoire. L'étudiant peut terminer son épreuve même en cas de fraude constatée.</p>
-        </div>
 
-        {/* Procédure contradictoire — notification + contestation */}
-        <div className="mt-5 pt-4 border-t border-gray-200">
-          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Procédure contradictoire ({is2526F ? 'Art. 54 ROI/RGE' : 'Art. 74 RDE/ROI'})</p>
-          <label className="block mb-3">
-            <div className="text-xs font-semibold text-gray-600 mb-1">Date de notification à l'étudiant *</div>
-            <input type="date" value={dateNotification} onChange={e => setDateNotification(e.target.value)}
-              className="w-full border border-gray-300 rounded px-3 py-1.5 h-9 text-sm" />
-            <p className="text-xs text-gray-400 mt-0.5">Courrier/e-mail informant des faits reprochés et du droit à l'audition</p>
-          </label>
-          {!dateNotification && (
-            <div className="mb-3 p-3 bg-red-50 border border-red-400 rounded text-sm text-red-800 flex items-start gap-1.5 border-l-4 border-l-red-500">
-              <IconBan size={16} className="flex-shrink-0 mt-0.5" />
-              <span>La notification préalable est obligatoire ({is2526F ? 'Art. 54 ROI/RGE' : 'Art. 74 §1'}). Toute décision sans notification préalable serait nulle.</span>
+          {genreChoisi === 'fraude' && ueNum && (
+            <div>
+              <Intertitre>4. Acquis visés par l'épreuve (art. 75 §1)</Intertitre>
+              {!ue && <div className="text-[12px] text-slate-400">Chargement des cours…</div>}
+              {ue && !(ue.cours || []).length && <div className="text-[12px] text-slate-400">Aucun cours connu pour cette UE.</div>}
+              <ArbreAcquis cours={ue?.cours || []} coches={acquis} onBasculer={basculerAcquis} />
             </div>
           )}
-          <label className="flex items-center gap-2.5 p-3 rounded-lg border border-gray-300 bg-white cursor-pointer hover:bg-gray-50">
-            <input type="checkbox" checked={conteste} onChange={e => setConteste(e.target.checked)} className="w-4 h-4 accent-red-700" />
-            <span className="text-sm font-medium text-gray-700">L'étudiant conteste les faits / demande à être entendu</span>
-          </label>
-          {conteste && (
-            <div className="mt-3 space-y-4 pl-1">
-              <label className="block">
-                <div className="text-xs font-semibold text-gray-600 mb-1">Date de l'audition</div>
-                <input type="date" value={dateAudition} onChange={e => setDateAudition(e.target.value)}
-                  className="w-full border border-gray-300 rounded px-3 py-1.5 h-9 text-sm" />
-                <p className="text-xs text-gray-400 mt-0.5">Laisser vide si l'étudiant ne s'est finalement pas présenté</p>
-              </label>
-              <div>
-                <div className="text-xs font-semibold text-gray-600 mb-1">Déclarations de l'étudiant lors de l'audition</div>
-                <textarea value={declarationsEtudiant} onChange={e => setDeclarationsEtudiant(e.target.value)}
-                  rows={4} placeholder={dateAudition ? "Résumer les déclarations de l'étudiant : contestation des faits, explications données, circonstances atténuantes invoquées..." : "L'étudiant ne s'est pas présenté à l'audition dans le délai imparti."}
-                  className="w-full border border-gray-300 rounded px-3 py-2 text-sm resize-y" />
+
+          {genreChoisi === 'recours' && ueNum && ue && (
+            <div>
+              <Intertitre>CDE restreint (art. 89 §1) — proposé depuis la séance</Intertitre>
+              <div className="text-[12px] text-slate-600">
+                {ue.seance?.president_nom ? <>Président : <b>{ue.seance.president_nom}</b>. </> : 'Pas de président de séance connu. '}
+                {(ue.charges || []).length
+                  ? <>Chargés de cours proposés : {[...new Map(ue.charges.map(c => [c.id, c])).values()].map(c => nomPropre(c.nom, c.prenom)).join(', ')}.</>
+                  : 'Aucun chargé de cours attribué.'}
+                <span className="text-slate-400"> Les présences se cochent dans le dossier.</span>
               </div>
             </div>
           )}
         </div>
-      </Section>
+      </div>
+    </Fenetre>
+  );
+}
 
-      {/* ── 3 · DÉCISION DU CDE ── */}
-      <Section title={`3 · Décision du CDE (${is2526F ? 'Art. 55 ROI/RGE' : 'Art. 75 RDE/ROI'})`} color="red">
-        <p className="text-sm text-gray-600 mb-4">Le CDE délibère après avoir entendu l'étudiant (ou après expiration du délai). La décision doit être formellement motivée ({is2526F ? 'Art. 55 ROI/RGE' : 'Art. 75 RDE/ROI'}).</p>
-
-        <div className="grid grid-cols-2 gap-4 mb-4">
-          <label className="block">
-            <div className="text-xs font-semibold text-gray-600 mb-1">Date de réunion du CDE</div>
-            <input type="date" value={dateCDE} onChange={e => setDateCDE(e.target.value)}
-              className="w-full border border-gray-300 rounded px-3 py-1.5 h-9 text-sm" />
-          </label>
-        </div>
-
-        <div className="mb-4 p-3 bg-amber-50 border border-amber-300 rounded text-sm border-l-4 border-l-amber-500">
-          <p className="font-semibold text-amber-800">Sanction applicable selon la situation :</p>
-          <p className="text-amber-700 mt-1">
-            {is2526F
-              ? (session === '2'
-                  ? '2e session → Refus systématique (Art. 55 ROI/RGE)'
-                  : recidive
-                  ? 'Récidive → Le CDE peut refuser dès la 1re session (Art. 55 ROI/RGE)'
-                  : '1re session → Ajournement OU refus, sur décision du CDE (Art. 55 ROI/RGE)')
-              : (session === '1' && !recidive
-                  ? '1re session + 1re fraude → Ajournement pour les AA visés (Art. 73 §1)'
-                  : '2e session ou récidive → Refus possible pour l\'UE (Art. 73 §2)')}
-          </p>
-        </div>
-
-        <div>
-          <div className="text-xs font-semibold text-gray-600 mb-2">Décision du CDE *</div>
-          <div className="space-y-2">
-            {(is2526F ? [
-              ['ajournement', `Ajournement pour les AA visés par l'épreuve (Art. 55 ROI/RGE)`, session==='1'&&!recidive],
-              ['refus',       `Refus pour l'UE ${ueNum} (Art. 55 ROI/RGE${session==='2' ? ' — systématique en 2e session' : ''})`, session==='2'],
-            ] : [
-              ['ajournement', `Ajournement pour les AA visés par l'épreuve (Art. 73 §1)`, session==='1'&&!recidive],
-              ['refus',       `Refus pour l'UE ${ueNum} (Art. 73 §2 — 2e session ou récidive)`, session==='2'||recidive],
-            ]).map(([val, label, recommande]) => (
-              <label key={val} className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition ${decision===val? 'bg-green-50 border-green-500 border-l-4 border-l-green-500' : 'bg-white border-gray-300 hover:bg-gray-50'}`}>
-                <input type="radio" name="decision" value={val} checked={decision===val} onChange={() => setDecision(val)} className="accent-red-700" />
-                <span className="text-sm flex-1">{label}</span>
-                {recommande && <span className="text-xs bg-green-500 text-white border border-green-500 rounded-champ px-2 py-0.5">Recommandé</span>}
-              </label>
-            ))}
-          </div>
-        </div>
-
-        <div className="mt-4">
-          <div className="text-xs font-semibold text-gray-600 mb-1">Observations / motivation complémentaire du CDE</div>
-          <textarea value={commentaireCDE} onChange={e => setCommentaireCDE(e.target.value)}
-            rows={3} placeholder="Ex : Le CDE a examiné les pièces saisies. Les faits sont établis sans ambiguïté. L'étudiant a reconnu les faits lors de l'audition..."
-            className="w-full border border-gray-300 rounded px-3 py-2 text-sm resize-y" />
-        </div>
-
-        {/* Synthèse */}
-        {decision && (
-          <div className="p-4 bg-red-50 border-2 border-red-500 rounded-lg mt-5 border-l-4 border-l-red-500">
-            <p className="font-bold text-red-900 inline-flex items-center gap-1.5">
-              Décision : {decision === 'ajournement'
-                ? <><IconCheck size={16} /> Ajournement ({is2526F ? 'Art. 55 ROI/RGE' : 'Art. 73 §1'})</>
-                : <><IconBan size={16} /> Refus pour l'UE {ueNum} ({is2526F ? 'Art. 55 ROI/RGE' : 'Art. 73 §2'})</>}
-            </p>
-            <p className="text-sm text-red-700 mt-1">{etudiant} · UE {ueNum}{ueNom ? ' — ' + ueNom : ''} · {session === '1' ? '1re session' : '2e session'}{recidive ? ' · Récidive' : ''}</p>
-            {profsPresents.size > 0 && (
-              <div className="mt-2 flex flex-wrap gap-1">
-                {profs.filter(p => profsPresents.has(p.id)).map(p => (
-                  <span key={p.id} className="text-xs bg-green-500 text-white border border-green-500 rounded-champ px-2 py-0.5 inline-flex items-center gap-1"><IconCheck size={12} /> {p.nomComplet}</span>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Date d'envoi */}
-        <div className="border border-gray-200 rounded-lg p-4 mt-5 bg-gray-50">
-          <p className="text-sm font-semibold text-gray-700 mb-3">À compléter après la réunion du CDE :</p>
-          <label className="block">
-            <div className="text-xs font-semibold text-gray-600 mb-1">Date d'envoi de la décision à l'étudiant (recommandé)</div>
-            <input type="date" value={dateEnvoi} onChange={e => setDateEnvoi(e.target.value)}
-              className="border border-gray-300 rounded px-3 py-1.5 h-9 text-sm bg-white" />
-            {dateEnvoi && (
-              <p className="text-xs text-orange-700 mt-1 inline-flex items-center gap-1">
-                <IconClock size={13} /> Limite recours interne : <strong>{fmt(addJoursCalendrier(dateEnvoi, 4))}</strong>
-                <span className="text-gray-400 font-normal ml-1">(4 jours calendrier après notification — Art. 88 §1)</span>
-              </p>
-            )}
-          </label>
-        </div>
-
-        {/* Procédure de notification */}
-        <div className="space-y-2 my-5">
-          {[
-            {n:1, label:'Envoyer par recommandé', detail:'Notifier la décision motivée à l\'étudiant par pli recommandé avec accusé de réception.'},
-            {n:2, label:'Encoder dans Lucie', detail:`Encoder l'AA/UE concerné avec la mention de fraude et la sanction appliquée.`},
-            {n:3, label:'Archiver le dossier', detail:'Classer : rapport de fraude + pièces saisies + preuve de notification + PV de délibération + récépissé recommandé.'},
-            {n:4, label:'Informer les voies de recours', detail:'L\'étudiant dispose de 4 jours calendrier pour introduire un recours interne (Art. 88 §1 RDE/ROI).'},
-          ].map(item => (
-            <div key={item.n} className="flex gap-3 p-3 bg-white border border-gray-200 rounded-lg text-sm">
-              <div className="w-6 h-6 rounded-full bg-red-700 text-white text-xs font-bold flex items-center justify-center flex-shrink-0">{item.n}</div>
-              <div><p className="font-semibold">{item.label}</p><p className="text-gray-600">{item.detail}</p></div>
+/** Les cours d'une UE et leurs acquis, à cocher. */
+function ArbreAcquis({ cours, coches, onBasculer, desactive = false }) {
+  const coche = aa => coches.some(a => a.aa_code === aa);
+  return (
+    <div className="space-y-2">
+      {cours.map(c => (
+        <div key={c.cours_code}>
+          <div className="text-[12px] font-semibold text-slate-700">{c.cours_code} · {c.cours_nom}</div>
+          {!(c.aas || []).length && <div className="text-[12px] text-slate-400 pl-4">aucun acquis rattaché</div>}
+          {(c.aas || []).map(a => (
+            <div key={`${c.cours_code}|${a.aa_code}`} className="pl-4 py-0.5">
+              <Case coche={coche(a.aa_code)} desactive={desactive} onChange={() => onBasculer(c.cours_code, a.aa_code)}>
+                <b className="font-semibold">{a.aa_code}</b>
+                {a.description && <span className="text-slate-500"> — {a.description}</span>}
+              </Case>
             </div>
           ))}
         </div>
-
-        <button onClick={ouvrirPV}
-          className="w-full bg-red-700 hover:opacity-90 text-white py-3 rounded-xl text-sm font-bold flex items-center justify-center gap-2">
-          <IconFileText size={18} /> Générer le procès-verbal (PDF)
-        </button>
-        <p className="text-xs text-gray-500 text-center mt-1">Document officiel · CONFIDENTIEL · À signer et envoyer par recommandé à l'étudiant</p>
-      </Section>
-
-      {/* Réinitialiser */}
-      <div className="flex justify-end">
-        <button onClick={() => { setStep(1); setEtudiant(''); setUeNum(''); setSession('1'); setRecidive(false); setDateExamen(''); setDateFaits(''); setTypeFraude(''); setDescriptionFraits(''); setDateNotification(''); setDateAudition(''); setDeclarationsEtudiant(''); setDateCDE(''); setDateEnvoi(''); setDecision(''); setCommentaireCDE(''); setMomentFaits('pendant'); setConteste(false); setProfsPresents(new Set()); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
-          className="border border-red-700 text-red-700 px-6 py-2 rounded-lg text-sm font-medium hover:bg-red-50 inline-flex items-center gap-1.5 border-l-4 border-l-red-500">
-          <IconRefresh size={16} /> Nouveau dossier
-        </button>
-      </div>
-
-      {previewHtml && (
-        <PreviewModal html={previewHtml} titre="PV de fraude" onClose={() => setPreviewHtml(null)}
-          actionExtra={
-            <button onClick={async () => {
-                try {
-                  const res = await fetch('/api/procedures/html-to-pdf', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('token')}` },
-                    body: JSON.stringify({ html: previewHtml, nom: `PV_Fraude_${etudiant || ''}` }),
-                  });
-                  if (!res.ok) throw new Error((await res.json().catch(()=>({}))).error || 'Erreur serveur');
-                  const blob = await res.blob();
-                  const url = URL.createObjectURL(blob);
-                  const a = document.createElement('a');
-                  a.href = url; a.download = `PV_Fraude_${etudiant || ''}.pdf`;
-                  a.click(); URL.revokeObjectURL(url);
-                } catch (e) { informer('Erreur : ' + e.message); }
-              }}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-red-600 text-white rounded-lg text-xs font-medium hover:opacity-90">
-              <IconFileText size={13}/> Télécharger PDF
-            </button>
-          }
-        />
-
-      )}
+      ))}
     </div>
   );
 }
 
-// ─── PAGE PRINCIPALE ──────────────────────────────────────────────────────────
-// ─── ArchivesProcedures ───────────────────────────────────────────────────────
-const STATUT_LABEL = { en_cours: 'En cours', clos: 'Clôturé', annule: 'Annulé', brouillon: 'Brouillon' };
-const STATUT_COLOR = { en_cours: 'bg-iip-turquoise/10 text-iip-blue', clos: 'bg-green-500 text-white', annule: 'bg-gray-100 text-gray-500', brouillon: 'bg-amber-500 text-white' };
-const VERDICT_LABEL = { irrecevable: 'Irrecevable', rejete: 'Rejeté', accueilli: 'Accueilli', ajourne: 'Ajourné', refus: 'Refus' };
-const VERDICT_COLOR = { irrecevable: 'bg-red-500 text-white', rejete: 'bg-orange-500 text-white', accueilli: 'bg-green-500 text-white', ajourne: 'bg-yellow-500 text-white', refus: 'bg-red-500 text-white' };
-const TYPE_COLOR = { recours: 'bg-iip-turquoise/10 text-iip-turquoise', fraude: 'bg-red-500 text-white' };
+// ═════════════════════════════════════════════════════════════════════════════
+// LE DOSSIER
+// ═════════════════════════════════════════════════════════════════════════════
+function Dossier({ id, ref_, onRetour }) {
+  const [d, setD] = useState(null);
+  const [erreur, setErreur] = useState(null);
+  const [ue, setUe] = useState(null);
+  const [personnel, setPersonnel] = useState([]);
+  const [etapeSel, setEtapeSel] = useState(null);
+  const [effets, setEffets] = useState([]);
 
-function fmtDate(s) {
-  if (!s) return '—';
-  const d = new Date(s);
-  if (isNaN(d)) return s.slice(0, 10);
-  return d.toLocaleDateString('fr-BE', { day: '2-digit', month: '2-digit', year: 'numeric' });
-}
-
-function ArchivesProcedures({ onReprendreRecours, onReprendre }) {
-  const [archives, setArchives]   = useState([]);
-  const [loading, setLoading]     = useState(true);
-  const [filtreType, setFiltreType]     = useState('');
-  const [filtreStatut, setFiltreStatut] = useState('');
-  const [filtreAnnee, setFiltreAnnee]   = useState('');
-  const [filtreQ, setFiltreQ]           = useState('');
-  const [annees, setAnnees]             = useState([]);
-  const [detail, setDetail]             = useState(null); // procédure ouverte
-  const [confirmSupp, setConfirmSupp]   = useState(null); // id à supprimer
-  const [saving, setSaving]             = useState(false);
+  const charger = useCallback(async () => {
+    const r = await appel(`${BASE}/${id}`);
+    if (!r.ok) { setErreur(r.data?.error || 'Dossier introuvable.'); return null; }
+    setD(r.data);
+    return r.data;
+  }, [id]);
 
   useEffect(() => {
-    charger();
-    // Charger les années disponibles
-    authFetch('/api/annees').then(d => setAnnees((Array.isArray(d) ? d : []).map(a => a.code || a))).catch(() => {});
-  }, []);
+    setD(null); setErreur(null); setEffets([]); setEtapeSel(null);
+    charger().then(x => {
+      if (!x) return;
+      setEtapeSel(x.circuit?.courante || x.circuit?.etapes?.[x.circuit.etapes.length - 1]?.cle || null);
+      if (x.ue_num) {
+        appel(`${BASE}/ue/${x.ue_num}?annee=${encodeURIComponent(x.annee_scolaire)}`).then(r => { if (r.ok) setUe(r.data); });
+      }
+    });
+    appel(`/api/ref/professeurs?annee=${encodeURIComponent(getAnnee())}`).then(r => {
+      if (r.ok && Array.isArray(r.data)) setPersonnel(r.data);
+    });
+  }, [id, charger]);
 
-  async function charger() {
-    setLoading(true);
-    try {
-      const params = new URLSearchParams();
-      if (filtreType)   params.set('type',   filtreType);
-      if (filtreStatut) params.set('statut', filtreStatut);
-      if (filtreAnnee)  params.set('annee',  filtreAnnee);
-      if (filtreQ)      params.set('q',      filtreQ);
-      const d = await authFetch(`/api/procedures/archives?${params}`);
-      setArchives(Array.isArray(d) ? d : []);
-    } finally { setLoading(false); }
+  if (erreur) {
+    return (
+      <>
+        <button type="button" className="bouton mb-3" onClick={onRetour}><IconArrowLeft size={15} /> Registre</button>
+        <Encadre etat="corriger">{erreur}</Encadre>
+      </>
+    );
   }
+  if (!d) return <div className="text-[13px] text-slate-400 p-6">Chargement du dossier…</div>;
 
-  useEffect(() => { charger(); }, [filtreType, filtreStatut, filtreAnnee, filtreQ]);
+  const peutInstruire = !!d.peut_instruire;
+  const peutDecider = !!d.peut_decider;
+  const g = GENRES[genre(d)];
+  const etapes = d.circuit?.etapes || [];
+  // L'écartement provisoire (art. 115 septies) est une mesure facultative,
+  // hors de la frise : il a son entrée à côté.
+  const ecartementPossible = d.type === 'disciplinaire';
 
-  async function changerStatut(id, statut) {
-    setSaving(true);
-    try {
-      await fetch(`/api/procedures/archives/${id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${TOKEN()}` },
-        body: JSON.stringify({ statut }),
-      });
-      await charger();
-      if (detail?.id === id) setDetail(d => ({ ...d, statut }));
-    } finally { setSaving(false); }
-  }
-
-  async function supprimerPhysique(id) {
-    setSaving(true);
-    try {
-      await fetch(`/api/procedures/archives/${id}`, {
-        method: 'DELETE',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${TOKEN()}` },
-        body: JSON.stringify({ confirme: true }),
-      });
-      setConfirmSupp(null);
-      setDetail(null);
-      await charger();
-    } finally { setSaving(false); }
-  }
-
-  async function regenererHTML(proc) {
-    // Re-génère le document HTML depuis le payload sauvegardé
-    const slug = proc.type === 'recours' ? 'pv-recours' : 'pv-fraude';
-    const payload = JSON.parse(proc.payload_json || '{}');
-    try {
-      const res = await fetch(`/api/procedures/${slug}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${TOKEN()}` },
-        body: proc.payload_json,
-      });
-      const d = await res.json();
-      if (d.html) ouvrirApercu({
-        html: d.html,
-        titre: proc.type === 'recours' ? 'PV de recours — Décision motivée' : 'PV de fraude',
-        nomFichier: `${proc.type === 'recours' ? 'PV_Recours' : 'PV_Fraude'}_${payload.etudiant || ''}`,
-        astuceImpression: 'A4 portrait',
-      });
-    } catch (e) { informer('Erreur lors de la re-génération : ' + e.message); }
-  }
-
-  async function voirDetail(proc) {
-    const d = await authFetch(`/api/procedures/archives/${proc.id}`);
-    setDetail(d);
+  function apresEtape(rep) {
+    // La réponse d'une étape ne redit pas les droits : on garde ceux du dossier.
+    setD({ ...rep, peut_instruire: d.peut_instruire, peut_decider: d.peut_decider });
+    setEffets(rep.effets || []);
+    const suivante = rep.circuit?.courante;
+    if (suivante) setEtapeSel(suivante);
   }
 
   return (
-    <div className="space-y-4">
-      <PageHeader icon={IconFolder} titre="Archives des procédures"
-        sous="Toutes les procédures générées — recours et fraudes" />
-
-      {/* Filtres */}
-      <div className="bg-white rounded-lg border border-gray-200 px-4 py-3 flex flex-wrap gap-3 items-end">
-        <div>
-          <label className="block text-xs text-gray-500 mb-1">Type</label>
-          <select value={filtreType} onChange={e => setFiltreType(e.target.value)}
-            className="border border-gray-300 rounded px-2 py-1.5 h-9 text-sm bg-white">
-            <option value="">Tous</option>
-            <option value="recours">Recours</option>
-            <option value="fraude">Fraude</option>
-          </select>
-        </div>
-        <div>
-          <label className="block text-xs text-gray-500 mb-1">Statut</label>
-          <select value={filtreStatut} onChange={e => setFiltreStatut(e.target.value)}
-            className="border border-gray-300 rounded px-2 py-1.5 h-9 text-sm bg-white">
-            <option value="">Tous</option>
-            <option value="">Tous</option>
-            <option value="brouillon">Brouillon</option>
-            <option value="en_cours">En cours</option>
-            <option value="clos">Clôturé</option>
-            <option value="annule">Annulé</option>
-          </select>
-        </div>
-        <div>
-          <label className="block text-xs text-gray-500 mb-1">Année</label>
-          <select value={filtreAnnee} onChange={e => setFiltreAnnee(e.target.value)}
-            className="border border-gray-300 rounded px-2 py-1.5 h-9 text-sm bg-white">
-            <option value="">Toutes</option>
-            {annees.map(a => <option key={a} value={a}>{a}</option>)}
-          </select>
-        </div>
-        <div className="flex-1 min-w-40">
-          <label className="block text-xs text-gray-500 mb-1">Étudiant</label>
-          <input value={filtreQ} onChange={e => setFiltreQ(e.target.value)}
-            placeholder="Rechercher…" className="w-full border border-gray-300 rounded px-2 py-1.5 h-9 text-sm" />
-        </div>
-        <button onClick={charger} className="border border-gray-300 text-gray-600 text-sm px-3 py-1.5 h-9 rounded hover:bg-gray-50">
-          ↺ Actualiser
-        </button>
+    <>
+      <div className="flex items-center gap-3 mb-3">
+        <button type="button" className="bouton" onClick={onRetour}><IconArrowLeft size={15} /> Registre</button>
+        <span className="text-[12px] text-slate-400">Dossier n° {d.id} · ouvert le {fmt(d.cree_le)}{d.cree_par_nom ? ` par ${d.cree_par_nom}` : ''}</span>
       </div>
 
-      {/* Tableau */}
-      {loading ? (
-        <div className="text-center text-gray-400 py-12">Chargement…</div>
-      ) : archives.length === 0 ? (
-        <div className="text-center text-gray-400 py-16">
-          <p className="text-3xl mb-2">📂</p>
-          <p>Aucune procédure archivée</p>
-          <p className="text-xs mt-1">Les procédures seront enregistrées automatiquement à chaque génération de PV</p>
+      {/* En-tête */}
+      <div className="carte p-4 mb-3">
+        <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+          <PastilleEtat etat={g.etat}>{d.type === 'recours' ? 'Recours interne' : d.nature === 'fraude' ? 'Fraude' : 'Discipline — comportement'}</PastilleEtat>
+          <h1 className="titre-ecran mb-0">{nomPropre(d.etudiant?.nom, d.etudiant?.prenom)}</h1>
+          <span className="text-[13px] text-slate-500">
+            {[d.section, d.ue_num ? `UE ${d.ue_num}${d.ue_nom ? ` · ${d.ue_nom}` : ''}` : null,
+              d.session ? `session ${d.session}` : null, d.etudiant?.id_ecampus].filter(Boolean).join(' · ')}
+          </span>
         </div>
-      ) : (
-        <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-          <table className="w-full text-sm">
-            <thead className="bg-gray-50 text-xs text-gray-500 uppercase tracking-wide border-b border-gray-200">
-              <tr>
-                <th className="px-4 py-3 text-left">Type</th>
-                <th className="px-4 py-3 text-left">Étudiant</th>
-                <th className="px-4 py-3 text-left">UE</th>
-                <th className="px-4 py-3 text-left">Section</th>
-                <th className="px-4 py-3 text-left">Verdict</th>
-                <th className="px-4 py-3 text-left">Statut</th>
-                <th className="px-4 py-3 text-left">Date</th>
-                <th className="px-4 py-3 text-left">Séance CDE</th>
-                <th className="px-4 py-3"></th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100">
-              {archives.map(proc => (
-                <tr key={proc.id} className="hover:bg-gray-50">
-                  <td className="px-4 py-3">
-                    <span className={`inline-flex text-xs font-semibold px-2 py-0.5 rounded-champ ${TYPE_COLOR[proc.type] || 'bg-gray-100 text-gray-600'}`}>
-                      {proc.type === 'recours' ? '⚖ Recours' : '🚨 Fraude'}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 font-medium text-gray-800">{proc.etudiant || '—'}</td>
-                  <td className="px-4 py-3 text-gray-600">{proc.ue_num ? `UE ${proc.ue_num}` : '—'}{proc.ue_nom ? ` — ${proc.ue_nom.slice(0, 28)}${proc.ue_nom.length > 28 ? '…' : ''}` : ''}</td>
-                  <td className="px-4 py-3 text-gray-600">{proc.section || '—'}</td>
-                  <td className="px-4 py-3">
-                    {proc.verdict ? (
-                      <span className={`inline-flex text-xs font-semibold px-2 py-0.5 rounded-champ ${VERDICT_COLOR[proc.verdict] || 'bg-gray-100 text-gray-600'}`}>
-                        {VERDICT_LABEL[proc.verdict] || proc.verdict}
-                      </span>
-                    ) : '—'}
-                  </td>
-                  <td className="px-4 py-3">
-                    <span className={`inline-flex text-xs font-semibold px-2 py-0.5 rounded-champ ${STATUT_COLOR[proc.statut] || 'bg-gray-100'}`}>
-                      {STATUT_LABEL[proc.statut] || proc.statut}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 text-gray-500 text-xs">{fmtDate(proc.date_faits)}</td>
-                  <td className="px-4 py-3 text-gray-500 text-xs">{fmtDate(proc.date_seance_cde)}</td>
-                  <td className="px-4 py-3">
-                    <button onClick={() => voirDetail(proc)}
-                      className="text-iip-turquoise hover:underline text-xs font-medium">
-                      Détail →
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        {d.objet && <div className="text-[13px] text-slate-700 mt-1">{d.objet}</div>}
+        {d.type === 'recours' && (
+          <div className="text-[12px] text-slate-400 mt-0.5">
+            Résultats publiés le {d.publie_le ? fmt(d.publie_le) : '— (date de publication inconnue : les délais ne se calculent pas)'}
+          </div>
+        )}
+      </div>
+
+      {d.recidive?.length > 0 && (
+        <Encadre etat="surveiller" icone={IconAlertTriangle} className="mb-3"
+          titre={`Récidive : dossier${d.recidive.length > 1 ? 's' : ''} n° ${d.recidive.map(x => x.id).join(', ')}`}>
+          Fraude déjà sanctionnée ({d.recidive.map(x => `${x.annee_scolaire}${x.ue_num ? ` · UE ${x.ue_num}` : ''}`).join(' ; ')}) :
+          la récidive emporte le refus (art. 75 §1).
+        </Encadre>
+      )}
+      {effets.length > 0 && (
+        <Encadre etat="reussi" icone={IconCircleCheck} className="mb-3" titre="Ce que l'étape a entraîné">
+          <ul className="list-disc pl-4">{effets.map((e, i) => <li key={i}>{e}</li>)}</ul>
+        </Encadre>
       )}
 
-      {/* Panneau de détail */}
-      {detail && (
-        <Fenetre titre={detail.etudiant} large="moyenne" onFermer={() => setDetail(null)}
-          sous={`${detail.type === 'recours' ? '⚖ Recours' : '🚨 Fraude'} · UE ${detail.ue_num} · ${detail.section} · ${detail.annee_scolaire}`}>
-            <div className="space-y-5">
-              {/* Badges */}
-              <div className="flex flex-wrap gap-2">
-                <span className={`text-xs font-semibold px-2.5 py-1 rounded-champ ${STATUT_COLOR[detail.statut]}`}>
-                  {STATUT_LABEL[detail.statut]}
-                </span>
-                {detail.verdict && (
-                  <span className={`text-xs font-semibold px-2.5 py-1 rounded-champ ${VERDICT_COLOR[detail.verdict]}`}>
-                    {VERDICT_LABEL[detail.verdict] || detail.verdict}
+      {/* La frise */}
+      <div className="carte p-4 mb-3">
+        <Frise etapes={etapes} courante={d.circuit?.courante} selection={etapeSel} onChoisir={setEtapeSel} />
+        {ecartementPossible && (
+          <div className="mt-3 flex items-center gap-2 text-[12px]">
+            <button type="button" onClick={() => setEtapeSel('ecartement')}
+              className={`bouton bouton-compact ${etapeSel === 'ecartement' ? 'bouton-sortir' : ''}`}>
+              Écartement provisoire (art. 115 septies)
+            </button>
+            <span className="text-slate-400">
+              {d.etapes?.ecartement ? `du ${fmt(d.etapes.ecartement.du)} au ${fmt(d.etapes.ecartement.au)}` : 'mesure facultative, hors circuit'}
+            </span>
+          </div>
+        )}
+      </div>
+
+      <div className="grid lg:grid-cols-[minmax(0,1fr)_340px] gap-3 items-start">
+        <div className="carte p-4">
+          {etapeSel && (
+            <FormulaireEtape key={`${etapeSel}-${d.traces?.[etapeSel]?.le || ''}`} dossier={d} cle={etapeSel}
+              ref_={ref_} ue={ue} peutInstruire={peutInstruire} peutDecider={peutDecider} onPose={apresEtape} />
+          )}
+        </div>
+        <div className="space-y-3">
+          <Echeances dossier={d} />
+          <Personnes dossier={d} ue={ue} personnel={personnel} peut={peutInstruire} onMaj={setD} />
+          {d.type === 'disciplinaire' && d.nature === 'fraude' && (
+            <AcquisVises dossier={d} ue={ue} peut={peutInstruire} onMaj={setD} />
+          )}
+          <Pieces dossier={d} peut={peutInstruire} onMaj={setD} />
+          <Journal dossier={d} />
+        </div>
+      </div>
+    </>
+  );
+}
+
+// ── La frise numérotée ───────────────────────────────────────────────────────
+function Frise({ etapes, courante, selection, onChoisir }) {
+  return (
+    <ol className="flex items-start">
+      {etapes.map((e, i) => {
+        const faite = e.faite;
+        const estCourante = e.cle === courante;
+        const choisie = e.cle === selection;
+        const plein = faite || estCourante;
+        return (
+          <li key={e.cle} className="flex-1 min-w-0 relative">
+            {i > 0 && (
+              <span aria-hidden="true"
+                className={`absolute top-[13px] right-1/2 w-full h-[2px] ${etapes[i - 1].faite ? '' : 'bg-slate-300'}`}
+                style={etapes[i - 1].faite ? { background: 'var(--c-reussi)' } : undefined} />
+            )}
+            <button type="button" onClick={() => onChoisir(e.cle)}
+              className="relative z-10 w-full flex flex-col items-center text-center px-1 group">
+              <span className={`w-[28px] h-[28px] rounded-full grid place-items-center text-[12px] font-bold
+                                ${plein ? 'text-white' : 'bg-white text-slate-500 border-2 border-slate-300'}
+                                ${choisie ? 'ring-4 ring-iip-blue/20' : ''}`}
+                style={plein ? { background: faite ? 'var(--c-reussi)' : 'var(--c-principal)' } : undefined}>
+                {faite ? <IconCheck size={15} stroke={3} /> : i + 1}
+              </span>
+              <span className={`mt-1.5 text-[12px] leading-tight ${choisie || estCourante ? 'font-semibold text-slate-800' : 'text-slate-500'} group-hover:underline`}>
+                {e.label}
+              </span>
+              <span className="text-[10px] text-slate-400 leading-tight">
+                {faite && e.trace ? `${fmt(e.trace.le)}${e.trace.par ? ` · ${e.trace.par}` : ''}`
+                  : `art. ${e.art}${e.facultatif ? ' · facultatif' : ''}${e.decision ? ' · direction' : ''}`}
+              </span>
+            </button>
+          </li>
+        );
+      })}
+    </ol>
+  );
+}
+
+// ── Le formulaire d'une étape ────────────────────────────────────────────────
+/** Les valeurs de départ : ce qui est posé, sinon les défauts (date du jour). */
+function valeursInitiales(d, cle) {
+  const pose = d.etapes?.[cle];
+  if (pose) return { ...pose };
+  const j = aujourdHui();
+  const et = d.etapes || {};
+  if (d.type === 'recours') {
+    switch (cle) {
+      case 'plainte': return { recue_le: j, mode: null, griefs: '' };
+      case 'recevabilite': return { ecrite: false, dans_delai: false, porte_sur_refus: true, irregularites: false, recevable: null, motif: '' };
+      case 'cde': return { date: j };
+      case 'decision': return { issue: null, motivation: '' };
+      case 'envoi': return { envoye_le: j };
+      case 'externe': return { introduit_le: j, issue: null, decision_le: null };
+      default: return {};
+    }
+  }
+  switch (cle) {
+    case 'faits': return { date: j, description: '', moment: null, type_fraude: null, pv_surveillance: false };
+    case 'ecartement': return { du: j, au: null };
+    case 'convocation': return { envoyee_le: j, mode: null, audition_le: null, heure: '', lieu: '', sanction_envisagee: null };
+    case 'audition': return { tenue_le: et.convocation?.audition_le || j, etudiant_present: null, assiste_par: '', conteste: null, pv: null, declarations: '' };
+    case 'avis': return { demande_le: j, rendu_le: null, avis: '' };
+    case 'decision': return {
+      sanction: null, motivation: '',
+      academique: d.nature === 'fraude' ? ((d.session === 2 || d.recidive?.length) ? 'refuse' : 'ajourne') : undefined,
+    };
+    case 'notification': return { envoyee_le: j, mode: null };
+    case 'recours_po': return { introduit_le: j, decision_le: null, issue: null };
+    default: return {};
+  }
+}
+
+function FormulaireEtape({ dossier: d, cle, ref_, ue, peutInstruire, peutDecider, onPose }) {
+  const def = (d.circuit?.etapes || []).find(e => e.cle === cle)
+    || (cle === 'ecartement' ? { cle, label: 'Écartement provisoire', art: '115 septies', facultatif: true } : null);
+  const [v, setV] = useState(() => valeursInitiales(d, cle));
+  const [erreur, setErreur] = useState(null);
+  const [envoi, setEnvoi] = useState(false);
+  const pose = !!d.etapes?.[cle];
+  const trace = d.traces?.[cle];
+  const reservee = def?.decision && !peutDecider;
+  const lecture = !peutInstruire || reservee;
+  const maj = (k, x) => setV(o => ({ ...o, [k]: x }));
+  if (!def) return <div className="text-[13px] text-slate-400">Étape inconnue.</div>;
+
+  async function poser() {
+    setEnvoi(true); setErreur(null);
+    const r = await appel(`${BASE}/${d.id}/etape`, { method: 'POST', body: JSON.stringify({ etape: cle, donnees: v }) });
+    setEnvoi(false);
+    if (!r.ok) { setErreur(r.data?.error || "L'étape n'a pas pu s'enregistrer."); return; }
+    onPose(r.data);
+  }
+
+  const sanctions = (ref_?.sanctions || []).map(([k, l, art]) => [k, `${l} (art. ${art})`]);
+  const typesFraude = ref_?.types_fraude || [];
+  const P = { desactive: lecture };
+
+  let corps = null;
+  if (d.type === 'recours') {
+    if (cle === 'plainte') corps = (
+      <div className="grid sm:grid-cols-2 gap-3">
+        <Champ label="Reçue le"><Date_ valeur={v.recue_le} onChange={x => maj('recue_le', x)} {...P} /></Champ>
+        <Champ label="Mode de remise"><Choix valeur={v.mode} onChange={x => maj('mode', x)} options={MODES_REMISE} {...P} /></Champ>
+        <div className="sm:col-span-2">
+          <Champ label="Irrégularités invoquées" aide="Ce que l'étudiant reproche à la procédure, tel qu'il l'écrit.">
+            <textarea rows={4} className={CLS_TEXTE} value={v.griefs || ''} disabled={lecture} onChange={e => maj('griefs', e.target.value)} />
+          </Champ>
+        </div>
+      </div>
+    );
+    if (cle === 'recevabilite') {
+      const tout = v.ecrite && v.dans_delai && v.porte_sur_refus && v.irregularites;
+      corps = (
+        <div className="space-y-3">
+          <div>
+            <Intertitre>Conditions de l'art. 88 §3</Intertitre>
+            <div className="space-y-1.5">
+              <Case coche={v.ecrite} onChange={x => maj('ecrite', x)} {...P}>Écrite, en la forme</Case>
+              <Case coche={v.dans_delai} onChange={x => maj('dans_delai', x)} {...P}>Reçue dans les 4 jours calendrier de la publication</Case>
+              <Case coche={v.porte_sur_refus} onChange={x => maj('porte_sur_refus', x)} {...P}>Porte sur un refus</Case>
+              <Case coche={v.irregularites} onChange={x => maj('irregularites', x)} {...P}>Mentionne des irrégularités précises</Case>
+            </div>
+          </div>
+          <Champ label="La plainte est-elle recevable ?" aide={tout ? 'Les quatre conditions sont remplies.' : v.recevable === true ? 'Une condition au moins n’est pas cochée.' : null}>
+            <OuiNon valeur={v.recevable} onChange={x => maj('recevable', x)} oui="Recevable" non="Irrecevable" {...P} />
+          </Champ>
+          {v.recevable === false && (
+            <Champ label="Motif précis de l'irrecevabilité (art. 88 §4)">
+              <textarea rows={3} className={CLS_TEXTE} value={v.motif || ''} disabled={lecture} onChange={e => maj('motif', e.target.value)} />
+            </Champ>
+          )}
+        </div>
+      );
+    }
+    if (cle === 'cde') {
+      const pres = (d.membres || []).filter(m => m.present);
+      const president = pres.some(m => m.role === 'president');
+      const membres = pres.filter(m => m.role === 'membre').length;
+      corps = (
+        <div className="space-y-3">
+          <Champ label="Réunion du CDE restreint le"><Date_ valeur={v.date} onChange={x => maj('date', x)} {...P} /></Champ>
+          <Encadre etat={president && membres >= 2 ? 'reussi' : 'surveiller'}>
+            {president ? 'Président présent' : 'Aucun président présent'} · {membres} membre{membres > 1 ? 's' : ''} présent{membres > 1 ? 's' : ''}
+            {president && membres >= 2 ? ' : composition valable (art. 89 §1).' : ' : il faut un président et au moins deux membres — cochez les présences dans « Personnes ».'}
+          </Encadre>
+        </div>
+      );
+    }
+    if (cle === 'decision') corps = (
+      <div className="space-y-3">
+        <Champ label="Le recours est"><Segments desactive={lecture} valeur={v.issue} onChange={x => maj('issue', x)}
+          options={[['accueilli', 'Accueilli'], ['rejete', 'Rejeté']]} /></Champ>
+        {v.issue === 'accueilli' && (
+          <Encadre etat="disponible">Un recours accueilli rouvre la séance de délibération de l'UE : le CDE re-délibère cet étudiant.</Encadre>
+        )}
+        <Champ label="Motivation, grief par grief (art. 89 §2)">
+          <textarea rows={6} className={CLS_TEXTE} value={v.motivation || ''} disabled={lecture} onChange={e => maj('motivation', e.target.value)} />
+        </Champ>
+      </div>
+    );
+    if (cle === 'envoi') corps = (
+      <Champ label="Décision envoyée par recommandé le"><Date_ valeur={v.envoye_le} onChange={x => maj('envoye_le', x)} {...P} /></Champ>
+    );
+    if (cle === 'externe') corps = (
+      <div className="grid sm:grid-cols-3 gap-3">
+        <Champ label="Introduit le"><Date_ valeur={v.introduit_le} onChange={x => maj('introduit_le', x)} {...P} /></Champ>
+        <Champ label="Décision de la Commission le"><Date_ valeur={v.decision_le} onChange={x => maj('decision_le', x)} {...P} /></Champ>
+        <Champ label="Issue"><Choix valeur={v.issue} onChange={x => maj('issue', x)} options={ISSUES_EXTERNES} vide="— en attente —" {...P} /></Champ>
+      </div>
+    );
+  } else {
+    if (cle === 'faits') corps = (
+      <div className="space-y-3">
+        <div className="grid sm:grid-cols-2 gap-3">
+          <Champ label="Date des faits"><Date_ valeur={v.date} onChange={x => maj('date', x)} {...P} /></Champ>
+          {d.nature === 'fraude' && (
+            <Champ label="Constatée"><Segments desactive={lecture} valeur={v.moment} onChange={x => maj('moment', x)}
+              options={[['epreuve', "Pendant l'épreuve"], ['correction', 'À la correction']]} /></Champ>
+          )}
+        </div>
+        {d.nature === 'fraude' && (
+          <div className="grid sm:grid-cols-2 gap-3 items-end">
+            <Champ label="Type de fraude (art. 72)"><Choix valeur={v.type_fraude} onChange={x => maj('type_fraude', x)} options={typesFraude} {...P} /></Champ>
+            <Case coche={v.pv_surveillance} onChange={x => maj('pv_surveillance', x)} {...P}>Un PV de surveillance a été dressé</Case>
+          </div>
+        )}
+        <Champ label="Description des faits">
+          <textarea rows={5} className={CLS_TEXTE} value={v.description || ''} disabled={lecture} onChange={e => maj('description', e.target.value)} />
+        </Champ>
+        <div className="text-[12px] text-slate-500">
+          La personne qui a constaté les faits se choisit dans « Personnes »
+          {d.nature === 'fraude' ? ', les acquis visés dans « Acquis visés »' : ''}.
+        </div>
+      </div>
+    );
+    if (cle === 'ecartement') corps = (
+      <div className="space-y-2">
+        <div className="grid sm:grid-cols-2 gap-3">
+          <Champ label="Premier jour"><Date_ valeur={v.du} onChange={x => maj('du', x)} {...P} /></Champ>
+          <Champ label="Dernier jour"><Date_ valeur={v.au} onChange={x => maj('au', x)} {...P} /></Champ>
+        </div>
+        <div className="text-[12px] text-slate-500">Quinze jours ouvrables au plus (art. 115 septies).</div>
+      </div>
+    );
+    if (cle === 'convocation') corps = (
+      <div className="space-y-3">
+        <div className="grid sm:grid-cols-2 gap-3">
+          <Champ label="Envoyée le"><Date_ valeur={v.envoyee_le} onChange={x => maj('envoyee_le', x)} {...P} /></Champ>
+          <Champ label="Mode de remise"><Choix valeur={v.mode} onChange={x => maj('mode', x)} options={MODES_REMISE} {...P} /></Champ>
+          <Champ label="Audition le"><Date_ valeur={v.audition_le} onChange={x => maj('audition_le', x)} {...P} /></Champ>
+          <Champ label="Heure"><input type="time" className="controle w-full" value={v.heure || ''} disabled={lecture} onChange={e => maj('heure', e.target.value)} /></Champ>
+        </div>
+        <Champ label="Lieu de l'audition">
+          <input className="controle w-full" value={v.lieu || ''} disabled={lecture} onChange={e => maj('lieu', e.target.value)} placeholder="Bureau de la direction, Campus Erasme" />
+        </Champ>
+        <Champ label="Sanction envisagée (art. 115 quater)"
+          aide={v.sanction_envisagee === 'renvoi_definitif' ? "Renvoi définitif : l'audition ne peut se tenir avant huit jours ouvrables." : null}>
+          <Choix valeur={v.sanction_envisagee} onChange={x => maj('sanction_envisagee', x)} options={sanctions} {...P} />
+        </Champ>
+      </div>
+    );
+    if (cle === 'audition') corps = (
+      <div className="space-y-3">
+        <div className="grid sm:grid-cols-2 gap-3">
+          <Champ label="Tenue le"><Date_ valeur={v.tenue_le} onChange={x => maj('tenue_le', x)} {...P} /></Champ>
+          <Champ label="L'étudiant était"><OuiNon valeur={v.etudiant_present} onChange={x => maj('etudiant_present', x)} oui="Présent" non="Absent" {...P} /></Champ>
+          <Champ label="Assisté par" aide="La personne de son choix — elle peut être extérieure à l'Institut.">
+            <input className="controle w-full" value={v.assiste_par || ''} disabled={lecture} onChange={e => maj('assiste_par', e.target.value)} placeholder="personne" />
+          </Champ>
+          <Champ label="Conteste-t-il les faits ?"><OuiNon valeur={v.conteste} onChange={x => maj('conteste', x)} oui="Conteste" non="Reconnaît" {...P} /></Champ>
+        </div>
+        <Champ label="Procès-verbal"><Choix valeur={v.pv} onChange={x => maj('pv', x)} options={PV_AUDITION} {...P} /></Champ>
+        <Champ label="Déclarations de l'étudiant">
+          <textarea rows={5} className={CLS_TEXTE} value={v.declarations || ''} disabled={lecture} onChange={e => maj('declarations', e.target.value)} />
+        </Champ>
+        <div className="text-[12px] text-slate-500">Le membre du personnel qui rédige le PV se choisit dans « Personnes » (art. 115 quinquies).</div>
+      </div>
+    );
+    if (cle === 'avis') corps = (
+      <div className="space-y-3">
+        <div className="grid sm:grid-cols-2 gap-3">
+          <Champ label="Avis demandé le"><Date_ valeur={v.demande_le} onChange={x => maj('demande_le', x)} {...P} /></Champ>
+          <Champ label="Avis rendu le"><Date_ valeur={v.rendu_le} onChange={x => maj('rendu_le', x)} {...P} /></Champ>
+        </div>
+        <Champ label="Avis du CDE">
+          <textarea rows={5} className={CLS_TEXTE} value={v.avis || ''} disabled={lecture} onChange={e => maj('avis', e.target.value)} />
+        </Champ>
+      </div>
+    );
+    if (cle === 'decision') corps = (
+      <div className="space-y-3">
+        <Champ label="Sanction (art. 115)"><Choix valeur={v.sanction} onChange={x => maj('sanction', x)} options={sanctions} {...P} /></Champ>
+        {d.nature === 'fraude' && (
+          <Champ label="Sanction académique (art. 75 §1)"
+            aide={`Ajourné en 1re session sur les acquis visés ; refusé en 2e session ou en cas de récidive.${d.acquis?.length ? ` ${d.acquis.length} acquis visé(s) seront ajournés dans la délibération.` : ''}`}>
+            <Segments desactive={lecture} valeur={v.academique} onChange={x => maj('academique', x)}
+              options={[['ajourne', 'Ajourné'], ['refuse', 'Refusé']]} />
+          </Champ>
+        )}
+        <Champ label="Motivation : faits, dispositions, gravité (art. 119)">
+          <textarea rows={6} className={CLS_TEXTE} value={v.motivation || ''} disabled={lecture} onChange={e => maj('motivation', e.target.value)} />
+        </Champ>
+      </div>
+    );
+    if (cle === 'notification') corps = (
+      <div className="grid sm:grid-cols-2 gap-3">
+        <Champ label="Envoyée le"><Date_ valeur={v.envoyee_le} onChange={x => maj('envoyee_le', x)} {...P} /></Champ>
+        <Champ label="Mode de remise"><Choix valeur={v.mode} onChange={x => maj('mode', x)} options={MODES_REMISE} {...P} /></Champ>
+      </div>
+    );
+    if (cle === 'recours_po') corps = (
+      <div className="grid sm:grid-cols-3 gap-3">
+        <Champ label="Introduit le"><Date_ valeur={v.introduit_le} onChange={x => maj('introduit_le', x)} {...P} /></Champ>
+        <Champ label="Décision du PO le"><Date_ valeur={v.decision_le} onChange={x => maj('decision_le', x)} {...P} /></Champ>
+        <Champ label="Issue"><Choix valeur={v.issue} onChange={x => maj('issue', x)} options={ISSUES_EXTERNES} vide="— en attente —" {...P} /></Champ>
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <div className="flex flex-wrap items-baseline gap-x-2 mb-1">
+        <h2 className="text-[15px] font-semibold text-slate-800">{def.label}</h2>
+        <span className="text-[12px] text-slate-400">art. {def.art}{def.facultatif ? ' · facultatif' : ''}</span>
+      </div>
+      <div className="text-[12px] text-slate-500 mb-3">
+        {pose && trace ? <>Posée le {fmt(trace.le)}{fmtHeure(trace.le)}{trace.par ? ` par ${trace.par}` : ''}. Enregistrer à nouveau la corrige ; la version précédente reste au journal.</>
+          : 'Pas encore posée.'}
+      </div>
+      {corps}
+      <div className="flex flex-wrap items-center gap-3 mt-4 pt-3 border-t border-slate-200">
+        <button type="button" className="bouton bouton-fort" disabled={lecture || envoi} onClick={poser}>
+          {envoi ? 'Enregistrement…' : pose ? 'Corriger l’étape' : 'Poser l’étape'}
+        </button>
+        <span className="text-[12px] min-w-0 flex-1" style={{ color: erreur ? 'var(--c-refuse)' : undefined }}>
+          {erreur || (reservee ? 'Cette étape est une décision : elle revient à la direction.'
+            : !peutInstruire ? "Vous pouvez lire ce dossier, pas l'instruire." : '')}
+        </span>
+      </div>
+    </div>
+  );
+}
+
+// ── Échéances ───────────────────────────────────────────────────────────────
+const ETAT_ECHEANCE = {
+  tenue: ['reussi', 'tenue'],
+  hors_delai: ['corriger', 'hors délai'],
+  trop_tot: ['corriger', 'trop tôt'],
+};
+function Echeances({ dossier: d }) {
+  const liste = d.echeances || [];
+  return (
+    <Bloc titre="Échéances (RDE)">
+      {!liste.length && (
+        <div className="text-[12px] text-slate-400">
+          {d.type === 'recours' && !d.publie_le ? 'La date de publication des résultats manque : aucun délai ne se calcule.'
+            : 'Aucune échéance pour l’instant : elles naissent des étapes posées.'}
+        </div>
+      )}
+      <div className="divide-y divide-slate-100">
+        {liste.map((e, i) => {
+          let pastille;
+          if (ETAT_ECHEANCE[e.etat]) {
+            const [etat, lib] = ETAT_ECHEANCE[e.etat];
+            pastille = <PastilleEtat etat={etat}>{lib}</PastilleEtat>;
+          } else {
+            const n = joursAvant(e.date);
+            const etat = e.information ? 'neutre' : n != null && n <= 3 ? 'corriger' : n != null && n <= 7 ? 'surveiller' : 'reussi';
+            pastille = <PastilleEtat etat={etat}>{n == null ? 'ouverte' : n < 0 ? `dépassée de ${-n} j` : n === 0 ? "aujourd'hui" : `J-${n}`}</PastilleEtat>;
+          }
+          return (
+            <div key={i} className="py-1.5">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-[13px] text-slate-700">{e.label}</span>
+                <span className="text-[13px] font-semibold text-slate-800 whitespace-nowrap">{fmt(e.date)}</span>
+              </div>
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-[11px] text-slate-400">art. {e.art}{e.information ? ' · pour information' : ''}</span>
+                {pastille}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </Bloc>
+  );
+}
+
+// ── Personnes ───────────────────────────────────────────────────────────────
+function Personnes({ dossier: d, ue, personnel, peut, onMaj }) {
+  const roles = ROLES_PAR_TYPE[d.type] || [];
+  const [role, setRole] = useState(roles[0]);
+  const [qui, setQui] = useState('');
+  const [erreur, setErreur] = useState(null);
+  const membres = d.membres || [];
+
+  // Les chargés de cours de l'UE d'abord, puis tout le personnel.
+  const charges = useMemo(() => [...new Map((ue?.charges || []).map(c => [c.id, c])).values()], [ue]);
+  const idsCharges = new Set(charges.map(c => c.id));
+  const autres = (personnel || []).filter(p => !idsCharges.has(p.id));
+
+  async function ecrire(liste) {
+    setErreur(null);
+    const r = await appel(`${BASE}/${d.id}/membres`, {
+      method: 'PUT',
+      body: JSON.stringify({ membres: liste.map(m => ({ role: m.role, cle: m.cle, nom: m.nom, present: !!m.present })) }),
+    });
+    if (!r.ok) { setErreur(r.data?.error || 'Les personnes ne se sont pas enregistrées.'); return; }
+    onMaj({ ...d, ...r.data, peut_instruire: d.peut_instruire, peut_decider: d.peut_decider });
+  }
+  function ajouter() {
+    if (!qui) return;
+    const id = Number(qui);
+    const p = charges.find(c => c.id === id) || personnel.find(x => x.id === id);
+    if (!p) return;
+    const cle = `p:${p.id}`;
+    if (membres.some(m => m.cle === cle && m.role === role)) { setQui(''); return; }
+    // UN SEUL PRÉSIDENT : en choisir un remplace le précédent.
+    const base = role === 'president' ? membres.filter(m => m.role !== 'president') : membres;
+    ecrire([...base, { role, cle, nom: nomPropre(p.nom, p.prenom), present: true }]);
+    setQui('');
+  }
+
+  const parRole = r => membres.filter(m => m.role === r);
+  return (
+    <Bloc titre={d.type === 'recours' ? 'CDE restreint (art. 89 §1)' : 'Personnes'}>
+      {erreur && <div className="text-[12px] mb-1" style={{ color: 'var(--c-refuse)' }}>{erreur}</div>}
+      {!membres.length && <div className="text-[12px] text-slate-400 mb-1">Personne pour l'instant.</div>}
+      <div className="divide-y divide-slate-100">
+        {roles.flatMap(r => parRole(r)).map(m => {
+          const avecPresence = m.role === 'president' || m.role === 'membre';
+          return (
+            <div key={m.id ?? `${m.role}-${m.cle}-${m.nom}`} className="flex items-center gap-2 py-1 text-[13px]">
+              {avecPresence && (
+                <input type="checkbox" title="Présent" checked={!!m.present} disabled={!peut}
+                  onChange={e => ecrire(membres.map(x => (x === m ? { ...x, present: e.target.checked } : x)))} />
+              )}
+              <span className={`flex-1 min-w-0 truncate ${m.role === 'president' ? 'font-semibold text-slate-800' : 'text-slate-700'}`}>{m.nom}</span>
+              <span className="text-[11px] text-slate-400 whitespace-nowrap">{ROLES[m.role]}</span>
+              {peut && (
+                <button type="button" title="Retirer" className="text-slate-400 hover:text-slate-700"
+                  onClick={() => ecrire(membres.filter(x => x !== m))}><IconTrash size={14} /></button>
+              )}
+            </div>
+          );
+        })}
+      </div>
+      {d.type === 'recours' && membres.length > 0 && (
+        <div className="text-[11px] text-slate-400 mt-1">La case cochée dit « présent à la réunion ».</div>
+      )}
+      {peut && (
+        <div className="mt-2 space-y-1.5">
+          <div className="flex gap-1.5">
+            <select className="controle flex-none" value={role} onChange={e => setRole(e.target.value)}>
+              {roles.map(r => <option key={r} value={r}>{ROLES[r]}</option>)}
+            </select>
+            <select className="controle flex-1 min-w-0" value={qui} onChange={e => setQui(e.target.value)}>
+              <option value="">— choisir une personne —</option>
+              {charges.length > 0 && (
+                <optgroup label={`Chargés de cours de l'UE ${d.ue_num}`}>
+                  {charges.map(c => <option key={`c${c.id}`} value={c.id}>{nomPropre(c.nom, c.prenom)}</option>)}
+                </optgroup>
+              )}
+              <optgroup label="Personnel">
+                {autres.map(p => <option key={p.id} value={p.id}>{nomPropre(p.nom, p.prenom)}</option>)}
+              </optgroup>
+            </select>
+          </div>
+          <button type="button" className="bouton bouton-compact" disabled={!qui} onClick={ajouter}>
+            <IconPlus size={14} /> Ajouter
+          </button>
+        </div>
+      )}
+    </Bloc>
+  );
+}
+
+// ── Acquis visés (fraude) ───────────────────────────────────────────────────
+function AcquisVises({ dossier: d, ue, peut, onMaj }) {
+  const [erreur, setErreur] = useState(null);
+  const gele = !!d.etapes?.decision;
+  async function basculer(cours_code, aa_code) {
+    const liste = d.acquis.some(a => a.aa_code === aa_code)
+      ? d.acquis.filter(a => a.aa_code !== aa_code) : [...d.acquis, { cours_code, aa_code }];
+    setErreur(null);
+    const r = await appel(`${BASE}/${d.id}/acquis`, { method: 'PUT', body: JSON.stringify({ acquis: liste }) });
+    if (!r.ok) { setErreur(r.data?.error || 'Les acquis ne se sont pas enregistrés.'); return; }
+    onMaj({ ...d, ...r.data, peut_instruire: d.peut_instruire, peut_decider: d.peut_decider });
+  }
+  return (
+    <Bloc titre={`Acquis visés · ${d.acquis?.length || 0}`}>
+      {erreur && <div className="text-[12px] mb-1" style={{ color: 'var(--c-refuse)' }}>{erreur}</div>}
+      {gele && <div className="text-[11px] text-slate-400 mb-1">La décision est posée : les acquis visés ne se changent plus.</div>}
+      {ue ? <ArbreAcquis cours={ue.cours || []} coches={d.acquis || []} onBasculer={basculer} desactive={!peut || gele} />
+        : (
+          <div className="text-[13px] text-slate-700">
+            {(d.acquis || []).map(a => a.aa_code).join(', ') || <span className="text-slate-400">aucun</span>}
+          </div>
+        )}
+    </Bloc>
+  );
+}
+
+// ── Pièces ──────────────────────────────────────────────────────────────────
+function Pieces({ dossier: d, peut, onMaj }) {
+  const [categorie, setCategorie] = useState(d.type === 'recours' ? 'plainte' : 'pv_surveillance');
+  const [envoi, setEnvoi] = useState(false);
+  const [erreur, setErreur] = useState(null);
+  const champ = useRef(null);
+  const officielles = PIECES_OFFICIELLES[d.type] || [];
+
+  async function deposer(fichier) {
+    if (!fichier) return;
+    setEnvoi(true); setErreur(null);
+    const fd = new FormData();
+    fd.append('fichier', fichier);
+    fd.append('categorie', categorie);
+    // Un envoi de fichier laisse le navigateur écrire la frontière du multipart.
+    const h = authHeaders(); delete h['Content-Type'];
+    try {
+      const rep = await fetch(`${BASE}/${d.id}/pieces`, { method: 'POST', headers: h, body: fd });
+      const data = await rep.json().catch(() => null);
+      if (!rep.ok) setErreur(data?.error || 'La pièce ne s’est pas déposée.');
+      else onMaj({ ...d, ...data, peut_instruire: d.peut_instruire, peut_decider: d.peut_decider });
+    } catch (e) { setErreur(e.message); }
+    setEnvoi(false);
+    if (champ.current) champ.current.value = '';
+  }
+  async function telecharger(p) {
+    try { await telechargerFichier(`${BASE}/${d.id}/pieces/${p.id}`, p.nom); }
+    catch (e) { informer({ message: e.message, ton: 'alerte' }); }
+  }
+  async function produire(o) {
+    const r = await appel(`${BASE}/${d.id}/document/${o.piece}`);
+    if (!r.ok || !r.data?.html) {
+      informer({ message: r.data?.error || `« ${o.label} » ne peut pas encore se produire.`, ton: 'alerte' });
+      return;
+    }
+    ouvrirApercu({
+      html: r.data.html, titre: o.label,
+      sousTitre: `${nomPropre(d.etudiant?.nom, d.etudiant?.prenom)} · dossier n° ${d.id}`,
+      nomFichier: r.data.nom || `${o.piece}_${d.id}`,
+    });
+  }
+  const libCat = c => CATEGORIES_PIECE.find(x => x[0] === c)?.[1] || c;
+
+  return (
+    <Bloc titre="Pièces">
+      {officielles.length > 0 && (
+        <div className="divide-y divide-slate-100 mb-2">
+          {officielles.map(o => {
+            const pret = o.pret(d);
+            return (
+              <div key={o.piece} className="flex items-center gap-2 py-1">
+                <IconFileText size={15} className="text-slate-400 flex-none" />
+                <span className="flex-1 min-w-0 text-[13px] text-slate-700 truncate">{o.label}</span>
+                {pret ? (
+                  <button type="button" className="bouton bouton-compact bouton-sortir" onClick={() => produire(o)}>Produire</button>
+                ) : (
+                  <span className="text-[11px] text-slate-400 whitespace-nowrap">
+                    après « {(d.circuit?.etapes || []).find(e => e.cle === o.etape)?.label || o.etape} »
                   </span>
                 )}
               </div>
-
-              {/* Infos */}
-              <div className="grid grid-cols-2 gap-3 text-sm">
-                <div><p className="text-xs text-gray-400">Généré le</p><p className="font-medium">{fmtDate(detail.cree_le)}</p></div>
-                <div><p className="text-xs text-gray-400">Par</p><p className="font-medium">{detail.cree_par || '—'}</p></div>
-                <div><p className="text-xs text-gray-400">Date faits / publi</p><p className="font-medium">{fmtDate(detail.date_faits)}</p></div>
-                <div><p className="text-xs text-gray-400">Séance CDE</p><p className="font-medium">{fmtDate(detail.date_seance_cde)}</p></div>
-              </div>
-
-              {/* Changement de statut */}
-              <div>
-                <p className="text-xs text-gray-500 font-medium mb-2">Changer le statut</p>
-                <div className="flex gap-2">
-                  {['brouillon', 'en_cours', 'clos', 'annule'].map(s => (
-                    <button key={s} onClick={() => changerStatut(detail.id, s)} disabled={saving || detail.statut === s}
-                      className={`text-xs px-3 py-1.5 rounded border transition ${detail.statut === s ? 'bg-iip-turquoise text-white border-iip-turquoise font-semibold' : 'border-gray-300 text-gray-600 hover:border-iip-turquoise hover:text-iip-turquoise'}`}>
-                      {STATUT_LABEL[s]}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Actions */}
-              <div className="space-y-2">
-                <p className="text-xs text-gray-500 font-medium">Actions</p>
-                <div className="flex flex-wrap gap-2">
-                  <OuvrirEditions titre="Voir, imprimer ou envoyer le document — centre d'édition"
-                    pieces={[{ cle: 'procedure', label: 'Document de la procédure', description: 'Recomposé à partir du dossier', onClick: () => regenererHTML(detail) }]} />
-                  <button onClick={() => { setDetail(null); onReprendreRecours && onReprendreRecours(detail); }}
-                    className="flex items-center gap-1.5 text-sm px-3 py-2 rounded border border-gray-300 text-gray-700 hover:bg-gray-50 transition">
-                    <IconPencil size={15} className="inline align-[-2px] mr-1" />Reprendre dans le formulaire
-                  </button>
-                </div>
-              </div>
-
-              {/* Suppression */}
-              <div className="border-t border-red-100 pt-4 mt-4">
-                {confirmSupp === detail.id ? (
-                  <div className="bg-red-50 border border-red-200 rounded-lg p-4 space-y-3 border-l-4 border-l-red-500">
-                    <p className="text-sm font-medium text-red-800">Suppression physique définitive</p>
-                    <p className="text-xs text-red-700">Cette action est irréversible. La procédure et toutes ses traces seront effacées de la base de données.</p>
-                    <div className="flex gap-2">
-                      <button onClick={() => supprimerPhysique(detail.id)} disabled={saving}
-                        className="bg-red-600 text-white text-xs px-4 py-1.5 h-9 rounded hover:bg-red-700 disabled:opacity-50">
-                        Confirmer la suppression
-                      </button>
-                      <button onClick={() => setConfirmSupp(null)} className="border border-gray-300 text-gray-600 text-xs px-4 py-1.5 h-9 rounded">
-                        Annuler
-                      </button>
-                    </div>
-                  </div>
-                ) : (
-                  <button onClick={() => setConfirmSupp(detail.id)}
-                    className="text-xs text-red-500 hover:text-red-700 hover:underline">
-                    Supprimer définitivement cette procédure
-                  </button>
-                )}
-              </div>
-            </div>
-        </Fenetre>
+            );
+          })}
+        </div>
       )}
-
-      {/* Preview document */}
-    </div>
-  );
-}
-
-
-
-export default function Procedures() {
-  const [outil, setOutil] = useState('recours');
-  const [preRemplir, setPreRemplir] = useState(null);
-  const anneeActive = getAnnee();
-  const is2526 = anneeActive === '2025-2026';
-  const outils = [
-    { id: 'recours',  label: 'Recours',  icon: IconScale },
-    { id: 'fraude',   label: 'Fraude',   icon: IconShieldExclamation },
-    { id: 'disciplinaire', label: 'Disciplinaire (beta)', icon: IconGavel },
-    { id: 'examens',  label: 'Examens',  icon: IconClipboardList },
-    { id: 'archives', label: 'Archives', icon: IconFolder },
-  ];
-
-  function reprendreDepuisArchive(proc) {
-    let payload;
-    try { payload = JSON.parse(proc.payload_json || '{}'); } catch { payload = {}; }
-    setPreRemplir({ type: proc.type, payload });
-    setOutil(proc.type === 'recours' ? 'recours' : 'fraude');
-  }
-
-  const bandeauPreRempli = (
-    <p className="text-xs text-iip-blue -mt-2 mb-5 bg-iip-turquoise/5 border border-iip-turquoise/30 rounded px-3 py-1.5 h-9 inline-flex items-center gap-1.5">
-      <IconArrowBackUp size={14} stroke={1.8} /> Formulaire pré-rempli depuis une archive — modifiez si nécessaire avant de générer
-    </p>
-  );
-
-  return (
-    <div className="relative" style={{ minHeight: 'calc(100vh - 64px)' }}>
-      {/* ── Rail latéral glissant (composant partagé) ── */}
-      <RailLateral
-        icon={IconChecklist}
-        titre="Procédures IIP"
-        sousTitre={`Année ${anneeActive}`}
-        sections={[{
-          items: outils.map(o => ({
-            key: o.id, label: o.label, icon: o.icon, actif: outil === o.id,
-            onClick: () => { setOutil(o.id); if (o.id !== 'recours' && o.id !== 'fraude') setPreRemplir(null); },
-          })),
-        }]}
-      />
-
-      {/* ── Contenu (décalé du gutter du rail) ── */}
-      <div className="gouttiere-rail p-6">
-        {outil === 'recours' && (
-          <>
-            <PageHeader icon={IconScale} titre="Outil de traitement des recours"
-              sous={`${is2526 ? 'Art. 65-68 ROI/RGE IIP 2025-2026 · Procédure temporaire' : 'Art. 87-91 RDE/ROI IIP 2026-2027 · D. 27/10/2006'} · À destination de Nicolas`} />
-            {preRemplir?.type === 'recours' && bandeauPreRempli}
-            <OutilRecours initialPayload={preRemplir?.type === 'recours' ? preRemplir.payload : null} onPayloadConsumed={() => setPreRemplir(null)} />
-          </>
-        )}
-        {outil === 'fraude' && (
-          <>
-            <PageHeader icon={IconShieldExclamation} titre="Procédure de traitement des fraudes"
-              sous={`${is2526 ? 'Art. 54-55 ROI/RGE IIP 2025-2026 · Procédure temporaire' : 'Art. 72-75 RDE/ROI IIP 2026-2027'} · Procédure contradictoire obligatoire · À destination de Nicolas`} />
-            {preRemplir?.type === 'fraude' && bandeauPreRempli}
-            <OutilFraude initialPayload={preRemplir?.type === 'fraude' ? preRemplir.payload : null} onPayloadConsumed={() => setPreRemplir(null)} />
-          </>
-        )}
-        {outil === 'disciplinaire' && (<Disciplinaire />)}
-        {outil === 'examens' && (
-          <div className="text-center text-gray-400 p-12">
-            <IconClipboardList size={44} stroke={1.5} className="mx-auto mb-3 text-gray-300" />
-            <p className="font-medium">Procédure Examens — en cours de développement</p>
-          </div>
-        )}
-        {outil === 'archives' && (
-          <ArchivesProcedures onReprendreRecours={reprendreDepuisArchive} />
-        )}
+      <div className="divide-y divide-slate-100">
+        {(d.pieces || []).map(p => (
+          <button key={p.id} type="button" onClick={() => telecharger(p)}
+            className="w-full flex items-center gap-2 py-1 text-left hover:bg-slate-50">
+            <IconDownload size={14} className="text-slate-400 flex-none" />
+            <span className="flex-1 min-w-0">
+              <span className="block text-[13px] text-slate-700 truncate">{p.nom}</span>
+              <span className="block text-[11px] text-slate-400">{libCat(p.categorie)} · {fmt(p.le)}{p.par_nom ? ` · ${p.par_nom}` : ''}</span>
+            </span>
+          </button>
+        ))}
+        {!(d.pieces || []).length && <div className="text-[12px] text-slate-400 py-1">Aucune pièce déposée.</div>}
       </div>
-    </div>
+      {erreur && <div className="text-[12px] mt-1" style={{ color: 'var(--c-refuse)' }}>{erreur}</div>}
+      {peut && (
+        <div className="mt-2 flex gap-1.5">
+          <select className="controle flex-1 min-w-0" value={categorie} onChange={e => setCategorie(e.target.value)}>
+            {CATEGORIES_PIECE.map(([k, l]) => <option key={k} value={k}>{l}</option>)}
+          </select>
+          <input ref={champ} type="file" className="hidden" onChange={e => deposer(e.target.files?.[0])} />
+          <button type="button" className="bouton" disabled={envoi} onClick={() => champ.current?.click()}>
+            <IconUpload size={15} /> {envoi ? 'Dépôt…' : 'Déposer'}
+          </button>
+        </div>
+      )}
+    </Bloc>
   );
 }
 
+// ── Journal ─────────────────────────────────────────────────────────────────
+function Journal({ dossier: d }) {
+  const libelles = Object.fromEntries((d.circuit?.etapes || []).map(e => [e.cle, e.label]));
+  libelles.ecartement = 'Écartement provisoire';
+  const lignes = [...(d.journal || [])].reverse();
+  return (
+    <Bloc titre={`Journal · ${lignes.length} geste${lignes.length > 1 ? 's' : ''}`}>
+      {!lignes.length && <div className="text-[12px] text-slate-400">Aucun geste encore.</div>}
+      <div className="divide-y divide-slate-100 max-h-72 overflow-y-auto">
+        {lignes.map((l, i) => (
+          <div key={i} className="py-1">
+            <div className="text-[13px] text-slate-700">
+              {libelles[l.etape] || l.etape}{l.retiree ? ' — retirée' : ''}
+            </div>
+            <div className="text-[11px] text-slate-400">{fmt(l.le)}{fmtHeure(l.le)}{l.par ? ` · ${l.par}` : ''}</div>
+          </div>
+        ))}
+      </div>
+    </Bloc>
+  );
+}
