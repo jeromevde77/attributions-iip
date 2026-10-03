@@ -6855,7 +6855,7 @@ const DATA_DIR_VA = process.env.DATA_DIR || '/app/data';
  * n'est pas un endroit où l'on range des exécutables, et qu'un refus net vaut
  * mieux qu'un fichier accepté que personne ne pourra jamais ouvrir.
  */
-const TYPES_PREUVE = new Set([
+export const TYPES_PREUVE = new Set([
   'application/pdf',
   'image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/heic', 'image/tiff',
   'application/msword',
@@ -6903,7 +6903,7 @@ export const NATURES_PREUVE = [
  * ramené à des caractères sûrs, accents compris : un nom de fichier qui
  * voyage entre Windows, macOS et un NAS ne survit pas aux fantaisies.
  */
-function nommerPreuve(nature, etud, valo, original) {
+export function nommerPreuve(nature, etud, valo, original) {
   const pur = t => String(t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '')
     .replace(/[^\w]+/g, '-').replace(/^-+|-+$/g, '');
   const ext = (String(original || '').match(/\.[A-Za-z0-9]{1,8}$/) || [''])[0].toLowerCase();
@@ -6919,7 +6919,7 @@ function nommerPreuve(nature, etud, valo, original) {
  * diplômes : le second devient « …_2 », sans quoi le nom affiché mentirait sur
  * ce qu'on télécharge.
  */
-function nomLibre(valorisationId, propose) {
+export function nomLibre(valorisationId, propose) {
   const pris = new Set(db.prepare(
     'SELECT nom FROM etudiant_valorisation_fichier WHERE valorisation_id = ?')
     .all(valorisationId).map(f => f.nom));

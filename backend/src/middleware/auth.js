@@ -30,7 +30,7 @@ export function utilisateurDuJeton(req) {
   if (!auth || !auth.startsWith('Bearer ')) return null;
   try {
     const p = jwt.verify(auth.slice(7), JWT_SECRET);
-    return p?.scope === SCOPE_MFA ? null : p;
+    return p?.scope === SCOPE_MFA || p?.scope === 'portail_va' ? null : p;
   } catch { return null; }
 }
 
@@ -50,6 +50,10 @@ export function authRequired(req, res, next) {
     // qu'un écran de plus à fermer. Le contrôle est posé sur la porte commune
     // plutôt que sur chaque route — trente-trois routes d'attribution nous ont
     // appris ce que coûte un filtre qu'il faut penser à poser.
+    // Un jeton de la porte étudiante (VA en ligne) n'est pas une identité du
+    // personnel. Il est signé d'une autre clé et échoue donc plus haut ; ce
+    // refus-ci tient même si la clé venait à changer.
+    if (req.user.scope === 'portail_va') return res.status(401).json({ error: 'Jeton non valable ici.' });
     if (req.user.scope === SCOPE_MFA) {
       return res.status(401).json({
         error: 'Authentification incomplète : le code à six chiffres est attendu.',

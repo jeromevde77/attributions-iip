@@ -895,6 +895,20 @@ promesse, et le refus arrive alors après coup.
 > pas une boîte flex : `flex-1` ne faisait rien, les marges se cumulaient à
 > 36 px, et deux ascenseurs se chevauchaient au pied de la fenêtre.
 
+**LA PORTE DES ÉTUDIANTS — DEMANDE DE VA EN LIGNE** (3.0.14, Charles, 3
+octobre 2026). Page publique `/demande-va`, serveur `routes/portailVA.js`
+(`/api/portail-va`). Le matricule seul ne prouve rien : il déclenche un lien à
+usage unique, 30 minutes, envoyé à l'adresse DU DOSSIER (école, sinon privée),
+jamais à une adresse tapée ; même réponse pour un matricule inconnu. Le jeton
+de session est signé d'une clé dérivée, portée `portail_va` — `authRequired`
+le refuse aussi. L'étudiant ouvre VA ou VAE par unité de sa section (AD reste
+au secrétariat), dépose ses pièces (type réel lu dans les premiers octets), et
+complète **tant que la recevabilité n'est pas posée**. Chaque geste entre au
+journal sous « NOM Prénom (étudiant, en ligne) » ; `mode_introduction = 'en
+ligne'`, date du serveur. **Sans courriel qui part, la porte ne sert à rien** —
+et la dev contient de vraies adresses d'étudiants : vérifier la redirection
+des courriels avant d'y essayer un matricule.
+
 **Le registre des valorisations** (rail *Étudiants → Valorisation*) : elles ne se
 lisaient que fiche par fiche, donc elles ne se lisaient pas — personne n'ouvre
 588 dossiers pour savoir qui a demandé quoi. Une ligne par demande, filtrable par
