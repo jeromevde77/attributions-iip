@@ -6,7 +6,8 @@ import db from '../db/index.js';
 import { renommerUE } from '../lib/renommerUE.js';
 import { anneeDeTravail } from '../helpers/annee.js';
 import { authRequired, roleRequired, getUserSections, exigerPerimetreProfesseur,
-  clauseSections, soiSeul } from '../middleware/auth.js';
+  clauseSections, soiSeul, SOI_SEUL } from '../middleware/auth.js';
+import { deposerDemande } from './demandes.js';
 import { parseDossierPedagogique } from '../parseDossierPedagogique.js';
 import { gesteRequis } from '../lib/gestes.js';
 import { htmlListeCoordonnees } from '../services/liste_coordonnees.js';
@@ -879,7 +880,10 @@ r.get('/professeurs', authRequired, soiSeul({ liste: true }), (req, res) => {
   // nom, la commune et le statut de tout le personnel de l'Institut. Un
   // professeur est rattaché aux sections où il a des attributions ; celui qui
   // n'en a aucune ne reste visible que de la direction.
-  const perim = getUserSections(req.user);
+  // UN PROFESSEUR N'A PAS DE SECTIONS, IL A SA FICHE : soiSeul ne lui laisse
+  // que sa ligne ; le périmètre, vide pour lui, l'effaçait aussi (« on ne voit
+  // rien, même pas elle », Charles, 3 octobre 2026).
+  const perim = SOI_SEUL.includes(req.user?.role) ? null : getUserSections(req.user);
   if (perim) {
     // Un périmètre VIDE produisait « IN () », que SQLite refuse : la route
     // tombait en 500 au lieu de rendre une liste vide. `clauseSections` répond
@@ -1251,6 +1255,39 @@ r.post('/professeurs', authRequired, gesteRequis('personnel.fiche'), (req, res) 
 });
 
 // Modifier un professeur
+/* UN PROFESSEUR PROPOSE, LA DIRECTION VALIDE (Charles, 3 octobre 2026 : « elle
+   doit pouvoir envoyer une modif… avec validation »). Sur SA fiche seulement,
+   et seulement ce qui le regarde : ses coordonnées, son état civil, son compte,
+   sa situation fiscale. Statut, ancienneté, titres et matricule restent à
+   l'administration. Rien ne s'écrit : une demande part dans le registre des
+   demandes, où la direction la valide ou la refuse. */
+const CHAMPS_PROPOSABLES_PROF = ['mail_prive', 'adresse_rue', 'code_postal', 'commune', 'tel_gsm',
+  'sexe', 'niss', 'nationalite', 'lieu_naissance_ville', 'lieu_naissance_pays', 'date_naissance',
+  'iban', 'bic', 'compte_titulaire', 'photo', 'etat_civil', 'handicap',
+  'conjoint_nom', 'conjoint_prenom', 'conjoint_handicap', 'conjoint_alloc_foyer', 'conjoint_revenus',
+  'ce883_actif', 'ce883_date_debut', 'ce883_caisse', 'ce883_num_inscription'];
+r.patch('/professeurs/:id', authRequired, (req, res, next) => {
+  if (!SOI_SEUL.includes(req.user?.role)) return next();
+  const id = Number(req.params.id);
+  if (!req.user.professeur_id || Number(req.user.professeur_id) !== id) return res.status(404).json({ error: 'Introuvable.' });
+  const refuses = Object.keys(req.body || {}).filter(k => !CHAMPS_PROPOSABLES_PROF.includes(k));
+  const apres = Object.fromEntries(Object.entries(req.body || {}).filter(([k]) => CHAMPS_PROPOSABLES_PROF.includes(k)));
+  if (!Object.keys(apres).length) {
+    return res.status(403).json({ error: 'Ces champs relèvent de l’administration : signalez la correction au secrétariat.' });
+  }
+  const actuel = db.prepare(`SELECT nom, prenom, ${Object.keys(apres).join(', ')} FROM professeur WHERE id = ?`).get(id);
+  if (!actuel) return res.status(404).json({ error: 'Introuvable.' });
+  const avant = Object.fromEntries(Object.keys(apres).map(k => [k, actuel[k]]));
+  const changes = Object.keys(apres).filter(k => String(apres[k] ?? '') !== String(avant[k] ?? ''));
+  if (!changes.length) return res.json({ ok: true, rien: true, message: 'Aucun changement.' });
+  const rep = deposerDemande({
+    type: 'fiche_personnel', operation: 'modifier', cible_id: id, section: null,
+    libelle: `Fiche de ${String(actuel.nom || '').toUpperCase()} ${actuel.prenom || ''} : ${changes.join(', ')}`,
+    avant: Object.fromEntries(changes.map(k => [k, avant[k]])),
+    apres: Object.fromEntries(changes.map(k => [k, apres[k]])), user: req.user,
+  });
+  res.json({ ...rep, ignores: refuses });
+});
 r.patch('/professeurs/:id', authRequired, gesteRequis('personnel.fiche'), (req, res) => {
   const allowed = ['nom','prenom','adresse_mail','mail_prive','statut',
                    'adresse_rue','code_postal','commune','capaes','anciennete_25_26_po',

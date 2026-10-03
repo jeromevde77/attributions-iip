@@ -83,6 +83,15 @@ export function deposerDemande({ type, operation, cible_id, section, annee_scola
 // ── Application d'une demande validée ──────────────────────────────────────
 // Chaque type sait se poser dans les tables réelles.
 const APPLICATEURS = {
+  // La fiche d'un membre du personnel, proposée par lui-même (routes/referentiels.js).
+  fiche_personnel: (d) => {
+    const a = JSON.parse(d.apres);
+    const champs = Object.keys(a).filter(k => /^[a-z0-9_]+$/.test(k));
+    if (!champs.length) return 'Rien à appliquer.';
+    db.prepare(`UPDATE professeur SET ${champs.map(k => k + ' = ?').join(', ')} WHERE id = ?`)
+      .run(...champs.map(k => a[k]), Number(d.cible_id));
+    return 'Fiche mise à jour.';
+  },
   date_ue: (d) => {
     const a = JSON.parse(d.apres);
     db.prepare(`

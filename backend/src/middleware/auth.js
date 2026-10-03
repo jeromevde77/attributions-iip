@@ -216,6 +216,9 @@ export function exigerPerimetreProfesseur(req, res, next) {
   const brut = req.params?.id ?? req.params?.profId ?? req.params?.professeur_id
     ?? req.body?.professeur_id ?? req.query?.professeur_id;
   const profId = Number(brut);
+  // SA PROPRE FICHE, TOUJOURS : un enseignant n'a pas de sections, et le
+  // périmètre vide lui fermait jusqu'à son propre dossier.
+  if (req.user?.professeur_id && Number(req.user.professeur_id) === profId) return next();
   if (!Number.isFinite(profId)) {
     return res.status(400).json({ error: 'professeur non identifié' });
   }

@@ -379,7 +379,16 @@ export default function ProfFicheModal({ prof, onClose, onSaved }) {
         // Puis appliquer les champs étendus via PATCH
         await api.updateProfesseur(id, form);
       } else {
-        await api.updateProfesseur(id, form);
+        const rep = await api.updateProfesseur(id, form);
+        // UN PROFESSEUR PROPOSE, LA DIRECTION VALIDE : sa modification part en
+        // demande, et rien d'autre ne s'enregistre (titres, charges, ancienneté
+        // restent à l'administration).
+        if (rep?.en_attente || rep?.rien) {
+          await informer({ titre: rep.en_attente ? 'Modification transmise' : 'Rien à transmettre',
+            ton: rep.en_attente ? 'reussi' : 'neutre', message: rep.message });
+          onSaved();
+          return;
+        }
       }
       // Sauver titres + charges
       await api.saveProfTitres(id, titres);
