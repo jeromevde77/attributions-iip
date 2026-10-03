@@ -1223,13 +1223,13 @@ export function BoutonFenetre({ principal = false, ton = 'neutre', desactive = f
  * OuvrirEditions : le carré ET le centre, ouvert avec le contexte donné.
  */
 export function BoutonEditions({ onClick, titre = 'Imprimer ou envoyer — centre d’édition', taille = 'normal', disabled = false, sombre = false }) {
-  const cote = taille === 'petit' ? 'w-7 h-7' : 'w-9 h-9';
+  const cote = taille === 'petit' ? 'w-7 h-7' : taille === 'moyen' ? 'w-8 h-8' : 'w-9 h-9';
   return (
     <button type="button" onClick={onClick} disabled={disabled} title={titre} aria-label={titre}
       className={`${cote} flex-none grid place-items-center rounded-champ border transition-colors duration-150 ease-ios disabled:opacity-40
         ${sombre ? 'border-white/40 text-white hover:bg-white/10' : 'bg-white hover:bg-[color:var(--c-principal)]/[0.06]'}`}
       style={sombre ? undefined : { borderColor: 'var(--c-principal, #16406A)', color: 'var(--c-principal, #16406A)' }}>
-      <IconSend size={taille === 'petit' ? 14 : 17} />
+      <IconSend size={taille === 'petit' ? 14 : taille === 'moyen' ? 15 : 17} />
     </button>
   );
 }

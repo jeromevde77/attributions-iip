@@ -2905,15 +2905,15 @@ export function FicheEtudiant({ id, annee, onClose, position, onPrec, onSuiv,
               fenêtre que la Revue des PAE. */}
           <button type="button" onClick={() => setRevueFiche(true)}
             title="Parcourir et valider le PAE — la revue, sur cet étudiant"
-            className="controle w-9 justify-center px-0 inline-flex items-center text-iip-blue">
-            <IconEyeCheck size={17} />
+            className="w-8 h-8 flex-none grid place-items-center rounded-champ border border-slate-300 bg-white text-iip-blue hover:bg-slate-50">
+            <IconEyeCheck size={20} />
           </button>
           {(onPrec || onSuiv) && portee && (
             <MenuParcourir portee={portee} onPortee={onPortee} sections={sections} ues={ues} annees={annees} />
           )}
           {/* L'AVION, ET RIEN D'AUTRE (2 octobre 2026) : il ouvre le centre
               d'édition sur cet étudiant. */}
-          <BoutonEditions onClick={() => setEdition(true)}
+          <BoutonEditions onClick={() => setEdition(true)} taille="moyen"
             titre="Imprimer ou envoyer — le centre d'édition, sur cet étudiant" />
           </div>
         </div>
