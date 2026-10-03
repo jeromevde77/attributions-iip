@@ -1,3 +1,4 @@
+import { sectionRattachement } from './etudiants.js';
 import { Router } from 'express';
 import db from '../db/index.js';
 import { authRequired, roleRequired, getUserSections} from '../middleware/auth.js';
@@ -682,13 +683,25 @@ export function calculerEtp(annee) {
     if (!effMap[e.section]) effMap[e.section] = 0;
     effMap[e.section] += (e.nb_etudiants || 0);
   }
+  /* LES ÉTUDIANTS RÉELLEMENT INSCRITS (Charles, 3 octobre 2026 : « tu ne
+     calcules pas les ETP/étudiants, pourtant tu as les données »). Le ratio
+     lisait les effectifs ESTIMÉS par UE, additionnés : un étudiant inscrit à
+     huit UE comptait huit fois, et une année sans estimation donnait zéro.
+     Il compte désormais les personnes — inscrites cette année, dans leur
+     section de rattachement. L'estimation par UE ne sert plus qu'à défaut. */
+  const inscritsMap = {};
+  for (const x of db.prepare('SELECT DISTINCT etudiant_id FROM etudiant_inscription WHERE annee_scolaire = ?').all(annee)) {
+    const sec = sectionRattachement(x.etudiant_id, annee).section;
+    if (sec) inscritsMap[sec] = (inscritsMap[sec] || 0) + 1;
+  }
 
   const out = Object.values(sections)
     .map(s => ({
       section: s.section,
       etp_ct: r4(s.etp_ct), etp_pp: r4(s.etp_pp),
       etp_iip: r4(s.etp_iip), etp_helb: r4(s.etp_helb), etp_total: r4(s.etp_iip + s.etp_helb),
-      nb_etudiants: effMap[s.section] || 0,
+      nb_etudiants: inscritsMap[s.section] || effMap[s.section] || 0,
+      nb_etudiants_source: inscritsMap[s.section] ? 'inscrits' : effMap[s.section] ? 'estimation' : null,
       ues: s.ues.sort((a, b) => String(a.ue_num).localeCompare(String(b.ue_num), 'fr', { numeric: true })),
     }))
     .sort((a, b) => a.section.localeCompare(b.section, 'fr'));
