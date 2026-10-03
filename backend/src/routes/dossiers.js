@@ -91,13 +91,16 @@ r.get('/contexte/:etudiantId', authRequired, gesteRequis('procedures.instruire')
   const annee = req.query.annee || anneeDeTravail(req);
   const e = db.prepare('SELECT id, nom, prenom, id_ecampus, section_rattachement FROM etudiant WHERE id = ?').get(id);
   if (!e) return res.status(404).json({ error: 'Étudiant introuvable.' });
-  const inscriptions = db.prepare(`SELECT i.ue_num, i.resultat, i.resultat_s1, i.resultat_s2,
-      i.points, COALESCE(i.num_organisation, 0) AS num_organisation,
-      (SELECT ue_nom FROM ue WHERE ue_num = i.ue_num ORDER BY (annee_scolaire = i.annee_scolaire) DESC LIMIT 1) AS ue_nom
-    FROM etudiant_inscription i WHERE i.etudiant_id = ? AND i.annee_scolaire = ? ORDER BY i.ue_num`).all(id, annee)
+  // Le nom de l'unité se lit à part : une sous-requête qui trie sur une colonne
+  // de la requête principale passait en local et cassait sur le serveur.
+  const nomUE = db.prepare(`SELECT ue_nom FROM ue WHERE ue_num = ? ORDER BY (annee_scolaire = ?) DESC LIMIT 1`);
+  const inscriptions = db.prepare(`SELECT ue_num, resultat, resultat_s1, resultat_s2,
+      points, COALESCE(num_organisation, 0) AS num_organisation
+    FROM etudiant_inscription WHERE etudiant_id = ? AND annee_scolaire = ? ORDER BY ue_num`).all(id, annee)
     .map(i => {
       const session = i.resultat_s2 ? 2 : 1;
-      return { ...i, section: sectionDe(id, i.ue_num, annee), session, recourable: est_recourable(i.resultat) };
+      return { ...i, ue_nom: nomUE.get(i.ue_num, annee)?.ue_nom || null,
+               section: sectionDe(id, i.ue_num, annee), session, recourable: est_recourable(i.resultat) };
     });
   const perim = getUserSections(req.user);
   const visibles = perim ? inscriptions.filter(i => i.section && perim.includes(i.section)) : inscriptions;
