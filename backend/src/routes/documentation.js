@@ -77,7 +77,7 @@ const r = express.Router();
 /* QUI DÉPOSE ET PUBLIE — la direction, et personne d'autre.
  * Tranché par Charles le 20 septembre : le corpus est un acte de direction.
  * Une procédure que chacun peut réécrire n'est plus une règle, c'est un avis. */
-const PEUT_PUBLIER = ['admin', 'directeur', 'directeur_adjoint'];
+export const PEUT_PUBLIER = ['admin', 'directeur', 'directeur_adjoint'];
 
 /* LES NATURES — et elles ne se valent pas devant un litige.
  * Un décret s'impose à l'Institut ; une procédure est ce que l'Institut en

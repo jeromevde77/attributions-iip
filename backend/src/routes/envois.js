@@ -109,7 +109,7 @@ const ADRESSE_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
  * expédient déjà le courrier de l'établissement —, plus l'administrateur
  * technique, qui ne s'exclut d'aucune route.
  */
-const PEUT_ENVOYER = ['admin', 'directeur', 'directeur_adjoint', 'secretariat'];
+export const PEUT_ENVOYER = ['admin', 'directeur', 'directeur_adjoint', 'secretariat'];
 
 /**
  * LE MOT D'ACCOMPAGNEMENT — UN SEUL, POUR TOUTES LES PIÈCES.
