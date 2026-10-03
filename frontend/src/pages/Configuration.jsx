@@ -1,3 +1,4 @@
+import { useDeclarerSousMenu } from '../lib/sousMenu.js';
 import { useEffect, useState, lazy, Suspense } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { api, getAnnee, setAnnee as setAnneeActive, getUser } from '../lib/api.js';
@@ -1401,6 +1402,13 @@ export default function Configuration() {
   const porte = t => t.key === tab || (t.faces || []).some(([k]) => k === tab);
   const groupeActif = groupesVisibles.find(g => g.items.some(porte)) || groupesVisibles[0];
   const ongletActif = groupeActif.items.find(porte);
+  /* LES FACES DE LA FAMILLE GLISSENT DANS LA BARRE DU HAUT (3 octobre 2026),
+     à côté de « Config. » — la rangée d'onglets de la page disparaît. */
+  useDeclarerSousMenu(groupeActif.items.length > 1 ? {
+    titre: groupeActif.label,
+    items: groupeActif.items.map(t => ({ key: t.key, label: t.label, actif: porte(t) })),
+    onChoisir: k => setTab(k),
+  } : null, [groupeActif.label, tab]);
   return (
     <div className="relative" style={{ minHeight: 'calc(100vh - 64px)' }}>
       {/* VINGT-DEUX ICÔNES, ET PLUS PERSONNE NE TROUVAIT RIEN (Charles, 21
@@ -1425,23 +1433,9 @@ export default function Configuration() {
         <PageHeader icon={groupeActif.icon || IconSettings} titre={`Configuration · ${groupeActif.label}`}
           sous={groupeActif.label === 'Outils'
             ? 'Ce ne sont pas des réglages : ils ont rejoint l’écran où l’on s’en sert. Ces entrées disparaîtront le 3 novembre.' : undefined} />
-        {groupeActif.items.length > 1 && (
-          <div className="flex flex-wrap items-center gap-1 border-b border-slate-200 -mt-2">
-            {groupeActif.items.map(t => {
-              const Icone = t.icon;
-              return (
-                <button key={t.key} onClick={() => setTab(t.key)}
-                  className={`onglet-page ${porte(t) ? 'onglet-page-actif' : ''} ${t.demenage ? 'opacity-60' : ''} flex items-center gap-1.5`}>
-                  <Icone size={15} />{t.label}
-                </button>
-              );
-            })}
-            {/* L'année vaut pour les quatre faces du référentiel : elle se
-                pose une fois, au bout de la rangée, et seulement là. */}
-            {groupeActif.items.find(t => t.key === tab)?.annee && (
-              <span className="ml-auto pb-1"><AnneeDuReferentiel onglet={tab} /></span>
-            )}
-          </div>
+        {/* L'année vaut pour les faces annuelles : elle se pose une fois. */}
+        {groupeActif.items.find(t => t.key === tab)?.annee && (
+          <div className="flex justify-end -mt-2"><AnneeDuReferentiel onglet={tab} /></div>
         )}
         {ongletActif?.faces && (
           <div className="segments -mt-1">

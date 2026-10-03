@@ -742,13 +742,13 @@ export function RailDessine({ icon: HeaderIcon, titre, sousTitre, extra, surAccu
            et le libellé s'affichait deux cent trente pixels plus loin, posé
            sur le contenu de la page. Elle suit désormais la colonne d'icônes,
            qui est ce qu'on survole. */
-        <span style={{ top: survol.y, background: 'var(--menu-fond)',
-                       borderColor: 'var(--menu-bord)', color: 'var(--menu-texte)',
-                       boxShadow: 'var(--menu-ombre)',
+        /* LA MÊME BULLE QUE LA BARRE DU HAUT (Charles, 3 octobre 2026 : « une
+           uniformité entre rail et menu du haut ») : marine, texte blanc. */
+        <span style={{ top: survol.y, background: '#16406A',
                        left: volet ? 'calc(3.5rem + 10px)' : 'calc(100% + 10px)' }}
           className="pointer-events-none absolute -translate-y-1/2 z-50
-                     px-2.5 py-1.5 rounded-champ border backdrop-blur-xl backdrop-saturate-150
-                     text-[12px] whitespace-nowrap">
+                     px-2 py-0.5 rounded-champ shadow-flottant text-white font-medium
+                     text-[11.5px] whitespace-nowrap">
           {survol.label}
         </span>
       )}
