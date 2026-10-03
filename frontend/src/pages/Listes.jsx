@@ -875,10 +875,18 @@ export default function Listes({ integre = false, domaine = null, rapports = nul
     const sec = (d.sections || []).find(s => s.section === secCode);
     if (!sec) { alert('Aucune donnée ETP pour cette section. Choisissez une section.'); return; }
 
-    const BLEU = 'var(--c-principal)', BLEU2 = 'var(--c-principal)', TURQ = 'var(--c-accent)', CLAIR = 'rgb(var(--e-disponible-100))', GRIS = '#F4F6FA', VIOLET = 'var(--c-faveur)';
-    const fmt = n => Math.round(n || 0).toLocaleString('fr-BE').replace(/\u202f/g, ' ');
+    /* LA PIÈCE IMPRIMÉE GARDE LA CHARTE EN HEXADÉCIMAL (CLAUDE.md §6) : elle
+       vit dans un cadre d'aperçu et part en PDF, où `var(--c-…)` ne s'évalue
+       pas. Gabarit B — le rapport : une rangée de tuiles (le bloc signalé, à
+       ses mesures de papier), puis le détail. Aucun fond teinté, aucune
+       couleur sur le texte ; le violet ne dit que la faveur, il sort d'ici. */
+    const MARINE = '#1B2B4B', OR = '#C9A84C', HELB = '#D14F8A';
+    const BANDE_BLOC = { BA1: ['#E8890C', '#FFFFFF'], BA2: ['#7FB3D5', '#123047'],
+      BA3: ['#1B2B4B', '#FFFFFF'], Autres: ['#2D4470', '#FFFFFF'] };
+    const fmt = n => Math.round(n || 0).toLocaleString('fr-BE').replace(/ /g, ' ');
     const fmtEtp = n => (n || 0).toFixed(4).replace('.', ',');
     const fmtEtp2 = n => (n || 0).toFixed(2).replace('.', ',');
+    const fmtRatio = v => (v == null ? '—' : String(v).replace('.', ','));
 
     // Niveau d'une UE (BA1/BA2/BA3) ; fallback "Autres"
     const nivDe = u => {
@@ -890,15 +898,24 @@ export default function Listes({ integre = false, domaine = null, rapports = nul
       const ct = (u.per_ct || 0) + (u.per_ct_helb || 0);
       const pp = (u.per_pp || 0) + (u.per_pp_helb || 0);
       const parts = [];
-      if (ct) parts.push(`<span style="white-space:nowrap"><b>CT</b> ${fmt(ct)}</span>`);
-      if (pp) parts.push(`<span style="white-space:nowrap"><b>PP</b> ${fmt(pp)}</span>`);
+      if (ct) parts.push(`<span class="nw"><b>CT</b> ${fmt(ct)}</span>`);
+      if (pp) parts.push(`<span class="nw"><b>PP</b> ${fmt(pp)}</span>`);
       return parts.join(' · ') || '—';
     };
     const perTot = u => (u.per_ct || 0) + (u.per_pp || 0) + (u.per_ct_helb || 0) + (u.per_pp_helb || 0);
-    const badge = c => {
-      const col = c === 'IIP' ? BLEU : VIOLET;
-      return `<span style="background:${col};color:#fff;font-size:8px;font-weight:700;padding:1px 6px;border-radius:3px">${c}</span>`;
-    };
+    // HELB garde sa couleur de contrat (le rose de l'écran) en pastille pleine ;
+    // IIP, le cas courant, reste une étiquette au trait.
+    const badge = c => c === 'IIP'
+      ? '<span class="etiq">IIP</span>'
+      : `<span class="marque" style="background:${HELB}">${c}</span>`;
+
+    /** Une tuile : la valeur d'abord, le libellé dessous, la précision en gris. */
+    const tuile = ({ valeur, unite = '', libelle, precision = '', fort = false }) => `
+      <div class="tuile${fort ? ' fort' : ''}">
+        <div class="t-val">${valeur}${unite ? `<span class="t-u">${unite}</span>` : ''}</div>
+        <div class="t-lib">${libelle}</div>
+        ${precision ? `<div class="t-fin">${precision}</div>` : ''}
+      </div>`;
 
     // Regrouper les UE par niveau
     const ordreNiv = ['BA1', 'BA2', 'BA3', 'Autres'];
@@ -916,66 +933,60 @@ export default function Listes({ integre = false, domaine = null, rapports = nul
       const ues = parNiv[niv].sort((a, b) => String(a.ue_num).localeCompare(String(b.ue_num), 'fr', { numeric: true }));
       let nPer = 0, nEtp = 0, nIipPer = 0, nIipEtp = 0, nHelbPer = 0, nHelbEtp = 0;
       let lignes = '';
-      ues.forEach((u, i) => {
-        const bg = i % 2 === 0 ? '#fff' : GRIS;
+      // La part de chaque UE se rapporte au TOTAL du bloc, connu d'avance — le
+      // total courant faisait afficher 100 % à la première UE (3 octobre 2026).
+      const totalBloc = ues.reduce((t, x) => t + perTot(x), 0);
+      ues.forEach((u) => {
         const c = contratDe(u);
         const pt = perTot(u);
         nPer += pt; nEtp += u.etp_total;
         if (c === 'IIP') { nIipPer += pt; nIipEtp += u.etp_total; } else { nHelbPer += pt; nHelbEtp += u.etp_total; }
         lignes += `
-          <tr style="background:${bg}">
-            <td style="padding:5px 8px;font-weight:700;color:${BLEU};white-space:nowrap">UE ${u.ue_num}</td>
-            <td style="padding:5px 8px;color:#333;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${u.ue_nom || '—'}${u.ects?` <span style="background:#e0f2fe;color:#0369a1;font-size:7.5px;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:4px;vertical-align:middle">${u.ects} ECTS</span>`:''}</td>
-            <td style="padding:5px 8px;text-align:center">${badge(c)}</td>
-            <td style="padding:5px 8px;font-size:9px;color:#555;text-align:right">${cellPer(u)}</td>
-            <td style="padding:5px 8px;text-align:right;font-size:8px;color:#94A3B8">${nPer > 0 ? Math.round(pt/nPer*100) + '%' : ''}</td>
-            <td style="padding:5px 8px;text-align:right;color:#333;white-space:nowrap">${fmt(pt)}</td>
-            <td style="padding:5px 8px;text-align:right;font-weight:700;color:${BLEU};white-space:nowrap">${fmtEtp(u.etp_total)}</td>
+          <tr>
+            <td class="ue">UE ${u.ue_num}</td>
+            <td class="lib">${u.ue_nom || '—'}${u.ects ? ` <span class="etiq">${u.ects} ECTS</span>` : ''}</td>
+            <td class="c">${badge(c)}</td>
+            <td class="n">${cellPer(u)}</td>
+            <td class="n gris">${totalBloc > 0 ? Math.round(pt/totalBloc*100) + '%' : ''}</td>
+            <td class="n">${fmt(pt)}</td>
+            <td class="n g">${fmtEtp(u.etp_total)}</td>
           </tr>`;
       });
+      const [fond, encre] = BANDE_BLOC[niv] || BANDE_BLOC.Autres;
       blocs += `
-        <div style="margin-bottom:14px;page-break-inside:avoid">
-          <div style="background:${TURQ};color:#fff;font-weight:700;font-size:11px;padding:5px 10px;border-radius:4px 4px 0 0">${NIV_NOM[niv] || niv}</div>
-          <table style="width:100%;border-collapse:collapse;font-size:9.5px;table-layout:fixed">
+        <div class="bloc">
+          <div class="bande" style="background:${fond};color:${encre}">${NIV_NOM[niv] || niv}</div>
+          <table class="detail">
             <colgroup>
-              <col style="width:52px">
-              <col>
-              <col style="width:52px">
-              <col style="width:106px">
-              <col style="width:36px">
-              <col style="width:68px">
-              <col style="width:66px">
+              <col style="width:15mm"><col><col style="width:15mm"><col style="width:30mm">
+              <col style="width:10mm"><col style="width:18mm"><col style="width:18mm">
             </colgroup>
             <thead>
-              <tr style="background:${BLEU2};color:#fff">
-                <th style="padding:5px 8px;text-align:left;font-size:8.5px">UE</th>
-                <th style="padding:5px 8px;text-align:left;font-size:8.5px">Intitulé</th>
-                <th style="padding:5px 8px;text-align:center;font-size:8.5px">Contrat</th>
-                <th style="padding:5px 8px;text-align:right;font-size:8.5px">Périodes (CT / PP)</th>
-                <th style="padding:5px 8px;text-align:right;font-size:8.5px">%</th>
-                <th style="padding:5px 8px;text-align:right;font-size:8.5px">Périodes</th>
-                <th style="padding:5px 8px;text-align:right;font-size:8.5px">ETP</th>
+              <tr>
+                <th>UE</th><th>Intitulé</th><th class="c">Contrat</th>
+                <th class="n">Périodes (CT / PP)</th><th class="n">%</th>
+                <th class="n">Périodes</th><th class="n">ETP</th>
               </tr>
             </thead>
             <tbody>${lignes}</tbody>
             <tfoot>
-              ${nIipEtp > 0 ? `<tr style="background:#eef2fb;color:${BLEU}">
-                <td colspan="4" style="padding:4px 8px;text-align:right;font-weight:600">dont IIP</td>
-                <td style="padding:4px 8px;text-align:right;font-size:9px;color:#64748B">${nPer > 0 ? Math.round(nIipPer/nPer*100) + '%' : ''}</td>
-                <td style="padding:4px 8px;text-align:right;font-weight:600;white-space:nowrap">${fmt(nIipPer)}</td>
-                <td style="padding:4px 8px;text-align:right;font-weight:700;white-space:nowrap">${fmtEtp(nIipEtp)}</td>
+              ${nIipEtp > 0 ? `<tr class="dont">
+                <td colspan="4">dont IIP</td>
+                <td class="n">${nPer > 0 ? Math.round(nIipPer/nPer*100) + '%' : ''}</td>
+                <td class="n">${fmt(nIipPer)}</td>
+                <td class="n">${fmtEtp(nIipEtp)}</td>
               </tr>` : ''}
-              ${nHelbEtp > 0 ? `<tr style="background:#f5f0fc;color:${VIOLET}">
-                <td colspan="4" style="padding:4px 8px;text-align:right;font-weight:600">dont HELB</td>
-                <td style="padding:4px 8px;text-align:right;font-size:9px;color:#A78BFA">${nPer > 0 ? Math.round(nHelbPer/nPer*100) + '%' : ''}</td>
-                <td style="padding:4px 8px;text-align:right;font-weight:600;white-space:nowrap">${fmt(nHelbPer)}</td>
-                <td style="padding:4px 8px;text-align:right;font-weight:700;white-space:nowrap">${fmtEtp(nHelbEtp)}</td>
+              ${nHelbEtp > 0 ? `<tr class="dont">
+                <td colspan="4">dont HELB</td>
+                <td class="n">${nPer > 0 ? Math.round(nHelbPer/nPer*100) + '%' : ''}</td>
+                <td class="n">${fmt(nHelbPer)}</td>
+                <td class="n">${fmtEtp(nHelbEtp)}</td>
               </tr>` : ''}
-              <tr style="background:${BLEU};color:#fff">
-                <td colspan="4" style="padding:6px 8px;text-align:right;font-weight:700">Sous-total ${niv}</td>
-                <td style="padding:6px 8px;text-align:right;font-size:9px;opacity:.7">100%</td>
-                <td style="padding:6px 8px;text-align:right;font-weight:700;white-space:nowrap">${fmt(nPer)}</td>
-                <td style="padding:6px 8px;text-align:right;font-weight:700;white-space:nowrap">${fmtEtp(nEtp)}</td>
+              <tr class="repere">
+                <td colspan="4" class="r">Sous-total ${niv}</td>
+                <td class="n gris">100%</td>
+                <td class="n">${fmt(nPer)}</td>
+                <td class="n">${fmtEtp(nEtp)}</td>
               </tr>
             </tfoot>
           </table>
@@ -990,17 +1001,13 @@ export default function Listes({ integre = false, domaine = null, rapports = nul
     const sourceLabel = sourceEtu === 'auto'
       ? (sec.nb_etudiants > 0 ? `données Lucie ${annee}` : 'aucune donnée Lucie')
       : 'estimation manuelle';
-    const etpSec = sec.etp_secretariat || 0; // secrétariat étudiant proratisé
     const totEtp = sec.etp_total, iipEtp = sec.etp_iip, helbEtp = sec.etp_helb;
     const coordEtp = sec.etp_coord_helb || 0;
     const globalEtp = totEtp + coordEtp; // cours + coordination
     const ratioGlobal = globalEtp > 0 && nbEtus > 0 ? (nbEtus / globalEtp).toFixed(1) : null;
     const ratioCours  = totEtp > 0  && nbEtus > 0 ? (nbEtus / totEtp).toFixed(1)   : null;
     const ratioCoord  = coordEtp > 0 && nbEtus > 0 ? (nbEtus / coordEtp).toFixed(1) : null;
-    const ratioSec    = etpSec > 0   && nbEtus > 0 ? (nbEtus / etpSec).toFixed(1)   : null;
     const totPer = sec.ues.reduce((s, u) => s + perTot(u), 0);
-    const iipPer = sec.ues.reduce((s, u) => s + (contratDe(u) === 'IIP' ? perTot(u) : 0), 0);
-    const helbPer = totPer - iipPer;
     const totCt = sec.ues.reduce((s, u) => s + (u.per_ct || 0) + (u.per_ct_helb || 0), 0);
     const totPp = sec.ues.reduce((s, u) => s + (u.per_pp || 0) + (u.per_pp_helb || 0), 0);
     const iipCt = sec.ues.reduce((s, u) => s + (u.per_ct || 0), 0);
@@ -1011,144 +1018,151 @@ export default function Listes({ integre = false, domaine = null, rapports = nul
     const pctHelb = globalEtp ? Math.round(helbEtp / globalEtp * 100) : 0;
     const pctCoord = globalEtp ? Math.round(coordEtp / globalEtp * 100) : 0;
 
+    const tuilesCharge = [
+      tuile({ valeur: fmtEtp2(globalEtp), unite: 'ETP', libelle: 'Charge globale', fort: true,
+        precision: `Cours (${fmt(totPer)} pér.) + coordination HELB` }),
+      tuile({ valeur: fmtEtp2(iipEtp), unite: 'ETP', libelle: 'Cours IIP',
+        precision: `CT ${fmt(iipCt)} · PP ${fmt(iipPp)} pér. · ${pctIip} %` }),
+      tuile({ valeur: fmtEtp2(helbEtp), unite: 'ETP', libelle: 'Cours HELB',
+        precision: `CT ${fmt(helbCt)} · PP ${fmt(helbPp)} pér. · ${pctHelb} %` }),
+      coordEtp > 0 ? tuile({ valeur: fmtEtp2(coordEtp), unite: 'ETP', libelle: 'Coordination HELB',
+        precision: `${(sec.coord_helb || []).length} poste(s) · ${pctCoord} %` }) : '',
+    ].join('');
+    const tuilesNature = [
+      tuile({ valeur: fmtEtp(totCt / 800), unite: 'ETP', libelle: 'CT — cours théoriques',
+        precision: `÷800 · ${fmt(totCt)} pér.` }),
+      tuile({ valeur: fmtEtp(totPp / 1000), unite: 'ETP', libelle: 'PP — pratique professionnelle',
+        precision: `÷1000 · ${fmt(totPp)} pér.` }),
+    ].join('');
+    const tuilesRatios = [
+      tuile({ valeur: nbEtus > 0 ? fmt(nbEtus) : '—', unite: nbEtus > 0 ? 'étu.' : '',
+        libelle: 'Étudiants', precision: sourceLabel }),
+      ...(nbEtus > 0 ? [
+        tuile({ valeur: fmtRatio(ratioGlobal), unite: 'étu./ETP', libelle: 'Ratio global' }),
+        tuile({ valeur: fmtRatio(ratioCours), unite: 'étu./ETP', libelle: 'Ratio cours' }),
+        tuile({ valeur: fmtRatio(ratioCoord), unite: 'étu./ETP', libelle: 'Ratio coordination' }),
+      ] : []),
+    ].join('');
+
+    const methodologie = `
+        <div class="methodo">
+          <div class="h">Méthodologie de calcul</div>
+          <p>La charge enseignante est exprimée en équivalents temps plein (ETP), calculés selon la législation de l'enseignement pour adultes. Le nombre de périodes attribuées est divisé par le volume annuel correspondant à un temps plein selon la nature de l'activité.</p>
+          <div class="regles">
+            <div><b>Cours théoriques (CT)</b> : périodes ÷ 800</div>
+            <div><b>Pratique professionnelle (PP)</b> : périodes ÷ 1000</div>
+            <div><b>Travail administratif</b> : 36 h / semaine</div>
+          </div>
+          <p>Les périodes intègrent les heures de cours et les heures d'autonomie pédagogique. Le calcul est appliqué de manière identique aux attributions IIP et HELB.</p>
+        </div>`;
+
     const html = `<!DOCTYPE html><html><head><meta charset="utf-8">
       <style>
         *{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact;print-color-adjust:exact}
-        body{font-family:Arial,sans-serif;color:#222;font-size:10px}
-        @media print{@page{size:A4;margin:14mm 12mm}tr{page-break-inside:avoid}thead{display:table-header-group}}
-      </style></head><body><div style="padding:4mm">
-        <div style="border-bottom:3px solid ${TURQ};padding-bottom:8px;margin-bottom:10px;display:flex;align-items:center;gap:14px">
-          <img src="${LOGO_IIP}" style="height:52px;width:auto;flex-shrink:0" alt="Logo IIP" />
+        body{font-family:Arial,sans-serif;color:${MARINE};font-size:9pt;background:#fff}
+        @media print{@page{size:A4;margin:18mm 18mm 18mm}tr{page-break-inside:avoid}thead{display:table-header-group}}
+        .nw{white-space:nowrap}
+        .entete{border-bottom:0.3mm solid ${OR};padding-bottom:3mm;margin-bottom:5mm;display:flex;align-items:center;gap:4mm}
+        .entete img{height:14mm;width:auto;flex-shrink:0}
+        .surtitre{font-size:7pt;letter-spacing:.25em;text-transform:uppercase;color:#64748B;font-weight:700}
+        .titre{font-size:14pt;font-weight:700;margin-top:.6mm}
+        .annee{font-size:9pt;color:#475569;margin-top:.4mm}
+        .mention{font-size:7.5pt;color:#64748B;margin-top:1mm;line-height:1.35}
+        /* LE BLOC SIGNALÉ, À SES MESURES DE PAPIER (CLAUDE.md §6) : rail 1,6 mm
+           qui porte l'état, contour 0,3 mm, rayon 1,5 mm, fond #FAFAFB, valeur
+           d'abord, libellé dessous, précision en gris. */
+        .rangee-titre{font-size:7.5pt;color:#64748B;margin:0 0 1.5mm;font-weight:600}
+        .tuiles{display:grid;grid-template-columns:repeat(4,1fr);gap:3mm;margin:0 0 4mm}
+        .tuile{background:#FAFAFB;border:0.3mm solid #D8DCE4;border-left:1.6mm solid ${MARINE};
+               border-radius:0 1.5mm 1.5mm 0;padding:2mm 3mm 2.2mm;break-inside:avoid;page-break-inside:avoid}
+        .t-val{font-size:15pt;font-weight:700;line-height:1.12;letter-spacing:-.3pt;font-variant-numeric:tabular-nums}
+        .tuile.fort .t-val{font-size:19pt}
+        .t-u{font-size:8pt;font-weight:400;color:#64748B;margin-left:1mm;letter-spacing:0}
+        .t-lib{font-size:9pt;font-weight:600;margin-top:1mm}
+        .t-fin{font-size:7.5pt;color:#64748B;margin-top:.5mm}
+        h2{font-size:10pt;font-weight:700;margin:6mm 0 2.5mm;padding-bottom:1mm;border-bottom:0.3mm solid ${OR}}
+        /* LE TABLEAU N'A QUE DEUX TONS : l'en-tête et la ligne de regroupement
+           sur le même ton, la donnée blanche. La bande PORTE la couleur du bloc. */
+        .bloc{margin-bottom:5mm;page-break-inside:avoid}
+        .bande{font-weight:700;font-size:9pt;padding:1.6mm 3mm;border-radius:1.5mm 1.5mm 0 0}
+        table{width:100%;border-collapse:collapse;table-layout:fixed}
+        th,td{padding:1.4mm 2mm;font-size:8.5pt;border-bottom:0.25mm solid #C4CDD9;vertical-align:middle}
+        th{background:#FAFAFB;color:#64748B;font-size:7.5pt;font-weight:600;text-align:left;border-bottom:0.4mm solid #94A3B8}
+        td{background:#fff;font-variant-numeric:tabular-nums}
+        .n{text-align:right;white-space:nowrap}
+        .c{text-align:center}
+        .r{text-align:right}
+        .ue,.g{font-weight:700;white-space:nowrap}
+        .lib{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+        .gris{color:#64748B}
+        tr.dont td{color:#64748B;font-size:8pt;border-bottom:0}
+        tr.dont td:first-child{text-align:right}
+        tr.repere td{background:#EDF2F8;font-weight:700;border-bottom:0.3pt solid #D6E0EC}
+        .etiq{display:inline-block;font-size:6.5pt;font-weight:700;color:#475569;border:0.25mm solid #94A3B8;
+              border-radius:1mm;padding:0 1mm;margin-left:1mm;letter-spacing:.2pt;vertical-align:1px}
+        .marque{display:inline-block;color:#fff;font-size:6.5pt;font-weight:700;padding:.3mm 1.2mm;border-radius:1mm;letter-spacing:.3pt}
+        .coord .fin{font-size:7.5pt;color:#64748B;margin-top:1.5mm;line-height:1.4}
+        .methodo{margin-top:6mm;padding:3mm 4mm;background:#FAFAFB;border:0.3mm solid #D8DCE4;border-radius:1.5mm;page-break-inside:avoid}
+        .methodo .h{font-size:9pt;font-weight:700;margin-bottom:1.5mm}
+        .methodo p{font-size:8pt;color:#475569;line-height:1.45}
+        .methodo p + .regles,.methodo .regles + p{margin-top:2mm}
+        .regles{display:flex;gap:5mm;font-size:8pt}
+      </style></head><body><div>
+        <div class="entete">
+          <img src="${LOGO_IIP}" alt="Logo IIP" />
           <div>
-            <div style="font-size:8px;letter-spacing:3px;text-transform:uppercase;color:${TURQ};font-weight:700">Institut Ilya Prigogine · Enseignement pour adultes</div>
-            <div style="font-size:19px;color:${BLEU};margin-top:2px;font-weight:700">Rapport de charge ETP — Section ${sec.section}</div>
-            <div style="font-size:10px;color:#555;margin-top:1px">Année académique ${annee}</div>
-            <div style="font-size:8px;color:#999;margin-top:3px">Document destiné au COPIL ou Conseil d'administration basé sur les projections en cours pour l'année académique prochaine sur base des prévisions d'inscriptions${nbEtus > 0 ? ` (simulation sur ${nbEtus} étudiants)` : ''}. Charge enseignante exprimée en équivalents temps plein (ETP).</div>
+            <div class="surtitre">Institut Ilya Prigogine · Enseignement pour adultes</div>
+            <div class="titre">Rapport de charge ETP — Section ${sec.section}</div>
+            <div class="annee">Année académique ${annee}</div>
+            <div class="mention">Document destiné au COPIL ou Conseil d'administration basé sur les projections en cours pour l'année académique prochaine sur base des prévisions d'inscriptions${nbEtus > 0 ? ` (simulation sur ${nbEtus} étudiants)` : ''}. Charge enseignante exprimée en équivalents temps plein (ETP).</div>
           </div>
         </div>
 
-        <!-- Bande compacte : charge globale + ratios à gauche, détail charge à droite -->
-        <div style="display:flex;gap:12px;margin-bottom:12px;align-items:stretch">
+        <div class="rangee-titre">Charge globale et détail de la charge</div>
+        <div class="tuiles">${tuilesCharge}</div>
+        <div class="rangee-titre">Nature des périodes</div>
+        <div class="tuiles">${tuilesNature}</div>
+        <div class="rangee-titre">Ratios étudiants / ETP${nbEtus > 0 ? ` · ${nbEtus} étudiants (${sourceLabel})` : ''}</div>
+        <div class="tuiles">${tuilesRatios}</div>
 
-          <!-- Gauche : charge globale (chiffre à gauche, ratios à droite) -->
-          <div style="flex:1;background:${BLEU};color:#fff;border-radius:8px;padding:10px 14px;display:flex;align-items:center;gap:14px">
-            <div style="flex-shrink:0">
-              <div style="font-size:8px;text-transform:uppercase;letter-spacing:1.5px;opacity:.75">Charge globale</div>
-              <div style="font-size:34px;font-weight:700;line-height:1;margin-top:2px">${fmtEtp2(globalEtp)} <span style="font-size:12px;font-weight:400;opacity:.8">ETP</span></div>
-              <div style="font-size:7px;opacity:.7;margin-top:3px">Cours (${fmt(totPer)} pér.) + coord. HELB</div>
-            </div>
-            ${nbEtus > 0 ? `
-            <div style="flex:1;border-left:1px solid rgba(255,255,255,.2);padding-left:12px">
-              <div style="font-size:6.5px;opacity:.7;text-transform:uppercase;letter-spacing:1px;margin-bottom:3px">Ratios étu./ETP · ${nbEtus} étu.</div>
-              <div style="display:flex;flex-direction:column;gap:3px">
-                ${[['Global',ratioGlobal],['Cours',ratioCours],['Coord.',ratioCoord]].map(([lbl,val]) => `
-                <div style="display:flex;justify-content:space-between;align-items:baseline;background:rgba(255,255,255,.12);border-radius:4px;padding:2px 7px">
-                  <span style="font-size:7px;opacity:.7;text-transform:uppercase">${lbl}</span>
-                  <span style="font-size:13px;font-weight:700">${val || '—'} <span style="font-size:7px;font-weight:400;opacity:.6">étu/ETP</span></span>
-                </div>`).join('')}
-              </div>
-            </div>` : ''}
-          </div>
-
-          <!-- Droite : détail de la charge (cours IIP/HELB, coordination, CT/PP) -->
-          <div style="flex:1.5;border:1.5px solid #E2E8F0;border-radius:8px;padding:8px 12px;background:#FAFBFC;display:flex;flex-direction:column;gap:4px">
-            <div style="font-size:8px;text-transform:uppercase;letter-spacing:1px;color:#94A3B8;font-weight:600">Détail de la charge</div>
-
-            <!-- Cours IIP -->
-            <div style="display:flex;justify-content:space-between;align-items:center;padding:4px 8px;background:#EFF6FF;border-radius:5px;border-left:3px solid ${BLEU}">
-              <div><span style="font-size:9px;font-weight:700;color:${BLEU}">Cours IIP</span> <span style="font-size:8px;color:#64748B">· CT ${fmt(iipCt)} · PP ${fmt(iipPp)} pér. · ${pctIip}%</span></div>
-              <div style="font-size:15px;font-weight:700;color:${BLEU}">${fmtEtp2(iipEtp)}</div>
-            </div>
-
-            <!-- Cours HELB -->
-            <div style="display:flex;justify-content:space-between;align-items:center;padding:4px 8px;background:#F5F3FF;border-radius:5px;border-left:3px solid ${VIOLET}">
-              <div><span style="font-size:9px;font-weight:700;color:${VIOLET}">Cours HELB</span> <span style="font-size:8px;color:#64748B">· CT ${fmt(helbCt)} · PP ${fmt(helbPp)} pér. · ${pctHelb}%</span></div>
-              <div style="font-size:15px;font-weight:700;color:${VIOLET}">${fmtEtp2(helbEtp)}</div>
-            </div>
-
-            <!-- Coordination HELB -->
-            ${coordEtp > 0 ? `
-            <div style="display:flex;justify-content:space-between;align-items:center;padding:4px 8px;background:#EDE9FE;border-radius:5px;border-left:3px solid #7C3AED">
-              <div><span style="font-size:9px;font-weight:700;color:#4C1D95">Coordination HELB</span> <span style="font-size:8px;color:#64748B">· ${(sec.coord_helb||[]).length} poste(s) · ${pctCoord}%</span></div>
-              <div style="font-size:15px;font-weight:700;color:#4C1D95">${fmtEtp2(coordEtp)}</div>
-            </div>` : ''}
-
-            <!-- CT / PP : deux mini-blocs côte à côte -->
-            <div style="display:flex;gap:6px;margin-top:1px">
-              <div style="flex:1;border:1px solid #e5e5e5;border-top:2px solid ${TURQ};border-radius:5px;padding:5px 8px;display:flex;justify-content:space-between;align-items:baseline">
-                <div><span style="font-size:9px;font-weight:700;color:${TURQ}">CT</span> <span style="font-size:7px;color:#888">÷800 · ${fmt(totCt)} pér.</span></div>
-                <div style="font-size:13px;font-weight:700;color:${BLEU}">${fmtEtp(totCt / 800)}</div>
-              </div>
-              <div style="flex:1;border:1px solid #e5e5e5;border-top:2px solid ${TURQ};border-radius:5px;padding:5px 8px;display:flex;justify-content:space-between;align-items:baseline">
-                <div><span style="font-size:9px;font-weight:700;color:${TURQ}">PP</span> <span style="font-size:7px;color:#888">÷1000 · ${fmt(totPp)} pér.</span></div>
-                <div style="font-size:13px;font-weight:700;color:${BLEU}">${fmtEtp(totPp / 1000)}</div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div style="font-size:13px;color:${BLEU};font-weight:700;margin:16px 0 8px;padding-bottom:3px;border-bottom:1.5px solid ${CLAIR}">Détail par bloc et par unité d'enseignement</div>
+        <h2>Détail par bloc et par unité d'enseignement</h2>
         ${blocs}
 
-        <div style="margin-top:18px;background:${GRIS};border-radius:8px;padding:12px 16px;page-break-inside:avoid">
-          <div style="font-size:11px;color:${BLEU};font-weight:700;margin-bottom:6px">Méthodologie de calcul</div>
-          <div style="font-size:9px;color:#555;line-height:1.5">La charge enseignante est exprimée en équivalents temps plein (ETP), calculés selon la législation de l'enseignement pour adultes. Le nombre de périodes attribuées est divisé par le volume annuel correspondant à un temps plein selon la nature de l'activité.</div>
-          <div style="display:flex;gap:14px;margin-top:8px;font-size:9px">
-            <div><b style="color:${BLEU}">Cours théoriques (CT)</b> : périodes ÷ 800</div>
-            <div><b style="color:${BLEU}">Pratique professionnelle (PP)</b> : périodes ÷ 1000</div>
-            <div><b style="color:${BLEU}">Travail administratif</b> : 36 h / semaine</div>
-          </div>
-          <div style="font-size:9px;color:#555;line-height:1.5;margin-top:8px">Les périodes intègrent les heures de cours et les heures d'autonomie pédagogique. Le calcul est appliqué de manière identique aux attributions IIP et HELB. </div>
-        </div>
-
         ${(sec.coord_helb && sec.coord_helb.length > 0) ? `
-        <!-- Section postes coordination HELB -->
-        <div style="margin-top:16px;border:2px solid #7c3aed;border-radius:8px;overflow:hidden">
-          <div style="background:#4C1D95;color:white;padding:8px 12px;display:flex;justify-content:space-between;align-items:center">
-            <div style="font-weight:700;font-size:12px">Postes de coordination HELB — hors dotation IIP</div>
-            <div style="font-size:13px;font-weight:700">${fmtEtp2(sec.etp_coord_helb)} ETP</div>
+        <div class="bloc coord">
+          <div class="bande" style="background:#2D4470;color:#fff;display:flex;justify-content:space-between">
+            <span>Postes de coordination HELB — hors dotation IIP</span>
+            <span>${fmtEtp2(sec.etp_coord_helb)} ETP</span>
           </div>
-          <table style="width:100%;border-collapse:collapse;font-size:11px">
+          <table>
+            <colgroup><col><col><col style="width:20mm"><col style="width:24mm"></colgroup>
             <thead>
-              <tr style="background:#F5F3FF">
-                <th style="padding:5px 8px;text-align:left;color:#4C1D95;font-weight:600">Personne</th>
-                <th style="padding:5px 8px;text-align:left;color:#4C1D95;font-weight:600">Fonction</th>
-                <th style="padding:5px 8px;text-align:right;color:#4C1D95;font-weight:600">ETP</th>
-                <th style="padding:5px 8px;text-align:right;color:#4C1D95;font-weight:600">≈ pér. (×800)</th>
-              </tr>
+              <tr><th>Personne</th><th>Fonction</th><th class="n">ETP</th><th class="n">≈ pér. (×800)</th></tr>
             </thead>
             <tbody>
               ${sec.coord_helb.map(m => `
-              <tr style="border-bottom:1px solid #EDE9FE">
-                <td style="padding:5px 8px;color:#1E293B">${m.prof_nom} ${m.prof_prenom}</td>
-                <td style="padding:5px 8px;color:#64748B">${m.fonction}</td>
-                <td style="padding:5px 8px;text-align:right;font-weight:700;color:#6D28D9">${(m.etp_helb||0).toFixed(2).replace('.',',')}</td>
-                <td style="padding:5px 8px;text-align:right;color:#6D28D9">${Math.round((m.etp_helb||0)*800)}</td>
+              <tr>
+                <td>${m.prof_nom} ${m.prof_prenom}</td>
+                <td class="gris">${m.fonction}</td>
+                <td class="n g">${(m.etp_helb||0).toFixed(2).replace('.',',')}</td>
+                <td class="n">${Math.round((m.etp_helb||0)*800)}</td>
               </tr>`).join('')}
-              <tr style="background:#EDE9FE;font-weight:700">
-                <td colspan="2" style="padding:5px 8px;color:#4C1D95">Total coordination HELB</td>
-                <td style="padding:5px 8px;text-align:right;color:#4C1D95">${fmtEtp2(sec.etp_coord_helb)}</td>
-                <td style="padding:5px 8px;text-align:right;color:#4C1D95">${Math.round((sec.etp_coord_helb||0)*800)}</td>
-              </tr>
             </tbody>
+            <tfoot>
+              <tr class="repere">
+                <td colspan="2">Total coordination HELB</td>
+                <td class="n">${fmtEtp2(sec.etp_coord_helb)}</td>
+                <td class="n">${Math.round((sec.etp_coord_helb||0)*800)}</td>
+              </tr>
+            </tfoot>
           </table>
-          <div style="padding:6px 12px;background:#F5F3FF;font-size:9px;color:#6D28D9">
+          <div class="fin">
             Ces postes sont financés directement par la HELB et ne sont pas prélevés sur la dotation de périodes IIP.
             La conversion ETP × 800 est indicative (base CT).
           </div>
         </div>
         ` : ''}
-
-        <div style="margin-top:12px;padding:10px 12px;background:#F8FAFC;border-radius:6px;border:1px solid #E2E8F0">
-          <div style="font-size:11px;color:${BLEU};font-weight:700;margin-bottom:6px">Méthodologie de calcul</div>
-          <div style="font-size:9px;color:#555;line-height:1.5">La charge enseignante est exprimée en équivalents temps plein (ETP), calculés selon la législation de l'enseignement pour adultes. Le nombre de périodes attribuées est divisé par le volume annuel correspondant à un temps plein selon la nature de l'activité.</div>
-          <div style="display:flex;gap:14px;margin-top:8px;font-size:9px">
-            <div><b style="color:${BLEU}">Cours théoriques (CT)</b> : périodes ÷ 800</div>
-            <div><b style="color:${BLEU}">Pratique professionnelle (PP)</b> : périodes ÷ 1000</div>
-            <div><b style="color:${BLEU}">Travail administratif</b> : 36 h / semaine</div>
-          </div>
-          <div style="font-size:9px;color:#555;line-height:1.5;margin-top:8px">Les périodes intègrent les heures de cours et les heures d'autonomie pédagogique. Le calcul est appliqué de manière identique aux attributions IIP et HELB. </div>
-        </div>
+${methodologie}
       </div></body></html>`;
     setRapportHtml({ html, nom: nomDoc('Rapport_ETP', sec.section, annee) });
   }
