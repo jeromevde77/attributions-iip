@@ -6,7 +6,7 @@
  */
 import { Router } from 'express';
 import db from '../db/index.js';
-import { authRequired } from '../middleware/auth.js';
+import { authRequired, professeurDe } from '../middleware/auth.js';
 
 const r = Router();
 r.use(authRequired);
@@ -16,7 +16,8 @@ function checkAccess(req, res, profId) {
   const u = req.user;
   if (u.role === 'admin' || u.role === 'editeur' || u.role === 'coordination') return true;
   // Rôle consultation ou prof self-service : seulement son propre profil
-  if (u.professeur_id && Number(u.professeur_id) === Number(profId)) return true;
+  const maFiche = professeurDe(u);   // lue en base : le jeton ne la porte pas
+  if (maFiche && maFiche === Number(profId)) return true;
   res.status(403).json({ error: 'Accès refusé' });
   return false;
 }

@@ -7,6 +7,8 @@
  * d'importer les entêtes.
  */
 
+import { demander } from './dialogue.jsx';
+
 const lireJeton = () => { try { return localStorage.getItem('token'); } catch { return null; } };
 const anneeRegardee = () => {
   try { return localStorage.getItem('annee_active') || '2026-2027'; }
@@ -51,7 +53,7 @@ export async function confirmerAnnee(quoi = 'cette donnée') {
   const courante = await anneeCourante();
   if (!courante || courante === regardee) return true;
   if (dejaAccepte(regardee, `ecriture:${quoi}`)) return true;
-  const ok = window.confirm(
+  const ok = await demander(
     `Vous modifiez ${quoi} de l'année ${regardee}, qui n'est pas l'année en cours `
     + `(${courante}).\n\nCe qui sera enregistré ne comptera pas pour ${courante}.\n\n`
     + `Confirmez-vous ?`);

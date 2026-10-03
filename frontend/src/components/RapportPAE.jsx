@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
-import { IconX, IconPrinter, IconSend, IconTable, IconFileSpreadsheet } from '@tabler/icons-react';
+import { IconPrinter, IconSend, IconTable, IconFileSpreadsheet } from '@tabler/icons-react';
 import { authHeaders } from '../lib/api.js';
+import { Fenetre } from './ui.jsx';
 
 /**
  * Rapport de PAE.
@@ -340,20 +341,23 @@ ${j.granularite === 'cours' && !cotesCours ? `
 
   return (
     <>
-      <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] flex items-start justify-center z-50 p-4 overflow-auto"
-        onClick={e => e.target === e.currentTarget && onClose()}>
-        <div className="bg-white rounded-fenetre shadow-dessus w-full max-w-2xl mt-10">
-          <div className="bg-iip-blue rounded-t-2xl px-5 py-4 flex items-start justify-between">
-            <div>
-              <div className="text-white font-bold text-[15px]">Rapport de PAE{idsSel ? ` — ${idsSel.size} étudiant(s) coché(s)` : ''}</div>
-              <div className="text-blue-200 text-[12px] mt-0.5">
-                Aperçu imprimable ou classeur à compléter
-              </div>
-            </div>
-            <button onClick={onClose} className="text-blue-200 hover:text-white"><IconX size={19} /></button>
-          </div>
-
-          <div className="p-5 space-y-4">
+      <Fenetre titre={`Rapport de PAE${idsSel ? ` — ${idsSel.size} étudiant(s) coché(s)` : ''}`}
+        sous="Aperçu imprimable ou classeur à compléter" large="moyenne" onFermer={onClose}
+        pied={<>
+          <span />
+          <button onClick={onClose} className="bouton">
+            Fermer
+          </button>
+          <button onClick={voirApercu} disabled={enCours}
+            className="bouton bouton-sortir inline-flex items-center gap-1.5">
+            <IconPrinter size={15} /> Aperçu
+          </button>
+          <button onClick={exporterExcel} disabled={enCours}
+            className="bouton bouton-fort inline-flex items-center gap-1.5">
+            <IconFileSpreadsheet size={15} /> Excel
+          </button>
+        </>}>
+          <div className="space-y-4">
             {erreur && (
               <div className="px-3 py-2 rounded-lg bg-red-50 border border-red-200 text-[13px] text-red-800 border-l-4 border-l-red-500">
                 {erreur}
@@ -506,23 +510,8 @@ ${j.granularite === 'cours' && !cotesCours ? `
               complété à la main, puis réimporté par « Importer le classeur PAE ». Choisissez
               alors des colonnes <b>par cours</b>, la maille de l'encodage.
             </div>
-
-            <div className="flex justify-end gap-2">
-              <button onClick={onClose} className="text-sm px-3 py-1.5 rounded-lg border border-slate-300">
-                Fermer
-              </button>
-              <button onClick={voirApercu} disabled={enCours}
-                className="flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-lg border border-iip-blue text-iip-blue font-medium disabled:opacity-50">
-                <IconPrinter size={15} /> Aperçu
-              </button>
-              <button onClick={exporterExcel} disabled={enCours}
-                className="flex items-center gap-1.5 text-sm px-4 py-1.5 rounded-lg bg-emerald-600 text-white font-semibold disabled:opacity-50">
-                <IconFileSpreadsheet size={15} /> Excel
-              </button>
-            </div>
           </div>
-        </div>
-      </div>
+      </Fenetre>
 
       {apercu && (
         <PreviewLite documents={apercu} onClose={() => setApercu(null)} />
@@ -538,36 +527,34 @@ function PreviewLite({ documents, onClose }) {
   const doc = documents[i];
   if (!doc) return null;
   return (
-    <div className="fixed inset-0 bg-black/60 z-[60] flex flex-col p-4">
-      <div className="flex items-center justify-between mb-2 gap-3 flex-wrap">
+    <Fenetre titre="Aperçu" sous={doc.nom} large="ecran" hauteurFixe onFermer={onClose}
+      outils={documents.length > 1 && (
         <div className="flex items-center gap-2 flex-wrap">
-          {documents.length > 1 && documents.map((d, j) => (
+          {documents.map((d, j) => (
             <button key={d.section} onClick={() => setI(j)}
               className={`text-[12px] px-2.5 py-1 rounded-lg ${j === i
                 ? 'bg-white text-iip-blue font-semibold' : 'bg-white/15 text-white/80 hover:bg-white/25'}`}>
               {d.section}
             </button>
           ))}
-          <span className="text-white/60 text-[12px]">{doc.nom}</span>
         </div>
-        <div className="flex gap-2">
-          <button onClick={() => {
-              const f = document.getElementById('apercu-pae');
-              f?.contentWindow?.focus(); f?.contentWindow?.print();
-            }}
-            className="bouton bouton-sortir">
-            <IconSend size={15} /> Imprimer / PDF
-          </button>
-          <button onClick={onClose} className="text-white/80 hover:text-white"><IconX size={20} /></button>
-        </div>
-      </div>
+      )}
+      pied={<>
+        <span className="text-[11px] text-slate-500">
+          Paysage A4 conseillé.{documents.length > 1
+            ? ` Section ${i + 1} sur ${documents.length} — imprimez-les séparément pour obtenir un PDF par section.`
+            : ''}
+        </span>
+        <button onClick={() => {
+            const f = document.getElementById('apercu-pae');
+            f?.contentWindow?.focus(); f?.contentWindow?.print();
+          }}
+          className="bouton bouton-sortir inline-flex items-center gap-1.5">
+          <IconSend size={15} /> Imprimer / PDF
+        </button>
+      </>}>
       <iframe id="apercu-pae" key={doc.section} aria-label="Aperçu" srcDoc={doc.html}
-        className="flex-1 bg-white rounded-xl" />
-      <div className="text-white/60 text-[11px] mt-1.5">
-        Paysage A4 conseillé.{documents.length > 1
-          ? ` Section ${i + 1} sur ${documents.length} — imprimez-les séparément pour obtenir un PDF par section.`
-          : ''}
-      </div>
-    </div>
+        className="w-full h-[calc(88vh-170px)] bg-white rounded-xl border border-slate-200" />
+    </Fenetre>
   );
 }

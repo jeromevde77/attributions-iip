@@ -1,6 +1,8 @@
 import { useState } from 'react';
-import { IconX, IconUpload, IconAlertTriangle, IconCheck } from '@tabler/icons-react';
+import { IconUpload, IconAlertTriangle, IconCheck } from '@tabler/icons-react';
+import { Fenetre } from './ui.jsx';
 import { authHeaders } from '../lib/api.js';
+import { demander } from '../lib/dialogue.jsx';
 
 /**
  * Import d'une liste eCampus (R_Etudiants_Excel_Inscriptions_).
@@ -85,9 +87,9 @@ export default function ImportListe({ annee, onClose, onImporte }) {
   async function importer() {
     if (!/^20\d{2}-20\d{2}$/.test(anneeImport.trim())) { setErreur('Année : format 2025-2026'); return; }
     const manquants = codes.filter(c => c.ue_num == null);
-    if (manquants.length && !window.confirm(
+    if (manquants.length && !(await demander(
       `${manquants.length} code(s) sans correspondance : ${manquants.map(c => c.code).join(', ')}.\n` +
-      `Leurs inscriptions seront ignorées. Poursuivre ?`)) return;
+      `Leurs inscriptions seront ignorées. Poursuivre ?`))) return;
 
     setEnCours(true); setErreur(null);
     try {
@@ -127,20 +129,25 @@ export default function ImportListe({ annee, onClose, onImporte }) {
   const resolus = codes.filter(c => c.ue_num != null).length;
 
   return (
-    <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] flex items-start justify-center z-50 p-4 overflow-auto"
-      onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="bg-white rounded-fenetre shadow-dessus w-full max-w-3xl mt-10">
-        <div className="bg-iip-blue rounded-t-2xl px-5 py-4 flex items-start justify-between">
-          <div>
-            <div className="text-white font-bold text-[15px]">Importer une liste eCampus</div>
-            <div className="text-blue-200 text-[12px] mt-0.5">
-              Signalétique complète, inscriptions et groupes
-            </div>
-          </div>
-          <button onClick={onClose} className="text-blue-200 hover:text-white"><IconX size={19} /></button>
-        </div>
-
-        <div className="p-5 space-y-4">
+    <Fenetre icone={IconUpload} titre="Importer une liste eCampus"
+      sous="Signalétique complète, inscriptions et groupes"
+      large="moyenne" hauteurFixe onFermer={onClose}
+      pied={<>
+        <span />
+        {etape === 'correspondance' && brut && (<>
+          <button onClick={() => setEtape('fichier')}
+            className="bouton">Retour</button>
+          <button onClick={importer} disabled={enCours}
+            className="bouton bouton-fort">
+            {enCours ? 'Import…' : 'Importer'}
+          </button>
+        </>)}
+        {etape === 'fait' && rapport && (
+          <button onClick={onClose}
+            className="bouton bouton-fort">Fermer</button>
+        )}
+      </>}>
+        <div className="space-y-4">
           {erreur && (
             <div className="px-3 py-2 rounded-lg bg-red-50 border border-red-200 text-[13px] text-red-800 border-l-4 border-l-red-500">
               {erreur}
@@ -219,14 +226,6 @@ export default function ImportListe({ annee, onClose, onImporte }) {
                 ))}
               </div>
 
-              <div className="flex justify-end gap-2">
-                <button onClick={() => setEtape('fichier')}
-                  className="text-sm px-3 py-1.5 rounded-lg border border-slate-300">Retour</button>
-                <button onClick={importer} disabled={enCours}
-                  className="text-sm px-4 py-1.5 rounded-lg bg-iip-blue text-white font-semibold disabled:opacity-50">
-                  {enCours ? 'Import…' : 'Importer'}
-                </button>
-              </div>
             </>
           )}
 
@@ -244,14 +243,9 @@ export default function ImportListe({ annee, onClose, onImporte }) {
                 La signalétique complète le dossier sans écraser ce qui existait : seuls les
                 champs vides de Lucie sont remplis.
               </p>
-              <div className="flex justify-end">
-                <button onClick={onClose}
-                  className="bouton bouton-fort">Fermer</button>
-              </div>
             </>
           )}
         </div>
-      </div>
-    </div>
+    </Fenetre>
   );
 }

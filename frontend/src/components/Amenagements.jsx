@@ -5,6 +5,7 @@ import { ouvrirApercu } from '../lib/apercu.js';
 import EtapesAmenagement from './EtapesAmenagement.jsx';
 import EnvoiMailModal from './EnvoiMailModal.jsx';
 import { Tableau, TableauEntete, Th, Td, Tr, Badge } from './ui.jsx';
+import { demander } from '../lib/dialogue.jsx';
 
 /**
  * Aménagements raisonnables — décret du 30 juin 2016.
@@ -84,7 +85,7 @@ export default function Amenagements({ etudId, annee }) {
   }
 
   async function supprimerMesure(id, sansConfirmer = false) {
-    if (!sansConfirmer && !window.confirm('Retirer cette mesure du dossier ?')) return;
+    if (!sansConfirmer && !(await demander('Retirer cette mesure du dossier ?'))) return;
     await fetch(`/api/amenagements/mesure/${id}`, { method: 'DELETE', headers: authHeaders() });
     await charger();
   }

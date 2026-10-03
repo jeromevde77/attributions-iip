@@ -4,7 +4,7 @@ import {
   IconLock, IconWand, IconSearch, IconLayoutRows, IconColumns,
 } from '@tabler/icons-react';
 import { authHeaders, getAnnee } from '../lib/api.js';
-import { PageHeader } from './ui.jsx';
+import { PageHeader, Fenetre } from './ui.jsx';
 
 /**
  * LE CALENDRIER DES SESSIONS — une section, une page, les deux sessions.
@@ -595,9 +595,24 @@ export default function CalendrierSessions({ sansTitre = false } = {}) {
             avec l'avant et l'après, parce que c'est ce qu'un recours viendra
             chercher. Corriger une date ne rouvre pas la délibération. */}
         {aMotiver && (
-          <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] flex items-center justify-center z-50">
-            <div className="bg-white rounded-xl p-5 w-[520px] max-w-[92vw]">
-              <h3 className="text-[15px] font-medium mb-1">Séance close</h3>
+          <Fenetre icone={IconLock} titre="Séance close" large="petite"
+            onFermer={() => { setAMotiver(null); setMotif(''); }}
+            pied={<>
+              <span />
+              <button onClick={() => { setAMotiver(null); setMotif(''); }}
+                className="bouton">
+                Annuler
+              </button>
+              <button
+                onClick={async () => {
+                  if (!motif.trim()) { setErreur('Un motif écrit est nécessaire.'); return; }
+                  const ok = await envoyer(aMotiver.charge, motif.trim());
+                  if (ok) { setAMotiver(null); setMotif(''); }
+                }}
+                className="bouton bouton-fort">
+                Corriger
+              </button>
+            </>}>
               <p className="text-[13px] text-slate-600 mb-3">
                 {aMotiver.detail || `Cette modification touche ${aMotiver.closes?.length || 0}
                  séance(s) déjà closes.`} La séance reste close ; seule la date change,
@@ -605,24 +620,8 @@ export default function CalendrierSessions({ sansTitre = false } = {}) {
               </p>
               <textarea value={motif} onChange={e => setMotif(e.target.value)} rows={3}
                 placeholder="Pourquoi cette date est-elle corrigée ?"
-                className="w-full px-2 py-1.5 text-[13px] border border-slate-300 rounded-lg mb-3" />
-              <div className="flex justify-end gap-2">
-                <button onClick={() => { setAMotiver(null); setMotif(''); }}
-                  className="px-3 py-1.5 text-[13px] rounded-lg border border-slate-300">
-                  Annuler
-                </button>
-                <button
-                  onClick={async () => {
-                    if (!motif.trim()) { setErreur('Un motif écrit est nécessaire.'); return; }
-                    const ok = await envoyer(aMotiver.charge, motif.trim());
-                    if (ok) { setAMotiver(null); setMotif(''); }
-                  }}
-                  className="px-3 py-1.5 text-[13px] rounded-lg bg-iip-blue text-white">
-                  Corriger
-                </button>
-              </div>
-            </div>
-          </div>
+                className="w-full px-2 py-1.5 text-[13px] border border-slate-300 rounded-lg" />
+          </Fenetre>
         )}
       </div>
     </div>

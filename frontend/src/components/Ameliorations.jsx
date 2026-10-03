@@ -4,6 +4,7 @@ import { authHeaders } from '../lib/api.js';
 import { Fenetre } from './ui.jsx';
 import { nomDepuisChaine } from '../lib/nom.js';
 import FilSuggestion, { PastilleIdee, PastilleNouveau } from './FilSuggestion.jsx';
+import { demander } from '../lib/dialogue.jsx';
 
 /**
  * LES AMÉLIORATIONS — CE QUE CEUX QUI S'EN SERVENT VOUDRAIENT.
@@ -74,7 +75,7 @@ export default function Ameliorations({ ecran, onClose }) {
   }
 
   async function retirer(id) {
-    if (!confirm('Retirer cette idée ?')) return;
+    if (!(await demander('Retirer cette idée ?'))) return;
     await fetch(`/api/suggestions/${id}`, { method: 'DELETE', headers: authHeaders() });
     await charger();
   }

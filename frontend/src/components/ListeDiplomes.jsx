@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
-import { OuvrirEditions } from './ui.jsx';
+import { OuvrirEditions, Fenetre } from './ui.jsx';
 import {
-  IconX, IconPrinter, IconAlertTriangle, IconCertificate,
+  IconPrinter, IconAlertTriangle, IconCertificate,
 } from '@tabler/icons-react';
 import { authHeaders } from '../lib/api.js';
 import { ouvrirApercu } from '../lib/apercu.js';
@@ -131,27 +131,23 @@ export default function ListeDiplomes({ annee, onClose }) {
   );
 
   return (
-    <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] flex items-start justify-center z-50 p-4"
-      onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="bg-white rounded-fenetre shadow-dessus w-full max-w-2xl mt-8
-                      max-h-[90vh] overflow-hidden flex flex-col">
-        <div className="flex-none px-5 py-3 border-b border-slate-100 flex items-start
-                        justify-between gap-3">
-          <div>
-            <h3 className="text-[15px] font-semibold text-iip-blue flex items-center gap-2">
-              <IconCertificate size={17} className="text-iip-gold" />
-              Liste des étudiants diplômés
-            </h3>
-            <p className="text-[12px] text-slate-500">
-              Document de la Fédération · année académique {String(annee).replace('-', '/')}
-            </p>
-          </div>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-600">
-            <IconX size={18} />
-          </button>
-        </div>
-
-        <div className="flex-1 overflow-y-auto p-5 space-y-3">
+    <Fenetre icone={IconCertificate} titre="Liste des étudiants diplômés" large="moyenne" onFermer={onClose}
+      sous={`Document de la Fédération · année académique ${String(annee).replace('-', '/')}`}
+      pied={<>
+        <span className="text-[12px] text-slate-500">
+          {choisis.size} étudiant(s) sur la liste
+        </span>
+        <button onClick={onClose} className="bouton">
+          Fermer
+        </button>
+        {/* L'AVION MÈNE AU CENTRE D'ÉDITION (2 octobre 2026) : l'acte et le document de travail y sont, en tête. */}
+        <OuvrirEditions disabled={enCours || !choisis.size} titre="Procès-verbal de section et liste des diplômés — centre d'édition"
+          pieces={[
+            { cle: 'pv', label: 'Procès-verbal de section', description: "Annexe 6 (section avec épreuve intégrée) ou 7 — l'acte qui fonde le titre", onClick: () => imprimer('pv') },
+            { cle: 'liste', label: 'Liste des diplômés', description: 'Document de travail — ne figure pas dans la circulaire', onClick: () => imprimer('liste') },
+          ]} />
+      </>}>
+        <div className="space-y-3">
           {erreur && (
             <div className="px-3 py-2 rounded-lg bg-amber-50 border border-amber-200
                             text-[12px] text-amber-900 flex items-start gap-1.5">
@@ -217,26 +213,6 @@ export default function ListeDiplomes({ annee, onClose }) {
             </div>
           )}
         </div>
-
-        <div className="flex-none px-5 py-3 border-t border-slate-100 flex items-center
-                        justify-between gap-2">
-          <span className="text-[12px] text-slate-500">
-            {choisis.size} étudiant(s) sur la liste
-          </span>
-          <div className="flex gap-2">
-            <button onClick={onClose}
-              className="px-3 py-1.5 text-[13px] rounded-lg border border-slate-300 text-slate-600">
-              Fermer
-            </button>
-            {/* L'AVION MÈNE AU CENTRE D'ÉDITION (2 octobre 2026) : l'acte et le document de travail y sont, en tête. */}
-            <OuvrirEditions disabled={enCours || !choisis.size} titre="Procès-verbal de section et liste des diplômés — centre d'édition"
-              pieces={[
-                { cle: 'pv', label: 'Procès-verbal de section', description: "Annexe 6 (section avec épreuve intégrée) ou 7 — l'acte qui fonde le titre", onClick: () => imprimer('pv') },
-                { cle: 'liste', label: 'Liste des diplômés', description: 'Document de travail — ne figure pas dans la circulaire', onClick: () => imprimer('liste') },
-              ]} />
-          </div>
-        </div>
-      </div>
-    </div>
+    </Fenetre>
   );
 }

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { IconLock, IconNotes, IconFileText, IconPaperclip, IconTrash,
          IconDownload, IconAlertTriangle } from '@tabler/icons-react';
 import { authHeaders } from '../lib/api.js';
+import { demander } from '../lib/dialogue.jsx';
 
 /**
  * LE DOSSIER DE SUIVI — l'onglet confidentiel de la fiche étudiant.
@@ -67,7 +68,7 @@ export default function SuiviEtudiant({ etudId }) {
   }
 
   async function effacer(n) {
-    if (!confirm(`Effacer « ${n.titre || TYPES[n.type]?.libelle || 'cette note'} » ?\n\nL'effacement est définitif.`)) return;
+    if (!(await demander(`Effacer « ${n.titre || TYPES[n.type]?.libelle || 'cette note'} » ?\n\nL'effacement est définitif.`))) return;
     const r = await fetch(`/api/suivi-etudiant/${etudId}/${n.id}`, {
       method: 'DELETE', headers: authHeaders() });
     if (!r.ok) { const j = await r.json().catch(() => ({})); setErreur(j.error || 'Refusé'); return; }

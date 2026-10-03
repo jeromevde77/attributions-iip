@@ -130,6 +130,7 @@ import { useState, useEffect, useRef } from 'react';
 import { api, getAnnee } from '../lib/api.js';
 import PreviewModal from '../components/PreviewModal.jsx';
 import mammoth from 'mammoth/mammoth.browser.js';
+import { demander, informer, saisir } from '../lib/dialogue.jsx';
 
 // Aplatit une image (data URL) sur fond blanc -> supprime toute transparence.
 // Evite le fond noir des PNG transparents a l'impression PDF (notamment Safari,
@@ -508,7 +509,7 @@ export function Toolbar({ editor, sobre = false }) {
       const b64 = await new Promise(res => { const r = new FileReader(); r.onload = () => res(r.result); r.readAsDataURL(blob); });
       const plat = await aplatirSurBlanc(b64);
       editor.chain().focus().setImage({ src: plat, alt }).run();
-    } catch { alert('Impossible de charger le logo.'); }
+    } catch { informer('Impossible de charger le logo.'); }
   }
   if (!editor) return null;
   return (
@@ -543,7 +544,7 @@ export function Toolbar({ editor, sobre = false }) {
       <Sep/>
       <Btn onClick={() => editor.chain().focus().toggleSubscript().run()} active={editor.isActive('subscript')} title="Indice (X₂)">X₂</Btn>
       <Btn onClick={() => editor.chain().focus().toggleSuperscript().run()} active={editor.isActive('superscript')} title="Exposant (X²)">X²</Btn>
-      <Btn onClick={() => { const url = window.prompt('URL du lien (vide pour retirer) :', editor.getAttributes('link').href || ''); if (url === null) return; const c = editor.chain().focus().extendMarkRange('link'); (url ? c.setLink({ href: url }) : c.unsetLink()).run(); }} active={editor.isActive('link')} title="Lien hypertexte">🔗</Btn>
+      <Btn onClick={async () => { const url = await saisir({ message: 'URL du lien (vide pour retirer) :', valeur: editor.getAttributes('link').href || '' }); if (url === null) return; const c = editor.chain().focus().extendMarkRange('link'); (url ? c.setLink({ href: url }) : c.unsetLink()).run(); }} active={editor.isActive('link')} title="Lien hypertexte">🔗</Btn>
       <Btn onClick={() => editor.chain().focus().toggleBlockquote().run()} active={editor.isActive('blockquote')} title="Citation">❝</Btn>
       {!sobre && <Btn onClick={() => editor.chain().focus().toggleCodeBlock().run()} active={editor.isActive('codeBlock')} title="Bloc de code">&lt;/&gt;</Btn>}
       <Btn onClick={() => editor.chain().focus().setHorizontalRule().run()} title="Ligne horizontale">―</Btn>
@@ -756,9 +757,9 @@ export default function Editeur() {
       setTemplateId(null); // import = nouveau template (ne pas écraser l'existant)
       setNom(file.name.replace(/\.docx$/i, '') || 'Document importé');
       const warns = (result.messages || []).filter(m => m.type === 'warning').length;
-      alert('Word importé ✓' + (warns ? ` (${warns} avertissement(s) de conversion)` : '') + '\n\nVérifie la mise en forme, puis clique « Sauvegarder » pour le conserver.');
+      informer('Word importé ✓' + (warns ? ` (${warns} avertissement(s) de conversion)` : '') + '\n\nVérifie la mise en forme, puis clique « Sauvegarder » pour le conserver.');
     } catch (e) {
-      alert('Import impossible : ' + e.message);
+      informer('Import impossible : ' + e.message);
     } finally {
       setSaving(false);
     }
@@ -780,7 +781,7 @@ export default function Editeur() {
         setTemplateId(d.id);
       }
       chargerTemplates();
-    } catch (e) { alert('Erreur : ' + e.message); }
+    } catch (e) { informer('Erreur : ' + e.message); }
     finally { setSaving(false); }
   }
 
@@ -807,7 +808,7 @@ export default function Editeur() {
       console.log('[Éditeur] setContent OK');
     } catch (e) {
       console.error('[chargerTemplate] ERREUR :', e);
-      alert(`Erreur au chargement du template "${t.nom}" :\n\n${e.message}\n\n(voir console F12 pour le détail)`);
+      informer(`Erreur au chargement du template "${t.nom}" :\n\n${e.message}\n\n(voir console F12 pour le détail)`);
     }
   }
 
@@ -818,7 +819,7 @@ export default function Editeur() {
   }
 
   async function generer() {
-    if (!editor || !templateId) { alert('Sauvegardez d\'abord le template'); return; }
+    if (!editor || !templateId) { informer('Sauvegardez d\'abord le template'); return; }
     setGenerating(true);
     const token = localStorage.getItem('token');
     try {
@@ -867,7 +868,7 @@ export default function Editeur() {
         </body></html>`;
       setPreviewHtml(fullHtml);
     } catch (e) {
-      alert('Erreur : ' + e.message);
+      informer('Erreur : ' + e.message);
     }
     finally { setGenerating(false); }
   }
@@ -899,7 +900,7 @@ export default function Editeur() {
               <button
                 onClick={async e => {
                   e.stopPropagation();
-                  if (!confirm(`Supprimer le template « ${t.nom} » ?`)) return;
+                  if (!(await demander(`Supprimer le template « ${t.nom} » ?`))) return;
                   await fetch(`/api/templates/${t.id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } });
                   if (templateId === t.id) { setTemplateId(null); setNom('Nouveau template'); editor?.commands.setContent('<p></p>'); }
                   chargerTemplates();

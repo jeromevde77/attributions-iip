@@ -7,7 +7,7 @@
 import { Router } from 'express';
 import ExcelJS from 'exceljs';
 import db from '../db/index.js';
-import { authRequired } from '../middleware/auth.js';
+import { authRequired, soiSeul } from '../middleware/auth.js';
 
 const r = Router();
 
@@ -33,7 +33,7 @@ r.get('/doc2-3', authRequired, (req, res) => {
 });
 
 // Vue Attributions_profs : par prof (mêmes colonnes que la feuille Excel R11+)
-r.get('/professeurs', authRequired, (req, res) => {
+r.get('/professeurs', authRequired, soiSeul({ ensemble: true }), (req, res) => {
   const sql = `
     SELECT
       p.id AS prof_id,

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { nomDoc } from '../lib/api.js';
 import { ouvrirApercu } from '../lib/apercu.js';
+import { Fenetre } from './ui.jsx';
 
 // Catégorie EPROM selon ct_pp
 const CAT_EPROM = {
@@ -333,17 +334,13 @@ export default function Doc23Modal({ ue_num, section, ue_nom, annee, onClose }) 
   }
 
   return (
-    <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg flex flex-col">
-        <div className="flex items-center justify-between px-6 py-4 border-b">
-          <div>
-            <div className="font-bold text-iip-gold text-lg">DOC2 / DOC3 — UE {ue_num}</div>
-            <div className="text-xs text-gray-500">{ue_nom} · {section} · {annee}</div>
-          </div>
-          <button onClick={onClose} className="text-gray-400 hover:text-red-500 text-2xl">×</button>
-        </div>
-
-        <div className="px-6 py-4 space-y-4">
+    <Fenetre titre={`DOC2 / DOC3 — UE ${ue_num}`} sous={`${ue_nom} · ${section} · ${annee}`}
+      large="petite" onFermer={onClose}
+      pied={<>
+        <span />
+        <button onClick={onClose} className="bouton">Fermer</button>
+      </>}>
+        <div className="space-y-4">
           {/* Sélecteur organisation */}
           <div>
             <label className="block text-xs text-gray-500 mb-1">Organisation</label>
@@ -406,13 +403,6 @@ export default function Doc23Modal({ ue_num, section, ue_nom, annee, onClose }) 
             <div className="text-red-400 text-sm text-center py-4">Erreur de chargement</div>
           )}
         </div>
-
-        <div className="px-6 py-3 border-t flex justify-end">
-          <button onClick={onClose} className="border border-gray-300 text-gray-600 px-4 py-1.5 h-9 rounded text-sm hover:bg-gray-50">
-            Fermer
-          </button>
-        </div>
-      </div>
-    </div>
+    </Fenetre>
   );
 }

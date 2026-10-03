@@ -181,8 +181,8 @@ export const STYLE_REPORTING = `
      rayon ni contour propre en border-collapse : le bloc signalé vit donc
      dans une boîte, et la cellule ne fait que l'espacer. */
   td.tuile { border:0; padding:0; vertical-align:top; height:1px; }
-  .tuile-boite { background:#FAFAFB; border:0.3mm solid #D8DCE4;
-                 border-left:1.6mm solid #1B2B4B; border-radius:0 1.5mm 1.5mm 0;
+  .tuile-boite { background:#fff; border:0.3mm solid #D8DCE4;
+                 border-left:1mm solid #1B2B4B; border-radius:0 2.6mm 2.6mm 0;
                  padding:2mm 3mm 2.2mm; height:100%; break-inside:avoid; }
   /* LE CHIFFRE EST LE SUJET DE LA TUILE : il est grand, serré, et tout le
      reste est gris. Une tuile où le libellé pèse autant que le nombre ne dit

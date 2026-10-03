@@ -4,14 +4,14 @@
  */
 import { Router } from 'express';
 import db from '../db/index.js';
-import { authRequired, roleRequired, exigerPerimetreProfesseur } from '../middleware/auth.js';
+import { authRequired, roleRequired, exigerPerimetreProfesseur, soiSeul } from '../middleware/auth.js';
 
 const r = Router();
 
 // ─── Nominations d'un prof ────────────────────────────────────────────────────
 
 // GET /nominations/prof/:id — nominations définitives d'un prof
-r.get('/prof/:id', authRequired, exigerPerimetreProfesseur, (req, res) => {
+r.get('/prof/:id', authRequired, soiSeul(), exigerPerimetreProfesseur, (req, res) => {
   const rows = db.prepare(`
     SELECT n.*, u.ue_nom, u.ue_code_fwb
     FROM nomination_definitive n
@@ -296,7 +296,7 @@ r.post('/appliquer', authRequired, roleRequired('admin', 'editeur'), (req, res) 
 // GET /nominations/prof/:id/situation?annee= — tableau de bord ETD d'un prof (calcul ETP global)
 // L'ETP nommé total doit être couvert par l'ETP des cours nommés + des lignes cochées RT.
 // CT et PP sont interchangeables (équivalence en ETP : CT/800, PP/1000).
-r.get('/prof/:id/situation', authRequired, exigerPerimetreProfesseur, (req, res) => {
+r.get('/prof/:id/situation', authRequired, soiSeul(), exigerPerimetreProfesseur, (req, res) => {
   const { annee } = req.query;
   const profId = req.params.id;
   const etp = (per, type) => (type === 'PP' ? (per || 0) / 1000 : (per || 0) / 800);

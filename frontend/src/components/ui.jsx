@@ -1,4 +1,4 @@
-import { createContext, Fragment, lazy, Suspense, useContext, useEffect, useState } from 'react';
+import { createContext, Fragment, lazy, Suspense, useContext, useEffect, useRef, useState } from 'react';
 
 const CentreImpressionCentral = lazy(() => import('./CentreImpressionCentral.jsx'));
 const Ameliorations = lazy(() => import('./Ameliorations.jsx'));
@@ -1052,6 +1052,9 @@ export function BulleAide({ titre, children }) {
   );
 }
 
+/** Les fenêtres ouvertes, de la plus ancienne à celle du dessus. */
+const PILE_FENETRES = [];
+
 export function Fenetre({ icone: Ic, titre, sous, large = 'moyenne',
                          hauteurFixe = false, outils = null,
                           pied = null, ton = 'neutre', onFermer, children }) {
@@ -1066,11 +1069,28 @@ export function Fenetre({ icone: Ic, titre, sous, large = 'moyenne',
   // LA TOUCHE ÉCHAP FERME. Elle le faisait dans certaines fenêtres et pas dans
   // d'autres, ce qui est pire que nulle part : on apprend un geste qui tombe
   // parfois dans le vide.
+  // ET SEULE LA FENÊTRE DU DESSUS répond : une fenêtre ouverte depuis une
+  // autre (l'aperçu du classeur sur l'encodage) fermait les deux d'un coup.
+  // La place dans la pile se prend À L'OUVERTURE, une fois : un nouveau rendu
+  // de la fenêtre du dessous ne doit pas la remettre au-dessus.
+  const moi = useRef(null);
+  if (!moi.current) moi.current = Symbol('fenetre');
+  const fermer = useRef(onFermer);
+  fermer.current = onFermer;
   useEffect(() => {
-    const f = e => { if (e.key === 'Escape') onFermer?.(); };
+    const jeton = moi.current;
+    PILE_FENETRES.push(jeton);
+    const f = e => {
+      if (e.key !== 'Escape' || PILE_FENETRES[PILE_FENETRES.length - 1] !== jeton) return;
+      fermer.current?.();
+    };
     window.addEventListener('keydown', f);
-    return () => window.removeEventListener('keydown', f);
-  }, [onFermer]);
+    return () => {
+      window.removeEventListener('keydown', f);
+      const i = PILE_FENETRES.lastIndexOf(jeton);
+      if (i >= 0) PILE_FENETRES.splice(i, 1);
+    };
+  }, []);
 
   return (
     <div role="dialog" aria-modal="true" aria-label={titre}

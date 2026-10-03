@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
-import { IconX, IconAlertTriangle, IconCheck } from '@tabler/icons-react';
+import { IconAlertTriangle, IconCheck } from '@tabler/icons-react';
 import { authHeaders, api } from '../lib/api.js';
+import { Fenetre } from './ui.jsx';
 import { MOTIFS_ECHEC, texteDuMotif, composerMotif, decomposerMotif } from './motifsEchec.js';
 import { ouvrirApercu } from '../lib/apercu.js';
 
@@ -137,7 +138,20 @@ export default function TableauBordEtudiant({ etudId, ueNum, annee, onClose, onD
   return (
     <Cadre onClose={onClose}
       titre={`${(e.nom || '').toUpperCase()} ${e.prenom || ''}`.trim()}
-      sous={`UE ${ueNum} · ${e.section || '—'} · ${annee}`}>
+      sous={`UE ${ueNum} · ${e.section || '—'} · ${annee}`}
+      pied={<>
+        <span className="text-[12px] text-amber-800">
+          {sansMotif > 0 && decision && decision !== 'reussi' && (<>
+            {sansMotif} acquis sans motivation : la décision sera enregistrée, mais elle
+            restera attaquable tant qu'ils ne sont pas motivés.
+          </>)}
+        </span>
+        <button onClick={enregistrer} disabled={enCours}
+          className="bouton bouton-fort inline-flex items-center gap-1.5">
+          <IconCheck size={15} />
+          {enCours ? 'Enregistrement…' : 'Enregistrer la décision'}
+        </button>
+      </>}>
 
       {message && (
         <div className={`px-3 py-2 rounded-lg text-[13px] ${message.type === 'ok'
@@ -418,20 +432,6 @@ export default function TableauBordEtudiant({ etudId, ueNum, annee, onClose, onD
           </div>
         )}
 
-        <div className="flex items-center gap-2 flex-wrap">
-          <button onClick={enregistrer} disabled={enCours}
-            className="flex items-center gap-1.5 px-4 py-2 text-sm bg-iip-blue text-white
-                       font-semibold rounded-lg disabled:opacity-50">
-            <IconCheck size={15} />
-            {enCours ? 'Enregistrement…' : 'Enregistrer la décision'}
-          </button>
-          {sansMotif > 0 && decision && decision !== 'reussi' && (
-            <span className="text-[12px] text-amber-800">
-              {sansMotif} acquis sans motivation : la décision sera enregistrée, mais elle
-              restera attaquable tant qu'ils ne sont pas motivés.
-            </span>
-          )}
-        </div>
       </div>
     </Cadre>
   );
@@ -469,26 +469,12 @@ function Badge({ i, courante = false, passe = false }) {
   );
 }
 
-/** La fenêtre : en-tête fixe, corps qui défile — comme les autres. */
-function Cadre({ children, onClose, titre, sous }) {
+/** La fenêtre : en-tête fixe, corps qui défile — la fenêtre commune. */
+function Cadre({ children, onClose, titre, sous, pied = null }) {
   return (
-    <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] flex items-start justify-center z-50 p-4"
-      onClick={ev => ev.target === ev.currentTarget && onClose()}>
-      <div className="bg-white rounded-fenetre shadow-dessus w-full max-w-4xl mt-8
-                      max-h-[90vh] overflow-hidden flex flex-col">
-        <div className="flex-none p-5 pb-3 border-b border-slate-100 flex items-start justify-between">
-          <div>
-            <h3 className="text-[15px] font-semibold text-iip-blue">
-              {titre || 'Tableau de bord de délibération'}
-            </h3>
-            {sous && <p className="text-[12px] text-slate-500">{sous}</p>}
-          </div>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-600">
-            <IconX size={18} />
-          </button>
-        </div>
-        <div className="flex-1 overflow-y-auto p-5 space-y-4">{children}</div>
-      </div>
-    </div>
+    <Fenetre titre={titre || 'Tableau de bord de délibération'} sous={sous}
+      large="grande" pied={pied} onFermer={onClose}>
+      <div className="space-y-4">{children}</div>
+    </Fenetre>
   );
 }

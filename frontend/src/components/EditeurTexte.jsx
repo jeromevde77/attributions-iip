@@ -13,6 +13,7 @@ import { Superscript } from '@tiptap/extension-superscript';
 import { IconFileImport, IconAlertTriangle } from '@tabler/icons-react';
 import { authHeaders } from '../lib/api.js';
 import { Toolbar, CustomTableCell, CustomTableHeader } from '../pages/Editeur.jsx';
+import { demander } from '../lib/dialogue.jsx';
 
 /**
  * ÉCRIRE UN TEXTE DU CORPUS — dans Lucie, et non dans Word.
@@ -62,9 +63,9 @@ export default function EditeurTexte({ valeur, onChange, importer = true }) {
 
   async function analyser(f) {
     if (!f) return;
-    if (editor && !editor.isEmpty && !window.confirm(
+    if (editor && !editor.isEmpty && !(await demander(
       `Remplacer le texte actuel par celui de « ${f.name} » ?\n\n`
-      + 'Ce que vous avez écrit ou corrigé ici sera perdu.')) return;
+      + 'Ce que vous avez écrit ou corrigé ici sera perdu.'))) return;
     setEnCours(true); setErreur(null);
     try {
       const fd = new FormData();

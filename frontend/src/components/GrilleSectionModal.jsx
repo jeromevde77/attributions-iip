@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import { IconPrinter } from '@tabler/icons-react';
 import { api, getAnnee } from '../lib/api.js';
 import PreviewModal from './PreviewModal.jsx';
+import { Fenetre } from './ui.jsx';
+import { informer } from '../lib/dialogue.jsx';
 
 // Conversion heures (×60 min) → périodes (50 min) : ×1.2
 const h2p = (h) => Math.round((Number(h) || 0) * 1.2);
@@ -54,7 +56,7 @@ export default function GrilleSectionModal({ section, onClose }) {
     try {
       await api.updateCours(coursCode, payload);
     } catch (e) {
-      alert('Erreur : ' + e.message);
+      informer('Erreur : ' + e.message);
       charger();
     } finally {
       setSaving(s => { const m = { ...s }; delete m[coursCode]; return m; });
@@ -223,25 +225,23 @@ export default function GrilleSectionModal({ section, onClose }) {
   const inpRO = 'w-14 text-center border border-gray-200 rounded px-1 py-1 text-sm bg-gray-50 text-gray-500';
 
   return (
-    <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] flex items-center justify-center p-4 z-50"
-         onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="bg-white rounded-xl shadow-2xl w-full max-w-6xl max-h-[90vh] flex flex-col border-t-4 border-iip-mauve">
-
-        <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100">
-          <div>
-            <h2 className="font-title text-lg text-iip-mauve">Répartition de l'autonomie — {section}</h2>
-            <p className="text-xs text-gray-500">{annee} · classe + EV1 + VC1 → périodes, comblées par l'autonomie</p>
-          </div>
-          <div className="flex items-center gap-2">
-            <button onClick={imprimer} title="Imprimer la grille"
-              className="px-3 py-1.5 h-9 text-sm rounded-lg bg-slate-800 text-white hover:bg-slate-700 font-medium">
-              <IconPrinter size={14} className="inline align-[-2px] mr-1" />Imprimer
-            </button>
-            <button onClick={onClose} className="text-gray-400 hover:text-red-500 text-2xl leading-none">×</button>
-          </div>
-        </div>
-
-        <div className="px-5 py-2 border-b border-gray-100 flex items-center gap-3">
+    <>
+    <Fenetre titre={`Répartition de l'autonomie — ${section}`}
+      sous={`${annee} · classe + EV1 + VC1 → périodes, comblées par l'autonomie`}
+      large="pleine" onFermer={onClose}
+      outils={
+        <button onClick={imprimer} title="Imprimer la grille"
+          className="flex-none h-8 px-2.5 rounded-champ text-[13px] text-white hover:bg-white/15 transition-colors duration-150 ease-ios">
+          <IconPrinter size={14} className="inline align-[-2px] mr-1" />Imprimer
+        </button>
+      }
+      pied={<>
+        <span />
+        <button onClick={onClose} className="bouton bouton-fort">
+          Fermer
+        </button>
+      </>}>
+        <div className="-mx-5 -mt-4 mb-4 px-5 py-2 border-b border-gray-100 flex items-center gap-3">
           <span className="text-sm text-gray-600">Mode :</span>
           <div className="inline-flex rounded-lg bg-gray-100 p-0.5">
             <button onClick={() => setMode('grille')}
@@ -258,7 +258,7 @@ export default function GrilleSectionModal({ section, onClose }) {
           </span>
         </div>
 
-        <div className="overflow-y-auto p-5 space-y-5">
+        <div className="space-y-5">
           {loading ? (
             <div className="p-12 text-center text-gray-400">Chargement…</div>
           ) : ues.length === 0 ? (
@@ -372,14 +372,8 @@ export default function GrilleSectionModal({ section, onClose }) {
             );
           })}
         </div>
-
-        <div className="px-5 py-3 border-t border-gray-100 flex justify-end">
-          <button onClick={onClose} className="px-4 py-2 bg-iip-mauve text-white rounded-lg text-sm font-medium hover:opacity-90">
-            Fermer
-          </button>
-        </div>
-      </div>
+    </Fenetre>
       {printHtml && <PreviewModal html={printHtml.html} titre={`Grille — ${section}`} nomFichier={printHtml.nom} onClose={() => setPrintHtml(null)} />}
-    </div>
+    </>
   );
 }

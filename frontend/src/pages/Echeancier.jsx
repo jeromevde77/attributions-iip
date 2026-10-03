@@ -3,7 +3,7 @@ import {
   IconCalendarStats, IconCheck, IconRefresh,
   IconScale, IconFilter, IconX, IconBooks, IconPlayerPlay,
 } from '@tabler/icons-react';
-import { PageHeader, Tabs, Btn, KpiCard, RailLateral } from '../components/ui.jsx';
+import { PageHeader, Tabs, Btn, KpiCard, RailLateral, Fenetre } from '../components/ui.jsx';
 import { authHeaders } from '../lib/api.js';
 
 const MOIS = ['janvier','février','mars','avril','mai','juin',
@@ -361,21 +361,22 @@ export default function Echeancier() {
 
       {/* Détail */}
       {detail && (
-        <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] flex items-center justify-center z-50 p-4"
-             onClick={() => setDetail(null)}>
-          <div className="bg-white rounded-xl max-w-xl w-full" onClick={e => e.stopPropagation()}>
-            <div className="px-5 py-3.5 border-b border-slate-200 flex items-start justify-between gap-3">
-              <div>
-                <h3 className="font-semibold text-iip-blue">{detail.libelle}</h3>
-                {detail.libelle_override && (
-                  <p className="text-sm text-slate-600 mt-0.5">{detail.libelle_override}</p>
-                )}
-              </div>
-              <button onClick={() => setDetail(null)} className="text-slate-400 hover:text-slate-700">
-                <IconX size={20} />
+        <Fenetre titre={detail.libelle} sous={detail.libelle_override || undefined}
+          large="moyenne" onFermer={() => setDetail(null)}
+          pied={<>
+            <span />
+            {detail.lien_interne && (
+              <button className="bouton" onClick={() => { window.location.href = detail.lien_interne; }}>
+                Ouvrir la page concernée
               </button>
-            </div>
-            <div className="p-5 space-y-3 text-sm">
+            )}
+            <button className={`bouton inline-flex items-center gap-1.5 ${detail.statut === 'fait' ? '' : 'bouton-fort'}`}
+                 onClick={async () => { await basculer(detail); setDetail(null); }}>
+              <IconCheck size={14} />
+              {detail.statut === 'fait' ? 'Marquer à faire' : 'Marquer fait'}
+            </button>
+          </>}>
+            <div className="space-y-3 text-sm">
               {detail.description && <p className="text-slate-700 leading-relaxed">{detail.description}</p>}
               <div className="grid grid-cols-2 gap-3 pt-1">
                 <Info label="Échéance" valeur={fr(detail.date_due)} />
@@ -393,20 +394,8 @@ export default function Echeancier() {
                   <span className="text-[12px] text-slate-600">{detail.base_legale}</span>
                 </div>
               )}
-              <div className="flex gap-2 pt-1">
-                <Btn variant={detail.statut === 'fait' ? 'secondary' : 'primary'} icon={IconCheck}
-                     onClick={async () => { await basculer(detail); setDetail(null); }}>
-                  {detail.statut === 'fait' ? 'Marquer à faire' : 'Marquer fait'}
-                </Btn>
-                {detail.lien_interne && (
-                  <Btn variant="secondary" onClick={() => { window.location.href = detail.lien_interne; }}>
-                    Ouvrir la page concernée
-                  </Btn>
-                )}
-              </div>
             </div>
-          </div>
-        </div>
+        </Fenetre>
       )}
     </div>
   );

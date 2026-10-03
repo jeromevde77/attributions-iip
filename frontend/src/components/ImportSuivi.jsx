@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import * as XLSX from 'xlsx';
 import {
-  IconX, IconUpload, IconAlertTriangle, IconCheck, IconFileSpreadsheet,
+  IconUpload, IconAlertTriangle, IconCheck, IconFileSpreadsheet,
 } from '@tabler/icons-react';
+import { Fenetre } from './ui.jsx';
 import { authHeaders } from '../lib/api.js';
 import { lireClasseur, GEOMETRIE } from '../lib/suiviClasseur.js';
 
@@ -108,28 +109,30 @@ export default function ImportSuivi({ annee, onClose, onFini }) {
     : [];
 
   return (
-    <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] flex items-start justify-center z-50 p-4"
-      onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="bg-white rounded-fenetre shadow-dessus w-full max-w-3xl mt-6
-                      max-h-[92vh] overflow-hidden flex flex-col">
-
-        <div className="flex-none px-5 py-3 border-b border-slate-100 flex items-start
-                        justify-between gap-3">
-          <div>
-            <h3 className="text-[15px] font-semibold text-iip-blue flex items-center gap-2">
-              <IconFileSpreadsheet size={17} className="text-iip-gold" />
-              Importer le classeur de suivi
-            </h3>
-            <p className="text-[12px] text-slate-500">
-              Pondérations, notes des deux sessions et décisions du jury · {annee}
-            </p>
-          </div>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-600">
-            <IconX size={18} />
-          </button>
-        </div>
-
-        <div className="flex-1 overflow-y-auto p-5 space-y-4">
+    <Fenetre icone={IconFileSpreadsheet} titre="Importer le classeur de suivi"
+      sous={`Pondérations, notes des deux sessions et décisions du jury · ${annee}`}
+      large="moyenne" onFermer={onClose}
+      pied={<>
+        <span className="text-[12px] text-slate-500">
+          {unites ? `${choisies.size} unité(s) · ${total} lignes` : ''}
+        </span>
+        <button onClick={onClose}
+          className="bouton">
+          {applique ? 'Fermer' : 'Annuler'}
+        </button>
+        <button onClick={() => envoyer(true)}
+          disabled={!unites || !choisies.size || enCours}
+          className="bouton">
+          Simuler
+        </button>
+        <button onClick={() => envoyer(false)}
+          disabled={!rapport || applique || enCours}
+          title={!rapport ? 'Simuler d\'abord' : ''}
+          className="bouton bouton-fort">
+          Importer
+        </button>
+      </>}>
+        <div className="space-y-4">
           {erreur && (
             <div className="px-3 py-2 rounded-lg bg-red-50 border border-red-200
                             text-[13px] text-red-900 flex items-start gap-1.5">
@@ -445,33 +448,7 @@ export default function ImportSuivi({ annee, onClose, onFini }) {
           )}
         </div>
 
-        <div className="flex-none px-5 py-3 border-t border-slate-100 flex items-center
-                        justify-between gap-2">
-          <span className="text-[12px] text-slate-500">
-            {unites ? `${choisies.size} unité(s) · ${total} lignes` : ''}
-          </span>
-          <div className="flex gap-2">
-            <button onClick={onClose}
-              className="px-3 py-1.5 text-[13px] rounded-lg border border-slate-300 text-slate-600">
-              {applique ? 'Fermer' : 'Annuler'}
-            </button>
-            <button onClick={() => envoyer(true)}
-              disabled={!unites || !choisies.size || enCours}
-              className="px-3 py-1.5 text-[13px] rounded-lg border border-iip-blue
-                         text-iip-blue font-semibold disabled:opacity-40">
-              Simuler
-            </button>
-            <button onClick={() => envoyer(false)}
-              disabled={!rapport || applique || enCours}
-              title={!rapport ? 'Simuler d\'abord' : ''}
-              className="px-4 py-2 text-[13px] rounded-lg bg-iip-blue text-white
-                         font-semibold disabled:opacity-40">
-              Importer
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
+    </Fenetre>
   );
 }
 

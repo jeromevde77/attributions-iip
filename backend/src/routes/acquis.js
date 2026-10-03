@@ -1324,6 +1324,23 @@ r.put('/decision', authRequired,
     });
   }
 
+  /* UNE DÉCISION DÉFAVORABLE SUR UNE UNITÉ NON PARAMÉTRÉE NE PASSE PAS
+     (Charles, 3 octobre 2026 : « si rien, ça ne peut pas passer »). Elle se
+     motive acquis par acquis (RDE art. 88 §3) ; sans acquis rattachés à des
+     cours, Lucie n'avait rien à faire justifier, et un ajournement partait
+     sans un mot de motivation. On paramètre l'unité d'abord. */
+  if (resultat === 'ajourne' || resultat === 'refuse') {
+    try {
+      const m = delibererUE(Number(etudiant_id), Number(ue_num), annee_scolaire,
+                            req.body?.session === 2 || req.body?.session === '2' ? 2 : 1);
+      if (!m?.cours?.length || !m?.acquis?.length) {
+        return res.status(409).json({ error: "Unité non paramétrée : ses acquis ne sont pas rattachés "
+          + "à ses cours. Une décision défavorable se motive acquis par acquis — paramétrez "
+          + "l'unité (liens cours ↔ acquis) avant de délibérer." });
+      }
+    } catch { /* le calcul a échoué : on n'empêche pas sur une erreur de lecture */ }
+  }
+
   const n = points == null || points === '' ? null
     : Number(String(points).replace(',', '.'));
   let note = (n != null && Number.isFinite(n) && n >= 0 && n <= 20) ? n : null;

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { IconX, IconAlertTriangle, IconSearch, IconFileSpreadsheet } from '@tabler/icons-react';
+import { IconAlertTriangle, IconSearch, IconFileSpreadsheet } from '@tabler/icons-react';
 import { authHeaders } from '../lib/api.js';
 import ImportAcquisCours from './ImportAcquisCours.jsx';
 import { naviguerGrille, caseGrille } from '../lib/grilleClavier.js';
@@ -156,22 +156,29 @@ export default function EncodageCours({ coursCode, annee, onClose, onEnregistre,
   const fermer = () => onClose();
 
   return (
-    <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] flex items-start justify-center z-50 p-4"
-      onClick={e => e.target === e.currentTarget && fermer()}>
-      <div className="bg-white rounded-fenetre shadow-dessus w-full max-w-5xl mt-8
-                      max-h-[90vh] overflow-hidden flex flex-col">
-        <div className="flex-none p-5 pb-3 border-b border-slate-100 flex items-start justify-between gap-3">
-          <div>
-            <h3 className="text-[15px] font-semibold text-iip-blue">
-              {data ? `${data.cours.cours_code} · ${data.cours.cours_nom || ''}` : coursCode}
-            </h3>
-            <p className="text-[12px] text-slate-500">
-              {data && `UE ${data.cours.ue_num} · ${data.etudiants.length} étudiant(s) · `}
-              {data && `${data.acquis.length} acquis · `}{annee}
-              {data?.cours?.professeurs ? ` · ${data.cours.professeurs}` : ''}
-            </p>
-          </div>
-          <div className="flex items-center gap-2">
+    <>
+    <Fenetre titre={data ? `${data.cours.cours_code} · ${data.cours.cours_nom || ''}` : coursCode}
+      sous={`${data ? `UE ${data.cours.ue_num} · ${data.etudiants.length} étudiant(s) · ` : ''}${data ? `${data.acquis.length} acquis · ` : ''}${annee}${data?.cours?.professeurs ? ` · ${data.cours.professeurs}` : ''}`}
+      large="grande" hauteurFixe onFermer={fermer}
+      pied={<>
+        <span />
+        {/* LE CLASSEUR DU PROFESSEUR : il part, revient rempli, et se relit sur
+            les clés qu'il porte plutôt que sur l'ordre de ses lignes. */}
+        <ClasseurNotes ueNum={data?.cours?.ue_num} annee={annee} session={session}
+          ueNom={data?.cours?.cours_nom}
+          colonnes={(data?.acquis || []).map(a => ({
+            cours_code: data?.cours?.cours_code, cours_nom: data?.cours?.cours_nom,
+            aa_code: a.aa_code, description: a.description, poids: a.poids }))}
+          etudiants={data?.etudiants || []}
+          note={(id, c) => data?.notes?.[id]?.[c.aa_code] ?? null}
+          mention={id => data?.mentions?.[id] || null}
+          onImporte={() => { charger(); onEnregistre?.(); }} />
+      </>}>
+      {/* La grille et le panneau des acquis défilent chacun pour soi : le
+          contenu prend toute la hauteur de la fenêtre. */}
+      <div className="h-full -mx-5 flex flex-col">
+        <div className="flex-none px-5 pb-3">
+          <div className="flex items-center justify-end gap-2">
             {enAttente > 0 && <span className="text-[12px] text-slate-400">enregistrement…</span>}
             {/* Les acquis viennent d'un tableur : autant les y lire. */}
             <button onClick={() => setImporter(true)}
@@ -189,9 +196,6 @@ export default function EncodageCours({ coursCode, annee, onClose, onEnregistre,
                 </button>
               ))}
             </div>
-            <button onClick={fermer} className="text-slate-400 hover:text-slate-600">
-              <IconX size={18} />
-            </button>
           </div>
         </div>
 
@@ -446,27 +450,14 @@ export default function EncodageCours({ coursCode, annee, onClose, onEnregistre,
         </div>
         </div>
 
-        {/* LE CLASSEUR DU PROFESSEUR : il part, revient rempli, et se relit sur
-            les clés qu'il porte plutôt que sur l'ordre de ses lignes. */}
-        <div className="flex-none px-5 py-2.5 border-t border-slate-100 flex items-center
-                        justify-end gap-2">
-          <ClasseurNotes ueNum={data?.cours?.ue_num} annee={annee} session={session}
-            ueNom={data?.cours?.cours_nom}
-            colonnes={(data?.acquis || []).map(a => ({
-              cours_code: data?.cours?.cours_code, cours_nom: data?.cours?.cours_nom,
-              aa_code: a.aa_code, description: a.description, poids: a.poids }))}
-            etudiants={data?.etudiants || []}
-            note={(id, c) => data?.notes?.[id]?.[c.aa_code] ?? null}
-            mention={id => data?.mentions?.[id] || null}
-            onImporte={() => { charger(); onEnregistre?.(); }} />
-        </div>
       </div>
+    </Fenetre>
 
       {importer && (
         <ImportAcquisCours coursCode={coursCode} coursNom={data?.cours?.cours_nom}
           annee={annee} onClose={() => setImporter(false)}
           onImporte={() => { charger(); onEnregistre && onEnregistre(); }} />
       )}
-    </div>
+    </>
   );
 }

@@ -4,6 +4,7 @@ import {
 } from '@tabler/icons-react';
 import Assistant from '../components/Assistant.jsx';
 import { authHeaders } from '../lib/api.js';
+import { demander } from '../lib/dialogue.jsx';
 
 /**
  * Rentrée — ouverture d'une année scolaire.
@@ -73,7 +74,7 @@ export default function Rentree({ annee }) {
   }
 
   async function reporterEvenements() {
-    if (!window.confirm(`Reporter les événements de ${anneePrecedente} vers ${annee} ?\nLes dates sont décalées de 52 semaines — un samedi reste un samedi — et restent à ajuster.`)) return;
+    if (!(await demander(`Reporter les événements de ${anneePrecedente} vers ${annee} ?\nLes dates sont décalées de 52 semaines — un samedi reste un samedi — et restent à ajuster.`))) return;
     const rep = await fetch('/api/rentree/reporter-evenements', {
       method: 'POST', headers: authHeaders(),
       body: JSON.stringify({ annee, annee_source: anneePrecedente }),

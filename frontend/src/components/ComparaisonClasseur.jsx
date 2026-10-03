@@ -1,7 +1,7 @@
 import { useState } from 'react';
-import { IconUpload, IconX, IconAlertTriangle } from '@tabler/icons-react';
+import { IconUpload, IconAlertTriangle } from '@tabler/icons-react';
 import { authHeaders } from '../lib/api.js';
-import { Tableau, TableauEntete, Th, Td, Tr, Badge } from './ui.jsx';
+import { Tableau, TableauEntete, Th, Td, Tr, Badge, Fenetre } from './ui.jsx';
 
 /**
  * Comparaison d'un classeur de coordination avec la base, SANS rien écrire.
@@ -123,24 +123,10 @@ export default function ComparaisonClasseur({ onClose }) {
   };
 
   return (
-    <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] flex items-start justify-center z-50 p-4"
-      onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="bg-white rounded-fenetre shadow-dessus w-full max-w-5xl mt-8 max-h-[90vh] overflow-hidden flex flex-col">
-        <div className="flex-none p-5 pb-3 border-b border-slate-100 flex items-start justify-between">
-          <div>
-            <h3 className="text-[15px] font-semibold text-iip-blue">
-              Comparer un classeur de coordination
-            </h3>
-            <p className="text-[12px] text-slate-500">
-              Rien n'est écrit : ce tableau montre seulement les écarts.
-            </p>
-          </div>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-600">
-            <IconX size={18} />
-          </button>
-        </div>
-
-        <div className="flex-1 overflow-y-auto p-5 space-y-4">
+    <Fenetre icone={IconUpload} titre="Comparer un classeur de coordination"
+      sous="Rien n'est écrit : ce tableau montre seulement les écarts."
+      large="grande" onFermer={onClose}>
+        <div className="space-y-4">
 
         <div className="flex items-end gap-3 flex-wrap">
           <label className="text-xs">
@@ -267,7 +253,6 @@ export default function ComparaisonClasseur({ onClose }) {
           </>
         )}
         </div>
-      </div>
-    </div>
+    </Fenetre>
   );
 }

@@ -67,8 +67,11 @@ export default function GardeAnnee({ quoi = 'ces données' }) {
   return (
     <div className="fixed inset-0 z-[70] flex items-start justify-center p-4 pt-[12vh]
                     bg-[rgba(11,21,45,.32)] backdrop-blur-[3px]">
-      <div className="bg-white rounded-fenetre max-w-lg w-full shadow-dessus overflow-hidden">
-        <div className="px-5 py-4 flex items-start gap-3 border-b border-slate-200">
+      {/* LE DESSIN DES BOÎTES DE LUCIE (lib/dialogue.jsx) : liseré orange à
+          gauche, coins droits de ce côté, l'action dans un pied. */}
+      <div className="bg-white rounded-r-fenetre max-w-lg w-full shadow-dessus overflow-hidden border-l-4"
+        style={{ borderLeftColor: 'var(--c-attente)' }}>
+        <div className="px-5 pt-5 pb-3 flex items-start gap-3">
           <IconCalendarExclamation size={22} className="text-[color:var(--c-attente,var(--c-attente))] flex-none mt-0.5" />
           <div>
             <h2 className="text-[15px] font-semibold text-iip-blue">
@@ -82,12 +85,11 @@ export default function GardeAnnee({ quoi = 'ces données' }) {
           </div>
         </div>
 
-        <div className="px-5 py-4 space-y-3">
-          <label className="block text-[11px] text-slate-500">
-            Changer d'année
+        <div className="px-5 pb-4 pl-[52px] space-y-2">
+          <label className="block">
+            <span className="block text-[10.5px] uppercase tracking-[.1em] text-slate-400 font-semibold mb-0.5">Changer d'année</span>
             <select value={choix || courante} onChange={e => setChoix(e.target.value)}
-              className="block w-full mt-1 bg-white border border-slate-300 rounded-champ
-                         px-2 h-9 text-[13px]">
+              className="controle w-full bg-white text-iip-texte">
               {(annees.length ? annees : [courante, regardee]).map(a => (
                 <option key={a} value={a}>
                   {a}{a === courante ? ' — année en cours' : ''}
@@ -96,21 +98,21 @@ export default function GardeAnnee({ quoi = 'ces données' }) {
             </select>
           </label>
 
-          <div className="flex items-center gap-2 pt-1">
-            <button onClick={basculer} className="bouton-fort controle px-3">
-              Travailler en {choix || courante}
-            </button>
-            <button
-              onClick={() => { accepter(regardee, quoi); setFerme(true); }}
-              className="bouton controle px-3">
-              Rester en {regardee}
-            </button>
-          </div>
-          <p className="text-[11px] text-slate-400">
+          <p className="text-[11.5px] text-slate-500">
             Rester en {regardee} est légitime — on prépare l'année suivante, on corrige
             un encodage passé. L'avertissement ne reviendra pas pour cet écran tant que
             la session est ouverte.
           </p>
+        </div>
+        <div className="flex items-center justify-end gap-2 px-5 py-3 border-t border-slate-200">
+          <button
+            onClick={() => { accepter(regardee, quoi); setFerme(true); }}
+            className="bouton">
+            Rester en {regardee}
+          </button>
+          <button onClick={basculer} className="bouton bouton-fort">
+            Travailler en {choix || courante}
+          </button>
         </div>
       </div>
     </div>

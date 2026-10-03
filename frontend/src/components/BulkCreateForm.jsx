@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
 import { api } from '../lib/api.js';
+import { Fenetre } from './ui.jsx';
+import { informer } from '../lib/dialogue.jsx';
 
 /**
  * Modale de création en masse d'attributions pour une section.
@@ -30,7 +32,7 @@ export default function BulkCreateForm({ onClose, onCreated }) {
         const auto = new Set(data.filter(u => u.cours_manquants > 0).map(u => u.ue_num));
         setSelected(auto);
       })
-      .catch(e => alert(e.message))
+      .catch(e => informer(e.message))
       .finally(() => setLoading(false));
   }, [section]);
 
@@ -61,19 +63,31 @@ export default function BulkCreateForm({ onClose, onCreated }) {
       const r = await api.bulkCreateFromSection(section, Array.from(selected));
       setResult(r);
       if (r.created > 0) onCreated?.();
-    } catch (e) { alert(e.message); }
+    } catch (e) { informer(e.message); }
     finally { setCreating(false); }
   }
 
   return (
-    <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] flex items-center justify-center p-4 z-30" onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="bg-white rounded-xl shadow-2xl max-w-4xl w-full max-h-[90vh] flex flex-col">
-        <div className="border-b border-gray-200 p-5 flex items-center justify-between flex-shrink-0">
-          <h2 className="text-xl font-title text-iip-gold">Créer toute une section</h2>
-          <button onClick={onClose} className="text-gray-400 hover:text-red-500 text-2xl leading-none">×</button>
-        </div>
-
-        <div className="p-6 overflow-auto flex-1">
+    <Fenetre titre="Créer toute une section" large="grande" onFermer={onClose}
+      pied={result ? (<>
+        <span />
+        <button onClick={onClose} className="bouton bouton-fort">Fermer</button>
+      </>) : (<>
+        <span className="text-sm text-gray-600">
+          {selected.size > 0 && (
+            <>
+              <b>{selected.size}</b> UE sélectionnée(s) ·{' '}
+              <b>{stats.cours}</b> cours dont <b className="text-orange-600">{stats.manquants}</b> à créer
+            </>
+          )}
+        </span>
+        <button onClick={onClose} className="bouton">Annuler</button>
+        <button onClick={submit} disabled={creating || stats.manquants === 0}
+                className="bouton bouton-fort disabled:cursor-not-allowed">
+          {creating ? 'Création…' : `✓ Créer ${stats.manquants} attribution${stats.manquants > 1 ? 's' : ''}`}
+        </button>
+      </>)}>
+        <div>
           {result ? (
             <div className="text-center py-8">
               <div className="text-4xl mb-3">✅</div>
@@ -82,9 +96,6 @@ export default function BulkCreateForm({ onClose, onCreated }) {
                 <b>{result.created}</b> attribution(s) créée(s)
                 {result.skipped > 0 && <> · <b>{result.skipped}</b> ignorée(s) (déjà existante(s))</>}
               </p>
-              <button onClick={onClose} className="mt-6 bg-iip-gold hover:bg-iip-amber text-white text-sm px-5 py-2 rounded font-medium">
-                Fermer
-              </button>
             </div>
           ) : (
             <>
@@ -166,26 +177,6 @@ export default function BulkCreateForm({ onClose, onCreated }) {
           )}
         </div>
 
-        {!result && (
-          <div className="border-t border-gray-200 p-4 flex items-center justify-between flex-shrink-0">
-            <div className="text-sm text-gray-600">
-              {selected.size > 0 && (
-                <>
-                  <b>{selected.size}</b> UE sélectionnée(s) ·{' '}
-                  <b>{stats.cours}</b> cours dont <b className="text-orange-600">{stats.manquants}</b> à créer
-                </>
-              )}
-            </div>
-            <div className="flex gap-2">
-              <button onClick={onClose} className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800">Annuler</button>
-              <button onClick={submit} disabled={creating || stats.manquants === 0}
-                      className="bg-iip-gold hover:bg-iip-amber disabled:opacity-30 disabled:cursor-not-allowed text-white text-sm px-5 py-2 rounded font-medium">
-                {creating ? 'Création…' : `✓ Créer ${stats.manquants} attribution${stats.manquants > 1 ? 's' : ''}`}
-              </button>
-            </div>
-          </div>
-        )}
-      </div>
-    </div>
+    </Fenetre>
   );
 }

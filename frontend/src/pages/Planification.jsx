@@ -3,6 +3,8 @@ import { nomPropre } from '../lib/nom.js';
 import { getAnnee } from '../lib/api.js';
 import { IconCalendarStats, IconPencil, IconChevronDown, IconChevronRight, IconX, IconDeviceFloppy, IconTrash, IconPlus, IconHash, IconCalendar, IconSitemap, IconBook, IconAlertTriangle } from '@tabler/icons-react';
 import PlanificateurVisuel from '../components/PlanificateurVisuel.jsx';
+import { Fenetre } from '../components/ui.jsx';
+import { informer } from '../lib/dialogue.jsx';
 
 const TOKEN = () => localStorage.getItem('token');
 const authFetch = (url, opts = {}) =>
@@ -368,12 +370,15 @@ function ModalGroupe({ initial, annee, profs, ues, onSave, onClose }) {
   }
 
   return (
-    <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] z-50 flex items-center justify-center">
-      <div className="bg-white rounded-xl shadow-2xl w-full max-w-md p-6 space-y-4">
-        <div className="flex items-center justify-between">
-          <h3 className="font-semibold text-gray-800">{initial?.id ? 'Modifier le groupe' : 'Nouveau groupe'}</h3>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><IconX size={15} /></button>
-        </div>
+    <Fenetre icone={IconPencil} titre={initial?.id ? 'Modifier le groupe' : 'Nouveau groupe'} large="petite" onFermer={onClose}
+      pied={<>
+        <span />
+        <button onClick={onClose} className="bouton">Annuler</button>
+        <button onClick={sauvegarder} disabled={!nom || !ueNum || saving}
+          className="bouton bouton-fort">
+          {saving ? 'Enregistrement…' : 'Enregistrer'}
+        </button>
+      </>}>
         <div className="grid grid-cols-2 gap-3">
           {!initial?.id && (
             <div className="col-span-2">
@@ -415,15 +420,7 @@ function ModalGroupe({ initial, annee, profs, ues, onSave, onClose }) {
               className="w-full border border-gray-300 rounded px-3 py-1.5 h-9 text-sm" />
           </div>
         </div>
-        <div className="flex justify-end gap-2 pt-2">
-          <button onClick={onClose} className="border border-gray-300 text-gray-600 text-sm px-4 py-1.5 h-9 rounded">Annuler</button>
-          <button onClick={sauvegarder} disabled={!nom || !ueNum || saving}
-            className="bg-iip-gold text-white text-sm px-4 py-1.5 h-9 rounded hover:bg-iip-amber disabled:opacity-50">
-            {saving ? 'Enregistrement…' : 'Enregistrer'}
-          </button>
-        </div>
-      </div>
-    </div>
+    </Fenetre>
   );
 }
 
@@ -456,13 +453,18 @@ function PanelCalendrier({ semaines, onUpdate, onClose }) {
   }
 
   return (
-    <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] z-50 flex items-start justify-end">
-      <div className="bg-white w-full max-w-2xl h-full overflow-auto shadow-2xl flex flex-col">
-        <div className="flex items-center justify-between px-6 py-4 border-b bg-gray-50">
-          <h3 className="font-semibold text-gray-800">Calendrier — ajuster les semaines</h3>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-xl"><IconX size={15} /></button>
-        </div>
-        <div className="px-6 py-4 border-b space-y-3">
+    <Fenetre icone={IconCalendar} titre="Calendrier — ajuster les semaines" large="moyenne" hauteurFixe onFermer={onClose}
+      pied={<>
+        <span />
+        {selected.size > 0 && (
+          <button onClick={() => setSelected(new Set())} className="bouton">Tout désélectionner</button>
+        )}
+        <button onClick={appliquer} disabled={!selected.size || saving}
+          className="bouton bouton-fort">
+          Appliquer à {selected.size} sem.
+        </button>
+      </>}>
+        <div className="pb-4 mb-4 border-b space-y-3">
           <div className="flex gap-3 items-end flex-wrap">
             <div>
               <label className="block text-xs text-gray-500 mb-1">Type</label>
@@ -476,16 +478,9 @@ function PanelCalendrier({ semaines, onUpdate, onClose }) {
               <input value={label} onChange={e => setLabel(e.target.value)} placeholder="ex. Vacances Noël"
                 className="w-full border border-gray-300 rounded px-2 py-1.5 h-9 text-sm" />
             </div>
-            <button onClick={appliquer} disabled={!selected.size || saving}
-              className="bg-iip-gold text-white text-sm px-4 py-1.5 h-9 rounded hover:bg-iip-amber disabled:opacity-40">
-              Appliquer à {selected.size} sem.
-            </button>
-            {selected.size > 0 && (
-              <button onClick={() => setSelected(new Set())} className="text-xs text-gray-400 hover:text-gray-600">Tout désélectionner</button>
-            )}
           </div>
         </div>
-        <div className="flex-1 overflow-auto px-6 py-4">
+        <div>
           <div className="grid grid-cols-5 gap-1.5">
             {semaines.map(sem => {
               const style = TYPE_STYLE[sem.type] || TYPE_STYLE.cours;
@@ -503,8 +498,7 @@ function PanelCalendrier({ semaines, onUpdate, onClose }) {
             })}
           </div>
         </div>
-      </div>
-    </div>
+    </Fenetre>
   );
 }
 
@@ -532,13 +526,22 @@ function ModalImport({ annee, onImported, onClose }) {
   }
 
   return (
-    <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] z-50 flex items-center justify-center">
-      <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col">
-        <div className="flex items-center justify-between px-6 py-4 border-b">
-          <h3 className="font-semibold text-gray-800">Import depuis les attributions — {annee}</h3>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><IconX size={15} /></button>
-        </div>
-        <div className="flex-1 overflow-auto px-6 py-4 space-y-4">
+    <Fenetre titre={`Import depuis les attributions — ${annee}`} large="moyenne" onFermer={onClose}
+      pied={<>
+        <span />
+        {result ? (
+          <button onClick={() => { onImported(); onClose(); }} className="bouton bouton-fort">Voir la grille</button>
+        ) : (
+          <>
+            <button onClick={onClose} className="bouton">Annuler</button>
+            <button onClick={lancer} disabled={importing || loading || !preview?.groupes?.length}
+              className="bouton bouton-fort">
+              {importing ? 'Import…' : `Importer ${preview?.groupes?.length || 0} groupes`}
+            </button>
+          </>
+        )}
+      </>}>
+        <div className="space-y-4">
           {loading ? (
             <div className="text-center text-gray-400 py-8">Analyse des attributions…</div>
           ) : result ? (
@@ -610,21 +613,7 @@ function ModalImport({ annee, onImported, onClose }) {
             </>
           )}
         </div>
-        <div className="flex justify-end gap-2 px-6 py-4 border-t">
-          {result ? (
-            <button onClick={() => { onImported(); onClose(); }} className="bg-iip-gold text-white text-sm px-5 py-2 rounded hover:bg-iip-amber">Voir la grille</button>
-          ) : (
-            <>
-              <button onClick={onClose} className="border border-gray-300 text-gray-600 text-sm px-4 py-2 rounded">Annuler</button>
-              <button onClick={lancer} disabled={importing || loading || !preview?.groupes?.length}
-                className="bg-iip-gold text-white text-sm px-5 py-2 rounded hover:bg-iip-amber disabled:opacity-40">
-                {importing ? 'Import…' : `Importer ${preview?.groupes?.length || 0} groupes`}
-              </button>
-            </>
-          )}
-        </div>
-      </div>
-    </div>
+    </Fenetre>
   );
 }
 
@@ -666,18 +655,29 @@ function ModalIA({ annee, section, onApplied, onClose }) {
   const nbCellules = preview ? Object.values(preview.proposition).reduce((s, c) => s + Object.keys(c).length, 0) : 0;
 
   return (
-    <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] z-50 flex items-center justify-center">
-      <div className="bg-white rounded-xl shadow-2xl w-full max-w-xl flex flex-col max-h-[90vh]">
-        {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b">
-          <div>
-            <h3 className="font-semibold text-gray-800">✨ Planification IA — {section}</h3>
-            <p className="text-xs text-gray-400 mt-0.5">{annee}</p>
-          </div>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><IconX size={15} /></button>
-        </div>
-
-        <div className="flex-1 overflow-auto px-6 py-5 space-y-4">
+    <Fenetre titre={`✨ Planification IA — ${section}`} sous={annee} large="moyenne" onFermer={onClose}
+      pied={(step === 'config' || step === 'preview') ? (<>
+        <span />
+        {step === 'config' && (
+          <>
+            <button onClick={onClose} className="bouton">Annuler</button>
+            <button onClick={genererPreview} disabled={loading}
+              className="bouton bouton-fort">
+              {loading ? 'Analyse en cours…' : 'Générer un aperçu →'}
+            </button>
+          </>
+        )}
+        {step === 'preview' && (
+          <>
+            <button onClick={() => setStep('config')} className="bouton">← Retour</button>
+            <button onClick={appliquer}
+              className="bouton bouton-fort">
+              Appliquer en brouillon
+            </button>
+          </>
+        )}
+      </>) : null}>
+        <div className="space-y-4">
 
           {/* Step : config */}
           {step === 'config' && (
@@ -773,30 +773,7 @@ function ModalIA({ annee, section, onApplied, onClose }) {
             </div>
           )}
         </div>
-
-        {/* Footer */}
-        <div className="flex justify-end gap-2 px-6 py-4 border-t">
-          {step === 'config' && (
-            <>
-              <button onClick={onClose} className="border border-gray-300 text-gray-600 text-sm px-4 py-2 rounded">Annuler</button>
-              <button onClick={genererPreview} disabled={loading}
-                className="bg-iip-mauve text-white text-sm px-5 py-2 rounded hover:opacity-90 disabled:opacity-50">
-                {loading ? 'Analyse en cours…' : 'Générer un aperçu →'}
-              </button>
-            </>
-          )}
-          {step === 'preview' && (
-            <>
-              <button onClick={() => setStep('config')} className="border border-gray-300 text-gray-600 text-sm px-4 py-2 rounded">← Retour</button>
-              <button onClick={appliquer}
-                className="bg-iip-mauve text-white text-sm px-5 py-2 rounded hover:opacity-90">
-                Appliquer en brouillon
-              </button>
-            </>
-          )}
-        </div>
-      </div>
-    </div>
+    </Fenetre>
   );
 }
 
@@ -806,17 +783,10 @@ function ModalSequence({ annee, section, groupes, onClose }) {
   const [onglet, setOnglet] = useState('prereqs'); // 'prereqs' | 'cours'
 
   return (
-    <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-xl shadow-2xl w-full max-w-7xl h-[92vh] flex flex-col">
-        {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b">
-          <div>
-            <h3 className="font-semibold text-gray-800"><IconHash size={16} className="inline align-[-2px] mr-1" />Séquencer — {section}</h3>
-            <p className="text-xs text-gray-400 mt-0.5">{annee}</p>
-          </div>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-lg"><IconX size={15} /></button>
-        </div>
-
+    <Fenetre icone={IconHash} titre={`Séquencer — ${section}`} sous={annee} large="pleine" hauteurFixe onFermer={onClose}>
+      {/* Les deux onglets gèrent leur propre défilement (panneaux côte à côte) :
+          ce cadre leur donne la hauteur utile de la fenêtre, sous son en-tête. */}
+      <div className="-mx-5 -my-4 flex flex-col" style={{ height: 'calc(88vh - 4.25rem)' }}>
         {/* Onglets */}
         <div className="flex border-b px-6">
           <button onClick={() => setOnglet('prereqs')}
@@ -832,12 +802,12 @@ function ModalSequence({ annee, section, groupes, onClose }) {
         </div>
 
         {/* Contenu */}
-        <div className="flex-1 overflow-hidden">
+        <div className="flex-1 min-h-0 overflow-hidden">
           {onglet === 'prereqs' && <StructureUE annee={annee} section={section} groupes={groupes} />}
           {onglet === 'cours'   && <SeqCours    annee={annee} section={section} groupes={groupes} />}
         </div>
       </div>
-    </div>
+    </Fenetre>
   );
 }
 
@@ -939,7 +909,7 @@ function StructureUE({ annee, section, groupes }) {
         method: 'PATCH',
         body: JSON.stringify({ annee_scolaire: annee, ue_niv: niv === 'Autre' ? null : niv, ue_quad: quad }),
       });
-    } catch(e) { alert('Erreur : ' + e.message); chargerUes(); }
+    } catch(e) { informer('Erreur : ' + e.message); chargerUes(); }
     finally { setSaving(null); }
   }
 
@@ -1137,7 +1107,7 @@ function SeqCours({ annee, section, groupes }) {
           rangs: rangs.map(r => ({ rang: r.rang, delai_avant: r.delai_avant, groupe_ids: r.groupe_ids })) }),
       });
       setSaved(true); setTimeout(() => setSaved(false), 2000);
-    } catch(e) { alert(e.message); }
+    } catch(e) { informer(e.message); }
     finally { setSaving(false); }
   }
 
@@ -1260,14 +1230,24 @@ function ModalReset({ annee, section, onReset, onClose }) {
   }
 
   return (
-    <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] z-50 flex items-center justify-center">
-      <div className="bg-white rounded-xl shadow-2xl w-full max-w-md flex flex-col">
-        <div className="flex items-center justify-between px-6 py-4 border-b">
-          <h3 className="font-semibold text-gray-800"><IconTrash size={15} className="inline align-[-2px] mr-1" /> Réinitialiser la planification</h3>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><IconX size={15} /></button>
-        </div>
-
-        <div className="px-6 py-5 space-y-4">
+    <Fenetre icone={IconTrash} titre="Réinitialiser la planification" large="petite" onFermer={onClose}
+      pied={(etape === 'choix' || etape === 'confirm') ? (<>
+        <span />
+        <button onClick={onClose} className="bouton">Annuler</button>
+        {etape === 'choix' && (
+          <button onClick={() => setEtape('confirm')}
+            className="bouton bouton-detruire">
+            Continuer →
+          </button>
+        )}
+        {etape === 'confirm' && (
+          <button onClick={executer}
+            className="bouton bouton-detruire">
+            Confirmer la suppression
+          </button>
+        )}
+      </>) : null}>
+        <div className="space-y-4">
           {etape === 'choix' && (
             <>
               <p className="text-sm text-gray-600">
@@ -1315,26 +1295,7 @@ function ModalReset({ annee, section, onReset, onClose }) {
             </div>
           )}
         </div>
-
-        {(etape === 'choix' || etape === 'confirm') && (
-          <div className="flex justify-end gap-2 px-6 py-4 border-t">
-            <button onClick={onClose} className="border border-gray-300 text-gray-600 text-sm px-4 py-2 rounded">Annuler</button>
-            {etape === 'choix' && (
-              <button onClick={() => setEtape('confirm')}
-                className="bg-red-600 text-white text-sm px-5 py-2 rounded hover:bg-red-700">
-                Continuer →
-              </button>
-            )}
-            {etape === 'confirm' && (
-              <button onClick={executer}
-                className="bg-red-600 text-white text-sm px-5 py-2 rounded hover:bg-red-700">
-                Confirmer la suppression
-              </button>
-            )}
-          </div>
-        )}
-      </div>
-    </div>
+    </Fenetre>
   );
 }
 

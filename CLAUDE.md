@@ -1389,9 +1389,9 @@ et 3 composants de tuile**. La stratégie tient en cinq chantiers, dans cet ordr
 
   | | Écran | Papier |
   |---|---|---|
-  | Rail | 4 px | 1,6 mm |
-  | Rayon | 10 px côté droit, droit côté liseré | 1,5 mm |
-  | Fond | pâle de l'état ; blanc si neutre | pâle de l'état ; `#FAFAFB` si neutre |
+  | Rail | 4 px | 1 mm (« plus fin », Charles, 3 octobre 2026) |
+  | Rayon | 10 px côté droit, droit côté liseré | 2,6 mm côté droit, droit côté rail |
+  | Fond | blanc (règle du 29 septembre) | blanc |
   | Contour | 1 px `#D8DCE4` | 0,3 mm, même gris |
   | Corps | 13 px | 9 pt |
   | Rail teinté | marine, vert, ocre, brique | marine à l'intérieur, **or** sur la pièce extérieure |
@@ -1656,6 +1656,15 @@ et 3 composants de tuile**. La stratégie tient en cinq chantiers, dans cet ordr
   > n'écrit PAS `decision_le`, elle ne contourne donc rien. **Avant de proposer
   > de renommer ou de retirer un outil, lire ce qu'il fait** — un libellé ne
   > dit pas une fonction, et un raisonnement sur un libellé ne vaut rien.
+- **PLUS AUCUNE BOÎTE DU NAVIGATEUR** (3.0.41, audit V3 du 3 octobre 2026).
+  `alert`, `confirm` et `prompt` étaient appelés ~420 fois : une boîte grise du
+  système, hors charte, qu'on valide d'un Entrée sans la lire. Ils sont
+  remplacés par `demander` / `informer` / `saisir` (`lib/dialogue.jsx`), un
+  seul hôte monté dans `main.jsx`. **Elles rendent une promesse : on les
+  ATTEND** — `if (!(await demander('…'))) return;` — et la fonction devient
+  `async`. Un émoji de tête (⚠ ✓ ❌) est lu comme un ton ; une question
+  destructive (supprimer, effacer…) prend d'office le bouton brique. Échap
+  n'annule que la boîte, pas la fenêtre ouverte dessous.
 - **Une entrée de rail sans icône est invisible** une fois le rail replié.
 - **Un titre ne s'écrit qu'une fois** par écran.
 - Un libellé ne promet que ce que la modale fait réellement.

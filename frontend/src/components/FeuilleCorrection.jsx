@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  IconX, IconSearch, IconAlertTriangle, IconCheck, IconRepeat, IconGift,
+  IconSearch, IconAlertTriangle, IconCheck, IconRepeat, IconGift,
 } from '@tabler/icons-react';
 import { authHeaders } from '../lib/api.js';
+import { Fenetre } from './ui.jsx';
 import { naviguerGrille, caseGrille } from '../lib/grilleClavier.js';
 import PanneauAcquis from './PanneauAcquis.jsx';
 import {
@@ -187,25 +188,28 @@ export default function FeuilleCorrection({ ueNum, annee, onClose, onModifie }) 
   let colonne = 0;
 
   return (
-    <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] flex items-start justify-center z-50 p-3">
-      <div className="bg-white rounded-fenetre shadow-dessus w-full max-w-[1700px] mt-4
-                      h-[94vh] overflow-hidden flex flex-col">
-
-        <div className="flex-none px-5 pt-4 pb-2 flex items-start justify-between gap-3">
-          <div>
-            <h3 className="text-[15px] font-semibold text-iip-blue">
-              Feuille de correction — UE {ueNum}
-              {data?.ue?.ue_nom ? ` · ${data.ue.ue_nom}` : ''}
-            </h3>
-            <p className="text-[12px] text-slate-500">
-              Toute l'unité sur une page : on corrige la case, elle s'enregistre seule.
-              {enAttente > 0 && <span className="text-amber-700"> · enregistrement…</span>}
-              {!enAttente && dernier && (
-                <span className="text-emerald-700"> · <IconCheck size={11} className="inline" /> enregistré</span>
-              )}
-            </p>
-          </div>
-          <div className="flex items-center gap-2 flex-none">
+    <Fenetre large="ecran" hauteurFixe onFermer={onClose}
+      titre={`Feuille de correction — UE ${ueNum}${data?.ue?.ue_nom ? ` · ${data.ue.ue_nom}` : ''}`}
+      sous={<>
+        Toute l'unité sur une page : on corrige la case, elle s'enregistre seule.
+        {enAttente > 0 && <span> · enregistrement…</span>}
+        {!enAttente && dernier && (
+          <span> · <IconCheck size={11} className="inline" /> enregistré</span>
+        )}
+      </>}
+      pied={<>
+        <span className="text-[11px] text-slate-500">
+          Le point <b>•</b> marque la décision que le calcul propose. Les cotes de cours
+          et d'unité sont calculées : elles ne se saisissent pas.
+        </span>
+        <button onClick={onClose} className="bouton">
+          Fermer
+        </button>
+      </>}>
+      {/* La grille garde sa propre zone de défilement (en-tête collant) :
+          elle prend toute la hauteur que la fenêtre lui laisse. */}
+      <div className="-mx-5 -my-4 h-[calc(88vh-8rem)] flex flex-col overflow-hidden">
+        <div className="flex-none px-5 pt-3 pb-2 flex items-center justify-end gap-2">
             <div className="segments">
               {[1, 2].map(s => (
                 <button key={s} onClick={() => { setChoisie(true); setSession(s); }}
@@ -221,10 +225,6 @@ export default function FeuilleCorrection({ ueNum, annee, onClose, onModifie }) 
                 placeholder="Étudiant…"
                 className="pl-7 pr-2 py-1 text-[12px] border border-slate-300 rounded-lg w-36" />
             </div>
-            <button onClick={onClose} className="text-slate-400 hover:text-slate-600">
-              <IconX size={18} />
-            </button>
-          </div>
         </div>
 
         {seance?.seance?.cloturee && (
@@ -499,19 +499,7 @@ export default function FeuilleCorrection({ ueNum, annee, onClose, onModifie }) 
             )}
           </div>
         </div>
-
-        <div className="flex-none px-5 py-2.5 border-t border-slate-100 flex items-center
-                        justify-between gap-3">
-          <p className="text-[11px] text-slate-500">
-            Le point <b>•</b> marque la décision que le calcul propose. Les cotes de cours
-            et d'unité sont calculées : elles ne se saisissent pas.
-          </p>
-          <button onClick={onClose}
-            className="px-3 py-1.5 text-[13px] rounded-lg border border-slate-300 text-slate-600">
-            Fermer
-          </button>
-        </div>
       </div>
-    </div>
+    </Fenetre>
   );
 }

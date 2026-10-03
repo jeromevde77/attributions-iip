@@ -15,6 +15,7 @@ import {
   ComposedChart, Line,
 } from 'recharts';
 import { ouvrirApercu } from '../lib/apercu.js';
+import { demander, informer } from '../lib/dialogue.jsx';
 
 // ── Utilitaires ──────────────────────────────────────────────────────────────
 const fmt  = (v, d = 0) => (v == null ? '—' : Number(v).toLocaleString('fr-BE', { maximumFractionDigits: d }));
@@ -108,7 +109,7 @@ function ExtDotPanel({ annee }) {
           const depasse = v.dot > 0;
           if (v.illimite) {
             return (
-              <div key={pot} className="rounded-lg border border-teal-200 bg-teal-50 p-3 border-l-4 border-l-teal-500">
+              <div key={pot} data-etat="reussi" className="bloc-etat p-3">
                 <div className="flex justify-between items-center mb-1">
                   <span className="font-bold text-sm">{pot}</span>
                   <span className="text-[10px] bg-teal-500 text-white px-1.5 py-0.5 rounded font-bold">∞ Illimité</span>
@@ -121,7 +122,7 @@ function ExtDotPanel({ annee }) {
             );
           }
           return (
-            <div key={pot} className={`rounded-lg border p-3 ${depasse ? 'border-l-4 border-l-red-500' : 'border-teal-200 bg-teal-50'}`}>
+            <div key={pot} data-etat={depasse ? 'corriger' : 'reussi'} className="bloc-etat p-3">
               <div className="flex justify-between items-center mb-1">
                 <span className="font-bold text-sm">{pot}</span>
                 {depasse && <span className="text-[10px] bg-orange-500 text-white px-1.5 py-0.5 rounded font-bold">⚠ DOT {v.dot} pér. B</span>}
@@ -151,7 +152,7 @@ function EnvCard({ env }) {
   const depasse = env.solde < 0;
   const dot = Math.abs(Math.min(0, env.solde));
   return (
-    <div className={`border rounded-lg px-3 py-2 flex items-center gap-3 ${depasse ? 'border-l-4 border-l-red-500' : 'border-gray-200 bg-white'}`}>
+    <div data-etat={depasse ? 'corriger' : 'neutre'} className="bloc-etat px-3 py-2 flex items-center gap-3">
       {/* Nom + code */}
       <div className="min-w-0 flex-1">
         <div className="text-xs font-semibold text-gray-700 truncate">{env.label}</div>
@@ -306,7 +307,7 @@ function DotationComparaison({ civil }) {
       const d = await api.dotationComparaison(annee1, annee2, potFilter || null, pondere, mode);
       setData(d);
       setOpenSecs(new Set(d.sections.map(s => s.section)));
-    } catch(e) { alert(e.message); }
+    } catch(e) { informer(e.message); }
     finally { setLoading(false); }
   }
 
@@ -958,9 +959,7 @@ export default function Pilotage({ vue = 'tout' }) {
                       </div>
                     </div>
 
-                    <div className={`rounded-carte border px-3 py-2 ${
-                      d.solde_apres_jan_juin < 0
-                        ? 'border-slate-200 border-l-4 border-l-[color:var(--c-refuse)]' : 'border-slate-200 border-l-4 border-l-[color:var(--c-reussi)]'}`}>
+                    <div data-etat={d.solde_apres_jan_juin < 0 ? 'corriger' : 'reussi'} className="bloc-etat px-3 py-2">
                       <div className="text-[10px] text-gray-600">
                         Reste pour la rentrée
                       </div>
@@ -983,7 +982,7 @@ export default function Pilotage({ vue = 'tout' }) {
                   deux mesure ce qui reste à encoder. Le fondre dans le solde
                   ferait disparaître cette information même. */}
               {d.solde_constate != null && (
-                <div className="px-4 py-3 border-b border-gray-100 bg-amber-50/60 border-l-4 border-l-amber-500">
+                <div className="px-4 py-3 border-b border-gray-100 border-l-4 border-l-[color:var(--c-attente)]">
                   <div className="flex items-center gap-6 flex-wrap text-xs">
                     <div>
                       <div className="text-[10px] uppercase tracking-wider text-amber-700 mb-0.5">
@@ -1037,7 +1036,7 @@ export default function Pilotage({ vue = 'tout' }) {
                       const dep = e.solde < 0;
                       const dot = Math.abs(Math.min(0, e.solde));
                       return (
-                        <div key={e.code} className={`rounded-lg border px-3 py-2 text-xs ${dep ? 'border-l-4 border-l-red-500' : 'border-gray-200'}`}>
+                        <div key={e.code} data-etat={dep ? 'corriger' : 'neutre'} className="bloc-etat px-3 py-2 text-xs">
                           <div className="font-semibold text-iip-blue truncate">{e.label}</div>
                           <div className="text-[10px] text-gray-400 mb-1.5">{e.code}</div>
                           <div className="flex justify-between text-[10px] text-gray-500 mb-1">
@@ -1358,7 +1357,7 @@ export default function Pilotage({ vue = 'tout' }) {
   };
 
   const deleteYear = async (y) => {
-    if (!confirm(`Supprimer l'année civile ${y} et toutes ses enveloppes ?`)) return;
+    if (!await demander(`Supprimer l'année civile ${y} et toutes ses enveloppes ?`)) return;
     await api.dotationCivileDelete(y);
     load();
   };
@@ -1475,7 +1474,7 @@ export default function Pilotage({ vue = 'tout' }) {
                 <td className="px-4 py-2.5">
                   <div className="flex gap-1 justify-end">
                     <button onClick={() => setEditEnv({ id: e.id, label: e.label, periodes_b: e.periodes_b, usage_historique: e.usage_historique ?? '', notes: e.notes || '' })} className="text-iip-gold hover:text-iip-amber text-xs border border-iip-gold/30 px-2 py-1 rounded">Modifier</button>
-                    <button onClick={async () => { if (confirm('Supprimer cette enveloppe ?')) { await api.enveloppeDelete(e.id); load(); } }} className="text-red-400 hover:text-red-600 text-xs px-2 py-1"><IconTrash size={16} /></button>
+                    <button onClick={async () => { if (await demander('Supprimer cette enveloppe ?')) { await api.enveloppeDelete(e.id); load(); } }} className="text-red-400 hover:text-red-600 text-xs px-2 py-1"><IconTrash size={16} /></button>
                   </div>
                 </td>
               </tr>

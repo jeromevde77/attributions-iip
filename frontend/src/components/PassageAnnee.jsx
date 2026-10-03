@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react';
 import { nomPropre } from '../lib/nom.js';
 import {
-  IconX, IconCheck, IconAlertTriangle, IconClock, IconPrinter, IconSquare,
+  IconCheck, IconAlertTriangle, IconClock, IconPrinter, IconSquare,
   IconSquareCheck, IconArrowRight,
 } from '@tabler/icons-react';
 import { authHeaders } from '../lib/api.js';
-import { TuileEtat, OuvrirEditions } from './ui.jsx';
+import { TuileEtat, OuvrirEditions, Fenetre } from './ui.jsx';
 import { ouvrirApercu } from '../lib/apercu.js';
 
 /**
@@ -113,25 +113,22 @@ export default function PassageAnnee({ annee, onClose, onTermine }) {
   const aCreer = retenus.reduce((n, p) => n + p.ues.length, 0);
 
   return (
-    <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] flex items-start justify-center z-[60] p-4">
-      <div className="bg-white rounded-fenetre shadow-dessus w-full max-w-4xl mt-12
-                      max-h-[86vh] overflow-hidden flex flex-col">
-        <div className="flex-none px-5 py-3 border-b border-slate-100 flex items-start
-                        justify-between gap-3">
-          <div>
-            <h3 className="text-[15px] font-semibold text-iip-blue">
-              Passage à l'année suivante
-            </h3>
-            <p className="text-[12px] text-slate-500">
-              Composer le programme de chacun sur ses résultats : les unités réussies
-              libèrent la suite, celles qui ne l'ont pas été reviennent au programme.
-            </p>
-          </div>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-600">
-            <IconX size={18} />
-          </button>
-        </div>
-
+    <Fenetre titre="Passage à l'année suivante" large="grande" onFermer={onClose}
+      sous="Composer le programme de chacun sur ses résultats : les unités réussies libèrent la suite, celles qui ne l'ont pas été reviennent au programme."
+      pied={rapport && (<>
+        <span className="text-[11px] text-slate-500">
+          {retenus.length} dossier(s) retenu(s) · <b>{aCreer}</b> inscription(s) seront
+          créées. Une unité déjà inscrite n'est jamais recréée, et rien n'est supprimé.
+        </span>
+        <OuvrirEditions disabled={enCours || !retenus.length} titre="Parcours individuels — centre d'édition"
+          pieces={[{ cle: 'parcours', label: 'Parcours individuels', description: 'Graphe des prérequis, unités acquises, programme — un par dossier retenu', onClick: () => imprimer() }]} />
+        <button onClick={ecrire} disabled={enCours || !aCreer}
+          className="bouton bouton-fort inline-flex items-center gap-1.5">
+          <IconCheck size={15} /> Créer les {aCreer} inscription(s)
+        </button>
+      </>)}>
+        {/* Les réglages collent au haut de la zone qui défile. */}
+        <div className="sticky -top-4 z-10 bg-white -mx-5 -mt-4 mb-3">
         <div className="flex-none px-5 py-3 border-b border-slate-100 flex items-end
                         gap-3 flex-wrap">
           <label className="text-[12px] text-slate-600">
@@ -167,8 +164,9 @@ export default function PassageAnnee({ annee, onClose, onTermine }) {
             {enCours ? 'Calcul…' : 'Voir qui est admissible'}
           </button>
         </div>
+        </div>
 
-        <div className="flex-1 overflow-y-auto px-5 py-3 space-y-4 text-[13px]">
+        <div className="space-y-4 text-[13px]">
           {erreur && (
             <div data-etat="corriger" className="bloc-etat px-3 py-2">{erreur}</div>
           )}
@@ -286,27 +284,7 @@ export default function PassageAnnee({ annee, onClose, onTermine }) {
             </>
           )}
         </div>
-
-        {rapport && (
-          <div className="flex-none px-5 py-3 border-t border-slate-100 flex items-center
-                          justify-between gap-3">
-            <p className="text-[11px] text-slate-500">
-              {retenus.length} dossier(s) retenu(s) · <b>{aCreer}</b> inscription(s) seront
-              créées. Une unité déjà inscrite n'est jamais recréée, et rien n'est supprimé.
-            </p>
-            <div className="flex items-center gap-2">
-              <OuvrirEditions disabled={enCours || !retenus.length} titre="Parcours individuels — centre d'édition"
-                pieces={[{ cle: 'parcours', label: 'Parcours individuels', description: 'Graphe des prérequis, unités acquises, programme — un par dossier retenu', onClick: () => imprimer() }]} />
-              <button onClick={ecrire} disabled={enCours || !aCreer}
-                className="px-4 py-2 text-[13px] rounded-lg bg-emerald-600 text-white
-                           font-semibold flex items-center gap-1.5 disabled:opacity-40">
-                <IconCheck size={15} /> Créer les {aCreer} inscription(s)
-              </button>
-            </div>
-          </div>
-        )}
-      </div>
-    </div>
+    </Fenetre>
   );
 }
 

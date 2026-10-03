@@ -216,6 +216,10 @@ export function exigerPerimetreProfesseur(req, res, next) {
   const brut = req.params?.id ?? req.params?.profId ?? req.params?.professeur_id
     ?? req.body?.professeur_id ?? req.query?.professeur_id;
   const profId = Number(brut);
+  // SA PROPRE FICHE, TOUJOURS : un enseignant n'a pas de sections, et le
+  // périmètre vide lui fermait jusqu'à son propre dossier.
+  const maFiche = professeurDe(req.user);
+  if (maFiche && maFiche === profId) return next();
   if (!Number.isFinite(profId)) {
     return res.status(400).json({ error: 'professeur non identifié' });
   }
@@ -347,4 +351,45 @@ export function signPreviewToken(target, admin) {
     JWT_SECRET,
     { expiresIn: '2h' }
   );
+}
+
+
+/**
+ * UN PROFESSEUR NE LIT QUE SON PROPRE DOSSIER DU PERSONNEL — JAMAIS CELUI DES
+ * AUTRES (Charles, 3 octobre 2026 : « il ne peut lire QUE ses données dans
+ * personnel. Jamais celles des autres. Clair ? »). La garde de module est en
+ * mode constat — elle note, elle ne refuse pas — et la liste du personnel ne
+ * demandait qu'une connexion : un enseignant pouvait lire tout le monde.
+ * Écrit UNE fois, posé sur chaque porte de lecture du personnel :
+ *  - une fiche demandée par son numéro répond 404 si ce n'est pas la sienne
+ *    (« interdit » confirmerait qu'elle existe) ;
+ *  - `liste: true` : la liste ne rend que sa propre ligne ;
+ *  - une vue d'ensemble (`ensemble: true`) lui est refusée.
+ * Les autres rôles passent sans changement : leur périmètre se contrôle ailleurs.
+ */
+export const SOI_SEUL = ['professeur'];
+
+/** LA FICHE DU COMPTE, LUE EN BASE. Le jeton ne porte pas `professeur_id`
+ *  (ni celui de connexion, ni celui de l'aperçu) : le lire là rendait
+ *  « aucune fiche », et un professeur ne voyait plus rien, pas même lui. */
+export function professeurDe(user) {
+  if (!user?.id) return null;
+  const v = db.prepare('SELECT professeur_id FROM utilisateur WHERE id = ?').get(user.id)?.professeur_id;
+  return v ? Number(v) : null;
+}
+export function soiSeul({ liste = false, ensemble = false } = {}) {
+  return (req, res, next) => {
+    if (!SOI_SEUL.includes(req.user?.role)) return next();
+    const moi = professeurDe(req.user);
+    if (ensemble) return res.status(403).json({ error: 'Réservé : un enseignant ne consulte que son propre dossier.' });
+    if (liste) {
+      const envoyer = res.json.bind(res);
+      res.json = corps => envoyer(Array.isArray(corps)
+        ? corps.filter(x => Number(x?.id ?? x?.professeur_id) === moi) : corps);
+      return next();
+    }
+    const brut = req.params?.id ?? req.params?.profId ?? req.params?.professeur_id;
+    if (!Number.isFinite(moi) || Number(brut) !== moi) return res.status(404).json({ error: 'Introuvable.' });
+    next();
+  };
 }

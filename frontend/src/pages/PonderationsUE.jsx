@@ -3,6 +3,7 @@ import { IconArrowsSplit, IconCheck, IconAlertTriangle, IconHistory, IconLock } 
 import { authHeaders, getAnnee, getUser } from '../lib/api.js';
 import SchemaLiensAA from '../components/SchemaLiensAA.jsx';
 import { TuileEtat } from '../components/ui.jsx';
+import { demander } from '../lib/dialogue.jsx';
 
 /**
  * ORGANISATION → PONDÉRATIONS : le tableau de bord d'une UE, pour une année
@@ -184,9 +185,9 @@ export default function PonderationsUE() {
     try {
       const sim = await ecrire(`/api/acquis/ue/${ue}/reprendre`, { annee, source: avant, simulation: true }, 'POST');
       if (!sim.points) { setErreur(`L'UE ${ue} ne porte aucun point en ${avant} : rien à reprendre.`); return; }
-      if (!window.confirm(`Reprendre les points de ${avant} pour l'UE ${ue} ?\n\n`
+      if (!(await demander(`Reprendre les points de ${avant} pour l'UE ${ue} ?\n\n`
         + `${sim.points} point(s) d'acquis${sim.poids_cours ? ` et ${sim.poids_cours} poids de cours` : ''} seront recopiés sur ${annee}.`
-        + (sim.remplaces ? `\nIls remplacent les ${sim.remplaces} point(s) déjà posés en ${annee}.` : ''))) return;
+        + (sim.remplaces ? `\nIls remplacent les ${sim.remplaces} point(s) déjà posés en ${annee}.` : '')))) return;
       await ecrire(`/api/acquis/ue/${ue}/reprendre`, { annee, source: avant, simulation: false }, 'POST');
       setMessage(`Points repris de ${avant}.`);
       await charger();

@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
-import { IconMail, IconX, IconAlertTriangle, IconCheck, IconSend, IconLoader2 } from '@tabler/icons-react';
+import { IconMail, IconAlertTriangle, IconCheck, IconSend, IconLoader2 } from '@tabler/icons-react';
 import { authHeaders } from '../lib/api.js';
 import { useEnvoiMail } from '../lib/envoiMail.js';
+import { Fenetre } from './ui.jsx';
 
 /**
  * Envoyer un ou plusieurs documents générés à leurs intéressés.
@@ -123,29 +124,24 @@ export default function EnvoiMailModal({ pieces, typeDoc, sujet: sujetInitial = 
   const bloque = etat && (!etat.actif || (mode === 'pdf' && !etat.pdf));
 
   return (
-    <div className="fixed inset-0 bg-black/60 z-[60] flex items-center justify-center p-3"
-         onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="bg-white rounded-xl shadow-2xl w-full max-w-3xl flex flex-col overflow-hidden"
-           style={{ maxHeight: '92vh' }}>
-
-        {/* Barre marine */}
-        <div className="flex items-center justify-between px-4 py-2.5 bg-[color:var(--c-principal)] flex-shrink-0">
-          <div className="flex items-center gap-2 text-white">
-            <IconMail size={18} />
-            <div>
-              <div className="font-bold text-sm">Envoyer par courriel</div>
-              <div className="text-white/60 text-xs">
-                {pieces.length} document{pieces.length > 1 ? 's' : ''} · un courriel par personne
-                {mode === 'corps' ? ', document dans le corps du message' : ', PDF joint'}
-              </div>
-            </div>
-          </div>
-          <button onClick={onClose} className="text-white/60 hover:text-white p-1.5 rounded-lg hover:bg-white/10">
-            <IconX size={16} />
+    <Fenetre icone={IconMail} titre="Envoyer par courriel" large="moyenne" onFermer={onClose}
+      sous={`${pieces.length} document${pieces.length > 1 ? 's' : ''} · un courriel par personne${mode === 'corps' ? ', document dans le corps du message' : ', PDF joint'}`}
+      pied={resultat ? <>
+          <span />
+          <button onClick={onClose} className="bouton bouton-fort">Fermer</button>
+        </> : <>
+          <span />
+          <button onClick={onClose} className="bouton">
+            Annuler
           </button>
-        </div>
-
-        <div className="flex-1 overflow-y-auto p-4 space-y-4">
+          <button onClick={envoyer}
+            disabled={!pret || bloque || enCours || !sujet.trim() || !retenues.length}
+            className="bouton bouton-fort inline-flex items-center gap-1.5">
+            {enCours ? <IconLoader2 size={15} className="animate-spin" /> : <IconSend size={15} />}
+            {enCours ? 'Envoi en cours…' : `Envoyer${retenues.length > 1 ? ` (${retenues.length})` : ''}`}
+          </button>
+        </>}>
+        <div className="space-y-4">
           {etat?.redirection && (
             <div className="flex items-start gap-2 text-[12px] text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 border-l-4 border-l-amber-500">
               <IconAlertTriangle size={15} className="flex-shrink-0 mt-0.5" />
@@ -268,27 +264,7 @@ export default function EnvoiMailModal({ pieces, typeDoc, sujet: sujetInitial = 
           )}
         </div>
 
-        <div className="flex items-center justify-end gap-2 px-4 py-3 border-t border-slate-200 bg-slate-50 flex-shrink-0">
-          {resultat ? (
-            <button onClick={onClose}
-              className="px-4 py-1.5 text-sm bg-iip-blue text-white font-semibold rounded-lg">Fermer</button>
-          ) : (
-            <>
-              <button onClick={onClose}
-                className="px-3.5 py-1.5 text-sm border border-slate-300 text-slate-600 font-semibold rounded-lg">
-                Annuler
-              </button>
-              <button onClick={envoyer}
-                disabled={!pret || bloque || enCours || !sujet.trim() || !retenues.length}
-                className="flex items-center gap-1.5 px-4 py-1.5 text-sm bg-iip-blue text-white font-semibold rounded-lg disabled:opacity-40">
-                {enCours ? <IconLoader2 size={15} className="animate-spin" /> : <IconSend size={15} />}
-                {enCours ? 'Envoi en cours…' : `Envoyer${retenues.length > 1 ? ` (${retenues.length})` : ''}`}
-              </button>
-            </>
-          )}
-        </div>
-      </div>
-    </div>
+    </Fenetre>
   );
 }
 

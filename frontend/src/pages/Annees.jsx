@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react';
 import { api, getAnnee, setAnnee } from '../lib/api.js';
 import ImportUEAssistant from '../components/ImportUEAssistant.jsx';
+import { demander, informer, saisir } from '../lib/dialogue.jsx';
 import { IconPlus, IconPencil, IconTrash } from '@tabler/icons-react';
+import { Fenetre } from '../components/ui.jsx';
 
 export default function Annees({ embedded = false }) {
   const [annees, setAnnees] = useState([]);
@@ -28,8 +30,8 @@ export default function Annees({ embedded = false }) {
 
   async function handleCreate(e) {
     e.preventDefault();
-    if (!form.code) return alert('Saisissez un code d\'année (ex: 2026-2027)');
-    if (form.mode === 'selection' && !form.source) return alert('Choisissez l\'année source pour la sélection');
+    if (!form.code) return informer('Saisissez un code d\'année (ex: 2026-2027)');
+    if (form.mode === 'selection' && !form.source) return informer('Choisissez l\'année source pour la sélection');
     setSaving(true);
     try {
       const res = await api.createAnnee({
@@ -47,35 +49,35 @@ export default function Annees({ embedded = false }) {
         // Ouvrir l'assistant d'import sélectif vers la nouvelle année
         setImportCtx({ source: sourceCree, cible: codeCree });
       } else {
-        alert(res.copied > 0
+        informer(res.copied > 0
           ? `Année ${codeCree} créée avec ${res.copied} attribution(s) copiées depuis ${sourceCree}.`
           : `Année ${codeCree} créée (vide).`);
       }
-    } catch(e) { alert('Erreur : ' + e.message); }
+    } catch(e) { informer('Erreur : ' + e.message); }
     finally { setSaving(false); }
   }
 
   async function handleDelete(code) {
-    if (!confirm(`Supprimer l'année ${code} et TOUTES ses attributions ? Cette action est irréversible.`)) return;
+    if (!(await demander(`Supprimer l'année ${code} et TOUTES ses attributions ? Cette action est irréversible.`))) return;
     setDeleting(code);
     try {
       const r = await api.deleteAnnee(code);
-      alert(`Année ${code} supprimée (${r.deleted} attribution(s) effacées).`);
+      await informer(`Année ${code} supprimée (${r.deleted} attribution(s) effacées).`);
       if (anneeActive === code) { setAnnee(annees.find(a=>a.code!==code)?.code || '2025-2026'); window.location.reload(); }
       load();
-    } catch(e) { alert('Erreur : ' + e.message); }
+    } catch(e) { informer('Erreur : ' + e.message); }
     finally { setDeleting(null); }
   }
 
   async function handleRename(code) {
-    const nouveau = prompt(`Renommer l'année « ${code} » en (format AAAA-AAAA) :`, code);
+    const nouveau = await saisir({ message: `Renommer l'année « ${code} » en (format AAAA-AAAA) :`, valeur: code });
     if (!nouveau || nouveau === code) return;
-    if (!/^\d{4}-\d{4}$/.test(nouveau)) { alert('Format invalide (attendu : AAAA-AAAA)'); return; }
+    if (!/^\d{4}-\d{4}$/.test(nouveau)) { informer('Format invalide (attendu : AAAA-AAAA)'); return; }
     try {
       await api.renameAnnee(code, nouveau);
       if (anneeActive === code) { setAnnee(nouveau); window.location.reload(); }
       else load();
-    } catch(e) { alert('Erreur : ' + e.message); }
+    } catch(e) { informer('Erreur : ' + e.message); }
   }
 
   function activerAnnee(code) {
@@ -142,11 +144,19 @@ export default function Annees({ embedded = false }) {
 
       {/* Formulaire création */}
       {showForm && (
-        <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] flex items-center justify-center p-4 z-40"
-          onClick={e => e.target === e.currentTarget && setShowForm(false)}>
-          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6 border-t-4 border-iip-gold">
-            <h2 className="text-xl font-title text-iip-gold mb-4">Nouvelle année scolaire</h2>
-            <form onSubmit={handleCreate} className="space-y-4">
+        <Fenetre titre="Nouvelle année scolaire" large="petite"
+          onFermer={() => setShowForm(false)}
+          pied={<>
+            <span />
+            <button type="button" onClick={() => setShowForm(false)} className="bouton">Annuler</button>
+            {/* Hors du formulaire, rattaché par son id : Entrée et la
+                validation native (champ requis, motif) restent actives. */}
+            <button type="submit" form="form-nouvelle-annee" disabled={saving}
+              className="bouton bouton-fort">
+              {saving ? 'Création…' : 'Créer'}
+            </button>
+          </>}>
+            <form id="form-nouvelle-annee" onSubmit={handleCreate} className="space-y-4">
               <div>
                 <label className="block text-sm text-gray-600 mb-1">Code <span className="text-red-500">*</span></label>
                 <input value={form.code} onChange={e => setForm({...form, code: e.target.value})}
@@ -195,17 +205,8 @@ export default function Annees({ embedded = false }) {
                   </div>
                 )}
               </div>
-              <div className="flex justify-end gap-2 pt-2">
-                <button type="button" onClick={() => setShowForm(false)}
-                  className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800">Annuler</button>
-                <button type="submit" disabled={saving}
-                  className="bg-iip-gold hover:bg-iip-amber disabled:opacity-40 text-white text-sm px-5 py-2 rounded font-medium">
-                  {saving ? 'Création…' : 'Créer'}
-                </button>
-              </div>
             </form>
-          </div>
-        </div>
+        </Fenetre>
       )}
 
       {importCtx && (
@@ -216,7 +217,7 @@ export default function Annees({ embedded = false }) {
           onDone={(r) => {
             setImportCtx(null);
             load();
-            alert(`Année ${importCtx.cible} : ${r.ues} UE et ${r.cours} cours importés${r.attributions ? `, ${r.attributions} attributions` : ''}.`);
+            informer(`Année ${importCtx.cible} : ${r.ues} UE et ${r.cours} cours importés${r.attributions ? `, ${r.attributions} attributions` : ''}.`);
           }}
         />
       )}

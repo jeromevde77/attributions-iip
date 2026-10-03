@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
-import { IconX, IconLock, IconAlertTriangle } from '@tabler/icons-react';
+import { IconLock, IconAlertTriangle } from '@tabler/icons-react';
 import { authHeaders } from '../lib/api.js';
+import { Fenetre } from './ui.jsx';
 
 /**
  * LES RÈGLES DE DÉLIBÉRATION DE L'ÉTABLISSEMENT.
@@ -172,28 +173,18 @@ export default function ReglesDeliberation({ onClose, onFini }) {
   const set = (k, v) => setR(x => ({ ...x, [k]: v }));
 
   return (
-    <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] flex items-start justify-center z-50 p-3
-                    overflow-y-auto"
-      onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="bg-white rounded-fenetre shadow-dessus w-full max-w-[900px] my-4
-                      max-h-[calc(100vh-2rem)] overflow-hidden flex flex-col">
-        <div className="flex items-start justify-between gap-3 px-5 py-4 border-b
-                        border-slate-200 flex-shrink-0">
-          <div>
-            <h3 className="text-[15px] font-semibold text-iip-blue">
-              Règles de délibération de l'établissement
-            </h3>
-            <p className="text-[12px] text-slate-500">
-              Ce que le décret impose ne se règle pas. Le reste appartient à la maison,
-              et vaut pour toutes les unités.
-            </p>
-          </div>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-600">
-            <IconX size={18} />
-          </button>
-        </div>
-
-        <div className="flex-1 min-h-0 overflow-y-auto px-5 py-4 space-y-5">
+    <Fenetre titre="Règles de délibération de l'établissement" large="grande" onFermer={onClose}
+      sous="Ce que le décret impose ne se règle pas. Le reste appartient à la maison, et vaut pour toutes les unités."
+      pied={<>
+        <span className="text-[12px] text-emerald-700">
+          {fait ? 'Règles enregistrées.' : ''}
+        </span>
+        <button onClick={onClose} className="bouton">Fermer</button>
+        <button disabled={enCours || !r} onClick={enregistrer} className="bouton bouton-fort">
+          Enregistrer
+        </button>
+      </>}>
+        <div className="space-y-5">
           {erreur && (
             <div className="px-3 py-2 rounded-lg bg-red-50 border border-red-200
                             text-[13px] text-red-800 flex items-start gap-2">
@@ -361,24 +352,6 @@ export default function ReglesDeliberation({ onClose, onFini }) {
             </>
           )}
         </div>
-
-        <div className="px-5 py-3 border-t border-slate-200 flex items-center
-                        justify-between gap-3 flex-shrink-0">
-          <span className="text-[12px] text-emerald-700">
-            {fait ? 'Règles enregistrées.' : ''}
-          </span>
-          <div className="flex gap-2">
-            <button onClick={onClose}
-              className="px-3 py-1.5 text-[13px] rounded-lg border border-slate-300
-                         text-slate-600">Fermer</button>
-            <button disabled={enCours || !r} onClick={enregistrer}
-              className="px-4 py-2 text-[13px] rounded-lg bg-iip-blue text-white
-                         font-semibold disabled:opacity-40">
-              Enregistrer
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
+    </Fenetre>
   );
 }

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { IconUsersGroup, IconAlertTriangle, IconWand, IconFileSpreadsheet, IconX } from '@tabler/icons-react';
 import { api, authHeaders, getAnnee } from '../lib/api.js';
+import { demander } from '../lib/dialogue.jsx';
 
 /**
  * RÉPARTITION DES ÉTUDIANTS — le croisement attributions × PAE.
@@ -157,7 +158,7 @@ export default function RepartitionCours() {
     .filter(c => !affect.has(cle(e.id, c.cle))).length;
 
   function confirmerOrg(noms, orgEtu, orgGroupe) {
-    return window.confirm(
+    return demander(
       `${noms} ${noms.includes(',') ? 'sont' : 'est'} en organisation ${orgEtu} pour la `
       + `délibération, et ce groupe est en organisation ${orgGroupe}.\n\n`
       + `Placer quand même dans ce groupe ?`);
@@ -181,26 +182,26 @@ export default function RepartitionCours() {
     });
   }
 
-  function cliquerCase(e, c, g) {
+  async function cliquerCase(e, c, g) {
     const k = cle(e.id, c.cle);
     const actuel = affect.get(k);
     const dejaLa = actuel && actuel.org === g.num_organisation
       && (actuel.groupe || null) === (g.groupe || null);
     // Hors de l'organisation de délibération : on confirme (règle 1).
     if (!dejaLa && e.num_organisation != null && g.num_organisation !== e.num_organisation) {
-      if (!confirmerOrg(`${e.nom} ${e.prenom}`, e.num_organisation, g.num_organisation)) return;
+      if (!(await confirmerOrg(`${e.nom} ${e.prenom}`, e.num_organisation, g.num_organisation))) return;
     }
     poser(e, c, g);
   }
 
-  function placerCoches(c, g) {
+  async function placerCoches(c, g) {
     const cibles = etudiants.filter(e => coches.has(e.id));
     if (!cibles.length) return;
     const horsOrg = cibles.filter(e =>
       e.num_organisation != null && g.num_organisation !== e.num_organisation);
     if (horsOrg.length
-      && !confirmerOrg(horsOrg.map(e => `${e.nom} ${e.prenom}`).join(', '),
-        horsOrg[0].num_organisation, g.num_organisation)) return;
+      && !(await confirmerOrg(horsOrg.map(e => `${e.nom} ${e.prenom}`).join(', '),
+        horsOrg[0].num_organisation, g.num_organisation))) return;
     for (const e of cibles) poser(e, c, g);
     // LA SÉLECTION RESTE : c'est elle qui permet d'enchaîner — les mêmes dix
     // noms, un clic sur 333.1·A, puis 333.2·B, puis 333.3·C (Charles,

@@ -2,8 +2,9 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { getAnnee } from '../lib/api.js';
 import PreviewModal from '../components/PreviewModal.jsx';
 import { ouvrirApercu } from '../lib/apercu.js';
-import { PageHeader, RailLateral, OuvrirEditions } from '../components/ui.jsx';
+import { PageHeader, RailLateral, OuvrirEditions, Fenetre } from '../components/ui.jsx';
 import Disciplinaire from './Disciplinaire.jsx';
+import { informer } from '../lib/dialogue.jsx';
 import {
   IconChecklist, IconScale, IconShieldExclamation, IconClipboardList,
   IconFolder, IconCheck, IconX, IconArrowBackUp, IconGavel,
@@ -492,9 +493,9 @@ function OutilRecours({ initialPayload, onPayloadConsumed }) {
           })(), q, verdict, annee,
         }),
       });
-      if (res.error) { alert('Erreur : ' + res.error); return; }
+      if (res.error) { informer('Erreur : ' + res.error); return; }
       if (res.champs_manquants?.length)
-        alert('⚠ Champs du modèle non disponibles pour cette procédure (laissés vides dans le document) :\n\n• '
+        informer('⚠ Champs du modèle non disponibles pour cette procédure (laissés vides dans le document) :\n\n• '
           + res.champs_manquants.join('\n• '));
       setPreviewHtml(res.html);
       const pid = res.procedure_id;
@@ -535,7 +536,7 @@ function OutilRecours({ initialPayload, onPayloadConsumed }) {
             }).catch(() => {});
         }, 1500);
       }
-    } catch(e) { alert('Erreur : ' + e.message); }
+    } catch(e) { informer('Erreur : ' + e.message); }
   }
 
   // Barre de progression
@@ -881,7 +882,7 @@ function OutilRecours({ initialPayload, onPayloadConsumed }) {
                   const a = document.createElement('a');
                   a.href = url; a.download = `PV_Recours_${etudiant || ''}.pdf`;
                   a.click(); URL.revokeObjectURL(url);
-                } catch (e) { alert('Erreur : ' + e.message); }
+                } catch (e) { informer('Erreur : ' + e.message); }
               }}
               className="flex items-center gap-1.5 px-3 py-1.5 bg-red-600 text-white rounded-lg text-xs font-medium hover:opacity-90">
               <IconFileText size={13}/> Télécharger PDF
@@ -1163,12 +1164,12 @@ function OutilFraude({ initialPayload, onPayloadConsumed }) {
           session, recidive, decision, annee,
         }),
       });
-      if (res.error) { alert('Erreur : ' + res.error); return; }
+      if (res.error) { informer('Erreur : ' + res.error); return; }
       if (res.champs_manquants?.length)
-        alert('⚠ Champs du modèle non disponibles pour cette procédure (laissés vides dans le document) :\n\n• '
+        informer('⚠ Champs du modèle non disponibles pour cette procédure (laissés vides dans le document) :\n\n• '
           + res.champs_manquants.join('\n• '));
       setPreviewHtml(res.html);
-    } catch(e) { alert('Erreur : ' + e.message); }
+    } catch(e) { informer('Erreur : ' + e.message); }
   }
 
   // Délai notification (3 jours après les faits)
@@ -1487,7 +1488,7 @@ function OutilFraude({ initialPayload, onPayloadConsumed }) {
                   const a = document.createElement('a');
                   a.href = url; a.download = `PV_Fraude_${etudiant || ''}.pdf`;
                   a.click(); URL.revokeObjectURL(url);
-                } catch (e) { alert('Erreur : ' + e.message); }
+                } catch (e) { informer('Erreur : ' + e.message); }
               }}
               className="flex items-center gap-1.5 px-3 py-1.5 bg-red-600 text-white rounded-lg text-xs font-medium hover:opacity-90">
               <IconFileText size={13}/> Télécharger PDF
@@ -1592,7 +1593,7 @@ function ArchivesProcedures({ onReprendreRecours, onReprendre }) {
         nomFichier: `${proc.type === 'recours' ? 'PV_Recours' : 'PV_Fraude'}_${payload.etudiant || ''}`,
         astuceImpression: 'A4 portrait',
       });
-    } catch (e) { alert('Erreur lors de la re-génération : ' + e.message); }
+    } catch (e) { informer('Erreur lors de la re-génération : ' + e.message); }
   }
 
   async function voirDetail(proc) {
@@ -1711,20 +1712,9 @@ function ArchivesProcedures({ onReprendreRecours, onReprendre }) {
 
       {/* Panneau de détail */}
       {detail && (
-        <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] z-50 flex items-start justify-end">
-          <div className="bg-white w-full max-w-xl h-full overflow-auto shadow-2xl flex flex-col">
-            {/* Header */}
-            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 bg-gray-50">
-              <div>
-                <p className="font-semibold text-gray-800">{detail.etudiant}</p>
-                <p className="text-xs text-gray-500 mt-0.5">
-                  {detail.type === 'recours' ? '⚖ Recours' : '🚨 Fraude'} · UE {detail.ue_num} · {detail.section} · {detail.annee_scolaire}
-                </p>
-              </div>
-              <button onClick={() => setDetail(null)} className="text-gray-400 hover:text-gray-600 text-xl font-light"><IconX size={18} /></button>
-            </div>
-
-            <div className="flex-1 px-6 py-5 space-y-5 overflow-auto">
+        <Fenetre titre={detail.etudiant} large="moyenne" onFermer={() => setDetail(null)}
+          sous={`${detail.type === 'recours' ? '⚖ Recours' : '🚨 Fraude'} · UE ${detail.ue_num} · ${detail.section} · ${detail.annee_scolaire}`}>
+            <div className="space-y-5">
               {/* Badges */}
               <div className="flex flex-wrap gap-2">
                 <span className={`text-xs font-semibold px-2.5 py-1 rounded-champ ${STATUT_COLOR[detail.statut]}`}>
@@ -1795,8 +1785,7 @@ function ArchivesProcedures({ onReprendreRecours, onReprendre }) {
                 )}
               </div>
             </div>
-          </div>
-        </div>
+        </Fenetre>
       )}
 
       {/* Preview document */}

@@ -2,7 +2,7 @@ import { Router } from 'express';
 import db from '../db/index.js';
 import { anneeDeTravail } from '../helpers/annee.js';
 import { authRequired, roleRequired, withSectionScope, canAccessSection,
-  getUserSections } from '../middleware/auth.js';
+  getUserSections, soiSeul } from '../middleware/auth.js';
 import { saveSnapshot } from '../helpers/snapshot.js';
 import { gesteRequis, gesteAutorise } from '../lib/gestes.js';
 import { copyFileSync, existsSync, mkdirSync } from 'node:fs';
@@ -1044,7 +1044,7 @@ r.get('/controle', authRequired, withSectionScope, (req, res) => {
  * deux formules pour une même grandeur finiraient par donner deux chiffres, et
  * c'est celui qu'on ne regarde pas qui serait le bon.
  */
-r.get('/charge/:profId', authRequired, withSectionScope, (req, res) => {
+r.get('/charge/:profId', authRequired, soiSeul(), withSectionScope, (req, res) => {
   const annee = req.query.annee || anneeDeTravail(req);
   const profId = Number(req.params.profId);
   try {

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
-import { IconX, IconUsersGroup } from '@tabler/icons-react';
+import { IconUsersGroup } from '@tabler/icons-react';
+import { Fenetre } from './ui.jsx';
 import { authHeaders } from '../lib/api.js';
 
 /**
@@ -70,18 +71,19 @@ export default function RepartitionOrganisation({ ueNum, ueNom, annee, onClose, 
   }
 
   return (
-    <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] flex items-center justify-center z-[60] p-4"
-      onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
-        <div className="flex-none flex items-center justify-between px-5 py-3 border-b border-slate-100">
-          <h3 className="text-[15px] font-semibold text-iip-blue flex items-center gap-2">
-            <IconUsersGroup size={18} className="text-iip-turquoise" />
-            Répartition — UE {ueNum}{ueNom ? ` · ${ueNom}` : ''} · {annee}
-          </h3>
-          <button onClick={onClose} className="text-gray-400 hover:text-red-500"><IconX size={20} /></button>
-        </div>
-
-        <div className="flex-1 min-h-0 overflow-y-auto p-5 space-y-3">
+    <Fenetre icone={IconUsersGroup} large="moyenne" onFermer={onClose}
+      titre={`Répartition — UE ${ueNum}${ueNom ? ` · ${ueNom}` : ''} · ${annee}`}
+      pied={data && orgs.length >= 2 ? (<>
+        <span />
+        <button onClick={onClose} className="bouton">
+          Annuler
+        </button>
+        <button onClick={enregistrer} disabled={saving}
+          className="bouton bouton-fort">
+          {saving ? 'Enregistrement…' : 'Enregistrer la répartition'}
+        </button>
+      </>) : null}>
+        <div className="space-y-3">
           {erreur && (
             <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-sm text-red-700 border-l-4 border-l-red-500">{erreur}</div>
           )}
@@ -154,19 +156,6 @@ export default function RepartitionOrganisation({ ueNum, ueNom, annee, onClose, 
             </table>
           </>)}
         </div>
-
-        {data && orgs.length >= 2 && (
-          <div className="flex-none flex items-center justify-end gap-2 px-5 py-3 border-t border-slate-100">
-            <button onClick={onClose} className="px-3 py-1.5 text-sm border border-slate-300 rounded-lg text-slate-600">
-              Annuler
-            </button>
-            <button onClick={enregistrer} disabled={saving}
-              className="px-4 py-1.5 text-sm font-semibold rounded-lg bg-iip-blue text-white disabled:opacity-40">
-              {saving ? 'Enregistrement…' : 'Enregistrer la répartition'}
-            </button>
-          </div>
-        )}
-      </div>
-    </div>
+    </Fenetre>
   );
 }

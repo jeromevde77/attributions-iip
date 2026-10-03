@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { api, getAnnee, nomDoc, getUser } from '../lib/api.js';
 import PreviewModal from '../components/PreviewModal.jsx';
 import ListeDiplomes from '../components/ListeDiplomes.jsx';
-import { RailLateral } from '../components/ui.jsx';
+import { RailLateral, Fenetre } from '../components/ui.jsx';
 import EnvoiMailModal from '../components/EnvoiMailModal.jsx';
 import {
   IconUser, IconBooks, IconBook, IconLink, IconSchool, IconScale,
@@ -13,6 +13,7 @@ import {
 } from '@tabler/icons-react';
 import * as XLSX from 'xlsx';
 import { ouvrirApercu } from '../lib/apercu.js';
+import { informer } from '../lib/dialogue.jsx';
 
 // Table des composants d'icônes (référencés par nom dans ENTITES.tabler)
 /* Les colonnes privées ne se proposent qu'à qui peut les lire — le serveur,
@@ -39,7 +40,7 @@ async function exportExcel(rows, cols, nom) {
     XLSX.utils.book_append_sheet(wb, ws, 'Export');
     XLSX.writeFile(wb, `${nom}.xlsx`);
   } catch (e) {
-    alert('Export Excel indisponible : ' + e.message);
+    informer('Export Excel indisponible : ' + e.message);
   }
 }
 
@@ -662,7 +663,7 @@ export default function Listes({ integre = false, domaine = null, rapports = nul
   }
 
   function genererGrilleHtml(d) {
-    if (d.error) { alert(d.error); return; }
+    if (d.error) { informer(d.error); return; }
     const NIV_PAL = ['var(--c-attente)','var(--c-disponible)','var(--c-texte)','var(--c-faveur)','var(--c-helb)'];
     const niveaux = [...new Set(d.ues.map(u => u.ue_niv).filter(Boolean))];
     const nivColor = niv => NIV_PAL[niveaux.indexOf(niv) % NIV_PAL.length] || '#6b7280';
@@ -789,7 +790,7 @@ export default function Listes({ integre = false, domaine = null, rapports = nul
   }
 
   function genererGrilleExcel(d) {
-    if (d.error) { alert(d.error); return; }
+    if (d.error) { informer(d.error); return; }
     const BLEU = '1B2B4B', GRIS = 'F1F5F9', SOUS = 'E8EDF3', ZEBRE = 'F9FAFB';
     const NIV_PAL = ['F97316','60A5FA','1E3A8A','A855F7','EC4899'];
     const niveaux = [...new Set(d.ues.map(u => u.ue_niv).filter(Boolean))];
@@ -870,10 +871,10 @@ export default function Listes({ integre = false, domaine = null, rapports = nul
   }
 
   function genererRapportEtpHtml(d, filtres) {
-    if (d.error) { alert(d.error); return; }
+    if (d.error) { informer(d.error); return; }
     const secCode = filtres.section || '';
     const sec = (d.sections || []).find(s => s.section === secCode);
-    if (!sec) { alert('Aucune donnée ETP pour cette section. Choisissez une section.'); return; }
+    if (!sec) { informer('Aucune donnée ETP pour cette section. Choisissez une section.'); return; }
 
     /* LA PIÈCE IMPRIMÉE GARDE LA CHARTE EN HEXADÉCIMAL (CLAUDE.md §6) : elle
        vit dans un cadre d'aperçu et part en PDF, où `var(--c-…)` ne s'évalue
@@ -1031,9 +1032,9 @@ export default function Listes({ integre = false, domaine = null, rapports = nul
         precision: `${(sec.coord_helb || []).length} poste(s) · ${pctCoord} %` }) : '',
     ].join('');
     const tuilesNature = [
-      tuile({ valeur: fmtEtp(totCt / 800), unite: 'ETP', libelle: 'CT — cours théoriques',
+      tuile({ valeur: fmtEtp2(totCt / 800), unite: 'ETP', libelle: 'CT — cours théoriques',
         precision: `÷800 · ${fmt(totCt)} pér.` }),
-      tuile({ valeur: fmtEtp(totPp / 1000), unite: 'ETP', libelle: 'PP — pratique professionnelle',
+      tuile({ valeur: fmtEtp2(totPp / 1000), unite: 'ETP', libelle: 'PP — pratique professionnelle',
         precision: `÷1000 · ${fmt(totPp)} pér.` }),
     ].join('');
     const tuilesRatios = [
@@ -1070,18 +1071,20 @@ export default function Listes({ integre = false, domaine = null, rapports = nul
         .titre{font-size:14pt;font-weight:700;margin-top:.6mm}
         .annee{font-size:9pt;color:#475569;margin-top:.4mm}
         .mention{font-size:7.5pt;color:#64748B;margin-top:1mm;line-height:1.35}
-        /* LE BLOC SIGNALÉ, À SES MESURES DE PAPIER (CLAUDE.md §6) : rail 1,6 mm
-           qui porte l'état, contour 0,3 mm, rayon 1,5 mm, fond #FAFAFB, valeur
+        /* LE BLOC SIGNALÉ, À SES MESURES DE PAPIER : celles de la tuile de
+           l'écran (Configuration → Thèmes), plus rondes et plus fines (Charles,
+           3 octobre 2026) — rail 1 mm qui porte l'état, contour 0,3 mm, rayon
+           2,6 mm côté droit, droit côté rail, fond blanc, valeur
            d'abord, libellé dessous, précision en gris. */
         .rangee-titre{font-size:7.5pt;color:#64748B;margin:0 0 1.5mm;font-weight:600}
         .tuiles{display:grid;grid-template-columns:repeat(4,1fr);gap:3mm;margin:0 0 4mm}
-        .tuile{background:#FAFAFB;border:0.3mm solid #D8DCE4;border-left:1.6mm solid ${MARINE};
-               border-radius:0 1.5mm 1.5mm 0;padding:2mm 3mm 2.2mm;break-inside:avoid;page-break-inside:avoid}
-        .t-val{font-size:15pt;font-weight:700;line-height:1.12;letter-spacing:-.3pt;font-variant-numeric:tabular-nums}
-        .tuile.fort .t-val{font-size:19pt}
-        .t-u{font-size:8pt;font-weight:400;color:#64748B;margin-left:1mm;letter-spacing:0}
-        .t-lib{font-size:9pt;font-weight:600;margin-top:1mm}
-        .t-fin{font-size:7.5pt;color:#64748B;margin-top:.5mm}
+        .tuile{background:#fff;border:0.25mm solid #D8DCE4;border-left:0.8mm solid ${MARINE};
+               border-radius:0 2.6mm 2.6mm 0;padding:1.8mm 2.8mm 2mm;break-inside:avoid;page-break-inside:avoid}
+        .t-val{font-size:12.5pt;font-weight:700;line-height:1.15;font-variant-numeric:tabular-nums}
+        .tuile.fort .t-val{font-size:14pt}
+        .t-u{font-size:7.5pt;font-weight:400;color:#64748B;margin-left:.8mm}
+        .t-lib{font-size:8.5pt;font-weight:600;margin-top:.6mm;color:#33415C}
+        .t-fin{font-size:7.2pt;color:#7A879E;margin-top:.3mm}
         h2{font-size:10pt;font-weight:700;margin:6mm 0 2.5mm;padding-bottom:1mm;border-bottom:0.3mm solid ${OR}}
         /* LE TABLEAU N'A QUE DEUX TONS : l'en-tête et la ligne de regroupement
            sur le même ton, la donnée blanche. La bande PORTE la couleur du bloc. */
@@ -1170,7 +1173,7 @@ ${methodologie}
   }
 
   function genererRapportHtml(d, filtres) {
-    if (d.error) { alert(d.error); return; }
+    if (d.error) { informer(d.error); return; }
     const NIV_PAL = ['var(--c-attente)','var(--c-disponible)','var(--c-texte)','var(--c-faveur)','var(--c-helb)'];
     const niveaux = [...new Set(d.ues?.map(u => u.ue_niv).filter(Boolean))].sort((a,b)=>parseInt(a.match(/\d+$/)?.[0]??99)-parseInt(b.match(/\d+$/)?.[0]??99));
     const getNivCol = niv => NIV_PAL[niveaux.indexOf(niv) % NIV_PAL.length] || '#6b7280';
@@ -1366,8 +1369,71 @@ ${methodologie}
     setRapportHtml({ html, nom: nomRapport });
   }
 
+  /** Le rapport ETP en tableur : les mêmes lignes que la pièce, des NOMBRES
+      (et non du texte mis en forme) pour que la HELB et le CA puissent compter. */
+  function genererRapportEtpExcel(d, filtres) {
+    if (d.error) { informer(d.error); return; }
+    const sec = (d.sections || []).find(s => s.section === (filtres.section || ''));
+    if (!sec) { informer('Aucune donnée ETP pour cette section. Choisissez une section.'); return; }
+    const nivDe = u => { const m = String(u.ue_niv || '').match(/\d+/); return m ? `BA${m[0]}` : (u.ue_niv || 'Autres'); };
+    const contratDe = u => (u.etp_helb > 0 && u.etp_iip <= 0) ? 'HELB' : 'IIP';
+    const ct = u => (u.per_ct || 0) + (u.per_ct_helb || 0);
+    const pp = u => (u.per_pp || 0) + (u.per_pp_helb || 0);
+    const arr = (n, k = 4) => Math.round((n || 0) * 10 ** k) / 10 ** k;
+    const ordre = ['BA1', 'BA2', 'BA3', 'Autres'];
+    const parNiv = {};
+    for (const u of sec.ues) (parNiv[nivDe(u)] ||= []).push(u);
+    const niveaux = Object.keys(parNiv).sort((a, b) => ((ordre.indexOf(a) + 1) || 99) - ((ordre.indexOf(b) + 1) || 99));
+
+    const rows = [
+      [`Rapport de charge ETP — Section ${sec.section}`],
+      [`Année académique ${annee}`],
+      [],
+      ['Bloc', 'UE', 'Intitulé', 'ECTS', 'Contrat', 'Inscrits', 'Périodes CT', 'Périodes PP', 'Périodes', '% du bloc', 'ETP'],
+    ];
+    for (const niv of niveaux) {
+      const ues = parNiv[niv].sort((a, b) => String(a.ue_num).localeCompare(String(b.ue_num), 'fr', { numeric: true }));
+      const totalBloc = ues.reduce((t, u) => t + ct(u) + pp(u), 0);
+      let nEtp = 0;
+      for (const u of ues) {
+        const pt = ct(u) + pp(u);
+        nEtp += u.etp_total || 0;
+        rows.push([niv, u.ue_num, u.ue_nom || '', u.ects || '', contratDe(u),
+          u.nb_inscrits ?? '', ct(u), pp(u), pt, totalBloc > 0 ? Math.round(pt / totalBloc * 100) / 100 : '', arr(u.etp_total)]);
+      }
+      rows.push(['', '', `Sous-total ${niv}`, '', '', '', ues.reduce((t, u) => t + ct(u), 0), ues.reduce((t, u) => t + pp(u), 0), totalBloc, 1, arr(nEtp)]);
+      rows.push([]);
+    }
+    const coord = sec.etp_coord_helb || 0;
+    const nbEtus = (filtres.source_etudiants || 'auto') === 'auto' ? (sec.nb_etudiants || 0) : (parseInt(filtres.nb_etudiants_estimes) || 0);
+    const glob = (sec.etp_total || 0) + coord;
+    rows.push(['Synthèse']);
+    rows.push(['', '', 'Cours IIP (ETP)', '', '', '', '', '', '', '', arr(sec.etp_iip)]);
+    rows.push(['', '', 'Cours HELB (ETP)', '', '', '', '', '', '', '', arr(sec.etp_helb)]);
+    if (coord > 0) rows.push(['', '', 'Coordination HELB (ETP)', '', '', '', '', '', '', '', arr(coord)]);
+    rows.push(['', '', 'Charge globale (ETP)', '', '', '', '', '', '', '', arr(glob)]);
+    rows.push(['', '', 'Étudiants', '', '', '', '', '', '', '', nbEtus || '']);
+    if (nbEtus > 0 && glob > 0) rows.push(['', '', 'Ratio global (étu./ETP)', '', '', '', '', '', '', '', arr(nbEtus / glob, 1)]);
+    rows.push([]);
+    rows.push(['CT : périodes ÷ 800 · PP : périodes ÷ 1000']);
+
+    const ws = XLSX.utils.aoa_to_sheet(rows);
+    ws['!cols'] = [{ wch: 7 }, { wch: 6 }, { wch: 48 }, { wch: 6 }, { wch: 8 }, { wch: 9 }, { wch: 11 }, { wch: 11 }, { wch: 10 }, { wch: 9 }, { wch: 10 }];
+    // Formats : la part du bloc en pourcentage, l'ETP à quatre décimales.
+    const plage = XLSX.utils.decode_range(ws['!ref']);
+    for (let r = 4; r <= plage.e.r; r++) {
+      const p = ws[XLSX.utils.encode_cell({ r, c: 9 })]; if (p && typeof p.v === 'number') p.z = '0%';
+      const lib = String(ws[XLSX.utils.encode_cell({ r, c: 2 })]?.v || '');
+      const e = ws[XLSX.utils.encode_cell({ r, c: 10 })];
+      if (e && typeof e.v === 'number') e.z = /^(Étudiants|Ratio)/.test(lib) ? '0.0' : '0.0000';
+    }
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, `ETP ${sec.section}`.slice(0, 31));
+    XLSX.writeFile(wb, `${nomDoc('Rapport_ETP', sec.section, annee)}.xlsx`);
+  }
+
   function genererRapportExcel(d, filtres) {
-    if (d.error) { alert(d.error); return; }
+    if (d.error) { informer(d.error); return; }
     const BLEU = '1B2B4B', TURQ = '00AACC', GRIS = 'F1F5F9', SOUS = 'E8EDF3', ZEBRE = 'F9FAFB';
     const NIV_PAL = ['F97316','60A5FA','1E3A8A','A855F7','EC4899'];
     const niveaux = [...new Set(d.ues?.map(u => u.ue_niv).filter(Boolean))].sort((a,b)=>parseInt(a.match(/\d+$/)?.[0]??99)-parseInt(b.match(/\d+$/)?.[0]??99));
@@ -1795,7 +1861,8 @@ ${methodologie}
             )}
             <button onClick={async () => {
                 const d = await def.fetch(annee, filtres);
-                def.grille ? genererGrilleExcel(d) : genererRapportExcel(d, filtres);
+                if (entite === 'rapport-etp') genererRapportEtpExcel(d, filtres);
+                else def.grille ? genererGrilleExcel(d) : genererRapportExcel(d, filtres);
               }}
               className="text-sm border border-emerald-500 text-emerald-700 hover:bg-emerald-50 px-3 py-2 rounded-lg font-medium flex items-center gap-1.5 border-l-4 border-l-emerald-500">
               <IconFileSpreadsheet size={16} /> Excel
@@ -1933,9 +2000,16 @@ ${methodologie}
       )}
 
       {showOptionsRapport && (
-        <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] flex items-center justify-center p-4 z-50" onClick={e=>e.target===e.currentTarget&&setShowOptionsRapport(false)}>
-          <div className="bg-white rounded-xl shadow-2xl max-w-lg w-full p-6 border-t-4 border-iip-gold max-h-[90vh] overflow-y-auto">
-            <h2 className="text-lg font-title text-slate-800 mb-1">Paramétrer le rapport</h2>
+        <Fenetre titre="Paramétrer le rapport" large="petite"
+          onFermer={()=>setShowOptionsRapport(false)}
+          pied={<>
+            <button onClick={()=>{ setFiltres(f=>({ section:f.section, ue_num:f.ue_num })); }}
+              className="text-xs text-gray-500 hover:text-gray-700 underline">Réinitialiser les critères</button>
+            <span />
+            <button onClick={()=>setShowOptionsRapport(false)} className="bouton">Annuler</button>
+            <button onClick={()=>{ setShowOptionsRapport(false); genererReel(); }}
+              className="bouton bouton-fort">Générer le rapport</button>
+          </>}>
             <p className="text-sm text-gray-500 mb-4">Choisissez les critères. Laissez « Tous » pour ne pas filtrer.</p>
             <div className="space-y-3">
               <div>
@@ -2031,17 +2105,7 @@ ${methodologie}
                 </select>
               </div>
             </div>
-            <div className="mt-5 flex items-center justify-between">
-              <button onClick={()=>{ setFiltres(f=>({ section:f.section, ue_num:f.ue_num })); }}
-                className="text-xs text-gray-500 hover:text-gray-700 underline">Réinitialiser les critères</button>
-              <div className="flex gap-2">
-                <button onClick={()=>setShowOptionsRapport(false)} className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800">Annuler</button>
-                <button onClick={()=>{ setShowOptionsRapport(false); genererReel(); }}
-                  className="bg-iip-gold hover:bg-iip-amber text-white text-sm font-medium px-5 py-2 rounded-lg">Générer le rapport</button>
-              </div>
-            </div>
-          </div>
-        </div>
+        </Fenetre>
       )}
     </div>
   );

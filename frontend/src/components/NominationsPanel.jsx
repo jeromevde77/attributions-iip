@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { IconTrash, IconLock
 } from '@tabler/icons-react';
 import { getAnnee } from '../lib/api.js';
+import { demander, informer } from '../lib/dialogue.jsx';
+import { Fenetre } from './ui.jsx';
 
 const TOKEN = () => localStorage.getItem('token');
 const authFetch = (url, opts = {}) =>
@@ -48,8 +50,8 @@ export default function NominationsPanel({ profId }) {
 
   async function ajouter() {
     if (form.ueAbsente) {
-      if (!form.cours_libre || !form.periodes) { alert('Nom de cours et périodes requis'); return; }
-    } else if (!form.code_fwb || !form.ue_num) { alert('Code FWB et UE requis'); return; }
+      if (!form.cours_libre || !form.periodes) { informer('Nom de cours et périodes requis'); return; }
+    } else if (!form.code_fwb || !form.ue_num) { informer('Code FWB et UE requis'); return; }
     await authFetch('/api/nominations', {
       method: 'POST',
       body: JSON.stringify({
@@ -68,7 +70,7 @@ export default function NominationsPanel({ profId }) {
   }
 
   async function supprimer(id) {
-    if (!confirm('Supprimer cette nomination ?')) return;
+    if (!await demander('Supprimer cette nomination ?')) return;
     await authFetch(`/api/nominations/${id}`, { method: 'DELETE' });
     charger();
   }
@@ -156,7 +158,7 @@ export default function NominationsPanel({ profId }) {
             </div>
             <button type="button" onClick={async () => {
                 const activer = !tousEnConge;
-                if (activer && !confirm('Mettre cette personne en congé sur TOUTES ses heures ? Un remplaçant (À désigner) sera créé pour chaque ligne.')) return;
+                if (activer && !await demander('Mettre cette personne en congé sur TOUTES ses heures ? Un remplaçant (À désigner) sera créé pour chaque ligne.')) return;
                 await authFetch(`/api/nominations/prof/${profId}/conge-global`, {
                   method: 'POST', body: JSON.stringify({ annee, en_conge: activer }),
                 });
@@ -303,7 +305,7 @@ function RTDialog({ nomination, profId, ues, annee, onClose, onSaved }) {
   }, [ueNum, annee]);
 
   async function valider() {
-    if (!ueNum || !coursCode) { alert('Choisissez une UE et un cours pour la remise au travail.'); return; }
+    if (!ueNum || !coursCode) { informer('Choisissez une UE et un cours pour la remise au travail.'); return; }
     await authFetch('/api/nominations/rt', {
       method: 'POST',
       body: JSON.stringify({
@@ -321,9 +323,15 @@ function RTDialog({ nomination, profId, ues, annee, onClose, onSaved }) {
   }
 
   return (
-    <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] flex items-center justify-center z-[70]" onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="bg-white rounded-xl shadow-2xl w-full max-w-md p-5">
-        <h3 className="font-title text-lg text-iip-gold mb-1">Remise au travail</h3>
+    <Fenetre titre="Remise au travail" large="petite" onFermer={onClose}
+      pied={<>
+        <span />
+        <button type="button" onClick={onClose} className="bouton">Annuler</button>
+        <button type="button" onClick={valider} disabled={!ueNum || !coursCode || !(Number(periodes) > 0)}
+          className="bouton bouton-fort">
+          Remettre au travail
+        </button>
+      </>}>
         <p className="text-sm text-gray-600 mb-3">
           Charge nommée : <strong>{nomination.periodes} pér.</strong> (UE {nomination.ue_num}, FWB {nomination.code_fwb}).
           Réaffectez les périodes manquantes vers un cours (ou en autonomie). Une ligne sera créée, marquée RT.
@@ -364,14 +372,6 @@ function RTDialog({ nomination, profId, ues, annee, onClose, onSaved }) {
               className="w-full border border-gray-300 rounded px-2 py-1.5 h-9 text-sm" />
           </label>
         </div>
-        <div className="flex justify-end gap-2 mt-4">
-          <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-gray-600">Annuler</button>
-          <button type="button" onClick={valider} disabled={!ueNum || !coursCode || !(Number(periodes) > 0)}
-            className="bg-iip-gold hover:bg-iip-amber disabled:opacity-40 text-white text-sm px-5 py-2 rounded font-medium">
-            Remettre au travail
-          </button>
-        </div>
-      </div>
-    </div>
+    </Fenetre>
   );
 }

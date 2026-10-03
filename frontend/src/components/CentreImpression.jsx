@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
-import { IconX, IconAlertTriangle, IconFileText, IconPrinter } from '@tabler/icons-react';
+import { IconAlertTriangle, IconFileText, IconPrinter } from '@tabler/icons-react';
 import { authHeaders } from '../lib/api.js';
 import { ouvrirApercu } from '../lib/apercu.js';
+import { Fenetre } from './ui.jsx';
 
 /**
  * LE CENTRE D'IMPRESSION — plusieurs unités, un seul document.
@@ -177,24 +178,26 @@ export default function CentreImpression({ annee, section = null, onClose }) {
   const rien = !Object.values(choix).some(Boolean);
 
   return (
-    <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] flex items-start justify-center z-50 p-3"
-      onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="bg-white rounded-fenetre shadow-dessus w-full max-w-[1000px] mt-6
-                      max-h-[90vh] overflow-hidden flex flex-col">
-        <div className="flex items-start justify-between gap-3 px-5 py-4 border-b border-slate-200">
-          <div>
-            <h3 className="text-[15px] font-semibold text-iip-blue">Centre d'impression</h3>
-            <p className="text-[12px] text-slate-500">
-              Année <b>{annee}</b> · les pièces de plusieurs unités en un seul document,
-              chacune sur sa page.
-            </p>
-          </div>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-600">
-            <IconX size={18} />
-          </button>
-        </div>
-
-        <div className="px-5 py-4 space-y-4 overflow-y-auto">
+    <Fenetre icone={IconPrinter} titre="Centre d'impression" large="grande" onFermer={onClose}
+      sous={`Année ${annee} · les pièces de plusieurs unités en un seul document, chacune sur sa page.`}
+      pied={<>
+          <span className="text-[12px] text-slate-500">
+            {choisies.size} unité(s) · {total ? 'après les 2 sessions'
+              : (session === 1 ? '1re session' : '2e session')} ·
+            {' '}{Object.values(choix).filter(Boolean).length} type(s) de pièce
+          </span>
+            <button onClick={onClose} className="bouton">Fermer</button>
+            <button disabled={enCours || !choisies.size || rien}
+              onClick={() => produire('impression')}
+              className="bouton inline-flex items-center gap-1.5">
+              <IconPrinter size={14} /> Aperçu
+            </button>
+            <button disabled={enCours || !choisies.size || rien} onClick={() => produire('pdf')}
+              className="bouton bouton-fort inline-flex items-center gap-1.5">
+              <IconFileText size={14} /> PDF — à imprimer
+            </button>
+      </>}>
+        <div className="space-y-4">
           {erreur && (
             <div className="px-3 py-2 rounded-lg bg-amber-50 border border-amber-200
                             text-[13px] text-amber-900 flex items-start gap-2">
@@ -331,32 +334,6 @@ export default function CentreImpression({ annee, section = null, onClose }) {
             </>
           )}
         </div>
-
-        <div className="px-5 py-3 border-t border-slate-200 flex items-center
-                        justify-between gap-3">
-          <span className="text-[12px] text-slate-500">
-            {choisies.size} unité(s) · {total ? 'après les 2 sessions'
-              : (session === 1 ? '1re session' : '2e session')} ·
-            {' '}{Object.values(choix).filter(Boolean).length} type(s) de pièce
-          </span>
-          <div className="flex gap-2">
-            <button onClick={onClose}
-              className="px-3 py-1.5 text-[13px] rounded-lg border border-slate-300
-                         text-slate-600">Fermer</button>
-            <button disabled={enCours || !choisies.size || rien}
-              onClick={() => produire('impression')}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-[13px] rounded-lg
-                         border border-slate-300 text-slate-600 disabled:opacity-40">
-              <IconPrinter size={14} /> Aperçu
-            </button>
-            <button disabled={enCours || !choisies.size || rien} onClick={() => produire('pdf')}
-              className="flex items-center gap-1.5 px-4 py-2 text-[13px] rounded-lg
-                         bg-iip-blue text-white font-semibold disabled:opacity-40">
-              <IconFileText size={14} /> PDF — à imprimer
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
+    </Fenetre>
   );
 }

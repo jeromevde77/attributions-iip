@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { demander } from '../lib/dialogue.jsx';
 
 /**
  * LA PAGE DES ÉTUDIANTS — DEMANDE DE VALORISATION EN LIGNE (3 octobre 2026).
@@ -82,7 +83,7 @@ export default function DemandeVA() {
     } catch (e) { echec(e); } finally { setOccupe(false); }
   };
   const retirer = async x => {
-    if (!window.confirm(`Retirer la demande pour l'UE ${x.ue_num} et ses pièces ?`)) return;
+    if (!(await demander(`Retirer la demande pour l'UE ${x.ue_num} et ses pièces ?`))) return;
     try { await appel('DELETE', `/demandes/${x.id}`); await charger(); } catch (e) { echec(e); }
   };
   const deposer = async (x, fichier) => {

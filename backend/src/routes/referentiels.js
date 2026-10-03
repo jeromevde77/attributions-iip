@@ -6,7 +6,8 @@ import db from '../db/index.js';
 import { renommerUE } from '../lib/renommerUE.js';
 import { anneeDeTravail } from '../helpers/annee.js';
 import { authRequired, roleRequired, getUserSections, exigerPerimetreProfesseur,
-  clauseSections } from '../middleware/auth.js';
+  clauseSections, soiSeul, SOI_SEUL, professeurDe } from '../middleware/auth.js';
+import { deposerDemande } from './demandes.js';
 import { parseDossierPedagogique } from '../parseDossierPedagogique.js';
 import { gesteRequis } from '../lib/gestes.js';
 import { htmlListeCoordonnees } from '../services/liste_coordonnees.js';
@@ -849,7 +850,7 @@ r.get('/sections/:section/ue-cours', authRequired, (req, res) => {
   res.json(ues);
 });
 
-r.get('/professeurs', authRequired, (req, res) => {
+r.get('/professeurs', authRequired, soiSeul({ liste: true }), (req, res) => {
   const tous  = req.query.tous === '1';
   const annee = req.query.annee || null;
   const anneeActive = annee || db.prepare("SELECT code FROM annee_scolaire WHERE active=1 ORDER BY code DESC LIMIT 1").get()?.code || '2026-2027';
@@ -879,7 +880,10 @@ r.get('/professeurs', authRequired, (req, res) => {
   // nom, la commune et le statut de tout le personnel de l'Institut. Un
   // professeur est rattaché aux sections où il a des attributions ; celui qui
   // n'en a aucune ne reste visible que de la direction.
-  const perim = getUserSections(req.user);
+  // UN PROFESSEUR N'A PAS DE SECTIONS, IL A SA FICHE : soiSeul ne lui laisse
+  // que sa ligne ; le périmètre, vide pour lui, l'effaçait aussi (« on ne voit
+  // rien, même pas elle », Charles, 3 octobre 2026).
+  const perim = SOI_SEUL.includes(req.user?.role) ? null : getUserSections(req.user);
   if (perim) {
     // Un périmètre VIDE produisait « IN () », que SQLite refuse : la route
     // tombait en 500 au lieu de rendre une liste vide. `clauseSections` répond
@@ -963,7 +967,7 @@ r.post('/professeurs/coordonnees', authRequired, (req, res) => {
   res.json({ html, nom: `Coordonnees_personnel_${lignes.length}` });
 });
 
-r.get('/professeurs/:id', authRequired, exigerPerimetreProfesseur, (req, res) => {
+r.get('/professeurs/:id', authRequired, soiSeul(), exigerPerimetreProfesseur, (req, res) => {
   // Table complète (TOUS les champs de la fiche signalétique)
   const base = db.prepare('SELECT * FROM professeur WHERE id = ?').get(req.params.id);
   if (!base) return res.status(404).json({ error: 'Professeur introuvable' });
@@ -1251,6 +1255,39 @@ r.post('/professeurs', authRequired, gesteRequis('personnel.fiche'), (req, res) 
 });
 
 // Modifier un professeur
+/* UN PROFESSEUR PROPOSE, LA DIRECTION VALIDE (Charles, 3 octobre 2026 : « elle
+   doit pouvoir envoyer une modif… avec validation »). Sur SA fiche seulement,
+   et seulement ce qui le regarde : ses coordonnées, son état civil, son compte,
+   sa situation fiscale. Statut, ancienneté, titres et matricule restent à
+   l'administration. Rien ne s'écrit : une demande part dans le registre des
+   demandes, où la direction la valide ou la refuse. */
+const CHAMPS_PROPOSABLES_PROF = ['mail_prive', 'adresse_rue', 'code_postal', 'commune', 'tel_gsm',
+  'sexe', 'niss', 'nationalite', 'lieu_naissance_ville', 'lieu_naissance_pays', 'date_naissance',
+  'iban', 'bic', 'compte_titulaire', 'photo', 'etat_civil', 'handicap',
+  'conjoint_nom', 'conjoint_prenom', 'conjoint_handicap', 'conjoint_alloc_foyer', 'conjoint_revenus',
+  'ce883_actif', 'ce883_date_debut', 'ce883_caisse', 'ce883_num_inscription'];
+r.patch('/professeurs/:id', authRequired, (req, res, next) => {
+  if (!SOI_SEUL.includes(req.user?.role)) return next();
+  const id = Number(req.params.id);
+  if (professeurDe(req.user) !== id) return res.status(404).json({ error: 'Introuvable.' });
+  const refuses = Object.keys(req.body || {}).filter(k => !CHAMPS_PROPOSABLES_PROF.includes(k));
+  const apres = Object.fromEntries(Object.entries(req.body || {}).filter(([k]) => CHAMPS_PROPOSABLES_PROF.includes(k)));
+  if (!Object.keys(apres).length) {
+    return res.status(403).json({ error: 'Ces champs relèvent de l’administration : signalez la correction au secrétariat.' });
+  }
+  const actuel = db.prepare(`SELECT nom, prenom, ${Object.keys(apres).join(', ')} FROM professeur WHERE id = ?`).get(id);
+  if (!actuel) return res.status(404).json({ error: 'Introuvable.' });
+  const avant = Object.fromEntries(Object.keys(apres).map(k => [k, actuel[k]]));
+  const changes = Object.keys(apres).filter(k => String(apres[k] ?? '') !== String(avant[k] ?? ''));
+  if (!changes.length) return res.json({ ok: true, rien: true, message: 'Aucun changement.' });
+  const rep = deposerDemande({
+    type: 'fiche_personnel', operation: 'modifier', cible_id: id, section: null,
+    libelle: `Fiche de ${String(actuel.nom || '').toUpperCase()} ${actuel.prenom || ''} : ${changes.join(', ')}`,
+    avant: Object.fromEntries(changes.map(k => [k, avant[k]])),
+    apres: Object.fromEntries(changes.map(k => [k, apres[k]])), user: req.user,
+  });
+  res.json({ ...rep, ignores: refuses });
+});
 r.patch('/professeurs/:id', authRequired, gesteRequis('personnel.fiche'), (req, res) => {
   const allowed = ['nom','prenom','adresse_mail','mail_prive','statut',
                    'adresse_rue','code_postal','commune','capaes','anciennete_25_26_po',
@@ -1456,7 +1493,7 @@ r.delete('/ue-section/:ue_num/:section_code', authRequired, roleRequired('admin'
 
 // Génère la fiche signalétique (PDF) d'un prof à partir du modèle officiel,
 // l'archive (traçabilité Option B) et la renvoie.
-r.get('/professeurs/:id/fiche-pdf', authRequired, async (req, res) => {
+r.get('/professeurs/:id/fiche-pdf', authRequired, soiSeul(), async (req, res) => {
   try {
     const p = db.prepare('SELECT * FROM professeur WHERE id = ?').get(req.params.id);
     if (!p) return res.status(404).json({ error: 'Professeur introuvable' });
@@ -1615,7 +1652,7 @@ export function donneesFicheAttributions(id, annee) {
    ?contrat=IIP|HELB restreint aux lignes de ce contrat ; sans ligne, 404 —
    une fiche vide n'a rien à dire au professeur.
    Route SPÉCIFIQUE, déclarée avant la route de données. */
-r.get('/professeurs/:id/fiche-attributions/document', authRequired, (req, res) => {
+r.get('/professeurs/:id/fiche-attributions/document', authRequired, soiSeul(), (req, res) => {
   const id = parseInt(req.params.id);
   const annee = req.query.annee;
   if (!annee) return res.status(400).json({ error: 'annee requis' });
@@ -1637,7 +1674,7 @@ r.get('/professeurs/:id/fiche-attributions/document', authRequired, (req, res) =
   }
 });
 
-r.get('/professeurs/:id/fiche-attributions', authRequired, (req, res) => {
+r.get('/professeurs/:id/fiche-attributions', authRequired, soiSeul(), (req, res) => {
   const id = parseInt(req.params.id);
   const annee = req.query.annee;
   if (!annee) return res.status(400).json({ error: 'annee requis' });
@@ -1646,7 +1683,7 @@ r.get('/professeurs/:id/fiche-attributions', authRequired, (req, res) => {
   res.json(d);
 });
 
-r.get('/professeurs-attributions', authRequired, (req, res) => {
+r.get('/professeurs-attributions', authRequired, soiSeul({ liste: true }), (req, res) => {
   try {
     const ids = String(req.query.ids || '').split(',').map(s => parseInt(s, 10)).filter(Boolean);
     if (ids.length === 0) return res.status(400).json({ error: 'Aucun professeur sélectionné' });
@@ -1691,7 +1728,7 @@ r.get('/professeurs-attributions', authRequired, (req, res) => {
 
 // ── Personnel de l'établissement (direction, secrétariat, coordination) ───────
 // Liste complète pour l'onglet établissement (avec toutes les données prof)
-r.get('/personnel-etablissement', authRequired, (req, res) => {
+r.get('/personnel-etablissement', authRequired, soiSeul({ ensemble: true }), (req, res) => {
   res.json(db.prepare(`
     SELECT pe.id, pe.professeur_id, pe.fonction, pe.ordre,
            p.nom, p.prenom, p.adresse_mail, p.tel_gsm, p.niss, p.matricule,
@@ -1735,7 +1772,7 @@ r.delete('/personnel-etablissement/:id', authRequired, roleRequired('admin'), (r
 });
 
 // Lire les sections d'un membre CDE
-r.get('/personnel-etablissement/:id/sections', authRequired, (req, res) => {
+r.get('/personnel-etablissement/:id/sections', authRequired, soiSeul(), (req, res) => {
   const rows = db.prepare('SELECT section_code FROM personnel_section WHERE personnel_etablissement_id = ? ORDER BY section_code').all(req.params.id);
   res.json(rows.map(r => r.section_code));
 });
@@ -1831,7 +1868,7 @@ r.get('/fonctions', authRequired, (req, res) => {
 
 // Matrice pour une section donnée (ou '__ETAB__' pour les fonctions transversales)
 // GET /personnel-matrice?section=TIM&annee=2026-2027
-r.get('/personnel-matrice', authRequired, (req, res) => {
+r.get('/personnel-matrice', authRequired, soiSeul({ ensemble: true }), (req, res) => {
   const section = req.query.section || '__ETAB__';
   const annee = req.query.annee
     || anneeDeTravail(req);
@@ -1880,7 +1917,7 @@ r.put('/personnel-mission', authRequired, roleRequired('admin', 'editeur'), (req
  * les portées d'un coup — l'établissement, puis chaque section — avec les
  * fonctions possibles et celles qui sont cochées pour l'année. L'écriture reste
  * PUT /personnel-mission, la même que la matrice : un seul chemin d'écriture. */
-r.get('/personnel-fonctions/:profId', authRequired, (req, res) => {
+r.get('/personnel-fonctions/:profId', authRequired, soiSeul(), (req, res) => {
   const profId = Number(req.params.profId);
   const annee = req.query.annee || anneeDeTravail(req);
   const types = db.prepare('SELECT id, libelle, portee, ordre FROM fonction_type ORDER BY ordre, libelle').all();
@@ -1900,7 +1937,7 @@ r.get('/personnel-fonctions/:profId', authRequired, (req, res) => {
 
 // ── Missions avec périodes pour une section ─────────────────────────────────
 // GET /personnel-missions?section=TIM&annee=2026-2027
-r.get('/personnel-missions', authRequired, (req, res) => {
+r.get('/personnel-missions', authRequired, soiSeul({ ensemble: true }), (req, res) => {
   const { section, annee } = req.query;
   if (!section || !annee) return res.status(400).json({ error: 'section et annee requis' });
   const rows = db.prepare(`

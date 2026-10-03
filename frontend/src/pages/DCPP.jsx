@@ -13,6 +13,7 @@ import {
   IconStar, IconCircleCheck, IconCircleDashed, IconAlertTriangle,
   IconFlask, IconSchool,
 } from '@tabler/icons-react';
+import { demander, informer } from '../lib/dialogue.jsx';
 
 const tok = () => localStorage.getItem('token');
 const af = (url, opts = {}) =>
@@ -155,11 +156,11 @@ function ListeSeances({ profId, annee, dispositif, onOuvrir }) {
       setForm({ date_seance: '', ue_num: '', cours_nom: '', type_cours: 'cours', rencontre_num: 1 });
       load();
       onOuvrir(id);
-    } catch (e) { alert(e.message); }
+    } catch (e) { informer(e.message); }
   }
 
   async function supprimer(id) {
-    if (!confirm('Supprimer cette séance et toutes ses réponses ?')) return;
+    if (!await demander('Supprimer cette séance et toutes ses réponses ?')) return;
     await af(`/seances/${id}`, { method: 'DELETE' });
     load();
   }
@@ -287,7 +288,7 @@ function GrilleSeance({ seanceId, referentiel, onBack }) {
       }
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
-    } catch (e) { alert(e.message); } finally { setSaving(false); }
+    } catch (e) { informer(e.message); } finally { setSaving(false); }
   }
 
   if (!seance) return <p style={{ color: 'var(--c-texte)', padding: 24 }}>Chargement…</p>;
@@ -419,7 +420,7 @@ function PlanDeveloppement({ profId, annee, referentiel }) {
       setCreating(false);
       setForm({ libelle: '', indicateurs: '', echeance: '', critere_id: '' });
       load();
-    } catch (e) { alert(e.message); }
+    } catch (e) { informer(e.message); }
   }
 
   async function patcher(id, body) {
@@ -428,7 +429,7 @@ function PlanDeveloppement({ profId, annee, referentiel }) {
   }
 
   async function supprimer(id) {
-    if (!confirm('Supprimer cet objectif ?')) return;
+    if (!await demander('Supprimer cet objectif ?')) return;
     await af(`/objectifs/${id}`, { method: 'DELETE' });
     load();
   }

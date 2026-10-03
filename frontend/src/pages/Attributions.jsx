@@ -13,7 +13,7 @@ import OrganiserGroupesModal from '../components/OrganiserGroupesModal.jsx';
 import Doc23Modal from '../components/Doc23Modal.jsx';
 import AnnulationPanel from '../components/AnnulationPanel.jsx';
 import * as XLSX from 'xlsx';
-import { IconArrowsSplit, IconClipboardText, IconTrash, IconLock, IconLockOpen, IconRefresh, IconCalendar, IconFileText, IconEraser, IconWand, IconX, IconSettings, IconFolder, IconPlus, IconFileImport, IconFileSpreadsheet, IconUsersGroup, IconScissors, IconClock, IconChevronLeft, IconChevronRight, IconFilter, IconBriefcase, IconArrowBackUp, IconInfoCircle, IconUserCog } from '@tabler/icons-react';
+import { IconArrowsSplit, IconClipboardText, IconTrash, IconLock, IconLockOpen, IconRefresh, IconCalendar, IconFileText, IconEraser, IconWand, IconX, IconSettings, IconFolder, IconPlus, IconFileImport, IconFileSpreadsheet, IconUsersGroup, IconScissors, IconClock, IconChevronLeft, IconChevronRight, IconFilter, IconBriefcase, IconArrowBackUp, IconInfoCircle, IconUserCog, IconAlertTriangle } from '@tabler/icons-react';
 
 // ─── Modale : copier les attributions d'une section d'une année vers une autre ─
 function CopierSectionModal({ sections, anneeActive, isAdmin, onClose, onCopied }) {
@@ -71,14 +71,21 @@ function CopierSectionModal({ sections, anneeActive, isAdmin, onClose, onCopied 
   }
 
   return (
-    <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] flex items-center justify-center p-4 z-50"
-         onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="bg-white rounded-xl shadow-2xl w-full max-w-md border-t-4 border-indigo-600">
-        <div className="flex items-center justify-between px-5 py-3 border-b">
-          <h2 className="font-title text-lg text-indigo-700 flex items-center gap-2"><IconClipboardText size={18}/> Copier les attributions</h2>
-          <button onClick={onClose} className="text-gray-400 hover:text-slate-600 text-2xl">×</button>
-        </div>
-        <div className="p-5 space-y-4">
+    <Fenetre icone={IconClipboardText} titre="Copier les attributions" large="petite" onFermer={onClose}
+      pied={<>
+        <span />
+        <button onClick={onClose} className="bouton">
+          {success ? 'Fermer' : 'Annuler'}
+        </button>
+        {!success && (
+          <button onClick={() => copier(false)}
+            disabled={loading || !sectionSrc || !anneeSrc || !anneeDest || nbSource === 0}
+            className="bouton bouton-fort">
+            {loading ? '…' : <span className="inline-flex items-center gap-1.5"><IconClipboardText size={15}/> Copier {nbSource ? `(${nbSource})` : ''}</span>}
+          </button>
+        )}
+      </>}>
+        <div className="space-y-4">
           <p className="text-sm text-gray-500">Copie toutes les attributions (prof inclus) d'une section vers une autre année.</p>
 
           <label className="block">
@@ -143,22 +150,8 @@ function CopierSectionModal({ sections, anneeActive, isAdmin, onClose, onCopied 
           {success && (
             <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-sm text-green-700 border-l-4 border-l-green-500">{success}</div>
           )}
-
-          <div className="flex justify-end gap-2 pt-2 border-t border-gray-100">
-            <button onClick={onClose} className="px-4 py-2 text-sm text-gray-500 hover:text-gray-700">
-              {success ? 'Fermer' : 'Annuler'}
-            </button>
-            {!success && (
-              <button onClick={() => copier(false)}
-                disabled={loading || !sectionSrc || !anneeSrc || !anneeDest || nbSource === 0}
-                className="bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40 text-white text-sm px-5 py-2 rounded-lg font-medium">
-                {loading ? '…' : <span className="inline-flex items-center gap-1.5"><IconClipboardText size={15}/> Copier {nbSource ? `(${nbSource})` : ''}</span>}
-              </button>
-            )}
-          </div>
         </div>
-      </div>
-    </div>
+    </Fenetre>
   );
 }
 
@@ -169,6 +162,7 @@ import AttributionCard from '../components/AttributionCard.jsx';
 import ResizableHeader from '../components/ResizableHeader.jsx';
 import CoursEditModal from '../components/CoursEditModal.jsx';
 import CoursFormModal from '../components/CoursFormModal.jsx';
+import { demander, informer, saisir } from '../lib/dialogue.jsx';
 
 /**
  * LE STATUT D'UN MEMBRE DU PERSONNEL, ET L'EXCEPTION D'UNE LIGNE.
@@ -488,9 +482,9 @@ export default function Attributions() {
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('token')}` },
         body: JSON.stringify({ valide: valide ? 1 : 0 }),
       });
-      if (!res.ok) { const j = await res.json().catch(() => ({})); alert(j.error || 'Erreur de validation'); return; }
+      if (!res.ok) { const j = await res.json().catch(() => ({})); informer(j.error || 'Erreur de validation'); return; }
       load();
-    } catch (e) { alert(e.message); }
+    } catch (e) { informer(e.message); }
   };
 
   // Piocher un candidat du recrutement et l'attribuer à CE groupe/slot (devient recruté + MDP)
@@ -510,10 +504,10 @@ export default function Attributions() {
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('token')}` },
         body: JSON.stringify({ attribution_id: row.id }),
       });
-      if (!res.ok) { const j = await res.json().catch(() => ({})); alert(j.error || 'Erreur'); return; }
+      if (!res.ok) { const j = await res.json().catch(() => ({})); informer(j.error || 'Erreur'); return; }
       setRecrutMenu(null);
       load();
-    } catch (e) { alert(e.message); }
+    } catch (e) { informer(e.message); }
   };
 
   async function genererRapport(section, tcFilter) {
@@ -521,7 +515,7 @@ export default function Attributions() {
     const tok = localStorage.getItem('token');
     const d = await fetch(`/api/attributions/rapport-attributions?section=${encodeURIComponent(section)}&annee=${encodeURIComponent(annee)}`,
       { headers: { Authorization: `Bearer ${tok}` } }).then(r => r.json());
-    if (d.error) { alert(d.error); return; }
+    if (d.error) { informer(d.error); return; }
     // Filtre tronc commun (pop-up) : 'tc' = uniquement TC, 'hors' = hors TC, sinon tout
     if (tcFilter === 'tc')   d.ues = (d.ues || []).filter(u => u.ue_tc === 'x');
     if (tcFilter === 'hors') d.ues = (d.ues || []).filter(u => u.ue_tc !== 'x');
@@ -663,7 +657,7 @@ export default function Attributions() {
     const tok = localStorage.getItem('token');
     const d = await fetch(`/api/attributions/rapport-attributions?section=${encodeURIComponent(section)}&annee=${encodeURIComponent(annee)}`,
       { headers: { Authorization: `Bearer ${tok}` } }).then(r => r.json());
-    if (d.error) { alert(d.error); return; }
+    if (d.error) { informer(d.error); return; }
 
     // Couleurs
     const BLEU_MARINE  = '1B2B4B';
@@ -870,7 +864,7 @@ export default function Attributions() {
         }),
       });
       load();
-    } catch (e) { alert(e.message); }
+    } catch (e) { informer(e.message); }
   }
   async function renumeroterOrg(ue, sec, ancienOrg, nouvelOrg) {
     setOrgMenu(null);
@@ -888,15 +882,15 @@ export default function Attributions() {
       const d = await res.json();
       if (!res.ok) throw new Error(d.error || 'Erreur serveur');
       load();
-    } catch (e) { alert(e.message); }
+    } catch (e) { informer(e.message); }
   }
   async function reouvrirUE(ue, sec) {
-    if (!confirm(`Réouvrir l'UE ${ue.ue_num} dans ${sec} ? Une nouvelle organisation sera créée avec le numéro suivant.`)) return;
+    if (!(await demander(`Réouvrir l'UE ${ue.ue_num} dans ${sec} ? Une nouvelle organisation sera créée avec le numéro suivant.`))) return;
     try {
       const r = await api.reouvrirUE(ue.ue_num, sec, ue.num_organisation || 1);
       load();
-      alert(`Nouvelle organisation ${r.num_organisation} créée (${r.created} cours).`);
-    } catch (e) { alert(e.message); }
+      informer(`Nouvelle organisation ${r.num_organisation} créée (${r.created} cours).`);
+    } catch (e) { informer(e.message); }
   }
 
   function expandAll() {
@@ -924,9 +918,9 @@ export default function Attributions() {
 
   /* --- CRUD --- */
   async function deleteRow(id) {
-    if (!confirm('Supprimer cette attribution ?')) return;
+    if (!(await demander('Supprimer cette attribution ?'))) return;
     try { await api.deleteAttribution(id); setData(d=>d.filter(r=>r.id!==id)); setSelected(s=>{const n=new Set(s);n.delete(id);return n;}); }
-    catch(e){ alert('Erreur : '+e.message); }
+    catch(e){ informer('Erreur : '+e.message); }
   }
   async function delSection(code) {
     setConfirmDeleteSection(code);
@@ -938,20 +932,20 @@ export default function Attributions() {
       const r = await api.bulkDeleteFiltered({ section, annee_scolaire: getAnnee() });
       setConfirmViderSection(null);
       load();
-      alert(`${r.deleted} attribution(s) supprimée(s) pour ${section}.`);
-    } catch(e) { alert('Erreur : ' + e.message); }
+      informer(`${r.deleted} attribution(s) supprimée(s) pour ${section}.`);
+    } catch(e) { informer('Erreur : ' + e.message); }
   }
   async function delSectionConfirmed(code) {
     try { await api.maskSection(code, getAnnee()); setConfirmDeleteSection(null); load(); }
-    catch(e){ alert('Erreur : ' + e.message); setConfirmDeleteSection(null); }
+    catch(e){ informer('Erreur : ' + e.message); setConfirmDeleteSection(null); }
   }
   async function autoFillSection(section) {
-    if (!confirm(`Remplir automatiquement les périodes prof de la section "${section}" ?\n\nToutes les lignes à 0 période recevront la valeur cours_per du cours correspondant. L'autonomie n'est pas touchée.`)) return;
+    if (!(await demander(`Remplir automatiquement les périodes prof de la section "${section}" ?\n\nToutes les lignes à 0 période recevront la valeur cours_per du cours correspondant. L'autonomie n'est pas touchée.`))) return;
     try {
       const r = await api.autoFillPeriodes(section);
       if (r.updated > 0) { load(); }
-      else alert('Aucune ligne à remplir (toutes les périodes sont déjà renseignées).');
-    } catch(e){ alert('Erreur : ' + e.message); }
+      else informer('Aucune ligne à remplir (toutes les périodes sont déjà renseignées).');
+    } catch(e){ informer('Erreur : ' + e.message); }
   }
   async function saveCell(id, field, value) {
     // ── Édition groupée : si la ligne éditée est cochée et que plusieurs lignes le sont,
@@ -963,7 +957,7 @@ export default function Attributions() {
         : field === 'periodes_attribuees' ? 'les périodes'
         : field === 'helb_nature' ? 'le type (TH/TP)'
         : field === 'activite_id' ? 'l\'activité' : 'l\'autonomie';
-      if (confirm(`Appliquer ${libelleChamp} à ${ids.length} lignes sélectionnées ?`)) {
+      if (await demander(`Appliquer ${libelleChamp} à ${ids.length} lignes sélectionnées ?`)) {
         for (const lid of ids) {
           await appliquerCellule(lid, field, value);
         }
@@ -985,7 +979,7 @@ export default function Attributions() {
         const nouveauId = value ? Number(value) : null;
         // Si un définitif est lié à ce cours et qu'on attribue à un AUTRE prof
         if (definitifNom && nouveauId && verrou?.definitif_id !== nouveauId) {
-          if (!confirm(`Ce cours est attribué à titre définitif à ${definitifNom}.\n\nÊtes-vous certain de l'attribuer à quelqu'un d'autre ?`)) {
+          if (!(await demander(`Ce cours est attribué à titre définitif à ${definitifNom}.\n\nÊtes-vous certain de l'attribuer à quelqu'un d'autre ?`))) {
             return; // annulé : on ne change rien
           }
         }
@@ -1032,7 +1026,7 @@ export default function Attributions() {
             setAlertesCours(map);
           }).catch(() => {});
       }
-    } catch(e){ alert('Erreur : '+e.message); }
+    } catch(e){ informer('Erreur : '+e.message); }
   }
 
   // Démultiplie une ligne d'attribution : crée N-1 copies (mêmes valeurs, groupes nouveaux sans doublon)
@@ -1063,12 +1057,12 @@ export default function Attributions() {
 
   // ✂️ SPLIT : découpe le cours en N morceaux partagés (mêmes étudiants = Ts, plusieurs profs/parties)
   async function splitterLigne(row) {
-    const saisie = prompt(`En combien de morceaux découper ce cours ?\n(même groupe d'étudiants « Ts », partagé entre plusieurs profs)`, '2');
+    const saisie = await saisir({ message: `En combien de morceaux découper ce cours ?\n(même groupe d'étudiants « Ts », partagé entre plusieurs profs)`, valeur: '2' });
     if (saisie == null) return;
     const total = Math.max(2, Math.min(20, parseInt(saisie, 10) || 0));
     if (!total || total < 2) return;
     const aCreer = total - 1; // la ligne actuelle compte déjà comme 1 morceau
-    if (!confirm(`Créer ${aCreer} morceau(x) supplémentaire(s) en split (Ts) ?\nLa somme des périodes devra rester un multiple du DP.`)) return;
+    if (!(await demander(`Créer ${aCreer} morceau(x) supplémentaire(s) en split (Ts) ?\nLa somme des périodes devra rester un multiple du DP.`))) return;
     try {
       // La ligne source devient un split (Ts, pas de lettre)
       await api.updateAttribution(row.id, { split_groupe: 'O', code: null });
@@ -1076,12 +1070,12 @@ export default function Attributions() {
         await api.createAttribution(payloadCopie(row, null, 'O'));
       }
       load();
-    } catch(e){ alert('Erreur : '+e.message); }
+    } catch(e){ informer('Erreur : '+e.message); }
   }
 
   // 👥 GROUPE : crée N sous-groupes (étudiants répartis), numérotés A, B, C… sans doublon
   async function grouperLigne(row) {
-    const saisie = prompt(`Combien de groupes au total pour cette activité ?\n(sous-groupes A, B, C… avec étudiants répartis)`, '2');
+    const saisie = await saisir({ message: `Combien de groupes au total pour cette activité ?\n(sous-groupes A, B, C… avec étudiants répartis)`, valeur: '2' });
     if (saisie == null) return;
     const total = Math.max(2, Math.min(26, parseInt(saisie, 10) || 0));
     if (!total || total < 2) return;
@@ -1090,7 +1084,7 @@ export default function Attributions() {
       r.section === row.section && r.code_cours === row.code_cours &&
       (r.num_organisation || 1) === (row.num_organisation || 1) &&
       (r.activite_id || null) === (row.activite_id || null);
-    if (!confirm(`Organiser cette activité en ${total} groupes (${groupCodeSeq(total, row).join(', ')}) ?`)) return;
+    if (!(await demander(`Organiser cette activité en ${total} groupes (${groupCodeSeq(total, row).join(', ')}) ?`))) return;
     try {
       // La ligne source devient le groupe A ; les nouvelles prennent B, C… séquentiellement
       await api.updateAttribution(row.id, { code: groupCode(0, row), split_groupe: 'N' });
@@ -1098,17 +1092,17 @@ export default function Attributions() {
         await api.createAttribution(payloadCopie(row, groupCode(i, row), 'N'));
       }
       load();
-    } catch(e){ alert('Erreur : '+e.message); }
+    } catch(e){ informer('Erreur : '+e.message); }
   }
 
   async function toggleConge(row) {
     try {
       if (!row.en_conge) {
-        if (!confirm(`Mettre ${row.professeur_id ? 'ce titulaire' : 'cette ligne'} en congé ?\n\nLa ligne sera grisée (comptée 0 en dotation) et une ligne de remplacement sera créée avec les mêmes périodes.`)) return;
+        if (!(await demander(`Mettre ${row.professeur_id ? 'ce titulaire' : 'cette ligne'} en congé ?\n\nLa ligne sera grisée (comptée 0 en dotation) et une ligne de remplacement sera créée avec les mêmes périodes.`))) return;
       }
       await api.toggleConge(row.id);
       load();
-    } catch(e){ alert('Erreur : '+e.message); }
+    } catch(e){ informer('Erreur : '+e.message); }
   }
   function recompute(row, patch) {
     const per = Number(patch.periodes_attribuees ?? row.periodes_attribuees ?? 0);
@@ -1125,14 +1119,14 @@ export default function Attributions() {
       const f = {};
       if (mode==='filtered') { if(filters.section) f.section=filters.section; if(filters.prof_id) f.professeur_id=filters.prof_id; if(filters.contrat) f.contrat=filters.contrat; }
       setBulkPreview(await api.bulkDeletePreview(f));
-    } catch(e){ alert(e.message); setBulkDeleteModal(null); }
+    } catch(e){ informer(e.message); setBulkDeleteModal(null); }
   }
   async function ouvrirSuppressionSection(section) {
     setSecDelText('');
     try {
       const d = await api.apercuSuppressionSection(section);
       setSecDel({ section, lignes: d.lignes || [], count: d.count || 0 });
-    } catch (e) { alert('Erreur : ' + e.message); }
+    } catch (e) { informer('Erreur : ' + e.message); }
   }
   async function confirmSuppressionSection() {
     if (!secDel) return;
@@ -1140,30 +1134,30 @@ export default function Attributions() {
     try {
       const r = await api.supprimerToutSection(secDel.section);
       setSecDel(null); setSecDelText('');
-      alert(`${r.supprimees} attribution(s) supprimée(s).` + (r.backup ? `\nSauvegarde créée : ${r.backup}` : ''));
+      informer(`${r.supprimees} attribution(s) supprimée(s).` + (r.backup ? `\nSauvegarde créée : ${r.backup}` : ''));
       load();
-    } catch (e) { alert('Erreur : ' + e.message); }
+    } catch (e) { informer('Erreur : ' + e.message); }
     finally { setSecDelBusy(false); }
   }
 
   async function confirmBulkDelete() {
-    if (bulkConfirmText!=='SUPPRIMER') { alert('Tapez SUPPRIMER.'); return; }
+    if (bulkConfirmText!=='SUPPRIMER') { informer('Tapez SUPPRIMER.'); return; }
     try {
       let r;
       if (bulkDeleteModal==='selection') {
         // Exclure les IDs synthétiques Z (format 'z-xxx')
         const realIds = Array.from(selected).filter(id => !String(id).startsWith('z-'));
-        if (realIds.length === 0) { alert('Aucune attribution réelle sélectionnée (les lignes Z ne peuvent pas être supprimées).'); return; }
+        if (realIds.length === 0) { informer('Aucune attribution réelle sélectionnée (les lignes Z ne peuvent pas être supprimées).'); return; }
         r = await api.bulkDeleteAttributions(realIds);
       }
       else if (bulkDeleteModal==='filtered') { const f={}; if(filters.section) f.section=filters.section; if(filters.prof_id) f.professeur_id=filters.prof_id; if(filters.contrat) f.contrat=filters.contrat; r = await api.bulkDeleteFiltered(f); }
       else r = await api.bulkDeleteFiltered({});
-      alert(`${r.deleted} supprimée(s).`); setBulkDeleteModal(null); setSelected(new Set()); load();
-    } catch(e){ alert('Erreur : '+e.message); }
+      informer(`${r.deleted} supprimée(s).`); setBulkDeleteModal(null); setSelected(new Set()); load();
+    } catch(e){ informer('Erreur : '+e.message); }
   }
   async function reimportExcel() {
-    if (!confirm('Réimporter depuis Excel ?')) return;
-    try { await api.adminReimportExcel(); alert('Réimport terminé.'); load(); } catch(e){ alert(e.message); }
+    if (!(await demander('Réimporter depuis Excel ?'))) return;
+    try { await api.adminReimportExcel(); informer('Réimport terminé.'); load(); } catch(e){ informer(e.message); }
   }
 
   /* --- Chargement --- */
@@ -1579,7 +1573,7 @@ export default function Attributions() {
               const attendu = groupCodeSeq(codesApres.length, row);
               const seqOk = JSON.stringify(codesApres) === JSON.stringify(attendu);
               if (!seqOk) {
-                if (!confirm(`La lettre ${newLettre} rompt la séquence alphabétique. Continuer quand même ?`)) return;
+                if (!(await demander(`La lettre ${newLettre} rompt la séquence alphabétique. Continuer quand même ?`))) return;
               }
               if (frereAvecCetteLetttre) {
                 // Switch : échanger les deux lettres
@@ -1598,14 +1592,14 @@ export default function Attributions() {
                     if (r.id === frereAvecCetteLetttre.id) return { ...r, code: newLettre };
                     return r;
                   }));
-                  alert('Erreur : ' + e.message);
+                  informer('Erreur : ' + e.message);
                 }
               } else {
                 // Lettre libre : assigner directement
                 const ancienCode = row.code || null;
                 setData(prev => prev.map(r => r.id === row.id ? { ...r, code: newLettre } : r));
                 try { await api.updateAttribution(row.id, { code: newLettre }); }
-                catch(e) { setData(prev => prev.map(r => r.id === row.id ? { ...r, code: ancienCode } : r)); alert('Erreur : ' + e.message); }
+                catch(e) { setData(prev => prev.map(r => r.id === row.id ? { ...r, code: ancienCode } : r)); informer('Erreur : ' + e.message); }
               }
             }
 
@@ -2012,14 +2006,14 @@ export default function Attributions() {
               {ctrlPourUE(ue.ue_num, ue.num_organisation) && (() => {
                 const a = ctrlPourUE(ue.ue_num, ue.num_organisation);
                 if (a.ok) {
-                  return <span className="text-[10px] px-1.5 py-0.5 rounded bg-green-500 text-white font-medium flex-shrink-0" title={`Autonomie ${a.aut_attribuee} dans l'intervalle [${a.min} ; ${a.max}]`}>✓ aut.</span>;
+                  return <span className="text-[10px] px-1.5 py-0.5 rounded text-white font-medium flex-shrink-0" style={{ background: 'var(--c-reussi, #3E7D5E)' }} title={`Autonomie ${a.aut_attribuee} dans l'intervalle [${a.min} ; ${a.max}]`}>✓ aut.</span>;
                 }
                 const msg = a.multiple_obligatoire
                   ? `Tous dédoublés ×${a.multiple_obligatoire} → autonomie doit être ${a.attendu} (actuel ${a.aut_attribuee})`
                   : a.depasse_max
                     ? `Autonomie ${a.aut_attribuee} > max ${a.max} → utiliser EPT ligne 96`
                     : `Autonomie ${a.aut_attribuee} hors intervalle [${a.min} ; ${a.max}]`;
-                return <span className="text-[10px] px-1.5 py-0.5 rounded bg-orange-500 text-white font-medium flex-shrink-0" title={msg}>⚠ aut. {a.aut_attribuee}/[{a.min}–{a.max}]</span>;
+                return <span className="text-[10px] px-1.5 py-0.5 rounded text-white font-medium flex-shrink-0" style={{ background: 'var(--c-attente, #E8890C)' }} title={msg}>aut. {a.aut_attribuee}/[{a.min}–{a.max}]</span>;
               })()}
             </span>
             <span className="flex items-center gap-3 text-sm text-gray-500 flex-shrink-0 justify-end whitespace-nowrap">
@@ -2071,7 +2065,7 @@ export default function Attributions() {
                           await api.creerLigneDepuisCours(cm.cours_code, cm.ue_num, cm.section);
                           setAddMenuUE(null);
                           load();
-                        } catch(err){ alert('Erreur : ' + err.message); }
+                        } catch(err){ informer('Erreur : ' + err.message); }
                       }}
                       className="w-full text-left px-3 py-1.5 h-9 text-sm hover:bg-amber-100 flex items-center gap-2">
                       <span className="text-amber-600">↻</span>
@@ -2109,19 +2103,17 @@ export default function Attributions() {
           <div className={activeUE === key ? (isHelb ? 'bg-pink-50/60' : 'bg-iip-gold/5') : (isHelb ? 'bg-pink-50/40' : 'bg-gray-50/50')}>
             {(() => {
               const ctrl = ctrlPourUE(ue.ue_num, ue.num_organisation);
-              if (!ctrl || !ctrl.message) return null;
-              const styles = {
-                ok:          'bg-green-500 border-green-500 text-white',
-                sous:        'bg-amber-500 border-amber-500 text-white',
-                'dépassement':'bg-[#FBF1EE] border-[color:var(--c-attente)] text-iip-texte',
-                cours:       'bg-orange-500 border-orange-500 text-white',
-              };
-              const icone = { ok:'✓', sous:'➜', 'dépassement':'⚠', cours:'⚠' }[ctrl.etat] || 'ℹ';
+              /* QUAND TOUT VA BIEN, RIEN (Charles, 3 octobre 2026 : « la barre n'a
+                 pas d'intérêt, on a déjà au-dessus le ok ») : la pastille « ✓ aut. »
+                 de la ligne d'UE le dit. Le bandeau ne paraît que pour un écart,
+                 blanc à liseré, texte lisible — « on ne sait pas lire le gris ». */
+              if (!ctrl || !ctrl.message || ctrl.etat === 'ok') return null;
+              const liseré = { sous: 'var(--c-attente, #E8890C)', 'dépassement': 'var(--c-refuse, #9D4A38)', cours: 'var(--c-attente, #E8890C)' }[ctrl.etat] || '#94A3B8';
               return (
-                <div className={`mx-6 my-2 px-3 py-2 rounded-lg border text-[12px] ${styles[ctrl.etat] || 'bg-gray-50 border-gray-200 text-gray-600'}`}>
-                  <span className="font-semibold mr-1">{icone} Autonomie</span>
-                  {ctrl.message}
-                  <span className="text-gray-400 ml-2">· base {ctrl.ue_aut} · plancher {ctrl.min} · plafond {ctrl.max} · placé {ctrl.aut_attribuee}</span>
+                <div className="mx-6 my-2 px-3 py-2 bg-white border border-slate-200 border-l-4 rounded-r-carte text-[12.5px] text-iip-texte"
+                  style={{ borderLeftColor: liseré }}>
+                  <b className="mr-1">Autonomie</b>{ctrl.message}
+                  <span className="text-slate-600 ml-2">· base {ctrl.ue_aut} · plancher {ctrl.min} · plafond {ctrl.max} · placé {ctrl.aut_attribuee}</span>
                 </div>
               );
             })()}
@@ -2454,11 +2446,11 @@ export default function Attributions() {
               return r;
             }));
             try { await api.updateAttribution(rowId, { code: codeEffectif }); await api.updateAttribution(autre.id, { code: ancienCode }); }
-            catch(e) { alert(e.message); }
+            catch(e) { informer(e.message); }
           } else {
             setData(prev => prev.map(r => r.id === rowId ? { ...r, code: codeEffectif } : r));
             try { await api.updateAttribution(rowId, { code: codeEffectif }); }
-            catch(e) { alert(e.message); }
+            catch(e) { informer(e.message); }
           }
           // Re-vérifier
           setTimeout(() => {
@@ -2470,24 +2462,29 @@ export default function Attributions() {
         }
 
         return (
-        <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] z-50 flex items-center justify-center p-4" onClick={fermer}>
-          <div className="bg-white rounded-xl shadow-2xl w-full flex flex-col" style={{maxWidth: 680, maxHeight: '85vh'}} onClick={e => e.stopPropagation()}>
-
-            {/* En-tête */}
-            <div className="flex items-start gap-3 px-5 py-4 border-b border-gray-100 flex-shrink-0">
-              <span className="text-amber-500 text-xl mt-0.5">⚠</span>
-              <div className="flex-1 min-w-0">
-                <div className="font-semibold text-gray-800">
-                  Erreur {idx + 1} / {anomalies.length} — {a.section} · {a.code_cours}
-                </div>
-                <div className="text-sm text-gray-600 mt-0.5 truncate">{a.cours}</div>
-                {a.activite && <div className="text-xs text-gray-400 mt-0.5">Activité : {a.activite}</div>}
-                <div className="text-xs text-amber-700 mt-1 font-medium">{a.probleme}</div>
-              </div>
-              <button onClick={fermer} className="text-gray-400 hover:text-gray-600 text-xl leading-none flex-shrink-0">×</button>
+        <Fenetre icone={IconAlertTriangle} large="moyenne" onFermer={fermer}
+          titre={`Erreur ${idx + 1} / ${anomalies.length} — ${a.section} · ${a.code_cours}`}
+          sous={a.cours}
+          pied={<>
+            <button onClick={() => setErreurIndex(i => Math.max(0, i-1))} disabled={idx===0}
+              className="bouton">
+              ← Précédent
+            </button>
+            <button onClick={() => setErreurIndex(i => Math.min(anomalies.length-1, i+1))} disabled={idx===anomalies.length-1}
+              className="bouton">
+              Suivant →
+            </button>
+            <span />
+            <button onClick={fermer} className="bouton bouton-fort">
+              Fermer
+            </button>
+          </>}>
+            <div className="mb-3">
+              {a.activite && <div className="text-xs text-gray-400">Activité : {a.activite}</div>}
+              <div className="text-xs text-amber-700 mt-1 font-medium">{a.probleme}</div>
             </div>
             {/* Corps — tableau des attributions du cours */}
-            <div className="overflow-auto flex-1 px-4 py-3">
+            <div>
               {toutesLignes.length === 0 ? (
                 <p style={{color:'var(--c-texte)', fontSize:13, fontStyle:'italic'}}>Aucune attribution trouvée pour ce cours.</p>
               ) : (
@@ -2581,51 +2578,29 @@ export default function Attributions() {
               )}
             </div>
 
-            {/* Pied — navigation + fermer */}
-            <div className="px-5 py-3 border-t border-gray-100 flex items-center justify-between flex-shrink-0">
-              <div className="flex gap-2">
-                <button onClick={() => setErreurIndex(i => Math.max(0, i-1))} disabled={idx===0}
-                  style={{padding:'6px 14px', borderRadius:8, fontSize:13, fontWeight:600, border:'1px solid #D1D5DB',
-                    background: idx===0?'#F9FAFB':'#fff', color: idx===0?'#CBD5E1':'var(--c-principal)', cursor: idx===0?'default':'pointer'}}>
-                  ← Précédent
-                </button>
-                <button onClick={() => setErreurIndex(i => Math.min(anomalies.length-1, i+1))} disabled={idx===anomalies.length-1}
-                  style={{padding:'6px 14px', borderRadius:8, fontSize:13, fontWeight:600, border:'1px solid #D1D5DB',
-                    background: idx===anomalies.length-1?'#F9FAFB':'#fff', color: idx===anomalies.length-1?'#CBD5E1':'var(--c-principal)', cursor: idx===anomalies.length-1?'default':'pointer'}}>
-                  Suivant →
-                </button>
-              </div>
-              <button onClick={fermer}
-                style={{padding:'6px 16px', borderRadius:8, fontSize:13, fontWeight:600, background:'var(--c-principal)', color:'#fff', border:'none', cursor:'pointer'}}>
-                Fermer
-              </button>
-            </div>
-          </div>
-        </div>
+        </Fenetre>
         );
       })()}
 
       {confirmDeleteSection && (
-        <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] z-50 flex items-center justify-center">
-          <div className="bg-white rounded-xl shadow-2xl p-6 max-w-sm w-full space-y-4">
-            <h3 className="font-semibold text-gray-800">Retirer la section</h3>
+        <Fenetre icone={IconTrash} titre="Retirer la section" large="petite"
+          onFermer={() => setConfirmDeleteSection(null)}
+          pied={<>
+            <span />
+            <button onClick={() => setConfirmDeleteSection(null)} className="bouton">
+              Annuler
+            </button>
+            <button onClick={() => delSectionConfirmed(confirmDeleteSection)}
+              className="bouton bouton-detruire">
+              Supprimer
+            </button>
+          </>}>
             <p className="text-sm text-gray-600">
               Retirer la section <strong>{confirmDeleteSection}</strong> de la vue des attributions pour cette année ?
               Le référentiel (UE et cours) n'est pas touché. La section réapparaîtra automatiquement
               dès que tu y crées des attributions.
             </p>
-            <div className="flex gap-2 justify-end">
-              <button onClick={() => setConfirmDeleteSection(null)}
-                className="px-4 py-2 text-sm border border-gray-300 rounded text-gray-600 hover:bg-gray-50">
-                Annuler
-              </button>
-              <button onClick={() => delSectionConfirmed(confirmDeleteSection)}
-                className="bouton-detruire controle px-4">
-                Supprimer
-              </button>
-            </div>
-          </div>
-        </div>
+        </Fenetre>
       )}
       {quadriMenu && <div className="fixed inset-0 z-30" onClick={()=>setQuadriMenu(null)} />}
       {orgMenu && <div className="fixed inset-0 z-30" onClick={()=>setOrgMenu(null)} />}
@@ -2641,23 +2616,23 @@ export default function Attributions() {
       {showBulkCreate && <BulkCreateForm onClose={()=>setShowBulkCreate(false)} onCreated={load}/>}
       {showCopierSection && <CopierSectionModal sections={sections} anneeActive={getAnnee()} isAdmin={isAdmin} onClose={()=>setShowCopierSection(false)} onCopied={load}/>}
       {confirmViderSection && (
-        <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6 space-y-4">
-            <h3 className="font-semibold text-gray-800">⚠️ Supprimer toutes les attributions</h3>
+        <Fenetre icone={IconAlertTriangle} titre="Supprimer toutes les attributions" large="petite" ton="alerte"
+          onFermer={() => setConfirmViderSection(null)}
+          pied={<>
+            <span />
+            <button onClick={() => setConfirmViderSection(null)} className="bouton">Annuler</button>
+            <button onClick={() => viderSectionConfirmed(confirmViderSection)}
+              className="bouton bouton-detruire">
+              Supprimer toutes les attributions
+            </button>
+          </>}>
+          <div className="space-y-4">
             <p className="text-sm text-gray-600">
               Supprimer <strong>toutes les attributions</strong> de la section <strong>{confirmViderSection}</strong> pour l'année <strong>{getAnnee()}</strong> ?
             </p>
             <p className="text-xs text-iip-texte font-medium">Cette action est irréversible. Le référentiel (UE, cours) n'est pas touché.</p>
-            <div className="flex gap-3 justify-end pt-2">
-              <button onClick={() => setConfirmViderSection(null)}
-                className="px-4 py-2 text-sm border border-gray-300 rounded hover:bg-gray-50">Annuler</button>
-              <button onClick={() => viderSectionConfirmed(confirmViderSection)}
-                className="px-4 py-2 text-sm bg-orange-500 hover:bg-orange-600 text-white rounded font-semibold">
-                Supprimer toutes les attributions
-              </button>
-            </div>
           </div>
-        </div>
+        </Fenetre>
       )}
       {eptModal && <EptModal {...eptModal} annee={getAnnee()} onClose={() => { setEptModal(null); load(); }} />}
       {orgModal && <OrganisationUEModal {...orgModal} annee={getAnnee()} onClose={() => setOrgModal(null)} />}
@@ -2676,9 +2651,12 @@ export default function Attributions() {
       {editRow && <CoursEditModal section={editRow.section} codeCours={editRow.code_cours} onClose={()=>setEditRow(null)} onChanged={load}/>}
 
       {rapportSectionChoix && (
-        <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] flex items-center justify-center p-4 z-40" onClick={e=>e.target===e.currentTarget&&setRapportSectionChoix(null)}>
-          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6 border-t-4 border-iip-mauve">
-            <h2 className="text-lg font-title text-iip-mauve mb-1">Rapport — {rapportSectionChoix}</h2>
+        <Fenetre icone={IconFileText} titre={`Rapport — ${rapportSectionChoix}`} large="petite"
+          onFermer={()=>setRapportSectionChoix(null)}
+          pied={<>
+            <span />
+            <button onClick={()=>setRapportSectionChoix(null)} className="bouton">Annuler</button>
+          </>}>
             <p className="text-sm text-gray-500 mb-4">Quel périmètre souhaitez-vous inclure&nbsp;?</p>
             <div className="space-y-2">
               <button onClick={()=>{ const s=rapportSectionChoix; setRapportSectionChoix(null); genererRapport(s, ''); }}
@@ -2694,23 +2672,26 @@ export default function Attributions() {
                 Hors TC <span className="text-gray-400 font-normal">— cours propres à la section</span>
               </button>
             </div>
-            <div className="mt-4 text-right">
-              <button onClick={()=>setRapportSectionChoix(null)} className="text-sm text-gray-500 hover:text-gray-700">Annuler</button>
-            </div>
-          </div>
-        </div>
+        </Fenetre>
       )}
 
       {secDel && (
-        <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] flex items-center justify-center p-4 z-40" onClick={e=>e.target===e.currentTarget&&setSecDel(null)}>
-          <div className="bg-white rounded-xl shadow-2xl max-w-lg w-full p-6 border-t-4 border-[color:var(--c-refuse)] flex flex-col" style={{maxHeight:'85vh'}}>
-            <h2 className="text-xl font-title text-iip-texte mb-2">⚠️ Tout supprimer — section {secDel.section}</h2>
+        <Fenetre icone={IconAlertTriangle} titre={`Tout supprimer — section ${secDel.section}`} large="petite" ton="alerte"
+          onFermer={()=>setSecDel(null)}
+          pied={<>
+            <span />
+            <button onClick={()=>setSecDel(null)} className="bouton">Annuler</button>
+            <button onClick={confirmSuppressionSection} disabled={secDelText!==secDel.section || secDel.count===0 || secDelBusy}
+              className="bouton bouton-detruire">
+              {secDelBusy ? 'Suppression…' : `Supprimer ${secDel.count} attribution(s)`}
+            </button>
+          </>}>
             <p className="text-sm text-gray-700 mb-2">
               Vous allez supprimer <b className="text-iip-texte">{secDel.count} attribution(s)</b> de la section <b>{secDel.section}</b> pour {getAnnee()}.
               La section et les cours restent dans le référentiel ; seules les attributions sont effacées.
             </p>
             <p className="text-xs text-gray-500 mb-2">Une <b>copie de sauvegarde</b> de la base est créée automatiquement juste avant. Action <b>irréversible</b> sans restauration de cette copie.</p>
-            <div className="border border-gray-200 rounded-lg overflow-auto mb-3 flex-1" style={{minHeight:'80px'}}>
+            <div className="border border-gray-200 rounded-lg overflow-auto mb-3 max-h-[40vh]" style={{minHeight:'80px'}}>
               <table className="w-full text-[11px]">
                 <thead className="bg-gray-50 sticky top-0"><tr>
                   <th className="text-left px-2 py-1 text-gray-500">UE</th>
@@ -2732,22 +2713,18 @@ export default function Attributions() {
               </table>
             </div>
             <label className="block text-xs text-gray-600 mb-1">Tapez le nom de la section <code className="bg-gray-100 px-1 rounded font-mono">{secDel.section}</code> pour confirmer :</label>
-            <input value={secDelText} onChange={e=>setSecDelText(e.target.value)} autoFocus className="w-full border border-gray-300 rounded px-3 py-2 text-sm font-mono mb-4" placeholder={secDel.section}/>
-            <div className="flex justify-end gap-2">
-              <button onClick={()=>setSecDel(null)} className="px-4 py-2 text-sm text-gray-600">Annuler</button>
-              <button onClick={confirmSuppressionSection} disabled={secDelText!==secDel.section || secDel.count===0 || secDelBusy}
-                className="bouton-detruire controle px-5 disabled:opacity-30">
-                {secDelBusy ? 'Suppression…' : `Supprimer ${secDel.count} attribution(s)`}
-              </button>
-            </div>
-          </div>
-        </div>
+            <input value={secDelText} onChange={e=>setSecDelText(e.target.value)} autoFocus className="w-full border border-gray-300 rounded px-3 py-2 text-sm font-mono" placeholder={secDel.section}/>
+        </Fenetre>
       )}
 
       {bulkDeleteModal && (
-        <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] flex items-center justify-center p-4 z-40" onClick={e=>e.target===e.currentTarget&&setBulkDeleteModal(null)}>
-          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6 border-t-4 border-[color:var(--c-refuse)]">
-            <h2 className="text-xl font-title text-iip-texte mb-3">⚠️ Suppression en masse</h2>
+        <Fenetre icone={IconAlertTriangle} titre="Suppression en masse" large="petite" ton="alerte"
+          onFermer={()=>setBulkDeleteModal(null)}
+          pied={<>
+            <span />
+            <button onClick={()=>setBulkDeleteModal(null)} className="bouton">Annuler</button>
+            <button onClick={confirmBulkDelete} disabled={bulkConfirmText!=='SUPPRIMER'} className="bouton bouton-detruire">Confirmer</button>
+          </>}>
             <p className="text-sm text-gray-700 mb-4">
               {bulkDeleteModal==='selection'&&<>Supprimer <b>{bulkPreview?.count??'…'}</b> attribution(s) sélectionnée(s) ?</>}
               {bulkDeleteModal==='filtered'&&<>Supprimer <b>{bulkPreview?.count??'…'}</b> attribution(s) correspondant aux filtres ?</>}
@@ -2755,13 +2732,8 @@ export default function Attributions() {
             </p>
             <p className="text-xs text-gray-500 mb-3">Planning supprimé en cascade. <b>Irréversible.</b></p>
             <label className="block text-xs text-gray-600 mb-1">Tapez <code className="bg-gray-100 px-1 rounded font-mono">SUPPRIMER</code> :</label>
-            <input value={bulkConfirmText} onChange={e=>setBulkConfirmText(e.target.value)} autoFocus className="w-full border border-gray-300 rounded px-3 py-2 text-sm font-mono mb-4" placeholder="SUPPRIMER"/>
-            <div className="flex justify-end gap-2">
-              <button onClick={()=>setBulkDeleteModal(null)} className="px-4 py-2 text-sm text-gray-600">Annuler</button>
-              <button onClick={confirmBulkDelete} disabled={bulkConfirmText!=='SUPPRIMER'} className="bouton-detruire controle px-5 disabled:opacity-30">Confirmer</button>
-            </div>
-          </div>
-        </div>
+            <input value={bulkConfirmText} onChange={e=>setBulkConfirmText(e.target.value)} autoFocus className="w-full border border-gray-300 rounded px-3 py-2 text-sm font-mono" placeholder="SUPPRIMER"/>
+        </Fenetre>
       )}
 
       {/* Bandeau : profs définitifs en perte de charge (ETP global, en bas) */}

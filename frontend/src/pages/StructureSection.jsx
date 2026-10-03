@@ -3,6 +3,7 @@ import { IconAlertTriangle, IconCopy, IconListCheck } from '@tabler/icons-react'
 import SchemaCapitalisation from '../components/SchemaCapitalisation.jsx';
 import Assistant from '../components/Assistant.jsx';
 import { authHeaders } from '../lib/api.js';
+import { demander } from '../lib/dialogue.jsx';
 
 /**
  * Structure d'une section — schéma de capitalisation éditable.
@@ -54,7 +55,7 @@ export default function StructureSection({ annee }) {
   async function reprendreAnDernier() {
     const [a1, a2] = annee.split('-').map(Number);
     const source = `${a1 - 1}-${a2 - 1}`;
-    if (!window.confirm(`Reprendre les années d'études définies en ${source} pour la section ${section} ?`)) return;
+    if (!(await demander(`Reprendre les années d'études définies en ${source} pour la section ${section} ?`))) return;
     const rep = await fetch('/api/capitalisation/reprendre', {
       method: 'POST', headers: authHeaders(),
       body: JSON.stringify({ section, annee, annee_source: source }),

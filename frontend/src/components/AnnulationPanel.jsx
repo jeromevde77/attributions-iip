@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
-import { IconArrowBackUp, IconX, IconRefresh, IconAlertTriangle } from '@tabler/icons-react';
+import { IconArrowBackUp, IconRefresh, IconAlertTriangle } from '@tabler/icons-react';
 import { authHeaders } from '../lib/api.js';
+import { Fenetre } from './ui.jsx';
+import { demander } from '../lib/dialogue.jsx';
 
 /**
  * Annulation des dernières modifications d'attributions.
@@ -38,10 +40,10 @@ export default function AnnulationPanel({ annee, onClose, onRestaure }) {
 
   async function restaurer(it) {
     const quoi = `UE ${it.ue_num ?? '?'}${it.nom_cours ? ' — ' + it.nom_cours : ''}`;
-    if (!window.confirm(
+    if (!(await demander(
       `Restaurer l'état de ${quoi} tel qu'il était avant cette ${ACTIONS[it.action]?.libelle.toLowerCase() || 'action'} ?\n\n` +
       `Du ${new Date(it.created_at).toLocaleString('fr-BE')}` +
-      (it.utilisateur_nom ? ` par ${it.utilisateur_nom}` : ''))) return;
+      (it.utilisateur_nom ? ` par ${it.utilisateur_nom}` : '')))) return;
 
     setEnCours(it.id);
     try {
@@ -59,27 +61,14 @@ export default function AnnulationPanel({ annee, onClose, onRestaure }) {
   const historiqueInactif = actif && actif.actif === false;
 
   return (
-    <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] flex items-start justify-center z-50 p-4 overflow-auto"
-      onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="bg-white rounded-fenetre shadow-dessus w-full max-w-3xl mt-10">
-        <div className="bg-iip-blue rounded-t-2xl px-5 py-4 flex items-start justify-between">
-          <div>
-            <div className="text-white font-bold text-[15px] flex items-center gap-2">
-              <IconArrowBackUp size={18} /> Annuler une modification
-            </div>
-            <div className="text-blue-200 text-[12px] mt-0.5">
-              Dernières écritures sur les attributions{annee ? ` — ${annee}` : ''}
-            </div>
-          </div>
-          <div className="flex items-center gap-2">
-            <button onClick={charger} className="text-blue-200 hover:text-white" title="Actualiser">
-              <IconRefresh size={17} />
-            </button>
-            <button onClick={onClose} className="text-blue-200 hover:text-white"><IconX size={19} /></button>
-          </div>
-        </div>
-
-        <div className="p-5 space-y-3">
+    <Fenetre icone={IconArrowBackUp} titre="Annuler une modification" large="moyenne" onFermer={onClose}
+      sous={`Dernières écritures sur les attributions${annee ? ` — ${annee}` : ''}`}
+      outils={(
+        <button onClick={charger} className="text-blue-200 hover:text-white" title="Actualiser">
+          <IconRefresh size={17} />
+        </button>
+      )}>
+        <div className="space-y-3">
           {historiqueInactif && (
             <div className="flex items-start gap-2 px-3 py-2.5 rounded-lg bg-amber-50 border border-amber-200 text-[13px] text-amber-800 border-l-4 border-l-amber-500">
               <IconAlertTriangle size={15} className="mt-0.5 flex-none" />
@@ -145,7 +134,6 @@ export default function AnnulationPanel({ annee, onClose, onRestaure }) {
             La restauration est elle-même enregistrée : elle peut donc être annulée à son tour.
           </p>
         </div>
-      </div>
-    </div>
+    </Fenetre>
   );
 }

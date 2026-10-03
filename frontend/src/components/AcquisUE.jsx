@@ -4,6 +4,7 @@ import { IconTargetArrow, IconLink, IconUnlink, IconAlertTriangle, IconPencil,
          IconGripVertical, IconPlus } from '@tabler/icons-react';
 import { authHeaders, getUser } from '../lib/api.js';
 import { chargerChapeaux } from '../lib/chapeaux.js';
+import { demander, informer } from '../lib/dialogue.jsx';
 
 /**
  * Acquis d'apprentissage d'une UE — présentés COMME DANS LE DOSSIER
@@ -80,7 +81,7 @@ export default function AcquisUE({ ueNum, annee, estAdmin }) {
     const rep = await fetch(url, { method, headers: { 'Content-Type': 'application/json', ...authHeaders() },
       body: JSON.stringify(corps) });
     const j = await rep.json().catch(() => ({}));
-    if (!rep.ok) { alert(j.error || `Refusé (${rep.status})`); return null; }
+    if (!rep.ok) { informer(j.error || `Refusé (${rep.status})`); return null; }
     return j;
   }
 
@@ -136,7 +137,7 @@ export default function AcquisUE({ ueNum, annee, estAdmin }) {
     const avant = parCode[code]?.description || '';
     if (description.trim() && description.trim() !== avant) corps.description = description.trim();
     if (!Object.keys(corps).length) { setEdition(null); return; }
-    if (corps.nouveau_code && !window.confirm(`Renommer ${code} en ${corps.nouveau_code} ?\n\nLe nouveau code sera repris partout : pondérations, notes, motivations, propositions des professeurs.`)) return;
+    if (corps.nouveau_code && !(await demander(`Renommer ${code} en ${corps.nouveau_code} ?\n\nLe nouveau code sera repris partout : pondérations, notes, motivations, propositions des professeurs.`))) return;
     const j = await envoyer(`/api/aa/${encodeURIComponent(code)}`, corps);
     if (j) { setEdition(null); await charger(); }
   }
@@ -145,17 +146,17 @@ export default function AcquisUE({ ueNum, annee, estAdmin }) {
      suite ; s'il est déjà évalué, le serveur dit d'abord ce qui serait emporté
      (notes, pondérations, motivations…), et l'on confirme en sachant quoi. */
   async function supprimer(a) {
-    if (!window.confirm(`Supprimer l'acquis ${a.aa_code} ?\n\n« ${(a.description || '').slice(0, 140)} »`)) return;
+    if (!(await demander(`Supprimer l'acquis ${a.aa_code} ?\n\n« ${(a.description || '').slice(0, 140)} »`))) return;
     const url = `/api/aa/${encodeURIComponent(a.aa_code)}`;
     let rep = await fetch(url, { method: 'DELETE', headers: authHeaders() });
     let j = await rep.json().catch(() => ({}));
     if (rep.status === 409 && j.confirmation_requise) {
       const detail = Object.entries(j.inventaire || {}).map(([k, n]) => `  · ${n} ${k}`).join('\n');
-      if (!window.confirm(`${a.aa_code} est déjà utilisé — seraient DÉFINITIVEMENT supprimés :\n${detail}\n\nSupprimer quand même ?`)) return;
+      if (!(await demander(`${a.aa_code} est déjà utilisé — seraient DÉFINITIVEMENT supprimés :\n${detail}\n\nSupprimer quand même ?`))) return;
       rep = await fetch(`${url}?force=1`, { method: 'DELETE', headers: authHeaders() });
       j = await rep.json().catch(() => ({}));
     }
-    if (!rep.ok) { alert(j.error || `Refusé (${rep.status})`); return; }
+    if (!rep.ok) { informer(j.error || `Refusé (${rep.status})`); return; }
     await charger();
   }
 
@@ -165,17 +166,17 @@ export default function AcquisUE({ ueNum, annee, estAdmin }) {
      l'acquis — avec l'inventaire habituel s'il est déjà cité — et met son
      texte en chapeau, à la même place ; la mise en forme reste à enregistrer. */
   async function enChapeau(a) {
-    if (!window.confirm(`${a.aa_code} n'est pas un acquis mais une phrase d'introduction ?\n\n« ${(a.description || '').slice(0, 140)} »\n\nL'acquis sera supprimé et son texte deviendra un chapeau, à la même place.`)) return;
+    if (!(await demander(`${a.aa_code} n'est pas un acquis mais une phrase d'introduction ?\n\n« ${(a.description || '').slice(0, 140)} »\n\nL'acquis sera supprimé et son texte deviendra un chapeau, à la même place.`))) return;
     const url = `/api/aa/${encodeURIComponent(a.aa_code)}`;
     let rep = await fetch(url, { method: 'DELETE', headers: authHeaders() });
     let j = await rep.json().catch(() => ({}));
     if (rep.status === 409 && j.confirmation_requise) {
       const detail = Object.entries(j.inventaire || {}).map(([k, n]) => `  · ${n} ${k}`).join('\n');
-      if (!window.confirm(`${a.aa_code} est déjà utilisé — seraient DÉFINITIVEMENT supprimés :\n${detail}\n\nContinuer ?`)) return;
+      if (!(await demander(`${a.aa_code} est déjà utilisé — seraient DÉFINITIVEMENT supprimés :\n${detail}\n\nContinuer ?`))) return;
       rep = await fetch(`${url}?force=1`, { method: 'DELETE', headers: authHeaders() });
       j = await rep.json().catch(() => ({}));
     }
-    if (!rep.ok) { alert(j.error || `Refusé (${rep.status})`); return; }
+    if (!rep.ok) { informer(j.error || `Refusé (${rep.status})`); return; }
     poser(p => p.map(x => (x.type === 'aa' && x.code === a.aa_code
       ? { type: 'chapeau', id: nouvelId(), texte: (a.description || '').trim() } : x)));
   }
@@ -186,8 +187,8 @@ export default function AcquisUE({ ueNum, annee, estAdmin }) {
     const ordre = data.acquis.map(a => a.aa_code);
     const cibles = ordre.map((_, i) => `AA${ueNum}.${i + 1}`);
     const changes = ordre.map((c, i) => (c !== cibles[i] ? `${c} → ${cibles[i]}` : null)).filter(Boolean);
-    if (!changes.length) { alert('La numérotation est déjà propre.'); return; }
-    if (!window.confirm(`Renuméroter les acquis de l'UE ${ueNum} dans l'ordre enregistré ?\n\n${changes.join('\n')}\n\nLes codes sont réécrits partout : pondérations, notes, motivations, propositions.`)) return;
+    if (!changes.length) { informer('La numérotation est déjà propre.'); return; }
+    if (!(await demander(`Renuméroter les acquis de l'UE ${ueNum} dans l'ordre enregistré ?\n\n${changes.join('\n')}\n\nLes codes sont réécrits partout : pondérations, notes, motivations, propositions.`))) return;
     const r = await envoyer(`/api/aa/ue/${ueNum}/renumeroter`, { ordre, recoder: true }, 'POST');
     if (r) await charger();
   }

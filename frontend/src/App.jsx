@@ -7,6 +7,17 @@ import { estDirection, droitEffectif, usePlafonds, oublierPlafonds } from './lib
 class ErrorBoundary extends Component {
   constructor(props) { super(props); this.state = { error: null }; }
   static getDerivedStateFromError(e) { return { error: e }; }
+  // UN MORCEAU DISPARU APRÈS UNE MISE À JOUR n'est pas une erreur à copier :
+  // on recharge la page, une fois (garde de 30 s contre une boucle).
+  componentDidCatch(e) {
+    if (!/Importing a module script failed|dynamically imported module/i.test(String(e?.message || ''))) return;
+    try {
+      const dernier = Number(sessionStorage.getItem('lucie_rechargement') || 0);
+      if (Date.now() - dernier < 30000) return;
+      sessionStorage.setItem('lucie_rechargement', String(Date.now()));
+    } catch { /* stockage indisponible */ }
+    window.location.reload();
+  }
   render() {
     if (this.state.error) return (
       <div style={{ padding: '40px', fontFamily: 'monospace', background: '#fff0f0', minHeight: '100vh' }}>
@@ -27,7 +38,7 @@ import {
   IconChartBar, IconCalendarStats, IconEdit, IconSettings, IconLogout, IconMenu2, IconX,
   IconChalkboard, IconChalkboardTeacher, IconReportAnalytics,
   IconHome, IconBell, IconLibrary, IconGavel, IconSun, IconMoon,
-  IconShieldLock, IconShieldCheck,
+  IconShieldLock, IconShieldCheck, IconFlask,
 } from '@tabler/icons-react';
 
 import Login from './pages/Login.jsx';
@@ -58,6 +69,7 @@ import Echeancier from './pages/Echeancier.jsx';
 import Organisation from './pages/Organisation.jsx';
 import { AxeAccueil, AxeEtudiants } from './pages/Axes.jsx';
 import { BoutonAide } from './pages/Aide.jsx';
+import { demander, informer } from './lib/dialogue.jsx';
 
 /* eslint-disable no-undef */
 const BUILD_DATE_STR = typeof __BUILD_DATE__ !== 'undefined' ? __BUILD_DATE__ : new Date().toISOString();
@@ -201,7 +213,7 @@ function VoirCommePicker() {
     setOpen(o => !o);
     if (!profils.length) api.profilsAcces().then(d => setProfils(Array.isArray(d) ? d : [])).catch(e => setErr(e.message));
   };
-  const voir = (id) => { api.impersonate(id).then(() => { window.location.href = '/'; }).catch(e => alert(e.message)); };
+  const voir = (id) => { api.impersonate(id).then(() => { window.location.href = '/'; }).catch(e => informer(e.message)); };
   return (
     <div className="relative">
       <button onClick={ouvrir} title="Voir Lucie comme un autre profil"
@@ -433,13 +445,13 @@ function ProtectedLayout({ children }) {
   // change l'ordre des crochets d'un rendu à l'autre, ce que React refuse.
   const mode = useMode();
 
-  function changeAnnee(code) {
+  async function changeAnnee(code) {
     // QUITTER L'ANNÉE EN COURS EST UN ACTE VOLONTAIRE : il se confirme, et il
     // ne tient que pour cette fenêtre — à la prochaine connexion ou ouverture,
     // on est de retour dans l'année en cours.
     const enCours = (annees.find(a => a.active) || {}).code;
     if (enCours && code !== enCours) {
-      const ok = window.confirm(
+      const ok = await demander(
         `Vous quittez l'année en cours (${enCours}) pour consulter ${code}.\n\n`
         + `Tous les écrans afficheront ${code} jusqu'à ce que vous reveniez à `
         + `${enCours} ou fermiez la fenêtre.\n\nContinuer ?`);
@@ -533,16 +545,6 @@ function ProtectedLayout({ children }) {
   return (
     <div className="min-h-screen flex flex-col">
       <PreviewBanner />
-      {env === 'dev' && (
-        <div style={{
-          background: 'repeating-linear-gradient(45deg, #f59e0b, #f59e0b 12px, #d97706 12px, #d97706 24px)',
-          color: 'white', textAlign: 'center', padding: '4px 12px',
-          fontSize: '12px', fontWeight: 700, letterSpacing: '2px',
-          textShadow: '0 1px 2px rgba(0,0,0,.3)',
-        }}>
-          ⚠ ENVIRONNEMENT DE DÉVELOPPEMENT — DONNÉES FICTIVES ⚠
-        </div>
-      )}
       {/* LA BARRE DU HAUT RESTE ENTIÈRE, d'un bord à l'autre : deux panneaux
           détachés sur le même écran, c'est un panneau de trop — il faut un
           point fixe, et c'est elle. Elle suit en revanche le mode des menus,
@@ -683,6 +685,16 @@ function ProtectedLayout({ children }) {
             )}
             {/* LE BADGE SEUL, L'INFO AU CLIC (Charles, 27 septembre 2026 : « moche ;
                 on cache la date, et si je clique sur le badge, l'info apparaît »). */}
+            {/* LA DEV SE DIT À CÔTÉ DE LA VERSION, PAS EN BANDEAU (Charles, 3
+                octobre 2026) : le bandeau rayé prenait une ligne à chaque écran
+                et poussait la barre. Orange plein, le mot et l'icône. */}
+            {env === 'dev' && (
+              <span className="hidden md:inline-flex items-center gap-1.5 h-8 px-3 rounded-champ text-white font-bold text-[11px] tracking-[.08em]"
+                style={{ background: 'var(--c-attente, #E8890C)' }}
+                title="Version de développement — données de test">
+                <IconFlask size={16} stroke={2} /> DEV
+              </span>
+            )}
             <BadgeVersion versionIsNew={versionIsNew} versionDecalee={versionDecalee} verServeurNum={verServeurNum} />
             {/* LE COMPTE TIENT SUR UNE LIGNE.
                 Nom complet, rôle et « Déconnexion » s'empilaient sur trois

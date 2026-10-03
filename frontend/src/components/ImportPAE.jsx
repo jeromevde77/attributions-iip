@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { IconX, IconUpload, IconAlertTriangle } from '@tabler/icons-react';
+import { IconUpload, IconAlertTriangle } from '@tabler/icons-react';
+import { Fenetre } from './ui.jsx';
 import { authHeaders } from '../lib/api.js';
 
 /**
@@ -162,20 +163,27 @@ export default function ImportPAE({ annee, onClose, onImporte }) {
   }
 
   return (
-    <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] flex items-start justify-center z-50 p-4 overflow-auto"
-      onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="bg-white rounded-fenetre shadow-dessus w-full max-w-3xl mt-10">
-        <div className="bg-iip-blue rounded-t-2xl px-5 py-4 flex items-start justify-between">
-          <div>
-            <div className="text-white font-bold text-[15px]">Importer le classeur de PAE</div>
-            <div className="text-blue-200 text-[12px] mt-0.5">
-              Résultats par cours et programme de l'année suivante
-            </div>
-          </div>
-          <button onClick={onClose} className="text-blue-200 hover:text-white"><IconX size={19} /></button>
-        </div>
-
-        <div className="p-5 space-y-4">
+    <Fenetre icone={IconUpload} titre="Importer le classeur de PAE"
+      sous="Résultats par cours et programme de l'année suivante"
+      large="moyenne" hauteurFixe onFermer={onClose}
+      pied={<>
+        <span />
+        {etape === 'legende' && analyse && (<>
+          <button onClick={() => setEtape('fichier')}
+            className="bouton">Retour</button>
+          <button onClick={importer} disabled={enCours}
+            className="bouton bouton-fort">
+            {enCours ? 'Import…' : 'Importer'}
+          </button>
+        </>)}
+        {etape === 'fait' && rapport && (
+          <button onClick={onClose}
+            className="bouton bouton-fort">
+            Fermer
+          </button>
+        )}
+      </>}>
+        <div className="space-y-4">
           {erreur && (
             <div className="px-3 py-2 rounded-lg bg-red-50 border border-red-200 text-[13px] text-red-800 border-l-4 border-l-red-500">
               {erreur}
@@ -248,14 +256,6 @@ export default function ImportPAE({ annee, onClose, onImporte }) {
                 </p>
               </div>
 
-              <div className="flex justify-end gap-2">
-                <button onClick={() => setEtape('fichier')}
-                  className="text-sm px-3 py-1.5 rounded-lg border border-slate-300">Retour</button>
-                <button onClick={importer} disabled={enCours}
-                  className="text-sm px-4 py-1.5 rounded-lg bg-iip-blue text-white font-semibold disabled:opacity-50">
-                  {enCours ? 'Import…' : 'Importer'}
-                </button>
-              </div>
             </>
           )}
 
@@ -288,16 +288,9 @@ export default function ImportPAE({ annee, onClose, onImporte }) {
                 </div>
               )}
 
-              <div className="flex justify-end">
-                <button onClick={onClose}
-                  className="bouton bouton-fort">
-                  Fermer
-                </button>
-              </div>
             </>
           )}
         </div>
-      </div>
-    </div>
+    </Fenetre>
   );
 }

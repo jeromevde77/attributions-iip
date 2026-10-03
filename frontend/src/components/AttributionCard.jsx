@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { IconTrash } from '@tabler/icons-react';
 import { api } from '../lib/api.js';
+import { informer } from '../lib/dialogue.jsx';
 
 /**
  * Carte compacte d'une attribution pour vue mobile.
@@ -32,7 +33,7 @@ export default function AttributionCard({ row, selected, onToggleSelect, onChang
     const per = Number(form.periodes_attribuees) || 0;
     const aut = Number(form.autonomie_attribuee) || 0;
     if (per === 0 && aut > 0 && !form.activite_id) {
-      alert('Une ligne sans période de cours (autonomie seule) doit être rattachée à une activité (ex. théorie, TP).');
+      informer('Une ligne sans période de cours (autonomie seule) doit être rattachée à une activité (ex. théorie, TP).');
       return;
     }
     setSaving(true);
@@ -51,7 +52,7 @@ export default function AttributionCard({ row, selected, onToggleSelect, onChang
       await api.updateAttribution(row.id, payload);
       onChange?.();
       setOpen(false);
-    } catch (e) { alert(e.message); }
+    } catch (e) { informer(e.message); }
     finally { setSaving(false); }
   }
 

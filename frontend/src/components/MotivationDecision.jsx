@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
 import {
-  IconX, IconDeviceFloppy, IconAlertTriangle, IconPrinter,
+  IconDeviceFloppy, IconAlertTriangle, IconPrinter,
 } from '@tabler/icons-react';
 import { authHeaders } from '../lib/api.js';
+import { Fenetre } from './ui.jsx';
 import { MOTIFS_ECHEC, texteDuMotif, composerMotif, decomposerMotif } from './motifsEchec.js';
 import { ouvrirApercu } from '../lib/apercu.js';
 
@@ -106,15 +107,7 @@ export default function MotivationDecision({ etudId, annee, onClose }) {
   // Le choix de l'unité, tant qu'elle n'est pas faite.
   if (!ueNum) {
     return (
-      <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] flex items-start justify-center z-50 p-4"
-        onClick={e => e.target === e.currentTarget && onClose()}>
-        <div className="bg-white rounded-fenetre shadow-dessus w-full max-w-lg mt-16 p-5 space-y-3">
-          <div className="flex items-start justify-between">
-            <h3 className="text-[15px] font-semibold text-iip-blue">
-              Motiver une décision · {annee}
-            </h3>
-            <button onClick={onClose} className="text-slate-400"><IconX size={18} /></button>
-          </div>
+      <Fenetre titre={`Motiver une décision · ${annee}`} large="petite" onFermer={onClose}>
           {!ues ? (
             <p className="text-[13px] text-slate-400 py-4 text-center">Chargement…</p>
           ) : !ues.length ? (
@@ -138,18 +131,15 @@ export default function MotivationDecision({ etudId, annee, onClose }) {
               ))}
             </div>
           )}
-        </div>
-      </div>
+      </Fenetre>
     );
   }
 
   if (!donnees) {
     return (
-      <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] flex items-start justify-center z-50 p-4">
-        <div className="bg-white rounded-fenetre shadow-dessus p-6 mt-20 text-[13px] text-slate-500">
-          Chargement…
-        </div>
-      </div>
+      <Fenetre titre="Motivation d'une décision" large="petite" onFermer={onClose}>
+        <div className="text-[13px] text-slate-500">Chargement…</div>
+      </Fenetre>
     );
   }
 
@@ -159,26 +149,26 @@ export default function MotivationDecision({ etudId, annee, onClose }) {
   const estRefus = donnees.resultat === 'refuse';
 
   return (
-    <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] flex items-start justify-center z-50 p-4"
-      onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="bg-white rounded-fenetre shadow-dessus w-full max-w-3xl mt-8 max-h-[88vh] overflow-hidden flex flex-col">
-
-        <div className="flex-none p-5 pb-3 border-b border-slate-100 flex items-start justify-between">
-          <div>
-            <h3 className="text-[15px] font-semibold text-iip-blue">
-              Motivation d'une décision {estRefus ? 'de refus' : "d'ajournement"}
-            </h3>
-            <p className="text-[12px] text-slate-500">
-              UE {ueNum} · {annee} · annexe {estRefus ? '9' : '8'} de la circulaire
-              Sanction des études
-            </p>
-          </div>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-600">
-            <IconX size={18} />
-          </button>
-        </div>
-
-        <div className="flex-1 overflow-y-auto p-5 space-y-4">
+    <Fenetre large="moyenne" onFermer={onClose}
+      titre={`Motivation d'une décision ${estRefus ? 'de refus' : "d'ajournement"}`}
+      sous={`UE ${ueNum} · ${annee} · annexe ${estRefus ? '9' : '8'} de la circulaire Sanction des études`}
+      pied={<>
+        <span />
+        <button onClick={produireDocument}
+          disabled={!nonMaitrises.length || sansMotif > 0}
+          title={sansMotif > 0
+            ? 'Motivez chaque acquis avant de produire le document'
+            : 'Produire le document réglementaire'}
+          className="bouton bouton-sortir inline-flex items-center gap-1.5">
+          <IconPrinter size={15} /> Produire le document
+        </button>
+        <button onClick={enregistrer} disabled={enCours || !nonMaitrises.length}
+          className="bouton bouton-fort inline-flex items-center gap-1.5">
+          <IconDeviceFloppy size={15} />
+          {enCours ? 'Enregistrement…' : 'Enregistrer les motivations'}
+        </button>
+      </>}>
+        <div className="space-y-4">
 
         {message && (
           <div className={`px-3 py-2 rounded-lg text-[13px] ${
@@ -325,26 +315,7 @@ export default function MotivationDecision({ etudId, annee, onClose }) {
             Une absence d'évaluation n'est pas un échec et ne peut motiver un refus.
           </p>
         )}
-
-        <div className="flex gap-2 flex-wrap">
-          <button onClick={enregistrer} disabled={enCours || !nonMaitrises.length}
-            className="flex items-center gap-1.5 px-4 py-2 text-sm bg-iip-blue text-white
-                       font-semibold rounded-lg disabled:opacity-40">
-            <IconDeviceFloppy size={15} />
-            {enCours ? 'Enregistrement…' : 'Enregistrer les motivations'}
-          </button>
-          <button onClick={produireDocument}
-            disabled={!nonMaitrises.length || sansMotif > 0}
-            title={sansMotif > 0
-              ? 'Motivez chaque acquis avant de produire le document'
-              : 'Produire le document réglementaire'}
-            className="flex items-center gap-1.5 px-4 py-2 text-sm border border-iip-blue
-                       text-iip-blue font-semibold rounded-lg disabled:opacity-40">
-            <IconPrinter size={15} /> Produire le document
-          </button>
         </div>
-        </div>
-      </div>
-    </div>
+    </Fenetre>
   );
 }

@@ -6,6 +6,7 @@ import {
 import { authHeaders } from '../lib/api.js';
 import FeuilleDeliberation from '../components/FeuilleDeliberation.jsx';
 import EncodageDirect from '../components/EncodageDirect.jsx';
+import { demander } from '../lib/dialogue.jsx';
 
 /**
  * Encodage rapide des résultats — étudiants en lignes, UE en colonnes.
@@ -220,7 +221,7 @@ export default function EncodageRapide() {
   const cibles = () => (choisis.size ? filtres.filter(e => choisis.has(e.id)) : filtres);
 
   // Action groupée : un résultat sur toutes les UE d'une année d'études
-  function appliquerLot(resultat) {
+  async function appliquerLot(resultat) {
     if (!data) return;
     const ues = data.ues.filter(u => !niveauLot || (u.ue_niv || '') === niveauLot);
     const etuds = cibles();
@@ -228,9 +229,9 @@ export default function EncodageRapide() {
     const quoi = resultat === 'reussi' ? 'réussi'
       : resultat === 'ajourne' ? 'ajourné'
       : resultat === 'refuse' ? 'refusé' : 'effacé';
-    if (!window.confirm(
+    if (!(await demander(
       `Marquer ${quoi} ${ues.length} UE${niveauLot ? ' de ' + niveauLot : ''} ` +
-      `pour ${etuds.length} étudiant(s), en ${annee} ?`)) return;
+      `pour ${etuds.length} étudiant(s), en ${annee} ?`))) return;
 
     setCellules(c => {
       const n = { ...c };
@@ -244,10 +245,10 @@ export default function EncodageRapide() {
   }
 
   // Colonne entière
-  function appliquerColonne(ueNum) {
+  async function appliquerColonne(ueNum) {
     const etuds = cibles();
     if (!etuds.length) return;
-    if (!window.confirm(`Marquer réussi l'UE ${ueNum} pour ${etuds.length} étudiant(s) ?`)) return;
+    if (!(await demander(`Marquer réussi l'UE ${ueNum} pour ${etuds.length} étudiant(s) ?`))) return;
     setCellules(c => {
       const n = { ...c };
       for (const e of etuds) n[e.id + '|' + ueNum] = 'reussi';

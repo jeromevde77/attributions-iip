@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate, Navigate } from 'react-router-dom';
 import { api, isAuthenticated } from '../lib/api.js';
+import { IconFlask } from '@tabler/icons-react';
 
 function LucieLogo({ size = 200 }) {
   // Version verticale : symbole L au-dessus, "Lucie" dessous, calé sur la largeur du L.
@@ -238,12 +239,11 @@ export default function Login() {
               <div style={{
                 marginTop:'8px',
                 display:'inline-block',
-                background: 'repeating-linear-gradient(45deg, var(--c-attente), var(--c-attente) 8px, var(--c-attente) 8px, var(--c-attente) 16px)',
-                color:'white', fontSize:'11px', fontWeight:700, letterSpacing:'1.5px',
-                padding:'4px 14px', borderRadius:'6px',
-                textShadow:'0 1px 2px rgba(0,0,0,.3)',
-              }}>
-                ⚠ DÉVELOPPEMENT — DONNÉES FICTIVES
+                background: 'var(--c-attente, #E8890C)',
+                color:'white', fontSize:'11px', fontWeight:700, letterSpacing:'.08em',
+                padding:'5px 12px', borderRadius:'8px',
+              }} title="Version de développement — données de test">
+                <IconFlask size={14} stroke={2} style={{ verticalAlign: '-2px', marginRight: 5 }} />DEV
               </div>
             )}
           </div>

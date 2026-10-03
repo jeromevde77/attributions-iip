@@ -794,8 +794,19 @@ r.put('/:id', authRequired, (req, res) => {
 
 r.delete('/:id', authRequired,
   roleRequired('admin', 'directeur', 'directeur_adjoint'), (req, res) => {
-    db.prepare('DELETE FROM reunion WHERE id = ?').run(req.params.id);
-    res.json({ ok: true });
+    /* LES TÂCHES SURVIVENT À LEUR RÉUNION. Une consigne confiée reste due,
+       même si la séance qui l'a décidée disparaît : `reunion_id` se vide de
+       lui-même (ON DELETE SET NULL), mais `point_id` n'a pas de règle — la
+       suppression échouait dès qu'une décision était rattachée à un point. On
+       détache d'abord, on efface ensuite, ensemble. */
+    const id = Number(req.params.id);
+    if (!db.prepare('SELECT 1 FROM reunion WHERE id = ?').get(id)) return res.status(404).json({ error: 'Réunion introuvable.' });
+    const garde = db.prepare('SELECT COUNT(*) n FROM tache WHERE reunion_id = ?').get(id).n;
+    db.transaction(() => {
+      db.prepare('UPDATE tache SET point_id = NULL WHERE point_id IN (SELECT id FROM reunion_point WHERE reunion_id = ?)').run(id);
+      db.prepare('DELETE FROM reunion WHERE id = ?').run(id);
+    })();
+    res.json({ ok: true, taches_conservees: garde });
   });
 
 // ─── LE PROCÈS-VERBAL ───────────────────────────────────────────────────────

@@ -1,6 +1,8 @@
 import { useCallback, useMemo, useState } from 'react';
 import { IconDatabaseImport } from '@tabler/icons-react';
 import { RailDessine, FournisseurRail } from './ui.jsx';
+import { droitEffectif, usePlafonds } from '../lib/modules.js';
+import { getUser } from '../lib/api.js';
 
 /**
  * Enveloppe d'un axe de la structure en 7 : des rubriques, et dans chacune un
@@ -45,7 +47,16 @@ export default function Axe({ titre, question, icone, onglets, ongletInitial,
   // et l'icône qui la portait parasitait le rail replié de ceux qui
   // travaillent. Les idées ont désormais leur porte — « Proposer une
   // amélioration », présente sur tous les écrans, au même endroit.
-  const visibles = onglets.filter(o => !o.masque && !o.futur);
+  /* LE RAIL SUIT LES DROITS, COMME LE MENU PRINCIPAL (Charles, 3 octobre 2026).
+     Une rubrique déclare son `module` : si le rôle n'a « rien » sur ce module,
+     elle n'apparaît pas — un professeur ne voyait pas Gestion dans la barre,
+     mais retrouvait dans le rail des écrans qui ne lui répondaient que par un
+     refus. `roles`, quand il est posé, limite la rubrique à ces rôles. */
+  usePlafonds();
+  const moi = getUser();
+  const visibles = onglets.filter(o => !o.masque && !o.futur
+    && (!o.module || droitEffectif(moi, o.module) !== 'rien')
+    && (!o.roles || o.roles.includes(moi?.role)));
   const [actif, setActif] = useState(
     ongletInitial && visibles.some(o => o.key === ongletInitial)
       ? ongletInitial

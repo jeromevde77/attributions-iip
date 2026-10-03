@@ -4,6 +4,7 @@ import {
   IconCheck,
 } from '@tabler/icons-react';
 import { authHeaders } from '../lib/api.js';
+import { demander } from '../lib/dialogue.jsx';
 
 const fr = n => n == null ? '—' : String(n);
 
@@ -46,13 +47,13 @@ export default function CalculateurAnciennete({ profId, estAdmin, peutEcrire, an
   }
 
   async function supprimerLigne(id) {
-    if (!confirm('Supprimer ce service ?')) return;
+    if (!await demander('Supprimer ce service ?')) return;
     await fetch(`/api/anciennete-service/service/${id}`, { method: 'DELETE', headers: authHeaders() });
     await charger();
   }
 
   async function synchroniser() {
-    if (!confirm('Pousser les totaux calculés vers le Classement (art. 34) et l\'ancienneté PO ? Cette action écrase les valeurs actuelles.')) return;
+    if (!await demander('Pousser les totaux calculés vers le Classement (art. 34) et l\'ancienneté PO ? Cette action écrase les valeurs actuelles.')) return;
     const rep = await fetch(`/api/anciennete-service/${profId}/synchroniser`, {
       method: 'POST', headers: authHeaders(),
     });

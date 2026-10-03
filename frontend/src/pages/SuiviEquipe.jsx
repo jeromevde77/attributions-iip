@@ -6,10 +6,12 @@ import {
 } from '@tabler/icons-react';
 import { authHeaders, getUser } from '../lib/api.js';
 import FriseEcheances from '../components/FriseEcheances.jsx';
+import { urgence } from '../lib/urgence.js';
 import { Fenetre, PageHeader, RailLateral, OuvrirEditions } from '../components/ui.jsx';
 import { nomDepuisChaine, nomListe, parNom } from '../lib/nom.js';
 import PreviewModal from '../components/PreviewModal.jsx';
 import ConfierTache from '../components/ConfierTache.jsx';
+import { demander, informer } from '../lib/dialogue.jsx';
 
 /**
  * SUIVI D'ÉQUIPE — la réunion, et ce qu'elle laisse derrière elle.
@@ -169,7 +171,7 @@ export default function SuiviEquipe() {
       <div className="gouttiere-rail p-4 md:p-8">
         {ouverte ? (
           <DetailReunion reunion={ouverte} personnes={personnes} obligations={obligations}
-            types={types} perimetre={perimetre} api={api}
+            types={types} perimetre={perimetre} api={api} peutSupprimer={direction}
             onRetour={() => { setOuverte(null); chargerReunions(); chargerTaches(); }}
             onRecharger={() => { ouvrir(ouverte.id); chargerTaches(); }}
             onImprimer={version => imprimer(`/${ouverte.id}/document`, version ? { version } : {})} />
@@ -288,7 +290,7 @@ export default function SuiviEquipe() {
 // ─── UNE RÉUNION ────────────────────────────────────────────────────────────
 
 function DetailReunion({ reunion, personnes, obligations, types = [], perimetre,
-                        api, onRetour, onRecharger, onImprimer }) {
+                        api, onRetour, onRecharger, onImprimer, peutSupprimer = false }) {
   /* LA SÉANCE, EN UNE PAGE QUI SE LIT (Jérôme, 24 septembre 2026 : « c'est
    * trop compliqué, la mise en page ne va pas »). Dix cartes empilées, six
    * champs par décision, le suivi des séances précédentes au milieu : on ne
@@ -370,8 +372,17 @@ function DetailReunion({ reunion, personnes, obligations, types = [], perimetre,
   const champ = 'bg-white border border-slate-200 hover:border-slate-300 focus:border-iip-blue rounded-champ px-2 h-8 text-[13px]';
   const lignes = t => Math.min(12, Math.max(2, String(t || '').split('\n').length + 1));
 
+  /* LA SÉANCE EN V3 (Charles, 3 octobre 2026 : « peu clair, pas V3, et
+     n'occupe pas toute la place »). Toute la largeur ; des champs qui portent
+     leur étiquette ; des présences en pastilles pleines ; le suivi des
+     séances précédentes signalé en orange, avec son compte ; chaque point
+     numéroté dans une pastille marine, ses décisions nommées dessous. */
+  const Etiquette = ({ children }) => (
+    <span className="block text-[10.5px] uppercase tracking-[.1em] text-slate-400 font-semibold mb-0.5">{children}</span>
+  );
+  const nbPresents = participants.filter(p => p.present).length;
   return (
-    <div className="max-w-[1100px]">
+    <div className="w-full">
       <div className="flex items-center gap-2 mb-2">
         <button onClick={onRetour} className="bouton controle px-2.5 flex items-center gap-1.5">
           <IconChevronLeft size={16} /> Réunions
@@ -389,14 +400,31 @@ function DetailReunion({ reunion, personnes, obligations, types = [], perimetre,
             <IconLock size={16} /> PV intégral
           </button>
         )}
+        {/* DÉTRUIRE, TOUJOURS EN DERNIER — et réservé à la direction, comme la
+            route. Les tâches décidées en séance survivent : elles restent dues. */}
+        {peutSupprimer && (
+          <button onClick={async () => {
+              const nb = (reunion.taches || []).length;
+              if (!(await demander({ titre: 'Supprimer la réunion', ton: 'alerte', confirmer: 'Supprimer la réunion',
+                message: `« ${champs.titre || 'Réunion'} » du ${String(champs.date_seance || '').split('-').reverse().join('/')} : `
+                  + 'ses points, ses notes et ses présences seront effacés.'
+                  + (nb ? `\n\nLes ${nb} tâche(s) décidée(s) en séance sont conservées, sans réunion.` : '') }))) return;
+              try { await api(`/${reunion.id}`, { method: 'DELETE' }); onRetour(); }
+              catch (e) { informer(e.message || 'Suppression refusée.'); }
+            }}
+            title="Supprimer la réunion" className="bouton controle px-2.5 flex items-center gap-1.5 hover:text-white hover:bg-[color:var(--c-refuse)]">
+            <IconTrash size={16} />
+          </button>
+        )}
       </div>
 
       {/* ── LA SÉANCE : quoi, quand, où, qui ── */}
-      <div className="carte px-3 py-2.5 mb-2">
+      <div className="carte bg-white px-4 py-3 mb-3">
         <input value={champs.titre} onChange={e => poser('titre', e.target.value)} onBlur={() => enregistrer()}
           className="w-full bg-transparent border-0 border-b border-transparent hover:border-slate-200
                      focus:border-iip-blue focus:outline-none px-0 h-8 text-[17px] font-semibold text-iip-blue" />
-        <div className="flex flex-wrap items-center gap-1.5 mt-1">
+        <div className="flex flex-wrap items-end gap-2.5 mt-1.5">
+          <label><Etiquette>Type</Etiquette>
           <select value={champs.genre} title="Type de réunion"
             onChange={e => {
               const t = types.find(x => x.cle === e.target.value);
@@ -405,13 +433,16 @@ function DetailReunion({ reunion, personnes, obligations, types = [], perimetre,
             }}
             className={`${champ} max-w-[14rem]`}>
             {types.map(t => <option key={t.cle} value={t.cle}>{t.libelle}</option>)}
-          </select>
+          </select></label>
+          <label><Etiquette>Date</Etiquette>
           <input type="date" value={champs.date_seance} title="Date"
-            onChange={e => poser('date_seance', e.target.value)} onBlur={() => enregistrer()} className={champ} />
+            onChange={e => poser('date_seance', e.target.value)} onBlur={() => enregistrer()} className={champ} /></label>
+          <label><Etiquette>Heure</Etiquette>
           <input type="time" value={champs.heure_seance} title="Heure"
-            onChange={e => poser('heure_seance', e.target.value)} onBlur={() => enregistrer()} className={`${champ} w-[6.5rem]`} />
+            onChange={e => poser('heure_seance', e.target.value)} onBlur={() => enregistrer()} className={`${champ} w-[6.5rem]`} /></label>
+          <label className="flex-1 min-w-[12rem] max-w-[24rem]"><Etiquette>Lieu</Etiquette>
           <input value={champs.lieu} placeholder="Lieu" title="Lieu"
-            onChange={e => poser('lieu', e.target.value)} onBlur={() => enregistrer()} className={`${champ} w-44`} />
+            onChange={e => poser('lieu', e.target.value)} onBlur={() => enregistrer()} className={`${champ} w-full`} /></label>
           <button onClick={() => setPlus(v => !v)}
             className="text-[12px] text-slate-500 hover:text-iip-blue px-1.5 h-8">
             {plus ? '▾' : '▸'} Organisateur, section, unités
@@ -458,18 +489,19 @@ function DetailReunion({ reunion, personnes, obligations, types = [], perimetre,
 
         {/* LES PRÉSENCES, EN PASTILLES : un clic change l'état. */}
         <div className="flex flex-wrap items-center gap-1 mt-2 pt-2 border-t border-slate-100">
-          <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 mr-1">Présences</span>
+          <span className="text-[10.5px] font-semibold uppercase tracking-[.1em] text-slate-400 mr-1">Présences · {nbPresents}</span>
           {participants.map((p, i) => ({ p, i })).sort((a, b) => parNom(a.p.nom, b.p.nom)).map(({ p, i }) => (
             <span key={p.id || p.cle || p.nom}
               className={`group inline-flex items-center gap-1 rounded-full pl-2 pr-1 h-6 text-[12px] border
-                ${p.present ? 'bg-iip-blue/10 border-iip-blue/20 text-iip-blue'
-                  : p.excuse ? 'bg-amber-500 border-amber-500 text-white'
-                  : 'bg-slate-50 border-slate-200 text-slate-400 line-through'}`}>
+                ${p.present ? 'border-transparent text-white font-semibold'
+                  : p.excuse ? 'border-transparent text-white'
+                  : 'bg-white border-slate-200 text-slate-400 line-through'}`}
+              style={p.present ? { background: 'var(--c-principal)' } : p.excuse ? { background: 'var(--c-attente)' } : undefined}>
               <button onClick={() => basculerPresence(i)} title="Clic : présent → excusé → absent">
                 {nomListe(p.nom)}{!p.present && p.excuse ? ' · excusé' : ''}
               </button>
               <button onClick={() => retirerParticipant(i)} title="Retirer de la liste"
-                className="opacity-0 group-hover:opacity-100 text-slate-400 hover:text-slate-700">
+                className={`opacity-0 group-hover:opacity-100 ${p.present || p.excuse ? 'text-white/70 hover:text-white' : 'text-slate-400 hover:text-slate-700'}`}>
                 <IconX size={11} />
               </button>
             </span>
@@ -481,10 +513,12 @@ function DetailReunion({ reunion, personnes, obligations, types = [], perimetre,
 
       {/* ── CE QUI RESTAIT OUVERT — replié : on l'ouvre en début de séance ── */}
       {!!reunion.reste?.length && (
-        <details className="carte px-3 py-2 mb-2">
-          <summary className="cursor-pointer text-[13px] font-semibold text-iip-blue">
-            Suivi des séances précédentes <span className="font-normal text-slate-400">
-              — {reunion.reste.length} tâche(s) encore ouverte(s)</span>
+        <details data-etat="surveiller" className="bloc-etat px-4 py-2.5 mb-3">
+          <summary className="cursor-pointer text-[13px] font-semibold text-iip-blue flex items-center gap-2">
+            Suivi des séances précédentes
+            <span className="text-[11px] font-bold text-white rounded-full px-2 h-5 inline-flex items-center"
+              style={{ background: 'var(--c-attente)' }}>{reunion.reste.length} tâche(s) ouverte(s)</span>
+            <span className="ml-auto text-[11.5px] font-normal text-slate-400">déplier</span>
           </summary>
           <div className="mt-1">
             <ListeTaches taches={reunion.reste} personnes={personnes} presents={presents}
@@ -496,9 +530,10 @@ function DetailReunion({ reunion, personnes, obligations, types = [], perimetre,
       {/* ── L'ORDRE DU JOUR : chaque point, ce qui s'y dit, ce qui s'y décide ── */}
       {points.map((p, i) => (
         <div key={p.id || `neuf-${i}`}
-          className={`carte px-3 py-2 mb-2 ${p.confidentiel ? 'border-red-200' : ''}`}>
-          <div className="flex items-center gap-2">
-            <span className="text-[13px] font-semibold text-slate-400 tabular-nums w-5 flex-none">{i + 1}.</span>
+          className={`carte bg-white px-4 py-3 mb-3 ${p.confidentiel ? 'border-red-200' : ''}`}>
+          <div className="flex items-center gap-2.5">
+            <span className="w-[26px] h-[26px] rounded-full grid place-items-center text-white text-[12px] font-bold tabular-nums flex-none"
+              style={{ background: 'var(--c-principal)' }}>{i + 1}</span>
             <input value={p.intitule || ''} autoFocus={!p.intitule}
               onChange={e => poserPoint(i, 'intitule', e.target.value)} onBlur={() => enregistrer()}
               placeholder="Intitulé du point"
@@ -520,7 +555,7 @@ function DetailReunion({ reunion, personnes, obligations, types = [], perimetre,
             </button>
           </div>
           {p.masque ? (
-            <p className="flex items-center gap-1.5 text-[12px] text-slate-500 pl-7 py-1">
+            <p className="flex items-center gap-1.5 text-[12px] text-slate-500 pl-9 py-1">
               <IconLock size={13} className="flex-none" />
               Point confidentiel — notes réservées à la direction, à l'organisateur et aux participants.
             </p>
@@ -528,10 +563,11 @@ function DetailReunion({ reunion, personnes, obligations, types = [], perimetre,
             <textarea value={p.notes || ''} rows={lignes(p.notes)}
               onChange={e => poserPoint(i, 'notes', e.target.value)} onBlur={() => enregistrer()}
               placeholder="Ce qui s'est dit, ce qui a été tranché."
-              className={`block w-[calc(100%-1.75rem)] ml-7 mt-1 border rounded-champ px-2 py-1 text-[13px] resize-y
+              className={`block w-[calc(100%-2.25rem)] ml-9 mt-1.5 border rounded-champ px-2.5 py-1.5 text-[13px] resize-y
                 ${p.confidentiel ? 'bg-red-50/40 border-red-200' : 'bg-white border-slate-200'}`} />
           )}
-          <div className="ml-7 mt-1">
+          <div className="ml-9 mt-2">
+            <span className="block text-[10.5px] uppercase tracking-[.1em] text-slate-400 font-semibold mb-0.5">Décisions</span>
             {p.id ? (
               <ListeTaches taches={(reunion.taches || []).filter(t => t.point_id === p.id)}
                 personnes={personnes} presents={presents} obligations={obligations} api={api}
@@ -665,20 +701,29 @@ function ChoixResponsables({ personnes, presents = [], tache, onChange, informes
     .sort((a, b) => parNom(a.nom, b.nom));
 
   return (
-    <div className={`flex flex-wrap items-center gap-1 min-w-[10rem] max-w-[18rem]
+    <div className={`flex flex-wrap items-center gap-x-1.5 gap-y-0.5 min-w-[10rem] max-w-[24rem]
       ${cles.length || informes ? '' : 'rounded-champ ring-1 ring-amber-300 px-1 py-0.5'}`}>
+      {/* LES NOMS À LA SUITE, COMME ON LES DIRAIT (Charles, 3 octobre 2026) :
+          six pastilles grises sur trois lignes faisaient un mur. Une phrase —
+          le premier en gras, c'est lui qui répond de l'action —, la croix au
+          survol seulement. */}
+      {informes && cles.length > 0 && <IconEye size={12} className="text-slate-400 flex-none" />}
       {cles.map((cle, i) => (
         <span key={cle} title={informes ? 'Au courant, sans en répondre'
                               : i === 0 ? "Répond de l'action" : undefined}
-          className={`inline-flex items-center gap-1 rounded-champ px-1.5 h-6 text-[11px]
-            ${!informes && i === 0 ? 'bg-iip-blue/10 text-iip-blue font-semibold'
-                      : 'bg-slate-100 text-slate-600'}`}>
-          {informes && <IconEye size={11} className="text-slate-400" />}
+          className={`group/nom relative inline-flex items-center text-[12px] whitespace-nowrap
+            ${!informes && i === 0 ? 'text-iip-blue font-semibold' : 'text-slate-600'}`}>
           {nomDeCle(cle)}
+          {/* LA CROIX SE POSE PAR-DESSUS, ELLE NE PREND PAS DE PLACE : en
+              s'élargissant au survol, elle repoussait les noms suivants et la
+              ligne sautait sous la souris. */}
           <button onClick={() => onChange(cles.filter(c => c !== cle))}
-            className="text-slate-400 hover:text-slate-700" title="Retirer">
-            <IconX size={11} />
+            className="absolute -top-1.5 -right-2.5 w-4 h-4 grid place-items-center rounded-full bg-white
+                       shadow-pose text-slate-500 hover:text-white hover:bg-[color:var(--c-refuse)]
+                       opacity-0 group-hover/nom:opacity-100 transition-opacity duration-100" title="Retirer">
+            <IconX size={10} stroke={2.5} />
           </button>
+          {i < cles.length - 1 && <span className="text-slate-400">,</span>}
         </span>
       ))}
       <select value="" onChange={e => e.target.value && onChange([...cles, e.target.value])}
@@ -857,67 +902,80 @@ function ListeTaches({ taches, personnes, presents = [], obligations = [], api, 
     );
   }
 
+  /* EN COLONNES, ET TOUT RESTE SUR LA LIGNE (Charles, 3 octobre 2026 : « ton
+     sur ton, peu ordonné… fais au mieux »). Les champs s'alignaient au fil du
+     texte : chaque ligne avait sa géométrie, l'œil ne trouvait jamais la date
+     au même endroit. Une grille, un en-tête qui nomme les colonnes ; on
+     modifie toujours sur place — les habitudes ne changent pas. Les
+     « au courant » se lisent sous l'intitulé et se règlent sous « ⋯ ». */
+  const GRILLE = 'grid grid-cols-[22px_minmax(0,1fr)_minmax(10rem,20rem)_8.6rem_7.4rem_28px] items-center gap-x-3';
   return (
-    <div className="carte overflow-hidden">
-      {taches.map(t => (
-        <div key={t.id}
-          className="px-3 py-2 flex flex-wrap items-center gap-3 border-t border-slate-100 first:border-t-0">
-          {/* COCHER, C'EST LE GESTE DE LA RÉUNION — il doit être le plus court. */}
-          <button onClick={() => majTache(t, { statut: t.statut === 'fait' ? 'a_faire' : 'fait' })}
-            title={t.statut === 'fait' ? 'Rouvrir la tâche' : 'Marquer comme faite'}
-            className={`w-5 h-5 flex-none grid place-items-center rounded-champ border
-              ${t.statut === 'fait'
-                ? 'bg-emerald-600 border-emerald-600 text-white'
-                : 'border-slate-300 text-transparent hover:border-emerald-500'}`}>
-            <IconCheck size={13} />
-          </button>
-
-          {/* LE TITRE SE CORRIGE. Tout était modifiable sur cette ligne —
-              responsable, échéance, statut, obligation — SAUF ce qu'on lit en
-              premier. Une faute de frappe ou une consigne qui change n'avaient
-              donc qu'une issue : supprimer la tâche et la refaire, ce qui perd
-              sa date de création et son rattachement à la réunion qui l'a
-              décidée. On clique dessus, on écrit, Entrée enregistre ; Échap
-              rend la main sans rien changer. */}
-          <TitreModifiable tache={t} compact={compact}
-            onValider={titre => majTache(t, { titre })} />
-
-          {!!obligations.length && (
-            <select value={t.echeance_id || ''} title="Obligation servie par cette action"
-              onChange={e => majTache(t, { echeance_id: e.target.value ? Number(e.target.value) : null })}
-              className="bg-white border border-slate-300 rounded-champ px-1.5 h-8 text-[12px]
-                         max-w-[12rem] text-slate-600">
-              <option value="">— ne sert aucune obligation —</option>
-              {obligations.map(o => (
-                <option key={o.id} value={o.id}>
-                  {o.libelle}{o.base_legale ? ` · ${o.base_legale}` : ''}
-                </option>
-              ))}
-            </select>
-          )}
-
-          <ChoixResponsables personnes={personnes} presents={presents} tache={t}
-            onChange={cles => majTache(t, { responsables: cles })} />
-
-          {/* AU COURANT — voient la tâche, n'en répondent pas. */}
-          <ChoixResponsables personnes={personnes} tache={t} informes
-            onChange={cles => majTache(t, { informes: cles })} />
-
-          {/* POUR QUAND — la deuxième moitié de toute décision. « Qui fait
-              quoi » sans « pour quand » n'est pas une action, c'est une
-              intention : on la retrouve ouverte trois réunions plus tard. */}
-          <input type="date" value={t.echeance || ''} title="Pour quand"
-            onChange={e => majTache(t, { echeance: e.target.value || null })}
-            className={`bg-white border rounded-champ px-1.5 h-8 text-[12px]
-              ${enRetard(t) ? 'border-amber-500 text-amber-800'
-                : t.echeance ? 'border-slate-300' : 'border-amber-300'}`} />
-
-          <select value={t.statut} onChange={e => majTache(t, { statut: e.target.value })}
-            className="bg-white border border-slate-300 rounded-champ px-1.5 h-8 text-[12px]">
-            {STATUTS.map(([cle, lib]) => <option key={cle} value={cle}>{lib}</option>)}
-          </select>
+    <div className="carte overflow-hidden bg-white">
+      {taches.length > 0 && (
+        <div className={`${GRILLE} tab-entete px-3 py-1.5 text-[10.5px] uppercase tracking-[.1em] text-slate-500 font-semibold`}>
+          <span /><span>Tâche</span><span>Responsables</span><span>Échéance</span><span>Statut</span><span />
         </div>
-      ))}
+      )}
+      {taches.map(t => {
+        const fini = t.statut === 'fait' || t.statut === 'abandonnee';
+        const u = urgence(t.echeance);
+        const teinteDate = fini ? null : (u.niveau === 'depasse' || u.niveau === 'presse') ? 'var(--c-refuse)'
+          : u.niveau === 'approche' ? 'var(--c-attente)' : null;
+        const teinteStatut = { a_faire: '#94A3B8', en_cours: 'var(--c-disponible)', fait: 'var(--c-reussi)', abandonnee: '#64748B' }[t.statut] || '#94A3B8';
+        const informes = (t.informes || []).map(x => nomListe(x.nom || '')).filter(Boolean);
+        return (
+        <div key={t.id} className="border-t border-slate-100">
+          <div className={`${GRILLE} px-3 py-1.5`}>
+            {/* COCHER, C'EST LE GESTE DE LA RÉUNION — il doit être le plus court. */}
+            <button onClick={() => majTache(t, { statut: t.statut === 'fait' ? 'a_faire' : 'fait' })}
+              title={t.statut === 'fait' ? 'Rouvrir la tâche' : 'Marquer comme faite'}
+              className={`w-5 h-5 grid place-items-center rounded-champ border
+                ${t.statut === 'fait'
+                  ? 'border-transparent text-white'
+                  : 'border-slate-300 text-transparent hover:border-slate-500'}`}
+              style={t.statut === 'fait' ? { background: 'var(--c-reussi)' } : undefined}>
+              <IconCheck size={13} />
+            </button>
+
+            {/* LE TITRE SE CORRIGE : on clique, on écrit, Entrée enregistre. */}
+            <div className="min-w-0">
+              <TitreModifiable tache={t} compact={compact}
+                onValider={titre => majTache(t, { titre })} />
+              {informes.length > 0 && !deplies.has(t.id) && (
+                <div className="text-[11px] text-slate-400 truncate">Au courant : {informes.join(', ')}</div>
+              )}
+            </div>
+
+            <ChoixResponsables personnes={personnes} presents={presents} tache={t}
+              onChange={cles => majTache(t, { responsables: cles })} />
+
+            {/* POUR QUAND — la couleur dit l'urgence : fraise, orange. */}
+            <input type="date" value={t.echeance || ''} title="Pour quand"
+              onChange={e => majTache(t, { echeance: e.target.value || null })}
+              className={`w-full rounded-full px-2.5 h-7 text-[12px] font-semibold tabular-nums border
+                ${teinteDate ? 'text-white border-transparent' : t.echeance ? 'bg-white border-slate-300 text-iip-texte' : 'bg-white border-dashed border-slate-300 text-slate-400'}`}
+              style={teinteDate ? { background: teinteDate } : undefined} />
+
+            <select value={t.statut} onChange={e => majTache(t, { statut: e.target.value })}
+              className="w-full rounded-full px-2.5 h-7 text-[12px] font-semibold text-white border-0 cursor-pointer"
+              style={{ background: teinteStatut }}>
+              {STATUTS.map(([cle, lib]) => <option key={cle} value={cle} className="text-iip-texte bg-white">{lib}</option>)}
+            </select>
+
+            <button onClick={() => deplier(t.id)} title="Personnes au courant"
+              className={`w-7 h-7 rounded-champ text-[13px] leading-none
+                ${deplies.has(t.id) ? 'bg-slate-200 text-slate-700' : 'text-slate-400 hover:bg-slate-100'}`}>⋯</button>
+          </div>
+          {deplies.has(t.id) && (
+            <div className="px-3 pb-2 pl-[46px] flex items-center gap-2 text-[12px] text-slate-500">
+              Au courant :
+              <ChoixResponsables personnes={personnes} tache={t} informes
+                onChange={cles => majTache(t, { informes: cles })} />
+            </div>
+          )}
+        </div>
+        );
+      })}
 
       {!taches.length && !avecAjout && (
         <div className="px-3 py-3 text-[13px] text-slate-400">Aucune tâche.</div>
@@ -1151,8 +1209,9 @@ function VueTaches({ taches, personnes, obligations, api, filtre, setFiltre,
               {regrouper === 'personne' ? nomListe(nom) : nom}
               <span className="font-normal text-slate-400">— {liste.length} tâche(s)</span>
               {regrouper !== 'echeance' && liste.some(enRetard) && (
-                <span className="text-[11px] font-semibold text-amber-700 flex items-center gap-1">
-                  <IconClock size={13} /> {liste.filter(enRetard).length} en retard
+                <span className="text-[11px] font-bold text-white rounded-full px-2 h-5 inline-flex items-center"
+                  style={{ background: 'var(--c-refuse)' }}>
+                  {liste.filter(enRetard).length} en retard
                 </span>
               )}
             </h2>

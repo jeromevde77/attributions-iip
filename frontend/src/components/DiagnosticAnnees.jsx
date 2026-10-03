@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { IconX, IconAlertTriangle, IconArrowRight } from '@tabler/icons-react';
+import { IconAlertTriangle, IconArrowRight } from '@tabler/icons-react';
+import { Fenetre } from './ui.jsx';
 import { authHeaders } from '../lib/api.js';
 
 /**
@@ -52,24 +53,22 @@ export default function DiagnosticAnnees({ annee, ueNum = null, onClose, onFini 
   const lignes = etat?.etat || [];
 
   return (
-    <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] flex items-start justify-center z-50 p-3"
-      onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="bg-white rounded-fenetre shadow-dessus w-full max-w-[900px] mt-8
-                      max-h-[88vh] overflow-hidden flex flex-col">
-        <div className="flex items-start justify-between gap-3 px-5 py-4 border-b border-slate-200">
-          <div>
-            <h3 className="text-[15px] font-semibold text-iip-blue">Où sont les notes ?</h3>
-            <p className="text-[12px] text-slate-500">
-              Ce que chaque année contient. L'année de travail est <b>{annee}</b> — c'est
-              elle que voient les écrans de délibération.
-            </p>
-          </div>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-600">
-            <IconX size={18} />
-          </button>
-        </div>
-
-        <div className="flex-1 overflow-y-auto p-5 space-y-3">
+    <Fenetre titre="Où sont les notes ?" large="grande" onFermer={onClose}
+      pied={apercu && choix ? <>
+        <span />
+        <button onClick={() => { setApercu(null); setChoix(null); }} className="bouton">
+          Annuler
+        </button>
+        <button onClick={() => deplacer(choix, false)} disabled={enCours}
+          className="bouton bouton-fort">
+          {enCours ? 'Déplacement…' : 'Déplacer'}
+        </button>
+      </> : null}>
+        <div className="space-y-3">
+          <p className="text-[12px] text-slate-500">
+            Ce que chaque année contient. L'année de travail est <b>{annee}</b> — c'est
+            elle que voient les écrans de délibération.
+          </p>
           {erreur && (
             <div className="px-3 py-2 rounded-lg bg-red-50 border border-red-200 text-[13px] text-red-800 border-l-4 border-l-red-500">
               {erreur}
@@ -164,21 +163,9 @@ export default function DiagnosticAnnees({ annee, ueNum = null, onClose, onFini 
                   </div>
                 </div>
               )}
-              <div className="flex gap-2 pt-1">
-                <button onClick={() => { setApercu(null); setChoix(null); }}
-                  className="px-3 py-1.5 text-[13px] rounded-lg border border-slate-300 text-slate-600">
-                  Annuler
-                </button>
-                <button onClick={() => deplacer(choix, false)} disabled={enCours}
-                  className="px-4 py-1.5 text-[13px] rounded-lg bg-iip-blue text-white
-                             font-semibold disabled:opacity-40">
-                  {enCours ? 'Déplacement…' : 'Déplacer'}
-                </button>
-              </div>
             </div>
           )}
         </div>
-      </div>
-    </div>
+    </Fenetre>
   );
 }

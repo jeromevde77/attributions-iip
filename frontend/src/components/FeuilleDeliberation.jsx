@@ -3,9 +3,10 @@ import { nomPropre } from '../lib/nom.js';
 import {
   IconX, IconSearch, IconAlertTriangle, IconChevronLeft, IconChevronRight,
   IconArrowUp, IconRepeat, IconList, IconFileText, IconMessage, IconBrush, IconGift,
-  IconRotate, IconBan,
+  IconRotate, IconBan, IconTable, IconLock,
 } from '@tabler/icons-react';
 import { authHeaders } from '../lib/api.js';
+import { Fenetre } from './ui.jsx';
 import TableauBordEtudiant from './TableauBordEtudiant.jsx';
 import RepartitionOrganisation from './RepartitionOrganisation.jsx';
 import { MOTIFS_ECHEC, composerMotif, decomposerMotif, texteDuMotif } from './motifsEchec.js';
@@ -346,6 +347,14 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose, enPage = fa
     // fiche : écrire une justification ne la rafraîchissait pas, et l'écran
     // réclamait encore ce qu'on venait d'écrire.
     const decision = decisions[etud.id] || ue.decision_proposee;
+    // SANS ACQUIS RATTACHÉS, RIEN À MOTIVER — DONC RIEN NE PASSE : une décision
+    // défavorable se motive acquis par acquis ; le serveur le refuse aussi.
+    if ((decision === 'ajourne' || decision === 'refuse') && data?.sans_structure) {
+      setErreur("Unité non paramétrée : un ajournement ou un refus se motive acquis par acquis, "
+        + "et ses acquis ne sont pas rattachés à ses cours. Paramétrez l'unité (liens cours ↔ acquis) "
+        + "avant de délibérer.");
+      return;
+    }
     if (aMotiver.length) {
       setErreur(`Justification requise avant de passer au suivant : `
         + `${aMotiver.map(a => a.aa_code).join(', ')}. Elle se pose sous la `
@@ -514,36 +523,13 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose, enPage = fa
   }
   if (!data) {
     return (
-      <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] flex items-start justify-center z-50 p-4">
-        <div className="bg-white rounded-fenetre shadow-dessus p-6 mt-20 text-[13px] text-slate-500">
-          {erreur || 'Chargement…'}
-        </div>
-      </div>
+      <Fenetre titre="Délibération" large="petite" onFermer={onClose}>
+        <div className="text-[13px] text-slate-500">{erreur || 'Chargement…'}</div>
+      </Fenetre>
     );
   }
 
-  return (
-    <div className={enPage ? '' : 'fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] flex items-start justify-center z-50 p-3'}
-      onClick={e => !enPage && e.target === e.currentTarget && onClose()}>
-      <div className={enPage ? 'w-full flex flex-col'
-        : 'bg-white rounded-fenetre shadow-dessus w-full max-w-[1400px] mt-4 max-h-[94vh] overflow-hidden flex flex-col'}>
-
-        {/* L'en-tête ne défile pas : on doit toujours savoir de qui l'on parle. */}
-        <div className={`flex-none ${enPage ? 'px-0 py-1' : 'px-4 py-3'} border-b border-slate-100
-                        flex items-center justify-between gap-3 flex-wrap`}>
-          <div className="min-w-0">
-            <h3 className="text-[15px] font-semibold text-iip-blue truncate">
-              UE {data.ue_num} · {data.ue_nom}
-              {data.epreuve_integree && (
-                <span className="ml-2 align-middle text-[10px] font-bold px-2 py-0.5 rounded-champ
-                                 bg-violet-100 text-violet-800 border border-violet-200">
-                  épreuve intégrée
-                </span>
-              )}
-            </h3>
-            <p className="text-[11.5px] text-slate-500">
-              {data.section || '—'} · {annee} · {data.etudiants.length} étudiant(s)
-            </p>
+  const filtres = (<>
             {/* PLUSIEURS ORGANISATIONS, PLUSIEURS DÉLIBÉRATIONS. Les onglets
                 restreignent la feuille à une organisation ; la répartition
                 elle-même est le geste de la coordination, juste à côté. */}
@@ -586,52 +572,53 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose, enPage = fa
                 </div>
               </div>
             )}
-          </div>
+  </>);
 
-          <div className="flex items-center gap-2">
+  /* QUATRE VUES DE LA MÊME UNITÉ, UN SEUL SÉLECTEUR (Charles, 3 octobre 2026 :
+     « bouton marche pas… utile encore ? »). « Fiche / Tableau » basculait un
+     drapeau que l'écran de clôture recouvrait : depuis la clôture, le clic ne
+     faisait rien de visible. Fiche · Tableau · En lot · Clôture sont les faces
+     d'un même choix, et chacune s'atteint de partout. */
+  const vueActive = etape === 'cloture' ? 'cloture' : lot ? 'lot' : tableau ? 'tableau' : 'fiche';
+  const allerA = v => {
+    setLot(v === 'lot'); setTableau(v === 'tableau');
+    setEtape(v === 'cloture' ? 'cloture' : 'fiche');
+  };
+  const rechercheTexte = recherche;
+  const champRecherche = (
             <div className="relative">
               <IconSearch size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
-              <input value={recherche}
+              <input value={rechercheTexte}
                 onChange={e => { setRecherche(e.target.value); setIdx(0); }}
                 placeholder="Filtrer…"
-                className="controle controle-icone w-36" />
+                className="controle controle-icone w-40" />
             </div>
-            <button onClick={() => { setTableau(t => !t); setLot(false); }}
-              className={`bouton controle inline-flex items-center gap-1.5 ${tableau ? 'bg-iip-blue text-white' : ''}`}>
-              {tableau ? <><IconFileText size={14} /> Fiche</> : <><IconList size={14} /> Tableau</>}
-            </button>
-            {/* L'AJOURNEMENT EN PAQUET. Après les réussites de plein droit, il
-                reste souvent un bloc d'évidences — ceux qui n'ont rien
-                présenté. Les passer un par un coûte une heure de Conseil pour
-                une décision que personne ne discute. */}
-            <button onClick={() => { setLot(l => !l); setTableau(false); }}
-              title="Ajourner plusieurs étudiants d'un coup, avec une justification commune"
-              className={`bouton controle inline-flex items-center gap-1.5 ${lot ? 'bg-iip-blue text-white' : ''}`}>
-              <IconList size={14} /> Ajourner en lot
-            </button>
-            {/* LA CLÔTURE, ATTEIGNABLE DE PARTOUT. Elle ne l'était qu'au bout
-                de la revue — après le dernier étudiant. Or c'est elle qui
-                ouvre la seconde session, produit les documents et ferme le
-                procès-verbal : la chercher ne devrait pas demander de
-                reparcourir quatre-vingts fiches. */}
-            <button onClick={() => { setLot(false); setTableau(false); setEtape('cloture'); }}
-              title="Écran de clôture : visite des copies, dates de seconde session, documents"
-              className={`bouton controle inline-flex items-center gap-1.5 ${etape === 'cloture' ? 'bg-iip-blue text-white' : ''}`}>
-              Clôture
-            </button>
-            {enPage ? (
+  );
+  const vues = (
+            <div className="segments" role="tablist" aria-label="Vue de l'unité">
+              {[['fiche', 'Fiche', IconFileText, 'Un étudiant à la fois'],
+                ['tableau', 'Tableau', IconTable, "Tous les étudiants, toutes les notes d'un coup d'œil"],
+                ['lot', 'En lot', IconList, "Ajourner plusieurs étudiants d'un coup, avec une justification commune"],
+                ['cloture', 'Clôture', IconLock, 'Visite des copies, dates de seconde session, documents, clôture'],
+              ].map(([v, lib, Ic, aide]) => (
+                <button key={v} type="button" title={aide} onClick={() => allerA(v)}
+                  className={`inline-flex items-center gap-1.5 ${vueActive === v ? 'bg-iip-blue text-white font-semibold' : 'text-slate-600 hover:bg-slate-50'}`}>
+                  <Ic size={14} /> {lib}
+                </button>
+              ))}
+            </div>
+  );
+  const retour = enPage ? (
               <button onClick={onClose} className="bouton controle inline-flex items-center gap-1">
                 <IconChevronLeft size={14} /> Les unités
               </button>
-            ) : (
-              <button onClick={onClose} className="text-slate-400 hover:text-slate-600">
-                <IconX size={18} />
-              </button>
-            )}
-          </div>
-        </div>
+  ) : null;
+  const controles = (
+          <div className="flex items-center gap-2 flex-wrap">{champRecherche}{vues}{retour}</div>
+  );
 
-        <div className={enPage ? 'py-1.5 space-y-1.5' : 'flex-1 overflow-y-auto p-4 space-y-3'}>
+  const corps = (
+        <div className={enPage ? 'py-1.5 space-y-1.5' : 'space-y-3'}>
           {/* LA RÉOUVERTURE SE PRÉSENTE OÙ ELLE SERT — EN TÊTE.
               Elle n'existait que sur l'écran de clôture, qu'on n'atteint qu'en
               parcourant tous les étudiants jusqu'au dernier. Sur une unité
@@ -716,11 +703,16 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose, enPage = fa
           )}
 
           {!!data.sans_structure && (
-            <div className="px-3 py-2 rounded-carte bg-amber-50 border border-amber-200
-                            text-[13px] text-amber-900">
-              Cette unité n'est pas paramétrée : ses acquis ne sont pas rattachés à
-              des cours, ou aucun cours n'y est déclaré. Les notes ne peuvent pas se
-              consolider tant que ce lien n'existe pas.
+            /* UNE ALERTE SE VOIT (Charles, 3 octobre 2026) : bloc signalé orange,
+               icône, titre — un fond pâle ton sur ton ne se lisait pas. */
+            <div data-etat="surveiller" className="bloc-etat px-3 py-2.5 flex items-start gap-2.5">
+              <IconAlertTriangle size={18} className="flex-none mt-0.5" style={{ color: 'var(--c-attente)' }} />
+              <div className="text-[13px]">
+                <div className="font-semibold">Unité non paramétrée</div>
+                <div className="text-slate-700">Ses acquis ne sont pas rattachés à des cours, ou aucun
+                  cours n'y est déclaré. Les notes ne peuvent pas se consolider tant que ce lien
+                  n'existe pas.</div>
+              </div>
             </div>
           )}
 
@@ -832,8 +824,9 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose, enPage = fa
             </>
           ) : null}
         </div>
-      </div>
+  );
 
+  const annexes = (<>
       {bord && (
         <TableauBordEtudiant etudId={bord.id} ueNum={data.ue_num} annee={annee}
           onClose={() => setBord(null)} onDecide={charger} />
@@ -863,7 +856,59 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose, enPage = fa
             if (ok) await charger();
           }} />
       )}
-    </div>
+  </>);
+
+  if (enPage) {
+    return (
+      <div className="w-full flex flex-col">
+        {/* L'en-tête ne défile pas : on doit toujours savoir de qui l'on parle. */}
+        {/* DEUX RANGÉES ALIGNÉES (« alignement pas ok ») : le titre et ce qui
+            le cherche ; puis le périmètre (organisations, groupes) et la vue. */}
+        <div className="flex-none px-0 py-1.5 border-b border-slate-100">
+          <div className="flex items-start justify-between gap-3 flex-wrap">
+          <div className="min-w-0">
+            <h3 className="text-[15px] font-semibold text-iip-blue truncate">
+              UE {data.ue_num} · {data.ue_nom}
+              {data.epreuve_integree && (
+                <span className="ml-2 align-middle text-[10px] font-bold px-2 py-0.5 rounded-champ
+                                 bg-violet-100 text-violet-800 border border-violet-200">
+                  épreuve intégrée
+                </span>
+              )}
+            </h3>
+            <p className="text-[11.5px] text-slate-500">
+              {data.section || '—'} · {annee} · {data.etudiants.length} étudiant(s)
+            </p>
+          </div>
+          <div className="flex items-center gap-2">{champRecherche}{retour}</div>
+          </div>
+          <div className="flex items-end justify-between gap-3 flex-wrap">
+            <div className="min-w-0">{filtres}</div>
+            <div className="mt-1.5">{vues}</div>
+          </div>
+        </div>
+        {corps}
+        {annexes}
+      </div>
+    );
+  }
+
+  return (
+    <>
+      <Fenetre titre={`UE ${data.ue_num} · ${data.ue_nom}`}
+        sous={`${data.epreuve_integree ? 'Épreuve intégrée · ' : ''}${data.section || '—'} · ${annee} · ${data.etudiants.length} étudiant(s)`}
+        large="ecran" hauteurFixe onFermer={onClose}>
+        {/* L'en-tête ne défile pas : on doit toujours savoir de qui l'on parle.
+            La barre colle au haut de la zone qui défile. */}
+        <div className="sticky -top-4 z-10 bg-white -mt-4 pt-4 pb-2 mb-3 border-b border-slate-100
+                        flex items-start justify-between gap-3 flex-wrap">
+          <div className="min-w-0">{filtres}</div>
+          {controles}
+        </div>
+        {corps}
+      </Fenetre>
+      {annexes}
+    </>
   );
 }
 
@@ -883,65 +928,49 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose, enPage = fa
 function MotivationsProposees({ liste, detail, onRelire, onConfirmer, enCours }) {
   const nbAcquis = liste.reduce((n, e) => n + e.acquis.length, 0);
   return (
-    <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] flex items-start justify-center z-[70] p-4">
-      <div className="bg-white rounded-fenetre shadow-dessus w-full max-w-2xl mt-16
-                      max-h-[82vh] overflow-hidden flex flex-col">
-        <div className="flex-none px-5 py-3 border-b border-slate-100">
-          <h3 className="text-[15px] font-semibold text-amber-900 flex items-center gap-2">
-            <IconAlertTriangle size={17} />
-            {liste.length} motivation(s) rédigée(s) par Lucie, non par le Conseil
-          </h3>
-          <p className="text-[12px] text-slate-600 mt-1">{detail}</p>
-        </div>
-
-        <div className="flex-1 overflow-y-auto px-5 py-3 space-y-3">
-          {liste.map(e => (
-            <div key={e.etudiant_id} className="border border-slate-200 rounded-xl p-3">
-              <div className="text-[13px] font-semibold text-iip-blue">
-                {nomPropre(e.nom, e.prenom)}
-                <span className="ml-2 text-[11px] font-normal text-slate-500">
-                  {e.decision === 'refuse' ? 'refusé' : 'ajourné'}
-                </span>
-              </div>
-              <ul className="mt-1.5 space-y-1.5">
-                {e.acquis.map(a => (
-                  <li key={a.aa_code} className="text-[12px]">
-                    <span className="inline-block px-1 py-px rounded bg-slate-100
-                                     border border-slate-300 font-bold text-[10px]">
-                      {a.aa_code}
-                    </span>{' '}
-                    <span className="text-slate-500 italic whitespace-pre-line">{a.motif_propose}</span>
-                    {a.motif_source === 'enseignant' && <span className="ml-1 text-[10px] text-slate-400">· rédigé par l’enseignant</span>}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ))}
-        </div>
-
-        <div className="flex-none px-5 py-3 border-t border-slate-100 space-y-2">
-          <p className="text-[11px] text-slate-500">
-            Ces {nbAcquis} énoncé(s) sont défendables tels quels, mais deux dossiers
-            portant la même phrase s'affaiblissent l'un l'autre : une décision
-            défavorable se motive au cas d'espèce (RGE art. 79). Confirmées, elles
-            seront enregistrées comme <b>acceptées telles que proposées</b> — la
-            distinction reste au dossier.
-          </p>
-          <div className="flex items-center justify-end gap-2">
-            <button onClick={onRelire} disabled={enCours}
-              className="px-3 py-2 text-[13px] rounded-lg border border-slate-300
-                         text-slate-700 font-semibold">
-              Relire et rédiger
-            </button>
-            <button onClick={onConfirmer} disabled={enCours}
-              className="px-4 py-2 text-[13px] rounded-lg bg-amber-600 text-white
-                         font-semibold disabled:opacity-40">
-              Notifier telles quelles et clore
-            </button>
+    <Fenetre icone={IconAlertTriangle} ton="alerte" large="moyenne" onFermer={onRelire}
+      titre={`${liste.length} motivation(s) rédigée(s) par Lucie, non par le Conseil`}
+      pied={<>
+        <span className="text-[11px] text-slate-500">
+          Ces {nbAcquis} énoncé(s) sont défendables tels quels, mais deux dossiers
+          portant la même phrase s'affaiblissent l'un l'autre : une décision
+          défavorable se motive au cas d'espèce (RGE art. 79). Confirmées, elles
+          seront enregistrées comme <b>acceptées telles que proposées</b> — la
+          distinction reste au dossier.
+        </span>
+        <button onClick={onRelire} disabled={enCours} className="bouton">
+          Relire et rédiger
+        </button>
+        <button onClick={onConfirmer} disabled={enCours} className="bouton bouton-fort">
+          Notifier telles quelles et clore
+        </button>
+      </>}>
+      <p className="text-[12px] text-slate-600 mb-3">{detail}</p>
+      <div className="space-y-3">
+      {liste.map(e => (
+        <div key={e.etudiant_id} className="border border-slate-200 rounded-xl p-3">
+          <div className="text-[13px] font-semibold text-iip-blue">
+            {nomPropre(e.nom, e.prenom)}
+            <span className="ml-2 text-[11px] font-normal text-slate-500">
+              {e.decision === 'refuse' ? 'refusé' : 'ajourné'}
+            </span>
           </div>
+          <ul className="mt-1.5 space-y-1.5">
+            {e.acquis.map(a => (
+              <li key={a.aa_code} className="text-[12px]">
+                <span className="inline-block px-1 py-px rounded bg-slate-100
+                                 border border-slate-300 font-bold text-[10px]">
+                  {a.aa_code}
+                </span>{' '}
+                <span className="text-slate-500 italic whitespace-pre-line">{a.motif_propose}</span>
+                {a.motif_source === 'enseignant' && <span className="ml-1 text-[10px] text-slate-400">· rédigé par l’enseignant</span>}
+              </li>
+            ))}
+          </ul>
         </div>
+      ))}
       </div>
-    </div>
+    </Fenetre>
   );
 }
 
@@ -1044,7 +1073,7 @@ function Presences({ seance, onValider, enCours, ueNum, annee }) {
           de cent pixels pour atteindre deux champs qui se remplissent seuls. Ce
           qui s'explique est à gauche, ce qui se remplit est à droite — et la
           date comme l'heure arrivent déjà posées à maintenant. */}
-      <div className="carte px-3 py-2.5 flex flex-wrap items-end gap-x-4 gap-y-2">
+      <div className="carte bg-white px-4 py-3 flex flex-wrap items-center gap-x-4 gap-y-2">
         <div className="flex-1 min-w-[260px]">
           <div className="text-[13px] font-semibold text-iip-blue">Conseil des études</div>
           <p className="text-[12px] text-slate-600">
@@ -1053,17 +1082,18 @@ function Presences({ seance, onValider, enCours, ueNum, annee }) {
             et restent modifiables jusqu'à la clôture.
           </p>
         </div>
-        <label className="text-[11px] text-slate-500 flex-none">
-          Date
+        {/* LA DATE ET L'HEURE SONT DES VALEURS, PAS DES INVITES : elles
+            héritaient du gris de l'étiquette et se lisaient comme des champs
+            vides. Elles arrivent posées à aujourd'hui et maintenant. */}
+        <label className="flex-none">
+          <span className="block text-[10.5px] uppercase tracking-[.1em] text-slate-400 font-semibold mb-0.5">Date</span>
           <input type="date" value={date} onChange={e => setDate(e.target.value)}
-            className="block mt-0.5 bg-white border border-slate-300 rounded-champ
-                       px-2 h-9 text-[13px]" />
+            className="controle bg-white text-iip-texte tabular-nums" />
         </label>
-        <label className="text-[11px] text-slate-500 flex-none">
-          Heure
+        <label className="flex-none">
+          <span className="block text-[10.5px] uppercase tracking-[.1em] text-slate-400 font-semibold mb-0.5">Heure</span>
           <input type="time" value={heure} onChange={e => setHeure(e.target.value)}
-            className="block mt-0.5 bg-white border border-slate-300 rounded-champ
-                       px-2 h-9 text-[13px]" />
+            className="controle bg-white text-iip-texte tabular-nums w-[7rem]" />
         </label>
       </div>
 
@@ -1481,10 +1511,12 @@ function Cloture({ seance, onClore, onRetour, onPV, onReprendre, enCours, nb, aj
   }, [coursSession2, seance?.cloturee]);
 
   return (
-    <div className="space-y-3 max-w-xl mx-auto py-4">
-      <div className="px-4 py-3 rounded-xl bg-emerald-50 border border-emerald-200 border-l-4 border-l-emerald-500">
-        <div className="text-[15px] font-semibold text-emerald-900">Délibération terminée</div>
-        <p className="text-[12px] text-emerald-800">
+    <div className="grid lg:grid-cols-2 gap-3 items-start py-2">
+      {/* TOUTE LA LARGEUR (« trop vertical, il faut utiliser la page ») :
+          séance et visite des copies côte à côte, le reste sur deux colonnes. */}
+      <div data-etat="reussi" className="bloc-etat lg:col-span-2 px-4 py-3">
+        <div className="text-[15px] font-semibold">Délibération terminée</div>
+        <p className="text-[12px] text-slate-700">
           Les {nb} étudiant(s) de cette unité ont été délibérés et leurs décisions
           sont enregistrées.
         </p>
@@ -1494,7 +1526,7 @@ function Cloture({ seance, onClore, onRetour, onPV, onReprendre, enCours, nb, aj
           cliquer. Et l'appel des présences se fait à l'étape « Présences »,
           qu'on peut n'avoir jamais ouverte : le bouton y mène. */}
       {quorum && !quorum.atteint && (
-        <div className="px-3 py-2 rounded-xl bg-amber-50 border border-amber-300
+        <div className="lg:col-span-2 px-3 py-2 rounded-xl bg-amber-50 border border-amber-300
                         flex items-start justify-between gap-3">
           <span className="text-[12px] text-amber-900">
             <b>Quorum non constaté</b> — {quorum.presents} présent(s) sur {quorum.membres}
@@ -1509,7 +1541,7 @@ function Cloture({ seance, onClore, onRetour, onPV, onReprendre, enCours, nb, aj
         </div>
       )}
 
-      <div className="border border-slate-200 rounded-xl p-4 space-y-3">
+      <div className="carte bg-white p-4 space-y-3 h-full">
         <div className="flex items-start justify-between gap-3">
           <div>
             <div className="text-[13px] font-semibold text-iip-blue">Séance du Conseil</div>
@@ -1542,7 +1574,7 @@ function Cloture({ seance, onClore, onRetour, onPV, onReprendre, enCours, nb, aj
         </div>
       </div>
 
-      <div className="border border-slate-200 rounded-xl p-4 space-y-3">
+      <div className="carte bg-white p-4 space-y-3 h-full">
         <div>
           <div className="text-[13px] font-semibold text-iip-blue">Visite des copies</div>
           <p className="text-[12px] text-slate-500">
@@ -1599,7 +1631,7 @@ function Cloture({ seance, onClore, onRetour, onPV, onReprendre, enCours, nb, aj
 
       {/* La seconde session, cours par cours, portée par l'annexe 8. */}
       {ajournes > 0 && !!s2.length && (
-        <div className="border border-amber-300 bg-amber-50/60 rounded-xl p-4 space-y-3 border-l-4 border-l-amber-500">
+        <div data-etat="surveiller" className="bloc-etat lg:col-span-2 p-4 space-y-3">
           <div className="flex items-start justify-between gap-3">
             <div>
               <div className="text-[13px] font-semibold text-amber-900">Seconde session</div>
@@ -1643,7 +1675,7 @@ function Cloture({ seance, onClore, onRetour, onPV, onReprendre, enCours, nb, aj
         </div>
       )}
 
-      <div className="flex items-center justify-between gap-2">
+      <div className="lg:col-span-2 flex items-center justify-between gap-2">
         <button onClick={onRetour}
           className="px-3 py-1.5 text-[13px] rounded-lg border border-slate-300 text-slate-600">
           Revenir aux fiches
@@ -1681,7 +1713,7 @@ function Cloture({ seance, onClore, onRetour, onPV, onReprendre, enCours, nb, aj
       </div>
 
       {close && (
-        <div className="space-y-2">
+        <div className="lg:col-span-2 space-y-2">
           <p className="text-[12px] text-emerald-800 text-center">
             Séance close. Les documents peuvent être générés, imprimés, puis signés.
           </p>
@@ -2843,63 +2875,71 @@ function Decision({ e, ue, onBord, acquis, cours, decision, onDecision, enCours,
 
 /* ═══ La vue d'ensemble ════════════════════════════════════════════════════ */
 
+/* LE TABLEAU SE LIT D'UN REGARD, ET LA COULEUR NE DIT QUE LE DÉFAUT (Charles,
+   3 octobre 2026 : « super laid, il faut revoir »). Cases pleines, cases
+   cerclées de rouge, trois tons d'en-tête : la grille criait partout. Règle
+   des couleurs du 29 septembre : une note juste reste à l'encre ; ce qui est
+   en défaut est une PASTILLE PLEINE fraise, la faveur une pastille violette ;
+   la note d'unité porte la pastille de son état. Trois groupes de colonnes
+   nommés au-dessus — acquis (ce qui fait foi), cours (indicatif), unité. */
 function VueTableau({ data, liste, onOuvrir }) {
+  const nA = data.colonnes_acquis.length, nC = data.colonnes_cours.length;
   return (
-    <div className="overflow-auto border border-slate-200 rounded-xl">
-      <table className="text-[12px] border-collapse">
-        <thead className="sticky top-0 bg-white z-10">
-          <tr>
-            <th className="sticky left-0 bg-white z-20 text-left px-3 py-2
-                           border-b border-r border-slate-200 min-w-[170px]">Étudiant</th>
+    <div className="overflow-auto border border-slate-200 rounded-carte bg-white">
+      <table className="text-[12px] border-collapse w-max min-w-full">
+        <thead className="sticky top-0 z-10">
+          <tr className="tab-entete text-[10px] uppercase tracking-[.1em] text-slate-500">
+            <th rowSpan={2} className="tab-entete sticky left-0 z-20 text-left px-3 py-2 align-bottom
+                           border-b border-r border-slate-200 min-w-[200px] normal-case tracking-normal text-[12px] text-iip-blue">Étudiant</th>
+            {nA > 0 && <th colSpan={nA} className="tab-entete px-2 pt-1.5 font-semibold border-b border-slate-200">Acquis d'apprentissage</th>}
+            {nC > 0 && <th colSpan={nC} className="tab-entete px-2 pt-1.5 font-semibold border-b border-l border-slate-200">Cours · indicatif</th>}
+            <th rowSpan={2} className="tab-entete px-2 py-2 align-bottom border-b border-l border-slate-200 w-16 text-[11px] text-iip-blue normal-case tracking-normal">Unité</th>
+          </tr>
+          <tr className="tab-entete">
             {data.colonnes_acquis.map(a => (
               <th key={a.aa_code} title={a.description || ''}
-                className="px-1 py-1.5 border-b border-slate-200 w-12 text-[10px]
-                           font-bold text-iip-blue">{a.aa_code}</th>
+                className="tab-entete px-1 py-1.5 border-b border-slate-200 min-w-[52px] text-[10.5px]
+                           font-semibold text-iip-blue">{a.aa_code}</th>
             ))}
-            {data.colonnes_cours.map(c => (
+            {data.colonnes_cours.map((c, k) => (
               <th key={c.cours_code}
                 title={[c.cours_nom, c.professeurs].filter(Boolean).join(' · ')}
-                className="px-1 py-1.5 border-b border-l border-slate-300 w-16
-                           bg-slate-50 text-[10px] font-bold text-slate-700">
+                className={`tab-entete px-1.5 py-1.5 border-b border-slate-200 min-w-[72px] max-w-[110px]
+                           text-[10.5px] font-semibold text-slate-600 ${k === 0 ? 'border-l' : ''}`}>
                 <div>{c.cours_code}</div>
                 {c.cours_nom && (
-                  <div className="font-normal text-[8.5px] text-slate-500 leading-tight
-                                  line-clamp-2">{c.cours_nom}</div>
-                )}
-                {c.professeurs && (
-                  <div className="font-normal text-[8.5px] text-iip-blue/70 italic truncate">
-                    {c.professeurs}
-                  </div>
+                  <div className="font-normal text-[9.5px] text-slate-500 leading-tight truncate">{c.cours_nom}</div>
                 )}
               </th>
             ))}
-            <th className="px-2 py-1.5 border-b border-l-2 border-l-iip-blue/40
-                           bg-iip-blue/5 w-14 text-[10px] text-iip-blue">UE</th>
           </tr>
         </thead>
         <tbody>
           {liste.map(e => {
             const parAA = Object.fromEntries((e.acquis || []).map(a => [a.aa_code, a]));
             const parCo = Object.fromEntries((e.cours || []).map(c => [c.cours_code, c]));
+            const ue = e.ue || {};
+            const teinteUE = ue.na ? '#94A3B8' : ue.faveur ? 'var(--c-faveur)'
+              : ue.echec ? 'var(--c-refuse)' : ue.note != null ? 'var(--c-reussi)' : null;
             return (
-              <tr key={e.id} className="hover:bg-slate-50/60">
-                <td className="sticky left-0 bg-white px-3 py-1 border-b border-r border-slate-100">
-                  <button onClick={() => onOuvrir(e)} className="text-left w-full">
-                    <div className="font-semibold text-iip-blue truncate hover:underline">{e.nom}</div>
-                    <div className="text-[11px] text-slate-500 truncate">{e.prenom}</div>
+              <tr key={e.id} className="hover:bg-slate-50">
+                <td className="sticky left-0 bg-white px-3 py-1.5 border-b border-r border-slate-100">
+                  <button onClick={() => onOuvrir(e)} className="text-left w-full truncate hover:underline">
+                    <span className="font-semibold text-iip-blue">{String(e.nom || '').toUpperCase()}</span>
+                    {' '}<span className="text-slate-600">{e.prenom}</span>
                   </button>
                 </td>
                 {data.colonnes_acquis.map(a => <Case key={a.aa_code} etat={parAA[a.aa_code]} />)}
-                {data.colonnes_cours.map(c => (
-                  <Case key={c.cours_code} etat={parCo[c.cours_code]} bord />
+                {data.colonnes_cours.map((c, k) => (
+                  <Case key={c.cours_code} etat={parCo[c.cours_code]} cours premier={k === 0} />
                 ))}
-                <td className="border-b border-l-2 border-l-iip-blue/40 bg-iip-blue/5
-                               px-2 text-center font-bold text-[12px]">
-                  <span className={e.ue?.na ? 'text-slate-500'
-                    : e.ue?.faveur ? 'text-violet-700'
-                    : e.ue?.echec ? 'text-red-700' : 'text-emerald-700'}>
-                    {e.ue?.na ? 'NA' : fmt(e.ue?.note)}
-                  </span>
+                <td className="border-b border-l border-slate-200 px-2 text-center">
+                  {teinteUE
+                    ? <span className="inline-flex items-center justify-center min-w-[30px] h-[22px] px-1.5 rounded-full
+                                       text-white font-bold text-[11.5px] tabular-nums" style={{ background: teinteUE }}>
+                        {ue.na ? 'NA' : fmt(ue.note)}
+                      </span>
+                    : <span className="text-slate-300">·</span>}
                 </td>
               </tr>
             );
@@ -2910,16 +2950,18 @@ function VueTableau({ data, liste, onOuvrir }) {
   );
 }
 
-function Case({ etat, bord }) {
-  if (!etat) return <td className={`border-b border-slate-100 ${bord ? 'border-l' : ''}`} />;
+function Case({ etat, cours, premier }) {
+  const bord = `border-b border-slate-100 ${premier ? 'border-l border-l-slate-200' : ''}`;
+  if (!etat) return <td className={`${bord} text-center text-slate-300`}>·</td>;
+  const enDefaut = !etat.faveur && !etat.na && etat.echec;
+  const pastille = etat.faveur ? 'var(--c-faveur)' : enDefaut ? 'var(--c-refuse)' : null;
+  const texte = etat.na ? 'NA' : etat.note == null ? '—' : fmt(etat.note);
   return (
-    <td className={`border-b border-slate-100 px-1 text-center text-[11px] font-semibold
-      ${bord ? 'border-l border-slate-300 bg-slate-50/60' : ''}
-      ${etat.na ? 'text-slate-500'
-        : etat.faveur ? 'bg-violet-500 text-white'
-        : etat.echec ? 'bg-red-500 text-white outline outline-1 outline-red-400'
-        : 'text-emerald-700'}`}>
-      {etat.na ? 'NA' : fmt(etat.note)}
+    <td className={`${bord} px-1 py-1 text-center tabular-nums`}>
+      {pastille
+        ? <span className="inline-flex items-center justify-center min-w-[26px] h-[20px] px-1 rounded-full
+                           text-white font-bold text-[11px]" style={{ background: pastille }}>{texte}</span>
+        : <span className={`text-[11.5px] ${etat.na ? 'text-slate-400' : cours ? 'text-slate-600' : 'font-semibold text-iip-texte'}`}>{texte}</span>}
     </td>
   );
 }
@@ -3202,12 +3244,26 @@ export function CorrectionAdministrative({ ueNum, annee, session, org = 0, seanc
   }));
 
   return (
-    <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-xl w-[720px] max-w-full max-h-[90vh] overflow-auto p-5 space-y-3">
+    <Fenetre titre="Reprendre une séance close" large="moyenne" onFermer={onFerme}
+      pied={<>
+        <span />
+        <button onClick={onFerme} className="bouton">
+          Annuler
+        </button>
+        {mode === 'corriger' ? (
+          <button onClick={envoyer} disabled={enCours || !motifOk} className="bouton bouton-fort">
+            {enCours ? 'Enregistrement…' : 'Corriger'}
+          </button>
+        ) : (
+          <button disabled={rouvertureEnCours || !motifOk}
+            onClick={() => { onRouvrir(motif); onFerme(); }}
+            className="bouton bouton-fort">
+            {rouvertureEnCours ? 'Réouverture…' : 'Rouvrir la séance'}
+          </button>
+        )}
+      </>}>
+      <div className="space-y-3">
         <div>
-          <h3 className="text-[15px] font-semibold text-iip-blue">
-            Reprendre une séance close
-          </h3>
           <div className="flex gap-4 mt-2 border-b border-slate-200">
             {[['corriger', 'Corriger l’administratif'],
               ['rouvrir', 'Rouvrir la séance']].map(([m, lib]) => (
@@ -3306,29 +3362,8 @@ export function CorrectionAdministrative({ ueNum, annee, session, org = 0, seanc
         {erreur && (
           <div className="px-3 py-2 rounded-lg bg-red-50 text-red-700 text-[13px] border-l-4 border-l-red-500">{erreur}</div>
         )}
-
-        <div className="flex justify-end gap-2">
-          <button onClick={onFerme}
-            className="px-3 py-1.5 text-[13px] rounded-lg border border-slate-300">
-            Annuler
-          </button>
-          {mode === 'corriger' ? (
-            <button onClick={envoyer} disabled={enCours || !motifOk}
-              className="px-3 py-1.5 text-[13px] rounded-lg bg-iip-blue text-white
-                         font-semibold disabled:opacity-40">
-              {enCours ? 'Enregistrement…' : 'Corriger'}
-            </button>
-          ) : (
-            <button disabled={rouvertureEnCours || !motifOk}
-              onClick={() => { onRouvrir(motif); onFerme(); }}
-              className="px-3 py-1.5 text-[13px] rounded-lg bg-amber-600 text-white
-                         font-semibold disabled:opacity-40">
-              {rouvertureEnCours ? 'Réouverture…' : 'Rouvrir la séance'}
-            </button>
-          )}
-        </div>
       </div>
-    </div>
+    </Fenetre>
   );
 }
 

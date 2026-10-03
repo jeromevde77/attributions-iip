@@ -4,7 +4,7 @@ import {
   IconTargetArrow, IconBriefcase, IconAlertTriangle, IconCheck, IconX,
   IconSend, IconEye, IconMailForward, IconRefresh, IconChevronRight, IconSchool, IconCertificate,
 } from '@tabler/icons-react';
-import { PageHeader } from '../components/ui.jsx';
+import { PageHeader, Fenetre } from '../components/ui.jsx';
 import { authHeaders } from '../lib/api.js';
 import PreviewModal from '../components/PreviewModal.jsx';
 
@@ -313,7 +313,14 @@ export default function Besoins({ annee: anneeProp }) {
 
       {/* ── Préparation d'une offre ── */}
       {brouillon && (
-        <Modale titre="Nouvelle offre d'emploi" onFermer={() => setBrouillon(null)}>
+        <Modale titre="Nouvelle offre d'emploi" onFermer={() => setBrouillon(null)}
+          pied={<>
+            <span />
+            <button onClick={() => setBrouillon(null)} className="bouton">Annuler</button>
+            <button onClick={creerOffre} className="bouton bouton-fort">
+              Créer en brouillon
+            </button>
+          </>}>
           <div className="space-y-3 text-sm">
             <Champ label="Intitulé">
               <input value={brouillon.intitule}
@@ -398,21 +405,20 @@ export default function Besoins({ annee: anneeProp }) {
               Les acquis d'apprentissage rattachés au cours seront joints automatiquement à l'offre.
             </p>
 
-            <div className="flex gap-2 pt-1">
-              <button onClick={creerOffre}
-                className="px-3 py-2 rounded-lg bg-iip-blue text-white text-sm font-semibold">
-                Créer en brouillon
-              </button>
-              <button onClick={() => setBrouillon(null)}
-                className="px-3 py-2 rounded-lg border border-slate-300 text-sm">Annuler</button>
-            </div>
           </div>
         </Modale>
       )}
 
       {/* ── Détail d'une offre ── */}
       {detail && (
-        <Modale titre={detail.intitule} onFermer={() => setDetail(null)}>
+        <Modale titre={detail.intitule} onFermer={() => setDetail(null)}
+          pied={detail.statut === 'brouillon' ? <>
+            <span />
+            <button onClick={() => publier(detail.id)}
+              className="bouton bouton-fort inline-flex items-center gap-1.5">
+              <IconSend size={15} /> Publier l'offre
+            </button>
+          </> : null}>
           <div className="space-y-3 text-sm">
             <div className="flex items-center gap-2 flex-wrap">
               <span className={`px-2 py-0.5 rounded-champ text-[11px] font-bold
@@ -455,12 +461,6 @@ export default function Besoins({ annee: anneeProp }) {
               </div>
             )}
 
-            {detail.statut === 'brouillon' && (
-              <button onClick={() => publier(detail.id)}
-                className="px-3 py-2 rounded-lg bg-iip-turquoise text-white text-sm font-semibold flex items-center gap-1.5">
-                <IconSend size={15} /> Publier l'offre
-              </button>
-            )}
           </div>
         </Modale>
       )}
@@ -473,13 +473,21 @@ export default function Besoins({ annee: anneeProp }) {
       )}
 
       {envoi && (
-        <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] flex items-center justify-center z-50 p-4"
-             onClick={() => setEnvoi(null)}>
-          <div className="bg-white rounded-fenetre shadow-dessus w-full max-w-lg p-5 space-y-3"
-               onClick={e => e.stopPropagation()}>
-            <div className="font-semibold text-iip-blue">
-              Envoyer l'offre — {envoi.offre.intitule || envoi.offre.code_cours}
-            </div>
+        <Fenetre icone={IconMailForward} large="petite" onFermer={() => setEnvoi(null)}
+          titre={`Envoyer l'offre — ${envoi.offre.intitule || envoi.offre.code_cours}`}
+          pied={envoi.fait ? <>
+            <span />
+            <button onClick={() => setEnvoi(null)}
+              className="bouton bouton-fort">Fermer</button>
+          </> : <>
+            <span />
+            <button onClick={() => setEnvoi(null)} className="bouton">Annuler</button>
+            <button onClick={envoyerOffre} disabled={!envoi.destinataires.trim()}
+              className="bouton bouton-fort inline-flex items-center gap-1.5">
+              <IconMailForward size={15} /> Envoyer
+            </button>
+          </>}>
+          <div className="space-y-3">
             {envoi.fait ? (
               <>
                 <div className={`px-3 py-2.5 rounded-lg text-sm ${envoi.mode === 'smtp'
@@ -488,10 +496,6 @@ export default function Besoins({ annee: anneeProp }) {
                   {envoi.mode === 'smtp'
                     ? `Offre envoyée à ${envoi.nb} destinataire(s). L'envoi est tracé dans Lucie.`
                     : envoi.avertissement}
-                </div>
-                <div className="flex justify-end">
-                  <button onClick={() => setEnvoi(null)}
-                    className="bouton bouton-fort">Fermer</button>
                 </div>
               </>
             ) : (
@@ -505,18 +509,10 @@ export default function Besoins({ annee: anneeProp }) {
                   placeholder="forem@exemple.be, federation@exemple.be…"
                   className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm" />
                 {envoi.erreur && <div className="text-[13px] text-red-700">{envoi.erreur}</div>}
-                <div className="flex justify-end gap-2">
-                  <button onClick={() => setEnvoi(null)}
-                    className="text-sm px-3 py-1.5 rounded-lg border border-slate-300">Annuler</button>
-                  <button onClick={envoyerOffre} disabled={!envoi.destinataires.trim()}
-                    className="text-sm px-3 py-1.5 rounded-lg bg-iip-blue text-white font-semibold disabled:opacity-40 flex items-center gap-1.5">
-                    <IconMailForward size={15} /> Envoyer
-                  </button>
-                </div>
               </>
             )}
           </div>
-        </div>
+        </Fenetre>
       )}
     </div>
   );
@@ -541,17 +537,10 @@ function Champ({ label, children }) {
   );
 }
 
-function Modale({ titre, onFermer, children }) {
+function Modale({ titre, onFermer, pied, children }) {
   return (
-    <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] flex items-center justify-center z-50 p-4" onClick={onFermer}>
-      <div className="bg-white rounded-xl max-w-2xl w-full max-h-[85vh] overflow-auto"
-           onClick={e => e.stopPropagation()}>
-        <div className="px-5 py-3.5 border-b border-slate-200 flex items-center justify-between sticky top-0 bg-white">
-          <h3 className="font-semibold text-iip-blue">{titre}</h3>
-          <button onClick={onFermer} className="text-slate-400 hover:text-slate-700"><IconX size={20} /></button>
-        </div>
-        <div className="p-5">{children}</div>
-      </div>
-    </div>
+    <Fenetre titre={titre} large="moyenne" onFermer={onFermer} pied={pied}>
+      {children}
+    </Fenetre>
   );
 }

@@ -472,14 +472,24 @@ export function regenerateFakeEtudiants(db) {
       lieu_naissance = ?, matricule_helb = CASE WHEN matricule_helb IS NULL THEN NULL ELSE ? END
     WHERE id = ?`);
   const pris = new Set();
+  const nomsPris = new Set();
   const tx = db.transaction(() => {
     // Les matricules sont UNIQUES : on les libère d'abord, sans quoi le
     // premier nouveau matricule peut heurter un ancien encore en place.
     db.prepare("UPDATE etudiant SET id_ecampus = 'tmp-' || id").run();
     for (const e of etus) {
       const homme = Math.random() < 0.45;
-      const nom = pick(NOMS);
-      const prenom = pick(homme ? PRENOMS_M : PRENOMS_F);
+      // UN NOM, UNE PERSONNE (3.0.53) : tirés dans une centaine de noms et
+      // quarante prénoms, 860 étudiants donnaient 87 homonymes — que l'outil
+      // des doublons signalait, à raison, comme des dossiers dédoublés. Un
+      // couple déjà pris passe à un nom composé, jusqu'à être unique.
+      let nom, prenom, essai = 0;
+      do {
+        nom = essai < 20 ? pick(NOMS) : `${pick(NOMS)}-${pick(NOMS)}`;
+        prenom = pick(homme ? PRENOMS_M : PRENOMS_F);
+        essai++;
+      } while (nomsPris.has(`${nom}|${prenom}`));
+      nomsPris.add(`${nom}|${prenom}`);
       const annee = new Date().getFullYear() - randInt(19, 52);
       const mois = String(randInt(1, 12)).padStart(2, '0');
       const jour = String(randInt(1, 28)).padStart(2, '0');

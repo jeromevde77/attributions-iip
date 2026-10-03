@@ -7,6 +7,7 @@ import { MODULES_ACCES, plafondDe, droitEffectif, LIBELLE_DROIT, estDirection, u
 import { COL_PREMIERE, COL_MODULE, HAUTEUR_LIGNE, NIVEAUX_DROIT, CaseDroit, EnteteModules, Legende,
          TitreCarte } from '../components/GrilleAcces.jsx';
 import { Fenetre, GroupeFenetre, BoutonFenetre } from '../components/ui.jsx';
+import { demander, informer, saisir } from '../lib/dialogue.jsx';
 
 const ROLE_LABEL = {
   admin: 'Administrateur',
@@ -111,26 +112,26 @@ export default function Users({ embedded = false }) {
   // réponse ne se reconstitue pas.
   async function reinitMfa(u) {
     if (u.id === me?.id) {
-      alert("Vous ne pouvez pas réinitialiser votre propre second facteur.\n\n"
+      informer("Vous ne pouvez pas réinitialiser votre propre second facteur.\n\n"
           + "Demandez-le à un autre membre de la direction, ou employez\n"
           + "scripts/mfa-reset.js sur le serveur.");
       return;
     }
-    const motif = prompt(
+    const motif = await saisir(
       `Réinitialiser la vérification en deux temps de ${u.email} ?\n\n`
       + `Cette personne se reconnectera avec son seul mot de passe et devra\n`
       + `reconfigurer son application. Elle en sera avisée par courriel.\n\n`
       + `Motif (conservé au journal) :`);
     if (motif === null) return;
-    if (!motif.trim()) { alert('Un motif est nécessaire.'); return; }
+    if (!motif.trim()) { informer('Un motif est nécessaire.'); return; }
     try {
       const j = await api.mfaReinitialiser(u.id, motif.trim());
-      alert(j.avise
+      informer(j.avise
         ? `Second facteur réinitialisé. ${u.email} en a été avisé par courriel.`
         : `Second facteur réinitialisé, mais le courriel n'est pas parti`
           + `${j.raison_avis ? ` (${j.raison_avis})` : ''}. PRÉVENEZ LA PERSONNE.`);
       load();
-    } catch (e) { alert(e.message); }
+    } catch (e) { informer(e.message); }
   }
 
   async function changeRole(u, role) {
@@ -147,7 +148,7 @@ export default function Users({ embedded = false }) {
       });
       setEditingSections(null);
       load();
-    } catch (e) { alert(e.message); }
+    } catch (e) { informer(e.message); }
   }
 
   function toggleSectionInForm(code) {
@@ -169,15 +170,15 @@ export default function Users({ embedded = false }) {
   }
 
   async function deleteUser(u) {
-    if (!confirm(
+    if (!await demander(
       `Retirer l'accès de ${u.email} ?\n\n`
       + `Si ce compte a signé des attributions ou des modifications, il sera désactivé `
       + `plutôt que supprimé : son nom doit rester lisible dans l'historique.`)) return;
     try {
       const j = await authFetch(`/api/users/${u.id}`, { method: 'DELETE' });
-      if (j?.message) alert(j.message);
+      if (j?.message) informer(j.message);
       load();
-    } catch (e) { alert(e.message); }
+    } catch (e) { informer(e.message); }
   }
 
   // Un compte rattaché à un membre du personnel se règle depuis sa fiche.
@@ -212,9 +213,13 @@ export default function Users({ embedded = false }) {
 
 
       {showForm && (
-        <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] flex items-center justify-center p-4 z-30" onClick={() => setShowForm(false)}>
-          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6" onClick={e => e.stopPropagation()}>
-            <h2 className="text-xl font-title text-iip-gold mb-1">Compte sans fiche de personnel</h2>
+        <Fenetre titre="Compte sans fiche de personnel" large="petite"
+          onFermer={() => setShowForm(false)}
+          pied={<>
+            <span />
+            <button onClick={() => setShowForm(false)} className="bouton">Annuler</button>
+            <button onClick={createUser} className="bouton bouton-fort">Créer</button>
+          </>}>
             <p className="text-[12px] text-slate-500 mb-4">
               Pour un administrateur technique ou un prestataire extérieur. Pour un membre du
               personnel, créez l'accès depuis sa fiche.
@@ -259,12 +264,7 @@ export default function Users({ embedded = false }) {
               )}
             </div>
             {error && <div className="text-red-600 text-sm mt-2">{error}</div>}
-            <div className="flex justify-end gap-2 mt-4">
-              <button onClick={() => setShowForm(false)} className="px-4 py-2 text-sm text-gray-600">Annuler</button>
-              <button onClick={createUser} className="bg-iip-gold hover:bg-iip-amber text-white text-sm px-5 py-2 rounded">Créer</button>
-            </div>
-          </div>
-        </div>
+        </Fenetre>
       )}
       <MatriceAcces users={users} sectionsDispo={allSections} profils={profils}
         moiId={me?.id}
@@ -277,7 +277,7 @@ export default function Users({ embedded = false }) {
           if (!profilId) return;
           const p = profils.find(x => String(x.id) === String(profilId));
           if (!p) return;
-          if (!window.confirm(
+          if (!await demander(
             `Appliquer le profil « ${p.nom} » à ${nomDepuisChaine(u.nom_complet) || u.email} ?\n\n`
             + `${p.description || ''}\n\nLe périmètre par sections reste inchangé.`)) return;
           try {
@@ -286,7 +286,7 @@ export default function Users({ embedded = false }) {
               body: JSON.stringify({ role: p.role, permissions_json: JSON.stringify(p.permissions || {}) }),
             });
             load();
-          } catch (e) { alert(e.message); }
+          } catch (e) { informer(e.message); }
         }}
         onBasculerActif={toggleActif}
         onMotDePasse={envoyerLienMdp}
@@ -297,7 +297,7 @@ export default function Users({ embedded = false }) {
           try {
             await authFetch(`/api/users/${id}`, { method: 'PATCH', body: JSON.stringify(champs) });
             load();
-          } catch (e) { alert(e.message); }
+          } catch (e) { informer(e.message); }
         }} />
 
       {/* LE RÉSULTAT SE LIT, il ne se devine pas : un `alert()` disait
@@ -350,9 +350,13 @@ export default function Users({ embedded = false }) {
       )}
 
       {editingSections && (
-        <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] flex items-center justify-center p-4 z-30" onClick={() => setEditingSections(null)}>
-          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6" onClick={e => e.stopPropagation()}>
-            <h2 className="text-xl font-title text-iip-gold mb-1">Périmètre — {editingSections.nom}</h2>
+        <Fenetre titre={`Périmètre — ${editingSections.nom}`} large="petite"
+          onFermer={() => setEditingSections(null)}
+          pied={<>
+            <span />
+            <button onClick={() => setEditingSections(null)} className="bouton">Annuler</button>
+            <button onClick={saveSections} className="bouton bouton-fort">Enregistrer</button>
+          </>}>
             <p className="text-xs text-gray-500 mb-4">Sections que cette coordination peut voir et gérer.</p>
             <div className="grid grid-cols-2 gap-1 max-h-64 overflow-auto border border-gray-200 rounded p-2">
               {allSections.map(s => (
@@ -363,12 +367,7 @@ export default function Users({ embedded = false }) {
                 </label>
               ))}
             </div>
-            <div className="flex justify-end gap-2 mt-4">
-              <button onClick={() => setEditingSections(null)} className="px-4 py-2 text-sm text-gray-600">Annuler</button>
-              <button onClick={saveSections} className="bg-iip-gold hover:bg-iip-amber text-white text-sm px-5 py-2 rounded">Enregistrer</button>
-            </div>
-          </div>
-        </div>
+        </Fenetre>
       )}
     </div>
   );

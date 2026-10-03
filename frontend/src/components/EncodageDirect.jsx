@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
-import { IconX, IconDeviceFloppy, IconSearch, IconAlertTriangle } from '@tabler/icons-react';
+import { IconDeviceFloppy, IconSearch, IconAlertTriangle } from '@tabler/icons-react';
+import { Fenetre } from './ui.jsx';
 import { authHeaders } from '../lib/api.js';
 
 /**
@@ -104,22 +105,28 @@ export default function EncodageDirect({ onClose, anneeDefaut, sectionDefaut }) 
   };
 
   return (
-    <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] flex items-start justify-center z-50 p-4"
-      onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="bg-white rounded-fenetre shadow-dessus w-full max-w-5xl mt-8 p-5 space-y-4
-                      max-h-[90vh] overflow-hidden flex flex-col">
-        <div className="flex items-start justify-between">
-          <div>
-            <h3 className="text-[15px] font-semibold text-iip-blue">Encodage direct</h3>
-            <p className="text-[12px] text-slate-500">
-              Saisissez la note sur 20 ; le résultat en découle au seuil de 10.
-            </p>
-          </div>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-600">
-            <IconX size={18} />
-          </button>
-        </div>
-
+    <Fenetre icone={IconDeviceFloppy} titre="Encodage direct"
+      sous="Saisissez la note sur 20 ; le résultat en découle au seuil de 10."
+      large="grande" hauteurFixe onFermer={onClose}
+      pied={donnees && etudiantsVus.length ? (<>
+        <span className="text-[11px] text-iip-turquoise flex items-center gap-1.5">
+          VA = valorisation · ⚠ VA = valorisation ET résultat encodé, à trancher
+        </span>
+        <span className="text-[12px] text-slate-500 flex items-center gap-1.5">
+          <IconAlertTriangle size={13} />
+          {etudiantsVus.length} étudiant(s) · {uesVues.length} unité(s).
+          Une note sous 10 vaut ajournement.
+        </span>
+        <button onClick={enregistrer} disabled={!nbSaisies || enCours}
+          className="bouton bouton-fort flex items-center gap-1.5">
+          <IconDeviceFloppy size={15} />
+          {enCours ? 'Enregistrement…'
+            : nbSaisies ? `Enregistrer ${nbSaisies} note(s)` : 'Enregistrer'}
+        </button>
+      </>) : null}>
+      {/* La grille défile seule, sous son en-tête collant : le contenu prend
+          toute la hauteur de la fenêtre. */}
+      <div className="h-full space-y-4 flex flex-col">
         {message && (
           <div className={`px-3 py-2 rounded-lg text-[13px] ${
             message.type === 'err' ? 'bg-red-500 border border-red-500 text-white'
@@ -258,26 +265,9 @@ export default function EncodageDirect({ onClose, anneeDefaut, sectionDefaut }) 
               </table>
             </div>
 
-            <div className="flex items-center justify-between gap-3 flex-wrap">
-              <span className="text-[11px] text-iip-turquoise flex items-center gap-1.5">
-                VA = valorisation · ⚠ VA = valorisation ET résultat encodé, à trancher
-              </span>
-              <span className="text-[12px] text-slate-500 flex items-center gap-1.5">
-                <IconAlertTriangle size={13} />
-                {etudiantsVus.length} étudiant(s) · {uesVues.length} unité(s).
-                Une note sous 10 vaut ajournement.
-              </span>
-              <button onClick={enregistrer} disabled={!nbSaisies || enCours}
-                className="flex items-center gap-1.5 px-4 py-2 text-sm bg-iip-blue text-white
-                           font-semibold rounded-lg disabled:opacity-40">
-                <IconDeviceFloppy size={15} />
-                {enCours ? 'Enregistrement…'
-                  : nbSaisies ? `Enregistrer ${nbSaisies} note(s)` : 'Enregistrer'}
-              </button>
-            </div>
           </>
         )}
       </div>
-    </div>
+    </Fenetre>
   );
 }

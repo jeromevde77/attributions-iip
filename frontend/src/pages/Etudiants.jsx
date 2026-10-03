@@ -52,6 +52,8 @@ import ImportListe from '../components/ImportListe.jsx';
 import DroitInscription from '../components/DroitInscription.jsx';
 import FraisScolarite from '../components/FraisScolarite.jsx';
 import ImportHistorique from '../components/ImportHistorique.jsx';
+import ImportTableauPlat from '../components/ImportTableauPlat.jsx';
+import { demander, informer, saisir } from '../lib/dialogue.jsx';
 
 // Niveau de l'étudiant : BA1/BA2 s'il ne suit qu'une année, « Diplômant »
 // s'il ne lui reste que la BA3, « Parcours » s'il en mélange plusieurs.
@@ -126,9 +128,9 @@ const quandLocal = t => {
   if (Number.isNaN(d.getTime())) return String(t);
   return `${d.toLocaleDateString('fr-BE')} à ${d.toLocaleTimeString('fr-BE', { hour: '2-digit', minute: '2-digit' })}`;
 };
-function demanderMotifs(refus) {
+async function demanderMotifs(refus) {
   const lignes = refus.map(x => `UE ${x.ue_num} — ${x.regles.map(r0 => r0.libelle + (r0.detail ? ` (${r0.detail})` : '')).join(' ; ')}`);
-  const m = window.prompt(`Ces unités contreviennent aux règles du PAE :\n\n${lignes.join('\n')}\n\n`
+  const m = await saisir(`Ces unités contreviennent aux règles du PAE :\n\n${lignes.join('\n')}\n\n`
     + 'Motif de la dérogation — il sera tracé sur chacune (Annuler pour ne rien écrire) :');
   if (!m?.trim()) return null;
   return Object.fromEntries(refus.map(x => [x.ue_num, m.trim()]));
@@ -294,7 +296,7 @@ function RevuePAE({ liste: base, annee: anneeDepart, onClose }) {
           body: JSON.stringify({ annee, ues, ...corps }) }).then(async x => ({ x, j: await x.json().catch(() => ({})) }));
         let { x, j } = await appel({});
         if (x.status === 409 && j.refus?.length) {
-          const motifs = demanderMotifs(j.refus);
+          const motifs = await demanderMotifs(j.refus);
           if (!motifs) return;
           ({ x, j } = await appel({ motifs }));
         }
@@ -306,7 +308,7 @@ function RevuePAE({ liste: base, annee: anneeDepart, onClose }) {
       let j = await r.json().catch(() => ({}));
       // Au-delà de 60 ECTS : la validation se fait en connaissance de cause.
       if (r.status === 409 && j.plus60) {
-        if (!window.confirm(`Programme de ${j.plus60} ECTS, au-delà de 60 (plus qu'une année à temps plein).\n\nValider en connaissance de cause ? La confirmation est enregistrée à votre nom.`)) return;
+        if (!(await demander(`Programme de ${j.plus60} ECTS, au-delà de 60 (plus qu'une année à temps plein).\n\nValider en connaissance de cause ? La confirmation est enregistrée à votre nom.`))) return;
         r = await poser({ plus60: j.plus60 });
         j = await r.json().catch(() => ({}));
       }
@@ -354,7 +356,7 @@ function RevuePAE({ liste: base, annee: anneeDepart, onClose }) {
      inscription qui porte un résultat n'est retirée que sur confirmation. Les
      reports d'office se reposent seuls à l'enregistrement. */
   const modifierProgramme = async (ueNums, libelle) => {
-    if (!window.confirm(`${libelle} — le PAE ${annee} de ${nomPropre(cur.nom, cur.prenom)} sera enregistré, et sa confirmation retirée s'il était confirmé.`)) return;
+    if (!(await demander(`${libelle} — le PAE ${annee} de ${nomPropre(cur.nom, cur.prenom)} sera enregistré, et sa confirmation retirée s'il était confirmé.`))) return;
     setEnCours('pae'); setErreur(null);
     try {
       const appel = corps => fetch(`/api/etudiants/${cur.id}/pae-valider`, { method: 'POST', headers: authHeaders(),
@@ -362,12 +364,12 @@ function RevuePAE({ liste: base, annee: anneeDepart, onClose }) {
       let motifs = {};
       let { r, j } = await appel({});
       if (r.status === 409 && j.refus?.length) {
-        motifs = demanderMotifs(j.refus);
+        motifs = await demanderMotifs(j.refus);
         if (!motifs) return;
         ({ r, j } = await appel({ motifs }));
       }
       if (!r.ok) throw new Error(j.error || 'Refusé.');
-      if (j.conservees && window.confirm(`${j.conservees} inscription(s) portent un résultat encodé et ont été conservées. Les retirer quand même, avec leurs notes ?`)) {
+      if (j.conservees && await demander(`${j.conservees} inscription(s) portent un résultat encodé et ont été conservées. Les retirer quand même, avec leurs notes ?`)) {
         ({ r, j } = await appel({ motifs, forcer: true }));
         if (!r.ok) throw new Error(j.error || 'Refusé.');
       }
@@ -707,17 +709,17 @@ function SchemaCapitalisation({ etudId, annee, onNoeud = null, programme = null,
       method: 'POST', headers: authHeaders(), body: JSON.stringify({ annee, section, simulation }) })
       .then(async r => ({ ok: r.ok, j: await r.json().catch(() => ({})) }));
     const sim = await appel(true);
-    if (!sim.ok) { alert(sim.j.error || 'Refusé.'); return; }
+    if (!sim.ok) { informer(sim.j.error || 'Refusé.'); return; }
     const { retirees = [], conservees = [] } = sim.j;
     if (!retirees.length) {
-      alert(conservees.length ? `Rien à retirer sans perte : UE ${conservees.map(x => `${x.ue_num} (${x.pourquoi})`).join(', ')}.` : 'Rien à retirer.');
+      informer(conservees.length ? `Rien à retirer sans perte : UE ${conservees.map(x => `${x.ue_num} (${x.pourquoi})`).join(', ')}.` : 'Rien à retirer.');
       return;
     }
-    if (!window.confirm(`Retirer ${retirees.length} inscription(s) de ${section} en ${annee} : UE ${retirees.join(', ')} ?`
+    if (!(await demander(`Retirer ${retirees.length} inscription(s) de ${section} en ${annee} : UE ${retirees.join(', ')} ?`
       + (conservees.length ? `\n\nRestent, parce qu'elles portent un résultat, une note ou un report : UE ${conservees.map(x => x.ue_num).join(', ')}.` : '')
-      + '\n\nSi le programme était confirmé, la confirmation sera retirée.')) return;
+      + '\n\nSi le programme était confirmé, la confirmation sera retirée.'))) return;
     const fait = await appel(false);
-    if (!fait.ok) { alert(fait.j.error || 'Refusé.'); return; }
+    if (!fait.ok) { informer(fait.j.error || 'Refusé.'); return; }
     setRecharge(n => n + 1); onModifie?.();
   };
   useEffect(() => {
@@ -736,13 +738,13 @@ function SchemaCapitalisation({ etudId, annee, onNoeud = null, programme = null,
      nomme, avec ses années et ce qui y a été réussi, et s'ouvre à la demande. */
   const [archiveVue, setArchiveVue] = useState(null);   // { section, data }
   const reprendre = async section => {
-    if (!window.confirm(`Faire de ${section} le cursus en cours de l'étudiant ?\n\n`
+    if (!(await demander(`Faire de ${section} le cursus en cours de l'étudiant ?\n\n`
       + `Sa section actuelle deviendra un cursus archivé ; ses inscriptions de ${annee} y resteront, `
-      + 'et se retireront ensuite avec « Retirer ces inscriptions ».')) return;
+      + 'et se retireront ensuite avec « Retirer ces inscriptions ».'))) return;
     const r = await fetch(`/api/etudiants/${etudId}/cursus/reprendre`, { method: 'POST', headers: authHeaders(),
       body: JSON.stringify({ annee, section }) });
     const j = await r.json().catch(() => ({}));
-    if (!r.ok) { alert(j.error || 'Refusé.'); return; }
+    if (!r.ok) { informer(j.error || 'Refusé.'); return; }
     setArchiveVue(null); setRecharge(n => n + 1); onModifie?.();
   };
   const voirArchive = async section => {
@@ -771,14 +773,14 @@ function SchemaCapitalisation({ etudId, annee, onNoeud = null, programme = null,
   const courante = (data?.sections || [])[0] || null;
   const changerSection = async () => {
     if (!nouvelle) return;
-    if (!window.confirm(`Faire passer l'étudiant en ${nouvelle} ?\n\n`
+    if (!(await demander(`Faire passer l'étudiant en ${nouvelle} ?\n\n`
       + (courante ? `${courante} deviendra un cursus archivé : ses réussites restent au dossier ; ses inscriptions de ${annee} `
         + 'se retirent ensuite avec « Retirer ces inscriptions ». ' : '')
-      + `Le PAE ${annee} se compose ensuite dans ${nouvelle}, onglet PAE de la fiche.`)) return;
+      + `Le PAE ${annee} se compose ensuite dans ${nouvelle}, onglet PAE de la fiche.`))) return;
     const r = await fetch(`/api/etudiants/${etudId}/cursus/reprendre`, { method: 'POST', headers: authHeaders(),
       body: JSON.stringify({ annee, section: nouvelle }) });
     const j = await r.json().catch(() => ({}));
-    if (!r.ok) { alert(j.error || 'Refusé.'); return; }
+    if (!r.ok) { informer(j.error || 'Refusé.'); return; }
     setChanger(false); setNouvelle(''); setArchiveVue(null); setRecharge(n => n + 1); onModifie?.();
   };
   const ligneChanger = (
@@ -936,28 +938,29 @@ function GrilleParcours({ etudId, peutEcrire, annee, ueFocus = null }) {
 
   async function purgerAnnee() {
     const annees = (data?.annees || []);
-    const saisie = window.prompt(
-      'Année à purger ?\nAnnées présentes : ' + annees.join(', '),
-      annees[annees.length - 1] || '');
+    const saisie = await saisir({ message:
+      'Année à purger ?\nAnnées présentes : ' + annees.join(', '), valeur: annees[annees.length - 1] || '' });
     if (!saisie || !/^20\d{2}-20\d{2}$/.test(saisie.trim())) {
-      if (saisie !== null) alert('Format attendu : 2025-2026');
+      if (saisie !== null) informer('Format attendu : 2025-2026');
       return;
     }
     const an = saisie.trim();
-    const tout = window.confirm(
-      `Purge de ${an}\n\nOK = supprimer les inscriptions ET les résultats\n` +
-      `Annuler = ne vider que les résultats, en gardant les inscriptions`);
+    // Deux portées, deux boutons qui les nomment ; la confirmation qui suit
+    // protège d'un Échap ou d'un clic à côté.
+    const tout = await demander({ titre: `Purge de ${an}`, ton: 'alerte',
+      confirmer: 'Inscriptions et résultats', annuler: 'Résultats seulement',
+      message: 'Que faut-il supprimer ? Les inscriptions ET les résultats, ou seulement les résultats en gardant les inscriptions.' });
     const portee = tout ? 'tout' : 'resultats';
-    if (!window.confirm(
+    if (!(await demander(
       portee === 'tout'
         ? `Confirmer la suppression des inscriptions de ${an} et de tout ce qui s'y rattache ?`
-        : `Confirmer l'effacement des résultats de ${an} ? Les inscriptions sont conservées.`)) return;
+        : `Confirmer l'effacement des résultats de ${an} ? Les inscriptions sont conservées.`))) return;
 
     const rep = await fetch(`/api/etudiants/${etudId}/annee/${an}?portee=${portee}`,
       { method: 'DELETE', headers: authHeaders() });
     const j = await rep.json();
-    if (!rep.ok) { alert(j.error || 'Erreur'); return; }
-    alert(`Purge de ${an} — ${j.avant} inscription(s) concernée(s)` +
+    if (!rep.ok) { informer(j.error || 'Erreur'); return; }
+    informer(`Purge de ${an} — ${j.avant} inscription(s) concernée(s)` +
       (portee === 'tout' ? `\n${j.inscriptions} supprimée(s), ${j.valorisations} valorisation(s)` : '\nrésultats effacés') +
       `\n${j.notes} note(s) d'acquis supprimée(s)`);
     await charger();
@@ -968,7 +971,7 @@ function GrilleParcours({ etudId, peutEcrire, annee, ueFocus = null }) {
     // Une dérogation se motive, et le motif se trace (porte unique du PAE).
     let motif = opts.motif;
     if (kind === 'inscrit' && popover.verrou && !motif) {
-      motif = window.prompt('Motif de la dérogation — il sera tracé au dossier :');
+      motif = await saisir('Motif de la dérogation — il sera tracé au dossier :');
       if (!motif?.trim()) return;
     }
     const rep = await fetch(`/api/etudiants/${etudId}/grille`, {
@@ -981,11 +984,11 @@ function GrilleParcours({ etudId, peutEcrire, annee, ueFocus = null }) {
     if (!rep.ok) {
       const j = await rep.json().catch(() => ({}));
       if (rep.status === 409 && j.motif_requis && !motif) {
-        const m = window.prompt(`${j.error}\n\nMotif (il sera tracé au dossier) :`);
+        const m = await saisir(`${j.error}\n\nMotif (il sera tracé au dossier) :`);
         if (m?.trim()) return ecrire(kind, { ...opts, motif: m });
         return;
       }
-      alert(j.error || 'Erreur'); return;
+      informer(j.error || 'Erreur'); return;
     }
     setPopover(null); setPts(''); setDetail(null); setDetailOuvert(false);
     await charger();
@@ -997,7 +1000,7 @@ function GrilleParcours({ etudId, peutEcrire, annee, ueFocus = null }) {
       body: JSON.stringify({ mouvements, simulation: true }),
     });
     const j = await rep.json().catch(() => ({}));
-    if (!rep.ok) { alert(j.error || 'Déplacement refusé.'); return; }
+    if (!rep.ok) { informer(j.error || 'Déplacement refusé.'); return; }
     setDepl({ mouvements, rapport: j, motif: '', enCours: false, erreur: null });
   }
 
@@ -1071,7 +1074,7 @@ function GrilleParcours({ etudId, peutEcrire, annee, ueFocus = null }) {
     const d = idxAnnee(anneeCible) - idxAnnee(g.de);
     if (!d) return;
     const mouvements = g.cases.map(c => ({ ue_num: c.ue_num, de: c.annee, vers: anneesAffichees[idxAnnee(c.annee) + d] }));
-    if (mouvements.some(m => !m.vers)) { alert('Une des cases sortirait de la grille : révélez d’abord les années antérieures.'); return; }
+    if (mouvements.some(m => !m.vers)) { informer('Une des cases sortirait de la grille : révélez d’abord les années antérieures.'); return; }
     simulerDeplacement(mouvements);
   }
 
@@ -1186,7 +1189,7 @@ function GrilleParcours({ etudId, peutEcrire, annee, ueFocus = null }) {
                               setGlisse({ de: a, cases });
                             }}
                             onDragEnd={() => { setGlisse(null); setSurvol(null); }}
-                            onClick={ev => {
+                            onClick={async ev => {
                               if (!peutEcrire) return;
                               if ((ev.metaKey || ev.ctrlKey || ev.shiftKey) && deplacable(cl)) {
                                 const cle = `${a}|${u.ue_num}`;
@@ -1204,7 +1207,7 @@ function GrilleParcours({ etudId, peutEcrire, annee, ueFocus = null }) {
                               if (memeAnnee) {
                                 // Inscription simultanée normale — sous réserve, pas de dérogation
                                 setPopover({ annee: a, ue_num: u.ue_num, verrou: false, sousReserve: manquants });
-                              } else if (window.confirm(
+                              } else if (await demander(
                                   'UE verrouillée — exige la réussite de : UE '
                                   + ((u.prereq_chaine?.length ? u.prereq_chaine : u.prerequis) || []).join(', ')
                                   + '.\n\nL\'exigence est transitive : une UE prérequise a elle-même ses prérequis.'
@@ -1317,21 +1320,11 @@ function GrilleParcours({ etudId, peutEcrire, annee, ueFocus = null }) {
       })()}
 
       {popover && (
-        <div className="fixed inset-0 z-[60] bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] flex items-center justify-center p-4"
-          onClick={() => { setPopover(null); setPts(''); setDetail(null); setDetailOuvert(false); }}>
-          {/* DEUX FENÊTRES EN UNE, ET UNE SEULE LARGEUR POUR LES DEUX.
-              Fermée, cette fenêtre ne porte qu'une poignée de boutons : 320 px
-              suffisent. Ouverte sur le détail, elle doit montrer une grille —
-              cours, acquis, notes des deux sessions — et 320 px la réduisaient
-              à une colonne de libellés tronqués. La largeur suit donc ce qu'on
-              y fait, et la hauteur aussi : c'est le contenu qui défile, pas la
-              fenêtre qui s'étire hors de l'écran. */}
-          <div onClick={e => e.stopPropagation()}
-            className={`bg-white rounded-fenetre shadow-dessus p-5 flex flex-col
-                        ${detailOuvert ? 'w-full max-w-3xl max-h-[88vh]' : 'w-80'}`}>
-            <div className="font-semibold text-iip-blue mb-1">
-              UE {popover.ue_num} — {popover.annee}
-            </div>
+        <Fenetre titre={`UE ${popover.ue_num} — ${popover.annee}`}
+          large={detailOuvert ? 'moyenne' : 'petite'}
+          onFermer={() => { setPopover(null); setPts(''); setDetail(null); setDetailOuvert(false); }}>
+          {/* DEUX FENÊTRES EN UNE : la largeur suit ce qu'on y fait — petite
+              pour la poignée de boutons, moyenne pour la grille du détail. */}
             {popover.verrou && (
               <div className="text-[11px] text-white bg-amber-500 border border-amber-500 rounded-lg px-2 py-1 mb-2">
                 Dérogation — sera tracée comme telle
@@ -1359,8 +1352,8 @@ function GrilleParcours({ etudId, peutEcrire, annee, ueFocus = null }) {
                 className="text-[12px] px-2 py-1.5 rounded-lg border border-slate-200 text-slate-600">
                 Effacer le résultat
               </button>
-              <button onClick={() => {
-                  if (window.confirm("Supprimer l'inscription à cette UE pour cette année ?\nSes notes, valorisations et reports seront également supprimés."))
+              <button onClick={async () => {
+                  if (await demander("Supprimer l'inscription à cette UE pour cette année ?\nSes notes, valorisations et reports seront également supprimés."))
                     ecrire('effacer');
                 }}
                 title="Supprime l'inscription et tout ce qui s'y rattache"
@@ -1591,8 +1584,7 @@ function GrilleParcours({ etudId, peutEcrire, annee, ueFocus = null }) {
                 </p>
               </div>
             )}
-          </div>
-        </div>
+        </Fenetre>
       )}
     </div>
   );
@@ -1728,7 +1720,7 @@ function Valorisations({ etudId, annee }) {
           .map(([aa_code, texte]) => ({ aa_code, texte })) }),
     });
     const j = await rep.json();
-    if (!rep.ok) { alert(j.error || 'Erreur'); return; }
+    if (!rep.ok) { informer(j.error || 'Erreur'); return; }
 
     // Les notes par cours vont dans etudiant_report_note, table prévue pour
     // cela : la valorisation dit QUELS cours sont dispensés, le report dit
@@ -1747,7 +1739,7 @@ function Valorisations({ etudId, annee }) {
       });
       if (!r.ok) {
         const e = await r.json().catch(() => ({}));
-        alert(`Note du cours ${cours_code} non enregistrée : ${e.error || 'erreur'}`);
+        informer(`Note du cours ${cours_code} non enregistrée : ${e.error || 'erreur'}`);
         return;
       }
     }
@@ -1771,7 +1763,7 @@ function Valorisations({ etudId, annee }) {
       method: 'POST', headers: entetes, body: fd });
     if (!rep.ok) {
       const e = await rep.json().catch(() => ({}));
-      alert(e.error || "La pièce n'a pas pu être déposée.");
+      informer(e.error || "La pièce n'a pas pu être déposée.");
       return;
     }
     await charger();
@@ -1781,7 +1773,7 @@ function Valorisations({ etudId, annee }) {
     const { 'Content-Type': _ignore, ...entetes } = authHeaders();
     const rep = await fetch(`/api/etudiants/valorisations/fichiers/${f.id}`,
       { headers: entetes });
-    if (!rep.ok) { alert('Pièce introuvable.'); return; }
+    if (!rep.ok) { informer('Pièce introuvable.'); return; }
     const url = URL.createObjectURL(await rep.blob());
     const a = document.createElement('a');
     a.href = url; a.download = f.nom; a.click();
@@ -1789,7 +1781,7 @@ function Valorisations({ etudId, annee }) {
   }
 
   async function renommer(f) {
-    const nom = prompt('Nom de la pièce :', f.nom);
+    const nom = await saisir({ message: 'Nom de la pièce :', valeur: f.nom });
     if (!nom || nom === f.nom) return;
     await fetch(`/api/etudiants/valorisations/fichiers/${f.id}`, {
       method: 'PATCH', headers: authHeaders(), body: JSON.stringify({ nom }) });
@@ -1797,7 +1789,7 @@ function Valorisations({ etudId, annee }) {
   }
 
   async function supprimerPiece(fid) {
-    if (!confirm('Supprimer cette pièce ?')) return;
+    if (!(await demander('Supprimer cette pièce ?'))) return;
     await fetch(`/api/etudiants/valorisations/fichiers/${fid}`,
       { method: 'DELETE', headers: authHeaders() });
     await charger();
@@ -1821,7 +1813,7 @@ function Valorisations({ etudId, annee }) {
   }
 
   async function supprimer(vid) {
-    if (!confirm('Supprimer cette valorisation ?')) return;
+    if (!(await demander('Supprimer cette valorisation ?'))) return;
     await fetch(`/api/etudiants/valorisations/${vid}`, { method: 'DELETE', headers: authHeaders() });
     await charger();
   }
@@ -2619,40 +2611,41 @@ export function FicheEtudiant({ id, annee, onClose, position, onPrec, onSuiv,
   }, [onPrec, onSuiv]);
 
   async function paeAuto() {
-    if (!window.confirm('Inscrire automatiquement cet étudiant à toutes les UE accessibles en ' + annee + ' (y compris les inscriptions sous réserve) ?')) return;
+    if (!(await demander('Inscrire automatiquement cet étudiant à toutes les UE accessibles en ' + annee + ' (y compris les inscriptions sous réserve) ?'))) return;
     const rep = await fetch(`/api/etudiants/${id}/pae-auto`, {
       method: 'POST', headers: authHeaders(), body: JSON.stringify({ annee }),
     });
     const j = await rep.json();
-    if (!rep.ok) { alert(j.error || 'Erreur'); return; }
+    if (!rep.ok) { informer(j.error || 'Erreur'); return; }
     const nbSR = Object.keys(j.sous_reserve || {}).length;
-    alert(`${j.creees} inscription(s) créée(s) — ${j.inscrites.length} UE au PAE ${annee}` +
+    informer(`${j.creees} inscription(s) créée(s) — ${j.inscrites.length} UE au PAE ${annee}` +
       (nbSR ? `\ndont ${nbSR} sous réserve : UE ${Object.keys(j.sous_reserve).join(', ')}` : ''));
     await chargerPAE(); await charger();
   }
 
-  function basculerUE(u) {
-    setSelection(prev => {
-      const s = new Set(prev);
-      if (s.has(u.ue_num)) { s.delete(u.ue_num); return s; }
-      // Ajout d'une UE hors proposition dont les prérequis ne sont pas acquis
-      // Une unité d'un bloc que l'étudiant n'a pas encore atteint (27 septembre
-      // 2026 : « pas possible, tu donnes accès à une UE de B2 »).
-      if (u.hors_bloc && !window.confirm(`L'UE ${u.ue_num} est une unité de ${u.ue_niv || 'bloc supérieur'} : `
-        + `l'étudiant n'a pas encore acquis la part requise du BA${u.plafond_bloc} (Configuration → Paramètres, « pae_seuil_bloc »).\n\n`
-        + `L'ajouter quand même ? Ce choix sera tracé.`)) return s;
-      if (!u.hors_bloc && !u.propose && !u.accessible && !u.reinscriptible_ce) {
-        const chaine = u.prereq_chaine?.length ? u.prereq_chaine : (u.prereq_manquants || []);
-        const msg = chaine.length
-          ? `Cette UE exige la réussite de : UE ${chaine.join(', ')}.\n\n`
-            + `L'exigence est transitive — une UE prérequise a elle-même ses propres prérequis.\n\n`
-            + `Ajouter quand même ? La dérogation sera tracée.`
-          : 'Ajouter cette UE au PAE ?';
-        if (!window.confirm(msg)) return s;
-      }
-      s.add(u.ue_num);
-      return s;
-    });
+  async function basculerUE(u) {
+    // Les confirmations s'attendent : elles ne peuvent plus vivre dans la
+    // fonction de mise à jour de l'état, qui doit rester synchrone.
+    if (selection?.has(u.ue_num)) {
+      setSelection(prev => { const s = new Set(prev); s.delete(u.ue_num); return s; });
+      return;
+    }
+    // Ajout d'une UE hors proposition dont les prérequis ne sont pas acquis
+    // Une unité d'un bloc que l'étudiant n'a pas encore atteint (27 septembre
+    // 2026 : « pas possible, tu donnes accès à une UE de B2 »).
+    if (u.hors_bloc && !(await demander(`L'UE ${u.ue_num} est une unité de ${u.ue_niv || 'bloc supérieur'} : `
+      + `l'étudiant n'a pas encore acquis la part requise du BA${u.plafond_bloc} (Configuration → Paramètres, « pae_seuil_bloc »).\n\n`
+      + `L'ajouter quand même ? Ce choix sera tracé.`))) return;
+    if (!u.hors_bloc && !u.propose && !u.accessible && !u.reinscriptible_ce) {
+      const chaine = u.prereq_chaine?.length ? u.prereq_chaine : (u.prereq_manquants || []);
+      const msg = chaine.length
+        ? `Cette UE exige la réussite de : UE ${chaine.join(', ')}.\n\n`
+          + `L'exigence est transitive — une UE prérequise a elle-même ses propres prérequis.\n\n`
+          + `Ajouter quand même ? La dérogation sera tracée.`
+        : 'Ajouter cette UE au PAE ?';
+      if (!(await demander(msg))) return;
+    }
+    setSelection(prev => { const s = new Set(prev); s.add(u.ue_num); return s; });
   }
 
   /**
@@ -2667,7 +2660,7 @@ export function FicheEtudiant({ id, annee, onClose, position, onPrec, onSuiv,
         const rep = await fetch(
           `/api/etudiants/${id}/pae/confirmer?annee=${encodeURIComponent(annee)}`,
           { method: 'DELETE', headers: authHeaders() });
-        if (!rep.ok) { alert('Le retrait a échoué.'); return; }
+        if (!rep.ok) { informer('Le retrait a échoué.'); return; }
         setPaeConfirme(false);
         return;
       }
@@ -2679,7 +2672,7 @@ export function FicheEtudiant({ id, annee, onClose, position, onPrec, onSuiv,
       const ues = [...(selection || [])];
       const decochees = (pae?.pae || []).filter(u => u.inscrite && !(selection || new Set()).has(u.ue_num));
       if (decochees.length) {
-        alert(`${decochees.length} inscription(s) décochée(s) (UE ${decochees.map(u => u.ue_num).join(', ')}) : `
+        informer(`${decochees.length} inscription(s) décochée(s) (UE ${decochees.map(u => u.ue_num).join(', ')}) : `
           + `enregistrez d'abord le PAE pour les retirer, puis confirmez.`);
         return;
       }
@@ -2689,7 +2682,7 @@ export function FicheEtudiant({ id, annee, onClose, position, onPrec, onSuiv,
       });
       let j = await rep.json();
       if (rep.status === 409 && j.refus?.length) {
-        const motifs = demanderMotifs(j.refus);
+        const motifs = await demanderMotifs(j.refus);
         if (!motifs) return;
         rep = await fetch(`/api/etudiants/${id}/pae/confirmer`, {
           method: 'POST', headers: authHeaders(),
@@ -2697,7 +2690,7 @@ export function FicheEtudiant({ id, annee, onClose, position, onPrec, onSuiv,
         });
         j = await rep.json();
       }
-      if (!rep.ok) { alert(j.error || 'La confirmation a échoué.'); return; }
+      if (!rep.ok) { informer(j.error || 'La confirmation a échoué.'); return; }
       setPaeConfirme(true);
       await chargerPAE();
       onModifie && onModifie();
@@ -2718,7 +2711,7 @@ export function FicheEtudiant({ id, annee, onClose, position, onPrec, onSuiv,
       });
       let j = await rep.json();
       if (rep.status === 409 && j.refus?.length) {
-        motifs = demanderMotifs(j.refus);
+        motifs = await demanderMotifs(j.refus);
         if (!motifs) return;
         rep = await fetch(`/api/etudiants/${id}/pae-valider`, {
           method: 'POST', headers: authHeaders(),
@@ -2726,11 +2719,11 @@ export function FicheEtudiant({ id, annee, onClose, position, onPrec, onSuiv,
         });
         j = await rep.json();
       }
-      if (!rep.ok) { alert(j.error || 'Erreur'); return; }
+      if (!rep.ok) { informer(j.error || 'Erreur'); return; }
 
       // Les inscriptions portant un résultat ne sont jamais retirées d'office
       if (j.conservees) {
-        const forcer = window.confirm(
+        const forcer = await demander(
           `${j.conservees} inscription(s) décochée(s) portent un résultat encodé et ont été conservées.\n\n` +
           `Les supprimer quand même, avec leurs notes ?`);
         if (forcer) {
@@ -2740,14 +2733,14 @@ export function FicheEtudiant({ id, annee, onClose, position, onPrec, onSuiv,
           });
           const j2 = await rep2.json();
           if (rep2.ok) {
-            alert(`PAE enregistré — ${j2.total} UE inscrites\n${j2.retirees} retirée(s)`);
+            informer(`PAE enregistré — ${j2.total} UE inscrites\n${j2.retirees} retirée(s)`);
             await chargerPAE(); await charger();
             return;
           }
         }
       }
 
-      alert(`PAE enregistré — ${j.total} UE inscrites` +
+      informer(`PAE enregistré — ${j.total} UE inscrites` +
         (j.ajoutees ? `\n${j.ajoutees} ajoutée(s)` : '') +
         (j.retirees ? `\n${j.retirees} retirée(s)` : '') +
         (j.conservees ? `\n${j.conservees} conservée(s) car elles portent un résultat` : ''));
@@ -2759,7 +2752,7 @@ export function FicheEtudiant({ id, annee, onClose, position, onPrec, onSuiv,
     const rep = await fetch(`/api/etudiants/${id}/fiche-inscription?annee=${annee}`, { headers: authHeaders() });
     const j = await rep.json();
     if (rep.ok) setFicheInscription(j);
-    else alert(j.error || 'Erreur');
+    else informer(j.error || 'Erreur');
   }
 
   // Les frais de scolarité relèvent de l'établissement, non de la Fédération :
@@ -2769,7 +2762,7 @@ export function FicheEtudiant({ id, annee, onClose, position, onPrec, onSuiv,
       { headers: authHeaders() });
     if (!rep.ok) {
       const j = await rep.json().catch(() => ({}));
-      alert(j.error || 'Erreur à la génération du document.');
+      informer(j.error || 'Erreur à la génération du document.');
       return;
     }
     const j = await rep.json();
@@ -2786,7 +2779,7 @@ export function FicheEtudiant({ id, annee, onClose, position, onPrec, onSuiv,
       `/api/etudiants/${id}/fiche-parcours/document?annee=${encodeURIComponent(annee)}`,
       { headers: authHeaders() });
     const j = await rep.json();
-    if (!rep.ok) { alert(j.error || 'Document indisponible.'); return; }
+    if (!rep.ok) { informer(j.error || 'Document indisponible.'); return; }
     setFicheInscription({ html: j.html, titre: 'Parcours de formation', nom: j.nom });
   }
 
@@ -2794,7 +2787,7 @@ export function FicheEtudiant({ id, annee, onClose, position, onPrec, onSuiv,
      attestation est une pièce distincte, remise séparément. */
   async function telechargerAttestationsPdf() {
     const rep = await fetch(`/api/attestations/etudiant/${id}/pdfs?annee=toutes`, { headers: authHeaders() });
-    if (!rep.ok) { const j = await rep.json().catch(() => ({})); alert(j.error || 'Les PDF n\u2019ont pas pu être produits.'); return; }
+    if (!rep.ok) { const j = await rep.json().catch(() => ({})); informer(j.error || 'Les PDF n\u2019ont pas pu être produits.'); return; }
     const nom = (rep.headers.get('Content-Disposition') || '').match(/filename="([^"]+)"/)?.[1] || 'attestations.zip';
     const url = URL.createObjectURL(await rep.blob());
     const a = document.createElement('a'); a.href = url; a.download = nom;
@@ -2807,9 +2800,9 @@ export function FicheEtudiant({ id, annee, onClose, position, onPrec, onSuiv,
     const rep = await fetch(`/api/attestations/etudiant/${id}/document?annee=${quand}`,
       { headers: authHeaders() });
     const j = await rep.json().catch(() => ({}));
-    if (!rep.ok) { alert(j.error || 'Erreur à la génération.'); return; }
+    if (!rep.ok) { informer(j.error || 'Erreur à la génération.'); return; }
     if (j.manques?.length) {
-      alert(
+      informer(
         `${j.unites} attestation(s) produite(s), mais des mentions obligatoires manquent :\n\n`
         + j.manques.map(m => `UE ${m.ue_num}${m.annee && toutes === true ? ` (${m.annee})` : ''} — ${m.manques.join(', ')}`).join('\n')
         + `\n\nCes mentions se complètent dans le référentiel des UE.`);
@@ -3364,7 +3357,7 @@ export default function Etudiants() {
    */
   async function exporterSection() {
     if (!section) {
-      alert("Choisissez d'abord une section : l'export porte sur elle.");
+      informer("Choisissez d'abord une section : l'export porte sur elle.");
       return;
     }
     try {
@@ -3373,7 +3366,7 @@ export default function Etudiants() {
         { headers: authHeaders() });
       if (!rep.ok) {
         const e = await rep.json().catch(() => ({}));
-        alert(e.error || `Export impossible (${rep.status}).`);
+        informer(e.error || `Export impossible (${rep.status}).`);
         return;
       }
       const a = document.createElement('a');
@@ -3382,7 +3375,7 @@ export default function Etudiants() {
       document.body.appendChild(a); a.click(); a.remove();
       URL.revokeObjectURL(a.href);
     } catch (e) {
-      alert(e.message);
+      informer(e.message);
     }
   }
 
@@ -3437,6 +3430,7 @@ export default function Etudiants() {
   const [rapportPAE, setRapportPAE] = useState(false);
   const [importListe, setImportListe] = useState(false);
   const [importHisto, setImportHisto] = useState(false);
+  const [tableauPlat, setTableauPlat] = useState(false);
   const [complement, setComplement] = useState(false);
   const [rapportPAESel, setRapportPAESel] = useState(false);
   const [revuePAE, setRevuePAE] = useState(null);       // liste d'étudiants à passer en revue
@@ -3462,18 +3456,18 @@ export default function Etudiants() {
   }
 
   async function ouvrirRapport() {
-    if (!section) { alert('Choisissez d\'abord une section dans le filtre.'); return; }
+    if (!section) { informer('Choisissez d\'abord une section dans le filtre.'); return; }
     const [a1, a2] = (annee || '').split('-').map(Number);
-    const anneeRapport = window.prompt('Année académique du rapport ?', (a1-1) + '-' + (a2-1));
+    const anneeRapport = await saisir({ message: 'Année académique du rapport ?', valeur: (a1-1) + '-' + (a2-1) });
     if (!anneeRapport || !/^20\d{2}-20\d{2}$/.test(anneeRapport.trim())) {
-      if (anneeRapport !== null) alert('Format attendu : 2025-2026');
+      if (anneeRapport !== null) informer('Format attendu : 2025-2026');
       return;
     }
     const rep = await fetch(`/api/etudiants/rapport?section=${encodeURIComponent(section)}&annee=${anneeRapport.trim()}`,
       { headers: authHeaders() });
     const j = await rep.json();
     if (rep.ok) setRapport(j);
-    else alert(j.error || 'Erreur');
+    else informer(j.error || 'Erreur');
   }
 
   // La pièce se construit côté serveur : lui seul porte GSM et adresses, la
@@ -3487,16 +3481,16 @@ export default function Etudiants() {
     });
     const j = await rep.json();
     if (rep.ok) setCoordonnees(j);
-    else alert(j.error || 'Erreur');
+    else informer(j.error || 'Erreur');
   }
 
   async function importerResultats(fichier) {
     if (!fichier || !annee) return;
     const [a1, a2] = annee.split('-').map(Number);
-    const anneeImport = window.prompt(
-      'Année scolaire des résultats de ce classeur ?', (a1-1) + '-' + (a2-1));
+    const anneeImport = await saisir({ message:
+      'Année scolaire des résultats de ce classeur ?', valeur: (a1-1) + '-' + (a2-1) });
     if (!anneeImport || !/^20\d{2}-20\d{2}$/.test(anneeImport.trim())) {
-      if (anneeImport !== null) alert('Format attendu : 2025-2026');
+      if (anneeImport !== null) informer('Format attendu : 2025-2026');
       return;
     }
     setImporting(true); setMsgImport(null);
@@ -3573,10 +3567,10 @@ export default function Etudiants() {
       const [a1, a2] = annee.split('-').map(Number);
       anneeDetectee = (a1-1) + '-' + (a2-1);
     }
-    const anneeImport = window.prompt(
-      'Année scolaire des inscriptions de ce fichier ?', anneeDetectee);
+    const anneeImport = await saisir({ message:
+      'Année scolaire des inscriptions de ce fichier ?', valeur: anneeDetectee });
     if (!anneeImport || !/^20\d{2}-20\d{2}$/.test(anneeImport.trim())) {
-      if (anneeImport !== null) alert('Format attendu : 2025-2026');
+      if (anneeImport !== null) informer('Format attendu : 2025-2026');
       return;
     }
     setImporting(true); setMsgImport(null);
@@ -3838,7 +3832,7 @@ export default function Etudiants() {
      au matricule le plus récent ; Annuler inverse le sens. */
   async function fusionnerSelection() {
     const ids = [...selEtudiants];
-    if (ids.length !== 2) { alert('Cochez exactement deux fiches à fusionner.'); return; }
+    if (ids.length !== 2) { informer('Cochez exactement deux fiches à fusionner.'); return; }
     const fiches = ids.map(id => filtres.find(e => e.id === id)
       || etudiants.find(e => e.id === id)).filter(Boolean);
     if (fiches.length !== 2) return;
@@ -3847,17 +3841,17 @@ export default function Etudiants() {
     fiches.sort((a, b) => String(b.id_ecampus || '').localeCompare(String(a.id_ecampus || ''))
       || b.id - a.id);
     let [garder, absorber] = fiches;
-    if (!window.confirm(`Fusionner ces deux fiches ?\n\n→ CONSERVER : ${lib(garder)}\n→ Y VERSER puis supprimer : ${lib(absorber)}\n\nTout est déplacé : inscriptions, notes, décisions, valorisations, suivi. Les anciens matricules restent cherchables.\n\nAnnuler = inverser le sens.`)) {
+    if (!(await demander(`Fusionner ces deux fiches ?\n\n→ CONSERVER : ${lib(garder)}\n→ Y VERSER puis supprimer : ${lib(absorber)}\n\nTout est déplacé : inscriptions, notes, décisions, valorisations, suivi. Les anciens matricules restent cherchables.\n\nAnnuler = inverser le sens.`))) {
       [garder, absorber] = [absorber, garder];
-      if (!window.confirm(`Sens inversé.\n\n→ CONSERVER : ${lib(garder)}\n→ Y VERSER puis supprimer : ${lib(absorber)}\n\nConfirmer la fusion ?`)) return;
+      if (!(await demander(`Sens inversé.\n\n→ CONSERVER : ${lib(garder)}\n→ Y VERSER puis supprimer : ${lib(absorber)}\n\nConfirmer la fusion ?`))) return;
     }
     const rep = await fetch('/api/doublons-etudiants/fusionner', {
       method: 'POST', headers: { 'Content-Type': 'application/json', ...authHeaders() },
       body: JSON.stringify({ garder: garder.id, absorber: absorber.id }),
     });
     const j = await rep.json().catch(() => ({}));
-    if (!rep.ok) { alert(j.error || `Fusion refusée (${rep.status})`); return; }
-    alert(`Fusion faite : ${lib(garder)} porte désormais tout le parcours.`);
+    if (!rep.ok) { informer(j.error || `Fusion refusée (${rep.status})`); return; }
+    informer(`Fusion faite : ${lib(garder)} porte désormais tout le parcours.`);
     setSelEtudiants(new Set());
     await charger();
   }
@@ -3872,16 +3866,16 @@ export default function Etudiants() {
                   archive: 'archiver', null: 'réintégrer dans les étudiants en cours' };
     let motif = null;
     if (statutCible === 'sorti') {
-      motif = window.prompt(`Sortir ${ids.length} étudiant(s) du cursus.\n\nMotif (facultatif) : abandon, réorientation…`, '');
+      motif = await saisir(`Sortir ${ids.length} étudiant(s) du cursus.\n\nMotif (facultatif) : abandon, réorientation…`);
       if (motif === null) return;
-    } else if (!window.confirm(`${ids.length} étudiant(s) : ${LIB[statutCible]} ?\n\nRien n'est effacé — le geste est réversible.`)) return;
+    } else if (!(await demander(`${ids.length} étudiant(s) : ${LIB[statutCible]} ?\n\nRien n'est effacé — le geste est réversible.`))) return;
     const rep = await fetch('/api/etudiants/statut', {
       method: 'POST', headers: { 'Content-Type': 'application/json', ...authHeaders() },
       body: JSON.stringify({ ids, statut: statutCible, motif }),
     });
     const j = await rep.json().catch(() => ({}));
-    if (!rep.ok) { alert(j.error || `Refusé (${rep.status})`); return; }
-    if (j.refuses?.length) alert(`${j.faits} traité(s). ${j.refuses.length} hors de votre périmètre, laissé(s) tels quels.`);
+    if (!rep.ok) { informer(j.error || `Refusé (${rep.status})`); return; }
+    if (j.refuses?.length) informer(`${j.faits} traité(s). ${j.refuses.length} hors de votre périmètre, laissé(s) tels quels.`);
     setSelEtudiants(new Set());
     await charger();
   }
@@ -3889,7 +3883,7 @@ export default function Etudiants() {
   async function supprimerSelection() {
     const ids = [...selEtudiants];
     if (!ids.length) return;
-    if (!window.confirm(`Supprimer ${ids.length} étudiant(s) ?\n\nLes fiches vides seront supprimées directement ; pour celles qui portent des données, un récapitulatif sera demandé une par une.`)) return;
+    if (!(await demander(`Supprimer ${ids.length} étudiant(s) ?\n\nLes fiches vides seront supprimées directement ; pour celles qui portent des données, un récapitulatif sera demandé une par une.`))) return;
     let faits = 0, refus = [];
     for (const id of ids) {
       let rep = await fetch(`/api/etudiants/${id}`, { method: 'DELETE', headers: authHeaders() });
@@ -3899,14 +3893,14 @@ export default function Etudiants() {
         const detail = Object.entries(inv).filter(([, n]) => n > 0)
           .map(([k, n]) => `  · ${n} ${k}`).join('\n');
         if (!j.force_permis) { refus.push(`${j.etudiant} — dossier non vide (direction requise)`); continue; }
-        if (!window.confirm(`${j.etudiant} porte des données qui seraient DÉFINITIVEMENT supprimées :\n${detail}\n\nSupprimer quand même ?`)) continue;
+        if (!(await demander(`${j.etudiant} porte des données qui seraient DÉFINITIVEMENT supprimées :\n${detail}\n\nSupprimer quand même ?`))) continue;
         rep = await fetch(`/api/etudiants/${id}?force=1`, { method: 'DELETE', headers: authHeaders() });
         j = await rep.json().catch(() => ({}));
       }
       if (rep.ok) faits++;
       else refus.push(j.error || `étudiant ${id} : erreur ${rep.status}`);
     }
-    if (refus.length) alert(`${faits} supprimé(s).\nNon supprimé(s) :\n- ` + refus.join('\n- '));
+    if (refus.length) informer(`${faits} supprimé(s).\nNon supprimé(s) :\n- ` + refus.join('\n- '));
     setSelEtudiants(new Set());
     await charger();
   }
@@ -4473,7 +4467,7 @@ export default function Etudiants() {
               attend: null,
               onClick: () => {
                 if (!section) {
-                  alert("Choisissez d'abord une section : l'export porte sur elle.");
+                  informer("Choisissez d'abord une section : l'export porte sur elle.");
                   return;
                 }
                 exporterSection();
@@ -4512,9 +4506,16 @@ export default function Etudiants() {
               attend: 'Suivi_etudiants_XXX.xlsm',
               onClick: () => setImportSuivi(true) },
             { cle: 'histo', titre: "Reconstruire l'historique",
-              quoi: 'Une année déjà délibérée, reprise depuis un tableau de décisions.',
-              attend: 'un tableau plat, une ligne par décision',
+              quoi: 'Plusieurs années et sections d’un coup, depuis leurs classeurs de suivi ; les étudiants se rapprochent par numéro national.',
+              attend: 'plusieurs Suivi_etudiants_XXX.xlsm',
               onClick: () => setImportHisto(true) },
+            /* LA REPRISE PAR TABLEAU PLAT vivait dans une barre de boutons de
+               la délibération (Charles, 3 octobre 2026 : « ce menu n'était que
+               pour moi, il peut partir si on a les liens dans Importer »). */
+            { cle: 'tableau-plat', titre: 'Reprendre une année depuis un tableau plat',
+              quoi: 'Une année déjà délibérée : une ligne par étudiant, unité et session, dates du jury comprises.',
+              attend: 'un tableau plat, une ligne par décision',
+              onClick: () => setTableauPlat(true) },
             { cle: 'complement', titre: 'Compléter les dossiers',
               quoi: 'Ajouter adresses, dates de naissance et pièces aux dossiers existants.',
               attend: 'un classeur portant les matricules',
@@ -4557,21 +4558,15 @@ export default function Etudiants() {
 
 
       {complement && (
-        <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] flex items-start justify-center z-50 p-4"
-          onClick={e => e.target === e.currentTarget && setComplement(false)}>
-          <div className="bg-white rounded-fenetre shadow-dessus w-full max-w-3xl mt-12 p-5
-                          max-h-[85vh] overflow-y-auto">
-            <div className="flex items-center justify-between mb-3">
-              <span className="text-[15px] font-semibold text-iip-blue">
-                Compléter les dossiers
-              </span>
-              <button onClick={() => setComplement(false)} className="text-slate-400">✕</button>
-            </div>
-            <ComplementDossiers onTermine={charger} />
-          </div>
-        </div>
+        <Fenetre titre="Compléter les dossiers" large="moyenne"
+          onFermer={() => setComplement(false)}>
+          <ComplementDossiers onTermine={charger} />
+        </Fenetre>
       )}
 
+      {tableauPlat && (
+        <ImportTableauPlat annee={annee} onClose={() => setTableauPlat(false)} onFini={charger} />
+      )}
       {importHisto && (
         <ImportHistorique onClose={() => setImportHisto(false)} onImporte={charger} />
       )}

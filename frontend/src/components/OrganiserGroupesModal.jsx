@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { api } from '../lib/api.js';
-import { IconX, IconUsersGroup, IconUser, IconUsers, IconArrowsSplit } from '@tabler/icons-react';
+import { IconUsersGroup, IconUser, IconUsers, IconArrowsSplit } from '@tabler/icons-react';
+import { informer } from '../lib/dialogue.jsx';
+import { Fenetre } from './ui.jsx';
 
 function modeActuel(cours) {
   const rows = cours.rows || [];
@@ -79,30 +81,26 @@ export default function OrganiserGroupesModal({ portee, section, ues, onClose, o
           ok++;
         } catch(e) { errs.push(`UE ${ue.ue_num} : ${e.message}`); }
       }
-      if (errs.length) alert(`${ok} UE traitée(s).\nErreurs :\n${errs.join('\n')}`);
+      if (errs.length) await informer(`${ok} UE traitée(s).\nErreurs :\n${errs.join('\n')}`);
       onApplied(ok);
     } finally { setBusy(false); }
   }
 
   return (
-    <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] flex items-center justify-center p-3 z-50"
-      onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="bg-white rounded-xl shadow-2xl w-full flex flex-col"
-        style={{ maxWidth: 860, maxHeight: '92vh' }}>
-
-        {/* En-tête */}
-        <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 flex-shrink-0">
-          <div className="flex items-center gap-2">
-            <IconUsersGroup size={17} className="text-iip-blue" />
-            <span className="font-semibold text-base text-iip-blue">
-              Organiser — {portee === 'section' ? `section ${section}` : `UE ${ues[0]?.ue_num}`}
-            </span>
-          </div>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 p-1"><IconX size={17} /></button>
-        </div>
-
+    <Fenetre icone={IconUsersGroup} large="grande" onFermer={onClose}
+      titre={`Organiser — ${portee === 'section' ? `section ${section}` : `UE ${ues[0]?.ue_num}`}`}
+      pied={<>
+        <span className="text-[11px] text-amber-600">
+          {nbChanges > 0 ? `${nbChanges} modification${nbChanges > 1 ? 's' : ''} en attente` : ''}
+        </span>
+        <button onClick={onClose} className="bouton">Annuler</button>
+        <button onClick={appliquer} disabled={busy}
+          className="bouton bouton-fort">
+          {busy ? 'Application…' : `Appliquer${nbChanges > 0 ? ` (${nbChanges})` : ''}`}
+        </button>
+      </>}>
         {/* Légende compacte */}
-        <div className="px-4 py-2 bg-gray-50 border-b border-gray-100 flex items-center gap-3 text-[11px] text-gray-500 flex-shrink-0 flex-wrap">
+        <div className="-mx-5 -mt-4 mb-3 px-5 py-2 bg-gray-50 border-b border-gray-100 flex items-center gap-3 text-[11px] text-gray-500 flex-wrap">
           {Object.entries(MODE_CFG).map(([k, cfg]) => {
             const Icon = cfg.icon;
             return (
@@ -116,7 +114,7 @@ export default function OrganiserGroupesModal({ portee, section, ues, onClose, o
         </div>
 
         {/* Corps */}
-        <div className="overflow-auto flex-1 px-3 py-3 space-y-2">
+        <div className="space-y-2">
           {ues.map(ue => {
             const k = keyOf(ue);
             const open = expanded.has(k);
@@ -225,21 +223,6 @@ export default function OrganiserGroupesModal({ portee, section, ues, onClose, o
             );
           })}
         </div>
-
-        {/* Footer */}
-        <div className="flex items-center justify-between px-4 py-3 border-t border-gray-100 flex-shrink-0">
-          <span className="text-[11px] text-amber-600">
-            {nbChanges > 0 ? `${nbChanges} modification${nbChanges > 1 ? 's' : ''} en attente` : ''}
-          </span>
-          <div className="flex gap-2">
-            <button onClick={onClose} className="px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-50 rounded-lg">Annuler</button>
-            <button onClick={appliquer} disabled={busy}
-              className="bg-iip-blue hover:opacity-90 disabled:opacity-40 text-white text-sm px-4 py-1.5 rounded-lg font-medium">
-              {busy ? 'Application…' : `Appliquer${nbChanges > 0 ? ` (${nbChanges})` : ''}`}
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
+    </Fenetre>
   );
 }

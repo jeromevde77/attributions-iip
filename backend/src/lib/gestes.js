@@ -111,10 +111,13 @@ export const GESTES = [
     roles: PEUT_COMPOSER_PAE, mode: 'garde',
     conditions: { coordination: 'dans les sections de son périmètre' },
     source: 'routes/etudiants.js POST /:id/pae-valider, POST /pae-valider-lot' },
-  { module: 'etudiants', reglable: false, cle: 'pae_revu', label: 'Marquer un PAE « revu »',
+  /* RÉGLABLE DEPUIS LE 3 OCTOBRE 2026 (Charles : « je dois pouvoir tout
+     paramétrer dans cette fenêtre »). La route n'avait aucune porte de rôle ;
+     elle en a une, ouverte à tous par défaut — exactement ce qu'elle faisait. */
+  { module: 'etudiants', cle: 'pae_revu', label: 'Marquer un PAE « revu »',
     roles: '*', mode: 'garde',
     conditions: { coordination: 'dans les sections de son périmètre' },
-    source: 'routes/etudiants.js PUT /:id/revue-pae/revu (aucune garde de rôle : périmètre seul)' },
+    source: 'routes/etudiants.js PUT /:id/revue-pae/revu (périmètre contrôlé dans la route)' },
   { module: 'etudiants', cle: 'reinscription', label: 'Forcer une réinscription à une UE réussie',
     roles: PEUT_FORCER_REINSCRIPTION, mode: 'garde',
     source: 'routes/etudiants.js POST /pae-forcer-reinscription, /pae-nettoyer-reussies' },

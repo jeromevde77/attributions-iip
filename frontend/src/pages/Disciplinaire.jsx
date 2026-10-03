@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { IconGavel, IconScale, IconMail, IconClipboardText, IconGavel as IconDecision, IconPaperclip, IconTrash, IconDownload, IconPlus, IconChevronLeft, IconChevronRight, IconLock
 } from '@tabler/icons-react';
 import PreviewModal from '../components/PreviewModal.jsx';
+import { demander, informer } from '../lib/dialogue.jsx';
 
 function addJoursOuvrables(date, n) {
   const d = new Date(date); let a = 0;
@@ -212,18 +213,18 @@ export default function Disciplinaire() {
   };
 
   const supprimerDossier = async () => {
-    if (!caseId || !confirm('Supprimer ce dossier disciplinaire et ses pièces jointes ?')) return;
+    if (!caseId || !(await demander('Supprimer ce dossier disciplinaire et ses pièces jointes ?'))) return;
     await fetch(`/api/disciplinaire/cases/${caseId}`, { method: 'DELETE', headers: auth });
     nouveauDossier(); chargerDossiers();
   };
   const uploadFichier = async (file) => {
     if (!file) return;
-    if (!caseRef.current) { alert('Renseignez d’abord les faits (le dossier s’enregistre tout seul), puis ajoutez les pièces.'); return; }
+    if (!caseRef.current) { informer('Renseignez d’abord les faits (le dossier s’enregistre tout seul), puis ajoutez les pièces.'); return; }
     const fd = new FormData(); fd.append('fichier', file); fd.append('categorie', catUp);
     const res = await fetch(`/api/disciplinaire/cases/${caseRef.current}/fichiers`, { method: 'POST', headers: auth, body: fd });
-    if (res.ok) chargerFichiers(caseRef.current); else if (res.status === 403) setLectureSeule(true); else alert('Échec de l’envoi.');
+    if (res.ok) chargerFichiers(caseRef.current); else if (res.status === 403) setLectureSeule(true); else informer('Échec de l’envoi.');
   };
-  const supprimerFichier = async (fid) => { if (!confirm('Supprimer cette pièce ?')) return; await fetch(`/api/disciplinaire/fichiers/${fid}`, { method: 'DELETE', headers: auth }); chargerFichiers(caseRef.current); };
+  const supprimerFichier = async (fid) => { if (!(await demander('Supprimer cette pièce ?'))) return; await fetch(`/api/disciplinaire/fichiers/${fid}`, { method: 'DELETE', headers: auth }); chargerFichiers(caseRef.current); };
   const telechargerFichier = async (fid, nomf) => {
     const res = await fetch(`/api/disciplinaire/fichiers/${fid}/download`, { headers: auth }); if (!res.ok) return;
     const blob = await res.blob(); const url = URL.createObjectURL(blob);

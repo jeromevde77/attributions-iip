@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
 import { nomPropre } from '../lib/nom.js';
 import {
-  IconX, IconAward, IconAlertTriangle, IconClock, IconSquare, IconSquareCheck,
+  IconAward, IconAlertTriangle, IconClock, IconSquare, IconSquareCheck,
   IconSquareMinus, IconCertificate, IconEye, IconFileTypePdf, IconMail,
 } from '@tabler/icons-react';
 import { authHeaders } from '../lib/api.js';
+import { Fenetre } from './ui.jsx';
 import { useEnvoiMail } from '../lib/envoiMail.js';
 import PreviewModal from './PreviewModal.jsx';
 import EnvoiMailModal from './EnvoiMailModal.jsx';
@@ -193,50 +194,8 @@ export default function CentreDiplomation({ annee, onClose, integre = false }) {
   const cetteAnnee = () => setRetenus(new Set(d?.proposes || []));
   const nbPieces = ['diplome', 'attestation', 'provisoire', 'liste', 'pv'].filter(k => veut[k]).length;
 
-  /* DANS ÉDITIONS AUSSI (2 octobre 2026 : « tous les documents doivent pouvoir
-     sortir depuis Éditions ») : le même centre, intégré — sans voile, sans
-     en-tête de fenêtre ; on le ferme avec Éditions. */
-  return (
-    <div className={integre ? '' : 'fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] flex items-start justify-center z-[60] p-4'}>
-      <div className={integre ? 'flex flex-col border border-slate-200 rounded-carte' : `bg-white rounded-fenetre shadow-dessus w-full max-w-4xl mt-10
-                      max-h-[88vh] overflow-hidden flex flex-col`}>
-        <div className={`flex-none px-5 py-3 border-b border-slate-100 flex items-start
-                        justify-between gap-3 ${integre ? 'hidden' : ''}`}>
-          <div>
-            <h3 className="text-[15px] font-semibold text-iip-blue flex items-center gap-2">
-              <IconAward size={17} className="text-iip-turquoise" /> Diplomation
-            </h3>
-            <p className="text-[12px] text-slate-500">
-              Les mentions sont calculées sur les délibérations. Vous arrêtez qui
-              reçoit un titre.
-            </p>
-          </div>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-600">
-            <IconX size={18} />
-          </button>
-        </div>
-
-        {/* LE BOUTON EN HAUT, JAMAIS AU BAS DE CE QUI DÉFILE (Charles, 2 octobre
-            2026 : « jamais un bouton ne doit être en bas d'une fenêtre, il faut
-            dérouler pour le trouver »). */}
-        {d && (
-          <div className="flex-none px-5 py-3 border-b border-slate-100 bg-white flex items-center
-                          justify-between gap-3">
-            <p className="text-[11px] text-slate-500">
-              <b>{nb}</b> titre(s) retenu(s) sur {liste.length} en conditions
-              {d.total.provisoires > 0 && (
-                <span className="text-amber-700">
-                  {' '}· {d.total.provisoires} dossier(s) dont une séance reste ouverte
-                </span>
-              )}
-            </p>
-            <button onClick={produire} disabled={enCours || !nb || !nbPieces}
-              className="px-4 py-2 text-[13px] rounded-lg bg-iip-blue text-white
-                         font-semibold flex items-center gap-1.5 disabled:opacity-40">
-              <IconCertificate size={15} /> Produire les pièces
-            </button>
-          </div>
-        )}
+  // Les réglages : section, date, pièces.
+  const filtres = (
         <div className="flex-none px-5 py-3 border-b border-slate-100 flex items-end
                         gap-3 flex-wrap">
           <label className="text-[12px] text-slate-600">
@@ -272,8 +231,10 @@ export default function CentreDiplomation({ annee, onClose, integre = false }) {
             </div>
           </div>
         </div>
+  );
 
-        <div className="flex-1 overflow-y-auto px-5 py-3 space-y-3 text-[13px]">
+  const corps = (
+        <div className={integre ? 'flex-1 overflow-y-auto px-5 py-3 space-y-3 text-[13px]' : 'space-y-3 text-[13px]'}>
           {erreur && (
             <div className="px-3 py-2 rounded-xl bg-rose-50 border border-rose-200
                             text-rose-900">{erreur}</div>
@@ -462,9 +423,9 @@ export default function CentreDiplomation({ annee, onClose, integre = false }) {
             </>
           )}
         </div>
+  );
 
-      </div>
-
+  const annexes = (<>
       {apercu && (
         <PreviewModal html={apercu.html} titre={apercu.titre}
           sousTitre={`${section} · ${annee} · ${apercu.nb} pièce(s)`}
@@ -478,6 +439,68 @@ export default function CentreDiplomation({ annee, onClose, integre = false }) {
           sujet={`${envoi.titre} — ${section} ${String(annee).replace('-', '/')}`}
           onClose={() => setEnvoi(null)} />
       )}
-    </div>
+  </>);
+
+  /* DANS ÉDITIONS AUSSI (2 octobre 2026 : « tous les documents doivent pouvoir
+     sortir depuis Éditions ») : le même centre, intégré — sans voile, sans
+     en-tête de fenêtre ; on le ferme avec Éditions. */
+  if (integre) {
+    return (
+      <div>
+      <div className="flex flex-col border border-slate-200 rounded-carte">
+        {/* LE BOUTON EN HAUT, JAMAIS AU BAS DE CE QUI DÉFILE (Charles, 2 octobre
+            2026 : « jamais un bouton ne doit être en bas d'une fenêtre, il faut
+            dérouler pour le trouver »). */}
+        {d && (
+          <div className="flex-none px-5 py-3 border-b border-slate-100 bg-white flex items-center
+                          justify-between gap-3">
+            <p className="text-[11px] text-slate-500">
+              <b>{nb}</b> titre(s) retenu(s) sur {liste.length} en conditions
+              {d.total.provisoires > 0 && (
+                <span className="text-amber-700">
+                  {' '}· {d.total.provisoires} dossier(s) dont une séance reste ouverte
+                </span>
+              )}
+            </p>
+            <button onClick={produire} disabled={enCours || !nb || !nbPieces}
+              className="px-4 py-2 text-[13px] rounded-lg bg-iip-blue text-white
+                         font-semibold flex items-center gap-1.5 disabled:opacity-40">
+              <IconCertificate size={15} /> Produire les pièces
+            </button>
+          </div>
+        )}
+        {filtres}
+        {corps}
+      </div>
+      {annexes}
+      </div>
+    );
+  }
+
+  return (
+    <>
+      <Fenetre icone={IconAward} titre="Diplomation" large="grande" onFermer={onClose}
+        sous="Les mentions sont calculées sur les délibérations. Vous arrêtez qui reçoit un titre."
+        pied={d && (<>
+          <span className="text-[11px] text-slate-500">
+            <b>{nb}</b> titre(s) retenu(s) sur {liste.length} en conditions
+            {d.total.provisoires > 0 && (
+              <span className="text-amber-700">
+                {' '}· {d.total.provisoires} dossier(s) dont une séance reste ouverte
+              </span>
+            )}
+          </span>
+          <button onClick={produire} disabled={enCours || !nb || !nbPieces}
+            className="bouton bouton-fort inline-flex items-center gap-1.5">
+            <IconCertificate size={15} /> Produire les pièces
+          </button>
+        </>)}>
+        {/* LE BOUTON NE DÉFILE PAS : il vit dans le pied de la fenêtre, et les
+            réglages collent au haut de la zone qui défile. */}
+        <div className="sticky -top-4 z-10 bg-white -mx-5 -mt-4 mb-3">{filtres}</div>
+        {corps}
+      </Fenetre>
+      {annexes}
+    </>
   );
 }

@@ -5,9 +5,10 @@ import {
   IconCheck, IconX, IconUsersGroup, IconDownload, IconClipboardText,
   IconLayoutColumns, IconChevronRight, IconSettings, IconFileText,
 } from '@tabler/icons-react';
-import { Btn, RailLateral, VoletRail } from '../components/ui.jsx';
+import { Btn, RailLateral, VoletRail, Fenetre } from '../components/ui.jsx';
 import { getAnnee } from '../lib/api.js';
 import { ouvrirApercu } from '../lib/apercu.js';
+import { demander, informer } from '../lib/dialogue.jsx';
 
 // Champ texte simple (évite le ReferenceError: Champ non importé)
 function Champ({ label, value, onChange, placeholder, hint, className = '' }) {
@@ -480,7 +481,7 @@ const telechargerDoc = async (docId, nomOriginal, blobUrl = null) => {
     const a = document.createElement('a');
     a.href = url; a.download = nomOriginal; a.click();
     if (!blobUrl) URL.revokeObjectURL(url);
-  } catch (e) { alert(e.message); }
+  } catch (e) { informer(e.message); }
 };
 
 const TYPES_DOC = {
@@ -646,11 +647,11 @@ function CarteCandidatPoste({ candidature: c, onChange, onEntretien }) {
       const blob = await resp.blob();
       const url = URL.createObjectURL(blob);
       setVisionneur({ url, nom: nomOriginal, mime: blob.type });
-    } catch (e) { alert(e.message); }
+    } catch (e) { informer(e.message); }
   };
 
   const supprimerCandidature = async () => {
-    if (!confirm('Retirer ce candidat de ce poste ?')) return;
+    if (!await demander('Retirer ce candidat de ce poste ?')) return;
     await af(`/candidatures/${c.id}`, { method: 'DELETE' });
     onChange();
   };
@@ -669,7 +670,7 @@ function CarteCandidatPoste({ candidature: c, onChange, onEntretien }) {
         method: 'POST', headers: { Authorization: `Bearer ${tok()}` }, body: fd,
       });
       onChange();
-    } catch (e) { alert(e.message); } finally { setUploading(false); }
+    } catch (e) { informer(e.message); } finally { setUploading(false); }
   };
 
   const supprimerDoc = async (docId) => {
@@ -679,12 +680,12 @@ function CarteCandidatPoste({ candidature: c, onChange, onEntretien }) {
 
   const attribuer = async () => {
     const nomAff = [c.prenom, c.nom].filter(Boolean).join(' ');
-    if (!confirm(`Attribuer ${nomAff} à ce cours ?\n\nCela va :\n• Créer sa fiche dans Personnel\n• L'assigner au cours\n• Notifier la direction et les RH`)) return;
+    if (!await demander(`Attribuer ${nomAff} à ce cours ?\n\nCela va :\n• Créer sa fiche dans Personnel\n• L'assigner au cours\n• Notifier la direction et les RH`)) return;
     try {
       const res = await af(`/candidatures/${c.id}/attribuer`, { method: 'POST' });
-      alert(`✓ ${res.nom} a été créé dans Personnel et attribué au cours.\nNotification envoyée.`);
+      informer(`✓ ${res.nom} a été créé dans Personnel et attribué au cours.\nNotification envoyée.`);
       onChange();
-    } catch (e) { alert('Erreur : ' + e.message); }
+    } catch (e) { informer('Erreur : ' + e.message); }
   };
 
   return (
@@ -764,19 +765,17 @@ function CarteCandidatPoste({ candidature: c, onChange, onEntretien }) {
       )}
       {/* Visionneuse inline */}
       {visionneur && (
-        <div className="fixed inset-0 bg-black/60 z-50 flex flex-col" onClick={() => { URL.revokeObjectURL(visionneur.url); setVisionneur(null); }}>
-          <div className="flex items-center justify-between px-4 py-2 bg-white border-b border-gray-200 flex-shrink-0" onClick={e => e.stopPropagation()}>
-            <span className="text-sm font-medium text-iip-blue truncate">{visionneur.nom}</span>
-            <div className="flex items-center gap-2">
-              <button onClick={() => telechargerDoc(null, visionneur.nom, visionneur.url)}
-                className="text-xs border border-gray-300 rounded px-2 py-1 hover:bg-gray-50 flex items-center gap-1">
-                <IconDownload size={13} /> Télécharger
-              </button>
-              <button onClick={() => { URL.revokeObjectURL(visionneur.url); setVisionneur(null); }}
-                className="text-gray-400 hover:text-gray-700 ml-2"><IconX size={20} /></button>
-            </div>
-          </div>
-          <div className="flex-1 overflow-hidden" onClick={e => e.stopPropagation()}>
+        <Fenetre titre={visionneur.nom} large="ecran" hauteurFixe
+          onFermer={() => { URL.revokeObjectURL(visionneur.url); setVisionneur(null); }}
+          outils={
+            <button onClick={() => telechargerDoc(null, visionneur.nom, visionneur.url)}
+              className="text-xs border border-white/40 text-white rounded px-2 py-1 hover:bg-white/10 flex items-center gap-1">
+              <IconDownload size={13} /> Télécharger
+            </button>
+          }>
+          {/* Le document remplit la fenêtre : 88 vh moins l'en-tête, sans la
+              marge intérieure du contenu. */}
+          <div className="-mx-5 -my-4 h-[calc(88vh-3.5rem)] overflow-hidden bg-black/70">
             {visionneur.mime?.startsWith('image/') ? (
               <div className="h-full flex items-center justify-center p-4">
                 <img src={visionneur.url} alt={visionneur.nom} className="max-h-full max-w-full object-contain rounded shadow-lg" />
@@ -797,7 +796,7 @@ function CarteCandidatPoste({ candidature: c, onChange, onEntretien }) {
               </div>
             )}
           </div>
-        </div>
+        </Fenetre>
       )}
     </div>
   );
@@ -1075,30 +1074,30 @@ function EntretienModal({ candidature, poste, annee, qIA, grille, onClose, onSav
   }, {});
 
   return (
-    <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] z-50 flex flex-col" onClick={onClose}>
-      <div className="flex items-center justify-between px-5 py-3 bg-white border-b border-gray-200 flex-shrink-0"
-        onClick={e => e.stopPropagation()}>
-        <div>
-          <h3 className="text-base font-bold text-iip-blue">Entretien — {candidature.prenom ? `${(candidature.nom || '').toUpperCase()} ${candidature.prenom}` : candidature.nom}</h3>
-          <div className="text-xs text-gray-400">{poste.nom_cours || poste.ue_nom} · {poste.section}</div>
+    <Fenetre large="ecran" hauteurFixe onFermer={onClose}
+      titre={`Entretien — ${candidature.prenom ? `${(candidature.nom || '').toUpperCase()} ${candidature.prenom}` : candidature.nom}`}
+      sous={`${poste.nom_cours || poste.ue_nom} · ${poste.section}`}
+      outils={noteGlobale != null && (
+        <div className="text-right">
+          <div className="text-xs text-white/70">Moyenne</div>
+          <div className="text-xl font-bold text-white">{noteGlobale}<span className="text-sm font-normal text-white/70">/5</span></div>
         </div>
-        <div className="flex items-center gap-3">
-          {noteGlobale != null && (
-            <div className="text-right">
-              <div className="text-xs text-gray-400">Moyenne</div>
-              <div className="text-xl font-bold text-iip-blue">{noteGlobale}<span className="text-sm font-normal text-gray-400">/5</span></div>
-            </div>
-          )}
-          <button onClick={async () => { await sauvegarder(); onSaved(); }}
-            className="bg-iip-blue text-white text-sm px-4 py-2 rounded-lg font-medium hover:opacity-90 flex items-center gap-1.5 disabled:opacity-50"
-            disabled={saving}>
-            {saved ? <><IconCheck size={15} /> Sauvegardé</> : saving ? 'Sauvegarde…' : <><IconCheck size={15} /> Terminer</>}
-          </button>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-700 ml-1"><IconX size={20} /></button>
-        </div>
-      </div>
-
-      <div className="flex-1 overflow-auto bg-gray-50" onClick={e => e.stopPropagation()}>
+      )}
+      pied={<>
+        <span className="text-xs text-gray-400">
+          {notees.length} question{notees.length > 1 ? 's' : ''} évaluée{notees.length > 1 ? 's' : ''} sur {toutesQuestions.length}
+        </span>
+        <button onClick={sauvegarder} disabled={saving}
+          className="bouton inline-flex items-center gap-1.5">
+          {saved ? <><IconCheck size={14} /> Sauvegardé</> : <><IconCheck size={14} /> Sauvegarder</>}
+        </button>
+        <button onClick={async () => { await sauvegarder(); onSaved(); }}
+          className="bouton bouton-fort inline-flex items-center gap-1.5"
+          disabled={saving}>
+          {saved ? <><IconCheck size={15} /> Sauvegardé</> : saving ? 'Sauvegarde…' : <><IconCheck size={15} /> Terminer</>}
+        </button>
+      </>}>
+      <div className="-mx-5 -my-4 bg-gray-50">
         <div className="max-w-none mx-auto px-4 py-5 space-y-5">
 
           {Object.entries(parAxe).map(([axe, { couleur, questions }]) => (
@@ -1203,19 +1202,10 @@ function EntretienModal({ candidature, poste, annee, qIA, grille, onClose, onSav
                 className="w-full text-sm border border-teal-200 rounded-lg px-3 py-1.5 resize-none focus:outline-none focus:border-teal-400 bg-white"
               />
             )}
-            <div className="flex justify-between items-center mt-3">
-              <div className="text-xs text-gray-400">
-                {notees.length} question{notees.length > 1 ? 's' : ''} évaluée{notees.length > 1 ? 's' : ''} sur {toutesQuestions.length}
-              </div>
-              <button onClick={sauvegarder} disabled={saving}
-                className="text-sm bg-iip-blue text-white px-4 py-1.5 rounded-lg hover:opacity-90 disabled:opacity-50 flex items-center gap-1.5">
-                {saved ? <><IconCheck size={14} /> Sauvegardé</> : <><IconCheck size={14} /> Sauvegarder</>}
-              </button>
-            </div>
           </div>
         </div>
       </div>
-    </div>
+    </Fenetre>
   );
 }
 
@@ -1259,7 +1249,7 @@ function VueParallele({ postes, candidats, fonctions, annee, onRecharger }) {
       if (e.message.includes('déjà rattaché') || e.message.includes('UNIQUE') || e.message.includes('409')) {
         setFeedback(`${cand.prenom ? cand.prenom + ' ' : ''}${cand.nom} est déjà candidat pour ce cours`);
         setTimeout(() => setFeedback(''), 3000);
-      } else { alert(e.message); }
+      } else { informer(e.message); }
     }
     setDragId(null);
   };
@@ -1659,12 +1649,12 @@ function VueCandidatsGlobal({ candidats, fonctions, grille, onRecharger,
     (axe.questions||[]).map(q => ({ axe: axe.axe||axe.libelle, q: q.libelle||q, couleur: axe.couleur }))
   );
 
-  const genererRapportPDF = () => {
+  const genererRapportPDF = async () => {
     const liste = filtres.filter(c =>
       c.entretien_note || c.entretien_commentaire ||
       c.candidatures?.some(ca => ca.note_globale || ca.commentaire || Object.keys(ca.reponses_json||{}).length > 0)
     );
-    if (liste.length === 0 && !confirm('Aucun entretien enregistré. Générer quand même la liste des candidats ?')) return;
+    if (liste.length === 0 && !await demander('Aucun entretien enregistré. Générer quand même la liste des candidats ?')) return;
     const tous = liste.length > 0 ? liste : filtres;
 
     const blockQ = (rep) => toutesQs.map((item, i) => {
@@ -1952,7 +1942,7 @@ function FicheCandidat({ candidat, fonctions, grille, onClose, onSaved }) {
   const enregistrer = async () => {
     setBusy(true);
     try { await af(`/candidats/${candidat.id}`, { method: 'PATCH', body: JSON.stringify(f) }); onSaved(); }
-    catch (e) { alert(e.message); } finally { setBusy(false); }
+    catch (e) { informer(e.message); } finally { setBusy(false); }
   };
 
   const [analyseCv, setAnalyseCv] = useState(false);
@@ -1973,7 +1963,7 @@ function FicheCandidat({ candidat, fonctions, grille, onClose, onSaved }) {
   };
 
   const supprimerCandidat = async () => {
-    if (!confirm(`Supprimer définitivement ${candidat.nom} et tous ses documents/candidatures ?`)) return;
+    if (!await demander(`Supprimer définitivement ${candidat.nom} et tous ses documents/candidatures ?`)) return;
     await af(`/candidats/${candidat.id}`, { method: 'DELETE' });
     onSaved();
   };
@@ -1987,7 +1977,7 @@ function FicheCandidat({ candidat, fonctions, grille, onClose, onSaved }) {
       const updated = await af('/candidats');
       const me = updated.find(c => c.id === candidat.id);
       if (me) setDocs(me.documents || []);
-    } catch (e) { alert(e.message); } finally { setUploading(false); }
+    } catch (e) { informer(e.message); } finally { setUploading(false); }
   };
 
   const supprimerDoc = async (docId) => {
@@ -2003,15 +1993,10 @@ function FicheCandidat({ candidat, fonctions, grille, onClose, onSaved }) {
 
   // Early returns
   if (visionneur) return (
-    <div className="fixed inset-0 bg-black/70 z-[60] flex flex-col"
-      onClick={() => { URL.revokeObjectURL(visionneur.url); setVisionneur(null); }}>
-      <div className="flex items-center justify-between px-4 py-2 bg-white flex-shrink-0"
-        onClick={e => e.stopPropagation()}>
-        <span className="text-sm font-medium text-iip-blue truncate">{visionneur.nom}</span>
-        <button onClick={() => { URL.revokeObjectURL(visionneur.url); setVisionneur(null); }}
-          className="text-gray-400 hover:text-gray-700 ml-3"><IconX size={20} /></button>
-      </div>
-      <div className="flex-1 overflow-hidden" onClick={e => e.stopPropagation()}>
+    <Fenetre titre={visionneur.nom} large="ecran" hauteurFixe
+      onFermer={() => { URL.revokeObjectURL(visionneur.url); setVisionneur(null); }}>
+      {/* Le document remplit la fenêtre : 88 vh moins l'en-tête. */}
+      <div className="-mx-5 -my-4 h-[calc(88vh-3.5rem)] overflow-hidden bg-black/70">
         {visionneur.mime && visionneur.mime.startsWith('image/') && (
           <div className="h-full flex items-center justify-center p-4">
             <img src={visionneur.url} alt={visionneur.nom} className="max-h-full max-w-full object-contain rounded shadow-lg" />
@@ -2021,7 +2006,7 @@ function FicheCandidat({ candidat, fonctions, grille, onClose, onSaved }) {
           <iframe src={visionneur.url} aria-label={visionneur.nom} className="w-full h-full border-none" />
         )}
       </div>
-    </div>
+    </Fenetre>
   );
 
   if (entretienLibre) return (
@@ -2059,83 +2044,77 @@ function FicheCandidat({ candidat, fonctions, grille, onClose, onSaved }) {
 
   return (
     <>
-    <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] z-50 flex items-start justify-center p-4 pt-8 overflow-auto" onClick={onClose}>
-      <div className="bg-white rounded-xl w-full max-w-2xl shadow-xl overflow-hidden" onClick={e => e.stopPropagation()}>
-
-        {/* En-tête marine */}
-        <div className="flex items-center justify-between px-4 py-3 bg-iip-blue rounded-t-xl sticky top-0 z-10 flex-shrink-0">
-          <div className="flex items-center gap-3 min-w-0">
-            <div className="w-9 h-9 rounded-full bg-white/20 flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
-              {((f.prenom||candidat.prenom||'')[0]||'').toUpperCase()}{((f.nom||candidat.nom||'')[0]||'').toUpperCase()}
-            </div>
-            <div className="min-w-0">
-              <div className="text-white font-bold text-sm truncate">
-                {[f.prenom||candidat.prenom, f.nom||candidat.nom].filter(Boolean).join(' ') || 'Nouveau candidat'}
-              </div>
-              <div className="text-white/60 text-xs flex items-center gap-2 mt-0.5">
-                {(f.email||candidat.email) && <span>{f.email||candidat.email}</span>}
-                {candidat.entretien_note && (
-                  <span className="bg-white/20 text-white rounded-champ px-2 py-0.5 font-bold text-[10px]">
-                    {candidat.entretien_note}/5
-                  </span>
-                )}
-              </div>
-            </div>
-          </div>
-          <div className="flex items-center gap-2">
+    <Fenetre large="moyenne" onFermer={onClose}
+      /* Les initiales tiennent lieu d'icône. */
+      icone={() => (
+        <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center text-white font-bold text-[12px] flex-shrink-0">
+          {((f.prenom||candidat.prenom||'')[0]||'').toUpperCase()}{((f.nom||candidat.nom||'')[0]||'').toUpperCase()}
+        </div>
+      )}
+      titre={[f.prenom||candidat.prenom, f.nom||candidat.nom].filter(Boolean).join(' ') || 'Nouveau candidat'}
+      sous={
+        <span className="inline-flex items-center gap-2">
+          {(f.email||candidat.email) && <span>{f.email||candidat.email}</span>}
+          {candidat.entretien_note && (
+            <span className="bg-white/20 text-white rounded-champ px-2 py-0.5 font-bold text-[10px]">
+              {candidat.entretien_note}/5
+            </span>
+          )}
+        </span>
+      }
+      pied={<>
             <button onClick={() => genererFicheIndividuelle(candidat, grille)}
-              className="text-xs border border-white/30 text-white hover:bg-white/20 rounded px-2.5 py-1.5 flex items-center gap-1.5">
+              className="bouton inline-flex items-center gap-1.5">
               🖨 PDF
             </button>
             {docs.some(d => d.type === 'cv') && (
               <button onClick={() => setAnalyseCv(true)}
                 title="Analyser le CV avec Lucie"
-                className="text-xs border border-iip-blue/40 bg-iip-blue/5 text-iip-blue hover:bg-iip-blue/10 rounded px-2.5 py-1.5 flex items-center gap-1.5 font-medium">
+                className="bouton inline-flex items-center gap-1.5">
                 🤖 Analyser CV
               </button>
             )}
             <button onClick={() => setEntretienLibre(true)}
               title="Mener l'entretien"
-              className="text-xs border border-white/30 bg-iip-turquoise text-white hover:opacity-90 rounded px-2.5 py-1.5 flex items-center gap-1.5 font-medium">
+              className="bouton inline-flex items-center gap-1.5">
               <IconClipboardText size={14} /> Entretien
             </button>
             <button onClick={async () => {
-                if (!confirm(`Recrutement global de ${(candidat.nom||'').toUpperCase()} ${candidat.prenom||''} ?\n\nCela crée sa fiche prof en base SANS lui attribuer de cours. Vous pourrez ensuite le placer dans les cours via la grille Attributions.`)) return;
+                if (!await demander(`Recrutement global de ${(candidat.nom||'').toUpperCase()} ${candidat.prenom||''} ?\n\nCela crée sa fiche prof en base SANS lui attribuer de cours. Vous pourrez ensuite le placer dans les cours via la grille Attributions.`)) return;
                 try {
                   const r = await af(`/candidats/${candidat.id}/engager-global`, { method: 'POST' });
-                  alert(`✅ ${(r.nom||'').toUpperCase()} ${r.prenom||''} ${r.cree ? 'ajouté·e' : 'déjà présent·e'} en base. Placez-le·la dans les cours via la grille Attributions.`);
+                  informer(`✅ ${(r.nom||'').toUpperCase()} ${r.prenom||''} ${r.cree ? 'ajouté·e' : 'déjà présent·e'} en base. Placez-le·la dans les cours via la grille Attributions.`);
                   onSaved();
-                } catch(e) { alert('Erreur : ' + e.message); }
+                } catch(e) { informer('Erreur : ' + e.message); }
               }}
               title="Créer la fiche prof sans attribuer de cours"
-              className="text-xs border border-green-500/40 bg-green-500 text-white hover:bg-green-500 rounded px-2.5 py-1.5 flex items-center gap-1.5 font-medium">
+              className="bouton inline-flex items-center gap-1.5">
               ➕ Recrutement global
             </button>
             {candidat.candidatures?.some(ca => ca.statut === 'retenu') && (
               <button onClick={async () => {
-                  if (!confirm(`Engager ${(candidat.nom||'').toUpperCase()} ${candidat.prenom||''} ? Cela créera sa fiche prof et attribuera les cours "Retenu".`)) return;
+                  if (!await demander(`Engager ${(candidat.nom||'').toUpperCase()} ${candidat.prenom||''} ? Cela créera sa fiche prof et attribuera les cours "Retenu".`)) return;
                   try {
                     const r = await af(`/candidats/${candidat.id}/engager`, { method: 'POST', body: JSON.stringify({ annee: getAnnee() }) });
-                    alert(`✅ ${(r.nom||'').toUpperCase()} ${r.prenom||''} engagé·e — ${r.nb_attributions} attribution(s) mise(s) à jour.`);
+                    informer(`✅ ${(r.nom||'').toUpperCase()} ${r.prenom||''} engagé·e — ${r.nb_attributions} attribution(s) mise(s) à jour.`);
                     onSaved();
-                  } catch(e) { alert('Erreur : ' + e.message); }
+                  } catch(e) { informer('Erreur : ' + e.message); }
                 }}
                 title="Engager ce candidat"
-                className="text-xs bg-green-600 text-white hover:opacity-90 rounded px-2.5 py-1.5 flex items-center gap-1.5 font-medium">
+                className="bouton inline-flex items-center gap-1.5">
                 ✅ Engager
               </button>
             )}
-            {candidat.entretien_note && (
-              <span className="bg-iip-turquoise/20 text-white/80 rounded-champ px-1.5 font-bold text-xs">
-                {candidat.entretien_note}/5
-              </span>
-            )}
-            <button onClick={supprimerCandidat} className="text-white/40 hover:text-red-300 p-1"><IconTrash size={17} /></button>
-            <button onClick={onClose} className="text-gray-400 hover:text-gray-700"><IconX size={20} /></button>
-          </div>
-        </div>
-
-        <div className="p-5 space-y-5">
+            <button onClick={supprimerCandidat} title="Supprimer"
+              className="bouton bouton-detruire inline-flex items-center"><IconTrash size={15} /></button>
+            <span />
+            <button onClick={onClose} className="bouton">Annuler</button>
+            <button onClick={enregistrer} disabled={busy}
+              className="bouton bouton-fort inline-flex items-center gap-1.5">
+              <IconCheck size={15} /> {busy ? 'Enregistrement…' : 'Enregistrer'}
+            </button>
+      </>}>
+        <div className="space-y-5">
 
           {/* ── Cadre 1 : Coordonnées ── */}
           <div className="border border-gray-200 rounded-xl p-4">
@@ -2286,16 +2265,16 @@ function FicheCandidat({ candidat, fonctions, grille, onClose, onSaved }) {
                           {ca.statut !== 'engage' && (
                             <button
                               onClick={async () => {
-                                if (!confirm(`Engager ${(candidat.nom||'').toUpperCase()} ${candidat.prenom||''} sur "${ca.cours_nom || ca.ue_nom || `UE ${ca.ue_num}`}" ?`)) return;
+                                if (!await demander(`Engager ${(candidat.nom||'').toUpperCase()} ${candidat.prenom||''} sur "${ca.cours_nom || ca.ue_nom || `UE ${ca.ue_num}`}" ?`)) return;
                                 try {
                                   // Passer en retenu seulement si pas déjà engagé
                                   if (ca.statut !== 'engage' && ca.statut !== 'retenu') {
                                     await af(`/candidatures/${ca.id}`, { method: 'PATCH', body: JSON.stringify({ statut: 'retenu' }) });
                                   }
                                   const r = await af(`/candidats/${candidat.id}/engager`, { method: 'POST', body: JSON.stringify({ annee: getAnnee() }) });
-                                  alert(`✅ ${(r.nom||'').toUpperCase()} ${r.prenom||''} engagé·e — ${r.nb_attributions} attribution(s) mise(s) à jour.`);
+                                  informer(`✅ ${(r.nom||'').toUpperCase()} ${r.prenom||''} engagé·e — ${r.nb_attributions} attribution(s) mise(s) à jour.`);
                                   onSaved();
-                                } catch(e) { alert('Erreur : ' + e.message); }
+                                } catch(e) { informer('Erreur : ' + e.message); }
                               }}
                               className="text-xs bg-green-600 text-white hover:opacity-90 rounded px-2.5 py-1 h-7 flex items-center gap-1 font-medium flex-shrink-0">
                               ✅ Engager
@@ -2314,7 +2293,7 @@ function FicheCandidat({ candidat, fonctions, grille, onClose, onSaved }) {
                           <IconClipboardText size={12} /> Lancer l'entretien
                         </button>
                         <button onClick={async () => {
-                          if (!confirm('Retirer ce cours ?')) return;
+                          if (!await demander('Retirer ce cours ?')) return;
                           await af(`/candidatures/${ca.id}`, { method: 'DELETE' });
                           rechargerCandidatures();
                         }} className="text-xs text-gray-400 hover:text-red-500 flex items-center gap-1">
@@ -2371,8 +2350,8 @@ function FicheCandidat({ candidat, fonctions, grille, onClose, onSaved }) {
                     setSelSection(''); setSelUE(''); setSelCours('');
                     rechargerCandidatures();
                   } catch (e) {
-                    if (e.message.includes('409') || e.message.includes('déjà')) alert('Ce candidat est déjà associé à ce cours.');
-                    else alert(e.message);
+                    if (e.message.includes('409') || e.message.includes('déjà')) informer('Ce candidat est déjà associé à ce cours.');
+                    else informer(e.message);
                   } finally { setAjoutBusy(false); }
                 }}
                 className="w-full text-xs bg-iip-blue text-white rounded px-3 py-1.5 hover:opacity-90 disabled:opacity-40 flex items-center justify-center gap-1.5">
@@ -2422,15 +2401,7 @@ function FicheCandidat({ candidat, fonctions, grille, onClose, onSaved }) {
           })()}
 
         </div>
-
-        <div className="px-5 py-3 border-t border-gray-100 flex justify-end gap-2 bg-white rounded-b-xl">
-          <Btn variant="ghost" onClick={onClose}>Annuler</Btn>
-          <Btn variant="primary" icon={IconCheck} onClick={enregistrer} disabled={busy}>
-            {busy ? 'Enregistrement…' : 'Enregistrer'}
-          </Btn>
-        </div>
-      </div>
-    </div>
+    </Fenetre>
 
       {ajoutQual && (
         <ModalAjoutQualification
@@ -2512,26 +2483,24 @@ function ModalAjoutQualification({ onClose, onAjouter, onFermer }) {
 
   const valider = () => {
     const valides = lignes.filter(l => l.niveau || l.titre_peda);
-    if (!valides.length) { alert("Complétez au moins un titre ou un niveau d'étude."); return; }
+    if (!valides.length) { informer("Complétez au moins un titre ou un niveau d'étude."); return; }
     valides.forEach(q => onAjouter(q));
     (onFermer || onClose)();
   };
 
   return (
-    <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] z-[70] flex items-center justify-center p-4"
-      onClick={onClose}>
-      <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col"
-        onClick={e => e.stopPropagation()}>
-
-        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 flex-shrink-0">
-          <div>
-            <h3 className="text-base font-bold text-iip-blue">Titres et diplômes</h3>
-            <p className="text-xs text-gray-400 mt-0.5">Ajoutez une ligne par titre ou diplôme. Encodez directement depuis le CV.</p>
-          </div>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><IconX size={18} /></button>
-        </div>
-
-        <div className="overflow-auto flex-1 px-5 py-4 space-y-3">
+    <Fenetre titre="Titres et diplômes" large="moyenne" onFermer={onClose}
+      sous="Ajoutez une ligne par titre ou diplôme. Encodez directement depuis le CV."
+      pied={<>
+          <span className="text-xs text-gray-400">
+            {lignes.filter(l => l.niveau || l.titre_peda).length} titre{lignes.filter(l => l.niveau || l.titre_peda).length > 1 ? 's' : ''} complété{lignes.filter(l => l.niveau || l.titre_peda).length > 1 ? 's' : ''}
+          </span>
+            <button onClick={onClose} className="bouton">Annuler</button>
+            <button onClick={valider} className="bouton bouton-fort inline-flex items-center gap-1.5">
+              <IconCheck size={15} /> Enregistrer ({lignes.filter(l => l.niveau || l.titre_peda).length})
+            </button>
+      </>}>
+        <div className="space-y-3">
           {lignes.map((l, i) => {
             const dipListe = DIPLOMES_FWB[l.niveau] || [];
             return (
@@ -2611,20 +2580,7 @@ function ModalAjoutQualification({ onClose, onAjouter, onFermer }) {
             <IconPlus size={13} /> Ajouter un autre titre ou diplôme
           </button>
         </div>
-
-        <div className="px-5 py-3 border-t border-gray-100 flex justify-between items-center flex-shrink-0">
-          <div className="text-xs text-gray-400">
-            {lignes.filter(l => l.niveau || l.titre_peda).length} titre{lignes.filter(l => l.niveau || l.titre_peda).length > 1 ? 's' : ''} complété{lignes.filter(l => l.niveau || l.titre_peda).length > 1 ? 's' : ''}
-          </div>
-          <div className="flex gap-2">
-            <Btn variant="ghost" onClick={onClose}>Annuler</Btn>
-            <Btn variant="primary" icon={IconCheck} onClick={valider}>
-              Enregistrer ({lignes.filter(l => l.niveau || l.titre_peda).length})
-            </Btn>
-          </div>
-        </div>
-      </div>
-    </div>
+    </Fenetre>
   );
 }
 
@@ -2693,23 +2649,18 @@ function ModalAnalyseCv({ onClose, onResultat, candidatExistant = null }) {
   };
 
   return (
-    <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] z-[60] flex items-center justify-center p-4" onClick={onClose}>
-      <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col"
-        onClick={e => e.stopPropagation()}>
-
-        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
-          <div>
-            <h3 className="text-base font-bold text-iip-blue flex items-center gap-2">
-              🤖 Analyser un CV avec Lucie
-            </h3>
-            <p className="text-xs text-gray-400 mt-0.5">
-              Lucie lit le PDF et pré-remplit la fiche candidat. Tu valides avant d'enregistrer.
-            </p>
-          </div>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><IconX size={18}/></button>
-        </div>
-
-        <div className="flex-1 overflow-auto px-5 py-4 space-y-4">
+    <Fenetre titre="🤖 Analyser un CV avec Lucie" large="moyenne" onFermer={onClose}
+      sous="Lucie lit le PDF et pré-remplit la fiche candidat. Tu valides avant d'enregistrer."
+      pied={<>
+          <span />
+          <button onClick={onClose} className="bouton">Annuler</button>
+          {apercu && (
+            <button onClick={confirmer} className="bouton bouton-fort inline-flex items-center gap-1.5">
+              <IconCheck size={15} /> Utiliser ces informations
+            </button>
+          )}
+      </>}>
+        <div className="space-y-4">
 
           {/* Zone d'upload */}
           {!apercu && (
@@ -2826,17 +2777,7 @@ function ModalAnalyseCv({ onClose, onResultat, candidatExistant = null }) {
             </div>
           )}
         </div>
-
-        <div className="px-5 py-3 border-t border-gray-100 flex justify-end gap-2 flex-shrink-0">
-          <Btn variant="ghost" onClick={onClose}>Annuler</Btn>
-          {apercu && (
-            <Btn variant="primary" icon={IconCheck} onClick={confirmer}>
-              Utiliser ces informations
-            </Btn>
-          )}
-        </div>
-      </div>
-    </div>
+    </Fenetre>
   );
 }
 
@@ -2876,18 +2817,21 @@ function ModalNouveauCandidat({ onClose, onSaved }) {
         });
       }
       onSaved();
-    } catch (e) { alert(e.message); } finally { setBusy(false); }
+    } catch (e) { informer(e.message); } finally { setBusy(false); }
   };
 
   return (
     <>
-    <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] z-50 flex items-center justify-center p-4" onClick={onClose}>
-      <div className="bg-white rounded-xl w-full max-w-md shadow-xl" onClick={e => e.stopPropagation()}>
-        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
-          <h3 className="text-base font-bold text-iip-blue">Nouveau candidat</h3>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><IconX size={18}/></button>
-        </div>
-        <div className="p-5 space-y-4">
+    <Fenetre titre="Nouveau candidat" large="petite" onFermer={onClose}
+      pied={<>
+          <span />
+          <button onClick={onClose} className="bouton">Annuler</button>
+          <button onClick={soumettre} disabled={busy || !f.nom.trim()}
+            className="bouton bouton-fort inline-flex items-center gap-1.5">
+            <IconCheck size={15} /> {busy ? 'Création…' : 'Créer'}
+          </button>
+      </>}>
+        <div className="space-y-4">
           {/* Bouton analyse CV */}
           <button onClick={() => setAnalyseCv(true)}
             className="w-full flex items-center gap-3 p-3 bg-iip-blue/5 border-2 border-dashed border-iip-blue/30 hover:border-iip-blue/60 rounded-xl transition text-left">
@@ -2931,14 +2875,7 @@ function ModalNouveauCandidat({ onClose, onSaved }) {
             </div>
           )}
         </div>
-        <div className="px-5 py-3 border-t border-gray-100 flex justify-end gap-2">
-          <Btn variant="ghost" onClick={onClose}>Annuler</Btn>
-          <Btn variant="primary" icon={IconCheck} onClick={soumettre} disabled={busy || !f.nom.trim()}>
-            {busy ? 'Création…' : 'Créer'}
-          </Btn>
-        </div>
-      </div>
-    </div>
+    </Fenetre>
     {analyseCv && (
       <ModalAnalyseCv
         onClose={() => setAnalyseCv(false)}
@@ -2992,7 +2929,7 @@ function EditeurGrille({ grille, onSaved }) {
   const ajouterQ  = (ai) => setAxes(ax => ax.map((a, j) => j !== ai ? a : { ...a, questions: [...a.questions, { libelle: '', ordre: a.questions.length }] }));
   const retirerQ  = (ai, qi) => setAxes(ax => ax.map((a, j) => j !== ai ? a : { ...a, questions: a.questions.filter((_, k) => k !== qi) }));
   const ajouterAxe = () => setAxes(ax => [...ax, { libelle: 'Nouvel axe', couleur: COULEURS_AXES[ax.length % COULEURS_AXES.length], questions: [] }]);
-  const retirerAxe = (i) => { if (!confirm('Supprimer cet axe et toutes ses questions ?')) return; setAxes(ax => ax.filter((_, j) => j !== i)); };
+  const retirerAxe = async (i) => { if (!await demander('Supprimer cet axe et toutes ses questions ?')) return; setAxes(ax => ax.filter((_, j) => j !== i)); };
 
   const enregistrer = async () => {
     setSaving(true); setErr('');
@@ -3007,7 +2944,7 @@ function EditeurGrille({ grille, onSaved }) {
   // chacun. C'est un REMPLACEMENT — les axes ajoutés à la main disparaissent —
   // donc il se confirme.
   const revenirDefaut = async () => {
-    if (!confirm("Remplacer la grille actuelle par la grille de référence ?\n\n"
+    if (!await demander("Remplacer la grille actuelle par la grille de référence ?\n\n"
       + "Quatre axes, deux questions tirées dans chacun, soit huit questions par "
       + "entretien. Vos axes et questions personnalisés seront perdus.")) return;
     setSaving(true); setErr('');
@@ -3194,44 +3131,57 @@ function EntretienLibre({ candidat, grille, onClose, onSaved, onAutoSave }) {
   const next = () => idxCur < sections.length - 1 && setSection(sections[idxCur + 1]);
 
   return (
-    <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] z-50 flex flex-col" onClick={onClose}>
-      <div className="flex items-center justify-between px-4 py-3 bg-iip-blue flex-shrink-0"
-        onClick={e => e.stopPropagation()}>
-        <div className="flex items-center gap-3 min-w-0">
-          <div className="w-9 h-9 rounded-full bg-white/20 flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
-            {(nomComplet||'').split(' ').map(p=>p[0]||'').slice(0,2).join('').toUpperCase()}
-          </div>
-          <div className="min-w-0">
-            <div className="text-white font-bold text-sm">{nomComplet}</div>
-            <div className="text-white/60 text-xs mt-0.5 flex items-center gap-2">
-              <span>Guide d'entretien · 30 min</span>
-              {noteGlobale != null && (
-                <span className="bg-white/20 text-white rounded-champ px-2 py-0.5 font-bold text-[10px]">
-                  moy. {noteGlobale}/5
-                </span>
-              )}
-            </div>
-          </div>
+    <Fenetre large="ecran" hauteurFixe onFermer={onClose}
+      /* Les initiales tiennent lieu d'icône. */
+      icone={() => (
+        <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center text-white font-bold text-[12px] flex-shrink-0">
+          {(nomComplet||'').split(' ').map(p=>p[0]||'').slice(0,2).join('').toUpperCase()}
         </div>
-        <div className="flex items-center gap-3">
+      )}
+      titre={nomComplet}
+      sous={
+        <span className="inline-flex items-center gap-2">
+          <span>Guide d'entretien · 30 min</span>
           {noteGlobale != null && (
-            <div className="text-right">
-              <div className="text-xs text-gray-400">Moyenne</div>
-              <div className="text-xl font-bold text-iip-blue">{noteGlobale}<span className="text-sm font-normal text-gray-400">/5</span></div>
-            </div>
+            <span className="bg-white/20 text-white rounded-champ px-2 py-0.5 font-bold text-[10px]">
+              moy. {noteGlobale}/5
+            </span>
           )}
-          <button onClick={async () => { await sauvegarder(); }}
-            disabled={saving}
-            className="bg-iip-blue text-white text-sm px-4 py-2 rounded-lg font-medium hover:opacity-90 flex items-center gap-1.5 disabled:opacity-50">
-            {saved ? <><IconCheck size={15} /> Sauvegardé</> : saving ? 'Sauvegarde…' : <><IconCheck size={15} /> Terminer</>}
-          </button>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-700"><IconX size={20} /></button>
+        </span>
+      }
+      outils={noteGlobale != null && (
+        <div className="text-right">
+          <div className="text-xs text-white/70">Moyenne</div>
+          <div className="text-xl font-bold text-white">{noteGlobale}<span className="text-sm font-normal text-white/70">/5</span></div>
         </div>
-      </div>
+      )}
+      pied={<>
+            <button onClick={prev} disabled={idxCur === 0}
+              className="bouton inline-flex items-center gap-1">
+              ← Précédent
+            </button>
+            <span />
+            <button onClick={async () => { await sauvegarder(); }}
+              disabled={saving}
+              className="bouton inline-flex items-center gap-1.5">
+              {saved ? <><IconCheck size={15} /> Sauvegardé</> : saving ? 'Sauvegarde…' : <><IconCheck size={15} /> Terminer</>}
+            </button>
+            {idxCur < sections.length - 1 ? (
+              <button onClick={next}
+                className="bouton bouton-fort inline-flex items-center gap-1">
+                Suivant →
+              </button>
+            ) : (
+              <button onClick={sauvegarder} disabled={saving}
+                className="bouton bouton-fort inline-flex items-center gap-1.5">
+                <IconCheck size={14} /> Terminer &amp; Sauvegarder
+              </button>
+            )}
+      </>}>
+      <div className="-mx-5 -my-4 bg-gray-50 min-h-full">
 
-      {/* Barre de navigation */}
-      <div className="bg-gray-50 border-b border-gray-200 px-5 py-2 flex items-center gap-1 overflow-x-auto flex-shrink-0"
-        onClick={e => e.stopPropagation()}>
+      {/* Barre de navigation — elle reste en haut quand le guide défile. */}
+      <div className="sticky top-0 z-10 bg-gray-50 border-b border-gray-200 px-5 py-2 flex items-center gap-1 overflow-x-auto">
         {sections.map((s, i) => {
           const labels = { intro: '📋 Intro', 'q-fixe': '1️⃣ Questions fixes', admin: '🗓 Administratif', bilan: '⭐ Bilan' };
           const label = labels[s] || `Axe ${axeKeys.indexOf(s) + 1}`;
@@ -3244,7 +3194,7 @@ function EntretienLibre({ candidat, grille, onClose, onSaved, onAutoSave }) {
         })}
       </div>
 
-      <div className="flex-1 overflow-auto bg-gray-50" onClick={e => e.stopPropagation()}>
+      <div>
         <div className="max-w-none mx-auto px-4 py-5 space-y-4">
 
           {/* ── Introduction ── */}
@@ -3450,28 +3400,10 @@ function EntretienLibre({ candidat, grille, onClose, onSaved, onAutoSave }) {
               </div>
             </div>
           )}
-
-          {/* Navigation bas de page */}
-          <div className="flex justify-between pt-2">
-            <button onClick={prev} disabled={idxCur === 0}
-              className="text-sm text-gray-500 hover:text-iip-blue disabled:opacity-30 flex items-center gap-1">
-              ← Précédent
-            </button>
-            {idxCur < sections.length - 1 ? (
-              <button onClick={next}
-                className="text-sm bg-iip-blue text-white px-4 py-1.5 rounded-lg hover:opacity-90 flex items-center gap-1">
-                Suivant →
-              </button>
-            ) : (
-              <button onClick={sauvegarder} disabled={saving}
-                className="text-sm bg-green-600 text-white px-4 py-1.5 rounded-lg hover:opacity-90 disabled:opacity-50 flex items-center gap-1.5">
-                <IconCheck size={14} /> Terminer &amp; Sauvegarder
-              </button>
-            )}
-          </div>
         </div>
       </div>
-    </div>
+      </div>
+    </Fenetre>
   );
 }
 

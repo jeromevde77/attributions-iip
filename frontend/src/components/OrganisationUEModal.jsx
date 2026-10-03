@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
 import { IconCalendar, IconDeviceFloppy, IconPencil, IconTrash } from '@tabler/icons-react';
+import { demander } from '../lib/dialogue.jsx';
+import { Fenetre } from './ui.jsx';
 
 const FLAGS = [
   { key: 'ept_uniquement',        label: 'Uniquement EPT / périodes suppl.' },
@@ -146,7 +148,7 @@ export default function OrganisationUEModal({ ue_num, section, ue_nom, annee, on
   }
 
   async function supprimer(id) {
-    if (!confirm('Supprimer cette organisation ?')) return;
+    if (!(await demander('Supprimer cette organisation ?'))) return;
     await fetch(`/api/ref/organisations-ue/${id}`, {
       method: 'DELETE', headers: { Authorization: `Bearer ${tok()}` }
     });
@@ -157,18 +159,15 @@ export default function OrganisationUEModal({ ue_num, section, ue_nom, annee, on
   const fmt = (d) => d || '—';
 
   return (
-    <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl flex flex-col max-h-[90vh]">
-        {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b">
-          <div>
-            <div className="font-bold text-iip-gold text-lg">Organisations — UE {ue_num}</div>
-            <div className="text-xs text-gray-500">{ue_nom} · {section} · {annee}</div>
-          </div>
-          <button onClick={onClose} className="text-gray-400 hover:text-red-500 text-2xl">×</button>
-        </div>
-
-        <div className="overflow-y-auto flex-1 px-6 py-4 space-y-4">
+    <Fenetre icone={IconCalendar} titre={`Organisations — UE ${ue_num}`} sous={`${ue_nom} · ${section} · ${annee}`}
+      large="moyenne" onFermer={onClose}
+      pied={<>
+        <span />
+        <button onClick={onClose} className="bouton bouton-fort">
+          Fermer
+        </button>
+      </>}>
+        <div className="space-y-4">
           {loading ? (
             <div className="text-gray-400 text-sm text-center py-4">Chargement...</div>
           ) : (
@@ -214,13 +213,6 @@ export default function OrganisationUEModal({ ue_num, section, ue_nom, annee, on
             </>
           )}
         </div>
-
-        <div className="px-6 py-3 border-t flex justify-end">
-          <button onClick={onClose} className="bg-iip-gold text-white px-4 py-1.5 h-9 rounded text-sm hover:bg-iip-amber">
-            Fermer
-          </button>
-        </div>
-      </div>
-    </div>
+    </Fenetre>
   );
 }

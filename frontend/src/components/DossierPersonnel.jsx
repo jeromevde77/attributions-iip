@@ -4,6 +4,7 @@ import {
   IconStethoscope, IconMessage, IconLock, IconX, IconCalendarPlus,
   IconNotes, IconFileImport, IconLogin, IconTrash as IconCorbeille, IconAward } from '@tabler/icons-react';
 import { authHeaders } from '../lib/api.js';
+import { demander, informer } from '../lib/dialogue.jsx';
 
 const fr = (iso) => iso ? iso.slice(0, 10).split('-').reverse().join('/') : '—';
 
@@ -174,12 +175,12 @@ export function Absences({ profId, peutEcrire }) {
       method: 'POST', headers: authHeaders(),
       body: JSON.stringify(form),
     });
-    if (!rep.ok) { alert((await rep.json()).error || 'échec'); return; }
+    if (!rep.ok) { informer((await rep.json()).error || 'échec'); return; }
     setForm(null); await charger();
   }
 
   async function supprimer(id) {
-    if (!confirm('Supprimer cette absence ?')) return;
+    if (!await demander('Supprimer cette absence ?')) return;
     await fetch(`/api/dossier/absences/${id}`, { method: 'DELETE', headers: authHeaders() });
     await charger();
   }
@@ -361,7 +362,7 @@ export function Entretiens({ profId, peutEcrire, estAdmin }) {
       method: 'POST', headers: authHeaders(),
       body: JSON.stringify(form),
     });
-    if (!rep.ok) { alert((await rep.json()).error || 'échec'); return; }
+    if (!rep.ok) { informer((await rep.json()).error || 'échec'); return; }
     setForm(null); await charger();
   }
 
@@ -370,7 +371,7 @@ export function Entretiens({ profId, peutEcrire, estAdmin }) {
       method: 'PATCH', headers: authHeaders(),
       body: JSON.stringify(champs),
     });
-    if (!rep.ok) { alert((await rep.json()).error || 'échec'); return; }
+    if (!rep.ok) { informer((await rep.json()).error || 'échec'); return; }
     setOuvert(null); await charger();
   }
 
@@ -537,7 +538,7 @@ export function Journal({ profId, peutEcrire, estAdmin }) {
         }),
       });
       if (rep.ok) { setRdv(null); await charger(); }
-      else { const j = await rep.json().catch(() => ({})); alert(j.error || 'Erreur'); }
+      else { const j = await rep.json().catch(() => ({})); informer(j.error || 'Erreur'); }
     } finally { setEnvoi(false); }
   }
 
@@ -561,7 +562,7 @@ export function Journal({ profId, peutEcrire, estAdmin }) {
   }
 
   async function supprimer(id) {
-    if (!confirm('Supprimer définitivement cette remarque ?')) return;
+    if (!await demander('Supprimer définitivement cette remarque ?')) return;
     await fetch(`/api/dossier/journal/${id}`, { method: 'DELETE', headers: authHeaders() });
     await charger();
   }

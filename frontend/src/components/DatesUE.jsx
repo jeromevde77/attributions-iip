@@ -3,9 +3,10 @@ import {
   IconCalendarEvent, IconDeviceFloppy, IconCopy, IconHistory, IconPlus,
   IconAlertTriangle, IconCheck, IconEye, IconRefresh, IconX,
 } from '@tabler/icons-react';
-import { Btn, KpiCard } from './ui.jsx';
+import { Btn, KpiCard, Fenetre } from './ui.jsx';
 import { authHeaders } from '../lib/api.js';
 import PlanificateurUE from './PlanificateurUE.jsx';
+import { demander, informer } from '../lib/dialogue.jsx';
 
 /**
  * Paramétrage annuel — Dates réelles des unités d'enseignement.
@@ -126,18 +127,18 @@ export default function DatesUE({ annee, sansTitre = false }) {
   }
 
   async function initialiserDepuisAttributions() {
-    if (!window.confirm('Créer une organisation pour chaque UE attribuée en ' + annee + ' ?\nElles apparaîtront sans dates pour être placées sur la ligne du temps.')) return;
+    if (!(await demander('Créer une organisation pour chaque UE attribuée en ' + annee + ' ?\nElles apparaîtront sans dates pour être placées sur la ligne du temps.'))) return;
     const rep = await fetch('/api/annuel/dates-ue/initialiser', {
       method: 'POST', headers: authHeaders(),
       body: JSON.stringify({ annee }),
     });
     const j = await rep.json();
     if (rep.ok) { setMessage(j.message || 'Initialisé'); await charger(); }
-    else alert(j.error || 'Erreur');
+    else informer(j.error || 'Erreur');
   }
 
   async function reprendreAnneePrecedente() {
-    if (!confirm("Pré-remplir les dates manquantes à partir de l'année précédente, décalées de 52 semaines ?\n\nLes organisations déjà datées ne seront pas modifiées. Les dates obtenues sont à vérifier.")) return;
+    if (!(await demander("Pré-remplir les dates manquantes à partir de l'année précédente, décalées de 52 semaines ?\n\nLes organisations déjà datées ne seront pas modifiées. Les dates obtenues sont à vérifier."))) return;
     const rep = await fetch('/api/annuel/dates-ue/reprendre', {
       method: 'POST', headers: authHeaders(),
       body: JSON.stringify({ annee, ecraser: false }),
@@ -448,24 +449,10 @@ export default function DatesUE({ annee, sansTitre = false }) {
 
       {/* Aperçu des jalons */}
       {jalonsPour && (
-        <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] flex items-center justify-center z-50 p-4"
-             onClick={() => setJalonsPour(null)}>
-          <div className="bg-white rounded-xl max-w-2xl w-full max-h-[80vh] overflow-auto"
-               onClick={e => e.stopPropagation()}>
-            <div className="px-5 py-3.5 border-b border-slate-200 flex items-center justify-between sticky top-0 bg-white">
-              <div>
-                <h3 className="font-semibold text-iip-blue">
-                  Échéances générées — UE {jalonsPour.organisation?.ue_num}
-                </h3>
-                <p className="text-xs text-slate-500 mt-0.5">
-                  du {fr(jalonsPour.organisation?.date_debut)} au {fr(jalonsPour.organisation?.date_fin)}
-                </p>
-              </div>
-              <button onClick={() => setJalonsPour(null)} className="text-slate-400 hover:text-slate-700">
-                <IconX size={20} />
-              </button>
-            </div>
-            <div className="p-5 space-y-2">
+        <Fenetre icone={IconCalendarEvent} large="moyenne" onFermer={() => setJalonsPour(null)}
+          titre={`Échéances générées — UE ${jalonsPour.organisation?.ue_num}`}
+          sous={`du ${fr(jalonsPour.organisation?.date_debut)} au ${fr(jalonsPour.organisation?.date_fin)}`}>
+            <div className="space-y-2">
               {!jalonsPour.jalons?.length && (
                 <p className="text-sm text-slate-500">Aucun jalon (dates manquantes).</p>
               )}
@@ -484,8 +471,7 @@ export default function DatesUE({ annee, sansTitre = false }) {
                 </div>
               ))}
             </div>
-          </div>
-        </div>
+        </Fenetre>
       )}
     </div>
   );
