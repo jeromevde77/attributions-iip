@@ -1,3 +1,5 @@
+import { readFileSync } from 'fs';
+import { gunzipSync } from 'zlib';
 import { codeGroupe, modeGroupes } from '../lib/groupes.js';
 import { Router } from 'express';
 import db from '../db/index.js';
@@ -7,6 +9,7 @@ import { authRequired, roleRequired, getUserSections, exigerPerimetreProfesseur,
   clauseSections } from '../middleware/auth.js';
 import { parseDossierPedagogique } from '../parseDossierPedagogique.js';
 import { htmlListeCoordonnees } from '../services/liste_coordonnees.js';
+import { composerFicheAttributions } from '../lib/pieceFicheAttributions.js';
 
 const r = Router();
 
@@ -47,6 +50,33 @@ function autonomieUE(ueNum, annee, { exclureCours = null, ajoutCours = null } = 
   return { plafond, consomme, ue_aut: ueAut };
 }
 
+
+/* LES RUES DE BELGIQUE (3 octobre 2026) — BeST Address (SPF BOSA, données
+   ouvertes), réduites aux noms de rue par code postal, en français,
+   néerlandais et allemand : donnees/rues-be.json.gz. Chargées une fois, en
+   mémoire ; aucune dépendance à un service extérieur pendant la saisie. Pour
+   les remettre à jour : retélécharger openaddress-be*.zip et régénérer. */
+let RUES = null;
+function rues() {
+  if (RUES) return RUES;
+  try {
+    RUES = JSON.parse(gunzipSync(readFileSync(new URL('../donnees/rues-be.json.gz', import.meta.url))).toString('utf-8'));
+  } catch (e) { console.error('[rues]', e.message); RUES = {}; }
+  return RUES;
+}
+const platRue = t => String(t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+r.get('/rues', authRequired, (req, res) => {
+  const cp = String(req.query.cp || '').trim();
+  const q = platRue(req.query.q).trim();
+  const liste = rues()[cp] || [];
+  if (!q) return res.json(liste.slice(0, 30));
+  const debut = [], dedans = [];
+  for (const n of liste) {
+    const p = platRue(n);
+    if (p.startsWith(q)) debut.push(n); else if (p.includes(q)) dedans.push(n);
+  }
+  res.json([...debut, ...dedans].slice(0, 30));
+});
 
 r.get('/sections', authRequired, (req, res) => {
   const allowed = getUserSections(req.user);
@@ -1491,17 +1521,17 @@ r.get('/professeurs/:id/fiche-pdf', authRequired, async (req, res) => {
 // l'année active, avec calcul périodes/autonomie/total (périodes + heures).
 // GET /professeurs/:id/fiche-attributions?annee=
 // Données structurées pour la fiche d'attributions d'un membre du personnel
-r.get('/professeurs/:id/fiche-attributions', authRequired, (req, res) => {
-  const id = parseInt(req.params.id);
-  const annee = req.query.annee;
-  if (!annee) return res.status(400).json({ error: 'annee requis' });
-
+/* LES DONNÉES DE LA FICHE, UNE FOIS : la route JSON et la pièce composée
+   (`/fiche-attributions/document`) les lisent ici — deux requêtes pour une
+   même fiche finiraient par ne plus dire la même chose. Rend null si le
+   professeur n'existe pas. */
+export function donneesFicheAttributions(id, annee) {
   const prof = db.prepare(`
     SELECT p.id, p.nom, p.prenom, p.statut, p.type_personnel, p.statut_helb,
       (SELECT pe.fonction FROM personnel_etablissement pe WHERE pe.professeur_id = p.id LIMIT 1) AS fonction
     FROM professeur p WHERE p.id = ?
   `).get(id);
-  if (!prof) return res.status(404).json({ error: 'Professeur introuvable' });
+  if (!prof) return null;
 
   const attrs = db.prepare(`
     SELECT a.section, a.ue_num, u.ue_nom, u.ue_niv, u.ue_niveau,
@@ -1572,11 +1602,47 @@ r.get('/professeurs/:id/fiche-attributions', authRequired, (req, res) => {
     couvert: etpCouvert + 1e-9 >= etpNomme,
   } : null;
 
-  res.json({
+  return {
     prof, annee, attributions: attrs,
     nominations, bilan_nomination,
     tot_ct, tot_pp, tot_aut, tot_per, tot_global, etp,
-  });
+  };
+}
+
+/* LA PIÈCE ELLE-MÊME, composée dans l'enveloppe commune (A4 portrait, pied
+   sur chaque feuille) : l'écran ne compose plus, il affiche ce qu'on lui rend.
+   ?contrat=IIP|HELB restreint aux lignes de ce contrat ; sans ligne, 404 —
+   une fiche vide n'a rien à dire au professeur.
+   Route SPÉCIFIQUE, déclarée avant la route de données. */
+r.get('/professeurs/:id/fiche-attributions/document', authRequired, (req, res) => {
+  const id = parseInt(req.params.id);
+  const annee = req.query.annee;
+  if (!annee) return res.status(400).json({ error: 'annee requis' });
+  const contrat = req.query.contrat ? String(req.query.contrat) : null;
+  try {
+    const d = donneesFicheAttributions(id, annee);
+    if (!d) return res.status(404).json({ error: 'Professeur introuvable' });
+    const piece = composerFicheAttributions(d, { contrat });
+    if (!piece) {
+      return res.status(404).json({
+        error: `Ce membre du personnel n'a aucune attribution ${contrat} pour ${annee}.`,
+        vide: true,
+      });
+    }
+    res.json({ html: piece.html, nom: piece.nom, titre: piece.titre });
+  } catch (e) {
+    console.error('[fiche-attributions/document]', e);
+    res.status(500).json({ error: 'Composition de la fiche échouée — ' + e.message });
+  }
+});
+
+r.get('/professeurs/:id/fiche-attributions', authRequired, (req, res) => {
+  const id = parseInt(req.params.id);
+  const annee = req.query.annee;
+  if (!annee) return res.status(400).json({ error: 'annee requis' });
+  const d = donneesFicheAttributions(id, annee);
+  if (!d) return res.status(404).json({ error: 'Professeur introuvable' });
+  res.json(d);
 });
 
 r.get('/professeurs-attributions', authRequired, (req, res) => {

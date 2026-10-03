@@ -29,6 +29,7 @@ import {
 
 import Login from './pages/Login.jsx';
 import MotDePasse from './pages/MotDePasse.jsx';
+import DemandeVA from './pages/DemandeVA.jsx';
 import MonCompte from './components/MonCompte.jsx';
 import ApercuGlobal from './components/ApercuGlobal.jsx';
 import Dashboard from './pages/Dashboard.jsx';
@@ -696,6 +697,8 @@ export default function App() {
       {/* HORS SESSION, ET C'EST TOUT LE PROPOS : on arrive ici parce qu'on ne
           peut PAS se connecter. La page ne reçoit aucun jeton de session. */}
       <Route path="/mot-de-passe" element={<MotDePasse />} />
+      {/* LA PORTE DES ÉTUDIANTS (VA en ligne) : publique, son propre jeton. */}
+      <Route path="/demande-va" element={<DemandeVA />} />
       <Route path="/"             element={<Navigate to="/accueil" replace />} />
       <Route path="/attributions" element={<Navigate to="/organisation" replace />} />
       <Route path="/professeurs"  element={<ProtectedLayout><Professeurs /></ProtectedLayout>} />

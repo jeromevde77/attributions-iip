@@ -36,7 +36,7 @@ const COLS = (l) => l.map(([cle, entete, largeur = 16]) => ({ cle, entete, large
  * doit demander avant de le produire. Un rapport qui réclame une section ne
  * doit pas pouvoir se lancer sans elle.
  */
-const STYLE_RAPPORT = `
+export const STYLE_RAPPORT = `
         /* LE TABLEAU D'UN RAPPORT SE LIT, IL NE SE QUADRILLE PAS.
            Chaque cellule portait son filet : une grille de tableur posée sur
            une feuille administrative, où l'œil suit les traits au lieu de
@@ -115,19 +115,21 @@ const STYLE_RAPPORT = `
  */
 
 /** Une tuile : le chiffre d'abord, le libellé dessous — comme à l'écran. */
-function tuile({ valeur, unite = '', libelle, precision = null, ton = 'neutre',
+export function tuile({ valeur, unite = '', libelle, precision = null, ton = 'neutre',
                 couleur = null }) {
-  // Le filet de gauche porte la signification : la couleur d'un contrat quand
-  // la tuile en parle, un gris neutre sinon. Jamais un fond coloré — la charte
-  // le dit, et une page de fonds colorés ne signale plus rien.
-  const bord = couleur || { neutre: '#cbd5e1', fort: '#1B2B4B', doux: '#94a3b8' }[ton] || '#cbd5e1';
-  return `<td class="tuile" style="border-left-color:${bord}">
+  // LE BLOC SIGNALÉ, À SES MESURES DE PAPIER (CLAUDE.md §6) : rail de 1,6 mm
+  // qui porte l'état, contour 0,3 mm, rayon 1,5 mm, fond #FAFAFB. Le rail est
+  // marine à l'intérieur ; une couleur ne s'y pose que pour dire un ÉTAT
+  // (réussi, à corriger…) — jamais un contrat ni un bloc, qui sont des
+  // repères de colonnes et d'en-têtes. Jamais un fond teinté.
+  const bord = couleur || { neutre: '#1B2B4B', fort: '#1B2B4B', doux: '#94a3b8' }[ton] || '#1B2B4B';
+  return `<td class="tuile"><div class="tuile-boite${ton === 'fort' ? ' fort' : ''}" style="border-left-color:${bord}">
     <div class="tuile-val">${valeur}${unite ? `<span class="tuile-u">${unite}</span>` : ''}</div>
     <div class="tuile-lib">${libelle}</div>
     ${precision ? `<div class="tuile-fin">${precision}</div>` : ''}
-  </td>`;
+  </div></td>`;
 }
-const rangeeTuiles = (tuiles) =>
+export const rangeeTuiles = (tuiles) =>
   `<table class="tuiles"><tr>${tuiles.join('')}</tr></table>`;
 
 /**
@@ -166,7 +168,7 @@ function barreParts(parts) {
 }
 
 /** Les styles des pièces de reporting — tuiles, barres, légendes. */
-const STYLE_REPORTING = `
+export const STYLE_REPORTING = `
   /* LA RANGÉE DE TUILES RESTE DANS LA COLONNE DE TEXTE. Un écartement de
      cellules « déborde » d'une demi-valeur de chaque côté : la première tuile
      sortait de 5 mm à gauche, sous l'en-tête et le tableau qui, eux, partent
@@ -174,28 +176,26 @@ const STYLE_REPORTING = `
      padding intérieur qui fait l'air, pas l'espacement extérieur. */
   table.tuiles { width:100%; border-collapse:collapse;
                  margin:3mm 0 8mm; table-layout:fixed; }
-  td.tuile + td.tuile { padding-left:7mm !important; }
-  /* LE FILET N'EST PAS UN SOULIGNEMENT COLLÉ AU CHIFFRE. À 22 points, un
-     nombre a besoin d'air : 3 mm, le filet semblait poussé contre lui, et l'œil
-     lisait « barre + chiffre » comme un seul objet au lieu d'un repère et d'une
-     valeur. Le retrait passe à 4,5 mm — la même respiration que les tuiles de
-     l'écran, où le filet de 3 px est suivi de 12 px. */
-  td.tuile { border:0; border-left:2.5pt solid #cbd5e1; padding:1.2mm 0 1.2mm 4.5mm;
-             vertical-align:top; }
+  td.tuile + td.tuile { padding-left:3mm !important; }
+  /* LA CELLULE ÉCARTE, LA BOÎTE DESSINE. Une cellule de tableau ne prend ni
+     rayon ni contour propre en border-collapse : le bloc signalé vit donc
+     dans une boîte, et la cellule ne fait que l'espacer. */
+  td.tuile { border:0; padding:0; vertical-align:top; height:1px; }
+  .tuile-boite { background:#FAFAFB; border:0.3mm solid #D8DCE4;
+                 border-left:1.6mm solid #1B2B4B; border-radius:0 1.5mm 1.5mm 0;
+                 padding:2mm 3mm 2.2mm; height:100%; break-inside:avoid; }
   /* LE CHIFFRE EST LE SUJET DE LA TUILE : il est grand, serré, et tout le
      reste est gris. Une tuile où le libellé pèse autant que le nombre ne dit
-     plus rien d'un coup d'œil. */
-  /* Une interligne de 1 rogne les accents et les hampes : le haut du chiffre
-     touchait le bord de la cellule. */
-  .tuile-val { font-size:22pt; font-weight:700; color:#1B2B4B; line-height:1.12;
-               letter-spacing:-.8pt; font-variant-numeric:tabular-nums; }
-  .tuile-u   { font-size:9pt; font-weight:500; color:#a1a1a6; margin-left:1.2mm;
+     plus rien d'un coup d'œil. Une interligne de 1 rogne les accents. */
+  .tuile-val { font-size:16pt; font-weight:700; color:#1B2B4B; line-height:1.12;
+               letter-spacing:-.3pt; font-variant-numeric:tabular-nums; }
+  .tuile-boite.fort .tuile-val { font-size:19pt; }
+  .tuile-u   { font-size:8pt; font-weight:400; color:#64748b; margin-left:1mm;
                letter-spacing:0; }
   /* PAS DE CAPITALES FORCÉES : « Étudiants » y perdait son accent, et une
      étiquette en capitales se lit moins vite qu'une étiquette normale. */
-  .tuile-lib { font-size:9pt; color:#1B2B4B; margin-top:1.6mm; font-weight:500;
-               letter-spacing:-.1pt; }
-  .tuile-fin { font-size:8pt; color:#a1a1a6; margin-top:.8mm; }
+  .tuile-lib { font-size:9pt; color:#1B2B4B; margin-top:1mm; font-weight:600; }
+  .tuile-fin { font-size:7.5pt; color:#64748b; margin-top:.5mm; }
   .legendes { margin-top:1.5mm; }
   .leg { font-size:8pt; color:#6e6e73; margin-right:5mm; white-space:nowrap; }
   .leg i { display:inline-block; width:7px; height:7px; border-radius:1.5px;
@@ -615,11 +615,9 @@ function documentEtpEtablissement(p) {
       tuile({ valeur: n2(global), unite: 'ETP', libelle: 'Charge globale',
         precision: `${secs.length} section(s)`, ton: 'fort' }),
       tuile({ valeur: n2(tot.etp_iip), unite: 'ETP', libelle: 'Institut',
-        precision: global ? `${Math.round((tot.etp_iip || 0) / global * 100)} %` : '—',
-        couleur: C.iip }),
+        precision: global ? `${Math.round((tot.etp_iip || 0) / global * 100)} %` : '—' }),
       tuile({ valeur: n2((tot.etp_helb || 0) + coord), unite: 'ETP', libelle: 'Haute École',
-        precision: global ? `${Math.round(((tot.etp_helb || 0) + coord) / global * 100)} %` : '—',
-        couleur: C.helb }),
+        precision: global ? `${Math.round(((tot.etp_helb || 0) + coord) / global * 100)} %` : '—' }),
       tuile({ valeur: etus ? n0(etus) : '—', libelle: 'Étudiants',
         precision: etus
           ? `${ratio(global)} par ETP${etusPose ? ' · effectif posé' : ''}`
@@ -752,9 +750,9 @@ function documentEtpUe(p) {
       tuile({ valeur: n4(etp), unite: 'ETP', libelle: 'Charge', ton: 'fort',
         precision: `${n0(per)} périodes` }),
       tuile({ valeur: n2(etpIip), unite: 'ETP', libelle: 'Institut',
-        precision: etp > 0 ? `${Math.round(etpIip / etp * 100)} %` : '—', couleur: C.iip }),
+        precision: etp > 0 ? `${Math.round(etpIip / etp * 100)} %` : '—' }),
       tuile({ valeur: n2(etp - etpIip), unite: 'ETP', libelle: 'Haute École',
-        precision: etp > 0 ? `${Math.round((etp - etpIip) / etp * 100)} %` : '—', couleur: C.helb }),
+        precision: etp > 0 ? `${Math.round((etp - etpIip) / etp * 100)} %` : '—' }),
       tuile({ valeur: profs, libelle: profs > 1 ? 'Enseignants' : 'Enseignant',
         precision: (p.etudiants || ue.nb_etudiants)
           ? `${n0(p.etudiants || ue.nb_etudiants)} étudiant(s)${
@@ -901,10 +899,10 @@ function documentEtpCursus(p) {
       tuile({ valeur: n2(global), unite: 'ETP', libelle: 'Charge globale',
         precision: `${n0(perTot)} périodes de cours`, ton: 'fort' }),
       tuile({ valeur: n2(sec.etp_iip), unite: 'ETP', libelle: 'Institut',
-        precision: part(sec.etp_iip), couleur: C.iip }),
+        precision: part(sec.etp_iip) }),
       tuile({ valeur: n2(sec.etp_helb + etpCoord), unite: 'ETP', libelle: 'Haute École',
         precision: `${part(sec.etp_helb + etpCoord)}${etpCoord > 0
-          ? ` · dont ${n2(etpCoord)} de coordination` : ''}`, couleur: C.helb }),
+          ? ` · dont ${n2(etpCoord)} de coordination` : ''}` }),
       tuile({ valeur: etus ? n0(etus) : '—', libelle: 'Étudiants',
         precision: etus
           ? `${ratio(global)} par ETP${etusPose ? ' · effectif posé' : ''}`

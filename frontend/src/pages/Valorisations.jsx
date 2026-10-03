@@ -2052,6 +2052,7 @@ function EtapeDemande({ dossier, delai, onEnregistrer, enCours }) {
             <option value="courriel">Courriel</option>
             <option value="papier">Papier</option>
             <option value="rendez-vous">Rendez-vous (diplôme étranger)</option>
+            <option value="en ligne">En ligne (par l'étudiant)</option>
           </select>
         </label>
         <button onClick={() => onEnregistrer({ date_demande: dd, date_reception: dr,

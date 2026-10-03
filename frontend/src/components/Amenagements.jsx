@@ -312,8 +312,13 @@ export default function Amenagements({ etudId, annee }) {
                 <ChoixMesures d={d} catalogue={data.catalogue} verrou={!!c?.b?.valide_le || (!!c?.a?.valide_le && !hors)}
                   onAjouter={ajouterMesure} onRetirer={id => supprimerMesure(id, true)} onPreciser={(m, t) => majMesure(m, { precisions: t })} />
                 <label className="text-xs block">
-                  <span className="block font-semibold text-slate-500 uppercase tracking-wide mb-1">Soins spécifiques <span className="normal-case font-normal text-slate-400">(facultatif)</span></span>
+                  {/* CONFIDENTIEL, ET CE N'EST PAS UNE MESURE (3 octobre 2026) : des
+                      mesures y étaient écrites — elles n'allaient alors ni aux
+                      chargés de cours ni au Conseil. Une mesure se coche, ou
+                      s'écrit dans « Autre ». */}
+                  <span className="block font-semibold text-slate-500 uppercase tracking-wide mb-1">Soins spécifiques <span className="normal-case font-normal text-slate-400">— confidentiel, non transmis aux chargés de cours (facultatif)</span></span>
                   <textarea rows={2} defaultValue={d.soins_specifiques || ''} disabled={!!c?.a?.valide_le}
+                    placeholder="Suivi logopédique, kinésithérapie, traitement… — une mesure se coche plus haut, ou s'écrit dans « Autre »"
                     onBlur={e => e.target.value !== (d.soins_specifiques || '') && majDossier({ soins_specifiques: e.target.value })}
                     className="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-sm" />
                 </label>

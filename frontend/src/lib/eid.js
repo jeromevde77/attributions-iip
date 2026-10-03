@@ -109,7 +109,9 @@ export function eidToProf(data) {
     if (s === 'M' || s === 'F') out.sexe = s;
   }
   if (id.nationalNumber) out.niss = formatNiss(id.nationalNumber);
-  if (id.nationality) out.nationalite = id.nationality.trim();
+  // La carte dit « Belge » / « Belg » / « Belgier » selon sa langue ; Lucie
+  // range un PAYS (lib/pays.js) : la nationalité belge devient « Belgique ».
+  if (id.nationality) out.nationalite = /^belg/i.test(id.nationality.trim()) ? 'Belgique' : id.nationality.trim();
   const dn = eidDateToISO(id.birthDate);
   if (dn) out.date_naissance = dn;
   if (id.birthLocation) out.lieu_naissance_ville = id.birthLocation.trim();

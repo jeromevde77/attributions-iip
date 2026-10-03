@@ -1379,7 +1379,8 @@ export default function Configuration() {
     /* ILS ONT DÉMÉNAGÉ (lot 4, 2 octobre 2026). L'entrée reste un mois,
      * grisée, et dit où aller : le secrétariat change d'habitudes du jour au
      * lendemain, et l'on ne cherche pas ce qu'on croit perdu. */
-    ...(new Date() < new Date('2026-11-03') ? [{ label: 'Outils', icon: IconTool, items: [
+    // Retirée le 3 octobre 2026 (Charles : « plus nécessaire »).
+    ...(false ? [{ label: 'Outils', icon: IconTool, items: [
       { key: 'dates-ue', label: "Dates des UE", icon: IconCalendarEvent, demenage: DEMENAGES['dates-ue'] },
       { key: 'doublons', label: 'Dossiers dédoublés', icon: IconUsers, demenage: DEMENAGES.doublons },
       { key: 'doubles-programmes', label: 'Programmes sur deux sections', icon: IconArrowsSplit, demenage: DEMENAGES['doubles-programmes'] },

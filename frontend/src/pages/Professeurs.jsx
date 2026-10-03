@@ -1806,168 +1806,20 @@ export default function Professeurs({ vue: vueInitiale = 'membres' }) {
     if (contratFiltre === 'HELB') { return genererFicheHELB(prof, attributions, annee, returnOnly); }
     if (contratFiltre === null) { return genererFicheGlobale(prof, attributions, nominations, bilan_nomination, annee, returnOnly); }
 
-    // Recalcul des totaux IIP sur les lignes filtrées (ou toutes si global)
-    // L'autonomie suit le TYPE DE COURS auquel elle se rattache : c'est ainsi
-    // que le serveur calcule l'ETP — (CT + aut_CT)/800 + (PP + aut_PP)/1000.
-    // La totaliser à part donnait une ligne qu'on ne pouvait relier à aucun
-    // diviseur, donc à aucun ETP.
-    let tot_ct = 0, tot_pp = 0, tot_aut_ct = 0, tot_aut_pp = 0;
-    for (const a of attributions) {
-      if (a.type_cours === 'CT') { tot_ct += a.per || 0; tot_aut_ct += a.aut || 0; }
-      else { tot_pp += a.per || 0; tot_aut_pp += a.aut || 0; }
+    /* LA FICHE IIP EST COMPOSÉE PAR LE SERVEUR, dans l'enveloppe commune
+       (A4 portrait, en-tête de l'établissement, pied sur chaque feuille) :
+       l'écran n'en dessine plus une à sa façon. */
+    const q = new URLSearchParams({ annee: annee || '', contrat: contratFiltre });
+    const rep = await fetch(`/api/ref/professeurs/${profId}/fiche-attributions/document?${q}`,
+      { headers: { Authorization: `Bearer ${tok}` } });
+    const j = await rep.json().catch(() => ({}));
+    if (!rep.ok || !j.html) {
+      if (!returnOnly) alert(j.error || 'Composition de la fiche échouée.');
+      return null;
     }
-    const tot_aut = tot_aut_ct + tot_aut_pp;
-    const tot_per = tot_ct + tot_pp;
-    const tot_global = tot_per + tot_aut;
-    const charge_ct = tot_ct + tot_aut_ct;
-    const charge_pp = tot_pp + tot_aut_pp;
-    const etp4 = n => (Math.round(n * 10000) / 10000).toFixed(4);
-    const etp_ct = charge_ct / 800;
-    const etp_pp = charge_pp / 1000;
-
-    const fmt = n => n != null ? String(n) : '0';
-    const S  = 'padding:2px 6px;font-size:11px;';
-    const SR = S + 'text-align:right;';
-
-    // Grouper par section
-    const sections = {};
-    for (const a of attributions) {
-      if (!sections[a.section]) sections[a.section] = [];
-      sections[a.section].push(a);
-    }
-
-    const lignesSections = Object.entries(sections).map(([sec, rows]) => {
-      const lignes = rows.map((a, i) => `
-        <tr style="background:${i%2===0?'#fff':'#f9fafb'}">
-          <td style="${S}color:#6b7280">${a.section}</td>
-          <td style="${S}color:#374151"><span style="display:inline-block;min-width:46px">UE ${a.ue_num}</span>${a.ue_niv ? `<span style="background:#1B2B4B;color:white;font-size:9px;padding:1px 4px;border-radius:3px">${a.ue_niv}</span>` : ''}</td>
-          <td style="${S}color:#374151">${a.cours_nom || a.code_cours || '—'}${a.activite_nom ? ` <em style="color:#9ca3af">(${a.activite_nom})</em>` : ''}${a.est_rt ? ` <span style="color:#ea580c;border:1px solid #ef4444;border-radius:3px;font-size:8px;padding:0 3px;font-weight:700">RT</span>` : ''}</td>
-          <td style="${SR}font-weight:600;color:${a.type_cours==='CT'?'#1B2B4B':'#00AACC'}">${a.type_cours || '—'}</td>
-          <td style="${SR}color:#374151">${fmt(a.per)}</td>
-          <td style="${SR}color:#6b7280">${fmt(a.aut)}</td>
-          <td style="${SR}font-weight:700;border-left:1px solid #e5e7eb">${fmt((a.per||0)+(a.aut||0))}</td>
-        </tr>`).join('');
-      return lignes;
-    }).join('');
-
-    const html = `<!DOCTYPE html><html><head><meta charset="utf-8">
-      <style>
-        *{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact;print-color-adjust:exact}
-        body{font-family:'Segoe UI',Arial,sans-serif;font-size:11px;color:#111827}
-        table{width:100%;border-collapse:collapse}
-        td,th{border-bottom:1px solid #e5e7eb}
-        @media print{@page{size:A4 landscape;margin:10mm}html,body{width:297mm}tr{page-break-inside:avoid}thead{display:table-header-group}}
-        .page-table{width:100%;border-collapse:collapse}
-        .page-table>tfoot{display:table-footer-group}
-        .footer-iip{margin-top:6mm}
-        .footer-iip .logo{height:8mm;width:auto;opacity:.9;display:block;margin-bottom:2mm}
-        .footer-iip .txt{border-top:0.5pt solid var(--c-attente);padding-top:2mm;font-size:7px;color:#888;text-align:center;line-height:1.4}
-      </style></head><body>
-      <table class="page-table"><tbody><tr><td>
-      <div style="padding:10mm">
-        <!-- En-tête -->
-        <div style="display:flex;justify-content:space-between;align-items:flex-end;border-bottom:3px solid #1B2B4B;padding-bottom:8px;margin-bottom:16px">
-          <div>
-            <div style="font-size:9px;color:#00AACC;letter-spacing:2px;text-transform:uppercase;margin-bottom:4px">Institut Ilya Prigogine · Fiche d'attributions</div>
-            <div style="font-size:20px;font-weight:700;color:#1B2B4B">${prof.prenom} ${prof.nom}</div>
-            <div style="font-size:11px;color:#6b7280;margin-top:2px">${prof.fonction || prof.statut || ''}</div>
-          </div>
-          <div style="text-align:right">
-            <div style="font-size:13px;font-weight:600;color:#1B2B4B">${annee}</div>
-            <div style="font-size:9px;color:#9ca3af;margin-top:2px">Généré le ${new Date().toLocaleDateString('fr-BE')} · Lucie</div>
-          </div>
-        </div>
-
-        <!-- Tableau -->
-        <table>
-          <thead>
-            <tr style="background:#1B2B4B;color:white">
-              <th style="padding:4px 6px;text-align:left;font-size:10px">Section</th>
-              <th style="padding:4px 6px;text-align:left;font-size:10px">UE</th>
-              <th style="padding:4px 6px;text-align:left;font-size:10px">Cours</th>
-              <th style="padding:4px 6px;text-align:center;font-size:10px">CT/PP</th>
-              <th style="padding:4px 6px;text-align:right;font-size:10px">Pér.</th>
-              <th style="padding:4px 6px;text-align:right;font-size:10px">Aut.</th>
-              <th style="padding:4px 6px;text-align:right;font-size:10px;border-left:1px solid rgba(255,255,255,.3)">Total</th>
-            </tr>
-          </thead>
-          <tbody>${lignesSections}</tbody>
-        </table>
-
-        <!-- Totaux -->
-        <div style="margin-top:16px;display:flex;gap:24px;justify-content:flex-end">
-          <div style="background:#f1f5f9;border-radius:8px;padding:12px 20px;min-width:320px">
-            <div style="font-size:10px;color:#6b7280;margin-bottom:8px;text-transform:uppercase;letter-spacing:1px">Récapitulatif</div>
-            <table style="width:100%">
-              <tr>
-                <td style="padding:2px 0;color:#374151;border:none">Charge de cours (CT)<span style="color:#9ca3af"> + autonomie</span></td>
-                <td style="padding:2px 0;text-align:right;font-weight:600;color:#1B2B4B;border:none">${fmt(charge_ct)} p.</td>
-                <td style="padding:2px 0;text-align:right;color:#6b7280;border:none;padding-left:14px">${etp4(etp_ct)}</td>
-              </tr>
-              <tr>
-                <td style="padding:2px 0;color:#374151;border:none">Pratique professionnelle (PP)<span style="color:#9ca3af"> + autonomie</span></td>
-                <td style="padding:2px 0;text-align:right;font-weight:600;color:#00AACC;border:none">${fmt(charge_pp)} p.</td>
-                <td style="padding:2px 0;text-align:right;color:#6b7280;border:none;padding-left:14px">${etp4(etp_pp)}</td>
-              </tr>
-              <tr style="border-top:2px solid #1B2B4B">
-                <td style="padding:4px 0;font-weight:700;color:#1B2B4B;border:none">Total général</td>
-                <td style="padding:4px 0;text-align:right;font-weight:700;color:#1B2B4B;border:none">${fmt(tot_global)} p.</td>
-                <td style="padding:4px 0;text-align:right;font-weight:700;color:#00AACC;border:none;padding-left:14px">${etp}</td>
-              </tr>
-              <tr>
-                <td colspan="3" style="padding:2px 0;color:#9ca3af;font-size:9px;border:none">
-                  ETP : CT ÷ 800, PP ÷ 1000, autonomie comprise dans son type de cours.
-                </td>
-              </tr>
-            </table>
-          </div>
-        </div>
-        ${(nominations && nominations.length) ? `
-        <!-- Engagement à titre définitif -->
-        <div style="margin-top:20px">
-          <div style="font-size:11px;font-weight:700;color:#1B2B4B;text-transform:uppercase;letter-spacing:1px;border-bottom:2px solid #1B2B4B;padding-bottom:3px;margin-bottom:6px">Engagement à titre définitif</div>
-          <table style="width:100%">
-            <thead>
-              <tr style="background:#eef2f7;color:#1B2B4B">
-                <th style="padding:3px 6px;text-align:left;font-size:9px">Dossier pédagogique (code FWB)</th>
-                <th style="padding:3px 6px;text-align:center;font-size:9px">Type</th>
-                <th style="padding:3px 6px;text-align:right;font-size:9px">Nommé (pér.)</th>
-                <th style="padding:3px 6px;text-align:right;font-size:9px">ETP</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${nominations.map((n,i) => `
-                <tr style="background:${i%2===0?'#fff':'#f9fafb'}">
-                  <td style="${S}color:#374151">${n.libelle} <span style="color:#9ca3af;font-family:monospace;font-size:9px">${n.code_fwb === 'INCONNU' ? '(code inconnu)' : n.code_fwb}</span></td>
-                  <td style="${S}text-align:center;color:#6b7280">${n.type_charge || ''}</td>
-                  <td style="${SR}font-weight:600">${fmt(n.periodes)}</td>
-                  <td style="${SR}color:#6b7280">${n.etp}</td>
-                </tr>`).join('')}
-            </tbody>
-          </table>
-          ${bilan_nomination ? `
-          <div style="margin-top:8px;padding:8px 12px;border-radius:8px;background:${bilan_nomination.couvert ? '#f0fdf4' : '#fef2f2'};border:1px solid ${bilan_nomination.couvert ? '#bbf7d0' : '#fecaca'}">
-            <table style="width:100%;font-size:11px">
-              <tr>
-                <td style="border:none;color:#374151">Équivalent ETP nommé</td>
-                <td style="border:none;text-align:right;font-weight:600">${bilan_nomination.etp_nomme}</td>
-                <td style="border:none;color:#374151;padding-left:20px">Couvert (dont RT ${bilan_nomination.etp_rt})</td>
-                <td style="border:none;text-align:right;font-weight:600">${bilan_nomination.etp_couvert}</td>
-                <td style="border:none;text-align:right;padding-left:20px;font-weight:700;color:${bilan_nomination.couvert ? '#16a34a' : '#dc2626'}">
-                  ${bilan_nomination.couvert ? '✓ couvert' : `manque ${bilan_nomination.etp_manque} ETP (~${Math.round(bilan_nomination.etp_manque*800)} pér. CT)`}
-                </td>
-              </tr>
-            </table>
-          </div>` : ''}
-        </div>` : ''}
-      </div>
-      </td></tr></tbody>
-      <tfoot><tr><td><div class="footer-iip">${piedHtmlFiche}</div></td></tr></tfoot>
-      </table>
-      </body></html>`;
-
+    const html = j.html;
     if (returnOnly) return html;
-    setFicheHtml({ html, destinataire: { type: 'professeur', id: prof.id, nom: `${prof.nom || ''} ${prof.prenom || ''}`.trim() }, nom: nomDoc('Fiche_attr', prof.nom, prof.prenom, annee), titre: `${(prof.nom || '').toUpperCase()} ${prof.prenom || ''}`.trim(), sousTitre: `Fiche attributions IIP · ${annee}` });
+    setFicheHtml({ html, destinataire: { type: 'professeur', id: prof.id, nom: `${prof.nom || ''} ${prof.prenom || ''}`.trim() }, nom: nomDoc('Fiche_attr', prof.nom, prof.prenom, annee), titre: `${(prof.nom || '').toUpperCase()} ${prof.prenom || ''}`.trim(), sousTitre: `Fiche attributions ${contratFiltre} · ${annee}`, astuce: 'A4 portrait' });
   }
   const canEdit = estDirection(me) || ['editeur', 'secretariat'].includes(me?.role);
 
@@ -2009,12 +1861,17 @@ export default function Professeurs({ vue: vueInitiale = 'membres' }) {
     try {
       const annee = getAnnee() || '';
       const corps = [];
+      let teteIip = null;
       for (const profId of lot) {
         let html;
         if (type === 'HELB') html = await genererFicheAttributions(profId, 'HELB', true);
         else if (type === 'GLOBAL') html = await genererFicheAttributions(profId, null, true);
         else html = await genererFicheAttributions(profId, 'IIP', true);
         if (!html) continue;
+        if (type !== 'HELB' && type !== 'GLOBAL' && !teteIip) {
+          const ib = html.indexOf('<body>');
+          if (ib > 0) teteIip = html.slice(0, ib);
+        }
         // Extraire le corps : du <body> jusqu'à </body>
         const i1 = html.indexOf('<body>');
         const i2 = html.lastIndexOf('</body>');
@@ -2022,13 +1879,21 @@ export default function Professeurs({ vue: vueInitiale = 'membres' }) {
         corps.push(`<div style="page-break-after:always">${corpsHtml}</div>`);
       }
       if (corps.length === 0) { alert('Aucune fiche à imprimer pour ce type.'); setPrinting(false); return; }
+      const label = type === 'GLOBAL' ? 'Globales' : type;
+      /* La fiche IIP vient du serveur dans l'enveloppe commune : ses styles
+         (page A4 portrait, en-tête, pied) vivent dans son <head>, qu'on
+         reprend tel quel au lieu du gabarit paysage des autres fiches. */
+      if (type === 'IIP' && teteIip) {
+        setFicheHtml({ html: `${teteIip}<body>${corps.join('')}</body></html>`,
+          nom: `Fiches_${label}_${annee}_${lot.size}profs`, astuce: 'A4 portrait' });
+        return;
+      }
       const doc = `<!DOCTYPE html><html><head><meta charset="utf-8"><style>
         *{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact;print-color-adjust:exact}
         body{font-family:'Segoe UI',Arial,sans-serif;font-size:11px;color:#111827}
         table{width:100%;border-collapse:collapse}td,th{border-bottom:1px solid #e5e7eb}
         @media print{@page{size:A4 landscape;margin:10mm}tr{page-break-inside:avoid}thead{display:table-header-group}}
         </style></head><body>${corps.join('')}</body></html>`;
-      const label = type === 'GLOBAL' ? 'Globales' : type;
       setFicheHtml({ html: doc, nom: `Fiches_${label}_${annee}_${lot.size}profs` });
     } catch (e) { alert('Erreur : ' + e.message); }
     finally { setPrinting(false); setPrintSelMenu(false); }
@@ -2587,6 +2452,7 @@ export default function Professeurs({ vue: vueInitiale = 'membres' }) {
       {ficheHtml && <PreviewModal html={ficheHtml.html||ficheHtml} titre={ficheHtml.titre || "Fiche d'attributions"} sousTitre={ficheHtml.sousTitre} nomFichier={ficheHtml.nom}
         destinataire={ficheHtml.destinataire || null} typeDoc="fiche_attributions"
         sujetMail={ficheHtml.sousTitre ? `${ficheHtml.sousTitre} — Institut Ilya Prigogine` : null}
+        astuceImpression={ficheHtml.astuce ?? undefined}
         onClose={() => setFicheHtml(null)} />}
       </div>
     </div>

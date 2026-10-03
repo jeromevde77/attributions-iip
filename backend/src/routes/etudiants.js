@@ -2,6 +2,7 @@
 // Lucie — Module Étudiants : base étudiants, inscriptions, résultats et PAE
 // ─────────────────────────────────────────────────────────────────────────────
 
+import { paysDe, estUnPays } from '../lib/pays.js';
 import { Router } from 'express';
 import multer from 'multer';
 import { existsSync, mkdirSync, unlinkSync } from 'fs';
@@ -1163,6 +1164,35 @@ r.get('/', authRequired, (req, res) => {
  *   attente · o atteignable, non prise · n pas encore atteignable.
  * Les états viennent du moteur du PAE (lib/pae.js), comme ceux de la fiche.
  */
+/* ── LES NATIONALITÉS REMISES D'APLOMB (3 octobre 2026) ─────────────────────
+ * La nationalité se tapait : vingt formes pour une dizaine de pays. Depuis
+ * 3.0.15 elle se choisit dans la liste des pays ; ceci range ce qui a été
+ * écrit avant. Simulation d'abord (GET), puis l'écriture (POST), qui ne
+ * touche que ce qu'elle a reconnu — le reste est nommé, pour être corrigé à
+ * la main sur la fiche. */
+function planNationalites() {
+  const lignes = db.prepare(`SELECT nationalite v, COUNT(*) n FROM etudiant
+    WHERE COALESCE(TRIM(nationalite), '') <> '' GROUP BY nationalite ORDER BY n DESC`).all();
+  const corriger = [], revoir = [];
+  for (const l of lignes) {
+    if (estUnPays(l.v)) continue;
+    const p = paysDe(l.v);
+    (p ? corriger : revoir).push({ actuel: l.v, propose: p?.nom || null, dossiers: l.n });
+  }
+  return { corriger, revoir };
+}
+r.get('/nationalites/normaliser', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
+  res.json(planNationalites());
+});
+r.post('/nationalites/normaliser', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
+  const { corriger } = planNationalites();
+  const maj = db.prepare('UPDATE etudiant SET nationalite = ? WHERE nationalite = ?');
+  let n = 0;
+  db.transaction(() => { for (const c of corriger) n += maj.run(c.propose, c.actuel).changes; })();
+  console.log(`[nationalites] ${n} dossier(s) remis d'aplomb par ${req.user?.nom || req.user?.email || '?'}`);
+  res.json({ ok: true, dossiers: n });
+});
+
 r.get('/frises', authRequired, (req, res) => {
   const annee = req.query.annee || anneeDeTravail(req);
   const autorisees = perimetre(req);
@@ -3728,25 +3758,39 @@ function pageRevue(d, esc) {
     if (!g) groupes.push(g = { k, ei: u.ei, ues: [] });
     g.ues.push(u);
   }
+  /* DES COLONNES, PAS DES PHRASES (Charles, 3 octobre 2026 : « pas clair du
+     tout à la lecture ; si un cours est reporté, c'est une dispense ; il faut
+     des colonnes »). Chaque cours de chaque UE a sa ligne ; la colonne
+     « Dispense » porte un code — RP report de note, VAP/VAEP valorisation
+     partielle, D dispense, VA/VAE l'unité entière —, la colonne « Note » la
+     note qui vaut (celle reportée, ou 10/20 pour une dispense), avec son
+     année d'origine. Une ligne sans code est un cours à suivre. */
+  const codeDe = c => {
+    if (c.statut === 'suivre') return null;
+    const n = String(c.nature || '');
+    if (c.statut === 'report' && (!n || n === 'Report')) return 'RP';
+    if (n.toUpperCase() === 'DISPENSE') return 'D';
+    return n || 'VA';
+  };
   let lignes = '';
   for (const g of groupes) {
     const fond = g.ei ? '#C9A227' : (couleurBloc[g.k] || '#64748b');
-    lignes += `<tr class="bande"><td colspan="5" style="background:${fond};color:${g.k === 'BA2' ? '#1B2B4B' : '#fff'}">${esc(g.k)}<span>${g.ues.length} UE · ${g.ues.reduce((t, u) => t + u.ects, 0)} ECTS</span></td></tr>`;
+    lignes += `<tr class="bande"><td colspan="6" style="background:${fond};color:${g.k === 'BA2' ? '#1B2B4B' : '#fff'}">${esc(g.k)}<span>${g.ues.length} UE · ${g.ues.reduce((t, u) => t + u.ects, 0)} ECTS</span></td></tr>`;
     for (const u of g.ues) {
-      const statut = u.nature_totale ? `dispensée — ${esc(u.nature_totale)}`
-        : u.etat === 'partielle'
-          ? `reprise partielle${u.reports ? ` · ${u.reports} report${u.reports > 1 ? 's' : ''}` : ''}${u.va ? ` · ${u.va} dispense${u.va > 1 ? 's' : ''}` : ''}`
-          : etatUE[u.etat];
-      lignes += `<tr class="ue"><td class="num">${u.ue_num}</td><td>${esc(u.ue_nom)}${u.deja ? `<div class="alerte">déjà acquise en ${esc(u.deja)} — à vérifier</div>` : ''}</td>`
-        + `<td class="n">${u.ects || ''}</td><td class="n">${u.periodes || ''}</td><td class="st">${statut}</td></tr>`;
-      if (u.nature_totale) continue;
+      const mention = u.nature_totale ? '' : u.etat === 'reprendre' ? 'à reprendre' : u.etat === 'partielle' ? 'reprise partielle' : '';
+      lignes += `<tr class="ue"><td class="num">${u.ue_num}</td><td>${esc(u.ue_nom)}${mention ? ` <span class="mention">${mention}</span>` : ''}`
+        + `${u.deja ? `<div class="alerte">déjà acquise en ${esc(u.deja)} — à vérifier</div>` : ''}</td>`
+        + `<td class="n">${u.ects || ''}</td><td class="n">${u.periodes || ''}</td>`
+        + `<td class="c">${u.nature_totale ? `<span class="code">${esc(u.nature_totale)}</span>` : ''}</td><td class="n"></td></tr>`;
       for (const c of u.cours) {
-        if (c.statut === 'suivre') continue;
-        const vaReprise = c.statut === 'report' && c.nature && c.nature !== 'Report';
-        const st = vaReprise ? `${esc(c.nature === 'DISPENSE' ? 'Dispense' : c.nature)} ${esc(court(c.annee_origine))} · 10/20`
-          : c.statut === 'report' ? `<b class="rep">Report</b> ${esc(court(c.annee_origine))} · ${c.note != null ? `${Math.round(c.note)}/20` : 'note reprise'}`
-            : `dispensé · ${esc(c.nature || 'VA')}`;
-        lignes += `<tr class="cours"><td class="num">${esc(c.code)}</td><td>${esc(c.nom || '')}</td><td></td><td class="n">${c.per || ''}</td><td class="st">${st}</td></tr>`;
+        const code = u.nature_totale ? null : codeDe(c);
+        const note = !code ? '' : code === 'RP'
+          ? (c.note != null ? `${Math.round(c.note)}/20` : 'reprise')
+          : '10/20';
+        const origine = code && c.annee_origine ? `<span class="orig">${esc(court(c.annee_origine))}</span>` : '';
+        lignes += `<tr class="cours${code || u.nature_totale ? ' dispense' : ''}"><td class="num">${esc(c.code)}</td><td>${esc(c.nom || '')}</td>`
+          + `<td></td><td class="n">${c.per || ''}</td>`
+          + `<td class="c">${code ? `<span class="code">${esc(code)}</span>` : ''}</td><td class="n">${note}${origine}</td></tr>`;
       }
     }
   }
@@ -3767,10 +3811,10 @@ function pageRevue(d, esc) {
       ${tuile(moy, 'moyenne du parcours')}
     </div>
     ${nDeja ? `<div class="encadre">${nDeja} UE déjà acquise${nDeja > 1 ? 's' : ''} remise${nDeja > 1 ? 's' : ''} au PAE — à vérifier.</div>` : ''}
-    <table class="pae"><colgroup><col style="width:13mm"><col><col style="width:11mm"><col style="width:12mm"><col style="width:46mm"></colgroup>
-    <thead><tr><th>UE</th><th>Intitulé</th><th class="n">ECTS</th><th class="n">Pér.</th><th>Statut</th></tr></thead>
-    <tbody>${lignes || '<tr><td colspan="5">Aucune UE au PAE de cette année.</td></tr>'}</tbody></table>
-    <p class="pied-revue">Les cours non cités sont à suivre.</p>
+    <table class="pae"><colgroup><col style="width:14mm"><col><col style="width:11mm"><col style="width:11mm"><col style="width:17mm"><col style="width:22mm"></colgroup>
+    <thead><tr><th>Code</th><th>Intitulé</th><th class="n">ECTS</th><th class="n">Pér.</th><th class="c">Dispense</th><th class="n">Note</th></tr></thead>
+    <tbody>${lignes || '<tr><td colspan="6">Aucune UE au PAE de cette année.</td></tr>'}</tbody></table>
+    <p class="pied-revue"><b>RP</b> report de note · <b>VAP</b> / <b>VAEP</b> valorisation partielle (cours) · <b>D</b> dispense · <b>VA</b> / <b>VAE</b> unité entière valorisée. Un cours sans code est à suivre ; une dispense vaut 10/20.</p>
     ${d.revu ? `<div class="valide">PAE validé le ${esc(String(d.revu.revu_le).slice(0, 10).split('-').reverse().join('/'))} par ${esc(d.revu.revu_par || '')}.</div>` : ''}
   </div>`;
 }
@@ -3797,6 +3841,11 @@ const STYLE_REVUE = `
 .revue table.pae tr.ue td.st{font-weight:500;color:#334155}
 .revue table.pae tr.cours td{font-size:8pt;color:#475569;padding-top:.9mm;padding-bottom:.9mm}
 .revue table.pae tr.cours td.num{padding-left:5mm;color:#6e6e73}
+.revue table.pae .c{text-align:center}
+.revue table.pae .code{display:inline-block;min-width:8mm;padding:.2mm 1.2mm;border-radius:.8mm;background:#1B2B4B;color:#fff;font-weight:700;font-size:7.5pt;text-align:center}
+.revue table.pae tr.cours.dispense td{color:#1B2B4B}
+.revue table.pae .orig{display:inline-block;margin-left:1.2mm;font-size:7pt;color:#6e6e73}
+.revue table.pae .mention{font-weight:500;font-size:7.5pt;color:#6e6e73;margin-left:1.5mm}
 .revue table.pae .rep{color:#3E7D5E}
 .revue table.pae .alerte{font-weight:500;font-size:7.5pt;color:#B45309;margin-top:.4mm}
 .revue .pied-revue{font-size:7.5pt;color:#64748b;margin-top:2mm}
@@ -6855,7 +6904,7 @@ const DATA_DIR_VA = process.env.DATA_DIR || '/app/data';
  * n'est pas un endroit où l'on range des exécutables, et qu'un refus net vaut
  * mieux qu'un fichier accepté que personne ne pourra jamais ouvrir.
  */
-const TYPES_PREUVE = new Set([
+export const TYPES_PREUVE = new Set([
   'application/pdf',
   'image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/heic', 'image/tiff',
   'application/msword',
@@ -6903,7 +6952,7 @@ export const NATURES_PREUVE = [
  * ramené à des caractères sûrs, accents compris : un nom de fichier qui
  * voyage entre Windows, macOS et un NAS ne survit pas aux fantaisies.
  */
-function nommerPreuve(nature, etud, valo, original) {
+export function nommerPreuve(nature, etud, valo, original) {
   const pur = t => String(t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '')
     .replace(/[^\w]+/g, '-').replace(/^-+|-+$/g, '');
   const ext = (String(original || '').match(/\.[A-Za-z0-9]{1,8}$/) || [''])[0].toLowerCase();
@@ -6919,7 +6968,7 @@ function nommerPreuve(nature, etud, valo, original) {
  * diplômes : le second devient « …_2 », sans quoi le nom affiché mentirait sur
  * ce qu'on télécharge.
  */
-function nomLibre(valorisationId, propose) {
+export function nomLibre(valorisationId, propose) {
   const pris = new Set(db.prepare(
     'SELECT nom FROM etudiant_valorisation_fichier WHERE valorisation_id = ?')
     .all(valorisationId).map(f => f.nom));
