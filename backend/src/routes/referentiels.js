@@ -8,6 +8,7 @@ import { anneeDeTravail } from '../helpers/annee.js';
 import { authRequired, roleRequired, getUserSections, exigerPerimetreProfesseur,
   clauseSections } from '../middleware/auth.js';
 import { parseDossierPedagogique } from '../parseDossierPedagogique.js';
+import { gesteRequis } from '../lib/gestes.js';
 import { htmlListeCoordonnees } from '../services/liste_coordonnees.js';
 import { composerFicheAttributions } from '../lib/pieceFicheAttributions.js';
 
@@ -1230,7 +1231,7 @@ r.put('/professeurs/:id/anciennete-cours', authRequired, roleRequired('admin', '
 });
 
 // Créer un nouveau professeur
-r.post('/professeurs', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
+r.post('/professeurs', authRequired, gesteRequis('personnel.fiche'), (req, res) => {
   const { nom, prenom, adresse_mail, mail_prive, statut, adresse_rue, code_postal,
           commune, capaes, anciennete_25_26_po } = req.body;
   if (!nom || !prenom) return res.status(400).json({ error: 'Nom et prénom requis' });
@@ -1250,7 +1251,7 @@ r.post('/professeurs', authRequired, roleRequired('admin', 'editeur'), (req, res
 });
 
 // Modifier un professeur
-r.patch('/professeurs/:id', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
+r.patch('/professeurs/:id', authRequired, gesteRequis('personnel.fiche'), (req, res) => {
   const allowed = ['nom','prenom','adresse_mail','mail_prive','statut',
                    'adresse_rue','code_postal','commune','capaes','anciennete_25_26_po',
                    'matricule','titre1','titre2','titre3','statut_ea12','report_anc_po','statut_nomination','statut_helb',
@@ -1275,7 +1276,7 @@ r.patch('/professeurs/:id', authRequired, roleRequired('admin', 'editeur'), (req
 });
 
 // Supprimer un professeur (seulement si aucune attribution active)
-r.delete('/professeurs/:id', authRequired, roleRequired('admin'), (req, res) => {
+r.delete('/professeurs/:id', authRequired, gesteRequis('personnel.supprimer'), (req, res) => {
   const nb = db.prepare('SELECT COUNT(*) AS n FROM attribution WHERE professeur_id = ?').get(req.params.id).n;
   if (nb > 0) return res.status(409).json({ error: `Impossible : ${nb} attribution(s) référencent ce professeur` });
   const result = db.prepare('DELETE FROM professeur WHERE id = ?').run(req.params.id);

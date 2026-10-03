@@ -2,6 +2,7 @@ import { Router } from 'express';
 import db from '../db/index.js';
 import { piedDocument, enteteLogoActif } from './parametres.js';
 import { authRequired, roleRequired } from '../middleware/auth.js';
+import { gesteRequis } from '../lib/gestes.js';
 
 const r = Router();
 
@@ -55,7 +56,7 @@ function themeGris() {
 }
 
 r.put('/couleurs', authRequired,
-  roleRequired('admin', 'directeur', 'directeur_adjoint'), async (req, res) => {
+  gesteRequis('configuration.couleurs'), async (req, res) => {
     const { COULEURS_DEFAUT, couleurs } = await import('../lib/couleurs.js');
     const propre = {};
     for (const [cle, v] of Object.entries(req.body?.couleurs || {})) {
@@ -203,7 +204,7 @@ r.put('/attestation_lignes', authRequired, (req, res) => {
 });
 
 // PUT /api/config/:cle — mise à jour (admin seulement)
-r.put('/:cle', authRequired, roleRequired('admin'), (req, res) => {
+r.put('/:cle', authRequired, gesteRequis('configuration.parametres'), (req, res) => {
   const { valeur } = req.body;
   if (valeur == null) return res.status(400).json({ error: 'valeur requise' });
   db.prepare('INSERT OR REPLACE INTO lucie_config (cle, valeur, description) VALUES (?, ?, COALESCE((SELECT description FROM lucie_config WHERE cle = ?), ?))')

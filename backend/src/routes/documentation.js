@@ -70,6 +70,7 @@ import express from 'express';
 import db from '../db/index.js';
 import multer from 'multer';
 import { authRequired, roleRequired } from '../middleware/auth.js';
+import { gesteRequis, gesteAutorise } from '../lib/gestes.js';
 import { analyserFichier, assainir, estVide } from '../lib/texteCorpus.js';
 
 const r = express.Router();
@@ -77,7 +78,8 @@ const r = express.Router();
 /* QUI DÉPOSE ET PUBLIE — la direction, et personne d'autre.
  * Tranché par Charles le 20 septembre : le corpus est un acte de direction.
  * Une procédure que chacun peut réécrire n'est plus une règle, c'est un avis. */
-export const PEUT_PUBLIER = ['admin', 'directeur', 'directeur_adjoint'];
+/* La liste est le DÉFAUT des gestes « documentation.publier » et
+ * « documentation.registre » (lib/gestes.js). */
 
 /* LES NATURES — et elles ne se valent pas devant un litige.
  * Un décret s'impose à l'Institut ; une procédure est ce que l'Institut en
@@ -253,7 +255,7 @@ r.get('/', authRequired, (req, res) => {
   for (const d of docs) {
     const v = derniereVersion(d.id);
     // Un document sans version publiée est un brouillon : il ne se lit pas.
-    if (!v && !PEUT_PUBLIER.includes(req.user?.role)) continue;
+    if (!v && gesteAutorise(req, 'documentation.publier') !== 'oui') continue;
     const lecture = v ? etatLecture(d.id, req.user?.id) : null;
     const pourMoi = concerne(d, req.user);
     sortie.push({
@@ -353,7 +355,7 @@ r.post('/:cle/confirmer', authRequired, (req, res) => {
  * « 9 des 12 personnes concernées ont confirmé » ne sert à rien : ce sont les
  * TROIS AUTRES qu'il faut pouvoir nommer, puisque c'est à elles qu'on ira
  * parler. Un compteur sans noms est un compteur qu'on regarde et qu'on oublie. */
-r.get('/:cle/registre', authRequired, roleRequired(...PEUT_PUBLIER), (req, res) => {
+r.get('/:cle/registre', authRequired, gesteRequis('documentation.registre'), (req, res) => {
   const d = db.prepare('SELECT * FROM corpus_document WHERE cle = ?').get(req.params.cle);
   if (!d) return res.status(404).json({ error: 'Document introuvable.' });
   const v = derniereVersion(d.id);
@@ -405,7 +407,7 @@ const televersement = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 15 * 1024 * 1024 },
 });
-r.post('/importer', authRequired, roleRequired(...PEUT_PUBLIER),
+r.post('/importer', authRequired, gesteRequis('documentation.publier'),
   televersement.single('fichier'), async (req, res) => {
     if (!req.file) return res.status(400).json({ error: 'Aucun fichier reçu.' });
     try {
@@ -416,7 +418,7 @@ r.post('/importer', authRequired, roleRequired(...PEUT_PUBLIER),
   });
 
 // ── DÉPOSER ET PUBLIER — direction seule ────────────────────────────────────
-r.post('/', authRequired, roleRequired(...PEUT_PUBLIER), (req, res) => {
+r.post('/', authRequired, gesteRequis('documentation.publier'), (req, res) => {
   const titre = String(req.body?.titre || '').trim();
   const nature = String(req.body?.nature || '').trim();
   if (!titre) return res.status(400).json({ error: 'Titre obligatoire.' });
@@ -446,7 +448,7 @@ r.post('/', authRequired, roleRequired(...PEUT_PUBLIER), (req, res) => {
  * ce n'est pas un oubli : une personne s'est engagée sur ce texte-là. Corriger
  * une coquille se fait en publiant la version suivante, avec son résumé de
  * changement — ce qui remet, à dessein, le compteur de confirmations à zéro. */
-r.post('/:cle/versions', authRequired, roleRequired(...PEUT_PUBLIER), (req, res) => {
+r.post('/:cle/versions', authRequired, gesteRequis('documentation.publier'), (req, res) => {
   const d = db.prepare('SELECT * FROM corpus_document WHERE cle = ?').get(req.params.cle);
   if (!d) return res.status(404).json({ error: 'Document introuvable.' });
   /* LE TEXTE MIS EN FORME PASSE PAR LA LISTE DE CE QUI EST PERMIS, ICI, AVANT
@@ -509,7 +511,7 @@ r.post('/:cle/versions', authRequired, roleRequired(...PEUT_PUBLIER), (req, res)
  * les changer ne touche ni les versions publiées ni les confirmations données
  * — chacun s'est engagé sur un TEXTE, pas sur un intitulé. La clé, elle, ne
  * bouge jamais : les liens la citent pour toujours. */
-r.patch('/:cle', authRequired, roleRequired(...PEUT_PUBLIER), (req, res) => {
+r.patch('/:cle', authRequired, gesteRequis('documentation.publier'), (req, res) => {
   const d = db.prepare('SELECT id FROM corpus_document WHERE cle = ?').get(req.params.cle);
   if (!d) return res.status(404).json({ error: 'Document introuvable.' });
   const sets = [], vals = [];
@@ -531,7 +533,7 @@ r.patch('/:cle', authRequired, roleRequired(...PEUT_PUBLIER), (req, res) => {
 });
 
 /** À QUI CE TEXTE S'IMPOSE — remplacé en bloc, comme une composition. */
-r.put('/:cle/destinataires', authRequired, roleRequired(...PEUT_PUBLIER), (req, res) => {
+r.put('/:cle/destinataires', authRequired, gesteRequis('documentation.publier'), (req, res) => {
   const d = db.prepare('SELECT * FROM corpus_document WHERE cle = ?').get(req.params.cle);
   if (!d) return res.status(404).json({ error: 'Document introuvable.' });
   const roles = Array.isArray(req.body?.roles) ? req.body.roles.filter(Boolean) : [];
@@ -547,7 +549,7 @@ r.put('/:cle/destinataires', authRequired, roleRequired(...PEUT_PUBLIER), (req, 
 /* RETIRER N'EST PAS SUPPRIMER. Un texte retiré cesse de s'imposer et sort des
  * listes, mais il reste lisible : les confirmations posées dessus doivent
  * continuer de pouvoir se justifier. */
-r.post('/:cle/retirer', authRequired, roleRequired(...PEUT_PUBLIER), (req, res) => {
+r.post('/:cle/retirer', authRequired, gesteRequis('documentation.publier'), (req, res) => {
   const d = db.prepare('SELECT * FROM corpus_document WHERE cle = ?').get(req.params.cle);
   if (!d) return res.status(404).json({ error: 'Document introuvable.' });
   db.prepare(`UPDATE corpus_document SET retire_le = datetime('now'), retire_par = ?

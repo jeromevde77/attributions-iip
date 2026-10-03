@@ -15,6 +15,7 @@ import { gzipSync, gunzipSync } from 'zlib';
 import { createHash } from 'crypto';
 import db from '../db/index.js';
 import { authRequired, roleRequired } from '../middleware/auth.js';
+import { gesteRequis, gesteAutorise } from '../lib/gestes.js';
 import { capacitePdf, rendrePdf } from '../services/pdf.js';
 import { preparerPourCourriel, variableImage } from '../lib/courrielPiece.js';
 import { nouvelleReference } from '../services/filigrane.js';
@@ -109,7 +110,8 @@ const ADRESSE_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
  * expédient déjà le courrier de l'établissement —, plus l'administrateur
  * technique, qui ne s'exclut d'aucune route.
  */
-export const PEUT_ENVOYER = ['admin', 'directeur', 'directeur_adjoint', 'secretariat'];
+/* La liste est le DÉFAUT du geste « envois.envoyer » (lib/gestes.js), que la
+ * direction peut régler. */
 
 /**
  * LE MOT D'ACCOMPAGNEMENT — UN SEUL, POUR TOUTES LES PIÈCES.
@@ -175,7 +177,7 @@ r.get('/etat', authRequired, async (req, res) => {
              message_defaut: messageAccompagnement(),
              // L'écran cache le bouton à qui n'a pas le droit ; la route le
              // refuse quand même — un bouton caché n'est pas une protection.
-             peut_envoyer: PEUT_ENVOYER.includes(req.user?.role) });
+             peut_envoyer: gesteAutorise(req, 'envois.envoyer') === 'oui' });
 });
 
 // ── Réglages (admin) : interrupteur et serveur SMTP ─────────────────────────
@@ -371,7 +373,7 @@ r.get('/adresses', authRequired, actifRequis, (req, res) => {
  * Réponse : un résultat par pièce, jamais un échec global — dix envois dont
  * un rate doivent rendre neuf « envoyé » et un « échec » nommé.
  */
-r.post('/', authRequired, roleRequired(...PEUT_ENVOYER), actifRequis, async (req, res) => {
+r.post('/', authRequired, gesteRequis('envois.envoyer'), actifRequis, async (req, res) => {
   const { sujet, message, type_doc, pieces, mode, contenu } = req.body || {};
   if (!sujet?.trim()) return res.status(400).json({ error: 'sujet requis' });
   if (!Array.isArray(pieces) || !pieces.length) {
@@ -512,7 +514,7 @@ r.post('/', authRequired, roleRequired(...PEUT_ENVOYER), actifRequis, async (req
 
 // ── Le journal : qui a reçu quoi, quand, et si c'est parti ──────────────────
 // Réservé à ceux qui envoient : il porte les adresses de tous les étudiants.
-r.get('/journal', authRequired, roleRequired(...PEUT_ENVOYER), (req, res) => {
+r.get('/journal', authRequired, gesteRequis('envois.envoyer'), (req, res) => {
   ensureTable();
   const { type_doc, destinataire_type, destinataire_id, limite, lot, du, au, par, q } = req.query;
   const clauses = ['1=1']; const params = [];
@@ -545,7 +547,7 @@ r.get('/journal', authRequired, roleRequired(...PEUT_ENVOYER), (req, res) => {
  * référence, même date. Les envois antérieurs au 30 septembre 2026 n'en ont
  * pas : on le dit, on n'invente rien.
  */
-r.get('/:id/copie', authRequired, roleRequired(...PEUT_ENVOYER), async (req, res) => {
+r.get('/:id/copie', authRequired, gesteRequis('envois.envoyer'), async (req, res) => {
   if (!/^\d+$/.test(String(req.params.id))) return res.status(400).json({ error: 'numéro d\'envoi attendu' });
   ensureTable();
   const m = db.prepare('SELECT * FROM envoi_mail WHERE id = ?').get(Number(req.params.id));

@@ -1,6 +1,7 @@
 import { Fragment, useEffect, useState } from 'react';
 import { IconLock, IconEye, IconShieldCheck, IconTrash, IconChevronRight, IconChevronDown } from '@tabler/icons-react';
 import { authHeaders } from '../lib/api.js';
+import { nomListe } from '../lib/nom.js';
 import { MODULES_ACCES, oublierPlafonds } from '../lib/modules.js';
 import { COL_PREMIERE, COL_MODULE, HAUTEUR_LIGNE, NIVEAUX_DROIT, VERDICTS, Pastille, CaseDroit,
          EnteteModules, Legende, TitreCarte } from '../components/GrilleAcces.jsx';
@@ -152,19 +153,38 @@ const nomRole = (data, code) => data?.libelles?.[code] || LIBELLE_ROLE[code] || 
 
 /**
  * LES GESTES — qui peut faire quoi, au-delà du module (Charles, 3 octobre
- * 2026 : « il faut les gestes »). Le serveur rend le catalogue
- * (backend/src/lib/gestes.js) et le verdict de chaque rôle, calculé comme la
- * porte le calcule. EN LECTURE : ces gestes sont écrits dans le code ; les
- * montrer d'abord, c'est savoir ce qu'on voudrait régler avant de le régler.
+ * 2026 : « il faut les gestes », puis « je ne sais pas changer les
+ * autorisations de gestes alors que je suis le directeur »). Le serveur rend
+ * le catalogue (backend/src/lib/gestes.js) : pour chaque case, le défaut du
+ * code, le réglage de la direction, ce qui s'applique, et le verrou. C'est ce
+ * catalogue que lisent les portes des routes : régler une case ici change ce
+ * que le serveur accepte.
+ *
+ * Deux bornes, tenues par le serveur et seulement montrées ici : la direction
+ * ne se retire jamais un geste de configuration, de validation ou de décision
+ * (cadenas) ; chaque changement est inscrit au journal, en ajout seul.
  */
-function Gestes({ plafonds }) {
-  const [g, setG] = useState(null);
-  const [ouverts, setOuverts] = useState(() => new Set());
+const MOT_VERDICT = { oui: 'oui', non: 'non', demande: 'par demande' };
+const direVerdict = v => {
+  const m = /^défaut:(.*)$/.exec(v || '');
+  return m ? `défaut (${MOT_VERDICT[m[1]] || m[1]})` : (MOT_VERDICT[v] || v);
+};
 
-  useEffect(() => {
-    fetch('/api/profils-acces/gestes', { headers: authHeaders() })
-      .then(r => (r.ok ? r.json() : null)).then(setG).catch(() => setG(null));
-  }, []);
+function Gestes({ plafonds, onMessage }) {
+  const [g, setG] = useState(null);
+  const [journal, setJournal] = useState(null);
+  const [ouverts, setOuverts] = useState(() => new Set());
+  const [enCours, setEnCours] = useState(null);
+
+  async function charger() {
+    const [rg, rj] = await Promise.all([
+      fetch('/api/profils-acces/gestes', { headers: authHeaders() }),
+      fetch('/api/profils-acces/gestes-journal', { headers: authHeaders() }),
+    ]);
+    setG(rg.ok ? await rg.json() : null);
+    setJournal(rj.ok ? (await rj.json()).lignes : null);
+  }
+  useEffect(() => { charger().catch(() => setG(null)); }, []);
   if (!g) return null;
 
   const basculer = cle => setOuverts(o => {
@@ -174,7 +194,43 @@ function Gestes({ plafonds }) {
   });
   const tousOuverts = ouverts.size === g.groupes.length;
 
+  /* Le clic fait tourner : défaut → les autres verdicts → défaut. « Par
+     demande » n'existe que pour la coordination ; régler une case sur son
+     défaut, c'est y revenir. */
+  async function regler(x, r) {
+    const c = x.verdicts[r];
+    const suite = [null, ...['oui', 'non', ...(r === 'coordination' ? ['demande'] : [])]
+      .filter(v => v !== c.defaut)];
+    const i = suite.indexOf(c.reglage ?? null);
+    const suivant = suite[(i + 1) % suite.length];
+    setEnCours(`${x.id}|${r}`);
+    try {
+      const url = `/api/profils-acces/gestes/${encodeURIComponent(x.id)}/${encodeURIComponent(r)}`;
+      const rep = suivant == null
+        ? await fetch(url, { method: 'DELETE', headers: authHeaders() })
+        : await fetch(url, { method: 'PUT', headers: authHeaders(), body: JSON.stringify({ verdict: suivant }) });
+      const j = await rep.json().catch(() => ({}));
+      if (!rep.ok) { onMessage?.({ type: 'err', texte: j.error || 'Réglage refusé.' }); return; }
+      await charger();
+    } finally { setEnCours(null); }
+  }
+
+  const titreCase = (x, r, c, def) => {
+    const lignes = [`${nomRole(g, r)} — ${def.aide}${c.note ? ` : ${c.note}` : ''}`];
+    if (c.verrouille) lignes.push('Réservé à la direction — ne se retire pas.');
+    else if (!c.reglable) lignes.push('Sans porte de rôle : dépend du cours ou du périmètre, ne se règle pas.');
+    else {
+      lignes.push(c.reglage != null
+        ? `Réglé par la direction : ${direVerdict(c.reglage)} — défaut du code : ${direVerdict(c.defaut)}.`
+        : `Défaut du code : ${direVerdict(c.defaut)}.`);
+      if (g.peut_regler) lignes.push('Cliquer pour changer.');
+    }
+    lignes.push(x.source);
+    return lignes.join('\n');
+  };
+
   return (
+    <>
     <div className="carte overflow-hidden">
       <TitreCarte titre="Les gestes"
         droite={
@@ -183,10 +239,12 @@ function Gestes({ plafonds }) {
             {tousOuverts ? 'Tout replier' : 'Tout déplier'}
           </button>
         }>
-        Ces gestes sont fixés dans le code aujourd’hui : ils sont montrés tels que le serveur les
-        applique, et ne se règlent pas ici. La grille des modules s’y ajoute en amont
+        Chaque case part du défaut écrit dans le code ; la direction peut l’ajuster, rôle par
+        rôle — un clic fait tourner oui, non{' '}(par demande pour la coordination), puis revient
+        au défaut. Les cases au cadenas restent à la direction : configuration, validation et
+        décision ne se retirent pas. Les conditions (périmètre, case de fiche, personne de
+        référence) restent contrôlées par la route. La grille des modules s’y ajoute en amont
         {g.mode_modules === 'constat' ? ' (en mode constat, elle ne refuse encore rien)' : ''}.
-        Le survol d’une case dit d’où vient la règle.
       </TitreCarte>
 
       <div className="overflow-x-auto">
@@ -208,6 +266,7 @@ function Gestes({ plafonds }) {
               if (!lignes.length) return null;
               const ouvert = ouverts.has(gr.cle);
               const Chevron = ouvert ? IconChevronDown : IconChevronRight;
+              const regles = lignes.reduce((n, x) => n + g.roles.filter(r => x.verdicts[r]?.reglage != null).length, 0);
               return (
                 <Fragment key={gr.cle}>
                   <tr className={`tab-repere ${HAUTEUR_LIGNE} cursor-pointer`} onClick={() => basculer(gr.cle)}>
@@ -215,7 +274,9 @@ function Gestes({ plafonds }) {
                       <span className="inline-flex items-center gap-1.5 font-semibold">
                         <Chevron size={14} className="text-slate-400" />
                         {gr.label}
-                        <span className="text-[11px] font-normal text-slate-500">{lignes.length} geste(s)</span>
+                        <span className="text-[11px] font-normal text-slate-500">
+                          {lignes.length} geste(s){regles ? ` · ${regles} réglé(s)` : ''}
+                        </span>
                       </span>
                     </td>
                     {g.roles.map(r => {
@@ -229,17 +290,32 @@ function Gestes({ plafonds }) {
                     })}
                   </tr>
                   {ouvert && lignes.map(x => (
-                    <tr key={x.cle} className={`${HAUTEUR_LIGNE} bg-white border-b border-slate-100`}>
+                    <tr key={x.id} className={`${HAUTEUR_LIGNE} bg-white border-b border-slate-100`}>
                       <td className="pl-9 pr-3 sticky left-0 bg-white z-10" title={x.source}>
                         <div className="truncate">{x.label}</div>
                       </td>
                       {g.roles.map(r => {
-                        const v = x.verdicts[r] || { v: 'non' };
-                        const def = VERDICTS[v.v] || VERDICTS.non;
+                        const c = x.verdicts[r] || { v: 'non' };
+                        const def = VERDICTS[c.v] || VERDICTS.non;
+                        const cle = `${x.id}|${r}`;
+                        const cliquable = g.peut_regler && c.reglable && enCours == null;
                         return (
-                          <td key={r} className="px-1.5 text-center"
-                            title={`${nomRole(g, r)} — ${def.aide}${v.note ? ` : ${v.note}` : ''}\n${x.source}`}>
-                            <Pastille def={def} />
+                          <td key={r} className="px-1.5 text-center" title={titreCase(x, r, c, def)}>
+                            <button type="button" disabled={!cliquable} onClick={() => regler(x, r)}
+                              className={`block w-full ${cliquable ? 'cursor-pointer hover:opacity-80' : 'cursor-default'}`}>
+                              <Pastille def={def} occupe={enCours === cle} />
+                              <span aria-hidden="true"
+                                className="flex items-center justify-center gap-1 h-[10px] mt-0.5 text-[9px] leading-none">
+                                {c.verrouille && <IconLock size={9} className="text-slate-400" />}
+                                {c.reglage != null && (
+                                  <>
+                                    <span className="inline-block w-[5px] h-[5px] rounded-full"
+                                      style={{ background: 'var(--c-texte)' }} />
+                                    <span style={{ color: 'var(--c-texte)' }}>réglé</span>
+                                  </>
+                                )}
+                              </span>
+                            </button>
                           </td>
                         );
                       })}
@@ -253,8 +329,71 @@ function Gestes({ plafonds }) {
       </div>
 
       <Legende defs={VERDICTS}>
-        La ligne d’un module porte son plafond, rôle par rôle.
+        <span className="inline-flex items-center gap-1">
+          <span className="inline-block w-[5px] h-[5px] rounded-full" style={{ background: 'var(--c-texte)' }} />
+          réglé ·
+          <IconLock size={11} className="text-slate-400" /> réservé à la direction
+        </span>
       </Legende>
+    </div>
+
+    <JournalGestes lignes={journal} g={g} />
+    </>
+  );
+}
+
+/** LE JOURNAL DES RÉGLAGES — qui a changé quel geste, pour quel rôle, quand,
+ *  et d'où vers où. En ajout seul : le serveur n'offre aucune route pour le
+ *  modifier, et la base le refuse. */
+function JournalGestes({ lignes, g }) {
+  if (!lignes) return null;
+  const libelleGeste = cle => {
+    const x = g.gestes.find(y => y.id === cle);
+    const gr = x && g.groupes.find(y => y.cle === x.module);
+    return x ? `${gr?.label || x.module} · ${x.label}` : cle;
+  };
+  return (
+    <div className="carte overflow-hidden">
+      <TitreCarte titre="Journal des réglages">
+        Chaque changement de geste, avec son auteur et l’heure. Le journal ne se corrige ni ne
+        s’efface : revenir au défaut s’y inscrit comme le reste.
+      </TitreCarte>
+      {!lignes.length ? (
+        <div className="px-4 py-3 text-[12px] text-slate-500">
+          Aucun réglage : tous les gestes suivent le défaut du code.
+        </div>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full text-[12px]">
+            <thead className="tab-entete">
+              <tr>
+                <th className="text-left px-3 py-1.5 w-[130px]">Date</th>
+                <th className="text-left px-2 py-1.5 w-[170px]">Par</th>
+                <th className="text-left px-2 py-1.5">Geste</th>
+                <th className="text-left px-2 py-1.5 w-[140px]">Rôle</th>
+                <th className="text-left px-3 py-1.5 w-[220px]">Avant → après</th>
+              </tr>
+            </thead>
+            <tbody>
+              {lignes.map(l => (
+                <tr key={l.id} className="border-b border-slate-100 bg-white">
+                  <td className="px-3 py-1 text-slate-500 whitespace-nowrap">
+                    {(l.horodatage || '').slice(0, 16).replace('T', ' ')}
+                  </td>
+                  <td className="px-2 py-1">{nomListe(l.acteur_nom) || '—'}</td>
+                  <td className="px-2 py-1">{libelleGeste(l.geste_cle)}</td>
+                  <td className="px-2 py-1">{nomRole(g, l.role)}</td>
+                  <td className="px-3 py-1 whitespace-nowrap">
+                    <span className="text-slate-500">{direVerdict(l.avant)}</span>
+                    {' → '}
+                    <span className="font-semibold">{direVerdict(l.apres)}</span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 }
@@ -436,7 +575,7 @@ export default function RolesPlafonds() {
         </Legende>
       </div>
 
-      <Gestes plafonds={data.plafonds} />
+      <Gestes plafonds={data.plafonds} onMessage={setMessage} />
 
       <Constat />
     </div>

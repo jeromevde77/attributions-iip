@@ -6,6 +6,7 @@ import { Router } from 'express';
 import { mentionProduction } from '../lib/contexteRequete.js';
 import db from '../db/index.js';
 import { authRequired, roleRequired } from '../middleware/auth.js';
+import { gesteRequis } from '../lib/gestes.js';
 import { capacitePdf } from '../services/pdf.js';
 
 const r = Router();
@@ -102,7 +103,7 @@ r.get('/:cle', authRequired, (req, res) => {
 });
 
 // PATCH /parametres/:cle — modifier la valeur
-r.patch('/:cle', authRequired, roleRequired('admin'), (req, res) => {
+r.patch('/:cle', authRequired, gesteRequis('configuration.parametres'), (req, res) => {
   const { valeur } = req.body;
   if (valeur === undefined || valeur === null)
     return res.status(400).json({ error: 'valeur requis' });
@@ -114,7 +115,7 @@ r.patch('/:cle', authRequired, roleRequired('admin'), (req, res) => {
 
 // PUT /parametres/bulk — modifier plusieurs paramètres d'un coup
 // body: { 'planning.ev1_heures': '2', 'etab.nom': 'Mon école', ... }
-r.put('/bulk', authRequired, roleRequired('admin'), (req, res) => {
+r.put('/bulk', authRequired, gesteRequis('configuration.parametres'), (req, res) => {
   const updates = req.body;
   if (typeof updates !== 'object' || Array.isArray(updates))
     return res.status(400).json({ error: 'body doit être un objet { cle: valeur }' });

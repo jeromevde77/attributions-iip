@@ -46,6 +46,7 @@ import budgetRoutes, { migrerBudget } from './routes/budget.js';
 import demandesRoutes, { migrerDemandes } from './routes/demandes.js';
 import sauvegardesRoutes, { migrerSauvegardes, demarrerPlanificateur } from './routes/sauvegardes.js';
 import profilsAccesRoutes, { migrerProfilsAcces, migrerExceptions, migrerModuleReunions } from './routes/profilsAcces.js';
+import { migrerGestes } from './lib/gestes.js';
 import { migrerPlafonds } from './middleware/permissions.js';
 import fraisScolariteRoutes, { migrerFraisScolarite } from './routes/fraisScolarite.js';
 import { GRILLE_DEFAUT } from './routes/grilleEntretienDefaut.js';
@@ -2824,6 +2825,7 @@ try { migrerDemandes(db); } catch (e) { console.error('[migration] demandes :', 
 try { migrerSauvegardes(db); } catch (e) { console.error('[migration] sauvegardes :', e.message); }
 try { migrerPlafonds(db); } catch (e) { console.error('[migration] plafonds :', e.message); }
 try { migrerProfilsAcces(db); } catch (e) { console.error('[migration] profils accès :', e.message); }
+try { migrerGestes(db); } catch (e) { console.error('[migration] gestes :', e.message); }
 try { migrerExceptions(db); } catch (e) { console.error('[migration] exceptions de droits :', e.message); }
 try { migrerModuleReunions(db); } catch (e) { console.error('[migration] module réunions :', e.message); }
 try { migrerFraisScolarite(db); } catch (e) { console.error('[migration] frais scolarité :', e.message); }

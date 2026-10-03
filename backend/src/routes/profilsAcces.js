@@ -23,7 +23,8 @@ import { Router } from 'express';
 import db from '../db/index.js';
 import { authRequired, roleRequired } from '../middleware/auth.js';
 import { MODULES, ROLES, NIVEAUX, invaliderPlafonds, rolesConnus } from '../middleware/permissions.js';
-import { tableauGestes } from '../lib/gestes.js';
+import { tableauGestes, gesteRequis, reglerGeste, journalGestes } from '../lib/gestes.js';
+import { NIVEAU_DIRECTION } from '../middleware/auth.js';
 
 const r = Router();
 
@@ -208,25 +209,65 @@ r.get('/plafonds', authRequired, (req, res) => {
 });
 
 /* LES GESTES — qui peut faire quoi, au-delà du module (Charles, 3 octobre
- * 2026 : « il faut les gestes »). EN LECTURE : le catalogue décrit ce que le
- * code applique aujourd'hui (lib/gestes.js), il n'autorise rien. Mêmes rôles,
- * dans le même ordre, que la grille des plafonds ; même réserve d'accès que
- * l'écran qui le montre. */
+ * 2026 : « il faut les gestes », puis « je ne sais pas changer les
+ * autorisations de gestes alors que je suis le directeur »). Le catalogue
+ * (lib/gestes.js) est la porte des routes : chaque case porte le défaut du
+ * code, le réglage de la direction, ce qui s'applique, et son verrou. Mêmes
+ * rôles, dans le même ordre, que la grille des plafonds. */
 r.get('/gestes', authRequired, roleRequired('admin', 'directeur', 'directeur_adjoint'), (req, res) => {
   const lignes = db.prepare('SELECT role, module, niveau FROM role_plafond').all();
   const par = {};
   for (const l of lignes) (par[l.role] = par[l.role] || {})[l.module] = l.niveau;
   const rc = rolesConnus();
   res.json({ roles: rc.codes, libelles: rc.libelles,
+             peut_regler: NIVEAU_DIRECTION.includes(req.user?.role),
              mode_modules: process.env.PERMISSIONS_MODE === 'strict' ? 'strict' : 'constat',
              ...tableauGestes(rc.codes, (role, module) => par[role]?.[module] ?? null) });
+});
+
+/* RÉGLER UN GESTE — la direction, et elle seule : c'est elle qui répare. Une
+ * porte écrite en dur ici, et non un geste réglable : on ne se retire pas le
+ * moyen de corriger un réglage. Deux bornes, tenues par le serveur :
+ *   · la direction ne se retire jamais un geste de configuration, de
+ *     validation ou de décision (case verrouillée : refus) ;
+ *   · chaque changement s'écrit au journal — qui, quand, avant → après —, en
+ *     ajout seul. Revenir au défaut est un changement comme un autre. */
+const directionSeule = roleRequired(...NIVEAU_DIRECTION);
+function acteurDe(req) {
+  let nom = null;
+  try { nom = db.prepare('SELECT nom_complet FROM utilisateur WHERE id = ?').get(req.user?.id)?.nom_complet || null; }
+  catch { /* colonne absente : repli sur le jeton */ }
+  return { id: req.user?.id ?? null, nom: nom || req.user?.nom || req.user?.email || null };
+}
+function ecrireReglage(req, res, verdictDemande) {
+  const { cle, role } = req.params;
+  if (!rolesConnus().codes.includes(role) && role !== 'editeur') return res.status(400).json({ error: 'rôle inconnu' });
+  try {
+    const r0 = reglerGeste(cle, role, verdictDemande, acteurDe(req));
+    res.json({ ok: true, ...r0 });
+  } catch (e) {
+    if (e.status) return res.status(e.status).json({ error: e.message });
+    throw e;
+  }
+}
+r.put('/gestes/:cle/:role', authRequired, directionSeule, (req, res) => {
+  const v = req.body?.verdict;
+  if (v == null) return res.status(400).json({ error: 'verdict requis (oui, non, demande) — DELETE pour revenir au défaut' });
+  ecrireReglage(req, res, String(v));
+});
+r.delete('/gestes/:cle/:role', authRequired, directionSeule, (req, res) => ecrireReglage(req, res, null));
+
+/* LE JOURNAL DES RÉGLAGES — les 200 derniers, lisibles sous la grille. Aucune
+ * route ne le modifie ni ne l'efface (et la base le refuse : déclencheurs). */
+r.get('/gestes-journal', authRequired, directionSeule, (req, res) => {
+  res.json({ lignes: journalGestes(200) });
 });
 
 /* CRÉER UN RÔLE — la liste cesse d'être une constante du code. Un rôle défini
  * n'a aucun pouvoir spécial : il ne vaut que par ses plafonds, amorcés à
  * « rien » (ou copiés d'un rôle modèle), que la direction règle écran par
  * écran ci-dessus. Le périmètre de sections, lui, se pose sur chaque fiche. */
-r.post('/roles', authRequired, roleRequired('admin', 'directeur', 'directeur_adjoint'),
+r.post('/roles', authRequired, gesteRequis('configuration.plafonds'),
   (req, res) => {
     const libelle = String(req.body?.libelle || '').trim();
     if (!libelle) return res.status(400).json({ error: 'Libellé obligatoire.' });
@@ -262,7 +303,7 @@ r.post('/roles', authRequired, roleRequired('admin', 'directeur', 'directeur_adj
 /* SUPPRIMER UN RÔLE DÉFINI — jamais un rôle de la maison, et jamais un rôle
  * porté : un compte dont le rôle disparaît deviendrait un compte sans droits
  * sans que personne ne l'ait décidé pour LUI. On réaffecte d'abord. */
-r.delete('/roles/:code', authRequired, roleRequired('admin', 'directeur', 'directeur_adjoint'),
+r.delete('/roles/:code', authRequired, gesteRequis('configuration.plafonds'),
   (req, res) => {
     const code = req.params.code;
     const d = db.prepare('SELECT code FROM role_defini WHERE code = ?').get(code);
@@ -319,7 +360,7 @@ r.delete('/constat', authRequired, roleRequired('admin', 'directeur', 'directeur
     res.json({ ok: true });
   });
 
-r.put('/plafonds', authRequired, roleRequired('admin', 'directeur', 'directeur_adjoint'),
+r.put('/plafonds', authRequired, gesteRequis('configuration.plafonds'),
   (req, res) => {
     const { role, module, niveau } = req.body || {};
     if (!rolesConnus().codes.includes(role)) return res.status(400).json({ error: 'rôle inconnu' });

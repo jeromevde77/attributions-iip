@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import db from '../db/index.js';
 import { authRequired, roleRequired, exigerPerimetreProfesseur } from '../middleware/auth.js';
+import { gesteRequis } from '../lib/gestes.js';
 
 const r = Router();
 
@@ -8,7 +9,7 @@ const MOTIFS_FIN = ['fin_cdd','demission','licenciement','retraite','mutation','
 const ETAPES_DISCIPLINAIRE = ['ouverture','convocation','audition','decision','appel','cloture'];
 
 // ── GET /api/dossiers-rh/:profId ──────────────────────────────────────────────
-r.get('/:profId', authRequired, exigerPerimetreProfesseur, roleRequired('admin'), (req, res) => {
+r.get('/:profId', authRequired, exigerPerimetreProfesseur, gesteRequis('personnel.dossiers_rh'), (req, res) => {
   const dossiers = db.prepare(`
     SELECT d.*, u.nom_complet as createur_nom
     FROM dossier_rh d
@@ -26,7 +27,7 @@ r.get('/:profId', authRequired, exigerPerimetreProfesseur, roleRequired('admin')
 });
 
 // ── POST /api/dossiers-rh/:profId ─────────────────────────────────────────────
-r.post('/:profId', authRequired, exigerPerimetreProfesseur, roleRequired('admin'), (req, res) => {
+r.post('/:profId', authRequired, exigerPerimetreProfesseur, gesteRequis('personnel.dossiers_rh'), (req, res) => {
   const { type, motif, notes, date_ouverture } = req.body || {};
   if (!['fin_contrat','disciplinaire'].includes(type))
     return res.status(400).json({ error: 'Type invalide' });
@@ -47,7 +48,7 @@ r.post('/:profId', authRequired, exigerPerimetreProfesseur, roleRequired('admin'
 });
 
 // ── PATCH /api/dossiers-rh/dossier/:id ───────────────────────────────────────
-r.patch('/dossier/:id', authRequired, roleRequired('admin'), (req, res) => {
+r.patch('/dossier/:id', authRequired, gesteRequis('personnel.dossiers_rh'), (req, res) => {
   const { motif, notes, statut, date_cloture } = req.body || {};
   const d = db.prepare('SELECT * FROM dossier_rh WHERE id = ?').get(req.params.id);
   if (!d) return res.status(404).json({ error: 'Dossier introuvable' });
@@ -66,13 +67,13 @@ r.patch('/dossier/:id', authRequired, roleRequired('admin'), (req, res) => {
 });
 
 // ── DELETE /api/dossiers-rh/dossier/:id ──────────────────────────────────────
-r.delete('/dossier/:id', authRequired, roleRequired('admin'), (req, res) => {
+r.delete('/dossier/:id', authRequired, gesteRequis('personnel.dossiers_rh'), (req, res) => {
   db.prepare('DELETE FROM dossier_rh WHERE id = ?').run(req.params.id);
   res.json({ ok: true });
 });
 
 // ── POST /api/dossiers-rh/dossier/:id/etapes ─────────────────────────────────
-r.post('/dossier/:id/etapes', authRequired, roleRequired('admin'), (req, res) => {
+r.post('/dossier/:id/etapes', authRequired, gesteRequis('personnel.dossiers_rh'), (req, res) => {
   const { type_etape, date_etape, auteur, notes, document_url } = req.body || {};
   if (!type_etape) return res.status(400).json({ error: 'type_etape requis' });
 
@@ -93,7 +94,7 @@ r.post('/dossier/:id/etapes', authRequired, roleRequired('admin'), (req, res) =>
 });
 
 // ── PATCH /api/dossiers-rh/etape/:id ─────────────────────────────────────────
-r.patch('/etape/:id', authRequired, roleRequired('admin'), (req, res) => {
+r.patch('/etape/:id', authRequired, gesteRequis('personnel.dossiers_rh'), (req, res) => {
   const { date_etape, auteur, notes, document_url } = req.body || {};
   db.prepare(`
     UPDATE dossier_rh_etape SET
@@ -107,7 +108,7 @@ r.patch('/etape/:id', authRequired, roleRequired('admin'), (req, res) => {
 });
 
 // ── DELETE /api/dossiers-rh/etape/:id ────────────────────────────────────────
-r.delete('/etape/:id', authRequired, roleRequired('admin'), (req, res) => {
+r.delete('/etape/:id', authRequired, gesteRequis('personnel.dossiers_rh'), (req, res) => {
   db.prepare('DELETE FROM dossier_rh_etape WHERE id = ?').run(req.params.id);
   res.json({ ok: true });
 });

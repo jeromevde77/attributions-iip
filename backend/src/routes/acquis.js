@@ -27,6 +27,7 @@ import db from '../db/index.js';
 import { nomPropre, nomPropreDepuisChaine, separerNomPrenom } from '../lib/nom.js';
 import { anneeDeTravail, anneeActiveEnBase } from '../helpers/annee.js';
 import { authRequired, roleRequired, getUserSections } from '../middleware/auth.js';
+import { gesteRequis } from '../lib/gestes.js';
 import { SIGNATURE_SOHET, SCEAU_IIP } from '../services/assets/signature_sohet.js';
 import { identiteEtablissement } from './config.js';
 // Les trois pièces de la délibération — attestation de réussite, motivation
@@ -1237,7 +1238,7 @@ r.get('/feuille/:ueNum', authRequired, (req, res) => {
 
 // ── Enregistrer une note d'acquis ──────────────────────────────────────────
 r.put('/feuille/note', authRequired,
-      roleRequired('admin', 'directeur', 'directeur_adjoint', 'editeur'), (req, res) => {
+      gesteRequis('deliberation.encoder'), (req, res) => {
   const { etudiant_id, annee_scolaire, ue_num, aa_code, session, points,
           cours_code, mention } = req.body || {};
   if (!etudiant_id || !annee_scolaire || !ue_num || !aa_code) {
@@ -4452,7 +4453,7 @@ r.get('/cours/:coursCode/feuille', authRequired, (req, res) => {
  * fait, pour qu'on le lise avant de s'engager.
  */
 r.post('/ue/:ueNum/notes/importer', authRequired,
-       roleRequired('admin', 'directeur', 'directeur_adjoint', 'editeur'), (req, res) => {
+       gesteRequis('deliberation.importer'), (req, res) => {
   const ueNum = Number(req.params.ueNum);
   const { annee, session, lignes, simulation = true, arrondi = true,
     bareme = 20 } = req.body || {};
@@ -5911,7 +5912,7 @@ r.get('/deliberation/regles', authRequired, (req, res) => {
 });
 
 r.put('/deliberation/regles', authRequired,
-      roleRequired('admin', 'directeur', 'directeur_adjoint'), (req, res) => {
+      gesteRequis('deliberation.regles'), (req, res) => {
   const poser = db.prepare(`INSERT INTO lucie_config (cle, valeur) VALUES (?,?)
     ON CONFLICT(cle) DO UPDATE SET valeur = excluded.valeur`);
 
@@ -6219,7 +6220,7 @@ r.get('/deliberation/ue/:ueNum/motivations-proposees', authRequired, (req, res) 
 });
 
 r.put('/deliberation/ue/:ueNum/seance', authRequired,
-      roleRequired('admin', 'directeur', 'directeur_adjoint', 'editeur'), (req, res) => {
+      gesteRequis('deliberation.seance'), (req, res) => {
   const ueNum = Number(req.params.ueNum);
   const annee = req.body?.annee || anneeDeTravail(req);
   const session = Number(req.body?.session) === 2 ? 2 : 1;
@@ -7611,7 +7612,7 @@ r.post('/deliberation/documents-lot', authRequired, (req, res) => {
  * pourquoi —, car un procès-verbal signé rouvert doit pouvoir s'expliquer.
  */
 r.post('/deliberation/ue/:ueNum/rouvrir', authRequired,
-       roleRequired('admin', 'directeur', 'directeur_adjoint'), (req, res) => {
+       gesteRequis('deliberation.rouvrir'), (req, res) => {
   const ueNum = Number(req.params.ueNum);
   const annee = req.body?.annee || anneeDeTravail(req);
   const session = Number(req.body?.session) === 2 ? 2 : 1;
@@ -8654,7 +8655,7 @@ r.put('/deliberation/ajustement/lot', authRequired,
 });
 
 r.put('/deliberation/ajustement', authRequired,
-      roleRequired('admin', 'directeur', 'directeur_adjoint', 'editeur'), (req, res) => {
+      gesteRequis('deliberation.faveur'), (req, res) => {
   const { etudiant_id, annee_scolaire, ue_num, portee, code, action } = req.body || {};
   const ses = Number(req.body?.session) === 2 ? 2 : 1;
   if (!etudiant_id || !annee_scolaire || !ue_num || !portee || !code) {

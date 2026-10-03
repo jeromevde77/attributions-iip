@@ -2,6 +2,7 @@ import { Router } from 'express';
 import bcrypt from 'bcryptjs';
 import db from '../db/index.js';
 import { authRequired, roleRequired } from '../middleware/auth.js';
+import { gesteRequis } from '../lib/gestes.js';
 import { envoyerEmail, templateNotif } from '../services/mailer.js';
 import { creerJeton, comptePeutMotDePasse, VALIDITE_INVITATION_MINUTES, dureeLisible } from '../lib/motDePasse.js';
 import { journaliser } from './mfa.js';
@@ -86,7 +87,7 @@ function poserPerimetre(id, sections, toutes) {
 }
 const texteJson = v => (v == null ? null : typeof v === 'string' ? v : JSON.stringify(v));
 
-r.post('/', authRequired, roleRequired('admin'), (req, res) => {
+r.post('/', authRequired, gesteRequis('configuration.comptes'), (req, res) => {
   const { email, password, nom_complet, role, sections, professeur_id, perimetre_toutes, permissions_json } = req.body || {};
   if (!email || !password) return res.status(400).json({ error: 'Email et mot de passe requis' });
   if (!rolesConnus().codes.includes(role)) return res.status(400).json({ error: 'Rôle invalide' });
@@ -134,7 +135,7 @@ r.post('/', authRequired, roleRequired('admin'), (req, res) => {
  * CONNECTE PAS — le second facteur reste exigé. Sans ce repli, un relais mal
  * configuré laisserait la direction sans aucun moyen de rendre un accès.
  */
-r.post('/:id/lien-mot-de-passe', authRequired, roleRequired('admin'), async (req, res) => {
+r.post('/:id/lien-mot-de-passe', authRequired, gesteRequis('configuration.comptes'), async (req, res) => {
   const u = db.prepare('SELECT * FROM utilisateur WHERE id = ?').get(Number(req.params.id));
   if (!u) return res.status(404).json({ error: 'Compte introuvable' });
   if (!comptePeutMotDePasse(u)) {
@@ -181,7 +182,7 @@ r.post('/:id/lien-mot-de-passe', authRequired, roleRequired('admin'), async (req
   });
 });
 
-r.patch('/:id', authRequired, roleRequired('admin'), (req, res) => {
+r.patch('/:id', authRequired, gesteRequis('configuration.comptes'), (req, res) => {
   const { nom_complet, role, actif, password, sections, professeur_id, acces,
           permissions_json, acces_recrutement, perimetre_toutes, email } = req.body || {};
   const updates = [];
@@ -284,7 +285,7 @@ r.patch('/:id', authRequired, roleRequired('admin'), (req, res) => {
 // On DÉSACTIVE donc : le compte ne peut plus se connecter, ses sections sont
 // retirées, mais son nom reste lisible dans l'historique. La suppression n'est
 // possible que pour un compte qui n'a jamais rien signé.
-r.delete('/:id', authRequired, roleRequired('admin'), (req, res) => {
+r.delete('/:id', authRequired, gesteRequis('configuration.comptes'), (req, res) => {
   const id = Number(req.params.id);
   if (id === req.user.id) {
     return res.status(400).json({ error: 'Impossible de supprimer son propre compte' });
@@ -341,7 +342,7 @@ r.get('/:id/permissions', authRequired, roleRequired('admin'), (req, res) => {
 });
 
 // PUT /:id/permissions — remplace toutes les permissions
-r.put('/:id/permissions', authRequired, roleRequired('admin'), (req, res) => {
+r.put('/:id/permissions', authRequired, gesteRequis('configuration.comptes'), (req, res) => {
   const { permissions } = req.body; // [{ ressource_type, ressource_id, niveau }]
   if (!Array.isArray(permissions)) return res.status(400).json({ error: 'Format invalide' });
   const tx = db.transaction(() => {
