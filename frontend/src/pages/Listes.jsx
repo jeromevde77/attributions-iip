@@ -946,6 +946,7 @@ export default function Listes({ integre = false, domaine = null, rapports = nul
             <td class="ue">UE ${u.ue_num}</td>
             <td class="lib">${u.ue_nom || '—'}${u.ects ? ` <span class="etiq">${u.ects} ECTS</span>` : ''}</td>
             <td class="c">${badge(c)}</td>
+            <td class="n">${u.nb_inscrits != null ? fmt(u.nb_inscrits) : '—'}</td>
             <td class="n">${cellPer(u)}</td>
             <td class="n gris">${totalBloc > 0 ? Math.round(pt/totalBloc*100) + '%' : ''}</td>
             <td class="n">${fmt(pt)}</td>
@@ -958,12 +959,13 @@ export default function Listes({ integre = false, domaine = null, rapports = nul
           <div class="bande" style="background:${fond};color:${encre}">${NIV_NOM[niv] || niv}</div>
           <table class="detail">
             <colgroup>
-              <col style="width:15mm"><col><col style="width:15mm"><col style="width:30mm">
+              <col style="width:15mm"><col><col style="width:15mm"><col style="width:15mm"><col style="width:30mm">
               <col style="width:10mm"><col style="width:18mm"><col style="width:18mm">
             </colgroup>
             <thead>
               <tr>
                 <th>UE</th><th>Intitulé</th><th class="c">Contrat</th>
+                <th class="n" title="Étudiants inscrits à l'unité cette année, rattachés à la section">Inscrits</th>
                 <th class="n">Périodes (CT / PP)</th><th class="n">%</th>
                 <th class="n">Périodes</th><th class="n">ETP</th>
               </tr>
@@ -971,19 +973,19 @@ export default function Listes({ integre = false, domaine = null, rapports = nul
             <tbody>${lignes}</tbody>
             <tfoot>
               ${nIipEtp > 0 ? `<tr class="dont">
-                <td colspan="4">dont IIP</td>
+                <td colspan="5">dont IIP</td>
                 <td class="n">${nPer > 0 ? Math.round(nIipPer/nPer*100) + '%' : ''}</td>
                 <td class="n">${fmt(nIipPer)}</td>
                 <td class="n">${fmtEtp(nIipEtp)}</td>
               </tr>` : ''}
               ${nHelbEtp > 0 ? `<tr class="dont">
-                <td colspan="4">dont HELB</td>
+                <td colspan="5">dont HELB</td>
                 <td class="n">${nPer > 0 ? Math.round(nHelbPer/nPer*100) + '%' : ''}</td>
                 <td class="n">${fmt(nHelbPer)}</td>
                 <td class="n">${fmtEtp(nHelbEtp)}</td>
               </tr>` : ''}
               <tr class="repere">
-                <td colspan="4" class="r">Sous-total ${niv}</td>
+                <td colspan="5" class="r">Sous-total ${niv}</td>
                 <td class="n gris">100%</td>
                 <td class="n">${fmt(nPer)}</td>
                 <td class="n">${fmtEtp(nEtp)}</td>
