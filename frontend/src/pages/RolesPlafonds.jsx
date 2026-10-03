@@ -1,5 +1,6 @@
 import { Fragment, useEffect, useState } from 'react';
-import { IconLock, IconEye, IconShieldCheck, IconTrash, IconChevronRight, IconChevronDown } from '@tabler/icons-react';
+import { createPortal } from 'react-dom';
+import { IconLock, IconEye, IconShieldCheck, IconTrash, IconChevronRight, IconChevronDown, IconCheck, IconArrowBackUp } from '@tabler/icons-react';
 import { authHeaders } from '../lib/api.js';
 import { nomListe } from '../lib/nom.js';
 import { MODULES_ACCES, oublierPlafonds } from '../lib/modules.js';
@@ -176,6 +177,14 @@ function Gestes({ plafonds, onMessage }) {
   const [journal, setJournal] = useState(null);
   const [ouverts, setOuverts] = useState(() => new Set());
   const [enCours, setEnCours] = useState(null);
+  const [menu, setMenu] = useState(null);   // { x, r, top, left } — la case dont on choisit le verdict
+  useEffect(() => {
+    if (!menu) return undefined;
+    const fermer = e => { if (e.type === 'keydown' ? e.key === 'Escape' : !e.target.closest?.('[data-menu-geste]')) setMenu(null); };
+    const t = setTimeout(() => { document.addEventListener('mousedown', fermer); document.addEventListener('keydown', fermer); }, 0);
+    window.addEventListener('scroll', () => setMenu(null), { once: true, capture: true });
+    return () => { clearTimeout(t); document.removeEventListener('mousedown', fermer); document.removeEventListener('keydown', fermer); };
+  }, [menu]);
 
   async function charger() {
     const [rg, rj] = await Promise.all([
@@ -195,25 +204,30 @@ function Gestes({ plafonds, onMessage }) {
   });
   const tousOuverts = ouverts.size === g.groupes.length;
 
-  /* Le clic fait tourner : défaut → les autres verdicts → défaut. « Par
-     demande » n'existe que pour la coordination ; régler une case sur son
-     défaut, c'est y revenir. */
-  async function regler(x, r) {
-    const c = x.verdicts[r];
-    const suite = [null, ...['oui', 'non', ...(r === 'coordination' ? ['demande'] : [])]
-      .filter(v => v !== c.defaut)];
-    const i = suite.indexOf(c.reglage ?? null);
-    const suivant = suite[(i + 1) % suite.length];
+  /* UN CLIC OUVRE UN MENU QUI DIT LES CHOIX (Charles, 3 octobre 2026 : « je
+     dois pouvoir tout paramétrer dans cette fenêtre »). Le clic faisait
+     tourner oui → non → par demande → défaut : on ne savait jamais ce que le
+     clic suivant ferait, et une case se retrouvait « par demande » sans
+     qu'on l'ait voulu. Le menu nomme chaque verdict, coche celui en vigueur,
+     et « Revenir au défaut » dit quel est ce défaut. */
+  async function appliquer(x, r, verdict) {
+    setMenu(null);
     setEnCours(`${x.id}|${r}`);
     try {
       const url = `/api/profils-acces/gestes/${encodeURIComponent(x.id)}/${encodeURIComponent(r)}`;
-      const rep = suivant == null
+      const rep = verdict == null
         ? await fetch(url, { method: 'DELETE', headers: authHeaders() })
-        : await fetch(url, { method: 'PUT', headers: authHeaders(), body: JSON.stringify({ verdict: suivant }) });
+        : await fetch(url, { method: 'PUT', headers: authHeaders(), body: JSON.stringify({ verdict }) });
       const j = await rep.json().catch(() => ({}));
       if (!rep.ok) { onMessage?.({ type: 'err', texte: j.error || 'Réglage refusé.' }); return; }
       await charger();
     } finally { setEnCours(null); }
+  }
+  function ouvrirMenu(e, x, r) {
+    const b = e.currentTarget.getBoundingClientRect();
+    const left = Math.min(b.left, window.innerWidth - 250);
+    const top = b.bottom + 220 > window.innerHeight ? Math.max(8, b.top - 200) : b.bottom + 4;
+    setMenu({ x, r, top, left });
   }
 
   const titreCase = (x, r, c, def) => {
@@ -224,7 +238,7 @@ function Gestes({ plafonds, onMessage }) {
       lignes.push(c.reglage != null
         ? `Réglé par la direction : ${direVerdict(c.reglage)} — défaut du code : ${direVerdict(c.defaut)}.`
         : `Défaut du code : ${direVerdict(c.defaut)}.`);
-      if (g.peut_regler) lignes.push('Cliquer pour changer.');
+      if (g.peut_regler) lignes.push('Cliquer pour choisir.');
     }
     lignes.push(x.source);
     return lignes.join('\n');
@@ -241,8 +255,8 @@ function Gestes({ plafonds, onMessage }) {
           </button>
         }>
         Chaque case part du défaut écrit dans le code ; la direction peut l’ajuster, rôle par
-        rôle — un clic fait tourner oui, non{' '}(par demande pour la coordination), puis revient
-        au défaut. Les cases au cadenas restent à la direction : configuration, validation et
+        rôle — un clic sur une case ouvre le choix : oui, non, par demande (coordination),
+        ou retour au défaut. Les cases au cadenas restent à la direction : configuration, validation et
         décision ne se retirent pas. Les conditions (périmètre, case de fiche, personne de
         référence) restent contrôlées par la route. La grille des modules s’y ajoute en amont
         {g.mode_modules === 'constat' ? ' (en mode constat, elle ne refuse encore rien)' : ''}.
@@ -302,7 +316,7 @@ function Gestes({ plafonds, onMessage }) {
                         const cliquable = g.peut_regler && c.reglable && enCours == null;
                         return (
                           <td key={r} className="px-1.5 text-center" title={titreCase(x, r, c, def)}>
-                            <button type="button" disabled={!cliquable} onClick={() => regler(x, r)}
+                            <button type="button" disabled={!cliquable} onClick={e => ouvrirMenu(e, x, r)}
                               className={`block w-full ${cliquable ? 'cursor-pointer hover:opacity-80' : 'cursor-default'}`}>
                               <Pastille def={def} occupe={enCours === cle} />
                               <span aria-hidden="true"
@@ -338,6 +352,40 @@ function Gestes({ plafonds, onMessage }) {
       </Legende>
     </div>
 
+    {menu && createPortal((() => {
+      const c = menu.x.verdicts[menu.r] || {};
+      const actuel = c.reglage ?? c.defaut;
+      const choix = [['oui', 'Oui'], ['non', 'Non'], ...(menu.r === 'coordination' ? [['demande', 'Par demande — repart à valider']] : [])];
+      return (
+        <div data-menu-geste className="fixed z-[80] w-[240px] bg-white border border-slate-200 rounded-carte shadow-flottant py-1.5 text-[13px]"
+          style={{ top: menu.top, left: menu.left }}>
+          <div className="px-3 pb-1.5 mb-1 border-b border-slate-100">
+            <div className="font-semibold text-iip-blue truncate">{menu.x.label}</div>
+            <div className="text-[11.5px] text-slate-500">{nomRole(g, menu.r)}</div>
+          </div>
+          {choix.map(([v, lib]) => (
+            <button key={v} type="button" onClick={() => appliquer(menu.x, menu.r, v === c.defaut ? null : v)}
+              className="w-full flex items-center gap-2 px-3 py-1.5 text-left hover:bg-slate-50">
+              <span className="w-4 flex-none">{actuel === v && <IconCheck size={14} className="text-iip-blue" />}</span>
+              <span className="flex-1">{lib}</span>
+              {v === c.defaut && <span className="text-[10.5px] text-slate-400">défaut</span>}
+            </button>
+          ))}
+          {c.reglage != null && (
+            <button type="button" onClick={() => appliquer(menu.x, menu.r, null)}
+              className="w-full flex items-center gap-2 px-3 py-1.5 mt-1 border-t border-slate-100 text-left text-slate-600 hover:bg-slate-50">
+              <IconArrowBackUp size={14} className="flex-none" />
+              Revenir au défaut ({direVerdict(c.defaut)})
+            </button>
+          )}
+          {menu.x.verdicts[menu.r]?.note && (
+            <div className="px-3 pt-1.5 mt-1 border-t border-slate-100 text-[11px] text-slate-500">
+              Condition contrôlée par la route : {menu.x.verdicts[menu.r].note}
+            </div>
+          )}
+        </div>
+      );
+    })(), document.body)}
     <JournalGestes lignes={journal} g={g} />
     </>
   );

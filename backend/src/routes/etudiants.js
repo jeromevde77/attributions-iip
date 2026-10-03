@@ -3739,7 +3739,7 @@ r.get('/:id/revue-pae/revu', authRequired, (req, res) => {
 });
 
 /* CELUI QUI COCHE EST CELUI QUI SIGNE : le nom vient de la session, jamais d'un champ. */
-r.put('/:id/revue-pae/revu', authRequired, (req, res) => {
+r.put('/:id/revue-pae/revu', authRequired, gesteRequis('etudiants.pae_revu'), (req, res) => {
   const id = Number(req.params.id);
   if (!etudiantPermis(req, res, id)) return;
   const annee = req.body?.annee || anneeDeTravail(req);
