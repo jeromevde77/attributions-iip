@@ -1389,9 +1389,9 @@ et 3 composants de tuile**. La stratégie tient en cinq chantiers, dans cet ordr
 
   | | Écran | Papier |
   |---|---|---|
-  | Rail | 4 px | 1,6 mm |
-  | Rayon | 10 px côté droit, droit côté liseré | 1,5 mm |
-  | Fond | pâle de l'état ; blanc si neutre | pâle de l'état ; `#FAFAFB` si neutre |
+  | Rail | 4 px | 1 mm (« plus fin », Charles, 3 octobre 2026) |
+  | Rayon | 10 px côté droit, droit côté liseré | 2,6 mm côté droit, droit côté rail |
+  | Fond | blanc (règle du 29 septembre) | blanc |
   | Contour | 1 px `#D8DCE4` | 0,3 mm, même gris |
   | Corps | 13 px | 9 pt |
   | Rail teinté | marine, vert, ocre, brique | marine à l'intérieur, **or** sur la pièce extérieure |

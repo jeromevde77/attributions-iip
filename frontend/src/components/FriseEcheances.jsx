@@ -1,5 +1,6 @@
 import { useMemo, useRef, useEffect } from 'react';
 import { aujourdhui, joursAvant, urgence } from '../lib/urgence.js';
+import { IconCheck } from '@tabler/icons-react';
 
 /**
  * LA FRISE DES ÉCHÉANCES — LE MOIS QUI VIENT, D'UN SEUL REGARD.
@@ -91,6 +92,13 @@ export default function FriseEcheances({ taches = [], onOuvrir }) {
           {taches.filter(t => t.echeance).length} échéance(s)
           {sansEcheance.length > 0 && ` · ${sansEcheance.length} sans date`}
         </span>
+        <span className="ml-auto flex items-center gap-3 text-[11px] text-slate-500">
+          {[['var(--c-refuse)', 'en retard ou dans 3 jours'], ['var(--c-attente)', 'dans la semaine'], ['var(--c-reussi)', 'plus tard · fait']].map(([c, l]) => (
+            <span key={l} className="flex items-center gap-1">
+              <span className="w-2.5 h-2.5 rounded-full" style={{ background: c }} />{l}
+            </span>
+          ))}
+        </span>
       </div>
 
       <div ref={defile} className="overflow-x-auto">
@@ -117,7 +125,7 @@ export default function FriseEcheances({ taches = [], onOuvrir }) {
               du plus urgent au moins urgent — la couleur du haut de pile est
               celle qui compte. */}
           <div className="flex items-end border-b border-slate-200"
-            style={{ minHeight: Math.min(hauteurMax, 8) * 20 + 8 }}>
+            style={{ minHeight: Math.min(hauteurMax, 8) * 16 + 8 }}>
             {jours.map(j => (
               <div key={j.date} style={{ width: LARGEUR_JOUR }}
                 className={`flex-none flex flex-col justify-end gap-0.5 px-0.5 pb-1
@@ -130,20 +138,16 @@ export default function FriseEcheances({ taches = [], onOuvrir }) {
                     <button key={t.id} onClick={() => onOuvrir?.(t)}
                       title={`${t.titre}${t.echeance ? ` — ${frJour(t.echeance)}` : ''}`
                         + `${u.mention ? ` (${u.mention})` : ''}`}
-                      /* LE RAIL PORTE L'ÉTAT, ET LUI SEUL — la règle du bloc
-                         signalé, à la taille d'une pastille de frise. Peindre
-                         le fond en brique ferait de trente échéances un mur de
-                         couleur où plus rien ne se distingue. */
-                      /* FAIT SE DIT EN VERT, ET SE LIT ENCORE.
-                         Grisée à quarante pour cent, une tâche close
-                         disparaissait presque : la frise semblait vide là où le
-                         travail avait été fait, et c'est l'inverse qu'on veut
-                         voir en réunion. Elle garde sa place, en vert, un peu
-                         en retrait. */
-                      className={`h-4 rounded-champ border border-slate-200
-                        border-l-[3px] bg-white hover:shadow-pose
-                        ${fait ? 'opacity-80' : ''}`}
-                      style={{ borderLeftColor: fait ? 'var(--c-texte)' : couleurRail(u) }} />
+                      /* UNE BOULE, TROIS COULEURS (Charles, 3 octobre 2026 :
+                         « peu clair… passer simplement en boules ») : fraise
+                         pour ce qui presse ou est dépassé, orange pour ce qui
+                         approche, vert pour le reste. Ce qui est FAIT est
+                         vert aussi, coché : il se lit encore en réunion. */
+                      className="mx-auto w-3.5 h-3.5 rounded-full grid place-items-center
+                        hover:ring-2 hover:ring-offset-1 hover:ring-slate-300 transition-shadow"
+                      style={{ background: fait ? 'var(--c-reussi)' : couleurBoule(u) }}>
+                      {fait && <IconCheck size={9} stroke={3} className="text-white" />}
+                    </button>
                   );
                 })}
                 {j.taches.length > 8 && (
@@ -192,11 +196,11 @@ export default function FriseEcheances({ taches = [], onOuvrir }) {
   );
 }
 
-/** La teinte du rail, prise sur l'échelle d'urgence commune. */
-function couleurRail(u) {
+/** La teinte de la boule, prise sur l'échelle d'urgence commune. */
+function couleurBoule(u) {
   if (u.niveau === 'depasse' || u.niveau === 'presse') return 'var(--c-refuse)';
   if (u.niveau === 'approche') return 'var(--c-attente)';
-  return '#CBD5E1';
+  return 'var(--c-reussi)';
 }
 
 function frJour(d) {

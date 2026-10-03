@@ -3261,7 +3261,7 @@ export function documentBulletin(etudId, annee) {
 .etudiant .nom{font-size:11pt;font-weight:700}
 .etudiant .d{font-size:8pt;color:#475569}
 .tuiles{display:grid;grid-template-columns:repeat(4,1fr);gap:3mm;margin:0 0 4mm}
-.tuile{border:.3mm solid #D8DCE4;border-left:1.6mm solid #C9A84C;border-radius:0 1.5mm 1.5mm 0;padding:1.6mm 2.6mm;background:#FAFAFB}
+.tuile{border:.3mm solid #D8DCE4;border-left:1mm solid #C9A84C;border-radius:0 2.6mm 2.6mm 0;padding:1.6mm 2.6mm;background:#fff}
 .tuile .v{font-size:11pt;font-weight:700;line-height:1.15}
 .tuile .v .sur{font-size:8.5pt;font-weight:400}
 .tuile .l{font-size:7.5pt}
@@ -3845,10 +3845,10 @@ const STYLE_REVUE = `
 .revue .ident .mat{font-size:8pt;color:#6e6e73;margin-top:.6mm}
 .revue .ident .sec{font-size:10pt;font-weight:700;color:#1B2B4B}
 .revue .train{display:flex;gap:2mm;margin-bottom:3mm}
-.revue .tuile{flex:1;border:.3mm solid #D8DCE4;border-left:1.6mm solid #1B2B4B;border-radius:0 1.5mm 1.5mm 0;padding:1.6mm 2.4mm;background:#FAFAFB}
+.revue .tuile{flex:1;border:.3mm solid #D8DCE4;border-left:1mm solid #1B2B4B;border-radius:0 2.6mm 2.6mm 0;padding:1.6mm 2.4mm;background:#fff}
 .revue .tuile b{display:block;font-size:12pt;color:#1B2B4B;line-height:1.1}
 .revue .tuile span{display:block;font-size:7.5pt;color:#6e6e73;margin-top:.4mm}
-.revue .encadre{border:.3mm solid #D8DCE4;border-left:1.6mm solid #B45309;border-radius:0 1.5mm 1.5mm 0;padding:1.6mm 2.4mm;font-size:8.5pt;margin-bottom:3mm}
+.revue .encadre{border:.3mm solid #D8DCE4;border-left:1mm solid #B45309;border-radius:0 2.6mm 2.6mm 0;padding:1.6mm 2.4mm;font-size:8.5pt;margin-bottom:3mm}
 .revue table.pae{width:100%;border-collapse:collapse;table-layout:fixed;font-size:8.5pt}
 .revue table.pae th,.revue table.pae td{border:0;border-bottom:.2mm solid #E4E7EC;padding:1.3mm 2mm;vertical-align:baseline;text-align:left}
 .revue table.pae th{background:#F1F4F9;font-size:7pt;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#475569;border-bottom:.3mm solid #D8DCE4}
@@ -3869,7 +3869,7 @@ const STYLE_REVUE = `
 .revue table.pae .rep{color:#3E7D5E}
 .revue table.pae .alerte{font-weight:500;font-size:7.5pt;color:#B45309;margin-top:.4mm}
 .revue .pied-revue{font-size:7.5pt;color:#64748b;margin-top:2mm}
-.revue .valide{margin-top:2mm;border:.3mm solid #D8DCE4;border-left:1.6mm solid #3E7D5E;border-radius:0 1.5mm 1.5mm 0;padding:1.6mm 2.4mm;font-size:8.5pt}`;
+.revue .valide{margin-top:2mm;border:.3mm solid #D8DCE4;border-left:1mm solid #3E7D5E;border-radius:0 2.6mm 2.6mm 0;padding:1.6mm 2.4mm;font-size:8.5pt}`;
 
 r.post('/revue-pae/document', authRequired, (req, res) => {
   const annee = req.body?.annee || anneeDeTravail(req);

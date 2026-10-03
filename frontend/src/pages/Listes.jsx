@@ -1071,13 +1071,15 @@ export default function Listes({ integre = false, domaine = null, rapports = nul
         .titre{font-size:14pt;font-weight:700;margin-top:.6mm}
         .annee{font-size:9pt;color:#475569;margin-top:.4mm}
         .mention{font-size:7.5pt;color:#64748B;margin-top:1mm;line-height:1.35}
-        /* LE BLOC SIGNALÉ, À SES MESURES DE PAPIER (CLAUDE.md §6) : rail 1,6 mm
-           qui porte l'état, contour 0,3 mm, rayon 1,5 mm, fond #FAFAFB, valeur
+        /* LE BLOC SIGNALÉ, À SES MESURES DE PAPIER : celles de la tuile de
+           l'écran (Configuration → Thèmes), plus rondes et plus fines (Charles,
+           3 octobre 2026) — rail 1 mm qui porte l'état, contour 0,3 mm, rayon
+           2,6 mm côté droit, droit côté rail, fond blanc, valeur
            d'abord, libellé dessous, précision en gris. */
         .rangee-titre{font-size:7.5pt;color:#64748B;margin:0 0 1.5mm;font-weight:600}
         .tuiles{display:grid;grid-template-columns:repeat(4,1fr);gap:3mm;margin:0 0 4mm}
-        .tuile{background:#FAFAFB;border:0.3mm solid #D8DCE4;border-left:1.6mm solid ${MARINE};
-               border-radius:0 1.5mm 1.5mm 0;padding:2mm 3mm 2.2mm;break-inside:avoid;page-break-inside:avoid}
+        .tuile{background:#fff;border:0.3mm solid #D8DCE4;border-left:1mm solid ${MARINE};
+               border-radius:0 2.6mm 2.6mm 0;padding:2mm 3mm 2.2mm;break-inside:avoid;page-break-inside:avoid}
         .t-val{font-size:15pt;font-weight:700;line-height:1.12;letter-spacing:-.3pt;font-variant-numeric:tabular-nums}
         .tuile.fort .t-val{font-size:19pt}
         .t-u{font-size:8pt;font-weight:400;color:#64748B;margin-left:1mm;letter-spacing:0}
