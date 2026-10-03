@@ -81,8 +81,10 @@ export default function ConventionsASigner() {
                 aria-label={`Signer la convention ${c.id}`} />
               <button type="button" onClick={() => basculer(c.id)} className="flex-1 min-w-0 text-left">
                 <div className="text-[13px] text-slate-800 truncate">
-                  <span className="font-semibold">{c.etud_nom ? nomEcran(c.etud_nom, c.etud_prenom) : (c.objet || 'Convention')}</span>
-                  {c.lieu_nom && <> · {c.lieu_nom}{c.lieu_localite ? ` (${c.lieu_localite})` : ''}</>}
+                  <span className="font-semibold">{c.etud_nom ? nomEcran(c.etud_nom, c.etud_prenom)
+                    : (c.origine === 'iip' && c.famille !== 'partenaire' ? `${({ cadre_stage: 'Convention-cadre de stage', partenariat: 'Convention de partenariat', etablissements: 'Convention entre établissements' })[c.famille] || 'Convention'} (modèle IIP)` : (c.objet || 'Convention'))}</span>
+                  {c.lieu_nom ? <> · {c.lieu_nom}{c.lieu_localite ? ` (${c.lieu_localite})` : ''}</>
+                    : c.partenaire_nom ? <> · {c.partenaire_nom}</> : null}
                 </div>
                 <div className="text-[11px] text-slate-400 truncate">
                   {[c.date_debut && `${frDate(c.date_debut)} → ${frDate(c.date_fin)}`,

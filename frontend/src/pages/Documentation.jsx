@@ -2,12 +2,14 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   IconBook, IconFileText, IconCheck, IconAlertTriangle, IconPlus,
   IconHistory, IconUsersGroup, IconHelpCircle, IconScale, IconExternalLink, IconTrash,
+  IconWritingSign, IconUpload, IconTemplate,
 } from '@tabler/icons-react';
 import { useSearchParams } from 'react-router-dom';
 import { authHeaders, getUser } from '../lib/api.js';
 import { PageHeader, RailLateral, Fenetre } from '../components/ui.jsx';
 import Aide from './Aide.jsx';
 import EditeurTexte from '../components/EditeurTexte.jsx';
+import RegistreConventions, { LIRE_CONVENTIONS } from '../components/RegistreConventions.jsx';
 
 /**
  * DOCUMENTATION — le corpus, et la prise de connaissance qui l'oppose.
@@ -30,6 +32,11 @@ import EditeurTexte from '../components/EditeurTexte.jsx';
  * aurait cherché la circulaire examens dans l'une et le mode d'emploi du PAE
  * dans l'autre, sans pouvoir deviner laquelle. Un seul endroit, donc, et deux
  * faces — LES TEXTES qui s'imposent, et LE MODE D'EMPLOI de l'outil.
+ *
+ * Une troisième face depuis le 3 octobre 2026 : LES CONVENTIONS — leur
+ * registre, leurs modèles (des textes qui vivent dans Lucie, versionnés comme
+ * le corpus) et ce qui s'y dépose. Elle ne paraît que pour la direction, le
+ * secrétariat et la coordination ; le serveur refuse les autres.
  */
 
 const NATURES_ORDRE = ['decret', 'circulaire', 'reglement', 'procedure', 'note', 'aide'];
@@ -87,7 +94,11 @@ function frDate(s) {
 export default function Documentation() {
   const u = getUser();
   const publie = PEUT_PUBLIER.includes(u?.role);
-  const [vue, setVue] = useState('textes');          // textes | aide
+  const [params, setParams] = useSearchParams();
+  const voitConventions = LIRE_CONVENTIONS.includes(u?.role);
+  const [vue, setVue] = useState(() => (params.get('vue') === 'conventions' && voitConventions ? 'conventions'
+    : params.get('vue') === 'aide' ? 'aide' : 'textes'));     // textes | aide | conventions
+  const [actionConv, setActionConv] = useState(null);       // nouvelle | deposer | modeles
   const [docs, setDocs] = useState(null);
   const [natures, setNatures] = useState([]);
   const [fNature, setFNature] = useState('');
@@ -97,7 +108,6 @@ export default function Documentation() {
      la liste, il faudrait y retrouver à la main ce qu'on vient de nous
      désigner. Le lien ouvre donc le texte lui-même — et le serveur pose
      `ouvert_le` en le servant, comme pour un clic dans la liste. */
-  const [params, setParams] = useSearchParams();
   const ouvert = params.get('doc');
   const setOuvert = (cle) => setParams(p => {
     const n = new URLSearchParams(p);
@@ -151,8 +161,17 @@ export default function Documentation() {
               actif: vue === 'textes', onClick: () => setVue('textes') },
             { key: 'aide', label: 'Mode d’emploi de Lucie', icon: IconHelpCircle,
               actif: vue === 'aide', onClick: () => setVue('aide') },
+            ...(voitConventions ? [{ key: 'conventions', label: 'Conventions', icon: IconWritingSign,
+              actif: vue === 'conventions', onClick: () => setVue('conventions') }] : []),
           ]},
-          ...(publie ? [{ label: 'Actions', items: [
+          ...(vue === 'conventions' ? [{ label: 'Conventions', items: [
+            { key: 'conv-nouvelle', label: 'Nouvelle convention', icon: IconPlus,
+              couleur: 'var(--menu-accent)', onClick: () => setActionConv('nouvelle') },
+            { key: 'conv-deposer', label: 'Déposer un document du partenaire', icon: IconUpload,
+              onClick: () => setActionConv('deposer') },
+            { key: 'conv-modeles', label: 'Modèles de convention', icon: IconTemplate,
+              onClick: () => setActionConv('modeles') },
+          ]}] : publie ? [{ label: 'Actions', items: [
             { key: 'deposer', label: 'Déposer un texte', icon: IconPlus,
               couleur: 'var(--menu-accent)', onClick: () => setDepot(true) },
           ]}] : []),
@@ -160,7 +179,9 @@ export default function Documentation() {
       />
 
       <div className="gouttiere-rail p-4 md:p-8 space-y-4">
-        {vue === 'aide' ? <Aide integre /> : (
+        {vue === 'conventions' ? (
+          <RegistreConventions action={actionConv} onActionFin={() => setActionConv(null)} />
+        ) : vue === 'aide' ? <Aide integre /> : (
           <>
             <PageHeader titre="Textes et procédures"
               sous="Les règles du jeu — décrets, circulaires, règlements et procédures de l’Institut" />

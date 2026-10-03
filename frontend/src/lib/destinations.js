@@ -47,6 +47,7 @@ export const DESTINATIONS = [
   { label: 'Gestion — dotation, ETP, budget', axe: 'Gestion', chemin: '/gestion', mots: 'gestion dotation etp budget charge rapport efficience' },
   // Documentation
   { label: 'Documentation et circulaires', axe: 'Documentation', chemin: '/documentation', mots: 'documentation aide circulaire reglement rde mode emploi' },
+  { label: 'Conventions — registre, modèles, dépôt', axe: 'Documentation', chemin: '/documentation?vue=conventions', mots: 'convention stage cadre partenariat partenaire etablissement crea signer contresignee modele registre' },
   // Configuration
   { label: 'Identité de l’établissement', axe: 'Configuration', chemin: '/configuration?onglet=etablissement', mots: 'etablissement identite adresse ecot fase directeur signataire' },
   { label: 'Années et calendrier', axe: 'Configuration', chemin: '/configuration?onglet=annees', mots: 'annees annee scolaire calendrier sessions' },
