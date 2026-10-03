@@ -389,8 +389,9 @@ function RegenererDonneesDev() {
         <h2 className="font-semibold text-amber-700">🔧 Régénérer les données de test</h2>
         <p className="text-xs text-amber-600 mt-0.5">
           Environnement de développement uniquement. Remplace les noms, adresses,
-          diplômes et données personnelles de tous les professeurs par des données
-          fictives (RGPD-safe). Les attributions sont conservées.
+          diplômes et données personnelles de tous les professeurs ET de tous les
+          étudiants par des données fictives (RGPD-safe). Attributions, notes,
+          parcours et décisions sont conservés.
         </p>
       </div>
       <div className="px-4 py-4 space-y-3">
@@ -409,7 +410,7 @@ function RegenererDonneesDev() {
         {etape === 2 && (
           <div className="bg-amber-50 border border-amber-300 rounded-lg p-4 space-y-3 border-l-4 border-l-amber-500">
             <p className="text-sm font-semibold text-amber-700">
-              Confirmer la régénération de toutes les fiches professeurs ?
+              Confirmer l'anonymisation de tous les professeurs et de tous les étudiants ?
             </p>
             <p className="text-xs text-amber-600">
               Tous les noms, prénoms, adresses, emails, dates de naissance, matricules
@@ -432,7 +433,7 @@ function RegenererDonneesDev() {
         {etape === 3 && stats && (
           <div className="bg-green-50 border border-green-300 rounded-lg p-4 space-y-2 border-l-4 border-l-green-500">
             <p className="text-sm font-semibold text-green-700">
-              ✓ {stats.total} professeurs régénérés
+              ✓ {stats.total} professeurs et {stats.etudiants ?? 0} étudiants anonymisés
             </p>
             <div className="text-xs text-green-600 space-y-0.5">
               <div>CAPAES : {stats.capaes} · CAP : {stats.cap} · AESS : {stats.aess} · sans titre péda : {stats.sans}</div>
