@@ -55,6 +55,7 @@ import amenagementsRoutes, { migrerAmenagements } from './routes/amenagements.js
 import cepRoutes from './routes/cep.js';
 import { migrerCep } from './lib/cep.js';
 import stagesRoutes, { migrerStages } from './routes/stages.js';
+import conventionsRoutes, { migrerConventions } from './routes/conventions.js';
 import attestationsRoutes, { migrerAttestations } from './routes/attestations.js';
 import dueRoutes, { migrerDUE } from './routes/due.js';
 import diplomesRoutes from './routes/diplomes.js';
@@ -2833,6 +2834,7 @@ try { migrerRepartition(db); } catch (e) { console.error('[migration] répartiti
 try { migrerAmenagements(db); } catch (e) { console.error('[migration] aménagements :', e.message); }
 try { migrerCep(db); } catch (e) { console.error('[migration] congé-éducation :', e.message); }
 try { migrerStages(db); } catch (e) { console.error('[migration] stages :', e.message); }
+try { migrerConventions(db); } catch (e) { console.error('[migration] conventions :', e.message); }
 try { migrerAttestations(db); } catch (e) { console.error('[migration] attestations :', e.message); }
 try { migrerDUE(db); } catch (e) { console.error('[migration] due :', e.message); }
 // lucie_config : table de configuration clé/valeur — présente en prod depuis l'origine
@@ -3009,6 +3011,7 @@ app.use('/api/repartition', garderModule('repartition'), repartitionRoutes);
 app.use('/api/amenagements', garderModule('amenagements'), amenagementsRoutes);
 app.use('/api/cep', cepRoutes);
 app.use('/api/stages', garderModule('stages'), stagesRoutes);
+app.use('/api/conventions', garderModule('stages'), conventionsRoutes);
 app.use('/api/attestations', garderModule('attestations'), attestationsRoutes);
 app.use('/api/annexe2', garderModule('annexe2'), annexe2Routes);
 app.use('/api/annexe1', garderModule('annexe2'), annexe1Routes);

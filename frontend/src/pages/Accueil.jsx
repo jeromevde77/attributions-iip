@@ -10,6 +10,7 @@ import {
   IconFilter, IconFileText, IconInfoCircle, IconClock, IconExclamationCircle} from '@tabler/icons-react';
 import { urgence } from '../lib/urgence.js';
 import { Fenetre } from '../components/ui.jsx';
+import ConventionsASigner from '../components/ConventionsASigner.jsx';
 
 const tok = () => localStorage.getItem('token');
 
@@ -676,6 +677,7 @@ export default function Accueil() {
             procès-verbal, c'est-à-dire nulle part. Elle s'affiche ici, au-dessus
             du fil, et se coche d'ici — avec les tâches confiées à mon rôle, pas
             seulement à mon nom. */}
+        <ConventionsASigner />
         <TextesAConfirmer />
         <DemandesAValider />
         <MesTaches signal={rafraichirTaches} />
