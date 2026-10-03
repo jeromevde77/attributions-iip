@@ -118,6 +118,16 @@ r.get('/attestation_etab_defaut', authRequired, roleRequired('admin'), (req, res
  * noms de propriétés : « etab.matricule » au lieu de num_ecot, « etab.fase » au
  * lieu de num_fase. Les champs sortaient donc vides alors que la donnée était là.
  */
+/* IDENTITÉ FAIT FOI (Charles, 3 octobre 2026 : « l'officiel »). L'attestation
+   avait sa propre copie de l'établissement, qui l'emportait sur les pièces :
+   « 2.132.070 » au lieu du n° ECOT, le nom en capitales. La table
+   `etablissement` (Configuration → Identité) passe devant ; l'ancienne copie
+   ne sert plus que de repli, le temps qu'Identité soit complète. Seul le
+   signataire vit encore dans `attestation_etab` — Identité l'écrit. */
+const villeDe = adresse => {
+  const m = String(adresse || '').match(/\b\d{4}\s+([A-Za-zÀ-ÿ' -]+)\s*$/);
+  return m ? m[1].trim() : null;
+};
 export function identiteEtablissement() {
   const etabDB = db.prepare('SELECT * FROM etablissement LIMIT 1').get() || {};
   const row = db.prepare("SELECT valeur FROM lucie_config WHERE cle = 'attestation_etab'").get();
@@ -125,14 +135,14 @@ export function identiteEtablissement() {
   if (row) { try { saved = JSON.parse(row.valeur); } catch { /* configuration illisible */ } }
 
   return {
-    nom:       saved.nom       || etabDB.etab_nom || 'INSTITUT ILYA PRIGOGINE',
-    adresse:   saved.adresse   || etabDB.adresse
-      || 'Campus Erasme, Bât. P, route de Lennik 808 - 1070 Bruxelles',
-    matricule: saved.matricule || etabDB.num_ecot || null,
-    fase:      saved.fase      || etabDB.num_fase || null,
-    ville:     saved.ville     || 'Bruxelles',
-    tel:       saved.tel       || etabDB.gest_tel || null,
-    site:      saved.site      || etabDB.site_web || null,
+    nom:       etabDB.etab_nom || saved.nom || 'Institut Ilya Prigogine',
+    adresse:   etabDB.adresse || saved.adresse
+      || 'Campus Erasme, Bât. P, route de Lennik 808, 1070 Bruxelles',
+    matricule: etabDB.num_ecot || saved.matricule || null,
+    fase:      etabDB.num_fase || saved.fase || null,
+    ville:     villeDe(etabDB.adresse) || saved.ville || 'Bruxelles',
+    tel:       etabDB.gest_tel || saved.tel || null,
+    site:      etabDB.site_web || saved.site || null,
     /* JAMAIS LE GESTIONNAIRE À LA PLACE DU DIRECTEUR (29 septembre 2026) : le
        repli sur `gest_nom` posait la signature et le sceau du directeur sous le
        nom de la personne qui gère la fiche. À défaut de réglage, le nom par
@@ -142,27 +152,8 @@ export function identiteEtablissement() {
 }
 
 r.get('/attestation_etab', authRequired, (req, res) => {
-  // Enrichir avec les vraies données de la table etablissement
-  let etabDB = {};
-  try { etabDB = db.prepare('SELECT * FROM etablissement WHERE id = 1').get() || {}; } catch {}
-  const pied = piedDocument();
-
-  const row = db.prepare("SELECT valeur FROM lucie_config WHERE cle = 'attestation_etab'").get();
-  let saved = {};
-  if (row) { try { saved = JSON.parse(row.valeur); } catch {} }
-
-  const merged = {
-    nom:        saved.nom       || etabDB.etab_nom || 'INSTITUT ILYA PRIGOGINE',
-    adresse:    saved.adresse   || etabDB.adresse  || 'Campus Erasme, Bât. P, route de Lennik 808 - 1070 Bruxelles',
-    matricule:  saved.matricule || etabDB.num_ecot || '2.132.070',
-    fase:       saved.fase      || etabDB.num_fase || '292',
-    ville:      saved.ville     || (etabDB.adresse ? 'Bruxelles' : 'Bruxelles'),
-    tel:        saved.tel       || etabDB.gest_tel || '+ 32 (0)2 560 29 59',
-    site:       saved.site      || etabDB.site_web || 'www.institut-prigogine.be',
-    directeur:  saved.directeur || etabDB.gest_nom || 'SOHET Charles',
-    pied_page:  pied,
-  };
-  res.json({ valeur: JSON.stringify(merged) });
+  // La même identité que les pièces — une seule source (3 octobre 2026).
+  res.json({ valeur: JSON.stringify({ ...identiteEtablissement(), pied_page: piedDocument() }) });
 });
 
 // ── Diplôme : modèle éditable (avant /:cle) ─────────────────────────────────

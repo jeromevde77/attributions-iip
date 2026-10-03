@@ -1085,15 +1085,10 @@ function ConfigAttestation() {
   const [saved, setSaved]         = useState('');
 
   useEffect(() => {
-    af('/api/config/attestation_etab').then(d => { try { setEtab(JSON.parse(d.valeur)); } catch { setEtab({}); } });
+    setEtab({});
     af('/api/config/attestation_sections').then(d => { try { setSections(JSON.parse(d.valeur)); } catch { setSections([]); } });
     af('/api/referentiels/ue-sections').then(d => setUeSections(Array.isArray(d) ? d : [])).catch(() => {});
   }, []);
-
-  const sauvegarderEtab = async () => {
-    await af('/api/config/attestation_etab', { method: 'PUT', body: JSON.stringify({ valeur: JSON.stringify(etab) }) });
-    setSaved('etab'); setTimeout(() => setSaved(''), 2000);
-  };
 
   const sauvegarderSections = async () => {
     await af('/api/config/attestation_sections', { method: 'PUT', body: JSON.stringify({ valeur: JSON.stringify(sections) }) });
@@ -1118,34 +1113,10 @@ function ConfigAttestation() {
           d'un trait, et l'on ne se demande plus dans quel onglet on est. */}
       <h2 className="text-[17px] font-semibold text-iip-blue">Configuration des attestations</h2>
 
-      {/* ── Établissement ── */}
-      <h3 className="text-[15px] font-semibold text-iip-blue">{ONGLETS_LOC[0].label}</h3>
-      {(
-        <div className="space-y-3">
-          <div className="grid grid-cols-2 gap-3">
-            {[
-              ['nom',        "Nom de l'établissement"],
-              ['adresse',    'Adresse complète'],
-              ['matricule',  'N° matricule'],
-              ['fase',       'N° FASE'],
-              ['ville',      'Ville'],
-              ['directeur',  'Directeur (Nom Prénom)'],
-              ['tel',        'Téléphone'],
-              ['site',       'Site web'],
-            ].map(([k, label]) => (
-              <div key={k} className={k === 'adresse' ? 'col-span-2' : ''}>
-                <div className="text-xs text-gray-500 mb-1">{label}</div>
-                <input value={etab[k]||''} onChange={e => setEtab(et => ({ ...et, [k]: e.target.value }))}
-                  className="w-full border border-gray-300 rounded px-2.5 py-1.5 text-sm h-9" />
-              </div>
-            ))}
-          </div>
-          <button onClick={sauvegarderEtab}
-            className={`px-4 py-2 rounded-lg text-sm font-semibold ${saved==='etab' ? 'bg-green-600 text-white' : 'bg-iip-blue text-white hover:opacity-90'}`}>
-            {saved==='etab' ? '✓ Sauvegardé' : '✓ Sauvegarder'}
-          </button>
-        </div>
-      )}
+      {/* L'ÉTABLISSEMENT N'EST PLUS ICI (3 octobre 2026 : Identité fait foi).
+          Nom, adresse, n° ECOT et FASE se règlent dans Établissement →
+          Identité, le signataire aussi ; l'attestation les lit de là. */}
+      <p className="text-[12px] text-slate-500">Nom, adresse, n° ECOT, FASE et signataire : <b>Établissement → Identité</b>. L'attestation les lit de là.</p>
 
       {/* ── Sections & Diplômes ── */}
       <h3 className="text-[15px] font-semibold text-iip-blue pt-2">{ONGLETS_LOC[1].label}</h3>

@@ -18,6 +18,10 @@ function Champ({ label, value, onChange, placeholder, hint, className = '' }) {
 
 export default function ParametresEtablissement() {
   const [f, setF] = useState({});
+  /* LE SIGNATAIRE DES PIÈCES (3 octobre 2026) : il vivait dans le bloc
+     « Établissement » de l'attestation, retiré parce qu'Identité fait foi.
+     C'est la seule donnée qui n'avait pas d'équivalent ici. */
+  const [signataire, setSignataire] = useState('');
   const [mep, setMep] = useState({}); // paramètres mise en page (cle -> '0'/'1')
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -30,6 +34,10 @@ export default function ParametresEtablissement() {
   useEffect(() => {
     Promise.all([
       api.etablissement().then(d => setF(d || {})).catch(() => {}),
+      fetch('/api/config/attestation_etab', { headers: authHeaders() })
+        .then(r => (r.ok ? r.json() : null))
+        .then(d => { try { setSignataire(JSON.parse(d?.valeur || '{}').directeur || ''); } catch { /* */ } })
+        .catch(() => {}),
       api.parametres().then(groups => {
         const arr = (groups && groups.mise_en_page) || [];
         const o = {};
@@ -46,6 +54,9 @@ export default function ParametresEtablissement() {
     setSaving(true); setMsg('');
     try {
       await api.saveEtablissement(f);
+      const rs = await fetch('/api/config/attestation_etab', { method: 'PUT', headers: authHeaders(),
+        body: JSON.stringify({ valeur: JSON.stringify({ directeur: signataire.trim() }) }) });
+      if (!rs.ok) throw new Error((await rs.json().catch(() => ({}))).error || 'signataire non enregistré');
       if (Object.keys(mep).length) await api.saveParametres(mep);
       setMsg('Paramètres enregistrés ✓');
       setTimeout(() => setMsg(''), 3000);
@@ -135,6 +146,17 @@ export default function ParametresEtablissement() {
           </select>
           <div className="text-[11px] text-gray-400 mt-0.5">Se reporte automatiquement sur les EA12.</div>
         </label>
+      </section>
+
+      {/* Direction — le signataire des pièces */}
+      <section className="bg-white rounded-lg border border-gray-200 p-4 space-y-3">
+        <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+          Direction
+          <span className="font-normal normal-case text-gray-400"> · nom porté sous la signature et le sceau des pièces officielles</span>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <Champ label="Directeur ou directrice (NOM Prénom)" value={signataire} onChange={setSignataire} />
+        </div>
       </section>
 
       {/* Gestionnaire du dossier */}
