@@ -97,6 +97,14 @@ export function migrerStages(dbx) {
     CREATE INDEX IF NOT EXISTS idx_stage_etudiant ON stage(etudiant_id, annee_scolaire);
     CREATE INDEX IF NOT EXISTS idx_stage_lieu ON stage(lieu_id);
     `);
+    // LE RÉPERTOIRE D'UNE SECTION (Charles, 3 octobre 2026 : « pour les
+    // stages de psychomotricité, je veux qu'on puisse sélectionner… j'aurai
+    // le même pour les autres »). Un lieu appartient au répertoire d'une
+    // section, pour certaines UE ; « demande » dit comment on y sollicite un
+    // stage (téléphone, courriel, formulaire).
+    for (const col of ['section TEXT', 'ues TEXT', 'demande TEXT']) {
+      try { dbx.exec(`ALTER TABLE stage_lieu ADD COLUMN ${col}`); } catch { /* déjà là */ }
+    }
     console.log('[migration] stages : lieux et périodes');
   } catch (e) { console.error('[migration] stages :', e.message); }
 }
@@ -113,7 +121,10 @@ r.get('/lieux', authRequired, (req, res) => {
     const like = `%${q}%`;
     params.push(like, like, like);
   }
-  sql += ' ORDER BY nom';
+  // Les lieux du répertoire de la section, et de l'UE, d'abord.
+  const sec = String(req.query.section || '').trim(), ue = String(req.query.ue || '').trim();
+  sql += ` ORDER BY (section = ?) DESC, (',' || COALESCE(ues,'') || ',' LIKE ?) DESC, nom`;
+  params.push(sec, `%,${ue},%`);
   const lieux = db.prepare(sql).all(...params);
 
   // Combien d'étudiants y sont passés : un lieu très fréquenté se distingue
@@ -122,6 +133,57 @@ r.get('/lieux', authRequired, (req, res) => {
     l.nb_stages = db.prepare('SELECT COUNT(*) n FROM stage WHERE lieu_id = ?').get(l.id).n;
   }
   res.json(lieux);
+});
+
+/* IMPORTER UN RÉPERTOIRE DE LIEUX — simulation d'abord (rien ne s'écrit sans
+ * qu'on ait vu ce qui sera écrit). L'écran lit le classeur et envoie ses
+ * lignes ; un lieu déjà connu dans la section (même nom) est complété, pas
+ * doublé. L'adresse « rue n°, 1050 Ixelles » se range en adresse, CP, localité. */
+function decouperAdresse(brut) {
+  const t = String(brut || '').replace(/\s+/g, ' ').trim();
+  const m = /^(.*?)[,\s-]+(\d{4})\s+([^,]+?)\s*$/.exec(t);
+  return m ? { adresse: m[1].replace(/,\s*$/, '').trim(), cp: m[2], localite: m[3].trim() }
+           : { adresse: t || null, cp: null, localite: null };
+}
+r.post('/lieux/import', authRequired, roleRequired(...ECRITURE), (req, res) => {
+  const { section, ues, lignes, simulation = true } = req.body || {};
+  if (!section) return res.status(400).json({ error: 'Choisissez la section du répertoire.' });
+  const perim = perimetre(req);
+  if (perim && !perim.includes(section)) return res.status(403).json({ error: 'Section hors de votre périmètre.' });
+  if (!Array.isArray(lignes) || !lignes.length) return res.status(400).json({ error: 'Aucune ligne à importer.' });
+  const uesTxt = (Array.isArray(ues) ? ues : String(ues || '').split(/[,;\s]+/)).map(x => String(x).trim()).filter(Boolean).join(',') || null;
+  const existe = db.prepare('SELECT id, ues FROM stage_lieu WHERE lower(trim(nom)) = lower(trim(?)) AND COALESCE(section, \'\') = ?');
+  const rapport = { crees: [], completes: [], ignores: [] };
+  const ecrire = db.transaction(() => {
+    for (const l of lignes) {
+      const nom = String(l.nom || '').trim();
+      if (!nom) { rapport.ignores.push({ ...l, motif: "pas de nom d'organisme" }); continue; }
+      if (/^nom de l/i.test(nom)) { rapport.ignores.push({ nom, motif: "ligne d'en-tête répétée" }); continue; }
+      const a = decouperAdresse(l.adresse);
+      const fiche = { nom, secteur: String(l.type || '').trim() || null, contact_nom: String(l.responsable || '').trim() || null,
+        demande: String(l.demande || '').trim() || null, ...a };
+      const deja = existe.get(nom, section);
+      if (deja) {
+        rapport.completes.push({ nom, ...a });
+        if (!simulation) {
+          const toutes = [...new Set([...(deja.ues || '').split(','), ...(uesTxt || '').split(',')].filter(Boolean))].join(',') || null;
+          db.prepare(`UPDATE stage_lieu SET secteur = COALESCE(?, secteur), contact_nom = COALESCE(?, contact_nom),
+            demande = COALESCE(?, demande), adresse = COALESCE(?, adresse), cp = COALESCE(?, cp),
+            localite = COALESCE(?, localite), ues = ?, actif = 1 WHERE id = ?`)
+            .run(fiche.secteur, fiche.contact_nom, fiche.demande, fiche.adresse, fiche.cp, fiche.localite, toutes, deja.id);
+        }
+      } else {
+        rapport.crees.push({ nom, ...a, secteur: fiche.secteur });
+        if (!simulation) {
+          db.prepare(`INSERT INTO stage_lieu (nom, secteur, contact_nom, demande, adresse, cp, localite, section, ues, cree_par)
+            VALUES (?,?,?,?,?,?,?,?,?,?)`).run(fiche.nom, fiche.secteur, fiche.contact_nom, fiche.demande,
+            fiche.adresse, fiche.cp, fiche.localite, section, uesTxt, req.user?.email || null);
+        }
+      }
+    }
+  });
+  ecrire();
+  res.json({ simulation: !!simulation, section, ues: uesTxt, ...rapport });
 });
 
 r.post('/lieux', authRequired, roleRequired(...ECRITURE), (req, res) => {
