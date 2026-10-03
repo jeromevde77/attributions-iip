@@ -1366,6 +1366,69 @@ ${methodologie}
     setRapportHtml({ html, nom: nomRapport });
   }
 
+  /** Le rapport ETP en tableur : les mêmes lignes que la pièce, des NOMBRES
+      (et non du texte mis en forme) pour que la HELB et le CA puissent compter. */
+  function genererRapportEtpExcel(d, filtres) {
+    if (d.error) { alert(d.error); return; }
+    const sec = (d.sections || []).find(s => s.section === (filtres.section || ''));
+    if (!sec) { alert('Aucune donnée ETP pour cette section. Choisissez une section.'); return; }
+    const nivDe = u => { const m = String(u.ue_niv || '').match(/\d+/); return m ? `BA${m[0]}` : (u.ue_niv || 'Autres'); };
+    const contratDe = u => (u.etp_helb > 0 && u.etp_iip <= 0) ? 'HELB' : 'IIP';
+    const ct = u => (u.per_ct || 0) + (u.per_ct_helb || 0);
+    const pp = u => (u.per_pp || 0) + (u.per_pp_helb || 0);
+    const arr = (n, k = 4) => Math.round((n || 0) * 10 ** k) / 10 ** k;
+    const ordre = ['BA1', 'BA2', 'BA3', 'Autres'];
+    const parNiv = {};
+    for (const u of sec.ues) (parNiv[nivDe(u)] ||= []).push(u);
+    const niveaux = Object.keys(parNiv).sort((a, b) => ((ordre.indexOf(a) + 1) || 99) - ((ordre.indexOf(b) + 1) || 99));
+
+    const rows = [
+      [`Rapport de charge ETP — Section ${sec.section}`],
+      [`Année académique ${annee}`],
+      [],
+      ['Bloc', 'UE', 'Intitulé', 'ECTS', 'Contrat', 'Inscrits', 'Périodes CT', 'Périodes PP', 'Périodes', '% du bloc', 'ETP'],
+    ];
+    for (const niv of niveaux) {
+      const ues = parNiv[niv].sort((a, b) => String(a.ue_num).localeCompare(String(b.ue_num), 'fr', { numeric: true }));
+      const totalBloc = ues.reduce((t, u) => t + ct(u) + pp(u), 0);
+      let nEtp = 0;
+      for (const u of ues) {
+        const pt = ct(u) + pp(u);
+        nEtp += u.etp_total || 0;
+        rows.push([niv, u.ue_num, u.ue_nom || '', u.ects || '', contratDe(u),
+          u.nb_inscrits ?? '', ct(u), pp(u), pt, totalBloc > 0 ? Math.round(pt / totalBloc * 100) / 100 : '', arr(u.etp_total)]);
+      }
+      rows.push(['', '', `Sous-total ${niv}`, '', '', '', ues.reduce((t, u) => t + ct(u), 0), ues.reduce((t, u) => t + pp(u), 0), totalBloc, 1, arr(nEtp)]);
+      rows.push([]);
+    }
+    const coord = sec.etp_coord_helb || 0;
+    const nbEtus = (filtres.source_etudiants || 'auto') === 'auto' ? (sec.nb_etudiants || 0) : (parseInt(filtres.nb_etudiants_estimes) || 0);
+    const glob = (sec.etp_total || 0) + coord;
+    rows.push(['Synthèse']);
+    rows.push(['', '', 'Cours IIP (ETP)', '', '', '', '', '', '', '', arr(sec.etp_iip)]);
+    rows.push(['', '', 'Cours HELB (ETP)', '', '', '', '', '', '', '', arr(sec.etp_helb)]);
+    if (coord > 0) rows.push(['', '', 'Coordination HELB (ETP)', '', '', '', '', '', '', '', arr(coord)]);
+    rows.push(['', '', 'Charge globale (ETP)', '', '', '', '', '', '', '', arr(glob)]);
+    rows.push(['', '', 'Étudiants', '', '', '', '', '', '', '', nbEtus || '']);
+    if (nbEtus > 0 && glob > 0) rows.push(['', '', 'Ratio global (étu./ETP)', '', '', '', '', '', '', '', arr(nbEtus / glob, 1)]);
+    rows.push([]);
+    rows.push(['CT : périodes ÷ 800 · PP : périodes ÷ 1000']);
+
+    const ws = XLSX.utils.aoa_to_sheet(rows);
+    ws['!cols'] = [{ wch: 7 }, { wch: 6 }, { wch: 48 }, { wch: 6 }, { wch: 8 }, { wch: 9 }, { wch: 11 }, { wch: 11 }, { wch: 10 }, { wch: 9 }, { wch: 10 }];
+    // Formats : la part du bloc en pourcentage, l'ETP à quatre décimales.
+    const plage = XLSX.utils.decode_range(ws['!ref']);
+    for (let r = 4; r <= plage.e.r; r++) {
+      const p = ws[XLSX.utils.encode_cell({ r, c: 9 })]; if (p && typeof p.v === 'number') p.z = '0%';
+      const lib = String(ws[XLSX.utils.encode_cell({ r, c: 2 })]?.v || '');
+      const e = ws[XLSX.utils.encode_cell({ r, c: 10 })];
+      if (e && typeof e.v === 'number') e.z = /^(Étudiants|Ratio)/.test(lib) ? '0.0' : '0.0000';
+    }
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, `ETP ${sec.section}`.slice(0, 31));
+    XLSX.writeFile(wb, `${nomDoc('Rapport_ETP', sec.section, annee)}.xlsx`);
+  }
+
   function genererRapportExcel(d, filtres) {
     if (d.error) { alert(d.error); return; }
     const BLEU = '1B2B4B', TURQ = '00AACC', GRIS = 'F1F5F9', SOUS = 'E8EDF3', ZEBRE = 'F9FAFB';
@@ -1795,7 +1858,8 @@ ${methodologie}
             )}
             <button onClick={async () => {
                 const d = await def.fetch(annee, filtres);
-                def.grille ? genererGrilleExcel(d) : genererRapportExcel(d, filtres);
+                if (entite === 'rapport-etp') genererRapportEtpExcel(d, filtres);
+                else def.grille ? genererGrilleExcel(d) : genererRapportExcel(d, filtres);
               }}
               className="text-sm border border-emerald-500 text-emerald-700 hover:bg-emerald-50 px-3 py-2 rounded-lg font-medium flex items-center gap-1.5 border-l-4 border-l-emerald-500">
               <IconFileSpreadsheet size={16} /> Excel
