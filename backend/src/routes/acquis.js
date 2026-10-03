@@ -6441,6 +6441,14 @@ r.put('/deliberation/ue/:ueNum/seance', authRequired,
            president_nom || null, president_titre || null,
            cloturee ? 1 : 0, req.user?.email || null);
 
+    // La date de publication se pose à la clôture (aujourd'hui par défaut) et
+    // se corrige ensuite si les résultats ont été affichés un autre jour.
+    if (cloturee || req.body?.publie_le) {
+      db.prepare(`UPDATE deliberation_seance SET publie_le = COALESCE(?, publie_le, date('now'))
+        WHERE ue_num = ? AND annee_scolaire = ? AND session = ? AND num_organisation = ?`)
+        .run(req.body?.publie_le || null, ueNum, annee, session, org);
+    }
+
     // Une date de seconde session par cours.
     if (Array.isArray(session2_cours)) {
       const up = db.prepare(`
@@ -6568,14 +6576,6 @@ const STYLE_ENTETE_DELIB = `<style>
   /* La seconde session porte sa couleur : sur une pile de cinquante pièces,
      le titre seul ne distingue pas juin de septembre. */
   .delib-seance .delib-s2 { background: #fff4e6; border-color: #f59e0b; color: #9a3412; }
-    // La date de publication se pose à la clôture (aujourd'hui par défaut) et
-    // se corrige ensuite si les résultats ont été affichés un autre jour.
-    if (cloturee || req.body?.publie_le) {
-      db.prepare(`UPDATE deliberation_seance SET publie_le = COALESCE(?, publie_le, date('now'))
-        WHERE ue_num = ? AND annee_scolaire = ? AND session = ? AND num_organisation = ?`)
-        .run(req.body?.publie_le || null, ueNum, annee, session, org);
-    }
-
   .delib-seance .delib-total { background: #eef7ee; border-color: #4d9a5a; color: #1f5b2c; }
 </style>`;
 
