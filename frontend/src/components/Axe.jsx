@@ -189,8 +189,15 @@ export default function Axe({ titre, question, icone, onglets, ongletInitial,
     // qu'on est chez elle ou chez l'un d'eux (« Inscriptions & PAE », 4 octobre 2026).
     const rubrique = parCle.get(sm.key);
     if (rubrique && rubrique.onClick) {
-      const ouvertR = rubrique.actif || enfants.some(e => e.actif) || sousOuvert === sm.key;
-      parCle.set(sm.key, { ...rubrique, sous: ouvertR ? enfants : undefined });
+      // FERMÉ PAR DÉFAUT (Charles, 4 octobre 2026) : on arrive sur la rubrique
+      // sans le tiroir ; un clic sur elle, quand on y est déjà, l'ouvre ou le
+      // referme. Il reste ouvert tant qu'on travaille dans l'un de ses outils.
+      const ouvertR = enfants.some(e => e.actif) || sousOuvert === sm.key;
+      parCle.set(sm.key, { ...rubrique, sous: ouvertR ? enfants : undefined,
+        onClick: () => {
+          if (rubrique.actif) setSousOuvert(o => (o === sm.key ? null : sm.key));
+          else rubrique.onClick();
+        } });
       continue;
     }
     const ouvert = sousOuvert === sm.key || enfants.some(e => e.actif);
