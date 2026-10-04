@@ -30,6 +30,7 @@ import {
 } from '../lib/valorisation.js';
 import { gesteRequis, gesteAutorise } from '../lib/gestes.js';
 import { codeGroupe } from '../lib/groupes.js';
+import { peut as peutModule } from '../middleware/permissions.js';
 import { calculerDI, calculerDIS } from './droitInscription.js';
 import { rapprocher, normDate } from './importHistorique.js';
 import { lirePackUF } from '../lib/packUF.js';
@@ -1509,7 +1510,9 @@ function appliquerRenommages(req, ueNum, annee, cours, act, renommages) {
   return { lignes, etudiants };
 }
 function peutRenommer(req, res) {
-  if (gesteAutorise(req, 'attributions.modifier') !== 'oui') {
+  // Le geste ET le module : l'écran montre le crayon sur ces deux conditions,
+  // la porte les exige aussi — un secrétariat qui lit les attributions ne les renomme pas.
+  if (gesteAutorise(req, 'attributions.modifier') !== 'oui' || !peutModule(req.user, 'attributions', 'ecrire')) {
     res.status(403).json({ error: 'Renommer un groupe modifie les attributions : votre rôle ne le permet pas.' });
     return false;
   }
