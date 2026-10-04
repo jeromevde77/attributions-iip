@@ -26,7 +26,7 @@ export const DESTINATIONS = [
   { label: 'Aménagements raisonnables', axe: 'Étudiants', chemin: '/etudiants?onglet=amenagements', mots: 'amenagement raisonnable handicap besoins specifiques ar dys' },
   { label: 'Délibération', axe: 'Étudiants', chemin: '/etudiants?onglet=deliberation', mots: 'deliberation notes jury conseil seance pv proces verbal faveur ajournement refus' },
   { label: 'Procédures (recours, fraude, disciplinaire)', axe: 'Étudiants', chemin: '/etudiants?onglet=procedures', mots: 'recours fraude disciplinaire procedure plainte' },
-  { label: 'Présences', axe: 'Étudiants', chemin: '/etudiants?onglet=presences', mots: 'presences absences assiduite cep conge education' },
+  { label: 'Présences (Mes cours)', axe: 'Mes cours', chemin: '/mes-cours', mots: 'presences absences assiduite cep conge education' },
   // Personnel
   { label: 'Personnel — liste des membres', axe: 'Personnel', chemin: '/professeurs', mots: 'personnel professeurs enseignants membres fiche contrat' },
   { label: 'Besoins & offres', axe: 'Personnel', chemin: '/besoins', mots: 'besoins offres emploi vacants' },
@@ -44,7 +44,8 @@ export const DESTINATIONS = [
   { label: 'Horaires', axe: 'Organisation', chemin: '/organisation?onglet=horaire-semaine', mots: 'horaire semaine hyperplanning locaux seances' },
   { label: 'Effectifs et postes PNCC', axe: 'Organisation', chemin: '/organisation?onglet=effectifs', mots: 'effectifs statistiques pncc postes' },
   // Gestion
-  { label: 'Gestion — dotation, ETP, budget', axe: 'Gestion', chemin: '/gestion', mots: 'gestion dotation etp budget charge rapport efficience' },
+  { label: 'Gestion — dotation, budget, répartition des périodes', axe: 'Gestion', chemin: '/gestion', mots: 'gestion dotation budget repartition periodes document 2' },
+  { label: 'Chiffres de l’école — ETP, comparaison, résultats', axe: 'Accueil', chemin: '/accueil?onglet=reporting', mots: 'chiffres etp charge comparaison resultats distributions population reelle efficience' },
   // Documentation
   { label: 'Documentation et circulaires', axe: 'Documentation', chemin: '/documentation', mots: 'documentation aide circulaire reglement rde mode emploi' },
   { label: 'Conventions — registre, modèles, dépôt', axe: 'Documentation', chemin: '/documentation?vue=conventions', mots: 'convention stage cadre partenariat partenaire etablissement crea signer contresignee modele registre' },
@@ -58,7 +59,8 @@ export const DESTINATIONS = [
   { label: 'Modèles de pièces', axe: 'Configuration', chemin: '/configuration?onglet=editeur', mots: 'modeles pieces editeur template document' },
   { label: 'Pièces officielles (contrat, attestation, diplôme)', axe: 'Configuration', chemin: '/configuration?onglet=contrat', mots: 'contrat attestation diplome recrutement modele' },
   { label: 'Courriels', axe: 'Configuration', chemin: '/configuration?onglet=courriels', mots: 'courriels email smtp envoi signature' },
-  { label: 'Rôles et accès', axe: 'Configuration', chemin: '/configuration?onglet=roles', mots: 'roles acces droits gestes permissions utilisateurs comptes' },
+  { label: 'Réponses types', axe: 'Configuration', chemin: '/configuration?onglet=reponses-types', mots: 'reponses types phrases pre etablies modeles texte motivation' },
+  { label: 'Accès — rôles, gestes, comptes', axe: 'Configuration', chemin: '/configuration?onglet=roles', mots: 'roles acces droits gestes permissions utilisateurs comptes' },
   { label: 'Thèmes et couleurs', axe: 'Configuration', chemin: '/configuration?onglet=couleurs', mots: 'couleurs theme apparence' },
   { label: 'Sauvegardes', axe: 'Configuration', chemin: '/configuration?onglet=sauvegardes', mots: 'sauvegarde backup' },
   { label: 'Registre des envois', axe: 'Configuration', chemin: '/configuration?onglet=registre-envois', mots: 'envois registre courriels partis' },

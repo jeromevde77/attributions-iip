@@ -245,7 +245,7 @@ export default function Echeancier() {
             {!parMois.length && (
               <div className="bg-white border border-slate-200 rounded-xl p-8 text-center text-slate-500 text-sm">
                 Aucune échéance. Vérifiez que les dates des UE sont encodées
-                (Configuration → Paramétrage annuel → Dates des UE), puis cliquez sur « Régénérer ».
+                (Organisation → Planification → Dates des UE), puis cliquez sur « Régénérer ».
               </div>
             )}
             {parMois.map(([cle, items]) => (
