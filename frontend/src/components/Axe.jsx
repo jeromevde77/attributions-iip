@@ -177,11 +177,22 @@ export default function Axe({ titre, question, icone, onglets, ongletInitial,
     const enfants = (sm.enfants || []).map(e => {
       const present = parCle.get(e.key);
       if (present) return { ...present, label: e.label || present.label, icon: e.icone || present.icon };
+      // Une RUBRIQUE que le rôle ne voit pas ne revient pas par le tiroir.
+      if (onglets.some(o => o.key === e.key)) return null;
       // L'outil vit sur un autre écran : on l'ouvre, et il se lance.
       return { key: e.key, label: e.label, icon: e.icone, actif: false,
         onClick: () => { try { sessionStorage.setItem('lucie.outil', e.key); } catch { /* */ } setActif(sm.hote); } };
-    });
+    }).filter(Boolean);
     for (const e of sm.enfants || []) parCle.delete(e.key);
+    // UN SOUS-MENU QUI PORTE LA CLÉ D'UNE RUBRIQUE EST CETTE RUBRIQUE : elle
+    // garde son geste (ouvrir son écran) et déplie ses outils dessous dès
+    // qu'on est chez elle ou chez l'un d'eux (« Inscriptions & PAE », 4 octobre 2026).
+    const rubrique = parCle.get(sm.key);
+    if (rubrique && rubrique.onClick) {
+      const ouvertR = rubrique.actif || enfants.some(e => e.actif) || sousOuvert === sm.key;
+      parCle.set(sm.key, { ...rubrique, sous: ouvertR ? enfants : undefined });
+      continue;
+    }
     const ouvert = sousOuvert === sm.key || enfants.some(e => e.actif);
     parCle.set(sm.key, { key: sm.key, label: sm.label, icon: sm.icone, actif: false,
       onClick: () => setSousOuvert(o => (o === sm.key ? null : sm.key)),

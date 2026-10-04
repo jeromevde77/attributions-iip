@@ -177,7 +177,7 @@ const RUBRIQUES = [
     resume: "Composer, revoir et valider le programme annuel ; les reports de notes.",
     points: [
       { titre: "Revue des PAE — parcourir et valider",
-        ou: "Étudiants → rail → Revue des PAE (ou l'œil de la fiche, ou le crayon de la liste).",
+        ou: "Étudiants → Inscriptions & PAE → Revue des PAE (ou l'œil de la fiche, ou le crayon de la liste).",
         texte: "Les étudiants cochés, sinon la liste filtrée, l'un après l'autre. À gauche, le PAE de l'année cours "
              + "par cours ; à droite, le parcours. « Valider · étudiant suivant » enregistre et passe au suivant ; "
              + "« Précédent » et « Passer » ne valident rien.",
@@ -209,7 +209,7 @@ const RUBRIQUES = [
           "À partir de 2026-2027, une VA sans dossier est refusée : elle passe par la Valorisation des acquis.",
         ] },
       { titre: "Composer les PAE",
-        ou: "Étudiants → rail → Composer les PAE.",
+        ou: "Étudiants → Inscriptions & PAE → Composer le PAE (l'escalier).",
         texte: "Une ligne par étudiant, une colonne par UE de la section. Trois modes : « Composer », "
              + "« Encoder l'historique » (résultats d'une année passée), « Valider en groupe ». "
              + "« Passage à l'année suivante… » propose le programme d'après les résultats.",
@@ -220,7 +220,7 @@ const RUBRIQUES = [
           "L'épreuve intégrée n'est proposée qu'une fois tout le reste acquis.",
         ] },
       { titre: "Reports de notes (d'office)",
-        ou: "Étudiants → rail → Reports de notes.",
+        ou: "Étudiants → Inscriptions & PAE → Reports de notes.",
         texte: "Une UE refusée : chaque cours dont tous les acquis sont maîtrisés est dispensé l'année suivante, "
              + "avec ses notes. Lucie le fait seule à chaque PAE enregistré. Cet outil rattrape les PAE composés "
              + "avant : face « À poser », puis « Poser … report(s) » ; face « Déjà posés » pour relire.",
@@ -234,7 +234,7 @@ const RUBRIQUES = [
     resume: "Un circuit : demande, recevabilité, avis, séance du conseil, validation.",
     points: [
       { titre: "Le circuit",
-        ou: "Étudiants → Valorisation des acquis.",
+        ou: "Étudiants → Inscriptions & PAE → Valorisation des acquis (VA).",
         texte: "Trois portes, dans l'ordre : « 1 · Introduire des demandes », « 2 · Instruire en série », "
              + "« 3 · Séance du conseil ». Chaque demande suit cinq étapes : dates de la demande · recevabilité · "
              + "avis du chargé de cours · décision du Conseil · validation direction.",
@@ -288,7 +288,7 @@ const RUBRIQUES = [
     resume: "Demande, rapport, avis des chargés de cours, décision du Conseil.",
     points: [
       { titre: "Le registre",
-        ou: "Étudiants → Aménagements raisonnables.",
+        ou: "Étudiants → Inscriptions & PAE → Aménagements raisonnables (AR).",
         texte: "Les dossiers de l'année, filtrables par section et par état. « Créer un aménagement » : choisissez "
              + "l'étudiant ; son dossier de l'année s'ouvre, ou se crée. Chaque ligne ouvre la fiche sur l'onglet "
              + "Aménagements.",
@@ -427,7 +427,7 @@ const RUBRIQUES = [
     resume: "Diplôme, attestation provisoire, attestation de section, PV de section.",
     points: [
       { titre: "Produire les pièces de diplomation",
-        ou: "Étudiants → rail → Diplômes et titres (ouvre Éditions sur la famille « Diplômes et titres »).",
+        ou: "L'avion (Éditions) → famille « Diplômes et titres ».",
         texte: "Diplôme, attestation provisoire, attestation de réussite de section, liste des diplômés, PV de section.",
         savoir: [
           "L'année portée par ces pièces est celle de la réussite de l'épreuve intégrée (à défaut, de la dernière unité acquise), pas l'année choisie à l'écran.",

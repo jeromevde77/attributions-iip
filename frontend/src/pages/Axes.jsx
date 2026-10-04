@@ -102,8 +102,7 @@ export function AxeEtudiants() {
        * le PAE suivant), on instruit (valorisation, délibération), on délivre
        * (diplômes) — puis l'exception (procédures), puis ce qui efface. */
       ordreRail={[
-        ['nouvel-etudiant', 'controles-dossiers', 'pae', 'parcours', 'amenagements', 'deliberation',
-         'diplomation'],
+        ['nouvel-etudiant', 'controles-dossiers', 'pae', 'deliberation'],
         ['procedures'],
         ['purge'],
       ]}
@@ -114,12 +113,18 @@ export function AxeEtudiants() {
          écrans ont été écrits oblige chacun à retenir une liste ; rangé dans
          l'ordre du travail, il ne se retient pas, il se suit. */
       /* LE PARCOURS, UN SOUS-MENU (Charles, 2 octobre 2026). */
-      sousMenus={[{ key: 'parcours', label: 'Parcours', icone: IconStairsUp, hote: 'pae',
+      /* TOUT LE PARCOURS SOUS « INSCRIPTIONS & PAE » (Charles, 4 octobre
+         2026). Le sous-menu « Parcours » vivait à côté de la rubrique qu'il
+         servait ; il s'ouvre désormais SOUS elle — composer le PAE (l'escalier),
+         la revue, les reports de notes, la valorisation, les aménagements. Le
+         tiroir est ouvert dès qu'on est dans l'un d'eux. */
+      sousMenus={[{ key: 'pae', label: 'Inscriptions & PAE', icone: IconClipboardList, hote: 'pae',
         enfants: [
-          { key: 'passage', label: 'Composer les PAE', icone: IconTablePlus },
+          { key: 'passage', label: 'Composer le PAE', icone: IconStairsUp },
           { key: 'revue-pae', label: 'Revue des PAE', icone: IconEyeCheck },
           { key: 'reports', label: 'Reports de notes', icone: IconArrowForwardUp },
-          { key: 'valorisation', label: 'Valorisation des acquis', icone: IconCertificate },
+          { key: 'valorisation', label: 'Valorisation des acquis (VA)', icone: IconCertificate },
+          { key: 'amenagements', label: 'Aménagements raisonnables (AR)', icone: IconAccessible },
         ] }]}
       onglets={[
         { key: 'pae', module: 'etudiants', label: 'Inscriptions & PAE', icone: IconClipboardList,

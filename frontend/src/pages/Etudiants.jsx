@@ -4015,8 +4015,8 @@ export default function Etudiants() {
       // « Valider les PAE » n'a plus d'entrée à lui (Charles, 26 septembre
       // 2026 : « il est dans la fenêtre PAE ») : Valider est un des modes de
       // la fenêtre Composer les PAE.
-      { key: 'diplomation', label: 'Diplômes et titres', icon: IconAward,
-        onClick: () => setDiplomation(true) },
+      // « Diplômes et titres » a quitté le rail (Charles, 4 octobre 2026 :
+      // « c'est dans Éditions ») : il s'ouvre par l'avion, face Diplômes et titres.
     ] },
     // TOUT CE QUI ENTRE ET TOUT CE QUI SORT, DERRIÈRE UNE PORTE.
     // Le rail alignait huit imports dont quatre parlaient de « classeur » sans
