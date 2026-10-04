@@ -75,16 +75,25 @@ async function appel(url, opts = {}) {
 /** Le genre d'un dossier, tel que le registre le nomme. */
 function genre(d) {
   if (d.type === 'recours') return 'recours';
-  return d.nature === 'fraude' ? 'fraude' : 'discipline';
+  return 'disciplinaire';
 }
+/* DEUX TYPES, ET PAS UN DE PLUS (Charles, 3 et 4 octobre 2026 : « c'est soit
+   un recours, soit disciplinaire ; la fraude fait partie du disciplinaire »).
+   La fraude est une NATURE : elle s'écrit en mention grise, elle ne se colore pas. */
 const GENRES = {
-  recours:    { label: 'Recours',    etat: 'disponible', icone: IconScale },
-  fraude:     { label: 'Fraude',     etat: 'surveiller', icone: IconShieldExclamation },
-  discipline: { label: 'Discipline', etat: 'corriger',   icone: IconShieldExclamation },
+  recours:       { label: 'Recours',       etat: 'disponible', icone: IconScale },
+  disciplinaire: { label: 'Disciplinaire', etat: 'corriger',   icone: IconShieldExclamation },
 };
 function PastilleType({ dossier }) {
   const g = GENRES[genre(dossier)];
-  return <PastilleEtat etat={g.etat}>{g.label}</PastilleEtat>;
+  return (
+    <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
+      <PastilleEtat etat={g.etat}>{g.label}</PastilleEtat>
+      {dossier.type === 'disciplinaire' && (
+        <span className="text-[11px] text-slate-500">{dossier.nature === 'fraude' ? 'fraude' : 'comportement'}</span>
+      )}
+    </span>
+  );
 }
 
 const MODES_REMISE = [['main_propre', 'Remise en main propre'], ['recommande', 'Recommandé']];
@@ -315,7 +324,7 @@ function Registre({ annee, peutOuvrir, onOuvrir, onChoisir }) {
             value={q} onChange={e => setQ(e.target.value)} />
         </div>
         <Segments valeur={filtreType} onChange={setFiltreType}
-          options={[['tous', 'Tous'], ['recours', 'Recours'], ['fraude', 'Fraude'], ['discipline', 'Discipline']]} />
+          options={[['tous', 'Tous'], ['recours', 'Recours'], ['disciplinaire', 'Disciplinaire']]} />
         <select className="controle" value={section} onChange={e => setSection(e.target.value)}>
           <option value="">Toutes les sections</option>
           {sections.map(s => <option key={s} value={s}>{s}</option>)}
@@ -675,7 +684,7 @@ function Dossier({ id, ref_, onRetour }) {
       {/* En-tête */}
       <div className="carte p-4 mb-3">
         <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-          <PastilleEtat etat={g.etat}>{d.type === 'recours' ? 'Recours interne' : d.nature === 'fraude' ? 'Fraude' : 'Discipline — comportement'}</PastilleEtat>
+          <PastilleType dossier={d} />
           <h1 className="titre-ecran mb-0">{nomPropre(d.etudiant?.nom, d.etudiant?.prenom)}</h1>
           <span className="text-[13px] text-slate-500">
             {[d.section, d.ue_num ? `UE ${d.ue_num}${d.ue_nom ? ` · ${d.ue_nom}` : ''}` : null,

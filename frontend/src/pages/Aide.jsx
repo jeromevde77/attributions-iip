@@ -372,11 +372,11 @@ const RUBRIQUES = [
   },
   {
     id: 'procedures', titre: 'Recours et discipline', Icone: IconShieldExclamation,
-    resume: "Recours contre un refus, fraude et procédure disciplinaire, selon le RDE 2026-2027.",
+    resume: "Recours contre un refus, ou procédure disciplinaire (dont la fraude), selon le RDE 2026-2027.",
     points: [
       { titre: "Le registre",
         ou: "Étudiants → Procédures.",
-        texte: "Tous les dossiers de l'année : recours, fraude, discipline. Pour chacun, l'étudiant, la section et "
+        texte: "Tous les dossiers de l'année, de deux types : RECOURS, ou DISCIPLINAIRE — la fraude est une procédure disciplinaire, marquée « fraude ». Pour chacun, l'étudiant, la section et "
              + "l'unité, l'étape en cours et la prochaine échéance légale, en couleur : fraise si elle est dépassée "
              + "ou à trois jours, orange dans la semaine. Les dossiers d'avant le 3 octobre 2026 restent lisibles "
              + "sous « Anciens dossiers ».",
@@ -385,7 +385,7 @@ const RUBRIQUES = [
         ] },
       { titre: "Ouvrir un dossier",
         ou: "Procédures → « Ouvrir un dossier ».",
-        texte: "On choisit l'étudiant, puis le type, puis l'unité parmi SES unités de l'année, avec leur décision. "
+        texte: "On choisit l'étudiant, puis le type — Recours ou Disciplinaire, et pour ce dernier la nature : comportement ou fraude —, puis l'unité parmi SES unités de l'année, avec leur décision. "
              + "Lucie remplit le reste : section, session, chargés de cours, président de la séance.",
         savoir: [
           "Un recours ne vise qu'un REFUS (RDE art. 87). Un ajournement ou une décision de valorisation se motive, mais ne se conteste pas : ces unités sont grisées.",
