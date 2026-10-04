@@ -18,8 +18,8 @@ import { authRequired, roleRequired } from '../middleware/auth.js';
 import { gesteRequis, gesteAutorise } from '../lib/gestes.js';
 import { capacitePdf, rendrePdf } from '../services/pdf.js';
 import { preparerPourCourriel, variableImage } from '../lib/courrielPiece.js';
-import { nouvelleReference } from '../services/filigrane.js';
-import { protegerSignature } from '../lib/protectionSignature.js';
+import { nouvelleReference, signatureFiligranee } from '../services/filigrane.js';
+import { protegerSignature, jourDuJour } from '../lib/protectionSignature.js';
 import { getParam } from './parametres.js';
 import { envoyerEmail, mailerConfigure, lireConfigSmtp, ecrireConfigSmtp, verifierSmtp } from '../services/mailer.js';
 
@@ -99,7 +99,23 @@ const empreinte = buf => createHash('sha256').update(buf).digest('hex');
  *  la même protection que le PDF et l'aperçu). */
 async function signer(html, { sujet, destinataire, jour, reference }) {
   const r = await protegerSignature(html, { piece: sujet, destinataire, jour, reference });
-  return { htmlSigne: r.htmlSigne, filigrane: r.filigrane };
+  /* L'ATTESTATION ARRIVAIT SANS SIGNATURE (3.1.33, Charles, 4 octobre 2026 :
+     « pas reçu la signature »). Une pièce de l'enveloppe des attestations est
+     déjà protégée par ses vagues de micro-texte : protegerSignature n'y
+     superpose rien, et rend `filigrane: null`. Mais le COURRIEL ne sait pas
+     dessiner ces vagues — il reconstruit le bloc de signature à partir du seul
+     fac-similé, et, sans lui, n'y mettait qu'un trait et « Original signé ».
+     Pour le courriel, le fac-similé de cet envoi se fabrique donc quand même ;
+     la pièce elle-même (PDF joint) garde sa propre protection, inchangée. */
+  let filigrane = r.filigrane;
+  const nue = !filigrane && String(html).includes('class="filigrane-cloture"') ? variableImage(html, 'paraphe') : null;
+  if (nue) {
+    try {
+      filigrane = await signatureFiligranee(nue, { piece: sujet || 'Document', destinataire,
+        date: jour || jourDuJour(), reference: reference || r.reference || nouvelleReference() });
+    } catch { filigrane = null; }
+  }
+  return { htmlSigne: r.htmlSigne, filigrane };
 }
 
 const ADRESSE_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
