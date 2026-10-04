@@ -240,20 +240,10 @@ function TiroirRail({ children }) {
      * au-dessus. */
     <div className="relative grid transition-[grid-template-rows] duration-300 ease-ios"
       style={{ gridTemplateRows: ouvert ? '1fr' : '0fr' }}>
-      {/* LE FILET SE VOIT, OU IL NE SERT À RIEN.
-       * La pastille de l'icône active passait PAR-DESSUS : posée au bord, elle
-       * recouvrait le repère précisément sur la ligne qu'on regarde — celle où
-       * l'on vient de cliquer. Un repère masqué par ce qu'il repère ne repère
-       * plus rien.
-       * Le filet va donc au bord même du panneau, et le contenu du tiroir se
-       * décale de six pixels. Ce retrait ne fait pas que dégager la place : il
-       * DIT quelque chose — les icônes en retrait appartiennent au bloc que le
-       * filet délimite, et cela se lit sans avoir à suivre la ligne du regard. */}
-      <span aria-hidden="true"
-        className="absolute left-0 top-1 bottom-1 w-[2px] rounded-full
-                   pointer-events-none transition-opacity duration-300"
-        style={{ background: 'var(--menu-accent)', opacity: ouvert ? 1 : 0 }} />
-      <div className="overflow-hidden pl-1.5">{children}</div>
+      {/* LE FILET VERTICAL EST RETIRÉ (3.1.28, Charles, 4 octobre 2026 :
+       * « enlève la barre le long du sous-menu »), et avec lui le retrait de
+       * six pixels qu'il imposait aux icônes. */}
+      <div className="overflow-hidden">{children}</div>
     </div>
   );
 }
