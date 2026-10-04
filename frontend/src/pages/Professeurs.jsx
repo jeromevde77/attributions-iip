@@ -4,7 +4,7 @@ import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
 import { calculHELB, estHELB } from '../lib/helb.js';
 import { nomPropre, nomDepuisChaine } from '../lib/nom.js';
 import { useNavigate } from 'react-router-dom';
-import { api, getAnnee, getUser, nomDoc } from '../lib/api.js';
+import { api, getAnnee, getUser, nomDoc, authHeaders } from '../lib/api.js';
 import ProfFicheModal from './ProfFicheModal.jsx';
 import PreviewModal from '../components/PreviewModal.jsx';
 import CoursEditModal from '../components/CoursEditModal.jsx';
@@ -1453,6 +1453,17 @@ export default function Professeurs({ vue: vueInitiale = 'membres' }) {
   const [fStatut, setFStatut] = useState('');     // '' | CC | EXP (Nicolas, 27 septembre 2026)
   const [fCharge, setFCharge]   = useState('');   // '' | avec | sans
   const [fSection, setFSection] = useState('');   // '' | code section
+  /* LE FILTRE « FONCTION » (3.1.32, Charles, 4 octobre 2026) remplace la page
+     Configuration → Fonctions : les fonctions se règlent sur la fiche (onglet
+     Fonctions), et se LISENT ici — qui est secrétaire, qui coordonne TIM. */
+  const [fFonction, setFFonction] = useState('');
+  const [missions, setMissions] = useState(null);   // [{ professeur_id, fonction, section_code }]
+  useEffect(() => {
+    fetch(`/api/ref/personnel-fonctions-annee?annee=${encodeURIComponent(getAnnee())}`, { headers: authHeaders() })
+      .then(r => (r.ok ? r.json() : null)).then(d => setMissions(Array.isArray(d) ? d : null)).catch(() => setMissions(null));
+  }, []);
+  const fonctionsListe = useMemo(() => [...new Set((missions || []).map(m => m.fonction).filter(Boolean))]
+    .sort((a, b) => a.localeCompare(b, 'fr')), [missions]);
   const [fAnc, setFAnc]         = useState(false); // avec ancienneté
   const [showSansCharge, setShowSansCharge] = useState(false); // volet "à zéro" fermé par défaut
   const [loading, setLoading] = useState(true);
@@ -2045,6 +2056,13 @@ export default function Professeurs({ vue: vueInitiale = 'membres' }) {
     if (fCharge === 'sans') arr = arr.filter(p => charge(p) === 0);
     // Filtre section : le prof a une attribution dans cette section
     if (fSection) arr = arr.filter(p => (p.sections_annee || '').split(',').map(s=>s.trim()).includes(fSection));
+    // Filtre fonction : la personne tient cette fonction cette année (dans la section choisie, s'il y en a une).
+    if (fFonction && missions) {
+      const ids = new Set(missions.filter(m => m.fonction === fFonction
+        && (!fSection || !m.section_code || m.section_code === fSection || m.section_code === '__ETAB__'))
+        .map(m => m.professeur_id));
+      arr = arr.filter(p => ids.has(p.id));
+    }
     // Filtre ancienneté
     if (fAnc) arr = arr.filter(p => (Number(p.anciennete_25_26_po) || 0) > 0);
 
@@ -2066,7 +2084,7 @@ export default function Professeurs({ vue: vueInitiale = 'membres' }) {
       });
     }
     return arr;
-  }, [profs, sortBy, search, fContrat, fStatut, fCharge, fSection, fAnc]);
+  }, [profs, sortBy, search, fContrat, fStatut, fCharge, fSection, fAnc, fFonction, missions]);
 
   // Séparation : profs avec charge (affichés) / sans charge (volet repliable)
   const avecCharge = useMemo(() => filtered.filter(p => charge(p) > 0), [filtered]);
@@ -2288,6 +2306,14 @@ export default function Professeurs({ vue: vueInitiale = 'membres' }) {
             <option value="">Toutes sections</option>
             {sectionsListe.map(s => <option key={s} value={s}>{s}</option>)}
           </select>
+          {fonctionsListe.length > 0 && (
+            <select value={fFonction} onChange={e => setFFonction(e.target.value)}
+              title="Qui tient cette fonction cette année — elle se règle sur la fiche, onglet Fonctions"
+              className="border border-gray-300 rounded-lg px-2 py-1.5 h-9 text-sm focus:outline-none focus:border-iip-gold">
+              <option value="">Toutes fonctions</option>
+              {fonctionsListe.map(f => <option key={f} value={f}>{f}</option>)}
+            </select>
+          )}
           {/* UN FILTRE N'EST PAS UNE DESTINATION.
               Le contrat et la charge occupaient sept icônes du rail — sept
               places prises, dans un rail où chaque icône doit se mériter, pour
@@ -2317,8 +2343,8 @@ export default function Professeurs({ vue: vueInitiale = 'membres' }) {
             <input type="checkbox" checked={fAnc} onChange={e => setFAnc(e.target.checked)} />
             Avec ancienneté
           </label>
-          {(fContrat || fStatut || fCharge || fSection || fAnc) && (
-            <button onClick={() => { setFContrat(''); setFStatut(''); setFCharge(''); setFSection(''); setFAnc(false); }}
+          {(fContrat || fStatut || fCharge || fSection || fAnc || fFonction) && (
+            <button onClick={() => { setFContrat(''); setFStatut(''); setFCharge(''); setFSection(''); setFAnc(false); setFFonction(''); }}
               className="text-xs text-gray-500 hover:text-gray-700 underline">Réinitialiser</button>
           )}
           {selection.size > 0 && (

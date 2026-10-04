@@ -1937,6 +1937,16 @@ r.get('/personnel-fonctions/:profId', authRequired, soiSeul(), (req, res) => {
 
 // ── Missions avec périodes pour une section ─────────────────────────────────
 // GET /personnel-missions?section=TIM&annee=2026-2027
+/* TOUTES LES FONCTIONS DE L'ANNÉE, toutes sections (3.1.32) : le filtre
+   « Fonction » de la liste du Personnel. La page Configuration → Fonctions est
+   retirée — une seule porte pour régler, la fiche ; une liste pour voir. */
+r.get('/personnel-fonctions-annee', authRequired, soiSeul({ ensemble: true }), (req, res) => {
+  const annee = String(req.query.annee || '').trim();
+  if (!annee) return res.status(400).json({ error: 'annee requise' });
+  res.json(db.prepare(`SELECT professeur_id, fonction, section_code FROM personnel_mission
+    WHERE annee_scolaire = ? ORDER BY fonction`).all(annee));
+});
+
 r.get('/personnel-missions', authRequired, soiSeul({ ensemble: true }), (req, res) => {
   const { section, annee } = req.query;
   if (!section || !annee) return res.status(400).json({ error: 'section et annee requis' });
