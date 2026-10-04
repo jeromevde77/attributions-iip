@@ -656,8 +656,12 @@ export function RailDessine({ icon: HeaderIcon, titre, sousTitre, extra, surAccu
                     qui reste juste quand une entrée s'ajoute. */}
                 {it.sous?.length > 0 && (
                   <TiroirRail key={`sous-${it.key}`}>
-                      <div className={`${epingle ? 'mx-2' : 'w-5 mx-auto'} my-1 border-t`}
-                        style={{ borderColor: 'var(--menu-sous-filet)' }} />
+                    {/* LE PLATEAU (3.1.29, Charles, 4 octobre 2026 : « plateau,
+                        mais même largeur que les icônes ») : les rubriques
+                        dépliées posent sur un fond arrondi, exactement de la
+                        largeur d'une case — ni filet, ni retrait. */}
+                    <div className={`${epingle ? '' : 'w-9 mx-auto'} my-1 py-0.5 rounded-carte`}
+                      style={{ background: 'var(--menu-plateau)' }}>
                       {it.sous.map(sv => {
                         const Sc = sv.icon;
                         return (
@@ -698,6 +702,7 @@ export function RailDessine({ icon: HeaderIcon, titre, sousTitre, extra, surAccu
                           </button>
                         );
                       })}
+                    </div>
                   </TiroirRail>
                 )}
                 </div>
