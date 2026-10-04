@@ -290,7 +290,7 @@ export default function RepartitionCours() {
       const j = await r.json().catch(() => ({}));
       if (!r.ok) throw new Error(j.error || `Erreur ${r.status}`);
       await ouvrirUE(ueNum);
-    } catch (e) { setErreur(e.message); }
+    } catch (e) { await informer(`Le groupe n'a pas été renommé : ${e.message}`); }
   }
   async function renumeroter(c, mode) {
     setRenum(null);
@@ -310,7 +310,7 @@ export default function RepartitionCours() {
       if (!(await demander(`Renommer les groupes de ${c.cours_code}${c.activite_libelle ? ` · ${c.activite_libelle}` : ''} ?\n\n${liste}\n\nLes lignes d'attribution sont renommées et les étudiants placés suivent leur groupe.`))) return;
       await appel({});
       await ouvrirUE(ueNum);
-    } catch (e) { setErreur(e.message); }
+    } catch (e) { await informer(`Le groupe n'a pas été renommé : ${e.message}`); }
   }
 
   async function chargerClasseur(f) {
