@@ -21,6 +21,20 @@ import AvisAmenagementProf from '../components/AvisAmenagementProf.jsx';
  * coordination la reprend dans l'encodage officiel. L'écran le dit, pour que
  * personne ne croie son travail terminé à sa place.
  */
+/* ALLER À UN BLOC SANS FAIRE SAUTER L'ÉCRAN (Charles, 4 octobre 2026 : « quand
+   je clique sur VA, l'écran bouge »). scrollIntoView collait le bloc en haut de
+   la fenêtre, SOUS la barre collante (et le bandeau d'aperçu) : toute la page
+   glissait. On s'arrête sous la barre, et l'on ne bouge pas si le bloc est déjà
+   à l'écran. */
+function allerA(id) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  const barre = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--barre-h')) || 64;
+  const r = el.getBoundingClientRect();
+  if (r.top >= barre && r.top < window.innerHeight - 80) return;
+  window.scrollTo({ top: window.scrollY + r.top - barre - 16, behavior: 'smooth' });
+}
+
 export default function MesCours() {
   /* L'ANNÉE SE CHOISIT ICI (Charles, 26 septembre 2026 : « on a importé 61
      étudiants pour le stage B1 en 25-26, et ils sont 155 dans la liste de
@@ -119,9 +133,9 @@ export default function MesCours() {
         { key: 'liste', label: 'Mes cours', icon: IconBooks, actif: !ouvert,
           onClick: () => { setOuvert(null); setFeuille(null); } },
         { key: 'avis-va', label: 'Avis de valorisation', icon: IconCertificate,
-          onClick: () => { setOuvert(null); setFeuille(null); setTimeout(() => document.getElementById('avis-va')?.scrollIntoView({ behavior: 'smooth' }), 50); } },
+          onClick: () => { setOuvert(null); setFeuille(null); setTimeout(() => allerA('avis-va'), 50); } },
         { key: 'avis-ar', label: 'Aménagements raisonnables', icon: IconAccessible,
-          onClick: () => { setOuvert(null); setFeuille(null); setTimeout(() => document.getElementById('avis-ar')?.scrollIntoView({ behavior: 'smooth' }), 50); } },
+          onClick: () => { setOuvert(null); setFeuille(null); setTimeout(() => allerA('avis-ar'), 50); } },
         ...(ouvert ? [
           { key: 'notes', label: 'Notes du cours', icon: IconPencil, actif: face === 'notes', onClick: () => setFace('notes') },
           { key: 'presences', label: 'Présences', icon: IconUserCheck, actif: face === 'presences', onClick: () => setFace('presences') },
