@@ -57,7 +57,7 @@ export function poserGris(jeu) {
   const echelle = echelleGris(jeu);
   for (const n of Object.keys(MELANGE)) racine.style.removeProperty(`--gris-${n}`);
   if (echelle) { delete racine.dataset.gris; for (const [k, v] of Object.entries(echelle)) racine.style.setProperty(k, v); }
-  else if (jeu === 'neutre') racine.dataset.gris = 'neutre';
+  else if (jeu === 'neutre' || jeu === 'apple') racine.dataset.gris = jeu;
   else delete racine.dataset.gris;
 }
 

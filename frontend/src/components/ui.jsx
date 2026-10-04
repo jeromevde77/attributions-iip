@@ -578,6 +578,7 @@ export function RailDessine({ icon: HeaderIcon, titre, sousTitre, extra, surAccu
                    survol, bleu pour la rubrique ouverte). */
                 <div key={it.key}
                   className={`relative ${it.sous?.length > 0 ? `${epingle ? '' : 'w-9 mx-auto'} rounded-carte mb-0.5` : ''}`}
+                  data-plateau={it.sous?.length > 0 ? '1' : undefined}
                   style={it.sous?.length > 0 ? { background: 'var(--menu-plateau)' } : undefined}>
                 <button key={it.key} onClick={it.onClick} aria-label={it.label}
                   onMouseEnter={e => !epingle && surviser(e, it.label)}
@@ -598,9 +599,9 @@ export function RailDessine({ icon: HeaderIcon, titre, sousTitre, extra, surAccu
                     ${epingle
                       ? 'w-full items-start gap-3 py-2 px-2.5 rounded-fenetre'
                       : 'w-9 h-9 mx-auto items-center justify-center rounded-carte'}
-                    ${it.sous?.length > 0 ? 'font-semibold' : it.actif ? 'font-semibold ring-1 ring-inset' : 'hover:shadow-pose'}`}
+                    ${it.sous?.length > 0 ? 'hover:[--ic:var(--menu-texte)] hover:text-[color:var(--menu-texte)]' : it.actif ? 'font-semibold ring-1 ring-inset' : 'hover:shadow-pose'}`}
                   style={it.sous?.length > 0
-                    ? { color: 'var(--menu-texte)' }
+                    ? { color: 'var(--menu-texte-doux)' }
                     : it.actif
                     ? { background: 'var(--menu-actif)', color: 'var(--menu-texte)',
                         '--tw-ring-color': 'var(--menu-actif-bord)' }
@@ -628,7 +629,7 @@ export function RailDessine({ icon: HeaderIcon, titre, sousTitre, extra, surAccu
                        Le donner aussi à celle qui « porte » le tiroir peignait
                        une icône au hasard — la dernière de l'axe. */
                     <Ic size={19} stroke={1.8} className="flex-shrink-0"
-                      style={it.sous?.length > 0 ? { color: 'var(--menu-texte)' }
+                      style={it.sous?.length > 0 ? { color: 'var(--ic, var(--menu-icone))' }
                         : it.actif ? { color: 'var(--menu-accent)' }
                         : { color: it.couleur || 'var(--menu-icone)' }} />
                   ) : (
@@ -689,6 +690,13 @@ export function RailDessine({ icon: HeaderIcon, titre, sousTitre, extra, surAccu
                               ? { color: 'var(--menu-texte)', '--ic': 'var(--menu-accent)' }
                               : { color: 'var(--menu-texte-doux)' }}
                             data-case-rail={epingle ? undefined : '1'}>
+                            {/* LA RUBRIQUE OUVERTE : son icône en bleu, et un
+                                petit trait bleu au bord du plateau, en face d'elle
+                                (proposition 2, Charles, 4 octobre 2026). */}
+                            {sv.actif && (
+                              <span aria-hidden="true" className="absolute left-0 top-1/2 -translate-y-1/2 w-[2.5px] h-3.5 rounded-full"
+                                style={{ background: 'var(--menu-accent)' }} />
+                            )}
                             {Sc ? (
                               /* GRISES, COMME CELLES DU DESSUS.
                                  Les peindre toutes en bleu faisait du sous-menu

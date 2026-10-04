@@ -2384,6 +2384,17 @@ const THEMES = [
   { cle: 'vif', nom: 'Gris clair et vif', texte: 'Gris neutre ; états plus francs, plus gais.', gris: 'neutre',
     valeurs: { fond_page: '#F4F5F7', fond_indispo: '#ECEEF1', reussi: '#2F9A5B', faveur: '#7C3AED',
                disponible: '#3478D4', attente: '#D97706', refuse: '#C2412D' } },
+  /* GRIS APPLE (3.1.31, Charles, 4 octobre 2026 : « un thème dans les tons
+     de gris… Apple »). Les gris système d'Apple, un texte presque noir, le
+     bleu d'Apple pour seule couleur d'action, et ses couleurs d'état dans leur
+     version lisible sur blanc. Les repères du logo (BA1 jaune, BA2 cyan)
+     restent : ce sont les repères de la maison. */
+  { cle: 'apple', nom: 'Gris Apple', texte: 'Gris système d’Apple, texte noir, bleu Apple.', gris: 'apple',
+    valeurs: { principal: '#1D1D1F', accent: '#0071E3', texte: '#1D1D1F', donnees: '#0071E3', menu_sombre: '#1C1C1E',
+               iip: '#1D1D1F', helb: '#D14F8A', ct: '#0071E3', pp: '#248A3D',
+               reussi: '#248A3D', faveur: '#8944AB', disponible: '#0071E3', attente: '#C93400', refuse: '#D70015',
+               ba1: '#F9B619', ba2: '#05B7E6', ba3: '#3A3A3C', epreuve: '#C9A227',
+               fond_page: '#F5F5F7', fond_indispo: '#E8E8ED' } },
 ];
 const GROUPES_COULEURS = [
   ['ecran', 'L’écran', 'Tout ce qui n’est pas un état : le bouton principal, l’accent, le texte, les données, les menus sombres.'],
@@ -2495,7 +2506,7 @@ function ReglageCouleurs() {
               </span>
             </span>
             <div className="segments h-8">
-              {[['ardoise', 'Ardoise'], ['neutre', 'Neutre']].map(([k, l]) => (
+              {[['ardoise', 'Ardoise'], ['neutre', 'Neutre'], ['apple', 'Apple']].map(([k, l]) => (
                 <button key={k} type="button" onClick={() => changer(() => setGris(k))}
                   className={`px-3 text-[12px] ${gris === k ? 'bg-iip-blue text-white font-semibold' : 'text-slate-600 hover:bg-slate-50'}`}>
                   {l}
