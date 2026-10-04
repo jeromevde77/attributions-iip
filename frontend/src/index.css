@@ -18,6 +18,14 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--c-principal); 
   --gris-400: 148 163 184; --gris-500: 100 116 139; --gris-600: 71 85 105; --gris-700: 51 65 85;
   --gris-800: 30 41 59; --gris-900: 15 23 42; --gris-950: 2 6 23;
 }
+/* « APPLE » (3.1.31, Charles, 4 octobre 2026 : « un choix dans les gris…
+ * Apple ») : les gris système d'Apple, de #F5F5F7 à #1C1C1E — neutres, à
+ * peine froids, sans le bleu de l'ardoise. */
+[data-gris="apple"] {
+  --gris-50: 245 245 247; --gris-100: 242 242 247; --gris-200: 229 229 234; --gris-300: 209 209 214;
+  --gris-400: 174 174 178; --gris-500: 142 142 147; --gris-600: 99 99 102; --gris-700: 72 72 74;
+  --gris-800: 58 58 60; --gris-900: 44 44 46; --gris-950: 28 28 30;
+}
 [data-gris="neutre"] {
   --gris-50: 247 247 248; --gris-100: 242 242 244; --gris-200: 229 230 233; --gris-300: 209 211 216;
   --gris-400: 156 160 168; --gris-500: 110 114 122; --gris-600: 82 86 94; --gris-700: 60 63 70;
@@ -509,6 +517,7 @@ table.grid-excel-soft select:focus {
   --menu-sous:        #3E7FB8;
   --menu-sous-filet:  rgba(62, 127, 184, 0.34);
   --menu-sous-actif:  rgba(62, 127, 184, 0.12);
+  --menu-plateau:     rgb(var(--c-texte-rgb) / 0.06);   /* le fond du tiroir déplié */
   --barre-fond:       var(--c-fond_page, #FFFFFF);   /* le fond de la page : la barre s'y fond aussi */
   --champ-fond:       #FFFFFF;
   --tab-repere:       var(--c-fond_page, #FFFFFF);   /* le fond de la page : le filet suffit à démarquer */
@@ -536,6 +545,7 @@ table.grid-excel-soft select:focus {
   --menu-sous:        #7FB6E8;
   --menu-sous-filet:  rgba(127, 182, 232, 0.38);
   --menu-sous-actif:  rgba(127, 182, 232, 0.16);
+  --menu-plateau:     rgba(255, 255, 255, 0.07);
   --barre-fond:       var(--c-menu_sombre);
   --champ-fond:       rgba(255,255,255,.08);
   --tab-repere:       rgba(255,255,255,.04);
@@ -749,6 +759,12 @@ main:not(:has(> .gouttiere-rail)) {
   background: var(--menu-actif);
   box-shadow: inset 0 0 0 1px var(--menu-actif-bord);
   color: var(--menu-texte);
+}
+/* DANS LE PLATEAU, AUCUNE COUCHE (3.1.31) : le survol ne pose ni case
+   blanche ni contour — seule l'icône change de couleur. */
+[data-plateau] [data-case-rail]:hover {
+  background: transparent;
+  box-shadow: none;
 }
 
 /* ═══ LES ONGLETS D'UN MÊME OBJET ═════════════════════════════════════════

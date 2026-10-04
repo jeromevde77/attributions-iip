@@ -1,11 +1,10 @@
 import { ICONE_AXE } from '../lib/iconesAxes.js';
-import { useDeclarerSousMenu } from '../lib/sousMenu.js';
 import { useEffect, useState, lazy, Suspense } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { api, getAnnee, setAnnee as setAnneeActive, getUser } from '../lib/api.js';
 import { ORIGINE, chargerCouleurs, echelleGris, poser as poserCouleurs, poserGris, variables as variablesCouleurs } from '../lib/couleurs.js';
 import Audit from './Audit.jsx';
-import { IconAdjustments, IconAward, IconBooks, IconBuilding, IconCalendar, IconCalendarEvent, IconChartBar, IconCheck, IconChevronRight, IconDownload, IconFileText, IconHistory, IconLink, IconScale, IconSettings, IconSparkles, IconUserShield, IconUsers, IconX, IconGavel, IconPlus, IconTrash, IconGripVertical, IconEdit, IconMail, IconPalette, IconArchive, IconAlertTriangle, IconShieldLock, IconDatabase, IconHierarchy, IconArrowsSplit, IconTool, IconSchool, IconStairsUp, IconCalculator, IconLinkOff, IconSend, IconMessageDots } from '@tabler/icons-react';
+import { IconAdjustments, IconAward, IconBooks, IconBuilding, IconCalendar, IconCalendarEvent, IconChartBar, IconCheck, IconChevronRight, IconDownload, IconFileText, IconHistory, IconLink, IconScale, IconSettings, IconSparkles, IconUserShield, IconUsers, IconX, IconGavel, IconPlus, IconTrash, IconGripVertical, IconEdit, IconMail, IconPalette, IconArchive, IconAlertTriangle, IconShieldLock, IconDatabase, IconHierarchy, IconArrowsSplit, IconTool, IconSchool, IconStairsUp, IconCalculator, IconLinkOff, IconSend, IconMessageDots, IconId, IconFileDescription, IconKey, IconMailForward, IconUserSearch } from '@tabler/icons-react';
 import { PageHeader, RailLateral, TuileEtat, PastilleEtat, Encadre } from '../components/ui.jsx';
 import ApercuDocuments from '../components/ApercuDocuments.jsx';
 const Editeur = lazy(() => import('./Editeur.jsx'));
@@ -22,259 +21,6 @@ const ConfigCourriels = lazy(() => import('../components/ConfigCourriels.jsx'));
 const TOKEN = () => localStorage.getItem('token');
 const authFetch = (url, opts = {}) => fetch(url, { ...opts, headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${TOKEN()}`, ...opts.headers } }).then(r => r.json());
 
-
-
-/* ── Gestion du personnel : matrice missions (section × profs × fonctions) ── */
-function GestionPersonnel() {
-  const ETAB = '__ETAB__';
-  const [sections, setSections]   = useState([]);
-  const [section, setSection]     = useState(ETAB);
-  const [fonctions, setFonctions] = useState([]);
-  const [profs, setProfs]         = useState([]);
-  const [coches, setCoches]       = useState({}); // prof_id -> [fonctions]
-  const [annee, setAnnee]         = useState('');
-  const [search, setSearch]       = useState('');
-  const [loading, setLoading]     = useState(true);
-  const [saving, setSaving]       = useState({}); // "profId|fonction" -> bool
-  const [etpHelb, setEtpHelb]     = useState({}); // "profId|fonction" -> etp (0.5, 1.0…)
-
-  // Charger la liste des sections une fois
-  useEffect(() => {
-    api.sections().then(d => setSections(Array.isArray(d) ? d : [])).catch(() => {});
-  }, []);
-
-  // Charger la matrice quand la section change
-  useEffect(() => {
-    setLoading(true);
-    const anneeCourante = getAnnee();
-    setAnnee(anneeCourante);
-    Promise.all([
-      api.personnelMatrice(section, anneeCourante),
-      section !== '__ETAB__'
-        ? fetch(`/api/ref/personnel-missions?section=${encodeURIComponent(section)}&annee=${encodeURIComponent(anneeCourante)}`,
-            { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } }).then(r => r.json()).catch(() => [])
-        : Promise.resolve([])
-    ]).then(([d, missions]) => {
-        setFonctions(Array.isArray(d.fonctions) ? d.fonctions : []);
-        setProfs(Array.isArray(d.profs) ? d.profs : []);
-        setCoches(d.coches || {});
-        setAnnee(d.annee || anneeCourante);
-        // Charger les ETP HELB existants
-        const etpMap = {};
-        (missions || []).forEach(m => {
-          if (m.etp_helb > 0) etpMap[`${m.professeur_id}|${m.fonction}`] = m.etp_helb;
-        });
-        setEtpHelb(etpMap);
-      })
-      .catch(() => { setFonctions([]); setProfs([]); setCoches({}); })
-      .finally(() => setLoading(false));
-  }, [section]);
-
-  function estCoche(profId, fonction) {
-    return (coches[profId] || []).includes(fonction);
-  }
-
-  async function toggle(profId, fonction) {
-    const actif = !estCoche(profId, fonction);
-    const key = profId + '|' + fonction;
-    setSaving(s => ({ ...s, [key]: true }));
-    // Optimiste
-    setCoches(prev => {
-      const cur = new Set(prev[profId] || []);
-      actif ? cur.add(fonction) : cur.delete(fonction);
-      return { ...prev, [profId]: [...cur] };
-    });
-    try {
-      await api.setMission({ professeur_id: profId, fonction, section_code: section, annee_scolaire: annee, actif });
-    } catch (e) {
-      // Revert en cas d'erreur
-      setCoches(prev => {
-        const cur = new Set(prev[profId] || []);
-        actif ? cur.delete(fonction) : cur.add(fonction);
-        return { ...prev, [profId]: [...cur] };
-      });
-      informer('Erreur : ' + e.message);
-    } finally {
-      setSaving(s => { const n = { ...s }; delete n[key]; return n; });
-    }
-  }
-
-  async function saveEtpHelb(profId, fonction, etp) {
-    const key = `${profId}|${fonction}`;
-    setEtpHelb(prev => ({ ...prev, [key]: etp }));
-    try {
-      await api.setMission({ professeur_id: profId, fonction, section_code: section, annee_scolaire: annee, etp_helb: etp });
-    } catch(e) { informer('Erreur ETP HELB : ' + e.message); }
-  }
-
-  const profsFiltres = search.trim()
-    ? profs.filter(p => {
-        const q = search.trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-        const hay = (p.nom_prenom || (p.nom + ' ' + p.prenom)).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-        return hay.includes(q);
-      })
-    : profs;
-
-  // Compte de coches par prof (pour mettre en avant ceux qui ont des fonctions)
-  const profsAvecCoche = profsFiltres.filter(p => (coches[p.id] || []).length > 0);
-  const profsSansCoche = profsFiltres.filter(p => (coches[p.id] || []).length === 0);
-  const [showTous, setShowTous] = useState(false);
-
-  const sectionLabel = section === ETAB ? "Tout l'établissement" : section;
-
-  return (
-    <div className="max-w-none">
-      <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
-        <div>
-          <h3 className="font-semibold text-gray-800 text-lg">Fonctions</h3>
-          <p className="text-sm text-gray-500">Vue d'ensemble des fonctions pour la portée sélectionnée{annee ? ` · ${annee}` : ''}.
-            Elles se règlent sur la fiche de chaque personne (Personnel → la personne → onglet <b>Fonctions</b>).</p>
-        </div>
-      </div>
-
-      {/* Sélecteur de portée / section */}
-      <div className="flex items-center gap-3 mb-4 flex-wrap">
-        <label className="text-sm font-medium text-gray-600">Portée :</label>
-        <select value={section} onChange={e => { setSection(e.target.value); setShowTous(false); }}
-          className="border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:border-iip-gold">
-          <option value={ETAB}>🏛 Tout l'établissement</option>
-          {sections.map(s => {
-            const code = typeof s === 'string' ? s : (s.code ?? s.section ?? '');
-            if (!code) return null;
-            return <option key={code} value={code}>{code}</option>;
-          })}
-        </select>
-        <div className="relative flex-1 min-w-[200px] max-w-xs">
-          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Rechercher une personne…"
-            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-iip-gold" />
-        </div>
-      </div>
-
-      {loading ? (
-        <div className="p-12 text-center text-gray-400">Chargement…</div>
-      ) : fonctions.length === 0 ? (
-        <div className="p-8 text-center text-gray-400 bg-gray-50 rounded-xl border border-gray-100">
-          Aucune fonction définie pour cette portée.
-        </div>
-      ) : (
-        <div className="border border-gray-200 rounded-xl overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="bg-slate-800 text-white">
-                  <th className="text-left px-4 py-3 font-semibold sticky left-0 bg-slate-800 z-10">
-                    Personne <span className="font-normal text-white/60">({profsAvecCoche.length})</span>
-                  </th>
-                  {fonctions.map(f => (
-                    <th key={f.id} className="px-2 py-3 font-medium text-center text-xs whitespace-nowrap" style={{ minWidth: 90 }}>
-                      {f.libelle}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {/* Profs avec au moins une coche d'abord */}
-                {profsAvecCoche.map((p, idx) => (
-                  <tr key={p.id} className={idx % 2 ? 'bg-gray-50' : 'bg-white'}>
-                    <td className={`px-4 py-2 font-medium text-gray-800 sticky left-0 z-10 ${idx % 2 ? 'bg-gray-50' : 'bg-white'}`}>
-                      {p.nom_prenom || `${p.nom} ${p.prenom}`}
-                    </td>
-                    {fonctions.map(f => {
-                      const key = p.id + '|' + f.libelle;
-                      const on = estCoche(p.id, f.libelle);
-                      const etpVal = etpHelb[key] || 0;
-                      return (
-                        <td key={f.id} className="px-2 py-2 text-center">
-                          {/* EN LECTURE (2.12.206) : les fonctions se règlent sur la
-                              fiche de la personne, onglet « Fonctions ». */}
-                          <button type="button" disabled title="Se règle sur la fiche de la personne, onglet Fonctions"
-                            className={`w-6 h-6 rounded-md border-2 transition inline-flex items-center justify-center ${on
-                              ? 'bg-iip-mauve border-iip-mauve text-white'
-                              : 'bg-white border-gray-300 hover:border-iip-mauve'} ${saving[key] ? 'opacity-50' : ''}`}>
-                            {on && <IconCheck size={14} />}
-                          </button>
-                          {on && section !== '__ETAB__' && (
-                            <div className="mt-1">
-                              <div className="text-xs text-gray-400 leading-none mb-0.5">ETP HELB</div>
-                              <input
-                                type="number" min="0" max="1" step="0.1"
-                                defaultValue={etpVal || ''} disabled
-                                placeholder="0.0"
-                                title="ETP financé HELB (hors dotation IIP)"
-                                onBlur={e => {
-                                  const v = parseFloat(e.target.value) || 0;
-                                  saveEtpHelb(p.id, f.libelle, v);
-                                }}
-                                className="w-14 border border-gray-300 rounded px-1 py-0.5 text-xs text-center"
-                              />
-                            </div>
-                          )}
-                        </td>
-                      );
-                    })}
-                  </tr>
-                ))}
-
-                {/* Séparateur + profs sans coche (repliés) */}
-                {profsSansCoche.length > 0 && (
-                  <tr className="bg-gray-100 cursor-pointer hover:bg-gray-200" onClick={() => setShowTous(v => !v)}>
-                    <td colSpan={fonctions.length + 1} className="px-4 py-2 text-sm text-gray-600 font-medium select-none">
-                      <span className="inline-block transition-transform" style={{ transform: showTous ? 'rotate(90deg)' : 'none' }}><IconChevronRight size={14} /></span>
-                      {' '}Autres personnes sans fonction ici <span className="text-gray-400 font-normal">({profsSansCoche.length})</span>
-                    </td>
-                  </tr>
-                )}
-                {showTous && profsSansCoche.map((p, idx) => (
-                  <tr key={p.id} className={idx % 2 ? 'bg-gray-50' : 'bg-white'}>
-                    <td className={`px-4 py-2 text-gray-700 sticky left-0 z-10 ${idx % 2 ? 'bg-gray-50' : 'bg-white'}`}>
-                      {p.nom_prenom || `${p.nom} ${p.prenom}`}
-                    </td>
-                    {fonctions.map(f => {
-                      const key = p.id + '|' + f.libelle;
-                      const on = estCoche(p.id, f.libelle);
-                      const etpVal = etpHelb[key] || 0;
-                      return (
-                        <td key={f.id} className="px-2 py-2 text-center">
-                          <button type="button" onClick={() => toggle(p.id, f.libelle)} disabled={saving[key]}
-                            className={`w-6 h-6 rounded-md border-2 transition inline-flex items-center justify-center ${on
-                              ? 'bg-iip-mauve border-iip-mauve text-white'
-                              : 'bg-white border-gray-300 hover:border-iip-mauve'} ${saving[key] ? 'opacity-50' : ''}`}>
-                            {on && <IconCheck size={14} />}
-                          </button>
-                          {on && section !== '__ETAB__' && (
-                            <div className="mt-1">
-                              <div className="text-xs text-gray-400 leading-none mb-0.5">ETP HELB</div>
-                              <input
-                                type="number" min="0" max="1" step="0.1"
-                                defaultValue={etpVal || ''}
-                                placeholder="0.0"
-                                title="ETP financé HELB (hors dotation IIP)"
-                                onBlur={e => {
-                                  const v = parseFloat(e.target.value) || 0;
-                                  saveEtpHelb(p.id, f.libelle, v);
-                                }}
-                                className="w-14 border border-gray-300 rounded px-1 py-0.5 text-xs text-center"
-                              />
-                            </div>
-                          )}
-                        </td>
-                      );
-                    })}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
-
-      <div className="mt-4 bg-iip-turquoise/5 border border-iip-turquoise/20 rounded-xl p-4 text-sm text-iip-blue">
-        <p className="font-medium mb-1">💡 Comment ça fonctionne</p>
-        <p>Choisissez d'abord une <strong>portée</strong> : « Tout l'établissement » pour la direction et le secrétariat (présents dans toutes les procédures), ou une <strong>section</strong> précise pour les coordinations. Cochez ensuite les fonctions de chaque personne. Une même personne peut avoir des fonctions différentes selon la section (ex. coordinatrice des stages en TIM, des TFE en AeSI). Ces coches alimentent automatiquement la fiche de la personne et le filtrage des membres dans les procédures de recours et de fraude.</p>
-      </div>
-    </div>
-  );
-}
 
 
 /* ── Purge d'une année scolaire ── */
@@ -1331,12 +1077,12 @@ export default function Configuration() {
      * l'écran où l'on s'en sert. Plan complet : l'étude « Configuration
      * rangée ». */
     { label: 'Établissement', icon: IconBuilding, items: [
-      { key: 'etablissement', label: 'Identité', icon: IconBuilding },
+      { key: 'etablissement', label: 'Identité', icon: IconId },
       { key: 'annees', label: 'Années et calendrier', icon: IconCalendar },
     ]},
     /* Ce qu'on enseigne et comment on le sanctionne. Les faces annuelles
      * portent l'année au bout de la rangée, une seule fois. */
-    { label: 'Enseignement', icon: IconBooks, items: [
+    { label: 'Enseignement', icon: IconSchool, items: [
       { key: 'referentiel-annee', label: 'Unités et cours', icon: IconBooks, annee: true },
       { key: 'ref-prerequis', label: "Prérequis d'UE", icon: IconHierarchy, annee: true },
       { key: 'cursus-compatibles', label: 'Cursus compatibles', icon: IconLink },
@@ -1355,7 +1101,7 @@ export default function Configuration() {
         faces: [['editeur', 'Écrire un modèle'], ['apercu', 'Voir une pièce']] },
       { key: 'contrat', label: 'Pièces officielles', icon: IconAward,
         faces: [['contrat', 'Contrat'], ['attestation', 'Attestation'], ['diplome', 'Diplôme'], ['recrutement', 'Recrutement']] },
-      { key: 'due', label: "Descriptifs d'UE", icon: IconFileText },
+      { key: 'due', label: "Descriptifs d'UE", icon: IconFileDescription },
       { key: 'courriels', label: 'Courriels', icon: IconMail },
       { key: 'reponses-types', label: 'Réponses types', icon: IconMessageDots },
     ]},
@@ -1365,18 +1111,19 @@ export default function Configuration() {
          accès, et lequel »). Le maximum de chaque rôle en haut, le résultat
          pour chaque personne en dessous : deux écrans séparés faisaient croire
          à deux réglages qui se contredisent. */
-      { key: 'roles', label: 'Accès', icon: IconUserShield },
-      { key: 'personnel', label: 'Fonctions', icon: IconUsers },
+      { key: 'roles', label: 'Accès', icon: IconKey },
+      /* « Fonctions » est retirée (3.1.32) : elles se règlent sur la fiche du
+         membre, onglet Fonctions, et se lisent par le filtre « Fonction » de Personnel. */
       { key: 'securite', label: 'Sécurité', icon: IconShieldLock },
     ]},
     // La machine, et l'apparence de toute l'application (Charles : « je
     // mettrais bien Apparence dans Système »).
     { label: 'Système', icon: IconAdjustments, items: [
       { key: 'couleurs', label: 'Thèmes et couleurs', icon: IconPalette },
-      { key: 'sauvegardes', label: 'Sauvegardes', icon: IconDownload },
+      { key: 'sauvegardes', label: 'Sauvegardes', icon: IconDatabase },
       { key: 'systeme', label: 'Traces et historique', icon: IconHistory },
-      { key: 'registre-envois', label: 'Registre des envois', icon: IconSend },
-      { key: 'audit', label: 'Qui a fait quoi', icon: IconUserShield },
+      { key: 'registre-envois', label: 'Registre des envois', icon: IconMailForward },
+      { key: 'audit', label: 'Qui a fait quoi', icon: IconUserSearch },
       { key: 'changelog', label: 'Nouveautés', icon: IconSparkles },
     ]},
     /* CE QUI N'EST PAS UN RÉGLAGE. Des outils, une file de travail, des
@@ -1406,13 +1153,12 @@ export default function Configuration() {
   const porte = t => t.key === tab || (t.faces || []).some(([k]) => k === tab);
   const groupeActif = groupesVisibles.find(g => g.items.some(porte)) || groupesVisibles[0];
   const ongletActif = groupeActif.items.find(porte);
-  /* LES FACES DE LA FAMILLE GLISSENT DANS LA BARRE DU HAUT (3 octobre 2026),
-     à côté de « Config. » — la rangée d'onglets de la page disparaît. */
-  useDeclarerSousMenu(groupeActif.items.length > 1 ? {
-    titre: groupeActif.label,
-    items: groupeActif.items.map(t => ({ key: t.key, label: t.label, actif: porte(t) })),
-    onChoisir: k => setTab(k),
-  } : null, [groupeActif.label, tab]);
+  /* LES RUBRIQUES SE DÉPLIENT SOUS LEUR FAMILLE, DANS LE RAIL (3.1.27,
+     Charles, 4 octobre 2026 : « tout cela devrait être en sous-menu dans le
+     rail »). Elles glissaient dans la barre du haut, où leurs noms se
+     coupaient (« Registre des env… »). Le tiroir est celui d'« Inscriptions
+     & PAE » : la famille ouverte se déplie entre deux filets, une icône par
+     rubrique — jamais celle de la famille —, le nom entier en bulle. */
   return (
     <div className="relative" style={{ minHeight: 'calc(100vh - 64px)' }}>
       {/* VINGT-DEUX ICÔNES, ET PLUS PERSONNE NE TROUVAIT RIEN (Charles, 21
@@ -1427,6 +1173,9 @@ export default function Configuration() {
           key: g.label, label: g.label, icon: g.icon,
           actif: g === groupeActif,
           onClick: () => { if (g !== groupeActif) setTab(g.items[0].key); },
+          sous: g === groupeActif && g.items.length > 1
+            ? g.items.map(t => ({ key: t.key, label: t.label, icon: t.icon, actif: porte(t), onClick: () => setTab(t.key) }))
+            : undefined,
         })) }]}
       />
       {/* LE TITRE DIT LA FAMILLE (2.12.201) : « Configuration » seul ne disait
@@ -1434,7 +1183,7 @@ export default function Configuration() {
           une ligne ; l'explication générale disparaît — elle ne disait rien de
           l'écran ouvert, et prenait une rangée. */}
       <div className="gouttiere-rail cadre-page px-3 md:px-6 py-3 space-y-4">
-        <PageHeader icon={groupeActif.icon || IconSettings} titre={`Configuration · ${groupeActif.label}`}
+        <PageHeader icon={groupeActif.icon || IconSettings} titre={ongletActif && groupeActif.items.length > 1 ? `${groupeActif.label} · ${ongletActif.label}` : `Configuration · ${groupeActif.label}`}
           sous={groupeActif.label === 'Outils'
             ? 'Ce ne sont pas des réglages : ils ont rejoint l’écran où l’on s’en sert. Ces entrées disparaîtront le 3 novembre.' : undefined} />
         {/* L'année vaut pour les faces annuelles : elle se pose une fois. */}
@@ -1497,7 +1246,7 @@ export default function Configuration() {
       {tab === 'etablissement' && <ParametresEtablissement />}
 
       {/* ── Onglet Personnel ── */}
-      {tab === 'personnel' && <GestionPersonnel />}
+
 
       {/* ── Onglet Paramètres ── */}
       {tab === 'parametres' && <GestionParametres />}
@@ -2383,6 +2132,17 @@ const THEMES = [
   { cle: 'vif', nom: 'Gris clair et vif', texte: 'Gris neutre ; états plus francs, plus gais.', gris: 'neutre',
     valeurs: { fond_page: '#F4F5F7', fond_indispo: '#ECEEF1', reussi: '#2F9A5B', faveur: '#7C3AED',
                disponible: '#3478D4', attente: '#D97706', refuse: '#C2412D' } },
+  /* GRIS APPLE (3.1.31, Charles, 4 octobre 2026 : « un thème dans les tons
+     de gris… Apple »). Les gris système d'Apple, un texte presque noir, le
+     bleu d'Apple pour seule couleur d'action, et ses couleurs d'état dans leur
+     version lisible sur blanc. Les repères du logo (BA1 jaune, BA2 cyan)
+     restent : ce sont les repères de la maison. */
+  { cle: 'apple', nom: 'Gris Apple', texte: 'Gris système d’Apple, texte noir, bleu Apple.', gris: 'apple',
+    valeurs: { principal: '#1D1D1F', accent: '#0071E3', texte: '#1D1D1F', donnees: '#0071E3', menu_sombre: '#1C1C1E',
+               iip: '#1D1D1F', helb: '#D14F8A', ct: '#0071E3', pp: '#248A3D',
+               reussi: '#248A3D', faveur: '#8944AB', disponible: '#0071E3', attente: '#C93400', refuse: '#D70015',
+               ba1: '#F9B619', ba2: '#05B7E6', ba3: '#3A3A3C', epreuve: '#C9A227',
+               fond_page: '#F5F5F7', fond_indispo: '#E8E8ED' } },
 ];
 const GROUPES_COULEURS = [
   ['ecran', 'L’écran', 'Tout ce qui n’est pas un état : le bouton principal, l’accent, le texte, les données, les menus sombres.'],
@@ -2494,7 +2254,7 @@ function ReglageCouleurs() {
               </span>
             </span>
             <div className="segments h-8">
-              {[['ardoise', 'Ardoise'], ['neutre', 'Neutre']].map(([k, l]) => (
+              {[['ardoise', 'Ardoise'], ['neutre', 'Neutre'], ['apple', 'Apple']].map(([k, l]) => (
                 <button key={k} type="button" onClick={() => changer(() => setGris(k))}
                   className={`px-3 text-[12px] ${gris === k ? 'bg-iip-blue text-white font-semibold' : 'text-slate-600 hover:bg-slate-50'}`}>
                   {l}

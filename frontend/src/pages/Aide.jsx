@@ -857,11 +857,11 @@ const RUBRIQUES = [
     resume: "Établissement, enseignement, documents et envois, accès, système.",
     points: [
       { titre: "Les cinq familles",
-        ou: "Configuration (barre du haut, direction) → rail ; les faces se glissent dans la barre du haut.",
+        ou: "Configuration (barre du haut, direction) → rail : la famille ouverte se déplie en plateau, avec une icône par rubrique.",
         texte: "Établissement : Identité · Années et calendrier. Enseignement : Unités et cours · Prérequis d'UE · "
              + "Cursus compatibles · Règles de délibération · Procédures et délais · Planification. Documents et "
              + "envois : Modèles de pièces · Pièces officielles · Descriptifs d'UE · Courriels · Réponses types. "
-             + "Accès : Accès · Fonctions · Sécurité. Système : Thèmes et couleurs · Sauvegardes · Traces et "
+             + "Accès : Accès · Sécurité. Système : Thèmes et couleurs · Sauvegardes · Traces et "
              + "historique · Registre des envois · Qui a fait quoi · Nouveautés.",
         savoir: [
           "On y règle des MODÈLES et des règles ; on n'y produit pas de pièces (c'est l'avion).",
@@ -891,7 +891,7 @@ const RUBRIQUES = [
           "Ce qui est parti par courriel se relit dans Configuration → Système → Registre des envois : quand, par qui, à qui, quoi, avec une copie.",
         ] },
       { titre: "Accès, fonctions, sécurité",
-        ou: "Configuration → Accès → Accès · Fonctions · Sécurité.",
+        ou: "Configuration → Accès → Accès · Sécurité.",
         texte: "« Plafonds par rôle » : ce que chaque rôle autorise au mieux, module par module. « Accès par "
              + "personne » : ce que chaque compte a réellement. « Les gestes » : pour chaque geste et chaque rôle, "
              + "oui, non, ou par demande pour la coordination.",
@@ -900,7 +900,7 @@ const RUBRIQUES = [
           "Les cases au cadenas restent à la direction : configuration, validation et décision ne se retirent pas.",
           "Chaque changement entre dans le « Journal des réglages », sous la grille.",
           "L'accès d'une personne se modifie sur sa fiche, onglet « Accès Lucie ». Les comptes : réinitialiser un mot de passe (lien par courriel) ou la vérification en deux temps, retirer un accès.",
-          "« Fonctions » : qui occupe quelle fonction dans quelle section (coordination, référent…). « Sécurité » : combien de mots de passe erronés bloquent un compte, et pour combien de temps.",
+          "Les fonctions (secrétaire, coordination…) se règlent sur la fiche du membre, onglet « Fonctions », et se lisent par le filtre « Fonction » de la liste du Personnel. « Sécurité » : combien de mots de passe erronés bloquent un compte, et pour combien de temps.",
           "Ce que voit un rôle se vérifie par « Voir comme… » (vos initiales, en haut à droite).",
         ] },
       { titre: "Procédures et délais",
@@ -913,7 +913,7 @@ const RUBRIQUES = [
       { titre: "Thèmes et couleurs",
         ou: "Configuration → Système → Thèmes et couleurs.",
         texte: "Toutes les couleurs de Lucie se règlent ici : écran, états, repères, fonds. Le thème « Maison IIP » "
-             + "(couleurs du logo) est le défaut ; « Lucie d'origine » reste disponible.",
+             + "(couleurs du logo) est le défaut ; « Lucie d'origine », les gris clairs et « Gris Apple » (gris système d'Apple, bleu Apple) restent disponibles. Le jeu de gris de l'interface se choisit à part : Ardoise, Neutre ou Apple.",
         savoir: [
           "Les pièces imprimées gardent la charte de l'Institut, quel que soit le thème.",
         ] },

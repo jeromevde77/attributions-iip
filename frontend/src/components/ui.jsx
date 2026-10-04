@@ -240,20 +240,10 @@ function TiroirRail({ children }) {
      * au-dessus. */
     <div className="relative grid transition-[grid-template-rows] duration-300 ease-ios"
       style={{ gridTemplateRows: ouvert ? '1fr' : '0fr' }}>
-      {/* LE FILET SE VOIT, OU IL NE SERT À RIEN.
-       * La pastille de l'icône active passait PAR-DESSUS : posée au bord, elle
-       * recouvrait le repère précisément sur la ligne qu'on regarde — celle où
-       * l'on vient de cliquer. Un repère masqué par ce qu'il repère ne repère
-       * plus rien.
-       * Le filet va donc au bord même du panneau, et le contenu du tiroir se
-       * décale de six pixels. Ce retrait ne fait pas que dégager la place : il
-       * DIT quelque chose — les icônes en retrait appartiennent au bloc que le
-       * filet délimite, et cela se lit sans avoir à suivre la ligne du regard. */}
-      <span aria-hidden="true"
-        className="absolute left-0 top-1 bottom-1 w-[2px] rounded-full
-                   pointer-events-none transition-opacity duration-300"
-        style={{ background: 'var(--menu-accent)', opacity: ouvert ? 1 : 0 }} />
-      <div className="overflow-hidden pl-1.5">{children}</div>
+      {/* LE FILET VERTICAL EST RETIRÉ (3.1.28, Charles, 4 octobre 2026 :
+       * « enlève la barre le long du sous-menu »), et avec lui le retrait de
+       * six pixels qu'il imposait aux icônes. */}
+      <div className="overflow-hidden">{children}</div>
     </div>
   );
 }
@@ -579,7 +569,17 @@ export function RailDessine({ icon: HeaderIcon, titre, sousTitre, extra, surAccu
                  * eux, et c'est le tiroir qui le porte. L'icône qu'on a
                  * cliquée, elle, est la rubrique ACTIVE : elle a déjà sa
                  * pastille et son accent. */
-                <div key={it.key} className="relative">
+                /* LA FAMILLE ENTRE DANS SON PLATEAU (3.1.30, Charles, 4 octobre
+                   2026) : quand une entrée déplie ses rubriques, le plateau
+                   commence à son icône et s'allonge vers le bas, comme un
+                   tiroir qu'on tire. Dans le plateau, rien ne se pose
+                   par-dessus — ni pastille blanche, ni ombre : seules les
+                   icônes changent de couleur (marine pour la famille et au
+                   survol, bleu pour la rubrique ouverte). */
+                <div key={it.key}
+                  className={`relative ${it.sous?.length > 0 ? `${epingle ? '' : 'w-9 mx-auto'} rounded-carte mb-0.5` : ''}`}
+                  data-plateau={it.sous?.length > 0 ? '1' : undefined}
+                  style={it.sous?.length > 0 ? { background: 'var(--menu-plateau)' } : undefined}>
                 <button key={it.key} onClick={it.onClick} aria-label={it.label}
                   onMouseEnter={e => !epingle && surviser(e, it.label)}
                   onMouseLeave={() => setSurvol(null)}
@@ -599,8 +599,10 @@ export function RailDessine({ icon: HeaderIcon, titre, sousTitre, extra, surAccu
                     ${epingle
                       ? 'w-full items-start gap-3 py-2 px-2.5 rounded-fenetre'
                       : 'w-9 h-9 mx-auto items-center justify-center rounded-carte'}
-                    ${it.actif ? 'font-semibold ring-1 ring-inset' : 'hover:shadow-pose'}`}
-                  style={it.actif
+                    ${it.sous?.length > 0 ? 'hover:[--ic:var(--menu-texte)] hover:text-[color:var(--menu-texte)]' : it.actif ? 'font-semibold ring-1 ring-inset' : 'hover:shadow-pose'}`}
+                  style={it.sous?.length > 0
+                    ? { color: 'var(--menu-texte-doux)' }
+                    : it.actif
                     ? { background: 'var(--menu-actif)', color: 'var(--menu-texte)',
                         '--tw-ring-color': 'var(--menu-actif-bord)' }
                     : { color: 'var(--menu-texte-doux)' }}
@@ -627,7 +629,8 @@ export function RailDessine({ icon: HeaderIcon, titre, sousTitre, extra, surAccu
                        Le donner aussi à celle qui « porte » le tiroir peignait
                        une icône au hasard — la dernière de l'axe. */
                     <Ic size={19} stroke={1.8} className="flex-shrink-0"
-                      style={it.actif ? { color: 'var(--menu-accent)' }
+                      style={it.sous?.length > 0 ? { color: 'var(--ic, var(--menu-icone))' }
+                        : it.actif ? { color: 'var(--menu-accent)' }
                         : { color: it.couleur || 'var(--menu-icone)' }} />
                   ) : (
                     /* FILET DE SÉCURITÉ : une entrée sans icône donnerait, rail
@@ -666,8 +669,11 @@ export function RailDessine({ icon: HeaderIcon, titre, sousTitre, extra, surAccu
                     qui reste juste quand une entrée s'ajoute. */}
                 {it.sous?.length > 0 && (
                   <TiroirRail key={`sous-${it.key}`}>
-                      <div className={`${epingle ? 'mx-2' : 'w-5 mx-auto'} my-1 border-t`}
-                        style={{ borderColor: 'var(--menu-sous-filet)' }} />
+                    {/* LE PLATEAU (3.1.29, Charles, 4 octobre 2026 : « plateau,
+                        mais même largeur que les icônes ») : les rubriques
+                        dépliées posent sur un fond arrondi, exactement de la
+                        largeur d'une case — ni filet, ni retrait. */}
+                    <div className="pb-0.5">
                       {it.sous.map(sv => {
                         const Sc = sv.icon;
                         return (
@@ -679,12 +685,18 @@ export function RailDessine({ icon: HeaderIcon, titre, sousTitre, extra, surAccu
                               ${epingle
                                 ? 'w-full items-center gap-3 py-2 px-2.5 rounded-fenetre'
                                 : 'w-9 h-9 mx-auto items-center justify-center rounded-carte'}
-                              ${sv.actif ? 'font-semibold' : 'hover:shadow-pose'}`}
+                              ${sv.actif ? 'font-semibold' : 'hover:[--ic:var(--menu-texte)] hover:text-[color:var(--menu-texte)]'}`}
                             style={sv.actif
-                              ? { background: 'var(--menu-sous-actif)',
-                                  color: 'var(--menu-texte)' }
+                              ? { color: 'var(--menu-texte)', '--ic': 'var(--menu-accent)' }
                               : { color: 'var(--menu-texte-doux)' }}
                             data-case-rail={epingle ? undefined : '1'}>
+                            {/* LA RUBRIQUE OUVERTE : son icône en bleu, et un
+                                petit trait bleu au bord du plateau, en face d'elle
+                                (proposition 2, Charles, 4 octobre 2026). */}
+                            {sv.actif && (
+                              <span aria-hidden="true" className="absolute left-0 top-1/2 -translate-y-1/2 w-[2.5px] h-3.5 rounded-full"
+                                style={{ background: 'var(--menu-accent)' }} />
+                            )}
                             {Sc ? (
                               /* GRISES, COMME CELLES DU DESSUS.
                                  Les peindre toutes en bleu faisait du sous-menu
@@ -694,8 +706,8 @@ export function RailDessine({ icon: HeaderIcon, titre, sousTitre, extra, surAccu
                                  Lucie — une dépense, réservée à ce qui doit
                                  être vu. Le bleu du sous-menu ne vit plus que
                                  dans ses deux filets. */
-                              <Sc size={18} stroke={1.8} className="flex-shrink-0"
-                                style={{ color: sv.couleur || 'var(--menu-icone)' }} />
+                              <Sc size={18} stroke={1.8} className="flex-shrink-0 transition-colors duration-150"
+                                style={{ color: `var(--ic, ${sv.couleur || 'var(--menu-icone)'})` }} />
                             ) : (
                               <span className="flex-shrink-0 w-[18px] flex justify-center"
                                 aria-hidden="true">
@@ -708,6 +720,7 @@ export function RailDessine({ icon: HeaderIcon, titre, sousTitre, extra, surAccu
                           </button>
                         );
                       })}
+                    </div>
                   </TiroirRail>
                 )}
                 </div>
