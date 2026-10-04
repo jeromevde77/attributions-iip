@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { peutAmenager } from '../lib/droits.js';
 import { IconAlertTriangle, IconPlus, IconTrash, IconShieldCheck, IconSend, IconUsers } from '@tabler/icons-react';
 import { authHeaders } from '../lib/api.js';
 import { ouvrirApercu } from '../lib/apercu.js';
@@ -138,13 +139,13 @@ export default function Amenagements({ etudId, annee }) {
       <div className="flex flex-wrap items-center gap-2 px-3 py-2 rounded-lg text-[13px] text-white" style={{ background: 'var(--c-reussi, #3E7D5E)' }}>
         <b>{libelle} validé</b> le {quand(v.valide_le)} par {v.valide_par || '—'}.
         {suite && <span className="text-white/90">{suite}</span>}
-        <button type="button" className="ml-auto underline text-white/90 text-[12px]" onClick={() => geste(route, 'DELETE')}>rouvrir</button>
+        {v.peut !== false && <button type="button" className="ml-auto underline text-white/90 text-[12px]" onClick={() => geste(route, 'DELETE')}>rouvrir</button>}
       </div>
     ) : (
       <div className="flex flex-wrap items-center gap-2">
-        <button type="button" className="bouton font-semibold disabled:opacity-40" disabled={!!v.manques?.length}
+        {v.peut !== false && <button type="button" className="bouton font-semibold disabled:opacity-40" disabled={!!v.manques?.length}
           style={v.manques?.length ? undefined : { background: 'var(--c-reussi, #3E7D5E)', borderColor: 'var(--c-reussi, #3E7D5E)', color: '#fff' }}
-          onClick={() => geste(route)}>✓ Valider {libelle.toLowerCase()}</button>
+          onClick={() => geste(route)}>✓ Valider {libelle.toLowerCase()}</button>}
         <span className="text-[12px] text-slate-500 min-w-0">
           {v.manques?.length ? `Il manque : ${v.manques.join(', ')}.` : 'Tout est complet.'}
         </span>
@@ -272,7 +273,7 @@ export default function Amenagements({ etudId, annee }) {
           <p className="text-[12px] text-slate-500">Décret du 30 juin 2016 · année {annee}</p>
         </div>
         {d && <Badge ton={STATUTS[d.statut]?.ton || 'neutre'}>{STATUTS[d.statut]?.libelle}</Badge>}
-        {!d && (
+        {!d && peutAmenager() && (
           <button onClick={creerDossier}
             className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-iip-blue text-white font-semibold rounded-lg">
             <IconPlus size={15} /> Ouvrir un dossier

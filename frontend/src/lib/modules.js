@@ -134,6 +134,7 @@ export function chargerPlafonds() {
  */
 export function oublierPlafonds() {
   cache = null;
+  import('./droits.js').then(m => m.oublierDroits()).catch(() => {});
   abonnes.forEach(f => f());
 }
 

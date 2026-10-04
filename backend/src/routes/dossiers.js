@@ -69,7 +69,7 @@ r.get('/', authRequired, (req, res) => {
   const m = annee ? /^(\d{4})-(\d{4})$/.exec(annee) : null;
   const precedente = m ? `${Number(m[1]) - 1}-${Number(m[2]) - 1}` : null;
   const lignes = db.prepare(`SELECT id FROM proc_dossier
-    WHERE (? IS NULL OR annee_scolaire IN (?, ?)) ORDER BY id DESC LIMIT 500`).all(annee, annee, precedente);
+    WHERE supprime_le IS NULL AND (? IS NULL OR annee_scolaire IN (?, ?)) ORDER BY id DESC LIMIT 500`).all(annee, annee, precedente);
   const dossiers = [];
   for (const { id } of lignes) {
     const d = lireDossier(id);
@@ -231,6 +231,35 @@ r.put('/:id/acquis', authRequired, gesteRequis('procedures.instruire'), (req, re
 });
 
 // ── Poser une étape ──────────────────────────────────────────────────────────
+/* SUPPRIMER UN DOSSIER (3.1.20). Un dossier ouvert par erreur — mauvais
+   étudiant, mauvaise unité, doublon — doit pouvoir partir. Deux bornes :
+   - le MOTIF est obligatoire, et la ligne reste en base avec qui, quand et
+     pourquoi : elle sort du registre, elle ne disparaît pas ;
+   - un dossier où une DÉCISION a été posée ne se supprime pas : elle a pu
+     produire ses effets (séance rouverte, acquis ajournés, pièce notifiée),
+     et retirer le dossier ne les déferait pas : seule la direction le peut
+     alors, après avoir confirmé qu'elle le sait. */
+r.delete('/:id', authRequired, gesteRequis('procedures.instruire'), (req, res) => {
+  const d = dossierPermis(req, res, req.params.id);
+  if (!d) return;
+  const motif = String(req.body?.motif || '').trim();
+  if (!motif) return res.status(400).json({ error: 'Dites pourquoi ce dossier est supprimé.' });
+  const decidees = (ETAPES[d.type] || []).filter(e => e.decision && d.etapes?.[e.cle]);
+  if (decidees.length) {
+    const quoi = decidees.map(e => e.label.toLowerCase()).join(', ');
+    if (gesteAutorise(req, 'procedures.decider') !== 'oui') {
+      return res.status(409).json({ error: `Une décision a été posée sur ce dossier (${quoi}) : seule la direction peut encore le supprimer.` });
+    }
+    if (req.body?.confirme_effets !== true) {
+      return res.status(409).json({ effets: true, error: `Une décision a été posée sur ce dossier (${quoi}). `
+        + 'Ses effets — séance rouverte, acquis ajournés, pièce déjà notifiée — ne sont PAS défaits par la suppression.' });
+    }
+  }
+  db.prepare(`UPDATE proc_dossier SET supprime_le = datetime('now'), supprime_par = ?, motif_suppression = ?
+    WHERE id = ?`).run(qui(req), motif, d.id);
+  res.json({ ok: true });
+});
+
 r.post('/:id/etape', authRequired, gesteRequis('procedures.instruire'), (req, res) => {
   const d = dossierPermis(req, res, req.params.id);
   if (!d) return;

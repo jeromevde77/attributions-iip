@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { peutGeste } from '../lib/droits.js';
 import { useNavigate } from 'react-router-dom';
 import { api, getAnnee, nomDoc, getUser } from '../lib/api.js';
 import PreviewModal from '../components/PreviewModal.jsx';
@@ -1853,7 +1854,7 @@ ${methodologie}
             {/* LES QUATRE SORTIES SONT LES MÊMES PARTOUT. Envoyer n'existait
                 que pour les listes de colonnes : une pièce composée partait
                 donc par un autre chemin, ou pas du tout. */}
-            {apercuHtml && (
+            {apercuHtml && peutGeste('envois.envoyer') && (
               <button onClick={() => setEnvoi([{ html: apercuHtml, nom_fichier: `${nomFichier}.pdf` }])}
                 className="text-sm border border-iip-turquoise text-iip-turquoise hover:bg-cyan-50 px-3 py-2 rounded-lg font-medium flex items-center gap-1.5">
                 <IconSend size={16} /> Envoyer
@@ -1885,7 +1886,7 @@ ${methodologie}
                 habillée de la même enveloppe que si on l'imprimait : deux
                 chemins qui produiraient deux mises en page finiraient par
                 diverger, et c'est celle qu'on n'a pas relue qui partirait. */}
-            <button onClick={async () => {
+            {peutGeste('envois.envoyer') && <button onClick={async () => {
                 try {
                   const html = await mettreEnPage(rows, colsVisibles, def.label, annee, def.aide || null, parGroupe);
                   setEnvoi([{ html, nom_fichier: `${nomFichier}.pdf` }]);
@@ -1894,7 +1895,7 @@ ${methodologie}
               disabled={rows.length === 0}
               className="text-sm border border-iip-turquoise text-iip-turquoise hover:bg-cyan-50 disabled:opacity-40 px-3 py-2 rounded-lg font-medium flex items-center gap-1.5">
               <IconSend size={16} /> Envoyer
-            </button>
+            </button>}
             <button onClick={() => exportCSV(rows, colsVisibles, nomFichier)} disabled={rows.length === 0}
               className="text-sm border border-slate-300 hover:bg-slate-100 disabled:opacity-40 px-3 py-2 rounded-lg text-slate-600 flex items-center gap-1.5">
               <IconDownload size={16} /> CSV

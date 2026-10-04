@@ -6,6 +6,8 @@ import { signToken, authRequired, roleRequired, peutValiderAttributions, signPre
          signPendingToken, verifyPendingToken } from '../middleware/auth.js';
 import { dechiffrer } from '../lib/secret-box.js';
 import { prenomSeul } from '../lib/nom.js';
+import { GESTES, cleDe, gesteAutorise } from '../lib/gestes.js';
+import { peut as peutModule } from '../middleware/permissions.js';
 import { verifierTotp } from '../lib/totp.js';
 import { consommerCodeRecuperation, journaliser } from './mfa.js';
 import { etatBlocage, noterEchec, oublierEchecs, direDelai,
@@ -423,6 +425,23 @@ r.get('/me', authRequired, (req, res) => {
   res.json({ user: frais
     ? { ...req.user, ...frais, nom: frais.nom_complet || req.user.nom, prenom: prenomSeul(frais.nom_complet) || null }
     : req.user });
+});
+
+/* CE QUE LA PERSONNE CONNECTÉE PEUT FAIRE (3.1.20, Charles, 4 octobre 2026 :
+   « si pas accès, pas d'icône — pour tout le monde »). L'écran ne devine plus
+   les gestes : il lit ici le verdict de la porte, réglages compris. 'oui' seul
+   ouvre un bouton ; 'demande' et 'non' le cachent. */
+r.get('/droits', authRequired, (req, res) => {
+  const gestes = {};
+  for (const g of GESTES) {
+    const cle = cleDe(g);
+    try { gestes[cle] = gesteAutorise(req, cle); } catch { gestes[cle] = 'non'; }
+  }
+  // L'octroi nominatif (case « écrire » cochée sur la fiche) ouvre certains
+  // modules sans le geste : les aménagements raisonnables.
+  let octrois = {};
+  try { octrois = { amenagements: peutModule(req.user, 'amenagements', 'ecrire') === 'direct' }; } catch { /* */ }
+  res.json({ role: req.user.role, apercu: !!req.user.preview, gestes, octrois });
 });
 
 // Liste des comptes ayant un accès Lucie (admin uniquement) — pour le mode "voir comme"

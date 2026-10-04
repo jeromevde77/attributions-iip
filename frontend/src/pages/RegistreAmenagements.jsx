@@ -10,6 +10,7 @@
  * professionnel, décret du 30 juin 2016, art. 5). Un clic ouvre la fiche sur
  * son onglet Aménagements.
  */
+import { peutAmenager } from '../lib/droits.js';
 import { useEffect, useMemo, useState } from 'react';
 import { authHeaders, getAnnee, getUser } from '../lib/api.js';
 import { IconTrash } from '@tabler/icons-react';
@@ -82,9 +83,9 @@ export default function RegistreAmenagements() {
           {Object.entries(STATUTS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
         </select>
         <span className="text-[12px] text-slate-500">{visibles.length} dossier(s) affiché(s) sur {lignes.length}</span>
-        <button type="button" className="bouton bouton-fort controle ml-auto" onClick={() => setCreation(true)}>
+        {peutAmenager() && <button type="button" className="bouton bouton-fort controle ml-auto" onClick={() => setCreation(true)}>
           Créer un aménagement
-        </button>
+        </button>}
       </div>
 
       {!data ? <p className="text-slate-400 text-[13px]">Chargement…</p> : !lignes.length ? (
@@ -130,11 +131,11 @@ export default function RegistreAmenagements() {
                     {l.ues.length > 0 && <div className="text-[11px] text-slate-400 mt-0.5">Unités concernées : {l.ues.join(', ')}</div>}
                   </td>
                   <td className="px-2 py-1.5 text-right">
-                    <button type="button" title="Supprimer ce dossier"
+                    {peutAmenager() && <button type="button" title="Supprimer ce dossier"
                       onClick={e => { e.stopPropagation(); setASupprimer(l); }}
                       className="p-1 rounded-champ text-slate-400 hover:text-iip-texte hover:bg-slate-100">
                       <IconTrash size={15} />
-                    </button>
+                    </button>}
                   </td>
                 </tr>
               ))}

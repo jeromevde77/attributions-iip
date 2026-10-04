@@ -1690,6 +1690,32 @@ et 3 composants de tuile**. La stratégie tient en cinq chantiers, dans cet ordr
   `async`. Un émoji de tête (⚠ ✓ ❌) est lu comme un ton ; une question
   destructive (supprimer, effacer…) prend d'office le bouton brique. Échap
   n'annule que la boîte, pas la fenêtre ouverte dessous.
+- **PAS DE DROIT, PAS DE BOUTON** (3.1.20, Charles, 4 octobre 2026 : « si pas
+  accès, pas d'icône — fais attention à cela pour tout le monde »). Un bouton
+  qui répond « vous n'avez pas le droit » APRÈS le clic est une fausse
+  promesse. L'écran ne devine plus les rôles : `lib/droits.js` lit
+  `GET /api/auth/droits` (verdict de chaque geste, réglages de Configuration →
+  Accès compris) et répond à trois questions — `peut('<module>.<geste>')`,
+  `passe('admin', 'editeur')` pour une route encore en `roleRequired` (même
+  équivalence que le serveur : direction, secrétariat ≈ éditeur ; la
+  coordination n'y passe jamais), `ecrit('<module>')` pour le plafond.
+  Une liste de rôles écrite à la main dans un écran est une copie qui
+  divergera : on interroge `lib/droits.js`. Une ligne qu'on lit sans pouvoir
+  l'écrire est `inert` (`.ligne-lecture`), sans flèche ni cadre de champ.
+  Ce n'est pas une protection — la porte reste le serveur.
+- **TOUTE ZONE DE TEXTE A SES RÉPONSES TYPES** (3.1.21, Charles, 4 octobre
+  2026 : « partout dans Lucie, je veux des réponses pré-établies »). Un seul
+  hôte (`lib/reponsesTypes.jsx`, monté dans `main.jsx`) accroche le bouton à
+  tout `<textarea>` qui prend le focus : aucun écran n'a rien à faire. La clé
+  du champ : `data-reponses="…"` si l'écran la donne (obligatoire pour un
+  champ dont on amorce le catalogue), sinon l'intitulé du champ ;
+  `data-reponses="non"` retire le bouton. Catalogue COMMUN tenu par la
+  direction (Configuration → Réponses types, ou depuis le champ), phrases
+  PERSONNELLES de chacun (`reponse_type.proprietaire_id`). Les variables
+  ({etudiant}, {ue}…) se remplissent de ce que l'écran déclare par
+  `useContexteReponses()` ; le reste demeure entre crochets, à compléter.
+  Les motifs d'échec de la délibération (`motifsEchec.js`) gardent leur
+  mécanisme propre, structuré par acquis.
 - **Une entrée de rail sans icône est invisible** une fois le rail replié.
 - **Un titre ne s'écrit qu'une fois** par écran.
 - Un libellé ne promet que ce que la modale fait réellement.

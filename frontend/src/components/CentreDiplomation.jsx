@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { peutGeste } from '../lib/droits.js';
 import { nomPropre } from '../lib/nom.js';
 import {
   IconAward, IconAlertTriangle, IconClock, IconSquare, IconSquareCheck,
@@ -263,7 +264,7 @@ export default function CentreDiplomation({ annee, onClose, integre = false }) {
                       <IconFileTypePdf size={15} />
                       {pdfEnCours === p.cle ? 'Rendu…' : 'PDF'}
                     </button>
-                    {p.envoi && envoiMail?.actif && (
+                    {p.envoi && envoiMail?.actif && peutGeste('envois.envoyer') && (
                       <button onClick={() => setEnvoi(p)} disabled={!p.envoi.length}
                         title="Chaque étudiant reçoit SA pièce, à son adresse de l'école"
                         className="bouton controle px-3 flex items-center gap-1.5

@@ -29,13 +29,15 @@ import CentreImpressionCentral from '../components/CentreImpressionCentral.jsx';
  * contrats. Toute modification ici doit être répercutée côté serveur.
  */
 function peutGenererContrat(u) {
-  return estDirection(u) || ['editeur', 'secretariat'].includes(u?.role);
+  // Pas de droit, pas de bouton (3.1.20) : la route ET le plafond du module.
+  return passeRole(['admin', 'editeur'], u) && ecritModule('personnel', u);
 }
 
 import { DossierAdmin, Absences, Entretiens, Journal } from '../components/DossierPersonnel.jsx';
 import CalculateurAnciennete from '../components/CalculateurAnciennete.jsx';
 import { ouvrirApercu } from '../lib/apercu.js';
 import { demander, informer } from '../lib/dialogue.jsx';
+import { useDroits, passeRole, ecritModule, peutGeste } from '../lib/droits.js';
 
 const EMPTY = {
   nom: '', prenom: '', adresse_mail: '', mail_prive: '',
@@ -621,6 +623,7 @@ function AccesLuciePanel({ profId, detail }) {
 }
 
 function DetailModal({ profId, onClose, onEdit, onFiche, onEditions }) {
+  useDroits();
   const [detail, setDetail] = useState(null);
   const [onglet, setOnglet] = useState('attributions');
   const navigate = useNavigate();
@@ -913,10 +916,13 @@ function DetailModal({ profId, onClose, onEdit, onFiche, onEditions }) {
 
             {/* Actions et documents — à portée de main, sans quitter l'onglet courant */}
             <div className="p-4 border-b border-gray-100 space-y-3">
+              {((peutGeste('personnel.fiche') && ecritModule('organisation'))
+                || String(getUser()?.professeur_id ?? '') === String(profId)) && (
               <button onClick={() => onEdit(detail)}
                 className="w-full flex items-center gap-2 text-xs bg-slate-50 hover:bg-slate-100 text-iip-blue border border-slate-200 rounded-lg px-3 py-2 font-medium transition">
                 <IconEdit size={14}/> Modifier la fiche
               </button>
+              )}
 
               {/* Les documents ont quitté la fiche pour les Éditions (l'avion, en
                   haut à droite) : une seule porte pour imprimer et envoyer. */}
@@ -1013,7 +1019,7 @@ function DetailModal({ profId, onClose, onEdit, onFiche, onEditions }) {
                                 </td>
                                 <td className="py-2 opacity-0 group-hover:opacity-100 transition-opacity">
                                   <div className="flex items-center gap-0.5">
-                                    {a.code_cours && (
+                                    {a.code_cours && ecritModule('organisation') && passeRole(['admin', 'editeur']) && (
                                       <button title="Éditer" onClick={() => setEditCours({ section: a.section, code_cours: a.code_cours })}
                                         className="text-iip-gold hover:text-iip-amber p-1 rounded"><IconEdit size={13}/></button>
                                     )}
@@ -1813,7 +1819,10 @@ export default function Professeurs({ vue: vueInitiale = 'membres' }) {
     if (returnOnly) return html;
     setFicheHtml({ html, destinataire: { type: 'professeur', id: prof.id, nom: `${prof.nom || ''} ${prof.prenom || ''}`.trim() }, nom: nomDoc('Fiche_attr', prof.nom, prof.prenom, annee), titre: `${(prof.nom || '').toUpperCase()} ${prof.prenom || ''}`.trim(), sousTitre: `Fiche attributions ${contratFiltre} · ${annee}`, astuce: 'A4 portrait' });
   }
-  const canEdit = estDirection(me) || ['editeur', 'secretariat'].includes(me?.role);
+  // Les fiches passent par /api/ref (module organisation) et le geste personnel.fiche.
+  const droits = useDroits();
+  const canEdit = droits.peut('personnel.fiche') && droits.ecrit('organisation');
+  const canDelete = droits.peut('personnel.supprimer') && droits.ecrit('organisation');
 
   async function load() {
     setLoading(true);
@@ -2185,7 +2194,7 @@ export default function Professeurs({ vue: vueInitiale = 'membres' }) {
               <button onClick={() => setEditProf(p)}
                 className="text-iip-gold hover:text-iip-amber text-sm" title="Modifier"><IconEdit size={15}/></button>
             )}
-            {canEdit && (
+            {canDelete && (
               <button onClick={() => handleDelete(p)} disabled={deleting === p.id}
                 className="text-red-400 hover:text-red-600 text-sm disabled:opacity-30" title="Supprimer"><IconTrash size={15}/></button>
             )}

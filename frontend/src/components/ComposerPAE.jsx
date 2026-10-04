@@ -4,6 +4,7 @@ import { authHeaders, getAnnee, getUser } from '../lib/api.js';
 import ImportTableauPlat from './ImportTableauPlat.jsx';
 import { Fenetre } from './ui.jsx';
 import { demander } from '../lib/dialogue.jsx';
+import { peutGeste, passeRole } from '../lib/droits.js';
 
 /**
  * COMPOSER LES PAE — voir, revoir, changer, créer, pour un ou pour cent.
@@ -282,8 +283,8 @@ export default function ComposerPAE({ onClose, onTermine, onPassage, modeInitial
      est une erreur : sa seconde session n'est pas délibérée. */
   const cadenasDe = (e, ue) => (e.controle?.cadenas || []).find(c => c.ue === ue)?.si || null;
   const enAttente = e => e.controle?.en_attente?.length || 0;
-  const peutForcer = ['admin', 'directeur', 'directeur_adjoint', 'coordination', 'editeur']
-    .includes(getUser?.()?.role);
+  // Le verdict du geste, réglages compris (3.1.20) — le secrétariat y passe aussi.
+  const peutForcer = peutGeste('etudiants.reinscription');
   const nbReprises = (grille?.etudiants || []).reduce((n, e) => n + reprises(e), 0);
 
   async function forcer(e, ue) {
@@ -428,7 +429,7 @@ export default function ComposerPAE({ onClose, onTermine, onPassage, modeInitial
               : grille ? `${lignes.length} étudiant(s) affiché(s) sur ${grille.etudiants.length} · ${ues.length} UE`
                 : 'Choisissez une section.'}
         </span>
-        {onPassage && (
+        {onPassage && peutGeste('etudiants.promotion') && (
           <button className="bouton ml-auto" onClick={onPassage}
             title="Proposer automatiquement le programme de l'année suivante, d'après les résultats">
             Passage à l’année suivante…
@@ -468,12 +469,12 @@ export default function ComposerPAE({ onClose, onTermine, onPassage, modeInitial
                 ? 'bg-iip-blue text-white' : 'bg-white text-slate-600'}`}>
               Composer
             </button>
-            <button onClick={() => setMode('resultats')}
+            {passeRole(['admin', 'directeur', 'directeur_adjoint', 'editeur']) && <button onClick={() => setMode('resultats')}
               title="Encoder les résultats de l'année choisie : réussi/refusé ou note"
               className={`px-3 py-1.5 text-[12.5px] font-semibold border-l border-slate-300 ${mode === 'resultats'
                 ? 'bg-iip-blue text-white' : 'bg-white text-slate-600'}`}>
               Encoder l'historique
-            </button>
+            </button>}
             <button onClick={() => { setMode('valider'); setCoches(new Set()); }}
               title="Valider en groupe des PAE standards — la même validation que l'œil (revue des PAE), au nom de qui clique"
               className={`px-3 py-1.5 text-[12.5px] font-semibold border-l border-slate-300 ${mode === 'valider'

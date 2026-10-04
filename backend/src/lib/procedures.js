@@ -153,6 +153,13 @@ export function migrerProcedures(dbx = db) {
       par_nom    TEXT
     );
   `);
+  // RETIRER UN DOSSIER OUVERT PAR ERREUR (3.1.20, Charles, 4 octobre 2026 :
+  // « je ne sais pas supprimer un dossier »). On ne l'efface pas : il sort du
+  // registre, et la ligne garde qui l'a retiré, quand et pourquoi.
+  const cols = dbx.prepare('PRAGMA table_info(proc_dossier)').all().map(c => c.name);
+  if (!cols.includes('supprime_le')) dbx.exec('ALTER TABLE proc_dossier ADD COLUMN supprime_le TEXT');
+  if (!cols.includes('supprime_par')) dbx.exec('ALTER TABLE proc_dossier ADD COLUMN supprime_par TEXT');
+  if (!cols.includes('motif_suppression')) dbx.exec('ALTER TABLE proc_dossier ADD COLUMN motif_suppression TEXT');
   pretes = true;
 }
 const pret = () => { if (!pretes) migrerProcedures(); };
@@ -161,7 +168,7 @@ const pret = () => { if (!pretes) migrerProcedures(); };
 /** Le dossier complet : ses étapes (dernière valeur), membres, acquis, pièces. */
 export function lireDossier(id) {
   pret();
-  const d = db.prepare('SELECT * FROM proc_dossier WHERE id = ?').get(Number(id));
+  const d = db.prepare('SELECT * FROM proc_dossier WHERE id = ? AND supprime_le IS NULL').get(Number(id));
   if (!d) return null;
   const e = db.prepare(`SELECT nom, prenom, id_ecampus, titre, adresse, cp, localite, email_ecole,
     section_rattachement FROM etudiant WHERE id = ?`).get(d.etudiant_id) || {};
@@ -201,7 +208,7 @@ export function publicationDe(d) {
  *  fraude antérieurs du même étudiant, décidés. */
 export function recidiveDe(d) {
   return db.prepare(`SELECT pd.id, pd.annee_scolaire, pd.ue_num FROM proc_dossier pd
-    WHERE pd.etudiant_id = ? AND pd.nature = 'fraude' AND pd.id <> ? AND pd.id < ?
+    WHERE pd.etudiant_id = ? AND pd.nature = 'fraude' AND pd.id <> ? AND pd.id < ? AND pd.supprime_le IS NULL
       AND EXISTS (SELECT 1 FROM proc_etape e WHERE e.dossier_id = pd.id AND e.etape = 'decision' AND e.donnees IS NOT NULL)`)
     .all(d.etudiant_id, d.id, d.id);
 }

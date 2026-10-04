@@ -1202,3 +1202,11 @@ select[multiple], select[size]:not([size="1"]) {
    cellules collantes portent leur propre fond blanc : on les teinte aussi. */
 tr.ligne-visee > td { background: #fff !important; }
 tr.ligne-visee > td:first-child { box-shadow: inset 0 0 0 1px #fff; }
+
+/* LIGNE EN LECTURE (3.1.20) — qui n'a pas le droit d'écrire voit la donnée,
+   pas le contrôle : ni flèche de liste, ni cadre de champ. La ligne est
+   « inert » : aucun clic ne part. */
+tr.ligne-lecture select, tr.ligne-lecture input.input-cell {
+  appearance: none; -webkit-appearance: none; background: transparent !important;
+  border-color: transparent !important; cursor: default; color: inherit; opacity: 1;
+}

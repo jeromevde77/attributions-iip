@@ -1,4 +1,5 @@
 import { ICONE_AXE } from '../lib/iconesAxes.js';
+import { useDroits, passeRole, peutGeste, ecritModule } from '../lib/droits.js';
 import OngletCep from '../components/OngletCep.jsx';
 import { createContext, Fragment, lazy, Suspense, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
@@ -220,9 +221,11 @@ function RevuePAE({ liste: base, annee: anneeDepart, onClose }) {
   const [ajout, setAjout] = useState('');
   const [versionSchema, setVersionSchema] = useState(0);
   const [ouverts, setOuverts] = useState(() => new Set());   // les volets d'UE ouverts
-  const peutReporter = ['admin', 'directeur', 'directeur_adjoint', 'editeur', 'coordination'].includes(getUser()?.role);
-  // La porte du PAE (pae-valider → ecrireProgramme) : mêmes rôles que la fiche.
-  const peutModifier = ['admin', 'directeur', 'directeur_adjoint', 'editeur', 'secretariat', 'coordination'].includes(getUser()?.role);
+  // Le verdict des gestes, réglages compris (3.1.20) — le secrétariat reporte aussi.
+  const droitsPAE = useDroits();
+  const peutReporter = droitsPAE.peut('etudiants.reports');
+  // La porte du PAE (pae-valider → ecrireProgramme).
+  const peutModifier = droitsPAE.peut('etudiants.pae_composer');
 
   useEffect(() => {
     fetch('/api/annees', { headers: authHeaders() }).then(r => r.json())
@@ -1599,6 +1602,8 @@ const TYPES_VA = [
 
 function Valorisations({ etudId, annee }) {
   const [valos, setValos] = useState(null);
+  const droitsVA = useDroits();
+  const peutInstruireVA = droitsVA.peut('valorisation.instruire') && droitsVA.ecrit('etudiants');
   const [seance, setSeance] = useState(false);
   // INTRODUIRE UNE DEMANDE, ici aussi (2 octobre 2026) : l'onglet ne décide
   // plus — il ouvre un dossier vide, qui suit le circuit.
@@ -1654,10 +1659,11 @@ function Valorisations({ etudId, annee }) {
   }, [!!form || !!demande, sectionVA, etudId, annee]);
   // Directeur, directeur adjoint et administrateur technique ont les mêmes
   // droits ici : comparer à la seule chaîne 'admin' en écartait la direction.
+  // Renommer, supprimer, déposer une preuve : la route est admin/editeur, où le
+  // secrétariat passe aussi (3.1.20).
   const [estAdmin] = useState(() => {
     try {
-      const jeton = JSON.parse(atob((localStorage.getItem('token') || '').split('.')[1] || ''));
-      return ['admin', 'directeur', 'directeur_adjoint'].includes(jeton?.role);
+      return passeRole(['admin', 'editeur']) && ecritModule('etudiants');
     } catch { return false; }
   });
 
@@ -1828,6 +1834,7 @@ function Valorisations({ etudId, annee }) {
           Valorisation des acquis — AGCF du 13-12-2024 · décisions du Conseil des études
         </p>
         <span className="ml-auto" />
+        {peutInstruireVA && <>
         <button onClick={() => setSeance(true)}
           className="bouton bouton-fort mr-2 inline-flex items-center gap-1.5"
           title="Instruire, décider et valider toutes les UE de cet étudiant — la même fenêtre que l'écran Valorisation">
@@ -1840,6 +1847,7 @@ function Valorisations({ etudId, annee }) {
           className="flex items-center gap-1.5 px-3 py-1.5 text-sm border border-slate-300 rounded-lg">
           <IconPlus size={14} /> Introduire une demande
         </button>
+        </>}
       </div>
 
       {demande && (
@@ -2342,19 +2350,19 @@ function Valorisations({ etudId, annee }) {
                       )}
                     </span>
                   ))}
-                  <select value={nature} onChange={e => setNature(e.target.value)}
+                  {estAdmin && <select value={nature} onChange={e => setNature(e.target.value)}
                     title="Nature de la pièce — elle donne son nom au fichier"
                     className="text-[11px] border border-slate-300 rounded-lg px-1.5 py-0.5">
                     {natures.map(n => <option key={n.cle} value={n.cle}>{n.label}</option>)}
-                  </select>
-                  <label className="inline-flex items-center gap-1 text-[11px] text-slate-500
+                  </select>}
+                  {estAdmin && <label className="inline-flex items-center gap-1 text-[11px] text-slate-500
                                     border border-dashed border-slate-300 rounded-lg px-2 py-0.5
                                     cursor-pointer hover:border-iip-blue hover:text-iip-blue">
                     <IconUpload size={12} /> Déposer une preuve
                     <input type="file" className="hidden"
                       accept=".pdf,.jpg,.jpeg,.png,.gif,.webp,.heic,.tif,.tiff,.doc,.docx,.odt,.xls,.xlsx,.ods,.txt,.eml"
                       onChange={e => { deposer(v.id, e.target.files?.[0]); e.target.value = ''; }} />
-                  </label>
+                  </label>}
                 </div>
               </div>
               <div className="flex items-center gap-2 flex-none">
@@ -2391,6 +2399,8 @@ function Valorisations({ etudId, annee }) {
 
 function DossierApprenant({ etudId }) {
   const [pieces, setPieces] = useState(null);
+  const droitsDossier = useDroits();
+  const peutPieces = droitsDossier.passe('admin', 'editeur') && droitsDossier.ecrit('etudiants');
 
   async function charger() {
     const rep = await fetch(`/api/etudiants/${etudId}/pieces`, { headers: authHeaders() });
@@ -2419,8 +2429,8 @@ function DossierApprenant({ etudId }) {
           <div key={p.type} className="flex items-center justify-between gap-3 border border-slate-200 rounded-xl px-4 py-2.5">
             <div className="text-[13px] text-slate-700">{p.libelle}</div>
             <div className="flex gap-1 flex-none">
-              {STATUTS_PIECE.map(s => (
-                <button key={s.val} onClick={() => setStatut(p.type, s.val)}
+              {STATUTS_PIECE.filter(s => peutPieces || p.statut === s.val).map(s => (
+                <button key={s.val} disabled={!peutPieces} onClick={() => setStatut(p.type, s.val)}
                   className={`text-[11px] px-2 py-1 rounded-lg border transition ${
                     p.statut === s.val ? s.cls + ' font-semibold' : 'border-transparent text-slate-400 hover:bg-slate-50'}`}>
                   {s.label}
@@ -3046,7 +3056,7 @@ export function FicheEtudiant({ id, annee, onClose, position, onPrec, onSuiv,
               <SchemaRetournable
                 recto={onNoeud => <SchemaCapitalisation etudId={id} annee={annee} onNoeud={onNoeud} programme={selection}
                   onModifie={async () => { await chargerPAE(); await charger(); onModifie && onModifie(); }} />}
-                verso={ue => <GrilleParcours etudId={id} peutEcrire={true} annee={annee} ueFocus={ue} />} />
+                verso={ue => <GrilleParcours etudId={id} peutEcrire={passeRole(['admin', 'editeur']) && ecritModule('etudiants')} annee={annee} ueFocus={ue} />} />
 
               {/* LA FICHE EST LA VUE DU PARCOURS ET DES NOTES (Charles, 2 octobre
                   2026) : le PAE se travaille dans la revue. Il se résume ici en
@@ -3930,17 +3940,19 @@ export default function Etudiants() {
       description: "Unités inscrites, par étudiant", onClick: () => setRapportPAE(true) },
   ];
 
-  useEchangesDuRail(useCallback(() => setEchanges(true), []));
+  // Depuis 3.1.20, le verdict du serveur lui-même (Configuration → Accès compris).
+  const droitsRail = useDroits();
+  const peutImporter = droitsRail.peut('etudiants.import');
+  const peutReprendre = droitsRail.passe('admin', 'directeur', 'directeur_adjoint');
+  const peutLieux = droitsRail.passe('admin', 'directeur', 'directeur_adjoint', 'editeur', 'secretariat', 'coordination');
+  // Rien à importer pour ce rôle : pas d'entrée « Importer » dans le rail.
+  const ouvrirEchanges = useCallback(() => setEchanges(true), []);
+  useEchangesDuRail(peutImporter || peutReprendre || peutLieux ? ouvrirEchanges : null);
 
   // QUI PEUT SUPPRIMER. La route exige déjà « admin » ou « editeur » côté
   // serveur — un bouton caché n'est pas une protection —, mais proposer à
   // l'écran ce qui sera refusé par le serveur n'aide personne.
-  const peutSupprimer = (() => {
-    try {
-      const j = JSON.parse(atob((localStorage.getItem('token') || '').split('.')[1] || ''));
-      return ['admin', 'editeur', 'directeur', 'directeur_adjoint'].includes(j?.role);
-    } catch { return false; }
-  })();
+  const peutSupprimer = droitsRail.peut('etudiants.purge');
 
   const RAIL = [
     // LE CENTRE D'IMPRESSION EST DÉJÀ LA BULLE DU HAUT, et il porte désormais
@@ -3974,8 +3986,8 @@ export default function Etudiants() {
     // l'inscription tardive n'avait nulle part où aller. C'est la première
     // entrée du rail parce que c'est le premier geste de l'année.
     { label: 'Inscrire', items: [
-      { key: 'nouvel-etudiant', label: 'Créer un étudiant',
-        icon: IconUserPlus, onClick: () => setNouvel(true) },
+      ...(droitsRail.peut('etudiants.creer') ? [{ key: 'nouvel-etudiant', label: 'Créer un étudiant',
+        icon: IconUserPlus, onClick: () => setNouvel(true) }] : []),
       /* CE QUI RÉPARE LES DOSSIERS, À CÔTÉ DE CE QUI LES CRÉE (lot 4, 2 octobre
          2026). Quatre outils, une seule entrée : une icône se mérite. */
       { key: 'controles-dossiers', label: 'Contrôler les dossiers', icon: IconListSearch,
@@ -3991,18 +4003,18 @@ export default function Etudiants() {
     // écrit deux fois dans le même menu. L'onglet fait tout ce que faisait le
     // registre, et il encode en plus.
     { label: 'Fin de cycle', items: [
-      { key: 'passage', label: 'Composer les PAE',
+      ...(droitsRail.peut('etudiants.pae_composer') ? [{ key: 'passage', label: 'Composer les PAE',
         /* PAS DEUX FOIS LE MÊME DESSIN DANS UN RAIL. « Passage de classe »
            portait l'icône de l'axe Étudiants : replié, on visait l'un pour
            l'autre. Un escalier dit ce que fait l'action — on monte d'un an. */
         /* LE MÊME ESCALIER, UN OUTIL PLUS LARGE (21 septembre 2026) : la
            grille de composition, dont le passage d'année n'est plus qu'un
            des gestes. On garde l'icône — c'est celle que Charles cherche. */
-        icon: IconTablePlus, onClick: () => setComposer('composer') },
+        icon: IconTablePlus, onClick: () => setComposer('composer') }] : []),
       // LES REPORTS D'OFFICE (27 septembre 2026) : se posent seuls à chaque PAE
       // enregistré ; cette entrée rattrape les PAE composés avant.
-      { key: 'reports', label: 'Reports de notes', icon: IconArrowForwardUp,
-        onClick: () => setReportsOffice(true) },
+      ...(droitsRail.passe('admin', 'directeur', 'directeur_adjoint', 'editeur') ? [{ key: 'reports', label: 'Reports de notes', icon: IconArrowForwardUp,
+        onClick: () => setReportsOffice(true) }] : []),
       /* LA REVUE DES PAE (1er octobre 2026) : les étudiants cochés s'il y en a,
          sinon la liste telle qu'elle est filtrée, dans son ordre. */
       { key: 'revue-pae', label: 'Revue des PAE', icon: IconEyeCheck,
@@ -4199,12 +4211,12 @@ export default function Etudiants() {
               titre="Imprimer ou envoyer le PAE des étudiants cochés — centre d'édition"
               perimetre={{ annee, pieces: ['pae'], coches: [...selEtudiants],
                 sections: [...new Set(etudiants.filter(e => selEtudiants.has(e.id)).map(e => e.section_rattachement).filter(Boolean))] }} />
-            <button onClick={imprimerCoordonnees}
+            {ecritModule('etudiants') && <button onClick={imprimerCoordonnees}
               title="La liste imprimable des emails, GSM et adresses des étudiants cochés"
               className="flex items-center gap-1.5 px-3 py-1.5 text-sm border border-iip-blue
                          text-iip-blue font-semibold rounded-lg">
               <IconAddressBook size={14} /> Coordonnées
-            </button>
+            </button>}
             <button onClick={() => setComposer('selection')}
               title="Ouvrir la composition des PAE avec les étudiants retenus déjà cochés"
               className="flex items-center gap-1.5 px-3 py-1.5 text-sm border border-iip-blue
@@ -4479,67 +4491,67 @@ export default function Etudiants() {
             /* EN TÊTE : c'est l'import d'une rentrée, et il n'avait pas de
                porte — la création était une case cachée de l'importateur sur
                mesure, qui annonce COMPLÉTER. Le nom est celui de Charles. */
-            { cle: 'creer-externe', titre: 'Créer des étudiants sur base d’une base de données externe',
+            { cle: 'creer-externe', ok: peutImporter, titre: 'Créer des étudiants sur base d’une base de données externe',
               quoi: 'Ouvrir les dossiers d’une nouvelle promotion ; ceux qui existent déjà sont complétés, jamais dédoublés.',
               attend: 'l’export eCampus des étudiants (R_Etudiants_Excel, .xls)',
               onClick: () => setImportSignaletique(true) },
             /* LES ORTHOPTISTES DE LA HELB (30 septembre 2026) : ils suivent le
                tronc commun organisé par l'IIP, sans passer par eCampus. */
-            { cle: 'creer-helb', titre: 'Créer les étudiants d’orthoptie (HELB)',
+            { cle: 'creer-helb', ok: peutImporter, titre: 'Créer les étudiants d’orthoptie (HELB)',
               quoi: 'Ouvrir les dossiers de la section Orthoptie et y rattacher les unités du tronc commun ; ceux qui existent déjà sont complétés.',
               attend: 'la liste des inscrits transmise par la HELB (.xls)',
               onClick: () => setImportHELB(true) },
             /* L'ÉTAPE SUIVANTE : une promotion importée sans section se range
                d'après le rapport eCampus « Pack UF ». */
-            { cle: 'rattacher-pack', titre: 'Placer les étudiants dans leur section',
+            { cle: 'rattacher-pack', ok: peutImporter, titre: 'Placer les étudiants dans leur section',
               quoi: 'D’après le rapport eCampus « Pack UF » : chaque pack reçoit sa section, seuls les étudiants sans section sont placés.',
               attend: 'le rapport Pack UF (Word, .docx)',
               onClick: () => setRattacherPack(true) },
-            { cle: 'liste', titre: 'Liste eCampus',
+            { cle: 'liste', ok: peutImporter, titre: 'Liste eCampus',
               quoi: 'Créer ou compléter les dossiers depuis la liste officielle.',
               attend: "l'export eCampus (.xlsx)",
               onClick: () => setImportListe(true) },
-            { cle: 'pae', titre: 'Classeur PAE',
+            { cle: 'pae', ok: peutImporter, titre: 'Classeur PAE',
               quoi: 'Reprendre les programmes annuels déjà composés ailleurs.',
               attend: 'un classeur PAE (.xlsx)',
               onClick: () => setImportPAE(true) },
-            { cle: 'suivi', titre: 'Classeur de suivi',
+            { cle: 'suivi', ok: peutReprendre, titre: 'Classeur de suivi',
               quoi: 'Pondérations, notes et décisions des deux sessions d’une année.',
               attend: 'Suivi_etudiants_XXX.xlsm',
               onClick: () => setImportSuivi(true) },
-            { cle: 'histo', titre: "Reconstruire l'historique",
+            { cle: 'histo', ok: peutImporter, titre: "Reconstruire l'historique",
               quoi: 'Plusieurs années et sections d’un coup, depuis leurs classeurs de suivi ; les étudiants se rapprochent par numéro national.',
               attend: 'plusieurs Suivi_etudiants_XXX.xlsm',
               onClick: () => setImportHisto(true) },
             /* LA REPRISE PAR TABLEAU PLAT vivait dans une barre de boutons de
                la délibération (Charles, 3 octobre 2026 : « ce menu n'était que
                pour moi, il peut partir si on a les liens dans Importer »). */
-            { cle: 'tableau-plat', titre: 'Reprendre une année depuis un tableau plat',
+            { cle: 'tableau-plat', ok: peutReprendre, titre: 'Reprendre une année depuis un tableau plat',
               quoi: 'Une année déjà délibérée : une ligne par étudiant, unité et session, dates du jury comprises.',
               attend: 'un tableau plat, une ligne par décision',
               onClick: () => setTableauPlat(true) },
-            { cle: 'lieux-stage', titre: 'Répertoire de lieux de stage',
+            { cle: 'lieux-stage', ok: peutLieux, titre: 'Répertoire de lieux de stage',
               quoi: 'Les lieux d’une section (type, responsable, adresse, demande) : on les choisit ensuite dans la fiche de stage.',
               attend: 'un classeur avec la colonne « Nom de l’organisme »',
               onClick: () => setLieuxStage(true) },
-            { cle: 'complement', titre: 'Compléter les dossiers',
+            { cle: 'complement', ok: peutImporter, titre: 'Compléter les dossiers',
               quoi: 'Ajouter adresses, dates de naissance et pièces aux dossiers existants.',
               attend: 'un classeur portant les matricules',
               onClick: () => setComplement(true) },
-            { cle: 'comparer', titre: 'Comparer un classeur',
+            { cle: 'comparer', ok: peutImporter, titre: 'Comparer un classeur',
               quoi: 'Voir ce qui diffère entre un fichier et la base, sans rien écrire.',
               attend: "n'importe quel classeur d'étudiants",
               onClick: () => setComparaison(true) },
-            { cle: 'sur-mesure', titre: 'Importateur sur mesure',
+            { cle: 'sur-mesure', ok: peutImporter, titre: 'Importateur sur mesure',
               quoi: 'Un fichier dont la forme n’entre dans aucune des cases ci-dessus.',
               attend: 'un classeur dont vous désignez les colonnes',
               onClick: () => setImportSurMesure(true) },
-          ]}
-          risques={[
+          ].filter(e => e.ok)}
+          risques={peutSupprimer ? [
             { cle: 'purge', titre: 'Vider des résultats',
               quoi: 'Effacer les notes et décisions d’une année ou d’une unité.',
               attend: null, onClick: () => setPurge(true) },
-          ]} />
+          ] : []} />
       )}
 
       {diplomation && (
