@@ -29,6 +29,7 @@ import {
   estAdmissionDeSection, unitesDeBase, decideHorsCircuit,
 } from '../lib/valorisation.js';
 import { gesteRequis, gesteAutorise } from '../lib/gestes.js';
+import { codeGroupe } from '../lib/groupes.js';
 import { calculerDI, calculerDIS } from './droitInscription.js';
 import { rapprocher, normDate } from './importHistorique.js';
 import { lirePackUF } from '../lib/packUF.js';
@@ -1466,6 +1467,106 @@ r.get('/repartition-cours/ue', authRequired, (req, res) => {
   `).all(annee, ...coursRows.map(c => c.cours_code)) : [];
 
   res.json({ ue_num: ueNum, annee, cours, etudiants, affectations });
+});
+
+/* RENOMMER UN GROUPE, ET L'ATTRIBUTION SUIT (3.1.23, Charles, 4 octobre 2026 :
+   « on devrait pouvoir changer les groupes ici, avec conséquences sur
+   l'attribution »). Le nom d'un groupe n'existe qu'à un endroit — le code de
+   la ligne d'attribution — et les étudiants répartis y sont rattachés par ce
+   nom (`etudiant_cours_groupe.groupe_code`). Les deux se renomment donc
+   ENSEMBLE, dans une transaction : renommer l'un sans l'autre laisserait des
+   étudiants dans un groupe qui n'existe plus.
+   - un nom déjà pris par un autre groupe du même cours : les deux s'ÉCHANGENT ;
+   - « renuméroter » nomme tous les groupes du cours dans l'ordre, selon
+     A, B… · A1, A2… (la lettre est l'organisation) · 1, 2… (lib/groupes.js). */
+function groupesDuCours(ueNum, annee, cours, act) {
+  return db.prepare(`SELECT DISTINCT COALESCE(num_organisation, 1) org, code FROM attribution
+    WHERE ue_num = ? AND annee_scolaire = ? AND code_cours = ? AND COALESCE(activite_id, 0) = ?
+      AND code IS NOT NULL AND code <> '' AND UPPER(code) <> 'TS' AND COALESCE(split_groupe, 'N') <> 'O'`)
+    .all(ueNum, annee, cours, act);
+}
+function appliquerRenommages(req, ueNum, annee, cours, act, renommages) {
+  // renommages : [{ org, ancien, nouveau }] — en deux temps, pour qu'un échange
+  // ou une permutation ne heurte jamais un nom encore occupé.
+  const majA = db.prepare(`UPDATE attribution SET code = ? WHERE ue_num = ? AND annee_scolaire = ?
+    AND code_cours = ? AND COALESCE(activite_id, 0) = ? AND COALESCE(num_organisation, 1) = ? AND code = ?`);
+  const majE = db.prepare(`UPDATE etudiant_cours_groupe SET groupe_code = ?, maj_le = datetime('now'), maj_par = ?
+    WHERE annee_scolaire = ? AND cours_code = ? AND activite_id = ? AND COALESCE(num_organisation, 1) = ? AND groupe_code = ?`);
+  const par = req.user?.nom || req.user?.email || null;
+  let lignes = 0, etudiants = 0;
+  db.transaction(() => {
+    renommages.forEach((x, i) => {
+      const tmp = `__renom_${i}`;
+      lignes += majA.run(tmp, ueNum, annee, cours, act, x.org, x.ancien).changes;
+      etudiants += majE.run(tmp, par, annee, cours, act, x.org, x.ancien).changes;
+    });
+    renommages.forEach((x, i) => {
+      const tmp = `__renom_${i}`;
+      majA.run(x.nouveau, ueNum, annee, cours, act, x.org, tmp);
+      majE.run(x.nouveau, par, annee, cours, act, x.org, tmp);
+    });
+  })();
+  return { lignes, etudiants };
+}
+function peutRenommer(req, res) {
+  if (gesteAutorise(req, 'attributions.modifier') !== 'oui') {
+    res.status(403).json({ error: 'Renommer un groupe modifie les attributions : votre rôle ne le permet pas.' });
+    return false;
+  }
+  return true;
+}
+
+r.post('/repartition-cours/renommer-groupe', authRequired, (req, res) => {
+  if (!peutRenommer(req, res)) return;
+  const ueNum = Number(req.body?.ue_num);
+  const annee = String(req.body?.annee || '').trim();
+  const cours = String(req.body?.cours_code || '').trim();
+  const act = Number(req.body?.activite_id) || 0;
+  const org = Number(req.body?.num_organisation) || 1;
+  const ancien = String(req.body?.ancien || '').trim();
+  const nouveau = String(req.body?.nouveau || '').trim().toUpperCase();
+  if (!ueNum || !annee || !cours || !ancien) return res.status(400).json({ error: 'Groupe non désigné.' });
+  if (!unitePermise(req, res, ueNum)) return;
+  if (!/^[A-Z0-9]{1,6}$/.test(nouveau) || nouveau === 'TS') {
+    return res.status(400).json({ error: 'Un nom de groupe : des lettres et des chiffres, six au plus (A, B, A1, A2, 1, 2…).' });
+  }
+  if (nouveau === ancien.toUpperCase()) return res.json({ ok: true, lignes: 0, etudiants: 0 });
+  const existants = groupesDuCours(ueNum, annee, cours, act).filter(g => g.org === org);
+  if (!existants.some(g => g.code === ancien)) return res.status(404).json({ error: `Le groupe ${ancien} n'existe pas dans ce cours.` });
+  const occupe = existants.find(g => g.code.toUpperCase() === nouveau);
+  const renommages = [{ org, ancien, nouveau }];
+  if (occupe) renommages.push({ org, ancien: occupe.code, nouveau: ancien });   // échange
+  const r2 = appliquerRenommages(req, ueNum, annee, cours, act, renommages);
+  res.json({ ok: true, echange: !!occupe, ...r2 });
+});
+
+r.post('/repartition-cours/renumeroter', authRequired, (req, res) => {
+  if (!peutRenommer(req, res)) return;
+  const ueNum = Number(req.body?.ue_num);
+  const annee = String(req.body?.annee || '').trim();
+  const cours = String(req.body?.cours_code || '').trim();
+  const act = Number(req.body?.activite_id) || 0;
+  const mode = ['lettres', 'lettre_chiffre', 'chiffres'].includes(req.body?.mode) ? req.body.mode : null;
+  if (!ueNum || !annee || !cours || !mode) return res.status(400).json({ error: 'Cours ou numérotation non désignés.' });
+  if (!unitePermise(req, res, ueNum)) return;
+  const rang = c => { const m = /(\d+)$/.exec(c); const l = /^[A-Z]+/i.exec(c);
+    return (l ? (l[0].toUpperCase().charCodeAt(0) - 64) * 1000 : 0) + (m ? Number(m[1]) : 0); };
+  const parOrg = new Map();
+  for (const g of groupesDuCours(ueNum, annee, cours, act)) {
+    if (!parOrg.has(g.org)) parOrg.set(g.org, []);
+    parOrg.get(g.org).push(g.code);
+  }
+  const renommages = [];
+  for (const [org, codes] of parOrg) {
+    codes.sort((a, b) => rang(a) - rang(b) || a.localeCompare(b, 'fr', { numeric: true }));
+    codes.forEach((ancien, i) => {
+      const nouveau = codeGroupe(i, mode, org);
+      if (nouveau !== ancien) renommages.push({ org, ancien, nouveau });
+    });
+  }
+  if (req.body?.simulation) return res.json({ simulation: true, renommages });
+  const r2 = appliquerRenommages(req, ueNum, annee, cours, act, renommages);
+  res.json({ ok: true, renommages, ...r2 });
 });
 
 r.post('/repartition-cours', authRequired, roleRequired(...PEUT_INSTRUIRE), (req, res) => {

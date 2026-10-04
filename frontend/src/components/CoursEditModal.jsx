@@ -4,6 +4,7 @@ import { IconPlus, IconTarget, IconTrash } from '@tabler/icons-react';
 import { api } from '../lib/api.js';
 import { Fenetre } from './ui.jsx';
 import { informer } from '../lib/dialogue.jsx';
+import { codeGroupe } from '../lib/groupes.js';
 
 /**
  * Modale d'édition d'un COURS (section + code_cours) avec toutes ses attributions.
@@ -17,6 +18,10 @@ import { informer } from '../lib/dialogue.jsx';
  *   onClose, onChanged  → callbacks
  */
 export default function CoursEditModal({ section, codeCours, onClose, onChanged }) {
+  const [modeSection, setModeSection] = useState('lettres');
+  useEffect(() => {
+    api.sections().then(l => setModeSection((Array.isArray(l) ? l : []).find(x => x.code === section)?.numerotation_groupes || 'lettres')).catch(() => {});
+  }, [section]);
   const [data, setData] = useState(null);    // { attributions, conformite }
   const [rows, setRows] = useState([]);      // copie locale éditable
   const [loading, setLoading] = useState(true);
@@ -96,13 +101,15 @@ export default function CoursEditModal({ section, codeCours, onClose, onChanged 
 
   function addRow() {
     // Trouver la prochaine lettre de groupe disponible
-    const usedCodes = new Set(rows.filter(r => !r._deleted).map(r => r.code));
-    let nextCode = 'A';
-    for (const c of 'ABCDEFGHIJKLMNOPQRSTUVWXYZ') {
+    // Le nom suit la numérotation de la section (A, B… · A1, A2… · 1, 2…).
+    const ref = rows.find(r => !r._deleted) || {};
+    const usedCodes = new Set(rows.filter(r => !r._deleted).map(r => String(r.code || '').toUpperCase()));
+    let nextCode = codeGroupe(0, modeSection, ref.num_organisation || 1);
+    for (let i = 0; i < 200; i++) {
+      const c = codeGroupe(i, modeSection, ref.num_organisation || 1);
       if (!usedCodes.has(c)) { nextCode = c; break; }
     }
     // Hériter du contexte des autres lignes (section, ue, code_cours, type_cours, quadri)
-    const ref = rows.find(r => !r._deleted) || {};
     const newRow = {
       id: nextTempId,
       _new: true,
