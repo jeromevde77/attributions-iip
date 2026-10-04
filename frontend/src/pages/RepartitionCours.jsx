@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
-import { IconUsersGroup, IconAlertTriangle, IconWand, IconFileSpreadsheet, IconX } from '@tabler/icons-react';
+import { IconUsersGroup, IconAlertTriangle, IconWand, IconFileSpreadsheet, IconX, IconPencil, IconSortAscendingLetters } from '@tabler/icons-react';
 import { api, authHeaders, getAnnee } from '../lib/api.js';
-import { demander } from '../lib/dialogue.jsx';
+import { demander, saisir, informer } from '../lib/dialogue.jsx';
+import { peutGeste, ecritModule } from '../lib/droits.js';
+import { MODES_GROUPES } from '../lib/groupes.js';
 
 /**
  * RÉPARTITION DES ÉTUDIANTS — le croisement attributions × PAE.
@@ -262,6 +264,55 @@ export default function RepartitionCours() {
 
   const etiquette = (g) => `Org ${g.num_organisation}${g.groupe ? ` · Gr. ${g.groupe}` : ''}`;
 
+  /* RENOMMER UN GROUPE ICI, ET L'ATTRIBUTION SUIT (3.1.23). Le nom vit sur la
+     ligne d'attribution ; les étudiants déjà placés le suivent. Un nom déjà
+     pris par un autre groupe du cours : les deux s'échangent. */
+  const peutRenommer = peutGeste('attributions.modifier') && ecritModule('attributions');
+  const [renum, setRenum] = useState(null);   // { c, top, left } — choix de la numérotation d'un cours
+  async function avantDeRenommer() {
+    if (!attente.size) return true;
+    await informer(`${attente.size} placement(s) ne sont pas encore enregistrés : enregistrez-les (ou annulez-les) avant de renommer un groupe.`);
+    return false;
+  }
+  async function renommerGroupe(c, g) {
+    if (!(await avantDeRenommer())) return;
+    const autres = c.groupes.filter(x => x.num_organisation === g.num_organisation && x.groupe && x.groupe !== g.groupe).map(x => x.groupe);
+    const nouveau = await saisir({
+      message: `Nouveau nom du groupe ${g.groupe} (organisation ${g.num_organisation}) — ${c.cours_code} · ${c.cours_nom}${c.activite_libelle ? ` · ${c.activite_libelle}` : ''}.\n\n`
+        + `Ex. A1, A2, B1… La ligne d'attribution est renommée, et les étudiants placés dans ce groupe le suivent.`
+        + (autres.length ? `\nUn nom déjà pris (${autres.join(', ')}) : les deux groupes s'échangent.` : ''),
+      valeur: g.groupe, obligatoire: true });
+    if (!nouveau || !String(nouveau).trim()) return;
+    try {
+      const r = await fetch('/api/etudiants/repartition-cours/renommer-groupe', { method: 'POST', headers: authHeaders(),
+        body: JSON.stringify({ ue_num: ueNum, annee, cours_code: c.cours_code, activite_id: c.activite_id || 0,
+          num_organisation: g.num_organisation, ancien: g.groupe, nouveau }) });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(j.error || `Erreur ${r.status}`);
+      await ouvrirUE(ueNum);
+    } catch (e) { setErreur(e.message); }
+  }
+  async function renumeroter(c, mode) {
+    setRenum(null);
+    if (!(await avantDeRenommer())) return;
+    const corps = { ue_num: ueNum, annee, cours_code: c.cours_code, activite_id: c.activite_id || 0, mode };
+    try {
+      const appel = async extra => {
+        const r = await fetch('/api/etudiants/repartition-cours/renumeroter', { method: 'POST', headers: authHeaders(),
+          body: JSON.stringify({ ...corps, ...extra }) });
+        const j = await r.json().catch(() => ({}));
+        if (!r.ok) throw new Error(j.error || `Erreur ${r.status}`);
+        return j;
+      };
+      const sim = await appel({ simulation: true });
+      if (!sim.renommages.length) { await informer('Les groupes de ce cours portent déjà ces noms.'); return; }
+      const liste = sim.renommages.map(x => `Org ${x.org} : ${x.ancien} → ${x.nouveau}`).join('\n');
+      if (!(await demander(`Renommer les groupes de ${c.cours_code}${c.activite_libelle ? ` · ${c.activite_libelle}` : ''} ?\n\n${liste}\n\nLes lignes d'attribution sont renommées et les étudiants placés suivent leur groupe.`))) return;
+      await appel({});
+      await ouvrirUE(ueNum);
+    } catch (e) { setErreur(e.message); }
+  }
+
   async function chargerClasseur(f) {
     if (!f) return;
     setErreur(null);
@@ -487,11 +538,25 @@ export default function RepartitionCours() {
           )}
         </div>
 
+        {renum && (
+          <>
+            <div className="fixed inset-0 z-40" onClick={() => setRenum(null)} />
+            <div className="fixed z-50 bg-white border border-slate-300 rounded-carte shadow-flottant p-2 w-72"
+              style={{ top: renum.top, left: Math.min(renum.left, window.innerWidth - 300) }}>
+              <div className="px-1.5 pb-1.5 text-[11px] text-slate-500">Nommer les groupes de {renum.c.cours_code}, dans leur ordre :</div>
+              {MODES_GROUPES.map(([m, lib]) => (
+                <button key={m} type="button" onClick={() => renumeroter(renum.c, m)}
+                  className="block w-full text-left px-2 py-1.5 rounded-champ text-[12.5px] hover:bg-slate-50">{lib}</button>
+              ))}
+              <div className="px-1.5 pt-1.5 text-[10.5px] text-slate-400">Avec A1, A2…, la lettre est l'organisation : Org 2 donne B1, B2.</div>
+            </div>
+          </>
+        )}
         <div className="overflow-x-auto border border-slate-200 rounded-carte bg-white">
           <table className="w-full text-[12.5px]" style={{ minWidth: 760 }}>
             <thead>
               <tr>
-                <th rowSpan="2" className="text-left px-3 py-2 bg-slate-50 sticky left-0 min-w-[220px] border-b border-slate-200">
+                <th rowSpan="2" className="text-left px-3 py-2 bg-slate-50 sticky left-0 z-[2] min-w-[240px] w-[280px] border-b border-slate-200">
                   <input type="checkbox" className="mr-2 align-middle"
                     checked={etudiants.length > 0 && etudiants.every(e => coches.has(e.id))}
                     onChange={ev => setCoches(ev.target.checked ? new Set(etudiants.map(e => e.id)) : new Set())} />
@@ -501,6 +566,11 @@ export default function RepartitionCours() {
                   <th key={c.cle} colSpan={c.sans_groupe ? 1 : c.groupes.length}
                     className="px-2 py-1.5 bg-slate-50 border-b border-l-2 border-slate-200 text-iip-blue">
                     {c.cours_code} · {c.cours_nom}
+                    {peutRenommer && !c.sans_groupe && (
+                      <button type="button" title="Renuméroter les groupes de ce cours (A, B… · A1, A2… · 1, 2…)"
+                        onClick={e => { const r = e.currentTarget.getBoundingClientRect(); setRenum({ c, top: r.bottom + 4, left: r.left }); }}
+                        className="ml-1.5 align-middle text-slate-400 hover:text-iip-blue"><IconSortAscendingLetters size={14} /></button>
+                    )}
                     {/* CE SONT LES ACTIVITÉS QUI SE COUPENT EN GROUPES : la
                         théorie avec tous, le laboratoire en huit groupes. */}
                     {c.activite_libelle && (
@@ -533,6 +603,11 @@ export default function RepartitionCours() {
                     className={`px-2 py-1 bg-slate-50 border-b border-l border-dashed border-slate-200 text-[10.5px] text-iip-turquoise-dark min-w-[92px]
                       ${coches.size ? 'cursor-pointer hover:bg-iip-turquoise/15 select-none' : ''}`}>
                     {etiquette(g)}
+                    {peutRenommer && !coches.size && g.groupe && (
+                      <button type="button" title="Renommer ce groupe — l'attribution et les étudiants placés suivent"
+                        onClick={e => { e.stopPropagation(); renommerGroupe(c, g); }}
+                        className="ml-1 align-middle text-slate-300 hover:text-iip-blue"><IconPencil size={12} /></button>
+                    )}
                     {coches.size > 0 && (
                       <span className="block text-[9.5px] font-bold text-iip-blue">⊕ placer {coches.size}</span>
                     )}
@@ -546,15 +621,22 @@ export default function RepartitionCours() {
                 const manque = manquants(e);
                 return (
                   <tr key={e.id} className={`border-b border-slate-100 ${manque ? 'bg-amber-50/60' : ''}`}>
-                    <td className="px-3 py-1.5 text-left sticky left-0 bg-inherit backdrop-blur">
-                      <input type="checkbox" className="mr-2 align-middle" checked={coches.has(e.id)}
-                        onChange={() => setCoches(s => {
-                          const n = new Set(s); n.has(e.id) ? n.delete(e.id) : n.add(e.id); return n;
-                        })} />
-                      {e.nom} {e.prenom}
-                      {e.num_organisation != null
-                        ? <span className="ml-1.5 text-[10px] font-bold px-2 py-0.5 rounded-full bg-iip-light text-iip-blue">Org {e.num_organisation}</span>
-                        : <span className="ml-1.5 text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500 text-white">non réparti</span>}
+                    {/* LA COLONNE FIGÉE A UN FOND PLEIN : transparente et floutée, elle
+                        laissait voir en tache les ronds qui défilent dessous. Et la
+                        pastille ne se coupe jamais en deux (Charles, 4 octobre 2026). */}
+                    <td className="px-3 py-1.5 text-left sticky left-0 z-[1] bg-white border-r border-slate-100 max-w-[320px]">
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <input type="checkbox" className="flex-none" checked={coches.has(e.id)}
+                          onChange={() => setCoches(s => {
+                            const n = new Set(s); n.has(e.id) ? n.delete(e.id) : n.add(e.id); return n;
+                          })} />
+                        <span className="min-w-0 truncate" title={`${(e.nom || '').toUpperCase()} ${e.prenom || ''}`}>
+                          {(e.nom || '').toUpperCase()} {e.prenom}
+                        </span>
+                        {e.num_organisation != null
+                          ? <span className="flex-none whitespace-nowrap text-[10px] font-bold px-2 py-0.5 rounded-full bg-iip-light text-iip-blue">Org {e.num_organisation}</span>
+                          : <span className="flex-none whitespace-nowrap text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500 text-white">non réparti</span>}
+                      </div>
                       {manque > 0 && (
                         <span className="block text-[10px] text-iip-texte">
                           <IconAlertTriangle size={10} className="inline -mt-0.5" /> {manque} cours sans groupe

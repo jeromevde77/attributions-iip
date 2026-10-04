@@ -3,8 +3,9 @@ import {
   IconSearch, IconX, IconHelpCircle, IconChecklist, IconUsers, IconBooks,
   IconChartBar, IconSettings, IconChevronRight, IconHome, IconSend, IconPencil,
   IconBook, IconUserCheck, IconCertificate, IconAccessible, IconScale, IconAward, IconStairsUp,
-  IconShieldExclamation, IconLayoutGrid,
+  IconShieldExclamation, IconLayoutGrid, IconFileTypePdf,
 } from '@tabler/icons-react';
+import { authHeaders } from '../lib/api.js';
 
 /**
  * Mode d'emploi de Lucie — la face « Mode d'emploi de Lucie » de Documentation.
@@ -763,7 +764,7 @@ const RUBRIQUES = [
           "Sur une ligne : « C » met le titulaire en congé et crée une ligne de remplacement (R) ; le cadenas signale une nomination définitive ; RT, une remise au travail ; la mallette pioche un candidat du recrutement.",
           "Par UE : « Réouvrir cette UE » crée une nouvelle organisation. Par section (direction) : remplir les périodes, rapport d'attributions, Excel, suppression avec sauvegarde.",
           "Ce qu'une coordination modifie part en demande : la direction le valide dans Tableau de bord → « À valider ». Qui ne peut que lire voit la grille en lecture.",
-          "La numérotation des groupes se règle par section (Configuration → Unités et cours, fiche de la section, « Numérotation des groupes ») : A, B… ; A1, A2, B1… ; ou 1, 2, 3. Les noms déjà posés ne sont pas renommés.",
+          "La numérotation des NOUVEAUX groupes se règle par section (Configuration → Unités et cours, fiche de la section, « Numérotation des groupes ») : A, B… ; A1, A2, B1… ; ou 1, 2, 3. Les groupes déjà créés se renomment dans Organisation → Répartition des étudiants.",
           "« Répartir entre organisations » (menu de l'UE) recopie, modifie ou déplace des lignes d'une organisation à l'autre. Lucie signale ce qui ne tombe pas sur un multiple du dossier pédagogique ; elle n'empêche pas.",
           "Les périodes d'un cours tombent sur un multiple du dossier pédagogique ; l'autonomie se compte à part.",
           "Les attributions HELB s'affichent mais ne pèsent pas sur la dotation.",
@@ -795,6 +796,7 @@ const RUBRIQUES = [
              + "« Descriptifs d'UE » : la partie grise vient du référentiel, la partie blanche est rédigée par le "
              + "titulaire. « Effectifs et postes PNCC ».",
         savoir: [
+          "Répartition des étudiants : le crayon d'un en-tête « Org 1 · Gr. A » renomme le groupe (A1, A2…) ; l'icône à côté du nom du cours renumérote tous ses groupes d'un coup — A, B… · A1, A2… (la lettre est l'organisation : Org 2 donne B1, B2) · 1, 2…. La ligne d'attribution est renommée et les étudiants placés suivent leur groupe. Un nom déjà pris : les deux groupes s'échangent.",
           "Les pondérations ont une année : régler 2026-2027 ne touche pas aux années passées. À partir de 2026-2027, dix points par cours, répartis entre ses acquis.",
           "Les rapports d'Organisation (unités, grilles de cours, enseignants par unité, acquis, unités sans attribution, calendrier des délibérations, locaux) sortent par l'avion → Organisation → Listes et rapports.",
         ] },
@@ -1005,8 +1007,25 @@ export function BoutonAide({ page }) {
 /* La recherche lit tout ce que le point dit : titre, chemin, texte, règles. */
 const texteDuPoint = p => [p.titre, p.ou, p.texte, ...(p.savoir || [])].filter(Boolean).join(' ').toLowerCase();
 
+/* LE GUIDE ILLUSTRÉ (PDF, captures de la version de test) — servi derrière la
+ * connexion. L'onglet s'ouvre AVANT d'attendre le fichier : ouvert après, le
+ * navigateur le prend pour une fenêtre surgissante et le bloque en silence. */
+async function ouvrirGuide(setErreur) {
+  const onglet = window.open('', '_blank');
+  try {
+    const rep = await fetch('/api/documentation/guide/secretariat', { headers: authHeaders() });
+    if (!rep.ok) throw new Error((await rep.json().catch(() => ({}))).error || `Erreur ${rep.status}`);
+    const url = URL.createObjectURL(await rep.blob());
+    if (onglet) onglet.location = url; else window.location = url;
+  } catch (e) {
+    onglet?.close();
+    setErreur(e.message);
+  }
+}
+
 export default function Aide({ integre = false }) {
   const [recherche, setRecherche] = useState('');
+  const [erreurGuide, setErreurGuide] = useState(null);
   const [ouverte, setOuverte] = useState('ensemble');
 
   const filtrees = useMemo(() => {
@@ -1026,6 +1045,17 @@ export default function Aide({ integre = false }) {
           Ce mode d’emploi décrit Lucie {VERSION_DECRITE} (production). Pour chaque écran : où aller,
           ce qu’on y fait, et ce qu’il faut savoir.
         </p>
+      </div>
+
+      <div className="flex items-center gap-3 flex-wrap">
+        <button onClick={() => { setErreurGuide(null); ouvrirGuide(setErreurGuide); }}
+          className="bouton bouton-sortir controle">
+          <IconFileTypePdf size={16} /> Guide illustré du secrétariat (PDF)
+        </button>
+        <span className="text-[12px] text-slate-500">
+          Écran par écran, avec captures, sommaire et signets — 76 pages, à lire ou à imprimer.
+        </span>
+        {erreurGuide && <span className="text-[12px] text-red-700">{erreurGuide}</span>}
       </div>
 
       <div className="relative max-w-md">
