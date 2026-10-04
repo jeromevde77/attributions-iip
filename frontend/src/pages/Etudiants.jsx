@@ -4046,6 +4046,8 @@ export default function Etudiants() {
     try { cle = sessionStorage.getItem('lucie.outil'); } catch { /* */ }
     if (!cle || !etudiants) return;
     try { sessionStorage.removeItem('lucie.outil'); } catch { /* */ }
+    // Les diplômes sortent par Éditions : la recherche « Diplômes et titres » ouvre le centre sur leur famille.
+    if (cle === 'diplomation') { setDiplomation(true); return; }
     for (const sec of RAIL) for (const it of sec.items || []) if (it.key === cle) { it.onClick?.(); return; }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [etudiants]);

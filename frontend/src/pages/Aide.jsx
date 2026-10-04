@@ -3,7 +3,7 @@ import {
   IconSearch, IconX, IconHelpCircle, IconChecklist, IconUsers, IconBooks,
   IconChartBar, IconSettings, IconChevronRight, IconHome, IconSend, IconPencil,
   IconBook, IconUserCheck, IconCertificate, IconAccessible, IconScale, IconAward, IconStairsUp,
-  IconShieldExclamation,
+  IconShieldExclamation, IconLayoutGrid,
 } from '@tabler/icons-react';
 
 /**
@@ -18,13 +18,53 @@ import {
  * des écrans que l'équipe n'a pas. À relire et à renuméroter à chaque mise en
  * production qui change un geste.
  */
-const VERSION_DECRITE = '3.1.1';
+const VERSION_DECRITE = '3.1.21';
 
 /* Un point : { titre, ou?, texte, savoir?: [] }.
    ou     — le chemin, avec les libellés de l'écran ;
    texte  — ce qu'on y fait ;
    savoir — ce qu'il faut savoir : les règles qui bloquent ou qui surprennent. */
 const RUBRIQUES = [
+  {
+    id: 'ensemble', titre: 'Lucie en un coup d’œil', Icone: IconLayoutGrid,
+    resume: "Ce que Lucie couvre, pour qui, et les garde-fous qu'elle tient.",
+    points: [
+      { titre: "Ce que Lucie couvre",
+        texte: "Lucie est l'application de gestion académique de l'Institut Ilya Prigogine. Elle tient, en un seul "
+             + "endroit, tout le parcours de l'étudiant et toute l'organisation de l'enseignement : inscription et "
+             + "programme annuel (PAE), valorisation des acquis, aménagements raisonnables, notes et délibérations, "
+             + "recours et discipline, diplômes, stages et conventions, congé-éducation payé ; et, côté école, le "
+             + "personnel et son recrutement, les attributions, la planification, les horaires, la dotation, les "
+             + "chiffres de l'école, la documentation réglementaire et le suivi d'équipe.",
+        savoir: [
+          "Étudiants : liste et fiche, PAE, valorisation (VA / VAE), aménagements (AR), délibération, recours et discipline, diplômes, stages, congé-éducation, finances.",
+          "Personnel : fiches, dossier administratif, absences, entretiens, contrats, besoins, recrutement, classement.",
+          "Organisation : attributions, planification, horaires, répartition des étudiants, pondérations, descriptifs d'UE, effectifs.",
+          "Gestion et chiffres : dotation, budget, répartition des périodes, ETP, résultats, population réelle.",
+          "Documentation : textes réglementaires avec accusé de lecture, conventions et leur signature, ce mode d'emploi.",
+          "Tableau de bord : ce qui attend chacun, l'échéancier légal, les réunions et les tâches de l'équipe.",
+        ] },
+      { titre: "Pour qui",
+        texte: "La direction et la direction adjointe, le secrétariat, les coordinations de section et les "
+             + "enseignants. Chacun voit son métier : un rôle dit ce qu'on peut faire, un périmètre quelles "
+             + "sections on voit. Les étudiants n'ont qu'une porte, publique : la demande de valorisation en ligne.",
+        savoir: [
+          "Ce qu'un rôle ne peut pas faire n'apparaît pas à l'écran : pas de bouton qui serait refusé après le clic.",
+          "La direction règle elle-même, sans développeur, les droits de chaque rôle, geste par geste.",
+        ] },
+      { titre: "Les garde-fous",
+        texte: "Lucie applique les textes plutôt que de les rappeler : décret du 16 avril 1991, règlement des "
+             + "études (RDE), circulaires de la Fédération Wallonie-Bruxelles, procédures de l'Institut.",
+        savoir: [
+          "Aucune pièce signée ne sort si la procédure qui doit la précéder n'a pas été parcourue (valorisation, aménagements, recours, discipline).",
+          "Celui qui clique est celui qui signe : chaque validation, décision ou confirmation porte un nom et une heure, et les journaux ne s'effacent pas.",
+          "Toute pièce imprimée dit qui l'a produite et quand.",
+          "Rien ne s'écrit en lot sans simulation préalable : on voit ce qui sera fait avant que ce soit fait.",
+          "Jamais de cote sous 10 sur un document remis à l'étudiant, pas de compensation entre acquis, motivation obligatoire de toute décision défavorable.",
+          "Une sauvegarde quotidienne de la base part hors du serveur.",
+        ] },
+    ],
+  },
   {
     id: 'demarrage', titre: 'Pour commencer', Icone: IconChevronRight,
     resume: "L'année de travail, le menu, la recherche, l'avion et les idées.",
@@ -37,13 +77,18 @@ const RUBRIQUES = [
           "Avant de corriger quoi que ce soit, regardez l'année affichée.",
         ] },
       { titre: "Le menu du haut et le rail",
-        ou: "Barre du haut : Tableau de bord · Étudiants · Personnel · Organisation · Gestion · Documentation — et "
-          + "Mes cours pour qui enseigne.",
-        texte: "La barre du haut dit dans quel métier vous êtes. Tout le reste est dans le rail, la colonne "
-             + "d'icônes à gauche : les rubriques de l'écran, puis ses outils. Survolez une icône pour lire son nom.",
+        ou: "Barre du haut : Tableau de bord · Mes cours · Étudiants · Personnel · Organisation · Gestion · "
+          + "Documentation · Configuration (direction).",
+        texte: "La barre du haut dit dans quel métier vous êtes : des icônes, dont le nom paraît au survol ; seul "
+             + "l'axe ouvert écrit le sien. Quand un écran a plusieurs faces (Configuration, par exemple), elles "
+             + "se glissent dans la barre, à droite de l'axe. Tout le reste est dans le rail, la colonne d'icônes à "
+             + "gauche : les rubriques de l'axe, puis les outils de l'écran ouvert.",
         savoir: [
-          "En tête de chaque rail : « Imprimer ou envoyer » (l'avion) et « Proposer une amélioration » (l'ampoule).",
-          "Ce qui efface est toujours en dernier dans le rail.",
+          "En tête de chaque rail : « Imprimer ou envoyer » (l'avion), « Importer » quand l'écran en a, « Proposer une amélioration » (l'ampoule).",
+          "Ce qui efface est toujours en dernier dans le rail, en rouge brique.",
+          "Une rubrique qui a des outils (« Inscriptions & PAE ») les déplie sous elle : un second clic sur la rubrique, quand on y est déjà, ouvre ou referme le tiroir. Il est fermé à l'arrivée.",
+          "L'épingle en pied de rail le garde ouvert, avec les libellés ; la lune ou le soleil bascule les menus en marine ou en gris pâle.",
+          "Mes cours paraît pour qui enseigne, pour les coordinations (les cours de leur section) et pour la direction (tous les cours).",
         ] },
       { titre: "Où aller ? — trouver un écran",
         ou: "La loupe de la barre du haut, ou ⌘K (Mac) / Ctrl+K (Windows).",
@@ -65,6 +110,34 @@ const RUBRIQUES = [
           "La réponse de la direction paraît sur votre Tableau de bord, bloc « Mes propositions », marquée nouveau. Vous pouvez y répondre.",
           "Les messages sont signés au nom de qui écrit. Ils ne se modifient pas et ne s'effacent pas.",
         ] },
+      { titre: "Réponses types — des phrases toutes faites",
+        ou: "Dans toute zone de texte : le bouton « Réponses types », en haut à droite du champ, dès qu'on clique dedans.",
+        texte: "Une liste de phrases pré-établies pour ce champ, avec une recherche. Un clic insère la phrase à "
+             + "l'endroit du curseur, sans effacer ce qui est écrit ; on la relit et on la corrige sur place. "
+             + "« Enregistrer le texte du champ » garde ce que vous venez d'écrire dans vos réponses personnelles.",
+        savoir: [
+          "Les variables se remplissent seules : nom de l'étudiant, matricule, unité, section, session, année, date du jour, votre nom. Ce que Lucie ne sait pas reste entre crochets, [à compléter] : relisez avant d'enregistrer.",
+          "Le catalogue commun est tenu par la direction (Configuration → Documents et envois → Réponses types) ; chacun garde en plus ses propres phrases, qu'il est seul à voir.",
+          "Une réponse type est un point de départ, jamais une décision : la motivation reste celle qu'on relit et qu'on signe.",
+        ] },
+      { titre: "Votre compte et la connexion",
+        ou: "Le bouclier, à côté de la déconnexion (« Mon compte ») ; l'écran de connexion.",
+        texte: "La connexion demande votre mot de passe puis, si elle est activée, un code à six chiffres de votre "
+             + "application d'authentification (vérification en deux temps). « Mon compte » l'active : un QR code à "
+             + "scanner, puis des codes de secours à garder en lieu sûr.",
+        savoir: [
+          "« Mot de passe oublié » envoie un lien par courriel pour en choisir un nouveau ; la vérification en deux temps reste exigée ensuite.",
+          "Après plusieurs mots de passe erronés, le compte se bloque un temps (réglé dans Configuration → Accès → Sécurité).",
+          "Le numéro de version, en haut à droite, dit quelle Lucie vous utilisez. Sur la version de développement, une pastille orange « DEV » l'accompagne.",
+        ] },
+      { titre: "Voir comme… (direction)",
+        ou: "Un clic sur vos initiales, en haut à droite → « Voir comme… ».",
+        texte: "Montre Lucie telle que la voit un autre compte — une secrétaire, une coordination, un enseignant — "
+             + "pour vérifier ce qu'il voit et ce qu'il peut faire. Un bandeau orange le rappelle ; « Revenir à mon "
+             + "compte » en sort.",
+        savoir: [
+          "En « voir comme », rien ne s'écrit : c'est une lecture.",
+        ] },
       { titre: "Les fenêtres et les questions de Lucie",
         texte: "Toutes les fenêtres ont le même dessin : un en-tête bleu marine, le contenu qui défile, et les "
              + "boutons d'action dans un pied fixe, en bas. Quand Lucie vous pose une question ou vous informe, "
@@ -80,7 +153,8 @@ const RUBRIQUES = [
         texte: "Le rôle dit ce que vous pouvez faire ; le périmètre, quelles sections vous voyez. Une coordination "
              + "limitée à TIM ne voit pas les étudiants des autres sections : c'est voulu.",
         savoir: [
-          "Quand un geste vous est refusé, le message le dit. Ce n'est pas une panne : c'est le réglage des droits.",
+          "Pas de droit, pas de bouton : ce que votre rôle ne permet pas n'est pas affiché. Si un outil vous manque, c'est le réglage des droits (Configuration → Accès), pas une panne.",
+          "Une grille que vous pouvez lire sans l'écrire (les attributions pour le secrétariat, par exemple) s'affiche en lecture : ni liste déroulante, ni champ, ni corbeille.",
           "Celui qui clique est celui qui signe : chaque validation, accord ou confirmation s'enregistre à votre nom, avec l'heure.",
           "À l'écran, les personnes s'écrivent « NOM Prénom ». Les pièces officielles gardent « Prénom NOM ».",
         ] },
@@ -100,12 +174,18 @@ const RUBRIQUES = [
           "« À valider » (direction) : les modifications proposées par les coordinations. « Ouvrir » affiche les demandes à trancher.",
           "« Mes propositions » : vos idées et les réponses de la direction.",
           "Vos tâches : cochez « faite » ou signalez « pas encore faite ». Le geste est daté et visible dans le suivi.",
+          "Sous les blocs, le fil d'activité : attributions, recrutement, système, anniversaires du personnel (« Aujourd'hui », « Demain »). « Tout marquer comme lu », « Actualiser » ; une pastille sur l'icône du Tableau de bord compte les non-lus.",
           "« Filtrer » (rail) règle le fil d'activité : quels événements, sur quelle durée.",
         ] },
       { titre: "Échéancier",
         ou: "Tableau de bord → Échéancier.",
-        texte: "Les obligations de l'établissement et leurs délais : qui en répond, pour quand, sur quelle base.",
-        savoir: [] },
+        texte: "Les obligations légales et internes de l'établissement, avec leurs délais : qui en répond, pour "
+             + "quand, sur quelle base. En tête, les compteurs : en retard, dans 7 jours, dans 30 jours, faites. "
+             + "Quatre lectures : Timeline · Liste · Mes tâches · Référentiel (la liste des obligations types).",
+        savoir: [
+          "« Régénérer » recalcule les échéances de l'année d'après les dates des UE (Organisation → Planification → Dates des UE) et le calendrier.",
+          "Une obligation se rattache à ses tâches : le suivi d'équipe dit qui s'en occupe.",
+        ] },
       { titre: "Suivi d'équipe",
         ou: "Tableau de bord → Suivi d'équipe.",
         texte: "« Échéances et tâches » s'ouvre sur une frise de trente jours devant et sept derrière : une boule "
@@ -118,34 +198,94 @@ const RUBRIQUES = [
           "On peut mettre quelqu'un « au courant » (sous « ⋯ ») : il voit la tâche sous « Pour information », sans en répondre.",
           "Une séance de réunion : type, date, heure et lieu en tête, présences en pastilles (un clic : présent, excusé, absent), puis les points numérotés et leurs décisions.",
           "Supprimer une réunion : direction seule, la corbeille en fin de barre. Les tâches décidées en séance sont conservées.",
+          "« Nouvelle réunion » (rail) ouvre une séance ; « Rapport du mois » (direction) résume tâches et réunions du mois ; la « Feuille des tâches » sort par l'avion.",
         ] },
       { titre: "Chiffres de l'école",
-        ou: "Tableau de bord → Chiffres de l'école (si votre rôle y a accès).",
-        texte: "Les grands nombres de l'année, en lecture.",
-        savoir: [] },
+        ou: "Tableau de bord → Chiffres de l'école (si votre rôle y a accès) → rail.",
+        texte: "Cinq lectures : « ETP » (la charge du personnel en équivalents temps plein, par section) · "
+             + "« Comparaison » (la dotation d'une année face à une autre, unité par unité) · « Résultats » (réussis, "
+             + "ajournés, refusés par unité, année d'études et section, d'après les décisions du Conseil) · "
+             + "« Distributions » (la répartition des cotes) · « Population réelle » (les étudiants réellement "
+             + "inscrits, comptés dans leur section de rattachement).",
+        savoir: [
+          "ETP = cours techniques / 800 + pratique professionnelle / 1000, autonomie comprise — la même formule partout dans Lucie.",
+          "Un taux se calcule sur les dossiers décidés, jamais sur les inscrits : un dossier sans décision se compte à part.",
+          "Ce sont les chiffres que demande la démarche qualité (AEQES) : inscrits par section, ETP, résultats.",
+        ] },
     ],
   },
   {
     id: 'etudiants', titre: 'Étudiants — la liste et la fiche', Icone: IconChecklist,
-    resume: "Trouver un étudiant, lire sa fiche, créer un dossier, réparer les dossiers.",
+    resume: "Trouver un étudiant, lire sa fiche, agir sur plusieurs, importer, créer, réparer les dossiers.",
     points: [
+      { titre: "Le rail de l'axe Étudiants",
+        ou: "Étudiants → rail.",
+        texte: "Dans l'ordre du travail : « Créer un étudiant » · « Contrôler les dossiers » · « Inscriptions & PAE », "
+             + "avec son tiroir (Composer le PAE · Revue des PAE · Reports de notes · Valorisation des acquis (VA) · "
+             + "Aménagements raisonnables (AR)) · « Délibération » · « Procédures » (recours et discipline) · et, en "
+             + "dernier, « Vider des résultats ou des inscriptions ». En tête : Importer, Imprimer ou envoyer, Proposer "
+             + "une amélioration.",
+        savoir: [
+          "Chacun ne voit que les outils que son rôle permet.",
+        ] },
       { titre: "La liste des étudiants",
         ou: "Étudiants → Inscriptions & PAE.",
-        texte: "Les étudiants par section. Filtres : niveau, UE, rattachement, primo, doublons, « Plus de 60 ECTS ». "
+        texte: "Les étudiants par section. Au-dessus : « En cours · Diplômés · Sortis · Archivés · Tous » (le statut "
+             + "du parcours). Filtres : niveau, UE (avec ou sans), rattachement, primo, doublons, « Plus de 60 ECTS ». "
              + "Un clic sur le nom ouvre la fiche.",
         savoir: [
           "Le crayon du PAE est vert quand le PAE de l'année est validé, gris sinon. Un clic ouvre la revue du PAE de l'étudiant.",
           "Le niveau s'écrit « Parcours B1 », « Parcours B2 » ou « Diplômant » : l'épreuve intégrée au PAE donne « Diplômant » ; sinon, le stage le plus avancé du PAE décide.",
         ] },
+      { titre: "Agir sur plusieurs étudiants",
+        ou: "Liste des étudiants : cochez des lignes — une barre d'actions apparaît.",
+        texte: "Avion « PAE des étudiants cochés » · « Coordonnées » (liste imprimable des courriels, GSM et "
+             + "adresses) · « Composer les PAE » de la sélection · menu « Statut » : Marquer diplômé, Sortir du "
+             + "cursus (avec motif), Archiver, Réintégrer · « Fusionner » deux fiches (direction) · « Supprimer » "
+             + "(direction, secrétariat).",
+        savoir: [
+          "Supprimer montre d'abord tout ce qui serait emporté (résultats, notes, inscriptions), puis demande de confirmer dossier par dossier.",
+          "Fusionner rassemble deux fiches d'une même personne en une seule : son parcours ne reste pas coupé en deux.",
+          "« Ne garder que les affichés » réduit la sélection à ce que montrent les filtres.",
+        ] },
       { titre: "La fiche d'un étudiant",
         ou: "Un clic sur un étudiant de la liste.",
         texte: "Onglets : Parcours · Identité · Valorisation · Finances · Stages · Aménagements · Congé-éducation · "
-             + "Suivi · Dossier. Au bout de la rangée : l'œil et l'avion.",
+             + "Suivi · Dossier. Au bout de la rangée : l'œil et l'avion. « Parcourir » passe à l'étudiant précédent "
+             + "ou suivant, ou change de cohorte (section, année, UE) sans fermer la fiche.",
         savoir: [
           "L'œil ouvre la revue du PAE sur cet étudiant : on y compose et on y valide le PAE. La fiche ne le compose plus ; l'onglet Parcours le résume en une ligne.",
           "L'avion ouvre Éditions sur cet étudiant : toutes ses pièces.",
           "« Changer de section… » (dans la rangée des onglets) : vers une section jamais suivie. L'ancienne devient un cursus archivé ; ses réussites restent. Les inscriptions de l'année se retirent ensuite par « Retirer ces inscriptions ».",
           "« Suivi » est confidentiel : seuls ses enseignants, sa coordination et la direction y entrent.",
+        ] },
+      { titre: "Parcours : le schéma et la grille",
+        ou: "Fiche → Parcours.",
+        texte: "Le schéma de capitalisation montre les unités de la section, acquises ou non, et leurs prérequis ; "
+             + "il se retourne sur la grille du parcours, une colonne par année. Chaque case s'encode : Inscrit, "
+             + "Réussi, VA, Ajourné, Refusé, Absent, avec la note.",
+        savoir: [
+          "« Effacer le résultat » garde l'inscription ; « Supprimer l'inscription » retire l'unité de l'année.",
+          "Une ou plusieurs cases (Ctrl / ⌘-clic) se glissent vers une autre année : simulation d'abord, motif obligatoire.",
+          "Ces gestes sont réservés à l'administration des études et à la direction.",
+        ] },
+      { titre: "Finances, dossier et suivi",
+        ou: "Fiche → Finances · Dossier · Suivi.",
+        texte: "« Finances » : droit d'inscription (exonération avec motif, droit spécifique quand l'étudiant y est "
+             + "soumis), frais de scolarité calculés, « Produire le document », fiche d'inscription et reçu. "
+             + "« Dossier » : les pièces du dossier individuel (circulaire 9764), chacune Manquant · Reçu · N/A. "
+             + "« Suivi » : des notes datées sur l'accompagnement de l'étudiant (« Ajouter au dossier »).",
+        savoir: [
+          "Le suivi est confidentiel : ses enseignants, sa coordination et la direction seulement. Une note s'efface par son auteur ou par la direction.",
+        ] },
+      { titre: "Stages et conventions de stage",
+        ou: "Fiche → Stages.",
+        texte: "Un stage par unité de stage, avec son statut : Prévu, Autorisé, En cours, Terminé, Rompu, Annulé. "
+             + "Le lieu se choisit dans le répertoire de la section, ou se crée. Les jalons de l'article 51 — "
+             + "autorisation écrite, convention signée — se cochent avec leur date.",
+        savoir: [
+          "La convention reçue du lieu se dépose en PDF ; elle part à la signature du directeur (Tableau de bord → « À signer »), qui y appose le fac-similé.",
+          "Le répertoire des lieux de stage d'une section s'importe d'un classeur (Importer → « Répertoire de lieux de stage »).",
         ] },
       { titre: "Identité : adresse et nationalité",
         ou: "Fiche → Identité.",
@@ -158,7 +298,8 @@ const RUBRIQUES = [
         ] },
       { titre: "Créer un étudiant",
         ou: "Étudiants → rail → Créer un étudiant.",
-        texte: "Pour une inscription tardive ou hors eCampus.",
+        texte: "Pour une inscription tardive ou hors eCampus. « Lire la carte d'identité » remplit la fiche depuis "
+             + "la carte eID, avec le lecteur de carte.",
         savoir: [
           "Avant d'écrire, Lucie cherche un dossier existant (registre national, puis nom, prénom et date de naissance). S'il en trouve, il les propose : ouvrez-les plutôt que de créer un doublon.",
         ] },
@@ -169,6 +310,27 @@ const RUBRIQUES = [
         savoir: [
           "Rien ne s'écrit sans simulation : Lucie montre d'abord ce qu'elle ferait.",
           "Nationalités : Lucie propose le pays pour chaque saisie ancienne ; ce qu'elle ne reconnaît pas reste nommé.",
+        ] },
+      { titre: "Importer",
+        ou: "Étudiants → rail → Importer.",
+        texte: "Le centre des imports, chacun avec ce qu'il attend : « Créer des étudiants sur base d'une base de "
+             + "données externe » (export eCampus) · « Créer les étudiants d'orthoptie (HELB) » · « Placer les "
+             + "étudiants dans leur section » (rapport Pack UF) · « Liste eCampus » · « Classeur PAE » · « Classeur "
+             + "de suivi » (notes et décisions d'une année) · « Reconstruire l'historique » (plusieurs années d'un "
+             + "coup) · « Reprendre une année depuis un tableau plat » · « Répertoire de lieux de stage » · "
+             + "« Compléter les dossiers » · « Comparer un classeur » (sans rien écrire) · « Importateur sur mesure ». "
+             + "« Export de la section » sort la liste en Excel.",
+        savoir: [
+          "Tout import montre d'abord ce qu'il ferait (simulation) ; rien ne s'écrit avant la confirmation.",
+          "Un dossier existant est complété, jamais dédoublé : le rapprochement se fait par numéro national ou matricule.",
+          "Classeur de suivi et tableau plat : direction. Lieux de stage : aussi secrétariat et coordinations. Le reste : administration des études et direction.",
+        ] },
+      { titre: "Vider des résultats ou des inscriptions",
+        ou: "Étudiants → rail → la corbeille brique, en dernier.",
+        texte: "Choisissez le périmètre (année, section, unité ou cours) et les étudiants ; Lucie compte ce qui sera "
+             + "touché — résultats, notes, reports, inscriptions — avant toute suppression, puis demande de confirmer.",
+        savoir: [
+          "Réservé à l'administration des études et à la direction. À n'employer que pour réparer un import erroné.",
         ] },
     ],
   },
@@ -251,6 +413,8 @@ const RUBRIQUES = [
              + "Depuis la fiche (onglet Valorisation), « Introduire une demande » ouvre un dossier vide pour un "
              + "étudiant.",
         savoir: [
+          "Sur la ligne d'un étudiant du registre : « Ajouter une ou plusieurs unités à valoriser », ou « Retirer cet étudiant du registre pour cette année ».",
+          "Trois natures de demande : dispense complète, dispense partielle, et admission (capacités préalables, sans unité).",
           "Les étudiants peuvent aussi demander en ligne, sur la page publique /demande-va de Lucie : matricule, lien envoyé à l'adresse du dossier (valable 30 minutes), unités demandées, pièces. Ils reçoivent un accusé de réception. Ils peuvent compléter tant que la recevabilité n'est pas posée.",
         ] },
       { titre: "2 · Instruire en série",
@@ -349,8 +513,8 @@ const RUBRIQUES = [
           "Les motivations proposées par Lucie et restées telles quelles se confirment une seule fois, à la clôture.",
           "Rouvrir une séance close : direction seule, motif écrit obligatoire.",
         ] },
-      { titre: "Contrôles",
-        ou: "Délibération → Contrôles (direction et secrétariat).",
+      { titre: "Contrôles des notes et des décisions",
+        ou: "Délibération → rail → Contrôles des notes et des décisions (direction et secrétariat).",
         texte: "Trois faces. « Notes en double » : une note d'épreuve existe sous deux formes avec deux valeurs ; "
              + "la direction choisit la bonne, avec un motif, et Lucie aligne. « Contrôle des notes de décision » : "
              + "la note enregistrée avec la décision face à celle que Lucie calcule ; correction motivée. "
@@ -420,6 +584,14 @@ const RUBRIQUES = [
         savoir: [
           "Une pièce ne sort pas tant que l'étape qu'elle relate n'est pas posée.",
         ] },
+      { titre: "Supprimer un dossier ouvert par erreur",
+        ou: "Le dossier → « Supprimer le dossier » (bouton brique, en haut à droite).",
+        texte: "Mauvais étudiant, mauvaise unité, doublon : le dossier se supprime. Lucie demande pourquoi ; le "
+             + "dossier sort du registre, mais la trace de sa suppression — qui, quand, pourquoi — reste en base.",
+        savoir: [
+          "Un dossier où une décision a été posée ne se supprime que par la direction, qui confirme savoir que ses effets (séance rouverte, acquis ajournés, pièce notifiée) ne sont PAS défaits.",
+          "Les anciens dossiers (avant le 3 octobre 2026) se suppriment aussi, par la direction seule.",
+        ] },
     ],
   },
   {
@@ -476,8 +648,16 @@ const RUBRIQUES = [
   },
   {
     id: 'mescours', titre: 'Mes cours', Icone: IconPencil,
-    resume: "Pour les enseignants : notes, avis, présences.",
+    resume: "Pour les enseignants, les coordinations et la direction : notes, avis, aménagements, présences, listes.",
     points: [
+      { titre: "Les cours",
+        ou: "Mes cours (barre du haut).",
+        texte: "D'abord VOS cours ; puis, pour une coordination, les cours de sa section, et pour la direction tous "
+             + "les cours — filtrables par section et par texte. L'écran a son propre sélecteur d'année : il ne "
+             + "change pas l'année de travail du reste de Lucie.",
+        savoir: [
+          "Dans un cours : filtre par groupe (Tous, A, B…), et l'avion « Listes du cours », une feuille par groupe avec une colonne de signature.",
+        ] },
       { titre: "Encoder les notes",
         ou: "Mes cours → un cours → Notes du cours.",
         texte: "Une note entière sur 20 par acquis. PP : pas présenté. NP : note de présence. CM : certificat "
@@ -537,7 +717,10 @@ const RUBRIQUES = [
       { titre: "La liste et la fiche",
         ou: "Personnel.",
         texte: "La liste dit le nom, le statut, l'employeur (IIP ou HELB), les sections et l'ETP de l'année. "
-             + "La fiche porte les attributions, les fonctions, les contrats. « Nouveau membre » dans le rail.",
+             + "La fiche a ses onglets : Attributions · Dossier admin. (pièces) · Absences · Journal & entretiens ; "
+             + "et, pour la direction, Fonctions · Accès Lucie · Disciplinaire (dossiers RH). « Nouveau membre » dans "
+             + "le rail. Les contrats ne sont pas un onglet : ils sortent par l'avion (Éditions → Personnel → « Pièces "
+             + "par membre »).",
         savoir: [
           "ETP = cours techniques / 800 + pratique professionnelle / 1000, autonomie comprise.",
           "L'accès à Lucie se donne sur la fiche, onglet « Accès Lucie ». La fiche suit le profil de son rôle ; ce qui est propre à la personne est nommé, et « Revenir au profil » l'efface.",
@@ -546,9 +729,23 @@ const RUBRIQUES = [
         ] },
       { titre: "Besoins, recrutement, classement",
         ou: "Personnel → rail : Besoins & offres · Recrutement · Classement & prioritaires.",
-        texte: "Les postes à pourvoir, les candidatures, le classement.",
+        texte: "« Besoins & offres » : un besoin naît des attributions non pourvues, une offre par cours ; publier "
+             + "l'offre ouvre le recrutement. « Recrutement » : Candidats · Cours à pourvoir · Vue parallèle · Grille "
+             + "d'entretien ; « Nouveau candidat », « Rapport PDF ». « Classement & prioritaires » : le classement "
+             + "d'ancienneté (art. 34) et les candidatures prioritaires (art. 34ter).",
         savoir: [
+          "Besoins et recrutement : direction, ou qui a l'accès « recrutement ». Classement : direction seule.",
+          "Les pièces du candidat se déposent sur sa fiche : CV, lettre, diplômes, titre pédagogique, casier, ancienneté, déclaration.",
           "Un CV déposé en PDF pré-remplit la fiche du candidat : vérifiez, c'est une lecture automatique.",
+          "Un candidat retenu se « pioche » depuis la ligne d'attribution du cours (Organisation → Attributions) : il devient recruté et lié au groupe.",
+        ] },
+      { titre: "Contrats, EA12 et annexes",
+        ou: "L'avion → Éditions → Personnel → « Pièces par membre » (un membre) ou cochez plusieurs membres.",
+        texte: "Contrat de travail (chargé de cours ou expert, selon le statut), fiche d'attributions, EA12 — Doc12 "
+             + "supérieur (le Word officiel, rempli par Lucie, qu'on complète puis produit) et les annexes de la "
+             + "circulaire 9760. En nombre : un document, une pièce par page ; les annexes en archive Word.",
+        savoir: [
+          "Ces pièces sont réservées à l'administration et à la direction.",
         ] },
     ],
   },
@@ -558,9 +755,14 @@ const RUBRIQUES = [
     points: [
       { titre: "Attributions",
         ou: "Organisation → Attributions.",
-        texte: "Qui donne quoi, avec quelles périodes, par section et par UE. Le bouton des groupes organise les "
-             + "groupes d'une UE ou de toute la section.",
+        texte: "Qui donne quoi, avec quelles périodes, par section et par UE. Trois vues : « Par section », « Vue "
+             + "complète », « Coordination » (UE et cours regroupés). « Nouveau » ajoute une ligne, « + » sur une UE "
+             + "ajoute une attribution ou un cours, « Annuler » défait une modification récente, « Export » sort "
+             + "l'Excel. Le bouton des groupes organise les groupes d'une UE ou de toute la section.",
         savoir: [
+          "Sur une ligne : « C » met le titulaire en congé et crée une ligne de remplacement (R) ; le cadenas signale une nomination définitive ; RT, une remise au travail ; la mallette pioche un candidat du recrutement.",
+          "Par UE : « Réouvrir cette UE » crée une nouvelle organisation. Par section (direction) : remplir les périodes, rapport d'attributions, Excel, suppression avec sauvegarde.",
+          "Ce qu'une coordination modifie part en demande : la direction le valide dans Tableau de bord → « À valider ». Qui ne peut que lire voit la grille en lecture.",
           "La numérotation des groupes se règle par section (Configuration → Unités et cours, fiche de la section, « Numérotation des groupes ») : A, B… ; A1, A2, B1… ; ou 1, 2, 3. Les noms déjà posés ne sont pas renommés.",
           "« Répartir entre organisations » (menu de l'UE) recopie, modifie ou déplace des lignes d'une organisation à l'autre. Lucie signale ce qui ne tombe pas sur un multiple du dossier pédagogique ; elle n'empêche pas.",
           "Les périodes d'un cours tombent sur un multiple du dossier pédagogique ; l'autonomie se compte à part.",
@@ -569,8 +771,9 @@ const RUBRIQUES = [
         ] },
       { titre: "Planification",
         ou: "Organisation → Planification.",
-        texte: "La grille d'organisation de l'année (comment les périodes se découpent, où va l'autonomie) et les "
-             + "dates des UE. Elle se fait AVANT d'attribuer.",
+        texte: "Trois faces : « Planification des UE et cours » (la grille d'organisation de l'année : comment les "
+             + "périodes se découpent, où va l'autonomie) · « Dates des UE » · « Sessions ». Elle se fait AVANT "
+             + "d'attribuer.",
         savoir: [
           "Les dates des UE commandent les comptages, donc la subvention.",
         ] },
@@ -584,23 +787,30 @@ const RUBRIQUES = [
           "Une séance posée ou retouchée dans Lucie n'est jamais écrasée par un import.",
         ] },
       { titre: "Les autres onglets",
-        ou: "Organisation.",
-        texte: "Rentrée · Répartition des étudiants · Schéma de capitalisation · Pondérations · Descriptifs d'UE · "
-             + "Effectifs et postes PNCC.",
+        ou: "Organisation → rail.",
+        texte: "« Rentrée » : reconduit d'un clic les échéances légales et reporte les événements de l'établissement "
+             + "de l'an dernier. « Répartition des étudiants » : croise attributions et PAE — on coche qui suit quel "
+             + "groupe, avec un plafond suggéré. « Schéma de capitalisation » : place les unités par année d'études "
+             + "et par section. « Pondérations » : la part de chaque cours dans l'unité et des acquis dans le cours. "
+             + "« Descriptifs d'UE » : la partie grise vient du référentiel, la partie blanche est rédigée par le "
+             + "titulaire. « Effectifs et postes PNCC ».",
         savoir: [
-          "Les pondérations ont une année : régler 2026-2027 ne touche pas aux années passées.",
+          "Les pondérations ont une année : régler 2026-2027 ne touche pas aux années passées. À partir de 2026-2027, dix points par cours, répartis entre ses acquis.",
+          "Les rapports d'Organisation (unités, grilles de cours, enseignants par unité, acquis, unités sans attribution, calendrier des délibérations, locaux) sortent par l'avion → Organisation → Listes et rapports.",
         ] },
     ],
   },
   {
     id: 'gestion', titre: 'Gestion', Icone: IconChartBar,
-    resume: "Dotation, ETP, budget, résultats.",
+    resume: "Dotation, budget, répartition des périodes.",
     points: [
       { titre: "Les écrans",
-        ou: "Gestion → rail.",
-        texte: "ETP · Comparaison · Dotation · Budget · Répartition des périodes · Résultats · Distributions · "
-             + "Population réelle · Configuration.",
+        ou: "Gestion → rail (écran « Pilotage des dotations »).",
+        texte: "Dotation · Budget · Répartition des périodes · Configuration, avec le choix de l'année civile dans "
+             + "le rail. L'ETP, la comparaison, les résultats, les distributions et la population réelle sont dans "
+             + "Tableau de bord → Chiffres de l'école.",
         savoir: [
+          "La répartition des périodes n'est pas proposée aux coordinations.",
           "La dotation se lit par année civile, en périodes pondérées.",
           "La répartition des périodes prépare le document 2 sur deux années civiles.",
         ] },
@@ -617,7 +827,7 @@ const RUBRIQUES = [
     resume: "Les textes à connaître, ce mode d'emploi, les conventions.",
     points: [
       { titre: "Textes et procédures",
-        ou: "Documentation → Textes et procédures.",
+        ou: "Documentation → Textes et procédures (les trois faces : Textes et procédures · Mode d'emploi de Lucie · Conventions).",
         texte: "Décrets, circulaires, règlements et procédures de l'Institut. Ce qui vous attend passe en tête. "
              + "Ouvrez le texte, puis cochez « Je confirme avoir pris connaissance de ce document ».",
         savoir: [
@@ -642,8 +852,27 @@ const RUBRIQUES = [
   },
   {
     id: 'config', titre: 'Configuration (direction)', Icone: IconSettings,
-    resume: "Identité, documents et envois, rôles et accès, couleurs.",
+    resume: "Établissement, enseignement, documents et envois, accès, système.",
     points: [
+      { titre: "Les cinq familles",
+        ou: "Configuration (barre du haut, direction) → rail ; les faces se glissent dans la barre du haut.",
+        texte: "Établissement : Identité · Années et calendrier. Enseignement : Unités et cours · Prérequis d'UE · "
+             + "Cursus compatibles · Règles de délibération · Procédures et délais · Planification. Documents et "
+             + "envois : Modèles de pièces · Pièces officielles · Descriptifs d'UE · Courriels · Réponses types. "
+             + "Accès : Accès · Fonctions · Sécurité. Système : Thèmes et couleurs · Sauvegardes · Traces et "
+             + "historique · Registre des envois · Qui a fait quoi · Nouveautés.",
+        savoir: [
+          "On y règle des MODÈLES et des règles ; on n'y produit pas de pièces (c'est l'avion).",
+        ] },
+      { titre: "Enseignement : le référentiel et les règles",
+        ou: "Configuration → Enseignement.",
+        texte: "« Unités et cours » : sections, unités et cours de l'année (« Nouvelle section », « Nouvelle UE », "
+             + "« Importer des UE », effectifs), fiche de section. « Prérequis d'UE ». « Cursus compatibles » : deux "
+             + "sections qu'un étudiant suit ensemble, sans que l'une archive l'autre. « Règles de délibération », "
+             + "par année. « Planification » : ses paramètres.",
+        savoir: [
+          "Le seuil de réussite de l'unité (10/20) est celui du décret : il ne se règle pas.",
+        ] },
       { titre: "Identité fait foi",
         ou: "Configuration → Établissement → Identité.",
         texte: "Nom, adresse, n° ECOT, FASE, téléphone et site : toutes les pièces les lisent ici. Le signataire des "
@@ -653,13 +882,14 @@ const RUBRIQUES = [
         ] },
       { titre: "Documents et envois",
         ou: "Configuration → Documents et envois.",
-        texte: "Quatre onglets : Modèles de pièces · Pièces officielles (contrat, attestation, diplôme, recrutement) · "
-             + "Descriptifs d'UE · Courriels.",
+        texte: "Cinq onglets : Modèles de pièces · Pièces officielles (contrat, attestation, diplôme, recrutement) · "
+             + "Descriptifs d'UE · Courriels (expéditeur, redirection de test, journal) · Réponses types (le "
+             + "catalogue commun des phrases toutes faites, champ par champ).",
         savoir: [
           "Ce qui est parti par courriel se relit dans Configuration → Système → Registre des envois : quand, par qui, à qui, quoi, avec une copie.",
         ] },
-      { titre: "Rôles et accès",
-        ou: "Configuration → Accès → Rôles et accès.",
+      { titre: "Accès, fonctions, sécurité",
+        ou: "Configuration → Accès → Accès · Fonctions · Sécurité.",
         texte: "« Plafonds par rôle » : ce que chaque rôle autorise au mieux, module par module. « Accès par "
              + "personne » : ce que chaque compte a réellement. « Les gestes » : pour chaque geste et chaque rôle, "
              + "oui, non, ou par demande pour la coordination.",
@@ -667,7 +897,9 @@ const RUBRIQUES = [
           "Un clic sur une case ouvre un menu : Oui, Non, Par demande (coordination), ou « Revenir au défaut ». Le réglage en vigueur est coché.",
           "Les cases au cadenas restent à la direction : configuration, validation et décision ne se retirent pas.",
           "Chaque changement entre dans le « Journal des réglages », sous la grille.",
-          "L'accès d'une personne se modifie sur sa fiche, onglet « Accès Lucie ».",
+          "L'accès d'une personne se modifie sur sa fiche, onglet « Accès Lucie ». Les comptes : réinitialiser un mot de passe (lien par courriel) ou la vérification en deux temps, retirer un accès.",
+          "« Fonctions » : qui occupe quelle fonction dans quelle section (coordination, référent…). « Sécurité » : combien de mots de passe erronés bloquent un compte, et pour combien de temps.",
+          "Ce que voit un rôle se vérifie par « Voir comme… » (vos initiales, en haut à droite).",
         ] },
       { titre: "Procédures et délais",
         ou: "Configuration → Enseignement → Procédures et délais.",
@@ -685,10 +917,16 @@ const RUBRIQUES = [
         ] },
       { titre: "Sauvegardes",
         ou: "Configuration → Système → Sauvegardes.",
-        texte: "Une copie quotidienne, contrôlée à chaque exécution.",
+        texte: "Une copie quotidienne, contrôlée à chaque exécution, envoyée hors du serveur. « Sauvegarder "
+             + "maintenant » en fait une sur-le-champ ; « Télécharger » la récupère.",
         savoir: [
           "La restauration reste manuelle, sur le serveur.",
         ] },
+      { titre: "Traces",
+        ou: "Configuration → Système → Traces et historique · Registre des envois · Qui a fait quoi · Nouveautés.",
+        texte: "L'historique des modifications, le registre de tout ce qui est parti par courriel, le journal de "
+             + "qui a fait quoi (administrateur), et le journal des versions de Lucie.",
+        savoir: [] },
     ],
   },
 ];
@@ -769,7 +1007,7 @@ const texteDuPoint = p => [p.titre, p.ou, p.texte, ...(p.savoir || [])].filter(B
 
 export default function Aide({ integre = false }) {
   const [recherche, setRecherche] = useState('');
-  const [ouverte, setOuverte] = useState('demarrage');
+  const [ouverte, setOuverte] = useState('ensemble');
 
   const filtrees = useMemo(() => {
     const q = recherche.trim().toLowerCase();
