@@ -1,11 +1,10 @@
 import { ICONE_AXE } from '../lib/iconesAxes.js';
-import { useDeclarerSousMenu } from '../lib/sousMenu.js';
 import { useEffect, useState, lazy, Suspense } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { api, getAnnee, setAnnee as setAnneeActive, getUser } from '../lib/api.js';
 import { ORIGINE, chargerCouleurs, echelleGris, poser as poserCouleurs, poserGris, variables as variablesCouleurs } from '../lib/couleurs.js';
 import Audit from './Audit.jsx';
-import { IconAdjustments, IconAward, IconBooks, IconBuilding, IconCalendar, IconCalendarEvent, IconChartBar, IconCheck, IconChevronRight, IconDownload, IconFileText, IconHistory, IconLink, IconScale, IconSettings, IconSparkles, IconUserShield, IconUsers, IconX, IconGavel, IconPlus, IconTrash, IconGripVertical, IconEdit, IconMail, IconPalette, IconArchive, IconAlertTriangle, IconShieldLock, IconDatabase, IconHierarchy, IconArrowsSplit, IconTool, IconSchool, IconStairsUp, IconCalculator, IconLinkOff, IconSend, IconMessageDots } from '@tabler/icons-react';
+import { IconAdjustments, IconAward, IconBooks, IconBuilding, IconCalendar, IconCalendarEvent, IconChartBar, IconCheck, IconChevronRight, IconDownload, IconFileText, IconHistory, IconLink, IconScale, IconSettings, IconSparkles, IconUserShield, IconUsers, IconX, IconGavel, IconPlus, IconTrash, IconGripVertical, IconEdit, IconMail, IconPalette, IconArchive, IconAlertTriangle, IconShieldLock, IconDatabase, IconHierarchy, IconArrowsSplit, IconTool, IconSchool, IconStairsUp, IconCalculator, IconLinkOff, IconSend, IconMessageDots, IconId, IconFileDescription, IconKey, IconMailForward, IconUserSearch } from '@tabler/icons-react';
 import { PageHeader, RailLateral, TuileEtat, PastilleEtat, Encadre } from '../components/ui.jsx';
 import ApercuDocuments from '../components/ApercuDocuments.jsx';
 const Editeur = lazy(() => import('./Editeur.jsx'));
@@ -1331,12 +1330,12 @@ export default function Configuration() {
      * l'écran où l'on s'en sert. Plan complet : l'étude « Configuration
      * rangée ». */
     { label: 'Établissement', icon: IconBuilding, items: [
-      { key: 'etablissement', label: 'Identité', icon: IconBuilding },
+      { key: 'etablissement', label: 'Identité', icon: IconId },
       { key: 'annees', label: 'Années et calendrier', icon: IconCalendar },
     ]},
     /* Ce qu'on enseigne et comment on le sanctionne. Les faces annuelles
      * portent l'année au bout de la rangée, une seule fois. */
-    { label: 'Enseignement', icon: IconBooks, items: [
+    { label: 'Enseignement', icon: IconSchool, items: [
       { key: 'referentiel-annee', label: 'Unités et cours', icon: IconBooks, annee: true },
       { key: 'ref-prerequis', label: "Prérequis d'UE", icon: IconHierarchy, annee: true },
       { key: 'cursus-compatibles', label: 'Cursus compatibles', icon: IconLink },
@@ -1355,7 +1354,7 @@ export default function Configuration() {
         faces: [['editeur', 'Écrire un modèle'], ['apercu', 'Voir une pièce']] },
       { key: 'contrat', label: 'Pièces officielles', icon: IconAward,
         faces: [['contrat', 'Contrat'], ['attestation', 'Attestation'], ['diplome', 'Diplôme'], ['recrutement', 'Recrutement']] },
-      { key: 'due', label: "Descriptifs d'UE", icon: IconFileText },
+      { key: 'due', label: "Descriptifs d'UE", icon: IconFileDescription },
       { key: 'courriels', label: 'Courriels', icon: IconMail },
       { key: 'reponses-types', label: 'Réponses types', icon: IconMessageDots },
     ]},
@@ -1365,7 +1364,7 @@ export default function Configuration() {
          accès, et lequel »). Le maximum de chaque rôle en haut, le résultat
          pour chaque personne en dessous : deux écrans séparés faisaient croire
          à deux réglages qui se contredisent. */
-      { key: 'roles', label: 'Accès', icon: IconUserShield },
+      { key: 'roles', label: 'Accès', icon: IconKey },
       { key: 'personnel', label: 'Fonctions', icon: IconUsers },
       { key: 'securite', label: 'Sécurité', icon: IconShieldLock },
     ]},
@@ -1373,10 +1372,10 @@ export default function Configuration() {
     // mettrais bien Apparence dans Système »).
     { label: 'Système', icon: IconAdjustments, items: [
       { key: 'couleurs', label: 'Thèmes et couleurs', icon: IconPalette },
-      { key: 'sauvegardes', label: 'Sauvegardes', icon: IconDownload },
+      { key: 'sauvegardes', label: 'Sauvegardes', icon: IconDatabase },
       { key: 'systeme', label: 'Traces et historique', icon: IconHistory },
-      { key: 'registre-envois', label: 'Registre des envois', icon: IconSend },
-      { key: 'audit', label: 'Qui a fait quoi', icon: IconUserShield },
+      { key: 'registre-envois', label: 'Registre des envois', icon: IconMailForward },
+      { key: 'audit', label: 'Qui a fait quoi', icon: IconUserSearch },
       { key: 'changelog', label: 'Nouveautés', icon: IconSparkles },
     ]},
     /* CE QUI N'EST PAS UN RÉGLAGE. Des outils, une file de travail, des
@@ -1406,13 +1405,12 @@ export default function Configuration() {
   const porte = t => t.key === tab || (t.faces || []).some(([k]) => k === tab);
   const groupeActif = groupesVisibles.find(g => g.items.some(porte)) || groupesVisibles[0];
   const ongletActif = groupeActif.items.find(porte);
-  /* LES FACES DE LA FAMILLE GLISSENT DANS LA BARRE DU HAUT (3 octobre 2026),
-     à côté de « Config. » — la rangée d'onglets de la page disparaît. */
-  useDeclarerSousMenu(groupeActif.items.length > 1 ? {
-    titre: groupeActif.label,
-    items: groupeActif.items.map(t => ({ key: t.key, label: t.label, actif: porte(t) })),
-    onChoisir: k => setTab(k),
-  } : null, [groupeActif.label, tab]);
+  /* LES RUBRIQUES SE DÉPLIENT SOUS LEUR FAMILLE, DANS LE RAIL (3.1.27,
+     Charles, 4 octobre 2026 : « tout cela devrait être en sous-menu dans le
+     rail »). Elles glissaient dans la barre du haut, où leurs noms se
+     coupaient (« Registre des env… »). Le tiroir est celui d'« Inscriptions
+     & PAE » : la famille ouverte se déplie entre deux filets, une icône par
+     rubrique — jamais celle de la famille —, le nom entier en bulle. */
   return (
     <div className="relative" style={{ minHeight: 'calc(100vh - 64px)' }}>
       {/* VINGT-DEUX ICÔNES, ET PLUS PERSONNE NE TROUVAIT RIEN (Charles, 21
@@ -1427,6 +1425,9 @@ export default function Configuration() {
           key: g.label, label: g.label, icon: g.icon,
           actif: g === groupeActif,
           onClick: () => { if (g !== groupeActif) setTab(g.items[0].key); },
+          sous: g === groupeActif && g.items.length > 1
+            ? g.items.map(t => ({ key: t.key, label: t.label, icon: t.icon, actif: porte(t), onClick: () => setTab(t.key) }))
+            : undefined,
         })) }]}
       />
       {/* LE TITRE DIT LA FAMILLE (2.12.201) : « Configuration » seul ne disait
@@ -1434,7 +1435,7 @@ export default function Configuration() {
           une ligne ; l'explication générale disparaît — elle ne disait rien de
           l'écran ouvert, et prenait une rangée. */}
       <div className="gouttiere-rail cadre-page px-3 md:px-6 py-3 space-y-4">
-        <PageHeader icon={groupeActif.icon || IconSettings} titre={`Configuration · ${groupeActif.label}`}
+        <PageHeader icon={groupeActif.icon || IconSettings} titre={ongletActif && groupeActif.items.length > 1 ? `${groupeActif.label} · ${ongletActif.label}` : `Configuration · ${groupeActif.label}`}
           sous={groupeActif.label === 'Outils'
             ? 'Ce ne sont pas des réglages : ils ont rejoint l’écran où l’on s’en sert. Ces entrées disparaîtront le 3 novembre.' : undefined} />
         {/* L'année vaut pour les faces annuelles : elle se pose une fois. */}
