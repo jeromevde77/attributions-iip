@@ -368,7 +368,7 @@ export function RailDessine({ icon: HeaderIcon, titre, sousTitre, extra, surAccu
       <div className={`flex flex-col pb-3 min-h-0 flex-shrink-0
         ${volet ? 'w-14 border-r' : 'flex-1'}`}
         style={{ borderColor: 'var(--menu-filet)',
-                 paddingTop: '0.5rem' }}>
+                 paddingTop: '0.25rem' }}>
       {/* UN EN-TÊTE VIDE OCCUPE QUAND MÊME SA PLACE.
           Rail replié et sans icône de titre, ce bloc ne montrait rien — mais
           ses vingt-quatre pixels poussaient la première icône plus bas que le
@@ -394,7 +394,7 @@ export function RailDessine({ icon: HeaderIcon, titre, sousTitre, extra, surAccu
           cette partie de Lucie. C'est ce qui manquait : un point d'ancrage
           identique d'un axe à l'autre. */}
       {HeaderIcon && (
-        <div className="flex-shrink-0 pb-0.5 mb-0.5">
+        <div className="flex-shrink-0">
           <button onClick={surAccueil} aria-label={`Revenir à ${titre}`}
             onMouseEnter={e => !epingle && surviser(e, `${titre} — écran de base`)}
             onMouseLeave={() => setSurvol(null)}
@@ -412,7 +412,7 @@ export function RailDessine({ icon: HeaderIcon, titre, sousTitre, extra, surAccu
               {titre}
             </span>
           </button>
-          <div className={`${epingle ? 'mx-2' : 'w-5 mx-auto'} pt-1 border-t`}
+          <div className={`${epingle ? 'mx-2' : 'w-5 mx-auto'} my-1 border-t`}
             style={{ borderColor: 'var(--menu-filet)' }} />
         </div>
       )}
@@ -470,7 +470,7 @@ export function RailDessine({ icon: HeaderIcon, titre, sousTitre, extra, surAccu
            prolongeait les coins arrondis et l'œil le lisait décalé. Il vaut
            désormais la moitié d'une case, centré dessous : rien à aligner,
            puisqu'il part du même axe. */
-        <div className="flex-shrink-0 pb-0.5 mb-0.5 space-y-0.5">
+        <div className="flex-shrink-0 space-y-0.5">
           {/* IMPRIMER D'ABORD, ET TOUJOURS.
               On imprime tous les jours, on importe quelques fois par an : le
               geste le plus fréquent vient en tête, et il ne bouge jamais de
@@ -529,7 +529,7 @@ export function RailDessine({ icon: HeaderIcon, titre, sousTitre, extra, surAccu
               </button>
             );
           })}
-          <div className={`${epingle ? 'mx-2' : 'w-5 mx-auto'} pt-1 border-t`}
+          <div className={`${epingle ? 'mx-2' : 'w-5 mx-auto'} my-1 border-t`}
             style={{ borderColor: 'var(--menu-filet)' }} />
         </div>
       )}
