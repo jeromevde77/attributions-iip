@@ -38,7 +38,12 @@ export function routerFleches({ boites, edges, L, H, pas = 3, rayon = 3, entree 
   };
   // Une allée libre de toutes les colonnes [c1..c2], au plus près des deux extrémités.
   const allee = (c1, c2, y1, y2) => {
-    const cands = new Set([yMin - 5, yMax + 5]);
+    /* PAS DE DÉTOUR INUTILE (Charles, 4 octobre 2026 : « pourquoi des S
+       inutiles ? »). La hauteur de la case de DÉPART ou d'ARRIVÉE est le
+       premier choix : la colonne sautée est souvent presque vide, et la flèche
+       file alors tout droit, avec un seul virage. Une allée ne sert que si
+       aucune des deux n'est libre. */
+    const cands = new Set([y1, y2, yMin - 5, yMax + 5]);
     for (let c = c1; c <= c2; c++) {
       const ys = parCol[c];
       for (let i = 0; i + 1 < ys.length; i++) cands.add((ys[i] + H + ys[i + 1]) / 2);
@@ -51,7 +56,9 @@ export function routerFleches({ boites, edges, L, H, pas = 3, rayon = 3, entree 
     };
     let mieux = null, cout = Infinity;
     for (const y of cands) if (libre(y)) {
-      const k = Math.abs(y - y1) + Math.abs(y - y2);
+      // Le coût : la longueur verticale, plus un virage de trop si l'on ne
+      // passe ni à la hauteur du départ ni à celle de l'arrivée.
+      const k = Math.abs(y - y1) + Math.abs(y - y2) + (y === y1 || y === y2 ? 0 : 40) + (y === y1 ? 0 : 1);
       if (k < cout) { cout = k; mieux = y; }
     }
     return mieux ?? yMax + 5;
