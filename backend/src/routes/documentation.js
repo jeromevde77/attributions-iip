@@ -67,6 +67,9 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import express from 'express';
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import db from '../db/index.js';
 import multer from 'multer';
 import { authRequired, roleRequired } from '../middleware/auth.js';
@@ -227,6 +230,21 @@ function concerne(doc, user) {
  * spécifiques passent devant les paramétriques. Aujourd'hui `/:cle` ne
  * prend qu'un segment et ne l'avalerait pas — mais le jour où quelqu'un
  * écrira `/moi`, c'est `/:cle` qui répondra « document introuvable ». */
+// ── LE GUIDE ILLUSTRÉ DU SECRÉTARIAT — un PDF, derrière la connexion ────────
+/* Le mode d'emploi illustré (captures de la version de test, données
+ * fictives) est un fichier rangé avec le code, pas un texte du corpus : il se
+ * compose hors de Lucie, page par page. Servi par le serveur et non comme un
+ * fichier public, pour qu'il ne s'ouvre qu'à ceux qui ont un compte. Deux
+ * segments : `/:cle` ne l'avale pas. */
+const GUIDE_SECRETARIAT = path.join(path.dirname(fileURLToPath(import.meta.url)),
+  '../../assets/guides/Lucie_mode_emploi_secretariat.pdf');
+r.get('/guide/secretariat', authRequired, (req, res) => {
+  if (!fs.existsSync(GUIDE_SECRETARIAT)) return res.status(404).json({ error: 'Guide introuvable sur le serveur' });
+  res.setHeader('Content-Type', 'application/pdf');
+  res.setHeader('Content-Disposition', 'inline; filename="Lucie_mode_emploi_secretariat.pdf"');
+  res.sendFile(GUIDE_SECRETARIAT);
+});
+
 // ── CE QUI M'ATTEND — la lecture « par personne » du tableau de bord ────────
 r.get('/moi/attente', authRequired, (req, res) => {
   const docs = db.prepare(`
