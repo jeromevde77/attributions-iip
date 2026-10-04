@@ -14,6 +14,7 @@
 // Les dossiers d'avant le 3 octobre se relisent sous « Anciens dossiers »
 // (pages/ProceduresAnciennes.jsx).
 // ─────────────────────────────────────────────────────────────────────────────
+import { useContexteReponses } from '../lib/reponsesTypes.jsx';
 import { useState, useEffect, useMemo, useCallback, useRef, lazy, Suspense } from 'react';
 import {
   IconListDetails, IconArchive, IconPlus, IconArrowLeft, IconCheck, IconSearch,
@@ -648,6 +649,15 @@ function Dossier({ id, ref_, onRetour }) {
     });
   }, [id, charger]);
 
+  // Ce que les réponses types savent remplir seules ({etudiant}, {ue}…).
+  useContexteReponses(d ? {
+    etudiant: [d.etudiant?.prenom, (d.etudiant?.nom || '').toUpperCase()].filter(Boolean).join(' '),
+    matricule: d.etudiant?.id_ecampus, ue: d.ue_num, ue_nom: d.ue_nom, section: d.section,
+    session: d.session, session_texte: d.session === 2 ? 'seconde session' : d.session ? 'première session' : null,
+    annee: d.annee_scolaire, publie_le: d.publie_le ? fmt(d.publie_le) : null,
+    date_faits: d.etapes?.faits?.date ? fmt(d.etapes.faits.date) : null,
+  } : {});
+
   if (erreur) {
     return (
       <>
@@ -876,7 +886,7 @@ function FormulaireEtape({ dossier: d, cle, ref_, ue, peutInstruire, peutDecider
         <Champ label="Mode de remise"><Choix valeur={v.mode} onChange={x => maj('mode', x)} options={MODES_REMISE} {...P} /></Champ>
         <div className="sm:col-span-2">
           <Champ label="Irrégularités invoquées" aide="Ce que l'étudiant reproche à la procédure, tel qu'il l'écrit.">
-            <textarea rows={4} className={CLS_TEXTE} value={v.griefs || ''} disabled={lecture} onChange={e => maj('griefs', e.target.value)} />
+            <textarea data-reponses="proc.griefs" rows={4} className={CLS_TEXTE} value={v.griefs || ''} disabled={lecture} onChange={e => maj('griefs', e.target.value)} />
           </Champ>
         </div>
       </div>
@@ -899,7 +909,7 @@ function FormulaireEtape({ dossier: d, cle, ref_, ue, peutInstruire, peutDecider
           </Champ>
           {v.recevable === false && (
             <Champ label="Motif précis de l'irrecevabilité (art. 88 §4)">
-              <textarea rows={3} className={CLS_TEXTE} value={v.motif || ''} disabled={lecture} onChange={e => maj('motif', e.target.value)} />
+              <textarea data-reponses="proc.irrecevabilite" rows={3} className={CLS_TEXTE} value={v.motif || ''} disabled={lecture} onChange={e => maj('motif', e.target.value)} />
             </Champ>
           )}
         </div>
@@ -927,7 +937,7 @@ function FormulaireEtape({ dossier: d, cle, ref_, ue, peutInstruire, peutDecider
           <Encadre etat="disponible">Un recours accueilli rouvre la séance de délibération de l'UE : le CDE re-délibère cet étudiant.</Encadre>
         )}
         <Champ label="Motivation, grief par grief (art. 89 §2)">
-          <textarea rows={6} className={CLS_TEXTE} value={v.motivation || ''} disabled={lecture} onChange={e => maj('motivation', e.target.value)} />
+          <textarea data-reponses="proc.motivation_recours" rows={6} className={CLS_TEXTE} value={v.motivation || ''} disabled={lecture} onChange={e => maj('motivation', e.target.value)} />
         </Champ>
       </div>
     );
@@ -958,7 +968,7 @@ function FormulaireEtape({ dossier: d, cle, ref_, ue, peutInstruire, peutDecider
           </div>
         )}
         <Champ label="Description des faits">
-          <textarea rows={5} className={CLS_TEXTE} value={v.description || ''} disabled={lecture} onChange={e => maj('description', e.target.value)} />
+          <textarea data-reponses="proc.description" rows={5} className={CLS_TEXTE} value={v.description || ''} disabled={lecture} onChange={e => maj('description', e.target.value)} />
         </Champ>
         <div className="text-[12px] text-slate-500">
           La personne qui a constaté les faits se choisit dans « Personnes »
@@ -1004,7 +1014,7 @@ function FormulaireEtape({ dossier: d, cle, ref_, ue, peutInstruire, peutDecider
         </div>
         <Champ label="Procès-verbal"><Choix valeur={v.pv} onChange={x => maj('pv', x)} options={PV_AUDITION} {...P} /></Champ>
         <Champ label="Déclarations de l'étudiant">
-          <textarea rows={5} className={CLS_TEXTE} value={v.declarations || ''} disabled={lecture} onChange={e => maj('declarations', e.target.value)} />
+          <textarea data-reponses="proc.declarations" rows={5} className={CLS_TEXTE} value={v.declarations || ''} disabled={lecture} onChange={e => maj('declarations', e.target.value)} />
         </Champ>
         <div className="text-[12px] text-slate-500">Le membre du personnel qui rédige le PV se choisit dans « Personnes » (art. 115 quinquies).</div>
       </div>
@@ -1016,7 +1026,7 @@ function FormulaireEtape({ dossier: d, cle, ref_, ue, peutInstruire, peutDecider
           <Champ label="Avis rendu le"><Date_ valeur={v.rendu_le} onChange={x => maj('rendu_le', x)} {...P} /></Champ>
         </div>
         <Champ label="Avis du CDE">
-          <textarea rows={5} className={CLS_TEXTE} value={v.avis || ''} disabled={lecture} onChange={e => maj('avis', e.target.value)} />
+          <textarea data-reponses="proc.avis" rows={5} className={CLS_TEXTE} value={v.avis || ''} disabled={lecture} onChange={e => maj('avis', e.target.value)} />
         </Champ>
       </div>
     );
@@ -1031,7 +1041,7 @@ function FormulaireEtape({ dossier: d, cle, ref_, ue, peutInstruire, peutDecider
           </Champ>
         )}
         <Champ label="Motivation : faits, dispositions, gravité (art. 119)">
-          <textarea rows={6} className={CLS_TEXTE} value={v.motivation || ''} disabled={lecture} onChange={e => maj('motivation', e.target.value)} />
+          <textarea data-reponses="proc.motivation_disciplinaire" rows={6} className={CLS_TEXTE} value={v.motivation || ''} disabled={lecture} onChange={e => maj('motivation', e.target.value)} />
         </Champ>
       </div>
     );

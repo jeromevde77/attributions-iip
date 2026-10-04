@@ -49,6 +49,7 @@ export const SANS_MODULE = {
   templates:       'administration de l’outil',
   documentation:   'les textes qui s’imposent à tous',
   suggestions:     'proposer une amélioration, depuis n’importe quel écran',
+  'reponses-types': 'les phrases toutes faites de chaque zone de texte : le commun se lit par tous, chacun tient les siennes, la direction tient le commun',
   demandes:        'le circuit de validation lui-même : le demandeur y accède par nature',
   'mes-cours':     'ce que le professeur propose pour SES cours — chaque route vérifie l’appartenance',
   'suivi-etudiant': 'le dossier confidentiel d’un étudiant — chaque route vérifie le lien (ses enseignants, sa coordination, la direction)',

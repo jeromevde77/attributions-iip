@@ -5,10 +5,11 @@ import { useSearchParams } from 'react-router-dom';
 import { api, getAnnee, setAnnee as setAnneeActive, getUser } from '../lib/api.js';
 import { ORIGINE, chargerCouleurs, echelleGris, poser as poserCouleurs, poserGris, variables as variablesCouleurs } from '../lib/couleurs.js';
 import Audit from './Audit.jsx';
-import { IconAdjustments, IconAward, IconBooks, IconBuilding, IconCalendar, IconCalendarEvent, IconChartBar, IconCheck, IconChevronRight, IconDownload, IconFileText, IconHistory, IconLink, IconScale, IconSettings, IconSparkles, IconUserShield, IconUsers, IconX, IconGavel, IconPlus, IconTrash, IconGripVertical, IconEdit, IconMail, IconPalette, IconArchive, IconAlertTriangle, IconShieldLock, IconDatabase, IconHierarchy, IconArrowsSplit, IconTool, IconSchool, IconStairsUp, IconCalculator, IconLinkOff, IconSend } from '@tabler/icons-react';
+import { IconAdjustments, IconAward, IconBooks, IconBuilding, IconCalendar, IconCalendarEvent, IconChartBar, IconCheck, IconChevronRight, IconDownload, IconFileText, IconHistory, IconLink, IconScale, IconSettings, IconSparkles, IconUserShield, IconUsers, IconX, IconGavel, IconPlus, IconTrash, IconGripVertical, IconEdit, IconMail, IconPalette, IconArchive, IconAlertTriangle, IconShieldLock, IconDatabase, IconHierarchy, IconArrowsSplit, IconTool, IconSchool, IconStairsUp, IconCalculator, IconLinkOff, IconSend, IconMessageDots } from '@tabler/icons-react';
 import { PageHeader, RailLateral, TuileEtat, PastilleEtat, Encadre } from '../components/ui.jsx';
 import ApercuDocuments from '../components/ApercuDocuments.jsx';
 const Editeur = lazy(() => import('./Editeur.jsx'));
+const ReponsesTypesConfig = lazy(() => import('./ReponsesTypesConfig.jsx'));
 const CursusCompatibles = lazy(() => import('../components/CursusCompatibles.jsx'));
 const DoublesProgrammes = lazy(() => import('../components/DoublesProgrammes.jsx'));
 const HorsBloc = lazy(() => import('../components/HorsBloc.jsx'));
@@ -1356,6 +1357,7 @@ export default function Configuration() {
         faces: [['contrat', 'Contrat'], ['attestation', 'Attestation'], ['diplome', 'Diplôme'], ['recrutement', 'Recrutement']] },
       { key: 'due', label: "Descriptifs d'UE", icon: IconFileText },
       { key: 'courriels', label: 'Courriels', icon: IconMail },
+      { key: 'reponses-types', label: 'Réponses types', icon: IconMessageDots },
     ]},
     { label: 'Accès', icon: IconUserShield, items: [
       /* UN SEUL ÉCRAN POUR LES DROITS (Charles, 27 septembre 2026 : « on garde
@@ -1540,6 +1542,13 @@ export default function Configuration() {
 
       {/* ── Onglet Contrat ── */}
       {tab === 'contrat' && <ConfigContrat />}
+
+      {/* ── Réponses types (3.1.21) ── */}
+      {tab === 'reponses-types' && (
+        <Suspense fallback={<div className="p-8 text-center text-gray-400">Chargement…</div>}>
+          <ReponsesTypesConfig />
+        </Suspense>
+      )}
 
       {/* ── Onglet Courriels ── */}
       {tab === 'courriels' && (

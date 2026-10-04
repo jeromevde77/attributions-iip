@@ -24,6 +24,7 @@ import echeancierRoutes from './routes/echeancier.js';
 import reunionsRoutes, { planifierRapportMensuel } from './routes/reunions.js';
 import documentationRoutes, { migrerDocumentation } from './routes/documentation.js';
 import suggestionsRoutes, { migrerSuggestions } from './routes/suggestions.js';
+import reponsesTypesRoutes, { migrerReponsesTypes } from './routes/reponsesTypes.js';
 import dossierAdminRoutes from './routes/dossierAdmin.js';
 import listesRoutes from './routes/listes.js';
 import besoinsRoutes from './routes/besoins.js';
@@ -2802,6 +2803,7 @@ try { migrerEcheancier(db); } catch (e) { console.error('[migration] echeancier 
 try { migrerReunions(db); } catch (e) { console.error('[migration] reunions :', e.message); }
 try { migrerDocumentation(db); } catch (e) { console.error('[migration] documentation :', e.message); }
 try { migrerSuggestions(db); } catch (e) { console.error('[migration] suggestions :', e.message); }
+try { migrerReponsesTypes(db); } catch (e) { console.error('[migration] réponses types :', e.message); }
 try { migrerBesoinsOffres(db); } catch (e) { console.error('[migration] besoins :', e.message); }
 try { migrerJournalPersonnel(db); } catch (e) { console.error('[migration] journal :', e.message); }
 try { migrerMfa(db); } catch (e) { console.error('[migration] mfa :', e.message); }
@@ -2984,6 +2986,7 @@ app.use('/api/reunions',     garderModule('reunions'), reunionsRoutes);
    tables se créent au démarrage, comme partout ailleurs. */
 app.use('/api/documentation', garderModule('documentation'), documentationRoutes);
 app.use('/api/suggestions',  garderModule('suggestions'), suggestionsRoutes);
+app.use('/api/reponses-types', garderModule('reponses-types'), reponsesTypesRoutes);
 app.use('/api/dossier',      garderModule('dossier'), dossierAdminRoutes);
 app.use('/api/listes',       garderModule('listes'), listesRoutes);
 app.use('/api/besoins',      garderModule('besoins'), besoinsRoutes);

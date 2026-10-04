@@ -1703,6 +1703,19 @@ et 3 composants de tuile**. La stratégie tient en cinq chantiers, dans cet ordr
   divergera : on interroge `lib/droits.js`. Une ligne qu'on lit sans pouvoir
   l'écrire est `inert` (`.ligne-lecture`), sans flèche ni cadre de champ.
   Ce n'est pas une protection — la porte reste le serveur.
+- **TOUTE ZONE DE TEXTE A SES RÉPONSES TYPES** (3.1.21, Charles, 4 octobre
+  2026 : « partout dans Lucie, je veux des réponses pré-établies »). Un seul
+  hôte (`lib/reponsesTypes.jsx`, monté dans `main.jsx`) accroche le bouton à
+  tout `<textarea>` qui prend le focus : aucun écran n'a rien à faire. La clé
+  du champ : `data-reponses="…"` si l'écran la donne (obligatoire pour un
+  champ dont on amorce le catalogue), sinon l'intitulé du champ ;
+  `data-reponses="non"` retire le bouton. Catalogue COMMUN tenu par la
+  direction (Configuration → Réponses types, ou depuis le champ), phrases
+  PERSONNELLES de chacun (`reponse_type.proprietaire_id`). Les variables
+  ({etudiant}, {ue}…) se remplissent de ce que l'écran déclare par
+  `useContexteReponses()` ; le reste demeure entre crochets, à compléter.
+  Les motifs d'échec de la délibération (`motifsEchec.js`) gardent leur
+  mécanisme propre, structuré par acquis.
 - **Une entrée de rail sans icône est invisible** une fois le rail replié.
 - **Un titre ne s'écrit qu'une fois** par écran.
 - Un libellé ne promet que ce que la modale fait réellement.
