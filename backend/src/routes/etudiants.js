@@ -1483,7 +1483,11 @@ r.get('/repartition-cours/ue', authRequired, (req, res) => {
 function groupesDuCours(ueNum, annee, cours, act) {
   return db.prepare(`SELECT DISTINCT COALESCE(num_organisation, 1) org, code FROM attribution
     WHERE ue_num = ? AND annee_scolaire = ? AND code_cours = ? AND COALESCE(activite_id, 0) = ?
-      AND code IS NOT NULL AND code <> '' AND UPPER(code) <> 'TS' AND COALESCE(split_groupe, 'N') <> 'O'`)
+      AND code IS NOT NULL AND code <> '' AND UPPER(code) <> 'TS'`)
+    /* PAS DE FILTRE SUR split_groupe : la répartition montre comme groupe toute
+       ligne qui porte un nom (333.3, organisation 2 : « A » et « C » marqués
+       split et nommés). L'écarter ici disait « ce groupe n'existe pas » pour un
+       groupe affiché à l'écran (Charles, 4 octobre 2026). */
     .all(ueNum, annee, cours, act);
 }
 function appliquerRenommages(req, ueNum, annee, cours, act, renommages) {
