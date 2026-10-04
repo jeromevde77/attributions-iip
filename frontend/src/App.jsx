@@ -618,9 +618,9 @@ function ProtectedLayout({ children }) {
                    garde la pastille du rail, élargie à son nom. */
                 data-case-rail={undefined}
                 className={({ isActive }) =>
-                `relative flex items-center gap-2 h-10 rounded-carte text-[13px] whitespace-nowrap flex-shrink-0
+                `relative flex items-center gap-2 h-9 rounded-carte text-[13px] whitespace-nowrap flex-shrink-0
                  transition-colors duration-150 ease-ios ${
-                  isActive ? 'font-semibold ring-1 ring-inset px-3' : 'w-10 justify-center case-barre'
+                  isActive ? 'font-semibold ring-1 ring-inset px-3' : 'w-9 justify-center case-barre'
                 }`
               }
                 style={({ isActive }) => (isActive
