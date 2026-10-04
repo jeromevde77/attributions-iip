@@ -2,6 +2,7 @@ import { useMemo, useRef, useState } from 'react';
 import { IconGift } from '@tabler/icons-react';
 import { teintes } from '../lib/etats.js';
 import { blocDe, couleurBloc } from '../lib/blocs.js';
+import { routerFleches } from '../lib/routage.js';
 
 /**
  * Schéma de capitalisation — arbre des UE et de leurs prérequis.
@@ -92,7 +93,8 @@ export default function SchemaCapitalisation({
     // TETE passe de 18 à 28 : le sous-titre « ÉPREUVE INTÉGRÉE » est tracé
     // à PAD + 18, exactement là où commençait la première tuile — il se
     // superposait donc à elle.
-    const L = 78, H = 26, GX = 38, GY = 6, PAD = 5, TETE = 28, PIED = 22;
+    // GY : une ALLÉE entre deux rangées, assez large pour que les flèches y passent (3.1.34).
+    const L = 78, H = 26, GX = 38, GY = 11, PAD = 5, TETE = 28, PIED = 22;
     const couches = {};
     for (const n of data.nodes) (couches[n.couche] = couches[n.couche] || []).push(n);
     let nums = Object.keys(couches).map(Number).sort((a, b) => a - b);
@@ -159,6 +161,10 @@ export default function SchemaCapitalisation({
       hauteur: bas + PAD + PIED,
     };
   }, [data]);
+
+  // LES FLÈCHES EN COULOIRS (lib/routage.js) : jamais derrière une case.
+  const routes = useMemo(() => (layout ? routerFleches({ boites: layout.pos, edges: data?.edges || [], L: layout.L, H: layout.H }) : new Map()),
+    [layout, data]);
 
   if (!data) return <div className="py-4 text-[12px] text-slate-400">Chargement du schéma…</div>;
   if (!data.nodes?.length) return (
@@ -403,9 +409,9 @@ export default function SchemaCapitalisation({
                 const x2 = memeColonne ? b.x + layout.L + 5 : b.x - 7;
                 const dx = Math.max(24, (x2 - x1) / 2);
                 const enArriere = !memeColonne && x2 < x1;   // prérequis placé après : incohérence
-                const d = memeColonne
+                const d = routes.get(`${eg.from}-${eg.to}`) || (memeColonne
                   ? `M${x1},${y1} C${x1 + 20},${y1} ${x2 + 20},${y2} ${x2},${y2}`
-                  : `M${x1},${y1} C${x1 + dx},${y1} ${x2 - dx},${y2} ${x2},${y2}`;
+                  : `M${x1},${y1} C${x1 + dx},${y1} ${x2 - dx},${y2} ${x2},${y2}`);
 
                 /* LA FLÈCHE PREND LA COULEUR DU BLOC OÙ ELLE ARRIVE (Charles,
                    26 septembre 2026) : orange vers une UE de BA1, bleu clair vers

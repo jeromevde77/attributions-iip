@@ -15,6 +15,7 @@ import { Router } from 'express';
 import db from '../db/index.js';
 import { anneeDeTravail, anneeActiveEnBase } from '../helpers/annee.js';
 import { authRequired, roleRequired, getUserSections} from '../middleware/auth.js';
+import { envelopperDocument } from '../lib/document.js';
 
 const r = Router();
 
@@ -238,6 +239,34 @@ r.get('/structure', authRequired, (req, res) => {
   }
 
   res.json({ ...g, section, annee, alertes });
+});
+
+// ── LA PIÈCE IMPRIMÉE DU SCHÉMA (3.1.35, Charles, 4 octobre 2026) ──────────
+// « une impression des schémas de capitalisation, sans que les lignes ne
+// passent derrière les cases ». Le schéma est celui de l'ÉCRAN, flèches en
+// couloirs comprises (frontend/src/lib/routage.js) : l'écran envoie son dessin,
+// le serveur l'habille de l'enveloppe commune, en A4 paysage, sur une page.
+// Deux tracés — un pour l'écran, un pour le papier — finiraient par diverger.
+r.post('/document', authRequired, (req, res) => {
+  const { section, annee } = req.body || {};
+  const perim = getUserSections(req.user);
+  if (perim && section && !perim.includes(section)) return res.status(403).json({ error: 'Section hors de votre périmètre' });
+  let svg = String(req.body?.svg || '');
+  if (!/^\s*<svg[\s>]/i.test(svg) || svg.length > 3_000_000) return res.status(400).json({ error: 'Schéma absent.' });
+  // Un dessin, rien d'autre : ni script, ni gestionnaire d'événement, ni lien.
+  svg = svg.replace(/<script[\s\S]*?<\/script>/gi, '').replace(/\son\w+\s*=\s*("[^"]*"|'[^']*')/gi, '')
+    .replace(/(href|xlink:href)\s*=\s*("javascript:[^"]*"|'javascript:[^']*')/gi, '');
+  const esc = v => String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;');
+  const html = envelopperDocument({
+    titre: `Schéma de capitalisation — ${section || ''}`,
+    orientation: 'paysage',
+    entete: { titre: 'Schéma de capitalisation', sous: `${section || ""} · ${annee || ""}`,
+      mention: 'Flèche : prérequis — trait plein, dossier pédagogique ; pointillé, règle interne.' },
+    styles: `.schema-cap svg { width: 100% !important; height: auto !important; max-height: 100mm; display: block; }
+             .schema-cap { page-break-inside: avoid; }`,
+    html: `<div class="schema-cap">${svg}</div>`,
+  });
+  res.json({ html, nom: `Schema_capitalisation_${String(section || '').replace(/[^A-Za-z0-9]+/g, '_')}_${annee || ''}` });
 });
 
 // ── Modifier l'année d'études d'une UE dans une section ─────────────────────

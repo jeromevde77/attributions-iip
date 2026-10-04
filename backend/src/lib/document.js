@@ -98,7 +98,11 @@ export function piedBalisage(logo = null) {
     + `</div>`;
 }
 
-export function piedStyles(hauteur = HAUTEUR_PIED_MM, margeHaut = 18) {
+export function piedStyles(hauteur = HAUTEUR_PIED_MM, margeHaut = 18, orientation = 'portrait') {
+  /* LA HAUTEUR DE LA FEUILLE SUIT L'ORIENTATION (3.1.35) : écrite « 297 mm »
+     en dur, elle faisait d'une page paysage (210 mm) DEUX pages, la seconde
+     vide — vu sur le schéma de capitalisation. */
+  const hPage = orientation === 'paysage' ? 210 : 297;
   return `
   /* Le pied descend DANS la marge basse : « bottom: 0 » l'arrêterait au bas de
      la zone de contenu, soit à ${BANDE_PIED_MM}mm du bord, d'où le blanc dessous. */
@@ -119,7 +123,7 @@ export function piedStyles(hauteur = HAUTEUR_PIED_MM, margeHaut = 18) {
      de contenu, le pied descend au bas de la feuille même quand la pièce ne
      fait que dix lignes — sans quoi il se collait sous le dernier paragraphe. */
   table.feuille { width: 100%; border-collapse: collapse;
-                  height: calc(297mm - ${margeHaut}mm - ${BANDE_PIED_MM}mm); }
+                  height: calc(${hPage}mm - ${margeHaut}mm - ${BANDE_PIED_MM}mm); }
   table.feuille > tbody > tr > td { vertical-align: top; }
   table.feuille > tbody > tr > td,
   table.feuille > thead > tr > td,
@@ -140,8 +144,8 @@ export function piedStyles(hauteur = HAUTEUR_PIED_MM, margeHaut = 18) {
   @media screen {
     /* À l'écran il n'y a pas de pages : on simule la feuille pour que l'aperçu
        montre le pied là où il s'imprimera, au lieu de le coller sous le texte. */
-    body { min-height: 297mm; }
-    table.feuille { min-height: calc(297mm - ${margeHaut}mm - ${BANDE_PIED_MM}mm); }
+    body { min-height: ${hPage}mm; }
+    table.feuille { min-height: calc(${hPage}mm - ${margeHaut}mm - ${BANDE_PIED_MM}mm); }
   }
 
   /* LE REPLI SAFARI EST DE RETOUR, ET IL EST NÉCESSAIRE.
@@ -430,7 +434,7 @@ export function envelopperDocument({ html, titre, orientation = 'portrait',
   tr, td, th { break-inside: avoid; page-break-inside: avoid; }
 
   /* Le pied, ancré en bas de CHAQUE page — dernière comprise. */
-  ${piedStyles(HAUTEUR_PIED_MM, margeHaut)}
+  ${piedStyles(HAUTEUR_PIED_MM, margeHaut, orientation)}
 
   /* À l'écran, la position fixe collerait le pied au bas de la fenêtre, non
      de la page : on le laisse suivre le flux tant qu'on n'imprime pas. */
