@@ -1,4 +1,5 @@
 import { ICONE_AXE } from './lib/iconesAxes.js';
+import { useDroits } from './lib/droits.js';
 import { useState, useEffect, useRef, Component, Fragment } from 'react';
 import { createPortal } from 'react-dom';
 import { estDirection, droitEffectif, usePlafonds, oublierPlafonds } from './lib/modules.js';
@@ -245,6 +246,7 @@ function ProtectedLayout({ children }) {
   // Les plafonds viennent du serveur : le rail se redessine quand ils arrivent,
   // sans quoi il resterait celui de l'amorce jusqu'au prochain clic.
   usePlafonds();
+  useDroits();   // les gestes de la personne connectée : pas de droit, pas de bouton (3.1.20)
   const [compteOuvert, setCompteOuvert] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const sousMenu = useSousMenu();          // les faces de l'écran ouvert, glissées dans la barre

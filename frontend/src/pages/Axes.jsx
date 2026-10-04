@@ -1,4 +1,5 @@
 import { ICONE_AXE } from '../lib/iconesAxes.js';
+import { peutGeste, passeRole, useDroits } from '../lib/droits.js';
 import { IconEtudiant } from '../components/IconesLucie.jsx';
 import { Suspense, lazy } from 'react';
 import { useSearchParams } from 'react-router-dom';
@@ -82,6 +83,7 @@ export function AxeAccueil() {
 
 // ── ÉTUDIANTS — « Où en est cet étudiant ? » ────────────────────────────────
 export function AxeEtudiants() {
+  useDroits();   // le tiroir se recalcule quand les droits arrivent
   // « ?onglet=deliberation » : un renvoi (Configuration, un lien) ouvre l'axe
   // sur la bonne rubrique.
   const [params] = useSearchParams();
@@ -120,9 +122,11 @@ export function AxeEtudiants() {
          tiroir est ouvert dès qu'on est dans l'un d'eux. */
       sousMenus={[{ key: 'pae', label: 'Inscriptions & PAE', icone: IconClipboardList, hote: 'pae',
         enfants: [
-          { key: 'passage', label: 'Composer le PAE', icone: IconStairsUp },
+          { key: 'passage', label: 'Composer le PAE', icone: IconStairsUp,
+            peut: () => peutGeste('etudiants.pae_composer') },
           { key: 'revue-pae', label: 'Revue des PAE', icone: IconEyeCheck },
-          { key: 'reports', label: 'Reports de notes', icone: IconArrowForwardUp },
+          { key: 'reports', label: 'Reports de notes', icone: IconArrowForwardUp,
+            peut: () => passeRole(['admin', 'directeur', 'directeur_adjoint', 'editeur']) },
           { key: 'valorisation', label: 'Valorisation des acquis (VA)', icone: IconCertificate },
           { key: 'amenagements', label: 'Aménagements raisonnables (AR)', icone: IconAccessible },
         ] }]}

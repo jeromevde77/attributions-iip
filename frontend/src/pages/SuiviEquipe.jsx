@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { ecritModule } from '../lib/droits.js';
 import {
   IconCalendarEvent, IconChecklist, IconPlus, IconPrinter, IconTimeline,
   IconCheck, IconChevronLeft, IconClock, IconUser, IconX, IconTrash,
@@ -157,10 +158,12 @@ export default function SuiviEquipe() {
           { label: 'Actions', items: [
             /* CONFIER SE FAIT ICI, OÙ LA TÂCHE SE SUIT (21 septembre 2026) —
                l'entrée de l'Accueil était « une icône de trop ». */
+            ...(ecritModule('reunions') ? [
             { key: 'confier', label: 'Confier une tâche', icon: IconClipboardPlus,
               onClick: () => setConfier(true) },
             { key: 'nouvelle', label: 'Nouvelle réunion', icon: IconPlus,
               onClick: () => nouvelleReunion() },
+            ] : []),
 
             ...(direction ? [{ key: 'rapport-mois', label: 'Rapport du mois', icon: IconReport,
               onClick: () => setRapportMois(moisParDefaut()) }] : []),

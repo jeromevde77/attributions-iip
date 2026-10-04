@@ -1,4 +1,5 @@
 import PiecesEtudiant from './PiecesEtudiant.jsx';
+import { useDroits } from '../lib/droits.js';
 import CentreDiplomation from './CentreDiplomation.jsx';
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -827,6 +828,9 @@ function Avion({ titre, onClick, disabled = false, occupe = false }) {
 }
 
 function OngletPersonnel({ onClose, membreInitial = null, outilsMembre = null }) {
+  // Pas de droit, pas de pièce (3.1.20) : contrats et EA12 relèvent du module personnel en écriture.
+  const droitsPers = useDroits();
+  const peutContrats = droitsPers.peut('personnel.contrats') && droitsPers.ecrit('personnel');
   const navigate = useNavigate();
   const annee = getAnnee();
   const [profs, setProfs] = useState(null);
@@ -1019,7 +1023,7 @@ function OngletPersonnel({ onClose, membreInitial = null, outilsMembre = null })
               </div>
             )}
 
-            {statut && (statut.statut === 'cc' || statut.statut === 'mixte') && (
+            {peutContrats && statut && (statut.statut === 'cc' || statut.statut === 'mixte') && (
               <div data-etat="neutre" className="bloc-etat px-3 py-2.5 space-y-2">
                 <div className="text-[13px] font-semibold">Chargé de cours</div>
                 <ul className="divide-y divide-slate-100 border-t border-slate-100">
@@ -1045,7 +1049,7 @@ function OngletPersonnel({ onClose, membreInitial = null, outilsMembre = null })
               </div>
             )}
 
-            {!!expert.length && (
+            {peutContrats && !!expert.length && (
               <div data-etat="neutre" className="bloc-etat px-3 py-2.5 space-y-2">
                 <div className="text-[13px] font-semibold">Expert</div>
                 <ul className="divide-y divide-slate-100 border-t border-slate-100">
@@ -1114,6 +1118,9 @@ function OngletPersonnel({ onClose, membreInitial = null, outilsMembre = null })
    et chacun seulement si le statut du membre l'appelle ; les Word (EA12,
    annexes) dans une archive, un dossier par personne. */
 function SeriePersonnel({ ids, profs, annee, annexes, nom, outilsMembre = null }) {
+  const droitsPers = useDroits();
+  const peutContrats = droitsPers.peut('personnel.contrats') && droitsPers.ecrit('personnel');
+  const peutAnnexes = droitsPers.passe('admin', 'editeur') && droitsPers.ecrit('personnel');
   const MOIS = ['janvier','février','mars','avril','mai','juin','juillet','août','septembre','octobre','novembre','décembre'];
   const [types, setTypes] = useState({ cc: true, expert: true });
   const [cles, setCles] = useState(() => new Set(['A1bis']));
@@ -1185,7 +1192,7 @@ function SeriePersonnel({ ids, profs, annee, annexes, nom, outilsMembre = null }
         </div>
       )}
 
-      <div data-etat="neutre" className="bloc-etat px-3 py-2.5 space-y-2">
+      {peutContrats && <div data-etat="neutre" className="bloc-etat px-3 py-2.5 space-y-2">
         <div className="flex items-center justify-between gap-3">
           <div>
             <div className="text-[13px] font-semibold">Contrats de travail</div>
@@ -1200,9 +1207,9 @@ function SeriePersonnel({ ids, profs, annee, annexes, nom, outilsMembre = null }
             </label>
           ))}
         </div>
-      </div>
+      </div>}
 
-      <div data-etat="neutre" className="bloc-etat px-3 py-2.5 space-y-2">
+      {peutAnnexes && <div data-etat="neutre" className="bloc-etat px-3 py-2.5 space-y-2">
         <div className="flex items-center justify-between gap-3 flex-wrap">
           <div>
             <div className="text-[13px] font-semibold">EA12 et annexes de la circulaire 9760</div>
@@ -1228,7 +1235,7 @@ function SeriePersonnel({ ids, profs, annee, annexes, nom, outilsMembre = null }
             </li>
           ))}
         </ul>
-      </div>
+      </div>}
       {contrat && <PreviewModal html={contrat.html} titre={contrat.titre} nomFichier={contrat.nom}
         typeDoc="contrat" onClose={() => setContrat(null)} />}
     </div>

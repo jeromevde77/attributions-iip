@@ -23,7 +23,7 @@ import {
 import { authHeaders, getAnnee, telechargerFichier } from '../lib/api.js';
 import { ouvrirApercu } from '../lib/apercu.js';
 import { nomPropre } from '../lib/nom.js';
-import { informer } from '../lib/dialogue.jsx';
+import { informer, saisir, demander } from '../lib/dialogue.jsx';
 import {
   RailLateral, PageHeader, Fenetre, Encadre, PastilleEtat,
   Tableau, TableauEntete, Th, Td, Tr, TableauVide,
@@ -666,6 +666,22 @@ function Dossier({ id, ref_, onRetour }) {
   // hors de la frise : il a son entrée à côté.
   const ecartementPossible = d.type === 'disciplinaire';
 
+  /* SUPPRIMER UN DOSSIER OUVERT PAR ERREUR (3.1.20) : le motif est demandé, la
+     ligne reste en base avec qui, quand et pourquoi. Un dossier déjà décidé ne
+     part que par la direction, qui confirme savoir que les effets restent. */
+  async function supprimer() {
+    const motif = await saisir({ message: `Supprimer le dossier n° ${d.id} (${nomPropre(d.etudiant?.nom, d.etudiant?.prenom)}) ?\n\nIl sort du registre ; la trace de sa suppression reste. Pourquoi le supprimer ?`,
+      obligatoire: true, ton: 'alerte' });
+    if (!motif || !String(motif).trim()) return;
+    let r = await appel(`${BASE}/${d.id}`, { method: 'DELETE', body: JSON.stringify({ motif }) });
+    if (!r.ok && r.data?.effets) {
+      if (!(await demander({ message: `${r.data.error}\n\nSupprimer quand même le dossier ?`, ton: 'alerte' }))) return;
+      r = await appel(`${BASE}/${d.id}`, { method: 'DELETE', body: JSON.stringify({ motif, confirme_effets: true }) });
+    }
+    if (!r.ok) { await informer(r.data?.error || 'La suppression a échoué.'); return; }
+    onRetour();
+  }
+
   function apresEtape(rep) {
     // La réponse d'une étape ne redit pas les droits : on garde ceux du dossier.
     setD({ ...rep, peut_instruire: d.peut_instruire, peut_decider: d.peut_decider });
@@ -679,6 +695,11 @@ function Dossier({ id, ref_, onRetour }) {
       <div className="flex items-center gap-3 mb-3">
         <button type="button" className="bouton" onClick={onRetour}><IconArrowLeft size={15} /> Registre</button>
         <span className="text-[12px] text-slate-400">Dossier n° {d.id} · ouvert le {fmt(d.cree_le)}{d.cree_par_nom ? ` par ${d.cree_par_nom}` : ''}</span>
+        {peutInstruire && (
+          <button type="button" className="bouton bouton-detruire ml-auto inline-flex items-center gap-1.5" onClick={supprimer}>
+            <IconTrash size={15} /> Supprimer le dossier
+          </button>
+        )}
       </div>
 
       {/* En-tête */}

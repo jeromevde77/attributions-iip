@@ -175,6 +175,9 @@ export default function Axe({ titre, question, icone, onglets, ongletInitial,
   const [sousOuvert, setSousOuvert] = useState(null);
   for (const sm of sousMenus) {
     const enfants = (sm.enfants || []).map(e => {
+      // PAS DE DROIT, PAS D'ICÔNE (3.1.20) : un outil que la porte refuserait
+      // ne revient pas par le tiroir, même quand l'écran hôte n'est pas ouvert.
+      if (e.peut && !e.peut()) return null;
       const present = parCle.get(e.key);
       if (present) return { ...present, label: e.label || present.label, icon: e.icone || present.icon };
       // Une RUBRIQUE que le rôle ne voit pas ne revient pas par le tiroir.

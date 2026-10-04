@@ -1,4 +1,5 @@
 import { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
+import { peutGeste, passeRole, ecritModule } from '../lib/droits.js';
 import {
   IconAlertTriangle, IconCertificate, IconCheck, IconChevronDown, IconChevronRight,
   IconListCheck, IconPlus, IconPrinter, IconSearch, IconTable, IconTrash,
@@ -232,7 +233,9 @@ export default function Valorisations() {
     } catch (err) { setErreur(err.message); }
   }
 
-  const RAIL = [{
+  // Pas de droit, pas de porte (3.1.20) : instruire est un geste, réglable.
+  const peutInstruireVA = peutGeste('valorisation.instruire') && ecritModule('etudiants');
+  const RAIL = !peutInstruireVA ? [] : [{
     label: 'Valorisation',
     items: [
       /* TROIS PORTES, DANS L'ORDRE DU CIRCUIT (maquette validée par Charles,
@@ -266,7 +269,7 @@ export default function Valorisations() {
         </div>
 
         {/* LES TROIS PORTES, dans l'ordre du circuit. */}
-        <div className="grid gap-2.5 md:grid-cols-3">
+        {peutInstruireVA && <div className="grid gap-2.5 md:grid-cols-3">
           {[
             ['1', 'Introduire des demandes', 'La matrice : un étudiant par ligne, une UE par colonne, VA ou VAE. On y ajoute aussi des étudiants.', () => setMatrice(true), false],
             ['2', 'Instruire en série', 'Dates, recevabilité, avis : en lot, sur les demandes cochées. Les chargés de cours rendent leur avis dans Mes cours.', () => setAnalyse(true), false],
@@ -280,7 +283,7 @@ export default function Valorisations() {
               <span><b className="block text-[14px]">{t}</b><span className="text-[12px] text-slate-600">{sous}</span></span>
             </button>
           ))}
-        </div>
+        </div>}
 
         {erreur && <div className="text-[12px] text-rose-700">{erreur}</div>}
 
@@ -840,11 +843,11 @@ function UniteValorisee({ va, annee, onSupprimer, onDocuments, onDossier, onChan
             </div>
 
             <div className="flex items-center gap-2">
-              <button onClick={enregistrer} disabled={enCours
+              {passeRole(['admin', 'editeur']) && <button onClick={enregistrer} disabled={enCours
                 || (form.decision === 'refusee' && !form.motif_refus.trim())}
                 className="bouton bouton-fort disabled:opacity-40">
                 {enCours ? 'Enregistrement…' : 'Enregistrer'}
-              </button>
+              </button>}
               {form.decision === 'refusee' && !form.motif_refus.trim() && (
                 <span className="text-[12px] text-amber-800">
                   Un refus se motive : écris ce que le Conseil a constaté.

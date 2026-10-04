@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { peutGeste } from '../lib/droits.js';
 import { IconSend, IconX, IconDownload, IconMail } from '@tabler/icons-react';
 import EnvoiMailModal from './EnvoiMailModal.jsx';
 import { useEnvoiMail } from '../lib/envoiMail.js';
@@ -120,7 +121,7 @@ export default function PreviewModal({ html, titre = 'Document', sousTitre, nomF
               className="bouton-sortir controle px-3 flex items-center gap-1.5 disabled:opacity-40">
               <IconSend size={15} /> Imprimer / PDF
             </button>
-            {envoiPossible && envoiMail?.actif && (
+            {envoiPossible && envoiMail?.actif && peutGeste('envois.envoyer') && (
               <button onClick={() => setEnvoi(true)} disabled={!pret}
                 title="Envoyer ce document par courriel — PDF joint ou dans le corps du message"
                 className="bouton controle px-3 flex items-center gap-1.5 disabled:opacity-40">

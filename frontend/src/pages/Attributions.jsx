@@ -2,6 +2,7 @@ import { useEffect, useState, useMemo } from 'react';
 import { couleurBloc } from '../lib/blocs.js';
 import { codeGroupe, suiteGroupes, trierCodes, rangCouleur } from '../lib/groupes.js';
 import { estDirection } from '../lib/modules.js';
+import { useDroits } from '../lib/droits.js';
 import { VoletRail, Fenetre } from '../components/ui.jsx';
 import { createPortal } from 'react-dom';
 import { api, getAnnee, nomDoc, getUnite, setUnite as setUniteGlobal, perToH, hToPer } from '../lib/api.js';
@@ -475,6 +476,13 @@ export default function Attributions() {
   const me = JSON.parse(localStorage.getItem('user') || 'null');
   const isAdmin = estDirection(me);
   const isValidateur = estDirection(me) || !!me?.peut_valider;
+  /* PAS DE DROIT, PAS DE BOUTON (3.1.20). Qui lit les attributions sans pouvoir
+     les écrire voit la grille en lecture : lignes inertes, sans corbeille, sans
+     congé, sans « Nouveau ». La porte reste le serveur. */
+  const droits = useDroits();
+  const peutEcrireAttr = droits.ecrit('attributions') && droits.peut('attributions.modifier');
+  const peutSupprAttr = droits.ecrit('attributions') && droits.peut('attributions.supprimer');
+  const peutAdminAttr = droits.ecrit('attributions') && droits.passe('admin');
   const saveValide = async (id, valide) => {
     try {
       const res = await fetch(`/api/attributions/${id}/valider`, {
@@ -1394,7 +1402,7 @@ export default function Attributions() {
       );
     }
     return (
-      <tr key={row.id} className={rowBg} style={aValider ? { boxShadow: 'inset 4px 0 0 var(--c-attente)' } : undefined}>
+      <tr key={row.id} className={`${rowBg}${peutEcrireAttr ? '' : ' ligne-lecture'}`} inert={peutEcrireAttr ? undefined : ''} style={aValider ? { boxShadow: 'inset 4px 0 0 var(--c-attente)' } : undefined}>
         {colSet.map(c => {
           const _textCols = ['nom_cours','ue_nom','activite_nom','professeur_id','section','code_cours']; const sty = { ...(c.flex ? {} : { width:c.width, minWidth:c.width, maxWidth:c.width }), overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', textAlign: c.num ? 'right' : _textCols.includes(c.key) ? 'left' : 'center' };
           const click = c.rowClickable ? ()=>setEditRow(row) : undefined;
@@ -1432,6 +1440,7 @@ export default function Attributions() {
             </td>;
           }
           if (c.key==='__actions') {
+            if (!peutSupprAttr) return <td key={c.key} style={sty} />;
             return <td key={c.key} className="text-center" style={sty}>
               <button onClick={()=>deleteRow(row.id)} className="text-iip-texte hover:opacity-70" title="Supprimer"><IconTrash size={15}/></button>
             </td>;
@@ -1451,10 +1460,10 @@ export default function Attributions() {
                 {badge === 'DOT' && <span className="text-[10px] px-1 py-0 rounded font-bold bg-orange-500 text-white border border-orange-500 shrink-0" title="Dépasse le plafond → dotation organique">DOT</span>}
                 {badge === 'EXT+DOT' && <span className="text-[10px] px-1 py-0 rounded font-bold bg-purple-500 text-white border border-purple-500 shrink-0" title="Partiellement EXT, partiellement DOT">EXT+DOT</span>}
                 <div className="flex-1 min-w-0">{select}</div>
-                {(!row.professeur || /désigner|designer/i.test(row.professeur || '')) && (
+                {peutEcrireAttr && (!row.professeur || /désigner|designer/i.test(row.professeur || '')) && (
                   <button onClick={e=>{e.stopPropagation(); if(recrutMenu?.rowId===row.id){setRecrutMenu(null);}else{const r=e.currentTarget.getBoundingClientRect(); ouvrirRecrut(row, {top:r.bottom+4, right:window.innerWidth-r.right});}}} title="Piocher un candidat du recrutement (devient recruté et lié à ce groupe)" className="shrink-0 text-iip-turquoise hover:text-iip-blue"><IconBriefcase size={14}/></button>
                 )}
-                <button onClick={e=>{e.stopPropagation(); toggleConge(row);}} title={row.en_conge ? 'En congé — cliquer pour réactiver' : 'Mettre en congé (crée une ligne de remplacement)'} className={`shrink-0 text-[10px] font-bold px-1 py-0.5 rounded border ${row.en_conge ? 'bg-transparent text-amber-700 border-amber-500' : 'bg-gray-50 text-gray-400 border-gray-200 hover:border-amber-400 hover:text-amber-600'}`}>C</button>
+                {peutEcrireAttr && <button onClick={e=>{e.stopPropagation(); toggleConge(row);}} title={row.en_conge ? 'En congé — cliquer pour réactiver' : 'Mettre en congé (crée une ligne de remplacement)'} className={`shrink-0 text-[10px] font-bold px-1 py-0.5 rounded border ${row.en_conge ? 'bg-transparent text-amber-700 border-amber-500' : 'bg-gray-50 text-gray-400 border-gray-200 hover:border-amber-400 hover:text-amber-600'}`}>C</button>}
               </div>
 
               {!verrous[row.id] && alertesCours[row.id] && <div className="text-[10px] text-amber-600 leading-tight mt-0.5">⚠ définitif : {alertesCours[row.id].definitif}</div>}
@@ -1695,7 +1704,7 @@ export default function Attributions() {
             </td>;
           }
           if (c.edit==='select') return <td key={c.key} style={sty}><select defaultValue={v??''} onClick={e=>e.stopPropagation()} className="w-full cursor-pointer" onChange={e=>{if(e.target.value!==(v??''))saveCell(row.id,c.key,e.target.value);}}>{c.options.map(([val,lbl])=><option key={val} value={val}>{lbl}</option>)}</select></td>;
-          if (c.edit==='prof') return <td key={c.key} style={sty}><div className="flex items-center gap-1">{verrous[row.id] && <span title={`Nomination définitive — ${verrous[row.id].periodes_nommees||''} pér. ${verrous[row.id].type_charge||''} · code FWB ${verrous[row.id].code_fwb||''} (attribution verrouillée)`} className="flex-shrink-0"><IconLock size={13} stroke={1.8} className="inline -mt-0.5 text-slate-400" /></span>}{!verrous[row.id] && alertesCours[row.id] && <span title={`⚠ ${alertesCours[row.id].definitif} est engagé(e) à titre définitif sur ce cours (${alertesCours[row.id].periodes_nommees||''} pér. ${alertesCours[row.id].type_charge||''}, FWB ${alertesCours[row.id].code_fwb||''})`} className="flex-shrink-0 cursor-help">🔓</span>}{row.remplace_attribution_id && <span title="Ligne de remplacement (titulaire en congé)" className="flex-shrink-0 text-[10px] text-iip-blue font-bold">R</span>}<select defaultValue={row.professeur_id??''} onClick={e=>e.stopPropagation()} className="w-full cursor-pointer" onChange={e=>{const nid=e.target.value?Number(e.target.value):null;if(nid!==row.professeur_id)saveCell(row.id,'professeur_id',nid);}}><option value="">— Aucun —</option>{professeurs.map(p=><option key={p.id} value={p.id}>{p.nom_prenom}</option>)}</select><button onClick={e=>{e.stopPropagation(); toggleConge(row);}} title={row.en_conge ? 'En congé — cliquer pour réactiver' : 'Mettre en congé (crée une ligne de remplacement)'} className={`flex-shrink-0 text-[10px] font-bold px-1 py-0.5 rounded border ${row.en_conge ? 'bg-transparent text-amber-700 border-amber-500' : 'bg-gray-50 text-gray-400 border-gray-200 hover:border-amber-400 hover:text-amber-600'}`}>C</button></div>{!verrous[row.id] && alertesCours[row.id] && <div className="text-[10px] text-amber-600 leading-tight mt-0.5">⚠ définitif : {alertesCours[row.id].definitif}</div>}</td>;
+          if (c.edit==='prof') return <td key={c.key} style={sty}><div className="flex items-center gap-1">{verrous[row.id] && <span title={`Nomination définitive — ${verrous[row.id].periodes_nommees||''} pér. ${verrous[row.id].type_charge||''} · code FWB ${verrous[row.id].code_fwb||''} (attribution verrouillée)`} className="flex-shrink-0"><IconLock size={13} stroke={1.8} className="inline -mt-0.5 text-slate-400" /></span>}{!verrous[row.id] && alertesCours[row.id] && <span title={`⚠ ${alertesCours[row.id].definitif} est engagé(e) à titre définitif sur ce cours (${alertesCours[row.id].periodes_nommees||''} pér. ${alertesCours[row.id].type_charge||''}, FWB ${alertesCours[row.id].code_fwb||''})`} className="flex-shrink-0 cursor-help">🔓</span>}{row.remplace_attribution_id && <span title="Ligne de remplacement (titulaire en congé)" className="flex-shrink-0 text-[10px] text-iip-blue font-bold">R</span>}<select defaultValue={row.professeur_id??''} onClick={e=>e.stopPropagation()} className="w-full cursor-pointer" onChange={e=>{const nid=e.target.value?Number(e.target.value):null;if(nid!==row.professeur_id)saveCell(row.id,'professeur_id',nid);}}><option value="">— Aucun —</option>{professeurs.map(p=><option key={p.id} value={p.id}>{p.nom_prenom}</option>)}</select>{peutEcrireAttr && <button onClick={e=>{e.stopPropagation(); toggleConge(row);}} title={row.en_conge ? 'En congé — cliquer pour réactiver' : 'Mettre en congé (crée une ligne de remplacement)'} className={`flex-shrink-0 text-[10px] font-bold px-1 py-0.5 rounded border ${row.en_conge ? 'bg-transparent text-amber-700 border-amber-500' : 'bg-gray-50 text-gray-400 border-gray-200 hover:border-amber-400 hover:text-amber-600'}`}>C</button>}</div>{!verrous[row.id] && alertesCours[row.id] && <div className="text-[10px] text-amber-600 leading-tight mt-0.5">⚠ définitif : {alertesCours[row.id].definitif}</div>}</td>;
           /* LE STATUT SE DEMANDE, IL NE SE DEVINE PAS.
              Une liste déroulante invisible posée sur le badge écrivait dans la
              fiche du MDP sans jamais le dire : on croyait corriger une ligne,
@@ -1954,7 +1963,7 @@ export default function Attributions() {
               <span className="relative inline-flex items-stretch whitespace-nowrap text-[11px] text-slate-600 bg-white border border-slate-200 border-l-[3px] rounded divide-x divide-slate-200"
                 style={{ borderLeftColor: couleurBloc(ue.bloc) || '#D8DCE4' }}>
                 {ue.bloc && <span className="px-1.5 py-0.5 font-semibold text-iip-blue">{ue.bloc}</span>}
-                <button onClick={(e)=>{
+                <button disabled={!peutEcrireAttr} onClick={(e)=>{
                     const r = e.currentTarget.getBoundingClientRect();
                     setQuadriMenuPos({ top: r.top - 4, left: r.left });
                     setQuadriMenu(quadriMenu===key?null:key);
@@ -1967,7 +1976,7 @@ export default function Attributions() {
                   )}
                 </button>
                 {org > 1 && viewMode!=='coord' && (
-                  <button onClick={(e)=>{
+                  <button disabled={!peutEcrireAttr} onClick={(e)=>{
                       const r = e.currentTarget.getBoundingClientRect();
                       setOrgMenuPos({ top: r.top - 4, left: r.left });
                       setOrgMenu(orgMenu===key?null:key);
@@ -2034,15 +2043,15 @@ export default function Attributions() {
                   <IconUsersGroup size={14}/>Groupes
           </button>
           {/* Bouton Réouvrir : crée une nouvelle organisation */}
-          {viewMode!=='coord' && (
+          {viewMode!=='coord' && peutEcrireAttr && (
           <button onClick={(e)=>{e.stopPropagation(); reouvrirUE(ue, sec);}}
                   title="Réouvrir cette UE (nouvelle organisation)"
                   className="flex-shrink-0 ml-2 w-7 h-7 flex items-center justify-center rounded-full bg-iip-mauve/10 hover:bg-iip-mauve hover:text-white text-iip-mauve transition" style={{fontSize:'0.9rem'}}>⧉</button>
           )}
           {/* Bouton + : ajouter une ligne / un cours */}
-          <button onClick={(e)=>{e.stopPropagation(); if(addMenuUE?.key===key){setAddMenuUE(null);}else{const r=e.currentTarget.getBoundingClientRect();setMenuPos({top:r.bottom+4,right:window.innerWidth-r.right});setAddMenuUE({key,ue,sec,org});setCoursManquants([]);fetch(`/api/attributions/cours-manquants?annee=${encodeURIComponent(getAnnee())}&ue_num=${ue.ue_num}&section=${encodeURIComponent(sec)}`,{headers:{Authorization:`Bearer ${localStorage.getItem('token')}`}}).then(r=>r.json()).then(d=>setCoursManquants(Array.isArray(d)?d:[])).catch(()=>{});}}}
+          {peutEcrireAttr && <button onClick={(e)=>{e.stopPropagation(); if(addMenuUE?.key===key){setAddMenuUE(null);}else{const r=e.currentTarget.getBoundingClientRect();setMenuPos({top:r.bottom+4,right:window.innerWidth-r.right});setAddMenuUE({key,ue,sec,org});setCoursManquants([]);fetch(`/api/attributions/cours-manquants?annee=${encodeURIComponent(getAnnee())}&ue_num=${ue.ue_num}&section=${encodeURIComponent(sec)}`,{headers:{Authorization:`Bearer ${localStorage.getItem('token')}`}}).then(r=>r.json()).then(d=>setCoursManquants(Array.isArray(d)?d:[])).catch(()=>{});}}}
                   title="Ajouter une attribution"
-                  className="flex-shrink-0 ml-2 w-7 h-7 flex items-center justify-center rounded-full bg-iip-gold/10 hover:bg-iip-gold hover:text-white text-iip-gold font-bold transition">+</button>
+                  className="flex-shrink-0 ml-2 w-7 h-7 flex items-center justify-center rounded-full bg-iip-gold/10 hover:bg-iip-gold hover:text-white text-iip-gold font-bold transition">+</button>}
           {addMenuUE?.key===key && (
             <div className="fixed z-50 bg-white border border-gray-200 rounded-lg shadow-xl py-1 w-64"
               style={{top: menuPos.top, right: menuPos.right}}
@@ -2298,10 +2307,10 @@ export default function Attributions() {
                 </summary>
                 <div className="flex flex-col gap-1.5">
                   <button onClick={()=>{ const next = unite==='heures'?'periodes':'heures'; setUniteLocal(next); setUniteGlobal(next); window.dispatchEvent(new Event('unite-change')); }} title="Basculer périodes / heures" className="flex items-center gap-2 bg-white border border-slate-300 text-iip-blue hover:bg-slate-50 text-[13px] font-medium px-3 py-2 rounded-lg"><IconClock size={16}/>{unite==='heures' ? 'Heures' : 'Périodes'}</button>
-                  <button onClick={()=>setShowForm(true)} className="flex items-center gap-2 bg-iip-blue hover:bg-iip-blue-dark text-white text-[13px] font-medium px-3 py-2 rounded-lg"><IconPlus size={16}/>Nouveau</button>
-                  <button onClick={()=>setShowAnnulation(true)} title="Annuler une modification récente"
-                    className="flex items-center gap-2 border border-gray-300 text-gray-600 hover:bg-gray-50 text-[13px] font-medium px-3 py-2 rounded-lg"><IconArrowBackUp size={16}/>Annuler</button>
-                  <button onClick={()=>setShowCopierSection(true)} className="flex items-center gap-2 bg-white border border-slate-300 text-iip-blue hover:bg-slate-50 text-[13px] font-medium px-3 py-2 rounded-lg"><IconClipboardText size={16}/>Copier section</button>
+                  {peutEcrireAttr && <button onClick={()=>setShowForm(true)} className="flex items-center gap-2 bg-iip-blue hover:bg-iip-blue-dark text-white text-[13px] font-medium px-3 py-2 rounded-lg"><IconPlus size={16}/>Nouveau</button>}
+                  {peutAdminAttr && <button onClick={()=>setShowAnnulation(true)} title="Annuler une modification récente"
+                    className="flex items-center gap-2 border border-gray-300 text-gray-600 hover:bg-gray-50 text-[13px] font-medium px-3 py-2 rounded-lg"><IconArrowBackUp size={16}/>Annuler</button>}
+                  {peutAdminAttr && <button onClick={()=>setShowCopierSection(true)} className="flex items-center gap-2 bg-white border border-slate-300 text-iip-blue hover:bg-slate-50 text-[13px] font-medium px-3 py-2 rounded-lg"><IconClipboardText size={16}/>Copier section</button>}
                   <button onClick={()=>api.exportExcel()} className="flex items-center gap-2 bg-white border border-slate-300 text-iip-blue hover:bg-slate-50 text-[13px] font-medium px-3 py-2 rounded-lg"><IconFileImport size={16}/>Export</button>
                   {isAdmin && <>
                     {selected.size>0 && <button onClick={()=>openBulkModal('selection')} className="flex items-center gap-2 bg-white border border-[color:var(--c-attente)] text-iip-texte hover:bg-[#FBF1EE] text-[13px] font-medium px-3 py-2 rounded-champ"><IconTrash size={16}/>Sélection ({selected.size})</button>}
@@ -2389,7 +2398,7 @@ export default function Attributions() {
       </div>
 
       {/* FAB mobile */}
-      <button onClick={()=>setShowForm(true)} className="md:hidden fixed bottom-6 right-6 bg-iip-gold hover:bg-iip-amber text-white rounded-full w-14 h-14 shadow-2xl flex items-center justify-center text-3xl z-30">+</button>
+      {peutEcrireAttr && <button onClick={()=>setShowForm(true)} className="md:hidden fixed bottom-6 right-6 bg-iip-gold hover:bg-iip-amber text-white rounded-full w-14 h-14 shadow-2xl flex items-center justify-center text-3xl z-30">+</button>}
 
       {/* Overlay pour fermer le menu + */}
       {addMenuUE && <div className="fixed inset-0 z-20" onClick={()=>setAddMenuUE(null)} />}

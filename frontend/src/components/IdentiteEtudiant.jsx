@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { nomPropre } from '../lib/nom.js';
 import { IconDeviceFloppy, IconUpload, IconAlertTriangle, IconCheck } from '@tabler/icons-react';
 import { authHeaders } from '../lib/api.js';
+import { useDroits } from '../lib/droits.js';
 import { Tableau, TableauEntete, Th, Td, Tr, Badge } from './ui.jsx';
 
 /**
@@ -39,6 +40,7 @@ const CHAMPS = [
 ];
 
 export default function IdentiteEtudiant({ etudId, onModifie }) {
+  const droits = useDroits();
   const [e, setE] = useState(null);
   const [modifs, setModifs] = useState({});
   const [message, setMessage] = useState(null);
@@ -73,8 +75,10 @@ export default function IdentiteEtudiant({ etudId, onModifie }) {
   const val = k => (k in modifs ? modifs[k] : (e[k] ?? ''));
   const nbModifs = Object.keys(modifs).length;
 
+  // PAS DE DROIT, PAS DE BOUTON (3.1.20) : qui ne peut pas modifier l'identité la lit.
+  const peut = droits.peut('etudiants.identite') && droits.ecrit('etudiants');
   return (
-    <div className="space-y-4">
+    <fieldset disabled={!peut} className="space-y-4 min-w-0 border-0 p-0 m-0">
       <div className="flex items-start justify-between gap-3 flex-wrap">
         <div>
           <h3 className="text-[15px] font-semibold text-iip-blue">Identité</h3>
@@ -82,12 +86,12 @@ export default function IdentiteEtudiant({ etudId, onModifie }) {
             Ces données figurent sur la fiche d'inscription et les attestations.
           </p>
         </div>
-        <button onClick={enregistrer} disabled={!nbModifs || enCours}
+        {peut && <button onClick={enregistrer} disabled={!nbModifs || enCours}
           className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-iip-blue text-white
                      font-semibold rounded-lg disabled:opacity-40">
           <IconDeviceFloppy size={15} />
           {enCours ? 'Enregistrement…' : nbModifs ? `Enregistrer (${nbModifs})` : 'Enregistrer'}
-        </button>
+        </button>}
       </div>
 
       {message && (
@@ -183,7 +187,7 @@ export default function IdentiteEtudiant({ etudId, onModifie }) {
           — un dossier inactif reste consultable mais sort des listes
         </span>
       </label>
-    </div>
+    </fieldset>
   );
 }
 

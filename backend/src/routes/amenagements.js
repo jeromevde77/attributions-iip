@@ -71,13 +71,15 @@ const r = Router();
 /* LE CIRCUIT DU DOSSIER (Charles, 2 octobre 2026) : A validée → B s'ouvre ;
    B validée par la personne de référence → les chargés de cours sont appelés,
    et le Conseil des études peut trancher. Voir lib/circuitAR.js. */
-function circuitDe(d) {
+function circuitDe(d, req = null) {
   const nbMesures = db.prepare('SELECT COUNT(*) n FROM amenagement_mesure WHERE dossier_id = ?').get(d.id).n;
   const charges = (() => { try { return chargesDeCours(chargerDossier(d.id)); } catch { return []; } })();
   return {
     hors_circuit: horsCircuit(d),
     a: { valide_le: d.valide_a_le || null, valide_par: d.valide_a_par || null, manques: manquesA(d, nbMesures) },
-    b: { valide_le: d.valide_b_le || null, valide_par: d.valide_b_par || null, manques: manquesB(d, nbMesures) },
+    b: { valide_le: d.valide_b_le || null, valide_par: d.valide_b_par || null, manques: manquesB(d, nbMesures),
+         // Qui peut valider le rapport : la direction (geste) ou la personne de référence (3.1.20).
+         peut: !req || gesteAutorise(req, 'amenagements.valider_b') === 'oui' || estPersonneReference(req.user, d) },
     charges: charges.map(p => ({ professeur_id: p.id, nom: `${String(p.nom || '').toUpperCase()} ${p.prenom || ''}`.trim(), ues: p.ues })),
     avis: avisDuDossier(d.id),
   };
@@ -319,7 +321,7 @@ r.get('/etudiant/:id', authRequired, (req, res) => {
   }
 
   res.json({ dossiers, courant: courant || null, piece_valide: pieceValide,
-             catalogue: catalogueAR(), circuit: courant ? circuitDe(courant) : null });
+             catalogue: catalogueAR(), circuit: courant ? circuitDe(courant, req) : null });
 });
 
 // ── Création et mise à jour ─────────────────────────────────────────────────
