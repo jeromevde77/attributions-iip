@@ -70,7 +70,12 @@ export default function DroitInscription({ etudId, annee, peutEcrire = true }) {
               {[['Droit d\u2019inscription', f.droit, di.exonere && 'exonéré'],
                 ['Droit spécifique', f.droit_specifique,
                   !dis.soumis && (dis.exempte ? 'exempté' : 'non soumis')],
-                ['Frais administratifs', f.frais_admin, null]].map(([lib, v, note]) => (
+                ['Frais administratifs', f.frais_admin, null]]
+                // NON SOUMIS, PAS DE LIGNE (Charles, 4 octobre 2026) : un droit
+                // qui ne s'applique pas n'a rien à dire. Exempté, il reste — c'est
+                // une décision, elle se montre.
+                .filter(([lib]) => !(lib === 'Droit spécifique' && !dis.soumis && !dis.exempte))
+                .map(([lib, v, note]) => (
                 <div key={lib}>
                   <div className="text-[10px] uppercase tracking-wide text-slate-500
                                   font-semibold">{lib}</div>

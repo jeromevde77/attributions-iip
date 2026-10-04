@@ -368,7 +368,7 @@ export function RailDessine({ icon: HeaderIcon, titre, sousTitre, extra, surAccu
       <div className={`flex flex-col pb-3 min-h-0 flex-shrink-0
         ${volet ? 'w-14 border-r' : 'flex-1'}`}
         style={{ borderColor: 'var(--menu-filet)',
-                 paddingTop: 'calc(var(--retrait-page, 1rem) - 0.5rem)' }}>
+                 paddingTop: '0.25rem' }}>
       {/* UN EN-TÊTE VIDE OCCUPE QUAND MÊME SA PLACE.
           Rail replié et sans icône de titre, ce bloc ne montrait rien — mais
           ses vingt-quatre pixels poussaient la première icône plus bas que le
@@ -394,7 +394,7 @@ export function RailDessine({ icon: HeaderIcon, titre, sousTitre, extra, surAccu
           cette partie de Lucie. C'est ce qui manquait : un point d'ancrage
           identique d'un axe à l'autre. */}
       {HeaderIcon && (
-        <div className="flex-shrink-0 pb-1 mb-1">
+        <div className="flex-shrink-0">
           <button onClick={surAccueil} aria-label={`Revenir à ${titre}`}
             onMouseEnter={e => !epingle && surviser(e, `${titre} — écran de base`)}
             onMouseLeave={() => setSurvol(null)}
@@ -402,7 +402,7 @@ export function RailDessine({ icon: HeaderIcon, titre, sousTitre, extra, surAccu
             className={`relative flex text-[13px] transition-colors duration-150 ease-ios
               ${epingle
                 ? 'w-full items-center gap-3 py-2 px-2.5 rounded-fenetre'
-                : 'w-10 h-10 mx-auto items-center justify-center rounded-carte'}
+                : 'w-9 h-9 mx-auto items-center justify-center rounded-carte'}
               ${surAccueil ? 'hover:shadow-pose' : 'cursor-default'}`}
             style={{ color: 'var(--menu-texte)' }}
             data-case-rail={epingle ? undefined : '1'}>
@@ -412,7 +412,7 @@ export function RailDessine({ icon: HeaderIcon, titre, sousTitre, extra, surAccu
               {titre}
             </span>
           </button>
-          <div className={`${epingle ? 'mx-2' : 'w-5 mx-auto'} pt-1.5 border-t`}
+          <div className={`${epingle ? 'mx-2' : 'w-5 mx-auto'} my-1 border-t`}
             style={{ borderColor: 'var(--menu-filet)' }} />
         </div>
       )}
@@ -470,7 +470,7 @@ export function RailDessine({ icon: HeaderIcon, titre, sousTitre, extra, surAccu
            prolongeait les coins arrondis et l'œil le lisait décalé. Il vaut
            désormais la moitié d'une case, centré dessous : rien à aligner,
            puisqu'il part du même axe. */
-        <div className="flex-shrink-0 pb-1 mb-1 space-y-1">
+        <div className="flex-shrink-0 space-y-0.5">
           {/* IMPRIMER D'ABORD, ET TOUJOURS.
               On imprime tous les jours, on importe quelques fois par an : le
               geste le plus fréquent vient en tête, et il ne bouge jamais de
@@ -507,11 +507,11 @@ export function RailDessine({ icon: HeaderIcon, titre, sousTitre, extra, surAccu
                    elle seule dans toute l'application, ce qui la faisait
                    remarquer pour la mauvaise raison. Ce qui la distingue
                    désormais, c'est la COULEUR de son icône, et rien d'autre. */
-                className={`relative flex text-[13px] mb-1
+                className={`relative flex text-[13px] mb-0.5
                   transition-colors duration-150 ease-ios
                   ${epingle
                     ? 'w-full items-center gap-3 py-2 px-2.5 rounded-fenetre'
-                    : 'w-10 h-10 mx-auto items-center justify-center rounded-carte'}
+                    : 'w-9 h-9 mx-auto items-center justify-center rounded-carte'}
                   hover:shadow-pose`}
                 style={{ color: 'var(--menu-texte-doux)' }}
                 data-case-rail={epingle ? undefined : '1'}>
@@ -529,7 +529,7 @@ export function RailDessine({ icon: HeaderIcon, titre, sousTitre, extra, surAccu
               </button>
             );
           })}
-          <div className={`${epingle ? 'mx-2' : 'w-5 mx-auto'} pt-1.5 border-t`}
+          <div className={`${epingle ? 'mx-2' : 'w-5 mx-auto'} my-1 border-t`}
             style={{ borderColor: 'var(--menu-filet)' }} />
         </div>
       )}
@@ -551,7 +551,7 @@ export function RailDessine({ icon: HeaderIcon, titre, sousTitre, extra, surAccu
                 sépare ; une barre posée après le dernier ne sépare de rien et
                 ferme la liste sur du vide. */}
             {sec.filet && (
-              <div className={`${epingle ? 'mx-2' : 'w-5 mx-auto'} mt-1 mb-2.5 border-t`}
+              <div className={`${epingle ? 'mx-2' : 'w-5 mx-auto'} mt-0.5 mb-1.5 border-t`}
                 style={{ borderColor: 'var(--menu-filet)' }} />
             )}
             {sec.label && (
@@ -594,11 +594,11 @@ export function RailDessine({ icon: HeaderIcon, titre, sousTitre, extra, surAccu
                      AU SURVOL, LA MÊME PASTILLE QUE L'ACTIVE, en plus discret :
                      un fond blanc à coins largement arrondis, et non un simple
                      grisé. On voit ce qu'on vise. */
-                  className={`relative flex text-[13px] mb-1
+                  className={`relative flex text-[13px] mb-0.5
                     transition-colors duration-150 ease-ios
                     ${epingle
                       ? 'w-full items-start gap-3 py-2 px-2.5 rounded-fenetre'
-                      : 'w-10 h-10 mx-auto items-center justify-center rounded-carte'}
+                      : 'w-9 h-9 mx-auto items-center justify-center rounded-carte'}
                     ${it.actif ? 'font-semibold ring-1 ring-inset' : 'hover:shadow-pose'}`}
                   style={it.actif
                     ? { background: 'var(--menu-actif)', color: 'var(--menu-texte)',
@@ -674,11 +674,11 @@ export function RailDessine({ icon: HeaderIcon, titre, sousTitre, extra, surAccu
                           <button key={sv.key} onClick={sv.onClick} aria-label={sv.label}
                             onMouseEnter={e => !epingle && surviser(e, sv.label)}
                             onMouseLeave={() => setSurvol(null)}
-                            className={`relative flex text-[13px] mb-1
+                            className={`relative flex text-[13px] mb-0.5
                               transition-colors duration-150 ease-ios
                               ${epingle
                                 ? 'w-full items-center gap-3 py-2 px-2.5 rounded-fenetre'
-                                : 'w-10 h-10 mx-auto items-center justify-center rounded-carte'}
+                                : 'w-9 h-9 mx-auto items-center justify-center rounded-carte'}
                               ${sv.actif ? 'font-semibold' : 'hover:shadow-pose'}`}
                             style={sv.actif
                               ? { background: 'var(--menu-sous-actif)',
@@ -722,7 +722,7 @@ export function RailDessine({ icon: HeaderIcon, titre, sousTitre, extra, surAccu
       {/* LE VOLET — ce que cet écran-ci ne peut pas dire en icônes. */}
       {volet && (
         <div className="flex-1 min-w-0 flex flex-col pb-3 px-3 min-h-0"
-          style={{ paddingTop: 'calc(var(--retrait-page, 1rem) - 0.5rem)' }}>
+          style={{ paddingTop: '0.5rem' }}>
           {volet.titre && (
             <div className="px-1 pb-2 text-[10px] font-semibold uppercase tracking-wider
                             flex-shrink-0"

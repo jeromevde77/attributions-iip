@@ -1397,13 +1397,20 @@ function OngletEtudiants({ perimetre = null, mode = 'deliberation', seul = null,
       // Tous cochés par défaut DANS LE PÉRIMÈTRE choisi : la sélection sert à
       // restreindre, non à tout reconstruire. Rien n'est coché tant qu'aucun
       // périmètre n'est posé.
-      if (cochesImposees.current) {
+      if (seul) {
+        // UN ÉTUDIANT CHOISI, C'EST LUI SEUL QUI EST COCHÉ (Charles, 4 octobre
+        // 2026 : « pourquoi il charge et imprime TOUS les étudiants de
+        // l'UE ? ») — la liste n'affichait que lui, mais les cases cochées
+        // restaient celles du périmètre : 180 pièces pour une demandée.
+        setCoches(new Set(j.etudiants.filter(e => e.id === seul.id).map(e => e.id)));
+        cochesImposees.current = null;
+      } else if (cochesImposees.current) {
         // Les étudiants de l'écran d'où l'on vient — une fois, à l'ouverture.
         setCoches(new Set(j.etudiants.filter(e => cochesImposees.current.has(e.id)).map(e => e.id)));
         cochesImposees.current = null;
       } else setCoches(new Set(j.etudiants.filter(e => !delib || e.decide).map(e => e.id)));
     } catch (e) { setErreur(e.message); }
-  }, [annee, session, sections, ues, cours, delib]);
+  }, [annee, session, sections, ues, cours, delib, seul]);
   useEffect(() => { charger(); }, [charger]);
 
   const etudiants = useMemo(() => {
@@ -1662,6 +1669,14 @@ function OngletEtudiants({ perimetre = null, mode = 'deliberation', seul = null,
     });
     // eslint-disable-next-line
   }, [etudiants, session]);
+  // UN ÉTUDIANT CHOISI, ET LUI SEUL : une case restée cochée sur un autre ne
+  // part pas avec la production.
+  // (La recherche par nom n'écarte rien : elle aide à trouver, et l'effacer ne
+  // doit pas faire perdre ce qu'on avait coché.)
+  useEffect(() => {
+    if (!seul) return;
+    setCoches(c => { const n = new Set([...c].filter(id => id === seul.id)); return n.size === c.size ? c : n; });
+  }, [seul, liste]);
   // Avec une pièce SLE ou CEP, la sélection se réduit à ce public.
   useEffect(() => {
     if (!modePublic) return;

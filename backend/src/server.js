@@ -93,6 +93,7 @@ import rapportsRoutes      from './routes/rapports.js';
 import nominationsRoutes   from './routes/nominations.js';
 import sequenceRoutes      from './routes/sequence.js';
 import dcppRoutes          from './routes/dcpp.js';
+import dossiersRoutes      from './routes/dossiers.js';
 import recrutementRoutes   from './routes/recrutement.js';
 import aaRoutes            from './routes/aa.js';
 
@@ -3026,6 +3027,9 @@ app.use('/api/ea12',          garderModule('ea12'), ea12Routes);
 app.use('/api/formulaires',   garderModule('formulaires'), (await import('./routes/formulaires.js')).default);
 app.use('/api/templates',   garderModule('templates'), templateRoutes);
 app.use('/api/contrats',    garderModule('contrats'), contratsRoutes);
+// Les dossiers de recours et de discipline (RDE 2026-2027) — avant /api/procedures :
+// les routes spécifiques passent devant les génériques.
+app.use('/api/procedures/dossiers', garderModule('procedures'), dossiersRoutes);
 app.use('/api/procedures',    garderModule('procedures'), proceduresRoutes);
 app.use('/api/disciplinaire', garderModule('disciplinaire'), disciplinaireRoutes);
 app.use('/api/planification', garderModule('planification'), planificationRoutes);

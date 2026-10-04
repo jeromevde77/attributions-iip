@@ -166,12 +166,27 @@ export default function Stages({ etudId, annee, peutEcrire = true }) {
                         onChange={e => maj(s.id, { lieu_id: e.target.value || null })}
                         className="flex-1 border border-slate-300 rounded-lg px-2 py-1.5 text-sm">
                         <option value="">— à préciser —</option>
-                        {lieux.map(l => (
-                          <option key={l.id} value={l.id}>
-                            {l.nom}{l.localite ? ` · ${l.localite}` : ''}
-                            {l.nb_stages ? ` (${l.nb_stages})` : ''}
-                          </option>
-                        ))}
+                        {/* LE RÉPERTOIRE DE LA SECTION D'ABORD (Charles, 3 octobre
+                            2026) : les lieux connus pour cette UE, puis ceux de la
+                            section, puis les autres. */}
+                        {(() => {
+                          const ue = String(s.ue_num || '');
+                          const pourUE = l => l.section && l.section === s.section && ue && `,${l.ues || ''},`.includes(`,${ue},`);
+                          const groupes = [
+                            [`Répertoire ${s.section || ''}${ue ? ` — UE ${ue}` : ''}`, lieux.filter(pourUE)],
+                            [`Répertoire ${s.section || ''}`, lieux.filter(l => l.section && l.section === s.section && !pourUE(l))],
+                            ['Autres lieux', lieux.filter(l => !(l.section && l.section === s.section))],
+                          ].filter(([, l]) => l.length);
+                          const option = l => (
+                            <option key={l.id} value={l.id}>
+                              {l.nom}{l.secteur ? ` — ${l.secteur}` : ''}{l.localite ? ` · ${l.localite}` : ''}
+                              {l.nb_stages ? ` (${l.nb_stages})` : ''}
+                            </option>
+                          );
+                          return groupes.length > 1 || (groupes[0] && groupes[0][0] !== 'Autres lieux')
+                            ? groupes.map(([titre, l]) => <optgroup key={titre} label={titre}>{l.map(option)}</optgroup>)
+                            : lieux.map(option);
+                        })()}
                       </select>
                       {peutEcrire && (
                         <button onClick={() => setNouveauLieu({ pays: 'Belgique' })}

@@ -238,12 +238,12 @@ export default function Login() {
             {isDev && (
               <div style={{
                 marginTop:'8px',
-                display:'inline-block',
+                display:'inline-flex', alignItems:'center',
                 background: 'var(--c-attente, #E8890C)',
                 color:'white', fontSize:'11px', fontWeight:700, letterSpacing:'.08em',
                 padding:'5px 12px', borderRadius:'8px',
               }} title="Version de développement — données de test">
-                <IconFlask size={14} stroke={2} style={{ verticalAlign: '-2px', marginRight: 5 }} />DEV
+                <IconFlask size={14} stroke={2} style={{ marginRight: 5 }} />DEV
               </div>
             )}
           </div>

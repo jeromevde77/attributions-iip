@@ -5,7 +5,15 @@ import {
   IconArrowUp, IconRepeat, IconList, IconFileText, IconMessage, IconBrush, IconGift,
   IconRotate, IconBan, IconTable, IconLock,
 } from '@tabler/icons-react';
-import { authHeaders } from '../lib/api.js';
+import { authHeaders, getUser } from '../lib/api.js';
+
+/* QUI N'A PAS LE DROIT NE VOIT PAS LE BOUTON (Charles, 4 octobre 2026 : « pas
+   droit mais elle peut quand même cliquer… ne va pas ça » ; « si pas accès, pas
+   icône — pour tout le monde »). Décider, ajourner, octroyer une faveur, clore :
+   la porte serveur est roleRequired('admin','directeur','directeur_adjoint',
+   'editeur'), où le secrétariat passe aussi. Les autres LISENT la feuille. */
+const PEUT_DELIBERER = ['admin', 'directeur', 'directeur_adjoint', 'editeur', 'secretariat'];
+const lectureSeule = () => !PEUT_DELIBERER.includes(getUser()?.role);
 import { Fenetre } from './ui.jsx';
 import TableauBordEtudiant from './TableauBordEtudiant.jsx';
 import RepartitionOrganisation from './RepartitionOrganisation.jsx';
@@ -600,7 +608,7 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose, enPage = fa
                 ['tableau', 'Tableau', IconTable, "Tous les étudiants, toutes les notes d'un coup d'œil"],
                 ['lot', 'En lot', IconList, "Ajourner plusieurs étudiants d'un coup, avec une justification commune"],
                 ['cloture', 'Clôture', IconLock, 'Visite des copies, dates de seconde session, documents, clôture'],
-              ].map(([v, lib, Ic, aide]) => (
+              ].filter(([v]) => !lectureSeule() || v === 'fiche' || v === 'tableau').map(([v, lib, Ic, aide]) => (
                 <button key={v} type="button" title={aide} onClick={() => allerA(v)}
                   className={`inline-flex items-center gap-1.5 ${vueActive === v ? 'bg-iip-blue text-white font-semibold' : 'text-slate-600 hover:bg-slate-50'}`}>
                   <Ic size={14} /> {lib}
@@ -1407,6 +1415,8 @@ function Cloture({ seance, onClore, onRetour, onPV, onReprendre, enCours, nb, aj
   // car la clôture les fige au procès-verbal.
   const [dateS, setDateS] = useState(seance?.date_seance || '');
   const [heureS, setHeureS] = useState(seance?.heure_seance || '');
+  // La publication des résultats fait courir le recours (RDE art. 88 §1).
+  const [publieLe, setPublieLe] = useState(seance?.publie_le || new Date().toISOString().slice(0, 10));
   const [date, setDate] = useState(seance?.visite_date || '');
   const [heure, setHeure] = useState(seance?.visite_heure || '');
   const [local, setLocal] = useState(seance?.visite_local || '');
@@ -1571,6 +1581,11 @@ function Cloture({ seance, onClore, onRetour, onPV, onReprendre, enCours, nb, aj
             <input type="time" value={heureS} onChange={e => setHeureS(e.target.value)}
               className="w-full mt-0.5 border border-slate-300 rounded-lg px-2 py-1.5 text-[13px]" />
           </label>
+          <label className="text-[12px] text-slate-600 col-span-2">
+            Résultats publiés le <span className="text-slate-400">— point de départ des 4 jours de recours (art. 88 §1)</span>
+            <input type="date" value={publieLe} onChange={e => setPublieLe(e.target.value)}
+              className="w-full mt-0.5 border border-slate-300 rounded-lg px-2 py-1.5 text-[13px]" />
+          </label>
         </div>
       </div>
 
@@ -1693,6 +1708,7 @@ function Cloture({ seance, onClore, onRetour, onPV, onReprendre, enCours, nb, aj
             <IconFileText size={14} /> Générer les documents
           </button>
           <button disabled={enCours || !complet} onClick={() => onClore({
+            publie_le: publieLe || null,
               date_seance: dateS, heure_seance: heureS || null,
               visite_date: date, visite_heure: heure, visite_local: local.trim(),
               visite_mention: mention,
@@ -1921,8 +1937,8 @@ function Fiche({ e, data, onAjuster, onLot, onMotif, enCours, onBord,
 
         {/* Ce que la décision emporte, et ce que la faveur coûterait : dans la
             fiche, lu avant de cliquer. */}
-        <DecisionGenerale cours={cours} enCours={enCours} onLot={onLot}
-          onDecision={onDecision} decision={decision} />
+        {!lectureSeule() && <DecisionGenerale cours={cours} enCours={enCours} onLot={onLot}
+          onDecision={onDecision} decision={decision} />}
         <AideDecision ue={ue} />
         <Decision e={e} ue={ue} acquis={acquis} cours={cours} decision={decision}
           onDecision={onDecision} enCours={enCours} session={session} partie="details" />
@@ -1930,6 +1946,12 @@ function Fiche({ e, data, onAjuster, onLot, onMotif, enCours, onBord,
 
       {/* EN BAS, COLLÉS : LES SEULS BOUTONS DU CONSEIL (Charles, 29 septembre
           2026 : « juste le bouton ; et le nom en haut »). */}
+      {lectureSeule() ? (
+        <div className="col-span-2 sticky bottom-0 z-20 -mx-1 px-1 py-2 border-t border-slate-200 text-[12.5px] text-slate-500"
+          style={{ background: 'var(--page-fond, #fff)' }}>
+          Lecture seule : les décisions du Conseil s'encodent par le secrétariat et la direction.
+        </div>
+      ) : (
       <div className="col-span-2 sticky bottom-0 z-20 -mx-1 px-1 py-1.5 border-t border-slate-200"
         style={{ background: 'var(--page-fond, #fff)' }}>
         <Decision e={e} ue={ue} onBord={onBord} acquis={acquis} cours={cours}
@@ -1937,6 +1959,7 @@ function Fiche({ e, data, onAjuster, onLot, onMotif, enCours, onBord,
           onAnnuler={onAnnuler} session={session} partie="boutons"
           onFaveurUE={() => onAjuster('ue', '*', ue.faveur_ue ? null : 'faveur')} />
       </div>
+      )}
     </div>
   );
 }

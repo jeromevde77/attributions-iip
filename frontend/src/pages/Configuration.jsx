@@ -125,7 +125,7 @@ function GestionPersonnel() {
     <div className="max-w-none">
       <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
         <div>
-          <h3 className="font-semibold text-gray-800 text-lg">Personnel &amp; fonctions</h3>
+          <h3 className="font-semibold text-gray-800 text-lg">Fonctions</h3>
           <p className="text-sm text-gray-500">Vue d'ensemble des fonctions pour la portée sélectionnée{annee ? ` · ${annee}` : ''}.
             Elles se règlent sur la fiche de chaque personne (Personnel → la personne → onglet <b>Fonctions</b>).</p>
         </div>
@@ -1363,9 +1363,9 @@ export default function Configuration() {
          accès, et lequel »). Le maximum de chaque rôle en haut, le résultat
          pour chaque personne en dessous : deux écrans séparés faisaient croire
          à deux réglages qui se contredisent. */
-      { key: 'roles', label: 'Rôles et accès', icon: IconUserShield },
-      { key: 'personnel', label: 'Personnel', icon: IconUsers },
-      { key: 'securite', label: 'Sécurité des connexions', icon: IconShieldLock },
+      { key: 'roles', label: 'Accès', icon: IconUserShield },
+      { key: 'personnel', label: 'Fonctions', icon: IconUsers },
+      { key: 'securite', label: 'Sécurité', icon: IconShieldLock },
     ]},
     // La machine, et l'apparence de toute l'application (Charles : « je
     // mettrais bien Apparence dans Système »).

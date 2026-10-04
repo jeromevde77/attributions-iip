@@ -79,6 +79,7 @@ export const GROUPES = [
   { cle: 'attributions',  label: 'Attributions',               plafond: 'attributions' },
   { cle: 'personnel',     label: 'Personnel',                  plafond: 'personnel' },
   { cle: 'envois',        label: 'Impression & envois',        plafond: 'listes' },
+  { cle: 'procedures',    label: 'Recours et discipline',      plafond: 'procedures' },
   { cle: 'documentation', label: 'Documentation',              plafond: null },
   { cle: 'conventions',   label: 'Conventions',                plafond: null },
   { cle: 'configuration', label: 'Configuration',              plafond: null },
@@ -135,6 +136,14 @@ export const GESTES = [
   { module: 'etudiants', cle: 'import', label: 'Importer (eCampus, PAE, résultats)',
     roles: ['admin', 'editeur'], mode: 'garde',
     source: 'routes/etudiants.js POST /import-excel, /import-pae, /import-resultats' },
+
+  // ── Recours et discipline (RDE 2026-2027, art. 72-75, 87-91, 115-119) ─────
+  { module: 'procedures', cle: 'instruire', label: 'Ouvrir et instruire un dossier (recours, discipline)',
+    roles: ['admin', 'directeur', 'directeur_adjoint', 'secretariat'], mode: 'liste',
+    source: 'routes/procedures.js /dossiers (création, étapes, pièces)' },
+  { module: 'procedures', verrou: true, cle: 'decider', label: 'Décider (recevabilité, décision, sanction)',
+    roles: ['admin', 'directeur', 'directeur_adjoint'], mode: 'liste',
+    source: 'routes/procedures.js /dossiers/:id/etape (étapes de décision)' },
 
   // ── Valorisation ───────────────────────────────────────────────────────────
   { module: 'valorisation', verrou: true, cle: 'instruire', label: 'Instruire (demande, recevabilité, décision)',

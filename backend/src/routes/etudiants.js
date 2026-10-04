@@ -629,14 +629,23 @@ function filtrerValorisationsParPerimetre(req, lignes) {
 // Même règle que la fiche : un étudiant sans aucune section reste visible de
 // tous. Le rattachement compte aussi — un primo sans inscription a déjà une
 // section, et c'est elle qui décide.
+/* LE PÉRIMÈTRE SE JUGE SUR LA SECTION DE L'ÉTUDIANT, PAS SUR CELLE DE SES
+ * UNITÉS (Charles, 3 octobre 2026 : « Natacha est Opto ! Elle voit tout le
+ * monde »). Il suffisait qu'UNE unité de l'étudiant relève du périmètre : l'UE
+ * 185, rangée sous Optique et suivie par des étudiants de TIM, ouvrait à la
+ * coordination d'optique cent étudiants de TIM. Sa section, c'est le
+ * rattachement, ou la déduction de Lucie à défaut — la même que montrent la
+ * liste et sa frise. */
+export function sectionPropre(etudId) {
+  const rat = db.prepare('SELECT section_rattachement FROM etudiant WHERE id = ?').get(Number(etudId))?.section_rattachement;
+  if (rat) return rat;
+  try { return sectionRattachement(Number(etudId)).section || null; } catch { return null; }
+}
 function etudiantPermis(req, res, etudId) {
   const permises = perimetre(req);
   if (!permises) return true;
-  const { sections } = sectionsDeLEtudiant(Number(etudId), null);
-  const rat = db.prepare('SELECT section_rattachement FROM etudiant WHERE id = ?')
-    .get(Number(etudId))?.section_rattachement;
-  const toutes = [...new Set([...sections, ...(rat ? [rat] : [])])];
-  if (!toutes.length || toutes.some(s => permises.includes(s))) return true;
+  const sec = sectionPropre(etudId);
+  if (sec && permises.includes(sec)) return true;
   res.status(403).json({ error: 'Cet étudiant est hors de votre périmètre.' });
   return false;
 }
@@ -1041,7 +1050,10 @@ r.get('/', authRequired, (req, res) => {
   sql += ` GROUP BY e.id ORDER BY e.nom, e.prenom`;
 
   const anneeActive = anneeDeTravail(req);
-  const rows = db.prepare(sql).all(...params);
+  let rows = db.prepare(sql).all(...params);
+  // Le filtre SQL ci-dessus est large (il passe par les unités) ; le
+  // périmètre se tranche sur la section de l'étudiant lui-même.
+  if (autorisees && !section) rows = rows.filter(r0 => autorisees.includes(sectionPropre(r0.id)));
 
   // ── QUI EST DIPLÔMÉ ──────────────────────────────────────────────────────
   //

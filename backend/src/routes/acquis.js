@@ -5587,7 +5587,11 @@ r.get('/deliberation/ue/:ueNum', authRequired, (req, res) => {
                        // absent un jour et présent le lendemain, et le
                        // procès-verbal doit dire qui a effectivement présidé.
                        'president_role TEXT', 'president_nom TEXT',
-                       'president_titre TEXT']) {
+                       'president_titre TEXT',
+                       // LA PUBLICATION DES RÉSULTATS fait courir le recours
+                       // (RDE art. 88 §1 : quatre jours calendrier) ; elle
+                       // n'était enregistrée nulle part (3 octobre 2026).
+                       'publie_le TEXT']) {
       try { db.exec(`ALTER TABLE deliberation_seance ADD COLUMN ${col}`); } catch { /* déjà là */ }
     }
   } catch (e) { console.error('[migration] deliberation_seance :', e.message); }
@@ -6436,6 +6440,14 @@ r.put('/deliberation/ue/:ueNum/seance', authRequired,
            ['titulaire', 'suppleant', 'autre'].includes(president_role) ? president_role : null,
            president_nom || null, president_titre || null,
            cloturee ? 1 : 0, req.user?.email || null);
+
+    // La date de publication se pose à la clôture (aujourd'hui par défaut) et
+    // se corrige ensuite si les résultats ont été affichés un autre jour.
+    if (cloturee || req.body?.publie_le) {
+      db.prepare(`UPDATE deliberation_seance SET publie_le = COALESCE(?, publie_le, date('now'))
+        WHERE ue_num = ? AND annee_scolaire = ? AND session = ? AND num_organisation = ?`)
+        .run(req.body?.publie_le || null, ueNum, annee, session, org);
+    }
 
     // Une date de seconde session par cours.
     if (Array.isArray(session2_cours)) {

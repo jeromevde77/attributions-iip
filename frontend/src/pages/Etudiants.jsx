@@ -53,6 +53,7 @@ import DroitInscription from '../components/DroitInscription.jsx';
 import FraisScolarite from '../components/FraisScolarite.jsx';
 import ImportHistorique from '../components/ImportHistorique.jsx';
 import ImportTableauPlat from '../components/ImportTableauPlat.jsx';
+import ImportLieuxStage from '../components/ImportLieuxStage.jsx';
 import { demander, informer, saisir } from '../lib/dialogue.jsx';
 
 // Niveau de l'étudiant : BA1/BA2 s'il ne suit qu'une année, « Diplômant »
@@ -3431,6 +3432,7 @@ export default function Etudiants() {
   const [importListe, setImportListe] = useState(false);
   const [importHisto, setImportHisto] = useState(false);
   const [tableauPlat, setTableauPlat] = useState(false);
+  const [lieuxStage, setLieuxStage] = useState(false);
   const [complement, setComplement] = useState(false);
   const [rapportPAESel, setRapportPAESel] = useState(false);
   const [revuePAE, setRevuePAE] = useState(null);       // liste d'étudiants à passer en revue
@@ -4013,8 +4015,8 @@ export default function Etudiants() {
       // « Valider les PAE » n'a plus d'entrée à lui (Charles, 26 septembre
       // 2026 : « il est dans la fenêtre PAE ») : Valider est un des modes de
       // la fenêtre Composer les PAE.
-      { key: 'diplomation', label: 'Diplômes et titres', icon: IconAward,
-        onClick: () => setDiplomation(true) },
+      // « Diplômes et titres » a quitté le rail (Charles, 4 octobre 2026 :
+      // « c'est dans Éditions ») : il s'ouvre par l'avion, face Diplômes et titres.
     ] },
     // TOUT CE QUI ENTRE ET TOUT CE QUI SORT, DERRIÈRE UNE PORTE.
     // Le rail alignait huit imports dont quatre parlaient de « classeur » sans
@@ -4516,6 +4518,10 @@ export default function Etudiants() {
               quoi: 'Une année déjà délibérée : une ligne par étudiant, unité et session, dates du jury comprises.',
               attend: 'un tableau plat, une ligne par décision',
               onClick: () => setTableauPlat(true) },
+            { cle: 'lieux-stage', titre: 'Répertoire de lieux de stage',
+              quoi: 'Les lieux d’une section (type, responsable, adresse, demande) : on les choisit ensuite dans la fiche de stage.',
+              attend: 'un classeur avec la colonne « Nom de l’organisme »',
+              onClick: () => setLieuxStage(true) },
             { cle: 'complement', titre: 'Compléter les dossiers',
               quoi: 'Ajouter adresses, dates de naissance et pièces aux dossiers existants.',
               attend: 'un classeur portant les matricules',
@@ -4564,6 +4570,7 @@ export default function Etudiants() {
         </Fenetre>
       )}
 
+      {lieuxStage && <ImportLieuxStage onClose={() => setLieuxStage(false)} />}
       {tableauPlat && (
         <ImportTableauPlat annee={annee} onClose={() => setTableauPlat(false)} onFini={charger} />
       )}

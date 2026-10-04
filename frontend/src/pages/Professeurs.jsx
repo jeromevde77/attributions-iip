@@ -460,16 +460,10 @@ function AccesLuciePanel({ profId, detail }) {
       </div>
       {profils.length > 0 && (
         <div className="border border-slate-200 rounded-lg p-2.5 bg-slate-50">
-          <div className="text-xs text-gray-500 mb-1.5">Appliquer un profil</div>
-          <div className="flex flex-wrap gap-1.5">
-            {profils.map(p => (
-              <button key={p.id} type="button" disabled={busy} title={p.description || ''}
-                onClick={() => appliquerProfil(p)}
-                className="text-[12px] px-2.5 py-1 rounded-lg border border-slate-300 bg-white hover:bg-iip-turquoise/10 hover:border-iip-turquoise">
-                {p.nom}
-              </button>
-            ))}
-          </div>
+          {/* UN SEUL GESTE : LE RÔLE (Charles, 4 octobre 2026 : « pourquoi après
+              on applique un rôle ? »). Les boutons « Appliquer un profil »
+              répétaient le choix du rôle — chaque profil est celui d'un rôle,
+              et choisir le rôle l'applique déjà. Reste ce que la fiche suit. */}
           {/* L'HÉRITAGE (30 septembre 2026) : la fiche suit le profil de
               référence de son rôle ; seules les cases qui en diffèrent sont
               propres à la personne, et elles seules survivent à une
