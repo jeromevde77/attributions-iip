@@ -71,7 +71,7 @@ export function routerFleches({ boites, edges, L, H, pas = 3, rayon = 3, entree 
     if (!a || !b) continue;
     const ca = col(a.x), cb = col(b.x);
     const y1 = a.y + H / 2, y2 = b.y + H / 2;
-    const t = { cle: `${e.from}-${e.to}`, x1: a.x + L, y1, y2, segs: [] };
+    const t = { cle: `${e.from}-${e.to}`, de: e.from, vers: e.to, x1: a.x + L, y1, y2, segs: [] };
     if (ca === cb) {
       // Même colonne : on contourne par la gouttière de droite, et l'on entre par la droite.
       t.gIn = ca; t.x2 = b.x + L + 2; t.retour = true;
@@ -93,25 +93,35 @@ export function routerFleches({ boites, edges, L, H, pas = 3, rayon = 3, entree 
     const parCouloir = new Map();
     for (const s of segments) (parCouloir.get(s.couloir) || parCouloir.set(s.couloir, []).get(s.couloir)).push(s);
     for (const liste of parCouloir.values()) {
-      liste.sort((p, q) => p.de - q.de);
-      const fins = [];
+      /* MÊME BUT, MÊME LIGNE (Charles, 4 octobre 2026 : « si le but est le
+         même, ce doit être la même ligne »). Les segments qui mènent à une même
+         case — ou qui partent d'une même case — partagent leur voie : ils se
+         rejoignent et entrent par un seul trait, une seule pointe. */
+      const groupes = new Map();
       for (const s of liste) {
-        let k = fins.findIndex(f => f < s.de - 1);
-        if (k < 0) { k = fins.length; fins.push(s.a); } else fins[k] = s.a;
-        s.voie = decalage(k);
+        const g = s.groupe ? (groupes.get(s.groupe) || groupes.set(s.groupe, { de: s.de, a: s.a, segs: [] }).get(s.groupe)) : null;
+        if (g) { g.de = Math.min(g.de, s.de); g.a = Math.max(g.a, s.a); g.segs.push(s); }
+      }
+      const unites = [...groupes.values(), ...liste.filter(s => !s.groupe).map(s => ({ de: s.de, a: s.a, segs: [s] }))];
+      unites.sort((p, q) => p.de - q.de);
+      const fins = [];
+      for (const u of unites) {
+        let k = fins.findIndex(f => f < u.de - 1);
+        if (k < 0) { k = fins.length; fins.push(u.a); } else fins[k] = u.a;
+        for (const s of u.segs) s.voie = decalage(k);
       }
     }
   };
   const verticaux = [], horizontaux = [];
   for (const t of trajets) {
     if (t.allee == null) {
-      t.vIn = { couloir: `g${t.gIn}`, de: Math.min(t.y1, t.y2), a: Math.max(t.y1, t.y2) };
+      t.vIn = { couloir: `g${t.gIn}`, de: Math.min(t.y1, t.y2), a: Math.max(t.y1, t.y2), groupe: `vers${t.vers}` };
       verticaux.push(t.vIn);
     } else {
-      t.vOut = { couloir: `g${t.gOut}`, de: Math.min(t.y1, t.allee), a: Math.max(t.y1, t.allee) };
-      t.vIn = { couloir: `g${t.gIn}`, de: Math.min(t.allee, t.y2), a: Math.max(t.allee, t.y2) };
+      t.vOut = { couloir: `g${t.gOut}`, de: Math.min(t.y1, t.allee), a: Math.max(t.y1, t.allee), groupe: `de${t.de}` };
+      t.vIn = { couloir: `g${t.gIn}`, de: Math.min(t.allee, t.y2), a: Math.max(t.allee, t.y2), groupe: `vers${t.vers}` };
       const gxo = gouttiere(t.gOut).centre, gxi = gouttiere(t.gIn).centre;
-      t.h = { couloir: `a${Math.round(t.allee)}`, de: Math.min(gxo, gxi), a: Math.max(gxo, gxi) };
+      t.h = { couloir: `a${Math.round(t.allee)}`, de: Math.min(gxo, gxi), a: Math.max(gxo, gxi), groupe: `vers${t.vers}` };
       verticaux.push(t.vOut, t.vIn); horizontaux.push(t.h);
     }
   }
