@@ -24,7 +24,13 @@ export function aSignature(html) {
      micro-texte (lib/filigraneDocument.js) qui traversent la signature et le
      sceau et portent la référence : on n'y superpose pas un second filigrane. */
   if (h.includes('class="filigrane-cloture"')) return false;
-  return /class="cloture(?![^"]*sans-paraphe)[^"]*"/.test(h) && /class="paraphe"/.test(h) && RE_PARAPHE.test(h);
+  /* LES ANNEXES 1 ET 2 (circulaire 9760) POSENT LEUR SIGNATURE DANS UN BLOC
+     « signature », et non dans la « cloture » des autres pièces (Charles,
+     5 octobre 2026 : « les annexes 1 et 2 sortent sans fac-similé »). La
+     détection ne regardait que la clôture : la signature des annexes passait
+     nue. Tout bloc de signature compte désormais. */
+  const bloc = /class="cloture(?![^"]*sans-paraphe)[^"]*"/.test(h) || /class="signature"/.test(h);
+  return bloc && /class="paraphe"/.test(h) && RE_PARAPHE.test(h);
 }
 
 /**
