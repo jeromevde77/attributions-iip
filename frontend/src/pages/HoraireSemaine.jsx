@@ -323,7 +323,7 @@ export default function HoraireSemaine() {
         </Fenetre>
       )}
 
-      {importer && <ImportHyper annee={annee} cle={cle} libelle={libelleCle}
+      {importer && <ImportHyper annee={annee} cle={cle} libelle={libelleCle} classes={classes} vueClasse={vue === 'classe'}
         onFermer={() => setImporter(false)} onFini={() => { setImporter(false); charger(); }} />}
 
       {/* LA RECOPIE */}
@@ -385,16 +385,24 @@ function Recopie({ annee, cle, lundi, libelle, etat, setEtat, onFini }) {
    fichier CSV du service informatique ; la simulation dit ce qui entrera, ce
    qui est écarté, ce qui ne se rattache à aucun cours ni à aucun professeur —
    rien n'est écrit avant de confirmer. */
-function ImportHyper({ annee, cle, libelle, onFermer, onFini }) {
+function ImportHyper({ annee, cle, libelle, classes = [], vueClasse = true, onFermer, onFini }) {
   const [fichier, setFichier] = useState(null);
   const [rapport, setRapport] = useState(null);
   const [erreur, setErreur] = useState(null);
   const [enCours, setEnCours] = useState(false);
-  const envoyer = async simulation => {
+  /* TOUT LE FICHIER PAR DÉFAUT (5 octobre 2026 : « tu ne parviens pas à tout
+     importer ») : l'export de l'Institut porte toutes les classes, et chacune
+     va dans la sienne. « Cette classe seulement » reste pour l'export d'une
+     classe. */
+  const [tout, setTout] = useState(true);
+  const [choix, setChoix] = useState({});      // classe du fichier → « section|bloc » ('' = ne pas importer)
+  const envoyer = async (simulation, corr = choix) => {
     setEnCours(true); setErreur(null);
     try {
       const f = new FormData();
-      f.append('fichier', fichier); f.append('annee', annee); f.append('cle', cle); f.append('simulation', String(simulation));
+      f.append('fichier', fichier); f.append('annee', annee); f.append('simulation', String(simulation));
+      f.append('cle', tout ? '*' : cle);
+      if (tout) f.append('correspondances', JSON.stringify(corr));
       const h = { ...authHeaders() }; delete h['Content-Type'];     // le navigateur écrit la frontière du multipart
       const r = await fetch('/api/horaire/import-csv', { method: 'POST', headers: h, body: f });
       const j = await r.json().catch(() => ({}));
@@ -402,26 +410,91 @@ function ImportHyper({ annee, cle, libelle, onFermer, onFini }) {
       if (simulation) setRapport(j); else onFini();
     } catch (e) { setErreur(e.message); } finally { setEnCours(false); }
   };
+  const changerClasse = (source, v) => {
+    const corr = { ...Object.fromEntries((rapport?.classes || []).map(x => [x.classe_source, x.cle || ''])), ...choix, [source]: v };
+    setChoix(corr); envoyer(true, corr);
+  };
   const R = rapport;
+  const date = d => d?.split('-').reverse().join('/');
+  const options = cleCourante => {
+    const l = [...classes];
+    if (cleCourante && !l.some(c => c.cle === cleCourante)) l.push({ cle: cleCourante, libelle: cleCourante.replace('|', ' ') });
+    return l;
+  };
   return (
-    <Fenetre titre="Importer un horaire d'Hyperplanning" large="moyenne" onFermer={onFermer}
-      sous={`Dans la classe ${libelle || ''} — l'export « liste » en CSV ; rien n'est écrit avant de confirmer`}
+    <Fenetre titre="Importer un horaire d'Hyperplanning" large={tout ? 'grande' : 'moyenne'} onFermer={onFermer}
+      sous={tout ? 'Tout le fichier — chaque classe dans la sienne ; rien n’est écrit avant de confirmer'
+        : `Dans la classe ${libelle || ''} — l'export « liste » en CSV ; rien n'est écrit avant de confirmer`}
       pied={<>
         <span className="flex-1 min-w-0 text-[12px] text-slate-500">
-          {R ? `${R.seances} séance(s) à importer${R.remplacees ? `, ${R.remplacees} séance(s) d'un import précédent remplacée(s)` : ''}.` : 'Choisissez le fichier, puis vérifiez.'}
+          {R ? `${R.seances} séance(s) à importer${R.tout ? ` dans ${R.classes.filter(x => !x.ecartee).length} classe(s)` : (R.remplacees ? `, ${R.remplacees} séance(s) d'un import précédent remplacée(s)` : '')}.` : 'Choisissez le fichier, puis vérifiez.'}
         </span>
         <button className="bouton" onClick={onFermer}>Annuler</button>
-        {!R ? <button className="bouton bouton-fort" disabled={!fichier || enCours} onClick={() => envoyer(true)}>{enCours ? '…' : 'Vérifier'}</button>
+        {!R ? <button className="bouton bouton-fort" disabled={!fichier || enCours || (!tout && !(vueClasse && cle))} onClick={() => envoyer(true)}>{enCours ? '…' : 'Vérifier'}</button>
           : <button className="bouton bouton-fort" disabled={!R.seances || enCours} onClick={() => envoyer(false)}>{enCours ? '…' : `Importer ${R.seances} séance(s)`}</button>}
       </>}>
       <div className="space-y-3 text-[13px]">
-        <input type="file" accept=".csv,text/csv" onChange={e => { setFichier(e.target.files?.[0] || null); setRapport(null); }} />
+        <div className="flex flex-wrap items-center gap-3">
+          <input type="file" accept=".csv,text/csv" onChange={e => { setFichier(e.target.files?.[0] || null); setRapport(null); setChoix({}); }} />
+          <span className="segments">
+            <button type="button" className={`px-3 py-1 text-[12px] ${tout ? 'bg-iip-blue text-white font-semibold' : 'text-slate-600'}`}
+              onClick={() => { setTout(true); setRapport(null); }}>Tout le fichier</button>
+            <button type="button" className={`px-3 py-1 text-[12px] ${!tout ? 'bg-iip-blue text-white font-semibold' : 'text-slate-600'}`}
+              disabled={!vueClasse} title={vueClasse ? '' : 'Choisissez d’abord une classe dans la vue « classe »'}
+              onClick={() => { setTout(false); setRapport(null); }}>Cette classe seulement{libelle && vueClasse ? ` (${libelle})` : ''}</button>
+          </span>
+        </div>
         {erreur && <div data-etat="corriger" className="bloc-etat px-3 py-2">{erreur}</div>}
-        {R && (
+        {R && R.tout && (
+          <div className="space-y-2">
+            <div data-etat="neutre" className="bloc-etat px-3 py-2">
+              <b>{R.seances}</b> séance(s), soit {R.heures} h, lues dans {R.lignes} ligne(s) ; semaine 1 au {date(R.semaine_1)}.
+              Une séance commune à plusieurs classes entre dans l'horaire de chacune.
+            </div>
+            <div className="border border-slate-200 rounded-carte overflow-hidden">
+              <table className="w-full text-[12.5px]">
+                <thead><tr className="tab-entete text-left text-[10.5px] uppercase tracking-[.08em] text-slate-500">
+                  <th className="px-3 py-1.5">Classe du fichier</th><th className="px-3 py-1.5">Classe de Lucie</th>
+                  <th className="px-3 py-1.5 text-right">Séances</th><th className="px-3 py-1.5">Période</th><th className="px-3 py-1.5">À regarder</th></tr></thead>
+                <tbody>
+                  {R.classes.map(x => (
+                    <tr key={x.classe_source} className="border-t border-slate-100 align-top">
+                      <td className="px-3 py-1.5 font-semibold">{x.classe_source}</td>
+                      <td className="px-3 py-1.5">
+                        <select className="controle text-[12.5px]" value={x.cle || ''} disabled={enCours}
+                          onChange={e => changerClasse(x.classe_source, e.target.value)}>
+                          <option value="">— ne pas importer —</option>
+                          {options(x.cle).map(c => <option key={c.cle} value={c.cle}>{c.libelle}</option>)}
+                        </select>
+                        {x.ecartee && <div className="text-[11.5px] text-[color:var(--c-refuse)] mt-0.5">{x.ecartee}</div>}
+                      </td>
+                      <td className="px-3 py-1.5 text-right tabular-nums">{x.ecartee ? '—' : x.seances}</td>
+                      <td className="px-3 py-1.5 text-slate-500">{x.du ? `${date(x.du)} → ${date(x.au)}` : ''}</td>
+                      <td className="px-3 py-1.5 text-[12px] text-slate-600">
+                        {!x.ecartee && [
+                          x.remplacees ? `${x.remplacees} séance(s) d'un import précédent remplacée(s)` : null,
+                          x.conservees_retouchees ? `${x.conservees_retouchees} retouchée(s) dans Lucie, gardée(s)` : null,
+                          x.deja_posees_dans_lucie ? `${x.deja_posees_dans_lucie} posée(s) à la main : vérifiez les doublons` : null,
+                          x.sans_cours?.length ? `sans cours reconnu : ${x.sans_cours.map(c => `${c.libelle} (${c.seances})`).join(', ')}` : null,
+                          x.profs_inconnus?.length ? `professeur non reconnu : ${x.profs_inconnus.map(c => c.nom).join(', ')}` : null,
+                          x.ignorees?.length ? `${x.ignorees.length} ligne(s) écartée(s) : ${[...new Set(x.ignorees.map(g => g.raison))].join(' ; ')}` : null,
+                          x.incoherentes?.length ? `${x.incoherentes.length} ligne(s) incohérente(s) : ${x.incoherentes.map(g => g.ligne).join(', ')}` : null,
+                        ].filter(Boolean).map((t, i) => <div key={i}>{t}</div>)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            {R.perdues?.length > 0 && <details className="text-[12.5px]"><summary className="cursor-pointer"><b>{R.perdues.length} ligne(s) qu'aucune classe retenue ne prend</b></summary>
+              <ul className="mt-1 text-slate-600">{R.perdues.map((x, i) => <li key={i}>ligne {x.ligne} — {x.libelle} ({x.classes})</li>)}</ul></details>}
+          </div>
+        )}
+        {R && !R.tout && (
           <div className="space-y-2">
             <div data-etat="neutre" className="bloc-etat px-3 py-2">
               Classe du fichier : <b>{R.classe_source}</b> → classe de Lucie : <b>{R.classe_lucie}</b>.
-              {' '}<b>{R.seances}</b> séance(s) du {R.du?.split('-').reverse().join('/')} au {R.au?.split('-').reverse().join('/')}, soit {R.heures} h, lues dans {R.lignes} ligne(s).
+              {' '}<b>{R.seances}</b> séance(s) du {date(R.du)} au {date(R.au)}, soit {R.heures} h, lues dans {R.lignes} ligne(s).
             </div>
             {R.conservees_retouchees > 0 && <div data-etat="surveiller" className="bloc-etat px-3 py-2">{R.conservees_retouchees} séance(s) d'un import précédent ont été retouchées dans Lucie : elles sont gardées telles quelles.</div>}
             {R.deja_posees_dans_lucie > 0 && <div data-etat="surveiller" className="bloc-etat px-3 py-2">{R.deja_posees_dans_lucie} séance(s) ont déjà été posées à la main dans Lucie pour cette classe : l'import s'y ajoute, vérifiez les doublons.</div>}

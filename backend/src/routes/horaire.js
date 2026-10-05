@@ -499,7 +499,14 @@ function conflitsDe(seances) {
   for (let i = 0; i < actives.length; i++) for (let j = i + 1; j < actives.length; j++) {
     const a = actives[i], b = actives[j];
     if (a.date !== b.date || !(hm(a.heure_debut) < hm(b.heure_fin) && hm(b.heure_debut) < hm(a.heure_fin))) continue;
-    if (a.professeur_id && a.professeur_id === b.professeur_id) { ajouter(a, 'professeur'); ajouter(b, 'professeur'); }
+    // UN COURS DONNÉ À DEUX CLASSES N'EST PAS UN CONFLIT (5 octobre 2026) : le
+    // tronc commun d'Optométrie et d'Orthoptie entre dans l'horaire de chacune,
+    // même professeur, même heure, même cours — c'est une seule séance.
+    const commune = a.section !== b.section || a.bloc !== b.bloc
+      ? (a.heure_debut === b.heure_debut && a.heure_fin === b.heure_fin
+         && (a.cours_code || a.matiere || '') === (b.cours_code || b.matiere || '') && (a.cours_code || a.matiere))
+      : false;
+    if (a.professeur_id && a.professeur_id === b.professeur_id && !commune) { ajouter(a, 'professeur'); ajouter(b, 'professeur'); }
     if (!sansLocal(a.local_texte) && a.local_texte === b.local_texte) { ajouter(a, 'local'); ajouter(b, 'local'); }
     const memeClasse = a.section && a.section === b.section && a.bloc && a.bloc === b.bloc;
     // Deux sous-groupes de la classe travaillent en parallèle : ce n'est pas un conflit.
@@ -741,24 +748,144 @@ const VIDES = new Set(['de', 'du', 'des', 'la', 'le', 'les', 'et', 'l', 'd', 'a'
 const motsDe = t => sansAccent(t).replace(/[^a-z0-9 ]/g, ' ').split(/\s+/).filter(w => w && !VIDES.has(w))
   .flatMap(w => (SYNONYMES[w] || w).split(' '));
 
+/* UNE CLASSE DU FICHIER → SA CLASSE DE LUCIE. « OPTO B2 » → Optométrie BA2,
+   « TIM 1 » → TIM BA1, « PSYCHOMOT B3 », « OPTI 2 », « ORTHO B1 », « AeSI »
+   (sous-groupes « <AeSI> 1A »), « ATNUP ». La section se reconnaît au début de
+   son code ou de son libellé ; le bloc, au chiffre final (BA1 sans chiffre).
+   Ce n'est qu'une proposition : la simulation la montre, et l'écran la corrige. */
+function devinerClasse(source, sections) {
+  const m = /^(.*?)[\s_-]*(?:B|BA)?\s*(\d)?$/i.exec(String(source || '').trim());
+  const racine = sansAccent(m?.[1] || source).replace(/[^a-z0-9]/g, '');
+  const bloc = `BA${m?.[2] || 1}`;
+  if (!racine) return null;
+  const tient = t => { const x = sansAccent(t).replace(/[^a-z0-9]/g, ''); return x && (x.startsWith(racine) || racine.startsWith(x)); };
+  const trouvees = sections.filter(sx => tient(sx.code) || tient(sx.libelle || ''));
+  // Le code d'abord : « OPTI » tient « Optique » et non « Optométrie ».
+  const parCode = trouvees.filter(sx => tient(sx.code));
+  const ret = (parCode.length === 1 ? parCode : trouvees.length === 1 ? trouvees : [])[0];
+  return ret ? `${ret.code}|${bloc}` : null;
+}
+
+/* LES CLASSES QUE LE FICHIER PORTE : les entrées simples (« OPTO B1 ») et les
+   classes dont seuls des sous-groupes paraissent (« <AeSI> 1A » → « AeSI »). */
+function classesDuFichier(rows) {
+  const compte = new Map();
+  for (const x of rows) for (const e of String(x.NOMPERSO_DIP || '').split(',').map(t => t.trim()).filter(Boolean)) {
+    const base = e.startsWith('<') ? (/^<([^>]+)>/.exec(e) || [])[1] : e;
+    if (base) compte.set(base, (compte.get(base) || 0) + 1);
+  }
+  return [...compte].sort((a, b) => b[1] - a[1]).map(([c]) => c);
+}
+
+/** L'analyse d'UNE classe du fichier : les séances qu'elle reçoit, et ce qui est écarté. */
+function analyserClasse(rows, { an, sec, bloc, classeSource, lundi1 }) {
+  // Les cours : par code, sinon par intitulé contre ceux de la section.
+  const cours = db.prepare(`SELECT cours_code, MIN(cours_nom) AS cours_nom, MIN(ue_num) AS ue_num FROM cours GROUP BY cours_code`).all();
+  const parCode = new Map(cours.map(c => [c.cours_code, c]));
+  const uesSection = new Set(db.prepare('SELECT DISTINCT ue_num FROM ue WHERE section = ?').all(sec).map(x => x.ue_num));
+  const candidats = cours.filter(c => uesSection.has(c.ue_num)).map(c => ({ ...c, mots: motsDe(c.cours_nom) }));
+  const memo = new Map();
+  // Une UE qui n'a qu'un cours : son numéro seul le désigne (« 247 - Pharmaco »).
+  const seulCours = new Map();
+  for (const c of cours) { const k = c.ue_num; seulCours.set(k, seulCours.has(k) ? null : c); }
+  const coursDe = brut => {
+    // « 335. 5 Nutrition » → « 335.5 Nutrition » : une espace égarée dans le code.
+    const lib = String(brut || '').replace(/^(\d+)\.\s+(\d+)/, '$1.$2');
+    if (memo.has(lib)) return memo.get(lib);
+    let v = null;
+    const m = /^(\d+\.\d+)\s/.exec(lib);
+    const u = /^(\d+)\s*[-–]\s/.exec(lib);
+    if (m && parCode.has(m[1])) v = { ...parCode.get(m[1]), methode: 'code' };
+    else if (u && seulCours.get(Number(u[1]))) v = { ...seulCours.get(Number(u[1])), methode: 'unité' };
+    else {
+      const t = motsDe(lib);
+      const notes = candidats.map(c => ({ c, s: t.length ? t.filter(w => c.mots.some(x => x.startsWith(w) || w.startsWith(x))).length / t.length : 0 }))
+        .sort((a, b) => b.s - a.s);
+      if (notes[0] && notes[0].s >= 0.7 && (notes[0].s - (notes[1]?.s || 0)) >= 0.2) v = { ...notes[0].c, methode: 'intitulé' };
+    }
+    memo.set(lib, v); return v;
+  };
+  const prof = indexProfs();
+  const groupesDe = db.prepare('SELECT id, nom, professeur_id FROM groupe WHERE annee_scolaire = ? AND code_cours = ?');
+
+  const seances = [], ignorees = [], incoherentes = [], sansCours = new Map(), profsInconnus = new Map();
+  rows.forEach((x, i) => {
+    const n = i + 2;                                    // numéro de ligne du fichier
+    const lib = String(x.LIBELLE_MAT || '').split(',')[0].trim();
+    // Le sous-groupe : « <OPTO B1> 2 », quand la séance ne vise pas la classe entière.
+    const entrees = String(x.NOMPERSO_DIP || '').split(',').map(t => t.trim()).filter(Boolean);
+    const entiere = entrees.includes(classeSource);
+    const sg = entiere ? null : entrees.map(e => (/^<([^>]+)>\s*(?:Gr\s*)?(\S+)$/i.exec(e) || [])).filter(m => m[1] === classeSource).map(m => m[2]).join('+') || null;
+    // Une ligne qui ne vise ni la classe ni un de ses sous-groupes est d'une
+    // autre classe : en mode « tout le fichier », elle n'est pas un écart.
+    if (!entiere && !sg) { ignorees.push({ ligne: n, libelle: lib, raison: `ne concerne pas ${classeSource} : ${entrees.join(', ')}`, autre_classe: true }); return; }
+    if (!x.JOUR || !x.HDEBUT || !x.HFIN) { ignorees.push({ ligne: n, libelle: lib, raison: 'sans jour ni heure (semaine entière)' }); return; }
+    const j = JOURS_IDX[sansAccent(x.JOUR)];
+    const sem = semainesDe(x.PERIODE);
+    const d0 = dateFr(x.DDEBUT), d1 = dateFr(x.DFIN);
+    if (j == null || !sem.length) { ignorees.push({ ligne: n, libelle: lib, raison: `jour ou période illisible (${x.JOUR} ${x.PERIODE})` }); return; }
+    const dates = sem.map(k => ajouterJours(lundi1, 7 * (k - 1) + j));
+    const nb = Number(x.NBSEANCES);
+    if ((nb && nb !== dates.length) || (d0 && dates[0] !== d0) || (d1 && dates[dates.length - 1] !== d1)) {
+      incoherentes.push({ ligne: n, libelle: lib, periode: x.PERIODE, du: d0, au: d1 }); return;
+    }
+    const c = coursDe(lib);
+    if (!c) sansCours.set(lib, (sansCours.get(lib) || 0) + dates.length);
+    const noms = String(x.NOM_ENS || '').split(',').map(t => t.trim()).filter(Boolean);
+    const prenoms = String(x.PRENOM_ENS || '').split(',').map(t => t.trim());
+    const texteProf = noms.map((nm, k) => `${nm} ${prenoms[k] || ''}`.trim()).join(', ') || null;
+    const p0 = noms[0] ? prof(`${noms[0]} ${prenoms[0] || ''}`) : null;
+    const pid = p0 && !p0.ambigu ? p0.id : null;
+    if (noms[0] && !pid) profsInconnus.set(texteProf, (profsInconnus.get(texteProf) || 0) + dates.length);
+    let groupeId = null;
+    if (c) {
+      const gs = groupesDe.all(an, c.cours_code);
+      groupeId = (gs.find(g => pid && g.professeur_id === pid) || gs[0] || {}).id || null;
+    }
+    for (const d of dates) seances.push({ date: d, heure_debut: x.HDEBUT, heure_fin: x.HFIN, minutes: hm(x.HFIN) - hm(x.HDEBUT),
+      cours_code: c?.cours_code || null, ue_num: c?.ue_num ?? null, matiere: c ? null : lib, professeur_texte: texteProf,
+      professeur_id: pid, groupe_id: groupeId, sous_groupe: sg, bloc });   // l'export est l'horaire DE LA CLASSE
+  });
+
+  const libelleLucie = `${sec} ${bloc}`;
+  const precedentes = db.prepare(`SELECT COUNT(*) AS n, SUM(modifie_lucie) AS m FROM horaire_seance
+    WHERE annee_scolaire = ? AND section = ? AND classe = ? AND source = 'import'`).get(an, sec, libelleLucie);
+  const lucie = db.prepare(`SELECT COUNT(*) AS n FROM horaire_seance WHERE annee_scolaire = ? AND section = ? AND bloc = ? AND source = 'lucie'`).get(an, sec, bloc).n;
+  return {
+    classe_source: classeSource, classe_lucie: libelleLucie, cle: `${sec}|${bloc}`, section: sec, bloc,
+    seances: seances.length, liste: seances,
+    du: seances.map(s => s.date).sort()[0] || null, au: seances.map(s => s.date).sort().pop() || null,
+    heures: Math.round(seances.reduce((t, s) => t + s.minutes, 0) / 6) / 10,
+    ignorees, incoherentes,
+    sans_cours: [...sansCours].map(([libelle, n]) => ({ libelle, seances: n })),
+    profs_inconnus: [...profsInconnus].map(([nom, n]) => ({ nom, seances: n })),
+    remplacees: (precedentes.n || 0) - (precedentes.m || 0), conservees_retouchees: precedentes.m || 0,
+    deja_posees_dans_lucie: lucie,
+  };
+}
+
+/** Écrit l'analyse d'une classe : remplace l'import précédent, jamais ce qui a été retouché. */
+function ecrireClasse(a, { an, fichier, par }) {
+  db.prepare(`DELETE FROM horaire_seance WHERE annee_scolaire = ? AND section = ? AND classe = ? AND source = 'import' AND modifie_lucie = 0`)
+    .run(an, a.section, a.classe_lucie);
+  const lot = db.prepare(`INSERT INTO horaire_lot (annee_scolaire, classe, section, fichier, periode_debut, periode_fin, nb_seances, importe_par)
+    VALUES (?,?,?,?,?,?,?,?)`).run(an, a.classe_lucie, a.section, fichier, a.du, a.au, a.liste.length, par);
+  const ins = db.prepare(`INSERT INTO horaire_seance (lot_id, annee_scolaire, classe, section, bloc, date, heure_debut, heure_fin, minutes,
+      cours_code, ue_num, matiere, professeur_texte, professeur_id, groupe_id, sous_groupe, source, modifie_lucie, cree_par, cree_le)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?, 'import', 0, ?, datetime('now'))`);
+  for (const s of a.liste) ins.run(lot.lastInsertRowid, an, a.classe_lucie, a.section, s.bloc, s.date, s.heure_debut, s.heure_fin, s.minutes,
+    s.cours_code, s.ue_num, s.matiere, s.professeur_texte, s.professeur_id, s.groupe_id, s.sous_groupe, par);
+}
+
 r.post('/import-csv', authRequired, roleRequired(...EDITEURS), upload.single('fichier'), (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ error: 'Aucun fichier reçu.' });
     const an = req.body?.annee || anneeDeTravail(req);
-    const [sec, bloc] = String(req.body?.cle || '').split('|');
-    if (!sec || !bloc) return res.status(400).json({ error: 'Choisissez la classe de Lucie à laquelle cet horaire se rapporte.' });
-    if (!sectionPermise(req, sec)) return res.status(403).json({ error: 'Section hors de votre périmètre.' });
     const simulation = String(req.body?.simulation ?? 'true') !== 'false';
     const { entete, rows } = lireCsvHyper(req.file.buffer.toString('utf8'));
     const requis = ['DDEBUT', 'DFIN', 'PERIODE', 'JOUR', 'HDEBUT', 'HFIN', 'LIBELLE_MAT'];
     const absents = requis.filter(k => !entete.includes(k));
     if (absents.length) return res.status(400).json({ error: `Ce fichier n'est pas l'export « liste » d'Hyperplanning attendu : colonnes absentes — ${absents.join(', ')}.` });
-
-    // La classe principale : l'entrée simple la plus fréquente (« OPTO B1 »).
-    const compte = {};
-    for (const x of rows) for (const c of String(x.NOMPERSO_DIP || '').split(',').map(t => t.trim()).filter(Boolean)) if (!c.startsWith('<')) compte[c] = (compte[c] || 0) + 1;
-    const classeSource = Object.entries(compte).sort((a, b) => b[1] - a[1])[0]?.[0] || null;
-    const libelleLucie = `${sec} ${bloc}`;
 
     // Le lundi de la semaine 1, déduit de la première ligne datée.
     let lundi1 = null;
@@ -767,98 +894,68 @@ r.post('/import-csv', authRequired, roleRequired(...EDITEURS), upload.single('fi
       if (x.JOUR && sem.length && d0) { lundi1 = ajouterJours(lundiDe(d0), -7 * (sem[0] - 1)); break; }
     }
     if (!lundi1) return res.status(400).json({ error: 'Aucune ligne datée : impossible de situer la semaine 1.' });
+    const classes = classesDuFichier(rows);
+    const fichier = req.file.originalname || 'horaire.csv';
 
-    // Les cours : par code, sinon par intitulé contre ceux de la section.
-    const cours = db.prepare(`SELECT cours_code, MIN(cours_nom) AS cours_nom, MIN(ue_num) AS ue_num FROM cours GROUP BY cours_code`).all();
-    const parCode = new Map(cours.map(c => [c.cours_code, c]));
-    const uesSection = new Set(db.prepare('SELECT DISTINCT ue_num FROM ue WHERE section = ?').all(sec).map(x => x.ue_num));
-    const candidats = cours.filter(c => uesSection.has(c.ue_num)).map(c => ({ ...c, mots: motsDe(c.cours_nom) }));
-    const memo = new Map();
-    const coursDe = lib => {
-      if (memo.has(lib)) return memo.get(lib);
-      let v = null;
-      const m = /^(\d+\.\d+)\s/.exec(lib);
-      if (m && parCode.has(m[1])) v = { ...parCode.get(m[1]), methode: 'code' };
-      else {
-        const t = motsDe(lib);
-        const notes = candidats.map(c => ({ c, s: t.length ? t.filter(w => c.mots.some(x => x.startsWith(w) || w.startsWith(x))).length / t.length : 0 }))
-          .sort((a, b) => b.s - a.s);
-        if (notes[0] && notes[0].s >= 0.7 && (notes[0].s - (notes[1]?.s || 0)) >= 0.2) v = { ...notes[0].c, methode: 'intitulé' };
+    /* TOUT LE FICHIER (5 octobre 2026 : « tu ne parviens pas à tout importer »).
+       L'export de l'Institut porte TOUTES les classes ; l'import n'en prenait
+       qu'une — la plus fréquente —, et écartait le reste comme « ne concerne
+       pas ». Chaque classe du fichier va désormais dans SA classe de Lucie,
+       proposée d'office et corrigeable (`correspondances`), tout ou rien. */
+    if (String(req.body?.cle || '') === '*') {
+      let choix = {};
+      try { choix = JSON.parse(req.body?.correspondances || '{}') || {}; } catch { /* */ }
+      const sections = db.prepare('SELECT code, libelle FROM section').all();
+      const resultats = [];
+      for (const source of classes) {
+        const cle = Object.prototype.hasOwnProperty.call(choix, source) ? choix[source] : devinerClasse(source, sections);
+        const ligne = { classe_source: source, cle: cle || '' };
+        if (!cle) { resultats.push({ ...ligne, ecartee: 'aucune classe de Lucie choisie' }); continue; }
+        const [sec, bloc] = String(cle).split('|');
+        if (!sec || !bloc) { resultats.push({ ...ligne, ecartee: 'classe illisible' }); continue; }
+        if (!sectionPermise(req, sec)) { resultats.push({ ...ligne, ecartee: 'section hors de votre périmètre' }); continue; }
+        resultats.push({ ...ligne, ...analyserClasse(rows, { an, sec, bloc, classeSource: source, lundi1 }) });
       }
-      memo.set(lib, v); return v;
-    };
-    const prof = indexProfs();
-    const groupesDe = db.prepare('SELECT id, nom, professeur_id FROM groupe WHERE annee_scolaire = ? AND code_cours = ?');
-
-    const seances = [], ignorees = [], incoherentes = [], sansCours = new Map(), profsInconnus = new Map();
-    rows.forEach((x, i) => {
-      const n = i + 2;                                    // numéro de ligne du fichier
-      const lib = String(x.LIBELLE_MAT || '').split(',')[0].trim();
-      if (!x.JOUR || !x.HDEBUT || !x.HFIN) { ignorees.push({ ligne: n, libelle: lib, raison: 'sans jour ni heure (semaine entière)' }); return; }
-      const j = JOURS_IDX[sansAccent(x.JOUR)];
-      const sem = semainesDe(x.PERIODE);
-      const d0 = dateFr(x.DDEBUT), d1 = dateFr(x.DFIN);
-      if (j == null || !sem.length) { ignorees.push({ ligne: n, libelle: lib, raison: `jour ou période illisible (${x.JOUR} ${x.PERIODE})` }); return; }
-      const dates = sem.map(k => ajouterJours(lundi1, 7 * (k - 1) + j));
-      const nb = Number(x.NBSEANCES);
-      if ((nb && nb !== dates.length) || (d0 && dates[0] !== d0) || (d1 && dates[dates.length - 1] !== d1)) {
-        incoherentes.push({ ligne: n, libelle: lib, periode: x.PERIODE, du: d0, au: d1 }); return;
+      // Deux classes du fichier vers une même classe de Lucie : la seconde
+      // effacerait la première au ré-import. On le refuse plutôt que de deviner.
+      const vues = new Map();
+      for (const x of resultats) if (x.classe_lucie) {
+        if (vues.has(x.classe_lucie)) x.ecartee = `même classe de Lucie que ${vues.get(x.classe_lucie)}`;
+        else vues.set(x.classe_lucie, x.classe_source);
       }
-      // Le sous-groupe : « <OPTO B1> 2 », quand la séance ne vise pas la classe entière.
-      const entrees = String(x.NOMPERSO_DIP || '').split(',').map(t => t.trim()).filter(Boolean);
-      const entiere = entrees.includes(classeSource);
-      const sg = entiere ? null : entrees.map(e => (/^<([^>]+)>\s*(?:Gr\s*)?(\S+)$/i.exec(e) || [])).filter(m => m[1] === classeSource).map(m => m[2]).join('+') || null;
-      // Une ligne qui ne vise ni la classe ni un de ses sous-groupes (« <ORTHO B1>
-      // Gr 1 » seul) est d'une autre classe : l'importer en ferait un cours de
-      // toute la classe, et un faux conflit.
-      if (!entiere && !sg) { ignorees.push({ ligne: n, libelle: lib, raison: `ne concerne pas ${classeSource} : ${entrees.join(', ')}` }); return; }
-      const c = coursDe(lib);
-      if (!c) sansCours.set(lib, (sansCours.get(lib) || 0) + dates.length);
-      const noms = String(x.NOM_ENS || '').split(',').map(t => t.trim()).filter(Boolean);
-      const prenoms = String(x.PRENOM_ENS || '').split(',').map(t => t.trim());
-      const texteProf = noms.map((nm, k) => `${nm} ${prenoms[k] || ''}`.trim()).join(', ') || null;
-      const p0 = noms[0] ? prof(`${noms[0]} ${prenoms[0] || ''}`) : null;
-      const pid = p0 && !p0.ambigu ? p0.id : null;
-      if (noms[0] && !pid) profsInconnus.set(texteProf, (profsInconnus.get(texteProf) || 0) + dates.length);
-      let groupeId = null;
-      if (c) {
-        const gs = groupesDe.all(an, c.cours_code);
-        groupeId = (gs.find(g => pid && g.professeur_id === pid) || gs[0] || {}).id || null;
+      const retenues = resultats.filter(x => !x.ecartee && x.liste);
+      // Une ligne n'est vraiment perdue que si AUCUNE classe retenue ne la prend.
+      const prises = new Set();
+      for (const x of retenues) {
+        const ecartees = new Set(x.ignorees.filter(g => g.autre_classe).map(g => g.ligne));
+        rows.forEach((_, i) => { if (!ecartees.has(i + 2)) prises.add(i + 2); });
       }
-      for (const d of dates) seances.push({ date: d, heure_debut: x.HDEBUT, heure_fin: x.HFIN, minutes: hm(x.HFIN) - hm(x.HDEBUT),
-        cours_code: c?.cours_code || null, ue_num: c?.ue_num ?? null, matiere: c ? null : lib, professeur_texte: texteProf,
-        professeur_id: pid, groupe_id: groupeId, sous_groupe: sg, bloc });   // l'export est l'horaire DE LA CLASSE
-    });
+      const perdues = rows.map((x, i) => ({ ligne: i + 2, libelle: String(x.LIBELLE_MAT || '').split(',')[0].trim(), classes: x.NOMPERSO_DIP }))
+        .filter(x => !prises.has(x.ligne));
+      const rapport = {
+        ok: true, simulation, tout: true, semaine_1: lundi1, lignes: rows.length,
+        seances: retenues.reduce((t, x) => t + x.seances, 0),
+        heures: Math.round(retenues.reduce((t, x) => t + x.heures, 0) * 10) / 10,
+        classes: resultats.map(({ liste, ...x }) => ({ ...x, ignorees: (x.ignorees || []).filter(g => !g.autre_classe) })),
+        perdues,
+      };
+      if (simulation) return res.json(rapport);
+      db.transaction(() => { for (const a of retenues) ecrireClasse(a, { an, fichier, par: qui(req) }); })();
+      return res.json(rapport);
+    }
 
-    // Ce qu'un import précédent avait posé pour cette classe, et ce qui a été retouché.
-    const precedentes = db.prepare(`SELECT COUNT(*) AS n, SUM(modifie_lucie) AS m FROM horaire_seance
-      WHERE annee_scolaire = ? AND section = ? AND classe = ? AND source = 'import'`).get(an, sec, libelleLucie);
-    const lucie = db.prepare(`SELECT COUNT(*) AS n FROM horaire_seance WHERE annee_scolaire = ? AND section = ? AND bloc = ? AND source = 'lucie'`).get(an, sec, bloc).n;
-
-    const rapport = {
-      ok: true, simulation, classe_source: classeSource, classe_lucie: libelleLucie, semaine_1: lundi1,
-      lignes: rows.length, seances: seances.length,
-      du: seances.map(s => s.date).sort()[0] || null, au: seances.map(s => s.date).sort().pop() || null,
-      heures: Math.round(seances.reduce((t, s) => t + s.minutes, 0) / 6) / 10,
-      ignorees, incoherentes,
-      sans_cours: [...sansCours].map(([libelle, n]) => ({ libelle, seances: n })),
-      profs_inconnus: [...profsInconnus].map(([nom, n]) => ({ nom, seances: n })),
-      remplacees: (precedentes.n || 0) - (precedentes.m || 0), conservees_retouchees: precedentes.m || 0,
-      deja_posees_dans_lucie: lucie,
-    };
+    const [sec, bloc] = String(req.body?.cle || '').split('|');
+    if (!sec || !bloc) return res.status(400).json({ error: 'Choisissez la classe de Lucie à laquelle cet horaire se rapporte.' });
+    if (!sectionPermise(req, sec)) return res.status(403).json({ error: 'Section hors de votre périmètre.' });
+    // La classe principale : l'entrée simple la plus fréquente (« OPTO B1 »).
+    const compte = {};
+    for (const x of rows) for (const c of String(x.NOMPERSO_DIP || '').split(',').map(t => t.trim()).filter(Boolean)) if (!c.startsWith('<')) compte[c] = (compte[c] || 0) + 1;
+    const classeSource = Object.entries(compte).sort((a, b) => b[1] - a[1])[0]?.[0] || null;
+    const a = analyserClasse(rows, { an, sec, bloc, classeSource, lundi1 });
+    const { liste, ...rapport } = a;
+    Object.assign(rapport, { ok: true, simulation, semaine_1: lundi1, lignes: rows.length });
     if (simulation) return res.json(rapport);
-
-    db.transaction(() => {
-      db.prepare(`DELETE FROM horaire_seance WHERE annee_scolaire = ? AND section = ? AND classe = ? AND source = 'import' AND modifie_lucie = 0`)
-        .run(an, sec, libelleLucie);
-      const lot = db.prepare(`INSERT INTO horaire_lot (annee_scolaire, classe, section, fichier, periode_debut, periode_fin, nb_seances, importe_par)
-        VALUES (?,?,?,?,?,?,?,?)`).run(an, libelleLucie, sec, req.file.originalname || 'horaire.csv', rapport.du, rapport.au, seances.length, qui(req));
-      const ins = db.prepare(`INSERT INTO horaire_seance (lot_id, annee_scolaire, classe, section, bloc, date, heure_debut, heure_fin, minutes,
-          cours_code, ue_num, matiere, professeur_texte, professeur_id, groupe_id, sous_groupe, source, modifie_lucie, cree_par, cree_le)
-        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?, 'import', 0, ?, datetime('now'))`);
-      for (const s of seances) ins.run(lot.lastInsertRowid, an, libelleLucie, sec, s.bloc, s.date, s.heure_debut, s.heure_fin, s.minutes,
-        s.cours_code, s.ue_num, s.matiere, s.professeur_texte, s.professeur_id, s.groupe_id, s.sous_groupe, qui(req));
-    })();
+    db.transaction(() => ecrireClasse(a, { an, fichier, par: qui(req) }))();
     res.json(rapport);
   } catch (e) {
     console.error('[horaire/import-csv]', e);
