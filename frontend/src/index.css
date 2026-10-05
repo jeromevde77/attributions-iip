@@ -63,7 +63,7 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--c-principal); 
   --c-refuse: #E0564F; --c-refuse-rgb: 224 86 79;
   --e-refuse-50: 255 255 255; --e-refuse-100: 255 255 255; --e-refuse-200: var(--gris-200); --e-refuse-300: var(--gris-200); --e-refuse-400: 224 86 79; --e-refuse-500: 224 86 79; --e-refuse-600: 224 86 79; --e-refuse-700: 224 86 79; --e-refuse-800: var(--c-texte-rgb); --e-refuse-900: var(--c-texte-rgb); --e-refuse-950: var(--c-texte-rgb);
   --c-ba1: #F9B619; --c-ba1-rgb: 249 182 25;
-  --c-ba2: #19537E; --c-ba2-rgb: 25 83 126;
+  --c-ba2: #05B7E6; --c-ba2-rgb: 5 183 230;
   --c-ba3: #16406A; --c-ba3-rgb: 22 64 106;
   --c-epreuve: #C9A227; --c-epreuve-rgb: 201 162 39;
   --c-fond_page: #FFFFFF; --c-fond_page-rgb: 255 255 255;

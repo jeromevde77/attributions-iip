@@ -1,4 +1,6 @@
 import PiecesEtudiant from './PiecesEtudiant.jsx';
+import Annexe1 from './Annexe1.jsx';
+import Annexe2 from './Annexe2.jsx';
 import { useDroits } from '../lib/droits.js';
 import CentreDiplomation from './CentreDiplomation.jsx';
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -305,7 +307,7 @@ function OngletSchemas() {
       const j = await r.json().catch(() => ({}));
       if (!r.ok) { setErreur(j.error || 'La pièce n’a pas pu être composée.'); return; }
       ouvrirApercu({ html: j.html, titre: `Schéma de capitalisation — ${section}`, nomFichier: j.nom,
-        envoiPossible: false, astuceImpression: 'A4 paysage' });
+        envoiPossible: false, astuceImpression: null, pdf: { orientation: 'paysage' } });
     } finally { setEnCours(false); }
   }
 
@@ -1394,6 +1396,7 @@ function OngletEtudiants({ perimetre = null, mode = 'deliberation', seul = null,
      cela n'a pas de sens — il faut rester dans Éditions »). Ses pièces
      prennent la place de la colonne de droite ; on revient au lot d'un clic. */
   const [etudiantVu, setEtudiantVu] = useState(null);
+  const [formAnnexe, setFormAnnexe] = useState(null);   // { cle: 'annexe1'|'annexe2', id }
   // LE CONTEXTE SUIT LE BOUTON. Ouvrir le centre depuis la délibération d'une
   // unité sans que cette unité soit déjà choisie ferait recommencer un travail
   // qu'on venait de faire : on arrive là où l'on était.
@@ -1862,6 +1865,8 @@ function OngletEtudiants({ perimetre = null, mode = 'deliberation', seul = null,
       </div>
 
       {/* LES PERSONNES ET LES PIÈCES — ou, quand on en a choisi un, l'étudiant seul */}
+      {formAnnexe?.cle === 'annexe1' && <Annexe1 etudId={formAnnexe.id} annee={annee} onClose={() => setFormAnnexe(null)} />}
+      {formAnnexe?.cle === 'annexe2' && <Annexe2 etudId={formAnnexe.id} annee={annee} onClose={() => setFormAnnexe(null)} />}
       {etudiantVu && (
         <div className="flex-1 min-h-0 overflow-auto p-4">
           <div className="flex items-center gap-3 mb-3">
@@ -1983,6 +1988,24 @@ function OngletEtudiants({ perimetre = null, mode = 'deliberation', seul = null,
                     className="w-3.5 h-3.5 accent-iip-blue" />
                   {p.label}
                   {p.sle && <span className="text-[10px] font-bold text-slate-500 border border-slate-300 rounded px-1">SLE · {etudiants.filter(e => e.sle).length}</span>}
+                  {/* LES CHAMPS DES ANNEXES SE COMPLÈTENT ENCORE (5 octobre 2026,
+                      DAELEMAN Florian : « nous avions la possibilité de compléter
+                      certains champs dans les annexes 1 et 2 ; nous n'y parvenons
+                      plus »). Le formulaire vivait dans la vue d'un étudiant que
+                      plus rien n'ouvrait ; le lot, lui, part avec les valeurs par
+                      défaut. Les champs sont ceux d'UN étudiant : un seul coché. */}
+                  {(p.cle === 'annexe1' || p.cle === 'annexe2') && (() => {
+                    const un = coches.size === 1 ? etudiants.find(e => coches.has(e.id)) : null;
+                    const ok = !!un?.sle;
+                    return (
+                      <button type="button" disabled={!ok}
+                        onClick={ev => { ev.preventDefault(); ev.stopPropagation(); setFormAnnexe({ cle: p.cle, id: un.id }); }}
+                        title={ok ? `Compléter les champs de l'annexe pour ${nomPropre(un.nom, un.prenom)}` : 'Cochez un seul étudiant en séjour limité aux études'}
+                        className="ml-auto text-[12px] underline text-iip-blue disabled:no-underline disabled:text-slate-400">
+                        compléter…
+                      </button>
+                    );
+                  })()}
                   {p.cep && <span className="text-[10px] font-bold text-slate-500 border border-slate-300 rounded px-1">CEP · {etudiants.filter(e => e.cep).length}</span>}
                   {p.nominatif && dispo(p) && <span className="ml-auto text-[11.5px] text-slate-400 tabular-nums">{p.cle === 'reussite' ? etudiants.filter(e => e.reussites > 0).length : etudiants.filter(e => e.echecs > 0).length}</span>}
                 </label>

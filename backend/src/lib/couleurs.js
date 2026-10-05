@@ -54,7 +54,7 @@ export const COULEURS_DEFAUT = {
   // LES REPÈRES — les blocs et l'épreuve intégrée. Ils disent où l'on est,
   // jamais un état.
   ba1:     { groupe: 'blocs', libelle: 'Bloc 1 (BA1)', valeur: '#F9B619' },
-  ba2:     { groupe: 'blocs', libelle: 'Bloc 2 (BA2)', valeur: '#19537E' },
+  ba2:     { groupe: 'blocs', libelle: 'Bloc 2 (BA2)', valeur: '#05B7E6' },
   ba3:     { groupe: 'blocs', libelle: 'Bloc 3 (BA3)', valeur: '#16406A' },
   epreuve: { groupe: 'blocs', libelle: 'Épreuve intégrée', valeur: '#C9A227' },
   // LES FONDS — le sol de la page (barre et rail compris, en mode clair : un
