@@ -511,6 +511,11 @@ function ProtectedLayout({ children }) {
     ['/gestion',       'Gestion',         ICONE_AXE.gestion,  'dotation'],
   ];
 
+  /* UN PROFESSEUR LIT LE NOM DE CHAQUE ENTRÉE (5 octobre 2026 : « je ne vois pas
+     Ma fiche »). La barre ne nommait que l'axe ouvert ; « Ma fiche » n'était
+     qu'une icône. Quatre ou cinq entrées tiennent avec leur nom — les autres
+     rôles, qui en ont davantage, gardent les icônes et la bulle. */
+  const nomsVisibles = u?.role === 'professeur';
   const nav = AXES
     .filter(([, , , module]) => !module || droitEffectif(u, module) !== 'rien')
     /* « MA FICHE » POUR UN PROFESSEUR (5 octobre 2026 : « en mode prof, je ne
@@ -627,7 +632,7 @@ function ProtectedLayout({ children }) {
                 className={({ isActive }) =>
                 `relative flex items-center gap-2 h-9 rounded-carte text-[13px] whitespace-nowrap flex-shrink-0
                  transition-colors duration-150 ease-ios ${
-                  isActive ? 'font-semibold ring-1 ring-inset px-3' : 'w-9 justify-center case-barre'
+                  isActive ? 'font-semibold ring-1 ring-inset px-3' : nomsVisibles ? 'px-3 case-barre' : 'w-9 justify-center case-barre'
                 }`
               }
                 style={({ isActive }) => (isActive
@@ -642,7 +647,7 @@ function ProtectedLayout({ children }) {
                     </span>
                   )}
                 </span>
-                {isActive && <span>{lbl}</span>}
+                {(isActive || nomsVisibles) && <span>{lbl}</span>}
                 </>)}
               </NavLink>
               {/* LE TIROIR : les faces de l'écran ouvert, juste à droite de la
