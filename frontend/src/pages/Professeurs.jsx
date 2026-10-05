@@ -638,7 +638,7 @@ function AccesLuciePanel({ profId, detail }) {
   );
 }
 
-function DetailModal({ profId, onClose, onEdit, onFiche, onEditions }) {
+function DetailModal({ profId, onClose, onEdit, onFiche, onEditions, restreint = false }) {
   useDroits();
   const [detail, setDetail] = useState(null);
   const [onglet, setOnglet] = useState('attributions');
@@ -794,7 +794,10 @@ function DetailModal({ profId, onClose, onEdit, onFiche, onEditions }) {
   // rendez-vous et où les événements (absence, nomination, pièces) viennent
   // se ranger d'eux-mêmes. Les documents quittent les onglets pour la colonne
   // de gauche, sous forme d'icônes.
-  const ONGLETS = [
+  // « Ma fiche » d'un professeur : ses attributions, et rien d'autre.
+  const ONGLETS = restreint ? [
+    { key: 'attributions', label: `Attributions (${detail.attributions?.length || 0})` },
+  ] : [
     { key: 'attributions', label: `Attributions (${detail.attributions?.length || 0})` },
     { key: 'dossier_admin', label: 'Dossier admin.' },
     { key: 'absences',      label: 'Absences' },
@@ -1493,11 +1496,11 @@ function MaFiche() {
   return (
     <>
       {!edition && (
-        <DetailModal key={cle} profId={id} onClose={() => navigate('/accueil')}
-          onEdit={p => setEdition(p)} onFiche={() => {}} onEditions={() => {}} />
+        <DetailModal key={cle} profId={id} restreint onClose={() => navigate('/accueil')}
+          onEdit={p => setEdition(p)} onFiche={() => {}} />
       )}
       {edition && (
-        <ProfFicheModal prof={edition} onClose={() => setEdition(null)}
+        <ProfFicheModal prof={edition} restreint onClose={() => setEdition(null)}
           onSaved={() => { setEdition(null); setCle(c => c + 1); }} />
       )}
     </>
