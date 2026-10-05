@@ -122,12 +122,24 @@ function formationDe(etudiantId, annee) {
     ? db.prepare('SELECT * FROM section WHERE code = ?').get(section)
     : null;
 
-  // Le total de crédits de la formation se déduit du référentiel de la section.
-  const total = section ? db.prepare(`
+  /* LE TOTAL DE CRÉDITS DE LA FORMATION, CELUI DE L'ANNÉE DE L'ATTESTATION
+     (Charles, 5 octobre 2026 : « le TIM ferait 208 ECTS en 25-26 »). Le calcul
+     prenait les couples (unité, ECTS) distincts de TOUTES les années : les UE
+     256 et 263 ont échangé leurs crédits (20 ↔ 8) en 2025-2026, et chacune
+     comptait ses deux valeurs — 180 + 20 + 8. Une unité, une valeur : celle de
+     l'année ; à défaut d'unités cette année-là, l'année la plus récente. */
+  const totalAnnee = a => db.prepare(`
     SELECT SUM(ects) AS t FROM (
-      SELECT DISTINCT ue_num, ects FROM ue WHERE ects IS NOT NULL AND (section = ?
-        OR ue_num IN (SELECT ue_num FROM ue_section WHERE section_code = ?))
-    )`).get(section, section)?.t : null;
+      SELECT ue_num, MAX(ects) AS ects FROM ue
+       WHERE ects IS NOT NULL AND annee_scolaire = ?
+         AND (section = ? OR ue_num IN (SELECT ue_num FROM ue_section WHERE section_code = ? AND annee_scolaire = ?))
+       GROUP BY ue_num
+    )`).get(a, section, section, a)?.t || null;
+  let total = section ? totalAnnee(annee) : null;
+  if (section && !total) {
+    const derniere = db.prepare(`SELECT MAX(annee_scolaire) a FROM ue WHERE section = ? AND annee_scolaire <= ?`).get(section, annee)?.a;
+    if (derniere) total = totalAnnee(derniere);
+  }
 
   return { section, libelle: sec?.libelle || section, totalCredits: total || null };
 }

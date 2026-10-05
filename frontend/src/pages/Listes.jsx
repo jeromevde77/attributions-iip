@@ -324,6 +324,8 @@ const ENTITES = {
       { key: 'resultat',    label: 'Résultat',  defaut: false },
       { key: 'points',      label: 'Note',      defaut: false },
       { key: 'groupe',      label: 'Groupe',    defaut: false },
+      { key: 'ues_inscrites', label: 'UE inscrites', defaut: false },
+      { key: 'nb_ues',      label: 'Nombre d’UE', defaut: false },
       // TOUS LES CHAMPS DE LA FICHE (2 octobre 2026), à la carte.
       { key: 'date_naissance', label: 'Né(e) le', defaut: false },
       { key: 'lieu_naissance', label: 'Lieu de naissance', defaut: false },

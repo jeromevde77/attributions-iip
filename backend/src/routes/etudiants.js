@@ -30,6 +30,7 @@ import {
 } from '../lib/valorisation.js';
 import { gesteRequis, gesteAutorise } from '../lib/gestes.js';
 import { codeGroupe } from '../lib/groupes.js';
+import { controlePrerequisPae } from '../lib/controlePae.js';
 import { peut as peutModule } from '../middleware/permissions.js';
 import { calculerDI, calculerDIS } from './droitInscription.js';
 import { rapprocher, normDate } from './importHistorique.js';
@@ -1574,6 +1575,15 @@ r.post('/repartition-cours/renumeroter', authRequired, (req, res) => {
   if (req.body?.simulation) return res.json({ simulation: true, renommages });
   const r2 = appliquerRenommages(req, ueNum, annee, cours, act, renommages);
   res.json({ ok: true, renommages, ...r2 });
+});
+
+/* LE CONTRÔLE DES PAE FACE AUX PRÉREQUIS (3.1.44) — Contrôler les dossiers →
+   PAE hors règle. Même calcul que la pièce des Éditions (lib/controlePae.js),
+   borné au périmètre de la personne connectée. */
+r.get('/controle-pae', authRequired,
+  roleRequired('admin', 'directeur', 'directeur_adjoint', 'editeur', 'secretariat', 'coordination'), (req, res) => {
+  const annee = String(req.query.annee || anneeDeTravail(req));
+  res.json(controlePrerequisPae(annee, { sections: getUserSections(req.user) }));
 });
 
 r.post('/repartition-cours', authRequired, roleRequired(...PEUT_INSTRUIRE), (req, res) => {

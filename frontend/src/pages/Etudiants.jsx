@@ -29,6 +29,7 @@ import OutilsAFaces from '../components/OutilsAFaces.jsx';
 const DoublonsEtudiants = lazy(() => import('../components/DoublonsEtudiants.jsx'));
 const DoublesProgrammes = lazy(() => import('../components/DoublesProgrammes.jsx'));
 const HorsBloc = lazy(() => import('../components/HorsBloc.jsx'));
+const PaeHorsRegle = lazy(() => import('../components/PaeHorsRegle.jsx'));
 const DecisionsSansInscription = lazy(() => import('../components/DecisionsSansInscription.jsx'));
 const NationalitesNormaliser = lazy(() => import('../components/NationalitesNormaliser.jsx'));
 import { useEchangesDuRail, Fenetre, Encadre, BulleAide, BoutonEditions, OuvrirEditions } from '../components/ui.jsx';
@@ -4422,12 +4423,13 @@ export default function Etudiants() {
 
       {controles && (
         <OutilsAFaces icone={IconListSearch} titre="Contrôler les dossiers"
-          sous="Doublons, programmes sur deux sections, au-delà du bloc, décisions sans inscription, nationalités"
+          sous="Doublons, programmes sur deux sections, au-delà du bloc, prérequis du PAE, décisions sans inscription, nationalités"
           faceInitiale={controles} onFermer={() => { setControles(null); charger(); }}
           faces={[
             { cle: 'doublons', label: 'Dossiers dédoublés', rendu: <DoublonsEtudiants /> },
             { cle: 'doubles-programmes', label: 'Programmes sur deux sections', rendu: <DoublesProgrammes /> },
             { cle: 'hors-bloc', label: 'Au-delà du bloc atteint', rendu: <HorsBloc /> },
+            { cle: 'pae-hors-regle', label: 'PAE hors règle de prérequis', rendu: <PaeHorsRegle /> },
             { cle: 'decisions-sans-inscription', label: 'Décisions sans inscription', rendu: <DecisionsSansInscription /> },
             { cle: 'nationalites', label: 'Nationalités', rendu: <NationalitesNormaliser /> },
           ]} />
