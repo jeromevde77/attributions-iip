@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { informer } from '../lib/dialogue.jsx';
 import { peutGeste } from '../lib/droits.js';
 import { IconSend, IconX, IconDownload, IconMail } from '@tabler/icons-react';
 import EnvoiMailModal from './EnvoiMailModal.jsx';
@@ -23,7 +24,14 @@ export default function PreviewModal({ html, titre = 'Document', sousTitre, nomF
                                        // envoi force un document par personne, et c'est alors
                                        // l'écran appelant qui propose l'envoi, pièce par pièce.
                                        envoiPossible = true,
-                                       astuceImpression = "⊞ Choisir « Paysage » à l'impression" }) {
+                                       astuceImpression = "⊞ Choisir « Paysage » à l'impression",
+                                       /* LE PDF DU SERVEUR, QUAND LA PIÈCE LE DEMANDE ({ orientation })
+                                          (5 octobre 2026, schéma de capitalisation : « quand
+                                          j'imprime, c'est plus d'une page »). L'impression du
+                                          navigateur dépend de ses réglages — marges, échelle,
+                                          orientation ; le PDF du serveur impose A4, l'orientation
+                                          et le pied, et c'est lui qui a été vérifié. */
+                                       pdf = null }) {
   const iframeRef = useRef(null);
   const [pret, setPret] = useState(false);
   /* LA SIGNATURE NE SORT JAMAIS NUE (1er octobre 2026 : « ma signature doit
@@ -49,6 +57,21 @@ export default function PreviewModal({ html, titre = 'Document', sousTitre, nomF
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [html]);
   const [envoi, setEnvoi] = useState(false);
+  const [pdfEnCours, setPdfEnCours] = useState(false);
+  async function telechargerPdf() {
+    setPdfEnCours(true);
+    try {
+      const r = await fetch('/api/impression/pdf', { method: 'POST', headers: authHeaders(),
+        body: JSON.stringify({ html: htmlAffiche, nom: nomFichier || titre, orientation: pdf?.orientation || 'portrait' }) });
+      if (!r.ok) { const j = await r.json().catch(() => ({})); throw new Error(j.error || `Erreur ${r.status}`); }
+      const url = URL.createObjectURL(await r.blob());
+      const a = document.createElement('a');
+      a.href = url; a.download = `${String(nomFichier || titre || 'document').replace(/[^A-Za-z0-9_.-]+/g, '_')}.pdf`;
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 30000);
+    } catch (e) { console.error('[preview] PDF :', e); informer(e.message || 'Le PDF n’a pas pu être composé.'); }
+    finally { setPdfEnCours(false); }
+  }
   const envoiMail = useEnvoiMail();
 
   function imprimer() {
@@ -117,9 +140,16 @@ export default function PreviewModal({ html, titre = 'Document', sousTitre, nomF
             {astuceImpression && <span className="text-[11px] text-slate-400 hidden lg:inline">
               {astuceImpression}
             </span>}
+            {pdf && (
+              <button onClick={telechargerPdf} disabled={!pret || pdfEnCours}
+                title={`Le PDF composé par le serveur — A4 ${pdf.orientation === 'paysage' ? 'paysage' : 'portrait'} imposé, quel que soit le navigateur`}
+                className="bouton-sortir controle px-3 flex items-center gap-1.5 disabled:opacity-40">
+                <IconSend size={15} /> {pdfEnCours ? 'PDF…' : `PDF — A4 ${pdf.orientation === 'paysage' ? 'paysage' : 'portrait'}`}
+              </button>
+            )}
             <button onClick={imprimer} disabled={!pret}
-              className="bouton-sortir controle px-3 flex items-center gap-1.5 disabled:opacity-40">
-              <IconSend size={15} /> Imprimer / PDF
+              className={`${pdf ? 'bouton' : 'bouton-sortir'} controle px-3 flex items-center gap-1.5 disabled:opacity-40`}>
+              {!pdf && <IconSend size={15} />} {pdf ? 'Imprimer (navigateur)' : 'Imprimer / PDF'}
             </button>
             {envoiPossible && envoiMail?.actif && peutGeste('envois.envoyer') && (
               <button onClick={() => setEnvoi(true)} disabled={!pret}

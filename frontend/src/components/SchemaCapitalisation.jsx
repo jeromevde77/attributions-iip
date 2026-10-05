@@ -5,6 +5,13 @@ import { teintes } from '../lib/etats.js';
 import { blocDe, couleurBloc } from '../lib/blocs.js';
 import { ordonnerCouches, placerCouches, courbeParPoints } from '../lib/schemaCouches.js';
 
+/* LES COULEURS DE L'ARCHITECTURE (Charles, 5 octobre 2026 : « BA1 jaune IIP,
+   BA2 bleu, BA3 marine — pour les architectures et leur impression, pas dans
+   le PAE ni nos fenêtres actuelles »). Le schéma d'une SECTION (mode
+   structure, et sa pièce imprimée) prend les couleurs du logo ; le schéma d'un
+   étudiant garde les repères de bloc de tout Lucie (Configuration → Blocs). */
+const COULEUR_ARCHI = { BA1: 'var(--c-iip_or, #F9B619)', BA2: 'var(--c-iip_bleu, #19537E)', BA3: 'var(--c-principal, #16406A)' };
+
 /**
  * Schéma de capitalisation — arbre des UE et de leurs prérequis.
  *
@@ -85,6 +92,7 @@ export default function SchemaCapitalisation({
   const BASE = 1.25;
   const [zoom, setZoom] = useState(1);
   const svgRef = useRef(null);
+  const blocCouleur = b => (mode === 'structure' ? COULEUR_ARCHI[b] : null) || couleurBloc(b);
 
   const layout = useMemo(() => {
     if (!data?.nodes?.length) return null;
@@ -384,7 +392,7 @@ export default function SchemaCapitalisation({
                 {['BA1', 'BA2', 'BA3', 'INC'].map(b => (
                   <marker key={b} id={`fl-${b}`} markerWidth="7" markerHeight="7" refX="6" refY="2.5"
                     orient="auto" markerUnits="strokeWidth">
-                    <path d="M0,0 L0,5 L6,2.5 z" style={{ fill: b === 'INC' ? 'var(--c-attente)' : couleurBloc(b) }} />
+                    <path d="M0,0 L0,5 L6,2.5 z" style={{ fill: b === 'INC' ? 'var(--c-attente)' : blocCouleur(b) }} />
                   </marker>
                 ))}
               </defs>
@@ -408,6 +416,14 @@ export default function SchemaCapitalisation({
                     fill={e0.sousTitre ? '#C9A84C' : '#94A3B8'} letterSpacing="0.6">
                     {e0.label}
                   </text>
+                  {/* LA BANDE DU BLOC (Charles, 5 octobre 2026 : « BA1 jaune IIP,
+                      BA2 bleu, BA3 marine ») — un REPÈRE de colonne, comme dans
+                      le parcours de la revue ; les cases n'en prennent pas la
+                      couleur. Lue dans `style` : var() ne s'évalue pas dans fill=. */}
+                  {mode === 'structure' && !e0.sousTitre && COULEUR_ARCHI[blocDe(e0.label)] && (
+                    <rect x={e0.x} y={layout.PAD + 16} width={e0.largeur} height="3" rx="1.5"
+                      style={{ fill: COULEUR_ARCHI[blocDe(e0.label)] }} />
+                  )}
                   {e0.sousTitre && (
                     <text x={e0.centre} y={layout.PAD + 18}
                       textAnchor="middle" fontSize="7.5" fontWeight="600"
@@ -453,7 +469,7 @@ export default function SchemaCapitalisation({
                 const memeAnnee = nDe(eg.from) && nDe(eg.from) === nDe(eg.to);
                 const interne = eg.type === 'interne';
                 const bloc = nDe(eg.to);
-                const couleur = enArriere ? 'var(--c-attente)' : (couleurBloc(bloc) || 'var(--c-disponible)');
+                const couleur = enArriere ? 'var(--c-attente)' : (blocCouleur(bloc) || 'var(--c-disponible)');
                 const pointe = enArriere ? 'fl-INC' : (['BA1', 'BA2', 'BA3'].includes(bloc) ? `fl-${bloc}` : 'fl-cap');
                 const titre = (interne ? 'Prérequis interne — ' : 'Prérequis du dossier pédagogique — ')
                   + `l'UE ${eg.from} conditionne l'UE ${eg.to}`
