@@ -513,7 +513,12 @@ function ProtectedLayout({ children }) {
 
   const nav = AXES
     .filter(([, , , module]) => !module || droitEffectif(u, module) !== 'rien')
-    .map(([to, lbl, Icon]) => [to, lbl, Icon]);
+    /* « MA FICHE » POUR UN PROFESSEUR (5 octobre 2026 : « en mode prof, je ne
+       vois pas ma fiche »). Le serveur ne lui rend que sa propre fiche (soiSeul) ;
+       l'axe « Personnel » lui montrait une liste d'une ligne, sans dire que
+       c'était lui. L'axe porte son nom et ouvre la fiche directement. */
+    .map(([to, lbl, Icon]) => (to === '/professeurs' && u?.role === 'professeur'
+      ? [to, 'Ma fiche', Icon] : [to, lbl, Icon]));
 
   // LA PORTE DU PROFESSEUR : ses cours, ses étudiants, ses propositions de
   // notes — en tête de son menu, c'est pour cela qu'il se connecte. Visible
