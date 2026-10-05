@@ -781,7 +781,7 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose, enPage = fa
             <VueLot liste={liste} enCours={enCours} onAjourner={ajournerLot}
               onOuvrir={e => { setIdx(liste.indexOf(e)); setLot(false); }} />
           ) : tableau ? (
-            <VueTableau data={data} liste={liste}
+            <VueTableau data={data} liste={liste} session={session}
               onOuvrir={e => { setIdx(liste.indexOf(e)); setTableau(false); }} />
           ) : etud ? (
             <>
@@ -1913,6 +1913,11 @@ function Fiche({ e, data, onAjuster, onLot, onMotif, enCours, onBord,
                     </tr>
                   );
                 })}
+                {/* EN SECONDE SESSION, LES ACQUIS SEULS (Charles, 4 octobre 2026 :
+                    « en 2e session je ne veux QUE les AA »). La note de cours,
+                    qui ne pèse pas sur la décision de septembre, ne s'affiche
+                    plus, même à titre indicatif. */}
+                {!(Number(session) >= 2 && !regarde.cours) && (
                 <tr className="border-t border-slate-200 bg-slate-50/60">
                   <td className="px-2.5 py-1.5 font-semibold text-slate-600">
                     Note du cours{!regarde.cours && <span className="font-normal text-slate-400"> · indicative</span>}
@@ -1930,6 +1935,7 @@ function Fiche({ e, data, onAjuster, onLot, onMotif, enCours, onBord,
                   {aJust.length > 0 && <td className="px-2.5 py-1.5 text-[10.5px] text-slate-400">
                     Ce texte est celui de l'annexe 8 (ajournement) ou 9 (refus).</td>}
                 </tr>
+                )}
               </tbody>
             </table>
           </div>
@@ -2905,8 +2911,11 @@ function Decision({ e, ue, onBord, acquis, cours, decision, onDecision, enCours,
    en défaut est une PASTILLE PLEINE fraise, la faveur une pastille violette ;
    la note d'unité porte la pastille de son état. Trois groupes de colonnes
    nommés au-dessus — acquis (ce qui fait foi), cours (indicatif), unité. */
-function VueTableau({ data, liste, onOuvrir }) {
-  const nA = data.colonnes_acquis.length, nC = data.colonnes_cours.length;
+function VueTableau({ data, liste, onOuvrir, session = 1 }) {
+  // En seconde session, les acquis seuls : les colonnes de cours sortent du tableau.
+  const sansCours = Number(session) >= 2 && !((liste || [])[0]?.ue?.regarde?.cours ?? true);
+  const colonnesCours = sansCours ? [] : (data.colonnes_cours || []);
+  const nA = data.colonnes_acquis.length, nC = colonnesCours.length;
   return (
     <div className="overflow-auto border border-slate-200 rounded-carte bg-white">
       <table className="text-[12px] border-collapse w-max min-w-full">
@@ -2924,7 +2933,7 @@ function VueTableau({ data, liste, onOuvrir }) {
                 className="tab-entete px-1 py-1.5 border-b border-slate-200 min-w-[52px] text-[10.5px]
                            font-semibold text-iip-blue">{a.aa_code}</th>
             ))}
-            {data.colonnes_cours.map((c, k) => (
+            {colonnesCours.map((c, k) => (
               <th key={c.cours_code}
                 title={[c.cours_nom, c.professeurs].filter(Boolean).join(' · ')}
                 className={`tab-entete px-1.5 py-1.5 border-b border-slate-200 min-w-[72px] max-w-[110px]
@@ -2953,7 +2962,7 @@ function VueTableau({ data, liste, onOuvrir }) {
                   </button>
                 </td>
                 {data.colonnes_acquis.map(a => <Case key={a.aa_code} etat={parAA[a.aa_code]} />)}
-                {data.colonnes_cours.map((c, k) => (
+                {colonnesCours.map((c, k) => (
                   <Case key={c.cours_code} etat={parCo[c.cours_code]} cours premier={k === 0} />
                 ))}
                 <td className="border-b border-l border-slate-200 px-2 text-center">

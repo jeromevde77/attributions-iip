@@ -76,6 +76,9 @@ export default function ParcoursCompact({ etudId, annee, programme = new Set(), 
     return { cols, pos, edges, largeur: x - (PAS_X - L) + MARGE, hauteur: hMax + 6 };
   }, [data]);
 
+  // Flèches en couloirs suspendues (3.1.39) : les courbes d'origine reviennent.
+  const routes = new Map();
+
   if (!data) return <p className="text-[12px] text-slate-400">Chargement du parcours…</p>;
   if (!plan) return <p className="text-[12px] text-slate-500">Aucun schéma pour ce cursus.</p>;
 
@@ -113,9 +116,9 @@ export default function ParcoursCompact({ etudId, annee, programme = new Set(), 
     const memeCol = a.x === b.x;
     const x1 = a.x + L, y1 = a.y + H / 2, y2 = b.y + H / 2;
     const x2 = memeCol ? b.x + L + 2 : b.x - 3;
-    const d = memeCol
+    const d = routes.get(`${e.from}-${e.to}`) || (memeCol
       ? `M${x1},${y1} C${x1 + 12},${y1} ${x2 + 12},${y2} ${x2},${y2}`
-      : `M${x1},${y1} C${x1 + 18},${y1} ${x2 - 18},${y2} ${x2},${y2}`;
+      : `M${x1},${y1} C${x1 + 18},${y1} ${x2 - 18},${y2} ${x2},${y2}`);
     const couleur = relief ? '#16406A' : fort ? '#2F6FB0' : '#CBD5E1';
     return <path key={`${e.from}-${e.to}`} d={d} fill="none" stroke={couleur}
       strokeWidth={relief ? 1.6 : fort ? 1.1 : 0.7} strokeDasharray={e.type === 'interne' ? '4 3' : undefined}

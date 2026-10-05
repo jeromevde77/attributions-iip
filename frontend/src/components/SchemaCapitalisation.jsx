@@ -160,6 +160,12 @@ export default function SchemaCapitalisation({
     };
   }, [data]);
 
+  /* LES FLÈCHES EN COULOIRS SONT SUSPENDUES (3.1.39, Charles, 5 octobre 2026 :
+     « c'est quasi incompréhensible »). Les courbes d'origine reviennent, en
+     attendant la méthode des schémas en couches (ordre des cases, places
+     réservées aux flèches qui sautent une colonne). lib/routage.js reste. */
+  const routes = new Map();
+
   if (!data) return <div className="py-4 text-[12px] text-slate-400">Chargement du schéma…</div>;
   if (!data.nodes?.length) return (
     <div className="text-center py-6 text-slate-400 text-sm border-2 border-dashed rounded-xl">
@@ -403,9 +409,9 @@ export default function SchemaCapitalisation({
                 const x2 = memeColonne ? b.x + layout.L + 5 : b.x - 7;
                 const dx = Math.max(24, (x2 - x1) / 2);
                 const enArriere = !memeColonne && x2 < x1;   // prérequis placé après : incohérence
-                const d = memeColonne
+                const d = routes.get(`${eg.from}-${eg.to}`) || (memeColonne
                   ? `M${x1},${y1} C${x1 + 20},${y1} ${x2 + 20},${y2} ${x2},${y2}`
-                  : `M${x1},${y1} C${x1 + dx},${y1} ${x2 - dx},${y2} ${x2},${y2}`;
+                  : `M${x1},${y1} C${x1 + dx},${y1} ${x2 - dx},${y2} ${x2},${y2}`);
 
                 /* LA FLÈCHE PREND LA COULEUR DU BLOC OÙ ELLE ARRIVE (Charles,
                    26 septembre 2026) : orange vers une UE de BA1, bleu clair vers

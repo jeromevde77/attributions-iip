@@ -1,9 +1,11 @@
-import { useEffect, useState } from 'react';
-import { IconAlertTriangle, IconCopy, IconListCheck } from '@tabler/icons-react';
+import { useEffect, useRef, useState } from 'react';
+import { IconAlertTriangle, IconCopy, IconListCheck, IconSend } from '@tabler/icons-react';
 import SchemaCapitalisation from '../components/SchemaCapitalisation.jsx';
 import Assistant from '../components/Assistant.jsx';
 import { authHeaders } from '../lib/api.js';
-import { demander } from '../lib/dialogue.jsx';
+import { demander, informer } from '../lib/dialogue.jsx';
+import { svgImprimable } from '../lib/svgImprimable.js';
+import { ouvrirApercu } from '../lib/apercu.js';
 
 /**
  * Structure d'une section — schéma de capitalisation éditable.
@@ -30,6 +32,21 @@ export default function StructureSection({ annee }) {
       .catch(() => {});
     // eslint-disable-next-line
   }, []);
+
+  const zoneSchema = useRef(null);
+  async function imprimerSchema() {
+    // Le plus grand dessin de la zone : le schéma lui-même, pas une icône.
+    const svgs = [...(zoneSchema.current?.querySelectorAll('svg') || [])]
+      .sort((a, b) => b.querySelectorAll('path, rect').length - a.querySelectorAll('path, rect').length);
+    const svg = svgImprimable(svgs[0]);
+    if (!svg) { await informer('Ouvrez d’abord le schéma de la section.'); return; }
+    const rep = await fetch('/api/capitalisation/document', { method: 'POST', headers: authHeaders(),
+      body: JSON.stringify({ section, annee, svg }) });
+    const j = await rep.json().catch(() => ({}));
+    if (!rep.ok) { await informer(j.error || 'La pièce n’a pas pu être composée.'); return; }
+    ouvrirApercu({ html: j.html, titre: `Schéma de capitalisation — ${section}`, nomFichier: j.nom,
+      envoiPossible: false, astuceImpression: 'A4 paysage' });
+  }
 
   async function charger() {
     if (!section || !annee) return;
@@ -94,6 +111,12 @@ export default function StructureSection({ annee }) {
           className="flex items-center gap-1.5 px-3 py-2 text-sm border border-slate-300 rounded-lg text-slate-600 hover:bg-slate-50">
           <IconCopy size={15} /> Reprendre l'an dernier
         </button>
+        {/* LA PIÈCE IMPRIMÉE (3.1.35) : le dessin de l'écran, flèches en
+            couloirs comprises, habillé de l'enveloppe commune en A4 paysage. */}
+        <button onClick={imprimerSchema} disabled={!data?.nodes?.length}
+          className="bouton bouton-sortir controle inline-flex items-center gap-1.5 disabled:opacity-40">
+          <IconSend size={15} /> Imprimer le schéma
+        </button>
         <button onClick={() => setAssistantOuvert(o => !o)}
           className="flex items-center gap-1.5 px-3 py-2 text-sm border border-iip-turquoise text-iip-turquoise rounded-lg hover:bg-iip-turquoise/5">
           <IconListCheck size={15} /> {assistantOuvert ? "Masquer l'assistant" : 'Mise en route de la section'}
@@ -118,12 +141,14 @@ export default function StructureSection({ annee }) {
         </div>
       )}
 
+      <div ref={zoneSchema}>
       <SchemaCapitalisation
         data={data}
         mode="structure"
         onNiveau={changerNiveau}
         titre={`Structure — ${section}`}
       />
+      </div>
 
       <p className="text-[11px] text-slate-400 border-t pt-3">
         Les liens de prérequis relèvent du référentiel : ils se modifient dans
