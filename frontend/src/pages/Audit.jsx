@@ -28,6 +28,7 @@ const REGISTRES = {
   conventions:  { label: 'Conventions',  teinte: '#6b7280' },
   presences:    { label: 'Présences',    teinte: 'var(--c-reussi)' },
   suivi:        { label: 'Suivi',        teinte: 'var(--c-attente)' },
+  modifications: { label: 'Fiches, PAE, notes', teinte: 'var(--c-principal)' },
 };
 
 /* Les gestes portent le nom que leur registre leur donne — « create »,

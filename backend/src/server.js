@@ -25,6 +25,7 @@ import reunionsRoutes, { planifierRapportMensuel } from './routes/reunions.js';
 import documentationRoutes, { migrerDocumentation } from './routes/documentation.js';
 import suggestionsRoutes, { migrerSuggestions } from './routes/suggestions.js';
 import reponsesTypesRoutes, { migrerReponsesTypes } from './routes/reponsesTypes.js';
+import { migrerJournalModifications } from './lib/journalModifications.js';
 import dossierAdminRoutes from './routes/dossierAdmin.js';
 import listesRoutes from './routes/listes.js';
 import besoinsRoutes from './routes/besoins.js';
@@ -3089,4 +3090,7 @@ const PORT = process.env.PORT || 3001;
 // ── Sauvegardes : réveil au quart d'heure, une par jour à l'heure convenue
 try { demarrerPlanificateur(); } catch (e) { console.error('[sauvegarde] planificateur :', e.message); }
 
+// Le journal des modifications en DERNIER : ses déclencheurs lisent les colonnes
+// que les migrations précédentes viennent d'ajouter.
+try { migrerJournalModifications(db); } catch (e) { console.error('[migration] journal des modifications :', e.message); }
 app.listen(PORT, () => console.log(`🚀 Backend Attributions IIP sur http://localhost:${PORT}`));

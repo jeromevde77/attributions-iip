@@ -2,6 +2,13 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 import 'dotenv/config';
+import { utilisateurCourant } from '../lib/contexteRequete.js';
+
+/* L'AUTEUR D'UNE ÉCRITURE, LU PAR LES DÉCLENCHEURS DU JOURNAL DES
+   MODIFICATIONS (lib/journalModifications.js) : la personne connectée, ou null
+   hors requête. Déclarées sur la connexion, quel que soit le moteur. */
+const auteurNom = () => { const u = utilisateurCourant(); return u ? (u.nom || u.email || null) : null; };
+const auteurId = () => { const u = utilisateurCourant(); return u?.id ?? null; };
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const DB_PATH = process.env.DB_PATH || resolve(__dirname, '../../data/attributions.db');
@@ -12,11 +19,15 @@ try {
   db = new Database(DB_PATH);
   db.pragma('foreign_keys = ON');
   db.pragma('journal_mode = WAL');
+  db.function('lucie_auteur', { deterministic: false }, auteurNom);
+  db.function('lucie_auteur_id', { deterministic: false }, auteurId);
 } catch {
   const { DatabaseSync } = await import('node:sqlite');
   const inner = new DatabaseSync(DB_PATH);
   inner.exec('PRAGMA foreign_keys = ON');
   inner.exec('PRAGMA journal_mode = WAL');
+  inner.function('lucie_auteur', { deterministic: false }, auteurNom);
+  inner.function('lucie_auteur_id', { deterministic: false }, auteurId);
   function flatten(args) {
     if (args.length === 1 && args[0] && typeof args[0] === 'object' && !Array.isArray(args[0])) {
       return [args[0]];
