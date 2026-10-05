@@ -2,7 +2,6 @@ import { useMemo, useRef, useState } from 'react';
 import { IconGift } from '@tabler/icons-react';
 import { teintes } from '../lib/etats.js';
 import { blocDe, couleurBloc } from '../lib/blocs.js';
-import { routerFleches } from '../lib/routage.js';
 
 /**
  * Schéma de capitalisation — arbre des UE et de leurs prérequis.
@@ -93,8 +92,7 @@ export default function SchemaCapitalisation({
     // TETE passe de 18 à 28 : le sous-titre « ÉPREUVE INTÉGRÉE » est tracé
     // à PAD + 18, exactement là où commençait la première tuile — il se
     // superposait donc à elle.
-    // GY : une ALLÉE entre deux rangées, assez large pour que les flèches y passent (3.1.34).
-    const L = 78, H = 26, GX = 38, GY = 11, PAD = 5, TETE = 28, PIED = 22;
+    const L = 78, H = 26, GX = 38, GY = 6, PAD = 5, TETE = 28, PIED = 22;
     const couches = {};
     for (const n of data.nodes) (couches[n.couche] = couches[n.couche] || []).push(n);
     let nums = Object.keys(couches).map(Number).sort((a, b) => a - b);
@@ -162,9 +160,11 @@ export default function SchemaCapitalisation({
     };
   }, [data]);
 
-  // LES FLÈCHES EN COULOIRS (lib/routage.js) : jamais derrière une case.
-  const routes = useMemo(() => (layout ? routerFleches({ boites: layout.pos, edges: data?.edges || [], L: layout.L, H: layout.H }) : new Map()),
-    [layout, data]);
+  /* LES FLÈCHES EN COULOIRS SONT SUSPENDUES (3.1.39, Charles, 5 octobre 2026 :
+     « c'est quasi incompréhensible »). Les courbes d'origine reviennent, en
+     attendant la méthode des schémas en couches (ordre des cases, places
+     réservées aux flèches qui sautent une colonne). lib/routage.js reste. */
+  const routes = new Map();
 
   if (!data) return <div className="py-4 text-[12px] text-slate-400">Chargement du schéma…</div>;
   if (!data.nodes?.length) return (

@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { authHeaders } from '../lib/api.js';
 import { couleurBloc, rangBloc } from '../lib/blocs.js';
-import { routerFleches } from '../lib/routage.js';
 
 /**
  * LE PARCOURS EN PETITES TUILES, AVEC SES FLÈCHES (Charles, 2 octobre 2026 :
@@ -19,7 +18,7 @@ import { routerFleches } from '../lib/routage.js';
  */
 // Petites, et à LEUR taille (2 octobre 2026 : « icônes trop grandes, on ne voit
 // pas d'un coup ») : le dessin ne s'étire plus à la largeur de la colonne.
-const L = 44, H = 23, PAS_Y = 34, PAS_X = 96, PAS_SOUS = 76, MARGE = 8, HAUT = 28;
+const L = 44, H = 23, PAS_Y = 29, PAS_X = 96, PAS_SOUS = 76, MARGE = 8, HAUT = 28;
 
 export default function ParcoursCompact({ etudId, annee, programme = new Set(), dispenses = new Set(),
                                           onNoeud = null, version = 0 }) {
@@ -77,8 +76,8 @@ export default function ParcoursCompact({ etudId, annee, programme = new Set(), 
     return { cols, pos, edges, largeur: x - (PAS_X - L) + MARGE, hauteur: hMax + 6 };
   }, [data]);
 
-  // LES FLÈCHES EN COULOIRS (lib/routage.js) : jamais derrière une case.
-  const routes = useMemo(() => (plan ? routerFleches({ boites: plan.pos, edges: plan.edges, L, H }) : new Map()), [plan]);
+  // Flèches en couloirs suspendues (3.1.39) : les courbes d'origine reviennent.
+  const routes = new Map();
 
   if (!data) return <p className="text-[12px] text-slate-400">Chargement du parcours…</p>;
   if (!plan) return <p className="text-[12px] text-slate-500">Aucun schéma pour ce cursus.</p>;
