@@ -200,7 +200,11 @@ function DispoGrid({ creneaux, dispoQ1, setDispoQ1, dispoQ2, setDispoQ2, profId 
   );
 }
 
-export default function ProfFicheModal({ prof, onClose, onSaved }) {
+/* `restreint` : la fiche d'un professeur ouverte par lui-même (« Ma fiche ») —
+   il ne voit que son identité civile et ses coordonnées bancaires (Charles,
+   5 octobre 2026 : « QUE identité civile, coordonnées bancaires et
+   attributions ; PAS le reste »). */
+export default function ProfFicheModal({ prof, onClose, onSaved, restreint = false }) {
   const isNew = !prof?.id;
 
   // Champs simples (colonne professeur)
@@ -232,7 +236,7 @@ export default function ProfFicheModal({ prof, onClose, onSaved }) {
   const [saving, setSaving] = useState(false);
   const [genPdf, setGenPdf] = useState(false);
   const [loading, setLoading] = useState(!isNew);
-  const [open, setOpen] = useState({ identite: true }); // sections ouvertes
+  const [open, setOpen] = useState(restreint ? { identite: true, coord: true } : { identite: true }); // sections ouvertes
   const [creneaux, setCreneaux]         = useState([]);
   const [dispoQ1, setDispoQ1]           = useState({}); // { 'jour_creneauId': bool }
   const [dispoQ2, setDispoQ2]           = useState({});
@@ -534,6 +538,7 @@ export default function ProfFicheModal({ prof, onClose, onSaved }) {
             <TextField label="Compte au nom de" placeholder="si différent du MDP" value={form.compte_titulaire} onChange={v => set('compte_titulaire', v)} />
           </Section>
 
+          {!restreint && (<>
           {/* 3. Titres de capacité */}
           <Section titre="3 · Titres de capacité" sous={`${titres.length} titre(s)`}
             ouvert={open.titres} onToggle={() => toggle('titres')}>
@@ -778,6 +783,7 @@ export default function ProfFicheModal({ prof, onClose, onSaved }) {
               <NominationsPanel profId={prof?.id} />
             </Section>
           )}
+          </>)}
 
         </form>
     </Fenetre>

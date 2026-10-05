@@ -259,6 +259,11 @@ export function stylesEntete() {
   .doc-ligne .doc-cadre { margin-top: 0; flex: 1; min-width: 0; }
   /* Le logo ouvre la ligne (Charles, même jour : « et le logo »). */
   .doc-ligne-logo { height: 11mm; width: auto; flex: none; }
+  /* LES DEUX TITRES DE LA LIGNE À LA MÊME TAILLE (Charles, 5 octobre 2026 : « la
+     taille de la police pour les titres n'est pas la même ») : l'Institut à
+     13 pt et la pièce à 15 se lisaient comme deux en-têtes différents. */
+  .doc-ligne .doc-ident-n, .doc-ligne .doc-cadre-t { font-size: 14pt; line-height: 1.1; }
+  .doc-ligne .doc-ident-a, .doc-ligne .doc-cadre-s { font-size: 8pt; margin-top: 1.2mm; }
   /* Conservé pour les pièces à forme imposée qui ferment encore d'un filet. */
   .doc-filet-or { height: 0.6mm; background: #C9A84C; margin-top: 2.5mm; }`;
 }
