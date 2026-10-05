@@ -162,6 +162,51 @@ export function placerCouches({ ordre, gauche, droite, taille, ecart, haut, tour
   return hauts;
 }
 
+/**
+ * UN SEUL CHANGEMENT DE HAUTEUR PAR FLÈCHE (Charles, 5 octobre 2026 : « éviter
+ * les multiples changements ; un gauche-droite maximum »). Les places réservées
+ * d'une même flèche se plaçaient chacune à la hauteur de ses voisines : la
+ * flèche ondulait à chaque colonne. Toutes les places qui mènent à une même
+ * case prennent UNE hauteur — celle de la case d'arrivée si la voie est libre
+ * dans chaque colonne traversée, sinon celle d'une case de départ, sinon la
+ * moyenne. La flèche file alors droit, et ne tourne qu'une fois.
+ *
+ * @param {object} p  ordre, hauts (id → haut), taille(s), chemins (de placerCouches/ordonnerCouches)
+ * @param {number} [p.marge]  espace libre à garder autour de la voie
+ */
+export function redresserPassages({ ordre, hauts, taille, chemins, marge = 3 }) {
+  const centre = id => {
+    const s = ordre.flat().find(x => x.id === id);
+    return s ? hauts.get(id) + taille(s) / 2 : null;
+  };
+  const colDe = new Map();
+  ordre.forEach((col, c) => col.forEach(s => colDe.set(s.id, c)));
+  const groupes = new Map();          // case d'arrivée → ses places
+  for (const col of ordre) for (const s of col) if (s.passage) {
+    (groupes.get(s.vers) || groupes.set(s.vers, []).get(s.vers)).push(s);
+  }
+  const sources = new Map();          // case d'arrivée → cases de départ qui passent par des places
+  for (const [cle, via] of chemins) if (via.length) {
+    const [de, vers] = cle.split('-');
+    (sources.get(vers) || sources.set(vers, new Set()).get(vers)).add(de);
+  }
+  for (const [vers, places] of groupes) {
+    const ids = new Set(places.map(p => p.id));
+    const libre = y => places.every(p => ordre[colDe.get(p.id)].every(o => {
+      if (ids.has(o.id)) return true;
+      const h0 = hauts.get(o.id), h1 = h0 + taille(o);
+      const t = taille(p) / 2 + marge;
+      return y + t <= h0 || y - t >= h1;
+    }));
+    const moyenne = places.reduce((t, p) => t + hauts.get(p.id) + taille(p) / 2, 0) / places.length;
+    const candidats = [centre(vers), ...[...(sources.get(vers) || [])].map(centre), moyenne].filter(y => y != null);
+    const y = candidats.find(libre);
+    if (y == null) continue;
+    for (const p of places) hauts.set(p.id, y - taille(p) / 2);
+  }
+  return hauts;
+}
+
 /** Une courbe d'origine — horizontale au départ et à l'arrivée — à travers des points. */
 export function courbeParPoints(pts) {
   let d = `M${pts[0][0]},${pts[0][1]}`;

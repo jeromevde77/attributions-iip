@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { IconGift } from '@tabler/icons-react';
 import { teintes } from '../lib/etats.js';
 import { blocDe, couleurBloc } from '../lib/blocs.js';
-import { ordonnerCouches, placerCouches, courbeParPoints } from '../lib/schemaCouches.js';
+import { ordonnerCouches, placerCouches, redresserPassages, courbeParPoints } from '../lib/schemaCouches.js';
 
 /* LES COULEURS DE L'ARCHITECTURE (Charles, 5 octobre 2026 : « BA1 jaune IIP,
    BA2 bleu, BA3 marine — pour les architectures et leur impression, pas dans
@@ -141,6 +141,7 @@ export default function SchemaCapitalisation({
       // L'intitulé « Épreuve intégrée » demande sa place au-dessus de la première.
       ecart: (a, b) => (idsEI.has(b.id) && !idsEI.has(a.id) ? ECART_EI : GY),
     });
+    redresserPassages({ ordre, hauts, chemins, taille: s0 => (s0.passage ? PASSE : H) });
     const passages = {};
     nums.forEach((cn, ci) => {
       const x = PAD + ci * (L + GX);
