@@ -2749,12 +2749,22 @@ r.get('/parcours-bilan/:etudId', authRequired, (req, res) => {
   // incomplet — on renvoie le nombre pour que l'écran puisse le dire.
   const section = cetteAnnee.find(i => i.section)?.section
     || inscriptions.find(i => i.section)?.section || null;
+  /* LE TOTAL DE L'ANNÉE, PAS LE MAXIMUM DE TOUTES (5 octobre 2026). Le MAX par
+     unité toutes années confondues donnait 192 à TIM : les UE 256 et 263 ont
+     échangé leurs crédits (20 ↔ 8) en 2025-2026, et chacune gardait 20. */
   const totalSection = section
-    ? db.prepare(`
+    ? (db.prepare(`
         SELECT SUM(ects) AS t FROM (
           SELECT ue_num, MAX(ects) AS ects FROM ue
-          WHERE section = ? AND ects IS NOT NULL GROUP BY ue_num)
-      `).get(section)?.t || 0
+          WHERE section = ? AND annee_scolaire = ? AND ects IS NOT NULL GROUP BY ue_num)
+      `).get(section, annee)?.t
+      || db.prepare(`
+        SELECT SUM(ects) AS t FROM (
+          SELECT ue_num, MAX(ects) AS ects FROM ue
+          WHERE section = ? AND ects IS NOT NULL
+            AND annee_scolaire = (SELECT MAX(annee_scolaire) FROM ue WHERE section = ?)
+          GROUP BY ue_num)
+      `).get(section, section)?.t || 0)
     : 0;
 
   const acquisesUe = new Set();
