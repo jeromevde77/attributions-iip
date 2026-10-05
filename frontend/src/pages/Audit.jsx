@@ -22,6 +22,12 @@ const REGISTRES = {
   dossiers:     { label: 'Dossiers',     teinte: 'var(--c-reussi)' },
   documents:    { label: 'Documents',    teinte: '#6b7280' },
   parcours:     { label: 'Parcours',     teinte: 'var(--c-disponible)' },
+  envois:       { label: 'Envois',       teinte: 'var(--c-accent)' },
+  pae:          { label: 'PAE',          teinte: 'var(--c-disponible)' },
+  deliberation: { label: 'Délibération', teinte: 'var(--c-principal)' },
+  conventions:  { label: 'Conventions',  teinte: '#6b7280' },
+  presences:    { label: 'Présences',    teinte: 'var(--c-reussi)' },
+  suivi:        { label: 'Suivi',        teinte: 'var(--c-attente)' },
 };
 
 /* Les gestes portent le nom que leur registre leur donne — « create »,
