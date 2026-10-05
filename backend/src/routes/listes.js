@@ -165,6 +165,16 @@ r.get('/etudiants', authRequired, (req, res) => {
       cree_le: dateFr(f.cree_le), id_lucie: f.id ?? '',
     };
   };
+  /* LES UE DU PROGRAMME, EN REGARD DE CHAQUE ÉTUDIANT (Charles, 5 octobre
+     2026 : « une liste des 84 étudiants avec, sur chaque ligne, leurs UE »).
+     Les unités de l'année, dans l'ordre des numéros, et leur nombre. */
+  const uesPar = new Map();
+  for (const x of db.prepare(`SELECT etudiant_id, ue_num FROM etudiant_inscription
+      WHERE annee_scolaire = ? ORDER BY ue_num`).all(annee)) {
+    if (!uesPar.has(x.etudiant_id)) uesPar.set(x.etudiant_id, []);
+    const l = uesPar.get(x.etudiant_id);
+    if (!l.includes(x.ue_num)) l.push(x.ue_num);
+  }
   const enrichir = (x) => {
     const rat = sectionRattachement(x.id, annee);
     return {
@@ -173,6 +183,8 @@ r.get('/etudiants', authRequired, (req, res) => {
       primo: anciens.has(x.id) ? '' : 'Oui',
       matricule: x.id_ecampus || '',
       groupe: grpPar.get(x.id) || '',
+      ues_inscrites: (uesPar.get(x.id) || []).join(', '),
+      nb_ues: (uesPar.get(x.id) || []).length,
     };
   };
   const garder = (x) =>
