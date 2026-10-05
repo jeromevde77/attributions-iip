@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { authHeaders } from '../lib/api.js';
 import { couleurBloc, rangBloc } from '../lib/blocs.js';
-import { ordonnerCouches, placerCouches, courbeParPoints } from '../lib/schemaCouches.js';
+import { ordonnerCouches, placerCouches, redresserPassages, courbeParPoints } from '../lib/schemaCouches.js';
 
 /**
  * LE PARCOURS EN PETITES TUILES, AVEC SES FLÈCHES (Charles, 2 octobre 2026 :
@@ -87,6 +87,7 @@ export default function ParcoursCompact({ etudId, annee, programme = new Set(), 
     const PASSE = 3;
     const hauts = placerCouches({ ordre, gauche, droite, haut: HAUT,
       taille: s0 => (s0.passage ? PASSE : H), ecart: () => PAS_Y - H });
+    redresserPassages({ ordre, hauts, chemins, taille: s0 => (s0.passage ? PASSE : H) });
     const passages = {};
     hMax = 0;
     ordre.forEach((col, ci) => col.forEach(s0 => {

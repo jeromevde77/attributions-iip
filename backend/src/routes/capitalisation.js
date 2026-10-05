@@ -239,6 +239,15 @@ r.get('/structure', authRequired, (req, res) => {
     }
   }
 
+  /* LES ECTS ET LES PÉRIODES ÉTUDIANT DE CHAQUE UNITÉ (Charles, 5 octobre
+     2026 : « dans le schéma à imprimer, les ECTS et le nombre de périodes
+     étudiants »). Le millésime demandé d'abord, la section ensuite. */
+  const chiffres = db.prepare(`SELECT ects, ue_per_etudiants AS per FROM ue WHERE ue_num = ?
+    ORDER BY (annee_scolaire = ?) DESC, (section = ?) DESC, annee_scolaire DESC LIMIT 1`);
+  for (const n of g.nodes) {
+    const c = chiffres.get(n.ue_num, annee, section) || {};
+    n.ects = c.ects ?? null; n.per_etudiants = c.per ?? null;
+  }
   res.json({ ...g, section, annee, alertes });
 });
 
@@ -268,7 +277,7 @@ r.post('/document', authRequired, (req, res) => {
   const pastille = (teinte, libelle) =>
     `<span class="lg"><i style="background:${teinte}"></i>${esc(libelle)}</span>`;
   const legende = `<div class="legende">
-      ${pastille(c.iip_or, 'BA1')}${pastille(c.iip_bleu, 'BA2')}${pastille(c.principal, 'BA3')}
+      ${pastille(c.iip_or, 'BA1')}${pastille(c.iip_cyan, 'BA2')}${pastille(c.principal, 'BA3')}
       <span class="lg"><i class="ei" style="border-color:${c.epreuve}"></i>Épreuve intégrée</span>
       <span class="lg"><b class="d">D</b>Unité déterminante</span>
       <span class="lg"><svg width="26" height="6"><line x1="0" y1="3" x2="26" y2="3" stroke="#475569" stroke-width="1.2"/></svg>Prérequis du dossier pédagogique</span>

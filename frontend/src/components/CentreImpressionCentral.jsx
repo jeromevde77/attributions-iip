@@ -1559,7 +1559,26 @@ function OngletEtudiants({ perimetre = null, mode = 'deliberation', seul = null,
     return { documents: [...(j.documents || []), ...docsRoute], avis: [...avis, ...avisRoute] };
   }
 
-  async function produire() {
+  /* L'APERÇU AVANT DE PRODUIRE (Charles, 5 octobre 2026 : « pour chaque
+     impression, un aperçu — on n'est pas obligé, mais il doit toujours être
+     disponible »). Les mêmes pièces que « Produire », composées de la même
+     façon, montrées dans l'aperçu commun ; s'il y en a plusieurs, on passe de
+     l'une à l'autre. Rien n'est téléchargé. */
+  function montrer(docs, k) {
+    const d = docs[k];
+    const nav = docs.length > 1 ? (
+      <span className="flex items-center gap-1 text-[12px] text-slate-500">
+        <button type="button" className="bouton controle px-2" disabled={k === 0} onClick={() => montrer(docs, k - 1)}>◀</button>
+        <span className="tabular-nums px-1">{k + 1} / {docs.length}</span>
+        <button type="button" className="bouton controle px-2" disabled={k === docs.length - 1} onClick={() => montrer(docs, k + 1)}>▶</button>
+      </span>
+    ) : null;
+    ouvrirApercu({ html: d.html, titre: d.etudiant ? `${d.nom} — ${d.etudiant}` : d.nom, nomFichier: d.nom,
+      envoiPossible: false, astuceImpression: null, actionExtra: nav,
+      pdf: { orientation: /size:\s*A4\s+landscape/.test(d.html || '') ? 'paysage' : 'portrait' } });
+  }
+
+  async function produire(apercu = false) {
     setEnCours(true); setErreur(null);
     try {
       const avis = [];
@@ -1595,6 +1614,7 @@ function OngletEtudiants({ perimetre = null, mode = 'deliberation', seul = null,
       tout.push(...dossier.documents.map(d => ({ html: d.html, nom: d.nom, pagination: d.pagination, pied: d.pied, etudiant: d.etudiant })));
       if (avis.length) setErreur(avis.join(' · '));
       if (!tout.length) { if (!avis.length) setErreur('Aucune pièce à produire.'); return; }
+      if (apercu) { montrer(tout, 0); return; }
       /* UNE DEMANDE, UNE ARCHIVE (29 septembre 2026 : « terriblement lent »).
          Les PDF se demandaient un par un et se téléchargeaient un par un ; le
          serveur les rend désormais en parallèle et renvoie un seul zip. Une
@@ -1895,7 +1915,12 @@ function OngletEtudiants({ perimetre = null, mode = 'deliberation', seul = null,
               Un document par étudiant
             </label>
             <span className="flex-1" />
-            <button onClick={produire} disabled={enCours || !coches.size || !nbPieces}
+            <button onClick={() => produire(true)} disabled={enCours || !coches.size || !nbPieces}
+              title="Voir les pièces avant de les produire — rien n'est téléchargé"
+              className="bouton controle px-3 text-[13px] inline-flex items-center gap-1.5">
+              Aperçu
+            </button>
+            <button onClick={() => produire()} disabled={enCours || !coches.size || !nbPieces}
               className="px-4 py-2 text-[13px] rounded-lg bg-iip-blue text-white font-semibold disabled:opacity-40 inline-flex items-center gap-1.5">
               <IconPrinter size={14} />
               {enCours ? 'Production…' : `Produire ${nbPieces} pièce${nbPieces > 1 ? 's' : ''} · ${coches.size} étudiant${coches.size > 1 ? 's' : ''}`}
