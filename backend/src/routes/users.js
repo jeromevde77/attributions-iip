@@ -182,6 +182,92 @@ r.post('/:id/lien-mot-de-passe', authRequired, gesteRequis('configuration.compte
   });
 });
 
+/* OUVRIR L'ACCÈS À LUCIE EN LOT (3.1.62, Charles, 5 octobre 2026 : « sélectionner
+ * une liste de profs, leur attribuer un rôle prof, puis leur envoyer la
+ * notification de lien »). Un compte se créait fiche par fiche, avec un mot de
+ * passe affiché à l'écran — donc connu de celui qui le créait.
+ *
+ * Ici : un compte « professeur » lié à la fiche, SANS mot de passe connu de
+ * personne, et le lien d'invitation — le même que « envoyer le lien » des
+ * Comptes : il fait choisir un mot de passe, il ne connecte pas, le second
+ * facteur reste exigé. L'adresse : celle de l'école, sinon la privée (choix de
+ * Charles). Un membre qui a déjà un compte n'est PAS touché — son rôle peut
+ * être autre chose que « professeur ». Simulation d'abord.
+ */
+r.post('/acces-lot', authRequired, gesteRequis('configuration.comptes'), async (req, res) => {
+  // Une route asynchrone dont l'erreur s'échappe fait tomber le serveur entier.
+  try {
+  const ids = [...new Set((req.body?.professeur_ids || []).map(Number).filter(n => Number.isInteger(n) && n > 0))];
+  if (!ids.length) return res.status(400).json({ error: 'Aucun membre choisi.' });
+  if (ids.length > 300) return res.status(413).json({ error: 'Plus de 300 membres : scindez la sélection.' });
+  const simulation = req.body?.simulation !== false;
+  const valide = e => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e);
+  const ecole = e => /@institut-prigogine\.be$/i.test(e);
+  const lignes = [];
+  for (const id of ids) {
+    const p = db.prepare('SELECT id, nom, prenom, adresse_mail, mail_prive FROM professeur WHERE id = ?').get(id);
+    if (!p) continue;
+    const nom = `${String(p.nom || '').toUpperCase()} ${p.prenom || ''}`.trim();
+    const compte = db.prepare('SELECT id, email, role, actif FROM utilisateur WHERE professeur_id = ? ORDER BY actif DESC, id LIMIT 1').get(id);
+    if (compte) { lignes.push({ professeur_id: id, nom, etat: 'deja', email: compte.email, role: compte.role, actif: !!compte.actif }); continue; }
+    const a = String(p.adresse_mail || '').trim().toLowerCase(), b = String(p.mail_prive || '').trim().toLowerCase();
+    const email = [a, b].filter(valide).sort((x, y) => Number(ecole(y)) - Number(ecole(x)))[0] || null;
+    if (!email) { lignes.push({ professeur_id: id, nom, etat: 'sans_adresse' }); continue; }
+    const pris = db.prepare('SELECT id, nom_complet, professeur_id FROM utilisateur WHERE lower(email) = ?').get(email);
+    if (pris) { lignes.push({ professeur_id: id, nom, etat: 'adresse_prise', email, par: pris.nom_complet }); continue; }
+    lignes.push({ professeur_id: id, nom, etat: 'nouveau', email, prive: !ecole(email) });
+  }
+  const compte = e => lignes.filter(l => l.etat === e).length;
+  const resume = { nouveaux: compte('nouveau'), deja: compte('deja'), sans_adresse: compte('sans_adresse'), adresse_prise: compte('adresse_prise') };
+  if (simulation) return res.json({ simulation: true, resume, lignes });
+
+  const base = process.env.LUCIE_URL || 'https://www.lucie-iip.be';
+  const nouveaux = lignes.filter(l => l.etat === 'nouveau');
+  db.transaction(() => {
+    const ins = db.prepare(`INSERT INTO utilisateur (email, password_hash, nom_complet, role, actif, professeur_id)
+      VALUES (?, ?, ?, 'professeur', 1, ?)`);
+    for (const l of nouveaux) {
+      // Un mot de passe que PERSONNE ne connaît : on ne le garde nulle part.
+      const hash = bcrypt.hashSync(Math.random().toString(36) + Date.now() + Math.random().toString(36), 10);
+      l.utilisateur_id = ins.run(l.email, hash, l.nom, l.professeur_id).lastInsertRowid;
+      journaliser({ utilisateur_id: l.utilisateur_id, acteur: req.user, evenement: 'compte_cree_lot', detail: 'rôle professeur' });
+    }
+  })();
+  let suivante = 0;
+  const ouvrier = async () => {
+    while (suivante < nouveaux.length) {
+      const l = nouveaux[suivante++];
+      const jeton = creerJeton(l.utilisateur_id, req.ip || null, VALIDITE_INVITATION_MINUTES);
+      let envoi = null;
+      try {
+        envoi = await envoyerEmail({
+          to: l.email,
+          subject: 'Lucie — votre accès',
+          html: templateNotif({
+            titre: 'Votre accès à Lucie',
+            corps: `<p>${req.user.nom || req.user.email} vous ouvre un accès à Lucie, l'application de gestion `
+                 + `académique de l'Institut Ilya Prigogine, avec l'adresse <strong>${l.email}</strong>.</p>`
+                 + `<p>Choisissez votre mot de passe : ce lien est valable <strong>${dureeLisible(VALIDITE_INVITATION_MINUTES)}</strong> `
+                 + `et ne sert qu'une fois. Il ne vous connecte pas ; un second facteur vous sera demandé à la première connexion.</p>`,
+            lien: `/mot-de-passe?jeton=${encodeURIComponent(jeton)}`,
+            lienTexte: 'Choisir mon mot de passe',
+          }),
+        });
+      } catch (e) { envoi = { ok: false, erreur: e.message }; }
+      l.envoye = !!envoi?.ok && !envoi?.simule;
+      if (!l.envoye) { l.raison = envoi?.erreur || "aucun serveur de courriel n'est configuré"; l.lien = `${base}/mot-de-passe?jeton=${encodeURIComponent(jeton)}`; }
+      journaliser({ utilisateur_id: l.utilisateur_id, acteur: req.user,
+        evenement: l.envoye ? 'mot_de_passe_lien_envoye' : 'mot_de_passe_lien_non_envoye', detail: l.envoye ? null : l.raison });
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(4, nouveaux.length) }, ouvrier));
+  res.json({ simulation: false, resume: { ...resume, envoyes: nouveaux.filter(l => l.envoye).length }, lignes });
+  } catch (e) {
+    console.error('[users/acces-lot]', e);
+    if (!res.headersSent) res.status(500).json({ error: e.message });
+  }
+});
+
 r.patch('/:id', authRequired, gesteRequis('configuration.comptes'), (req, res) => {
   const { nom_complet, role, actif, password, sections, professeur_id, acces,
           permissions_json, acces_recrutement, perimetre_toutes, email } = req.body || {};

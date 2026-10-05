@@ -92,10 +92,11 @@ export function bilanCredits(etudiantId, annee) {
 
   let inscritsAnnee = 0, acquisAnnee = 0, acquisTotal = 0, valorises = 0;
   let sansEcts = 0;
+  const uesSansEcts = new Set();
 
   for (const l of lignes) {
     const e = Number(l.ects) || 0;
-    if (!l.ects) sansEcts++;
+    if (!l.ects) { sansEcts++; uesSansEcts.add(l.ue_num); }
     if (l.annee_scolaire === annee) {
       inscritsAnnee += e;
       if (acquis(l.resultat)) acquisAnnee += e;
@@ -105,7 +106,7 @@ export function bilanCredits(etudiantId, annee) {
   }
 
   return { inscritsAnnee, acquisAnnee, acquisTotal, valorises, sansEcts,
-           nbUE: lignes.length };
+           uesSansEcts: [...uesSansEcts].sort((a, b) => a - b), nbUE: lignes.length };
 }
 
 /** La section suivie l'année considérée, et le total de crédits du cursus. */
@@ -163,7 +164,7 @@ r.get('/donnees/:etudiantId', authRequired, (req, res) => {
   if (!e.date_naissance) manques.push('la date de naissance');
   if (!formation.totalCredits) manques.push('le nombre total de crédits de la formation');
   if (credits.sansEcts) {
-    manques.push(`les ECTS de ${credits.sansEcts} unité(s) — le décompte est incomplet`);
+    manques.push(`les ECTS de l'UE ${credits.uesSansEcts.join(', ')} (référentiel) — le décompte des crédits est incomplet`);
   }
 
   res.json({
