@@ -437,7 +437,7 @@ function DemandesAValider() {
     <div className="mb-5">
       <div className="flex items-baseline gap-2 mb-1.5">
         <h2 className="text-[13px] font-semibold text-iip-blue">À valider</h2>
-        <span className="text-[11px] text-slate-400">modifications proposées par les coordinations</span>
+        <span className="text-[11px] text-slate-400">modifications proposées par les coordinations et par les enseignants (leur fiche)</span>
       </div>
       <button type="button" onClick={() => setOuvert(true)}
         className="carte w-full text-left px-3 py-2 flex items-center gap-3 hover:bg-slate-100">
