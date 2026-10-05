@@ -10,7 +10,7 @@ import { ordonnerCouches, placerCouches, redresserPassages, courbeParPoints } fr
    le PAE ni nos fenêtres actuelles »). Le schéma d'une SECTION (mode
    structure, et sa pièce imprimée) prend les couleurs du logo ; le schéma d'un
    étudiant garde les repères de bloc de tout Lucie (Configuration → Blocs). */
-const COULEUR_ARCHI = { BA1: 'var(--c-iip_or, #F9B619)', BA2: 'var(--c-iip_bleu, #19537E)', BA3: 'var(--c-principal, #16406A)' };
+const COULEUR_ARCHI = { BA1: 'var(--c-iip_or, #F9B619)', BA2: 'var(--c-iip_cyan, #05B7E6)', BA3: 'var(--c-principal, #16406A)' };
 
 /**
  * Schéma de capitalisation — arbre des UE et de leurs prérequis.
@@ -103,7 +103,10 @@ export default function SchemaCapitalisation({
     // TETE passe de 18 à 28 : le sous-titre « ÉPREUVE INTÉGRÉE » est tracé
     // à PAD + 18, exactement là où commençait la première tuile — il se
     // superposait donc à elle.
-    const L = 78, H = 26, GX = 38, GY = 6, PAD = 5, TETE = 28, PIED = 22;
+    // L'ARCHITECTURE PORTE UNE LIGNE DE PLUS (ECTS et périodes étudiant), et
+    // ses en-têtes le total de chaque bloc.
+    const archi = mode === 'structure';
+    const L = 78, H = archi ? 34 : 26, GX = 38, GY = 6, PAD = 5, TETE = archi ? 36 : 28, PIED = 22;
     const couches = {};
     for (const n of data.nodes) (couches[n.couche] = couches[n.couche] || []).push(n);
     let nums = Object.keys(couches).map(Number).sort((a, b) => a - b);
@@ -168,8 +171,10 @@ export default function SchemaCapitalisation({
       .map(g => {
         const xd = colonnesX[g.debut];
         const xf = colonnesX[g.fin] !== undefined ? colonnesX[g.fin] : xd;
+        const dans = data.nodes.filter(n => n.couche >= g.debut && n.couche <= g.fin && !sousEI.includes(n));
+        const somme = k => dans.reduce((t, n) => t + (Number(n[k]) || 0), 0);
         return {
-          ...g, x: xd,
+          ...g, x: xd, ects: somme('ects'), per: somme('per_etudiants'),
           largeur: (xf - xd) + L,
           centre: xd + ((xf - xd) + L) / 2,
           sousTitre: g.sous_titre || null,
@@ -184,7 +189,7 @@ export default function SchemaCapitalisation({
       // PIED : la légende s'affiche SOUS le schéma et se faisait recouvrir.
       hauteur: bas + PAD + PIED,
     };
-  }, [data]);
+  }, [data, mode]);
 
   if (!data) return <div className="py-4 text-[12px] text-slate-400">Chargement du schéma…</div>;
   if (!data.nodes?.length) return (
@@ -425,6 +430,11 @@ export default function SchemaCapitalisation({
                     <rect x={e0.x} y={layout.PAD + 16} width={e0.largeur} height="3" rx="1.5"
                       style={{ fill: COULEUR_ARCHI[blocDe(e0.label)] }} />
                   )}
+                  {mode === 'structure' && !e0.sousTitre && (e0.ects > 0 || e0.per > 0) && (
+                    <text x={e0.centre} y={layout.PAD + 27} textAnchor="middle" fontSize="7" fill="#475569">
+                      {[e0.ects ? `${e0.ects} ECTS` : null, e0.per ? `${e0.per} pér. étudiant` : null].filter(Boolean).join(' · ')}
+                    </text>
+                  )}
                   {e0.sousTitre && (
                     <text x={e0.centre} y={layout.PAD + 18}
                       textAnchor="middle" fontSize="7.5" fontWeight="600"
@@ -576,6 +586,11 @@ export default function SchemaCapitalisation({
                     <text x={p.x + 7} y={p.y + 12} fontSize="10" fontWeight="700" style={{ fill: co.texte }}>
                       {n.ue_num}
                     </text>
+                    {mode === 'structure' && (n.ects != null || n.per_etudiants != null) && (
+                      <text x={p.x + 7} y={p.y + layout.H - 4.5} fontSize="6.2" fill="#64748B">
+                        {[n.ects != null ? `${n.ects} ECTS` : null, n.per_etudiants != null ? `${n.per_etudiants} pér.` : null].filter(Boolean).join(' · ')}
+                      </text>
+                    )}
                     {statut === 'faveur' && (
                       <Cadeau x={p.x + 8 + String(n.ue_num).length * 6.2} y={p.y + 4.2} taille={8.5} />
                     )}
