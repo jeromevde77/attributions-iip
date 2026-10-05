@@ -761,7 +761,7 @@ function ChoixResponsables({ personnes, presents = [], tache, onChange, informes
  * l'argument qui a fait poser la création au bas de la liste. Le titre suit la
  * même règle : il s'édite là où il se lit.
  */
-function TitreModifiable({ tache, compact, onValider }) {
+function TitreModifiable({ tache, compact, onValider, enColonne }) {
   const [edite, setEdite] = useState(false);
   const [texte, setTexte] = useState(tache.titre || '');
   useEffect(() => { setTexte(tache.titre || ''); }, [tache.titre]);
@@ -783,13 +783,20 @@ function TitreModifiable({ tache, compact, onValider }) {
           // sortir d'une modification entamée par erreur qu'en la validant.
           if (e.key === 'Escape') { setTexte(tache.titre || ''); setEdite(false); }
         }}
-        className="flex-1 min-w-0 bg-white border border-iip-blue rounded-champ
-                   px-2 h-8 text-[13px]" />
+        className={`${enColonne ? 'w-full' : 'flex-1'} min-w-0 bg-white border border-iip-blue rounded-champ
+                   px-2 h-8 text-[13px]`} />
     );
   }
   return (
-    <button onClick={() => setEdite(true)} title="Corriger l'intitulé"
-      className={`flex-1 min-w-0 text-left text-[13px] truncate
+    /* EN COLONNE, LE TITRE VA À LA LIGNE (5 octobre 2026). Dans la grille, le
+       bouton vivait dans un bloc qui ne bornait pas sa largeur : « truncate »
+       ne coupait rien, et un intitulé long passait sous les responsables.
+       Il prend donc la largeur de sa colonne et se lit sur deux lignes ; le
+       survol donne le reste. Dans la ligne simple (une boîte flex), il garde
+       sa coupure. */
+    <button onClick={() => setEdite(true)}
+      title={enColonne ? `${tache.titre}\n— cliquer pour corriger l'intitulé` : "Corriger l'intitulé"}
+      className={`${enColonne ? 'block w-full line-clamp-2 break-words leading-snug' : 'flex-1 min-w-0 truncate'} text-left text-[13px]
         hover:underline decoration-dotted underline-offset-2
         ${tache.statut === 'fait' || tache.statut === 'abandonnee'
           ? 'text-slate-400 line-through' : 'text-slate-800'}`}>
@@ -942,7 +949,7 @@ function ListeTaches({ taches, personnes, presents = [], obligations = [], api, 
 
             {/* LE TITRE SE CORRIGE : on clique, on écrit, Entrée enregistre. */}
             <div className="min-w-0">
-              <TitreModifiable tache={t} compact={compact}
+              <TitreModifiable tache={t} compact={compact} enColonne
                 onValider={titre => majTache(t, { titre })} />
               {informes.length > 0 && !deplies.has(t.id) && (
                 <div className="text-[11px] text-slate-400 truncate">Au courant : {informes.join(', ')}</div>
