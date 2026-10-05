@@ -255,6 +255,18 @@ NAS Synology.
   `maj-prod` — `sudo docker rename <nom> attributions-backend`.
 - Base : `/app/data/attributions.db` dans le conteneur. **SQLite3 n'est pas
   installé** → interroger via `node -e "const Database = require('better-sqlite3') …"`.
+- **LE JOURNAL DES MODIFICATIONS S'ÉCRIT DANS LA BASE** (3.1.47) : des
+  déclencheurs SQLite sur `etudiant`, `etudiant_inscription` et
+  `etudiant_note_detail` remplissent `journal_modification` (fiche champ par
+  champ, UE ajoutée ou retirée, résultat, note posée, changée ou effacée) —
+  quelle que soit la route, l'import ou l'écran. L'auteur vient de deux
+  fonctions déclarées par `db/index.js` (`lucie_auteur()`,
+  `lucie_auteur_id()`). **Une correction en `node -e` qui écrit dans ces
+  tables doit les déclarer**, sinon SQLite refuse (« no such function ») :
+  `d.function('lucie_auteur',()=>'Jérôme (ligne de commande)');d.function('lucie_auteur_id',()=>null);`.
+  Lecture dans *Qui a fait quoi*, registre « Fiches, PAE, notes ». Un
+  `INSERT OR REPLACE` ne se journalise que comme un encodage (sans l'ancienne
+  valeur) : préférer `ON CONFLICT … DO UPDATE`.
 - La **base de dev est séparée** (volume `attributions-data-dev`) : aucun risque
   pour la production.
 - Chaque poussée sur `develop` déclenche la construction des images `:dev`

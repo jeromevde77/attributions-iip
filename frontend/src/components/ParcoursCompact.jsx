@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { authHeaders } from '../lib/api.js';
 import { couleurBloc, rangBloc } from '../lib/blocs.js';
+import { ordonnerCouches, placerCouches, courbeParPoints } from '../lib/schemaCouches.js';
 
 /**
  * LE PARCOURS EN PETITES TUILES, AVEC SES FLÈCHES (Charles, 2 octobre 2026 :
@@ -73,11 +74,29 @@ export default function ParcoursCompact({ etudId, annee, programme = new Set(), 
       x += c.w + (PAS_X - L);
     });
     const edges = tousEdges.filter(e => pos[e.from] && pos[e.to]);
-    return { cols, pos, edges, largeur: x - (PAS_X - L) + MARGE, hauteur: hMax + 6 };
+    /* LE SCHÉMA EN COUCHES (lib/schemaCouches.js), comme le schéma de
+       capitalisation : chaque sous-colonne est une couche, l'ordre des tuiles
+       croise le moins possible, et une flèche qui saute une couche y réserve
+       sa place. Les abscisses restent celles calculées ci-dessus. */
+    const xs = [...new Set(Object.values(pos).map(p => p.x))].sort((a, b) => a - b);
+    const { ordre, chemins, gauche, droite } = ordonnerCouches({
+      colonnes: xs.map(x0 => Object.keys(pos).filter(k => pos[k].x === x0)
+        .sort((a, b) => pos[a].y - pos[b].y)),
+      edges,
+    });
+    const PASSE = 3;
+    const hauts = placerCouches({ ordre, gauche, droite, haut: HAUT,
+      taille: s0 => (s0.passage ? PASSE : H), ecart: () => PAS_Y - H });
+    const passages = {};
+    hMax = 0;
+    ordre.forEach((col, ci) => col.forEach(s0 => {
+      const y = hauts.get(s0.id);
+      if (s0.passage) passages[s0.id] = { x: xs[ci], y: y + PASSE / 2 };
+      else { pos[s0.id].y = y; hMax = Math.max(hMax, y + PAS_Y); }
+    }));
+    return { cols, pos, edges, chemins, passages, largeur: x - (PAS_X - L) + MARGE, hauteur: hMax + 6 };
   }, [data]);
 
-  // Flèches en couloirs suspendues (3.1.39) : les courbes d'origine reviennent.
-  const routes = new Map();
 
   if (!data) return <p className="text-[12px] text-slate-400">Chargement du parcours…</p>;
   if (!plan) return <p className="text-[12px] text-slate-500">Aucun schéma pour ce cursus.</p>;
@@ -116,7 +135,11 @@ export default function ParcoursCompact({ etudId, annee, programme = new Set(), 
     const memeCol = a.x === b.x;
     const x1 = a.x + L, y1 = a.y + H / 2, y2 = b.y + H / 2;
     const x2 = memeCol ? b.x + L + 2 : b.x - 3;
-    const d = routes.get(`${e.from}-${e.to}`) || (memeCol
+    const via = plan.chemins.get(`${e.from}-${e.to}`);
+    const d = via ? courbeParPoints([[x1, y1],
+        ...via.flatMap(v => { const q = plan.passages[v.id]; return [[q.x - 2, q.y], [q.x + L + 2, q.y]]; }),
+        [x2, y2]])
+      : (memeCol
       ? `M${x1},${y1} C${x1 + 12},${y1} ${x2 + 12},${y2} ${x2},${y2}`
       : `M${x1},${y1} C${x1 + 18},${y1} ${x2 - 18},${y2} ${x2},${y2}`);
     const couleur = relief ? '#16406A' : fort ? '#2F6FB0' : '#CBD5E1';

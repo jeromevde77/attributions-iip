@@ -177,6 +177,25 @@ const SOURCES = [
           FROM etudiant_suivi s LEFT JOIN etudiant e ON e.id = s.etudiant_id`,
   },
   {
+    // LE JOURNAL DES MODIFICATIONS (3.1.47) : fiche, PAE, résultats et notes,
+    // écrit par les déclencheurs de lib/journalModifications.js. Le plus gros
+    // registre de tous — les vingt mille derniers gestes suffisent à l'écran.
+    cle: 'modifications',
+    sql: `SELECT * FROM (
+            SELECT j.le AS quand, j.par_id AS qui_id, COALESCE(j.par, 'hors session') AS qui_nom,
+                   'modifications' AS registre,
+                   CASE j.objet WHEN 'fiche' THEN 'fiche · ' || j.geste || COALESCE(' · ' || j.code, '')
+                                WHEN 'pae' THEN 'PAE · UE ' || j.ue_num || ' · ' || j.geste
+                                WHEN 'resultat' THEN 'résultat · UE ' || j.ue_num || ' · ' || j.code
+                                ELSE 'note · UE ' || j.ue_num || ' · ' || j.geste END AS geste,
+                   COALESCE(e.nom || ' ' || e.prenom, 'étudiant #' || j.etudiant_id) AS objet,
+                   e.section_rattachement AS section, j.annee_scolaire AS annee,
+                   CASE WHEN j.objet = 'note' THEN j.code || ' : ' ELSE '' END
+                     || COALESCE(j.avant, '—') || ' → ' || COALESCE(j.apres, '—') AS detail
+            FROM journal_modification j LEFT JOIN etudiant e ON e.id = j.etudiant_id
+            ORDER BY j.id DESC LIMIT 20000)`,
+  },
+  {
     cle: 'documents',
     sql: `SELECT d.genere_le AS quand, NULL AS qui_id, d.genere_par AS qui_nom,
                  'documents' AS registre, COALESCE(d.type_doc,'pièce') AS geste,

@@ -433,7 +433,7 @@ function RevuePAE({ liste: base, annee: anneeDepart, onClose }) {
     <Fenetre icone={IconEyeCheck} large="ecran" hauteurFixe onFermer={onClose}
       titre={d ? `Revue des PAE — ${nomPropre(d.etudiant.nom, d.etudiant.prenom)}` : 'Revue des PAE'}
       sous={liste.length ? `${Math.min(i, liste.length - 1) + 1} sur ${liste.length} · ${nRevus} validé(s) · année ${annee}` : `Aucun étudiant ne correspond · année ${annee}`}
-      outils={<button type="button" title="Éditions — imprimer ou envoyer les PAE" aria-label="Éditions"
+      outils={<button type="button" title="Imprimer ou envoyer le PAE de cet étudiant — centre d'édition" aria-label="Éditions"
         disabled={!liste.length} onClick={() => setEditions(true)}
         className="flex-none w-8 h-8 grid place-items-center rounded-champ hover:bg-white/15 disabled:opacity-40">
         <IconSend size={16} /></button>}>
@@ -695,7 +695,12 @@ function RevuePAE({ liste: base, annee: anneeDepart, onClose }) {
         );
       })()}
       {editions && (
+        /* L'AVION DE LA REVUE OUVRE SUR L'ÉTUDIANT À L'ÉCRAN, le PAE coché
+           (Charles, 5 octobre 2026 : « depuis un dossier… en cochant déjà la
+           bonne chose liée ») ; « revenir » rend la liasse de la revue. */
         <CentreImpressionCentral ongletInitial="etudiants" onClose={() => setEditions(false)}
+          etudiant={cur ? { id: cur.id, nom: cur.nom, prenom: cur.prenom, section_rattachement: cur.section || null } : null}
+          anneeEtudiant={annee}
           perimetre={{ annee, pieces: ['pae'], coches: liste.map(x => x.id),
             sections: fSection ? [fSection] : [...new Set(liste.map(x => x.section).filter(Boolean))] }} />
       )}
@@ -2378,6 +2383,7 @@ function Valorisations({ etudId, annee }) {
                 {/* « Modifier » est retiré : une décision se corrige dans la séance,
                     qui garde le circuit et le journal. */}
                 <OuvrirEditions taille="petit" ongletInitial="etudiants" familleInitiale="valorisation"
+                  perimetre={{ valorisation: { annee: v.annee_scolaire, ue_num: v.ue_num, ue_nom: v.ue_nom } }}
                   titre="Procès-verbal et attestations de l'unité — centre d'édition" />
                 {estAdmin && (
                   <button onClick={() => supprimer(v.id)} className="text-slate-300 hover:text-red-500">
