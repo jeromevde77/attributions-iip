@@ -171,7 +171,13 @@ export default function SchemaCapitalisation({
       .map(g => {
         const xd = colonnesX[g.debut];
         const xf = colonnesX[g.fin] !== undefined ? colonnesX[g.fin] : xd;
-        const dans = data.nodes.filter(n => n.couche >= g.debut && n.couche <= g.fin && !sousEI.includes(n));
+        /* L'ÉPREUVE INTÉGRÉE COMPTE DANS LE BLOC SOUS LEQUEL ELLE EST POSÉE
+           (Charles, 5 octobre 2026 : « erreur de calcul d'ECTS ») : BA3 sans
+           elle affichait 38 ECTS en Psychomotricité, et les trois blocs ne
+           faisaient plus les 180 de la formation. */
+        const avecEI = sousEI.length && colPied >= g.debut && colPied <= g.fin;
+        const dans = [...data.nodes.filter(n => n.couche >= g.debut && n.couche <= g.fin && !sousEI.includes(n)),
+          ...(avecEI ? sousEI : [])];
         const somme = k => dans.reduce((t, n) => t + (Number(n[k]) || 0), 0);
         return {
           ...g, x: xd, ects: somme('ects'), per: somme('per_etudiants'),
