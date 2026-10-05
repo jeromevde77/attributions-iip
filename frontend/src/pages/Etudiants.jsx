@@ -208,7 +208,7 @@ function RevuePAE({ liste: base, annee: anneeDepart, onClose }) {
   const [synthese, setSynthese] = useState(null);
   const [fSection, setFSection] = useState('');
   const [fNiveau, setFNiveau] = useState('');
-  const [fCritere, setFCritere] = useState('');    // '' | reports | verifier | nonrevus
+  const [fCritere, setFCritere] = useState('');    // '' | reports | verifier | nonrevus | sanspae
   const [i, setI] = useState(0);
   const [d, setD] = useState(null);
   const [erreur, setErreur] = useState(null);
@@ -250,7 +250,12 @@ function RevuePAE({ liste: base, annee: anneeDepart, onClose }) {
     const sy = synthese?.[e.id];
     if (fSection && e.section !== fSection) return false;
     if (fNiveau && e.niveau !== fNiveau) return false;
-    if (sy && !sy.pae) return false;                 // pas de PAE cette année : rien à revoir
+    /* UN ÉTUDIANT SANS PAE N'EST PAS « HORS SUJET » (Charles, 5 octobre 2026 :
+       « un sérieux bug pour 26-27 »). La revue l'écartait d'office : ouverte sur
+       ABARKAN Sara, sans inscription en 2026-2027, elle répondait « aucun
+       étudiant ne correspond » au lieu de proposer de composer son programme.
+       Il reste dans la liste ; « Sans PAE » les retrouve tous. */
+    if (fCritere === 'sanspae' && sy?.pae) return false;
     if (fCritere === 'reports' && !sy?.reports) return false;
     if (fCritere === 'verifier' && !(sy?.deja || sy?.reprendre)) return false;
     if (fCritere === 'nonrevus' && sy?.revu) return false;
@@ -446,7 +451,7 @@ function RevuePAE({ liste: base, annee: anneeDepart, onClose }) {
           <option value="MIXTE">Parcours mixte</option>
         </select>
         <div className="segments">
-          {[['', 'Tous'], ['reports', 'Avec reports'], ['verifier', 'À vérifier'], ['nonrevus', 'Pas encore validés']].map(([v, l]) => (
+          {[['', 'Tous'], ['reports', 'Avec reports'], ['verifier', 'À vérifier'], ['nonrevus', 'Pas encore validés'], ['sanspae', 'Sans PAE']].map(([v, l]) => (
             <button key={v || 'tous'} type="button" onClick={() => setFCritere(v)}
               className={`px-2.5 py-1 text-[12px] ${fCritere === v ? 'bg-iip-blue text-white font-semibold' : 'text-slate-600'}`}>{l}</button>
           ))}
@@ -455,7 +460,7 @@ function RevuePAE({ liste: base, annee: anneeDepart, onClose }) {
         <select className="controle text-[13px] max-w-[16rem]" value={cur?.id || ''}
           onChange={e => { const k = liste.findIndex(x => x.id === Number(e.target.value)); if (k >= 0) setI(k); }}
           title="Aller directement à un étudiant">
-          {liste.map((x, k) => <option key={x.id} value={x.id}>{k + 1}. {nomPropre(x.nom, x.prenom)}{synthese?.[x.id]?.revu ? ' ✓' : ''}</option>)}
+          {liste.map((x, k) => <option key={x.id} value={x.id}>{k + 1}. {nomPropre(x.nom, x.prenom)}{synthese?.[x.id]?.revu ? ' ✓' : ''}{synthese?.[x.id] && !synthese[x.id].pae ? ' · sans PAE' : ''}</option>)}
         </select>
 
       </div>
@@ -548,7 +553,7 @@ function RevuePAE({ liste: base, annee: anneeDepart, onClose }) {
                   <button type="button" className="underline text-slate-500" onClick={() => setOuverts(new Set(d.ues.map(u => u.ue_num)))}>tout ouvrir</button>
                   <button type="button" className="underline text-slate-500" onClick={() => setOuverts(new Set())}>tout fermer</button>
                 </div>
-                {!d.ues.length && <p className="text-[13px] text-slate-500">Aucune UE au PAE de {annee}.</p>}
+                {!d.ues.length && <div data-etat="surveiller" className="bloc-etat px-3 py-2 text-[13px]">Pas encore de PAE pour {annee} : ajoutez ses unités ci-dessous (« Ajouter une UE au PAE »), ou composez les PAE de la section (Inscriptions & PAE → Composer le PAE).</div>}
                 {/* LES VOLETS, COMME DANS LES ATTRIBUTIONS : pas de cadres, une
                     ligne par UE, une bande à la couleur du bloc le long du groupe. */}
                 {blocs.map(g => (

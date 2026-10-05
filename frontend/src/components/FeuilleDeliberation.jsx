@@ -2971,7 +2971,16 @@ function VueTableau({ data, liste, onOuvrir, session = 1 }) {
                                        text-white font-bold text-[11.5px] tabular-nums" style={{ background: teinteUE }}>
                         {ue.na ? 'NA' : fmt(ue.note)}
                       </span>
-                    : <span className="text-slate-300">·</span>}
+                    /* SANS NOTE, LA DÉCISION SE LIT QUAND MÊME (Charles, 5 octobre
+                       2026 : « pourquoi ces étudiants ne sont pas refusés ? »). Neuf
+                       étudiants de l'UE 305, sans aucune note, étaient bien refusés
+                       en base ; la colonne ne montrait que la note, donc rien. */
+                    : DECISION_TABLEAU[e.resultat]
+                      ? <span className="inline-flex items-center justify-center h-[22px] px-2 rounded-full text-white font-bold text-[11px]"
+                          style={{ background: DECISION_TABLEAU[e.resultat].c }} title="Décision du Conseil, sans note d'unité">
+                          {DECISION_TABLEAU[e.resultat].l}
+                        </span>
+                      : <span className="text-slate-300">·</span>}
                 </td>
               </tr>
             );
@@ -2982,6 +2991,12 @@ function VueTableau({ data, liste, onOuvrir, session = 1 }) {
   );
 }
 
+const DECISION_TABLEAU = {
+  refuse: { l: 'Refusé', c: 'var(--c-refuse)' },
+  ajourne: { l: 'Ajourné', c: 'var(--c-attente)' },
+  reussi: { l: 'Réussi', c: 'var(--c-reussi)' },
+  absent: { l: 'Absent', c: '#94A3B8' },
+};
 function Case({ etat, cours, premier }) {
   const bord = `border-b border-slate-100 ${premier ? 'border-l border-l-slate-200' : ''}`;
   if (!etat) return <td className={`${bord} text-center text-slate-300`}>·</td>;
