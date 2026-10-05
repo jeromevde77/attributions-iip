@@ -257,6 +257,8 @@ export function stylesEntete() {
   .doc-ligne { display: flex; align-items: center; gap: 6mm;
                padding-bottom: 3mm; border-bottom: 0.25mm solid #D8DCE4; }
   .doc-ligne .doc-cadre { margin-top: 0; flex: 1; min-width: 0; }
+  /* Le logo ouvre la ligne (Charles, même jour : « et le logo »). */
+  .doc-ligne-logo { height: 11mm; width: auto; flex: none; }
   /* Conservé pour les pièces à forme imposée qui ferment encore d'un filet. */
   .doc-filet-or { height: 0.6mm; background: #C9A84C; margin-top: 2.5mm; }`;
 }
@@ -310,6 +312,7 @@ export function enteteDocument({ titre, sous = null, mention = null,
   if (compact) return `<div class="doc-entete">
     <div class="doc-cf">COMMUNAUTÉ FRANÇAISE DE BELGIQUE — ENSEIGNEMENT POUR ADULTES</div>
     <div class="doc-ligne">
+      <img class="doc-ligne-logo" src="${LOGO_IIP_JPEG}" alt="Institut Ilya Prigogine">
       <div>
         <div class="doc-ident-n">${esc(etab.nom || 'Institut Ilya Prigogine')}</div>
         ${etab.adresse ? `<div class="doc-ident-a">${esc(etab.adresse)}</div>` : ''}
