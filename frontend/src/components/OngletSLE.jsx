@@ -93,7 +93,7 @@ export default function OngletSLE({ etudId, annee: anneeDepart }) {
   const proposition = sle.propositions?.motif_a2 || '';
 
   return (
-    <fieldset disabled={!peut} className={`space-y-4 text-[13px] max-w-4xl ${peut ? '' : 'ligne-lecture'}`}>
+    <fieldset disabled={!peut} className={`space-y-4 text-[13px] ${peut ? '' : 'ligne-lecture'}`}>
       <div className="flex flex-wrap items-center gap-2">
         <select className="controle text-[13px]" value={annee} onChange={e => setAnnee(e.target.value)}>
           {(annees.length ? annees : [annee]).map(a => <option key={a} value={a}>{a}</option>)}
@@ -123,6 +123,9 @@ export default function OngletSLE({ etudId, annee: anneeDepart }) {
         {a2?.credits ? ` · ${a2.credits.acquisAnnee} crédits obtenus cette année, ${a2.credits.acquisTotal} au total` : ''}.
       </div>
 
+      {/* LES DEUX ANNEXES CÔTE À CÔTE sur un écran large (5 octobre 2026 :
+          « largeur… ») — l'une sous l'autre sur un écran étroit. */}
+      <div className="grid gap-4 xl:grid-cols-2 items-start">
       <section className="border border-slate-200 rounded-carte p-3 space-y-2">
         <div className="text-[14px] font-semibold">Annexe 1 — visa ou titre de séjour</div>
         <fieldset className="space-y-1">
@@ -178,6 +181,7 @@ export default function OngletSLE({ etudId, annee: anneeDepart }) {
           <textarea className="controle w-full h-16 py-1.5" value={f.avis_a2} placeholder="Néant" data-reponses="sle-avis"
             onChange={e => set('avis_a2', e.target.value)} /></label>
       </section>
+      </div>
     </fieldset>
   );
 }

@@ -67,7 +67,7 @@ r.get('/donnees/:etudiantId', authRequired, (req, res) => {
   if (!e.date_naissance) manques.push('la date de naissance');
   if (!f.grade) manques.push("l'intitulé du grade (Configuration → Attestation → Sections & diplômes)");
   if (!f.total_ects) manques.push('le nombre total de crédits de la formation (même fiche)');
-  if (credits.sansEcts) manques.push(`les ECTS de ${credits.sansEcts} unité(s) — le programme annuel est sous-évalué`);
+  if (credits.sansEcts) manques.push(`les ECTS de l'UE ${credits.uesSansEcts.join(', ')} (référentiel) — le décompte des crédits est incomplet`);
   res.json({
     etudiant: { id: e.id, nom: e.nom, prenom: e.prenom, date_naissance: frDate(e.date_naissance), nationalite: e.nationalite || null },
     annee, formation: f, credits_annee: credits.inscritsAnnee,
