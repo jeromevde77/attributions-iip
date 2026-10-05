@@ -1478,6 +1478,7 @@ export default function Professeurs({ vue: vueInitiale = 'membres' }) {
   const [printing, setPrinting] = useState(false);
   const [printSelMenu, setPrintSelMenu] = useState(false);
   const [zipMenu, setZipMenu] = useState(false);
+  const [accesLot, setAccesLot] = useState(false);   // ouvrir l'accès à Lucie aux cochés
   const [ficheHtml, setFicheHtml] = useState(null);
   const [ficheMenu, setFicheMenu] = useState(null);
   const [etabFooter, setEtabFooter] = useState(null);
@@ -2411,6 +2412,14 @@ export default function Professeurs({ vue: vueInitiale = 'membres' }) {
                 )}
               </div>
 
+              {/* OUVRIR L'ACCÈS À LUCIE aux membres cochés (5 octobre 2026) :
+                  compte « professeur » et lien d'invitation, simulation d'abord. */}
+              {droits.peut('configuration.comptes') && (
+                <button onClick={() => setAccesLot(true)}
+                  className="bouton controle inline-flex items-center gap-1.5 text-sm">
+                  <IconKey size={15}/> Accès Lucie ({selection.size})
+                </button>
+              )}
               {/* Coordonnées — la liste imprimable des emails, GSM et adresses */}
               <button onClick={imprimerCoordonnees}
                 className="bg-iip-blue hover:opacity-90 text-white text-sm px-3 py-1.5 h-9 rounded font-medium inline-flex items-center gap-1.5">
@@ -2421,6 +2430,7 @@ export default function Professeurs({ vue: vueInitiale = 'membres' }) {
         </div>
       </div>
 
+      {accesLot && <AccesLot ids={[...selection]} onFermer={() => setAccesLot(false)} />}
       {loading ? <p className="text-gray-400 p-4">Chargement…</p> : (
         <div className="bg-white rounded-lg border border-gray-200 overflow-auto max-h-[calc(100vh-180px)]">
           <table className="grid-excel-soft w-full">
@@ -2486,3 +2496,71 @@ export default function Professeurs({ vue: vueInitiale = 'membres' }) {
   );
 }
 
+
+
+/* OUVRIR L'ACCÈS À LUCIE EN LOT (3.1.62, Charles, 5 octobre 2026). La
+   simulation dit, ligne par ligne, qui reçoit un compte « professeur » et à
+   quelle adresse (école, sinon privée), qui en a déjà un — et n'est pas touché —,
+   et qui reste de côté faute d'adresse. Puis les comptes se créent et le lien
+   part, le même que celui des Comptes : il fait choisir un mot de passe. */
+function AccesLot({ ids, onFermer }) {
+  const [r, setR] = useState(null);
+  const [fait, setFait] = useState(false);
+  const [enCours, setEnCours] = useState(false);
+  const [erreur, setErreur] = useState(null);
+  const appeler = async simulation => {
+    setEnCours(true); setErreur(null);
+    try {
+      const rep = await fetch('/api/users/acces-lot', { method: 'POST', headers: authHeaders(),
+        body: JSON.stringify({ professeur_ids: ids, simulation }) });
+      const j = await rep.json().catch(() => ({}));
+      if (!rep.ok) throw new Error(j.error || `Erreur ${rep.status}`);
+      setR(j); if (!simulation) setFait(true);
+    } catch (e) { setErreur(e.message); } finally { setEnCours(false); }
+  };
+  useEffect(() => { appeler(true); /* eslint-disable-next-line */ }, []);
+  const ETAT = { nouveau: 'Nouveau compte', deja: 'Déjà un compte — pas touché', sans_adresse: 'Aucune adresse — à compléter dans la fiche', adresse_prise: 'Adresse déjà prise par un autre compte' };
+  const n = r?.resume?.nouveaux || 0;
+  return (
+    <Fenetre titre="Ouvrir l'accès à Lucie" large="grande" onFermer={onFermer}
+      sous={fait ? 'Fait — les comptes sont créés' : `${ids.length} membre(s) coché(s) — rien n'est écrit avant de confirmer`}
+      pied={<>
+        <span className="flex-1 min-w-0 text-[12px] text-slate-500">
+          {fait ? `${r.resume.envoyes} lien(s) envoyé(s) sur ${n}.`
+            : r ? `${n} compte(s) « professeur » à créer ; chacun recevra le lien pour choisir son mot de passe (valable trois jours).` : ''}
+        </span>
+        <button className="bouton" onClick={onFermer}>{fait ? 'Fermer' : 'Annuler'}</button>
+        {!fait && <button className="bouton bouton-fort" disabled={enCours || !n} onClick={() => appeler(false)}>
+          {enCours ? '…' : `Créer ${n} compte(s) et envoyer le lien`}</button>}
+      </>}>
+      {erreur && <div data-etat="corriger" className="bloc-etat px-3 py-2 mb-2 text-[13px]">{erreur}</div>}
+      {!r ? <p className="text-[13px] text-slate-400">Vérification…</p> : (
+        <div className="space-y-2 text-[13px]">
+          <div className="text-[12.5px] text-slate-600">
+            {r.resume.nouveaux} nouveau(x) · {r.resume.deja} déjà un compte · {r.resume.sans_adresse} sans adresse
+            {r.resume.adresse_prise ? ` · ${r.resume.adresse_prise} adresse déjà prise` : ''}
+          </div>
+          <div className="border border-slate-200 rounded-carte overflow-hidden">
+            <table className="w-full text-[12.5px]">
+              <thead><tr className="tab-entete text-left text-[10.5px] uppercase tracking-[.08em] text-slate-500">
+                <th className="px-3 py-1.5">Membre</th><th className="px-3 py-1.5">Adresse</th><th className="px-3 py-1.5">Ce qui se passe</th></tr></thead>
+              <tbody>
+                {r.lignes.map(l => (
+                  <tr key={l.professeur_id} className="border-t border-slate-100 align-top">
+                    <td className="px-3 py-1.5 font-semibold">{l.nom}</td>
+                    <td className="px-3 py-1.5">{l.email || '—'}{l.prive && <span className="ml-1 text-[11px] text-slate-500">(privée)</span>}</td>
+                    <td className="px-3 py-1.5">
+                      {fait && l.etat === 'nouveau'
+                        ? (l.envoye ? 'Compte créé, lien envoyé' : <span>Compte créé — lien NON envoyé ({l.raison}) : <span className="select-all break-all text-[11px] text-slate-500">{l.lien}</span></span>)
+                        : <span className={l.etat === 'nouveau' ? '' : 'text-slate-500'}>{ETAT[l.etat]}{l.etat === 'deja' && l.role ? ` (${l.role}${l.actif ? '' : ', désactivé'})` : ''}{l.etat === 'adresse_prise' && l.par ? ` : ${l.par}` : ''}</span>}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+    </Fenetre>
+  );
+}
