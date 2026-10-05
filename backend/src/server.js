@@ -63,6 +63,7 @@ import dueRoutes, { migrerDUE } from './routes/due.js';
 import diplomesRoutes from './routes/diplomes.js';
 import annexe2Routes from './routes/annexe2.js';
 import annexe1Routes from './routes/annexe1.js';
+import sleRoutes, { migrerSLE } from './routes/sle.js';
 import impressionRoutes from './routes/impression.js';
 import importSurMesureRoutes from './routes/importSurMesure.js';
 import authRoutes from './routes/auth.js';
@@ -3021,6 +3022,8 @@ app.use('/api/conventions', garderModule('stages'), conventionsRoutes);
 app.use('/api/attestations', garderModule('attestations'), attestationsRoutes);
 app.use('/api/annexe2', garderModule('annexe2'), annexe2Routes);
 app.use('/api/annexe1', garderModule('annexe2'), annexe1Routes);
+app.use('/api/sle', sleRoutes);
+try { migrerSLE(db); } catch (e) { console.error('[migration] SLE :', e.message); }
 app.use('/api/impression', garderModule('impression'), impressionRoutes);
 app.use('/api/envois',     garderModule('envois'), (await import('./routes/envois.js')).default);
 app.use('/api/import-sur-mesure', garderModule('import-sur-mesure'), importSurMesureRoutes);

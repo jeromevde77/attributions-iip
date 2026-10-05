@@ -45,7 +45,7 @@ export default function StructureSection({ annee }) {
     const j = await rep.json().catch(() => ({}));
     if (!rep.ok) { await informer(j.error || 'La pièce n’a pas pu être composée.'); return; }
     ouvrirApercu({ html: j.html, titre: `Schéma de capitalisation — ${section}`, nomFichier: j.nom,
-      envoiPossible: false, astuceImpression: null, pdf: { orientation: 'paysage' } });
+      envoiPossible: false, astuceImpression: null, pdf: { orientation: 'paysage', marge_basse: 14 } });
   }
 
   async function charger() {

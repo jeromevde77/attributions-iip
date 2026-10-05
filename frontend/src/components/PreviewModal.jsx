@@ -62,7 +62,9 @@ export default function PreviewModal({ html, titre = 'Document', sousTitre, nomF
     setPdfEnCours(true);
     try {
       const r = await fetch('/api/impression/pdf', { method: 'POST', headers: authHeaders(),
-        body: JSON.stringify({ html: htmlAffiche, nom: nomFichier || titre, orientation: pdf?.orientation || 'portrait' }) });
+        body: JSON.stringify({ html: htmlAffiche, nom: nomFichier || titre, orientation: pdf?.orientation || 'portrait',
+          ...(pdf?.marge_basse ? { marge_basse: pdf.marge_basse } : {}),
+          ...(pdf?.pied === false ? { pied: false, pagination: 'jamais' } : {}) }) });
       if (!r.ok) { const j = await r.json().catch(() => ({})); throw new Error(j.error || `Erreur ${r.status}`); }
       const url = URL.createObjectURL(await r.blob());
       const a = document.createElement('a');

@@ -23,6 +23,7 @@ import { identiteEtablissement } from './config.js';
 import { sectionRattachement } from './etudiants.js';
 import { donneesSectionDiplome } from './diplomes.js';
 import { frDate, bilanCredits } from './annexe2.js';
+import { sleEnregistre } from './sle.js';
 
 const r = express.Router();
 const MOIS = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'];
@@ -77,11 +78,19 @@ r.get('/donnees/:etudiantId', authRequired, (req, res) => {
 
 /** La pièce, composée hors de la route : le lot du centre d'impression la tire aussi. */
 export function documentAnnexe1(body) {
-  const b = body || {};
-  const e = db.prepare('SELECT * FROM etudiant WHERE id = ?').get(b.etudiant_id);
+  const b0 = body || {};
+  const e = db.prepare('SELECT * FROM etudiant WHERE id = ?').get(b0.etudiant_id);
   if (!e) return { code: 404, erreur: 'étudiant introuvable' };
-  const annee = String(b.annee || '');
+  const annee = String(b0.annee || '');
   if (!/^\d{4}-\d{4}$/.test(annee)) return { code: 400, erreur: 'année requise' };
+  /* L'ONGLET SLE DE LA FICHE (routes/sle.js) : ce qui y est enregistré vaut
+     quand l'appel ne le précise pas — le lot d'Éditions part ainsi complet.
+     Un champ passé explicitement (formulaire « compléter… ») l'emporte. */
+  const s = sleEnregistre(e.id, annee) || {};
+  const garde = Object.fromEntries(Object.entries(b0).filter(([, v]) => v !== undefined && v !== null && v !== ''));
+  const b = { situation: s.situation || undefined, echange_du: s.echange_du, echange_au: s.echange_au,
+    date_ultime: s.date_ultime, mobilite: !!s.mobilite, mobilite_mois: s.mobilite_mois,
+    raisons: s.raisons, conditions: s.conditions, ...garde };
   const situation = SITUATIONS[b.situation] ? b.situation : 'definitive';
   const ident = identiteEtablissement();
   const f = formation(e.id, annee);

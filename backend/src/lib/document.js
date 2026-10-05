@@ -48,7 +48,7 @@ const HAUTEUR_PIED_MM = BANDE_PIED_MM - MARGE_SOUS_PIED_MM;
  * @param {boolean}[o.avecPied]
  */
 export function reglesDePage({ haut = 18, cote = 18,
-                               orientation = 'portrait', avecPied = true } = {}) {
+                               orientation = 'portrait', avecPied = true, bas = BANDE_PIED_MM } = {}) {
   return `
   @page {
     size: A4 ${orientation === 'paysage' ? 'landscape' : 'portrait'};
@@ -62,7 +62,7 @@ export function reglesDePage({ haut = 18, cote = 18,
        suivante, par-dessus l'en-tête du tableau. Un élément fixe ne doit pas
        déborder de la boîte de page ; la marge basse ne réserve donc plus que
        l'espace SOUS le pied, et le pied occupe le reste. */
-    margin: ${haut}mm ${cote}mm ${avecPied ? BANDE_PIED_MM : haut}mm ${cote}mm;
+    margin: ${haut}mm ${cote}mm ${avecPied ? bas : haut}mm ${cote}mm;
   }
   /* Aucun padding de réserve : un padding de corps ne vaut que sur la DERNIÈRE
      page — essayé, et le pied venait s'imprimer par-dessus les lignes de la
@@ -98,7 +98,7 @@ export function piedBalisage(logo = null) {
     + `</div>`;
 }
 
-export function piedStyles(hauteur = HAUTEUR_PIED_MM, margeHaut = 18, orientation = 'portrait') {
+export function piedStyles(hauteur = HAUTEUR_PIED_MM, margeHaut = 18, orientation = 'portrait', bas = BANDE_PIED_MM) {
   /* LA HAUTEUR DE LA FEUILLE SUIT L'ORIENTATION (3.1.35) : écrite « 297 mm »
      en dur, elle faisait d'une page paysage (210 mm) DEUX pages, la seconde
      vide — vu sur le schéma de capitalisation. */
@@ -130,7 +130,7 @@ export function piedStyles(hauteur = HAUTEUR_PIED_MM, margeHaut = 18, orientatio
      595,28 (210 mm) — une table à la hauteur EXACTE dépassait d'un dixième de
      millimètre, et l'impression navigateur ajoutait la page blanche. */
   table.feuille { width: 100%; border-collapse: collapse; margin: 0;
-                  height: calc(${hPage}mm - ${margeHaut}mm - ${BANDE_PIED_MM}mm - 1mm); }
+                  height: calc(${hPage}mm - ${margeHaut}mm - ${bas}mm - 1mm); }
   table.feuille > tbody > tr > td { vertical-align: top; }
   table.feuille > tbody > tr > td,
   table.feuille > thead > tr > td,
@@ -152,7 +152,7 @@ export function piedStyles(hauteur = HAUTEUR_PIED_MM, margeHaut = 18, orientatio
     /* À l'écran il n'y a pas de pages : on simule la feuille pour que l'aperçu
        montre le pied là où il s'imprimera, au lieu de le coller sous le texte. */
     body { min-height: ${hPage}mm; }
-    table.feuille { min-height: calc(${hPage}mm - ${margeHaut}mm - ${BANDE_PIED_MM}mm); }
+    table.feuille { min-height: calc(${hPage}mm - ${margeHaut}mm - ${bas}mm); }
   }
 
   /* LE REPLI SAFARI EST DE RETOUR, ET IL EST NÉCESSAIRE.
@@ -380,6 +380,12 @@ export function envelopperDocument({ html, titre, orientation = 'portrait',
                                         qui n'en portent pas. */
                                      styles = '', logo = undefined, avecPied = true,
                                      margeHaut = 18, margeCote = 18,
+                                     /* LA MARGE BASSE, quand une pièce la veut plus courte
+                                        (5 octobre 2026, schéma de capitalisation : « 1 cm de
+                                        trop entre le bord et l'adresse »). Le pied vit DANS la
+                                        table : la marge ne sert qu'à l'écarter du bord. Le PDF
+                                        du serveur reçoit la même valeur (`marge_basse`). */
+                                     margeBasse = BANDE_PIED_MM,
                                      entete = null }) {
   const pied = avecPied ? piedDocument() : '';
   const esc = s => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;');
@@ -396,7 +402,7 @@ export function envelopperDocument({ html, titre, orientation = 'portrait',
 <style>
   * { box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 
-  ${reglesDePage({ haut: margeHaut, cote: margeCote, orientation, avecPied })}
+  ${reglesDePage({ haut: margeHaut, cote: margeCote, orientation, avecPied, bas: margeBasse })}
 
   body { font-family: Arial, Helvetica, sans-serif; font-size: 10pt;
          color: #1a1a2e; margin: 0; }
@@ -467,7 +473,7 @@ export function envelopperDocument({ html, titre, orientation = 'portrait',
   tr, td, th { break-inside: avoid; page-break-inside: avoid; }
 
   /* Le pied, ancré en bas de CHAQUE page — dernière comprise. */
-  ${piedStyles(HAUTEUR_PIED_MM, margeHaut, orientation)}
+  ${piedStyles(HAUTEUR_PIED_MM, margeHaut, orientation, margeBasse)}
 
   /* À l'écran, la position fixe collerait le pied au bas de la fenêtre, non
      de la page : on le laisse suivre le flux tant qu'on n'imprime pas. */
