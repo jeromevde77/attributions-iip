@@ -147,7 +147,7 @@ export default function PreviewModal({ html, titre = 'Document', sousTitre, nomF
         />
       </div>
       {envoi && (
-        <EnvoiMailModal
+        <EnvoiMailModal apercu={false}
           pieces={[{ html, nom_fichier: nomFichier || titre,
                      destinataire: destinataire || { nom: titre || nomFichier || 'Document' } }]}
           typeDoc={typeDoc || 'apercu'}

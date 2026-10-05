@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
-import { IconMail, IconAlertTriangle, IconCheck, IconSend, IconLoader2 } from '@tabler/icons-react';
+import { IconMail, IconAlertTriangle, IconCheck, IconSend, IconLoader2, IconEye } from '@tabler/icons-react';
+import { ouvrirApercu } from '../lib/apercu.js';
 import { authHeaders } from '../lib/api.js';
 import { useEnvoiMail } from '../lib/envoiMail.js';
 import { Fenetre } from './ui.jsx';
@@ -20,7 +21,7 @@ import { Fenetre } from './ui.jsx';
  * @param {string} [message]    corps proposé
  * @param {function} onClose
  */
-export default function EnvoiMailModal({ pieces, typeDoc, sujet: sujetInitial = '',
+export default function EnvoiMailModal({ pieces, typeDoc, apercu = true, sujet: sujetInitial = '',
                                          message: messageInitial = '', onClose,
                                          /* Facultatif : prévenu après un envoi,
                                             avec le résultat du serveur — pour
@@ -220,6 +221,7 @@ export default function EnvoiMailModal({ pieces, typeDoc, sujet: sujetInitial = 
                           <th className="w-8 px-2 py-1.5"></th>
                           <th className="text-left px-2 py-1.5">Personne</th>
                           <th className="text-left px-2 py-1.5">Adresse</th>
+                          {apercu && <th className="w-10 px-2 py-1.5"></th>}
                         </tr>
                       </thead>
                       <tbody>
@@ -252,6 +254,17 @@ export default function EnvoiMailModal({ pieces, typeDoc, sujet: sujetInitial = 
                                     l.email ? 'border-slate-300' : 'border-amber-300'}`} />
                               </div>
                             </td>
+                            {/* L'APERÇU AVANT D'ENVOYER (Charles, 5 octobre 2026 : « le
+                                secrétariat souhaite un aperçu ») : le document tel
+                                qu'il partira à CETTE personne, signature protégée. */}
+                            {apercu && (
+                              <td className="px-2 py-1 text-center">
+                                <button type="button" title="Voir le document avant de l'envoyer"
+                                  onClick={() => ouvrirApercu({ html: pieces[l.idx].html,
+                                    titre: l.nom_fichier || l.nom, nomFichier: l.nom_fichier, envoiPossible: false })}
+                                  className="text-slate-400 hover:text-iip-blue"><IconEye size={16} /></button>
+                              </td>
+                            )}
                           </tr>
                         ))}
                       </tbody>
