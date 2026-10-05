@@ -117,13 +117,18 @@ const PIECES_DOSSIER = [
  * écran : c'était UNE PORTE. Éditions en devient une — on choisit l'unité, et
  * la séance s'ouvre.
  */
-function OngletValorisation() {
-  const [annee, setAnnee] = useState(getAnnee());
+/* L'AVION D'UN DOSSIER OUVRE SUR CE DOSSIER (Charles, 5 octobre 2026 : « si je
+   fais avion depuis un dossier, cela va dans le centre d'impression mais en
+   cochant déjà la bonne chose liée »). `initial` : { annee, ue_num, ue_nom } —
+   l'unité de la valorisation d'où l'on vient, dont la séance s'ouvre d'office ;
+   on revient à la liste en la fermant. */
+function OngletValorisation({ initial = null }) {
+  const [annee, setAnnee] = useState(initial?.annee || getAnnee());
   const [annees, setAnnees] = useState([]);
   const [arbre, setArbre] = useState(null);
   const [section, setSection] = useState('');
   const [dossiers, setDossiers] = useState(null);
-  const [ouverte, setOuverte] = useState(null);   // { ue_num, ue_nom }
+  const [ouverte, setOuverte] = useState(initial?.ue_num != null ? { ue_num: initial.ue_num, ue_nom: initial.ue_nom || '' } : null);
   const [erreur, setErreur] = useState(null);
 
   useEffect(() => {
@@ -1668,7 +1673,11 @@ function OngletEtudiants({ perimetre = null, mode = 'deliberation', seul = null,
   };
   const nbPieces = (delib ? PIECES : PIECES_DOSSIER).filter(p => choix[p.cle] && dispo(p)).length;
   // Une pièce devenue indisponible se décoche : elle ne partirait pas avec le lot.
+  // Pas tant que la liste n'est pas chargée : vide, elle rend TOUT indisponible,
+  // et la pièce cochée par l'avion d'un dossier se décochait avant l'arrivée
+  // des étudiants. Une pièce cochée sans étudiant ne compte pas (nbPieces).
   useEffect(() => {
+    if (!etudiants.length) return;
     setChoix(c => {
       const n = { ...c }; let change = false;
       for (const p of [...PIECES, ...PIECES_DOSSIER]) if (n[p.cle] && !dispo(p)) { delete n[p.cle]; change = true; }
@@ -2022,7 +2031,10 @@ export default function CentreImpressionCentral({ ongletInitial = 'etudiants',
   // changer d'axe ensuite revient au défaut.
   const premier = useRef(true);
   useEffect(() => {
-    if (premier.current && familleInitiale) { premier.current = false; return; }
+    // À l'ouverture, la famille est déjà la bonne (demandée, ou déduite des
+    // pièces : le PAE ouvre « Dossiers étudiants ») — la remettre au défaut
+    // envoyait l'avion du PAE sur la délibération.
+    if (premier.current) { premier.current = false; return; }
     premier.current = false;
     setFamille(onglet === 'etudiants' || onglet === 'personnel' ? 'pieces' : 'rapports');
   }, [onglet]);
@@ -2107,9 +2119,10 @@ export default function CentreImpressionCentral({ ongletInitial = 'etudiants',
           {etudiantVu && ['pieces', 'dossiers'].includes(famille) ? (
             <OngletEtudiants key={`seul-${etudiantVu.id}-${famille}`} mode={famille === 'pieces' ? 'deliberation' : 'dossiers'}
               seul={etudiantVu} onRevenir={() => setEtudiantVu(null)}
-              perimetre={{ sections: [etudiantVu.section_rattachement || String(etudiantVu.sections || '').split(',')[0]].filter(Boolean), coches: [etudiantVu.id] }} />          ) : famille === 'pieces' ? <OngletEtudiants perimetre={perimetre} mode="deliberation" />
+              perimetre={{ sections: [etudiantVu.section_rattachement || String(etudiantVu.sections || '').split(',')[0]].filter(Boolean), coches: [etudiantVu.id],
+                ...(perimetre?.pieces ? { pieces: perimetre.pieces } : {}), ...(anneeEtudiant ? { annee: anneeEtudiant } : {}) }} />          ) : famille === 'pieces' ? <OngletEtudiants perimetre={perimetre} mode="deliberation" />
             : famille === 'dossiers' ? <OngletEtudiants perimetre={perimetre} mode="dossiers" />
-            : famille === 'valorisation' ? <OngletValorisation />
+            : famille === 'valorisation' ? <OngletValorisation initial={perimetre?.valorisation || null} />
             : famille === 'diplomes' ? <CentreDiplomation annee={getAnnee()} integre onClose={onClose} />
             : <ListesEtRapports domaine="etudiants" />}
         </>

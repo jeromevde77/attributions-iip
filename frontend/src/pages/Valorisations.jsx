@@ -637,6 +637,7 @@ function UniteValorisee({ va, annee, onSupprimer, onDocuments, onDossier, onChan
           <IconListCheck size={13} /> Dossier
         </button>
         <OuvrirEditions taille="petit" ongletInitial="etudiants" familleInitiale="valorisation"
+          perimetre={{ valorisation: { annee: va.annee_scolaire, ue_num: va.ue_num, ue_nom: va.ue_nom } }}
           titre="Procès-verbal et attestations — centre d'édition" />
         <button onClick={onSupprimer} className="text-slate-300 hover:text-red-500">
           <IconTrash size={15} />
