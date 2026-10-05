@@ -107,6 +107,75 @@ const SOURCES = [
           FROM journal_personnel jp
           LEFT JOIN professeur pr ON pr.id = jp.professeur_id`,
   },
+  /* LE TRAVAIL COURANT DU SECRÉTARIAT (3.1.43, Charles, 5 octobre 2026 : « je
+     ne vois aucun geste de Florian ni de Mélina, pourtant ils ont travaillé »).
+     Les envois, les PAE validés, les décisions de délibération… s'écrivaient
+     dans leurs registres sans qu'aucun ne soit lu ici. */
+  {
+    cle: 'envois',
+    sql: `SELECT m.envoye_le AS quand, NULL AS qui_id, m.envoye_par AS qui_nom,
+                 'envois' AS registre, CASE WHEN m.statut = 'envoye' THEN 'envoi' ELSE 'envoi en échec' END AS geste,
+                 COALESCE(m.destinataire_nom, m.email)||' · '||m.sujet AS objet,
+                 NULL AS section, NULL AS annee, m.reference AS detail
+          FROM envoi_mail m`,
+  },
+  {
+    cle: 'pae',
+    sql: `SELECT r.revu_le AS quand, NULL AS qui_id, r.revu_par AS qui_nom,
+                 'pae' AS registre, 'PAE validé' AS geste,
+                 COALESCE(e.nom||' '||e.prenom, 'étudiant #'||r.etudiant_id) AS objet,
+                 NULL AS section, r.annee_scolaire AS annee, NULL AS detail
+          FROM pae_revue r LEFT JOIN etudiant e ON e.id = r.etudiant_id
+          UNION ALL
+          SELECT d.le, NULL, d.par, 'pae', 'dérogation au PAE',
+                 COALESCE(e.nom||' '||e.prenom, 'étudiant #'||d.etudiant_id)||' · UE '||d.ue_num,
+                 NULL, d.annee_scolaire, d.regle||COALESCE(' — '||d.motif, '')
+          FROM pae_derogation d LEFT JOIN etudiant e ON e.id = d.etudiant_id`,
+  },
+  {
+    cle: 'deliberation',
+    sql: `SELECT r.decide_le AS quand, NULL AS qui_id, r.decide_par AS qui_nom,
+                 'deliberation' AS registre, 'décision : '||COALESCE(r.resultat, '—') AS geste,
+                 COALESCE(e.nom||' '||e.prenom, 'étudiant #'||r.etudiant_id)||' · UE '||r.ue_num||' · S'||r.session AS objet,
+                 NULL AS section, r.annee_scolaire AS annee, NULL AS detail
+          FROM deliberation_resultat r LEFT JOIN etudiant e ON e.id = r.etudiant_id
+          UNION ALL
+          SELECT a.maj_le, NULL, a.maj_par, 'deliberation', a.action||' ('||a.portee||')',
+                 COALESCE(e.nom||' '||e.prenom, 'étudiant #'||a.etudiant_id)||' · UE '||a.ue_num||' · '||a.code,
+                 NULL, a.annee_scolaire, NULL
+          FROM deliberation_ajustement a LEFT JOIN etudiant e ON e.id = a.etudiant_id`,
+  },
+  {
+    cle: 'procedures',   // le registre RDE (3.1.x) rejoint celui des anciens dossiers
+    sql: `SELECT p.le AS quand, p.par_id AS qui_id, p.par_nom AS qui_nom,
+                 'procedures' AS registre, 'étape : '||p.etape AS geste,
+                 COALESCE(e.nom||' '||e.prenom, 'dossier #'||p.dossier_id) AS objet,
+                 d.section, d.annee_scolaire AS annee, CASE WHEN p.donnees IS NULL THEN 'retirée' END AS detail
+          FROM proc_etape p LEFT JOIN proc_dossier d ON d.id = p.dossier_id LEFT JOIN etudiant e ON e.id = d.etudiant_id`,
+  },
+  {
+    cle: 'conventions',
+    sql: `SELECT j.horodatage AS quand, j.acteur_id AS qui_id, j.acteur_nom AS qui_nom,
+                 'conventions' AS registre, j.geste, 'convention #'||j.convention_id AS objet,
+                 NULL AS section, NULL AS annee, j.detail
+          FROM convention_journal j`,
+  },
+  {
+    cle: 'presences',
+    sql: `SELECT j.le AS quand, NULL AS qui_id, j.par AS qui_nom,
+                 'presences' AS registre, 'présence : '||COALESCE(j.apres, '—') AS geste,
+                 COALESCE(e.nom||' '||e.prenom, 'étudiant #'||j.etudiant_id)||' · séance #'||j.seance_id AS objet,
+                 NULL AS section, NULL AS annee, j.motif AS detail
+          FROM presence_journal j LEFT JOIN etudiant e ON e.id = j.etudiant_id`,
+  },
+  {
+    cle: 'suivi',
+    sql: `SELECT s.cree_le AS quand, s.cree_par_id AS qui_id, s.cree_par AS qui_nom,
+                 'suivi' AS registre, 'note de suivi' AS geste,
+                 COALESCE(e.nom||' '||e.prenom, 'étudiant #'||s.etudiant_id) AS objet,
+                 NULL AS section, NULL AS annee, NULL AS detail
+          FROM etudiant_suivi s LEFT JOIN etudiant e ON e.id = s.etudiant_id`,
+  },
   {
     cle: 'documents',
     sql: `SELECT d.genere_le AS quand, NULL AS qui_id, d.genere_par AS qui_nom,
@@ -146,6 +215,25 @@ r.get('/', authRequired, administrateurSeul, (req, res) => {
     }
   }
 
+  /* UN NOM OU UNE ADRESSE SE RATTACHE À SON COMPTE. Plusieurs registres ne
+     gardent que « DAELEMAN Florian », « Charles Sohet » ou l'adresse : sans ce
+     rattachement, choisir une personne écartait tous ces gestes-là. On
+     reconnaît le nom complet dans les deux ordres, et l'adresse. */
+  const norm = v => String(v || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
+    .replace(/[^a-z0-9@.]+/g, ' ').trim();
+  const comptes = new Map();
+  try {
+    for (const u of db.prepare('SELECT id, nom_complet, email FROM utilisateur').all()) {
+      const mots = norm(u.nom_complet).split(' ').filter(Boolean);
+      if (mots.length) { comptes.set(mots.join(' '), u.id); comptes.set([...mots].reverse().join(' '), u.id);
+        if (mots.length > 2) comptes.set([...mots.slice(1), mots[0]].join(' '), u.id); }
+      if (u.email) comptes.set(norm(u.email), u.id);
+    }
+  } catch { /* table absente */ }
+  for (const l of parties) {
+    if (l.qui_id == null && l.qui_nom) { const id = comptes.get(norm(l.qui_nom)); if (id != null) l.qui_id = id; }
+  }
+
   const q = qui ? String(qui) : null;
   const filtre = parties.filter(l => {
     if (!l.quand) return false;
@@ -177,7 +265,7 @@ r.get('/', authRequired, administrateurSeul, (req, res) => {
     tronque: filtre.length > Number(limit),
     lignes: filtre.slice(0, Number(limit)),
     personnes: [...gens.values()].sort((a, b) => b.gestes - a.gestes),
-    registres: SOURCES.map(s => ({
+    registres: [...new Set(SOURCES.map(s => s.cle))].map(cle => ({ cle }) ).map(s => ({
       cle: s.cle,
       gestes: parties.filter(l => l.registre === s.cle).length,
     })),
