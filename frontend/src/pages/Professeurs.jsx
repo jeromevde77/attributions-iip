@@ -1468,6 +1468,11 @@ export default function Professeurs({ vue: vueInitiale = 'membres' }) {
   const [showSansCharge, setShowSansCharge] = useState(false); // volet "à zéro" fermé par défaut
   const [loading, setLoading] = useState(true);
   const [detailId, setDetailId] = useState(null);
+  // UN PROFESSEUR ARRIVE SUR SA FICHE (« Ma fiche ») : c'est la seule qu'il lit.
+  useEffect(() => {
+    const u = getUser();
+    if (u?.role === 'professeur' && u?.professeur_id) setDetailId(Number(u.professeur_id));
+  }, []);
   const [editProf, setEditProf] = useState(null);
   // La rubrique ouverte dans l'axe Personnel : la liste des membres, ou l'une
   // des deux faces qui s'en détachaient en emportant le rail.
