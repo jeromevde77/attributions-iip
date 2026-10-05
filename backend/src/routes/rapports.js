@@ -23,11 +23,13 @@ import { anneeDeTravail } from '../helpers/annee.js';
 import { decisionDeSession } from './acquis.js';
 import { calculerEtp } from './pilotage.js';
 import { couleurs } from '../lib/couleurs.js';
+import { controlePrerequisPae, corpsControlePae, prenomSeul, STYLES_CONTROLE_PAE } from '../lib/controlePae.js';
 
 const r = Router();
 
 /** Un ETP vaut 800 périodes en charge théorique ; le cours technique compte double. */
 const COLS = (l) => l.map(([cle, entete, largeur = 16]) => ({ cle, entete, largeur }));
+const sectionsControle = p => (p.section && (!p.perimetre || p.perimetre.includes(p.section)) ? [p.section] : (p.perimetre || null));
 
 /**
  * LE CATALOGUE.
@@ -1375,6 +1377,34 @@ export const RAPPORTS = [
       LEFT JOIN ue u ON u.ue_num = s.ue_num AND u.annee_scolaire = s.annee_scolaire
       WHERE s.annee_scolaire = ?
       ORDER BY u.section, s.ue_num, s.session`).all(p.annee),
+  },
+  {
+    /* LES PAE HORS RÈGLE DE PRÉREQUIS (3.1.44, Charles, 5 octobre 2026 : « je
+       devrais pouvoir sortir cela de Lucie »). Le calcul est lib/controlePae.js,
+       le même que la face « PAE hors règle » de Contrôler les dossiers. La
+       pièce écrit son propre corps (tuiles, constat et action par étudiant) ;
+       les colonnes servent à l'export Excel. */
+    // Une section choisie hors du périmètre ne l'élargit pas.
+    id: 'pae-hors-regle', domaine: 'etudiants', params: ['annee', 'section'],
+    libelle: 'PAE hors règle de prérequis',
+    aide: "Les inscriptions de l'année dont le prérequis légal n'est pas acquis, sans dérogation : constat et action, par étudiant.",
+    colonnes: COLS([['section', 'Section', 18], ['etudiant', 'Étudiant', 28], ['matricule', 'Matricule', 12],
+      ['ue', 'UE inscrite', 34], ['prerequis', 'Prérequis légal', 34], ['historique', 'Historique du prérequis', 28],
+      ['constat', 'Constat', 40], ['action', 'Action', 44]]),
+    lignes: (p) => controlePrerequisPae(p.annee, { sections: sectionsControle(p) }).hors
+      .map(l => ({ section: l.section, etudiant: `${String(l.nom || '').toUpperCase()} ${prenomSeul(l.prenom)}`,
+        matricule: l.matricule, ue: `UE ${l.ue_num} · ${l.niv_ue || ''} · ${l.nom_ue || ''}`,
+        prerequis: `UE ${l.prerequis_num} · ${l.niv_pre || ''} · ${l.nom_pre || ''}`,
+        historique: l.historique || 'aucun', constat: l.constat, action: l.action })),
+    document: (p) => {
+      const c = controlePrerequisPae(p.annee, { sections: sectionsControle(p) });
+      return { titre: `PAE ${p.annee} — inscriptions hors règle de prérequis`, orientation: 'paysage',
+        nom: `PAE_hors_regle_${p.annee}${p.section ? '_' + p.section : ''}`,
+        entete: { titre: `PAE ${p.annee} — inscriptions hors règle de prérequis`,
+          sous: p.section ? `Section ${p.section}` : 'Toutes sections',
+          mention: 'Document de travail interne — à régulariser par le secrétariat et les coordinations.' },
+        styles: STYLES_CONTROLE_PAE, corps: corpsControlePae(c) };
+    },
   },
   {
     /* LES EFFECTIFS PAR UNITÉ — « étudiants par UE » de l'ancien écran. C'est
