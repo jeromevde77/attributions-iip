@@ -132,6 +132,20 @@ export const DOCUMENTS = [
     destinataires: 'conseil',
     roles: ['admin', 'directeur', 'directeur_adjoint', 'editeur', 'secretariat'],
   },
+  /* LE SCHÉMA DE CAPITALISATION D'UNE SECTION (5 octobre 2026), A4 paysage :
+     Éditions → Organisation → Schémas de capitalisation, ou Structure. Le
+     dessin vient de l'écran, la mise en page de l'enveloppe commune. */
+  {
+    cle: 'schema_capitalisation',
+    libelle: 'Schéma de capitalisation',
+    description: "Les unités d'une section par bloc, et leurs prérequis — A4 paysage, avec légende.",
+    portee: 'section', lot: false, groupe: 'Organisation',
+    route: { methode: 'POST', chemin: '/api/capitalisation/document' },
+    parametres: ['annee', 'section'],
+    nomFichier: 'Schema_capitalisation_{section}_{annee}',
+    destinataires: null,
+    roles: null,
+  },
   /* LES PIÈCES D'UN DOSSIER D'AMÉNAGEMENTS RAISONNABLES (décret du 30 juin
      2016). Elles se produisent depuis le dossier — fiche de l'étudiant, onglet
      Aménagements —, qui est leur porte ; elles se déclarent ici pour que le

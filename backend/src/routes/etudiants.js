@@ -6467,11 +6467,20 @@ r.get('/:id/grille', authRequired, (req, res) => {
   const e = db.prepare('SELECT * FROM etudiant WHERE id = ?').get(etudId);
   if (!e) return res.status(404).json({ error: 'étudiant introuvable' });
 
-  // Sections de l'étudiant (dominantes) — paramètre ?section= prioritaire
-  const { sections, scores: sectionsScores } = sectionsDeLEtudiant(etudId, req.query.section);
-
   // Année active pour le référentiel UE
   const anneeActive = anneeDeTravail(req);
+
+  /* LES SECTIONS DE LA GRILLE SONT CELLES DU CURSUS (5 octobre 2026, DUMOULIN
+     Xavier, optométriste : la grille affichait toute la section TIM). Elle
+     retenait toute section qui pesait 60 % de la dominante — une règle que le
+     schéma et le PAE ont quittée le 27 septembre pour le cursus en cours, ses
+     compatibles, et les autres ARCHIVÉS. Deux règles pour un même fait : la
+     grille ouvrait un cursus archivé en entier. Elle lit désormais cursusDe() ;
+     une UE suivie dans un cursus archivé reste visible, marquée « autre
+     section ». ?section= garde la main. */
+  const { sections: dominantes, scores: sectionsScores } = sectionsDeLEtudiant(etudId, req.query.section);
+  const sections = req.query.section ? dominantes
+    : (() => { const c = cursusDe(etudId, anneeActive); return c.actifs?.length ? c.actifs : dominantes; })();
 
   // Les UE de la section (référentiel année active), triées BA1→BA3 puis numéro
   let ues = [];

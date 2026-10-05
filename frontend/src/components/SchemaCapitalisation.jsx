@@ -1,4 +1,5 @@
 import { useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { IconGift } from '@tabler/icons-react';
 import { teintes } from '../lib/etats.js';
 import { blocDe, couleurBloc } from '../lib/blocs.js';
@@ -70,6 +71,7 @@ export const OR = { fill: '#FFFFFF', stroke: 'var(--c-epreuve)', text: 'var(--c-
 export default function SchemaCapitalisation({
   data, mode = 'etudiant', onNiveau = null, replie = false, titre = 'Schéma de capitalisation',
   onLien = null, onSupprimerLien = null, onNoeud = null,
+  enteteDans = null,   // un nœud de la page où poser l'en-tête (la barre de la fiche)
 }) {
   const [ouvert, setOuvert] = useState(!replie);
   const [selection, setSelection] = useState(null);   // UE cliquée (mode structure)
@@ -285,26 +287,26 @@ export default function SchemaCapitalisation({
     'BA1', 'BA2', 'BA3',
   ])].sort();
 
-  return (
-    /* UNE CARTE, UNE BANDE DE TITRE — la même que celle des notes, à côté
-       (Charles, 26 septembre 2026 : « alignement »). La commande de taille
-       rejoint la bande : une rangée de moins, et les deux panneaux ont leur
-       contenu à la même hauteur. */
-    <div className="mb-4">
-      <div className="entete-plat">
+  const resume = mode === 'etudiant'
+    ? `${compte('acquise')} réussie(s) · ${compte('accessible') + compte('sous_reserve')} disponible(s)`
+      + (compte('en_attente') ? ` · ${compte('en_attente')} en attente` : '')
+      + ` · ${compte('bloquee')} encore indisponible(s)`
+    : `${data.nodes.length} UE · ${data.edges.length} lien(s) de prérequis`;
+  const entete = compact => (<>
       <button onClick={() => setOuvert(o => !o)}
         className="flex-1 min-w-0 flex items-center justify-between gap-2 text-left">
-        <span className="text-[13px] font-semibold text-iip-blue truncate">
-          {titre}
-          <span className="ml-2 font-normal text-slate-500">
-            {mode === 'etudiant'
-              ? `${compte('acquise')} réussie(s) · ${compte('accessible') + compte('sous_reserve')} disponible(s)`
-                + (compte('en_attente') ? ` · ${compte('en_attente')} en attente` : '')
-                + ` · ${compte('bloquee')} encore indisponible(s)`
-                + (onNoeud ? ' · cliquer une unité pour voir ses notes' : '')
-              : `${data.nodes.length} UE · ${data.edges.length} lien(s) de prérequis`}
+        {compact ? (
+          <span className="text-slate-500 truncate" title={onNoeud ? 'Cliquer une unité pour voir ses notes' : undefined}>
+            <b className="text-iip-blue font-semibold">Schéma</b> · {resume}
           </span>
-        </span>
+        ) : (
+          <span className="text-[13px] font-semibold text-iip-blue truncate">
+            {titre}
+            <span className="ml-2 font-normal text-slate-500">
+              {resume}{onNoeud ? ' · cliquer une unité pour voir ses notes' : ''}
+            </span>
+          </span>
+        )}
       </button>
 
       {ouvert && layout && (
@@ -323,7 +325,21 @@ export default function SchemaCapitalisation({
       <button type="button" onClick={() => setOuvert(o => !o)} className="text-[11px] text-slate-400 hover:text-iip-blue flex-none">
         {ouvert ? 'Masquer' : 'Afficher'}
       </button>
-      </div>
+  </>);
+
+  return (
+    /* UNE CARTE, UNE BANDE DE TITRE — la même que celle des notes, à côté
+       (Charles, 26 septembre 2026 : « alignement »). La commande de taille
+       rejoint la bande : une rangée de moins, et les deux panneaux ont leur
+       contenu à la même hauteur. */
+    <div className="mb-4">
+      {enteteDans ? createPortal(
+        /* L'EN-TÊTE REJOINT LA BARRE DE LA FICHE (Charles, 5 octobre 2026 :
+           « gagnons en hauteur, on peut tout mettre sur une ligne ») : le
+           compte, le zoom et « Masquer » à côté de « Changer de section… », de
+           l'œil et de l'avion — une rangée de moins au-dessus du schéma. */
+        <div className="flex items-center gap-2 min-w-0 text-[12px]">{entete(true)}</div>, enteteDans)
+        : <div className="entete-plat">{entete(false)}</div>}
 
       {ouvert && layout && (
         <>

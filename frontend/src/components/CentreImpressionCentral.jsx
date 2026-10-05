@@ -19,6 +19,9 @@ import EnvoiMailModal from './EnvoiMailModal.jsx';
 import { useEnvoiMail } from '../lib/envoiMail.js';
 import { api, authHeaders, getAnnee } from '../lib/api.js';
 import { Fenetre, GroupeFenetre, PieceFenetre } from './ui.jsx';
+import SchemaCapitalisation from './SchemaCapitalisation.jsx';
+import { svgImprimable } from '../lib/svgImprimable.js';
+import { ouvrirApercu } from '../lib/apercu.js';
 
 /**
  * LE CENTRE D'IMPRESSION — un seul endroit d'où tout sort.
@@ -254,6 +257,77 @@ function OngletValorisation({ initial = null }) {
             annee={annee} onClose={() => setOuverte(null)} />
         </Suspense>
       )}
+    </div>
+  );
+}
+
+/**
+ * LES SCHÉMAS DE CAPITALISATION, EN A4 PAYSAGE (Charles, 5 octobre 2026 :
+ * « une impression A4 paysage avec mise en page, depuis Éditions »). On voit
+ * le schéma qu'on va sortir — c'est le même dessin que dans Structure —, et la
+ * pièce reprend ce dessin tel que le navigateur l'a calculé (svgImprimable) :
+ * deux tracés, l'un pour l'écran et l'autre pour le papier, finiraient par
+ * diverger.
+ */
+function OngletSchemas() {
+  const [annee, setAnnee] = useState(getAnnee());
+  const [annees, setAnnees] = useState([]);
+  const [sections, setSections] = useState([]);
+  const [section, setSection] = useState('');
+  const [data, setData] = useState(null);
+  const [enCours, setEnCours] = useState(false);
+  const [erreur, setErreur] = useState(null);
+  const zone = useRef(null);
+  useEffect(() => {
+    fetch('/api/annees', { headers: authHeaders() }).then(r => r.json())
+      .then(l => setAnnees((Array.isArray(l) ? l : []).map(a => a.code).filter(Boolean))).catch(() => {});
+    fetch('/api/ref/sections', { headers: authHeaders() }).then(r => r.json())
+      .then(l => { if (Array.isArray(l)) { setSections(l); if (l.length) setSection(s0 => s0 || l[0].code); } }).catch(() => {});
+  }, []);
+  useEffect(() => {
+    if (!section || !annee) return;
+    setData(null); setErreur(null);
+    fetch(`/api/capitalisation/structure?section=${encodeURIComponent(section)}&annee=${encodeURIComponent(annee)}`,
+      { headers: authHeaders() })
+      .then(async r => { const j = await r.json().catch(() => ({})); if (!r.ok) throw new Error(j.error || `Erreur ${r.status}`); setData(j); })
+      .catch(e => { setErreur(e.message); setData({ nodes: [], edges: [], colonnes: [] }); });
+  }, [section, annee]);
+
+  async function produire() {
+    const svgs = [...(zone.current?.querySelectorAll('svg') || [])]
+      .sort((a, b) => b.querySelectorAll('path, rect').length - a.querySelectorAll('path, rect').length);
+    const svg = svgImprimable(svgs[0]);
+    if (!svg) { setErreur('Le schéma n’est pas encore affiché.'); return; }
+    setEnCours(true);
+    try {
+      const r = await fetch('/api/capitalisation/document', { method: 'POST', headers: authHeaders(),
+        body: JSON.stringify({ section, annee, svg }) });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) { setErreur(j.error || 'La pièce n’a pas pu être composée.'); return; }
+      ouvrirApercu({ html: j.html, titre: `Schéma de capitalisation — ${section}`, nomFichier: j.nom,
+        envoiPossible: false, astuceImpression: 'A4 paysage' });
+    } finally { setEnCours(false); }
+  }
+
+  return (
+    <div className="p-4 space-y-3">
+      <div className="flex flex-wrap items-center gap-2">
+        <select value={section} onChange={e => setSection(e.target.value)} className="controle text-[13px]">
+          {sections.map(sx => <option key={sx.code} value={sx.code}>{sx.code}{sx.libelle && sx.libelle !== sx.code ? ` — ${sx.libelle}` : ''}</option>)}
+        </select>
+        <select value={annee} onChange={e => setAnnee(e.target.value)} className="controle text-[13px]">
+          {(annees.length ? annees : [annee]).map(a => <option key={a} value={a}>{a}</option>)}
+        </select>
+        <span className="flex-1" />
+        <button type="button" className="bouton bouton-sortir controle px-3 text-[13px]"
+          disabled={enCours || !data?.nodes?.length} onClick={produire}>
+          {enCours ? 'Composition…' : 'Aperçu et impression — A4 paysage'}
+        </button>
+      </div>
+      {erreur && <p className="text-[12px] text-[color:var(--c-refuse)]">{erreur}</p>}
+      <div ref={zone}>
+        <SchemaCapitalisation data={data} mode="structure" titre={`Schéma de capitalisation — ${section}`} />
+      </div>
     </div>
   );
 }
@@ -1733,7 +1807,9 @@ function OngletEtudiants({ perimetre = null, mode = 'deliberation', seul = null,
           </div>}
         </div>
 
-        <div className="flex-1 overflow-auto p-2 space-y-1.5">
+        {/* Même retrait que le bloc « Périmètre » au-dessus (px-3) : à p-2, la
+            section commençait 4 px plus à gauche que l'année. */}
+        <div className="flex-1 overflow-auto px-3 py-2 space-y-1.5">
           <select value={secChoisie} onChange={e => choisirSection(e.target.value)} className="controle w-full text-[13px]">
             <option value="">{arbre ? '— choisir une section —' : 'Chargement…'}</option>
             {(arbre?.sections || []).map(sec => <option key={sec} value={sec}>{sec}</option>)}
@@ -2143,13 +2219,20 @@ export default function CentreImpressionCentral({ ongletInitial = 'etudiants',
                   Pièces par membre
                 </button>
               )}
+              {onglet === 'organisation' && (
+                <button onClick={() => setFamille('schemas')}
+                  className={famille === 'schemas' ? 'on' : ''}>
+                  Schémas de capitalisation
+                </button>
+              )}
               <button onClick={() => setFamille('listes')}
-                className={onglet === 'personnel' && famille === 'pieces' ? '' : 'on'}>
+                className={(onglet === 'personnel' && famille === 'pieces') || (onglet === 'organisation' && famille === 'schemas') ? '' : 'on'}>
                 Listes et rapports
               </button>
             </span>
           </div>
           {onglet === 'personnel' && famille === 'pieces' ? <OngletPersonnel onClose={onClose} membreInitial={membreInitial} outilsMembre={outilsMembre} />
+            : onglet === 'organisation' && famille === 'schemas' ? <OngletSchemas />
             : <ListesEtRapports key={onglet} domaine={onglet} />}
         </>
       )}
