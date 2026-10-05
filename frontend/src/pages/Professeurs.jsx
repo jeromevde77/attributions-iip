@@ -10,7 +10,7 @@ import PreviewModal from '../components/PreviewModal.jsx';
 import CoursEditModal from '../components/CoursEditModal.jsx';
 import { IconSend, IconAddressBook, IconMail, IconMapPin, IconFileText, IconEdit, IconDownload, IconRefresh, IconX, IconPrinter, IconPlus, IconTrash, IconKey, IconLock, IconCheck, IconBriefcase, IconTargetArrow, IconChevronDown, IconChevronRight, IconUsers, IconSchool, IconUserPlus, IconBuilding, IconBuildingBank, IconFileDescription } from '@tabler/icons-react';
 import { MODULES_ACCES, ROLES_LUCIE, estDirection } from '../lib/modules.js';
-import { RailLateral, OuvrirEditions, Fenetre } from '../components/ui.jsx';
+import { RailLateral, OuvrirEditions, Fenetre, Encadre } from '../components/ui.jsx';
 /* LES RUBRIQUES DE L'AXE PERSONNEL SE RENDENT DANS L'AXE, PAS AILLEURS.
    « Besoins & offres » et « Classement & prioritaires » étaient des entrées de
    ce rail qui appelaient navigate() : elles QUITTAIENT l'axe, et le rail —
@@ -1459,7 +1459,52 @@ function statutsDe(p) {
   return [...new Set(l)];
 }
 
-export default function Professeurs({ vue: vueInitiale = 'membres' }) {
+/* « MA FICHE » : LA PAGE D'UN PROFESSEUR (5 octobre 2026 : « je ne vois
+   toujours pas pour les profs leur fiche personnelle, avec leurs infos qu'ils
+   peuvent modifier »). La page du Personnel chargeait la liste et des listes
+   annexes rangées sous Organisation ; un compte dont la case Organisation est
+   décochée était refusé avant même que sa fiche s'ouvre. Un professeur n'a
+   qu'une fiche : elle s'ouvre seule, et « Modifier la fiche » envoie sa
+   modification en demande, que la direction valide. */
+export default function Professeurs(props) {
+  const u = getUser();
+  if (u?.role === 'professeur') return <MaFiche />;
+  return <ProfesseursListe {...props} />;
+}
+
+function MaFiche() {
+  const navigate = useNavigate();
+  const [id, setId] = useState(() => Number(getUser()?.professeur_id) || null);
+  const [edition, setEdition] = useState(null);
+  const [cle, setCle] = useState(0);
+  // La copie locale du compte peut dater d'avant le lien à la fiche : on la relit.
+  useEffect(() => {
+    if (id) return;
+    api.me().then(d => { const p = Number(d?.user?.professeur_id); if (p) setId(p); }).catch(() => {});
+  }, [id]);
+  if (!id) {
+    return (
+      <div className="p-6 max-w-xl">
+        <Encadre etat="surveiller">Votre compte Lucie n'est pas encore relié à votre fiche du personnel.
+          Signalez-le au secrétariat, qui fera le lien.</Encadre>
+      </div>
+    );
+  }
+  return (
+    <>
+      {!edition && (
+        <DetailModal key={cle} profId={id} onClose={() => navigate('/accueil')}
+          onEdit={p => setEdition(p)} onFiche={() => {}} onEditions={() => {}} />
+      )}
+      {edition && (
+        <ProfFicheModal prof={edition} onClose={() => setEdition(null)}
+          onSaved={() => { setEdition(null); setCle(c => c + 1); }} />
+      )}
+    </>
+  );
+}
+
+function ProfesseursListe({ vue: vueInitiale = 'membres' }) {
   const [editionsMembre, setEditionsMembre] = useState(null);
   const [centreImpression, setCentreImpression] = useState(false);
   const navigate = useNavigate();
@@ -1484,11 +1529,7 @@ export default function Professeurs({ vue: vueInitiale = 'membres' }) {
   const [showSansCharge, setShowSansCharge] = useState(false); // volet "à zéro" fermé par défaut
   const [loading, setLoading] = useState(true);
   const [detailId, setDetailId] = useState(null);
-  // UN PROFESSEUR ARRIVE SUR SA FICHE (« Ma fiche ») : c'est la seule qu'il lit.
-  useEffect(() => {
-    const u = getUser();
-    if (u?.role === 'professeur' && u?.professeur_id) setDetailId(Number(u.professeur_id));
-  }, []);
+
   const [editProf, setEditProf] = useState(null);
   // La rubrique ouverte dans l'axe Personnel : la liste des membres, ou l'une
   // des deux faces qui s'en détachaient en emportant le rail.
