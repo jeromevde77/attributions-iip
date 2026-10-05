@@ -417,12 +417,20 @@ function MatriceAcces({ users, sectionsDispo, profils, onModifie, onProfil, acti
    * Un clic de trop, et l'on cherche ce qu'on a cassé. Les inactifs restent
    * donc là, en gris, après les autres.
    */
-  const tous = (users || []);
+  /* FILTRER PAR RÔLE (Charles, 5 octobre 2026 : « dans les accès par personne,
+     des filtres sur base des rôles »), et par nom ou adresse. */
+  const [filtreRole, setFiltreRole] = useState('');
+  const [filtreTexte, setFiltreTexte] = useState('');
+  const sansAcc = t => String(t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+  const tousComptes = (users || []);
+  const parRole = tousComptes.reduce((m, u) => m.set(u.role, (m.get(u.role) || 0) + 1), new Map());
+  const tous = tousComptes.filter(u => (!filtreRole || u.role === filtreRole)
+    && (!filtreTexte.trim() || sansAcc(`${u.nom_complet} ${u.email}`).includes(sansAcc(filtreTexte.trim()))));
   const actifs = tous.filter(u => u.actif);
   const parEtat = (a, b) => (b.actif ? 1 : 0) - (a.actif ? 1 : 0);
   const techniques = tous.filter(u => !u.professeur_id).sort(parEtat);
   const personnel = tous.filter(u => u.professeur_id).sort(parEtat);
-  if (!tous.length) return null;
+  if (!tousComptes.length) return null;
 
   // Le rôle fixe le plafond ; on ne propose que ce qu'il autorise.
   function cycle(u, module) {
@@ -682,6 +690,20 @@ function MatriceAcces({ users, sectionsDispo, profils, onModifie, onProfil, acti
         </span>
       </TitreCarte>
 
+      <div className="flex flex-wrap items-center gap-2 px-3 py-2 border-b border-slate-100">
+        <select className="controle text-[13px]" value={filtreRole} onChange={e => setFiltreRole(e.target.value)}>
+          <option value="">Tous les rôles ({tousComptes.length})</option>
+          {[...parRole].sort((a, b) => String(ROLE_LABEL[a[0]] || a[0]).localeCompare(String(ROLE_LABEL[b[0]] || b[0]), 'fr'))
+            .map(([r, n]) => <option key={r} value={r}>{ROLE_LABEL[r] || r} ({n})</option>)}
+        </select>
+        <input className="controle text-[13px] w-64" placeholder="Nom ou adresse…" value={filtreTexte}
+          onChange={e => setFiltreTexte(e.target.value)} />
+        {(filtreRole || filtreTexte) && (
+          <button type="button" className="text-[12px] underline text-slate-500" onClick={() => { setFiltreRole(''); setFiltreTexte(''); }}>
+            tout afficher</button>
+        )}
+        {!tous.length && <span className="text-[12px] text-slate-500">Aucun compte ne correspond.</span>}
+      </div>
       <div className="overflow-x-auto">
         <table className="w-full table-fixed border-collapse text-[13px]">
           <thead>
