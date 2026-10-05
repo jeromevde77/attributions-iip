@@ -2124,7 +2124,7 @@ const THEMES = [
     valeurs: { principal: '#16406A', accent: '#0A8FBF', texte: '#16406A', donnees: '#0A8FBF', menu_sombre: '#0F2A47',
                iip: '#16406A', helb: '#D14F8A', ct: '#2F6FB0', pp: '#2E8F6E',
                reussi: '#4FA64A', faveur: '#8E4F9A', disponible: '#3F7FD0', attente: '#F0922E', refuse: '#E0564F',
-               ba1: '#F9B619', ba2: '#05B7E6', ba3: '#16406A', epreuve: '#C9A227',
+               ba1: '#F9B619', ba2: '#19537E', ba3: '#16406A', epreuve: '#C9A227',
                fond_page: '#FFFFFF', fond_indispo: '#F4F5F7' } },
   { cle: 'origine', nom: "Lucie d'origine", texte: 'Gris ardoise, états sobres.', gris: 'ardoise', valeurs: ORIGINE },
   { cle: 'clair', nom: 'Gris clair', texte: 'Gris neutre, sans bleu ; états sobres.', gris: 'neutre',

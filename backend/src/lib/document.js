@@ -122,8 +122,15 @@ export function piedStyles(hauteur = HAUTEUR_PIED_MM, margeHaut = 18, orientatio
   /* La hauteur d'une table est un MINIMUM : en lui donnant celle de la zone
      de contenu, le pied descend au bas de la feuille même quand la pièce ne
      fait que dix lignes — sans quoi il se collait sous le dernier paragraphe. */
-  table.feuille { width: 100%; border-collapse: collapse;
-                  height: calc(${hPage}mm - ${margeHaut}mm - ${BANDE_PIED_MM}mm); }
+  /* MARGE NULLE : la règle générale des tableaux (2 mm dessus, 2 mm dessous)
+     s'appliquait aussi à cette table-là, qui fait déjà la hauteur EXACTE de la
+     zone de contenu — 4 mm de trop, et une page paysage en devenait deux, la
+     seconde ne portant que le pied (schéma de capitalisation, 5 octobre 2026). */
+  /* MOINS UN MILLIMÈTRE : Chrome arrondit la feuille paysage à 594,96 pt pour
+     595,28 (210 mm) — une table à la hauteur EXACTE dépassait d'un dixième de
+     millimètre, et l'impression navigateur ajoutait la page blanche. */
+  table.feuille { width: 100%; border-collapse: collapse; margin: 0;
+                  height: calc(${hPage}mm - ${margeHaut}mm - ${BANDE_PIED_MM}mm - 1mm); }
   table.feuille > tbody > tr > td { vertical-align: top; }
   table.feuille > tbody > tr > td,
   table.feuille > thead > tr > td,

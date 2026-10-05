@@ -16,6 +16,7 @@ import db from '../db/index.js';
 import { anneeDeTravail, anneeActiveEnBase } from '../helpers/annee.js';
 import { authRequired, roleRequired, getUserSections} from '../middleware/auth.js';
 import { envelopperDocument } from '../lib/document.js';
+import { couleurs } from '../lib/couleurs.js';
 
 const r = Router();
 
@@ -257,14 +258,38 @@ r.post('/document', authRequired, (req, res) => {
   svg = svg.replace(/<script[\s\S]*?<\/script>/gi, '').replace(/\son\w+\s*=\s*("[^"]*"|'[^']*')/gi, '')
     .replace(/(href|xlink:href)\s*=\s*("javascript:[^"]*"|'javascript:[^']*')/gi, '');
   const esc = v => String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;');
+  /* LA PIÈCE A4 PAYSAGE (Charles, 5 octobre 2026 : « une impression A4 paysage
+     avec mise en page, depuis Éditions »). Le schéma prend toute la largeur et
+     la hauteur que laisse l'en-tête ; une légende le suit, dans les couleurs
+     RÉGLÉES — celles que le schéma porte —, jamais dans des teintes écrites ici. */
+  const c = couleurs();
+  const pastille = (teinte, libelle) =>
+    `<span class="lg"><i style="background:${teinte}"></i>${esc(libelle)}</span>`;
+  const legende = `<div class="legende">
+      ${pastille(c.ba1, 'BA1')}${pastille(c.ba2, 'BA2')}${pastille(c.ba3, 'BA3')}
+      <span class="lg"><i class="ei" style="border-color:${c.epreuve}"></i>Épreuve intégrée</span>
+      <span class="lg"><b class="d">D</b>Unité déterminante</span>
+      <span class="lg"><svg width="26" height="6"><line x1="0" y1="3" x2="26" y2="3" stroke="#475569" stroke-width="1.2"/></svg>Prérequis du dossier pédagogique</span>
+      <span class="lg"><svg width="26" height="6"><line x1="0" y1="3" x2="26" y2="3" stroke="#475569" stroke-width="1.2" stroke-dasharray="4 3"/></svg>Règle interne</span>
+    </div>`;
+  const nomSection = (() => {
+    try { return db.prepare('SELECT libelle FROM section WHERE code = ?').get(section)?.libelle || null; } catch { return null; }
+  })();
   const html = envelopperDocument({
     titre: `Schéma de capitalisation — ${section || ''}`,
     orientation: 'paysage',
-    entete: { titre: 'Schéma de capitalisation', sous: `${section || ""} · ${annee || ""}`,
-      mention: 'Flèche : prérequis — trait plein, dossier pédagogique ; pointillé, règle interne.' },
-    styles: `.schema-cap svg { width: 100% !important; height: auto !important; max-height: 100mm; display: block; }
-             .schema-cap { page-break-inside: avoid; }`,
-    html: `<div class="schema-cap">${svg}</div>`,
+    entete: { titre: 'Schéma de capitalisation', sous: `${nomSection && nomSection !== section ? `${nomSection} (${section})` : (section || '')} · ${annee || ''}`,
+      mention: 'Une unité ne s’ouvre que lorsque ses prérequis sont acquis. La flèche prend la couleur du bloc où elle arrive.' },
+    styles: `.schema-cap { page-break-inside: avoid; break-inside: avoid; }
+             .schema-cap svg { width: 100% !important; height: auto !important; max-height: 86mm; display: block; margin: 0 auto; }
+             .legende { display: flex; flex-wrap: wrap; gap: 2mm 6mm; margin-top: 3mm; padding-top: 2mm;
+               border-top: 0.3mm solid #D8DCE4; font-size: 8pt; color: #16406A; }
+             .legende .lg { display: inline-flex; align-items: center; gap: 1.6mm; }
+             .legende i { display: inline-block; width: 7mm; height: 2.2mm; border-radius: 0.6mm; }
+             .legende i.ei { width: 4.5mm; height: 3.5mm; background: #fff; border: 0.5mm solid; border-left-width: 1.2mm; border-radius: 0.8mm; }
+             .legende b.d { display: inline-grid; place-items: center; width: 3.6mm; height: 3.6mm; border-radius: 50%;
+               background: #16406A; color: #fff; font-size: 6.5pt; }`,
+    html: `<div class="schema-cap">${svg}</div>${legende}`,
   });
   res.json({ html, nom: `Schema_capitalisation_${String(section || '').replace(/[^A-Za-z0-9]+/g, '_')}_${annee || ''}` });
 });
