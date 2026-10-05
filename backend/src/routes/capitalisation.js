@@ -273,6 +273,7 @@ r.post('/document', authRequired, (req, res) => {
       <span class="lg"><b class="d">D</b>Unité déterminante</span>
       <span class="lg"><svg width="26" height="6"><line x1="0" y1="3" x2="26" y2="3" stroke="#475569" stroke-width="1.2"/></svg>Prérequis du dossier pédagogique</span>
       <span class="lg"><svg width="26" height="6"><line x1="0" y1="3" x2="26" y2="3" stroke="#475569" stroke-width="1.2" stroke-dasharray="4 3"/></svg>Règle interne</span>
+      <span class="lg" style="color:#6e6e73">Une unité ne s’ouvre que lorsque ses prérequis sont acquis ; la flèche prend la couleur du bloc où elle arrive.</span>
     </div>`;
   const nomSection = (() => {
     try { return db.prepare('SELECT libelle FROM section WHERE code = ?').get(section)?.libelle || null; } catch { return null; }
@@ -281,9 +282,9 @@ r.post('/document', authRequired, (req, res) => {
     titre: `Schéma de capitalisation — ${section || ''}`,
     orientation: 'paysage',
     entete: { titre: 'Schéma de capitalisation', sous: `${nomSection && nomSection !== section ? `${nomSection} (${section})` : (section || '')} · ${annee || ''}`,
-      mention: 'Une unité ne s’ouvre que lorsque ses prérequis sont acquis. La flèche prend la couleur du bloc où elle arrive.' },
+      compact: true },
     styles: `.schema-cap { page-break-inside: avoid; break-inside: avoid; }
-             .schema-cap svg { width: 100% !important; height: auto !important; max-height: 86mm; display: block; margin: 0 auto; }
+             .schema-cap svg { width: 100% !important; height: auto !important; max-height: 100mm; display: block; margin: 0 auto; }
              .legende { display: flex; flex-wrap: wrap; gap: 2mm 6mm; margin-top: 3mm; padding-top: 2mm;
                border-top: 0.3mm solid #D8DCE4; font-size: 8pt; color: #16406A; }
              .legende .lg { display: inline-flex; align-items: center; gap: 1.6mm; }

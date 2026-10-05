@@ -249,6 +249,16 @@ export function stylesEntete() {
                  letter-spacing: -.4pt; line-height: 1.1; }
   .doc-cadre-s { font-size: 8.5pt; color: #6e6e73; margin-top: 1.2mm; }
   .doc-cadre-l { font-size: 8pt; color: #6e6e73; margin-top: 0.4mm; }
+  /* L'EN-TÊTE SUR UNE LIGNE (Charles, 5 octobre 2026, schéma de
+     capitalisation : « tout cela sur une ligne ; la barre dorée entre
+     Institut Ilya Prigogine et le titre »). Les mêmes pièces, côte à côte :
+     l'identité à gauche, l'or qui porte le titre, les références à droite.
+     Pour les pièces en paysage, où la hauteur manque. */
+  .doc-ligne { display: flex; align-items: center; gap: 6mm;
+               padding-bottom: 3mm; border-bottom: 0.25mm solid #D8DCE4; }
+  .doc-ligne .doc-cadre { margin-top: 0; flex: 1; min-width: 0; }
+  /* Le logo ouvre la ligne (Charles, même jour : « et le logo »). */
+  .doc-ligne-logo { height: 11mm; width: auto; flex: none; }
   /* Conservé pour les pièces à forme imposée qui ferment encore d'un filet. */
   .doc-filet-or { height: 0.6mm; background: #C9A84C; margin-top: 2.5mm; }`;
 }
@@ -262,7 +272,7 @@ export function stylesEntete() {
  *   mention de la pièce.
  */
 export function enteteDocument({ titre, sous = null, mention = null,
-                                 ligne = null } = {}) {
+                                 ligne = null, compact = false } = {}) {
   /* DEUX SOURCES POUR UNE MÊME IDENTITÉ, C'EST UNE SOURCE DE MOINS.
    *
    * L'en-tête lisait la table `etablissement` en direct, pendant que toutes les
@@ -299,6 +309,22 @@ export function enteteDocument({ titre, sous = null, mention = null,
    * son en-tête recréerait la neuvième enveloppe qu'on a passé un an à
    * supprimer.
    */
+  if (compact) return `<div class="doc-entete">
+    <div class="doc-cf">COMMUNAUTÉ FRANÇAISE DE BELGIQUE — ENSEIGNEMENT POUR ADULTES</div>
+    <div class="doc-ligne">
+      <img class="doc-ligne-logo" src="${LOGO_IIP_JPEG}" alt="Institut Ilya Prigogine">
+      <div>
+        <div class="doc-ident-n">${esc(etab.nom || 'Institut Ilya Prigogine')}</div>
+        ${etab.adresse ? `<div class="doc-ident-a">${esc(etab.adresse)}</div>` : ''}
+      </div>
+      <div class="doc-cadre">
+        <div class="doc-cadre-t">${esc(titre)}</div>
+        ${sous ? `<div class="doc-cadre-s">${esc(sous)}</div>` : ''}
+      </div>
+      ${refsLignes ? `<div class="doc-ident-r">${refsLignes}</div>` : ''}
+    </div>
+    ${mention ? `<div class="doc-titre-m">${esc(mention)}</div>` : ''}
+  </div>`;
   return `<div class="doc-entete">
     <div class="doc-cf">COMMUNAUTÉ FRANÇAISE DE BELGIQUE — ENSEIGNEMENT POUR ADULTES</div>
     <div class="doc-ident-c">
