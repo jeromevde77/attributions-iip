@@ -323,6 +323,15 @@ function AccesLuciePanel({ profId, detail }) {
     } catch (e) { setErr(e.message); } finally { setBusy(false); }
   }
 
+  /* LE LIEN, PAS UN MOT DE PASSE AFFICHÉ (5 octobre 2026) : celui qui clique
+     ne doit pas connaître le mot de passe d'un autre. Le même lien que
+     Configuration → Accès : il fait choisir un mot de passe, il ne connecte pas. */
+  const [lienRes, setLienRes] = useState(null);
+  async function envoyerLien() {
+    setErr(''); setBusy(true); setLienRes(null);
+    try { setLienRes(await af(`/api/users/${account.id}/lien-mot-de-passe`, { method: 'POST' })); }
+    catch (e) { setErr(e.message); } finally { setBusy(false); }
+  }
   async function nouveauMdp() {
     const p = genPwd();
     setErr(''); setBusy(true);
@@ -561,8 +570,9 @@ function AccesLuciePanel({ profId, detail }) {
           className={`flex-1 flex items-center justify-center gap-1.5 text-sm px-3 py-2 rounded-lg font-medium ${saved ? 'bg-green-600 text-white' : 'bg-iip-blue text-white hover:opacity-90'} disabled:opacity-40`}>
           {saved ? '✓ Sauvegardé' : busy ? 'Sauvegarde…' : '✓ Sauvegarder'}
         </button>
-        <button onClick={nouveauMdp} disabled={busy} className="flex items-center gap-1.5 text-sm border border-gray-300 text-gray-700 px-3 py-2 rounded-lg hover:bg-gray-50 disabled:opacity-40">
-          <IconKey size={14} /> Nouveau mot de passe
+        <button onClick={envoyerLien} disabled={busy} title="Envoyer à cette personne le lien pour choisir son mot de passe"
+          className="flex items-center gap-1.5 text-sm border border-gray-300 text-gray-700 px-3 py-2 rounded-lg hover:bg-gray-50 disabled:opacity-40">
+          <IconMail size={14} /> Envoyer le lien
         </button>
         {/* LE BOUTON DISAIT « RÉACTIVER » ET DÉSACTIVAIT.
             Seul le LIBELLÉ regardait l'état du compte : la question posée et
@@ -607,6 +617,12 @@ function AccesLuciePanel({ profId, detail }) {
       </div>
       <div className="p-4 space-y-3">
         {err && <div className="text-xs text-white bg-red-500 border border-red-500 rounded px-3 py-2">{err}</div>}
+        {lienRes && (
+          <div className="text-[12px] text-slate-600">
+            {lienRes.envoye ? `Lien envoyé à ${lienRes.email} (valable ${lienRes.duree}).`
+              : <>Lien NON envoyé ({lienRes.raison}) — à transmettre : <span className="select-all break-all">{lienRes.lien}</span></>}
+          </div>
+        )}
         {pwd && (
           <div className="bg-amber-50 border border-amber-300 rounded px-3 py-2 border-l-4 border-l-amber-500">
             <div className="text-xs font-semibold text-amber-800 flex items-center gap-1.5 mb-1"><IconKey size={14} /> Mot de passe — à noter maintenant</div>
@@ -2513,30 +2529,31 @@ function AccesLot({ ids, onFermer }) {
   const [fait, setFait] = useState(false);
   const [enCours, setEnCours] = useState(false);
   const [erreur, setErreur] = useState(null);
-  const appeler = async simulation => {
+  const [renvoyer, setRenvoyer] = useState(false);
+  const appeler = async (simulation, renv = renvoyer) => {
     setEnCours(true); setErreur(null);
     try {
       const rep = await fetch('/api/users/acces-lot', { method: 'POST', headers: authHeaders(),
-        body: JSON.stringify({ professeur_ids: ids, simulation }) });
+        body: JSON.stringify({ professeur_ids: ids, simulation, renvoyer_jamais_connectes: renv }) });
       const j = await rep.json().catch(() => ({}));
       if (!rep.ok) throw new Error(j.error || `Erreur ${rep.status}`);
       setR(j); if (!simulation) setFait(true);
     } catch (e) { setErreur(e.message); } finally { setEnCours(false); }
   };
   useEffect(() => { appeler(true); /* eslint-disable-next-line */ }, []);
-  const ETAT = { nouveau: 'Nouveau compte', deja: 'Déjà un compte — pas touché', sans_adresse: 'Aucune adresse — à compléter dans la fiche', adresse_prise: 'Adresse déjà prise par un autre compte' };
-  const n = r?.resume?.nouveaux || 0;
+  const ETAT = { renvoi: 'Déjà un compte, jamais connecté — le lien est renvoyé', nouveau: 'Nouveau compte', deja: 'Déjà un compte — pas touché', sans_adresse: 'Aucune adresse — à compléter dans la fiche', adresse_prise: 'Adresse déjà prise par un autre compte' };
+  const n = (r?.resume?.nouveaux || 0) + (r?.resume?.renvois || 0);
   return (
     <Fenetre titre="Ouvrir l'accès à Lucie" large="grande" onFermer={onFermer}
       sous={fait ? 'Fait — les comptes sont créés' : `${ids.length} membre(s) coché(s) — rien n'est écrit avant de confirmer`}
       pied={<>
         <span className="flex-1 min-w-0 text-[12px] text-slate-500">
           {fait ? `${r.resume.envoyes} lien(s) envoyé(s) sur ${n}.`
-            : r ? `${n} compte(s) « professeur » à créer ; chacun recevra le lien pour choisir son mot de passe (valable trois jours).` : ''}
+            : r ? `${r.resume.nouveaux} compte(s) « professeur » à créer${r.resume.renvois ? `, ${r.resume.renvois} lien(s) à renvoyer` : ''} ; chacun recevra le lien pour choisir son mot de passe (valable trois jours).` : ''}
         </span>
         <button className="bouton" onClick={onFermer}>{fait ? 'Fermer' : 'Annuler'}</button>
         {!fait && <button className="bouton bouton-fort" disabled={enCours || !n} onClick={() => appeler(false)}>
-          {enCours ? '…' : `Créer ${n} compte(s) et envoyer le lien`}</button>}
+          {enCours ? '…' : r?.resume?.nouveaux ? `Créer ${r.resume.nouveaux} compte(s) et envoyer ${n} lien(s)` : `Envoyer ${n} lien(s)`}</button>}
       </>}>
       {erreur && <div data-etat="corriger" className="bloc-etat px-3 py-2 mb-2 text-[13px]">{erreur}</div>}
       {!r ? <p className="text-[13px] text-slate-400">Vérification…</p> : (
@@ -2545,6 +2562,16 @@ function AccesLot({ ids, onFermer }) {
             {r.resume.nouveaux} nouveau(x) · {r.resume.deja} déjà un compte · {r.resume.sans_adresse} sans adresse
             {r.resume.adresse_prise ? ` · ${r.resume.adresse_prise} adresse déjà prise` : ''}
           </div>
+          {/* RENVOYER LE LIEN (5 octobre 2026) : un compte créé dont le premier
+              lien s'est perdu — une faute dans l'adresse, un courriel égaré. */}
+          {!fait && (r.resume.jamais_connectes > 0 || r.resume.renvois > 0) && (
+            <label className="flex items-center gap-2 text-[12.5px]">
+              <input type="checkbox" checked={renvoyer} disabled={enCours}
+                onChange={e => { setRenvoyer(e.target.checked); appeler(true, e.target.checked); }} />
+              Renvoyer le lien à ceux qui ont déjà un compte mais ne se sont jamais connectés
+              ({r.resume.jamais_connectes + r.resume.renvois}) — leur compte n'est pas touché
+            </label>
+          )}
           <div className="border border-slate-200 rounded-carte overflow-hidden">
             <table className="w-full text-[12.5px]">
               <thead><tr className="tab-entete text-left text-[10.5px] uppercase tracking-[.08em] text-slate-500">
@@ -2555,9 +2582,9 @@ function AccesLot({ ids, onFermer }) {
                     <td className="px-3 py-1.5 font-semibold">{l.nom}</td>
                     <td className="px-3 py-1.5">{l.email || '—'}{l.prive && <span className="ml-1 text-[11px] text-slate-500">(privée)</span>}</td>
                     <td className="px-3 py-1.5">
-                      {fait && l.etat === 'nouveau'
-                        ? (l.envoye ? 'Compte créé, lien envoyé' : <span>Compte créé — lien NON envoyé ({l.raison}) : <span className="select-all break-all text-[11px] text-slate-500">{l.lien}</span></span>)
-                        : <span className={l.etat === 'nouveau' ? '' : 'text-slate-500'}>{ETAT[l.etat]}{l.etat === 'deja' && l.role ? ` (${l.role}${l.actif ? '' : ', désactivé'})` : ''}{l.etat === 'adresse_prise' && l.par ? ` : ${l.par}` : ''}</span>}
+                      {fait && (l.etat === 'nouveau' || l.etat === 'renvoi')
+                        ? (l.envoye ? (l.etat === 'renvoi' ? 'Lien renvoyé' : 'Compte créé, lien envoyé') : <span>Compte créé — lien NON envoyé ({l.raison}) : <span className="select-all break-all text-[11px] text-slate-500">{l.lien}</span></span>)
+                        : <span className={l.etat === 'nouveau' || l.etat === 'renvoi' ? '' : 'text-slate-500'}>{ETAT[l.etat]}{l.etat === 'deja' && l.role ? ` (${l.role}${l.actif ? '' : ', désactivé'}${l.jamais_connecte ? ', jamais connecté' : ''})` : ''}{l.etat === 'adresse_prise' && l.par ? ` : ${l.par}` : ''}</span>}
                     </td>
                   </tr>
                 ))}
