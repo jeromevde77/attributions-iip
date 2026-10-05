@@ -655,7 +655,7 @@ function MatriceAcces({ users, sectionsDispo, profils, onModifie, onProfil, acti
       <td className="border-b border-l border-slate-100 px-2 py-1.5 whitespace-nowrap text-right">
         <button onClick={() => onMotDePasse(u)}
           title="Envoyer à cette personne un lien pour choisir son mot de passe"
-          className="text-[11px] text-iip-blue hover:underline mr-2">MDP</button>
+          className="text-[11px] text-iip-blue hover:underline mr-2">Envoyer le lien</button>
         {u.id !== moiId && (
           <button onClick={() => onRetirer(u)} title="Retirer l'accès"
             className="text-slate-300 hover:text-red-500 align-middle">

@@ -201,6 +201,10 @@ r.post('/acces-lot', authRequired, gesteRequis('configuration.comptes'), async (
   if (!ids.length) return res.status(400).json({ error: 'Aucun membre choisi.' });
   if (ids.length > 300) return res.status(413).json({ error: 'Plus de 300 membres : scindez la sélection.' });
   const simulation = req.body?.simulation !== false;
+  // RENVOYER LE LIEN à qui a un compte mais ne s'est jamais connecté (5 octobre
+  // 2026, Stéphanie Dewil : une faute dans l'adresse, le premier lien perdu).
+  // Le compte n'est pas touché : seul un nouveau lien part.
+  const renvoyer = req.body?.renvoyer_jamais_connectes === true;
   const valide = e => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e);
   const ecole = e => /@institut-prigogine\.be$/i.test(e);
   const lignes = [];
@@ -208,8 +212,13 @@ r.post('/acces-lot', authRequired, gesteRequis('configuration.comptes'), async (
     const p = db.prepare('SELECT id, nom, prenom, adresse_mail, mail_prive FROM professeur WHERE id = ?').get(id);
     if (!p) continue;
     const nom = `${String(p.nom || '').toUpperCase()} ${p.prenom || ''}`.trim();
-    const compte = db.prepare('SELECT id, email, role, actif FROM utilisateur WHERE professeur_id = ? ORDER BY actif DESC, id LIMIT 1').get(id);
-    if (compte) { lignes.push({ professeur_id: id, nom, etat: 'deja', email: compte.email, role: compte.role, actif: !!compte.actif }); continue; }
+    const compte = db.prepare('SELECT id, email, role, actif, last_login_at FROM utilisateur WHERE professeur_id = ? ORDER BY actif DESC, id LIMIT 1').get(id);
+    if (compte) {
+      const jamais = !compte.last_login_at && !!compte.actif;
+      lignes.push({ professeur_id: id, nom, etat: renvoyer && jamais ? 'renvoi' : 'deja', email: compte.email, role: compte.role,
+        actif: !!compte.actif, jamais_connecte: jamais, utilisateur_id: compte.id });
+      continue;
+    }
     const a = String(p.adresse_mail || '').trim().toLowerCase(), b = String(p.mail_prive || '').trim().toLowerCase();
     const email = [a, b].filter(valide).sort((x, y) => Number(ecole(y)) - Number(ecole(x)))[0] || null;
     if (!email) { lignes.push({ professeur_id: id, nom, etat: 'sans_adresse' }); continue; }
@@ -218,11 +227,13 @@ r.post('/acces-lot', authRequired, gesteRequis('configuration.comptes'), async (
     lignes.push({ professeur_id: id, nom, etat: 'nouveau', email, prive: !ecole(email) });
   }
   const compte = e => lignes.filter(l => l.etat === e).length;
-  const resume = { nouveaux: compte('nouveau'), deja: compte('deja'), sans_adresse: compte('sans_adresse'), adresse_prise: compte('adresse_prise') };
+  const resume = { nouveaux: compte('nouveau'), renvois: compte('renvoi'), deja: compte('deja'), sans_adresse: compte('sans_adresse'), adresse_prise: compte('adresse_prise'),
+    jamais_connectes: lignes.filter(l => l.etat === 'deja' && l.jamais_connecte).length };
   if (simulation) return res.json({ simulation: true, resume, lignes });
 
   const base = process.env.LUCIE_URL || 'https://www.lucie-iip.be';
   const nouveaux = lignes.filter(l => l.etat === 'nouveau');
+  const aEnvoyer = [...nouveaux, ...lignes.filter(l => l.etat === 'renvoi')];
   db.transaction(() => {
     const ins = db.prepare(`INSERT INTO utilisateur (email, password_hash, nom_complet, role, actif, professeur_id)
       VALUES (?, ?, ?, 'professeur', 1, ?)`);
@@ -235,8 +246,8 @@ r.post('/acces-lot', authRequired, gesteRequis('configuration.comptes'), async (
   })();
   let suivante = 0;
   const ouvrier = async () => {
-    while (suivante < nouveaux.length) {
-      const l = nouveaux[suivante++];
+    while (suivante < aEnvoyer.length) {
+      const l = aEnvoyer[suivante++];
       const jeton = creerJeton(l.utilisateur_id, req.ip || null, VALIDITE_INVITATION_MINUTES);
       let envoi = null;
       try {
@@ -260,8 +271,8 @@ r.post('/acces-lot', authRequired, gesteRequis('configuration.comptes'), async (
         evenement: l.envoye ? 'mot_de_passe_lien_envoye' : 'mot_de_passe_lien_non_envoye', detail: l.envoye ? null : l.raison });
     }
   };
-  await Promise.all(Array.from({ length: Math.min(4, nouveaux.length) }, ouvrier));
-  res.json({ simulation: false, resume: { ...resume, envoyes: nouveaux.filter(l => l.envoye).length }, lignes });
+  await Promise.all(Array.from({ length: Math.min(4, aEnvoyer.length) }, ouvrier));
+  res.json({ simulation: false, resume: { ...resume, envoyes: aEnvoyer.filter(l => l.envoye).length }, lignes });
   } catch (e) {
     console.error('[users/acces-lot]', e);
     if (!res.headersSent) res.status(500).json({ error: e.message });

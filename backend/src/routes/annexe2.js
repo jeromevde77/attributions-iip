@@ -83,7 +83,9 @@ export function bilanCredits(etudiantId, annee) {
   const lignes = db.prepare(`
     SELECT i.annee_scolaire, i.ue_num, i.resultat,
            (SELECT u.ects FROM ue u WHERE u.ue_num = i.ue_num AND u.ects IS NOT NULL
-             ORDER BY u.annee_scolaire DESC LIMIT 1) AS ects
+             ORDER BY u.annee_scolaire DESC LIMIT 1) AS ects,
+           (SELECT u.section FROM ue u WHERE u.ue_num = i.ue_num AND u.section IS NOT NULL
+             ORDER BY u.annee_scolaire DESC LIMIT 1) AS section   -- pas de colonne extérieure dans ce tri : le SQLite du serveur la refuse
     FROM etudiant_inscription i
     WHERE i.etudiant_id = ?
   `).all(etudiantId);
@@ -93,10 +95,16 @@ export function bilanCredits(etudiantId, annee) {
   let inscritsAnnee = 0, acquisAnnee = 0, acquisTotal = 0, valorises = 0;
   let sansEcts = 0;
   const uesSansEcts = new Set();
+  /* SEULS LES BACHELIERS — AeSI compris — SONT CRÉDITÉS (Charles, 5 octobre
+     2026). Une UE de formation continue n'a pas d'ECTS : ce n'est pas un
+     manque. Une section est créditée si l'une de ses UE porte des ECTS — déduit
+     des données, pour qu'une section ouverte demain le soit sans réglage. */
+  let creditees = new Set();
+  try { creditees = new Set(db.prepare(`SELECT DISTINCT section FROM ue WHERE CAST(ects AS REAL) > 0`).all().map(x => x.section)); } catch { /* */ }
 
   for (const l of lignes) {
     const e = Number(l.ects) || 0;
-    if (!l.ects) { sansEcts++; uesSansEcts.add(l.ue_num); }
+    if (!l.ects && creditees.has(l.section)) { sansEcts++; uesSansEcts.add(l.ue_num); }
     if (l.annee_scolaire === annee) {
       inscritsAnnee += e;
       if (acquis(l.resultat)) acquisAnnee += e;
