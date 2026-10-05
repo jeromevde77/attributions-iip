@@ -2,6 +2,7 @@ import { useMemo, useRef, useState } from 'react';
 import { IconGift } from '@tabler/icons-react';
 import { teintes } from '../lib/etats.js';
 import { blocDe, couleurBloc } from '../lib/blocs.js';
+import { ordonnerCouches, placerCouches, courbeParPoints } from '../lib/schemaCouches.js';
 
 /**
  * Schéma de capitalisation — arbre des UE et de leurs prérequis.
@@ -115,19 +116,33 @@ export default function SchemaCapitalisation({
     const pos = {};
     const colonnesX = {};
     let bas = 0, piedEI = null;
+    /* LE SCHÉMA EN COUCHES (lib/schemaCouches.js) : l'ordre des cases se
+       calcule pour croiser le moins possible, et une flèche qui saute une
+       colonne y réserve sa place — un vide de PASSE entre deux cases. */
+    const PASSE = 4;
+    const idsEI = new Set(sousEI.map(n => String(n.ue_num)));
+    const { ordre, chemins, gauche, droite } = ordonnerCouches({
+      colonnes: nums.map(cn => [...couches[cn], ...(cn === colPied ? sousEI : [])].map(n => n.ue_num)),
+      edges: data.edges || [], fixes: idsEI,
+    });
+    const hauts = placerCouches({
+      ordre, gauche, droite, haut: PAD + TETE,
+      taille: s0 => (s0.passage ? PASSE : H),
+      // L'intitulé « Épreuve intégrée » demande sa place au-dessus de la première.
+      ecart: (a, b) => (idsEI.has(b.id) && !idsEI.has(a.id) ? ECART_EI : GY),
+    });
+    const passages = {};
     nums.forEach((cn, ci) => {
       const x = PAD + ci * (L + GX);
       colonnesX[cn] = x;
-      couches[cn].forEach((n, ri) => { pos[n.ue_num] = { x, y: PAD + TETE + ri * (H + GY) }; });
-      let yFin = PAD + TETE + couches[cn].length * (H + GY) - GY;
-      if (cn === colPied && sousEI.length) {
-        piedEI = { x, y: yFin + ECART_EI - 4 };
-        sousEI.forEach((n, ri) => {
-          pos[n.ue_num] = { x, y: yFin + ECART_EI + ri * (H + GY), pied: true };
-        });
-        yFin += ECART_EI + sousEI.length * (H + GY);
+      for (const s0 of ordre[ci]) {
+        const y = hauts.get(s0.id);
+        if (s0.passage) { passages[s0.id] = { x, y: y + PASSE / 2 }; continue; }
+        const enPied = idsEI.has(s0.id);
+        if (enPied && !piedEI) piedEI = { x, y: y - 4 };
+        pos[s0.id] = { x, y, ...(enPied ? { pied: true } : {}) };
+        bas = Math.max(bas, y + H);
       }
-      bas = Math.max(bas, yFin);
     });
     // Un titre par année d'études, centré sur ses sous-colonnes
     const groupes = (data.groupes && data.groupes.length)
@@ -151,7 +166,7 @@ export default function SchemaCapitalisation({
       });
 
     return {
-      pos, L, H, TETE, PAD, entetes, groupes, colonnesX, piedEI,
+      pos, L, H, TETE, PAD, entetes, groupes, colonnesX, piedEI, chemins, passages,
       // MARGE_D : les flèches d'une même colonne contournent par la droite —
       // sans cette marge, celles de la dernière colonne sortaient du cadre.
       largeur: PAD * 2 + nums.length * (L + GX) - GX + MARGE_D,
@@ -159,12 +174,6 @@ export default function SchemaCapitalisation({
       hauteur: bas + PAD + PIED,
     };
   }, [data]);
-
-  /* LES FLÈCHES EN COULOIRS SONT SUSPENDUES (3.1.39, Charles, 5 octobre 2026 :
-     « c'est quasi incompréhensible »). Les courbes d'origine reviennent, en
-     attendant la méthode des schémas en couches (ordre des cases, places
-     réservées aux flèches qui sautent une colonne). lib/routage.js reste. */
-  const routes = new Map();
 
   if (!data) return <div className="py-4 text-[12px] text-slate-400">Chargement du schéma…</div>;
   if (!data.nodes?.length) return (
@@ -409,7 +418,11 @@ export default function SchemaCapitalisation({
                 const x2 = memeColonne ? b.x + layout.L + 5 : b.x - 7;
                 const dx = Math.max(24, (x2 - x1) / 2);
                 const enArriere = !memeColonne && x2 < x1;   // prérequis placé après : incohérence
-                const d = routes.get(`${eg.from}-${eg.to}`) || (memeColonne
+                const via = layout.chemins.get(`${eg.from}-${eg.to}`);
+                const d = via ? courbeParPoints([[x1, y1],
+                    ...via.flatMap(v => { const q = layout.passages[v.id]; return [[q.x - 2, q.y], [q.x + layout.L + 2, q.y]]; }),
+                    [x2, y2]])
+                  : (memeColonne
                   ? `M${x1},${y1} C${x1 + 20},${y1} ${x2 + 20},${y2} ${x2},${y2}`
                   : `M${x1},${y1} C${x1 + dx},${y1} ${x2 - dx},${y2} ${x2},${y2}`);
 
