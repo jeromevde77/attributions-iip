@@ -1,6 +1,7 @@
 import { ICONE_AXE } from '../lib/iconesAxes.js';
 import { useDroits, passeRole, peutGeste, ecritModule } from '../lib/droits.js';
 import OngletCep from '../components/OngletCep.jsx';
+import OngletSLE from '../components/OngletSLE.jsx';
 import { createContext, Fragment, lazy, Suspense, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 // LA MÊME FENÊTRE DE SÉANCE QUE L'ÉCRAN VALORISATION (2 octobre 2026) : une porte de plus, une seule réponse.
@@ -32,7 +33,7 @@ const HorsBloc = lazy(() => import('../components/HorsBloc.jsx'));
 const PaeHorsRegle = lazy(() => import('../components/PaeHorsRegle.jsx'));
 const DecisionsSansInscription = lazy(() => import('../components/DecisionsSansInscription.jsx'));
 const NationalitesNormaliser = lazy(() => import('../components/NationalitesNormaliser.jsx'));
-import { useEchangesDuRail, Fenetre, Encadre, BulleAide, BoutonEditions, OuvrirEditions } from '../components/ui.jsx';
+import { useEchangesDuRail, Fenetre, Encadre, BulleAide, BoutonEditions, OuvrirEditions, IconeFaveur } from '../components/ui.jsx';
 import PassageAnnee from '../components/PassageAnnee.jsx';
 import ComposerPAE from '../components/ComposerPAE.jsx';
 import CentreEchanges from '../components/CentreEchanges.jsx';
@@ -861,6 +862,9 @@ const KINDS_CELLULE = [
   // que la faveur.
   { val: 'inscrit', label: 'Inscrit',  short: '·',  cls: 'bg-[color-mix(in_srgb,var(--c-disponible)_11%,#fff)] border-[color-mix(in_srgb,var(--c-disponible)_32%,#fff)] text-iip-texte' },
   { val: 'reussi',  label: 'Réussi',   short: '✓',  cls: 'bg-[color-mix(in_srgb,var(--c-reussi)_11%,#fff)] border-[color-mix(in_srgb,var(--c-reussi)_32%,#fff)] text-[color:var(--c-texte)]' },
+  // LA FAVEUR DU CONSEIL (5 octobre 2026) : l'unité vaut 10, réussie ; violet
+  // et cadeau, la seule couleur qui la dise.
+  { val: 'faveur',  label: 'Réussi par faveur', short: '10', cls: 'bg-[color-mix(in_srgb,var(--c-faveur)_11%,#fff)] border-[color-mix(in_srgb,var(--c-faveur)_32%,#fff)] text-[color:var(--c-texte)]' },
   { val: 'va',      label: 'VA',       short: 'VA', cls: 'bg-[color-mix(in_srgb,var(--c-reussi)_11%,#fff)] border-[color-mix(in_srgb,var(--c-reussi)_32%,#fff)] text-[color:var(--c-texte)]' },
   // La circulaire distingue l'AJOURNEMENT, qui ouvre une seconde session sur
   // des acquis précis, du REFUS, qui ne l'ouvre pas. Les confondre sous un même
@@ -1184,7 +1188,7 @@ function GrilleParcours({ etudId, peutEcrire, annee, ueFocus = null }) {
                     {anneesAffichees.map((a, iCol) => {
                       const derniere = iCol === anneesAffichees.length - 1;
                       const cl = cell(a, u.ue_num);
-                      const kind = cl && KINDS_CELLULE.find(k => k.val === cl.kind);
+                      const kind = cl && KINDS_CELLULE.find(k => k.val === (cl.faveur ? 'faveur' : cl.kind));
                       return (
                         <td key={a}
                           onDragOver={glisse ? ev => { ev.preventDefault(); if (survol !== a) setSurvol(a); } : undefined}
@@ -1237,7 +1241,8 @@ function GrilleParcours({ etudId, peutEcrire, annee, ueFocus = null }) {
                               ${peutEcrire && deplacable(cl) ? 'cursor-grab active:cursor-grabbing' : ''}`}
                             title={cl?.derogation ? 'Encodée avec dérogation' : ''}>
                             {kind
-                              ? (kind.val === 'reussi' ? (cl.points != null ? String(Math.round(cl.points)) : '✓')
+                              ? (kind.val === 'faveur' ? <span className="inline-flex items-center gap-0.5">10<IconeFaveur size={10} /></span>
+                                 : kind.val === 'reussi' ? (cl.points != null ? String(Math.round(cl.points)) : '✓')
                                  : kind.val === 'va' ? (cl.points != null ? 'VA ' + cl.points : 'VA')
                                  : kind.short)
                               : '·'}
@@ -2915,6 +2920,9 @@ export function FicheEtudiant({ id, annee, onClose, position, onPrec, onSuiv,
             ['stages', 'Stages'],
             ['amenagements', 'Aménagements'],
             ['cep', 'Congé-éducation'],
+            // L'ONGLET SLE N'EXISTE QUE POUR UN ÉTUDIANT EN SÉJOUR LIMITÉ AUX
+            // ÉTUDES (5 octobre 2026) : les données des annexes 1 et 2.
+            ...(data.sejour_limite_etudes ? [['sle', 'SLE']] : []),
             ['suivi', 'Suivi'],
             ['dossier', 'Dossier']].map(([k, l]) => (
             <button key={k}
@@ -3050,6 +3058,11 @@ export function FicheEtudiant({ id, annee, onClose, position, onPrec, onSuiv,
               <OngletCep etudId={id} annee={annee} />
             </div>
           )}
+          {onglet === 'sle' && data.sejour_limite_etudes ? (
+            <div className="p-5">
+              <OngletSLE etudId={id} annee={annee} />
+            </div>
+          ) : null}
 
           {onglet === 'parcours' && (
             <div>

@@ -1203,6 +1203,18 @@ pièces nominatives (`lib/piecesProcedures.js`). Gestes `procedures.instruire`
 (direction, secrétariat) et `procedures.decider` (direction, verrou). Les
 anciens dossiers (`procedure_archive`) restent lisibles, non repris.
 
+**LES ANNEXES 1 ET 2 SE NOURRISSENT DE L'ONGLET SLE** (3.1.60, Charles,
+5 octobre 2026). Un onglet *SLE* dans la fiche, qui n'existe QUE pour un
+étudiant en séjour limité aux études : par année, ce que Lucie ne peut pas
+déduire (situation non définitive, mobilité, raisons sous 54 crédits,
+conditions, motif et avis de l'annexe 2) — table `etudiant_sle`,
+`routes/sle.js`. `documentAnnexe1/2` le lisent quand l'appel ne précise rien :
+le lot d'Éditions sort complet. Le motif de l'annexe 2 est PROPOSÉ à partir des
+résultats (`motifPropose`), modifiable ; « compléter… » d'Éditions ouvre ce même
+onglet. **La faveur s'encode aussi dans la grille du parcours** (choix « Réussi
+par faveur ») : ajustement d'unité dans `deliberation_ajustement`, au nom de qui
+clique, retiré par tout autre choix sur la case.
+
 **Chantiers de conformité ouverts, dans l'ordre :** geler les décisions à la
 clôture et historiser par ajout ; figer et horodater le PV ; bloc de signatures
 nominatif ; date d'affichage et mode de publication en champs propres ; écrire

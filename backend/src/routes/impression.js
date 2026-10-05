@@ -226,6 +226,12 @@ r.post('/pdf', authRequired, async (req, res) => {
     });
   }
   const { nom, pagination, pied = true, orientation, page_css, destinataire_nom } = req.body || {};
+  /* LA MARGE BASSE D'UNE PIÈCE QUI LE DEMANDE (5 octobre 2026, schéma de
+     capitalisation : « il y a 1 cm de trop entre le bord de la page et
+     l'adresse »). Le pied se pose en haut de la marge basse ; 24 mm en laissent
+     un de vide sous lui. Une pièce peut la ramener entre 14 et 24 mm — le pied
+     descend, et la place va au contenu. */
+  const margeBasse = Math.min(BANDE_PIED_MM, Math.max(14, Number(req.body?.marge_basse) || BANDE_PIED_MM));
   if (!req.body?.html) return res.status(400).json({ error: 'document requis' });
   // LA SIGNATURE NE SORT JAMAIS NUE (lib/protectionSignature.js) : le PDF
   // porte le même fac-similé que le courriel.
@@ -248,7 +254,7 @@ r.post('/pdf', authRequired, async (req, res) => {
       orientation: orientation === 'paysage' ? 'paysage' : 'portrait',
       pageCss,
       ...(pied ? { marges: { top: '12mm', right: '15mm',
-                             bottom: `${BANDE_PIED_MM}mm`, left: '15mm' } } : {}),
+                             bottom: `${margeBasse}mm`, left: '15mm' } } : {}),
     });
     const fichier = String(nom || 'document').replace(/[^A-Za-z0-9_.-]/g, '_');
     res.setHeader('Content-Type', 'application/pdf');

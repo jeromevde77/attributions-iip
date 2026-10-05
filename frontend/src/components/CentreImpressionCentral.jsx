@@ -1,6 +1,5 @@
 import PiecesEtudiant from './PiecesEtudiant.jsx';
-import Annexe1 from './Annexe1.jsx';
-import Annexe2 from './Annexe2.jsx';
+import OngletSLE from './OngletSLE.jsx';
 import { useDroits } from '../lib/droits.js';
 import CentreDiplomation from './CentreDiplomation.jsx';
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -307,7 +306,7 @@ function OngletSchemas() {
       const j = await r.json().catch(() => ({}));
       if (!r.ok) { setErreur(j.error || 'La pièce n’a pas pu être composée.'); return; }
       ouvrirApercu({ html: j.html, titre: `Schéma de capitalisation — ${section}`, nomFichier: j.nom,
-        envoiPossible: false, astuceImpression: null, pdf: { orientation: 'paysage' } });
+        envoiPossible: false, astuceImpression: null, pdf: { orientation: 'paysage', marge_basse: 14 } });
     } finally { setEnCours(false); }
   }
 
@@ -1885,8 +1884,14 @@ function OngletEtudiants({ perimetre = null, mode = 'deliberation', seul = null,
       </div>
 
       {/* LES PERSONNES ET LES PIÈCES — ou, quand on en a choisi un, l'étudiant seul */}
-      {formAnnexe?.cle === 'annexe1' && <Annexe1 etudId={formAnnexe.id} annee={annee} onClose={() => setFormAnnexe(null)} />}
-      {formAnnexe?.cle === 'annexe2' && <Annexe2 etudId={formAnnexe.id} annee={annee} onClose={() => setFormAnnexe(null)} />}
+      {/* « compléter… » ouvre l'onglet SLE de la fiche, et rien d'autre : un
+          seul endroit où saisir ce que les annexes demandent (5 octobre 2026). */}
+      {formAnnexe && (
+        <Fenetre titre="Séjour limité aux études — annexes 1 et 2" large="grande" onFermer={() => setFormAnnexe(null)}
+          sous="Ce qui est enregistré ici part avec les annexes produites en lot">
+          <OngletSLE etudId={formAnnexe.id} annee={annee} />
+        </Fenetre>
+      )}
       {etudiantVu && (
         <div className="flex-1 min-h-0 overflow-auto p-4">
           <div className="flex items-center gap-3 mb-3">

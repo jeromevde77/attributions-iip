@@ -17,6 +17,7 @@ import { authRequired, roleRequired } from '../middleware/auth.js';
 import { envelopperDocument } from '../lib/document.js';
 import { SIGNATURE_SOHET, SCEAU_IIP } from '../services/assets/signature_sohet.js';
 import { identiteEtablissement } from './config.js';
+import { sleEnregistre, motifPropose } from './sle.js';
 
 const r = express.Router();
 
@@ -178,9 +179,14 @@ r.get('/donnees/:etudiantId', authRequired, (req, res) => {
 // ── Le document ─────────────────────────────────────────────────────────────
 /** La pièce, composée hors de la route : le lot du centre d'impression la tire aussi. */
 export function documentAnnexe2(body) {
-  const { etudiant_id, annee, motif, avis, date_document } = body || {};
+  const { etudiant_id, annee, date_document } = body || {};
   const e = db.prepare('SELECT * FROM etudiant WHERE id = ?').get(etudiant_id);
   if (!e) return { code: 404, erreur: 'étudiant introuvable' };
+  /* Le motif et l'avis : ce que l'appel donne, sinon l'onglet SLE de la fiche,
+     sinon — pour le motif — le constat que Lucie tire des résultats. */
+  const sle = sleEnregistre(e.id, annee) || {};
+  const motif = body?.motif || sle.motif_a2 || motifPropose(e.id, annee);
+  const avis = body?.avis || sle.avis_a2 || null;
 
   const etab = db.prepare('SELECT * FROM etablissement LIMIT 1').get() || {};
   const ident = identiteEtablissement();

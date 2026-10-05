@@ -290,10 +290,12 @@ r.post('/document', authRequired, (req, res) => {
   const html = envelopperDocument({
     titre: `Schéma de capitalisation — ${section || ''}`,
     orientation: 'paysage',
+    // Le pied près du bord, comme dans le PDF du serveur (marge_basse : 15).
+    margeBasse: 8,
     entete: { titre: 'Schéma de capitalisation', sous: `${nomSection && nomSection !== section ? `${nomSection} (${section})` : (section || '')} · ${annee || ''}`,
       compact: true },
     styles: `.schema-cap { page-break-inside: avoid; break-inside: avoid; }
-             .schema-cap svg { width: 100% !important; height: auto !important; max-height: 100mm; display: block; margin: 0 auto; }
+             .schema-cap svg { width: 100% !important; height: auto !important; max-height: 116mm; display: block; margin: 0 auto; }
              .legende { display: flex; flex-wrap: wrap; gap: 2mm 6mm; margin-top: 3mm; padding-top: 2mm;
                border-top: 0.3mm solid #D8DCE4; font-size: 8pt; color: #16406A; }
              .legende .lg { display: inline-flex; align-items: center; gap: 1.6mm; }

@@ -3493,7 +3493,7 @@ r.post('/pieces-dossier-lot', authRequired, async (req, res) => {
         else pousser('annexe1', d, { pagination: 'jamais', pied: false }, `Annexe 1 — visa ou titre de séjour étudiant — ${annee}`);
       }
       if (veut.annexe2) {
-        const d = documentAnnexe2({ etudiant_id: e.id, annee, avis: 'Néant', date_document: b.date_document || undefined });
+        const d = documentAnnexe2({ etudiant_id: e.id, annee, date_document: b.date_document || undefined });
         if (d.erreur) manques.push(`${nomE} — annexe 2 : ${d.erreur}`);
         else pousser('annexe2', d, { pagination: 'jamais', pied: false }, `Annexe 2 — progrès des études — ${annee}`);
       }
@@ -6545,6 +6545,15 @@ r.get('/:id/grille', authRequired, (req, res) => {
       kind: 'va', points: v.pourcentage, derogation: false, vid: v.id,
     };
   }
+  // La faveur : posée par le Conseil (ou dans cette grille) sur l'unité, ou
+  // reprise de l'historique cours par cours. La case la montre — violet, cadeau.
+  try {
+    for (const f of db.prepare(`SELECT DISTINCT ue_num, annee_scolaire FROM deliberation_ajustement
+        WHERE etudiant_id = ? AND action = 'faveur'`).all(etudId)) {
+      const c = cellules[f.annee_scolaire]?.[f.ue_num];
+      if (c && c.kind === 'reussi') c.faveur = true;
+    }
+  } catch { /* table absente */ }
 
   // Années : celles des données + année active, triées
   const annees = [...new Set([...Object.keys(cellules), anneeActive].filter(Boolean))].sort();
@@ -6786,11 +6795,44 @@ r.put('/:id/grille', authRequired, roleRequired('admin', 'editeur'), (req, res) 
   }
   // « refuse » manquait : l'écran proposait « Refusé », le serveur répondait
   // « kind invalide » — la troisième décision de la circulaire ne s'encodait pas.
-  const KINDS = ['inscrit', 'reussi', 'ajourne', 'refuse', 'absent', 'va',
+  const KINDS = ['inscrit', 'reussi', 'faveur', 'ajourne', 'refuse', 'absent', 'va',
                  'effacer_resultat', 'effacer'];
   if (!KINDS.includes(kind)) return res.status(400).json({ error: 'kind invalide' });
 
   const ueN = Number(ue_num);
+
+  /* LA FAVEUR S'ENCODE AUSSI DANS LE PARCOURS (Charles, 5 octobre 2026 : « je
+     dois aussi pouvoir encoder une faveur dans cet écran — en 247 cet étudiant
+     a une faveur »). Elle s'écrit comme la délibération l'écrit : un
+     ajustement de l'UNITÉ (portée 'ue', code '*', action 'faveur'), au nom de
+     celui qui clique ; l'unité vaut alors 10, réussie. Tout autre choix posé
+     sur la case la retire : une faveur ne survit pas à la décision qui la
+     remplace. */
+  const retirerFaveur = () => {
+    try {
+      db.prepare(`DELETE FROM deliberation_ajustement WHERE etudiant_id = ? AND annee_scolaire = ? AND ue_num = ?
+        AND portee = 'ue' AND action = 'faveur'`).run(etudId, annee, ueN);
+    } catch { /* table absente */ }
+  };
+  if (kind === 'faveur') {
+    let session = 1;
+    try {
+      session = db.prepare(`SELECT MAX(session) s FROM deliberation_resultat WHERE etudiant_id = ? AND annee_scolaire = ? AND ue_num = ?`)
+        .get(etudId, annee, ueN)?.s || 1;
+    } catch { /* table absente */ }
+    const par = req.user?.nom || req.user?.email || null;
+    db.transaction(() => {
+      db.prepare('DELETE FROM etudiant_valorisation WHERE etudiant_id=? AND annee_scolaire=? AND ue_num=?').run(etudId, annee, ueN);
+      db.prepare(`INSERT INTO etudiant_inscription (etudiant_id, annee_scolaire, ue_num, resultat, points)
+        VALUES (?,?,?,'reussi',10)
+        ON CONFLICT(etudiant_id, annee_scolaire, ue_num) DO UPDATE SET resultat = 'reussi', points = 10`).run(etudId, annee, ueN);
+      retirerFaveur();
+      db.prepare(`INSERT INTO deliberation_ajustement (etudiant_id, annee_scolaire, ue_num, session, portee, code, action, maj_par)
+        VALUES (?,?,?,?,'ue','*','faveur',?)`).run(etudId, annee, ueN, session, par);
+    })();
+    return res.json({ ok: true });
+  }
+  retirerFaveur();
 
   // Toujours nettoyer les deux sources pour cette cellule
   const delInsc = () => db.prepare(
