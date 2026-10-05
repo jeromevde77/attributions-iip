@@ -22,7 +22,7 @@
 import db from '../db/index.js';
 import { peut } from './permissions.js';
 import { actionDe, moduleDe } from './carteModules.js';
-import { utilisateurDuJeton } from './auth.js';
+import { utilisateurDuJeton, SOI_SEUL } from './auth.js';
 
 const MODE = () => (process.env.PERMISSIONS_MODE === 'strict' ? 'strict' : 'constat');
 
@@ -121,6 +121,27 @@ function gesteSurSaTache(req, user) {
   } catch { return false; }
 }
 
+/* SA PROPRE FICHE NE DÉPEND D'AUCUN MODULE (5 octobre 2026, Loubna Sebbar :
+ * « Vous n'avez pas accès à ce module (organisation) » en ouvrant « Ma fiche »).
+ * La fiche d'un membre se lit par /api/ref, rangé sous Organisation ; un compte
+ * professeur dont la case Organisation est décochée ne pouvait plus se lire
+ * lui-même. Deux gestes passent, et seulement sur SON numéro : LIRE ce qui porte
+ * ce numéro, et PROPOSER une modification (le PATCH, qui dépose une demande —
+ * routes/referentiels.js). Écrire titres ou charges reste fermé. Les routes
+ * gardent leur propre contrôle (soiSeul). */
+function surSaFiche(req, user) {
+  try {
+    if (!SOI_SEUL.includes(user?.role)) return false;
+    const chemin = req.originalUrl.split('?')[0];
+    const m = /^\/api\/ref\/professeurs\/(\d+)(\/.*)?$/.exec(chemin);
+    if (!m) return false;
+    const moi = db.prepare('SELECT professeur_id FROM utilisateur WHERE id = ?').get(user.id)?.professeur_id;
+    if (!moi || Number(m[1]) !== Number(moi)) return false;
+    if (req.method === 'GET') return true;
+    return req.method === 'PATCH' && !m[2];
+  } catch { return false; }
+}
+
 export function garderModule(prefixe) {
   return (req, res, next) => {
     // Le module se résout à CHAQUE requête, et non une fois au montage : deux
@@ -149,6 +170,7 @@ export function garderModule(prefixe) {
     }
 
     if (gesteSurSaTache(req, user)) return next();
+    if (surSaFiche(req, user)) return next();
 
     noter(req, module, action, user);
     if (MODE() === 'constat') {
