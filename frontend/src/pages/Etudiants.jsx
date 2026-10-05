@@ -851,7 +851,7 @@ function SchemaCapitalisation({ etudId, annee, onNoeud = null, programme = null,
     </div>
   );
   if (data && !data.nodes?.length) return bandeau || null;
-  return <>{bandeau}<SchemaCapitalisationVue data={vue} mode="etudiant" onNoeud={onNoeud} /></>;
+  return <>{bandeau}<SchemaCapitalisationVue data={vue} mode="etudiant" onNoeud={onNoeud} enteteDans={noeudOutils} /></>;
 }
 
 // ── Grille de parcours : UE × années ─────────────────────────────────────────

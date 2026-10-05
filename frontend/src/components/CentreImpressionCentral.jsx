@@ -1807,7 +1807,9 @@ function OngletEtudiants({ perimetre = null, mode = 'deliberation', seul = null,
           </div>}
         </div>
 
-        <div className="flex-1 overflow-auto p-2 space-y-1.5">
+        {/* Même retrait que le bloc « Périmètre » au-dessus (px-3) : à p-2, la
+            section commençait 4 px plus à gauche que l'année. */}
+        <div className="flex-1 overflow-auto px-3 py-2 space-y-1.5">
           <select value={secChoisie} onChange={e => choisirSection(e.target.value)} className="controle w-full text-[13px]">
             <option value="">{arbre ? '— choisir une section —' : 'Chargement…'}</option>
             {(arbre?.sections || []).map(sec => <option key={sec} value={sec}>{sec}</option>)}
