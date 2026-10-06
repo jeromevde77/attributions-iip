@@ -625,7 +625,12 @@ export function structureUE(ueNum, annee) {
   // À POIDS ÉGAUX SI LA MAISON L'A DIT. Sans ce court-circuit, le réglage
   // n'aurait aucun effet visible : les périodes existent presque toujours, et
   // c'est elles qui pesaient, quoi qu'on ait choisi.
-  const egalitaire = (() => {
+  /* À PARTIR DE 2026-2027, LES PÉRIODES FONT FOI (Charles, 25 septembre
+     2026), et ce réglage ne les recouvre plus : il valait pour les années
+     reprises des classeurs, où rien d'autre ne disait le poids d'un cours.
+     Posé à « égal » en production, il pesait pareil les cinq cours de
+     l'UE 333 — 20 périodes comme 64 (6 octobre 2026). */
+  const egalitaire = anneeRef < ANNEE_PERIODES && (() => {
     try { return reglesDeliberation().cours_sans_poids === 'egal'; } catch { return false; }
   })();
   const poidsCours = {};
@@ -1417,6 +1422,133 @@ r.put('/decision', authRequired,
   })();
 
   res.json({ ok: true, session: ses });
+});
+
+// ── LES POINTS REÇUS DE LA HELB (orthoptie, étape 2) ────────────────────────
+//
+// (Charles, 30 septembre 2026 : « l'orthoptie est gérée par la HELB, mais
+// c'est moi qui organise les UE du tronc commun ; je dois pouvoir encoder les
+// points reçus de la HELB et délibérer » — les points arrivent PAR COURS.)
+// Une note de cours reçue s'écrit sur CHACUN des acquis de ce cours
+// (`s1|cours|AA`, origine « helb ») : la délibération, le PV et les pièces la
+// lisent comme toute note, et la note d'unité se calcule avec les poids des
+// cours — sans une ligne de calcul nouvelle. Une note d'acquis encodée à l'IIP
+// n'est jamais écrasée : la HELB ne remplit que ce qui est à elle ou vide.
+// Le journal est en ajout seul : qui a encodé quoi, quand.
+(function migrerNotesHELB() {
+  try {
+    db.exec(`CREATE TABLE IF NOT EXISTS note_helb_journal (
+      id INTEGER PRIMARY KEY AUTOINCREMENT, etudiant_id INTEGER NOT NULL, annee_scolaire TEXT NOT NULL,
+      ue_num INTEGER NOT NULL, session INTEGER NOT NULL, cours_code TEXT NOT NULL,
+      ancienne TEXT, nouvelle TEXT, par TEXT, le TEXT DEFAULT CURRENT_TIMESTAMP)`);
+  } catch (e) { console.error('[migration] note_helb_journal :', e.message); }
+})();
+const SECTION_HELB_NOTES = 'Orthoptie';
+const ROLES_NOTES_HELB = ['admin', 'directeur', 'directeur_adjoint', 'editeur', 'secretariat'];
+
+function feuilleHELB(ueNum, annee, session) {
+  const st = structureUE(ueNum, annee).filter(c => !c.non_evalue);
+  const cours = st.map(c => ({ cours_code: c.cours_code, cours_nom: c.cours_nom,
+    aas: (c.aas || []).map(a => a.aa_code).filter(Boolean), poids: c.poids_cours_affiche }));
+  const etudiants = db.prepare(`SELECT e.id, e.nom, e.prenom, e.matricule_helb FROM etudiant e
+      JOIN etudiant_inscription i ON i.etudiant_id = e.id AND i.annee_scolaire = ? AND i.ue_num = ?
+      WHERE e.section_rattachement = ? ORDER BY e.nom, e.prenom`).all(annee, ueNum, SECTION_HELB_NOTES);
+  const lire = db.prepare(`SELECT code, points, mention, origine FROM etudiant_note_detail
+      WHERE etudiant_id = ? AND annee_scolaire = ? AND ue_num = ? AND type = 'aa' AND code LIKE ?`);
+  for (const e of etudiants) {
+    e.notes = {}; e.iip = {};
+    for (const c of cours) {
+      const lignes = lire.all(e.id, annee, ueNum, `s${session}|${c.cours_code}|%`);
+      const helb = lignes.filter(l => l.origine === 'helb');
+      if (helb.length) e.notes[c.cours_code] = helb[0].mention || helb[0].points;
+      if (lignes.some(l => l.origine !== 'helb')) e.iip[c.cours_code] = true;
+    }
+  }
+  return { cours, etudiants };
+}
+
+r.get('/helb/:ueNum', authRequired, roleRequired(...ROLES_NOTES_HELB), (req, res) => {
+  const annee = req.query.annee || anneeDeTravail(req);
+  const session = Number(req.query.session) === 2 ? 2 : 1;
+  const ueNum = Number(req.params.ueNum);
+  const f = feuilleHELB(ueNum, annee, session);
+  const ue = db.prepare('SELECT ue_nom FROM ue WHERE ue_num = ? ORDER BY (annee_scolaire = ?) DESC LIMIT 1').get(ueNum, annee);
+  res.json({ annee, session, ue_num: ueNum, ue_nom: ue?.ue_nom || null, ...f,
+    sans_acquis: f.cours.filter(c => !c.aas.length).map(c => c.cours_code) });
+});
+
+// Les unités où des orthoptistes sont inscrits : ce que l'écran propose.
+r.get('/helb', authRequired, roleRequired(...ROLES_NOTES_HELB), (req, res) => {
+  const annee = req.query.annee || anneeDeTravail(req);
+  res.json(db.prepare(`SELECT i.ue_num, COUNT(DISTINCT i.etudiant_id) n,
+      (SELECT ue_nom FROM ue u WHERE u.ue_num = i.ue_num ORDER BY (u.annee_scolaire = ?) DESC LIMIT 1) ue_nom
+    FROM etudiant_inscription i JOIN etudiant e ON e.id = i.etudiant_id
+    WHERE i.annee_scolaire = ? AND e.section_rattachement = ? GROUP BY i.ue_num ORDER BY i.ue_num`)
+    .all(annee, annee, SECTION_HELB_NOTES));
+});
+
+r.post('/helb/:ueNum', authRequired, roleRequired(...ROLES_NOTES_HELB), (req, res) => {
+  const { annee, notes, simulation = true } = req.body || {};
+  const session = Number(req.body?.session) === 2 ? 2 : 1;
+  const ueNum = Number(req.params.ueNum);
+  if (!annee) return res.status(400).json({ error: 'annee requise' });
+  if (!Array.isArray(notes)) return res.status(400).json({ error: 'notes requises' });
+  if (session === 2 && !sessionCloturee(ueNum, annee, 1)) {
+    return res.status(409).json({ error: "La première session de cette unité n'est pas clôturée : pas de notes de seconde session." });
+  }
+  const f = feuilleHELB(ueNum, annee, session);
+  const coursDe = new Map(f.cours.map(c => [c.cours_code, c]));
+  const etuDe = new Map(f.etudiants.map(e => [e.id, e]));
+  const lire = (v) => {
+    const t = String(v ?? '').trim().toUpperCase().replace(',', '.');
+    if (!t) return { vide: true };
+    if (['NP', 'PP'].includes(t)) return { mention: t, points: 0 };
+    const n = Number(t);
+    return Number.isFinite(n) && n >= 0 && n <= 20 ? { points: n } : { erreur: true };
+  };
+  const plan = [], erreurs = [];
+  for (const x of notes) {
+    const e = etuDe.get(Number(x.etudiant_id)), c = coursDe.get(String(x.cours_code));
+    if (!e || !c) { erreurs.push(`ligne inconnue (${x.etudiant_id} / ${x.cours_code})`); continue; }
+    const v = lire(x.note);
+    if (v.erreur) { erreurs.push(`${e.nom} ${e.prenom} — ${c.cours_code} : « ${x.note} » n'est pas une note (0 à 20, NP, PP)`); continue; }
+    if (!c.aas.length) { erreurs.push(`${c.cours_code} n'a aucun acquis rattaché : la note n'a nulle part où aller (Organisation → pondérations)`); continue; }
+    const avant = e.notes[c.cours_code] ?? null;
+    const apres = v.vide ? null : (v.mention || v.points);
+    if (String(avant ?? '') === String(apres ?? '')) continue;
+    plan.push({ e, c, v, avant, apres });
+  }
+  if (erreurs.length) return res.status(400).json({ error: erreurs.slice(0, 12).join(' · '), erreurs });
+  if (simulation) {
+    return res.json({ simulation: true, changements: plan.length,
+      lignes: plan.slice(0, 300).map(p => ({ etudiant: `${p.e.nom} ${p.e.prenom}`, cours_code: p.c.cours_code, avant: p.avant, apres: p.apres })) });
+  }
+  const qui = req.user?.email || null;
+  const poser = db.prepare(`INSERT INTO etudiant_note_detail
+      (etudiant_id, annee_scolaire, ue_num, type, code, cours_code, points, mention, origine)
+    VALUES (?,?,?, 'aa', ?,?,?,?, 'helb')
+    ON CONFLICT(etudiant_id, annee_scolaire, ue_num, type, code) DO UPDATE SET
+      points = excluded.points, mention = excluded.mention, cours_code = excluded.cours_code, origine = 'helb'
+    WHERE COALESCE(etudiant_note_detail.origine, '') IN ('helb', '')
+      AND (etudiant_note_detail.origine = 'helb' OR etudiant_note_detail.points IS NULL)`);
+  const effacer = db.prepare(`DELETE FROM etudiant_note_detail WHERE etudiant_id = ? AND annee_scolaire = ?
+      AND ue_num = ? AND type = 'aa' AND code = ? AND origine = 'helb'`);
+  const journal = db.prepare(`INSERT INTO note_helb_journal (etudiant_id, annee_scolaire, ue_num, session, cours_code, ancienne, nouvelle, par)
+      VALUES (?,?,?,?,?,?,?,?)`);
+  let ecrites = 0, protegees = 0;
+  db.transaction(() => {
+    for (const p of plan) {
+      for (const aa of p.c.aas) {
+        const code = `s${session}|${p.c.cours_code}|${aa}`;
+        if (p.v.vide) { effacer.run(p.e.id, annee, ueNum, code); continue; }
+        const ch = poser.run(p.e.id, annee, ueNum, code, p.c.cours_code, p.v.points, p.v.mention || null).changes;
+        if (ch) ecrites++; else protegees++;
+      }
+      journal.run(p.e.id, annee, ueNum, session, p.c.cours_code, p.avant == null ? null : String(p.avant), p.apres == null ? null : String(p.apres), qui);
+    }
+  })();
+  console.log(`[notes-helb] UE ${ueNum} S${session} ${annee} : ${plan.length} note(s) de cours, ${ecrites} acquis écrits, ${protegees} protégés, par ${qui || '?'}`);
+  res.json({ ok: true, changements: plan.length, acquis_ecrits: ecrites, acquis_proteges: protegees });
 });
 
 // ── LE CONTRÔLE DES NOTES DE DÉCISION ──────────────────────────────────────
