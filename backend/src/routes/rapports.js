@@ -23,6 +23,7 @@ import { anneeDeTravail } from '../helpers/annee.js';
 import { decisionDeSession, structureUE } from './acquis.js';
 import { calculerEtp } from './pilotage.js';
 import { donneesChiffresCles, donneesPersonnel, TRANCHES_ETP } from '../lib/chiffresCles.js';
+import { donneesCout } from '../lib/coutFormation.js';
 import { TITRES_ACCES, DIPLOMES_MAX } from '../lib/profilEtudiant.js';
 import { couleurs } from '../lib/couleurs.js';
 import { controlePrerequisPae, corpsControlePae, prenomSeul, STYLES_CONTROLE_PAE } from '../lib/controlePae.js';
@@ -662,6 +663,69 @@ function documentPersonnelStats(p) {
     entete: { titre: 'Statistiques du personnel', sous: `Année académique ${p.annee} · situation au ${dateRef}` },
     titre: 'Statistiques du personnel',
     nom: `Statistiques-personnel-${p.annee}.html`,
+    styles: STYLE_RAPPORT + STYLE_REPORTING + STYLE_STATS,
+  };
+}
+
+/**
+ * LE COÛT RÉEL DES FORMATIONS — chaque période attribuée au montant de la
+ * circulaire des conventions, réglé dans Configuration → Coût des périodes.
+ */
+function documentCoutFormations(p) {
+  const d = donneesCout(p.annee);
+  const K = paletteStats();
+  const T = d.tarifs;
+  const esc = v => String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;');
+  const eur = n => `${Math.round(n || 0).toLocaleString('fr-BE')} €`;
+  const n0 = n => Math.round(n || 0).toLocaleString('fr-BE');
+  const m2 = n => (n || 0).toFixed(2).replace('.', ',');
+  const inscritsTot = d.sections.reduce((t, S) => t + S.inscrits, 0);
+  const detail = d.sections.map(S => `
+    <tr class="groupe"><td colspan="4">${esc(S.section)}<span class="fin"> — ${eur(S.cout)}</span></td></tr>
+    ${S.ues.map(u => `<tr><td>UE ${u.ue_num} — ${esc(u.ue_nom || '')}</td><td class="n">${u.niveau || '—'}</td>
+      <td class="n">${n0(u.periodes)}</td><td class="n">${eur(u.cout)}</td></tr>`).join('')}`).join('');
+
+  const corps = `
+    ${rangeeTuiles([
+      tuile({ valeur: eur(d.total.cout), libelle: 'Coût total des formations', precision: `${d.sections.length} section(s)`, ton: 'fort' }),
+      tuile({ valeur: n0(d.total.periodes), unite: 'pér.', libelle: 'Périodes attribuées', precision: 'hors congés et activités Z' }),
+      tuile({ valeur: eur(d.total.cout_iip), libelle: 'Contrats Institut', precision: d.total.cout ? `${Math.round(d.total.cout_iip / d.total.cout * 100)} %` : '—' }),
+      tuile({ valeur: eur(d.total.cout_helb), libelle: 'Contrats Haute École', precision: d.total.cout ? `${Math.round(d.total.cout_helb / d.total.cout * 100)} %` : '—' }),
+      tuile({ valeur: inscritsTot ? eur(d.total.cout / inscritsTot) : '—', libelle: 'Par étudiant', precision: `${n0(inscritsTot)} inscrits` }),
+    ])}
+    ${duo(
+      cadreGraphe('Coût par section', barres({ donnees: d.sections.map(S => ({ nom: esc(S.section), valeur: S.cout, couleur: K.marine, texte: eur(S.cout) })) })),
+      cadreGraphe('Coût par étudiant inscrit', barres({ donnees: d.sections.filter(S => S.inscrits)
+        .sort((a, b) => b.cout / b.inscrits - a.cout / a.inscrits)
+        .map(S => ({ nom: esc(S.section), valeur: S.cout / S.inscrits, couleur: K.donnees, texte: eur(S.cout / S.inscrits) })) })))}
+
+    <h2>Section par section</h2>
+    <table><thead><tr><th>Section</th>${['Pér. CT', 'Pér. PP', 'Coût CT', 'Coût PP', 'Coût total', 'dont HELB', 'Inscrits', 'Par étudiant']
+      .map(c => `<th class="n">${c}</th>`).join('')}</tr></thead>
+    <tbody>${d.sections.map(S => `<tr><td>${esc(S.section)}</td><td class="n">${n0(S.per_ct)}</td><td class="n">${n0(S.per_pp)}</td>
+      <td class="n">${eur(S.cout_ct)}</td><td class="n">${eur(S.cout_pp)}</td><td class="n g">${eur(S.cout)}</td>
+      <td class="n">${S.cout_helb ? eur(S.cout_helb) : '—'}</td><td class="n">${S.inscrits ? n0(S.inscrits) : '—'}</td>
+      <td class="n">${S.inscrits ? eur(S.cout / S.inscrits) : '—'}</td></tr>`).join('')}</tbody>
+    <tfoot><tr class="repere"><td>Ensemble</td><td class="n">${n0(d.sections.reduce((t, S) => t + S.per_ct, 0))}</td>
+      <td class="n">${n0(d.sections.reduce((t, S) => t + S.per_pp, 0))}</td>
+      <td class="n">${eur(d.sections.reduce((t, S) => t + S.cout_ct, 0))}</td><td class="n">${eur(d.sections.reduce((t, S) => t + S.cout_pp, 0))}</td>
+      <td class="n">${eur(d.total.cout)}</td><td class="n">${eur(d.total.cout_helb)}</td><td class="n">${n0(inscritsTot)}</td>
+      <td class="n">${inscritsTot ? eur(d.total.cout / inscritsTot) : '—'}</td></tr></tfoot></table>
+    <p class="fin">Montants par période : supérieur de type court ${m2(T.SUP.CT)} € (cours généraux et techniques) et ${m2(T.SUP.PP)} €
+      (pratique professionnelle) ; secondaire supérieur ${m2(T.DS.CT)} € et ${m2(T.DS.PP)} €${T.reference ? ` — ${esc(T.reference)}` : ''}${T.date_effet ? `, au ${esc(T.date_effet.split('-').reverse().join('/'))}` : ''}.
+      Réglables dans Configuration → Coût des périodes. Les lignes en congé ne coûtent rien (leur remplaçant est compté) ;
+      les activités Z, sans enseignant, n'entrent pas.${d.type_defaut ? ` ${n0(d.type_defaut)} période(s) sans type de cours ont été comptées au tarif des cours généraux.` : ''}${d.sans_tarif ? ` <b>${n0(d.sans_tarif)} période(s) sans niveau ou sans tarif ne sont pas valorisées.</b>` : ''}
+      Un étudiant inscrit dans deux sections compte dans chacune.</p>
+
+    <h2>Unité par unité</h2>
+    <table><thead><tr><th>Unité</th><th class="n" style="width:16mm">Niveau</th><th class="n" style="width:20mm">Périodes</th>
+      <th class="n" style="width:26mm">Coût</th></tr></thead><tbody>${detail}</tbody></table>`;
+
+  return {
+    corps,
+    entete: { titre: 'Coût des formations', sous: `Année académique ${p.annee} · montants de la circulaire des conventions` },
+    titre: 'Coût des formations',
+    nom: `Cout-formations-${p.annee}.html`,
     styles: STYLE_RAPPORT + STYLE_REPORTING + STYLE_STATS,
   };
 }
@@ -1373,6 +1437,19 @@ export const RAPPORTS = [
     document: (p) => documentEtp(p),
   },
 
+  {
+    /* LE COÛT RÉEL DES FORMATIONS (Charles, 6 octobre 2026 — circulaire des
+       conventions n° 9789 ; montants réglables dans Configuration). */
+    id: 'cout-formations', domaine: 'gestion', params: ['annee'],
+    libelle: 'Coût des formations',
+    aide: "Chaque période attribuée au montant de la circulaire des conventions, par section et par unité — et par étudiant inscrit.",
+    colonnes: COLS([['section', 'Section', 24], ['per_ct', 'Pér. CT'], ['per_pp', 'Pér. PP'], ['cout', 'Coût (€)'],
+      ['cout_helb', 'dont HELB (€)'], ['inscrits', 'Inscrits'], ['par_etudiant', 'Par étudiant (€)']]),
+    lignes: (p) => donneesCout(p.annee).sections.map(S => ({ section: S.section, per_ct: Math.round(S.per_ct),
+      per_pp: Math.round(S.per_pp), cout: Math.round(S.cout), cout_helb: Math.round(S.cout_helb), inscrits: S.inscrits,
+      par_etudiant: S.inscrits ? Math.round(S.cout / S.inscrits) : null })),
+    document: (p) => documentCoutFormations(p),
+  },
   {
     /* LES CHIFFRES CLÉS PAR SECTION (Charles, 6 octobre 2026 — conseil
        d'entreprise : ETP, étudiants, UE, nationalités ; « c'est pour l'année

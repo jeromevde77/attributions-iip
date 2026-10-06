@@ -1201,6 +1201,7 @@ try {
   const _insQP = db.prepare(`INSERT OR IGNORE INTO parametre (cle, valeur, label, section, groupe) VALUES (?,?,?,?,?)`);
   for (const p of _qParams) _insQP.run(...p);
 
+
   // 5c. Table ue_section (rattachement many-to-many UE <-> sections)
   db.exec(`
     CREATE TABLE IF NOT EXISTS ue_section (
@@ -2825,6 +2826,28 @@ try {
     WHEN NEW.sexe IS NULL AND NEW.titre IS NOT NULL
     BEGIN UPDATE etudiant SET sexe = ${depuisTitre} WHERE id = NEW.id; END`);
 } catch(e) { console.error('[migration] diplômes étudiant :', e.message); }
+
+  /* LE COÛT D'UNE PÉRIODE DE COURS (Charles, 6 octobre 2026 : « intègre ces
+     données, pas en dur mais modifiables dans les paramètres, afin de pouvoir
+     calculer le coût réel de chaque formation »). Montants de la circulaire
+     n° 9789 du 31/08/2026 (point 5 de la PS 283/94), au 1er septembre 2026.
+     Amorcés une fois ; ensuite, c'est Configuration → Coût des périodes. Un bloc
+     à part : une migration qui échoue plus haut ne doit pas les emporter. */
+try {
+  const ins = db.prepare(`INSERT OR IGNORE INTO parametre (cle, valeur, label, section, groupe) VALUES (?,?,?,?,?)`);
+  for (const p of [
+    ['cout.reference', 'Circulaire n° 9789 du 31/08/2026', 'Texte de référence des montants', null, 'couts'],
+    ['cout.date_effet', '2026-09-01', "Date d'effet des montants", null, 'couts'],
+    ['cout.sup_gen', '108.81', 'Supérieur de type court — cours généraux, techniques, psychopédagogie et méthodologie (€ / période)', null, 'couts'],
+    ['cout.sup_spec', '88.28', 'Supérieur de type court — cours spéciaux (€ / période)', null, 'couts'],
+    ['cout.sup_pp', '92.07', 'Supérieur de type court — cours techniques et de pratique professionnelle, pratique professionnelle (€ / période)', null, 'couts'],
+    ['cout.ds_gen', '96.13', 'Secondaire supérieur — cours généraux et techniques (€ / période)', null, 'couts'],
+    ['cout.ds_spec', '88.28', 'Secondaire supérieur — cours spéciaux (€ / période)', null, 'couts'],
+    ['cout.ds_pp', '69.85', 'Secondaire supérieur — cours techniques et de pratique professionnelle, pratique professionnelle (€ / période)', null, 'couts'],
+    ['cout.di_gen', '80.45', 'Secondaire inférieur — cours généraux, spéciaux et techniques (€ / période)', null, 'couts'],
+    ['cout.di_pp', '68.26', 'Secondaire inférieur — cours techniques et de pratique professionnelle, pratique professionnelle (€ / période)', null, 'couts'],
+  ]) ins.run(...p);
+} catch (e) { console.error('[migration] coût des périodes :', e.message); }
 
 // ── Lucie V3++ : échéancier, dossier administratif, communication ──
 try { migrerEcheancier(db); } catch (e) { console.error('[migration] echeancier :', e.message); }

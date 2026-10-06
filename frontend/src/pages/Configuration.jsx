@@ -4,7 +4,7 @@ import { useSearchParams } from 'react-router-dom';
 import { api, getAnnee, setAnnee as setAnneeActive, getUser } from '../lib/api.js';
 import { ORIGINE, chargerCouleurs, echelleGris, poser as poserCouleurs, poserGris, variables as variablesCouleurs } from '../lib/couleurs.js';
 import Audit from './Audit.jsx';
-import { IconAdjustments, IconAward, IconBooks, IconBuilding, IconCalendar, IconCalendarEvent, IconChartBar, IconCheck, IconChevronRight, IconDownload, IconFileText, IconHistory, IconLink, IconScale, IconSettings, IconSparkles, IconUserShield, IconUsers, IconX, IconGavel, IconPlus, IconTrash, IconGripVertical, IconEdit, IconMail, IconPalette, IconArchive, IconAlertTriangle, IconShieldLock, IconDatabase, IconHierarchy, IconArrowsSplit, IconTool, IconSchool, IconStairsUp, IconCalculator, IconLinkOff, IconSend, IconMessageDots, IconId, IconFileDescription, IconKey, IconMailForward, IconUserSearch } from '@tabler/icons-react';
+import { IconAdjustments, IconAward, IconBooks, IconBuilding, IconCalendar, IconCalendarEvent, IconChartBar, IconCheck, IconChevronRight, IconDownload, IconFileText, IconHistory, IconLink, IconScale, IconSettings, IconSparkles, IconUserShield, IconUsers, IconX, IconGavel, IconPlus, IconTrash, IconGripVertical, IconEdit, IconMail, IconPalette, IconArchive, IconAlertTriangle, IconShieldLock, IconDatabase, IconHierarchy, IconArrowsSplit, IconTool, IconSchool, IconStairsUp, IconCalculator, IconLinkOff, IconSend, IconMessageDots, IconId, IconFileDescription, IconKey, IconMailForward, IconUserSearch, IconCoin } from '@tabler/icons-react';
 import { PageHeader, RailLateral, TuileEtat, PastilleEtat, Encadre } from '../components/ui.jsx';
 import ApercuDocuments from '../components/ApercuDocuments.jsx';
 const Editeur = lazy(() => import('./Editeur.jsx'));
@@ -273,6 +273,7 @@ function ChangelogView({ data }) {
 // ─── Gestion des paramètres ───────────────────────────────────────────────────
 
 const GROUPE_LABELS = {
+  couts:         { icon: IconCoin, label: 'Coût des périodes de cours', desc: "Montants en euros d'une période, par niveau et par type de cours (circulaire des conventions). Ils font le « Coût des formations » d'Éditions → Gestion. À corriger à chaque nouvelle circulaire." },
   planification: { icon: IconAdjustments, label: 'Planification', desc: 'Valeurs des cellules EV1/EV2/VC, durée des périodes, contraintes calendaires' },
   session:       { icon: IconCalendar, label: 'Calendrier des sessions', desc: 'Dernier jour admin + délais rétroactifs (EV1, VC, EV2, délibé, recours) pour calculer la dernière semaine de cours' },
   procedures:    { icon: IconScale, label: 'Procédures',    desc: 'Délais légaux, email de direction utilisé dans les PV' },
@@ -1079,6 +1080,9 @@ export default function Configuration() {
     { label: 'Établissement', icon: IconBuilding, items: [
       { key: 'etablissement', label: 'Identité', icon: IconId },
       { key: 'annees', label: 'Années et calendrier', icon: IconCalendar },
+      // Les montants d'une période de cours (circulaire des conventions) :
+      // ils font le coût des formations, et changent à chaque indexation.
+      { key: 'couts', label: 'Coût des périodes', icon: IconCoin },
     ]},
     /* Ce qu'on enseigne et comment on le sanctionne. Les faces annuelles
      * portent l'année au bout de la rangée, une seule fois. */
@@ -1224,6 +1228,7 @@ export default function Configuration() {
       {tab === 'planification' && <GestionParametres groupes={['planification']} />}
       {tab === 'due' && <GestionParametres groupes={['due']} />}
       {tab === 'securite' && <GestionParametres groupes={['securite']} />}
+      {tab === 'couts' && <GestionParametres groupes={['couts']} />}
 
       {/* ── Onglet Clôture d'une année reprise d'archives ── */}
       {false && tab === 'reprise' && <ClotureReprise />}
