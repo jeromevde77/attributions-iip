@@ -39,11 +39,19 @@ export function donneesCout(annee) {
            COALESCE(v.type_cours, (SELECT c.ct_pp FROM cours c WHERE c.cours_code = v.code_cours
              AND c.annee_scolaire = v.annee_scolaire LIMIT 1)) AS type,
            (v.type_cours IS NULL) AS type_deduit,
+           CASE WHEN v.statut_mdp IN ('CC', 'EXP') THEN v.statut_mdp ELSE 'AUTRE' END AS statut,
+           COALESCE((SELECT CASE WHEN upper(p.sexe) IN ('F', 'M', 'X') THEN upper(p.sexe) END
+             FROM professeur p WHERE p.id = v.professeur_id), 'NR') AS sexe,
            SUM(v.total_attribue_professeur) AS periodes
       FROM v_attribution_complete v
      WHERE v.annee_scolaire = ? AND COALESCE(v.en_conge, 0) = 0 AND COALESCE(v.total_attribue_professeur, 0) > 0
-     GROUP BY v.section, v.ue_num, v.niveau, v.contrat_mdp, type, type_deduit`).all(annee);
+     GROUP BY v.section, v.ue_num, v.niveau, v.contrat_mdp, type, type_deduit, statut, sexe`).all(annee);
   let sansTarif = 0, typeDefaut = 0;
+  const nouveauxStatuts = () => Object.fromEntries(['CC', 'EXP', 'AUTRE'].map(k => [k,
+    { periodes: 0, cout: 0, per_ct: 0, per_pp: 0, cout_ct: 0, cout_pp: 0 }]));
+  const totStatuts = nouveauxStatuts();
+  const nouveauxSexes = () => Object.fromEntries(['F', 'M', 'X', 'NR'].map(k => [k, { periodes: 0, cout: 0 }]));
+  const totSexes = nouveauxSexes();
   const parSection = new Map();
   for (const l of lignes) {
     const niv = ['SUP', 'DS', 'DI'].includes(l.niveau) ? l.niveau : null;
@@ -55,13 +63,21 @@ export function donneesCout(annee) {
     const cout = (l.periodes || 0) * (t || 0);
     const sec = l.section || '(sans section)';
     const S = parSection.get(sec) || { section: sec, per_ct: 0, per_pp: 0, cout_ct: 0, cout_pp: 0, cout: 0,
-      cout_iip: 0, cout_helb: 0, periodes: 0, ues: new Map() };
+      cout_iip: 0, cout_helb: 0, periodes: 0, ues: new Map(), statuts: nouveauxStatuts(), sexes: nouveauxSexes() };
     const k = type === 'PP' ? 'pp' : 'ct';
     S['per_' + k] += l.periodes; S['cout_' + k] += cout; S.cout += cout; S.periodes += l.periodes;
     if (l.contrat === 'HELB') S.cout_helb += cout; else S.cout_iip += cout;
     const U = S.ues.get(l.ue_num) || { ue_num: l.ue_num, ue_nom: l.ue_nom, niveau: niv, periodes: 0, cout: 0,
-      per_ct: 0, per_pp: 0, cout_ct: 0, cout_pp: 0, tarif_ct: niv ? T[niv].CT : 0, tarif_pp: niv ? T[niv].PP : 0 };
+      per_ct: 0, per_pp: 0, cout_ct: 0, cout_pp: 0, tarif_ct: niv ? T[niv].CT : 0, tarif_pp: niv ? T[niv].PP : 0,
+      statuts: nouveauxStatuts(), sexes: nouveauxSexes() };
     U.periodes += l.periodes; U.cout += cout; U['per_' + k] += l.periodes; U['cout_' + k] += cout; S.ues.set(l.ue_num, U);
+    // CHARGÉS DE COURS ET EXPERTS (Charles, 6 octobre 2026 : « des lignes
+    // différentes, et des % CC et EXP par UE, section… ») — même calcul.
+    for (const X of [U.statuts[l.statut], S.statuts[l.statut], totStatuts[l.statut]]) {
+      X.periodes += l.periodes; X.cout += cout; X['per_' + k] += l.periodes; X['cout_' + k] += cout;
+    }
+    // Hommes / femmes : le sexe de l'enseignant, « NR » quand la fiche ne le dit pas.
+    for (const X of [U.sexes[l.sexe], S.sexes[l.sexe], totSexes[l.sexe]]) { X.periodes += l.periodes; X.cout += cout; }
     parSection.set(sec, S);
   }
   // Les inscrits par section : ceux des chiffres clés, comptés de la même façon.
@@ -97,7 +113,8 @@ export function donneesCout(annee) {
     S.part_fonctions = baseInscrits ? coutFonctions * S.inscrits / baseInscrits : 0;
     S.cout_complet = S.cout + S.part_fonctions;
   }
-  return { annee, tarifs: T, sections, total: { ...total, cout_fonctions: coutFonctions, cout_complet: total.cout + coutFonctions },
+  return { annee, tarifs: T, sections, statuts: totStatuts, sexes: totSexes,
+    total: { ...total, cout_fonctions: coutFonctions, cout_complet: total.cout + coutFonctions },
     missions, base_inscrits: baseInscrits,
     sans_etp: missions.filter(m => !m.etp).length, sans_cout: missions.filter(m => m.etp && !m.annuel).length,
     sans_tarif: sansTarif, type_defaut: typeDefaut };

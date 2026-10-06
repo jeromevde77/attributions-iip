@@ -590,6 +590,9 @@ const STYLE_STATS = `
   table.duo .barres-lib { width:34% !important; }
   table.duo .barres-val { width:30% !important; padding-left:2mm !important; white-space:nowrap; }
   .cadre h3 { font-size:9.5pt; color:#1B2B4B; margin:0 0 2mm; font-weight:700; }
+  /* UN NOMBRE NE SE COUPE PAS : « 47 240 » d'un côté, « € » de l'autre. */
+  table.serre th, table.serre td { padding-left:1.2mm; padding-right:1.2mm; font-size:8pt; }
+  table td.n { white-space:nowrap; }
 `;
 const partsDe = (P, liste) => barreParts(liste.filter(([, v]) => v > 0)
   .map(([nom, v, couleur, pale]) => ({ nom, valeur: v, couleur, pale })));
@@ -680,34 +683,71 @@ function documentCoutFormations(p) {
   const n0 = n => Math.round(n || 0).toLocaleString('fr-BE');
   const m2 = n => (n || 0).toFixed(2).replace('.', ',');
   const e1 = n => (Math.round((n || 0) * 100) / 100).toString().replace('.', ',');
+  const pc = (k, n) => (n ? `${Math.round(k / n * 100)} %` : '—');
+  const k0 = n => Math.round(n || 0).toLocaleString('fr-BE');   // montant sans symbole (colonne en €)
   const ins = d.base_inscrits;
   const tot = d.total;
-  const somme = k => d.sections.reduce((t, S) => t + (S[k] || 0), 0);
+  const ST = d.statuts, SX = d.sexes;
+  const GRIS = GRIS_INCONNU;
+  // Couleurs : CC au bleu du logo, EXP au cyan ; femmes à l'or, hommes au bleu, X au cyan.
+  const coulStatut = { CC: K.bleu, EXP: K.cyan, AUTRE: GRIS };
+  const coulSexe = { F: K.or, M: K.bleu, X: K.cyan, NR: GRIS };
+  const libStatut = { CC: 'Chargés de cours', EXP: 'Experts', AUTRE: 'Sans statut' };
+  const libSexe = { F: 'Femmes', M: 'Hommes', X: 'X', NR: 'Non renseigné' };
 
-  // LE CALCUL SE MONTRE (Charles, 6 octobre 2026 : « tu devrais détailler les
-  // calculs ») : chaque montant s'écrit avec ce qui le produit.
+  /* UNE BARRE PAR SECTION, LA LÉGENDE UNE FOIS : vingt légendes identiques
+     ne disent rien de plus qu'une seule. */
+  const barreNue = (parts) => {
+    const t = parts.reduce((a, x) => a + x.v, 0) || 1;
+    return `<div class="parts">${parts.filter(x => x.v > 0).map(x =>
+      `<span class="part" style="width:${x.v / t * 100}%;background:${x.c};opacity:${x.pale ? 0.35 : 0.85}"></span>`).join('')}</div>`;
+  };
+  const legende = (cles, lib, coul) => `<div class="legendes">${cles.map(k =>
+    `<span class="leg"><i style="background:${coul[k]};opacity:${coul[k] === GRIS ? 0.35 : 0.85}"></i>${lib[k]}</span>`).join('')}</div>`;
+  const parSection = (titre, get, cles, lib, coul) => cadreGraphe(titre, `<table class="barres">${d.sections.map(S => {
+      const v = get(S); const t = cles.reduce((a, k) => a + (v[k]?.periodes || 0), 0);
+      return `<tr><td class="barres-lib">${esc(S.section)}</td><td>${barreNue(cles.map(k => ({ v: v[k]?.periodes || 0, c: coul[k], pale: coul[k] === GRIS })))}</td>
+        <td class="barres-val">${cles.filter(k => k !== 'AUTRE' && k !== 'NR').map(k => `${pc(v[k]?.periodes || 0, t)}`).join(' · ')}</td></tr>`;
+    }).join('')}</table>${legende(cles, lib, coul)}`);
+  const global = (titre, v, cles, lib, coul, note = '') => cadreGraphe(titre, partsDe(K, cles.map(k => [lib[k], v[k]?.periodes || 0, coul[k], coul[k] === GRIS])), note);
+
   const regle = `<div class="cadre"><h3>Comment se calcule le coût</h3>
     <p class="fin" style="margin:0">
       <b>Cours</b> — périodes attribuées × montant d'une période, selon le niveau de l'unité et le type du cours :
       supérieur de type court ${m2(T.SUP.CT)} € (cours généraux et techniques) · ${m2(T.SUP.PP)} € (pratique professionnelle) ;
       secondaire supérieur ${m2(T.DS.CT)} € · ${m2(T.DS.PP)} €${T.reference ? ` (${esc(T.reference)}${T.date_effet ? `, au ${esc(T.date_effet.split('-').reverse().join('/'))}` : ''})` : ''}.
-      Les lignes en congé ne coûtent rien (leur remplaçant est compté) ; les activités Z n'entrent pas.<br>
-      <b>Fonctions</b> — coût annuel d'un temps plein de la fonction × ETP de la personne dans cette fonction.
-      Réparti entre les sections au prorata de leurs inscrits : part d'une section = coût des fonctions × inscrits de la section ÷ ${n0(ins)}.<br>
+      Le même montant vaut pour les chargés de cours et pour les experts. Les lignes en congé ne coûtent rien
+      (leur remplaçant est compté) ; les activités Z n'entrent pas.<br>
+      <b>Fonctions</b> — coût annuel d'un temps plein de la fonction × ETP de la personne dans cette fonction,
+      réparti entre les sections au prorata de leurs inscrits (part = coût des fonctions × inscrits de la section ÷ ${n0(ins)}).<br>
       <b>Coût complet</b> d'une section = coût de ses cours + sa part des fonctions ; par étudiant = coût complet ÷ inscrits.
-      Les montants se règlent dans Configuration → Coût des périodes.</p></div>`;
+      Les pourcentages CC / EXP et femmes / hommes portent sur les <b>périodes</b>.</p></div>`;
 
-  const tSections = `<table><thead><tr><th>Section</th>${['Pér. CT', 'Pér. PP', 'Coût des cours', 'dont HELB', 'Inscrits',
-      'Part des fonctions', 'Coût complet', 'Par étudiant'].map(c => `<th class="n">${c}</th>`).join('')}</tr></thead>
-    <tbody>${d.sections.map(S => `<tr><td>${esc(S.section)}</td><td class="n">${n0(S.per_ct)}</td><td class="n">${n0(S.per_pp)}</td>
-      <td class="n">${eur(S.cout)}</td><td class="n">${S.cout_helb ? eur(S.cout_helb) : '—'}</td>
-      <td class="n">${S.inscrits ? n0(S.inscrits) : '—'}</td>
-      <td class="n">${S.part_fonctions ? eur(S.part_fonctions) : '—'}</td><td class="n g">${eur(S.cout_complet)}</td>
-      <td class="n">${S.inscrits ? eur(S.cout_complet / S.inscrits) : '—'}</td></tr>`).join('')}</tbody>
-    <tfoot><tr class="repere"><td>Ensemble</td><td class="n">${n0(somme('per_ct'))}</td><td class="n">${n0(somme('per_pp'))}</td>
-      <td class="n">${eur(tot.cout)}</td><td class="n">${eur(tot.cout_helb)}</td><td class="n">${n0(ins)}</td>
-      <td class="n">${eur(tot.cout_fonctions)}</td><td class="n">${eur(tot.cout_complet)}</td>
-      <td class="n">${ins ? eur(tot.cout_complet / ins) : '—'}</td></tr></tfoot></table>`;
+  const tSections = `<table class="serre"><thead><tr><th>Section</th>${['Cours (€)', 'dont CC (€)', 'dont EXP (€)', '% CC', '% EXP', 'dont HELB (€)',
+      'Inscrits', 'Fonctions (€)', 'Complet (€)', 'Par étudiant (€)'].map(c => `<th class="n">${c}</th>`).join('')}</tr></thead>
+    <tbody>${d.sections.map(S => `<tr><td>${esc(S.section)}</td><td class="n">${k0(S.cout)}</td>
+      <td class="n">${k0(S.statuts.CC.cout)}</td><td class="n">${k0(S.statuts.EXP.cout)}</td>
+      <td class="n">${pc(S.statuts.CC.periodes, S.periodes)}</td><td class="n">${pc(S.statuts.EXP.periodes, S.periodes)}</td>
+      <td class="n">${S.cout_helb ? k0(S.cout_helb) : '—'}</td><td class="n">${S.inscrits ? n0(S.inscrits) : '—'}</td>
+      <td class="n">${S.part_fonctions ? k0(S.part_fonctions) : '—'}</td><td class="n g">${k0(S.cout_complet)}</td>
+      <td class="n">${S.inscrits ? k0(S.cout_complet / S.inscrits) : '—'}</td></tr>`).join('')}</tbody>
+    <tfoot><tr class="repere"><td>Ensemble</td><td class="n">${k0(tot.cout)}</td><td class="n">${k0(ST.CC.cout)}</td>
+      <td class="n">${k0(ST.EXP.cout)}</td><td class="n">${pc(ST.CC.periodes, tot.periodes)}</td><td class="n">${pc(ST.EXP.periodes, tot.periodes)}</td>
+      <td class="n">${k0(tot.cout_helb)}</td><td class="n">${n0(ins)}</td><td class="n">${k0(tot.cout_fonctions)}</td>
+      <td class="n">${k0(tot.cout_complet)}</td><td class="n">${ins ? k0(tot.cout_complet / ins) : '—'}</td></tr></tfoot></table>
+    <p class="fin">${ST.AUTRE.periodes ? `${n0(ST.AUTRE.periodes)} période(s) portées par un membre sans statut CC ou EXP sont comptées dans le coût, hors pourcentages CC / EXP. ` : ''}${d.type_defaut ? `${n0(d.type_defaut)} période(s) sans type de cours ont été comptées au tarif des cours généraux. ` : ''}${d.sans_tarif ? `<b>${n0(d.sans_tarif)} période(s) sans niveau ou sans tarif ne sont pas valorisées.</b> ` : ''}Un étudiant inscrit dans deux sections compte dans chacune.</p>`;
+
+  const sexConnu = tot.periodes - SX.NR.periodes;
+  const tSexes = `<table><thead><tr><th>Section</th>${['Femmes', 'Hommes', 'X', 'Non renseigné', '% femmes', '% hommes']
+      .map(c => `<th class="n">${c}</th>`).join('')}</tr></thead>
+    <tbody>${d.sections.map(S => { const v = S.sexes; const c = S.periodes - v.NR.periodes; return `<tr><td>${esc(S.section)}</td>
+      <td class="n">${n0(v.F.periodes)}</td><td class="n">${n0(v.M.periodes)}</td><td class="n">${n0(v.X.periodes)}</td>
+      <td class="n">${n0(v.NR.periodes)}</td><td class="n">${pc(v.F.periodes, c)}</td><td class="n">${pc(v.M.periodes, c)}</td></tr>`; }).join('')}</tbody>
+    <tfoot><tr class="repere"><td>Ensemble</td><td class="n">${n0(SX.F.periodes)}</td><td class="n">${n0(SX.M.periodes)}</td>
+      <td class="n">${n0(SX.X.periodes)}</td><td class="n">${n0(SX.NR.periodes)}</td><td class="n">${pc(SX.F.periodes, sexConnu)}</td>
+      <td class="n">${pc(SX.M.periodes, sexConnu)}</td></tr></tfoot></table>
+    <p class="fin">En périodes données. Les pourcentages portent sur les périodes dont l'enseignant a son sexe renseigné
+      — <b>${pc(sexConnu, tot.periodes)} des périodes</b> ; le reste se complète sur la fiche (Ma fiche ou Personnel).</p>`;
 
   const tFonctions = d.missions.length ? `<table><thead><tr><th>Personne</th><th>Fonction</th><th>Portée</th>
       <th class="n" style="width:14mm">ETP</th><th class="n" style="width:28mm">Temps plein / an</th><th class="n" style="width:24mm">Coût</th></tr></thead>
@@ -715,36 +755,48 @@ function documentCoutFormations(p) {
       <td>${esc(m.fonction)}</td><td>${esc(m.portee)}</td>
       <td class="n">${m.etp ? e1(m.etp) : '<span class="fin">à régler</span>'}</td>
       <td class="n">${m.annuel ? eur(m.annuel) : '<span class="fin">à régler</span>'}</td>
-      <td class="n">${m.cout ? `${eur(m.cout)}` : '—'}</td></tr>`).join('')}</tbody>
+      <td class="n">${m.cout ? eur(m.cout) : '—'}</td></tr>`).join('')}</tbody>
     <tfoot><tr class="repere"><td colspan="5">Ensemble des fonctions</td><td class="n">${eur(tot.cout_fonctions)}</td></tr></tfoot></table>
     <p class="fin">Coût = ETP × coût annuel d'un temps plein.${d.sans_etp ? ` <b>${d.sans_etp} fonction(s) sans ETP</b> (onglet Fonctions de la fiche) ne sont pas comptées.` : ''}${d.sans_cout ? ` <b>${d.sans_cout} fonction(s) sans coût annuel</b> (Configuration → Coût des périodes) ne sont pas comptées.` : ''}</p>`
     : '<p class="fin">Aucune fonction encodée pour cette année (onglet Fonctions de la fiche du personnel).</p>';
 
+  // UNITÉ PAR UNITÉ : une ligne par statut, le calcul écrit.
+  const calc = (per, tarif, cout) => (per ? `${n0(per)} × ${m2(tarif)} = ${eur(cout)}` : '—');
   const detail = d.sections.map(S => `
-    <tr class="groupe"><td colspan="5">${esc(S.section)}<span class="fin"> — ${eur(S.cout)}</span></td></tr>
-    ${S.ues.map(u => `<tr><td>UE ${u.ue_num} — ${esc(u.ue_nom || '')}</td><td class="n">${u.niveau || '—'}</td>
-      <td class="n">${u.per_ct ? `${n0(u.per_ct)} × ${m2(u.tarif_ct)} = ${eur(u.cout_ct)}` : '—'}</td>
-      <td class="n">${u.per_pp ? `${n0(u.per_pp)} × ${m2(u.tarif_pp)} = ${eur(u.cout_pp)}` : '—'}</td>
-      <td class="n g">${eur(u.cout)}</td></tr>`).join('')}`).join('');
+    <tr class="groupe"><td colspan="5">${esc(S.section)}<span class="fin"> — ${eur(S.cout)} · ${pc(S.statuts.CC.periodes, S.periodes)} CC · ${pc(S.statuts.EXP.periodes, S.periodes)} EXP</span></td></tr>
+    ${S.ues.map(u => `<tr class="repere"><td>UE ${u.ue_num} — ${esc(u.ue_nom || '')}</td><td class="n">${u.niveau || '—'}</td>
+        <td class="n" colspan="2">${pc(u.statuts.CC.periodes, u.periodes)} CC · ${pc(u.statuts.EXP.periodes, u.periodes)} EXP</td>
+        <td class="n">${eur(u.cout)}</td></tr>
+      ${['CC', 'EXP', 'AUTRE'].filter(k => u.statuts[k].periodes).map(k => { const x = u.statuts[k]; return `<tr>
+        <td style="padding-left:6mm">${libStatut[k]}</td><td></td>
+        <td class="n">${calc(x.per_ct, u.tarif_ct, x.cout_ct)}</td><td class="n">${calc(x.per_pp, u.tarif_pp, x.cout_pp)}</td>
+        <td class="n">${eur(x.cout)}</td></tr>`; }).join('')}`).join('')}`).join('');
 
   const corps = `
     ${rangeeTuiles([
       tuile({ valeur: eur(tot.cout_complet), libelle: 'Coût complet', precision: `${d.sections.length} section(s)`, ton: 'fort' }),
       tuile({ valeur: eur(tot.cout), libelle: 'Cours', precision: `${n0(tot.periodes)} périodes attribuées` }),
+      tuile({ valeur: pc(ST.CC.periodes, tot.periodes), libelle: 'Chargés de cours', precision: `${pc(ST.EXP.periodes, tot.periodes)} experts (périodes)` }),
       tuile({ valeur: eur(tot.cout_fonctions), libelle: 'Fonctions', precision: `${d.missions.length} fonction(s) encodée(s)` }),
-      tuile({ valeur: eur(tot.cout_helb), libelle: 'dont contrats HELB', precision: tot.cout ? `${Math.round(tot.cout_helb / tot.cout * 100)} % des cours` : '—' }),
       tuile({ valeur: ins ? eur(tot.cout_complet / ins) : '—', libelle: 'Par étudiant', precision: `${n0(ins)} inscrits` }),
     ])}
     ${regle}
+    ${duo(
+      global('Chargés de cours et experts — périodes', ST, ['CC', 'EXP', 'AUTRE'], libStatut, coulStatut,
+        `CC ${eur(ST.CC.cout)} · EXP ${eur(ST.EXP.cout)}`),
+      global('Femmes et hommes — périodes', SX, ['F', 'M', 'X', 'NR'], libSexe, coulSexe,
+        `sexe renseigné pour ${pc(sexConnu, tot.periodes)} des périodes`))}
     ${duo(
       cadreGraphe('Coût complet par section', barres({ donnees: d.sections.map(S => ({ nom: esc(S.section), valeur: S.cout_complet, couleur: K.marine, texte: eur(S.cout_complet) })) })),
       cadreGraphe('Coût complet par étudiant inscrit', barres({ donnees: d.sections.filter(S => S.inscrits)
         .sort((a, b) => b.cout_complet / b.inscrits - a.cout_complet / a.inscrits)
         .map(S => ({ nom: esc(S.section), valeur: S.cout_complet / S.inscrits, couleur: K.donnees, texte: eur(S.cout_complet / S.inscrits) })) })))}
+    ${duo(
+      parSection('CC et EXP par section', S => S.statuts, ['CC', 'EXP', 'AUTRE'], libStatut, coulStatut),
+      parSection('Femmes et hommes par section', S => S.sexes, ['F', 'M', 'X', 'NR'], libSexe, coulSexe))}
 
     <h2>Section par section</h2>${tSections}
-    <p class="fin">${d.type_defaut ? `${n0(d.type_defaut)} période(s) sans type de cours ont été comptées au tarif des cours généraux. ` : ''}${d.sans_tarif ? `<b>${n0(d.sans_tarif)} période(s) sans niveau ou sans tarif ne sont pas valorisées.</b> ` : ''}Un étudiant inscrit dans deux sections compte dans chacune.</p>
-
+    <h2>Femmes et hommes</h2>${tSexes}
     <h2>Fonctions — direction, secrétariat, coordinations</h2>${tFonctions}
 
     <h2>Unité par unité — le calcul</h2>
@@ -1475,10 +1527,15 @@ export const RAPPORTS = [
     libelle: 'Coût des formations',
     aide: "Chaque période attribuée au montant de la circulaire des conventions, par section et par unité — et par étudiant inscrit.",
     colonnes: COLS([['section', 'Section', 24], ['per_ct', 'Pér. CT'], ['per_pp', 'Pér. PP'], ['cout', 'Cours (€)'],
+      ['cout_cc', 'dont CC (€)'], ['cout_exp', 'dont EXP (€)'], ['pc_cc', '% CC'], ['pc_exp', '% EXP'],
       ['cout_helb', 'dont HELB (€)'], ['inscrits', 'Inscrits'], ['fonctions', 'Fonctions (€)'], ['complet', 'Complet (€)'],
       ['par_etudiant', 'Par étudiant (€)']]),
     lignes: (p) => donneesCout(p.annee).sections.map(S => ({ section: S.section, per_ct: Math.round(S.per_ct),
-      per_pp: Math.round(S.per_pp), cout: Math.round(S.cout), cout_helb: Math.round(S.cout_helb), inscrits: S.inscrits,
+      per_pp: Math.round(S.per_pp), cout: Math.round(S.cout),
+      cout_cc: Math.round(S.statuts.CC.cout), cout_exp: Math.round(S.statuts.EXP.cout),
+      pc_cc: S.periodes ? Math.round(S.statuts.CC.periodes / S.periodes * 100) : null,
+      pc_exp: S.periodes ? Math.round(S.statuts.EXP.periodes / S.periodes * 100) : null,
+      cout_helb: Math.round(S.cout_helb), inscrits: S.inscrits,
       fonctions: Math.round(S.part_fonctions), complet: Math.round(S.cout_complet),
       par_etudiant: S.inscrits ? Math.round(S.cout_complet / S.inscrits) : null })),
     document: (p) => documentCoutFormations(p),
