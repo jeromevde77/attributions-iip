@@ -8,9 +8,10 @@ import { api, getAnnee, getUser, nomDoc, authHeaders } from '../lib/api.js';
 import ProfFicheModal from './ProfFicheModal.jsx';
 import PreviewModal from '../components/PreviewModal.jsx';
 import CoursEditModal from '../components/CoursEditModal.jsx';
-import { IconSend, IconAddressBook, IconMail, IconMapPin, IconFileText, IconEdit, IconDownload, IconRefresh, IconX, IconPrinter, IconPlus, IconTrash, IconKey, IconLock, IconCheck, IconBriefcase, IconTargetArrow, IconChevronDown, IconChevronRight, IconUsers, IconSchool, IconUserPlus, IconBuilding, IconBuildingBank, IconFileDescription } from '@tabler/icons-react';
+import { IconSend, IconAddressBook, IconMail, IconMapPin, IconFileText, IconEdit, IconDownload, IconRefresh, IconX, IconPrinter, IconPlus, IconTrash, IconKey, IconLock, IconCheck, IconBriefcase, IconTargetArrow, IconChevronDown, IconChevronRight, IconUsers, IconSchool, IconUserPlus, IconBuilding, IconBuildingBank, IconFileDescription, IconFileImport } from '@tabler/icons-react';
 import { MODULES_ACCES, ROLES_LUCIE, estDirection } from '../lib/modules.js';
 import { RailLateral, OuvrirEditions, Fenetre, Encadre } from '../components/ui.jsx';
+import ImportPersonnelFwb from '../components/ImportPersonnelFwb.jsx';
 /* LES RUBRIQUES DE L'AXE PERSONNEL SE RENDENT DANS L'AXE, PAS AILLEURS.
    « Besoins & offres » et « Classement & prioritaires » étaient des entrées de
    ce rail qui appelaient navigate() : elles QUITTAIENT l'axe, et le rail —
@@ -1560,6 +1561,7 @@ function ProfesseursListe({ vue: vueInitiale = 'membres' }) {
   const [printSelMenu, setPrintSelMenu] = useState(false);
   const [zipMenu, setZipMenu] = useState(false);
   const [accesLot, setAccesLot] = useState(false);   // ouvrir l'accès à Lucie aux cochés
+  const [importFiches, setImportFiches] = useState(false);
   const [ficheHtml, setFicheHtml] = useState(null);
   const [ficheMenu, setFicheMenu] = useState(null);
   const [etabFooter, setEtabFooter] = useState(null);
@@ -2315,6 +2317,8 @@ function ProfesseursListe({ vue: vueInitiale = 'membres' }) {
         actions={[
           ...(canEdit ? [{ key: 'nouveau', label: 'Nouveau membre', icon: IconUserPlus,
             onClick: () => setEditProf({ ...EMPTY }) }] : []),
+          ...(canEdit ? [{ key: 'completer', label: 'Compléter les fiches (fichiers de l’école)', icon: IconFileImport,
+            onClick: () => setImportFiches(true) }] : []),
         ]}
         icon={ICONE_AXE.personnel}
         titre="Personnel"
@@ -2512,6 +2516,7 @@ function ProfesseursListe({ vue: vueInitiale = 'membres' }) {
       </div>
 
       {accesLot && <AccesLot ids={[...selection]} onFermer={() => setAccesLot(false)} />}
+      {importFiches && <ImportPersonnelFwb onClose={() => setImportFiches(false)} onTermine={() => load()} />}
       {loading ? <p className="text-gray-400 p-4">Chargement…</p> : (
         <div className="bg-white rounded-lg border border-gray-200 overflow-auto max-h-[calc(100vh-180px)]">
           <table className="grid-excel-soft w-full">

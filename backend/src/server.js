@@ -67,6 +67,7 @@ import annexe1Routes from './routes/annexe1.js';
 import sleRoutes, { migrerSLE } from './routes/sle.js';
 import impressionRoutes from './routes/impression.js';
 import importSurMesureRoutes from './routes/importSurMesure.js';
+import importPersonnelRoutes from './routes/importPersonnel.js';
 import authRoutes from './routes/auth.js';
 import attrRoutes from './routes/attributions.js';
 import refRoutes  from './routes/referentiels.js';
@@ -3088,6 +3089,7 @@ try { migrerSLE(db); } catch (e) { console.error('[migration] SLE :', e.message)
 app.use('/api/impression', garderModule('impression'), impressionRoutes);
 app.use('/api/envois',     garderModule('envois'), (await import('./routes/envois.js')).default);
 app.use('/api/import-sur-mesure', garderModule('import-sur-mesure'), importSurMesureRoutes);
+app.use('/api/import-personnel', garderModule('import-personnel'), importPersonnelRoutes);
 app.use('/api/historique',   garderModule('historique'), historiqueRoutes);
 app.use('/api/audit',        garderModule('audit'), (await import('./routes/audit.js')).default);
 app.use('/api/etablissement', garderModule('etablissement'), etablissementRoutes);
