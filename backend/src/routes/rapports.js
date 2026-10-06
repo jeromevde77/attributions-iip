@@ -22,6 +22,7 @@ import { envelopperDocument } from '../lib/document.js';
 import { anneeDeTravail } from '../helpers/annee.js';
 import { decisionDeSession, structureUE } from './acquis.js';
 import { calculerEtp } from './pilotage.js';
+import { MOTIFS_DI } from './droitInscription.js';
 import { donneesChiffresCles, donneesPersonnel, TRANCHES_ETP } from '../lib/chiffresCles.js';
 import { donneesCout } from '../lib/coutFormation.js';
 import { TITRES_ACCES, DIPLOMES_MAX } from '../lib/profilEtudiant.js';
@@ -159,6 +160,47 @@ function barres({ donnees, unite = '' }) {
       <td class="barres-val">${d.texte}</td>
     </tr>`).join('')}</table>${unite ? `<div class="fin">${unite}</div>` : ''}`;
 }
+
+/**
+ * LE CAMEMBERT (Charles, 6 octobre 2026 : « des camemberts pour sexe, pays… »).
+ * Un anneau SVG — le trou porte le total, la légende dit chaque part avec son
+ * pourcentage. Couleurs en hexadécimal : c'est une pièce imprimée (les
+ * attributs `fill` ne lisent pas les variables CSS). Une part « non
+ * renseignée » est dessinée en gris pâle : elle se voit, elle ne disparaît pas.
+ */
+export function camembert(titre, parts, { total = null, note = '' } = {}) {
+  const vis = parts.filter(p => p.valeur > 0);
+  const somme = vis.reduce((t, p) => t + p.valeur, 0);
+  const R = 34, r = 21, C = 40;
+  let a = -Math.PI / 2;
+  const arc = (v) => {
+    const ang = (v / somme) * Math.PI * 2;
+    if (ang >= Math.PI * 2 - 1e-6) {
+      return `<circle cx="${C}" cy="${C}" r="${(R + r) / 2}" fill="none" stroke-width="${R - r}"`;
+    }
+    const x1 = C + R * Math.cos(a), y1 = C + R * Math.sin(a);
+    const x2 = C + R * Math.cos(a + ang), y2 = C + R * Math.sin(a + ang);
+    const x3 = C + r * Math.cos(a + ang), y3 = C + r * Math.sin(a + ang);
+    const x4 = C + r * Math.cos(a), y4 = C + r * Math.sin(a);
+    const g = ang > Math.PI ? 1 : 0;
+    a += ang;
+    return `<path d="M${x1.toFixed(2)},${y1.toFixed(2)} A${R},${R} 0 ${g} 1 ${x2.toFixed(2)},${y2.toFixed(2)} L${x3.toFixed(2)},${y3.toFixed(2)} A${r},${r} 0 ${g} 0 ${x4.toFixed(2)},${y4.toFixed(2)} Z"`;
+  };
+  const svg = somme ? vis.map(p => {
+    const d = arc(p.valeur);
+    const op = p.pale ? 0.35 : 0.9;
+    return d.startsWith('<circle') ? `${d} stroke="${p.couleur}" stroke-opacity="${op}"/>` : `${d} fill="${p.couleur}" fill-opacity="${op}"/>`;
+  }).join('') : `<circle cx="${C}" cy="${C}" r="${(R + r) / 2}" fill="none" stroke="#E2E8F0" stroke-width="${R - r}"/>`;
+  const centre = total ?? (somme ? Math.round(somme).toLocaleString('fr-BE') : '0');
+  return `<div class="camembert"><h3>${titre}</h3><div class="cam-corps">
+    <svg viewBox="0 0 80 80" width="26mm" height="26mm">${svg}
+      <text x="${C}" y="${C + 3}" text-anchor="middle" font-size="9" font-weight="700" fill="#1B2B4B">${centre}</text></svg>
+    <div class="cam-leg">${somme ? vis.map(p => `<div><i style="background:${p.couleur};opacity:${p.pale ? 0.35 : 0.9}"></i>${p.nom}
+      <b>${Math.round(p.valeur / somme * 100)} %</b></div>`).join('') : '<div class="fin">rien d’encodé</div>'}</div></div>
+    ${note ? `<div class="fin">${note}</div>` : ''}</div>`;
+}
+/** Une rangée de camemberts, côte à côte. */
+export const rangeeCamemberts = (...c) => `<table class="cams"><tr>${c.filter(Boolean).map(x => `<td>${x}</td>`).join('')}</tr></table>`;
 
 /** Une seule barre, découpée en parts — pour dire « de quoi c'est fait ». */
 function barreParts(parts) {
@@ -590,12 +632,37 @@ const STYLE_STATS = `
   table.duo .barres-lib { width:34% !important; }
   table.duo .barres-val { width:30% !important; padding-left:2mm !important; white-space:nowrap; }
   .cadre h3 { font-size:9.5pt; color:#1B2B4B; margin:0 0 2mm; font-weight:700; }
+  table.cams { width:100%; border-collapse:collapse; table-layout:fixed; margin:0 0 4mm; }
+  table.cams td { vertical-align:top; padding:0 2mm !important; border:0; }
+  .camembert { break-inside:avoid; }
+  .camembert h3 { font-size:9pt; color:#1B2B4B; margin:0 0 1.5mm; font-weight:700; }
+  .cam-corps { display:flex; align-items:center; gap:3mm; }
+  .cam-leg { font-size:7.5pt; color:#334155; line-height:1.45; }
+  .cam-leg i { display:inline-block; width:2.4mm; height:2.4mm; border-radius:.6mm; margin-right:1.2mm; vertical-align:-0.2mm; }
+  .cam-leg b { color:#1B2B4B; margin-left:1mm; }
   /* UN NOMBRE NE SE COUPE PAS : « 47 240 » d'un côté, « € » de l'autre. */
   table.serre th, table.serre td { padding-left:1.2mm; padding-right:1.2mm; font-size:8pt; }
   table td.n { white-space:nowrap; }
 `;
 const partsDe = (P, liste) => barreParts(liste.filter(([, v]) => v > 0)
   .map(([nom, v, couleur, pale]) => ({ nom, valeur: v, couleur, pale })));
+
+/** Les quatre camemberts d'un profil de personnes : sexe, âge, nationalité. */
+function camembertsProfil(E, K, quoi = 'personnes') {
+  const g = { couleur: GRIS_INCONNU, pale: true };
+  return [
+    camembert('Sexe', [{ nom: 'Femmes', valeur: E.F, couleur: K.or }, { nom: 'Hommes', valeur: E.M, couleur: K.bleu },
+      { nom: 'X', valeur: E.X, couleur: K.cyan }, { nom: 'Non renseigné', valeur: E.sexe_inconnu, ...g }],
+      { note: `renseigné pour ${E.n ? Math.round((E.n - E.sexe_inconnu) / E.n * 100) : 0} % des ${quoi}` }),
+    camembert('Âge', [{ nom: 'moins de 25', valeur: E.m25, couleur: K.cyan }, { nom: '25-34', valeur: E.m35, couleur: K.or },
+      { nom: '35-44', valeur: E.m45, couleur: K.bleu }, { nom: '45 et plus', valeur: E.p45, couleur: K.marine },
+      { nom: 'Non renseigné', valeur: E.age_inconnu, ...g }],
+      { note: E.age_moyen != null ? `âge moyen ${(Math.round(E.age_moyen * 10) / 10).toString().replace('.', ',')} ans` : '' }),
+    camembert('Nationalité', [{ nom: 'Belgique', valeur: E.be, couleur: K.bleu }, { nom: 'Union européenne', valeur: E.ue, couleur: K.cyan },
+      { nom: 'Hors UE', valeur: E.hors_ue, couleur: K.or }, { nom: 'Non renseignée', valeur: E.nat_inconnue, ...g }],
+      { note: `renseignée pour ${E.n ? Math.round((E.n - E.nat_inconnue) / E.n * 100) : 0} % des ${quoi}` }),
+  ];
+}
 
 /**
  * LES STATISTIQUES DU PERSONNEL — l'année en cours, au jour de l'impression.
@@ -614,29 +681,23 @@ function documentPersonnelStats(p) {
   const connu = (inconnu) => `renseigné pour ${pc(E.n - inconnu, E.n)} des membres`;
   const dateRef = d.ref.split('-').reverse().join('/');
 
+  const g = { couleur: GRIS_INCONNU, pale: true };
   const graphes = `
-    ${duo(
-      cadreGraphe('Statut', partsDe(K, [['Chargés de cours', E.cc, K.bleu], ['Experts', E.exp, K.cyan], ['Autre', E.autre_statut, GRIS_INCONNU, true]])),
-      cadreGraphe('Nomination', partsDe(K, [['Définitifs', E.definitif, K.bleu], ['Temporaires', E.temporaire, K.or],
-        ['Non renseignée', E.n - E.definitif - E.temporaire, GRIS_INCONNU, true]])))}
-    ${duo(
-      cadreGraphe('Employeur', partsDe(K, [['Institut', E.iip, K.iip], ['Haute École', E.helb, K.helb]]),
-        E.iip + E.helb > E.n ? 'Un membre sous les deux contrats compte dans chacun.' : ''),
-      cadreGraphe('Domicile', partsDe(K, [['Bruxelles', E.bruxelles, K.bleu], ['Wallonie', E.wallonie, K.or],
-        ['Flandre', E.flandre, K.cyan], ['Non renseigné', E.domicile_inconnu, GRIS_INCONNU, true]]), connu(E.domicile_inconnu)))}
+    ${rangeeCamemberts(
+      camembert('Statut', [{ nom: 'Chargés de cours', valeur: E.cc, couleur: K.bleu }, { nom: 'Experts', valeur: E.exp, couleur: K.cyan },
+        { nom: 'Autre', valeur: E.autre_statut, ...g }]),
+      camembert('Nomination', [{ nom: 'Définitifs', valeur: E.definitif, couleur: K.bleu }, { nom: 'Temporaires', valeur: E.temporaire, couleur: K.or },
+        { nom: 'Non renseignée', valeur: E.n - E.definitif - E.temporaire, ...g }]),
+      camembert('Employeur', [{ nom: 'Institut', valeur: E.iip, couleur: K.iip }, { nom: 'Haute École', valeur: E.helb, couleur: K.helb }],
+        { note: E.iip + E.helb > E.n ? 'un membre sous les deux contrats compte dans chacun' : '' }),
+      camembert('Domicile', [{ nom: 'Bruxelles', valeur: E.bruxelles, couleur: K.bleu }, { nom: 'Wallonie', valeur: E.wallonie, couleur: K.or },
+        { nom: 'Flandre', valeur: E.flandre, couleur: K.cyan }, { nom: 'Non renseigné', valeur: E.domicile_inconnu, ...g }]))}
+    ${rangeeCamemberts(...camembertsProfil(E, K, 'membres'))}
     ${duo(
       cadreGraphe('Charge individuelle — membres par tranche d’ETP', barres({ donnees: TRANCHES_ETP.map(([k, lib]) => ({
         nom: lib, valeur: E[k], couleur: K.donnees, texte: `${n0(E[k])} · ${n2(E[k + '_etp'])} ETP` })) })),
       cadreGraphe('ETP par section', barres({ donnees: [...d.sections].sort((a, b) => b.etp_section - a.etp_section)
-        .map(x => ({ nom: esc(x.section), valeur: x.etp_section, couleur: K.marine, texte: `${n2(x.etp_section)} ETP` })) })))}
-    ${duo(
-      cadreGraphe('Sexe', partsDe(K, [['Femmes', E.F, K.or], ['Hommes', E.M, K.bleu], ['X', E.X, K.cyan],
-        ['Non renseigné', E.sexe_inconnu, GRIS_INCONNU, true]]), connu(E.sexe_inconnu)),
-      cadreGraphe('Âge', partsDe(K, [['moins de 25', E.m25, K.cyan], ['25-34', E.m35, K.or], ['35-44', E.m45, K.bleu],
-        ['45 et plus', E.p45, K.marine], ['Non renseigné', E.age_inconnu, GRIS_INCONNU, true]]),
-        `${connu(E.age_inconnu)}${E.age_moyen != null ? ` · âge moyen ${n1(E.age_moyen)} ans` : ''}`))}
-    ${cadreGraphe('Nationalité', partsDe(K, [['Belgique', E.be, K.bleu], ['Union européenne', E.ue, K.cyan], ['Hors UE', E.hors_ue, K.or],
-      ['Non renseignée', E.nat_inconnue, GRIS_INCONNU, true]]), connu(E.nat_inconnue))}`;
+        .map(x => ({ nom: esc(x.section), valeur: x.etp_section, couleur: K.marine, texte: `${n2(x.etp_section)} ETP` })) })))}`;
 
   const tSec = `<table><thead><tr><th>Section</th>${['Membres', 'CC', 'EXP', 'Définitifs', 'IIP', 'HELB', 'ETP', 'ETP moyen']
       .map(c => `<th class="n">${c}</th>`).join('')}</tr></thead>
@@ -666,6 +727,7 @@ function documentPersonnelStats(p) {
     entete: { titre: 'Statistiques du personnel', sous: `Année académique ${p.annee} · situation au ${dateRef}` },
     titre: 'Statistiques du personnel',
     nom: `Statistiques-personnel-${p.annee}.html`,
+    orientation: 'paysage',
     styles: STYLE_RAPPORT + STYLE_REPORTING + STYLE_STATS,
   };
 }
@@ -800,11 +862,16 @@ function documentCoutFormations(p) {
       tuile({ valeur: ins ? eur(tot.cout_complet / ins) : '—', libelle: 'Par étudiant', precision: `${n0(ins)} inscrits` }),
     ])}
     ${regle}
-    ${duo(
-      global('Chargés de cours et experts — périodes', ST, ['CC', 'EXP', 'AUTRE'], libStatut, coulStatut,
-        `CC ${eur(ST.CC.cout)} · EXP ${eur(ST.EXP.cout)}`),
-      global('Femmes et hommes — périodes', SX, ['F', 'M', 'X', 'NR'], libSexe, coulSexe,
-        `sexe renseigné pour ${pc(sexConnu, tot.periodes)} des périodes`))}
+    ${rangeeCamemberts(
+      camembert('Chargés de cours et experts — périodes', ['CC', 'EXP', 'AUTRE'].map(k => ({ nom: libStatut[k], valeur: ST[k].periodes,
+        couleur: coulStatut[k], pale: coulStatut[k] === GRIS })), { note: `CC ${eur(ST.CC.cout)} · EXP ${eur(ST.EXP.cout)}` }),
+      camembert('Femmes et hommes — périodes', ['F', 'M', 'X', 'NR'].map(k => ({ nom: libSexe[k], valeur: SX[k].periodes,
+        couleur: coulSexe[k], pale: coulSexe[k] === GRIS })), { note: `sexe renseigné pour ${pc(sexConnu, tot.periodes)} des périodes` }),
+      camembert('Coût complet — cours et fonctions', [{ nom: 'Cours', valeur: tot.cout, couleur: K.bleu },
+        { nom: 'Fonctions', valeur: tot.cout_fonctions, couleur: K.or }], { total: `${Math.round(tot.cout_complet / 1000).toLocaleString('fr-BE')} k€` }),
+      camembert('Ce que paient les étudiants', [{ nom: "Droit d'inscription", valeur: R.di || 0, couleur: K.bleu },
+        { nom: 'Frais administratifs', valeur: R.frais || 0, couleur: K.or }, { nom: 'Droit spécifique (FWB)', valeur: R.dis || 0, couleur: K.cyan }],
+        { total: `${Math.round(((R.di || 0) + (R.frais || 0) + (R.dis || 0)) / 1000).toLocaleString('fr-BE')} k€` }))}
     ${duo(
       cadreGraphe('Coût complet par section', barres({ donnees: d.sections.map(S => ({ nom: esc(S.section), valeur: S.cout_complet, couleur: K.marine, texte: eur(S.cout_complet) })) })),
       cadreGraphe('Coût complet par étudiant inscrit', barres({ donnees: d.sections.filter(S => S.inscrits)
@@ -817,9 +884,9 @@ function documentCoutFormations(p) {
     <h2>Section par section</h2>${tSections}
     <h2>Droits d'inscription et frais</h2>
     ${duo(
-      cadreGraphe('Ce que paient les étudiants', partsDe(K, [["Droit d'inscription (établissement)", R.di || 0, K.bleu],
-        ['Frais administratifs (établissement)', R.frais || 0, K.or], ['Droit spécifique (Fédération)', R.dis || 0, K.cyan]]),
-        `${eur((R.di || 0) + (R.dis || 0) + (R.frais || 0))} dus · ${eur(R.verse)} versés`),
+      cadreGraphe('Ce que paient les étudiants', `<p class="fin">${eur((R.di || 0) + (R.dis || 0) + (R.frais || 0))} dus, dont
+        ${eur((R.di || 0) + (R.frais || 0))} pour l'établissement (droit d'inscription et frais administratifs)
+        et ${eur(R.dis || 0)} de droit spécifique pour la Fédération · ${eur(R.verse)} versés à ce jour.</p>`),
       cadreGraphe('Frais administratifs par section', barres({ donnees: [...d.sections].filter(S => S.recettes.frais)
         .sort((a, b) => b.recettes.frais - a.recettes.frais)
         .map(S => ({ nom: esc(S.section), valeur: S.recettes.frais, couleur: K.or, texte: eur(S.recettes.frais) })) })))}
@@ -837,6 +904,7 @@ function documentCoutFormations(p) {
     entete: { titre: 'Coût des formations', sous: `Année académique ${p.annee} · cours au montant des conventions, fonctions au coût annuel` },
     titre: 'Coût des formations',
     nom: `Cout-formations-${p.annee}.html`,
+    orientation: 'paysage',
     styles: STYLE_RAPPORT + STYLE_REPORTING + STYLE_STATS,
   };
 }
@@ -924,20 +992,31 @@ function documentChiffresCles(p) {
       tuile({ valeur: n0(P.n), libelle: 'Membres du personnel', precision: `${n0(P.cc)} CC · ${n0(P.exp)} EXP` }),
       tuile({ valeur: n2(d.ensemble.etp), unite: 'ETP', libelle: 'Charge', precision: `${n0(d.ensemble.ues)} UE organisées` }),
     ])}
-    ${(() => { const K = paletteStats(); return `
+    ${(() => { const K = paletteStats(); const g = { couleur: GRIS_INCONNU, pale: true };
+      const libMotif = Object.fromEntries(MOTIFS_DI.map(m => [m.code, m.libelle]));
+      const couleursMotifs = [K.bleu, K.or, K.cyan, K.marine, K.donnees, K.helb, '#64748b', '#94a3b8'];
+      const motifs = Object.entries(E.exo?.motifs || {}).sort((a, b) => b[1] - a[1]);
+      return `
     ${duo(
       cadreGraphe('Inscrits par section', barres({ donnees: d.lignes.filter(l => l.etudiants.n)
         .map(l => ({ nom: esc(l.section), valeur: l.etudiants.n, couleur: K.donnees, texte: n0(l.etudiants.n) })) })),
       cadreGraphe('ETP par section', barres({ donnees: d.lignes.filter(l => l.etp).sort((a, b) => b.etp - a.etp)
         .map(l => ({ nom: esc(l.section), valeur: l.etp, couleur: K.marine, texte: `${n2(l.etp)} ETP` })) })))}
-    ${duo(
-      cadreGraphe('Étudiants — sexe', partsDe(K, [['Femmes', E.F, K.or], ['Hommes', E.M, K.bleu], ['X', E.X, K.cyan],
-        ['Non renseigné', E.sexe_inconnu, GRIS_INCONNU, true]])),
-      cadreGraphe('Étudiants — âge', partsDe(K, [['moins de 25', E.m25, K.cyan], ['25-34', E.m35, K.or], ['35-44', E.m45, K.bleu],
-        ['45 et plus', E.p45, K.marine], ['Non renseigné', E.age_inconnu, GRIS_INCONNU, true]])))}
-    ${cadreGraphe('Étudiants — nationalité', partsDe(K, [['Belgique', E.be, K.bleu], ['Union européenne', E.ue, K.cyan],
-      ['Hors UE', E.hors_ue, K.or], ['Non renseignée', E.nat_inconnue, GRIS_INCONNU, true]]),
-      `renseignée pour ${pc(E.n - E.nat_inconnue, E.n)} des inscrits`)}`; })()}
+    <h2>Les étudiants</h2>
+    ${rangeeCamemberts(...camembertsProfil(E, K, 'inscrits'),
+      camembert('Séjour limité aux études', [{ nom: 'SLE', valeur: E.sle, couleur: K.or }, { nom: 'Autres', valeur: E.n - E.sle, couleur: K.bleu }]))}
+    ${rangeeCamemberts(
+      camembert("Exonérés du droit d'inscription", [{ nom: 'Exonérés', valeur: E.exo?.exoneres || 0, couleur: K.or },
+        { nom: 'Non exonérés', valeur: E.n - (E.exo?.exoneres || 0), couleur: K.bleu }],
+        { note: E.exo?.exoneres ? '' : 'aucune exonération encodée sur les fiches' }),
+      motifs.length ? camembert('Motifs d’exonération', motifs.map(([m, n], i) => ({ nom: esc(libMotif[m] || 'Motif non précisé'),
+        valeur: n, couleur: couleursMotifs[i % couleursMotifs.length] }))) : '',
+      camembert("Titre d'accès", Object.entries(E.acces || {}).map(([k, n], i) => ({ nom: esc(Object.fromEntries(TITRES_ACCES)[k] || k), valeur: n,
+        couleur: couleursMotifs[i % couleursMotifs.length] })).concat([{ nom: 'Non renseigné', valeur: E.n - (E.acces_connu || 0), ...g }])))}
+    <h2>Le personnel</h2>
+    ${rangeeCamemberts(...camembertsProfil(P, K, 'membres'),
+      camembert('Statut', [{ nom: 'Chargés de cours', valeur: P.cc, couleur: K.bleu }, { nom: 'Experts', valeur: P.exp, couleur: K.cyan },
+        { nom: 'Autre', valeur: P.n - P.cc - P.exp, ...g }]))}`; })()}
     <h2>Étudiants — sexe et âge</h2>${tEtu}
     <h2>Étudiants — nationalités</h2>${tNat}
     <h2>Étudiants — diplômes</h2>${tDipl}
@@ -952,6 +1031,7 @@ function documentChiffresCles(p) {
     },
     titre: 'Chiffres clés par section',
     nom: `Chiffres-cles-${p.annee}.html`,
+    orientation: 'paysage',
     styles: STYLE_RAPPORT + STYLE_REPORTING + STYLE_STATS,
   };
 }
