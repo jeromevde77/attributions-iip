@@ -8,7 +8,7 @@ import { api, getAnnee, getUser, nomDoc, authHeaders } from '../lib/api.js';
 import ProfFicheModal from './ProfFicheModal.jsx';
 import PreviewModal from '../components/PreviewModal.jsx';
 import CoursEditModal from '../components/CoursEditModal.jsx';
-import { IconSend, IconAddressBook, IconMail, IconMapPin, IconFileText, IconEdit, IconDownload, IconRefresh, IconX, IconPrinter, IconPlus, IconTrash, IconKey, IconLock, IconCheck, IconBriefcase, IconTargetArrow, IconChevronDown, IconChevronRight, IconUsers, IconSchool, IconUserPlus, IconBuilding, IconBuildingBank, IconFileDescription, IconFileImport } from '@tabler/icons-react';
+import { IconSend, IconAddressBook, IconMail, IconMapPin, IconFileText, IconEdit, IconDownload, IconRefresh, IconX, IconPrinter, IconPlus, IconTrash, IconKey, IconLock, IconCheck, IconBriefcase, IconTargetArrow, IconChevronDown, IconChevronRight, IconChevronLeft, IconUsers, IconSchool, IconUserPlus, IconBuilding, IconBuildingBank, IconFileDescription, IconFileImport } from '@tabler/icons-react';
 import { MODULES_ACCES, ROLES_LUCIE, estDirection } from '../lib/modules.js';
 import { RailLateral, OuvrirEditions, Fenetre, Encadre } from '../components/ui.jsx';
 import ImportPersonnelFwb from '../components/ImportPersonnelFwb.jsx';
@@ -655,7 +655,20 @@ function AccesLuciePanel({ profId, detail }) {
   );
 }
 
-function DetailModal({ profId, onClose, onEdit, onFiche, onEditions, restreint = false }) {
+function DetailModal({ profId, onClose, onEdit, onFiche, onEditions, restreint = false, onPrec = null, onSuiv = null, position = null }) {
+  /* PASSER D'UN MEMBRE À L'AUTRE (Charles, 6 octobre 2026 : « avec les
+     flèches gauche droite, comme les étudiants ») — dans l'ordre et les
+     filtres de la liste. Jamais pendant qu'on écrit dans un champ. */
+  useEffect(() => {
+    const dansUnChamp = t => ['input', 'textarea', 'select'].includes((t?.tagName || '').toLowerCase()) || t?.isContentEditable;
+    const au = ev => {
+      if (ev.metaKey || ev.ctrlKey || ev.altKey || dansUnChamp(ev.target)) return;
+      if (ev.key === 'ArrowLeft' && onPrec) { ev.preventDefault(); onPrec(); }
+      if (ev.key === 'ArrowRight' && onSuiv) { ev.preventDefault(); onSuiv(); }
+    };
+    window.addEventListener('keydown', au);
+    return () => window.removeEventListener('keydown', au);
+  }, [onPrec, onSuiv]);
   useDroits();
   const [detail, setDetail] = useState(null);
   const [onglet, setOnglet] = useState('attributions');
@@ -845,8 +858,20 @@ function DetailModal({ profId, onClose, onEdit, onFiche, onEditions, restreint =
           {detail.statut && <span className="bg-white/20 text-white/90 text-[10px] px-1.5 rounded">{detail.statut}</span>}
         </span>
       }
-      outils={onEditions && (
+      outils={(onEditions || onPrec || onSuiv) && (
         <>
+            {(onPrec || onSuiv) && (
+              <span className="inline-flex items-center gap-1 mr-2">
+                <button onClick={onPrec || undefined} disabled={!onPrec} title="Membre précédent (flèche gauche)"
+                  className="w-8 h-8 grid place-items-center rounded-champ border border-white/40 text-white hover:bg-white/10 disabled:opacity-30">
+                  <IconChevronLeft size={16} /></button>
+                {position && <span className="text-[12px] text-white/80 tabular-nums min-w-[4rem] text-center">{position.i} / {position.n}</span>}
+                <button onClick={onSuiv || undefined} disabled={!onSuiv} title="Membre suivant (flèche droite)"
+                  className="w-8 h-8 grid place-items-center rounded-champ border border-white/40 text-white hover:bg-white/10 disabled:opacity-30">
+                  <IconChevronRight size={16} /></button>
+              </span>
+            )}
+            {onEditions && <>
             {/* L'AVION, VERS LES ÉDITIONS (Charles, 27 septembre 2026) : contrats,
                 fiches, EA12 et annexes s'impriment ou s'envoient depuis un seul
                 endroit, qui sait si ce membre est chargé de cours, expert, ou
@@ -855,6 +880,7 @@ function DetailModal({ profId, onClose, onEdit, onFiche, onEditions, restreint =
                 className="w-9 h-9 grid place-items-center rounded-champ border border-white/40 text-white hover:bg-white/10">
                 <IconSend size={17} />
               </button>
+            </>}
         </>
       )}>
 
@@ -2553,12 +2579,20 @@ function ProfesseursListe({ vue: vueInitiale = 'membres' }) {
         </div>
       )}
 
-      {detailId && (
-        <DetailModal profId={detailId} onClose={() => setDetailId(null)}
+      {detailId && (() => {
+        // L'ordre de la liste affichée : les membres chargés, puis les autres.
+        const ordre = [...listePrincipale, ...(fCharge === 'sans' ? [] : sansCharge)].map(p => p.id);
+        const i = ordre.indexOf(detailId);
+        const prec = i > 0 ? () => setDetailId(ordre[i - 1]) : null;
+        const suiv = i >= 0 && i < ordre.length - 1 ? () => setDetailId(ordre[i + 1]) : null;
+        return (
+        <DetailModal key={detailId} profId={detailId} onClose={() => setDetailId(null)}
+          onPrec={prec} onSuiv={suiv} position={i >= 0 ? { i: i + 1, n: ordre.length } : null}
           onFiche={genererFicheAttributions}
           onEditions={id => setEditionsMembre(id)}
           onEdit={p => { setDetailId(null); setEditProf(p); }} />
-      )}
+        );
+      })()}
 
       </>)}
 
