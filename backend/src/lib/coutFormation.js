@@ -12,6 +12,15 @@ import db from '../db/index.js';
 import { getParam, getParamNum } from '../routes/parametres.js';
 import { donneesChiffresCles } from './chiffresCles.js';
 
+/** Un coût annuel d'un temps plein par fonction (table fonction_type), amorcé
+ *  à zéro : le montant est à régler, Lucie ne l'invente pas. */
+export function semerCoutsFonctions(dbx = db) {
+  const ins = dbx.prepare(`INSERT OR IGNORE INTO parametre (cle, valeur, label, section, groupe) VALUES (?,?,?,?,?)`);
+  for (const t of dbx.prepare('SELECT id, libelle FROM fonction_type ORDER BY ordre, libelle').all()) {
+    ins.run(`cout.fonction.${t.id}`, '0', `Coût annuel d'un temps plein — ${t.libelle} (€)`, null, 'couts');
+  }
+}
+
 export function tarifs() {
   return {
     reference: getParam('cout.reference', ''), date_effet: getParam('cout.date_effet', ''),
@@ -30,11 +39,19 @@ export function donneesCout(annee) {
            COALESCE(v.type_cours, (SELECT c.ct_pp FROM cours c WHERE c.cours_code = v.code_cours
              AND c.annee_scolaire = v.annee_scolaire LIMIT 1)) AS type,
            (v.type_cours IS NULL) AS type_deduit,
+           CASE WHEN v.statut_mdp IN ('CC', 'EXP') THEN v.statut_mdp ELSE 'AUTRE' END AS statut,
+           COALESCE((SELECT CASE WHEN upper(p.sexe) IN ('F', 'M', 'X') THEN upper(p.sexe) END
+             FROM professeur p WHERE p.id = v.professeur_id), 'NR') AS sexe,
            SUM(v.total_attribue_professeur) AS periodes
       FROM v_attribution_complete v
      WHERE v.annee_scolaire = ? AND COALESCE(v.en_conge, 0) = 0 AND COALESCE(v.total_attribue_professeur, 0) > 0
-     GROUP BY v.section, v.ue_num, v.niveau, v.contrat_mdp, type, type_deduit`).all(annee);
+     GROUP BY v.section, v.ue_num, v.niveau, v.contrat_mdp, type, type_deduit, statut, sexe`).all(annee);
   let sansTarif = 0, typeDefaut = 0;
+  const nouveauxStatuts = () => Object.fromEntries(['CC', 'EXP', 'AUTRE'].map(k => [k,
+    { periodes: 0, cout: 0, per_ct: 0, per_pp: 0, cout_ct: 0, cout_pp: 0 }]));
+  const totStatuts = nouveauxStatuts();
+  const nouveauxSexes = () => Object.fromEntries(['F', 'M', 'X', 'NR'].map(k => [k, { periodes: 0, cout: 0 }]));
+  const totSexes = nouveauxSexes();
   const parSection = new Map();
   for (const l of lignes) {
     const niv = ['SUP', 'DS', 'DI'].includes(l.niveau) ? l.niveau : null;
@@ -46,12 +63,21 @@ export function donneesCout(annee) {
     const cout = (l.periodes || 0) * (t || 0);
     const sec = l.section || '(sans section)';
     const S = parSection.get(sec) || { section: sec, per_ct: 0, per_pp: 0, cout_ct: 0, cout_pp: 0, cout: 0,
-      cout_iip: 0, cout_helb: 0, periodes: 0, ues: new Map() };
+      cout_iip: 0, cout_helb: 0, periodes: 0, ues: new Map(), statuts: nouveauxStatuts(), sexes: nouveauxSexes() };
     const k = type === 'PP' ? 'pp' : 'ct';
     S['per_' + k] += l.periodes; S['cout_' + k] += cout; S.cout += cout; S.periodes += l.periodes;
     if (l.contrat === 'HELB') S.cout_helb += cout; else S.cout_iip += cout;
-    const U = S.ues.get(l.ue_num) || { ue_num: l.ue_num, ue_nom: l.ue_nom, niveau: niv, periodes: 0, cout: 0 };
-    U.periodes += l.periodes; U.cout += cout; S.ues.set(l.ue_num, U);
+    const U = S.ues.get(l.ue_num) || { ue_num: l.ue_num, ue_nom: l.ue_nom, niveau: niv, periodes: 0, cout: 0,
+      per_ct: 0, per_pp: 0, cout_ct: 0, cout_pp: 0, tarif_ct: niv ? T[niv].CT : 0, tarif_pp: niv ? T[niv].PP : 0,
+      statuts: nouveauxStatuts(), sexes: nouveauxSexes() };
+    U.periodes += l.periodes; U.cout += cout; U['per_' + k] += l.periodes; U['cout_' + k] += cout; S.ues.set(l.ue_num, U);
+    // CHARGÉS DE COURS ET EXPERTS (Charles, 6 octobre 2026 : « des lignes
+    // différentes, et des % CC et EXP par UE, section… ») — même calcul.
+    for (const X of [U.statuts[l.statut], S.statuts[l.statut], totStatuts[l.statut]]) {
+      X.periodes += l.periodes; X.cout += cout; X['per_' + k] += l.periodes; X['cout_' + k] += cout;
+    }
+    // Hommes / femmes : le sexe de l'enseignant, « NR » quand la fiche ne le dit pas.
+    for (const X of [U.sexes[l.sexe], S.sexes[l.sexe], totSexes[l.sexe]]) { X.periodes += l.periodes; X.cout += cout; }
     parSection.set(sec, S);
   }
   // Les inscrits par section : ceux des chiffres clés, comptés de la même façon.
@@ -61,5 +87,35 @@ export function donneesCout(annee) {
     inscrits: inscrits[S.section] || 0 })).sort((a, b) => b.cout - a.cout);
   const total = sections.reduce((t, S) => ({ cout: t.cout + S.cout, periodes: t.periodes + S.periodes,
     cout_iip: t.cout_iip + S.cout_iip, cout_helb: t.cout_helb + S.cout_helb }), { cout: 0, periodes: 0, cout_iip: 0, cout_helb: 0 });
-  return { annee, tarifs: T, sections, total, sans_tarif: sansTarif, type_defaut: typeDefaut };
+
+  // ── Les fonctions (direction, secrétariat, coordinations…) : coût annuel
+  //    d'un temps plein × ETP de la personne dans la fonction, cette année.
+  try { semerCoutsFonctions(); } catch { /* table absente */ }
+  let missions = [];
+  try {
+    missions = db.prepare(`
+      SELECT pm.fonction, pm.section_code, pm.etp, p.nom, p.prenom, ft.id AS type_id
+        FROM personnel_mission pm JOIN professeur p ON p.id = pm.professeur_id
+        LEFT JOIN fonction_type ft ON ft.libelle = pm.fonction
+       WHERE pm.annee_scolaire = ?
+       ORDER BY ft.ordre, pm.fonction, p.nom`).all(annee)
+      .map(m => {
+        const annuel = m.type_id ? getParamNum(`cout.fonction.${m.type_id}`, 0) : 0;
+        const etp = Number(m.etp) || 0;
+        return { ...m, portee: m.section_code === '__ETAB__' ? 'établissement' : m.section_code, etp, annuel, cout: etp * annuel };
+      });
+  } catch { missions = []; }
+  const coutFonctions = missions.reduce((t, m) => t + m.cout, 0);
+  // Réparti au prorata des inscrits (Charles, 6 octobre 2026) : c'est le
+  // nombre de dossiers qui fait le travail du secrétariat et de la direction.
+  const baseInscrits = sections.reduce((t, S) => t + S.inscrits, 0);
+  for (const S of sections) {
+    S.part_fonctions = baseInscrits ? coutFonctions * S.inscrits / baseInscrits : 0;
+    S.cout_complet = S.cout + S.part_fonctions;
+  }
+  return { annee, tarifs: T, sections, statuts: totStatuts, sexes: totSexes,
+    total: { ...total, cout_fonctions: coutFonctions, cout_complet: total.cout + coutFonctions },
+    missions, base_inscrits: baseInscrits,
+    sans_etp: missions.filter(m => !m.etp).length, sans_cout: missions.filter(m => m.etp && !m.annuel).length,
+    sans_tarif: sansTarif, type_defaut: typeDefaut };
 }

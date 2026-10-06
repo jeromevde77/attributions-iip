@@ -113,6 +113,7 @@ export const CARTE = {
   'import-suivi':          'etudiants',
   'import-historique':     'etudiants',
   'import-sur-mesure':     'etudiants',
+  'import-personnel':      'personnel',
   perimetre:               'etudiants',      // les unités d'un périmètre de délibération
   apercu:                  'etudiants',
 

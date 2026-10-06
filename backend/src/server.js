@@ -26,6 +26,7 @@ import documentationRoutes, { migrerDocumentation } from './routes/documentation
 import suggestionsRoutes, { migrerSuggestions } from './routes/suggestions.js';
 import reponsesTypesRoutes, { migrerReponsesTypes } from './routes/reponsesTypes.js';
 import { migrerJournalModifications } from './lib/journalModifications.js';
+import { semerCoutsFonctions } from './lib/coutFormation.js';
 import dossierAdminRoutes from './routes/dossierAdmin.js';
 import listesRoutes from './routes/listes.js';
 import besoinsRoutes from './routes/besoins.js';
@@ -66,6 +67,7 @@ import annexe1Routes from './routes/annexe1.js';
 import sleRoutes, { migrerSLE } from './routes/sle.js';
 import impressionRoutes from './routes/impression.js';
 import importSurMesureRoutes from './routes/importSurMesure.js';
+import importPersonnelRoutes from './routes/importPersonnel.js';
 import authRoutes from './routes/auth.js';
 import attrRoutes from './routes/attributions.js';
 import refRoutes  from './routes/referentiels.js';
@@ -2849,6 +2851,17 @@ try {
   ]) ins.run(...p);
 } catch (e) { console.error('[migration] coût des périodes :', e.message); }
 
+/* LE COÛT DES FONCTIONS (Charles, 6 octobre 2026 : « ajoute les admins
+   aussi » — coût annuel d'un temps plein par fonction × ETP de la personne).
+   L'ETP se pose sur la mission de l'année (onglet Fonctions de la fiche) ; le
+   coût annuel, par fonction, dans Configuration → Coût des périodes. */
+try {
+  const cols = db.prepare('PRAGMA table_info(personnel_mission)').all().map(c => c.name);
+  if (cols.length && !cols.includes('etp')) db.exec('ALTER TABLE personnel_mission ADD COLUMN etp REAL');
+  semerCoutsFonctions(db);
+} catch (e) { console.error('[migration] coût des fonctions :', e.message); }
+
+
 // ── Lucie V3++ : échéancier, dossier administratif, communication ──
 try { migrerEcheancier(db); } catch (e) { console.error('[migration] echeancier :', e.message); }
 try { migrerReunions(db); } catch (e) { console.error('[migration] reunions :', e.message); }
@@ -3076,6 +3089,7 @@ try { migrerSLE(db); } catch (e) { console.error('[migration] SLE :', e.message)
 app.use('/api/impression', garderModule('impression'), impressionRoutes);
 app.use('/api/envois',     garderModule('envois'), (await import('./routes/envois.js')).default);
 app.use('/api/import-sur-mesure', garderModule('import-sur-mesure'), importSurMesureRoutes);
+app.use('/api/import-personnel', garderModule('import-personnel'), importPersonnelRoutes);
 app.use('/api/historique',   garderModule('historique'), historiqueRoutes);
 app.use('/api/audit',        garderModule('audit'), (await import('./routes/audit.js')).default);
 app.use('/api/etablissement', garderModule('etablissement'), etablissementRoutes);

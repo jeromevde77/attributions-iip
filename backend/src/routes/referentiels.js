@@ -1910,7 +1910,7 @@ r.get('/personnel-matrice', authRequired, soiSeul({ ensemble: true }), (req, res
 // Cocher/décocher une mission
 // PUT /personnel-mission  body: { professeur_id, fonction, section_code, annee_scolaire, actif }
 r.put('/personnel-mission', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
-  const { professeur_id, fonction, section_code, annee_scolaire, actif, periodes, contrat_mdp, etp_helb } = req.body;
+  const { professeur_id, fonction, section_code, annee_scolaire, actif, periodes, contrat_mdp, etp_helb, etp } = req.body;
   if (!professeur_id || !fonction || !section_code || !annee_scolaire)
     return res.status(400).json({ error: 'Paramètres manquants' });
   if (actif !== undefined) {
@@ -1921,6 +1921,13 @@ r.put('/personnel-mission', authRequired, roleRequired('admin', 'editeur'), (req
       db.prepare('DELETE FROM personnel_mission WHERE professeur_id = ? AND fonction = ? AND section_code = ? AND annee_scolaire = ?')
         .run(professeur_id, fonction, section_code, annee_scolaire);
     }
+  }
+  // L'ETP de la personne dans cette fonction (coût des fonctions).
+  if (etp !== undefined) {
+    const v = etp === '' || etp == null ? null : Number(String(etp).replace(',', '.'));
+    if (v != null && !(v >= 0 && v <= 2)) return res.status(400).json({ error: 'ETP attendu entre 0 et 2' });
+    db.prepare(`UPDATE personnel_mission SET etp = ? WHERE professeur_id = ? AND fonction = ? AND section_code = ? AND annee_scolaire = ?`)
+      .run(v, professeur_id, fonction, section_code, annee_scolaire);
   }
   // Mise à jour etp_helb si fourni
   if (etp_helb !== undefined) {
@@ -1940,15 +1947,16 @@ r.get('/personnel-fonctions/:profId', authRequired, soiSeul(), (req, res) => {
   const annee = req.query.annee || anneeDeTravail(req);
   const types = db.prepare('SELECT id, libelle, portee, ordre FROM fonction_type ORDER BY ordre, libelle').all();
   const sections = db.prepare('SELECT code, libelle FROM section ORDER BY code').all();
-  const miennes = db.prepare(`SELECT fonction, section_code, etp_helb FROM personnel_mission
+  const miennes = db.prepare(`SELECT fonction, section_code, etp_helb, etp FROM personnel_mission
     WHERE professeur_id = ? AND annee_scolaire = ?`).all(profId, annee);
   const coche = (sec, f) => miennes.find(m => m.section_code === sec && m.fonction === f);
   const portees = [
     { code: '__ETAB__', libelle: "Tout l'établissement",
-      fonctions: types.filter(t => t.portee === 'etablissement').map(t => ({ ...t, actif: !!coche('__ETAB__', t.libelle) })) },
+      fonctions: types.filter(t => t.portee === 'etablissement').map(t => ({ ...t, actif: !!coche('__ETAB__', t.libelle),
+        etp: coche('__ETAB__', t.libelle)?.etp ?? null })) },
     ...sections.map(sec => ({ code: sec.code, libelle: sec.libelle || sec.code,
       fonctions: types.filter(t => t.portee === 'section').map(t => ({ ...t, actif: !!coche(sec.code, t.libelle),
-        etp_helb: coche(sec.code, t.libelle)?.etp_helb ?? null })) })),
+        etp_helb: coche(sec.code, t.libelle)?.etp_helb ?? null, etp: coche(sec.code, t.libelle)?.etp ?? null })) })),
   ];
   res.json({ annee, portees });
 });
