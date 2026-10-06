@@ -175,6 +175,22 @@ function FonctionsPanel({ profId }) {
                   <input type="checkbox" checked={f.actif} disabled={!peutRegler || enCours === `${p.code}|${f.libelle}`}
                     onChange={() => basculer(p, f)} />
                   <span className={`flex-1 ${f.actif ? 'text-slate-800 font-medium' : 'text-slate-600'}`}>{f.libelle}</span>
+                  {/* L'ETP DANS LA FONCTION (6 octobre 2026) : il fait le coût des
+                      fonctions — coût annuel d'un temps plein × ETP. */}
+                  {f.actif && (
+                    <input type="number" min="0" max="2" step="0.05" disabled={!peutRegler}
+                      defaultValue={f.etp ?? ''} placeholder="ETP"
+                      title="Temps de travail dans cette fonction (1 = temps plein) — sert au coût des formations"
+                      onClick={e => e.preventDefault()}
+                      onBlur={async e => {
+                        const brut = String(e.target.value).trim().replace(',', '.');
+                        const v = brut === '' ? null : parseFloat(brut);
+                        if (v === (f.etp ?? null)) return;
+                        try { await api.setMission({ professeur_id: profId, fonction: f.libelle, section_code: p.code,
+                          annee_scolaire: annee, etp: v }); await charger(); } catch (x) { setErreur(x.message); }
+                      }}
+                      className="w-16 h-7 border border-slate-300 rounded-champ px-1 text-[12px] text-right bg-white" />
+                  )}
                   {f.actif && p.code !== '__ETAB__' && (
                     <input type="number" min="0" max="1" step="0.1" disabled={!peutRegler}
                       defaultValue={f.etp_helb || ''} placeholder="ETP HELB"

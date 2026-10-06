@@ -12,6 +12,15 @@ import db from '../db/index.js';
 import { getParam, getParamNum } from '../routes/parametres.js';
 import { donneesChiffresCles } from './chiffresCles.js';
 
+/** Un coût annuel d'un temps plein par fonction (table fonction_type), amorcé
+ *  à zéro : le montant est à régler, Lucie ne l'invente pas. */
+export function semerCoutsFonctions(dbx = db) {
+  const ins = dbx.prepare(`INSERT OR IGNORE INTO parametre (cle, valeur, label, section, groupe) VALUES (?,?,?,?,?)`);
+  for (const t of dbx.prepare('SELECT id, libelle FROM fonction_type ORDER BY ordre, libelle').all()) {
+    ins.run(`cout.fonction.${t.id}`, '0', `Coût annuel d'un temps plein — ${t.libelle} (€)`, null, 'couts');
+  }
+}
+
 export function tarifs() {
   return {
     reference: getParam('cout.reference', ''), date_effet: getParam('cout.date_effet', ''),
@@ -50,8 +59,9 @@ export function donneesCout(annee) {
     const k = type === 'PP' ? 'pp' : 'ct';
     S['per_' + k] += l.periodes; S['cout_' + k] += cout; S.cout += cout; S.periodes += l.periodes;
     if (l.contrat === 'HELB') S.cout_helb += cout; else S.cout_iip += cout;
-    const U = S.ues.get(l.ue_num) || { ue_num: l.ue_num, ue_nom: l.ue_nom, niveau: niv, periodes: 0, cout: 0 };
-    U.periodes += l.periodes; U.cout += cout; S.ues.set(l.ue_num, U);
+    const U = S.ues.get(l.ue_num) || { ue_num: l.ue_num, ue_nom: l.ue_nom, niveau: niv, periodes: 0, cout: 0,
+      per_ct: 0, per_pp: 0, cout_ct: 0, cout_pp: 0, tarif_ct: niv ? T[niv].CT : 0, tarif_pp: niv ? T[niv].PP : 0 };
+    U.periodes += l.periodes; U.cout += cout; U['per_' + k] += l.periodes; U['cout_' + k] += cout; S.ues.set(l.ue_num, U);
     parSection.set(sec, S);
   }
   // Les inscrits par section : ceux des chiffres clés, comptés de la même façon.
@@ -61,5 +71,34 @@ export function donneesCout(annee) {
     inscrits: inscrits[S.section] || 0 })).sort((a, b) => b.cout - a.cout);
   const total = sections.reduce((t, S) => ({ cout: t.cout + S.cout, periodes: t.periodes + S.periodes,
     cout_iip: t.cout_iip + S.cout_iip, cout_helb: t.cout_helb + S.cout_helb }), { cout: 0, periodes: 0, cout_iip: 0, cout_helb: 0 });
-  return { annee, tarifs: T, sections, total, sans_tarif: sansTarif, type_defaut: typeDefaut };
+
+  // ── Les fonctions (direction, secrétariat, coordinations…) : coût annuel
+  //    d'un temps plein × ETP de la personne dans la fonction, cette année.
+  try { semerCoutsFonctions(); } catch { /* table absente */ }
+  let missions = [];
+  try {
+    missions = db.prepare(`
+      SELECT pm.fonction, pm.section_code, pm.etp, p.nom, p.prenom, ft.id AS type_id
+        FROM personnel_mission pm JOIN professeur p ON p.id = pm.professeur_id
+        LEFT JOIN fonction_type ft ON ft.libelle = pm.fonction
+       WHERE pm.annee_scolaire = ?
+       ORDER BY ft.ordre, pm.fonction, p.nom`).all(annee)
+      .map(m => {
+        const annuel = m.type_id ? getParamNum(`cout.fonction.${m.type_id}`, 0) : 0;
+        const etp = Number(m.etp) || 0;
+        return { ...m, portee: m.section_code === '__ETAB__' ? 'établissement' : m.section_code, etp, annuel, cout: etp * annuel };
+      });
+  } catch { missions = []; }
+  const coutFonctions = missions.reduce((t, m) => t + m.cout, 0);
+  // Réparti au prorata des inscrits (Charles, 6 octobre 2026) : c'est le
+  // nombre de dossiers qui fait le travail du secrétariat et de la direction.
+  const baseInscrits = sections.reduce((t, S) => t + S.inscrits, 0);
+  for (const S of sections) {
+    S.part_fonctions = baseInscrits ? coutFonctions * S.inscrits / baseInscrits : 0;
+    S.cout_complet = S.cout + S.part_fonctions;
+  }
+  return { annee, tarifs: T, sections, total: { ...total, cout_fonctions: coutFonctions, cout_complet: total.cout + coutFonctions },
+    missions, base_inscrits: baseInscrits,
+    sans_etp: missions.filter(m => !m.etp).length, sans_cout: missions.filter(m => m.etp && !m.annuel).length,
+    sans_tarif: sansTarif, type_defaut: typeDefaut };
 }

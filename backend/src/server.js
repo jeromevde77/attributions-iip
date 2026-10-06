@@ -26,6 +26,7 @@ import documentationRoutes, { migrerDocumentation } from './routes/documentation
 import suggestionsRoutes, { migrerSuggestions } from './routes/suggestions.js';
 import reponsesTypesRoutes, { migrerReponsesTypes } from './routes/reponsesTypes.js';
 import { migrerJournalModifications } from './lib/journalModifications.js';
+import { semerCoutsFonctions } from './lib/coutFormation.js';
 import dossierAdminRoutes from './routes/dossierAdmin.js';
 import listesRoutes from './routes/listes.js';
 import besoinsRoutes from './routes/besoins.js';
@@ -2848,6 +2849,17 @@ try {
     ['cout.di_pp', '68.26', 'Secondaire inférieur — cours techniques et de pratique professionnelle, pratique professionnelle (€ / période)', null, 'couts'],
   ]) ins.run(...p);
 } catch (e) { console.error('[migration] coût des périodes :', e.message); }
+
+/* LE COÛT DES FONCTIONS (Charles, 6 octobre 2026 : « ajoute les admins
+   aussi » — coût annuel d'un temps plein par fonction × ETP de la personne).
+   L'ETP se pose sur la mission de l'année (onglet Fonctions de la fiche) ; le
+   coût annuel, par fonction, dans Configuration → Coût des périodes. */
+try {
+  const cols = db.prepare('PRAGMA table_info(personnel_mission)').all().map(c => c.name);
+  if (cols.length && !cols.includes('etp')) db.exec('ALTER TABLE personnel_mission ADD COLUMN etp REAL');
+  semerCoutsFonctions(db);
+} catch (e) { console.error('[migration] coût des fonctions :', e.message); }
+
 
 // ── Lucie V3++ : échéancier, dossier administratif, communication ──
 try { migrerEcheancier(db); } catch (e) { console.error('[migration] echeancier :', e.message); }
