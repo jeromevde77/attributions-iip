@@ -27,6 +27,7 @@ import suggestionsRoutes, { migrerSuggestions } from './routes/suggestions.js';
 import reponsesTypesRoutes, { migrerReponsesTypes } from './routes/reponsesTypes.js';
 import { migrerJournalModifications } from './lib/journalModifications.js';
 import { semerCoutsFonctions } from './lib/coutFormation.js';
+import { semerTauxExperts } from './lib/tauxExperts.js';
 import dossierAdminRoutes from './routes/dossierAdmin.js';
 import listesRoutes from './routes/listes.js';
 import besoinsRoutes from './routes/besoins.js';
@@ -2860,6 +2861,7 @@ try {
   if (cols.length && !cols.includes('etp')) db.exec('ALTER TABLE personnel_mission ADD COLUMN etp REAL');
   semerCoutsFonctions(db);
 } catch (e) { console.error('[migration] coût des fonctions :', e.message); }
+try { semerTauxExperts(db); } catch (e) { console.error('[migration] taux des experts :', e.message); }
 
 
 // ── Lucie V3++ : échéancier, dossier administratif, communication ──

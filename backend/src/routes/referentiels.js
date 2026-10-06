@@ -1,4 +1,5 @@
 import { readFileSync } from 'fs';
+import { plafondsExpert } from '../lib/tauxExperts.js';
 import { gunzipSync } from 'zlib';
 import { codeGroupe, modeGroupes } from '../lib/groupes.js';
 import { Router } from 'express';
@@ -863,6 +864,9 @@ r.get('/professeurs', authRequired, soiSeul({ liste: true }), (req, res) => {
       p.code_postal, p.capaes, p.anciennete_25_26_po, p.type_personnel, p.date_engagement,
       v.nom_prenom, v.total_per_iip, v.total_hrs_helb, v.prestations,
       ${subTotalAnnee},
+      (SELECT COALESCE(SUM(a.periodes_attribuees),0) FROM attribution a WHERE a.professeur_id = p.id
+        AND a.annee_scolaire = '${anneeActive}' AND COALESCE(a.contrat_mdp, 'IIP') <> 'HELB'
+        AND COALESCE(a.en_conge, 0) = 0) AS per_iip_annee,
       (SELECT GROUP_CONCAT(DISTINCT pm.fonction)
        FROM personnel_mission pm WHERE pm.professeur_id = p.id AND pm.annee_scolaire = '${anneeActive}') AS missions_libelles,
       (SELECT GROUP_CONCAT(DISTINCT a.contrat_mdp ORDER BY a.contrat_mdp)
@@ -914,6 +918,16 @@ r.get('/professeurs', authRequired, soiSeul({ liste: true }), (req, res) => {
     l.etp_helb = e ? Math.round(e.etp_helb * 100) / 100 : 0;
   }
 
+  /* LE PLAFOND DES EXPERTS (A.E. 26-01-1993, art. 2) : 260 périodes par année
+     scolaire, 100 de plus sur dérogation. Le dépassement se voit dans la liste,
+     avant que le contrat ne parte. */
+  const { plafond, derogation } = plafondsExpert();
+  for (const l of lignes) {
+    if (l.statut !== 'EXP') continue;
+    const n = Number(l.per_iip_annee) || 0;
+    l.plafond_expert = n > derogation ? 'au-dela' : n > plafond ? 'derogation' : null;
+    l.plafond_valeurs = { plafond, derogation };
+  }
   res.json(lignes);
 });
 

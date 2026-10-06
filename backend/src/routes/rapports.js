@@ -701,7 +701,7 @@ function documentPersonnelStats(p) {
   const graphes = `
     ${rangeeCamemberts(
       camembert('Statut', [{ nom: 'Chargés de cours', valeur: E.cc, couleur: K.bleu }, { nom: 'Experts', valeur: E.exp, couleur: K.cyan },
-        { nom: 'Autre', valeur: E.autre_statut, ...g }]),
+        { nom: 'Administratifs', valeur: E.adm || 0, couleur: K.or }, { nom: 'Autre', valeur: E.autre_statut, ...g }]),
       camembert('Nomination', [{ nom: 'Définitifs', valeur: E.definitif, couleur: K.bleu }, { nom: 'Temporaires', valeur: E.temporaire, couleur: K.or },
         { nom: 'Non renseignée', valeur: E.n - E.definitif - E.temporaire, ...g }]),
       camembert('Employeur', [{ nom: 'Institut', valeur: E.iip, couleur: K.iip }, { nom: 'Haute École', valeur: E.helb, couleur: K.helb }],
@@ -729,7 +729,7 @@ function documentPersonnelStats(p) {
 
   const corps = `
     ${rangeeTuiles([
-      tuile({ valeur: n0(E.n), libelle: 'Membres du personnel', precision: `${n0(E.enseignant)} enseignant(s)`, ton: 'fort' }),
+      tuile({ valeur: n0(E.n), libelle: 'Membres du personnel', precision: `${n0(E.enseignant)} enseignant(s) · ${n0(E.adm || 0)} administratif(s)`, ton: 'fort' }),
       tuile({ valeur: n2(E.etp), unite: 'ETP', libelle: 'Charge totale', precision: `${d.sections.length} section(s)` }),
       tuile({ valeur: E.n ? n2(E.etp / E.n) : '—', unite: 'ETP', libelle: 'Charge moyenne', precision: 'par membre' }),
       tuile({ valeur: pc(E.temporaire, E.n), libelle: 'Temporaires', precision: `${n0(E.definitif)} définitif(s)` }),
@@ -743,7 +743,7 @@ function documentPersonnelStats(p) {
         `<b>${n0(E.n)} membres</b> assurent <b>${n2(E.etp)} ETP</b> : la charge moyenne est de <b>${E.n ? n2(E.etp / E.n) : '—'} ETP</b> par personne.`,
         `<b>${pc(petits, E.n)}</b> des membres ont <b>moins d'un quart-temps</b> (moins de 0,25 ETP) ; ${n0(E.t5 || 0)} ont 0,75 ETP ou plus.`,
         `${pc(E.temporaire, E.n)} des membres sont <b>temporaires</b>, ${n0(E.definitif)} définitif(s).`,
-        `Les <b>chargés de cours</b> sont ${pc(E.cc, E.n)}, les <b>experts</b> ${pc(E.exp, E.n)}.`,
+        `Les <b>chargés de cours</b> sont ${pc(E.cc, E.n)}, les <b>experts</b> ${pc(E.exp, E.n)}${E.adm ? `, les <b>administratifs</b> ${pc(E.adm, E.n)} (${n0(E.adm)} personne(s) sans attribution de cours)` : ''}.`,
         E.helb ? `<b>${n0(E.helb)}</b> membre(s) ont au moins une attribution sous <b>contrat HELB</b>.` : '',
         grosse ? `La section la plus chargée est <b>${esc(grosse.section)}</b>, avec ${n2(grosse.etp_section)} ETP (${pc(grosse.etp_section, E.etp)} du total).` : '',
         domConnu >= E.n * 0.5 ? `${pc(E.bruxelles, domConnu)} des membres habitent <b>Bruxelles</b>, ${pc(E.wallonie, domConnu)} la Wallonie, ${pc(E.flandre, domConnu)} la Flandre.` : '',
@@ -816,7 +816,9 @@ function documentCoutFormations(p) {
       <b>Cours</b> — périodes attribuées × montant d'une période, selon le niveau de l'unité et le type du cours :
       supérieur de type court ${m2(T.SUP.CT)} € (cours généraux et techniques) · ${m2(T.SUP.PP)} € (pratique professionnelle) ;
       secondaire supérieur ${m2(T.DS.CT)} € · ${m2(T.DS.PP)} €${T.reference ? ` (${esc(T.reference)}${T.date_effet ? `, au ${esc(T.date_effet.split('-').reverse().join('/'))}` : ''})` : ''}.
-      Le même montant vaut pour les chargés de cours et pour les experts. Les lignes en congé ne coûtent rien
+      Ce tarif vaut pour les <b>chargés de cours</b>. Les <b>experts</b> sont comptés au taux de l'A.E. du 26/01/1993 (art. 8) —
+      selon le niveau et le type de cours, ${d.experts?.indice ? `× ${String(d.experts.indice).replace('.', ',')} (indexation depuis le 01/07/1991)` : '<b>sans coefficient d\'indexation réglé : montants de base de 1991, donc sous-estimés</b>'}.
+      Les lignes en congé ne coûtent rien
       (leur remplaçant est compté) ; les activités Z n'entrent pas.<br>
       <b>Fonctions</b> — coût annuel d'un temps plein de la fonction × ETP de la personne dans cette fonction,
       réparti entre les sections au prorata de leurs inscrits (part = coût des fonctions × inscrits de la section ÷ ${n0(ins)}).<br>
@@ -872,11 +874,13 @@ function documentCoutFormations(p) {
       <th class="n" style="width:14mm">ETP</th><th class="n" style="width:28mm">Temps plein / an</th><th class="n" style="width:24mm">Coût</th></tr></thead>
     <tbody>${d.missions.map(m => `<tr><td>${esc(`${m.prenom || ''} ${String(m.nom || '').toUpperCase()}`.trim())}</td>
       <td>${esc(m.fonction)}</td><td>${esc(m.portee)}</td>
-      <td class="n">${m.etp ? e1(m.etp) : '<span class="fin">à régler</span>'}</td>
-      <td class="n">${m.annuel ? eur(m.annuel) : '<span class="fin">à régler</span>'}</td>
+      <td class="n">${!m.pncc ? '<span class="fin">—</span>' : m.etp ? e1(m.etp) : '<span class="fin">à régler</span>'}</td>
+      <td class="n">${!m.pncc ? '<span class="fin">dans ses périodes</span>' : m.annuel ? eur(m.annuel) : '<span class="fin">à régler</span>'}</td>
       <td class="n">${m.cout ? eur(m.cout) : '—'}</td></tr>`).join('')}</tbody>
     <tfoot><tr class="repere"><td colspan="5">Ensemble des fonctions</td><td class="n">${eur(tot.cout_fonctions)}</td></tr></tfoot></table>
-    <p class="fin">Coût = ETP × coût annuel d'un temps plein.${d.sans_etp ? ` <b>${d.sans_etp} fonction(s) sans ETP</b> (onglet Fonctions de la fiche) ne sont pas comptées.` : ''}${d.sans_cout ? ` <b>${d.sans_cout} fonction(s) sans coût annuel</b> (Configuration → Coût des périodes) ne sont pas comptées.` : ''}</p>`
+    <p class="fin"><b>Direction et secrétariat</b> sont des emplois de personnel non chargé de cours (PNCC, circulaire 6992) :
+      coût = ETP × coût annuel d'un temps plein. Les <b>coordinations</b> sont tenues par des enseignants payés par leurs périodes
+      attribuées : elles sont listées sans montant, pour ne pas les compter deux fois.${d.sans_etp ? ` <b>${d.sans_etp} fonction(s) sans ETP</b> (onglet Fonctions de la fiche) ne sont pas comptées.` : ''}${d.sans_cout ? ` <b>${d.sans_cout} fonction(s) sans coût annuel</b> (Configuration → Coût des périodes) ne sont pas comptées.` : ''}</p>`
     : '<p class="fin">Aucune fonction encodée pour cette année (onglet Fonctions de la fiche du personnel).</p>';
 
   // UNITÉ PAR UNITÉ : une ligne par statut, le calcul écrit.
@@ -888,7 +892,7 @@ function documentCoutFormations(p) {
         <td class="n">${eur(u.cout)}</td></tr>
       ${['CC', 'EXP', 'AUTRE'].filter(k => u.statuts[k].periodes).map(k => { const x = u.statuts[k]; return `<tr>
         <td style="padding-left:6mm">${libStatut[k]}</td><td></td>
-        <td class="n">${calc(x.per_ct, u.tarif_ct, x.cout_ct)}</td><td class="n">${calc(x.per_pp, u.tarif_pp, x.cout_pp)}</td>
+        <td class="n">${calc(x.per_ct, x.tarif_ct ?? u.tarif_ct, x.cout_ct)}</td><td class="n">${calc(x.per_pp, x.tarif_pp ?? u.tarif_pp, x.cout_pp)}</td>
         <td class="n">${eur(x.cout)}</td></tr>`; }).join('')}`).join('')}`).join('');
 
   const corps = `
@@ -906,7 +910,8 @@ function documentCoutFormations(p) {
       return enBref([
         `Le <b>coût complet</b> de l'année est de <b>${eur(tot.cout_complet)}</b> : ${eur(tot.cout)} de cours (${pc(tot.cout, tot.cout_complet)}) et ${eur(tot.cout_fonctions)} de fonctions.`,
         ins ? `Il revient en moyenne à <b>${eur(tot.cout_complet / ins)} par étudiant</b> inscrit${parEtu.length > 1 ? ` — de ${eur(parEtu[parEtu.length - 1].v)} en ${esc(parEtu[parEtu.length - 1].s)} à ${eur(parEtu[0].v)} en ${esc(parEtu[0].s)}` : ''}.` : '',
-        `Les <b>chargés de cours</b> donnent ${pc(ST.CC.periodes, tot.periodes)} des périodes, les <b>experts</b> ${pc(ST.EXP.periodes, tot.periodes)}.`,
+        `Les <b>chargés de cours</b> donnent ${pc(ST.CC.periodes, tot.periodes)} des périodes, les <b>experts</b> ${pc(ST.EXP.periodes, tot.periodes)} — pour ${pc(ST.EXP.cout, tot.cout)} du coût des cours.`,
+        d.experts?.indice ? '' : 'Le <b>coefficient d\'indexation des experts</b> n\'est pas réglé (Configuration → Coût des périodes) : leur coût est compté aux montants de base de 1991.',
         tot.cout_helb ? `Les <b>contrats HELB</b> représentent ${eur(tot.cout_helb)}, soit ${pc(tot.cout_helb, tot.cout)} du coût des cours.` : '',
         percu ? `Les étudiants doivent <b>${eur(percu + (R.dis || 0))}</b> ; l'établissement perçoit ${eur(percu)} (droit d'inscription et frais), qui couvrent <b>${pc(percu, tot.cout_complet)}</b> du coût complet ; ${eur(R.verse)} versés à ce jour.` : '',
         manque ? `Le coût des fonctions est <b>incomplet</b> : ${manque} fonction(s) sans ETP ou sans coût annuel.` : (tot.cout_fonctions ? '' : 'Aucun coût de fonction n\'est encore réglé : il manque les montants annuels (Configuration) et les ETP (fiche, onglet Fonctions).'),
@@ -948,7 +953,7 @@ function documentCoutFormations(p) {
         .map(S => ({ nom: esc(S.section), valeur: S.recettes.frais, couleur: K.or, texte: eur(S.recettes.frais) })) })))}
     ${tRecettes}
     <h2>Femmes et hommes</h2>${tSexes}
-    <h2>Fonctions — direction, secrétariat, coordinations</h2>${tFonctions}
+    <h2>Personnel administratif (PNCC) et coordinations</h2>${tFonctions}
 
     <h2>Unité par unité — le calcul</h2>
     <table><thead><tr><th>Unité</th><th class="n" style="width:14mm">Niveau</th>

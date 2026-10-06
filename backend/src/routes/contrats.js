@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { tauxExpertBase } from '../lib/tauxExperts.js';
 import db from '../db/index.js';
 import { anneeDeTravail } from '../helpers/annee.js';
 import { authRequired, roleRequired } from '../middleware/auth.js';
@@ -109,12 +110,10 @@ function lignesExpert(prof_id, annee) {
   }
   return { ...d, parNiveau };
 }
+/** Le taux de base des cours généraux du niveau (A.E. 26-01-1993) — celui
+ *  qu'annonce l'écran ; le contrat applique ensuite le taux de chaque type. */
 function tauxExpert(niveau) {
-  try {
-    const v = db.prepare('SELECT valeur FROM lucie_config WHERE cle = ?').get(`taux_expert_${niveau}`)?.valeur;
-    if (v != null && v !== '' && !Number.isNaN(Number(String(v).replace(',', '.')))) return Number(String(v).replace(',', '.'));
-  } catch { /* */ }
-  return TAUX_DEFAUT[niveau];
+  try { return tauxExpertBase(niveau, 'CT'); } catch { return TAUX_DEFAUT[niveau]; }
 }
 r.get('/expert/:profId', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
   const { prof, parNiveau } = lignesExpert(Number(req.params.profId), req.query.annee);

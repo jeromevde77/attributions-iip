@@ -206,17 +206,39 @@ export function donneesPersonnel(annee, ref = new Date()) {
     if (l.contrat === 'HELB') x.helb = true; else x.iip = true;
     parPersonne.set(l.id, x);
   }
+  /* LES ADMINISTRATIFS FONT PARTIE DU PERSONNEL (Charles, 6 octobre 2026 :
+     « et manquent aux stats »). Ils n'ont pas d'attribution de cours : on les
+     lit dans leurs fonctions d'établissement de l'année (direction,
+     secrétariat), avec l'ETP posé sur la fonction. Un enseignant qui tient
+     aussi une fonction d'établissement reste compté une fois. */
+  let admins = [];
+  try {
+    admins = db.prepare(`SELECT pm.professeur_id AS id, SUM(COALESCE(pm.etp, 0)) AS etp, group_concat(pm.fonction, ', ') AS fonctions
+        FROM personnel_mission pm LEFT JOIN fonction_type ft ON ft.libelle = pm.fonction
+       WHERE pm.annee_scolaire = ? AND (pm.section_code = '__ETAB__' OR ft.portee = 'etablissement')
+       GROUP BY pm.professeur_id`).all(annee);
+  } catch { admins = []; }
+  let etpAdmin = 0;
+  for (const a of admins) {
+    const f = fiches.get(a.id); if (!f) continue;
+    const deja = parPersonne.get(a.id);
+    if (deja) { deja.admin = true; continue; }
+    etpAdmin += Number(a.etp) || 0;
+    parPersonne.set(a.id, { ...f, statut: 'ADM', admin: true, fonctions: a.fonctions, etp: Number(a.etp) || 0,
+      sections: new Set(['Administration']), iip: true, helb: false });
+  }
   const tous = [...parPersonne.values()];
   const compter = (liste) => {
     const r = profil(liste, ref);
     r.etp = liste.reduce((t, x) => t + x.etp, 0);
     r.cc = liste.filter(x => x.statut === 'CC').length;
     r.exp = liste.filter(x => x.statut === 'EXP').length;
-    r.autre_statut = r.n - r.cc - r.exp;
+    r.adm = liste.filter(x => x.statut === 'ADM').length;
+    r.autre_statut = r.n - r.cc - r.exp - r.adm;
     r.definitif = liste.filter(x => /^defin|^défin/i.test(x.statut_nomination || '')).length;
     r.temporaire = liste.filter(x => /^tempo/i.test(x.statut_nomination || '')).length;
     r.iip = liste.filter(x => x.iip).length; r.helb = liste.filter(x => x.helb).length;
-    r.enseignant = liste.filter(x => (x.type_personnel || 'enseignant') === 'enseignant').length;
+    r.enseignant = liste.filter(x => x.statut !== 'ADM').length;
     r.capaes = liste.filter(x => String(x.capaes || '').trim() && !/^(non|0|n)$/i.test(String(x.capaes).trim())).length;
     r.avec_titres = liste.filter(x => x.nb_titres > 0).length;
     r.bruxelles = 0; r.wallonie = 0; r.flandre = 0; r.domicile_inconnu = 0;
@@ -233,6 +255,7 @@ export function donneesPersonnel(annee, ref = new Date()) {
     ensemble: compter(tous),
     sections: sections.map(s => ({ section: s, ...compter(tous.filter(x => x.sections.has(s))),
       // La charge DANS la section, et non la charge totale de ceux qui y passent.
-      etp_section: lignes.filter(l => l.section === s).reduce((t, l) => t + (Number(l.etp) || 0), 0) })),
+      etp_section: s === 'Administration' ? etpAdmin
+        : lignes.filter(l => l.section === s).reduce((t, l) => t + (Number(l.etp) || 0), 0) })),
   };
 }
