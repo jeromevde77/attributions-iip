@@ -37,7 +37,7 @@ function age(dateNaissance, ref) {
 const tranche = n => (n < 25 ? 'm25' : n < 35 ? 'm35' : n < 45 ? 'm45' : 'p45');
 
 /** Un profil (sexe, âge, nationalité) compté sur une liste de personnes. */
-function profil(personnes, ref) {
+export function profil(personnes, ref) {
   const r = { n: personnes.length, F: 0, M: 0, X: 0, sexe_inconnu: 0,
     ages: [], m25: 0, m35: 0, m45: 0, p45: 0, age_inconnu: 0,
     be: 0, ue: 0, hors_ue: 0, nat_inconnue: 0, pays: {} };
@@ -155,5 +155,72 @@ export function donneesChiffresCles(annee, ref = new Date()) {
       etp: etpTotal,
       ues: lignes.reduce((s, l) => s + l.ues, 0), periodes: lignes.reduce((s, l) => s + l.periodes, 0),
     },
+  };
+}
+
+/* ─── LE PERSONNEL (Charles, 6 octobre 2026 : « je veux les statistiques pour
+   les profs »). Une ligne par membre attribué cette année ; sa charge est la
+   somme de ses attributions, au barème de Pilotage (CT/800 + PP/1000), lue
+   dans la même vue que la synthèse de charge. ─── */
+const regionDuCp = cp => {
+  const n = Number(String(cp || '').replace(/\D/g, ''));
+  if (!n || String(cp).replace(/\D/g, '').length !== 4) return null;
+  if (n >= 1000 && n <= 1299) return 'bruxelles';
+  if ((n >= 1300 && n <= 1499) || (n >= 4000 && n <= 7999)) return 'wallonie';
+  return 'flandre';
+};
+export const TRANCHES_ETP = [
+  ['t1', 'moins de 0,10', 0, 0.1], ['t2', '0,10 à 0,25', 0.1, 0.25], ['t3', '0,25 à 0,50', 0.25, 0.5],
+  ['t4', '0,50 à 0,75', 0.5, 0.75], ['t5', '0,75 et plus', 0.75, Infinity],
+];
+
+export function donneesPersonnel(annee, ref = new Date()) {
+  const lignes = db.prepare(`
+    SELECT professeur_id AS id, section, contrat_mdp AS contrat,
+           SUM(CASE WHEN type_cours = 'PP' THEN total_attribue_professeur / 1000.0
+                    ELSE total_attribue_professeur / 800.0 END) AS etp
+      FROM v_attribution_complete
+     WHERE annee_scolaire = ? AND professeur_id IS NOT NULL
+     GROUP BY professeur_id, section, contrat_mdp`).all(annee);
+  const fiches = new Map(db.prepare(`SELECT id, statut, statut_nomination, type_personnel, sexe, date_naissance,
+      nationalite, code_postal, capaes, (SELECT COUNT(*) FROM titre_capacite t WHERE t.professeur_id = professeur.id) AS nb_titres
+      FROM professeur`).all().map(p => [p.id, p]));
+  const parPersonne = new Map();
+  for (const l of lignes) {
+    const f = fiches.get(l.id); if (!f) continue;
+    const x = parPersonne.get(l.id) || { ...f, etp: 0, sections: new Set(), iip: false, helb: false };
+    x.etp += Number(l.etp) || 0;
+    if (l.section) x.sections.add(l.section);
+    if (l.contrat === 'HELB') x.helb = true; else x.iip = true;
+    parPersonne.set(l.id, x);
+  }
+  const tous = [...parPersonne.values()];
+  const compter = (liste) => {
+    const r = profil(liste, ref);
+    r.etp = liste.reduce((t, x) => t + x.etp, 0);
+    r.cc = liste.filter(x => x.statut === 'CC').length;
+    r.exp = liste.filter(x => x.statut === 'EXP').length;
+    r.autre_statut = r.n - r.cc - r.exp;
+    r.definitif = liste.filter(x => /^defin|^défin/i.test(x.statut_nomination || '')).length;
+    r.temporaire = liste.filter(x => /^tempo/i.test(x.statut_nomination || '')).length;
+    r.iip = liste.filter(x => x.iip).length; r.helb = liste.filter(x => x.helb).length;
+    r.enseignant = liste.filter(x => (x.type_personnel || 'enseignant') === 'enseignant').length;
+    r.capaes = liste.filter(x => String(x.capaes || '').trim() && !/^(non|0|n)$/i.test(String(x.capaes).trim())).length;
+    r.avec_titres = liste.filter(x => x.nb_titres > 0).length;
+    r.bruxelles = 0; r.wallonie = 0; r.flandre = 0; r.domicile_inconnu = 0;
+    for (const x of liste) { const g = regionDuCp(x.code_postal); if (g) r[g]++; else r.domicile_inconnu++; }
+    for (const [k, , min, max] of TRANCHES_ETP) {
+      const dans = liste.filter(x => x.etp >= min && x.etp < max);
+      r[k] = dans.length; r[k + '_etp'] = dans.reduce((t, x) => t + x.etp, 0);
+    }
+    return r;
+  };
+  const sections = [...new Set(tous.flatMap(x => [...x.sections]))].sort((a, b) => a.localeCompare(b, 'fr'));
+  return {
+    annee, ref: ref.toISOString().slice(0, 10),
+    ensemble: compter(tous),
+    sections: sections.map(s => ({ section: s, ...compter(tous.filter(x => x.sections.has(s))),
+      // La charge DANS la section, et non la charge totale de ceux qui y passent.
+      etp_section: lignes.filter(l => l.section === s).reduce((t, l) => t + (Number(l.etp) || 0), 0) })),
   };
 }
