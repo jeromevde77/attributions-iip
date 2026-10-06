@@ -23,6 +23,7 @@
  */
 import { Router } from 'express';
 import db from '../db/index.js';
+import { niveauEtudiant } from './etudiants.js';
 import { authRequired, getUserSections, clauseSections } from '../middleware/auth.js';
 import { anneeDeTravail } from '../helpers/annee.js';
 import { decisionDeSession } from './acquis.js';
@@ -155,8 +156,18 @@ r.post('/etudiants', authRequired, (req, res) => {
     });
   }
 
+  /* NOUVEAU ET BLOC (Charles, 6 octobre 2026 : « envoyer le PAE à tous les
+     NOUVEAUX étudiants de BA1 »). Nouveau = aucune inscription ni
+     valorisation avant cette année — la règle du « primo » de la liste
+     Étudiants ; le bloc est celui que lit cette même liste. */
+  const anciens = new Set([
+    ...db.prepare('SELECT DISTINCT etudiant_id FROM etudiant_inscription WHERE annee_scolaire < ?').all(annee).map(x => x.etudiant_id),
+    ...db.prepare('SELECT DISTINCT etudiant_id FROM etudiant_valorisation WHERE annee_scolaire < ?').all(annee).map(x => x.etudiant_id),
+  ]);
   const etudiants = [...parEtud.values()].map(e => ({
     ...e,
+    nouveau: !anciens.has(e.id),
+    bloc: (() => { try { return niveauEtudiant(e.id, annee).niveau || null; } catch { return null; } })(),
     // Ce qui se dit d'un coup d'œil : a-t-il quelque chose à recevoir pour
     // cette session ?
     decide: e.unites.some(u => u.resultat),

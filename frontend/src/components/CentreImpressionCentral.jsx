@@ -1414,6 +1414,11 @@ function OngletEtudiants({ perimetre = null, mode = 'deliberation', seul = null,
   // place ») : on ouvre celle où l'on travaille.
   const [secOuvertes, setSecOuvertes] = useState(() => new Set());
   const [recherche, setRecherche] = useState('');
+  /* NOUVEAUX, ET QUEL BLOC (Charles, 6 octobre 2026 : « envoyer le PAE à tous
+     les NOUVEAUX étudiants de BA1 »). Choisir un filtre retire de la sélection
+     ceux qui n'y répondent pas — comme une pièce SLE ou CEP. */
+  const [fNouveau, setFNouveau] = useState('');
+  const [fBloc, setFBloc] = useState('');
   const [liste, setListe] = useState(null);
   const [coches, setCoches] = useState(() => new Set());
   /* RIEN N'EST COCHÉ AU DÉPART — NULLE PART.
@@ -1730,7 +1735,11 @@ function OngletEtudiants({ perimetre = null, mode = 'deliberation', seul = null,
   const modePublic = delib ? null : (dossierChoisi.map(publicDe).find(Boolean) || null);
   const modeSLE = modePublic === 'sle';
   const NOM_PUBLIC = { sle: 'SLE : seuls les étudiants en séjour limité aux études', cep: 'CEP : seuls les étudiants au congé-éducation payé' };
-  const visibles = modePublic ? etudiants.filter(e => e[modePublic]) : etudiants;
+  const visibles = etudiants
+    .filter(e => !modePublic || e[modePublic])
+    .filter(e => !fNouveau || (fNouveau === 'nouveaux' ? e.nouveau : !e.nouveau))
+    .filter(e => !fBloc || e.bloc === fBloc);
+  const blocsDispo = [...new Set(etudiants.map(e => e.bloc).filter(Boolean))].sort();
   const basculerPiece = p => setChoix(c => {
     const n = { ...c, [p.cle]: !c[p.cle] };
     const pub = publicDe(p);
@@ -1789,6 +1798,12 @@ function OngletEtudiants({ perimetre = null, mode = 'deliberation', seul = null,
     if (!seul) return;
     setCoches(c => { const n = new Set([...c].filter(id => id === seul.id)); return n.size === c.size ? c : n; });
   }, [seul, liste]);
+  useEffect(() => {
+    if (!fNouveau && !fBloc) return;
+    const ok = new Set(visibles.map(e => e.id));
+    setCoches(c => { const n = new Set([...c].filter(id => ok.has(id))); return n.size === c.size ? c : n; });
+    // eslint-disable-next-line
+  }, [fNouveau, fBloc, etudiants]);
   // Avec une pièce SLE ou CEP, la sélection se réduit à ce public.
   useEffect(() => {
     if (!modePublic) return;
@@ -2049,6 +2064,17 @@ function OngletEtudiants({ perimetre = null, mode = 'deliberation', seul = null,
               <input value={recherche} onChange={e => setRecherche(e.target.value)} placeholder="Un nom…"
                 className="pl-7 pr-2 py-1 text-[12px] border border-slate-300 rounded-lg w-48" />
             </div>
+            {!seul && <select value={fNouveau} onChange={e => setFNouveau(e.target.value)}
+              className="py-1 px-2 text-[12px] border border-slate-300 rounded-lg" aria-label="Nouveaux ou déjà inscrits">
+              <option value="">Nouveaux et déjà inscrits</option>
+              <option value="nouveaux">Nouveaux (première année chez nous)</option>
+              <option value="anciens">Déjà inscrits avant</option>
+            </select>}
+            {!seul && !!blocsDispo.length && <select value={fBloc} onChange={e => setFBloc(e.target.value)}
+              className="py-1 px-2 text-[12px] border border-slate-300 rounded-lg" aria-label="Bloc">
+              <option value="">Tous les blocs</option>
+              {blocsDispo.map(b => <option key={b} value={b}>{b === 'MIXTE' ? 'Parcours mixte' : b}</option>)}
+            </select>}
             {modePublic && <span className="font-semibold text-iip-blue">Pièces {NOM_PUBLIC[modePublic]}</span>}
             <button onClick={() => setCoches(new Set(visibles.map(e => e.id)))} className="text-iip-blue underline">tout cocher</button>
             <button onClick={() => setCoches(new Set())} className="text-slate-500 underline">tout décocher</button>
@@ -2077,6 +2103,8 @@ function OngletEtudiants({ perimetre = null, mode = 'deliberation', seul = null,
                 className="w-4 h-4 accent-iip-blue" />
               <span className="flex-1 min-w-0">
                 <span className="text-[13px] font-medium">{nomPropre(e.nom, e.prenom)}</span>
+                {e.bloc && <span className="ml-1.5 text-[10px] text-slate-500">{e.bloc === 'MIXTE' ? 'mixte' : e.bloc}</span>}
+                {e.nouveau && <span className="ml-1.5 text-[10px] font-semibold text-slate-600 border border-slate-300 rounded px-1">nouveau</span>}
                 {e.sle && <span className="ml-1.5 text-[10px] font-semibold text-white bg-iip-blue rounded px-1 py-px">SLE</span>}
                 {e.cep && <span className="ml-1.5 text-[10px] font-semibold text-white bg-iip-blue rounded px-1 py-px">CEP</span>}
                 {delib && <span className="block text-[11px] text-slate-500">
