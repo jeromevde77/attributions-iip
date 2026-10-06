@@ -100,10 +100,20 @@ function parseDP(xmlStr) {
     }
     return r.join('\n').trim();
   };
-  const detFinalites = extractSection(/FINALITES DE L.UNITE/i,  /CAPACITES PREALABLES/i);
-  const detCapacites = extractSection(/CAPACITES PREALABLES/i,   /ACQUIS D.APPRENTISSAGE/i);
-  const detAcquis    = extractSection(/ACQUIS D.APPRENTISSAGE/i, /PROGRAMME/i);
-  const detProgramme = extractSection(/^PROGRAMME$/i,            /CONSTITUTION DES GROUPES|CHARGE.S. DE COURS/i);
+  /* UN TITRE DE SECTION EST UNE LIGNE À LUI. Cherchés n'importe où dans la
+     ligne, « PROGRAMME » refermait les acquis au premier acquis qui parlait
+     du « programme de soins » (AeSI, 6 octobre 2026) : la liste s'arrêtait
+     là, sans rien dire. Un titre commence la ligne (après son numéro
+     éventuel), est écrit en CAPITALES et reste court ; un acquis, jamais. */
+  const titre = corps => {
+    const re = new RegExp(`^\\s*(?:\\d+(?:\\.\\d+)*\\.?\\s*)?(?:${corps})`, 'i');
+    const seul = new RegExp(`^\\s*(?:\\d+(?:\\.\\d+)*\\.?\\s*)?(?:${corps})\\s*:?\\s*$`, 'i');
+    return { test: l => seul.test(l) || (re.test(l) && l.trim().length < 90 && l === l.toUpperCase()) };
+  };
+  const detFinalites = extractSection(titre('FINALIT[EÉ]S DE L.UNIT[EÉ]( DE FORMATION)?'), titre('CAPACIT[EÉ]S PR[EÉ]ALABLES( REQUISES)?'));
+  const detCapacites = extractSection(titre('CAPACIT[EÉ]S PR[EÉ]ALABLES( REQUISES)?'), titre('ACQUIS D.APPRENTISSAGE'));
+  const detAcquis    = extractSection(titre('ACQUIS D.APPRENTISSAGE'), titre('PROGRAMME'));
+  const detProgramme = extractSection(titre('PROGRAMME'),             /CONSTITUTION DES GROUPES|CHARGE.S. DE COURS/i);
 
   // ── ACQUIS D'APPRENTISSAGE : découpage du bloc en acquis individuels ──
   // Structure FWB habituelle :
@@ -142,6 +152,16 @@ function parseDP(xmlStr) {
         // Certains dossiers listent directement, sans phrase d'introduction
         if (/^[-•–]|^\d+[.)]\s/.test(l)) commence = true;
         else { amorce.push(l); continue; }
+      }
+      /* LES LIGNES QUI FINISSENT PAR UNE VIRGULE PRÉCISENT LE CHAPEAU. Les
+         dossiers d'AeSI introduisent les acquis par une suite de conditions —
+         « dans les limites de son rôle…, », « à partir de situations…, »,
+         « tout en utilisant le vocabulaire professionnel, » — avant le
+         premier acquis. Elles devenaient quatre faux acquis. Un acquis se
+         termine par « ; » ou « . », jamais par une virgule. */
+      if (/,\s*$/.test(l) && !/^[-•–]|^\d+[.)]\s/.test(l)) {
+        chapeau = chapeau ? `${chapeau}\n${l}` : l;
+        continue;
       }
       // Un second chapeau, au milieu de la liste, ouvre un nouveau groupe.
       if (estChapeau(l)) { chapeau = l; continue; }

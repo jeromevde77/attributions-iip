@@ -192,15 +192,25 @@ r.get('/:code', (req, res) => {
 });
 
 // ── Créer un AA ──────────────────────────────────────────────────────────────
-r.post('/', roleRequired('admin'), (req, res) => {
-  const { aa_code, aa_num, ue_num, cours_code, description } = req.body;
-  if (!aa_code || !ue_num || !description) return res.status(400).json({ error: 'aa_code, ue_num et description requis' });
+// LA FICHE UE N'AVAIT AUCUN BOUTON POUR AJOUTER UN ACQUIS (Charles, 6 octobre
+// 2026 : « je ne sais pas encoder les AA directement dans la fiche UE ») — la
+// route existait, réservée au compte technique, et rien ne l'appelait. Même
+// main que pour corriger un libellé : la direction. Le code se déduit
+// (AA<ue>.<suivant>) quand l'écran ne le donne pas.
+r.post('/', (req, res) => {
+  if (!estDirection(req.user)) return res.status(403).json({ error: "Ajouter un acquis au référentiel est réservé à la direction" });
+  const ueNum = Number(req.body.ue_num);
+  const description = String(req.body.description || '').trim();
+  if (!ueNum || !description) return res.status(400).json({ error: "L'unité et le libellé de l'acquis sont requis" });
+  const max = db.prepare('SELECT MAX(aa_num) m FROM aa WHERE ue_num = ?').get(ueNum)?.m || 0;
+  const num = Number(req.body.aa_num) || max + 1;
+  const code = String(req.body.aa_code || '').trim() || `AA${ueNum}.${num}`;
   try {
-    db.prepare('INSERT INTO aa (aa_code, aa_num, ue_num, cours_code, description) VALUES (?, ?, ?, ?, ?)')
-      .run(aa_code, aa_num || null, ue_num, cours_code || null, description);
-    res.json({ ok: true });
+    db.prepare('INSERT INTO aa (aa_code, aa_num, ue_num, cours_code, description, chapeau) VALUES (?, ?, ?, ?, ?, ?)')
+      .run(code, num, ueNum, req.body.cours_code || null, description, String(req.body.chapeau || '').trim() || null);
+    res.json(db.prepare('SELECT * FROM aa WHERE aa_code = ?').get(code));
   } catch (e) {
-    if (e.message.includes('UNIQUE')) return res.status(409).json({ error: 'Ce code AA existe déjà' });
+    if (e.message.includes('UNIQUE')) return res.status(409).json({ error: `Le code ${code} existe déjà` });
     throw e;
   }
 });
