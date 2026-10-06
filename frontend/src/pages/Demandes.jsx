@@ -53,8 +53,12 @@ export default function Demandes() {
       .map(k => ({ champ: k, avant: a[k], apres: b[k] }));
   }
 
-  const fr = v => (v && /^\d{4}-\d{2}-\d{2}/.test(String(v))
-    ? String(v).slice(0, 10).split('-').reverse().join('/') : (v ?? '—'));
+  const date = v => String(v).slice(0, 10).split('-').reverse().join('/');
+  // Une liste (les titres de capacité d'une fiche) : une ligne par titre.
+  const fr = v => (Array.isArray(v)
+    ? (v.length ? v.map((t, i) => <div key={i}>{[t.intitule, t.delivre_par, t.date_obtention && date(t.date_obtention)].filter(Boolean).join(' — ')}</div>) : '—')
+    : v && typeof v === 'object' ? JSON.stringify(v)
+    : v && /^\d{4}-\d{2}-\d{2}/.test(String(v)) ? date(v) : (v ?? '—'));
 
   return (
     <div className="p-5 space-y-4">

@@ -27,6 +27,11 @@ const CHAMPS = [
   { k: 'lieu_naissance', l: 'Lieu de naissance', aide: "Figure sur les attestations de réussite" },
   { k: 'nationalite', l: 'Nationalité', type: 'pays', aide: "Exigée par l'annexe 2 (Office des Étrangers) — le pays" },
   { k: 'num_national', l: 'Numéro national', aide: "Sert au rapprochement des dossiers" },
+  /* LE DIPLÔME, en deux listes fermées (6 octobre 2026) : ce qui a ouvert
+     l'inscription, et le plus haut niveau atteint. Les listes viennent du
+     serveur (lib/profilEtudiant.js). */
+  { k: 'titre_acces', l: "Titre d'accès", type: 'select', liste: 'titres_acces' },
+  { k: 'diplome_max', l: 'Plus haut diplôme', type: 'select', liste: 'diplomes_max' },
   { k: 'id_ecampus', l: 'Matricule eCampus' },
   /* LE CODE POSTAL D'ABORD (3 octobre 2026) : il propose la localité (liste
      bpost) et les rues (BeST Address, SPF BOSA). Une adresse à l'étranger
@@ -48,6 +53,11 @@ export default function IdentiteEtudiant({ etudId, onModifie }) {
   const [cps, setCps] = useState(null);       // code postal → localités
   const [ruesProposees, setRuesProposees] = useState([]);
   useEffect(() => { import('../lib/codesPostaux.json').then(m => setCps(m.default)).catch(() => {}); }, []);
+  const [listes, setListes] = useState(null);
+  useEffect(() => {
+    fetch('/api/etudiants/listes/diplomes', { headers: authHeaders() }).then(r => (r.ok ? r.json() : null))
+      .then(setListes).catch(() => {});
+  }, []);
 
   async function charger() {
     const rep = await fetch(`/api/etudiants/${etudId}`, { headers: authHeaders() });
@@ -152,7 +162,8 @@ export default function IdentiteEtudiant({ etudId, onModifie }) {
               <select value={val(c.k)}
                 onChange={ev => setModifs(m => ({ ...m, [c.k]: ev.target.value }))}
                 className="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-sm">
-                {c.options.map(o => <option key={o} value={o}>{o || '—'}</option>)}
+                {(c.liste ? [['', ''], ...(listes?.[c.liste] || [])] : c.options.map(o => [o, o]))
+                  .map(([v, l]) => <option key={v} value={v}>{l || '—'}</option>)}
               </select>
             ) : (
               <input type={c.type || 'text'} value={val(c.k)}

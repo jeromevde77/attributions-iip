@@ -37,6 +37,7 @@ import { rapprocher, normDate } from './importHistorique.js';
 import { lirePackUF } from '../lib/packUF.js';
 import { schemaSvg, legendeSchemaHtml } from '../lib/schemaSvg.js';
 import { appelerCharges, avisCoordination, motifsVA } from '../lib/avisVA.js';
+import { TITRES_ACCES, DIPLOMES_MAX } from '../lib/profilEtudiant.js';
 
 const r = Router();
 
@@ -5496,6 +5497,11 @@ r.post('/purge', authRequired, gesteRequis('etudiants.purge'), (req, res) => {
 });
 
 // ── Fiche étudiant avec inscriptions ─────────────────────────────────────────
+/** Les listes fermées du diplôme (titre d'accès, plus haut diplôme). */
+r.get('/listes/diplomes', authRequired, (req, res) => {
+  res.json({ titres_acces: TITRES_ACCES, diplomes_max: DIPLOMES_MAX });
+});
+
 r.get('/:id', authRequired, (req, res) => {
   const etudiant = db.prepare('SELECT * FROM etudiant WHERE id = ?').get(Number(req.params.id));
   if (!etudiant) return res.status(404).json({ error: 'étudiant introuvable' });
@@ -9949,7 +9955,7 @@ ${(() => {
 // on pouvait créer un étudiant, jamais le rectifier.
 const CHAMPS_ETUDIANT = ['id_ecampus', 'nom', 'prenom', 'titre', 'date_naissance',
   'lieu_naissance', 'nationalite', 'num_national', 'email_ecole', 'email_perso',
-  'gsm', 'adresse', 'cp', 'localite', 'actif', 'sejour_limite_etudes'];
+  'gsm', 'adresse', 'cp', 'localite', 'actif', 'sejour_limite_etudes', 'titre_acces', 'diplome_max'];
 
 r.patch('/:id', authRequired, gesteRequis('etudiants.identite'), (req, res) => {
   const etudId = Number(req.params.id);
@@ -9975,8 +9981,15 @@ r.patch('/:id', authRequired, gesteRequis('etudiants.identite'), (req, res) => {
     }
   }
 
+  // Le diplôme se choisit dans une liste fermée : un texte libre ne se compte pas.
+  for (const [k, liste] of [['titre_acces', TITRES_ACCES], ['diplome_max', DIPLOMES_MAX]]) {
+    if (presents.includes(k) && req.body[k] && !liste.some(([c]) => c === req.body[k])) {
+      return res.status(400).json({ error: `Valeur inconnue pour ${k} : ${req.body[k]}` });
+    }
+  }
+
   db.prepare(`UPDATE etudiant SET ${presents.map(k => `${k} = ?`).join(', ')} WHERE id = ?`)
-    .run(...presents.map(k => req.body[k] ?? null), etudId);
+    .run(...presents.map(k => (req.body[k] === '' && (k === 'titre_acces' || k === 'diplome_max') ? null : req.body[k] ?? null)), etudId);
 
   res.json({ ok: true, modifies: presents });
 });
