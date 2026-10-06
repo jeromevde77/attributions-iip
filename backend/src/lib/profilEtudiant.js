@@ -52,9 +52,11 @@ export const reconnaitreDiplomeMax = reconnaitre(DIPLOMES_MAX, [
   [/cess|secondaire sup|humanites/, 'cess'], [/ce1d|cesi|secondaire inf/, 'secondaire_inferieur'],
   [/aucun|sans/, 'aucun'],
 ]);
-/** « Femme », « Madame », « F », « V » → F ; « Homme », « Monsieur », « M » → M. */
+/** « Femme », « Madame », « F », « V » → F ; « Homme », « Monsieur », « M » → M ;
+ *  « X » → X, la troisième mention de la carte d'identité. */
 export function reconnaitreSexe(brut) {
   const v = nu(brut);
+  if (/^(x|autre|neutre|non binaire|non-binaire)$/.test(v)) return 'X';
   if (/^(f|v|femme|feminin|madame|mme|vrouw)$/.test(v)) return 'F';
   if (/^(m|h|homme|masculin|monsieur|man)$/.test(v)) return 'M';
   return null;

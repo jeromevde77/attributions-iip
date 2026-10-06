@@ -506,7 +506,7 @@ export default function ProfFicheModal({ prof, onClose, onSaved, restreint = fal
             </div>
             <div className="grid grid-cols-3 gap-3">
               <SelectField label="Sexe" value={form.sexe} onChange={v => set('sexe', v)}
-                options={[['', '—'], ['F', 'F'], ['M', 'M']]} />
+                options={[['', '—'], ['F', 'F'], ['M', 'M'], ['X', 'X']]} />
               <TextField label="Date de naissance" type="date" value={form.date_naissance} onChange={v => set('date_naissance', v)} />
               <TextField label="Nationalité" value={form.nationalite} onChange={v => set('nationalite', v)} />
             </div>

@@ -21,6 +21,8 @@ import { Tableau, TableauEntete, Th, Td, Tr, Badge } from './ui.jsx';
  */
 const CHAMPS = [
   { k: 'titre', l: 'Titre', type: 'select', options: ['', 'Monsieur', 'Madame'] },
+  // Le sexe, comme sur la carte d'identité ; la civilité reste pour les courriers.
+  { k: 'sexe', l: 'Sexe', type: 'select', paires: [['', '—'], ['F', 'F'], ['M', 'M'], ['X', 'X']] },
   { k: 'nom', l: 'Nom', requis: true },
   { k: 'prenom', l: 'Prénom', requis: true },
   { k: 'date_naissance', l: 'Date de naissance', type: 'date' },
@@ -162,7 +164,7 @@ export default function IdentiteEtudiant({ etudId, onModifie }) {
               <select value={val(c.k)}
                 onChange={ev => setModifs(m => ({ ...m, [c.k]: ev.target.value }))}
                 className="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-sm">
-                {(c.liste ? [['', ''], ...(listes?.[c.liste] || [])] : c.options.map(o => [o, o]))
+                {(c.paires || (c.liste ? [['', ''], ...(listes?.[c.liste] || [])] : c.options.map(o => [o, o])))
                   .map(([v, l]) => <option key={v} value={v}>{l || '—'}</option>)}
               </select>
             ) : (

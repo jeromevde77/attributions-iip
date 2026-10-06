@@ -2807,6 +2807,23 @@ try {
   const cols = db.prepare("PRAGMA table_info(etudiant)").all().map(c => c.name);
   if (!cols.includes('titre_acces')) db.exec("ALTER TABLE etudiant ADD COLUMN titre_acces TEXT");
   if (!cols.includes('diplome_max')) db.exec("ALTER TABLE etudiant ADD COLUMN diplome_max TEXT");
+  /* LE SEXE, F / M / X COMME SUR LA CARTE D'IDENTITÉ (Charles, 6 octobre
+     2026). Il ne vivait que dans la civilité (Madame / Monsieur), qui n'a pas
+     de troisième valeur. La civilité reste pour les courriers ; le sexe a sa
+     colonne, reprise d'office de la civilité quand il n'est pas donné — par
+     un déclencheur, pour que tous les chemins d'entrée (imports, création,
+     fiche) le remplissent sans avoir à y penser. */
+  if (!cols.includes('sexe')) {
+    db.exec("ALTER TABLE etudiant ADD COLUMN sexe TEXT");
+    db.exec("UPDATE etudiant SET sexe = CASE WHEN titre IN ('Madame','Mme') THEN 'F' WHEN titre IN ('Monsieur','M.') THEN 'M' END WHERE sexe IS NULL");
+  }
+  const depuisTitre = "CASE WHEN NEW.titre IN ('Madame','Mme') THEN 'F' WHEN NEW.titre IN ('Monsieur','M.') THEN 'M' END";
+  db.exec(`CREATE TRIGGER IF NOT EXISTS etudiant_sexe_insert AFTER INSERT ON etudiant
+    WHEN NEW.sexe IS NULL AND NEW.titre IS NOT NULL
+    BEGIN UPDATE etudiant SET sexe = ${depuisTitre} WHERE id = NEW.id; END`);
+  db.exec(`CREATE TRIGGER IF NOT EXISTS etudiant_sexe_titre AFTER UPDATE OF titre ON etudiant
+    WHEN NEW.sexe IS NULL AND NEW.titre IS NOT NULL
+    BEGIN UPDATE etudiant SET sexe = ${depuisTitre} WHERE id = NEW.id; END`);
 } catch(e) { console.error('[migration] diplômes étudiant :', e.message); }
 
 // ── Lucie V3++ : échéancier, dossier administratif, communication ──

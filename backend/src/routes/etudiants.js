@@ -9955,7 +9955,7 @@ ${(() => {
 // on pouvait créer un étudiant, jamais le rectifier.
 const CHAMPS_ETUDIANT = ['id_ecampus', 'nom', 'prenom', 'titre', 'date_naissance',
   'lieu_naissance', 'nationalite', 'num_national', 'email_ecole', 'email_perso',
-  'gsm', 'adresse', 'cp', 'localite', 'actif', 'sejour_limite_etudes', 'titre_acces', 'diplome_max'];
+  'gsm', 'adresse', 'cp', 'localite', 'actif', 'sejour_limite_etudes', 'titre_acces', 'diplome_max', 'sexe'];
 
 r.patch('/:id', authRequired, gesteRequis('etudiants.identite'), (req, res) => {
   const etudId = Number(req.params.id);
@@ -9981,6 +9981,9 @@ r.patch('/:id', authRequired, gesteRequis('etudiants.identite'), (req, res) => {
     }
   }
 
+  if (presents.includes('sexe') && req.body.sexe && !['F', 'M', 'X'].includes(req.body.sexe)) {
+    return res.status(400).json({ error: 'Sexe attendu : F, M ou X' });
+  }
   // Le diplôme se choisit dans une liste fermée : un texte libre ne se compte pas.
   for (const [k, liste] of [['titre_acces', TITRES_ACCES], ['diplome_max', DIPLOMES_MAX]]) {
     if (presents.includes(k) && req.body[k] && !liste.some(([c]) => c === req.body[k])) {
@@ -9989,7 +9992,7 @@ r.patch('/:id', authRequired, gesteRequis('etudiants.identite'), (req, res) => {
   }
 
   db.prepare(`UPDATE etudiant SET ${presents.map(k => `${k} = ?`).join(', ')} WHERE id = ?`)
-    .run(...presents.map(k => (req.body[k] === '' && (k === 'titre_acces' || k === 'diplome_max') ? null : req.body[k] ?? null)), etudId);
+    .run(...presents.map(k => (req.body[k] === '' && (k === 'titre_acces' || k === 'diplome_max' || k === 'sexe') ? null : req.body[k] ?? null)), etudId);
 
   res.json({ ok: true, modifies: presents });
 });
