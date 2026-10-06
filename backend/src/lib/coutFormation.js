@@ -11,6 +11,7 @@
 import db from '../db/index.js';
 import { getParam, getParamNum } from '../routes/parametres.js';
 import { donneesChiffresCles } from './chiffresCles.js';
+import { calculerFrais } from '../routes/fraisScolarite.js';
 
 /** Un coût annuel d'un temps plein par fonction (table fonction_type), amorcé
  *  à zéro : le montant est à régler, Lucie ne l'invente pas. */
@@ -83,6 +84,12 @@ export function donneesCout(annee) {
   // Les inscrits par section : ceux des chiffres clés, comptés de la même façon.
   let inscrits = {};
   try { for (const l of donneesChiffresCles(annee).lignes) inscrits[l.section] = l.etudiants.n; } catch { inscrits = {}; }
+  // Une section qui a des inscrits mais aucune attribution figure aussi : elle
+  // reçoit sa part des fonctions et ses droits, même sans coût de cours.
+  for (const sec of Object.keys(inscrits)) {
+    if (!parSection.has(sec) && inscrits[sec]) parSection.set(sec, { section: sec, per_ct: 0, per_pp: 0, cout_ct: 0, cout_pp: 0,
+      cout: 0, cout_iip: 0, cout_helb: 0, periodes: 0, ues: new Map(), statuts: nouveauxStatuts(), sexes: nouveauxSexes() });
+  }
   const sections = [...parSection.values()].map(S => ({ ...S, ues: [...S.ues.values()].sort((a, b) => a.ue_num - b.ue_num),
     inscrits: inscrits[S.section] || 0 })).sort((a, b) => b.cout - a.cout);
   const total = sections.reduce((t, S) => ({ cout: t.cout + S.cout, periodes: t.periodes + S.periodes,
@@ -113,7 +120,53 @@ export function donneesCout(annee) {
     S.part_fonctions = baseInscrits ? coutFonctions * S.inscrits / baseInscrits : 0;
     S.cout_complet = S.cout + S.part_fonctions;
   }
-  return { annee, tarifs: T, sections, statuts: totStatuts, sexes: totSexes,
+  // ── LES DROITS ET LES FRAIS (Charles, 6 octobre 2026 : « ajoute les
+  //    finances : DI et frais d'inscription »). Repris du calcul de la fiche
+  //    de l'étudiant (calculerFrais : DI, DIS, frais administratifs, versé) —
+  //    un second calcul donnerait un second chiffre. Le DI et le DIS
+  //    reviennent à la Fédération ; les frais administratifs restent à
+  //    l'établissement. Un étudiant inscrit dans deux sections est réparti
+  //    entre elles au prorata des périodes de ses UE.
+  const recettes = { di: 0, dis: 0, frais: 0, verse: 0, etudiants: 0, exoneres: 0 };
+  const recSec = new Map();
+  try {
+    const secUe = new Map(db.prepare(`SELECT ue_num, MIN(section) AS section, MAX(COALESCE(hors_cursus, 0)) AS hc
+        FROM ue WHERE annee_scolaire = ? GROUP BY ue_num`).all(annee).map(u => [u.ue_num, u]));
+    const etus = db.prepare(`SELECT DISTINCT i.etudiant_id AS id, e.section_rattachement AS rat
+        FROM etudiant_inscription i JOIN etudiant e ON e.id = i.etudiant_id WHERE i.annee_scolaire = ?`).all(annee);
+    for (const e of etus) {
+      const f = calculerFrais(e.id, annee);
+      if (!f) continue;
+      recettes.etudiants++; if (f.exonere_di) recettes.exoneres++;
+      const parts = new Map();
+      for (const d of f.detail_ue || []) {
+        const u = secUe.get(d.ue_num) || {};
+        const sec = (u.hc ? e.rat : u.section) || e.rat || '(sans section)';
+        parts.set(sec, (parts.get(sec) || 0) + (Number(d.periodes) || 0));
+      }
+      const totalPer = [...parts.values()].reduce((a, b) => a + b, 0);
+      if (!parts.size) parts.set(e.rat || '(sans section)', 1);
+      for (const [sec, per] of parts) {
+        const q = totalPer ? per / totalPer : 1 / parts.size;
+        const R = recSec.get(sec) || { di: 0, dis: 0, frais: 0, verse: 0 };
+        R.di += f.droit_inscription * q; R.dis += f.droit_specifique * q;
+        R.frais += f.frais_administratifs * q; R.verse += f.verse * q;
+        recSec.set(sec, R);
+      }
+      recettes.di += f.droit_inscription; recettes.dis += f.droit_specifique;
+      recettes.frais += f.frais_administratifs; recettes.verse += f.verse;
+    }
+  } catch (e) { recettes.erreur = e.message; }
+  for (const S of sections) S.recettes = recSec.get(S.section) || { di: 0, dis: 0, frais: 0, verse: 0 };
+  // Des droits rattachés à une section absente de la liste (UE d'une section
+  // sans attribution ni inscrit compté) : on la montre plutôt que de les perdre.
+  for (const [sec, Rx] of recSec) {
+    if (!sections.some(S => S.section === sec)) sections.push({ section: sec, per_ct: 0, per_pp: 0, cout_ct: 0, cout_pp: 0,
+      cout: 0, cout_iip: 0, cout_helb: 0, periodes: 0, ues: [], statuts: nouveauxStatuts(), sexes: nouveauxSexes(),
+      inscrits: 0, part_fonctions: 0, cout_complet: 0, recettes: Rx });
+  }
+
+  return { annee, tarifs: T, sections, statuts: totStatuts, sexes: totSexes, recettes,
     total: { ...total, cout_fonctions: coutFonctions, cout_complet: total.cout + coutFonctions },
     missions, base_inscrits: baseInscrits,
     sans_etp: missions.filter(m => !m.etp).length, sans_cout: missions.filter(m => m.etp && !m.annuel).length,
