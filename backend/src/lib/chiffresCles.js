@@ -70,7 +70,7 @@ export function donneesChiffresCles(annee, ref = new Date()) {
      WHERE i.annee_scolaire = ?`).all(annee);
   const fiches = new Map(db.prepare(`
     SELECT e.id, e.sexe, e.date_naissance, e.nationalite, e.titre_acces, e.diplome_max,
-           COALESCE(e.sejour_limite_etudes, 0) AS sle
+           COALESCE(e.sejour_limite_etudes, 0) AS sle, COALESCE(e.di_exonere, 0) AS di_exonere, e.di_motif
       FROM etudiant e WHERE e.id IN (SELECT etudiant_id FROM etudiant_inscription WHERE annee_scolaire = ?)`)
     .all(annee).map(f => [f.id, f]));
   const etuParSection = new Map();
@@ -114,6 +114,18 @@ export function donneesChiffresCles(annee, ref = new Date()) {
   const sections = [...new Set([...etuParSection.keys(), ...persParSection.keys()])]
     .sort((a, b) => (etuParSection.get(b)?.size || 0) - (etuParSection.get(a)?.size || 0) || a.localeCompare(b, 'fr'));
 
+  // Les exonérations du droit d'inscription (chômeurs, demandeurs d'emploi,
+  // RIS…), motif par motif — encodées sur la fiche de l'étudiant.
+  const exonerations = list => {
+    const r = { exoneres: 0, motifs: {} };
+    for (const f of list) {
+      if (!f.di_exonere) continue;
+      r.exoneres++;
+      const m = f.di_motif || 'non_precise';
+      r.motifs[m] = (r.motifs[m] || 0) + 1;
+    }
+    return r;
+  };
   const diplomes = list => {
     const r = { acces: {}, max: {}, acces_connu: 0, max_connu: 0 };
     for (const f of list) {
@@ -130,7 +142,7 @@ export function donneesChiffresCles(annee, ref = new Date()) {
     const o = offre.get(section) || {};
     return {
       section,
-      etudiants: { ...profil(etus, ref), sle: etus.filter(f => f.sle).length, ...diplomes(etus) },
+      etudiants: { ...profil(etus, ref), sle: etus.filter(f => f.sle).length, ...diplomes(etus), exo: exonerations(etus) },
       personnel: { ...profil(pers, ref),
         cc: pers.filter(p => p.statut === 'CC').length, exp: pers.filter(p => p.statut === 'EXP').length,
         iip: pers.filter(p => p.iip).length, helb: pers.filter(p => p.helb).length,
@@ -148,7 +160,7 @@ export function donneesChiffresCles(annee, ref = new Date()) {
   return {
     annee, ref: ref.toISOString().slice(0, 10), lignes,
     ensemble: {
-      etudiants: { ...profil(tousEtus, ref), sle: tousEtus.filter(f => f.sle).length, ...diplomes(tousEtus) },
+      etudiants: { ...profil(tousEtus, ref), sle: tousEtus.filter(f => f.sle).length, ...diplomes(tousEtus), exo: exonerations(tousEtus) },
       personnel: { ...profil(tousPers, ref), cc: tousPers.filter(p => p.statut === 'CC').length,
         exp: tousPers.filter(p => p.statut === 'EXP').length,
         avec_titres: tousPers.filter(p => p.nb_titres > 0).length },

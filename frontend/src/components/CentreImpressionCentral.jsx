@@ -438,6 +438,8 @@ function OngletRapports({ domaine, sansListe = false, rapportId = null }) {
           html: apercu.html,
           nom: (apercu.nom || choisi?.id || 'document').replace(/\.html$/, ''),
           pagination: 'si-plusieurs',
+          // Une pièce en paysage sort en paysage : l'enveloppe le dit dans son @page.
+          orientation: /size:\s*A4\s+landscape/.test(apercu.html || '') ? 'paysage' : 'portrait',
           /* LE GABARIT DU SERVEUR PREND LA MAIN SUR LE PIED DU DOCUMENT.
              Je l'avais désactivé pour éviter un doublon — mais le rendu sait
              déjà masquer le pied du flux quand il pose le sien. Sans gabarit,
