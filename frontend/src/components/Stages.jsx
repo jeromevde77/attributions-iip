@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import ChampsAdresse, { ChoixPays } from './ChampsAdresse.jsx';
 import {
   IconPlus, IconTrash, IconAlertTriangle, IconBuilding, IconCheck,
 } from '@tabler/icons-react';
@@ -301,9 +302,15 @@ export default function Stages({ etudId, annee, peutEcrire = true }) {
               L'adresse complète figurera au supplément au diplôme de chaque étudiant accueilli.
             </p>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {/* L'ADRESSE, PARTOUT LA MÊME : code postal → localité → rue. */}
+              <ChampsAdresse valeurs={{ cp: nouveauLieu.cp, localite: nouveauLieu.localite, rue: nouveauLieu.adresse }}
+                poser={(k, v) => setNouveauLieu(x => ({ ...x, [{ cp: 'cp', localite: 'localite', rue: 'adresse' }[k]]: v }))} />
+              <label className="text-xs">
+                <span className="block font-semibold text-slate-500 uppercase tracking-wide mb-1">Pays</span>
+                <ChoixPays value={nouveauLieu.pays} onChange={v => setNouveauLieu(x => ({ ...x, pays: v }))} />
+              </label>
               {[['nom', 'Nom de l\u2019établissement'], ['service', 'Service ou département'],
-                ['adresse', 'Adresse'], ['cp', 'Code postal'], ['localite', 'Localité'],
-                ['pays', 'Pays'], ['secteur', 'Secteur'], ['num_entreprise', 'N° d\u2019entreprise'],
+                ['secteur', 'Secteur'], ['num_entreprise', 'N° d\u2019entreprise'],
                 ['contact_nom', 'Personne de contact'], ['contact_email', 'Courriel'],
                 ['contact_tel', 'Téléphone'], ['agrement', 'Agrément']].map(([k, l]) => (
                 <label key={k} className="text-xs">
