@@ -760,12 +760,13 @@ function documentCoutFormations(p) {
       <td class="n">${k0((R.di || 0) + (R.dis || 0) + (R.frais || 0))}</td><td class="n">${k0(R.verse)}</td>
       <td class="n">${R.etudiants ? k0(((R.di || 0) + (R.dis || 0) + (R.frais || 0)) / R.etudiants) : '—'}</td></tr></tfoot></table>
     <p class="fin">Calcul de la fiche de chaque étudiant (Frais de scolarité) : <b>droit d'inscription</b> (forfait + montant par période,
-      plafonné) et <b>droit d'inscription spécifique</b>, qui reviennent à la Fédération ; <b>frais administratifs</b>
-      (fixe + montant par période du PAE), qui restent à l'établissement. Barèmes réglables dans la fiche Frais de scolarité.
+      plafonné) et <b>frais administratifs</b> (fixe + montant par période du PAE), qui <b>restent à l'établissement</b> ;
+      <b>droit d'inscription spécifique</b>, qui revient à la Fédération. Barèmes réglables dans la fiche Frais de scolarité.
       ${R.exoneres ? `${n0(R.exoneres)} étudiant(s) exonéré(s) du droit d'inscription. ` : ''}« Versé » : les paiements encodés à ce jour.
       Un étudiant inscrit dans deux sections est réparti entre elles au prorata des périodes de ses UE.
       Sur ${n0(R.etudiants || 0)} inscrits, le coût complet par étudiant est de ${ins ? eur(tot.cout_complet / ins) : '—'} ;
-      les frais administratifs en couvrent ${tot.cout_complet && R.frais ? pc(R.frais, tot.cout_complet) : '—'}.</p>`;
+      ce que l'établissement perçoit (droit d'inscription et frais administratifs : ${eur((R.di || 0) + (R.frais || 0))})
+      en couvre ${tot.cout_complet && ((R.di || 0) + (R.frais || 0)) ? pc((R.di || 0) + (R.frais || 0), tot.cout_complet) : '—'}.</p>`;
 
   const tFonctions = d.missions.length ? `<table><thead><tr><th>Personne</th><th>Fonction</th><th>Portée</th>
       <th class="n" style="width:14mm">ETP</th><th class="n" style="width:28mm">Temps plein / an</th><th class="n" style="width:24mm">Coût</th></tr></thead>
@@ -816,8 +817,8 @@ function documentCoutFormations(p) {
     <h2>Section par section</h2>${tSections}
     <h2>Droits d'inscription et frais</h2>
     ${duo(
-      cadreGraphe('Ce que paient les étudiants', partsDe(K, [["Droit d'inscription (Fédération)", R.di || 0, K.bleu],
-        ['Droit spécifique (Fédération)', R.dis || 0, K.cyan], ['Frais administratifs (établissement)', R.frais || 0, K.or]]),
+      cadreGraphe('Ce que paient les étudiants', partsDe(K, [["Droit d'inscription (établissement)", R.di || 0, K.bleu],
+        ['Frais administratifs (établissement)', R.frais || 0, K.or], ['Droit spécifique (Fédération)', R.dis || 0, K.cyan]]),
         `${eur((R.di || 0) + (R.dis || 0) + (R.frais || 0))} dus · ${eur(R.verse)} versés`),
       cadreGraphe('Frais administratifs par section', barres({ donnees: [...d.sections].filter(S => S.recettes.frais)
         .sort((a, b) => b.recettes.frais - a.recettes.frais)

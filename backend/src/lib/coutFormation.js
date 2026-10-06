@@ -123,9 +123,9 @@ export function donneesCout(annee) {
   // ── LES DROITS ET LES FRAIS (Charles, 6 octobre 2026 : « ajoute les
   //    finances : DI et frais d'inscription »). Repris du calcul de la fiche
   //    de l'étudiant (calculerFrais : DI, DIS, frais administratifs, versé) —
-  //    un second calcul donnerait un second chiffre. Le DI et le DIS
-  //    reviennent à la Fédération ; les frais administratifs restent à
-  //    l'établissement. Un étudiant inscrit dans deux sections est réparti
+  //    un second calcul donnerait un second chiffre. Le DI et les frais
+  //    administratifs RESTENT À L'ÉTABLISSEMENT (Charles, 6 octobre 2026 : à
+  //    l'IIP, le DI est conservé) ; le DIS revient à la Fédération. Un étudiant inscrit dans deux sections est réparti
   //    entre elles au prorata des périodes de ses UE.
   const recettes = { di: 0, dis: 0, frais: 0, verse: 0, etudiants: 0, exoneres: 0 };
   const recSec = new Map();
