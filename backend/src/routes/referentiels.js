@@ -8,6 +8,7 @@ import { anneeDeTravail } from '../helpers/annee.js';
 import { authRequired, roleRequired, getUserSections, exigerPerimetreProfesseur,
   clauseSections, soiSeul, SOI_SEUL, professeurDe } from '../middleware/auth.js';
 import { deposerDemande } from './demandes.js';
+import { normaliserTitres, ecrireTitres } from '../lib/titresCapacite.js';
 import { parseDossierPedagogique } from '../parseDossierPedagogique.js';
 import { gesteRequis } from '../lib/gestes.js';
 import { htmlListeCoordonnees } from '../services/liste_coordonnees.js';
@@ -1179,20 +1180,7 @@ r.put('/professeurs/:id/admin', authRequired, roleRequired('admin', 'editeur'), 
 
 // ── Titres de capacité (liste liée au prof) ──
 r.put('/professeurs/:id/titres', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
-  const profId = Number(req.params.id);
-  const titres = Array.isArray(req.body?.titres) ? req.body.titres : [];
-  const tx = db.transaction(() => {
-    db.prepare('DELETE FROM titre_capacite WHERE professeur_id = ?').run(profId);
-    const ins = db.prepare(
-      'INSERT INTO titre_capacite (professeur_id, date_obtention, intitule, delivre_par, ordre) VALUES (?,?,?,?,?)'
-    );
-    titres.forEach((t, i) => {
-      if ((t.intitule && t.intitule.trim()) || (t.delivre_par && t.delivre_par.trim()) || t.date_obtention) {
-        ins.run(profId, t.date_obtention || null, (t.intitule||'').trim() || null, (t.delivre_par||'').trim() || null, i);
-      }
-    });
-  });
-  tx();
+  ecrireTitres(Number(req.params.id), req.body?.titres);
   res.json({ ok: true });
 });
 
@@ -1270,21 +1258,33 @@ r.patch('/professeurs/:id', authRequired, (req, res, next) => {
   if (!SOI_SEUL.includes(req.user?.role)) return next();
   const id = Number(req.params.id);
   if (professeurDe(req.user) !== id) return res.status(404).json({ error: 'Introuvable.' });
-  const refuses = Object.keys(req.body || {}).filter(k => !CHAMPS_PROPOSABLES_PROF.includes(k));
+  const refuses = Object.keys(req.body || {}).filter(k => !CHAMPS_PROPOSABLES_PROF.includes(k) && k !== 'titres');
   const apres = Object.fromEntries(Object.entries(req.body || {}).filter(([k]) => CHAMPS_PROPOSABLES_PROF.includes(k)));
-  if (!Object.keys(apres).length) {
+  /* LES TITRES DE CAPACITÉ se proposent aussi (Charles, 6 octobre 2026) : la
+     liste entière, comparée à celle en place, part dans la même demande. */
+  const titresProposes = Array.isArray(req.body?.titres) ? normaliserTitres(req.body.titres) : null;
+  if (!Object.keys(apres).length && !titresProposes) {
     return res.status(403).json({ error: 'Ces champs relèvent de l’administration : signalez la correction au secrétariat.' });
   }
-  const actuel = db.prepare(`SELECT nom, prenom, ${Object.keys(apres).join(', ')} FROM professeur WHERE id = ?`).get(id);
+  const actuel = db.prepare(`SELECT ${['nom', 'prenom', ...Object.keys(apres)].join(', ')} FROM professeur WHERE id = ?`).get(id);
   if (!actuel) return res.status(404).json({ error: 'Introuvable.' });
   const avant = Object.fromEntries(Object.keys(apres).map(k => [k, actuel[k]]));
   const changes = Object.keys(apres).filter(k => String(apres[k] ?? '') !== String(avant[k] ?? ''));
+  const avantD = Object.fromEntries(changes.map(k => [k, avant[k]]));
+  const apresD = Object.fromEntries(changes.map(k => [k, apres[k]]));
+  if (titresProposes) {
+    const enPlace = normaliserTitres(db.prepare(
+      'SELECT date_obtention, intitule, delivre_par FROM titre_capacite WHERE professeur_id = ? ORDER BY ordre, id').all(id));
+    if (JSON.stringify(enPlace) !== JSON.stringify(titresProposes)) {
+      changes.push('titres de capacité');
+      avantD.titres = enPlace; apresD.titres = titresProposes;
+    }
+  }
   if (!changes.length) return res.json({ ok: true, rien: true, message: 'Aucun changement.' });
   const rep = deposerDemande({
     type: 'fiche_personnel', operation: 'modifier', cible_id: id, section: null,
     libelle: `Fiche de ${String(actuel.nom || '').toUpperCase()} ${actuel.prenom || ''} : ${changes.join(', ')}`,
-    avant: Object.fromEntries(changes.map(k => [k, avant[k]])),
-    apres: Object.fromEntries(changes.map(k => [k, apres[k]])), user: req.user,
+    avant: avantD, apres: apresD, user: req.user,
   });
   res.json({ ...rep, ignores: refuses });
 });

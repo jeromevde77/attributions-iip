@@ -9,6 +9,7 @@
  * l'établissement, pour ne pas être refait à chaque fois.
  */
 import express from 'express';
+import { reconnaitreTitreAcces, reconnaitreDiplomeMax, reconnaitreSexe } from '../lib/profilEtudiant.js';
 import db from '../db/index.js';
 import { authRequired, roleRequired } from '../middleware/auth.js';
 
@@ -41,6 +42,10 @@ export const CIBLES = [
       { champ: 'date_naissance', libelle: 'Date de naissance', type: 'date' },
       { champ: 'lieu_naissance', libelle: 'Lieu de naissance' },
       { champ: 'nationalite', libelle: 'Nationalité' },
+      // Le diplôme : listes fermées, la valeur du fichier est reconnue
+      // (code, libellé ou mot clé) — ce qui ne l'est pas est signalé.
+      { champ: 'titre_acces', libelle: "Titre d'accès", convertir: reconnaitreTitreAcces },
+      { champ: 'diplome_max', libelle: 'Plus haut diplôme', convertir: reconnaitreDiplomeMax },
       { champ: 'num_national', libelle: 'Numéro national' },
       { champ: 'id_ecampus', libelle: 'Matricule eCampus' },
       { champ: 'adresse', libelle: 'Adresse' },
@@ -82,6 +87,12 @@ export const CIBLES = [
       { champ: 'contrat_cc', libelle: 'Contrat' },
       { champ: 'capaes', libelle: 'CAPAES' },
       { champ: 'suivi_peda', libelle: 'Suivi pédagogique' },
+      // Les données du profil du personnel (conseil d'entreprise, AEQES —
+      // 6 octobre 2026) : un fichier RH les remplit en une fois.
+      { champ: 'sexe', libelle: 'Sexe', convertir: reconnaitreSexe },
+      { champ: 'date_naissance', libelle: 'Date de naissance', type: 'date' },
+      { champ: 'nationalite', libelle: 'Nationalité' },
+      { champ: 'niss', libelle: 'Numéro national (NISS)' },
     ],
     pk: ['id'],
     libelle: r0 => [r0.nom, r0.prenom].filter(Boolean).join(' ') || r0.nom_prenom,
@@ -296,6 +307,11 @@ r.post('/executer', authRequired, roleRequired('admin', 'directeur',
             if (!d) { rapport.illisibles.push(`${champ} : ${v}`); continue; }
             v = d;
           }
+          if (dc?.convertir) {
+            const c = dc.convertir(v);
+            if (c == null) { rapport.illisibles.push(`${champ} : ${v}`); continue; }
+            v = c;
+          }
           nouveau[champ] = v;
         }
         rapport.crees.push({
@@ -323,6 +339,11 @@ r.post('/executer', authRequired, roleRequired('admin', 'directeur',
           const d = versDate(brut);
           if (!d) { rapport.illisibles.push(`${champ} : ${valeur}`); continue; }
           valeur = d;
+        }
+        if (declChamp?.convertir) {
+          const c = declChamp.convertir(valeur);
+          if (c == null) { rapport.illisibles.push(`${champ} : ${valeur}`); continue; }
+          valeur = c;
         }
 
         // On COMPLÈTE : une valeur déjà présente n'est pas écrasée sans

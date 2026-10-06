@@ -2800,6 +2800,15 @@ try {
   if (!cols.includes('cours_nom'))         db.exec("ALTER TABLE recrutement_poste ADD COLUMN cours_nom TEXT");
 } catch(e) { console.error('[migration] recrutement colonnes :', e.message); }
 
+// ── Étudiant : titre d'accès et plus haut diplôme (6 octobre 2026) ──
+// AVANT le journal des modifications : ses déclencheurs se posent sur les
+// colonnes présentes, et ces deux-là doivent être tracées comme les autres.
+try {
+  const cols = db.prepare("PRAGMA table_info(etudiant)").all().map(c => c.name);
+  if (!cols.includes('titre_acces')) db.exec("ALTER TABLE etudiant ADD COLUMN titre_acces TEXT");
+  if (!cols.includes('diplome_max')) db.exec("ALTER TABLE etudiant ADD COLUMN diplome_max TEXT");
+} catch(e) { console.error('[migration] diplômes étudiant :', e.message); }
+
 // ── Lucie V3++ : échéancier, dossier administratif, communication ──
 try { migrerEcheancier(db); } catch (e) { console.error('[migration] echeancier :', e.message); }
 try { migrerReunions(db); } catch (e) { console.error('[migration] reunions :', e.message); }

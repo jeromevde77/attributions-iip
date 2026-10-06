@@ -15,6 +15,7 @@ import { Router } from 'express';
 import db from '../db/index.js';
 import { authRequired, roleRequired, getUserSections } from '../middleware/auth.js';
 import { gesteRequis } from '../lib/gestes.js';
+import { ecrireTitres } from '../lib/titresCapacite.js';
 
 const r = Router();
 
@@ -86,10 +87,14 @@ const APPLICATEURS = {
   // La fiche d'un membre du personnel, proposée par lui-même (routes/referentiels.js).
   fiche_personnel: (d) => {
     const a = JSON.parse(d.apres);
-    const champs = Object.keys(a).filter(k => /^[a-z0-9_]+$/.test(k));
-    if (!champs.length) return 'Rien à appliquer.';
-    db.prepare(`UPDATE professeur SET ${champs.map(k => k + ' = ?').join(', ')} WHERE id = ?`)
-      .run(...champs.map(k => a[k]), Number(d.cible_id));
+    const champs = Object.keys(a).filter(k => /^[a-z0-9_]+$/.test(k) && k !== 'titres');
+    if (!champs.length && !Array.isArray(a.titres)) return 'Rien à appliquer.';
+    if (champs.length) {
+      db.prepare(`UPDATE professeur SET ${champs.map(k => k + ' = ?').join(', ')} WHERE id = ?`)
+        .run(...champs.map(k => a[k]), Number(d.cible_id));
+    }
+    // Les titres de capacité proposés remplacent la liste en place.
+    if (Array.isArray(a.titres)) ecrireTitres(Number(d.cible_id), a.titres);
     return 'Fiche mise à jour.';
   },
   date_ue: (d) => {

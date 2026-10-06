@@ -236,7 +236,7 @@ export default function ProfFicheModal({ prof, onClose, onSaved, restreint = fal
   const [saving, setSaving] = useState(false);
   const [genPdf, setGenPdf] = useState(false);
   const [loading, setLoading] = useState(!isNew);
-  const [open, setOpen] = useState(restreint ? { identite: true, coord: true } : { identite: true }); // sections ouvertes
+  const [open, setOpen] = useState(restreint ? { identite: true, coord: true, titres: true } : { identite: true }); // sections ouvertes
   const [creneaux, setCreneaux]         = useState([]);
   const [dispoQ1, setDispoQ1]           = useState({}); // { 'jour_creneauId': bool }
   const [dispoQ2, setDispoQ2]           = useState({});
@@ -383,7 +383,8 @@ export default function ProfFicheModal({ prof, onClose, onSaved, restreint = fal
         // Puis appliquer les champs étendus via PATCH
         await api.updateProfesseur(id, form);
       } else {
-        const rep = await api.updateProfesseur(id, form);
+        // « Ma fiche » : les titres partent DANS la demande, avec le reste.
+        const rep = await api.updateProfesseur(id, restreint ? { ...form, titres } : form);
         // UN PROFESSEUR PROPOSE, LA DIRECTION VALIDE : sa modification part en
         // demande, et rien d'autre ne s'enregistre (titres, charges, ancienneté
         // restent à l'administration).
@@ -538,8 +539,8 @@ export default function ProfFicheModal({ prof, onClose, onSaved, restreint = fal
             <TextField label="Compte au nom de" placeholder="si différent du MDP" value={form.compte_titulaire} onChange={v => set('compte_titulaire', v)} />
           </Section>
 
-          {!restreint && (<>
-          {/* 3. Titres de capacité */}
+          {/* 3. Titres de capacité — visibles aussi dans « Ma fiche » (Charles,
+              6 octobre 2026) : le professeur les propose, la direction valide. */}
           <Section titre="3 · Titres de capacité" sous={`${titres.length} titre(s)`}
             ouvert={open.titres} onToggle={() => toggle('titres')}>
             <p className="text-xs text-gray-500">Diplômes, brevets, certificats, attestations, reconnaissance d'expérience utile…</p>
@@ -562,6 +563,7 @@ export default function ProfFicheModal({ prof, onClose, onSaved, restreint = fal
             <button type="button" onClick={addTitre} className="text-iip-gold hover:text-iip-amber text-sm font-medium">＋ Ajouter un titre</button>
           </Section>
 
+          {!restreint && (<>
           {/* 4. Situation fiscale */}
           <Section titre="4 · Situation fiscale" ouvert={open.fiscal} onToggle={() => toggle('fiscal')}>
             <div className="grid grid-cols-2 gap-3">
