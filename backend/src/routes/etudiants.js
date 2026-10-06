@@ -3560,7 +3560,7 @@ export function revuePAE(etudId, annee) {
       COALESCE(ue_per_etudiants, 0) per_etud, COALESCE(ue_aut, 0) aut FROM ue WHERE ue_num = ?
       ORDER BY (annee_scolaire = ?) DESC, (section = ?) DESC, annee_scolaire DESC LIMIT 1`);
   const coursDe = db.prepare(`SELECT cours_code, MIN(cours_nom) cours_nom, MAX(COALESCE(cours_per, 0)) cours_per,
-      MAX(COALESCE(is_stage, 0)) is_stage FROM cours WHERE ue_num = ? AND annee_scolaire = ? AND cours_code IS NOT NULL
+      MAX(COALESCE(is_stage, 0)) is_stage, MAX(ct_pp) ct_pp FROM cours WHERE ue_num = ? AND annee_scolaire = ? AND cours_code IS NOT NULL
       GROUP BY cours_code ORDER BY cours_code`);
   const inscr = db.prepare('SELECT DISTINCT ue_num FROM etudiant_inscription WHERE etudiant_id = ? AND annee_scolaire = ?')
     .all(etudId, annee).map(x => x.ue_num);
@@ -3598,7 +3598,8 @@ export function revuePAE(etudId, annee) {
       const rf = refuses.get(`${n}|${c.cours_code}`);
       const nature = statut === 'report' ? (r?.nature || 'Report')
         : statut === 'va' ? (vaComplete.get(n) || vaCours.get(`${n}|${c.cours_code}`) || 'VA') : null;
-      return { code: c.cours_code, nom: c.cours_nom, per: Number(c.cours_per) || 0, stage: !!c.is_stage, statut, nature,
+      return { code: c.cours_code, nom: c.cours_nom, per: Number(c.cours_per) || 0, stage: !!c.is_stage,
+        z: String(c.ct_pp || '').toUpperCase() === 'Z', statut, nature,
         note: r ? r.note : null, annee_origine: r ? r.annee_origine : null, par: r ? r.decide_par : null,
         // Ce que Lucie sait du cours : réussi une année antérieure, avec quelle note.
         eligible: statut === 'suivre' && el ? { note: el.note_affichee ?? (el.note != null ? Math.round(el.note) : null), annee_origine: el.annee_origine } : null,
@@ -3611,8 +3612,24 @@ export function revuePAE(etudId, annee) {
     const etat = vaComplete.has(n) ? 'dispensee'
       : nRep || nVa ? 'partielle'
         : tentees.has(n) ? 'reprendre' : 'programme';
+    /* LES PÉRIODES DE L'ÉTUDIANT, ET ELLES SEULES (Charles, 6 octobre 2026 :
+       « dans le PAE, il faut mettre les périodes étudiant ; sinon ils vont
+       dire qu'on a plus d'heures que prévu »). Le cours garde ses périodes ;
+       l'autonomie a SA ligne ; un stage porte les périodes que l'étudiant y
+       passe, non les vingt d'encadrement du professeur. Le total de l'unité
+       est le plus grand de ce que dit le dossier et de cours + autonomie —
+       les deux conventions coexistent en base (UE 68 : 120 autonomie
+       comprise ; UE 65 : 80 sans elle) — et les lignes y retombent toujours. */
+    const aut = Number(u.aut) || 0;
+    // Les activités Z restent affichées comme avant, hors du total : savoir si
+    // elles entrent dans les périodes de l'étudiant n'est pas encore tranché.
+    const perCours = cours.filter(c => !c.z).reduce((t, c) => t + c.per, 0);
+    const total = Math.max(Number(u.per_etud) || 0, perCours + aut);
+    let reste = total - perCours - aut;
+    const stage = cours.find(c => c.stage);
+    if (reste > 0 && stage) { stage.per_encadrement = stage.per; stage.per += reste; reste = 0; }
     return { ue_num: n, ue_nom: u.ue_nom || `UE ${n}`, niv: String(u.ue_niv || '').toUpperCase(), ects: Number(u.ects) || 0,
-      periodes: (Number(u.per_etud) || 0) + (Number(u.aut) || 0),
+      periodes: total, autonomie: aut, hors_cours: reste,
       ei: !!u.ei, etat, cours, reports: nRep, va: nVa,
       nature_totale: vaComplete.get(n)
         || (cours.length && cours.every(c => c.statut === 'report' && ['VA', 'VAE'].includes(c.nature)) ? cours[0].nature : null),
@@ -3939,9 +3956,18 @@ function pageRevue(d, esc) {
           ? (c.note != null ? `${Math.round(c.note)}/20` : 'reprise')
           : '10/20';
         const origine = code && c.annee_origine ? `<span class="orig">${esc(court(c.annee_origine))}</span>` : '';
-        lignes += `<tr class="cours${code || u.nature_totale ? ' dispense' : ''}"><td class="num">${esc(c.code)}</td><td>${esc(c.nom || '')}</td>`
+        lignes += `<tr class="cours${code || u.nature_totale ? ' dispense' : ''}"><td class="num">${esc(c.code)}</td><td>${esc(c.nom || '')}`
+          + `${c.per_encadrement ? ` <span class="mention">périodes de l'étudiant ; ${c.per_encadrement} d'encadrement</span>` : ''}</td>`
           + `<td></td><td class="n">${c.per || ''}</td>`
           + `<td class="c">${code ? `<span class="code">${esc(code)}</span>` : ''}</td><td class="n">${note}${origine}</td></tr>`;
+      }
+      if (u.autonomie) {
+        lignes += `<tr class="cours${u.nature_totale ? ' dispense' : ''}"><td class="num"></td><td><i>Part d'autonomie</i></td>`
+          + `<td></td><td class="n">${u.autonomie}</td><td class="c"></td><td class="n"></td></tr>`;
+      }
+      if (u.hors_cours) {
+        lignes += `<tr class="cours${u.nature_totale ? ' dispense' : ''}"><td class="num"></td><td><i>Travail de l'étudiant hors cours</i></td>`
+          + `<td></td><td class="n">${u.hors_cours}</td><td class="c"></td><td class="n"></td></tr>`;
       }
     }
   }
@@ -3965,7 +3991,8 @@ function pageRevue(d, esc) {
     <table class="pae"><colgroup><col style="width:14mm"><col><col style="width:11mm"><col style="width:11mm"><col style="width:17mm"><col style="width:22mm"></colgroup>
     <thead><tr><th>Code</th><th>Intitulé</th><th class="n">ECTS</th><th class="n">Pér.</th><th class="c">Dispense</th><th class="n">Note</th></tr></thead>
     <tbody>${lignes || '<tr><td colspan="6">Aucune UE au PAE de cette année.</td></tr>'}</tbody></table>
-    <p class="pied-revue"><b>RP</b> report de note · <b>VAP</b> / <b>VAEP</b> valorisation partielle (cours) · <b>D</b> dispense · <b>VA</b> / <b>VAE</b> unité entière valorisée. Un cours sans code est à suivre ; une dispense vaut 10/20.</p>
+    <p class="pied-revue"><b>RP</b> report de note · <b>VAP</b> / <b>VAEP</b> valorisation partielle (cours) · <b>D</b> dispense · <b>VA</b> / <b>VAE</b> unité entière valorisée. Un cours sans code est à suivre ; une dispense vaut 10/20.<br>
+      Les périodes sont celles de l'étudiant. L'établissement est libre de répartir l'autonomie dans les cours de l'UE ou d'organiser des activités annexes.</p>
     ${d.revu ? `<div class="valide">PAE validé le ${esc(String(d.revu.revu_le).slice(0, 10).split('-').reverse().join('/'))} par ${esc(d.revu.revu_par || '')}.</div>` : ''}
   </div>`;
 }
