@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
+import { demander } from '../lib/dialogue.jsx';
 import { useNavigate } from 'react-router-dom';
 import {
   IconTargetArrow, IconBriefcase, IconAlertTriangle, IconCheck, IconX,
   IconSend, IconEye, IconMailForward, IconRefresh, IconChevronRight, IconSchool, IconCertificate,
 } from '@tabler/icons-react';
-import { PageHeader, Fenetre } from '../components/ui.jsx';
+import { PageHeader, Fenetre, Encadre } from '../components/ui.jsx';
 import { authHeaders } from '../lib/api.js';
 import PreviewModal from '../components/PreviewModal.jsx';
 
@@ -104,6 +105,12 @@ export default function Besoins({ annee: anneeProp }) {
       const j = await rep.json();
       titres = j.titres || [];
     } catch { /* le cours peut n'avoir aucun titre rattaché */ }
+    let contenu = '';
+    try {
+      const rep = await fetch(`/api/besoins/contenu-cours/${encodeURIComponent(b.code_cours)}?annee=${encodeURIComponent(annee)}`,
+        { headers: authHeaders() });
+      contenu = (await rep.json()).texte || '';
+    } catch { /* rien à proposer : le champ reste à écrire */ }
 
     setBrouillon({
       annee, section: b.section, ue_num: b.ue_num, code_cours: b.code_cours,
@@ -111,7 +118,7 @@ export default function Besoins({ annee: anneeProp }) {
       periodes_cours: b.periodes_par_groupe, nb_groupes: b.nb_groupes,
       total_periodes: b.total_periodes, nb_postes: b.nb_groupes,
       intitule: `${b.cours_nom || b.code_cours}${b.section ? ' — ' + b.section : ''}`,
-      profil: '', competences: '', horaire_indicatif: '', date_limite: '',
+      cours_nom: b.cours_nom || '', fonction: '', description: contenu, profil: '', prise_de_fonction: '',
       titres, titres_extra: [],
     });
   }
@@ -132,12 +139,28 @@ export default function Besoins({ annee: anneeProp }) {
   async function publier(id) {
     const rep = await fetch(`/api/besoins/offre/${id}/publier`, {
       method: 'POST', headers: authHeaders(),
-      body: JSON.stringify({ canal_publication: 'Site IIP' }),
+      body: JSON.stringify({ canal_publication: 'Prigoginews' }),
     });
     const j = await rep.json();
     if (!rep.ok) { setMessage({ type: 'err', texte: j.error || 'échec' }); return; }
     setMessage({ type: 'ok', texte: 'Offre publiée — le recrutement peut commencer.' });
     setDetail(j);
+    await charger();
+  }
+
+  async function enregistrerOffre() {
+    const champs = ['fonction', 'cours_nom', 'description', 'profil', 'prise_de_fonction', 'nb_postes'];
+    const corps = Object.fromEntries(champs.map(k => [k, detail[k] === '' ? null : detail[k]]));
+    let extra = detail.titres_extra;
+    if (!Array.isArray(extra)) { try { extra = JSON.parse(extra || '[]'); } catch { extra = []; } }
+    corps.titres_extra = extra;
+    const rep = await fetch(`/api/besoins/offre/${detail.id}`, {
+      method: 'PATCH', headers: authHeaders(), body: JSON.stringify(corps),
+    });
+    const j = await rep.json();
+    if (!rep.ok) { setMessage({ type: 'err', texte: j.error || 'échec' }); return; }
+    setDetail({ ...j, _modifie: false });
+    setMessage({ type: 'ok', texte: 'Appel à candidature enregistré.' });
     await charger();
   }
 
@@ -313,7 +336,7 @@ export default function Besoins({ annee: anneeProp }) {
 
       {/* ── Préparation d'une offre ── */}
       {brouillon && (
-        <Modale titre="Nouvelle offre d'emploi" onFermer={() => setBrouillon(null)}
+        <Modale titre="Nouvel appel à candidature" onFermer={() => setBrouillon(null)}
           pied={<>
             <span />
             <button onClick={() => setBrouillon(null)} className="bouton">Annuler</button>
@@ -358,51 +381,10 @@ export default function Besoins({ annee: anneeProp }) {
               </span>
             </Champ>
 
-            {/* Titres visés, repris du référentiel */}
-            <div>
-              <div className="text-[11px] font-semibold text-slate-500 uppercase tracking-wide mb-1.5 flex items-center gap-1.5">
-                <IconCertificate size={13} /> Titres visés par ce cours
-              </div>
-              {brouillon.titres.length ? (
-                <div className="flex flex-wrap gap-1.5">
-                  {brouillon.titres.map(t => {
-                    const p = PORTEE[t.portee] || PORTEE.requis;
-                    return (
-                      <span key={t.titre_id || t.id}
-                        className={`px-2 py-1 rounded-lg text-[11px] font-medium ${p.classe}`}>
-                        {t.libelle} <span className="opacity-60">· {p.label}</span>
-                      </span>
-                    );
-                  })}
-                </div>
-              ) : (
-                <p className="text-[12px] text-amber-700 flex items-center gap-1.5">
-                  <IconAlertTriangle size={13} />
-                  Aucun titre n'est rattaché à ce cours. Le rattachement se fait dans le référentiel.
-                </p>
-              )}
-            </div>
-
-            <Champ label="Compétences attendues">
-              <textarea rows={2} value={brouillon.competences}
-                onChange={e => setBrouillon(b => ({ ...b, competences: e.target.value }))}
-                className="w-full border border-slate-300 rounded-lg px-2.5 py-1.5" />
-            </Champ>
-            <div className="grid grid-cols-2 gap-3">
-              <Champ label="Horaire indicatif">
-                <input value={brouillon.horaire_indicatif}
-                  onChange={e => setBrouillon(b => ({ ...b, horaire_indicatif: e.target.value }))}
-                  placeholder="ex. mardi soir" className="w-full border border-slate-300 rounded-lg px-2.5 py-1.5" />
-              </Champ>
-              <Champ label="Date limite de candidature">
-                <input type="date" value={brouillon.date_limite}
-                  onChange={e => setBrouillon(b => ({ ...b, date_limite: e.target.value }))}
-                  className="w-full border border-slate-300 rounded-lg px-2.5 py-1.5" />
-              </Champ>
-            </div>
+            <ChampsAppel valeur={brouillon} poser={(k, v) => setBrouillon(b => ({ ...b, [k]: v }))} />
 
             <p className="text-[11px] text-slate-400">
-              Les acquis d'apprentissage rattachés au cours seront joints automatiquement à l'offre.
+              La date limite des candidatures ne se saisit pas : six jours ouvrables après la parution au Prigoginews.
             </p>
 
           </div>
@@ -413,8 +395,12 @@ export default function Besoins({ annee: anneeProp }) {
       {detail && (
         <Modale titre={detail.intitule} onFermer={() => setDetail(null)}
           pied={detail.statut === 'brouillon' ? <>
-            <span />
-            <button onClick={() => publier(detail.id)}
+            <span className="text-[12px] text-slate-500 min-w-0">
+              {detail._modifie ? 'Modifications non enregistrées.'
+                : detail.manques?.length ? 'Complétez l’appel pour pouvoir le publier.' : ''}
+            </span>
+            <button onClick={enregistrerOffre} disabled={!detail._modifie} className="bouton">Enregistrer</button>
+            <button onClick={() => publier(detail.id)} disabled={detail._modifie || detail.manques?.length > 0}
               className="bouton bouton-fort inline-flex items-center gap-1.5">
               <IconSend size={15} /> Publier l'offre
             </button>
@@ -429,6 +415,15 @@ export default function Besoins({ annee: anneeProp }) {
                 {detail.total_periodes} périodes · {detail.nb_groupes} groupe(s) · {detail.nb_postes} poste(s)
               </span>
             </div>
+
+            {detail.statut === 'brouillon' && detail.manques?.length > 0 && (
+              <Encadre etat="surveiller">
+                <b>Manque encore</b> : {detail.manques.join(' ; ')}.
+              </Encadre>
+            )}
+            {detail.statut === 'brouillon' && (
+              <ChampsAppel valeur={detail} poser={(k, v) => setDetail(d => ({ ...d, [k]: v, _modifie: true }))} />
+            )}
 
             {detail.titres?.length > 0 && (
               <div>
@@ -466,8 +461,8 @@ export default function Besoins({ annee: anneeProp }) {
       )}
 
       {apercu && (
-        <PreviewModal html={apercu.html} titre="Offre d'emploi"
-          sousTitre={apercu.titre} nomFichier="offre_emploi"
+        <PreviewModal html={apercu.html} titre="Appel à candidature"
+          sousTitre={apercu.titre} nomFichier="appel_candidature"
           astuceImpression="Portrait conseillé"
           onClose={() => setApercu(null)} />
       )}
@@ -514,6 +509,95 @@ export default function Besoins({ annee: anneeProp }) {
           </div>
         </Fenetre>
       )}
+    </div>
+  );
+}
+
+/* LES POINTS DE L'APPEL À CANDIDATURE (Modèle_appel_IIP, 5 octobre 2026) :
+   ce que la direction doit écrire. La charge et les titres viennent du besoin
+   et du référentiel ; le reste se saisit ici, dans le même ordre que la pièce. */
+function ChampsAppel({ valeur, poser }) {
+  const champ = 'w-full border border-slate-300 rounded-lg px-2.5 py-1.5';
+  const [catalogue, setCatalogue] = useState([]);
+  useEffect(() => {
+    fetch('/api/besoins/titres', { headers: authHeaders() }).then(r => r.json())
+      .then(l => setCatalogue(Array.isArray(l) ? l : [])).catch(() => {});
+  }, []);
+  // Les titres du référentiel du cours sont acquis ; ceux qu'on coche ici s'ajoutent (titres_extra).
+  const extra = (() => {
+    const t = valeur.titres_extra;
+    if (Array.isArray(t)) return t.map(Number);
+    try { return (JSON.parse(t || '[]') || []).map(Number); } catch { return []; }
+  })();
+  const duCours = new Set((valeur.titres || []).filter(t => t.portee !== 'ajoute').map(t => Number(t.titre_id ?? t.id)));
+  const basculer = id => poser('titres_extra', extra.includes(id) ? extra.filter(x => x !== id) : [...extra, id]);
+  const [manque, setManque] = useState([]);
+  async function reprendre() {
+    try {
+      const r = await fetch(`/api/besoins/contenu-cours/${encodeURIComponent(valeur.code_cours)}?annee=${encodeURIComponent(valeur.annee || valeur.annee_scolaire || '')}`,
+        { headers: authHeaders() });
+      const j = await r.json();
+      if (!r.ok) throw new Error(j.error || 'échec');
+      setManque(j.manque || []);
+      if (j.texte && (!String(valeur.description || '').trim()
+        || await demander('Remplacer le contenu synthétique actuel par celui du dossier pédagogique ?'))) {
+        poser('description', j.texte);
+      }
+    } catch (e) { setManque([e.message]); }
+  }
+  return (
+    <div className="space-y-3">
+      <div className="grid grid-cols-2 gap-3">
+        <Champ label="Fonction">
+          <select value={valeur.fonction || ''} onChange={e => poser('fonction', e.target.value)} className={champ}>
+            <option value="">— choisir —</option>
+            <option value="CC">Chargé(e) de cours</option>
+            <option value="EXP">Expert(e)</option>
+          </select>
+        </Champ>
+        <Champ label="Prise de fonction (début de l'activité)">
+          <input type="date" value={valeur.prise_de_fonction || ''}
+            onChange={e => poser('prise_de_fonction', e.target.value)} className={champ} />
+        </Champ>
+      </div>
+      <Champ label="Cours à conférer (tel qu'au dossier pédagogique)">
+        <input value={valeur.cours_nom || ''} onChange={e => poser('cours_nom', e.target.value)} className={champ} />
+      </Champ>
+      <Champ label="Contenu synthétique — les acquis du cours, puis les points du programme">
+        <textarea rows={8} value={valeur.description || ''} data-reponses="offre-contenu"
+          onChange={e => poser('description', e.target.value)} className={champ} />
+        <div className="flex flex-wrap items-start gap-2 mt-1">
+          {valeur.code_cours && (
+            <button type="button" className="text-[12px] underline text-iip-blue" onClick={reprendre}>
+              Reprendre du dossier pédagogique
+            </button>
+          )}
+          {manque.length > 0 && <span className="text-[11.5px] text-amber-700">{manque.join(' ; ')}.</span>}
+        </div>
+      </Champ>
+      <Champ label="Profil du/de la candidat·e">
+        <textarea rows={3} value={valeur.profil || ''} data-reponses="offre-profil"
+          onChange={e => poser('profil', e.target.value)} className={champ} />
+      </Champ>
+      <Champ label="Titres">
+        {catalogue.length ? (
+          <div className="flex flex-wrap gap-1.5">
+            {catalogue.map(t => {
+              const id = Number(t.id);
+              const fixe = duCours.has(id);
+              const pris = fixe || extra.includes(id);
+              return (
+                <button key={id} type="button" disabled={fixe} onClick={() => basculer(id)}
+                  title={fixe ? 'Rattaché au cours dans le référentiel' : ''}
+                  className={`px-2 py-1 rounded-lg text-[11px] font-medium border ${pris
+                    ? 'bg-iip-blue text-white border-iip-blue' : 'bg-white text-slate-600 border-slate-300'}`}>
+                  {t.libelle}
+                </button>
+              );
+            })}
+          </div>
+        ) : <p className="text-[12px] text-slate-500">Le référentiel des titres est vide.</p>}
+      </Champ>
     </div>
   );
 }

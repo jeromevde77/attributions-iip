@@ -10,8 +10,92 @@
 import { Router } from 'express';
 import db from '../db/index.js';
 import { authRequired, roleRequired, getUserSections } from '../middleware/auth.js';
-import { documentOffre, sujetOffre } from '../services/offreDocument.js';
+import { documentOffre, sujetOffre, joursOuvrablesApres } from '../services/offreDocument.js';
 import { envoyerEmail } from '../services/mailer.js';
+import { identiteEtablissement } from './config.js';
+
+/* CE QU'UN APPEL À CANDIDATURE DOIT PORTER (Charles, 5 octobre 2026 — modèle
+   « Modèle_appel_IIP.docx ») : la fonction, la charge totale, le cours tel
+   qu'au dossier pédagogique, le contenu synthétique, le profil, les titres et
+   la prise de fonction. Une offre qui en manque un ne se publie pas : le
+   serveur nomme ce qui manque. */
+export const FONCTIONS_OFFRE = { CC: 'Chargé(e) de cours', EXP: 'Expert(e)' };
+function manquesOffre(o) {
+  const m = [];
+  if (!FONCTIONS_OFFRE[o.fonction]) m.push('la fonction (chargé de cours ou expert)');
+  if (!(Number(o.total_periodes) > 0)) m.push('la charge totale en périodes');
+  if (!String(o.cours_nom || '').trim()) m.push('le cours à conférer');
+  if (!String(o.description || '').trim()) m.push('le contenu synthétique');
+  if (!String(o.profil || '').trim()) m.push('le profil du/de la candidat·e');
+  if (!(o.titres || []).length) m.push('les titres (à rattacher au cours dans le référentiel, ou à ajouter)');
+  if (!o.prise_de_fonction) m.push('la date de prise de fonction');
+  return m;
+}
+
+/* LE CONTENU SYNTHÉTIQUE SE REPREND DU DOSSIER PÉDAGOGIQUE (Charles, 6 octobre
+   2026 : « ce sont les AA du cours, suivis des points du programme »). Les
+   acquis du cours : ceux que la pondération de l'année lui rattache, sinon
+   ceux rattachés au cours dans le référentiel, sinon — cours unique de
+   l'unité — tous ceux de l'unité. Le programme : la section « Programme » de
+   la description d'unité (ue_det, écrite par l'import du dossier), coupée au
+   titre du cours quand l'unité en a plusieurs. Ce qui manque est DIT, jamais
+   inventé : la proposition reste modifiable. */
+const normTitre = t => String(t || '').normalize('NFD').replace(/[̀-ͯ]/g, '')
+  .toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+export function contenuSynthetique(codeCours, annee) {
+  const cours = db.prepare(`SELECT cours_code, cours_nom, ue_num, annee_scolaire FROM cours
+     WHERE cours_code = ? ORDER BY (annee_scolaire = ?) DESC, annee_scolaire DESC LIMIT 1`).get(codeCours, annee || '');
+  if (!cours) return { texte: '', manque: ['le cours est inconnu du référentiel'] };
+  const an = cours.annee_scolaire;
+  const freres = db.prepare('SELECT cours_code, cours_nom FROM cours WHERE ue_num = ? AND annee_scolaire = ?')
+    .all(cours.ue_num, an);
+
+  let acquis = db.prepare(`SELECT a.aa_code, a.aa_num, a.description FROM aa_ponderation p
+      JOIN aa a ON a.aa_code = p.aa_code
+     WHERE p.cours_code = ? AND p.annee_scolaire = ? ORDER BY a.aa_num`).all(codeCours, an);
+  if (!acquis.length) acquis = db.prepare('SELECT aa_code, aa_num, description FROM aa WHERE cours_code = ? ORDER BY aa_num').all(codeCours);
+  // Aucun acquis rattaché au cours : ceux de l'unité — tels quels pour un
+  // cours unique, signalés « de l'unité » sinon, à réduire à la main.
+  let acquisDeLUnite = false;
+  if (!acquis.length) {
+    acquis = db.prepare('SELECT aa_code, aa_num, description FROM aa WHERE ue_num = ? ORDER BY aa_num').all(cours.ue_num);
+    acquisDeLUnite = freres.length > 1 && acquis.length > 0;
+  }
+  acquis = acquis.filter(a => String(a.description || '').trim());
+
+  const det = db.prepare(`SELECT ue_det FROM ue WHERE ue_num = ? AND ue_det LIKE '%## Programme%'
+     ORDER BY (annee_scolaire = ?) DESC, annee_scolaire DESC LIMIT 1`).get(cours.ue_num, an)?.ue_det || '';
+  let programme = '';
+  let portee = null;
+  const m = /## Programme\n([\s\S]*?)(?=\n## |$)/.exec(det);
+  if (m) {
+    const lignes = m[1].split('\n').map(l => l.trim()).filter(Boolean);
+    if (freres.length <= 1) { programme = lignes.join('\n'); portee = 'cours'; }
+    else {
+      const titres = new Map(freres.map(f => [normTitre(f.cours_nom), f.cours_code]));
+      const debut = lignes.findIndex(l => normTitre(l) === normTitre(cours.cours_nom));
+      if (debut >= 0) {
+        const fin = lignes.findIndex((l, i) => i > debut && titres.has(normTitre(l)));
+        programme = lignes.slice(debut + 1, fin < 0 ? undefined : fin).join('\n');
+        portee = 'cours';
+      } else { programme = lignes.join('\n'); portee = 'unite'; }
+    }
+  }
+
+  const blocs = [];
+  if (acquis.length) {
+    blocs.push(`${acquisDeLUnite ? "Acquis d'apprentissage de l'unité" : "Acquis d'apprentissage"} :\n${acquis.map(a => `- ${a.description.trim()}`).join('\n')}`);
+  }
+  if (programme) {
+    blocs.push(`${portee === 'unite' ? "Programme de l'unité" : 'Programme'} :\n${programme}`);
+  }
+  const manque = [];
+  if (!acquis.length) manque.push("aucun acquis d'apprentissage n'est enregistré pour cette unité");
+  if (acquisDeLUnite) manque.push("les acquis ne sont pas rattachés au cours : ce sont ceux de toute l'unité, à réduire");
+  if (!programme) manque.push("le programme du dossier pédagogique n'est pas importé pour cette unité");
+  if (portee === 'unite') manque.push("le programme n'a pas pu être découpé au titre du cours : c'est celui de toute l'unité, à réduire");
+  return { texte: blocs.join('\n\n'), manque, acquis: acquis.length, portee };
+}
 
 // Traçabilité des envois d'offres : la publication est un acte administratif,
 // son envoi aussi.
@@ -101,6 +185,11 @@ r.get('/', authRequired, (req, res) => {
   });
 });
 
+/** Contenu synthétique proposé pour un cours : ses acquis, puis son programme. */
+r.get('/contenu-cours/:coursCode', authRequired, (req, res) => {
+  res.json(contenuSynthetique(req.params.coursCode, req.query.annee));
+});
+
 /** Titres du référentiel visés par un cours, pour préremplir une offre. */
 r.get('/titres-cours/:coursCode', authRequired, (req, res) => {
   const lignes = db.prepare(`
@@ -123,7 +212,7 @@ r.post('/offre', authRequired, peutEcrire, (req, res) => {
   const { annee, section, ue_num, code_cours, quadrimestre, type_cours,
           periodes_cours, nb_groupes, total_periodes, nb_postes,
           intitule, description, profil, competences, horaire_indicatif,
-          titres_extra, date_limite } = req.body;
+          titres_extra, date_limite, fonction, prise_de_fonction } = req.body;
 
   if (!annee || !code_cours) {
     return res.status(400).json({ error: 'annee et code_cours requis' });
@@ -144,18 +233,22 @@ r.post('/offre', authRequired, peutEcrire, (req, res) => {
       (intitule, section, ue_num, code_cours, quadrimestre, type_cours,
        periodes_cours, nb_groupes, total_periodes, nb_postes,
        description, profil, competences, horaire_indicatif,
-       titres_extra, date_limite, statut, annee_scolaire, cree_par)
-    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?, 'brouillon', ?, ?)
+       titres_extra, date_limite, statut, annee_scolaire, cree_par,
+       fonction, prise_de_fonction, cours_nom)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?, 'brouillon', ?, ?, ?, ?, ?)
   `).run(
     titreOffre, section || null, ue_num ? String(ue_num) : null, code_cours,
     quadrimestre || null, type_cours || null,
     periodes_cours ?? null, nb_groupes ?? null, total_periodes ?? null,
     nb_postes ?? (nb_groupes || 1),
-    description || null, profil || null, competences || null,
+    description || contenuSynthetique(code_cours, annee).texte || null, profil || null, competences || null,
     horaire_indicatif || null,
     titres_extra ? JSON.stringify(titres_extra) : null,
     date_limite || null, annee,
-    req.user.nom || req.user.email || `#${req.user.id}`
+    req.user.nom || req.user.email || `#${req.user.id}`,
+    FONCTIONS_OFFRE[fonction] ? fonction : null, prise_de_fonction || null,
+    // Le cours TEL QU'AU DOSSIER PÉDAGOGIQUE : son intitulé du référentiel.
+    cours?.cours_nom || null
   );
 
   res.json(detailOffre(Number(info.lastInsertRowid)));
@@ -167,10 +260,13 @@ function detailOffre(id) {
   if (!offre) return null;
 
   // Acquis d'apprentissage rattachés au cours (rattachement fait dans la fiche UE)
-  const acquis = offre.code_cours ? db.prepare(`
-    SELECT aa_code, aa_num, description FROM aa
-     WHERE cours_code = ? ORDER BY aa_num
-  `).all(offre.code_cours) : [];
+  let acquis = offre.code_cours ? db.prepare(`
+    SELECT a.aa_code, a.aa_num, a.description FROM aa_ponderation p JOIN aa a ON a.aa_code = p.aa_code
+     WHERE p.cours_code = ? AND p.annee_scolaire = ? ORDER BY a.aa_num
+  `).all(offre.code_cours, offre.annee_scolaire || '') : [];
+  if (!acquis.length && offre.code_cours) {
+    acquis = db.prepare('SELECT aa_code, aa_num, description FROM aa WHERE cours_code = ? ORDER BY aa_num').all(offre.code_cours);
+  }
 
   // Titres visés : ceux du référentiel + ceux cochés en plus sur l'offre
   const duReferentiel = offre.code_cours ? db.prepare(`
@@ -190,7 +286,14 @@ function detailOffre(id) {
     }
   } catch { /* JSON invalide : on ignore */ }
 
-  return { ...offre, acquis, titres: [...duReferentiel, ...extra] };
+  const d = { ...offre, acquis, titres: [...duReferentiel, ...extra] };
+  // Le cours à conférer : celui du référentiel quand l'offre ne le porte pas encore.
+  if (!d.cours_nom && d.code_cours) {
+    d.cours_nom = db.prepare('SELECT cours_nom FROM cours WHERE cours_code = ? ORDER BY (annee_scolaire = ?) DESC, annee_scolaire DESC LIMIT 1')
+      .get(d.code_cours, d.annee_scolaire || '')?.cours_nom || null;
+  }
+  d.manques = manquesOffre(d);
+  return d;
 }
 
 r.get('/offre/:id', authRequired, (req, res) => {
@@ -214,7 +317,10 @@ r.patch('/offre/:id', authRequired, peutEcrire, (req, res) => {
   const permis = ['intitule', 'description', 'profil', 'competences',
                   'horaire_indicatif', 'periodes_cours', 'nb_groupes',
                   'total_periodes', 'nb_postes', 'date_limite', 'quadrimestre',
-                  'canal_publication', 'statut'];
+                  'canal_publication', 'statut', 'fonction', 'prise_de_fonction', 'cours_nom'];
+  if (req.body.fonction !== undefined && req.body.fonction !== null && !FONCTIONS_OFFRE[req.body.fonction]) {
+    return res.status(400).json({ error: 'fonction attendue : CC ou EXP' });
+  }
   const champs = [], vals = [];
   for (const k of permis) {
     if (req.body[k] !== undefined) { champs.push(`${k} = ?`); vals.push(req.body[k]); }
@@ -244,15 +350,22 @@ r.post('/offre/:id/publier', authRequired, peutEcrire, (req, res) => {
   if (!offre.code_cours) {
     return res.status(400).json({ error: 'une offre doit viser un cours' });
   }
+  const manques = manquesOffre(detailOffre(id));
+  if (manques.length) {
+    return res.status(409).json({ error: `L'appel à candidature ne peut pas être publié : il manque ${manques.join(', ')}.`, manques });
+  }
 
+  // La date limite ne se saisit pas : six jours ouvrables après la parution.
+  const parution = req.body.date_publication || new Date().toISOString().slice(0, 10);
   db.prepare(`
     UPDATE recrutement_poste
-       SET statut = 'publiee', date_publication = ?, canal_publication = ?, publie_par = ?
+       SET statut = 'publiee', date_publication = ?, canal_publication = ?, publie_par = ?, date_limite = ?
      WHERE id = ?
   `).run(
-    req.body.date_publication || new Date().toISOString().slice(0, 10),
-    req.body.canal_publication || null,
+    parution,
+    req.body.canal_publication || 'Prigoginews',
     req.user.nom || req.user.email || `#${req.user.id}`,
+    joursOuvrablesApres(parution, 6),
     id
   );
   res.json(detailOffre(id));
@@ -264,9 +377,17 @@ r.post('/offre/:id/publier', authRequired, peutEcrire, (req, res) => {
 function documentPour(id) {
   const o = detailOffre(id);          // assembleur existant : offre + acquis + titres
   if (!o) return null;
+  let ident = {};
+  try { ident = identiteEtablissement() || {}; } catch { /* */ }
+  let rh = null;
+  try { rh = db.prepare("SELECT valeur FROM lucie_config WHERE cle = 'rh_email'").get()?.valeur || null; } catch { /* */ }
+  const sec = o.section ? db.prepare('SELECT libelle FROM section WHERE code = ?').get(o.section) : null;
   const etab = {
-    nom: 'Institut Ilya Prigogine',
-    mail: process.env.SMTP_FROM?.match(/<(.+)>/)?.[1] || 'direction@institut-prigogine.be',
+    nom: ident.nom || 'Institut Ilya Prigogine',
+    directeur: ident.directeur || 'SOHET Charles',
+    // L'adresse des candidatures : en configuration (lucie_config.rh_email), jamais en dur.
+    mail: rh || 'service.rh@institut-prigogine.be',
+    cursus: sec?.libelle || o.section || null,
   };
   const titres = (o.titres || []).map(t =>
     `${t.libelle}${t.portee === 'requis' ? ' (titre requis)' : t.portee === 'suffisant' ? ' (titre suffisant)' : ''}`);

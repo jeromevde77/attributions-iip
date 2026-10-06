@@ -4,7 +4,7 @@ import { IconTargetArrow, IconLink, IconUnlink, IconAlertTriangle, IconPencil,
          IconGripVertical, IconPlus } from '@tabler/icons-react';
 import { authHeaders, getUser } from '../lib/api.js';
 import { chargerChapeaux } from '../lib/chapeaux.js';
-import { demander, informer } from '../lib/dialogue.jsx';
+import { demander, informer, saisir } from '../lib/dialogue.jsx';
 
 /**
  * Acquis d'apprentissage d'une UE — présentés COMME DANS LE DOSSIER
@@ -181,6 +181,16 @@ export default function AcquisUE({ ueNum, annee, estAdmin }) {
       ? { type: 'chapeau', id: nouvelId(), texte: (a.description || '').trim() } : x)));
   }
 
+  /* AJOUTER UN ACQUIS à la main : le code suit le dernier (AA<ue>.<n+1>), le
+     libellé se saisit, et l'acquis se range ensuite comme les autres. */
+  async function ajouterAcquis() {
+    const description = await saisir({ titre: `Nouvel acquis de l'UE ${ueNum}`,
+      message: "Libellé de l'acquis, tel qu'au dossier pédagogique", obligatoire: true, multiligne: true });
+    if (!description || !String(description).trim()) return;
+    const j = await envoyer('/api/aa', { ue_num: ueNum, description: String(description).trim() }, 'POST');
+    if (j) { await charger(); setMessage(`${j.aa_code} ajouté.`); }
+  }
+
   // Renuméroter suit l'ordre ENREGISTRÉ : une mise en forme en cours doit
   // d'abord s'enregistrer, sans quoi les codes suivraient un autre ordre.
   async function renumeroter() {
@@ -215,6 +225,9 @@ export default function AcquisUE({ ueNum, annee, estAdmin }) {
         <div className="text-xs text-gray-400 mt-1">
           Ils sont extraits automatiquement lors de l'import du dossier pédagogique.
         </div>
+        {peutCorriger && (
+          <button onClick={ajouterAcquis} className="bouton mt-2"><IconPlus size={13} /> Ajouter un acquis</button>
+        )}
       </div>
     );
   }
@@ -260,6 +273,10 @@ export default function AcquisUE({ ueNum, annee, estAdmin }) {
         )}
         {peutCorriger && (
           <span className="ml-auto flex items-center gap-1.5">
+            <button onClick={ajouterAcquis} disabled={modifie} className="bouton"
+              title={modifie ? 'Enregistrez d’abord la mise en forme' : 'Ajouter un acquis à la fin de la liste'}>
+              <IconPlus size={13} /> Acquis
+            </button>
             <button onClick={() => ajouterChapeau(0)} className="bouton"
               title="Une phrase qui introduit le groupe d'acquis qui la suit — glissez-la où il faut">
               <IconPlus size={13} /> Chapeau

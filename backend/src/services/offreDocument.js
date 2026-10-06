@@ -22,69 +22,81 @@ const frDate = iso => iso
  * @param {string[]} acquis Acquis d'apprentissage du cours (facultatif)
  * @param {object} etab     { nom, adresse, mail } de l'établissement
  */
+/* L'APPEL À CANDIDATURE DE L'INSTITUT (5 octobre 2026, modèle
+   « Modèle_appel_IIP.docx ») : les points dans l'ordre du modèle, et la phrase
+   des candidatures telle quelle — lettre, CV, diplôme, à la direction, à
+   l'adresse du service RH, dans les six jours ouvrables suivant la parution au
+   Prigoginews. */
+const FONCTIONS = { CC: 'Chargé(e) de cours', EXP: 'Expert(e)' };
+/** « SOHET Charles » → « Charles Sohet ». */
+const prenomNom = t => {
+  const m = /^([A-ZÀ-ÖØ-Þ' -]{2,})\s+(.+)$/.exec(String(t || '').trim());
+  if (!m) return String(t || '');
+  const nom = m[1].trim().toLowerCase().replace(/(^|[\s'-])(\p{L})/gu, (_, a, b) => a + b.toUpperCase());
+  return `${m[2].trim()} ${nom}`;
+};
+/** Six jours ouvrables (lundi-vendredi) après une date ISO. */
+export function joursOuvrablesApres(iso, n = 6) {
+  if (!iso) return null;
+  const d = new Date(`${String(iso).slice(0, 10)}T12:00:00Z`);
+  let k = 0;
+  while (k < n) { d.setUTCDate(d.getUTCDate() + 1); const j = d.getUTCDay(); if (j !== 0 && j !== 6) k++; }
+  return d.toISOString().slice(0, 10);
+}
+
 export function documentOffre(o, titres = [], acquis = [], etab = {}) {
   const nomEtab = etab.nom || 'Institut Ilya Prigogine';
-  const charge = o.total_periodes
-    ? `${o.periodes_cours ?? '—'} périodes × ${o.nb_groupes ?? 1} groupe${(o.nb_groupes || 1) > 1 ? 's' : ''} = ${o.total_periodes} périodes`
-    : `${o.periodes_cours ?? '—'} périodes`;
-
-  const bloc = (titre, corps) => corps ? `
-    <div style="margin-bottom:14px">
-      <div style="font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#00AACC;margin-bottom:4px">${titre}</div>
-      <div style="font-size:13px;color:#1E293B;line-height:1.5">${corps}</div>
-    </div>` : '';
-
+  const fonction = FONCTIONS[o.fonction] || null;
+  const charge = o.total_periodes ? `${o.total_periodes} périodes` : null;
+  const limite = joursOuvrablesApres(o.date_publication, 6);
+  const vide = '<span style="color:#B45309">à compléter</span>';
+  const ligne = (libelle, valeur) => `
+    <div style="margin-bottom:10px;font-size:13px;color:#1E293B;line-height:1.5">
+      <b style="color:#1B2B4B">${libelle} :</b> ${valeur || vide}
+    </div>`;
+  const bloc = (libelle, corps) => `
+    <div style="margin-bottom:12px;font-size:13px;color:#1E293B;line-height:1.5">
+      <div style="font-weight:700;color:#1B2B4B;margin-bottom:3px">${libelle} :</div>
+      <div>${corps || vide}</div>
+    </div>`;
   const liste = items => items.length
     ? `<ul style="margin:0;padding-left:18px">${items.map(t => `<li style="margin-bottom:3px">${ech(t)}</li>`).join('')}</ul>`
     : '';
+  const texte = t => (t ? ech(t).replace(/\n/g, '<br>') : '');
 
   return `<!DOCTYPE html>
 <html lang="fr"><head><meta charset="UTF-8">
-<title>Offre d'emploi — ${ech(o.fonction || o.code_cours || '')}</title>
+<title>Appel à candidature — ${ech(o.cours_nom || o.code_cours || '')}</title>
 <style>@media print { body { -webkit-print-color-adjust: exact; } }</style>
 </head>
 <body style="margin:0;padding:0;background:#F5F7FA;font-family:'Inter','Segoe UI',system-ui,sans-serif">
-<div style="max-width:640px;margin:0 auto;padding:24px 16px">
+<div style="max-width:660px;margin:0 auto;padding:24px 16px">
   <div style="background:#1B2B4B;border-radius:12px 12px 0 0;padding:22px 26px">
-    <div style="color:#fff;font-size:19px;font-weight:800;letter-spacing:.3px">${ech(nomEtab)}</div>
-    <div style="color:#8FA3C4;font-size:11px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;margin-top:3px">Offre d'emploi — Enseignement pour adultes</div>
+    <div style="color:#fff;font-size:20px;font-weight:800;letter-spacing:.6px">APPEL À CANDIDATURE</div>
+    <div style="color:#C9D6EA;font-size:12px;margin-top:4px">${ech(nomEtab)} – Enseignement pour adultes${etab.cursus ? ` – ${ech(etab.cursus)}` : ''}</div>
   </div>
   <div style="background:#fff;border:1px solid #E2E8F0;border-top:none;border-radius:0 0 12px 12px;padding:24px 26px">
-
-    <div style="font-size:17px;font-weight:700;color:#1B2B4B;margin-bottom:2px">
-      ${ech(o.intitule || o.fonction || `Chargé(e) de cours — ${o.code_cours || ''}`)}
+    ${ligne('Fonction', fonction && ech(fonction))}
+    ${ligne('Charge totale', charge && ech(charge))}
+    ${ligne('Cours à conférer', o.cours_nom && `${ech(o.cours_nom)}${o.code_cours ? ` <span style="color:#64748B">(${ech(o.code_cours)}${o.ue_num ? ` · UE ${ech(o.ue_num)}` : ''})</span>` : ''}`)}
+    ${bloc('Contenu synthétique', texte(o.description))}
+    ${bloc('Profil du/de la candidat·e', texte(o.profil))}
+    ${bloc('Titres', liste(titres))}
+    <div style="margin-bottom:12px;font-size:13px;color:#1E293B;line-height:1.5">
+      La possession d’un titre pédagogique (CAPAES), de même qu’une expérience pédagogique, seront appréciées.
     </div>
-    <div style="font-size:12.5px;color:#64748B;margin-bottom:18px">
-      ${[o.section && `Section ${ech(o.section)}`, o.ue_num && `UE ${ech(o.ue_num)}`,
-         o.code_cours && ech(o.code_cours), o.quadrimestre && `Quadrimestre ${ech(o.quadrimestre)}`]
-        .filter(Boolean).join(' · ')}
-    </div>
+    ${o.competences ? bloc('Compétences attendues', texte(o.competences)) : ''}
+    ${ligne('Prise de fonction', o.prise_de_fonction && frDate(o.prise_de_fonction))}
 
-    <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:18px">
-      ${[['Charge', charge],
-         ['Type', o.type_cours === 'PP' ? 'Pratique professionnelle' : o.type_cours === 'CT' ? 'Cours techniques' : o.type_cours],
-         ['Postes', o.nb_postes],
-         ['Horaire', o.horaire_indicatif]]
-        .filter(([, v]) => v)
-        .map(([l, v]) => `<div style="border:1px solid #E2E8F0;border-left:3px solid #00AACC;border-radius:9px;padding:8px 12px;min-width:110px">
-          <div style="font-size:9.5px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:#94A3B8">${l}</div>
-          <div style="font-size:13px;font-weight:600;color:#1B2B4B;margin-top:2px">${ech(v)}</div>
-        </div>`).join('')}
-    </div>
-
-    ${bloc('Profil recherché', o.profil ? ech(o.profil).replace(/\n/g, '<br>') : '')}
-    ${bloc('Titres visés', liste(titres))}
-    ${bloc('Compétences', o.competences ? ech(o.competences).replace(/\n/g, '<br>') : '')}
-    ${bloc("Acquis d'apprentissage du cours", liste(acquis.slice(0, 8)))}
-
-    <div style="border-top:1px solid #E2E8F0;margin-top:18px;padding-top:14px;font-size:12.5px;color:#1E293B;line-height:1.6">
-      <b style="color:#1B2B4B">Candidatures</b> — curriculum vitae et copie des titres à adresser à
-      <a href="mailto:${ech(etab.mail || 'direction@institut-prigogine.be')}" style="color:#00AACC;font-weight:600">${ech(etab.mail || 'direction@institut-prigogine.be')}</a>${o.date_limite ? `, au plus tard le <b>${frDate(o.date_limite)}</b>` : ''}.
-      ${etab.adresse ? `<br>${ech(etab.adresse)}` : ''}
+    <div style="border-top:1px solid #E2E8F0;margin-top:16px;padding-top:14px;font-size:12.5px;color:#1E293B;line-height:1.6">
+      Les candidatures accompagnées d’une lettre de motivation et d’un CV à jour (et copie du diplôme) sont à
+      adresser à la direction de l’Institut, Monsieur ${ech(prenomNom(etab.directeur || 'SOHET Charles'))}, via l’adresse
+      <a href="mailto:${ech(etab.mail)}" style="color:#1B2B4B;font-weight:600">${ech(etab.mail)}</a>,
+      dans les 6 jours ouvrables suivant la parution de la présente annonce au Prigoginews${limite ? `, soit au plus tard le <b>${frDate(limite)}</b>` : ''}.
     </div>
   </div>
   <div style="text-align:center;font-size:10px;color:#94A3B8;padding:10px">
-    ${o.date_publication ? `Offre publiée le ${frDate(o.date_publication)}` : 'Projet d\u2019offre — non publiée'}${o.publie_par ? ` · ${ech(o.publie_par)}` : ''}
+    ${o.date_publication ? `Paru le ${frDate(o.date_publication)}` : 'Projet d’appel — non publié'}${o.publie_par ? ` · ${ech(o.publie_par)}` : ''}
   </div>
 </div>
 </body></html>`;
@@ -92,5 +104,5 @@ export function documentOffre(o, titres = [], acquis = [], etab = {}) {
 
 export function sujetOffre(o, etab = {}) {
   const nomEtab = etab.nom || 'Institut Ilya Prigogine';
-  return `Offre d'emploi — ${o.intitule || o.fonction || o.code_cours || 'enseignant'} (${nomEtab})`;
+  return `Appel à candidature — ${o.cours_nom || o.intitule || o.code_cours || 'enseignant'} (${nomEtab})`;
 }
