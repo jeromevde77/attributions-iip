@@ -20,7 +20,7 @@ import db from '../db/index.js';
 import { authRequired, getUserSections } from '../middleware/auth.js';
 import { envelopperDocument } from '../lib/document.js';
 import { anneeDeTravail } from '../helpers/annee.js';
-import { decisionDeSession } from './acquis.js';
+import { decisionDeSession, structureUE } from './acquis.js';
 import { calculerEtp } from './pilotage.js';
 import { couleurs } from '../lib/couleurs.js';
 import { controlePrerequisPae, corpsControlePae, prenomSeul, STYLES_CONTROLE_PAE } from '../lib/controlePae.js';
@@ -1343,6 +1343,48 @@ export const RAPPORTS = [
     lignes: () => db.prepare(`
       SELECT ue_num, aa_code, description FROM aa
       ORDER BY ue_num, aa_code`).all(),
+  },
+
+  {
+    /* LA RÉPARTITION DES ACQUIS PAR COURS ET PAR UNITÉ (Charles, 6 octobre
+       2026 : « je souhaiterais pouvoir imprimer la répartition des AA par
+       cours/UE »). Lue dans structureUE — la fonction même de la
+       délibération : la pièce dit ce qui sera calculé, pas ce qu'on croit
+       avoir paramétré. Une bande par unité ; le cours, ses périodes et son
+       poids sur sa première ligne ; puis ses acquis et leurs points. */
+    id: 'repartition-acquis', domaine: 'organisation', params: ['annee', 'section'],
+    libelle: 'Répartition des acquis par cours et par unité',
+    aide: "Pour chaque unité : ses cours, leurs périodes et leur poids, et les acquis reliés à chacun avec leurs points.",
+    colonnes: COLS([['unite', 'Unité', 30], ['cours', 'Cours', 34], ['poids', 'Poids du cours', 16],
+      ['aa_code', 'Acquis', 12], ['points', 'Points', 8], ['description', 'Énoncé', 70]]),
+    lignes: (p) => {
+      const ues = db.prepare(`SELECT ue_num, MIN(ue_nom) AS ue_nom FROM ue
+         WHERE annee_scolaire = ? AND (? IS NULL OR section = ?)
+         GROUP BY ue_num ORDER BY ue_num`).all(p.annee, p.section, p.section);
+      const fr = v => String(Math.round(Number(v) * 100) / 100).replace('.', ',');
+      const out = [];
+      for (const u of ues) {
+        const unite = `UE ${u.ue_num} — ${u.ue_nom || ''}`.trim();
+        for (const c of structureUE(u.ue_num, p.annee)) {
+          const z = String(c.ct_pp || '').toUpperCase() === 'Z';
+          const cours = `${c.cours_code} · ${c.cours_nom || ''}${c.periodes ? ` (${c.periodes} pér.${z ? ', Z' : ''})` : ''}`;
+          const poids = c.non_evalue ? 'non évalué' : z ? '0 % (activité Z)'
+            : c.poids_cours_affiche != null ? `${c.poids_cours_affiche} %` : '—';
+          const aas = c.aas || [];
+          if (!aas.length) {
+            out.push({ unite, cours, poids, aa_code: '—', points: '',
+              description: c.non_evalue ? '' : 'Aucun acquis relié à ce cours' });
+            continue;
+          }
+          aas.forEach((a, i) => out.push({
+            unite, cours: i === 0 ? cours : '', poids: i === 0 ? poids : '',
+            aa_code: a.aa_code, points: a.poids != null ? fr(a.poids) : '—',
+            description: a.description || '',
+          }));
+        }
+      }
+      return out;
+    },
   },
 
   {
