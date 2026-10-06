@@ -22,6 +22,8 @@ import { envelopperDocument } from '../lib/document.js';
 import { anneeDeTravail } from '../helpers/annee.js';
 import { decisionDeSession, structureUE } from './acquis.js';
 import { calculerEtp } from './pilotage.js';
+import { donneesChiffresCles, donneesPersonnel, TRANCHES_ETP } from '../lib/chiffresCles.js';
+import { TITRES_ACCES, DIPLOMES_MAX } from '../lib/profilEtudiant.js';
 import { couleurs } from '../lib/couleurs.js';
 import { controlePrerequisPae, corpsControlePae, prenomSeul, STYLES_CONTROLE_PAE } from '../lib/controlePae.js';
 
@@ -560,6 +562,223 @@ function lignesEtpCursus(p) {
       periodes: Math.round(periodesDe(u)),
       etp: Math.round((u.etp_total || 0) * 10000) / 10000,
     }));
+}
+
+/* LES GRAPHIQUES DES STATISTIQUES (Charles, 6 octobre 2026 : « des
+   graphiques pour que cela soit sexy »). Les couleurs du logo pour les
+   catégories, le rose de la HELB pour son contrat, et un GRIS PÂLE pour ce qui
+   n'est pas renseigné : la part inconnue se voit, elle ne disparaît pas. */
+const GRIS_INCONNU = '#94a3b8';
+function paletteStats() {
+  const C = couleurs();
+  return { bleu: C.iip_bleu, or: C.iip_or, cyan: C.iip_cyan, marine: C.principal,
+    donnees: C.donnees, iip: C.iip, helb: C.helb };
+}
+/** Deux graphiques côte à côte : un conseil se lit d'un coup d'œil. */
+const duo = (...cadres) => `<table class="duo"><tr>${cadres.map(c => `<td>${c}</td>`).join('')}</tr></table>`;
+const cadreGraphe = (titre, contenu, note = '') =>
+  `<div class="cadre"><h3>${titre}</h3>${contenu}${note ? `<div class="fin">${note}</div>` : ''}</div>`;
+const STYLE_STATS = `
+  table.duo { width:100%; border-collapse:collapse; table-layout:fixed; margin:0 0 2mm; }
+  /* LA DEMI-PAGE PORTE SES BARRES. Les largeurs fixes des barres (34 mm de
+     libellé, 44 mm de valeur) mangeaient toute la demi-colonne : la piste
+     disparaissait et la valeur débordait sur le graphique voisin. */
+  table.duo > tbody > tr > td { vertical-align:top; padding:0 3mm 0 0 !important; border:0; }
+  table.duo > tbody > tr > td + td { padding:0 0 0 3mm !important; }
+  table.duo table.barres { table-layout:fixed; }
+  table.duo .barres-lib { width:34% !important; }
+  table.duo .barres-val { width:30% !important; padding-left:2mm !important; white-space:nowrap; }
+  .cadre h3 { font-size:9.5pt; color:#1B2B4B; margin:0 0 2mm; font-weight:700; }
+`;
+const partsDe = (P, liste) => barreParts(liste.filter(([, v]) => v > 0)
+  .map(([nom, v, couleur, pale]) => ({ nom, valeur: v, couleur, pale })));
+
+/**
+ * LES STATISTIQUES DU PERSONNEL — l'année en cours, au jour de l'impression.
+ * Ce qui est sûr d'abord (statut, nomination, contrat, charge, sections) ; le
+ * profil personnel ensuite, chaque fois avec la part des fiches qui le portent.
+ */
+function documentPersonnelStats(p) {
+  const d = donneesPersonnel(p.annee);
+  const K = paletteStats();
+  const E = d.ensemble;
+  const esc = v => String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;');
+  const n0 = n => Math.round(n || 0).toLocaleString('fr-BE');
+  const n1 = n => (n == null ? '—' : (Math.round(n * 10) / 10).toString().replace('.', ','));
+  const n2 = n => (n == null ? '—' : (n || 0).toFixed(2).replace('.', ','));
+  const pc = (k, n) => (n ? `${Math.round(k / n * 100)} %` : '—');
+  const connu = (inconnu) => `renseigné pour ${pc(E.n - inconnu, E.n)} des membres`;
+  const dateRef = d.ref.split('-').reverse().join('/');
+
+  const graphes = `
+    ${duo(
+      cadreGraphe('Statut', partsDe(K, [['Chargés de cours', E.cc, K.bleu], ['Experts', E.exp, K.cyan], ['Autre', E.autre_statut, GRIS_INCONNU, true]])),
+      cadreGraphe('Nomination', partsDe(K, [['Définitifs', E.definitif, K.bleu], ['Temporaires', E.temporaire, K.or],
+        ['Non renseignée', E.n - E.definitif - E.temporaire, GRIS_INCONNU, true]])))}
+    ${duo(
+      cadreGraphe('Employeur', partsDe(K, [['Institut', E.iip, K.iip], ['Haute École', E.helb, K.helb]]),
+        E.iip + E.helb > E.n ? 'Un membre sous les deux contrats compte dans chacun.' : ''),
+      cadreGraphe('Domicile', partsDe(K, [['Bruxelles', E.bruxelles, K.bleu], ['Wallonie', E.wallonie, K.or],
+        ['Flandre', E.flandre, K.cyan], ['Non renseigné', E.domicile_inconnu, GRIS_INCONNU, true]]), connu(E.domicile_inconnu)))}
+    ${duo(
+      cadreGraphe('Charge individuelle — membres par tranche d’ETP', barres({ donnees: TRANCHES_ETP.map(([k, lib]) => ({
+        nom: lib, valeur: E[k], couleur: K.donnees, texte: `${n0(E[k])} · ${n2(E[k + '_etp'])} ETP` })) })),
+      cadreGraphe('ETP par section', barres({ donnees: [...d.sections].sort((a, b) => b.etp_section - a.etp_section)
+        .map(x => ({ nom: esc(x.section), valeur: x.etp_section, couleur: K.marine, texte: `${n2(x.etp_section)} ETP` })) })))}
+    ${duo(
+      cadreGraphe('Sexe', partsDe(K, [['Femmes', E.F, K.or], ['Hommes', E.M, K.bleu], ['X', E.X, K.cyan],
+        ['Non renseigné', E.sexe_inconnu, GRIS_INCONNU, true]]), connu(E.sexe_inconnu)),
+      cadreGraphe('Âge', partsDe(K, [['moins de 25', E.m25, K.cyan], ['25-34', E.m35, K.or], ['35-44', E.m45, K.bleu],
+        ['45 et plus', E.p45, K.marine], ['Non renseigné', E.age_inconnu, GRIS_INCONNU, true]]),
+        `${connu(E.age_inconnu)}${E.age_moyen != null ? ` · âge moyen ${n1(E.age_moyen)} ans` : ''}`))}
+    ${cadreGraphe('Nationalité', partsDe(K, [['Belgique', E.be, K.bleu], ['Union européenne', E.ue, K.cyan], ['Hors UE', E.hors_ue, K.or],
+      ['Non renseignée', E.nat_inconnue, GRIS_INCONNU, true]]), connu(E.nat_inconnue))}`;
+
+  const tSec = `<table><thead><tr><th>Section</th>${['Membres', 'CC', 'EXP', 'Définitifs', 'IIP', 'HELB', 'ETP', 'ETP moyen']
+      .map(c => `<th class="n">${c}</th>`).join('')}</tr></thead>
+    <tbody>${d.sections.map(x => `<tr><td>${esc(x.section)}</td><td class="n g">${n0(x.n)}</td><td class="n">${n0(x.cc)}</td>
+      <td class="n">${n0(x.exp)}</td><td class="n">${n0(x.definitif)}</td><td class="n">${n0(x.iip)}</td><td class="n">${n0(x.helb)}</td>
+      <td class="n g">${n2(x.etp_section)}</td><td class="n">${x.n ? n2(x.etp_section / x.n) : '—'}</td></tr>`).join('')}</tbody>
+    <tfoot><tr class="repere"><td>Ensemble (chaque membre une fois)</td><td class="n">${n0(E.n)}</td><td class="n">${n0(E.cc)}</td>
+      <td class="n">${n0(E.exp)}</td><td class="n">${n0(E.definitif)}</td><td class="n">${n0(E.iip)}</td><td class="n">${n0(E.helb)}</td>
+      <td class="n">${n2(E.etp)}</td><td class="n">${E.n ? n2(E.etp / E.n) : '—'}</td></tr></tfoot></table>
+    <p class="fin">Un membre attribué dans deux sections compte dans chacune ; l'ETP d'une section est la charge qui s'y donne.
+      ETP au barème de Pilotage (CT/800 + PP/1000). Titres de capacité encodés pour ${pc(E.avec_titres, E.n)} des membres,
+      CAPAES pour ${pc(E.capaes, E.n)}.</p>`;
+
+  const corps = `
+    ${rangeeTuiles([
+      tuile({ valeur: n0(E.n), libelle: 'Membres du personnel', precision: `${n0(E.enseignant)} enseignant(s)`, ton: 'fort' }),
+      tuile({ valeur: n2(E.etp), unite: 'ETP', libelle: 'Charge totale', precision: `${d.sections.length} section(s)` }),
+      tuile({ valeur: E.n ? n2(E.etp / E.n) : '—', unite: 'ETP', libelle: 'Charge moyenne', precision: 'par membre' }),
+      tuile({ valeur: pc(E.temporaire, E.n), libelle: 'Temporaires', precision: `${n0(E.definitif)} définitif(s)` }),
+      tuile({ valeur: pc(E.cc, E.n), libelle: 'Chargés de cours', precision: `${n0(E.exp)} expert(s)` }),
+    ])}
+    ${graphes}
+    <h2>Section par section</h2>${tSec}`;
+
+  return {
+    corps,
+    entete: { titre: 'Statistiques du personnel', sous: `Année académique ${p.annee} · situation au ${dateRef}` },
+    titre: 'Statistiques du personnel',
+    nom: `Statistiques-personnel-${p.annee}.html`,
+    styles: STYLE_RAPPORT + STYLE_REPORTING + STYLE_STATS,
+  };
+}
+
+/**
+ * LES CHIFFRES CLÉS PAR SECTION — pour le conseil d'entreprise. L'année en
+ * cours, au jour de l'impression. Une donnée personnelle peu remplie se
+ * montre avec son taux, jamais comme une répartition complète.
+ */
+function documentChiffresCles(p) {
+  const d = donneesChiffresCles(p.annee);
+  const esc = v => String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;');
+  const n0 = n => Math.round(n || 0).toLocaleString('fr-BE');
+  const n1 = n => (n == null ? '—' : (Math.round(n * 10) / 10).toString().replace('.', ','));
+  const n2 = n => (n == null ? '—' : (n || 0).toFixed(2).replace('.', ','));
+  const pc = (k, n) => (n ? `${Math.round(k / n * 100)} %` : '—');
+  const z = v => (v ? n0(v) : '<span class="fin">0</span>');
+  const E = d.ensemble.etudiants, P = d.ensemble.personnel;
+  const taux = (r, quoi) => quoi.map(([lib, inconnu]) => `${lib} : ${pc(r.n - inconnu, r.n)}`).join(' · ');
+  const dateRef = d.ref.split('-').reverse().join('/');
+
+  const tete = (cols) => `<thead><tr>${cols.map(([c, w]) => `<th${w ? ` class="n" style="width:${w}mm"` : ''}>${c}</th>`).join('')}</tr></thead>`;
+  const pied = (cells) => `<tfoot><tr class="repere">${cells.map((c, i) => `<td${i ? ' class="n"' : ''}>${c}</td>`).join('')}</tr></tfoot>`;
+
+  const tEtu = `<table>${tete([['Section'], ['Inscrits', 16], ['F', 11], ['M', 11], ['X', 9], ['?', 9], ['Âge moyen', 17],
+      ['&lt; 25', 12], ['25-34', 12], ['35-44', 12], ['45 +', 12], ['SLE', 11]])}
+    <tbody>${d.lignes.filter(l => l.etudiants.n).map(l => { const e = l.etudiants; return `<tr><td>${esc(l.section)}</td>
+      <td class="n g">${n0(e.n)}</td><td class="n">${z(e.F)}</td><td class="n">${z(e.M)}</td><td class="n">${z(e.X)}</td>
+      <td class="n">${z(e.sexe_inconnu)}</td><td class="n">${n1(e.age_moyen)}</td>
+      <td class="n">${z(e.m25)}</td><td class="n">${z(e.m35)}</td><td class="n">${z(e.m45)}</td><td class="n">${z(e.p45)}</td>
+      <td class="n">${z(e.sle)}</td></tr>`; }).join('')}</tbody>
+    ${pied(['Ensemble (chaque étudiant une fois)', n0(E.n), n0(E.F), n0(E.M), n0(E.X), n0(E.sexe_inconnu), n1(E.age_moyen),
+      n0(E.m25), n0(E.m35), n0(E.m45), n0(E.p45), n0(E.sle)])}</table>
+    <p class="fin">Sexe connu pour ${pc(E.n - E.sexe_inconnu, E.n)} des inscrits, âge pour ${pc(E.n - E.age_inconnu, E.n)}.
+      Un étudiant inscrit dans deux sections compte dans chacune ; l'ensemble le compte une fois.</p>`;
+
+  const paysTri = Object.entries(E.pays).sort((a, b) => b[1] - a[1]);
+  const tNat = `<table>${tete([['Section'], ['Inscrits', 16], ['Belgique', 18], ['Union europ.', 20], ['Hors UE', 17],
+      ['Non renseignée', 24], ['Connue', 15]])}
+    <tbody>${d.lignes.filter(l => l.etudiants.n).map(l => { const e = l.etudiants; return `<tr><td>${esc(l.section)}</td>
+      <td class="n">${n0(e.n)}</td><td class="n">${z(e.be)}</td><td class="n">${z(e.ue)}</td><td class="n">${z(e.hors_ue)}</td>
+      <td class="n">${z(e.nat_inconnue)}</td><td class="n g">${pc(e.n - e.nat_inconnue, e.n)}</td></tr>`; }).join('')}</tbody>
+    ${pied(['Ensemble', n0(E.n), n0(E.be), n0(E.ue), n0(E.hors_ue), n0(E.nat_inconnue), pc(E.n - E.nat_inconnue, E.n)])}</table>
+    <p class="fin">${E.n - E.nat_inconnue < E.n * 0.8
+      ? `<b>La nationalité n'est connue que pour ${pc(E.n - E.nat_inconnue, E.n)} des inscrits</b> : ces chiffres disent qui a été encodé, pas la composition réelle des sections. `
+      : ''}${paysTri.length ? `Pays les plus représentés : ${paysTri.slice(0, 8).map(([n, c]) => `${esc(n)} (${c})`).join(', ')}.` : ''}</p>`;
+
+  const libAcces = Object.fromEntries(TITRES_ACCES); const libMax = Object.fromEntries(DIPLOMES_MAX);
+  const repartition = (comptes, libs, connu) => (connu
+    ? Object.entries(comptes).sort((a, b) => b[1] - a[1]).map(([k, c]) => `${esc(libs[k] || k)} : ${c}`).join(' · ')
+    : 'non renseigné');
+  const tDipl = (E.acces_connu || E.max_connu)
+    ? `<table>${tete([['Section'], ['Inscrits', 16], ["Titre d'accès connu", 30], ['Plus haut diplôme connu', 34]])}
+      <tbody>${d.lignes.filter(l => l.etudiants.n).map(l => { const e = l.etudiants; return `<tr><td>${esc(l.section)}</td>
+        <td class="n">${n0(e.n)}</td><td class="n">${pc(e.acces_connu, e.n)}</td><td class="n">${pc(e.max_connu, e.n)}</td></tr>`; }).join('')}</tbody></table>
+      <p class="fin"><b>Titre d'accès</b> — ${repartition(E.acces, libAcces, E.acces_connu)}.<br>
+        <b>Plus haut diplôme</b> — ${repartition(E.max, libMax, E.max_connu)}.</p>`
+    : `<p class="fin">Le titre d'accès et le plus haut diplôme ne sont encore renseignés pour aucun inscrit
+        (fiche de l'étudiant, onglet Identité, ou Import sur mesure).</p>`;
+
+  const tPers = `<table>${tete([['Section'], ['Membres', 16], ['CC', 11], ['EXP', 11], ['IIP', 11], ['HELB', 12],
+      ['ETP', 15], ['F', 10], ['M', 10], ['X', 9], ['?', 10], ['Âge moyen', 17]])}
+    <tbody>${d.lignes.filter(l => l.personnel.n || l.etp).map(l => { const q = l.personnel; return `<tr><td>${esc(l.section)}</td>
+      <td class="n g">${n0(q.n)}</td><td class="n">${z(q.cc)}</td><td class="n">${z(q.exp)}</td>
+      <td class="n">${z(q.iip)}</td><td class="n">${z(q.helb)}</td><td class="n g">${n2(l.etp)}</td>
+      <td class="n">${z(q.F)}</td><td class="n">${z(q.M)}</td><td class="n">${z(q.X)}</td><td class="n">${z(q.sexe_inconnu)}</td>
+      <td class="n">${n1(q.age_moyen)}</td></tr>`; }).join('')}</tbody>
+    ${pied(['Ensemble (chaque membre une fois)', n0(P.n), n0(P.cc), n0(P.exp), '', '', n2(d.ensemble.etp),
+      n0(P.F), n0(P.M), n0(P.X), n0(P.sexe_inconnu), n1(P.age_moyen)])}</table>
+    <p class="fin">${taux(P, [['Sexe connu', P.sexe_inconnu], ['âge', P.age_inconnu], ['nationalité', P.nat_inconnue]])}
+      · titres de capacité encodés pour ${pc(P.avec_titres, P.n)} des membres.
+      ETP de Pilotage (CT/800 + PP/1000). Un membre attribué dans deux sections compte dans chacune.</p>`;
+
+  const tOffre = `<table>${tete([['Section'], ['UE', 14], ['Cours', 16], ['Périodes', 20]])}
+    <tbody>${d.lignes.filter(l => l.ues).map(l => `<tr><td>${esc(l.section)}</td><td class="n">${n0(l.ues)}</td>
+      <td class="n">${n0(l.cours)}</td><td class="n">${n0(l.periodes)}</td></tr>`).join('')}</tbody>
+    ${pied(['Ensemble', n0(d.ensemble.ues), '', n0(d.ensemble.periodes)])}</table>
+    <p class="fin">Périodes de cours du dossier pédagogique ; les activités Z (travail de l'étudiant, sans enseignant) n'y entrent pas.</p>`;
+
+  const corps = `
+    ${rangeeTuiles([
+      tuile({ valeur: n0(E.n), libelle: 'Étudiants inscrits', precision: `${d.lignes.filter(l => l.etudiants.n).length} section(s)`, ton: 'fort' }),
+      tuile({ valeur: n1(E.age_moyen), unite: 'ans', libelle: 'Âge moyen', precision: `connu pour ${pc(E.n - E.age_inconnu, E.n)}` }),
+      tuile({ valeur: pc(E.F, E.n - E.sexe_inconnu), libelle: 'Étudiantes', precision: `${n0(E.F)} F · ${n0(E.M)} M${E.X ? ` · ${n0(E.X)} X` : ''}` }),
+      tuile({ valeur: n0(P.n), libelle: 'Membres du personnel', precision: `${n0(P.cc)} CC · ${n0(P.exp)} EXP` }),
+      tuile({ valeur: n2(d.ensemble.etp), unite: 'ETP', libelle: 'Charge', precision: `${n0(d.ensemble.ues)} UE organisées` }),
+    ])}
+    ${(() => { const K = paletteStats(); return `
+    ${duo(
+      cadreGraphe('Inscrits par section', barres({ donnees: d.lignes.filter(l => l.etudiants.n)
+        .map(l => ({ nom: esc(l.section), valeur: l.etudiants.n, couleur: K.donnees, texte: n0(l.etudiants.n) })) })),
+      cadreGraphe('ETP par section', barres({ donnees: d.lignes.filter(l => l.etp).sort((a, b) => b.etp - a.etp)
+        .map(l => ({ nom: esc(l.section), valeur: l.etp, couleur: K.marine, texte: `${n2(l.etp)} ETP` })) })))}
+    ${duo(
+      cadreGraphe('Étudiants — sexe', partsDe(K, [['Femmes', E.F, K.or], ['Hommes', E.M, K.bleu], ['X', E.X, K.cyan],
+        ['Non renseigné', E.sexe_inconnu, GRIS_INCONNU, true]])),
+      cadreGraphe('Étudiants — âge', partsDe(K, [['moins de 25', E.m25, K.cyan], ['25-34', E.m35, K.or], ['35-44', E.m45, K.bleu],
+        ['45 et plus', E.p45, K.marine], ['Non renseigné', E.age_inconnu, GRIS_INCONNU, true]])))}
+    ${cadreGraphe('Étudiants — nationalité', partsDe(K, [['Belgique', E.be, K.bleu], ['Union européenne', E.ue, K.cyan],
+      ['Hors UE', E.hors_ue, K.or], ['Non renseignée', E.nat_inconnue, GRIS_INCONNU, true]]),
+      `renseignée pour ${pc(E.n - E.nat_inconnue, E.n)} des inscrits`)}`; })()}
+    <h2>Étudiants — sexe et âge</h2>${tEtu}
+    <h2>Étudiants — nationalités</h2>${tNat}
+    <h2>Étudiants — diplômes</h2>${tDipl}
+    <h2>Personnel et charge</h2>${tPers}
+    <h2>Offre de formation</h2>${tOffre}`;
+
+  return {
+    corps,
+    entete: {
+      titre: 'Chiffres clés par section',
+      sous: `Année académique ${p.annee} · situation au ${dateRef}`,
+    },
+    titre: 'Chiffres clés par section',
+    nom: `Chiffres-cles-${p.annee}.html`,
+    styles: STYLE_RAPPORT + STYLE_REPORTING + STYLE_STATS,
+  };
 }
 
 /**
@@ -1154,6 +1373,26 @@ export const RAPPORTS = [
     document: (p) => documentEtp(p),
   },
 
+  {
+    /* LES CHIFFRES CLÉS PAR SECTION (Charles, 6 octobre 2026 — conseil
+       d'entreprise : ETP, étudiants, UE, nationalités ; « c'est pour l'année
+       en cours »). Chaque donnée personnelle dit combien de fiches la portent. */
+    id: 'chiffres-cles', domaine: 'gestion', params: ['annee'],
+    libelle: 'Chiffres clés par section',
+    aide: "Étudiants (sexe, âge, nationalités, diplômes), personnel, ETP et offre, section par section — avec le taux de remplissage de chaque donnée.",
+    colonnes: COLS([['section', 'Section', 24], ['inscrits', 'Inscrits'], ['femmes', 'F'], ['hommes', 'M'],
+      ['x', 'X'], ['age', 'Âge moyen'], ['nat', 'Nationalité connue'], ['personnel', 'Personnel'],
+      ['etp', 'ETP'], ['ues', 'UE'], ['periodes', 'Périodes']]),
+    lignes: (p) => donneesChiffresCles(p.annee).lignes.map(l => ({
+      section: l.section, inscrits: l.etudiants.n, femmes: l.etudiants.F, hommes: l.etudiants.M, x: l.etudiants.X,
+      age: l.etudiants.age_moyen != null ? Math.round(l.etudiants.age_moyen * 10) / 10 : null,
+      nat: l.etudiants.n ? `${Math.round((l.etudiants.n - l.etudiants.nat_inconnue) / l.etudiants.n * 100)} %` : '—',
+      personnel: l.personnel.n, etp: l.etp != null ? Math.round(l.etp * 100) / 100 : null,
+      ues: l.ues, periodes: l.periodes,
+    })),
+    document: (p) => documentChiffresCles(p),
+  },
+
   /*
    * ── CE QUI VIENT DU CONSTRUCTEUR DE LISTES ────────────────────────────
    *
@@ -1167,6 +1406,18 @@ export const RAPPORTS = [
    * tableur ET pièce imprimable dans l'enveloppe de la maison, le tout sans
    * un écran de plus. LE CATALOGUE EST LA SEULE PORTE.
    */
+  {
+    /* LES STATISTIQUES DU PERSONNEL (Charles, 6 octobre 2026 — conseil
+       d'entreprise : « je veux les statistiques pour les profs »). */
+    id: 'statistiques-personnel', domaine: 'personnel', params: ['annee'],
+    libelle: 'Statistiques du personnel',
+    aide: "Statut, nomination, employeur, charge individuelle, domicile, sexe, âge et nationalité — en graphiques, section par section, avec la part des fiches renseignées.",
+    colonnes: COLS([['section', 'Section', 24], ['membres', 'Membres'], ['cc', 'CC'], ['exp', 'EXP'],
+      ['definitifs', 'Définitifs'], ['iip', 'IIP'], ['helb', 'HELB'], ['etp', 'ETP']]),
+    lignes: (p) => donneesPersonnel(p.annee).sections.map(x => ({ section: x.section, membres: x.n, cc: x.cc,
+      exp: x.exp, definitifs: x.definitif, iip: x.iip, helb: x.helb, etp: Math.round(x.etp_section * 100) / 100 })),
+    document: (p) => documentPersonnelStats(p),
+  },
   {
     id: 'personnel-par-section', domaine: 'personnel', params: ['annee', 'section'],
     libelle: 'Professeurs par section',
