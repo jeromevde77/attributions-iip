@@ -106,7 +106,7 @@ export function eidToProf(data) {
   if (id.firstName) out.prenom = id.firstName.trim();
   if (id.sex) {
     const s = id.sex.trim().toUpperCase();
-    if (s === 'M' || s === 'F') out.sexe = s;
+    if (s === 'M' || s === 'F' || s === 'X') out.sexe = s;
   }
   if (id.nationalNumber) out.niss = formatNiss(id.nationalNumber);
   // La carte dit « Belge » / « Belg » / « Belgier » selon sa langue ; Lucie

@@ -200,6 +200,10 @@ export function actionDe(req) {
  */
 const AFFINEMENTS = [
   { motif: /^\/api\/pilotage\/dotation/, module: 'dotation' },
+  // Les rues (BeST Address) sont une donnée de référence publique : toute
+  // saisie d'adresse les propose, y compris « Ma fiche » d'un professeur,
+  // qui n'a pas le module Organisation. Aucune porte de module.
+  { motif: /^\/api\/ref\/rues(\/|\?|$)/, module: null },
 ];
 
 /**

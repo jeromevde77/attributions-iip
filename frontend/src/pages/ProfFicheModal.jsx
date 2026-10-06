@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import ChampsAdresse, { ChoixPays } from '../components/ChampsAdresse.jsx';
 import { Fenetre } from '../components/ui.jsx';
 import { api, getAnnee } from '../lib/api.js';
 import { eidStatus, eidReadAll, eidToProf, eidChamps } from '../lib/eid.js';
@@ -506,9 +507,9 @@ export default function ProfFicheModal({ prof, onClose, onSaved, restreint = fal
             </div>
             <div className="grid grid-cols-3 gap-3">
               <SelectField label="Sexe" value={form.sexe} onChange={v => set('sexe', v)}
-                options={[['', '—'], ['F', 'F'], ['M', 'M']]} />
+                options={[['', '—'], ['F', 'F'], ['M', 'M'], ['X', 'X']]} />
               <TextField label="Date de naissance" type="date" value={form.date_naissance} onChange={v => set('date_naissance', v)} />
-              <TextField label="Nationalité" value={form.nationalite} onChange={v => set('nationalite', v)} />
+              <Labelled label="Nationalité"><ChoixPays value={form.nationalite} onChange={v => set('nationalite', v)} className={FIELD_CLS} /></Labelled>
             </div>
             <div className="grid grid-cols-2 gap-3">
               <TextField label="NISS / NISS bis" placeholder="00.00.00-000.00" value={form.niss} onChange={v => set('niss', v)} />
@@ -516,16 +517,17 @@ export default function ProfFicheModal({ prof, onClose, onSaved, restreint = fal
             </div>
             <div className="grid grid-cols-2 gap-3">
               <TextField label="Lieu de naissance — ville" value={form.lieu_naissance_ville} onChange={v => set('lieu_naissance_ville', v)} />
-              <TextField label="Lieu de naissance — pays" value={form.lieu_naissance_pays} onChange={v => set('lieu_naissance_pays', v)} />
+              <Labelled label="Lieu de naissance — pays"><ChoixPays value={form.lieu_naissance_pays} onChange={v => set('lieu_naissance_pays', v)} className={FIELD_CLS} /></Labelled>
             </div>
           </Section>
 
           {/* 2. Coordonnées */}
           <Section titre="2 · Coordonnées & compte bancaire" ouvert={open.coord} onToggle={() => toggle('coord')}>
-            <TextField label="Adresse (rue + n°)" value={form.adresse_rue} onChange={v => set('adresse_rue', v)} />
-            <div className="grid grid-cols-2 gap-3">
-              <TextField label="Code postal" value={form.code_postal} onChange={v => set('code_postal', v)} />
-              <TextField label="Localité" value={form.commune} onChange={v => set('commune', v)} />
+            {/* L'ADRESSE, PARTOUT LA MÊME : code postal → localité (bpost) → rue (BeST). */}
+            <div className="grid grid-cols-3 gap-3">
+              <ChampsAdresse Etiquette={Labelled} classe={FIELD_CLS}
+                valeurs={{ cp: form.code_postal, localite: form.commune, rue: form.adresse_rue }}
+                poser={(k, v) => set({ cp: 'code_postal', localite: 'commune', rue: 'adresse_rue' }[k], v)} />
             </div>
             <div className="grid grid-cols-2 gap-3">
               <TextField label="E-mail" type="email" value={form.adresse_mail} onChange={v => set('adresse_mail', v)} />

@@ -317,6 +317,10 @@ export default function ReglesDeliberation({ onClose, onFini }) {
                     <option value="periodes">au prorata de leurs périodes</option>
                     <option value="egal">tous à poids égal dans l'unité</option>
                   </select>
+                  <p className="text-[11px] text-slate-500 mt-1">
+                    Vaut jusqu'en 2025-2026. À partir de 2026-2027, les périodes du dossier
+                    pédagogique font foi (activités Z exclues), sauf poids saisi pour une unité.
+                  </p>
                 </div>
               </div>
 

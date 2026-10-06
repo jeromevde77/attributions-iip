@@ -625,7 +625,12 @@ export function structureUE(ueNum, annee) {
   // À POIDS ÉGAUX SI LA MAISON L'A DIT. Sans ce court-circuit, le réglage
   // n'aurait aucun effet visible : les périodes existent presque toujours, et
   // c'est elles qui pesaient, quoi qu'on ait choisi.
-  const egalitaire = (() => {
+  /* À PARTIR DE 2026-2027, LES PÉRIODES FONT FOI (Charles, 25 septembre
+     2026), et ce réglage ne les recouvre plus : il valait pour les années
+     reprises des classeurs, où rien d'autre ne disait le poids d'un cours.
+     Posé à « égal » en production, il pesait pareil les cinq cours de
+     l'UE 333 — 20 périodes comme 64 (6 octobre 2026). */
+  const egalitaire = anneeRef < ANNEE_PERIODES && (() => {
     try { return reglesDeliberation().cours_sans_poids === 'egal'; } catch { return false; }
   })();
   const poidsCours = {};

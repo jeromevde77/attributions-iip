@@ -39,6 +39,7 @@ export const CIBLES = [
       { champ: 'nom', libelle: 'Nom' },
       { champ: 'prenom', libelle: 'Prénom' },
       { champ: 'titre', libelle: 'Titre (M./Mme)' },
+      { champ: 'sexe', libelle: 'Sexe (F / M / X)', convertir: reconnaitreSexe },
       { champ: 'date_naissance', libelle: 'Date de naissance', type: 'date' },
       { champ: 'lieu_naissance', libelle: 'Lieu de naissance' },
       { champ: 'nationalite', libelle: 'Nationalité' },
