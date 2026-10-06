@@ -23,11 +23,12 @@ export default function ImportPersonnelFwb({ onClose, onTermine }) {
   const [rapport, setRapport] = useState(null);
   const [erreur, setErreur] = useState(null);
   const [enCours, setEnCours] = useState(false);
+  const [foi, setFoi] = useState(false);
 
   async function envoyer(simulation) {
     setEnCours(true); setErreur(null);
     try {
-      const corps = { simulation, profs: await lire(profs), diplomes: await lire(diplomes) };
+      const corps = { simulation, coordonnees_font_foi: foi, profs: await lire(profs), diplomes: await lire(diplomes) };
       const r = await fetch('/api/import-personnel/fwb', { method: 'POST', headers: authHeaders(), body: JSON.stringify(corps) });
       const j = await r.json().catch(() => ({}));
       if (!r.ok) throw new Error(j.error || `Erreur ${r.status}`);
@@ -66,6 +67,11 @@ export default function ImportPersonnelFwb({ onClose, onTermine }) {
         </p>
         {fichier('Fichier des professeurs', 'Matricule, appellation, nom, prénom, adresse, CP, localité, téléphones, courriels (ex. PROFESSEURS_….xls).', setProfs, profs)}
         {fichier('Liste des diplômes (facultatif)', 'Id_Prof (matricule), nom, Dip1, Dip2, Dip3.', setDiplomes, diplomes)}
+        <label className="flex items-start gap-2 text-[13px]">
+          <input type="checkbox" checked={foi} onChange={e => { setFoi(e.target.checked); setRapport(null); }} className="mt-0.5" />
+          <span><b>Le fichier fait foi pour les coordonnées</b> — l’adresse, le GSM et le courriel privé du fichier remplacent ceux de Lucie
+            quand ils diffèrent. Sinon, ils ne remplissent que les cases vides. Un courriel invalide (accent, espace) est toujours remplacé.</span>
+        </label>
         {erreur && <Encadre etat="corriger">{erreur}</Encadre>}
         {rapport && (
           <div className="space-y-3 text-[13px]">
@@ -76,6 +82,13 @@ export default function ImportPersonnelFwb({ onClose, onTermine }) {
               {Object.keys(rapport.champs).length ? ` : ${Object.entries(rapport.champs).map(([k, n]) => `${champs[k] || k} ${n}`).join(' · ')}` : ''}.
               {rapport.titres_personnes ? <> <b>{rapport.titres_ajoutes}</b> diplôme(s) pour {rapport.titres_personnes} personne(s){rapport.titres_deja ? ` (${rapport.titres_deja} ont déjà des titres : inchangés)` : ''}.</> : ''}
             </Encadre>
+            {!!rapport.remplacements.length && (
+              <Encadre etat="neutre">
+                <b>{rapport.remplacements.length} valeur(s) {rapport.ecrit ? 'remplacée(s)' : 'à remplacer'}</b> :
+                <ul className="mt-1 list-disc pl-5">{rapport.remplacements.map((x, i) => (
+                  <li key={i}>{x.nom} — {x.champ} : « {x.avant} » → « {x.apres} »</li>))}</ul>
+              </Encadre>
+            )}
             {!!rapport.desaccords.length && (
               <Encadre etat="surveiller">
                 <b>{rapport.desaccords.length} désaccord(s)</b> entre Lucie et le fichier — rien n’est changé, à vérifier sur la fiche :
