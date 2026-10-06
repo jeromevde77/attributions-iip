@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { demander } from '../lib/dialogue.jsx';
 import { useNavigate } from 'react-router-dom';
 import {
   IconTargetArrow, IconBriefcase, IconAlertTriangle, IconCheck, IconX,
@@ -104,6 +105,12 @@ export default function Besoins({ annee: anneeProp }) {
       const j = await rep.json();
       titres = j.titres || [];
     } catch { /* le cours peut n'avoir aucun titre rattaché */ }
+    let contenu = '';
+    try {
+      const rep = await fetch(`/api/besoins/contenu-cours/${encodeURIComponent(b.code_cours)}?annee=${encodeURIComponent(annee)}`,
+        { headers: authHeaders() });
+      contenu = (await rep.json()).texte || '';
+    } catch { /* rien à proposer : le champ reste à écrire */ }
 
     setBrouillon({
       annee, section: b.section, ue_num: b.ue_num, code_cours: b.code_cours,
@@ -111,7 +118,7 @@ export default function Besoins({ annee: anneeProp }) {
       periodes_cours: b.periodes_par_groupe, nb_groupes: b.nb_groupes,
       total_periodes: b.total_periodes, nb_postes: b.nb_groupes,
       intitule: `${b.cours_nom || b.code_cours}${b.section ? ' — ' + b.section : ''}`,
-      cours_nom: b.cours_nom || '', fonction: '', description: '', profil: '', prise_de_fonction: '',
+      cours_nom: b.cours_nom || '', fonction: '', description: contenu, profil: '', prise_de_fonction: '',
       titres, titres_extra: [],
     });
   }
@@ -524,6 +531,20 @@ function ChampsAppel({ valeur, poser }) {
   })();
   const duCours = new Set((valeur.titres || []).filter(t => t.portee !== 'ajoute').map(t => Number(t.titre_id ?? t.id)));
   const basculer = id => poser('titres_extra', extra.includes(id) ? extra.filter(x => x !== id) : [...extra, id]);
+  const [manque, setManque] = useState([]);
+  async function reprendre() {
+    try {
+      const r = await fetch(`/api/besoins/contenu-cours/${encodeURIComponent(valeur.code_cours)}?annee=${encodeURIComponent(valeur.annee || valeur.annee_scolaire || '')}`,
+        { headers: authHeaders() });
+      const j = await r.json();
+      if (!r.ok) throw new Error(j.error || 'échec');
+      setManque(j.manque || []);
+      if (j.texte && (!String(valeur.description || '').trim()
+        || await demander('Remplacer le contenu synthétique actuel par celui du dossier pédagogique ?'))) {
+        poser('description', j.texte);
+      }
+    } catch (e) { setManque([e.message]); }
+  }
   return (
     <div className="space-y-3">
       <div className="grid grid-cols-2 gap-3">
@@ -542,9 +563,17 @@ function ChampsAppel({ valeur, poser }) {
       <Champ label="Cours à conférer (tel qu'au dossier pédagogique)">
         <input value={valeur.cours_nom || ''} onChange={e => poser('cours_nom', e.target.value)} className={champ} />
       </Champ>
-      <Champ label="Contenu synthétique">
-        <textarea rows={3} value={valeur.description || ''} data-reponses="offre-contenu"
+      <Champ label="Contenu synthétique — les acquis du cours, puis les points du programme">
+        <textarea rows={8} value={valeur.description || ''} data-reponses="offre-contenu"
           onChange={e => poser('description', e.target.value)} className={champ} />
+        <div className="flex flex-wrap items-start gap-2 mt-1">
+          {valeur.code_cours && (
+            <button type="button" className="text-[12px] underline text-iip-blue" onClick={reprendre}>
+              Reprendre du dossier pédagogique
+            </button>
+          )}
+          {manque.length > 0 && <span className="text-[11.5px] text-amber-700">{manque.join(' ; ')}.</span>}
+        </div>
       </Champ>
       <Champ label="Profil du/de la candidat·e">
         <textarea rows={3} value={valeur.profil || ''} data-reponses="offre-profil"

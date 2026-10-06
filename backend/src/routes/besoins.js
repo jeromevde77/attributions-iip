@@ -32,6 +32,71 @@ function manquesOffre(o) {
   return m;
 }
 
+/* LE CONTENU SYNTHÉTIQUE SE REPREND DU DOSSIER PÉDAGOGIQUE (Charles, 6 octobre
+   2026 : « ce sont les AA du cours, suivis des points du programme »). Les
+   acquis du cours : ceux que la pondération de l'année lui rattache, sinon
+   ceux rattachés au cours dans le référentiel, sinon — cours unique de
+   l'unité — tous ceux de l'unité. Le programme : la section « Programme » de
+   la description d'unité (ue_det, écrite par l'import du dossier), coupée au
+   titre du cours quand l'unité en a plusieurs. Ce qui manque est DIT, jamais
+   inventé : la proposition reste modifiable. */
+const normTitre = t => String(t || '').normalize('NFD').replace(/[̀-ͯ]/g, '')
+  .toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+export function contenuSynthetique(codeCours, annee) {
+  const cours = db.prepare(`SELECT cours_code, cours_nom, ue_num, annee_scolaire FROM cours
+     WHERE cours_code = ? ORDER BY (annee_scolaire = ?) DESC, annee_scolaire DESC LIMIT 1`).get(codeCours, annee || '');
+  if (!cours) return { texte: '', manque: ['le cours est inconnu du référentiel'] };
+  const an = cours.annee_scolaire;
+  const freres = db.prepare('SELECT cours_code, cours_nom FROM cours WHERE ue_num = ? AND annee_scolaire = ?')
+    .all(cours.ue_num, an);
+
+  let acquis = db.prepare(`SELECT a.aa_code, a.aa_num, a.description FROM aa_ponderation p
+      JOIN aa a ON a.aa_code = p.aa_code
+     WHERE p.cours_code = ? AND p.annee_scolaire = ? ORDER BY a.aa_num`).all(codeCours, an);
+  if (!acquis.length) acquis = db.prepare('SELECT aa_code, aa_num, description FROM aa WHERE cours_code = ? ORDER BY aa_num').all(codeCours);
+  // Aucun acquis rattaché au cours : ceux de l'unité — tels quels pour un
+  // cours unique, signalés « de l'unité » sinon, à réduire à la main.
+  let acquisDeLUnite = false;
+  if (!acquis.length) {
+    acquis = db.prepare('SELECT aa_code, aa_num, description FROM aa WHERE ue_num = ? ORDER BY aa_num').all(cours.ue_num);
+    acquisDeLUnite = freres.length > 1 && acquis.length > 0;
+  }
+  acquis = acquis.filter(a => String(a.description || '').trim());
+
+  const det = db.prepare(`SELECT ue_det FROM ue WHERE ue_num = ? AND ue_det LIKE '%## Programme%'
+     ORDER BY (annee_scolaire = ?) DESC, annee_scolaire DESC LIMIT 1`).get(cours.ue_num, an)?.ue_det || '';
+  let programme = '';
+  let portee = null;
+  const m = /## Programme\n([\s\S]*?)(?=\n## |$)/.exec(det);
+  if (m) {
+    const lignes = m[1].split('\n').map(l => l.trim()).filter(Boolean);
+    if (freres.length <= 1) { programme = lignes.join('\n'); portee = 'cours'; }
+    else {
+      const titres = new Map(freres.map(f => [normTitre(f.cours_nom), f.cours_code]));
+      const debut = lignes.findIndex(l => normTitre(l) === normTitre(cours.cours_nom));
+      if (debut >= 0) {
+        const fin = lignes.findIndex((l, i) => i > debut && titres.has(normTitre(l)));
+        programme = lignes.slice(debut + 1, fin < 0 ? undefined : fin).join('\n');
+        portee = 'cours';
+      } else { programme = lignes.join('\n'); portee = 'unite'; }
+    }
+  }
+
+  const blocs = [];
+  if (acquis.length) {
+    blocs.push(`${acquisDeLUnite ? "Acquis d'apprentissage de l'unité" : "Acquis d'apprentissage"} :\n${acquis.map(a => `- ${a.description.trim()}`).join('\n')}`);
+  }
+  if (programme) {
+    blocs.push(`${portee === 'unite' ? "Programme de l'unité" : 'Programme'} :\n${programme}`);
+  }
+  const manque = [];
+  if (!acquis.length) manque.push("aucun acquis d'apprentissage n'est enregistré pour cette unité");
+  if (acquisDeLUnite) manque.push("les acquis ne sont pas rattachés au cours : ce sont ceux de toute l'unité, à réduire");
+  if (!programme) manque.push("le programme du dossier pédagogique n'est pas importé pour cette unité");
+  if (portee === 'unite') manque.push("le programme n'a pas pu être découpé au titre du cours : c'est celui de toute l'unité, à réduire");
+  return { texte: blocs.join('\n\n'), manque, acquis: acquis.length, portee };
+}
+
 // Traçabilité des envois d'offres : la publication est un acte administratif,
 // son envoi aussi.
 try {
@@ -120,6 +185,11 @@ r.get('/', authRequired, (req, res) => {
   });
 });
 
+/** Contenu synthétique proposé pour un cours : ses acquis, puis son programme. */
+r.get('/contenu-cours/:coursCode', authRequired, (req, res) => {
+  res.json(contenuSynthetique(req.params.coursCode, req.query.annee));
+});
+
 /** Titres du référentiel visés par un cours, pour préremplir une offre. */
 r.get('/titres-cours/:coursCode', authRequired, (req, res) => {
   const lignes = db.prepare(`
@@ -171,7 +241,7 @@ r.post('/offre', authRequired, peutEcrire, (req, res) => {
     quadrimestre || null, type_cours || null,
     periodes_cours ?? null, nb_groupes ?? null, total_periodes ?? null,
     nb_postes ?? (nb_groupes || 1),
-    description || null, profil || null, competences || null,
+    description || contenuSynthetique(code_cours, annee).texte || null, profil || null, competences || null,
     horaire_indicatif || null,
     titres_extra ? JSON.stringify(titres_extra) : null,
     date_limite || null, annee,
@@ -190,10 +260,13 @@ function detailOffre(id) {
   if (!offre) return null;
 
   // Acquis d'apprentissage rattachés au cours (rattachement fait dans la fiche UE)
-  const acquis = offre.code_cours ? db.prepare(`
-    SELECT aa_code, aa_num, description FROM aa
-     WHERE cours_code = ? ORDER BY aa_num
-  `).all(offre.code_cours) : [];
+  let acquis = offre.code_cours ? db.prepare(`
+    SELECT a.aa_code, a.aa_num, a.description FROM aa_ponderation p JOIN aa a ON a.aa_code = p.aa_code
+     WHERE p.cours_code = ? AND p.annee_scolaire = ? ORDER BY a.aa_num
+  `).all(offre.code_cours, offre.annee_scolaire || '') : [];
+  if (!acquis.length && offre.code_cours) {
+    acquis = db.prepare('SELECT aa_code, aa_num, description FROM aa WHERE cours_code = ? ORDER BY aa_num').all(offre.code_cours);
+  }
 
   // Titres visés : ceux du référentiel + ceux cochés en plus sur l'offre
   const duReferentiel = offre.code_cours ? db.prepare(`
