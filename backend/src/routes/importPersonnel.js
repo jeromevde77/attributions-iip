@@ -78,17 +78,24 @@ function rapprocheur() {
   };
 }
 
+/** Une adresse de courriel utilisable : sans accent, sans espace, avec un domaine. */
+const mailValide = e => /^[a-z0-9._%+'-]+@[a-z0-9-]+(\.[a-z0-9-]+)*\.[a-z]{2,}$/i.test(t(e)) && !/^\./.test(t(e));
+// Les coordonnées changent ; quand on le dit, le fichier du jour les remplace.
+const COORDONNEES = ['adresse_rue', 'code_postal', 'commune', 'tel_gsm', 'mail_prive'];
+
 const CHAMPS = { matricule: 'Matricule', sexe: 'Sexe', date_naissance: 'Date de naissance', adresse_rue: 'Adresse',
   code_postal: 'Code postal', commune: 'Localité', tel_gsm: 'GSM', mail_prive: 'Courriel privé', adresse_mail: 'Courriel école' };
 
 r.post('/fwb', authRequired, gesteRequis('personnel.fiche'), (req, res) => {
   const simulation = req.body?.simulation !== false;
+  // « Le fichier fait foi pour les coordonnées » : adresse, GSM, courriel privé.
+  const coordonneesFontFoi = req.body?.coordonnees_font_foi === true;
   const lignes = Array.isArray(req.body?.profs) ? req.body.profs : [];
   const diplomes = Array.isArray(req.body?.diplomes) ? req.body.diplomes : [];
   if (!lignes.length && !diplomes.length) return res.status(400).json({ error: 'Aucune ligne reçue.' });
   const trouver = rapprocheur();
   const rapport = { lignes: lignes.length, retrouves: 0, methodes: {}, champs: {}, ecritures: [], desaccords: [],
-    absents: [], titres_ajoutes: 0, titres_personnes: 0, titres_deja: 0, diplomes_sans_fiche: [] };
+    absents: [], remplacements: [], titres_ajoutes: 0, titres_personnes: 0, titres_deja: 0, diplomes_sans_fiche: [] };
   const parMatricule = new Map();   // matricule du fichier → fiche, pour les diplômes
   const majs = [];
   for (const l of lignes) {
@@ -103,6 +110,18 @@ r.post('/fwb', authRequired, gesteRequis('personnel.fiche'), (req, res) => {
       const nouveau = f[k]; if (!nouveau) continue;
       const actuel = t(p[k]);
       if (!actuel) { maj[k] = nouveau; rapport.champs[k] = (rapport.champs[k] || 0) + 1; continue; }
+      /* UN COURRIEL INVALIDE N'EST PAS UNE VALEUR (Charles, 6 octobre 2026 :
+         « pourquoi tu ne prends pas les adresses ? »). « françoise.klein@ »,
+         « .fontigny@ » : rien ne part à ces adresses. Quand le fichier en porte
+         une valide, elle remplace l'invalide — et c'est dit. */
+      const remplacer = ((k === 'adresse_mail' || k === 'mail_prive') && !mailValide(actuel) && mailValide(nouveau))
+        || (coordonneesFontFoi && COORDONNEES.includes(k) && nu(actuel) !== nu(nouveau)
+            && (k !== 'mail_prive' || mailValide(nouveau)));
+      if (remplacer) {
+        maj[k] = nouveau; rapport.champs[k] = (rapport.champs[k] || 0) + 1;
+        rapport.remplacements.push({ nom: `${String(p.nom).toUpperCase()} ${p.prenom || ''}`.trim(), champ: CHAMPS[k], avant: actuel, apres: nouveau });
+        continue;
+      }
       const egal = k === 'matricule' ? chiffres(actuel) === chiffres(nouveau)
         : k === 'sexe' ? actuel.toUpperCase() === nouveau
         : k === 'date_naissance' ? actuel.slice(0, 10) === nouveau
@@ -141,8 +160,14 @@ r.post('/fwb', authRequired, gesteRequis('personnel.fiche'), (req, res) => {
     db.transaction(() => {
       for (const { id, maj } of majs) {
         const cols = Object.keys(maj);
+        const avantMail = maj.adresse_mail ? t(db.prepare('SELECT adresse_mail FROM professeur WHERE id = ?').get(id)?.adresse_mail).toLowerCase() : null;
         db.prepare(`UPDATE professeur SET ${cols.map(c => `${c} = ?`).join(', ')} WHERE id = ?`).run(...cols.map(c => maj[c]), id);
-        journal?.run(id, `Fiche complétée par l'import des fichiers de l'école : ${cols.map(c => CHAMPS[c]).join(', ')}.`, qui, req.user?.id || null);
+        // Le compte Lucie qui portait l'ancienne adresse école la suit (3.1.83).
+        if (avantMail && maj.adresse_mail !== avantMail && !db.prepare('SELECT 1 FROM utilisateur WHERE lower(email) = ?').get(maj.adresse_mail)) {
+          db.prepare('UPDATE utilisateur SET email = ? WHERE professeur_id = ? AND lower(email) = ?').run(maj.adresse_mail, id, avantMail);
+        }
+        journal?.run(id, `Fiche complétée par l'import des fichiers de l'école : ${cols.map(c => CHAMPS[c]).join(', ')}.`
+          + (avantMail && maj.adresse_mail ? ` Courriel école : « ${avantMail} » remplacé par « ${maj.adresse_mail} ».` : ''), qui, req.user?.id || null);
       }
       const ins = db.prepare('INSERT INTO titre_capacite (professeur_id, date_obtention, intitule, delivre_par, ordre) VALUES (?,?,?,?,?)');
       for (const { id, titres } of titresAjouts) {
