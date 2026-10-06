@@ -1307,9 +1307,27 @@ r.patch('/professeurs/:id', authRequired, gesteRequis('personnel.fiche'), (req, 
     if (k in req.body) { updates.push(`${k} = @${k}`); params[k] = req.body[k]; }
   }
   if (!updates.length) return res.status(400).json({ error: 'Aucun champ à modifier' });
+  const avant = db.prepare('SELECT adresse_mail FROM professeur WHERE id = ?').get(req.params.id);
   const result = db.prepare(`UPDATE professeur SET ${updates.join(', ')} WHERE id = @id`).run(params);
   if (result.changes === 0) return res.status(404).json({ error: 'Professeur introuvable' });
-  res.json({ ok: true });
+  /* LE COMPTE SUIT LA FICHE (Charles, 6 octobre 2026 — Laetitia Van Bogaert :
+     « il ne va pas chercher la bonne adresse »). L'accès en lot ouvre le compte
+     avec l'adresse école de la fiche ; corrigée ensuite, la fiche changeait et
+     le compte gardait l'ancienne — le lien de connexion partait à une adresse
+     fausse. Quand l'adresse école change, le compte qui portait l'ANCIENNE la
+     reçoit (s'il en portait une autre, on n'y touche pas : c'est un choix). */
+  let compte = null;
+  const ancienne = String(avant?.adresse_mail || '').trim().toLowerCase();
+  const nouvelle = String(req.body.adresse_mail ?? '').trim().toLowerCase();
+  if ('adresse_mail' in req.body && ancienne && nouvelle && nouvelle !== ancienne && /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(nouvelle)) {
+    const libre = !db.prepare('SELECT 1 FROM utilisateur WHERE lower(email) = ?').get(nouvelle);
+    if (libre) {
+      const r2 = db.prepare('UPDATE utilisateur SET email = ? WHERE professeur_id = ? AND lower(email) = ?')
+        .run(nouvelle, Number(req.params.id), ancienne);
+      if (r2.changes) compte = nouvelle;
+    }
+  }
+  res.json({ ok: true, ...(compte ? { compte_email: compte } : {}) });
 });
 
 // Supprimer un professeur (seulement si aucune attribution active)
