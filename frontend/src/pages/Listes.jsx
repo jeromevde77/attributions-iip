@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { selectionEtudiants } from '../lib/selectionEtudiants.js';
 import { peutGeste } from '../lib/droits.js';
 import { useNavigate } from 'react-router-dom';
 import { api, getAnnee, nomDoc, getUser } from '../lib/api.js';
@@ -365,7 +366,10 @@ const ENTITES = {
            le filtre garde ceux qui appartiennent au groupe choisi. */
         const groupesDe = r => String(r.groupe || '').split(' + ').map(x => x.trim()).filter(Boolean);
         const dispo = [...new Set(toutes.flatMap(groupesDe))].sort((a, b) => a.localeCompare(b, 'fr', { numeric: true }));
-        const l = filtres.groupe ? toutes.filter(r => groupesDe(r).includes(filtres.groupe)) : toutes;
+        let l = filtres.groupe ? toutes.filter(r => groupesDe(r).includes(filtres.groupe)) : toutes;
+        // SEULEMENT LA SÉLECTION de la liste des étudiants (7 octobre 2026).
+        const sel = selectionEtudiants().ids;
+        if (filtres.selection && sel.length) { const s = new Set(sel); l = l.filter(r => s.has(Number(r.id_lucie ?? r.id))); }
         l.groupesDispo = dispo;
         return l;
       });
@@ -584,7 +588,8 @@ export default function Listes({ integre = false, domaine = null, rapports = nul
     return premier ? premier[0] : 'profs';
   });
   const [colsActives, setColsActives] = useState(() => new Set(ENTITES['profs'].cols.filter(c => c.defaut).map(c => c.key)));
-  const [filtres, setFiltres] = useState({});
+  // Une sélection faite dans la liste des étudiants s'applique d'office (on la décoche au besoin).
+  const [filtres, setFiltres] = useState(() => (selectionEtudiants().ids.length ? { selection: true } : {}));
   const [showOptionsRapport, setShowOptionsRapport] = useState(false); // pop-up de critères avant génération
   const [rows, setRows] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -631,7 +636,7 @@ export default function Listes({ integre = false, domaine = null, rapports = nul
 
   function changerEntite(k) {
     setEntite(k);
-    setRows(null); setError(''); setFiltres({});
+    setRows(null); setError(''); setFiltres(selectionEtudiants().ids.length ? { selection: true } : {});
     setColsActives(new Set(ENTITES[k].cols.filter(c => c.defaut).map(c => c.key)));
   }
 
@@ -1723,6 +1728,12 @@ ${methodologie}
                 </label>
               )}
             </>
+          )}
+          {def.filtres.includes('primo') && selectionEtudiants().ids.length > 0 && (
+            <label className="flex items-center gap-1.5 text-sm" title="Les étudiants cochés dans la liste des étudiants">
+              <input type="checkbox" checked={!!filtres.selection} onChange={e => setFiltres(f => ({ ...f, selection: e.target.checked }))} />
+              Seulement les {selectionEtudiants().ids.length} étudiant(s) sélectionné(s)
+            </label>
           )}
           {def.filtres.includes('primo') && (
             /* PRIMO OU LES AUTRES (2 octobre 2026) : l'inverse exact se choisit aussi. */
