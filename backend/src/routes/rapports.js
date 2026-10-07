@@ -2007,6 +2007,41 @@ export const RAPPORTS = [
   },
 
   {
+    /* PAR UNITÉ, COMBIEN ET QUI (Charles, 7 octobre 2026 : « j'ai besoin de
+       savoir, par UE, combien d'étudiants et une liste de noms »). Le
+       générateur de listes ne sortait qu'une unité à la fois : ici, toutes les
+       unités d'une section, une bande par unité — son effectif en tête — puis
+       les noms. La mention dit ce qui distingue : reprise (déjà inscrit à
+       l'unité une année précédente) ou dispense par valorisation. */
+    id: 'inscrits-par-ue', domaine: 'etudiants', params: ['annee', 'section'],
+    libelle: 'Inscrits par unité — liste nominative',
+    aide: "Pour chaque unité de la section : son effectif et la liste des étudiants inscrits, reprises et dispenses signalées.",
+    colonnes: COLS([['unite', 'Unité', 44], ['n', 'N°', 8], ['etudiant', 'Étudiant', 40], ['matricule', 'Matricule', 18], ['mention', 'Mention', 30]]),
+    lignes: (p) => {
+      const ues = db.prepare(`SELECT ue_num, MIN(ue_nom) AS ue_nom FROM ue WHERE annee_scolaire = ? AND (? IS NULL OR section = ?)
+          GROUP BY ue_num ORDER BY ue_num`).all(p.annee, p.section, p.section);
+      const inscrits = db.prepare(`SELECT e.id, e.nom, e.prenom, COALESCE(e.id_ecampus, e.matricule_helb) AS matricule,
+            EXISTS (SELECT 1 FROM etudiant_inscription j WHERE j.etudiant_id = e.id AND j.ue_num = i.ue_num
+                     AND j.annee_scolaire < i.annee_scolaire) AS reprise,
+            (SELECT CASE WHEN v.porte = 'vae' THEN 'VAE' ELSE 'VA' END FROM etudiant_valorisation v
+              WHERE v.etudiant_id = e.id AND v.ue_num = i.ue_num AND v.type = 'complete'
+                AND COALESCE(v.decision, 'accordee') <> 'refusee' AND v.decision_le IS NOT NULL LIMIT 1) AS va
+          FROM etudiant_inscription i JOIN etudiant e ON e.id = i.etudiant_id
+         WHERE i.annee_scolaire = ? AND i.ue_num = ?
+         GROUP BY e.id ORDER BY upper(e.nom), e.prenom`);
+      const out = [];
+      for (const u of ues) {
+        const l = inscrits.all(p.annee, u.ue_num);
+        if (!l.length) continue;
+        const unite = `UE ${u.ue_num} — ${u.ue_nom || ''} · ${l.length} inscrit${l.length > 1 ? 's' : ''}`;
+        l.forEach((e, i) => out.push({ unite, n: String(i + 1), etudiant: `${String(e.nom || '').toUpperCase()} ${e.prenom || ''}`.trim(),
+          matricule: e.matricule || '', mention: e.va ? `dispensé (${e.va})` : e.reprise ? 'reprise' : '' }));
+      }
+      return out;
+    },
+  },
+
+  {
     id: 'referentiel-ue-sans-attribution', domaine: 'organisation', params: ['annee', 'section'],
     libelle: 'Unités sans attribution',
     aide: "Ce qui est organisé mais que personne ne donne — à vérifier avant la rentrée.",
@@ -2080,13 +2115,19 @@ export const RAPPORTS = [
       ['par_periode', 'Étu. par période', 18]]),
     lignes: (p) => db.prepare(`
       SELECT u.section, u.ue_num, u.ue_nom, u.ue_quad,
-             u.nb_etudiants AS etudiants,
+             -- LES INSCRITS SE COMPTENT, ILS NE SE SAISISSENT PAS (7 octobre 2026) :
+             -- nb_etudiants, champ saisi, était vide partout — l'effectif sortait vide.
+             (SELECT COUNT(DISTINCT i.etudiant_id) FROM etudiant_inscription i
+               WHERE i.ue_num = u.ue_num AND i.annee_scolaire = u.annee_scolaire) AS etudiants,
              ROUND(COALESCE((SELECT SUM(v.total_attribue_professeur)
                                FROM v_attribution_complete v
                               WHERE v.annee_scolaire = u.annee_scolaire
                                 AND v.ue_num = u.ue_num), 0), 2) AS periodes,
-             CASE WHEN u.nb_etudiants > 0 THEN
-               ROUND(u.nb_etudiants / NULLIF((SELECT SUM(v2.total_attribue_professeur)
+             CASE WHEN (SELECT COUNT(DISTINCT i2.etudiant_id) FROM etudiant_inscription i2
+                         WHERE i2.ue_num = u.ue_num AND i2.annee_scolaire = u.annee_scolaire) > 0 THEN
+               ROUND((SELECT COUNT(DISTINCT i3.etudiant_id) FROM etudiant_inscription i3
+                       WHERE i3.ue_num = u.ue_num AND i3.annee_scolaire = u.annee_scolaire) * 1.0
+                     / NULLIF((SELECT SUM(v2.total_attribue_professeur)
                  FROM v_attribution_complete v2
                 WHERE v2.annee_scolaire = u.annee_scolaire AND v2.ue_num = u.ue_num), 0), 2)
              END AS par_periode
