@@ -184,7 +184,7 @@ export function donneesCout(annee) {
   let missions = [];
   try {
     missions = db.prepare(`
-      SELECT pm.fonction, pm.section_code, pm.etp, p.nom, p.prenom, ft.id AS type_id, ft.portee AS type_portee,
+      SELECT pm.fonction, pm.section_code, pm.etp, pm.etp_helb, p.nom, p.prenom, ft.id AS type_id, ft.portee AS type_portee,
         (SELECT COALESCE(SUM(a.periodes_attribuees), 0) FROM attribution a
           WHERE a.professeur_id = pm.professeur_id AND a.annee_scolaire = pm.annee_scolaire) AS per_attribuees
         FROM personnel_mission pm JOIN professeur p ON p.id = pm.professeur_id
@@ -217,11 +217,13 @@ export function donneesCout(annee) {
            le montant d'une période CT du niveau de la section (SUP si SUP, DS si
            DS). Avec des périodes attribuées, elle est déjà payée : rien de plus. */
         const per = Number(m.per_attribuees) || 0;
-        if (!per && etp) {
+        const etpHelb = Number(m.etp_helb) || 0;
+        const etpCompte = etp || etpHelb;   // l'ETP HELB, quand la fonction n'a que lui
+        if (!per && etpCompte) {
           const niv = niveauDeSection(m.section_code);
           const tCT = T[niv]?.CT || 0;
-          return { ...m, pncc, portee, etp, annuel: 0, mode: 'etp800', niveau: niv,
-            calcul: `${etp} ETP × 800 × ${tCT.toFixed(2).replace('.', ',')} € (CT ${niv})`, cout: etp * 800 * tCT };
+          return { ...m, pncc, portee, etp: etpCompte, annuel: 0, mode: 'etp800', niveau: niv,
+            calcul: `${etpCompte} ETP${!etp && etpHelb ? ' HELB' : ''} × 800 × ${tCT.toFixed(2).replace('.', ',')} € (CT ${niv})`, cout: etpCompte * 800 * tCT };
         }
         return { ...m, pncc, portee, etp, annuel: 0, mode: per ? 'periodes' : 'sans_etp', cout: 0 };
       });

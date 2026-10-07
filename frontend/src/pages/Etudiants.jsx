@@ -471,7 +471,14 @@ export function RevuePAE({ liste: base, annee: anneeDepart, onClose }) {
             plusieurs centaines de noms laisse place au champ qui propose. Un
             étudiant hors des filtres posés les fait tomber, plutôt que d'être
             introuvable. */}
-        <ChampEtudiant className="w-[18rem]" options={base} placeholder="Aller à un étudiant…"
+        {/* LA LISTE AUSSI (Charles, 7 octobre 2026 : « le menu déroulant avec les
+            noms, en plus de la zone de saisie ») : on parcourt ou on tape. */}
+        <select className="controle text-[13px] max-w-[14rem]" value={cur?.id || ''}
+          onChange={e => { const k = liste.findIndex(x => x.id === Number(e.target.value)); if (k >= 0) setI(k); }}
+          title="Choisir un étudiant de la liste filtrée">
+          {liste.map((x, k) => <option key={x.id} value={x.id}>{k + 1}. {nomPropre(x.nom, x.prenom)}{synthese?.[x.id]?.revu ? ' ✓' : ''}{synthese?.[x.id] && !synthese[x.id].pae ? ' · sans PAE' : ''}</option>)}
+        </select>
+        <ChampEtudiant className="w-[16rem]" options={base} placeholder="ou taper un nom…"
           detail={x => [synthese?.[x.id]?.revu ? '✓ validé' : '', synthese?.[x.id] && !synthese[x.id].pae ? 'sans PAE' : ''].filter(Boolean).join(' · ')}
           onChoisir={x => {
             const k = liste.findIndex(y => y.id === x.id);
