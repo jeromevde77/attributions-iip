@@ -49,7 +49,7 @@ const ecrire = (cle, v) => { try { localStorage.setItem(cle, JSON.stringify(v));
 /* UNE CASE, UNE LIGNE (Charles, 7 octobre 2026 : « ça ne va pas sur deux
    lignes, il faut que ce soit joli ») : le code, puis la date ou la note en
    plus petit, à la même hauteur que le texte. */
-function Pastille({ k, sous, titre, petite, onClick }) {
+function Pastille({ k, sous, titre, petite, onClick, texte = null }) {
   const e = ETATS[k];
   if (!e) return null;
   const Balise = onClick ? 'button' : 'span';
@@ -58,7 +58,7 @@ function Pastille({ k, sous, titre, petite, onClick }) {
       className={`inline-flex items-center gap-1 rounded-md leading-none font-semibold whitespace-nowrap align-middle
         ${petite ? 'h-[18px] px-1.5 text-[10px]' : 'h-[20px] px-1.5 text-[11px]'} ${e.c}
         ${onClick ? 'cursor-pointer hover:ring-2 hover:ring-offset-1 hover:ring-iip-blue/50' : ''}`}>
-      {k}
+      {texte != null ? <span>{texte}</span> : k}
       {sous != null && sous !== '' && <span className="text-[9.5px] font-normal opacity-85">{sous}</span>}
     </Balise>
   );
@@ -110,6 +110,13 @@ export default function GrilleInscrits({ data, passe, annee, section, onFiche, o
   const avec = k => idCols.includes(k);
   // LA NOTE REPORTÉE À UNE DÉCIMALE (« RP 14,911 » ne se lit pas).
   const noteCourte = n => String(Math.round(Number(n) * 10) / 10).replace('.', ',');
+  /* LE REPORT SE LIT À SA NOTE (Charles, 7 octobre 2026 : « il faut la note à
+     côté ; enlève le RP, on laisse le bleu ») : la ou les notes reportées des
+     cours de l'unité, l'année d'origine en petit. */
+  const notesRP = l => {
+    const n = Object.values(l.cellules || {}).filter(c => c.k === 'RP' && c.note != null).map(c => noteCourte(c.note));
+    return n.length ? n.join(' · ') : 'RP';
+  };
 
   /* RETIRER CE QUI EST DÉJÀ ACQUIS (Charles, 7 octobre 2026) : le serveur
      revérifie, simule, et passe par la porte du PAE ; on voit avant d'écrire. */
@@ -274,6 +281,7 @@ export default function GrilleInscrits({ data, passe, annee, section, onFiche, o
                   <td key={u.ue_num} className="px-2 py-1 border-b border-l border-slate-100 text-center whitespace-nowrap">
                     {l ? <span className="inline-flex items-center gap-1 whitespace-nowrap">
                       <Pastille k={l.code} sous={fr(l.date)}
+                        texte={l.code === 'RP' ? notesRP(l) : null}
                         titre={`${ETATS[l.code]?.lib}${l.detail.length ? ' — ' + l.detail.join(' · ') : ''}${l.reprise ? ' · reprise' : ''}${VERS_REVUE.has(l.code) ? ' — clic : revue du PAE' : l.code === 'AQ' && l.inscrit && peutRetirer ? ' — clic : retirer du programme' : ''}`}
                         onClick={VERS_REVUE.has(l.code) && onRevue ? () => onRevue(id)
                           : l.code === 'AQ' && l.inscrit && peutRetirer ? () => retirerAcquises([{ id, ue: u.ue_num }]) : undefined} />
@@ -285,7 +293,8 @@ export default function GrilleInscrits({ data, passe, annee, section, onFiche, o
                   </td>,
                   ...(ouvertes.has(u.ue_num) ? u.cours.map(c => { const k = l?.cellules?.[c.code]; return (
                     <td key={`${u.ue_num}-${c.code}`} className="px-1.5 py-1 border-b border-slate-100 text-center bg-slate-50/50 whitespace-nowrap">
-                      {k ? <Pastille petite k={k.k} sous={k.note != null ? noteCourte(k.note) : fr(k.date || k.annee)}
+                      {k ? <Pastille petite k={k.k} texte={k.k === 'RP' && k.note != null ? noteCourte(k.note) : null}
+                        sous={k.k === 'RP' ? fr(k.annee) : k.note != null ? noteCourte(k.note) : fr(k.date || k.annee)}
                         titre={`${ETATS[k.k]?.lib}${k.note != null ? ` — note ${k.note}/20` : ''}${k.annee ? ` (${k.annee})` : ''}${VERS_REVUE.has(k.k) ? ' — clic : revue du PAE' : ''}`}
                         onClick={VERS_REVUE.has(k.k) && onRevue ? () => onRevue(id) : undefined} /> : ''}
                     </td>); }) : []),
@@ -324,7 +333,7 @@ export default function GrilleInscrits({ data, passe, annee, section, onFiche, o
       </div>
       <div className="flex flex-wrap gap-3 text-[11px] text-slate-600">
         {ORDRE_ETAT.map(k => <span key={k} className="inline-flex items-center gap-1"><Pastille k={k} petite /> {ETATS[k].lib}</span>)}
-        <span>· à côté du code : date de décision, année d’origine ou note reportée · ↻ reprise · +VA, +RP : autre dispense sur l’unité · n.i. : non inscrit · un clic sur RP, VA, VAP ou D ouvre la revue du PAE</span>
+        <span>· bleu : report de note — la note, puis l’année d’origine · à côté du code : date de décision · ↻ reprise · +VA, +RP : autre dispense sur l’unité · n.i. : non inscrit · un clic sur RP, VA, VAP ou D ouvre la revue du PAE</span>
       </div>
     </div>
   );
