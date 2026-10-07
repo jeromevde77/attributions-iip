@@ -817,8 +817,7 @@ function documentCoutFormations(p) {
       <b>Cours</b> — périodes attribuées × montant d'une période, selon le niveau de l'unité et le type du cours :
       supérieur de type court ${m2(T.SUP.CT)} € (cours généraux et techniques) · ${m2(T.SUP.PP)} € (pratique professionnelle) ;
       secondaire supérieur ${m2(T.DS.CT)} € · ${m2(T.DS.PP)} €${T.reference ? ` (${esc(T.reference)}${T.date_effet ? `, au ${esc(T.date_effet.split('-').reverse().join('/'))}` : ''})` : ''}.
-      Ce tarif vaut pour les <b>chargés de cours</b>. Les <b>experts</b> sont comptés au taux de l'A.E. du 26/01/1993 (art. 8) —
-      selon le niveau et le type de cours, ${d.experts?.indice ? `× ${String(d.experts.indice).replace('.', ',')} (indexation depuis le 01/07/1991)` : '<b>sans coefficient d\'indexation réglé : montants de base de 1991, donc sous-estimés</b>'}.
+      Ce montant vaut pour les <b>chargés de cours</b> comme pour les <b>experts</b>, payés eux aussi en périodes ; ils sont détaillés sur des lignes séparées.
       Les lignes en congé ne coûtent rien
       (leur remplaçant est compté) ; les activités Z n'entrent pas.<br>
       <b>Fonctions</b> — coût annuel d'un temps plein de la fonction × ETP de la personne dans cette fonction,
@@ -957,7 +956,6 @@ function documentCoutFormations(p) {
         `Le <b>coût complet</b> de l'année est de <b>${eur(tot.cout_complet)}</b> : ${eur(tot.cout)} de cours (${pc(tot.cout, tot.cout_complet)}) et ${eur(tot.cout_fonctions)} de fonctions.`,
         ins ? `Il revient en moyenne à <b>${eur(tot.cout_complet / ins)} par étudiant</b> inscrit${parEtu.length > 1 ? ` — de ${eur(parEtu[parEtu.length - 1].v)} en ${esc(parEtu[parEtu.length - 1].s)} à ${eur(parEtu[0].v)} en ${esc(parEtu[0].s)}` : ''}.` : '',
         `Les <b>chargés de cours</b> donnent ${pc(ST.CC.periodes, tot.periodes)} des périodes, les <b>experts</b> ${pc(ST.EXP.periodes, tot.periodes)} — pour ${pc(ST.EXP.cout, tot.cout)} du coût des cours.`,
-        d.experts?.indice ? '' : 'Le <b>coefficient d\'indexation des experts</b> n\'est pas réglé (Configuration → Coût des périodes) : leur coût est compté aux montants de base de 1991.',
         tot.cout_helb ? `Les <b>contrats HELB</b> représentent ${eur(tot.cout_helb)}, soit ${pc(tot.cout_helb, tot.cout)} du coût des cours.` : '',
         percu ? `Les étudiants doivent <b>${eur(percu + (R.dis || 0))}</b> ; l'établissement perçoit ${eur(percu)} (droit d'inscription et frais), qui couvrent <b>${pc(percu, tot.cout_complet)}</b> du coût complet ; ${eur(R.verse)} versés à ce jour.` : '',
         manque ? `Le coût des fonctions est <b>incomplet</b> : ${manque} fonction(s) sans ETP ou sans coût annuel.` : (tot.cout_fonctions ? '' : 'Aucun coût de fonction n\'est encore réglé : il manque les montants annuels (Configuration) et les ETP (fiche, onglet Fonctions).'),
